@@ -17,6 +17,8 @@ import { latestRequestByInstructor, reissueMove, requestLinkNeedsReplacing } fro
 import { termLinkExpiresAt } from "../../utils/shareLinkLifetime";
 import { normalizeInstructorDeadline, individualExceptionOpen } from "../../utils/instructorRequestWindows";
 import { slotTimeGroups } from "../../utils/slotTimeGroups";
+import { uniformPatternSlots } from "../../utils/requestMeetingLength";
+import { effectiveCourseHours } from "../../utils/scheduleRegulations";
 import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
 import { awaitedItemIndexes } from "../../utils/linkedRequestItems";
 import { roleLabel } from "../../utils/academicRoles";
@@ -588,7 +590,9 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
       if (live) { res.status(409).json({ error: "لم يُحذف الموعد من الجدول بعد. احذفه أولاً ثم سجّل القرار." }); return; }
     } else {
       if (!live) { res.status(409).json({ error: "لم يعد هذا الموعد موجوداً في الجدول." }); return; }
-      const want = item.slots || [];
+      /* طلبٌ حُفظ بالمحرّك القديم (75/75/50 على نمطٍ موحّد الطول) يُقاس بطول اللائحة الذي وقّع عليه الأستاذ. */
+      const decideCourse = await Repository.getCourseById(Number(item.after?.courseId || item.before?.courseId || 0));
+      const want = (uniformPatternSlots((item.slots || []) as any, effectiveCourseHours(decideCourse)) as typeof item.slots) || item.slots || [];
       /* الصفُّ الواحد له وقتٌ واحد: بندٌ بأوقاتٍ مختلفة كان يُثبَّت بوقت أوّلها
          على كل الأيام، فيضيع ما طلبه الأستاذ لبقيّتها والسجلُّ يقول «ثُبّت». */
       if (new Set(want.map(slot => `${slot.start}-${slot.end}`)).size > 1) {
@@ -744,12 +748,23 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   const failItem = (status: number, itemIndex: number, error: string, code?: string) =>
     res.status(status).json({ error, code, itemIndex, applied: [], reverted: true });
 
+  /* ── موعدٌ واحدٌ لا يُكتب صفّين ─────────────────────────────────────────────
+     طلبٌ حُفظ بالمحرّك القديم قد يحمل 75/75/50 لبدايةٍ واحدة على نمطٍ معتمدٍ موحّد الطول؛ الأستاذُ قرأ طولَ
+     اللائحة في صفحته ووقّع عليه، فيُكتب بطول اللائحة صفّاً واحداً، ويُحفظ ذلك على البند نفسه (المالك 2026-10-30). */
+  const normalizedSlots = new Map<number, NonNullable<InstructorRequestItem["slots"]>>();
+  for (const i of chain) {
+    const item = stored.items[i];
+    if (item.action !== "change" || item.decision?.state === "fixed") continue;
+    const course = await Repository.getCourseById(Number(item.after?.courseId || item.before?.courseId || 0));
+    const uniform = uniformPatternSlots((item.slots || []) as any, effectiveCourseHours(course));
+    if (uniform) normalizedSlots.set(i, uniform as any);
+  }
   for (const i of chain) {
     const item = stored.items[i];
     if (item.decision?.state === "fixed") continue;
     const scope = requestItemScope(stored, item);
     if (!isScopeAllowed(req, scope.collegeId, scope.sectionId)) { failItem(403, i, "هذا القسم خارج نطاقك."); return; }
-    const groups = slotTimeGroups(item.slots || []);
+    const groups = slotTimeGroups(normalizedSlots.get(i) || item.slots || []);
 
     if (item.action === "delete") {
       const live: any = item.rowId == null ? undefined : await Repository.getScheduleById(Number(item.rowId));
@@ -876,6 +891,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   try {
     committed = await Repository.commitInstructorRequestPlan(stored, ops, scheduleIds => {
       const items = stored!.items.map((item, i) => chain.includes(i) ? { ...item,
+        ...(normalizedSlots.has(i) ? { slots: normalizedSlots.get(i), after: { ...(item.after as any), time: `${normalizedSlots.get(i)![0].start} – ${normalizedSlots.get(i)![0].end}` } } : {}),
         decision: { state: "fixed" as const, decidedBy: by, decidedAt: now, ...(scheduleIds.has(i) ? { scheduleId: scheduleIds.get(i) } : {}) } } : item);
       const timeline = [...stored!.timeline, ...chain.map(itemIndex => ({ kind: "item-fixed" as const, at: now, by, itemIndex }))];
       const settled = requestFullySettled(items);

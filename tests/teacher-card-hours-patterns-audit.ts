@@ -13,6 +13,7 @@ import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/uti
 import { weeklyLectureMinutes, maxWeeklyMinutesFor, patternsForHours } from "../src/utils/scheduleRegulations";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import { readServerSource } from "./helpers/serverSource.mjs";
+import { lengthPatternsForHours, meetingMinutes } from "../src/utils/requestMeetingLength";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, name: string, extra?: unknown) => {
@@ -112,8 +113,11 @@ for (const p of PATTERNS) {
 {
   const server = readServerSource();
   const fn = server.slice(server.indexOf("async function requestSlotsForCourse"), server.indexOf("async function instructorRequestItemsFromPayload"));
-  check(/days\.length === 1 && block \? block\s*:\s*days\.length === 1 && approved \? approved\.minutesPerDay\[0\]/.test(fn),
+  /* المحرّكُ الواحد (قرار المالك 2026-10-30): الخادمُ يحسب المواعيد بـ meetingSlots من أنماط اللائحة، ولا يقرأ طولَ يومٍ من الذاكرة. */
+  check(fn.includes("meetingSlots(days, start, lengthPatternsForHours(effectiveCourseHours(course)), own)") && !/historicalLectureMinutes/.test(fn),
     "اليوم الواحد بلا طولٍ معروف يأخذ نمطَ اللائحة (١٧٠ د لثلاث ساعات) لا طولَ يومٍ من نمطٍ متعدّد الأيام");
+  check(meetingMinutes(["fwednesday"], lengthPatternsForHours(3)).join() === "170" && meetingMinutes(["fmonday", "fwednesday"], lengthPatternsForHours(3)).join() === "80,80",
+    "والمحرّكُ نفسُه: الأربعاء وحده ١٧٠ د، والاثنين والأربعاء ٨٠ د لكلٍّ منهما");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
