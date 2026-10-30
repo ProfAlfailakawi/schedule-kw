@@ -20,6 +20,7 @@
     "test:owner-approved-1029": "tsx tests/owner-approved-2026-10-29-audit.ts",
     "test:owner-features-1028": "tsx tests/owner-features-2026-10-28-audit.ts",
     "test:course-reach": "tsx tests/course-reach-audit.ts",
+    "test:prepublish-reach": "tsx tests/prepublish-reach-audit.tsx",
     "test:ta-phase-flow": "tsx tests/ta-phase-flow-audit.ts",
     "test:visiting-status": "tsx tests/visiting-status-permanent-audit.ts",
     "test:decision-1913": "tsx tests/decision-1913-audit.ts",

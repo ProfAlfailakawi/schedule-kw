@@ -47,7 +47,7 @@ check(publish.includes('const withRequests = kind === "staff";') && publish.incl
 check(publish.includes('<label className="share-closes">') && publish.includes('type="date"'),
   "وللرغبات تاريخُ إغلاقٍ يُكتب، لا مدّةٌ بالأيام");
 /* E1: «للعرض فقط» و«التدريب» لا يسألان عن موعد طلبات؛ «طلب تعديل» لا يُصدَر بلا موعد. */
-check(publish.includes('disabled={busy || (withRequests && sendMode === "edit" && !closesAt)}'),
+check(/disabled=\{busy (?:\|\| reachChecking )?\|\| \(withRequests && sendMode === "edit" && !closesAt\)\}/.test(publish),
   "ولا يُصدَر بلا موعدٍ مكتوب");
 
 /* ── ويُقال ما وقع ────────────────────────────────────────────────────── */

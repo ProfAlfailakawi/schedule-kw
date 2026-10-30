@@ -22,7 +22,12 @@ type Phase = {
 const DAY = { fsunday: "ح", fmonday: "ن", ftuesday: "ث", fwednesday: "ر", fthursday: "خ" } as Record<string, string>;
 const IGNORE = "مرحلة التدريب — إعداد الموجات والنافذة";
 
-export default function TAPhasePanel({ collegeId, sectionId, termId }: { collegeId: number; sectionId: number; termId: number }) {
+export default function TAPhasePanel({ collegeId, sectionId, termId, confirmSend, checking = false }: {
+  collegeId: number; sectionId: number; termId: number;
+  /** قبل الإرسال: تنبيه «لم نصل بعد» في النشر (يستدعي proceed إن لم يكن مقفل أو اختار المسؤول الإرسال). */
+  confirmSend?: (proceed: () => Promise<void>) => void;
+  checking?: boolean;
+}) {
   const [phase, setPhase] = useState<Phase | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -183,7 +188,7 @@ export default function TAPhasePanel({ collegeId, sectionId, termId }: { college
             <label>🕐 الساعة<input type="time" value={time} onChange={e => setTime(e.target.value)} /></label>
             <label>🔔 تذكير قبل (ساعة)<input type="number" min={1} max={168} value={reminder} onChange={e => setReminder(Number(e.target.value))} /></label>
           </div>
-          <PrimaryButton data-guide-ignore="مرحلة التدريب — إعداد الموجات والنافذة" type="button" style={{ marginTop: 10 }} disabled={busy || !date || !waves.some(list => list.length)} onClick={() => void open()}>
+          <PrimaryButton data-guide-ignore="مرحلة التدريب — إعداد الموجات والنافذة" type="button" style={{ marginTop: 10 }} disabled={busy || checking || !date || !waves.some(list => list.length)} onClick={() => (confirmSend ? confirmSend(open) : void open())}>
             <Send aria-hidden="true" /> فتح مرحلة التدريب
           </PrimaryButton>
         </div>
