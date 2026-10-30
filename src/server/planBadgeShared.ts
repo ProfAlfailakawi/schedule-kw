@@ -78,20 +78,33 @@ export const setSheetMembershipSource = (next: MembershipSource) => { membership
 /**
  * جهةُ كل مقررٍ من مقررات القسم («new» / «old» / «shared»)؛ ما لا جهةَ له لا يُذكر.
  * null: لا ثنائيةَ في القسم (لا جديدةَ أو لا قديمة) — فيبقى كلُّ شيءٍ كما كان، قائمةً واحدة.
+ * أقسامٌ كثيرة في طلبٍ واحد (‎/api/courses?operational=1&plans=1‎): قراءةُ العضوية مرةً واحدة لها كلّها.
  */
-export async function sheetSidesFor(sectionId: unknown, courseIds: readonly unknown[]): Promise<Record<number, SheetSide> | null> {
-  if (!membershipSource) return null;
-  try {
-    const rows = await membershipSource();
-    const sid = Number(sectionId);
-    let fresh = false, old = false;
-    for (const row of rows.values()) if (row.sectionId === sid) { fresh ||= Boolean(row.fresh); old ||= row.old; }
-    if (!fresh || !old) return null;
-    const out: Record<number, SheetSide> = {};
-    for (const id of courseIds) {
+export async function sheetSidesBySection(groups: ReadonlyArray<{ sectionId: unknown; courseIds: readonly unknown[] }>): Promise<Map<number, Record<number, SheetSide> | null>> {
+  const out = new Map<number, Record<number, SheetSide> | null>();
+  if (!membershipSource || !groups.length) return out;
+  let rows: Map<string, Membership>;
+  try { rows = await membershipSource(); } catch { return out; }
+  const paired = new Map<number, { fresh: boolean; old: boolean }>();
+  for (const row of rows.values()) {
+    const seen = paired.get(row.sectionId) || { fresh: false, old: false };
+    seen.fresh ||= Boolean(row.fresh); seen.old ||= row.old;
+    paired.set(row.sectionId, seen);
+  }
+  for (const group of groups) {
+    const sid = Number(group.sectionId);
+    const seen = paired.get(sid);
+    if (!seen?.fresh || !seen.old) { out.set(sid, null); continue; }
+    const sides: Record<number, SheetSide> = {};
+    for (const id of group.courseIds) {
       const side = sheetSideOf(rows.get(`${sid}:${Number(id)}`));
-      if (side) out[Number(id)] = side;
+      if (side) sides[Number(id)] = side;
     }
-    return out;
-  } catch { return null; }
+    out.set(sid, sides);
+  }
+  return out;
+}
+
+export async function sheetSidesFor(sectionId: unknown, courseIds: readonly unknown[]): Promise<Record<number, SheetSide> | null> {
+  return (await sheetSidesBySection([{ sectionId, courseIds }])).get(Number(sectionId)) ?? null;
 }

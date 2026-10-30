@@ -1070,7 +1070,7 @@
    ],
    "path": "/api/courses",
    "name": "bound dispatch",
-   "call": "1b1fd7296d59719e",
+   "call": "0fd08cd1041cbe65",
    "site": "src/server/routes/coursesRoutes.ts:191",
    "regexp": "/^\\/api\\/courses\\/?$/i",
    "end": true

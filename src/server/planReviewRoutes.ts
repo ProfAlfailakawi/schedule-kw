@@ -280,9 +280,17 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   const serviceKey = createDataContextKey(() => Repository.currentDemoSessionId());
   /* عضويةُ الصحيفة (src/utils/sheetMembership.ts): مصدرٌ واحد للوسم وللتبويبين — لا يُحسب أحدهما من غير ما يُحسب منه الآخر. */
   let membershipCache: { key: string; at: number; rows: Map<string, Membership> } | null = null;
-  const membershipRows = async () => {
+  /* قراءةٌ واحدة في الطريق لكل عالَم: طلباتٌ متزامنة بذاكرةٍ باردة تنتظر القراءةَ نفسها (لا قراءةً كاملة لكلٍّ منها). */
+  let membershipInflight: { key: string; value: Promise<Map<string, Membership>> } | null = null;
+  const membershipRows = async (): Promise<Map<string, Membership>> => {
     const key = serviceKey("membership");
     if (membershipCache && membershipCache.key === key && Date.now() - membershipCache.at < 15_000) return membershipCache.rows;
+    if (membershipInflight && membershipInflight.key === key) return membershipInflight.value;
+    const value = loadMembership(key);
+    membershipInflight = { key, value };
+    try { return await value; } finally { if (membershipInflight?.value === value) membershipInflight = null; }
+  };
+  const loadMembership = async (key: string) => {
     const [sections, plansOf, allLinks, courses, ruleSets] = await Promise.all([Repository.getSections() as Promise<any[]>, plansBySection(), Repository.getAllCurriculumPlanCourses() as Promise<any[]>, Repository.getCourses() as Promise<AdCourse[]>, Repository.listRuleSets()]);
     const sectionById = new Map(sections.map(section => [Number(section.AdSectionId), section]));
     const sectionCodes = new Map(sections.map(section => [Number(section.AdSectionId), referenceCodeKey(section.AdSectionCode).padStart(2, "0")]));

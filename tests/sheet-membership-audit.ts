@@ -15,6 +15,7 @@ import fs from "node:fs";
 import { byCourseNumber, sheetBadgeOf, sheetMembership, sheetSideOf, splitBySide, type MembershipInput } from "../src/utils/sheetMembership";
 import { sheetTagOf } from "../src/utils/sheetTag";
 import { offeringTabs } from "../src/utils/prepublishReach";
+import { setSheetMembershipSource, sheetSidesBySection, sheetSidesFor } from "../src/server/planBadgeShared";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, detail?: unknown) => {
@@ -129,6 +130,18 @@ check(side(TE_GIRLS, 301) === "new" && side(TE_GIRLS, 303) === "old", "M9 فرع
   ];
   for (const [file, pattern, label] of sorts) check(pattern.test(read(file)), `W10 الترتيبُ برقم المقرر: ${label}`);
 }
+
+/* ── C: الكلفة — قراءةُ العضوية مرةً واحدة لطلبٍ بأقسامٍ كثيرة، وطلباتٌ متزامنة لا تكرّرها ─────────── */
+await (async () => {
+  let loads = 0;
+  setSheetMembershipSource(async () => { loads++; await new Promise(resolve => setTimeout(resolve, 20)); return rows; });
+  const many = await sheetSidesBySection([TE, MATH, TE_GIRLS, 99].map(sectionId => ({ sectionId, courseIds: input.courses.filter(course => course.sectionId === sectionId).map(course => course.id) })));
+  check(loads === 1 && many.get(TE)?.[105] === "new" && many.get(TE_GIRLS)?.[301] === "new" && many.get(99) === null, "C1 أربعةُ أقسامٍ في طلبٍ واحد (‎/api/courses?operational=1&plans=1‎): قراءةٌ واحدة للعضوية", { loads });
+  check((await sheetSidesFor(TE, [102]))?.[102] === "shared" && (await sheetSidesFor(MATH, [201])) === null, "C2 قسمٌ واحد بالقاعدة نفسها، وقسمٌ بلا ثنائية: null (كما كان)");
+  const routes = read("src/server/planReviewRoutes.ts");
+  check(/if \(membershipInflight && membershipInflight\.key === key\) return membershipInflight\.value;/.test(routes) && /const key = serviceKey\("membership"\);/.test(routes), "C3 طلباتٌ متزامنة بذاكرةٍ باردة تنتظر القراءةَ نفسها، بمفتاح عالَمها (الديمو لا يخلط بالحقيقي)");
+  check(/await sheetSidesBySection\(sectionIds\.map\(/.test(read("src/server/routes/coursesRoutes.ts")) && !/sectionIds\.map\(async sid=>\{sideBySection/.test(read("src/server/routes/coursesRoutes.ts")), "C4 ‎/api/courses‎ يقرأ العضوية لكل الأقسام مرةً واحدة");
+})();
 
 console.log(`\nsheet-membership audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
