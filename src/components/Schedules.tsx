@@ -9143,6 +9143,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     observer.observe(step);
     return () => observer.disconnect();
   }, [editor]);
+  /* لوحة الفحص تأخذ التركيز حين تنفتح، وتعيده إلى زرّ الحالة حين تنطوي. */
+  const studioDrawerCloseRef = useRef<HTMLButtonElement | null>(null);
+  const studioStatusRef = useRef<HTMLButtonElement | null>(null);
+  const studioDrawerWasOpen = useRef(false);
+  useEffect(() => {
+    if (studioChecksOpen) {
+      studioDrawerWasOpen.current = true;
+      window.requestAnimationFrame(() => studioDrawerCloseRef.current?.focus({ preventScroll: true }));
+    } else if (studioDrawerWasOpen.current) {
+      studioDrawerWasOpen.current = false;
+      studioStatusRef.current?.focus({ preventScroll: true });
+    }
+  }, [studioChecksOpen]);
   /* Esc يطوي لوحة الفحص أولاً، ولا يغلق النموذج من تحتها. */
   useEffect(() => {
     if (!studioChecksOpen) return;
@@ -9880,7 +9893,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <span className={studioChip(Boolean(form.fstarttime && form.fendtime), studioChanged?.time)}><Clock3 aria-hidden="true" /><bdi dir="ltr">{form.fstarttime && form.fendtime ? formatScheduleTimeRange(form.fstarttime, form.fendtime) : "الوقت"}</bdi></span>
                   <span className={studioChip(!studioMissing.includes("القاعة"), studioChanged?.room)}><DoorOpen aria-hidden="true" /><bdi dir="ltr">{form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : form.locationStatus === "PENDING_ROOM" ? "بانتظار القاعة" : "القاعة"}</bdi></span>
                 </div>
-                <button type="button" className={`appt-status is-${studioTone}`} aria-expanded={studioChecksOpen} aria-controls="appt-checks"
+                <button type="button" ref={studioStatusRef} className={`appt-status is-${studioTone}`} aria-expanded={studioChecksOpen} aria-controls="appt-checks"
                   onClick={() => setStudioChecksOpen(open => !open)}
                   data-guide-ignore="يفتح لوحة فحص الموعد من اليسار بكل الموانع والتنبيهات وتفاصيلها؛ لا يحفظ شيئاً">
                   {studioTone === "block" ? <span className="appt-status-count is-block"><X aria-hidden="true" />{studioBlockers}</span> : null}
@@ -9936,7 +9949,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           <div className="appt-drawer-head">
             <span className="appt-drawer-grip" aria-hidden="true" />
             <b>فحص الموعد</b>
-            <button type="button" className="appt-drawer-close" onClick={() => setStudioChecksOpen(false)} aria-label="إغلاق لوحة الفحص"
+            <button type="button" ref={studioDrawerCloseRef} className="appt-drawer-close" onClick={() => setStudioChecksOpen(false)} aria-label="إغلاق لوحة الفحص"
               data-guide-ignore="يغلق لوحة فحص الموعد؛ لا يغيّر شيئاً"><X aria-hidden="true" /></button>
           </div>
           <AppointmentChecksPanel
