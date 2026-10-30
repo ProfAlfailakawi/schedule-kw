@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Armchair, ArrowLeftRight, BadgeCheck, Building2, CalendarClock, Crown, History, KeyRound, Link2, Search, Snowflake,
+  Armchair, ArrowLeftRight, BadgeCheck, Building2, CalendarClock, Crown, History, IdCard, KeyRound, Link2, Search, Snowflake,
   UserCheck, UserMinus, UserPlus, UsersRound, X,
 } from "lucide-react";
-import SeatLinkCard from "./SeatLinkCard";
+import SeatLinkCard, { SeatHolderCard } from "./SeatLinkCard";
 import { invitationHref } from "../../utils/invitationLink";
+import { memberCardModel, seatCaption } from "../../utils/seatAccessCard";
 import { SEAT_MEMBER_BADGE_LABEL, type SeatEventKind, type SeatMemberBadge } from "../../utils/seats";
+import "../account-invitation.css";
 import "./seats.css";
 
 /**
@@ -68,8 +70,8 @@ const EVENT_LABEL: Record<SeatEventKind, string> = {
 };
 
 type Sheet =
-  | { kind: "handover" } | { kind: "holder" } | { kind: "add" } | { kind: "deputy" } | { kind: "campuses" }
-  | { kind: "link"; title: string; subtitle?: string; url: string; mobile?: string; message: string; credentials?: { login: string; password: string }; after?: () => void };
+  | { kind: "handover" } | { kind: "holder" } | { kind: "add" } | { kind: "deputy" } | { kind: "campuses" } | { kind: "holderCard" }
+  | { kind: "link"; title: string; subtitle?: string; url: string; mobile?: string; message: string; note?: string; fileStem?: string; credentials?: { login: string; password: string }; after?: () => void };
 
 function PersonPicker({ candidates, value, onPick, placeholder }: { candidates: Candidate[]; value: number | null; onPick: (id: number) => void; placeholder: string }) {
   const [query, setQuery] = useState("");
@@ -143,21 +145,10 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
     try { await fn(); } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
 
-  const memberMessage = (name: string, token: string, withTail: boolean) => {
-    const link = `${origin()}/k/${token}`;
-    return [
-      `أهلاً ${name}`,
-      `أُضفتَ إلى ${detail?.team?.teamLabel || "فريق"} في SCHEDULE — ${detail?.seat.name || ""}.`,
-      "ادخل من رابطك الشخصي:",
-      link,
-      withTail ? "سيُطلب منك آخر أربعة أرقام من رقمك المدني." : "",
-      "الرابط لك وحدك، فلا تشاركه.",
-    ].filter(Boolean).join("\n");
+  const showMemberLink = (name: string, token: string, mobile?: string, withTail = true) => {
+    const card = memberCardModel({ origin: origin(), token, name, memberLabel: detail?.team?.memberLabel, teamLabel: detail?.team?.teamLabel, seatName: detail?.seat.name || "", withTail });
+    setSheet({ kind: "link", title: name, subtitle: card.caption, url: card.url, mobile, message: card.message, note: card.note, fileStem: card.fileStem });
   };
-  const showMemberLink = (name: string, token: string, mobile?: string, withTail = true) => setSheet({
-    kind: "link", title: name, subtitle: `${detail?.team?.memberLabel || "عضو"} · ${detail?.seat.name || ""}`,
-    url: `${origin()}/k/${token}`, mobile, message: memberMessage(name, token, withTail),
-  });
 
   const personBody = (fromList: boolean) => fromList && pick ? { instructorId: pick } : { name: manual.name.trim(), mobile: manual.mobile, civil: manual.civil };
 
@@ -165,7 +156,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
     const result = await call<{ login: string; password: string; holder: Person; seatName: string; selfHandover: boolean }>(`/api/seats/${id}/handover`, { method: "POST", body: JSON.stringify(personBody(fromList)) });
     const link = invitationHref(`${origin()}/`, result.login, result.password);
     setSheet({
-      kind: "link", title: result.holder.name, subtitle: `الشاغل الجديد · ${result.seatName}`, url: link, mobile: result.holder.mobile,
+      kind: "link", title: result.holder.name, subtitle: seatCaption(detail?.seat.roleLabel || "الشاغل الجديد", result.seatName), url: link, mobile: result.holder.mobile, fileStem: "SCHEDULE-seat",
       credentials: { login: result.login, password: result.password },
       message: [`أهلاً ${result.holder.name}`, `تسلّمتَ كرسي «${result.seatName}» في SCHEDULE.`, "ادخل من هذا الرابط، واختر كلمة سرّك الخاصة عند أول دخول:", link].join("\n"),
       after: result.selfHandover ? () => window.location.replace("/") : undefined,
@@ -278,6 +269,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
         </div>
         <div className="seat-holder-actions">
           {detail.canHandOver ? <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-primary" onClick={() => setSheet({ kind: "handover" })} disabled={busy}><ArrowLeftRight aria-hidden="true" /> تسليم الكرسي</button> : null}
+          {detail.canManage && source === "seat" && detail.holder ? <button data-guide-ignore="يعرض بطاقة دخول شاغل الكرسي لإرسالها إليه؛ لا يغيّر كلمة المرور ولا بيانات" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holderCard" })} disabled={busy}><IdCard aria-hidden="true" /> البطاقة</button> : null}
           {detail.canManage && source === "seat" && !detail.holder ? <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holder" })} disabled={busy}><Crown aria-hidden="true" /> سجّل الشاغل الحالي</button> : null}
         </div>
       </section>
@@ -356,12 +348,15 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
       </section>
 
       {sheet ? (
-        <div className="seat-sheet-scrim" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && sheet.kind !== "link") closeSheet(); }}>
-          <div className="seat-sheet" role="dialog" aria-modal="true" aria-label={sheet.kind === "link" ? sheet.title : "الكرسي"}>
+        <div className="seat-sheet-scrim" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && sheet.kind !== "link" && sheet.kind !== "holderCard") closeSheet(); }}>
+          <div className={`seat-sheet ${sheet.kind === "link" || sheet.kind === "holderCard" ? "is-card" : ""}`.trim()} role="dialog" aria-modal="true" aria-label={sheet.kind === "link" ? sheet.title : sheet.kind === "holderCard" ? `بطاقة الدخول: ${detail.holder?.name || ""}` : "الكرسي"}>
             <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="seat-sheet-close" onClick={() => { const after = sheet.kind === "link" ? sheet.after : undefined; closeSheet(); after?.(); }} aria-label="إغلاق"><X aria-hidden="true" /></button>
             {sheet.kind === "link" ? (
-              <SeatLinkCard title={sheet.title} subtitle={sheet.subtitle} url={sheet.url} mobile={sheet.mobile} message={sheet.message} credentials={sheet.credentials}
+              <SeatLinkCard title={sheet.title} subtitle={sheet.subtitle} url={sheet.url} mobile={sheet.mobile} message={sheet.message} credentials={sheet.credentials} note={sheet.note} fileStem={sheet.fileStem}
                 onDone={() => { const after = sheet.after; closeSheet(); after?.(); }} />
+            ) : null}
+            {sheet.kind === "holderCard" && detail.holder ? (
+              <SeatHolderCard origin={origin()} seat={detail.seat} holder={detail.holder} onDone={closeSheet} />
             ) : null}
             {sheet.kind === "handover" ? (
               <>
