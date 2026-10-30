@@ -31,10 +31,13 @@ import { type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePe
 import { instructorRequestSectionCourses, taPhaseId } from "../core/instructorRequests";
 import { loadCapOf } from "../../utils/teachingLoad";
 import { broadcastNotify } from "../core/liveChannel";
+import { bumpTeamWork } from "../teamPresence";
+import { expectedRev, staleWriteBody } from "../../utils/staleWrite";
 import { readLocationRegistry } from "../core/locations";
 import { isScopeAllowed } from "../core/scope";
 import { placeholderInstructorIds } from "../core/smartImport";
 import { staffFamilyScopes, staffFamilyShareLinks } from "../core/staffCard";
+import { noteTrail } from "../activityTrail";
 
 /* ── F1–F3: مرحلة التدريب ──────────────────────────────────────────────────── */
 async function sendTaWave(doc: TaPhaseDoc, wave: TaWave, by: { SystemUserId?: number; UserName?: string }) {
@@ -108,7 +111,9 @@ async function seatSections(collegeId: number, sectionId: number, termId: number
     const ledger: SeatLedger = { id: key, courseId: Number(first.AdCourseId), capacity: baseCapacityFor(config, key),
       roomCapacity: roomCaps.length ? Math.min(...roomCaps) : null, adds: stored?.adds || [] };
     return { key, courseId: ledger.courseId, courseName: courseName.get(ledger.courseId) || "", section: String(first.SCode || ""),
-      time: formatScheduleTimeRange(first.fstarttime, first.fendtime), days: dayKeysOf(first), ledger, state: seatState(ledger, config) };
+      time: formatScheduleTimeRange(first.fstarttime, first.fendtime), days: dayKeysOf(first), ledger, state: seatState(ledger, config),
+      /* ختمُ الإصدار: الإضافاتُ تُلحق ولا تُمحى، فعددُها يكفي (src/utils/staleWrite.ts). */
+      rev: ledger.adds.length };
   }).sort((a, b) => a.courseName.localeCompare(b.courseName, "ar") || a.section.localeCompare(b.section));
 }
 
@@ -326,8 +331,15 @@ app.put("/api/advisor-seats/config", requirePermission(7), async (req: Authentic
   const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
   if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
   const id = seatConfigId(collegeId, sectionId, termId);
-  const config = normalizeQuotaConfig(req.body?.config, id);
-  await Repository.saveFeatureDoc("advisorSeatLedgers", `config:${id}`, config);
+  /* ذرّي بختم الإصدار: حفظُ زميلٍ قبلي — أو سعةٌ كتبها طلبُ شعبة — لا يُمحى بنسخةٍ قديمة في يدي. */
+  const expected = expectedRev(req.body?.rev ?? req.body?.config?.rev);
+  const out = await Repository.updateFeatureDoc<SeatQuotaConfig, null>("advisorSeatLedgers", `config:${id}`, current => {
+    if (expected !== null && Number(current?.rev || 0) !== expected) return { refuse: null };
+    return { next: { ...normalizeQuotaConfig(req.body?.config, id), rev: Number(current?.rev || 0) + 1 }, result: null };
+  });
+  if (!out.ok) { res.status(409).json(staleWriteBody()); return; }
+  const config = out.next;
+  bumpTeamWork(Repository.currentDemoSessionId(), collegeId, termId);
   res.locals.auditChanges = `رصيد مقاعد المرشد: عام ${config.global}${config.capacityDefault ? ` · سعة ${config.capacityDefault}` : ""}${config.fairSplit ? " · توزيع عادل" : ""}`;
   res.json(config);
 });
@@ -342,17 +354,24 @@ app.post("/api/advisor-seats/add", requireAnyPermission([7, 14]), async (req: Au
   if (!target) { res.status(404).json({ error: "الشعبة ليست في جدول هذا القسم." }); return; }
   if (!target.ledger.capacity) { res.status(409).json({ error: "لم تُحدَّد السعة الأساسية لهذه الشعبة بعد.", icon: "⛔" }); return; }
   const advisor = { id: Number(req.user?.SystemUserId || 0), name: String(req.user?.Name || req.user?.UserName || "مرشد") };
-  /* ذرّي: تُقرأ الشعبة وتُكتب في معاملةٍ واحدة؛ مرشدان معاً لا يتجاوزان السقف. */
+  /* ذرّي: تُقرأ الشعبة وتُكتب في معاملةٍ واحدة؛ مرشدان معاً لا يتجاوزان السقف. وختمُ الإصدار
+     (عددُ الإضافات التي رآها المرشد): إن أضاف زميلٌ قبله قيل له «حدّث ثم أعد» لا «أضفت». */
+  const expected = expectedRev(req.body?.rev);
+  let stale = false;
   const out = await Repository.updateFeatureDoc<SeatLedger, ReturnType<typeof tryAddSeats>["result"]>("advisorSeatLedgers", target.key, current => {
+    if (expected !== null && (current?.adds || []).length !== expected) { stale = true; return { refuse: { ok: false } as any }; }
     const ledger: SeatLedger = { ...target.ledger, adds: current?.adds || [] };
     const attempt = tryAddSeats(ledger, config, advisor, Number(req.body?.count || 1));
     return attempt.next ? { next: attempt.next, result: attempt.result } : { refuse: attempt.result };
   });
+  if (stale) { res.status(409).json(staleWriteBody()); return; }
+  if (out.ok) bumpTeamWork(Repository.currentDemoSessionId(), collegeId, termId);
   const result: any = out.result;
   const alternatives = result.ok ? [] : alternativeSections(sections.map(row => ({ key: row.key, section: row.section, time: row.time, ledger: row.ledger })), target.courseId, target.key, config)
     .slice(0, 3).map(row => ({ key: row.key, section: row.section, time: row.time, remaining: row.state.remaining }));
   if (out.ok) res.locals.auditChanges = `مرشد: +${countOf(result.added, AR.seat)} · ${target.courseName} (${target.section})`;
-  res.status(out.ok ? 200 : 409).json({ ...result, alternatives, ...(out.ok ? { state: seatState(out.next as SeatLedger, config) } : {}) });
+  if (out.ok) noteTrail(res, { target: `مقاعد المرشد · ${target.courseName} (${target.section})`, after: `+${countOf(result.added, AR.seat)}`, scope: { collegeId, sectionId, termId } });
+  res.status(out.ok ? 200 : 409).json({ ...result, alternatives, ...(out.ok ? { state: seatState(out.next as SeatLedger, config), rev: (out.next as SeatLedger).adds.length } : {}) });
 });
 
 app.post("/api/advisor-seats/exception", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
@@ -364,7 +383,9 @@ app.post("/api/advisor-seats/exception", requireAnyPermission([7, 14]), async (r
   const at = new Date().toISOString();
   const row = { id: `${id}:${Date.now()}`, scope: id, key, count, note, at, by: String(req.user?.Name || req.user?.UserName || "مرشد"), status: "pending" };
   await Repository.saveFeatureDoc("advisorSeatRequests", row.id, row);
+  noteTrail(res, { target: "مقاعد المرشد · طلب استثناء", after: countOf(count, AR.seat), ...(note ? { detail: note } : {}), scope: { collegeId, sectionId, termId } });
   broadcastNotify(Repository.currentDemoSessionId());
+  bumpTeamWork(Repository.currentDemoSessionId(), collegeId, termId);
   res.json({ ok: true, request: row, hint: "طلبك عند المسؤول · قد يقترح فتح شعبة جديدة" });
 });
 }

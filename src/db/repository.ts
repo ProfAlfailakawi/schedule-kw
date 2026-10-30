@@ -2,6 +2,7 @@ import { departmentFamily } from "../utils/sectionLabel";
 import { VERSION_META_FIELDS, newestVersions, normalizeVersionMeta } from "../utils/scheduleVersionList";
 import type { TmScenarioRecord } from "../utils/timeMachine";
 import type { ReportStampRecord } from "../utils/reportStamp";
+import type { ActivityTrailEntry } from "../utils/activityTrail";
 import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict, withReservedRooms, holdRequestReservation, releaseRequestHolds, liveReservations,
   type RequestReservation, type RequestReservationProposal, type RequestScheduleOperation } from "../utils/instructorRequestReservations";
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
@@ -311,6 +312,8 @@ interface DBState {
   demoGuide?: DemoGuide;
   /** آلة الزمن: سيناريوهاتٌ افتراضية فوق الجدول الحيّ (src/utils/timeMachine.ts). */
   timeMachineScenarios?: TmScenarioRecord[];
+  /** «👣 الأثر»: من فعل ماذا، للقراءة فقط (src/utils/activityTrail.ts). الأحدثُ أولاً. */
+  activityTrail?: ActivityTrailEntry[];
 }
 
 /** ما تقترحه الصفحاتُ العامة على زائر البيئة التجريبية ليجرّب. كلُّه وهمي. */
@@ -2608,6 +2611,9 @@ export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "adv
   /* حارسُ الزملاء (src/server/scheduleHolds.ts): حجزٌ واحد لكل جالس يعيش دقيقتين. ومقياسُ إدخال
      المواعيد (src/server/appointmentMetrics.ts): وثيقةٌ لكل شهر «YYYY-MM»، أعدادٌ بلا أسماء. */
   | "scheduleHolds" | "appointmentMetrics";
+/** «👣 الأثر»: ما يُقرأ من كل سطر (لا مفاتيحُ القراءة نفسها)، وحدُّ السجلّ المحلّي والتجريبي. */
+const ACTIVITY_TRAIL_FIELDS = ["id", "at", "term", "u", "tu", "m", "dk", "who", "seat", "role", "kind", "area", "target", "detail", "before", "after", "c", "s", "t", "row"];
+const ACTIVITY_TRAIL_LOCAL_LIMIT = 5000;
 /** معرّفُ وثيقة Firestore لا يحمل «/». */
 const featureDocId = (id: string) => String(id || "").replace(/\//g, "_").slice(0, 300);
 
@@ -2805,6 +2811,57 @@ export const Repository = {
       return snap.docs.map(doc => doc.data() as AuditLogEntry);
     }
     return [...(db.auditLogs || [])].sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp))).slice(0, safeLimit);
+  },
+
+  /* ── «👣 الأثر» (src/utils/activityTrail.ts) ─────────────────────────────────
+   * إضافةٌ فقط: لا تعديلَ ولا حذفَ لسطرٍ كُتب — لا هنا ولا في أي مسار. والقراءةُ سؤالٌ مفهرسٌ
+   * لكل مفتاح (فريقٌ في فصل، شخصٌ في فصل، الفصلُ كله لمدير النظام)، مرتّبٌ بـ`at` ومحدود،
+   * بحقولٍ مسمّاة (`select`)، ثم يُجمع ويُرتّب في الذاكرة. */
+  appendActivityTrail: async (entry: ActivityTrailEntry): Promise<void> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      await firestoreDb.collection("activityTrail").doc(entry.id).set(entry);
+      return;
+    }
+    if (!Array.isArray(db.activityTrail)) db.activityTrail = [];
+    db.activityTrail.unshift(entry);
+    if (db.activityTrail.length > ACTIVITY_TRAIL_LOCAL_LIMIT) db.activityTrail.length = ACTIVITY_TRAIL_LOCAL_LIMIT;
+    saveDatabase();
+  },
+
+  listActivityTrail: async (keys: Array<{ field: "team" | "person" | "term"; value: string | number }>, perKey: number): Promise<ActivityTrailEntry[]> => {
+    const limit = Math.max(1, Math.min(200, Math.round(Number(perKey) || 40)));
+    const wanted = keys.slice(0, 120);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const fire = firestoreDb;
+      const ask = (key: { field: string; value: string | number }) => {
+        if (key.field === "team") return fire.collection("activityTrail").where("team", "==", String(key.value)).orderBy("at", "desc").limit(limit).select(...ACTIVITY_TRAIL_FIELDS).get();
+        if (key.field === "person") return fire.collection("activityTrail").where("person", "==", String(key.value)).orderBy("at", "desc").limit(limit).select(...ACTIVITY_TRAIL_FIELDS).get();
+        return fire.collection("activityTrail").where("term", "==", Number(key.value)).orderBy("at", "desc").limit(limit).select(...ACTIVITY_TRAIL_FIELDS).get();
+      };
+      const snaps = await Promise.all(wanted.map(ask));
+      const byId = new Map<string, ActivityTrailEntry>();
+      for (const snap of snaps) for (const doc of snap.docs) byId.set(doc.id, doc.data() as ActivityTrailEntry);
+      return [...byId.values()].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    }
+    const rows = db.activityTrail || [];
+    const byId = new Map<string, ActivityTrailEntry>();
+    for (const key of wanted) {
+      rows.filter(row => key.field === "term" ? Number(row.term) === Number(key.value) : String((row as any)[key.field]) === String(key.value))
+        .sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, limit)
+        .forEach(row => byId.set(row.id, row));
+    }
+    return [...byId.values()].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  },
+
+  /** آخرُ حركةٍ على موعدٍ واحد: بصمةُ «آخر تعديل» على الجدول. */
+  latestActivityTrailForRow: async (rowId: number): Promise<ActivityTrailEntry | null> => {
+    const id = Number(rowId);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("activityTrail").where("row", "==", id).orderBy("at", "desc").limit(1).select(...ACTIVITY_TRAIL_FIELDS).get();
+      return snap.empty ? null : (snap.docs[0].data() as ActivityTrailEntry);
+    }
+    return (db.activityTrail || []).filter(row => Number(row.row) === id).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null;
   },
 
   // Users
@@ -6452,8 +6509,12 @@ export const Repository = {
    * والتسجيل في اللحظة نفسها لا يمرّ أحدهما على حالةٍ قديمة. `next === null`
    * يسحب قرارَ تلك الجهة.
    */
-  setStudentCaseDecision: async (needId: string, side: StudentCaseSide, next: StudentCaseDecision | null): Promise<StudentNeed | undefined> => {
+  setStudentCaseDecision: async (needId: string, side: StudentCaseSide, next: StudentCaseDecision | null,
+    guard?: (current: StudentNeed) => string | null): Promise<StudentNeed | undefined> => {
     const merge = (current: StudentNeed): StudentNeed => {
+      /* ختمُ ما رآه الكاتب (src/utils/staleWrite.ts) يُسأل أولاً، داخل المعاملة نفسها. */
+      const stale = guard?.(current);
+      if (stale) throw new StudentCourseStateConflict(stale);
       const refusal = studentCaseRefusal(current.caseState, side, next);
       if (refusal) throw new StudentCourseStateConflict(refusal);
       return { ...current, caseState: applyStudentCaseDecision(current.caseState, side, next) };

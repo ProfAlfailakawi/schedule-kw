@@ -29,6 +29,8 @@ import RadarSchedule, { request } from "./RadarSchedule";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import AdvisingScopePicker, { useAdvisingScopeCatalog } from "./AdvisingScopePicker";
 import { byArabic } from "../utils/sorting";
+import { TeamPresenceChip } from "./ColleagueFaces";
+import { useTeamPeers, useTeamPlace } from "../hooks/useTeamWork";
 
 interface Unmet { "not-offered": number; conflict: number; full: number; prereq: number; units: number }
 interface CourseRow { courseId: number; code: string; name: string; sections: number; capacity: number; taken: number; wanted: number; seated: number; unmet: Unmet }
@@ -175,6 +177,13 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
 
   // Keep scoped-term hooks active during loading as well as after the summary arrives.
   const scopedTerms = useScopedTerms<{ AdTermId: number; AdTermName: string }>(terms, 0, 0, termPick, pickTerm);
+  /* «زميلان يعملان الآن»: فريقي في القسم المعروض (المختار، أو قسمُ المرشد الوحيد) وفصلِه. */
+  const soleSection = !scopePick.sectionId && catalog?.sections.length === 1 ? catalog.sections[0] : null;
+  const radarSectionId = scopePick.sectionId || soleSection?.id || 0;
+  const radarCollegeId = scopePick.collegeId || soleSection?.collegeId || catalog?.sections.find(row => row.id === radarSectionId)?.collegeId || 0;
+  const radarTermId = termPick || Number(data?.term?.id || 0);
+  useTeamPlace(radarCollegeId && radarSectionId && radarTermId ? { collegeId: radarCollegeId, sectionId: radarSectionId, termId: radarTermId, screen: "radar" } : null);
+  const team = useTeamPeers();
   if (!data && !error && !termPick) return <MicroLoader />;
   const r = data?.run;
   const wantedTotal = rows.reduce((s, c) => s + c.wanted, 0), seatedTotal = rows.reduce((s, c) => s + c.seated, 0);
@@ -199,6 +208,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
       <PageTitle eyebrow="رادار التسجيل" subtitle="لو سجّل الطلبةُ بحسب ما كتبوه: أين الزحام، وما المطلوب ولا يُطرح؟"
         action={(
           <div className="sm-actions">
+            <TeamPresenceChip peers={team.peers} team={team.team} />
             {(catalog?.sections.length || 0) > 1 ? (
               <AdvisingScopePicker idPrefix="radar" colleges={collegeChoices} sections={sectionChoices}
                 collegeId={scopePick.collegeId} sectionId={scopePick.sectionId}

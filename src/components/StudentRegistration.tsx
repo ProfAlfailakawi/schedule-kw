@@ -36,6 +36,11 @@ import { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal } from "../utils/livePulse";
+import { ColleagueWorkNotice, TeamPresenceChip } from "./ColleagueHoldNotice";
+import { errorWithCode, useStaleWrite } from "./StaleWriteToast";
+import { useTeamPeers, useTeamPlace, useTeamWork } from "../hooks/useTeamWork";
+import { workClashes, type TeamPeer, type WorkMark } from "../utils/teamWork";
+import { caseStampOf } from "../utils/staleWrite";
 import StudentCasesTable, { exportStudentCasesXlsx, GRADUATE_REASON_LABEL, STUDENT_CASE_TYPE_LABEL, type StudentCaseView } from "./StudentCasesTable";
 import {
   CASE_STATUS_LABEL, COMMITTEE_REASONS, CaseStateChip, PENDING_COMMITTEE, REJECT_REASONS, RegistrationJourney, STATE_LABEL,
@@ -131,9 +136,13 @@ const request = async (url: string, init?: RequestInit) => {
     try { data = JSON.parse(body); }
     catch { throw new Error(response.ok ? "وصل ردٌّ غير متوقّع من الخادم." : `الخادم مشغول الآن (${response.status}).`); }
   }
-  if (!response.ok) throw new Error(data.error || "تعذّر تنفيذ العملية");
+  if (!response.ok) throw errorWithCode(data.error || "تعذّر تنفيذ العملية", data.code);
   return data;
 };
+
+/** «زميلك يعمل الآن على هذا الطالب»: حالةُ الطالب شيءٌ واحد للفريق (src/utils/teamWork.ts). */
+const caseWork = (row: { id: string; caseRef: string } | null | undefined): WorkMark | null =>
+  row ? { kind: "studentCase", id: String(row.id), label: row.caseRef } : null;
 
 /* الكلماتُ والأسبابُ وشارةُ الحالة وشريطُ الرحلة: من StudentCaseStatus، وهي نفسُها في مركز الذكاء. */
 type CaseCourseStatusFields = Parameters<typeof statusOf>[0];
@@ -195,8 +204,10 @@ function RejectSheet({ course, busy, onClose, onSubmit, committee = false }: {
    (setState/setCaseState): لا طريقَ ثانياً إلى الكتابة. الرفضُ يمرّ بورقة السبب نفسها. */
 interface QuickItem { key: string; row: CaseRow; course: CaseCourse | null; side: "committee" | "registration" }
 
-function QuickDecide({ items, busy, onApprove, onReject, onClose }: {
+function QuickDecide({ items, busy, onApprove, onReject, onClose, peers = [] }: {
   items: QuickItem[]; busy: boolean; onApprove: (item: QuickItem) => void; onReject: (item: QuickItem) => void; onClose: () => void;
+  /** زملاءُ الفريق: من يعمل الآن على الطالب نفسه يُقال على البطاقة. */
+  peers?: readonly TeamPeer[];
 }) {
   const [skipped, setSkipped] = useState<string[]>([]);
   const [start] = useState(items.length);
@@ -220,6 +231,8 @@ function QuickDecide({ items, busy, onApprove, onReject, onClose }: {
     return () => window.removeEventListener("keydown", onKey);
   });
   const row = current?.row;
+  /* البطاقةُ المعروضة هي ما أعمل عليه الآن. */
+  useTeamWork(caseWork(row));
   return (
     <div className="qd-scrim" role="dialog" aria-modal="true" aria-label="قرار سريع" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="qd">
@@ -257,6 +270,7 @@ function QuickDecide({ items, busy, onApprove, onReject, onClose }: {
               </>}
               {row.details ? <p className="qd-note"><MessageSquareText aria-hidden="true" />{row.details.replace(/^من «مساري» بعد التسجيل — /, "")}</p> : null}
             </div>
+            <ColleagueWorkNotice clashes={workClashes(peers, caseWork(row))} className="qd-colleague" />
             <div className="qd-acts">
               <button type="button" className="yes" disabled={busy} onClick={() => onApprove(current)} data-guide-target="registration.action.state"><Check aria-hidden="true" /> {current.side === "committee" ? "موافقة" : "سجّل"}<kbd>↵</kbd></button>
               <button type="button" className="no" disabled={busy} onClick={() => onReject(current)} data-guide-ignore="يفتح ورقة سبب الرفض؛ لا يكتب قبل التأكيد"><X aria-hidden="true" /> {current.side === "committee" ? "رفض" : "ردّ"}<kbd>R</kbd></button>
@@ -389,6 +403,19 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
 
   useEffect(() => { void load(); }, [load]);
 
+  /* ── «زميلان يعملان الآن» (src/utils/teamWork.ts) ─────────────────────────────────────
+     فريقي ونطاقي من النبضة نفسها، و«أعمل على هذا الطالب» ما دامت ورقتُه مفتوحة أو قرّرتُ فيه
+     قبل دقيقة. وكتابةٌ فوق قرار زميلٍ لم أره تُردّ بـ«حدّث ثم أعد» (StaleWriteToast). */
+  useTeamPlace(collegeId && sectionId && termId ? { collegeId, sectionId, termId, screen: "registration" } : null);
+  const { peers, team } = useTeamPeers();
+  const [touched, setTouched] = useState<CaseRow | null>(null);
+  useEffect(() => {
+    if (!touched) return;
+    const timer = window.setTimeout(() => setTouched(null), 60_000);
+    return () => window.clearTimeout(timer);
+  }, [touched]);
+  const { staleToast, catchStale } = useStaleWrite(() => load());
+
   /* ── اقتراحاتُ فتح الشعب لمقرّرات هذا القسم ──────────────────────────────────
      من القراءة نفسها التي يعرضها مركز الذكاء (الطلبُ ÷ السعة − المفتوح، موضوعةً في أسبوعٍ حقيقيّ). لمن
      لا يملك صلاحيةَ الجدول يُرفض الطلب فلا يُعرض زرٌّ — والتسجيلُ لا يرى منها شيئاً. */
@@ -420,7 +447,8 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
     if (registrationSlept.current) { registrationSlept.current = false; void load(); }
     let pending = 0;
     const soon = () => { window.clearTimeout(pending); pending = window.setTimeout(() => { void load(); }, 800); };
-    const stopPulse = onLiveSignal(["notify"], soon);
+    /* «work»: حفظُ زميلٍ في الكلية والفصل نفسيهما يصل في نبضته التالية (teamPresence.ts). */
+    const stopPulse = onLiveSignal(["notify", "work"], soon);
     return () => { window.clearTimeout(pending); stopPulse(); };
   }, [pageAwake, collegeId, sectionId, termId, load]);
 
@@ -503,6 +531,8 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
   }, [rows]);
 
   const [quick, setQuick] = useState(false);
+  /* ورقةُ السبب مفتوحة، أو قرارٌ قبل دقيقة: هذا الطالب ما أعمل عليه الآن. */
+  useTeamWork(caseWork(rejecting?.row || touched));
   const quickItems = useMemo<QuickItem[]>(() => {
     const out: QuickItem[] = [];
     for (const row of rows || []) {
@@ -545,17 +575,18 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
     const pending = row.courses.filter(course => !course.settled && !course.droppedByStudent && !course.readOnly);
     if (!pending.length) return;
     setBusyKey(`${row.id}:all`);
+    setTouched(row);
     setError(null);
     try {
       for (const course of pending) {
         await request(`/api/student-registration/${row.id}/course-state`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ courseId: course.id, state: "awaiting-registration" }),
+          body: JSON.stringify({ courseId: course.id, state: "awaiting-registration", expectedAt: course.at || "" }),
         });
       }
       await load();
-    } catch (e: any) { setError(e.message); await load(); }
+    } catch (e: any) { if (!catchStale(e)) setError(e.message); await load(); }
     finally { setBusyKey(null); }
   };
 
@@ -563,15 +594,17 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
     if (frozen) return;
     const key = `${row.id}:${course.id}`;
     setBusyKey(key);
+    setTouched(row);
     setError(null);
     try {
       await request(`/api/student-registration/${row.id}/course-state`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ courseId: course.id, state, ...extra }),
+        /* ختمُ ما رأيتُه: وقتُ آخر قرارٍ في المقرّر ("" = لم يُقرَّر فيه شيء). */
+        body: JSON.stringify({ courseId: course.id, state, expectedAt: course.at || "", ...extra }),
       });
       await load();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { if (!catchStale(e)) setError(e.message); }
     finally { setBusyKey(null); }
   };
 
@@ -580,15 +613,16 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
     if (frozen) return;
     const key = `${row.id}:case`;
     setBusyKey(key);
+    setTouched(row);
     setError(null);
     try {
       await request(`/api/student-registration/${row.id}/case-state`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ side, decision, ...extra }),
+        body: JSON.stringify({ side, decision, expectedStamp: caseStampOf(row.caseState), ...extra }),
       });
       await load();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { if (!catchStale(e)) setError(e.message); }
     finally { setBusyKey(null); }
   };
 
@@ -646,7 +680,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
                   run={async () => {
                     const result = await request(`/api/student-registration/${row.id}/course-state`, {
                       method: "POST", headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ courseId: course.id, state: "awaiting-registration", openSection: slot }),
+                      body: JSON.stringify({ courseId: course.id, state: "awaiting-registration", openSection: slot, expectedAt: course.at || "" }),
                     });
                     return { summary: `وُوفق على الطلب وفُتحت شعبة ${result.opened?.sectionCode || "جديدة"} في الجدول`, amendment: Boolean(result.opened?.amendment) };
                   }}
@@ -819,7 +853,10 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
       <PageTitle
         eyebrow={<><ClipboardList aria-hidden="true" /> التسجيل</>}
         subtitle="ما طلبه الطلبة: اللجنة توافق أولاً، ثم يسجّل التسجيل"
-        action={<AdvisingScopePicker idPrefix="registration" colleges={collegeOptions} sections={sectionOptions} collegeId={collegeId} sectionId={sectionId} onCollege={pickCollege} onSection={pickSection} />}
+        action={<>
+          <TeamPresenceChip peers={peers} team={team} />
+          <AdvisingScopePicker idPrefix="registration" colleges={collegeOptions} sections={sectionOptions} collegeId={collegeId} sectionId={sectionId} onCollege={pickCollege} onSection={pickSection} />
+        </>}
       >
         كشف التسجيل{collegeId ? <> <CampusChip collegeName={collegeName} /></> : null}
       </PageTitle>
@@ -930,7 +967,9 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
             }}
             renderCaseNote={item => {
               const row = rowById.get(item.id);
-              return row ? caseNote(row) : null;
+              if (!row) return null;
+              const clashes = workClashes(peers, caseWork(row));
+              return clashes.length ? <>{caseNote(row)}<ColleagueWorkNotice clashes={clashes} className="registration-colleague" /></> : caseNote(row);
             }}
             renderCaseAction={caseAction}
             printStatus={item => {
@@ -943,10 +982,13 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
         </>
       )}
 
+      {staleToast}
+
       {quick ? (
         <QuickDecide
           items={quickItems}
           busy={busyKey !== null}
+          peers={peers}
           onClose={() => setQuick(false)}
           onApprove={item => {
             if (item.course) void setState(item.row, item.course, item.side === "committee" ? "awaiting-registration" : "registered");

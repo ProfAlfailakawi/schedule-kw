@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, UsersRound, X } from "lucide-react";
 import SeatPanel from "./SeatPanel";
+import TrailButton from "../trail/TrailButton";
 import { useDrawerA11y } from "../ui";
 import "./seats.css";
 
@@ -13,7 +14,7 @@ import "./seats.css";
  */
 type SwitchOption = { userId: number; memberId?: string; seatName: string; caption: string };
 
-export default function SeatDrawer({ onClose, canManage }: { onClose: () => void; canManage: boolean }) {
+export default function SeatDrawer({ onClose, canManage, trail = true }: { onClose: () => void; canManage: boolean; trail?: boolean }) {
   const ref = useDrawerA11y<HTMLElement>(onClose);
   const [options, setOptions] = useState<SwitchOption[]>([]);
   const [switching, setSwitching] = useState("");
@@ -40,6 +41,7 @@ export default function SeatDrawer({ onClose, canManage }: { onClose: () => void
         <header>
           <UsersRound aria-hidden="true" />
           <h2>فريقي</h2>
+          {trail ? <TrailButton data-guide-ignore="يفتح ورقة «الأثر»: من فعل ماذا في الفريق؛ قراءة فقط" /> : null}
           <button data-guide-ignore="لوحة «فريقي»: الانتقال بين فرق الشخص نفسه أو إغلاق اللوحة" type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
         </header>
         {options.length ? (

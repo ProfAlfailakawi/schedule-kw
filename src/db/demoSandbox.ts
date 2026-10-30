@@ -10,6 +10,7 @@ import { AR, countOf } from "../utils/arabicCount";
 import { roleDefinition, type AcademicRole } from "../utils/academicRoles";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
 import { seatState, sectionKey, type SeatQuotaConfig } from "../utils/advisorSeats";
+import type { ActivityTrailEntry } from "../utils/activityTrail";
 
 /*
  * ── الصندوق التجريبي: كليةٌ واحدة، وعدة أقسام لعرض استعارة القاعات ─────────
@@ -76,6 +77,8 @@ export interface DemoSandboxState {
   curriculumRuleSets?: CurriculumRuleSet[]; curriculumRuleDrafts?: CurriculumRuleSet[];
   /* وثائقُ الميزات الصغيرة (رصيد مقاعد المرشد): مجموعةٌ ← معرّف ← وثيقة، بالشكل الذي يكتبه الخادم. */
   featureDocs?: Record<string, Record<string, any>>;
+  /* «👣 الأثر»: أسبوعُ عملٍ محكيّ لكل فريق، يُبذر في الخلفية بعد الدخول (src/db/demoActivityTrail.ts). */
+  activityTrail?: ActivityTrailEntry[];
 }
 
 /** مدرّبان (TA) لمرحلة التدريب: يختاران من الشعب الشاغرة («هيئة تدريسية») فتجري الرحلة كلها في الصندوق. */

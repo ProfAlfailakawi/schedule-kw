@@ -12,6 +12,9 @@ import { companyOn, sweepPulses, type PulseEntry } from "../livePulse";
 import { type AuthenticatedRequest, requireAnyPermission, requireAuth } from "../core/auth";
 import { boardScopeKey, emptyMark, markPresenceDirty, notifyClock, presenceRoster, scheduleChangeClock, scheduleEventClients } from "../core/liveChannel";
 import { isScopeAllowed } from "../core/scope";
+import { holdHolderOf } from "../scheduleHolds";
+import { sweepTeamEntries, teamCompany, teamEntries, teamOf, teamRoster, teamScopeKey, touchTeamEntry, workClock } from "../teamPresence";
+import { isTeamScreen, parseWorkMark } from "../../utils/teamWork";
 
 /**
  * ── النبضة: الخيطُ يُفتح حين يكون معك أحد ─────────────────────────────────
@@ -93,17 +96,36 @@ app.get("/api/schedules/pulse", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]),
   const sectionId = Number(req.query.section || 0);
   const termId = Number(req.query.term || 0);
   const userId = Number(req.user?.SystemUserId || 0);
-  const scopeKey = connId && collegeId && isScopeAllowed(req, collegeId, sectionId)
-    ? boardScopeKey(req, collegeId, sectionId, termId)
-    : "";
+  const allowed = Boolean(connId && collegeId && isScopeAllowed(req, collegeId, sectionId));
+  /* «زميلان يعملان الآن» للإرشاد والتسجيل (src/server/teamPresence.ts): الفريقُ يقوله الخادمُ من
+     الصفة، والنطاقُ بالجدار نفسه، والعملُ شيءٌ واحدٌ بعينه. لسانٌ على فريقٍ ليس على لوح جدول. */
+  const team = req.query.team === "1";
+  const scopeKey = allowed && !team ? boardScopeKey(req, collegeId, sectionId, termId) : "";
+  const demoSessionId = req.demoSessionId || "";
   if (connId) pulseClients.set(connId, { userId, scopeKey, active: req.query.active !== "0", seenAt: now });
   sweepPulses(pulseClients, now);
-  const demoSessionId = req.demoSessionId || "";
+  sweepTeamEntries(teamEntries, now);
+  const holder = team && allowed && termId ? holdHolderOf(req.user) : null;
+  if (!holder && connId) teamEntries.delete(connId);
+  let teamAnswer: Record<string, unknown> = {};
+  if (holder) {
+    const who = teamOf(req.user);
+    const key = teamScopeKey(demoSessionId, who, collegeId, sectionId, termId);
+    touchTeamEntry(teamEntries, {
+      connId, holder: holder.key, name: holder.name, team: who, scopeKey: key,
+      screen: isTeamScreen(req.query.screen) ? req.query.screen : "registration",
+      work: parseWorkMark(req.query.workKind, req.query.workId, req.query.workLabel),
+      active: req.query.active !== "0",
+    }, now);
+    const peers = teamRoster(teamEntries.values(), key, holder.key, now);
+    teamAnswer = { team: who, peers, company: teamCompany(peers), workedAt: workClock.read(demoSessionId, collegeId, termId), now };
+  }
   res.setHeader("Cache-Control", "no-store");
   res.json({
     company: companyOn(scopeKey, userId, pulseClients.values(), scheduleEventClients.values(), now),
     changedAt: scheduleChangeClock.read(demoSessionId),
     notifiedAt: notifyClock.read(demoSessionId),
+    ...teamAnswer,
   });
 });
 /* Leaving. sendBeacon can only POST, and a closed tab should stop counting as
@@ -113,6 +135,8 @@ app.post("/api/schedules/pulse", requireAuth, (req: AuthenticatedRequest, res: R
   const connId = String(req.query.conn || "").slice(0, 64);
   const entry = pulseClients.get(connId);
   if (entry && entry.userId === Number(req.user?.SystemUserId || 0)) pulseClients.delete(connId);
+  const teamEntry = teamEntries.get(connId);
+  if (teamEntry && teamEntry.holder === holdHolderOf(req.user)?.key) teamEntries.delete(connId);
   res.status(204).end();
 });
 }

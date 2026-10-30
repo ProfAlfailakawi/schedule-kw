@@ -62,7 +62,12 @@ import { AR, countOf, nounFor } from "./utils/arabicCount";
 import { isInvitationHash } from "./utils/invitationLink";
 import ChangePassword from "./components/ChangePassword";
 import SeatDrawer from "./components/seats/SeatDrawer";
+import TrailButton from "./components/trail/TrailButton";
+import { forgetTrailStamps, setTrailStampOwner } from "./components/trail/trailStampMemory";
 import { seatActorCaption, type SeatActor } from "./utils/seats";
+
+/** من يُفتح له «👣 الأثر» من بطاقة الحساب، لا من رأس فريقه وحده. */
+const TRAIL_HOME_ROLES = new Set<string>(["dean", "departmentHead", "registrarHead", "registrarDean"]);
 
 function safeLazy<T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) {
   return lazy(() =>
@@ -653,6 +658,11 @@ export default function App() {
    * وتختفي حين لا شيء ينتظر. */
   const [barterPending, setBarterPending] = useState(0);
   useEffect(() => { setTelemetryOwner(Number(user?.SystemUserId || 0)); }, [user?.SystemUserId]);
+  /* بصمةُ «آخر تعديل» محفوظةٌ لصاحب الجلسة وحده: الحسابُ والعضو، وأيُّ تبديلٍ يمحوها. */
+  useEffect(() => {
+    const actor = (user as any)?.SeatActor as SeatActor | undefined;
+    setTrailStampOwner(user ? `${Number(user.SystemUserId || 0)}:${actor?.kind || ""}:${actor?.memberId || ""}` : "");
+  }, [user?.SystemUserId, (user as any)?.SeatActor?.memberId, (user as any)?.SeatActor?.kind]);
   /* The three dock badges below poll on a timer, and a timer does not know
      whether anyone is looking: a tab left open overnight asked all night, and
      every answer was a request billed and a query read. They rest with the tab
@@ -1663,6 +1673,7 @@ export default function App() {
     await forgetPushDevice().catch(() => undefined);
     if (user) markPushActive(String(user.SystemUserId || user.Name || ""), false);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    forgetTrailStamps();
     forgetWarmStarts();
     await forgetCachedReads();
     setUser(null);
@@ -2686,7 +2697,7 @@ export default function App() {
             the way out — three sentences of chrome reduced to a dot and two
             glyphs, which also keeps the rail inside a 720px-tall laptop. */}
         {seatDrawerOpen ? (
-          <SeatDrawer onClose={() => setSeatDrawerOpen(false)} canManage={!seatActor || seatActor.kind === "holder"} />
+          <SeatDrawer onClose={() => setSeatDrawerOpen(false)} canManage={!seatActor || seatActor.kind === "holder"} trail={sessionRole.id !== "viceDean"} />
         ) : null}
         {journeyOpen ? (
           <Suspense fallback={null}>
@@ -2725,6 +2736,8 @@ export default function App() {
             </div>
             <span className="sr-only" role="status">{healthLabel}</span>
             <div className="user-card-tools">
+              {/* «👣 الأثر» لمن يرى فرقاً غيرَ فريقه: العميد ورئيس القسم والمسجّل العام وعميد التسجيل، ومدير النظام. */}
+              {isPowerAdmin || TRAIL_HOME_ROLES.has(sessionRole.id) ? <TrailButton data-guide-ignore="يفتح ورقة «الأثر»: من فعل ماذا في الفرق التي تشرف عليها؛ قراءة فقط" /> : null}
               {!isPowerAdmin && sessionRole.id !== "standard" ? (
                 <button
                   type="button"

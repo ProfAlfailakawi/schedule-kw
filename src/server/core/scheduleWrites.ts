@@ -21,6 +21,15 @@ import { applyRequestHoldOverride, noteRequestHoldOverride, requestHoldRefusal, 
 import { describeScheduleChange, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues, unapprovedPatternIssue } from "./scheduleRules";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
+import { noteTrail } from "../activityTrail";
+
+/* «👣 الأثر»: الموعدُ بكلمتين (المقرر · الشعبة)، ومكانُه في الأسبوع بسطر. */
+const trailTarget = (row: any) => `${row?.AdCourseName || "موعد"} · ش${row?.SCode ?? ""}`;
+const trailSlot = (row: any) => [
+  SCHEDULE_DAYS.filter(day => Boolean(row?.[day.key])).map(day => day.label).join(" "),
+  formatScheduleTimeRange(row?.fstarttime, row?.fendtime),
+  `${row?.AdRoomCode || ""}/${row?.AdRoomHall || ""}`,
+].filter(Boolean).join(" · ");
 
 /* ── مصدرُ التغيير: من أين جاء هذا الموعد؟ ─────────────────────────────────────
  * يُكتب فقط حين يمرّ الحفظ من «اعتماد الاقتراح» (الرادار، حالة طالب، رغبة أستاذ). الحفظُ اليدويّ
@@ -184,6 +193,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", row: newSched });
 
   res.locals.auditRowIds = [Number(newSched.id)];
+  noteTrail(res, { target: trailTarget(newSched), after: trailSlot(newSched), scope: { collegeId, sectionId, termId }, row: Number(newSched.id) });
   res.status(201).json(newSched);
 };
 
@@ -339,6 +349,10 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     }
     // Hand the audit trail the sentence describing what actually moved.
     res.locals.auditChanges = describeScheduleChange(existing, updated) || undefined;
+    /* إعادةُ حفظٍ بلا فرقٍ ليست حركة: لا تُكتب في الأثر. */
+    noteTrail(res, res.locals.auditChanges || Number(existing.AdCourseId) !== Number(updated.AdCourseId)
+      ? { target: trailTarget(updated), before: trailSlot(existing), after: trailSlot(updated), scope: { collegeId, sectionId, termId }, row: Number(id) }
+      : { skip: true });
     const movedScope = existing.AdCollegeId !== collegeId || existing.AdSectionId !== sectionId || existing.AdTermId !== termId;
     await recordVersionAfter(editVersion, before => movedScope
       ? before.filter(row => Number(row.id) !== Number(id))
@@ -395,6 +409,7 @@ export const deleteScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     deleteVersion = await captureScopeVersion(req, sched.AdCollegeId, sched.AdSectionId, sched.AdTermId, "قبل حذف موعد دراسي", "manual");
     // A deletion has no "after", so the record keeps what was standing there.
     res.locals.auditChanges = `حُذف: ${sched.AdCourseName || "موعد"} · شعبة ${sched.SCode} · ${formatScheduleTimeRange(sched.fstarttime, sched.fendtime)} · ${sched.AdRoomCode}/${sched.AdRoomHall}`;
+    noteTrail(res, { target: trailTarget(sched), before: trailSlot(sched), scope: { collegeId: sched.AdCollegeId, sectionId: sched.AdSectionId, termId: sched.AdTermId }, row: Number(id) });
   }
   const deleteOverrides = await applyRequestHoldOverride(req);
   try { await Repository.deleteSchedule(id, (req as any).__requestReservationOwner || ""); }

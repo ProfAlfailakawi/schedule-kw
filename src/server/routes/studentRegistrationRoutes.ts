@@ -20,6 +20,9 @@ import { curriculumLabelsFor } from "../core/planning";
 import { applyProposalCore, deleteScheduleHandler, type ProposalOutcome, runScheduleHandler } from "../core/scheduleWrites";
 import { isScopeAllowed } from "../core/scope";
 import { studentIdentityFor } from "../core/studentIdentity";
+import { noteTrail } from "../activityTrail";
+import { bumpTeamWork } from "../teamPresence";
+import { caseStampOf, expectedStamp, STALE_WRITE_CODE, STALE_WRITE_MESSAGE } from "../../utils/staleWrite";
 
 /* ══════════════════════════════════════════════════════════════════════════
    كشفُ التسجيل — الطرفان على ورقةٍ واحدة
@@ -85,6 +88,7 @@ const owningSectionsInScopeFor = async (req: AuthenticatedRequest, need: any, al
       && isScopeAllowed(req, Number(need.AdCollegeId), candidate));
 
 const STUDENT_COURSE_STATES = new Set(["awaiting-registration", "committee-rejected", "registered", "rejected"]);
+const TRAIL_COURSE_STATE: Record<string, string> = { "awaiting-registration": "وافقت اللجنة", "committee-rejected": "لم توافق اللجنة", registered: "سُجّل", rejected: "رُدّ" };
 const STUDENT_REJECT_REASONS = new Set(["no-seat", "prerequisite", "level", "conflict", "closed", "other"]);
 const STUDENT_COMMITTEE_REASONS = new Set(["not-eligible", "not-in-plan", "prerequisite", "duplicate", "other"]);
 
@@ -343,6 +347,16 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
 
   const state = String(req.body?.state || "");
   if (!STUDENT_COURSE_STATES.has(state)) { res.status(400).json({ error: "حالةٌ غير معروفة." }); return; }
+  {
+    /* «👣 الأثر»: المقرّرُ وما صار إليه، بلا اسم الطالب. */
+    const course = allCourses.find(row => Number(row.AdCourseId) === courseId);
+    noteTrail(res, {
+      kind: state === "awaiting-registration" || state === "committee-rejected" ? "approve" : "register",
+      target: `كشف التسجيل · ${course?.CourseName || course?.CourseCode || "مقرر"}`,
+      after: TRAIL_COURSE_STATE[state] || state,
+      scope: { collegeId: Number(need.AdCollegeId), sectionId: courseOwnerSection || owningSectionsInScope[0], termId: Number(need.AdTermId || 0) },
+    });
+  }
 
   /* ── كلُّ جهةٍ تكتب ما يخصّها وحده ────────────────────────────────────────
      اللجنةُ توافق أو لا توافق، ولا تكتب «سُجّل» ولا «رُدّ» باسم التسجيل.
@@ -366,7 +380,11 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
   }
   /* ما يتوقف على حالة المقرّر الحاليّة يُسأل داخل الكتابة نفسها: قرارا اللجنة
      والتسجيل في اللحظة نفسها لا يمرّ أحدهما على حالةٍ قديمة. */
+  /* ختمُ ما رآه الكاتب: وقتُ آخر قرارٍ في هذا المقرّر ("" = لم يُقرَّر فيه شيء). قرارُ زميلٍ قبله
+     يُردّ بـ«حدّث ثم أعد» (src/utils/staleWrite.ts) — داخل المعاملة نفسها، فلا يسبقه أحد. */
+  const seenAt = expectedStamp(req.body?.expectedAt);
   const guardByState = (current: any): string | null => {
+    if (seenAt !== null && String(current?.at || "") !== seenAt) return STALE_WRITE_MESSAGE;
     if (viewer === "committee" && current?.by === "registration" && (current.state === "registered" || current.state === "rejected"))
       return "قرّر التسجيلُ في هذا المقرّر، فلا يُغيَّر من جهة القسم.";
     if (viewer === "registration" && !reachedRegistration(current))
@@ -415,7 +433,7 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
       const fresh: any = await Repository.getStudentNeedById(String(need.id));
       if (!fresh) return { status: 404, json: { error: "لا يوجد طلبٌ بهذا المعرّف" } };
       const refusalNow = guardByState((fresh.courseStates || []).find((row: any) => Number(row.courseId) === courseId));
-      if (refusalNow) return { status: 409, json: { error: refusalNow } };
+      if (refusalNow) return { status: 409, json: { error: refusalNow, ...(refusalNow === STALE_WRITE_MESSAGE ? { code: STALE_WRITE_CODE } : {}) } };
       const week = await Repository.getSchedulesByScope({ collegeId: Number(owner.AdCollegeId), sectionId: Number(owner.AdSectionId), termId: Number(need.AdTermId) });
       openedRow = (week as any[]).find(row => row.origin?.refId === openingRef && Number(row.AdCourseId) === courseId) || null;
       if (!openedRow) {
@@ -450,7 +468,7 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
         const back = await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(openedRow.id) }, body: {} }).catch(() => null);
         rolledBack = Boolean(back && back.status < 400);
       }
-      if (error instanceof StudentCourseStateConflict) return { status: 409, json: { error: error.message, stateSaved: false, rolledBack } };
+      if (error instanceof StudentCourseStateConflict) return { status: 409, json: { error: error.message, ...(error.message === STALE_WRITE_MESSAGE ? { code: STALE_WRITE_CODE } : {}), stateSaved: false, rolledBack } };
       console.error("[student-registration] تعذّر تسجيل القرار بعد فتح الشعبة:", error instanceof Error ? error.message : error);
       return { status: 500, json: { error: "تعذّر تسجيل القرار.", stateSaved: false, rolledBack } };
     }
@@ -463,6 +481,7 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
 
   const outcome = wantsOpening ? await withSerialLock(`student-open:${need.id}:${courseId}`, commit) : await commit();
   if (outcome.audit) res.locals.auditChanges = outcome.audit;
+  if (outcome.status < 300) bumpTeamWork(req.demoSessionId || "", Number(need.AdCollegeId || 0), Number(need.AdTermId || 0));
   res.setHeader("Cache-Control", "no-store");
   res.status(outcome.status).json(outcome.json);
 });
@@ -520,13 +539,24 @@ app.post("/api/student-registration/:id/case-state", requireAuth, async (req: Au
     byRole: roleLabel(req.user?.Role) || undefined,
     at: new Date().toISOString(),
   };
+  noteTrail(res, {
+    kind: side === "committee" ? "approve" : "register",
+    target: "كشف التسجيل · حالة طالب",
+    after: decision === "approved" ? "موافقة" : decision === "rejected" ? "ردّ" : "بانتظار القرار",
+    scope: { collegeId: Number(need.AdCollegeId), sectionId: owningSectionsInScope[0], termId: Number(need.AdTermId || 0) },
+  });
   let saved: any;
-  try { saved = await Repository.setStudentCaseDecision(need.id, side, next); }
+  const seenStamp = expectedStamp(req.body?.expectedStamp);
+  try {
+    saved = await Repository.setStudentCaseDecision(need.id, side, next,
+      current => seenStamp !== null && caseStampOf(current.caseState) !== seenStamp ? STALE_WRITE_MESSAGE : null);
+  }
   catch (error: any) {
-    if (error instanceof StudentCourseStateConflict) { res.status(409).json({ error: error.message }); return; }
+    if (error instanceof StudentCourseStateConflict) { res.status(409).json({ error: error.message, ...(error.message === STALE_WRITE_MESSAGE ? { code: STALE_WRITE_CODE } : {}) }); return; }
     throw error;
   }
   if (!saved) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  bumpTeamWork(req.demoSessionId || "", Number(need.AdCollegeId || 0), Number(need.AdTermId || 0));
   res.setHeader("Cache-Control", "no-store");
   res.json({ ok: true, caseState: saved.caseState || {}, caseStatus: studentCaseStatus(saved.caseState) });
 });

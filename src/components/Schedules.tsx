@@ -6,6 +6,7 @@ import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import RowHistory from "./RowHistory";
+import TrailStamp from "./trail/TrailStamp";
 import { TimeField } from "./TimeField";
 import {
   Activity,
@@ -551,13 +552,16 @@ function GhostInstructorName({ row, name, fallbackCollegeId, fallbackSectionId }
   return <>{name}{visiting ? <VisitingBadge compact /> : null}</>;
 }
 
-function WeekPeek({ anchor, title, who, code, section, days: dayText, from, to, room, hue }: {
+function WeekPeek({ anchor, title, who, code, section, days: dayText, from, to, room, hue, rowId }: {
   anchor: { x: number; y: number };
   title: string; who: string; code: string; section: string;
   days: string; from: string; to: string; room: string; hue?: number;
+  /** «👣 آخر تعديل»: تُقرأ بعد توقّفٍ قصير، فتنمو البطاقةُ سطراً ويُعاد قياسُها. */
+  rowId?: number;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [box, setBox] = useState<{ left: number; top: number } | null>(null);
+  const [grown, setGrown] = useState(0);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
@@ -569,7 +573,7 @@ function WeekPeek({ anchor, title, who, code, section, days: dayText, from, to, 
     left = Math.max(margin, Math.min(window.innerWidth - rect.width - margin, left));
     top = Math.min(window.innerHeight - rect.height - margin, top);
     setBox({ left, top });
-  }, [anchor.x, anchor.y]);
+  }, [anchor.x, anchor.y, grown]);
   return (
     <div
       className="week-peek"
@@ -590,6 +594,7 @@ function WeekPeek({ anchor, title, who, code, section, days: dayText, from, to, 
         <dt>الوقت</dt><dd dir="ltr">{formatScheduleTimeRange(from, to)}</dd>
         <dt>القاعة</dt><dd dir="ltr">{room || "—"}</dd>
       </dl>
+      {rowId ? <TrailStamp rowId={rowId} onShown={() => setGrown(n => n + 1)} /> : null}
     </div>
   );
 }
@@ -633,7 +638,7 @@ const WeekPeekLayer = React.forwardRef<
     },
   }), []);
   if (!peek) return null;
-  return <WeekPeek anchor={{ x: peek.x, y: peek.y }} {...describe(peek.row)} />;
+  return <WeekPeek anchor={{ x: peek.x, y: peek.y }} {...describe(peek.row)} rowId={Number(peek.row.id) || undefined} />;
 });
 
 /**
@@ -8703,7 +8708,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * news: a change made anywhere reaches this board within seconds, by the same
    * quiet scoped re-read the stream would have asked for.
    */
-  const [liveState, setLiveState] = useState<LiveState>({ company: 0, connected: false });
+  const [liveState, setLiveState] = useState<LiveState>({ company: 0, connected: false, peers: [], team: null });
   useEffect(() => onLiveState(setLiveState), []);
   const [liveShared, setLiveShared] = useState(false);
   useEffect(() => {
@@ -9846,6 +9851,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     courses={courseById}
                     window={miniWeekWindow}
                     draft={form}
+                    original={editor === "edit" ? editorOriginalRow : null}
                     onPick={pickFromMiniWeek}
                   />
                 ) : null}
@@ -13655,6 +13661,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <span><MapPin aria-hidden="true" /><bdi>{roomDisplay(context.selected) || "—"}</bdi></span>
                   {historicalLocationNeedsReview(context.selected) ? <small>بيانات مكان تاريخية غير موثقة</small> : null}
                 </div>
+                <TrailStamp key={`stamp-${context.selected.id}`} rowId={Number(context.selected.id)} />
                 <RowHistory key={context.selected.id} rowId={Number(context.selected.id)} origin={(context.selected as any).origin || null} facts={[
                   context.conflicts?.length
                     ? { tone: "warn", kind: "conflict", label: countOf(context.conflicts.length, AR.conflict) }

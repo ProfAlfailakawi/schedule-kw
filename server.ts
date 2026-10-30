@@ -87,6 +87,7 @@ import { registerUsersRoutes } from "./src/server/routes/usersRoutes";
 import { registerSeatsRoutes, seatMemberGuard } from "./src/server/seatsRoutes";
 import { registerSectionRequestsRoutes } from "./src/server/sectionRequestsRoutes";
 import { registerScheduleHoldsRoutes } from "./src/server/scheduleHoldsRoutes";
+import { activityTrailRecorder, registerActivityTrailRoutes } from "./src/server/activityTrail";
 import { registerAppointmentMetricsRoutes } from "./src/server/appointmentMetrics";
 import { registerVerifyRoutes } from "./src/server/routes/verifyRoutes";
 
@@ -388,6 +389,8 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
   });
   next();
 });
+/* «👣 الأثر»: سطرٌ لكل كتابةٍ ناجحة على مسارٍ معروف (src/utils/activityTrail.ts) — لا فتحٌ ولا اطّلاع. */
+app.use("/api", activityTrailRecorder);
 registerAuthRoutes(app);
 registerDashboardRoutes(app);
 registerReferenceRoutes(app);
@@ -428,6 +431,7 @@ registerNotificationsRoutes(app);
 registerAdminRoutes(app);
 registerUsersRoutes(app);
 registerSeatsRoutes(app);
+registerActivityTrailRoutes(app);
 /* حارسُ الزملاء: حجزٌ ليّن لدقيقتين يراه من يبني موعداً معك، ومقياسُ إدخال المواعيد (مجهول الهوية). */
 registerScheduleHoldsRoutes(app);
 registerAppointmentMetricsRoutes(app);

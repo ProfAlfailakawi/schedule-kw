@@ -22,6 +22,9 @@ import { type AuthenticatedRequest, isPowerUser, requireAnyPermission } from "./
 import { isScopeAllowed } from "./core/scope";
 import { refuseIfTermFrozen } from "./core/approvals";
 import { broadcastNotify } from "./core/liveChannel";
+import { noteTrail } from "./activityTrail";
+import { bumpTeamWork } from "./teamPresence";
+import { expectedRev, staleWriteBody } from "../utils/staleWrite";
 import { sealStudentIdentity, studentIdentityFor, surveyFingerprint } from "./core/studentIdentity";
 import { pushHooks, type PushAccount } from "./pushRoutes";
 import { sectionRequestMessage } from "./pushMessages";
@@ -76,12 +79,16 @@ async function powersOf(req: AuthenticatedRequest, request: SectionRequest): Pro
 const termRequests = (termId: number) => Repository.listFeatureDocs<SectionRequest>(COLLECTION, `${termId}:`);
 const readRequest = (id: string) => Repository.getFeatureDoc<SectionRequest>(COLLECTION, id);
 
-/** يكتب الانتقالَ ذرّياً: يُقرأ الطلب ويُحسب ويُكتب في معاملةٍ واحدة. */
-async function commit(id: string, step: (current: SectionRequest) => Transition) {
-  return Repository.updateFeatureDoc<SectionRequest, { status: number; error: string } | null>(COLLECTION, id, current => {
+/**
+ * يكتب الانتقالَ ذرّياً: يُقرأ الطلب ويُحسب ويُكتب في معاملةٍ واحدة. و`expected` ختمُ الإصدار الذي
+ * رآه الكاتب (src/utils/staleWrite.ts): إن كتب زميلٌ قبله رُدّ بـ«حدّث ثم أعد» ولم يُمسّ شيء.
+ */
+async function commit(id: string, step: (current: SectionRequest) => Transition, expected: number | null = null) {
+  return Repository.updateFeatureDoc<SectionRequest, { status: number; error: string; code?: string } | null>(COLLECTION, id, current => {
     if (!current) return { refuse: { status: 404, error: "لا يوجد طلبٌ بهذا المعرّف." } };
+    if (expected !== null && Number(current.rev || 0) !== expected) return { refuse: { status: 409, ...staleWriteBody() } };
     const out = step(current);
-    return "refuse" in out ? { refuse: out.refuse } : { next: out.next, result: null };
+    return "refuse" in out ? { refuse: out.refuse } : { next: { ...out.next, rev: Number(current.rev || 0) + 1 }, result: null };
   });
 }
 
@@ -138,7 +145,7 @@ async function requestView(req: AuthenticatedRequest, request: SectionRequest, n
   }
   const maxStudent = Number(course?.MaxStudent || 0);
   return {
-    id: request.id, termId: request.termId,
+    id: request.id, termId: request.termId, rev: Number(request.rev || 0),
     collegeId: request.collegeId, collegeName: names.college.get(Number(request.collegeId)) || "",
     sectionId: request.sectionId, sectionName: names.section.get(Number(request.sectionId)) || "",
     fromSectionId: request.fromSectionId, fromSectionName: names.section.get(Number(request.fromSectionId)) || "",
@@ -227,7 +234,7 @@ function pushTo(parties: PushParty[], request: SectionRequest, message: ReturnTy
 const requireRegistrationSheet = requireAnyPermission(SECTION_REQUEST_SHEET_PERMISSIONS);
 
 const isPeriod = (value: unknown): value is SectionRequestPeriod => SECTION_REQUEST_PERIODS.includes(value as SectionRequestPeriod);
-const fail = (res: Response, status: number, error: string) => { res.status(status).json({ error }); };
+const fail = (res: Response, status: number, error: string, code?: string) => { res.status(status).json(code ? { error, code } : { error }); };
 
 export function registerSectionRequestsRoutes(app: Express): void {
 
@@ -341,7 +348,9 @@ app.post("/api/section-requests", requireRegistrationSheet, async (req: Authenti
   await Repository.saveFeatureDoc(COLLECTION, request.id, request);
   res.locals.auditEntity = "طلب شعبة";
   res.locals.auditChanges = `طلب شعبة: ${request.courseName} · ${countOf(count, AR.student)} · ${PERIOD_LABEL[request.period]}`;
+  noteTrail(res, { target: `طلب شعبة · ${request.courseName || ""}`, after: `${countOf(count, AR.student)} · ${PERIOD_LABEL[request.period]}`, scope: { collegeId: request.collegeId, sectionId: request.fromSectionId || request.sectionId, termId: request.termId } });
   broadcastNotify(Repository.currentDemoSessionId());
+  bumpTeamWork(Repository.currentDemoSessionId(), request.collegeId, request.termId);
   await pushTo(["committee"], request, sectionRequestMessage("sent", { id: request.id, courseName: request.courseName || "", count, period: PERIOD_LABEL[request.period] }));
   res.status(201).json({ ok: true, id: request.id, students: students.length, count });
 });
@@ -361,11 +370,13 @@ async function guarded(req: AuthenticatedRequest, res: Response, party: keyof Se
 }
 
 async function finish(req: AuthenticatedRequest, res: Response, id: string, step: (current: SectionRequest) => Transition, audit: string) {
-  const out = await commit(id, step);
-  if (!out.ok) { const why = out.result || { status: 409, error: "تعذّر التنفيذ." }; fail(res, why.status, why.error); return null; }
+  const out = await commit(id, step, expectedRev(req.body?.rev));
+  if (!out.ok) { const why = out.result || { status: 409, error: "تعذّر التنفيذ." }; fail(res, why.status, why.error, why.code); return null; }
   res.locals.auditEntity = "طلب شعبة";
   res.locals.auditChanges = audit;
+  noteTrail(res, { target: `طلب شعبة · ${out.next.courseName || ""}`, scope: { collegeId: out.next.collegeId, sectionId: out.next.sectionId, termId: out.next.termId } });
   broadcastNotify(Repository.currentDemoSessionId());
+  bumpTeamWork(Repository.currentDemoSessionId(), out.next.collegeId, out.next.termId);
   return out.next;
 }
 
@@ -384,7 +395,7 @@ async function rebalanceCapacities(request: SectionRequest, removed: SectionRequ
     if (!Object.keys(plan.writes).length) return { refuse: null };
     const bySection: Record<string, number> = { ...(config.capacityBySection || {}) };
     for (const [key, value] of Object.entries(plan.writes)) { if (value === null) delete bySection[key]; else bySection[key] = value; }
-    return { next: { ...config, capacityBySection: bySection }, result: null };
+    return { next: { ...config, capacityBySection: bySection, rev: Number(current?.rev || 0) + 1 }, result: null };
   });
   /* وتُحفظ في الطلب: نصيبُ كل شعبة، وما كتبه الطلب منها (ليُعرف غداً أهو سعتُه أم سعةُ المسؤول). */
   const byCode = new Map(planned.map(row => [String(row.sectionCode), row]));
@@ -411,7 +422,7 @@ app.post("/api/section-requests/:id/link", requireRegistrationSheet, async (req:
     `طلب شعبة «${request.courseName}»: رُبطت الشعبة ${links.map(link => link.sectionCode).join("، ")}`);
   if (!next) return;
   const balanced = await rebalanceCapacities(next).catch(error => { console.warn("[section-requests] capacity:", error instanceof Error ? error.message : error); return next; });
-  res.json({ ok: true, sections: balanced.sections, capacity: capacityShare(balanced.count, (balanced.sections || []).length) });
+  res.json({ ok: true, rev: Number(balanced.rev || 0), sections: balanced.sections, capacity: capacityShare(balanced.count, (balanced.sections || []).length) });
 });
 
 app.post("/api/section-requests/:id/unlink", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
@@ -422,7 +433,7 @@ app.post("/api/section-requests/:id/unlink", requireRegistrationSheet, async (re
   const next = await finish(req, res, request.id, current => unlinkSection(current, code, byLine(req), new Date().toISOString()), `طلب شعبة «${request.courseName}»: فُكّت الشعبة ${code}`);
   if (!next) return;
   const balanced = await rebalanceCapacities(next, gone).catch(error => { console.warn("[section-requests] capacity:", error instanceof Error ? error.message : error); return next; });
-  res.json({ ok: true, sections: balanced.sections });
+  res.json({ ok: true, rev: Number(balanced.rev || 0), sections: balanced.sections });
 });
 
 app.post("/api/section-requests/:id/decline", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
@@ -431,14 +442,14 @@ app.post("/api/section-requests/:id/decline", requireRegistrationSheet, async (r
   const next = await finish(req, res, request.id, current => declineRequest(current, String(req.body?.note || ""), byLine(req), new Date().toISOString()), `طلب شعبة «${request.courseName}»: اعتذرت اللجنة`);
   if (!next) return;
   await pushTo(["advising"], next, sectionRequestMessage("declined", { id: next.id, courseName: next.courseName || "" }));
-  res.json({ ok: true });
+  res.json({ ok: true, rev: Number(next.rev || 0) });
 });
 
 app.post("/api/section-requests/:id/withdraw", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const request = await guarded(req, res, "advising");
   if (!request) return;
   const next = await finish(req, res, request.id, current => withdrawRequest(current, byLine(req), new Date().toISOString()), `طلب شعبة «${request.courseName}»: سُحب`);
-  if (next) res.json({ ok: true });
+  if (next) res.json({ ok: true, rev: Number(next.rev || 0) });
 });
 
 /** الاعتماد (اللجنة أو التسجيل): من في القائمة معتمَد، ومن سواه «لم يُعتمد». */
@@ -457,7 +468,7 @@ app.post("/api/section-requests/:id/approve", requireRegistrationSheet, async (r
   const counts = countsOf(next);
   await pushTo(["advising"], next, sectionRequestMessage("approved-advising", { id: next.id, courseName: next.courseName || "", approved: counts.approved, listed: counts.listed }));
   await pushTo(["registration"], next, sectionRequestMessage("approved-registration", { id: next.id, courseName: next.courseName || "", approved: counts.approved }));
-  res.json({ ok: true, counts });
+  res.json({ ok: true, rev: Number(next.rev || 0), counts });
 });
 
 /** التسجيل يعلّم من سُجّل (أو يتراجع عن تعليمٍ خاطئ). */
@@ -473,7 +484,7 @@ app.post("/api/section-requests/:id/register", requireRegistrationSheet, async (
   if (!next) return;
   const counts = countsOf(next);
   if (registered) await pushTo(["advising"], next, sectionRequestMessage("registered", { id: next.id, courseName: next.courseName || "", approved: counts.approved, registered: counts.registered }));
-  res.json({ ok: true, counts });
+  res.json({ ok: true, rev: Number(next.rev || 0), counts });
 });
 }
 
