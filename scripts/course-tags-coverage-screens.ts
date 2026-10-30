@@ -77,10 +77,15 @@ async function run(browser: any, width: number) {
     await page.keyboard.press("Escape").catch(() => undefined);
     if (!(await clickText(page, "أدوات البيانات"))) { await clickText(page, "المزيد"); await sleep(300); await clickText(page, "أدوات البيانات"); }
     await sleep(1200);
-    await page.locator("button[data-guide-target='schedule.publish']:visible").first().click({ timeout: 60000 });
+    await page.locator("[role=dialog] button, .transfer-tabs button").filter({ hasText: /^نشر$/ }).first().click({ timeout: 60000 }).catch(() => clickText(page, "نشر"));
+    await sleep(1500);
+    await page.locator("button[data-guide-target='schedule.publish']:visible").first().click({ timeout: 180000 });
     await sleep(1200);
     await page.locator("[data-guide-target='schedule.publish.requests']").first().click({ timeout: 60000 });
     await sleep(1200);
+    await page.locator("button", { hasText: "التالي" }).first().click({ timeout: 30000 }).catch(() => undefined);
+    await sleep(1500);
+    if (process.env.SCREENS_DEBUG) await page.screenshot({ path: process.env.SCREENS_DEBUG });
     const details = page.locator("#publish-offering");
     await details.waitFor({ timeout: 30000 });
     await details.evaluate((el: any) => { el.open = true; });
@@ -117,7 +122,8 @@ async function run(browser: any, width: number) {
   /* ── منتدى «عالج»: الوسوم في بطاقة الأسبوع العائمة (خليةُ الأسبوع أضيقُ من أن تحملها) ── */
   if (want("peek") && width >= 600) await step(`[${width}] البطاقة العائمة`, async () => {
     await openBoard(page);
-    const card = page.locator(".week-card, [data-week-card]").first();
+    await clickText(page, "أسبوع"); await sleep(2500);
+    const card = page.locator(".week-event").nth(2);
     await card.hover({ timeout: 20000 });
     await page.locator(".week-peek").waitFor({ timeout: 10000 });
     await sleep(500);
