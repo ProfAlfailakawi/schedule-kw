@@ -2279,6 +2279,15 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 .memory-list article>span svg,.safety-node svg{width:15px;height:15px}
 .memory-list strong,.safety-list strong{font-size:var(--t-sm);font-weight:600}
 .memory-list small,.safety-list small{display:block;margin-top:2px;color:var(--muted-2);font-size:var(--t-xs);line-height:1.6}
+/* نقطةُ الأمان تقول ما هي قبل اسمها، وماذا يفعل استرجاعُها في سطرٍ واحد. */
+.safety-point{min-inline-size:0;display:grid;gap:2px}
+.safety-point strong{overflow-wrap:break-word}
+.safety-kind{justify-self:start;display:inline-flex;align-items:center;padding:1px 8px;border-radius:var(--r-full);background:var(--surface-2);color:var(--ink-2);font-size:var(--t-xs);font-weight:700}
+.safety-list article[data-kind="import"] .safety-node,.safety-list article[data-kind="publish"] .safety-node{background:var(--accent-soft);color:var(--accent)}
+.safety-list article[data-kind="undo"] .safety-node,.safety-list article[data-kind="restore"] .safety-node{background:var(--warning-soft);color:var(--warning)}
+.safety-list article[data-kind="delete"] .safety-node{background:var(--danger-soft);color:var(--danger)}
+.safety-list .safety-impact{margin:4px 0 0;color:var(--ink-2);font-size:var(--t-xs);font-weight:600;line-height:1.6}
+.safety-list .safety-impact[data-same]{color:var(--muted-2);font-weight:500}
 
 .minutes-paper{box-shadow:var(--shadow-xs)}
 .minutes-paper>header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3);padding-bottom:var(--s4);border-bottom:1px solid var(--line)}

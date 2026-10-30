@@ -378,8 +378,8 @@ async function withManagedLoad<T extends AdInstructor>(people: T[], loadTermId =
 function scopedCachedReference<T>(key: string, loader: () => Promise<T>): Promise<T> {
   return demoSandboxContext.getStore() ? loader() : cachedReference(key, loader);
 }
-function scopedCachedSchedules<T>(key: string, loader: () => Promise<T>): Promise<T> {
-  return demoSandboxContext.getStore() ? loader() : cachedSchedules(key, loader);
+function scopedCachedSchedules<T>(key: string, loader: () => Promise<T>, fresh = false): Promise<T> {
+  return demoSandboxContext.getStore() || fresh ? loader() : cachedSchedules(key, loader);
 }
 
 /**
@@ -3780,6 +3780,7 @@ export const Repository = {
         });
         return { keeper, schedules: scheduleSnap.size, links: linkSnap.size };
       });
+      invalidateReference(REFERENCE_KEYS.courses); invalidateSchedules();
       invalidateScheduleRelationCache();
       await markRegistrationRunsStale();
       return result;
@@ -4069,7 +4070,15 @@ export const Repository = {
   // Scoped reads are the normal path for the operational workspace.  The legacy
   // getSchedules() method is retained for maintenance/export jobs, but interactive
   // screens should not pull ten years of timetable rows just to display one term.
-  getSchedulesByScope: async (filters: { collegeId?: number; sectionId?: number; termId?: number } = {}): Promise<FSchedule[]> => {
+  /**
+   * `fresh`: read the stored rows now, past the in-process cache, and leave the
+   * cache as it was. For every read that decides what a write erases or what a
+   * safety-net snapshot holds (captureScopeVersion, scopeOverwriteRefusal,
+   * replaceScheduleScope): those must see the timetable as it IS, never as a
+   * screen saw it a moment ago.
+   */
+  getSchedulesByScope: async (filters: { collegeId?: number; sectionId?: number; termId?: number } = {}, options: { fresh?: boolean } = {}): Promise<FSchedule[]> => {
+    const fresh = Boolean(options.fresh);
     const collegeId = Number(filters.collegeId || 0);
     const sectionId = Number(filters.sectionId || 0);
     const termId = Number(filters.termId || 0);
@@ -4087,7 +4096,7 @@ export const Repository = {
      */
     if (sectionId && collegeId && firestoreDb && !demoSandboxContext.getStore()) {
       const [rows, sectionDoc] = await Promise.all([
-        Repository.getSchedulesByScope({ sectionId, termId }),
+        Repository.getSchedulesByScope({ sectionId, termId }, { fresh }),
         firestoreDb.collection("sections").doc(`section_${sectionId}`).get(),
       ]);
       if (!sectionDoc.exists) return [];
@@ -4143,7 +4152,7 @@ export const Repository = {
       return hydrateSchedules(db.schedules, db.courses, db.sections)
         .filter(row => (!collegeId || row.AdCollegeId === collegeId) && (!sectionId || row.AdSectionId === sectionId) && (!termId || row.AdTermId === termId))
         .sort((a,b)=>a.id-b.id);
-    });
+    }, fresh);
   },
 
   getScheduleConflictCandidates: async (row: Partial<FSchedule>): Promise<FSchedule[]> => {
@@ -4333,6 +4342,7 @@ export const Repository = {
         tx.set(firestoreDb!.collection("schedules").doc(`schedule_${nextId}`), newSched);
         tx.set(ref, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
       });
+      invalidateSchedules(); // بعد الالتزام أيضاً: قراءةٌ وقعت أثناء الكتابة لا تبقى «أحدث» ما في الذاكرة.
       await markRegistrationRunsStale(Number(schedule.AdTermId));
       return newSched;
     }
@@ -4385,6 +4395,7 @@ export const Repository = {
         transaction.set(ledgerRef, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
         return updated;
       });
+      invalidateSchedules();
       await markRegistrationRunsStale(Number(updated.AdTermId));
       return updated;
     }
@@ -4451,6 +4462,7 @@ export const Repository = {
           { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 }));
         return updated;
       });
+      invalidateSchedules();
       await Promise.all([...new Set(updated.map(row => Number(row.AdTermId)))].map(id => markRegistrationRunsStale(id)));
       return updated;
     }
@@ -4573,6 +4585,7 @@ export const Repository = {
         tx.delete(ref);
         tx.set(ledgerRef, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
       });
+      invalidateSchedules();
       await markRegistrationRunsStale(termId);
       return;
     }
@@ -4590,8 +4603,8 @@ export const Repository = {
       // FSchedule has no Section/College FK in legacy SQL. Resolve those values through
       // the current Course -> Section relationship before filtering/copying.
       const [source, target] = await Promise.all([
-        Repository.getSchedulesByScope({ collegeId, sectionId, termId: fromTermId }),
-        Repository.getSchedulesByScope({ collegeId, sectionId, termId: toTermId })
+        Repository.getSchedulesByScope({ collegeId, sectionId, termId: fromTermId }, { fresh: true }),
+        Repository.getSchedulesByScope({ collegeId, sectionId, termId: toTermId }, { fresh: true })
       ]);
       if (target.length) return -1;
       if (source.length === 0) return 0;
@@ -4614,6 +4627,7 @@ export const Repository = {
       });
       batch.set(ledgerRef, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
       });
+      invalidateSchedules();
       await markRegistrationRunsStale(toTermId);
       return source.length;
     }
@@ -8112,7 +8126,15 @@ export const Repository = {
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     const normalizedInput = rows.map(row => ({ ...row, AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId }));
     if (firestoreDb && !demoSandboxContext.getStore()) {
-      const current = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
+      /* ── ما يُحذف يُقرأ من المخزَّن، لا من الذاكرة ─────────────────────────
+         This read used to go through the row cache right after clearing it, so
+         it filled the cache again with the rows it was about to delete — and
+         nothing cleared it after the commit. For five minutes every read on this
+         instance saw the timetable from BEFORE the publish or the undo: the next
+         safety-net snapshot captured that old state under a new name, and the
+         «N changes will be erased» sheet counted against it. Read fresh here,
+         and clear once more after the write (below). */
+      const current = await Repository.getSchedulesByScope({ collegeId, sectionId, termId }, { fresh: true });
       /* شرطٌ يُفحص داخل القفل نفسه، على ما قُرئ للحذف: مسحٌ أو إرجاعٌ قرّر على عددٍ بعينه لا يكتب فوق ما تغيّر. */
       if (options.expectCurrentCount !== undefined && current.length !== options.expectCurrentCount) throw new ScopeChangedError(current.length);
       const currentIds = new Set(current.map(row=>row.id));
@@ -8132,6 +8154,7 @@ export const Repository = {
       normalized.forEach(row=>batch.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`),row));
       batch.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
       });
+      invalidateSchedules();
       await markRegistrationRunsStale(termId);
       return normalized;
     }
@@ -8149,6 +8172,7 @@ export const Repository = {
     db.schedules=db.schedules.filter(row=>!idsToRemove.has(row.id));
     db.schedules.push(...normalized.map(row=>({...row})));
     saveDatabase();
+    invalidateSchedules();
     await markRegistrationRunsStale(termId);
     return normalized;
     });
@@ -8400,6 +8424,7 @@ export const Repository = {
     if(firestoreDb&&!demoSandboxContext.getStore()){
       const rows=await Repository.getSchedules();const terms=new Set(rows.filter(row=>patches.some(p=>p.id===row.id)).map(row=>Number(row.AdTermId)));
       for(let i=0;i<patches.length;i+=400){const batch=firestoreDb.batch();patches.slice(i,i+400).forEach(p=>batch.set(firestoreDb!.collection("schedules").doc(`schedule_${p.id}`),p.fields,{merge:true}));await batch.commit();}
+      invalidateSchedules();
       await Promise.all([...terms].map(id=>markRegistrationRunsStale(id)));return;
     }
     const byId=new Map(patches.map(p=>[p.id,p.fields]));const terms=new Set(db.schedules.filter(row=>byId.has(row.id)).map(row=>Number(row.AdTermId)));db.schedules=db.schedules.map(row=>byId.has(row.id)?{...row,...byId.get(row.id)}:row);saveDatabase();await Promise.all([...terms].map(id=>markRegistrationRunsStale(id)));

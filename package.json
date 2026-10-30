@@ -133,6 +133,7 @@
     "test:data-gaps": "tsx tests/data-gaps-nonblocking-audit.ts && tsx tests/readiness-inline-fix-audit.ts",
     "test:sound-schedule": "tsx tests/sound-schedule-zero-blockers-audit.ts",
     "test:blockers-stream": "tsx tests/blockers-stream-audit.ts",
+    "test:safety-net-restore": "tsx tests/safety-net-restore-audit.ts",
     "test:linked": "tsx tests/linked-requests-audit.ts",
     "test:public-syntax": "tsx tests/public-pages-syntax-audit.ts",
     "test:inbox-live": "tsx tests/inbox-live-audit.ts",

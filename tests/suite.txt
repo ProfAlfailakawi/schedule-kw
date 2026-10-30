@@ -39,6 +39,7 @@ test:blockers
 test:blocker-oracle
 test:one-blocker-number
 test:blockers-stream
+test:safety-net-restore
 test:changes-baseline
 test:notifications
 test:bell-yield

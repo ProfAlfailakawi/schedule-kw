@@ -15,22 +15,26 @@ export const SCOPE_CHANGED_CODE = "scope-changed-since-base";
 export const withOverwriteNewer = (confirm: string) => `${confirm}, overwrite-newer`;
 
 /** Reads the refusal from whichever error shape the caller's fetch helper throws. */
-export function scopeChangedRefusal(error: any): { message: string; changes: string[] } | null {
+export function scopeChangedRefusal(error: any): { message: string; changes: string[]; total: number } | null {
   const data = error?.data || error;
   if (data?.code !== SCOPE_CHANGED_CODE) return null;
   const changes = Array.isArray(data?.changes) ? data.changes.map(String) : [];
-  return { message: String(data?.error || error?.message || "تغيّر الجدول بعد هذه النسخة."), changes };
+  /* The server sends at most forty lines; `total` is the whole count. An older
+     server sends no total, and then the lines are all there is to count. */
+  const total = Math.max(changes.length, Number.isFinite(Number(data?.total)) ? Number(data.total) : 0);
+  return { message: String(data?.error || error?.message || "تغيّر الجدول بعد هذه النسخة."), changes, total };
 }
 
 /** The arguments for `visualConfirm`, so every screen shows the same dialog. */
-export function overwriteConfirmOptions(refusal: { message: string; changes: string[] }) {
+export function overwriteConfirmOptions(refusal: { message: string; changes: string[]; total?: number }) {
   const shown = refusal.changes.slice(0, 12);
-  const more = refusal.changes.length - shown.length;
+  const total = Math.max(refusal.changes.length, Number(refusal.total) || 0);
+  const more = total - shown.length;
   return {
     title: "تغيّر الجدول بعد هذه النسخة",
     message: [refusal.message, ...shown.map(line => `• ${line}`), more > 0 ? `• و${more} غيرها` : ""].filter(Boolean).join("\n"),
     /* Visual body; `message` stays the accessible/plain text. */
-    body: React.createElement(ScopeOverwriteBody, { changes: refusal.changes }),
+    body: React.createElement(ScopeOverwriteBody, { changes: refusal.changes, total }),
     confirmLabel: "امحُ هذه التغييرات وتابع",
     tone: "danger" as const,
     /* Keeping the newer schedule is the safe choice, so «إلغاء» leads visually. */

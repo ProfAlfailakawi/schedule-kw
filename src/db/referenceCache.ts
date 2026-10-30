@@ -123,7 +123,17 @@ const scheduleStore = new Map<string, { value: unknown; expiresAt: number; loadi
 const scheduleChangeListeners = new Set<() => void>();
 export function onSchedulesInvalidated(listener: () => void) { scheduleChangeListeners.add(listener); }
 
+/* ── قراءةٌ بدأت قبل الكتابة لا تُحفظ بعدها ─────────────────────────────────
+   Every clear bumps this counter. A read that was already in flight when the
+   schedule was written finishes later carrying the rows from BEFORE the write;
+   without the counter it would store them as the fresh answer for five minutes
+   — exactly how a safety-net snapshot came to hold the state one step behind
+   the one it claimed to protect. Such a read still answers its own caller, but
+   it is never remembered. */
+let scheduleGeneration = 0;
+
 export function invalidateSchedules() {
+  scheduleGeneration += 1;
   scheduleStore.clear();
   for (const listener of scheduleChangeListeners) {
     try { listener(); } catch { /* a broken listener must never break a write */ }
@@ -139,6 +149,7 @@ export function invalidateSchedules() {
  * through the beacon and never stop.
  */
 export function clearScheduleCacheQuietly() {
+  scheduleGeneration += 1;
   scheduleStore.clear();
 }
 
@@ -150,9 +161,13 @@ export async function cachedSchedules<T>(key: string, load: () => Promise<T>): P
     if (hit.loading) return hit.loading as Promise<T>;
     return hit.value as T;
   }
+  const generation = scheduleGeneration;
   const loading = load().then(
-    value => { scheduleStore.set(key, { value, expiresAt: Date.now() + SCHEDULE_TTL_MS }); return value; },
-    error => { scheduleStore.delete(key); throw error; }
+    value => {
+      if (generation === scheduleGeneration) scheduleStore.set(key, { value, expiresAt: Date.now() + SCHEDULE_TTL_MS });
+      return value;
+    },
+    error => { if (generation === scheduleGeneration) scheduleStore.delete(key); throw error; }
   );
   scheduleStore.set(key, { value: hit?.value, expiresAt: now + SCHEDULE_TTL_MS, loading });
   return loading;
