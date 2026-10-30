@@ -126,6 +126,9 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
  const termScope=useSharedScope(scope=>setTermRequest(scope.termId||0));
  const openTerm=(termId:number)=>{if(!termId)return;termScope.pick({termId});setTermRequest(termId);};
  useEffect(()=>{let alive=true;
+  /* فصلٌ آخر: لا يبقى من قراءات الفصل السابق شيء — لا اسمُه ولا تعارضاته ولا
+     جاهزيته — فلا يُنسب رقمٌ إلى غير فصله أيّاً كان الجوابُ الذي يصل أولاً. */
+  setData(null);setOverview(null);setLiving(null);setError(null);
   const termQuery=termRequest?`termId=${termRequest}`:"",homeQuery=termQuery?`home=1&${termQuery}`:"home=1";
   const optional=async(url:string)=>{
    try{const response=await fetch(url);if(!response.ok)return null;return await response.json();}
@@ -354,7 +357,9 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
     </div>
    </section>}
 
-   {canManageSchedule&&!termEmpty?<TermForecast scopes={scopes} isAdmin={power} fallbackTermId={home?.termId||data.latestTermId||0} onImport={()=>onNavigate?.("schedules")}/>:null}
+   {/* الإنذار المبكر مستقلٌّ عن فراغ الجدول: فصلُ تخطيطٍ استُورد طلبُه ولم تُبنَ شعبُه
+       هو بالضبط حيث يقول «ينقص كذا شعبة». */}
+   {canManageSchedule?<TermForecast scopes={scopes} isAdmin={power} fallbackTermId={home?.termId||data.latestTermId||0} onImport={()=>onNavigate?.("schedules")}/>:null}
 
    {!termEmpty&&healthLines.length?<section className={`deck-chart dashboard-health-ribbon${healthAwaiting?" is-awaiting":""}`} aria-labelledby="dashboard-health-title" aria-busy={healthAwaiting||undefined}>
     <header><CheckCircle2 aria-hidden="true"/><span id="dashboard-health-title">صحة الجدول</span></header>

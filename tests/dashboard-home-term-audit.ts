@@ -5,7 +5,7 @@
  * العميدُ (لا يرى إلا المعتمد) بيتاً من صفر: أسبوعٌ فارغ و«الجدول سليم».
  *
  *  H1–H8  القاعدة وحدها (src/utils/homeTerm.ts) على فصولٍ مصنوعة.
- *  S1–S8  الأسلاك: الخادم واللوحة والقراءتان الثقيلتان والإنذار المبكر.
+ *  S1–S10 الأسلاك: الخادم واللوحة والقراءتان الثقيلتان والإنذار المبكر.
  *  L1–L6  حيّاً على الخادم التجريبي: فصلٌ صيفيٌّ جديد قيد الإعداد، والعميد.
  */
 import fs from "node:fs";
@@ -72,6 +72,12 @@ const counts = (map: Record<number, number>) => (id: number) => map[id] || 0;
   check(/termScope\.pick\(\{termId\}\)/.test(ui) && /readSharedScope\(\)\.termId/.test(ui), "S6 الاختيارُ الصريح من النطاق المشترك ويُحفظ فيه");
   check(/fallbackTermId=\{home\?\.termId/.test(ui) && /fallbackTermId \}\)/.test(read("src/components/TermForecast.tsx")),
     "S7 الإنذار المبكر بلا فصلٍ مختار يقرأ فصلَ اللوحة");
+  const effect = ui.slice(ui.indexOf("useEffect(()=>{let alive=true;"), ui.indexOf("},[canManageSchedule,termRequest]);"));
+  check(effect.length > 200 && effect.indexOf("setData(null);setOverview(null);setLiving(null);") >= 0
+    && effect.indexOf("setData(null);setOverview(null);setLiving(null);") < effect.indexOf("fetch(`/api/dashboard"),
+    "S9 تبديل الفصل يُفرغ قراءات الفصل السابق قبل أن تنطلق الثلاث، فلا تُعرض تعارضاتُ فصلٍ وجاهزيتُه بجانب اسم فصلٍ آخر");
+  check(/\{canManageSchedule\?<TermForecast /.test(ui) && !/termEmpty[^\n]{0,40}<TermForecast/.test(ui),
+    "S10 الإنذار المبكر يبقى في فصلٍ بلا مواعيد بعد (طلبٌ مستورد بلا شعب)");
   check(/\? Number\(currentTermId\(sortedTerms as any\) \|\| sortedTerms\[0\]\?\.AdTermId \|\| 0\)/.test(read("src/components/Reports.tsx")),
     "S8 التقارير (ولوحة القرار فيها): فصلٌ محفوظٌ زال يرجع إلى الجاري لا إلى أحدث فصل");
 }
@@ -92,6 +98,27 @@ try {
   const created = await call("/api/terms", { method: "POST", body: JSON.stringify({ AdTermName: "الفصل الصيفي 2026/2027" }) });
   const summerId = Number(created.json?.AdTermId || 0);
   check(created.status === 201 && summerId > 0, "L0 فصلٌ صيفيٌّ جديد قيد الإعداد", created);
+  /* فصلُ تخطيطٍ استُورد طلبُه ولم تُبنَ شعبُه: البيتُ فارغ، والإنذارُ يقول ما ينقص. */
+  {
+    const sections: any[] = (await call("/api/sections")).json || [];
+    let picked: { collegeId: number; sectionId: number; course: any } | null = null;
+    for (const section of sections.slice(0, 12)) {
+      const courses: any[] = (await call(`/api/courses?sectionId=${section.AdSectionId}`)).json || [];
+      const course = courses.find(item => Number(item.MaxStudent) > 0);
+      if (course) { picked = { collegeId: Number(section.AdCollegeId), sectionId: Number(section.AdSectionId), course }; break; }
+    }
+    check(Boolean(picked), "L0b قسمٌ بمقررٍ معروف السعة", sections.length);
+    if (picked) {
+      const demand = Number(picked.course.MaxStudent) * 2;
+      const saved = await call("/api/registration-stats", { method: "PUT", body: JSON.stringify({ collegeId: picked.collegeId, sectionId: picked.sectionId, termId: summerId,
+        remaining: { [picked.course.AdCourseId]: demand }, remainingSource: { fileName: "كشف المتبقي — اختبار.pdf", column: "unregistered" } }) });
+      const forecast = (await call(`/api/forecast/term?collegeId=${picked.collegeId}&sectionId=${picked.sectionId}&termId=${summerId}`)).json;
+      const home = (await call(`/api/dashboard?termId=${summerId}`)).json;
+      check(saved.status === 200 && home?.home?.empty === true && forecast?.status === "ready" && forecast.termId === summerId
+        && [...(forecast.highlights || []), ...(forecast.more || [])].some((risk: any) => risk.kind === "shortage"),
+        "L0c فصلٌ بلا مواعيد وطلبٌ مستورد: اللوحة فارغة، والإنذار المبكر يعمل ويسمّي الشعب الناقصة (فلا يُخفى معها)", { saved: saved.status, empty: home?.home?.empty, forecast: forecast?.status, highlights: forecast?.highlights });
+    }
+  }
   const admin = (await call("/api/dashboard")).json;
   check(admin?.home && admin.latestTermId !== summerId && admin.workspace.activeSchedules > 0, "L1 الإدارة: البيت على الجاري لا على الصيفي الفارغ", admin?.home);
   const role = await call("/api/demo/role", { method: "POST", body: JSON.stringify({ role: "dean" }) });
