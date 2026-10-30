@@ -22,6 +22,7 @@ import { sortTermsNewest } from "../utils/termSequence";
 import { scheduleClockForDisplay } from "../utils/scheduleTime";
 import { roomIdentityKey } from "../utils/locationRegistry";
 import VisitingBadge from "./VisitingBadge";
+import CourseTags from "./CourseTags";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 
 type DayKey = "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday";
@@ -620,7 +621,7 @@ export default function ScheduleExperienceLayer({
                     <span>المشكلة التي تستحق القرار</span>
                     <h3>
                       {e.decision.issue
-                        ? `${e.decision.issue.courseName} · شعبة ${e.decision.issue.sectionCode}`
+                        ? <>{e.decision.issue.courseName}<CourseTags courseId={rows.find((r) => r.id === e.decision.issue.rowId)?.AdCourseId} />{` · شعبة ${e.decision.issue.sectionCode}`}</>
                         : "الجدول مستقر"}
                     </h3>
                     <p>

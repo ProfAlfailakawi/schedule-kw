@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Lock, LockOpen } from "lucide-react";
 import { latestScopeGuard, reachChip, type CourseReach, type ReachChainNode, type ReachSheetKind } from "../utils/courseReach";
 import { AR, countOf } from "../utils/arabicCount";
+import CourseTags from "./CourseTags";
 import "../styles/40-course-reach.css";
 
 export type { ReachSheetKind };
@@ -127,7 +128,7 @@ export function ReachReviewNotes({ rows, termId, courseLabel }: {
       {[...locked.values()].map(entry => {
         const label = courseLabel(entry.courseId);
         return <li key={entry.courseId}>
-          <header><b><bdi>{label.code}</bdi> {label.name}</b><ReachChain reach={entry.reach} /></header>
+          <header><b><bdi>{label.code}</bdi> {label.name}<CourseTags courseId={entry.courseId} /></b><ReachChain reach={entry.reach} /></header>
           <small>{entry.sections.length ? `شعبة ${entry.sections.join("، ")} · ` : ""}{entry.reach.reason}</small>
         </li>;
       })}

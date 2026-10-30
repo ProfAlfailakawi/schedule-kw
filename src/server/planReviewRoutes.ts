@@ -14,7 +14,8 @@
  *   · كلُّ تعديلٍ في سجلّ التدقيق.
  */
 import { ensureSectionFaculty } from "./sectionFaculty";
-import { setCourseFactSource, setPlanBadgeSource, setServiceSource } from "./planBadgeShared";
+import { setCourseFactSource, setPlanBadgeSource, setServiceSource, setSheetMembershipSource } from "./planBadgeShared";
+import { sheetBadgeOf, sheetMembership, type Membership } from "../utils/sheetMembership";
 import { authoritativeRequirementKind, type RequirementKind } from "../utils/courseTags";
 import { createDataContextKey } from "./dataContextCache";
 import { groupDeptTracks, planMatchKey, trackLabels, type DeptTrack } from "../utils/collegeTrack";
@@ -29,7 +30,7 @@ import type { Express, Request, RequestHandler, Response } from "express";
 import { DuplicateResourceError, RuleDraftConflict, Repository } from "../db/repository";
 import type { AdCourse, CurriculumRuleSet, ElectiveGroup } from "../types";
 import { roleDefinition } from "../utils/academicRoles";
-import { departmentFamilyKey, sectionLabels } from "../utils/sectionLabel";
+import { departmentFamily, departmentFamilyKey, sectionLabels } from "../utils/sectionLabel";
 import {
   checkRuleSet, dedupeGroups, normalizeGroup, normalizeRule, normalizeRules, withDerivedGroups, type RuleIssue,
 } from "../utils/curriculumRules";
@@ -275,60 +276,57 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
      القاعدة: في القسم الذي له صحيفتان معاً (فعّالة جديدة + سابقة جارية) يحمل المقررُ الذي في الجديدة وحدها شارتها؛
      ما في السابقة أو في الصحيفتين معاً بلا شارة. عند «انتهوا» (لا سابقة) تختفي الشارات كلها، وتعود إن جاءت صحيفةٌ أحدث (تدوير).
      مسارات التخصص المزدوج لكلٍّ ثنائيتُها. تُحسب مرةً كل بضع ثوانٍ لا لكل طلب. */
-  let badgeCache: { at: number; rows: Array<{ courseId: number; label: string; collegeId: number; sectionId: number }> } | null = null;
-  /** نصُّ الشارة: سنةُ الصحيفة المرفوعة، وإلا سنةٌ في اسم صحيفةٍ أُنشئت يدوياً، وإلا اسمُها. */
-  const badgeLabel = (plan: any) => {
-    const year = Number(plan.sheetYear) || Number(/(?:19|20)\d{2}/.exec(String(plan.name || ""))?.[0]) || 0;
-    return year ? `صحيفة ${year}` : String(plan.name || "").trim().slice(0, 30) || "الصحيفة الجديدة";
+  /* الصندوقُ التجريبي له عالَمُه: ما حُفظ في طلبٍ تجريبيٍّ لا يقرؤه الحقيقيّ (بطاقةُ الأستاذ العامة تقرأ هذا الآن). */
+  const serviceKey = createDataContextKey(() => Repository.currentDemoSessionId());
+  /* عضويةُ الصحيفة (src/utils/sheetMembership.ts): مصدرٌ واحد للوسم وللتبويبين — لا يُحسب أحدهما من غير ما يُحسب منه الآخر. */
+  let membershipCache: { key: string; at: number; rows: Map<string, Membership> } | null = null;
+  /* قراءةٌ واحدة في الطريق لكل عالَم: طلباتٌ متزامنة بذاكرةٍ باردة تنتظر القراءةَ نفسها (لا قراءةً كاملة لكلٍّ منها). */
+  let membershipInflight: { key: string; value: Promise<Map<string, Membership>> } | null = null;
+  const membershipRows = async (): Promise<Map<string, Membership>> => {
+    const key = serviceKey("membership");
+    if (membershipCache && membershipCache.key === key && Date.now() - membershipCache.at < 15_000) return membershipCache.rows;
+    if (membershipInflight && membershipInflight.key === key) return membershipInflight.value;
+    const value = loadMembership(key);
+    membershipInflight = { key, value };
+    try { return await value; } finally { if (membershipInflight?.value === value) membershipInflight = null; }
   };
-  const planBadgeRows = async () => {
-    if (badgeCache && Date.now() - badgeCache.at < 15_000) return badgeCache.rows;
-    const [sections, plansOf, allLinks, courses] = await Promise.all([Repository.getSections() as Promise<any[]>, plansBySection(), Repository.getAllCurriculumPlanCourses() as Promise<any[]>, Repository.getCourses() as Promise<AdCourse[]>]);
-    const catalog = new Map(courses.map(course => [Number(course.AdCourseId), course]));
+  const loadMembership = async (key: string) => {
+    const [sections, plansOf, allLinks, courses, ruleSets] = await Promise.all([Repository.getSections() as Promise<any[]>, plansBySection(), Repository.getAllCurriculumPlanCourses() as Promise<any[]>, Repository.getCourses() as Promise<AdCourse[]>, Repository.listRuleSets()]);
+    const sectionById = new Map(sections.map(section => [Number(section.AdSectionId), section]));
     const sectionCodes = new Map(sections.map(section => [Number(section.AdSectionId), referenceCodeKey(section.AdSectionCode).padStart(2, "0")]));
     const newTechnologyCodes = new Set(TECHNOLOGY_EDUCATION_CURRICULA.find(reference => reference.id === "new")?.groups.flatMap(group => group.courses.map(course => course.code)) || []);
-    const linksOf = new Map<number, any[]>();
-    for (const link of allLinks) { const sid = Number(link.AdSectionId); const list = linksOf.get(sid); if (list) list.push(link); else linksOf.set(sid, [link]); }
-    const rows: Array<{ courseId: number; label: string; collegeId: number; sectionId: number }> = [];
-    for (const section of sections) {
-      const sid = Number(section.AdSectionId), cid = Number(section.AdCollegeId);
-      const plans = (plansOf.get(sid) || []).filter(plan => !plan.virtual && plan.status !== "archived");
-      if (plans.length < 2) continue;
-      const links = linksOf.get(sid) || [];
-      const byTrack = new Map<string, any[]>();
-      for (const plan of plans) byTrack.set(String(plan.track || ""), [...(byTrack.get(String(plan.track || "")) || []), plan]);
-      for (const group of byTrack.values()) {
-        const fresh = group.find(plan => plan.status === "active"), previous = group.filter(plan => plan.status === "transition");
-        if (!fresh || !previous.length) continue;
-        const inPrevious = new Set(links.filter(link => previous.some(plan => plan.id === link.planId)).map(link => Number(link.AdCourseId)));
-        const label = badgeLabel(fresh);
-        for (const link of links) {
-          const courseId = Number(link.AdCourseId);
-          if (link.planId !== fresh.id || inPrevious.has(courseId)) continue;
-          /* The admin catalog can contain a stale or mistaken membership link.
-             For Technology Education, only the courses printed in the current
-             2026 reference sheet may carry its badge; this excludes old-only
-             courses such as «أسس التصوير الضوئي» even if an old link remains. */
-          const sectionNameKey = arabicMatchKey(section.AdSectionName).replace(/^قسم\s+/, "");
-          if (isTechnologyEducation(section.AdSectionName) || sectionNameKey.includes(arabicMatchKey("تكنولوجيا التعليم"))) {
-            const course = catalog.get(courseId);
-            if (!course) continue;
-            const key = referenceCodeKey(course.CourseCode), owner = sectionCodes.get(Number(course.AdSectionId)) || "";
-            const canonicalCode = /^\d{1,3}$/.test(key) && /^\d{2}$/.test(owner) ? `01${owner}${key.padStart(3, "0")}` : key;
-            if (!newTechnologyCodes.has(canonicalCode)) continue;
-          }
-          rows.push({ courseId, label, collegeId: cid, sectionId: sid });
-        }
-      }
-    }
-    badgeCache = { at: Date.now(), rows };
+    const rows = sheetMembership({
+      plans: [...plansOf].flatMap(([sid, plans]) => plans.map(plan => ({ id: String(plan.id), sectionId: sid, status: plan.status, track: plan.track, virtual: plan.virtual, sheetYear: plan.sheetYear, name: plan.name }))),
+      links: allLinks.map(link => ({ planId: String(link.planId), courseId: Number(link.AdCourseId) })),
+      externals: ruleSets.map(set => ({ planId: String(set.planId), courseIds: (set.externals || []).map(Number) })),
+      courses: courses.map(course => ({ id: Number(course.AdCourseId), sectionId: Number(course.AdSectionId), collegeId: Number(course.AdCollegeId), code: String(course.CourseCode || "") })),
+      /* The admin catalog can contain a stale or mistaken membership link.
+         For Technology Education, only the courses printed in the current
+         2026 reference sheet belong to the new sheet; this excludes old-only
+         courses such as «أسس التصوير الضوئي» even if an old link remains. */
+      acceptNew: (sid, course) => {
+        const section = sectionById.get(sid);
+        const sectionNameKey = arabicMatchKey(section?.AdSectionName).replace(/^قسم\s+/, "");
+        if (!(isTechnologyEducation(section?.AdSectionName) || sectionNameKey.includes(arabicMatchKey("تكنولوجيا التعليم")))) return true;
+        const code = referenceCodeKey(course.code), owner = sectionCodes.get(Number(course.sectionId)) || "";
+        return newTechnologyCodes.has(/^\d{1,3}$/.test(code) && /^\d{2}$/.test(owner) ? `01${owner}${code.padStart(3, "0")}` : code);
+      },
+      familyOf: sid => { const section = sectionById.get(sid); return section ? departmentFamily(sections, Number(section.AdCollegeId), sid).map(member => member.sectionId) : []; },
+    });
+    membershipCache = { key, at: Date.now(), rows };
     return rows;
   };
+  setSheetMembershipSource(membershipRows);
+  /* ── شارة «صحيفة XXXX» على المقررات في كل البرنامج ──────────────────────────────────────────────────
+     القاعدة: في القسم الذي له صحيفتان معاً (فعّالة جديدة + سابقة جارية) يحمل المقررُ الذي في الجديدة وحدها شارتها؛
+     ما في السابقة أو في الصحيفتين معاً بلا شارة. عند «انتهوا» (لا سابقة) تختفي الشارات كلها، وتعود إن جاءت صحيفةٌ أحدث (تدوير).
+     مسارات التخصص المزدوج لكلٍّ ثنائيتُها. من عضوية الصحيفة الواحدة: صحيفةُ القسم نفسه هنا، ومتطلباتُ الأقسام الأخرى في courseFactRows. */
+  const planBadgeRows = async () => [...(await membershipRows()).values()]
+    .filter(row => !row.service && sheetBadgeOf(row))
+    .map(row => ({ courseId: row.courseId, label: sheetBadgeOf(row), collegeId: row.collegeId, sectionId: row.sectionId }));
   setPlanBadgeSource(planBadgeRows);
   /* مقررُ خدمة: تطلبه صحائفُ أقسامٍ أخرى جارية. يحمل شارة «متطلب لأقسام أخرى» عند قسمه المالك في كل شاشة. */
   let serviceCache: { key: string; at: number; rows: Map<number, { names: Set<string>; collegeId: number; sectionId: number }> } | null = null;
-  /* الصندوقُ التجريبي له عالَمُه: ما حُفظ في طلبٍ تجريبيٍّ لا يقرؤه الحقيقيّ (بطاقةُ الأستاذ العامة تقرأ هذا الآن). */
-  const serviceKey = createDataContextKey(() => Repository.currentDemoSessionId());
   const serviceRows = async () => {
     const key = serviceKey("service");
     if (serviceCache && serviceCache.key === key && Date.now() - serviceCache.at < 15_000) return serviceCache.rows;
@@ -366,7 +364,6 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const owner = new Map((courses as any[]).map(course => [Number(course.AdCourseId), course]));
     const setOf = new Map(ruleSets.map(set => [String(set.planId), set]));
     const sheets: Array<{ courseId: number; label: string; collegeId: number; sectionId: number }> = [];
-    const seen = new Set<string>();
     /* القاعدةُ الحاكمة أولاً (الجديدة الفعّالة قبل الانتقالية)، ثم يُقرَّر الوسم منها: «إجباري» في الجديدة يمحو «اختياري» قديماً. */
     const ownRules = new Map<number, Array<{ kind: unknown; active: boolean }>>();
     const serviceKinds = new Map<number, RequirementKind>();
@@ -383,23 +380,9 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
           ownRules.set(id, [...(ownRules.get(id) || []), { kind: rule.kind, active: plan.status === "active" }]);
         }
       }
-      const byTrack = new Map<string, any[]>();
-      for (const plan of plans) byTrack.set(String(plan.track || ""), [...(byTrack.get(String(plan.track || "")) || []), plan]);
-      for (const group of byTrack.values()) {
-        const fresh = group.find(plan => plan.status === "active"), previous = group.filter(plan => plan.status === "transition");
-        if (!fresh || !previous.length) continue;
-        const before = new Set(previous.flatMap(plan => (setOf.get(String(plan.id))?.externals || []).map(Number)));
-        const label = badgeLabel(fresh);
-        for (const id of (setOf.get(String(fresh.id))?.externals || []).map(Number)) {
-          const course = owner.get(id);
-          if (!course || before.has(id) || Number(course.AdSectionId) === sid) continue;
-          const at = `${Number(course.AdSectionId)}:${id}`;
-          if (seen.has(at)) continue;
-          seen.add(at);
-          sheets.push({ courseId: id, label, collegeId: Number(course.AdCollegeId), sectionId: Number(course.AdSectionId) });
-        }
-      }
     }
+    /* صحيفةُ مقرر الخدمة من عضوية الصحيفة الواحدة: تطلبه جديدةُ قسمٍ آخر وحدها (لا قديمةُ أحد). */
+    for (const row of (await membershipRows()).values()) if (row.service && sheetBadgeOf(row)) sheets.push({ courseId: row.courseId, label: sheetBadgeOf(row), collegeId: row.collegeId, sectionId: row.sectionId });
     const kinds = new Map<number, { kind: RequirementKind; service: boolean; collegeId: number; sectionId: number }>();
     for (const [id, rules] of ownRules) {
       const kind = authoritativeRequirementKind(rules);
@@ -418,7 +401,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   });
   app.get("/api/plan-badges", deps.requireAuth, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
-    if (req.query.fresh === "1") { badgeCache = null; serviceCache = null; factCache = null; }
+    if (req.query.fresh === "1") { membershipCache = null; serviceCache = null; factCache = null; }
     /* لكل حسابٍ نطاقُه كما في المقررات: لا شارة لمقررٍ خارج ما يراه. */
     const allowed = (row: { collegeId: number; sectionId: number }) => deps.isPowerUser(req) || deps.isScopeAllowed(req, row.collegeId, row.sectionId);
     const badges: Record<number, string> = {};

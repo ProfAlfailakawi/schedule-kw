@@ -62,7 +62,8 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
   const shared = read("src/server/planBadgeShared.ts");
   const badges = read("src/utils/planBadges.ts");
   check(/res\.json\(\{ ok: true, badges, services, kinds \}\)/.test(routes) && /for \(const row of \[\.\.\.facts\.sheets, \.\.\.await planBadgeRows\(\)\]\)/.test(routes), "S1 /api/plan-badges: الصحيفة (صحيفةُ القسم تكتب فوق صحيفة الخدمة) ونوعُ المتطلب، بنطاق الحساب");
-  check(/if \(!fresh \|\| !previous\.length\) continue;/.test(routes.slice(routes.indexOf("const courseFactRows"))) && /before\.has\(id\)/.test(routes), "S2 صحيفةُ مقرر الخدمة بقاعدة شارة الصحيفة نفسها: ما دامت الصحيفتان معاً، وما طلبته الجديدةُ وحدها");
+  /* عضويةُ الصحيفة الواحدة (src/utils/sheetMembership.ts — tests/sheet-membership-audit.ts): الوسمُ والتبويبان منها. */
+  check(/row\.service && sheetBadgeOf\(row\)/.test(routes.slice(routes.indexOf("const courseFactRows"))) && /if \(fresh && previous\.length\) out\.push/.test(read("src/utils/sheetMembership.ts")), "S2 صحيفةُ مقرر الخدمة بقاعدة شارة الصحيفة نفسها: ما دامت الصحيفتان معاً، وما طلبته الجديدةُ وحدها");
   check(/kinds\.set\(id, \{ kind: serviceKinds\.get\(id\) \|\| "college", service: true/.test(routes) && /const kind = authoritativeRequirementKind\(rules\);/.test(routes), "S3 مقرر الخدمة «متطلب كلية» (أو «جامعة» إن كتبته الصحيفة الطالبة)، وإلا نوعُه في صحيفة قسمه");
   /* مراجعة #326: القاعدةُ الحاكمة أولاً ثم الوسم — «إجباري» في الجديدة يمحو «اختياري» الانتقالية، أيّاً كان ترتيبُ القراءة. */
   check(authoritativeRequirementKind([{ kind: "elective", active: false }, { kind: "compulsory", active: true }]) === null
@@ -75,7 +76,7 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
   check(/const key = serviceKey\("facts"\);/.test(routes), "S4 ذاكرةُ الحقائق تحمل عالَمَها (الصندوق التجريبي لا يخلط بالحقيقي)");
   check(/export async function courseTagFactsFor/.test(shared) && /setCourseFactSource\(/.test(routes), "S5 بطاقةُ الأستاذ والمقترح العام يقرآن الحقائق نفسها من الجسر المشترك");
   check(/return courseTagsText\(courseTagsOf\(\{ \.\.\.courseTagFacts\(courseIds, badges\)/.test(badges) && /kinds = \(data && typeof data\.kinds === "object" && data\.kinds\) \|\| \{\};/.test(badges), "S6 قوائم الاختيار تبني نصّها من القاعدة الواحدة");
-  check(read("src/server/routes/offeringRoutes.ts").includes("const planBadges = await planBadgesFor(courses.map("), "S7 اقتراحُ المقررات المستقبلية يبقى على صحيفة القسم وحدها (الوسمُ للعرض فقط)");
+  check(/planBadgesFor\(courses\.map\(course => \(\{ courseId: course\.id, sectionId \}\)\)\)/.test(read("src/server/routes/offeringRoutes.ts")) && /newPlanIds = courses\.map\(course => course\.id\)\.filter\(cid => Boolean\(planBadges\[/.test(read("src/server/routes/offeringRoutes.ts")), "S7 اقتراحُ المقررات المستقبلية يبقى على صحيفة القسم وحدها (الوسمُ للعرض فقط)");
 
   /* بطاقة الأستاذ: الدالةُ نفسها في المتصفح. */
   const sandbox: any = { data: { planBadges: { "1:5": "صحيفة 2026" }, courseKinds: { "1:5": "college" }, serviceCourses: ["1:9"] }, esc: (v: unknown) => String(v) };

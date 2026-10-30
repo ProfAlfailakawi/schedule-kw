@@ -3,6 +3,7 @@ import { Building2, ChevronDown, CloudOff, Eye, Lightbulb, OctagonAlert, Refresh
 import type { AdSection } from "../types";
 import { useSectionGap } from "./SectionGapNote";
 import PlanTriageView from "./PlanTriageView";
+import CourseTags from "./CourseTags";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import { reconcilePlanAdjustments } from "../utils/sectionGap";
 import { loadPlanDecisions, triagePlanItems, type PlanDecision, type PlanTier } from "../utils/planTriage";
@@ -101,7 +102,7 @@ function DepartmentBoard({ collegeId, sectionId, triage, loaded, failed, onRetry
                 renderItem={(item, actions) => (
                   <li key={item.id} className="decision-board-item">
                     <div className="apb-gap-row">
-                      <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}</small></span>
+                      <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}<CourseTags courseId={item.id} /></small></span>
                       <span className="apb-gap-pill"><i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b></span>
                     </div>
                     {actions}

@@ -16,7 +16,8 @@ import { normalizeInstructorDeadline } from "../../utils/instructorRequestWindow
 import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
 import { isAdvisorRole, isReadOnlyRole } from "../../utils/academicRoles";
 import { AR, countOf } from "../../utils/arabicCount";
-import { planBadgesFor } from "../planBadgeShared";
+import { planBadgesFor, sheetSidesFor } from "../planBadgeShared";
+import { byCourseNumber } from "../../utils/sheetMembership";
 import { dayKeysOf } from "../../utils/instructorRequestItems";
 import { forgetOfferingStates } from "../offeringStates";
 import { pushHooks } from "../pushRoutes";
@@ -140,7 +141,12 @@ app.get("/api/course-offering", requirePermission(7), async (req: AuthenticatedR
   for (const set of (rules as CurriculumRuleSet[]).filter(set => Number(set.AdSectionId) === sectionId && set.status !== "review")) for (const rule of set.rules || []) if (rule?.level) levelOf.set(Number(rule.courseId), Number(rule.level));
   const scheduled = new Set((termRows as any[]).map(row => Number(row.AdCourseId)));
   const names = new Map(instructors.map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
-  const planBadges = await planBadgesFor(courses.map(course => ({ courseId: course.id, sectionId })));
+  const [planBadges, sides] = await Promise.all([
+    planBadgesFor(courses.map(course => ({ courseId: course.id, sectionId }))),
+    /* تبويبا الصحيفة من عضويتها الواحدة — المصدرُ نفسه الذي يكتب وسم «صحيفة 2026». */
+    sheetSidesFor(sectionId, courses.map(course => course.id)),
+  ]);
+  courses.sort(byCourseNumber(course => course.code, course => course.name));
   const newPlanIds = courses.map(course => course.id).filter(cid => Boolean(planBadges[`${sectionId}:${cid}`]));
   /* «لم نصل بعد» من المصدر الواحد، وتبويبا الصحيفة الجديدة والقديمة من عضويتها. */
   const reach = compactReach(await reachForScope(collegeId, sectionId, termId));
@@ -148,6 +154,7 @@ app.get("/api/course-offering", requirePermission(7), async (req: AuthenticatedR
   res.json({
     doc: doc || emptyOfferingDoc(collegeId, sectionId, termId),
     reach,
+    sides,
     courses: courses.map(course => ({ ...course, level: normalizeLevel(levelOf.get(course.id)), sections: new Set((termRows as any[]).filter(row => Number(row.AdCourseId) === course.id).map(row => String(row.SCode || row.id))).size })),
     suggestions: suggestFutureCourses({ newPlanCourseIds: newPlanIds, levelOf: cid => levelOf.get(cid) || 0, scheduledCourseIds: scheduled }),
     interest: Object.entries(interest?.byCourse || {}).map(([courseId, ids]) => ({ courseId: Number(courseId), instructors: (ids as number[]).map(i => names.get(Number(i)) || `#${i}`) })),

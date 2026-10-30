@@ -18,6 +18,8 @@ export interface InstructorCourseSiteLoad {
 
 export interface InstructorCourseLocationLoad {
   courseName: string;
+  /** سجلّاتُ المقرر نفسه (بالرمز) — لوسومه على الشاشة. */
+  courseIds: number[];
   sites: InstructorCourseSiteLoad[];
 }
 
@@ -44,7 +46,7 @@ export function instructorCourseLoad(
     instructorId: number; instructorName: string;
     subjects: Map<string, string>; sections: Set<string>;
     sites: Map<number, { siteName: string; subjects: Map<string, string>; sections: Set<string> }>;
-    courseLocations: Map<string, { courseName: string; sites: Map<number, { siteName: string; sections: Set<string> }> }>;
+    courseLocations: Map<string, { courseName: string; courseIds: Set<number>; sites: Map<number, { siteName: string; sections: Set<string> }> }>;
   }>();
   for (const row of rows) {
     const instructorId = Number(row.AdInstructorId);
@@ -69,7 +71,8 @@ export function instructorCourseLoad(
     group.sections.add(sectionKey);
     site.subjects.set(subjectKey, courseName || code);
     site.sections.add(sectionKey);
-    const courseLocation = group.courseLocations.get(subjectKey) || { courseName: courseName || code, sites: new Map() };
+    const courseLocation = group.courseLocations.get(subjectKey) || { courseName: courseName || code, courseIds: new Set<number>(), sites: new Map() };
+    if (Number(row.AdCourseId)) courseLocation.courseIds.add(Number(row.AdCourseId));
     const courseSite = courseLocation.sites.get(collegeId) || { siteName: site.siteName, sections: new Set<string>() };
     courseSite.sections.add(sectionKey);
     courseLocation.sites.set(collegeId, courseSite);
@@ -86,6 +89,7 @@ export function instructorCourseLoad(
     courses: [...group.subjects.values()].sort(byArabic),
     courseLocations: [...group.courseLocations.values()].map(course => ({
       courseName: course.courseName,
+      courseIds: [...course.courseIds],
       sites: [...course.sites.entries()].map(([collegeId, site]) => ({ collegeId, siteName: site.siteName, sectionCount: site.sections.size }))
         .sort((a, b) => byArabic(a.siteName, b.siteName)),
     })).sort((a, b) => byArabic(a.courseName, b.courseName)),
