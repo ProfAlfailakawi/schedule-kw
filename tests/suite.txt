@@ -191,6 +191,7 @@ test:appointment-forms
 test:placeholder-action
 test:course-spelling-merge
 test:teacher-mini-week
+test:week-window
 test:appointment-forms-r2
 test:appointment-forms-r3
 test:schedule-wipe

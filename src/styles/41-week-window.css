@@ -1,1 +1,116 @@
 /* ── نافذة «أسبوع الأستاذ»: تلتصق بالخطوة، وتطفو، وتُبرز أيام الموعد، وترسم، وتتقاطع مع القاعة ── */
+/* R4 (التصميم المعتمد): بطاقةٌ بيضاء هادئة بلا شريط عنوان — الحلقة والاسم والوقائع كتلةٌ واحدة؛
+   أيام الموعد حبوبٌ ممتلئة وأعمدةٌ أعرض؛ محاضرات الأستاذ زرقاء فاتحة، والكلية الأخرى مخطّطةٌ رمادية؛
+   خانات «+» متقطّعةٌ خضراء بوقتها وتمتلئ حين تضيء؛ حجوز القاعة مخطّطةٌ نحاسية وما يناسب الاثنين ذهبيّ؛
+   والرسم بالمؤشر يُرى وقتاً ومدة. ألوانٌ من رموز التصميم وحدها (الوضع الداكن). */
+
+.mini-week{
+  --mw-other:var(--muted);
+  --mw-room:var(--brass);
+  --mw-gold:color-mix(in srgb,var(--brass) 86%,var(--warning));
+  --mw-gold-soft:color-mix(in srgb,var(--mw-gold) 13%,var(--surface));
+}
+
+/* ── البطاقة والترويسة ───────────────────────────────────────────────────── */
+.mini-week.is-side{border-radius:22px}
+.mini-week.is-side>.mini-week-head{border-radius:22px}
+.mini-week.is-side .mini-week-who>b,.mini-week.is-sheet .mini-week-who>b{font-size:var(--t-body)}
+.mini-week-facts{gap:3px 9px}
+/* الوقائع المحايدة نصٌّ وأيقونة بلا حبّة رمادية؛ الحبّة الملوّنة لما تغيّر وحده. */
+.mini-week-facts em:not(.is-up):not(.is-down):not(.is-over):not(.is-overtime){padding-inline:0;background:none;color:var(--ink-2)}
+
+/* ── أيام الموعد: حبوبٌ ممتلئة، وأعمدةٌ أعرض (2fr) والباقي 1fr ───────────── */
+.mini-week-days{align-items:center;padding-bottom:3px}
+.mini-week-days>span:not(:first-child){display:grid;place-items:center;min-height:22px;border-radius:999px;transition:background-color .2s var(--ease-out),color .2s var(--ease-out),box-shadow .2s var(--ease-out)}
+.mini-week.is-side .mini-week-days>span:not(:first-child),.mini-week.is-sheet .mini-week-days>span:not(:first-child){min-height:26px}
+.mini-week-days>span.is-draft{background:var(--accent);color:var(--accent-contrast);font-weight:800;box-shadow:0 6px 14px -9px color-mix(in srgb,var(--accent) 80%,transparent)}
+.mini-week.is-focus .mini-week-days{grid-template-columns:var(--mw-axis) var(--mw-cols)}
+.mini-week.is-focus .mini-week-grid{grid-template-columns:var(--mw-cols)}
+.mini-week-days,.mini-week-grid{transition:grid-template-columns .26s var(--ease-out)}
+.mini-week-track{background:color-mix(in srgb,var(--surface-2) 72%,var(--surface));transition:background-color .2s var(--ease-out)}
+.mini-week-track.is-draft{background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+
+/* ── المحاضرات: الكلية الأخرى مخطّطةٌ رمادية (النحاسيّ صار للقاعة) ───────── */
+.mini-week-chip.is-other{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--mw-other) 17%,var(--surface)) 0 4px,color-mix(in srgb,var(--mw-other) 6%,var(--surface)) 4px 8px)}
+
+/* ── خانات «+»: متقطّعةٌ خضراء بوقت بدايتها، وتمتلئ حين تضيء أيام النمط ─── */
+.mini-week-target{display:flex;align-items:center;justify-content:center;gap:3px;overflow:hidden;container-type:inline-size;border-color:color-mix(in srgb,var(--accent) 50%,var(--line));background:color-mix(in srgb,var(--accent) 3%,transparent)}
+.mini-week-target-time{font:700 10px/1 var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap;opacity:.82;transition:opacity .15s}
+.mini-week.is-side .mini-week-target-time,.mini-week.is-sheet .mini-week-target-time{font-size:11px}
+@container (max-width:56px){.mini-week-target-time{display:none}}
+.mini-week-target:hover,.mini-week-target:focus-visible,.mini-week-target.is-lit{border-color:var(--accent);background:var(--accent);color:var(--accent-contrast);box-shadow:0 6px 14px -8px var(--accent)}
+.mini-week-target:hover .mini-week-target-time,.mini-week-target:focus-visible .mini-week-target-time,.mini-week-target.is-lit .mini-week-target-time{opacity:1}
+/* تناسب الاثنين: ذهبيٌّ دافئ بنجمة. */
+.mini-week-target.is-golden{border-color:color-mix(in srgb,var(--mw-gold) 72%,var(--surface));background:var(--mw-gold-soft);color:color-mix(in srgb,var(--mw-gold) 88%,var(--ink))}
+.mini-week-target.is-golden:hover,.mini-week-target.is-golden:focus-visible,.mini-week-target.is-golden.is-lit{border-color:var(--mw-gold);background:var(--mw-gold);color:var(--surface);box-shadow:0 6px 14px -8px var(--mw-gold)}
+.mini-week .mini-week-target svg.mini-week-target-star{position:absolute;top:3px;inset-inline-end:3px;width:9px;height:9px;fill:currentColor;stroke-width:1.5;opacity:1;transform:none}
+/* حرّةٌ للأستاذ والقاعة مشغولة: باهتةٌ وتبقى قابلةً للضغط (الفحص الواحد يحكم). */
+.mini-week-target.is-room-busy{opacity:.5;border-color:color-mix(in srgb,var(--mw-room) 42%,var(--line))}
+.mini-week-target.is-room-busy:hover,.mini-week-target.is-room-busy:focus-visible,.mini-week-target.is-room-busy.is-lit{opacity:1}
+
+/* ── حجوز القاعة: مخطّطةٌ نحاسية «القاعة محجوزة» ────────────────────────── */
+.mini-week-room{position:absolute;inset-inline:3px;z-index:0;display:flex;align-items:flex-end;justify-content:center;min-height:8px;overflow:hidden;container-type:inline-size;border:1px solid color-mix(in srgb,var(--mw-room) 40%,transparent);border-radius:7px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--mw-room) 24%,transparent) 0 4px,color-mix(in srgb,var(--mw-room) 7%,transparent) 4px 8px)}
+.mini-week-room-text{margin-bottom:3px;padding:1px 6px;border-radius:999px;background:color-mix(in srgb,var(--surface) 86%,transparent);color:color-mix(in srgb,var(--mw-room) 86%,var(--ink));font-size:9.5px;font-weight:800;line-height:1.3;white-space:nowrap}
+.mini-week.is-side .mini-week-room-text,.mini-week.is-sheet .mini-week-room-text{font-size:10.5px}
+.mini-week-room.is-thin .mini-week-room-text{display:none}
+@container (max-width:72px){.mini-week-room-text{display:none}}
+
+/* ── الرسم على الأسبوع: فراغُ اليوم يُرسم عليه، والمعاينة وقتٌ ومدة ───────── */
+.mini-week.can-draw .mini-week-track{cursor:crosshair}
+.mini-week.is-drawing .mini-week-grid{-webkit-user-select:none;user-select:none}
+.mini-week-draw{position:absolute;inset-inline:2px;z-index:5;display:grid;place-items:center;min-height:8px;border:2px solid var(--accent);border-radius:8px;background:color-mix(in srgb,var(--accent) 16%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent),0 10px 20px -12px var(--accent);pointer-events:none}
+.mini-week-draw>b{padding:2px 8px;border-radius:999px;background:var(--accent);color:var(--accent-contrast);font:800 10.5px/1.35 var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:var(--shadow-sm)}
+.mini-week-draw.is-echo{border-style:dashed;border-width:1.5px;background:color-mix(in srgb,var(--accent) 8%,transparent);box-shadow:none}
+.mini-week-draw.is-room-busy{border-style:dashed}
+.mini-week-draw.is-golden{border-color:var(--mw-gold);background:color-mix(in srgb,var(--mw-gold) 16%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--mw-gold) 16%,transparent)}
+.mini-week-draw.is-golden>b{background:var(--mw-gold);color:var(--surface)}
+.mini-week-draw.is-clash{border-color:var(--danger);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--danger) 24%,transparent) 0 4px,color-mix(in srgb,var(--danger) 6%,transparent) 4px 8px);box-shadow:0 0 0 3px color-mix(in srgb,var(--danger) 14%,transparent)}
+.mini-week-draw.is-clash>b{background:var(--danger);color:var(--surface)}
+
+/* ── الشبح: إطارٌ أحمر مخطّط وحبّة «موعدك» في أسفله؛ والسليم إطارٌ أخضر بعلامة ─ */
+.mini-week-ghost-pill{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:2px;max-width:calc(100% - 4px);padding:1px 7px 1px 6px;overflow:hidden;border-radius:999px;background:var(--danger);color:var(--surface);font-size:9.5px;font-style:normal;font-weight:800;line-height:1.45;white-space:nowrap;box-shadow:0 3px 8px -3px var(--danger)}
+.mini-week-ghost-pill svg{width:9px;height:9px;flex:none;stroke-width:3.5}
+.mini-week.is-side .mini-week-ghost-pill,.mini-week.is-sheet .mini-week-ghost-pill{font-size:10.5px}
+.mini-week-ghost.has-pill .mini-week-ghost-mark{display:none}
+
+/* ── المفتاح (وضع القاعة) والتلميح ─────────────────────────────────────────── */
+.mini-week-legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:6px 2px 0;color:var(--ink-2);font-size:11px;font-weight:700;line-height:1.4}
+.mini-week-legend>span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.mini-week-legend i{display:inline-grid;place-items:center;flex:none;width:16px;height:11px;border-radius:4px}
+.mini-week-legend i.is-own{background:color-mix(in srgb,var(--mw-own) 16%,var(--surface));border-inline-start:3px solid var(--mw-own)}
+.mini-week-legend i.is-room{border:1px solid color-mix(in srgb,var(--mw-room) 40%,transparent);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--mw-room) 30%,transparent) 0 3px,color-mix(in srgb,var(--mw-room) 8%,transparent) 3px 6px)}
+.mini-week-legend i.is-golden{border:1px dashed var(--mw-gold);background:var(--mw-gold-soft);color:var(--mw-gold)}
+.mini-week-legend i.is-golden svg{width:8px;height:8px;fill:currentColor}
+.mini-week-legend-room{display:inline-flex;align-items:center;gap:4px;margin-inline-start:auto;padding:2px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink);font:800 11px/1.4 var(--font-mono);letter-spacing:.02em}
+.mini-week-legend-room svg{width:12px;height:12px;color:var(--mw-room)}
+.mini-week-hint{display:flex;align-items:flex-start;gap:6px;margin:8px 2px 0;color:var(--muted);font-size:11px;line-height:1.55}
+.mini-week-hint svg{flex:none;width:13px;height:13px;margin-top:2px;color:color-mix(in srgb,var(--accent) 65%,var(--muted))}
+.mini-week.is-compact .mini-week-hint,.mini-week.is-compact .mini-week-legend{font-size:10.5px}
+
+/* ── تلتصق بالخطوة: سنٌّ صغير على الحافّة المقابلة للنموذج ─────────────────── */
+.mini-week.is-dockable:not(.is-floating){margin-inline-start:8px}
+.mini-week-notch{position:absolute;top:28px;inset-inline-start:-8px;z-index:1;width:14px;height:14px;border:1px solid var(--line);border-bottom:0;border-left:0;border-radius:0 3px 0 0;background:var(--surface);transform:rotate(45deg);pointer-events:none}
+.mini-week-notch:dir(ltr){border:1px solid var(--line);border-top:0;border-right:0;border-radius:0 0 0 3px}
+
+/* ── تطفو: الترويسة مقبض، والنافذة ثابتةٌ حيث تُفلت وتُكبَّر من الزاوية ───── */
+.mini-week.is-dockable>.mini-week-head{cursor:grab}
+.mini-week-grip.is-dock{top:5px;width:30px;height:3px;margin-left:-15px;opacity:.45;transition:opacity .15s}
+.mini-week.is-dockable:hover>.mini-week-grip.is-dock,.mini-week.is-moving>.mini-week-grip.is-dock{opacity:1}
+html.mini-week-moving,html.mini-week-moving *{cursor:grabbing!important;-webkit-user-select:none!important;user-select:none!important}
+.mini-week.is-floating{position:fixed;z-index:460;margin:0;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;box-shadow:var(--shadow-lg);animation:mini-week-float-in .2s var(--ease-out) both}
+.mini-week.is-floating.is-open{resize:both;min-width:320px;min-height:180px}
+.mini-week.is-floating.is-moving{animation:none;box-shadow:0 30px 70px -30px color-mix(in srgb,var(--ink) 45%,transparent),var(--shadow-lg)}
+@keyframes mini-week-float-in{from{opacity:.4;transform:scale(.985)}to{opacity:1;transform:none}}
+html[data-schedule-workspace="focus"] .mini-week.is-floating{z-index:2610}
+html[data-barter-open="true"] .mini-week.is-floating,html[data-journey-open="true"] .mini-week.is-floating{visibility:hidden!important;opacity:0!important;pointer-events:none!important}
+.mini-week.is-floating.is-open>.mini-week-head{padding-inline-end:92px}
+.mini-week-dock{position:absolute;top:10px;inset-inline-end:50px;z-index:7;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--ink-2);box-shadow:var(--shadow-sm);cursor:pointer;transition:background-color .15s,color .15s,border-color .15s}
+.mini-week-dock svg{width:15px;height:15px}
+.mini-week-dock:hover,.mini-week-dock:focus-visible{border-color:var(--accent);color:var(--accent);outline:none}
+.mini-week.is-floating:not(.is-open)>.mini-week-dock{inset-inline-end:10px}
+
+@media (prefers-reduced-motion:reduce){
+  .mini-week-days,.mini-week-grid,.mini-week-track,.mini-week-days>span,.mini-week-target-time,.mini-week-dock,.mini-week-grip.is-dock{transition:none!important}
+  .mini-week.is-floating{animation:none!important}
+}
+@media print{.mini-week-hint,.mini-week-legend,.mini-week-notch{display:none!important}}
