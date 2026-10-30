@@ -134,7 +134,8 @@ check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
   const historicNature: any = { confidence: "high", meetingsPerWeek: 3, weeklyMinutes: 210, meetingMinutes: 70,
     seenInTerms: [1, 2], dayPatterns: [{ days: ["fmonday", "fwednesday", "fthursday"], count: 4, share: 1 }] };
   const preserved = reviewSchedule({ rows: validFourPattern.map(item => ({ ...item, AdTermId: 3 })), courses: new Map([[83, theoretical(83, 4)]]), instructors: new Map(), nature: new Map([[83, historicNature]]) });
-  check(!byRule(preserved, "theoretical-pattern"), "والشكل نفسه يبقى صالحاً لسجلٍ تاريخي موثوق سابق للفصل، دون اعتماده كنمط جديد");
+  /* التاريخُ لا يُعفي (المالك 2026-10-30): الاعتمادُ نفسه يراجع بلا تاريخ، فلا تقول المراجعةُ «سليم» عمّا يمنعه. */
+  check(Boolean(byRule(preserved, "theoretical-pattern")), "ولا يُعفيه سجلٌ تاريخي: المراجعةُ والاعتمادُ حكمٌ واحد من مكتبة الأنماط");
   const validFourLongMonWed = row(88, "504", ["mon", "wed"], "18:00", "19:50");
   check(!byRule(review([validFourLongMonWed], [theoretical(88, 4)]), "theoretical-pattern"), "٤ ساعات: لقاءان 110 دقائق الاثنين والأربعاء (ساعتان تدريسيّتان لكل لقاء) مطابق");
   const validFourShortDayPatterns = [row(87, "501", ["sun", "tue"], "12:00", "13:50"), row(87, "502", ["tue", "thu"], "10:00", "11:50")];

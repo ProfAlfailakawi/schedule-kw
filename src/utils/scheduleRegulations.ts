@@ -1,5 +1,5 @@
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
-import { departsFromNature, historicalOrigin, type CourseNature } from "./courseNature";
+import { type CourseNature } from "./courseNature";
 import { SCHEDULE_DAY_END , formatScheduleTimeRange } from "./scheduleTime";
 import { AR, countOf, oblique } from "./arabicCount";
 import { placeholderInstructorIds } from "./instructorIdentity";
@@ -547,39 +547,43 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     courses.get(row.AdCourseId)?.CourseCode || row.AdCourseName || `موعد ${row.id}`;
   const who = (id: number) => instructors.get(id)?.AdInstructorName || "بدون أستاذ";
 
-  // --- learned habit — this course is not behaving like itself -------------
-  // Keep history course-scoped. The old aggregate could attach course 112's
-  // explanation to a draft for course 458 merely because both were unusual in
-  // the same term. One finding per academic course keeps every explanation
-  // faithful to the course the reader is actually editing.
-  if (context.nature?.size) {
-    const oddByCourse = new Map<number, { rows: FSchedule[]; reasons: string[] }>();
-    for (const row of rows) {
-      const courseId = Number(row.AdCourseId);
-      const learned = context.nature.get(courseId);
-      const reason = departsFromNature(row, learned);
-      if (!reason) continue;
-      const entry = oddByCourse.get(courseId) || { rows: [], reasons: [] };
-      entry.rows.push(row);
-      if (!entry.reasons.includes(reason)) entry.reasons.push(reason);
-      oddByCourse.set(courseId, entry);
+  // --- سُلّمُ البدايات وأطوالُ المكتبة: تنبيهٌ لائحيّ لا يمنع (المالك 2026-10-30) ---------------
+  // كان هنا «خارج المعتاد تاريخياً»: يحكم على الموعد بعادة مقرّره. والتاريخُ لا يحكم، اللائحةُ تحكم: فالتنبيهُ الآن
+  // لكل موعدٍ تبدأ محاضرتُه خارج سُلّم البدايات (الأحد والثلاثاء والخميس على رأس الساعة، والاثنين والأربعاء 8:00
+  // ثم 9:30…) أو يخرج طولُه عن أطوال مكتبة الأنماط لأيامه. ولا يمنع الاعتماد: الموعدُ القائم يبقى كما هو حتى يُعدَّل،
+  // والحفظُ يفحص ما يتغيّر. وبقي واحداً لكل مقرّر، فشرحُه لا يُعلَّق على مقرّرٍ آخر.
+  const offByCourse = new Map<number, { rows: FSchedule[]; reasons: string[] }>();
+  for (const row of rows) {
+    const days = daysOf(row);
+    const minutes = duration(row);
+    if (!days.length || !(minutes > 0)) continue;
+    const reasons: string[] = [];
+    if (startLadderNote(days, String(row.fstarttime || ""))) {
+      reasons.push(`يبدأ ${row.fstarttime} و${ladderStepForDays(days) === 90 ? "الاثنين والأربعاء تبدأ 8:00 ثم 9:30 ثم 11:00…" : "الأحد والثلاثاء والخميس تبدأ على رأس الساعة"}`);
     }
-    for (const [courseId, entry] of oddByCourse) {
-      const course = courses.get(courseId);
-      const courseLabel = course?.CourseCode || entry.rows[0]?.AdCourseName || String(courseId);
-      findings.push({
-        rule: "out-of-character",
-        article: "الاعتياد التاريخي",
-        severity: "medium",
-        source: "history",
-        approvalEffect: "note",
-        title: `خارج المعتاد تاريخياً${entry.rows.length > 1 ? ` (${arabicNumber(entry.rows.length)})` : ""}`,
-        detail: `المقرر ${courseLabel}: ${entry.reasons.slice(0, 3).join(" — ")}`,
-        subjectKey: `course:${courseId}`,
-        subjectLabel: courseLabel,
-        rowIds: entry.rows.map(row => row.id),
-      });
-    }
+    if (days.some(day => !libraryLengthsForDay(day).has(minutes))) reasons.push(`طوله ${countOf(minutes, AR.minute)} وليس من أطوال مكتبة الأنماط لأيامه`);
+    if (!reasons.length) continue;
+    const courseId = Number(row.AdCourseId);
+    const entry = offByCourse.get(courseId) || { rows: [], reasons: [] };
+    entry.rows.push(row);
+    for (const reason of reasons) if (!entry.reasons.includes(reason)) entry.reasons.push(reason);
+    offByCourse.set(courseId, entry);
+  }
+  for (const [courseId, entry] of offByCourse) {
+    const course = courses.get(courseId);
+    const courseLabel = course?.CourseCode || entry.rows[0]?.AdCourseName || String(courseId);
+    findings.push({
+      rule: "regulation-ladder",
+      article: "سُلّم البدايات ومكتبة الأنماط",
+      severity: "low",
+      source: "decision-1912",
+      approvalEffect: "note",
+      title: `خارج سُلّم اللائحة${entry.rows.length > 1 ? ` (${arabicNumber(entry.rows.length)})` : ""}`,
+      detail: `المقرر ${courseLabel}: ${entry.reasons.slice(0, 3).join(" — ")}`,
+      subjectKey: `course:${courseId}`,
+      subjectLabel: courseLabel,
+      rowIds: entry.rows.map(row => row.id),
+    });
   }
 
   const byCourse = new Map<number, FSchedule[]>();
@@ -612,16 +616,9 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       const actual = meetings.slice().sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day));
       // The library is the source of truth (50/80-minute teaching periods);
       // meetingsMatchApprovedPattern reads its shapes, not its example days.
-      const approved = meetingsMatchApprovedPattern(actual, hours);
-      /* إزالة نمطٍ تاريخي من المكتبة التشغيلية لا تُحوّل السجلات القديمة إلى
-         مخالفة. يُقبل الشكل غير القياسي هنا فقط إذا كان تاريخ هذا المقرر، قبل
-         الفصل الجاري، موثوقاً ويطابق مجموع دقائقه وأيامه؛ ولا يدخل بذلك في
-         patternsForHours أو المقترحات العامة. */
-      const history = historicalOrigin(context.nature?.get(courseId), Number(sectionRows[0]?.AdTermId));
-      const historical = Boolean(history && history.weeklyMinutes === actual.reduce((sum, item) => sum + item.minutes, 0)
-        && history.patterns.some(days => days.length === actual.length && days.every((day, index) => actual[index]?.day === day)));
-      const valid = approved || historical;
-      if (!valid) invalid.push(...sectionRows);
+      /* التاريخُ لا يُعفي (المالك 2026-10-30: «لازم يكون النمط معتمد»): كان الشكلُ غير القياسي يُقبل هنا إن طابق
+         تاريخَ المقرّر، فتقول هذه الشاشةُ «سليم» ويمنعه الاعتمادُ نفسه (approvals.ts يراجع بلا تاريخ). الحكمُ واحدٌ الآن. */
+      if (!meetingsMatchApprovedPattern(actual, hours)) invalid.push(...sectionRows);
     }
     if (invalid.length) findings.push({
       rule: "theoretical-pattern",
@@ -843,7 +840,7 @@ export function appointmentCoverageScore(cleanAppointments: number, rowCount: nu
  *
  * A row has a single start and end for all of its days, so the length is one number: it must be
  * `k` lectures of the day's length with the day's break between them (50 + 10 + 50 on Sun/Tue/Thu,
- * 80 + 15 + 80 on Mon/Wed), and `k` can never exceed the course's weekly hours. A combined two-period
+ * 80 + 10 + 80 on Mon/Wed: 8:00–9:20 then 9:30, owner 2026-10-30), and `k` can never exceed the course's weekly hours. A combined two-period
  * block may differ by five minutes because legacy timetable slots encode the passing interval differently;
  * the separate room-turnover rule still checks the full required gap between appointments. A length the course
  * has habitually used (a lab, a workshop) is accepted as it is — history outranks the regulation.
@@ -868,8 +865,7 @@ export function lectureLengthProblem(
     for (let periods = 1; periods <= maxPeriods; periods++) {
       const expected = periods * lecture + (periods - 1) * gap;
       /* Monday/Wednesday's established timetable block is 08:00–10:50:
-         two 80-minute lectures with a 10-minute passing interval. Keep the
-         15-minute regulatory room-turnover check independent of this block. */
+         two 80-minute lectures with the 10-minute passing interval. */
       if (length === expected || (periods === 2 && lecture === 80 && length === expected - 5)) return true;
     }
     return false;
