@@ -28,5 +28,13 @@ export function caseStampOf(caseState: { committee?: { at?: string } | null; reg
   return `${caseState?.committee?.at || ""}|${caseState?.registrar?.at || ""}`;
 }
 
+/**
+ * ما يُعرض في نموذجٍ بعد قراءةٍ جديدة (فتحٌ، أو حفظُ زميلٍ وصل حيّاً): مسوّدةٌ عُدّلت ولم تُحفظ تبقى كما هي
+ * بختمها الأصلي (rev)، فلا يمحو التحديثُ الحيّ ما يكتبه صاحبها، ويحرس الختمُ حفظَها؛ وما سواها يأخذ ما على الخادم.
+ */
+export function configAfterLoad<T extends { rev?: number }>(current: T | null, incoming: T, dirty: boolean): T {
+  return dirty && current ? current : incoming;
+}
+
 /** هل هذا ردُّ «حدّث ثم أعد»؟ */
 export const isStaleWrite = (body: unknown): boolean => Boolean(body && typeof body === "object" && (body as any).code === STALE_WRITE_CODE);

@@ -27,7 +27,7 @@ import {
   createScopedClock, peerIdOf, sweepTeamEntries, teamCompany, teamOf, teamRoster, teamScopeKey, touchTeamEntry, type TeamEntry,
 } from "../src/server/teamPresence";
 import { pulseDelay } from "../src/utils/livePulse";
-import { caseStampOf, expectedRev, expectedStamp, isStaleWrite, STALE_WRITE_CODE } from "../src/utils/staleWrite";
+import { caseStampOf, configAfterLoad, expectedRev, expectedStamp, isStaleWrite, STALE_WRITE_CODE } from "../src/utils/staleWrite";
 import { ColleagueFaces, ColleaguePresenceChip, MAX_FACES, TeamPresenceChip } from "../src/components/ColleagueFaces";
 import { ColleagueWorkNotice } from "../src/components/ColleagueHoldNotice";
 
@@ -184,6 +184,21 @@ const touch = (connId: string, holder: string, name: string, team: any, scopeKey
   check(/زميلك أ. منى<\/b> يعمل الآن على/.test(notice) && /حالة AB12CD34/.test(notice) && /colleague-hold-ring/.test(notice) && !/<button/.test(notice), "P7 «زميلك أ. منى يعمل الآن على 🎓 حالة …» بالعدّاد، بلا أزرار", notice.slice(0, 300));
 }
 
+/* ── D1: التحديثُ الحيّ لا يمحو مسوّدةً لم تُحفظ ── */
+{
+  const server = { global: 9, fairSplit: true, rev: 4 };
+  const draft = { global: 2, fairSplit: false, rev: 3 };
+  check(configAfterLoad(draft, server, true) === draft, "D1 مسوّدةُ إعدادٍ عُدّلت: حفظُ زميلٍ وصل حيّاً لا يمحوها، وتبقى بختمها الأصلي (3)");
+  check(configAfterLoad(draft, server, false) === server && configAfterLoad(null, server, true) === server, "D1 بلا تعديل (أو أولُ قراءة): ما على الخادم");
+  const seats = fs.readFileSync("src/components/AdvisorSeatsPanel.tsx", "utf8");
+  check(/setCfg\(current => configAfterLoad\(current, payload\.config, cfgDirty\.current\)\)/.test(seats) && !/setCfg\(\{ \.\.\.cfg/.test(seats) && (seats.match(/editCfg\(\{ \.\.\.cfg/g) || []).length === 4,
+    "D1 القراءةُ تمرّ بالقاعدة، وكلُّ تعديلٍ في النموذج يعلّم المسوّدة");
+  check(/rev: cfg\.rev \?\? 0/.test(seats) && /draftStale\.current = true; catchStale/.test(seats), "D1 حفظُ المسوّدة يحمل ختمَها هي لا ختمَ آخر قراءة، و«حدّث» بعد ردّها يأخذ ما حفظه الزميل");
+  const requests = fs.readFileSync("src/components/sectionRequests/SectionRequestsPanel.tsx", "utf8");
+  check(/setModeRev\(current => current \?\? row\.rev\)/.test(requests) && /rev = seenRev/.test(requests) && /let rev: number \| null = seenRev;/.test(requests),
+    "D1 قائمةُ الاعتماد أو التسجيل المفتوحة تكتب بختم ما رأيتُه حين فتحتُها، لا بختم البطاقة بعد التحديث الحيّ");
+}
+
 /* ── H1–H5: خادمٌ حيّ ── */
 let server: LiveServer | null = null;
 try {
@@ -247,8 +262,16 @@ try {
   check(saved.status === 200 && saved.body?.rev === configRev + 1, "H3 حفظُ الإعداد بختمه يزيد الإصدار", saved.body);
   const staleConfig = await post("/api/advisor-seats/config", { collegeId: 1, sectionId: 1, termId: 1, config: { ...seats.body.config, global: 1 }, rev: configRev }, "PUT");
   check(staleConfig.status === 409 && staleConfig.body?.code === STALE_WRITE_CODE, "H3 إعدادٌ بنسخةٍ قديمة: «حدّث ثم أعد»", staleConfig.body);
-  const fresh = await json("/api/advisor-seats?collegeId=1&sectionId=1&termId=1");
+  let fresh = await json("/api/advisor-seats?collegeId=1&sectionId=1&termId=1");
   check(fresh.body?.config?.global === 5, "H3 والإعدادُ كما حفظه الأول", fresh.body?.config);
+  /* المسؤولُ يعدّل مسوّدةً من نسخةٍ قرأها؛ زميلٌ يحفظ قبله (يصل التحديثُ حيّاً فلا يمسّ المسوّدة)؛
+     ثم يحفظ المسؤولُ بختم مسوّدته: يُردّ، ويبقى ما حفظه الزميل. */
+  const draftBase = fresh.body.config;
+  const colleague = await post("/api/advisor-seats/config", { collegeId: 1, sectionId: 1, termId: 1, config: { ...draftBase, global: 6 }, rev: draftBase.rev }, "PUT");
+  const draftSave = await post("/api/advisor-seats/config", { collegeId: 1, sectionId: 1, termId: 1, config: { ...configAfterLoad({ ...draftBase, global: 12 }, colleague.body, true) }, rev: draftBase.rev }, "PUT");
+  fresh = await json("/api/advisor-seats?collegeId=1&sectionId=1&termId=1");
+  check(colleague.status === 200 && draftSave.status === 409 && draftSave.body?.code === STALE_WRITE_CODE && fresh.body?.config?.global === 6,
+    "H3 مسوّدةٌ بقيت بعد حفظ زميل: حفظُها بختمها الأصلي يُردّ بـ«حدّث ثم أعد»، وما حفظه الزميل باقٍ", { colleague: colleague.status, draft: draftSave.body, now: fresh.body?.config });
   const target = (fresh.body?.sections || []).find((s: any) => s.state?.capacity > 0 && s.state?.remaining > 1);
   if (target) {
     const added = await post("/api/advisor-seats/add", { collegeId: 1, sectionId: 1, termId: 1, key: target.key, count: 1, rev: target.rev });

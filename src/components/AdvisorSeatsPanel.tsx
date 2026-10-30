@@ -6,7 +6,7 @@
  * الحساب كلّه: src/utils/advisorSeats.ts.
  */
 import { AR, countOf, nounFor } from "../utils/arabicCount";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Ticket } from "lucide-react";
 import { PrimaryButton, SecondaryButton } from "./ui";
 import CampusChip from "./CampusChip";
@@ -14,7 +14,7 @@ import { ColleagueWorkNotice } from "./ColleagueHoldNotice";
 import { useStaleWrite } from "./StaleWriteToast";
 import { useTeamPeers, useTeamWork } from "../hooks/useTeamWork";
 import { onLiveSignal } from "../utils/livePulse";
-import { isStaleWrite } from "../utils/staleWrite";
+import { configAfterLoad, isStaleWrite } from "../utils/staleWrite";
 import { workClashes, type WorkMark } from "../utils/teamWork";
 
 type State = { capacity: number; quota: number; hardCap: number; limitedBy: "quota" | "room"; advisorAdded: number; remaining: number; fairShare?: number; tone: "green" | "yellow" | "red"; ringLabel: string };
@@ -40,15 +40,21 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
   const [msg, setMsg] = useState<Record<string, { tone: "ok" | "warn" | "bad"; text: string; alternatives?: Array<{ key: string; section: string; time: string; remaining: number }> }>>({});
   const [busy, setBusy] = useState("");
   const [cfg, setCfg] = useState<Payload["config"] | null>(null);
+  /* مسوّدةُ إعدادٍ لم تُحفظ لا يمحوها تحديثٌ حيّ: حفظُ زميلٍ يُحدّث الشعبَ والأرقام، والمسوّدةُ تبقى
+     بختم الإصدار الذي بدأت منه (cfg.rev) — فإن تقدّم الخادمُ ردّ حفظَها بـ«حدّث ثم أعد». */
+  const cfgDirty = useRef(false);
+  const draftStale = useRef(false);
+  const editCfg = (next: Payload["config"]) => { cfgDirty.current = true; setCfg(next); };
   const load = async () => {
     try {
       const response = await fetch(`/api/advisor-seats?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include" });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || "تعذّر القراءة");
-      setData(payload); setCfg(payload.config);
+      setData(payload);
+      setCfg(current => configAfterLoad(current, payload.config, cfgDirty.current));
     } catch (e: any) { setError(e.message); }
   };
-  useEffect(() => { if (collegeId && sectionId && termId) void load(); }, [collegeId, sectionId, termId]);
+  useEffect(() => { cfgDirty.current = false; if (collegeId && sectionId && termId) void load(); }, [collegeId, sectionId, termId]);
   /* «زميلان يعملان الآن»: مقاعدُ المقرر الذي لمستُه قبل دقيقة هي ما أعمل عليه، ومن يعمل على
      مقاعد المقرر نفسه يُقال على بطاقته. وحفظُ زميلٍ يصل بلا إعادة تحميل (نبضة «work»). */
   const { peers } = useTeamPeers();
@@ -61,7 +67,11 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
   useTeamWork(touched);
   const touch = (s: Section) => setTouched(current => current?.id === String(s.courseId) ? current : { kind: "advisorSeats", id: String(s.courseId), label: s.courseName.slice(0, 40) });
   useEffect(() => onLiveSignal(["work"], () => { if (collegeId && sectionId && termId) void load(); }), [collegeId, sectionId, termId]);
-  const { staleToast, catchStale } = useStaleWrite(() => load());
+  /* «حدّث» بعد إعدادٍ رُدّ: المسوّدةُ القديمة تُترك ويُقرأ ما حفظه الزميل، ثم يُعاد التعديل عليه. */
+  const { staleToast, catchStale } = useStaleWrite(() => {
+    if (draftStale.current) { draftStale.current = false; cfgDirty.current = false; }
+    return load();
+  });
   const add = async (key: string, count: number) => {
     setBusy(key);
     const seen = data?.sections.find(s => s.key === key);
@@ -88,12 +98,13 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
     if (!cfg) return;
     setBusy("config");
     try {
-      const response = await fetch("/api/advisor-seats/config", { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, termId, config: cfg, rev: data?.config.rev ?? 0 }) });
+      const response = await fetch("/api/advisor-seats/config", { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, termId, config: cfg, rev: cfg.rev ?? 0 }) });
       if (!response.ok) {
         const out = await response.json().catch(() => ({}));
-        if (isStaleWrite(out)) { catchStale(Object.assign(new Error(out.error), { code: out.code })); return; }
+        if (isStaleWrite(out)) { draftStale.current = true; catchStale(Object.assign(new Error(out.error), { code: out.code })); return; }
         throw new Error(out?.error || "تعذّر الحفظ");
       }
+      cfgDirty.current = false;
       await load();
     } catch (e: any) { setError(e.message); } finally { setBusy(""); }
   };
@@ -116,10 +127,10 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
       {!data.config.capacityDefault ? <p className="of-msg" data-tone="warn">⚠️ لم تُحدَّد السعة الأساسية للشعب بعد{data.canConfigure ? " — حدّدها أدناه" : " — يحدّدها المسؤول"}.</p> : null}
       {data.canConfigure && cfg ? (
         <div className="of-row" style={{ marginBottom: 10 }}>
-          <label>🪑 السعة الأساسية<input type="number" min={1} max={500} value={cfg.capacityDefault || ""} onChange={e => setCfg({ ...cfg, capacityDefault: Number(e.target.value) })} /></label>
-          <label>🎟️ رصيد المرشدين<input type="number" min={0} max={200} value={cfg.global} onChange={e => setCfg({ ...cfg, global: Number(e.target.value) })} /></label>
-          <button data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" className="of-chip" aria-pressed={cfg.fairSplit} onClick={() => setCfg({ ...cfg, fairSplit: !cfg.fairSplit })}>⚖️ توزيع عادل</button>
-          {cfg.fairSplit ? <label>👥 عدد المرشدين<input type="number" min={1} max={50} value={cfg.advisorCount || ""} onChange={e => setCfg({ ...cfg, advisorCount: Number(e.target.value) })} /></label> : null}
+          <label>🪑 السعة الأساسية<input type="number" min={1} max={500} value={cfg.capacityDefault || ""} onChange={e => editCfg({ ...cfg, capacityDefault: Number(e.target.value) })} /></label>
+          <label>🎟️ رصيد المرشدين<input type="number" min={0} max={200} value={cfg.global} onChange={e => editCfg({ ...cfg, global: Number(e.target.value) })} /></label>
+          <button data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" className="of-chip" aria-pressed={cfg.fairSplit} onClick={() => editCfg({ ...cfg, fairSplit: !cfg.fairSplit })}>⚖️ توزيع عادل</button>
+          {cfg.fairSplit ? <label>👥 عدد المرشدين<input type="number" min={1} max={50} value={cfg.advisorCount || ""} onChange={e => editCfg({ ...cfg, advisorCount: Number(e.target.value) })} /></label> : null}
           <PrimaryButton data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" disabled={busy === "config"} onClick={() => void saveConfig()}>حفظ</PrimaryButton>
         </div>
       ) : null}

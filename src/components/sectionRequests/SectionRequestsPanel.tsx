@@ -136,8 +136,17 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
   /* ما أفتحه في البطاقة (اعتماد، تسجيل، اعتذار) أو أكتبه الآن: هذا الطلب ما أعمل عليه. */
   useTeamWork(mode || busy ? { kind: "sectionRequest", id: row.id, label: row.courseName.slice(0, 40) } : null);
   const clashes = workClashes(peers, { kind: "sectionRequest", id: row.id });
+  /* قائمةٌ فُتحت (اعتماد، تسجيل، اعتذار) تبقى بختم ما رأيتُه حين فتحتُها: التحديثُ الحيّ يُجدّد البطاقة
+     تحتها، لكن اختياري بُني على تلك النسخة — فإن حفظ زميلٌ بينهما رُدّ الحفظُ بـ«حدّث ثم أعد». */
+  const [modeRev, setModeRev] = useState<number | null>(null);
+  useEffect(() => {
+    if (!mode) { setModeRev(null); return; }
+    setModeRev(current => current ?? row.rev);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+  const seenRev = modeRev ?? row.rev;
   /* كلُّ كتابةٍ تحمل ختمَ ما رأيتُه؛ والكتابةُ الثانية في سلسلةٍ واحدة تحمل ختمَ الأولى. */
-  const act = async (path: string, body: Record<string, unknown>, rev = row.rev): Promise<number | null> => {
+  const act = async (path: string, body: Record<string, unknown>, rev = seenRev): Promise<number | null> => {
     setBusy(true); setError("");
     try {
       const out = await call(`/api/section-requests/${encodeURIComponent(row.id)}/${path}`, { method: "POST", body: JSON.stringify({ ...body, rev }) });
@@ -230,7 +239,7 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
             if (all) { void act("register", { all: true }); return; }
             const { add, drop } = registrationChanges(approvedRows.filter(s => s.registered).map(s => s.id), ids);
             void (async () => {
-              let rev: number | null = row.rev;
+              let rev: number | null = seenRev;
               if (add.length) rev = await act("register", { studentIds: add, registered: true }, rev);
               if (drop.length && rev !== null) await act("register", { studentIds: drop, registered: false }, rev);
               if (!add.length && !drop.length) setMode("");
