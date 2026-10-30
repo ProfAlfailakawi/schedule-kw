@@ -27,6 +27,9 @@ function Ring({ verdict }: { verdict: AppointmentVerdict }) {
   const ok = verdict.checks.filter(check => check.state === "ok").length;
   const warn = verdict.checks.filter(check => check.state === "warn").length;
   const block = verdict.checks.filter(check => check.state === "block").length;
+  /* رقمٌ واحد للموانع (المالك 2026-10-30): الأقواس تلوّن البطاقات، والرقم في الوسط
+     عددُ الموانع نفسه الذي يقوله شريط الحفظ — لا عدد البطاقات المحمرّة. */
+  const blockers = verdict.blockers.length;
   const radius = 21, circumference = 2 * Math.PI * radius;
   const segments = [
     { tone: "ok", value: ok },
@@ -43,7 +46,7 @@ function Ring({ verdict }: { verdict: AppointmentVerdict }) {
       offset += length;
       return node;
     })}
-    <text x="26" y="27" textAnchor="middle" dominantBaseline="middle" className={block ? "is-block" : "is-ok"}>{block ? block : counted.length ? `${ok}/${counted.length}` : "—"}</text>
+    <text x="26" y="27" textAnchor="middle" dominantBaseline="middle" className={block ? "is-block" : "is-ok"}>{blockers ? blockers : counted.length ? `${ok}/${counted.length}` : "—"}</text>
   </svg>;
 }
 
@@ -51,7 +54,7 @@ function Ring({ verdict }: { verdict: AppointmentVerdict }) {
 export const isPatternDetail = (text: string) => /الساعات المعتمدة|نمط اللائحة|خارج اللائحة|النمط غير معتمد/.test(String(text || ""));
 
 export default function AppointmentChecksPanel({
-  verdict, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, onOpenReach, reachBusy = false, children,
+  verdict, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, onOpenReach, reachBusy = false, missing = [], saveLabel = "موافق", children,
 }: {
   verdict: AppointmentVerdict;
   checking: boolean;
@@ -67,13 +70,18 @@ export default function AppointmentChecksPanel({
   /** «لم نصل بعد» (تنبيهٌ لا يمنع): زرّ «افتحه للطرح» بجانبه يفتح المقرر في كل مكان. */
   onOpenReach?: () => void;
   reachBusy?: boolean;
+  /** أساسياتٌ لم تُملأ بعد (missingAppointmentFields): لا «جاهز» قبل أن تخلو. */
+  missing?: readonly string[];
+  /** اسم زرّ الحفظ كما يراه المستخدم، لتقوله الحاشية بحرفه. */
+  saveLabel?: string;
   /** ما يُعرض تحت البطاقات (اقتراحات البديل، رسم النمط…). */
   children?: React.ReactNode;
 }) {
   const blockers = verdict.blockers.length, notes = verdict.notes.length;
-  const tone = lockedReason ? "locked" : blockers ? "block" : verdict.state === "empty" ? "idle" : notes ? "warn" : "ok";
+  const incomplete = verdict.state !== "empty" && missing.length > 0;
+  const tone = lockedReason ? "locked" : blockers ? "block" : verdict.state === "empty" || incomplete ? "idle" : notes ? "warn" : "ok";
   const headline = lockedReason ? "لا يُحفظ الآن"
-    : blockers ? "موانع" : verdict.state === "empty" ? "ابدأ بالاختيار" : notes ? "ملاحظات" : "جاهز";
+    : blockers ? "موانع" : verdict.state === "empty" ? "ابدأ بالاختيار" : incomplete ? "ناقص" : notes ? "ملاحظات" : "جاهز";
   return <aside className={`conflict-panel checks-panel is-${tone}`} aria-label="فحص موانع الحفظ" aria-busy={checking}>
     <header className="checks-head">
       <Ring verdict={verdict} />
@@ -91,6 +99,7 @@ export default function AppointmentChecksPanel({
       </div>
     </header>
     {lockedReason ? <p className="checks-locked"><AlertTriangle aria-hidden="true" />{lockedReason}</p> : null}
+    {incomplete && !blockers ? <p className="checks-missing" role="status"><Info aria-hidden="true" />ناقص: {missing.join("، ")}</p> : null}
     <ul className="checks-grid">
       {verdict.checks.map(check => {
         const Icon = ICONS[check.kind];
@@ -123,6 +132,6 @@ export default function AppointmentChecksPanel({
       })}
     </ul>
     {children}
-    <p className="checks-foot"><Info aria-hidden="true" />لا يُحفظ شيء إلا بضغطك «موافق».</p>
+    <p className="checks-foot"><Info aria-hidden="true" />لا يُحفظ شيء إلا بضغطك «{saveLabel}».</p>
   </aside>;
 }

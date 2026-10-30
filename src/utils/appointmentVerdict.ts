@@ -145,6 +145,21 @@ export function relevantIssues(issues: readonly string[], form: VerdictForm, com
   });
 }
 
+/**
+ * ما لم يُملأ بعد من أساسيات الموعد، بترتيب الأسئلة (المالك 2026-10-30):
+ * كانت الحلقة تقول «جاهز» بعد اختيار المقرر وحده، والأستاذ والأيام والقاعة فارغة.
+ * فلا تُقال «جاهز» قبل أن تخلو هذه القائمة؛ يقرؤها شريط الحفظ ولوحة الفحص معاً.
+ */
+export function missingAppointmentFields(form: VerdictForm): string[] {
+  const out: string[] = [];
+  if (!filled(form.AdCourseId)) out.push("المقرر");
+  if (!filled(form.AdInstructorId)) out.push("الأستاذ");
+  if (!anyDay(form)) out.push("الأيام");
+  if (!filled(form.fstarttime) || !filled(form.fendtime)) out.push("الوقت");
+  if (!chosenFields(form).room) out.push("القاعة");
+  return out;
+}
+
 const conflictText = (conflict: any) => String(conflict?.message || "تعارض").trim();
 
 export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {

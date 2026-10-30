@@ -1,0 +1,210 @@
+/* ── «موعد جديد» بالتصميم الجديد: أسئلةٌ أربعة، شريط حفظ، ولوحة فحص من اليسار ──
+   (المالك 2026-10-30) كلُّ ما هنا تحت .schedule-editor.is-studio، فلا يمسّ شاشةً أخرى. */
+
+/* الرأس: عنوانٌ واحد ونطاقٌ في كبسولة */
+.schedule-editor.is-studio .page-heading{margin-bottom:0;padding-bottom:0;padding-inline-end:150px}
+.schedule-editor.is-studio .page-heading::after{display:none}
+.schedule-editor.is-studio .page-eyebrow{color:var(--brass);font-weight:700;letter-spacing:0}
+.schedule-editor.is-studio .page-heading h1{font-size:clamp(24px,2.1vw,30px);line-height:1.25;letter-spacing:-.01em}
+.schedule-editor.is-studio .page-heading p{margin-top:8px}
+.appt-scope{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-height:36px;padding:4px 6px 4px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink-2);font-size:13.5px;line-height:1.4}
+.appt-scope>svg{width:16px;height:16px;color:var(--brass);flex:none}
+.appt-scope-text{min-width:0;overflow-wrap:anywhere}
+.appt-link{border:0;background:none;color:var(--accent);font:inherit;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.appt-link:hover{background:var(--accent-softer)}
+.appt-link:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.appt-edit-tag{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;background:var(--brass-soft);color:var(--brass);font-size:12px;font-weight:700;vertical-align:middle;letter-spacing:0}
+.appt-edit-tag svg{width:13px;height:13px}
+.appt-esc{position:absolute;inset-block-start:12px;inset-inline-end:58px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);pointer-events:none}
+.appt-esc kbd{font:inherit;font-size:11px;padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:var(--surface);color:var(--ink-2)}
+
+/* الشبكة: الأسئلة يميناً، و«أسبوع الأستاذ» يساراً بمحاذاة «متى؟» */
+.schedule-editor.is-studio .appt-layout{align-items:start}
+.schedule-editor.is-studio .appt-form.form-card{padding:0;background:transparent;border:0;box-shadow:none;overflow:visible;min-width:0}
+.schedule-editor.is-studio .appt-layout>.editor-side:empty{display:none}
+@media (min-width:1101px){
+  .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout.has-week:has(>.editor-side){grid-template-columns:minmax(0,1fr) clamp(400px,36vw,580px);column-gap:28px}
+  .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout:not(.has-week){grid-template-columns:minmax(0,1fr)}
+  .schedule-editor.is-studio .appt-layout:not(.has-week)>.appt-form{width:100%;max-width:1000px;margin-inline:auto}
+  .schedule-editor.is-studio .appt-layout>.editor-side{margin-top:var(--appt-week-offset,0px);top:16px}
+}
+
+/* الأسئلة: بطاقةٌ لكل سؤال، والمحرَّرة الآن تضيء */
+.schedule-editor.is-studio .appt-steps{gap:12px;margin-top:0}
+.schedule-editor.is-studio .appt-step{gap:16px;padding:20px 22px;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-xs);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.schedule-editor.is-studio .appt-step:focus-within{border-color:color-mix(in srgb,var(--accent) 34%,var(--line));box-shadow:0 0 0 4px var(--accent-softer),var(--shadow-sm)}
+.schedule-editor.is-studio .appt-step>.appt-step-head{display:flex;align-items:center;gap:12px;padding:0;border:0}
+.schedule-editor.is-studio .appt-step-head>.appt-num,.appt-sumrow>.appt-num{width:32px;height:32px;border-radius:11px;background:var(--accent-soft);color:var(--accent-strong);display:grid;place-items:center;font:700 15px/1 var(--font-ui);flex:none}
+.schedule-editor.is-studio .appt-num svg{width:16px;height:16px;stroke-width:2.4}
+.schedule-editor.is-studio .appt-num.is-done{background:var(--accent);color:var(--accent-contrast,#fff)}
+.schedule-editor.is-studio .appt-num.is-icon{background:var(--brass-soft);color:var(--brass)}
+.schedule-editor.is-studio .appt-q{flex:1;min-width:0}
+.schedule-editor.is-studio .appt-step-head .appt-q strong{display:block;font-size:17px;font-weight:700;line-height:1.3}
+.schedule-editor.is-studio .appt-step-head .appt-q small{display:block;margin-top:2px;color:var(--muted);font-size:12.5px}
+.schedule-editor.is-studio .appt-step-head>.instructor-tools{margin:0}
+.schedule-editor.is-studio .appt-fields-3{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr)}
+.schedule-editor.is-studio .appt-time-fields{grid-template-columns:minmax(0,1.25fr) minmax(0,1.25fr) minmax(0,.7fr);align-items:start}
+.appt-label-row{display:inline-flex;align-items:center;gap:8px}
+.appt-duration-label{display:block;margin-bottom:7px;color:var(--muted);font-size:var(--t-sm);font-weight:650}
+.appt-duration-value{display:flex;align-items:baseline;gap:4px;height:var(--control-h,46px);padding:0 14px;border:1px solid var(--line);border-radius:var(--radius-control,12px);background:var(--surface-2);color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums;align-items:center}
+.appt-duration-value small{color:var(--muted);font-weight:600}
+
+/* سؤالٌ ينتظر ما قبله: مطويٌّ بقفلٍ وسطرٍ يقول ماذا ينتظر */
+.schedule-editor.is-studio .appt-step.is-locked{gap:0;padding:14px 22px;background:color-mix(in srgb,var(--surface) 55%,transparent);border-style:dashed;border-color:var(--line-strong);box-shadow:none}
+.schedule-editor.is-studio .appt-step.is-locked .appt-num{background:var(--surface-3);color:var(--muted)}
+.schedule-editor.is-studio .appt-step.is-locked .appt-q strong{color:var(--muted);font-size:16px}
+.schedule-editor.is-studio .appt-step.is-locked .appt-q small bdi{color:var(--ink-2);font-weight:600}
+.appt-lock{width:18px;height:18px;color:var(--muted);flex:none}
+/* المقرر والأستاذ بعد الجواب: سطرٌ واحد */
+.appt-sumrow{display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px;min-height:66px;padding:12px 16px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}
+.appt-kv{display:grid;min-width:0;flex:0 1 auto}
+.appt-kv .k{font-size:12px;font-weight:700;color:var(--muted)}
+.appt-kv .v{font-size:15.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.appt-sumrow-end{margin-inline-start:auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.appt-sumrow-end>.instructor-tools{margin:0}
+.appt-avatar{width:38px;height:38px;border-radius:12px;background:var(--accent);color:var(--accent-contrast,#fff);display:grid;place-items:center;font-weight:700;font-size:16px;flex:none}
+.appt-tag{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.appt-tag svg{width:13px;height:13px}
+.appt-tag.is-muted{background:var(--surface-2);color:var(--muted)}
+.appt-tag.is-info{background:var(--info-soft);color:var(--info)}
+.appt-tag.is-warn{background:var(--warning-soft);color:var(--warning)}
+.appt-tag.is-ok{background:var(--success-soft);color:var(--success)}
+.appt-secchip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);font-size:13px;font-weight:700;cursor:text}
+.schedule-editor.is-studio .appt-secchip input{width:5ch;min-width:0;height:auto;min-height:0;padding:0;border:0;background:none;box-shadow:none;font:inherit;font-weight:700;direction:ltr;text-align:center}
+.schedule-editor.is-studio .appt-secchip input:focus{outline:none;box-shadow:none}
+.appt-secchip:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-softer)}
+.appt-secchip svg{width:14px;height:14px;color:var(--muted)}
+
+/* مانعٌ واحد في سطر، بجانبه «بديل» */
+.schedule-editor.is-studio .appt-step .editor-validation-strip{display:flex;align-items:center;gap:10px;padding:9px 10px 9px 12px;border:0;border-radius:12px;background:var(--danger-soft);color:var(--danger);font-size:13.5px;font-weight:600}
+.schedule-editor.is-studio .editor-validation-strip .appt-inline-mark{width:18px;height:18px;flex:none;stroke-width:2.4}
+.schedule-editor.is-studio .editor-validation-strip span.appt-inline-text{display:block;flex:1;min-width:0;margin:0;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.appt-inline-more,.appt-inline-alt{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;border-radius:10px;border:1px solid color-mix(in srgb,var(--danger) 32%,var(--line));background:var(--surface);color:var(--danger);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;flex:none}
+.appt-inline-alt svg{width:15px;height:15px}
+.appt-inline-alt:disabled{opacity:.6;cursor:default}
+
+/* مساعدات الوقت: لكل زرٍّ دورٌ واحد */
+.appt-helpers{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:14px;border-top:1px dashed var(--line)}
+.appt-helpers-label{margin-inline-end:4px;color:var(--muted);font-size:12.5px;font-weight:700}
+.schedule-editor.is-studio .appt-helpers .slot-advisor-ask,.appt-helper{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 13px;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);color:var(--ink-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer;width:auto}
+.schedule-editor.is-studio .appt-helpers .slot-advisor-ask svg,.appt-helper svg{width:16px;height:16px;color:var(--accent);flex:none}
+.schedule-editor.is-studio .appt-helpers .slot-advisor-ask:hover:not(:disabled),.appt-helper:hover{border-color:var(--accent);background:var(--accent-softer)}
+.appt-helper small{color:var(--muted);font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22ch}
+.appt-helper.is-taken{border-color:color-mix(in srgb,var(--warning) 45%,var(--line))}
+.appt-helper.is-taken small{color:var(--warning);font-weight:700}
+.appt-helper.is-static{cursor:default}
+.appt-helper.is-static:hover{border-color:var(--line-strong);background:var(--surface)}
+.schedule-editor.is-studio .appt-helpers>.lecture-stick{margin:0}
+.schedule-editor.is-studio .appt-helpers>.lecture-stick:not(.is-collapsed){flex-basis:100%}
+.schedule-editor.is-studio .appt-tray-slot{margin:0;padding:0;border:0}
+.schedule-editor.is-studio .appt-tray-slot:empty{display:none}
+
+/* المكان: المبنى والقاعة ومساعداتهما */
+.schedule-editor.is-studio .appt-place>*{grid-column:1/-1;min-width:0}
+.schedule-editor.is-studio .form-grid.appt-place>.location-registry-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:var(--s3) var(--s4)}
+.schedule-editor.is-studio .appt-place>.location-registry-picker>label{display:grid;gap:7px;min-width:0}
+.schedule-editor.is-studio .appt-place>.location-registry-picker>label>span{color:var(--muted);font-size:var(--t-sm);font-weight:650}
+.schedule-editor.is-studio .appt-place>.location-registry-picker>label>span>b{color:var(--danger);font-weight:700}
+.schedule-editor.is-studio .appt-place>.location-registry-picker>label>select{width:100%;min-width:0}
+
+/* المرفق المرافق: متطلَّبٌ إضافيٌّ للمقرر، في بطاقةٍ نحاسيةٍ هادئة */
+.schedule-editor.is-studio .form-grid.appt-place>[data-companion-facility]{grid-template-columns:minmax(0,1fr);padding:12px 14px;border:1px dashed color-mix(in srgb,var(--brass) 45%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--brass) 5%,var(--surface))}
+/* الاستعارة: سطرٌ هادئ يتحوّل لوحةً مصغّرة، بأسلوب المساعدات */
+.schedule-editor.is-studio .appt-place .schedule-borrow-hint{border-radius:14px;padding:11px 14px;font-size:13px}
+.schedule-editor.is-studio .appt-place .schedule-borrow-panel{border-radius:16px;box-shadow:var(--shadow-xs)}
+.schedule-editor.is-studio .appt-place .schedule-borrow-list li{padding:9px 10px;border-radius:12px}
+.schedule-editor.is-studio .appt-place .schedule-borrow-list li button{min-height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--accent);background:var(--accent-softer);color:var(--accent-strong);font-weight:700;cursor:pointer}
+.schedule-editor.is-studio .appt-place .room-owner-note{border-radius:14px}
+/* الخطأ والانتظار: بطاقةٌ واحدة واضحة، ودوّارةٌ صغيرة بدل الكلمة وحدها */
+.schedule-editor.is-studio .schedule-editor-error{border-radius:14px;font-weight:600}
+.appt-status-word .checks-spin{width:15px;height:15px}
+/* شريط الحفظ: ملخّصٌ بأيقونات، وحالةٌ واحدة، وزرّان */
+.schedule-editor.is-studio .save-preview.appt-bar{position:sticky;bottom:var(--dock-h,0px);z-index:20;display:flex;flex-wrap:nowrap;align-items:center;gap:12px;margin:16px 0 0;padding:12px 16px;border:1px solid var(--line);border-radius:20px 20px 0 0;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:saturate(1.2) blur(10px);-webkit-backdrop-filter:saturate(1.2) blur(10px);box-shadow:0 -14px 34px -26px rgba(17,25,22,.42)}
+.appt-sum{display:flex;flex-wrap:nowrap;gap:6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;mask-image:linear-gradient(to left,#000 calc(100% - 24px),transparent)}
+.appt-sum::-webkit-scrollbar{display:none}
+.appt-sum>.appt-chip{flex:none}
+.appt-chip{display:inline-flex;align-items:center;gap:6px;height:32px;max-width:260px;padding:0 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--ink-2);font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden}
+.appt-chip>span,.appt-chip>bdi{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.appt-chip>svg{width:15px;height:15px;color:var(--accent);flex:none}
+.appt-chip.is-missing{border-style:dashed;background:transparent;color:var(--muted)}
+.appt-chip.is-missing>svg{color:var(--muted)}
+.appt-chip.is-changed{border-color:color-mix(in srgb,var(--brass) 55%,var(--line));background:var(--brass-soft)}
+.appt-chip.is-changed::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--brass);flex:none}
+.appt-status{display:inline-flex;align-items:center;gap:10px;min-height:42px;max-width:min(46vw,440px);padding:0 6px 0 14px;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);color:var(--ink-2);font:inherit;font-size:13.5px;font-weight:700;white-space:nowrap;cursor:pointer;flex:none}
+.appt-status:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.appt-status-word{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.appt-status-word svg{width:16px;height:16px;flex:none}
+.appt-status-count{display:inline-flex;align-items:center;gap:4px}
+.appt-status-count svg{width:16px;height:16px}
+.appt-status-count.is-block{color:var(--danger)}
+.appt-status-count.is-warn{color:var(--warning)}
+.appt-status.is-block{border-color:color-mix(in srgb,var(--danger) 40%,var(--line))}
+.appt-status.is-block .appt-status-word{color:var(--danger)}
+.appt-status.is-warn .appt-status-word{color:var(--warning)}
+.appt-status.is-ok .appt-status-word{color:var(--success)}
+.appt-status.is-missing .appt-status-word,.appt-status.is-checking .appt-status-word{color:var(--muted)}
+.appt-status-more{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font-size:12.5px;font-weight:600}
+.appt-status-more svg{width:14px;height:14px}
+.schedule-editor.is-studio .appt-bar .form-actions{display:flex;flex-direction:row-reverse;flex-wrap:nowrap;align-items:center;gap:8px;margin:0;padding:0;border:0;flex:none}
+
+/* «أسبوع الأستاذ» قبل اختياره: مكانُه مرسوم */
+.appt-week-ghost{display:grid;place-items:center;align-content:center;gap:6px;min-height:300px;padding:24px;border:2px dashed var(--line-strong);border-radius:20px;color:var(--muted);text-align:center}
+.appt-week-ghost svg{width:30px;height:30px;color:var(--line-strong)}
+.appt-week-ghost b{color:var(--ink-2);font-size:14.5px}
+.appt-week-ghost small{font-size:12.5px}
+
+/* لوحة الفحص: تنسدل من اليسار عند الطلب (ومن الأسفل على الهاتف) */
+.appt-drawer-scrim{position:fixed;inset:0;z-index:190;background:rgba(14,20,18,.26);opacity:0;visibility:hidden;transition:opacity .2s var(--ease-out),visibility 0s linear .2s}
+.appt-drawer-scrim.is-open{opacity:1;visibility:visible;transition:opacity .2s var(--ease-out)}
+.appt-drawer{position:fixed;inset-block:0;left:0;z-index:195;width:min(460px,92vw);display:flex;flex-direction:column;overflow:auto;overscroll-behavior:contain;background:var(--canvas);border-inline-start:1px solid var(--line);box-shadow:24px 0 60px -30px rgba(10,20,16,.45);transform:translateX(-102%);visibility:hidden;transition:transform .26s var(--ease-out),visibility 0s linear .26s}
+.appt-drawer.is-open{transform:none;visibility:visible;transition:transform .26s var(--ease-out)}
+.appt-drawer-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--canvas) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.appt-drawer-head b{font-size:16px}
+.appt-drawer-close{margin-inline-start:auto;width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer}
+.appt-drawer-close svg{width:18px;height:18px}
+.appt-drawer-grip{display:none}
+.schedule-editor .appt-drawer .conflict-panel{position:static!important;top:auto!important;margin:12px;border-radius:18px}
+.checks-missing{display:flex;align-items:center;gap:8px;margin:0;padding:9px 12px;border-radius:12px;background:var(--surface-2);color:var(--ink-2);font-size:13px;font-weight:600}
+.checks-missing svg{width:16px;height:16px;color:var(--muted);flex:none}
+
+/* التابلت: عمودٌ واحد، و«أسبوع الأستاذ» شريطٌ سفليٌّ فوق شريط الحفظ */
+@media (max-width:1100px){
+  .schedule-editor.is-studio .page-heading{padding-inline-end:56px}
+  .appt-esc{display:none}
+  .appt-week-ghost{display:none}
+  .schedule-editor.is-studio .mini-week.is-sheet{bottom:calc(var(--dock-h,0px) + var(--appt-bar-h,76px) + 8px + env(safe-area-inset-bottom))}
+  .appt-drawer{inset:auto 0 0 0;top:auto;width:auto;max-height:84dvh;border-inline-start:0;border-top:1px solid var(--line);border-radius:24px 24px 0 0;box-shadow:0 -24px 60px -30px rgba(10,20,16,.45);transform:translateY(102%);padding-bottom:env(safe-area-inset-bottom)}
+  .appt-drawer.is-open{transform:none}
+  .appt-drawer-grip{display:block;position:absolute;top:6px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:99px;background:var(--line-strong)}
+  .appt-drawer-head{padding-top:20px;border-radius:24px 24px 0 0}
+}
+
+/* أثناء النموذج على الهاتف يغيب شريط التنقل السفلي: شريط الحفظ مكانه، و«✕» و«تراجع» للخروج. */
+@media (max-width:900px){
+  html:has(.schedule-editor.is-studio) .mobile-bottom-dock{display:none}
+  html:has(.schedule-editor.is-studio){--dock-h:0px}
+}
+/* الهاتف: كل سؤالٍ بعرض الشاشة، والشريط حالةٌ وزرّان */
+@media (max-width:700px){
+  .schedule-editor.is-studio{--appt-bar-h:66px}
+  .schedule-editor.is-studio .page-heading h1{font-size:24px}
+  .appt-scope{border-radius:16px;padding:8px 12px}
+  .schedule-editor.is-studio .appt-step{padding:16px;border-radius:18px;gap:14px}
+  .schedule-editor.is-studio .appt-fields-3{grid-template-columns:minmax(0,1fr)}
+  .schedule-editor.is-studio .appt-time-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .schedule-editor.is-studio .appt-time-fields>.appt-duration{grid-column:1/-1}
+  .schedule-editor.is-studio .form-grid.appt-place>.location-registry-picker{grid-template-columns:minmax(0,1fr)}
+  .appt-sumrow{padding:10px 12px;min-height:58px}
+  .appt-sumrow-end{width:100%;justify-content:flex-end}
+  .schedule-editor.is-studio .save-preview.appt-bar{gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0}
+  .schedule-editor.is-studio .appt-sum{display:none}
+  .schedule-editor.is-studio .appt-status{flex:1;min-width:0;max-width:none;padding-inline-start:12px}
+  .schedule-editor.is-studio .appt-status-more{display:none}
+  .schedule-editor.is-studio .appt-bar .form-actions .btn{width:auto;min-height:42px;padding-inline:14px}
+  .schedule-editor.is-studio .editor-validation-strip{flex-wrap:wrap}
+  .schedule-editor.is-studio .editor-validation-strip span.appt-inline-text{white-space:normal}
+}
+@media (prefers-reduced-motion:reduce){
+  .appt-drawer,.appt-drawer-scrim,.schedule-editor.is-studio .appt-step{transition:none}
+}
+@media print{.appt-drawer,.appt-drawer-scrim,.appt-esc{display:none!important}}
