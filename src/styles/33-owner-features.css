@@ -20,7 +20,7 @@
 .of-kpi{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface,#fff)}
 .of-kpi b{font-size:1.5rem;line-height:1}.of-kpi span{font-size:.8rem;color:var(--muted,#6b7280)}
 .of-kpi .of-ic{font-size:22px}
-.of-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.of-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:10px}
 .of-card{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface,#fff);min-width:0}
 .of-card header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .of-card header b{font-size:.92rem;overflow-wrap:anywhere}.of-card header small{color:var(--muted,#6b7280);font-size:.75rem}

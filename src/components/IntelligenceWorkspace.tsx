@@ -5746,15 +5746,18 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         >
           {/* درجٌ فوق خلفيةٍ تحجب الصفحة: حوارٌ يُعلن ذلك، فيتنحّى الجرسُ عن ✕ في زاويته. */}
           <aside className="intel-drawer" role="dialog" aria-modal="true" aria-label={detail.type === "room" ? "ذكاء القاعات" : "حمل الأستاذ"}>
-            <button
-              className="drawer-close"
-              type="button"
-              aria-label="إغلاق التفاصيل"
-              title="إغلاق التفاصيل"
-              onClick={() => setDetail(null)}
-            >
-              <X />
-            </button>
+            {/* ✕ في شريطِ رأسٍ معتم (كدرج الموعد)، لا زرّاً لاصقاً وحده يطفو فوق البطاقات عند التمرير. */}
+            <div className="context-actions intel-drawer-bar">
+              <button
+                className="drawer-close"
+                type="button"
+                aria-label="إغلاق التفاصيل"
+                title="إغلاق التفاصيل"
+                onClick={() => setDetail(null)}
+              >
+                <X />
+              </button>
+            </div>
             {detail.type === "room" ? (
               <>
                 <div className="drawer-title">

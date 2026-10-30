@@ -57,7 +57,7 @@
 .query-scope .field select{min-height:44px;background-color:var(--surface-2)}
 .query-scope>.btn{min-height:44px}
 .query-more{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));
   gap:var(--s5) var(--s4);align-items:end;
   margin-top:var(--s5);padding-top:var(--s5);
   border-top:1px solid var(--line);
@@ -477,7 +477,7 @@
 .occupancy-legend i[data-level="5"]{background:var(--accent)}
 
 .occupancy-windows{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:var(--s3);
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:var(--s3);
   padding:0 var(--s6) var(--s5);
 }
 .occupancy-windows article{
@@ -887,7 +887,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 /* The dashboard: one card per reading, each showing the single number that
    reading exists to produce. */
 .insight-preview-list{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:var(--s3);
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(min(216px,100%),1fr));gap:var(--s3);
 }
 .insight-preview{
   display:grid;grid-template-columns:38px minmax(0,1fr);grid-template-rows:auto auto;
@@ -1029,7 +1029,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 }
 
 .quality-factors{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));
   gap:var(--s2) var(--s4);margin-top:var(--s5);
 }
 .quality-factors>span{
@@ -1303,7 +1303,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
   border:1px solid var(--line);border-radius:var(--r-xl);background:var(--surface);
 }
 .constraint-canvas,.war-room,.autopilot-lab,.twin-workbench,.twin-visual-board{padding:var(--s5)}
-.constraint-builder{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--s4)}
+.constraint-builder{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:var(--s4)}
 .constraint-builder-copy{min-width:0;padding:var(--s4);border:1px solid color-mix(in srgb,var(--accent) 16%,var(--line));border-radius:var(--r-md);background:color-mix(in srgb,var(--accent-softer) 56%,var(--surface))}
 .constraint-builder-copy strong{display:block;font-size:var(--t-sm);font-weight:700;line-height:1.5}
 .constraint-builder-copy span{display:block;margin-top:var(--s1);color:var(--muted);font-size:var(--t-xs);line-height:1.65}
@@ -1375,7 +1375,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 .twin-drop-cell{position:relative;background:var(--surface-2);display:flex;flex-direction:column;gap:3px;padding:3px}
 .twin-event{padding:var(--s2);border:1px solid var(--line);border-radius:var(--r-xs);background:var(--accent-softer);font-size:var(--t-xs);line-height:1.4;overflow-wrap:break-word}
 .scenario-editor,.scenario-fields,.scenario-days{display:grid;gap:var(--s3)}
-.scenario-fields{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.scenario-fields{grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr))}
 .change-ledger,.change-list{display:flex;flex-direction:column;gap:var(--s2)}
 .change-list article{padding:var(--s3);border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);font-size:var(--t-sm)}
 
@@ -1505,7 +1505,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 .brief-issues li strong{display:block;font-size:var(--t-sm);line-height:1.4;color:var(--ink)}
 .brief-issues li p{margin:2px 0 0;color:var(--muted);font-size:var(--t-xs);line-height:1.6}
 
-.brief-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--s4)}
+.brief-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:var(--s4)}
 
 .brief-risk{
   display:flex;align-items:flex-start;gap:var(--s3);
@@ -1649,7 +1649,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 }
 .health-verdict strong{font-size:var(--t-h4);line-height:1.35;color:var(--ink)}
 
-.health-lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--s4)}
+.health-lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:var(--s4)}
 .health-list{
   padding:var(--s4) var(--s5);
   border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);
@@ -3708,7 +3708,7 @@ button.twin-delta{width:100%}
 @media(max-width:640px){.insight-preview-rail{padding:14px;border-radius:20px}.insight-preview{min-height:84px}}
 
 /* 2026-08 refinement — dense intelligence becomes glanceable instead of textual. */
-.smart-alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.smart-alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px}
 .smart-alert-card{display:flex!important;align-items:center;gap:12px;min-height:92px;padding:16px!important;border-radius:20px!important}
 .smart-alert-card .smart-alert-icon{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:14px;background:color-mix(in srgb,currentColor 9%,transparent)}
 .smart-alert-card .smart-alert-icon svg{width:22px;height:22px}

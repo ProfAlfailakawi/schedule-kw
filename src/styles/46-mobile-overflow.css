@@ -1,0 +1,97 @@
+/* ==========================================================================
+   لا شيءَ يخرج عن عرض الهاتف.
+   سببان وجدناهما على iPhone (Safari الحقيقي، لا Chromium):
+   1) حقولُ التاريخ والساعة: محرّكُ iOS يرسمها بمظهره الأصلي، فيفرض لها
+      `box-sizing:content-box` وحدّاً أدنى للعرض من عنده، ويتجاهل
+      `*{box-sizing:border-box}`؛ فيصير `width:100%` = عرضُ العمود + الحشوة
+      والإطار، ويبرز الحقلُ عن خانته (حقل «الساعة · الكويت»).
+      العلاج: نُسقط المظهرَ الأصلي على iOS وحده (`appearance:none`)، فيعود
+      الحقلُ صندوقاً عادياً يطيع العرضَ والحشوة، ويبقى منتقي التاريخ/الساعة
+      الأصلي يفتح عند اللمس. وعلى الحاسوب لا يتغيّر شيء.
+   2) شبكةٌ بعمودٍ ضمنيّ `auto`: العمودُ يتّسع لأعرض «حدٍّ أدنى» عند أي ابن
+      فيه، فيتّسع معه كلُّ الإخوة (العنوان وبطاقات نوع الإرسال) ويُقصّ
+      طرفُها الأيمن. العلاج: عمودٌ `minmax(0,1fr)` وأبناءٌ `min-inline-size:0`.
+   ========================================================================== */
+
+/* — ورقة النشر: كلُّ خطوةٍ عمودٌ واحد لا يتّسع بأبنائه. — */
+.share-step{grid-template-columns:minmax(0,1fr)}
+.share-step>*,
+.share-compose>*,
+.share-deadline-fields>*{min-inline-size:0;max-inline-size:100%}
+
+/* — حقولُ التاريخ والساعة في كل لوحات الإرسال والمواعيد. — */
+.share-closes input,
+.share-deadline-fields input,
+.share-window-form label>input,
+.share-window-form label>select{box-sizing:border-box;inline-size:100%;min-inline-size:0;max-inline-size:100%}
+
+/* iOS وحده: الحقلُ الأصلي يتمرّد على العرض؛ نُسقط مظهرَه ويبقى منتقيه. */
+@supports (-webkit-touch-callout:none){
+  input[type=date],
+  input[type=time],
+  input[type=datetime-local],
+  input[type=month]{
+    -webkit-appearance:none;appearance:none;
+    box-sizing:border-box;min-inline-size:0;max-inline-size:100%;
+    /* القيمةُ تُكتب بلغة الهاتف؛ في صفحةٍ عربية كانت «Oct 31, 2026» تُقرأ
+       «Oct 2026 31» و«11:59 PM» تُقرأ «PM 11:59». بأساسٍ من اليسار تُقرأ
+       الإنجليزيةُ صحيحة، والقيمةُ العربيةُ كلُّها سلسلةٌ واحدة من اليمين كما هي. */
+    direction:ltr;
+  }
+  input[type=date]::-webkit-date-and-time-value,
+  input[type=time]::-webkit-date-and-time-value,
+  input[type=datetime-local]::-webkit-date-and-time-value,
+  input[type=month]::-webkit-date-and-time-value{text-align:center;min-block-size:1.4em}
+}
+
+/* — ورقة النشر: رأسٌ ثابت لزرّ ✕ —
+   كان ✕ زرّاً «لاصقاً» وحده، فإذا مُرِّرت الورقةُ طفا فوق بطاقات المقررات وغطّى
+   زاويتها. صار يسكن شريطاً بعرض الورقة كلها: في أعلى الورقة شفافٌ فلا يتغيّر
+   شيءٌ مما يُرى، وإذا مُرِّرت صار معتماً بخطٍّ رفيع واسمِ النشر، والمحتوى يمرّ تحته. */
+/* الحشوةُ العليا للورقة تنتقل إلى الشريط نفسه: Safari يحسب «اللصوق» من داخل حشوة
+   الحاوية، فيترك فوق الشريط شقّاً يظهر منه المحتوى. بلا حشوةٍ عليا يلتصق الشريط
+   بالحافة نفسها في كل محرّك. */
+.share-sheet.visual-minimal{--sheet-px:var(--s7);--topbar-pad:10px;--topbar-btn:var(--icon-btn,42px);padding-block-start:0}
+@media screen and (max-width:768px){.share-sheet.visual-minimal{--sheet-px:var(--s5)}}
+.share-topbar{
+  position:sticky;top:0;z-index:4;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  /* الرأسُ (الأيقونة والعنوان) يبقى حيث كان على الحاسوب، و✕ على خطّه. */
+  margin-block:calc(var(--s7) - var(--topbar-pad)) calc((var(--topbar-btn) + var(--topbar-pad) + 8px) * -1);
+  margin-inline:calc(var(--sheet-px) * -1);
+  padding:var(--topbar-pad) var(--sheet-px);
+  pointer-events:none;
+  transition:background-color .16s ease,box-shadow .16s ease;
+}
+.share-topbar>.share-close{
+  pointer-events:auto;position:static!important;float:none!important;
+  margin:0!important;margin-inline-start:auto!important;top:auto!important;
+  flex:none;
+}
+.share-topbar-title{
+  min-inline-size:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:700;font-size:.95rem;color:var(--ink);
+  opacity:0;visibility:hidden;transition:opacity .16s ease;
+}
+.share-sheet[data-scrolled] .share-topbar{
+  background:var(--surface);
+  box-shadow:0 1px 0 var(--line),0 10px 18px -16px rgba(15,23,42,.35);
+}
+.share-sheet[data-scrolled] .share-topbar-title{opacity:1;visibility:visible}
+@media screen and (max-width:600px){
+  .share-sheet.visual-minimal{--sheet-px:16px;padding-block-start:0!important}
+  .share-topbar{
+    margin-block-start:0;
+    padding-block:calc(var(--topbar-pad) + env(safe-area-inset-top)) var(--topbar-pad);
+    /* الرأسُ يبدأ حيث كان (18px) كأنّ الشريط غيرُ موجود. */
+    margin-block-end:calc((var(--topbar-btn) + var(--topbar-pad) * 2 + env(safe-area-inset-top) - 18px) * -1);
+  }
+  /* في أعلى الورقة يقف ✕ على خطّ أيقونة الرابط المقابلة (54px تبدأ عند 24px)؛
+     وإذا مُرِّرت الورقة صعد إلى مكانه في الشريط. */
+  .share-topbar>.share-close{transform:translateY(20px);transition:transform .16s ease}
+  .share-sheet[data-scrolled] .share-topbar>.share-close{transform:none}
+}
+
+/* — درجُ مركز الذكاء: ✕ كان لاصقاً وحده فيطفو فوق البطاقات؛ صار في شريط الرأس
+   المعتم نفسه الذي يحمله درجُ الموعد (.context-actions)، في طرفه. — */
+.intel-drawer-bar .drawer-close{margin-inline-start:auto}

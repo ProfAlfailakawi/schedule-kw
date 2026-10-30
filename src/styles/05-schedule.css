@@ -1547,7 +1547,7 @@ html[data-schedule-workspace="presentation"] .cinema-day-track time b{font-size:
   padding:var(--s5);text-align:center;justify-content:center;
   color:var(--muted);font-size:var(--t-sm);
 }
-.preview-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:var(--s3)}
+.preview-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:var(--s3)}
 .preview-summary>div,.preview-summary>article{
   padding:var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);
 }
