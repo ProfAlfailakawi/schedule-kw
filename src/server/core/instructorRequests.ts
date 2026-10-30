@@ -533,7 +533,8 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
         ? "يحتاج القسم التحقق من القاعة قبل الاعتماد؛ بيانات القاعات المتاحة غير مكتملة."
         : (() => { const hall = rules.hallByKey.get(verdict.roomCandidates[0]); const room = rules.registry.rooms.find(room => room.id === hall?.roomId);
           const fit = roomSuitability(selectedCourse, room);
-          return fit.reasons.some(reason => /مختلف|أقل/.test(reason)) ? "يمكن تقديم الطلب؛ ملاءمة نوع القاعة أو سعتها تحتاج مراجعة القسم." : undefined; })()),
+          /* «يمكن تقديم الطلب» لا تُقال تحت حكمٍ يمنعه (كانت تظهر تحت «وقت البداية غير معتمد»). */
+          return verdict.kind !== "conflict" && fit.reasons.some(reason => /مختلف|أقل/.test(reason)) ? "يمكن تقديم الطلب؛ ملاءمة نوع القاعة أو سعتها تحتاج مراجعة القسم." : undefined; })()),
       block: verdict.blockMinutes || (item.slots?.length === 1 ? timeToMinutes(item.slots[0].end) - timeToMinutes(item.slots[0].start) : undefined),
     } as InstructorRequestItem;
   });
