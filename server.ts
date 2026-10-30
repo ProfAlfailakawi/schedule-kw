@@ -85,6 +85,7 @@ import { registerSurveyRoutes } from "./src/server/routes/surveyRoutes";
 import { registerSystemRoutes } from "./src/server/routes/systemRoutes";
 import { registerUsersRoutes } from "./src/server/routes/usersRoutes";
 import { registerSeatsRoutes, seatMemberGuard } from "./src/server/seatsRoutes";
+import { registerSectionRequestsRoutes } from "./src/server/sectionRequestsRoutes";
 import { registerVerifyRoutes } from "./src/server/routes/verifyRoutes";
 
 const app = express();
@@ -428,6 +429,8 @@ registerPublicCalendarRoutes(app);
 registerPublicStaffRoutes(app);
 registerSurveyRoutes(app);
 registerStudentRegistrationRoutes(app);
+/* «طلب شعبة»: الإرشاد ← لجنة الجدول ← التسجيل، ببطاقاتٍ في كشف التسجيل (src/utils/sectionRequests.ts). */
+registerSectionRequestsRoutes(app);
 registerInstructorRequestsRoutes(app);
 registerPublicRequestRoutes(app);
 

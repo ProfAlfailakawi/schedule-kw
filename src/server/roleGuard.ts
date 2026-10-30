@@ -76,6 +76,12 @@ export function isApprovalWritePath(pathname: string): boolean {
   return APPROVAL_WRITE_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+/** مساراتُ «طلب شعبة»: ‎/section-requests‎ وما تحته. */
+export const SECTION_REQUEST_PREFIX = "/section-requests";
+export function isSectionRequestWritePath(pathname: string): boolean {
+  return pathname === SECTION_REQUEST_PREFIX || pathname.startsWith(`${SECTION_REQUEST_PREFIX}/`);
+}
+
 /** صلاحية ضيقة لرئيس القسم: تصحيح مسوّدة صحيفته من شاشة المراجعة فقط. */
 const DEPARTMENT_PLAN_REVIEW_WRITES = new Set([
   "/plan-review/rule", "/plan-review/group", "/plan-review/group/delete", "/plan-review/course-details",
@@ -105,6 +111,9 @@ export function roleWriteDecision(input: RoleGuardInput): RoleGuardVerdict {
   if (roleDefinition(input.role).id === "departmentHead" && DEPARTMENT_PLAN_REVIEW_WRITES.has(input.path)) return { allowed: true, reason: "approval" };
   /* رصيد مقاعد المرشد (L3): بابٌ أضيق للمرشد وحده — إضافةُ مقعدٍ من رصيده وطلبُ استثناء. لا جدول ولا اعتماد. */
   if (isAdvisorRole(input.role) && input.method.toUpperCase() === "POST" && ADVISOR_SEAT_WRITES.has(input.path)) return { allowed: true, reason: "approval" };
+  /* «طلب شعبة» (src/utils/sectionRequests.ts): المرشدُ يرسل ويسحب، والتسجيلُ يعتمد ويسجّل. بابٌ ضيّقٌ
+     لا يمسّ جدولاً؛ والمسارُ نفسه يحكم أيَّ طرفٍ يفعل ماذا وفي أيّ نطاق. وصفةُ العرض الصرف تقرأ وحدها. */
+  if (isSectionRequestWritePath(input.path) && !isViewerOnlyRole(input.role)) return { allowed: true, reason: "approval" };
   /* المرشد يقرأ كشف التسجيل ولا يشارك في دورة الاعتماد: لا يمرّ من البابِ الضيّق. */
   if (isApprovalWritePath(input.path) && !isViewerOnlyRole(input.role) && !isAdvisorRole(input.role)) return { allowed: true, reason: "approval" };
   return { allowed: false, reason: "read-only-role" };
