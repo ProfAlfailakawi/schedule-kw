@@ -174,6 +174,13 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
     check(describeRestoreImpact(impact) === "يعدّل موعد واحد، ويحذف موعد واحد، ويعيد موعد واحد" || describeRestoreImpact(impact).startsWith("يعدّل "), "I1 سطرٌ واحد يُقرأ", describeRestoreImpact(impact));
     check(restoreImpact(a, a.map(item => ({ ...item, id: item.id + 100 }))).same, "I1 نسخةٌ بمعرّفات أخرى ومحتوى واحد: لا تغيير");
     check(describeRestoreImpact(restoreImpact([], [])) === "مطابقة للجدول الحالي — لن يتغيّر شيء", "I1 والمطابقةُ تُقال");
+    const withCompanion = a.map((item, at) => (at === 0 ? { ...item, companionRoomId: "lab-7", companionRoomLabel: "مختبر 7" } : item));
+    const companionOnly = restoreImpact(a, withCompanion);
+    check(!companionOnly.same && companionOnly.edits === 1 && companionOnly.removes === 0 && companionOnly.restores === 0,
+      "I2 نسخةٌ تختلف في القاعة المرافقة وحدها ليست «مطابقة»: تعديلٌ واحد، والزرّ لا يُعطَّل", companionOnly);
+    check(!restoreImpact(withCompanion, a).same, "I2 وفي الاتجاه الآخر: إزالةُ القاعة المرافقة تعديل");
+    check(!restoreImpact(a, a.map((item, at) => (at === 1 ? { ...item, buildingId: "bld-2" } : item))).same, "I2 والمبنى المعتمد كذلك");
+    check(restoreImpact(withCompanion, withCompanion.map(item => ({ ...item, id: item.id + 50 }))).same, "I2 والمطابقةُ الحقيقية تبقى مطابقة");
     check(describeRestoreImpact({ edits: 40, removes: 2, restores: 0, same: false }) === "يعدّل 40 موعداً، ويحذف موعدين", "I1 العددُ بالعربية الصحيحة", describeRestoreImpact({ edits: 40, removes: 2, restores: 0, same: false }));
     check(safetyPointKind("قبل نشر: نسخة PDF المعتمدة — تكنولوجيا التعليم.pdf", "publish").kindLabel === "قبل الاستيراد", "K1 نشرُ ملف PDF: «قبل الاستيراد»");
     check(safetyPointKind("قبل التراجع عن القرار: قبل نشر: x.pdf", "undo").kind === "undo", "K1 «قبل التراجع»");

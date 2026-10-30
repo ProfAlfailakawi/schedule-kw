@@ -66,13 +66,29 @@ export interface RestoreImpact {
 
 const offeringKey = (row: any) => `${Number(row?.AdCourseId || 0)}|${String(row?.SCode ?? "").trim()}`;
 
+/**
+ * ── ما يكتبه الاسترجاع هو ما يُقارن ─────────────────────────────────────────
+ * `rowSignature` (المقرر، الشعبة، الأستاذ، الأيام، الوقت، القاعة) هو معنى «تغيّر
+ * الموعد» في حراسة المحو؛ والاسترجاعُ يكتب فوقه القاعةَ المرافقة أيضاً. نسخةٌ لا
+ * تختلف إلا في القاعة المرافقة كانت تُقال «مطابقة» ويُعطَّل زرّ استرجاعها.
+ * فيُقارن هنا كلُّ حقلٍ يضعه الموعدُ في مكانٍ وزمن: التوقيعُ ومعه القاعةُ المرافقة
+ * والمبنى المعتمد.
+ */
+export function restoreSignature(row: any): string {
+  return JSON.stringify([
+    rowSignature(row),
+    String(row?.companionRoomId ?? "").trim(),
+    String(row?.buildingId ?? "").trim(),
+  ]);
+}
+
 /** Rows of `rows` that `other` has no copy of, counting duplicates. */
 function unmatched(rows: any[], other: any[]): any[] {
   const pool = new Map<string, number>();
-  for (const row of other || []) { const key = rowSignature(row); pool.set(key, (pool.get(key) || 0) + 1); }
+  for (const row of other || []) { const key = restoreSignature(row); pool.set(key, (pool.get(key) || 0) + 1); }
   const left: any[] = [];
   for (const row of rows || []) {
-    const key = rowSignature(row);
+    const key = restoreSignature(row);
     const have = pool.get(key) || 0;
     if (have > 0) pool.set(key, have - 1);
     else left.push(row);
