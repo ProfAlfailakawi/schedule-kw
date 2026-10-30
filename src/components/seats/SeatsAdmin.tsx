@@ -3,7 +3,9 @@ import { Armchair, Building2, Crown, Plus, Search, Snowflake, UsersRound } from 
 import SeatPanel from "./SeatPanel";
 import SeatLinkCard from "./SeatLinkCard";
 import { invitationHref } from "../../utils/invitationLink";
+import { seatCaption } from "../../utils/seatAccessCard";
 import type { CampusFamily } from "../../utils/campusFamily";
+import "../account-invitation.css";
 import "./seats.css";
 
 /**
@@ -201,7 +203,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
         <section className="seats-detail" aria-live="polite">
           {created ? (
             <div className="seats-created">
-              <SeatLinkCard title={created.holder.name} subtitle={`الشاغل · ${created.seatName}`} url={invitationHref(`${window.location.origin}/`, created.login, created.password)}
+              <SeatLinkCard title={created.holder.name} subtitle={seatCaption("رئيس تسجيل الكلية", created.seatName)} fileStem="SCHEDULE-seat" url={invitationHref(`${window.location.origin}/`, created.login, created.password)}
                 mobile={created.holder.mobile} credentials={{ login: created.login, password: created.password }}
                 message={[`أهلاً ${created.holder.name}`, `أُنشئ لك كرسي «${created.seatName}» في SCHEDULE.`, "ادخل من هذا الرابط، واختر كلمة سرّك الخاصة عند أول دخول:", invitationHref(`${window.location.origin}/`, created.login, created.password)].join("\n")}
                 onDone={() => setCreated(null)} />
