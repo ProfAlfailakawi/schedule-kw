@@ -166,6 +166,8 @@ import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCrea
 import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { TimeCounterPopover } from "./TimeCounter";
 import CommandPalette, { type ScheduleCommand } from "./CommandPalette";
+import OneLinePreview from "./OneLinePreview";
+import { offerOneLine, oneLineCreateSeed, oneLinePlace, parseOneLineAppointment, type OneLineReading } from "../utils/oneLineAppointment";
 import ScheduleViewsMenu, { SaveViewDialog } from "./ScheduleViewsMenu";
 import {
   createLocalViewsStore,
@@ -253,6 +255,8 @@ type CreateSeed = {
   courseId?: number; instructorId?: number;
   collegeId?: number; sectionId?: number; termId?: number;
   days?: DayKey[];
+  /* «اكتب الموعد بسطرٍ واحد» (لوحة الأوامر): الشعبةُ التي كُتبت في السطر، أو التاليةُ المقترحة لمقرّره. */
+  sectionCode?: string;
 };
 type DecisionFingerprint = { summary: string; before: string; after: string; place: string; quality: string; count: number; when: number };
 /**
@@ -3040,6 +3044,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     /* «طلب شعبة» يخصّ المحرّرَ الذي فُتح له وحده: إغلاقُه أو فتحُ غيره يمحوه، فلا يُربط بالطلب موعدٌ لا يخصّه. */
     pendingSectionRequest.current = null;
   };
+  /* The department a new appointment opens in — one rule for every door, so the
+     palette's one-line reading matches the courses of the very department the
+     editor will open on (openCreate below, «اكتب الموعد بسطرٍ واحد»). */
+  const createScope = () => {
+    // Scope is inherited only when the user has explicitly activated the
+    // board. Never revive a saved college/term behind an empty selector.
+    const preferredCollege = Number(filterCollege) || 0;
+    const preferredSection = Number(filterSection) || 0;
+    const scoped = preferredCollege ? coerceScopeValues(scopes, preferredCollege, preferredSection, isPowerAdmin) : { collegeId: 0, sectionId: 0 };
+    return {
+      collegeId: scoped.collegeId,
+      sectionId: scoped.sectionId || (scoped.collegeId ? resolveScopeSelection(scopes, scoped.collegeId, isPowerAdmin).defaultSectionId || 0 : 0),
+      termId: Number(filterTerm) || 0,
+    };
+  };
   const openCreate = (seed?: CreateSeed) => {
       if (showMobileReadOnlyGate()) return;
       /* كلُّ أبواب الإضافة تمرّ من هنا — الزرّ والخانة الفارغة والأوامر —
@@ -3053,14 +3072,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
        * النطاق وحده (الكلية/القسم/الفصل)؛ والإدخال المتتابع بعد حفظٍ ناجح له
        * بابه الصريح (continueCreating) لا هذا الباب. */
       const next = blank();
-      // Scope is inherited only when the user has explicitly activated the
-      // board. Never revive a saved college/term behind an empty selector.
-      const preferredCollege = Number(filterCollege) || 0;
-      const preferredSection = Number(filterSection) || 0;
-      const scoped = preferredCollege ? coerceScopeValues(scopes, preferredCollege, preferredSection, isPowerAdmin) : { collegeId: 0, sectionId: 0 };
-      next.AdCollegeId = scoped.collegeId;
-      next.AdSectionId = scoped.sectionId || (scoped.collegeId ? resolveScopeSelection(scopes, scoped.collegeId, isPowerAdmin).defaultSectionId || 0 : 0);
-      next.AdTermId = Number(filterTerm) || 0;
+      const scope = createScope();
+      next.AdCollegeId = scope.collegeId;
+      next.AdSectionId = scope.sectionId;
+      next.AdTermId = scope.termId;
       // Started from an empty square in the week: its day decides the timetable
       // duration (50 minutes on Sun/Tue/Thu, 80 on Mon/Wed).
       if (seed?.day) {
@@ -3097,6 +3112,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         next.locationStatus = undefined;
         next.SCode = "";
       }
+      /* شعبةٌ قالها السطرُ صراحةً — أو اقترحها لمقرّره كما يقترحها اختيارُ المقرر في المحرر. */
+      if (seed?.sectionCode) next.SCode = seed.sectionCode;
       // Location is never seeded from a raw string. The user selects a canonical registry record below.
       if (seed?.start) {
         next.fstarttime = seed.start;
@@ -8490,6 +8507,85 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     });
   }, [viewMode, todayKey, picking, pendingUndo, liveClash, focusMode, presentationMode, hueBy, hueHidden, hueFocus, savedViews, activeView, viewDirty, isPowerAdmin, phoneReadOnly, context?.selected?.id, changeView, applyView, captureView, viewsStore, permissions, onNavigate, user?.IsRootAdmin, user?.SystemUserId]);
 
+  /* ── «اكتب الموعد بسطرٍ واحد» ───────────────────────────────────────────────
+   *
+   * The palette reads a typed line against what this screen already holds —
+   * the courses of the department a new appointment opens in, and the staff
+   * its picker offers (no retired or sabbatical member, no visitor outside this
+   * term's roster) — and offers one command above the list. It opens the same
+   * openCreate every other door uses with what it understood filled in; the
+   * editor and its live checks take it from there, and nothing is saved here.
+   * Offered exactly where «إضافة موعد» is: never a door the account cannot
+   * open. The reading itself is src/utils/oneLineAppointment.ts.
+   */
+  const oneLineScope = createScope();
+  const oneLineCourses = useMemo(
+    () => (oneLineScope.sectionId ? courses.filter(course => Number(course.AdSectionId) === oneLineScope.sectionId) : courses),
+    [courses, oneLineScope.sectionId],
+  );
+  const oneLineStaff = useMemo(
+    () => instructors.filter(person => {
+      if (person.AdInstructorStatus === "retired" || person.AdInstructorStatus === "sabbatical") return false;
+      const id = Number(person.AdInstructorId);
+      return !(visitingIds.has(id) && !pickerVisitingRosterIds.has(id));
+    }),
+    [instructors, visitingIds, pickerVisitingRosterIds],
+  );
+  const oneLineDay = scheduleDayWindowMinutes(sections.find(section => Number(section.AdSectionId) === oneLineScope.sectionId));
+  const oneLineOffered = commands.some(command => command.id === "schedule.create" && command.visible !== false);
+  const openOneLine = async (reading: OneLineReading, suggested: string) => {
+    const scope = createScope();
+    const course = reading.seed.courseId ? courseById.get(reading.seed.courseId) : undefined;
+    /* لوحةٌ بلا قسمٍ مختار: المقرّرُ المفهوم يحمل قسمَه، ما دام في صلاحية الحساب. */
+    const home = !scope.sectionId && course ? coerceScopeValues(scopes, Number(course.AdCollegeId), Number(course.AdSectionId), isPowerAdmin) : null;
+    const homed = home && home.sectionId === Number(course?.AdSectionId) ? home : null;
+    const seed: CreateSeed = { ...oneLineCreateSeed(reading, suggested), ...(homed ? { collegeId: homed.collegeId, sectionId: homed.sectionId } : {}) };
+    openCreate(seed);
+    /* شعبةٌ كُتبت تبقى كما كُتبت؛ والمقترحةُ تتبع المقرر إن غُيّر، كما في المحرر. */
+    sectionAutofilled.current = !reading.seed.sectionCode && Boolean(seed.sectionCode);
+    /* نهايةٌ كُتبت في السطر مدةٌ متعمَّدة، كمدة البطاقة السريعة (expandQuick): لا يعيد الإكمالُ اللائحي
+       كتابتها، ويُرى تنبيهُ التجاوز ومعه «طبّق النمط المعتمد». وبدايةٌ وحدها يُكملها النمط. */
+    if (seed.start && seed.end && seed.days?.length && regulationFit(courseById.get(Number(seed.courseId || 0)), seed.days as RegDayKey[], seed.start, seed.end) === "off") setTimingOverride(true);
+    /* القاعة من القائمة التي يعرضها منتقي المحرر نفسه، لا من نصٍّ مكتوب: سجلٌّ رسميٌّ وحيد أو لا شيء. */
+    const { roomCode, roomHall } = reading.seed;
+    const collegeId = homed?.collegeId || scope.collegeId, sectionId = homed?.sectionId || scope.sectionId;
+    if ((!roomCode && !roomHall) || !collegeId || !sectionId) return;
+    const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId) });
+    if (scope.termId) query.set("termId", String(scope.termId));
+    const registry = await fetch(`/api/location-registry?${query}`, { credentials: "include" })
+      .then(response => (response.ok ? response.json() : null))
+      .catch(() => null);
+    await new Promise(resolve => window.setTimeout(resolve, 0));
+    if (editorRef.current !== "create") return;
+    const found = oneLinePlace(registry, roomCode, roomHall, { collegeId, sectionId });
+    if (found) {
+      setForm(current => (current.buildingId || current.roomId || current.locationStatus || Number(current.AdCourseId || 0) !== Number(seed.courseId || 0)
+        ? current
+        : { ...current, ...found.place }));
+    }
+    if (!found) setMessage(`لم أجد ${isolateLtrText(reading.parts.room || "")} في قاعات قسمك؛ اختر المبنى والقاعة من القائمة.`);
+    else if (roomHall && !found.hallFound) setMessage(`اختير المبنى ${isolateLtrText(found.place.AdRoomCode)}، أما القاعة ${isolateLtrText(roomHall)} فليست بين قاعاته المتاحة لقسمك؛ اخترها من القائمة.`);
+  };
+  const oneLineCommands = (query: string, listed: number): ScheduleCommand[] => {
+    if (!oneLineOffered) return [];
+    const reading = parseOneLineAppointment(query, {
+      courses: oneLineCourses,
+      instructors: oneLineStaff,
+      window: { start: oneLineDay.startTime, end: oneLineDay.endTime },
+    });
+    if (!offerOneLine(reading, listed)) return [];
+    const courseId = Number(reading.seed.courseId || 0);
+    const suggested = courseId && !reading.seed.sectionCode ? nextSectionCode(courseId, oneLineScope.termId, null) : "";
+    return [{
+      id: "schedule.one-line",
+      group: "موعد جديد",
+      label: "أنشئ هذا الموعد",
+      icon: <WandSparkles />,
+      preview: <OneLinePreview reading={reading} suggestedSection={suggested} />,
+      execute: () => openOneLine(reading, suggested),
+    }];
+  };
+
   /**
    * ── One keyboard, one place ───────────────────────────────────────────────
    *
@@ -8543,6 +8639,27 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [mode, paletteOpen, editor, pendingUndo, shortcutsBlocked]);
+
+  /* ── ⌘K الأولى للوحة هذه الشاشة ─────────────────────────────────────────────
+   * The shell's «بحث شامل» answers ⌘K on every screen, and on this one the same
+   * key opened both. The palette was drawn on top, yet the shell's field took
+   * the focus 30ms later — so every key typed, every arrow and Enter went to the
+   * search hidden beneath it, and a command run from here left that search
+   * covering the editor it had just opened. So the first ⌘K is taken here, in
+   * the capture phase ahead of the shell; a second ⌘K while the palette is open
+   * still passes through, closing it (the handler above) and opening «بحث شامل»
+   * — exactly what that second press did before. Nothing is taken away. */
+  useEffect(() => {
+    if (mode !== "schedule" || paletteOpen) return;
+    const firstPress = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setPaletteOpen(true);
+    };
+    window.addEventListener("keydown", firstPress, true);
+    return () => window.removeEventListener("keydown", firstPress, true);
+  }, [mode, paletteOpen]);
 
   const conflictIds = liveClash.ids;
   /**
@@ -13118,7 +13235,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         </div>
       ) : null}
       {paletteOpen ? (
-        <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />
+        <CommandPalette
+          commands={commands}
+          dynamic={oneLineCommands}
+          placeholder={oneLineOffered ? "اكتب أمراً أو موعداً… مثل: 503 نورة ن ر 8" : undefined}
+          onClose={() => setPaletteOpen(false)}
+        />
       ) : null}
       {viewDialog ? (
         <SaveViewDialog

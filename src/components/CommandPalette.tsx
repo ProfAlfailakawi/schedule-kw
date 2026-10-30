@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CornerDownLeft, Search } from "lucide-react";
+import { Command, CornerDownLeft, Search } from "lucide-react";
 
 /**
  * ── The command palette ────────────────────────────────────────────────────
@@ -26,6 +26,8 @@ export type ScheduleCommand = {
   enabled?: boolean;
   /** Not applicable at all right now: absent from the list. */
   visible?: boolean;
+  /** A small picture under the label: what the command will do, drawn rather than described. */
+  preview?: React.ReactNode;
   execute: () => void | Promise<void>;
 };
 
@@ -43,9 +45,17 @@ const fold = (value: string) =>
     .toLowerCase()
     .trim();
 
-export default function CommandPalette({ commands, onClose }: {
+export default function CommandPalette({ commands, onClose, dynamic, placeholder }: {
   commands: ScheduleCommand[];
   onClose: () => void;
+  /**
+   * Commands made from the words themselves — «اكتب الموعد بسطرٍ واحد». They
+   * stand above the list and are reached by the same keys. `listed` is how many
+   * listed commands the same words already match, so a reading that is only
+   * half sure never takes the first row from a command the reader named.
+   */
+  dynamic?: (query: string, listed: number) => ScheduleCommand[];
+  placeholder?: string;
 }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -86,6 +96,13 @@ export default function CommandPalette({ commands, onClose }: {
     return [...map.entries()];
   }, [results]);
 
+  /* Made from the line, shown first; one index walks both, in the order they are drawn. */
+  const live = useMemo(
+    () => (dynamic && query.trim() ? dynamic(query, results.length).filter(command => command.visible !== false) : []),
+    [dynamic, query, results.length],
+  );
+  const flat = useMemo(() => (live.length ? [...live, ...results] : results), [live, results]);
+
   useEffect(() => { setActive(0); }, [query]);
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -106,17 +123,17 @@ export default function CommandPalette({ commands, onClose }: {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); return; }
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActive(current => (results.length ? (current + 1) % results.length : 0));
+      setActive(current => (flat.length ? (current + 1) % flat.length : 0));
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      setActive(current => (results.length ? (current - 1 + results.length) % results.length : 0));
+      setActive(current => (flat.length ? (current - 1 + flat.length) % flat.length : 0));
       return;
     }
     if (event.key === "Enter") {
       event.preventDefault();
-      const command = results[active];
+      const command = flat[active];
       if (command) run(command);
     }
   };
@@ -142,7 +159,7 @@ export default function CommandPalette({ commands, onClose }: {
             type="text"
             value={query}
             onChange={event => setQuery(event.target.value)}
-            placeholder="اكتب أمراً… مثل: أسبوع، تعارض، حفظ العرض"
+            placeholder={placeholder || "اكتب أمراً… مثل: أسبوع، تعارض، حفظ العرض"}
             aria-label="ابحث في أوامر الجدول"
             aria-controls="cmdk-results"
             autoComplete="off"
@@ -151,8 +168,37 @@ export default function CommandPalette({ commands, onClose }: {
           <kbd>Esc</kbd>
         </label>
         <div className="cmdk-results" id="cmdk-results" role="listbox" ref={listRef}>
+          {live.length ? (
+            <div className="cmdk-group cmdk-live">
+              <span className="cmdk-group-name">{live[0].group || "من السطر"}</span>
+              {live.map(command => {
+                index += 1;
+                const position = index;
+                return (
+                  <button
+                    key={command.id}
+                    type="button"
+                    role="option"
+                    aria-selected={position === active}
+                    data-active={position === active ? "true" : undefined}
+                    className={`cmdk-row cmdk-live-row${command.enabled === false ? " is-off" : ""}`}
+                    disabled={command.enabled === false}
+                    onMouseEnter={() => setActive(position)}
+                    onClick={() => run(command)}
+                    data-guide-ignore="أمرٌ صاغته اللوحة مما كُتب في حقلها، كفتح محرّر موعدٍ جديد بما فُهم من السطر؛ لا يحفظ شيئاً"
+                  >
+                    <span className="cmdk-icon" aria-hidden="true">{command.icon}</span>
+                    <span className="cmdk-live-body">
+                      <span className="cmdk-label">{command.label}</span>
+                      {command.preview ? <span className="cmdk-preview">{command.preview}</span> : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           {results.length === 0 ? (
-            <p className="cmdk-empty">لا أمر بهذا الاسم.</p>
+            live.length ? null : <p className="cmdk-empty">لا أمر بهذا الاسم.</p>
           ) : (
             groups.map(([group, list]) => (
               <div className="cmdk-group" key={group}>
@@ -186,6 +232,8 @@ export default function CommandPalette({ commands, onClose }: {
           <span><kbd>↑</kbd><kbd>↓</kbd> تنقّل</span>
           <span><kbd><CornerDownLeft aria-hidden="true" /></kbd> تنفيذ</span>
           <span><kbd>Esc</kbd> إغلاق</span>
+          {/* ⌘K مرةً ثانية تُغلق اللوحة وتفتح بحث البرنامج كله. */}
+          <span><kbd><Command aria-hidden="true" /> K</kbd> بحث شامل</span>
         </footer>
       </div>
     </div>
