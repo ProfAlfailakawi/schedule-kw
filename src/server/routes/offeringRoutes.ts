@@ -21,12 +21,13 @@ import { dayKeysOf } from "../../utils/instructorRequestItems";
 import { forgetOfferingStates } from "../offeringStates";
 import { pushHooks } from "../pushRoutes";
 import { isTaRequest } from "../../utils/requestParticipation";
-import { emptyOfferingDoc, normalizeLevel, normalizeOfferingEntry, offeringDocId, suggestFutureCourses, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
+import { emptyOfferingDoc, normalizeLevel, normalizeOfferingEntry, offeringDocId, offeringEntryIsDefault, suggestFutureCourses, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
+import { compactReach, forgetCourseReach, reachForScope } from "../courseReachShared";
 import { alternativeSections, baseCapacityFor, nearFull, normalizeQuotaConfig, sectionKey, seatState, tryAddSeats, type SeatLedger, type SeatQuotaConfig } from "../../utils/advisorSeats";
 import { countdown, dueWaves, phaseOpen, planWaves, vacantSections, vacantSummary, type TaPhaseDoc, type TaWave } from "../../utils/taPhase";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { refuseIfTermFrozen } from "../core/approvals";
-import { type AuthenticatedRequest, requireAnyPermission, requirePermission } from "../core/auth";
+import { type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePermission } from "../core/auth";
 import { instructorRequestSectionCourses, taPhaseId } from "../core/instructorRequests";
 import { loadCapOf } from "../../utils/teachingLoad";
 import { broadcastNotify } from "../core/liveChannel";
@@ -136,9 +137,12 @@ app.get("/api/course-offering", requirePermission(7), async (req: AuthenticatedR
   const names = new Map(instructors.map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
   const planBadges = await planBadgesFor(courses.map(course => ({ courseId: course.id, sectionId })));
   const newPlanIds = courses.map(course => course.id).filter(cid => Boolean(planBadges[`${sectionId}:${cid}`]));
+  /* «لم نصل بعد» من المصدر الواحد، وتبويبا الصحيفة الجديدة والقديمة من عضويتها. */
+  const reach = compactReach(await reachForScope(collegeId, sectionId, termId));
   res.setHeader("Cache-Control", "no-store");
   res.json({
     doc: doc || emptyOfferingDoc(collegeId, sectionId, termId),
+    reach,
     courses: courses.map(course => ({ ...course, level: normalizeLevel(levelOf.get(course.id)), sections: new Set((termRows as any[]).filter(row => Number(row.AdCourseId) === course.id).map(row => String(row.SCode || row.id))).size })),
     suggestions: suggestFutureCourses({ newPlanCourseIds: newPlanIds, levelOf: cid => levelOf.get(cid) || 0, scheduledCourseIds: scheduled }),
     interest: Object.entries(interest?.byCourse || {}).map(([courseId, ids]) => ({ courseId: Number(courseId), instructors: (ids as number[]).map(i => names.get(Number(i)) || `#${i}`) })),
@@ -155,12 +159,51 @@ app.put("/api/course-offering", requirePermission(7), async (req: AuthenticatedR
     const next = { ...(current || emptyOfferingDoc(collegeId, sectionId, termId)), updatedAt: new Date().toISOString() };
     if (req.body?.display === "hide" || req.body?.display === "fade") next.display = req.body.display;
     next.courses = { ...(next.courses || {}) };
-    for (const entry of entries) { if (entry.state === "offered" && !entry.suggested) delete next.courses[String(entry.courseId)]; else next.courses[String(entry.courseId)] = entry; }
+    /* «افتحه للطرح» يبقى ما لم يُرسَل صراحةً: حفظُ الحالة لا يمحو قرارَ الفتح. */
+    const sent = new Map((Array.isArray(req.body?.courses) ? req.body.courses : []).map((row: any) => [Number(row?.courseId || 0), row]));
+    for (const entry of entries) {
+      const prior = next.courses[String(entry.courseId)];
+      if (typeof (sent.get(entry.courseId) as any)?.reachOpen !== "boolean" && prior?.reachOpen) entry.reachOpen = true;
+      if (offeringEntryIsDefault(entry)) delete next.courses[String(entry.courseId)]; else next.courses[String(entry.courseId)] = entry;
+    }
     return { next, result: entries.length };
   });
   forgetOfferingStates();
+  forgetCourseReach();
   res.locals.auditChanges = `حالة طرح المقررات: ${entries.map((e: any) => `${e.courseId}=${e.state}`).join("، ")}${req.body?.display ? ` · العرض: ${req.body.display}` : ""}`;
   res.json(saved.ok ? saved.next : {});
+});
+
+/* ── «لم نصل بعد إلى هذا المستوى»: الحكمُ الواحد لكل مقررات القسم في كليته ─────── */
+app.get("/api/course-reach", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  res.setHeader("Cache-Control", "no-store");
+  res.json(compactReach(await reachForScope(collegeId, sectionId, termId)));
+});
+
+/* «افتحه للطرح» (أو أعِده للقاعدة): قرارُ القسم يُحفظ في وثيقة حالة الطرح نفسها، فيقرؤه كلُّ مكان. */
+app.post("/api/course-reach/open", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0), courseId = Number(req.body?.courseId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  if (isReadOnlyRole(req.user?.Role)) { res.status(403).json({ error: "للعرض فقط." }); return; }
+  if (!courseId) { res.status(400).json({ error: "اختر المقرر." }); return; }
+  const open = req.body?.open !== false;
+  const by = String(req.user?.Name || req.user?.UserName || "");
+  const id = offeringDocId(collegeId, sectionId, termId);
+  await Repository.updateFeatureDoc<CourseOfferingDoc, boolean>("courseOfferingStates", id, current => {
+    const next = { ...(current || emptyOfferingDoc(collegeId, sectionId, termId)), updatedAt: new Date().toISOString() };
+    next.courses = { ...(next.courses || {}) };
+    const prior = next.courses[String(courseId)];
+    const entry = { ...(prior && !prior.suggested ? prior : { courseId, state: "offered" as const }), updatedAt: new Date().toISOString(), ...(by ? { updatedBy: by } : {}) };
+    if (open) entry.reachOpen = true; else delete entry.reachOpen;
+    if (offeringEntryIsDefault(entry)) delete next.courses[String(courseId)]; else next.courses[String(courseId)] = entry;
+    return { next, result: true };
+  });
+  forgetOfferingStates();
+  forgetCourseReach();
+  res.locals.auditChanges = `${open ? "افتحه للطرح" : "أُعيد للقاعدة"}: المقرر ${courseId}`;
+  res.json(compactReach(await reachForScope(collegeId, sectionId, termId)));
 });
 
 app.get("/api/ta-phase", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {

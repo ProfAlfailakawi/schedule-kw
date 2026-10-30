@@ -24,6 +24,11 @@ export interface CourseOfferingEntry {
   maxSections?: number;
   /** اقتراحٌ مشتق ينتظر تأكيد المسؤول — لا يُطبَّق حتى يؤكَّد. */
   suggested?: boolean;
+  /**
+   * «افتحه للطرح»: القسمُ يفتح مقرراً «لم نصل بعد» إلى مستواه (src/utils/courseReach.ts).
+   * يُحترم في كل مكان: الكرت والنموذج والاعتماد و«كل المقررات». لا يغيّر الحالة نفسها.
+   */
+  reachOpen?: boolean;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -134,8 +139,17 @@ export function normalizeOfferingEntry(input: any, by = ""): CourseOfferingEntry
   if (state === "future") { const level = normalizeLevel(input?.level); if (level) entry.level = level; }
   if (state === "limited") entry.maxSections = Math.max(0, Math.min(99, Math.trunc(Number(input?.maxSections || 0))));
   if (input?.suggested === true) entry.suggested = true;
+  if (input?.reachOpen === true) entry.reachOpen = true;
   return entry;
 }
+
+/** المقرراتُ التي فتحها القسم للطرح رغم «لم نصل بعد». */
+export function reachOverrides(doc: CourseOfferingDoc | null | undefined): Set<number> {
+  return new Set(Object.values(doc?.courses || {}).filter(entry => entry?.reachOpen && !entry.suggested).map(entry => Number(entry.courseId)));
+}
+
+/** قيدٌ «مطروح» بلا شيءٍ آخر لا يُحفظ (الافتراضي)؛ و«افتحه للطرح» يُبقيه. */
+export const offeringEntryIsDefault = (entry: CourseOfferingEntry) => entry.state === "offered" && !entry.suggested && !entry.reachOpen;
 
 /** ── 🌟 اهتمام مستقبلي ─────────────────────────────────────────────────────── */
 export interface CourseInterestDoc {

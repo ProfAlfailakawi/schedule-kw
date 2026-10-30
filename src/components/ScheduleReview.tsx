@@ -21,6 +21,8 @@ import { approvalScoreBreakdown } from "../utils/approvalScore";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import PlanBadge from "./PlanBadge";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
+import { ReachReviewNotes } from "./CourseReach";
+import { shortCourseCode } from "../utils/courseReach";
 
 /**
  * The last read before a schedule is adopted.
@@ -855,6 +857,9 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
         </section>
 
         <div className="review-body">
+          {/* «لم نصل بعد»: ملاحظةٌ على شعب المقررات التي لم يصلها الفرع — لا تمنع ولا تدخل الدرجة. */}
+          <ReachReviewNotes rows={scopeRows} termId={termId}
+            courseLabel={id => ({ code: shortCourseCode(courses.get(id)?.CourseCode), name: String(courses.get(id)?.CourseName || "") })} />
           {groupedFindings.length ? (
             <>
               {pressingFindings.map(renderFinding)}

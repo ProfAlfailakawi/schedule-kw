@@ -6,6 +6,7 @@
  * «− شعبة» و«+ شعبة» يُريان الأثر فوراً: المقاعد مقابل الطلب، ومن يبقى بلا مقعد،
  * ونصابُ الأستاذ، وضغطُ القاعة. لا يُكتب شيءٌ حتى «اعتمد» صريحٍ في منضدة السيناريو.
  * المحرّك هو محرّك محاكي الشعب نفسه (src/utils/timeMachine.ts عبر courseWhatIf.ts).
+ * وعلى كل مقررٍ وسمُ «وصلنا ✓ / لم نصل بعد 🔒» وسلسلةُ متطلباته (src/utils/courseReach.ts)، و«افتحه للطرح».
  */
 import React, { useMemo, useState } from "react";
 import { FileSpreadsheet, FileUp, Minus, Plus, Radar, Search, Undo2, UserRoundCheck, UserX, X } from "lucide-react";
@@ -14,6 +15,8 @@ import { addOneSection, courseSeatStats, DEMAND_WORD, netSectionDelta, removeOne
 import { inNewSheet, inOldSheet, SHEET_TAG_LABEL, type SheetTag } from "../utils/sheetTag";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import ScenarioWorkbench from "./ScenarioWorkbench";
+import { ReachChain, ReachChip, ReachOpenButton, useCourseReach } from "./CourseReach";
+import type { CourseReach } from "../utils/courseReach";
 import { Ico, Loading, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 import { useCourseSheets, type SheetCourse } from "./useCourseSheets";
 import "../styles/39-sections-courses.css";
@@ -24,6 +27,7 @@ const hours = (minutes: number) => Math.round(minutes / 6) / 10;
 
 export function AllCoursesBody({ context, reload, onImportStats }: { context: LoadedContext; reload: () => void; onImportStats?: () => void }) {
   const sheets = useCourseSheets(Number(context.scope.sectionId));
+  const reach = useCourseReach(Number(context.scope.collegeId), Number(context.scope.sectionId), Number(context.scope.termId));
   const [changes, setChanges] = useState<TmChange[]>([]);
   const [scenario, setScenario] = useState<TmScenarioRecord | null>(null);
   const [impacts, setImpacts] = useState<Record<number, CourseImpact | { none: "add" | "remove" }>>({});
@@ -151,6 +155,7 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
           const impact = impacts[id];
           return <CourseCard key={id} code={String(course.CourseCode || "")} name={String(course.CourseName || "")} tag={tag} now={now} after={after} delta={delta}
             impact={impact && "change" in impact ? impact : null} none={impact && "none" in impact ? impact.none : null}
+            reach={reach.data?.courses?.[id] || null} reachBusy={reach.busy === id} onReach={open => void reach.setOpen(id, open)}
             onAdd={() => act(id, "add")} onRemove={() => act(id, "remove")} onUndo={change => undo(change)} />;
         })}
         {!shown.length ? <p className="tm-note">لا مقررات بهذا الوصف</p> : null}
@@ -168,9 +173,10 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
   );
 }
 
-function CourseCard({ code, name, tag, now, after, delta, impact, none, onAdd, onRemove, onUndo }: {
+function CourseCard({ code, name, tag, now, after, delta, impact, none, onAdd, onRemove, onUndo, reach, reachBusy, onReach }: {
   key?: number; code: string; name: string; tag: SheetTag; now: CourseSeatStat; after: CourseSeatStat; delta: number;
   impact: CourseImpact | null; none: "add" | "remove" | null; onAdd: () => void; onRemove: () => void; onUndo: (change: TmChange) => void;
+  reach: CourseReach | null; reachBusy: boolean; onReach: (open: boolean) => void;
 }) {
   const demand = after.demand;
   const scale = Math.max(1, after.seats, now.seats, demand || 0);
@@ -183,7 +189,15 @@ function CourseCard({ code, name, tag, now, after, delta, impact, none, onAdd, o
         <span className="ac-code"><b>{code}</b>{delta ? <em dir="ltr" className={delta > 0 ? "up" : "down"}>{delta > 0 ? `+${delta}` : `−${-delta}`}</em> : null}</span>
         <span className="ac-name">{name}</span>
         {tag && tag !== "service" ? <span className={`ac-tag ac-tag-${tag}`}>{tag === "new" ? "🆕 " : ""}{SHEET_TAG_LABEL[tag]}</span> : null}
+        <ReachChip reach={reach} />
       </header>
+      {reach && (reach.state === "locked" || reach.overridden) ? (
+        <div className="ac-reach" title={reach.reason || undefined}>
+          <ReachChain reach={reach} />
+          <ReachOpenButton reach={reach} busy={reachBusy} onToggle={onReach}
+            data-guide-ignore="يفتح المقرر للطرح رغم «لم نصل بعد» (أو يعيده للقاعدة) — يُحفظ في حالة الطرح ويظهر في بطاقة الأستاذ" />
+        </div>
+      ) : null}
       <div className="ac-facts">
         <span className="ac-fact" title="الشعب"><Ico n="sections" /><b>{after.sections}</b><small>{after.sections ? nounFor(after.sections, AR.section) : "غير مطروح"}</small></span>
         <span className="ac-fact" title="المقاعد ذات السعة المعروفة"><Ico n="seats" /><b>{after.seats}</b><small>{after.unknownSections ? `+ ${after.unknownSections} غير محددة` : nounFor(after.seats, AR.seat)}</small></span>

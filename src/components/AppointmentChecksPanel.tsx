@@ -1,8 +1,9 @@
 import React from "react";
 import {
-  AlertTriangle, Building2, Check, Clock3, Info, Loader2, Minus, MonitorPlay, Puzzle, Ruler, UserRound, WandSparkles, X, DoorOpen,
+  AlertTriangle, Building2, Check, Clock3, Info, Loader2, LockOpen, Minus, MonitorPlay, Puzzle, Ruler, UserRound, WandSparkles, X, DoorOpen,
 } from "lucide-react";
 import type { AppointmentVerdict, CheckKind, VerdictCheck, VerdictDetail } from "../utils/appointmentVerdict";
+import { isReachNote } from "../utils/courseReach";
 
 /**
  * ── «فحص موانع الحفظ» إنفوجرافيكاً ─────────────────────────────────────────
@@ -50,7 +51,7 @@ function Ring({ verdict }: { verdict: AppointmentVerdict }) {
 export const isPatternDetail = (text: string) => /الساعات المعتمدة|نمط اللائحة|خارج اللائحة|النمط غير معتمد/.test(String(text || ""));
 
 export default function AppointmentChecksPanel({
-  verdict, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, children,
+  verdict, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, onOpenReach, reachBusy = false, children,
 }: {
   verdict: AppointmentVerdict;
   checking: boolean;
@@ -63,6 +64,9 @@ export default function AppointmentChecksPanel({
   lockedReason?: string | null;
   /** تجاوزٌ متعمَّد لنمط اللائحة: زرّ «طبّق النمط المعتمد» بجانب بند الساعات/النمط. */
   onApplyPattern?: () => void;
+  /** «لم نصل بعد» (تنبيهٌ لا يمنع): زرّ «افتحه للطرح» بجانبه يفتح المقرر في كل مكان. */
+  onOpenReach?: () => void;
+  reachBusy?: boolean;
   /** ما يُعرض تحت البطاقات (اقتراحات البديل، رسم النمط…). */
   children?: React.ReactNode;
 }) {
@@ -98,7 +102,7 @@ export default function AppointmentChecksPanel({
           <span className="checks-tile-state"><StateIcon aria-hidden="true" />{check.word}</span>
         </>;
         return <li key={check.kind} className={`checks-tile is-${check.state}`} data-check={check.kind}>
-          {open ? <details open={check.state === "block"}>
+          {open ? <details open={check.state === "block" || (Boolean(onOpenReach) && check.details.some(detail => isReachNote(detail.text)))}>
             <summary aria-label={`${check.label}: ${check.word}`}>{tile}</summary>
             <ul className="checks-details">
               {check.details.map(detail => <li key={detail.id} className={detail.blocks ? "is-block" : "is-warn"}>
@@ -106,6 +110,9 @@ export default function AppointmentChecksPanel({
                 {onApplyPattern && isPatternDetail(detail.text) ? <button type="button" className="checks-alt checks-apply-pattern"
                   data-guide-ignore="يعيد الأيام والنهاية إلى النمط المعتمد لساعات المقرر؛ لا يحفظ شيئاً"
                   onClick={onApplyPattern}><Ruler aria-hidden="true" />طبّق النمط المعتمد</button> : null}
+                {onOpenReach && isReachNote(detail.text) ? <button type="button" className="checks-alt checks-open-reach" disabled={reachBusy}
+                  data-guide-ignore="يفتح المقرر للطرح رغم «لم نصل بعد» فيُختار في بطاقة الأستاذ أيضاً؛ لا يحفظ الموعد"
+                  onClick={onOpenReach}><LockOpen aria-hidden="true" />{reachBusy ? "…" : "افتحه للطرح"}</button> : null}
                 {detail.blocks && onAlternative && !(onApplyPattern && isPatternDetail(detail.text)) ? <button type="button" className="checks-alt" disabled={alternativeBusy}
                   data-guide-ignore="يطلب بديلاً آمناً لهذا المانع من محرك الاقتراح الموحد؛ لا يحفظ شيئاً"
                   onClick={() => onAlternative(check, detail)}><WandSparkles aria-hidden="true" />{alternativeBusy ? "…" : "بديل"}</button> : null}

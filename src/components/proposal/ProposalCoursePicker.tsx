@@ -9,6 +9,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
 import SearchableSelect from "../SearchableSelect";
+import { ReachChain, ReachChip } from "../CourseReach";
+import { reachLocked } from "../../utils/courseReach";
 import {
   NEW_SHEET_BADGE, proposalCourseChoices, proposalCourseScopes, sameCourseIn, scopeKeyOf, type ProposalCourseChoice,
 } from "../../utils/proposalCourseChoices";
@@ -33,6 +35,9 @@ export function useProposalCourseChoices(ws: Workspace) {
   return { scopes, scope, scopeKey, setScope, choices };
 }
 
+/** في القائمة: المقفلُ وحده يُوسم (🔒)، فلا يُكثَّر النصّ على كل سطر. */
+const REACH_LOCKED_BADGE = "🔒 لم نصل بعد";
+
 export default function ProposalCoursePicker({ ws, choices, scopes, scopeKey, setScope, autoFocus = false, compact = false }: {
   ws: Workspace;
   choices: ProposalCourseChoice[];
@@ -50,8 +55,9 @@ export default function ProposalCoursePicker({ ws, choices, scopes, scopeKey, se
   const value = choices.find(choice => choice.memberIds.includes(Number(draft.courseId)))?.id ?? draft.courseId ?? "";
   const options = useMemo(() => choices.map(choice => ({
     value: choice.id, label: choice.name, hint: choice.code, keywords: choice.code,
-    badge: choice.isNew ? NEW_SHEET_BADGE : undefined,
+    badge: reachLocked(choice.reach) ? REACH_LOCKED_BADGE : choice.isNew ? NEW_SHEET_BADGE : undefined,
   })), [choices]);
+  const chosen = choices.find(choice => choice.id === value) || null;
   return (
     <div className="sp-course-pick" data-compact={compact || undefined}>
       {scopes.length > 1 ? (
@@ -69,6 +75,13 @@ export default function ProposalCoursePicker({ ws, choices, scopes, scopeKey, se
         placeholder="اختر المقرر…" searchPlaceholder="اكتب اسم المقرر أو رقمه" emptyText="لا مقرر بهذا الاسم"
         guideIgnore="يختار مقرر الشعبة الجديدة — لا يكتب في الجدول"
         triggerRef={trigger} />
+      {chosen?.reach && chosen.reach.state !== "unknown" ? (
+        <div className="sp-course-reach" title={chosen.reach.reason || undefined}>
+          <ReachChip reach={chosen.reach} />
+          <ReachChain reach={chosen.reach} />
+          {reachLocked(chosen.reach) ? <small>{chosen.reach.reason}</small> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

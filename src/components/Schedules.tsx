@@ -73,6 +73,8 @@ import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
+import { useCourseReach } from "./CourseReach";
+import { reachNote } from "../utils/courseReach";
 import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } from "./TeacherMiniWeek";
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
@@ -4148,6 +4150,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      الشريط «صحّح قبل الحفظ» ولوحة «فحص موانع الحفظ» وزرّ الحفظ يقرؤون هذا وحده،
      ولا يُفحص فيه حقلٌ لم يُختر (A5). */
   const companionRequired = Boolean(String(formCourse?.CourseCompanionRoomType || "").trim());
+  /* «لم نصل بعد»: تنبيهٌ أصفر في لوحة الفحص — لا يمنع الحفظ أبداً — وبجانبه «افتحه للطرح». */
+  const formReachScope = {
+    collegeId: Number(form.AdCollegeId || filterCollege || 0),
+    sectionId: Number(formCourse?.AdSectionId || form.AdSectionId || filterSection || 0),
+    termId: Number(form.AdTermId || filterTerm || 0),
+  };
+  const formReach = useCourseReach(editor !== "index" ? formReachScope.collegeId : 0, formReachScope.sectionId, formReachScope.termId);
+  const formReachVerdict = formReach.data?.courses?.[Number(form.AdCourseId || 0)] || null;
+  const formReachNote = reachNote(formReachVerdict);
   const editorVerdict = appointmentVerdict({
     form: form as any,
     validationIssues,
@@ -4156,7 +4167,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     companionRequired,
     regulation: formRegulationFit,
     regulationNote: "خارج نمط اللائحة",
-    notes: editorSupplementalCards.map(card => ({ kind: "time" as const, text: String(card.title || ""), detail: String(card.detail || "") || undefined })),
+    notes: [
+      ...editorSupplementalCards.map(card => ({ kind: "time" as const, text: String(card.title || ""), detail: String(card.detail || "") || undefined })),
+      ...(formReachNote ? [{ kind: "section" as const, text: formReachNote }] : []),
+    ],
   });
   const [altBusy, setAltBusy] = useState(false);
   /* «بديل» ينزل إلى قسم «بدائل آمنة» في النموذج بسلاسة، ويضعه في التركيز ويضيئه لحظة. */
@@ -9749,6 +9763,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             alternativeBusy={altBusy}
             onAlternative={() => goToAlternatives()}
             onApplyPattern={patternOverridden ? applyApprovedPattern : undefined}
+            onOpenReach={formReachNote ? () => void formReach.setOpen(Number(form.AdCourseId || 0), true) : undefined}
+            reachBusy={Boolean(formReach.busy)}
             renderConflict={detail => {
               const card = editorConflictCards.find(item => item.source === detail.conflict);
               return card ? renderEditorConflictCard(card) : null;
