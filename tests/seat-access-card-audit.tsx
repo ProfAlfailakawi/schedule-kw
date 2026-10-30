@@ -10,6 +10,7 @@
  *      والمشاركة المرفوضة تنزل إلى التنزيل؛ والإلغاء لا يُعدّ فشلاً. ولا SVG يُنزَّل بعد اليوم.
  */
 import fs from "node:fs";
+import { randomBytes } from "node:crypto";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import AccessCard from "../src/components/AccessCard";
@@ -55,13 +56,17 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
 /* ── C3 ── */
 {
   const base = { origin: "https://schedule-kw.com", login: "techdept", seatName: "قسم تكنولوجيا التعليم", roleLabel: "رئيس لجنة الجدول", holderName: "د. بدر" };
-  const chosen = holderCardModel({ ...base, mustChangePassword: false, password: "يجب أن تُهمَل" });
-  check(chosen.url === "https://schedule-kw.com/i/techdept" && !chosen.url.includes("#") && !chosen.message.includes("يجب أن تُهمَل"), "C3 اختار كلمته: الرابط باسم الدخول وحده، وكلمةٌ مكتوبة تُهمَل", chosen);
+  /* كلماتُ الاختبار تُولَّد عند التشغيل، فلا كلمةَ مكتوبة في المستودع. */
+  const ignored = randomBytes(9).toString("base64url");
+  const chosen = holderCardModel({ ...base, mustChangePassword: false, password: ignored });
+  check(chosen.url === "https://schedule-kw.com/i/techdept" && !chosen.url.includes("#") && !chosen.message.includes(ignored), "C3 اختار كلمته: الرابط باسم الدخول وحده، وكلمةٌ مكتوبة تُهمَل", chosen);
   check(chosen.note.includes("اختار د. بدر كلمة سرّه بنفسه") && chosen.note.includes("لا تحملها البطاقة"), "C3 البطاقة تقول إنها بلا كلمة مرور ولماذا", chosen.note);
   check(chosen.caption === "رئيس لجنة الجدول · قسم تكنولوجيا التعليم" && chosen.message.includes("اسم الدخول: techdept"), "C3 صفة الشاغل واسم الدخول", chosen);
-  const pending = holderCardModel({ ...base, mustChangePassword: true, password: " First#1 " });
+  const typed = `${randomBytes(9).toString("base64url")}#&`;
+  const pending = holderCardModel({ ...base, mustChangePassword: true, password: ` ${typed} ` });
   const hash = new URL(pending.url).hash;
-  check(JSON.stringify(parseInvitationHash(hash)) === JSON.stringify({ username: "techdept", password: "First#1" }), "C3 ينتظر اختيار كلمته: الأولى في جزء # وحده", pending.url);
+  const parsed = parseInvitationHash(hash);
+  check(parsed?.username === base.login && parsed?.password === typed, "C3 ينتظر اختيار كلمته: الأولى في جزء # وحده", pending.url);
   check(new URL(pending.url).pathname === "/" && !new URL(pending.url).search, "C3 الكلمة لا تصل الخادم (لا مسار ولا استعلام)");
   const pendingBlank = holderCardModel({ ...base, mustChangePassword: true });
   check(pendingBlank.url.endsWith("/i/techdept") && pendingBlank.note.includes("ينتظر أن يختار كلمة سرّه"), "C3 بلا كلمة مكتوبة: اسم الدخول وحده، والبطاقة تشرح", pendingBlank);
