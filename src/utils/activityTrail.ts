@@ -214,7 +214,7 @@ export interface TrailViewer {
 export type TrailAudience =
   | { mode: "none" }
   | { mode: "all" }
-  | { mode: "scoped"; label: "self" | "team" | "department" | "dean" | "registrar"; teams: number[]; holders: number[]; persons: string[] };
+  | { mode: "scoped"; label: "self" | "team" | "department" | "dean" | "registrar"; teams: number[]; holders: number[]; persons: string[]; hideHolder?: number };
 
 const uniq = <T,>(values: T[]) => [...new Set(values)];
 
@@ -225,9 +225,15 @@ export function scopeSets(scopes: ReadonlyArray<{ AdCollegeId: number; AdSection
 }
 
 export function trailAudience(viewer: TrailViewer, seats: readonly TrailSeat[]): TrailAudience {
+  const audience = baseAudience(viewer, seats);
+  /* قرار المالك: النائبُ يرى الفريقَ وحركاتِه هو، ولا يرى حركاتِ الرئيس نفسه. */
+  return viewer.kind === "deputy" && audience.mode === "scoped" ? { ...audience, hideHolder: viewer.userId } : audience;
+}
+
+function baseAudience(viewer: TrailViewer, seats: readonly TrailSeat[]): TrailAudience {
   if (viewer.isAdmin) return { mode: "all" };
   const self = trailPersonKey(viewer.userId, viewer.kind === "member" || viewer.kind === "deputy" ? viewer.memberId : undefined);
-  /* العضو حركاتُه هو فقط، أيّاً كان فريقُه. والنائبُ يعمل بصفة الرئيس فيرى ما يراه. */
+  /* العضو حركاتُه هو فقط، أيّاً كان فريقُه. والنائبُ يعمل بصفة الرئيس فيرى ما يراه — إلا حركاتِ الرئيس (trailAudience). */
   if (viewer.kind === "member") return { mode: "scoped", label: "self", teams: [], holders: [], persons: [self] };
   const role = roleDefinition(viewer.seatRole).id;
   const others = seats.filter(seat => seat.userId !== viewer.userId);
@@ -263,6 +269,7 @@ export function trailAudience(viewer: TrailViewer, seats: readonly TrailSeat[]):
 export function trailEntryVisible(audience: TrailAudience, entry: Pick<ActivityTrailEntry, "u" | "m" | "dk" | "tu">): boolean {
   if (audience.mode === "all") return true;
   if (audience.mode === "none") return false;
+  if (audience.hideHolder && Number(entry.u) === audience.hideHolder && entry.m === "h") return false;
   if (audience.teams.includes(Number(entry.tu || entry.u))) return true;
   if (audience.holders.includes(Number(entry.u)) && (entry.m === "h" || entry.dk === "deputy")) return true;
   return audience.persons.includes(trailPersonKey(entry.u, entry.m === "h" ? undefined : entry.m));
