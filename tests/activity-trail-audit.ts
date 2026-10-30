@@ -78,7 +78,11 @@ const same = (a: Iterable<unknown>, b: Iterable<unknown>) => JSON.stringify([...
   check(same(keysOf({ userId: 16, kind: "member", memberId: "sara" }), [trailPersonKey(16, "sara")]), "T1 العضو: حركاتُه هو فقط");
   check(same(keysOf({ userId: 22, kind: "member", memberId: "huda", seatRole: "collegeRegistrar" }), [trailPersonKey(22, "huda")]), "T1 وموظفةُ التسجيل في فريقٍ: حركاتُها هي فقط");
   check(same(keysOf({ userId: 14 }), [holder(14)]) && same(keysOf({ userId: 17 }), [holder(17)]), "T1 موظفُ التسجيل بحسابه والمستخدمُ العادي: حركاتُهما فقط");
-  check(same(keysOf({ userId: 16, kind: "deputy", memberId: "sara" }), team(16)), "T1 النائبُ يعمل بصفة الرئيس فيرى فريقَه");
+  /* قرار المالك: النائبُ يرى أعضاءَ الفريق وحركاتِه هو، لا حركاتِ الرئيس. والرئيسُ يرى النائب. */
+  check(same(keysOf({ userId: 16, kind: "deputy", memberId: "sara" }), team(16).filter(key => key !== holder(16))),
+    "T1 النائبُ يرى فريقَه بلا حركات الرئيس", keysOf({ userId: 16, kind: "deputy", memberId: "sara" }));
+  check(!keysOf({ userId: 16, kind: "deputy", memberId: "sara" }).includes(holder(16)) && keysOf({ userId: 16 }).includes(trailPersonKey(16, "sara")),
+    "T1 الرئيسُ يرى حركاتِ النائب، والنائبُ لا يرى حركاتِ الرئيس");
   /* الحركةُ على فريقٍ بيد غيره (تسليمُ رئاسته بيد المسجّل العام) تُقرأ في أثر ذلك الفريق. */
   const handover = { u: 13, m: "h", dk: "holder" as const, tu: 22 };
   const audience22 = trailAudience({ userId: 22, isAdmin: false, kind: "holder", seatRole: "collegeRegistrar", colleges: [1], sections: [] }, seats);
