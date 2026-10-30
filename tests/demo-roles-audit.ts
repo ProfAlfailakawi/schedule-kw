@@ -169,6 +169,17 @@ check(Number(seatConfig?.capacityDefault) > 0 && Number(seatConfig?.global) > 0,
 check(seatLedgers.length >= 3 && [19, 21].every(id => seatLedgers.some((row: any) => row.adds.some((add: any) => add.advisorId === id))),
   "ومقاعدُ أضافها المرشدان كلاهما (مرشد القسم والإرشاد العام)");
 check(Object.values(docs.advisorSeatRequests || {}).some((row: any) => row.status === "pending"), "وطلبُ استثناءٍ ينتظر المسؤول على شعبةٍ ممتلئة");
+/* «لم نصل بعد» (الأول أولُ فصلٍ للصحيفة الجديدة): صيفيٌّ فيه 314 وحده، و343 مفتوحٌ للطرح بقرار القسم. */
+{
+  const codeOf = new Map(state.courses.map(c => [c.AdCourseId, c.CourseCode]));
+  const termsOf = (code: string) => new Set(state.schedules.filter(row => codeOf.get(row.AdCourseId) === code).map(row => Number(row.AdTermId)));
+  const summer = state.terms.find(term => /الصيفي 2025\/2026/.test(String(term.AdTermName)));
+  check(Boolean(summer?.AdTermClosed) && [...termsOf("0109314")].join() === String(summer?.AdTermId), "الصيفي 2025/2026 مغلقٌ، وفيه وحده طُرح 314");
+  check([...termsOf("0109324")].every(id => id === 1 || id === 2), "و324 (متطلبه 314) لم يُطرح قبل الأول — فالصيفيُّ هو ما أوصل إليه");
+  const open = (state as any).featureDocs?.courseOfferingStates?.["1:1:1"]?.courses || {};
+  check(Object.values(open).some((entry: any) => entry.reachOpen && codeOf.get(entry.courseId) === "0109343"), "«افتحه للطرح» على 343 في الأول");
+  check(!["0109346", "0109453", "0109459", "0109410"].some(code => termsOf(code).has(1)), "السلسلة والتوأم بلا شعبٍ في الأول: يُقرأ قفلُهما في الثاني");
+}
 /* خفيفٌ: الصندوقُ كلُّه بلا البذر الخلفي تحت 300 كيلوبايت (كان 264 قبل هذه القصص، فالزيادة أقلُّ من 14%). */
 const stateBytes = JSON.stringify(state).length;
 check(stateBytes < 300_000, `الصندوقُ التجريبي خفيف: ${Math.round(stateBytes / 1024)} كيلوبايت (< 300)`);
