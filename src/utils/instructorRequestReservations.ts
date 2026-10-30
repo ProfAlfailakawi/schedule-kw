@@ -141,15 +141,17 @@ export function allocateRequestReservations(entries: RequestReservation[], reque
 export function holdRequestReservation(entries: RequestReservation[], request: InstructorRequest,
   proposal: RequestReservationProposal, officialRows: FSchedule[], heldUntil: string): RequestReservation[] {
   const next = liveReservations(entries).filter(entry => !(entry.requestId === request.id && entry.itemId === proposal.itemId));
-  /* حجزُ البند المُرسَل سابقاً هو ما سيُستبدل عند الإرسال، فلا يُعدّ تداخلاً مع نفسه. */
-  const others = next.filter(entry => entry.requestId !== request.id || (Boolean(entry.heldUntil) && entry.itemId !== proposal.itemId));
+  /* حجوزُ الطلب نفسِه لا تُحسب عليه: المُرسَلُ سابقاً يُستبدل عند الإرسال، وحجوزُ بنوده الأخرى أثناء التحرير
+     تعارضٌ بين بنود مسودّته يقوله الحكمُ نفسُه على الأسبوع كلِّه. وكان اختيارٌ ألغاه الأستاذ (إضافةٌ أو وقتٌ
+     تركه) يبقى عشرَ دقائق فيمنعه «لديك موعد آخر» و«سبقك زميل ⏱️» عن وقتٍ يقول الفحصُ إنه متاح (محاكاة 2026-10-30). */
+  const others = next.filter(entry => entry.requestId !== request.id);
   const claim = claimProposal(others, request, proposal, officialRows, changedRowsOf(request));
   return [...next, { ...claim, heldUntil }];
 }
 
-/** يُسقط حجوزَ التحرير المؤقّتة لطلبٍ واحد (خروجُ الأستاذ أو إرسالُه). */
-export function releaseRequestHolds(entries: RequestReservation[], requestId: string): RequestReservation[] {
-  return liveReservations(entries).filter(entry => !(entry.requestId === requestId && entry.heldUntil));
+/** يُسقط حجوزَ التحرير المؤقّتة لطلبٍ واحد (خروجُ الأستاذ أو إرسالُه)، أو حجزَ بندٍ واحدٍ منها بمفتاحه. */
+export function releaseRequestHolds(entries: RequestReservation[], requestId: string, itemId?: string): RequestReservation[] {
+  return liveReservations(entries).filter(entry => !(entry.requestId === requestId && entry.heldUntil && (!itemId || entry.itemId === itemId)));
 }
 
 /** القاعةُ التي حُجزت لكل بند تُكتب على الطلب نفسه، فتظهر في «التغيير» عند القسم (C1). */

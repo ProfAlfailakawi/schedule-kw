@@ -231,7 +231,7 @@ var SKREASON={room:["door","لا قاعة في الوقت المطلوب"],instr
 function skReason(code,askedAt){var r=SKREASON[code];if(!r)return "";return '<span class="vshort">'+gi(r[0])+esc(r[1])+'</span>'+(askedAt?'<span class="vrow"><bdi dir="ltr">'+esc(askedAt)+'</bdi></span>':"")}
 function skAltBtn(ds,start){return '<small class="alt-d">'+esc(fmtDays(ds))+'</small><b class="bp-t">'+esc(start)+'</b>'}
 /* «لديك محاضرة في هذا الوقت»: أيُّها، وفي أيّ يومٍ ووقت. */
-function skOwnClash(it,i,t){var d=it.days||[],s=mins(t),e=mins(endOf(d,t,it.blk));
+function skOwnClash(it,i,t){var d=it.days||[],s=mins(t),e=mins(endOf(it,d,t));
  var o=othersFor(i).filter(function(o){return o.d.some(function(x){return d.indexOf(x)>=0})&&s<o.e&&o.s<e})[0];
  if(!o)return "";var day=o.d.filter(function(x){return d.indexOf(x)>=0}).map(function(x){var f=DAYS.filter(function(y){return y[0]===x})[0];return f?f[1]:x}).join(" · ");
  return '<div class="own-msg" role="status">'+gi("alert")+'<span><b>'+esc(t)+' غير متاح لك</b><span class="vcard"><b>'+esc(o.n)+'</b><span class="vrow"><u class="dname">'+esc(day)+'</u><bdi dir="ltr">'+clock(o.s)+' – '+clock(o.e)+'</bdi></span></span></span></div>'}

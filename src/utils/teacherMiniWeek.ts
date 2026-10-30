@@ -245,10 +245,11 @@ export function lectureStickOptions(
   rows: readonly FSchedule[],
   course: RegulationCourse | null | undefined,
   window: MiniSpan,
-  options: { minutes?: number; excludeId?: number; fixedDays?: readonly DayKey[] } = {},
+  options: { minutes?: number; excludeId?: number; fixedDays?: readonly DayKey[]; skipAnchor?: (lecture: MiniLecture) => boolean } = {},
 ): StickOption[] {
+  /* ما يُستبعد مرساةً (skipAnchor) يبقى عائقاً: لا يُلصق به، ولا يُوضع موعدٌ فوقه. */
   const anchors = new Map<number, MiniLecture>();
-  for (const item of lectures) if (!anchors.has(item.id)) anchors.set(item.id, item);
+  for (const item of lectures) if (!anchors.has(item.id) && !options.skipAnchor?.(item)) anchors.set(item.id, item);
   const out: StickOption[] = [];
   for (const lecture of anchors.values()) {
     for (const side of ["before", "after"] as const) {

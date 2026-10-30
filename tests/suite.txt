@@ -68,6 +68,7 @@ test:teacher-card-2
 test:teacher-card-r4
 test:inbox-proposal-pickers-r2
 test:teacher-card-hours-patterns
+test:teacher-card-logic
 test:voice-input
 test:staff-device
 test:study-proposal-page
@@ -216,6 +217,7 @@ test:seat-access-card
 test:first-login-password
 test:colleague-guard-measure
 test:quick-studio-family
+test:lecture-stick-own
 test:section-requests
 test:import-courses-r3
 test:report-print-menus

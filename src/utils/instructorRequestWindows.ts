@@ -46,3 +46,24 @@ export function requestWindowOpen(request: {
   const general = (!Number.isFinite(opens) || now >= opens) && (!Number.isFinite(closes) || now <= closes);
   return general || individualExceptionOpen(request.individualException, now);
 }
+
+/**
+ * ── آخرُ موعدٍ يراه الأستاذ في «بطاقتي» ─────────────────────────────────────
+ *
+ * البطاقةُ كانت تقرأ تاريخَ رابط البطاقة (13 نوفمبر، يوم جمعة)، وصفحةُ الطلب تقرأ نافذةَ طلبه
+ * (9 نوفمبر) — وإعادةُ الإصدار تُبقي نافذةَ الطلب المُرسَل وتحدّث تاريخَ الرابط وحده. فتختفي
+ * «طلب تعديل الجدول» والبطاقةُ لا تقول «انتهى». الموعدُ الواحد هو نافذةُ طلبه هو (أو استثناؤه
+ * الشخصي): المفتوحةُ أولاً، وإلا آخرُ نافذةٍ له، وتاريخُ الرابط حين لا طلبَ له أصلاً.
+ */
+export function cardRequestsCloseAt(entries: ReadonlyArray<{
+  request: { window?: { opensAt?: string; closesAt?: string }; individualException?: IndividualRequestException };
+  windowOpen: boolean;
+}>, linkCloseAt = "", now: number = Date.now()): string {
+  const effective = (request: (typeof entries)[number]["request"]) =>
+    individualExceptionOpen(request.individualException, now) ? request.individualException!.closesAt : String(request.window?.closesAt || "");
+  const latest = (list: string[]) => list.filter(value => Number.isFinite(Date.parse(value)))
+    .sort((a, b) => Date.parse(b) - Date.parse(a))[0] || "";
+  return latest(entries.filter(entry => entry.windowOpen).map(entry => effective(entry.request)))
+    || latest(entries.map(entry => effective(entry.request)))
+    || String(linkCloseAt || "");
+}

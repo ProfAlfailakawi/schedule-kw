@@ -95,7 +95,7 @@ check(!/\.sp\{|\.sp b\{|\.sp u\{/.test(REQUEST_VISUAL_CSS), "R3 قواعدُ «.
   check((ends.match(/class="ends-g"/g) || []).length === 2 && ends.indexOf("<u>ح</u><u>ن</u><u>ر</u>") >= 0 && ends.includes(">10:20<"),
     "R3 «ينتهي»: الأيامُ ذاتُ النهاية الواحدة حبّةٌ واحدة بترتيب الأسبوع، والنهايةُ الأخرى حبّةٌ ثانية", ends);
 }
-check(read("src/server/pages/instructorRequestPage.ts").includes("+skEnds(it.computedSlots,it.days,endOf(it.days,it.start,it.blk))+"), "R3 سطرُ «ينتهي» في الكرت يُرسم بـ skEnds");
+check(read("src/server/pages/instructorRequestPage.ts").includes("+skEnds(slotsFor(it,it.days,it.start),it.days,endOf(it,it.days,it.start))+"), "R3 سطرُ «ينتهي» في الكرت يُرسم بـ skEnds من المواعيد نفسها التي يحسبها الخادم");
 
 /* ── R4 ─────────────────────────────────────────────────────────────── */
 {

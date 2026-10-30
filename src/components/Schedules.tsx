@@ -9847,6 +9847,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     courses={courseById}
                     window={miniWeekWindow}
                     draft={form}
+                    original={editor === "edit" ? editorOriginalRow : null}
                     onPick={pickFromMiniWeek}
                   />
                 ) : null}
