@@ -46,7 +46,9 @@ check("قائمة لم تتحقق بعد: لا منتقي بخيارات خام"
   assert(!html.includes("<select")); assert(html.includes("الفصول غير متاحة"));
 });
 check("رابط الدعوة يملأ حقلي الدخول ويمسح بياناته من العنوان بعد القراءة", () => {
-  const login = fs.readFileSync("src/components/Login.tsx", "utf8"), invitation = fs.readFileSync("src/components/AccountInvitation.tsx", "utf8");
+  const login = fs.readFileSync("src/components/Login.tsx", "utf8");
+  /* البطاقة نفسها مشتركة مع «الكراسي» (AccessCard)، وصورتها في utils/accessCardImage. */
+  const invitation = ["src/components/AccountInvitation.tsx", "src/components/AccessCard.tsx", "src/utils/accessCardImage.ts"].map(file => fs.readFileSync(file, "utf8")).join("\n");
   const href = invitationHref("https://schedule-kw.com/", "tsbdept+one", "1234&5678");
   const hash = new URL(href).hash;
   assert(isInvitationHash(hash));
@@ -58,11 +60,11 @@ check("رابط الدعوة يملأ حقلي الدخول ويمسح بيان�
   assert(!invitation.includes("12345678") && !invitation.includes("photoInvitationHref"));
   assert(login.includes("parseInvitationHash(hash)") && login.includes("updateUsername(invite.username)") && login.includes("if (invite.password) setPassword(invite.password)"));
   assert(login.includes('window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`)') && invitation.includes("invitationHref(SITE, login, temporaryPassword)"));
-  assert(invitation.includes('const displayUrl = "schedule-kw.com"') && invitation.includes('<a href={url}') && invitation.includes('clipboard.writeText(url)'));
+  assert(invitation.includes('const displayUrl = "schedule-kw.com"') && invitation.includes('<a href={url}') && invitation.includes('copyText(what === "message" ? message : url)') && invitation.includes("navigator.clipboard.writeText(text)"));
   assert(!invitation.includes('credential("كلمة المرور المؤقتة"') && !invitation.includes('<div className="invitation-credential"><small>كلمة المرور المؤقتة</small>'));
   assert(!invitation.includes('credential("اسم المستخدم"') && !invitation.includes('<div className="invitation-credential">') && invitation.includes('const url = invitationHref(SITE, login, temporaryPassword)'));
-  assert(invitation.includes('code.addData(url)') && invitation.includes('ctx.drawImage(qr, 500, 605, 200, 200)'));
-  assert(invitation.includes('اضغط مطولاً على QR Code لفتح الموقع') && invitation.includes('className="invitation-card-qr"'));
+  assert(invitation.includes('code.addData(text)') && invitation.includes('qrMatrix(factory!, url)') && invitation.includes('drawQr(ctx, input.matrix, 500, 605, 200)'));
+  assert(invitation.includes('"اضغط مطولاً على QR Code لفتح الموقع"') && invitation.includes('className="invitation-card-qr"'));
 });
 check("شاشة الدخول ترحب بالمستخدم الجديد وتعرض العودة فقط لحساب سبق دخوله بنجاح", () => {
   const login = fs.readFileSync("src/components/Login.tsx", "utf8");
