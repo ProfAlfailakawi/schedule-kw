@@ -86,6 +86,8 @@ import { registerSystemRoutes } from "./src/server/routes/systemRoutes";
 import { registerUsersRoutes } from "./src/server/routes/usersRoutes";
 import { registerSeatsRoutes, seatMemberGuard } from "./src/server/seatsRoutes";
 import { registerSectionRequestsRoutes } from "./src/server/sectionRequestsRoutes";
+import { registerScheduleHoldsRoutes } from "./src/server/scheduleHoldsRoutes";
+import { registerAppointmentMetricsRoutes } from "./src/server/appointmentMetrics";
 import { registerVerifyRoutes } from "./src/server/routes/verifyRoutes";
 
 const app = express();
@@ -287,8 +289,11 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
 });
 /* عضوُ فريق الكرسي يعمل ولا يوقّع ولا يدير الكرسيَّ ولا يغيّر كلمة سرّه (docs/SEATS.md). */
 app.use("/api", seatMemberGuard as express.RequestHandler);
+/* حارسُ الزملاء يجدّد حجزه كل 45 ثانية، ومقياسُ الإدخال مجهولُ الهوية: لا يدخلان عيّناتِ الأداء
+   ولا سجلَّ العمليات — الأولُ نبضٌ يدفن السجلّ، والثاني يُربط هناك بصاحبه (appointmentMetrics.ts). */
+const QUIET_API_PATHS = new Set(["/schedule-holds", "/metrics/appointment-entry"]);
 app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  if (req.path === "/health" || req.path === "/telemetry/client") { next(); return; }
+  if (req.path === "/health" || req.path === "/telemetry/client" || QUIET_API_PATHS.has(req.path)) { next(); return; }
   const started = process.hrtime.bigint();
   res.once("finish", () => {
     const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000;
@@ -332,7 +337,7 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
   const authEvent = authKind !== null;
   /* «المقروء» في الجرس تفضيلٌ لا تعديل، ويُكتب مع كل ضغطة على إشعار: تسجيله
      يدفن السجلّ كما يدفنه النبض. */
-  const skip = (routePath.startsWith("/auth/") && !authEvent) || routePath.endsWith("/check-conflicts") || routePath === "/telemetry/client" || routePath === "/notifications/seen";
+  const skip = (routePath.startsWith("/auth/") && !authEvent) || routePath.endsWith("/check-conflicts") || routePath === "/telemetry/client" || routePath === "/notifications/seen" || QUIET_API_PATHS.has(routePath);
   if (!mutating || skip) { next(); return; }
   const startedUser = req.user ? { id: Number(req.user.SystemUserId), name: String(req.user.Name || req.user.SystemUserLogin || "") } : null;
   res.on("finish", () => {
@@ -423,6 +428,9 @@ registerNotificationsRoutes(app);
 registerAdminRoutes(app);
 registerUsersRoutes(app);
 registerSeatsRoutes(app);
+/* حارسُ الزملاء: حجزٌ ليّن لدقيقتين يراه من يبني موعداً معك، ومقياسُ إدخال المواعيد (مجهول الهوية). */
+registerScheduleHoldsRoutes(app);
+registerAppointmentMetricsRoutes(app);
 registerShareRoutes(app);
 registerPlanningRoutes(app);
 registerPublicCalendarRoutes(app);

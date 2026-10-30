@@ -2602,7 +2602,10 @@ export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "adv
   /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
   | "seatLedgers" | "seatMemberLinks"
   /* طلبُ شعبة (src/utils/sectionRequests.ts): وثيقةٌ لكل طلب، معرّفُها يبدأ بفصله `${termId}:`. */
-  | "sectionRequests";
+  | "sectionRequests"
+  /* حارسُ الزملاء (src/server/scheduleHolds.ts): حجزٌ واحد لكل جالس يعيش دقيقتين. ومقياسُ إدخال
+     المواعيد (src/server/appointmentMetrics.ts): وثيقةٌ لكل شهر «YYYY-MM»، أعدادٌ بلا أسماء. */
+  | "scheduleHolds" | "appointmentMetrics";
 /** معرّفُ وثيقة Firestore لا يحمل «/». */
 const featureDocId = (id: string) => String(id || "").replace(/\//g, "_").slice(0, 300);
 
@@ -7483,6 +7486,32 @@ export const Repository = {
     db.featureDocs = { ...all, [collection]: { ...(all[collection] || {}), [key]: out.next } };
     saveDatabase();
     return { ok: true, result: out.result, next: out.next };
+  },
+  /**
+   * يحذف وثيقة. و`when` إن مُرّرت تُسأل عن الوثيقة الحاضرة داخل الكتابة الذرّية نفسها: لا يُحذف
+   * إلا ما زال يستحق الحذف — فحجزٌ جُدّد في اللحظة التي قرّر فيها قارئٌ أنه انتهى لا يضيع.
+   * يُرجع: هل حُذف شيء (بلا `when` في Firestore لا يُعرف، فيُرجع true).
+   */
+  deleteFeatureDoc: async <T = any>(collection: FeatureCollection, id: string, when?: (current: T) => boolean): Promise<boolean> => {
+    const key = featureDocId(id);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection(collection).doc(key);
+      if (!when) { await ref.delete(); return true; }
+      return firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists || !when(snap.data() as T)) return false;
+        tx.delete(ref);
+        return true;
+      });
+    }
+    const all = db.featureDocs || {};
+    const rows = all[collection] || {};
+    if (!Object.prototype.hasOwnProperty.call(rows, key)) return false;
+    if (when && !when(rows[key] as T)) return false;
+    const { [key]: _gone, ...rest } = rows;
+    db.featureDocs = { ...all, [collection]: rest };
+    saveDatabase();
+    return true;
   },
 
   /* ── النصاب التدريسي: وثيقةٌ واحدة (`main`) ─────────────────────────────────

@@ -35,6 +35,7 @@ import { collegeShortName } from "../utils/sectionLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import type { HeadPlanRow } from "../utils/departmentHeadAccounts";
 import CampusChip from "./CampusChip";
+import AppointmentMeasureCard from "./AppointmentMeasureCard";
 
 /* «نسخ فصل» is administration, not day-to-day scheduling: it belongs on this
    rail beside the users, the scopes and the log. It keeps its own screen and
@@ -2093,6 +2094,8 @@ export default function AdminUsers({
           تحديث السجل
         </SecondaryButton>,
       )}
+      {/* «مقياس الكمال» (src/utils/appointmentMeasure.ts): كم يأخذ الموعدُ الواحد — لحساب الإدارة الرئيسي وحده. */}
+      {rootAdmin ? <AppointmentMeasureCard /> : null}
       <div className="master-detail-shell audit-master-detail">
         <section className="master-pane">
           <header>
