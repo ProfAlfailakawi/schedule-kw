@@ -75,7 +75,7 @@ try {
       check(Number(ws.activeSchedules) > 0 && week > 0, `R1 «${role}»: لوحةُ البداية بمواعيد وحملِ أسبوعٍ غيرِ صفري (${ws.activeSchedules} · ${week})`, { term: dash?.latestTermName, mode: ws.mode });
       check(Number(dash?.metrics?.courses) > 0 && (dash?.history || []).length >= 2 && dash.history.every((h: any) => h.schedules > 0),
         `R1 «${role}»: وخطُّ الفصول بلا فصلٍ فارغ`, dash?.history);
-      if (PERSONAL.has(role)) check(ws.mode === "personal" && Number(ws.activeSchedules) >= 2, `R1 «${role}»: لوحتُه الشخصية بمواعيده هو في الفصل القادم`, ws.mode);
+      if (PERSONAL.has(role)) check(ws.mode === "personal" && Number(ws.activeSchedules) >= 2, `R1 «${role}»: لوحتُه الشخصية بمواعيده هو في فصل اللوحة`, ws.mode);
     }
 
     /* ── R2 ما ينتظر الفعل ── */

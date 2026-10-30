@@ -18,7 +18,8 @@ import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { type AuthenticatedRequest, requireAnyPermission, requireAuth } from "../core/auth";
 import { academicStartYear } from "../core/hallBarter";
 import { sortArabicNamed, sortCoursesByName, sortTermsNewestServer, verifiedRoomKey } from "../core/ordering";
-import { finalRowsOnly, readSchedulesForRequest, readsFinalSchedulesOnly, scopeSectionIdsFor } from "../core/scheduleReads";
+import { finalRowsOnly, readSchedulesForRequest, readsFinalSchedulesOnly, resolveHomeTerm, scopeSectionIdsFor } from "../core/scheduleReads";
+import { upcomingHomeTerm } from "../../utils/homeTerm";
 import { filterByScope, instructorsForReader, isScopeAllowed, legacyFDetail } from "../core/scope";
 import { resolveSmartContext } from "../core/smartImport";
 import { visitingChecker } from "../core/visiting";
@@ -51,14 +52,18 @@ app.get("/api/dashboard", requireAuth, async (req: AuthenticatedRequest, res: Re
   // Legacy Home/Index parity is intentionally preserved here, including the historical
   // Sunday/weekend day-name quirk and the difference between the displayed total and table rows.
   const terms = await Repository.getTerms();
-  const latestTermId = Number(sortTermsNewestServer(terms)[0]?.AdTermId || 0);
+  /* أقسامُ القارئ من الحَكَم الواحد: صفُّ «الكلية كلها» يُقرأ لأقسامها (N8)،
+     والعميدان يُعطيان النهائيَّ وحده كما في كل شاشة. */
+  const assignedSectionIds = await scopeSectionIdsFor(req);
+  /* الفصلُ المعروض ليس «أحدث فصلٍ في القائمة»: اختيارُ القارئ الصريح، وإلا الجاري
+     تشغيلياً، وإلا أحدثُ فصلٍ له فيه ما يُرى (src/utils/homeTerm.ts). فالفصلُ الذي
+     يُعدّ للتوّ لا يفتح للعميد بيتاً من صفر؛ يُذكر في شارةٍ تفتحه. */
+  const home = await resolveHomeTerm(req, terms, Number(req.query.termId || 0), assignedSectionIds);
+  const latestTermId = home.termId;
   const latestTerm = terms.find(term => term.AdTermId === latestTermId);
   const [allCourses, latestTermSchedules, allInstructors, allSections, allColleges, scheduleCount] = await Promise.all([
     Repository.getCourses(), Repository.getSchedulesByScope({ termId: latestTermId }), Repository.getInstructors(), Repository.getSections(), Repository.getColleges(), Repository.countSchedules()
   ]);
-  /* أقسامُ القارئ من الحَكَم الواحد: صفُّ «الكلية كلها» يُقرأ لأقسامها (N8)،
-     والعميدان يُعطيان النهائيَّ وحده كما في كل شاشة. */
-  const assignedSectionIds = await scopeSectionIdsFor(req);
 
   const latestScopedSchedulesRaw = latestTermSchedules.filter(row => assignedSectionIds.has(Number(row.AdSectionId)));
   const latestScopedSchedules = readsFinalSchedulesOnly(req) ? await finalRowsOnly(latestScopedSchedulesRaw, latestTermId) : latestScopedSchedulesRaw;
@@ -172,17 +177,17 @@ app.get("/api/dashboard", requireAuth, async (req: AuthenticatedRequest, res: Re
   // The last four terms, oldest first. A single comparison shows a jump; four
   // points show a direction, which is the thing a coordinator is deciding
   // against. The reads are cached, so this costs nothing after the first visit.
-  const recentTermIds = terms
-    .map(term => Number(term.AdTermId) || 0)
-    .filter(id => id && id <= latestTermId)
-    .sort((a, b) => b - a)
-    .slice(0, 4)
-    .reverse();
+  /* بالترتيب الزمني لا بالمعرّف: فصلٌ أرشيفيٌّ أُدخل بعد إنشاء الجاري يحمل معرّفاً
+     أكبر، فكان يسقط من الخط. والعميدان يُعدّ لهما النهائيُّ وحده هنا أيضاً. */
+  const chronological = sortTermsNewestServer(terms).map(term => Number(term.AdTermId) || 0).filter(Boolean);
+  const shownAt = chronological.indexOf(latestTermId);
+  const recentTermIds = (shownAt >= 0 ? chronological.slice(shownAt, shownAt + 4) : []).reverse();
   const history = await Promise.all(recentTermIds.map(async termId => {
     const termRows = termId === latestTermId
       ? latestTermSchedules
       : await Repository.getSchedulesByScope({ termId });
-    const scoped = scopeRows(termRows);
+    const scopedRaw = scopeRows(termRows);
+    const scoped = readsFinalSchedulesOnly(req) && !linkedInstructorId ? await finalRowsOnly(scopedRaw, termId) : scopedRaw;
     return {
       termId,
       termName: terms.find(term => Number(term.AdTermId) === termId)?.AdTermName || "",
@@ -192,6 +197,9 @@ app.get("/api/dashboard", requireAuth, async (req: AuthenticatedRequest, res: Re
     };
   }));
   const previous = history.length > 1 ? history[history.length - 2] : null;
+  const termName = (id: number) => terms.find(term => Number(term.AdTermId) === Number(id))?.AdTermName || "";
+  const upcoming = upcomingHomeTerm(terms, latestTermId);
+  const visibleCount = req.user.IsAdminUser ? latestTermSchedules.length : latestScopedSchedules.length + personalRows.length;
 
   res.json({
     previous,
@@ -199,6 +207,19 @@ app.get("/api/dashboard", requireAuth, async (req: AuthenticatedRequest, res: Re
     metrics,
     latestTermId,
     latestTermName: latestTerm?.AdTermName || "",
+    /* أيُّ فصلٍ هذا ولماذا: الشارةُ تفتح القادمَ قيد الإعداد، أو تعيد إلى الافتراض؛
+       و`empty` يمنع «الجدول سليم» عن فصلٍ لا صفَّ فيه يُرى. */
+    home: {
+      termId: latestTermId,
+      defaultTermId: home.defaultTermId,
+      defaultTermName: termName(home.defaultTermId),
+      currentTermId: home.currentTermId,
+      explicit: home.explicit,
+      fallback: home.fallback,
+      empty: visibleCount === 0,
+      awaitingApproval: readsFinalSchedulesOnly(req) && visibleCount === 0 && latestScopedSchedulesRaw.length > 0,
+      upcoming: upcoming ? { termId: Number(upcoming.AdTermId), termName: upcoming.AdTermName || "" } : null,
+    },
     dayName,
     // Friday and Saturday are not taught. The list below is Sunday's, by legacy
     // design — so the screen is told plainly, instead of stamping today's date

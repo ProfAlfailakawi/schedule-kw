@@ -262,7 +262,7 @@ app.post("/api/intelligence/policy-simulate", requirePermission(7), async (req: 
 });
 
 app.get("/api/intelligence/overview", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
-  const { collegeId, sectionId, termId, section } = await resolveSmartContext(req);
+  const { collegeId, sectionId, termId, section } = await resolveSmartContext(req, { homeTerm: req.query.home === "1" });
   if (!collegeId || !sectionId || !termId || !section) { res.status(400).json({ error: "لا يوجد قسم أو فصل دراسي متاح للتحليل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   const [scheduleData, courses, instructors, colleges, terms, drafts, publication, mobilityProfile] = await Promise.all([

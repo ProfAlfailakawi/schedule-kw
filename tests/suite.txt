@@ -115,6 +115,7 @@ test:teacher-card-flow
 test:day-autofill
 test:approval-scope
 test:term-forecast
+test:dashboard-home-term
 test:section-gap
 test:searchable-select
 test:section-gap-live

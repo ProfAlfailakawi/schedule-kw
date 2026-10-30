@@ -919,6 +919,11 @@
     padding-inline:14px;font-size:12px;
   }
   .dashboard-page .deck-live{grid-column:3;grid-row:3;justify-self:center;width:38px;height:38px;border-radius:999px;background:var(--surface-2)}
+  .dashboard-page> .deck-bar > button.deck-term-switch{
+    grid-column:1/-1;grid-row:4;width:100%;min-height:38px;justify-content:flex-start;
+    padding-inline:14px;font-size:12px;
+  }
+  .dashboard-page> .deck-bar > button.deck-term-switch svg{margin-inline-start:auto}
 }
 
 /* ── Phone schedule: one deliberate reading order ───────────────────────────
