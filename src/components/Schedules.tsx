@@ -8540,6 +8540,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const home = !scope.sectionId && course ? coerceScopeValues(scopes, Number(course.AdCollegeId), Number(course.AdSectionId), isPowerAdmin) : null;
     const homed = home && home.sectionId === Number(course?.AdSectionId) ? home : null;
     const seed: CreateSeed = { ...oneLineCreateSeed(reading, suggested), ...(homed ? { collegeId: homed.collegeId, sectionId: homed.sectionId } : {}) };
+    studioOneLinePending.current = true;
     openCreate(seed);
     /* شعبةٌ كُتبت تبقى كما كُتبت؛ والمقترحةُ تتبع المقرر إن غُيّر، كما في المحرر. */
     sectionAutofilled.current = !reading.seed.sectionCode && Boolean(seed.sectionCode);
@@ -9290,8 +9291,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [editor]);
   /* ── «مقياس الكمال»: كم يأخذ الموعد، وكم مرةً اصطدم بمانع، وأيّ مساعدٍ أعان — بلا اسمٍ ولا محتوى ── */
   const studioMeter = useRef<EntryMeter | null>(null);
+  /* موعدٌ فُتح من «اكتب الموعد بسطرٍ واحد» يُحسب لذلك المساعد. */
+  const studioOneLinePending = useRef(false);
   useEffect(() => {
     studioMeter.current = editor === "index" ? null : createEntryMeter(editor === "edit" ? "edit" : "create");
+    if (studioOneLinePending.current) {
+      studioOneLinePending.current = false;
+      studioMeter.current?.mark("one-line");
+    }
   }, [editor, editId]);
   const studioMark = (helper: HelperName) => { studioMeter.current?.mark(helper); };
   /* لوحة الفحص تأخذ التركيز حين تنفتح، وتعيده إلى زرّ الحالة حين تنطوي. */
