@@ -9289,7 +9289,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     observer.observe(step);
     return () => observer.disconnect();
   }, [editor]);
-  /* ── «مؤشر سهولة الإدخال»: كم يأخذ الموعد، وكم مرةً اصطدم بمانع، وأيّ مساعدٍ أعان — بلا اسمٍ ولا محتوى ── */
+  /* ── «وقت إدخال المواعيد»: كم يأخذ الموعد، وكم مرةً اصطدم بمانع، وأيّ مساعدٍ أعان — بلا اسمٍ ولا محتوى ── */
   const studioMeter = useRef<EntryMeter | null>(null);
   /* موعدٌ فُتح من «اكتب الموعد بسطرٍ واحد» يُحسب لذلك المساعد. */
   const studioOneLinePending = useRef(false);

@@ -10,7 +10,7 @@ import {
 } from "../utils/appointmentMeasure";
 
 /**
- * ── «مؤشر سهولة الإدخال»: كم يأخذ الموعدُ الواحد — لمالك النظام ──────────────────────────
+ * ── «وقت إدخال المواعيد»: كم يأخذ الموعدُ الواحد — لمالك النظام ──────────────────────────
  *
  * لوحةٌ واحدة بلا شرح: متوسطُ الموعد بالثواني هذا الشهر وسهمُه عن الشهر الماضي، وتوزيعُ
  * المدة في خمسة أعمدة، ونسبةُ ما اصطدم بمانع، وأكثرُ الأدوات عوناً، والأجهزة، والجديدُ
@@ -131,19 +131,22 @@ export default function AppointmentMeasureCard({ className }: { className?: stri
   const head = (month?: string) => (
     <header className="entry-measure-head">
       <span className="entry-measure-icon" aria-hidden="true"><Gauge /></span>
-      <h2>مؤشر سهولة الإدخال</h2>
+      <span className="entry-measure-title">
+        <h2>وقت إدخال المواعيد</h2>
+        <span className="entry-measure-sub">كم يستغرق إدخال الموعد الواحد، وما الذي يبطئه — دون أسماء</span>
+      </span>
       {month ? <small>{monthName(month)}</small> : null}
     </header>
   );
   if (load.status === "loading") {
-    return <section className={`${classes} is-loading`} aria-busy="true" aria-label="مؤشر سهولة الإدخال">{head()}<div className="entry-measure-skeleton" aria-hidden="true" /></section>;
+    return <section className={`${classes} is-loading`} aria-busy="true" aria-label="وقت إدخال المواعيد">{head()}<div className="entry-measure-skeleton" aria-hidden="true" /></section>;
   }
 
   const months = load.months;
   const at = months.findIndex(month => month.count > 0);
   if (at < 0) {
     return (
-      <section className={`${classes} is-empty`} aria-label="مؤشر سهولة الإدخال">
+      <section className={`${classes} is-empty`} aria-label="وقت إدخال المواعيد">
         {head(months[0]?.month)}
         <p className="entry-measure-empty"><Gauge aria-hidden="true" />لا قياس بعد</p>
       </section>
@@ -161,10 +164,11 @@ export default function AppointmentMeasureCard({ className }: { className?: stri
   const peak = Math.max(1, ...ENTRY_BUCKETS.map(bucket => focus.buckets[bucket]));
 
   return (
-    <section className={classes} aria-label="مؤشر سهولة الإدخال">
+    <section className={classes} aria-label="وقت إدخال المواعيد">
       {head(focus.month)}
       <div className="entry-measure-grid">
         <div className="entry-measure-tile entry-measure-hero">
+          <span className="entry-measure-label" aria-hidden="true">متوسط الموعد</span>
           <p className="entry-measure-number">
             <b aria-hidden="true">{nf(average)}</b><small aria-hidden="true">ث</small>
             <span className="sr-only">{`متوسط الموعد ${countOf(average, AR.second)}`}</span>
