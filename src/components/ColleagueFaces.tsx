@@ -95,7 +95,7 @@ export function ColleagueFaces({ people, teamHue, teamLabel, className }: Collea
       <span role="status" className="sr-only">{`${countOf(count, AR.colleague)} ${nounFor(count, AR.workingVerb)} الآن`}</span>
       {open ? (
         <span className="colleague-presence-pop" id={listId} role="group" aria-label={teamLabel ? `${teamLabel} الآن` : "الزملاء الآن"}>
-          {teamLabel ? <b className="colleague-presence-pop-head">{teamLabel}</b> : null}
+          <b className="colleague-presence-pop-head">{teamLabel ? `${teamLabel} · ` : ""}{countOf(count, AR.colleague)} {nounFor(count, AR.workingVerb)} الآن</b>
           <ul>
             {sorted.map(person => (
               <li key={person.id} data-away={person.away ? "1" : undefined}>
