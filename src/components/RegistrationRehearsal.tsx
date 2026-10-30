@@ -302,7 +302,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
               const fill = c.capacity ? Math.min(100, Math.round((c.taken / c.capacity) * 100)) : 0;
               return (
                 <article key={c.courseId} className={`sm-row${needsDecision(c) ? " hot" : ""}`}>
-                  <div className="sm-name"><b>{c.name}</b><span>{c.code}</span></div>
+                  <div className="sm-name"><b>{c.name}<CourseTags courseId={c.courseId} /></b><span>{c.code}</span></div>
                   <div className="sm-gauge" aria-label={`امتلأ ${fill}٪ من المقاعد`}>
                     <div className="sm-track"><i className={fill >= 95 ? "full" : fill >= 80 ? "high" : ""} style={{ inlineSize: `${fill}%` }} /></div>
                     <small>{c.sections ? `${countOf(c.sections, AR.section)} · ${c.taken} من ${countOf(c.capacity, AR.seat)}` : "لا تُطرح هذا الفصل"} · طُلب {c.wanted}</small>

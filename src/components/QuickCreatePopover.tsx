@@ -14,7 +14,6 @@ import {
   formatScheduleTimeRange,
   SCHEDULE_DAY_END,
 } from "../utils/scheduleTime";
-import { sortByName } from "../utils/sorting";
 import { toEnglishDigits } from "../utils/digits";
 import { isAssignableInstructor } from "../utils/instructorStatus";
 import { isBlockingConflict } from "../utils/scheduleIntelligence";
@@ -29,6 +28,7 @@ import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChi
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
 import { bestRegulationChoice, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
+import { byCourseNumber } from "../utils/sheetMembership";
 
 /**
  * The appointment written where it was drawn.
@@ -418,7 +418,7 @@ export default function QuickCreatePopover({
     setIdeas(null);
   };
 
-  const orderedCourses = useMemo(() => sortByName(courses, (course: AdCourse) => course.CourseName), [courses]);
+  const orderedCourses = useMemo(() => [...courses].sort(byCourseNumber((course: AdCourse) => course.CourseCode, (course: AdCourse) => course.CourseName)), [courses]);
   const assignable = useMemo(() => instructors.filter(isAssignableInstructor), [instructors]);
   const lockedTeacher = Boolean(seed.instructorRequestId);
   const teacherName = instructors.find(person => Number(person.AdInstructorId) === Number(draft.instructorId))?.AdInstructorName || "";

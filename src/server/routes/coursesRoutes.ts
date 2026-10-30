@@ -22,6 +22,7 @@ import { invalidateLocationRegistry, readLocationRegistry } from "../core/locati
 import { sortCoursesByName, sortTermsNewestServer } from "../core/ordering";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { degreeRuleFromName, planDegreeRule, storedDegreeRuleForSection, surveyPayloadCache } from "../core/studentIdentity";
+import { sheetSidesFor } from "../planBadgeShared";
 
 /** Same, but a decimal is legitimate (teaching hours run 1.5, 2.5 …). */
 function boundedDecimal(value: unknown, min: number, max: number, fallback: number | null = null): number | null {
@@ -242,9 +243,14 @@ app.get("/api/courses", requireAnyPermission([6, 7, 8, 9, 10, 14, 16, 17]), asyn
       const name=sectionNames.get(Number(rule.AdSectionId));if(!name)continue;
       for(const id of hits){const set=serviceFor.get(id)||new Set<string>();set.add(name);serviceFor.set(id,set);}
     }
+    /* جهةُ كل مقرر (الجديدة/القديمة/الاثنتان) من عضوية الصحيفة الواحدة — المصدرُ نفسه الذي يكتب وسم «صحيفة 2026»؛
+       فلا يقع مقررٌ موسومٌ «صحيفة 2026» في تبويب القديمة («كل المقررات»، محاكي الشعب). قسمٌ بلا الصحيفتين: كما كان. */
+    const sideBySection=new Map<number,Record<number,string>|null>();
+    await Promise.all(sectionIds.map(async sid=>{sideBySection.set(sid,await sheetSidesFor(sid,courses.filter(course=>Number(course.AdSectionId)===sid).map(course=>Number(course.AdCourseId))));}));
     courses=courses.map(course=>{
-      const id=Number(course.AdCourseId),service=serviceFor.get(id);
-      const tagged=tags.has(id)?{...course,curriculum:tags.get(id)}:course;
+      const id=Number(course.AdCourseId),service=serviceFor.get(id),sides=sideBySection.get(Number(course.AdSectionId));
+      const tagged:any=tags.has(id)?{...course,curriculum:tags.get(id)}:{...course};
+      if(sides)tagged.sheetSide=sides[id]||null;
       return service?{...tagged,serviceFor:[...service].sort((a,b)=>a.localeCompare(b,"ar"))}:tagged;
     }) as any;
   }

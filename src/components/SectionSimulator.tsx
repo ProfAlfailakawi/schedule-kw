@@ -16,6 +16,7 @@ import ScenarioWorkbench from "./ScenarioWorkbench";
 import { Ico, Loading, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { useCourseSheets } from "./useCourseSheets";
+import { byCourseNumber } from "../utils/sheetMembership";
 import { inNewSheet, type SheetTag } from "../utils/sheetTag";
 import CourseTags from "./CourseTags";
 import "../styles/39-sections-courses.css";
@@ -74,7 +75,7 @@ export function SectionSimulatorBody({ context, reload, onBasket }: { context: L
   const suggestions = adding ? suggestPlacements(board, adding, context, { max: 3 }) : [];
   const people = new Map(context.instructors.map(person => [Number(person.AdInstructorId), person.AdInstructorName] as const));
   const courseOptions = [...new Map(context.courses.map(course => [course.AdCourseId, course])).values()]
-    .sort((a, b) => String(a.CourseCode).localeCompare(String(b.CourseCode)));
+    .sort(byCourseNumber(course => course.CourseCode, course => course.CourseName));
   /* مقرراتُ الصحيفة الجديدة تُرى بوسمٍ ظاهر، وتُجمع في القائمة تحت عنوانها. */
   const sheets = useCourseSheets(Number(context.scope.sectionId));
   const tagOf = (courseId: number): SheetTag => sheets.tags.get(Number(courseId)) ?? null;
@@ -180,7 +181,7 @@ export function SectionSimulatorBody({ context, reload, onBasket }: { context: L
               else setMergeFrom(card.key);
             }} />
         ))}
-        {removedKeys.map(card => <article key={`gone-${card.key}`} className="tm-card is-removed"><b>{card.courseCode}</b><small>ش{card.code} · محذوفة في السيناريو</small></article>)}
+        {removedKeys.map(card => <article key={`gone-${card.key}`} className="tm-card is-removed"><b>{card.courseCode}<CourseTags courseId={card.courseId} /></b><small>ش{card.code} · محذوفة في السيناريو</small></article>)}
       </div>
 
       <h3 className="tm-basket-title"><Ico n="basket" />سلة التغييرات {changes.length ? <span>{changes.length}</span> : null}</h3>

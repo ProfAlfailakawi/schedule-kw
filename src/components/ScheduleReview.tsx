@@ -157,7 +157,7 @@ function ReviewPersonGroup({ group, courses, colleges, visitingIds }: { group: {
               <header className="review-course-heading">
                 <span className="review-course-glyph" aria-hidden="true"><BookOpen /></span>
                 <span className="review-course-identity">
-                  <strong>{course.name}</strong>
+                  <strong>{course.name}<CourseTags courseId={course.courseId} /></strong>
                   <small dir="ltr">{course.code}</small>
                   {course.college ? <small className="review-course-college">{course.college}</small> : null}
                 </span>
@@ -583,7 +583,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
               <article key={`subject-row-${row.id}`} className="review-row-card compact review-identity-row">
                 <span className="rrc-code" dir="ltr">{code}</span>
                 <div className="rrc-main">
-                  <strong className="review-row-course-name">{courseName}</strong>
+                  <strong className="review-row-course-name">{courseName}<CourseTags courseId={row.AdCourseId} /></strong>
                   <small className="review-row-owner"><UserRound aria-hidden="true" />{who}{visitingIdSet.has(Number(row.AdInstructorId)) ? <VisitingBadge compact /> : null}</small>
                   <small className="review-row-days"><CalendarDays aria-hidden="true" />شعبة {row.SCode} · {days || "بلا أيام"}</small>
                 </div>

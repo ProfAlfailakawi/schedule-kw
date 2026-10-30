@@ -9,15 +9,16 @@ import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Layers } from "lucide-react";
 import { OFFERING_META, type CourseOfferingDoc, type OfferingState } from "../utils/courseOffering";
-import { reachLocked, splitBySheet } from "../utils/courseReach";
+import { reachLocked } from "../utils/courseReach";
+import { byCourseNumber, type SheetSide } from "../utils/sheetMembership";
 import { PrimaryButton } from "./ui";
 import { ReachChain, ReachChip, ReachOpenButton, type ReachPayload } from "./CourseReach";
 /* وسومُ المقرر الموحّدة في رأس البطاقة (الصحيفة ← نوعُ المتطلب)؛ وحكمُ الوصول في سطره تحتها مع «افتحه للطرح». */
 import CourseTags from "./CourseTags";
-import { offeringScopeKey, onOfferingChange, rememberOffering, rememberReach, type OfferingSnapshot } from "../utils/prepublishReach";
+import { offeringScopeKey, offeringTabs, onOfferingChange, rememberOffering, rememberReach, type OfferingSnapshot } from "../utils/prepublishReach";
 
 type Course = { id: number; name: string; code: string; level: number; sections: number };
-type Payload = { doc: CourseOfferingDoc; reach?: ReachPayload; courses: Course[]; suggestions: Array<{ courseId: number; level: number; reachedLevel: number }>; interest: Array<{ courseId: number; instructors: string[] }> };
+type Payload = { doc: CourseOfferingDoc; reach?: ReachPayload; sides?: Record<number, SheetSide> | null; courses: Course[]; suggestions: Array<{ courseId: number; level: number; reachedLevel: number }>; interest: Array<{ courseId: number; instructors: string[] }> };
 const STATES: OfferingState[] = ["offered", "closed", "future", "limited"];
 
 export default function CourseOfferingPanel({ collegeId, sectionId, termId, focusTab }: {
@@ -81,11 +82,13 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId, focu
   if (!data) return <div className="of-section" role="status">{msg || "…"}</div>;
   const nameOf = (id: number) => data.courses.find(c => c.id === id)?.name || `#${id}`;
   const reachOf = (id: number) => data.reach?.courses?.[id] || null;
-  const split = splitBySheet(data.courses.map(c => c.id), data.reach?.sheets || []);
+  /* التبويبان والوسمُ من مصدرٍ واحد: عضويةُ الصحيفة في الخادم (src/utils/sheetMembership.ts). */
+  const split = offeringTabs(data);
   const activeTab = split.tabs ? (tab ?? (split.new.length ? "new" : "old")) : null;
   const inTab = new Set(activeTab === "new" ? split.new : split.old);
   const lockedIn = (list: number[]) => list.filter(id => reachLocked(reachOf(id))).length;
-  const shown = data.courses.filter(course => (!split.tabs || inTab.has(course.id)) && (!query || `${course.name} ${course.code}`.includes(query)));
+  const shown = data.courses.filter(course => (!split.tabs || inTab.has(course.id)) && (!query || `${course.name} ${course.code}`.includes(query)))
+    .sort(byCourseNumber((course: Course) => course.code, (course: Course) => course.name));
   return (
     <div className="of-section" aria-label="حالة طرح المقررات">
       <h4><Layers aria-hidden="true" /> حالة طرح المقررات</h4>
@@ -122,7 +125,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId, focu
           const reach = reachOf(course.id);
           return (
             <div className="of-card" key={course.id} data-reach={reachLocked(reach) ? "locked" : undefined}>
-              <header><div><b>{course.name}</b><CourseTags courseId={course.id} /><small> {course.code}</small></div><span aria-hidden="true">{OFFERING_META[state].icon}</span></header>
+              <header><div><b>{course.name}</b><CourseTags courseId={course.id} />{split.tabs && data.sides?.[course.id] === "shared" ? <span className="of-both" title="المقرر في الصحيفة الجديدة والقديمة معاً">في الصحيفتين</span> : null}<small> {course.code}</small></div><span aria-hidden="true">{OFFERING_META[state].icon}</span></header>
               <div className="of-path" aria-label="مسار الصحيفة">{[100, 200, 300, 400].map(l => <i key={l} data-on={level && l <= level ? "1" : "0"} data-at={level === l ? "1" : "0"} title={`مستوى ${l}`} />)}<span>{level ? `م${level}` : "—"} · {countOf(course.sections, AR.section)}</span></div>
               {reach && reach.state !== "unknown" ? (
                 <div className="of-reach" title={reach.reason || undefined}>

@@ -1,5 +1,6 @@
 /** جسرٌ خادميّ لشارة الصحيفة: تضع مسارات مراجعة الصحف مصدرها هنا، وتقرؤه الصفحات العامة (المقترح الدراسي) دون اعتماد متبادل. */
 import type { RequirementKind } from "../utils/courseTags";
+import { sheetSideOf, type Membership, type SheetSide } from "../utils/sheetMembership";
 type Source = () => Promise<Array<{ courseId: number; label: string; collegeId: number; sectionId: number }>>;
 let source: Source | null = null;
 
@@ -66,4 +67,31 @@ export async function courseTagFactsFor(pairs: Array<{ courseId: unknown; sectio
     }
   } catch { /* الشارة زينة: غيابُها لا يكسر الكرت */ }
   return out;
+}
+
+/* ── عضويةُ الصحيفة: الوسمُ والتبويبان من مصدرٍ واحد (src/utils/sheetMembership.ts) ─────────────────────────
+   تضعها مساراتُ مراجعة الصحف، وتقرؤها لوحةُ حالة الطرح وقائمةُ المقررات («كل المقررات»، محاكي الشعب). */
+type MembershipSource = () => Promise<Map<string, Membership>>;
+let membershipSource: MembershipSource | null = null;
+export const setSheetMembershipSource = (next: MembershipSource) => { membershipSource = next; };
+
+/**
+ * جهةُ كل مقررٍ من مقررات القسم («new» / «old» / «shared»)؛ ما لا جهةَ له لا يُذكر.
+ * null: لا ثنائيةَ في القسم (لا جديدةَ أو لا قديمة) — فيبقى كلُّ شيءٍ كما كان، قائمةً واحدة.
+ */
+export async function sheetSidesFor(sectionId: unknown, courseIds: readonly unknown[]): Promise<Record<number, SheetSide> | null> {
+  if (!membershipSource) return null;
+  try {
+    const rows = await membershipSource();
+    const sid = Number(sectionId);
+    let fresh = false, old = false;
+    for (const row of rows.values()) if (row.sectionId === sid) { fresh ||= Boolean(row.fresh); old ||= row.old; }
+    if (!fresh || !old) return null;
+    const out: Record<number, SheetSide> = {};
+    for (const id of courseIds) {
+      const side = sheetSideOf(rows.get(`${sid}:${Number(id)}`));
+      if (side) out[Number(id)] = side;
+    }
+    return out;
+  } catch { return null; }
 }

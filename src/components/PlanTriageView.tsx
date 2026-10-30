@@ -4,6 +4,7 @@ import type { GapItem } from "../utils/sectionGap";
 import { FOCUS_COURSE_EVENT, type PlanDecision, type PlanTier, type triagePlanItems } from "../utils/planTriage";
 import { AR, countOf } from "../utils/arabicCount";
 import { demandAsk, openInTimeMachine } from "../utils/timeMachineLink";
+import CourseTags from "./CourseTags";
 
 export type PlanTriage = ReturnType<typeof triagePlanItems>;
 
@@ -140,7 +141,7 @@ export default function PlanTriageView({ triage, renderItem, onDecide, onClose, 
           {triage.handled.map(entry => (
             <li key={entry.item.id}>
               {entry.decision.state === "done" ? <Check aria-hidden="true" /> : <CircleSlash aria-hidden="true" />}
-              <span><b>{entry.item.name}</b><small>{entry.decision.state === "done" ? "تم" : "متجاهل"}{entry.decision.reason ? ` · ${entry.decision.reason}` : ""}</small></span>
+              <span><b>{entry.item.name}<CourseTags courseId={entry.item.id} /></b><small>{entry.decision.state === "done" ? "تم" : "متجاهل"}{entry.decision.reason ? ` · ${entry.decision.reason}` : ""}</small></span>
               <DecidedBy decision={entry.decision} />
               {onDecide ? <button type="button" className="plan-triage-act" onClick={() => onDecide(entry.item.id, null)} data-guide-ignore="إرجاع البند إلى القائمة المفتوحة"><RotateCcw aria-hidden="true" /> إرجاع</button> : null}
             </li>

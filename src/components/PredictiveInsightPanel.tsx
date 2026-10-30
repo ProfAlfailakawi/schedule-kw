@@ -200,7 +200,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
             const pct = row.needSeats ? Math.min(100, Math.round((seats / row.needSeats) * 100)) : 0;
             return (
               <li key={row.courseId} className="pi-row pi-row-small" data-level={row.confidence.level}>
-                <div className="pi-row-name"><b>{row.name}</b><small>{row.dependents[0] ? `يحجب «${row.dependents[0]}»` : row.code}</small></div>
+                <div className="pi-row-name"><b>{row.name}<CourseTags courseId={row.courseId} /></b><small>{row.dependents[0] ? `يحجب «${row.dependents[0]}»` : row.code}</small></div>
                 <div className="pi-seat" aria-label={`مقاعد ${seats} من ${row.needSeats}`}><span><i style={{ inlineSize: `${pct}%` }} /></span><small>{nf(seats)} / {nf(row.needSeats)}</small></div>
                 <b className="pi-blocked"><Users aria-hidden="true" />{nf(row.blockedStudents)}</b>
                 <ConfidenceMeter confidence={row.confidence} compact />
