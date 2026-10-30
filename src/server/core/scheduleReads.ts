@@ -7,7 +7,8 @@
  */
 import { Repository } from "../../db/repository";
 import { termHasEnded } from "../../utils/termSequence";
-import type { FSchedule } from "../../types";
+import type { AdTerm, FSchedule } from "../../types";
+import { chooseHomeTerm, type HomeTermChoice } from "../../utils/homeTerm";
 import { expandScopeSections } from "../readScope";
 import { finalSourceFor, type Finality } from "../../utils/finality";
 import { roleDefinition } from "../../utils/academicRoles";
@@ -125,4 +126,31 @@ export async function splitArchivedCourseRows<T extends { AdCourseId?: unknown }
   const operational: T[] = [], archived: T[] = [];
   for (const row of rows) (operationalIds.has(Number(row.AdCourseId)) ? operational : archived).push(row);
   return { operational, archived };
+}
+
+/**
+ * ── ما يراه القارئ من فصلٍ في لوحة البداية ──
+ *
+ * القراءةُ نفسها التي تعرضها اللوحة: الإدارةُ الفصلَ كلَّه، وغيرُها أقسامَ نطاقه
+ * (والعميدان النهائيَّ وحده) ومواعيدَه هو إن كان أستاذاً. `scopedRaw` قبل تصفية
+ * النهائي، ليُعرف أن الفصل «ينتظر الاعتماد» لا أنه فارغ.
+ */
+export async function homeRowsFor(req: AuthenticatedRequest, termId: number, sectionIds?: Set<number>): Promise<{ all: FSchedule[]; scopedRaw: FSchedule[]; scoped: FSchedule[]; personal: FSchedule[]; visible: number }> {
+  const all = termId ? await Repository.getSchedulesByScope({ termId }) : [];
+  if (req.user?.IsAdminUser) return { all, scopedRaw: all, scoped: all, personal: [], visible: all.length };
+  const own = sectionIds || await scopeSectionIdsFor(req);
+  const scopedRaw = all.filter(row => own.has(Number(row.AdSectionId)));
+  const scoped = readsFinalSchedulesOnly(req) ? await finalRowsOnly(scopedRaw, termId) : scopedRaw;
+  const linked = Number(req.user?.AdInstructorId || 0);
+  const personal = linked ? all.filter(row => row.AdInstructorId === linked) : [];
+  return { all, scopedRaw, scoped, personal, visible: scoped.length + personal.length };
+}
+
+/**
+ * فصلُ لوحة البداية لهذا القارئ (src/utils/homeTerm.ts): اختيارُه الصريح، وإلا
+ * الجاري تشغيلياً، وإلا أحدثُ فصلٍ له فيه ما يُرى.
+ */
+export async function resolveHomeTerm(req: AuthenticatedRequest, terms: AdTerm[], requestedTermId: number, sectionIds?: Set<number>): Promise<HomeTermChoice> {
+  const own = req.user?.IsAdminUser ? undefined : (sectionIds || await scopeSectionIdsFor(req));
+  return chooseHomeTerm(terms as any, requestedTermId, async termId => (await homeRowsFor(req, termId, own)).visible);
 }

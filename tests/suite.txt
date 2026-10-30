@@ -115,6 +115,7 @@ test:teacher-card-flow
 test:day-autofill
 test:approval-scope
 test:term-forecast
+test:dashboard-home-term
 test:section-gap
 test:searchable-select
 test:section-gap-live
@@ -206,6 +207,7 @@ test:report-stamp
 test:live-pulse
 test:live-pulse-http
 test:seats
+test:seat-access-card
 test:colleague-guard-measure
 test:section-requests
 test:import-courses-r3

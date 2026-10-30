@@ -343,6 +343,29 @@ const HISTORY_SHAPE: ReadonlyArray<readonly number[]> = [
  * مقرراتُ الموسم الآخر التي لا تُطرح في الجاري (مشروع التخرج والتدريب الميداني والمتقدّمة…) مع مقرراتٍ
  * أساسية تُطرح في الموسمين. فلا مقرّرٌ في صحيفة القسم بلا تاريخ، ويُرى «يُخطَّط له في فصل ذلك الموسم».
  */
+/* ── «لم نصل بعد إلى هذا المستوى» في التجربة (src/utils/courseReach.ts) ─────────────────────────
+ *
+ * الأولُ 2026/2027 أولُ فصلٍ للصحيفة الجديدة: لا يصل الفرعُ فيه إلا مقرراتِ 100 بلا متطلبات. فكان الجدولُ يطرح خمسة عشر
+ * مقرراً من الجديدة لم نصل إليها، وتسرد المراجعةُ قبل الاعتماد خمسة عشر قفلاً. وفي الواقع يدرس المستمرّون في أول فصلٍ
+ * للصحيفة الجديدة مقرراتِ القديمة: فتُبدَّل شعبُ تسعةٍ منها — بعد البناء، بالموعد والقاعة والأستاذ نفسها وبساعاتٍ مساوية،
+ * فلا يتغيّر نصابٌ ولا تعارض — إلى مقرراتٍ من الصحيفة القديمة (453 ← 458 «إدارة مراكز مصادر التعلم» بنسختها القديمة).
+ * فيبقى في المراجعة قفلٌ لستة مقررات، ويُقرأ في التجربة:
+ *   ١) سلسلةٌ واحدة: 323 طُرح في الأول (وإن لم نصل إليه) ← 346 «وصلنا» في الثاني ← 453 مقفلٌ «المتطلب 346 لم يُطرح».
+ *   ٢) توأم: 410 مع 459 — يُفتحان معاً، فيُقفل 410 في الثاني لأن توأمه لم يُفتح.
+ *   ٣) صيفيٌّ فتح مقرراً: 314 طُرح في «الصيفي 2025/2026» وحده، فوصل الفرعُ في الأول إلى 324 (الصحيفة القديمة).
+ *   ٤) «افتحه للطرح»: فتح القسمُ 343 للطرح في الأول (طلبةُ «مساري» يطلبونه).
+ * التوأمُ يُكتب في قواعد الصحيفة الجديدة عند بذرها (demoRadarSeed). */
+const REACH_TERM1_SWAPS: Readonly<Record<string, string>> = {
+  "0109123": "0109237", "0109226": "0109225", "0109325": "0109265", "0109347": "0109258", "0109401": "0109437",
+  "0109453": "0109458", "0109454": "0109324", "0109459": "0109445",
+};
+export const DEMO_REACH_OPEN_CODE = "0109343";
+export const DEMO_REACH_COREQ = ["0109410", "0109459"] as const;
+/** 314 لم يُطرح إلا في الصيفي، و324 (متطلبه 314) لم يُطرح قبل الأول: فلا يدخلان فصولَ التاريخ. */
+const SUMMER_ONLY_CODES = new Set(["0109314", "0109324"]);
+export const DEMO_SUMMER_TERM = { id: 9, name: "الفصل الصيفي 2025/2026", weeksBack: 12, weeks: 7 } as const;
+const SUMMER_OFFER: ReadonlyArray<readonly [string, number]> = [["0109314", 1], ["0109112", 1], ["0109105", 1], ["0109125", 1]];
+
 const TIGHT_SEAT_CODES = new Set(["0109105", "0109122", "0109221", "0109224", "0109233"]);
 const historyOffer = (index: number, courses: readonly AdCourse[]): ReadonlyArray<readonly [code: string, sections: number]> => {
   const current = OFFERINGS[DEMO_TERM_CURRENT] || [];
@@ -351,7 +374,7 @@ const historyOffer = (index: number, courses: readonly AdCourse[]): ReadonlyArra
   if (index % 2 === 0) return shaped;
   /* الربيعيُّ: كلُّ ما يُطرح في الخريفيّ (فتبقى أنماطُ المقررات الأساسية ثابتةً عبر الفصول وتبقى الثقةُ في التنبّؤ) مع مقرراتِ الموسم الآخر. */
   const inCurrent = new Set(current.map(([code]) => code));
-  const other = courses.filter(course => Number(course.AdSectionId) === DEMO_SECTION_ID).map(course => course.CourseCode).filter(code => !inCurrent.has(code)).sort();
+  const other = courses.filter(course => Number(course.AdSectionId) === DEMO_SECTION_ID).map(course => course.CourseCode).filter(code => !inCurrent.has(code) && !SUMMER_ONLY_CODES.has(code)).sort();
   return [...shaped, ...other.map(code => [code, 1] as const)];
 };
 interface PlaceScope { sectionId: number; instructorIds: readonly number[] }
@@ -543,6 +566,7 @@ function demoTerms(now: Date): AdTerm[] {
       AdTermId: term.id, AdTermName: term.name, AdTermStart: new Date(start.getTime() - term.weeksBack * 7 * day).toISOString().slice(0, 10),
       AdTermWeeks: 15, AdTermClosed: true,
     } as AdTerm)),
+    { AdTermId: DEMO_SUMMER_TERM.id, AdTermName: DEMO_SUMMER_TERM.name, AdTermStart: new Date(start.getTime() - DEMO_SUMMER_TERM.weeksBack * 7 * day).toISOString().slice(0, 10), AdTermWeeks: DEMO_SUMMER_TERM.weeks, AdTermClosed: true } as AdTerm,
   ];
 }
 
@@ -887,6 +911,12 @@ export function createDemoSandboxState(): DemoSandboxState {
   /* الفصل الأول يُبنى نظيفاً، وتُحفظ صورتُه — هي ما قُبل — ثم تُزرع فيه التعارضات
      المقصودة (تعديلٌ بعد القبول). والثاني فيه المخالفات اللائحية. والصيفيُّ نظيف. */
   const first = placeTerm(DEMO_TERM_CURRENT, courses, 1);
+  /* «لم نصل بعد»: شعبُ مقرراتٍ من الصحيفة الجديدة لم نصل إليها في أول فصولها تصير مقرراتٍ من القديمة (انظر REACH_TERM1_SWAPS). */
+  for (const row of first) {
+    const from = courses.find(course => Number(course.AdCourseId) === Number(row.AdCourseId));
+    const to = from && REACH_TERM1_SWAPS[from.CourseCode] ? courses.find(course => course.CourseCode === REACH_TERM1_SWAPS[from.CourseCode]) : undefined;
+    if (to && Number(to.CourseHours) === Number(from!.CourseHours)) Object.assign(row, { AdCourseId: to.AdCourseId, AdCourseName: to.CourseName });
+  }
   /* مشهدٌ ترويجيٌّ واحد ومقصود: مقررٌ يفضّل مختبر الحاسوب، وقاعته الحالية
      تدريسيةٌ أصغر من تقدير سعة الشعبة. يرى المخطط التحذير والبدائل في الجدول؛
      لا تُعرض أرقام السعة في الواجهات العامة. */
@@ -960,7 +990,11 @@ export function createDemoSandboxState(): DemoSandboxState {
     if (demoDeletedIds.has(Number(first[index].id))) first.splice(index, 1);
   }
   /* فصولُ التاريخ: جداولُها مبنيةٌ نظيفة، تُقرأ ولا تُعدَّل. */
-  const history = DEMO_HISTORY_TERMS.flatMap((term, index) => placeTerm(term.id, courses, 10_000 + term.id * 1_000, historyOffer(index, courses), OWN_SCOPE, { hallCap: 13, dayCap: 3 }));
+  const history = [
+    ...DEMO_HISTORY_TERMS.flatMap((term, index) => placeTerm(term.id, courses, 10_000 + term.id * 1_000, historyOffer(index, courses), OWN_SCOPE, { hallCap: 13, dayCap: 3 })),
+    /* الصيفي 2025/2026: أربعُ شعب، منها 314 وحده في تاريخ القسم كله — فوصل الفرعُ في الأول إلى 324. */
+    ...placeTerm(DEMO_SUMMER_TERM.id, courses, 10_000 + DEMO_SUMMER_TERM.id * 1_000, SUMMER_OFFER, OWN_SCOPE, { hallCap: 13, dayCap: 3 }),
+  ];
   /* القسمان الآخران: جدولُ كلٍّ منهما للفصل الجاري، مبنيٌّ بالخوارزمية نفسها بقاعاته وأعضائه، فيُقرأ ميزانُ الأقسام على ثلاثة. */
   const otherOffer = (sectionId: number) => (DEMO_OTHER_COURSES.find(([id]) => id === sectionId)?.[1] || []).map(([code], order) => [code, order === 1 ? 2 : 1] as const);
   const otherRows = DEMO_OTHER_DEPARTMENTS.map(({ sectionId, instructorIds }) =>
@@ -1122,7 +1156,16 @@ export function createDemoSandboxState(): DemoSandboxState {
       assignments: structuredClone(DEMO_TEACHING_LOAD_ASSIGNMENTS), updatedAt: now, updatedBy: "بيانات الديمو",
     }],
     curriculumPlans: sheets.plans, curriculumPlanCourses: sheets.links, curriculumRuleSets: sheets.ruleSets, curriculumRuleDrafts: sheets.drafts,
-    featureDocs: demoAdvisorSeats(schedules, daysAgo => new Date(Date.now() - daysAgo * 86_400_000).toISOString()),
+    featureDocs: {
+      ...demoAdvisorSeats(schedules, daysAgo => new Date(Date.now() - daysAgo * 86_400_000).toISOString()),
+      /* «افتحه للطرح»: قرارُ القسم في وثيقة حالة الطرح نفسها — 343 مفتوحٌ في الأول رغم «لم نصل بعد». */
+      courseOfferingStates: (() => {
+        const open = courses.find(course => course.CourseCode === DEMO_REACH_OPEN_CODE);
+        const id = `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_CURRENT}`;
+        return open ? { [id]: { id, AdCollegeId: DEMO_COLLEGE_ID, AdSectionId: DEMO_SECTION_ID, AdTermId: DEMO_TERM_CURRENT, display: "fade",
+          courses: { [String(open.AdCourseId)]: { courseId: open.AdCourseId, state: "offered", reachOpen: true, updatedAt: now, updatedBy: COMMITTEE_NAME } }, updatedAt: now } } : {};
+      })(),
+    },
     registrationStats: [
       {
         id: planScope, scopeKey: planScope, collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID,
