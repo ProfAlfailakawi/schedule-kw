@@ -1,4 +1,7 @@
 import SendModePicker from "./SendModePicker";
+import PersonChips from "./PersonChips";
+import { useTrainees } from "../utils/trainees";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import TAPhasePanel from "./TAPhasePanel";
 import CourseOfferingPanel from "./CourseOfferingPanel";
 import PrepublishReachSheet from "./PrepublishReachSheet";
@@ -105,6 +108,9 @@ async function readReply(response: Response, fallback: string) {
 }
 
 export default function SchedulePublish({ collegeId, sectionId, termId, scopeLabel, appearance = "ghost" }: Props) {
+  /* وسومُ الشخص الموحّدة في قائمة الإرسال (PersonChips): الاسم ← «منتدب» ← «🎓 تدريب». */
+  const { isVisiting } = useVisitingLookup(termId);
+  const trainees = useTrainees(collegeId, sectionId, termId);
   const [open, setOpen] = useState(false),
     [links, setLinks] = useState<ShareLink[]>([]),
     [loadingLinks, setLoadingLinks] = useState(false),
@@ -939,7 +945,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                                       const done = sent.has(person.AdInstructorId);
                                       return (
                                         <li key={person.AdInstructorId} className={done ? "sent" : ""}>
-                                          <span className="share-deliver-name">{person.AdInstructorName}</span>
+                                          <span className="share-deliver-name">{person.AdInstructorName}<PersonChips visiting={isVisiting(person.AdInstructorId, collegeId, sectionId)} trainee={trainees.has(Number(person.AdInstructorId))} /></span>
                                           {message?.href ? (
                                             <a
                                               href={message.href}

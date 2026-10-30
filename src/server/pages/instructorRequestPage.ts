@@ -14,6 +14,7 @@ import { REQUEST_V3_CSS, REQUEST_V4_CSS } from "../requestPageStyles";
 import { PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
 import { REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS } from "../requestVisual";
+import { COURSE_TAGS_CSS, COURSE_TAGS_JS } from "../../utils/courseTags";
 import { COURSE_COLOR_JS } from "../staffCardVisual";
 import { PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "../publicKit";
 import { NEGOTIATION_LABEL } from "../../utils/instructorRequestThread";
@@ -167,6 +168,7 @@ ${PATTERN_LIBRARY_CSS}
 .plib[open]>summary{color:var(--accent);border-color:var(--accent);background:var(--soft)}
 .plib-pop{position:fixed;inset-inline:12px;inset-block-start:9vh;z-index:60;margin-inline:auto;inline-size:auto;max-inline-size:440px;max-block-size:80vh;overflow:auto;padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:0 24px 60px rgba(22,57,40,.25)}
 ${REQUEST_VISUAL_CSS}
+${COURSE_TAGS_CSS}
 ${TEACHER_CARD_EXTRAS_CSS}
 ${PUSH_CARD_CSS}
 /* Completed unchanged request: minimal signed confirmation, no review pathway. */
@@ -754,7 +756,7 @@ function paint(){
   h+='<div class="card add-card"><header><b>تريد إضافة موعد جديد؟</b><small>اختر الكلية أولًا، ثم المقرر والأيام والوقت. القسم والفصل معروفان تلقائيًا.</small></header>'+(chooserOpen?'<div class="course-chooser">'+
    '<label class="course-college"><span>الكلية</span><select id="courseCollege"><option value="">اختر الكلية أولًا</option>'+collegeOptions.map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'</option>'}).join("")+'</select></label>'+
    '<input class="course-search" id="courseSearch" type="search" placeholder="اكتب اسم المقرر أو رمزه…" autocomplete="off" disabled>'+
-   '<p class="course-none" id="courseNone" hidden>لا يوجد مقرر بهذا الاسم في هذه الكلية. جرّب كلمةً أقصر أو رمز المقرر.</p><div class="course-options">'+data.courses.map(function(c){return '<button type="button" class="course-option"'+(c.offering?' data-locked="1" aria-disabled="true"':'')+' data-course="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" data-search="'+esc((c.name+" "+c.code).toLowerCase())+'" hidden><b>'+esc(c.name||c.code)+(c.service?'<i class="req-tag">متطلب كلية</i>':'')+skPlanTag(c.id,c.sectionId)+'</b><small>'+esc([c.code,c.collegeName].filter(Boolean).join(" · "))+(c.offeringNote?" · "+c.offeringNote:"")+(state.some(function(it){return it.action==="add"&&it.courseId===c.id&&Number(it.collegeId)===Number(c.collegeId)})?" · أضفتَه في هذا الطلب":"")+'</small>'+tcCourseLock(c)+'</button>'}).join("")+'</div>'+
+   '<p class="course-none" id="courseNone" hidden>لا يوجد مقرر بهذا الاسم في هذه الكلية. جرّب كلمةً أقصر أو رمز المقرر.</p><div class="course-options">'+data.courses.map(function(c){return '<button type="button" class="course-option"'+(c.offering?' data-locked="1" aria-disabled="true"':'')+' data-course="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" data-search="'+esc((c.name+" "+c.code).toLowerCase())+'" hidden><b>'+esc(c.name||c.code)+courseTagsHtml(c.id,c.sectionId)+'</b><small>'+esc([c.code,c.collegeName].filter(Boolean).join(" · "))+(c.offeringNote?" · "+c.offeringNote:"")+(state.some(function(it){return it.action==="add"&&it.courseId===c.id&&Number(it.collegeId)===Number(c.collegeId)})?" · أضفتَه في هذا الطلب":"")+'</small>'+tcCourseLock(c)+'</button>'}).join("")+'</div>'+
    '<button type="button" class="chooser-close" id="closeChooser">إغلاق القائمة</button></div>':'<button type="button" class="add-start" id="openChooser">+ اختر كلية ومقررًا وأضف موعدًا</button>')+'</div>'
  }
  if(open&&!sent&&!noteOpen&&!String(noteNow()).trim())h+='<button type="button" class="note-add" id="noteAdd">＋ أضف ملاحظة للقسم</button>';
@@ -873,9 +875,9 @@ function wire(){tcWire();
    ترى جدولَ صاحبها. وهي تعرض ما يقوله ولا تقرّر شيئاً بنفسها. */
 var pending={};
 function courseIdOf(it){return Number(it.courseId||(it.after&&it.after.courseId)||(it.before&&it.before.courseId)||0)}
-/* وسمُ «متطلب كلية» خاصٌّ بالمقرر في قسمه؛ لا يعبر المقررُ إلى أقسامٍ أخرى. */
-function skPlanTag(cid,sid){var all=(data&&data.planBadges)||{},label=all[Number(sid)+":"+Number(cid)]||"";return label?'<span class="sk-plan-tag">'+esc(label)+'</span>':""}
-function reqTag(it){var l=(data&&data.serviceCourses)||[],sid=Number(it.sectionId||(it.after&&it.after.sectionId)||(it.before&&it.before.sectionId)||(data&&data.request&&data.request.AdSectionId)||0);return skPlanTag(courseIdOf(it),sid)+(l.indexOf(sid+":"+courseIdOf(it))>=0?'<i class="req-tag">متطلب كلية</i>':"")}
+/* وسومُ المقرر الموحّدة (الصحيفة ← نوعُ المتطلب) خاصّةٌ بالمقرر في قسمه؛ لا يعبر المقررُ إلى أقسامٍ أخرى. */
+${COURSE_TAGS_JS}
+function reqTag(it){var sid=Number(it.sectionId||(it.after&&it.after.sectionId)||(it.before&&it.before.sectionId)||(data&&data.request&&data.request.AdSectionId)||0);return courseTagsHtml(courseIdOf(it),sid)}
 /* لا يختار النظامُ أياماً نيابةً عن الأستاذ؛ كلُّ ضغطةٍ تضيف يومها أو تزيله فقط. */
 function tapDay(it,d){var was=it.days.length;it.days=completeRequestDays(d,it.days,((data&&data.dayPatterns)||{})[courseIdOf(it)]||[]);it.autoNote=!was&&it.days.length>1?"أكملنا أيام اللائحة · اضغط يوماً لتبديله":""}
 /* الحكمُ على المسودة كلها بنداءٍ واحد: يبني الخادم سياقَ الجدول والقواعد مرةً للحزمة، لا مرةً لكل بند. */

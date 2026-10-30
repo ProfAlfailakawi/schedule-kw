@@ -4,7 +4,7 @@ import { resolveScopeSelection, singleDepartmentOf, type ScopeAssignmentLike } f
 import { BookOpen, Building2, DoorOpen, GraduationCap, Trash2 } from "lucide-react";
 import { sortByName, byArabic } from "../utils/sorting";
 import CurriculumPlans from "./CurriculumPlans";
-import PlanBadge from "./PlanBadge";
+import CourseTags from "./CourseTags";
 import { AR, countOf } from "../utils/arabicCount";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import { sectionLabels } from "../utils/sectionLabel";
@@ -690,7 +690,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                   onClick={() => setSelectedId(x.AdCourseId)}
                   className={activeId === x.AdCourseId ? "selected" : ""}
                   icon={<BookOpen />}
-                  title={<span className="course-room-type-line"><span>{x.CourseName}<PlanBadge courseId={x.AdCourseId} /></span>{teachingModeBadge(x)}<CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
+                  title={<span className="course-room-type-line"><span>{x.CourseName}<CourseTags courseId={x.AdCourseId} /></span>{teachingModeBadge(x)}<CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
                   subtitle={<span className="record-path"><Building2 />{sec(x.AdSectionId)} <i className="record-path-dot" aria-hidden="true" /> {coll(x.AdCollegeId)}</span>}
                   meta={<><MetaPill label="الرقم الأكاديمي" value={x.CourseCode} /><MetaPill label="الوحدات" value={x.CourseCredit} /><MetaPill label="الساعات" value={x.CourseHours} /></>}
                 />
@@ -712,7 +712,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <>
               <div className="academic-inspector-icon"><BookOpen /></div>
               <span className="surface-kicker">تفاصيل المقرر</span>
-              <h2 className="course-room-type-line"><span>{selected.CourseName}<PlanBadge courseId={selected.AdCourseId} /></span>{teachingModeBadge(selected)}<CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
+              <h2 className="course-room-type-line"><span>{selected.CourseName}<CourseTags courseId={selected.AdCourseId} /></span>{teachingModeBadge(selected)}<CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
               <p>{sec(selected.AdSectionId)} · {coll(selected.AdCollegeId)}</p>
               {serviceOf(selected).length ? <p className="course-service-for">متطلب في صحائف: {serviceOf(selected).join("، ")}</p> : null}
               <div className="inspector-facts inspector-facts-pairs">

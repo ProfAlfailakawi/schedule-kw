@@ -88,6 +88,7 @@ svg.i{width:1.15em;height:1.15em;flex:none;fill:none;stroke:currentColor;stroke-
 .kind[data-k=replace]{color:#5a3e86;background:#f0eafa;border-color:#c9b9e4}
 .op h3{margin:0;font-size:17px;line-height:1.45;font-weight:700}
 .plan-badge{display:inline-block;margin-inline-start:6px;padding:0 6px;border-radius:999px;border:1px solid currentColor;font-size:9px;font-weight:500;line-height:1.6;color:var(--muted);vertical-align:middle}
+.ctags{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;margin-inline-start:6px;vertical-align:middle}.ctags>.plan-badge{margin:0}
 .op h3 small{display:block;margin-top:1px;font-size:13px;font-weight:500;color:var(--muted)}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px 12px;margin:0}
 .facts div{display:flex;gap:8px;align-items:flex-start;min-width:0}
@@ -453,7 +454,7 @@ function opResultHtml(o){var d=D.decision||{},s="";
 function opsHtml(){var ops=D.ops||[];if(!ops.length)return '<div class="card empty">لا مواد في هذا المقترح.</div>';
  return '<div class="ops">'+ops.map(function(o,i){var t=o.target;
   return '<article class="op" aria-label="'+esc(KIND[o.kind]+": "+opName(o))+'"><div class="op-head"><span class="kind" data-k="'+o.kind+'">'+ic(KIND_IC[o.kind])+esc(KIND[o.kind]||o.kind)+'</span><span class="hint">المادة '+(i+1)+' من '+ops.length+'</span></div>'+
-  '<h3>'+esc(t.courseName||t.courseCode||"المقرر")+(t.planBadge?'<span class="plan-badge">'+esc(t.planBadge)+'</span>':'')+(t.service?'<span class="plan-badge">متطلب</span>':'')+'<small>'+esc(t.courseCode||"")+(t.SCode?' · شعبة '+esc(t.SCode):'')+(t.collegeName?' · '+esc(t.collegeName):'')+'</small></h3>'+
+  '<h3>'+esc(t.courseName||t.courseCode||"المقرر")+((t.planBadge||t.kindLabel||t.service)?'<span class="ctags">'+(t.planBadge?'<span class="plan-badge">'+esc(t.planBadge)+'</span>':'')+((t.kindLabel||t.service)?'<span class="plan-badge is-kind">'+esc(t.kindLabel||"متطلب كلية")+'</span>':'')+'</span>':'')+'<small>'+esc(t.courseCode||"")+(t.SCode?' · شعبة '+esc(t.SCode):'')+(t.collegeName?' · '+esc(t.collegeName):'')+'</small></h3>'+
   factsHtml(t)+whatChanges(o)+opResultHtml(o)+'</article>'}).join("")+'</div>'}
 
 /* ── الأثر ───────────────────────────────────────────────────────────────── */

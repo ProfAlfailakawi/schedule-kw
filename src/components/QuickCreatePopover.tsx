@@ -15,11 +15,12 @@ import { toEnglishDigits } from "../utils/digits";
 import { isAssignableInstructor } from "../utils/instructorStatus";
 import { isBlockingConflict } from "../utils/scheduleIntelligence";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
+import { useTrainees } from "../utils/trainees";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
 import InstructorPicker from "./InstructorPicker";
 import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } from "./TeacherMiniWeek";
-import VisitingBadge from "./VisitingBadge";
+import PersonChips from "./PersonChips";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
 import { bestRegulationChoice, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
@@ -153,6 +154,8 @@ export default function QuickCreatePopover({
   miniWeek?: { rows: readonly FSchedule[]; courses: Map<number, AdCourse>; window: { start: number; end: number }; userId: number; nisabOf: (id: number) => number; overtimeOf?: (id: number) => number; limitedOf?: (id: number) => boolean; nameOf: (id: number) => string; isPlaceholder: (id: number) => boolean };
 }) {
   const planBadges = usePlanBadges();
+  /* «🎓 تدريب» بجانب «منتدب» (الأسبوع المصغّر): مَن طلبُه في النطاق بصفة مرحلة التدريب. */
+  const trainees = useTrainees(collegeId, sectionId, termId);
   const [miniWeekEnabled, setMiniWeekEnabled] = useMiniWeekEnabled(Number(miniWeek?.userId || 0));
   const { isVisiting } = useVisitingLookup(termId);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -447,7 +450,7 @@ export default function QuickCreatePopover({
   const miniTeacherId = Number(draft.instructorId) || 0;
   const miniWeekNode = miniWeek && miniWeekEnabled && miniTeacherId && !miniWeek.isPlaceholder(miniTeacherId) && !hasDifferentTimes ? (
     <TeacherMiniWeek variant="compact" teacherId={miniTeacherId} teacherName={miniWeek.nameOf(miniTeacherId) || teacherName}
-      nisab={miniWeek.nisabOf(miniTeacherId)} overtime={miniWeek.overtimeOf?.(miniTeacherId) || 0} limited={miniWeek.limitedOf ? miniWeek.limitedOf(miniTeacherId) : miniWeek.nisabOf(miniTeacherId) > 0} visiting={isVisiting(miniTeacherId, collegeId, sectionId)}
+      nisab={miniWeek.nisabOf(miniTeacherId)} overtime={miniWeek.overtimeOf?.(miniTeacherId) || 0} limited={miniWeek.limitedOf ? miniWeek.limitedOf(miniTeacherId) : miniWeek.nisabOf(miniTeacherId) > 0} visiting={isVisiting(miniTeacherId, collegeId, sectionId)} trainee={trainees.has(miniTeacherId)}
       rows={miniWeek.rows} termId={termId} collegeId={collegeId} draft={payload} verdict={verdict} checked={checkable}
       course={selectedCourse} courses={miniWeek.courses} window={miniWeek.window} userId={miniWeek.userId}
       fixedDays={daysLocked ? chosenDays : undefined} onPick={pickFromMiniWeek} />
@@ -564,7 +567,7 @@ export default function QuickCreatePopover({
           {lockedTeacher ? (
             <span className="qc-teacher-locked">
               <UserRound aria-hidden="true" /><b>{teacherName || "أستاذ الطلب"}</b>
-              {isVisiting(draft.instructorId, collegeId, sectionId) ? <VisitingBadge compact /> : null}
+              <PersonChips visiting={isVisiting(draft.instructorId, collegeId, sectionId)} trainee={trainees.has(Number(draft.instructorId))} />
             </span>
           ) : (
             <InstructorPicker

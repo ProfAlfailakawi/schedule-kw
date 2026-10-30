@@ -29,7 +29,7 @@ check(/data\?\.visitingStatusIds/.test(client) && /\[\.\.\.scheduled, \.\.\.scop
 check(/context-conflict-list/.test(client) && /conflict\.message/.test(client) && /conflict\.detail/.test(client), "لوحة الموعد تكتب سبب التعارض (لا عدَّه فقط)");
 
 const picker = read("src/components/InstructorPicker.tsx");
-check(/visitingRosterIds/.test(picker) && /rosterSet\.has\(person\.AdInstructorId\)/.test(picker) && /visitingSet\.has\(person\.AdInstructorId\) \? <VisitingBadge/.test(picker), "منتقي الأستاذ: القائمةُ من روستر الفصل والشارةُ من الصفة الدائمة");
+check(/visitingRosterIds/.test(picker) && /rosterSet\.has\(person\.AdInstructorId\)/.test(picker) && /<PersonChips visiting=\{visitingSet\.has\(person\.AdInstructorId\)\}/.test(picker), "منتقي الأستاذ: القائمةُ من روستر الفصل والشارةُ من الصفة الدائمة");
 check(/visitingRosterIds=\{pickerVisitingRosterIds\}/.test(client), "شاشة الجدول تمرّر روستر الفصل للمنتقي (فلا يظهر منتدبُ فصلٍ آخر في «موعد جديد»)");
 
 check(/outsideTermRoster\(person\)/.test(picker) && /visitingSet\.has\(id\) && !rosterSet\.has\(id\)/.test(picker), "منتدبٌ غير مختار للفصل يُخفى من المنتقي أياً كان مصدر اسمه (الأرشيف/البحث)");

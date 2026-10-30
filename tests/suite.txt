@@ -179,6 +179,7 @@ test:decision-surfaces
 test:schedule-versions-list
 test:time-machine-scope-escape
 test:visiting-badge-changes
+test:consistent-badges
 test:visiting-lookup
 test:visiting-badge-g1
 test:visiting-badge-g2

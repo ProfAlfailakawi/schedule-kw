@@ -5,11 +5,13 @@
  * بطاقة الطلب (مع زرّ «إعداد مقترح دراسي» وسجلِّ ما جرى كأنه حوار)، وشريطٌ
  * علويٌّ يبدأ مقترحاً لأيِّ أستاذٍ له طلبٌ في الوارد (الرابط الشخصي يقوم على الطلب).
  */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFrozenScreen } from "../TermFrozenRibbon";
 import { CalendarClock, CheckCircle2, ClipboardPen, MessageSquareWarning, Send, ShieldCheck, ThumbsUp, Clock, Ban, FileClock } from "lucide-react";
 import { countOf } from "../../utils/arabicCount";
-import { withVisitingSuffix } from "../VisitingBadge";
+import SearchableSelect from "../SearchableSelect";
+import PersonChips from "../PersonChips";
+import { withPersonSuffix } from "../../utils/visitingText";
 import { proposalLauncherChoices, type LauncherPersonRequest, type LauncherRequestRow } from "../../utils/instructorPickerChoices";
 import { commitReadiness, effectiveStatus, OP_KIND_LABEL, STATUS_LABEL } from "../../utils/studyProposal";
 import type { StudyProposal } from "../../types";
@@ -99,6 +101,9 @@ export function ProposalLauncherBar({ rows, proposals, onOpen, preferCollegeId =
   const toCommit = useMemo(() => proposals.filter(view => { const s = effectiveStatus(view.proposal); return s === "approved" || s === "partial"; }), [proposals]);
   /* الشخصُ مرّةً واحدة باسمه وحده — كلُّ سجلّاته وطلباته في البنين والبنات سطرٌ واحد — ولا «هيئة تدريسية» (r2). */
   const choices = useMemo(() => proposalLauncherChoices(rows, preferCollegeId), [rows, preferCollegeId]);
+  /* يركّز زرَّ القائمة عند فتحها (بديلُ autoFocus في <select>). */
+  const launchTrigger = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => { if (picking) window.requestAnimationFrame(() => launchTrigger.current?.focus({ preventScroll: true })); }, [picking]);
   if (!rows.length && !proposals.length) return null;
   return (
     <section className="sp-launch" aria-label="المقترحات الدراسية" data-guide-ignore="بدء مقترح دراسي — لا يكتب في الجدول">
@@ -110,12 +115,13 @@ export function ProposalLauncherBar({ rows, proposals, onOpen, preferCollegeId =
       ) : null}
       {picking ? (
         <>
-          <label className="sp-launch-pick"><span className="sr-only">الأستاذ</span>
-            <select value={pick} onChange={e => setPick(e.target.value)} aria-label="اختر أستاذاً لإعداد مقترح له" autoFocus>
-              <option value="">اختر أستاذاً…</option>
-              {choices.map(choice => <option key={choice.value} value={choice.value}>{withVisitingSuffix(choice.name, choice.visiting)}</option>)}
-            </select>
-          </label>
+          {/* قائمةٌ يُبحث فيها: الاسم ثم وسماه بالترتيب الموحّد (PersonChips) — «منتدب» ثم «🎓 تدريب». */}
+          <div className="sp-launch-pick">
+            <SearchableSelect fixed className="ss-compact" ariaLabel="اختر أستاذاً لإعداد مقترح له" value={pick} onChange={value => setPick(String(value))}
+              options={choices.map(choice => ({ value: choice.value, label: choice.name, keywords: withPersonSuffix(choice.name, choice.visiting, choice.trainee), chips: <PersonChips visiting={choice.visiting} trainee={choice.trainee} /> }))}
+              placeholder="اختر أستاذاً…" searchPlaceholder="اكتب اسم الأستاذ" emptyText="لا أستاذ بهذا الاسم"
+              guideIgnore="يختار الأستاذ لبدء مقترح دراسي — لا يكتب في الجدول" triggerRef={launchTrigger} />
+          </div>
           <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="btn btn-primary" disabled={!pick} onClick={() => { const person = choices.find(choice => choice.value === pick); onOpen({ requestId: pick, siblings: person && person.requests.length > 1 ? person.requests : undefined }); setPicking(false); setPick(""); }}>ابدأ</button>
           <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="btn btn-secondary" onClick={() => { setPicking(false); setPick(""); }}>إلغاء</button>
         </>

@@ -1,5 +1,6 @@
-import PlanBadge from "../PlanBadge";
-import VisitingBadge from "../VisitingBadge";
+import CourseTags from "../CourseTags";
+import PersonChips from "../PersonChips";
+import { useIsTrainee } from "../../utils/trainees";
 import { useVisitingLookup } from "../../hooks/useVisitingLookup";
 /**
  * ── معاينةُ الإرسال، ومراجعةُ التثبيت، وردودُ الأستاذ ───────────────────────
@@ -66,6 +67,8 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
   const { ctx, proposal, evaluation } = ws;
   const { isVisiting: lookupVisiting } = useVisitingLookup(ctx?.term.id);
   const visiting = Boolean(ctx) && lookupVisiting(ctx!.instructor.id, ctx!.scope.collegeId, ctx!.scope.sectionId);
+  /* «🎓 تدريب» بعد «منتدب» (PersonChips): طلبُه في النطاق بصفة مرحلة التدريب. */
+  const trainee = useIsTrainee(ctx?.instructor.id, ctx?.scope.collegeId, ctx?.scope.sectionId, ctx?.term.id);
   const [stage, setStage] = useState<"preview" | "sent">("preview");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -127,7 +130,7 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
         <div className="sp-sent">
           <span className="sp-sent-icon" aria-hidden="true"><Check /></span>
           <h2>أُرسل المقترح إلى الأستاذ</h2>
-          <p className="sp-sent-lead">أصبح المقترح (النسخة {num(sentView.proposal.sentVersion)}) ظاهراً في بطاقة {ctx.instructor.name}{visiting ? <> <VisitingBadge compact /></> : null} الشخصي. الإرسال لا يحجز شعبةً ولا قاعةً، ولا يغيّر جدوله الفعلي.</p>
+          <p className="sp-sent-lead">أصبح المقترح (النسخة {num(sentView.proposal.sentVersion)}) ظاهراً في بطاقة {ctx.instructor.name}<PersonChips visiting={visiting} trainee={trainee} /> الشخصي. الإرسال لا يحجز شعبةً ولا قاعةً، ولا يغيّر جدوله الفعلي.</p>
           <p className="sp-note-box"><AlertTriangle aria-hidden="true" />لم يُرسل النظام بريداً أو رسالةً إلى الأستاذ. انسخ الرابط أو الرسالة الجاهزة وأرسلها له بوسيلتك.</p>
           <label className="sp-copy-field"><span><Link2 aria-hidden="true" />رابط المقترح الشخصي</span>
             <input readOnly value={link} dir="ltr" onFocus={e => e.currentTarget.select()} /></label>
@@ -149,7 +152,7 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
       <div className="sp-send">
         <header>
           <p className="sp-eyebrow">معاينة وإرسال</p>
-          <h2>هذا ما سيراه {ctx.instructor.name}{visiting ? <> <VisitingBadge compact /></> : null}</h2>
+          <h2>هذا ما سيراه {ctx.instructor.name}<PersonChips visiting={visiting} trainee={trainee} /></h2>
           <p className="sp-send-sum">{summaryLine(ws.ops.length, evaluation?.counts.blockers ?? null, evaluation?.counts.reviews ?? null, ws.evalCurrent)}</p>
         </header>
 
@@ -185,7 +188,7 @@ export function SendDialog({ ws, onClose, onSent }: { ws: Workspace; onClose: ()
             <section className="sp-send-ops" aria-label="مواد المقترح">
               <h3>المواد ({num(ws.ops.length)})</h3>
               <ul>{ws.ops.map(op => (
-                <li key={op.id}><b>{OP_KIND_LABEL[op.kind]}</b><span>{op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</span>
+                <li key={op.id}><b>{OP_KIND_LABEL[op.kind]}</b><span>{op.target.courseName}<CourseTags courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</span>
                   <span>{daysLabel(daysOf(op.target))} · <bdi className="sp-time">{timeRange(op.target.fstarttime, op.target.fendtime)}</bdi></span>
                   {op.out ? <em>يخرج: {op.out.snapshot.courseName} ({op.out.action === "delete" ? "حذف" : "فك إسناد"})</em> : null}</li>
               ))}</ul>
@@ -297,12 +300,12 @@ export function CommitDialog({ ws, onClose, onDone }: { ws: Workspace; onClose: 
             <p className="sp-commit-lead"><ShieldCheck aria-hidden="true" />اكتملت الفحوص: لا موانع، وبيانات الجدول ما زالت كما وافق عليها الأستاذ، والموافقة تخص النسخة {num(proposal.sentVersion)} الحالية.</p>
             <div className="sp-commit-cols">
               <section><h3>سيُنفَّذ ({num(applied.length)})</h3>
-                <ul>{applied.map(op => <li key={op.id}><b>{OP_KIND_LABEL[op.kind]}</b> {op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode} — {daysLabel(daysOf(op.target))} <bdi className="sp-time">{timeRange(op.target.fstarttime, op.target.fendtime)}</bdi>
+                <ul>{applied.map(op => <li key={op.id}><b>{OP_KIND_LABEL[op.kind]}</b> {op.target.courseName}<CourseTags courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode} — {daysLabel(daysOf(op.target))} <bdi className="sp-time">{timeRange(op.target.fstarttime, op.target.fendtime)}</bdi>
                   {op.kind === "create" || (op.kind === "replace" && op.incoming === "create") ? <small>تُنشأ الآن في الجدول الفعلي</small> : <small>تُسند وتُحدَّث في الجدول الفعلي</small>}</li>)}</ul>
               </section>
               {skipped.length ? <section data-tone="warn"><h3>لن يُنفَّذ ({num(skipped.length)})</h3>
                 <p className="sp-hint">لم يوافق عليها الأستاذ بعد؛ تبقى خارج التثبيت.</p>
-                <ul>{skipped.map(op => <li key={op.id}>{op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</li>)}</ul></section> : null}
+                <ul>{skipped.map(op => <li key={op.id}>{op.target.courseName}<CourseTags courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</li>)}</ul></section> : null}
             </div>
             {ev ? (
               <ProposalWeekGrid mode={mode} onMode={setMode} showGhosts onShowGhosts={() => undefined}
@@ -324,7 +327,7 @@ export function CommitDialog({ ws, onClose, onDone }: { ws: Workspace; onClose: 
                   if (!op) return null;
                   const what = result.state === "skipped" ? "لم يُنفَّذ (لم يوافق عليه الأستاذ بعد)"
                     : [result.createdRowIds?.length ? "أُنشئت شعبةٌ جديدة في الجدول" : "", result.updatedRowIds?.length ? (op.out && op.out.action === "unassign" ? "أُسندت الشعبة وفُكّ إسناد الموعد القديم" : "أُسندت الشعبة / عُدّل الموعد") : "", result.deletedRowIds?.length ? "حُذف الموعد القديم من جدول القسم" : ""].filter(Boolean).join(" · ");
-                  return <li key={result.opId} data-state={result.state}><b>{op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</b><span>{what}</span></li>;
+                  return <li key={result.opId} data-state={result.state}><b>{op.target.courseName}<CourseTags courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</b><span>{what}</span></li>;
                 })}
               </ul>
             ) : null}</div>

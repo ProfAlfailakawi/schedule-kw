@@ -44,6 +44,8 @@ import { departmentSiteScopes } from "../utils/instructorCourseLoad";
 import AuthorityPdfReport, { AuthorityReport } from "./AuthorityPdfReport";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
+import PersonChips from "./PersonChips";
+import { useTrainees } from "../utils/trainees";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import SubmissionDeadlines, { type DeadlineRow } from "./SubmissionDeadlines";
@@ -55,7 +57,7 @@ import { DnaRing } from "./dna";
 import MeetingSlots from "./MeetingSlots";
 import { instructorCourseLoad } from "../utils/instructorCourseLoad";
 import { ApprovalDnaStepper, DeadlineDnaRing } from "./dna/scheduleDna";
-import PlanBadge from "./PlanBadge";
+import CourseTags from "./CourseTags";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { teachingHoursByInstructor } from "../utils/teachingLoad";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
@@ -554,6 +556,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   /* وثيقة «كل الفروع» تضم صفوف أقسامٍ عدة: يُحكم على كل صفٍّ بكليته وقسمه (قائمة الفصل)،
      وإن لم تصل القائمة فبقائمة النطاق المختار إن كان الصفُّ من نطاقها. */
   const { isVisiting: lookupVisiting } = useVisitingLookup(filters.termId);
+  /* وسومُ الشخص الموحّدة على الشاشة (PersonChips): الاسم ← «منتدب» ← «🎓 تدريب» — والطباعة لا تحمل وسماً جديداً. */
+  const trainees = useTrainees(filters.collegeId, filters.sectionId, filters.termId);
+  const personChips = (id: unknown, visiting = isVisitingInstructor(Number(id))) => <PersonChips visiting={visiting} trainee={trainees.has(Number(id))} />;
   const bookRowIsVisiting = (row: FSchedule) => lookupVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId)
     || (Number(row.AdCollegeId) === Number(filters.collegeId) && (!filters.sectionId || Number(row.AdSectionId) === Number(filters.sectionId)) && visitingIds.has(Number(row.AdInstructorId)));
   /* مرشّحات الشاشة كما هي، لملفّ Excel (N12). */
@@ -2217,13 +2222,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         aria-label={`تفاصيل ${pickedCourse?.CourseName || selectedResult.AdCourseName || "الموعد"}`}
       >
         <header>
-          <div><small>تفاصيل الموعد</small><div className="course-room-type-line"><strong>{pickedCourse?.CourseName || selectedResult.AdCourseName || "—"}<PlanBadge courseId={selectedResult.AdCourseId} /></strong><CourseRoomTypeBadge type={pickedCourse?.CourseRoomType} compact/></div></div>
+          <div><small>تفاصيل الموعد</small><div className="course-room-type-line"><strong>{pickedCourse?.CourseName || selectedResult.AdCourseName || "—"}<CourseTags courseId={selectedResult.AdCourseId} /></strong><CourseRoomTypeBadge type={pickedCourse?.CourseRoomType} compact/></div></div>
           <span className="occupancy-pick-count">الشعبة {selectedResult.SCode || "—"}</span>
           <button type="button" onClick={() => setSelectedResultId(null)} aria-label="إغلاق التفاصيل" title="إغلاق"><X aria-hidden="true" /></button>
         </header>
         <div className="occupancy-pick-rows">
           <article>
-            <strong className="report-instructor-with-badge"><span className="rib-name">{pickedInstructor?.AdInstructorName || "بدون أستاذ"}</span>{isVisitingInstructor(selectedResult.AdInstructorId) ? <VisitingBadge compact /> : null}</strong>
+            <strong className="report-instructor-with-badge"><span className="rib-name">{pickedInstructor?.AdInstructorName || "بدون أستاذ"}</span>{personChips(selectedResult.AdInstructorId)}</strong>
             <span>{sectionById.get(selectedResult.AdSectionId)?.AdSectionName || "بدون قسم"}</span>
             <em>{dayText(selectedResult) || "بلا أيام"}</em>
             <time dir="ltr">{formatScheduleTimeRange(selectedResult.fstarttime, selectedResult.fendtime)}</time>
@@ -2715,11 +2720,11 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 >
                   <span className="lens-index">{String(index + 1).padStart(2, "0")}</span>
                   <div className="lens-main">
-                    <div className="course-room-type-line"><strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName}<PlanBadge courseId={row.AdCourseId} /></strong><CourseRoomTypeBadge type={course?.CourseRoomType} compact/></div>
+                    <div className="course-room-type-line"><strong>{row.CourseNameSnapshot || row.AdCourseName || course?.CourseName}<CourseTags courseId={row.AdCourseId} /></strong><CourseRoomTypeBadge type={course?.CourseRoomType} compact/></div>
                     <div className="lens-tags">
                       <span className="code-chip">{courseNumberOf(row, course) || "—"}</span>
                       <span>{row.SCode}</span>
-                      <span className="report-instructor-with-badge"><UserRound aria-hidden="true" />{instructor?.AdInstructorName || "—"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
+                      <span className="report-instructor-with-badge"><UserRound aria-hidden="true" />{instructor?.AdInstructorName || "—"}{personChips(row.AdInstructorId)}</span>
                       {finality[`${Number(row.AdCollegeId || 0)}:${Number(row.AdSectionId || 0)}`] === "historical"
                         ? <span className="finality-historical-chip" title="فصلٌ انتهى وقسمٌ لم يمرّ بدورة الاعتماد">{HISTORICAL_FINALITY_LABEL}</span>
                         : null}
@@ -2772,8 +2777,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     <article key={`${day.key}-${row.id}`}>
                       <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                       <div>
-                        <div className="course-room-type-line"><strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></strong><CourseRoomTypeBadge type={courseById.get(row.AdCourseId)?.CourseRoomType} compact/></div>
-                        <span className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
+                        <div className="course-room-type-line"><strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<CourseTags courseId={row.AdCourseId} /></strong><CourseRoomTypeBadge type={courseById.get(row.AdCourseId)?.CourseRoomType} compact/></div>
+                        <span className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}{personChips(row.AdInstructorId)}</span>
                       </div>
                       <small>
                         <b>{courseNumberOf(row) || "—"}</b>
@@ -2830,8 +2835,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                           <td key={cell.point} className={cell.rows.length ? "taken" : ""}>
                             {cell.rows.map(row => (
                               <span key={row.id} className="matrix-slot">
-                                <b>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></b>
-                                <em className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "—"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</em>
+                                <b>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<CourseTags courseId={row.AdCourseId} /></b>
+                                <em className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "—"}{personChips(row.AdInstructorId)}</em>
                                 <i dir="ltr">{courseNumberOf(row) || "—"} · {row.SCode}</i>
                               </span>
                             ))}
@@ -2948,8 +2953,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     <div className="occupancy-pick-rows">
                       {picked.map(row => (
                         <article key={row.id}>
-                          <strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<PlanBadge courseId={row.AdCourseId} /></strong>
-                          <span className="report-instructor-with-badge"><span className="rib-name">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}</span>{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
+                          <strong>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<CourseTags courseId={row.AdCourseId} /></strong>
+                          <span className="report-instructor-with-badge"><span className="rib-name">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ"}</span>{personChips(row.AdInstructorId)}</span>
                           <em>{dayText(row)}</em>
                           <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                         </article>
@@ -3083,7 +3088,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   rows={rows.map(row => ({
                     id: row.id,
                     course: row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—",
-                    badge: <PlanBadge courseId={row.AdCourseId} />,
+                    badge: <CourseTags courseId={row.AdCourseId} />,
                     code: courseNumberOf(row) || "",
                     section: String(row.SCode || ""),
                     room: placeOfRow(row) === "بلا قاعة" ? "" : placeOfRow(row),
@@ -3117,7 +3122,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   >
                     <span className="group-avatar"><UserPlus /></span>
                     <span className="visiting-card-identity">
-                      <strong className="report-instructor-with-badge">{group.name}{directoryVisitingIds.has(Number(group.id)) ? <VisitingBadge compact /> : null}</strong>
+                      <strong className="report-instructor-with-badge">{group.name}{personChips(group.id, directoryVisitingIds.has(Number(group.id)))}</strong>
                       <small className="visiting-card-places">
                         {countOf(group.courses, AR.course)}
                         {group.places.length > 1 || familyTeaching ? <> · {group.places.map(place => visitingPlaceLabel(place.collegeId, place.sectionId)).join("، ")}</> : null}
@@ -3132,7 +3137,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                       {group.rows.map(row => (
                         <div key={`${row.AdCollegeId}-${row.id}`}>
                           <span className="code-chip">{courseNumberOf(row) || "—"}</span>
-                          <span>{courseById.get(row.AdCourseId)?.CourseName || row.AdCourseName}<PlanBadge courseId={row.AdCourseId} />{row.SCode ? <small> · شعبة <bdi>{row.SCode}</bdi></small> : null}</span>
+                          <span>{courseById.get(row.AdCourseId)?.CourseName || row.AdCourseName}<CourseTags courseId={row.AdCourseId} />{row.SCode ? <small> · شعبة <bdi>{row.SCode}</bdi></small> : null}</span>
                           <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
                           <small>{dayText(row)} · {row.AdRoomCode || "—"}/{row.AdRoomHall || "—"}</small>
                           <small className="visiting-row-place">{visitingPlaceLabel(row.AdCollegeId, row.AdSectionId)}</small>
@@ -3343,7 +3348,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   {open ? <ul id={`course-room-${group.courseId}`} className="course-room-sections">{group.items.map(({ row, wanted, actual, room }) => (
                     <li key={row.id}>
                       <span className="course-room-sec"><ClipboardList aria-hidden="true" /><bdi dir="ltr">{row.SCode}</bdi></span>
-                      <span className="course-room-time"><Clock3 aria-hidden="true" /><bdi dir="ltr">{row.fstarttime}–{row.fendtime}</bdi><small>{DAYS.filter(day => row[day.flag]).map(day => day.label).join(" · ")}</small><small className="course-room-who report-instructor-with-badge"><UserRound aria-hidden="true" />{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بلا أستاذ"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</small></span>
+                      <span className="course-room-time"><Clock3 aria-hidden="true" /><bdi dir="ltr">{row.fstarttime}–{row.fendtime}</bdi><small>{DAYS.filter(day => row[day.flag]).map(day => day.label).join(" · ")}</small><small className="course-room-who report-instructor-with-badge"><UserRound aria-hidden="true" />{instructorById.get(row.AdInstructorId)?.AdInstructorName || "بلا أستاذ"}{personChips(row.AdInstructorId)}</small></span>
                       <span className="course-room-room"><DoorOpen aria-hidden="true" /><b dir="ltr">{room}</b><small>{actual} ← {wanted}</small></span>
                     </li>
                   ))}</ul> : null}
@@ -3361,7 +3366,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               <header><div><Landmark aria-hidden="true" /><h3>{countOf(courseLoads.length, AR.instructor)}</h3></div></header>
               <div className="course-load-list">{courseLoads.map(person => (
                 <article key={person.instructorId} className={`course-load-row${expandedCourseLoadIds.has(person.instructorId) ? " is-expanded" : ""}`}>
-                  <div className="course-load-person"><span className="course-load-avatar"><UserRound aria-hidden="true" /></span><div className="course-load-person-content"><button type="button" data-guide-ignore="إظهار توزيع مواد الأستاذ حسب الحرم" className="course-load-person-toggle report-instructor-with-badge" aria-expanded={expandedCourseLoadIds.has(person.instructorId)} aria-controls={`course-load-details-${person.instructorId}`} onClick={() => setExpandedCourseLoadIds(previous => { const next = new Set(previous); if (next.has(person.instructorId)) next.delete(person.instructorId); else next.add(person.instructorId); return next; })}>{person.instructorName}{isVisitingInstructor(person.instructorId) ? <VisitingBadge compact /> : null}<ChevronDown aria-hidden="true" className="course-load-person-chevron" /></button>{expandedCourseLoadIds.has(person.instructorId) ? <div id={`course-load-details-${person.instructorId}`} className="course-load-detail-list" role="list">{person.courseLocations.flatMap(course => course.sites.map(site => <div key={`${course.courseName}-${site.collegeId}`} className="course-load-detail-item" role="listitem"><span className="course-load-detail-course"><BookOpen aria-hidden="true" />{course.courseName}</span><span className="course-load-detail-sections"><ClipboardList aria-hidden="true" /><b>{num(site.sectionCount)}</b><small>{nounFor(site.sectionCount, AR.section)}</small></span><span className="course-load-detail-site"><Building2 aria-hidden="true" />{site.siteName}</span></div>))}</div> : null}</div></div>
+                  <div className="course-load-person"><span className="course-load-avatar"><UserRound aria-hidden="true" /></span><div className="course-load-person-content"><button type="button" data-guide-ignore="إظهار توزيع مواد الأستاذ حسب الحرم" className="course-load-person-toggle report-instructor-with-badge" aria-expanded={expandedCourseLoadIds.has(person.instructorId)} aria-controls={`course-load-details-${person.instructorId}`} onClick={() => setExpandedCourseLoadIds(previous => { const next = new Set(previous); if (next.has(person.instructorId)) next.delete(person.instructorId); else next.add(person.instructorId); return next; })}>{person.instructorName}{personChips(person.instructorId)}<ChevronDown aria-hidden="true" className="course-load-person-chevron" /></button>{expandedCourseLoadIds.has(person.instructorId) ? <div id={`course-load-details-${person.instructorId}`} className="course-load-detail-list" role="list">{person.courseLocations.flatMap(course => course.sites.map(site => <div key={`${course.courseName}-${site.collegeId}`} className="course-load-detail-item" role="listitem"><span className="course-load-detail-course"><BookOpen aria-hidden="true" />{course.courseName}</span><span className="course-load-detail-sections"><ClipboardList aria-hidden="true" /><b>{num(site.sectionCount)}</b><small>{nounFor(site.sectionCount, AR.section)}</small></span><span className="course-load-detail-site"><Building2 aria-hidden="true" />{site.siteName}</span></div>))}</div> : null}</div></div>
                   {!expandedCourseLoadIds.has(person.instructorId) ? <><div className="course-load-sites">{person.sites.map(site => <span key={site.collegeId} title={`${site.courses.join(" · ")} · ${countOf(site.sectionCount, AR.section)}`}><Building2 aria-hidden="true" />{site.siteName}<b>{num(site.courseCount)}</b></span>)}</div><div className="course-load-meter" aria-label={countOf(person.courseCount, AR.course)}><i style={{ width: share(person.courseCount, courseLoadMax) }} /></div><div className="course-load-facts"><b>{countOf(person.courseCount, AR.course)}</b><small>{countOf(person.sectionCount, AR.section)}</small></div></> : null}
                 </article>
             ))}</div>
@@ -3389,14 +3394,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   <div className="room-teacher-content">
                     <small>مبنى <bdi dir="ltr">{room.building}</bdi></small>
                     <h3>قاعة <bdi dir="ltr">{room.hall}</bdi></h3>
-                    <div className="room-teacher-tags">{[...room.teachers.entries()].sort((a,b) => byArabic(a[1],b[1])).map(([id,name]) => <span key={id}><UserRound aria-hidden="true" />{name}{isVisitingInstructor(id) ? <VisitingBadge compact /> : null}</span>)}</div>
+                    <div className="room-teacher-tags">{[...room.teachers.entries()].sort((a,b) => byArabic(a[1],b[1])).map(([id,name]) => <span key={id}><UserRound aria-hidden="true" />{name}{personChips(id)}</span>)}</div>
                   </div>
                   <div className="room-teacher-count"><b>{countOf(room.teachers.size, AR.instructor)}</b></div>
                 </article>
               )) : roomTeacherIndex.teachers.map(teacher => (
                 <article key={teacher.id} className="room-teacher-card">
                   <div className="room-teacher-symbol"><UserRound aria-hidden="true" /></div>
-                  <div className="room-teacher-content"><small>عضو هيئة التدريس</small><h3 className="report-instructor-with-badge">{teacher.name}{isVisitingInstructor(teacher.id) ? <VisitingBadge compact /> : null}</h3><div className="room-teacher-tags">{[...teacher.rooms.values()].sort((a,b) => byRoomLabel(`${a.building}/${a.hall}`,`${b.building}/${b.hall}`)).map(room => <span key={`${room.building}/${room.hall}`}><Building2 aria-hidden="true" /><bdi dir="ltr">{room.building} / {room.hall}</bdi></span>)}</div></div>
+                  <div className="room-teacher-content"><small>عضو هيئة التدريس</small><h3 className="report-instructor-with-badge">{teacher.name}{personChips(teacher.id)}</h3><div className="room-teacher-tags">{[...teacher.rooms.values()].sort((a,b) => byRoomLabel(`${a.building}/${a.hall}`,`${b.building}/${b.hall}`)).map(room => <span key={`${room.building}/${room.hall}`}><Building2 aria-hidden="true" /><bdi dir="ltr">{room.building} / {room.hall}</bdi></span>)}</div></div>
                   <div className="room-teacher-count"><b>{countOf(teacher.rooms.size, AR.room)}</b></div>
                 </article>
               ))}
@@ -3414,7 +3419,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   onClick={() => setOpenGroup(openGroup === group.id ? null : group.id)}
                 >
                   <span className="group-avatar"><UserRound /></span>
-                  <strong className="report-instructor-with-badge">{group.name}{isVisitingInstructor(Number(group.id)) ? <VisitingBadge compact /> : null}</strong>
+                  <strong className="report-instructor-with-badge">{group.name}{personChips(Number(group.id))}</strong>
                   <span className="group-bar"><i style={{ width: share(group.load, maxLoad) }} /></span>
                   <b>{num(group.count)}</b>
                   <em title="نصاب تدريسي: ساعات المقررات المعتمدة، والشعبة مرة واحدة">{num(group.teaching)}س</em>
@@ -3488,7 +3493,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                                 <span className="code-chip">{courseNumberOf(row, course) || "—"}</span>
                                 <span>شعبة {row.SCode || "—"}</span>
                               </div>
-                              <small className="report-instructor-with-badge">{instructor?.AdInstructorName || "بدون أستاذ"}{isVisitingInstructor(row.AdInstructorId) ? <VisitingBadge compact /> : null}</small>
+                              <small className="report-instructor-with-badge">{instructor?.AdInstructorName || "بدون أستاذ"}{personChips(row.AdInstructorId)}</small>
                               <em>{[row.AdRoomCode, row.AdRoomHall].filter(Boolean).join("/") || "بدون قاعة"}</em>
                               <i>{dayText(row) || "بلا أيام"}</i>
                             </button>
@@ -3559,7 +3564,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             <div className="fairness-rows">
               {fairness.rows.map(row => (
                 <div key={row.id}>
-                  <span className="report-instructor-with-badge">{row.name}{isVisitingInstructor(Number(row.id)) ? <VisitingBadge compact /> : null}</span>
+                  <span className="report-instructor-with-badge">{row.name}{personChips(Number(row.id))}</span>
                   <i title="العبء: الأيام والفراغات والبكور والمساء والساعات"><b style={{ width: share(row.load, fairness.rows[0].load) }} /></i>
                   <em>{num(row.hours)} س.م</em>
                 </div>
