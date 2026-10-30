@@ -24,6 +24,7 @@ import { canExtendDeadline, canManageDeadline, canReviewSubmissions, canAnnotate
 import { seedDemoRadar, seedDemoMasariDemand } from "../demoRadarSeed";
 import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
 import { seedDemoSectionRequests } from "../demoSectionRequestsSeed";
+import { demoActivityTrail } from "../../db/demoActivityTrail";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { currentPasswordWaived, decidePasswordChange, initialPasswordMark, LEGACY_SHARED_PASSWORD } from "../accountPassword";
 import { endForRequest, requestFullySettled, weeklyLoadOf, type RequestDayKey } from "../../utils/instructorRequestVerdict";
@@ -189,6 +190,16 @@ function scheduleDemoExtras(sessionId: string): void {
     await run("Masari demand", seedDemoMasariDemand);
     /* طلباتُ الشعب بعد رغبات «مساري»: الطلبُ المرسَل للتوّ يحمل الطلبةَ الذين طلبوا المقرر. */
     await run("section requests", () => seedDemoSectionRequests({ sealIdentity: sealStudentIdentity }));
+    /* «👣 الأثر»: أسبوعُ عملٍ محكيّ لكل فريق، على مواعيد القسم الجارية نفسها (فتظهر البصمةُ عليها). */
+    await run("activity trail", async () => {
+      const [terms, users, rows] = await Promise.all([
+        Repository.getTerms(), Repository.getUsers(),
+        Repository.getSchedulesByScope({ collegeId: DEMO_STORY_SCOPE.collegeId, sectionId: DEMO_STORY_SCOPE.sectionId, termId: DEMO_STORY_SCOPE.termId }),
+      ]);
+      const seats = Object.fromEntries((users as any[]).filter(user => !user.IsAdminUser).map(user => [Number(user.SystemUserId), { name: String(user.Name || ""), role: roleDefinition(user.Role).id }]));
+      const entries = demoActivityTrail({ terms: terms as any[], rows: rows as any[], collegeId: DEMO_STORY_SCOPE.collegeId, sectionId: DEMO_STORY_SCOPE.sectionId, seats });
+      for (const entry of entries.reverse()) await Repository.appendActivityTrail(entry);
+    });
     if (failures.length) throw new Error(`Demo seed incomplete: ${failures.join(", ")}`);
   }));
   const tracked = job.then(() => {

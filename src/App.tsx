@@ -62,7 +62,11 @@ import { AR, countOf, nounFor } from "./utils/arabicCount";
 import { isInvitationHash } from "./utils/invitationLink";
 import ChangePassword from "./components/ChangePassword";
 import SeatDrawer from "./components/seats/SeatDrawer";
+import TrailButton from "./components/trail/TrailButton";
 import { seatActorCaption, type SeatActor } from "./utils/seats";
+
+/** من يُفتح له «👣 الأثر» من بطاقة الحساب، لا من رأس فريقه وحده. */
+const TRAIL_HOME_ROLES = new Set<string>(["dean", "departmentHead", "registrarHead", "registrarDean"]);
 
 function safeLazy<T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) {
   return lazy(() =>
@@ -2686,7 +2690,7 @@ export default function App() {
             the way out — three sentences of chrome reduced to a dot and two
             glyphs, which also keeps the rail inside a 720px-tall laptop. */}
         {seatDrawerOpen ? (
-          <SeatDrawer onClose={() => setSeatDrawerOpen(false)} canManage={!seatActor || seatActor.kind === "holder"} />
+          <SeatDrawer onClose={() => setSeatDrawerOpen(false)} canManage={!seatActor || seatActor.kind === "holder"} trail={sessionRole.id !== "viceDean"} />
         ) : null}
         {journeyOpen ? (
           <Suspense fallback={null}>
@@ -2725,6 +2729,8 @@ export default function App() {
             </div>
             <span className="sr-only" role="status">{healthLabel}</span>
             <div className="user-card-tools">
+              {/* «👣 الأثر» لمن يرى فرقاً غيرَ فريقه: العميد ورئيس القسم والمسجّل العام وعميد التسجيل، ومدير النظام. */}
+              {isPowerAdmin || TRAIL_HOME_ROLES.has(sessionRole.id) ? <TrailButton data-guide-ignore="يفتح ورقة «الأثر»: من فعل ماذا في الفرق التي تشرف عليها؛ قراءة فقط" /> : null}
               {!isPowerAdmin && sessionRole.id !== "standard" ? (
                 <button
                   type="button"

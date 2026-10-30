@@ -22,6 +22,7 @@ import { type AuthenticatedRequest, isPowerUser, requireAnyPermission } from "./
 import { isScopeAllowed } from "./core/scope";
 import { refuseIfTermFrozen } from "./core/approvals";
 import { broadcastNotify } from "./core/liveChannel";
+import { noteTrail } from "./activityTrail";
 import { sealStudentIdentity, studentIdentityFor, surveyFingerprint } from "./core/studentIdentity";
 import { pushHooks, type PushAccount } from "./pushRoutes";
 import { sectionRequestMessage } from "./pushMessages";
@@ -341,6 +342,7 @@ app.post("/api/section-requests", requireRegistrationSheet, async (req: Authenti
   await Repository.saveFeatureDoc(COLLECTION, request.id, request);
   res.locals.auditEntity = "طلب شعبة";
   res.locals.auditChanges = `طلب شعبة: ${request.courseName} · ${countOf(count, AR.student)} · ${PERIOD_LABEL[request.period]}`;
+  noteTrail(res, { target: `طلب شعبة · ${request.courseName || ""}`, after: `${countOf(count, AR.student)} · ${PERIOD_LABEL[request.period]}`, scope: { collegeId: request.collegeId, sectionId: request.fromSectionId || request.sectionId, termId: request.termId } });
   broadcastNotify(Repository.currentDemoSessionId());
   await pushTo(["committee"], request, sectionRequestMessage("sent", { id: request.id, courseName: request.courseName || "", count, period: PERIOD_LABEL[request.period] }));
   res.status(201).json({ ok: true, id: request.id, students: students.length, count });
@@ -365,6 +367,7 @@ async function finish(req: AuthenticatedRequest, res: Response, id: string, step
   if (!out.ok) { const why = out.result || { status: 409, error: "تعذّر التنفيذ." }; fail(res, why.status, why.error); return null; }
   res.locals.auditEntity = "طلب شعبة";
   res.locals.auditChanges = audit;
+  noteTrail(res, { target: `طلب شعبة · ${out.next.courseName || ""}`, scope: { collegeId: out.next.collegeId, sectionId: out.next.sectionId, termId: out.next.termId } });
   broadcastNotify(Repository.currentDemoSessionId());
   return out.next;
 }

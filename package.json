@@ -177,6 +177,7 @@
     "test:demo-cases": "tsx tests/demo-cases-audit.ts",
     "test:roles": "tsx tests/role-guard-audit.ts",
     "test:seats": "tsx tests/seats-audit.ts",
+    "test:activity-trail": "tsx tests/activity-trail-audit.ts",
     "test:seat-access-card": "tsx tests/seat-access-card-audit.tsx",
     "test:first-login-password": "tsx tests/first-login-password-audit.tsx",
     "test:colleague-guard-measure": "tsx tests/colleague-guard-measure-audit.ts",

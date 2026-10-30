@@ -211,6 +211,7 @@ test:report-stamp
 test:live-pulse
 test:live-pulse-http
 test:seats
+test:activity-trail
 test:seat-access-card
 test:first-login-password
 test:colleague-guard-measure

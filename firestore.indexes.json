@@ -237,6 +237,67 @@
         }
       ]
     }
+ ,
+    {
+      "_comment": "«👣 الأثر»: a team's moves in one term, newest first (src/utils/activityTrail.ts). One indexed question per team per term, limited — never the whole collection.",
+      "collectionGroup": "activityTrail",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "team",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "«👣 الأثر»: one person's moves in one term — a member sees only their own, the dean only department heads.",
+      "collectionGroup": "activityTrail",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "person",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "«👣 الأثر»: the system administrator's view of a whole term, newest first and limited.",
+      "collectionGroup": "activityTrail",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "term",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "«👣 الأثر»: the «آخر تعديل» stamp on one appointment — the newest move on that row, limit 1.",
+      "collectionGroup": "activityTrail",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "row",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "at",
+          "order": "DESCENDING"
+        }
+      ]
+    }
   ],
   "fieldOverrides": [
     {
