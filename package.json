@@ -66,6 +66,7 @@
     "test:instructor-request-review": "tsx tests/instructor-request-review-regressions.ts",
     "test:requests-engine-owner": "tsx tests/requests-engine-owner-feedback-audit.ts",
     "test:journey-reveal": "tsx tests/journey-reveal-audit.ts",
+    "test:presentation-coverage": "tsx tests/presentation-coverage-audit.ts",
     "test:student-needs-scale": "tsx tests/student-needs-scale-audit.ts",
     "test:term-student-phases": "tsx tests/term-student-phases-audit.ts",
     "test:student-door": "tsx tests/student-door-audit.ts",

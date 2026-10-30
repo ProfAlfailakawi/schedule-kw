@@ -619,6 +619,7 @@ img{max-width:100%}
 .frame{background:var(--surface)}
 .bigc b.jade{color:var(--jade)}
 @media(min-width:820px){.pipe.p3{grid-template-columns:repeat(3,1fr)}}
+.big.aud .bigc b{font-size:clamp(1.9rem,3.4vw,3.1rem)}
 .tiles.dense .tile{padding:clamp(15px,1.7vw,24px); gap:8px}
 .tiles.dense .tile__ic{width:36px; height:36px; font-size:18px; border-radius:10px}
 .tiles.dense h3{font-size:1.02rem}
@@ -672,6 +673,62 @@ html,body{margin:0}
 <symbol id="i-sign" viewBox="0 0 24 24"><path d="M3 20.5h18"/><path d="M14.5 4l4 4L9 17.5H5v-4z"/></symbol>
 </defs></svg>
 
+<!-- العرض يتطوّر مع النظام: كل شاشةٍ في App.tsx (View) وكل مجلّد ميزةٍ في docs/ له هنا شريحتُه (بعنوانها الصغير)
+     أو سببٌ مكتوب لغيابه. tests/presentation-coverage-audit.ts يفشل إن ظهرت شاشةٌ أو ميزةٌ بلا مكان هنا،
+     أو إن خالف رقمٌ في العرض ما في الكود. -->
+<script type="application/json" id="deck-coverage">
+{
+ "views": {
+  "dashboard": "مركز القرار",
+  "terms": "المقياس الحقيقي",
+  "colleges": "المقياس الحقيقي",
+  "sections": "المقياس الحقيقي",
+  "instructors": "المقياس الحقيقي",
+  "courses": "المقياس الحقيقي",
+  "schedules": "السحب والإفلات",
+  "departmentSchedule": "السحب والإفلات",
+  "scheduleCopy": "المباني والاستيراد",
+  "intelligence": "التخطيط والقرار",
+  "scheduleChanges": "الوثيقة الرسمية",
+  "instructorRequests": "القسم مع أساتذته",
+  "studentRegistration": "الإرشاد والتسجيل",
+  "planReview": "الصحائف والطرح",
+  "simulation": "الإرشاد والتسجيل",
+  "timeMachine": "الوظيفة الثالثة · المحرّك يقترح",
+  "audience": "الجمهور منذ 2016",
+  "ads": "skip: الإعلانات للمدير الرئيسي وحده، وليست مما يُعرض على العمداء",
+  "about": "skip: صفحة تعريف بالبرنامج"
+ },
+ "docs": {
+  "activity-trail": "الأثر",
+  "advising-section-requests": "طلب شعبة",
+  "appointment-forms": "السحب والإفلات",
+  "appointments-r2": "السحب والإفلات",
+  "appointments-r3": "السحب والإفلات",
+  "colleagues-advising-registration": "الأثر",
+  "consistent-badges": "skip: توحيد الشارات، تحسين شكلي",
+  "course-reach": "الصحائف والطرح",
+  "dashboard-term": "مركز القرار",
+  "import-courses-r3": "المباني والاستيراد",
+  "inbox-proposal-r2": "القسم مع أساتذته",
+  "intelligence-planning-tm": "التخطيط والقرار",
+  "occupancy-panel": "التقارير",
+  "owner-1028": "skip: جولة ملاحظات المالك: مساري والتدريب والطرح، وكلها في شرائحها",
+  "owner-1029-reports": "التقارير",
+  "prepublish-reach": "الصحائف والطرح",
+  "push": "في الجيب",
+  "ranks-load": "القسم مع أساتذته",
+  "room-door": "باب القاعة",
+  "seat-cards": "الفرق",
+  "sections-r2": "التخطيط والقرار",
+  "study-proposal": "القسم مع أساتذته",
+  "teacher-card": "كرت الأستاذ",
+  "teams-first-login": "الفرق",
+  "time-machine": "الوظيفة الثالثة · المحرّك يقترح",
+  "updating-page": "skip: صفحة «نُحدّث البرنامج» أثناء النشر، تشغيلية"
+ }
+}
+</script>
 <div class="progress" id="progress"></div>
 <div class="act" id="act" aria-live="polite"></div>
 <div class="chrome">
@@ -886,17 +943,34 @@ html,body{margin:0}
   <div class="slide__in">
     <div class="head"><p class="eyebrow">المقياس الحقيقي</p><h2>ليس نظام قسم. نظام جامعة.</h2></div>
     <div class="big six">
-      <div class="bigc"><b class="brass">13</b><span>كلية</span><small>مرتبطة بقرار واحد</small></div>
-      <div class="bigc"><b class="brass">87</b><span>قسماً علمياً</span><small>في مساحة واحدة</small></div>
-      <div class="bigc"><b class="brass">31</b><span>فصلاً دراسياً</span><small>طبقات من الذاكرة</small></div>
-      <div class="bigc"><b>15,430</b><span>موعداً أكاديمياً</span><small>محفوظة في النظام</small></div>
-      <div class="bigc"><b>1,404</b><span>مقرراً</span><small>هوية أكاديمية محفوظة</small></div>
-      <div class="bigc"><b>745</b><span>عضو هيئة تدريس</span><small>داخل قصة الجدول</small></div>
+      <div class="bigc"><b class="brass" data-live="journey.colleges">13</b><span>كلية</span><small>مرتبطة بقرار واحد</small></div>
+      <div class="bigc"><b class="brass" data-live="journey.sections">118</b><span>قسماً علمياً</span><small>في مساحة واحدة</small></div>
+      <div class="bigc"><b class="brass" data-live="journey.terms">32</b><span>فصلاً دراسياً</span><small>طبقات من الذاكرة</small></div>
+      <div class="bigc"><b data-live="journey.schedules">16,078</b><span>موعداً أكاديمياً</span><small>محفوظة في النظام</small></div>
+      <div class="bigc"><b data-live="journey.courses">4,477</b><span>مقرراً</span><small>هوية أكاديمية محفوظة</small></div>
+      <div class="bigc"><b data-live="journey.instructors">820</b><span>عضو هيئة تدريس</span><small>في سجل النظام</small></div>
     </div>
+    <span class="src" data-live-stamp="journey"><svg class="ic" style="font-size:14px"><use href="#i-chart"/></svg>من سجل النظام مباشرةً</span>
   </div>
   <div class="notes">
     <span class="notes__k">ملاحظة العرض — أهم أرقام العرض</span>
-    <p>الصف الأول هو الحجة: ثلاث عشرة كلية وسبعة وثمانون قسماً تعمل داخل نظام واحد — هذا ليس مشروعاً تجريبياً، بل بنية تحتية قائمة. وواحد وثلاثون فصلاً دراسياً تعني، بثلاثة فصول في السنة، عشر سنوات من التشغيل المتصل. قل الرقمين الأولين بصوت واضح ثم توقّف.</p>
+    <p>الصف الأول هو الحجة: كل الكليات والأقسام تعمل داخل نظام واحد — هذا ليس مشروعاً تجريبياً، بل بنية تحتية قائمة. وعدد الفصول، بثلاثة فصول في السنة، يعني عشر سنوات من التشغيل المتصل. الأرقام تُقرأ من النظام لحظة فتح العرض، فهي أحدث من أي نسخة مطبوعة؛ قل الرقمين الأولين بصوت واضح ثم توقّف.</p>
+  </div>
+</section>
+<section class="slide">
+  <div class="slide__in">
+    <div class="head"><p class="eyebrow">الجمهور منذ 2016</p><h2>ليس نظاماً على الورق. يستعمله الناس كل يوم.</h2></div>
+    <div class="big aud">
+      <div class="bigc"><b class="brass" data-live="audience.students">80,000</b><span>طالب استفاد منه</span><small>تقريباً</small></div>
+      <div class="bigc"><b class="brass" data-live="audience.visits">5,300,022</b><span>دخول للطلبة</span><small>منذ 2016</small></div>
+      <div class="bigc"><b data-live="audience.instructors">786</b><span>عضو هيئة تدريس</span><small>بحسب إدارة النظام</small></div>
+      <div class="bigc"><b data-live="audience.instructorOpens">75,056</b><span>دخول لأعضاء هيئة التدريس</span><small>منذ 2016</small></div>
+    </div>
+    <span class="src" data-live-stamp="audience"><svg class="ic" style="font-size:14px"><use href="#i-chart"/></svg>بحسب إدارة النظام حتى 17 أكتوبر 2026، ويُضاف إليها ما يُقاس بعدها</span>
+  </div>
+  <div class="notes">
+    <span class="notes__k">ملاحظة العرض</span>
+    <p>بعد شريحة المقياس مباشرة: تلك قالت «كم نغطي»، وهذه تقول «كم يستعملنا الناس». أكثر من خمسة ملايين دخول للطلبة منذ 2016 — قلها ببطء. هذه أرقام لوحة الجمهور في النظام نفسه، مجهولة الهوية: رصيد أقرّته الإدارة حتى 17 أكتوبر 2026، ويُضاف إليه ما يقيسه النظام بعده، وتُقرأ لحظة فتح العرض. وعدد أعضاء هيئة التدريس هنا رقم الإدارة، أما رقم شريحة المقياس فعدد سجل النظام، ولذلك يختلفان.</p>
   </div>
 </section>
 <section class="slide" data-act="الذكاء الاصطناعي">
@@ -1600,7 +1674,7 @@ html,body{margin:0}
   <div class="slide__in">
     <div class="head"><p class="eyebrow">ما لا يظهر على الشاشة</p><h2>الجمال سهل. الثقة أخذت عشر سنوات.</h2></div>
     <div class="tiles t3">
-      <div class="tile"><span class="tile__ic"><svg class="ic"><use href="#i-check"/></svg></span><h3>223 مجموعة اختبار</h3><p>تمرّ قبل كل نشر</p></div>
+      <div class="tile"><span class="tile__ic"><svg class="ic"><use href="#i-check"/></svg></span><h3>أكثر من 220 مجموعة اختبار</h3><p>تمرّ قبل كل نشر</p></div>
       <div class="tile"><span class="tile__ic brass"><svg class="ic"><use href="#i-undo"/></svg></span><h3>نقطة أمان</h3><p>قبل كل نشر</p></div>
       <div class="tile"><span class="tile__ic"><svg class="ic"><use href="#i-lock"/></svg></span><h3>صلاحيات في الخادم</h3><p>لا في المتصفح</p></div>
       <div class="tile"><span class="tile__ic"><svg class="ic"><use href="#i-steps"/></svg></span><h3>أثر لا يُمحى</h3><p>ولا لمدير النظام</p></div>
@@ -1610,7 +1684,7 @@ html,body{margin:0}
   </div>
   <div class="notes">
     <span class="notes__k">ملاحظة العرض</span>
-    <p>كل تعديل على البرنامج يمرّ على 223 مجموعة اختبار آلية، ولا يُنشر إلا إذا نجحت كلها. ونقطة الأمان تلتقط الجدول كما هو قبل كل استبدال، والاسترجاع يعيد النسخة كما حُفظت. قل: «الشاشات التي رأيتموها هي الجزء الظاهر فقط.»</p>
+    <p>كل تعديل على البرنامج يمرّ على أكثر من مئتين وعشرين مجموعة اختبار آلية، ولا يُنشر إلا إذا نجحت كلها. ونقطة الأمان تلتقط الجدول كما هو قبل كل استبدال، والاسترجاع يعيد النسخة كما حُفظت. قل: «الشاشات التي رأيتموها هي الجزء الظاهر فقط.»</p>
   </div>
 </section>
 <section class="slide">
@@ -1619,6 +1693,7 @@ html,body{margin:0}
     <div class="anat">
       <div class="anat__g">
         <div class="anat__code" style="font-size:clamp(3.4rem,11vw,7.5rem)"><span class="b">$3.5</span></div>
+        <div class="anat__lb" style="justify-content:center"><div class="p2" style="flex:none; font-size:clamp(1.15rem,2vw,1.6rem); font-weight:600">شهرياً<small style="font-size:.7rem">تكلفة التشغيل السحابي للنظام كاملاً</small></div></div>
       </div>
     </div>
     <div class="big" style="grid-template-columns:repeat(3,1fr)">
@@ -1629,7 +1704,7 @@ html,body{margin:0}
   </div>
   <div class="notes">
     <span class="notes__k">ملاحظة العرض — مهّد للطلب</span>
-    <p>قل الرقم وحده، ثم اصمت ثانيتين. هذه تكلفة التشغيل السحابي الفعلية للنظام كاملاً. قارنها ضمنياً — بلا ذكر أسماء — بأي نظام جدولة تجاري. ثم انتقل للشريحة الأخيرة وقل: «ولذلك لا نطلب ميزانية.» · تأكّد من صحة الفترة (شهرياً) قبل العرض.</p>
+    <p>قل الرقم وحده، ثم اصمت ثانيتين. هذه تكلفة التشغيل السحابي الفعلية للنظام كاملاً. قارنها ضمنياً — بلا ذكر أسماء — بأي نظام جدولة تجاري. ثم انتقل للشريحة الأخيرة وقل: «ولذلك لا نطلب ميزانية.» — ثلاثة دولارات ونصف في الشهر، أي نحو اثنين وأربعين دولاراً في السنة.</p>
   </div>
 </section>
 <section class="slide">
@@ -1649,7 +1724,7 @@ html,body{margin:0}
   </div>
   <div class="notes">
     <span class="notes__k">قبل العرض</span>
-    <p>واحد وثلاثون فصلاً رقم يقرأه النظام من ذاكرته، لا تقدير. أما مسميات المراحل الخمس فمستنتجة من تطوّر الكود — عدّلها إن كان لديك تواريخ أدق.</p>
+    <p>عدد الفصول رقم يقرأه النظام من ذاكرته، لا تقدير. أما مسميات المراحل الخمس فمستنتجة من تطوّر الكود — عدّلها إن كان لديك تواريخ أدق.</p>
   </div>
 </section>
 <section class="slide">
@@ -1857,6 +1932,37 @@ html,body{margin:0}
     });
   },{threshold:.35});
   slides.forEach(function(s){ io.observe(s); });
+
+  /* Live numbers: the scale slide reads /api/journey and the audience slide
+     /api/public/audience-headline — the same aggregates the product shows.
+     The numbers already in the markup stay when either cannot answer (a file
+     opened offline, another host), so the deck never shows a blank. */
+  function setLive(el,value){
+    var n=Math.round(Number(value));
+    if(!isFinite(n)||n<=0) return; /* an empty database (demo) answers 0: keep the printed number */
+    el.dataset.target=String(n);
+    if(el.dataset.done||!body.classList.contains('deck')) el.textContent=(el.dataset.pre||'')+n.toLocaleString('en-US')+(el.dataset.post||'');
+  }
+  function stamp(name){
+    var s=document.querySelector('[data-live-stamp="'+name+'"]');
+    if(!s) return;
+    var t=new Date().toLocaleTimeString('ar-KW-u-nu-latn',{hour:'2-digit',minute:'2-digit'});
+    s.lastChild.textContent=(name==='journey'?'من سجل النظام مباشرةً':'من لوحة الجمهور مباشرةً · رصيد الإدارة حتى 17 أكتوبر 2026 وما قيس بعده')+' · '+t;
+  }
+  function pull(url,name,pick){
+    if(typeof fetch!=='function'||location.protocol==='file:') return;
+    fetch(url,{credentials:'omit',cache:'no-store'}).then(function(r){ return r.ok?r.json():null; }).then(function(data){
+      if(!data) return;
+      var got=false;
+      Array.prototype.forEach.call(document.querySelectorAll('[data-live^="'+name+'."]'),function(el){
+        var v=pick(data,el.getAttribute('data-live').slice(name.length+1));
+        if(v!=null){ setLive(el,v); got=true; }
+      });
+      if(got) stamp(name);
+    }).catch(function(){});
+  }
+  pull('/api/journey','journey',function(d,k){ return d&&d.lifetime?d.lifetime[k]:null; });
+  pull('/api/public/audience-headline','audience',function(d,k){ return d?d[k]:null; });
 
   setDeck(true);
   setTimeout(function(){ hint.classList.add('gone'); },5200);
