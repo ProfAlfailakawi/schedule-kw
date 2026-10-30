@@ -25,7 +25,7 @@ import { firstInstructorEditAt, movementAfterInstructorEdit } from "../../utils/
 import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "../../utils/instructorRequestConfirmation";
 import { verificationCode } from "../../utils/approvalWorkflow";
 import { DAY_KEYS, DAY_NAMES, effectiveCourseHours, expectedMinutesForDay, patternsForHours } from "../../utils/scheduleRegulations";
-import { planBadgesFor, serviceCourseKeys } from "../planBadgeShared";
+import { courseTagFactsFor, serviceCourseKeys } from "../planBadgeShared";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { endForRequest, headlineReasonOf, rowFromRequest, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
 import { offeringStatesForTerm } from "../offeringStates";
@@ -621,15 +621,6 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
     ...(courses as any[]).filter(option => option.service).map(option => `${Number(option.sectionId)}:${Number(option.id)}`),
   ].filter(Boolean))];
 
-  /* مرجع الصحيفة نفسه في الجدول، مع ضبط هوية المقرر وقسمه. */
-  const planBadges = await planBadgesFor([
-    ...(request.items || []).map(item => ({
-      courseId: item.after?.courseId || item.before?.courseId,
-      sectionId: item.after?.sectionId || item.before?.sectionId || request.AdSectionId,
-    })),
-    ...(courses as any[]).map(option => ({ courseId: option.id, sectionId: option.sectionId })),
-  ]);
-
   /* E1/C4/F3: صفةُ الرابط تحكم الكتابة — للعرض فقط لا يكتب أبداً، ومرحلةُ التدريب لا تكتب إلا شعبةً شاغرة. */
   const mode = linkMode(resolved.request);
   const open = mode !== "view" && requestWindowOpen(request);
@@ -637,6 +628,17 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   const taAllowed = allowedFor(taDoc, Number(request.AdInstructorId));
   const termStates = await offeringStatesForTerm(Number(request.AdTermId));
   const offerings = open ? await lockUnreached((await availableInstructorOfferings(request)).filter(option => (!taAllowed || taAllowed.has(Number(option.courseId))) && !offeringBlocked(termStates, Number(option.courseId))), Number(request.AdTermId)) : [];
+  /* وسومُ المقرر الموحّدة (src/utils/courseTags.ts) من المصدر نفسه في الجدول، مع ضبط هوية المقرر وقسمه:
+     الصحيفة (صحيفةُ القسم، ثم صحيفةُ مقرر الخدمة) ونوعُ المتطلب — للموعد القائم، ولمقررات الإضافة، وللشعب الشاغرة. */
+  const tagFacts = await courseTagFactsFor([
+    ...(request.items || []).map(item => ({
+      courseId: item.after?.courseId || item.before?.courseId,
+      sectionId: item.after?.sectionId || item.before?.sectionId || request.AdSectionId,
+    })),
+    ...(courses as any[]).map(option => ({ courseId: option.id, sectionId: option.sectionId })),
+    ...(offerings as any[]).map(option => ({ courseId: option.courseId, sectionId: option.sectionId })),
+  ]);
+  const planBadges = tagFacts.sheets;
   /* C5: حالةُ الطرح على مقررات الإضافة الحرّة (المخفيّ لا يُرسل، والمقفل باهتٌ بنجمة). */
   const offeringViews = mode === "edit" ? await offeringViewsFor(Number(request.AdTermId), courses as any[]) : new Map();
   const interestDocs = mode === "edit" ? await Promise.all([...new Set((courses as any[]).map(c => `${c.collegeId}:${c.sectionId}:${Number(request.AdTermId)}`))]
@@ -647,8 +649,9 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({
     request: stripForInstructor(judgedRequest),
-    serviceCourses,
+    serviceCourses: [...new Set([...serviceCourses, ...tagFacts.services])],
     planBadges,
+    courseKinds: tagFacts.kinds,
     instructorName: String(person?.AdInstructorName || ""),
     termName: String(term?.AdTermName || ""),
     mode,

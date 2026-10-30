@@ -53,7 +53,8 @@ export interface ProposalCourseScope {
   collegeName: string;
 }
 
-export const NEW_SHEET_BADGE = "🆕 صحيفة جديدة";
+/** النصُّ من المصدر الواحد لوسوم المقرر (src/utils/courseTags.ts). */
+export { NEW_SHEET_TAG as NEW_SHEET_BADGE } from "./courseTags";
 
 export const scopeKeyOf = (course: { collegeId: number; sectionId: number }) => `${Number(course.collegeId)}:${Number(course.sectionId)}`;
 

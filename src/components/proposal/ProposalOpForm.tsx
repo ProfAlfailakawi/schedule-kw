@@ -1,5 +1,6 @@
-import PlanBadge from "../PlanBadge";
-import VisitingBadge from "../VisitingBadge";
+import CourseTags from "../CourseTags";
+import PersonChips from "../PersonChips";
+import { useIsTrainee } from "../../utils/trainees";
 import { useVisitingLookup } from "../../hooks/useVisitingLookup";
 /**
  * ── نموذج إعداد المادة ─────────────────────────────────────────────────────
@@ -110,7 +111,7 @@ function FacultyPicker({ ws }: { ws: Workspace }) {
             <li key={s.id}>
               <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" role="radio" aria-checked={selected} className="sp-opt" data-selected={selected || undefined} disabled={used}
                 onClick={() => ws.pickFaculty(s.id)}>
-                <span className="sp-opt-title"><b>{s.courseName}<PlanBadge courseId={s.AdCourseId} /></b><small>{s.courseCode} · شعبة {s.SCode}</small></span>
+                <span className="sp-opt-title"><b>{s.courseName}<CourseTags courseId={s.AdCourseId} /></b><small>{s.courseCode} · شعبة {s.SCode}</small></span>
                 <span className="sp-opt-when"><bdi>{daysLabel(s.days)}</bdi><bdi className="sp-time">{timeRange(s.fstarttime, s.fendtime)}</bdi></span>
                 <span className="sp-opt-where"><Building2 aria-hidden="true" />{entry.item.place || "القاعة لم تُحدد"}{multiScope ? ` · ${entry.item.sectionName || ""}` : ""}</span>
                 <span className="sp-fit" data-fit={used ? "used" : clash ? "clash" : "clear"}>
@@ -150,7 +151,7 @@ function RowPicker({ ws, label }: { ws: Workspace; label: string }) {
             <li key={item.key}>
               <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" role="radio" aria-checked={selected} className="sp-opt" data-selected={selected || undefined} disabled={taken}
                 onClick={() => ws.pickRow(item.rowId)}>
-                <span className="sp-opt-title"><b>{item.courseName}<PlanBadge courseId={(item as any).src?.courseId} /></b><small>{item.courseCode} · شعبة {item.SCode}</small></span>
+                <span className="sp-opt-title"><b>{item.courseName}<CourseTags courseId={(item as any).src?.courseId} /></b><small>{item.courseCode} · شعبة {item.SCode}</small></span>
                 <span className="sp-opt-when"><bdi>{daysLabel(item.days)}</bdi><bdi className="sp-time">{timeRange(item.start, item.end)}</bdi></span>
                 <span className="sp-opt-where"><Building2 aria-hidden="true" />{item.place || "القاعة لم تُحدد"}</span>
                 {taken ? <span className="sp-fit" data-fit="used"><Check aria-hidden="true" />مستعمل في مادةٍ أخرى</span> : null}
@@ -319,6 +320,8 @@ export default function ProposalOpForm({ ws, onDone }: { ws: Workspace; onDone?:
   const { draft, ctx } = ws;
   const { isVisiting: lookupVisiting } = useVisitingLookup(ctx?.term.id);
   const visiting = Boolean(ctx) && lookupVisiting(ctx!.instructor.id, ctx!.scope.collegeId, ctx!.scope.sectionId);
+  /* «🎓 تدريب» بعد «منتدب» (PersonChips): طلبُه في النطاق بصفة مرحلة التدريب. */
+  const trainee = useIsTrainee(ctx?.instructor.id, ctx?.scope.collegeId, ctx?.scope.sectionId, ctx?.term.id);
   const editing = Boolean(draft.editingOpId);
   const set = ws.patchDraft;
 
@@ -396,7 +399,7 @@ export default function ProposalOpForm({ ws, onDone }: { ws: Workspace; onDone?:
     <form className="sp-form" onSubmit={e => { e.preventDefault(); if (ws.submitDraft()) onDone?.(); }} aria-labelledby="sp-form-title" noValidate>
       <div className="sp-form-head">
         <h2 id="sp-form-title">{editing ? "تعديل مادة في المقترح" : "إضافة مادة إلى المقترح"}</h2>
-        <p className="sp-fixed"><span><Users aria-hidden="true" />{ctx.instructor.name}{visiting ? <VisitingBadge compact /> : null}</span><span>{ctx.term.name}</span></p>
+        <p className="sp-fixed"><span><Users aria-hidden="true" />{ctx.instructor.name}<PersonChips visiting={visiting} trainee={trainee} /></span><span>{ctx.term.name}</span></p>
       </div>
       <div className="sp-modes" role="radiogroup" aria-label="نوع الإضافة">
         {MODES.map(({ mode, title, hint, Icon }) => (

@@ -12,7 +12,7 @@ import {
   type DrawnPlacement, type FloatRect, type MiniLecture, type MiniRoom, type MiniRoomPick, type MiniSpan, type MiniTarget,
 } from "../utils/teacherMiniWeek";
 import { safeStorage } from "../utils/safeStorage";
-import VisitingBadge from "./VisitingBadge";
+import PersonChips from "./PersonChips";
 
 /**
  * ── جدول الأستاذ المصغّر (N3) ──────────────────────────────────────────────────
@@ -201,7 +201,7 @@ const HEAD_PX = 76;
 type Drawn = DrawnPlacement & { clash: boolean; golden: boolean };
 
 export default function TeacherMiniWeek({
-  teacherId, teacherName, nisab = 0, overtime = 0, limited = nisab > 0, visiting = false, rows, termId, collegeId, excludeId = 0, original = null,
+  teacherId, teacherName, nisab = 0, overtime = 0, limited = nisab > 0, visiting = false, trainee = false, rows, termId, collegeId, excludeId = 0, original = null,
   draft, verdict, checked = true, course, courses, window: dayWindow, userId = 0, fixedDays, onPick, variant = "side",
   autoCollapse = false, dockable = false, room = null,
 }: {
@@ -213,6 +213,8 @@ export default function TeacherMiniWeek({
   /** للعضو قيدٌ ولو كان صفراً (إعفاءٌ كامل باستثناء). */
   limited?: boolean;
   visiting?: boolean;
+  /** في مرحلة التدريب: وسمُه بعد «منتدب» — PersonChips. */
+  trainee?: boolean;
   /** صفوفٌ محمّلة أصلاً (اللوحة)؛ تُضاف إليها قراءة أسبوع الأستاذ في الأقسام الأخرى. */
   rows: readonly FSchedule[];
   termId: number;
@@ -606,7 +608,7 @@ export default function TeacherMiniWeek({
       data-guide-ignore="يطوي جدول الأستاذ المصغّر أو يفتحه؛ لا يغيّر الموعد">
       <LoadRing now={header.loadNow} after={header.loadAfter} nisab={header.nisab} overtime={overtime} limited={limited} />
       <span className="mini-week-who">
-        <b><span className="mini-week-name">{teacherName || "الأستاذ"}</span>{visiting ? <VisitingBadge compact /> : null}</b>
+        <b><span className="mini-week-name">{teacherName || "الأستاذ"}</span><PersonChips visiting={visiting} trainee={trainee} /></b>
         <span className="mini-week-facts">
           <em className={`is-load${over ? " is-over" : inOvertime ? " is-overtime" : loadDelta > 0 ? " is-up" : ""}`} aria-label={`النصاب ${header.loadNow} ثم ${header.loadAfter}`}>
             <span dir="ltr">{header.loadNow}</span><ArrowLeft aria-hidden="true" /><span dir="ltr">{header.loadAfter}{limited ? <small>/{header.nisab}{overtime ? `+${overtime}` : ""}</small> : null}</span>

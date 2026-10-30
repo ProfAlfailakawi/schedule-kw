@@ -94,15 +94,16 @@ check(server.includes("keyGenerator: requestTokenKey") && server.includes('app.u
 
 /* P9: «متطلب» بجانب المقرر في قوائم الإضافة والتعديل (القسم والأستاذ) */
 const schedules = readFileSync("src/components/Schedules.tsx", "utf8"), quick = readFileSync("src/components/QuickCreatePopover.tsx", "utf8");
-const badges = readFileSync("src/utils/planBadges.ts", "utf8"), shared = readFileSync("src/server/planBadgeShared.ts", "utf8"), reviewRoutes = readFileSync("src/server/planReviewRoutes.ts", "utf8");
-check(schedules.includes("badge: courseOptionBadge(formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)), planBadges)"), "P9 نافذة «إضافة موعد دراسي» وتعديله: «متطلب» بجانب المقرر");
+const badges = readFileSync("src/utils/planBadges.ts", "utf8"), tagsScript = readFileSync("src/utils/courseTags.ts", "utf8"), shared = readFileSync("src/server/planBadgeShared.ts", "utf8"), reviewRoutes = readFileSync("src/server/planReviewRoutes.ts", "utf8");
+check(schedules.includes("const ids = formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)); return { value: name, label: name, badge: courseOptionBadge(ids, planBadges,"), "P9 نافذة «إضافة موعد دراسي» وتعديله: «متطلب» بجانب المقرر");
 check(quick.includes("badge: courseOptionBadge([Number(c.AdCourseId)], planBadges)"), "P9 والإضافة السريعة من فراغ الجدول");
-check(badges.includes('const required = courseIds.some(id => serviceDepartmentsOf(id).length > 0) ? "متطلب" : "";') && badges.includes('[plan, required].filter(Boolean).join(" · ")'), "P9 الوسم «متطلب» يُضاف إلى شارة الصحيفة ولا يستبدلها");
+/* الوسومُ كلُّها بترتيبها من القاعدة الواحدة (src/utils/courseTags.ts): «متطلب كلية» يُضاف إلى شارة الصحيفة ولا يستبدلها. */
+check(badges.includes("return courseTagsText(courseTagsOf({ ...courseTagFacts(courseIds, badges)") && badges.includes('kind: kindId ? kinds[kindId] : service ? "college" : null'), "P9 الوسم «متطلب كلية» يُضاف إلى شارة الصحيفة ولا يستبدلها");
 check(shared.includes("export async function serviceCourseKeys") && reviewRoutes.includes("setServiceSource(serviceRows);"), "P9 مصدرُ مقررات الخدمة مشتركٌ مع بطاقة الأستاذ (النمط نفسه لشارة الصحيفة)");
 check(reviewRoutes.includes('const serviceKey = createDataContextKey(() => Repository.currentDemoSessionId());') && reviewRoutes.includes("serviceCache.key === key"), "P9 ذاكرةُ مقررات الخدمة تحمل عالَمَها (dataContextCacheKey)");
 check(server.includes("...(services.has(`${Number(row.AdCourseId || 0)}:${scope.sectionId}`) ? { service: true } : {})"), "P9 خيارات الإضافة عند الأستاذ تحمل service للمقرر الخدمي وحده");
-check(page.includes("(c.service?'<i class=\"req-tag\">متطلب كلية</i>':'')") && page.includes(".req-tag{"), "P9 قائمة «موعد جديد» عند الأستاذ: «متطلب كلية» بجانب المقرر الخدمي");
-check(!page.includes("c.service?'hidden'") && page.includes("hidden><b>'+esc(c.name||c.code)+(c.service"), "P9 لا يُخفى مقرر ولا يتغيّر ترتيبه: وسمٌ فقط");
+check(page.includes("esc(c.name||c.code)+courseTagsHtml(c.id,c.sectionId)") && tagsScript.includes("(((data&&data.serviceCourses)||[]).indexOf(key)>=0?\"college\":\"\")") && tagsScript.includes("'<i class=\"req-tag\">'+esc(CTAG_KIND[kind])+'</i>'") && page.includes(".req-tag{"), "P9 قائمة «موعد جديد» عند الأستاذ: «متطلب كلية» بجانب المقرر الخدمي");
+check(!page.includes("c.service?'hidden'") && page.includes("hidden><b>'+esc(c.name||c.code)+courseTagsHtml("), "P9 لا يُخفى مقرر ولا يتغيّر ترتيبه: وسمٌ فقط");
 
 /* P10: «متطلب» في بقية الأماكن المناسبة */
 const importTable = readFileSync("src/components/ImportPreviewTable.tsx", "utf8"), reports = readFileSync("src/components/Reports.tsx", "utf8");
@@ -110,7 +111,7 @@ const proposalRoutes = readFileSync("src/server/studyProposalRoutes.ts", "utf8")
 check(page.includes('function reqTag(it)') && page.includes("esc(courseOf(it))+reqTag(it)+'</b>'"), "P10 بطاقةُ الموعد القائم عند الأستاذ: «متطلب» بجانب اسم المقرر");
 check(page.includes("<h2>هل يناسبك هذا الموعد؟</h2><p>'+esc(courseOf(it))+reqTag(it)+"), "P10 وبطاقة «قرارك»");
 check(server.includes("serviceCourses,") && server.includes("serviceCourseKeys(),"), "P10 الخادمُ يرسل مقرراتِ الخدمة مع الطلب (وسمٌ فقط)");
-check(proposalRoutes.includes("service: serviceKeys.has(") && proposalPage.includes("(t.service?'<span class=\"plan-badge\">متطلب</span>':'')"), "P10 صفحةُ المقترح الدراسي العامة: «متطلب» بجانب المقرر");
+check(proposalRoutes.includes("service: serviceKeys.has(") && proposalRoutes.includes("kindLabel: kindOf(op)") && proposalPage.includes("esc(t.kindLabel||\"متطلب كلية\")"), "P10 صفحةُ المقترح الدراسي العامة: «متطلب كلية» بجانب المقرر");
 check(importTable.includes("badge: courseOptionBadge([Number(item.AdCourseId)], planBadges)") && reports.includes("badge: courseOptionBadge([Number(row.AdCourseId)], planBadges)"), "P10 قائمتا اختيار المقرر في معاينة الاستيراد والتقارير");
 
 /* P11: قراءاتٌ متوازية بلا تغيير في الردود */
@@ -134,14 +135,14 @@ check(server.includes("contexts.set(key, buildSharedRequestContext(row))") && se
 /* P13: عناصر كرت الأستاذ المطلوبة، بلا تغييرٍ في التحقق أو الإرسال. */
 const visual13 = readFileSync("src/server/requestVisual.ts", "utf8");
 const source13 = readFileSync("src/server/planBadgeShared.ts", "utf8");
-check(server.includes('import { planBadgesFor, serviceCourseKeys }') &&
-  server.includes("const planBadges = await planBadgesFor(") &&
-  server.includes("    planBadges,"), "P13 مصدر شارات الصحيفة نفسه يُرسل إلى كرت الأستاذ");
+check(server.includes('import { courseTagFactsFor } from "./src/server/planBadgeShared"') &&
+  server.includes("const tagFacts = await courseTagFactsFor(") && server.includes("const planBadges = tagFacts.sheets;") &&
+  server.includes("    planBadges,") && server.includes("    courseKinds: tagFacts.kinds,"), "P13 مصدر شارات الصحيفة نفسه (ونوعُ المتطلب) يُرسل إلى كرت الأستاذ");
 check(source13.includes("export async function planBadgesFor") && source13.includes("if (wanted.has(key) && row.label)"),
   "P13 الشارة مرتبطة بالمقرر وقسمه، ولا يختلق الكرت تصنيفاً");
-check(page.includes("function skPlanTag(cid,sid)") &&
-  page.includes("skPlanTag(c.id,c.sectionId)") &&
-  page.includes("skPlanTag(courseIdOf(it),sid)") &&
+check(page.includes("${COURSE_TAGS_JS}") && tagsScript.includes("function courseTagsHtml(cid,sid)") &&
+  page.includes("courseTagsHtml(c.id,c.sectionId)") &&
+  page.includes("return courseTagsHtml(courseIdOf(it),sid)") &&
   page.includes("reqTag({courseId:group.courseId,sectionId:group.sectionId})"),
   "P13 الشارة في موعد جديد والموعد الحالي والقرار والشعب المتاحة");
 check(page.includes("function receiptLine(it){var c='<b>'+esc(courseOf(it))+reqTag(it)"),
@@ -157,7 +158,7 @@ check(visual13.includes("function skBadgeExplain(el)") &&
   !visual13.includes(".sk-plan-tag,.req-tag,[data-sk-rule]") &&
   !visual13.includes('else if(el.classList.contains("req-tag"))') &&
   !visual13.includes(".req-tag{cursor:pointer}") &&
-  page.includes('<span class="sk-plan-tag">') &&
+  tagsScript.includes("'<span class=\"sk-plan-tag\">'") &&
   !page.includes('data-sk-badge="plan"') &&
   !page.includes('tabindex="0" role="button" title="اضغط لمعرفة معنى الشارة"'),
   "P13 شارتا الصحيفة ومتطلب الكلية للعرض فقط؛ مواد اللائحة وحدها قابلة للضغط");

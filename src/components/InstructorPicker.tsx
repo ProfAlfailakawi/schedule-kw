@@ -5,7 +5,8 @@ import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
 import { instructorCleanName } from "../utils/instructorIdentity";
 import { isFacultyPlaceholder, singleFacultyPlaceholder } from "../utils/placeholderInstructor";
-import VisitingBadge from "./VisitingBadge";
+import PersonChips from "./PersonChips";
+import { useTrainees } from "../utils/trainees";
 
 /**
  * Choosing who teaches this, out of thousands.
@@ -142,6 +143,8 @@ export default function InstructorPicker({ value, onChange, instructors, departm
     ...effectiveDepartmentIds,
   ], [departmentRoster, effectiveDepartmentIds]);
   const visitingSet = useMemo(() => new Set(Array.from(visitingIds || [], Number).filter(Boolean)), [visitingIds]);
+  /* «🎓 تدريب» بجانب «منتدب»: مَن طلبُه في هذا النطاق بصفة مرحلة التدريب. */
+  const trainees = useTrainees(collegeId, sectionId, termId);
   const rosterSet = useMemo(() => visitingRosterIds ? new Set(Array.from(visitingRosterIds, Number).filter(Boolean)) : visitingSet, [visitingRosterIds, visitingSet]);
 
   // A retired or sabbatical teacher keeps their existing appointments but is not
@@ -267,7 +270,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       >
         <UserRound aria-hidden="true" />
         <span className="instructor-identity">
-          <b>{selected ? (isFacultyPlaceholder(selected) ? "بدون أستاذ بعد" : <>{selected.AdInstructorName}{visitingSet.has(selected.AdInstructorId) ? <VisitingBadge compact /> : null}</>) : "اختر أستاذ المقرر"}</b>
+          <b>{selected ? (isFacultyPlaceholder(selected) ? "بدون أستاذ بعد" : <>{selected.AdInstructorName}<PersonChips visiting={visitingSet.has(selected.AdInstructorId)} trainee={trainees.has(Number(selected.AdInstructorId))} /></>) : "اختر أستاذ المقرر"}</b>
           {selected?.AdInstructorCivil && !isFacultyPlaceholder(selected) ? <small dir="ltr">{selected.AdInstructorCivil}</small> : null}
         </span>
       </button>
@@ -324,7 +327,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
                       by side, twelve monospace digits left a department's names
                       truncated to a single letter. */}
                   <span className="instructor-identity">
-                    <b>{person.AdInstructorName}{visitingSet.has(person.AdInstructorId) ? <VisitingBadge compact /> : null}</b>
+                    <b>{person.AdInstructorName}<PersonChips visiting={visitingSet.has(person.AdInstructorId)} trainee={trainees.has(Number(person.AdInstructorId))} /></b>
                     {!isFacultyPlaceholder(person) ? <small dir="ltr">{person.AdInstructorCivil || "—"}</small> : null}
                   </span>
                   {departmentRank.has(person.AdInstructorId) ? <i className="instructor-department-mark" title={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"} aria-label={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"}><CircleDot aria-hidden="true" /></i> : null}
