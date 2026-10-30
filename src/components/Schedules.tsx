@@ -10083,7 +10083,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </span>
                   <span className="appt-status-more">التفاصيل<ChevronLeft aria-hidden="true" /></span>
                 </button>
-                <FormActions onBack={back} loading={saving} submitLabel="احفظ الموعد" submitDisabled={Boolean(!selectedFormDays.length||!editorVerdict.canSave)} />
+                <FormActions onBack={back} loading={saving} submitLabel="احفظ الموعد" submitDisabled={Boolean(!selectedFormDays.length||!editorVerdict.canSave||studioMissing.length>0)} />
               </div>
             </form>
           </Surface>
