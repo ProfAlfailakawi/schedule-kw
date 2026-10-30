@@ -37,6 +37,7 @@ import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
   ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
   DoorOpen, Wrench, RefreshCw, Home, MapPin, History, Users, Scale, BellRing, UserX,
+  CheckCheck, CircleDashed, Plus, Trash2,
 } from "lucide-react";
 import type { RequestRoomReason } from "../types";
 import { DnaCount } from "./dna";
@@ -58,7 +59,7 @@ import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBa
 import {
   Badge, EmptyState, MicroLoader, Notice, PageTitle, PrimaryButton, SecondaryButton, Surface,
 } from "./ui";
-import { AR, countOf } from "../utils/arabicCount";
+import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { reachAboutCard } from "../utils/reachInstructor";
 import { inboxInstructorChoices, isPlaceholderInboxRow } from "../utils/instructorIdentity";
 import { proposalLauncherChoices } from "../utils/instructorPickerChoices";
@@ -148,6 +149,19 @@ const unchangedConfirmedDateTime = (iso: string) => {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ar-KW-u-nu-latn", { dateStyle: "medium", timeStyle: "short" });
 };
 
+/* ── ما يصل الأستاذ لا يذكر قاعةً ولا مبنى (قاعدة المالك) ─────────────────
+ * سطرُ الرفض وردُّ الحوار يصلان صفحةَ الأستاذ كما كُتبا. فإن حمل النصُّ ما يشبه
+ * رمزَ قاعةٍ أو مبنى — «901A01»، «/L01»، «القاعة 12»، «المبنى ٧» — قيل ذلك بهدوءٍ
+ * تحت الحقل ولا يُمنع الإرسال (التنقيةُ النهائية في الخادم). الأوقاتُ («14:00/15:00»)
+ * ورموزُ المقررات (أرقامٌ وحدها) لا تُحسب: رمزُ المكان يخلط حرفاً لاتينياً برقم. */
+const PLACE_IN_TEXT = /(?:^|[^A-Za-z0-9])(?:\d+[A-Za-z]+\d*|[A-Za-z]+\d+)(?![A-Za-z0-9])|\/\s*[A-Za-z]{1,3}\d{1,4}|(?:ال)?(?:قاع[ةه]|مبن[ىي])\s*(?:رقم\s*)?[A-Za-z0-9٠-٩۰-۹]/;
+export const mentionsPlace = (text: string) => PLACE_IN_TEXT.test(String(text || ""));
+function PlaceWarning({ text }: { text: string }) {
+  return mentionsPlace(text) ? (
+    <small className="request-place-warning" role="status"><AlertTriangle aria-hidden="true" />هذه الملاحظة تصل الأستاذ — لا تذكر القاعة ولا المبنى</small>
+  ) : null;
+}
+
 /* ── ورقةُ الرفض ────────────────────────────────────────────────────────── */
 
 function RejectSheet({ item, onClose, onSubmit, busy }: {
@@ -207,8 +221,9 @@ function RejectSheet({ item, onClose, onSubmit, busy }: {
 
         <label>
           <span>سطرٌ للأستاذ <small>اختياري</small></span>
-          <input value={note} onChange={event => setNote(event.target.value)} placeholder="القاعة محجوزة لمختبر في هذا الوقت" />
+          <input value={note} onChange={event => setNote(event.target.value)} placeholder="هذا الوقت مخصّصٌ لنشاطٍ آخر في القسم" />
         </label>
+        <PlaceWarning text={note} />
 
         <div className="changes-extend-actions">
           <SecondaryButton type="button" onClick={onClose} data-guide-ignore="إلغاء — لا يغيّر شيئاً">تراجع</SecondaryButton>
@@ -309,6 +324,76 @@ const READINESS: Record<Readiness, string> = {
   ready: "جاهز للتثبيت", review: "يحتاج قرارك", blocked: "ممنوع", checking: "يفحص…", waiting: "بانتظار قسمٍ آخر",
 };
 
+/* ── «قبل ← بعد» إنفوجرافيكاً ─────────────────────────────────────────────
+ * الأيامُ خمسةُ أحرف (ح ن ث ر خ) يُضاء منها ما في الموعد — لغةُ «موعد جديد»
+ * نفسُها — والاسمُ الكامل يبقى لقارئ الشاشة وفي التلميح. والوقتُ سطرٌ بخطٍّ
+ * ثابت العرض، والقاعةُ سطرٌ ثالثٌ بأيقونتها: لا تلتصق بالوقت على أي شاشة. */
+const WEEK_DAYS = [["fsunday", "ح"], ["fmonday", "ن"], ["ftuesday", "ث"], ["fwednesday", "ر"], ["fthursday", "خ"]] as const;
+/** أيامُ اللقطة كما يكتبها الخادم («الأحد · الثلاثاء») مفاتيحَ؛ وما لا يُقرأ يبقى نصّاً. */
+const weekOf = (text?: string): Set<string> => {
+  const names = String(text || "").split("·").map(part => part.trim().replace(/^الإثنين$/, "الاثنين"));
+  return new Set(WEEK_DAYS.filter(([key]) => names.includes(INBOX_DAY_NAMES[key])).map(([key]) => key));
+};
+/** `other`: أيامُ الطرف الآخر من السهم — ما أُضيء هنا وحده يُميَّز (يومٌ جديد أو يومٌ يُترك). */
+function WeekStrip({ days, on, other, compact = false }: { days?: string; on: Set<string>; other?: Set<string>; compact?: boolean }) {
+  if (!on.size) return days ? <span className="request-slot-days">{days}</span> : null;
+  return (
+    <>
+      <span className={`request-week${compact ? " is-compact" : ""}`} aria-hidden="true">
+        {WEEK_DAYS.map(([key, letter]) => (
+          <i key={key} data-on={on.has(key) ? "1" : undefined} data-shift={other && on.has(key) && !other.has(key) ? "1" : undefined}>{letter}</i>
+        ))}
+      </span>
+      {days ? <span className="sr-only">{days}</span> : null}
+    </>
+  );
+}
+
+/* ── الوقتُ يوماً يوماً ───────────────────────────────────────────────────
+ * «المطلوب» نصٌّ واحد (`after.time`) يحمل نهايةَ اليوم الأول وحده، ونهايةُ كل
+ * يومٍ قد تختلف (نمطُ ٧٥ دقيقة يومين و٥٠ في الثالث). والفتراتُ (`slots`) تحمل
+ * لكل يومٍ بدايتَه ونهايتَه: تُجمع الأيامُ المتشاركة في الوقت نفسه، فإن اختلفت
+ * الأوقات عُرض كلُّ فريقٍ بوقته — «ح·ث 14:00 – 15:15 · خ 14:00 – 14:50». */
+type SlotGroup = { days: string[]; start: string; end: string };
+const WEEK_KEYS: string[] = WEEK_DAYS.map(([key]) => key);
+export const slotGroups = (slots?: InstructorRequestItem["slots"]): SlotGroup[] => {
+  const groups = new Map<string, SlotGroup>();
+  for (const slot of slots || []) {
+    if (!slot?.start || !slot?.end) continue;
+    const key = `${slot.start}|${slot.end}`;
+    const group = groups.get(key) || { days: [], start: slot.start, end: slot.end };
+    if (!group.days.includes(slot.day)) group.days.push(slot.day);
+    groups.set(key, group);
+  }
+  return [...groups.values()]
+    .map(group => ({ ...group, days: WEEK_KEYS.filter(key => group.days.includes(key)) }))
+    .sort((a, b) => WEEK_KEYS.indexOf(a.days[0]) - WEEK_KEYS.indexOf(b.days[0]));
+};
+const dayLetters = (days: string[]) => days.map(day => WEEK_DAYS.find(([key]) => key === day)?.[1] || "").join("·");
+export const groupsLabel = (groups: SlotGroup[]) => groups.map(group => `${dayLetters(group.days)} ${group.start} – ${group.end}`).join(" · ");
+function SlotTimes({ groups }: { groups: SlotGroup[] }) {
+  return (
+    <span className="request-slot-times">
+      {groups.map(group => (
+        <span key={`${group.start}|${group.end}`}>
+          <b aria-hidden="true">{dayLetters(group.days)}</b>
+          <span className="sr-only">{group.days.map(day => INBOX_DAY_NAMES[day] || day).join(" و")}</span>
+          <bdi dir="ltr">{group.start} – {group.end}</bdi>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** بندٌ يصلح لـ«ثبّت الجاهز كله» كما يقرؤه صفُّه نفسه: حكمُه وفحصُه الحيّ وحاله. */
+interface BulkEntry {
+  key: string; requestId: string; index: number; itemId: string;
+  teacher: string; course: string;
+  beforeDays: string; beforeTime: string; afterDays: string; afterTime: string;
+  /** جاهزٌ الآن؛ و`false` حين يُعاد فحصُه الحيّ — فينتظره التثبيتُ الجماعيّ ولا يتخطّاه. */
+  ready: boolean;
+}
+
 /* ── بطاقةُ أستاذ ───────────────────────────────────────────────────────── */
 
 /* ── حوارُ البند ──────────────────────────────────────────────────────────
@@ -392,6 +477,7 @@ function RequestThread({ item, busy: busyProp, onReply, onClose, onProposal }: {
             <textarea rows={2} maxLength={THREAD_TEXT_LIMIT} value={text} onChange={event => setText(event.target.value)}
               placeholder="هل يناسبك الاثنين والأربعاء بدل الأحد؟" />
           </label>
+          <PlaceWarning text={text} />
           <PrimaryButton
             type="button"
             disabled={busy || (!text.trim() && !offered.length)}
@@ -413,7 +499,7 @@ function RequestThread({ item, busy: busyProp, onReply, onClose, onProposal }: {
   );
 }
 
-function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, rowErrors, proposals, onOpenProposal }: {
+function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, rowErrors, proposals, onOpenProposal, onBulk }: {
   key?: React.Key;
   row: InboxRequest;
   currentRows: Map<number, FSchedule>;
@@ -424,6 +510,8 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
   rowErrors: Record<string, string>;
   proposals: StaffProposalView[];
   onOpenProposal: (open: OpenWorkspace) => void;
+  /** كلُّ صفٍّ يقول للشاشة أهو جاهزٌ لـ«ثبّت الجاهز كله». */
+  onBulk?: (key: string, entry: BulkEntry | null) => void;
 }) {
   const frozenScreen = useFrozenScreen();
   const [rejecting, setRejecting] = useState<number | null>(null);
@@ -438,14 +526,21 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
 
   /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة تبقى طلباً يُقرأ: الأستاذ أراد أن يوضح شيئاً عن جدوله. */
   if (!items.length && !row.note) return null;
+  /* الحرفُ الأول من الاسم بلا اللقب — وجهُ البطاقة كما في «موعد جديد». */
+  const initial = String(row.instructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
 
   return (
     <article className="request-card">
       <header className="request-card-head">
-        <div>
-          <strong className="schedule-instructor-with-badge">{row.instructorName}{isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId) ? <VisitingBadge compact /> : null}</strong>
-          {row.sectionName ? <span className="request-card-section">قسم {row.sectionName.replace(/^قسم\s+/, "")}</span> : null}
-          <small>{items.length ? countOf(items.length, AR.change) : "ملاحظة بلا تغييرات"}{row.submittedAt ? ` · ${arabicDate(row.submittedAt)}` : ""}</small>
+        <div className="request-card-who">
+          <span className="request-avatar" aria-hidden="true">{initial}</span>
+          <div className="request-card-id">
+            <strong className="schedule-instructor-with-badge">{row.instructorName}{isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId) ? <VisitingBadge compact /> : null}</strong>
+            <span className="request-card-meta">
+              {row.sectionName ? <span className="request-card-section">قسم {row.sectionName.replace(/^قسم\s+/, "")}</span> : null}
+              <small>{items.length ? countOf(items.length, AR.change) : "ملاحظة بلا تغييرات"}{row.submittedAt ? ` · ${arabicDate(row.submittedAt)}` : ""}</small>
+            </span>
+          </div>
         </div>
         {/* ── من وقّعه ────────────────────────────────────────────────────
             الرابطُ يصل في واتساب ويُعاد توجيهه، فضغطةُ «أرسل» وحدَها لا تُثبت
@@ -511,41 +606,32 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
         return edit ? <p className="request-schedule-edited" role="status"><History aria-hidden="true" /><span><b>تعدّل الجدول المرتبط بهذا الطلب</b>{edit.detail ? ` · ${edit.detail}` : ""}</span></p> : null;
       })()}
 
-      {/* ── جدولٌ لا كومةُ بطاقات ─────────────────────────────────────────
-          كلُّ بندٍ صفٌّ واحد بأعمدةٍ ثابتة: ما هو، وأيُّ مقرّر، وكان، والمطلوب،
-          والفحص، والقرار. فيُقرأ الطلبُ كلُّه بنظرة كما يُقرأ تقريرُ
-          الاستعلامات، وتلوّن الحالةُ الصفَّ كلَّه: أخضرُ مضاف، وأصفرُ معدّل،
-          وأحمرُ محذوف. وعلى الهاتف ينقلب كلُّ صفٍّ بطاقةً بعناوين أعمدتها. */}
-      {items.length ? <div className="request-table-wrap">
-        <table className="request-table">
-          <thead>
-            <tr>
-              <th scope="col">الطلب</th>
-              <th scope="col">التغيير</th>
-              <th scope="col">القرار</th>
-            </tr>
-          </thead>
-          <tbody>
-        {items.map(({ item, index }) => (
-          <RequestRow
-            key={`${row.id}:${index}`}
-            row={row}
-            item={item}
-            index={index}
-            current={item.rowId == null ? undefined : currentRows.get(Number(item.rowId))}
-            busy={busyKey === `${row.id}:${index}`}
-            rejecting={rejecting === index}
-            error={rowErrors[`${row.id}:${index}`]}
-            onReject={() => setRejecting(index)}
-            onCloseReject={() => setRejecting(null)}
-            onDecide={onDecide}
-            onReply={onReply}
-            onProposal={itemIndex => onOpenProposal({ requestId: row.id, itemIndex })}
-          />
-        ))}
-          </tbody>
-        </table>
-      </div> : null}
+      {/* ── بندٌ لكل سطر، بثلاث مناطق ثابتة ─────────────────────────────────
+          ما هو (المقرّر وفعلُه)، ثم «كان ← المطلوب» رسماً، ثم منطقةُ القرار
+          بحالها وأزرارها. على الحاسوب تتجاور الثلاث فيُقرأ الطلبُ بنظرة،
+          وعلى اللوحيّ يتجاور التغييرُ والقرار، وعلى الهاتف تتتابع بلا جدول. */}
+      {items.length ? (
+        <ol className="request-list">
+          {items.map(({ item, index }) => (
+            <RequestRow
+              key={`${row.id}:${index}`}
+              row={row}
+              item={item}
+              index={index}
+              current={item.rowId == null ? undefined : currentRows.get(Number(item.rowId))}
+              busy={busyKey === `${row.id}:${index}`}
+              rejecting={rejecting === index}
+              error={rowErrors[`${row.id}:${index}`]}
+              onReject={() => setRejecting(index)}
+              onCloseReject={() => setRejecting(null)}
+              onDecide={onDecide}
+              onReply={onReply}
+              onProposal={itemIndex => onOpenProposal({ requestId: row.id, itemIndex })}
+              onBulk={onBulk}
+            />
+          ))}
+        </ol>
+      ) : null}
     </article>
   );
 }
@@ -553,7 +639,7 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
 /* ── صفُّ بند ─────────────────────────────────────────────────────────────
  * الحكمُ المحفوظ مع الطلب والفحصُ الحيّ يُقرآن معاً: ما منعه أحدُهما مُنع،
  * وما نبّه إليه أحدُهما قيل. ولا يُكرَّر السببُ نفسُه مرّتين. */
-function RequestRow({ row, item, index, current, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onReply, onProposal }: {
+function RequestRow({ row, item, index, current, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onReply, onProposal, onBulk }: {
   key?: React.Key;
   row: InboxRequest; item: InstructorRequestItem; index: number; current?: FSchedule;
   busy: boolean; rejecting: boolean; error?: string;
@@ -561,6 +647,7 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
   onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => void;
   onReply: (index: number, text: string, slots: any[]) => void;
   onProposal?: (index: number) => void;
+  onBulk?: (key: string, entry: BulkEntry | null) => void;
 }) {
   const frozenScreen = useFrozenScreen();
   /* فصلٌ سابق: كلُّ ما يُقرِّر معطَّل كما لو كان مشغولاً. */
@@ -612,55 +699,100 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
     : live.loading && !live.issues ? "checking"
     : (reasons.length || liveIssues.length || dependsOn.length) ? "review" : "ready";
 
+  /* ── «ثبّت الجاهز كله» يقرأ الجاهزيةَ من هنا، لا من حكمٍ ثانٍ ──────────────
+     يصلح له التعديلُ وحده (زرّ «ثبّت»؛ الإضافةُ تفتح بطاقتها والحذفُ لا يُفحص)
+     حين يكون جاهزاً بلا موانع ولا تنبيه، لم يتغيّر بعد الإرسال، ولا ينتظر قسماً
+     آخر ولا بنداً آخر، ولا مقترحاً من القسم ينتظر ردَّ الأستاذ. وما يُعاد فحصُه
+     يُبلَّغ «قيد الفحص» فينتظره التثبيتُ الجماعيّ بدل أن يتخطّاه. */
+  const bulkKey = `${row.id}:${index}`;
+  const afterGroups = slotGroups(item.slots);
+  const perDay = afterGroups.length > 1;
+  /* `candidate`: بندٌ لم يمرّ بالفحص الحيّ (أوقاتٌ تختلف بين الأيام فيُكتب صفّين) لا يُعدّ
+     جاهزاً للجملة — يبقى لزرّه وحده، ومعاينتُه تعرض ما سيُكتب. */
+  const bulkFit = !decided && !frozenScreen && item.action === "change" && candidate !== null
+    && !changedAfterSubmit && !dependsOn.length && negotiation !== "proposed";
+  const bulkEntry = bulkFit && (live.loading || readiness === "ready") ? JSON.stringify({
+    key: bulkKey, requestId: row.id, index, itemId: requestItemId(item),
+    teacher: row.instructorName, course: String(item.after?.courseName || item.before?.courseName || ""),
+    beforeDays: String(item.before?.days || ""), beforeTime: String(item.before?.time || ""),
+    afterDays: String(item.after?.days || ""), afterTime: perDay ? groupsLabel(afterGroups) : String(item.after?.time || ""),
+    ready: readiness === "ready" && !live.loading,
+  } satisfies BulkEntry) : "";
+  useEffect(() => { onBulk?.(bulkKey, bulkEntry ? JSON.parse(bulkEntry) as BulkEntry : null); }, [onBulk, bulkKey, bulkEntry]);
+  useEffect(() => () => onBulk?.(bulkKey, null), [onBulk, bulkKey]);
+
+  const beforeWeek = weekOf(item.before?.days);
+  const afterText = weekOf(item.after?.days);
+  const afterWeek = afterText.size ? afterText : new Set<string>((item.slots || []).map(slot => String(slot.day)));
+  const timeMoved = item.action === "change" && String(item.before?.time || "").replace(/\s+/g, "") !== String(item.after?.time || "").replace(/\s+/g, "");
+  const ActionIcon = item.action === "add" ? Plus : item.action === "delete" ? Trash2 : Replace;
+
   return (
-    <>
-      <tr className="request-row" data-action={item.action} data-verdict={item.verdict || "clear"} data-decided={decided || undefined} data-readiness={readiness}>
-        <td data-label="الطلب">
-          <span className="request-action" data-action={item.action}>{ACTION_LABEL[item.action] || item.action}</span>
-          <strong>{item.after?.courseName || item.before?.courseName || "—"}<PlanBadge courseId={item.after?.courseId || item.before?.courseId} />{(item as any).offering ? <span className="badge badge-warning" title={(item as any).offering.line} style={{ marginInlineStart: 6 }}>{(item as any).offering.icon} {(item as any).offering.line}</span> : null}</strong>
+    <li className="request-row" data-action={item.action} data-verdict={item.verdict || "clear"} data-decided={decided || undefined} data-readiness={readiness}>
+      <div className="request-row-grid">
+        <div className="request-what" role="group" aria-label="الطلب">
+          <span className="request-action" data-action={item.action}><ActionIcon aria-hidden="true" />{ACTION_LABEL[item.action] || item.action}</span>
+          <strong className="request-course">{item.after?.courseName || item.before?.courseName || "—"}<PlanBadge courseId={item.after?.courseId || item.before?.courseId} />{(item as any).offering ? <span className="badge badge-warning" title={(item as any).offering.line} style={{ marginInlineStart: 6 }}>{(item as any).offering.icon} {(item as any).offering.line}</span> : null}</strong>
           {item.before?.sectionCode ? <small>شعبة {item.before.sectionCode}</small> : null}
           {item.action === "add" && item.after?.collegeName ? <small>{item.after.collegeName}</small> : null}
-        </td>
-        <td data-label="التغيير">
+        </div>
+        <div className="request-change" role="group" aria-label="التغيير">
           <div className="request-flow">
             {item.before && item.action !== "add" ? (
-              <span className="request-was-gone" title="كان">
-                {item.before.days}<br /><bdi dir="ltr">{item.before.time}</bdi>
-                {item.before.room ? <small className="request-room"><bdi dir="ltr">{item.before.room}</bdi></small> : null}
+              <div className="request-slot is-before" title={`كان: ${[item.before.days, item.before.time].filter(Boolean).join(" ")}`}>
+                <span className="request-slot-cap">كان</span>
+                <WeekStrip days={item.before.days} on={beforeWeek} other={item.action === "change" ? afterWeek : undefined} />
+                <bdi dir="ltr" className="request-slot-time">{item.before.time}</bdi>
+                {item.before.room ? <small className="request-room"><DoorOpen aria-hidden="true" /><bdi dir="ltr">{item.before.room}</bdi></small> : null}
+              </div>
+            ) : null}
+            {item.before && item.action !== "add" ? <span className="request-flow-arrow" aria-hidden="true"><ArrowLeft /></span> : null}
+            {item.action === "delete" ? (
+              <div className="request-slot is-gone"><Trash2 aria-hidden="true" /><span className="request-none">حذف الموعد</span></div>
+            ) : item.after ? (
+              <div className="request-slot is-after" title={`المطلوب: ${perDay ? groupsLabel(afterGroups) : [item.after.days, item.after.time].filter(Boolean).join(" ")}`}>
+                <span className="request-slot-cap">{item.action === "add" ? "جديد" : "المطلوب"}</span>
+                <WeekStrip days={item.after.days} on={afterWeek} other={item.action === "change" ? beforeWeek : undefined} />
+                {/* أوقاتٌ تختلف بين الأيام: كلُّ فريقٍ من الأيام بوقته، لا نهايةُ اليوم الأول للجميع. */}
+                {perDay ? <SlotTimes groups={afterGroups} />
+                  : <bdi dir="ltr" className="request-slot-time" data-moved={timeMoved ? "1" : undefined}>{item.after.time}</bdi>}
+                {/* القاعةُ التي حُجزت للطلب عند إرساله (C1) — أو أنسبُ المرشّحات إن لم يُحجز بعد. */}
+                {item.action === "change" && item.roomSwitch && !item.reservedRoom ? (
+                  <small className="request-room request-room-switch" data-held="1" title={`القاعة ${item.roomSwitch.from} مشغولة في الوقت الجديد`}>
+                    <RefreshCw aria-hidden="true" /><span>القاعة بُدّلت إلى</span><bdi dir="ltr">{[item.roomSwitch.to.room, item.roomSwitch.to.hall].filter(Boolean).join("/")}</bdi>
+                  </small>
+                ) : (item.reservedRoom?.label || (item.action === "add" && item.roomOptions?.[0])) ? (
+                  <small className="request-room" data-held={item.reservedRoom ? "1" : undefined} title={item.reservedRoom ? "قاعةٌ محجوزةٌ للطلب" : "الأنسب الآن"}>
+                    <DoorOpen aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.label || [item.roomOptions![0].room, item.roomOptions![0].hall].filter(Boolean).join("/")}</bdi>
+                    {(item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel) ? <><Wrench aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel}</bdi></> : null}
+                    {(item.roomOptions?.[0]?.why || []).map(reason => { const Icon = ROOM_WHY_ICON[reason]; return Icon ? <Icon key={reason} aria-label={ROOM_WHY_LABEL[reason]} className="request-room-why" /> : null; })}
+                  </small>
+                ) : null}
+              </div>
+            ) : <span className="request-none">—</span>}
+          </div>
+          {item.excuse ? <p className="request-excuse"><MessageSquare aria-hidden="true" /><span>{item.excuse}</span></p> : null}
+        </div>
+        <div className="request-decision" role="group" aria-label="القرار">
+          <div className="request-decision-head">
+            {!decided ? (
+              <span className="request-readiness" data-readiness={changedAfterSubmit ? "review" : readiness}>
+                {changedAfterSubmit ? <RefreshCw aria-hidden="true" />
+                  : readiness === "checking" ? <Loader2 aria-hidden="true" className="spin" />
+                  : readiness === "waiting" ? <Clock3 aria-hidden="true" />
+                  : readiness === "blocked" ? <ShieldAlert aria-hidden="true" />
+                  : readiness === "review" ? <AlertTriangle aria-hidden="true" />
+                  : <ShieldCheck aria-hidden="true" />}
+                {item.action === "delete" ? "حذفٌ لا يُفحص" : changedAfterSubmit ? "تغيّر بعد الإرسال" : READINESS[readiness]}
               </span>
             ) : null}
-            {item.before && item.action === "change" ? <ArrowLeft className="request-flow-arrow" aria-hidden="true" /> : null}
-            {item.action === "delete" ? <span className="request-none">حذف الموعد</span>
-              : item.after ? <span title="المطلوب">{item.after.days}<br /><bdi dir="ltr">{item.after.time}</bdi>
-                  {/* القاعةُ التي حُجزت للطلب عند إرساله (C1) — أو أنسبُ المرشّحات إن لم يُحجز بعد. */}
-                  {item.action === "change" && item.roomSwitch && !item.reservedRoom ? (
-                    <small className="request-room request-room-switch" data-held="1" title={`القاعة ${item.roomSwitch.from} مشغولة في الوقت الجديد`}>
-                      <RefreshCw aria-hidden="true" /><span>القاعة بُدّلت إلى</span><bdi dir="ltr">{[item.roomSwitch.to.room, item.roomSwitch.to.hall].filter(Boolean).join("/")}</bdi>
-                    </small>
-                  ) : (item.reservedRoom?.label || (item.action === "add" && item.roomOptions?.[0])) ? (
-                    <small className="request-room" data-held={item.reservedRoom ? "1" : undefined} title={item.reservedRoom ? "قاعةٌ محجوزةٌ للطلب" : "الأنسب الآن"}>
-                      <DoorOpen aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.label || [item.roomOptions![0].room, item.roomOptions![0].hall].filter(Boolean).join("/")}</bdi>
-                      {(item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel) ? <><Wrench aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel}</bdi></> : null}
-                      {(item.roomOptions?.[0]?.why || []).map(reason => { const Icon = ROOM_WHY_ICON[reason]; return Icon ? <Icon key={reason} aria-label={ROOM_WHY_LABEL[reason]} className="request-room-why" /> : null; })}
-                    </small>
-                  ) : null}
-                </span>
-              : <span className="request-none">—</span>}
+            {(item.roomCandidates || []).length && item.action !== "delete" && !decided ? (
+              <small className="request-rooms" title="قاعاتٌ متاحة في هذا الوقت"><DoorOpen aria-hidden="true" />متاحٌ في هذا الوقت: {countOf(item.roomCandidates!.length, AR.room)}</small>
+            ) : null}
+            {hasThread || negotiation === "proposed" ? (
+              <span className="request-negotiation" data-negotiation={negotiation}>{NEGOTIATION_LABEL[negotiation]}</span>
+            ) : null}
           </div>
-          {item.excuse ? <small className="request-excuse"><MessageSquare aria-hidden="true" /> {item.excuse}</small> : null}
-        </td>
-        <td data-label="القرار">
-          {!decided ? (
-            <span className="request-readiness" data-readiness={changedAfterSubmit ? "review" : readiness}>
-              {changedAfterSubmit ? <RefreshCw aria-hidden="true" />
-                : readiness === "checking" ? <Loader2 aria-hidden="true" className="spin" />
-                : readiness === "waiting" ? <Clock3 aria-hidden="true" />
-                : readiness === "blocked" ? <ShieldAlert aria-hidden="true" />
-                : readiness === "review" ? <AlertTriangle aria-hidden="true" />
-                : <ShieldCheck aria-hidden="true" />}
-              {item.action === "delete" ? "حذفٌ لا يُفحص" : changedAfterSubmit ? "تغيّر بعد الإرسال" : READINESS[readiness]}
-            </span>
-          ) : null}
           {item.action !== "delete" && (reasons.length || liveIssues.length) ? (
             <ul className="request-issues">
               {reasons.map((reason, at) => (
@@ -686,7 +818,7 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
               <ArrowRight aria-hidden="true" />
               <span>{waitsElsewhere
                 ? "يعتمد على حذف محاضرته في قسمٍ آخر — بانتظار قرار ذلك القسم."
-                : <>يُفرغ هذا الوقتَ طلبُه الآخر: {dependsOn.map(entry => `«${entry.name}»`).join(" و")} — يُثبَّت ذلك أولاً تلقائياً.</>}</span>
+                : <>يُفرغ هذا الوقتَ من طلبه نفسه: {dependsOn.map(entry => `«${entry.name}»`).join(" و")} — يُثبَّت ذلك أولاً تلقائياً.</>}</span>
             </p>
           ) : null}
           {/* ── وصل جاهزاً ثم تغيّر شيء (C7) ── الطلبُ لا يُقبل عند الإرسال وهو ممنوع، فالمنعُ هنا
@@ -707,12 +839,6 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
           {item.action === "change" && !current && !decided ? (
             <p className="request-issue-note">لم يعد هذا الموعد في الجدول — ربما حُذف أو نُقل بعد الطلب.</p>
           ) : null}
-          {(item.roomCandidates || []).length && item.action !== "delete" && !decided ? (
-            <small className="request-rooms">قاعاتٌ متاحة في هذا الوقت: {countOf(item.roomCandidates!.length, AR.room)}</small>
-          ) : null}
-          {hasThread || negotiation === "proposed" ? (
-            <span className="request-negotiation" data-negotiation={negotiation}>{NEGOTIATION_LABEL[negotiation]}</span>
-          ) : null}
           {decided ? (
             <p className="request-decided" data-state={decided}>
               {decided === "fixed" ? <><Check aria-hidden="true" /> ثُبّت</> : <><X aria-hidden="true" /> رُفض — {REJECT_REASONS.find(([value]) => value === item.decision?.reasonCode)?.[1] || "بلا سبب"}</>}
@@ -730,18 +856,19 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
                 }}
                 title={waitsElsewhere ? "ينتظر قرار القسم الآخر في حذف محاضرته" : blocked ? "لا يُثبَّت بندٌ ممنوع — عالج سببه أو ارفضه" : undefined}
               >
+                {busyProp ? <Loader2 aria-hidden="true" className="spin" /> : item.action === "add" ? <Plus aria-hidden="true" /> : <Check aria-hidden="true" />}
                 {busy ? "يحفظ…" : item.action === "add" ? "أضِفه الآن" : "ثبّت"}
               </PrimaryButton>
               <SecondaryButton type="button" data-guide-target="requests.action.reject" onClick={onReject} disabled={frozenScreen}>
-                ارفض
+                <X aria-hidden="true" />ارفض
               </SecondaryButton>
             </div>
           )}
           {error ? <p className="request-row-error"><ShieldAlert aria-hidden="true" />{error}</p> : null}
-        </td>
-      </tr>
+        </div>
+      </div>
       {hasThread || talking ? (
-        <tr className="request-thread-row"><td colSpan={3}>
+        <div className="request-thread-slot">
           <RequestThread
             item={item}
             busy={busy}
@@ -749,22 +876,136 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
             onReply={(text, slots) => onReply(index, text, slots)}
             onProposal={onProposal ? () => onProposal(index) : undefined}
           />
-        </td></tr>
+        </div>
       ) : null}
       {rejecting ? (
-        <tr className="request-reject-row"><td colSpan={3}>
-          <RejectSheet
-            item={item}
-            busy={busy}
-            onClose={onCloseReject}
-            onSubmit={(reason, note, alternatives) => {
-              onDecide(index, "rejected", { reasonCode: reason, note, alternatives });
-              onCloseReject();
-            }}
-          />
-        </td></tr>
+        <RejectSheet
+          item={item}
+          busy={busy}
+          onClose={onCloseReject}
+          onSubmit={(reason, note, alternatives) => {
+            onDecide(index, "rejected", { reasonCode: reason, note, alternatives });
+            onCloseReject();
+          }}
+        />
       ) : null}
-    </>
+    </li>
+  );
+}
+
+/* ── نافذةُ «ثبّت الجاهز كله» ────────────────────────────────────────────────
+ * خطوةُ تأكيدٍ صريحة بالعدد والأسماء (الأستاذ والمقرّر وما يتحرّك)، ثم تقدّمٌ
+ * بنداً بنداً، ثم خلاصة: ما ثُبّت، وأين توقّف ولماذا، وما بقي لم يُمسّ. */
+interface BulkState {
+  phase: "confirm" | "running" | "done";
+  list: BulkEntry[];
+  done: string[];
+  current: string | null;
+  failed?: { key: string; message: string };
+  stopped?: boolean;
+  stopping?: boolean;
+}
+
+function BulkSheet({ state, onConfirm, onStop, onClose }: {
+  state: BulkState;
+  onConfirm: () => void;
+  onStop: () => void;
+  onClose: () => void;
+}) {
+  const total = state.list.length;
+  const doneCount = state.done.length;
+  const running = state.phase === "running";
+  const failedAt = state.failed ? state.list.findIndex(entry => entry.key === state.failed!.key) : -1;
+  const failedEntry = failedAt >= 0 ? state.list[failedAt] : undefined;
+  const allDone = state.phase === "done" && doneCount === total;
+  const primaryRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { primaryRef.current?.focus(); }, [state.phase]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape" && !running) { event.preventDefault(); onClose(); } };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [running, onClose]);
+  return (
+    <div className="inbox-bulk-sheet" role="dialog" aria-modal="true" aria-labelledby="inbox-bulk-title" aria-describedby="inbox-bulk-lead"
+      onMouseDown={event => { if (event.target === event.currentTarget && !running) onClose(); }}>
+      <section className="inbox-bulk-card" data-phase={state.phase} data-result={state.phase !== "done" ? undefined : allDone ? "ok" : "partial"}>
+        <span className="inbox-bulk-grip" aria-hidden="true" />
+        <header className="inbox-bulk-head">
+          <span className="inbox-bulk-icon" aria-hidden="true"><CheckCheck /></span>
+          <span className="inbox-bulk-title">
+            <strong id="inbox-bulk-title">ثبّت الجاهز كله</strong>
+            <small>{countOf(total, AR.change)}</small>
+          </span>
+          <button type="button" className="inbox-bulk-close" onClick={onClose} disabled={running} aria-label="إغلاق"
+            data-guide-ignore="إغلاق نافذة «ثبّت الجاهز كله» — لا يغيّر شيئاً، ومعطَّلٌ أثناء التثبيت">
+            <X aria-hidden="true" />
+          </button>
+        </header>
+        <p id="inbox-bulk-lead" className="inbox-bulk-lead" aria-live="polite">
+          {state.phase === "confirm" ? "بمسار «ثبّت» نفسه وفحوصه، بنداً بعد بند، ويتوقّف عند أول تعذّر."
+            : running ? <><Loader2 aria-hidden="true" className="spin" />يثبّت {num(Math.min(total, doneCount + 1))} من {num(total)}…{state.stopping ? " · يتوقّف بعد هذا البند" : ""}</>
+              : allDone ? <><Check aria-hidden="true" />ثُبّت {countOf(doneCount, AR.change)}</>
+                : state.failed ? <><ShieldAlert aria-hidden="true" />توقّف عند {num(failedAt + 1)} من {num(total)}</>
+                  : <><X aria-hidden="true" />أوقفتَ التثبيت</>}
+        </p>
+        {state.phase !== "confirm" ? (
+          <div className="inbox-bulk-progress" role="progressbar" aria-label="تقدّم التثبيت" aria-valuemin={0} aria-valuemax={total} aria-valuenow={doneCount}>
+            <i style={{ inlineSize: `${total ? Math.round((doneCount / total) * 100) : 0}%` }} />
+          </div>
+        ) : null}
+        <ol className="inbox-bulk-list">
+          {state.list.map(entry => {
+            const status = state.done.includes(entry.key) ? "done" : state.failed?.key === entry.key ? "failed" : state.current === entry.key ? "running" : "waiting";
+            return (
+              <li key={entry.key} data-state={status}>
+                <span className="inbox-bulk-state" aria-hidden="true">
+                  {status === "done" ? <Check /> : status === "failed" ? <X /> : status === "running" ? <Loader2 className="spin" /> : <CircleDashed />}
+                </span>
+                <span className="inbox-bulk-who"><b>{entry.teacher}</b><span>{entry.course}</span></span>
+                <span className="inbox-bulk-move">
+                  <WeekStrip days={entry.beforeDays} on={weekOf(entry.beforeDays)} compact />
+                  <ArrowLeft aria-hidden="true" className="inbox-bulk-arrow" />
+                  <WeekStrip days={entry.afterDays} on={weekOf(entry.afterDays)} compact />
+                  <bdi dir="ltr">{entry.afterTime}</bdi>
+                </span>
+                <span className="sr-only">{status === "done" ? "ثُبّت" : status === "failed" ? "تعذّر" : status === "running" ? "يُثبَّت الآن" : "بالانتظار"}</span>
+              </li>
+            );
+          })}
+        </ol>
+        {state.failed && failedEntry ? (
+          <p className="inbox-bulk-error" role="alert">
+            <ShieldAlert aria-hidden="true" />
+            <span><b>{failedEntry.teacher} — {failedEntry.course}</b>{state.failed.message}</span>
+          </p>
+        ) : null}
+        {state.phase === "done" && !allDone ? (
+          <p className="inbox-bulk-sum">
+            {doneCount ? `ثُبّت ${countOf(doneCount, AR.change)}` : "لم يُثبَّت شيء"} · بقي {countOf(total - doneCount, AR.change)} دون تثبيت
+          </p>
+        ) : null}
+        <footer className="changes-extend-actions inbox-bulk-actions">
+          {state.phase === "confirm" ? (
+            <>
+              <button type="button" className="btn btn-secondary" onClick={onClose}
+                data-guide-ignore="تراجعٌ عن «ثبّت الجاهز كله» قبل أن يبدأ — لا يغيّر شيئاً">تراجع</button>
+              <button ref={primaryRef} type="button" className="btn btn-primary" onClick={onConfirm}
+                data-guide-ignore="تأكيدُ «ثبّت الجاهز كله» بعد رؤية العدد والأسماء — كلُّ بندٍ يمرّ بزرّ «ثبّت» نفسه وفحوصه">
+                <CheckCheck aria-hidden="true" />ابدأ التثبيت
+              </button>
+            </>
+          ) : running ? (
+            <button ref={primaryRef} type="button" className="btn btn-secondary" onClick={onStop} disabled={state.stopping}
+              data-guide-ignore="إيقافُ التثبيت الجماعي بعد البند الجاري — لا يتراجع عمّا ثُبّت">
+              {state.stopping ? "يتوقّف بعد الحالي…" : "أوقف بعد الحالي"}
+            </button>
+          ) : (
+            <button ref={primaryRef} type="button" className="btn btn-primary" onClick={onClose}
+              data-guide-ignore="إغلاق خلاصة «ثبّت الجاهز كله» — لا يغيّر شيئاً">إغلاق</button>
+          )}
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -876,6 +1117,30 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   };
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickError, setQuickError] = useState<string | null>(null);
+  /* خريطةُ «تكدّس الطلبات» مطويّةٌ على الهاتف خلف رأسها؛ على الحاسوب واللوحيّ مفتوحةٌ دائماً (CSS). */
+  const [heatOpen, setHeatOpen] = useState(false);
+
+  /* ── «ثبّت الجاهز كله» ────────────────────────────────────────────────────
+     كلُّ صفٍّ معروض يبلّغ هنا أهو جاهزٌ (reportBulk)، فيُعدّ الجاهزُ ممّا تراه
+     العين لا من حكمٍ ثانٍ. والتثبيتُ نفسُه هو `decide` — زرُّ «ثبّت» بخادمه
+     وفحوصه ومعاينته — بنداً بعد بند، ويتوقّف عند أول تعذّر ويقوله. */
+  const [bulkPool, setBulkPool] = useState<Record<string, BulkEntry>>({});
+  const reportBulk = useCallback((key: string, entry: BulkEntry | null) => {
+    setBulkPool(prev => {
+      if (!entry) {
+        if (!prev[key]) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return prev[key] && JSON.stringify(prev[key]) === JSON.stringify(entry) ? prev : { ...prev, [key]: entry };
+    });
+  }, []);
+  const [bulk, setBulk] = useState<BulkState | null>(null);
+  const bulkStop = useRef(false);
+  const bulkTrigger = useRef<HTMLButtonElement>(null);
+  /* آخرُ سببٍ ردّ به الخادمُ تثبيتاً — يقرؤه التثبيتُ الجماعيّ ليقول أين توقّف ولماذا. */
+  const decideFailure = useRef("");
 
   /* ── ما يراه صاحبُ الصلاحية الكاملة ──────────────────────────────────────
    *
@@ -1206,7 +1471,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       });
       await load();
       return true;
-    } catch (e: any) { setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) })); return false; }
+    } catch (e: any) { decideFailure.current = inboxMessage(e.message); setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) })); return false; }
     finally { setBusyKey(null); }
   };
 
@@ -1300,10 +1565,74 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     const created = plan.filter(step => step.action === "create").length;
     const warn: string[] = (Array.isArray(result?.warnings) ? result.warnings : []).map((w: any) => String(w?.message || "")).filter(Boolean);
     const parts = [
-      created > 1 ? `ثُبّت في ${countOf(created, AR.appointment)} لأن أوقاته مختلفة بين الأيام.` : "",
+      /* بعد «في» يُجرّ المثنّى: «في موعدين» لا «في موعدان». */
+      created > 1 ? `ثُبّت في ${countOf(created, oblique(AR.appointment))} لأن أوقاته مختلفة بين الأيام.` : "",
       warn.length ? `تنبيه: ${[...new Set(warn)].join(" · ")}` : "",
     ].filter(Boolean);
     setNotice(parts.length ? parts.join(" ") : null);
+  };
+
+  /* ── تشغيلُ «ثبّت الجاهز كله» ─────────────────────────────────────────────
+     بنداً بعد بند بـ`decide` نفسها (زرّ «ثبّت»: المعاينةُ ثم /apply ثم قراءةُ
+     الوارد). وقبل كل بندٍ يُنتظر الواردُ الجديد وفحصُ صفّه الحيّ، فإن لم يعد
+     جاهزاً — أو ردّه الخادم — توقّف هنا وقيل السبب، ولا يُمسّ ما بعده. */
+  const latest = useRef({ rows, pool: bulkPool, decide });
+  latest.current = { rows, pool: bulkPool, decide };
+  const bulkOrder = useMemo(() => new Map(changedGroups.flatMap(([, groupRows]) => groupRows).map((row, at) => [row.id, at] as const)), [changedGroups]);
+  const bulkReady = useMemo(() => (Object.values(bulkPool) as BulkEntry[])
+    .filter(entry => entry.ready && bulkOrder.has(entry.requestId))
+    .sort((a, b) => (bulkOrder.get(a.requestId)! - bulkOrder.get(b.requestId)!) || a.index - b.index), [bulkPool, bulkOrder]);
+  const settledEntry = async (key: string, rowsBefore: InboxRequest[] | null): Promise<BulkEntry | null> => {
+    const started = Date.now();
+    while (Date.now() - started < 15000) {
+      const now = latest.current;
+      const fresh = rowsBefore === null || now.rows !== rowsBefore;
+      const entry = now.pool[key];
+      if (fresh && entry?.ready) return entry;
+      if (fresh && !entry && Date.now() - started > 2000) return null;
+      await new Promise(resolve => window.setTimeout(resolve, 120));
+    }
+    return latest.current.pool[key]?.ready ? latest.current.pool[key] : null;
+  };
+  const openBulk = () => {
+    if (frozen || busyKey || !bulkReady.length) return;
+    bulkStop.current = false;
+    setBulk({ phase: "confirm", list: bulkReady, done: [], current: null });
+  };
+  const closeBulk = () => {
+    if (bulk?.phase === "running") return;
+    setBulk(null);
+    window.requestAnimationFrame(() => bulkTrigger.current?.focus());
+  };
+  const runBulk = async () => {
+    if (!bulk || bulk.phase !== "confirm" || frozen) return;
+    const list = bulk.list;
+    const done: string[] = [];
+    const stopAt = (key: string, message: string) => setBulk(state => state ? { ...state, phase: "done", current: null, failed: { key, message } } : state);
+    bulkStop.current = false;
+    setBulk(state => state ? { ...state, phase: "running", current: list[0]?.key || null } : state);
+    let rowsBefore: InboxRequest[] | null = null;
+    for (const entry of list) {
+      if (bulkStop.current) { setBulk(state => state ? { ...state, phase: "done", current: null, stopped: true } : state); return; }
+      setBulk(state => state ? { ...state, current: entry.key } : state);
+      const ready = await settledEntry(entry.key, rowsBefore);
+      const now = latest.current;
+      const row = (now.rows || []).find(candidate => candidate.id === entry.requestId);
+      const item = row?.items?.[entry.index];
+      const same = Boolean(item) && requestItemId(item!) === entry.itemId;
+      /* ثبّته زميلٌ في الأثناء: هو ثابتٌ كما أُريد، فلا يُعاد ولا يُعدّ تعذّراً. */
+      if (same && item!.decision?.state === "fixed") { done.push(entry.key); setBulk(state => state ? { ...state, done: [...done] } : state); continue; }
+      if (!row || !same) { stopAt(entry.key, "تغيّر هذا الطلب منذ فُتحت النافذة — راجعه في بطاقته."); return; }
+      if (item!.decision?.state) { stopAt(entry.key, "قُرّر هذا البند منذ فُتحت النافذة — راجعه في بطاقته."); return; }
+      if (!ready) { stopAt(entry.key, "لم يعد جاهزاً بعد ما ثُبّت قبله — افتح بطاقته وراجعه."); return; }
+      decideFailure.current = "";
+      rowsBefore = now.rows;
+      const ok = await now.decide(row, entry.index, "fixed", { after: [] });
+      if (!ok) { stopAt(entry.key, decideFailure.current || "لم تُؤكَّد معاينةُ ما سيُكتب، فتوقّف التثبيت هنا."); return; }
+      done.push(entry.key);
+      setBulk(state => state ? { ...state, done: [...done] } : state);
+    }
+    setBulk(state => state ? { ...state, phase: "done", current: null } : state);
   };
 
 
@@ -1324,7 +1653,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
 
   return (
     <TermFrozenContext.Provider value={frozen}>
-    <div className="content-stack changes-screen visual-minimal" data-term-frozen-scope={frozen || undefined}>
+    <div className="content-stack changes-screen visual-minimal inbox-studio" data-term-frozen-scope={frozen || undefined}>
       <PageTitle
         action={rows && rows.length ? <ProposalLauncherBar rows={launcherRows} preferCollegeId={collegeId} proposals={proposals} onOpen={openStudyProposal} /> : undefined}
         eyebrow={<><Inbox aria-hidden="true" /> رغبات الأساتذة</>}
@@ -1398,46 +1727,65 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                     <span>من الطلبات المُرسلة في هذا النطاق</span>
                   </div>
                 </div>
+                {/* الفعلُ يطابق عددَه: «1 لم يفتح»، «2 لم يفتحا»، «3 لم يفتحوا». */}
                 <div className="glance-legend">
-                  {openedQuiet ? <div data-tone="opened"><MailOpen aria-hidden="true" /><b>{num(openedQuiet)}</b><span>فتحوا ولم يجيبوا</span></div> : null}
-                  {totals.unopened ? <div data-tone="unopened"><MailQuestion aria-hidden="true" /><b>{num(Number(totals.unopened))}</b><span>لم يفتحوا</span></div> : null}
+                  {openedQuiet ? <div data-tone="opened"><MailOpen aria-hidden="true" /><b>{num(openedQuiet)}</b><span>{nounFor(openedQuiet, AR.openedQuietVerb)}</span></div> : null}
+                  {totals.unopened ? <div data-tone="unopened"><MailQuestion aria-hidden="true" /><b>{num(Number(totals.unopened))}</b><span>{nounFor(Number(totals.unopened), AR.openedLinkVerb)}</span></div> : null}
                   {totals.settled ? <div data-tone="settled"><ShieldCheck aria-hidden="true" /><b>{num(Number(totals.settled))}</b><span>انتهى</span></div> : null}
-                  {totals?.changed ? <div><Replace aria-hidden="true" /><b>{num(Number(totals.changed))}</b><span>طلبوا تغييراً</span></div> : null}
+                  {totals?.changed ? <div><Replace aria-hidden="true" /><b>{num(Number(totals.changed))}</b><span>{nounFor(Number(totals.changed), AR.askedChangeVerb)}</span></div> : null}
                   {totals?.unchanged ? <div data-tone="unchanged"><Equal aria-hidden="true" /><b>{num(Number(totals.unchanged))}</b><span>بلا تغيير</span></div> : null}
                 </div>
               </section>
               {heat.times.length ? (
-                <section className="glance-card glance-heat" aria-label="تكدس الطلبات">
-                  <header><Grid3x3 aria-hidden="true" /><b>تكدس الطلبات</b><span>مواعيدُ البدء المطلوبة</span>{heat.short.size ? <em className="heat-short-flag"><ShieldAlert aria-hidden="true" /> {countOf(heat.short.size, AR.appointment)} بلا قاعاتٍ تكفي</em> : null}</header>
-                  <div className="heat-grid" role="table" aria-label="عدد المواعيد المطلوبة لكل يوم ووقت بدء">
-                    <div className="heat-row heat-head" role="row">
-                      <span aria-hidden="true" />
-                      {Object.values(INBOX_DAY_NAMES).map(name => <span key={name} role="columnheader">{name}</span>)}
-                    </div>
-                    {heat.times.map(time => (
-                      <div className="heat-row" role="row" key={time}>
-                        <time role="rowheader">{time}</time>
-                        {Object.entries(INBOX_DAY_NAMES).map(([day, name]) => {
-                          const count = heat.cells.get(`${day}|${time}`) || 0;
-                          const level = count ? Math.max(1, Math.ceil((count / heat.max) * 4)) : 0;
-                          const lack = heat.short.get(`${day}|${time}`);
-                          return (
-                            <span key={day} role="cell" className="heat-cell" data-heat={level} data-short={lack ? "1" : undefined}
-                              title={`${name} ${time}: ${num(count)} ${count === 1 ? "موعد" : "مواعيد"}${lack ? ` — ${countOf(lack.asks, AR.request)} لـ${countOf(lack.rooms, AR.room)} متاحة فقط` : ""}`}
-                              aria-label={`${name} ${time}: ${num(count)}${lack ? ` — عجز قاعات: ${countOf(lack.asks, AR.request)} و${countOf(lack.rooms, AR.room)}` : ""}`}>
-                              {""}
-                            </span>
-                          );
-                        })}
+                /* على الهاتف تنطوي الخريطة خلف رأسها (زرٌّ صغير) فيصل أولُ طلبٍ إلى أعلى الشاشة؛
+                   وعلى الحاسوب واللوحيّ تبقى مفتوحةً كاملةً ولا يظهر الزرّ. */
+                <section className="glance-card glance-heat" aria-label="تكدس الطلبات" data-open={heatOpen ? "1" : undefined}>
+                  <header>
+                    <Grid3x3 aria-hidden="true" /><b>تكدس الطلبات</b><span>مواعيدُ البدء المطلوبة</span>
+                    {heat.short.size ? <em className="heat-short-flag"><ShieldAlert aria-hidden="true" /> {countOf(heat.short.size, AR.appointment)} بلا قاعاتٍ تكفي</em> : null}
+                    <button
+                      type="button"
+                      className="glance-heat-toggle"
+                      aria-expanded={heatOpen}
+                      aria-controls="inbox-heat-body"
+                      data-guide-ignore="طيّ خريطة «تكدس الطلبات» وفتحها على الهاتف — عرضٌ لا فعل"
+                      onClick={() => setHeatOpen(open => !open)}
+                    >
+                      <span className="sr-only">{heatOpen ? "اطوِ خريطة التكدس" : "اعرض خريطة التكدس"}</span>
+                      <ChevronDown aria-hidden="true" />
+                    </button>
+                  </header>
+                  <div className="glance-heat-body" id="inbox-heat-body">
+                    <div className="heat-grid" role="table" aria-label="عدد المواعيد المطلوبة لكل يوم ووقت بدء">
+                      <div className="heat-row heat-head" role="row">
+                        <span aria-hidden="true" />
+                        {Object.values(INBOX_DAY_NAMES).map(name => <span key={name} role="columnheader">{name}</span>)}
                       </div>
-                    ))}
+                      {heat.times.map(time => (
+                        <div className="heat-row" role="row" key={time}>
+                          <time role="rowheader">{time}</time>
+                          {Object.entries(INBOX_DAY_NAMES).map(([day, name]) => {
+                            const count = heat.cells.get(`${day}|${time}`) || 0;
+                            const level = count ? Math.max(1, Math.ceil((count / heat.max) * 4)) : 0;
+                            const lack = heat.short.get(`${day}|${time}`);
+                            return (
+                              <span key={day} role="cell" className="heat-cell" data-heat={level} data-short={lack ? "1" : undefined}
+                                title={`${name} ${time}: ${countOf(count, AR.appointment)}${lack ? ` — ${countOf(lack.asks, AR.request)} والمتاح ${countOf(lack.rooms, AR.room)} فقط` : ""}`}
+                                aria-label={`${name} ${time}: ${countOf(count, AR.appointment)}${lack ? ` — عجز قاعات: ${countOf(lack.asks, AR.request)} و${countOf(lack.rooms, AR.room)}` : ""}`}>
+                                {""}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                    <footer className="heat-legend" aria-hidden="true">
+                      <span>أقل</span>
+                      {[0, 1, 2, 3, 4].map(level => <span key={level} className="heat-swatch heat-cell" data-heat={level} />)}
+                      <span>أكثر</span>
+                      {heat.short.size ? <><span className="heat-swatch heat-cell" data-heat="3" data-short="1" /><span>عجز قاعات</span></> : null}
+                    </footer>
                   </div>
-                  <footer className="heat-legend" aria-hidden="true">
-                    <span>أقل</span>
-                    {[0, 1, 2, 3, 4].map(level => <span key={level} className="heat-swatch heat-cell" data-heat={level} />)}
-                    <span>أكثر</span>
-                    {heat.short.size ? <><span className="heat-swatch heat-cell" data-heat="3" data-short="1" /><span>عجز قاعات</span></> : null}
-                  </footer>
                 </section>
               ) : null}
             </div>
@@ -1446,7 +1794,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           {silent.length ? (
             <div className="request-silent">
               <MailQuestion aria-hidden="true" />
-              <span>{countOf(silent.length, AR.instructor)} لم يفتحوا الرابط بعد</span>
+              <span>{countOf(silent.length, AR.instructor)} {nounFor(silent.length, AR.openedLinkVerb)} الرابط بعد</span>
               <div className="request-silent-links">
                 {silent.slice(0, 12).map(row => {
                   const reach = reachAboutCard(
@@ -1478,7 +1826,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             >
               <ChevronDown aria-hidden="true" data-open={showUnchanged || undefined} />
               <Check aria-hidden="true" />
-              {countOf(unchanged.length, AR.instructor)} قالوا «الجدول كما هو»
+              {countOf(unchanged.length, AR.instructor)} {nounFor(unchanged.length, AR.saidVerb)} «الجدول كما هو»
               {showUnchanged ? <em>{unchanged.map(row => withVisitingSuffix(row.instructorName, rowVisiting(row))).join(" · ")}</em> : null}
             </button>
           ) : null}
@@ -1555,6 +1903,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             );
           })()}
 
+          {/* حاويةٌ كتلية (لا شبكة) كي يلتصق شريطُ «ثبّت الجاهز كله» بأسفل الشاشة طوال القائمة. */}
+          <div className="inbox-deck">
           {stateFilter === "absent" ? (absentRows.length ? (
             <section className="request-absent-list" aria-label="أساتذة لم يشاركوا">
               {absentRows.map(row => {
@@ -1616,6 +1966,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                       onOpenProposal={openStudyProposal}
                       onDecide={(index, state, extra) => void decide(row, index, state, extra)}
                       onReply={(index, text, slots) => void reply(row, index, text, slots)}
+                      onBulk={reportBulk}
                     />
                   ))}
                 </div>
@@ -1627,6 +1978,25 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               detail={needle ? "لا أستاذَ يطابق البحث." : stateFilter === "pending" && counts.all ? "قرّرتَ في كل الطلبات. غيّر «الحالة» لترى ما ثُبّت أو رُفض." : "كلُّ من أجاب قَبِل جدوله كما أرسله القسم."}
             />
           )}
+          {/* ── شريطُ «ثبّت الجاهز كله» ── يظهر حين يكون في المعروض بندٌ جاهزٌ بلا موانع،
+              ويلتصق بأسفل الشاشة كشريط الحفظ في «موعد جديد». لا يظهر بلا جاهز ولا في فصلٍ سابق. */}
+          {bulkReady.length && !frozen && stateFilter !== "absent" && stateFilter !== "confirmed-unchanged" ? (
+            <div className="inbox-bulk" role="region" aria-label="تثبيت الجاهز">
+              <span className="inbox-bulk-mark" aria-hidden="true"><CheckCheck /></span>
+              <span className="inbox-bulk-text"><b>{countOf(bulkReady.length, AR.change)}</b> {nounFor(bulkReady.length, AR.readyAdj)} بلا موانع</span>
+              <button
+                ref={bulkTrigger}
+                type="button"
+                className="btn btn-primary inbox-bulk-go"
+                disabled={Boolean(busyKey) || Boolean(bulk)}
+                onClick={openBulk}
+                data-guide-ignore="يفتح تأكيد «ثبّت الجاهز كله»: يعرض العدد والأسماء، ولا يُثبَّت شيءٌ قبل الموافقة — ثم كلُّ بندٍ بزرّ «ثبّت» نفسه"
+              >
+                <CheckCheck aria-hidden="true" />ثبّت الجاهز كله ({num(bulkReady.length)})
+              </button>
+            </div>
+          ) : null}
+          </div>
         </>
       )}
 
@@ -1692,6 +2062,15 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             onChanged={() => void load()}
           />
         </React.Suspense>
+      ) : null}
+
+      {bulk ? (
+        <BulkSheet
+          state={bulk}
+          onConfirm={() => void runBulk()}
+          onStop={() => { bulkStop.current = true; setBulk(state => state ? { ...state, stopping: true } : state); }}
+          onClose={closeBulk}
+        />
       ) : null}
     </div>
     </TermFrozenContext.Provider>
