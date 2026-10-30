@@ -1705,7 +1705,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                       click it is meant to prevent. Its result is already on the
                       table, and the «خلية عُبّئت» card records what it did. */}
                   {importKind === "authority-pdf" ? <div className="import-color-key" aria-label="تعريف ألوان المعاينة"><span className="derived"><i/>أخضر · مكتمل</span><span className="review"><i/>ذهبي · يحتاج مراجعة</span><span className="missing"><i/>أحمر · ناقص</span></div> : null}
-                  {(importKind === "authority-pdf" || xlsxPreview.editable) && xlsxPreview.rows?.length ? (
+                  {(importKind === "authority-pdf" || xlsxPreview.editable) ? (
                     <>
                       {/* The whole table, red on what the scan could not read,
                           and a quick edit + delete beside EVERY row. */}
