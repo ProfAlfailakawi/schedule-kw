@@ -8,13 +8,15 @@
  *  P4  «افتحه للطرح» يقلب الصفَّ 🔓 في مكانه (والتوأم معه) وينقص العدد.
  *  P5  «أرسل كما هو» يرسل الإرسال الأصلي؛ وفشلُ القراءة يرسل كما كان ويُسجَّل.
  *  P6  سريع: ما قرأته اللوحة قبل قليل يُستعمل بلا طلبٍ جديد، و«افتحه للطرح» يُلصق على الذاكرة.
+ *  P8  فحصٌ تأخّر حتى أُغلقت النافذة أو تغيّر النطاق يُهمل: لا ورقةَ ولا إرسالَ لنطاقٍ سابق،
+ *      و«أرسل كما هو» و«افتحه للطرح» لا يعملان إلا للنطاق الذي حُسبت له الورقة.
  *  P7  الأسلاك في النشر: زرّ الإنشاء ومرحلة التدريب يمرّان بالبوّابة، و«راجع المقررات» يفتح اللوحة على التبويب.
  */
 import fs from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  choosesCourses, forgetOfferingMemory, gatePublish, lockedForPublish, markOpened, offeringScopeKey, prepublishGroups, prepublishHeadline,
+  choosesCourses, forgetOfferingMemory, gateGenerations, gatePublish, lockedForPublish, markOpened, offeringScopeKey, prepublishGroups, prepublishHeadline,
   readOffering, recentOffering, rememberOffering, rememberReach, shortReason, type OfferingSnapshot,
 } from "../src/utils/prepublishReach";
 import { PrepublishReachBody } from "../src/components/PrepublishReachSheet";
@@ -84,6 +86,35 @@ await (async () => {
   check(broken.result === "sent" && broken.sent === 1 && broken.log.length === 1 && !broken.warned, "P5 تعذّرت القراءة: يُرسل كما كان ويُسجَّل", broken);
   const empty = await run("ta", async () => null);
   check(empty.result === "sent" && empty.sent === 1, "P5 ردٌّ فارغ: يُرسل", empty);
+})();
+
+/* ── P8: فحصٌ متأخر لنطاقٍ سابق ── */
+await (async () => {
+  const generations = gateGenerations();
+  let release: (value: OfferingSnapshot) => void = () => undefined;
+  const slow = () => new Promise<OfferingSnapshot>(resolve => { release = resolve; });
+  /* ضغطة إرسالٍ بقراءةٍ بطيئة، ثم أُغلقت النافذة (أو تغيّر القسم/الفصل) قبل أن تعود. */
+  let sent = 0, warned = 0;
+  const ticket = generations.begin();
+  const pending = gatePublish({ mode: "edit", read: slow, isCurrent: () => generations.isCurrent(ticket), send: () => { sent++; }, warn: () => { warned++; } });
+  generations.invalidate();
+  release(snapshot());
+  check(await pending === "stale" && sent === 0 && warned === 0, "P8 فحصٌ لنطاقٍ سابق: لا ورقةَ ولا إرسال", { sent, warned });
+  /* وفحصٌ متأخرٌ بلا مقفلات لا يُرسل للنطاق السابق أيضاً. */
+  const ticket2 = generations.begin();
+  const pending2 = gatePublish({ mode: "ta", read: slow, isCurrent: () => generations.isCurrent(ticket2), send: () => { sent++; }, warn: () => { warned++; } });
+  generations.begin();
+  release(snapshot({ reach: null }));
+  check(await pending2 === "stale" && sent === 0, "P8 فحصٌ أحدثُ منه يُبطله: لا إرسالَ مزدوج");
+  const ticket3 = generations.begin();
+  check(await gatePublish({ mode: "edit", read: async () => snapshot(), isCurrent: () => generations.isCurrent(ticket3), send: () => { sent++; }, warn: () => { warned++; } }) === "warned" && warned === 1, "P8 الفحصُ الحالي يعمل كما هو");
+
+  const publish = read("src/components/SchedulePublish.tsx");
+  check(/useEffect\(\(\) => \{\s*reachGenerations\.invalidate\(\);\s*setReachGate\(null\);/.test(publish) && publish.includes("}, [open, reachScope, kind, sendMode, reachGenerations]);"),
+    "P8 الإغلاق وتغيّر النطاق/النوع/الصفة يُبطل الفحص ويُسقط الورقة");
+  check(publish.includes("isCurrent: current,") && publish.includes("warn: rows => setReachGate({ rows, proceed, scope })"), "P8 الورقة تحمل نطاقها والفحص يُسأل عن جيله");
+  check(publish.includes("if (gate && gate.scope === reachScope) void gate.proceed();"), "P8 «أرسل كما هو» لا يرسل إلا لنطاق الورقة");
+  check(publish.includes("if (!reachGate || reachGate.scope !== reachScope) return null;") && publish.includes("collegeId: gateCollege, sectionId: gateSection, termId: gateTerm"), "P8 «افتحه للطرح» يكتب في نطاق الورقة وحده");
 })();
 
 /* ── P2: القاعدة نفسها والمجموعات ── */
@@ -166,7 +197,7 @@ await (async () => {
   check(publish.includes("confirmSend={proceed => void guardSend(proceed)}") && ta.includes("confirmSend ? confirmSend(open) : void open()"), "P7 «فتح مرحلة التدريب» يمرّ بالبوّابة");
   check(/if \(kind !== "staff"\) \{ await proceed\(\); return; \}/.test(publish), "P7 جدول القسم والاستبيان لا يُفحصان");
   check(publish.includes("mode: sendMode") && publish.includes("read: () => readOffering(collegeId, sectionId, termId)"), "P7 الفحص بصفة الإرسال ونطاق النشر نفسه");
-  check(/onSend=\{\(\) => \{ const proceed = reachGate\.proceed; setReachGate\(null\); void proceed\(\); \}\}/.test(publish), "P7 «أرسل كما هو» يرسل الإرسال الأصلي نفسه");
+  check(publish.includes("onSend={sendFromGate}") && publish.includes("const gate = reachGate;\n    setReachGate(null);"), "P7 «أرسل كما هو» يرسل الإرسال الأصلي نفسه");
   check(publish.includes("setOfferingOpen(true)") && publish.includes("setOfferingFocus({ tab, nonce: Date.now() })") && publish.includes("focusTab={offeringFocus}"), "P7 «راجع المقررات» يفتح لوحة حالة الطرح على التبويب");
   check(read("src/components/CourseOfferingPanel.tsx").includes("if (focusTab) setTab(focusTab.tab)"), "P7 اللوحة تنتقل إلى التبويب المطلوب");
 }

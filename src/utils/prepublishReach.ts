@@ -104,6 +104,8 @@ export function prepublishGroups(rows: ReadonlyArray<PrepublishRow>): Array<{ sh
 /**
  * البوّابة: صفةٌ لا يختار فيها الأستاذ ⇒ يُرسل. وإلا يُقرأ الحكم؛ لا مقفل ⇒ يُرسل؛
  * تعذّرت القراءة ⇒ يُسجَّل ويُرسل؛ وإلا تُعرض الورقة (warn) ولا يُرسل حتى يختار المسؤول.
+ * وفحصٌ تأخّر حتى أُغلقت النافذة أو تغيّر النطاق (isCurrent ⇒ false) يُهمل: لا إرسالَ ولا ورقة،
+ * فلا يُرسَل ولا يُفتح شيءٌ إلا للنطاق الذي حُسب له.
  */
 export async function gatePublish(options: {
   mode: LinkMode;
@@ -111,14 +113,29 @@ export async function gatePublish(options: {
   send: () => unknown;
   warn: (rows: PrepublishRow[]) => void;
   log?: (message: string, error: unknown) => void;
-}): Promise<"sent" | "warned"> {
+  isCurrent?: () => boolean;
+}): Promise<"sent" | "warned" | "stale"> {
   if (!choosesCourses(options.mode)) { await options.send(); return "sent"; }
   let rows: PrepublishRow[] = [];
   try { rows = lockedForPublish(await options.read()); }
   catch (error) { (options.log || ((message, e) => console.warn(message, e)))("prepublish reach check failed; sending as before", error); rows = []; }
+  if (options.isCurrent && !options.isCurrent()) return "stale";
   if (!rows.length) { await options.send(); return "sent"; }
   options.warn(rows);
   return "warned";
+}
+
+/**
+ * عدّادُ أجيال الفحص: كلُّ ضغطة إرسالٍ تبدأ جيلاً، وإغلاقُ النافذة أو تغيّرُ النطاق/الصفة يُبطل
+ * ما قبله — فلا تظهر ورقةُ نطاقٍ سابق ولا يُرسل إرسالُه.
+ */
+export function gateGenerations() {
+  let current = 0;
+  return {
+    begin: () => ++current,
+    invalidate: () => { current++; },
+    isCurrent: (ticket: number) => ticket === current,
+  };
 }
 
 /* ── ذاكرةٌ قصيرة بالنطاق: ما قرأته لوحةُ حالة الطرح يُعاد استعماله، و«افتحه للطرح» يُبلَّغ للوحة ── */
