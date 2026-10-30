@@ -5727,7 +5727,7 @@
    "path": "/_ads/ad.js",
    "name": "bound dispatch",
    "call": "dba57921cffe17a4",
-   "site": "src/server/adsRoutes.ts:446",
+   "site": "src/server/adsRoutes.ts:476",
    "regexp": "/^\\/_ads\\/ad\\.js\\/?$/i",
    "end": true
   },
@@ -5739,7 +5739,7 @@
    "path": "/_ads/serve",
    "name": "bound dispatch",
    "call": "64e81aaca9ea1169",
-   "site": "src/server/adsRoutes.ts:453",
+   "site": "src/server/adsRoutes.ts:483",
    "regexp": "/^\\/_ads\\/serve\\/?$/i",
    "end": true
   },
@@ -5751,7 +5751,7 @@
    "path": "/_ads/img/:id",
    "name": "bound dispatch",
    "call": "55e443c9ba731403",
-   "site": "src/server/adsRoutes.ts:487",
+   "site": "src/server/adsRoutes.ts:517",
    "regexp": "/^\\/_ads\\/img(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5763,7 +5763,7 @@
    "path": "/_ads/c/:cid/:crid",
    "name": "bound dispatch",
    "call": "c75c39d373f7daab",
-   "site": "src/server/adsRoutes.ts:498",
+   "site": "src/server/adsRoutes.ts:528",
    "regexp": "/^\\/_ads\\/c(?:\\/([^/]+?))(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5775,7 +5775,7 @@
    "path": "/_ads/e",
    "name": "bound dispatch",
    "call": "3c894fbf11ce3fa8",
-   "site": "src/server/adsRoutes.ts:512",
+   "site": "src/server/adsRoutes.ts:542",
    "regexp": "/^\\/_ads\\/e\\/?$/i",
    "end": true
   },
@@ -5787,7 +5787,7 @@
    "path": "/_pulse",
    "name": "bound dispatch",
    "call": "6ef02878a9581a0e",
-   "site": "src/server/adsRoutes.ts:530",
+   "site": "src/server/adsRoutes.ts:560",
    "regexp": "/^\\/_pulse\\/?$/i",
    "end": true
   },
@@ -5799,7 +5799,7 @@
    "path": "/_ads/coupon",
    "name": "bound dispatch",
    "call": "2f325faa690d13b9",
-   "site": "src/server/adsRoutes.ts:550",
+   "site": "src/server/adsRoutes.ts:580",
    "regexp": "/^\\/_ads\\/coupon\\/?$/i",
    "end": true
   },
@@ -5811,7 +5811,7 @@
    "path": "/_ads/coupon.svg",
    "name": "bound dispatch",
    "call": "e6d47007aa2036bb",
-   "site": "src/server/adsRoutes.ts:557",
+   "site": "src/server/adsRoutes.ts:587",
    "regexp": "/^\\/_ads\\/coupon\\.svg\\/?$/i",
    "end": true
   },
@@ -5823,7 +5823,7 @@
    "path": "/measurement",
    "name": "bound dispatch",
    "call": "2906cbdebbecadce",
-   "site": "src/server/adsRoutes.ts:579",
+   "site": "src/server/adsRoutes.ts:609",
    "regexp": "/^\\/measurement\\/?$/i",
    "end": true
   },
@@ -5835,7 +5835,7 @@
    "path": "/verify/:vid",
    "name": "bound dispatch",
    "call": "741f7f4fef5807e8",
-   "site": "src/server/adsRoutes.ts:591",
+   "site": "src/server/adsRoutes.ts:621",
    "regexp": "/^\\/verify(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5847,7 +5847,7 @@
    "path": "/verify/:vid",
    "name": "bound dispatch",
    "call": "8b466d7ba66d23f7",
-   "site": "src/server/adsRoutes.ts:601",
+   "site": "src/server/adsRoutes.ts:631",
    "regexp": "/^\\/verify(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5859,7 +5859,7 @@
    "path": "/partner-badge/:id.svg",
    "name": "bound dispatch",
    "call": "e8ac8246ae113246",
-   "site": "src/server/adsRoutes.ts:614",
+   "site": "src/server/adsRoutes.ts:644",
    "regexp": "/^\\/partner-badge(?:\\/([^/]+?))\\.svg\\/?$/i",
    "end": true
   },
@@ -5871,7 +5871,7 @@
    "path": "/ad-report/:token/redemptions",
    "name": "bound dispatch",
    "call": "d8fad60bc20b7e0b",
-   "site": "src/server/adsRoutes.ts:628",
+   "site": "src/server/adsRoutes.ts:658",
    "regexp": "/^\\/ad-report(?:\\/([^/]+?))\\/redemptions\\/?$/i",
    "end": true
   },
@@ -5883,7 +5883,7 @@
    "path": "/ad-report/:token/calendar.ics",
    "name": "bound dispatch",
    "call": "1f86e241c459f971",
-   "site": "src/server/adsRoutes.ts:647",
+   "site": "src/server/adsRoutes.ts:677",
    "regexp": "/^\\/ad-report(?:\\/([^/]+?))\\/calendar\\.ics\\/?$/i",
    "end": true
   },
@@ -5895,7 +5895,7 @@
    "path": "/ad-report/:token",
    "name": "bound dispatch",
    "call": "5b62bd30d5acf729",
-   "site": "src/server/adsRoutes.ts:658",
+   "site": "src/server/adsRoutes.ts:688",
    "regexp": "/^\\/ad-report(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5907,7 +5907,7 @@
    "path": "/partners/:token/lead",
    "name": "bound dispatch",
    "call": "92609cfa7d193514",
-   "site": "src/server/adsRoutes.ts:680",
+   "site": "src/server/adsRoutes.ts:710",
    "regexp": "/^\\/partners(?:\\/([^/]+?))\\/lead\\/?$/i",
    "end": true
   },
@@ -5919,7 +5919,7 @@
    "path": "/partners/:token",
    "name": "bound dispatch",
    "call": "95fa3a02fec19146",
-   "site": "src/server/adsRoutes.ts:707",
+   "site": "src/server/adsRoutes.ts:737",
    "regexp": "/^\\/partners(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5931,8 +5931,20 @@
    "path": "/api/admin/audience-stats",
    "name": "bound dispatch",
    "call": "76940892d7670b27",
-   "site": "src/server/adsRoutes.ts:740",
+   "site": "src/server/adsRoutes.ts:770",
    "regexp": "/^\\/api\\/admin\\/audience-stats\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/public/audience-headline",
+   "name": "bound dispatch",
+   "call": "dbfb72b918708745",
+   "site": "src/server/adsRoutes.ts:778",
+   "regexp": "/^\\/api\\/public\\/audience-headline\\/?$/i",
    "end": true
   },
   {
@@ -5943,7 +5955,7 @@
    "path": "/api/admin/ads",
    "name": "bound dispatch",
    "call": "a8aa59476dfd2655",
-   "site": "src/server/adsRoutes.ts:746",
+   "site": "src/server/adsRoutes.ts:787",
    "regexp": "/^\\/api\\/admin\\/ads\\/?$/i",
    "end": true
   },
@@ -5955,7 +5967,7 @@
    "path": "/api/admin/ads/demand",
    "name": "bound dispatch",
    "call": "51e1cb10c86d1ad1",
-   "site": "src/server/adsRoutes.ts:767",
+   "site": "src/server/adsRoutes.ts:808",
    "regexp": "/^\\/api\\/admin\\/ads\\/demand\\/?$/i",
    "end": true
   },
@@ -5967,7 +5979,7 @@
    "path": "/api/admin/ads/leads/:id/contacted",
    "name": "bound dispatch",
    "call": "fac5a5284b98df19",
-   "site": "src/server/adsRoutes.ts:773",
+   "site": "src/server/adsRoutes.ts:814",
    "regexp": "/^\\/api\\/admin\\/ads\\/leads(?:\\/([^/]+?))\\/contacted\\/?$/i",
    "end": true
   },
@@ -5979,7 +5991,7 @@
    "path": "/api/admin/ads/campaigns",
    "name": "bound dispatch",
    "call": "aab0272c307c19ac",
-   "site": "src/server/adsRoutes.ts:789",
+   "site": "src/server/adsRoutes.ts:830",
    "regexp": "/^\\/api\\/admin\\/ads\\/campaigns\\/?$/i",
    "end": true
   },
@@ -5991,7 +6003,7 @@
    "path": "/api/admin/ads/campaigns/:id/send-report",
    "name": "bound dispatch",
    "call": "4dfdda6caae39cd6",
-   "site": "src/server/adsRoutes.ts:828",
+   "site": "src/server/adsRoutes.ts:869",
    "regexp": "/^\\/api\\/admin\\/ads\\/campaigns(?:\\/([^/]+?))\\/send-report\\/?$/i",
    "end": true
   },
@@ -6003,7 +6015,7 @@
    "path": "/api/admin/ads/campaigns/:id/creatives",
    "name": "bound dispatch",
    "call": "ec96adef5ea34843",
-   "site": "src/server/adsRoutes.ts:841",
+   "site": "src/server/adsRoutes.ts:882",
    "regexp": "/^\\/api\\/admin\\/ads\\/campaigns(?:\\/([^/]+?))\\/creatives\\/?$/i",
    "end": true
   },
@@ -6015,7 +6027,7 @@
    "path": "/api/admin/ads/creatives/:id/img",
    "name": "bound dispatch",
    "call": "7903196e168ef277",
-   "site": "src/server/adsRoutes.ts:870",
+   "site": "src/server/adsRoutes.ts:911",
    "regexp": "/^\\/api\\/admin\\/ads\\/creatives(?:\\/([^/]+?))\\/img\\/?$/i",
    "end": true
   },
@@ -6027,7 +6039,7 @@
    "path": "/api/admin/ads/campaigns/:id/creatives/:crid",
    "name": "bound dispatch",
    "call": "3a5d4daecbdb5e55",
-   "site": "src/server/adsRoutes.ts:878",
+   "site": "src/server/adsRoutes.ts:919",
    "regexp": "/^\\/api\\/admin\\/ads\\/campaigns(?:\\/([^/]+?))\\/creatives(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -6039,7 +6051,7 @@
    "path": "/api/admin/ads/campaigns/:id/status",
    "name": "bound dispatch",
    "call": "c17c5db168c83a6d",
-   "site": "src/server/adsRoutes.ts:891",
+   "site": "src/server/adsRoutes.ts:932",
    "regexp": "/^\\/api\\/admin\\/ads\\/campaigns(?:\\/([^/]+?))\\/status\\/?$/i",
    "end": true
   },
@@ -6051,7 +6063,7 @@
    "path": "/api/admin/ads/campaigns/:id",
    "name": "bound dispatch",
    "call": "540b6aa1c5cc1083",
-   "site": "src/server/adsRoutes.ts:917",
+   "site": "src/server/adsRoutes.ts:958",
    "regexp": "/^\\/api\\/admin\\/ads\\/campaigns(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -6063,7 +6075,7 @@
    "path": "/api/admin/ads/campaigns/:id/rotate-report",
    "name": "bound dispatch",
    "call": "9b64aa0ea923958b",
-   "site": "src/server/adsRoutes.ts:928",
+   "site": "src/server/adsRoutes.ts:969",
    "regexp": "/^\\/api\\/admin\\/ads\\/campaigns(?:\\/([^/]+?))\\/rotate-report\\/?$/i",
    "end": true
   },
@@ -6075,7 +6087,7 @@
    "path": "/api/admin/ads/partner-links",
    "name": "bound dispatch",
    "call": "4bcfd5eef7c6bb05",
-   "site": "src/server/adsRoutes.ts:938",
+   "site": "src/server/adsRoutes.ts:979",
    "regexp": "/^\\/api\\/admin\\/ads\\/partner-links\\/?$/i",
    "end": true
   },
@@ -6087,7 +6099,7 @@
    "path": "/api/admin/ads/partner-links/:id/revoke",
    "name": "bound dispatch",
    "call": "5052a4b165cdaffc",
-   "site": "src/server/adsRoutes.ts:948",
+   "site": "src/server/adsRoutes.ts:989",
    "regexp": "/^\\/api\\/admin\\/ads\\/partner-links(?:\\/([^/]+?))\\/revoke\\/?$/i",
    "end": true
   },
