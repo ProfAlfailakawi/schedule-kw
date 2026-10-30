@@ -1929,7 +1929,7 @@ export default function App() {
            يبني الجدول يسلّم ويتابع. وصفةُ العرض الصرف لا تفتحه أصلاً — الخادمُ
            يردّ كتابتَها، وشاشةٌ كلُّ أزرارها مردودة ضجيجٌ في القائمة. */
         return (hasPerm(7) || hasPerm(14)) && !sessionRole.viewerOnly ? (
-          <StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} />
+          <StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} onNavigate={hasPerm(7) && !sessionRole.viewerOnly ? (view) => go(view as View) : undefined} />
         ) : (
           unauthorized()
         );

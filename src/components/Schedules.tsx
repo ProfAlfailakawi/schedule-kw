@@ -188,6 +188,7 @@ import type { CourseNature } from "../utils/courseNature";
 import { courseLabel, instructorLabel } from "../utils/courseLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
+import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
 import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
 import { historicalDurationMinutes, pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
@@ -2999,6 +3000,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
   /** الطلبُ الذي جاءت منه الإضافةُ المفتوحة، إن جاءت من وارد الأساتذة. */
   const pendingHandoff = useRef<RequestHandoff | null>(null);
+  /** «طلب شعبة» من الإرشاد فتح هذه الإضافة (src/utils/sectionRequestHandoff.ts): يُربط بها ما يُحفظ. */
+  const pendingSectionRequest = useRef<SectionRequestHandoff | null>(null);
 
   /* ── كل ما يخص موعداً واحداً يُمحى معه ───────────────────────────────────
    * نتائج الفحص، والاقتراحات، وملاحظات اللائحة، والاستعارة، والطلب الذي جاء
@@ -3026,6 +3029,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setRoomOwner(null);
     setTimeCounterOpen(false); setStartTimeLimitNotice(""); setEndTimeLimitNotice("");
     lastCheckFormKey.current = "";
+    /* «طلب شعبة» يخصّ المحرّرَ الذي فُتح له وحده: إغلاقُه أو فتحُ غيره يمحوه، فلا يُربط بالطلب موعدٌ لا يخصّه. */
+    pendingSectionRequest.current = null;
   };
   const openCreate = (seed?: CreateSeed) => {
       if (showMobileReadOnlyGate()) return;
@@ -3144,6 +3149,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       clearEditorTransients();
       /* طلبُ أستاذٍ فُتح ثم أُغلق دون حفظ لا يلحق بالموعد التالي. */
       pendingHandoff.current = null;
+      /* وكذلك «طلب شعبة» أُغلق محرّرُه دون حفظ: لا يُربط به موعدٌ يُضاف بعده لسببٍ آخر. */
+      pendingSectionRequest.current = null;
       setForm(blank());
       setCourseName("");
     };
@@ -4736,6 +4743,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     buildingId: form.buildingId, roomId: form.roomId, locationStatus: form.locationStatus, companionRoomId: form.companionRoomId || "",
     excludeId: editId || 0,
   });
+  /* ── بذرةٌ من «طلب شعبة»: المقرر والحرم والفصل من الطلب، والموعدُ والقاعةُ والأستاذ قرارُ اللجنة ── */
+  useEffect(() => {
+    if (mode !== "schedule" || !courses.length) return;
+    const seed = takeSectionRequestHandoff();
+    if (!seed) return;
+    openCreate({ courseId: seed.courseId, collegeId: seed.collegeId, sectionId: seed.sectionId, termId: seed.termId });
+    /* بعد openCreate: فتحُ المحرّر يمحو البذرةَ السابقة (clearEditorTransients)، وهذه بذرتُه هو. */
+    pendingSectionRequest.current = seed;
+    setMessage(sectionRequestNotice(seed));
+  }, [mode, courses.length]);
   const checkCache = useRef(new Map<string, { at: number; data: any }>());
   useEffect(() => { checkCache.current.clear(); }, [rows]);
   useEffect(() => {
@@ -5013,6 +5030,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ itemIndex: handoff.itemIndex, state: "fixed", scheduleId: createdRowId }),
         }).then(response => { if (!response.ok) throw new Error("حُفظ الموعد لكن تعذّر تسجيل قرار الطلب. راجع الوارد."); }).catch(issue => setError(issue.message));
+      }
+      /* الشعبةُ التي فُتحت لطلب الإرشاد تُربط به بعد الحفظ: المقررُ والفصلُ نفساهما، وإلا فهي إضافةٌ أخرى. */
+      const sectionSeed = pendingSectionRequest.current;
+      if (sectionSeed && editor !== "edit" && createdRowId && Number(form.AdCourseId || 0) === sectionSeed.courseId && Number(form.AdTermId || 0) === sectionSeed.termId) {
+        pendingSectionRequest.current = null;
+        void fetch(`/api/section-requests/${encodeURIComponent(sectionSeed.requestId)}/link`, {
+          method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scheduleIds: [createdRowId] }),
+        }).then(response => { if (!response.ok) throw new Error("حُفظ الموعد لكن تعذّر ربطه بطلب الإرشاد. اربطه من بطاقة الطلب في كشف التسجيل."); }).catch(issue => setError(issue.message));
       }
       rememberSave(form);
       markChanged(editor === "edit" ? editId : Number(saved?.id || 0) || null);
