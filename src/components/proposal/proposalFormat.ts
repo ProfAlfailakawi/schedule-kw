@@ -40,6 +40,28 @@ export function hoursShort(minutes: number): string {
   return num(hours);
 }
 
+/**
+ * عدّادُ الشعب الشاغرة الواحد. زرُّ «شاغرة» على الجدول وتبويبُها ورأسُ لوحتها كانت
+ * تعدّ كلٌّ بطريقته (٢ هنا و١ هناك للكلمة نفسها)؛ الآن كلُّها تقرأ من هنا: ما يُسند
+ * الآن = الجاهزة + التي للمراجعة، ومعه تفصيلُه.
+ */
+export function vacancyTally(list: ReadonlyArray<{ fit: string }>) {
+  let ready = 0, review = 0, checking = 0, used = 0, other = 0;
+  for (const entry of list) {
+    if (entry.fit === "ready") ready++;
+    else if (entry.fit === "review") review++;
+    else if (entry.fit === "checking") checking++;
+    else if (entry.fit === "used") used++;
+    else other++;
+  }
+  return { ready, review, checking, used, other, open: ready + review, total: list.length };
+}
+
+/** «1 جاهزة · 1 للمراجعة» — تفصيلُ ما يُسند الآن، بلا أصفار. */
+export function vacancyBreakdown(tally: { ready: number; review: number }): string {
+  return [tally.ready ? `${num(tally.ready)} جاهزة` : "", tally.review ? `${num(tally.review)} للمراجعة` : ""].filter(Boolean).join(" · ");
+}
+
 export function relativeSaved(at: number | null, now: number): string {
   if (!at) return "";
   const seconds = Math.max(0, Math.round((now - at) / 1000));

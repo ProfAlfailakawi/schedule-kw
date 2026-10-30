@@ -15,7 +15,7 @@ import {
 import { PROPOSAL_DAY_KEYS, PROPOSAL_DAY_SHORT, type VacancyFit, type VacancyVerdict } from "../../utils/studyProposal";
 import type { Workspace } from "./useProposalWorkspace";
 import type { VacancyItem } from "./ProposalWeekGrid";
-import { num, timeRange } from "./proposalFormat";
+import { minutesCompact, num, timeRange, vacancyTally } from "./proposalFormat";
 
 const FIT: Record<VacancyFit | "checking", { text: string; Icon: React.ComponentType<any> }> = {
   ready: { text: "متوافقة 100٪", Icon: CheckCircle2 },
@@ -54,11 +54,18 @@ export function useVacancies(ws: Workspace): VacancyRow[] {
   }, [ctx, vacancyVerdicts, vacancyCurrent, ops]);
 }
 
-function Delta({ Icon, label, value, unit, betterLower }: { Icon: React.ComponentType<any>; label: string; value: number; unit?: string; betterLower?: boolean }) {
+function Delta({ Icon, label, value, unit, betterLower, format }: {
+  Icon: React.ComponentType<any>; label: string; value: number; unit?: string; betterLower?: boolean;
+  /** صيغةُ القيمة إن لم تكن رقماً مجرّداً (المدّة: «3 س 30 د» بدل «210 د»). */
+  format?: (abs: number) => string;
+}) {
   const tone = value === 0 ? "same" : (value > 0) === !betterLower ? "up" : "warn";
   return (
     <span className="sp-delta" data-tone={tone} title={label}>
-      <Icon aria-hidden="true" /><bdi dir="ltr">{value > 0 ? "+" : value < 0 ? "−" : "="}{value ? num(Math.abs(value)) : ""}</bdi>{unit && value ? <small>{unit}</small> : null}
+      {/* المدّةُ نصٌّ عربيّ («3 س 30 د»): تُعزل باتجاهها هي، وإلا انقلب ترتيبُ الساعات والدقائق داخل عزلٍ يساريّ. */}
+      <Icon aria-hidden="true" />{format && value
+        ? <bdi>{value > 0 ? "+" : "−"}{format(Math.abs(value))}</bdi>
+        : <bdi dir="ltr">{value > 0 ? "+" : value < 0 ? "−" : "="}{value ? num(Math.abs(value)) : ""}</bdi>}{unit && value ? <small>{unit}</small> : null}
       <span className="sr-only">{label}</span>
     </span>
   );
@@ -85,7 +92,15 @@ export default function ProposalVacancies({ ws, rows, onAssigned }: { ws: Worksp
   const base = !ws.ops.length ? ws.ctx.current.metrics : ws.evalCurrent && ws.evaluation ? ws.evaluation.after.metrics : null;
   const good = rows.filter(r => r.fit === "ready" || r.fit === "review" || r.fit === "checking" || r.fit === "used");
   const others = rows.filter(r => !good.includes(r));
-  const readyCount = rows.filter(r => r.fit === "ready").length;
+  /* العدّادُ نفسه الذي يقرؤه التبويبُ وزرُّ الجدول: لا رقمان مختلفان لكلمة «شاغرة». */
+  const tally = vacancyTally(rows);
+  const checkingNow = ws.vacancyState === "checking" && !ws.vacancyCurrent;
+  const meter: Array<{ fit: string; n: number; text: string }> = [
+    { fit: "ready", n: tally.ready, text: "جاهزة" },
+    { fit: "review", n: tally.review, text: "للمراجعة" },
+    { fit: "used", n: tally.used, text: "في المقترح" },
+    { fit: "other", n: others.length, text: "غير متوافقة" },
+  ].filter(part => part.n > 0);
 
   const row = (r: VacancyRow) => {
     const { item } = r;
@@ -108,7 +123,7 @@ export default function ProposalVacancies({ ws, rows, onAssigned }: { ws: Worksp
             <span className="sp-vac-impact" aria-label="الأثر لو أُسندت">
               {a.loadUnits !== null && base.loadUnits !== null ? <Delta Icon={Scale} label="النصاب" value={a.loadUnits - base.loadUnits} unit="س" /> : null}
               <Delta Icon={CalendarDays} label="أيام الحضور" value={a.attendanceDays - base.attendanceDays} betterLower />
-              <Delta Icon={Hourglass} label="الفراغات" value={Math.round((a.gapMinutes - base.gapMinutes))} unit="د" betterLower />
+              <Delta Icon={Hourglass} label="الفراغات" value={Math.round((a.gapMinutes - base.gapMinutes))} format={minutesCompact} betterLower />
             </span>
           ) : reason ? <span className="sp-vac-why" data-fit={r.fit}>{reason}</span> : null}
         </button>
@@ -130,9 +145,20 @@ export default function ProposalVacancies({ ws, rows, onAssigned }: { ws: Worksp
         <span className="sp-vac-badge" aria-hidden="true"><UserRoundPlus /></span>
         <div>
           <b>شاغرة · هيئة تدريسية</b>
-          <small>{ws.vacancyState === "checking" && !ws.vacancyCurrent ? "جاري الفحص…" : `${num(readyCount)} متوافقة · ${num(rows.length)} في النطاق`}</small>
+          <small>{checkingNow ? "جاري الفحص…" : `${num(rows.length)} في النطاق`}</small>
         </div>
       </header>
+      {!checkingNow && meter.length ? (
+        <div className="sp-vac-summary">
+          {/* شريطٌ مقسوم بنسبة كلِّ حكم، ومفتاحُه أرقامٌ ملوّنة — الصورةُ قبل القائمة. */}
+          <span className="sp-vac-meter" aria-hidden="true">
+            {meter.map(part => <i key={part.fit} data-fit={part.fit} style={{ flexGrow: part.n }} />)}
+          </span>
+          <ul className="sp-vac-key" aria-label="أحكام الشعب الشاغرة">
+            {meter.map(part => <li key={part.fit} data-fit={part.fit}><i aria-hidden="true" /><b className="sp-num">{num(part.n)}</b>{part.text}</li>)}
+          </ul>
+        </div>
+      ) : null}
       {good.length ? <ul className="sp-vac-list">{good.map(row)}</ul> : <p className="sp-empty-line"><Clock3 aria-hidden="true" />لا شعبة شاغرة تتوافق مع جدوله الآن.</p>}
       {ws.vacancyPartial ? <p className="sp-empty-line"><Hourglass aria-hidden="true" />فُحصت أقرب الشعب أولاً؛ الباقي «لم تُفحص».</p> : null}
       {others.length ? (

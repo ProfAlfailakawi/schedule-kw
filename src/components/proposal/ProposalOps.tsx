@@ -7,12 +7,13 @@ import PlanBadge from "../PlanBadge";
  */
 import React from "react";
 import {
-  AlertTriangle, ArrowLeft, ArrowLeftRight, Check, LogOut, CircleHelp, Clock, FilePlus2, Hourglass, Pencil, Trash2, UserRoundPlus, Wand2, MessageSquareWarning, ThumbsUp,
+  AlertTriangle, ArrowLeft, ArrowLeftRight, Check, LogOut, CircleHelp, Clock, FilePlus2, GitCompareArrows, Hourglass, Pencil, Send, ShieldCheck, Trash2, UserRoundPlus, Wand2, MessageSquareWarning, ThumbsUp,
 } from "lucide-react";
 import type { StudyProposalOp, StudyProposalOpKind } from "../../types";
 import { OP_KIND_LABEL, daysOf, placeLabel, type GridItem, type ProposalEvaluation } from "../../utils/studyProposal";
 import { SlotPill } from "./ProposalWeekGrid";
 import type { Workspace } from "./useProposalWorkspace";
+import { num } from "./proposalFormat";
 
 const KIND_ICON: Record<StudyProposalOpKind, React.ComponentType<any>> = {
   assign: UserRoundPlus, create: FilePlus2, edit: Pencil, replace: ArrowLeftRight,
@@ -87,11 +88,27 @@ function OpCard({ ws, op, onEdit }: { key?: React.Key; ws: Workspace; op: StudyP
   );
 }
 
-export default function ProposalOps({ ws, onEdit }: { ws: Workspace; onEdit?: (opId: string) => void }) {
+/** الطريقُ من الفراغ إلى الإرسال، بثلاث محطات — رسمٌ لا شرح. */
+const EMPTY_STEPS: Array<{ text: string; Icon: React.ComponentType<any> }> = [
+  { text: "أضف شعبة أو أسند شاغرة", Icon: FilePlus2 },
+  { text: "راجع الفحص", Icon: ShieldCheck },
+  { text: "معاينة وإرسال", Icon: Send },
+];
+
+export default function ProposalOps({ ws, onEdit, emptyActions }: { ws: Workspace; onEdit?: (opId: string) => void; emptyActions?: React.ReactNode }) {
   if (!ws.ops.length) {
     return (
       <section className="sp-ops sp-ops-empty" aria-label="مواد المقترح">
-        <p><b>لا تغييرات بعد.</b> أسند شعبةً شاغرة أو أضف شعبة؛ يظهر أثرها على الجدول فوراً.</p>
+        <div className="sp-empty">
+          <span className="sp-empty-art" aria-hidden="true"><GitCompareArrows /></span>
+          <p className="sp-empty-title"><b>لا تغييرات بعد.</b> أسند شعبةً شاغرة أو أضف شعبة؛ يظهر أثرها على الجدول فوراً.</p>
+          <ol className="sp-empty-steps" aria-label="خطوات المقترح">
+            {EMPTY_STEPS.map(({ text, Icon }, index) => (
+              <li key={text}><span className="sp-empty-step-num" aria-hidden="true"><Icon /></span><span><small>{num(index + 1)}</small>{text}</span></li>
+            ))}
+          </ol>
+          {emptyActions ? <div className="sp-empty-actions">{emptyActions}</div> : null}
+        </div>
       </section>
     );
   }
