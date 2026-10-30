@@ -10,7 +10,7 @@ import {
 } from "../utils/appointmentMeasure";
 
 /**
- * ── «مقياس الكمال»: كم يأخذ الموعدُ الواحد — لمالك النظام ──────────────────────────
+ * ── «مؤشر سهولة الإدخال»: كم يأخذ الموعدُ الواحد — لمالك النظام ──────────────────────────
  *
  * لوحةٌ واحدة بلا شرح: متوسطُ الموعد بالثواني هذا الشهر وسهمُه عن الشهر الماضي، وتوزيعُ
  * المدة في خمسة أعمدة، ونسبةُ ما اصطدم بمانع، وأكثرُ الأدوات عوناً، والأجهزة، والجديدُ
@@ -131,19 +131,19 @@ export default function AppointmentMeasureCard({ className }: { className?: stri
   const head = (month?: string) => (
     <header className="entry-measure-head">
       <span className="entry-measure-icon" aria-hidden="true"><Gauge /></span>
-      <h2>مقياس الكمال</h2>
+      <h2>مؤشر سهولة الإدخال</h2>
       {month ? <small>{monthName(month)}</small> : null}
     </header>
   );
   if (load.status === "loading") {
-    return <section className={`${classes} is-loading`} aria-busy="true" aria-label="مقياس الكمال">{head()}<div className="entry-measure-skeleton" aria-hidden="true" /></section>;
+    return <section className={`${classes} is-loading`} aria-busy="true" aria-label="مؤشر سهولة الإدخال">{head()}<div className="entry-measure-skeleton" aria-hidden="true" /></section>;
   }
 
   const months = load.months;
   const at = months.findIndex(month => month.count > 0);
   if (at < 0) {
     return (
-      <section className={`${classes} is-empty`} aria-label="مقياس الكمال">
+      <section className={`${classes} is-empty`} aria-label="مؤشر سهولة الإدخال">
         {head(months[0]?.month)}
         <p className="entry-measure-empty"><Gauge aria-hidden="true" />لا قياس بعد</p>
       </section>
@@ -161,7 +161,7 @@ export default function AppointmentMeasureCard({ className }: { className?: stri
   const peak = Math.max(1, ...ENTRY_BUCKETS.map(bucket => focus.buckets[bucket]));
 
   return (
-    <section className={classes} aria-label="مقياس الكمال">
+    <section className={classes} aria-label="مؤشر سهولة الإدخال">
       {head(focus.month)}
       <div className="entry-measure-grid">
         <div className="entry-measure-tile entry-measure-hero">

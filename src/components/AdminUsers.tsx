@@ -2094,7 +2094,7 @@ export default function AdminUsers({
           تحديث السجل
         </SecondaryButton>,
       )}
-      {/* «مقياس الكمال» (src/utils/appointmentMeasure.ts): كم يأخذ الموعدُ الواحد — لحساب الإدارة الرئيسي وحده. */}
+      {/* «مؤشر سهولة الإدخال» (src/utils/appointmentMeasure.ts): كم يأخذ الموعدُ الواحد — لحساب الإدارة الرئيسي وحده. */}
       {rootAdmin ? <AppointmentMeasureCard /> : null}
       <div className="master-detail-shell audit-master-detail">
         <section className="master-pane">
