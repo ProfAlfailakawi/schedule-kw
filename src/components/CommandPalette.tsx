@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CornerDownLeft, Search } from "lucide-react";
+import { Command, CornerDownLeft, Search } from "lucide-react";
 
 /**
  * ── The command palette ────────────────────────────────────────────────────
@@ -232,6 +232,8 @@ export default function CommandPalette({ commands, onClose, dynamic, placeholder
           <span><kbd>↑</kbd><kbd>↓</kbd> تنقّل</span>
           <span><kbd><CornerDownLeft aria-hidden="true" /></kbd> تنفيذ</span>
           <span><kbd>Esc</kbd> إغلاق</span>
+          {/* ⌘K مرةً ثانية تُغلق اللوحة وتفتح بحث البرنامج كله. */}
+          <span><kbd><Command aria-hidden="true" /> K</kbd> بحث شامل</span>
         </footer>
       </div>
     </div>

@@ -8607,6 +8607,27 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return () => window.removeEventListener("keydown", onKey);
   }, [mode, paletteOpen, editor, pendingUndo, shortcutsBlocked]);
 
+  /* ── ⌘K الأولى للوحة هذه الشاشة ─────────────────────────────────────────────
+   * The shell's «بحث شامل» answers ⌘K on every screen, and on this one the same
+   * key opened both. The palette was drawn on top, yet the shell's field took
+   * the focus 30ms later — so every key typed, every arrow and Enter went to the
+   * search hidden beneath it, and a command run from here left that search
+   * covering the editor it had just opened. So the first ⌘K is taken here, in
+   * the capture phase ahead of the shell; a second ⌘K while the palette is open
+   * still passes through, closing it (the handler above) and opening «بحث شامل»
+   * — exactly what that second press did before. Nothing is taken away. */
+  useEffect(() => {
+    if (mode !== "schedule" || paletteOpen) return;
+    const firstPress = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setPaletteOpen(true);
+    };
+    window.addEventListener("keydown", firstPress, true);
+    return () => window.removeEventListener("keydown", firstPress, true);
+  }, [mode, paletteOpen]);
+
   const conflictIds = liveClash.ids;
   /**
    * The living board: a colleague saves, your screen already knows.

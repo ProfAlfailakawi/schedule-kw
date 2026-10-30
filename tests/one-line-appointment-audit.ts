@@ -266,6 +266,16 @@ const css = read("src/styles/43-one-line.css");
   check(/\/api\/location-registry\?/.test(opener) && /if \(editorRef\.current !== "create"\) return;/.test(opener) && /oneLinePlace\(registry, roomCode, roomHall/.test(opener)
     && /current\.buildingId \|\| current\.roomId \|\| current\.locationStatus/.test(opener), "E11 القاعة من سجلّ المنتقي نفسه، ولا تكتب فوق اختيارٍ قائم");
   check(/<CommandPalette\s+commands=\{commands\}\s+dynamic=\{oneLineCommands\}/.test(schedules), "E12 اللوحة تُعطى أوامر السطر");
+  /* «بحث شامل» في الإطار يجيب ⌘K أيضاً، ويأخذ التركيز بعد 30ms: كان كلُّ ما يُكتب يذهب تحت اللوحة الظاهرة. */
+  const app = read("src/App.tsx");
+  const claim = schedules.slice(schedules.indexOf("const firstPress = (event: KeyboardEvent) => {"), schedules.indexOf("const conflictIds = liveClash.ids;"));
+  check(/if \(mode !== "schedule" \|\| paletteOpen\) return;/.test(schedules) && /event\.preventDefault\(\);\s*event\.stopPropagation\(\);\s*setPaletteOpen\(true\);/.test(claim)
+    && /window\.addEventListener\("keydown", firstPress, true\);/.test(claim) && /window\.removeEventListener\("keydown", firstPress, true\);/.test(claim),
+    "K1 ⌘K الأولى للوحة الجدول وحدها (مرحلة الالتقاط، قبل «بحث شامل»)، فالكتابة تصل إلى اللوحة الظاهرة");
+  check(/if \(meta && event\.key\.toLowerCase\(\) === "k"\) \{\s*event\.preventDefault\(\);\s*setPaletteOpen\(value => !value\);/.test(schedules)
+    && /\(e\.metaKey \|\| e\.ctrlKey\) && e\.key\.toLowerCase\(\) === "k"\) \{\s*e\.preventDefault\(\);\s*setSearchOpen\(true\);/.test(app),
+    "K2 والثانيةُ كما كانت: تُغلق اللوحة ويفتح «بحث شامل» — لا يُنزع شيء");
+  check(/<kbd><Command aria-hidden="true" \/> K<\/kbd> بحث شامل/.test(palette), "K3 تذييل اللوحة يدلّ على «بحث شامل»");
 
   check(/countOf\(doubt!\.length, noun!\)/.test(preview) && /noun=\{AR\.course\}/.test(preview) && /noun=\{AR\.instructor\}/.test(preview), "V1 «؟» الالتباس بعددٍ من countOf");
   const order = ['tone="course"', 'tone="section"', 'tone="teacher"', "`ol-part ol-days", 'tone="time"', 'tone="room"'].map(token => preview.indexOf(token));
