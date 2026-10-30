@@ -52,7 +52,7 @@
 .seats-row-tags em.cool{background:var(--info-soft);color:var(--info)}
 .seats-row-tags em.warn{background:var(--warning-soft);color:var(--warning)}
 .seats-detail{display:grid;gap:14px;min-inline-size:0}
-.seats-created .seat-link-card{border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:var(--accent-softer)}
+.seats-created{justify-self:center;inline-size:min(100%,560px);padding:18px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:var(--r-xl);background:var(--accent-softer)}
 
 /* ── لوحة الكرسي ── */
 .seat-panel{color:var(--ink);display:grid;gap:14px;padding:20px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--surface);box-shadow:var(--shadow-sm);min-inline-size:0}
@@ -178,19 +178,12 @@
 .seat-scope-sections label.muted{color:var(--muted)}
 .seat-scope-tree input{inline-size:16px;block-size:16px;accent-color:var(--accent)}
 
-/* ── بطاقة الرابط ── */
-.seat-link-card{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;padding:16px;border-radius:var(--r-lg)}
-.seat-link-qr{inline-size:168px;block-size:168px;flex:none;display:grid;place-items:center;padding:10px;border-radius:var(--r-lg);background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-xs)}
-.seat-link-qr img{inline-size:100%;block-size:100%;image-rendering:pixelated}
-.seat-link-qr svg{inline-size:40%;block-size:40%;color:#9aa5a0}
-.seat-link-body{display:grid;gap:8px;flex:1;min-inline-size:220px}
-.seat-link-body>strong{font-size:var(--ix-card)}
-.seat-link-body>small{color:var(--muted);font-size:var(--t-sm);margin-top:-6px}
-.seat-link-url{display:block;padding:7px 10px;border-radius:var(--r-sm);background:var(--surface-2,var(--canvas));color:var(--muted);font-family:var(--font-mono);font-size:12px;overflow-wrap:anywhere}
-.seat-link-actions{display:flex;flex-wrap:wrap;gap:6px}
-.seat-link-actions .btn{min-block-size:40px}
-.seat-link-actions svg{inline-size:16px;block-size:16px}
-.seat-link-done{justify-self:start;border:0;background:none;color:var(--muted);font:inherit;font-size:var(--t-sm);text-decoration:underline;cursor:pointer}
+/* ── «بطاقة الدخول» في الكراسي: البطاقة نفسها التي في «المستخدمون» (account-invitation.css) ── */
+.seat-access{display:grid;gap:10px}
+.seat-sheet.is-card{padding-block-start:56px}
+.seat-access-note{display:flex;align-items:flex-start;gap:8px;margin:0;padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2,var(--canvas));color:var(--muted);font-size:var(--t-xs);line-height:1.85}
+.seat-access-note svg{inline-size:15px;block-size:15px;flex:none;margin-top:3px;color:var(--accent)}
+.seat-link-done{justify-self:center;padding:6px 14px;border:0;background:none;color:var(--muted);font:inherit;font-size:var(--t-sm);text-decoration:underline;cursor:pointer}
 .seat-credentials{display:grid;gap:6px;margin:0;padding:10px 12px;border-radius:var(--r-md);background:var(--warning-soft)}
 .seat-credentials>div{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .seat-credentials dt{display:inline-flex;align-items:center;gap:6px;color:var(--warning);font-size:var(--t-sm);font-weight:700}
@@ -225,8 +218,7 @@
   .seat-form-grid,.seat-form-grid.three{grid-template-columns:1fr}
   .seat-members li{flex-wrap:wrap}
   .seat-member-actions{inline-size:100%;justify-content:flex-start;padding-inline-start:50px}
-  .seat-link-card{justify-content:center}
-  .seat-link-qr{inline-size:200px;block-size:200px}
+  .seat-sheet.is-card{padding-block-start:54px}
 }
 @media (prefers-reduced-motion:reduce){
   .seat-sheet-scrim,.seat-sheet,.seat-drawer,.seat-drawer-backdrop,.seat-skeleton{animation:none}

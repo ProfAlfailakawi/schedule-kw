@@ -6,3 +6,18 @@
 
 .invitation-card footer a{display:inline-block;max-inline-size:100%;font:700 17px/1.6 "Plex Arabic",sans-serif;color:#123e35;text-decoration:none;border-bottom:1px solid #d5bd84}.invitation-card footer a:hover{text-decoration:underline}.invitation-card footer a:focus-visible{outline:2px solid #123e35;outline-offset:3px}
 .invitation-card-qr{display:block;width:112px;height:112px;margin:0 auto 10px;padding:7px;border-radius:12px;background:#fff;image-rendering:pixelated}
+
+/* ── البطاقة المشتركة (AccessCard): «المستخدمون» و«الكراسي» ── */
+.access-card{display:flex;flex-direction:column;gap:14px}
+.access-card>.invitation-password{margin-block:6px 0}
+.access-card>.invitation-feedback{margin:0}
+.access-card-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.access-card-actions button{min-inline-size:0;font-weight:600}
+.invitation-card-qr.is-empty{display:grid;place-items:center;color:#9aa5a0;box-sizing:border-box}
+.invitation-card-qr.is-empty svg{width:40%;height:40%}
+.access-card-whatsapp{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:10px 14px;border-radius:12px;background:#1f7a55;color:#fff;font-size:13px;font-weight:700;text-decoration:none}
+.access-card-whatsapp svg{width:18px;height:18px}
+.access-card-whatsapp:hover{background:#18664a}
+.access-card-whatsapp:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* واتساب هو الزر الأول حين يُعرف الجوال، فيصير «انسخ الرسالة» ثانوياً كالبقية. */
+.access-card-actions.has-whatsapp button:first-child{background:var(--surface);color:var(--ink);border-color:var(--line)}
