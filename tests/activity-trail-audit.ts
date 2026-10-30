@@ -17,11 +17,12 @@ import path from "node:path";
 import { waitForDemoSeed } from "./helpers/demoSeed";
 import { startDemoServer, type LiveServer } from "./helpers/liveServer";
 import {
-  classifyTrailRoute, TRAIL_ROUTES, trailAudience, trailEntryVisible, trailPeriod, trailPersonKey, trailReadKeys,
+  classifyTrailRoute, TRAIL_ROUTES, trailAudience, trailEntryVisible, trailPeriod, trailPersonFilterKeys, trailPersonKey, trailReadKeys,
   type ActivityTrailEntry, type TrailSeat, type TrailViewer,
 } from "../src/utils/activityTrail";
 import { buildTrailEntry } from "../src/server/activityTrail";
 import { civilTailOf } from "../src/utils/seats";
+import { currentTrailStampOwner, forgetTrailStamps, keepTrailStamp, readTrailStamp, setTrailStampOwner } from "../src/components/trail/trailStampMemory";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -84,6 +85,49 @@ const same = (a: Iterable<unknown>, b: Iterable<unknown>) => JSON.stringify([...
   check(trailEntryVisible(audience22, handover), "T1 تسليمُ رئاسة فريقٍ بيد غيره يظهر في أثر ذلك الفريق");
   const keys = trailReadKeys(trailAudience({ userId: 15, isAdmin: false, kind: "holder", seatRole: "departmentHead", colleges: [1], sections: ["1:1"] }, seats), [5, 4]);
   check(keys.length === 6 && keys.every(key => key.field === "team"), "T1 القراءةُ سؤالٌ مفهرسٌ لكل فريقٍ في كل فصل", keys);
+  /* مراجعة #332: حركةُ نائب رئيس القسم تحت مفتاح عضويته — والعميدُ يقرأ فريقَ رئيس القسم كلَّه ثم يصفّي. */
+  const deanAudience = trailAudience({ userId: 10, isAdmin: false, kind: "holder", seatRole: "dean", colleges: [1], sections: [] }, seats);
+  const deanKeys = trailReadKeys(deanAudience, [5]);
+  check(deanKeys.some(key => key.field === "team" && key.value === "15:5") && deanKeys.some(key => key.field === "team" && key.value === "30:5")
+    && !deanKeys.some(key => key.field === "person"), "T1 العميدُ يقرأ فرقَ رؤساء الأقسام (فلا تسقط حركةُ النائب)", deanKeys);
+  const deputyRow = { u: 15, m: "deputy-head", dk: "deputy" as const, team: "15:5" };
+  const underRow = { u: 15, m: "under-head", dk: "member" as const, team: "15:5" };
+  check(deanKeys.some(key => key.value === deputyRow.team) && trailEntryVisible(deanAudience, deputyRow) && !trailEntryVisible(deanAudience, underRow),
+    "T1 حركةُ النائب تُقرأ وتُرى، وعضوٌ تحت رئيس القسم يُقرأ ولا يُرى");
+  /* مرشّحُ الشخص يُسأل بمفتاحه هو، ولمن في الرؤية وحده. */
+  const headAudience = trailAudience({ userId: 15, isAdmin: false, kind: "holder", seatRole: "departmentHead", colleges: [1], sections: ["1:1"] }, seats);
+  const memberAudience = trailAudience({ userId: 16, isAdmin: false, kind: "member", memberId: "sara", seatRole: "committeeChair", colleges: [1], sections: ["1:1"] }, seats);
+  check(same(trailPersonFilterKeys(headAudience, [5, 4], "16~sara").map(k => k.value), ["16~sara:5", "16~sara:4"])
+    && trailPersonFilterKeys(headAudience, [5], "22~huda").length === 0
+    && trailPersonFilterKeys(memberAudience, [5], "16~h").length === 0
+    && same(trailPersonFilterKeys(memberAudience, [5], "16~sara").map(k => k.value), ["16~sara:5"])
+    && same(trailPersonFilterKeys(deanAudience, [5], "15~deputy-head").map(k => k.value), ["15~deputy-head:5"]),
+    "T1 مرشّحُ الشخص: مفتاحُه هو لمن في الرؤية، ولا مفتاحَ لمن خارجها (وما يعود يُصفّى بالحكم نفسه سطراً سطراً)");
+}
+
+/* ── مراجعة #332: ذاكرةُ البصمة لصاحب الجلسة وحده ───────────────────────── */
+{
+  forgetTrailStamps();
+  setTrailStampOwner("16::");
+  keepTrailStamp(currentTrailStampOwner(), 418, { who: "د. منى", at: "2026-10-30T07:00:00Z", kind: "edit" });
+  const mine = readTrailStamp(418)?.who === "د. منى";
+  setTrailStampOwner("10::");
+  const afterSwitch = readTrailStamp(418);
+  keepTrailStamp("16::", 418, { who: "د. منى", at: "2026-10-30T07:00:00Z", kind: "edit" });
+  const lateAnswer = readTrailStamp(418);
+  setTrailStampOwner("16::");
+  const backAgain = readTrailStamp(418);
+  keepTrailStamp(currentTrailStampOwner(), 419, { who: "سارة", at: "2026-10-30T07:00:00Z", kind: "add" });
+  forgetTrailStamps();
+  setTrailStampOwner("17::");
+  check(mine && afterSwitch === undefined && lateAnswer === undefined && backAgain === undefined && readTrailStamp(419) === undefined,
+    "مراجعة: البصمةُ المحفوظة لا تصل جلسةً أخرى على الجهاز نفسه (تبديلُ الهوية والخروجُ يمحوانها، والجوابُ المتأخر لا يُحفظ لغير سائله)");
+  const source = fs.readFileSync("src/App.tsx", "utf8");
+  check(/forgetTrailStamps\(\);/.test(source) && /setTrailStampOwner\(user \?/.test(source) && !/new Map<number/.test(fs.readFileSync("src/components/trail/TrailStamp.tsx", "utf8")),
+    "مراجعة: الواجهةُ تربط الذاكرة بالجلسة وتمحوها عند الخروج، ولا ذاكرةَ بمعرّف الموعد وحده");
+  const sheet = fs.readFileSync("src/components/trail/TrailSheet.tsx", "utf8");
+  check(/query\.set\("person", person\)/.test(sheet) && /query\.set\("kind", kind\)/.test(sheet) && /\[person, kind\]\);/.test(sheet),
+    "مراجعة: مرشّحا الشخص والنوع يُسألان على الخادم عند كل تغيير");
 }
 
 /* ── T2: ما يُسجَّل ─────────────────────────────────────────────────────── */
@@ -223,6 +267,13 @@ try {
   const headView = await trail();
   check(["سارة", "خالد", "ريم"].every(name => headView.entries.some(row => row.who === name)) && headView.people.some(face => face.name === "سارة" && face.week > 0),
     "T7 رئيس القسم يرى أعضاء اللجنة والإرشاد بوجوهٍ وحلقات", headView.people);
+  const sara = headView.people.find(face => face.name === "سارة");
+  const onlySara = (await json(`/api/activity-trail?person=${encodeURIComponent(sara?.key || "")}`)).body;
+  check(Boolean(sara) && onlySara.entries.length === sara.total && onlySara.entries.every((row: any) => row.key === sara.key),
+    "T7 مرشّحُ الشخص على الخادم: كلُّ حركاته، بعددِ حلقته", { face: sara, n: onlySara?.entries?.length });
+  const edits = (await json("/api/activity-trail?kind=edit")).body;
+  check(edits.entries.length > 0 && edits.entries.every((row: any) => row.kind === "edit") && edits.entries.length === (edits.kinds?.edit || 0),
+    "T7 مرشّحُ النوع على الخادم", { n: edits?.entries?.length, kinds: edits?.kinds });
   await as("viceDean");
   const vice = await trail();
   check(vice.audience === "none" && vice.entries.length === 0, "T7 العميد المساعد: لا شيء", vice);

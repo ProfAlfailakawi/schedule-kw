@@ -63,6 +63,7 @@ import { isInvitationHash } from "./utils/invitationLink";
 import ChangePassword from "./components/ChangePassword";
 import SeatDrawer from "./components/seats/SeatDrawer";
 import TrailButton from "./components/trail/TrailButton";
+import { forgetTrailStamps, setTrailStampOwner } from "./components/trail/trailStampMemory";
 import { seatActorCaption, type SeatActor } from "./utils/seats";
 
 /** من يُفتح له «👣 الأثر» من بطاقة الحساب، لا من رأس فريقه وحده. */
@@ -657,6 +658,11 @@ export default function App() {
    * وتختفي حين لا شيء ينتظر. */
   const [barterPending, setBarterPending] = useState(0);
   useEffect(() => { setTelemetryOwner(Number(user?.SystemUserId || 0)); }, [user?.SystemUserId]);
+  /* بصمةُ «آخر تعديل» محفوظةٌ لصاحب الجلسة وحده: الحسابُ والعضو، وأيُّ تبديلٍ يمحوها. */
+  useEffect(() => {
+    const actor = (user as any)?.SeatActor as SeatActor | undefined;
+    setTrailStampOwner(user ? `${Number(user.SystemUserId || 0)}:${actor?.kind || ""}:${actor?.memberId || ""}` : "");
+  }, [user?.SystemUserId, (user as any)?.SeatActor?.memberId, (user as any)?.SeatActor?.kind]);
   /* The three dock badges below poll on a timer, and a timer does not know
      whether anyone is looking: a tab left open overnight asked all night, and
      every answer was a request billed and a query read. They rest with the tab
@@ -1667,6 +1673,7 @@ export default function App() {
     await forgetPushDevice().catch(() => undefined);
     if (user) markPushActive(String(user.SystemUserId || user.Name || ""), false);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    forgetTrailStamps();
     forgetWarmStarts();
     await forgetCachedReads();
     setUser(null);

@@ -8708,7 +8708,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * news: a change made anywhere reaches this board within seconds, by the same
    * quiet scoped re-read the stream would have asked for.
    */
-  const [liveState, setLiveState] = useState<LiveState>({ company: 0, connected: false });
+  const [liveState, setLiveState] = useState<LiveState>({ company: 0, connected: false, peers: [], team: null });
   useEffect(() => onLiveState(setLiveState), []);
   const [liveShared, setLiveShared] = useState(false);
   useEffect(() => {

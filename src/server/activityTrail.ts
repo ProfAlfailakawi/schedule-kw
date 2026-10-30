@@ -18,7 +18,7 @@ import { roleDefinition, type AcademicRole } from "../utils/academicRoles";
 import { currentTermId, sortTermsNewest } from "../utils/termSequence";
 import {
   classifyTrailRoute, clipTrail, isTrailKind, scopeSets, TRAIL_TEXT, trailAudience, trailEntryVisible, trailPeriod,
-  trailPersonKey, trailPersonTermKey, trailReadKeys, trailTeamKey, TRAIL_KINDS,
+  trailPersonFilterKeys, trailPersonKey, trailPersonTermKey, trailReadKeys, trailTeamKey, TRAIL_KINDS,
   type ActivityTrailEntry, type TrailActorKind, type TrailAudience, type TrailKind, type TrailSeat,
 } from "../utils/activityTrail";
 
@@ -203,12 +203,17 @@ app.get("/api/activity-trail", requireAuth, async (req: AuthenticatedRequest, re
     res.json({ audience: audience.mode === "none" ? "none" : "empty", period, people: [], kinds: {}, entries: [], truncated: false });
     return;
   }
-  const keys = trailReadKeys(audience, terms);
-  const perKey = Math.max(20, Math.min(120, Math.ceil(TRAIL_READ_BUDGET / Math.max(1, keys.length))));
+  const person = String(req.query.person || "").slice(0, 120);
+  const kind = String(req.query.kind || "");
+  /* المرشّحان على الخادم لا على الصفحة الأولى: الشخصُ يُسأل مفتاحُه هو، والنوعُ يُقرأ له أكثر،
+     فلا يُرى «لا حركة» لمن حلقتُه تقول غير ذلك. */
+  const keys = person ? trailPersonFilterKeys(audience, terms, person) : trailReadKeys(audience, terms);
+  const budget = isTrailKind(kind) ? TRAIL_READ_BUDGET * 3 : TRAIL_READ_BUDGET;
+  const perKey = person ? 200 : Math.max(20, Math.min(isTrailKind(kind) ? 200 : 120, Math.ceil(budget / Math.max(1, keys.length))));
   const termSet = new Set(terms);
   /* الحكمُ يُعاد على كل سطر: لا يصل الواجهةَ سطرٌ خارج قرار المالك ولو أعاده سؤالٌ أوسع. */
-  const rows = (await Repository.listActivityTrail(keys, perKey))
-    .filter(row => termSet.has(Number(row.term)) && trailEntryVisible(audience, row));
+  const rows = keys.length ? (await Repository.listActivityTrail(keys, perKey))
+    .filter(row => termSet.has(Number(row.term)) && trailEntryVisible(audience, row)) : [];
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const people = new Map<string, { key: string; name: string; seat: string; week: number; total: number }>();
   for (const row of rows) {
@@ -218,8 +223,6 @@ app.get("/api/activity-trail", requireAuth, async (req: AuthenticatedRequest, re
     if (row.at >= weekAgo) face.week += 1;
     people.set(key, face);
   }
-  const person = String(req.query.person || "").slice(0, 120);
-  const kind = String(req.query.kind || "");
   const ofPerson = person ? rows.filter(row => trailPersonKey(row.u, row.m === "h" ? undefined : row.m) === person) : rows;
   const kinds = Object.fromEntries(TRAIL_KINDS.map(k => [k, ofPerson.filter(row => row.kind === k).length]).filter(([, n]) => Number(n) > 0));
   const shown = isTrailKind(kind) ? ofPerson.filter(row => row.kind === kind) : ofPerson;

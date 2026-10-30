@@ -216,6 +216,7 @@ test:activity-trail
 test:seat-access-card
 test:first-login-password
 test:colleague-guard-measure
+test:colleagues-advising-registration
 test:quick-studio-family
 test:lecture-stick-own
 test:section-requests

@@ -18,6 +18,7 @@ interface TrailBody {
   audience: string;
   period: { current: { name: string } | null; previous: { name: string } | null };
   people: Face[];
+  kinds: Partial<Record<TrailKind, number>>;
   entries: Entry[];
   truncated: boolean;
 }
@@ -53,27 +54,33 @@ function Delta({ entry }: { entry: Entry }) {
 
 export default function TrailSheet({ onClose }: { onClose: () => void }) {
   const ref = useDrawerA11y<HTMLElement>(onClose);
+  /* `body`: القراءةُ الأولى بلا مرشّح — الوجوهُ والمدة والفراغ. `view`: ما يعيده الخادم للمرشّح الحالي،
+     فالشخصُ والنوعُ يُسألان على الخادم لا على الصفحة الأولى (لا «لا حركة» لمن حلقتُه تعدّ). */
   const [body, setBody] = useState<TrailBody | null>(null);
+  const [view, setView] = useState<TrailBody | null>(null);
   const [failed, setFailed] = useState(false);
   const [person, setPerson] = useState("");
   const [kind, setKind] = useState<TrailKind | "">("");
   const [open, setOpen] = useState("");
   useEffect(() => {
     let alive = true;
-    fetch("/api/activity-trail", { cache: "no-store" })
+    const query = new URLSearchParams();
+    if (person) query.set("person", person);
+    if (kind) query.set("kind", kind);
+    const wanted = `${person}|${kind}`;
+    fetch(`/api/activity-trail${query.toString() ? `?${query}` : ""}`, { cache: "no-store" })
       .then(response => response.ok ? response.json() : Promise.reject(new Error("trail")))
-      .then(next => { if (alive) setBody(next); })
+      .then((next: TrailBody) => {
+        if (!alive) return;
+        if (wanted === "|") setBody(current => current || next);
+        setView({ ...next, people: [] });
+      })
       .catch(() => { if (alive) setFailed(true); });
     return () => { alive = false; };
-  }, []);
+  }, [person, kind]);
 
-  const ofPerson = useMemo(() => (body?.entries || []).filter(entry => !person || entry.key === person), [body, person]);
-  const counts = useMemo(() => {
-    const out: Partial<Record<TrailKind, number>> = {};
-    for (const entry of ofPerson) out[entry.kind] = (out[entry.kind] || 0) + 1;
-    return out;
-  }, [ofPerson]);
-  const shown = useMemo(() => ofPerson.filter(entry => !kind || entry.kind === kind), [ofPerson, kind]);
+  const shown = useMemo(() => (view?.entries || []).filter(entry => (!person || entry.key === person) && (!kind || entry.kind === kind)), [view, person, kind]);
+  const counts = view?.kinds || {};
   const days = useMemo(() => {
     const groups: Array<{ label: string; items: Entry[] }> = [];
     for (const entry of shown) {
@@ -165,7 +172,7 @@ export default function TrailSheet({ onClose }: { onClose: () => void }) {
               ))}
             </ol>
             {!shown.length ? <p className="trail-empty-line">لا حركة بهذا المرشّح.</p> : null}
-            {body.truncated ? <p className="trail-more">الأحدث فقط</p> : null}
+            {view?.truncated ? <p className="trail-more">الأحدث فقط</p> : null}
           </>
         ) : null}
       </aside>

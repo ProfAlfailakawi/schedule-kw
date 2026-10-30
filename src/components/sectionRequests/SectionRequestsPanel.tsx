@@ -13,6 +13,10 @@ import SearchableSelect from "../SearchableSelect";
 import { Notice, PrimaryButton, SecondaryButton } from "../ui";
 import { AR, countOf, nounFor } from "../../utils/arabicCount";
 import { onLiveSignal } from "../../utils/livePulse";
+import { ColleagueWorkNotice } from "../ColleagueHoldNotice";
+import { errorWithCode, useStaleWrite } from "../StaleWriteToast";
+import { useTeamPeers, useTeamWork } from "../../hooks/useTeamWork";
+import { workClashes, type TeamPeer } from "../../utils/teamWork";
 import { putSectionRequestHandoff } from "../../utils/sectionRequestHandoff";
 import {
   PERIOD_ICON, PERIOD_LABEL, SECTION_REQUEST_PERIODS, STAGE_LABEL, parsePastedStudents, registrationChanges,
@@ -22,7 +26,9 @@ import "./section-requests.css";
 
 interface StudentRow { id: string; source: "masari" | "paste"; name: string; civilTail: string; approved?: boolean; registered: boolean }
 interface RequestRow {
-  id: string; termId: number; collegeId: number; collegeName: string; sectionId: number; sectionName: string;
+  id: string; termId: number;
+  /** ختمُ الإصدار: تحمله كلُّ كتابة، فلا تُكتب فوق انتقالٍ لم يُرَ (src/utils/staleWrite.ts). */
+  rev: number; collegeId: number; collegeName: string; sectionId: number; sectionName: string;
   fromSectionId: number; fromSectionName: string; courseId: number; courseCode: string; courseName: string;
   period: SectionRequestPeriod; count: number; note: string; stage: SectionRequestStage; timeline: TimelineStep[]; counts: SectionRequestCounts;
   sectionsNeeded: number; maxStudent: number; closedNote: string; createdAt: string; createdBy: string; createdByRole: string;
@@ -48,7 +54,7 @@ async function call(url: string, init?: RequestInit) {
   const text = await response.text();
   let data: any = {};
   try { data = text ? JSON.parse(text) : {}; } catch { throw new Error(response.ok ? "وصل ردٌّ غير متوقّع من الخادم." : `الخادم مشغول الآن (${response.status}).`); }
-  if (!response.ok) throw new Error(data.error || "تعذّر التنفيذ.");
+  if (!response.ok) throw errorWithCode(data.error || "تعذّر التنفيذ.", data.code);
   return data;
 }
 
@@ -111,7 +117,13 @@ function StudentPicker({ students, initial, verb, allLabel, busy, onSubmit, onCa
 }
 
 /* ── بطاقةُ الطلب ─────────────────────────────────────────────────────────── */
-function RequestCard({ row, onChanged, onNavigate }: { key?: React.Key; row: RequestRow; onChanged: () => void; onNavigate?: (view: string) => void }) {
+function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
+  key?: React.Key; row: RequestRow; onChanged: () => void; onNavigate?: (view: string) => void;
+  /** زملاءُ الفريق: من يعمل الآن على هذا الطلب نفسه يُقال على البطاقة. */
+  peers: readonly TeamPeer[];
+  /** «حدّث ثم أعد»: كتب زميلٌ في الطلب قبلي. يُعيد true إن كان الخطأُ ذاك. */
+  onStale: (error: unknown) => boolean;
+}) {
   const [mode, setMode] = useState<"" | "approve" | "register" | "decline">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -121,10 +133,27 @@ function RequestCard({ row, onChanged, onNavigate }: { key?: React.Key; row: Req
   const decides = powers.committee || powers.registration;
   const approvedRows = row.students.filter(student => student.approved === true);
 
-  const act = async (path: string, body: unknown) => {
+  /* ما أفتحه في البطاقة (اعتماد، تسجيل، اعتذار) أو أكتبه الآن: هذا الطلب ما أعمل عليه. */
+  useTeamWork(mode || busy ? { kind: "sectionRequest", id: row.id, label: row.courseName.slice(0, 40) } : null);
+  const clashes = workClashes(peers, { kind: "sectionRequest", id: row.id });
+  /* قائمةٌ فُتحت (اعتماد، تسجيل، اعتذار) تبقى بختم ما رأيتُه حين فتحتُها: التحديثُ الحيّ يُجدّد البطاقة
+     تحتها، لكن اختياري بُني على تلك النسخة — فإن حفظ زميلٌ بينهما رُدّ الحفظُ بـ«حدّث ثم أعد». */
+  const [modeRev, setModeRev] = useState<number | null>(null);
+  useEffect(() => {
+    if (!mode) { setModeRev(null); return; }
+    setModeRev(current => current ?? row.rev);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+  const seenRev = modeRev ?? row.rev;
+  /* كلُّ كتابةٍ تحمل ختمَ ما رأيتُه؛ والكتابةُ الثانية في سلسلةٍ واحدة تحمل ختمَ الأولى. */
+  const act = async (path: string, body: Record<string, unknown>, rev = seenRev): Promise<number | null> => {
     setBusy(true); setError("");
-    try { await call(`/api/section-requests/${encodeURIComponent(row.id)}/${path}`, { method: "POST", body: JSON.stringify(body) }); setMode(""); onChanged(); }
-    catch (e: any) { setError(e?.message || "تعذّر التنفيذ."); }
+    try {
+      const out = await call(`/api/section-requests/${encodeURIComponent(row.id)}/${path}`, { method: "POST", body: JSON.stringify({ ...body, rev }) });
+      setMode(""); onChanged();
+      return Number(out?.rev ?? rev + 1);
+    }
+    catch (e: any) { if (!onStale(e)) setError(e?.message || "تعذّر التنفيذ."); return null; }
     finally { setBusy(false); }
   };
   const openInWorkspace = () => {
@@ -168,6 +197,8 @@ function RequestCard({ row, onChanged, onNavigate }: { key?: React.Key; row: Req
 
       <Timeline steps={row.timeline} stage={stage} />
 
+      <ColleagueWorkNotice clashes={clashes} className="srq-colleague" />
+
       {row.note ? <p className="srq-note">💬 {row.note}</p> : null}
       {stage === "declined" && row.closedNote ? <p className="srq-note is-declined">↩️ {row.closedNote}</p> : null}
 
@@ -208,8 +239,9 @@ function RequestCard({ row, onChanged, onNavigate }: { key?: React.Key; row: Req
             if (all) { void act("register", { all: true }); return; }
             const { add, drop } = registrationChanges(approvedRows.filter(s => s.registered).map(s => s.id), ids);
             void (async () => {
-              if (add.length) await act("register", { studentIds: add, registered: true });
-              if (drop.length) await act("register", { studentIds: drop, registered: false });
+              let rev: number | null = seenRev;
+              if (add.length) rev = await act("register", { studentIds: add, registered: true }, rev);
+              if (drop.length && rev !== null) await act("register", { studentIds: drop, registered: false }, rev);
               if (!add.length && !drop.length) setMode("");
             })();
           }} onCancel={() => setMode("")} />
@@ -397,7 +429,10 @@ export default function SectionRequestsPanel({ collegeId, sectionId, termId, col
     catch (e: any) { setError(e.message); setRows([]); }
   }, [termId]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => onLiveSignal(["notify"], () => void load()), [load]);
+  /* «work»: حفظُ زميلٍ في الكلية والفصل نفسيهما يصل في نبضته التالية، بلا إعادة تحميل. */
+  useEffect(() => onLiveSignal(["notify", "work"], () => void load()), [load]);
+  const { peers } = useTeamPeers();
+  const { staleToast, catchStale } = useStaleWrite(() => load());
   /* «طلب شعبة» للإرشاد وحده: الخادمُ يقول إن كان هذا الحساب يرسل من نطاق القسم المختار. */
   useEffect(() => {
     setCanCompose(false);
@@ -444,8 +479,9 @@ export default function SectionRequestsPanel({ collegeId, sectionId, termId, col
       {sent ? <Notice type="success" inline onDismiss={() => setSent(false)}>وصل الطلبُ لجنةَ الجدول، ويصلك إشعارٌ عند الاعتماد.</Notice> : null}
       {composing ? <Compose collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} onCancel={() => setComposing(false)} onSent={() => { setComposing(false); setSent(true); void load(); }} /> : null}
       {shown.length ? (
-        <div className="srq-list">{shown.map(row => <RequestCard key={row.id} row={row} onChanged={() => void load()} onNavigate={onNavigate} />)}</div>
+        <div className="srq-list">{shown.map(row => <RequestCard key={row.id} row={row} onChanged={() => void load()} onNavigate={onNavigate} peers={peers} onStale={catchStale} />)}</div>
       ) : !composing ? <p className="srq-empty">لا طلبات شعبٍ بعد. طلبٌ واحد يكفي: المقرر، والفترة، والطلبة.</p> : null}
+      {staleToast}
     </section>
   );
 }

@@ -434,7 +434,7 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
     "S19 قرارات الكشف ترسل نبضة الإشعارات — مجمّعةً في ثلاث ثوانٍ");
   // The sheet hears it through the tab's pulse now (utils/livePulse.ts), not a
   // stream of its own; the notify clock is what the pulse reports.
-  check(read("src/components/StudentRegistration.tsx").includes('onLiveSignal(["notify"], soon)'), "S19 والكشف المفتوح يعيد القراءة عندها");
+  check(/onLiveSignal\(\["notify"(?:, "work")?\], soon\)/.test(read("src/components/StudentRegistration.tsx")), "S19 والكشف المفتوح يعيد القراءة عندها");
   check(between(server, "function broadcastNotify(", "for (const prefix of").includes("notifyClock.bump(demoSessionId);"), "S19 والنبضة تحمل الخبر لمن لا خيط له");
 }
 

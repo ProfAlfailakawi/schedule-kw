@@ -274,9 +274,25 @@ export function trailReadKeys(audience: TrailAudience, terms: number[]): Array<{
   if (audience.mode === "all") return terms.map(term => ({ field: "term" as const, value: term }));
   return terms.flatMap(term => [
     ...audience.teams.map(id => ({ field: "team" as const, value: trailTeamKey(id, term) })),
-    ...audience.holders.map(id => ({ field: "person" as const, value: trailPersonTermKey(trailPersonKey(id), term) })),
+    /* رئيسُ القسم ونائبُه: يُقرأ فريقُه كلُّه (صغيرٌ: بلا أعضاء عادةً) ثم يُصفّى بـtrailEntryVisible —
+       فحركةُ النائب، وهي تحت مفتاح عضويته، لا تسقط من أثر العميد. */
+    ...audience.holders.map(id => ({ field: "team" as const, value: trailTeamKey(id, term) })),
     ...audience.persons.map(key => ({ field: "person" as const, value: trailPersonTermKey(key, term) })),
   ]);
+}
+
+/**
+ * مرشّحُ الشخص على الخادم: يُسأل مفتاحُ ذلك الشخص نفسه (لا الصفحةُ الأولى من الفريق)، فلا يغيب عنه
+ * ما بعد حدّ الصفحة. ولا يُسأل إلا إن كان الشخصُ في ما يراه القارئ — وإلا فلا مفتاح.
+ */
+export function trailPersonFilterKeys(audience: TrailAudience, terms: number[], person: string): Array<{ field: "person"; value: string }> {
+  const match = /^(\d+)~([^:~]+)$/.exec(String(person || ""));
+  if (!match || audience.mode === "none") return [];
+  const u = Number(match[1]), m = match[2];
+  const reachable = audience.mode === "all"
+    || trailEntryVisible(audience, { u, m, dk: m === "h" ? "holder" : "member" })
+    || trailEntryVisible(audience, { u, m, dk: "deputy" });
+  return reachable ? terms.map(term => ({ field: "person" as const, value: trailPersonTermKey(person, term) })) : [];
 }
 
 /* ── ٤) المدة: الفصلُ الجاري والسابق له ───────────────────────────────── */
