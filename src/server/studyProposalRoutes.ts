@@ -13,6 +13,7 @@
  *   · الرقمُ المدني لا يُخزَّن: يُتحقَّق منه ثم تُحفظ بصمتُه ورمزُ التوقيع.
  */
 import { planBadgeFor, serviceCourseKeys } from "./planBadgeShared";
+import { reachForScope } from "./courseReachShared";
 import { randomUUID } from "crypto";
 import rateLimit from "express-rate-limit";
 import type { Express, Request, RequestHandler, Response } from "express";
@@ -298,9 +299,11 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     const scopes = baseScopes.filter(scope => canWriteScope(req, scope.collegeId, scope.sectionId));
     const courseRows: Array<Record<string, unknown>> = [];
     for (const scope of scopes) {
-      const [courses, operational, plans, members] = await Promise.all([
+      const [courses, operational, plans, members, reach] = await Promise.all([
         Repository.getCoursesBySection(scope.sectionId), Repository.getOperationalCourseIds(scope.sectionId),
         Repository.getCurriculumPlans(scope.sectionId).catch(() => []), Repository.getCurriculumPlanCourses(scope.sectionId).catch(() => []),
+        /* «وصلنا / لم نصل بعد» لكل مقرر في فرعه — المصدر الواحد نفسه الذي يحكم كرت الأستاذ. */
+        reachForScope(scope.collegeId, scope.sectionId, termId),
       ]);
       const college = world.colleges.find(c => Number(c.AdCollegeId) === scope.collegeId);
       /* وسمُ الصحيفة لكل مقرر — القاعدةُ نفسها في «كل المقررات» (sheetTag.ts): «active» الجديدة، «transition» السابقة. */
@@ -317,6 +320,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
           hours: Number(course.CourseHours || course.CourseCredit || 0), collegeId: scope.collegeId,
           collegeName: scope.collegeName || college?.AdCollegeName || "", sectionId: scope.sectionId,
           sheet: sheetTagOf({ curriculum: curriculum.get(Number(course.AdCourseId)) || [] }),
+          reach: reach.courses[Number(course.AdCourseId)] || null,
         });
       }
     }

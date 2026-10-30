@@ -134,6 +134,7 @@ export const routes = [
   ["/api/public/request", "routes/publicRequestRoutes"],
   ["/r", "routes/publicRequestRoutes"],
   ["/api/course-offering", "routes/offeringRoutes"],
+  ["/api/course-reach", "routes/offeringRoutes"],
   ["/api/ta-phase", "routes/offeringRoutes"],
   ["/api/advisor-seats", "routes/offeringRoutes"],
   ["/verify", "routes/verifyRoutes"],

@@ -20,6 +20,7 @@ test:demand-repair-simulation
 test:visiting-to-faculty
 test:pdf-term-rule
 test:owner-features-1028
+test:course-reach
 test:ta-phase-flow
 test:staff-global
 test:instructor-status
