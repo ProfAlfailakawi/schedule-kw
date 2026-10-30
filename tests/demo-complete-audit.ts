@@ -122,7 +122,13 @@ function p2Registry() {
   const [current] = state.terms;
   const day = 86_400_000, startOf = (t: any) => Date.parse(t.AdTermStart), endOf = (t: any) => startOf(t) + t.AdTermWeeks * 7 * day;
   check(startOf(current) <= Date.now() && endOf(current) > Date.now(), `الفصل الجاري جارٍ اليوم (${current.AdTermName})`);
-  check(/2026\/2027/.test(String(current.AdTermName)) && state.schedules.some(r => r.AdTermId === current.AdTermId) && state.schedules.every(r => r.AdTermId === current.AdTermId || state.terms.some((term: any) => term.AdTermId === r.AdTermId && term.AdTermClosed === true)), "وهو من السنة الدراسية 2026/2027 وجداولُه فيه، وما سواه جداولُ تاريخٍ مغلقة");
+  check(/2026\/2027/.test(String(current.AdTermName)) && state.schedules.some(r => r.AdTermId === current.AdTermId) && state.schedules.every(r => r.AdTermId === current.AdTermId || r.AdTermId === 2 || state.terms.some((term: any) => term.AdTermId === r.AdTermId && term.AdTermClosed === true)), "وهو من السنة الدراسية 2026/2027 وجداولُه فيه، وما سواه جداولُ الفصل القادم قيد الإعداد وجداولُ تاريخٍ مغلقة");
+  /* الفصلُ القادم (الثاني) هو ما تقرؤه لوحةُ البداية: مسودةٌ لقسم القصة وجدولٌ معتمدٌ مبكراً للتربية الفنية، صغيران عمداً. */
+  const upcoming = state.schedules.filter(r => r.AdTermId === 2);
+  check(upcoming.some(r => r.AdSectionId === 1) && upcoming.some(r => r.AdSectionId === 2) && upcoming.length <= 40,
+    `الفصلُ القادم قيد الإعداد: مسودةٌ لتكنولوجيا التعليم وجدولُ التربية الفنية، ولا يتجاوز أربعين موعداً (${upcoming.length})`);
+  check(state.scheduleApprovals.some((a: any) => a.AdTermId === 2 && a.AdSectionId === 2 && a.status === "accepted") && !state.scheduleApprovals.some((a: any) => a.AdTermId === 2 && a.AdSectionId === 1),
+    "والتربية الفنية سبقت فاعتُمد جدولُها القادم، ومسودةُ قسم القصة بلا دورة اعتماد بعد");
   check(state.hallBarterRequests.some((request: any) => request.status === "pending" && request.requesterSectionId === 2 && request.ownerSectionId === 1 && request.roomHall === "301"), "طلب استعارة تجريبي بين قسمين مختلفين");
   check(state.registrationStats?.some((row: any) => row.termId === 1 && row.remainingSource?.column === "unregistered")
     && state.registrationStats?.some((row: any) => row.termId === 2 && row.remainingSource == null), "كشف الفصل الأول موجود والثاني بلا كشف لاختبار fallback");

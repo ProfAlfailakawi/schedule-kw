@@ -162,6 +162,7 @@ test:term-freeze-readonly
 test:predictive
 test:teaching-load
 test:demo-fill
+test:demo-every-role
 test:ads
 test:masari-integrity
 test:instructor-apply
