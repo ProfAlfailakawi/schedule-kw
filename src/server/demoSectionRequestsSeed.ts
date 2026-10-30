@@ -47,7 +47,8 @@ export async function seedDemoSectionRequests(opts: { sealIdentity: (value: stri
     if (String(row.fdetail || "").includes(MARK) || sectionOf.has(Number(row.AdCourseId))) continue;
     sectionOf.set(Number(row.AdCourseId), row);
   }
-  const others = courses.filter(course => course !== featured && sectionOf.has(Number(course.AdCourseId)))
+  /* بلا المقررات التي ضيّق الرادارُ مقاعدها (1–5 مقاعد) — وإلا قالت البطاقة «≈ 6 شعب» لستة طلبة. */
+  const others = courses.filter(course => course !== featured && sectionOf.has(Number(course.AdCourseId)) && Number(course.MaxStudent) >= 20)
     .sort((a, b) => String(a.CourseCode).localeCompare(String(b.CourseCode))).slice(0, 4);
   if (!featured || others.length < 4) return;
 
