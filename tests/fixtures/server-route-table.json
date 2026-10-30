@@ -436,7 +436,7 @@
    ],
    "path": "/api/dashboard",
    "name": "bound dispatch",
-   "call": "6c5c4f5641e2679d",
+   "call": "b32cbc12edaad1ad",
    "site": "src/server/routes/dashboardRoutes.ts:50",
    "regexp": "/^\\/api\\/dashboard\\/?$/i",
    "end": true

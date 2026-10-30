@@ -181,8 +181,10 @@ app.get("/api/dashboard", requireAuth, async (req: AuthenticatedRequest, res: Re
      أكبر، فكان يسقط من الخط. والعميدان يُعدّ لهما النهائيُّ وحده هنا أيضاً. */
   const chronological = sortTermsNewestServer(terms).map(term => Number(term.AdTermId) || 0).filter(Boolean);
   const shownAt = chronological.indexOf(latestTermId);
-  const recentTermIds = (shownAt >= 0 ? chronological.slice(shownAt, shownAt + 4) : []).reverse();
-  const history = await Promise.all(recentTermIds.map(async termId => {
+  /* فصلٌ لم يكن للقارئ فيه شيء (صيفيٌّ لم يُدرّس فيه الأستاذ) ليس نقطةً في اتجاهه:
+     يُتخطّى إلى ما قبله بدل أن يهبط الخطُّ إلى صفرٍ لا يقول شيئاً. المعروضُ يبقى دائماً. */
+  const recentTermIds = (shownAt >= 0 ? chronological.slice(shownAt, shownAt + 8) : []).reverse();
+  const candidates = await Promise.all(recentTermIds.map(async termId => {
     const termRows = termId === latestTermId
       ? latestTermSchedules
       : await Repository.getSchedulesByScope({ termId });
@@ -196,6 +198,7 @@ app.get("/api/dashboard", requireAuth, async (req: AuthenticatedRequest, res: Re
       instructors: new Set(scoped.map(row => row.AdInstructorId)).size
     };
   }));
+  const history = candidates.filter(point => point.termId === latestTermId || point.schedules > 0).slice(-4);
   const previous = history.length > 1 ? history[history.length - 2] : null;
   const termName = (id: number) => terms.find(term => Number(term.AdTermId) === Number(id))?.AdTermName || "";
   const upcoming = upcomingHomeTerm(terms, latestTermId);

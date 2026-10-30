@@ -60,6 +60,8 @@ const counts = (map: Record<number, number>) => (id: number) => map[id] || 0;
     && /const latestTermId = home\.termId;/.test(dash) && !/sortTermsNewestServer\(terms\)\[0\]/.test(dash),
     "S1 /api/dashboard يقرأ فصلَه من resolveHomeTerm، لا من أحدث فصلٍ في القائمة");
   check(/sortTermsNewestServer\(terms\)\.map/.test(dash) && !/id <= latestTermId/.test(dash), "S2 خطُّ الفصول بالترتيب الزمني لا بالمعرّف");
+  check(/candidates\.filter\(point => point\.termId === latestTermId \|\| point\.schedules > 0\)\.slice\(-4\)/.test(dash),
+    "S2b وفصلٌ لا شيء للقارئ فيه يُتخطّى في الخط، والمعروضُ يبقى");
   check(/empty: visibleCount === 0/.test(dash) && /upcoming: upcoming \?/.test(dash), "S3 الجوابُ يقول إن الفصل فارغ ويسمّي القادم");
   for (const [file, route] of [["src/server/routes/intelligenceRoutes.ts", "overview"], ["src/server/routes/intelligenceInsightRoutes.ts", "living"]]) {
     const text = read(file);
