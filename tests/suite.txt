@@ -210,6 +210,7 @@ test:live-pulse-http
 test:seats
 test:seat-access-card
 test:colleague-guard-measure
+test:quick-studio-family
 test:section-requests
 test:import-courses-r3
 test:report-print-menus

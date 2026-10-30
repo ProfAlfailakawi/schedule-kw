@@ -1,0 +1,81 @@
+/* ── البطاقة السريعة بلغة «موعد جديد» (المالك 2026-10-30) ─────────────────────
+   الوقتُ جاء من الخانة فيُعرض سطراً يُفتح عند الحاجة، ثم ثلاث خطواتٍ مرقّمة بالترتيب
+   الإلزامي (المقرر ← الأستاذ ← القاعة): الحاليةُ مضيئة، والمنجزةُ بعلامة، والمقفلةُ
+   منقّطةٌ هادئة. وفي الأسفل شريطٌ يقول الناقص ثم «احفظ الموعد». */
+
+.quick-create.is-studio{width:min(410px,calc(100vw - 24px));gap:10px;padding:12px}
+.quick-create.is-studio .qc-head{gap:10px}
+.quick-create.is-studio .qc-presence{flex:none;max-width:46%;overflow:hidden}
+
+/* ── متى ── */
+.qc-when{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2)}
+.qc-when-row{display:flex;align-items:center;gap:10px;min-width:0}
+.qc-when-icon{width:32px;height:32px;border-radius:11px;background:var(--brass-soft);color:var(--brass);display:grid;place-items:center;flex:none}
+.qc-when-icon svg{width:16px;height:16px}
+.qc-when-text{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;line-height:1.35}
+.qc-when-text b{font-size:14px;font-weight:700;color:var(--ink)}
+.qc-when-text time{font:700 14px/1.35 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink);border-radius:6px}
+.qc-when-text small{color:var(--muted);font-size:12px;font-weight:600}
+.qc-when-text.is-autofilled time{animation:regulation-autofill 1.4s cubic-bezier(.2,.7,.2,1) both}
+.qc-when-edit{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);color:var(--ink-2);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;flex:none}
+.qc-when-edit svg{width:14px;height:14px;color:var(--accent)}
+.qc-when-edit:hover,.qc-when-edit.is-open{border-color:var(--accent);background:var(--accent-softer);color:var(--accent-ink,var(--accent))}
+.qc-when-edit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.qc-time-wheels{padding:6px;border-radius:12px;background:var(--surface);border:1px solid var(--line);animation:rise .16s var(--ease-out) both}
+.quick-create.is-studio .qc-days>button{min-height:32px;border-radius:11px}
+
+/* ── الخطوات ── */
+.qc-steps{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.qc-step{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:16px;background:var(--surface);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.qc-step:focus-within{border-color:color-mix(in srgb,var(--accent) 34%,var(--line));box-shadow:0 0 0 4px var(--accent-softer)}
+.qc-step.is-current{border-color:color-mix(in srgb,var(--accent) 22%,var(--line))}
+.qc-num{width:28px;height:28px;border-radius:10px;background:var(--accent-soft);color:var(--accent-strong);display:grid;place-items:center;font:700 13px/1 var(--font-ui);flex:none}
+.qc-num svg{width:15px;height:15px;stroke-width:2.6}
+.qc-step.is-done .qc-num{background:var(--accent);color:var(--accent-contrast,#fff)}
+.qc-step-body{min-width:0;grid-column:2/-1}
+.qc-step.is-locked{align-items:center;padding-block:8px;border-style:dashed;border-color:var(--line-strong);background:color-mix(in srgb,var(--surface) 55%,transparent)}
+.qc-step.is-locked .qc-num{background:var(--surface-3);color:var(--muted)}
+.qc-step.is-locked .qc-step-body{grid-column:2}
+.qc-step-title{display:block;font-size:13.5px;font-weight:700;color:var(--muted);line-height:1.3}
+.qc-step-wait{display:block;margin-top:1px;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qc-step-wait bdi{color:var(--ink-2);font-weight:600}
+.qc-lock{width:16px;height:16px;color:var(--muted);flex:none}
+.qc-course-row{display:grid;grid-template-columns:minmax(0,1fr) 70px;gap:8px;align-items:end}
+.quick-create.is-studio .qc-course-row>.qc-field{grid-column:auto;min-width:0}
+.quick-create.is-studio .qc-field>span{display:block;margin-bottom:4px}
+.quick-create.is-studio .qc-course-row .qc-field input{width:100%;text-align:center}
+.quick-create.is-studio .qc-teacher{display:grid;gap:6px}
+.quick-create.is-studio .qc-teacher-label{font-size:.75rem;color:var(--muted);font-weight:700}
+.quick-create.is-studio .qc-mini-week{margin-top:4px}
+.quick-create.is-studio .qc-location{min-width:0}
+
+/* ── المساعدات ── */
+.quick-create.is-studio .qc-ideas .slot-advisor{align-items:center;padding-top:2px}
+.qc-ideas-label{margin-inline-end:2px;color:var(--muted);font-size:12px;font-weight:700}
+.quick-create.is-studio .qc-ideas .slot-advisor>button{min-height:32px;padding:0 11px;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);color:var(--ink-2);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;width:auto}
+.quick-create.is-studio .qc-ideas .slot-advisor>button svg{color:var(--accent)}
+.quick-create.is-studio .qc-ideas .slot-advisor>button:hover:not(:disabled){border-color:var(--accent);background:var(--accent-softer)}
+.quick-create.is-studio .qc-colleague{margin:0}
+
+/* ── الشريط ── */
+.quick-create.is-studio .qc-foot{display:grid;gap:8px;padding-top:10px;border-top:1px solid var(--line)}
+.qc-status{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:0;font-size:12.5px;font-weight:700;color:var(--muted);line-height:1.4}
+.qc-status svg{width:15px;height:15px;flex:none}
+.qc-status-k{color:var(--warning)}
+.qc-status b{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:var(--warning-soft);color:var(--warning);font-size:12px;font-weight:700}
+.qc-status[data-tone="ok"]{color:var(--success)}
+.qc-status[data-tone="block"]{color:var(--danger)}
+.qc-status[data-tone="checking"]{color:var(--muted)}
+.qc-spin{animation:checks-spin .9s linear infinite}
+.qc-actions{display:flex;align-items:center;gap:8px}
+.qc-actions .qc-expand{margin-inline-end:auto}
+.quick-create.is-studio .qc-create{min-height:38px;padding-inline:16px;border-radius:12px;font-weight:700}
+
+/* ── كرت الأستاذ: النصاب في كل كليات القسم ── */
+.mini-week-facts em.is-family:not(.is-up):not(.is-down):not(.is-over):not(.is-overtime){padding-inline:7px;background:var(--info-soft);color:var(--info);font-family:var(--font-ui)}
+.mini-week-facts em.is-family svg{color:var(--info)}
+
+@media (prefers-reduced-motion:reduce){
+  .qc-time-wheels,.qc-when-text.is-autofilled time,.qc-spin{animation:none!important}
+  .qc-step{transition:none}
+}

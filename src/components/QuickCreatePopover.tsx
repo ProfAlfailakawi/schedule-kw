@@ -1,8 +1,12 @@
 import CompanionFacilityPicker from "./CompanionFacilityPicker";
 import SearchableSelect from "./SearchableSelect";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Building2, Check, Clock3, DoorOpen, Loader2, Maximize2, Minus, MonitorPlay, Puzzle, Sparkles, UserRound, X } from "lucide-react";
+import { AlertTriangle, Building2, CalendarClock, Check, Clock3, DoorOpen, Loader2, Lock, Maximize2, Minus, MonitorPlay, Puzzle, SlidersHorizontal, Sparkles, UserRound, X } from "lucide-react";
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
+import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotice";
+import { holdDraftFromForm, useScheduleHolds } from "../utils/scheduleHolds";
+import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
+import type { EntryMeter } from "../utils/appointmentMeasure";
 import LocationPicker from "./LocationPicker";
 import { TimeWheels } from "./TimeCounter";
 import type { DayKey } from "./scheduleWorkspace";
@@ -42,6 +46,11 @@ import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils
  *
  * والبطاقة تقرأ ما يقرؤه المحرر الكامل حرفاً: أنماط اللائحة (appointmentRegulation)،
  * والحكم الواحد (appointmentVerdict)، ومحرّك الاقتراح الواحد (suggestionClient).
+ *
+ * وتتكلّم لغة «موعد جديد» نفسها (المالك 2026-10-30): الوقتُ جاء من الخانة فيُعرض سطراً
+ * يُفتح عند الحاجة، ثم ثلاث خطواتٍ بالترتيب الإلزامي — المقرر ← الأستاذ ← القاعة — كلُّ
+ * خطوةٍ تُفتح بعد التي قبلها، وزرُّ «احفظ الموعد» يقول ما الناقص. ويحرسها «حارس الزملاء»،
+ * ويُقاس وقتُها في «وقت إدخال المواعيد» (العدّاد عند الأب، يُرسل بعد الحفظ وحده).
  */
 
 const minutesOf = (time: string) => {
@@ -119,7 +128,10 @@ export default function QuickCreatePopover({
   miniWeek,
   onReplaceable,
   replaceBusy = false,
+  meter = null,
 }: {
+  /** عدّادُ «وقت إدخال المواعيد» يملكه الأب (يُرسله بعد الحفظ الناجح وحده)؛ البطاقةُ تُعلِّم عليه الأدوات والموانع. */
+  meter?: EntryMeter | null;
   /** 🔄 خانة «هيئة تدريسية» مطابقة تماماً: «خذ موعدها» · «بدّل» · «احذفها وخذ مكانها» — طلبٌ واحد محروس عند الأب. */
   onReplaceable?: (section: ReplaceableSection, action: "assign" | "swap" | "replace", appointment: Record<string, unknown>) => void;
   replaceBusy?: boolean;
@@ -217,6 +229,7 @@ export default function QuickCreatePopover({
   };
   const applyChoice = (choice: RegulationChoice) => {
     if (daysLocked) return;
+    meter?.mark("pattern");
     timeEdited.current = false;
     setChosenDays(choice.days as DayKey[]);
     setDraft(current => ({ ...current, end: timeOf(Math.min(SCHEDULE_DAY_END, minutesOf(current.start) + choice.minutes)) }));
@@ -378,6 +391,7 @@ export default function QuickCreatePopover({
   useEffect(() => { setIdeas(null); setIdeasError(""); setIdeaReason(undefined); setIdeasReplaceable([]); }, [checkKey]);
   const requestIdeas = async (roomOnly: boolean) => {
     if (!draft.courseId || hasDifferentTimes) return;
+    meter?.mark(roomOnly ? "room-suggest" : "suggest-slots");
     const requestedKey = checkKey;
     setIdeaKind(roomOnly ? "room" : "time");
     setIdeas(null); setIdeasError(""); setIdeaReason(undefined); setIdeasBusy(true);
@@ -423,11 +437,58 @@ export default function QuickCreatePopover({
   const dayLabel = chosenDays.map(day => DAY_ORDER.find(item => item.key === day)?.short).filter(Boolean).join("·") || seed.dayLabel;
   const firstBlocker = verdict.blockers[0]?.text;
 
+  /* ── «حارس الزملاء» في البطاقة نفسها: من يبني موعداً معك الآن يُرى، وخانتك محجوزةٌ له دقيقتين ── */
+  const placeholderIds = useMemo(() => (instructors as any[]).filter(person => isFacultyPlaceholder(person)).map(person => Number(person.AdInstructorId)), [instructors]);
+  const holds = useScheduleHolds({
+    enabled: true,
+    termId, collegeId, sectionId,
+    draft: holdDraftFromForm(payload as any),
+    editId: null,
+    ignoreInstructorIds: placeholderIds,
+  });
+  const instructorNameOf = (id: number) => instructors.find(person => Number(person.AdInstructorId) === Number(id))?.AdInstructorName;
+  /* المانعُ يُعدّ دخولُه في العدّاد، لا بقاؤه فيه. */
+  useEffect(() => { meter?.blocked(Boolean(blocked)); }, [meter, blocked]);
+
+  /* ── الترتيب الإلزامي كـ«موعد جديد»: المقرر ← الأستاذ ← القاعة (الوقت جاء من الخانة) ── */
+  const courseDone = Boolean(draft.courseId && draft.scode.trim() && digitsOk);
+  const teacherDone = Boolean(draft.instructorId);
+  const placeDone = Boolean(draft.buildingId && (draft.roomId || draft.locationStatus === "PENDING_ROOM"));
+  const teacherLocked = !courseDone;
+  const placeLocked = teacherLocked || !teacherDone;
+  const missing = [
+    ...(!draft.courseId ? ["المقرر"] : []),
+    ...(draft.courseId && !draft.scode.trim() ? ["الشعبة"] : []),
+    ...(!draft.instructorId ? ["الأستاذ"] : []),
+    ...(!placeDone ? ["القاعة"] : []),
+  ];
+  const placeSeed = [draft.room, draft.hall].filter(Boolean).join("/");
+  const [timeOpen, setTimeOpen] = useState(false);
+  const stepsRef = useRef<HTMLOListElement | null>(null);
+  /* حين تُجاب خطوةٌ يُسلَّم المؤشر للتالية — إلى الأمام فقط، ولا وأنت تكتب رقم الشعبة. */
+  const currentStep = !courseDone ? "course" : !teacherDone ? "teacher" : !placeDone ? "place" : "";
+  const stepPrev = useRef(currentStep);
+  useEffect(() => {
+    const prev = stepPrev.current;
+    stepPrev.current = currentStep;
+    const order = ["course", "teacher", "place"];
+    if (!prev || !currentStep || order.indexOf(currentStep) <= order.indexOf(prev)) return;
+    const typing = document.activeElement instanceof HTMLInputElement && stepsRef.current?.querySelector('[data-qc-step="course"]')?.contains(document.activeElement);
+    if (typing) return;
+    window.requestAnimationFrame(() => {
+      const step = stepsRef.current?.querySelector<HTMLElement>(`[data-qc-step="${currentStep}"]`);
+      const target = step?.querySelector<HTMLElement>(currentStep === "teacher" ? ".instructor-trigger" : "select:not(:disabled), button:not(:disabled)");
+      target?.focus({ preventScroll: true });
+      step?.scrollIntoView({ block: "nearest" });
+    });
+  }, [currentStep]);
+
   /* ── N3: جدول الأستاذ المصغّر ─────────────────────────────────────────────
      «+» أو «قبلها/بعدها» يملأ الأيام (ما لم تكن أيام طلب أستاذ) والبداية والنهاية،
      و«قبلها/بعدها» يقترح قاعة المحاضرة الملاصقة أو مبناها ما لم تُختر قاعة. */
   const pickFromMiniWeek = (pick: MiniPick) => {
     /* «+» و«قبلها/بعدها» بنمط المقرر نفسه: ليس تجاوزاً. */
+    meter?.mark("week-pick");
     timeEdited.current = false;
     if (!daysLocked) {
       setChosenDays(pick.days);
@@ -445,10 +506,12 @@ export default function QuickCreatePopover({
     });
   };
   const miniTeacherId = Number(draft.instructorId) || 0;
+  /* «التقاطع الذهبي» كما في «موعد جديد»: القاعة المختارة تُرسم فوق أسبوع الأستاذ. */
+  const miniRoom = useMemo(() => draft.room && draft.hall ? { code: draft.room, hall: draft.hall } : null, [draft.room, draft.hall]);
   const miniWeekNode = miniWeek && miniWeekEnabled && miniTeacherId && !miniWeek.isPlaceholder(miniTeacherId) && !hasDifferentTimes ? (
     <TeacherMiniWeek variant="compact" teacherId={miniTeacherId} teacherName={miniWeek.nameOf(miniTeacherId) || teacherName}
       nisab={miniWeek.nisabOf(miniTeacherId)} overtime={miniWeek.overtimeOf?.(miniTeacherId) || 0} limited={miniWeek.limitedOf ? miniWeek.limitedOf(miniTeacherId) : miniWeek.nisabOf(miniTeacherId) > 0} visiting={isVisiting(miniTeacherId, collegeId, sectionId)}
-      rows={miniWeek.rows} termId={termId} collegeId={collegeId} draft={payload} verdict={verdict} checked={checkable}
+      rows={miniWeek.rows} termId={termId} collegeId={collegeId} sectionId={sectionId} draft={payload} verdict={verdict} room={miniRoom} checked={checkable}
       course={selectedCourse} courses={miniWeek.courses} window={miniWeek.window} userId={miniWeek.userId}
       fixedDays={daysLocked ? chosenDays : undefined} onPick={pickFromMiniWeek} />
   ) : null;
@@ -474,9 +537,12 @@ export default function QuickCreatePopover({
     return () => window.removeEventListener("resize", place);
   }, [showSide, box]);
 
+  const durationMinutes = Math.max(0, minutesOf(draft.end) - minutesOf(draft.start));
+  const statusTone = missing.length ? "missing" : pendingCheck ? "checking" : blocked || checkFailed ? "block" : "ok";
+
   return (<>
     <div
-      className="quick-create visual-minimal"
+      className="quick-create visual-minimal is-studio"
       ref={ref}
       role="dialog"
       aria-modal="false"
@@ -490,123 +556,195 @@ export default function QuickCreatePopover({
           <strong>موعد جديد</strong>
           <small className={autofillFlash ? "is-autofilled" : undefined}>{dayLabel} · <time dir="ltr">{formatScheduleTimeRange(draft.start, draft.end)}</time></small>
         </div>
+        <ColleaguePresenceChip holds={holds.holds} collegeId={collegeId} sectionId={sectionId} className="qc-presence" />
         <button type="button" className="qc-close" onClick={onCancel} aria-label="إغلاق بدون حفظ">
           <X aria-hidden="true" />
         </button>
       </header>
 
-      {hasDifferentTimes ? (
-        <div className="qc-warn" role="status">
-          <strong>أوقات مختلفة في طلب الأستاذ — تُحفظ كل مجموعة حسب وقتها الأصلي</strong>
-          {(seed.fixedSlots || []).map((slot, index) => (
-            <small key={index} style={{ display: "block" }}>{slot.day} · {formatScheduleTimeRange(slot.start, slot.end)}</small>
-          ))}
-          <small>لم نُظهر عدّاداً يغيّر موعداً واحداً ثم يهمل بقية المواعيد.</small>
-        </div>
-      ) : (
-        <TimeWheels
-          start={draft.start}
-          end={draft.end}
-          onChange={(next) => {
-            /* «المدة» بالعجلة تجاوزٌ متعمَّد؛ أما الساعة والدقيقة فتعيدان النهاية إلى النمط. */
-            const lengthChanged = minutesOf(next.end) - minutesOf(next.start) !== minutesOf(draft.end) - minutesOf(draft.start);
-            if (lengthChanged) timeEdited.current = regulationFit(selectedCourse, chosenDays, next.start, next.end) === "off";
-            const fitted = !timeEdited.current && !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start) : "";
-            if (fitted && fitted !== next.end) flashAutofill();
-            const end = fitted || next.end;
-            patch({ start: next.start, end });
-          }}
-          preferredDuration={regulationChoiceFor(selectedCourse, chosenDays)?.minutes || Number(durationForDay?.(seed.day) || 0)}
-        />
-      )}
+      {/* ── متى: جاء من الخانة، فيُعرض سطراً واحداً، والعجلةُ تُفتح عند الحاجة ── */}
+      <section className="qc-when" aria-label="الأيام والوقت">
+        {hasDifferentTimes ? (
+          <div className="qc-warn" role="status">
+            <strong>أوقات مختلفة في طلب الأستاذ — تُحفظ كل مجموعة حسب وقتها الأصلي</strong>
+            {(seed.fixedSlots || []).map((slot, index) => (
+              <small key={index} style={{ display: "block" }}>{slot.day} · {formatScheduleTimeRange(slot.start, slot.end)}</small>
+            ))}
+            <small>لم نُظهر عدّاداً يغيّر موعداً واحداً ثم يهمل بقية المواعيد.</small>
+          </div>
+        ) : (
+          <>
+            <div className="qc-when-row">
+              <span className="qc-when-icon" aria-hidden="true"><CalendarClock /></span>
+              <span className={`qc-when-text${autofillFlash ? " is-autofilled" : ""}`}>
+                <b>{dayLabel}</b>
+                <time dir="ltr">{formatScheduleTimeRange(draft.start, draft.end)}</time>
+                <small>{durationMinutes} د</small>
+              </span>
+              <button type="button" className={`qc-when-edit${timeOpen ? " is-open" : ""}`} aria-expanded={timeOpen} aria-controls="qc-time-wheels"
+                data-guide-ignore="يفتح عجلة الوقت داخل البطاقة نفسها أو يطويها؛ لا يحفظ شيئاً"
+                onClick={() => setTimeOpen(open => !open)}>
+                <SlidersHorizontal aria-hidden="true" />{timeOpen ? "تمّ" : "عدّل الوقت"}
+              </button>
+            </div>
+            {timeOpen ? (
+              <div className="qc-time-wheels" id="qc-time-wheels">
+                <TimeWheels
+                  start={draft.start}
+                  end={draft.end}
+                  onChange={(next) => {
+                    meter?.mark("wheel");
+                    /* «المدة» بالعجلة تجاوزٌ متعمَّد؛ أما الساعة والدقيقة فتعيدان النهاية إلى النمط. */
+                    const lengthChanged = minutesOf(next.end) - minutesOf(next.start) !== minutesOf(draft.end) - minutesOf(draft.start);
+                    if (lengthChanged) timeEdited.current = regulationFit(selectedCourse, chosenDays, next.start, next.end) === "off";
+                    const fitted = !timeEdited.current && !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start) : "";
+                    if (fitted && fitted !== next.end) flashAutofill();
+                    const end = fitted || next.end;
+                    patch({ start: next.start, end });
+                  }}
+                  preferredDuration={regulationChoiceFor(selectedCourse, chosenDays)?.minutes || Number(durationForDay?.(seed.day) || 0)}
+                />
+              </div>
+            ) : null}
+          </>
+        )}
 
-      {!daysLocked ? (
-        <div className={`qc-days${autofillFlash ? " is-autofilled" : ""}`} role="group" aria-label="أيام الموعد">
-          {DAY_ORDER.map(day => {
-            const on = chosenDays.includes(day.key);
-            return <button type="button" key={day.key} className={on ? "is-on" : ""} aria-pressed={on}
-              data-guide-ignore="ضغط يوم يكمل أيام نمط اللائحة للمقرر؛ لا يحفظ شيئاً"
-              onClick={() => toggleDay(day.key)}>{day.short}</button>;
-          })}
-        </div>
-      ) : null}
-      {regulationChips.length || fit === "off" ? (
-        <RegulationPatternChips compact choices={regulationChips} activeId={regulationChoiceFor(selectedCourse, chosenDays)?.id} fit={fit} onPick={applyChoice}
-          onApplyBest={!daysLocked && regulationHours(selectedCourse) > 0 && fit === "off" ? applyBest : undefined} autofilled={autofillFlash} />
-      ) : null}
+        {!daysLocked ? (
+          <div className={`qc-days${autofillFlash ? " is-autofilled" : ""}`} role="group" aria-label="أيام الموعد">
+            {DAY_ORDER.map(day => {
+              const on = chosenDays.includes(day.key);
+              return <button type="button" key={day.key} className={on ? "is-on" : ""} aria-pressed={on}
+                data-guide-ignore="ضغط يوم يكمل أيام نمط اللائحة للمقرر؛ لا يحفظ شيئاً"
+                onClick={() => toggleDay(day.key)}>{day.short}</button>;
+            })}
+          </div>
+        ) : null}
+        {regulationChips.length || fit === "off" ? (
+          <RegulationPatternChips compact choices={regulationChips} activeId={regulationChoiceFor(selectedCourse, chosenDays)?.id} fit={fit} onPick={applyChoice}
+            onApplyBest={!daysLocked && regulationHours(selectedCourse) > 0 && fit === "off" ? applyBest : undefined} autofilled={autofillFlash} />
+        ) : null}
+      </section>
 
-      <div className="qc-fields">
-        <label className="qc-field qc-wide">
-          <span>المقرر</span>
-          <SearchableSelect
-            triggerRef={firstField}
-            value={draft.courseId || ""}
-            onChange={(picked) => chooseCourse(Number(picked) || 0)}
-            options={orderedCourses.map((c) => ({ value: c.AdCourseId, label: c.CourseName, badge: courseOptionBadge([Number(c.AdCourseId)], planBadges), hint: c.CourseCode || undefined, keywords: String(c.CourseCode || "") }))}
-            placeholder="اختر المقرر…"
-            ariaLabel="المقرر"
-            searchPlaceholder="اكتب اسم المقرر أو رمزه"
-            className="ss-compact"
-          />
-        </label>
-        <label className="qc-field qc-narrow">
-          <span>الشعبة</span>
-          <input
-            value={draft.scode}
-            inputMode="numeric"
-            dir="ltr"
-            placeholder="01"
-            onChange={(e) => { sectionTyped.current = true; patch({ scode: toEnglishDigits(e.target.value) }); }}
-          />
-        </label>
-        <div className="qc-field qc-teacher">
-          <span className="qc-teacher-label">الأستاذ{miniWeek ? <MiniWeekToggle compact enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /> : null}</span>
-          {lockedTeacher ? (
-            <span className="qc-teacher-locked">
-              <UserRound aria-hidden="true" /><b>{teacherName || "أستاذ الطلب"}</b>
-              {isVisiting(draft.instructorId, collegeId, sectionId) ? <VisitingBadge compact /> : null}
-            </span>
-          ) : (
-            <InstructorPicker
-              value={Number(draft.instructorId) || 0}
-              onChange={(id) => patch({ instructorId: id })}
-              instructors={assignable as any}
-              departmentIds={departmentIds}
-              visitingIds={visitingIds}
-              visitingRosterIds={visitingRosterIds}
-              collegeId={collegeId}
-              sectionId={sectionId}
-              termId={termId}
-              canCreate={false}
-              strictDepartmentOnly
-            />
-          )}
-        </div>
-        {miniWeekNode && !side ? <div className="qc-mini-week">{miniWeekNode}</div> : null}
-        <div className="qc-location">
-          <LocationPicker
-            collegeId={collegeId}
-            sectionId={sectionId}
-            termId={termId}
-            showDepartmentHistory={false}
-            courseRoomType={String(selectedCourse?.CourseRoomType || "")}
-            courseTeachingMode={String(selectedCourse?.CourseTeachingMode || "")}
-            seatsNeeded={Number(selectedCourse?.MaxStudent || 0)}
-            value={{AdRoomCode:draft.room,AdRoomHall:draft.hall,buildingId:draft.buildingId,roomId:draft.roomId,locationStatus:draft.locationStatus}}
-            onChange={(location)=>{
-              const buildingChanged = "buildingId" in location && String(location.buildingId || "") !== String(draft.buildingId || "");
-              patch({room:String(location.AdRoomCode||""),hall:String(location.AdRoomHall||""),buildingId:location.buildingId,roomId:location.roomId,locationStatus:location.locationStatus as any,
-                ...(buildingChanged?{companionRoomId:"",companionRoomLabel:""}:{})});
-            }}
-          />
-        </div>
-      </div>
-      <CompanionFacilityPicker course={selectedCourse} form={payload}
-        onChange={values => patch({ companionRoomId: values.companionRoomId, companionRoomLabel: values.companionRoomLabel })} />
+      {/* ── الخطوات بالترتيب الإلزامي كـ«موعد جديد»: كلُّ خطوةٍ تُفتح بعد التي قبلها ── */}
+      <ol className="qc-steps" ref={stepsRef}>
+        <li className={`qc-step${courseDone ? " is-done" : " is-current"}`} data-qc-step="course">
+          <span className="qc-num" aria-hidden="true">{courseDone ? <Check /> : "1"}</span>
+          <div className="qc-step-body qc-course-row">
+            <label className="qc-field qc-wide">
+              <span>المقرر</span>
+              <SearchableSelect
+                triggerRef={firstField}
+                value={draft.courseId || ""}
+                onChange={(picked) => chooseCourse(Number(picked) || 0)}
+                options={orderedCourses.map((c) => ({ value: c.AdCourseId, label: c.CourseName, badge: courseOptionBadge([Number(c.AdCourseId)], planBadges), hint: c.CourseCode || undefined, keywords: String(c.CourseCode || "") }))}
+                placeholder="اختر المقرر…"
+                ariaLabel="المقرر"
+                searchPlaceholder="اكتب اسم المقرر أو رمزه"
+                className="ss-compact"
+              />
+            </label>
+            <label className="qc-field qc-narrow">
+              <span>الشعبة</span>
+              <input
+                value={draft.scode}
+                inputMode="numeric"
+                dir="ltr"
+                placeholder="01"
+                onChange={(e) => { sectionTyped.current = true; patch({ scode: toEnglishDigits(e.target.value) }); }}
+              />
+            </label>
+          </div>
+        </li>
+
+        {teacherLocked ? (
+          <li className="qc-step is-locked" data-qc-step="teacher" aria-disabled="true">
+            <span className="qc-num" aria-hidden="true">2</span>
+            <div className="qc-step-body">
+              <strong className="qc-step-title">الأستاذ</strong>
+              <small className="qc-step-wait">{teacherName ? <><bdi>{teacherName}</bdi> · </> : null}بعد اختيار المقرر</small>
+            </div>
+            <Lock aria-hidden="true" className="qc-lock" />
+          </li>
+        ) : (
+          <li className={`qc-step${teacherDone ? " is-done" : " is-current"}`} data-qc-step="teacher">
+            <span className="qc-num" aria-hidden="true">{teacherDone ? <Check /> : "2"}</span>
+            <div className="qc-step-body qc-field qc-teacher">
+              <span className="qc-teacher-label">الأستاذ{miniWeek ? <MiniWeekToggle compact enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /> : null}</span>
+              {lockedTeacher ? (
+                <span className="qc-teacher-locked">
+                  <UserRound aria-hidden="true" /><b>{teacherName || "أستاذ الطلب"}</b>
+                  {isVisiting(draft.instructorId, collegeId, sectionId) ? <VisitingBadge compact /> : null}
+                </span>
+              ) : (
+                <InstructorPicker
+                  value={Number(draft.instructorId) || 0}
+                  onChange={(id) => patch({ instructorId: id })}
+                  instructors={assignable as any}
+                  departmentIds={departmentIds}
+                  visitingIds={visitingIds}
+                  visitingRosterIds={visitingRosterIds}
+                  collegeId={collegeId}
+                  sectionId={sectionId}
+                  termId={termId}
+                  canCreate={false}
+                  strictDepartmentOnly
+                />
+              )}
+              {miniWeekNode && !side ? <div className="qc-mini-week">{miniWeekNode}</div> : null}
+            </div>
+          </li>
+        )}
+
+        {placeLocked ? (
+          <li className="qc-step is-locked" data-qc-step="place" aria-disabled="true">
+            <span className="qc-num" aria-hidden="true">3</span>
+            <div className="qc-step-body">
+              <strong className="qc-step-title">القاعة</strong>
+              <small className="qc-step-wait">{placeSeed ? <><bdi dir="ltr">{placeSeed}</bdi> · </> : null}بعد اختيار الأستاذ</small>
+            </div>
+            <Lock aria-hidden="true" className="qc-lock" />
+          </li>
+        ) : (
+          <li className={`qc-step${placeDone ? " is-done" : " is-current"}`} data-qc-step="place">
+            <span className="qc-num" aria-hidden="true">{placeDone ? <Check /> : "3"}</span>
+            <div className="qc-step-body">
+              <div className="qc-location">
+                <LocationPicker
+                  collegeId={collegeId}
+                  sectionId={sectionId}
+                  termId={termId}
+                  showDepartmentHistory={false}
+                  courseRoomType={String(selectedCourse?.CourseRoomType || "")}
+                  courseTeachingMode={String(selectedCourse?.CourseTeachingMode || "")}
+                  seatsNeeded={Number(selectedCourse?.MaxStudent || 0)}
+                  value={{AdRoomCode:draft.room,AdRoomHall:draft.hall,buildingId:draft.buildingId,roomId:draft.roomId,locationStatus:draft.locationStatus}}
+                  onChange={(location)=>{
+                    /* المنتقي يرسل ما تغيّر وحده (اختيارُ القاعة لا يحمل المبنى): يُدمج فوق المسوّدة كما
+                       يدمجه «موعد جديد»، وكانت البطاقة تبنيه كاملاً فيمحو اختيارُ القاعة مبناها ورمزه. */
+                    const buildingChanged = "buildingId" in location && String(location.buildingId || "") !== String(draft.buildingId || "");
+                    setDraft(current => ({
+                      ...current,
+                      ...("AdRoomCode" in location ? { room: String(location.AdRoomCode || "") } : {}),
+                      ...("AdRoomHall" in location ? { hall: String(location.AdRoomHall || "") } : {}),
+                      ...("buildingId" in location ? { buildingId: location.buildingId } : {}),
+                      ...("roomId" in location ? { roomId: location.roomId } : {}),
+                      ...("locationStatus" in location ? { locationStatus: location.locationStatus as QuickDraft["locationStatus"] } : {}),
+                      ...(buildingChanged ? { companionRoomId: "", companionRoomLabel: "" } : {}),
+                    }));
+                  }}
+                />
+              </div>
+              <CompanionFacilityPicker course={selectedCourse} form={payload}
+                onChange={values => patch({ companionRoomId: values.companionRoomId, companionRoomLabel: values.companionRoomLabel })} />
+            </div>
+          </li>
+        )}
+      </ol>
 
       {!hasDifferentTimes && draft.courseId ? (
         <div className="qc-ideas" role="group" aria-label="مقترحات الموعد">
           <div className="slot-advisor">
+            <span className="qc-ideas-label">مساعدات</span>
             <button type="button" className="slot-advisor-ask" data-guide-ignore="يقترح أوقاتاً وقاعات دون حفظ" disabled={ideasBusy} onClick={() => void requestIdeas(false)}><Sparkles aria-hidden="true" />اقترح لي وقتاً وقاعة</button>
             <button type="button" className="room-suggest-ask" data-guide-ignore="يقترح قاعات دون حجز" disabled={ideasBusy} onClick={() => void requestIdeas(true)}><DoorOpen aria-hidden="true" />اقترح قاعة متاحة</button>
           </div>
@@ -621,6 +759,8 @@ export default function QuickCreatePopover({
           ) : null}
         </div>
       ) : null}
+
+      <ColleagueHoldNotice clashes={holds.clashes} instructorName={instructorNameOf} className="qc-colleague" />
 
       {checkable ? (
         <ul className="qc-checks" aria-label="فحص الموعد">
@@ -645,23 +785,32 @@ export default function QuickCreatePopover({
       ) : null}
       {seed.deferLiveCheck ? <p className="qc-warn" role="status">الأوقات المرتبطة تُفحص معاً على الجدول النهائي قبل تثبيت طلب الأستاذ.</p> : null}
 
+      {/* ── الشريط كـ«موعد جديد»: ما الناقص، ثم الحفظ ── */}
       <footer className="qc-foot">
-        <button type="button" className="qc-expand" data-guide-ignore="التوسيع ينقل مسودة الموعد إلى المحرر الكامل" disabled={hasDifferentTimes}
-          title={hasDifferentTimes ? "الأوقات المختلفة تُراجع وتُعتمد معاً من وارد الأساتذة" : undefined}
-          onClick={() => onExpand({ ...draft, days: chosenDays })}>
-          <Maximize2 aria-hidden="true" />تفاصيل أكثر
-        </button>
-        <button type="button" className="qc-cancel" onClick={onCancel}>إلغاء</button>
-        <button
-          type="button"
-          className="qc-create"
-          data-guide-ignore="زر الحفظ الأساسي للموعد يخضع للفحص الكامل"
-          disabled={!ready || !digitsOk || saving || pendingCheck || blocked || checkFailed}
-          onClick={() => onCreate({ ...draft, days: chosenDays })}
-          title={ready ? "حفظ الموعد في هذه الخانة" : "أكمل المقرر والشعبة والأستاذ والقاعة"}
-        >
-          <Check aria-hidden="true" />{saving ? "أحفظ…" : "إنشاء"}
-        </button>
+        <p className="qc-status" data-tone={statusTone} aria-live="polite">
+          {missing.length ? <><span className="qc-status-k">ناقص</span>{missing.map(item => <b key={item}>{item}</b>)}</>
+            : pendingCheck ? <><Loader2 aria-hidden="true" className="qc-spin" />يفحص الموعد…</>
+            : blocked || checkFailed ? <><AlertTriangle aria-hidden="true" />راجع المانع أعلاه</>
+            : <><Check aria-hidden="true" />جاهز للحفظ</>}
+        </p>
+        <div className="qc-actions">
+          <button type="button" className="qc-expand" data-guide-ignore="التوسيع ينقل مسودة الموعد إلى المحرر الكامل" disabled={hasDifferentTimes}
+            title={hasDifferentTimes ? "الأوقات المختلفة تُراجع وتُعتمد معاً من وارد الأساتذة" : undefined}
+            onClick={() => onExpand({ ...draft, days: chosenDays })}>
+            <Maximize2 aria-hidden="true" />تفاصيل أكثر
+          </button>
+          <button type="button" className="qc-cancel" onClick={onCancel}>إلغاء</button>
+          <button
+            type="button"
+            className="qc-create"
+            data-guide-ignore="زر الحفظ الأساسي للموعد يخضع للفحص الكامل"
+            disabled={!ready || !digitsOk || saving || pendingCheck || blocked || checkFailed}
+            onClick={() => onCreate({ ...draft, days: chosenDays })}
+            title={ready ? "حفظ الموعد في هذه الخانة" : `أكمل: ${missing.join("، ")}`}
+          >
+            <Check aria-hidden="true" />{saving ? "أحفظ…" : "احفظ الموعد"}
+          </button>
+        </div>
       </footer>
     </div>
     {miniWeekNode && side ? (

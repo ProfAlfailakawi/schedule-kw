@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, CalendarDays, CalendarOff, Check, ChevronDown, DoorOpen, Hourglass, Info, Pin, Plus, Star, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Building2, CalendarDays, CalendarOff, Check, ChevronDown, DoorOpen, Hourglass, Info, Pin, Plus, Star, X } from "lucide-react";
 import type { AdCourse, FSchedule } from "../types";
 import type { AppointmentVerdict } from "../utils/appointmentVerdict";
 import { DAY_KEYS, type DayKey } from "../utils/scheduleRegulations";
@@ -146,6 +146,37 @@ export function useWiderWeek(teacherId: number, termId: number, refresh: unknown
 }
 
 /**
+ * «النصاب لكل عائلة القسم» (المالك 2026-10-30): محاضراتُ الأستاذ في كل كليات قسمه — بنين وبنات
+ * والفروع — ولو كان نطاقُ القارئ موقعاً واحداً منها، ومعها ساعاتُ مقرراتها ليُحسب النصابُ كاملاً.
+ * قراءةٌ واحدة بالأسلوب نفسه (تأخيرٌ قصير وإلغاءٌ عند التغيّر)، تبقى بين الفتحات.
+ */
+type FamilyWeek = { rows: FSchedule[]; courses: AdCourse[] };
+const EMPTY_FAMILY: FamilyWeek = { rows: [], courses: [] };
+const familyCache = new Map<string, FamilyWeek>();
+export function useFamilyWeek(teacherId: number, termId: number, collegeId: number, sectionId: number, refresh: unknown): FamilyWeek {
+  const key = `${termId}:${teacherId}:${collegeId}:${sectionId}`;
+  const [state, setState] = useState<{ key: string; data: FamilyWeek }>(() => ({ key, data: familyCache.get(key) || EMPTY_FAMILY }));
+  useEffect(() => {
+    setState({ key, data: familyCache.get(key) || EMPTY_FAMILY });
+    if (!teacherId || !termId || !collegeId || !sectionId) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      fetch(`/api/schedules/teacher-family-week?termId=${termId}&instructorId=${teacherId}&collegeId=${collegeId}&sectionId=${sectionId}`, { credentials: "include", signal: controller.signal })
+        .then(response => response.ok ? response.json() : null)
+        .then(data => {
+          if (!data || !Array.isArray(data.rows)) return;
+          const next: FamilyWeek = { rows: data.rows, courses: Array.isArray(data.courses) ? data.courses : [] };
+          familyCache.set(key, next);
+          setState({ key, data: next });
+        })
+        .catch(() => undefined);
+    }, 160);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [key, teacherId, termId, collegeId, sectionId, refresh]);
+  return state.key === key ? state.data : EMPTY_FAMILY;
+}
+
+/**
  * حجوز القاعة المختارة في الفصل (ضمن صلاحية القارئ): قراءةٌ واحدة بالمسار القائم بالمبنى والقاعة،
  * بالأسلوب نفسه (تأخيرٌ قصير وإلغاءٌ عند التغيّر)، وتبقى لكل فصلٍ وقاعة بين الفتحات.
  */
@@ -201,7 +232,7 @@ const HEAD_PX = 76;
 type Drawn = DrawnPlacement & { clash: boolean; golden: boolean };
 
 export default function TeacherMiniWeek({
-  teacherId, teacherName, nisab = 0, overtime = 0, limited = nisab > 0, visiting = false, rows, termId, collegeId, excludeId = 0, original = null,
+  teacherId, teacherName, nisab = 0, overtime = 0, limited = nisab > 0, visiting = false, rows, termId, collegeId, sectionId = 0, excludeId = 0, original = null,
   draft, verdict, checked = true, course, courses, window: dayWindow, userId = 0, fixedDays, onPick, variant = "side",
   autoCollapse = false, dockable = false, room = null,
 }: {
@@ -217,6 +248,8 @@ export default function TeacherMiniWeek({
   rows: readonly FSchedule[];
   termId: number;
   collegeId: number;
+  /** قسمُ النموذج: يُقرأ به أسبوعُ الأستاذ في كل كليات عائلة القسم (النصاب كاملاً). */
+  sectionId?: number;
   /** الموعد المفتوح للتعديل: يُرسم شبحاً لا محاضرة. */
   excludeId?: number;
   /** الموعد كما كان قبل التعديل (لنصاب «الآن»). */
@@ -295,11 +328,21 @@ export default function TeacherMiniWeek({
   const viewport = viewportSize.height;
 
   const wider = useWiderWeek(teacherId, termId, rows);
-  const all = useMemo(() => [...rows, ...wider], [rows, wider]);
+  const family = useFamilyWeek(teacherId, termId, collegeId, Number(sectionId) || 0, rows);
+  const all = useMemo(() => [...rows, ...wider, ...family.rows], [rows, wider, family.rows]);
   const lectures = useMemo(() => teacherLectures(all, teacherId, termId, excludeId, collegeId), [all, teacherId, termId, excludeId, collegeId]);
   const own = useMemo(() => teacherRows(all, teacherId, termId, excludeId), [all, teacherId, termId, excludeId]);
   const before = original && Number(original.AdInstructorId) === teacherId && (!termId || Number(original.AdTermId) === termId) ? original : null;
-  const header = useMemo(() => teacherHeader(own, courses, draft, nisab, before), [own, courses, draft, nisab, before]);
+  /* ساعاتُ مقررات الكليات الأخرى من القراءة نفسها، فلا تُعدّ صفراً لأن اللوحة لا تعرفها. */
+  const loadCourses = useMemo(() => {
+    if (!family.courses.length) return courses;
+    const map = new Map(courses);
+    for (const item of family.courses) if (!map.has(Number(item.AdCourseId))) map.set(Number(item.AdCourseId), item);
+    return map;
+  }, [courses, family.courses]);
+  const header = useMemo(() => teacherHeader(own, loadCourses, draft, nisab, before), [own, loadCourses, draft, nisab, before]);
+  /* في كم كليةٍ يدرّس هذا الفصل؟ أكثرُ من واحدة تُقال في الترويسة: النصابُ يشملها كلَّها. */
+  const familySites = useMemo(() => new Set(own.map(row => Number(row.AdCollegeId)).filter(Boolean)).size, [own]);
 
   const draftStart = toMin(draft?.fstarttime), draftEnd = toMin(draft?.fendtime);
   const draftDays = DAY_KEYS.filter(day => Boolean((draft as any)?.[day]));
@@ -575,7 +618,7 @@ export default function TeacherMiniWeek({
   const inOvertime = !over && limited && header.loadAfter > header.nisab;
   const dayDelta = header.daysAfter - header.daysNow;
   const gapDelta = header.gapAfter - header.gapNow;
-  const facts = `النصاب ${header.loadNow} ← ${header.loadAfter}${limited ? ` من ${header.nisab}` : ""}${limited && overtime ? ` وإضافيّ ${overtime}` : ""} · أيام الحضور ${header.daysAfter} · ${gapWords(header.gapAfter)}`;
+  const facts = `النصاب ${header.loadNow} ← ${header.loadAfter}${limited ? ` من ${header.nisab}` : ""}${limited && overtime ? ` وإضافيّ ${overtime}` : ""}${familySites > 1 ? ` · في ${countOf(familySites, AR.college)} من عائلة القسم` : ""} · أيام الحضور ${header.daysAfter} · ${gapWords(header.gapAfter)}`;
   const headTitle = dockOn ? `${facts}\n${floating ? "نقرتان: تعود إلى مكانها" : "اسحب الترويسة لتطفو"}` : facts;
   const ghostPill = Boolean(ghost && tone === "blocked" && pixels(ghost.start, ghost.end) >= 30);
 
@@ -611,6 +654,11 @@ export default function TeacherMiniWeek({
           <em className={`is-load${over ? " is-over" : inOvertime ? " is-overtime" : loadDelta > 0 ? " is-up" : ""}`} aria-label={`النصاب ${header.loadNow} ثم ${header.loadAfter}`}>
             <span dir="ltr">{header.loadNow}</span><ArrowLeft aria-hidden="true" /><span dir="ltr">{header.loadAfter}{limited ? <small>/{header.nisab}{overtime ? `+${overtime}` : ""}</small> : null}</span>
           </em>
+          {familySites > 1 ? (
+            <em className="is-family" title={`النصاب يشمل محاضراته في كل كليات القسم (${countOf(familySites, AR.college)})`} aria-label={`النصاب يشمل ${countOf(familySites, AR.college)} من عائلة القسم`}>
+              <Building2 aria-hidden="true" /><span>{countOf(familySites, AR.college)}</span>
+            </em>
+          ) : null}
           <em className={dayDelta > 0 ? "is-up" : ""} aria-label={`أيام الحضور ${header.daysAfter}`}>
             <CalendarDays aria-hidden="true" /><span dir="ltr">{header.daysAfter}</span>{dayDelta > 0 ? <sup dir="ltr">+{dayDelta}</sup> : null}
           </em>

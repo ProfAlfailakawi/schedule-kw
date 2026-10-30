@@ -437,7 +437,7 @@
    "path": "/api/dashboard",
    "name": "bound dispatch",
    "call": "b32cbc12edaad1ad",
-   "site": "src/server/routes/dashboardRoutes.ts:50",
+   "site": "src/server/routes/dashboardRoutes.ts:51",
    "regexp": "/^\\/api\\/dashboard\\/?$/i",
    "end": true
   },
@@ -449,7 +449,7 @@
    "path": "/api/journey",
    "name": "bound dispatch",
    "call": "b1408c0c60980943",
-   "site": "src/server/routes/dashboardRoutes.ts:266",
+   "site": "src/server/routes/dashboardRoutes.ts:290",
    "regexp": "/^\\/api\\/journey\\/?$/i",
    "end": true
   },
@@ -461,7 +461,7 @@
    "path": "/api/search",
    "name": "bound dispatch",
    "call": "4761049eb1ac86f9",
-   "site": "src/server/routes/dashboardRoutes.ts:314",
+   "site": "src/server/routes/dashboardRoutes.ts:338",
    "regexp": "/^\\/api\\/search\\/?$/i",
    "end": true
   },
@@ -473,7 +473,7 @@
    "path": "/api/search/natural",
    "name": "bound dispatch",
    "call": "d512ab2fb1567d66",
-   "site": "src/server/routes/dashboardRoutes.ts:364",
+   "site": "src/server/routes/dashboardRoutes.ts:388",
    "regexp": "/^\\/api\\/search\\/natural\\/?$/i",
    "end": true
   },
@@ -1293,7 +1293,7 @@
    "path": "/api/schedules/workspace",
    "name": "bound dispatch",
    "call": "f8ab7f6402ac609e",
-   "site": "src/server/routes/schedulesRoutes.ts:105",
+   "site": "src/server/routes/schedulesRoutes.ts:106",
    "regexp": "/^\\/api\\/schedules\\/workspace\\/?$/i",
    "end": true
   },
@@ -1305,8 +1305,20 @@
    "path": "/api/schedules",
    "name": "bound dispatch",
    "call": "efc39577067e3a56",
-   "site": "src/server/routes/schedulesRoutes.ts:162",
+   "site": "src/server/routes/schedulesRoutes.ts:163",
    "regexp": "/^\\/api\\/schedules\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/schedules/teacher-family-week",
+   "name": "bound dispatch",
+   "call": "2b515f6bd4b27c03",
+   "site": "src/server/routes/schedulesRoutes.ts:223",
+   "regexp": "/^\\/api\\/schedules\\/teacher-family-week\\/?$/i",
    "end": true
   },
   {
@@ -1317,7 +1329,7 @@
    "path": "/api/schedules/:id/exceptions",
    "name": "bound dispatch",
    "call": "04545a8e016a67f7",
-   "site": "src/server/routes/schedulesRoutes.ts:217",
+   "site": "src/server/routes/schedulesRoutes.ts:245",
    "regexp": "/^\\/api\\/schedules(?:\\/([^/]+?))\\/exceptions\\/?$/i",
    "end": true
   },
@@ -1329,7 +1341,7 @@
    "path": "/api/schedules/:id/exceptions",
    "name": "bound dispatch",
    "call": "535342f66960a3bc",
-   "site": "src/server/routes/schedulesRoutes.ts:224",
+   "site": "src/server/routes/schedulesRoutes.ts:252",
    "regexp": "/^\\/api\\/schedules(?:\\/([^/]+?))\\/exceptions\\/?$/i",
    "end": true
   },
@@ -1341,7 +1353,7 @@
    "path": "/api/schedules/:id/exceptions/:exceptionId",
    "name": "bound dispatch",
    "call": "bb2e95a32d7f2f73",
-   "site": "src/server/routes/schedulesRoutes.ts:289",
+   "site": "src/server/routes/schedulesRoutes.ts:317",
    "regexp": "/^\\/api\\/schedules(?:\\/([^/]+?))\\/exceptions(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -1353,7 +1365,7 @@
    "path": "/api/schedules/:id/substitutes",
    "name": "bound dispatch",
    "call": "d610f2015a823754",
-   "site": "src/server/routes/schedulesRoutes.ts:307",
+   "site": "src/server/routes/schedulesRoutes.ts:335",
    "regexp": "/^\\/api\\/schedules(?:\\/([^/]+?))\\/substitutes\\/?$/i",
    "end": true
   },
@@ -1365,7 +1377,7 @@
    "path": "/api/schedules",
    "name": "bound dispatch",
    "call": "2795dc8539c8a111",
-   "site": "src/server/routes/schedulesRoutes.ts:405",
+   "site": "src/server/routes/schedulesRoutes.ts:433",
    "regexp": "/^\\/api\\/schedules\\/?$/i",
    "end": true
   },
@@ -1377,7 +1389,7 @@
    "path": "/api/schedules/:id",
    "name": "bound dispatch",
    "call": "1864cf7c367c6657",
-   "site": "src/server/routes/schedulesRoutes.ts:406",
+   "site": "src/server/routes/schedulesRoutes.ts:434",
    "regexp": "/^\\/api\\/schedules(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -1389,7 +1401,7 @@
    "path": "/api/schedules/:id",
    "name": "bound dispatch",
    "call": "1dd1fff07a83a6aa",
-   "site": "src/server/routes/schedulesRoutes.ts:407",
+   "site": "src/server/routes/schedulesRoutes.ts:435",
    "regexp": "/^\\/api\\/schedules(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -1401,7 +1413,7 @@
    "path": "/api/schedules/copy-preview",
    "name": "bound dispatch",
    "call": "9c1533f34b15376a",
-   "site": "src/server/routes/schedulesRoutes.ts:411",
+   "site": "src/server/routes/schedulesRoutes.ts:439",
    "regexp": "/^\\/api\\/schedules\\/copy-preview\\/?$/i",
    "end": true
   },
@@ -1413,7 +1425,7 @@
    "path": "/api/schedules/apply-proposal",
    "name": "bound dispatch",
    "call": "6b454f34e8fd9227",
-   "site": "src/server/routes/schedulesRoutes.ts:426",
+   "site": "src/server/routes/schedulesRoutes.ts:454",
    "regexp": "/^\\/api\\/schedules\\/apply-proposal\\/?$/i",
    "end": true
   },
@@ -1425,7 +1437,7 @@
    "path": "/api/schedules/copy",
    "name": "bound dispatch",
    "call": "7cede0aa9d46badf",
-   "site": "src/server/routes/schedulesRoutes.ts:433",
+   "site": "src/server/routes/schedulesRoutes.ts:461",
    "regexp": "/^\\/api\\/schedules\\/copy\\/?$/i",
    "end": true
   },
@@ -1437,7 +1449,7 @@
    "path": "/api/schedules/wipe-scope",
    "name": "bound dispatch",
    "call": "1b9ee8adf67c3947",
-   "site": "src/server/routes/schedulesRoutes.ts:482",
+   "site": "src/server/routes/schedulesRoutes.ts:510",
    "regexp": "/^\\/api\\/schedules\\/wipe-scope\\/?$/i",
    "end": true
   },
@@ -1449,7 +1461,7 @@
    "path": "/api/schedules/wipe-scope",
    "name": "bound dispatch",
    "call": "0877fde43439d1d5",
-   "site": "src/server/routes/schedulesRoutes.ts:496",
+   "site": "src/server/routes/schedulesRoutes.ts:524",
    "regexp": "/^\\/api\\/schedules\\/wipe-scope\\/?$/i",
    "end": true
   },
@@ -1461,7 +1473,7 @@
    "path": "/api/schedules/wipe-scope/restore",
    "name": "bound dispatch",
    "call": "daca8b5d6aeffcf1",
-   "site": "src/server/routes/schedulesRoutes.ts:543",
+   "site": "src/server/routes/schedulesRoutes.ts:571",
    "regexp": "/^\\/api\\/schedules\\/wipe-scope\\/restore\\/?$/i",
    "end": true
   },

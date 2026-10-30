@@ -1286,6 +1286,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      dismissed. Saving from here is a deliberate press like any other; nothing
      is written by the gesture itself. */
   const [quick, setQuick] = useState<QuickSeed | null>(null);
+  /* «وقت إدخال المواعيد» للبطاقة السريعة أيضاً: يبدأ حين تُفتح، ويُرسل بعد حفظها الناجح وحده. */
+  const quickMeter = useRef<EntryMeter | null>(null);
   /**
    * ── The invisible power layer ─────────────────────────────────────────────
    *
@@ -3316,6 +3318,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (!quickCourses.length || !instructors.length) { openCreate(seed); return; }
     /* «موعد جديد» يُفتح نظيفاً (A5): لا أستاذ ولا قاعة من موعدٍ سابق — اليوم والوقت
        من الرسم وحدهما، والقاعة فقط إن رُسم في عمود قاعةٍ بعينها. */
+    quickMeter.current = createEntryMeter("create");
+    quickMeter.current.mark("quick-card");
     setQuick({
       day: seed.day,
       dayLabel: days.find(d => d.key === seed.day)?.label || "",
@@ -5260,6 +5264,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         if (scope.termId !== filterTerm) setFilterTerm(scope.termId);
         if (scopeUnchanged) await loadRows();
       }
+      sendEntryMeasure(quickMeter.current?.finish() ?? null);
+      quickMeter.current = null;
       setQuick(null);
       setMessage("تم حفظ الموعد");
       const timingNote = historicalTimingNote(payload);
@@ -10099,6 +10105,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               rows={rows}
               termId={Number(form.AdTermId || filterTerm || 0)}
               collegeId={Number(form.AdCollegeId || 0)}
+              sectionId={Number(form.AdSectionId || 0)}
               excludeId={editor === "edit" ? Number(editId || 0) : 0}
               original={editorOriginalRow}
               draft={form}
@@ -13035,6 +13042,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           onCancel={() => { setQuick(null); setQuickError(null); }}
           onExpand={expandQuick}
           onCreate={createQuick}
+          meter={quickMeter.current}
           replaceBusy={replaceBusy}
           onReplaceable={(section, action, appointment) => void placeholderAction(section, action, { appointment: appointment as Partial<FSchedule>, done: () => { setQuick(null); setQuickError(null); } })}
         />

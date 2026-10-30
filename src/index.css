@@ -48,6 +48,7 @@
 @import "./styles/41-week-window.css";
 @import "./styles/42-colleague-measure.css";
 @import "./styles/43-one-line.css";
+@import "./styles/44-quick-studio.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */
