@@ -261,3 +261,155 @@ export function lectureStickOptions(
   const dayIndex = (spot: MiniTarget) => DAY_KEYS.indexOf(spot.days[0] || spot.day);
   return out.sort((a, b) => dayIndex(a.spot) - dayIndex(b.spot) || a.spot.start - b.spot.start);
 }
+
+/* ══ نافذة «أسبوع الأستاذ» (R4): أعمدةٌ تتّسع لأيام الموعد، ورسمٌ على الأسبوع، وتقاطعٌ مع القاعة ══ */
+
+/**
+ * أعمدة الأيام الخمسة: أيام الموعد الجاري (ويومٌ يمرّ عليه المؤشر) عريضةٌ 2fr والباقي 1fr.
+ * بلا أيامٍ للموعد لا تغيير (null: تبقى الأعمدة متساوية كما كانت).
+ */
+export function weekColumns(focusDays: readonly DayKey[], hover?: DayKey | null): string | null {
+  if (!focusDays.length) return null;
+  return DAY_KEYS.map(day => `minmax(0,${focusDays.includes(day) || day === hover ? 2 : 1}fr)`).join(" ");
+}
+
+export interface DrawnPlacement extends MiniTarget {
+  /** مدة الموعد بالدقائق. */
+  minutes: number;
+  /** المدة من اللائحة (أو مدةٍ معلومة مُرِّرت)، لا من طول السحب. */
+  fixed: boolean;
+}
+
+/** الرسم على شبكة الخمس دقائق، ولا يقصر الرسم الحرّ عن نصف ساعة. */
+export const DRAW_STEP = 5;
+export const DRAW_MIN_MINUTES = 30;
+const snapTo = (value: number, step: number) => Math.round(value / step) * step;
+const clampTo = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+/**
+ * «اسحب على فراغ لترسم موعداً»: من نقطة الضغط إلى حيث يُفلت المؤشر، في يومٍ واحد.
+ * الأيام: أيام الموعد الجاري إن ضمّت اليوم، وإلا الأيام الثابتة (طلب أستاذ)، وإلا أيام النمط
+ * المعتمد لساعات المقرر في ذلك اليوم (patternForDay — ما تُبنى به خانات «+» نفسها)، وإلا اليوم وحده.
+ * المدة: مدة اللائحة لتلك الأيام (ثم لذلك اليوم)، أو مدةٌ معلومة تُمرَّر؛ وإلا فطول السحب على
+ * شبكة الخمس دقائق بحدٍّ أدنى نصف ساعة. البداية على الشبكة نفسها، والموعد كله داخل المحور.
+ * يومٌ خارج الأيام الثابتة لا يُرسم عليه (كما لا تُقترح فيه خانة).
+ */
+export function drawnPlacement(
+  course: RegulationCourse | null | undefined,
+  day: DayKey,
+  startMin: number,
+  endMin: number,
+  options: { span: MiniSpan; draftDays?: readonly DayKey[]; fixedDays?: readonly DayKey[]; minutes?: number },
+): DrawnPlacement | null {
+  const { span } = options;
+  if (![startMin, endMin, span.start, span.end].every(Number.isFinite) || span.end - span.start < DRAW_MIN_MINUTES) return null;
+  const fixed = options.fixedDays?.length ? DAY_KEYS.filter(item => options.fixedDays!.includes(item)) : null;
+  if (fixed && !fixed.includes(day)) return null;
+  const draft = DAY_KEYS.filter(item => Boolean(options.draftDays?.includes(item)));
+  const known = Number(options.minutes) > 0 ? Number(options.minutes) : 0;
+  const dayMinutes = patternForDay(course, day)?.minutes || 0;
+  let days: DayKey[];
+  let minutes: number;
+  if (draft.includes(day)) {
+    days = draft;
+    minutes = regulationChoiceFor(course, draft)?.minutes || dayMinutes || known;
+  } else if (fixed) {
+    days = fixed;
+    minutes = patternForDay(course, day, 0, fixed)?.minutes || dayMinutes || known;
+  } else {
+    const pattern = patternForDay(course, day, known);
+    days = pattern ? pattern.days : [day];
+    minutes = pattern?.minutes || 0;
+  }
+  const from = Math.min(startMin, endMin), to = Math.max(startMin, endMin);
+  if (minutes > 0) {
+    const start = clampTo(snapTo(from, DRAW_STEP), span.start, Math.max(span.start, span.end - minutes));
+    return { day, start, end: start + minutes, days, minutes, fixed: true };
+  }
+  const start = clampTo(snapTo(from, DRAW_STEP), span.start, span.end - DRAW_MIN_MINUTES);
+  const end = clampTo(Math.max(snapTo(to, DRAW_STEP), start + DRAW_MIN_MINUTES), start + DRAW_MIN_MINUTES, span.end);
+  return { day, start, end, days, minutes: end - start, fixed: false };
+}
+
+/** هل يزاحم الموضعُ محاضرةً (أو حجزاً) في أحد أيامه دون الفاصل المقرَّر؟ */
+export function spotCrowds(spot: Pick<MiniTarget, "days" | "start" | "end">, lectures: readonly MiniLecture[]): boolean {
+  const gap = requiredGapForDays(spot.days);
+  return spot.days.some(day => crowds(lectures, day, spot.start, spot.end, gap));
+}
+
+/** القاعة المختارة في النموذج: رمز المبنى ورقم القاعة كما يُكتبان («901A01/104»). */
+export interface MiniRoom { code: string; hall: string }
+
+const roomToken = (value: unknown) => String(value ?? "").trim().toUpperCase();
+/** وضع القاعة يعمل حين يُعرف الرمز والرقم معاً. */
+export const roomReady = (room: MiniRoom | null | undefined): room is MiniRoom => Boolean(room && roomToken(room.code) && roomToken(room.hall));
+/** صفٌّ في هذه القاعة بالرمز والرقم (ما حُمِّل في اللوحة؛ وقراءة الخادم تطابق السجل الرسمي). */
+export function inRoom(row: Partial<FSchedule>, room: MiniRoom | null | undefined): boolean {
+  if (!roomReady(room)) return false;
+  return roomToken(row.AdRoomCode) === roomToken(room.code) && roomToken(row.AdRoomHall) === roomToken(room.hall);
+}
+
+/**
+ * حجوز القاعة يوماً يوماً: صفوفها في الفصل، كلٌّ مرةً واحدة، دون محاضرات الأستاذ نفسه
+ * (مرسومةٌ محاضراتٍ) ودون الموعد المفتوح للتعديل (مرسومٌ شبحاً).
+ */
+export function roomBlocks(rows: readonly FSchedule[], options: { teacherId: number; termId?: number; excludeId?: number }): MiniLecture[] {
+  const seen = new Set<number>();
+  const out: MiniLecture[] = [];
+  for (const row of rows) {
+    const id = Number(row.id);
+    if (seen.has(id) || (options.excludeId && id === options.excludeId)) continue;
+    seen.add(id);
+    if (Number(row.AdInstructorId) === options.teacherId) continue;
+    if (options.termId && Number(row.AdTermId) !== options.termId) continue;
+    const start = toMin(row.fstarttime), end = toMin(row.fendtime);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    for (const day of DAY_KEYS) if ((row as any)[day]) out.push({ id, day, start, end, row, otherCollege: false });
+  }
+  return out.sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day) || a.start - b.start);
+}
+
+export interface RoomTarget extends MiniTarget {
+  /** حرّةٌ للأستاذ وللقاعة معاً في كل أيام النمط (بالفاصل المقرَّر بين محاضرتين في القاعة). */
+  golden: boolean;
+}
+
+/**
+ * «تناسب الاثنين»: خانةٌ حرّة للأستاذ (freeTargets) ذهبيةٌ إن خلت القاعة أيضاً في كل أيامها
+ * بالفاصل المقرَّر؛ وإلا فالقاعة مشغولة فيها (تبقى قابلةً للضغط، والفحص الواحد يحكم).
+ */
+export function goldenTargets(
+  targets: readonly MiniTarget[],
+  roomRows: readonly FSchedule[],
+  options: { teacherId: number; termId?: number; excludeId?: number },
+): RoomTarget[] {
+  const busy = roomBlocks(roomRows, options);
+  return targets.map(target => ({ ...target, golden: !spotCrowds(target, busy) }));
+}
+
+export interface FloatRect { x: number; y: number; w: number; h: number }
+export const FLOAT_MIN = { w: 320, h: 180 } as const;
+
+/**
+ * النافذة العائمة داخل الشاشة دائماً: لا تخرج حافّتها، ولا تصغر عن حدٍّ يُقرأ.
+ * `visible` ارتفاع ما يظهر منها فعلاً (الترويسة وحدها حين تُطوى)، فتنزل المطويّة حتى أسفل الشاشة.
+ */
+export function clampFloatRect(rect: FloatRect, viewport: { width: number; height: number }, visible?: number): FloatRect {
+  const margin = 8;
+  const roomW = Math.max(0, viewport.width - margin * 2), roomH = Math.max(0, viewport.height - margin * 2);
+  const w = Math.round(clampTo(rect.w, Math.min(FLOAT_MIN.w, roomW), Math.max(Math.min(FLOAT_MIN.w, roomW), roomW)));
+  const h = Math.round(clampTo(rect.h, Math.min(FLOAT_MIN.h, roomH), Math.max(Math.min(FLOAT_MIN.h, roomH), roomH)));
+  const shown = Math.min(h, Number(visible) > 0 ? Number(visible) : h);
+  const x = Math.round(clampTo(rect.x, margin, Math.max(margin, viewport.width - w - margin)));
+  const y = Math.round(clampTo(rect.y, margin, Math.max(margin, viewport.height - shown - margin)));
+  return { x, y, w, h };
+}
+
+/** ما حُفظ من موضع النافذة العائمة: أرقامٌ صالحة، وإلا فلا شيء (تعود إلى مكانها). */
+export function parseFloatRect(value: unknown): FloatRect | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const [x, y, w, h] = [record.x, record.y, record.w, record.h].map(Number);
+  if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) return null;
+  return { x, y, w, h };
+}

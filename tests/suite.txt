@@ -192,8 +192,10 @@ test:appointment-forms
 test:placeholder-action
 test:course-spelling-merge
 test:teacher-mini-week
+test:week-window
 test:appointment-forms-r2
 test:appointment-forms-r3
+test:one-line-appointment
 test:schedule-wipe
 test:instructor-availability
 test:instructor-offering-flow
@@ -206,6 +208,7 @@ test:live-pulse
 test:live-pulse-http
 test:seats
 test:seat-access-card
+test:colleague-guard-measure
 test:section-requests
 test:import-courses-r3
 test:report-print-menus

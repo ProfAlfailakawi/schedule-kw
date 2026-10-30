@@ -1,1 +1,279 @@
 /* ── حارس الزملاء (حجزٌ مؤقت لدقيقتين) ومقياس إدخال المواعيد ── */
+
+/* ==========================================================================
+   ١) «زميلك يعمل الآن على القاعة نفسها» — ColleagueHoldNotice
+   --------------------------------------------------------------------------
+   تنبيهٌ لا منع: كهرمانيٌّ هادئ (الأحمرُ للتعارض وحده)، وكلُّ زميلٍ شريحة — وجهُه
+   بحرفه ولونِه الثابت، وعلى ماذا نلتقي، وأيامُه حروفاً، ووقتُه، وحلقةٌ تنقص حتى
+   ينتهي حجزُه. ألوانُ الأشخاص ستٌّ كحضور اللوح (05-schedule.css › data-presence).
+   ========================================================================== */
+.colleague-hold-notice{
+  --hold-tone:var(--warning);
+  display:flex;align-items:flex-start;gap:10px;
+  box-sizing:border-box;max-inline-size:100%;min-inline-size:0;padding:10px 12px;
+  border:1px solid color-mix(in srgb,var(--hold-tone) 34%,var(--line));
+  border-radius:var(--r-lg);
+  background:color-mix(in srgb,var(--hold-tone) 7%,var(--surface));
+  color:var(--ink);
+  animation:colleague-hold-in .22s var(--ease-out) both;
+}
+.colleague-hold-icon{
+  display:grid;place-items:center;inline-size:32px;block-size:32px;margin-block-start:2px;flex:none;
+  border-radius:var(--r-full);
+  background:color-mix(in srgb,var(--hold-tone) 16%,var(--surface));
+  color:var(--hold-tone);
+}
+.colleague-hold-icon svg{inline-size:17px;block-size:17px}
+.colleague-hold-stack{list-style:none;margin:0;padding:0;display:grid;gap:6px;flex:1 1 auto;min-inline-size:0}
+.colleague-hold-chip{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;
+  min-inline-size:0;padding-block:6px;padding-inline:6px 8px;
+  border:1px solid color-mix(in srgb,var(--hold-tone) 18%,var(--line));
+  border-radius:var(--r-md);
+  background:var(--surface);
+  animation:colleague-hold-in .22s var(--ease-out) both;
+}
+.colleague-hold-chip[data-clash="both"]{border-color:color-mix(in srgb,var(--hold-tone) 44%,var(--line))}
+.colleague-hold-avatar,
+.colleague-presence-faces>i{
+  display:grid;place-items:center;flex:none;
+  border-radius:var(--r-full);
+  font:700 13px/1 var(--font-ui);font-style:normal;
+  color:color-mix(in srgb,hsl(var(--hold-hue,200) 62% 36%) 78%,var(--ink));
+  background:color-mix(in srgb,hsl(var(--hold-hue,200) 60% 52%) 18%,var(--surface));
+  border:1px solid color-mix(in srgb,hsl(var(--hold-hue,200) 60% 52%) 40%,transparent);
+}
+.colleague-hold-avatar{inline-size:32px;block-size:32px}
+.colleague-hold-body{display:grid;gap:4px;min-inline-size:0}
+.colleague-hold-line{font-size:var(--t-sm);line-height:1.65;color:var(--ink-2);overflow-wrap:anywhere}
+.colleague-hold-line b{font-weight:700;color:var(--ink)}
+.colleague-hold-target{display:inline-flex;align-items:center;gap:4px;font-weight:700;color:var(--ink)}
+.colleague-hold-target svg{inline-size:14px;block-size:14px;flex:none;color:var(--hold-tone)}
+.colleague-hold-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-inline-size:0}
+.colleague-hold-week{display:inline-flex;gap:3px}
+.colleague-hold-week>i{
+  display:grid;place-items:center;inline-size:20px;block-size:20px;
+  border-radius:6px;font:700 12px/1 var(--font-ui);font-style:normal;
+  color:var(--muted-2);background:var(--surface-2);
+}
+.colleague-hold-week>i[data-on]{
+  color:color-mix(in srgb,var(--hold-tone) 80%,var(--ink));
+  background:color-mix(in srgb,var(--hold-tone) 16%,var(--surface));
+}
+.colleague-hold-week>i[data-hit]{color:var(--surface);background:var(--hold-tone)}
+.colleague-hold-time{
+  font:600 12.5px/1.2 var(--font-mono);font-variant-numeric:tabular-nums;
+  color:var(--ink-2);direction:ltr;unicode-bidi:isolate;white-space:nowrap;
+}
+.colleague-hold-ring{
+  position:relative;flex:none;display:inline-grid;place-items:center;
+  inline-size:42px;block-size:42px;color:var(--hold-tone);
+}
+.colleague-hold-ring>svg{position:absolute;inset:0;inline-size:100%;block-size:100%;transform:scaleX(-1) rotate(-90deg)}
+.colleague-hold-ring-track{fill:none;stroke:color-mix(in srgb,var(--line-strong) 60%,transparent);stroke-width:3.2}
+.colleague-hold-ring-fill{fill:none;stroke:currentColor;stroke-width:3.2;stroke-linecap:round;transition:stroke-dasharray 1s linear}
+.colleague-hold-ring>b{
+  position:relative;font:700 12px/1 var(--font-mono);font-variant-numeric:tabular-nums;
+  color:var(--ink);direction:ltr;unicode-bidi:isolate;letter-spacing:-.02em;
+}
+.colleague-hold-more{
+  justify-self:start;padding:3px 12px;border-radius:var(--r-full);
+  font:700 12px/1.4 var(--font-mono);color:color-mix(in srgb,var(--hold-tone) 80%,var(--ink));
+  background:color-mix(in srgb,var(--hold-tone) 14%,var(--surface));
+}
+/* الهاتف: الأيقونةُ العامة تُطوى (الوجوهُ تقول من هم)، والشريحةُ أضيق. لا container هنا عمداً:
+   المحرّرُ يضع التنبيه حيث يشاء، وحاويةُ العرض تنكمش إلى الصفر داخل صفٍّ مرن. */
+@media (max-width:520px){
+  .colleague-hold-notice{padding:8px}
+  .colleague-hold-icon{display:none}
+  .colleague-hold-chip{gap:8px;padding-inline:4px 6px}
+  .colleague-hold-avatar{inline-size:28px;block-size:28px;font-size:12px}
+  .colleague-hold-ring{inline-size:38px;block-size:38px}
+}
+@keyframes colleague-hold-in{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+
+/* ==========================================================================
+   ٢) «زميلان يعملان الآن» — ColleaguePresenceChip
+   --------------------------------------------------------------------------
+   رفقةٌ لا تنبيه: بلون اليشم، وجوهٌ متراكبة ونقطةٌ تنبض نبضاتٍ ثلاثاً ثم تسكن.
+   ========================================================================== */
+.colleague-presence-chip{
+  display:inline-flex;align-items:center;gap:8px;max-inline-size:100%;min-inline-size:0;
+  padding-block:3px;padding-inline:4px 12px;
+  border:1px solid color-mix(in srgb,var(--accent) 26%,var(--line));
+  border-radius:var(--r-full);
+  background:color-mix(in srgb,var(--accent) 7%,var(--surface));
+  color:var(--accent-ink);font-size:var(--t-xs);font-weight:700;line-height:1.3;
+  white-space:nowrap;vertical-align:middle;
+}
+.colleague-presence-faces{display:inline-flex;flex-direction:row}
+.colleague-presence-faces>i{inline-size:24px;block-size:24px;font-size:12px;box-shadow:0 0 0 2px var(--surface)}
+.colleague-presence-faces>i+i{margin-inline-start:-7px}
+.colleague-presence-pulse{
+  inline-size:8px;block-size:8px;flex:none;border-radius:var(--r-full);
+  background:var(--accent);box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent);
+  animation:colleague-presence-pulse 1.6s var(--ease-out) 3;
+}
+.colleague-presence-text{overflow:hidden;text-overflow:ellipsis;min-inline-size:0}
+@keyframes colleague-presence-pulse{
+  0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent)}
+  100%{box-shadow:0 0 0 7px transparent}
+}
+
+/* ==========================================================================
+   ٣) «مقياس الكمال» — AppointmentMeasureCard (السجل في إدارة النظام)
+   --------------------------------------------------------------------------
+   ستُّ لوحاتٍ صغيرة بلا شرح: الرقم الكبير وسهمه، والمدّة في خمسة أعمدة، وحلقةُ
+   المانع، وأكثرُ الأدوات عوناً، والأجهزة، والجديدُ مقابل التعديل. تتّسع أعمدتُها
+   بعرض موضعها لا بعرض الشاشة (container)، فتصلح في الحاسوب والهاتف معاً.
+   ========================================================================== */
+.entry-measure-card{
+  container-type:inline-size;
+  display:grid;gap:12px;min-inline-size:0;
+  padding:14px 16px 16px;
+  border:1px solid var(--line);border-radius:var(--r-xl);
+  background:color-mix(in srgb,var(--accent) 3%,var(--surface));
+  box-shadow:var(--shadow-xs);
+}
+.entry-measure-head{display:flex;align-items:center;gap:8px;min-inline-size:0}
+.entry-measure-icon{
+  display:grid;place-items:center;inline-size:32px;block-size:32px;flex:none;
+  border-radius:var(--r-full);
+  background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent);
+}
+.entry-measure-icon svg{inline-size:17px;block-size:17px}
+.entry-measure-head h2{margin:0;font-size:var(--t-h4);font-weight:750;color:var(--ink)}
+.entry-measure-head small{
+  margin-inline-start:auto;padding:3px 10px;border-radius:var(--r-full);
+  background:var(--surface-2);color:var(--muted);font-size:var(--t-xs);font-weight:600;white-space:nowrap;
+}
+/* الهاتف: الرقمُ وحلقةُ المانع جنباً إلى جنب، وما عداهما بعرض البطاقة. */
+.entry-measure-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+  grid-template-areas:"hero blocked" "durations durations" "helpers helpers" "devices devices" "modes modes";
+}
+.entry-measure-tile{
+  display:grid;align-content:center;gap:8px;min-inline-size:0;padding:12px;
+  border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:var(--r-lg);
+  background:var(--surface);
+}
+.entry-measure-hero{grid-area:hero}
+.entry-measure-durations{grid-area:durations}
+.entry-measure-blocked{grid-area:blocked}
+.entry-measure-helpers{grid-area:helpers}
+.entry-measure-devices{grid-area:devices}
+.entry-measure-modes{grid-area:modes}
+@container (min-width:460px){
+  .entry-measure-grid{grid-template-areas:"hero blocked" "durations durations" "helpers helpers" "devices modes"}
+}
+@container (min-width:620px){
+  .entry-measure-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-areas:"hero durations durations blocked" "helpers helpers devices modes";
+  }
+}
+
+/* الرقمُ الكبير */
+.entry-measure-hero{justify-items:start;align-content:center}
+.entry-measure-number{display:flex;align-items:baseline;gap:4px;margin:0;color:var(--ink)}
+.entry-measure-number>b{font:750 clamp(34px,7cqi,46px)/1 var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.entry-measure-number>small{font-size:var(--t-h4);font-weight:700;color:var(--muted)}
+.entry-measure-trend{
+  display:inline-flex;align-items:center;gap:3px;margin:0;padding:2px 9px 2px 7px;border-radius:var(--r-full);
+  font-size:var(--t-xs);font-weight:700;
+}
+.entry-measure-trend svg{inline-size:14px;block-size:14px}
+.entry-measure-trend>b{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.entry-measure-trend[data-trend="faster"]{color:var(--success);background:var(--success-soft)}
+.entry-measure-trend[data-trend="slower"]{color:var(--warning);background:var(--warning-soft)}
+.entry-measure-trend[data-trend="same"]{color:var(--muted);background:var(--surface-2)}
+.entry-measure-count{color:var(--muted);font-size:var(--t-xs);font-weight:600}
+
+/* المدّة في خمسة أعمدة */
+.entry-measure-histogram{
+  list-style:none;margin:0;padding:0;
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:end;gap:6px;
+  block-size:120px;
+}
+.entry-measure-histogram>li{display:grid;grid-template-rows:auto minmax(0,1fr) auto;justify-items:center;gap:4px;block-size:100%;min-inline-size:0}
+.entry-measure-histogram>li>em{font:700 12px/1 var(--font-mono);font-style:normal;color:var(--ink-2);font-variant-numeric:tabular-nums;min-block-size:12px}
+.entry-measure-histogram>li>i{
+  align-self:end;inline-size:min(100%,34px);
+  block-size:calc(var(--bar,0) * 100%);min-block-size:3px;
+  border-radius:7px 7px 3px 3px;
+  background:color-mix(in srgb,var(--accent) 72%,var(--surface));
+  transform-origin:bottom;
+  animation:entry-measure-grow .5s var(--ease-out) both;
+}
+.entry-measure-histogram>li[data-bucket="lt30"]>i{background:var(--accent)}
+.entry-measure-histogram>li[data-bucket="s120to300"]>i{background:color-mix(in srgb,var(--brass) 70%,var(--surface))}
+.entry-measure-histogram>li[data-bucket="gt300"]>i{background:color-mix(in srgb,var(--warning) 80%,var(--surface))}
+.entry-measure-histogram>li>small{font:600 12px/1 var(--font-mono);color:var(--muted);white-space:nowrap}
+.entry-measure-histogram>li>small>bdi{font-variant-numeric:tabular-nums}
+
+/* حلقةُ المانع */
+.entry-measure-blocked{justify-items:center;text-align:center}
+.entry-measure-blocked>p{display:inline-flex;align-items:center;gap:5px;margin:0;color:var(--ink-2);font-size:var(--t-sm);font-weight:700}
+.entry-measure-blocked>p>svg{inline-size:15px;block-size:15px;color:var(--warning)}
+.entry-measure-ring{
+  position:relative;display:inline-grid;place-items:center;inline-size:72px;block-size:72px;color:var(--warning);
+}
+.entry-measure-ring>svg{position:absolute;inset:0;inline-size:100%;block-size:100%;transform:scaleX(-1) rotate(-90deg)}
+.entry-measure-ring-track{fill:none;stroke:color-mix(in srgb,var(--line-strong) 60%,transparent);stroke-width:3.4}
+.entry-measure-ring-fill{fill:none;stroke:currentColor;stroke-width:3.4;stroke-linecap:round}
+.entry-measure-ring>b{position:relative;font:750 17px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink);direction:ltr;unicode-bidi:isolate}
+
+/* أكثرُ الأدوات عوناً */
+.entry-measure-helpers>ol{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.entry-measure-helpers li{
+  display:grid;grid-template-columns:28px minmax(0,auto) minmax(40px,1fr) auto;align-items:center;gap:8px;min-inline-size:0;
+}
+.entry-measure-helper-icon{
+  display:grid;place-items:center;inline-size:28px;block-size:28px;border-radius:9px;
+  background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--accent);
+}
+.entry-measure-helper-icon svg{inline-size:15px;block-size:15px}
+.entry-measure-helper-name{font-size:var(--t-sm);font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.entry-measure-helper-bar{display:block;block-size:8px;border-radius:var(--r-full);background:var(--surface-2);overflow:hidden}
+.entry-measure-helper-bar>i{display:block;block-size:100%;border-radius:inherit;background:var(--accent);animation:entry-measure-fill .6s var(--ease-out) both}
+.entry-measure-helpers li>b{font:700 12.5px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink-2);direction:ltr;unicode-bidi:isolate}
+.entry-measure-none{display:inline-flex;align-items:center;gap:6px;margin:0;color:var(--muted)}
+.entry-measure-none svg{inline-size:16px;block-size:16px}
+
+/* شريطٌ مقسوم: الأجهزة، والجديد مقابل التعديل */
+.entry-measure-split{display:grid;gap:8px;min-inline-size:0}
+.entry-measure-split-bar{display:flex;gap:2px;block-size:12px;border-radius:var(--r-full);overflow:hidden;background:var(--surface-2)}
+.entry-measure-split-bar>i{display:block;flex-basis:0;min-inline-size:4px;block-size:100%}
+.entry-measure-split-legend{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px}
+.entry-measure-split-legend>li{display:inline-flex;align-items:center;gap:4px;color:var(--ink-2)}
+.entry-measure-split-legend svg{inline-size:15px;block-size:15px}
+.entry-measure-split-legend b{font:700 12.5px/1 var(--font-mono);font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.entry-measure-split [data-part="phone"],.entry-measure-split [data-part="create"]{--part:var(--accent)}
+.entry-measure-split [data-part="tablet"]{--part:var(--info)}
+.entry-measure-split [data-part="desktop"],.entry-measure-split [data-part="edit"]{--part:var(--brass)}
+.entry-measure-split-bar>i{background:var(--part,var(--accent))}
+.entry-measure-split-legend>li>svg{color:var(--part,var(--accent))}
+
+/* الفراغ والتحميل */
+.entry-measure-empty{display:flex;align-items:center;justify-content:center;gap:8px;margin:0;padding:18px 12px;color:var(--muted);font-weight:700}
+.entry-measure-empty svg{inline-size:20px;block-size:20px;opacity:.7}
+.entry-measure-skeleton{
+  block-size:120px;border-radius:var(--r-lg);
+  background:linear-gradient(90deg,var(--surface-2),var(--surface-3),var(--surface-2));background-size:200% 100%;
+  animation:entry-measure-shimmer 1.4s linear 3;
+}
+@keyframes entry-measure-grow{from{transform:scaleY(.08);opacity:.4}to{transform:none;opacity:1}}
+@keyframes entry-measure-fill{from{transform:scaleX(0)}to{transform:none}}
+@keyframes entry-measure-shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+.entry-measure-helper-bar>i{transform-origin:right}
+[dir="ltr"] .entry-measure-helper-bar>i{transform-origin:left}
+
+@media (prefers-reduced-motion:reduce){
+  .colleague-hold-notice,.colleague-hold-chip,.colleague-presence-pulse,
+  .entry-measure-histogram>li>i,.entry-measure-helper-bar>i,.entry-measure-skeleton{animation:none}
+  .colleague-hold-ring-fill{transition:none}
+}
+@media print{
+  .colleague-hold-notice,.colleague-presence-chip{display:none!important}
+  .entry-measure-card *{animation:none!important}
+}
