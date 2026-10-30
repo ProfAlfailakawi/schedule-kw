@@ -1026,13 +1026,12 @@ export function createDemoSandboxState(): DemoSandboxState {
   ]));
   /* بيانات كشف الفصل الحالي التجريبي: فائض شعبة واحدة لكل مقرر من
      surplusCourses محسوب حصراً من السعة وعدد «لم يسجلوا»، بلا أثر للمختار
-     أو تاريخ الفصول. بقيّة القيم للاقتراحات الأخرى كما كانت. */
+     أو تاريخ الفصول. ولكل مقررٍ ناقص «لم يسجلوا» يملأ شعبه ويزيد ثلثَ شعبةٍ تقريباً: ينقصه شعبةٌ واحدة كما اختار القسم
+     (accepted)، وتغطيةُ الطلب في «الإنذار المبكر» نحو ثلاثة أرباع — لا «ناقص 254 شعبة» من أرقام كشفٍ حقيقيٍّ لقسمٍ آخر. */
   const remaining = Object.fromEntries(plannedCourses.map(([id, sections], index) => {
-    if (index < surplusCourses.length) {
-      const capacity = Number(courses.find(course => Number(course.AdCourseId) === id)?.MaxStudent) || 0;
-      return [String(id), capacity > 0 ? (sections.size - 1) * capacity : 0];
-    }
-    return [String(id), [1315, 3, 268, 159, 35, 163, 8, 134, 1428, 244][index] || 0];
+    const capacity = Number(courses.find(course => Number(course.AdCourseId) === id)?.MaxStudent) || 0;
+    if (index < surplusCourses.length) return [String(id), capacity > 0 ? (sections.size - 1) * capacity : 0];
+    return [String(id), Math.round(capacity * (sections.size + 0.3 + 0.05 * (index % 4)))];
   }));
   const planScope = `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_CURRENT}`;
   /* «لوحة القرار» عند العميدين سطرٌ لكل قسم: وكان القسمان الآخران بلا تخطيطٍ فيُقرآن «0 · 0 · 0» و«لا فرق».
