@@ -55,6 +55,15 @@ const COLLOQUIAL: Record<string, string> = {
   "للأدمن": "لمدير النظام",
 };
 
+/**
+ * ألفاظٌ فصيحة لكنّ المالك اختار غيرها في الواجهة. «كرسي» صار «فريق» (2026-10-30): الكراسي ← الفرق،
+ * شاغل الكرسي ← رئيس الفريق، تسليم الكرسي ← تسليم الرئاسة. يُمسك اللفظ بكل صوره: بأل أو بلا،
+ * بحرف جرٍّ أو عطف، مفرداً أو جمعاً، بتشكيلٍ أو بلا («الكرسيُّ»، «كرسيّي»، «بالكراسي»).
+ * ويبقى في الأسماء البرمجية (seat…) وفي التعليقات وفي كلمات المرشد التي يُطابَق بها سؤالُ المستخدم.
+ */
+const WORDING: Record<string, string> = { "كرسي": "فريق (والشاغل: رئيس الفريق)" };
+const WORDING_TOKEN = new RegExp(`(?:^|[^${"ء-يٱ-ۓً-ْـ"}])[وف]?(?:بال|كال|لل|ال|[بلك])?(كرسي|كراسي)`, "g");
+
 /** مواضعُ مشروعة: [ملف، الكلمة، سبب]. أبقِها قصيرة. */
 const ALLOW: Array<[string, string, string]> = [
   // كلماتُ توقّفٍ يُسقطها مركزُ الوارد من سؤال المستخدم — لا تُعرض.
@@ -118,6 +127,12 @@ function scanFile(file: string, source = fs.readFileSync(file, "utf8")): Hit[] {
         if (ALLOW.some(([f, w]) => f === rel && w === word)) continue;
         hits.push({ file: rel, line: line + 1, word, text: source.split("\n")[line].trim().slice(0, 140) });
       }
+      for (const m of text.matchAll(WORDING_TOKEN)) {
+        const at = start + (m.index ?? 0) + m[0].indexOf(m[1]);
+        const { line } = sf.getLineAndCharacterOfPosition(at);
+        const rel = path.relative(process.cwd(), file).split(path.sep).join("/");
+        hits.push({ file: rel, line: line + 1, word: "كرسي", text: source.split("\n")[line].trim().slice(0, 140) });
+      }
     }
     ts.forEachChild(node, visit);
   };
@@ -160,9 +175,23 @@ const probe = [
 const probed = scanFile("probe.tsx", probe).map(h => `${h.line}:${h.word}`).join(" ");
 check(probed === "2:ليش 3:وين 7:هني", `القارئ يُمسك نصوص الواجهة ويترك التعليقات والمطابقة (${probed})`);
 
+// «كرسي» بكل صوره في نصّ الواجهة، لا في التعليق ولا في كلمات المرشد، ولا «كرسمٍ» ولا «كرسالة».
+const seatProbe = [
+  `/* الكرسيُّ ثابت */`,
+  `const a = "تسليم الكرسي";`,
+  `const b = <h2>كرسيّي</h2>;`,
+  `const c = "لا كراسي مطابقة.";`,
+  `const d = "أضفه إلى كرسيّه وبالكراسي";`,
+  `const e = { keywords: ["كرسي", "كراسي"] };`,
+  `const f = "الموعدُ كرسمٍ لا كنص، كرسالةٍ قصيرة";`,
+  "const g = `<small>تدخل على كرسي</small>`;",
+].join("\n");
+const seatProbed = scanFile("probe-seat.tsx", seatProbe).map(h => `${h.line}:${h.word}`).join(" ");
+check(seatProbed === "2:كرسي 3:كرسي 4:كرسي 5:كرسي 5:كرسي 8:كرسي", `«كرسي» يُمسك بصوره ويُترك في التعليق والمطابقة (${seatProbed})`);
+
 const files = walk("src");
 const hits = files.flatMap(file => scanFile(file));
-for (const h of hits) console.log(`  ${h.file}:${h.line}  «${h.word}» ← ${COLLOQUIAL[h.word]}\n      ${h.text}`);
+for (const h of hits) console.log(`  ${h.file}:${h.line}  «${h.word}» ← ${COLLOQUIAL[h.word] || WORDING[h.word]}\n      ${h.text}`);
 check(hits.length === 0, `نصوص الواجهة في src/ (${files.length} ملفاً) بلا كلمةٍ عاميّة`);
 
 /* ── الأمثلةُ المعروضة يفهمها قارئُها ──────────────────────────────────────

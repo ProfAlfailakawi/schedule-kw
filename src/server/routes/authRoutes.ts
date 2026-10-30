@@ -25,7 +25,7 @@ import { seedDemoRadar, seedDemoMasariDemand } from "../demoRadarSeed";
 import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
 import { seedDemoSectionRequests } from "../demoSectionRequestsSeed";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
-import { LEGACY_SHARED_PASSWORD, newPasswordProblem } from "../accountPassword";
+import { currentPasswordWaived, decidePasswordChange, initialPasswordMark, LEGACY_SHARED_PASSWORD } from "../accountPassword";
 import { endForRequest, requestFullySettled, weeklyLoadOf, type RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { pushHooks } from "../pushRoutes";
 import { seatIdentity } from "../seats";
@@ -653,7 +653,10 @@ app.post("/api/auth/login", rateLimitLogin, async (req: Request, res: Response) 
 
   // Generate Session ID
   const sessionId = `sess_${randomBytes(32).toString("hex")}`;
-  await Repository.createSession(sessionId, user.SystemUserId, SERVER_IDLE_SESSION_MS);
+  /* دخولٌ بالكلمة الأولى لحسابٍ عليه تغييرُها: تحمل الجلسةُ أثرَها، فيختار كلمته دون أن يُسأل عن
+     كلمةٍ لم يكتبها بنفسه (currentPasswordWaived). الأثرُ لا الكلمة، ولا يُعاد إلى المتصفح. */
+  const mustChange = Boolean((user as any).MustChangePassword);
+  await Repository.createSession(sessionId, user.SystemUserId, SERVER_IDLE_SESSION_MS, mustChange ? { initialPassMark: initialPasswordMark(user.SystemUserPass) } : {});
 
   // Set Cookie
   res.setHeader(
@@ -669,22 +672,24 @@ app.post("/api/auth/login", rateLimitLogin, async (req: Request, res: Response) 
   const permissions = seated.permissions;
   const scopes = await clientScopeDetails(seated.scopes);
 
-  res.json({ user: { ...safeUser, IsRootAdmin: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID, IsDemo: false }, role: roleDescriptor(seated.user), permissions, scopes, data: activeDataMode() });
+  res.json({ user: { ...safeUser, IsRootAdmin: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID, IsDemo: false }, role: roleDescriptor(seated.user), permissions, scopes, data: activeDataMode(), ...(mustChange ? { passwordChange: { currentRequired: false } } : {}) });
 });
 
 /* تغييرُ كلمة السر بيد صاحبها: بالكلمة الحالية، ولا تُقبل الموحّدةُ القديمة ولا الحاليةُ نفسها.
+   وتُعفى الحاليةُ لجلسةٍ فُتحت للتوّ بالكلمة الأولى لحسابٍ معلَّم (decidePasswordChange).
    وهو الباب الوحيد المفتوح (مع من أنا والخروج) لحسابٍ عليه تغييرُ كلمته. */
 app.post("/api/auth/change-password", rateLimitLogin, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   if (Repository.isDemoRequest()) { res.status(403).json({ error: "هذه العملية غير متاحة في البيئة التجريبية" }); return; }
   const current = String(req.body?.currentPassword ?? "");
   const next = String(req.body?.newPassword ?? "");
   const user = await Repository.getUserById(Number(req.user.SystemUserId));
-  if (!user || !Repository.verifyPassword(current, user.SystemUserPass)) { res.status(400).json({ error: "كلمة السر الحالية غير صحيحة" }); return; }
-  const problem = newPasswordProblem(current, next);
-  if (problem) { res.status(400).json({ error: problem }); return; }
-  await Repository.updateUser(Number(user.SystemUserId), {
-    SystemUserPass: Repository.hashPassword(next),
-    SystemUserPassVault: Repository.encryptPasswordForVault(next),
+  const sessionId = getCookies(req)["session_id"];
+  const session = !current && sessionId ? await Repository.getSession(sessionId) : undefined;
+  const outcome = decidePasswordChange({ user, session, current, next, verify: Repository.verifyPassword, hash: Repository.hashPassword, vault: Repository.encryptPasswordForVault });
+  if ("error" in outcome) { res.status(outcome.status).json({ error: outcome.error, ...(outcome.code ? { code: outcome.code } : {}) }); return; }
+  await Repository.updateUser(Number(user!.SystemUserId), {
+    SystemUserPass: outcome.hash,
+    SystemUserPassVault: outcome.vault,
     MustChangePassword: false,
   } as any);
   forgetAuthSession(getCookies(req)["session_id"]);
@@ -720,7 +725,12 @@ app.get("/api/auth/me", async (req: AuthenticatedRequest, res: Response) => {
   const scopes = await clientScopeDetails(req.scopes || []);
   // The interface says out loud when it is not on the university's database.
   const demoActiveRole = Number(req.user.SystemUserId) === ROOT_ADMIN_USER_ID ? "admin" : demoActiveRoleKey(Number(req.user.SystemUserId), (req.user as any).Role);
-  res.json({ user: { ...safeUser, IsRootAdmin: Number(req.user.SystemUserId) === ROOT_ADMIN_USER_ID, IsDemo: Repository.isDemoRequest() }, role: roleDescriptor(req.user), permissions, scopes, data: Repository.isDemoRequest() ? "demo" : activeDataMode(), demo: Repository.isDemoRequest() ? { expiresInMs: DEMO_SESSION_TTL_MS, adminReadOnly: true, roles: DEMO_SWITCH_ACCOUNTS, activeRole: demoActiveRole, seedStatus: demoSeedStatus.get(Repository.currentDemoSessionId()) || "ready" } : undefined });
+  /* شاشةُ «اختر كلمة السر» تسأل عن الحالية أو لا تسأل كما سيحكم الخادم (currentPasswordWaived). */
+  const meSessionId = getCookies(req)["session_id"];
+  const passwordChange = (req.user as any).MustChangePassword
+    ? { currentRequired: !(meSessionId && currentPasswordWaived(await Repository.getUserById(Number(req.user.SystemUserId)), await Repository.getSession(meSessionId))) }
+    : undefined;
+  res.json({ user: { ...safeUser, IsRootAdmin: Number(req.user.SystemUserId) === ROOT_ADMIN_USER_ID, IsDemo: Repository.isDemoRequest() }, role: roleDescriptor(req.user), permissions, scopes, passwordChange, data: Repository.isDemoRequest() ? "demo" : activeDataMode(), demo: Repository.isDemoRequest() ? { expiresInMs: DEMO_SESSION_TTL_MS, adminReadOnly: true, roles: DEMO_SWITCH_ACCOUNTS, activeRole: demoActiveRole, seedStatus: demoSeedStatus.get(Repository.currentDemoSessionId()) || "ready" } : undefined });
 });
 
 // Activity heartbeat: the server session still expires after 15 minutes of real

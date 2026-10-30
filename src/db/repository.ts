@@ -590,6 +590,8 @@ interface StoredSession {
   expiresAt: number;
   /** عضوُ فريق الكرسي الذي فتح هذه الجلسة برابطه (docs/SEATS.md)؛ غائبٌ لجلسة الشاغل. */
   memberId?: string;
+  /** جلسةٌ فُتحت بالكلمة الأولى لحسابٍ عليه تغييرُها: أثرُ تلك الكلمة (initialPasswordMark)، لا هي. */
+  initialPassMark?: string;
 }
 const demoSessions = new Map<string, StoredSession>();
 
@@ -2690,9 +2692,9 @@ export const Repository = {
   decryptPasswordFromVault,
 
   // Sessions: Firestore-backed in production so login survives multi-instance/server restarts.
-  createSession: async (sessionId: string, userId: number, ttlMs: number, extra: { memberId?: string } = {}): Promise<void> => {
+  createSession: async (sessionId: string, userId: number, ttlMs: number, extra: { memberId?: string; initialPassMark?: string } = {}): Promise<void> => {
     const now = Date.now();
-    const session: StoredSession = { sessionId, userId, createdAt: now, expiresAt: now + ttlMs, ...(extra.memberId ? { memberId: extra.memberId } : {}) };
+    const session: StoredSession = { sessionId, userId, createdAt: now, expiresAt: now + ttlMs, ...(extra.memberId ? { memberId: extra.memberId } : {}), ...(extra.initialPassMark ? { initialPassMark: extra.initialPassMark } : {}) };
     if (firestoreDb && !demoSandboxContext.getStore()) {
       // `expiresAt` stays a number because the code compares it as one. The
       // Timestamp twin exists purely so Firestore's own TTL policy can sweep

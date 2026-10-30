@@ -83,6 +83,14 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
   check(!read("src/server/seatsRoutes.ts").match(/holderCard|seat-card-password/), "C3 لا طريق جديد يقرأ كلمة من الخادم");
 }
 
+/* ── الفريق لا يُرسم كرسياً (المالك، 2026-10-30): أيقونةُ فريقٍ في التبويب وزرّ «فريقي» والقوائم والشارات ── */
+{
+  const teamFiles = ["src/components/seats/SeatPanel.tsx", "src/components/seats/SeatsAdmin.tsx", "src/components/seats/SeatDrawer.tsx", "src/components/AdminUsers.tsx", "src/App.tsx"];
+  const chairs = teamFiles.filter(file => /\bArmchair\b/.test(read(file)));
+  check(chairs.length === 0, "C6 لا أيقونة كرسي (Armchair) في شاشات الفرق", chairs);
+  check(/value: "seats", label: "الفرق", icon: <UsersRound \/>/.test(read("src/components/AdminUsers.tsx")), "C6 تبويب «الفرق» بأيقونة فريق");
+}
+
 /* ── C4 ── */
 {
   const html = renderToStaticMarkup(<AccessCard name="قسم تكنولوجيا التعليم" url="https://schedule-kw.com/#invite=x" message="m" />);

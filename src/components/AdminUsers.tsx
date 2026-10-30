@@ -6,7 +6,7 @@ import SectionScheduleHours from "./SectionScheduleHours";
 import TeachingLoadSettings from "./TeachingLoadSettings";
 import AccountInvitation from "./AccountInvitation";
 import SeatsAdmin from "./seats/SeatsAdmin";
-import { Activity, ArchiveRestore, Armchair, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
+import { Activity, ArchiveRestore, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
 import {
   AddButton,
   Badge,
@@ -865,7 +865,7 @@ export default function AdminUsers({
       : null,
     /* الكراسي (docs/SEATS.md): من يجلس على كل حساب، والتسليم، والفرق، والتاريخ. */
     permissions.length === 0 || permissions.includes(11)
-      ? { value: "seats", label: "الكراسي", icon: <Armchair /> }
+      ? { value: "seats", label: "الفرق", icon: <UsersRound /> }
       : null,
     // Note 26: the standalone "الصلاحيات" tab is gone — permissions are edited
     // inline on the users screen, so there is nothing useful to show on its own.

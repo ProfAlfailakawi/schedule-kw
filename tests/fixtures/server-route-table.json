@@ -328,7 +328,7 @@
    ],
    "path": "/api/auth/login",
    "name": "bound dispatch",
-   "call": "84d39b26b8f41ad5",
+   "call": "d356a0fab3404d21",
    "site": "src/server/routes/authRoutes.ts:607",
    "regexp": "/^\\/api\\/auth\\/login\\/?$/i",
    "end": true
@@ -340,8 +340,8 @@
    ],
    "path": "/api/auth/change-password",
    "name": "bound dispatch",
-   "call": "235281f83bd1c7d3",
-   "site": "src/server/routes/authRoutes.ts:677",
+   "call": "799e9f658fd091df",
+   "site": "src/server/routes/authRoutes.ts:681",
    "regexp": "/^\\/api\\/auth\\/change-password\\/?$/i",
    "end": true
   },
@@ -353,7 +353,7 @@
    "path": "/api/auth/logout",
    "name": "bound dispatch",
    "call": "45450c41fffa97f6",
-   "site": "src/server/routes/authRoutes.ts:695",
+   "site": "src/server/routes/authRoutes.ts:700",
    "regexp": "/^\\/api\\/auth\\/logout\\/?$/i",
    "end": true
   },
@@ -364,8 +364,8 @@
    ],
    "path": "/api/auth/me",
    "name": "bound dispatch",
-   "call": "770573e68c481461",
-   "site": "src/server/routes/authRoutes.ts:712",
+   "call": "a2387f3df9b881b4",
+   "site": "src/server/routes/authRoutes.ts:717",
    "regexp": "/^\\/api\\/auth\\/me\\/?$/i",
    "end": true
   },
@@ -377,7 +377,7 @@
    "path": "/api/auth/heartbeat",
    "name": "bound dispatch",
    "call": "afe52c945256ddce",
-   "site": "src/server/routes/authRoutes.ts:729",
+   "site": "src/server/routes/authRoutes.ts:739",
    "regexp": "/^\\/api\\/auth\\/heartbeat\\/?$/i",
    "end": true
   },
@@ -389,7 +389,7 @@
    "path": "/api/demo/reset",
    "name": "bound dispatch",
    "call": "4f31f6a5c2be5259",
-   "site": "src/server/routes/authRoutes.ts:751",
+   "site": "src/server/routes/authRoutes.ts:761",
    "regexp": "/^\\/api\\/demo\\/reset\\/?$/i",
    "end": true
   },
@@ -401,7 +401,7 @@
    "path": "/api/demo/teacher-card",
    "name": "bound dispatch",
    "call": "c8c7649c9be5f84c",
-   "site": "src/server/routes/authRoutes.ts:761",
+   "site": "src/server/routes/authRoutes.ts:771",
    "regexp": "/^\\/api\\/demo\\/teacher-card\\/?$/i",
    "end": true
   },
@@ -413,7 +413,7 @@
    "path": "/api/demo/seed-status",
    "name": "bound dispatch",
    "call": "b665cb3ff303a369",
-   "site": "src/server/routes/authRoutes.ts:782",
+   "site": "src/server/routes/authRoutes.ts:792",
    "regexp": "/^\\/api\\/demo\\/seed-status\\/?$/i",
    "end": true
   },
@@ -425,7 +425,7 @@
    "path": "/api/auth/presence",
    "name": "bound dispatch",
    "call": "04f031888f4431e2",
-   "site": "src/server/routes/authRoutes.ts:788",
+   "site": "src/server/routes/authRoutes.ts:798",
    "regexp": "/^\\/api\\/auth\\/presence\\/?$/i",
    "end": true
   },
@@ -3633,7 +3633,7 @@
    ],
    "path": "/api/seats/switch",
    "name": "bound dispatch",
-   "call": "32c92c256ec5cb88",
+   "call": "6f49c44e5c4cc6a4",
    "site": "src/server/seatsRoutes.ts:398",
    "regexp": "/^\\/api\\/seats\\/switch\\/?$/i",
    "end": true
@@ -3645,7 +3645,7 @@
    ],
    "path": "/api/seats/:id",
    "name": "bound dispatch",
-   "call": "514c02858b3fd452",
+   "call": "e68b88c2b5e1457c",
    "site": "src/server/seatsRoutes.ts:411",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -3657,7 +3657,7 @@
    ],
    "path": "/api/seats/:id/holder",
    "name": "bound dispatch",
-   "call": "770aa6dc0aacf995",
+   "call": "936f4313607e214a",
    "site": "src/server/seatsRoutes.ts:425",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/holder\\/?$/i",
    "end": true
@@ -3669,7 +3669,7 @@
    ],
    "path": "/api/seats/:id/handover",
    "name": "bound dispatch",
-   "call": "8327fdc674a0124a",
+   "call": "6ec1a3c3b9001792",
    "site": "src/server/seatsRoutes.ts:440",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/handover\\/?$/i",
    "end": true
@@ -3681,7 +3681,7 @@
    ],
    "path": "/api/seats/:id/members",
    "name": "bound dispatch",
-   "call": "fdd83b921606845e",
+   "call": "f699a584f42d5c58",
    "site": "src/server/seatsRoutes.ts:462",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members\\/?$/i",
    "end": true
@@ -3693,7 +3693,7 @@
    ],
    "path": "/api/seats/:id/members/:mid/link",
    "name": "bound dispatch",
-   "call": "203f84f43ddcb22f",
+   "call": "6fac5395d9112984",
    "site": "src/server/seatsRoutes.ts:501",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/link\\/?$/i",
    "end": true
@@ -3705,7 +3705,7 @@
    ],
    "path": "/api/seats/:id/members/:mid/status",
    "name": "bound dispatch",
-   "call": "cb2eed827f14f2f0",
+   "call": "c605ee39e9e8aa57",
    "site": "src/server/seatsRoutes.ts:514",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/status\\/?$/i",
    "end": true
@@ -3717,7 +3717,7 @@
    ],
    "path": "/api/seats/:id/members/:mid/scopes",
    "name": "bound dispatch",
-   "call": "5c1caf94da5da445",
+   "call": "6d5cb84ba79041b5",
    "site": "src/server/seatsRoutes.ts:541",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/scopes\\/?$/i",
    "end": true
@@ -3729,7 +3729,7 @@
    ],
    "path": "/api/seats/:id/deputy",
    "name": "bound dispatch",
-   "call": "f0c024415a29212e",
+   "call": "5f3df9f3dbbda1a9",
    "site": "src/server/seatsRoutes.ts:563",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/deputy\\/?$/i",
    "end": true
@@ -3741,7 +3741,7 @@
    ],
    "path": "/api/seats/:id/deputy/end",
    "name": "bound dispatch",
-   "call": "01d5f5f1f929b9e0",
+   "call": "c4ba94e6e0c52044",
    "site": "src/server/seatsRoutes.ts:583",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/deputy\\/end\\/?$/i",
    "end": true
@@ -3765,7 +3765,7 @@
    ],
    "path": "/api/seats/college-registrar",
    "name": "bound dispatch",
-   "call": "eb9a8410267faed9",
+   "call": "47cc97b4566dc3ab",
    "site": "src/server/seatsRoutes.ts:613",
    "regexp": "/^\\/api\\/seats\\/college-registrar\\/?$/i",
    "end": true
@@ -3777,7 +3777,7 @@
    ],
    "path": "/api/seats/:id/colleges",
    "name": "bound dispatch",
-   "call": "1acbd4e016c470c1",
+   "call": "a115c888ca3ddeb9",
    "site": "src/server/seatsRoutes.ts:650",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/colleges\\/?$/i",
    "end": true
@@ -3801,7 +3801,7 @@
    ],
    "path": "/api/public/team/:token",
    "name": "bound dispatch",
-   "call": "354fd3fb2bf2f79a",
+   "call": "e63c816bdf76ac24",
    "site": "src/server/seatsRoutes.ts:702",
    "regexp": "/^\\/api\\/public\\/team(?:\\/([^/]+?))\\/?$/i",
    "end": true
