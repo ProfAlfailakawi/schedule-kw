@@ -9203,6 +9203,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseNature, rows, form.AdCourseId, studioTermId, editId]);
   const studioMissing = missingAppointmentFields(form as any);
+  /* «التقاطع الذهبي»: القاعة المختارة تُرسم فوق أسبوع الأستاذ، وما يناسب الاثنين يلمع. */
+  const studioRoom = useMemo(() => form.AdRoomCode && form.AdRoomHall ? { code: String(form.AdRoomCode), hall: String(form.AdRoomHall) } : null, [form.AdRoomCode, form.AdRoomHall]);
   const studioCourseDone = Boolean(Number(form.AdCourseId || 0) && courseName);
   const studioTeacherDone = Boolean(studioTeacherId);
   const studioCourseExpanded = !studioCourseDone || studioCourseOpen;
@@ -9947,6 +9949,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               window={miniWeekWindow}
               userId={Number(user?.SystemUserId || 0)}
               onPick={pickFromMiniWeek}
+              dockable
+              autoCollapse={studioChecksOpen}
+              room={studioRoom}
             />
           ) : null}
           {studioWeekShown && !studioTeacherId ? (

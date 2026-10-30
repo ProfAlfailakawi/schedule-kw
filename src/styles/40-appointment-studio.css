@@ -27,6 +27,9 @@
   .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout:not(.has-week){grid-template-columns:minmax(0,1fr)}
   .schedule-editor.is-studio .appt-layout:not(.has-week)>.appt-form{width:100%;max-width:1000px;margin-inline:auto}
   .schedule-editor.is-studio .appt-layout>.editor-side{margin-top:var(--appt-week-offset,0px);top:16px}
+  /* حين تطفو النافذة يفرغ عمودها: يعود للأسئلة عرضُها كاملاً. */
+  .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout.has-week:has(>.editor-side:empty){grid-template-columns:minmax(0,1fr)}
+  .schedule-editor.is-studio .appt-layout:has(>.editor-side:empty)>.appt-form{width:100%;max-width:1000px;margin-inline:auto}
 }
 
 /* الأسئلة: بطاقةٌ لكل سؤال، والمحرَّرة الآن تضيء */
@@ -147,6 +150,8 @@
 .appt-status-more svg{width:14px;height:14px}
 .schedule-editor.is-studio .appt-bar .form-actions{display:flex;flex-direction:row-reverse;flex-wrap:nowrap;align-items:center;gap:8px;margin:0;padding:0;border:0;flex:none}
 
+/* «أسبوع الأستاذ» ملتصقاً: بلا شريطٍ فوقه — يُسحب من رأسه والمؤشر يقول ذلك؛ وحين يطفو يظهر مقبضه. */
+.schedule-editor.is-studio .appt-side .mini-week-grip.is-dock{display:none}
 /* «أسبوع الأستاذ» قبل اختياره: مكانُه مرسوم */
 .appt-week-ghost{display:grid;place-items:center;align-content:center;gap:6px;min-height:300px;padding:24px;border:2px dashed var(--line-strong);border-radius:20px;color:var(--muted);text-align:center}
 .appt-week-ghost svg{width:30px;height:30px;color:var(--line-strong)}

@@ -408,7 +408,7 @@ export default function TeacherMiniWeek({
 
   /* «اسحب على فراغ لترسم موعداً» (فأرة/قلم على سطح المكتب): من نقطة الضغط في يومٍ واحد، بمدة
      اللائحة إن عُرفت وإلا بطول السحب (drawnPlacement)؛ والإفلات يملأ النموذج كأي «+». */
-  const drawing = useRef<{ day: DayKey; pointerId: number; y: number; from: number; top: number; height: number; active: boolean } | null>(null);
+  const drawing = useRef<{ day: DayKey; pointerId: number; y: number; from: number; top: number; height: number; active: boolean; fromTarget: boolean } | null>(null);
   const [draw, setDraw] = useState<Drawn | null>(null);
   const minuteAt = (clientY: number, top: number, height: number) => span.start + ((clientY - top) / Math.max(1, height)) * total;
   const placeDrawn = (day: DayKey, from: number, to: number): Drawn | null => {
@@ -419,19 +419,24 @@ export default function TeacherMiniWeek({
   useEffect(() => { if (!open) cancelDraw(); }, [open]);
   const startDraw = (day: DayKey) => (event: React.PointerEvent<HTMLDivElement>) => {
     if (!canDraw || event.button !== 0 || (event.pointerType !== "mouse" && event.pointerType !== "pen")) return;
-    if ((event.target as Element).closest?.(".mini-week-chip, .mini-week-target, .mini-week-stick, .mini-week-ghost, .mini-week-draw")) return;
+    if ((event.target as Element).closest?.(".mini-week-chip, .mini-week-stick, .mini-week-ghost, .mini-week-draw")) return;
+    /* خانات «+» تغطّي معظم الفراغ: الضغط عليها يبقى «خذ هذه الخانة»، والسحب منها يرسم. */
+    const fromTarget = Boolean((event.target as Element).closest?.(".mini-week-target"));
     const box = event.currentTarget.getBoundingClientRect();
     const from = minuteAt(event.clientY, box.top, box.height);
     if (ghost && ghost.days.includes(day) && from >= ghost.start && from <= ghost.end) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    if (!fromTarget) {
+      event.preventDefault();
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    }
     window.clearTimeout(hoverTimer.current);
-    drawing.current = { day, pointerId: event.pointerId, y: event.clientY, from, top: box.top, height: box.height, active: false };
+    drawing.current = { day, pointerId: event.pointerId, y: event.clientY, from, top: box.top, height: box.height, active: false, fromTarget };
   };
   const moveDraw = (event: React.PointerEvent<HTMLDivElement>) => {
     const state = drawing.current;
     if (!state || event.pointerId !== state.pointerId) return;
     if (!state.active && Math.abs(event.clientY - state.y) < 6) return;
+    if (!state.active && state.fromTarget) event.currentTarget.setPointerCapture?.(event.pointerId);
     state.active = true;
     setDraw(placeDrawn(state.day, state.from, minuteAt(event.clientY, state.top, state.height)));
   };
