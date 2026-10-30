@@ -1378,7 +1378,11 @@ app.post("/api/public/request/:token/hold", rateLimitCheckTimes, async (req: Req
   const holdKey = draftHoldKey(sent[index]);
   if (!holdKey) { res.json({ held: false }); return; }
   try {
-    const result = await Repository.holdInstructorRequestSlot(resolved.request, { ...proposal, itemId: holdKey }, REQUEST_HOLD_TTL_MS);
+    /* الحجزُ يُقاس على المسودّة لا على المحفوظ: موعدٌ نقله الأستاذ في مسودّته لم يعد «موعداً آخر» له، ووقتُه
+       وقاعتُه خاليان لبندٍ آخر منها (تبديلُ وقتين). كان الأربعُ ساعات على ن·ر 08:00 تُردّ «لديك موعد آخر» والحكمُ
+       يقول «متاح»، لأن «الاتصال» الذي نُقل عن ن·ر ما زال في الجدول الرسمي (محاكاة 2026-10-30). والإرسالُ يعيد الحجزَ
+       بالطلب نفسه، والحجزُ المؤقّت يسقط وحده إن لم يُرسل. */
+    const result = await Repository.holdInstructorRequestSlot({ ...resolved.request, items }, { ...proposal, itemId: holdKey }, REQUEST_HOLD_TTL_MS);
     /* الحجزُ يأخذ أنسبَ الخالي، والجوابُ لا يسمّيه (قرار المالك 2026-10-29: لا يصل الأستاذَ اسمٌ ولا رمز). */
     res.json({ held: true, heldUntil: result?.heldUntil });
   } catch (error: any) {

@@ -162,10 +162,20 @@ type Day = typeof DAYS[number];
   let lost = "";
   try { holdRequestReservation(ledger, request("req-b"), { ...proposal("draft:row:9"), instructorId: 71, rooms: [{ roomId: "room-a", room: "B1", hall: "101" }] }, [], soon); } catch (error: any) { lost = error.message; }
   check(/سبقك زميل/.test(lost), "وزميلٌ على القاعة نفسها في الوقت نفسه ما زال يُقال له «سبقك زميل»", lost);
+  /* تبديلُ وقتين في المسودّة: «الاتصال» الرسميّ على ن·ر نُقل عنه، فوقتُه لبندٍ آخر من المسودّة نفسها. */
+  const official = [{ id: 42014, AdInstructorId: 70, AdTermId: 1, AdCollegeId: 1, fmonday: true, fwednesday: true, fstarttime: "09:30", fendtime: "10:50", roomId: "room-a", AdRoomCode: "B1", AdRoomHall: "101" }] as any[];
+  const morning = [{ day: "fmonday", start: "08:00", end: "09:50" }, { day: "fwednesday", start: "08:00", end: "09:50" }] as any;
+  let stale = "";
+  try { holdRequestReservation([], a, proposal("draft:new:4h", morning), official, soon); } catch (error: any) { stale = error.message; }
+  const moved = { ...a, items: [{ itemId: "x", rowId: 42014, action: "change", slots: [{ day: "fsunday", start: "09:00", end: "09:50" }] }] } as unknown as InstructorRequest;
+  let swapped = "";
+  try { holdRequestReservation([], moved, proposal("draft:new:4h", morning), official, soon); } catch (error: any) { swapped = error.message; }
+  check(/لديك موعد آخر/.test(stale) && !swapped, "وموعدٌ نقله الأستاذ في مسودّته لا يمنع بنداً آخر من وقته (الحجزُ يُقاس على المسودّة)", { stale, swapped });
   const server = readServerSource();
   check(server.includes("function draftHoldKey(entry: any): string") && server.includes("{ ...proposal, itemId: holdKey }") && !server.includes("itemId: `draft:${index}`")
-    && server.includes('...(raceLost ? { code: "race-lost" } : { code: "hold-refused" })'),
-    "والخادمُ يحجز بهويّة البند لا برقمه، و«سبقك زميل» لسباقٍ مع زميلٍ وحده");
+    && server.includes('...(raceLost ? { code: "race-lost" } : { code: "hold-refused" })')
+    && server.includes("Repository.holdInstructorRequestSlot({ ...resolved.request, items }, { ...proposal, itemId: holdKey }, REQUEST_HOLD_TTL_MS)"),
+    "والخادمُ يحجز بهويّة البند لا برقمه وعلى المسودّة، و«سبقك زميل» لسباقٍ مع زميلٍ وحده");
 }
 
 /* ── 6) موعدٌ واحد للإغلاق ──────────────────────────────────────────────────────── */
