@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeftRight, Armchair, X } from "lucide-react";
+import { ArrowLeftRight, UsersRound, X } from "lucide-react";
 import SeatPanel from "./SeatPanel";
 import { useDrawerA11y } from "../ui";
 import "./seats.css";
@@ -38,7 +38,7 @@ export default function SeatDrawer({ onClose, canManage }: { onClose: () => void
       <div className="seat-drawer-backdrop no-print" onMouseDown={onClose} aria-hidden="true" />
       <aside ref={ref} className="seat-drawer no-print" role="dialog" aria-modal="true" aria-label="فريقي">
         <header>
-          <Armchair aria-hidden="true" />
+          <UsersRound aria-hidden="true" />
           <h2>فريقي</h2>
           <button data-guide-ignore="لوحة «فريقي»: الانتقال بين فرق الشخص نفسه أو إغلاق اللوحة" type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
         </header>

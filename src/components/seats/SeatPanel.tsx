@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Armchair, ArrowLeftRight, BadgeCheck, Building2, CalendarClock, Crown, History, IdCard, KeyRound, Link2, Search, Snowflake,
+  ArrowLeftRight, BadgeCheck, Building2, CalendarClock, Crown, History, IdCard, KeyRound, Link2, Search, Snowflake,
   UserCheck, UserMinus, UserPlus, UsersRound, X,
 } from "lucide-react";
 import SeatLinkCard, { SeatHolderCard } from "./SeatLinkCard";
@@ -59,7 +59,7 @@ const initialOf = (name?: string) => String(name || "").trim().replace(/^(د|أ|
 const origin = () => (typeof window !== "undefined" ? window.location.origin : "https://schedule-kw.com");
 
 const EVENT_ICON: Record<SeatEventKind, React.ReactNode> = {
-  "seat-created": <Armchair />, "seat-colleges": <Building2 />, "holder-set": <Crown />, handover: <ArrowLeftRight />,
+  "seat-created": <UsersRound />, "seat-colleges": <Building2 />, "holder-set": <Crown />, handover: <ArrowLeftRight />,
   "member-added": <UserPlus />, "member-continued": <UserCheck />, "member-ended": <UserMinus />, "member-frozen": <Snowflake />,
   "member-scopes": <UsersRound />, "link-issued": <Link2 />, "link-locked": <KeyRound />, "deputy-set": <BadgeCheck />, "deputy-ended": <CalendarClock />,
 };
@@ -234,7 +234,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
   return (
     <div className={`seat-panel ${compact ? "compact" : ""}`.trim()}>
       <header className="seat-hero">
-        <span className="seat-role-chip"><Armchair aria-hidden="true" />{detail.seat.roleLabel}</span>
+        <span className="seat-role-chip"><UsersRound aria-hidden="true" />{detail.seat.roleLabel}</span>
         <h2>{detail.seat.name}</h2>
         <p>
           {detail.seat.scopes.length ? detail.seat.scopes.slice(0, 3).join("، ") : "كل الكليات"}
@@ -261,7 +261,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
       ) : null}
 
       <section className="seat-holder" aria-label="رئيس الفريق">
-        <div className={`seat-avatar ${detail.holder ? "" : "empty"}`} aria-hidden="true">{detail.holder ? initialOf(detail.holder.name) : <Armchair />}</div>
+        <div className={`seat-avatar ${detail.holder ? "" : "empty"}`} aria-hidden="true">{detail.holder ? initialOf(detail.holder.name) : <UsersRound />}</div>
         <div className="seat-holder-text">
           <small>رئيس الفريق</small>
           <strong>{detail.holder ? detail.holder.name : "لم يُسجَّل رئيس هذا الفريق بعد"}</strong>

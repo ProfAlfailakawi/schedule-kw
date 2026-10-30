@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Armchair, Building2, Crown, Plus, Search, Snowflake, UsersRound } from "lucide-react";
+import { Building2, Crown, Plus, Search, Snowflake, UsersRound } from "lucide-react";
 import SeatPanel from "./SeatPanel";
 import SeatLinkCard from "./SeatLinkCard";
 import { AR, countOf } from "../../utils/arabicCount";
@@ -107,7 +107,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
       {header}
       <section className="seats-intro">
         <div>
-          <span className="seats-eyebrow"><Armchair aria-hidden="true" />الفريق ثابت، والرئيس يتبدّل</span>
+          <span className="seats-eyebrow"><UsersRound aria-hidden="true" />الفريق ثابت، والرئيس يتبدّل</span>
           <h2>الفرق ورؤساؤها</h2>
           <p>كلُّ حسابٍ منصب. سجّل رئيس فريقه، وسلّم الرئاسة بضغطة حين يتبدّل، ويبقى تاريخه محفوظاً عبر السنوات.</p>
         </div>
@@ -184,7 +184,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
               {shown.map(row => (
                 <li key={row.id}>
                   <button data-guide-ignore="تصفّح فرق إدارة النظام واختيار أحدها؛ الكتابة من لوحة الفريق ويحرسها الخادم" type="button" className={`seats-row ${selected === row.id ? "on" : ""}`} onClick={() => setSelected(row.id)} aria-current={selected === row.id ? "true" : undefined}>
-                    <i className={`seat-avatar sm ${row.holder ? "" : "empty"}`} aria-hidden="true">{row.holder ? initialOf(row.holder.name) : <Armchair />}</i>
+                    <i className={`seat-avatar sm ${row.holder ? "" : "empty"}`} aria-hidden="true">{row.holder ? initialOf(row.holder.name) : <UsersRound />}</i>
                     <span className="seats-row-text">
                       <small>{row.roleLabel}{row.active ? "" : " · موقوف"}</small>
                       <strong>{row.name}</strong>
@@ -212,7 +212,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
           ) : null}
           {creating ? (
             <div className="seat-panel seats-create">
-              <header className="seat-hero"><span className="seat-role-chip"><Armchair aria-hidden="true" />رئيس تسجيل الكلية</span><h2>{creating.family.familyName}</h2><p>يتابع هذا الفريق كلَّ حرمٍ تختاره، ويضيف رئيسُه موظفي التسجيل فيه.</p></header>
+              <header className="seat-hero"><span className="seat-role-chip"><UsersRound aria-hidden="true" />رئيس تسجيل الكلية</span><h2>{creating.family.familyName}</h2><p>يتابع هذا الفريق كلَّ حرمٍ تختاره، ويضيف رئيسُه موظفي التسجيل فيه.</p></header>
               {creating.family.colleges.length > 1 ? (
                 <div className="seat-campus-pick" role="group" aria-label="الحرم">
                   <span className="seat-field-label">الحرم التي يتابعها</span>

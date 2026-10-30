@@ -18,7 +18,6 @@ import {
   Info,
   Library,
   LogOut,
-  Armchair,
   Megaphone,
   Menu,
   TrendingUp,
@@ -2734,7 +2733,7 @@ export default function App() {
                   aria-label="فريقي"
                   data-guide-ignore="يفتح لوحة الفريق: الأعضاء وتسليم الرئاسة وتاريخ الفريق"
                 >
-                  <Armchair />
+                  <UsersRound />
                 </button>
               ) : null}
               <button
