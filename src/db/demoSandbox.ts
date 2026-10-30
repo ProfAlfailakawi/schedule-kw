@@ -388,10 +388,12 @@ function secondTermRows(courses: readonly AdCourse[], artOffer: ReadonlyArray<re
       donor.AdInstructorId = instructorId;
     }
   }
+  /* رقمُ الشعبة في الفصل القادم بثلاثة أرقام كما يكتبه الاستيرادُ وفحصُ الإرجاع (101، 102…): مسودةٌ تُمسح وتُرجَع
+     من «مسح الجدول» يجب أن تمرّ من فحص النسخة نفسه. */
   return [
     ...ownRows,
     ...placeTerm(DEMO_TERM_SECOND, courses as AdCourse[], 42_000, artOffer, { sectionId: art.sectionId, instructorIds: art.instructorIds }),
-  ];
+  ].map(row => ({ ...row, SCode: String(100 + Number(row.SCode)) }));
 }
 function placeTerm(termId: number, courses: AdCourse[], startId: number, offerOverride?: ReadonlyArray<readonly [code: string, sections: number]>, scope: PlaceScope = OWN_SCOPE, limits: { hallCap?: number; dayCap?: number } = {}): FSchedule[] {
   const hallCap = limits.hallCap ?? 5, dayCap = limits.dayCap ?? 2;
