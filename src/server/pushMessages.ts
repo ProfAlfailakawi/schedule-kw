@@ -12,6 +12,7 @@
 import type { InstructorRequest, InstructorRequestItem, InstructorRequestSlot } from "../types";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import type { PushMessage } from "./webPush";
+import { scrubPlaceText } from "../utils/teacherPlaceScrub";
 
 const DAY_NAMES: Record<string, string> = {
   fsunday: "الأحد", fmonday: "الاثنين", ftuesday: "الثلاثاء", fwednesday: "الأربعاء", fthursday: "الخميس",
@@ -95,7 +96,8 @@ export interface TeacherEvent {
 
 const courseOf = (item: InstructorRequestItem) => {
   const name = String((item.action === "add" ? item.after : item.before || item.after)?.courseName || item.after?.courseName || "").trim();
-  const clean = scrubRooms(name, roomTokensOf(item));
+  /* رموزُ البند تُمسح، ثم كلُّ رمزِ قاعةٍ أو مبنى بعد كلمة مكان (القاعدةُ نفسُها في كل ما يصل الأستاذ). */
+  const clean = scrubPlaceText(scrubRooms(name, roomTokensOf(item)), roomTokensOf(item));
   return clean.length > 40 ? `${clean.slice(0, 39)}…` : clean;
 };
 

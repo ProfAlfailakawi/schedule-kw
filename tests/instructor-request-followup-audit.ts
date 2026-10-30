@@ -209,7 +209,7 @@ check(profReply.includes("await verifyRequestSigner(resolved.request, req, res)"
   "ردُّ الأستاذ الفردي والجماعي توقيعٌ بالرقم المدني — بالمساعد نفسه الذي يوقّع الإرسال");
 check(profReply.includes("AdTermClosed === true") && !profReply.includes("requestWindowOpen"),
   "والحوارُ يبقى بعد إغلاق النافذة، ويُغلقه الفصلُ المجمَّد وحده");
-check(profReply.includes('kind = "proposal-accepted"') && profReply.includes("decision: undefined") && profReply.includes("endForRequest"),
+check(profReply.includes('kind = "proposal-accepted"') && profReply.includes("decision: undefined") && profReply.includes("requestSlotsForCourse(resolved.request"),
   "والموافقةُ تجعل المقترحَ هو المطلوب بنهايته من اللائحة، وتُسقط القرارَ القديم");
 check(server.includes("...(prior?.thread?.length ? { thread: prior.thread } : {})"), "وإعادةُ إرسال الطلب لا تمحو الحوار");
 check(profReply.includes("sentDays.length !== baseDays.length") && profReply.includes("req.body?.days"),
