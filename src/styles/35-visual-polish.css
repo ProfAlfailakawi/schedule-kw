@@ -75,9 +75,10 @@
   .apb-room-fit-review>header>em{grid-column:1/-1;justify-self:start}
 }
 
-/* وارد الأساتذة: «القاعة بُدّلت إلى» كانت أيقونتها ملتصقة بالنص والرمز بلا فراغ. */
-/* قاعدةُ الجدول ‎.request-table td small{display:block}‎ كانت أقوى، فبقي النص ملتصقاً بالرمز. */
-.request-table td small.request-room,.request-room-switch{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px}
+/* وارد الأساتذة: «القاعة بُدّلت إلى» كانت أيقونتها ملتصقة بالنص والرمز بلا فراغ.
+   والقاعةُ نفسُها صارت سطراً مستقلاً بأيقونتها في بطاقة «كان/المطلوب» (35-inbox-studio.css):
+   جعلُها inline-flex بعد الوقت مباشرةً في خلية الجدول القديمة كان يلصقها به («901A01/10108:00 – 09:15»). */
+.request-room-switch{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px}
 .request-room-switch>svg{width:13px;height:13px;flex:none}
 .request-room-switch bdi{margin-inline-start:0}
 

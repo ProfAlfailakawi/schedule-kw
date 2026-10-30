@@ -133,6 +133,7 @@
     "test:linked": "tsx tests/linked-requests-audit.ts",
     "test:public-syntax": "tsx tests/public-pages-syntax-audit.ts",
     "test:inbox-live": "tsx tests/inbox-live-audit.ts",
+    "test:inbox-studio": "tsx tests/inbox-studio-audit.ts",
     "test:id-types": "tsx tests/id-type-conflict-audit.ts",
     "test:notifications": "tsx tests/notification-center-audit.ts",
     "test:bell-yield": "tsx tests/notify-bell-yield-audit.ts",

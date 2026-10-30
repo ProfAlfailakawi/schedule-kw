@@ -1,0 +1,326 @@
+/* ── «وارد الأساتذة» بلغة «موعد جديد» (المالك 2026-10-30) ──────────────────────
+   كلُّ ما هنا تحت .inbox-studio، فلا يمسّ «تغييرات الجدول» التي تشاركها
+   .changes-screen. ألوانٌ من رموز التصميم وحدها (الوضع الداكن)، وكلُّ حركةٍ
+   تحترم prefers-reduced-motion. لا تُخفى معلومةٌ ولا زرّ: ما يُطوى على الهاتف
+   (خريطة التكدّس) يُفتح بزرٍّ صغير، والحاسوبُ يبقى بكل عناصره. */
+
+/* ١) الصفحة والرأس ─────────────────────────────────────────────────────── */
+.content-stack.inbox-studio{gap:14px}
+.inbox-studio>.page-heading{gap:16px;margin-bottom:0}
+.inbox-studio>.page-heading h1{font-size:clamp(28px,2.4vw,36px);line-height:1.25;letter-spacing:-.01em}
+.inbox-studio>.page-heading .page-eyebrow{color:var(--brass);font-weight:700}
+
+/* النطاق: كبسولةٌ واحدة كنطاق «موعد جديد» */
+.inbox-studio .inbox-scope{border-radius:16px;box-shadow:none;background:var(--surface)}
+.inbox-studio .inbox-scope>summary{min-block-size:46px;padding:8px 14px;gap:10px;font-size:13.5px}
+.inbox-studio .inbox-scope>summary>svg:first-child{color:var(--brass)}
+.inbox-studio .inbox-scope>summary em{padding:4px 10px;border-radius:999px;color:var(--accent);font-size:13px}
+.inbox-studio .inbox-scope>summary:hover em{background:var(--accent-softer)}
+
+/* ٢) اللمحة: حلقةُ الإجابة بشرائح، وخريطةُ التكدّس ─────────────────────── */
+.inbox-studio .inbox-glance{gap:12px}
+.inbox-studio .glance-card{padding:16px 18px;border:1px solid var(--line);border-radius:20px;background:var(--surface);box-shadow:var(--shadow-xs)}
+.inbox-studio .glance-card:hover{transform:none;box-shadow:var(--shadow-xs)}
+.inbox-studio .glance-ring-top{gap:14px}
+.inbox-studio .glance-ring-text b{font-size:clamp(18px,1.6vw,22px);letter-spacing:-.01em}
+.inbox-studio .glance-legend{display:flex;flex-wrap:wrap;gap:6px}
+.inbox-studio .glance-legend>div{--chip:var(--muted);display:inline-flex;align-items:center;gap:6px;min-block-size:30px;padding:0 11px;border-radius:999px;background:color-mix(in srgb,var(--chip) 9%,var(--surface));color:var(--ink-2);font-size:12.5px}
+.inbox-studio .glance-legend>div>svg{color:var(--chip);inline-size:15px;block-size:15px}
+.inbox-studio .glance-legend>div>b{font:700 13px/1 var(--font-mono);color:var(--ink)}
+.inbox-studio .glance-legend>div>span{color:var(--ink-2);white-space:nowrap;overflow:visible}
+.inbox-studio .glance-legend>div[data-tone="opened"]{--chip:var(--warning)}
+.inbox-studio .glance-legend>div[data-tone="settled"]{--chip:var(--accent)}
+.inbox-studio .glance-legend>div:not([data-tone]){--chip:var(--brass)}
+.inbox-studio .glance-heat>header{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.inbox-studio .glance-heat>header>b{font-size:14px}
+.inbox-studio .glance-heat-body{display:grid;gap:10px}
+.inbox-studio .glance-heat-toggle{display:none}
+
+/* ٣) من لم يفتح، ومن قال «كما هو»، والمرشّحات ─────────────────────────── */
+.inbox-studio .request-silent{gap:8px 12px;padding:10px 14px;border-style:solid;border-radius:16px;background:var(--surface);color:var(--ink-2)}
+.inbox-studio .request-silent>svg{color:var(--warning)}
+.inbox-studio .request-silent>span{font-weight:650}
+.inbox-studio .request-remind{min-block-size:30px;padding:0 11px;font-weight:600}
+.inbox-studio .request-unchanged{min-block-size:46px;padding:10px 14px;border-radius:16px;color:var(--ink-2);font-weight:600}
+.inbox-studio .request-unchanged>svg:nth-of-type(2){color:var(--success)}
+.inbox-studio .request-filters{gap:8px 14px;padding:8px 10px;border-radius:18px;background:var(--surface);box-shadow:none}
+.inbox-studio .request-filters-mark{inline-size:30px;block-size:30px;border-radius:10px;background:var(--brass-soft);color:var(--brass);box-shadow:none}
+.inbox-studio .request-filter-chips button{min-block-size:32px}
+.inbox-studio .request-filter-chips button.active{background:var(--surface);box-shadow:var(--shadow-xs)}
+
+/* ٤) المجموعة والبطاقة ─────────────────────────────────────────────────── */
+.inbox-studio .request-family-group>header{padding:0 2px;border-inline-start:0}
+.inbox-studio .request-family-group>header h3{display:inline-flex;align-items:center;gap:8px;padding:0;font-size:15px}
+.inbox-studio .request-family-group>header h3::before{content:"";inline-size:8px;block-size:8px;border-radius:3px;background:var(--brass)}
+.inbox-studio .request-family-group>header span{padding:2px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted);font-size:12px;font-weight:600}
+.inbox-studio .request-deck{gap:14px}
+.inbox-studio .request-card{border:1px solid var(--line);border-radius:20px;background:var(--surface);box-shadow:var(--shadow-xs)}
+.inbox-studio .request-card:hover{box-shadow:var(--shadow-sm)}
+.inbox-studio .request-card-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:14px 18px 12px;border-bottom:1px solid var(--line);background:transparent}
+.inbox-studio .request-card-head>.request-card-who{display:flex;align-items:center;gap:12px;flex:1 1 260px;min-inline-size:0}
+.inbox-studio .request-avatar{display:grid;place-items:center;inline-size:38px;block-size:38px;flex:none;border-radius:12px;background:var(--accent);color:var(--accent-contrast,#fff);font-size:16px;font-weight:700}
+.inbox-studio .request-card-id{display:grid;gap:3px;min-inline-size:0}
+.inbox-studio .request-card-id>strong{font-size:16px;font-weight:700;line-height:1.35}
+.inbox-studio .request-card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.inbox-studio .request-card-meta small{color:var(--muted);font-size:12.5px}
+.inbox-studio .request-card-head .request-card-section{margin:0;padding:0 9px;border:0;background:var(--surface-2);font-size:12px;line-height:22px}
+.inbox-studio .request-card-head>.request-card-flags{flex:0 1 auto;justify-content:flex-end;gap:6px}
+.inbox-studio .request-signed{min-block-size:28px;padding:0 10px}
+.inbox-studio .request-notify{background:var(--success-soft);color:var(--success);border-color:color-mix(in srgb,var(--success) 25%,transparent)}
+.inbox-studio .request-notify:hover{background:color-mix(in srgb,var(--success) 16%,var(--surface))}
+.inbox-studio .request-notify[data-blocked]{background:var(--surface-2);color:var(--ink-2);border-color:var(--line)}
+.inbox-studio .request-card-head .request-trail-btn{order:3;flex:none}
+.inbox-studio .request-card-head>.sp-thread{order:4;flex:1 1 100%}
+.inbox-studio .request-card-head .request-trail-line{order:5;flex-basis:100%}
+.inbox-studio .request-card>.request-note,.inbox-studio .request-card>.request-schedule-edited{margin:0;padding:10px 18px;border-radius:0;border-bottom:1px solid var(--line)}
+
+/* ٥) البند: ما هو ← «كان → المطلوب» ← القرار ──────────────────────────── */
+.inbox-studio .request-list{list-style:none;margin:0;padding:0}
+.inbox-studio .request-list>.request-row[data-action]{--row-tone:var(--warning);position:relative;padding:14px 18px;border-top:1px solid var(--line);background:transparent;box-shadow:none}
+.inbox-studio .request-list>.request-row:first-child{border-top:0}
+.inbox-studio .request-list>.request-row[data-action="add"]{--row-tone:var(--success)}
+.inbox-studio .request-list>.request-row[data-action="delete"]{--row-tone:var(--danger)}
+.inbox-studio .request-list>.request-row::before{content:"";position:absolute;inset-block:16px;inset-inline-start:0;inline-size:3px;border-radius:3px;background:var(--row-tone)}
+.inbox-studio .request-list>.request-row[data-decided]{opacity:.8}
+.inbox-studio .request-row-grid{display:grid;grid-template-columns:minmax(150px,.85fr) minmax(250px,1.45fr) minmax(250px,1.1fr);grid-template-areas:"what change decision";gap:14px 20px;align-items:start}
+.inbox-studio .request-what{grid-area:what;display:grid;align-content:start;justify-items:start;gap:6px;min-inline-size:0}
+.inbox-studio .request-change{grid-area:change;display:grid;align-content:start;gap:8px;min-inline-size:0}
+.inbox-studio .request-decision{grid-area:decision}
+
+/* ما هو: فعلُه شارةٌ ملوّنة بأيقونة، ثم المقرّر وشعبته */
+.inbox-studio .request-action[data-action]{--tone:var(--warning);display:inline-flex;align-items:center;gap:5px;min-block-size:24px;padding:0 9px;border-radius:999px;background:color-mix(in srgb,var(--tone) 13%,var(--surface));color:color-mix(in srgb,var(--tone) 82%,var(--ink));font-size:12px;font-weight:700}
+.inbox-studio .request-action[data-action="add"]{--tone:var(--success)}
+.inbox-studio .request-action[data-action="delete"]{--tone:var(--danger)}
+.inbox-studio .request-action svg{inline-size:13px;block-size:13px;flex:none}
+.inbox-studio .request-course{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;color:var(--ink);font-size:15px;font-weight:700;line-height:1.45}
+.inbox-studio .request-what>small{color:var(--muted);font-size:12.5px}
+
+/* «كان → المطلوب»: بطاقتان صغيرتان وسهمٌ واضح بينهما */
+.inbox-studio .request-flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.inbox-studio .request-flow:has(>.request-flow-arrow){display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+.inbox-studio .request-slot{display:grid;align-content:start;justify-items:start;gap:6px;min-inline-size:0;padding:9px 11px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.inbox-studio .request-slot.is-before{border-style:dashed;background:var(--surface-2);color:var(--muted)}
+.inbox-studio .request-slot.is-after{border-color:color-mix(in srgb,var(--accent) 32%,var(--line));background:color-mix(in srgb,var(--accent) 4%,var(--surface))}
+.inbox-studio .request-slot.is-gone{display:flex;align-items:center;justify-content:center;gap:6px;border-style:dashed;border-color:color-mix(in srgb,var(--danger) 35%,var(--line));background:color-mix(in srgb,var(--danger) 5%,var(--surface))}
+.inbox-studio .request-slot.is-gone>svg{inline-size:16px;block-size:16px;color:var(--danger)}
+.inbox-studio .request-slot.is-gone .request-none{color:var(--danger);font-weight:700}
+.inbox-studio .request-slot-cap{color:var(--muted);font-size:11px;font-weight:700;line-height:1}
+.inbox-studio .request-slot.is-after .request-slot-cap{color:var(--accent)}
+.inbox-studio .request-slot-days{color:var(--ink-2);font-size:12.5px;font-weight:600}
+.inbox-studio .request-week{display:inline-flex;gap:3px;direction:rtl}
+.inbox-studio .request-week i{display:grid;place-items:center;inline-size:22px;block-size:22px;border-radius:7px;background:var(--surface-2);color:var(--muted-2);font:700 12px/1 var(--font-ui);font-style:normal}
+.inbox-studio .request-slot.is-before .request-week i{background:var(--surface)}
+.inbox-studio .request-slot.is-before .request-week i[data-on]{background:color-mix(in srgb,var(--ink-2) 20%,var(--surface));color:var(--ink-2)}
+/* يومٌ يُترك: باهتٌ بخطٍّ أحمر؛ ويومٌ جديد: حلقةٌ نحاسية — «تمييز الأيام» بلا كلمة. */
+.inbox-studio .request-slot.is-before .request-week i[data-shift]{background:color-mix(in srgb,var(--danger) 13%,var(--surface));color:var(--danger);text-decoration:line-through}
+.inbox-studio .request-slot.is-after .request-week i[data-on]{background:var(--accent);color:var(--accent-contrast,#fff)}
+.inbox-studio .request-slot.is-after .request-week i[data-shift]{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--brass)}
+.inbox-studio .request-slot-time{color:var(--ink);font:650 13.5px/1.3 var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.inbox-studio .request-slot.is-before .request-slot-time{color:var(--muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 70%,transparent)}
+.inbox-studio .request-slot-time[data-moved]{color:var(--accent-strong,var(--accent))}
+.inbox-studio .request-slot-times{display:grid;gap:4px}
+.inbox-studio .request-slot-times>span{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.inbox-studio .request-slot-times b{min-inline-size:30px;padding:1px 6px;border-radius:6px;background:var(--accent-softer);color:var(--accent-strong,var(--accent));font-size:11.5px;font-weight:800;text-align:center}
+.inbox-studio .request-slot-times bdi{color:var(--ink);font:650 13px/1.3 var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* القاعةُ سطرٌ ثالثٌ بأيقونتها — لا تلتصق بالوقت (كانت «901A01/10108:00 – 09:15»). */
+.inbox-studio .request-slot .request-room{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:0;color:var(--ink-2);font:600 12px/1.45 var(--font-mono);overflow-wrap:anywhere}
+.inbox-studio .request-slot .request-room>svg:first-child{inline-size:13px;block-size:13px;color:var(--muted)}
+.inbox-studio .request-slot .request-room[data-held]>svg:first-child{color:var(--accent)}
+.inbox-studio .request-slot.is-before .request-room{color:var(--muted);text-decoration:line-through}
+.inbox-studio .request-slot .request-room-switch{color:var(--accent-ink,var(--accent));font-family:var(--font-ui)}
+.inbox-studio .request-flow-arrow{display:grid;place-items:center;align-self:center;inline-size:28px;block-size:28px;flex:none;border-radius:50%;background:var(--accent-softer);color:var(--accent)}
+.inbox-studio .request-flow-arrow svg{inline-size:16px;block-size:16px}
+.inbox-studio .request-change>.request-excuse{display:flex;align-items:flex-start;gap:6px;margin:0;padding:8px 10px;border-radius:12px;background:var(--surface-2);color:var(--ink-2);font-size:12.5px;line-height:1.65}
+.inbox-studio .request-change>.request-excuse svg{inline-size:14px;block-size:14px;flex:none;margin-top:3px;color:var(--muted)}
+
+/* منطقةُ القرار: لوحةٌ بلون جاهزيتها، ثم الأسباب، ثم الزرّان */
+.inbox-studio .request-decision{display:grid;align-content:start;gap:8px;min-inline-size:0;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2)}
+.inbox-studio .request-row:not([data-decided])[data-readiness="ready"] .request-decision{border-color:color-mix(in srgb,var(--success) 30%,var(--line));background:color-mix(in srgb,var(--success) 5%,var(--surface))}
+.inbox-studio .request-row:not([data-decided])[data-readiness="review"] .request-decision{border-color:color-mix(in srgb,var(--warning) 30%,var(--line));background:color-mix(in srgb,var(--warning) 5%,var(--surface))}
+.inbox-studio .request-row:not([data-decided])[data-readiness="blocked"] .request-decision{border-color:color-mix(in srgb,var(--danger) 30%,var(--line));background:color-mix(in srgb,var(--danger) 4%,var(--surface))}
+.inbox-studio .request-row:not([data-decided])[data-readiness="waiting"] .request-decision{border-color:color-mix(in srgb,var(--accent) 28%,var(--line));background:color-mix(in srgb,var(--accent) 4%,var(--surface))}
+.inbox-studio .request-decision-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.inbox-studio .request-decision-head:empty{display:none}
+.inbox-studio .request-decision .request-readiness{min-block-size:28px;padding:0 10px}
+.inbox-studio .request-decision .request-rooms{display:inline-flex;align-items:center;gap:4px;min-block-size:28px;margin:0;padding:0 9px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink-2);font-size:12px;font-weight:600}
+.inbox-studio .request-decision .request-rooms svg{inline-size:13px;block-size:13px;color:var(--muted)}
+.inbox-studio .request-decision .request-negotiation{min-block-size:28px}
+.inbox-studio .request-decision :is(.request-issues,.request-depends,.request-changed,.request-issue-note,.request-row-error,.request-decided){margin:0}
+.inbox-studio .request-decision .request-decided{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
+.inbox-studio .request-decision .request-decided svg{inline-size:15px;block-size:15px}
+.inbox-studio .request-decision .request-actions{display:flex;flex-direction:row;gap:8px;margin:2px 0 0}
+.inbox-studio .request-decision .request-actions .btn{min-block-size:40px;gap:6px;border-radius:12px;inline-size:auto}
+.inbox-studio .request-decision .request-actions .btn-primary{flex:1 1 auto}
+.inbox-studio .request-decision .request-actions .btn-secondary{flex:0 0 auto}
+.inbox-studio .request-decision .request-actions .btn svg{inline-size:16px;block-size:16px}
+.inbox-studio .request-thread-slot{margin-top:12px;padding:6px 12px;border-radius:14px;background:var(--surface-2)}
+
+/* ما يصل الأستاذ لا يذكر قاعةً ولا مبنى: تنبيهٌ هادئ تحت الحقل */
+.inbox-studio .request-place-warning{display:flex;align-items:center;gap:6px;margin:0;padding:6px 10px;border-radius:10px;background:var(--warning-soft);color:var(--warning);font-size:12px;font-weight:650;line-height:1.5}
+.inbox-studio .request-place-warning svg{inline-size:14px;block-size:14px;flex:none}
+
+/* ٦) «ثبّت الجاهز كله»: شريطٌ ملتصق بأسفل الشاشة كشريط الحفظ ─────────── */
+.inbox-studio .inbox-deck{display:block;min-inline-size:0}
+.inbox-studio .inbox-deck>*+*{margin-top:16px}
+.inbox-studio .inbox-bulk{position:sticky;bottom:calc(var(--dock-h,0px) + 12px + env(safe-area-inset-bottom));z-index:20;display:flex;align-items:center;gap:12px;padding-block:10px;padding-inline:16px 10px;border:1px solid color-mix(in srgb,var(--success) 32%,var(--line));border-radius:20px;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:saturate(1.2) blur(10px);-webkit-backdrop-filter:saturate(1.2) blur(10px);box-shadow:0 14px 34px -24px rgba(17,25,22,.45)}
+.inbox-studio .inbox-bulk-mark{display:grid;place-items:center;inline-size:34px;block-size:34px;flex:none;border-radius:11px;background:var(--success-soft);color:var(--success)}
+.inbox-studio .inbox-bulk-mark svg{inline-size:18px;block-size:18px}
+.inbox-studio .inbox-bulk-text{flex:1;min-inline-size:0;color:var(--ink-2);font-size:13.5px;font-weight:600}
+.inbox-studio .inbox-bulk-text b{color:var(--success);font-weight:800}
+.inbox-studio .inbox-bulk-go{min-block-size:44px;gap:8px;border-radius:14px;white-space:nowrap}
+.inbox-studio .inbox-bulk-go svg{inline-size:17px;block-size:17px}
+
+/* النافذة: تأكيدٌ بالعدد والأسماء، ثم تقدّمٌ بنداً بنداً */
+.inbox-bulk-sheet{position:fixed;inset:0;z-index:var(--z-sheet,200);display:grid;place-items:center;padding:20px;background:color-mix(in srgb,#0b1210 46%,transparent);backdrop-filter:blur(2px)}
+.inbox-bulk-card{position:relative;display:flex;flex-direction:column;gap:12px;inline-size:min(580px,100%);max-block-size:min(84dvh,760px);padding:18px 20px;border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--shadow-lg)}
+.inbox-bulk-grip{display:none}
+.inbox-bulk-head{display:flex;align-items:center;gap:12px}
+.inbox-bulk-icon{display:grid;place-items:center;inline-size:40px;block-size:40px;flex:none;border-radius:13px;background:var(--success-soft);color:var(--success)}
+.inbox-bulk-icon svg{inline-size:20px;block-size:20px}
+.inbox-bulk-title{display:grid;gap:2px;flex:1;min-inline-size:0}
+.inbox-bulk-title strong{font-size:17px;font-weight:700}
+.inbox-bulk-title small{color:var(--muted);font-size:12.5px;font-weight:600}
+.inbox-bulk-close{display:grid;place-items:center;inline-size:36px;block-size:36px;flex:none;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer}
+.inbox-bulk-close svg{inline-size:18px;block-size:18px}
+.inbox-bulk-close:disabled{opacity:.4;cursor:default}
+.inbox-bulk-lead{display:flex;align-items:center;gap:8px;margin:0;color:var(--ink-2);font-size:13.5px;line-height:1.6}
+.inbox-bulk-lead svg{inline-size:16px;block-size:16px;flex:none}
+.inbox-bulk-card[data-result="ok"] .inbox-bulk-lead{color:var(--success);font-weight:700}
+.inbox-bulk-card[data-result="partial"] .inbox-bulk-lead{color:var(--danger);font-weight:700}
+.inbox-bulk-progress{flex:none;block-size:8px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.inbox-bulk-progress>i{display:block;block-size:100%;border-radius:inherit;background:var(--success)}
+.inbox-bulk-list{flex:1 1 auto;min-block-size:0;display:grid;align-content:start;gap:6px;margin:0;padding:0;list-style:none;overflow:auto;overscroll-behavior:contain}
+.inbox-bulk-list>li{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.inbox-bulk-list>li[data-state="running"]{border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.inbox-bulk-list>li[data-state="failed"]{border-color:color-mix(in srgb,var(--danger) 40%,var(--line));background:color-mix(in srgb,var(--danger) 5%,var(--surface))}
+.inbox-bulk-state{display:grid;place-items:center;inline-size:24px;block-size:24px;border-radius:50%;color:var(--muted)}
+.inbox-bulk-state svg{inline-size:16px;block-size:16px}
+.inbox-bulk-list>li[data-state="done"] .inbox-bulk-state{background:var(--success);color:var(--accent-contrast,#fff)}
+.inbox-bulk-list>li[data-state="failed"] .inbox-bulk-state{background:var(--danger);color:var(--accent-contrast,#fff)}
+.inbox-bulk-list>li[data-state="running"] .inbox-bulk-state{color:var(--accent)}
+.inbox-bulk-who{display:grid;gap:1px;min-inline-size:0}
+.inbox-bulk-who b{overflow:hidden;font-size:13.5px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.inbox-bulk-who span{overflow:hidden;color:var(--muted);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.inbox-bulk-move{display:inline-flex;align-items:center;gap:6px}
+.inbox-bulk-move .inbox-bulk-arrow{inline-size:14px;block-size:14px;flex:none;color:var(--muted)}
+.inbox-bulk-move bdi{color:var(--ink-2);font:600 12px/1 var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.inbox-studio .request-week.is-compact{gap:2px}
+.inbox-studio .request-week.is-compact i{inline-size:16px;block-size:16px;border-radius:5px;font-size:10px}
+.inbox-bulk-move .request-week:first-of-type i[data-on]{background:color-mix(in srgb,var(--ink-2) 20%,var(--surface));color:var(--ink-2)}
+.inbox-bulk-move .request-week:not(:first-of-type) i[data-on]{background:var(--accent);color:var(--accent-contrast,#fff)}
+.inbox-bulk-error{display:flex;align-items:flex-start;gap:8px;margin:0;padding:10px 12px;border-radius:12px;background:var(--danger-soft);color:var(--danger);font-size:13px;line-height:1.65}
+.inbox-bulk-error svg{inline-size:16px;block-size:16px;flex:none;margin-top:3px}
+.inbox-bulk-error b{display:block;color:var(--ink)}
+.inbox-bulk-sum{margin:0;color:var(--muted);font-size:12.5px}
+.inbox-bulk-actions{flex:none}
+.inbox-bulk-actions .btn{min-block-size:44px;gap:8px;border-radius:14px}
+.inbox-bulk-actions .btn svg{inline-size:17px;block-size:17px}
+
+/* ٧) اللوحيّ: المقرّرُ سطرٌ فوق، ثم التغييرُ والقرار متجاوران ────────────── */
+@media (max-width:1100px){
+  .inbox-studio .request-row-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);grid-template-areas:"what what" "change decision";gap:10px 16px}
+  .inbox-studio .request-what{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+}
+
+/* ٨) الهاتف: رأسٌ مختصر فيصل أولُ طلبٍ إلى أعلى الشاشة ────────────────── */
+@media (max-width:760px){
+  .content-stack.inbox-studio{gap:10px}
+  .inbox-studio>.page-heading{flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;padding:2px 0 4px}
+  /* المسطرة تحت العنوان زخرفةٌ لا معلومة: تغيب على الهاتف. */
+  .inbox-studio>.page-heading::after{display:none}
+  .inbox-studio>.page-heading .page-heading-copy{flex:1 1 auto;min-inline-size:0}
+  .inbox-studio>.page-heading h1{font-size:24px;line-height:1.3}
+  .inbox-studio>.page-heading .page-eyebrow{min-block-size:24px;margin-bottom:2px;padding:0 9px;font-size:12px}
+  .inbox-studio>.page-heading .page-heading-action{inline-size:auto;flex:0 1 auto;max-inline-size:100%}
+  .inbox-studio>.page-heading .page-heading-action .btn{inline-size:auto;min-block-size:40px;padding-inline:12px;border-radius:12px;font-size:13px}
+  .inbox-studio>.page-heading .sp-launch{gap:6px;flex-wrap:wrap}
+  .inbox-studio>.page-heading .sp-launch-pick select{min-inline-size:0;max-inline-size:100%}
+  .inbox-studio .inbox-scope>summary{min-block-size:42px;padding:6px 12px}
+  .inbox-studio .inbox-glance{gap:8px}
+  .inbox-studio .glance-card{padding:12px 14px;border-radius:18px}
+  .inbox-studio .glance-ring-dial{--ring-size:46px!important}
+  .inbox-studio .glance-ring-top{gap:10px}
+  .inbox-studio .glance-ring-text b{font-size:17px}
+  .inbox-studio .glance-ring-text span{font-size:12px}
+  .inbox-studio .glance-legend{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(to left,#000 calc(100% - 20px),transparent);mask-image:linear-gradient(to left,#000 calc(100% - 20px),transparent)}
+  .inbox-studio .glance-legend::-webkit-scrollbar{display:none}
+  .inbox-studio .glance-legend>div{flex:none;min-block-size:28px;padding:0 9px;font-size:12px}
+  /* التكدّس مطويٌّ خلف رأسه: الرأسُ كلُّه زرٌّ يفتحه. */
+  .inbox-studio .glance-heat{padding:8px 14px}
+  .inbox-studio .glance-heat-toggle{display:grid;place-items:center;inline-size:32px;block-size:32px;margin-inline-start:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer}
+  .inbox-studio .heat-short-flag+.glance-heat-toggle{margin-inline-start:6px}
+  .inbox-studio .glance-heat-toggle::after{content:"";position:absolute;inset:-6px -8px}
+  .inbox-studio .glance-heat-toggle svg{inline-size:16px;block-size:16px}
+  .inbox-studio .glance-heat:not([data-open])>header>span{display:none}
+  .inbox-studio .glance-heat:not([data-open])>.glance-heat-body{display:none}
+  .inbox-studio .glance-heat[data-open]>.glance-heat-body{margin-top:8px}
+  .inbox-studio .glance-heat[data-open] .glance-heat-toggle svg{transform:rotate(180deg)}
+  /* من لم يفتح: سطرٌ واحد، وأسماؤه شرائحُ تنزلق أفقياً. */
+  .inbox-studio .request-silent{flex-wrap:wrap;padding:8px 12px}
+  .inbox-studio .request-silent-links{flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(to left,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(to left,#000 calc(100% - 24px),transparent)}
+  .inbox-studio .request-silent-links::-webkit-scrollbar{display:none}
+  .inbox-studio .request-silent-links>*{flex:none}
+  .inbox-studio .request-unchanged{min-block-size:42px;padding:8px 12px}
+  /* المرشّحات: سطرٌ واحد ينزلق أفقياً؛ اسمُ المجموعة يبقى لقارئ الشاشة (aria-label). */
+  .inbox-studio .request-filters{flex-wrap:nowrap;gap:8px;padding:6px 8px;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(to left,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(to left,#000 calc(100% - 24px),transparent)}
+  .inbox-studio .request-filters::-webkit-scrollbar{display:none}
+  .inbox-studio .request-filters>*,.inbox-studio .request-filters-more>*{flex:none}
+  .inbox-studio .request-filter{flex-wrap:nowrap}
+  .inbox-studio .request-filter-label{position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .inbox-studio .request-filter-chips{flex-wrap:nowrap}
+  .inbox-studio .request-filters-reset{margin-inline-start:0}
+  .inbox-studio .request-family{gap:12px}
+  .inbox-studio .request-family-group{gap:8px}
+  .inbox-studio .request-deck{gap:10px}
+  .inbox-studio .request-card{border-radius:18px}
+  .inbox-studio .request-card-head{padding:12px 14px 10px;gap:8px}
+  .inbox-studio .request-avatar{inline-size:34px;block-size:34px;border-radius:11px;font-size:15px}
+  .inbox-studio .request-card-id>strong{font-size:15px}
+  .inbox-studio .request-card-head>.request-card-flags{justify-content:flex-start}
+  .inbox-studio .request-card>.request-note,.inbox-studio .request-card>.request-schedule-edited{padding:10px 14px}
+  .inbox-studio .request-list>.request-row[data-action]{padding:12px 14px}
+  .inbox-studio .request-list>.request-row::before{inset-block:14px}
+  .inbox-studio .inbox-bulk{bottom:calc(var(--dock-h,0px) + 8px + env(safe-area-inset-bottom));gap:10px;padding-inline:12px 8px}
+  .inbox-studio .inbox-bulk-text{font-size:12.5px}
+  .inbox-studio .inbox-bulk-go{padding-inline:12px;font-size:13px}
+}
+@media (max-width:700px){
+  .inbox-studio .request-row-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"what" "change" "decision";gap:10px}
+  .inbox-studio .request-what{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+  .inbox-studio .request-course{flex:1 1 100%}
+  .inbox-studio .request-flow{gap:6px}
+  .inbox-studio .request-slot{padding:8px 9px;gap:5px}
+  .inbox-studio .request-week{gap:2px}
+  .inbox-studio .request-week i{inline-size:20px;block-size:20px;border-radius:6px;font-size:11.5px}
+  .inbox-studio .request-flow-arrow{inline-size:24px;block-size:24px}
+  .inbox-studio .request-flow-arrow svg{inline-size:14px;block-size:14px}
+  .inbox-studio .request-slot-time{font-size:12.5px}
+  .inbox-studio .request-slot-times>span{flex-wrap:nowrap;gap:4px}
+  .inbox-studio .request-slot-times b{min-inline-size:0;padding:1px 4px;font-size:11px}
+  .inbox-studio .request-slot-times bdi{font-size:12px}
+  .inbox-studio .request-decision{padding:10px}
+  .inbox-bulk-sheet{place-items:end stretch;padding:0}
+  .inbox-bulk-card{inline-size:100%;max-block-size:88dvh;padding:22px 16px calc(14px + env(safe-area-inset-bottom));border-inline:0;border-bottom:0;border-radius:22px 22px 0 0}
+  .inbox-bulk-grip{display:block;position:absolute;top:7px;left:50%;inline-size:40px;block-size:4px;margin-left:-20px;border-radius:99px;background:var(--line-strong)}
+  .inbox-bulk-list>li{grid-template-columns:24px minmax(0,1fr)}
+  .inbox-bulk-move{grid-column:2;flex-wrap:wrap}
+  .inbox-bulk-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr)}
+  .inbox-bulk-actions>.btn:only-child{grid-column:1/-1}
+  .inbox-bulk-actions .btn{inline-size:100%;justify-content:center}
+}
+
+/* ٩) الحركة: دوّارةُ الانتظار وحدها، وتسكن لمن طلب ذلك ─────────────────── */
+@keyframes inbox-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:no-preference){
+  .inbox-studio .request-actions .spin,.inbox-bulk-card .spin{animation:inbox-spin 1s linear infinite}
+  .inbox-studio .glance-heat-toggle svg{transition:transform .18s var(--ease-out)}
+  .inbox-bulk-progress>i{transition:inline-size .3s var(--ease-out)}
+}
+@media (prefers-reduced-motion:reduce){
+  .inbox-studio .spin{animation:none!important}
+  .inbox-studio .glance-card,.inbox-studio .request-card{transition:none}
+}
+@media print{
+  .inbox-studio .inbox-bulk,.inbox-bulk-sheet,.inbox-studio .glance-heat-toggle{display:none!important}
+  .inbox-studio .glance-heat-body{display:grid!important}
+}
