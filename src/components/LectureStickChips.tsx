@@ -36,7 +36,7 @@ export function useLectureStickOpen(): [boolean, (next: boolean) => void] {
  * هذا نموذج الإدارة، فتظهر القاعة أو المبنى تلميحاً على الشريحة.
  */
 export default function LectureStickChips({
-  teacherId, rows, termId, collegeId, excludeId = 0, course, courses, window: dayWindow, draft, onPick,
+  teacherId, rows, termId, collegeId, excludeId = 0, course, courses, window: dayWindow, draft, original = null, onPick,
 }: {
   teacherId: number;
   rows: readonly FSchedule[];
@@ -47,6 +47,8 @@ export default function LectureStickChips({
   courses: Map<number, AdCourse>;
   window: MiniSpan;
   draft: Partial<FSchedule>;
+  /** الموعد كما كان قبل التعديل: مقرره وشعبته ليسا مرساةً ولو غيّر المستخدم المقرر في النموذج. */
+  original?: Partial<FSchedule> | null;
   onPick: (pick: MiniPick) => void;
 }) {
   const wider = useWiderWeek(teacherId, termId, rows);
@@ -54,8 +56,16 @@ export default function LectureStickChips({
   const lectures = useMemo(() => teacherLectures(all, teacherId, termId, excludeId, collegeId), [all, teacherId, termId, excludeId, collegeId]);
   const draftStart = toMin(draft.fstarttime), draftEnd = toMin(draft.fendtime);
   const minutes = Number.isFinite(draftStart) && Number.isFinite(draftEnd) && draftEnd > draftStart ? draftEnd - draftStart : 0;
-  const options = useMemo(() => lectureStickOptions(lectures, all, course, dayWindow, { minutes, excludeId }),
-    [lectures, all, course, dayWindow, minutes, excludeId]);
+  /* موعدُك لا يُلصق بنفسه (المالك 2026-10-30): صفُّه المفتوح للتعديل مستبعدٌ أصلاً، وكذلك أخواته —
+     صفوفُ المقرر والشعبة نفسيهما لهذا الأستاذ (موعدٌ تختلف أوقاته بين الأيام يُحفظ صفّين) — في المسوّدة
+     وفي الأصل قبل التعديل. وتبقى عائقاً لا يُوضع فوقه شيء. */
+  const sectionKey = (row: Partial<FSchedule> | null | undefined) => row && Number(row.AdCourseId) ? `${Number(row.AdCourseId)}|${String(row.SCode ?? "").trim()}` : "";
+  const ownKeys = [sectionKey(draft), sectionKey(original)].filter(Boolean).join("§");
+  const options = useMemo(() => {
+    const own = new Set(ownKeys.split("§").filter(Boolean));
+    return lectureStickOptions(lectures, all, course, dayWindow, { minutes, excludeId, skipAnchor: item => own.has(sectionKey(item.row)) });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lectures, all, course, dayWindow, minutes, excludeId, ownKeys]);
   const [more, setMore] = useState(false);
   const [open, setOpen] = useLectureStickOpen();
   const listId = useId();
@@ -80,7 +90,9 @@ export default function LectureStickChips({
         const active = draftDays === spot.days.join("+") && draftStart === spot.start && draftEnd === spot.end;
         const where = room ? [room.AdRoomCode, room.AdRoomHall].filter(Boolean).join("/") : "";
         const days = spot.days.map(day => DAY_SHORT[day]).join("·");
-        const label = nameOf(lecture.row);
+        /* شعبةٌ أخرى من مقرر الموعد نفسه تُسمّى برقمها، فلا تُحسب الموعدَ ذاته. */
+        const sameCourse = Number(lecture.row.AdCourseId) && [draft, original].some(row => row && Number(row.AdCourseId) === Number(lecture.row.AdCourseId));
+        const label = `${nameOf(lecture.row)}${sameCourse && String(lecture.row.SCode ?? "").trim() ? ` · شعبة ${String(lecture.row.SCode).trim()}` : ""}`;
         return <button type="button" key={option.key} className={`lecture-stick-chip is-${side}${active ? " is-active" : ""}`} aria-pressed={active}
           title={`${side === "before" ? "قبل" : "بعد"} «${String(lecture.row.AdCourseName || label)}» · ${days} ${toClock(spot.start)}–${toClock(spot.end)}${where ? ` · ${where}` : ""}`}
           data-guide-ignore="يملأ الأيام والبداية والنهاية ملاصقاً لمحاضرة الأستاذ (وقاعتها إن خلت)؛ لا يحفظ شيئاً"
