@@ -7,7 +7,7 @@
  * لا قاعدة جديدة: الحكم على الموعد يبقى لـ appointmentVerdict وحده.
  */
 import type { AdCourse, FSchedule } from "../types";
-import { DAY_KEYS, requiredGapForDays, type DayKey } from "./scheduleRegulations";
+import { DAY_KEYS, ladderStepForDays, requiredGapForDays, type DayKey } from "./scheduleRegulations";
 import { regulationChoiceFor, regulationChoicesForDay, regulationHours, type RegulationCourse } from "./appointmentRegulation";
 import { instructorGapStats } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
@@ -89,11 +89,15 @@ export function patternForDay(course: RegulationCourse | null | undefined, day: 
 }
 
 const ceilTo = (value: number, step: number) => Math.ceil(value / step) * step;
+/** أوّلُ بدايةٍ على سُلّم اللائحة: الثامنة. */
+const LADDER_START = 8 * 60;
 const overlaps = (a: MiniSpan, b: MiniSpan) => a.start < b.end && b.start < a.end;
 
 /**
- * الخانات الحرّة التي تتّسع لنمط المقرر، على شبكة نصف الساعة داخل المحور: حرّةٌ في كل أيام
- * النمط بالفاصل المقرَّر، لا تتداخل فيما بينها، ولا تحت الموعد الجاري (هو مرسومٌ شبحاً).
+ * الخانات الحرّة التي تتّسع لنمط المقرر، على سُلّم البدايات في اللائحة داخل المحور (المالك 2026-10-30:
+ * الأحد والثلاثاء والخميس على رأس الساعة، والاثنين والأربعاء 8:00 ثم 9:30…؛ والخليطُ بلا سُلّمٍ واحد على
+ * نصف الساعة): حرّةٌ في كل أيام النمط بالفاصل المقرَّر، لا تتداخل فيما بينها، ولا تحت الموعد الجاري (هو مرسومٌ شبحاً).
+ * كانت على شبكة نصف الساعة فتقترح «الأحد 9:30» ثم ينبّه عليها الفحصُ أنها خارج السُّلّم.
  */
 export function freeTargets(
   course: RegulationCourse | null | undefined,
@@ -106,13 +110,15 @@ export function freeTargets(
     const pattern = patternForDay(course, day, 0, options.fixedDays);
     if (!pattern) continue;
     const gap = requiredGapForDays(pattern.days);
-    let start = ceilTo(span.start, 30);
+    const step = ladderStepForDays(pattern.days);
+    const snap = (value: number) => step ? LADDER_START + Math.max(0, Math.ceil((value - LADDER_START) / step)) * step : ceilTo(value, 30);
+    let start = snap(span.start);
     while (start + pattern.minutes <= span.end) {
       const end = start + pattern.minutes;
       const underGhost = options.avoid && options.avoid.days.includes(day) && overlaps({ start, end }, options.avoid);
-      if (underGhost || pattern.days.some(item => crowds(lectures, item, start, end, gap))) { start += 30; continue; }
+      if (underGhost || pattern.days.some(item => crowds(lectures, item, start, end, gap))) { start += step || 30; continue; }
       out.push({ day, start, end, days: pattern.days });
-      start = ceilTo(end + gap, 30);
+      start = snap(end + gap);
     }
   }
   return out;
@@ -121,7 +127,7 @@ export function freeTargets(
 /**
  * «قبلها / بعدها» — معادلة «لاصق بمحاضرتي» الواحدة (lectureStick، كرت الأستاذ C6):
  * على أيام المحاضرة نفسها، بعدها = نهايتها + فاصل اللائحة، وقبلها = بدايتها − الفاصل − المدّة،
- * وإن زاحم الملاصقُ محاضرةً أخرى للأستاذ فالأقرب +30 ثم +60. المدّة من نمط المقرر لتلك الأيام
+ * على سُلّم اللائحة، وإن زاحم الملاصقُ محاضرةً أخرى للأستاذ فالبدايةُ التالية عليه. المدّة من نمط المقرر لتلك الأيام
  * (وإلا مدّة الموعد الجاري)، والموضع داخل يوم الدراسة وحرٌّ للأستاذ — وإلا فلا زرّ.
  */
 export function adjacentPlacement(

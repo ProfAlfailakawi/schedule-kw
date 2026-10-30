@@ -706,6 +706,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
        لأن قواعدَ اللائحة عن التتابع لا تُقاس على صفٍّ منفرد، لكن ما لا يذكره
        هذا الصفُّ لا يُعلَّق عليه هنا. */
     if (finding.rowIds.length && !finding.rowIds.some(id => touched.has(Number(id)))) continue;
+    /* الشعبةُ الشاغرة القائمة تُؤخذ كما هي: نمطُها قرارُ القسم، فلا يُحاسَب عليه من يتسلّمها (ولا يُعفيه التاريخُ في المراجعة). */
+    if (request.relatedRowIds?.length && finding.rule === "theoretical-pattern") continue;
     reasons.push({
       source: "regulation",
       article: finding.article,

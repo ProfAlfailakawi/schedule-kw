@@ -404,6 +404,17 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       detail: bucket.items.length > 1 ? `جُمع هنا ${countOf(bucket.items.length, AR.conflict)} ${nounFor(bucket.items.length, AR.similarAdj)} في بند واحد.` : bucket.base.detail,
     }));
   }, [findings]);
+  /* سُلّمُ البدايات وأطوالُ المكتبة (المالك 2026-10-30): تنبيهٌ لائحيّ لا يمنع الاعتماد ولا يُنقص الدرجة. يُرى في سطر
+     الملاحظات مع غيره، فيعرف القسمُ مواعيدَه القائمة خارج السُّلّم وإن كان الحفظُ يمرّ بها تنبيهاً. */
+  const ladderNotes = useMemo<ReviewFindingGroup[]>(() => {
+    const items = decisionFindings.filter(finding => finding.rule === "regulation-ladder").map(inScope).filter(Boolean) as RegulationFinding[];
+    if (!items.length) return [];
+    const rowIds = [...new Set(items.flatMap(item => item.rowIds))];
+    return [{
+      ...items[0], title: "خارج سُلّم اللائحة", groupKey: "regulation-ladder", rowIds, groupedItems: items, groupedCount: items.length,
+      detail: items.map(item => item.detail).slice(0, 3).join("؛ ") + (items.length > 3 ? `؛ و${countOf(items.length - 3, AR.course)} غيرها` : ""),
+    }];
+  }, [decisionFindings, inScope]);
   /* What actually stops a signature: the material conflicts canSign refuses. */
   const blocking = findings.filter(isMaterialFinding);
   const regulationGroups = useMemo(() => groupedFindings.filter(finding => !isMaterialFinding(finding)), [groupedFindings]);
@@ -498,6 +509,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
 
   const findingPreview = (finding: ReviewFindingGroup) => {
     const entity = groupEntitySummary(finding);
+    /* ملاحظةُ السُّلّم مجمّعةٌ بالمقرّرات لا بالتعارضات: لا يُقال «٢٧ تعارضاً» عن مواعيد لا تتعارض. */
+    if (finding.rule === "regulation-ladder") return `${entity} · ${countOf(finding.groupedCount, AR.course)} · تنبيه لائحي لا يمنع`;
     if (finding.groupedCount > 1) return `${entity} · ${countOf(finding.groupedCount, AR.conflict)}`;
     if (finding.approvalEffect === "block") return `${entity} · يحتاج معالجة قبل الاعتماد`;
     if (finding.source === "decision-1912") return `${entity} · تنبيه لائحي`;
@@ -612,7 +625,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
    * notes behind a click buys nothing.
    */
   const pressingFindings = groupedFindings.filter(finding => finding.approvalEffect !== "note");
-  const quietFindings = groupedFindings.filter(finding => finding.approvalEffect === "note");
+  const quietFindings = [...groupedFindings.filter(finding => finding.approvalEffect === "note"), ...ladderNotes];
   const quietNames = quietFindings.slice(0, 3).map(finding => finding.title).join(" · ");
   const quietPreview = quietFindings.length > 3
     ? `${quietNames} · و${(quietFindings.length - 3).toLocaleString("ar-KW-u-nu-latn")} غيرها`
@@ -680,7 +693,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             <section className="review-subject">
               <header>
                 <strong>{markVisitingNames(subject.label, subjectRowIds)}</strong>
-                <small>{countOf(subject.items.length, AR.conflict)}</small>
+                <small>{finding.rule === "regulation-ladder" ? "تنبيه لائحي" : countOf(subject.items.length, AR.conflict)}</small>
               </header>
               <div className="review-subject-cases">
                 {renderCompactRows(subjectRowIds)}
@@ -722,7 +735,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                     <span className="finding-share-wrap">
                       <span className="finding-share-count" title={elsewhere > 0 ? `و${countOf(elsewhere, AR.appointment)} في كلية أخرى من القسم لا تُحسب في هذه الدرجة` : undefined}>
                         <b>{finding.groupedCount.toLocaleString("ar-KW-u-nu-latn")}</b>
-                        <span>{finding.groupedCount === 1 ? "تعارض" : "تعارضات"}</span>
+                        <span>{finding.rule === "regulation-ladder" ? nounFor(finding.groupedCount, AR.course) : finding.groupedCount === 1 ? "تعارض" : "تعارضات"}</span>
                         <i>·</i>
                         <span data-finding-count={scoped.length}>{countOf(scoped.length, AR.appointment)} {nounFor(scoped.length, AR.affectedAdj)}</span>
                       </span>

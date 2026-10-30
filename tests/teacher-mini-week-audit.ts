@@ -37,7 +37,7 @@ const theory3 = { CourseHours: 3, CourseTeachingMode: "theoretical" };
 const targets = freeTargets(theory3, lectures, span);
 const sunday = targets.filter(target => target.day === "fsunday");
 check(sunday.length > 0 && sunday.every(target => target.end - target.start === 50 && target.days.join() === "fsunday,ftuesday,fthursday"), "N6 خانات «+» بنمط المقرر (أحد·ثلاثاء·خميس 50د)", sunday);
-check(sunday[0]?.start === 9 * 60 && sunday.every(target => target.start % 30 === 0), "N7 أول خانة بعد 08:50 + فاصل 10 = 09:00، على شبكة نصف الساعة", sunday.map(target => toClock(target.start)));
+check(sunday[0]?.start === 9 * 60 && sunday.every(target => (target.start - 8 * 60) % 60 === 0), "N7 أول خانة بعد 08:50 + فاصل 10 = 09:00، وكلُّ الخانات على رأس الساعة (سُلّم اللائحة)", sunday.map(target => toClock(target.start)));
 check(sunday.every((target, index) => index === 0 || target.start >= sunday[index - 1].end + 10), "N8 الخانات لا تتداخل ولا تتلاصق دون الفاصل", sunday.map(target => toClock(target.start)));
 const monday = targets.filter(target => target.day === "fmonday");
 check(monday.length > 0 && monday.every(target => target.end - target.start === 80 && !(target.start < 10 * 60 + 50 + 10 && target.end + 10 > 9 * 60 + 30)), "N9 الاثنين: 80د، وتحترم محاضرة الكلية الأخرى وفاصل 10د (سُلّمُ 8:00–9:20 ثم 9:30)", monday.map(target => toClock(target.start)));

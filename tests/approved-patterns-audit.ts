@@ -13,12 +13,16 @@
  *      وما عرضه القسمُ عليه فقبله لا يُمنع، واقتراحُه المضادّ يمرّ بالقاعدة نفسها.
  *  P10 المكتبة: ساعتان على الاثنين·الأربعاء (50+50)، وخمسُ ساعات على أزواج الأربع (170+110).
  *  P11 الاثنين والأربعاء 8:00–9:20 ثم 9:30: الفاصل 10 دقائق، و«لاصق بمحاضرتي» على السُّلّم.
+ *  P12 خاناتُ «+» في أسبوع الأستاذ على السُّلّم، و«مراجعة الجدول» تحكم باللائحة لا بالتاريخ: تنبيهٌ لما بدأ خارج
+ *      السُّلّم أو خرج طولُه عن المكتبة، ولا «خارج المعتاد تاريخياً»، ولا يُعفي التاريخُ نمطاً.
  */
 import fs from "node:fs";
 import { LONG_DAY_GAP_MINUTES, daysApprovedForHours, daysFitLibrary, ladderStepForDays, libraryLengthsForDay, patternsForHours, requiredGapForDays, startLadderNote } from "../src/utils/scheduleRegulations";
 import { judgeRequest } from "../src/utils/instructorRequestVerdict";
 import { meetingMinutes, lengthPatternsForHours } from "../src/utils/requestMeetingLength";
 import { stickCandidates } from "../src/utils/lectureStick";
+import { freeTargets, teacherLectures } from "../src/utils/teacherMiniWeek";
+import { reviewSchedule } from "../src/utils/scheduleRegulations";
 import { historicalDurationMinutes } from "../src/utils/advancedIntelligence";
 import { offRhythm } from "../src/utils/departmentRhythm";
 
@@ -144,6 +148,41 @@ const before = stickCandidates({ rowId: 1, title: "أ", days: ["fsunday"] as any
 check(before.map(candidate => candidate.start).join() === "10:00,09:00", "P11 وقبل الأحد 11:00: 10:00 ثم 9:00 (لا 9:30)", before.map(candidate => candidate.start));
 const offAnchor = stickCandidates({ rowId: 1, title: "أ", days: ["fsunday"] as any, start: "12:30", end: "13:20" }, "after", () => 50);
 check(offAnchor.every(candidate => !startLadderNote(candidate.days, candidate.start)), "P11 ومحاضرةٌ قائمة خارج السُّلّم: ما بعدها يُعاد إلى السُّلّم", offAnchor.map(candidate => candidate.start));
+
+/* P12 خاناتُ «+» ومراجعةُ الجدول. */
+const span = { start: 8 * 60, end: 20 * 60 };
+const theory = { CourseHours: 3, CourseTeachingMode: "theoretical" } as any;
+const slots = freeTargets(theory, [], span);
+const sundaySlots = slots.filter(target => target.day === "fsunday"), mondaySlots = slots.filter(target => target.day === "fmonday");
+check(sundaySlots.length > 0 && sundaySlots.every(target => !startLadderNote(target.days, `${String(Math.floor(target.start / 60)).padStart(2, "0")}:${String(target.start % 60).padStart(2, "0")}`)),
+  "P12 خاناتُ «+» الأحد على رأس الساعة", sundaySlots.map(target => target.start));
+check(mondaySlots.length > 0 && mondaySlots.map(target => target.start).slice(0, 3).join() === [480, 570, 660].join(),
+  "P12 وخاناتُ الاثنين 8:00 ثم 9:30 ثم 11:00", mondaySlots.map(target => target.start));
+const reviewRow = (id: number, days: string[], start: string, end: string, courseId = 501) => ({ id, AdTermId: 1, AdCollegeId: 1, AdSectionId: 1, AdCourseId: courseId, SCode: String(id), AdInstructorId: 7,
+  fsunday: days.includes("sun"), fmonday: days.includes("mon"), ftuesday: days.includes("tue"), fwednesday: days.includes("wed"), fthursday: days.includes("thu"), fstarttime: start, fendtime: end }) as any;
+const reviewCourses = new Map([[501, { AdCourseId: 501, CourseCode: "T501", CourseHours: 3, CourseTeachingMode: "theoretical" } as any]]);
+const habitNature = new Map([[501, { confidence: "high", meetingsPerWeek: 3, weeklyMinutes: 150, meetingMinutes: 50, seenInTerms: [1, 2], dayPatterns: [{ days: ["fsunday", "ftuesday", "fthursday"], count: 9, share: 1 }] } as any]]);
+const offLadderReview = reviewSchedule({ rows: [reviewRow(1, ["sun", "tue", "thu"], "09:30", "10:20")], courses: reviewCourses, instructors: new Map(), nature: habitNature });
+const ladderNote = offLadderReview.find(finding => finding.rule === "regulation-ladder");
+check(Boolean(ladderNote) && ladderNote!.approvalEffect === "note" && ladderNote!.source === "decision-1912" && /09:30/.test(ladderNote!.detail) && /رأس الساعة/.test(ladderNote!.detail),
+  "P12 المراجعة: بدايةٌ خارج السُّلّم «تنبيه لائحي» لا يمنع", ladderNote);
+check(!offLadderReview.some(finding => finding.source === "history" || /المعتاد تاريخياً/.test(finding.title)), "P12 ولا «خارج المعتاد تاريخياً»: التاريخُ لا يحكم");
+const lengthReview = reviewSchedule({ rows: [reviewRow(2, ["sun", "tue"], "10:00", "11:15")], courses: reviewCourses, instructors: new Map() });
+check(Boolean(lengthReview.find(finding => finding.rule === "regulation-ladder" && /75 دقيقة/.test(finding.detail))), "P12 وطولٌ خارج المكتبة (75 دقيقة) يُنبَّه عليه");
+const cleanReview = reviewSchedule({ rows: [reviewRow(3, ["sun", "tue", "thu"], "10:00", "10:50"), reviewRow(4, ["mon", "wed"], "09:30", "10:50")], courses: reviewCourses, instructors: new Map() });
+check(!cleanReview.some(finding => finding.rule === "regulation-ladder"), "P12 والأحد 10:00–10:50 والاثنين 9:30–10:50 بلا تنبيه");
+const historicFour = reviewSchedule({ rows: [reviewRow(5, ["mon", "wed"], "08:00", "09:20", 502), reviewRow(5, ["thu"], "08:00", "08:50", 502)].map((row, k) => ({ ...row, id: 5 + k, SCode: "5", AdTermId: 3 })),
+  courses: new Map([[502, { AdCourseId: 502, CourseCode: "T502", CourseHours: 4, CourseTeachingMode: "theoretical" } as any]]), instructors: new Map(),
+  nature: new Map([[502, { confidence: "high", meetingsPerWeek: 3, weeklyMinutes: 210, meetingMinutes: 70, seenInTerms: [1, 2], dayPatterns: [{ days: ["fmonday", "fwednesday", "fthursday"], count: 4, share: 1 }] } as any]]) });
+check(Boolean(historicFour.find(finding => finding.rule === "theoretical-pattern")), "P12 والنمطُ غير المعتمد لا يُعفيه التاريخ في المراجعة (كما في الاعتماد)");
+const verdictSource = fs.readFileSync("src/utils/instructorRequestVerdict.ts", "utf8");
+check(/request\.relatedRowIds\?\.length && finding\.rule === "theoretical-pattern"/.test(verdictSource), "P12 والشعبةُ الشاغرة القائمة تُتسلَّم كما هي");
+const reviewScreen = fs.readFileSync("src/components/ScheduleReview.tsx", "utf8");
+check(/const quietFindings = \[\.\.\.groupedFindings\.filter\(finding => finding\.approvalEffect === "note"\), \.\.\.ladderNotes\]/.test(reviewScreen)
+  && /regulationGroups = useMemo\(\(\) => groupedFindings\.filter/.test(reviewScreen) && !/regulationGroups[^\n]*ladderNotes/.test(reviewScreen),
+  "P12 شاشةُ «مراجعة الاعتماد» تُظهر «خارج سُلّم اللائحة» في سطر الملاحظات، ولا يُنقص درجةَ الاعتماد");
+check(/finding\.rule === "regulation-ladder" \? nounFor\(finding\.groupedCount, AR\.course\)/.test(reviewScreen), "P12 ويُعدّ بالمقرّرات لا «تعارضات»");
+void teacherLectures;
 
 console.log(`\nApproved patterns audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
