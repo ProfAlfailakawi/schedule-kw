@@ -10,9 +10,9 @@
  * ثابت حين تتسع، ويومٌ واحدٌ بخطٍّ زمني وتبويبات أيام حين تضيق (الجوال ونافذةٌ
  * نصفُ عرض). المحاضراتُ المتداخلة تُرسم جنباً إلى جنب لا فوق بعضها.
  */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, ArrowLeft, Building2, CircleDashed, Eye, EyeOff, Hourglass, Lock, LogOut, MoveHorizontal, Plus, Repeat2,
+  AlertTriangle, ArrowLeft, Building2, CircleDashed, Eye, EyeOff, Hourglass, Lock, LogOut, MoveHorizontal, Palette, Plus, Repeat2,
   Sparkles, Trash2, Undo2, UserRoundPlus, X,
 } from "lucide-react";
 import type { StudyProposalDayKey } from "../../types";
@@ -22,7 +22,7 @@ import {
 } from "../../utils/studyProposal";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../../utils/scheduleTime";
-import { minutesCompact, num, timeRange } from "./proposalFormat";
+import { minutesCompact, num, timeRange, vacancyBreakdown, vacancyTally } from "./proposalFormat";
 import { AR, countOf } from "../../utils/arabicCount";
 import { campusChips } from "../../utils/campusChip";
 
@@ -304,16 +304,9 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
     );
   };
 
-  const legend = (
-    <ul className="sp-legend" aria-label="دليل الألوان والرموز">
-      <li data-kind="current"><i aria-hidden="true" />قائم</li>
-      <li data-kind="added"><i aria-hidden="true"><Plus /></i>مضاف</li>
-      <li data-kind="moved"><i aria-hidden="true"><MoveHorizontal /></i>منقول</li>
-      <li data-kind="out"><i aria-hidden="true"><LogOut /></i>يخرج</li>
-      <li data-kind="conflict"><i aria-hidden="true"><AlertTriangle /></i>تعارض</li>
-      {showVac ? <li data-kind="vacant"><i aria-hidden="true"><UserRoundPlus /></i>شاغرة</li> : null}
-    </ul>
-  );
+  /* دليلُ الألوان خلف زرٍّ صغير «الألوان»: كان ستَّ شرائح دائمةً فوق الجدول؛ الآن يُفتح عند الحاجة
+     ويُرسم كلُّ لونٍ كما يظهر على الجدول نفسه (بطاقةٌ مصغّرة بشريطها ورمزها). */
+  const legend = <ColorLegend vacant={showVac} />;
 
   const selectedChange = selected ? changeOf(selected) : undefined;
   const detail = selected ? (
@@ -363,6 +356,9 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
   ) : null;
 
   const changeCount = withMode ? changes.all.length : 0;
+  /* العدّادُ نفسه الذي يقرؤه تبويبُ «شاغرة»: ما يُسند الآن (جاهزة + للمراجعة)، وتفصيلُه عند المرور. */
+  const vacancyCount = vacancyTally(props.vacancies || []);
+  const vacancyDetail = vacancyBreakdown(vacancyCount);
   return (
     <section className="sp-week" ref={rootRef} aria-label="الجدول الأسبوعي للأستاذ" data-checking={checking || undefined} data-view={dayView ? "day" : "week"}>
       <div className="sp-week-bar">
@@ -378,8 +374,9 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
           </button>
         ) : null}
         {withMode && !props.readOnly && variant !== "grid" && props.onShowVacancies && props.vacancies?.length ? (
-          <button data-guide-ignore="يُظهر الشعب الشاغرة المتوافقة على الجدول — لا يكتب شيئاً" type="button" className="sp-toggle" data-kind="vacant" aria-pressed={Boolean(props.showVacancies)} onClick={() => props.onShowVacancies!(!props.showVacancies)} title="الشعب الشاغرة المتوافقة">
-            <UserRoundPlus aria-hidden="true" /><span>شاغرة</span><span className="sp-count" data-tone="good">{num((props.vacancies || []).filter(v => v.fit === "ready" || v.fit === "review").length)}</span>
+          <button data-guide-ignore="يُظهر الشعب الشاغرة المتوافقة على الجدول أو يخفيها — لا يكتب شيئاً" type="button" className="sp-toggle" data-kind="vacant" aria-pressed={Boolean(props.showVacancies)} onClick={() => props.onShowVacancies!(!props.showVacancies)}
+            title={vacancyDetail ? `الشعب الشاغرة المتوافقة: ${vacancyDetail}` : "الشعب الشاغرة المتوافقة"} aria-label={vacancyDetail ? `شاغرة: ${vacancyDetail}` : "شاغرة"}>
+            <UserRoundPlus aria-hidden="true" /><span>شاغرة</span>{vacancyCount.open ? <span className="sp-count" data-tone={vacancyCount.ready ? "good" : "warn"}>{num(vacancyCount.open)}</span> : null}
           </button>
         ) : null}
         <span className="sp-week-spacer" />
@@ -430,6 +427,69 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
   );
 }
 
+/* ── دليلُ الألوان ────────────────────────────────────────────────────────
+   زرٌّ صغير بجانب أدوات الجدول يفتح لوحةً صغيرة تحته. Escape أو نقرةٌ خارجها تغلقها
+   وحدها — لا المساحةَ كلَّها (يُلتقط Escape قبل مستمع المساحة). */
+const LEGEND: Array<{ kind: string; label: string; Icon?: React.ComponentType<any> }> = [
+  { kind: "current", label: "قائم" },
+  { kind: "added", label: "مضاف", Icon: Plus },
+  { kind: "moved", label: "منقول", Icon: MoveHorizontal },
+  { kind: "replaced", label: "بديل", Icon: Repeat2 },
+  { kind: "out", label: "يخرج", Icon: LogOut },
+  { kind: "conflict", label: "تعارض", Icon: AlertTriangle },
+  { kind: "review", label: "للمراجعة", Icon: Sparkles },
+];
+
+function ColorLegend({ vacant }: { vacant: boolean }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement | null>(null);
+  const button = useRef<HTMLButtonElement | null>(null);
+  const panelId = useId();
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopImmediatePropagation();
+      event.preventDefault();
+      setOpen(false);
+      button.current?.focus();
+    };
+    const onDown = (event: PointerEvent) => { if (!wrap.current?.contains(event.target as Node)) setOpen(false); };
+    window.addEventListener("keydown", onKey, true);
+    document.addEventListener("pointerdown", onDown, true);
+    return () => { window.removeEventListener("keydown", onKey, true); document.removeEventListener("pointerdown", onDown, true); };
+  }, [open]);
+  const items = vacant ? [...LEGEND, { kind: "vacant", label: "شاغرة", Icon: UserRoundPlus }] : LEGEND;
+  return (
+    <div className="sp-legend-wrap" ref={wrap}>
+      <button ref={button} type="button" className="sp-legend-btn" aria-expanded={open} aria-controls={open ? panelId : undefined} onClick={() => setOpen(value => !value)}
+        aria-label="دليل الألوان والرموز" title="دليل الألوان والرموز" data-guide-ignore="يفتح دليل ألوان الجدول ورموزه أو يغلقه — لا يكتب شيئاً">
+        <Palette aria-hidden="true" /><span>الألوان</span>
+      </button>
+      {open ? (
+        <div id={panelId} className="sp-legend-pop" role="dialog" aria-modal="false" aria-label="دليل الألوان والرموز">
+          <ul className="sp-legend">
+            {items.map(entry => (
+              <li key={entry.kind} data-kind={entry.kind}>
+                <span className="sp-sw" data-kind={entry.kind} aria-hidden="true">
+                  {entry.Icon ? <span className="sp-glyph" data-kind={entry.kind}><entry.Icon /></span> : null}
+                </span>
+                {entry.label}
+              </li>
+            ))}
+          </ul>
+          <p className="sp-legend-dots">
+            <span>تحت اسم اليوم:</span>
+            <span><i className="sp-dot" data-tone="change" aria-hidden="true" />تغيير</span>
+            <span><i className="sp-dot" data-tone="bad" aria-hidden="true" />تعارض</span>
+            {vacant ? <span><i className="sp-dot" data-tone="vacant" aria-hidden="true" />شاغرة</span> : null}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SlotPill({ item, tone, fields }: { item: GridItem; tone: "before" | "after"; fields: readonly string[] }) {
   return (
     <span className="sp-slot" data-tone={tone}>
@@ -476,7 +536,7 @@ function DayView({ entries, stats, marks, changeOf, chips, selectedKey, focusKey
     rows.push(
       <li key={`${item.key}-${active}`} className="sp-tl-row" data-state={vacancy ? "vacant" : item.state}>
         <span className="sp-tl-time" aria-hidden="true"><b className="sp-time">{String(item.start).slice(0, 5)}</b><small className="sp-time">{String(item.end).slice(0, 5)}</small></span>
-        <div className="sp-tl-card">
+        <div className="sp-tl-card" data-fit={vacancy?.fit}>
           <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="sp-ev sp-ev-flow"
             data-state={vacancy ? "vacant" : item.state} data-change={change?.kind} data-fit={vacancy?.fit}
             data-conflict={marks.blocker.has(item.key) || undefined} data-review={marks.review.has(item.key) || undefined}

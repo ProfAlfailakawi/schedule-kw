@@ -221,6 +221,7 @@
     "test:study-proposal": "tsx tests/study-proposal-audit.ts",
     "test:study-proposal-flow": "tsx tests/study-proposal-flow-audit.ts",
     "test:study-proposal-studio": "tsx tests/study-proposal-studio-audit.ts",
+    "test:proposal-studio-calm": "tsx tests/proposal-studio-calm-audit.ts",
     "test:sections-proposal-import": "tsx tests/sections-proposal-import-audit.ts",
     "test:intelligence-scope": "tsx tests/intelligence-reading-scope-audit.ts",
     "test:intelligence-api": "node tests/intelligence-scope-api.mjs",

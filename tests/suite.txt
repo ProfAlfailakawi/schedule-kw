@@ -111,6 +111,7 @@ test:paged-findings
 test:study-proposal
 test:study-proposal-flow
 test:study-proposal-studio
+test:proposal-studio-calm
 test:sections-proposal-import
 test:teacher-card-flow
 test:day-autofill
