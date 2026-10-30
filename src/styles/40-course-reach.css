@@ -1,0 +1,61 @@
+/* ── «لم نصل بعد إلى هذا المستوى»: وسمٌ وسلسلةٌ وتبويبا الصحيفة ───────────────
+   أيقونة + كلمة. ألوانٌ من رموز 01-foundation وحدها. */
+
+.reach-chip{display:inline-flex;align-items:center;gap:4px;min-height:24px;padding:2px 9px;border-radius:999px;font-size:.74rem;font-weight:800;line-height:1.2;white-space:nowrap;border:1px solid transparent}
+.reach-chip.is-ok{background:var(--success-soft);color:var(--success)}
+.reach-chip.is-lock{background:color-mix(in srgb,var(--muted,#6b7280) 12%,var(--surface,#fff));color:var(--muted,#6b7280);border-color:color-mix(in srgb,var(--muted,#6b7280) 22%,transparent)}
+.reach-chip.is-open{background:var(--warning-soft);color:var(--warning)}
+.reach-chip[data-compact]{padding:2px 7px}
+
+.reach-chain{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:0;padding:0;list-style:none;font-size:.76rem}
+.reach-chain li{display:inline-flex;align-items:center;gap:3px}
+.reach-chain li>b{display:inline-flex;align-items:center;gap:3px;min-height:24px;padding:1px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface,#fff);font-variant-numeric:tabular-nums}
+.reach-chain li.is-ok>b{border-color:color-mix(in srgb,var(--success) 40%,var(--line));color:var(--success)}
+.reach-chain li.is-missing>b{border-style:dashed;border-color:var(--warning);color:var(--warning);background:var(--warning-soft)}
+.reach-chain li.is-target>b{background:color-mix(in srgb,var(--muted,#6b7280) 12%,var(--surface,#fff));color:var(--muted,#6b7280)}
+.reach-chain li.is-off>b{opacity:.45}
+.reach-chain .reach-link{color:var(--muted,#6b7280);font-weight:800}
+.reach-chain.is-level li>b{padding:1px 6px}
+
+.reach-open{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:4px 10px;border-radius:10px;border:1px solid var(--warning);background:var(--surface,#fff);color:var(--warning);font:inherit;font-size:.76rem;font-weight:800;cursor:pointer}
+.reach-open svg{inline-size:15px;block-size:15px}
+.reach-open.is-undo{border-color:var(--line);color:var(--muted,#6b7280)}
+.reach-open:disabled{opacity:.6;cursor:progress}
+
+/* لوحة حالة الطرح: تبويبا الصحيفة */
+.of-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 12px;max-width:560px}
+.of-tabs button{display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 8px;min-height:48px;min-width:0;padding:6px 10px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface,#fff);font:inherit;font-weight:800;cursor:pointer;color:var(--ink,inherit)}
+@media(max-width:560px){.of-tabs button{font-size:.84rem;padding:6px 8px}}
+.of-tabs button b{display:inline-grid;place-items:center;min-inline-size:28px;block-size:24px;padding:0 7px;border-radius:999px;background:var(--line);font-size:.8rem;font-variant-numeric:tabular-nums}
+.of-tabs button[aria-selected=true]{border-color:var(--accent);background:var(--accent-softer,var(--accent-soft));box-shadow:0 0 0 3px var(--accent-soft)}
+.of-tabs button[aria-selected=true] b{background:var(--accent);color:#fff}
+.of-tabs .of-tab-lock{font-weight:600;font-size:.74rem;color:var(--muted,#6b7280)}
+.of-card[data-reach=locked]{background:color-mix(in srgb,var(--muted,#6b7280) 5%,var(--surface,#fff))}
+.of-card[data-reach=locked] header b{color:var(--muted,#6b7280)}
+.of-reach{display:grid;gap:6px}
+.of-reach-top{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+
+/* نموذج الموعد ومراجعة الاعتماد: «لم نصل بعد» تنبيهٌ أصفر لا يمنع */
+.reach-advisory{display:grid;gap:8px;margin-top:10px;padding:10px 12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--warning) 35%,var(--line));background:var(--warning-soft)}
+.reach-advisory-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.reach-advisory-head b{font-size:.86rem}
+.reach-advisory-head small{color:var(--muted,#6b7280);font-size:.74rem}
+.reach-advisory p{margin:0;font-size:.82rem;line-height:1.7}
+.reach-advisory-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.reach-review{margin:0 0 12px}
+.reach-review>summary{cursor:pointer;list-style:none;min-height:32px}
+.reach-review>summary::-webkit-details-marker{display:none}
+.reach-review>summary::after{content:"▾";margin-inline-start:auto;color:var(--muted,#6b7280)}
+.reach-review[open]>summary::after{content:"▴"}
+.reach-review>ul{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:6px;margin:8px 0 0;padding:0;list-style:none}
+.reach-review>ul>li{display:grid;gap:4px;padding:8px 10px;border-radius:12px;background:var(--surface,#fff);border:1px solid var(--line);min-width:0}
+.reach-review>ul>li>header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.reach-review>ul>li>header b{font-size:.84rem}
+.reach-review>ul>li>small{color:var(--muted,#6b7280);font-size:.74rem;line-height:1.6}
+
+/* المقترح الدراسي: تحت منتقي المقرر */
+.sp-course-reach{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
+.sp-course-reach small{flex-basis:100%;color:var(--muted,#6b7280);font-size:.74rem;line-height:1.6}
+
+/* كل المقررات */
+.ac-reach{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px}

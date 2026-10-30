@@ -40,7 +40,15 @@ async function main() {
   check(before.status === 200 && before.json.tas.length >= 2 && before.json.tas.some((t: any) => t.id === 29) && before.json.tas.some((t: any) => t.id === 30), "F1 الصندوق فيه مدرّبان TA", before.json.tas);
   check(before.json.vacant.length >= 1 && before.json.summary.sections === before.json.vacant.length, "F1 ملخّص الشعب الشاغرة («هيئة تدريسية»)", before.json.summary);
   check(Array.isArray(before.json.courses) && before.json.courses.length > 0, "F3 مقررات القسم لاختيار «المسموح»");
-  const vacantCourse = Number(before.json.vacant[0].courseId);
+  /* «لم نصل بعد» (courseReach): الشعبةُ الشاغرة لمقررٍ لم يصله الفرعُ تُعرض رماديةً ولا تُختار.
+     الرحلةُ تختار مقرراً وصلناه؛ وإن لم يوجد فُتح الأولُ للطرح («افتحه للطرح») كما يفعل القسم. */
+  const reach = (await A("GET", `/api/course-reach?${SCOPE}`)).json;
+  const reachable = before.json.vacant.find((v: any) => reach?.courses?.[v.courseId]?.state !== "locked");
+  const vacantCourse = Number((reachable || before.json.vacant[0]).courseId);
+  if (!reachable) {
+    const opened = await A("POST", "/api/course-reach/open", { collegeId: 1, sectionId: 1, termId: 1, courseId: vacantCourse });
+    check(opened.status === 200 && opened.json.courses?.[vacantCourse]?.overridden, "«افتحه للطرح» يفتح المقرر للمدرّب", opened.json?.courses?.[vacantCourse]);
+  }
 
   /* ── F2: الفتح بموجتين ── */
   const opened = await A("POST", "/api/ta-phase/open", { ...Object.fromEntries(new URLSearchParams(SCOPE)), collegeId: 1, sectionId: 1, termId: 1, waves: [[29], [30]], delayHours: 12, closesAt: tomorrow(), reminderHours: 24, allowedCourses: { 29: [vacantCourse] } });

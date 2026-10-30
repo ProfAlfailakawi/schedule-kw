@@ -33,6 +33,8 @@ import { pushHooks } from "../pushRoutes";
 import { linkMode, modeAllowsFreeEdit, modeAllowsWrite } from "../../utils/linkMode";
 import { bestPerSide, stickCandidates, stickForTeacher, topSticks, type StickAnchor, type StickJudged } from "../../utils/lectureStick";
 import { offeringBlocked, offeringView, toggleInterest, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
+import { reachLocked, withReach } from "../../utils/courseReach";
+import { reachForScope, reachOf } from "../courseReachShared";
 import { allowedFor, countdown, loadRing, type TaPhaseDoc } from "../../utils/taPhase";
 import { loadLimitOf, loadNisabOf } from "../../utils/teachingLoad";
 import { habitualBlockMinutes } from "../../utils/courseNature";
@@ -206,6 +208,8 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
       const first = termRows.find(row => Number(row.id) === Number(entry.offeringId));
       const option = first && allowedCourseMap.get(`${first.AdCollegeId}:${first.AdSectionId}:${first.AdCourseId}`);
       if (!first || !option) throw new Error("الشعبة المختارة خارج مقررات قسمك.");
+      /* «لم نصل بعد»: الشعبةُ الشاغرة لمقررٍ لم يصله الفرعُ لا تُختار (ما اختير قبلُ يبقى للقسم يقرّره). */
+      if (!prior && reachLocked(await reachOf(Number(first.AdCollegeId), Number(first.AdSectionId), Number(request.AdTermId), Number(first.AdCourseId)))) throw new Error("لم نصل بعد إلى مستوى هذا المقرر في هذا الفرع.");
       const group = termRows.filter(row => Number(row.AdCourseId) === Number(first.AdCourseId) && Number(row.AdSectionId) === Number(first.AdSectionId) && String(row.SCode) === String(first.SCode));
       if (!group.every(row => placeholders.has(Number(row.AdInstructorId)) && !seenOfferings.has(Number(row.id)))) throw new Error("لم تعد الشعبة متاحة للاختيار.");
       group.forEach(row => seenOfferings.add(Number(row.id)));
@@ -526,23 +530,43 @@ async function offeringViewsFor(termId: number, options: Array<{ id: number; col
   const sectionsOf = (collegeId: number, sectionId: number, courseId: number) => new Set((termRows as any[])
     .filter(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId && Number(row.AdCourseId) === courseId)
     .map(row => String(row.SCode || row.id))).size;
-  const views = new Map<string, ReturnType<typeof offeringView>>();
+  /* «لم نصل بعد» لكل فرعٍ من المصدر الواحد (courseReachShared)؛ و«افتحه للطرح» محسوبٌ فيه. */
+  const reachByScope = new Map(await Promise.all(scopes.map(async key => {
+    const [collegeId, sectionId] = key.split(":").map(Number);
+    return [key, await reachForScope(collegeId, sectionId, termId)] as const;
+  })));
+  const views = new Map<string, ReturnType<typeof offeringView> & { reach?: "locked" }>();
   for (const option of options) {
     const doc = docByScope.get(`${option.collegeId}:${option.sectionId}`);
-    views.set(`${option.collegeId}:${option.sectionId}:${option.id}`, offeringView(doc, option.id, doc ? sectionsOf(option.collegeId, option.sectionId, option.id) : 0));
+    const reach = reachByScope.get(`${option.collegeId}:${option.sectionId}`)?.courses[Number(option.id)];
+    views.set(`${option.collegeId}:${option.sectionId}:${option.id}`, withReach(offeringView(doc, option.id, doc ? sectionsOf(option.collegeId, option.sectionId, option.id) : 0), reach));
   }
   return views;
 }
 
 /** ما يُرسل للكرت من مقررات القسم بعد حالة الطرح: المخفيّ لا يُرسل، والمقفل يُرسل باهتاً للنجمة. */
-function coursesWithOffering<T extends { id: number; collegeId: number; sectionId: number }>(courses: T[], views: Map<string, ReturnType<typeof offeringView>>) {
+function coursesWithOffering<T extends { id: number; collegeId: number; sectionId: number }>(courses: T[], views: Map<string, ReturnType<typeof offeringView> & { reach?: "locked" }>) {
   return courses.flatMap(course => {
     const view = views.get(`${course.collegeId}:${course.sectionId}:${course.id}`);
-    if (!view || view.state === "offered") return [course];
+    if (!view || (view.state === "offered" && view.selectable)) return [course];
     if (view.hidden) return [];
     return view.selectable
       ? [{ ...course, offeringNote: `${view.icon} ${view.line}` }]
-      : [{ ...course, offeringNote: `${view.icon} ${view.line}`, offering: { state: view.state, icon: view.icon, line: view.line } }];
+      /* «لم نصل بعد»: السببُ سطرٌ مستقلّ تحت المقرر (tcCourseLock)، لا ذيلٌ في سطر الرمز. */
+      : [{ ...course, ...(view.reach ? {} : { offeringNote: `${view.icon} ${view.line}` }), offering: { state: view.state, icon: view.icon, line: view.line, ...(view.reach ? { reach: view.reach } : {}) } }];
+  });
+}
+
+/** الشعبُ الشاغرة (كرتُ الأستاذ والمدرّب): شعبةُ مقررٍ «لم نصل بعد» تُعرض رماديةً بسببها ولا تُختار. */
+async function lockUnreached<T extends { courseId: number; collegeId: number; sectionId: number }>(options: T[], termId: number): Promise<Array<T & { locked?: string }>> {
+  const scopes = new Map<string, Awaited<ReturnType<typeof reachForScope>>>();
+  for (const option of options) {
+    const key = `${option.collegeId}:${option.sectionId}`;
+    if (!scopes.has(key)) scopes.set(key, await reachForScope(option.collegeId, option.sectionId, termId));
+  }
+  return options.map(option => {
+    const reach = scopes.get(`${option.collegeId}:${option.sectionId}`)?.courses[Number(option.courseId)];
+    return reachLocked(reach) ? { ...option, locked: reach!.reason } : option;
   });
 }
 
@@ -612,7 +636,7 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   const taDoc = mode === "ta" ? await taPhaseForRequest(request) : null;
   const taAllowed = allowedFor(taDoc, Number(request.AdInstructorId));
   const termStates = await offeringStatesForTerm(Number(request.AdTermId));
-  const offerings = open ? (await availableInstructorOfferings(request)).filter(option => (!taAllowed || taAllowed.has(Number(option.courseId))) && !offeringBlocked(termStates, Number(option.courseId))) : [];
+  const offerings = open ? await lockUnreached((await availableInstructorOfferings(request)).filter(option => (!taAllowed || taAllowed.has(Number(option.courseId))) && !offeringBlocked(termStates, Number(option.courseId))), Number(request.AdTermId)) : [];
   /* C5: حالةُ الطرح على مقررات الإضافة الحرّة (المخفيّ لا يُرسل، والمقفل باهتٌ بنجمة). */
   const offeringViews = mode === "edit" ? await offeringViewsFor(Number(request.AdTermId), courses as any[]) : new Map();
   const interestDocs = mode === "edit" ? await Promise.all([...new Set((courses as any[]).map(c => `${c.collegeId}:${c.sectionId}:${Number(request.AdTermId)}`))]

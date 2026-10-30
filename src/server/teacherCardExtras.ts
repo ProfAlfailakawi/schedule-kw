@@ -27,7 +27,10 @@ export const TEACHER_CARD_EXTRAS_CSS = `
 body[data-mode=ta] .nextnow,body[data-mode=view] .nextnow{display:none}
 body[data-mode=ta]:not([data-ta-picked="1"]) .send{display:none}
 .course-option[data-locked="1"]{opacity:.55;cursor:default;position:relative}
-.course-option[data-locked="1"] .tc-lock{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+.course-option[data-locked="1"] .tc-lock{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.6;white-space:normal}
+.course-options:has(.tc-lock){grid-auto-rows:min-content}
+.offering-option[data-locked="1"]{opacity:.6;cursor:default;filter:grayscale(.6)}.offering-option[data-locked="1"]:hover{border-color:var(--line);background:var(--card);box-shadow:none}
+.offering-option[data-locked="1"] .offering-pick{white-space:normal;max-inline-size:170px;background:color-mix(in srgb,var(--muted) 12%,var(--card));color:var(--muted);font-weight:700;line-height:1.5}
 .tc-star{position:absolute;inset-block-start:6px;inset-inline-end:6px;border:0;background:none;font-size:18px;cursor:pointer;opacity:1;filter:grayscale(1)}
 .tc-star[aria-pressed=true]{filter:none}
 .tc-stick{margin:10px 0}.tc-stick>button.tc-open{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;border-radius:12px;border:1px dashed var(--accent);background:transparent;color:var(--accent);font-weight:700;font-family:inherit;cursor:pointer}
@@ -62,7 +65,7 @@ function tcRibbon(r,open){if(!data)return "";var mode=data.mode||"edit";
  return '<div class="tc-ribbon" data-k="closed" role="status"><span class="tc-ic" aria-hidden="true">🔒</span><div><b>انتهت فترة الطلبات</b><small>'+(when?'منذ '+esc(when)+' · ':'')+'جدولك المعتمد أدناه للاطلاع</small>'+
   ((s.f||s.x||s.p)?'<div class="tc-chips">'+(s.f?'<span>✅ ثُبّت <b>'+s.f+'</b></span>':'')+(s.x?'<span>❌ رُفض <b>'+s.x+'</b></span>':'')+(s.p?'<span>⏳ قيد المراجعة <b>'+s.p+'</b></span>':'')+'</div>':'')+'</div></div>'}
 function tcCourseLock(c){if(!c.offering)return "";var o=c.offering,on=(data.interest||[]).indexOf(Number(c.id))>=0;
- void o;return '<span role="button" tabindex="0" class="tc-star" data-star="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" aria-pressed="'+on+'" aria-label="اهتمام مستقبلي" title="🌟 اهتمام مستقبلي">🌟</span>'}
+ return (o.reach?'<span class="tc-lock">'+esc(o.icon+" "+o.line)+'</span>':'')+'<span role="button" tabindex="0" class="tc-star" data-star="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" aria-pressed="'+on+'" aria-label="اهتمام مستقبلي" title="🌟 اهتمام مستقبلي">🌟</span>'}
 function tcStar(option,e){var b=e&&e.target&&e.target.closest?e.target.closest("[data-star]"):null;if(!b)return;var on=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",String(on));
  var id=Number(b.dataset.star);data.interest=(data.interest||[]).filter(function(x){return x!==id});if(on)data.interest.push(id);
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/interest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({courseId:id,collegeId:Number(b.dataset.college),sectionId:Number(b.dataset.section),on:on})}).catch(function(){})}

@@ -21,11 +21,14 @@
 import { foldInstructorText } from "./instructorIdentity";
 import { toEnglishDigits } from "./digits";
 import { campusChips } from "./campusChip";
+import type { CourseReach } from "./courseReach";
 
 export interface ProposalCourseLike {
   id: number; code: string; name: string; hours?: number;
   collegeId: number; collegeName: string; sectionId: number;
   sheet?: "new" | "old" | "shared" | "service" | null;
+  /** «وصلنا / لم نصل بعد» للمقرر في فرعه (courseReach.ts) — من الخادم. */
+  reach?: CourseReach | null;
 }
 
 export interface ProposalCourseChoice {
@@ -37,6 +40,8 @@ export interface ProposalCourseChoice {
   memberIds: number[];
   /** من الصحيفة الجديدة وحدها. */
   isNew: boolean;
+  /** حكمُ الوصول للسجلّ الممثِّل. */
+  reach: CourseReach | null;
 }
 
 export interface ProposalCourseScope {
@@ -104,6 +109,7 @@ export function proposalCourseChoices(
       name: String(lead.name || "").trim(),
       memberIds: ranked.map(course => course.id),
       isNew: members.every(course => course.sheet === "new"),
+      reach: lead.reach || null,
     });
   }
   return out.sort((a, b) => a.code.localeCompare(b.code, "en", { numeric: true }) || a.name.localeCompare(b.name, "ar"));

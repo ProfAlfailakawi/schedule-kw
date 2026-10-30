@@ -101,10 +101,25 @@ export async function seedDemoRadar(opts: { sealIdentity: (value: string) => Pro
   /* السعة: مقرراتٌ قليلةٌ بمقاعد محسوبة على حجم العينة، كي تظهر ميزة الازدحام دون تضخيم عدد الطلبة. */
   const offered = [...new Set(termRows.map(row => Number(row.AdCourseId)))]
     .map(id => catalogue.find(course => Number(course.AdCourseId) === id)!).filter(Boolean);
+  const tightened = new Map<string, { from: number; to: number }>();
   for (const [at, course] of offered.slice(0, DEMO_TIGHT_SEATS.length).entries()) {
     const offerings = Math.max(1, new Set(termRows.filter(row => Number(row.AdCourseId) === Number(course.AdCourseId)).map(row => String(row.SCode))).size);
+    const to = Math.ceil(DEMO_TIGHT_SEATS[at] / offerings);
+    tightened.set(String(Number(course.AdCourseId)), { from: Number(course.MaxStudent) || 0, to });
     await Repository.updateCourse(Number(course.AdCourseId), collegeId, sectionId, course.CourseCode, course.CourseName,
-      Number(course.CourseCredit) || 3, Number(course.CourseHours) || 3, Math.ceil(DEMO_TIGHT_SEATS[at] / offerings));
+      Number(course.CourseCredit) || 3, Number(course.CourseHours) || 3, to);
+  }
+  /* «لم يسجلوا» في كشف الفصل التجريبي يُقاس بالسعة نفسها: مقرّرٌ ضُيّقت مقاعدُه يُصغَّر متبقّيه بالنسبة ذاتها، فيبقى
+     نقصُه شعبةً كما اختار القسم — لا «ناقص 254 شعبة» في «الإنذار المبكر» على لوحة اللجنة. */
+  const stats = await Repository.getRegistrationStats(collegeId, sectionId, termId);
+  const unregistered = stats?.remaining || {};
+  if (stats && [...tightened.keys()].some(id => Number(unregistered[id]) > 0)) {
+    const remaining = Object.fromEntries(Object.entries(unregistered).map(([id, value]) => {
+      const seats = tightened.get(id);
+      return [id, seats && seats.from > 0 ? Math.max(1, Math.ceil(Number(value) * seats.to / seats.from)) : Number(value)];
+    }));
+    await Repository.saveRegistrationStats(collegeId, sectionId, termId,
+      { counts: stats.counts, remaining, unregistered: stats.unregistered, vacant: stats.vacant, accepted: stats.accepted, remainingSource: stats.remainingSource as any }, stats.updatedBy);
   }
 
   const plan = await Repository.createCurriculumPlan({ collegeId, sectionId, name: "الصحيفة الجديدة 2026/2027", by: "عرض تجريبي" });

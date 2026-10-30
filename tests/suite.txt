@@ -20,6 +20,7 @@ test:demand-repair-simulation
 test:visiting-to-faculty
 test:pdf-term-rule
 test:owner-features-1028
+test:course-reach
 test:ta-phase-flow
 test:staff-global
 test:instructor-status
@@ -162,6 +163,7 @@ test:term-freeze-readonly
 test:predictive
 test:teaching-load
 test:demo-fill
+test:demo-every-role
 test:ads
 test:masari-integrity
 test:instructor-apply

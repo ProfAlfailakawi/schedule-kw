@@ -9,6 +9,7 @@ import { courseLevelFromCode } from "../utils/curriculumRules";
 import { AR, countOf } from "../utils/arabicCount";
 import { roleDefinition, type AcademicRole } from "../utils/academicRoles";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
+import { seatState, sectionKey, type SeatQuotaConfig } from "../utils/advisorSeats";
 
 /*
  * ── الصندوق التجريبي: كليةٌ واحدة، وعدة أقسام لعرض استعارة القاعات ─────────
@@ -21,9 +22,8 @@ import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurri
  *
  *   • الأول 2026/2027 (الجاري):  اعتُمد ثم أرجعه التسجيل بملاحظات مفتوحة
  *     وفيه تعارضان مقصودان — عملُ اللجنة ورئيس القسم. والعميدان يقرآن نسخته المعتمدة.
- *   • الثاني 2026/2027 (القادم): عند التسجيل في جولته الثانية، بأساسٍ محفوظ، وردٍّ
- *     من القسم، واستثناءٍ ممنوح، ومخالفاتٍ لائحية مقصودة — عملُ التسجيل.
- *   • الصيفي 2026/2027: قيد الإعداد، وطلبُ تمديدٍ ينتظر رئيسَ التسجيل.
+ *   • الثاني 2026/2027 (القادم): قيد الإعداد — مسودةُ تكنولوجيا التعليم، وجدولُ التربية
+ *     الفنية اعتُمد مبكراً (secondTermRows). لوحةُ البداية تقرأ هذا الفصل لكل صفة.
  *
  * المقرراتُ مقرراتُ القسم الحقيقية من صحيفتيه (القديمة 2010/2011 والجديدة
  * 2026/2027)، والأساتذةُ أسماؤهم محايدةٌ بالترقيم فقط: الوضع التجريبي حسّاس.
@@ -74,6 +74,8 @@ export interface DemoSandboxState {
   /* صحيفةُ كلٍّ من القسمين الآخرين (otherDepartmentSheets). صحيفتا تكنولوجيا التعليم تُبذران بعد الدخول (seedDemoRadar). */
   curriculumPlans?: CurriculumPlan[]; curriculumPlanCourses?: CurriculumPlanCourse[];
   curriculumRuleSets?: CurriculumRuleSet[]; curriculumRuleDrafts?: CurriculumRuleSet[];
+  /* وثائقُ الميزات الصغيرة (رصيد مقاعد المرشد): مجموعةٌ ← معرّف ← وثيقة، بالشكل الذي يكتبه الخادم. */
+  featureDocs?: Record<string, Record<string, any>>;
 }
 
 /** مدرّبان (TA) لمرحلة التدريب: يختاران من الشعب الشاغرة («هيئة تدريسية») فتجري الرحلة كلها في الصندوق. */
@@ -354,6 +356,45 @@ const historyOffer = (index: number, courses: readonly AdCourse[]): ReadonlyArra
 };
 interface PlaceScope { sectionId: number; instructorIds: readonly number[] }
 const OWN_SCOPE: PlaceScope = { sectionId: DEMO_SECTION_ID, instructorIds: Array.from({ length: DEPARTMENT_INSTRUCTORS }, (_, i) => i + 1) };
+
+/* ── الفصل الثاني (القادم) قيد الإعداد ─────────────────────────────────────────
+ *
+ * لوحةُ البداية تقرأ أحدثَ فصلٍ في القائمة (الثاني)، وكان بلا موعدٍ واحد: فتُفتح لكل صفةٍ على
+ * «0» وحملِ أسبوعٍ فارغ وخطٍّ بلا اتجاه. فللفصل القادم ما يكون له في الواقع بعد ثلاثة أسابيع من
+ * بدء الأول: تكنولوجيا التعليم بدأت بناء جدوله (مسودةٌ بثمانية عشر موعداً، بلا دورة اعتماد)،
+ * والتربية الفنية سبقت الأقسام فاعتُمد جدولُها مبكراً (يراه العميدان نهائياً). صغيرٌ عمداً: ثلاثون
+ * صفاً تقريباً بالخوارزمية الحتمية نفسها، فلا تعارضَ ولا ذاكرةَ تنتفخ. */
+const SECOND_TERM_OWN_COURSES = 12, SECOND_TERM_SPRING_COURSES = 6;
+function secondTermRows(courses: readonly AdCourse[], artOffer: ReadonlyArray<readonly [string, number]>): FSchedule[] {
+  const current = OFFERINGS[DEMO_TERM_CURRENT] || [];
+  const inCurrent = new Set(current.map(([code]) => code));
+  const spring = courses.filter(course => Number(course.AdSectionId) === DEMO_SECTION_ID && !inCurrent.has(course.CourseCode))
+    .map(course => course.CourseCode).sort().slice(0, SECOND_TERM_SPRING_COURSES);
+  const own = [...current.slice(0, SECOND_TERM_OWN_COURSES).map(([code]) => [code, 1] as const), ...spring.map(code => [code, 1] as const)];
+  const art = DEMO_OTHER_DEPARTMENTS.find(row => row.sectionId === 2)!;
+  const ownRows = placeTerm(DEMO_TERM_SECOND, courses as AdCourse[], 40_000, own, OWN_SCOPE);
+  /* رئيسُ القسم واللجنةُ والمستخدمُ العادي مربوطون بأساتذة (DEMO_USER_INSTRUCTOR_LINKS)، ولوحةُ كلٍّ منهم شخصية:
+     لكلٍّ منهم موعدان في المسودة على الأقل، يُنقلان إليه من أكثر الأساتذة مواعيدَ وفي وقتٍ خالٍ له، فلا يتعارض. */
+  const linked = new Set(Object.values(DEMO_USER_INSTRUCTOR_LINKS));
+  const load = (id: number) => ownRows.filter(row => Number(row.AdInstructorId) === id).length;
+  const sameSlot = (a: FSchedule, b: FSchedule) => a.fstarttime === b.fstarttime
+    && (["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const).some(day => Boolean(a[day]) && Boolean(b[day]));
+  for (const instructorId of linked) {
+    while (load(instructorId) < 2) {
+      const mine = ownRows.filter(row => Number(row.AdInstructorId) === instructorId);
+      const donor = ownRows.filter(row => !linked.has(Number(row.AdInstructorId)) && load(Number(row.AdInstructorId)) >= 2 && !mine.some(own => sameSlot(own, row)))
+        .sort((a, b) => load(Number(b.AdInstructorId)) - load(Number(a.AdInstructorId)) || Number(a.id) - Number(b.id))[0];
+      if (!donor) break;
+      donor.AdInstructorId = instructorId;
+    }
+  }
+  /* رقمُ الشعبة في الفصل القادم بثلاثة أرقام كما يكتبه الاستيرادُ وفحصُ الإرجاع (101، 102…): مسودةٌ تُمسح وتُرجَع
+     من «مسح الجدول» يجب أن تمرّ من فحص النسخة نفسه. */
+  return [
+    ...ownRows,
+    ...placeTerm(DEMO_TERM_SECOND, courses as AdCourse[], 42_000, artOffer, { sectionId: art.sectionId, instructorIds: art.instructorIds }),
+  ].map(row => ({ ...row, SCode: String(100 + Number(row.SCode)) }));
+}
 function placeTerm(termId: number, courses: AdCourse[], startId: number, offerOverride?: ReadonlyArray<readonly [code: string, sections: number]>, scope: PlaceScope = OWN_SCOPE, limits: { hallCap?: number; dayCap?: number } = {}): FSchedule[] {
   const hallCap = limits.hallCap ?? 5, dayCap = limits.dayCap ?? 2;
   const rows: FSchedule[] = [];
@@ -693,27 +734,31 @@ function seedApprovalUniverse(schedules: FSchedule[], acceptedFirst: FSchedule[]
      التربية الفنية: قُبل جدولُها في الجولة الأولى (يراه العميدان معتمداً). التصميم التعليمي: وقّعته اللجنةُ ورئيسُ القسم
      وأُرسل إلى التسجيل ويراجعه الآن (يظهر في وارد رئيس التسجيل). فلا يبقى الميزان قسماً واحداً وقسمين «لم يبدأ». */
   /* الفاعلُ في سجلّ هذين القسمين حسابا الصندوق نفسُهما (لجنةٌ ورئيس قسم): للصندوق حسابٌ واحدٌ لكل صفة، والاسمُ المكتوب اسمُ صاحبة الدور في القسم المعنيّ. */
-  const otherStories: Array<{ sectionId: number; name: string; accepted: boolean; signedDaysAgo: number }> = [
-    { sectionId: 2, name: "التربية الفنية", accepted: true, signedDaysAgo: 20 },
-    { sectionId: 3, name: "التصميم التعليمي", accepted: false, signedDaysAgo: 4 },
+  /* والثالثة في الفصل القادم: التربية الفنية سبقت الأقسام فاعتُمد جدولُ الثاني مبكراً (secondTermRows) — إنجازٌ يراه العميدان
+     على لوحتهما، ويبقى جدولا القسمين الآخرين في الثاني قيد الإعداد. */
+  const otherStories: Array<{ sectionId: number; name: string; accepted: boolean; signedDaysAgo: number; termId: number }> = [
+    { sectionId: 2, name: "التربية الفنية", accepted: true, signedDaysAgo: 20, termId: DEMO_TERM_CURRENT },
+    { sectionId: 3, name: "التصميم التعليمي", accepted: false, signedDaysAgo: 4, termId: DEMO_TERM_CURRENT },
+    { sectionId: 2, name: "التربية الفنية", accepted: true, signedDaysAgo: 6, termId: DEMO_TERM_SECOND },
   ];
   for (const story of otherStories) {
-    const rows = rowsOf(DEMO_TERM_CURRENT).filter(row => Number(row.AdSectionId) === story.sectionId);
+    const rows = rowsOf(story.termId).filter(row => Number(row.AdSectionId) === story.sectionId);
     if (rows.length < 4) continue;
-    const scope = `${DEMO_COLLEGE_ID}:${story.sectionId}:${DEMO_TERM_CURRENT}`;
-    const versionId = `demo-ver-s${story.sectionId}-round1`;
+    const scope = `${DEMO_COLLEGE_ID}:${story.sectionId}:${story.termId}`;
+    const versionId = story.termId === DEMO_TERM_CURRENT ? `demo-ver-s${story.sectionId}-round1` : `demo-ver-s${story.sectionId}-t${story.termId}-round1`;
     const committee = `د. رئيس لجنة جدول ${story.name} (تجريبي)`, head = `د. رئيس قسم ${story.name} (تجريبي)`;
+    const termLabel = story.termId === DEMO_TERM_CURRENT ? "" : " · الفصل الثاني";
     versions.push({
       id: versionId, scopeKey: scope, createdAt: iso(story.signedDaysAgo), rowCount: rows.length, SystemUserId: 16, userName: committee,
-      AdCollegeId: DEMO_COLLEGE_ID, AdSectionId: story.sectionId, AdTermId: DEMO_TERM_CURRENT,
+      AdCollegeId: DEMO_COLLEGE_ID, AdSectionId: story.sectionId, AdTermId: story.termId,
       label: story.accepted ? "النسخة المقبولة — الجولة الأولى" : "نسخة الجولة الأولى — كما أُرسلت إلى التسجيل", source: "manual", rows: structuredClone(rows),
     });
     approvals.push({
-      id: scope, scopeKey: scope, AdCollegeId: DEMO_COLLEGE_ID, AdSectionId: story.sectionId, AdTermId: DEMO_TERM_CURRENT,
+      id: scope, scopeKey: scope, AdCollegeId: DEMO_COLLEGE_ID, AdSectionId: story.sectionId, AdTermId: story.termId,
       status: story.accepted ? "accepted" : "submitted", currentRound: 1,
       signatures: [
-        { stage: "committee", SystemUserId: 16, userName: committee, roleLabel: "رئيس لجنة الجدول", at: iso(story.signedDaysAgo + 1), versionId, rowCount: rows.length, regulationNoticeCount: 0, verifyCode: `CMT-${story.sectionId}41${story.sectionId}` },
-        { stage: "head", SystemUserId: 15, userName: head, roleLabel: "رئيس القسم العلمي", at: iso(story.signedDaysAgo), versionId, rowCount: rows.length, regulationNoticeCount: 0, verifyCode: `HEAD-${story.sectionId}93${story.sectionId}` },
+        { stage: "committee", SystemUserId: 16, userName: committee, roleLabel: "رئيس لجنة الجدول", at: iso(story.signedDaysAgo + 1), versionId, rowCount: rows.length, regulationNoticeCount: 0, verifyCode: `CMT-${story.sectionId}4${story.termId}${story.sectionId}` },
+        { stage: "head", SystemUserId: 15, userName: head, roleLabel: "رئيس القسم العلمي", at: iso(story.signedDaysAgo), versionId, rowCount: rows.length, regulationNoticeCount: 0, verifyCode: `HEAD-${story.sectionId}9${story.termId + 2}${story.sectionId}` },
       ],
       rounds: [{
         number: 1, submittedAt: iso(story.signedDaysAgo), submittedBy: committee, reviewedVersionId: versionId,
@@ -721,9 +766,9 @@ function seedApprovalUniverse(schedules: FSchedule[], acceptedFirst: FSchedule[]
       }],
       pendingAdditions: [], updatedAt: iso(story.accepted ? story.signedDaysAgo - 3 : story.signedDaysAgo),
     });
-    logged(24 * story.signedDaysAgo, [16, committee], "POST", "/api/approvals/sign", "إضافة", `توقيع اللجنة — ${story.name} · الجولة 1 · ${countOf(rows.length, AR.appointment)}`);
-    logged(24 * story.signedDaysAgo - 1, [15, head], "POST", "/api/approvals/sign", "إضافة", `توقيع رئيس القسم — أُرسل إلى التسجيل · ${story.name}`);
-    if (story.accepted) logged(24 * (story.signedDaysAgo - 3), REG_HEAD, "POST", "/api/approvals/accept", "إضافة", `اعتماد جدول ${story.name} — الجولة 1`);
+    logged(24 * story.signedDaysAgo, [16, committee], "POST", "/api/approvals/sign", "إضافة", `توقيع اللجنة — ${story.name}${termLabel} · الجولة 1 · ${countOf(rows.length, AR.appointment)}`);
+    logged(24 * story.signedDaysAgo - 1, [15, head], "POST", "/api/approvals/sign", "إضافة", `توقيع رئيس القسم — أُرسل إلى التسجيل · ${story.name}${termLabel}`);
+    if (story.accepted) logged(24 * (story.signedDaysAgo - 3), REG_HEAD, "POST", "/api/approvals/accept", "إضافة", `اعتماد جدول ${story.name}${termLabel} — الجولة 1`);
   }
 
   /* ── مواعيد التسليم: طلبُ تمديدٍ من القسم ينتظر رئيسَ التسجيل، فيفتح لوحته على ما يفعله: يمنح أو يرفض. */
@@ -791,6 +836,48 @@ function seedIntelligenceExtras(schedules: FSchedule[], courses: AdCourse[]) {
   const [first, second] = DEMO_BUILDINGS.map(demoBuildingCode);
   const mobility = [{ AdCollegeId: DEMO_COLLEGE_ID, defaultTravelMinutes: 10, sameBuildingMinutes: 5, pairs: [{ fromBuilding: first, toBuilding: second, minutes: 8 }], updatedAt: iso(20), updatedBy: HEAD_NAME }];
   return { constraints, memories, departmentRooms, mobility };
+}
+
+/*
+ * ── 🎟️ رصيدُ مقاعد المرشد في التجربة ─────────────────────────────────────────
+ *
+ * كانت لوحةُ «رصيد مقاعد المرشد» تُفتح للمرشدَين على ثمانٍ وثلاثين شعبةً سعتُها «0» وكلُّها «قريبةٌ من الامتلاء»:
+ * لا سعةَ أساسية ولا رصيد. فللقسم إعدادٌ كما يكتبه المسؤول (سعةٌ أساسية 25، ورصيدٌ عامّ 6، وتوزيعٌ عادل على مرشدَين)،
+ * وأربعُ شعبٍ أضاف إليها المرشدان فعلاً — واحدةٌ امتلأت، وأخرى في آخر مقاعدها، واثنتان فيهما متّسع — وطلبا استثناءٍ
+ * ينتظران المسؤول على الممتلئة: إشارةُ «تحتاج شعبةً جديدة». الحسابُ كلُّه بالدالة التي يحسب بها الخادم (seatState).
+ */
+const DEMO_SEAT_ADVISORS = [{ id: 19, name: "أ. مرشد قسم تكنولوجيا التعليم" }, { id: 21, name: "أ. الإرشاد العام" }] as const;
+function demoAdvisorSeats(schedules: readonly FSchedule[], at: (daysAgo: number) => string): Record<string, Record<string, any>> {
+  const scope = `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_CURRENT}`;
+  const config: SeatQuotaConfig = { id: scope, capacityDefault: 25, global: 6, byCourse: {}, bySection: {}, fairSplit: true, advisorCount: DEMO_SEAT_ADVISORS.length };
+  const capacityOf = (row: FSchedule) => { const hall = DEMO_HALLS.find(item => item.roomId === row.roomId); return hall ? demoRoomCapacity(hall) : null; };
+  const picked = schedules.filter(row => Number(row.AdTermId) === DEMO_TERM_CURRENT && Number(row.AdSectionId) === DEMO_SECTION_ID
+    && !String(row.fdetail || "").includes(DEMO_CONFLICT_MARK)).slice(0, 4);
+  const ledgers: Record<string, any> = { [`config:${scope}`]: config };
+  const keys: string[] = [];
+  picked.forEach((row, index) => {
+    const key = sectionKey(DEMO_TERM_CURRENT, Number(row.AdCourseId), String(row.SCode));
+    const extra = seatState({ id: key, courseId: Number(row.AdCourseId), capacity: 25, roomCapacity: capacityOf(row), adds: [] }, config).hardCap - 25;
+    /* ممتلئة، ثم آخرُ مقعدين، ثم متّسعٌ في اثنتين. */
+    const total = Math.max(0, [extra, extra - 2, 2, 1][index]);
+    const first = Math.ceil(total / 2), second = total - first;
+    const adds = [[DEMO_SEAT_ADVISORS[0], first, 3 + index], [DEMO_SEAT_ADVISORS[1], second, 1 + index]]
+      .filter(([, count]) => Number(count) > 0)
+      .map(([advisor, count, daysAgo]) => ({ advisorId: (advisor as any).id, advisorName: (advisor as any).name, count: Number(count), at: at(Number(daysAgo)) }));
+    ledgers[key] = { id: key, courseId: Number(row.AdCourseId), capacity: 25, enrolled: 25, roomCapacity: capacityOf(row), adds };
+    keys.push(key);
+  });
+  const requests: Record<string, any> = {};
+  if (keys[0]) {
+    for (const [index, [advisor, count, note]] of ([
+      [DEMO_SEAT_ADVISORS[1], 4, "أربعة طلبةٍ على قائمة الانتظار والشعبة ممتلئة — تحتاج شعبةً ثانية."],
+      [DEMO_SEAT_ADVISORS[0], 2, "طالبتان متوقّعتا التخرج لا تجدان شعبةً بديلة في الموعد نفسه."],
+    ] as const).entries()) {
+      const id = `${scope}:${1_700_000_000_000 + index}`;
+      requests[id] = { id, scope, key: keys[0], count, note, at: at(index + 1), by: advisor.name, status: "pending" };
+    }
+  }
+  return { advisorSeatLedgers: ledgers, advisorSeatRequests: requests };
 }
 
 export function createDemoSandboxState(): DemoSandboxState {
@@ -880,7 +967,8 @@ export function createDemoSandboxState(): DemoSandboxState {
     placeTerm(DEMO_TERM_CURRENT, courses, 30_000 + sectionId * 1_000, otherOffer(sectionId), { sectionId, instructorIds }));
   /* يُقاس الفراغُ على الجاري والمقبول معاً: المقبولُ ما زال فيه الشعبتان المحذوفتان بعده. */
   plantPeriodBalance(first, acceptedFirst, [...first, ...acceptedFirst, ...otherRows.flat()]);
-  const schedules = [...first, ...otherRows.flat(), ...history];
+  const second = secondTermRows(courses, otherOffer(2));
+  const schedules = [...first, ...otherRows.flat(), ...second, ...history];
 
   /* أسماءُ الشاشات كما في academicRoles.ts (2…17). الرقمان 1 و13 غير موصوفين هناك فسُمّيا بما اختاره المالك (تجريبي فقط). */
   const FORM_LABELS = ["الصفحة الرئيسية", "الكليات", "الأساتذة", "الأقسام", "الفصول", "المقررات", "الجداول ومركز الذكاء", "استعلام الأساتذة", "استعلام القاعات", "استعلام الأوقات", "المستخدمون", "الصلاحيات", "لوحة المؤشرات", "تقرير القسم", "النطاقات", "القاعات والأوقات", "البحث المتقدم"];
@@ -927,7 +1015,10 @@ export function createDemoSandboxState(): DemoSandboxState {
     if (!sectionsByCourse.has(id)) sectionsByCourse.set(id, new Set());
     sectionsByCourse.get(id)!.add(String(row.SCode));
   }
-  const withSections = [...sectionsByCourse].filter(([, sections]) => sections.size > 0)
+  /* تخطيطُ قسم القصة لمقرراته وحدها: كان يلتقط مقرّرين من القسمين الآخرين (شعبتان لكلٍّ منهما) فتظهر «مدخل إلى
+     التربية الفنية» في تخطيط تكنولوجيا التعليم. */
+  const ownCourseIds = new Set(courses.filter(course => Number(course.AdSectionId) === DEMO_SECTION_ID).map(course => Number(course.AdCourseId)));
+  const withSections = [...sectionsByCourse].filter(([id, sections]) => sections.size > 0 && ownCourseIds.has(id))
     .sort((a, b) => b[1].size - a[1].size || a[0] - b[0]);
   const surplusCourses = withSections.filter(([, sections]) => sections.size > 1).slice(0, 2);
   const deficitCourses = withSections.filter(([id]) => !surplusCourses.some(([surplusId]) => surplusId === id)).slice(0, 8);
@@ -937,15 +1028,32 @@ export function createDemoSandboxState(): DemoSandboxState {
   ]));
   /* بيانات كشف الفصل الحالي التجريبي: فائض شعبة واحدة لكل مقرر من
      surplusCourses محسوب حصراً من السعة وعدد «لم يسجلوا»، بلا أثر للمختار
-     أو تاريخ الفصول. بقيّة القيم للاقتراحات الأخرى كما كانت. */
+     أو تاريخ الفصول. ولكل مقررٍ ناقص «لم يسجلوا» يملأ شعبه ويزيد ثلثَ شعبةٍ تقريباً: ينقصه شعبةٌ واحدة كما اختار القسم
+     (accepted)، وتغطيةُ الطلب في «الإنذار المبكر» نحو ثلاثة أرباع — لا «ناقص 254 شعبة» من أرقام كشفٍ حقيقيٍّ لقسمٍ آخر. */
   const remaining = Object.fromEntries(plannedCourses.map(([id, sections], index) => {
-    if (index < surplusCourses.length) {
-      const capacity = Number(courses.find(course => Number(course.AdCourseId) === id)?.MaxStudent) || 0;
-      return [String(id), capacity > 0 ? (sections.size - 1) * capacity : 0];
-    }
-    return [String(id), [1315, 3, 268, 159, 35, 163, 8, 134, 1428, 244][index] || 0];
+    const capacity = Number(courses.find(course => Number(course.AdCourseId) === id)?.MaxStudent) || 0;
+    if (index < surplusCourses.length) return [String(id), capacity > 0 ? (sections.size - 1) * capacity : 0];
+    return [String(id), Math.round(capacity * (sections.size + 0.3 + 0.05 * (index % 4)))];
   }));
   const planScope = `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_CURRENT}`;
+  /* «لوحة القرار» عند العميدين سطرٌ لكل قسم: وكان القسمان الآخران بلا تخطيطٍ فيُقرآن «0 · 0 · 0» و«لا فرق».
+     لكلٍّ منهما عددُ شعبٍ اختاره القسم لبعض مقرراته، فتُرى الدرجاتُ الثلاث على اللوحة: التربية الفنية عاجلٌ (ينقص
+     شعبتان) ومهمٌّ (ينقص شعبة) وفرصة (فائضٌ للمراجعة)، والتصميم التعليمي مهمٌّ وفرصة. */
+  const otherPlans = DEMO_OTHER_DEPARTMENTS.map(({ sectionId }) => {
+    const own = courses.filter(course => Number(course.AdSectionId) === sectionId);
+    const existing = (course: AdCourse | undefined) => course ? sectionsByCourse.get(Number(course.AdCourseId))?.size || 0 : 0;
+    const doubled = own.find(course => existing(course) > 1);
+    const singles = own.filter(course => existing(course) === 1);
+    const picks: Array<[AdCourse | undefined, number]> = sectionId === 2
+      ? [[singles[0], 2], [singles[1], 1], [doubled, -1]]
+      : [[singles[0], 1], [doubled, -1]];
+    const accepted = Object.fromEntries(picks.filter(([course]) => course).map(([course, delta]) => [String(course!.AdCourseId), existing(course) + delta]));
+    const scope = `${DEMO_COLLEGE_ID}:${sectionId}:${DEMO_TERM_CURRENT}`;
+    return {
+      id: scope, scopeKey: scope, collegeId: DEMO_COLLEGE_ID, sectionId, termId: DEMO_TERM_CURRENT,
+      counts: {}, remaining: {}, vacant: {}, accepted, updatedAt: now, updatedBy: "بيانات الديمو",
+    };
+  });
   /* «الباقي/الشاغر» لكل فصلٍ سابق: من تعذّر عليه التسجيل (يتصاعد حيث زاد الطلب)، والمقاعد التي بقيت
      فارغة (حيث تراجع). بالعمود نفسه الذي يقرؤه التنبّؤ (`unregistered`). */
   const historyStats = DEMO_HISTORY_TERMS.map((term, index) => {
@@ -1014,6 +1122,7 @@ export function createDemoSandboxState(): DemoSandboxState {
       assignments: structuredClone(DEMO_TEACHING_LOAD_ASSIGNMENTS), updatedAt: now, updatedBy: "بيانات الديمو",
     }],
     curriculumPlans: sheets.plans, curriculumPlanCourses: sheets.links, curriculumRuleSets: sheets.ruleSets, curriculumRuleDrafts: sheets.drafts,
+    featureDocs: demoAdvisorSeats(schedules, daysAgo => new Date(Date.now() - daysAgo * 86_400_000).toISOString()),
     registrationStats: [
       {
         id: planScope, scopeKey: planScope, collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID,
@@ -1026,6 +1135,7 @@ export function createDemoSandboxState(): DemoSandboxState {
         collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID, termId: DEMO_TERM_SECOND,
         counts: {}, remaining: {}, vacant: {}, accepted: {}, updatedAt: now, updatedBy: "بيانات الديمو",
       },
+      ...otherPlans,
       ...historyStats,
     ],
   };

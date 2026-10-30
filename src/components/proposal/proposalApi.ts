@@ -45,6 +45,8 @@ export interface ContextCourse {
   id: number; code: string; name: string; hours: number; collegeId: number; collegeName: string; sectionId: number;
   /** صحيفةُ المقرر في قسمه: «new» الجديدة، «old» السابقة، «shared» في الاثنتين (sheetTag.ts). */
   sheet?: "new" | "old" | "shared" | "service" | null;
+  /** «وصلنا ✓ / لم نصل بعد 🔒» في فرعه (src/utils/courseReach.ts). */
+  reach?: import("../../utils/courseReach").CourseReach | null;
 }
 export interface FacultyEntry {
   snapshot: NonNullable<StudyProposalOp["source"]>;
