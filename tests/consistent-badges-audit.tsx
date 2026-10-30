@@ -52,6 +52,8 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
   const locked = renderToStaticMarkup(<CourseTags tags={all} />);
   check(/data-ctag="reach" data-print="0"/.test(locked) && /ctag-reach/.test(locked), "C11 «🔒 لم نصل بعد» لا يُطبع");
   check(renderToStaticMarkup(<CourseTags text="صحيفة 2026 · متطلب كلية" />) === html, "C12 من نصّ القائمة أو من الحقائق: الشكلُ نفسه");
+  check(renderToStaticMarkup(<CourseTags tags={courseTagsOf({ sheet: "صحيفة 2026", kind: "elective", reachLocked: true })} printOnly />) === renderToStaticMarkup(<CourseTags tags={courseTagsOf({ sheet: "صحيفة 2026" })} />)
+    && read("src/components/AuthorityPdfReport.tsx").includes("<CourseTags courseId={row.AdCourseId} printOnly />"), "C13 تقرير الهيئة المطبوع (ومعاينته): الصحيفة ومتطلبُ الخدمة فقط كما كان");
 }
 
 /* ── S: الخادم والمصدر الواحد ────────────────────────────────────────────── */

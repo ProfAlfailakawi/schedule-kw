@@ -12,24 +12,27 @@ import { reachLocked, type CourseReach } from "../utils/courseReach";
  *  • newSheet: «🆕 صحيفة جديدة» لمقررٍ من الصحيفة الجديدة وحدها — احتياطاً حين لا تصل شاراتُ الصحيفة (sheetFallback).
  * يلتفّ على الهاتف بهدوء، ولا يظهر منه في الطباعة إلا ما كانت تطبعه الشارةُ قبل (التقارير المطبوعة مجمّدة).
  */
-export default function CourseTags({ courseId, courseIds, text, reach, newSheet = false, tags: given }: {
+export default function CourseTags({ courseId, courseIds, text, reach, newSheet = false, tags: given, printOnly = false }: {
   courseId?: unknown;
   courseIds?: readonly unknown[];
   text?: string;
   reach?: Pick<CourseReach, "state"> | null;
   newSheet?: boolean;
   tags?: readonly CourseTag[];
+  /** التقرير المطبوع (ومعاينته): ما كانت تطبعه الشارة قبل فقط — تصميمُه مجمّد. */
+  printOnly?: boolean;
 }) {
   const badges = usePlanBadges();
   const ids = courseIds || (courseId !== undefined ? [courseId] : []);
   const tags = given || (text !== undefined
     ? parseCourseTagsText(text)
     : courseTagsOf({ ...courseTagFacts(ids, badges), newSheet: sheetFallback(badges, newSheet), reachLocked: reachLocked(reach) }));
-  if (!tags.length) return null;
+  const shown = printOnly ? tags.filter(tag => tag.print) : tags;
+  if (!shown.length) return null;
   const service = text === undefined ? ids.flatMap(id => serviceDepartmentsOf(id)) : [];
   return (
     <span className="ctags">
-      {tags.map(tag => (
+      {shown.map(tag => (
         <span key={tag.key} className={`ctag ${CHIP_CLASS[tag.key]}`} data-ctag={tag.key} data-print={tag.print ? undefined : "0"}
           title={tag.key === "kind" && service.length ? `${tag.label} في صحائف: ${[...new Set(service)].join("، ")}` : TITLE[tag.key]}>
           {tag.label}
