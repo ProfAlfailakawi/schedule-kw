@@ -97,6 +97,10 @@ try {
     if (role === "committeeChair") {
       const requests = await get(`/api/instructor-requests?${q(1)}`);
       check((requests?.rows || []).length > 0, "R2 «committeeChair»: رغباتُ أساتذةٍ في الوارد", requests?.totals);
+      /* «الإنذار المبكر» على لوحته يُقرأ معقولاً: كان «ناقص 254 شعبة» وتغطيةُ الطلب 8% — متبقٍّ لم يُقَس بسعة المقاعد الضيّقة. */
+      const forecast = await get(`/api/forecast/term?${q(1)}`);
+      check(forecast?.status === "ready" && Number(forecast?.coverage?.percent) >= 50 && Number(forecast?.shortCourses) > 0,
+        `R4 «committeeChair»: الإنذارُ المبكر بتغطيةٍ معقولة ونقصٍ يُعالَج (${forecast?.coverage?.percent}% · ${forecast?.shortCourses})`, forecast?.highlights);
     }
 
     /* ── R3/R4 لوحة القرار عند العميدين: لكل قسمٍ في كليتهما تخطيطٌ تُقرأ منه الدرجات ── */
