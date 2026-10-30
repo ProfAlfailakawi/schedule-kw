@@ -13,7 +13,7 @@
 .appt-link{border:0;background:none;color:var(--accent);font:inherit;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .appt-link:hover{background:var(--accent-softer)}
 .appt-link:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.appt-edit-tag{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;background:var(--brass-soft);color:var(--brass);font-size:12px;font-weight:700}
+.appt-edit-tag{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;background:var(--brass-soft);color:var(--brass);font-size:12px;font-weight:700;vertical-align:middle;letter-spacing:0}
 .appt-edit-tag svg{width:13px;height:13px}
 .appt-esc{position:absolute;inset-block-start:12px;inset-inline-end:58px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);pointer-events:none}
 .appt-esc kbd{font:inherit;font-size:11px;padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:var(--surface);color:var(--ink-2)}
@@ -107,6 +107,17 @@
 .schedule-editor.is-studio .appt-place>.location-registry-picker>label>span>b{color:var(--danger);font-weight:700}
 .schedule-editor.is-studio .appt-place>.location-registry-picker>label>select{width:100%;min-width:0}
 
+/* المرفق المرافق: متطلَّبٌ إضافيٌّ للمقرر، في بطاقةٍ نحاسيةٍ هادئة */
+.schedule-editor.is-studio .form-grid.appt-place>[data-companion-facility]{grid-template-columns:minmax(0,1fr);padding:12px 14px;border:1px dashed color-mix(in srgb,var(--brass) 45%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--brass) 5%,var(--surface))}
+/* الاستعارة: سطرٌ هادئ يتحوّل لوحةً مصغّرة، بأسلوب المساعدات */
+.schedule-editor.is-studio .appt-place .schedule-borrow-hint{border-radius:14px;padding:11px 14px;font-size:13px}
+.schedule-editor.is-studio .appt-place .schedule-borrow-panel{border-radius:16px;box-shadow:var(--shadow-xs)}
+.schedule-editor.is-studio .appt-place .schedule-borrow-list li{padding:9px 10px;border-radius:12px}
+.schedule-editor.is-studio .appt-place .schedule-borrow-list li button{min-height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--accent);background:var(--accent-softer);color:var(--accent-strong);font-weight:700;cursor:pointer}
+.schedule-editor.is-studio .appt-place .room-owner-note{border-radius:14px}
+/* الخطأ والانتظار: بطاقةٌ واحدة واضحة، ودوّارةٌ صغيرة بدل الكلمة وحدها */
+.schedule-editor.is-studio .schedule-editor-error{border-radius:14px;font-weight:600}
+.appt-status-word .checks-spin{width:15px;height:15px}
 /* شريط الحفظ: ملخّصٌ بأيقونات، وحالةٌ واحدة، وزرّان */
 .schedule-editor.is-studio .save-preview.appt-bar{position:sticky;bottom:var(--dock-h,0px);z-index:20;display:flex;flex-wrap:nowrap;align-items:center;gap:12px;margin:16px 0 0;padding:12px 16px;border:1px solid var(--line);border-radius:20px 20px 0 0;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:saturate(1.2) blur(10px);-webkit-backdrop-filter:saturate(1.2) blur(10px);box-shadow:0 -14px 34px -26px rgba(17,25,22,.42)}
 .appt-sum{display:flex;flex-wrap:nowrap;gap:6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;mask-image:linear-gradient(to left,#000 calc(100% - 24px),transparent)}

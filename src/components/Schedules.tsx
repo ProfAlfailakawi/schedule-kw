@@ -9261,11 +9261,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   {studioScopeExpanded ? "تم" : "تغيير"}
                 </button>
               ) : null}
-              {editor === "edit" ? <span className="appt-edit-tag"><Edit2 aria-hidden="true" />تعديل</span> : null}
             </span>
           }
         >
-          {editor === "create" ? "موعد جديد" : "تعديل موعد"}
+          {editor === "create" ? "موعد جديد" : <>تعديل موعد <span className="appt-edit-tag"><Edit2 aria-hidden="true" />تعديل</span></>}
         </PageTitle>
         <span className="appt-esc" aria-hidden="true"><kbd>Esc</kbd> للإغلاق</span>
         {error ? <div className="schedule-editor-error" role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
@@ -9581,7 +9580,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <X aria-hidden="true" className="appt-inline-mark" />
                     <span className="appt-inline-text">{editorVerdict.blockers[0].text}</span>
                     {editorVerdict.blockers.length > 1 ? <button type="button" className="appt-inline-more" onClick={() => setStudioChecksOpen(true)}
-                      data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً">+{editorVerdict.blockers.length - 1}</button> : null}
+                      data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً"><bdi dir="ltr">+{editorVerdict.blockers.length - 1}</bdi></button> : null}
                     <button type="button" className="appt-inline-alt" onClick={() => goToAlternatives()} disabled={altBusy}
                       data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً"><WandSparkles aria-hidden="true" />{altBusy ? "…" : "بديل"}</button>
                   </div>:null}
@@ -9889,7 +9888,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <span className="appt-status-word">
                     {studioTone === "locked" ? "لا يُحفظ الآن"
                       : studioTone === "block" ? countOf(studioBlockers, AR.blocker)
-                        : studioTone === "checking" ? "يفحص…"
+                        : studioTone === "checking" ? <><Loader2 aria-hidden="true" className="checks-spin" />يفحص…</>
                           : studioTone === "missing" ? (studioMissing.length >= 5 ? "ابدأ بالمقرر" : studioMissing.length > 1 ? `التالي: ${studioMissing[0]}` : `ناقص: ${studioMissing[0]}`)
                             : studioTone === "warn" ? countOf(studioNotes, AR.note)
                               : <><CheckCircle2 aria-hidden="true" />جاهز للحفظ</>}
