@@ -214,6 +214,11 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
     note: "فترتان: 50 دقيقة في الأحد و50 دقيقة في الثلاثاء."
   },
   {
+    /* نمطٌ معتمد وإن غاب عن المكتبة الأولى (المالك 2026-10-30): يومان قصيران متجاوران كالأحد والثلاثاء. */
+    hours: 2, id: "2h-tue-thu", days: ["ftuesday", "fthursday"], minutesPerDay: [50, 50], weeklyMinutes: 100,
+    note: "فترتان: 50 دقيقة في الثلاثاء و50 دقيقة في الخميس."
+  },
+  {
     hours: 2, id: "2h-one-block", days: ["ftuesday"], minutesPerDay: [110], weeklyMinutes: 100,
     note: `فترتان تدريسيّتان من ${countOf(50, AR.minute)} بينهما فاصل ${countOf(10, AR.minute)} (${countOf(110, AR.minute)} زمنية).`
   },
@@ -285,6 +290,40 @@ export function patternLibraryByHours(): Array<{ hours: number; patterns: Patter
     hours: value,
     patterns: PATTERN_LIBRARY.filter(pattern => pattern.hours === value).map(({ id, days, minutesPerDay, weeklyMinutes, note }) => ({ id, days: [...days], minutesPerDay: [...minutesPerDay], weeklyMinutes, note })),
   }));
+}
+
+/**
+ * ── «النمطُ لازم يكون معتمداً» (المالك 2026-10-30) ──────────────────────────
+ *
+ * أيامُ الشعبة كلُّها نمطٌ في مكتبة الأنماط لساعات المقرّر، أو يومٌ واحد لنمطِ كتلة (يصلح لأيّ يوم).
+ * لا تُعفي عادةُ القسم ولا تاريخُ المقرّر شيئاً: التاريخُ اقتراحٌ لا يخالف اللائحة.
+ *   exact: الأيامُ نمطٌ كامل بعينه (صفٌّ بيومين فأكثر، وطلبُ الأستاذ).
+ *   وإلا: الأيامُ جزءٌ من نمطٍ معتمد (يومٌ واحد يُبنى به نمطٌ بأوقاتٍ مختلفة صفّاً صفّاً).
+ * null حين لا تُعرف ساعاتُ المقرّر أو لا نمطَ لها في المكتبة — لا يُحكم بما لا يُعرف.
+ */
+export function daysFitLibrary(weeklyHours: number, days: Iterable<DayKey>, exact = true): boolean | null {
+  const hours = Math.round(Number(weeklyHours) || 0);
+  const set = new Set(days);
+  const patterns = PATTERN_LIBRARY.filter(pattern => pattern.hours === hours);
+  if (!hours || !patterns.length || !set.size) return null;
+  return patterns.some(pattern => pattern.days.length === 1
+    ? set.size === 1
+    : exact
+      ? pattern.days.length === set.size && pattern.days.every(day => set.has(day))
+      : [...set].every(day => pattern.days.includes(day)));
+}
+
+/** الأيامُ نمطٌ معتمد كامل لساعات المقرّر (null: لا يُحكم). */
+export const daysApprovedForHours = (weeklyHours: number, days: Iterable<DayKey>) => daysFitLibrary(weeklyHours, days, true);
+
+/** الأطوالُ المعتمدة ليومٍ ما: أطوالُه في الأنماط التي تضمّه، وأطوالُ الكتل (تصلح لأيّ يوم). */
+export function libraryLengthsForDay(day: DayKey): Set<number> {
+  const out = new Set<number>();
+  for (const pattern of PATTERN_LIBRARY) {
+    if (pattern.days.length === 1) out.add(pattern.minutesPerDay[0]);
+    else pattern.days.forEach((patternDay, index) => { if (patternDay === day) out.add(pattern.minutesPerDay[index]); });
+  }
+  return out;
 }
 
 /** The approved shapes for a course with this many weekly hours. */

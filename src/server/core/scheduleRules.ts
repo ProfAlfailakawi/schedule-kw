@@ -14,7 +14,7 @@ import { directoryVisitingIds, termVisitingIds } from "../../utils/liveVisiting"
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
-import { DAY_KEYS, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionWeeklyHours } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionWeeklyHours, type DayKey } from "../../utils/scheduleRegulations";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
@@ -52,9 +52,10 @@ export async function sectionScheduleWindow(sectionId:number){
   const value={expiresAt:Date.now()+30_000,startTime:bounds.startTime,endTime:bounds.endTime};sectionScheduleWindowCache.set(cacheKey,value);return value;
 }
 /**
- * تنبيهُ «النمط غير معتمد»: أيامٌ تخلط الـ50 بالـ80 وليست نمطاً معتمداً في مكتبة الأنماط لساعات المقرّر ولا نمطاً درج
- * عليه المقرّرُ نفسُه في فصولٍ سابقة. يعيد رسمَ التنبيه (النمطُ المختار بجانب المعتمد) أو null. صفحةُ الأستاذ تمنع به،
- * والجدولُ الدراسي عند القسم ينبّه به ولا يمنع.
+ * تنبيهُ «النمط غير معتمد»: أيامٌ تخلط الـ50 بالـ80 وليست نمطاً معتمداً في مكتبة الأنماط لساعات المقرّر.
+ * يعيد رسمَ التنبيه (النمطُ المختار بجانب المعتمد) أو null. صفحةُ الأستاذ تمنع به، والمنعُ في الجدول الدراسي
+ * عند القسم يقوله unapprovedPatternIssue. ولا يُعفي تاريخُ المقرّر نمطاً خارج المكتبة: التاريخُ اقتراحٌ
+ * لا يخالف اللائحة (المالك 2026-10-30).
  */
 export async function mixedPatternNotice(courseId:number,days:RequestDayKey[],termId:number,minutes?:number,blocking=false):Promise<string|null>{
   const shortDays=days.filter(d=>d==="fsunday"||d==="ftuesday"||d==="fthursday"),longDays=days.filter(d=>d==="fmonday"||d==="fwednesday");
@@ -62,17 +63,45 @@ export async function mixedPatternNotice(courseId:number,days:RequestDayKey[],te
   const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
   const sameDays=(list:readonly string[])=>list.length===days.length&&list.every(d=>days.includes(d as RequestDayKey));
   if(hours>0&&patternsForHours(hours).some(p=>sameDays(p.days)))return null;
-  /* التاريخ من الفصول السابقة وحدها: نمطُ الفصل الجاري لا يُعفي نفسَه. */
-  if(historicalOrigin(await courseHabit(courseId,termId),termId)?.patterns.some(p=>sameDays(p)))return null;
+  void termId;
   const ordered=DAY_KEYS.filter(d=>days.includes(d));
   return patternNoticeHtml(patternLibraryInput(),Math.round(hours)||0,ordered,ordered.map(d=>minutes&&minutes>0?minutes:expectedMinutesForDay(d)),blocking);
+}
+
+/**
+ * ── «النمطُ لازم يكون معتمداً» عند الحفظ (المالك 2026-10-30) ───────────────────
+ *
+ * أيامُ الشعبة كلُّها — هذا الصفّ وصفوفُ المقرّر والشعبة نفسيهما في الفصل والقسم — نمطٌ في مكتبة الأنماط
+ * لساعات المقرّر. صفٌّ بيومين فأكثر يُكمل نمطاً كاملاً بعينه؛ وصفٌّ بيومٍ واحد يكفيه أن يقع داخل نمطٍ معتمد
+ * (نمطٌ بأوقاتٍ مختلفة يُبنى صفّاً صفّاً، وكتلةُ اليوم الواحد تصلح لأيّ يوم). لا تُعفي العادة شيئاً.
+ * مقرّرٌ لا تُعرف ساعاتُه أو لا نمطَ لها في المكتبة لا يُحكم عليه هنا.
+ */
+export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[]):Promise<string|null>{
+  const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
+  const own=SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as DayKey[];
+  if(!own.length)return null;
+  const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
+  if(!(hours>0))return null;
+  const union=new Set<DayKey>(own);
+  if(Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
+    const siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
+      .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
+        &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
+        &&Number(other.id)!==Number(row.id||0));
+    for(const other of siblings)for(const day of SCHEDULE_DAY_KEYS)if((other as any)[day])union.add(day as DayKey);
+  }
+  const fits=daysFitLibrary(hours,union,own.length>1);
+  if(fits!==false)return null;
+  const named=DAY_KEYS.filter(day=>union.has(day)).map(day=>DAY_NAMES[DAY_KEYS.indexOf(day)]).join(" · ");
+  const allowed=patternsForHours(hours).map(pattern=>pattern.days.length===1?`يوم واحد ${pattern.minutesPerDay[0]}د`:pattern.label).join("، ");
+  return `أيام هذه الشعبة (${named}) ليست نمطاً معتمداً لمقرّرٍ ${countOf(hours,AR.hour)} أسبوعياً في مكتبة الأنماط. المعتمد: ${allowed}.`;
 }
 export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
   const course=await Repository.getCourseById(courseId);
-  const nature=await courseHabit(courseId);
-  /* بياناتٌ قديمةٌ قد تسجل الوحدات ولا تملأ حقل الساعات؛ لا تُعامل حينها كأن المقرر ساعة واحدة. */
-  const hours=effectiveCourseHours(course),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
+  /* بياناتٌ قديمةٌ قد تسجل الوحدات ولا تملأ حقل الساعات؛ لا تُعامل حينها كأن المقرر ساعة واحدة.
+     ولا تُعفي عادةُ القسم من سقف الساعات: التاريخُ اقتراحٌ لا يخالف اللائحة (المالك 2026-10-30). */
+  const hours=effectiveCourseHours(course);
   /* توافقُ طول الموعد مع نمط اللائحة ملاحظة استرشادية، ولا يمنع الحفظ.
      المنعُ هنا محصورٌ في تجاوز مجموع العبء الأسبوعي لساعات المقرر. */
   /* مقرّرٌ لا يزيد على ساعاته المعتمدة في أي مكان يُنشأ منه: صفوفُه الأخرى في الفصل والشعبة نفسيهما تُحسب معه. */
@@ -83,7 +112,7 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
         &&Number(other.id)!==Number(row.id||0));
     /* مصدرٌ واحد (sectionWeeklyHours): النسخة المطابقة للموعد نفسه لا تضاعف المجموع، والمواعيد المحسوبة تُسمّى. */
     const reading=sectionWeeklyHours(row,siblings,hours);
-    if(!habitual&&reading.total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(reading.total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}`;
+    if(reading.total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(reading.total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}`;
   }
   return null;
 }

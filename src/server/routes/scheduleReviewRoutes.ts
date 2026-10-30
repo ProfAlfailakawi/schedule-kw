@@ -25,17 +25,18 @@ import { barterRequestRoomKey, HALL_BARTER_DAY_LABEL } from "../core/hallBarter"
 import { courseHabit } from "../core/instructorRequests";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { scheduleConflicts } from "../core/scheduleConflicts";
-import { describeScheduleChange, mixedPatternNotice, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues } from "../core/scheduleRules";
+import { describeScheduleChange, mixedPatternNotice, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, unapprovedPatternIssue } from "../core/scheduleRules";
 import { companionBookingFor } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed, legacyFDetail } from "../core/scope";
 import { approvalBlockerOptions } from "../core/smartImport";
 
 async function scheduleLengthNotice(row:any):Promise<string|null>{
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
-  const course=await Repository.getCourseById(courseId),nature=await courseHabit(courseId);
-  const hours=effectiveCourseHours(course),habitual=nature&&nature.confidence!=="low"?nature.meetingMinutes:undefined;
+  const course=await Repository.getCourseById(courseId);
+  /* طولُ المحاضرة يُقاس باللائحة ومكتبة الأنماط وحدهما: عادةُ القسم لا تصير مرجعاً يخالفهما (المالك 2026-10-30). */
+  const hours=effectiveCourseHours(course);
   const mixedOutside=Boolean(await mixedPatternNotice(courseId,SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row?.AdTermId||0)));
-  return mixedOutside?null:lectureLengthProblem(row,hours,habitual);
+  return mixedOutside?null:lectureLengthProblem(row,hours,undefined);
 }
 
 /** مانع ساعات المقرر كما تقرؤه بوابة التعديل حرفاً: موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت)
@@ -49,6 +50,18 @@ async function checkLengthIssue(row:any):Promise<string|null>{
     if(unchangedShape)return null;
   }
   return scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)});
+}
+
+/** مانعُ «النمط غير المعتمد» كما تقرؤه بوابتا الإنشاء والتعديل حرفاً: الشكلُ الذي لم يتغيّر لا يُرفض (A6). */
+async function checkPatternIssue(row:any):Promise<string|null>{
+  if(!Number(row.AdCourseId||0))return null;
+  const editedId=Number(row.excludeId||0);
+  if(editedId){
+    const existing=await Repository.getScheduleById(editedId);
+    const unchangedShape=existing&&existing.fstarttime===row.fstarttime&&existing.fendtime===row.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(row?.[k]));
+    if(unchangedShape)return null;
+  }
+  return unapprovedPatternIssue({...row,id:Number(row.excludeId||row.id||0)});
 }
 
 /** موانع المكان (القاعة الرسمية + المرفق المرافق) كما تقرؤها بوابة الحفظ. */
@@ -125,7 +138,7 @@ export function registerScheduleReviewRoutes(app: Express): void {
    على الأخرى، فتُطلق معاً، والنتيجة نفسها التي تحكم بها بوابة الحفظ. */
 app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
   const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
-  const [patternNotice,lectureNotice,payloadIssues,lengthIssue,placeIssues,conflicts]=await Promise.all([
+  const [patternNotice,lectureNotice,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue]=await Promise.all([
     mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null),
     scheduleLengthNotice(row).catch(()=>null),
     // Return the same payload and weekly-hours blockers the save gate uses.
@@ -133,9 +146,11 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
     checkLengthIssue(row),
     checkLocationIssues(row),
     scheduleConflicts(req,row,Number(row.excludeId||0)),
+    checkPatternIssue(row).catch(()=>null),
   ]);
   const validationIssues=[...payloadIssues];
   if(lengthIssue)validationIssues.push(lengthIssue);
+  if(patternIssue)validationIssues.push(patternIssue);
   validationIssues.push(...placeIssues);
   res.json({conflicts,validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
 

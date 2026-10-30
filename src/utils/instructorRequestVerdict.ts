@@ -36,7 +36,7 @@ import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { negotiationClosed, type ThreadItem } from "./instructorRequestThread";
 import { AR, countOf } from "./arabicCount";
 import {
-  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding,
+  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, daysApprovedForHours, expectedMinutesForDay, isDecision1912Finding,
   LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES, patternsForHours, requiredGapForDays, reviewSchedule, toMinutes,
   weeklyLectureMinutes, maxWeeklyMinutesFor, effectiveCourseHours, type DayKey, type RegulationFinding,
 } from "./scheduleRegulations";
@@ -67,8 +67,9 @@ export interface RequestReason {
   text: string;
   /** هل يمنع هذا السببُ الإرسال؟ */
   blocking: boolean;
-  /** `hours`: المشكلةُ في الأيام (لا تغطّي ساعاتِ المقرّر) لا في وقت البداية، فلا يختلف الحكمُ بين الأوقات. */
-  code?: "hours";
+  /** `hours`: المشكلةُ في الأيام (لا تغطّي ساعاتِ المقرّر) لا في وقت البداية، فلا يختلف الحكمُ بين الأوقات.
+      `pattern`: الأيامُ ليست نمطاً معتمداً في مكتبة الأنماط — يُعرض بدلَ البدائل أزرارُ الأنماط المعتمدة. */
+  code?: "hours" | "pattern";
 }
 
 /** موضعٌ مقترح: يومٌ وبداية، والنهايةُ محسوبة. */
@@ -514,10 +515,11 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       const usual = historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId);
       /* الاقتراحُ يُطبَّق بالمحرّك نفسه: دقائقُ الزرّ هي ما سيُحسب حين يُضغط، ولا يُقترح ما يتجاوز الساعات. */
       const shapeMinutes = (days: DayKey[]) => meetingMinutes(days, lengthPatternsForHours(heldHours));
+      /* «المعتاد تاريخياً» يُقترح إن كان نمطاً معتمداً وحده: التاريخُ اقتراحٌ لا يخالف اللائحة (المالك 2026-10-30). */
       const usualShapes = (usual?.patterns || [])
         .filter(days => days.length > 1 && shapeMinutes(days).reduce((sum, value) => sum + value, 0) >= wanted
           && shapeMinutes(days).reduce((sum, value) => sum + value, 0) <= maxWeeklyMinutesFor(heldHours)
-          && (!mixedWithoutApproval(days) || (usual?.weeklyMinutes || 0) >= wanted))
+          && !mixedWithoutApproval(days) && daysApprovedForHours(heldHours, days) === true)
         .map(days => ({ days, label: `المعتاد تاريخياً: ${days.map((day, at) => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${shapeMinutes(days)[at]}د`).join(" · ")}` }));
       const offered = usualShapes.length ? usualShapes : patternsForHours(heldHours)
         .filter(pattern => pattern.days.length > 1 && pattern.weeklyMinutes >= wanted)
@@ -562,17 +564,10 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* ساعاتُ المقرّر تُؤخذ من المقرّر نفسه: أيامٌ لا تكفي لإتمامها ليست طلباً صالحاً. */
   const hoursCourse = context.courses.get(request.AdCourseId);
   const courseHours = effectiveCourseHours(hoursCourse);
-  /* أيامٌ تخلط الخمسين بالثمانين بلا نمطٍ معتمدٍ أو تاريخيّ: سببُها «لا يُخلط» يُقال أدناه، فلا يسبقه سقفُ الساعات
-     بـ«يتجاوز» عن أيامٍ لا تُجمع أصلاً. */
-  const mixedUnapproved = (() => {
-    const shortDays = request.days.filter(day => expectedMinutesForDay(day) === 50).length;
-    if (!shortDays || shortDays === request.days.length) return false;
-    const approvedDays = courseHours > 0 && patternsForHours(courseHours).some(pattern =>
-      pattern.days.length === request.days.length && pattern.days.every(day => request.days.includes(day)));
-    const historicDays = Boolean(historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId)?.patterns
-      .some(pattern => pattern.length === request.days.length && pattern.every(day => request.days.includes(day))));
-    return !approvedDays && !historicDays;
-  })();
+  /* أيامٌ ليست نمطاً معتمداً في مكتبة الأنماط لساعات المقرّر (المالك 2026-10-30: «لازم يكون النمط معتمد»):
+     سببُها يُقال أدناه («لا يُخلط» أو «ليست نمطاً معتمداً»)، فلا يسبقه سقفُ الساعات بـ«يتجاوز» ولا «لا يغطّيها»
+     عن أيامٍ لا تُقبل أصلاً. ولا يُعفيها تاريخُ المقرّر: التاريخُ اقتراحٌ لا يخالف اللائحة. */
+  const mixedUnapproved = courseHours > 0 && request.days.length > 0 && daysApprovedForHours(courseHours, request.days) === false;
   if (courseHours > 0 && (request.action === "change" || request.action === "add")) {
     /* الإضافةُ تُحسب مع ما للمقرّر نفسه عند الأستاذ نفسه من صفوف، فإتمامُ مقرّرٍ بصفّين لا يُمنع. */
     const alreadyHeld = request.action === "add"
@@ -600,7 +595,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       reasons.push({ source: "shape", code: "hours", blocking: true, text: "مجموع مواعيد المقرر يتجاوز ساعاته الأسبوعية المعتمدة. راجع توزيع المواعيد." });
       return verdictOf();
     }
-    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
+    if (!mixedUnapproved && weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
       /* الأنماطُ المقترحة (أزرارٌ ونصّ «جرّب») تُبنى من نمط المقرّر نفسه في فصولٍ سابقة أولاً، ولا يُرجع إلى أنماط اللائحة إلا حين
          لا نمطَ له أو لا يقبله الفاحصُ. هذا في الاقتراح وحده: شرطُ المنع أعلاه والعتبةُ أدناه كما هما، وكلُّ زرٍّ يمرّ منهما. */
       const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
@@ -623,9 +618,10 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       /* دقائقُ الزرّ هي ما سيحسبه المحرّكُ حين يُضغط؛ فلا يُقترح نمطٌ لا يغطّي الساعات أو يتجاوزها بعد تطبيقه. */
       const shapeMinutes = (days: DayKey[]) => meetingMinutes(days, lengthPatterns);
       const shapeTotal = (days: DayKey[]) => shapeMinutes(days).reduce((sum, value) => sum + value, 0);
+      /* «المعتاد تاريخياً» يُقترح إن كان نمطاً معتمداً وحده (المالك 2026-10-30). */
       const usualShapes = keepOneDay.length || !usual ? [] : usual.patterns
         .filter(days => days.length > 1 && shapeTotal(days) >= threshold && shapeTotal(days) <= maxWeeklyMinutesFor(courseHours)
-          && (!mixedWithoutApproval(days) || usual.weeklyMinutes >= threshold))
+          && !mixedWithoutApproval(days) && daysApprovedForHours(courseHours, days) === true)
         .map(days => ({ days, label: `المعتاد تاريخياً: ${days.map((day, at) => `${DAY_NAMES[DAY_KEYS.indexOf(day)]} ${shapeMinutes(days)[at]}د`).join(" · ")}` }));
       const regulationShapes = patternsForHours(courseHours)
         .filter(pattern => pattern.days.length > 1 && pattern.weeklyMinutes >= threshold)
@@ -653,16 +649,20 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      الاثنين والأربعاء والخميس نمطٌ في المكتبة يقترحه الفاحصُ بنفسه عند نقص
      الساعات. وكان يعود فيحذّر منه ويطلب استثناءً — فيقترح ثم يعاقب. القاعدةُ
      واحدة: ما كان من أنماط المقرّر المعتمدة يمرّ، وما سواه يُحذَّر منه. */
-  const approvedShape = courseHours > 0 && patternsForHours(courseHours).some(pattern =>
-    pattern.days.length === request.days.length && pattern.days.every(day => request.days.includes(day)));
-  /* والنمطُ الذي درج عليه المقرّر نفسُه في فصولٍ سابقة يُقدَّم على اللائحة، كما في الاقتراح. */
-  const historyShape = Boolean(historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId)?.patterns
-    .some(pattern => pattern.length === request.days.length && pattern.every(day => request.days.includes(day))));
-  if (short && long && !approvedShape && !historyShape) {
-    reasons.push({
+  /* «النمطُ لازم يكون معتمداً» (المالك 2026-10-30): ما ليس نمطاً في مكتبة الأنماط لساعات المقرّر يُمنع، ولا يُعفيه
+     تاريخُ المقرّر. خلطُ أيام الخمسين بالثمانين يُسمّى باسمه (قرار 1912)، وما سواه («الأحد والخميس» لمقرّرٍ بساعتين)
+     «ليست نمطاً معتمداً» ومعه الأنماطُ المعتمدة أزراراً (أدناه). */
+  if (mixedUnapproved) {
+    reasons.push(short && long ? {
       source: "shape",
+      code: "pattern",
       article: DECISION_1912_LABEL,
       text: "لا يُخلط بين أيام الـ50 والـ80 دقيقة إلا بنمطٍ معتمد في مكتبة الأنماط.",
+      blocking: true,
+    } : {
+      source: "shape",
+      code: "pattern",
+      text: `الأيام المختارة ليست نمطاً معتمداً لهذا المقرّر في مكتبة الأنماط — المعتمد: ${patternsForHours(courseHours).map(pattern => pattern.label).join(" أو ")}.`,
       blocking: true,
     });
   }
@@ -762,7 +762,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   verdict.roomAvailable = roomAvailable;
   verdict.roomCandidates = candidates;
   /* البديلُ ينقل الموعدَ بأيامه نفسِها، فلا يعالج خلطاً ممنوعاً: لا يُعرض وقتٌ سيُمنع هو الآخر، ويكفي رسمُ النمط المعتمد. */
-  const mixedBlocked = reasons.some(reason => reason.blocking && reason.source === "shape" && /لا يُخلط/.test(reason.text));
+  const mixedBlocked = reasons.some(reason => reason.blocking && reason.source === "shape" && (reason.code === "pattern" || /لا يُخلط/.test(reason.text)));
   verdict.nearestTimes = context.disableAlternatives ? [] : (verdict.sendable && !context.offerAlternatives) || mixedBlocked ? [] : nearestFree({ ...request, slots }, context, roomKeys, week, identity);
   /* وبدلَه أزرارُ الأنماط المعتمدة لساعات المقرّر (متعدّدةُ الأيام، فاليومُ الواحد الممتدّ لا يُعبَّر عنه بالأيام وحدها). */
   if (mixedBlocked && courseHours > 0 && !(verdict.shapes || []).length) {

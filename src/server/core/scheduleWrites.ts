@@ -18,7 +18,7 @@ import { noteScheduleMutation, scheduleLockRefusal } from "./approvals";
 import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
 import { applyRequestHoldOverride, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./scheduleConflicts";
-import { describeScheduleChange, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues } from "./scheduleRules";
+import { describeScheduleChange, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues, unapprovedPatternIssue } from "./scheduleRules";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
 
@@ -89,7 +89,10 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const payloadIssues=await schedulePayloadIssues(req.body);
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   {const lengthIssue=await scheduleLengthIssue(req.body,(req as any).__hypotheticalWeek);
-  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}}
+  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}
+  /* النمطُ لازم يكون معتمداً لكل من يُنشئ موعداً (المالك 2026-10-30). */
+  const patternIssue=await unapprovedPatternIssue(req.body,(req as any).__hypotheticalWeek);
+  if(patternIssue){res.status(400).json({error:patternIssue,issues:[{type:"validation",severity:"high",message:patternIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
   if (!isScopeAllowed(req, collegeId, sectionId) && !req.user.IsAdminUser) {
@@ -231,7 +234,10 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   {const unchangedShape=existing&&existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(req.body?.[k]));
   const lengthIssue=unchangedShape?null:await scheduleLengthIssue({...req.body,id},(req as any).__hypotheticalWeek);
-  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}}
+  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}
+  /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) يبقى كما هو؛ ومن غيّر أيامه أو وقته فبنمطٍ معتمد. */
+  const patternIssue=unchangedShape?null:await unapprovedPatternIssue({...req.body,id},(req as any).__hypotheticalWeek);
+  if(patternIssue){res.status(400).json({error:patternIssue,issues:[{type:"validation",severity:"high",message:patternIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
   if (existing.sourceOrder !== undefined && Number(existing.sourceOrder) < 1_000_000 && Number(existing.AdCourseId) !== courseId) {
