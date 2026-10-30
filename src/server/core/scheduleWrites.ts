@@ -91,7 +91,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   {const lengthIssue=await scheduleLengthIssue(req.body,(req as any).__hypotheticalWeek);
   if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}
   /* النمطُ لازم يكون معتمداً لكل من يُنشئ موعداً (المالك 2026-10-30). */
-  const patternIssue=await unapprovedPatternIssue(req.body,(req as any).__hypotheticalWeek);
+  const patternIssue=(req as any).__exactRestore?null:await unapprovedPatternIssue(req.body,(req as any).__hypotheticalWeek);
   if(patternIssue){res.status(400).json({error:patternIssue,issues:[{type:"validation",severity:"high",message:patternIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
@@ -236,7 +236,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const lengthIssue=unchangedShape?null:await scheduleLengthIssue({...req.body,id},(req as any).__hypotheticalWeek);
   if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}
   /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) يبقى كما هو؛ ومن غيّر أيامه أو وقته فبنمطٍ معتمد. */
-  const patternIssue=unchangedShape?null:await unapprovedPatternIssue({...req.body,id},(req as any).__hypotheticalWeek);
+  const patternIssue=unchangedShape||(req as any).__exactRestore?null:await unapprovedPatternIssue({...req.body,id},(req as any).__hypotheticalWeek);
   if(patternIssue){res.status(400).json({error:patternIssue,issues:[{type:"validation",severity:"high",message:patternIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
@@ -425,7 +425,7 @@ interface InnerScheduleResult { status: number; body: any; headers: Record<strin
 export async function runScheduleHandler(
   handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
   req: AuthenticatedRequest,
-  patch: { params?: Record<string, string>; body: any; hypotheticalWeek?: FSchedule[]; dryRun?: boolean; restoreOrigin?: { value: any } },
+  patch: { params?: Record<string, string>; body: any; hypotheticalWeek?: FSchedule[]; dryRun?: boolean; restoreOrigin?: { value: any }; exactRestore?: boolean },
 ): Promise<InnerScheduleResult> {
   const result: InnerScheduleResult = { status: 200, body: undefined, headers: {} };
   const inner: any = Object.create(req);
@@ -435,6 +435,8 @@ export async function runScheduleHandler(
   inner.__hypotheticalWeek = patch.hypotheticalWeek;
   inner.__dryRun = Boolean(patch.dryRun);
   inner.__restoreOrigin = patch.restoreOrigin;
+  /* استعادةٌ تعيد الجدول كما كان بالضبط (آلة الزمن): التراجعُ لا يُمنع بقاعدة النمط. */
+  inner.__exactRestore = Boolean(patch.exactRestore);
   const sink: any = {
     locals: {}, headersSent: false, statusCode: 200,
     status(code: number) { result.status = code; this.statusCode = code; return this; },

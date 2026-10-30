@@ -120,12 +120,13 @@ check(server.includes("const [opened, [instructors, terms, courses, serviceKeys,
 check(server.includes("async function rulesOnce<T>(") && server.includes("await Promise.all([...scopesNeeded].map(([key, scope]) =>"), "P11 نطاقاتُ القواعد معاً، ونطاقٌ واحدٌ يُحسب مرةً ولو سأل عنه كثيرون");
 check(server.includes("contexts.set(key, buildSharedRequestContext(row))") && server.includes("rulesCache: sharedRules"), "P11 شاشةُ القسم: سياقٌ واحد لكل نطاق لا لكل طلب (وحجزُ كل طلبٍ يُستثنى له وحده — A1)");
 
-/* P12: تاريخُ القسم أولاً ثم اللائحة، حتى في إرشاد «تعديل بلا لمسة» */
+/* P12: تاريخُ القسم يُقترح إن كان نمطاً معتمداً وحده، ثم اللائحة — حتى في إرشاد «تعديل بلا لمسة».
+   قاعدة المالك 2026-10-30: «الاثنين · الأربعاء · الخميس» ليس في مكتبة الأنماط، فلا يُقترح ولو درج عليه المقرّر. */
 {
   const nature: any = { courseId: COURSE, terms: 3, observations: 6, meetingsPerWeek: 3, meetingMinutes: 70, weeklyMinutes: 210, confidence: "high", seenInTerms: [-1, -2, -3],
     dayPatterns: [{ days: ["fmonday", "fwednesday", "fthursday"], label: "", count: 5, share: 0.8 }], starts: [], instructors: [], buildings: [], rooms: [], sectionsPerTerm: 1, period: "morning" };
   const withHistory = judgeRequest({ rowId: 1, action: "change", AdCourseId: COURSE, days: ["fthursday"] as any, start: "14:00" }, { ...ctx([thursday]), suggestNature: new Map([[COURSE, nature]]), termId: 5 });
-  check((withHistory.shapes || [])[0]?.label?.startsWith("المعتاد تاريخياً: ") && (withHistory.shapes || [])[0]?.days.join() === "fmonday,fwednesday,fthursday", "P12 إرشادُ «تعديل بلا لمسة» يوضح أن النمط تاريخي لا تشغيلي («المعتاد تاريخياً: …»)", withHistory.shapes);
+  check(!(withHistory.shapes || []).some(shape => shape.days.join() === "fmonday,fwednesday,fthursday") && (withHistory.shapes || []).length > 0, "P12 التاريخُ خارج المكتبة لا يُقترح، وتُقترح الأنماطُ المعتمدة", withHistory.shapes);
   const asApplied = judge(["fmonday", "fwednesday", "fthursday"], "09:00", thursday);
   check(!asApplied.reasons.some(r => r.code === "hours"), "P12 والمعتادُ المقترح يمرّ من الفاحص نفسه", asApplied.reasons);
   const noHistory = judgeRequest({ rowId: 1, action: "change", AdCourseId: COURSE, days: ["fthursday"] as any, start: "14:00" }, ctx([thursday]));

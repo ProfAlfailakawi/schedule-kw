@@ -3,7 +3,7 @@ import type { FSchedule } from "../types";
 import { AR, countOf, oblique } from "../utils/arabicCount";
 import { SCHEDULE_DAYS, timeToMinutes, type DayKey } from "./scheduleIntelligence";
 import { patternForDay } from "./weekVisual";
-import { libraryLengthsForDay } from "./scheduleRegulations";
+import { libraryLengthsForDay, startLadderNote } from "./scheduleRegulations";
 
 /**
  * ── أسلوب القسم ─────────────────────────────────────────────────────────────
@@ -205,10 +205,17 @@ export function offRhythm(
   const clock = (minutes: number) =>
     `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
+  /* سُلّمُ اللائحة قبل عادة القسم (المالك 2026-10-30): بدايةٌ خارجه يُنبَّه عليها بجملته،
+     وبدايةٌ عليه لا تُعدّ «خارج المعتاد» ولو اعتاد القسمُ غيرها — العادةُ لا تخالف اللائحة. */
+  const selectedDays = SCHEDULE_DAYS.map(item => item.key as DayKey).filter(key => Boolean(row[key]));
+  const ladderNote = startLadderNote(selectedDays, String(row.fstarttime || ""));
+  if (ladderNote) return ladderNote;
+  const onRegulationLadder = selectedDays.every(key => key === "fmonday" || key === "fwednesday") || selectedDays.every(key => key !== "fmonday" && key !== "fwednesday");
+
   /* The start ladder comes first: a lecture beginning at 08:55 where the
      department has always begun at 08:50 is the exact mistake this exists to
      catch, and it is invisible to every other check in the program. */
-  if (rhythm.ladder.length && row.fstarttime && !rhythm.ladder.includes(String(row.fstarttime))) {
+  if (!onRegulationLadder && rhythm.ladder.length && row.fstarttime && !rhythm.ladder.includes(String(row.fstarttime))) {
     const nearest = rhythm.ladder
       .map(time => ({ time, away: Math.abs(timeToMinutes(time) - start) }))
       .sort((a, b) => a.away - b.away)[0];

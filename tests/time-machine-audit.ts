@@ -18,9 +18,10 @@ import { waitForDemoSeed } from "./helpers/demoSeed";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import {
   applyChanges, compareBoards, compareScenarios, dominoOf, driftOf, measure, parseProblem, planOperations, removeImpact,
-  sectionCards, solveProblem, suggestPlacements, addSectionChange, baseRevisions, teacherCards, staleChanges,
+  sectionCards, solveProblem, suggestPlacements, addSectionChange, baseRevisions, teacherCards, staleChanges, TM_DAYS,
   type TmContext, type TmChange,
 } from "../src/utils/timeMachine";
+import { daysApprovedForHours } from "../src/utils/scheduleRegulations";
 import { findConflicts, isBlockingConflict } from "../src/utils/scheduleIntelligence";
 import { placeholderInstructorIds } from "../src/utils/instructorIdentity";
 
@@ -180,8 +181,17 @@ try {
     /* موعدٌ نظيف (لا يحمل تعارضاً من بيانات الديمو المقصودة) كي تعيده الاستعادة إلى موضعٍ سليم. */
     const placeholdersB = placeholderInstructorIds(ctx.instructors);
     const clean = (r: FSchedule) => findConflicts([r], board, { placeholderInstructorIds: placeholdersB }).filter(isBlockingConflict).length === 0;
-    const target = ctx.rows.find(r => r.buildingId && r.roomId && ctx.instructors.some(p => p.AdInstructorId === r.AdInstructorId) && clean(r))!;
-    const cardOf = sectionCards(board, ctx).find(card => card.rowIds.includes(target.id))!;
+    /* قاعدة المالك 2026-10-30: النمطُ من مكتبة الأنماط وحده — فالنقلُ يُختبر على شعبةٍ بصفٍّ واحد بنمطٍ معتمد،
+       لا على شعبةٍ قديمة مقسومة على صفوفٍ بنمطٍ خارج المكتبة (نقلُ صفٍّ منها إلى نمطٍ كامل يزيد ساعاتها). */
+    const cardsB = sectionCards(board, ctx);
+    const approvedSingle = (r: FSchedule) => {
+      const hours = Number(ctx.courses.find(c => Number(c.AdCourseId) === Number(r.AdCourseId))?.CourseHours || 0);
+      return daysApprovedForHours(hours, TM_DAYS.filter(day => Boolean((r as any)[day]))) === true
+        && (cardsB.find(card => card.rowIds.includes(r.id))?.rowIds.length || 0) === 1;
+    };
+    const target = (ctx.rows.find(r => r.buildingId && r.roomId && ctx.instructors.some(p => p.AdInstructorId === r.AdInstructorId) && clean(r) && approvedSingle(r))
+      || ctx.rows.find(r => r.buildingId && r.roomId && ctx.instructors.some(p => p.AdInstructorId === r.AdInstructorId) && clean(r)))!;
+    const cardOf = cardsB.find(card => card.rowIds.includes(target.id))!;
     const spot = suggestPlacements(board.filter(r => !cardOf.rowIds.includes(r.id)), target.AdCourseId, ctx, { instructorId: target.AdInstructorId, max: 1 })[0];
     check(Boolean(spot), "B3 المحرّك يجد موضعاً خالياً حقيقياً في الديمو", spot);
     const moveChange: TmChange = { id: "m1", op: "move", rowId: target.id, days: spot.days, start: spot.start, end: spot.start === target.fstarttime ? target.fendtime : spot.end, hall: spot.hall, label: "نقل اختبار" };

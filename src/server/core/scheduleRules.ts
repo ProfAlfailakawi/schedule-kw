@@ -76,10 +76,15 @@ export async function mixedPatternNotice(courseId:number,days:RequestDayKey[],te
  * (نمطٌ بأوقاتٍ مختلفة يُبنى صفّاً صفّاً، وكتلةُ اليوم الواحد تصلح لأيّ يوم). لا تُعفي العادة شيئاً.
  * مقرّرٌ لا تُعرف ساعاتُه أو لا نمطَ لها في المكتبة لا يُحكم عليه هنا.
  */
-export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[]):Promise<string|null>{
+export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],options:{skipIfUnchanged?:boolean}={}):Promise<string|null>{
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
   const own=SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as DayKey[];
   if(!own.length)return null;
+  /* صفٌّ قائم لم يتغيّر شكله (الأيام والوقت) — كإسناد شعبةٍ شاغرة لأستاذ — يبقى كما هو (A6). */
+  if(options.skipIfUnchanged&&Number(row?.id)>0){
+    const existing=await Repository.getScheduleById(Number(row.id)).catch(()=>null);
+    if(existing&&existing.fstarttime===row.fstarttime&&existing.fendtime===row.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(row?.[k])))return null;
+  }
   const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
   if(!(hours>0))return null;
   const union=new Set<DayKey>(own);
@@ -112,6 +117,10 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
         &&Number(other.id)!==Number(row.id||0));
     /* مصدرٌ واحد (sectionWeeklyHours): النسخة المطابقة للموعد نفسه لا تضاعف المجموع، والمواعيد المحسوبة تُسمّى. */
     const reading=sectionWeeklyHours(row,siblings,hours);
+    /* شعبةٌ قائمة تتجاوز ساعاتها أصلاً (بياناتٌ قديمة) لا تُمنع من النقل ما لم يزد مجموعُها — كما في طلب الأستاذ؛
+       وما يُنشأ أو يزيد يُقاس بالسقف وحده، ولا يُعفيه تاريخُ المقرّر. */
+    const existing=reading.total>maxWeeklyMinutesFor(hours)&&Number(row?.id)>0?await Repository.getScheduleById(Number(row.id)).catch(()=>null):null;
+    if(existing&&reading.total<=sectionWeeklyHours(existing,siblings,hours).total)return null;
     if(reading.total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(reading.total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}`;
   }
   return null;

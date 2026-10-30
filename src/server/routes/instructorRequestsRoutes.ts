@@ -903,7 +903,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
         const issue = await scheduleLengthIssue(row, week);
         if (issue) throw new RequestReservationConflict(issue);
         /* ما يثبّته القسم من طلب الأستاذ بنمطٍ معتمد وحده، كأيّ موعدٍ يُنشأ (المالك 2026-10-30). */
-        const patternIssue = await unapprovedPatternIssue(row, week);
+        const patternIssue = await unapprovedPatternIssue(row, week, { skipIfUnchanged: true });
         if (patternIssue) throw new RequestReservationConflict(patternIssue);
       }
     });

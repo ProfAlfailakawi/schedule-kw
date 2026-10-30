@@ -316,6 +316,27 @@ export function daysFitLibrary(weeklyHours: number, days: Iterable<DayKey>, exac
 /** الأيامُ نمطٌ معتمد كامل لساعات المقرّر (null: لا يُحكم). */
 export const daysApprovedForHours = (weeklyHours: number, days: Iterable<DayKey>) => daysFitLibrary(weeklyHours, days, true);
 
+/**
+ * ── سُلّمُ البدايات في اللائحة — تنبيهٌ لا يمنع (المالك 2026-10-30) ─────────────
+ * محاضراتُ الأحد والثلاثاء والخميس تبدأ على رأس الساعة من الثامنة (8:00، 9:00، 10:00…)،
+ * ومحاضراتُ الاثنين والأربعاء تبدأ 8:00 ثم كل ساعةٍ ونصف (9:30، 11:00، 12:30…).
+ * يعيد جملةَ التنبيه، أو "" إن وافق السُّلّم (أو خلطت الأيامُ الأسرتين — ذاك حكمُ النمط لا السُّلّم).
+ */
+export function startLadderNote(days: Iterable<DayKey>, start: string): string {
+  const list = [...new Set(days)];
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(start || "").trim());
+  if (!list.length || !match) return "";
+  const minutes = Number(match[1]) * 60 + Number(match[2]);
+  const long = list.filter(day => LONG_LECTURE_DAYS.includes(day)).length;
+  if (long && long !== list.length) return "";
+  const step = long ? 90 : 60;
+  if (minutes >= 8 * 60 && (minutes - 8 * 60) % step === 0) return "";
+  const shown = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  return long
+    ? `محاضرات الاثنين والأربعاء تبدأ 8:00 ثم 9:30 ثم 11:00…، وهذا الموعد يبدأ ${shown}.`
+    : `محاضرات الأحد والثلاثاء والخميس تبدأ على رأس الساعة (8:00، 9:00، 10:00…)، وهذا الموعد يبدأ ${shown}.`;
+}
+
 /** الأطوالُ المعتمدة ليومٍ ما: أطوالُه في الأنماط التي تضمّه، وأطوالُ الكتل (تصلح لأيّ يوم). */
 export function libraryLengthsForDay(day: DayKey): Set<number> {
   const out = new Set<number>();

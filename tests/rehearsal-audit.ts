@@ -190,10 +190,11 @@ const block = (source: string, start: string, end = "\napp.") => {
  * بلا بديل. */
 {
   const TEACHER = 6;
+  /* مقرّرٌ بثلاث ساعات بنمطٍ معتمد في المكتبة (الأحد·الثلاثاء·الخميس) — قاعدة المالك 2026-10-30: النمطُ المعتمد وحده. */
   const row = (over: Partial<FSchedule> = {}): FSchedule => ({
     id: 17, AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, AdCourseId: 17, SCode: "01", AdInstructorId: TEACHER,
-    fsunday: true, fmonday: false, ftuesday: true, fwednesday: false, fthursday: false,
-    fstarttime: "12:30", fendtime: "13:20", AdRoomCode: "901A02", AdRoomHall: "L01", ...over,
+    fsunday: true, fmonday: false, ftuesday: true, fwednesday: false, fthursday: true,
+    fstarttime: "12:00", fendtime: "12:50", AdRoomCode: "901A02", AdRoomHall: "L01", ...over,
   } as FSchedule);
   const course: AdCourse = { AdCourseId: 17, AdCollegeId: 1, AdSectionId: 1, CourseCode: "CS350", CourseName: "أمن الأنظمة", CourseCredit: 3, CourseHours: 3 } as AdCourse;
   const teacher = { AdInstructorId: TEACHER, AdInstructorCivil: "000000000006", AdInstructorName: "د. 6" } as AdInstructor;
@@ -203,14 +204,14 @@ const block = (source: string, start: string, end = "\napp.") => {
     courses: new Map([[17, course]]), instructors: new Map([[TEACHER, teacher]]),
     knownRoomKeys: ["L01", "L02", "L03", "L04", "L05"].map(hall => roomKeyOf(undefined, "901A02", hall)), startLadder: ["08:00", "09:30", "11:00", "12:30", "14:00"],
   };
-  const ask = { rowId: 17, action: "change" as const, AdCourseId: 17, days: ["fsunday", "ftuesday"] as any, start: "11:00" };
+  const ask = { rowId: 17, action: "change" as const, AdCourseId: 17, days: ["fsunday", "ftuesday", "fthursday"] as any, start: "11:00" };
   const forTeacher = judgeRequest(ask, context);
   check(forTeacher.kind === "clear" && forTeacher.nearestTimes.length === 0 && forTeacher.headline === "الوقت متاح",
     "R6: صفحةُ الأستاذ لا تُعرض عليها «أقرب الأوقات» وطلبُه متاح");
   const forDepartment = judgeRequest(ask, { ...context, offerAlternatives: true });
   check(forDepartment.kind === "clear" && forDepartment.nearestTimes.length > 0 && forDepartment.headline === "الوقت متاح",
     "R6: وللقسم تُحسب البدائل ولو كان البندُ متاحاً — والحكمُ باقٍ «متاح»");
-  check(forDepartment.nearestTimes.every(slot => slot.days.join() === "fsunday,ftuesday" && slot.start !== "11:00"),
+  check(forDepartment.nearestTimes.every(slot => slot.days.join() === "fsunday,ftuesday,fthursday" && slot.start !== "11:00"),
     "R6: والبديلُ بأيام المحاضرة كلها، غيرُ الوقت المطلوب نفسه");
   check(block(server, "async function judgeRequestItems(", "\n/* ──").includes("offerAlternatives: Boolean(options.forDepartment)"),
     "R6: الواردُ وحده (forDepartment) يطلب البدائل، وصفحةُ الأستاذ لا");

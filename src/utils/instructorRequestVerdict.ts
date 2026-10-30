@@ -36,7 +36,7 @@ import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { negotiationClosed, type ThreadItem } from "./instructorRequestThread";
 import { AR, countOf } from "./arabicCount";
 import {
-  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, daysApprovedForHours, expectedMinutesForDay, isDecision1912Finding,
+  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, daysApprovedForHours, expectedMinutesForDay, isDecision1912Finding, startLadderNote,
   LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES, patternsForHours, requiredGapForDays, reviewSchedule, toMinutes,
   weeklyLectureMinutes, maxWeeklyMinutesFor, effectiveCourseHours, type DayKey, type RegulationFinding,
 } from "./scheduleRegulations";
@@ -567,7 +567,9 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* أيامٌ ليست نمطاً معتمداً في مكتبة الأنماط لساعات المقرّر (المالك 2026-10-30: «لازم يكون النمط معتمد»):
      سببُها يُقال أدناه («لا يُخلط» أو «ليست نمطاً معتمداً»)، فلا يسبقه سقفُ الساعات بـ«يتجاوز» ولا «لا يغطّيها»
      عن أيامٍ لا تُقبل أصلاً. ولا يُعفيها تاريخُ المقرّر: التاريخُ اقتراحٌ لا يخالف اللائحة. */
-  const mixedUnapproved = courseHours > 0 && request.days.length > 0 && daysApprovedForHours(courseHours, request.days) === false;
+  /* الشعبةُ الشاغرة القائمة تُؤخذ كما هي (مرحلة التدريب): لا يُعاد بناءُ أيامها، فلا يُحكم عليها هنا — تبقى كما هي
+     حتى يغيّر أحدٌ أيامها أو وقتها، كأيّ موعدٍ قائم. */
+  const mixedUnapproved = !request.relatedRowIds?.length && courseHours > 0 && request.days.length > 0 && daysApprovedForHours(courseHours, request.days) === false;
   if (courseHours > 0 && (request.action === "change" || request.action === "add")) {
     /* الإضافةُ تُحسب مع ما للمقرّر نفسه عند الأستاذ نفسه من صفوف، فإتمامُ مقرّرٍ بصفّين لا يُمنع. */
     const alreadyHeld = request.action === "add"
@@ -595,7 +597,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       reasons.push({ source: "shape", code: "hours", blocking: true, text: "مجموع مواعيد المقرر يتجاوز ساعاته الأسبوعية المعتمدة. راجع توزيع المواعيد." });
       return verdictOf();
     }
-    if (!mixedUnapproved && weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
+    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
       /* الأنماطُ المقترحة (أزرارٌ ونصّ «جرّب») تُبنى من نمط المقرّر نفسه في فصولٍ سابقة أولاً، ولا يُرجع إلى أنماط اللائحة إلا حين
          لا نمطَ له أو لا يقبله الفاحصُ. هذا في الاقتراح وحده: شرطُ المنع أعلاه والعتبةُ أدناه كما هما، وكلُّ زرٍّ يمرّ منهما. */
       const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
@@ -772,6 +774,10 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   if (!verdict.sendable && verdict.nearestTimes.length) {
     verdict.headline = `${verdict.headline} أقربُ الأوقات المتاحة: ${verdict.nearestTimes.map(slot => `${slot.dayLabel} ${slot.start}`).join(" · ")}`;
   }
+  /* سُلّمُ البدايات في اللائحة (المالك 2026-10-30): تنبيهٌ لا يمنع — يُقال للأستاذ ولا يغيّر الحكم. الشعبةُ الشاغرة القائمة
+     تُؤخذ كما هي فلا يُنبَّه عليها. */
+  const ladder = request.relatedRowIds?.length ? "" : startLadderNote(request.days, request.start);
+  if (ladder && !verdict.advice) verdict.advice = ladder;
   return verdict;
 }
 
