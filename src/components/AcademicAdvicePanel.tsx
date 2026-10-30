@@ -100,7 +100,7 @@ export default function AcademicAdvicePanel({ collegeId, sectionId, termId, cour
             <strong>فرص المقررات المكتشفة</strong>
             <span style={{ ...chip, marginInlineStart: "auto" }}>{countOf(total, AR.occurrence)}</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(205px, 1fr))", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(205px,100%), 1fr))", gap: 8 }}>
             {periods.slice(0, compact ? 2 : periods.length).map(p => <div key={p.period + "-" + p.courseId} style={card}>
               <strong style={{ fontSize: 12.5, lineHeight: 1.6 }}><CalendarClock size={15} style={{ verticalAlign: "middle", marginInlineEnd: 5 }} />{p.name}</strong>
               <span style={chip}>{p.period === "morning" ? "فرصة لمجموعة صباحية" : "فرصة لمجموعة بعد الظهر"}</span>

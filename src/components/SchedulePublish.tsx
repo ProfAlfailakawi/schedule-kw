@@ -112,6 +112,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   const { isVisiting } = useVisitingLookup(termId);
   const trainees = useTrainees(collegeId, sectionId, termId);
   const [open, setOpen] = useState(false),
+    /* الورقةُ مُمرَّرة؟ عندها يصير شريطُ ✕ رأساً معتماً يمرّ المحتوى تحته لا فوقه. */
+    [sheetScrolled, setSheetScrolled] = useState(false),
     [links, setLinks] = useState<ShareLink[]>([]),
     [loadingLinks, setLoadingLinks] = useState(false),
     [busy, setBusy] = useState(false),
@@ -493,6 +495,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     setStep("kind");
     setCreatedId(null);
     setError(null);
+    setSheetScrolled(false);
     setOpen(true);
   };
 
@@ -541,11 +544,18 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
             aria-modal="true"
             aria-labelledby="schedule-publish-title"
             aria-busy={busy}
+            data-scrolled={sheetScrolled ? "" : undefined}
+            onScroll={event => { const next = event.currentTarget.scrollTop > 8; if (next !== sheetScrolled) setSheetScrolled(next); }}
             onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}
           >
-            <button className="share-close" type="button" aria-label="إغلاق" title="إغلاق" onClick={() => setOpen(false)}>
-              <X />
-            </button>
+            {/* رأسٌ ثابت: ✕ يسكن شريطاً بعرض الورقة؛ إذا مُرِّرت الورقة صار الشريطُ معتماً
+                وظهر فيه اسمُ النشر، فلا يطفو الزرّ فوق بطاقات المقررات. */}
+            <div className="share-topbar">
+              <span className="share-topbar-title" aria-hidden="true">{scopeLabel || "نشر الجدول"}</span>
+              <button className="share-close" type="button" aria-label="إغلاق" title="إغلاق" onClick={() => setOpen(false)}>
+                <X />
+              </button>
+            </div>
             <header>
               <span className="share-glyph"><Link2 aria-hidden="true" /></span>
               <div>
@@ -706,8 +716,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 ) : (
                   <div className="share-deadline-fields">
                     <label className="share-closes">
-                      <span className="sr-only">تاريخ آخر موعد لاستقبال الطلبات</span>
-                      <input type="date" value={closesAt} onChange={event => setClosesAt(event.target.value)} />
+                      {/* بجانب «الساعة» عنوانٌ ظاهر، فلا يبدو حقلُ التاريخ الفارغ (iOS لا يرسم له نصّاً) خانةً بلا معنى. */}
+                      {kind === "staff" ? <span>التاريخ</span> : <span className="sr-only">تاريخ آخر موعد لاستقبال الطلبات</span>}
+                      <input type="date" aria-label="تاريخ آخر موعد لاستقبال الطلبات" value={closesAt} onChange={event => setClosesAt(event.target.value)} />
                     </label>
                     {kind === "staff" ? (
                       <label className="share-closes">
