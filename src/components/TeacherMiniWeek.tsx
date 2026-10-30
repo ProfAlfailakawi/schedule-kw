@@ -590,6 +590,8 @@ export default function TeacherMiniWeek({
   } as React.CSSProperties;
 
   const card = <section ref={shell} className={`mini-week is-${variant}${sheet ? " is-sheet" : ""}${open ? " is-open" : ""}${dockOn ? " is-dockable" : ""}${floating ? " is-floating" : ""}${moving ? " is-moving" : ""}${columns ? " is-focus" : ""}${canDraw ? " can-draw" : ""}${draw ? " is-drawing" : ""}${roomOn ? " has-room" : ""}`}
+    /* حين تطفو فهي نافذةٌ بجوار النموذج الذي فتحها (aria-modal="false")، فيتنحّى لها الجرس بالقاعدة الواحدة. */
+    role={floating ? "dialog" : undefined} aria-modal={floating ? "false" : undefined}
     aria-label={`أسبوع ${teacherName || "الأستاذ"}`} data-mini-week="true" style={style}>
     {sheet ? <span className="mini-week-grip" aria-hidden="true" /> : dockOn ? <span className="mini-week-grip is-dock" aria-hidden="true" /> : null}
     {dockOn && !floating ? <span className="mini-week-notch" aria-hidden="true" /> : null}

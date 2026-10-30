@@ -201,7 +201,9 @@ const practical3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   check(/event\.pointerType !== "mouse" && event\.pointerType !== "pen"/.test(component) && /useMedia\("\(hover: hover\) and \(pointer: fine\)", !sheet\) && !sheet/.test(component)
     && /if \(drawing\.current\) \{\s*event\.preventDefault\(\);\s*event\.stopImmediatePropagation\(\);\s*cancelDraw\(\);/.test(component),
     "C4 الرسم بالفأرة أو القلم وحدهما ولا يكون في الشريط السفلي، وEsc يلغيه");
-  check(/\.mini-week-chip, \.mini-week-target, \.mini-week-stick, \.mini-week-ghost/.test(component), "C5 الرسم على الفراغ وحده: لا يبدأ من محاضرةٍ ولا خانةٍ ولا «قبلها/بعدها» ولا الشبح");
+  check(/\.mini-week-chip, \.mini-week-stick, \.mini-week-ghost, \.mini-week-draw/.test(component) && /const fromTarget = Boolean\(\(event\.target as Element\)\.closest\?\.\("\.mini-week-target"\)\)/.test(component)
+    && /if \(!state\.active && state\.fromTarget\) event\.currentTarget\.setPointerCapture/.test(component),
+    "C5 الرسم من الفراغ أو بسحبٍ من خانة «+» (ضغطتها تبقى «خذها»)، ولا يبدأ من محاضرةٍ ولا «قبلها/بعدها» ولا الشبح");
   check(css.length > 3000 && !/#[0-9a-fA-F]{3,8}\b/.test(css) && /prefers-reduced-motion:reduce/.test(css), "C6 ألوانٌ من رموز التصميم وحدها، وتهدأ الحركة لمن طلب ذلك");
   check(/\.mini-week\.is-focus \.mini-week-grid\{grid-template-columns:var\(--mw-cols\)\}/.test(css) && /\.mini-week\.is-focus \.mini-week-days\{grid-template-columns:var\(--mw-axis\) var\(--mw-cols\)\}/.test(css)
     && /\.mini-week-days>span\.is-draft\{background:var\(--accent\);color:var\(--accent-contrast\)/.test(css), "C7 الأعمدة والحبوب الممتلئة في الأنماط");

@@ -76,6 +76,9 @@ import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
+import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotice";
+import { holdDraftFromForm, useScheduleHolds } from "../utils/scheduleHolds";
+import { createEntryMeter, sendEntryMeasure, type EntryMeter, type HelperName } from "../utils/appointmentMeasure";
 import { useCourseReach } from "./CourseReach";
 import { reachNote } from "../utils/courseReach";
 import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, useWiderWeek, type MiniPick } from "./TeacherMiniWeek";
@@ -3366,6 +3369,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [borrowBuilding, setBorrowBuilding] = useState("");
   const [borrowDept, setBorrowDept] = useState("");
   const openBorrow = async () => {
+    studioMark("borrow");
     const next = !borrowOpen;
     setBorrowOpen(next);
     if (!next) return;
@@ -3458,6 +3462,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* «اقترح لي وقتاً وقاعة» · «اقترح قاعة متاحة» · «اقترح بديلاً آمناً»: محرّكٌ واحد
      (suggestionClient ← /api/schedules/suggest-slots)، والردّ الفارغ يحمل سببه. */
   const askForSlots = async () => {
+    studioMark("suggest-slots");
     const requestedKey = roomIdeasKey;
     setSlotBusy(true);
     setSlotIdeas(null);
@@ -3492,6 +3497,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* اقتراحٌ محفوظ في الذاكرة القصيرة لا يبقى بعد تغيّر الجدول. */
   useEffect(() => { forgetSuggestions(); }, [rows]);
   const askForRooms = async () => {
+    studioMark("room-suggest");
     if (roomIdeas) { setRoomIdeas(null); return; }
     const requestedKey = roomIdeasKey;
     setRoomIdeasNote("");
@@ -4074,6 +4080,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [miniWeekEnabled, setMiniWeekEnabled] = useMiniWeekEnabled(Number(user?.SystemUserId || 0));
   const editorOriginalRow = useMemo(() => editor === "edit" ? rows.find(row => Number(row.id) === Number(editId)) || null : null, [editor, editId, rows]);
   const pickFromMiniWeek = (pick: MiniPick) => {
+    /* من أين جاء الاختيار: «لاصق بمحاضرتي»، أم رسمٌ على الأسبوع، أم خانةٌ (ذهبيةٌ أو عادية). */
+    const from = typeof document !== "undefined" ? document.activeElement : null;
+    if (from?.closest?.(".lecture-stick")) studioMark("stick");
+    else if (typeof document !== "undefined" && document.querySelector(".mini-week.is-drawing")) studioMark("week-draw");
+    else { studioMark("week-pick"); if (from?.closest?.(".mini-week-target.is-golden")) studioMark("golden"); }
     setScheduleTouched(true);
     daysSeeded.current = false;
     /* موضعٌ خارج نمط المقرر (قبلها/بعدها على أيام محاضرةٍ بنمطٍ آخر) يبقى كما اختير تجاوزاً صريحاً:
@@ -4095,6 +4106,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     });
   };
   const applyRegulationChoice = (choice: RegulationChoice) => {
+    studioMark("pattern");
     setScheduleTouched(true);
     daysSeeded.current = false;
     setTimingOverride(false);
@@ -4179,7 +4191,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* «بديل» ينزل إلى قسم «بدائل آمنة» في النموذج بسلاسة، ويضعه في التركيز ويضيئه لحظة. */
   const alternativesRef = useRef<HTMLElement | null>(null);
   const [altJump, setAltJump] = useState(0);
-  const goToAlternatives = () => { void askAlternatives(); setAltJump(value => value + 1); };
+  const goToAlternatives = () => { studioMark("alternative"); void askAlternatives(); setAltJump(value => value + 1); };
   useEffect(() => {
     if (!altJump) return;
     const node = alternativesRef.current;
@@ -5095,6 +5107,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             : "تم إنشاء الموعد · الشعبة التالية جاهزة",
       );
       setPhysicsNotice([queuedOffline ? "بانتظار المزامنة" : "", editorTimingNote || ""].filter(Boolean).join(" · "));
+      sendEntryMeasure(studioMeter.current?.finish() ?? null);
+      studioMeter.current = keepCreating ? createEntryMeter("create") : null;
       const guideOp = guideOperationRef.current;
       trackedSaveFeatures.forEach(featureId => {
         if (guideOp?.featureId === featureId) return;
@@ -9157,6 +9171,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     observer.observe(step);
     return () => observer.disconnect();
   }, [editor]);
+  /* ── «مقياس الكمال»: كم يأخذ الموعد، وكم مرةً اصطدم بمانع، وأيّ مساعدٍ أعان — بلا اسمٍ ولا محتوى ── */
+  const studioMeter = useRef<EntryMeter | null>(null);
+  useEffect(() => {
+    studioMeter.current = editor === "index" ? null : createEntryMeter(editor === "edit" ? "edit" : "create");
+  }, [editor, editId]);
+  const studioMark = (helper: HelperName) => { studioMeter.current?.mark(helper); };
   /* لوحة الفحص تأخذ التركيز حين تنفتح، وتعيده إلى زرّ الحالة حين تنطوي. */
   const studioDrawerCloseRef = useRef<HTMLButtonElement | null>(null);
   const studioStatusRef = useRef<HTMLButtonElement | null>(null);
@@ -9203,6 +9223,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseNature, rows, form.AdCourseId, studioTermId, editId]);
   const studioMissing = missingAppointmentFields(form as any);
+  /* ── «حارس الزملاء»: من يبني موعداً معك الآن يُرى، وخانتك محجوزةٌ له دقيقتين (تنبيهٌ لا منع) ── */
+  const studioPlaceholderIds = useMemo(() => (instructors as any[]).filter(person => isFacultyPlaceholder(person)).map(person => Number(person.AdInstructorId)), [instructors]);
+  const studioHolds = useScheduleHolds({
+    enabled: editor !== "index",
+    termId: Number(form.AdTermId || 0),
+    collegeId: Number(form.AdCollegeId || 0),
+    sectionId: Number(form.AdSectionId || 0),
+    draft: holdDraftFromForm(form as any),
+    editId: editor === "edit" ? Number(editId || 0) || null : null,
+    ignoreInstructorIds: studioPlaceholderIds,
+  });
   /* «التقاطع الذهبي»: القاعة المختارة تُرسم فوق أسبوع الأستاذ، وما يناسب الاثنين يلمع. */
   const studioRoom = useMemo(() => form.AdRoomCode && form.AdRoomHall ? { code: String(form.AdRoomCode), hall: String(form.AdRoomHall) } : null, [form.AdRoomCode, form.AdRoomHall]);
   const studioCourseDone = Boolean(Number(form.AdCourseId || 0) && courseName);
@@ -9264,6 +9295,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studioDoneKey, studioDoneNow.scope, studioDoneNow.course, studioDoneNow.teacher]);
+  useEffect(() => { studioMeter.current?.blocked(editorVerdict.blockers.length > 0); }, [editorVerdict.blockers.length > 0]);
   const studioChip = (done: boolean, changed?: boolean) => `appt-chip${done ? "" : " is-missing"}${changed ? " is-changed" : ""}`;
   const studioInitial = String(selectedInstructor?.AdInstructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
   const editorView = (
@@ -9284,6 +9316,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             <span className="appt-scope">
               <Building2 aria-hidden="true" />
               <span className="appt-scope-text">{[formScopeLabel, studioTermName].filter(Boolean).join(" · ") || "اختر الكلية والقسم والفصل"}</span>
+              <ColleaguePresenceChip holds={studioHolds.holds} collegeId={Number(form.AdCollegeId || 0)} sectionId={Number(form.AdSectionId || 0)} />
               {!studioScopeMissing ? (
                 <button type="button" className="appt-link" aria-expanded={studioScopeExpanded} onClick={() => setStudioScopeOpen(open => !open)}
                   data-guide-ignore="يُظهر حقول الكلية والقسم والفصل لتغيير نطاق الموعد أو يطويها؛ لا يحفظ شيئاً">
@@ -9544,7 +9577,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       aria-label="عدّاد الوقت"
                       aria-expanded={timeCounterOpen}
                       data-guide-ignore="زر يفتح عجلة الوقت المساعدة على حقل البداية نفسه؛ الحقل يبقى مُدخلاً مباشراً ولا يحتاج خطوة إرشاد مستقلة"
-                      onClick={() => setTimeCounterOpen((open) => !open)}
+                      onClick={() => { if (!timeCounterOpen) studioMark("wheel"); setTimeCounterOpen((open) => !open); }}
                     >
                       <Clock3 aria-hidden="true" />
                     </button>
@@ -9613,6 +9646,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <button type="button" className="appt-inline-alt" onClick={() => goToAlternatives()} disabled={altBusy}
                       data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً"><WandSparkles aria-hidden="true" />{altBusy ? "…" : "بديل"}</button>
                   </div>:null}
+                  <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
                   <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
                     <span className="appt-helpers-label">مساعدات الوقت</span>
                     <button
@@ -9635,6 +9669,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         data-guide-title="املأ كالمعتاد"
                         data-guide-description="يعبّئ الأيام والوقت والمكان من النمط المعتاد لهذا المقرر لتختصر الإدخال اليدوي، ثم تراجع القيم قبل الحفظ."
                         onClick={() => {
+                          studioMark("usual");
                           const seed = courseNature.suggestion!;
                           setScheduleTouched(true);
                           /* العادة المرصودة اختيارٌ متعمَّد: لا يُعاد كتابتها بالنمط (والخادم يعفي المقرر المعتاد). */
