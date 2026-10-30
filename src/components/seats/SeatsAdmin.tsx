@@ -49,6 +49,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
   const [createForm, setCreateForm] = useState({ name: "", mobile: "" });
   const [created, setCreated] = useState<{ login: string; password: string; seatName: string; holder: { name: string; mobile?: string } } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bulk, setBulk] = useState<{ results: Array<{ seatId: number; login: string; seatName: string; colleges: string[]; status: "created" | "extended" }>; password: string } | null>(null);
 
   const load = useCallback(async () => {
     try { const next = await call<Listing>("/api/seats"); setListing(next); setError(""); }
@@ -86,6 +87,18 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
     } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
 
+  /* رئيسُ تسجيلٍ لكل كلية ناقصة دفعةً واحدة، بالكلمة الافتراضية وتغييرها عند أول دخول. */
+  const createAll = async () => {
+    const count = listing?.missingCollegeRegistrars.length || 0;
+    if (!count || !window.confirm(`إنشاء رئيس تسجيل لـ${count} من الكليات الناقصة، كلٌّ بحرمها، بالكلمة الافتراضية 12345678 وتغييرها عند أول دخول؟`)) return;
+    setBusy(true); setError("");
+    try {
+      setBulk(await call<{ results: Array<{ seatId: number; login: string; seatName: string; colleges: string[]; status: "created" | "extended" }>; password: string }>("/api/seats/college-registrars/all", { method: "POST" }));
+      setCreating(null); setCreated(null);
+      await load();
+    } catch (e: any) { setError(e.message); } finally { setBusy(false); }
+  };
+
   return (
     <div className="content-stack admin-page seats-admin">
       {header}
@@ -107,7 +120,12 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
         <section className="seats-missing" aria-label="كراسي ناقصة">
           <Building2 aria-hidden="true" />
           <div>
-            <strong>كلياتٌ بلا رئيس تسجيل</strong>
+            <div className="seats-missing-head">
+              <strong>كلياتٌ بلا رئيس تسجيل ({listing.missingCollegeRegistrars.length})</strong>
+              <button type="button" className="btn btn-primary btn-sm" data-guide-ignore="ينشئ كرسيّ رئيس تسجيل لكل كلية ناقصة بعد تأكيد صريح؛ يحرسه الخادم لمدير النظام" disabled={busy} onClick={() => void createAll()}>
+                <Plus aria-hidden="true" /> أنشئها كلّها
+              </button>
+            </div>
             <div className="seats-missing-list">
               {listing.missingCollegeRegistrars.map(family => (
                 <button type="button" data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" key={family.familyName} onClick={() => { setCreating({ family, picked: new Set(family.colleges.map(c => c.collegeId)) }); setCreated(null); }}>
@@ -117,6 +135,34 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
               ))}
             </div>
           </div>
+        </section>
+      ) : null}
+
+      {bulk ? (
+        <section className="seats-bulk" aria-label="رؤساء التسجيل الجدد">
+          <header>
+            <strong>{bulk.results.length ? `جُهّز ${bulk.results.length} كرسي رئيس تسجيل` : "لا كليات ناقصة"}</strong>
+            <span>كلمة الدخول الأولى لكلٍّ منها <code dir="ltr">{bulk.password}</code>، ويُطلب من صاحبها تغييرها عند أول دخول.</span>
+            <div>
+              <button type="button" className="btn btn-secondary btn-sm" data-guide-ignore="يطبع جدول الحسابات الجديدة؛ لا يغيّر بيانات" onClick={() => window.print()}>اطبع</button>
+              <button type="button" className="btn btn-ghost btn-sm" data-guide-ignore="يغلق جدول الحسابات الجديدة" onClick={() => setBulk(null)}>تم</button>
+            </div>
+          </header>
+          {bulk.results.length ? (
+            <table className="data-table">
+              <thead><tr><th>الكرسي</th><th>اسم الدخول</th><th>الحرم</th><th>الحالة</th></tr></thead>
+              <tbody>
+                {bulk.results.map(row => (
+                  <tr key={row.seatId}>
+                    <td>{row.seatName}</td>
+                    <td dir="ltr">{row.login}</td>
+                    <td>{row.colleges.join("، ")}</td>
+                    <td>{row.status === "created" ? "كرسيٌّ جديد" : "أُضيف الحرم إلى كرسيّ قائم"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
         </section>
       ) : null}
 

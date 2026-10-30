@@ -247,3 +247,16 @@
 .seat-campus-families legend{padding:0 6px;font-size:var(--t-sm);font-weight:700;color:var(--muted)}
 .seat-campus-families label.muted{color:var(--muted)}
 .seat-campus-families small{font-size:var(--t-xs)}
+
+/* ── «أنشئها كلّها»: رؤساء التسجيل الناقصون دفعةً واحدة ── */
+.seats-missing>div{flex:1;min-inline-size:0}
+.seats-missing-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.seats-missing-head strong{margin:0!important}
+.seats-bulk{display:grid;gap:12px;padding:16px 18px;border-radius:var(--r-lg);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));background:var(--accent-softer)}
+.seats-bulk header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.seats-bulk header strong{font-size:var(--ix-card)}
+.seats-bulk header span{flex:1;min-inline-size:240px;color:var(--muted);font-size:var(--ix-secondary)}
+.seats-bulk header code{padding:1px 8px;border-radius:var(--r-xs);background:var(--surface);font-family:var(--font-mono);font-weight:700;color:var(--ink)}
+.seats-bulk header div{display:flex;gap:6px}
+.seats-bulk table{background:var(--surface);border-radius:var(--r-md)}
+@media print{.seats-bulk header div{display:none}.seats-bulk{border:0;background:none}}

@@ -17,6 +17,7 @@ import { ensureSectionFaculty } from "../sectionFaculty";
 import { evaluateTeachingLoad, hasLoadOverride, loadTermContext, teachingHoursByInstructor, teachingLoadProblem } from "../../utils/teachingLoad";
 import type { AdCourse, AdInstructor, AdSection } from "../../types";
 import { provisionCollegeUsers } from "../sectionUsers";
+import { ensureCollegeRegistrars } from "../seatsRoutes";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { readDegreeRuleInput } from "../../utils/degreeRules";
 import { DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES } from "../../utils/campusTravel";
@@ -75,6 +76,10 @@ app.post("/api/colleges", requirePermission(2), async (req: Request, res: Respon
   const newC = await Repository.createCollege(code, name);
   /* الكلية الجديدة تولد بعميدها وعميدها المساعد (فعّالين، لكلٍّ كلمةٌ أولى عشوائية تُعاد هنا للمسؤول ويُطلب تغييرها عند أول دخول)؛ وعميد التسجيل ورئيسه نطاقهما كل الكليات فيشملانها. */
   const accounts = (req as AuthenticatedRequest).user?.IsAdminUser ? await provisionCollegeUsers(Repository, newC) : [];
+  /* ورئيسُ تسجيلها (docs/SEATS.md): يُضاف الحرمُ إلى كرسيّ كليته إن كان، وإلا وُلد له كرسيّ. */
+  if ((req as AuthenticatedRequest).user?.IsAdminUser) {
+    await ensureCollegeRegistrars(String((req as AuthenticatedRequest).user?.Name || "مدير النظام"), [Number(newC.AdCollegeId)]).catch(error => console.error("[seats] تعذّر تجهيز رئيس تسجيل الكلية:", error instanceof Error ? error.message : error));
+  }
   res.locals.auditChanges = `إنشاء كلية «${name}»${accounts.length ? ` وحسابات ${accounts.filter(row => row.status === "created").map(row => row.login).join("، ")}` : ""}`;
   res.setHeader("Cache-Control", "no-store");
   res.status(201).json({ ...newC, accounts });

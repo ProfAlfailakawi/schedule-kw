@@ -18,7 +18,7 @@ import { type AuthenticatedRequest, getCookies, isPowerUser, requireAuth, requir
 import { isScopeAllowed } from "./core/scope";
 import { ACADEMIC_ROLES, roleDefinition, roleLabel } from "../utils/academicRoles";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
-import { generateInitialPassword } from "./accountPassword";
+import { generateInitialPassword, LEGACY_SHARED_PASSWORD } from "./accountPassword";
 import {
   activeDeputy, civilTailOf, handOverLedger, isSeatRole, scopeWithin, seatHolderSource, seatMemberBadge, seatTeamRule,
   SEAT_LINK_MAX_ATTEMPTS, SEAT_TEAM_LIMIT, withSeatEvent,
@@ -242,6 +242,70 @@ async function collegeRegistrarCoverage(exceptSeatId = 0): Promise<Set<number>> 
     for (const row of await Repository.getUserAssigns(Number(user.SystemUserId))) covered.add(Number(row.AdCollegeId));
   }
   return covered;
+}
+
+/** أيُّ كرسيّ رئيس تسجيلٍ يغطي كلَّ حرم. */
+async function collegeRegistrarSeatOf(): Promise<Map<number, number>> {
+  const seatOf = new Map<number, number>();
+  for (const user of await Repository.getUsers()) {
+    if (user.IsDeleted || roleDefinition((user as any).Role).id !== "collegeRegistrar") continue;
+    for (const row of await Repository.getUserAssigns(Number(user.SystemUserId))) seatOf.set(Number(row.AdCollegeId), Number(user.SystemUserId));
+  }
+  return seatOf;
+}
+
+export interface CollegeRegistrarProvision { seatId: number; login: string; seatName: string; colleges: string[]; status: "created" | "extended" }
+
+/**
+ * ── رئيسُ تسجيلٍ لكل كلية ناقصة (قرار المالك 2026-10-29) ─────────────────────
+ *
+ * لكل كليةٍ بحرمها: الحرمُ التي لا رئيس تسجيل لها تُضاف إلى كرسيّ الكلية إن كان لها كرسيّ،
+ * وإلا أُنشئ لها كرسيٌّ واحد. الكرسيُّ الجديد بالكلمة الافتراضية ومُعلَّمٌ بتغييرها عند أول دخول
+ * (passwordChangeGate)، وشاشاتُه من قالب صفته. لا يُمسّ كرسيٌّ قائم إلا بإضافة حرمٍ ناقص إليه.
+ * `onlyCollegeIds` يحصرها في كلياتٍ بعينها (الكلية التي أُنشئت للتوّ).
+ */
+export async function ensureCollegeRegistrars(by: string, onlyCollegeIds?: number[]): Promise<CollegeRegistrarProvision[]> {
+  const colleges = (await Repository.getColleges()) as any[];
+  const seatOf = await collegeRegistrarSeatOf();
+  const only = onlyCollegeIds ? new Set(onlyCollegeIds.map(Number)) : null;
+  const role = roleDefinition("collegeRegistrar");
+  const out: CollegeRegistrarProvision[] = [];
+  for (const family of campusFamilies(colleges)) {
+    const missing = family.colleges.filter(college => !seatOf.has(college.collegeId) && (!only || only.has(college.collegeId)));
+    if (!missing.length) continue;
+    const at = new Date().toISOString();
+    const existingSeat = family.colleges.map(college => seatOf.get(college.collegeId)).find(Boolean);
+    if (existingSeat) {
+      const seat = await Repository.getUserById(existingSeat);
+      const assigns = await Repository.getUserAssigns(existingSeat);
+      await Repository.saveUserAssigns(existingSeat, [...assigns.map(row => ({ AdCollegeId: Number(row.AdCollegeId), AdSectionId: Number(row.AdSectionId) })), ...missing.map(college => ({ AdCollegeId: college.collegeId, AdSectionId: 0 }))]);
+      /* كرسيٌّ سُمّي باسم حرمه الأول يُسمّى باسم كليته حين يلحق به حرمٌ آخر — والاسمُ الذي كتبه المدير بيده لا يُمسّ. */
+      const covered = new Set([...assigns.map(row => Number(row.AdCollegeId)), ...missing.map(c => c.collegeId)]);
+      const coveredNames = colleges.filter(row => covered.has(Number(row.AdCollegeId))).map(row => String(row.AdCollegeName || ""));
+      const autoNames = new Set(colleges.filter(row => covered.has(Number(row.AdCollegeId))).map(row => `${role.label} — ${row.AdCollegeName}`));
+      if (seat && autoNames.has(String(seat.Name || ""))) await Repository.updateUser(existingSeat, { Name: `${role.label} — ${campusFamilyName(coveredNames)}` } as any);
+      await updateSeatLedger(existingSeat, ledger => ({ next: withSeatEvent(ledger, { at, kind: "seat-colleges", by, detail: `أُضيف: ${missing.map(c => c.collegeName).join("، ")}` }), result: true }));
+      for (const college of missing) seatOf.set(college.collegeId, existingSeat);
+      out.push({ seatId: existingSeat, login: String(seat?.SystemUserLogin || ""), seatName: String((await Repository.getUserById(existingSeat))?.Name || ""), colleges: missing.map(c => c.collegeName), status: "extended" });
+      continue;
+    }
+    const first = colleges.find(row => Number(row.AdCollegeId) === missing[0].collegeId);
+    const tag = String(first?.AdCollegeCode || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase() || `c${missing[0].collegeId}`;
+    const logins = new Set((await Repository.getUsers()).map(user => String(user.SystemUserLogin || "").toLowerCase()));
+    let login = `${tag}registrar`;
+    for (let n = 2; logins.has(login.toLowerCase()); n += 1) login = `${tag}registrar${n}`;
+    const user = await Repository.createUser({
+      Name: `${role.label} — ${campusFamilyName(missing.map(c => c.collegeName))}`, SystemUserLogin: login,
+      SystemUserPass: Repository.hashPassword(LEGACY_SHARED_PASSWORD), SystemUserPassVault: Repository.encryptPasswordForVault(LEGACY_SHARED_PASSWORD),
+      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: role.id, MustChangePassword: true,
+    } as any);
+    await Repository.saveSecurityByUser(user.SystemUserId, role.formIds);
+    await Repository.saveUserAssigns(user.SystemUserId, missing.map(college => ({ AdCollegeId: college.collegeId, AdSectionId: 0 })));
+    await updateSeatLedger(user.SystemUserId, ledger => ({ next: withSeatEvent(ledger, { at, kind: "seat-created", by, detail: `${user.Name}: ${missing.map(c => c.collegeName).join("، ")}` }), result: true }));
+    for (const college of missing) seatOf.set(college.collegeId, user.SystemUserId);
+    out.push({ seatId: user.SystemUserId, login, seatName: user.Name, colleges: missing.map(c => c.collegeName), status: "created" });
+  }
+  return out;
 }
 
 /* ── حارسُ العضو ──────────────────────────────────────────────────────────── */
@@ -537,6 +601,15 @@ app.post("/api/seats/:id/deputy/end", requireAuth, async (req: AuthenticatedRequ
  * كرسيُّ «رئيس تسجيل الكلية»: كرسيٌّ واحد قد يغطي حرماً أو أكثر من الكلية نفسها
  * (بنين، بنات، الفحيحيل…)، وكلُّ حرمٍ في النظام كليةٌ قائمة بذاتها. ومعه شاغلُه وكلمتُه الأولى.
  */
+/** «أنشئ رؤساء التسجيل لكل الكليات الناقصة»: كرسيٌّ لكل كليةٍ بحرمها، بالكلمة الافتراضية وتغييرها عند أول دخول. */
+app.post("/api/seats/college-registrars/all", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const results = await ensureCollegeRegistrars(byName(req));
+  authCache.clear();
+  const created = results.filter(row => row.status === "created").length, extended = results.length - created;
+  res.locals.auditChanges = `رؤساء تسجيل الكليات: أُنشئ ${created}، ووُسّع ${extended}`;
+  res.json({ results, password: LEGACY_SHARED_PASSWORD });
+});
+
 app.post("/api/seats/college-registrar", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const wanted = collegeIdsFrom(req.body);
   if (!wanted.length) { res.status(400).json({ error: "اختر حرماً واحداً على الأقل." }); return; }
