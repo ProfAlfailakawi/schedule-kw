@@ -59,3 +59,36 @@
 
 /* كل المقررات */
 .ac-reach{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px}
+
+/* ── قبل إرسال كرت الأستاذ: ورقةُ «لم نصل بعد» فوق نافذة النشر ── */
+.ppr-backdrop{position:fixed;inset:0;z-index:520;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,var(--nav,#111) 55%,transparent);animation:fade .16s var(--ease,ease) both}
+.ppr-sheet{display:flex;flex-direction:column;gap:12px;width:min(560px,100%);max-height:min(82vh,720px);padding:20px;border-radius:var(--r-xl,24px);border:1px solid var(--line);background:var(--surface,#fff);box-shadow:var(--shadow-lg);animation:sheet-up .24s var(--ease-out,ease) both}
+.ppr-head{display:flex;align-items:center;gap:12px}
+.ppr-glyph{flex:none;display:grid;place-items:center;inline-size:48px;block-size:48px;border-radius:16px;font-size:1.5rem;background:var(--warning-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warning) 30%,transparent)}
+.ppr-glyph[data-tone=open]{background:var(--success-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--success) 30%,transparent)}
+.ppr-head h3{margin:0;font-size:1.02rem;line-height:1.5;font-weight:800}
+.ppr-head small{display:block;margin-top:2px;color:var(--muted,#6b7280);font-size:.78rem}
+.ppr-scroll{display:grid;gap:10px;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-inline:-4px;padding-inline:4px}
+.ppr-group{display:grid;gap:6px}
+.ppr-group h4{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:6px;margin:0;padding:4px 2px;background:var(--surface,#fff);font-size:.84rem;font-weight:800}
+.ppr-group h4 b{display:inline-grid;place-items:center;min-inline-size:24px;block-size:22px;padding:0 7px;border-radius:999px;background:var(--line);font-size:.76rem;font-variant-numeric:tabular-nums}
+.ppr-group[data-sheet=new] h4 b{background:var(--accent);color:#fff}
+.ppr-list{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.ppr-list>li{display:flex;align-items:center;gap:10px;min-width:0;padding:8px 10px;border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb,var(--muted,#6b7280) 5%,var(--surface,#fff));transition:background .2s,border-color .2s}
+.ppr-list>li[data-opened]{background:var(--warning-soft);border-color:color-mix(in srgb,var(--warning) 35%,var(--line))}
+.ppr-lock{flex:none;font-size:1.05rem}
+.ppr-text{display:grid;gap:2px;flex:1;min-width:0}
+.ppr-text b{font-size:.86rem;line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ppr-code{display:inline-block;min-inline-size:34px;padding:0 6px;margin-inline-end:4px;border-radius:7px;background:var(--surface,#fff);border:1px solid var(--line);font-variant-numeric:tabular-nums;text-align:center}
+.ppr-text small{color:var(--muted,#6b7280);font-size:.74rem;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ppr-list .reach-open,.ppr-list .reach-chip{flex:none}
+.ppr-actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line)}
+.ppr-actions .btn{flex:1 1 160px;justify-content:center}
+@media(max-width:560px){
+  .ppr-backdrop{place-items:end stretch;padding:0}
+  .ppr-sheet{width:100%;max-height:86dvh;border-radius:22px 22px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
+  .ppr-glyph{inline-size:42px;block-size:42px;border-radius:14px;font-size:1.3rem}
+  .ppr-head h3{font-size:.94rem}
+  .ppr-list>li{gap:8px;padding:8px}
+  .ppr-list .reach-open{padding:4px 8px}
+}

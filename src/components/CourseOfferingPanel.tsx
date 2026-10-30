@@ -12,12 +12,17 @@ import { OFFERING_META, type CourseOfferingDoc, type OfferingState } from "../ut
 import { reachLocked, splitBySheet } from "../utils/courseReach";
 import { PrimaryButton } from "./ui";
 import { ReachChain, ReachChip, ReachOpenButton, type ReachPayload } from "./CourseReach";
+import { offeringScopeKey, onOfferingChange, rememberOffering, rememberReach, type OfferingSnapshot } from "../utils/prepublishReach";
 
 type Course = { id: number; name: string; code: string; level: number; sections: number };
 type Payload = { doc: CourseOfferingDoc; reach?: ReachPayload; courses: Course[]; suggestions: Array<{ courseId: number; level: number; reachedLevel: number }>; interest: Array<{ courseId: number; instructors: string[] }> };
 const STATES: OfferingState[] = ["offered", "closed", "future", "limited"];
 
-export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { collegeId: number; sectionId: number; termId: number }) {
+export default function CourseOfferingPanel({ collegeId, sectionId, termId, focusTab }: {
+  collegeId: number; sectionId: number; termId: number;
+  /** «راجع المقررات» من ورقة التنبيه قبل الإرسال: يفتح اللوحة على هذا التبويب (nonce لكل طلب). */
+  focusTab?: { tab: "new" | "old"; nonce: number } | null;
+}) {
   const [data, setData] = useState<Payload | null>(null);
   const [draft, setDraft] = useState<Record<number, { state: OfferingState; level?: number; maxSections?: number }>>({});
   const [display, setDisplay] = useState<"hide" | "fade">("fade");
@@ -26,12 +31,18 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { 
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"new" | "old" | null>(null);
   const [opening, setOpening] = useState(0);
+  const scopeKey = offeringScopeKey(collegeId, sectionId, termId);
+  useEffect(() => { if (focusTab) setTab(focusTab.tab); }, [focusTab?.tab, focusTab?.nonce]);
+  /* «افتحه للطرح» من ورقة التنبيه قبل الإرسال يصل اللوحةَ هنا بلا إعادة قراءة. */
+  useEffect(() => onOfferingChange((key, snapshot) => {
+    if (key === scopeKey && snapshot.reach) setData(current => current && current.reach !== snapshot.reach ? { ...current, reach: snapshot.reach as ReachPayload } : current);
+  }), [scopeKey]);
 
   const load = async () => {
     const response = await fetch(`/api/course-offering?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include" });
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload) { setMsg(payload?.error || "تعذّر القراءة"); return; }
-    setData(payload); setDisplay(payload.doc.display === "hide" ? "hide" : "fade");
+    setData(payload); rememberOffering(scopeKey, payload as OfferingSnapshot); setDisplay(payload.doc.display === "hide" ? "hide" : "fade");
     setDraft(Object.fromEntries(Object.values(payload.doc.courses || {}).filter((e: any) => !e.suggested).map((e: any) => [e.courseId, { state: e.state, level: e.level, maxSections: e.maxSections }])));
   };
   useEffect(() => { if (collegeId && sectionId && termId) void load(); }, [collegeId, sectionId, termId]);
@@ -61,6 +72,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId }: { 
       const reach = await response.json().catch(() => null);
       if (!response.ok || !reach) throw new Error(reach?.error || "تعذّر الحفظ");
       setData(current => current ? { ...current, reach } : current);
+      rememberReach(scopeKey, reach);
       setMsg(open ? "🔓 فُتح للطرح · يظهر في بطاقة الأستاذ فوراً" : "🔒 أُعيد للقاعدة");
     } catch (e: any) { setMsg(`⛔ ${e.message}`); } finally { setOpening(0); }
   };

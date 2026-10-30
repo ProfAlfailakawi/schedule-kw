@@ -1,6 +1,8 @@
 import SendModePicker from "./SendModePicker";
 import TAPhasePanel from "./TAPhasePanel";
 import CourseOfferingPanel from "./CourseOfferingPanel";
+import PrepublishReachSheet from "./PrepublishReachSheet";
+import { gatePublish, offeringScopeKey, readOffering, rememberReach, type OfferingSnapshot, type PrepublishRow } from "../utils/prepublishReach";
 import type { LinkMode } from "../utils/linkMode";
 import { DnaStepper } from "./dna";
 import React, { useEffect, useMemo, useState } from "react";
@@ -139,6 +141,11 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     /* E1: صفةُ الإرسال — للجماعي (sendMode) وللفردي/إعادة الفتح (manageSendMode). */
     [sendMode, setSendMode] = useState<LinkMode>("edit"),
     [manageSendMode, setManageSendMode] = useState<LinkMode>("edit"),
+    /* قبل الإرسال (✏️ و🎓): ورقةُ «لم نصل بعد» إن كان في النطاق مقررٌ مقفل، ولوحةُ حالة الطرح عند «راجع المقررات». */
+    [reachGate, setReachGate] = useState<{ rows: PrepublishRow[]; proceed: () => unknown } | null>(null),
+    [reachChecking, setReachChecking] = useState(false),
+    [offeringOpen, setOfferingOpen] = useState(false),
+    [offeringFocus, setOfferingFocus] = useState<{ tab: "new" | "old"; nonce: number } | null>(null),
     [exceptions, setExceptions] = useState<Array<{ instructorId: number; name: string; closesAt: string; grantedAt: string; reason: string; revokedAt: string; active: boolean }>>([]);
 
   const scoped = Boolean(collegeId && sectionId && termId);
@@ -301,6 +308,38 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     } finally {
       setBusy(false);
     }
+  };
+
+  /**
+   * ── قبل الإرسال: «لم نصل بعد» ──────────────────────────────────────────
+   * بطاقةٌ يختار فيها الأستاذ (✏️ طلب تعديل، 🎓 مرحلة التدريب) تُفحص أولاً بحكم الوصول
+   * للنطاق نفسه (src/utils/prepublishReach.ts). لا مقفل ⇒ تُرسل فوراً. تعذّر الفحص ⇒ تُرسل
+   * كما كانت. وإلا ورقةٌ صغيرة: «أرسل كما هو» أو «راجع المقررات». 👁️ للعرض فقط لا يُفحص.
+   */
+  const guardSend = async (proceed: () => unknown) => {
+    if (kind !== "staff") { await proceed(); return; }
+    let checked = false;
+    setReachChecking(true);
+    try {
+      await gatePublish({
+        mode: sendMode,
+        read: () => readOffering(collegeId, sectionId, termId),
+        send: () => { checked = true; setReachChecking(false); return proceed(); },
+        warn: rows => setReachGate({ rows, proceed }),
+      });
+    } finally { if (!checked) setReachChecking(false); }
+  };
+  const openReachCourse = async (courseId: number): Promise<OfferingSnapshot["reach"] | null> => {
+    const response = await fetch("/api/course-reach/open", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, termId, courseId, open: true }) }).catch(() => null);
+    const reach = response?.ok ? await response.json().catch(() => null) : null;
+    if (reach) rememberReach(offeringScopeKey(collegeId, sectionId, termId), reach);
+    return reach;
+  };
+  const reviewOffering = (tab: "new" | "old") => {
+    setReachGate(null);
+    setOfferingOpen(true);
+    setOfferingFocus({ tab, nonce: Date.now() });
+    window.setTimeout(() => document.getElementById("publish-offering")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
 
   const revoke = async (id: string) => {
@@ -490,6 +529,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
             </header>
 
             {error ? <p className="share-error" role="alert">{error}</p> : null}
+            {reachGate ? <PrepublishReachSheet rows={reachGate.rows} onOpenCourse={openReachCourse}
+              onSend={() => { const proceed = reachGate.proceed; setReachGate(null); void proceed(); }}
+              onReview={reviewOffering} onCancel={() => setReachGate(null)} /> : null}
 
             <nav className="share-progress" aria-label="خطوات نشر الجدول">
               <DnaStepper
@@ -609,10 +651,10 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 {kind === "department" ? <p>رابط قراءة عام للجدول ضمن الصلاحية المحددة.</p> : null}
               </header>
               {kind === "staff" ? <SendModePicker value={sendMode} onChange={setSendMode} /> : null}
-              {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} /> : null}
-              {kind === "staff" && sendMode === "edit" ? (
-                <details className="of-section"><summary>🟢🔒🌱🎯 حالة طرح المقررات في بطاقة الأستاذ</summary>
-                  <CourseOfferingPanel collegeId={collegeId} sectionId={sectionId} termId={termId} />
+              {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} checking={reachChecking} confirmSend={proceed => void guardSend(proceed)} /> : null}
+              {kind === "staff" && (sendMode === "edit" || (sendMode === "ta" && offeringOpen)) ? (
+                <details id="publish-offering" className="of-section" open={offeringOpen} onToggle={event => setOfferingOpen(event.currentTarget.open)}><summary>🟢🔒🌱🎯 حالة طرح المقررات في بطاقة الأستاذ</summary>
+                  <CourseOfferingPanel collegeId={collegeId} sectionId={sectionId} termId={termId} focusTab={offeringFocus} />
                 </details>
               ) : null}
               <div className={`share-compose ${kind === "department" ? "" : "share-compose-single"}`} hidden={kind === "staff" && sendMode !== "edit"}>
@@ -662,12 +704,12 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 <PrimaryButton
                   type="button"
                   data-guide-target="schedule.publish"
-                  onClick={create}
+                  onClick={() => void guardSend(create)}
                   hidden={kind === "staff" && sendMode === "ta"}
-                  disabled={busy || (withRequests && sendMode === "edit" && !closesAt)}
+                  disabled={busy || reachChecking || (withRequests && sendMode === "edit" && !closesAt)}
                 >
                   <Link2 />
-                  {busy ? "ينشئ الرابط…" : "إنشاء الرابط"}
+                  {busy ? "ينشئ الرابط…" : reachChecking ? "يفحص المقررات…" : "إنشاء الرابط"}
                 </PrimaryButton>
               </div>
             </section>

@@ -21,6 +21,7 @@ test:visiting-to-faculty
 test:pdf-term-rule
 test:owner-features-1028
 test:course-reach
+test:prepublish-reach
 test:ta-phase-flow
 test:staff-global
 test:instructor-status
