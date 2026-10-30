@@ -1016,7 +1016,8 @@ export async function seedDemoStudyProposals(scope: { collegeId: number; section
   const sources = new Map<number, FSchedule>([[aiRow.id, aiRow], [secRow.id, secRow]]);
   const assign = (row: FSchedule, id: string): StudyProposalOp => {
     const snapshot = snapshotOf(row, catalog);
-    return { id, kind: "assign", source: snapshot, target: specOf(courseOf(row === aiRow ? "0109401" : "0109454")!, snapshot.SCode, snapshot.days, snapshot.fstarttime, snapshot.fendtime, rooms[row === aiRow ? 0 : 1]) };
+    /* الهدفُ مقررُ الشاغر نفسُه: لا يرى الأستاذُ في المقترح مقرراً غيرَ ما يُسنَد إليه فعلاً. */
+    return { id, kind: "assign", source: snapshot, target: specOf(row === aiRow ? ai : security, snapshot.SCode, snapshot.days, snapshot.fstarttime, snapshot.fendtime, rooms[row === aiRow ? 0 : 1]) };
   };
   void sources;
   const dataStructures = courseOf("0109434");

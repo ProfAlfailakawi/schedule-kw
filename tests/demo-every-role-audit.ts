@@ -26,6 +26,8 @@ const ADVISORS = new Set(["advisor", "advisorGeneral"]);
 const DEANS = new Set(["dean", "viceDean"]);
 const REGISTRAR_DESK = new Set(["registrarDean", "registrarHead", "collegeRegistrar"]);
 const PERSONAL = new Set(["departmentHead", "committeeChair", "standard"]);
+/** وصلناه (أو لا حكم عليه): ليس «لم نصل بعد». */
+const reachOk = (scope: any, courseId: unknown) => scope?.courses?.[Number(courseId)]?.state !== "locked";
 
 let server: LiveServer | null = null;
 try {
@@ -144,6 +146,11 @@ try {
       check(target?.state === "locked" && target?.why === "prereq-missing" && /المتطلب 346 لم يُطرح/.test(target?.reason || "")
         && (target?.chain || []).map((n: any) => `${n.code}:${n.state}`).join(">") === "323:ok>346:missing>453:target",
         "R4 السلسلة في الثاني: 323 طُرح ← 346 لم يُطرح ← 453 «المتطلب 346 لم يُطرح»", target?.chain);
+      /* المقترحُ الدراسي المبذور يُسنِد الشاغرَ نفسَه: مقررُ الهدف هو مقررُ الشعبة الشاغرة، لا مقرراً آخر يراه الأستاذ. */
+      const proposals: any[] = (await get(`/api/study-proposals?${q(1)}`))?.proposals || [];
+      const assigns = proposals.flatMap(entry => (entry.proposal?.ops || []).filter((op: any) => op.kind === "assign"));
+      check(assigns.length >= 2 && assigns.every((op: any) => Number(op.target?.AdCourseId) === Number(op.source?.AdCourseId) && reachOk(first, op.target?.AdCourseId)),
+        "R4 المقترح الدراسي: هدفُ الإسناد مقررُ الشاغر نفسُه، ووصلناه في الأول", assigns.map((op: any) => [op.source?.courseCode, op.target?.courseCode]));
       check(second?.courses?.[idOf("0109346")]?.state === "reached", "R4 و346 وصلناه في الثاني (متطلبه 323 طُرح في الأول)");
       check(second?.courses?.[idOf("0109410")]?.why === "coreq-locked", "R4 التوأم: 410 مقفلٌ لأن توأمه 459 لم يُفتح", second?.courses?.[idOf("0109410")]?.reason);
       check(first?.courses?.[idOf("0109324")]?.state === "reached" && first?.courses?.[idOf("0109324")]?.why === "prereqs-met",
