@@ -20,6 +20,8 @@ import { curriculumLabelsFor } from "../core/planning";
 import { applyProposalCore, deleteScheduleHandler, type ProposalOutcome, runScheduleHandler } from "../core/scheduleWrites";
 import { isScopeAllowed } from "../core/scope";
 import { studentIdentityFor } from "../core/studentIdentity";
+import { bumpTeamWork } from "../teamPresence";
+import { caseStampOf, expectedStamp, STALE_WRITE_CODE, STALE_WRITE_MESSAGE } from "../../utils/staleWrite";
 
 /* ══════════════════════════════════════════════════════════════════════════
    كشفُ التسجيل — الطرفان على ورقةٍ واحدة
@@ -366,7 +368,11 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
   }
   /* ما يتوقف على حالة المقرّر الحاليّة يُسأل داخل الكتابة نفسها: قرارا اللجنة
      والتسجيل في اللحظة نفسها لا يمرّ أحدهما على حالةٍ قديمة. */
+  /* ختمُ ما رآه الكاتب: وقتُ آخر قرارٍ في هذا المقرّر ("" = لم يُقرَّر فيه شيء). قرارُ زميلٍ قبله
+     يُردّ بـ«حدّث ثم أعد» (src/utils/staleWrite.ts) — داخل المعاملة نفسها، فلا يسبقه أحد. */
+  const seenAt = expectedStamp(req.body?.expectedAt);
   const guardByState = (current: any): string | null => {
+    if (seenAt !== null && String(current?.at || "") !== seenAt) return STALE_WRITE_MESSAGE;
     if (viewer === "committee" && current?.by === "registration" && (current.state === "registered" || current.state === "rejected"))
       return "قرّر التسجيلُ في هذا المقرّر، فلا يُغيَّر من جهة القسم.";
     if (viewer === "registration" && !reachedRegistration(current))
@@ -415,7 +421,7 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
       const fresh: any = await Repository.getStudentNeedById(String(need.id));
       if (!fresh) return { status: 404, json: { error: "لا يوجد طلبٌ بهذا المعرّف" } };
       const refusalNow = guardByState((fresh.courseStates || []).find((row: any) => Number(row.courseId) === courseId));
-      if (refusalNow) return { status: 409, json: { error: refusalNow } };
+      if (refusalNow) return { status: 409, json: { error: refusalNow, ...(refusalNow === STALE_WRITE_MESSAGE ? { code: STALE_WRITE_CODE } : {}) } };
       const week = await Repository.getSchedulesByScope({ collegeId: Number(owner.AdCollegeId), sectionId: Number(owner.AdSectionId), termId: Number(need.AdTermId) });
       openedRow = (week as any[]).find(row => row.origin?.refId === openingRef && Number(row.AdCourseId) === courseId) || null;
       if (!openedRow) {
@@ -450,7 +456,7 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
         const back = await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(openedRow.id) }, body: {} }).catch(() => null);
         rolledBack = Boolean(back && back.status < 400);
       }
-      if (error instanceof StudentCourseStateConflict) return { status: 409, json: { error: error.message, stateSaved: false, rolledBack } };
+      if (error instanceof StudentCourseStateConflict) return { status: 409, json: { error: error.message, ...(error.message === STALE_WRITE_MESSAGE ? { code: STALE_WRITE_CODE } : {}), stateSaved: false, rolledBack } };
       console.error("[student-registration] تعذّر تسجيل القرار بعد فتح الشعبة:", error instanceof Error ? error.message : error);
       return { status: 500, json: { error: "تعذّر تسجيل القرار.", stateSaved: false, rolledBack } };
     }
@@ -463,6 +469,7 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
 
   const outcome = wantsOpening ? await withSerialLock(`student-open:${need.id}:${courseId}`, commit) : await commit();
   if (outcome.audit) res.locals.auditChanges = outcome.audit;
+  if (outcome.status < 300) bumpTeamWork(req.demoSessionId || "", Number(need.AdCollegeId || 0), Number(need.AdTermId || 0));
   res.setHeader("Cache-Control", "no-store");
   res.status(outcome.status).json(outcome.json);
 });
@@ -521,12 +528,17 @@ app.post("/api/student-registration/:id/case-state", requireAuth, async (req: Au
     at: new Date().toISOString(),
   };
   let saved: any;
-  try { saved = await Repository.setStudentCaseDecision(need.id, side, next); }
+  const seenStamp = expectedStamp(req.body?.expectedStamp);
+  try {
+    saved = await Repository.setStudentCaseDecision(need.id, side, next,
+      current => seenStamp !== null && caseStampOf(current.caseState) !== seenStamp ? STALE_WRITE_MESSAGE : null);
+  }
   catch (error: any) {
-    if (error instanceof StudentCourseStateConflict) { res.status(409).json({ error: error.message }); return; }
+    if (error instanceof StudentCourseStateConflict) { res.status(409).json({ error: error.message, ...(error.message === STALE_WRITE_MESSAGE ? { code: STALE_WRITE_CODE } : {}) }); return; }
     throw error;
   }
   if (!saved) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  bumpTeamWork(req.demoSessionId || "", Number(need.AdCollegeId || 0), Number(need.AdTermId || 0));
   res.setHeader("Cache-Control", "no-store");
   res.json({ ok: true, caseState: saved.caseState || {}, caseStatus: studentCaseStatus(saved.caseState) });
 });
