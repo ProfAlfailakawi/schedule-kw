@@ -50,6 +50,7 @@ test:updating-page
 test:id-types
 test:inbox-live
 test:inbox-studio
+test:inbox-campus
 test:public-syntax
 test:linked
 test:inbox-ask

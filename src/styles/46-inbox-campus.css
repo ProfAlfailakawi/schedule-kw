@@ -1,0 +1,10 @@
+/* ── موقعُ البند في «وارد الأساتذة» (src/utils/inboxCampus.ts) ─────────────────
+   وسمٌ نحاسيّ هادئ بأيقونة المبنى: «بنات»، «الجهراء - بنات». واحدٌ في البند (بجانب
+   الشعبة) وفي رأس البطاقة (بجانب القسم)، بالحجم نفسه، ويلتفّ مع جاره على الهاتف.
+   ألوانُه من رموز التصميم وحدها فيصحّ في الوضع الداكن. */
+.request-where{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-inline-size:0}
+.request-where>small{color:var(--muted);font-size:12.5px}
+.request-campus{display:inline-flex;align-items:center;gap:4px;flex:none;max-inline-size:100%;min-block-size:22px;padding:0 9px;border:1px solid color-mix(in srgb,var(--brass) 24%,transparent);border-radius:999px;background:color-mix(in srgb,var(--brass) 9%,var(--surface));color:color-mix(in srgb,var(--brass) 78%,var(--ink));font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.request-campus>svg{inline-size:13px;block-size:13px;flex:none;opacity:.85}
+.request-card-meta>.request-campus{min-block-size:22px}
+@media print{.request-campus{border-color:currentColor;background:none}}

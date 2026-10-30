@@ -37,7 +37,7 @@ import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
   ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
   DoorOpen, Wrench, RefreshCw, Home, MapPin, History, Users, Scale, BellRing, UserX,
-  CheckCheck, CircleDashed, Plus, Trash2,
+  CheckCheck, CircleDashed, Plus, Trash2, School,
 } from "lucide-react";
 import type { RequestRoomReason } from "../types";
 import { DnaCount } from "./dna";
@@ -68,7 +68,11 @@ import { isTaRequest, notOpened, notParticipated, openedNotAnswered } from "../u
 import { putHandoff } from "../utils/requestHandoff";
 import { currentTermId } from "../utils/termSequence";
 import { singleDepartmentOf } from "../utils/scopeContext";
-import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
+import { readSharedScope, resolveSharedScope, sharedScopeUser, useSharedScope } from "../utils/sharedScope";
+import {
+  effectiveCampus, inboxCampusOptions, inboxCollegeNames, itemInCampus, readInboxCampus, requestInCampus, requestItemCollegeId, writeInboxCampus,
+} from "../utils/inboxCampus";
+import { campusChipOf } from "../utils/campusChip";
 import { takeNotifyFocus } from "../utils/notifyFocus";
 import { NEGOTIATION_LABEL, THREAD_TEXT_LIMIT, negotiationState } from "../utils/instructorRequestThread";
 import { isUnchangedConfirmed, unchangedConfirmationKind } from "../utils/instructorRequestConfirmation";
@@ -500,14 +504,29 @@ function RequestThread({ item, busy: busyProp, onReply, onClose, onProposal }: {
   );
 }
 
-function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, rowErrors, proposals, onOpenProposal, onBulk }: {
+/* ── وسمُ الموقع ───────────────────────────────────────────────────────────
+ * كلُّ بندٍ — تعديلاً كان أو حذفاً أو إضافة — يقول أين يقع: «بنات»، «الجهراء - بنات».
+ * الاسمُ الكامل في التلميح، والوسمُ هو نفسه في رأس البطاقة وفي مرشّح «الموقع». */
+type CampusLabels = Map<number, { chip: string; name: string }>;
+
+function CampusChip({ label }: { key?: React.Key; label?: { chip: string; name: string } | null }) {
+  if (!label?.chip) return null;
+  return (
+    <span className="request-campus" title={label.name} aria-label={`الموقع: ${label.name}`}>
+      <School aria-hidden="true" />{label.chip}
+    </span>
+  );
+}
+
+function RequestCard({ row, currentRows, campusLabels, onDecide, onReply, busyKey, filter, rowErrors, proposals, onOpenProposal, onBulk }: {
   key?: React.Key;
   row: InboxRequest;
   currentRows: Map<number, FSchedule>;
+  campusLabels: CampusLabels;
   onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => void;
   onReply: (index: number, text: string, slots: any[]) => void;
   busyKey: string | null;
-  filter: (item: InstructorRequestItem) => boolean;
+  filter: (item: InstructorRequestItem, row: InboxRequest) => boolean;
   rowErrors: Record<string, string>;
   proposals: StaffProposalView[];
   onOpenProposal: (open: OpenWorkspace) => void;
@@ -519,9 +538,12 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
 
   const items = useMemo(() => (row.items || [])
     .map((item, index) => ({ item, index }))
-    .filter(entry => entry.item.action !== "keep" && !(entry.item as any).hidden && filter(entry.item))
+    .filter(entry => entry.item.action !== "keep" && !(entry.item as any).hidden && filter(entry.item, row))
     .sort((a, b) => (VERDICT_ORDER[a.item.verdict || "clear"] ?? 0) - (VERDICT_ORDER[b.item.verdict || "clear"] ?? 0)),
-    [row.items, filter]);
+    [row, filter]);
+  /* مواقعُ ما يُعرض من بنوده — وطلبٌ بلا بنود (ملاحظة) يُوسم بموقع رابطه. */
+  const cardCampuses = [...new Set<number>(items.length ? items.map(({ item }) => requestItemCollegeId(row as any, item as any)) : [Number(row.AdCollegeId)])]
+    .map(id => campusLabels.get(id)).filter((label): label is { chip: string; name: string } => Boolean(label));
 
   const { isVisiting } = useVisitingLookup(row.AdTermId);
 
@@ -539,6 +561,7 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
             <strong className="schedule-instructor-with-badge">{row.instructorName}<PersonChips visiting={isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId)} trainee={isTaRequest(row)} /></strong>
             <span className="request-card-meta">
               {row.sectionName ? <span className="request-card-section">قسم {row.sectionName.replace(/^قسم\s+/, "")}</span> : null}
+              {cardCampuses.map(label => <CampusChip key={label.name} label={label} />)}
               <small>{items.length ? countOf(items.length, AR.change) : "ملاحظة بلا تغييرات"}{row.submittedAt ? ` · ${arabicDate(row.submittedAt)}` : ""}</small>
             </span>
           </div>
@@ -620,6 +643,7 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
               item={item}
               index={index}
               current={item.rowId == null ? undefined : currentRows.get(Number(item.rowId))}
+              campus={campusLabels.get(requestItemCollegeId(row as any, item as any))}
               busy={busyKey === `${row.id}:${index}`}
               rejecting={rejecting === index}
               error={rowErrors[`${row.id}:${index}`]}
@@ -640,9 +664,10 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
 /* ── صفُّ بند ─────────────────────────────────────────────────────────────
  * الحكمُ المحفوظ مع الطلب والفحصُ الحيّ يُقرآن معاً: ما منعه أحدُهما مُنع،
  * وما نبّه إليه أحدُهما قيل. ولا يُكرَّر السببُ نفسُه مرّتين. */
-function RequestRow({ row, item, index, current, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onReply, onProposal, onBulk }: {
+function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onReply, onProposal, onBulk }: {
   key?: React.Key;
   row: InboxRequest; item: InstructorRequestItem; index: number; current?: FSchedule;
+  campus?: { chip: string; name: string };
   busy: boolean; rejecting: boolean; error?: string;
   onReject: () => void; onCloseReject: () => void;
   onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => void;
@@ -734,8 +759,13 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
         <div className="request-what" role="group" aria-label="الطلب">
           <span className="request-action" data-action={item.action}><ActionIcon aria-hidden="true" />{ACTION_LABEL[item.action] || item.action}</span>
           <strong className="request-course">{item.after?.courseName || item.before?.courseName || "—"}<CourseTags courseId={item.after?.courseId || item.before?.courseId} />{(item as any).offering ? <span className="badge badge-warning" title={(item as any).offering.line} style={{ marginInlineStart: 6 }}>{(item as any).offering.icon} {(item as any).offering.line}</span> : null}</strong>
-          {item.before?.sectionCode ? <small>شعبة {item.before.sectionCode}</small> : null}
-          {item.action === "add" && item.after?.collegeName ? <small>{item.after.collegeName}</small> : null}
+          {/* الشعبةُ والموقع سطرٌ واحد، في كل أنواع البنود (كانت «الإضافة» وحدها تكتب كليتها). */}
+          {item.before?.sectionCode || campus || item.after?.collegeName ? (
+            <span className="request-where">
+              {item.before?.sectionCode ? <small>شعبة {item.before.sectionCode}</small> : null}
+              <CampusChip label={campus || (item.after?.collegeName ? { chip: campusChipOf(item.after.collegeName) || item.after.collegeName, name: item.after.collegeName } : null)} />
+            </span>
+          ) : null}
         </div>
         <div className="request-change" role="group" aria-label="التغيير">
           <div className="request-flow">
@@ -1103,6 +1133,9 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const [deptFilter, setDeptFilter] = useState(0);
   /* D2/F3: «🎓 تدريب» — طلباتُ مرحلة التدريب وحدها (المصدرُ الواحد: ‎isTaRequest(row)‎). */
   const [taOnly, setTaOnly] = useState(false);
+  /* الموقعُ المختار (بنين/بنات/الجهراء…) يُتذكَّر لكل حسابٍ على هذا الجهاز (utils/inboxCampus.ts). */
+  const [campusStored, setCampusStored] = useState(() => readInboxCampus(sharedScopeUser()));
+  const pickCampus = (collegeId: number) => { setCampusStored(collegeId); writeInboxCampus(sharedScopeUser(), collegeId); };
   const [instructorFilter, setInstructorFilter] = useState(0);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [quick, setQuick] = useState<{ row: InboxRequest; index: number; after?: number[]; seed: QuickSeed } | null>(null);
@@ -1327,8 +1360,20 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   }).map(({ changed, ...option }) => changed ? { ...option, label: `${option.label} · طلب تعديلاً` } : option)
     .sort((a, b) => byArabic(a.label, b.label)), [instructorChoices, rows, visitingLookup]);
 
-  const itemFilter = useCallback((item: InstructorRequestItem) => {
+  /* المواقعُ التي في الوارد فعلاً بعدد بنودها، ووسمُ كلٍّ منها — المصدرُ نفسه للمرشّح ولوسوم البنود. */
+  const campusOptions = useMemo(() => inboxCampusOptions(
+    (rows || []).filter(row => !isPlaceholderInboxRow(row)) as any,
+    inboxCollegeNames((rows || []) as any, [
+      ...familyColleges,
+      ...(catalog?.colleges || []).map(college => ({ id: Number(college.AdCollegeId), name: String(college.AdCollegeName || "") })),
+    ]),
+  ), [rows, familyColleges, catalog]);
+  const campusLabels = useMemo<CampusLabels>(() => new Map(campusOptions.map(option => [option.collegeId, { chip: option.chip, name: option.name }])), [campusOptions]);
+  const campusFilter = effectiveCampus(campusStored, campusOptions);
+
+  const itemFilter = useCallback((item: InstructorRequestItem, row: InboxRequest) => {
     if (stateFilter === "confirmed-unchanged") return false;
+    if (!itemInCampus(row as any, item as any, campusFilter)) return false;
     const state = item.decision?.state;
     if (stateFilter === "pending" && state) return false;
     if (stateFilter === "fixed" && state !== "fixed") return false;
@@ -1336,7 +1381,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     if (actionFilter !== "all" && item.action !== actionFilter) return false;
     if (verdictFilter !== "all" && (item.verdict || "clear") !== verdictFilter) return false;
     return true;
-  }, [stateFilter, actionFilter, verdictFilter]);
+  }, [stateFilter, actionFilter, verdictFilter, campusFilter]);
 
   /* الأقسامُ التي في الوارد فعلاً — لا كلُّ أقسام الكلية. */
   const departments = useMemo(() => {
@@ -1351,8 +1396,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     return [...seen].map(([id, entry]) => ({ id, ...entry })).sort((a, b) => byArabic(a.name, b.name));
   }, [rows]);
 
+  /* الأعدادُ كلُّها داخل الموقع المختار: من اختار «بنات» يرى ما ينتظره في البنات. */
   const counts = useMemo(() => {
-    const all = (rows || []).flatMap(row => (row.items || []).filter(item => item.action !== "keep" && !(item as any).hidden));
+    const inCampus = (rows || []).filter(row => requestInCampus(row as any, campusFilter));
+    const all = (rows || []).flatMap(row => (row.items || []).filter(item => item.action !== "keep" && !(item as any).hidden && itemInCampus(row as any, item as any, campusFilter)));
     return {
       pending: all.filter(item => !item.decision?.state).length,
       fixed: all.filter(item => item.decision?.state === "fixed").length,
@@ -1364,20 +1411,21 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       clear: all.filter(item => (item.verdict || "clear") === "clear").length,
       exception: all.filter(item => item.verdict === "exception").length,
       conflict: all.filter(item => item.verdict === "conflict").length,
-      confirmedUnchanged: (rows || []).filter(row => isUnchangedConfirmed(row)).length,
+      confirmedUnchanged: inCampus.filter(row => isUnchangedConfirmed(row)).length,
       /* «لم يشاركوا» (D1): لم يرسلوا شيئاً — فتحوا أو لم يفتحوا — وروابطُ العرض وحده لا تُعدّ (D2). */
-      absent: notParticipated((rows || []).filter(row => !isPlaceholderInboxRow(row))).length,
+      absent: notParticipated(inCampus.filter(row => !isPlaceholderInboxRow(row))).length,
+      ta: inCampus.filter(isTaRequest).length,
     };
-  }, [rows]);
+  }, [rows, campusFilter]);
 
   const visibleConfirmedUnchanged = visible.filter(row => isUnchangedConfirmed(row)
-    && (!deptFilter || Number(row.AdSectionId) === deptFilter));
+    && (!deptFilter || Number(row.AdSectionId) === deptFilter) && requestInCampus(row as any, campusFilter));
   const changed = stateFilter === "confirmed-unchanged" ? [] : visible.filter(row => (!deptFilter || Number(row.AdSectionId) === deptFilter)
     && (!taOnly || isTaRequest(row))
     && (row.changedCount > 0
-      ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item))
+      ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item, row))
       /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة: تُقرأ بطاقةً، لا تُدفن في «الجدول كما هو». */
-      : Boolean(row.note) && row.status !== "sent"));
+      : Boolean(row.note) && row.status !== "sent" && requestInCampus(row as any, campusFilter)));
   const changedGroups = useMemo(() => {
     const groups = new Map<string, InboxRequest[]>();
     changed.forEach(row => {
@@ -1388,7 +1436,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   }, [changed]);
   const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !isUnchangedConfirmed(row));
   const silent = notOpened<InboxRequest>(visible);
-  const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible);
+  const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible).filter(row => requestInCampus(row as any, campusFilter));
 
   /**
    * التثبيت.
@@ -1858,8 +1906,14 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             const deptOptions: FilterOption[] = departments.length > 1 && !sectionId
               ? [{ value: "0", label: "كل الأقسام" }, ...departments.map(dept => ({ value: String(dept.id), label: dept.name.replace(/^قسم\s+/, ""), count: dept.count }))]
               : [];
+            /* «الموقع»: المواقعُ التي في الوارد وحدها، بعدد بنودها؛ وموقعٌ واحد لا يُرسم له مرشّح. */
+            const campusChoices: FilterOption[] = [
+              { value: "0", label: "الكل" },
+              ...campusOptions.map(option => ({ value: String(option.collegeId), label: option.chip, count: option.count })),
+            ];
             const filtered = stateFilter !== "pending" || actionFilter !== "all" || verdictFilter !== "all" || Boolean(deptFilter);
             const any = filtered
+              || visibleFilterOptions(campusChoices, String(campusFilter)).length
               || counts.confirmedUnchanged > 0
               || visibleFilterOptions(stateOptions, stateFilter === "confirmed-unchanged" ? "all" : stateFilter).length || visibleFilterOptions(actionOptions, actionFilter).length
               || visibleFilterOptions(verdictOptions, verdictFilter).length || visibleFilterOptions(deptOptions, String(deptFilter)).length;
@@ -1867,6 +1921,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             return (
           <div className="request-filters" role="toolbar" aria-label="تصفية الوارد">
             <span className="request-filters-mark" aria-hidden="true"><SlidersHorizontal /></span>
+            <FilterGroup label="الموقع" value={String(campusFilter)} onChange={value => pickCampus(Number(value) || 0)} options={campusChoices} />
             <FilterGroup label="الحالة" value={stateFilter === "confirmed-unchanged" ? "all" : stateFilter} onChange={value => setStateFilter(value as any)} options={stateOptions} />
             {counts.confirmedUnchanged ? (
               <button
@@ -1885,7 +1940,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             {(rows || []).some(isTaRequest) ? (
               <button type="button" className={`request-confirmed-filter${taOnly ? " active" : ""}`} aria-pressed={taOnly}
                 data-guide-ignore="فلتر مرحلة التدريب — عرضٌ لا فعل" onClick={() => setTaOnly(on => !on)}>
-                🎓 تدريب <b>{num((rows || []).filter(isTaRequest).length)}</b>
+                🎓 تدريب <b>{num(counts.ta)}</b>
               </button>
             ) : null}
             <details className="request-filters-more" open={actionFilter !== "all" || verdictFilter !== "all" || Boolean(deptFilter)}>
@@ -1961,6 +2016,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                       key={row.id}
                       row={row}
                       currentRows={currentRows}
+                      campusLabels={campusLabels}
                       busyKey={busyKey}
                       filter={itemFilter}
                       rowErrors={rowErrors}
