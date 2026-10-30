@@ -1,1 +1,139 @@
 /* ── «اكتب الموعد بسطرٍ واحد» داخل لوحة الأوامر ── */
+
+/*
+ * The row the palette makes from a typed line: the command on one line, and
+ * under it the appointment drawn as six parts in the editor's own order —
+ * course, section, teacher, days, time, room. A filled part is a tinted chip
+ * with its icon in a small disc; a part still to be decided is a dashed «؟» in
+ * the same place, so the gaps are seen rather than read. Colours are tokens
+ * only (light and dark alike), tinted with color-mix.
+ */
+
+.cmdk .cmdk-live-row{
+  align-items:flex-start;
+  gap:var(--s3);
+  min-height:0;
+  padding-block:var(--s2);
+}
+.cmdk .cmdk-live-row .cmdk-icon{
+  margin-block-start:1px;
+  background:color-mix(in srgb,var(--accent) 14%,var(--surface));
+  color:var(--accent);
+}
+.cmdk-live-body{
+  flex:1;min-width:0;
+  display:flex;flex-direction:column;gap:7px;
+}
+.cmdk .cmdk-live-row .cmdk-label{font-weight:700;color:var(--ink)}
+.cmdk-preview{display:block;min-width:0}
+
+.ol-preview{
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:5px 6px;
+}
+
+.ol-part{
+  --ol-tone:var(--accent);
+  display:inline-flex;align-items:center;gap:5px;
+  min-height:26px;max-width:100%;
+  padding-block:2px;padding-inline:3px 9px;
+  border:1px solid color-mix(in srgb,var(--ol-tone) 28%,transparent);
+  border-radius:var(--r-full);
+  background:color-mix(in srgb,var(--ol-tone) 8%,var(--surface));
+  color:var(--ink);
+  font-size:var(--t-xs);line-height:1.25;
+  transition:background-color .16s var(--ease-out),border-color .16s var(--ease-out),color .16s var(--ease-out);
+}
+.ol-part-icon{
+  flex:none;width:20px;height:20px;border-radius:50%;
+  display:grid;place-items:center;
+  background:color-mix(in srgb,var(--ol-tone) 17%,var(--surface));
+  color:var(--ol-tone);
+}
+.ol-part-icon svg{width:12px;height:12px}
+.ol-part-value{
+  min-width:0;max-width:24ch;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:600;
+}
+.ol-part-value[dir="ltr"]{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.01em}
+.ol-part-auto{flex:none;width:11px;height:11px;color:var(--ol-tone);opacity:.85}
+
+.ol-course{--ol-tone:var(--accent)}
+.ol-section{--ol-tone:var(--info)}
+.ol-teacher{--ol-tone:var(--brass)}
+.ol-days{--ol-tone:var(--success)}
+.ol-time{--ol-tone:var(--series-5)}
+.ol-room{--ol-tone:var(--series-9)}
+
+/* Still to be decided — the same place, drawn empty. */
+.ol-part.is-missing{
+  border-style:dashed;border-color:var(--line-strong);
+  background:transparent;color:var(--muted);
+}
+.ol-part.is-missing .ol-part-icon{background:var(--surface-2);color:var(--muted)}
+.ol-part.is-missing .ol-part-value{font-weight:700}
+
+/* Named, but more than one fits: a «؟» with the count. */
+.ol-part.is-doubt{
+  border-style:dashed;
+  border-color:color-mix(in srgb,var(--warning) 48%,transparent);
+  background:color-mix(in srgb,var(--warning) 7%,var(--surface));
+  color:var(--warning);
+}
+.ol-part.is-doubt .ol-part-icon{background:color-mix(in srgb,var(--warning) 15%,var(--surface));color:var(--warning)}
+
+/* Offered, not typed: the next free section, the end the pattern completes. */
+.ol-part.is-auto{border-style:dotted}
+
+/* The week itself: five letters, the chosen days lit. */
+.ol-week{display:inline-flex;gap:2px}
+.ol-week i{
+  width:17px;height:17px;border-radius:5px;
+  display:grid;place-items:center;
+  font-style:normal;font-size:10.5px;font-weight:700;line-height:1;
+  background:var(--surface-2);color:var(--muted);
+}
+.ol-week i.on{background:var(--ol-tone);color:var(--surface)}
+
+/* What the line said and the palette did not understand — said back, struck. */
+.ol-unknown{
+  display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;
+  color:var(--muted);font-size:var(--t-xs);
+}
+.ol-unknown>svg{width:13px;height:13px;flex:none}
+.ol-unknown s{
+  padding:1px 7px;border-radius:var(--r-full);
+  background:color-mix(in srgb,var(--danger) 6%,transparent);
+  text-decoration-color:color-mix(in srgb,var(--danger) 60%,transparent);
+  text-decoration-thickness:1.5px;
+}
+
+@media (prefers-reduced-motion:no-preference){
+  .cmdk-live .ol-part,.cmdk-live .ol-unknown{animation:ol-in .2s var(--ease-out) both}
+  .cmdk-live .ol-part:nth-child(2){animation-delay:.02s}
+  .cmdk-live .ol-part:nth-child(3){animation-delay:.04s}
+  .cmdk-live .ol-part:nth-child(4){animation-delay:.06s}
+  .cmdk-live .ol-part:nth-child(5){animation-delay:.08s}
+  .cmdk-live .ol-part:nth-child(6){animation-delay:.1s}
+}
+@keyframes ol-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  .ol-part{transition:none}
+  .cmdk-live .ol-part,.cmdk-live .ol-unknown{animation:none}
+}
+
+/* A phone, or a narrow window: the parts wrap and tighten, nothing scrolls sideways. */
+@media (max-width:600px){
+  .cmdk .cmdk-live-row{gap:var(--s2)}
+  .ol-preview{gap:4px}
+  .ol-part{min-height:24px;gap:4px;padding-inline:2px 7px}
+  .ol-part-icon{width:18px;height:18px}
+  .ol-part-value{max-width:15ch}
+  .ol-week i{width:15px;height:15px;font-size:10px}
+}
+
+@media (forced-colors:active){
+  .ol-part,.ol-part.is-missing,.ol-part.is-doubt{border-color:CanvasText}
+  .ol-week i.on{background:Highlight;color:HighlightText}
+}

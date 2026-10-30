@@ -45,6 +45,7 @@
     "test:teacher-mini-week": "tsx tests/teacher-mini-week-audit.ts",
     "test:appointment-forms-r2": "tsx tests/appointment-forms-r2-audit.ts",
     "test:appointment-forms-r3": "tsx tests/appointment-forms-r3-audit.ts",
+    "test:one-line-appointment": "tsx tests/one-line-appointment-audit.ts",
     "test:schedule-interface": "tsx tests/schedule-interface-audit.ts",
     "test:schedule-wipe": "tsx tests/schedule-wipe-audit.ts",
     "test:repo-hygiene": "node tests/repo-hygiene-guard.mjs",
