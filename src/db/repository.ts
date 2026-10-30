@@ -2600,7 +2600,9 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 /** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
 export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
   /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
-  | "seatLedgers" | "seatMemberLinks";
+  | "seatLedgers" | "seatMemberLinks"
+  /* طلبُ شعبة (src/utils/sectionRequests.ts): وثيقةٌ لكل طلب، معرّفُها يبدأ بفصله `${termId}:`. */
+  | "sectionRequests";
 /** معرّفُ وثيقة Firestore لا يحمل «/». */
 const featureDocId = (id: string) => String(id || "").replace(/\//g, "_").slice(0, 300);
 

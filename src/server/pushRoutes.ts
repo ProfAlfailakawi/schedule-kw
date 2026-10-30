@@ -57,6 +57,8 @@ export const CARD_RECENT_MS = 10 * 60_000;
 export const HOOK_WAIT_MS = 2500;
 
 type Audience = (collegeId: number, sectionId: number) => boolean;
+/** حسابٌ فعّل التنبيهات، بالشكل الذي تقرؤه قواعدُ النطاق (isScopeAllowed) والصفة. */
+export interface PushAccount { user: any; userId: number; scopes: Array<{ AdCollegeId: number; AdSectionId: number }>; permissions: number[] }
 type AdminKind = "requests" | "replies";
 
 const scopeKey = (collegeId: number, sectionId: number) => `${Number(collegeId) || 0}:${Number(sectionId) || 0}`;
@@ -92,6 +94,7 @@ function createPushEngine(deps: PushRouteDeps) {
   const contextKey = createDataContextKey(() => Repository.currentDemoSessionId());
   const audienceMemo = createTtlMemo<Audience | null>({ ttlMs: 120_000, now: clock });
   const sectionNames = createTtlMemo<Map<string, string>>({ ttlMs: 10 * 60_000, now: clock });
+  const accountMemo = createTtlMemo<PushAccount | null>({ ttlMs: 120_000, now: clock });
 
   const log = (label: string, error: unknown) => console.warn(`[push] ${label}:`, error instanceof Error ? error.message : error);
 
@@ -195,8 +198,35 @@ function createPushEngine(deps: PushRouteDeps) {
     await deliver(records, message, { urgency: "high", topic: pushTopic(`card:${token}`) });
   }
 
+  /** الحسابُ كما تحتاجه قاعدةُ نطاقٍ وصفة: المستخدمُ ونطاقاتُه وأذوناتُه (شكلُ الطلب الموثَّق). */
+  function accountOf(userId: number): Promise<PushAccount | null> {
+    return accountMemo.get(contextKey(`push-account:${userId}`), async () => {
+      const user = await Repository.getUserById(userId);
+      if (!user || !user.IsActive || user.IsLocked || user.IsDeleted) return null;
+      const [scopes, security] = await Promise.all([Repository.getUserAssigns(userId), Repository.getSecurityByUser(userId)]);
+      return { user, userId, scopes, permissions: security.map(item => Number(item.FormNameId)) };
+    });
+  }
+
+  /**
+   * تنبيهٌ لمن يختارهم صاحبُ الحدث بقاعدته (طلبُ شعبة: الإرشادُ، واللجنة، والتسجيل في نطاقهم).
+   * يُسأل كلُّ حسابٍ فعّل التنبيهات مرّةً، ولا يصل من لا تنطبق عليه القاعدة.
+   */
+  async function noteForAccounts(pick: (account: PushAccount) => boolean, message: PushMessage, topicSeed: string) {
+    const subscribed = await Repository.listPushSubscriptions({ ownerKind: "user" });
+    const userIds = [...new Set(subscribed.map(record => Number(record.userId)).filter(Boolean))];
+    if (!userIds.length) return;
+    const chosen = new Set<number>();
+    for (const userId of userIds) {
+      const account = await accountOf(userId).catch(() => null);
+      if (account && pick(account)) chosen.add(userId);
+    }
+    if (!chosen.size) return;
+    await deliver(subscribed.filter(record => chosen.has(Number(record.userId))), message, { urgency: "normal", topic: pushTopic(topicSeed) });
+  }
+
   return {
-    vapid, deliver, audienceOf, liveCardRecords, limiter,
+    vapid, deliver, audienceOf, liveCardRecords, limiter, noteForAccounts,
     requestSubmitted(request: InstructorRequest) {
       const scopes = [
         { collegeId: Number(request.AdCollegeId), sectionId: Number(request.AdSectionId) },
@@ -271,6 +301,8 @@ export const pushHooks = {
   departmentReplied: (request: InstructorRequest, index: number) => fire("department reply", current => current.departmentReplied(request, index)),
   /** 🎓 موجةُ مرحلة التدريب أُرسلت: لكل مدرّبٍ إلى كرته الجديد. */
   taWindowOpened: (closesAt: string, sent: Array<{ instructorId: number; linkId: string }>) => fire("ta window", current => current.taWindowOpened(closesAt, sent)),
+  /** 📨 طلبُ شعبة (src/server/sectionRequestsRoutes.ts): لمن تختارهم قاعدةُ الطرف بنطاقه وصفته. */
+  toAccounts: (pick: (account: PushAccount) => boolean, message: PushMessage, topicSeed: string) => fire("section request", current => current.noteForAccounts(pick, message, topicSeed)),
   /** تسجيلُ خروجٍ صريح: تُسقط اشتراكاتُ الأجهزة التي فُعّلت من تلك الجلسة. */
   signedOut: (sessionId: string) => fire("signed out", current => current.signedOut(sessionId)),
 };
