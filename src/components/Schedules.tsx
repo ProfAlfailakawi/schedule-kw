@@ -9,6 +9,9 @@ import RowHistory from "./RowHistory";
 import { TimeField } from "./TimeField";
 import {
   Activity,
+  BookOpen,
+  Check,
+  UserRound,
   AlertTriangle,
   ArrowLeftRight,
   Bookmark,
@@ -73,11 +76,11 @@ import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
-import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } from "./TeacherMiniWeek";
+import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, useWiderWeek, type MiniPick } from "./TeacherMiniWeek";
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
-import { appointmentVerdict, type VerdictCheck } from "../utils/appointmentVerdict";
+import { appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
 import { bestRegulationChoice, completeRegulation, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
@@ -180,7 +183,7 @@ import { adviseDayPattern, DECISION_1912_LABEL, expectedMinutesForDay, isDecisio
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { rowClashReasons } from "../utils/scheduleBlockers";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
-import { fitsCoursePattern } from "../utils/teacherMiniWeek";
+import { fitsCoursePattern, teacherHeader, teacherRows } from "../utils/teacherMiniWeek";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
 import { historicalLocationNeedsReview, normalizeLocationToken, roomDisplay, roomIdentityKey } from "../utils/locationRegistry";
 import { findRepairChain, type RepairChain } from "../utils/repairChain";
@@ -4167,6 +4170,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (!altJump) return;
     const node = alternativesRef.current;
     if (!node) return;
+    /* على الشاشة الضيّقة تغطي لوحةُ الفحص النموذج: تنطوي أولاً ليُرى «بدائل آمنة». */
+    if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 1100px)").matches) setStudioChecksOpen(false);
     const reduce = typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
     node.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
     node.focus({ preventScroll: true });
@@ -9104,12 +9109,137 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         </Surface>
       </div>
     );
+  /* ── «موعد جديد» بالتصميم الجديد (المالك 2026-10-30) ───────────────────────────
+     أربعة أسئلة: ماذا؟ من؟ متى؟ أين؟ — المقرر والأستاذ ينطويان سطراً بعد الاختيار
+     ويُفتحان بـ«تغيير»؛ شريطُ حفظٍ ثابت بملخّصٍ وحالةٍ واحدة؛ لوحةُ الفحص تنسدل من
+     اليسار عند الطلب (ومن الأسفل على الهاتف)؛ و«أسبوع الأستاذ» يلتصق بجانب «متى؟».
+     كلُّ ما كان في النموذج باقٍ في مكانه الجديد — لم تُحذف ميزة. */
+  const [studioCourseOpen, setStudioCourseOpen] = useState(false);
+  const [studioTeacherOpen, setStudioTeacherOpen] = useState(false);
+  const [studioScopeOpen, setStudioScopeOpen] = useState(false);
+  const [studioChecksOpen, setStudioChecksOpen] = useState(false);
+  const studioGridRef = useRef<HTMLDivElement | null>(null);
+  const studioTimeRef = useRef<HTMLElement | null>(null);
+  const [studioWeekOffset, setStudioWeekOffset] = useState(0);
+  const studioOpenRequest = useRef<"" | "course" | "instructor">("");
+  useEffect(() => {
+    const request = studioOpenRequest.current;
+    studioOpenRequest.current = "";
+    setStudioCourseOpen(request === "course");
+    setStudioTeacherOpen(request === "instructor");
+    setStudioScopeOpen(false);
+    setStudioChecksOpen(false);
+  }, [editor, editId]);
+  /* «أسبوع الأستاذ» يبدأ بمحاذاة رأس «متى؟» ثم يلتصق بأعلى الشاشة مع التمرير. */
+  useEffect(() => {
+    if (editor === "index") return;
+    const grid = studioGridRef.current, step = studioTimeRef.current;
+    if (!grid || !step) return;
+    const measure = () => setStudioWeekOffset(Math.max(0, Math.round(step.getBoundingClientRect().top - grid.getBoundingClientRect().top)));
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    observer.observe(step);
+    return () => observer.disconnect();
+  }, [editor]);
+  /* Esc يطوي لوحة الفحص أولاً، ولا يغلق النموذج من تحتها. */
+  useEffect(() => {
+    if (!studioChecksOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setStudioChecksOpen(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [studioChecksOpen]);
+  const studioTermId = Number(form.AdTermId || filterTerm || 0);
+  const studioTeacherId = Number(form.AdInstructorId || 0);
+  /* النصاب في سطر الأستاذ حين يكون «أسبوعه» مطفأً (وإلا قاله الأسبوع نفسه). */
+  const studioWider = useWiderWeek(miniWeekEnabled ? 0 : studioTeacherId, studioTermId, rows);
+  const studioLoad = !miniWeekEnabled && studioTeacherId && !isFacultyPlaceholderId(studioTeacherId)
+    ? teacherHeader(teacherRows([...rows, ...studioWider], studioTeacherId, studioTermId, editor === "edit" ? Number(editId || 0) : 0), courseById, form, loadNisabOf(instructorById.get(studioTeacherId)).nisab, editorOriginalRow)
+    : null;
+  /* «كالمعتاد» يعرف المحجوز: يقول «هذا الوقت لشعبة 01» قبل أن يملأ (المالك 2026-10-30). */
+  const studioUsualTaken = useMemo(() => {
+    const seed = courseNature?.suggestion;
+    const courseId = Number(form.AdCourseId || 0);
+    if (!seed || !courseId) return null;
+    const start = mins(String(seed.start || "")), end = mins(String(seed.end || ""));
+    if (!(end > start)) return null;
+    return rows.find(row => Number(row.AdCourseId) === courseId && Number(row.AdTermId) === studioTermId
+      && Number(row.id) !== Number(editId || 0)
+      && (seed.days as readonly string[]).some(day => Boolean((row as any)[day]))
+      && mins(String(row.fstarttime || "")) < end && mins(String(row.fendtime || "")) > start) || null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseNature, rows, form.AdCourseId, studioTermId, editId]);
+  const studioMissing = missingAppointmentFields(form as any);
+  const studioCourseDone = Boolean(Number(form.AdCourseId || 0) && courseName);
+  const studioTeacherDone = Boolean(studioTeacherId);
+  const studioCourseExpanded = !studioCourseDone || studioCourseOpen;
+  const studioTeacherExpanded = !studioTeacherDone || studioTeacherOpen;
+  const studioScopeMissing = !Number(form.AdCollegeId || 0) || !Number(form.AdSectionId || 0) || !Number(form.AdTermId || 0);
+  const studioScopeExpanded = studioScopeMissing || studioScopeOpen;
+  const studioTermName = String(terms.find(term => Number(term.AdTermId) === Number(form.AdTermId))?.AdTermName || "");
+  const studioBlockers = editorVerdict.blockers.length, studioNotes = editorVerdict.notes.length;
+  const studioTone = approvalLock ? "locked" : studioBlockers ? "block" : checking ? "checking" : studioMissing.length ? "missing" : studioNotes ? "warn" : "ok";
+  const studioDuration = form.fstarttime && form.fendtime ? Math.max(0, mins(String(form.fendtime)) - mins(String(form.fstarttime))) : 0;
+  const studioEndByPattern = Boolean(form.fendtime) && !timingOverride && regulationHours(formCourse) > 0 && formRegulationFit !== "off";
+  const studioWeekShown = miniWeekEnabled && !(studioTeacherId && isFacultyPlaceholderId(studioTeacherId));
+  const studioOriginal = editor === "edit" ? editorOriginalRow : null;
+  const studioChanged = studioOriginal ? {
+    course: Number(studioOriginal.AdCourseId) !== Number(form.AdCourseId) || String(studioOriginal.SCode || "") !== String(form.SCode || ""),
+    teacher: Number(studioOriginal.AdInstructorId) !== Number(form.AdInstructorId),
+    days: days.some(day => Boolean((studioOriginal as any)[day.key]) !== Boolean(form[day.key])),
+    time: String(studioOriginal.fstarttime || "") !== String(form.fstarttime || "") || String(studioOriginal.fendtime || "") !== String(form.fendtime || ""),
+    room: String(studioOriginal.AdRoomCode || "") !== String(form.AdRoomCode || "") || String(studioOriginal.AdRoomHall || "") !== String(form.AdRoomHall || ""),
+  } : null;
+  /* ── الترتيب الإلزامي (المالك 2026-10-30): النطاق ← المقرر ← الأستاذ ← الوقت ← المكان ── */
+  const studioTimeDone = Boolean(selectedFormDays.length && form.fstarttime && form.fendtime);
+  const studioCourseLocked = studioScopeMissing;
+  const studioTeacherLocked = studioCourseLocked || !studioCourseDone;
+  const studioTimeLocked = studioTeacherLocked || !studioTeacherDone;
+  const studioPlaceLocked = studioTimeLocked || !studioTimeDone;
+  const studioTimeSeed = [arabicDays(form), form.fstarttime && form.fendtime ? formatScheduleTimeRange(form.fstarttime, form.fendtime) : ""].filter(Boolean).join(" · ");
+  const studioRoomSeed = form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : "";
+  const studioLockedStep = (key: string, num: React.ReactNode, title: string, waits: string, seed = "", ref?: React.Ref<HTMLElement>) => (
+    <section className="schedule-form-section appt-step is-locked" aria-label={`${title} — ${waits}`} aria-disabled="true" data-appt-step={key} ref={ref as any}>
+      <header className="appt-step-head">
+        <span className="appt-num">{num}</span>
+        <div className="appt-q"><strong>{title}</strong><small>{seed ? <><bdi>{seed}</bdi> · </> : null}{waits}</small></div>
+        <Lock aria-hidden="true" className="appt-lock" />
+      </header>
+    </section>
+  );
+  /* حين يُجاب سؤالٌ في «موعد جديد» ينطوي، ويُسلَّم المؤشر للسؤال التالي — بلا قفزٍ عند الفتح. */
+  const studioDoneNow = { scope: !studioScopeMissing, course: studioCourseDone, teacher: studioTeacherDone };
+  const studioDonePrev = useRef(studioDoneNow);
+  const studioDoneKey = `${editor}|${editId || 0}`;
+  const studioDoneOpenedKey = useRef(studioDoneKey);
+  useEffect(() => {
+    const prev = studioDonePrev.current;
+    studioDonePrev.current = studioDoneNow;
+    if (studioDoneOpenedKey.current !== studioDoneKey) { studioDoneOpenedKey.current = studioDoneKey; return; }
+    if (editor !== "create") return;
+    const next = !prev.scope && studioDoneNow.scope ? "course" : !prev.course && studioDoneNow.course ? "teacher" : !prev.teacher && studioDoneNow.teacher ? "time" : "";
+    if (!next) return;
+    window.requestAnimationFrame(() => {
+      const step = document.querySelector<HTMLElement>(`.schedule-editor.is-studio [data-appt-step="${next}"]`);
+      if (!step) return;
+      const reduce = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+      step.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+      const target = step.querySelector<HTMLElement>(next === "course" ? 'button[aria-label="المقرر الدراسي"]' : next === "teacher" ? ".instructor-trigger" : ".day-pills input");
+      target?.focus({ preventScroll: true });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studioDoneKey, studioDoneNow.scope, studioDoneNow.course, studioDoneNow.teacher]);
+  const studioChip = (done: boolean, changed?: boolean) => `appt-chip${done ? "" : " is-missing"}${changed ? " is-changed" : ""}`;
+  const studioInitial = String(selectedInstructor?.AdInstructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
   const editorView = (
-      <div className="content-stack editor-page schedule-editor">
-        {/* The way out, at the top where the eye already is. The only exit used
-            to be a button at the far end of a four-section form, below the fold
-            on any ordinary screen — so changing one's mind meant scrolling a
-            whole page to find permission to leave. */}
+      <div className={`content-stack editor-page schedule-editor is-studio${studioChecksOpen ? " is-checks-open" : ""}`} data-tone={studioTone}>
+        {/* The way out, at the top where the eye already is. */}
         <button
           type="button"
           className="drawer-close schedule-editor-close no-print"
@@ -9121,33 +9251,36 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         </button>
         <PageTitle
           eyebrow="الجدول الدراسي"
-          subtitle="فحص لحظي قبل الحفظ"
+          subtitle={
+            <span className="appt-scope">
+              <Building2 aria-hidden="true" />
+              <span className="appt-scope-text">{[formScopeLabel, studioTermName].filter(Boolean).join(" · ") || "اختر الكلية والقسم والفصل"}</span>
+              {!studioScopeMissing ? (
+                <button type="button" className="appt-link" aria-expanded={studioScopeExpanded} onClick={() => setStudioScopeOpen(open => !open)}
+                  data-guide-ignore="يُظهر حقول الكلية والقسم والفصل لتغيير نطاق الموعد أو يطويها؛ لا يحفظ شيئاً">
+                  {studioScopeExpanded ? "تم" : "تغيير"}
+                </button>
+              ) : null}
+              {editor === "edit" ? <span className="appt-edit-tag"><Edit2 aria-hidden="true" />تعديل</span> : null}
+            </span>
+          }
         >
-          {editor === "create" ? "إضافة موعد دراسي" : "تعديل موعد دراسي"}
+          {editor === "create" ? "موعد جديد" : "تعديل موعد"}
         </PageTitle>
+        <span className="appt-esc" aria-hidden="true"><kbd>Esc</kbd> للإغلاق</span>
         {error ? <div className="schedule-editor-error" role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
         {/* The editor no longer closes after a creation, so the confirmation has
-            to be readable where the person is still standing. It clears itself
-            on the shared 5-second timer, like every other success line. */}
+            to be readable where the person is still standing. */}
         {message ? <Notice type="success">{message}</Notice> : null}
-        <div className="schedule-editor-grid">
-          <Surface className="form-card smart-form">
-            <div className="form-intro">
-              <span>
-                <CalendarDays />
-              </span>
-              <div>
-                <strong>تفاصيل الموعد</strong>
-                <p>البيانات · الأيام · الوقت · المكان</p>
-              </div>
-            </div>
-            {formScopeLabel?<div className="scope-inline-note"><strong>النطاق الجاهز</strong><span>{formScopeLabel}</span></div>:null}
-            {editorVerdict.blockers.length?<div className="editor-validation-strip" role="alert"><AlertTriangle/><div><strong>صحّح قبل الحفظ</strong>{editorVerdict.blockers.map(x=><span key={x.id}>{x.text}</span>)}</div></div>:null}
+        <div className={`schedule-editor-grid appt-layout${studioWeekShown ? " has-week" : ""}`} ref={studioGridRef}
+          style={{ ["--appt-week-offset" as any]: `${studioWeekOffset}px` }}>
+          <Surface className="form-card smart-form appt-form">
             <form onSubmit={save}>
-              <div className="schedule-form-sections">
-                <section className="schedule-form-section">
-                  <header><span>1</span><div><strong>النطاق الأكاديمي</strong><small>الكلية والقسم والفصل</small></div></header>
-                  <div className="form-grid">
+              <div className="schedule-form-sections appt-steps">
+                {studioScopeExpanded ? (
+                <section className="schedule-form-section appt-step appt-scope-step" aria-label="النطاق">
+                  <header className="appt-step-head"><span className="appt-num is-icon"><Building2 aria-hidden="true" /></span><div className="appt-q"><strong>النطاق</strong><small>الكلية والقسم والفصل</small></div></header>
+                  <div className="form-grid appt-fields">
                 {!formScope.lockCollege ? <Field label="الكلية" required>
                   <select value={form.AdCollegeId || ""} onChange={(e) => { const id=Number(e.target.value)||0; setForm(p=>({...p,AdCollegeId:id,AdSectionId:resolveScopeSelection(scopes,id,isPowerAdmin).defaultSectionId||0,AdCourseId:0})); setCourseName(""); }} required>
                     <option value="">اختر ...</option>{colleges.map(c=><option key={c.AdCollegeId} value={c.AdCollegeId}>{c.AdCollegeName}</option>)}
@@ -9174,9 +9307,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </Field>
                   </div>
                 </section>
-                <section className="schedule-form-section">
-                  <header><span>2</span><div><strong>بيانات المقرر</strong><small>المقرر والرمز والشعبة</small></div></header>
-                  <div className="form-grid">
+                ) : null}
+                {studioCourseLocked ? studioLockedStep("course", 1, "ماذا؟ المقرر", "يُفتح بعد اختيار الكلية والقسم والفصل") : studioCourseExpanded ? (
+                <section className="schedule-form-section appt-step" aria-label="المقرر" data-appt-step="course">
+                  <header className="appt-step-head">
+                    <span className="appt-num">1</span>
+                    <div className="appt-q"><strong>ماذا؟ المقرر</strong><small>اكتب حرفين من اسمه أو رمزه</small></div>
+                    {studioCourseDone ? <button type="button" className="appt-link" onClick={() => setStudioCourseOpen(false)}
+                      data-guide-ignore="يطوي حقول المقرر سطراً واحداً بعد الاختيار؛ لا يغيّر شيئاً">تم</button> : null}
+                  </header>
+                  <div className="form-grid appt-fields appt-fields-3">
                 <Field label="المقرر الدراسي" required>
                   <SearchableSelect
                     guideField="course-name"
@@ -9243,10 +9383,45 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </Field>
                   </div>
                 </section>
-                <section className="schedule-form-section">
-                  <header><span>3</span><div><strong>التدريس</strong><small>الأستاذ وأيام المحاضرة</small></div></header>
-                  <div className="form-grid">
-                <Field label="أستاذ المقرر" required>
+                ) : (
+                <div className="appt-sumrow" aria-label="المقرر" data-appt-step="course">
+                  <span className="appt-num is-done"><Check aria-hidden="true" /></span>
+                  <span className="appt-kv"><span className="k">المقرر</span><span className="v">{courseName}</span></span>
+                  {formCourse?.CourseCode ? <span className="appt-tag is-muted" dir="ltr">{String(formCourse.CourseCode)}</span> : null}
+                  {courseSpellingTwins.length ? <span className="appt-tag is-warn" title={`إملاء آخر: «${courseSpellingTwins[0]}» — الدمج من «فحص المقررات المكررة» في مراجعة الصحيفة`}><AlertTriangle aria-hidden="true" />إملاء آخر</span> : null}
+                  <span className="appt-sumrow-end">
+                    <label className="appt-secchip" title={sectionHint ? String(sectionHint) : "رقم الشعبة"}>
+                      <span>شعبة</span>
+                      <input
+                        value={form.SCode}
+                        maxLength={20}
+                        inputMode="numeric"
+                        aria-label="الشعبة"
+                        size={4}
+                        onChange={(e) => {
+                          sectionAutofilled.current = false;
+                          const value = normalizeArabicDigits(e.target.value);
+                          if (englishDigits(value)) setForm((p) => ({ ...p, SCode: value }));
+                        }}
+                        required
+                      />
+                      <Edit2 aria-hidden="true" />
+                    </label>
+                    <button type="button" className="appt-link" onClick={() => setStudioCourseOpen(true)}
+                      data-guide-ignore="يفتح حقول المقرر والرمز والشعبة لتغييرها؛ لا يحفظ شيئاً">تغيير</button>
+                  </span>
+                </div>
+                )}
+                {studioTeacherLocked ? studioLockedStep("teacher", 2, "من؟ الأستاذ", "يُفتح بعد اختيار المقرر") : studioTeacherExpanded ? (
+                <section className="schedule-form-section appt-step" aria-label="الأستاذ" data-appt-step="teacher">
+                  <header className="appt-step-head">
+                    <span className="appt-num">2</span>
+                    <div className="appt-q"><strong>من؟ الأستاذ</strong><small>أساتذة القسم والمنتدبون إليه</small></div>
+                  <div className="instructor-tools"><MiniWeekToggle enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /></div>
+                    {studioTeacherDone ? <button type="button" className="appt-link" onClick={() => setStudioTeacherOpen(false)}
+                      data-guide-ignore="يطوي حقل الأستاذ سطراً واحداً بعد الاختيار؛ لا يغيّر شيئاً">تم</button> : null}
+                  </header>
+                  <Field label="أستاذ المقرر" required>
                   <div data-guide-editor-field="instructor">
                   <InstructorPicker
                     value={Number(form.AdInstructorId) || 0}
@@ -9269,51 +9444,28 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     strictDepartmentOnly
                   />
                   </div>
-                  {/* The civil ID already sits inside the picker beneath the
-                      name; repeating it under the field was the same number
-                      twice. */}
+                  </Field>
+                </section>
+                ) : (
+                <div className="appt-sumrow" aria-label="الأستاذ" data-appt-step="teacher">
+                  <span className="appt-num is-done"><Check aria-hidden="true" /></span>
+                  <span className="appt-avatar" aria-hidden="true">{studioInitial}</span>
+                  <span className="appt-kv"><span className="k">الأستاذ</span><span className="v">{selectedInstructor?.AdInstructorName || ""}</span></span>
+                  {formVisiting(form.AdInstructorId) ? <VisitingBadge compact /> : null}
+                  {studioLoad ? <span className="appt-tag is-info" title="النصاب الآن ثم بعد هذا الموعد">النصاب <bdi dir="ltr">{studioLoad.loadNow}</bdi> ← <bdi dir="ltr">{studioLoad.loadAfter}</bdi></span> : null}
+                  <span className="appt-sumrow-end">
                   <div className="instructor-tools"><MiniWeekToggle enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /></div>
-                </Field>
-                {courseNature && courseNature.confidence !== "low" ? (
-                  <div className="nature-card">
-                    <div>
-                      <span className="surface-kicker">كما يُدرَّس هذا المقرر عادةً</span>
-                      <strong>{courseNature.summary}</strong>
-                      <small>
-                        من {countOf(courseNature.terms, oblique(AR.term))}
-                        · {countOf(courseNature.observations, AR.section)}
-                        {courseNature.sectionsPerTerm > 1 ? ` · عادةً ${countOf(courseNature.sectionsPerTerm, AR.section)} في الفصل` : ""}
-                      </small>
-                    </div>
-                    {courseNature.suggestion ? (
-                      <button
-                        type="button"
-                        data-guide-target="schedule.action.quick-fill"
-                        data-guide-title="املأ كالمعتاد"
-                        data-guide-description="يعبّئ الأيام والوقت والمكان من النمط المعتاد لهذا المقرر لتختصر الإدخال اليدوي، ثم تراجع القيم قبل الحفظ."
-                        onClick={() => {
-                          const seed = courseNature.suggestion!;
-                          setScheduleTouched(true);
-                          /* العادة المرصودة اختيارٌ متعمَّد: لا يُعاد كتابتها بالنمط (والخادم يعفي المقرر المعتاد). */
-                          daysSeeded.current = false;
-                          setTimingOverride(regulationFit(formCourse, seed.days as RegDayKey[], seed.start, seed.end) === "off");
-                          setForm(previous => {
-                            const next: any = { ...previous };
-                            days.forEach(day => { next[day.key] = seed.days.includes(day.key as any); });
-                            next.fstarttime = seed.start;
-                            next.fendtime = seed.end;
-                            if (seed.building) next.AdRoomCode = seed.building;
-                            if (seed.hall) next.AdRoomHall = seed.hall;
-                            if (seed.instructorId && !next.AdInstructorId) next.AdInstructorId = seed.instructorId;
-                            return next;
-                          });
-                        }}
-                      >
-                        املأ كالمعتاد
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
+                    <button type="button" className="appt-link" onClick={() => setStudioTeacherOpen(true)}
+                      data-guide-ignore="يفتح حقل الأستاذ لتغييره؛ لا يحفظ شيئاً">تغيير</button>
+                  </span>
+                </div>
+                )}
+                {studioTimeLocked ? studioLockedStep("time", 3, "متى؟ الأيام والوقت", "يُفتح بعد اختيار الأستاذ", studioTimeSeed, studioTimeRef) : (
+                <section className="schedule-form-section appt-step is-time" aria-label="الأيام والوقت" ref={studioTimeRef} data-appt-step="time">
+                  <header className="appt-step-head">
+                    <span className="appt-num">3</span>
+                    <div className="appt-q"><strong>متى؟ الأيام والوقت</strong><small>اختر الأيام أو نمطاً من اللائحة، ثم البداية</small></div>
+                  </header>
                 <Field label="الأيام" hint={dayPatternNote}>
                   <div className={`checkbox-row day-pills${autofillFlash ? " is-autofilled" : ""}`}>
                     {days.map((d) => (
@@ -9336,25 +9488,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     autofilled={autofillFlash}
                   />
                 </Field>
-                {Number(form.AdInstructorId || 0) && !isFacultyPlaceholderId(Number(form.AdInstructorId)) ? (
-                  <LectureStickChips
-                    teacherId={Number(form.AdInstructorId)}
-                    rows={rows}
-                    termId={Number(form.AdTermId || filterTerm || 0)}
-                    collegeId={Number(form.AdCollegeId || 0)}
-                    excludeId={editor === "edit" ? Number(editId || 0) : 0}
-                    course={formCourse}
-                    courses={courseById}
-                    window={miniWeekWindow}
-                    draft={form}
-                    onPick={pickFromMiniWeek}
-                  />
-                ) : null}
-                  </div>
-                </section>
-                <section className="schedule-form-section">
-                  <header><span>4</span><div><strong>الوقت والمكان</strong><small>الفترة والمبنى والقاعة</small></div></header>
-                  <div className="form-grid">
+                  <div className="form-grid appt-fields appt-time-fields">
                 <Field label="بداية الوقت" required>
                   <div className="schedule-time-control" dir="ltr" ref={timeCounterAnchor}>
                     <TimeField
@@ -9414,7 +9548,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     />
                   ) : null}
                 </Field>
-                <Field label="نهاية الوقت" required>
+                <Field label={<span className="appt-label-row">نهاية الوقت{studioEndByPattern ? <span className="appt-tag is-ok">حسب النمط</span> : null}</span>} required>
                   <div className={`schedule-time-control${autofillFlash ? " is-autofilled" : ""}`} dir="ltr">
                     <TimeField
                      
@@ -9438,6 +9572,122 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </div>
                   {endTimeLimitNotice ? <small className="schedule-time-limit-note" role="status">{endTimeLimitNotice}</small> : null}
                 </Field>
+                <div className="field appt-duration">
+                  <span className="appt-duration-label">المدة</span>
+                  <div className="appt-duration-value"><bdi dir="ltr">{studioDuration ? studioDuration : "—"}</bdi>{studioDuration ? <small>د</small> : null}</div>
+                </div>
+                  </div>
+                  {editorVerdict.blockers.length?<div className="editor-validation-strip" role="alert">
+                    <X aria-hidden="true" className="appt-inline-mark" />
+                    <span className="appt-inline-text">{editorVerdict.blockers[0].text}</span>
+                    {editorVerdict.blockers.length > 1 ? <button type="button" className="appt-inline-more" onClick={() => setStudioChecksOpen(true)}
+                      data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً">+{editorVerdict.blockers.length - 1}</button> : null}
+                    <button type="button" className="appt-inline-alt" onClick={() => goToAlternatives()} disabled={altBusy}
+                      data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً"><WandSparkles aria-hidden="true" />{altBusy ? "…" : "بديل"}</button>
+                  </div>:null}
+                  <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
+                    <span className="appt-helpers-label">مساعدات الوقت</span>
+                    <button
+                      type="button"
+                      className="slot-advisor-ask"
+                      onClick={askForSlots}
+                      disabled={slotBusy || !selectedFormDays.length}
+                      title={selectedFormDays.length ? "اقترح أفضل ثلاث خانات" : "اختر الأيام أولاً"}
+                    >
+                      <Sparkles aria-hidden="true" />
+                      {slotBusy ? "أبحث…" : "اقترح لي وقتاً وقاعة"}
+                    </button>
+                    {courseNature && courseNature.confidence !== "low" ? (
+                      courseNature.suggestion ? (
+                        <button
+                          type="button"
+                          className={`appt-helper appt-usual${studioUsualTaken ? " is-taken" : ""}`}
+                          title={`كما يُدرَّس هذا المقرر عادةً: ${courseNature.summary} · من ${countOf(courseNature.terms, oblique(AR.term))} · ${countOf(courseNature.observations, AR.section)}${courseNature.sectionsPerTerm > 1 ? ` · عادةً ${countOf(courseNature.sectionsPerTerm, AR.section)} في الفصل` : ""}${studioUsualTaken ? ` · هذا الوقت لشعبة ${studioUsualTaken.SCode || "أخرى"}` : ""}`}
+                        data-guide-target="schedule.action.quick-fill"
+                        data-guide-title="املأ كالمعتاد"
+                        data-guide-description="يعبّئ الأيام والوقت والمكان من النمط المعتاد لهذا المقرر لتختصر الإدخال اليدوي، ثم تراجع القيم قبل الحفظ."
+                        onClick={() => {
+                          const seed = courseNature.suggestion!;
+                          setScheduleTouched(true);
+                          /* العادة المرصودة اختيارٌ متعمَّد: لا يُعاد كتابتها بالنمط (والخادم يعفي المقرر المعتاد). */
+                          daysSeeded.current = false;
+                          setTimingOverride(regulationFit(formCourse, seed.days as RegDayKey[], seed.start, seed.end) === "off");
+                          setForm(previous => {
+                            const next: any = { ...previous };
+                            days.forEach(day => { next[day.key] = seed.days.includes(day.key as any); });
+                            next.fstarttime = seed.start;
+                            next.fendtime = seed.end;
+                            if (seed.building) next.AdRoomCode = seed.building;
+                            if (seed.hall) next.AdRoomHall = seed.hall;
+                            if (seed.instructorId && !next.AdInstructorId) next.AdInstructorId = seed.instructorId;
+                            return next;
+                          });
+                        }}
+                        >
+                          <History aria-hidden="true" />
+                          <span>املأ كالمعتاد</span>
+                          <small>{studioUsualTaken ? `هذا الوقت لشعبة ${studioUsualTaken.SCode || "أخرى"}` : courseNature.summary}</small>
+                        </button>
+                      ) : (
+                        <span className="appt-helper is-static" title={`من ${countOf(courseNature.terms, oblique(AR.term))} · ${countOf(courseNature.observations, AR.section)}`}>
+                          <History aria-hidden="true" /><span>كما يُدرَّس عادةً</span><small>{courseNature.summary}</small>
+                        </span>
+                      )
+                    ) : null}
+                {Number(form.AdInstructorId || 0) && !isFacultyPlaceholderId(Number(form.AdInstructorId)) ? (
+                  <LectureStickChips
+                    teacherId={Number(form.AdInstructorId)}
+                    rows={rows}
+                    termId={Number(form.AdTermId || filterTerm || 0)}
+                    collegeId={Number(form.AdCollegeId || 0)}
+                    excludeId={editor === "edit" ? Number(editId || 0) : 0}
+                    course={formCourse}
+                    courses={courseById}
+                    window={miniWeekWindow}
+                    draft={form}
+                    onPick={pickFromMiniWeek}
+                  />
+                ) : null}
+                  </div>
+                  <div className="slot-advisor appt-tray-slot">
+                    {slotIdeas ? (
+                      slotIdeas.length || slotReplaceable.length ? (
+                        <RoomSuggestionCards variant="slot" suggestions={slotIdeas} onSelect={takeSlot} label="أفضل الأوقات والقاعات"
+                          replaceable={slotReplaceable} replaceBusy={replaceBusy}
+                          onReplaceable={(section, action) => void placeholderAction(section, action)} />
+                      ) : (
+                        <SuggestionEmpty reason={slotIdeasReason} note={slotIdeasNote || "لا توجد خانة خالية بهذه الأيام والمدة."} />
+                      )
+                    ) : null}
+                  </div>
+                  {/* ── «بدائل آمنة» داخل النموذج: «بديل» في لوحة الفحص ينزل إليها بسلاسة ويضيئها. */}
+                  {altBusy || alternatives ? (
+                    <section ref={alternativesRef} id="appointment-alternatives" tabIndex={-1} className="appointment-alternatives" aria-label="بدائل آمنة" aria-busy={altBusy}>
+                      <header className="appointment-alternatives-head">
+                        <span className="appointment-alternatives-mark" aria-hidden="true"><WandSparkles /></span>
+                        <b>بدائل آمنة</b>
+                        {altBusy ? <Loader2 className="checks-spin" aria-label="يبحث" /> : null}
+                        <button type="button" className="appointment-alternatives-close" aria-label="إغلاق البدائل" onClick={() => setAlternatives(null)}
+                          data-guide-ignore="يغلق قائمة البدائل الآمنة؛ لا يغيّر الموعد"><X aria-hidden="true" /></button>
+                      </header>
+                      {alternatives ? (
+                        alternatives.slots.length || (editor === "create" && Number(form.AdInstructorId || 0) && alternatives.replaceable.length)
+                          ? <RoomSuggestionCards variant="slot" suggestions={alternatives.slots} onSelect={takeSlot} label="أوقات وقاعات بلا تعارض"
+                              replaceable={editor === "create" && Number(form.AdInstructorId || 0) ? alternatives.replaceable : []} replaceBusy={replaceBusy}
+                              onReplaceable={(section, action) => void placeholderAction(section, action)} />
+                          : <SuggestionEmpty reason={alternatives.reason} note={alternatives.note} />
+                      ) : <div className="appointment-alternatives-skeleton" aria-hidden="true"><i /><i /><i /></div>}
+                    </section>
+                  ) : null}
+                </section>
+                )}
+                {studioPlaceLocked ? studioLockedStep("place", 4, "أين؟ المبنى والقاعة", "يُفتح بعد الأيام والوقت", studioRoomSeed) : (
+                <section className="schedule-form-section appt-step is-place" aria-label="المكان" data-appt-step="place">
+                  <header className="appt-step-head">
+                    <span className="appt-num">4</span>
+                    <div className="appt-q"><strong>أين؟ المبنى والقاعة</strong><small>قاعات القسم، والمشتركة، والمستعارة المعتمدة</small></div>
+                  </header>
+                  <div className="form-grid appt-place">
                 <LocationPicker
                   collegeId={Number(form.AdCollegeId||0)}
                   sectionId={Number(form.AdSectionId||0)}
@@ -9620,106 +9870,37 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </div>
                 ) : null}
                   </div>
-                  <div className="slot-advisor">
-                    <button
-                      type="button"
-                      className="slot-advisor-ask"
-                      onClick={askForSlots}
-                      disabled={slotBusy || !selectedFormDays.length}
-                      title={selectedFormDays.length ? "اقترح أفضل ثلاث خانات" : "اختر الأيام أولاً"}
-                    >
-                      <Sparkles aria-hidden="true" />
-                      {slotBusy ? "أبحث…" : "اقترح لي وقتاً وقاعة"}
-                    </button>
-                    {slotIdeas ? (
-                      slotIdeas.length || slotReplaceable.length ? (
-                        <RoomSuggestionCards variant="slot" suggestions={slotIdeas} onSelect={takeSlot} label="أفضل الأوقات والقاعات"
-                          replaceable={slotReplaceable} replaceBusy={replaceBusy}
-                          onReplaceable={(section, action) => void placeholderAction(section, action)} />
-                      ) : (
-                        <SuggestionEmpty reason={slotIdeasReason} note={slotIdeasNote || "لا توجد خانة خالية بهذه الأيام والمدة."} />
-                      )
-                    ) : null}
-                  </div>
-                  {/* ── «بدائل آمنة» داخل النموذج: «بديل» في لوحة الفحص ينزل إليها بسلاسة ويضيئها. */}
-                  {altBusy || alternatives ? (
-                    <section ref={alternativesRef} id="appointment-alternatives" tabIndex={-1} className="appointment-alternatives" aria-label="بدائل آمنة" aria-busy={altBusy}>
-                      <header className="appointment-alternatives-head">
-                        <span className="appointment-alternatives-mark" aria-hidden="true"><WandSparkles /></span>
-                        <b>بدائل آمنة</b>
-                        {altBusy ? <Loader2 className="checks-spin" aria-label="يبحث" /> : null}
-                        <button type="button" className="appointment-alternatives-close" aria-label="إغلاق البدائل" onClick={() => setAlternatives(null)}
-                          data-guide-ignore="يغلق قائمة البدائل الآمنة؛ لا يغيّر الموعد"><X aria-hidden="true" /></button>
-                      </header>
-                      {alternatives ? (
-                        alternatives.slots.length || (editor === "create" && Number(form.AdInstructorId || 0) && alternatives.replaceable.length)
-                          ? <RoomSuggestionCards variant="slot" suggestions={alternatives.slots} onSelect={takeSlot} label="أوقات وقاعات بلا تعارض"
-                              replaceable={editor === "create" && Number(form.AdInstructorId || 0) ? alternatives.replaceable : []} replaceBusy={replaceBusy}
-                              onReplaceable={(section, action) => void placeholderAction(section, action)} />
-                          : <SuggestionEmpty reason={alternatives.reason} note={alternatives.note} />
-                      ) : <div className="appointment-alternatives-skeleton" aria-hidden="true"><i /><i /><i /></div>}
-                    </section>
-                  ) : null}
                 </section>
+                )}
               </div>
-              <div className="save-preview">
-                <span className="save-preview-icon">
-                  <Eye />
-                </span>
-                <div className="save-preview-copy">
-                  <small>معاينة قبل الحفظ</small>
-                  <strong>
-                    {courseName || "اختر المقرر"}
-                    {form.SCode ? ` · شعبة ${form.SCode}` : ""}
-                  </strong>
-                  <span>
-                    {selectedInstructor?.AdInstructorName || "اختر الأستاذ"}
-                    {selectedInstructor && formVisiting(form.AdInstructorId) ? <VisitingBadge compact /> : null} ·{" "}
-                    {arabicDays(form) || "اختر الأيام"}
+              <div className="save-preview appt-bar" role="group" aria-label="ملخّص الموعد">
+                <div className="appt-sum">
+                  <span className={studioChip(studioCourseDone, studioChanged?.course)}><BookOpen aria-hidden="true" /><span>{courseName || "المقرر"}{form.SCode ? ` · ${form.SCode}` : ""}</span></span>
+                  <span className={studioChip(studioTeacherDone, studioChanged?.teacher)}><UserRound aria-hidden="true" /><span>{selectedInstructor?.AdInstructorName || "الأستاذ"}</span>{selectedInstructor && formVisiting(form.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
+                  <span className={studioChip(selectedFormDays.length > 0, studioChanged?.days)}><CalendarDays aria-hidden="true" /><span>{arabicDays(form) || "الأيام"}</span></span>
+                  <span className={studioChip(Boolean(form.fstarttime && form.fendtime), studioChanged?.time)}><Clock3 aria-hidden="true" /><bdi dir="ltr">{form.fstarttime && form.fendtime ? formatScheduleTimeRange(form.fstarttime, form.fendtime) : "الوقت"}</bdi></span>
+                  <span className={studioChip(!studioMissing.includes("القاعة"), studioChanged?.room)}><DoorOpen aria-hidden="true" /><bdi dir="ltr">{form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : form.locationStatus === "PENDING_ROOM" ? "بانتظار القاعة" : "القاعة"}</bdi></span>
+                </div>
+                <button type="button" className={`appt-status is-${studioTone}`} aria-expanded={studioChecksOpen} aria-controls="appt-checks"
+                  onClick={() => setStudioChecksOpen(open => !open)}
+                  data-guide-ignore="يفتح لوحة فحص الموعد من اليسار بكل الموانع والتنبيهات وتفاصيلها؛ لا يحفظ شيئاً">
+                  {studioTone === "block" ? <span className="appt-status-count is-block"><X aria-hidden="true" />{studioBlockers}</span> : null}
+                  {studioNotes && studioTone !== "missing" ? <span className="appt-status-count is-warn"><AlertTriangle aria-hidden="true" />{studioNotes}</span> : null}
+                  <span className="appt-status-word">
+                    {studioTone === "locked" ? "لا يُحفظ الآن"
+                      : studioTone === "block" ? countOf(studioBlockers, AR.blocker)
+                        : studioTone === "checking" ? "يفحص…"
+                          : studioTone === "missing" ? (studioMissing.length >= 5 ? "ابدأ بالمقرر" : studioMissing.length > 1 ? `التالي: ${studioMissing[0]}` : `ناقص: ${studioMissing[0]}`)
+                            : studioTone === "warn" ? countOf(studioNotes, AR.note)
+                              : <><CheckCircle2 aria-hidden="true" />جاهز للحفظ</>}
                   </span>
-                </div>
-                <div className="save-preview-facts">
-                  <MetaPill
-                    label="الوقت"
-                    value={
-                      form.fstarttime && form.fendtime
-                        ? formatScheduleTimeRange(form.fstarttime, form.fendtime)
-                        : "—"
-                    }
-                    dir="ltr"
-                  />
-                  <MetaPill
-                    label="القاعة"
-                    value={
-                      form.AdRoomCode && form.AdRoomHall
-                        ? `${form.AdRoomCode}/${form.AdRoomHall}`
-                        : "—"
-                    }
-                  />
-                  {/* الحكم نفسه الذي تقرؤه لوحة الفحص والشريط وزرّ الحفظ. */}
-                  <Badge
-                    tone={
-                      editorVerdict.blockers.length
-                        ? "danger"
-                        : editorVerdict.notes.length
-                          ? "warning"
-                          : checking ? "neutral" : "success"
-                    }
-                  >
-                    {editorVerdict.blockers.length
-                      ? countOf(editorVerdict.blockers.length, AR.blocker)
-                      : checking
-                        ? "يفحص…"
-                        : editorVerdict.notes.length
-                          ? countOf(editorVerdict.notes.length, AR.note)
-                          : "جاهز"}
-                  </Badge>
-                </div>
+                  <span className="appt-status-more">التفاصيل<ChevronLeft aria-hidden="true" /></span>
+                </button>
+                <FormActions onBack={back} loading={saving} submitLabel="احفظ الموعد" submitDisabled={Boolean(!selectedFormDays.length||!editorVerdict.canSave)} />
               </div>
-              <FormActions onBack={back} loading={saving} submitDisabled={Boolean(!selectedFormDays.length||!editorVerdict.canSave)} />
             </form>
           </Surface>
-          <div className="editor-side">
+          <div className="editor-side appt-side">
           {miniWeekEnabled && Number(form.AdInstructorId || 0) && !isFacultyPlaceholderId(Number(form.AdInstructorId)) ? (
             <TeacherMiniWeek
               teacherId={Number(form.AdInstructorId)}
@@ -9742,8 +9923,27 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               onPick={pickFromMiniWeek}
             />
           ) : null}
+          {studioWeekShown && !studioTeacherId ? (
+            <div className="appt-week-ghost" aria-hidden="true">
+              <CalendarDays />
+              <b>هنا يظهر «أسبوع الأستاذ» وحده</b>
+              <small>بعد اختيار الأستاذ، بجانب خطوة الوقت</small>
+            </div>
+          ) : null}
+          </div>
+        </div>
+        <div className={`appt-drawer-scrim${studioChecksOpen ? " is-open" : ""}`} onClick={() => setStudioChecksOpen(false)} aria-hidden="true" />
+        <div id="appt-checks" className={`appt-drawer${studioChecksOpen ? " is-open" : ""}`} role="dialog" aria-label="فحص الموعد">
+          <div className="appt-drawer-head">
+            <span className="appt-drawer-grip" aria-hidden="true" />
+            <b>فحص الموعد</b>
+            <button type="button" className="appt-drawer-close" onClick={() => setStudioChecksOpen(false)} aria-label="إغلاق لوحة الفحص"
+              data-guide-ignore="يغلق لوحة فحص الموعد؛ لا يغيّر شيئاً"><X aria-hidden="true" /></button>
+          </div>
           <AppointmentChecksPanel
             verdict={editorVerdict}
+            missing={studioMissing}
+            saveLabel="احفظ الموعد"
             checking={checking}
             lockedReason={approvalLock}
             alternativeBusy={altBusy}
@@ -9839,7 +10039,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               </div>
             ) : null}
           </AppointmentChecksPanel>
-          </div>
         </div>
       </div>
     );
@@ -10084,6 +10283,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         if (row) {
           setMessage("هذا هو الموعد المقصود — سأفتح الحقل المطلوب بعد تحديده بصريًا.");
           revealGuideRowThen(row, () => {
+            studioOpenRequest.current = task === "instructor" ? "instructor" : task === "course" ? "course" : "";
+            if (task === "instructor") setStudioTeacherOpen(true);
+            if (task === "course") setStudioCourseOpen(true);
             openEdit(row);
             setMessage(task === "instructor" ? "اختر الأستاذ الجديد ثم راجع التعارضات قبل الحفظ." : task === "course" ? "اختر المقرر الجديد ثم راجع البيانات والتعارضات قبل الحفظ." : "عدّل الوقت ثم راجع النتيجة قبل الحفظ.");
             window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
