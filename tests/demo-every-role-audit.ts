@@ -115,6 +115,21 @@ try {
       check((upcoming?.rows || []).some((row: any) => row.status === "accepted"), `R3 «${role}»: وقسمٌ سبق فاعتُمد جدولُ فصله القادم`);
     }
 
+    /* ── R4 «طلبات الشعب» (الإرشاد ← اللجنة ← التسجيل): طلبٌ في كل مرحلة، والمرسَلُ للتوّ بطلبة «مساري» ── */
+    if (ADVISORS.has(role) || role === "committeeChair" || role === "registrarStaff") {
+      const list = await call("/api/section-requests?termId=1");
+      const rows: any[] = list.json?.rows || [];
+      const stages = new Set(rows.map(row => row.stage));
+      check(list.status === 200 && ["sent", "opened", "registering", "registered", "declined"].every(stage => stages.has(stage)),
+        `R4 «${role}»: طلباتُ الشعب في كل مرحلة (${[...stages].join("، ")})`, list.status);
+      const fresh = rows.find(row => row.stage === "sent");
+      check(Boolean(fresh) && fresh.courseCode === "0109343" && fresh.period === "evening" && fresh.students.some((s: any) => s.source === "masari"),
+        `R4 «${role}»: المرسَلُ للتوّ «تصميم وإنتاج الوسائط المتعددة» مسائيةً بطلبة «مساري»`, fresh && { c: fresh.courseCode, n: fresh.students?.length });
+      const partial = rows.find(row => row.stage === "registering");
+      check(partial?.counts?.approved === 6 && partial?.counts?.listed === 8 && partial?.counts?.registered === 3, `R4 «${role}»: اعتُمد 6 من 8 وسُجّل ثلاثة`, partial?.counts);
+      check(Boolean(rows.find(row => row.stage === "declined")?.closedNote), `R4 «${role}»: والاعتذارُ بسببه`);
+    }
+
     /* ── R4 رصيد مقاعد المرشد: لمن يملك الكشف ── */
     if (perms.includes(7) || perms.includes(14)) {
       const seats = await call(`/api/advisor-seats?${q(1)}`);
