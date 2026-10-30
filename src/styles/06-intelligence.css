@@ -4434,6 +4434,15 @@ button.twin-delta{width:100%}
 .import-review-card.room-new>svg{color:var(--brass)}
 .import-review-card.conflict{border-color:color-mix(in srgb,var(--danger) 42%,var(--line));background:color-mix(in srgb,var(--danger-soft) 55%,var(--surface))}
 .import-review-card.conflict>svg{color:var(--danger)}
+/* تنبيهُ اللائحة في بطاقة التعديل (سُلّم البدايات، طولٌ خارج المكتبة، نمطٌ كما طُبع): ذهبيٌّ يُقرأ ولا يمنع —
+   والنمطُ الذي غيّره المراجع بيده يبقى أحمرَ «conflict» لأنه يمنع النشر. */
+.import-review-card.regulation{border-color:color-mix(in srgb,#a8792a 42%,var(--line));background:color-mix(in srgb,#a8792a 7%,var(--surface))}
+.import-review-card.regulation>svg{color:#a8792a}
+/* «تراجع» بعد حذف صف: سطرٌ واحد فوق الجدول، كما يقدّمه الجدول بعد كل تغيير. */
+.import-undo-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);font-size:13px;color:var(--ink)}
+.import-undo-bar b{font-weight:800}
+.import-undo-bar button{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-weight:700;cursor:pointer}
+.import-undo-bar button svg{width:14px;height:14px}
 .import-review-card.checking{border-color:color-mix(in srgb,var(--accent) 32%,var(--line));background:var(--accent-softer)}
 .import-review-card.checking>svg{color:var(--accent)}
 @media(max-width:760px){.import-review-card{grid-template-columns:28px minmax(0,1fr)}.import-review-card button{grid-column:1/-1;justify-self:stretch;justify-content:center}}
