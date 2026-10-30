@@ -5,9 +5,9 @@
  * والمقترح الدراسي، ونموذجُ الموعد، ومراجعةُ الاعتماد. الحكمُ نفسه من الخادم
  * (/api/course-reach ← src/server/courseReachShared.ts ← src/utils/courseReach.ts).
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Lock, LockOpen } from "lucide-react";
-import { reachChip, type CourseReach, type ReachChainNode, type ReachSheetKind } from "../utils/courseReach";
+import { latestScopeGuard, reachChip, type CourseReach, type ReachChainNode, type ReachSheetKind } from "../utils/courseReach";
 import { AR, countOf } from "../utils/arabicCount";
 import "../styles/40-course-reach.css";
 
@@ -22,23 +22,34 @@ export interface ReachPayload {
 export function useCourseReach(collegeId: number, sectionId: number, termId: number) {
   const [data, setData] = useState<ReachPayload | null>(null);
   const [busy, setBusy] = useState(0);
+  /* آخرُ طلبٍ يحكم: قراءةُ نطاقٍ سابق تُلغى، وإن وصلت متأخرةً لا تكتب فوق النطاق الجديد. */
+  const guard = useRef(latestScopeGuard()).current;
+  const inflight = useRef<AbortController | null>(null);
+  const scope = `${collegeId}:${sectionId}:${termId}`;
   const load = useCallback(async () => {
-    if (!collegeId || !sectionId || !termId) { setData(null); return; }
-    const response = await fetch(`/api/course-reach?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include" }).catch(() => null);
+    inflight.current?.abort();
+    const stamp = guard.begin(scope);
+    /* لا يبقى حكمُ النطاق السابق معروضاً تحت النطاق الجديد ولو للحظة. */
+    setData(null);
+    if (!collegeId || !sectionId || !termId) return;
+    const controller = new AbortController();
+    inflight.current = controller;
+    const response = await fetch(`/api/course-reach?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include", signal: controller.signal }).catch(() => null);
     const payload = response?.ok ? await response.json().catch(() => null) : null;
-    setData(payload);
-  }, [collegeId, sectionId, termId]);
-  useEffect(() => { void load(); }, [load]);
+    if (guard.isCurrent(stamp) && !controller.signal.aborted) setData(payload);
+  }, [collegeId, sectionId, termId, scope, guard]);
+  useEffect(() => { void load(); return () => inflight.current?.abort(); }, [load]);
   const setOpen = useCallback(async (courseId: number, open = true) => {
     setBusy(courseId);
     try {
       const response = await fetch("/api/course-reach/open", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, termId, courseId, open }) });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || "تعذّر الحفظ");
-      setData(payload);
+      /* حُفظ على نطاقه؛ ولا يُعرض إلا إن بقي النطاقُ نفسه. */
+      if (guard.sameScope(scope)) setData(payload);
       return true;
     } catch { return false; } finally { setBusy(0); }
-  }, [collegeId, sectionId, termId]);
+  }, [collegeId, sectionId, termId, scope, guard]);
   return { data, reload: load, setOpen, busy };
 }
 

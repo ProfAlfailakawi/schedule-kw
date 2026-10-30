@@ -4,7 +4,7 @@
  */
 import fs from "node:fs";
 import {
-  classifySheets, combineReach, isReachNote, reachChip, reachLocked, reachNote, sheetReach, sheetYearOf, shortCourseCode, splitBySheet, withReach,
+  classifySheets, combineReach, isReachNote, latestScopeGuard, reachChip, reachLocked, reachNote, sheetReach, sheetYearOf, shortCourseCode, splitBySheet, withReach,
   type ReachInput,
 } from "../src/utils/courseReach";
 import { normalizeOfferingEntry, offeringEntryIsDefault, offeringView, reachOverrides, emptyOfferingDoc } from "../src/utils/courseOffering";
@@ -57,6 +57,37 @@ ok(shortCourseCode("0109210") === "210" && shortCourseCode("ART 5") === "ART 5",
   ok(none.get(3)!.state === "locked" && none.get(4)!.state === "locked" && none.get(4)!.why === "coreq-locked", "التوأم: 210 مقفل ⇒ 211 مقفل معه");
   ok(none.get(4)!.reason === "لم نصل بعد — توأمه 210 لم يُفتح" && none.get(4)!.chain[0].link === "coreq", "سبب التوأم وسلسلته ⇄");
 }
+/* ── التوأم في سلسلة: أ⇄ب، ب⇄ج، ج مقفل ⇒ ب وأ مقفلان (انتشارٌ حتى الثبات)، والتوأمةُ متبادلة ── */
+{
+  const CODES2: Record<number, string> = { 1: "0109101", 21: "0109201", 22: "0109202", 23: "0109203", 31: "0109301" };
+  const rules: CurriculumCourseRule[] = [rule(1), rule(21, [], { coreq: [22] }), rule(22, [], { coreq: [23] }), rule(23, [31]), rule(31)];
+  const input = (overrides: number[] = []): ReachInput => ({
+    sheet: { courseIds: [1, 21, 22, 23, 31], rules }, history: [{ chronology: T2025_1, courseIds: [1] }], currentChronology: T2026_1,
+    levelOf: id => Math.floor(Number(CODES2[id].slice(-3)) / 100) * 100, codeOf: id => shortCourseCode(CODES2[id]), overrides,
+  });
+  const r = sheetReach(input());
+  ok(r.get(23)!.why === "prereq-missing" && r.get(22)!.why === "coreq-locked" && r.get(21)!.state === "locked" && r.get(21)!.why === "coreq-locked", "سلسلة التوأم: ج مقفل ⇒ ب ⇒ أ");
+  ok(r.get(21)!.missing.join() === "22" && r.get(21)!.reason === "لم نصل بعد — توأمه 202 لم يُفتح", "أ يُقال له توأمُه المباشر");
+  ok(!withReach(offeringView(null, 21), r.get(21)).selectable, "الكرت: أ في السلسلة لا يُختار");
+  const opened = sheetReach(input([23]));
+  ok([21, 22, 23].every(id => opened.get(id)!.state === "reached"), "فتحُ ج للطرح يفتح السلسلة كلّها");
+  const oneWay = sheetReach({ ...input(), sheet: { courseIds: [1, 21, 22, 31], rules: [rule(1), rule(21, [31], { coreq: [22] }), rule(22), rule(31)] } });
+  ok(oneWay.get(22)!.why === "coreq-locked", "التوأمةُ متبادلة ولو كُتبت في جهةٍ واحدة");
+}
+
+/* ── آخرُ طلبٍ يحكم (useCourseReach): قراءةُ نطاقٍ سابق لا تكتب فوق الجديد ── */
+{
+  const guard = latestScopeGuard();
+  const old = guard.begin("1:1:1");
+  const fresh = guard.begin("1:1:2");
+  ok(!guard.isCurrent(old) && guard.isCurrent(fresh), "قراءة الفصل السابق المتأخرة تُهمل");
+  const again = guard.begin("1:1:2");
+  ok(guard.isCurrent(again) && !guard.isCurrent(fresh), "إعادةُ قراءة النطاق نفسه: الأحدثُ وحده");
+  ok(guard.sameScope("1:1:2") && !guard.sameScope("1:1:1"), "«افتحه للطرح» لا يُعرض على نطاقٍ غير نطاقه");
+  const hook = fs.readFileSync("src/components/CourseReach.tsx", "utf8");
+  ok(hook.includes("inflight.current?.abort()") && hook.includes("signal: controller.signal") && hook.includes("if (guard.isCurrent(stamp) && !controller.signal.aborted) setData(payload);") && hook.includes("if (guard.sameScope(scope)) setData(payload);"), "الخطّاف: يلغي السابق ويتحقق من النطاق قبل الكتابة");
+}
+
 /* ── الصيفي فصل ── */
 {
   const r = sheetReach(base([{ chronology: T2025_1, courseIds: [1] }, { chronology: T2025_S, courseIds: [3] }]));

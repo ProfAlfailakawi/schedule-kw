@@ -157,16 +157,29 @@ export function sheetReach(input: ReachInput): Map<number, CourseReach> {
     own.set(courseId, { ...base, state: "locked", why: reachedLevel ? "level-ahead" : "first-term" });
   }
 
-  /* التوأم: يُفتحان معاً — مقررٌ توأمُه مقفلٌ بشرطه (ولم يُطرح قبلُ) يُقفل معه. */
-  const out = new Map<number, CourseReach>();
-  for (const [courseId, verdict] of own) {
-    let final: Omit<CourseReach, "chain" | "reason"> = verdict;
-    if (verdict.state !== "locked" && verdict.why !== "override" && verdict.why !== "offered-before") {
-      const twins = ids(ruleOf.get(courseId)?.coreq).filter(id => members.has(id) && id !== courseId);
-      const blocked = twins.filter(id => !offered.has(id) && own.get(id)?.state === "locked");
-      if (blocked.length) final = { ...verdict, state: "locked", why: "coreq-locked", missing: blocked };
+  /* التوأم: يُفتحان معاً — مقررٌ توأمُه مقفلٌ (ولم يُطرح قبلُ) يُقفل معه، وينتشر القفلُ في السلسلة
+     (أ⇄ب، ب⇄ج، ج مقفل ⇒ ب ثم أ) حتى لا يتغيّر شيء. المطروحُ قبلُ والمفتوحُ يدوياً لا يُقفلهما توأم. */
+  /* التوأمةُ متبادلة ولو كُتبت في جهةٍ واحدة من الصحيفة. */
+  const twinsOf = new Map<number, Set<number>>();
+  for (const rule of input.sheet.rules) for (const twin of ids(rule.coreq)) {
+    const a = Number(rule.courseId);
+    if (!members.has(a) || !members.has(twin) || a === twin) continue;
+    twinsOf.set(a, (twinsOf.get(a) || new Set()).add(twin));
+    twinsOf.set(twin, (twinsOf.get(twin) || new Set()).add(a));
+  }
+  const final = new Map<number, Omit<CourseReach, "chain" | "reason">>(own);
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const [courseId, verdict] of final) {
+      if (verdict.state === "locked" || verdict.why === "override" || verdict.why === "offered-before") continue;
+      const twins = [...(twinsOf.get(courseId) || [])];
+      const blocked = twins.filter(id => !offered.has(id) && final.get(id)?.state === "locked");
+      if (blocked.length) { final.set(courseId, { ...verdict, state: "locked", why: "coreq-locked", missing: blocked }); changed = true; }
     }
-    out.set(courseId, { ...final, reason: reasonOf(final, code, Boolean(input.sheet.isNew)), chain: final.state === "locked" ? chainOf(courseId, final, ruleOf, members, offered, code) : [] });
+  }
+  const out = new Map<number, CourseReach>();
+  for (const [courseId, verdict] of final) {
+    out.set(courseId, { ...verdict, reason: reasonOf(verdict, code, Boolean(input.sheet.isNew)), chain: verdict.state === "locked" ? chainOf(courseId, verdict, ruleOf, members, offered, code) : [] });
   }
   return out;
 }
@@ -216,6 +229,23 @@ export function combineReach(list: ReadonlyArray<CourseReach | undefined>): Cour
     || rows.find(row => row.state === "reached")
     || rows.find(row => row.state === "unknown")
     || rows[0];
+}
+
+/**
+ * آخرُ طلبٍ يحكم: تبديلُ الفصل أو القسم في النموذج يُطلق قراءةً جديدة، وقراءةُ النطاق السابق
+ * إن تأخّرت لا تكتب فوقها (وإلا ظهر قفلُ الفصل السابق و«افتحه للطرح» الخطأ).
+ */
+export function latestScopeGuard() {
+  let current = "";
+  let generation = 0;
+  return {
+    /** يبدأ قراءةً لنطاق ويعيد ختمها. */
+    begin(scope: string) { current = scope; generation += 1; return { scope, generation }; },
+    /** ما زال هذا الختمُ هو الأحدث لنطاقه الحالي؟ */
+    isCurrent(stamp: { scope: string; generation: number }) { return stamp.scope === current && stamp.generation === generation; },
+    /** هل ما زال النطاقُ نفسه معروضاً (لأي كتابة بدأت عليه)؟ */
+    sameScope(scope: string) { return scope === current; },
+  };
 }
 
 /** وسمُ «وصلنا ✓ / لم نصل بعد 🔒» — لا وسم لـ«غير معروف». */
