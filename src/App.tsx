@@ -1790,6 +1790,7 @@ export default function App() {
     return (
       <ChangePassword
         name={String(passwordGate.user?.Name || "")}
+        askCurrent={passwordGate.passwordChange?.currentRequired !== false}
         onChanged={() => login({ ...passwordGate, user: { ...passwordGate.user, MustChangePassword: false } })}
         onLogout={() => { void fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined); setPasswordGate(null); window.history.replaceState({}, "", "/"); }}
       />
@@ -2729,9 +2730,9 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setSeatDrawerOpen(true)}
-                  title="كرسيّي: الفريق والتسليم والتاريخ"
-                  aria-label="كرسيّي"
-                  data-guide-ignore="يفتح لوحة الكرسي: الفريق والتسليم وتاريخ الكرسي"
+                  title="فريقي: الأعضاء وتسليم الرئاسة والتاريخ"
+                  aria-label="فريقي"
+                  data-guide-ignore="يفتح لوحة الفريق: الأعضاء وتسليم الرئاسة وتاريخ الفريق"
                 >
                   <Armchair />
                 </button>

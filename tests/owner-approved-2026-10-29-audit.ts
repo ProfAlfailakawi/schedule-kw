@@ -75,8 +75,10 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   check(/password === LEGACY_SHARED_PASSWORD[\s\S]*MustChangePassword: true/.test(login) && login.indexOf("MustChangePassword: true") < login.indexOf("createSession("),
     "O1 الدخولُ بالكلمة الموحّدة يُعلِّم الحساب قبل فتح الجلسة (لا قفل)");
   const change = auth.slice(auth.indexOf('app.post("/api/auth/change-password"'), auth.indexOf('app.post("/api/auth/logout"'));
-  check(change.includes("Repository.verifyPassword(current") && change.includes("newPasswordProblem(current, next)") && change.includes("MustChangePassword: false"),
-    "O1 التغييرُ يشترط الكلمة الحالية ويرفع العلامة");
+  /* الحاليةُ مشروطةٌ إلا لجلسةٍ فُتحت للتوّ بالكلمة الأولى (tests/first-login-password-audit.tsx). */
+  const rules = fs.readFileSync("src/server/accountPassword.ts", "utf8");
+  check(change.includes("decidePasswordChange(") && rules.includes("verify(current, user.SystemUserPass)") && rules.includes("newPasswordProblem(current, next)") && change.includes("MustChangePassword: false"),
+    "O1 التغييرُ يشترط الكلمة الحالية (إلا لجلسة الكلمة الأولى) ويرفع العلامة");
   check(!fs.readFileSync("src/components/AccountInvitation.tsx", "utf8").includes("12345678") && !fs.readFileSync("src/utils/invitationLink.ts", "utf8").includes("12345678"),
     "O1 بطاقةُ الدعوة لا تحمل كلمةً موحّدة");
 }

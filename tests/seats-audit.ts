@@ -165,7 +165,7 @@ try {
   const frozen = after.body?.team?.members?.find((row: any) => row.instructorId === memberPick?.id);
   check(after.body?.seat?.mustChangePassword === true && frozen?.status === "frozen" && after.body?.history?.[0]?.kind === "member-frozen", "S6 الحساب مُعلَّمٌ بتغيير كلمته، والفريق مجمَّد، والتاريخ يقول", { seat: after.body?.seat, frozen, h: after.body?.history?.slice(0, 2) });
   const frozenPage = await call(`/k/${encodeURIComponent(token)}`);
-  check(frozenPage.status === 410 && (await frozenPage.text()).includes("شاغلٌ جديد"), "S6 رابطُ العضو المجمَّد لا يفتح، ويقول لماذا");
+  check(frozenPage.status === 410 && (await frozenPage.text()).includes("رئيسٌ جديد"), "S6 رابطُ العضو المجمَّد لا يفتح، ويقول لماذا");
   const continued = await json(`/api/seats/16/members/${frozen?.id}/status`, { method: "POST", body: JSON.stringify({ status: "active" }) });
   check(continued.status === 200 && (await call(`/k/${encodeURIComponent(token)}`)).status === 200, "S6 «مستمر» يعيده برابطه نفسه", continued.body);
   const reissued = await json(`/api/seats/16/members/${frozen?.id}/link`, { method: "POST" });

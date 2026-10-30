@@ -8,8 +8,12 @@ import BrandMark from "./BrandMark";
  *
  * حسابٌ وُلد بكلمةٍ أولى سلّمها المسؤول، أو ما زال يدخل بالكلمة الموحّدة القديمة: الخادمُ
  * لا يفتح له شيئاً حتى يختار كلمته (passwordChangeGate)، وهذه الشاشة هي ذلك الاختيار.
+ *
+ * من دخل للتوّ بالكلمة الأولى لا يُسأل عنها ثانيةً — كتبها المسؤول في بطاقته ولا يعرفها
+ * (currentPasswordWaived في الخادم). فإن قال الخادمُ إنها مطلوبة (جلسةٌ قديمة) ظهر حقلُها.
  */
-export default function ChangePassword({ name, onChanged, onLogout }: { name: string; onChanged: () => void; onLogout: () => void }) {
+export default function ChangePassword({ name, askCurrent = true, onChanged, onLogout }: { name: string; askCurrent?: boolean; onChanged: () => void; onLogout: () => void }) {
+  const [needsCurrent, setNeedsCurrent] = useState(askCurrent);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -26,10 +30,13 @@ export default function ChangePassword({ name, onChanged, onLogout }: { name: st
       const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword: current, newPassword: next }),
+        body: JSON.stringify(needsCurrent ? { currentPassword: current, newPassword: next } : { newPassword: next }),
       });
       const data = await response.json().catch(() => ({} as any));
-      if (!response.ok) throw new Error(data.error || "تعذّر تغيير كلمة السر");
+      if (!response.ok) {
+        if (data.code === "current-password-required") setNeedsCurrent(true);
+        throw new Error(data.error || "تعذّر تغيير كلمة السر");
+      }
       onChanged();
     } catch (e: any) {
       setError(e?.message || "تعذّر تغيير كلمة السر");
@@ -39,22 +46,28 @@ export default function ChangePassword({ name, onChanged, onLogout }: { name: st
   };
 
   return (
-    <main className="apex-login visual-minimal" dir="rtl">
+    <main className="apex-login visual-minimal first-login" dir="rtl">
       <section className="apex-login-stage">
         <div className="apex-login-access">
+          <div className="first-login-brand" aria-label="SCHEDULE">
+            <BrandMark variant="tile" />
+            <div aria-hidden="true"><b>SCHEDULE</b><small>نظام القرار الأكاديمي</small></div>
+          </div>
           <div className="apex-access-head">
-            <span className="apex-login-mark" aria-hidden="true"><BrandMark /></span>
             <span>خطوة أولى</span>
-            <div className="apex-access-title-row"><strong>اختر كلمة سرّك</strong></div>
-            <p>أهلاً {name}. قبل أن تبدأ، اختر كلمة سرٍّ خاصة بك بدل الكلمة التي وصلتك.</p>
+            <div className="apex-access-title-row"><strong>اختر كلمة السر</strong></div>
+            <div className="first-login-greeting">أهلاً <b>{name}</b></div>
+            <div className="first-login-lead">قبل أن تبدأ، اختر كلمة سرٍّ خاصة بك بدل الكلمة التي وصلتك.</div>
           </div>
           {error ? <div className="login-error"><Notice inline>{error}</Notice></div> : null}
           <form className="apex-login-form" onSubmit={submit}>
-            <Field label="كلمة السر الحالية" required>
-              <input type="password" autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} disabled={busy} required autoFocus />
-            </Field>
+            {needsCurrent ? (
+              <Field label="كلمة السر الحالية" required>
+                <input type="password" autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} disabled={busy} required autoFocus />
+              </Field>
+            ) : null}
             <Field label="كلمة السر الجديدة (8 أحرف على الأقل)" required>
-              <input type="password" autoComplete="new-password" value={next} onChange={e => setNext(e.target.value)} disabled={busy} required minLength={8} maxLength={128} />
+              <input type="password" autoComplete="new-password" value={next} onChange={e => setNext(e.target.value)} disabled={busy} required minLength={8} maxLength={128} autoFocus={!needsCurrent} />
             </Field>
             <Field label="أعد كتابة الكلمة الجديدة" required>
               <input type="password" autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} disabled={busy} required minLength={8} maxLength={128} />

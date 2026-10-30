@@ -865,7 +865,7 @@ export default function AdminUsers({
       : null,
     /* الكراسي (docs/SEATS.md): من يجلس على كل حساب، والتسليم، والفرق، والتاريخ. */
     permissions.length === 0 || permissions.includes(11)
-      ? { value: "seats", label: "الكراسي", icon: <Armchair /> }
+      ? { value: "seats", label: "الفرق", icon: <Armchair /> }
       : null,
     // Note 26: the standalone "الصلاحيات" tab is gone — permissions are edited
     // inline on the users screen, so there is nothing useful to show on its own.

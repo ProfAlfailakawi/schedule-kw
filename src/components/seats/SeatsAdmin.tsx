@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Armchair, Building2, Crown, Plus, Search, Snowflake, UsersRound } from "lucide-react";
 import SeatPanel from "./SeatPanel";
 import SeatLinkCard from "./SeatLinkCard";
+import { AR, countOf } from "../../utils/arabicCount";
 import { invitationHref } from "../../utils/invitationLink";
 import { seatCaption } from "../../utils/seatAccessCard";
 import type { CampusFamily } from "../../utils/campusFamily";
@@ -106,31 +107,31 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
       {header}
       <section className="seats-intro">
         <div>
-          <span className="seats-eyebrow"><Armchair aria-hidden="true" />الكرسي ثابت، والشخص يتبدّل</span>
-          <h2>الكراسي وشاغلوها</h2>
-          <p>كلُّ حسابٍ منصب. سجّل من يجلس عليه، وسلّمه بضغطة حين يتبدّل، ويبقى تاريخه محفوظاً عبر السنوات.</p>
+          <span className="seats-eyebrow"><Armchair aria-hidden="true" />الفريق ثابت، والرئيس يتبدّل</span>
+          <h2>الفرق ورؤساؤها</h2>
+          <p>كلُّ حسابٍ منصب. سجّل رئيس فريقه، وسلّم الرئاسة بضغطة حين يتبدّل، ويبقى تاريخه محفوظاً عبر السنوات.</p>
         </div>
         <div className="seats-stats" role="group" aria-label="ملخص">
-          <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" className={focus === "" ? "on" : ""} onClick={() => setFocus("")}><b>{counts.total}</b><span>كرسي</span></button>
-          <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" className={`warn ${focus === "noHolder" ? "on" : ""}`} onClick={() => setFocus(focus === "noHolder" ? "" : "noHolder")}><b>{counts.noHolder}</b><span>بلا شاغل مسجّل</span></button>
-          <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" className={`cool ${focus === "frozen" ? "on" : ""}`} onClick={() => setFocus(focus === "frozen" ? "" : "frozen")}><b>{counts.frozen}</b><span>فريق مجمَّد</span></button>
+          <button data-guide-ignore="تصفّح فرق إدارة النظام واختيار أحدها؛ الكتابة من لوحة الفريق ويحرسها الخادم" type="button" className={focus === "" ? "on" : ""} onClick={() => setFocus("")}><b>{counts.total}</b><span>الفرق</span></button>
+          <button data-guide-ignore="تصفّح فرق إدارة النظام واختيار أحدها؛ الكتابة من لوحة الفريق ويحرسها الخادم" type="button" className={`warn ${focus === "noHolder" ? "on" : ""}`} onClick={() => setFocus(focus === "noHolder" ? "" : "noHolder")}><b>{counts.noHolder}</b><span>بلا رئيس مسجّل</span></button>
+          <button data-guide-ignore="تصفّح فرق إدارة النظام واختيار أحدها؛ الكتابة من لوحة الفريق ويحرسها الخادم" type="button" className={`cool ${focus === "frozen" ? "on" : ""}`} onClick={() => setFocus(focus === "frozen" ? "" : "frozen")}><b>{counts.frozen}</b><span>بأعضاء مجمَّدين</span></button>
           <div><b>{counts.members}</b><span>عضو فريق</span></div>
         </div>
       </section>
 
       {listing?.missingCollegeRegistrars.length ? (
-        <section className="seats-missing" aria-label="كراسي ناقصة">
+        <section className="seats-missing" aria-label="فرق ناقصة">
           <Building2 aria-hidden="true" />
           <div>
             <div className="seats-missing-head">
               <strong>كلياتٌ بلا رئيس تسجيل ({listing.missingCollegeRegistrars.length})</strong>
-              <button type="button" className="btn btn-primary btn-sm" data-guide-ignore="ينشئ كرسيّ رئيس تسجيل لكل كلية ناقصة بعد تأكيد صريح؛ يحرسه الخادم لمدير النظام" disabled={busy} onClick={() => void createAll()}>
+              <button type="button" className="btn btn-primary btn-sm" data-guide-ignore="ينشئ فريق تسجيل لكل كلية ناقصة بعد تأكيد صريح؛ يحرسه الخادم لمدير النظام" disabled={busy} onClick={() => void createAll()}>
                 <Plus aria-hidden="true" /> أنشئها كلّها
               </button>
             </div>
             <div className="seats-missing-list">
               {listing.missingCollegeRegistrars.map(family => (
-                <button type="button" data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" key={family.familyName} onClick={() => { setCreating({ family, picked: new Set(family.colleges.map(c => c.collegeId)) }); setCreated(null); }}>
+                <button type="button" data-guide-ignore="تصفّح فرق إدارة النظام واختيار أحدها؛ الكتابة من لوحة الفريق ويحرسها الخادم" key={family.familyName} onClick={() => { setCreating({ family, picked: new Set(family.colleges.map(c => c.collegeId)) }); setCreated(null); }}>
                   <Plus aria-hidden="true" />{family.familyName}
                   {family.colleges.length > 1 ? <small>{family.colleges.map(c => c.chip).join(" · ")}</small> : null}
                 </button>
@@ -143,7 +144,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
       {bulk ? (
         <section className="seats-bulk" aria-label="رؤساء التسجيل الجدد">
           <header>
-            <strong>{bulk.results.length ? `جُهّز ${bulk.results.length} كرسي رئيس تسجيل` : "لا كليات ناقصة"}</strong>
+            <strong>{bulk.results.length ? `جُهّز ${countOf(bulk.results.length, AR.team)} للتسجيل` : "لا كليات ناقصة"}</strong>
             <span>كلمة الدخول الأولى لكلٍّ منها <code dir="ltr">{bulk.password}</code>، ويُطلب من صاحبها تغييرها عند أول دخول.</span>
             <div>
               <button type="button" className="btn btn-secondary btn-sm" data-guide-ignore="يطبع جدول الحسابات الجديدة؛ لا يغيّر بيانات" onClick={() => window.print()}>اطبع</button>
@@ -152,14 +153,14 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
           </header>
           {bulk.results.length ? (
             <table className="data-table">
-              <thead><tr><th>الكرسي</th><th>اسم الدخول</th><th>الحرم</th><th>الحالة</th></tr></thead>
+              <thead><tr><th>الفريق</th><th>اسم الدخول</th><th>الحرم</th><th>الحالة</th></tr></thead>
               <tbody>
                 {bulk.results.map(row => (
                   <tr key={row.seatId}>
                     <td>{row.seatName}</td>
                     <td dir="ltr">{row.login}</td>
                     <td>{row.colleges.join("، ")}</td>
-                    <td>{row.status === "created" ? "كرسيٌّ جديد" : "أُضيف الحرم إلى كرسيّ قائم"}</td>
+                    <td>{row.status === "created" ? "فريقٌ جديد" : "أُضيف الحرم إلى فريقٍ قائم"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -171,23 +172,23 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
       {error ? <p className="seat-error" role="alert">{error}</p> : null}
 
       <div className="seats-layout">
-        <aside className="seats-list" aria-label="الكراسي">
+        <aside className="seats-list" aria-label="الفرق">
           <div className="seats-filters">
-            <div className="seats-groups" role="tablist" aria-label="نوع الكرسي">
-              {GROUPS.map(row => <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" role="tab" key={row.id} aria-selected={group === row.id} className={group === row.id ? "on" : ""} onClick={() => setGroup(row.id)}>{row.label}</button>)}
+            <div className="seats-groups" role="tablist" aria-label="نوع الفريق">
+              {GROUPS.map(row => <button data-guide-ignore="تصفّح فرق إدارة النظام واختيار أحدها؛ الكتابة من لوحة الفريق ويحرسها الخادم" type="button" role="tab" key={row.id} aria-selected={group === row.id} className={group === row.id ? "on" : ""} onClick={() => setGroup(row.id)}>{row.label}</button>)}
             </div>
-            <label className="seat-search"><Search aria-hidden="true" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="ابحث بالكرسي أو الشاغل" aria-label="ابحث بالكرسي أو الشاغل" /></label>
+            <label className="seat-search"><Search aria-hidden="true" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="ابحث بالفريق أو الرئيس" aria-label="ابحث بالفريق أو الرئيس" /></label>
           </div>
           {!listing ? <div className="seat-skeleton" /> : shown.length ? (
             <ul>
               {shown.map(row => (
                 <li key={row.id}>
-                  <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" className={`seats-row ${selected === row.id ? "on" : ""}`} onClick={() => setSelected(row.id)} aria-current={selected === row.id ? "true" : undefined}>
+                  <button data-guide-ignore="تصفّح فرق إدارة النظام واختيار أحدها؛ الكتابة من لوحة الفريق ويحرسها الخادم" type="button" className={`seats-row ${selected === row.id ? "on" : ""}`} onClick={() => setSelected(row.id)} aria-current={selected === row.id ? "true" : undefined}>
                     <i className={`seat-avatar sm ${row.holder ? "" : "empty"}`} aria-hidden="true">{row.holder ? initialOf(row.holder.name) : <Armchair />}</i>
                     <span className="seats-row-text">
                       <small>{row.roleLabel}{row.active ? "" : " · موقوف"}</small>
                       <strong>{row.name}</strong>
-                      <span className={row.holder ? "" : "none"}>{row.holder ? <><Crown aria-hidden="true" />{row.holder.name}</> : "لم يُسجَّل الشاغل"}</span>
+                      <span className={row.holder ? "" : "none"}>{row.holder ? <><Crown aria-hidden="true" />{row.holder.name}</> : "لم يُسجَّل الرئيس"}</span>
                     </span>
                     <span className="seats-row-tags">
                       {row.team ? <em title="الفريق"><UsersRound aria-hidden="true" />{row.team.active + row.team.pending}</em> : null}
@@ -198,20 +199,20 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
                 </li>
               ))}
             </ul>
-          ) : <p className="seat-empty-line">لا كراسي مطابقة.</p>}
+          ) : <p className="seat-empty-line">لا فرق مطابقة.</p>}
         </aside>
         <section className="seats-detail" aria-live="polite">
           {created ? (
             <div className="seats-created">
               <SeatLinkCard title={created.holder.name} subtitle={seatCaption("رئيس تسجيل الكلية", created.seatName)} fileStem="SCHEDULE-seat" url={invitationHref(`${window.location.origin}/`, created.login, created.password)}
                 mobile={created.holder.mobile} credentials={{ login: created.login, password: created.password }}
-                message={[`أهلاً ${created.holder.name}`, `أُنشئ لك كرسي «${created.seatName}» في SCHEDULE.`, "ادخل من هذا الرابط، واختر كلمة سرّك الخاصة عند أول دخول:", invitationHref(`${window.location.origin}/`, created.login, created.password)].join("\n")}
+                message={[`أهلاً ${created.holder.name}`, `أُنشئ فريق «${created.seatName}» في SCHEDULE وأنت رئيسه.`, "ادخل من هذا الرابط، واختر كلمة سرّك الخاصة عند أول دخول:", invitationHref(`${window.location.origin}/`, created.login, created.password)].join("\n")}
                 onDone={() => setCreated(null)} />
             </div>
           ) : null}
           {creating ? (
             <div className="seat-panel seats-create">
-              <header className="seat-hero"><span className="seat-role-chip"><Armchair aria-hidden="true" />رئيس تسجيل الكلية</span><h2>{creating.family.familyName}</h2><p>كرسيٌّ واحد يمدّد التسليم لكل حرمٍ تختاره، ويضيف موظفي التسجيل فيه.</p></header>
+              <header className="seat-hero"><span className="seat-role-chip"><Armchair aria-hidden="true" />رئيس تسجيل الكلية</span><h2>{creating.family.familyName}</h2><p>يتابع هذا الفريق كلَّ حرمٍ تختاره، ويضيف رئيسُه موظفي التسجيل فيه.</p></header>
               {creating.family.colleges.length > 1 ? (
                 <div className="seat-campus-pick" role="group" aria-label="الحرم">
                   <span className="seat-field-label">الحرم التي يتابعها</span>
@@ -227,12 +228,12 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
                 </div>
               ) : null}
               <div className="seat-form-grid">
-                <label><span>الشاغل</span><input value={createForm.name} onChange={e => setCreateForm({ ...createForm, name: e.target.value })} placeholder="الاسم كاملاً" autoFocus /></label>
+                <label><span>رئيس الفريق</span><input value={createForm.name} onChange={e => setCreateForm({ ...createForm, name: e.target.value })} placeholder="الاسم كاملاً" autoFocus /></label>
                 <label><span>الجوال</span><input value={createForm.mobile} onChange={e => setCreateForm({ ...createForm, mobile: e.target.value })} placeholder="99887766" inputMode="tel" dir="ltr" /></label>
               </div>
               <div className="seat-sheet-actions">
-                <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" className="btn btn-primary" disabled={busy || createForm.name.trim().length < 3 || !creating.picked.size} onClick={() => void createSeat()}><Plus aria-hidden="true" /> أنشئ الكرسي</button>
-                <button data-guide-ignore="تصفّح كراسي إدارة النظام واختيار أحدها؛ الكتابة من لوحة الكرسي ويحرسها الخادم" type="button" className="btn btn-ghost" onClick={() => setCreating(null)}>إلغاء</button>
+                <button data-guide-ignore="تصفّح فرق إدارة النظام واختيار أحدها؛ الكتابة من لوحة الفريق ويحرسها الخادم" type="button" className="btn btn-primary" disabled={busy || createForm.name.trim().length < 3 || !creating.picked.size} onClick={() => void createSeat()}><Plus aria-hidden="true" /> أنشئ الفريق</button>
+                <button data-guide-ignore="تصفّح فرق إدارة النظام واختيار أحدها؛ الكتابة من لوحة الفريق ويحرسها الخادم" type="button" className="btn btn-ghost" onClick={() => setCreating(null)}>إلغاء</button>
               </div>
             </div>
           ) : selected ? <React.Fragment key={selected}><SeatPanel seatId={selected} onChanged={() => void load()} /></React.Fragment> : null}

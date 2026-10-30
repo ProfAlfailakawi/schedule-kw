@@ -10,7 +10,7 @@
  *  • الحسابُ القائم الذي ما زال يدخل بالكلمة الموحّدة لا يُقفل: يدخل بها، فيُعلَّم
  *    عندها، ولا يصل إلى شيءٍ في الخادم حتى يختار كلمته (passwordChangeGate).
  */
-import { randomInt } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import type { NextFunction, Response } from "express";
 import { AR, countOf } from "../utils/arabicCount";
 import type { AuthenticatedRequest } from "./core/auth";
@@ -37,6 +37,69 @@ export function newPasswordProblem(current: string, next: string): string | null
   if (next === LEGACY_SHARED_PASSWORD) return "اختر كلمة سرٍّ غير الكلمة الموحّدة القديمة";
   if (next === current) return "اختر كلمة سرٍّ غير الحالية";
   return null;
+}
+
+/**
+ * ── أولُ دخولٍ بالكلمة الأولى: بلا «كلمة السر الحالية» ──────────────────────────
+ *
+ * من دخل للتوّ بالكلمة التي كتبها المسؤول في بطاقته لا يعرفها ليكتبها ثانيةً (فتحتها
+ * البطاقةُ له). فتُعفى «الحالية» بشروطٍ ثلاثة معاً، وإلا طُلبت كما كانت:
+ *  ١) الحسابُ مُعلَّمٌ بتغيير كلمته (MustChangePassword)؛
+ *  ٢) والجلسةُ نفسها فُتحت بتلك الكلمة: عند الدخول يُكتب في سجلّها أثرٌ من بصمة الكلمة
+ *     المحفوظة (لا الكلمة ولا بصمتها نفسها)، فإن غيّر المسؤولُ الكلمةَ بعدها سقط الإعفاء؛
+ *  ٣) وفي نافذةٍ قصيرة من فتحها (INITIAL_PASSWORD_WINDOW_MS).
+ * وجلسةُ عضو الفريق (برابطه) لا تُعفى أبداً — ولا تصل إلى التغيير أصلاً (seatMemberGuard).
+ */
+export const INITIAL_PASSWORD_WINDOW_MS = 15 * 60 * 1000;
+
+/** أثرُ الكلمة المحفوظة في سجلّ الجلسة: يطابقها ما دامت هي، ولا يُستخرج منه شيء. */
+export function initialPasswordMark(storedHash: string): string {
+  return createHash("sha256").update(`schedule:first-login:${storedHash}`).digest("hex").slice(0, 32);
+}
+
+export interface InitialPasswordSession { createdAt?: number; initialPassMark?: string; memberId?: string }
+
+/** هل تُعفى هذه الجلسة من «كلمة السر الحالية»؟ */
+export function currentPasswordWaived(
+  user: { MustChangePassword?: boolean; SystemUserPass?: string } | null | undefined,
+  session: InitialPasswordSession | null | undefined,
+  now = Date.now(),
+): boolean {
+  if (!user?.MustChangePassword || !user.SystemUserPass || !session?.initialPassMark || session.memberId) return false;
+  const age = now - Number(session.createdAt || 0);
+  if (!(age >= 0 && age <= INITIAL_PASSWORD_WINDOW_MS)) return false;
+  return session.initialPassMark === initialPasswordMark(user.SystemUserPass);
+}
+
+export type PasswordChangeOutcome =
+  | { ok: true; hash: string; vault: string }
+  | { ok: false; status: 400; error: string; code?: "current-password-required" };
+
+/**
+ * قرارُ تغيير الكلمة كلُّه في مكانٍ واحد يُختبر بلا خادم: الحاليةُ مطلوبة إلا لجلسةٍ معفاة
+ * (currentPasswordWaived)، والجديدةُ بقواعدها، ولا تكون الكلمةَ المحفوظة نفسها.
+ */
+export function decidePasswordChange(input: {
+  user: { MustChangePassword?: boolean; SystemUserPass?: string } | null | undefined;
+  session: InitialPasswordSession | null | undefined;
+  current: string;
+  next: string;
+  now?: number;
+  verify: (password: string, stored: string) => boolean;
+  hash: (password: string) => string;
+  vault: (password: string) => string;
+}): PasswordChangeOutcome {
+  const { user, current, next, verify } = input;
+  if (!user?.SystemUserPass) return { ok: false, status: 400, error: "كلمة السر الحالية غير صحيحة" };
+  const waived = !current && currentPasswordWaived(user, input.session, input.now);
+  if (!waived) {
+    if (!current) return { ok: false, status: 400, error: "اكتب كلمة السر الحالية", code: "current-password-required" };
+    if (!verify(current, user.SystemUserPass)) return { ok: false, status: 400, error: "كلمة السر الحالية غير صحيحة" };
+  }
+  const problem = newPasswordProblem(current, next);
+  if (problem) return { ok: false, status: 400, error: problem };
+  if (waived && verify(next, user.SystemUserPass)) return { ok: false, status: 400, error: "اختر كلمة سرٍّ غير الحالية" };
+  return { ok: true, hash: input.hash(next), vault: input.vault(next) };
 }
 
 /**

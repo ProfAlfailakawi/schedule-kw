@@ -207,7 +207,7 @@ async function memberScopesFrom(body: any, seat: any): Promise<SeatScope[] | { e
   };
   for (const scope of wanted) {
     if (!knownCollege.has(scope.AdCollegeId) || (scope.AdSectionId && !knownSection.has(`${scope.AdCollegeId}:${scope.AdSectionId}`))) return { error: "في النطاق قسمٌ أو كليةٌ غير موجودة." };
-    if (!scopeWithin(scope, allowed)) return { error: "لا يُعطى الموظف نطاقاً أوسع من نطاق كرسيّك." };
+    if (!scopeWithin(scope, allowed)) return { error: "لا يُعطى الموظف نطاقاً أوسع من نطاق فريقك." };
   }
   return wanted;
 }
@@ -320,7 +320,7 @@ export function seatMemberGuard(req: AuthenticatedRequest, res: Response, next: 
   const signing = path === "/approvals/sign" || path === "/approvals/withdraw";
   if (actor.kind === "deputy" && signing) { next(); return; }
   if (MEMBER_BLOCKED.includes(path) || path.startsWith("/seats/") || path === "/seats" || path.startsWith("/users")) {
-    res.status(403).json({ error: signing ? "التوقيع لشاغل الكرسي أو نائبه. أنت تعمل عضواً في الفريق." : "هذا لشاغل الكرسي. أنت تعمل عضواً في الفريق.", code: "seat-member" });
+    res.status(403).json({ error: signing ? "التوقيع لرئيس الفريق أو نائبه. أنت تعمل عضواً في الفريق." : "هذا لرئيس الفريق. أنت تعمل عضواً فيه.", code: "seat-member" });
     return;
   }
   next();
@@ -398,7 +398,7 @@ async function switchOptions(req: AuthenticatedRequest) {
 app.post("/api/seats/switch", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const userId = Number(req.body?.userId || 0), memberId = clean(req.body?.memberId, 64) || undefined;
   const option = (await switchOptions(req)).find(row => row.userId === userId && row.memberId === memberId);
-  if (!option) { res.status(403).json({ error: "لا تجلس على هذا الكرسي." }); return; }
+  if (!option) { res.status(403).json({ error: "لست رئيس هذا الفريق ولا عضواً فيه." }); return; }
   const previous = getCookies(req)["session_id"];
   const sessionId = `sess_${randomBytes(32).toString("hex")}`;
   await Repository.createSession(sessionId, userId, SERVER_IDLE_SESSION_MS, memberId ? { memberId } : {});
@@ -410,8 +410,8 @@ app.post("/api/seats/switch", requireAuth, async (req: AuthenticatedRequest, res
 
 app.get("/api/seats/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const seat = await seatUser(Number(req.params.id));
-  if (!seat) { res.status(404).json({ error: "الكرسي غير موجود." }); return; }
-  if (!managesSeat(req, seat.SystemUserId) && !(await handsOverSeat(req, seat))) { res.status(403).json({ error: "لا تدير هذا الكرسي." }); return; }
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!managesSeat(req, seat.SystemUserId) && !(await handsOverSeat(req, seat))) { res.status(403).json({ error: "لا تدير هذا الفريق." }); return; }
   const view = await seatView(seat, await readSeatLedger(seat.SystemUserId), req);
   const rule = seatTeamRule(seat.Role);
   res.json({
@@ -424,25 +424,25 @@ app.get("/api/seats/:id", requireAuth, async (req: AuthenticatedRequest, res: Re
 /** يسجّل مديرُ النظام شاغلَ الكرسي الحالي كما هو، بلا كلمةٍ جديدة ولا إخراج: «من يجلس هنا اليوم». */
 app.post("/api/seats/:id/holder", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const seat = await seatUser(Number(req.params.id));
-  if (!seat) { res.status(404).json({ error: "الكرسي غير موجود." }); return; }
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
   const person = await personFrom(req.body);
   if ("error" in person) { res.status(400).json({ error: person.error }); return; }
   const at = new Date().toISOString(), by = byName(req);
   const holder: SeatHolder = { name: person.name, ...(person.instructorId ? { instructorId: person.instructorId } : {}), ...(person.mobile ? { mobile: person.mobile } : {}), since: clean(req.body?.since, 10) || at, by };
-  const out = await updateSeatLedger(seat.SystemUserId, ledger => ({ next: withSeatEvent({ ...ledger, holder }, { at, kind: "holder-set", by, detail: `الشاغل: ${holder.name}` }), result: true }));
+  const out = await updateSeatLedger(seat.SystemUserId, ledger => ({ next: withSeatEvent({ ...ledger, holder }, { at, kind: "holder-set", by, detail: `الرئيس: ${holder.name}` }), result: true }));
   if ("error" in out) { res.status(409).json({ error: out.error }); return; }
   if (person.instructorId) await Repository.updateUser(seat.SystemUserId, { AdInstructorId: person.instructorId } as any);
-  res.locals.auditChanges = `شاغل ${seat.Name}: ${holder.name}`;
+  res.locals.auditChanges = `رئيس ${seat.Name}: ${holder.name}`;
   res.json(await seatView(await seatUser(seat.SystemUserId), out.ledger, req));
 });
 
 /** التسليم: شاغلٌ جديد، وكلمةٌ أولى تظهر مرة واحدة، وكلُّ جهازٍ مفتوح يُخرج، والفريقُ يُجمَّد. */
 app.post("/api/seats/:id/handover", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const seat = await seatUser(Number(req.params.id));
-  if (!seat) { res.status(404).json({ error: "الكرسي غير موجود." }); return; }
-  if (!(await handsOverSeat(req, seat))) { res.status(403).json({ error: "يسلّم الكرسيَّ شاغلُه أو مدير النظام." }); return; }
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!(await handsOverSeat(req, seat))) { res.status(403).json({ error: "يسلّم الرئاسةَ رئيسُ الفريق أو مدير النظام." }); return; }
   if (Repository.isDemoRequest() && Number(req.user?.SystemUserId) === Number(seat.SystemUserId)) {
-    res.status(409).json({ error: "في البيئة التجريبية سلّم الكرسي من حساب مدير النظام، حتى لا تُغلق جلستك.", code: "demo-self-handover" }); return;
+    res.status(409).json({ error: "في البيئة التجريبية سلّم الرئاسة من حساب مدير النظام، حتى لا تُغلق جلستك.", code: "demo-self-handover" }); return;
   }
   const person = await personFrom(req.body);
   if ("error" in person) { res.status(400).json({ error: person.error }); return; }
@@ -450,7 +450,7 @@ app.post("/api/seats/:id/handover", requireAuth, async (req: AuthenticatedReques
   const holder: SeatHolder = { name: person.name, ...(person.instructorId ? { instructorId: person.instructorId } : {}), ...(person.mobile ? { mobile: person.mobile } : {}), since: at, by };
   const before = await readSeatLedger(seat.SystemUserId);
   if (before?.holder && person.instructorId && Number(before.holder.instructorId || 0) === person.instructorId) {
-    res.status(409).json({ error: "هذا هو الشاغل الحالي نفسه." }); return;
+    res.status(409).json({ error: "هذا هو الرئيس الحالي نفسه." }); return;
   }
   const out = await updateSeatLedger(seat.SystemUserId, ledger => ({ next: handOverLedger(ledger, holder, by), result: true }));
   if ("error" in out) { res.status(409).json({ error: out.error }); return; }
@@ -461,10 +461,10 @@ app.post("/api/seats/:id/handover", requireAuth, async (req: AuthenticatedReques
 
 app.post("/api/seats/:id/members", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const seat = await seatUser(Number(req.params.id));
-  if (!seat) { res.status(404).json({ error: "الكرسي غير موجود." }); return; }
-  if (!managesSeat(req, seat.SystemUserId)) { res.status(403).json({ error: "يدير الفريقَ شاغلُ الكرسي." }); return; }
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!managesSeat(req, seat.SystemUserId)) { res.status(403).json({ error: "يدير الفريقَ رئيسُه." }); return; }
   const rule = seatTeamRule(seat.Role);
-  if (!rule) { res.status(400).json({ error: "هذا الكرسي لشخصٍ واحد، بلا فريق." }); return; }
+  if (!rule) { res.status(400).json({ error: "هذا المنصب لشخصٍ واحد، بلا أعضاء." }); return; }
   if (rule.source === "department" && !Number(req.body?.instructorId || 0)) { res.status(400).json({ error: "اختر العضو من أساتذة القسم." }); return; }
   if (rule.source === "department") {
     const allowed = await seatCandidates(seat, "department");
@@ -488,7 +488,7 @@ app.post("/api/seats/:id/members", requireAuth, async (req: AuthenticatedRequest
     if (live.length >= SEAT_TEAM_LIMIT) return { refuse: `الفريق مكتمل (${SEAT_TEAM_LIMIT}).` };
     const same = live.find(row => (person.instructorId && Number(row.instructorId) === person.instructorId) || row.name === person.name);
     if (same) return { refuse: `${same.name} في الفريق من قبل.` };
-    if (ledger.holder && person.instructorId && Number(ledger.holder.instructorId || 0) === person.instructorId) return { refuse: "هذا شاغل الكرسي نفسه." };
+    if (ledger.holder && person.instructorId && Number(ledger.holder.instructorId || 0) === person.instructorId) return { refuse: "هذا رئيس الفريق نفسه." };
     return { next: withSeatEvent({ ...ledger, members: [...ledger.members, member] }, { at, kind: "member-added", by, detail: `${rule.memberLabel}: ${member.name}` }), result: true };
   });
   if ("error" in out) { res.status(409).json({ error: out.error }); return; }
@@ -501,8 +501,8 @@ app.post("/api/seats/:id/members", requireAuth, async (req: AuthenticatedRequest
 app.post("/api/seats/:id/members/:mid/link", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const seatId = Number(req.params.id);
   const seat = await seatUser(seatId);
-  if (!seat) { res.status(404).json({ error: "الكرسي غير موجود." }); return; }
-  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يصدر الروابطَ شاغلُ الكرسي أو مدير النظام." }); return; }
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يصدر الروابطَ رئيسُ الفريق أو مدير النظام." }); return; }
   const link = await issueMemberLink(seatId, String(req.params.mid), byName(req));
   if ("error" in link) { res.status(409).json({ error: link.error }); return; }
   const member = (await readSeatLedger(seatId))?.members.find(row => row.id === String(req.params.mid));
@@ -514,8 +514,8 @@ app.post("/api/seats/:id/members/:mid/link", requireAuth, async (req: Authentica
 app.post("/api/seats/:id/members/:mid/status", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const seatId = Number(req.params.id), memberId = String(req.params.mid);
   const seat = await seatUser(seatId);
-  if (!seat) { res.status(404).json({ error: "الكرسي غير موجود." }); return; }
-  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يدير الفريقَ شاغلُ الكرسي." }); return; }
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يدير الفريقَ رئيسُه." }); return; }
   const status = String(req.body?.status || "");
   if (status !== "active" && status !== "ended") { res.status(400).json({ error: "حالةٌ غير معروفة." }); return; }
   const at = new Date().toISOString(), by = byName(req);
@@ -541,11 +541,11 @@ app.post("/api/seats/:id/members/:mid/status", requireAuth, async (req: Authenti
 app.post("/api/seats/:id/members/:mid/scopes", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const seatId = Number(req.params.id), memberId = String(req.params.mid);
   const seat = await seatUser(seatId);
-  if (!seat) { res.status(404).json({ error: "الكرسي غير موجود." }); return; }
-  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يدير الفريقَ شاغلُ الكرسي." }); return; }
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يدير الفريقَ رئيسُه." }); return; }
   const scopes = await memberScopesFrom(req.body, seat);
   if ("error" in scopes) { res.status(400).json({ error: scopes.error }); return; }
-  if (!scopes.length) { res.status(400).json({ error: "هذا الفريق يعمل في نطاق الكرسي كله." }); return; }
+  if (!scopes.length) { res.status(400).json({ error: "أعضاء هذا الفريق يعملون في نطاقه كله." }); return; }
   const at = new Date().toISOString(), by = byName(req);
   const out = await updateSeatLedger(seatId, ledger => {
     const member = ledger.members.find(row => row.id === memberId);
@@ -563,8 +563,8 @@ app.post("/api/seats/:id/members/:mid/scopes", requireAuth, async (req: Authenti
 app.post("/api/seats/:id/deputy", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const seatId = Number(req.params.id);
   const seat = await seatUser(seatId);
-  if (!seat) { res.status(404).json({ error: "الكرسي غير موجود." }); return; }
-  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يكلّف النائبَ شاغلُ الكرسي." }); return; }
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يكلّف النائبَ رئيسُ الفريق." }); return; }
   const until = clean(req.body?.until, 10), memberId = clean(req.body?.memberId, 64);
   const today = new Date().toISOString().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || until < today) { res.status(400).json({ error: "اختر تاريخ نهايةٍ من اليوم فصاعداً." }); return; }
@@ -583,8 +583,8 @@ app.post("/api/seats/:id/deputy", requireAuth, async (req: AuthenticatedRequest,
 app.post("/api/seats/:id/deputy/end", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const seatId = Number(req.params.id);
   const seat = await seatUser(seatId);
-  if (!seat) { res.status(404).json({ error: "الكرسي غير موجود." }); return; }
-  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يُنهي النيابةَ شاغلُ الكرسي." }); return; }
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يُنهي النيابةَ رئيسُ الفريق." }); return; }
   const at = new Date().toISOString(), by = byName(req);
   const out = await updateSeatLedger(seatId, ledger => {
     if (!ledger.deputy) return { refuse: "لا نائب الآن." };
@@ -620,7 +620,7 @@ app.post("/api/seats/college-registrar", requirePowerAdmin, async (req: Authenti
   if ("error" in person) { res.status(400).json({ error: person.error }); return; }
   const taken = await collegeRegistrarCoverage();
   const clash = picked.find(college => taken.has(Number(college.AdCollegeId)));
-  if (clash) { res.status(409).json({ error: `«${clash.AdCollegeName}» له رئيس تسجيل من قبل. أضفه إلى كرسيّه أو سلّمه بدل إنشاء آخر.` }); return; }
+  if (clash) { res.status(409).json({ error: `«${clash.AdCollegeName}» له فريق تسجيل من قبل. أضفه إلى فريقه أو سلّم رئاسته بدل إنشاء آخر.` }); return; }
   const users = await Repository.getUsers();
   const first = picked[0];
   const tag = String(first.AdCollegeCode || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase() || `c${first.AdCollegeId}`;
@@ -639,19 +639,19 @@ app.post("/api/seats/college-registrar", requirePowerAdmin, async (req: Authenti
   const at = new Date().toISOString(), by = byName(req);
   const holder: SeatHolder = { name: person.name, ...(person.mobile ? { mobile: person.mobile } : {}), since: at, by };
   await updateSeatLedger(user.SystemUserId, ledger => ({
-    next: withSeatEvent(withSeatEvent({ ...ledger, holder }, { at, kind: "seat-created", by, detail: `${user.Name}: ${picked.map(row => row.AdCollegeName).join("، ")}` }), { at, kind: "holder-set", by, detail: `الشاغل: ${holder.name}` }),
+    next: withSeatEvent(withSeatEvent({ ...ledger, holder }, { at, kind: "seat-created", by, detail: `${user.Name}: ${picked.map(row => row.AdCollegeName).join("، ")}` }), { at, kind: "holder-set", by, detail: `الرئيس: ${holder.name}` }),
     result: true,
   }));
-  res.locals.auditChanges = `كرسيٌّ جديد: ${user.Name} — الشاغل ${holder.name}`;
+  res.locals.auditChanges = `فريقٌ جديد: ${user.Name} — الرئيس ${holder.name}`;
   res.status(201).json({ seatId: user.SystemUserId, login, password, seatName: user.Name, holder });
 });
 
 /** حرمُ كرسيّ «رئيس تسجيل الكلية» بعد إنشائه: يُضاف إليه حرمٌ أو يُرفع عنه. لمدير النظام وحده. */
 app.post("/api/seats/:id/colleges", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const seat = await seatUser(Number(req.params.id));
-  if (!seat || roleDefinition(seat.Role).id !== "collegeRegistrar") { res.status(404).json({ error: "هذا ليس كرسيَّ رئيس تسجيل كلية." }); return; }
+  if (!seat || roleDefinition(seat.Role).id !== "collegeRegistrar") { res.status(404).json({ error: "هذا ليس فريق تسجيل كلية." }); return; }
   const wanted = collegeIdsFrom(req.body);
-  if (!wanted.length) { res.status(400).json({ error: "يبقى للكرسي حرمٌ واحد على الأقل." }); return; }
+  if (!wanted.length) { res.status(400).json({ error: "يبقى للفريق حرمٌ واحد على الأقل." }); return; }
   const colleges = (await Repository.getColleges()) as any[];
   const picked = wanted.map(id => colleges.find(row => Number(row.AdCollegeId) === id)).filter(Boolean);
   if (picked.length !== wanted.length) { res.status(404).json({ error: "في الاختيار حرمٌ غير موجود." }); return; }
@@ -674,11 +674,11 @@ app.post("/api/seats/:id/colleges", requirePowerAdmin, async (req: Authenticated
 
 async function linkContext(token: string) {
   const link = await readSeatLink(token);
-  if (!link || link.revokedAt) return { error: "هذا الرابط لم يعد صالحاً. اطلب رابطاً جديداً من شاغل الكرسي." } as const;
+  if (!link || link.revokedAt) return { error: "هذا الرابط لم يعد صالحاً. اطلب رابطاً جديداً من رئيس الفريق." } as const;
   const [seat, ledger] = await Promise.all([seatUser(link.userId), readSeatLedger(link.userId)]);
   const member = ledger?.members.find(row => row.id === link.memberId);
-  if (!seat || !seat.IsActive || seat.IsLocked || !ledger || !member || member.linkToken !== link.token) return { error: "هذا الرابط لم يعد صالحاً. اطلب رابطاً جديداً من شاغل الكرسي." } as const;
-  if (member.status === "frozen") return { error: "تسلّم الكرسيَّ شاغلٌ جديد، وعضويتك بانتظار تأكيده. سيصلك الخبر حين يؤكّدها." } as const;
+  if (!seat || !seat.IsActive || seat.IsLocked || !ledger || !member || member.linkToken !== link.token) return { error: "هذا الرابط لم يعد صالحاً. اطلب رابطاً جديداً من رئيس الفريق." } as const;
+  if (member.status === "frozen") return { error: "تسلّم رئاسةَ الفريق رئيسٌ جديد، وعضويتك بانتظار تأكيده. سيصلك الخبر حين يؤكّدها." } as const;
   if (member.status !== "active") return { error: "انتهت عضويتك في هذا الفريق." } as const;
   return { link, seat, ledger, member } as const;
 }
@@ -718,7 +718,7 @@ app.post("/api/public/team/:token", async (req: AuthenticatedRequest, res: Respo
         const next = { ...ledger, members };
         return { next: locked ? withSeatEvent(next, { kind: "link-locked", by: "النظام", detail: `أُقفل رابط ${row.name} بعد ${countOf(SEAT_LINK_MAX_ATTEMPTS, AR.attempt)} خاطئة` }) : next, result: locked };
       });
-      if (!("error" in out) && out.result) { await revokeSeatLink(token); res.status(423).json({ error: "أُقفل الرابط بعد محاولاتٍ خاطئة. اطلب رابطاً جديداً من شاغل الكرسي." }); return; }
+      if (!("error" in out) && out.result) { await revokeSeatLink(token); res.status(423).json({ error: "أُقفل الرابط بعد محاولاتٍ خاطئة. اطلب رابطاً جديداً من رئيس الفريق." }); return; }
       res.status(400).json({ error: "الأرقام الأربعة لا تطابق رقمك المدني." }); return;
     }
   }

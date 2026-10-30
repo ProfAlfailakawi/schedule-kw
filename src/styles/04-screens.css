@@ -2809,3 +2809,13 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .share-window-exception small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 .share-window-exception button{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:transparent;color:var(--ink);font:inherit;font-size:12px;cursor:pointer;flex:none}
 @media(max-width:480px){.share-window-actions>button{flex:1}.share-window-exception{align-items:flex-start;flex-direction:column}.share-window-exception button{align-self:flex-end}}
+/* شاشةُ «اختر كلمة السر» عند أول دخول: علامةُ SCHEDULE نفسُها (البلاطة الداكنة كما في بطاقة الدخول)،
+   والاسمُ في التحية أكبرُ وأثقل من بقية السطر. */
+.first-login .first-login-brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.first-login .first-login-brand svg{width:52px;height:52px;flex:0 0 52px;filter:drop-shadow(0 8px 18px rgb(17 25 22 / .18))}
+.first-login .first-login-brand div{display:grid;gap:2px}
+.first-login .first-login-brand b{font:700 17px/1.2 var(--brand-word-family);letter-spacing:.08em;color:var(--ink)}
+.first-login .first-login-brand small{font-size:12px;color:var(--muted)}
+.first-login .first-login-greeting{margin-top:10px;font-size:15px;line-height:1.6;color:var(--muted)}
+.first-login .first-login-greeting b{display:block;margin-top:2px;font-size:19px;font-weight:700;line-height:1.5;color:var(--ink);overflow-wrap:anywhere}
+.first-login .first-login-lead{margin-top:6px;font-size:var(--t-sm,13px);line-height:1.7;color:var(--muted)}

@@ -64,8 +64,8 @@ const EVENT_ICON: Record<SeatEventKind, React.ReactNode> = {
   "member-scopes": <UsersRound />, "link-issued": <Link2 />, "link-locked": <KeyRound />, "deputy-set": <BadgeCheck />, "deputy-ended": <CalendarClock />,
 };
 const EVENT_LABEL: Record<SeatEventKind, string> = {
-  "seat-created": "أُنشئ الكرسي", "seat-colleges": "تغيير الحرم", "holder-set": "سُجّل الشاغل", handover: "تسليم الكرسي",
-  "member-added": "عضوٌ جديد", "member-continued": "استمرار عضو", "member-ended": "انتهاء عضوية", "member-frozen": "تجميد الفريق",
+  "seat-created": "أُنشئ الفريق", "seat-colleges": "تغيير الحرم", "holder-set": "سُجّل الرئيس", handover: "تسليم الرئاسة",
+  "member-added": "عضوٌ جديد", "member-continued": "استمرار عضو", "member-ended": "انتهاء عضوية", "member-frozen": "تجميد الأعضاء",
   "member-scopes": "نطاق موظف", "link-issued": "رابطٌ جديد", "link-locked": "أُقفل رابط", "deputy-set": "تكليف نائب", "deputy-ended": "انتهاء النيابة",
 };
 
@@ -84,7 +84,7 @@ function PersonPicker({ candidates, value, onPick, placeholder }: { candidates: 
       <label className="seat-search"><Search aria-hidden="true" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder} /></label>
       <div className="seat-picker-list" role="listbox" aria-label={placeholder}>
         {shown.length ? shown.map(row => (
-          <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" key={row.id} role="option" aria-selected={value === row.id} className={value === row.id ? "on" : ""} onClick={() => onPick(row.id)}>
+          <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" key={row.id} role="option" aria-selected={value === row.id} className={value === row.id ? "on" : ""} onClick={() => onPick(row.id)}>
             <i aria-hidden="true">{initialOf(row.name)}</i><span>{row.name}</span>{row.hasMobile ? null : <small>بلا جوال</small>}
           </button>
         )) : <p className="seat-muted">لا أسماء مطابقة.</p>}
@@ -156,9 +156,9 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
     const result = await call<{ login: string; password: string; holder: Person; seatName: string; selfHandover: boolean }>(`/api/seats/${id}/handover`, { method: "POST", body: JSON.stringify(personBody(fromList)) });
     const link = invitationHref(`${origin()}/`, result.login, result.password);
     setSheet({
-      kind: "link", title: result.holder.name, subtitle: seatCaption(detail?.seat.roleLabel || "الشاغل الجديد", result.seatName), url: link, mobile: result.holder.mobile, fileStem: "SCHEDULE-seat",
+      kind: "link", title: result.holder.name, subtitle: seatCaption(detail?.seat.roleLabel || "الرئيس الجديد", result.seatName), url: link, mobile: result.holder.mobile, fileStem: "SCHEDULE-seat",
       credentials: { login: result.login, password: result.password },
-      message: [`أهلاً ${result.holder.name}`, `تسلّمتَ كرسي «${result.seatName}» في SCHEDULE.`, "ادخل من هذا الرابط، واختر كلمة سرّك الخاصة عند أول دخول:", link].join("\n"),
+      message: [`أهلاً ${result.holder.name}`, `تسلّمتَ رئاسة فريق «${result.seatName}» في SCHEDULE.`, "ادخل من هذا الرابط، واختر كلمة سرّك الخاصة عند أول دخول:", link].join("\n"),
       after: result.selfHandover ? () => window.location.replace("/") : undefined,
     });
     onChanged?.();
@@ -202,7 +202,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
 
   if (error && !detail) return <div className="seat-panel seat-panel-empty"><p className="seat-error" role="alert">{error}</p></div>;
   if (!detail) return <div className="seat-panel seat-panel-empty" aria-busy="true"><div className="seat-skeleton" /><div className="seat-skeleton short" /></div>;
-  if (!detail.seat) return <div className="seat-panel seat-panel-empty"><p className="seat-muted">هذا الحساب ليس كرسياً.</p></div>;
+  if (!detail.seat) return <div className="seat-panel seat-panel-empty"><p className="seat-muted">هذا الحساب ليس فريقاً.</p></div>;
 
   const team = detail.team;
   const live = team?.members.filter(m => m.status !== "ended") || [];
@@ -224,7 +224,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
         </div>
       )}
       {holderList.length ? (
-        <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="seat-link-btn" onClick={() => { setPick(null); setManualMode(!manualMode); }}>
+        <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="seat-link-btn" onClick={() => { setPick(null); setManualMode(!manualMode); }}>
           {manualMode ? "اختر من القائمة" : "ليس في القائمة؟ اكتب اسمه"}
         </button>
       ) : null}
@@ -241,7 +241,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
           {detail.seat.scopes.length > 3 ? ` و${detail.seat.scopes.length - 3} غيرها` : ""}
           <span className="seat-login" dir="ltr">{detail.seat.login}</span>
         </p>
-        {detail.seat.mustChangePassword ? <span className="seat-flag"><KeyRound aria-hidden="true" /> ينتظر أن يختار شاغله كلمة سرّه</span> : null}
+        {detail.seat.mustChangePassword ? <span className="seat-flag"><KeyRound aria-hidden="true" /> ينتظر أن يختار رئيسه كلمة سرّه</span> : null}
       </header>
 
       {error ? <p className="seat-error" role="alert">{error}</p> : null}
@@ -253,24 +253,24 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
             <small>الحرم التي يتابعها</small>
             <span>{detail.campusOptions.flatMap(family => family.colleges.filter(c => c.selected).map(c => family.colleges.length > 1 ? `${family.familyName} · ${c.chip}` : c.collegeName)).join("، ") || "لا حرم"}</span>
           </div>
-          <button type="button" data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => {
+          <button type="button" data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => {
             setCampuses(new Set(detail.campusOptions!.flatMap(family => family.colleges.filter(c => c.selected).map(c => c.collegeId))));
             setSheet({ kind: "campuses" });
           }}>تعديل الحرم</button>
         </section>
       ) : null}
 
-      <section className="seat-holder" aria-label="الشاغل">
+      <section className="seat-holder" aria-label="رئيس الفريق">
         <div className={`seat-avatar ${detail.holder ? "" : "empty"}`} aria-hidden="true">{detail.holder ? initialOf(detail.holder.name) : <Armchair />}</div>
         <div className="seat-holder-text">
-          <small>{detail.holder ? "يجلس على الكرسي" : "الشاغل"}</small>
-          <strong>{detail.holder ? detail.holder.name : "لم يُسجَّل شاغل هذا الكرسي بعد"}</strong>
+          <small>رئيس الفريق</small>
+          <strong>{detail.holder ? detail.holder.name : "لم يُسجَّل رئيس هذا الفريق بعد"}</strong>
           {detail.holder?.since ? <span>منذ {dayOf(detail.holder.since)}</span> : null}
         </div>
         <div className="seat-holder-actions">
-          {detail.canHandOver ? <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-primary" onClick={() => setSheet({ kind: "handover" })} disabled={busy}><ArrowLeftRight aria-hidden="true" /> تسليم الكرسي</button> : null}
-          {detail.canManage && source === "seat" && detail.holder ? <button data-guide-ignore="يعرض بطاقة دخول شاغل الكرسي لإرسالها إليه؛ لا يغيّر كلمة المرور ولا بيانات" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holderCard" })} disabled={busy}><IdCard aria-hidden="true" /> البطاقة</button> : null}
-          {detail.canManage && source === "seat" && !detail.holder ? <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holder" })} disabled={busy}><Crown aria-hidden="true" /> سجّل الشاغل الحالي</button> : null}
+          {detail.canHandOver ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" onClick={() => setSheet({ kind: "handover" })} disabled={busy}><ArrowLeftRight aria-hidden="true" /> تسليم الرئاسة</button> : null}
+          {detail.canManage && source === "seat" && detail.holder ? <button data-guide-ignore="يعرض بطاقة دخول رئيس الفريق لإرسالها إليه؛ لا يغيّر كلمة المرور ولا بيانات" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holderCard" })} disabled={busy}><IdCard aria-hidden="true" /> البطاقة</button> : null}
+          {detail.canManage && source === "seat" && !detail.holder ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holder" })} disabled={busy}><Crown aria-hidden="true" /> سجّل الرئيس الحالي</button> : null}
         </div>
       </section>
 
@@ -279,10 +279,10 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
           <header>
             <h3><UsersRound aria-hidden="true" />{team.teamLabel}</h3>
             <span className="seat-count">{activeMembers.length} يعمل{frozen.length ? ` · ${frozen.length} مجمَّد` : ""}</span>
-            {detail.canManage ? <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-secondary btn-sm" onClick={() => setSheet({ kind: "add" })} disabled={busy}><UserPlus aria-hidden="true" /> إضافة</button> : null}
+            {detail.canManage ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-secondary btn-sm" onClick={() => setSheet({ kind: "add" })} disabled={busy}><UserPlus aria-hidden="true" /> إضافة</button> : null}
           </header>
           {frozen.length && detail.canManage ? (
-            <div className="seat-frozen-banner"><Snowflake aria-hidden="true" /><div><strong>تسلّمتَ الكرسي حديثاً</strong><span>اختر لكلّ عضو: «مستمر» فيعود برابطه نفسه، أو «انتهت عضويته».</span></div></div>
+            <div className="seat-frozen-banner"><Snowflake aria-hidden="true" /><div><strong>تسلّمتَ رئاسة الفريق حديثاً</strong><span>اختر لكلّ عضو: «مستمر» فيعود برابطه نفسه، أو «انتهت عضويته».</span></div></div>
           ) : null}
           {live.length ? (
             <ul className="seat-members">
@@ -298,14 +298,14 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
                     <div className="seat-member-actions">
                       {member.status === "frozen" ? (
                         <>
-                          <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-primary btn-sm" onClick={() => void setStatus(member, "active")} disabled={busy}><UserCheck aria-hidden="true" /> مستمر</button>
-                          <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-ghost btn-sm" onClick={() => void setStatus(member, "ended")} disabled={busy}><UserMinus aria-hidden="true" /> انتهت عضويته</button>
+                          <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary btn-sm" onClick={() => void setStatus(member, "active")} disabled={busy}><UserCheck aria-hidden="true" /> مستمر</button>
+                          <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-ghost btn-sm" onClick={() => void setStatus(member, "ended")} disabled={busy}><UserMinus aria-hidden="true" /> انتهت عضويته</button>
                         </>
                       ) : (
                         <>
-                          <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-secondary btn-sm" onClick={() => showLink(member)} disabled={busy}><Link2 aria-hidden="true" /> الرابط</button>
-                          <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="icon-btn" title="رابط جديد يُبطل السابق" aria-label={`رابط جديد لـ${member.name}`} onClick={() => void reissue(member)} disabled={busy}><KeyRound aria-hidden="true" /></button>
-                          <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="icon-btn danger" title="إنهاء العضوية" aria-label={`إنهاء عضوية ${member.name}`} onClick={() => void setStatus(member, "ended")} disabled={busy}><UserMinus aria-hidden="true" /></button>
+                          <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-secondary btn-sm" onClick={() => showLink(member)} disabled={busy}><Link2 aria-hidden="true" /> الرابط</button>
+                          <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="icon-btn" title="رابط جديد يُبطل السابق" aria-label={`رابط جديد لـ${member.name}`} onClick={() => void reissue(member)} disabled={busy}><KeyRound aria-hidden="true" /></button>
+                          <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="icon-btn danger" title="إنهاء العضوية" aria-label={`إنهاء عضوية ${member.name}`} onClick={() => void setStatus(member, "ended")} disabled={busy}><UserMinus aria-hidden="true" /></button>
                         </>
                       )}
                     </div>
@@ -318,7 +318,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
             <details className="seat-ended">
               <summary>انتهت عضويتهم ({ended.length})</summary>
               <ul>{ended.map(member => (
-                <li key={member.id}><span>{member.name}</span>{detail.canManage ? <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-ghost btn-sm" onClick={() => void setStatus(member, "active")} disabled={busy}>أعده</button> : null}</li>
+                <li key={member.id}><span>{member.name}</span>{detail.canManage ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-ghost btn-sm" onClick={() => void setStatus(member, "active")} disabled={busy}>أعده</button> : null}</li>
               ))}</ul>
             </details>
           ) : null}
@@ -326,15 +326,15 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
             <div className="seat-deputy">
               <BadgeCheck aria-hidden="true" />
               {detail.deputy
-                ? <><span><strong>{detail.deputy.name}</strong> ينوب عنك ويوقّع حتى {detail.deputy.until}</span><button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-ghost btn-sm" onClick={() => void endDeputy()} disabled={busy}>إنهاء النيابة</button></>
-                : <><span>في إجازة أو تفرغ؟ كلّف عضواً ينوب عنك ويوقّع حتى تاريخٍ تحدّده.</span><button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-ghost btn-sm" onClick={() => setSheet({ kind: "deputy" })} disabled={busy}>تكليف نائب</button></>}
+                ? <><span><strong>{detail.deputy.name}</strong> ينوب عنك ويوقّع حتى {detail.deputy.until}</span><button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-ghost btn-sm" onClick={() => void endDeputy()} disabled={busy}>إنهاء النيابة</button></>
+                : <><span>في إجازة أو تفرغ؟ كلّف عضواً ينوب عنك ويوقّع حتى تاريخٍ تحدّده.</span><button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-ghost btn-sm" onClick={() => setSheet({ kind: "deputy" })} disabled={busy}>تكليف نائب</button></>}
             </div>
           ) : null}
         </section>
       ) : null}
 
-      <section className="seat-timeline" aria-label="تاريخ الكرسي">
-        <h3><History aria-hidden="true" />تاريخ الكرسي</h3>
+      <section className="seat-timeline" aria-label="تاريخ الفريق">
+        <h3><History aria-hidden="true" />تاريخ الفريق</h3>
         {detail.history.length ? (
           <ol>
             {detail.history.slice(0, compact ? 8 : 40).map((event, index) => (
@@ -344,13 +344,13 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
               </li>
             ))}
           </ol>
-        ) : <p className="seat-empty-line">لا شيء بعد. يبدأ التاريخ بتسجيل الشاغل.</p>}
+        ) : <p className="seat-empty-line">لا شيء بعد. يبدأ التاريخ بتسجيل الرئيس.</p>}
       </section>
 
       {sheet ? (
         <div className="seat-sheet-scrim" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && sheet.kind !== "link" && sheet.kind !== "holderCard") closeSheet(); }}>
-          <div className={`seat-sheet ${sheet.kind === "link" || sheet.kind === "holderCard" ? "is-card" : ""}`.trim()} role="dialog" aria-modal="true" aria-label={sheet.kind === "link" ? sheet.title : sheet.kind === "holderCard" ? `بطاقة الدخول: ${detail.holder?.name || ""}` : "الكرسي"}>
-            <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="seat-sheet-close" onClick={() => { const after = sheet.kind === "link" ? sheet.after : undefined; closeSheet(); after?.(); }} aria-label="إغلاق"><X aria-hidden="true" /></button>
+          <div className={`seat-sheet ${sheet.kind === "link" || sheet.kind === "holderCard" ? "is-card" : ""}`.trim()} role="dialog" aria-modal="true" aria-label={sheet.kind === "link" ? sheet.title : sheet.kind === "holderCard" ? `بطاقة الدخول: ${detail.holder?.name || ""}` : "الفريق"}>
+            <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="seat-sheet-close" onClick={() => { const after = sheet.kind === "link" ? sheet.after : undefined; closeSheet(); after?.(); }} aria-label="إغلاق"><X aria-hidden="true" /></button>
             {sheet.kind === "link" ? (
               <SeatLinkCard title={sheet.title} subtitle={sheet.subtitle} url={sheet.url} mobile={sheet.mobile} message={sheet.message} credentials={sheet.credentials} note={sheet.note} fileStem={sheet.fileStem}
                 onDone={() => { const after = sheet.after; closeSheet(); after?.(); }} />
@@ -361,22 +361,22 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
             {sheet.kind === "handover" ? (
               <>
                 <h3 className="seat-sheet-title"><ArrowLeftRight aria-hidden="true" />تسليم {detail.seat.name}</h3>
-                <p className="seat-sheet-lead">اختر الشاغل الجديد. تُولَّد له كلمةٌ أولى يغيّرها عند أول دخول، ويخرج كل جهازٍ مفتوح على الكرسي{team ? "، ويُجمَّد الفريق حتى يقرّر من يستمر" : ""}.</p>
+                <p className="seat-sheet-lead">اختر الرئيس الجديد. تُولَّد له كلمةٌ أولى يغيّرها عند أول دخول، ويخرج كل جهازٍ مفتوح على حساب الفريق{team ? "، ويُجمَّد الأعضاء حتى يقرّر من يستمر" : ""}.</p>
                 {personForm()}
                 <div className="seat-sheet-actions">
-                  <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || !personReady} onClick={() => void handOver(fromList)}><ArrowLeftRight aria-hidden="true" /> سلّم الكرسي</button>
-                  <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
+                  <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || !personReady} onClick={() => void handOver(fromList)}><ArrowLeftRight aria-hidden="true" /> سلّم الرئاسة</button>
+                  <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
                 </div>
               </>
             ) : null}
             {sheet.kind === "holder" ? (
               <>
-                <h3 className="seat-sheet-title"><Crown aria-hidden="true" />من يجلس على هذا الكرسي اليوم؟</h3>
-                <p className="seat-sheet-lead">تسجيلٌ فقط: لا تتغيّر كلمة السر ولا يخرج أحد. ويبدأ بها تاريخ الكرسي.</p>
+                <h3 className="seat-sheet-title"><Crown aria-hidden="true" />من رئيس هذا الفريق اليوم؟</h3>
+                <p className="seat-sheet-lead">تسجيلٌ فقط: لا تتغيّر كلمة السر ولا يخرج أحد. ويبدأ بها تاريخ الفريق.</p>
                 {personForm()}
                 <div className="seat-sheet-actions">
-                  <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || !personReady} onClick={() => void setHolder(fromList)}><Crown aria-hidden="true" /> سجّل</button>
-                  <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
+                  <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || !personReady} onClick={() => void setHolder(fromList)}><Crown aria-hidden="true" /> سجّل</button>
+                  <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
                 </div>
               </>
             ) : null}
@@ -401,15 +401,15 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
                   </>
                 )}
                 <div className="seat-sheet-actions">
-                  <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || (team.source === "department" ? !pick : !manualValid || !scopes.size)} onClick={() => void addMember()}><UserPlus aria-hidden="true" /> أضف وأصدر رابطه</button>
-                  <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
+                  <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || (team.source === "department" ? !pick : !manualValid || !scopes.size)} onClick={() => void addMember()}><UserPlus aria-hidden="true" /> أضف وأصدر رابطه</button>
+                  <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
                 </div>
               </>
             ) : null}
             {sheet.kind === "campuses" && detail.campusOptions ? (
               <>
-                <h3 className="seat-sheet-title"><Building2 aria-hidden="true" />الحرم التي يتابعها الكرسي</h3>
-                <p className="seat-sheet-lead">كرسيٌّ واحد لحرمٍ أو أكثر. الحرمُ الذي له رئيس تسجيلٍ آخر لا يُختار هنا. ونطاقُ الموظفين يتبع الكرسي: ما يُرفع عنه يسقط من نطاقهم.</p>
+                <h3 className="seat-sheet-title"><Building2 aria-hidden="true" />الحرم التي يتابعها الفريق</h3>
+                <p className="seat-sheet-lead">فريقٌ واحد لحرمٍ أو أكثر. الحرمُ الذي له رئيس تسجيلٍ آخر لا يُختار هنا. ونطاقُ الموظفين يتبع الفريق: ما يُرفع عنه يسقط من نطاقهم.</p>
                 <div className="seat-campus-families">
                   {detail.campusOptions.map(family => (
                     <fieldset key={family.familyName}>
@@ -427,8 +427,8 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
                   ))}
                 </div>
                 <div className="seat-sheet-actions">
-                  <button type="button" data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" className="btn btn-primary" disabled={busy || !campuses.size} onClick={() => void saveCampuses()}><Building2 aria-hidden="true" /> احفظ الحرم</button>
-                  <button type="button" data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
+                  <button type="button" data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" className="btn btn-primary" disabled={busy || !campuses.size} onClick={() => void saveCampuses()}><Building2 aria-hidden="true" /> احفظ الحرم</button>
+                  <button type="button" data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
                 </div>
               </>
             ) : null}
@@ -438,15 +438,15 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
                 <p className="seat-sheet-lead">ينوب عنك ويوقّع باسمه «نائباً عنك» حتى آخر يومٍ تحدّده، ثم تعود الصلاحية إليك وحدك.</p>
                 <div className="seat-picker-list" role="listbox" aria-label="النائب">
                   {activeMembers.map(member => (
-                    <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" key={member.id} role="option" aria-selected={deputy.memberId === member.id} className={deputy.memberId === member.id ? "on" : ""} onClick={() => setDeputy({ ...deputy, memberId: member.id })}>
+                    <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" key={member.id} role="option" aria-selected={deputy.memberId === member.id} className={deputy.memberId === member.id ? "on" : ""} onClick={() => setDeputy({ ...deputy, memberId: member.id })}>
                       <i aria-hidden="true">{initialOf(member.name)}</i><span>{member.name}</span>
                     </button>
                   ))}
                 </div>
                 <label className="seat-date"><span>حتى</span><input type="date" min={today} value={deputy.until} onChange={e => setDeputy({ ...deputy, until: e.target.value })} /></label>
                 <div className="seat-sheet-actions">
-                  <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || !deputy.memberId || !deputy.until} onClick={() => void saveDeputy()}><BadgeCheck aria-hidden="true" /> كلّف</button>
-                  <button data-guide-ignore="إجراء في لوحة الكرسي (الشاغل والفريق والنائب)؛ يحرسه الخادم بصلاحية شاغل الكرسي أو مدير النظام" type="button" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
+                  <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || !deputy.memberId || !deputy.until} onClick={() => void saveDeputy()}><BadgeCheck aria-hidden="true" /> كلّف</button>
+                  <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-ghost" onClick={closeSheet}>إلغاء</button>
                 </div>
               </>
             ) : null}
