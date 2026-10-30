@@ -9959,7 +9959,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           </div>
         </div>
         <div className={`appt-drawer-scrim${studioChecksOpen ? " is-open" : ""}`} onClick={() => setStudioChecksOpen(false)} aria-hidden="true" />
-        <div id="appt-checks" className={`appt-drawer${studioChecksOpen ? " is-open" : ""}`} role="dialog" aria-label="فحص الموعد">
+        <div id="appt-checks" className={`appt-drawer${studioChecksOpen ? " is-open" : ""}`} role="dialog" aria-modal={studioChecksOpen ? "true" : undefined} aria-label="فحص الموعد">
           <div className="appt-drawer-head">
             <span className="appt-drawer-grip" aria-hidden="true" />
             <b>فحص الموعد</b>

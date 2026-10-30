@@ -158,7 +158,6 @@
 .appt-drawer-scrim.is-open{opacity:1;visibility:visible;transition:opacity .2s var(--ease-out)}
 .appt-drawer{position:fixed;inset-block:0;left:0;z-index:195;width:min(460px,92vw);display:flex;flex-direction:column;overflow:auto;overscroll-behavior:contain;background:var(--canvas);border-inline-start:1px solid var(--line);box-shadow:24px 0 60px -30px rgba(10,20,16,.45);transform:translateX(-102%);visibility:hidden;transition:transform .26s var(--ease-out),visibility 0s linear .26s}
 .appt-drawer.is-open{transform:none;visibility:visible;transition:transform .26s var(--ease-out)}
-html:has(.schedule-editor.is-checks-open) .notify-bell{visibility:hidden}
 .appt-drawer-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--canvas) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .appt-drawer-head b{font-size:16px}
 .appt-drawer-close{margin-inline-start:auto;width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer}
