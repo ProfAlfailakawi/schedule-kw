@@ -181,6 +181,7 @@
     "test:first-login-password": "tsx tests/first-login-password-audit.tsx",
     "test:colleague-guard-measure": "tsx tests/colleague-guard-measure-audit.ts",
     "test:quick-studio-family": "tsx tests/quick-studio-family-audit.ts",
+    "test:lecture-stick-own": "tsx tests/lecture-stick-own-audit.ts",
     "test:section-requests": "tsx tests/section-requests-audit.ts",
     "test:import-courses-r3": "tsx tests/import-courses-r3-audit.ts",
     "test:doctor-journey": "tsx tests/doctor-journey-audit.ts",
