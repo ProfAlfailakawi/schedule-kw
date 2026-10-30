@@ -1,5 +1,5 @@
 import { isBlockingConflict } from "../utils/scheduleIntelligence";
-import PlanBadge from "./PlanBadge";
+import CourseTags from "./CourseTags";
 import AlertShort from "./AlertShort";
 import { buildInboxHeat } from "../utils/inboxHeat";
 import { byArabic } from "../utils/sorting";
@@ -42,7 +42,8 @@ import {
 import type { RequestRoomReason } from "../types";
 import { DnaCount } from "./dna";
 import { RequestTimelineToggle } from "./dna/requestDna";
-import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
+import { withPersonSuffix } from "../utils/visitingText";
+import PersonChips from "./PersonChips";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal } from "../utils/livePulse";
@@ -535,7 +536,7 @@ function RequestCard({ row, currentRows, onDecide, onReply, busyKey, filter, row
         <div className="request-card-who">
           <span className="request-avatar" aria-hidden="true">{initial}</span>
           <div className="request-card-id">
-            <strong className="schedule-instructor-with-badge">{row.instructorName}{isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId) ? <VisitingBadge compact /> : null}</strong>
+            <strong className="schedule-instructor-with-badge">{row.instructorName}<PersonChips visiting={isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId)} trainee={isTaRequest(row)} /></strong>
             <span className="request-card-meta">
               {row.sectionName ? <span className="request-card-section">قسم {row.sectionName.replace(/^قسم\s+/, "")}</span> : null}
               <small>{items.length ? countOf(items.length, AR.change) : "ملاحظة بلا تغييرات"}{row.submittedAt ? ` · ${arabicDate(row.submittedAt)}` : ""}</small>
@@ -732,7 +733,7 @@ function RequestRow({ row, item, index, current, busy: busyProp, rejecting, erro
       <div className="request-row-grid">
         <div className="request-what" role="group" aria-label="الطلب">
           <span className="request-action" data-action={item.action}><ActionIcon aria-hidden="true" />{ACTION_LABEL[item.action] || item.action}</span>
-          <strong className="request-course">{item.after?.courseName || item.before?.courseName || "—"}<PlanBadge courseId={item.after?.courseId || item.before?.courseId} />{(item as any).offering ? <span className="badge badge-warning" title={(item as any).offering.line} style={{ marginInlineStart: 6 }}>{(item as any).offering.icon} {(item as any).offering.line}</span> : null}</strong>
+          <strong className="request-course">{item.after?.courseName || item.before?.courseName || "—"}<CourseTags courseId={item.after?.courseId || item.before?.courseId} />{(item as any).offering ? <span className="badge badge-warning" title={(item as any).offering.line} style={{ marginInlineStart: 6 }}>{(item as any).offering.icon} {(item as any).offering.line}</span> : null}</strong>
           {item.before?.sectionCode ? <small>شعبة {item.before.sectionCode}</small> : null}
           {item.action === "add" && item.after?.collegeName ? <small>{item.after.collegeName}</small> : null}
         </div>
@@ -1314,14 +1315,15 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const { lookup: visitingLookup, isVisiting: lookupVisiting } = useVisitingLookup(termId);
   const rowVisiting = (row: InboxRequest) => lookupVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId);
   /* صفوفُ المنتقي، وأشخاصُها (شخصٌ واحدٌ بطلباته كلها) — المصدرُ نفسه لمنتقي «مقترح دراسي» ولإرفاق طلبات الشخص بالمساحة. */
-  const launcherRows = useMemo(() => (rows || []).map(row => ({ id: row.id, AdInstructorId: row.AdInstructorId, instructorName: row.instructorName, AdCollegeId: row.AdCollegeId, AdSectionId: row.AdSectionId, sectionName: row.sectionName, requestCollegeName: row.requestCollegeName, changedCount: row.changedCount, visiting: rowVisiting(row) })), [rows, visitingLookup]);
+  const launcherRows = useMemo(() => (rows || []).map(row => ({ id: row.id, AdInstructorId: row.AdInstructorId, instructorName: row.instructorName, AdCollegeId: row.AdCollegeId, AdSectionId: row.AdSectionId, sectionName: row.sectionName, requestCollegeName: row.requestCollegeName, changedCount: row.changedCount, visiting: rowVisiting(row), trainee: isTaRequest(row) })), [rows, visitingLookup]);
   const personChoices = useMemo(() => proposalLauncherChoices(launcherRows, collegeId), [launcherRows, collegeId]);
   personChoicesRef.current = personChoices;
   const instructorOptions = useMemo(() => instructorChoices.map(choice => {
     const own = (rows || []).filter(entry => choice.ids.includes(Number(entry.AdInstructorId)));
     /* المنتدبُ يُوسم بشارته ولو جاء بسجلّين: يُمثَّل الشخصُ بصفّه المنتدب إن وُجد. */
     const row = own.find(entry => rowVisiting(entry)) || own[0];
-    return { value: choice.ids[0], changed: own.some(entry => entry.changedCount > 0), label: withVisitingSuffix(row.instructorName, rowVisiting(row)) };
+    /* قائمةٌ أصلية بلا مكوّن: الوسمان نصّاً بالترتيب نفسه (الاسم ← منتدب ← 🎓 تدريب). */
+    return { value: choice.ids[0], changed: own.some(entry => entry.changedCount > 0), label: withPersonSuffix(row.instructorName, rowVisiting(row), own.some(isTaRequest)) };
   }).map(({ changed, ...option }) => changed ? { ...option, label: `${option.label} · طلب تعديلاً` } : option)
     .sort((a, b) => byArabic(a.label, b.label)), [instructorChoices, rows, visitingLookup]);
 
@@ -1804,11 +1806,11 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                   );
                   return reach.href ? (
                     <a key={row.id} href={reach.href} target="_blank" rel="noreferrer noopener" className="request-remind">
-                      <Send aria-hidden="true" /> {row.instructorName}{rowVisiting(row) ? <VisitingBadge compact /> : null}
+                      <Send aria-hidden="true" /> {row.instructorName}<PersonChips visiting={rowVisiting(row)} trainee={isTaRequest(row)} />
                     </a>
                   ) : (
                     <span key={row.id} className="request-remind" data-blocked="true" title={reach.blocked || ""}>
-                      <Link2 aria-hidden="true" /> {row.instructorName}{rowVisiting(row) ? <VisitingBadge compact /> : null}
+                      <Link2 aria-hidden="true" /> {row.instructorName}<PersonChips visiting={rowVisiting(row)} trainee={isTaRequest(row)} />
                     </span>
                   );
                 })}
@@ -1827,7 +1829,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               <ChevronDown aria-hidden="true" data-open={showUnchanged || undefined} />
               <Check aria-hidden="true" />
               {countOf(unchanged.length, AR.instructor)} {nounFor(unchanged.length, AR.saidVerb)} «الجدول كما هو»
-              {showUnchanged ? <em>{unchanged.map(row => withVisitingSuffix(row.instructorName, rowVisiting(row))).join(" · ")}</em> : null}
+              {showUnchanged ? <em>{unchanged.map(row => withPersonSuffix(row.instructorName, rowVisiting(row), isTaRequest(row))).join(" · ")}</em> : null}
             </button>
           ) : null}
 
@@ -1918,7 +1920,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                     <span className="request-absent-icon" title={row.linkOpenedAt ? "فتح ولم يرسل" : "لم يفتح الرابط"}>
                       {row.linkOpenedAt ? <MailOpen aria-hidden="true" /> : <UserX aria-hidden="true" />}
                     </span>
-                    <strong>{withVisitingSuffix(row.instructorName, rowVisiting(row))}</strong>
+                    <strong className="schedule-instructor-with-badge">{row.instructorName}<PersonChips visiting={rowVisiting(row)} trainee={isTaRequest(row)} /></strong>
                     {reach.href ? (
                       <a href={reach.href} target="_blank" rel="noreferrer noopener" className="request-remind" aria-label={`ذكّر ${row.instructorName}`}>
                         <BellRing aria-hidden="true" /> ذكّر
@@ -1938,7 +1940,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                 <article className="request-confirmed-row" key={row.id}>
                   <span className="request-confirmed-icon"><ShieldCheck aria-hidden="true" /></span>
                   <span className="request-confirmed-copy">
-                    <strong>{withVisitingSuffix(row.instructorName, rowVisiting(row))}</strong>
+                    <strong className="schedule-instructor-with-badge">{row.instructorName}<PersonChips visiting={rowVisiting(row)} trainee={isTaRequest(row)} /></strong>
                     <small>ثبّت جدوله كما هو</small>
                   </span>
                   <time dateTime={unchangedConfirmedAt(row)}>{unchangedConfirmedDateTime(unchangedConfirmedAt(row))}</time>

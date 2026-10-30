@@ -1,0 +1,14 @@
+/* ── وسومُ المقرر الموحّدة (CourseTags ← src/utils/courseTags.ts) ─────────────────
+   سطرٌ واحد بجانب الاسم: الصحيفة ← نوعُ المتطلب ← «🔒 لم نصل بعد». الحجمُ واحدٌ في كل مكان،
+   والشارةُ بحجم محتواها (لا تُمطّ في قائمة ولا شبكة)، وتلتفّ بهدوء على الهاتف. */
+.ctags{display:inline-flex;flex-wrap:wrap;align-items:center;gap:3px 4px;margin-inline-start:6px;max-width:100%;vertical-align:middle;line-height:1;font-style:normal;font-weight:400}
+.ctags>.ctag{display:inline-flex;align-items:center;flex:none;align-self:center;width:max-content;max-width:100%;margin:0!important;padding:1px 7px;border-radius:999px;font-size:max(10px,.72em);font-style:normal;line-height:1.45;letter-spacing:0;white-space:nowrap;vertical-align:middle}
+.ctags>.ctag.plan-badge{border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);color:color-mix(in srgb,var(--accent) 85%,var(--muted));background:transparent;font-weight:500}
+.ctags>.ctag.course-service-badge{border:1px solid color-mix(in srgb,currentColor 22%,transparent);color:color-mix(in srgb,currentColor 62%,transparent);background:transparent;font-weight:400}
+.ctags>.ctag.ctag-reach{border:1px solid color-mix(in srgb,var(--muted,#6b7280) 26%,transparent);background:color-mix(in srgb,var(--muted,#6b7280) 10%,var(--surface,#fff));color:var(--muted,#6b7280);font-weight:500}
+/* سطرُ الخيار في القوائم: الاسمُ كاملاً ثم الوسوم بجانبه؛ وإن ضاق السطر (الهاتف) نزلت الوسومُ تحته محاذيةً للاسم. */
+.ss-option-line{flex-wrap:wrap;column-gap:6px;row-gap:3px}
+.ss-option-line>.ctags,.ss-option-line>.visiting-badge,.ss-option-line>.ta-badge{margin-inline-start:0}
+/* داخل زرّ القائمة المختار: سطرٌ واحد، والوسمُ لا يكسره. */
+.ss-trigger .ctags,.ss-static .ctags{flex-wrap:nowrap;overflow:hidden}
+@media print{.ctags>.ctag[data-print="0"]{display:none!important}}

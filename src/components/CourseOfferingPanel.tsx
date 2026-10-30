@@ -12,6 +12,8 @@ import { OFFERING_META, type CourseOfferingDoc, type OfferingState } from "../ut
 import { reachLocked, splitBySheet } from "../utils/courseReach";
 import { PrimaryButton } from "./ui";
 import { ReachChain, ReachChip, ReachOpenButton, type ReachPayload } from "./CourseReach";
+/* وسومُ المقرر الموحّدة في رأس البطاقة (الصحيفة ← نوعُ المتطلب)؛ وحكمُ الوصول في سطره تحتها مع «افتحه للطرح». */
+import CourseTags from "./CourseTags";
 import { offeringScopeKey, onOfferingChange, rememberOffering, rememberReach, type OfferingSnapshot } from "../utils/prepublishReach";
 
 type Course = { id: number; name: string; code: string; level: number; sections: number };
@@ -120,7 +122,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId, focu
           const reach = reachOf(course.id);
           return (
             <div className="of-card" key={course.id} data-reach={reachLocked(reach) ? "locked" : undefined}>
-              <header><div><b>{course.name}</b><small> {course.code}</small></div><span aria-hidden="true">{OFFERING_META[state].icon}</span></header>
+              <header><div><b>{course.name}</b><CourseTags courseId={course.id} /><small> {course.code}</small></div><span aria-hidden="true">{OFFERING_META[state].icon}</span></header>
               <div className="of-path" aria-label="مسار الصحيفة">{[100, 200, 300, 400].map(l => <i key={l} data-on={level && l <= level ? "1" : "0"} data-at={level === l ? "1" : "0"} title={`مستوى ${l}`} />)}<span>{level ? `م${level}` : "—"} · {countOf(course.sections, AR.section)}</span></div>
               {reach && reach.state !== "unknown" ? (
                 <div className="of-reach" title={reach.reason || undefined}>

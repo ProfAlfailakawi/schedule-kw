@@ -1,4 +1,4 @@
-import PlanBadge from "./PlanBadge";
+import CourseTags from "./CourseTags";
 import TermSelect from "./TermSelect";
 /**
  * ── رادارُ التسجيل ──────────────────────────────────────────────────────────
@@ -345,7 +345,7 @@ function QualityCells({ cells, truncated, termId, onOpen, qualityLabel }: { cell
       {shown.map(cell => (
         <div key={`${cell.offeringId}:${cell.issue}`} className="qc-row">
           <span className="qc-ic" aria-hidden="true"><AlertTriangle /></span>
-          <div><b>{cell.courseName || `مقرر ${cell.courseId}`}<PlanBadge courseId={cell.courseId} /></b><small>{cell.courseCode} · شعبة {cell.code} · {qualityLabel(cell.issue)}</small></div>
+          <div><b>{cell.courseName || `مقرر ${cell.courseId}`}<CourseTags courseId={cell.courseId} /></b><small>{cell.courseCode} · شعبة {cell.code} · {qualityLabel(cell.issue)}</small></div>
           {onOpen && cell.rowId ? (
             <SecondaryButton type="button" onClick={() => {
               writeSharedScope({ collegeId: cell.collegeId, sectionId: cell.sectionId, termId });

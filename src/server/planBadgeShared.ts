@@ -1,4 +1,5 @@
 /** جسرٌ خادميّ لشارة الصحيفة: تضع مسارات مراجعة الصحف مصدرها هنا، وتقرؤه الصفحات العامة (المقترح الدراسي) دون اعتماد متبادل. */
+import type { RequirementKind } from "../utils/courseTags";
 type Source = () => Promise<Array<{ courseId: number; label: string; collegeId: number; sectionId: number }>>;
 let source: Source | null = null;
 
@@ -37,4 +38,32 @@ export async function serviceCourseKeys(): Promise<Set<string>> {
     const rows = await serviceSource();
     return new Set([...rows].map(([courseId, row]) => `${courseId}:${row.sectionId}`));
   } catch { return new Set(); }
+}
+
+/* ── شاراتُ المقرر الموحّدة لبطاقة الأستاذ (src/utils/courseTags.ts) ───────────────────────────────────────
+   الصحيفةُ كلُّها (صحيفةُ القسم المالك ثم صحيفةُ مقرر الخدمة) ونوعُ المتطلب، لكل «قسم:مقرر». للعرض وحده:
+   اقتراحُ المقررات المستقبلية يبقى على planBadgesFor (صحيفة القسم نفسه). */
+type CourseFactSource = () => Promise<{
+  sheets: Array<{ courseId: number; label: string; sectionId: number }>;
+  kinds: Array<{ courseId: number; kind: RequirementKind; service: boolean; sectionId: number }>;
+}>;
+let factSource: CourseFactSource | null = null;
+export const setCourseFactSource = (next: CourseFactSource) => { factSource = next; };
+
+export async function courseTagFactsFor(pairs: Array<{ courseId: unknown; sectionId: unknown }>): Promise<{ sheets: Record<string, string>; kinds: Record<string, RequirementKind>; services: string[] }> {
+  const out = { sheets: {} as Record<string, string>, kinds: {} as Record<string, RequirementKind>, services: [] as string[] };
+  if (!factSource) return out;
+  const wanted = new Set(pairs.map(pair => `${Number(pair.sectionId)}:${Number(pair.courseId)}`));
+  try {
+    const facts = await factSource();
+    /* صحيفةُ القسم المالك أولاً: لا تكتب صحيفةُ الخدمة فوقها. */
+    for (const row of facts.sheets) { const key = `${row.sectionId}:${row.courseId}`; if (wanted.has(key) && row.label && !out.sheets[key]) out.sheets[key] = row.label; }
+    for (const row of facts.kinds) {
+      const key = `${row.sectionId}:${row.courseId}`;
+      if (!wanted.has(key)) continue;
+      out.kinds[key] = row.kind;
+      if (row.service) out.services.push(key);
+    }
+  } catch { /* الشارة زينة: غيابُها لا يكسر الكرت */ }
+  return out;
 }

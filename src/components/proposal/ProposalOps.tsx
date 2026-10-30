@@ -1,4 +1,4 @@
-import PlanBadge from "../PlanBadge";
+import CourseTags from "../CourseTags";
 /**
  * ── قائمةُ مواد المقترح (بطاقاتٌ مختصرة) ────────────────────────────────────
  *
@@ -51,7 +51,7 @@ function OpCard({ ws, op, onEdit }: { key?: React.Key; ws: Workspace; op: StudyP
         ws.setSelectedKey(key);
       }} aria-label={`${OP_KIND_LABEL[op.kind]}: ${t.courseName}، اضغط لإبرازها في الجدول`}>
         <span className="sp-op-kind"><Kind aria-hidden="true" />{OP_KIND_LABEL[op.kind]}</span>
-        <span className="sp-op-title"><b>{t.courseName}<PlanBadge courseId={t.AdCourseId} /></b><small>{t.courseCode} · شعبة {t.SCode}</small></span>
+        <span className="sp-op-title"><b>{t.courseName}<CourseTags courseId={t.AdCourseId} /></b><small>{t.courseCode} · شعبة {t.SCode}</small></span>
         {(() => {
           /* قبل ← بعد بنظرة: الموضعُ القديم مشطوباً والجديدُ بارزاً، وما تغيّر منهما مُعلَّم. */
           const change = ws.changes.all.find(c => c.opId === op.id);

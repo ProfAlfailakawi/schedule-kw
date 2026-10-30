@@ -231,7 +231,7 @@ export function seatMemberBadge(member: SeatMember): SeatMemberBadge {
 export const SEAT_MEMBER_BADGE_LABEL: Record<SeatMemberBadge, string> = {
   active: "فعّال",
   pending: "لم يفتح رابطه بعد",
-  frozen: "مجمَّد حتى يقرّر الشاغل",
+  frozen: "مجمَّد حتى يقرّر الرئيس",
   ended: "انتهت عضويته",
 };
 
@@ -260,7 +260,7 @@ export function handOverLedger(ledger: SeatLedger, holder: SeatHolder, by: strin
     deputy: undefined,
     members: ledger.members.map(member => member.status === "active" ? { ...member, status: "frozen" as const, frozenAt: at } : member),
   };
-  next = withSeatEvent(next, { at, kind: "handover", by, detail: previous ? `${previous} ← ${holder.name}` : `الشاغل: ${holder.name}` });
-  if (frozen.length) next = withSeatEvent(next, { at, kind: "member-frozen", by, detail: `جُمّد ${frozen.length} من الفريق حتى يقرّر الشاغل الجديد` });
+  next = withSeatEvent(next, { at, kind: "handover", by, detail: previous ? `${previous} ← ${holder.name}` : `الرئيس: ${holder.name}` });
+  if (frozen.length) next = withSeatEvent(next, { at, kind: "member-frozen", by, detail: `جُمّد ${frozen.length} من الأعضاء حتى يقرّر الرئيس الجديد` });
   return next;
 }

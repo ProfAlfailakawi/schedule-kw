@@ -1,4 +1,4 @@
-import PlanBadge from "../PlanBadge";
+import CourseTags from "../CourseTags";
 /**
  * ── الشعب الشاغرة («هيئة تدريسية») جاهزةً للإسناد ───────────────────────────
  *
@@ -113,7 +113,7 @@ export default function ProposalVacancies({ ws, rows, onAssigned }: { ws: Worksp
         <span className="sp-vac-mark" data-fit={r.fit} title={fit.text} aria-hidden="true"><fit.Icon className={r.fit === "checking" ? "sp-spin" : undefined} /></span>
         <button type="button" className="sp-vac-main" onClick={() => ws.setSelectedKey(item.key)}
           aria-label={`${item.courseName}، الشعبة ${item.SCode}، ${fit.text}`} data-guide-ignore="يُبرز الشعبة الشاغرة على الجدول — لا يكتب شيئاً">
-          <b>{item.courseName}<PlanBadge courseId={r.courseId} /></b>
+          <b>{item.courseName}<CourseTags courseId={r.courseId} /></b>
           <span className="sp-vac-slot">
             <bdi className="sp-sec">{item.SCode}</bdi>
             <span>{PROPOSAL_DAY_KEYS.filter(d => item.days.includes(d)).map(d => PROPOSAL_DAY_SHORT[d]).join(" · ")}</span>

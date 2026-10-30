@@ -9,7 +9,7 @@
  * القاعدة الواحدة للمنتقيات الآن:
  *   - الهويةُ مفتاحُ الاسم (personIdentityKey ← instructorIdentityKey مع أرقام الاسم):
  *     سجلّان باسمٍ واحد، أو طلبان في البنين والبنات، شخصٌ واحد وسطرٌ واحد.
- *   - السطرُ اسمُ الشخص وحده (ومعه وسمُ «منتدب» إن كان)، بلا قسمٍ ولا كلية ولا جوال.
+ *   - السطرُ اسمُ الشخص وحده (ومعه وسما «منتدب» و«🎓 تدريب» إن كانا — PersonChips)، بلا قسمٍ ولا كلية ولا جوال.
  *   - وسمُ الموقع (بنين/بنات/الكلية) يُرسم داخل ما يُفتح — على كل طلبٍ وكل موعد —
  *     لا في المنتقي (campusChip.ts).
  *   - الفعلُ لكل معرّف (إعادةُ فتح الرابط لأستاذ في شاشة النشر) يقع على كل سجلّات الشخص.
@@ -27,6 +27,8 @@ export interface LauncherRequestRow {
   requestCollegeName?: string;
   changedCount?: number;
   visiting?: boolean;
+  /** طلبُه بصفة مرحلة التدريب (🎓، linkMode "ta"). */
+  trainee?: boolean;
 }
 
 export interface LauncherChoice {
@@ -36,6 +38,8 @@ export interface LauncherChoice {
   /** لم يعد يُكتب بعد الاسم شيء: الشخصُ مرّةً واحدة باسمه وحده (r2). يبقى الحقلُ فارغاً لمن يقرؤه. */
   hint: string;
   visiting: boolean;
+  /** في مرحلة التدريب (🎓): وسمُه بعد «منتدب» (PersonChips). */
+  trainee: boolean;
   /** كلُّ طلباته في الوارد — طلبٌ لكل (سجلٍّ × قسمٍ × كلية) — الأوّلُ هو `value`. */
   requests: LauncherPersonRequest[];
 }
@@ -113,6 +117,7 @@ export function proposalLauncherChoices(rows: readonly LauncherRequestRow[], pre
       name: String(first.instructorName || "").trim(),
       hint: "",
       visiting: ordered.some(row => row.visiting === true),
+      trainee: ordered.some(row => row.trainee === true),
       requests: ordered.map(row => {
         const collegeName = String(row.requestCollegeName || "").trim();
         return {

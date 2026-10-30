@@ -1,4 +1,4 @@
-import PlanBadge from "./PlanBadge";
+import CourseTags from "./CourseTags";
 import VisitingBadge from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React from "react";
@@ -48,7 +48,7 @@ export function IntelligenceVersionCanvas({
                   dayRows.map((row) => (
                     <article key={`${key}-${row.id}`} className="time-travel-card">
                       <time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
-                      <strong>{row.AdCourseName || "مقرر"}<PlanBadge courseId={row.AdCourseId} /></strong>
+                      <strong>{row.AdCourseName || "مقرر"}<CourseTags courseId={row.AdCourseId} /></strong>
                       <small>{row.SCode} · {row.AdRoomCode ? `قاعة ${row.AdRoomCode}/${row.AdRoomHall}` : "بلا قاعة"}</small>
                       {(row as any).AdInstructorName ? <span>{(row as any).AdInstructorName}{isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId) ? <> <VisitingBadge compact /></> : null}</span> : null}
                     </article>
@@ -134,7 +134,7 @@ export function IntelligenceVersionDiffTable({ comparison }: { comparison: any }
                 return (
                   <tr key={item.id}>
                     <td><span className={`version-state ${item.state}`}>{item.state === "added" ? "أضيف" : item.state === "removed" ? "أزيل" : "تغيّر"}</span></td>
-                    <td><strong>{row.AdCourseName || "مقرر"}<PlanBadge courseId={row.AdCourseId} /></strong></td>
+                    <td><strong>{row.AdCourseName || "مقرر"}<CourseTags courseId={row.AdCourseId} /></strong></td>
                     <td dir="ltr">{row.SCode || "—"}</td>
                     <td>{versionRowWhen(item.before)}<small dir="ltr">{versionRowRoom(item.before)}</small></td>
                     <td>{versionRowWhen(item.after)}<small dir="ltr">{versionRowRoom(item.after)}</small></td>

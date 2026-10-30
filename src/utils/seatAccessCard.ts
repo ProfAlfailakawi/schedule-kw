@@ -61,7 +61,7 @@ export function holderCardModel(input: {
   return {
     url,
     caption: seatCaption(input.roleLabel, input.seatName),
-    message: [`أهلاً ${input.holderName}`, `بطاقة دخولك إلى كرسي «${input.seatName}» في SCHEDULE.`, how, url, `اسم الدخول: ${input.login}`].join("\n"),
+    message: [`أهلاً ${input.holderName}`, `بطاقة دخولك إلى فريق «${input.seatName}» في SCHEDULE.`, how, url, `اسم الدخول: ${input.login}`].join("\n"),
     note: !input.mustChangePassword
       ? `اختار ${input.holderName} كلمة سرّه بنفسه، فلا تحملها البطاقة: الرابط يملأ اسم الدخول، ويكتب هو كلمته.`
       : password

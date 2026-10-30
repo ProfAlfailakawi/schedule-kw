@@ -85,12 +85,12 @@ export function seatTeamPage(input: { nonce?: string; token: string; error?: str
     : `<p class="note">هذا الجهاز معروفٌ لديك. اضغط للدخول.</p>`;
   return `${head}<main class="card">${brand}
 <div class="who"><div class="avatar" aria-hidden="true">${initial}</div><div><h1>${esc(input.memberName)}</h1><p>${esc(input.caption || "عضو فريق")}</p></div></div>
-<div class="seat"><small>تدخل على كرسي</small><b>${esc(input.seatName)}</b></div>
+<div class="seat"><small>تدخل في فريق</small><b>${esc(input.seatName)}</b></div>
 <form id="f" novalidate>
 <div style="display:grid;gap:14px">${tail}
 <div class="err" id="err" role="alert" hidden></div>
 <button class="go" id="go" type="submit"${input.needsTail ? " disabled" : ""}>ادخل إلى مساحة العمل</button></div>
 </form>
-<p class="note">${input.demo ? "رابطٌ من البيئة التجريبية. " : ""}لا تشارك هذا الرابط: هو مفتاحك الشخصي، ويُبطله شاغل الكرسي متى شاء.</p>
+<p class="note">${input.demo ? "رابطٌ من البيئة التجريبية. " : ""}لا تشارك هذا الرابط: هو مفتاحك الشخصي، ويُبطله رئيس الفريق متى شاء.</p>
 </main><script${input.nonce ? ` nonce="${esc(input.nonce)}"` : ""}>${SCRIPT.replace("__TOKEN__", JSON.stringify(input.token)).replace("__NEEDS__", input.needsTail ? "true" : "false")}</script></body></html>`;
 }

@@ -3,7 +3,7 @@
  *
  * يُستعمل في البطاقة السريعة وفي النموذج الكامل. الموقعُ (بنين/بنات/الكلية) شريطٌ صغير
  * لا يظهر إلا حين يكون في الكتالوج أكثرُ من موقع، ويبدأ بموقع الطلب؛ والمقررُ قائمةٌ
- * يُبحث فيها، كلُّ مقررٍ سطرٌ واحد، وبجانب مقرر الصحيفة الجديدة وسمُ «🆕 صحيفة جديدة».
+ * يُبحث فيها، كلُّ مقررٍ سطرٌ واحد، وبجانبه وسومُه الموحّدة (CourseTags): الصحيفة ونوعُ المتطلب و«🔒 لم نصل بعد».
  * القواعد كلّها في utils/proposalCourseChoices.ts.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -11,8 +11,9 @@ import { MapPin } from "lucide-react";
 import SearchableSelect from "../SearchableSelect";
 import { ReachChain, ReachChip } from "../CourseReach";
 import { reachLocked } from "../../utils/courseReach";
+import { courseOptionBadge, usePlanBadges } from "../../utils/planBadges";
 import {
-  NEW_SHEET_BADGE, proposalCourseChoices, proposalCourseScopes, sameCourseIn, scopeKeyOf, type ProposalCourseChoice,
+  proposalCourseChoices, proposalCourseScopes, sameCourseIn, scopeKeyOf, type ProposalCourseChoice,
 } from "../../utils/proposalCourseChoices";
 import type { Workspace } from "./useProposalWorkspace";
 
@@ -35,9 +36,6 @@ export function useProposalCourseChoices(ws: Workspace) {
   return { scopes, scope, scopeKey, setScope, choices };
 }
 
-/** في القائمة: المقفلُ وحده يُوسم (🔒)، فلا يُكثَّر النصّ على كل سطر. */
-const REACH_LOCKED_BADGE = "🔒 لم نصل بعد";
-
 export default function ProposalCoursePicker({ ws, choices, scopes, scopeKey, setScope, autoFocus = false, compact = false }: {
   ws: Workspace;
   choices: ProposalCourseChoice[];
@@ -53,10 +51,12 @@ export default function ProposalCoursePicker({ ws, choices, scopes, scopeKey, se
   useEffect(() => { if (autoFocus) window.requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })); }, [autoFocus]);
   /* المقررُ المختار قد يكون سجلّاً أخاً للممثِّل (مسودةٌ قديمة): يُعرض على سطره. */
   const value = choices.find(choice => choice.memberIds.includes(Number(draft.courseId)))?.id ?? draft.courseId ?? "";
+  /* وسومُ المقرر الموحّدة (src/utils/courseTags.ts): كلُّ ما ينطبق بترتيبه — الصحيفة ← نوعُ المتطلب ← «🔒 لم نصل بعد». */
+  const planBadges = usePlanBadges();
   const options = useMemo(() => choices.map(choice => ({
     value: choice.id, label: choice.name, hint: choice.code, keywords: choice.code,
-    badge: reachLocked(choice.reach) ? REACH_LOCKED_BADGE : choice.isNew ? NEW_SHEET_BADGE : undefined,
-  })), [choices]);
+    badge: courseOptionBadge(choice.memberIds, planBadges, { newSheet: choice.isNew, reachLocked: reachLocked(choice.reach) }),
+  })), [choices, planBadges]);
   const chosen = choices.find(choice => choice.id === value) || null;
   return (
     <div className="sp-course-pick" data-compact={compact || undefined}>

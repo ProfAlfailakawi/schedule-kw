@@ -164,8 +164,8 @@ check(/room-replaceable/.test(cards) && /placeholderIds\.has\(Number\(row\.AdIns
 }
 check(/بدون أستاذ بعد/.test(picker) && /instructor-group-label/.test(picker) && /members: people\.filter\(person => !visitingSet\.has/.test(picker), "G4: «بدون أستاذ بعد» مستقل، الأعضاء ثم المنتدبون بشارة");
 check(/<InstructorPicker/.test(quick) && /visitingRosterIds=\{visitingRosterIds\}/.test(quick), "G4: المنتقي الموحّد في «موعد جديد» السريع");
-check(/<span className="ss-option-line"><b>\{option\.label\}<\/b>\{option\.badge \? <PlanBadge text=\{option\.badge\} \/>/.test(select) && /\.plan-badge,\.course-service-badge\{flex:none;justify-self:start;align-self:center;width:max-content/.test(css), "G6/H1: الشارة الموحّدة بحجمها في القائمة المنسدلة");
-check(/badge: courseOptionBadge\(\[Number\(c\.AdCourseId\)\], planBadges\)/.test(quick) && /\{selected\?\.badge \? <PlanBadge text=\{selected\.badge\} \/>/.test(select), "H1: شارة المقرر الموحّدة في البطاقة السريعة (القائمة والمختار)");
+check(/<span className="ss-option-line"><b>\{option\.label\}<\/b>\{option\.chips\}\{option\.badge \? <CourseTags text=\{option\.badge\} \/>/.test(select) && /\.plan-badge,\.course-service-badge\{flex:none;justify-self:start;align-self:center;width:max-content/.test(css), "G6/H1: الشارة الموحّدة بحجمها في القائمة المنسدلة");
+check(/badge: courseOptionBadge\(\[Number\(c\.AdCourseId\)\], planBadges\)/.test(quick) && /\{selected\?\.chips\}\{selected\?\.badge \? <CourseTags text=\{selected\.badge\} \/>/.test(select), "H1: شارة المقرر الموحّدة في البطاقة السريعة (القائمة والمختار)");
 check(/course-twin-hint/.test(editor) && /spellingTwinsOf\(courseName, courseNames\)/.test(editor), "G5: اقتراح دمج لإملاءٍ آخر (بلا حذف)");
 check(/importFullPage/.test(transfer) && /is-full-page/.test(css), "M1: استيراد PDF بكامل الصفحة");
 

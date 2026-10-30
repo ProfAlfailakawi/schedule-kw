@@ -10,7 +10,8 @@
  * والتخطيطُ كلُّه في 14-proposal.css لا هنا.
  */
 import React from "react";
-import VisitingBadge from "../VisitingBadge";
+import PersonChips from "../PersonChips";
+import { useIsTrainee } from "../../utils/trainees";
 import { useVisitingLookup } from "../../hooks/useVisitingLookup";
 import {
   AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarCheck2, CalendarDays, Check, Clock, GraduationCap, Hourglass, Layers, MapPin, Scale, ShieldAlert, X,
@@ -102,6 +103,8 @@ export default function ProposalHeader(props: {
   const { ctx, proposal, status, before, after, loadCap, blockers, reviews, evalState, evalCurrent, hasOps } = props;
   const { isVisiting: lookupVisiting } = useVisitingLookup(ctx?.term.id);
   const visiting = Boolean(ctx) && lookupVisiting(ctx!.instructor.id, ctx!.scope.collegeId, ctx!.scope.sectionId);
+  /* «🎓 تدريب» بعد «منتدب» (PersonChips): طلبُه في النطاق بصفة مرحلة التدريب. */
+  const trainee = useIsTrainee(ctx?.instructor.id, ctx?.scope.collegeId, ctx?.scope.sectionId, ctx?.term.id);
   const checking = hasOps && !evalCurrent && evalState !== "failed";
   const failed = hasOps && evalState === "failed";
   /* بلا مواد: الوضع المتوقع هو الحالي نفسه (لا شيء يتغيّر)، لا «غير متوفر». */
@@ -125,7 +128,7 @@ export default function ProposalHeader(props: {
         <span className="sp-avatar" aria-hidden="true"><GraduationCap /></span>
         <div className="sp-id-text">
           <p className="sp-eyebrow">إعداد مقترح دراسي</p>
-          <h1 id="sp-title" className="schedule-instructor-with-badge">{ctx.instructor.name}{visiting ? <VisitingBadge compact /> : null}</h1>
+          <h1 id="sp-title" className="schedule-instructor-with-badge">{ctx.instructor.name}<PersonChips visiting={visiting} trainee={trainee} /></h1>
           {props.siblings && props.siblings.length > 1 ? (
             <div className="sp-meta sp-meta-person">
               <span>{ctx.term.name}</span>

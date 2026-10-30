@@ -1,0 +1,7 @@
+/* ── وسومُ الشخص الموحّدة (PersonChips): الاسم ← «منتدب» ← «🎓 تدريب» ───────────
+   «منتدب» شارتُه كما هي (VisitingBadge)؛ و«🎓 تدريب» بجانبها بالحجم نفسه، بلونٍ هادئ مختلف.
+   لا غلاف: كلُّ سياقٍ يضبط «منتدب» (flex:none، المحاذاة) يضبط جارتَها معها. */
+.ta-badge{display:inline-flex;align-items:center;justify-content:center;flex:none;min-height:20px;padding:1px 8px;margin-inline-start:6px;border:1px solid color-mix(in srgb,var(--accent) 36%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));color:color-mix(in srgb,var(--accent) 86%,var(--ink));font-size:10px;font-weight:700;font-style:normal;line-height:1.15;white-space:nowrap;vertical-align:middle}
+.ta-badge.compact{min-height:18px;padding-inline:6px;font-size:11px;margin-inline-start:5px}
+.visiting-badge+.ta-badge{margin-inline-start:4px}
+@media print{.ta-badge{display:none!important}}

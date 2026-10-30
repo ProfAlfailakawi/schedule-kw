@@ -181,6 +181,7 @@ test:decision-surfaces
 test:schedule-versions-list
 test:time-machine-scope-escape
 test:visiting-badge-changes
+test:consistent-badges
 test:visiting-lookup
 test:visiting-badge-g1
 test:visiting-badge-g2
@@ -211,6 +212,7 @@ test:live-pulse
 test:live-pulse-http
 test:seats
 test:seat-access-card
+test:first-login-password
 test:colleague-guard-measure
 test:quick-studio-family
 test:section-requests
