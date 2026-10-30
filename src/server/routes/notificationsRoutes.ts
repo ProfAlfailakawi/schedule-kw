@@ -32,6 +32,7 @@ import { bellBlockingMemo, bellPlanningTermId, studentQueueMemo } from "../core/
 import { sectionGapData } from "../core/planning";
 import { isScopeAllowed } from "../core/scope";
 import { approvalBlockerOptions } from "../core/smartImport";
+import { sectionRequestNotices } from "../sectionRequestsRoutes";
 
 /* ══════════════════════════════════════════════════════════════════════════
    تغييرات الجدول: صندوق الوارد وتقرير الجولة
@@ -280,6 +281,16 @@ app.get("/api/notifications", requireAuth, async (req: AuthenticatedRequest, res
     }
   } catch (error) {
     console.error("[notifications] masari gap:", error instanceof Error ? error.message : error);
+  }
+  /* ── «طلب شعبة»: ما ينتظر الإرشادَ واللجنةَ والتسجيل من طلبات الإرشاد، في الفصلين ── */
+  try {
+    const extra = await sectionRequestNotices(req, [termId, planning]);
+    if (extra.length) {
+      const rank: Record<string, number> = { alert: 0, action: 1, waiting: 2, done: 3 };
+      items = [...items, ...extra.map(item => ({ ...item, termId: item.termId || termId, termName: !item.termId || item.termId === termId ? termName : planningName || termName }))].sort((a, b) => rank[a.tone] - rank[b.tone] || String(b.at || "").localeCompare(String(a.at || "")));
+    }
+  } catch (error) {
+    console.error("[notifications] section requests:", error instanceof Error ? error.message : error);
   }
   /* ── الإعلانات: حملاتٌ تنتهي قريباً، لحساب الإدارة الرئيسي وحده (ليس في الصندوق التجريبي) ── */
   try {

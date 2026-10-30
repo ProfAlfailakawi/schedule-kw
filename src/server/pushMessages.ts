@@ -212,3 +212,29 @@ export function adminRepliesMessage(count: number, place = "", accepted = false,
 export function adminTestMessage(at = new Date().toISOString()): PushMessage {
   return { title: "🔔 التنبيهات تعمل", body: "📥 هكذا يصلك كل طلبٍ جديد", url: INBOX_PATH, tag: "inbox-test", at };
 }
+
+/* ── طلبُ شعبة: الإرشاد ← لجنة الجدول ← التسجيل (src/utils/sectionRequests.ts) ─── */
+
+/** كشفُ التسجيل في التطبيق (pathByView.studentRegistration): فيه بطاقاتُ طلبات الشعب للأطراف الثلاثة. */
+export const REGISTRATION_PATH = "/FSchedule/StudentRegistration";
+
+export type SectionRequestPushKind = "sent" | "approved-advising" | "approved-registration" | "registered" | "declined";
+
+/**
+ * سطران لكل طرف: ما حدث في عنوانٍ بأيقونة، و«أيُّ مقررٍ وكم» تحته. الوسمُ للطلب، فيستبدل
+ * التنبيهُ التالي عن الطلب نفسه سابقَه على الهاتف. لا اسمَ طالبٍ في تنبيهٍ أبداً: شاشةُ القفل يراها غيرُ صاحبها.
+ */
+export function sectionRequestMessage(kind: SectionRequestPushKind, input: { id: string; courseName: string; approved?: number; listed?: number; registered?: number; count?: number; period?: string }, at = new Date().toISOString()): PushMessage {
+  const course = `«${String(input.courseName || "مقرر")}»`;
+  const tag = `section-request-${String(input.id || "").slice(-24)}`;
+  const approved = Math.max(0, Math.round(Number(input.approved) || 0));
+  const listed = Math.max(0, Math.round(Number(input.listed) || 0));
+  const registered = Math.max(0, Math.round(Number(input.registered) || 0));
+  if (kind === "sent") {
+    return { title: `📨 طلب شعبة من الإرشاد — ${course}`, body: [countOf(Math.max(1, Number(input.count) || listed || 1), AR.student), input.period].filter(Boolean).join(" · "), url: REGISTRATION_PATH, tag, at };
+  }
+  if (kind === "approved-advising") return { title: `✅ تم الاعتماد — ${course}`, body: `اعتُمد ${approved} من ${listed}`, url: REGISTRATION_PATH, tag, at };
+  if (kind === "approved-registration") return { title: `🎓 للتسجيل: ${countOf(Math.max(1, approved), AR.student)} في ${course}`, body: "اعتمدتهم اللجنة · علّم من سُجّل", url: REGISTRATION_PATH, tag, at };
+  if (kind === "registered") return { title: `📝 سُجّل ${registered} من ${approved} في ${course}`, body: "كشفُ الطلب محدَّث", url: REGISTRATION_PATH, tag, at };
+  return { title: `↩️ اعتذرت لجنة الجدول عن ${course}`, body: "السببُ في كشف التسجيل", url: REGISTRATION_PATH, tag, at };
+}

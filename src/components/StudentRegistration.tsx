@@ -1,5 +1,6 @@
 import { byArabic } from "../utils/sorting";
 import AdvisorSeatsPanel from "./AdvisorSeatsPanel";
+import SectionRequestsPanel from "./sectionRequests/SectionRequestsPanel";
 import AdvisingScopePicker from "./AdvisingScopePicker";
 import CampusChip, { CampusFilter } from "./CampusChip";
 import { campusOf, campusText, type Campus } from "../utils/campus";
@@ -69,6 +70,8 @@ interface Props {
    * الكتالوجُ كاملاً لمن له الكلّ، ومُصفّىً بالنطاق لمن سواه.
    */
   powerAdmin?: boolean;
+  /** «افتح الشعبة» في بطاقة طلب الشعبة يفتح الورشة على محرّر الموعد. */
+  onNavigate?: (view: string) => void;
 }
 
 interface CaseCourse {
@@ -276,7 +279,7 @@ function QuickDecide({ items, busy, onApprove, onReject, onClose }: {
 
 /* ── الشاشة ─────────────────────────────────────────────────────────────── */
 
-export default function StudentRegistration({ scopes, powerAdmin = false }: Props) {
+export default function StudentRegistration({ scopes, powerAdmin = false, onNavigate }: Props) {
   const [terms, setTerms] = useState<AdTerm[] | null>(null);
   const [termId, setTermId] = useState(0);
   /* الكلية والقسم من النطاق المشترك (src/utils/sharedScope.ts)، معروضين على
@@ -820,6 +823,9 @@ export default function StudentRegistration({ scopes, powerAdmin = false }: Prop
       >
         كشف التسجيل{collegeId ? <> <CampusChip collegeName={collegeName} /></> : null}
       </PageTitle>
+
+      {/* «طلب شعبة»: الإرشاد ← لجنة الجدول ← التسجيل، على الشاشة التي يفتحها الثلاثة أصلاً. */}
+      {termId ? <SectionRequestsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} onNavigate={onNavigate} /> : null}
 
       {Boolean(collegeId && sectionId && termId) && <details className="surface" style={{ padding: "10px 14px" }}><summary>🎟️ رصيد مقاعد المرشد <CampusChip collegeName={collegeName} /></summary><AdvisorSeatsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} /></details>}
 
