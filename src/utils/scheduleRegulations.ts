@@ -106,16 +106,19 @@ export function expectedMinutesForDay(day: DayKey): number {
   return LONG_LECTURE_DAYS.includes(day) ? LONG_LECTURE_MINUTES : SHORT_LECTURE_MINUTES;
 }
 
-/** الفاصل المقرَّر بين محاضرتين متتاليتين في القاعة الواحدة، بالدقائق. */
+/** الفاصل المقرَّر بين محاضرتين متتاليتين في القاعة الواحدة، بالدقائق.
+ *  الاثنين والأربعاء عشرُ دقائق كالأحد (المالك 2026-10-30): سُلّمُهما 8:00 ثم 9:30 ثم 11:00… ومحاضرتُهما 80 دقيقة،
+ *  فبين المحاضرتين عشر — وهو ما تقوله صفوفُ القسم نفسُها. كانت 15 فتخرج «بعدها» 9:35 خارج السُّلّم. */
 export const SHORT_DAY_GAP_MINUTES = 10;
-export const LONG_DAY_GAP_MINUTES = 15;
+export const LONG_DAY_GAP_MINUTES = 10;
 
 /**
  * ── الفاصل بين محاضرتين، وهو ليس رقماً واحداً ───────────────────────────────
  *
  * The college's rule is stated per day family, exactly like the lecture length
- * beside it: ten minutes between two lectures on Sun/Tue/Thu, a quarter of an
- * hour on Mon/Wed — the longer meetings need the longer changeover.
+ * beside it. Both families now carry ten minutes: the Mon/Wed ladder is
+ * 8:00, 9:30, 11:00… with 80-minute lectures (owner, 2026-10-30), which
+ * leaves ten minutes between them, not a quarter of an hour.
  *
  * The engine used to carry ONE number for this, learned from history or
  * declared as a single setting, so a department could not express the rule it
@@ -219,6 +222,11 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
     note: "فترتان: 50 دقيقة في الثلاثاء و50 دقيقة في الخميس."
   },
   {
+    /* ساعتان على الاثنين والأربعاء (المالك 2026-10-30): فترةٌ من 50 دقيقة في كل يوم، على سُلّم اليومين (8:00 ثم 9:30…). */
+    hours: 2, id: "2h-mon-wed", days: ["fmonday", "fwednesday"], minutesPerDay: [50, 50], weeklyMinutes: 100,
+    note: "فترتان: 50 دقيقة في الاثنين و50 دقيقة في الأربعاء."
+  },
+  {
     hours: 2, id: "2h-one-block", days: ["ftuesday"], minutesPerDay: [110], weeklyMinutes: 100,
     note: `فترتان تدريسيّتان من ${countOf(50, AR.minute)} بينهما فاصل ${countOf(10, AR.minute)} (${countOf(110, AR.minute)} زمنية).`
   },
@@ -261,6 +269,15 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
   {
     hours: 5, id: "5h-split", days: ["fmonday", "fwednesday"], minutesPerDay: [170, 110], weeklyMinutes: 250,
     note: `خمس فترات تدريسية: ثلاث فترات (${countOf(170, AR.minute)} زمنية) وفترتان (${countOf(110, AR.minute)} زمنية) على يومين.`
+  },
+  /* خمسُ ساعات على أزواج الأربع ساعات نفسها (المالك 2026-10-30: «نفس منطق الأربع»): ثلاثُ فترات في اليوم الأول وفترتان في الثاني. */
+  {
+    hours: 5, id: "5h-sun-tue", days: ["fsunday", "ftuesday"], minutesPerDay: [170, 110], weeklyMinutes: 250,
+    note: `خمس فترات تدريسية: ثلاث فترات (${countOf(170, AR.minute)} زمنية) في الأحد وفترتان (${countOf(110, AR.minute)} زمنية) في الثلاثاء.`
+  },
+  {
+    hours: 5, id: "5h-tue-thu", days: ["ftuesday", "fthursday"], minutesPerDay: [170, 110], weeklyMinutes: 250,
+    note: `خمس فترات تدريسية: ثلاث فترات (${countOf(170, AR.minute)} زمنية) في الثلاثاء وفترتان (${countOf(110, AR.minute)} زمنية) في الخميس.`
   }
 ];
 
@@ -322,14 +339,24 @@ export const daysApprovedForHours = (weeklyHours: number, days: Iterable<DayKey>
  * ومحاضراتُ الاثنين والأربعاء تبدأ 8:00 ثم كل ساعةٍ ونصف (9:30، 11:00، 12:30…).
  * يعيد جملةَ التنبيه، أو "" إن وافق السُّلّم (أو خلطت الأيامُ الأسرتين — ذاك حكمُ النمط لا السُّلّم).
  */
+/** خطوةُ سُلّم البدايات لأيامٍ من أسرةٍ واحدة: ساعةٌ للأحد والثلاثاء والخميس، وساعةٌ ونصف للاثنين والأربعاء
+ *  (من 8:00). والخليطُ لا سُلّمَ واحداً له (0): حكمُه حكمُ النمط. */
+export function ladderStepForDays(days: Iterable<DayKey>): number {
+  const list = [...new Set(days)];
+  if (!list.length) return 0;
+  const long = list.filter(day => LONG_LECTURE_DAYS.includes(day)).length;
+  if (long && long !== list.length) return 0;
+  return long ? 90 : 60;
+}
+
 export function startLadderNote(days: Iterable<DayKey>, start: string): string {
   const list = [...new Set(days)];
   const match = /^(\d{1,2}):(\d{2})$/.exec(String(start || "").trim());
   if (!list.length || !match) return "";
   const minutes = Number(match[1]) * 60 + Number(match[2]);
-  const long = list.filter(day => LONG_LECTURE_DAYS.includes(day)).length;
-  if (long && long !== list.length) return "";
-  const step = long ? 90 : 60;
+  const step = ladderStepForDays(list);
+  if (!step) return "";
+  const long = step === 90;
   if (minutes >= 8 * 60 && (minutes - 8 * 60) % step === 0) return "";
   const shown = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
   return long

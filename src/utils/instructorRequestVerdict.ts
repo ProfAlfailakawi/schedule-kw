@@ -68,8 +68,9 @@ export interface RequestReason {
   /** هل يمنع هذا السببُ الإرسال؟ */
   blocking: boolean;
   /** `hours`: المشكلةُ في الأيام (لا تغطّي ساعاتِ المقرّر) لا في وقت البداية، فلا يختلف الحكمُ بين الأوقات.
-      `pattern`: الأيامُ ليست نمطاً معتمداً في مكتبة الأنماط — يُعرض بدلَ البدائل أزرارُ الأنماط المعتمدة. */
-  code?: "hours" | "pattern";
+      `pattern`: الأيامُ ليست نمطاً معتمداً في مكتبة الأنماط — يُعرض بدلَ البدائل أزرارُ الأنماط المعتمدة.
+      `ladder`: البدايةُ ليست من سُلّم البدايات في اللائحة — يمنع في كرت الأستاذ وحده، وبدائلُه من السُّلّم. */
+  code?: "hours" | "pattern" | "ladder";
 }
 
 /** موضعٌ مقترح: يومٌ وبداية، والنهايةُ محسوبة. */
@@ -197,6 +198,11 @@ export interface VerdictContext {
   offerAlternatives?: boolean;
   /** كليةُ الموعد المطلوب: تحصر مطابقةَ القاعات النصّية في كليتها (A4). */
   roomCollegeId?: number;
+  /**
+   * سُلّمُ البدايات يمنع (كرتُ الأستاذ، المالك 2026-10-30: «لكرت الأستاذ لازم تمنعه… ماله شغل بالتاريخ»): بدايةٌ
+   * يختارها الأستاذ بنفسه خارج السُّلّم لا تُرسل. وحين يغيب (شاشاتُ القسم، وما اقترحه القسمُ فقبله الأستاذ) تبقى تنبيهاً.
+   */
+  ladderBlocks?: boolean;
 }
 
 const dayLabel = (day: DayKey) => DAY_NAMES[DAY_KEYS.indexOf(day)];
@@ -315,7 +321,8 @@ function regulationLadder(days: DayKey[]): string[] {
 }
 
 function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: string[], week: FSchedule[], identity: number): RequestSlot[] {
-  const learned = (context.startLadder || []).filter(Boolean);
+  /* سُلّمُ القسم اقتراحٌ لا يخالف اللائحة: ما خرج منه عن سُلّمها لا يُقترح بديلاً (المالك 2026-10-30). */
+  const learned = (context.startLadder || []).filter(start => Boolean(start) && !startLadderNote(request.days, start));
   /* يُقدَّم سلّم القسم وتكمّله شبكة اللائحة. كل بديل يمر بالفحص الدقيق
      لكل يوم، فلا تُستعمل أطول مدة لرفض اليوم القصير خطأً. */
   if (!request.days.length || context.disableAlternatives) return [];
@@ -669,6 +676,14 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     });
   }
 
+  /* سُلّمُ البدايات في اللائحة (المالك 2026-10-30): الأحد والثلاثاء والخميس على رأس الساعة، والاثنين والأربعاء 8:00 ثم
+     9:30… في كرت الأستاذ يمنع ما اختاره بنفسه («غير معتمد»، ولا يُعفيه تاريخ القسم)، وبدائلُه أقربُ أوقات السُّلّم الخالية.
+     وفي شاشات القسم تنبيهٌ لا يمنع (أدناه). الشعبةُ الشاغرة القائمة تُؤخذ كما هي فلا يُحكم على بدايتها. */
+  const ladderNote = request.relatedRowIds?.length ? "" : startLadderNote(request.days, request.start);
+  if (ladderNote && context.ladderBlocks) {
+    reasons.push({ source: "shape", code: "ladder", blocking: true, text: `وقت البداية غير معتمد في اللائحة: ${ladderNote}` });
+  }
+
   /* ── اللائحة ──────────────────────────────────────────────────────────── */
   /* ملاحظاتُ اللائحة من درجة «note» (م.7/2) تبقى تنبيهاً في شاشات القسم
      ولا تُدخل الطلبَ في «يحتاج استثناءً»: هي تنبيهٌ لا قيد. */
@@ -774,10 +789,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   if (!verdict.sendable && verdict.nearestTimes.length) {
     verdict.headline = `${verdict.headline} أقربُ الأوقات المتاحة: ${verdict.nearestTimes.map(slot => `${slot.dayLabel} ${slot.start}`).join(" · ")}`;
   }
-  /* سُلّمُ البدايات في اللائحة (المالك 2026-10-30): تنبيهٌ لا يمنع — يُقال للأستاذ ولا يغيّر الحكم. الشعبةُ الشاغرة القائمة
-     تُؤخذ كما هي فلا يُنبَّه عليها. */
-  const ladder = request.relatedRowIds?.length ? "" : startLadderNote(request.days, request.start);
-  if (ladder && !verdict.advice) verdict.advice = ladder;
+  /* وحيث لا يمنع السُّلّم (القسم، أو ما اقترحه القسمُ فقبله الأستاذ) يبقى تنبيهاً يُقال ولا يغيّر الحكم. */
+  if (ladderNote && !context.ladderBlocks && !verdict.advice) verdict.advice = ladderNote;
   return verdict;
 }
 

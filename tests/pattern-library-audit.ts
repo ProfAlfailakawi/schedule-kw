@@ -19,7 +19,7 @@ check((html.match(/<figure class="plib-pat"/g) || []).length === total, `كلُ�
 check((html.match(/class="plib-group"/g) || []).length === library.length, "ومجموعةٌ لكل عدد ساعات");
 check(!/80 \+ 80 \+ 50/.test(html) && !patternsForHours(4).some(pattern => pattern.id === "4h-mon-wed-thu"),
   "نمط ٨٠+٨٠+٥٠ غير معروض ولا مقترح كنمط تشغيلي معتمد حالياً");
-check(/50د[\s\S]*10د[\s\S]*80د[\s\S]*15د/.test(html), "ومفتاحٌ بطول المحاضرة والفاصل: ٥٠/١٠ و٨٠/١٥");
+check(/50د[\s\S]*10د[\s\S]*80د[\s\S]*10د/.test(html), "ومفتاحٌ بطول المحاضرة والفاصل: ٥٠/١٠ و٨٠/١٠ (الاثنين 8:00–9:20 ثم 9:30)");
 const fourHourBlock = library.find(group => group.hours === 4)?.patterns.find(pattern => pattern.id === "4h-block");
 check(fourHourBlock?.minutesPerDay[0] === 230 && fourHourBlock.weeklyMinutes === 200, "كتلة الأربع ساعات العملية 230 زمنية وتحسب 200 دقيقة تدريس (50×4 + 10×3)");
 check(!/تاريخ/.test(html), "ولا كلمة «تاريخي» في النص");

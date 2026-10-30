@@ -8,16 +8,24 @@
  *  P5  ساكن: بوابتا الإنشاء والتعديل والفحص المباشر وتثبيتُ طلب الأستاذ تمنع النمط غير المعتمد، ولا يُعفي التاريخ.
  *  P6  ساكن: طلبُ الأستاذ يمنع ما ليس نمطاً معتمداً ويقترح المعتمد، و«المعتاد تاريخياً» لا يُقترح خارج المكتبة.
  *  P7  ساكن: «املأ كالمعتاد» لا يعبّئ نمطاً خارج المكتبة، ويأخذ طول اللائحة.
+ *  P8  سُلّمُ البدايات تنبيهٌ للقسم.
+ *  P9  وفي كرت الأستاذ يمنع ما يختاره بنفسه («لكرت الأستاذ لازم تمنعه… ماله شغل بالتاريخ»)، وبدائلُه من السُّلّم،
+ *      وما عرضه القسمُ عليه فقبله لا يُمنع، واقتراحُه المضادّ يمرّ بالقاعدة نفسها.
+ *  P10 المكتبة: ساعتان على الاثنين·الأربعاء (50+50)، وخمسُ ساعات على أزواج الأربع (170+110).
+ *  P11 الاثنين والأربعاء 8:00–9:20 ثم 9:30: الفاصل 10 دقائق، و«لاصق بمحاضرتي» على السُّلّم.
  */
 import fs from "node:fs";
-import { daysApprovedForHours, daysFitLibrary, libraryLengthsForDay, patternsForHours, startLadderNote } from "../src/utils/scheduleRegulations";
+import { LONG_DAY_GAP_MINUTES, daysApprovedForHours, daysFitLibrary, ladderStepForDays, libraryLengthsForDay, patternsForHours, requiredGapForDays, startLadderNote } from "../src/utils/scheduleRegulations";
+import { judgeRequest } from "../src/utils/instructorRequestVerdict";
+import { meetingMinutes, lengthPatternsForHours } from "../src/utils/requestMeetingLength";
+import { stickCandidates } from "../src/utils/lectureStick";
 import { historicalDurationMinutes } from "../src/utils/advancedIntelligence";
 import { offRhythm } from "../src/utils/departmentRhythm";
 
 let passed = 0, failed = 0;
-const check = (ok: boolean, label: string) => {
+const check = (ok: boolean, label: string, detail?: unknown) => {
   if (ok) { passed += 1; console.log(`✓ ${label}`); }
-  else { failed += 1; console.log(`✗ ${label}`); }
+  else { failed += 1; console.log(`✗ ${label}${detail === undefined ? "" : ` — ${JSON.stringify(detail)}`}`); }
 };
 
 const two = patternsForHours(2).map(pattern => pattern.days.join("+"));
@@ -75,7 +83,59 @@ check(offRhythm({ fsunday: true, fstarttime: "09:00", fendtime: "09:50" } as any
 check(/رأس الساعة/.test(offRhythm({ fsunday: true, fstarttime: "08:55", fendtime: "09:45" } as any, habitLadder)), "P8 وبدايةٌ خارج سُلّم اللائحة يُقال سُلّمُ اللائحة لا عادةُ القسم");
 const conflicts = fs.readFileSync("src/server/core/scheduleConflicts.ts", "utf8");
 check(/startLadderNote\(/.test(conflicts) && /خارج سُلّم البدايات في اللائحة/.test(conflicts) && /soft: true/.test(conflicts), "P8 الفحصُ المباشر (موعد جديد، البطاقة السريعة، الوارد) يقول التنبيه ولا يمنع");
-check(/startLadderNote\(request\.days, request\.start\)/.test(verdict) && /verdict\.advice = ladder/.test(verdict), "P8 وصفحةُ الأستاذ تقوله إرشاداً لا مانعاً");
+check(/startLadderNote\(request\.days, request\.start\)/.test(verdict) && /if \(ladderNote && !context\.ladderBlocks && !verdict\.advice\) verdict\.advice = ladderNote/.test(verdict), "P8 وحيث لا يمنع (القسم، وما عرضه القسمُ فقبله الأستاذ) يُقال إرشاداً");
+
+/* P9 كرتُ الأستاذ: البدايةُ خارج السُّلّم تمنع ما يختاره بنفسه، وتبقى تنبيهاً للقسم. */
+const oneHour = { AdCourseId: 77, CourseHours: 1, CourseName: "مقرر تجريبي", CourseCode: "T77" } as any;
+const twoHours = { AdCourseId: 78, CourseHours: 2, CourseName: "مقرر بساعتين", CourseCode: "T78" } as any;
+const verdictContext = (ladderBlocks: boolean) => ({
+  instructorId: 5, allRows: [], instructorRowsAfter: [], courses: new Map([[77, oneHour], [78, twoHours]]), instructors: new Map(),
+  knownRoomKeys: ["legacy:T|1"], ladderBlocks,
+}) as any;
+const asked = (start: string, days: string[] = ["fsunday"], courseId = 77) => ({ rowId: null, tempId: -1, action: "add", AdCourseId: courseId, days, start } as any);
+const teacherOff = judgeRequest(asked("09:30"), verdictContext(true));
+check(!teacherOff.sendable && teacherOff.reasons.some(reason => reason.code === "ladder" && reason.blocking && /غير معتمد في اللائحة/.test(reason.text) && /رأس الساعة/.test(reason.text)),
+  "P9 كرت الأستاذ: الأحد 09:30 ممنوع «وقت البداية غير معتمد في اللائحة»");
+check(teacherOff.nearestTimes.length > 0 && teacherOff.nearestTimes.every(slot => !startLadderNote(slot.days, slot.start)) && teacherOff.nearestTimes[0].start !== "09:30",
+  "P9 وبدائلُه أقربُ أوقات السُّلّم الخالية", teacherOff.nearestTimes.map(slot => slot.start));
+check(judgeRequest(asked("09:00"), verdictContext(true)).sendable && judgeRequest(asked("09:30", ["fmonday"]), verdictContext(true)).sendable,
+  "P9 الأحد 09:00 والاثنين 09:30 على السُّلّم: يمضيان");
+check(!judgeRequest(asked("09:00", ["fmonday"]), verdictContext(true)).sendable, "P9 الاثنين 09:00 خارج سُلّم الاثنين والأربعاء: ممنوع للأستاذ");
+const departmentOff = judgeRequest(asked("09:30"), verdictContext(false));
+check(departmentOff.sendable && /رأس الساعة/.test(departmentOff.advice || "") && !departmentOff.reasons.some(reason => reason.code === "ladder"),
+  "P9 القسم: البداية نفسها تنبيهٌ لا يمنع");
+const teacherSunThu = judgeRequest(asked("10:00", ["fsunday", "fthursday"], 78), verdictContext(true));
+check(!teacherSunThu.sendable && teacherSunThu.reasons.some(reason => reason.code === "pattern" && /ليست نمطاً معتمداً/.test(reason.text)),
+  "P9 كرت الأستاذ: ساعتان على الأحد·الخميس «ليست نمطاً معتمداً»");
+const core = fs.readFileSync("src/server/core/instructorRequests.ts", "utf8");
+check(/ladderBlocks: !options\.forDepartment && !offeredByDepartment/.test(core) && /chosenAlternativeIndex\(departmentOffers, days, slot\?\.start \|\| ""\) >= 0/.test(core)
+  && /message\.from === "department"/.test(core) && /decisionHistory/.test(core),
+  "P9 يمنع ما اختاره الأستاذ بنفسه وحده: ما عرضه القسمُ (بديلُ رفض، مقترحُ محادثة، ما وافق عليه) لا يُمنع");
+const publicRoutes = fs.readFileSync("src/server/routes/publicRequestRoutes.ts", "utf8");
+check(/const counterLadder = start && days\.length && item\.action !== "delete" \? startLadderNote\(days as DayKey\[\], start\) : ""/.test(publicRoutes)
+  && /daysApprovedForHours\(hours, days as DayKey\[\]\) === false/.test(publicRoutes),
+  "P9 «اقترح وقتاً آخر» من الأستاذ يمرّ بالسُّلّم وبالأنماط المعتمدة");
+check(/reason\.code === "pattern"/.test(publicRoutes.slice(publicRoutes.indexOf("problemIsShape = false"))),
+  "P9 خريطةُ الأوقات لا تلوّن كلَّ الأوقات حمراء حين تكون المشكلةُ في الأيام");
+check(/filter\(start => Boolean\(start\) && !startLadderNote\(request\.days, start\)\)/.test(verdict), "P9 سُلّمُ القسم لا يقترح بديلاً خارج سُلّم اللائحة");
+
+/* P10 المكتبة كما اعتمدها المالك. */
+check(daysApprovedForHours(2, ["fmonday", "fwednesday"]) === true && meetingMinutes(["fmonday", "fwednesday"], lengthPatternsForHours(2)).join() === "50,50",
+  "P10 ساعتان على الاثنين·الأربعاء: 50 + 50");
+check(["fsunday,ftuesday", "ftuesday,fthursday", "fmonday,fwednesday"].every(pair => daysApprovedForHours(5, pair.split(",") as any) === true)
+  && meetingMinutes(["fsunday", "ftuesday"], lengthPatternsForHours(5)).join() === "170,110" && meetingMinutes(["ftuesday", "fthursday"], lengthPatternsForHours(5)).join() === "170,110",
+  "P10 خمسُ ساعات على أزواج الأربع: الأحد·الثلاثاء والثلاثاء·الخميس والاثنين·الأربعاء (170 + 110)");
+check(daysApprovedForHours(5, ["fsunday", "fthursday"]) === false && daysApprovedForHours(4, ["fsunday", "fthursday"]) === false, "P10 والأحد·الخميس ليس نمطاً للأربع ولا للخمس");
+
+/* P11 الاثنين والأربعاء 8:00–9:20 ثم 9:30. */
+check(LONG_DAY_GAP_MINUTES === 10 && requiredGapForDays(["fmonday", "fwednesday"]) === 10, "P11 فاصل الاثنين والأربعاء 10 دقائق");
+check(ladderStepForDays(["fmonday", "fwednesday"]) === 90 && ladderStepForDays(["fsunday", "fthursday"]) === 60 && ladderStepForDays(["fsunday", "fmonday"]) === 0, "P11 خطوةُ السُّلّم: 90 للاثنين·الأربعاء و60 للبقية، ولا سُلّم للخليط");
+const stuck = stickCandidates({ rowId: 1, title: "أ", days: ["fmonday", "fwednesday"] as any, start: "08:00", end: "09:20" }, "after", () => 80);
+check(stuck.map(candidate => `${candidate.start}-${candidate.end}`).join() === "09:30-10:50,11:00-12:20", "P11 «لاصق بمحاضرتي» بعد 08:00–09:20: 09:30–10:50 ثم 11:00 (الخطوةُ التالية على السُّلّم)", stuck.map(candidate => candidate.start));
+const before = stickCandidates({ rowId: 1, title: "أ", days: ["fsunday"] as any, start: "11:00", end: "11:50" }, "before", () => 50);
+check(before.map(candidate => candidate.start).join() === "10:00,09:00", "P11 وقبل الأحد 11:00: 10:00 ثم 9:00 (لا 9:30)", before.map(candidate => candidate.start));
+const offAnchor = stickCandidates({ rowId: 1, title: "أ", days: ["fsunday"] as any, start: "12:30", end: "13:20" }, "after", () => 50);
+check(offAnchor.every(candidate => !startLadderNote(candidate.days, candidate.start)), "P11 ومحاضرةٌ قائمة خارج السُّلّم: ما بعدها يُعاد إلى السُّلّم", offAnchor.map(candidate => candidate.start));
 
 console.log(`\nApproved patterns audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

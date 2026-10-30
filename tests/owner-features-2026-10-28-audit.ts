@@ -79,20 +79,22 @@ const dur = (days: string[]) => (days.some(d => d === "fmonday" || d === "fwedne
 const anchor = { rowId: 1, title: "أ", days: ["fsunday", "ftuesday"] as any, start: "10:00", end: "10:50" };
 const after = stickCandidates(anchor, "after", dur as any);
 ok(after[0].start === "11:00" && after[0].end === "11:50" && after[0].shift === 0, "C6 after = end + 10 min regulation gap (Sun/Tue)");
-ok(after[1].start === "11:30" && after[1].shift === 30, "C6 +30د alternative");
+ok(after[1].start === "12:00" && after[1].shift === 60, "C6 the next alternative is the next start on the regulation ladder (+60د), not +30د off it");
 const before = stickCandidates(anchor, "before", dur as any);
 ok(before[0].start === "09:00" && before[0].end === "09:50", "C6 before = start − gap − duration");
 const mon = stickCandidates({ rowId: 2, title: "ب", days: ["fmonday", "fwednesday"] as any, start: "09:30", end: "10:45" }, "after", dur as any);
-ok(mon[0].start === "11:00" && mon[0].end === "12:15", "C6 Mon/Wed uses 15-min gap and 75-min lecture");
+ok(mon[0].start === "11:00" && mon[0].end === "12:15", "C6 Mon/Wed: end + 10-min gap lands on the Mon/Wed ladder (11:00)");
+const monLadder = stickCandidates({ rowId: 3, title: "ج", days: ["fmonday", "fwednesday"] as any, start: "08:00", end: "09:20" }, "after", (() => 80) as any);
+ok(monLadder.map(candidate => candidate.start).join() === "09:30,11:00", "C6 Mon/Wed 08:00–09:20 → 09:30 then 11:00 (the owner's ladder)");
 ok(stickCandidates({ ...anchor, start: "08:00", end: "08:50" }, "before", dur as any).length === 0, "C6 nothing before 08:00");
 const judged: StickJudged[] = [
   { ...after[0], tone: "bad", sameRoom: false, sameBuilding: false },
   { ...after[1], tone: "ok", sameRoom: false, sameBuilding: true },
   { ...before[0], tone: "ok", sameRoom: true, sameBuilding: true },
 ];
-ok(bestPerSide(judged).find(r => r.side === "after")?.shift === 30, "C6 nearest available when adjacent taken");
+ok(bestPerSide(judged).find(r => r.side === "after")?.shift === 60, "C6 nearest available when adjacent taken");
 ok(topSticks(judged)[0].side === "before" && topSticks(judged)[0].sameRoom, "C6 best: same room first");
-ok(topSticks(judged).length <= 3 && shiftLabel(after[1]) === "+30د" && shiftLabel(after[0]) === "ملاصق", "C6 top 3 + labels");
+ok(topSticks(judged).length <= 3 && shiftLabel(after[1]) === "+60د" && shiftLabel(after[0]) === "ملاصق", "C6 top 3 + labels");
 const server = readServerSource();
 const stickRoute = server.slice(server.indexOf('app.post("/api/public/request/:token/stick"'), server.indexOf('/* ── C5: لوحة المسؤول لحالة الطرح'));
 ok(stickRoute.includes("judgeRequestItems(") && !stickRoute.includes("findConflicts(") && !stickRoute.includes("judgeRequest("), "C6 reuses the one verdict engine, no duplicate checks");
