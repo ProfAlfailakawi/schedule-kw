@@ -39,6 +39,7 @@
 @import "./styles/33-approval-score.css";
 @import "./styles/34-decision-surfaces.css";
 @import "./styles/35-visual-polish.css";
+@import "./styles/35-inbox-studio.css";
 @import "./styles/33-owner-features.css";
 @import "./styles/36-appointment-forms.css";
 @import "./styles/37-creative.css";
@@ -50,6 +51,7 @@
 @import "./styles/43-one-line.css";
 @import "./styles/44-course-tags.css";
 @import "./styles/45-person-chips.css";
+@import "./styles/44-quick-studio.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */

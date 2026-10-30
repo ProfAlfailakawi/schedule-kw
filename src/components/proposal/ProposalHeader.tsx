@@ -4,6 +4,10 @@
  * كلُّ رقمٍ يأتي من حساب النظام للجدول الناتج (يشمل الاستبدالات والإزالات)،
  * وما لا يُعرف يُقال «غير متوفر» ولا يُرسم صفراً. وأثناء الفحص تبقى الخانةُ
  * فارغةً بنصٍّ صريح بدل أن تعرض رقماً قديماً.
+ *
+ * الترتيبُ مسطّح عمداً (رجوع · الهوية · البطاقات · الحالة · إغلاق): على الشاشة
+ * العريضة سطرٌ واحد، وعلى ما دونها سطران، وعلى الهاتف الاسمُ ثم ثلاثُ بطاقات —
+ * والتخطيطُ كلُّه في 14-proposal.css لا هنا.
  */
 import React from "react";
 import PersonChips from "../PersonChips";
@@ -14,7 +18,7 @@ import {
 } from "lucide-react";
 import type { LauncherPersonRequest } from "../../utils/instructorPickerChoices";
 import type { StudyProposalMetrics } from "../../types";
-import { AR, countOf } from "../../utils/arabicCount";
+import { AR, countOf, nounFor, type ArabicNoun } from "../../utils/arabicCount";
 import { STATUS_LABEL } from "../../utils/studyProposal";
 import type { StudyProposal } from "../../types";
 import type { ProposalContext } from "./proposalApi";
@@ -28,10 +32,14 @@ interface TileProps {
   Icon: React.ComponentType<any>;
   before: string | null;
   after: string | null;
-  unit?: string;
-  /** وحدةُ الفرق إن اختلفت عن وحدة القيمة. */
-  deltaUnit?: string;
+  /** المعدود (ساعة، يوم…): صيغتُه تتبع الرقم المعروض فعلاً — «5 أيام» لا «5 يوم». */
+  noun?: ArabicNoun;
+  /** القيمتان عددين، لاختيار صيغة المعدود: يُقرأ «بعد» إن وُجد وإلا «قبل». */
+  beforeValue?: number | null;
+  afterValue?: number | null;
   delta?: number | null;
+  /** نصُّ الفرق حين لا يكون رقماً مجرّداً (المدّة: «3 س 40 د»). */
+  deltaText?: string;
   /** هل الزيادة أفضل (+1) أم أسوأ (-1) أم لا حكم عليها (0)؟ */
   direction?: 1 | -1 | 0;
   checking?: boolean;
@@ -40,20 +48,30 @@ interface TileProps {
   unknownText?: string;
 }
 
-function Tile({ label, Icon, before, after, unit, deltaUnit, delta, direction = 0, checking, note, tone, unknownText }: TileProps) {
+function Tile({ label, Icon, before, after, noun, beforeValue, afterValue, delta, deltaText, direction = 0, checking, note, tone, unknownText }: TileProps) {
   const changed = delta !== null && delta !== undefined && delta !== 0;
   const kind: Tone = tone ?? (!changed ? "neutral" : direction === 0 ? "neutral" : (delta! * direction > 0 ? "good" : "warn"));
+  const shownValue = afterValue ?? beforeValue;
+  const unit = noun && shownValue !== null && shownValue !== undefined ? nounFor(shownValue, noun) : "";
+  const showUnit = Boolean(unit) && before !== null && after !== null && !checking;
+  const unknown = unknownText || "غير متوفر";
+  /* السطرُ كاملاً عند المرور: الملاحظةُ (السقفُ المسجّل مثلاً) لا تأخذ مكاناً في البطاقة. */
+  const summary = [
+    `${label}:`, before === null ? unknown : before, changed && after !== null && !checking ? `← ${after}` : "", showUnit ? unit : "", note ? `— ${note}` : "",
+  ].filter(Boolean).join(" ");
   return (
-    <div className="sp-tile" data-tone={kind} data-checking={checking || undefined} data-changed={changed || undefined}>
-      <span className="sp-tile-label"><Icon aria-hidden="true" />{label}</span>
+    <div className="sp-tile" data-tone={kind} data-checking={checking || undefined} data-changed={changed || undefined} title={summary}>
+      <span className="sp-tile-label"><span className="sp-tile-icon" aria-hidden="true"><Icon /></span>{label}</span>
       <span className="sp-tile-values" aria-live="polite">
-        {before === null ? <em>{unknownText || "غير متوفر"}</em> : <b className="sp-num sp-tile-before" data-long={before.length > 6 || undefined}>{before}</b>}
+        {before === null ? <em>{unknown}</em> : <b className="sp-num sp-tile-before" data-long={before.length > 6 || undefined}>{before}</b>}
         <ArrowLeft className="sp-arrow" aria-label="إلى" />
-        {checking ? <em className="sp-skel">جاري الفحص</em> : after === null ? <em>{unknownText || "غير متوفر"}</em> : <b className="sp-num" data-long={after.length > 6 || undefined} data-changed={changed || undefined}>{after}</b>}
-        {unit && before !== null && after !== null && !checking ? <small>{unit}</small> : null}
+        {checking ? <em className="sp-skel">جاري الفحص</em> : after === null ? <em>{unknown}</em> : <b className="sp-num" data-long={after.length > 6 || undefined} data-changed={changed || undefined}>{after}</b>}
+        {showUnit ? <small>{unit}</small> : null}
         {!checking && changed ? (
           <span className="sp-delta-badge" data-dir={delta! > 0 ? "up" : "down"} data-tone={kind}>
-            {delta! > 0 ? <ArrowUp aria-hidden="true" /> : <ArrowDown aria-hidden="true" />}<bdi dir="ltr">{delta! > 0 ? "+" : "−"}{num(Math.abs(delta!))}</bdi>
+            {delta! > 0 ? <ArrowUp aria-hidden="true" /> : <ArrowDown aria-hidden="true" />}
+            {/* المدّة («2 س 50 د») تُعزل باتجاهها العربيّ؛ الرقمُ المجرّد يبقى يسارياً كما كان. */}
+            {deltaText ? <bdi>{delta! > 0 ? "+" : "−"}{deltaText}</bdi> : <bdi dir="ltr">{delta! > 0 ? "+" : "−"}{num(Math.abs(delta!))}</bdi>}
           </span>
         ) : null}
       </span>
@@ -95,6 +113,9 @@ export default function ProposalHeader(props: {
   const statusText = status === "new" ? "مسودة جديدة" : STATUS_LABEL[status as keyof typeof STATUS_LABEL];
   const loadBefore = before.loadUnits, loadAfter = A ? A.loadUnits : null;
   const overCap = Boolean(loadCap && loadAfter !== null && loadAfter > loadCap);
+  /* ساعاتُ الحضور بكسرٍ واحد: الرقمُ نفسه الذي يُعرض يختار صيغة «ساعة». */
+  const presenceHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
+  const gapDelta = A ? A.gapMinutes - before.gapMinutes : null;
 
   return (
     <header className="sp-head">
@@ -124,52 +145,58 @@ export default function ProposalHeader(props: {
               </nav>
             </div>
           ) : (
-            <p className="sp-meta">
+            <p className="sp-meta" title={[ctx.term.name, [ctx.scope.collegeName, ctx.scope.sectionName].filter(Boolean).join(" — ")].join(" · ")}>
               <span>{ctx.term.name}</span>
               <span aria-hidden="true">·</span>
               <span>{[ctx.scope.collegeName, ctx.scope.sectionName].filter(Boolean).join(" — ")}</span>
             </p>
           )}
         </div>
-        <div className="sp-status-group">
-          <span className="sp-status" data-status={status}>
-            <i aria-hidden="true" />{statusText}
-          </span>
-          {proposal && proposal.version > 1 ? <span className="sp-chip">النسخة {num(proposal.version)}</span> : null}
-          {ctx.term.closed ? <span className="sp-chip" data-tone="bad">الفصل منتهٍ</span> : null}
-        </div>
-        <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="sp-close" onClick={props.onClose} aria-label="إغلاق مساحة المقترح"><X aria-hidden="true" /></button>
       </div>
 
       <div className="sp-tiles" role="group" aria-label="مقارنة الوضع الحالي بالمتوقع بعد المقترح">
-        <Tile label="النصاب" Icon={Scale} unit="ساعة" checking={checking}
+        <Tile label="النصاب" Icon={Scale} noun={AR.hour} beforeValue={loadBefore} afterValue={loadAfter} checking={checking}
           before={loadBefore === null ? null : num(loadBefore)} after={loadAfter === null ? null : num(loadAfter)}
           delta={diff(loadBefore, loadAfter)} direction={0} tone={overCap ? "bad" : undefined}
           note={loadCap ? `المسجّل ${countOf(loadCap, AR.hour)}${overCap ? " — يتجاوزه" : ""}` : "لا سقف مسجّل"} unknownText="غير متوفر" />
         <Tile label="عدد الشعب" Icon={Layers} checking={checking} before={num(before.sections)} after={A ? num(A.sections) : null} delta={diff(before.sections, A?.sections)} />
-        <Tile label="أيام الحضور" Icon={CalendarDays} checking={checking} before={num(before.attendanceDays)} after={A ? num(A.attendanceDays) : null}
-          delta={diff(before.attendanceDays, A?.attendanceDays)} direction={-1} unit="يوم" />
-        <Tile label="ساعات الحضور" Icon={Clock} checking={checking} before={hoursShort(before.presenceMinutes)} after={A ? hoursShort(A.presenceMinutes) : null}
-          delta={A ? Math.round((A.presenceMinutes - before.presenceMinutes) / 6) / 10 : null} direction={-1} unit="ساعة" note={`تدريس ${hoursShort(before.teachingMinutes)} س`} />
+        <Tile label="أيام الحضور" Icon={CalendarDays} noun={AR.day} beforeValue={before.attendanceDays} afterValue={A ? A.attendanceDays : null} checking={checking}
+          before={num(before.attendanceDays)} after={A ? num(A.attendanceDays) : null}
+          delta={diff(before.attendanceDays, A?.attendanceDays)} direction={-1} />
+        <Tile label="ساعات الحضور" Icon={Clock} noun={AR.hour} beforeValue={presenceHours(before.presenceMinutes)} afterValue={A ? presenceHours(A.presenceMinutes) : null} checking={checking}
+          before={hoursShort(before.presenceMinutes)} after={A ? hoursShort(A.presenceMinutes) : null}
+          delta={A ? Math.round((A.presenceMinutes - before.presenceMinutes) / 6) / 10 : null} direction={-1}
+          note={`تدريس ${countOf(presenceHours(before.teachingMinutes), AR.hour)}`} />
         <Tile label="الفراغات بين المحاضرات" Icon={Hourglass} checking={checking} before={minutesCompact(before.gapMinutes)} after={A ? minutesCompact(A.gapMinutes) : null}
-          delta={A ? A.gapMinutes - before.gapMinutes : null} direction={-1} deltaUnit="دقيقة" />
-        <div className="sp-tile sp-tile-check" data-tone={failed ? "bad" : checking ? "neutral" : blockers ? "bad" : hasOps ? "good" : "neutral"} data-checking={checking || undefined}>
-          <span className="sp-tile-label"><ShieldAlert aria-hidden="true" />التعارضات المانعة</span>
+          delta={gapDelta} deltaText={gapDelta ? minutesCompact(Math.abs(gapDelta)) : undefined} direction={-1} />
+        <div className="sp-tile sp-tile-check" data-tone={failed ? "bad" : checking ? "neutral" : blockers ? "bad" : hasOps ? "good" : "neutral"} data-checking={checking || undefined}
+          title={!hasOps ? "التعارضات المانعة: لا مواد بعد" : failed ? "التعارضات المانعة: تعذّر الفحص" : checking ? "التعارضات المانعة: جاري الفحص" : blockers ? `${countOf(blockers, AR.blocker)} — ${nounFor(blockers, AR.blockVerb)} الإرسال` : "لا تعارضات مانعة — الفحص مكتمل"}>
+          <span className="sp-tile-label"><span className="sp-tile-icon" aria-hidden="true"><ShieldAlert /></span>التعارضات المانعة</span>
           <span className="sp-tile-values" aria-live="polite">
             {!hasOps ? <em>لا مواد بعد</em> : failed ? <em>تعذّر الفحص</em> : checking ? <em className="sp-skel">جاري الفحص</em>
               : <b className="sp-num">{blockers ? num(blockers) : "لا يوجد"}</b>}
+            {hasOps && !checking && !failed ? <span className="sp-check-mark" data-tone={blockers ? "bad" : "good"} aria-hidden="true">{blockers ? <AlertTriangle /> : <Check />}</span> : null}
           </span>
           <span className="sp-tile-note">{failed ? <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="sp-link" onClick={props.onRetry}>أعد الفحص</button>
             : !hasOps || checking ? "" : blockers ? <span data-dir="up"><AlertTriangle aria-hidden="true" /> تمنع الإرسال</span> : <span data-dir="down"><Check aria-hidden="true" /> الفحص مكتمل</span>}</span>
         </div>
         <div className="sp-tile sp-tile-check" data-tone={!hasOps || checking || failed ? "neutral" : reviews ? "warn" : "good"} data-checking={checking || undefined}>
-          <span className="sp-tile-label"><CalendarCheck2 aria-hidden="true" />ملاحظات للمراجعة</span>
+          <span className="sp-tile-label"><span className="sp-tile-icon" aria-hidden="true"><CalendarCheck2 /></span>ملاحظات للمراجعة</span>
           <span className="sp-tile-values" aria-live="polite">
             {!hasOps ? <em>—</em> : failed ? <em>—</em> : checking ? <em className="sp-skel">جاري الفحص</em> : <b className="sp-num">{reviews ? num(reviews) : "لا يوجد"}</b>}
           </span>
           <span className="sp-tile-note">{hasOps && !checking && !failed && reviews ? "لا تمنع الإرسال" : ""}</span>
         </div>
       </div>
+
+      <div className="sp-status-group">
+        <span className="sp-status" data-status={status}>
+          <i aria-hidden="true" />{statusText}
+        </span>
+        {proposal && proposal.version > 1 ? <span className="sp-chip">النسخة {num(proposal.version)}</span> : null}
+        {ctx.term.closed ? <span className="sp-chip" data-tone="bad">الفصل منتهٍ</span> : null}
+      </div>
+      <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="sp-close" onClick={props.onClose} aria-label="إغلاق مساحة المقترح"><X aria-hidden="true" /></button>
     </header>
   );
 }

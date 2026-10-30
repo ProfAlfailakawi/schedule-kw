@@ -46,6 +46,7 @@ test:web-push
 test:updating-page
 test:id-types
 test:inbox-live
+test:inbox-studio
 test:public-syntax
 test:linked
 test:inbox-ask
@@ -111,6 +112,7 @@ test:paged-findings
 test:study-proposal
 test:study-proposal-flow
 test:study-proposal-studio
+test:proposal-studio-calm
 test:sections-proposal-import
 test:teacher-card-flow
 test:day-autofill
@@ -212,6 +214,7 @@ test:seats
 test:seat-access-card
 test:first-login-password
 test:colleague-guard-measure
+test:quick-studio-family
 test:section-requests
 test:import-courses-r3
 test:report-print-menus

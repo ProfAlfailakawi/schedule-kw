@@ -17,6 +17,8 @@
 export const ENTRY_HELPERS = [
   "suggest-slots", "usual", "stick", "room-suggest", "borrow", "alternative",
   "week-pick", "week-draw", "one-line", "pattern", "wheel", "golden",
+  /* الموعدُ أُدخل من البطاقة السريعة على خانة الجدول، لا من «موعد جديد» الكامل. */
+  "quick-card",
 ] as const;
 export type HelperName = typeof ENTRY_HELPERS[number];
 export type EntryDevice = "phone" | "tablet" | "desktop";

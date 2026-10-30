@@ -11,7 +11,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, ArrowLeftRight, Ban, CalendarClock, CircleAlert, Eye, GitCompareArrows, LoaderCircle, Pencil, RefreshCw, Save, Send, ShieldCheck, ShieldAlert, Trash2, CheckCircle2, History, Table2, Plus, Lock, UserRoundPlus, X,
+  AlertTriangle, ArrowLeftRight, Ban, CalendarClock, CalendarPlus, CircleAlert, Eye, GitCompareArrows, LoaderCircle, Pencil, RefreshCw, Save, Send, ShieldCheck, ShieldAlert, Trash2, CheckCircle2, History, Table2, Plus, Lock, UserRoundPlus, X,
 } from "lucide-react";
 import { useDrawerA11y } from "../ui";
 import { commitReadiness, effectiveStatus, type GridItem } from "../../utils/studyProposal";
@@ -26,7 +26,7 @@ import ProposalChecks from "./ProposalChecks";
 import ProposalDiffStrip from "./ProposalDiff";
 import ProposalVacancies, { useVacancies } from "./ProposalVacancies";
 import { CommitDialog, ProposalResponses, SendDialog } from "./ProposalDialogs";
-import { relativeSaved, num } from "./proposalFormat";
+import { relativeSaved, num, vacancyBreakdown, vacancyTally } from "./proposalFormat";
 import type { LauncherPersonRequest } from "../../utils/instructorPickerChoices";
 import { TERM_FROZEN_LABEL } from "../../utils/termSequence";
 
@@ -255,12 +255,20 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
     </>
   );
 
+  /* الحالةُ الفارغة تدعو إلى الخطوة الأولى بزرَّيها (نسخةٌ هادئة من شريط الأدوات — على الهاتف هي في تبويبٍ آخر). */
+  const emptyActions = terminal ? null : (
+    <>
+      <button type="button" className="btn btn-primary" onClick={() => openCreate()} data-guide-ignore="يفتح بطاقة «شعبة جديدة» نفسها التي يفتحها شريط الأدوات — لا يكتب في الجدول"><Plus aria-hidden="true" /><span>شعبة جديدة</span></button>
+      <button type="button" className="btn btn-secondary" onClick={openAssign} data-guide-ignore="يفتح بطاقة إسناد شعبة من «هيئة تدريسية» نفسها التي يفتحها شريط الأدوات — لا يكتب في الجدول"><UserRoundPlus aria-hidden="true" /><span>إسناد شعبة</span></button>
+    </>
+  );
   const opsPane = (
     <div className="sp-ops-wrap">
       <ProposalResponses ws={ws} />
       <div className="sp-ops-head"><h2><GitCompareArrows aria-hidden="true" />التغييرات</h2>
-        <p role="status">{summaryLine(ws.ops.length, blockers, reviews, Boolean(checked))}</p></div>
-      <ProposalOps ws={ws} onEdit={openForOp} />
+        {/* بلا مواد تقول البطاقةُ الفارغة الكلامَ نفسه: يُخفى السطرُ بصرياً ويبقى منطقةَ حالةٍ يُعلَن تغيّرها. */}
+        <p role="status" data-quiet={!ws.ops.length || undefined}>{summaryLine(ws.ops.length, blockers, reviews, Boolean(checked))}</p></div>
+      <ProposalOps ws={ws} onEdit={openForOp} emptyActions={emptyActions} />
     </div>
   );
 
@@ -286,17 +294,21 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
       onPaint={(day, start, end, x, y) => openCreate({ x, y }, { day, start, end })}
       onAddDay={terminal ? undefined : day => openCreate({}, { day, start: 8 * 60, end: 8 * 60 + 50 })}
       checking={ws.ops.length > 0 && !ws.evalCurrent && ws.evalState !== "failed"} findingsFor={findingsFor} actionsFor={actionsFor}
-      empty={ctx.current.items.length ? undefined : <p><b>ليس للأستاذ مواعيد حالياً.</b> ستظهر هنا أول مادةٍ تضيفها إلى المقترح.</p>}
+      empty={ctx.current.items.length ? undefined : <p><CalendarPlus aria-hidden="true" /><span><b>ليس للأستاذ مواعيد حالياً.</b> ستظهر هنا أول مادةٍ تضيفها إلى المقترح.</span></p>}
       variant="auto"
     />
   );
   const checksPane = <ProposalChecks ws={ws} compact={wide} />;
   const vacancyPane = <ProposalVacancies ws={ws} rows={vacancies} onAssigned={() => { setGridMode("with"); setNotice("أُضيف الإسناد إلى المسودة."); }} />;
-  const readyVacancies = vacancies.filter(v => v.fit === "ready").length;
+  /* «شاغرة» رقمٌ واحد في كل مكان: ما يُسند الآن (جاهزة + للمراجعة) — العدّادُ نفسه الذي يقرؤه زرُّ الجدول. */
+  const vacancyCount = vacancyTally(vacancies);
+  const vacancyDetail = vacancyBreakdown(vacancyCount);
   const issues = checked ? (blockers || 0) + (reviews || 0) : 0;
 
-  const tabButton = (key: PaneTab, label: string, Icon: React.ComponentType<any>, badge?: React.ReactNode) => (
-    <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>
+  const sideTab: PaneTab = wide && tab === "grid" ? "ops" : tab;
+  const tabButton = (key: PaneTab, label: string, Icon: React.ComponentType<any>, badge?: React.ReactNode, detail?: string) => (
+    <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" key={key} type="button" role="tab" aria-selected={(wide ? sideTab : tab) === key} onClick={() => setTab(key)}
+      title={detail || undefined} aria-label={detail ? `${label}: ${detail}` : undefined}>
       <Icon aria-hidden="true" /><span>{label}</span>{badge}
     </button>
   );
@@ -304,11 +316,10 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
     <nav className="sp-tabs" role="tablist" aria-label="أقسام المساحة" data-wide={wide || undefined}>
       {!wide ? tabButton("grid", "الجدول", Table2) : null}
       {tabButton("ops", "التغييرات", GitCompareArrows, ws.changes.all.length ? <span className="sp-count">{num(ws.changes.all.length)}</span> : null)}
-      {tabButton("vacant", "شاغرة", UserRoundPlus, readyVacancies ? <span className="sp-count" data-tone="good">{num(readyVacancies)}</span> : null)}
+      {tabButton("vacant", "شاغرة", UserRoundPlus, vacancyCount.open ? <span className="sp-count" data-tone={vacancyCount.ready ? "good" : "warn"}>{num(vacancyCount.open)}</span> : null, vacancyDetail)}
       {tabButton("checks", "الفحص", blockers ? ShieldAlert : ShieldCheck, issues ? <span className="sp-count" data-tone={blockers ? "bad" : "warn"}>{num(issues)}</span> : null)}
     </nav>
   );
-  const sideTab: PaneTab = wide && tab === "grid" ? "ops" : tab;
 
   return (
     <div className="sp-root" role="dialog" aria-modal="true" aria-labelledby="sp-title" ref={rootRef} tabIndex={-1} data-wide={wide || undefined}>
@@ -353,7 +364,8 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
         <footer className="sp-bar" role="toolbar" aria-label="إجراءات المقترح">
           <div className="sp-bar-actions">
             {!terminal ? (
-              <button type="button" className="btn btn-secondary" onClick={saveNow} disabled={ws.saveState === "saving" || (!ws.ops.length && !proposal)} data-guide-target="proposal-save" aria-label="حفظ المسودة">
+              <button type="button" className="btn btn-secondary sp-save-btn" onClick={saveNow} disabled={ws.saveState === "saving" || (!ws.ops.length && !proposal)} data-guide-target="proposal-save" aria-label="حفظ المسودة"
+                data-dirty={ws.dirty || undefined} title={saveLabel}>
                 <Save aria-hidden="true" /><span className="sp-bar-label">حفظ المسودة</span>
               </button>
             ) : null}

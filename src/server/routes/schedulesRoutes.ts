@@ -15,6 +15,7 @@ import { currentTermId, planningTermCandidates } from "../../utils/termSequence"
 import { WIPE_CONFIRM_TOKEN, WIPE_MAX_ROWS, WIPE_RESTORE_TOKEN, WIPE_VERSION_LABEL, wipeDecision } from "../../utils/scheduleWipePolicy";
 import type { FSchedule } from "../../types";
 import { coerceScopeValues } from "../../utils/scopeContext";
+import { departmentFamily } from "../../utils/sectionLabel";
 import { enrichCompanionRoomTypes } from "../../utils/companionRoomDisplay";
 import { coverConflict } from "../../utils/coverAvailability";
 import type { Finality } from "../../utils/finality";
@@ -212,6 +213,33 @@ app.get("/api/schedules", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async
   res.json(list.some(row => Boolean(row.companionRoomId))
     ? enrichCompanionRoomTypes(list, (await readLocationRegistry()).rooms)
     : list);
+});
+
+/* ── «النصاب لكل عائلة القسم» (المالك 2026-10-30) ─────────────────────────────
+   كرتُ الأستاذ في نموذج الموعد يقرأ محاضراته في كل كليات قسمه — بنين وبنات والفروع
+   (departmentFamily) — ولو كان نطاقُ القارئ موقعاً واحداً منها، ومعها ساعاتُ مقرراتها
+   ليُحسب النصابُ كاملاً. لمن يعدّل الجدول وحده، ولأستاذٍ واحد، ولعائلة قسمٍ في نطاقه؛
+   وما خارج نطاقه يصل بلا قاعةٍ ولا مبنى (لا يحتاجهما الكرت). */
+app.get("/api/schedules/teacher-family-week", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const termId = Number(req.query.termId || 0), instructorId = Number(req.query.instructorId || 0);
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0);
+  if (![termId, instructorId, collegeId, sectionId].every(value => Number.isInteger(value) && value > 0)) { res.status(400).json({ error: "اختر الفصل والقسم والأستاذ." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  const family = departmentFamily(await Repository.getSections(), collegeId, sectionId);
+  const groups = await Promise.all(family.map(scope => Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId })));
+  const rows = groups.flat().filter(row => Number(row.AdInstructorId) === instructorId && Number(row.AdTermId) === termId);
+  const courseIds = new Set(rows.map(row => Number(row.AdCourseId)).filter(Boolean));
+  const courses = courseIds.size
+    ? (await Repository.getCourses()).filter(course => courseIds.has(Number(course.AdCourseId)))
+      .map(course => ({ AdCourseId: course.AdCourseId, CourseName: course.CourseName, CourseHours: course.CourseHours, CourseCredit: course.CourseCredit }))
+    : [];
+  res.json({
+    rows: rows.map(row => isScopeAllowed(req, row.AdCollegeId, row.AdSectionId) ? row
+      : { ...row, AdRoomCode: "", AdRoomHall: "", buildingId: undefined, roomId: undefined, companionRoomId: undefined, companionRoomLabel: undefined }),
+    courses,
+    sites: family.length,
+  });
 });
 
 app.get("/api/schedules/:id/exceptions", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {

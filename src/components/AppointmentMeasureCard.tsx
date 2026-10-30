@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   ArrowDown, ArrowUp, Disc3, DoorOpen, Gauge, Grid3x3, Handshake, Magnet, Minus, Monitor, MousePointerClick,
-  OctagonAlert, PenTool, Pencil, Plus, Repeat, Shuffle, Smartphone, Sparkles, Star, Tablet, TextCursorInput,
+  OctagonAlert, PenTool, Pencil, Plus, Repeat, Shuffle, Smartphone, Sparkles, Star, Tablet, TextCursorInput, Zap,
 } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import {
@@ -39,6 +39,7 @@ const HELPER_META: Record<HelperName, { label: string; icon: React.ReactNode }> 
   pattern: { label: "النمط", icon: <Grid3x3 aria-hidden="true" /> },
   wheel: { label: "العجلة", icon: <Disc3 aria-hidden="true" /> },
   golden: { label: "الخانة الذهبية", icon: <Star aria-hidden="true" /> },
+  "quick-card": { label: "البطاقة السريعة", icon: <Zap aria-hidden="true" /> },
 };
 const DEVICE_META: Record<EntryDevice, { label: string; icon: React.ReactNode }> = {
   phone: { label: "هاتف", icon: <Smartphone aria-hidden="true" /> },

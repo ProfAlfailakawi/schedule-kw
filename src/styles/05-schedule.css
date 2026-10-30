@@ -1168,6 +1168,10 @@ html[data-schedule-workspace="presentation"] .cinema-day-track time b{font-size:
 .schedule-editor .location-registry-picker>.location-pending-badge,
 .schedule-editor .location-registry-picker>.location-source-value{grid-column:1/-1}
 .schedule-editor .location-registry-picker>.room-fit-note{width:min(100%,620px);justify-self:start}
+/* «ملاءمة القاعة» وسطرُ «اقترح قاعة» يأخذان السطرَ كلَّه في كل منتقٍ، لا في «موعد جديد» وحده:
+   كانا يُحشران في عمودٍ واحد من شبكة المبنى/القاعة خارج المحرر (البطاقة السريعة، بطاقات المقترح)
+   فيفيض محتواهما خارج الكرت (المالك 2026-10-30). */
+.location-registry-picker>.room-fit-note,.location-registry-picker>.location-hall-action{grid-column:1/-1;min-width:0;max-width:100%}
 @media(max-width:560px){.schedule-editor .form-grid>.location-registry-picker{grid-template-columns:minmax(0,1fr)}}
 .schedule-editor .conflict-panel{position:sticky;top:var(--s5)}
 .schedule-form-sections{display:flex;flex-direction:column;gap:var(--s7);margin-top:var(--s2)}

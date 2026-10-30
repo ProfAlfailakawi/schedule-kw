@@ -73,7 +73,7 @@ function Alternatives({ ws }: { ws: Workspace }) {
               <b>{daysLabel(alt.days)}</b>
               <bdi className="sp-time">{timeRange(alt.start, alt.end)}</bdi>
               {alt.room ? <small><b>القاعة:</b> {alt.room.AdRoomCode}/{alt.room.AdRoomHall}</small> : null}
-              <span className="sp-alt-ok"><Check aria-hidden="true" />{alt.reviews ? `${alt.reviews} للمراجعة` : "بلا موانع"}</span>
+              <span className="sp-alt-ok"><Check aria-hidden="true" />{alt.reviews ? `${countOf(alt.reviews, AR.note)} للمراجعة` : "بلا موانع"}</span>
             </div>
             <ul className="sp-alt-why">{alt.reasons.map(r => <li key={r}>{r}</li>)}</ul>
             <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="btn btn-secondary" onClick={() => ws.applyAlternative(alts.opId, alt)}>جرّب هذا الوقت</button>
@@ -109,10 +109,10 @@ export default function ProposalChecks({ ws, compact = false }: { ws: Workspace;
     review: ev?.findings.filter(f => f.kind === "review") || [],
     info: ev?.findings.filter(f => f.kind === "info") || [],
   }), [ev]);
-  const [open, setOpen] = useState(false);
-
   const status = ws.terminal ? "closed" : !ws.ops.length ? "empty" : ws.evalState === "failed" ? "failed" : !checked ? "checking"
     : ev!.status === "partial" ? "partial" : groups.blocker.length ? "blocked" : "clear";
+  /* تبويبُ «الفحص» يُفتح ليُقرأ: إن كان فيه حكمٌ فتفاصيلُه ظاهرةٌ من أول نظرة، والسهمُ يطويها لمن شاء. */
+  const [open, setOpen] = useState(() => status !== "empty" && status !== "closed" && status !== "checking");
 
   /* مانعٌ جديد أو فحصٌ فاشل يفتح التفاصيل مرّةً عند ظهوره؛ ثم يتحكّم بها القارئ. */
   const lastStatus = React.useRef(status);
