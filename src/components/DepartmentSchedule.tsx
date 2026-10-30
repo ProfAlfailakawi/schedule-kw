@@ -1,4 +1,4 @@
-import PlanBadge from "./PlanBadge";
+import CourseTags from "./CourseTags";
 import VisitingBadge from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { useEffect, useMemo, useState } from "react";
@@ -71,8 +71,8 @@ export default function DepartmentSchedule({ scopes, onBack }: { scopes: ScopeAs
     </PageTitle>
     {error ? <Notice type="error">{error}</Notice> : null}
     <p className="department-schedule-readonly">عرض للقراءة فقط · قد يكون الجدول مسودة. راجع حالة الاعتماد من «تغييرات الجدول».</p>
-    {grouped.length ? <div className="department-schedule-table-wrap"><table className="department-schedule-table"><thead><tr><th>المقرر</th><th>الشعبة</th><th>الأستاذ</th><th>الأيام</th><th>الوقت</th><th>القاعة</th></tr></thead><tbody>{grouped.map(row => <tr key={row.id}><td><strong>{row.courseName}<PlanBadge courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode}</small></td><td>{row.section}</td><td>{who(row)}</td><td>{row.days}</td><td><bdi dir="ltr">{row.time}</bdi></td><td>{row.room}</td></tr>)}</tbody></table>
-      <div className="department-schedule-cards">{grouped.map(row => <article key={row.id} className="department-schedule-card"><strong>{row.courseName}<PlanBadge courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode} · {row.section}</small><span>{row.days} · <bdi dir="ltr">{row.time}</bdi></span><span>{who(row)} · {row.room}</span></article>)}</div>
+    {grouped.length ? <div className="department-schedule-table-wrap"><table className="department-schedule-table"><thead><tr><th>المقرر</th><th>الشعبة</th><th>الأستاذ</th><th>الأيام</th><th>الوقت</th><th>القاعة</th></tr></thead><tbody>{grouped.map(row => <tr key={row.id}><td><strong>{row.courseName}<CourseTags courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode}</small></td><td>{row.section}</td><td>{who(row)}</td><td>{row.days}</td><td><bdi dir="ltr">{row.time}</bdi></td><td>{row.room}</td></tr>)}</tbody></table>
+      <div className="department-schedule-cards">{grouped.map(row => <article key={row.id} className="department-schedule-card"><strong>{row.courseName}<CourseTags courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode} · {row.section}</small><span>{row.days} · <bdi dir="ltr">{row.time}</bdi></span><span>{who(row)} · {row.room}</span></article>)}</div>
     </div> : <EmptyState title="لا توجد شعب لهذا الفصل" detail="تظهر هنا الشعب المطروحة ضمن صلاحية هذا القسم." />}
   </main>;
 }

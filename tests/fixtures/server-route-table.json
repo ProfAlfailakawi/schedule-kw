@@ -4644,7 +4644,7 @@
    ],
    "path": "/api/public/request/:token",
    "name": "bound dispatch",
-   "call": "ed7f944cb0779f81",
+   "call": "ba1ea2b72f9de7f8",
    "site": "src/server/routes/publicRequestRoutes.ts:582",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -5060,6 +5060,18 @@
   {
    "kind": "route",
    "methods": [
+    "get"
+   ],
+   "path": "/api/ta-trainees",
+   "name": "bound dispatch",
+   "call": "4b81f1258e3bd096",
+   "site": "src/server/routes/offeringRoutes.ts:247",
+   "regexp": "/^\\/api\\/ta-trainees\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
     "post"
    ],
    "path": "/api/ta-phase/allowed",
@@ -5175,7 +5187,7 @@
    ],
    "path": "/api/plan-badges",
    "name": "bound dispatch",
-   "call": "7a96db428ce45d33",
+   "call": "8a2e2da8a6a5975c",
    "site": "src/server/planReviewRoutes.ts:355",
    "regexp": "/^\\/api\\/plan-badges\\/?$/i",
    "end": true

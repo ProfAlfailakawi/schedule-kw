@@ -16,7 +16,8 @@ import ScenarioWorkbench from "./ScenarioWorkbench";
 import { Ico, Loading, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { useCourseSheets } from "./useCourseSheets";
-import { inNewSheet, SHEET_TAG_LABEL, type SheetTag } from "../utils/sheetTag";
+import { inNewSheet, type SheetTag } from "../utils/sheetTag";
+import CourseTags from "./CourseTags";
 import "../styles/39-sections-courses.css";
 
 type Assign = "all" | "vacant" | "assigned";
@@ -210,7 +211,7 @@ function SectionCardView({ card, sheet, active, merging, onInspect, onSplit, onM
   return (
     <article className={`tm-card ${active ? "is-active" : ""} ${card.vacant ? "is-vacant" : ""} ${card.added ? "is-added" : ""} ${merging ? "is-merge-target" : ""}`}>
       <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="tm-card-main" onClick={merging ? onMerge : onInspect} aria-label={`${card.courseCode} · ش${card.code}`}>
-        <span className="tm-card-code"><b>{card.courseCode}</b><small>ش{card.code}</small>{sheet === "new" ? <em className="tm-sheet-tag" title="مقرر من الصحيفة الجديدة">🆕 {SHEET_TAG_LABEL.new}</em> : null}</span>
+        <span className="tm-card-code"><b>{card.courseCode}</b><small>ش{card.code}</small><CourseTags courseId={card.courseId} newSheet={sheet === "new"} /></span>
         <span className="tm-card-name">{card.courseName}</span>
         <span className="tm-card-meta">
           <span className="tm-days">{TM_DAYS.map((day, index) => <i key={day} className={card.days.includes(day) ? "on" : ""} title={dayLabel(day)}>{DAY_LETTER[index]}</i>)}</span>

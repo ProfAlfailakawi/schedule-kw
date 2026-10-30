@@ -12,7 +12,8 @@
  *   · موافقةُ نسخةٍ لا تنطبق على غيرها؛ وتعديلُ تفاصيل ما أُرسل ينشئ نسخةً جديدة.
  *   · الرقمُ المدني لا يُخزَّن: يُتحقَّق منه ثم تُحفظ بصمتُه ورمزُ التوقيع.
  */
-import { planBadgeFor, serviceCourseKeys } from "./planBadgeShared";
+import { courseTagFactsFor, planBadgeFor, serviceCourseKeys } from "./planBadgeShared";
+import { REQUIREMENT_LABEL } from "../utils/courseTags";
 import { reachForScope } from "./courseReachShared";
 import { randomUUID } from "crypto";
 import rateLimit from "express-rate-limit";
@@ -823,13 +824,17 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     for (const out of applied.outgoing) ghosts.push(gridItem(out.before, world, openDeps, null, { state: "out", key: `old:${out.rowId}`, opId: out.opId, outAction: out.action }));
     const drift = !proposal.commit && proposalDrift(ops, world.termRows, world.placeholders, { instructorId: proposal.AdInstructorId }).length > 0;
     const serviceKeys = await serviceCourseKeys();
-    const badgeOf = new Map<string, string>(await Promise.all(ops.map(async op => [op.id, await planBadgeFor(op.target.AdCourseId, op.target.AdSectionId)] as [string, string])));
+    /* وسومُ المقرر الموحّدة (src/utils/courseTags.ts): الصحيفة ثم نوعُ المتطلب، بالنصّ نفسه في كل مكان. */
+    const tagFacts = await courseTagFactsFor(ops.map(op => ({ courseId: op.target.AdCourseId, sectionId: op.target.AdSectionId })));
+    const tagKey = (op: StudyProposalOp) => `${Number(op.target.AdSectionId)}:${Number(op.target.AdCourseId)}`;
+    const badgeOf = new Map<string, string>(await Promise.all(ops.map(async op => [op.id, tagFacts.sheets[tagKey(op)] || await planBadgeFor(op.target.AdCourseId, op.target.AdSectionId)] as [string, string])));
+    const kindOf = (op: StudyProposalOp) => { const kind = tagFacts.kinds[tagKey(op)] || (serviceKeys.has(`${Number(op.target.AdCourseId)}:${Number(op.target.AdSectionId)}`) ? "college" : ""); return kind ? REQUIREMENT_LABEL[kind] : ""; };
     return {
       ...base,
       stale: drift,
       ops: ops.map(op => ({
         id: op.id, kind: op.kind, summary: opSummary(op), incoming: op.incoming, target: {
-          courseName: op.target.courseName, planBadge: badgeOf.get(op.id) || "", service: serviceKeys.has(`${Number(op.target.AdCourseId)}:${Number(op.target.AdSectionId)}`), courseCode: op.target.courseCode, SCode: op.target.SCode, days: op.target.days,
+          courseName: op.target.courseName, planBadge: badgeOf.get(op.id) || "", service: serviceKeys.has(`${Number(op.target.AdCourseId)}:${Number(op.target.AdSectionId)}`), kindLabel: kindOf(op), courseCode: op.target.courseCode, SCode: op.target.SCode, days: op.target.days,
           start: op.target.fstarttime, end: op.target.fendtime, ...(() => { const p = gridItem({ ...(applied.incoming.get(op.id) || ({} as any)), AdRoomCode: op.target.AdRoomCode, AdRoomHall: op.target.AdRoomHall, locationStatus: op.target.locationStatus, roomId: op.target.roomId, AdCollegeId: op.target.AdCollegeId, AdSectionId: op.target.AdSectionId, AdCourseId: op.target.AdCourseId } as any, world, openDeps, null, { state: "current", key: "x" }); return { place: p.place, placeKnown: p.placeKnown, collegeName: p.collegeName, sectionName: p.sectionName }; })(),
         },
         before: op.source && op.kind !== "assign" ? { days: op.source.days, start: op.source.fstarttime, end: op.source.fendtime, place: [op.source.AdRoomCode, op.source.AdRoomHall].filter(Boolean).join(" · ") } : undefined,

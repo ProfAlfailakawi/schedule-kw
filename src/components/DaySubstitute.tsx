@@ -1,4 +1,4 @@
-import PlanBadge from "./PlanBadge";
+import CourseTags from "./CourseTags";
 import VisitingBadge from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -178,7 +178,7 @@ export default function DaySubstitute({ row, instructorName, onClose, onRecorded
           <div>
             <small>ليوم واحد فقط — الموعد الأسبوعي لا يُمس</small>
             <h2>بديل اليوم</h2>
-            <p>{row.AdCourseName}<PlanBadge courseId={row.AdCourseId} /> · شعبة {row.SCode} · <bdi dir="ltr">{timeRange}</bdi>{room ? ` · ${room}` : ""}{instructorName ? <> · {instructorName}{visitingHere(row.AdInstructorId) ? <VisitingBadge compact /> : null}</> : null}</p>
+            <p>{row.AdCourseName}<CourseTags courseId={row.AdCourseId} /> · شعبة {row.SCode} · <bdi dir="ltr">{timeRange}</bdi>{room ? ` · ${room}` : ""}{instructorName ? <> · {instructorName}{visitingHere(row.AdInstructorId) ? <VisitingBadge compact /> : null}</> : null}</p>
           </div>
           <button type="button" className="drawer-close" data-guide-ignore="إغلاق نافذة بديل اليوم فقط" onClick={onClose} aria-label="إغلاق بديل اليوم" title="إغلاق"><X /></button>
         </header>

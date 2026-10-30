@@ -80,7 +80,7 @@ import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotic
 import { holdDraftFromForm, useScheduleHolds } from "../utils/scheduleHolds";
 import { createEntryMeter, sendEntryMeasure, type EntryMeter, type HelperName } from "../utils/appointmentMeasure";
 import { useCourseReach } from "./CourseReach";
-import { reachNote } from "../utils/courseReach";
+import { reachLocked, reachNote } from "../utils/courseReach";
 import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, useWiderWeek, type MiniPick } from "./TeacherMiniWeek";
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
@@ -180,9 +180,11 @@ import ScheduleTransfer from "./ScheduleTransfer";
 import { FOCUS_COURSE_EVENT } from "../utils/planTriage";
 import SearchableSelect from "./SearchableSelect";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
-import PlanBadge from "./PlanBadge";
+import CourseTags from "./CourseTags";
 import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
+import PersonChips from "./PersonChips";
+import { useTrainees } from "../utils/trainees";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal, onLiveState, setLiveScope, type LiveState } from "../utils/livePulse";
@@ -4190,6 +4192,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   const formReach = useCourseReach(editor !== "index" ? formReachScope.collegeId : 0, formReachScope.sectionId, formReachScope.termId);
   const formReachVerdict = formReach.data?.courses?.[Number(form.AdCourseId || 0)] || null;
+  /* «🎓 تدريب» بجانب «منتدب» في نموذج الموعد (الملخّص والأسبوع المصغّر): مَن طلبُه في النطاق بصفة مرحلة التدريب. */
+  const formTrainees = useTrainees(editor !== "index" ? formReachScope.collegeId : 0, Number(form.AdSectionId || filterSection || 0), formReachScope.termId);
   const formReachNote = reachNote(formReachVerdict);
   const editorVerdict = appointmentVerdict({
     form: form as any,
@@ -9042,7 +9046,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         <div>
                           <strong>
                             {c?.CourseCode || "—"} ·{" "}
-                            {r.AdCourseName || c?.CourseName || "مقرر"}<PlanBadge courseId={r.AdCourseId} />
+                            {r.AdCourseName || c?.CourseName || "مقرر"}<CourseTags courseId={r.AdCourseId} />
                           </strong>
                           <span>{i?.AdInstructorName || "بدون أستاذ"}{visitingIds.has(r.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                           <small>
@@ -9512,7 +9516,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       setCourseName(String(name));
                       setForm((p) => ({ ...p, AdCourseId: 0, companionRoomId:"", companionRoomLabel:"" }));
                     }}
-                    options={courseNames.map((name) => ({ value: name, label: name, badge: courseOptionBadge(formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)), planBadges) }))}
+                    options={courseNames.map((name) => { const ids = formCourses.filter((c) => c.CourseName === name).map((c) => Number(c.AdCourseId)); return { value: name, label: name, badge: courseOptionBadge(ids, planBadges, { reachLocked: ids.some(id => reachLocked(formReach.data?.courses?.[id])) }) }; })}
                     searchPlaceholder="اكتب اسم المقرر"
                     required
                   />
@@ -9636,7 +9640,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <span className="appt-num is-done"><Check aria-hidden="true" /></span>
                   <span className="appt-avatar" aria-hidden="true">{studioInitial}</span>
                   <span className="appt-kv"><span className="k">الأستاذ</span><span className="v">{selectedInstructor?.AdInstructorName || ""}</span></span>
-                  {formVisiting(form.AdInstructorId) ? <VisitingBadge compact /> : null}
+                  <PersonChips visiting={formVisiting(form.AdInstructorId)} trainee={formTrainees.has(Number(form.AdInstructorId))} />
                   {studioLoad ? <span className="appt-tag is-info" title="النصاب الآن ثم بعد هذا الموعد">النصاب <bdi dir="ltr">{studioLoad.loadNow}</bdi> ← <bdi dir="ltr">{studioLoad.loadAfter}</bdi></span> : null}
                   <span className="appt-sumrow-end">
                   <div className="instructor-tools"><MiniWeekToggle enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /></div>
@@ -10063,7 +10067,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <div className="save-preview appt-bar" role="group" aria-label="ملخّص الموعد">
                 <div className="appt-sum">
                   <span className={studioChip(studioCourseDone, studioChanged?.course)}><BookOpen aria-hidden="true" /><span>{courseName || "المقرر"}{form.SCode ? ` · ${form.SCode}` : ""}</span></span>
-                  <span className={studioChip(studioTeacherDone, studioChanged?.teacher)}><UserRound aria-hidden="true" /><span>{selectedInstructor?.AdInstructorName || "الأستاذ"}</span>{selectedInstructor && formVisiting(form.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
+                  <span className={studioChip(studioTeacherDone, studioChanged?.teacher)}><UserRound aria-hidden="true" /><span>{selectedInstructor?.AdInstructorName || "الأستاذ"}</span>{selectedInstructor ? <PersonChips visiting={formVisiting(form.AdInstructorId)} trainee={formTrainees.has(Number(form.AdInstructorId))} /> : null}</span>
                   <span className={studioChip(selectedFormDays.length > 0, studioChanged?.days)}><CalendarDays aria-hidden="true" /><span>{arabicDays(form) || "الأيام"}</span></span>
                   <span className={studioChip(Boolean(form.fstarttime && form.fendtime), studioChanged?.time)}><Clock3 aria-hidden="true" /><bdi dir="ltr">{form.fstarttime && form.fendtime ? formatScheduleTimeRange(form.fstarttime, form.fendtime) : "الوقت"}</bdi></span>
                   <span className={studioChip(!studioMissing.includes("القاعة"), studioChanged?.room)}><DoorOpen aria-hidden="true" /><bdi dir="ltr">{form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : form.locationStatus === "PENDING_ROOM" ? "بانتظار القاعة" : "القاعة"}</bdi></span>
@@ -10096,6 +10100,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               overtime={loadNisabOf(instructorById.get(Number(form.AdInstructorId))).overtime}
               limited={loadNisabOf(instructorById.get(Number(form.AdInstructorId))).limited}
               visiting={formVisiting(form.AdInstructorId)}
+              trainee={formTrainees.has(Number(form.AdInstructorId))}
               rows={rows}
               termId={Number(form.AdTermId || filterTerm || 0)}
               collegeId={Number(form.AdCollegeId || 0)}
@@ -11354,7 +11359,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         <span className={`code-chip${c?.CourseCode ? "" : " is-empty"}`}>
                           {c?.CourseCode || "—"}
                         </span>
-                        <strong>{s.AdCourseName || c?.CourseName || ""}<PlanBadge courseId={s.AdCourseId} /></strong>
+                        <strong>{s.AdCourseName || c?.CourseName || ""}<CourseTags courseId={s.AdCourseId} /></strong>
                         <CourseRoomTypeBadge type={c?.CourseRoomType} compact />
                         {liveNow.running.has(s.id) ? (
                           <span className="agenda-live-tag">جارية الآن</span>
@@ -12387,7 +12392,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         tabIndex={0}
                         onKeyDown={(e) => { if (e.key === "Enter") void openContext(r); }}
                       >
-                        <strong>{r.AdCourseName || c?.CourseName || code}<PlanBadge courseId={r.AdCourseId} /></strong>
+                        <strong>{r.AdCourseName || c?.CourseName || code}<CourseTags courseId={r.AdCourseId} /></strong>
                         <span>{i?.AdInstructorName || "بدون أستاذ"}{visitingIds.has(r.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
                         <em dir="ltr">{code} · {r.SCode}</em>
                         <i>{!days.some(day => Boolean((r as any)[day.key])) ? "بلا يوم" : "بلا وقت"}</i>
@@ -12949,7 +12954,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                                 <strong>
                                   {c?.CourseCode || r.AdCourseName}
                                 </strong>
-                                <span>{r.AdCourseName || c?.CourseName}<PlanBadge courseId={r.AdCourseId} /></span>
+                                <span>{r.AdCourseName || c?.CourseName}<CourseTags courseId={r.AdCourseId} /></span>
                                 <small dir="ltr">
                                   {formatScheduleTimeRange(r.fstarttime, r.fendtime)}
                                 </small>
@@ -13536,7 +13541,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <tr key={s.id}>
                 <td>{i + 1}</td>
                 <td className="print-wrap">
-                  {courseById.get(s.AdCourseId)?.CourseCode} — {s.AdCourseName}<PlanBadge courseId={s.AdCourseId} />
+                  {courseById.get(s.AdCourseId)?.CourseCode} — {s.AdCourseName}<CourseTags courseId={s.AdCourseId} />
                 </td>
                 <td className="print-ltr">{s.SCode}</td>
                 <td className="print-wrap">
@@ -13630,7 +13635,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <div>
                 <small>الجدول يفهم نفسه</small>
                 <h2>
-                  {context.selected.AdCourseName}<PlanBadge courseId={context.selected.AdCourseId} />
+                  {context.selected.AdCourseName}<CourseTags courseId={context.selected.AdCourseId} />
                   <span className="context-section-label">شعبة <bdi>{context.selected.SCode}</bdi></span>
                 </h2>
                 <div className="context-appointment-meta">
@@ -13865,7 +13870,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               {context.related.professor.slice(0, 6).map((r: any) => (
                 <article key={r.id}>
                   <strong>
-                    {r.AdCourseName}<PlanBadge courseId={r.AdCourseId} /> · {r.SCode}
+                    {r.AdCourseName}<CourseTags courseId={r.AdCourseId} /> · {r.SCode}
                   </strong>
                   <span>{arabicDays(r)}</span>
                   <small dir="ltr">

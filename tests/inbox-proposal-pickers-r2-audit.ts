@@ -181,7 +181,8 @@ const BOYS = "كلية التربية الأساسية - بنين", GIRLS = "ك�
 /* ── W: الشاشاتُ تبني من هذه القواعد ─────────────────────────────────── */
 {
   const parts = read("src/components/proposal/ProposalInboxParts.tsx");
-  check(/withVisitingSuffix\(choice\.name, choice\.visiting\)\}<\/option>/.test(parts) && !/choice\.hint \?/.test(parts), "W1 خيارُ المنتقي: الاسمُ ووسمُ المنتدب فقط");
+  /* الخيارُ اسمُ الشخص ثم وسماه الموحّدان (PersonChips): «منتدب» ثم «🎓 تدريب» — لا قسمَ ولا كليةَ ولا جوال. */
+  check(/label: choice\.name, keywords: withPersonSuffix\(choice\.name, choice\.visiting, choice\.trainee\), chips: <PersonChips visiting=\{choice\.visiting\} trainee=\{choice\.trainee\} \/>/.test(parts) && !/choice\.hint \?/.test(parts), "W1 خيارُ المنتقي: الاسمُ ووسما المنتدب والتدريب فقط");
   check(/siblings: person && person\.requests\.length > 1/.test(parts), "W2 اختيارُه يُرفق طلباته كلَّها بالمساحة");
   const inbox = read("src/components/InstructorInbox.tsx");
   check(/proposalLauncherChoices\(launcherRows, collegeId\)/.test(inbox) && /siblings=\{workspace\.siblings\}/.test(inbox) && /key=\{workspace\.requestId\}/.test(inbox),

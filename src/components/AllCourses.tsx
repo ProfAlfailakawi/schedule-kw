@@ -12,9 +12,10 @@ import React, { useMemo, useState } from "react";
 import { FileSpreadsheet, FileUp, Minus, Plus, Radar, Search, Undo2, UserRoundCheck, UserX, X } from "lucide-react";
 import { applyChanges, boardOf, type TmChange, type TmScenarioRecord } from "../utils/timeMachine";
 import { addOneSection, courseSeatStats, DEMAND_WORD, netSectionDelta, removeOneSection, type CourseImpact, type CourseSeatStat } from "../utils/courseWhatIf";
-import { inNewSheet, inOldSheet, SHEET_TAG_LABEL, type SheetTag } from "../utils/sheetTag";
+import { inNewSheet, inOldSheet, type SheetTag } from "../utils/sheetTag";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import ScenarioWorkbench from "./ScenarioWorkbench";
+import CourseTags from "./CourseTags";
 import { ReachChain, ReachChip, ReachOpenButton, useCourseReach } from "./CourseReach";
 import type { CourseReach } from "../utils/courseReach";
 import { Ico, Loading, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
@@ -153,7 +154,7 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
           const now = statsNow.get(id)!, after = statsAfter.get(id)!;
           const delta = netSectionDelta(base, board, context, id);
           const impact = impacts[id];
-          return <CourseCard key={id} code={String(course.CourseCode || "")} name={String(course.CourseName || "")} tag={tag} now={now} after={after} delta={delta}
+          return <CourseCard key={id} courseId={id} code={String(course.CourseCode || "")} name={String(course.CourseName || "")} tag={tag} now={now} after={after} delta={delta}
             impact={impact && "change" in impact ? impact : null} none={impact && "none" in impact ? impact.none : null}
             reach={reach.data?.courses?.[id] || null} reachBusy={reach.busy === id} onReach={open => void reach.setOpen(id, open)}
             onAdd={() => act(id, "add")} onRemove={() => act(id, "remove")} onUndo={change => undo(change)} />;
@@ -173,8 +174,8 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
   );
 }
 
-function CourseCard({ code, name, tag, now, after, delta, impact, none, onAdd, onRemove, onUndo, reach, reachBusy, onReach }: {
-  key?: number; code: string; name: string; tag: SheetTag; now: CourseSeatStat; after: CourseSeatStat; delta: number;
+function CourseCard({ courseId, code, name, tag, now, after, delta, impact, none, onAdd, onRemove, onUndo, reach, reachBusy, onReach }: {
+  key?: number; courseId: number; code: string; name: string; tag: SheetTag; now: CourseSeatStat; after: CourseSeatStat; delta: number;
   impact: CourseImpact | null; none: "add" | "remove" | null; onAdd: () => void; onRemove: () => void; onUndo: (change: TmChange) => void;
   reach: CourseReach | null; reachBusy: boolean; onReach: (open: boolean) => void;
 }) {
@@ -188,8 +189,9 @@ function CourseCard({ code, name, tag, now, after, delta, impact, none, onAdd, o
       <header className="ac-head">
         <span className="ac-code"><b>{code}</b>{delta ? <em dir="ltr" className={delta > 0 ? "up" : "down"}>{delta > 0 ? `+${delta}` : `−${-delta}`}</em> : null}</span>
         <span className="ac-name">{name}</span>
-        {tag && tag !== "service" ? <span className={`ac-tag ac-tag-${tag}`}>{tag === "new" ? "🆕 " : ""}{SHEET_TAG_LABEL[tag]}</span> : null}
-        <ReachChip reach={reach} />
+        {/* وسومُ المقرر الموحّدة (الصحيفة ← نوعُ المتطلب ← «🔒 لم نصل بعد»)؛ و«✓ وصلنا»/«🔓 فُتح» حكمُ الوصول هنا وحدها. */}
+        <CourseTags courseId={courseId} reach={reach} newSheet={tag === "new"} />
+        {reach && reach.state !== "locked" ? <ReachChip reach={reach} /> : null}
       </header>
       {reach && (reach.state === "locked" || reach.overridden) ? (
         <div className="ac-reach" title={reach.reason || undefined}>

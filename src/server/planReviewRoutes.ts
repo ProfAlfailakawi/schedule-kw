@@ -14,7 +14,8 @@
  *   · كلُّ تعديلٍ في سجلّ التدقيق.
  */
 import { ensureSectionFaculty } from "./sectionFaculty";
-import { setPlanBadgeSource, setServiceSource } from "./planBadgeShared";
+import { setCourseFactSource, setPlanBadgeSource, setServiceSource } from "./planBadgeShared";
+import { requirementKindOfRule, type RequirementKind } from "../utils/courseTags";
 import { createDataContextKey } from "./dataContextCache";
 import { groupDeptTracks, planMatchKey, trackLabels, type DeptTrack } from "../utils/collegeTrack";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
@@ -352,15 +353,79 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     return rows;
   };
   setServiceSource(serviceRows);
+  /* ── شاراتُ المقرر الموحّدة (src/utils/courseTags.ts): كلُّ ما ينطبق على المقرر لا وسمٌ واحد ──────────────
+     ١) صحيفةُ مقرر الخدمة: مقررٌ تطلبه الصحيفةُ الجديدة لقسمٍ آخر (ولا تطلبه سابقتُه الجارية) يحمل اسمَها عند قسمه المالك —
+        القاعدةُ نفسها في شارة الصحيفة: ما دامت الصحيفتان معاً، وتختفي بـ«انتهوا». («مهارات تكنولوجيا التعليم» متطلبُ كلية وفي صحيفة 2026.)
+     ٢) نوعُ المتطلب: مقرر الخدمة «متطلب كلية» (أو «متطلب جامعة» إن كتبته الصحيفةُ الطالبة كذلك)، وإلا نوعُه في صحيفة قسمه
+        (متطلب كلية/جامعة، اختياري). «إجباري» بلا وسم — هو الأصل. */
+  let factCache: { key: string; at: number; sheets: Array<{ courseId: number; label: string; collegeId: number; sectionId: number }>; kinds: Map<number, { kind: RequirementKind; service: boolean; collegeId: number; sectionId: number }> } | null = null;
+  const courseFactRows = async () => {
+    const key = serviceKey("facts");
+    if (factCache && factCache.key === key && Date.now() - factCache.at < 15_000) return factCache;
+    const [ruleSets, courses, plansOf, services] = await Promise.all([Repository.listRuleSets(), Repository.getCourses(), plansBySection(), serviceRows()]);
+    const owner = new Map((courses as any[]).map(course => [Number(course.AdCourseId), course]));
+    const setOf = new Map(ruleSets.map(set => [String(set.planId), set]));
+    const sheets: Array<{ courseId: number; label: string; collegeId: number; sectionId: number }> = [];
+    const seen = new Set<string>();
+    const ownKinds = new Map<number, { kind: RequirementKind; active: boolean }>();
+    const serviceKinds = new Map<number, RequirementKind>();
+    for (const [sid, all] of plansOf) {
+      const plans = all.filter(plan => !plan.virtual && plan.status !== "archived");
+      for (const plan of plans) {
+        const set = setOf.get(String(plan.id));
+        if (!set) continue;
+        const externals = new Set((set.externals || []).map(Number));
+        for (const rule of set.rules || []) {
+          const id = Number(rule.courseId), course = owner.get(id);
+          if (!course) continue;
+          if (Number(course.AdSectionId) !== sid) { if (externals.has(id) && rule.kind === "university") serviceKinds.set(id, "university"); continue; }
+          const kind = requirementKindOfRule(rule.kind);
+          const known = ownKinds.get(id);
+          if (kind && (!known || (!known.active && plan.status === "active"))) ownKinds.set(id, { kind, active: plan.status === "active" });
+        }
+      }
+      const byTrack = new Map<string, any[]>();
+      for (const plan of plans) byTrack.set(String(plan.track || ""), [...(byTrack.get(String(plan.track || "")) || []), plan]);
+      for (const group of byTrack.values()) {
+        const fresh = group.find(plan => plan.status === "active"), previous = group.filter(plan => plan.status === "transition");
+        if (!fresh || !previous.length) continue;
+        const before = new Set(previous.flatMap(plan => (setOf.get(String(plan.id))?.externals || []).map(Number)));
+        const label = badgeLabel(fresh);
+        for (const id of (setOf.get(String(fresh.id))?.externals || []).map(Number)) {
+          const course = owner.get(id);
+          if (!course || before.has(id) || Number(course.AdSectionId) === sid) continue;
+          const at = `${Number(course.AdSectionId)}:${id}`;
+          if (seen.has(at)) continue;
+          seen.add(at);
+          sheets.push({ courseId: id, label, collegeId: Number(course.AdCollegeId), sectionId: Number(course.AdSectionId) });
+        }
+      }
+    }
+    const kinds = new Map<number, { kind: RequirementKind; service: boolean; collegeId: number; sectionId: number }>();
+    for (const [id, own] of ownKinds) { const course = owner.get(id); kinds.set(id, { kind: own.kind, service: false, collegeId: Number(course.AdCollegeId), sectionId: Number(course.AdSectionId) }); }
+    for (const [id, row] of services) kinds.set(id, { kind: serviceKinds.get(id) || "college", service: true, collegeId: row.collegeId, sectionId: row.sectionId });
+    factCache = { key, at: Date.now(), sheets, kinds };
+    return factCache;
+  };
+  /* بطاقةُ الأستاذ والمقترح العام يقرآن الشارات نفسها (الصحيفة كلُّها ونوعُ المتطلب) من الجسر المشترك. */
+  setCourseFactSource(async () => {
+    const [own, facts] = await Promise.all([planBadgeRows(), courseFactRows()]);
+    return { sheets: [...own, ...facts.sheets], kinds: [...facts.kinds].map(([courseId, row]) => ({ courseId, ...row })) };
+  });
   app.get("/api/plan-badges", deps.requireAuth, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
-    if (req.query.fresh === "1") { badgeCache = null; serviceCache = null; }
+    if (req.query.fresh === "1") { badgeCache = null; serviceCache = null; factCache = null; }
     /* لكل حسابٍ نطاقُه كما في المقررات: لا شارة لمقررٍ خارج ما يراه. */
+    const allowed = (row: { collegeId: number; sectionId: number }) => deps.isPowerUser(req) || deps.isScopeAllowed(req, row.collegeId, row.sectionId);
     const badges: Record<number, string> = {};
-    for (const row of await planBadgeRows()) if (deps.isPowerUser(req) || deps.isScopeAllowed(req, row.collegeId, row.sectionId)) badges[row.courseId] = row.label;
+    const facts = await courseFactRows();
+    /* صحيفةُ مقرر الخدمة أولاً، ثم صحيفةُ قسمه تكتب فوقها: شارةُ القسم المالك هي الأصل. */
+    for (const row of [...facts.sheets, ...await planBadgeRows()]) if (allowed(row)) badges[row.courseId] = row.label;
     const services: Record<number, string[]> = {};
-    for (const [id, row] of await serviceRows()) if (deps.isPowerUser(req) || deps.isScopeAllowed(req, row.collegeId, row.sectionId)) services[id] = [...row.names].sort((a, b) => a.localeCompare(b, "ar"));
-    res.json({ ok: true, badges, services });
+    for (const [id, row] of await serviceRows()) if (allowed(row)) services[id] = [...row.names].sort((a, b) => a.localeCompare(b, "ar"));
+    const kinds: Record<number, RequirementKind> = {};
+    for (const [id, row] of facts.kinds) if (allowed(row)) kinds[id] = row.kind;
+    res.json({ ok: true, badges, services, kinds });
   });
 
   app.get("/api/plan-review/status", deps.requireAuth, async (req: Request, res: Response) => {

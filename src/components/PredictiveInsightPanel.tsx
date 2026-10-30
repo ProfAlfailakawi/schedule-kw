@@ -13,7 +13,7 @@ import {
 import { EmptyState, MicroLoader, SecondaryButton } from "./ui";
 import { demandAsk, openInTimeMachine } from "../utils/timeMachineLink";
 import RadarSchedule, { request } from "./RadarSchedule";
-import PlanBadge from "./PlanBadge";
+import CourseTags from "./CourseTags";
 import { AR, countOf } from "../utils/arabicCount";
 import { CONFIDENCE_LABEL, type Confidence, type DemandPrediction, type PredictiveAction } from "../utils/predictiveIntelligence";
 import type { PredictiveClientReading } from "../server/predictiveInsight";
@@ -162,7 +162,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
         <p className="pi-legend"><i className="k-bar" />فصول سابقة <i className="k-exp" />المتوقع <i className="k-plan" />المخطّط الآن <span className="pi-legend-conf" aria-hidden="true"><i className="k-conf" />الثقة: ثلاثة أعمدة = عالية</span></p>
         {shownDemand.length ? <ul className="pi-rows">{shownDemand.map(row => (
           <li key={row.courseId} className="pi-row pi-row-why" data-level={row.confidence.level}>
-            <div className="pi-row-name"><b>{row.name}<PlanBadge courseId={row.courseId} /></b><small>{row.code}{row.wanted != null ? <> · <Users aria-hidden="true" className="pi-inline-ic" />{countOf(row.wanted, AR.student)} يريدونه</> : null}</small></div>
+            <div className="pi-row-name"><b>{row.name}<CourseTags courseId={row.courseId} /></b><small>{row.code}{row.wanted != null ? <> · <Users aria-hidden="true" className="pi-inline-ic" />{countOf(row.wanted, AR.student)} يريدونه</> : null}</small></div>
             <SeriesBars row={row} hasHistory={r.historyTerms > 0} />
             <div className="pi-row-num" title={`المدى ${row.low}–${row.high}`}>
               <span>{nf(row.planned)}</span>{row.trend === "up" ? <TrendingUp aria-hidden="true" /> : row.trend === "down" ? <TrendingDown aria-hidden="true" /> : <span aria-hidden="true">←</span>}<b>{nf(row.expected)}</b>
@@ -187,7 +187,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
         {evidenced.length > gap.length ? <button type="button" className="sm-toggle" onClick={() => setAllCourses(v => !v)} data-guide-ignore="عرضٌ فقط">{allCourses ? "ما يحتاج نظراً فقط" : `كل المقررات ذات البيانات (${nf(evidenced.length)})`}</button> : null}
         {insufficient.length ? <details className="pi-insufficient">
           <summary data-guide-ignore="يعرض المقررات التي لا يكفي تاريخها للتنبّؤ؛ عرضٌ فقط"><Info aria-hidden="true" /> بيانات غير كافية <b>{nf(insufficient.length)}</b><small>بلا رقم — لا تاريخ يكفي لتوقّعٍ مسؤول</small></summary>
-          <ul className="pi-insufficient-list">{insufficient.map(row => <li key={row.courseId}><span>{row.name}<PlanBadge courseId={row.courseId} /></span><small dir="ltr">{row.code}</small>{row.wanted ? <em><Users aria-hidden="true" />{nf(row.wanted)}</em> : null}</li>)}</ul>
+          <ul className="pi-insufficient-list">{insufficient.map(row => <li key={row.courseId}><span>{row.name}<CourseTags courseId={row.courseId} /></span><small dir="ltr">{row.code}</small>{row.wanted ? <em><Users aria-hidden="true" />{nf(row.wanted)}</em> : null}</li>)}</ul>
         </details> : null}
       </div>
 

@@ -243,6 +243,17 @@ app.get("/api/ta-phase", requirePermission(7), async (req: AuthenticatedRequest,
   });
 });
 
+/** وسمُ «🎓 تدريب» بجانب الاسم (PersonChips): مَن طلبُه في هذا القسم (بعائلته) والفصل بصفة مرحلة التدريب. قراءةٌ خفيفة: معرّفاتٌ فقط. */
+app.get("/api/ta-trainees", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const requests = (await Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId)))).flat();
+  const ids = [...new Set(requests.filter(row => row.status !== "superseded" && isTaRequest(row)).map(row => Number(row.AdInstructorId)).filter(Boolean))];
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ids });
+});
+
 /** F3: المقررات المسموحة لكل مدرّب — قبل فتح المرحلة أو أثناءها. */
 app.post("/api/ta-phase/allowed", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);

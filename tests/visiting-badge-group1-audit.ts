@@ -29,7 +29,7 @@ check(!isVisitingIn(lookup, 10, 1, 3), "وليس منتدباً في قسمٍ آ
 // ── Schedules.tsx
 const S = "src/components/Schedules.tsx";
 has(S, /useVisitingLookup\(formLookupTerm\)/, "Schedules: النموذج يسأل القائمة الموحّدة بفصله");
-has(S, /selectedInstructor && formVisiting\(form\.AdInstructorId\) \? <VisitingBadge compact \/>/, "Schedules: بطاقة المعاينة قبل الحفظ تحمل الشارة");
+has(S, /selectedInstructor \? <PersonChips visiting=\{formVisiting\(form\.AdInstructorId\)\} trainee=\{formTrainees\.has\(Number\(form\.AdInstructorId\)\)\} \/>/, "Schedules: بطاقة المعاينة قبل الحفظ تحمل الشارة (PersonChips)");
 has(S, /withVisitingSuffix\(instructorTitleName,/, "Schedules: عنوان بطاقة تعارض الأستاذ بلاحقة");
 has(S, /withVisitingSuffix\(instructorById\.get\(Number\(other\.AdInstructorId \|\| 0\)\)\?\.AdInstructorName/, "Schedules: سطر الحجز المقابل في بطاقة التعارض بلاحقة");
 has(S, /function GhostInstructorName[\s\S]{0,600}useVisitingLookup\(row\.AdTermId\)/, "Schedules: ظلّ الفصل السابق يقرّر بفصل صفّه");
@@ -43,7 +43,7 @@ has(S, /instructorVisiting=\{Boolean\(physics\.state\.row && visitingIds\.has/, 
 
 // ── المكوّنات الصغيرة
 has("src/components/QuickCreatePopover.tsx", /<InstructorPicker[\s\S]*?visitingIds=\{visitingIds\}[\s\S]*?visitingRosterIds=\{visitingRosterIds\}/, "QuickCreate: المنتقي الموحّد بشارة المنتدب وروستر الفصل");
-has("src/components/QuickCreatePopover.tsx", /isVisiting\(draft\.instructorId, collegeId, sectionId\) \? <VisitingBadge compact \/>/, "QuickCreate: أستاذ الطلب المقفل بشارة بنطاق القسم");
+has("src/components/QuickCreatePopover.tsx", /<PersonChips visiting=\{isVisiting\(draft\.instructorId, collegeId, sectionId\)\} trainee=\{trainees\.has\(Number\(draft\.instructorId\)\)\} \/>/, "QuickCreate: أستاذ الطلب المقفل بشارة بنطاق القسم");
 has("src/components/SchedulePhysics/SchedulePhysicsLayer.tsx", /instructorVisiting \? <VisitingBadge compact \/>/, "طبقة السحب: الشارة على الاسم");
 has("src/components/SchedulePhysics/ScheduleDecisionPreview.tsx", /instructorVisiting \? <VisitingBadge compact \/>/, "معاينة القرار: الشارة على الاسم");
 const D = "src/components/DaySubstitute.tsx";
@@ -70,7 +70,7 @@ const I = read("src/components/ImportPreviewTable.tsx");
 check(!/import-visiting-badge/.test(I) && /<VisitingBadge compact \/>/.test(I), "الاستيراد: الشارة الموحّدة بدل الوسم اليدوي");
 check(/withVisitingSuffix\(instructorById\.get\(Number\(row\.AdInstructorId\)\)\?\.AdInstructorName \|\| "الأستاذ", visitingIdSet/.test(I), "الاستيراد: ملاحظة تعارض الأستاذ بلاحقة");
 const P = read("src/components/InstructorPicker.tsx");
-check(!/instructor-visiting-label/.test(P) && (P.match(/<VisitingBadge compact \/>/g) || []).length === 2, "منتقي الأستاذ: الشارة الموحّدة في الموضعين");
+check(!/instructor-visiting-label/.test(P) && (P.match(/<PersonChips visiting=\{visitingSet\.has\((?:selected|person)\.AdInstructorId\)\} trainee=\{trainees\.has\(Number\((?:selected|person)\.AdInstructorId\)\)\} \/>/g) || []).length === 2, "منتقي الأستاذ: الشارة الموحّدة في الموضعين");
 const N = read("src/components/Instructors.tsx");
 check(!/staff-badge is-delegate/.test(N) && /<VisitingBadge compact \/>/.test(N), "الأساتذة: الشارة الموحّدة بدل staff-badge");
 check(/<h2>\{selected\.AdInstructorName\}\{delegateIds\.has\(selected\.AdInstructorId\) \? <VisitingBadge compact \/>/.test(N), "الأساتذة: عنوان المفتش يحمل الشارة");

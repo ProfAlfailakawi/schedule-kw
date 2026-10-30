@@ -1,4 +1,4 @@
-import PlanBadge from "../PlanBadge";
+import CourseTags from "../CourseTags";
 /**
  * ── ملخصُ الفحص وتفاصيله ────────────────────────────────────────────────────
  *
@@ -32,7 +32,7 @@ function FindingCard({ ws, finding }: { key?: React.Key; ws: Workspace; finding:
     <li className="sp-finding" data-kind={finding.kind} data-focus={focused || undefined}>
       <div className="sp-finding-head">
         <b>{finding.title}</b>
-        {op ? <small>{op.target.courseName}<PlanBadge courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</small> : null}
+        {op ? <small>{op.target.courseName}<CourseTags courseId={op.target.AdCourseId} /> · شعبة {op.target.SCode}</small> : null}
       </div>
       {finding.detail ? <p className="sp-finding-detail">{finding.detail}</p> : null}
       {timeBits.length ? <p className="sp-finding-when"><span>{timeBits[0]}</span>{timeBits[1] ? <bdi className="sp-time">{timeBits[1]}</bdi> : null}</p> : null}
