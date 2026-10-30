@@ -186,6 +186,8 @@ test:schedule-versions-list
 test:time-machine-scope-escape
 test:visiting-badge-changes
 test:consistent-badges
+test:course-tags-coverage
+test:sheet-membership
 test:visiting-lookup
 test:visiting-badge-g1
 test:visiting-badge-g2

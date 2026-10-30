@@ -25,6 +25,7 @@ import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../../utils/scheduleTime";
 import { minutesCompact, num, timeRange, vacancyBreakdown, vacancyTally } from "./proposalFormat";
 import { AR, countOf } from "../../utils/arabicCount";
 import { campusChips } from "../../utils/campusChip";
+import CourseTags from "../CourseTags";
 
 /** وسمُ الموقع الصغير على الموعد (بنين/بنات/الكلية) — لا يُرسم إن كانت مواعيده كلُّها في كليةٍ واحدة. */
 function CampusChip({ item, chips }: { item: GridItem; chips: ReadonlyMap<string, string> }) {
@@ -313,7 +314,7 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
     <aside className="sp-detail" role="region" aria-label="تفاصيل الموعد المحدد">
       <header>
         <div>
-          <strong>{selected.outside ? "التزام خارج القسم" : selected.courseName}<CampusChip item={selected} chips={chips} /></strong>
+          <strong>{selected.outside ? "التزام خارج القسم" : <>{selected.courseName}<CourseTags courseId={selected.src?.courseId} /></>}<CampusChip item={selected} chips={chips} /></strong>
           {!selected.outside && <small>{[selected.courseCode, selected.SCode ? `شعبة ${selected.SCode}` : ""].filter(Boolean).join(" · ")}</small>}
         </div>
         <button data-guide-ignore="جزء من مساحة إعداد المقترح الدراسي — تشرحه بطاقة المساحة نفسها" type="button" className="sp-icon-btn" onClick={() => { onSelect(null); setDetailKey(null); }} aria-label="إغلاق التفاصيل"><X aria-hidden="true" /></button>

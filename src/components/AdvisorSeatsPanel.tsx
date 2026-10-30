@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Ticket } from "lucide-react";
 import { PrimaryButton, SecondaryButton } from "./ui";
 import CampusChip from "./CampusChip";
+import CourseTags from "./CourseTags";
 import { ColleagueWorkNotice } from "./ColleagueHoldNotice";
 import { useStaleWrite } from "./StaleWriteToast";
 import { useTeamPeers, useTeamWork } from "../hooks/useTeamWork";
@@ -138,7 +139,7 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
       <div className="of-grid">
         {shown.map(s => (
           <div className="of-card" key={s.key} onFocusCapture={() => touch(s)}>
-            <header><div><b>{s.courseName}</b><small> · شعبة {s.section}</small><br /><small><bdi dir="ltr">{s.time}</bdi>{s.state.limitedBy === "room" ? " · 🏫 سقف القاعة" : ""}</small></div><Ring state={s.state} /></header>
+            <header><div><b>{s.courseName}</b><CourseTags courseId={s.courseId} /><small> · شعبة {s.section}</small><br /><small><bdi dir="ltr">{s.time}</bdi>{s.state.limitedBy === "room" ? " · 🏫 سقف القاعة" : ""}</small></div><Ring state={s.state} /></header>
             <div className="of-row">
               <SecondaryButton data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" disabled={!!busy || s.state.remaining <= 0 || !s.state.capacity} onClick={() => void add(s.key, 1)}>+1</SecondaryButton>
               <SecondaryButton data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" disabled={!!busy || s.state.remaining < 3 || !s.state.capacity} onClick={() => void add(s.key, 3)}>+3</SecondaryButton>

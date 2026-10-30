@@ -13,6 +13,7 @@ import { FileSpreadsheet, FileUp, Minus, Plus, Radar, Search, Undo2, UserRoundCh
 import { applyChanges, boardOf, type TmChange, type TmScenarioRecord } from "../utils/timeMachine";
 import { addOneSection, courseSeatStats, DEMAND_WORD, netSectionDelta, removeOneSection, type CourseImpact, type CourseSeatStat } from "../utils/courseWhatIf";
 import { inNewSheet, inOldSheet, type SheetTag } from "../utils/sheetTag";
+import { byCourseNumber } from "../utils/sheetMembership";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import ScenarioWorkbench from "./ScenarioWorkbench";
 import CourseTags from "./CourseTags";
@@ -46,7 +47,7 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
     const list: Array<{ course: SheetCourse; tag: SheetTag }> = sheets.hasPlans
       ? tagged.map(course => ({ course, tag: sheets.tags.get(Number(course.AdCourseId)) ?? null })).filter(item => inNewSheet(item.tag) || inOldSheet(item.tag))
       : [...operational.values()].map(course => ({ course: course as SheetCourse, tag: null }));
-    return list.sort((a, b) => String(a.course.CourseCode).localeCompare(String(b.course.CourseCode), "ar", { numeric: true }));
+    return list.sort(byCourseNumber(item => item.course.CourseCode, item => item.course.CourseName));
   }, [context.courses, sheets]);
   const ids = useMemo(() => catalogue.map(item => Number(item.course.AdCourseId)), [catalogue]);
   const statsNow = useMemo(() => courseSeatStats(base, context, ids), [base, context, ids]);
@@ -191,6 +192,7 @@ function CourseCard({ courseId, code, name, tag, now, after, delta, impact, none
         <span className="ac-name">{name}</span>
         {/* وسومُ المقرر الموحّدة (الصحيفة ← نوعُ المتطلب ← «🔒 لم نصل بعد»)؛ و«✓ وصلنا»/«🔓 فُتح» حكمُ الوصول هنا وحدها. */}
         <CourseTags courseId={courseId} reach={reach} newSheet={tag === "new"} />
+        {tag === "shared" ? <span className="of-both" title="المقرر في الصحيفة الجديدة والقديمة معاً">في الصحيفتين</span> : null}
         {reach && reach.state !== "locked" ? <ReachChip reach={reach} /> : null}
       </header>
       {reach && (reach.state === "locked" || reach.overridden) ? (

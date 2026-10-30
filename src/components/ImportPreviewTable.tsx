@@ -13,6 +13,7 @@ import { roomIdentityKey } from "../utils/locationRegistry";
 import { displayInstructorText, instructorIdentityTokens } from "../utils/instructorIdentity";
 import { authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
+import CourseTags from "./CourseTags";
 
 /**
  * Editable authority-PDF preview.
@@ -398,7 +399,7 @@ export default function ImportPreviewTable({
                           onChange={value => { const picked = courseById.get(Number(value)); if (picked) patchManual(index, "course", { AdCourseId: Number(picked.AdCourseId), AdCourseName: String(picked.CourseName || "") }); }}
                           options={departmentCourseOptions.map(item => ({ value: item.AdCourseId, label: item.CourseName, badge: courseOptionBadge([Number(item.AdCourseId)], planBadges), hint: item.CourseCode, keywords: String(item.CourseCode || "") }))}
                           placeholder="اختر المقرر…" searchPlaceholder="اكتب اسم المقرر أو رمزه" />
-                      ) : course?.CourseName ? <strong>{course.CourseName}</strong> : <span className="import-unlinked-head"><small>رقم المقرر غير واضح</small><em className="import-unlinked-why">اضغط التعديل واختر المقرر</em></span>}{row.courseSiteLabel ? <span className="import-course-site-note" title={String(row.courseSiteMessage || "")}><MapPin />{String(row.courseSiteLabel)}</span> : null}{row.scopeMismatchType === "CROSS_BRANCH" ? <span className="import-course-scope-note" title={String(row.scopeMismatchMessage || "")}><AlertTriangle />{String(row.scopeMismatchLabel || "تابع لفرع آخر")}</span> : null}</span>
+                      ) : course?.CourseName ? <strong>{course.CourseName}<CourseTags courseId={course.AdCourseId} /></strong> : <span className="import-unlinked-head"><small>رقم المقرر غير واضح</small><em className="import-unlinked-why">اضغط التعديل واختر المقرر</em></span>}{row.courseSiteLabel ? <span className="import-course-site-note" title={String(row.courseSiteMessage || "")}><MapPin />{String(row.courseSiteLabel)}</span> : null}{row.scopeMismatchType === "CROSS_BRANCH" ? <span className="import-course-scope-note" title={String(row.scopeMismatchMessage || "")}><AlertTriangle />{String(row.scopeMismatchLabel || "تابع لفرع آخر")}</span> : null}</span>
                       {course?.CourseCode ? <small dir="ltr">{course.CourseCode}</small> : null}
                     </div>
                   </td>

@@ -1,5 +1,6 @@
 /** جسرٌ خادميّ لشارة الصحيفة: تضع مسارات مراجعة الصحف مصدرها هنا، وتقرؤه الصفحات العامة (المقترح الدراسي) دون اعتماد متبادل. */
 import type { RequirementKind } from "../utils/courseTags";
+import { sheetSideOf, type Membership, type SheetSide } from "../utils/sheetMembership";
 type Source = () => Promise<Array<{ courseId: number; label: string; collegeId: number; sectionId: number }>>;
 let source: Source | null = null;
 
@@ -66,4 +67,44 @@ export async function courseTagFactsFor(pairs: Array<{ courseId: unknown; sectio
     }
   } catch { /* الشارة زينة: غيابُها لا يكسر الكرت */ }
   return out;
+}
+
+/* ── عضويةُ الصحيفة: الوسمُ والتبويبان من مصدرٍ واحد (src/utils/sheetMembership.ts) ─────────────────────────
+   تضعها مساراتُ مراجعة الصحف، وتقرؤها لوحةُ حالة الطرح وقائمةُ المقررات («كل المقررات»، محاكي الشعب). */
+type MembershipSource = () => Promise<Map<string, Membership>>;
+let membershipSource: MembershipSource | null = null;
+export const setSheetMembershipSource = (next: MembershipSource) => { membershipSource = next; };
+
+/**
+ * جهةُ كل مقررٍ من مقررات القسم («new» / «old» / «shared»)؛ ما لا جهةَ له لا يُذكر.
+ * null: لا ثنائيةَ في القسم (لا جديدةَ أو لا قديمة) — فيبقى كلُّ شيءٍ كما كان، قائمةً واحدة.
+ * أقسامٌ كثيرة في طلبٍ واحد (‎/api/courses?operational=1&plans=1‎): قراءةُ العضوية مرةً واحدة لها كلّها.
+ */
+export async function sheetSidesBySection(groups: ReadonlyArray<{ sectionId: unknown; courseIds: readonly unknown[] }>): Promise<Map<number, Record<number, SheetSide> | null>> {
+  const out = new Map<number, Record<number, SheetSide> | null>();
+  if (!membershipSource || !groups.length) return out;
+  let rows: Map<string, Membership>;
+  try { rows = await membershipSource(); } catch { return out; }
+  const paired = new Map<number, { fresh: boolean; old: boolean }>();
+  for (const row of rows.values()) {
+    const seen = paired.get(row.sectionId) || { fresh: false, old: false };
+    seen.fresh ||= Boolean(row.fresh); seen.old ||= row.old;
+    paired.set(row.sectionId, seen);
+  }
+  for (const group of groups) {
+    const sid = Number(group.sectionId);
+    const seen = paired.get(sid);
+    if (!seen?.fresh || !seen.old) { out.set(sid, null); continue; }
+    const sides: Record<number, SheetSide> = {};
+    for (const id of group.courseIds) {
+      const side = sheetSideOf(rows.get(`${sid}:${Number(id)}`));
+      if (side) sides[Number(id)] = side;
+    }
+    out.set(sid, sides);
+  }
+  return out;
+}
+
+export async function sheetSidesFor(sectionId: unknown, courseIds: readonly unknown[]): Promise<Record<number, SheetSide> | null> {
+  return (await sheetSidesBySection([{ sectionId, courseIds }])).get(Number(sectionId)) ?? null;
 }
