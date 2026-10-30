@@ -170,6 +170,7 @@
     "test:demo-cases": "tsx tests/demo-cases-audit.ts",
     "test:roles": "tsx tests/role-guard-audit.ts",
     "test:seats": "tsx tests/seats-audit.ts",
+    "test:colleague-guard-measure": "tsx tests/colleague-guard-measure-audit.ts",
     "test:section-requests": "tsx tests/section-requests-audit.ts",
     "test:import-courses-r3": "tsx tests/import-courses-r3-audit.ts",
     "test:doctor-journey": "tsx tests/doctor-journey-audit.ts",

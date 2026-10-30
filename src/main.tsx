@@ -182,6 +182,9 @@ const CATALOGUE=/^\/api\/(colleges|sections|terms|instructors|courses|rooms|form
 const CATALOGUE_TTL_MS=45_000;
 const catalogueCache=new Map<string,{at:number;body:string;status:number;headers:Headers}>();
 const clearCatalogueCache=()=>catalogueCache.clear();
+/* حجزُ حارس الزملاء يتجدّد كل 45 ثانية، وقياسُ الإدخال يُرسل مع كل حفظ: كلاهما لا يمسّ مرجعاً،
+   فلا يُفرغ ذاكرةَ المراجع كما تُفرغها كتابةٌ حقيقية. */
+const CATALOGUE_NEUTRAL_WRITE=/^\/api\/(schedule-holds|metrics\/appointment-entry)(\/|\?|$)/;
 
 const customFetch = ((input:RequestInfo|URL,init?:RequestInit)=>{
   const method=String(init?.method||((typeof Request!=="undefined"&&input instanceof Request)?input.method:"GET")).toUpperCase();
@@ -202,7 +205,7 @@ const customFetch = ((input:RequestInfo|URL,init?:RequestInit)=>{
   return nativeFetch(input as any,init).then(async response=>{
     if(!isApi)return response;
     // Any successful write can invalidate any catalogue read.
-    if(isWrite&&response.ok)clearCatalogueCache();
+    if(isWrite&&response.ok&&!CATALOGUE_NEUTRAL_WRITE.test(url.pathname))clearCatalogueCache();
     const contentType=response.headers.get("content-type")||"";
     /* Our /api always answers JSON. A 5xx page in HTML is the platform swapping
        servers mid-deploy: one calm notice instead of an error banner. */

@@ -202,6 +202,7 @@ test:report-stamp
 test:live-pulse
 test:live-pulse-http
 test:seats
+test:colleague-guard-measure
 test:section-requests
 test:import-courses-r3
 test:report-print-menus
