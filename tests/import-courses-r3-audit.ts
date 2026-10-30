@@ -158,7 +158,7 @@ console.log("٤ — الإرشاد: منتقي الكلية والقسم في ا
     check(picker.includes("if (auto.section) onSection(auto.section)"), "والاختيار يُرسَل من المنتقي نفسه (onSection)");
   }
   const registration = read("src/components/StudentRegistration.tsx");
-  check(registration.includes("action={<AdvisingScopePicker") && !registration.includes('{ key: "college", label: "الكلية"'), "كشف التسجيل: الكلية والقسم في الرأس، والفصل في الشريط");
+  check(/action=\{<>\s*(?:<TeamPresenceChip[^>]*\/>\s*)?<AdvisingScopePicker/.test(registration) && !registration.includes('{ key: "college", label: "الكلية"'), "كشف التسجيل: الكلية والقسم في الرأس، والفصل في الشريط");
   const radar = read("src/components/RegistrationRehearsal.tsx");
   check(radar.includes("<AdvisingScopePicker") && radar.includes('params.set("collegeId"') && radar.includes('params.set("sectionId"'), "الرادار: منتقٍ في الرأس يُرسل النطاق");
   const sim = read("src/server/simulationRoutes.ts");

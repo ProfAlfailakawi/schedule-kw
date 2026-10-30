@@ -6452,8 +6452,12 @@ export const Repository = {
    * والتسجيل في اللحظة نفسها لا يمرّ أحدهما على حالةٍ قديمة. `next === null`
    * يسحب قرارَ تلك الجهة.
    */
-  setStudentCaseDecision: async (needId: string, side: StudentCaseSide, next: StudentCaseDecision | null): Promise<StudentNeed | undefined> => {
+  setStudentCaseDecision: async (needId: string, side: StudentCaseSide, next: StudentCaseDecision | null,
+    guard?: (current: StudentNeed) => string | null): Promise<StudentNeed | undefined> => {
     const merge = (current: StudentNeed): StudentNeed => {
+      /* ختمُ ما رآه الكاتب (src/utils/staleWrite.ts) يُسأل أولاً، داخل المعاملة نفسها. */
+      const stale = guard?.(current);
+      if (stale) throw new StudentCourseStateConflict(stale);
       const refusal = studentCaseRefusal(current.caseState, side, next);
       if (refusal) throw new StudentCourseStateConflict(refusal);
       return { ...current, caseState: applyStudentCaseDecision(current.caseState, side, next) };

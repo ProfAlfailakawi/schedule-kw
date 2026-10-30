@@ -89,6 +89,8 @@ export interface SectionRequest {
   createdAt: string;
   createdBy: { userId: number; name: string; role: string };
   updatedAt: string;
+  /** رقمُ الإصدار: يزيد مع كل انتقال، وتحمله كلُّ كتابة (src/utils/staleWrite.ts). */
+  rev?: number;
   events: SectionRequestEvent[];
 }
 
@@ -211,7 +213,7 @@ export function powersFor(facts: SectionRequestActorFacts): SectionRequestPowers
 
 /* ── الانتقالات: وثيقةٌ جديدة أو رفضٌ بسببه ───────────────────────────────── */
 
-export type Transition = { next: SectionRequest } | { refuse: { status: number; error: string } };
+export type Transition = { next: SectionRequest } | { refuse: { status: number; error: string; code?: string } };
 
 const refuse = (status: number, error: string): Transition => ({ refuse: { status, error } });
 const withEvent = (request: SectionRequest, event: SectionRequestEvent, patch: Partial<SectionRequest>): SectionRequest => ({

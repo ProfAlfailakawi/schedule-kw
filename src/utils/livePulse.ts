@@ -1,4 +1,5 @@
 import { watchAttention, type Attention } from "./pageAwake";
+import { readPeers, type Team, type TeamPeer, type TeamScreen, type WorkMark } from "./teamWork";
 
 /**
  * ── النبضة، من جهة المتصفح ─────────────────────────────────────────────────
@@ -20,19 +21,44 @@ import { watchAttention, type Attention } from "./pageAwake";
  * Signals compare times the server keeps, never a count of events, so a
  * missed answer is not a missed change: the next answer still carries it.
  */
-export interface LiveScope { collegeId: number; sectionId: number; termId: number }
-export type LiveSignal = "schedules" | "notify";
-/** The server's times for both kinds of news, as of the answer that signalled. */
-export interface LiveStamps { changedAt: number; notifiedAt: number }
+export interface LiveScope {
+  collegeId: number; sectionId: number; termId: number;
+  /**
+   * «زميلان يعملان الآن» لفريق الإرشاد أو التسجيل (src/utils/teamWork.ts): الفريقُ يقوله الخادم من
+   * الصفة، واللسانُ يقول شاشتَه وما يعمل عليه الآن. بلا `team` هو لوحُ جدولٍ كما كان.
+   */
+  team?: boolean;
+  screen?: TeamScreen;
+  work?: WorkMark | null;
+}
+export type LiveSignal = "schedules" | "notify" | "work";
+/** The server's times for every kind of news, as of the answer that signalled. */
+export interface LiveStamps { changedAt: number; notifiedAt: number; workedAt: number }
 export interface LiveState {
   /** Other people on this tab's board, at their screens. 0 with no board. */
   company: number;
   /** The last question was answered. */
   connected: boolean;
+  /** زملاءُ الفريق والنطاق، بالأحدث نشاطاً (للوحة فريقٍ وحدها؛ [] للوح الجدول). */
+  peers: TeamPeer[];
+  /** فريقُ هذا الحساب كما قاله الخادم، أو null. */
+  team: Team | null;
 }
 
 const AWAKE_EVERY_MS = 15_000;
+/** فريقٌ معه أحد: النبضةُ أسرع ليظهر «زميلك يعمل الآن على…» في ثوانٍ. وحده: كما كان. */
+const AWAKE_WITH_COMPANY_MS = 8_000;
 const DROWSY_EVERY_MS = 60_000;
+
+/**
+ * كم ينتظر اللسانُ قبل سؤاله التالي. «ينام حين يكون وحده» (#280): بلا رفقةٍ أو على لوح جدول
+ * خمسَ عشرةَ ثانية كما كان، ونائماً لا يسأل أبداً (null)؛ والفريقُ الذي معه أحدٌ يسأل أسرع.
+ */
+export function pulseDelay(attention: Attention, company: number, team: boolean): number | null {
+  if (attention === "asleep") return null;
+  if (attention !== "awake") return DROWSY_EVERY_MS;
+  return team && company > 0 ? AWAKE_WITH_COMPANY_MS : AWAKE_EVERY_MS;
+}
 const STOP_AFTER_MS = 2_000;
 
 const connId =
@@ -51,16 +77,34 @@ let askAgain = false;
 /** The server said this account has no business with the live channel. */
 let refused = false;
 let known: LiveStamps | null = null;
-let state: LiveState = { company: 0, connected: false };
+/** المكانُ الذي قيس عليه `known.workedAt` آخرَ مرة (لوحةُ فريقٍ وحدها). */
+let workPlace: LiveScope | null = null;
+let state: LiveState = { company: 0, connected: false, peers: [], team: null };
+const EMPTY_PEERS: TeamPeer[] = [];
+let peersKey = "[]";
 
 const signalListeners = new Set<{ kinds: LiveSignal[]; fn: (stamps: LiveStamps) => void }>();
 const stateListeners = new Set<(next: LiveState) => void>();
 
+const sameWork = (a?: WorkMark | null, b?: WorkMark | null) =>
+  (!a && !b) || Boolean(a && b && a.kind === b.kind && a.id === b.id && a.label === b.label);
 const sameScope = (a: LiveScope | null, b: LiveScope | null) =>
-  a === b || Boolean(a && b && a.collegeId === b.collegeId && a.sectionId === b.sectionId && a.termId === b.termId);
+  a === b || Boolean(a && b && a.collegeId === b.collegeId && a.sectionId === b.sectionId && a.termId === b.termId
+    && Boolean(a.team) === Boolean(b.team) && (a.screen || "") === (b.screen || "") && sameWork(a.work, b.work));
+/** المكانُ نفسه بلا العمل: تغيّرُ «على ماذا أعمل» لا يجعل جوابَ الزملاء قديماً. */
+const samePlace = (a: LiveScope | null, b: LiveScope | null) =>
+  a === b || Boolean(a && b && a.collegeId === b.collegeId && a.sectionId === b.sectionId && a.termId === b.termId && Boolean(a.team) === Boolean(b.team));
 
-function publish(next: LiveState) {
-  if (next.company === state.company && next.connected === state.connected) return;
+function publish(input: Omit<LiveState, "peers" | "team"> & Partial<Pick<LiveState, "peers" | "team">>) {
+  const peers = input.peers ?? state.peers;
+  const key = JSON.stringify(peers);
+  const next: LiveState = {
+    company: input.company, connected: input.connected,
+    peers: key === peersKey ? state.peers : (peers.length ? peers : EMPTY_PEERS),
+    team: input.team === undefined ? state.team : input.team,
+  };
+  if (next.company === state.company && next.connected === state.connected && next.peers === state.peers && next.team === state.team) return;
+  peersKey = key;
   state = next;
   for (const listener of [...stateListeners]) listener(state);
 }
@@ -78,22 +122,37 @@ async function ask(): Promise<void> {
       query.set("college", String(askedFor.collegeId));
       query.set("section", String(askedFor.sectionId));
       query.set("term", String(askedFor.termId));
+      if (askedFor.team) {
+        query.set("team", "1");
+        if (askedFor.screen) query.set("screen", askedFor.screen);
+        if (askedFor.work) {
+          query.set("workKind", askedFor.work.kind);
+          query.set("workId", askedFor.work.id);
+          if (askedFor.work.label) query.set("workLabel", askedFor.work.label);
+        }
+      }
     }
     const response = await fetch(`/api/schedules/pulse?${query}`, { credentials: "include", cache: "no-store" });
     // No permission is a fact about the account, not a hiccup: stop asking.
     // The screens keep their own slower reads, exactly as before.
-    if (response.status === 403) { refused = true; publish({ company: 0, connected: false }); return; }
+    if (response.status === 403) { refused = true; publish({ company: 0, connected: false, peers: [], team: null }); return; }
     if (!response.ok) { publish({ ...state, connected: false }); return; }
     const data = await response.json();
-    const next = { changedAt: Number(data?.changedAt) || 0, notifiedAt: Number(data?.notifiedAt) || 0 };
+    const next = { changedAt: Number(data?.changedAt) || 0, notifiedAt: Number(data?.notifiedAt) || 0, workedAt: Number(data?.workedAt) || 0 };
     const fired = new Set<LiveSignal>();
+    /* ساعةُ الفريق لكل كليةٍ وفصل: لا تُقارن إلا بجوابٍ عن المكان نفسه — أولُ جوابٍ عن مكانٍ جديد بدايةُ عدّه. */
+    const sameWorkPlace = Boolean(askedFor?.team && workPlace && samePlace(workPlace, askedFor));
     if (known) {
       if (next.changedAt > known.changedAt) fired.add("schedules");
       if (next.notifiedAt > known.notifiedAt) fired.add("notify");
+      if (sameWorkPlace && next.workedAt > known.workedAt) fired.add("work");
       // The largest time seen, not the latest answer: during a release two
       // copies of the server answer in turn, and a smaller number from the
       // older one must not make the newer one's news look new again.
-      known = { changedAt: Math.max(known.changedAt, next.changedAt), notifiedAt: Math.max(known.notifiedAt, next.notifiedAt) };
+      known = {
+        changedAt: Math.max(known.changedAt, next.changedAt), notifiedAt: Math.max(known.notifiedAt, next.notifiedAt),
+        workedAt: sameWorkPlace ? Math.max(known.workedAt, next.workedAt) : next.workedAt,
+      };
     } else {
       // The first answer is where this tab starts counting; its screens have
       // just read everything anyway.
@@ -101,8 +160,15 @@ async function ask(): Promise<void> {
     }
     // An answer about a board this tab has since left says nothing about the
     // new one; the question already queued for the new board will.
-    const company = sameScope(askedFor, scope) ? Math.max(0, Number(data?.company) || 0) : state.company;
-    publish({ company, connected: true });
+    workPlace = askedFor?.team ? { ...askedFor } : null;
+    const fresh = samePlace(askedFor, scope);
+    const company = fresh ? Math.max(0, Number(data?.company) || 0) : state.company;
+    // فارقُ ساعة الخادم: عدّادُ «زميلك يعمل الآن» يُحسب بساعة هذا المتصفّح.
+    const serverNow = Number(data?.now);
+    const skew = Number.isFinite(serverNow) && serverNow > 0 ? serverNow - Date.now() : 0;
+    const peers = fresh ? (askedFor?.team ? readPeers(data?.peers, skew) : []) : state.peers;
+    const team = fresh ? (askedFor?.team && typeof data?.team === "string" ? data.team as Team : null) : state.team;
+    publish({ company, connected: true, peers, team });
     if (fired.size && known) {
       const stamps = { ...known };
       for (const listener of [...signalListeners]) {
@@ -125,8 +191,10 @@ function listening() { return signalListeners.size + stateListeners.size > 0; }
 
 function plan() {
   window.clearTimeout(timer);
-  if (!listening() || refused || attention === "asleep") return;
-  timer = window.setTimeout(beat, attention === "awake" ? AWAKE_EVERY_MS : DROWSY_EVERY_MS);
+  if (!listening() || refused) return;
+  const wait = pulseDelay(attention, state.company, Boolean(scope?.team));
+  if (wait === null) return;
+  timer = window.setTimeout(beat, wait);
 }
 
 async function beat() {
@@ -174,7 +242,9 @@ function stopIfUnused() {
     // Nobody is left to tell. Whoever subscribes next reads everything on
     // arrival, so the count starts again from the first answer after that.
     known = null;
-    state = { company: 0, connected: false };
+    workPlace = null;
+    state = { company: 0, connected: false, peers: EMPTY_PEERS, team: null };
+    peersKey = "[]";
   }, STOP_AFTER_MS);
 }
 
@@ -203,7 +273,9 @@ export function onLiveState(fn: (next: LiveState) => void): () => void {
  */
 export function setLiveScope(next: LiveScope | null): void {
   if (sameScope(scope, next)) return;
-  scope = next ? { ...next } : null;
+  /* زملاءُ فريقٍ في نطاقٍ تركتُه ليسوا زملائي في الجديد. ولوحُ الجدول يبقى كما كان (#280). */
+  if (!samePlace(scope, next) && (scope?.team || next?.team)) publish({ company: 0, connected: state.connected, peers: [], team: null });
+  scope = next ? { ...next, work: next.work ? { ...next.work } : null } : null;
   if (typeof window === "undefined") return;
   window.clearTimeout(scopeTimer);
   scopeTimer = window.setTimeout(() => { if (listening()) void beat(); }, 50);

@@ -29,6 +29,8 @@ export interface SeatQuotaConfig {
   fairSplit: boolean;
   /** عدد المرشدين المشاركين في القسمة (يكتبه المسؤول). */
   advisorCount?: number;
+  /** رقمُ الإصدار: يزيد مع كل حفظ، وتحمله الكتابة (src/utils/staleWrite.ts). */
+  rev?: number;
 }
 
 export interface SeatLedger {
@@ -157,6 +159,7 @@ export function normalizeQuotaConfig(input: any, id: string): SeatQuotaConfig {
     fairSplit: input?.fairSplit === true, ...(Number(input?.advisorCount) > 0 ? { advisorCount: clean(input.advisorCount) } : {}),
     ...(Number(input?.capacityDefault) > 0 ? { capacityDefault: clean(input.capacityDefault) } : {}),
     capacityBySection: map(input?.capacityBySection),
+    ...(Number.isInteger(Number(input?.rev)) && Number(input?.rev) > 0 ? { rev: Number(input.rev) } : {}),
   };
 }
 
