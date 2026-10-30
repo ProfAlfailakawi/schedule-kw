@@ -9,6 +9,7 @@ import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, FileText, FileUp, Layers, X } from "lucide-react";
 import SectionPlanning from "./SectionPlanning";
+import CourseTags from "./CourseTags";
 import { type Gap } from "./SectionGapNote";
 import { planGaps, type GapCourse } from "../utils/sectionGap";
 import { AR, countOf } from "../utils/arabicCount";
@@ -53,7 +54,7 @@ export function Result({ gap, onClose, skipped = 0 }: { gap: Gap; onClose: () =>
           <ul>
             {top.map(item => (
               <li key={item.id} title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
-                <span className="gap-result-name"><b>{item.name}</b><small>{item.code}</small></span>
+                <span className="gap-result-name"><b>{item.name}</b><small>{item.code}<CourseTags courseId={item.id} /></small></span>
                 <Cells existing={item.existing} required={item.required} />
                 <span className="gap-result-plus">+{num(item.extra)}</span>
               </li>
@@ -70,7 +71,7 @@ export function Result({ gap, onClose, skipped = 0 }: { gap: Gap; onClose: () =>
           <ul>
             {toReview.slice(0, TOP).map(item => (
               <li key={item.id} title={`الموجود ${num(item.existing)} والمقترح ${num(item.required)} — الإغلاق يحتاج التحقق من المسجلين`}>
-                <span className="gap-result-name"><b>{item.name}</b><small>{item.code}</small></span>
+                <span className="gap-result-name"><b>{item.name}</b><small>{item.code}<CourseTags courseId={item.id} /></small></span>
                 <Cells existing={item.required} required={item.existing} />
                 <span className="gap-result-plus" title={item.closureCapacityWarning ? "الاحتياج أعلى من سعة الشعب المقترحة؛ مراجعة فقط" : "فرق العدد المخطط عن الموجود"}>−{num(item.surplus || 0)}</span>
               </li>

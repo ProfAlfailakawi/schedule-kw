@@ -11,6 +11,8 @@ import { sectionLabels } from "../utils/sectionLabel";
 import { decimalText, numericText } from "../utils/digits";
 import type { AdSection } from "../types";
 import type { CurriculumPlan } from "../types";
+import { sheetTagOf } from "../utils/sheetTag";
+import { byCourseNumber } from "../utils/sheetMembership";
 import {
   AddButton,
   EmbeddedAction,
@@ -48,6 +50,14 @@ const teachingModeValue = (course: any) => {
 /** Which generation a course belongs to, from the live plans the server tagged it with. */
 const planTagOf = (course: any): { key: "new" | "old" | "shared" | "service"; label: string } | null => {
   const plans: Array<{ status: string; name: string }> = Array.isArray(course?.curriculum) ? course.curriculum : [];
+  /* جهةُ المقرر من عضوية الصحيفة الواحدة (الخادم) حين يرسلها — المصدرُ نفسه الذي يكتب وسم «صحيفة 2026». */
+  const side = sheetTagOf(course);
+  if (course?.sheetSide !== undefined) {
+    if (side === "shared") return { key: "shared", label: "مشترك بين الصحيفتين" };
+    if (side === "new") return { key: "new", label: plans.find(plan => plan.status === "active")?.name || "الصحيفة الجديدة" };
+    if (side === "old") return { key: "old", label: plans.find(plan => plan.status === "transition")?.name || "الصحيفة السابقة" };
+    return side === "service" ? { key: "service", label: "متطلب كلية" } : null;
+  }
   if (!plans.length) return serviceOf(course).length ? { key: "service", label: "متطلب كلية" } : null;
   const isNew = plans.some(plan => plan.status === "active"), isOld = plans.some(plan => plan.status === "transition");
   if (isNew && isOld) return { key: "shared", label: "مشترك بين الصحيفتين" };
@@ -432,7 +442,8 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             ),
           )
         : list;
-      return sortByName(base, (x: any) => x.CourseName);
+      /* برقم المقرر تصاعدياً (src/utils/sheetMembership.ts) — الترتيبُ نفسه في كل قائمة مقررات. */
+      return [...base].sort(byCourseNumber((x: any) => x.CourseCode, (x: any) => x.CourseName));
     }, [items, colleges, sections, query, listCollege, listSection, listPlan]),
     selected = filtered.find((x) => x.AdCourseId === selectedId) || filtered[0] || null,
     activeId = selected?.AdCourseId ?? null;

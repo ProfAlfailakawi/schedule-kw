@@ -510,7 +510,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
         {visible.map(({ course, key, suggestion, outside, lineage, history }) => (
           <React.Fragment key={key}>
             <div className={`section-plan-row${outside ? " is-outside" : ""}`} role="row">
-              <span role="cell" className="section-plan-course"><b dir="ltr">{course.code}</b> {course.name}</span>
+              <span role="cell" className="section-plan-course"><b dir="ltr">{course.code}</b> {course.name}<CourseTags courseId={course.id} /></span>
               <span role="cell" className="section-plan-left" data-label="الاحتياج">
                 <input type="number" min={0} max={100000} inputMode="numeric" value={remaining[key] ?? ""} placeholder="—" aria-label={`الاحتياج (لم يجتازوا في بداية التسجيل) في ${course.name}`}
                   title="من كشف عمادة التسجيل؛ يُصحَّح هنا إن أخطأت القراءة"
@@ -627,7 +627,7 @@ export default function SectionPlanning({ collegeId, sectionId, termId, onReview
                     return (
                       <tr key={row.courseId} className={state === "noSections" ? "is-muted" : undefined}>
                         <td dir="ltr">{course?.code || row.printed}</td>
-                        <td className="import-cell-course">{course?.name || ""}{row.occurrences > 1 ? <small> (ورد {countOf(row.occurrences, oblique(AR.visit))} — جُمع)</small> : null}
+                        <td className="import-cell-course">{course?.name || ""}{course ? <CourseTags courseId={row.courseId} /> : null}{row.occurrences > 1 ? <small> (ورد {countOf(row.occurrences, oblique(AR.visit))} — جُمع)</small> : null}
                           {suspect ? <><br /><span className="section-plan-reason-chip"><AlertTriangle aria-hidden="true" /> قُرئ <bdi dir="ltr">{suspect.read}</bdi> — هل هو <bdi dir="ltr">{suspect.expected.slice(-suspect.read.length)}</bdi>؟</span></> : null}
                         </td>
                         {suspect && state === "read" ? (

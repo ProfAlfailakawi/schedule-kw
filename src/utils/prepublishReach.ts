@@ -14,6 +14,7 @@
 import { offeringView, type CourseOfferingDoc } from "./courseOffering";
 import { reachLocked, splitBySheet, type CourseReach, type ReachSheetKind } from "./courseReach";
 import { AR, countOf } from "./arabicCount";
+import { byCourseNumber, splitBySide, type SheetSide } from "./sheetMembership";
 import type { LinkMode } from "./linkMode";
 
 export interface OfferingSnapshot {
@@ -24,6 +25,18 @@ export interface OfferingSnapshot {
     sheets: Array<{ kind: ReachSheetKind; courseIds: number[] }>;
   } | null;
   courses: Array<{ id: number; name: string; code: string; sections?: number }>;
+  /** جهةُ كل مقرر من عضوية الصحيفة الواحدة (الخادم)؛ غيابُها = لا ثنائية في القسم. */
+  sides?: Record<number, SheetSide> | null;
+}
+
+/**
+ * تبويبا «🆕 الجديدة» و«📘 القديمة» من عضوية الصحيفة الواحدة — المصدرُ نفسه الذي يكتب وسم «صحيفة 2026».
+ * لقطةٌ قديمة بلا sides (ذاكرةٌ قصيرة): من عضوية الصحائف في حكم الوصول كما كانت.
+ */
+export function offeringTabs(snapshot: Pick<OfferingSnapshot, "courses" | "reach" | "sides"> | null | undefined) {
+  const ids = (snapshot?.courses || []).map(course => course.id);
+  if (snapshot && "sides" in snapshot) return snapshot.sides ? splitBySide(ids, id => snapshot.sides![id]) : { tabs: false, new: [] as number[], old: ids };
+  return splitBySheet(ids, snapshot?.reach?.sheets || []);
 }
 
 export type PrepublishSheet = "new" | "old" | "only";
@@ -50,13 +63,14 @@ export function shortReason(reason: string): string {
 }
 
 const SHEET_ORDER: Record<PrepublishSheet, number> = { new: 0, only: 1, old: 2 };
+const byNumber = byCourseNumber<PrepublishRow>(row => row.code, row => row.name);
 
 /** المقرراتُ التي سيراها الأستاذ في كرته رماديةً 🔒 «لم نصل بعد» — بالقاعدة نفسها (withReach). */
 export function lockedForPublish(snapshot: OfferingSnapshot | null | undefined): PrepublishRow[] {
   const reach = snapshot?.reach;
   if (!reach?.courses) return [];
   const courses = snapshot?.courses || [];
-  const split = splitBySheet(courses.map(course => course.id), reach.sheets || []);
+  const split = offeringTabs(snapshot);
   const fresh = new Set(split.new);
   return courses
     .filter(course => reachLocked(reach.courses[course.id]) && offeringView(snapshot?.doc, course.id, Number(course.sections || 0)).selectable)
@@ -68,7 +82,7 @@ export function lockedForPublish(snapshot: OfferingSnapshot | null | undefined):
       reason: shortReason(reach.courses[course.id]?.reason || ""),
       opened: false,
     }))
-    .sort((a, b) => SHEET_ORDER[a.sheet] - SHEET_ORDER[b.sheet] || a.code.localeCompare(b.code));
+    .sort((a, b) => SHEET_ORDER[a.sheet] - SHEET_ORDER[b.sheet] || byNumber(a, b));
 }
 
 /** بعد «افتحه للطرح»: كلُّ صفٍّ لم يعد مقفلاً في الحكم الجديد يصير 🔓 في مكانه (والتوأمُ معه). */

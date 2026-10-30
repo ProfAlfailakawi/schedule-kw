@@ -12,7 +12,7 @@
  *   · موافقةُ نسخةٍ لا تنطبق على غيرها؛ وتعديلُ تفاصيل ما أُرسل ينشئ نسخةً جديدة.
  *   · الرقمُ المدني لا يُخزَّن: يُتحقَّق منه ثم تُحفظ بصمتُه ورمزُ التوقيع.
  */
-import { courseTagFactsFor, planBadgeFor, serviceCourseKeys } from "./planBadgeShared";
+import { courseTagFactsFor, planBadgeFor, serviceCourseKeys, sheetSidesFor } from "./planBadgeShared";
 import { REQUIREMENT_LABEL } from "../utils/courseTags";
 import { reachForScope } from "./courseReachShared";
 import { randomUUID } from "crypto";
@@ -306,6 +306,8 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
         /* «وصلنا / لم نصل بعد» لكل مقرر في فرعه — المصدر الواحد نفسه الذي يحكم كرت الأستاذ. */
         reachForScope(scope.collegeId, scope.sectionId, termId),
       ]);
+      /* جهةُ الصحيفة من عضويتها الواحدة — المصدرُ نفسه الذي يكتب وسم «صحيفة 2026». */
+      const sides = await sheetSidesFor(scope.sectionId, (courses as AdCourse[]).map(course => Number(course.AdCourseId)));
       const college = world.colleges.find(c => Number(c.AdCollegeId) === scope.collegeId);
       /* وسمُ الصحيفة لكل مقرر — القاعدةُ نفسها في «كل المقررات» (sheetTag.ts): «active» الجديدة، «transition» السابقة. */
       const live = new Map((plans as any[]).filter(plan => plan.status !== "archived").map(plan => [String(plan.id), String(plan.status)]));
@@ -320,7 +322,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
           id: Number(course.AdCourseId), code: String(course.CourseCode || ""), name: String(course.CourseName || ""),
           hours: Number(course.CourseHours || course.CourseCredit || 0), collegeId: scope.collegeId,
           collegeName: scope.collegeName || college?.AdCollegeName || "", sectionId: scope.sectionId,
-          sheet: sheetTagOf({ curriculum: curriculum.get(Number(course.AdCourseId)) || [] }),
+          sheet: sheetTagOf({ curriculum: curriculum.get(Number(course.AdCourseId)) || [], ...(sides ? { sheetSide: sides[Number(course.AdCourseId)] || null } : {}) }),
           reach: reach.courses[Number(course.AdCourseId)] || null,
         });
       }

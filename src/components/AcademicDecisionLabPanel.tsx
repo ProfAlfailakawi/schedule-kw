@@ -4,6 +4,7 @@ import {
   GitBranch, GraduationCap, Info, RefreshCw, Scale, ShieldCheck, Sparkles, Users
 } from "lucide-react";
 import type { AcademicDecisionLab, AcademicDecisionScenario } from "../utils/academicDecisionLab";
+import CourseTags from "./CourseTags";
 import { AR, countOf } from "../utils/arabicCount";
 
 type Props = {
@@ -96,7 +97,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
   const watchList = watched.length ? <div className="adl-watch-list">
     {watched.slice(0, compact ? 3 : 6).map(w => <div className="adl-watch-item" key={w.courseId}>
       <GraduationCap size={16} aria-hidden="true" />
-      <strong>{w.courseName}</strong>
+      <strong>{w.courseName}<CourseTags courseId={w.courseId} /></strong>
       <small>{!w.offered ? "غير مطروح" : "مسار لاحق"}
         {w.downstream ? " · يفتح " + countOf(w.downstream, AR.course) + " لاحقة" : ""}
         {" · " + countOf(w.demand, AR.request) + " مؤهلة"}
@@ -119,7 +120,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
         <strong>مقررات المسار الأكاديمي</strong><small>من بيانات القسم · {countOf(liveWatch.length, AR.course)}</small></div>
       <div className="adl-watch-list">{liveWatch.slice(0, 6).map(w =>
         <div className="adl-watch-item" key={w.courseId}><GraduationCap size={16} aria-hidden="true" />
-          <strong>{w.courseName}</strong>
+          <strong>{w.courseName}<CourseTags courseId={w.courseId} /></strong>
           <small>{!w.offered ? "غير مطروح" : "مسار لاحق"}
             {" · " + countOf(w.demand, AR.request) + " مؤهلة"}
             {w.downstream ? " · يفتح " + countOf(w.downstream, AR.course) + " لاحقة" : ""}</small>
@@ -142,7 +143,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
           className={"adl-scenario" + (active?.id === s.id ? " adl-scenario-active" : "")}
           data-guide-ignore="اختيار سيناريو للمعاينة البصرية فقط بلا حفظ"
           aria-pressed={active?.id === s.id} onClick={() => setSelected(s.id)}>
-          <span>{s.courseName}<small>الشعبة {s.section} · {s.before} ← {s.after}</small></span>
+          <span>{s.courseName}<CourseTags courseId={s.courseId} /><small>الشعبة {s.section} · {s.before} ← {s.after}</small></span>
           <strong>+{n(s.gain)}</strong>
         </button>)}
       </div>}
@@ -154,7 +155,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
       </div>
       {(feature === "twin" || feature === "whatif") && (active ? <>
         <div className="adl-title-line"><CalendarClock size={15} aria-hidden="true" />
-          <strong>{active.courseName}</strong><span>الشعبة {active.section}</span></div>
+          <strong>{active.courseName}<CourseTags courseId={active.courseId} /></strong><span>الشعبة {active.section}</span></div>
         <div className="adl-compare" aria-label="مقارنة الوضع الحالي والمقترح">
           <div className="adl-time-card">
             <span className="adl-card-kicker">{feature === "twin" ? "جداول مكتملة الآن" : "الموعد الحالي"}</span>
@@ -193,7 +194,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
         </div>
         <div className="adl-chain-body adl-chain-standalone">
           {shownLab.chain.steps.map((step, index) => <div key={step.id}>
-            <i>{index + 1}</i><strong>{step.courseName}</strong>
+            <i>{index + 1}</i><strong>{step.courseName}<CourseTags courseId={step.courseId} /></strong>
             <span>{step.before} ← {step.after}</span></div>)}
           <small>محسوبتان معاً · غير مطبقتين.</small>
         </div>

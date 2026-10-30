@@ -361,7 +361,7 @@ export default function ProposalOpForm({ ws, onDone }: { ws: Workspace; onDone?:
       <RowPicker ws={ws} label={draft.mode === "edit" ? "اختر الموعد الذي سيتغيّر" : "اختر الموعد الذي سيخرج من جدوله"} />
       {draft.rowId != null && draft.mode === "edit" ? (
         <>
-          <p className="sp-ro"><b>المقرر</b><span>{ws.currentItems.find(i => i.rowId === draft.rowId)?.courseName} · شعبة {draft.scode}</span></p>
+          <p className="sp-ro"><b>المقرر</b><span>{ws.currentItems.find(i => i.rowId === draft.rowId)?.courseName}<CourseTags courseId={ws.currentItems.find(i => i.rowId === draft.rowId)?.src?.courseId} /> · شعبة {draft.scode}</span></p>
           <ScheduleFields ws={ws} />
           {diffs.length ? <ul className="sp-diff" aria-label="ما سيتغيّر">{diffs.map(d => <li key={d}>{d}</li>)}</ul> : <p className="sp-hint"><Info aria-hidden="true" />لم تغيّر شيئاً بعد.</p>}
         </>
