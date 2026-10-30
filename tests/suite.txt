@@ -24,6 +24,7 @@ test:course-reach
 test:prepublish-reach
 test:mobile-overflow-css
 test:ta-phase-flow
+test:publish-pick-teachers
 test:staff-global
 test:instructor-status
 test:request-cross-college
