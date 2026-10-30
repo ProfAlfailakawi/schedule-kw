@@ -84,13 +84,6 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .appt{position:relative}
 .appt::before{content:"";position:absolute;inset-block:10px;inset-inline-start:0;inline-size:4px;border-radius:0 4px 4px 0;background:var(--c)}
 /* «وقت آخر» مطويّ حتى يُطلب. */
-.more-time{margin:8px 0 2px}
-.more-time summary{display:inline-flex;align-items:center;gap:6px;min-block-size:44px;padding:0 14px;border:1px dashed var(--line2);border-radius:12px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;list-style:none}
-.more-time summary::-webkit-details-marker{display:none}
-.more-time summary .sk-gi{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.more-time[open] summary{border-style:solid;color:var(--ok);border-color:var(--ok)}
-.more-time label.time{margin-top:8px;grid-template-columns:minmax(0,170px)}
-.more-time label.time input{min-block-size:48px;font-size:17px;font-weight:700}
 .heat-key[role=status]{display:flex;align-items:center;gap:7px}
 .heat-key[role=status] .sk-gi{flex:none;width:15px;height:15px;color:var(--warn);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ends{margin-inline:2px!important}
@@ -308,9 +301,6 @@ function skLeaveAsk(){var m=document.getElementById("leaveAsk");
   m.onclick=function(e){var t=e.target;if(t===m||(t.closest&&t.closest("[data-stay]"))){m.hidden=true;return}if(t.closest&&t.closest("[data-leave]")){m.hidden=true;skLeaving=true;skGoBack()}}}
  m.hidden=false;var b=m.querySelector("[data-stay]");if(b)b.focus()}
 var skLeaving=false;
-var skMore={};
-function skMoreOpen(it,i){if(skMore[i])return true;return !!(it.start&&startChoices(it.days).indexOf(it.start)<0)}
-host.addEventListener("click",function(e){var sm=e.target&&e.target.closest?e.target.closest("summary[data-more]"):null;if(!sm)return;var d=sm.parentNode;skMore[sm.getAttribute("data-more")]=!d.open});
 host.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("#backIc"):null;if(!b)return;
  if(dirty)skLeaveAsk();else skGoBack()});
 document.addEventListener("keydown",function(e){var m=document.getElementById("leaveAsk");if(e.key==="Escape"&&m&&!m.hidden)m.hidden=true});

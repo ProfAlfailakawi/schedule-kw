@@ -119,6 +119,14 @@ check(/reason\.code === "pattern"/.test(publicRoutes.slice(publicRoutes.indexOf(
   "P9 خريطةُ الأوقات لا تلوّن كلَّ الأوقات حمراء حين تكون المشكلةُ في الأيام");
 check(/filter\(start => Boolean\(start\) && !startLadderNote\(request\.days, start\)\)/.test(verdict), "P9 سُلّمُ القسم لا يقترح بديلاً خارج سُلّم اللائحة");
 
+/* P9 «احذف وقت آخر، خل بس من اللي موجود» (المالك 2026-10-30): لا وقتَ يُكتب باليد في بطاقة التعديل، والردُّ على مقترح القسم أزرارُ السُّلّم وحدها. */
+const teacherPage = fs.readFileSync("src/server/pages/instructorRequestPage.ts", "utf8");
+const visualKit = fs.readFileSync("src/server/requestVisual.ts", "utf8");
+check(!/more-time/.test(teacherPage) && !/data-start="1"/.test(teacherPage) && !/SK\.onTime\(/.test(teacherPage) && !/skMoreOpen|more-time/.test(visualKit),
+  "P9 كرت الأستاذ بلا خانة «وقت آخر» تُكتب باليد");
+check(/choices=startChoices\(days\)\.filter/.test(teacherPage) && /data-quick="'\+t\+'"/.test(teacherPage),
+  "P9 والبدايةُ من أزرار السُّلّم المعروضة (بطاقة التعديل، والردّ على مقترح القسم)");
+
 /* P10 المكتبة كما اعتمدها المالك. */
 check(daysApprovedForHours(2, ["fmonday", "fwednesday"]) === true && meetingMinutes(["fmonday", "fwednesday"], lengthPatternsForHours(2)).join() === "50,50",
   "P10 ساعتان على الاثنين·الأربعاء: 50 + 50");
