@@ -15,7 +15,7 @@
  */
 import { ensureSectionFaculty } from "./sectionFaculty";
 import { setCourseFactSource, setPlanBadgeSource, setServiceSource } from "./planBadgeShared";
-import { requirementKindOfRule, type RequirementKind } from "../utils/courseTags";
+import { authoritativeRequirementKind, type RequirementKind } from "../utils/courseTags";
 import { createDataContextKey } from "./dataContextCache";
 import { groupDeptTracks, planMatchKey, trackLabels, type DeptTrack } from "../utils/collegeTrack";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
@@ -367,7 +367,8 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const setOf = new Map(ruleSets.map(set => [String(set.planId), set]));
     const sheets: Array<{ courseId: number; label: string; collegeId: number; sectionId: number }> = [];
     const seen = new Set<string>();
-    const ownKinds = new Map<number, { kind: RequirementKind; active: boolean }>();
+    /* القاعدةُ الحاكمة أولاً (الجديدة الفعّالة قبل الانتقالية)، ثم يُقرَّر الوسم منها: «إجباري» في الجديدة يمحو «اختياري» قديماً. */
+    const ownRules = new Map<number, Array<{ kind: unknown; active: boolean }>>();
     const serviceKinds = new Map<number, RequirementKind>();
     for (const [sid, all] of plansOf) {
       const plans = all.filter(plan => !plan.virtual && plan.status !== "archived");
@@ -379,9 +380,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
           const id = Number(rule.courseId), course = owner.get(id);
           if (!course) continue;
           if (Number(course.AdSectionId) !== sid) { if (externals.has(id) && rule.kind === "university") serviceKinds.set(id, "university"); continue; }
-          const kind = requirementKindOfRule(rule.kind);
-          const known = ownKinds.get(id);
-          if (kind && (!known || (!known.active && plan.status === "active"))) ownKinds.set(id, { kind, active: plan.status === "active" });
+          ownRules.set(id, [...(ownRules.get(id) || []), { kind: rule.kind, active: plan.status === "active" }]);
         }
       }
       const byTrack = new Map<string, any[]>();
@@ -402,7 +401,12 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
       }
     }
     const kinds = new Map<number, { kind: RequirementKind; service: boolean; collegeId: number; sectionId: number }>();
-    for (const [id, own] of ownKinds) { const course = owner.get(id); kinds.set(id, { kind: own.kind, service: false, collegeId: Number(course.AdCollegeId), sectionId: Number(course.AdSectionId) }); }
+    for (const [id, rules] of ownRules) {
+      const kind = authoritativeRequirementKind(rules);
+      if (!kind) continue;
+      const course = owner.get(id);
+      kinds.set(id, { kind, service: false, collegeId: Number(course.AdCollegeId), sectionId: Number(course.AdSectionId) });
+    }
     for (const [id, row] of services) kinds.set(id, { kind: serviceKinds.get(id) || "college", service: true, collegeId: row.collegeId, sectionId: row.sectionId });
     factCache = { key, at: Date.now(), sheets, kinds };
     return factCache;

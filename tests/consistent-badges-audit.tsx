@@ -14,7 +14,7 @@ import vm from "node:vm";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  COURSE_TAGS_JS, NEW_SHEET_TAG, REACH_LOCKED_TAG, REQUIREMENT_LABEL,
+  COURSE_TAGS_JS, NEW_SHEET_TAG, authoritativeRequirementKind, REACH_LOCKED_TAG, REQUIREMENT_LABEL,
   courseTagsOf, courseTagsText, parseCourseTagsText, requirementKindOfRule,
 } from "../src/utils/courseTags";
 import { NEW_SHEET_BADGE } from "../src/utils/proposalCourseChoices";
@@ -63,7 +63,15 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
   const badges = read("src/utils/planBadges.ts");
   check(/res\.json\(\{ ok: true, badges, services, kinds \}\)/.test(routes) && /for \(const row of \[\.\.\.facts\.sheets, \.\.\.await planBadgeRows\(\)\]\)/.test(routes), "S1 /api/plan-badges: الصحيفة (صحيفةُ القسم تكتب فوق صحيفة الخدمة) ونوعُ المتطلب، بنطاق الحساب");
   check(/if \(!fresh \|\| !previous\.length\) continue;/.test(routes.slice(routes.indexOf("const courseFactRows"))) && /before\.has\(id\)/.test(routes), "S2 صحيفةُ مقرر الخدمة بقاعدة شارة الصحيفة نفسها: ما دامت الصحيفتان معاً، وما طلبته الجديدةُ وحدها");
-  check(/kinds\.set\(id, \{ kind: serviceKinds\.get\(id\) \|\| "college", service: true/.test(routes) && /const kind = requirementKindOfRule\(rule\.kind\);/.test(routes), "S3 مقرر الخدمة «متطلب كلية» (أو «جامعة» إن كتبته الصحيفة الطالبة)، وإلا نوعُه في صحيفة قسمه");
+  check(/kinds\.set\(id, \{ kind: serviceKinds\.get\(id\) \|\| "college", service: true/.test(routes) && /const kind = authoritativeRequirementKind\(rules\);/.test(routes), "S3 مقرر الخدمة «متطلب كلية» (أو «جامعة» إن كتبته الصحيفة الطالبة)، وإلا نوعُه في صحيفة قسمه");
+  /* مراجعة #326: القاعدةُ الحاكمة أولاً ثم الوسم — «إجباري» في الجديدة يمحو «اختياري» الانتقالية، أيّاً كان ترتيبُ القراءة. */
+  check(authoritativeRequirementKind([{ kind: "elective", active: false }, { kind: "compulsory", active: true }]) === null
+    && authoritativeRequirementKind([{ kind: "compulsory", active: true }, { kind: "elective", active: false }]) === null, "S3b إجباريٌّ في الصحيفة الجديدة واختياريٌّ في الانتقالية: بلا «اختياري»");
+  check(authoritativeRequirementKind([{ kind: "compulsory", active: false }, { kind: "elective", active: true }]) === "elective"
+    && authoritativeRequirementKind([{ kind: "college", active: false }]) === "college"
+    && authoritativeRequirementKind([{ kind: undefined, active: true }, { kind: "elective", active: false }]) === null
+    && authoritativeRequirementKind([]) === null, "S3c الجديدةُ تحكم دائماً، والانتقاليةُ وحدها حين لا جديدة");
+  check(!/kind && \(!known/.test(routes) && /ownRules\.set\(id, \[\.\.\.\(ownRules\.get\(id\) \|\| \[\]\), \{ kind: rule\.kind, active: plan\.status === "active" \}\]\)/.test(routes), "S3d الخادم يجمع القواعد كلها قبل الحكم (لا يتخطّى «إجباري»)");
   check(/const key = serviceKey\("facts"\);/.test(routes), "S4 ذاكرةُ الحقائق تحمل عالَمَها (الصندوق التجريبي لا يخلط بالحقيقي)");
   check(/export async function courseTagFactsFor/.test(shared) && /setCourseFactSource\(/.test(routes), "S5 بطاقةُ الأستاذ والمقترح العام يقرآن الحقائق نفسها من الجسر المشترك");
   check(/return courseTagsText\(courseTagsOf\(\{ \.\.\.courseTagFacts\(courseIds, badges\)/.test(badges) && /kinds = \(data && typeof data\.kinds === "object" && data\.kinds\) \|\| \{\};/.test(badges), "S6 قوائم الاختيار تبني نصّها من القاعدة الواحدة");
@@ -134,7 +142,9 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
   check(/trainee: isTaRequest\(row\)/.test(inbox), "P6 الوارد يقرأ الصفة من الطلب نفسه (isTaRequest ← linkMode)");
   const route = read("src/server/routes/offeringRoutes.ts");
   const ta = route.slice(route.indexOf('app.get("/api/ta-trainees"'), route.indexOf("/** F3: المقررات المسموحة لكل مدرّب"));
-  check(/requirePermission\(7\)/.test(ta) && /isScopeAllowed\(req, collegeId, sectionId\)/.test(ta) && /row\.status !== "superseded" && isTaRequest\(row\)/.test(ta) && /staffFamilyScopes\(collegeId, sectionId\)/.test(ta), "P7 ‎/api/ta-trainees‎: بنطاق الحساب، ومَن طلبُه في عائلة القسم بصفة 🎓 وحدها");
+  const lookupPerms = /app\.get\("\/api\/visiting-lookup", (requireAnyPermission\(\[[^\]]*\]\))/.exec(read("src/server/routes/instructorsRoutes.ts"))?.[1] || "?";
+  check(ta.includes(`app.get("/api/ta-trainees", ${lookupPerms}`) && [14, 8, 9, 10].every(p => new RegExp(`requireAnyPermission\\(\\[[^\\]]*\\b${p}\\b`).test(ta)) && /reports: hasAny\(14, 8, 9, 10\)/.test(read("src/App.tsx")), "P7a مراجعة #326: قرّاءُ التقارير (14، 8، 9، 10) يقرؤون «🎓 تدريب» بصلاحيات وسم «منتدب» نفسها");
+  check(/isScopeAllowed\(req, collegeId, sectionId\)/.test(ta) && /row\.status !== "superseded" && isTaRequest\(row\)/.test(ta) && /staffFamilyScopes\(collegeId, sectionId\)/.test(ta), "P7 ‎/api/ta-trainees‎: بنطاق الحساب، ومَن طلبُه في عائلة القسم بصفة 🎓 وحدها");
   check(/res\.json\(\{ ids \}\)/.test(ta) && !/AdInstructorName|mobile/.test(ta), "P8 والقراءةُ معرّفاتٌ فقط — لا اسمَ ولا جوال");
   check(/@media print\{\.ta-badge\{display:none!important\}\}/.test(read("src/styles/45-person-chips.css")), "P9 «🎓 تدريب» لا يُطبع (التقارير المطبوعة مجمّدة)");
 }

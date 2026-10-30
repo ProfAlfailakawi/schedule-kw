@@ -87,6 +87,15 @@ export function requirementKindOfRule(kind: unknown): RequirementKind | null {
   return null;
 }
 
+/**
+ * نوعُ مقررٍ في صحائف قسمه الحيّة: القاعدةُ الحاكمة أولاً — الجديدةُ الفعّالة قبل الانتقالية — ثم يُقرَّر الوسم منها.
+ * فـ«إجباري» في الجديدة يمحو «اختياري» الانتقالية (لا يُبحث عن أول قاعدةٍ لها وسم).
+ */
+export function authoritativeRequirementKind(rules: ReadonlyArray<{ kind?: unknown; active: boolean }>): RequirementKind | null {
+  const ruling = rules.find(rule => rule.active) || rules[0];
+  return ruling ? requirementKindOfRule(ruling.kind) : null;
+}
+
 /* ── الشكلُ نفسه في صفحات الخادم (بطاقة الأستاذ ومرحلة التدريب) ─────────────────────────────────
    الصحيفة ثم نوعُ المتطلب في سطرٍ واحد، بالنصوص أعلاه. «لم نصل بعد» في البطاقة سطرٌ مستقلٌّ بسببه تحت
    المقرر (tcCourseLock) فلا يتكرّر وسماً. يقرأ من بيانات الصفحة: planBadges و courseKinds («قسم:مقرر» ← قيمة)

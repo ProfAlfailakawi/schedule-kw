@@ -243,8 +243,9 @@ app.get("/api/ta-phase", requirePermission(7), async (req: AuthenticatedRequest,
   });
 });
 
-/** وسمُ «🎓 تدريب» بجانب الاسم (PersonChips): مَن طلبُه في هذا القسم (بعائلته) والفصل بصفة مرحلة التدريب. قراءةٌ خفيفة: معرّفاتٌ فقط. */
-app.get("/api/ta-trainees", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+/** وسمُ «🎓 تدريب» بجانب الاسم (PersonChips): مَن طلبُه في هذا القسم (بعائلته) والفصل بصفة مرحلة التدريب. قراءةٌ خفيفة: معرّفاتٌ فقط.
+ *  صلاحياتُ القراءة نفسُها في ‎/api/visiting-lookup‎ (وسمُ «منتدب»): قرّاءُ التقارير (14، 8، 9، 10) يرون الوسمين معاً، بنطاقهم. */
+app.get("/api/ta-trainees", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
   const family = await staffFamilyScopes(collegeId, sectionId);
