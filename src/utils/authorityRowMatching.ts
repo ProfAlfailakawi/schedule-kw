@@ -189,7 +189,7 @@ const evidenceReviewedLinks=[
     course:"0109212",reference:"3738",building:"012B08",
     original:{days:"00010",start:"11:00",end:"13:50",room:"G22"},
     current:{section:"531",days:"00010",start:"11:00",end:"13:50",room:"G22"},
-    requireSameProfessor:true,
+
   },
   {
     course:"0109258",reference:"3755",building:"012B08",
@@ -201,7 +201,7 @@ const evidenceReviewedLinks=[
     course:"0109125",reference:"1550",building:"011B17",
     original:{days:"10000",start:"12:00",end:"15:50",room:"G26"},
     current:{section:"501",days:"10000",start:"12:00",end:"15:50",room:"F06"},
-    requireSameProfessor:true,
+
   },
   {
     course:"0109324",reference:"1833",building:"011B17",
