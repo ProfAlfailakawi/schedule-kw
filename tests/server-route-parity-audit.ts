@@ -221,7 +221,12 @@ const multiset = (list: Row[]) => { const m = new Map<string, number>(); for (co
   check(diff.length === 0, `R1 مجموعةُ (الطريقة، المسار) نفسُها — ${before.length} طبقة قبل، ${after.length} بعد`, diff.join("\n"));
 }
 // مطابقةُ كل طبقةٍ قبلُ بطبقتها بعدُ: بالمسار ونصّ الاستدعاء، وبترتيب التكرار
-const identity = (r: Row) => `${mp(r)} ${r.call || "-"} ${r.name}`;
+/* Two intentional report-only fixes change the GET handler bodies. Preserve
+   exact call-text parity for EVERY OTHER route; the two report endpoints are
+   instead protected by dedicated Authority diff and role/scope tests. */
+const updatedAuthorityReport = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="get"
+  && (r.path==="/api/reports/schedule-changes" || r.path==="/api/reports/authority-pdf-diff");
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();
