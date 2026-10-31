@@ -13,7 +13,7 @@ import { cleanBuildingCode, cleanHallCode } from "../../utils/documentOcr";
 import { assignAuthoritySections } from "../../utils/authorityAcademicCodes";
 import { splitRowsByBranch } from "../../utils/branchScope";
 import { foldHeaderIdentity } from "./ordering";
-import { isAuthorityImportedRow, matchAuthoritySourceRows } from "../../utils/authorityRowMatching";
+import { isAuthorityImportedRow, matchAuthoritySourceRows, withFirstPublishedAuthorityInstructors } from "../../utils/authorityRowMatching";
 
 const AUTHORITY_PDF_COMPARE_FIELDS = [
   "AdCourseId","SCode","AdInstructorId",
@@ -39,14 +39,7 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
      Reconcile the same immutable source appointments against that snapshot
      without ever writing to the PDF baseline or live schedule. */
   const published=Array.isArray(options.publishedRows)?options.publishedRows:[];
-  const publishedMatches=matchAuthoritySourceRows(scanned,published,options.courseCodeById);
-  const baseline=scanned.map((source:any,index:number)=>{
-    const initialIndex=publishedMatches.get(index);
-    const initial=initialIndex===undefined?null:published[initialIndex];
-    if(!Number(source.AdInstructorId||0)&&!String(source.sourceInstructorText||"").trim()&&Number(initial?.AdInstructorId||0)>0)
-      return {...source,AdInstructorId:Number(initial.AdInstructorId)};
-    return source;
-  });
+  const baseline=withFirstPublishedAuthorityInstructors(scanned,published,options.courseCodeById);
   /* Reconcile by Authority CRN first, then by unique academic identity.
      A changed/incorrectly imported reference must not create a fictitious
      deletion and addition. No saved schedule or baseline row is modified. */
