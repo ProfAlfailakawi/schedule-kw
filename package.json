@@ -199,6 +199,7 @@
     "test:doctor-journey": "tsx tests/doctor-journey-audit.ts",
     "test:approval": "tsx tests/approval-workflow-audit.ts",
     "test:changes": "tsx tests/schedule-changes-audit.ts",
+    "test:authority-identity": "tsx tests/authority-identity-reconciliation-audit.ts && tsx tests/authority-diff-cell-audit.ts",
     "test:authority-net-diff": "tsx tests/authority-net-diff-audit.ts",
     "test:course-number-seven-digit": "tsx tests/course-number-seven-digit-audit.ts",
     "test:report-stamp": "tsx tests/report-stamp-audit.ts",

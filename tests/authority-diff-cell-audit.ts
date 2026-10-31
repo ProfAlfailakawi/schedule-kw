@@ -178,5 +178,26 @@ test("Scenario C: Unchanged row has ZERO authority-pdf-cell-changed occurrences"
   assert.equal(matches.length, 0, `Expected 0 highlighted cells for unchanged row, found ${matches.length}`);
 });
 
+// An added row must never print an unverified, inherited reference as official.
+test("Scenario D: A new appointment always prints مقرر جديد, not an inherited CRN", () => {
+  const report: AuthorityReport = {
+    draftId: "draft-1",
+    name: "تقرير مقارنة",
+    sourceFileName: "الجدول.pdf",
+    counts: { added: 1, deleted: 0, changed: 0, unchanged: 0 },
+    rows: [{
+      status: "added", changedFields: [], referenceNumber: "20119",
+      source: null, current: { ...baseSchedule, referenceNumber: "20119" },
+    }],
+  };
+  const html = renderToString(React.createElement(AuthorityPdfReport, {
+    report, termName: "الفصل الثاني 2026/2027", collegeName: "كلية التربية الأساسية",
+    sectionName: "تكنولوجيا التعليم", sectionCode: "09",
+    courseById, instructorById, visitingIds: new Set(),
+  }));
+  assert.ok(html.includes("authority-pdf-reference-new\">مقرر جديد</div>"));
+  assert.ok(!html.includes(">20119</div>"));
+});
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
