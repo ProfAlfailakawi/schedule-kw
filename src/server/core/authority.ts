@@ -13,7 +13,7 @@ import { cleanBuildingCode, cleanHallCode } from "../../utils/documentOcr";
 import { assignAuthoritySections } from "../../utils/authorityAcademicCodes";
 import { splitRowsByBranch } from "../../utils/branchScope";
 import { foldHeaderIdentity } from "./ordering";
-import { isAuthorityImportedRow, matchAuthoritySourceRows, withFirstPublishedAuthorityInstructors } from "../../utils/authorityRowMatching";
+import { isAuthorityImportedRow, matchAuthorityThroughPublication, withFirstPublishedAuthorityInstructors } from "../../utils/authorityRowMatching";
 
 const AUTHORITY_PDF_COMPARE_FIELDS = [
   "AdCourseId","SCode","AdInstructorId",
@@ -43,7 +43,7 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
   /* Reconcile by Authority CRN first, then by unique academic identity.
      A changed/incorrectly imported reference must not create a fictitious
      deletion and addition. No saved schedule or baseline row is modified. */
-  const matches=matchAuthoritySourceRows(baseline,current,options.courseCodeById);
+  const matches=matchAuthorityThroughPublication(baseline,published,current,options.courseCodeById);
   const consumed=new Set<number>(matches.values());
   const reportRows:any[]=[];
   baseline.forEach((source:any,sourceIndex:number)=>{
@@ -171,7 +171,13 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
     if(consumed.has(index))return;
     reportRows.push({status:"added",needsSourceReview:isAuthorityImportedRow(row),changedFields:[...AUTHORITY_PDF_COMPARE_FIELDS],referenceNumber:String(row.referenceNumber||""),source:null,current:row});
   });
-  const counts=reportRows.reduce((acc:any,row:any)=>(acc[row.status]=(acc[row.status]||0)+1,acc),{added:0,deleted:0,changed:0,unchanged:0});
+  /* An unlinked imported record is NOT a proven addition. Keep it visible
+     for explicit source review, outside the "added" count. */
+  const counts=reportRows.reduce((acc:any,row:any)=>{
+    if(row.status==="added"&&row.needsSourceReview)acc.review++;
+    else acc[row.status]=(acc[row.status]||0)+1;
+    return acc;
+  },{added:0,deleted:0,changed:0,unchanged:0,review:0});
   return{rows:reportRows,counts};
 }
 
