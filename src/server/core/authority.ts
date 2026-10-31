@@ -30,9 +30,23 @@ export async function authorityCourseCodeMap(){
   return new Map<number,string>(courses.map((course:any)=>[Number(course.AdCourseId),String(course.CourseCode||"").trim()]));
 }
 
-export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{instructorNameById?:Map<number,string>;courseCodeById?:Map<number,string>}={}){
-  const baseline=assignAuthoritySections([...(baselineInput||[])]).sort((a:any,b:any)=>Number(a.sourceOrder)-Number(b.sourceOrder));
+export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{instructorNameById?:Map<number,string>;courseCodeById?:Map<number,string>;publishedRows?:any[]}={}){
+  const scanned=assignAuthoritySections([...(baselineInput||[])]).sort((a:any,b:any)=>Number(a.sourceOrder)-Number(b.sourceOrder));
   const current=[...(currentInput||[])];
+  /* The SWRSCHA original often leaves the entire instructor column empty.
+     That is not evidence of a teacher change. The published import snapshot
+     records who was FIRST assigned; subsequent changes can be compared to it.
+     Reconcile the same immutable source appointments against that snapshot
+     without ever writing to the PDF baseline or live schedule. */
+  const published=Array.isArray(options.publishedRows)?options.publishedRows:[];
+  const publishedMatches=matchAuthoritySourceRows(scanned,published,options.courseCodeById);
+  const baseline=scanned.map((source:any,index:number)=>{
+    const initialIndex=publishedMatches.get(index);
+    const initial=initialIndex===undefined?null:published[initialIndex];
+    if(!Number(source.AdInstructorId||0)&&!String(source.sourceInstructorText||"").trim()&&Number(initial?.AdInstructorId||0)>0)
+      return {...source,AdInstructorId:Number(initial.AdInstructorId)};
+    return source;
+  });
   /* Reconcile by Authority CRN first, then by unique academic identity.
      A changed/incorrectly imported reference must not create a fictitious
      deletion and addition. No saved schedule or baseline row is modified. */
@@ -109,6 +123,9 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
       .replace(/\s+/g," ")
       .trim();
     const sameInstructorIdentity=()=>{
+      /* A blank PDF teacher without a proven first-published assignment is
+         UNKNOWN, not evidence that the current professor was newly changed. */
+      if(!Number(source.AdInstructorId||0)&&!String(source.sourceInstructorText||"").trim())return true;
       if(comparable("AdInstructorId",source.AdInstructorId)===comparable("AdInstructorId",next.AdInstructorId))return true;
       /* هويتان مسجّلتان مختلفتان = أستاذ تغيّر، مهما تشابه الاسم المطبوع:
          «يحيى سالم» يقع داخل «يحيى سالم العنزي» و«يحيى سالم الشمري» معاً. */
