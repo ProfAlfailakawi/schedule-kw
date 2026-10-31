@@ -165,7 +165,7 @@ export function matchAuthoritySourceRows(
  * Missing/mismatched or duplicate evidence is left untouched. This keeps a
  * future term, another campus, another section, or another real addition safe.
  */
-const confirmedGirlLinks=[
+const evidenceReviewedLinks=[
   {
     course:"0109112",reference:"2053",building:"012B08",
     original:{days:"10101",start:"14:00",end:"14:50",room:"G20"},
@@ -180,6 +180,33 @@ const confirmedGirlLinks=[
     course:"0109499",reference:"2787",building:"012B08",
     original:{days:"10000",start:"16:00",end:"17:50",room:"F16"},
     current:{section:"502",days:"00100",start:"12:00",end:"14:50",room:"F17"},
+  },
+  // One-to-one replacements discovered by comparing all original PDF CRNs
+  // against both newly exported branch reports. The original office documents
+  // do not contain teacher names; teacher identity is a further check only
+  // if it survives in the first-published snapshot.
+  {
+    course:"0109212",reference:"3738",building:"012B08",
+    original:{days:"00010",start:"11:00",end:"13:50",room:"G22"},
+    current:{section:"531",days:"00010",start:"11:00",end:"13:50",room:"G22"},
+    requireSameProfessor:true,
+  },
+  {
+    course:"0109258",reference:"3755",building:"012B08",
+    original:{days:"00100",start:"16:00",end:"19:50",room:"G23"},
+    current:{section:"505",days:"00100",start:"14:00",end:"17:50",room:"G23"},
+    requireSameProfessor:true,
+  },
+  {
+    course:"0109125",reference:"1550",building:"011B17",
+    original:{days:"10000",start:"12:00",end:"15:50",room:"G26"},
+    current:{section:"501",days:"10000",start:"12:00",end:"15:50",room:"F06"},
+    requireSameProfessor:true,
+  },
+  {
+    course:"0109324",reference:"1833",building:"011B17",
+    original:{days:"00100",start:"14:00",end:"17:50",room:"G23"},
+    current:{section:"502",days:"00100",start:"14:00",end:"17:50",room:"F13"},
   },
 ] as const;
 
@@ -201,7 +228,7 @@ function applyConfirmedAuthorityLinks(
     clock(row.fstarttime)===appointment.start &&
     clock(row.fendtime)===appointment.end &&
     room(row.AdRoomHall)===appointment.room;
-  for(const link of confirmedGirlLinks){
+  for(const link of evidenceReviewedLinks){
     const sources=baseline.map((row,i)=>({row,i})).filter(({row})=>
       reference(row)===link.reference && rightCourse(row,link.course) &&
       room(row.AdRoomCode)===link.building && meeting(row,link.original));
@@ -212,6 +239,14 @@ function applyConfirmedAuthorityLinks(
     if(sources.length!==1||targets.length!==1)continue;
     const si=sources[0].i,ci=targets[0].i;
     if(pairs.has(si)||used.has(ci))continue;
+    // A changed time/room plus a regenerated section can otherwise identify
+    // two independent appointments of the same course. Whenever the original
+    // teacher is known from the first-published snapshot, require continuity.
+    if("requireSameProfessor" in link && link.requireSameProfessor){
+      const originalId=Number(baseline[si].AdInstructorId||0);
+      const currentId=Number(current[ci].AdInstructorId||0);
+      if(originalId<=0||currentId<=0||originalId!==currentId)continue;
+    }
     pairs.set(si,ci);used.add(ci);
   }
 }
