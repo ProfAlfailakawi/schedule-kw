@@ -4,12 +4,14 @@ import { AdCourse, AdInstructor, FSchedule } from "../types";
 import VisitingBadge from "./VisitingBadge";
 import { displayInstructorText } from "../utils/instructorIdentity";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
-import { authorityCourseCode } from "../utils/authorityAcademicCodes";
+import { authorityCourseCode, normalizeAuthoritySectionCode } from "../utils/authorityAcademicCodes";
 import PrintComprehensiveHead, { printIssueDate } from "./PrintComprehensiveHead";
 import PrintStamp from "./PrintStamp";
 
 export type AuthorityReportEntry = {
   status: "added" | "deleted" | "changed" | "unchanged";
+  /** Imported row whose original PDF identity could not be proven. */
+  needsSourceReview?: boolean;
   changedFields: string[];
   referenceNumber: string;
   source: FSchedule | null;
@@ -175,11 +177,13 @@ export default function AuthorityPdfReport({
                           Never present that unverified value as an official CRN.
                           Matched historical rows always print the source CRN. */}
                       {entry.status === "added"
-                        ? <div role="cell" className="authority-pdf-reference-number authority-pdf-reference-new">مقرر جديد</div>
+                        ? <div role="cell" className="authority-pdf-reference-number authority-pdf-reference-new">{entry.needsSourceReview ? "مطابقة غير محسومة" : "مقرر جديد"}</div>
                         : <div role="cell" className="print-ltr authority-pdf-reference-number">{entry.referenceNumber || "—"}</div>}
                       {/* Section numbering is a system-canonical import convention, not
                           a user edit. Keep the value visible but never paint it yellow. */}
-                      <div role="cell" className="print-ltr">{String(row.SCode || "").trim() || "—"}</div>
+                      <div role="cell" className="print-ltr">{entry.status === "deleted" && Number(normalizeAuthoritySectionCode(entry.source?.sourceSectionText)) >= 500 && Number(normalizeAuthoritySectionCode(entry.source?.sourceSectionText)) <= 999
+                        ? normalizeAuthoritySectionCode(entry.source?.sourceSectionText)
+                        : String(row.SCode || "").trim() || "—"}</div>
                       {/* الموقع بطاقة صغيرة بجانب اسم المقرر، لا عموداً جديداً:
                           العمود يضيّق الجدول الرسمي كله لأجل كلمة، والبطاقة
                           تقولها حيث ينظر القارئ أصلاً — كما تقولها بطاقة
