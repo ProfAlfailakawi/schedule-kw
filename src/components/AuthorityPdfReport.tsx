@@ -166,9 +166,9 @@ export default function AuthorityPdfReport({
                   const course = courseById.get(Number(row.AdCourseId));
                   const instructor = instructorById.get(Number(row.AdInstructorId));
                   const cell = (changed: boolean) => changed ? "authority-pdf-cell-changed" : "";
-                  const statusLabel = entry.status === "added" ? "مضاف" : entry.status === "deleted" ? "محذوف" : entry.status === "changed" ? "معدّل" : "";
+                  const statusLabel = entry.status === "added" ? (entry.needsSourceReview ? "قيد المطابقة" : "مضاف") : entry.status === "deleted" ? "محذوف" : entry.status === "changed" ? "معدّل" : "";
                   return (
-                    <div className={`print-comprehensive-grid-row authority-pdf-row authority-pdf-row-${entry.status}`} role="row" key={`${pageIndex}-${index}-${row.id || row.sourceOrder || index}-${entry.status}`}>
+                    <div className={`print-comprehensive-grid-row authority-pdf-row authority-pdf-row-${entry.status}${entry.needsSourceReview ? " authority-pdf-row-review" : ""}`} role="row" key={`${pageIndex}-${index}-${row.id || row.sourceOrder || index}-${entry.status}`}>
                       {statusLabel ? <span className="authority-pdf-row-marker" aria-hidden="true">{statusLabel}</span> : null}
                       <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdCourseId"))}`}>{authorityCourseCode(course?.CourseCode || row.CourseCodeSnapshot, departmentKeyBySection?.get(Number(course?.AdSectionId || row.AdSectionId))) || "—"}</div>
                       {/* A genuinely added appointment was absent from the immutable
