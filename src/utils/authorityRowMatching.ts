@@ -163,6 +163,9 @@ export function withFirstPublishedAuthorityInstructors(
     const initialIndex=matches.get(index);
     const initial=initialIndex===undefined?null:published[initialIndex];
     const firstId=Number(initial?.AdInstructorId||0);
-    return firstId>0?{...source,AdInstructorId:firstId}:{...source};
+    // A provably blank *published* teacher is a known before-state: assigning a
+    // teacher afterwards is a real change. Missing published evidence is not.
+    if(!initial)return {...source};
+    return {...source,__hasPublishedInstructorBaseline:true,...(firstId>0?{AdInstructorId:firstId}:{})};
   });
 }
