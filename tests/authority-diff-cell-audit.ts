@@ -212,8 +212,10 @@ test("Scenario E: Unmatched import is not misrepresented as a verified new cours
     report,termName:"الفصل الثاني 2026/2027",collegeName:"كلية التربية الأساسية",
     sectionName:"تكنولوجيا التعليم",sectionCode:"09",courseById,instructorById,visitingIds:new Set(),
   }));
-  assert.ok(html.includes("مطابقة غير محسومة"),"An unproven import needs review");
+  assert.ok(html.includes("مراجعة المصدر"),"A document with untraceable import asks for its provenance");
+  assert.ok(html.includes("أصل غير موثق"),"An untraceable reference is not an official new course");
   assert.ok(!html.includes(">20119</div>"),"A suspect live CRN is never printed as official");
+  assert.ok(!html.includes("مطابقة غير محسومة"),"Rejected phrase must never be printed");
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
