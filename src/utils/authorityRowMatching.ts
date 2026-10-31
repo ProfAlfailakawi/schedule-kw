@@ -283,7 +283,7 @@ export function matchAuthorityThroughPublication(
 export function withFirstPublishedAuthorityInstructors(
   scanned: readonly Row[],published:readonly Row[],courseCodeById?:Map<number,string>,
 ):Row[]{
-  const matches=matchAuthoritySourceRows(scanned,published,courseCodeById);
+  const matches=matchAuthorityThroughPublication(scanned,published,published,courseCodeById);
   return scanned.map((source,index)=>{
     if(Number(source.AdInstructorId||0)>0||String(source.sourceInstructorText||"").trim())return {...source};
     const initialIndex=matches.get(index);
