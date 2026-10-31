@@ -233,7 +233,11 @@ function applyConfirmedAuthorityLinks(
       reference(row)===link.reference && rightCourse(row,link.course) &&
       room(row.AdRoomCode)===link.building && meeting(row,link.original));
     const targets=current.map((row,i)=>({row,i})).filter(({row})=>
-      isAuthorityImportedRow(row) && rightCourse(row,link.course) &&
+      // A deletion followed by a manually recreated row is exactly the case
+      // these reviewed links repair. The shared heuristic matcher still
+      // rejects manual rows; only a unique, complete source/target signature
+      // below can reconcile one here.
+      rightCourse(row,link.course) &&
       room(row.AdRoomCode)===link.building && number(row.SCode)===link.current.section &&
       meeting(row,link.current));
     if(sources.length!==1||targets.length!==1)continue;
