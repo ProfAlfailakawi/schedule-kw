@@ -118,7 +118,7 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
     const sameInstructorIdentity=()=>{
       /* A blank PDF teacher without a proven first-published assignment is
          UNKNOWN, not evidence that the current professor was newly changed. */
-      if(!Number(source.AdInstructorId||0)&&!String(source.sourceInstructorText||"").trim())return true;
+      if(!Number(source.AdInstructorId||0)&&!String(source.sourceInstructorText||"").trim()&&!source.__hasPublishedInstructorBaseline)return true;
       if(comparable("AdInstructorId",source.AdInstructorId)===comparable("AdInstructorId",next.AdInstructorId))return true;
       /* هويتان مسجّلتان مختلفتان = أستاذ تغيّر، مهما تشابه الاسم المطبوع:
          «يحيى سالم» يقع داخل «يحيى سالم العنزي» و«يحيى سالم الشمري» معاً. */
