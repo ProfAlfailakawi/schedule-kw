@@ -291,4 +291,50 @@ assert.equal(matchAuthorityThroughPublication([strongReplacements[0].source],[],
   [strongReplacements[0].current,{...strongReplacements[0].current,id:9876}],reviewedCourseCodes).size,0,
   "Two indistinguishable candidates must remain unpaired");
 
+
+// Seven source/target placements documented in the original girls' PDF and
+// latest report, with first-published professor identity as a REQUIRED guard.
+const additionalGirlsCases=[
+  {reference:"2081",course:"0109212",courseId:212,sourceDay:"01000",sourceStart:"14:00",sourceEnd:"16:50",sourceRoom:"G21",section:"533",day:"00010",start:"14:00",end:"16:50",room:"G23"},
+  {reference:"2071",course:"0109212",courseId:212,sourceDay:"00010",sourceStart:"08:00",sourceEnd:"10:50",sourceRoom:"G23",section:"534",day:"10000",start:"08:00",end:"10:50",room:"G21"},
+  {reference:"3752",course:"0109212",courseId:212,sourceDay:"10000",sourceStart:"11:00",sourceEnd:"13:50",sourceRoom:"G22",section:"535",day:"10000",start:"08:00",end:"10:50",room:"G23"},
+  {reference:"2957",course:"0109212",courseId:212,sourceDay:"00001",sourceStart:"14:00",sourceEnd:"16:50",sourceRoom:"G22",section:"536",day:"00001",start:"08:00",end:"10:50",room:"G21"},
+  {reference:"2956",course:"0109215",courseId:215,sourceDay:"00010",sourceStart:"14:00",sourceEnd:"16:50",sourceRoom:"G22",section:"509",day:"10000",start:"13:00",end:"15:50",room:"G22"},
+  {reference:"3753",course:"0109237",courseId:237,sourceDay:"01000",sourceStart:"12:00",sourceEnd:"15:50",sourceRoom:"F09",section:"502",day:"01000",start:"14:00",end:"17:50",room:"G23"},
+  {reference:"3754",course:"0109334",courseId:334,sourceDay:"00100",sourceStart:"12:00",sourceEnd:"15:50",sourceRoom:"F09",section:"502",day:"00100",start:"08:00",end:"11:50",room:"G22"},
+];
+const weekdayFields=(days:string)=>Object.fromEntries(
+  ["fsunday","fmonday","ftuesday","fwednesday","fthursday"]
+    .map((name,index)=>[name,days[index]==="1"]));
+const reviewedCodes=new Map([...reviewedCourseCodes,
+  [215,"0109215"],[237,"0109237"],[334,"0109334"]] as [number,string][]);
+const previousGirls=additionalGirlsCases.map((x,i)=>row({
+  AdCourseId:x.courseId,sourceCourseCode:x.course,referenceNumber:x.reference,
+  sourceOrder:200+i,AdRoomCode:"012B08",AdRoomHall:x.sourceRoom,
+  fstarttime:x.sourceStart,fendtime:x.sourceEnd,
+  AdInstructorId:900+i,...weekdayFields(x.sourceDay),
+}));
+const liveGirls=additionalGirlsCases.map((x,i)=>row({
+  AdCourseId:x.courseId,sourceCourseCode:"",referenceNumber:"",
+  sourceOrder:1_000_100+i,AdRoomCode:"012B08",AdRoomHall:x.room,
+  SCode:x.section,fstarttime:x.start,fendtime:x.end,
+  AdInstructorId:900+i,...weekdayFields(x.day),
+}));
+const sevenPairs=matchAuthorityThroughPublication(previousGirls,[],liveGirls,reviewedCodes);
+assert.deepEqual([...sevenPairs].sort((a,b)=>a[0]-b[0]),
+  additionalGirlsCases.map((_,i)=>[i,i]),
+  "Seven individually evidenced same-professor placements match one-to-one");
+assert.equal(matchAuthorityThroughPublication(previousGirls,[],
+  liveGirls.map((x,i)=>i===0?{...x,AdInstructorId:999}:x),reviewedCodes).has(0),false,
+  "A different original/current professor makes a suggestive multi-cell match invalid");
+assert.equal(matchAuthorityThroughPublication(previousGirls,[],
+  [...liveGirls,{...liveGirls[3],id:123456}],reviewedCodes).has(3),false,
+  "No guessing if two live classes satisfy the same printed source link");
+assert.equal(matchAuthorityThroughPublication(previousGirls,[],
+  liveGirls.map((x,i)=>i===5?{...x,AdRoomCode:"011B17"}:x),reviewedCodes).has(5),false,
+  "An original girls appointment must never match a boys section");
+assert.equal(matchAuthorityThroughPublication(previousGirls.map((x,i)=>i===2?
+  {...x,AdInstructorId:0}:x),[],liveGirls,reviewedCodes).has(2),false,
+  "A blank original PDF professor does not prove teacher continuity without a publication snapshot");
+
 console.log("Authority identity: official section gaps, real edits, false references, unique provenance and faculty baselines passed.");
