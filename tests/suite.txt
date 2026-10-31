@@ -36,6 +36,7 @@ test:demo-cases
 test:roles
 test:approval
 test:changes
+test:authority-identity
 test:authority-net-diff
 test:blockers
 test:blocker-oracle
