@@ -5,6 +5,7 @@ import VisitingBadge from "./VisitingBadge";
 import { displayInstructorText } from "../utils/instructorIdentity";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
 import { authorityCourseCode, normalizeAuthoritySectionCode } from "../utils/authorityAcademicCodes";
+import { orderAuthorityReportRows } from "../utils/authorityReportOrdering";
 import PrintComprehensiveHead, { printIssueDate } from "./PrintComprehensiveHead";
 import PrintStamp from "./PrintStamp";
 
@@ -93,11 +94,9 @@ export default function AuthorityPdfReport({
   stampOrigin,
   issueDate = printIssueDate(),
 }: Props) {
-  const entries = [...report.rows].sort((a, b) => {
-    const ar = Number((a.current || a.source)?.sourceOrder ?? Number.MAX_SAFE_INTEGER);
-    const br = Number((b.current || b.source)?.sourceOrder ?? Number.MAX_SAFE_INTEGER);
-    return ar - br;
-  });
+  // Source PDF order is immutable; a renamed or recreated current row may
+  // have an entirely different sourceOrder. True new courses print last.
+  const entries = orderAuthorityReportRows(report.rows);
   /* ٢٨ صفاً كالتقرير الشامل، وبكثافة صفوفه نفسها (print-comprehensive-dense-rows):
      الصف أقصر بالمليمترات التي كانت تُترك فراغاً أسفل الورقة، والتصميم كما هو. */
   const pages = pageItems(entries, 28);
