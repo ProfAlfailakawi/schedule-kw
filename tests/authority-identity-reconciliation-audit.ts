@@ -159,4 +159,62 @@ assert.equal(matchAuthorityThroughPublication([firstSource],[initiallyRenumbered
   "Unique original import position and unchanged first-publication CRN recover a rebuilt id");
 
 
+
+// Three authoritative one-to-one corrections, explicitly confirmed against
+// the girls' ORIGINAL source PDF and the currently printed timetable.
+// They are real edits, not separate deleted+unknown appointments.
+const confirmedSource=[
+  row({AdCourseId:112,sourceCourseCode:"0109112",referenceNumber:"2053",SCode:"512",sourceSectionText:"512",
+    sourceOrder:33,AdRoomCode:"012B08",AdRoomHall:"G20",
+    fsunday:true,fmonday:false,ftuesday:true,fwednesday:false,fthursday:true,
+    fstarttime:"14:00",fendtime:"14:50"}),
+  row({AdCourseId:445,sourceCourseCode:"0109445",referenceNumber:"2530",SCode:"503",sourceSectionText:"503",
+    sourceOrder:77,AdRoomCode:"012B08",AdRoomHall:"",fsunday:false,fmonday:true,ftuesday:false,fwednesday:false,fthursday:false,
+    fstarttime:"11:00",fendtime:"13:50"}),
+  row({AdCourseId:499,sourceCourseCode:"0109499",referenceNumber:"2787",SCode:"503",sourceSectionText:"503",
+    sourceOrder:103,AdRoomCode:"012B08",AdRoomHall:"F16",fsunday:true,fmonday:false,ftuesday:false,fwednesday:false,fthursday:false,
+    fstarttime:"16:00",fendtime:"17:50"}),
+  // A different source Research appointment stays deleted.
+  row({AdCourseId:499,sourceCourseCode:"0109499",referenceNumber:"2955",SCode:"504",sourceSectionText:"504",
+    sourceOrder:104,AdRoomCode:"012B08",AdRoomHall:"F09",fsunday:false,fmonday:false,ftuesday:false,fwednesday:true,fthursday:false,
+    fstarttime:"16:00",fendtime:"17:50"}),
+];
+const confirmedCurrent=[
+  row({AdCourseId:112,sourceCourseCode:"0109112",referenceNumber:"20119",SCode:"507",sourceSectionText:"512",
+    sourceOrder:43,AdRoomCode:"012B08",AdRoomHall:"G20",
+    fsunday:true,fmonday:false,ftuesday:true,fwednesday:false,fthursday:true,
+    fstarttime:"10:00",fendtime:"10:50"}),
+  row({AdCourseId:445,sourceCourseCode:"0109445",referenceNumber:"20120",SCode:"501",sourceSectionText:"503",
+    sourceOrder:76,AdRoomCode:"012B08",AdRoomHall:"F17",
+    fsunday:false,fmonday:false,ftuesday:true,fwednesday:false,fthursday:false,
+    fstarttime:"08:00",fendtime:"10:50"}),
+  row({AdCourseId:499,sourceCourseCode:"0109499",referenceNumber:"20121",SCode:"502",sourceSectionText:"503",
+    sourceOrder:99,AdRoomCode:"012B08",AdRoomHall:"F17",
+    fsunday:false,fmonday:false,ftuesday:true,fwednesday:false,fthursday:false,
+    fstarttime:"12:00",fendtime:"14:50"}),
+  // A genuine independent e-learning addition cannot be absorbed.
+  row({AdCourseId:445,sourceCourseCode:"",referenceNumber:"",SCode:"503",sourceSectionText:"",
+    sourceOrder:1_000_008,AdRoomCode:"012B08",AdRoomHall:"F17",
+    fsunday:false,fmonday:false,ftuesday:false,fwednesday:false,fthursday:true,
+    fstarttime:"14:00",fendtime:"16:50"}),
+];
+const approved=matchAuthorityThroughPublication(confirmedSource,[],confirmedCurrent,codes);
+assert.deepEqual([...approved].sort((a,b)=>a[0]-b[0]),[[0,0],[1,1],[2,2]],
+  "Three user-confirmed edited appointments match separately; another deleted Research and new e-learning remain separate");
+assert.equal(new Set(approved.values()).size,3,"Each source links to exactly one current row");
+assert.equal(approved.has(3),false,"Research source 2955 still deleted");
+assert.equal([...approved.values()].includes(3),false,"Independent e-learning 503 still new");
+const approvedWithInitialSnapshot=matchAuthorityThroughPublication(
+  confirmedSource,confirmedCurrent,confirmedCurrent,codes);
+assert.equal(approvedWithInitialSnapshot.get(0),0);
+assert.equal(approvedWithInitialSnapshot.get(1),1);
+assert.equal(approvedWithInitialSnapshot.get(2),2);
+assert.equal(approvedWithInitialSnapshot.has(3),false);
+assert.equal(matchAuthorityThroughPublication(
+  confirmedSource,[],confirmedCurrent.map((r,i)=>i===2?{...r,AdRoomCode:"011B17"}:r),codes).has(2),
+  false,"The confirmation never crosses to the boys' campus");
+assert.equal(matchAuthorityThroughPublication(
+  confirmedSource,[],confirmedCurrent.map((r,i)=>i===1?{...r,AdRoomHall:"G20"}:r),codes).has(1),
+  false,"The confirmation cannot silently match an unrelated classroom");
+
 console.log("Authority identity: official section gaps, real edits, false references, unique provenance and faculty baselines passed.");
