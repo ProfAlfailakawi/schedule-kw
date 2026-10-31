@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { renderToString } from "react-dom/server";
 import React from "react";
 import AuthorityPdfReport, { AuthorityReport, AuthorityReportEntry } from "../src/components/AuthorityPdfReport";
+import { orderAuthorityReportRows } from "../src/utils/authorityReportOrdering";
 import { AdCourse, AdInstructor, FSchedule } from "../src/types";
 
 console.log("=========================================================================");
@@ -216,6 +217,38 @@ test("Scenario E: Unmatched import is not misrepresented as a verified new cours
   assert.ok(html.includes("authority-pdf-reference-new\">—</div>"),"Unknown source reference is displayed as a dash, never as an official new CRN");
   assert.ok(!html.includes(">20119</div>"),"A suspect live CRN is never printed as official");
   assert.ok(!html.includes("مطابقة غير محسومة"),"Rejected phrase must never be printed");
+});
+
+// First import order wins over every later live/sourceOrder mutation.
+test("Scenario F: exact original PDF sequence, and new courses only at the end", () => {
+  const base = (ref: string, order: number, currentOrder: number, siteLabel = "") => ({
+    status: "changed" as const, source: { sourceOrder: order },
+    current: { sourceOrder: currentOrder }, referenceNumber: ref, siteLabel,
+  });
+  const added = (name: string, siteLabel = "") => ({
+    status: "added" as const, source: null,
+    current: { sourceOrder: 1 }, referenceNumber: name, siteLabel,
+  });
+  const rows = [
+    base("2056", 8, 2), added("new-base"), base("2053", 7, 1000033),
+    base("2063", 11, 3, "الجهراء"), added("new-jahra", "الجهراء"),
+    base("2061", 10, 1, "الجهراء"),
+    base("2046", 4, 900_000),
+  ];
+  assert.deepEqual(orderAuthorityReportRows(rows).map(row => row.referenceNumber),
+    ["2046","2053","2056","2061","2063","new-base","new-jahra"]);
+  assert.deepEqual(rows.map(row => row.referenceNumber),
+    ["2056","new-base","2053","2063","new-jahra","2061","2046"],
+    "Ordering must not modify the original report data");
+  const single = [
+    base("first",1,2_000_000),
+    added("new-1"),
+    base("second",2,1),
+    added("new-2"),
+  ];
+  assert.deepEqual(orderAuthorityReportRows(single).map(x=>x.referenceNumber),
+    ["first","second","new-1","new-2"],
+    "Live section sourceOrder cannot place a new course among official CRNs");
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
