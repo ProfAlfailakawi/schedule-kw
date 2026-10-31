@@ -148,3 +148,21 @@ export function matchAuthoritySourceRows(
   },(a,b)=>academic(a,b)&&corroboration(a,b)>=2);
   return pairs;
 }
+
+/**
+ * PDF professor cells can be blank; the first-published import snapshot then
+ * supplies the only actual "before" professor identity. Restore only uniquely
+ * proven source-to-published pairs. Never infer a teacher from the current row.
+ */
+export function withFirstPublishedAuthorityInstructors(
+  scanned: readonly Row[],published:readonly Row[],courseCodeById?:Map<number,string>,
+):Row[]{
+  const matches=matchAuthoritySourceRows(scanned,published,courseCodeById);
+  return scanned.map((source,index)=>{
+    if(Number(source.AdInstructorId||0)>0||String(source.sourceInstructorText||"").trim())return {...source};
+    const initialIndex=matches.get(index);
+    const initial=initialIndex===undefined?null:published[initialIndex];
+    const firstId=Number(initial?.AdInstructorId||0);
+    return firstId>0?{...source,AdInstructorId:firstId}:{...source};
+  });
+}
