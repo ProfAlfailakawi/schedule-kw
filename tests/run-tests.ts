@@ -1717,7 +1717,7 @@ async function runTests() {
     /* And the authority report's word for a course the Authority has not
        numbered yet — the user asked for the full phrase. */
     const authority = fs.readFileSync(path.join(process.cwd(), "src/components/AuthorityPdfReport.tsx"), "utf8");
-    assert(authority.includes('entry.needsSourceReview ? "أصل غير موثق" : "مقرر جديد"') && !authority.includes("مطابقة غير محسومة"),
+    assert(authority.includes('entry.needsSourceReview ? "—" : "مقرر جديد"') && !authority.includes("مطابقة غير محسومة"),
       "المقرر المضاف الحقيقي يقول «مقرر جديد» والموعد المستورد الذي لا يُعرف أصله لا يخترع رقماً مرجعياً");
   }
 
