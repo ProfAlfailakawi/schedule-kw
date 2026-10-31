@@ -65,6 +65,8 @@ assert.equal(match([jahra],[currentJahra]).get(0),0,
 assert.equal(match([jahra],[{...currentJahra,AdRoomCode:"012B08"}]).size,0,"branch isolation");
 // A different course in an identical room/time may never consume the baseline.
 assert.equal(match([row()],[newReference({AdCourseId:401,sourceCourseCode:"0109114"})]).size,0,"course isolation");
+assert.equal(match([row()],[newReference({sourceCourseCode:"0118105"})]).size,0,
+  "a cross-department elective with the same catalogue suffix is not the same course");
 // A genuinely deleted imported class cannot be matched to a manual addition.
 const manual=newReference({sourceOrder:1_000_050,sourceCourseCode:"",sourceSectionText:"",sourceCourseText:""});
 assert.equal(isAuthorityImportedRow(manual),false,"post-PDF sourceOrder blocks false provenance");
