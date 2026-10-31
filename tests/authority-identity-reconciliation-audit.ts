@@ -267,27 +267,28 @@ const strongReplacements=[
       fstarttime:"14:00",fendtime:"17:50"}),
   },
 ];
+const reviewedCourseCodes=new Map([...codes,[125,"0109125"],[258,"0109258"],[324,"0109324"]] as [number,string][]);
 const replacementMatches=matchAuthorityThroughPublication(
-  strongReplacements.map(x=>x.source),[],strongReplacements.map(x=>x.current),codes);
+  strongReplacements.map(x=>x.source),[],strongReplacements.map(x=>x.current),reviewedCourseCodes);
 assert.deepEqual([...replacementMatches].sort((a,b)=>a[0]-b[0]),
   [[0,0],[1,1],[2,2],[3,3]],
   "Four evidence-backed PDF replacements collapse to a single modified report row each");
 const manualNew={...strongReplacements[0].current,SCode:"530",AdRoomHall:"G26"};
 const safeWithExtra=matchAuthorityThroughPublication(
-  strongReplacements.map(x=>x.source),[],[...strongReplacements.map(x=>x.current),manualNew],codes);
+  strongReplacements.map(x=>x.source),[],[...strongReplacements.map(x=>x.current),manualNew],reviewedCourseCodes);
 assert.deepEqual([...safeWithExtra],[[0,0],[1,1],[2,2],[3,3]],
   "A separate added class in the same course must not be consumed by reviewed links");
 assert.equal(matchAuthorityThroughPublication([strongReplacements[0].source],[],
-  [{...strongReplacements[0].current,AdRoomCode:"011B17"}],codes).size,0,
+  [{...strongReplacements[0].current,AdRoomCode:"011B17"}],reviewedCourseCodes).size,0,
   "Girls original cannot link to boys campus");
 assert.equal(matchAuthorityThroughPublication([strongReplacements[1].source],[],
-  [{...strongReplacements[1].current,AdInstructorId:999}],codes).size,0,
+  [{...strongReplacements[1].current,AdInstructorId:999}],reviewedCourseCodes).size,0,
   "Different professor invalidates a less-certain edited-time link");
 assert.equal(matchAuthorityThroughPublication([strongReplacements[2].source],[],
-  [{...strongReplacements[2].current,AdRoomHall:"F15"}],codes).size,0,
+  [{...strongReplacements[2].current,AdRoomHall:"F15"}],reviewedCourseCodes).size,0,
   "A second unexpected change must not be silently approved");
 assert.equal(matchAuthorityThroughPublication([strongReplacements[0].source],[],
-  [strongReplacements[0].current,{...strongReplacements[0].current,id:9876}],codes).size,0,
+  [strongReplacements[0].current,{...strongReplacements[0].current,id:9876}],reviewedCourseCodes).size,0,
   "Two indistinguishable candidates must remain unpaired");
 
 console.log("Authority identity: official section gaps, real edits, false references, unique provenance and faculty baselines passed.");
