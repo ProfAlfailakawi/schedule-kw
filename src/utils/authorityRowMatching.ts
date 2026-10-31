@@ -192,9 +192,9 @@ function applyConfirmedAuthorityLinks(
   const used=new Set(pairs.values());
   const rightCourse=(row:Row,expected:string)=>{
     const source=clean(row.sourceCourseCode).replace(/[^A-Z0-9]/g,"");
-    if(/^\\d{7}$/.test(source))return source===expected;
+    if(/^\d{7}$/.test(source))return source===expected;
     const code=courseCode(row,codes);
-    return code===expected || (/^\\d{3}$/.test(code)&&code===expected.slice(-3));
+    return code===expected || (/^\d{3}$/.test(code)&&code===expected.slice(-3));
   };
   const meeting=(row:Row,appointment:{days:string;start:string;end:string;room:string})=>
     weekday(row)===appointment.days &&
