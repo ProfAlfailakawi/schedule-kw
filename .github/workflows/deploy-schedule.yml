@@ -2,6 +2,13 @@ name: Deploy SCHEDULE
 
 on:
   workflow_dispatch:
+  # Release only the exact main-branch commit that completed comprehensive CI.
+  # The deploy job below still enforces the repository kill switch and rechecks
+  # the full main-branch CI verdict before touching the official service.
+  workflow_run:
+    workflows: ["Comprehensive CI"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
