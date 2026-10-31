@@ -217,4 +217,77 @@ assert.equal(matchAuthorityThroughPublication(
   confirmedSource,[],confirmedCurrent.map((r,i)=>i===1?{...r,AdRoomHall:"G20"}:r),codes).has(1),
   false,"The confirmation cannot silently match an unrelated classroom");
 
+
+/** Official 2026/27 T2 original PDF -> latest change report: only matches
+ * confirmed by unambiguous exact evidence are eligible for report linking.
+ * No timetable rows are updated or created. */
+const strongReplacements=[
+  {
+    source:row({AdCourseId:212,sourceCourseCode:"0109212",referenceNumber:"3738",
+      sourceOrder:80,SCode:"559",sourceSectionText:"559",AdRoomCode:"012B08",
+      AdRoomHall:"G22",AdInstructorId:81,
+      fsunday:false,fmonday:false,ftuesday:false,fwednesday:true,fthursday:false,
+      fstarttime:"11:00",fendtime:"13:50"}),
+    current:row({AdCourseId:212,sourceCourseCode:"",referenceNumber:"",
+      sourceOrder:1_000_004,SCode:"531",AdRoomCode:"012B08",AdRoomHall:"G22",AdInstructorId:81,
+      fsunday:false,fmonday:false,ftuesday:false,fwednesday:true,fthursday:false,
+      fstarttime:"11:00",fendtime:"13:50"}),
+  },
+  {
+    source:row({AdCourseId:258,sourceCourseCode:"0109258",referenceNumber:"3755",
+      sourceOrder:101,SCode:"504",sourceSectionText:"504",AdRoomCode:"012B08",
+      AdRoomHall:"G23",AdInstructorId:82,
+      fsunday:false,fmonday:false,ftuesday:true,fwednesday:false,fthursday:false,
+      fstarttime:"16:00",fendtime:"19:50"}),
+    current:row({AdCourseId:258,sourceCourseCode:"",referenceNumber:"",
+      sourceOrder:1_000_005,SCode:"505",AdRoomCode:"012B08",AdRoomHall:"G23",AdInstructorId:82,
+      fsunday:false,fmonday:false,ftuesday:true,fwednesday:false,fthursday:false,
+      fstarttime:"14:00",fendtime:"17:50"}),
+  },
+  {
+    source:row({AdCourseId:125,sourceCourseCode:"0109125",referenceNumber:"1550",
+      sourceOrder:25,SCode:"501",sourceSectionText:"01",AdRoomCode:"011B17",
+      AdRoomHall:"G26",AdInstructorId:83,
+      fsunday:true,fmonday:false,ftuesday:false,fwednesday:false,fthursday:false,
+      fstarttime:"12:00",fendtime:"15:50"}),
+    current:row({AdCourseId:125,sourceCourseCode:"",referenceNumber:"",
+      sourceOrder:1_000_006,SCode:"501",AdRoomCode:"011B17",AdRoomHall:"F06",AdInstructorId:83,
+      fsunday:true,fmonday:false,ftuesday:false,fwednesday:false,fthursday:false,
+      fstarttime:"12:00",fendtime:"15:50"}),
+  },
+  {
+    source:row({AdCourseId:324,sourceCourseCode:"0109324",referenceNumber:"1833",
+      sourceOrder:50,SCode:"502",sourceSectionText:"02",AdRoomCode:"011B17",
+      AdRoomHall:"G23",AdInstructorId:0,
+      fsunday:false,fmonday:false,ftuesday:true,fwednesday:false,fthursday:false,
+      fstarttime:"14:00",fendtime:"17:50"}),
+    current:row({AdCourseId:324,sourceCourseCode:"",referenceNumber:"",
+      sourceOrder:1_000_007,SCode:"502",AdRoomCode:"011B17",AdRoomHall:"F13",AdInstructorId:84,
+      fsunday:false,fmonday:false,ftuesday:true,fwednesday:false,fthursday:false,
+      fstarttime:"14:00",fendtime:"17:50"}),
+  },
+];
+const replacementMatches=matchAuthorityThroughPublication(
+  strongReplacements.map(x=>x.source),[],strongReplacements.map(x=>x.current),codes);
+assert.deepEqual([...replacementMatches].sort((a,b)=>a[0]-b[0]),
+  [[0,0],[1,1],[2,2],[3,3]],
+  "Four evidence-backed PDF replacements collapse to a single modified report row each");
+const manualNew={...strongReplacements[0].current,SCode:"530",AdRoomHall:"G26"};
+const safeWithExtra=matchAuthorityThroughPublication(
+  strongReplacements.map(x=>x.source),[],[...strongReplacements.map(x=>x.current),manualNew],codes);
+assert.deepEqual([...safeWithExtra],[[0,0],[1,1],[2,2],[3,3]],
+  "A separate added class in the same course must not be consumed by reviewed links");
+assert.equal(matchAuthorityThroughPublication([strongReplacements[0].source],[],
+  [{...strongReplacements[0].current,AdRoomCode:"011B17"}],codes).size,0,
+  "Girls original cannot link to boys campus");
+assert.equal(matchAuthorityThroughPublication([strongReplacements[1].source],[],
+  [{...strongReplacements[1].current,AdInstructorId:999}],codes).size,0,
+  "Different professor invalidates a less-certain edited-time link");
+assert.equal(matchAuthorityThroughPublication([strongReplacements[2].source],[],
+  [{...strongReplacements[2].current,AdRoomHall:"F15"}],codes).size,0,
+  "A second unexpected change must not be silently approved");
+assert.equal(matchAuthorityThroughPublication([strongReplacements[0].source],[],
+  [strongReplacements[0].current,{...strongReplacements[0].current,id:9876}],codes).size,0,
+  "Two indistinguishable candidates must remain unpaired");
+
 console.log("Authority identity: official section gaps, real edits, false references, unique provenance and faculty baselines passed.");
