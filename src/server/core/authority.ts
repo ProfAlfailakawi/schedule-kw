@@ -13,7 +13,7 @@ import { cleanBuildingCode, cleanHallCode } from "../../utils/documentOcr";
 import { assignAuthoritySections } from "../../utils/authorityAcademicCodes";
 import { splitRowsByBranch } from "../../utils/branchScope";
 import { foldHeaderIdentity } from "./ordering";
-import { matchAuthoritySourceRows } from "../../utils/authorityRowMatching";
+import { isAuthorityImportedRow, matchAuthoritySourceRows } from "../../utils/authorityRowMatching";
 
 const AUTHORITY_PDF_COMPARE_FIELDS = [
   "AdCourseId","SCode","AdInstructorId",
@@ -176,7 +176,7 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
   });
   current.forEach((row:any,index:number)=>{
     if(consumed.has(index))return;
-    reportRows.push({status:"added",changedFields:[...AUTHORITY_PDF_COMPARE_FIELDS],referenceNumber:String(row.referenceNumber||""),source:null,current:row});
+    reportRows.push({status:"added",needsSourceReview:isAuthorityImportedRow(row),changedFields:[...AUTHORITY_PDF_COMPARE_FIELDS],referenceNumber:String(row.referenceNumber||""),source:null,current:row});
   });
   const counts=reportRows.reduce((acc:any,row:any)=>(acc[row.status]=(acc[row.status]||0)+1,acc),{added:0,deleted:0,changed:0,unchanged:0});
   return{rows:reportRows,counts};
