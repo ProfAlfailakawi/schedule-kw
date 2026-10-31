@@ -44,6 +44,11 @@ const courseKey = (row:Row,codes?:Map<number,string>) => {
   return id>0?"I:"+id:"";
 };
 const sameCourse=(a:Row,b:Row,codes?:Map<number,string>)=>{
+  const sourceA=clean(a.sourceCourseCode).replace(/[^A-Z0-9]/g,"");
+  const sourceB=clean(b.sourceCourseCode).replace(/[^A-Z0-9]/g,"");
+  // An imported 0118xxx cross-department elective is not 0109xxx merely
+  // because their three-digit catalogue suffix happens to agree.
+  if(/^\d{7}$/.test(sourceA)&&/^\d{7}$/.test(sourceB)&&sourceA!==sourceB)return false;
   const ac=courseCode(a,codes),bc=courseCode(b,codes);
   if(ac&&bc){
     if(/^\d{7}$/.test(ac)&&/^\d{7}$/.test(bc))return ac===bc;
