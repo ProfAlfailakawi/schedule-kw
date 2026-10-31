@@ -3638,7 +3638,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               deleted: sum.deleted + entry.report.counts.deleted,
               changed: sum.changed + entry.report.counts.changed,
               unchanged: sum.unchanged + entry.report.counts.unchanged,
-            }), { added: 0, deleted: 0, changed: 0, unchanged: 0 }),
+              review: sum.review + (entry.report.counts.review || 0),
+            }), { added: 0, deleted: 0, changed: 0, unchanged: 0, review: 0 }),
             /* الرقاقة للفرع وحده: صفوف المقر الرئيسي تبقى بلا وسم — القاعدة
                نفسها المعمول بها في التقرير الشامل. */
             rows: authorityBook.flatMap(entry => entry.report.rows.map(row => ({ ...row, siteLabel: entry.site.isBase ? "" : entry.site.siteLabel }))),
@@ -3648,6 +3649,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             added: entry.report.counts.added,
             deleted: entry.report.counts.deleted,
             changed: entry.report.counts.changed,
+            review: entry.report.counts.review || 0,
           }));
           return (
             <AuthorityPdfReport
