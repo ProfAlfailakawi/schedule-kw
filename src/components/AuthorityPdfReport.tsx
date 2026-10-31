@@ -178,7 +178,7 @@ export default function AuthorityPdfReport({
                           Never present that unverified value as an official CRN.
                           Matched historical rows always print the source CRN. */}
                       {entry.status === "added"
-                        ? <div role="cell" className="authority-pdf-reference-number authority-pdf-reference-new">{entry.needsSourceReview ? "أصل غير موثق" : "مقرر جديد"}</div>
+                        ? <div role="cell" className="authority-pdf-reference-number authority-pdf-reference-new">{entry.needsSourceReview ? "—" : "مقرر جديد"}</div>
                         : <div role="cell" className="print-ltr authority-pdf-reference-number">{entry.referenceNumber || "—"}</div>}
                       {/* Section numbering is a system-canonical import convention, not
                           a user edit. Keep the value visible but never paint it yellow. */}

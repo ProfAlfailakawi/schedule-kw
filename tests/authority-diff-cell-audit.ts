@@ -213,7 +213,7 @@ test("Scenario E: Unmatched import is not misrepresented as a verified new cours
     sectionName:"تكنولوجيا التعليم",sectionCode:"09",courseById,instructorById,visitingIds:new Set(),
   }));
   assert.ok(html.includes("مراجعة المصدر"),"A document with untraceable import asks for its provenance");
-  assert.ok(html.includes("أصل غير موثق"),"An untraceable reference is not an official new course");
+  assert.ok(html.includes("authority-pdf-reference-new\">—</div>"),"Unknown source reference is displayed as a dash, never as an official new CRN");
   assert.ok(!html.includes(">20119</div>"),"A suspect live CRN is never printed as official");
   assert.ok(!html.includes("مطابقة غير محسومة"),"Rejected phrase must never be printed");
 });

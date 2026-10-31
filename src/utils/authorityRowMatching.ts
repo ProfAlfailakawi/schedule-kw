@@ -155,6 +155,68 @@ export function matchAuthoritySourceRows(
 }
 
 /**
+ * One-to-one corrections confirmed against the ORIGINAL girls' Authority PDF
+ * for term 2026/27 T2 and the live schedule. The original reference is
+ * immutable; a regenerated section is not an identifier. These are *report*
+ * links only: they never modify any timetable row, CRN, or database record.
+ *
+ * Both ends must match the complete known appointment (official course,
+ * original printed CRN, campus/building, weekday, time, room and new section).
+ * Missing/mismatched or duplicate evidence is left untouched. This keeps a
+ * future term, another campus, another section, or another real addition safe.
+ */
+const confirmedGirlLinks=[
+  {
+    course:"0109112",reference:"2053",building:"012B08",
+    original:{days:"10101",start:"14:00",end:"14:50",room:"G20"},
+    current:{section:"507",days:"10101",start:"10:00",end:"10:50",room:"G20"},
+  },
+  {
+    course:"0109445",reference:"2530",building:"012B08",
+    original:{days:"01000",start:"11:00",end:"13:50",room:""},
+    current:{section:"501",days:"00100",start:"08:00",end:"10:50",room:"F17"},
+  },
+  {
+    course:"0109499",reference:"2787",building:"012B08",
+    original:{days:"10000",start:"16:00",end:"17:50",room:"F16"},
+    current:{section:"502",days:"00100",start:"12:00",end:"14:50",room:"F17"},
+  },
+] as const;
+
+function applyConfirmedAuthorityLinks(
+  baseline:readonly Row[],
+  current:readonly Row[],
+  pairs:Map<number,number>,
+  codes?:Map<number,string>,
+):void {
+  const used=new Set(pairs.values());
+  const rightCourse=(row:Row,expected:string)=>{
+    const source=clean(row.sourceCourseCode).replace(/[^A-Z0-9]/g,"");
+    if(/^\d{7}$/.test(source))return source===expected;
+    const code=courseCode(row,codes);
+    return code===expected || (/^\d{3}$/.test(code)&&code===expected.slice(-3));
+  };
+  const meeting=(row:Row,appointment:{days:string;start:string;end:string;room:string})=>
+    weekday(row)===appointment.days &&
+    clock(row.fstarttime)===appointment.start &&
+    clock(row.fendtime)===appointment.end &&
+    room(row.AdRoomHall)===appointment.room;
+  for(const link of confirmedGirlLinks){
+    const sources=baseline.map((row,i)=>({row,i})).filter(({row})=>
+      reference(row)===link.reference && rightCourse(row,link.course) &&
+      room(row.AdRoomCode)===link.building && meeting(row,link.original));
+    const targets=current.map((row,i)=>({row,i})).filter(({row})=>
+      isAuthorityImportedRow(row) && rightCourse(row,link.course) &&
+      room(row.AdRoomCode)===link.building && number(row.SCode)===link.current.section &&
+      meeting(row,link.current));
+    if(sources.length!==1||targets.length!==1)continue;
+    const si=sources[0].i,ci=targets[0].i;
+    if(pairs.has(si)||used.has(ci))continue;
+    pairs.set(si,ci);used.add(ci);
+  }
+}
+
+/**
  * An edited imported appointment retains its database id from first publish.
  * A legacy import can also retain its unique sourceOrder across preview and
  * publication, even if time, days and room were edited together. Match that
@@ -171,7 +233,17 @@ export function matchAuthorityThroughPublication(
   current: readonly Row[],
   courseCodeById?: Map<number,string>,
 ): Map<number,number> {
-  if (!published.length) return matchAuthoritySourceRows(baseline,current,courseCodeById);
+  if (!published.length) {
+    const approved=new Map<number,number>();
+    applyConfirmedAuthorityLinks(baseline,current,approved,courseCodeById);
+    const sourceIndices=baseline.map((_,i)=>i).filter(i=>!approved.has(i));
+    const used=new Set(approved.values());
+    const currentIndices=current.map((_,i)=>i).filter(i=>!used.has(i));
+    const fallback=matchAuthoritySourceRows(
+      sourceIndices.map(i=>baseline[i]),currentIndices.map(i=>current[i]),courseCodeById);
+    for(const [i,j] of fallback)approved.set(sourceIndices[i],currentIndices[j]);
+    return approved;
+  }
 
   const sourceToPublished=new Map<number,number>();
   const publishedTaken=new Set<number>();
@@ -266,6 +338,10 @@ export function matchAuthorityThroughPublication(
     if(!oldRef||oldRef!==newRef||!compatible(snap,current[index]))continue;
     sourceToCurrent.set(origin,index);currentTaken.add(index);
   }
+  // User-confirmed original/live appointment links take precedence over
+  // inferred academic similarity, but never steal a provenance-matched row.
+  applyConfirmedAuthorityLinks(baseline,current,sourceToCurrent,courseCodeById);
+  for(const index of sourceToCurrent.values())currentTaken.add(index);
   // Last resort is the existing strictly unique academic comparator, but
   // only across leftovers. It cannot steal a proven first-published identity.
   const restOrigins=baseline.map((_,i)=>i).filter(i=>!sourceToCurrent.has(i));
