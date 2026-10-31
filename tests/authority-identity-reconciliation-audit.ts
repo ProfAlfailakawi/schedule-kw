@@ -153,5 +153,10 @@ assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],dou
 const recovered={...firstLive,id:998,referenceNumber:"20888",sourceOrder:6};
 assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[recovered],codes).size,0,
   "Different db IDs and contradictory source references are not proof");
+const initiallyRenumbered={...firstPublished,referenceNumber:"20133"};
+const restored={...firstLive,id:998,referenceNumber:"20133",sourceOrder:6};
+assert.equal(matchAuthorityThroughPublication([firstSource],[initiallyRenumbered],[restored],codes).get(0),0,
+  "Unique original import position and unchanged first-publication CRN recover a rebuilt id");
+
 
 console.log("Authority identity: official section gaps, real edits, false references, unique provenance and faculty baselines passed.");
