@@ -1717,7 +1717,7 @@ async function runTests() {
     /* And the authority report's word for a course the Authority has not
        numbered yet — the user asked for the full phrase. */
     const authority = fs.readFileSync(path.join(process.cwd(), "src/components/AuthorityPdfReport.tsx"), "utf8");
-    assert(authority.includes(">مقرر جديد</div>"), "الرقم المرجعي الفارغ للمقرر المضاف يقول «مقرر جديد»");
+    assert(authority.includes('entry.needsSourceReview ? "مطابقة غير محسومة" : "مقرر جديد"'), "المقرر المضاف الحقيقي يقول «مقرر جديد» والمستورد غير المحسوم لا يُعَدّ جديداً بالتخمين");
   }
 
   /* --- 36. الحضور يمدّد الجلسة، لا نوع الحساب ------------------------------ */

@@ -199,5 +199,22 @@ test("Scenario D: A new appointment always prints مقرر جديد, not an inhe
   assert.ok(!html.includes(">20119</div>"));
 });
 
+test("Scenario E: Unmatched import is not misrepresented as a verified new course", () => {
+  const report: AuthorityReport = {
+    draftId: "draft-1", name: "تقرير مقارنة", sourceFileName: "الجدول.pdf",
+    counts: { added: 1, deleted: 0, changed: 0, unchanged: 0 },
+    rows: [{
+      status: "added",needsSourceReview: true,changedFields:[],
+      referenceNumber: "20119",source:null,current:{...baseSchedule,referenceNumber:"20119"},
+    }],
+  };
+  const html=renderToString(React.createElement(AuthorityPdfReport,{
+    report,termName:"الفصل الثاني 2026/2027",collegeName:"كلية التربية الأساسية",
+    sectionName:"تكنولوجيا التعليم",sectionCode:"09",courseById,instructorById,visitingIds:new Set(),
+  }));
+  assert.ok(html.includes("مطابقة غير محسومة"),"An unproven import needs review");
+  assert.ok(!html.includes(">20119</div>"),"A suspect live CRN is never printed as official");
+});
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

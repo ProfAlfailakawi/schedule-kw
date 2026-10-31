@@ -13,7 +13,7 @@ import { cleanBuildingCode, cleanHallCode } from "../../utils/documentOcr";
 import { assignAuthoritySections } from "../../utils/authorityAcademicCodes";
 import { splitRowsByBranch } from "../../utils/branchScope";
 import { foldHeaderIdentity } from "./ordering";
-import { matchAuthoritySourceRows } from "../../utils/authorityRowMatching";
+import { isAuthorityImportedRow, matchAuthoritySourceRows, withFirstPublishedAuthorityInstructors } from "../../utils/authorityRowMatching";
 
 const AUTHORITY_PDF_COMPARE_FIELDS = [
   "AdCourseId","SCode","AdInstructorId",
@@ -30,9 +30,16 @@ export async function authorityCourseCodeMap(){
   return new Map<number,string>(courses.map((course:any)=>[Number(course.AdCourseId),String(course.CourseCode||"").trim()]));
 }
 
-export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{instructorNameById?:Map<number,string>;courseCodeById?:Map<number,string>}={}){
-  const baseline=assignAuthoritySections([...(baselineInput||[])]).sort((a:any,b:any)=>Number(a.sourceOrder)-Number(b.sourceOrder));
+export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{instructorNameById?:Map<number,string>;courseCodeById?:Map<number,string>;publishedRows?:any[]}={}){
+  const scanned=assignAuthoritySections([...(baselineInput||[])]).sort((a:any,b:any)=>Number(a.sourceOrder)-Number(b.sourceOrder));
   const current=[...(currentInput||[])];
+  /* The SWRSCHA original often leaves the entire instructor column empty.
+     That is not evidence of a teacher change. The published import snapshot
+     records who was FIRST assigned; subsequent changes can be compared to it.
+     Reconcile the same immutable source appointments against that snapshot
+     without ever writing to the PDF baseline or live schedule. */
+  const published=Array.isArray(options.publishedRows)?options.publishedRows:[];
+  const baseline=withFirstPublishedAuthorityInstructors(scanned,published,options.courseCodeById);
   /* Reconcile by Authority CRN first, then by unique academic identity.
      A changed/incorrectly imported reference must not create a fictitious
      deletion and addition. No saved schedule or baseline row is modified. */
@@ -109,6 +116,9 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
       .replace(/\s+/g," ")
       .trim();
     const sameInstructorIdentity=()=>{
+      /* A blank PDF teacher without a proven first-published assignment is
+         UNKNOWN, not evidence that the current professor was newly changed. */
+      if(!Number(source.AdInstructorId||0)&&!String(source.sourceInstructorText||"").trim()&&!source.__hasPublishedInstructorBaseline)return true;
       if(comparable("AdInstructorId",source.AdInstructorId)===comparable("AdInstructorId",next.AdInstructorId))return true;
       /* هويتان مسجّلتان مختلفتان = أستاذ تغيّر، مهما تشابه الاسم المطبوع:
          «يحيى سالم» يقع داخل «يحيى سالم العنزي» و«يحيى سالم الشمري» معاً. */
@@ -159,7 +169,7 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
   });
   current.forEach((row:any,index:number)=>{
     if(consumed.has(index))return;
-    reportRows.push({status:"added",changedFields:[...AUTHORITY_PDF_COMPARE_FIELDS],referenceNumber:String(row.referenceNumber||""),source:null,current:row});
+    reportRows.push({status:"added",needsSourceReview:isAuthorityImportedRow(row),changedFields:[...AUTHORITY_PDF_COMPARE_FIELDS],referenceNumber:String(row.referenceNumber||""),source:null,current:row});
   });
   const counts=reportRows.reduce((acc:any,row:any)=>(acc[row.status]=(acc[row.status]||0)+1,acc),{added:0,deleted:0,changed:0,unchanged:0});
   return{rows:reportRows,counts};
