@@ -98,6 +98,12 @@ assert.equal(facultyBaseline.AdInstructorId,77,"first-published teacher establis
 assert.equal(row().AdInstructorId,0,"immutable scanned baseline must not be changed");
 assert.equal(withFirstPublishedAuthorityInstructors([row()],[],codes)[0].AdInstructorId,0,
   "missing first-published evidence must not invent a professor");
+const initiallyEmpty=withFirstPublishedAuthorityInstructors([row()],[{...initial,AdInstructorId:0}],codes)[0];
+assert.equal(initiallyEmpty.AdInstructorId,0,"known initial empty instructor stays empty");
+assert.equal(initiallyEmpty.__hasPublishedInstructorBaseline,true,
+  "an assigned professor after a proven originally empty assignment is a real edit");
+assert.equal(withFirstPublishedAuthorityInstructors([row()],[],codes)[0].__hasPublishedInstructorBaseline,undefined,
+  "unknown original professor is not automatically reported as edited");
 assert.equal(withFirstPublishedAuthorityInstructors([row({AdInstructorId:22})],[initial],codes)[0].AdInstructorId,22,
   "actual instructor identity in the original is never overwritten");
 
