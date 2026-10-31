@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isAuthorityImportedRow, matchAuthoritySourceRows, withFirstPublishedAuthorityInstructors } from "../src/utils/authorityRowMatching";
+import { isAuthorityImportedRow, matchAuthoritySourceRows, matchAuthorityThroughPublication, withFirstPublishedAuthorityInstructors } from "../src/utils/authorityRowMatching";
 
 /* Regression fixtures based on the original SWRSCHA girls'/boys' timetable
  * and the latest comprehensive report. No civil IDs or private records. */
@@ -108,5 +108,55 @@ assert.equal(withFirstPublishedAuthorityInstructors([row()],[],codes)[0].__hasPu
   "unknown original professor is not automatically reported as edited");
 assert.equal(withFirstPublishedAuthorityInstructors([row({AdInstructorId:22})],[initial],codes)[0].AdInstructorId,22,
   "actual instructor identity in the original is never overwritten");
+
+
+// An actual official PDF row can change time, weekday, room and instructor at
+// once. No heuristic academic matcher can infer its identity from those cells.
+// The immutable initial publication knows its import position, and the live
+// record carries the SAME database id.
+const firstSource=row({referenceNumber:"2053",sourceOrder:6,sourceSectionText:"512",AdInstructorId:0,AdRoomHall:"G20",fstarttime:"14:00",fendtime:"14:50"});
+const firstPublished=row({referenceNumber:"2053",id:774,sourceOrder:6,SCode:"506",AdInstructorId:55,
+  fmonday:false,fwednesday:false,fsunday:true,fthursday:true,
+  AdRoomHall:"F17",fstarttime:"08:00",fendtime:"10:50"});
+const firstLive={...firstPublished,referenceNumber:"20119",SCode:"507",AdInstructorId:99,
+  fsunday:false,ftuesday:true,fthursday:false,
+  AdRoomHall:"F09",fstarttime:"10:00",fendtime:"10:50"};
+assert.equal(match([firstSource],[firstLive]).size,0,"No invented academic match from several changed cells");
+assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[firstLive],codes).get(0),0,
+  "Stable first-published id recovers original class after multiple simultaneous edits");
+
+// SourceOrder ties a preview-edit to its original PDF row, *within the same
+// draft*. Current sourceOrder can change; the published db identity is stable.
+const otherSource=row({referenceNumber:"2530",sourceOrder:18,sourceSectionText:"503",
+  AdCourseId:212,sourceCourseCode:"0109212",AdRoomHall:"",fsunday:false,fmonday:true,fwednesday:false,
+  fstarttime:"11:00",fendtime:"13:50"});
+const otherPublished={...otherSource,id:800,referenceNumber:"20133",SCode:"501",
+  ftuesday:true,fmonday:false,AdRoomHall:"F17",fstarttime:"08:00",fendtime:"10:50"};
+const otherLive={...otherPublished,sourceOrder:99,referenceNumber:"20244",AdRoomHall:"G19"};
+assert.equal(matchAuthorityThroughPublication([otherSource],[otherPublished],[otherLive],codes).get(0),0,
+  "An edit made in the original PDF preview still links by its import position and final saved id");
+
+// A missing published trail must never trigger a forced original/new mapping.
+assert.equal(matchAuthorityThroughPublication([firstSource],[],[firstLive],codes).size,0,
+  "No historical snapshot means multiple edited fields cannot be guessed");
+assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[manual],codes).size,0,
+  "A user-created new appointment is never consumed by the source bridge");
+assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[{...firstLive,id:775,AdRoomCode:"012J14"}],codes).size,0,
+  "An original Girls classroom cannot silently be attributed to Jahra");
+
+const doubledCurrent=[firstLive,{...firstLive,referenceNumber:"20120"}];
+assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],doubledCurrent,codes).size,0,
+  "Duplicate current IDs cannot be assigned arbitrarily");
+
+// A restored row with a regenerated database ID is only tracked through an
+// identical original imported reference AND a unique import position.
+const recovered={...firstLive,id:998,referenceNumber:"20888",sourceOrder:6};
+assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[recovered],codes).size,0,
+  "Different db IDs and contradictory source references are not proof");
+const initiallyRenumbered={...firstPublished,referenceNumber:"20133"};
+const restored={...firstLive,id:998,referenceNumber:"20133",sourceOrder:6};
+assert.equal(matchAuthorityThroughPublication([firstSource],[initiallyRenumbered],[restored],codes).get(0),0,
+  "Unique original import position and unchanged first-publication CRN recover a rebuilt id");
+
 
 console.log("Authority identity: official section gaps, real edits, false references, unique provenance and faculty baselines passed.");

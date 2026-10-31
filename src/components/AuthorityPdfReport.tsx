@@ -26,7 +26,7 @@ export type AuthorityReport = {
   sourceFileName: string;
   sourceBranchCode?: string;
   sourceBranchName?: string;
-  counts: { added: number; deleted: number; changed: number; unchanged: number };
+  counts: { added: number; deleted: number; changed: number; unchanged: number; review?: number };
   rows: AuthorityReportEntry[];
 };
 
@@ -52,7 +52,7 @@ interface Props {
   pageOffset?: number;
   pageTotal?: number;
   /** يُطبع مرة واحدة في أول صفحة من الكتاب: شكل القسم كله قبل تفصيله. */
-  bookSites?: Array<{ label: string; added: number; deleted: number; changed: number }>;
+  bookSites?: Array<{ label: string; added: number; deleted: number; changed: number; review?: number }>;
   /** حين تضم الوثيقة مواقع الفرع: عمود «الموقع» يظهر، وصفوف المواقع تتصل. */
   showSite?: boolean;
   /** النسخة نفسها بعمودٍ أخير للرقم المدني بعد اسم المدرس، لكل صف لا للمعدَّل وحده. */
@@ -146,6 +146,7 @@ export default function AuthorityPdfReport({
                     site.added ? `مضاف ${site.added}` : "",
                     site.deleted ? `محذوف ${site.deleted}` : "",
                     site.changed ? `معدّل ${site.changed}` : "",
+                    site.review ? `مراجعة المصدر ${site.review}` : "",
                   ].filter(Boolean);
                   return <b key={site.label}>{site.label} · {parts.length ? parts.join(" · ") : "بلا تغيير"}</b>;
                 })}
@@ -166,7 +167,7 @@ export default function AuthorityPdfReport({
                   const course = courseById.get(Number(row.AdCourseId));
                   const instructor = instructorById.get(Number(row.AdInstructorId));
                   const cell = (changed: boolean) => changed ? "authority-pdf-cell-changed" : "";
-                  const statusLabel = entry.status === "added" ? (entry.needsSourceReview ? "قيد المطابقة" : "مضاف") : entry.status === "deleted" ? "محذوف" : entry.status === "changed" ? "معدّل" : "";
+                  const statusLabel = entry.needsSourceReview ? "مراجعة المصدر" : entry.status === "added" ? "مضاف" : entry.status === "deleted" ? "محذوف" : entry.status === "changed" ? "معدّل" : "";
                   return (
                     <div className={`print-comprehensive-grid-row authority-pdf-row authority-pdf-row-${entry.status}${entry.needsSourceReview ? " authority-pdf-row-review" : ""}`} role="row" key={`${pageIndex}-${index}-${row.id || row.sourceOrder || index}-${entry.status}`}>
                       {statusLabel ? <span className="authority-pdf-row-marker" aria-hidden="true">{statusLabel}</span> : null}
@@ -177,7 +178,7 @@ export default function AuthorityPdfReport({
                           Never present that unverified value as an official CRN.
                           Matched historical rows always print the source CRN. */}
                       {entry.status === "added"
-                        ? <div role="cell" className="authority-pdf-reference-number authority-pdf-reference-new">{entry.needsSourceReview ? "مطابقة غير محسومة" : "مقرر جديد"}</div>
+                        ? <div role="cell" className="authority-pdf-reference-number authority-pdf-reference-new">{entry.needsSourceReview ? "أصل غير موثق" : "مقرر جديد"}</div>
                         : <div role="cell" className="print-ltr authority-pdf-reference-number">{entry.referenceNumber || "—"}</div>}
                       {/* Section numbering is a system-canonical import convention, not
                           a user edit. Keep the value visible but never paint it yellow. */}
