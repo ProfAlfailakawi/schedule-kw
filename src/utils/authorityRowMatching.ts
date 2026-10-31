@@ -208,6 +208,51 @@ const evidenceReviewedLinks=[
     original:{days:"00100",start:"14:00",end:"17:50",room:"G23"},
     current:{section:"502",days:"00100",start:"14:00",end:"17:50",room:"F13"},
   },
+  // Additional one-to-one candidates from the user's original girls PDF and
+  // latest change report. Their first-published instructor must match the
+  // current instructor; a same-course match alone is never enough.
+  {
+    course:"0109212",reference:"2081",building:"012B08",
+    original:{days:"01000",start:"14:00",end:"16:50",room:"G21"},
+    current:{section:"533",days:"00010",start:"14:00",end:"16:50",room:"G23"},
+    requireSameProfessor:true,
+  },
+  {
+    course:"0109212",reference:"2071",building:"012B08",
+    original:{days:"00010",start:"08:00",end:"10:50",room:"G23"},
+    current:{section:"534",days:"10000",start:"08:00",end:"10:50",room:"G21"},
+    requireSameProfessor:true,
+  },
+  {
+    course:"0109212",reference:"3752",building:"012B08",
+    original:{days:"10000",start:"11:00",end:"13:50",room:"G22"},
+    current:{section:"535",days:"10000",start:"08:00",end:"10:50",room:"G23"},
+    requireSameProfessor:true,
+  },
+  {
+    course:"0109212",reference:"2957",building:"012B08",
+    original:{days:"00001",start:"14:00",end:"16:50",room:"G22"},
+    current:{section:"536",days:"00001",start:"08:00",end:"10:50",room:"G21"},
+    requireSameProfessor:true,
+  },
+  {
+    course:"0109215",reference:"2956",building:"012B08",
+    original:{days:"00010",start:"14:00",end:"16:50",room:"G22"},
+    current:{section:"509",days:"10000",start:"13:00",end:"15:50",room:"G22"},
+    requireSameProfessor:true,
+  },
+  {
+    course:"0109237",reference:"3753",building:"012B08",
+    original:{days:"01000",start:"12:00",end:"15:50",room:"F09"},
+    current:{section:"502",days:"01000",start:"14:00",end:"17:50",room:"G23"},
+    requireSameProfessor:true,
+  },
+  {
+    course:"0109334",reference:"3754",building:"012B08",
+    original:{days:"00100",start:"12:00",end:"15:50",room:"F09"},
+    current:{section:"502",days:"00100",start:"08:00",end:"11:50",room:"G22"},
+    requireSameProfessor:true,
+  },
 ] as const;
 
 function applyConfirmedAuthorityLinks(
