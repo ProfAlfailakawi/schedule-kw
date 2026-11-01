@@ -1,10 +1,11 @@
 import { byArabic } from "../utils/sorting";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarCheck2, CalendarSearch, Check, Globe2, Search, X } from "lucide-react";
+import { CalendarCheck2, CalendarSearch, Check, Globe2, Search, X, Clock3 } from "lucide-react";
 import { PrimaryButton } from "./ui";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
 import { meetingParticipants, type MeetingAnswer, type MeetingWindow } from "../utils/meetingSlots";
+import { SCHEDULE_DAYS } from "../utils/scheduleIntelligence";
 
 /**
  * ── متى نلتقي؟ ──────────────────────────────────────────────────────────────
@@ -52,9 +53,12 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
   const [picked, setPicked] = useState<Set<number>>(() => new Set());
   const [query, setQuery] = useState("");
   const [duration, setDuration] = useState(60);
+  const [chosenDay, setChosenDay] = useState("fsunday");
+  const [chosenTime, setChosenTime] = useState("10:00");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [answer, setAnswer] = useState<MeetingAnswer | null>(null);
+  const [inspection, setInspection] = useState<any>(null);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
@@ -131,6 +135,17 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
     }
   }, [termId, sectionId, duration, picked]);
 
+  const inspect = useCallback(async (day = chosenDay, start = chosenTime) => {
+    setLoading(true); setError(null); setAnswer(null);
+    try {
+      const body = await readJson("/api/schedules/meeting-inspect", { method: "POST", body: JSON.stringify({
+        termId, sectionId, durationMinutes: duration, instructorIds: [...picked], day, start,
+      }) });
+      setInspection(body);
+    } catch (issue) { setInspection(null); setError(issue instanceof Error ? issue.message : "تعذر فحص الموعد"); }
+    finally { setLoading(false); }
+  }, [termId, sectionId, duration, picked, chosenDay, chosenTime]);
+
   return (
     <>
       <div className="meeting-slots-backdrop no-print" onMouseDown={onClose} aria-hidden="true" />
@@ -167,6 +182,15 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
               <option value={120}>ساعتان</option>
             </select>
           </label>
+        </div>
+
+        <div className="meeting-slots-pick-time">
+          <strong><Clock3 aria-hidden="true" /> افحص وقتاً تحدده أنت</strong>
+          <label><span>اليوم</span><select value={chosenDay} onChange={event => { setChosenDay(event.target.value); setInspection(null); }}>
+            {SCHEDULE_DAYS.map(day => <option key={day.key} value={day.key}>{day.label}</option>)}
+          </select></label>
+          <label><span>الوقت</span><input type="time" min="08:00" max="20:00" step="1800" value={chosenTime} onChange={event => { setChosenTime(event.target.value); setInspection(null); }} /></label>
+          <PrimaryButton type="button" disabled={picked.size < 1 || loading} onClick={() => void inspect()}>{loading ? "يفحص…" : "افحص الوقت"}</PrimaryButton>
         </div>
 
         <div className="meeting-slots-bulk">
@@ -216,6 +240,20 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
         </div>
 
         {error ? <p className="meeting-slots-error" role="alert">{error}</p> : null}
+
+        {inspection ? <div className="meeting-slots-answer" aria-live="polite">
+          <article className={`meeting-slots-best ${inspection.busy.length ? "meeting-slots-partial" : ""}`}>
+            <Check aria-hidden="true" /><div><small>{inspection.busy.length ? "في هذا الموعد يوجد تعارض" : "ممتاز · الجميع متفرغون"}</small>
+              <strong>{inspection.label} <Time start={inspection.start} end={inspection.end} /></strong>
+              <small>{inspection.free.length} من {inspection.free.length + inspection.busy.length} متفرغ</small></div>
+          </article>
+          {inspection.busy.length ? <p className="meeting-inspect-names"><b>المشغولون:</b> {whoConflicts(inspection.busy)}</p> : null}
+          {inspection.alternatives.length ? <><div className="meeting-slots-alternatives-title"><small>قريبة من اختيارك</small><strong>أقرب البدائل للجميع</strong></div>
+            <ol className="meeting-slots-ranked">{inspection.alternatives.map((slot: MeetingWindow, index: number) => <li key={`${slot.day}-${slot.start}`}>
+              <span className="meeting-rank" aria-hidden="true">{index + 1}</span><div className="meeting-rank-body"><div className="meeting-rank-head"><strong>{slot.label}</strong><Time start={slot.start} end={slot.end} /><span className="meeting-free">{slot.busy.length ? windowLine(slot) : "الجميع متفرغون"}</span></div>
+              {slot.busy.length ? <div className="meeting-busy"><small>يتعارض</small>{slot.busy.slice(0, 4).map(name => <span key={name}>{name}</span>)}</div> : null}
+            </div></li>)}</ol></> : null}
+        </div> : null}
 
         {answer ? (
           <div className="meeting-slots-answer" aria-live="polite">

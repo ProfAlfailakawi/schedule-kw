@@ -19,7 +19,7 @@ import { isBlockingConflict, timeToMinutes } from "../../utils/scheduleIntellige
 import { ensureSectionFaculty } from "../sectionFaculty";
 import { isTrainingAssistant, planTaConversion } from "../../utils/taConversion";
 import type { FSchedule } from "../../types";
-import { computeMeetingSlots } from "../../utils/meetingSlots";
+import { computeMeetingSlots, inspectMeetingSlot } from "../../utils/meetingSlots";
 import { departmentFamily } from "../../utils/sectionLabel";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../../utils/termSequence";
 import { blockingConflicts } from "../../utils/scheduleBlockers";
@@ -630,5 +630,35 @@ app.post("/api/schedules/meeting-slots", requireMeetingAccess, async (req: Authe
   const nameById = new Map(instructors.map(person => [Number(person.AdInstructorId), person.AdInstructorName]));
   const answer = computeMeetingSlots({ rows: termRows, ids: participantIds, nameById, duration });
   res.json({ ...answer, busyScope: "allColleges" });
+});
+
+app.post("/api/schedules/meeting-inspect", requireMeetingAccess, async (req: AuthenticatedRequest, res: Response) => {
+  const body = req.body || {};
+  const termId = Number(body.termId || 0);
+  const duration = Number(body.durationMinutes || 60);
+  const day = String(body.day || "");
+  const start = String(body.start || "");
+  const ids = Array.from(new Set((Array.isArray(body.instructorIds) ? body.instructorIds : []).map(Number).filter((id: number) => id > 0))) as number[];
+  if (!termId || !ids.length) { res.status(400).json({ error: "حدد الفصل والمشاركين" }); return; }
+  if (!/^(fsunday|fmonday|ftuesday|fwednesday|fthursday)$/.test(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(start)
+    || !Number.isInteger(duration) || duration < 30 || duration > 180) {
+    res.status(400).json({ error: "تحقق من اليوم والوقت والمدة" }); return;
+  }
+  if (roleDefinition(req.user?.Role).id === "departmentHead") {
+    const sectionId = Number(body.sectionId || 0);
+    const scoped = sectionId ? await meetingDepartmentPeople(req, sectionId, termId) : null;
+    if (!scoped) { res.status(403).json({ error: "القسم خارج نطاقك" }); return; }
+    const allowed = new Set(scoped.map(person => person.AdInstructorId));
+    if (ids.some(id => !allowed.has(id))) { res.status(403).json({ error: "أستاذ خارج نطاق القسم" }); return; }
+  }
+  const [termRows, { instructors, excluded }] = await Promise.all([
+    Repository.getSchedulesByScope({ termId }), meetingExcludedIds(termId),
+  ]);
+  const participantIds = ids.filter(id => !new Set(excluded).has(id));
+  if (!participantIds.length) { res.status(400).json({ error: "لا يوجد مشاركون صالحون للفحص" }); return; }
+  const startMinutes = Number(start.slice(0, 2)) * 60 + Number(start.slice(3));
+  if (startMinutes < 480 || startMinutes + duration > 1200) { res.status(400).json({ error: "الوقت خارج فترة الدوام (08:00–20:00)" }); return; }
+  const nameById = new Map(instructors.map(person => [Number(person.AdInstructorId), person.AdInstructorName]));
+  res.json({ ...inspectMeetingSlot({ rows: termRows, ids: participantIds, nameById, duration, day, start }), busyScope: "allColleges" });
 });
 }
