@@ -189,7 +189,7 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
           <label><span>اليوم</span><select value={chosenDay} onChange={event => { setChosenDay(event.target.value); setInspection(null); }}>
             {SCHEDULE_DAYS.map(day => <option key={day.key} value={day.key}>{day.label}</option>)}
           </select></label>
-          <label><span>الوقت</span><input type="time" min="08:00" max="20:00" step="1800" value={chosenTime} onChange={event => { setChosenTime(event.target.value); setInspection(null); }} /></label>
+          <label><span>الوقت</span><input type="time" dir="ltr" lang="en" min="08:00" max="20:00" step="1800" value={chosenTime} onChange={event => { setChosenTime(event.target.value); setInspection(null); }} /></label>
           <PrimaryButton type="button" data-guide-ignore="فحص توفر المشاركين للموعد المحدد يدوياً" disabled={picked.size < 1 || loading} onClick={() => void inspect()}>{loading ? "يفحص…" : "افحص الوقت"}</PrimaryButton>
         </div>
 
