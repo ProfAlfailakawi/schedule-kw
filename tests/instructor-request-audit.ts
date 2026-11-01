@@ -339,8 +339,8 @@ const overLoad = judgeRequest(addAsk(), context({
   courses: threeHourCourses, allRows: [], instructorRowsAfter: fourRows,
   instructorLoad: 9,
 }));
-check(!overLoad.sendable, "إضافةٌ تتجاوز النصاب تُمنع");
-check(overLoad.reasons.some(reason => reason.source === "load"), "ويُسمّى السببُ باسمه");
+check(overLoad.sendable, "إضافةٌ تتجاوز النصاب تُسمح مع بقاء فحص بقية الموانع");
+check(overLoad.reasons.some(reason => reason.source === "load" && !reason.blocking), "ويُسمّى تجاوز النصاب تنبيهاً غير مانع");
 check(overLoad.reasons.some(reason => reason.text.includes("9")), "ويُقال النصابُ المسجّل، فلا يُمنع بلا رقم");
 
 check(judgeRequest(addAsk(), context({

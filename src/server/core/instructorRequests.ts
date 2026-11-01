@@ -464,7 +464,9 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       dayStart: rules.dayStart,
       dayEnd: rules.dayEnd,
       windowOpen: open,
-      instructorLoad: loadLimitOf(context.instructors.get(Number(request.AdInstructorId))),
+      /* تجاوز النصاب يظهر للمراجع ولا يمنع الأستاذ من إرسال طلبه؛ اعتماد القسم
+         يبقى خاضعاً لفحص الجدول والتعارضات النهائي. */
+      instructorLoad: options.forDepartment ? loadLimitOf(context.instructors.get(Number(request.AdInstructorId))) : null,
       /* ورقةُ رفض القسم تعرض بدائلَ لكل بند، ولو كان متاحاً (مراجعة البروفة). */
       offerAlternatives: Boolean(options.forDepartment),
       ladderBlocks: !options.forDepartment && !offeredByDepartment,
