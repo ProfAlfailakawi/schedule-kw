@@ -349,7 +349,7 @@ await Repository.commitInstructorRequestPlan(planRequest, operations, decided, r
 assert.equal((await Repository.getScheduleById(a.id))!.fstarttime, "10:00");
 assert.equal((await Repository.getScheduleById(b.id))!.fstarttime, "10:00");
 assert.equal((await Repository.getInstructorRequest(planRequest.id))!.status, "settled");
-// Non-overlapping simultaneous requests must still share the professor's load ceiling.
+// Load excess is visible to reviewers but does not block a department-approved request.
 const loadCourse = await Repository.createCourse(1, 1, "LOADTEST", "اختبار النصاب المتزامن", 1, 1, 20, false);
 const loadPerson = await Repository.createInstructor(generateSyntheticCivilId(), "اختبار النصاب", "55000001");
 await Repository.updateInstructor(loadPerson.AdInstructorId, loadPerson.AdInstructorCivil, loadPerson.AdInstructorName, loadPerson.AdInstructorMobile, null, 1);
@@ -362,9 +362,8 @@ const loadResults = await Promise.allSettled(loadRequests.map((entry, at) => Rep
   ...proposal(`load-${at}`, loadPerson.AdInstructorId), courseId: loadCourse.AdCourseId,
   slots: entry.items[0].slots!,
 }])));
-assert.equal(loadResults.filter(result => result.status === "fulfilled").length, 1,
-  "a second concurrent request at a different time cannot exceed the shared teaching load");
-for (const result of loadResults) if (result.status === "rejected") assert.ok(result.reason instanceof RequestReservationConflict);
+assert.equal(loadResults.filter(result => result.status === "fulfilled").length, 2,
+  "non-overlapping requests may be sent even when their combined teaching load exceeds nisab");
 if (emulator) {
   const barter = await Repository.createHallBarterRequest({
     AdTermId: 900010, buildingId: "test-building", roomCode: "012B08", roomHall: "G20",

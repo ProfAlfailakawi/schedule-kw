@@ -5,8 +5,6 @@ import type { ReportStampRecord } from "../utils/reportStamp";
 import type { ActivityTrailEntry } from "../utils/activityTrail";
 import { allocateRequestReservations, retainRequestReservations, assertRequestReservationWrite, RequestReservationConflict, withReservedRooms, holdRequestReservation, releaseRequestHolds, liveReservations,
   type RequestReservation, type RequestReservationProposal, type RequestScheduleOperation } from "../utils/instructorRequestReservations";
-import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
-import { instructorWeekAfter } from "../utils/instructorRequestWeek";
 import { reservationRows } from "../utils/instructorRequestReservations";
 import { approvedBarterReservation, borrowerOutsideApprovedWindow, hallBarterWindows, scheduleViolatesApprovedBarterWindow, scheduleOccupiesApprovedBarterWindow, approvedBarterWindowMatchesSchedule, type ApprovedHallWindow } from "../utils/hallBarterWindow";
 import { clockRangesOverlap } from "../utils/scheduleTime";
@@ -5539,11 +5537,8 @@ export const Repository = {
       if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
       const next = { ...buildRequest(ids), requestRevision: Number(current.requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
       const remaining = retainRequestReservations(entries, next);
-      const loadWeek = [...finalWeek.filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId)),
-        ...reservationRows(remaining.filter(entry => entry.instructorId === Number(request.AdInstructorId)), termId)];
-      const loadLimit = loadLimitOf(loadPerson);
-      if (adding && loadLimit !== null && weeklyLoadOf(loadWeek, courseMap) > loadLimit)
-        throw new RequestReservationConflict("تغيّر نصاب الأستاذ أثناء الاعتماد. راجع الطلب والجدول.");
+      /* تجاوز النصاب معلومةٌ للمراجع، لا مانعٌ من اعتماد موعدٍ اختاره القسم.
+         فحص تعارض الأوقات والجدول النهائي أعلاه يبقى ملزماً. */
       return { request: next, rows: written, entries: remaining, finalWeek };
     };
     let result: { request: InstructorRequest; rows: FSchedule[] };
@@ -5624,18 +5619,6 @@ export const Repository = {
     const now = new Date().toISOString();
     const termId = Number(row.AdTermId);
     let next: InstructorRequest = { ...row, updatedAt: now, requestRevision: Number(row.requestRevision || 0) + 1 };
-    const checkingLoad = proposals && next.items.some(item => item.action === "add" && item.decision?.state !== "fixed" && item.decision?.state !== "rejected");
-    const [loadPerson, loadCourses] = checkingLoad
-      ? await Promise.all([Repository.getInstructorById(Number(next.AdInstructorId), termId), Repository.getCourses()]) : [undefined, []];
-    const courseMap = new Map(loadCourses.map(course => [Number(course.AdCourseId), course]));
-    const checkLoad = (week: FSchedule[], entries: RequestReservation[]) => {
-      const loadLimit = loadLimitOf(loadPerson);
-      if (loadLimit === null) return;
-      const projected = instructorWeekAfter(next, week);
-      const others = reservationRows(entries.filter(entry => entry.requestId !== next.id && entry.instructorId === Number(next.AdInstructorId)), termId);
-      if (weeklyLoadOf([...projected, ...others], courseMap) > loadLimit)
-        throw new RequestReservationConflict("تجاوز مجموع الطلبات والجدول نصابك المسجّل. راجع اختياراتك.");
-    };
     const checkRevision = (current?: InstructorRequest) => {
       if (current && Number(current.requestRevision || 0) !== Number(row.requestRevision || 0))
         throw new RequestReservationConflict("تغيّر الطلب بعد فتحه. حدّث الصفحة؛ مسودتك تبقى محفوظة على جهازك.");
@@ -5677,7 +5660,6 @@ export const Repository = {
               || borrowerOutsideApprovedWindow(roomWindows, slot.day, slot.start, slot.end, proposal.collegeId, proposal.sectionId));
           }) }));
           entries = allocateRequestReservations(entries, next, eligibleProposals, rows);
-          checkLoad(rows, entries);
         } else entries = retainRequestReservations(entries, next);
         /* القاعةُ المحجوزة تُكتب على البند نفسه (C1). */
         if (proposals) next = withReservedRooms(next, entries);
@@ -5704,7 +5686,6 @@ export const Repository = {
             || borrowerOutsideApprovedWindow(roomWindows, slot.day, slot.start, slot.end, proposal.collegeId, proposal.sectionId));
         }) }));
         const allocated = proposals ? allocateRequestReservations(entries, next, eligibleProposals!, week) : retainRequestReservations(entries, next);
-        if (proposals) checkLoad(week, allocated);
         ledgers[String(termId)] = allocated;
         if (proposals) next = withReservedRooms(next, allocated);
         if (at >= 0) db.instructorRequests[at] = next; else db.instructorRequests.unshift(next);
