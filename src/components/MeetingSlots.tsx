@@ -138,7 +138,7 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
   const inspect = useCallback(async (day = chosenDay, start = chosenTime) => {
     setLoading(true); setError(null); setAnswer(null);
     try {
-      const body = await readJson("/api/schedules/meeting-inspect", { method: "POST", body: JSON.stringify({
+      const body = await readJson("/api/schedules/meeting-slots", { method: "POST", body: JSON.stringify({
         termId, sectionId, durationMinutes: duration, instructorIds: [...picked], day, start,
       }) });
       setInspection(body);
@@ -190,7 +190,7 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
             {SCHEDULE_DAYS.map(day => <option key={day.key} value={day.key}>{day.label}</option>)}
           </select></label>
           <label><span>الوقت</span><input type="time" min="08:00" max="20:00" step="1800" value={chosenTime} onChange={event => { setChosenTime(event.target.value); setInspection(null); }} /></label>
-          <PrimaryButton type="button" disabled={picked.size < 1 || loading} onClick={() => void inspect()}>{loading ? "يفحص…" : "افحص الوقت"}</PrimaryButton>
+          <PrimaryButton type="button" data-guide-ignore="فحص توفر المشاركين للموعد المحدد يدوياً" disabled={picked.size < 1 || loading} onClick={() => void inspect()}>{loading ? "يفحص…" : "افحص الوقت"}</PrimaryButton>
         </div>
 
         <div className="meeting-slots-bulk">
