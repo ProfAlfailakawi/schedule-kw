@@ -94,8 +94,7 @@ export default function AuthorityPdfReport({
   // Source PDF order is immutable; a renamed or recreated current row may
   // have an entirely different sourceOrder. True new courses print last.
   const entries = orderAuthorityReportRows(report.rows);
-  /* ٢٨ صفاً كالتقرير الشامل، وبكثافة صفوفه نفسها (print-comprehensive-dense-rows):
-     الصف أقصر بالمليمترات التي كانت تُترك فراغاً أسفل الورقة، والتصميم كما هو. */
+  /* عدد الصفوف المعتمد في كل صفحة يبقى كما هو. */
   const pages = pageItems(entries, 28);
   const fieldChanged = (entry: AuthorityReportEntry, ...fields: string[]) =>
     entry.status === "changed" && fields.some(field => entry.changedFields.includes(field));
@@ -118,8 +117,10 @@ export default function AuthorityPdfReport({
   return (
     <div className={`print-report print-wide print-query-report print-comprehensive print-comprehensive-book print-comprehensive-dense-rows authority-pdf-report${showSite ? " authority-pdf-with-site" : ""}${showCivil ? " authority-pdf-with-civil" : ""}`}>
       <div className="print-comprehensive-pages">
-        {pages.map((pageEntries, pageIndex) => (
-          <section className="print-comprehensive-page authority-pdf-page" key={`authority-${pageIndex + 1}`}>
+        {pages.map((pageEntries, pageIndex) => {
+          const lastDocumentPage = pageOffset + pageIndex + 1 === (pageTotal ?? pages.length);
+          return (
+          <section className="print-comprehensive-page authority-pdf-page" key={`authority-${pageOffset + pageIndex + 1}`}>
             {/* ترويسة التقرير الشامل نفسها — هي المعتمدة — بعنوان هذه الوثيقة. */}
             <PrintComprehensiveHead
               title="تقرير تغييرات الجدول"
@@ -198,8 +199,8 @@ export default function AuthorityPdfReport({
               </div>
             </div>
 
-            <footer className={`print-comprehensive-page-footer authority-pdf-footer${stampCode ? " has-print-stamp" : ""}`}>
-              {pageIndex === pages.length - 1 ? (
+            <footer className={`print-comprehensive-page-footer authority-pdf-footer${lastDocumentPage && stampCode ? " has-print-stamp" : ""}`}>
+              {lastDocumentPage ? (
                 <div className="print-comprehensive-signatures">
                   <div><span>توقيع رئيس لجنة الجدول</span><i /></div>
                   <div><span>توقيع رئيس القسم العلمي</span><i /></div>
@@ -215,10 +216,11 @@ export default function AuthorityPdfReport({
                 <div className="print-comprehensive-page-number"><bdi dir="ltr">{pageOffset + pageIndex + 1} / {pageTotal ?? pages.length}</bdi></div>
               </div>
               {/* الختم على كل صفحة، كالتقرير الشامل: صفحةٌ تُفصل من الرزمة تحمل ما يُطابَق به. */}
-              {stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
+              {lastDocumentPage && stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
             </footer>
           </section>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

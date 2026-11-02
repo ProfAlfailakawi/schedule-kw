@@ -4074,12 +4074,14 @@ const APPENDIX_FIRST_PAGE_LINES = 21;
 const APPENDIX_NEXT_PAGE_LINES = 23;
 const appendixLines = (entry: ChangesAppendix["entries"][number]) => 1 + Math.max(0, entry.changes.length - 1) * 0.7;
 
-function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, approval }: {
+function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, approval, stampCode, stampOrigin }: {
   appendix: ChangesAppendix;
   collegeName: string;
   sectionName: string;
   termName: string;
   approval?: PrintApproval | null;
+  stampCode?: string | null;
+  stampOrigin?: string;
 }) {
   const pages = packPrintLines(appendix.entries, appendixLines, APPENDIX_FIRST_PAGE_LINES, APPENDIX_NEXT_PAGE_LINES);
   return (
@@ -4131,13 +4133,19 @@ function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, ap
             </div>
           ) : <p className="print-empty">لم يتغيّر شيء منذ المراجعة الأخيرة.</p>}
 
-          <footer className="print-comprehensive-page-footer">
+          <footer className={`print-comprehensive-page-footer${pageIndex === pages.length - 1 && stampCode ? " has-print-stamp" : ""}`}>
             {pageIndex === pages.length - 1 ? <PrintSignatures approval={approval} /> : null}
-            {pages.length > 1 ? (
+            {pages.length > 1 || pageIndex === pages.length - 1 ? (
               <div className="print-comprehensive-legend-stack">
+                {pageIndex === pages.length - 1 ? (
+                  <div className="print-comprehensive-legend">
+                    {DAYS.map((day, index) => <span key={day.key}>{index + 1}={day.label}</span>)}
+                  </div>
+                ) : null}
                 <div className="print-comprehensive-page-number"><bdi dir="ltr">{pageIndex + 1} / {pages.length}</bdi></div>
               </div>
             ) : null}
+            {pageIndex === pages.length - 1 && stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
           </footer>
         </section>
       ))}
@@ -4486,12 +4494,11 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                   {!changesAppendix && bookPage === totalPages ? <PrintSignatures approval={approval} /> : null}
                   <div className="print-comprehensive-legend-stack">
                     <div className="print-comprehensive-legend">
-                      {legendItems.map(item => <span key={item}>{item}</span>)}
+                      {!changesAppendix && bookPage === totalPages ? legendItems.map(item => <span key={item}>{item}</span>) : null}
                     </div>
                     <div className="print-comprehensive-page-number"><bdi dir="ltr">{bookPage} / {totalPages}</bdi></div>
                   </div>
-                  {/* الختم على كل صفحة لا على الأولى: صفحةٌ تُفصل من الرزمة تحمل ما يُطابَق به. */}
-                  {stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
+                  {(!changesAppendix && bookPage === totalPages && stampCode) ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
                 </footer>
               </section>
               );
@@ -4503,6 +4510,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                 sectionName={sectionName}
                 termName={termName || scopeLine}
                 approval={approval}
+                stampCode={stampCode}
+                stampOrigin={stampOrigin}
               />
             ) : null}
           </div>

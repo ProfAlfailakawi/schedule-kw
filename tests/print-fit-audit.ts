@@ -94,9 +94,21 @@ check(reports.includes("data-print-fit-group={`instructor:"), "وورقة كل �
 check(reports.includes("pageIndex === pages.length - 1 ? <PrintSignatures approval={approval} /> : null")
   && reports.includes("!changesAppendix && bookPage === totalPages ? <PrintSignatures approval={approval} /> : null"),
   "التواقيع في آخر صفحة من الملحق أو الشامل فقط");
-check(authorityReport.includes("pageIndex === pages.length - 1 ? (")
+check(reports.includes("!changesAppendix && bookPage === totalPages ? legendItems.map")
+  && reports.includes("pageIndex === pages.length - 1 ? (\n                  <div className=\"print-comprehensive-legend\""),
+  "مفتاح الأيام في آخر صفحة من الشامل أو ملحقه فقط");
+check(reports.includes("!changesAppendix && bookPage === totalPages && stampCode")
+  && reports.includes("pageIndex === pages.length - 1 && stampCode ? <PrintStamp"),
+  "رمز QR في آخر صفحة من الشامل أو ملحقه فقط");
+check(authorityReport.includes("lastDocumentPage ? (")
   && !authorityReport.includes("مواقع القسم في هذا الفصل:"),
   "توقيع تقرير التغييرات في آخر صفحة وسطر مواقع الفروع محذوف منه");
+check(authorityReport.includes("lastDocumentPage && stampCode ? <PrintStamp")
+  && authorityReport.includes("pageItems(entries, 28)")
+  && reports.includes("COMPREHENSIVE_FIRST_PAGE_ROWS = 28"),
+  "QR في آخر التغييرات فقط وعدد الصفوف المعتمد ٢٨");
+check(printCss.includes("font-size:4.2pt !important;") && printCss.includes("--safari-comprehensive-scale:.86;"),
+  "رقم الصفحة صغير وحجم الصفحة يدور داخل حدود A4 دون تغيير الصفوف");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
