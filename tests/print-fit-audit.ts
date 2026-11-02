@@ -4,7 +4,7 @@
  * تقرير الأستاذ بمحاضرتين كان يُطبع في ثلث الورقة بخطٍّ صغير، وبسبع محاضراتٍ
  * طويلة الأسماء يُقصّ أسفله في Safari. فصارت كل صفحةٍ تُقاس بقواعد الطباعة
  * نفسها قبل الأمر، وتُكبَّر إلى أقصى ما تحمله ورقة A4 أو تُصغَّر حتى تدخلها
- * (src/utils/printFit.ts). والشامل وتقرير التغييرات لا يُكبَّران أبداً.
+ * (src/utils/printFit.ts). والشامل وتقرير التغييرات يكبران إلى حدّ A4.
  *
  * هذا الاختبار يحرس الثلاثة: الوسائط تُقيَّم بالورقة لا بالنافذة، وسقف التكبير
  * لكل نوعٍ من الصفحات، وأن كل مسار طباعةٍ يقيس قبل الأمر لا بعده.
@@ -55,8 +55,8 @@ check(mediaListAppliesInPrint("", landscape, phone), "والقائمة الفا�
 
 const page = (classes: string[]) => ({ matches: (selector: string) => classes.some(name => selector === `.${name}`) });
 check(printFitCeiling(page(["print-explicit-page"])) === PRINT_FIT_MAX, "صفحات التقارير تُكبَّر حتى تمتلئ الورقة");
-check(printFitCeiling(page(["print-comprehensive-page"])) === 1,
-  "وصفحة الشامل وتقرير التغييرات لا تُكبَّر أبداً: صفّها مطابقٌ لورقة التسجيل");
+check(printFitCeiling(page(["print-comprehensive-page"])) === PRINT_FIT_MAX,
+  "صفحة الشامل وتقرير التغييرات تكبران حتى حدّ ورقة A4");
 check(printFitCeiling(page(["print-comprehensive-page", "print-changes-appendix"])) === PRINT_FIT_MAX,
   "أمّا ملحق التغييرات فوثيقةٌ نصية تُملأ كبقية التقارير");
 check(PRINT_FIT_MIN >= 0.5 && PRINT_FIT_MAX <= 2, "والتصغير والتكبير في حدودٍ تُقرأ");
