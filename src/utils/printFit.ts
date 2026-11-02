@@ -211,8 +211,10 @@ const BOOK_PAGES = ".print-comprehensive-book .print-comprehensive-page";
  * لكل صفحة سقفُ تكبيرٍ واحد؛ والقياس أدناه يختار أكبر حجمٍ يدخل حدود A4.
  */
 export function printFitCeiling(page: Pick<Element, "matches">): number {
-  void page;
-  return PRINT_FIT_MAX;
+  /* الجدول العريض له أعمدة ثابتة: فوق ١٢٠٪ قد يفيض العرض ولو بقي الارتفاع
+     يسمح بالتكبير، خصوصاً بصفحات التغييرات القصيرة. نحافظ على سقف بقية
+     التقارير كما هو، ونقيد صفحات الكتاب فقط بقياس الورقة المرجعي. */
+  return page.matches(".print-comprehensive-page") ? Math.min(1.2, PRINT_FIT_MAX) : PRINT_FIT_MAX;
 }
 
 /** يُكتب أثناء القياس وحده: الصفحة بطولها الطبيعي، لا مقصوصةً ولا مُدارة. */
