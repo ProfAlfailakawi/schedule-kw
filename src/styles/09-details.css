@@ -1796,6 +1796,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .meeting-slots-pick-time>strong svg{width:16px;height:16px;color:var(--accent)}
 .meeting-slots-pick-time label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;font-weight:700}
 .meeting-slots-pick-time select,.meeting-slots-pick-time input{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:7px 9px;font:inherit}
+.meeting-slots-pick-time input{direction:ltr;unicode-bidi:isolate;text-align:center;font-variant-numeric:tabular-nums;inline-size:92px}
 .meeting-inspect-names{margin:0;padding:10px 12px;border-radius:12px;background:var(--surface-2);color:var(--ink-2);font-size:13px}
 .meeting-slots-search{
   flex:1;min-width:200px;display:flex;align-items:center;gap:8px;
