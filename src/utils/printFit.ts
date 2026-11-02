@@ -210,11 +210,13 @@ const BOOK_PAGES = ".print-comprehensive-book .print-comprehensive-page";
 /**
  * لكل صفحة سقفُ تكبيرٍ واحد؛ والقياس أدناه يختار أكبر حجمٍ يدخل حدود A4.
  */
-export function printFitCeiling(page: Pick<Element, "matches">): number {
-  /* الجدول العريض له أعمدة ثابتة: فوق ١٢٠٪ قد يفيض العرض ولو بقي الارتفاع
-     يسمح بالتكبير، خصوصاً بصفحات التغييرات القصيرة. نحافظ على سقف بقية
-     التقارير كما هو، ونقيد صفحات الكتاب فقط بقياس الورقة المرجعي. */
-  return page.matches(".print-comprehensive-page") ? Math.min(1.2, PRINT_FIT_MAX) : PRINT_FIT_MAX;
+export function printFitCeiling(page: Pick<Element, "matches">, rotated = false): number {
+  /* الدوران على ورقة Safari يملأ A4 بتحويل الصفحة نفسه؛ لا نكبّر محتواها
+     مرة ثانية، وإلا خرج ذيل التواقيع إلى ورقة إضافية. */
+  if (page.matches(".print-comprehensive-page") && rotated) return 1;
+  /* صفحات الجدول المعتمد تُكبَّر إلى أقصى ما تسمح به أبعاد A4؛ قياس الفيضان
+     أدناه يوقف الزيادة إذا بدأت الأعمدة أو الخلايا تتجاوز عرض الورقة. */
+  return PRINT_FIT_MAX;
 }
 
 /** يُكتب أثناء القياس وحده: الصفحة بطولها الطبيعي، لا مقصوصةً ولا مُدارة. */
@@ -326,7 +328,7 @@ export function fitPrintPages(scope: ParentNode = document): PrintFitResult {
         .map(page => {
           const fixed = parseFloat(getComputedStyle(page).maxHeight);
           const box = Number.isFinite(fixed) && fixed > 0 ? Math.min(fixed, sheetHeight) : sheetHeight;
-          return { page, limit: box - SAFETY_MM * MM, ceiling: printFitCeiling(page) };
+          return { page, limit: box - SAFETY_MM * MM, ceiling: printFitCeiling(page, root.dataset.printRotate === "1") };
         });
       if (!pages.length) return [];
 

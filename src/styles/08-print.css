@@ -2072,7 +2072,7 @@
      A4 landscape page; the content padding remains inside that physical page. */
   html[data-print-rotate="1"]{
     --safari-rot-scale:.86;
-    --safari-comprehensive-scale:.86;
+    --safari-comprehensive-scale:1;
   }
 
   html[data-print-rotate="1"] body,
@@ -2124,6 +2124,9 @@
     /* Keep the 28-row approved sheet inside the printable A4 portrait area. */
     margin:0 0 calc(297mm * var(--safari-comprehensive-scale) - 210mm) 0 !important;
     transform:translate(calc(210mm * var(--safari-comprehensive-scale)), calc((297mm - 297mm * var(--safari-comprehensive-scale)) / 2)) rotate(90deg) scale(var(--safari-comprehensive-scale)) !important;
+  }
+  html[data-print-rotate="1"] .print-comprehensive-pages>.print-comprehensive-page:last-child{
+    margin-bottom:0 !important;
   }
 
   /* The comprehensive book wrapper must not re-impose landscape width around
@@ -2735,10 +2738,10 @@
     padding-block:.6mm !important;
   }
   .print-comprehensive-dense-rows .print-comprehensive-grid-body .print-comprehensive-grid-row{
-    min-height:4.55mm !important;
+    min-height:5.5mm !important;
   }
   .print-comprehensive-dense-rows .print-comprehensive-grid-body .print-comprehensive-grid-row>[role="cell"]{
-    padding-block:.5mm !important;
+    padding-block:.75mm !important;
     line-height:1.1 !important;
   }
   .print-comprehensive-dense-rows .print-comprehensive-page-footer{

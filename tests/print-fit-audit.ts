@@ -55,10 +55,12 @@ check(mediaListAppliesInPrint("", landscape, phone), "والقائمة الفا�
 
 const page = (classes: string[]) => ({ matches: (selector: string) => classes.some(name => selector === `.${name}`) });
 check(printFitCeiling(page(["print-explicit-page"])) === PRINT_FIT_MAX, "صفحات التقارير تُكبَّر حتى تمتلئ الورقة");
-check(printFitCeiling(page(["print-comprehensive-page"])) === 1.2,
-  "صفحة الشامل وتقرير التغييرات لا تتجاوزان ١٢٠٪ كيلا تقص الأعمدة");
-check(printFitCeiling(page(["print-comprehensive-page", "print-changes-appendix"])) === 1.2,
-  "وملحق التغييرات يبقى ضمن سقف ١٢٠٪");
+check(printFitCeiling(page(["print-comprehensive-page"])) === PRINT_FIT_MAX,
+  "صفحة الشامل وتقرير التغييرات تتبع الحد الأعلى للقياس الآمن لملء A4");
+check(printFitCeiling(page(["print-comprehensive-page"]), true) === 1,
+  "الصفحة المدارة إلى A4 لا تُكبَّر مرتين ولا تُسقط التوقيعات إلى ورقة إضافية");
+check(printFitCeiling(page(["print-comprehensive-page", "print-changes-appendix"])) === PRINT_FIT_MAX,
+  "وملحق التغييرات يتبع الحد الأعلى للقياس الآمن لملء A4");
 check(PRINT_FIT_MIN >= 0.5 && PRINT_FIT_MAX <= 2, "والتصغير والتكبير في حدودٍ تُقرأ");
 
 /* ── الملحق صفحاتٌ بحسب طوله، لا صفحةٌ تُقصّ ──────────────────────────────── */
@@ -107,7 +109,7 @@ check(authorityReport.includes("lastDocumentPage && stampCode ? <PrintStamp")
   && authorityReport.includes("pageItems(entries, 28)")
   && reports.includes("COMPREHENSIVE_FIRST_PAGE_ROWS = 28"),
   "QR في آخر التغييرات فقط وعدد الصفوف المعتمد ٢٨");
-check(printCss.includes("font-size:4.2pt !important;") && printCss.includes("--safari-comprehensive-scale:.86;"),
+check(printCss.includes("font-size:4.2pt !important;") && printCss.includes("--safari-comprehensive-scale:1;"),
   "رقم الصفحة صغير وحجم الصفحة يدور داخل حدود A4 دون تغيير الصفوف");
 
 console.log(`\n${passed} passed, ${failed} failed`);
