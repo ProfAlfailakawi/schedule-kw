@@ -4442,7 +4442,6 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                 <div className="print-comprehensive-grid" role="table" aria-label="تفاصيل المقررات والجدول">
                   <div className="print-comprehensive-grid-row print-comprehensive-grid-head" role="row">
                     {[
-                      "م",
                       "رمز المقرر",
                       "الشعبة",
                       "المقرر الدراسي",
@@ -4461,12 +4460,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                     {pageRows.map((row, index) => {
                       const course = courseOf(row);
                       const instructor = instructorOf(row);
-                      const serial = pageIndex === 0
-                        ? index + 1
-                        : COMPREHENSIVE_FIRST_PAGE_ROWS + ((pageIndex - 1) * COMPREHENSIVE_NEXT_PAGE_ROWS) + index + 1;
                       return (
                         <div className="print-comprehensive-grid-row" role="row" key={row.id}>
-                          <div role="cell" className="print-num">{serial}</div>
                           <div role="cell" className="print-ltr print-course-id">{course?.CourseCode || "—"}</div>
                           <div role="cell" className="print-ltr">{row.SCode || "—"}</div>
                           {/* الموقع بطاقة بجانب اسم المقرر لا عموداً: العمود

@@ -109,6 +109,12 @@ check(authorityReport.includes("lastDocumentPage && stampCode ? <PrintStamp")
   && authorityReport.includes("pageItems(entries, 28)")
   && reports.includes("COMPREHENSIVE_FIRST_PAGE_ROWS = 28"),
   "QR في آخر التغييرات فقط وعدد الصفوف المعتمد ٢٨");
+const comprehensiveGridStart = reports.indexOf('aria-label="تفاصيل المقررات والجدول"');
+const comprehensiveGrid = reports.slice(comprehensiveGridStart, reports.indexOf("className={`print-comprehensive-page-footer", comprehensiveGridStart));
+check(comprehensiveGridStart >= 0 && !comprehensiveGrid.includes('"م",') && !comprehensiveGrid.includes('className="print-num"')
+  && (comprehensiveGrid.match(/role="cell"/g) || []).length === 12
+  && printCss.includes("19mm 12mm minmax(51mm,1fr)"),
+  "عمود م محذوف من الشامل والمساحة المستعادة للمقرر، مع بقاء بقية الأعمدة ١٢ كما هي");
 check(printCss.includes("font-size:4.2pt !important;") && printCss.includes("--safari-comprehensive-scale:1;"),
   "رقم الصفحة صغير وحجم الصفحة يدور داخل حدود A4 دون تغيير الصفوف");
 

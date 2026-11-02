@@ -1437,7 +1437,7 @@
   .print-comprehensive-grid-row{
     display:grid !important;
     grid-template-columns:
-      9mm 19mm 12mm minmax(42mm,1fr)
+      19mm 12mm minmax(51mm,1fr)
       10mm 10mm 12mm 25mm 16mm 12mm 15mm 35mm 27mm !important;
     width:100% !important;
     min-width:0 !important;
