@@ -349,7 +349,7 @@ authority_branch=(ROOT/'src/components/AuthorityPdfReport.tsx').read_text()
 ok('130f the branch-wide documents are the SAME renderers, so a one-site department prints exactly what it printed before', 'if (kind === "comprehensive" || kind === "comprehensive-branch")' in reports_branch and 'siteGroups?.length' in reports_branch and 'branchSites.length > 1 ?' in reports_branch)
 ok('130x the change report across sites is ONE merged document, not three reports glued together', 'rows: authorityBook.flatMap(entry => entry.report.rows.map(row => ({ ...row, siteLabel: entry.site.isBase ? "" : entry.site.siteLabel })))' in reports_branch and 'showSite = false,' in authority_branch and 'print-site-chip' in authority_branch)
 ok('130g the book numbers its pages continuously across sites instead of restarting at every site', '{bookPage} / {totalPages}' in reports_branch and 'pageOffset + pageIndex + 1' in authority_branch and 'pageTotal ?? pages.length' in authority_branch)
-ok('130h the first page states the shape of the whole department before its detail', 'print-comprehensive-sites' in reports_branch and 'print-comprehensive-sites' in authority_branch and '.print-comprehensive-sites{' in (ROOT/'src/styles/08-print.css').read_text())
+ok('130h the comprehensive report states the department shape; the changes report omits that summary row', 'print-comprehensive-sites' in reports_branch and 'print-comprehensive-sites' not in authority_branch and '.print-comprehensive-sites{' in (ROOT/'src/styles/08-print.css').read_text())
 ok('130i a site outside the reader permissions is named, never silently dropped from the document', 'لم تُدرج مواقع خارج صلاحياتك' in reports_branch and 'denied.push(site.siteLabel)' in reports_branch)
 ok('130j the branch document takes each site whole timetable, never one filtered site beside three complete ones', 'rows: site.isBase ? all :' in reports_branch)
 # A row belongs to the site its OFFICIAL BUILDING names — a field can be lost, a building code cannot.
@@ -446,10 +446,11 @@ ok('181 the site chip is written on branch rows only, never on the main campus, 
    'bookSites.forEach(group => { if (!group.site.isBase) group.rows.forEach(row => siteOfRow.set(row, group.site.siteLabel)); });' in reports_src
    and 'siteLabel: entry.site.isBase ? "" : entry.site.siteLabel' in reports_src)
 
-ok('182 the per-site change tally is written in words, and no change is said outright',
-   '`مضاف ${site.added}`' in authority_report and '`محذوف ${site.deleted}`' in authority_report
-   and '`معدّل ${site.changed}`' in authority_report and '"بلا تغيير"' in authority_report
-   and '+{site.added}' not in authority_report)
+ok('182 the change report omits the per-site tally row completely',
+   'مواقع القسم في هذا الفصل:' not in authority_report
+   and '`مضاف ${site.added}`' not in authority_report
+   and '`محذوف ${site.deleted}`' not in authority_report
+   and '`معدّل ${site.changed}`' not in authority_report)
 
 ok('183 the branch-site prefix set is declared before the loop that fills it (a const read first threw at runtime)',
    server.index('const otherSitePrefixes=new Set<string>();') < server.index('if(prefix&&prefix!==basePrefix)otherSitePrefixes.add(prefix);'))
