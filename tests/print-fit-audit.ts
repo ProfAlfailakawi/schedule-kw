@@ -74,6 +74,8 @@ check(packPrintLines([1, 2], () => 99, 34, 42).length === 2, "والتغيير �
 /* ── كل مسار طباعةٍ يقيس قبل الأمر ───────────────────────────────────────── */
 
 const reports = fs.readFileSync(path.join(process.cwd(), "src/components/Reports.tsx"), "utf8");
+const authorityReport = fs.readFileSync(path.join(process.cwd(), "src/components/AuthorityPdfReport.tsx"), "utf8");
+const fitSource = fs.readFileSync(path.join(process.cwd(), "src/utils/printFit.ts"), "utf8");
 const printCss = fs.readFileSync(path.join(process.cwd(), "src/styles/08-print.css"), "utf8");
 const fitCalls = reports.split("fitPrintPages(document.getElementById(\"app-print-root\") || document);").length - 1;
 check(fitCalls === 3, "التقارير والشامل وتقرير التغييرات: ثلاثة مسارات طباعة، وكلها تقيس");
@@ -86,8 +88,15 @@ for (const marker of ["const printReport = ", "const runPrint = ", "const printA
 const flat = printCss.replace(/\s+/g, "");
 check(flat.includes(".print-explicit-page[data-print-fit]>*") && flat.includes(".print-comprehensive-page[data-print-fit]>*") && flat.includes("zoom:var(--print-fit,1)!important"),
   "والحجم يُطبَّق على محتوى الصفحة كله، لا على هوامشها");
-check(reports.includes('data-print-fit-group="appendix"'), "وصفحات الملحق حجمٌ واحد");
+check(fitSource.includes('page.dataset.printFitGroup || `page:${pageIndex}`'), "الصفحة بلا مجموعة صريحة تُقاس وحدها لتملأ A4");
+check(!reports.includes('data-print-fit-group="appendix"'), "وكل صفحةٍ من ملحق التغييرات تأخذ أكبر حجمها المناسب");
 check(reports.includes("data-print-fit-group={`instructor:"), "وورقة كل أستاذ بحجمها هي");
+check(reports.includes("pageIndex === pages.length - 1 ? <PrintSignatures approval={approval} /> : null")
+  && reports.includes("!changesAppendix && bookPage === totalPages ? <PrintSignatures approval={approval} /> : null"),
+  "التواقيع في آخر صفحة من الملحق أو الشامل فقط");
+check(authorityReport.includes("pageIndex === pages.length - 1 ? (")
+  && !authorityReport.includes("مواقع القسم في هذا الفصل:"),
+  "توقيع تقرير التغييرات في آخر صفحة وسطر مواقع الفروع محذوف منه");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

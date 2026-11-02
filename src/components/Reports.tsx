@@ -3644,13 +3644,6 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                نفسها المعمول بها في التقرير الشامل. */
             rows: authorityBook.flatMap(entry => entry.report.rows.map(row => ({ ...row, siteLabel: entry.site.isBase ? "" : entry.site.siteLabel }))),
           };
-          const bookSites = authorityBook.map(entry => ({
-            label: entry.site.siteLabel,
-            added: entry.report.counts.added,
-            deleted: entry.report.counts.deleted,
-            changed: entry.report.counts.changed,
-            review: entry.report.counts.review || 0,
-          }));
           return (
             <AuthorityPdfReport
               report={merged}
@@ -3663,7 +3656,6 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               instructorById={instructorById}
               visitingIds={visitingIds}
               isVisitingRow={bookRowIsVisiting}
-              bookSites={bookSites}
               showSite
               showCivil={authorityCivil}
               approval={printApproval ? { line: approvalScopeLine(printApproval), status: printApproval.status } : null}
@@ -4093,7 +4085,7 @@ function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, ap
   return (
     <>
       {pages.map((pageEntries, pageIndex) => (
-        <section className="print-comprehensive-page print-changes-appendix" data-print-fit-group="appendix" key={`appendix-${pageIndex + 1}`}>
+        <section className="print-comprehensive-page print-changes-appendix" key={`appendix-${pageIndex + 1}`}>
           <header className="print-comprehensive-classic-head">
             <div className="print-comprehensive-head-top">
               <div className="print-comprehensive-title-block">
@@ -4140,7 +4132,7 @@ function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, ap
           ) : <p className="print-empty">لم يتغيّر شيء منذ المراجعة الأخيرة.</p>}
 
           <footer className="print-comprehensive-page-footer">
-            <PrintSignatures approval={approval} />
+            {pageIndex === pages.length - 1 ? <PrintSignatures approval={approval} /> : null}
             {pages.length > 1 ? (
               <div className="print-comprehensive-legend-stack">
                 <div className="print-comprehensive-page-number"><bdi dir="ltr">{pageIndex + 1} / {pages.length}</bdi></div>
@@ -4491,7 +4483,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                 </div>
 
                 <footer className={`print-comprehensive-page-footer${stampCode ? " has-print-stamp" : ""}`}>
-                  <PrintSignatures approval={approval} />
+                  {!changesAppendix && bookPage === totalPages ? <PrintSignatures approval={approval} /> : null}
                   <div className="print-comprehensive-legend-stack">
                     <div className="print-comprehensive-legend">
                       {legendItems.map(item => <span key={item}>{item}</span>)}

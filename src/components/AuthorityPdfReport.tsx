@@ -52,8 +52,6 @@ interface Props {
    */
   pageOffset?: number;
   pageTotal?: number;
-  /** يُطبع مرة واحدة في أول صفحة من الكتاب: شكل القسم كله قبل تفصيله. */
-  bookSites?: Array<{ label: string; added: number; deleted: number; changed: number; review?: number }>;
   /** حين تضم الوثيقة مواقع الفرع: عمود «الموقع» يظهر، وصفوف المواقع تتصل. */
   showSite?: boolean;
   /** النسخة نفسها بعمودٍ أخير للرقم المدني بعد اسم المدرس، لكل صف لا للمعدَّل وحده. */
@@ -86,7 +84,6 @@ export default function AuthorityPdfReport({
   isVisitingRow,
   pageOffset = 0,
   pageTotal,
-  bookSites,
   showSite = false,
   showCivil = false,
   approval = null,
@@ -133,25 +130,6 @@ export default function AuthorityPdfReport({
               termName={termName}
               issueDate={issueDate}
             />
-            {pageOffset + pageIndex === 0 && bookSites?.length ? (
-              <div className="print-comprehensive-sites" role="note">
-                <span>مواقع القسم في هذا الفصل:</span>
-                {/* ── يُقرأ بلا شرح ────────────────────────────────────────
-                    كان السطر يقول «+1 −0 ±1»، وهي رموز يعرفها من كتبها. وما
-                    يحتاجه قارئ الوثيقة كلمتان: ماذا أُضيف وماذا حُذف وماذا
-                    عُدّل، وما لا تغيير فيه يُقال صراحةً لا بصفرٍ مركون. */}
-                {bookSites.map(site => {
-                  const parts = [
-                    site.added ? `مضاف ${site.added}` : "",
-                    site.deleted ? `محذوف ${site.deleted}` : "",
-                    site.changed ? `معدّل ${site.changed}` : "",
-                    site.review ? `مراجعة المصدر ${site.review}` : "",
-                  ].filter(Boolean);
-                  return <b key={site.label}>{site.label} · {parts.length ? parts.join(" · ") : "بلا تغيير"}</b>;
-                })}
-              </div>
-            ) : null}
-
             <div className="print-comprehensive-grid authority-pdf-grid" role="table" aria-label="تقرير تغييرات الجدول">
               <div className="print-comprehensive-grid-row print-comprehensive-grid-head" role="row">
                 {/* أعمدة المستند بترتيبها كما تطبعه الهيئة، ثم عمود الرقم المدني في نسخته وحدها. */}
@@ -221,11 +199,13 @@ export default function AuthorityPdfReport({
             </div>
 
             <footer className={`print-comprehensive-page-footer authority-pdf-footer${stampCode ? " has-print-stamp" : ""}`}>
-              <div className="print-comprehensive-signatures">
-                <div><span>توقيع رئيس لجنة الجدول</span><i /></div>
-                <div><span>توقيع رئيس القسم العلمي</span><i /></div>
-                <div><span>توقيع العميد</span><i /></div>
-              </div>
+              {pageIndex === pages.length - 1 ? (
+                <div className="print-comprehensive-signatures">
+                  <div><span>توقيع رئيس لجنة الجدول</span><i /></div>
+                  <div><span>توقيع رئيس القسم العلمي</span><i /></div>
+                  <div><span>توقيع العميد</span><i /></div>
+                </div>
+              ) : null}
               <div className="print-comprehensive-legend-stack">
                 <div className="print-comprehensive-legend authority-pdf-legend">
                   <span className="authority-pdf-key authority-pdf-key-added">مضاف</span>

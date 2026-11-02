@@ -288,9 +288,9 @@ export interface PrintFitResult { pages: number; scales: number[] }
  * يملأ كل صفحةٍ في `scope` بأكبر حجمٍ تحمله ورقة A4، ويُصغّر ما تجاوزها.
  *
  * الصفحات التي تحمل `data-print-fit-group` واحداً في التقرير نفسه تأخذ حجماً
- * واحداً — أصغرَ ما احتاجته صفحاتها — حتى لا يتبدّل الخط بين صفحتين من الورقة
- * نفسها؛ وما لا يحمله يُجمع بتقريره كله. أستاذٌ في صفحتين بخطٍّ واحد، وأستاذٌ
- * آخر بخطّه هو.
+ * واحداً — أصغرَ ما احتاجته صفحاتها — حتى لا يتبدّل الخط بين صفحتين مرتبطتين.
+ * أمّا الصفحة التي لا تحمل مجموعةً صريحةً فتُقاس وحدها، حتى لا يترك ازدحام
+ * صفحةٍ فراغاً كبيراً في صفحةٍ أخرى أقصر منها.
  */
 export function fitPrintPages(scope: ParentNode = document): PrintFitResult {
   const root = document.documentElement;
@@ -307,10 +307,10 @@ export function fitPrintPages(scope: ParentNode = document): PrintFitResult {
   style.dataset.printFitMeasure = "true";
   style.textContent = MEASURE_CSS;
   const reports = new Map<Element, number>();
-  const groupOf = (page: HTMLElement) => {
+  const groupOf = (page: HTMLElement, pageIndex: number) => {
     const report = page.closest(".print-report") || page;
     if (!reports.has(report)) reports.set(report, reports.size);
-    return `${reports.get(report)}:${page.dataset.printFitGroup || ""}`;
+    return `${reports.get(report)}:${page.dataset.printFitGroup || `page:${pageIndex}`}`;
   };
 
   let scales: number[] = [];
@@ -368,12 +368,12 @@ export function fitPrintPages(scope: ParentNode = document): PrintFitResult {
 
       const groupScale = new Map<string, number>();
       pages.forEach((item, index) => {
-        const key = groupOf(item.page);
+        const key = groupOf(item.page, index);
         const scale = low[index] >= 1 && high[index] <= 1 ? 1 : Math.floor(low[index] * 100) / 100;
         groupScale.set(key, Math.min(groupScale.get(key) ?? Infinity, scale));
       });
-      return pages.map(item => {
-        const scale = groupScale.get(groupOf(item.page)) ?? 1;
+      return pages.map((item, index) => {
+        const scale = groupScale.get(groupOf(item.page, index)) ?? 1;
         setFit(item.page, scale);
         return scale;
       });
