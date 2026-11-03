@@ -1917,7 +1917,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") leftForPrint = true;
-      else if (leftForPrint) resume();
+      else if (leftForPrint) {
+        /* iOS Safari can make the document visible while its print preview is
+           still open. Resume live updates, but keep the landscape geometry
+           until `afterprint`; clearing it here collapses the letterhead. */
+        leftForPrint = false;
+        document.title = originalTitle;
+        openReportEvents();
+      }
     };
     window.addEventListener("afterprint", resume, { once: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -2142,7 +2149,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       };
       const onVisibilityChange = () => {
         if (document.visibilityState === "hidden") leftForPrint = true;
-        else if (leftForPrint) resume();
+        else if (leftForPrint) {
+          /* Returning from Safari's print sheet is not proof that preview has
+             closed. Keep page rotation until `afterprint` to avoid reflow. */
+          leftForPrint = false;
+          document.title = originalTitle;
+          openReportEvents();
+        }
       };
       window.addEventListener("afterprint", resume, { once: true });
       document.addEventListener("visibilitychange", onVisibilityChange);
