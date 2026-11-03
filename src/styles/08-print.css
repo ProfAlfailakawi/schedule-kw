@@ -2119,6 +2119,12 @@
     margin:0 0 calc(297mm * var(--safari-rot-scale) - 210mm) 0 !important;
     transform:translate(calc(210mm * var(--safari-rot-scale)), calc((297mm - 297mm * var(--safari-rot-scale)) / 2)) rotate(90deg) scale(var(--safari-rot-scale)) !important;
   }
+  /* The flow slot reserves the rotated page's full height for the next page.
+     The final sheet has no following page to protect; at 100% Safari otherwise
+     carries that exact 297mm reservation onto an extra, empty A4 sheet. */
+  html[data-print-rotate="1"] .print-report.print-wide .print-explicit-page:last-child{
+    margin-bottom:0 !important;
+  }
 
   html[data-print-rotate="1"] .print-comprehensive-page{
     /* Keep the 28-row approved sheet inside the printable A4 portrait area. */
