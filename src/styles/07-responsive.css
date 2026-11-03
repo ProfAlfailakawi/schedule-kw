@@ -2008,3 +2008,13 @@ html[data-demo-admin-readonly="true"] .app-main::before{
   .mobile-topbar{padding-block:max(2px,env(safe-area-inset-top))}
   .mobile-bottom-dock{padding-bottom:max(3px,env(safe-area-inset-bottom))}
 }
+/* On Duo's narrow folded screen the appointment editor's sticky save bar
+   covered the lower part of the active step. Keep the actions in the form flow
+   on that compact segment so every field remains readable; the controls stay
+   at the end of the form and retain their existing behavior. */
+@media screen and (device-posture: folded) and (max-width:700px){
+  .schedule-editor.is-studio .save-preview.appt-bar{
+    position:static;
+    bottom:auto;
+  }
+}
