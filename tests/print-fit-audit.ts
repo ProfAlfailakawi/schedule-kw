@@ -115,8 +115,10 @@ check(comprehensiveGridStart >= 0 && !comprehensiveGrid.includes('"م",') && !co
   && (comprehensiveGrid.match(/role="cell"/g) || []).length === 12
   && printCss.includes("19mm 12mm minmax(51mm,1fr)"),
   "عمود م محذوف من الشامل والمساحة المستعادة للمقرر، مع بقاء بقية الأعمدة ١٢ كما هي");
-check(printCss.includes("font-size:4.2pt !important;") && printCss.includes("--safari-comprehensive-scale:1;"),
-  "رقم الصفحة صغير وحجم الصفحة يدور داخل حدود A4 دون تغيير الصفوف");
+check(printCss.includes("font-size:4.2pt !important;")
+  && printCss.includes("--safari-comprehensive-scale:1;")
+  && printCss.includes("--safari-rot-scale:1;"),
+  "رقم الصفحة صغير وتقارير Safari تملأ A4 الطولي بحجم الشامل دون تغيير الصفوف أو الاتجاه");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
