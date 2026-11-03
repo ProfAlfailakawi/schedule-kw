@@ -2760,6 +2760,21 @@
   .print-query-groups-report .print-instructor-venue .companion-facility-badge bdi{font-size:6.8pt!important;white-space:normal!important;overflow-wrap:anywhere!important}
 }
 
+/* Keep the comprehensive A4 table dense, but make its printed text readable
+   at normal paper viewing distance. The established columns and rows stay
+   intact; this only strengthens the type inside the same page geometry. */
+@media print{
+  .print-comprehensive-dense-rows .print-comprehensive-grid-body .print-comprehensive-grid-row>[role="cell"]{
+    font-size:9pt !important;
+    font-weight:600 !important;
+    line-height:1.18 !important;
+  }
+  .print-comprehensive-dense-rows .print-comprehensive-grid-head>[role="columnheader"]{
+    font-size:8.2pt !important;
+    font-weight:850 !important;
+  }
+}
+
 /* ── ختم الورقة (PrintStamp) ────────────────────────────────────────────────
    عمودٌ ثالث في الطرف الأيسر من ذيل الشامل وتقرير التغييرات، بارتفاع خانات
    التوقيع لا أكثر: الذيل لا يطول مليمتراً، فلا يسقط صفٌّ من الصفحة. وما سواه
