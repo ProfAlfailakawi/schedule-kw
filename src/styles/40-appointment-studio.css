@@ -32,6 +32,26 @@
   .schedule-editor.is-studio .appt-layout:has(>.editor-side:empty)>.appt-form{width:100%;max-width:1000px;margin-inline:auto}
 }
 
+/* Duo opened landscape has enough combined width for the desktop appointment
+   workspace even when its CSS viewport is just below the regular 1101px cut. */
+@media screen and (horizontal-viewport-segments:2) and (min-width:900px) and (max-width:1100px){
+  .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout.has-week:has(>.editor-side){
+    grid-template-columns:minmax(0,1fr) clamp(280px,34vw,380px);
+    column-gap:18px;
+  }
+  .schedule-editor.is-studio .appt-layout>.editor-side{
+    align-self:start;
+    position:sticky;
+    top:12px;
+    max-height:calc(100dvh - 24px);
+    overflow:auto;
+    overscroll-behavior:contain;
+    scrollbar-width:thin;
+    padding-bottom:4px;
+  }
+  .schedule-editor.is-studio .appt-layout>.editor-side:empty{display:none}
+}
+
 /* الأسئلة: بطاقةٌ لكل سؤال، والمحرَّرة الآن تضيء */
 .schedule-editor.is-studio .appt-steps{gap:12px;margin-top:0}
 .schedule-editor.is-studio .appt-step{gap:16px;padding:20px 22px;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-xs);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
