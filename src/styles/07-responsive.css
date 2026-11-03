@@ -1992,3 +1992,19 @@ html[data-demo-admin-readonly="true"] .app-main::before{
   .apex-login[data-short="true"] .apex-login-mark{width:38px!important;height:38px!important;flex-basis:38px!important}
   .apex-login[data-short="true"] .apex-login-mark svg{width:38px!important;height:38px!important}
 }
+
+/* iPhone Duo folded postures only. The APIs are preview-only in Safari 27.1;
+   when unavailable or disabled, all existing schedule styles remain unchanged. */
+@media screen and (device-posture: folded) and (horizontal-viewport-segments: 2){
+  .app-main,.mobile-topbar,.mobile-bottom-dock{min-width:0}
+  .app-main :where(.surface,.panel,.form-card,.schedule-card){min-width:0}
+}
+@media screen and (device-posture: folded) and (vertical-viewport-segments: 2){
+  .app-main,.mobile-topbar,.mobile-bottom-dock{min-width:0}
+  .app-main :where(.surface,.panel,.form-card,.schedule-card){min-width:0}
+}
+@media screen and (device-posture: folded) and (orientation:landscape) and (max-height:520px){
+  html{scroll-padding-block:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-bottom))}
+  .mobile-topbar{padding-block:max(2px,env(safe-area-inset-top))}
+  .mobile-bottom-dock{padding-bottom:max(3px,env(safe-area-inset-bottom))}
+}
