@@ -50,17 +50,4 @@
     inset-inline-end:0;
   }
 
-  /* The form owns one display. Keep the instructor week in its flow instead of
-     squeezing a desktop two-column editor into half of the Duo viewport. */
-  .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout.has-week:has(>.editor-side){
-    grid-template-columns:minmax(0,1fr);
-    row-gap:14px;
-  }
-  .schedule-editor.is-studio .appt-layout>.editor-side{
-    position:static;
-    top:auto;
-    max-height:none;
-    overflow:visible;
-    margin-top:0;
-  }
 }
