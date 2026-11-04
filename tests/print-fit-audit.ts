@@ -4,7 +4,7 @@
  * تقرير الأستاذ بمحاضرتين كان يُطبع في ثلث الورقة بخطٍّ صغير، وبسبع محاضراتٍ
  * طويلة الأسماء يُقصّ أسفله في Safari. فصارت كل صفحةٍ تُقاس بقواعد الطباعة
  * نفسها قبل الأمر، وتُكبَّر إلى أقصى ما تحمله ورقة A4 أو تُصغَّر حتى تدخلها
- * (src/utils/printFit.ts). والشامل وتقرير التغييرات لا يُكبَّران أبداً.
+ * (src/utils/printFit.ts). والشامل وتقرير التغييرات يكبران إلى حدّ A4.
  *
  * هذا الاختبار يحرس الثلاثة: الوسائط تُقيَّم بالورقة لا بالنافذة، وسقف التكبير
  * لكل نوعٍ من الصفحات، وأن كل مسار طباعةٍ يقيس قبل الأمر لا بعده.
@@ -55,10 +55,12 @@ check(mediaListAppliesInPrint("", landscape, phone), "والقائمة الفا�
 
 const page = (classes: string[]) => ({ matches: (selector: string) => classes.some(name => selector === `.${name}`) });
 check(printFitCeiling(page(["print-explicit-page"])) === PRINT_FIT_MAX, "صفحات التقارير تُكبَّر حتى تمتلئ الورقة");
-check(printFitCeiling(page(["print-comprehensive-page"])) === 1,
-  "وصفحة الشامل وتقرير التغييرات لا تُكبَّر أبداً: صفّها مطابقٌ لورقة التسجيل");
+check(printFitCeiling(page(["print-comprehensive-page"])) === PRINT_FIT_MAX,
+  "صفحة الشامل وتقرير التغييرات تتبع الحد الأعلى للقياس الآمن لملء A4");
+check(printFitCeiling(page(["print-comprehensive-page"]), true) === 1,
+  "الصفحة المدارة إلى A4 لا تُكبَّر مرتين ولا تُسقط التوقيعات إلى ورقة إضافية");
 check(printFitCeiling(page(["print-comprehensive-page", "print-changes-appendix"])) === PRINT_FIT_MAX,
-  "أمّا ملحق التغييرات فوثيقةٌ نصية تُملأ كبقية التقارير");
+  "وملحق التغييرات يتبع الحد الأعلى للقياس الآمن لملء A4");
 check(PRINT_FIT_MIN >= 0.5 && PRINT_FIT_MAX <= 2, "والتصغير والتكبير في حدودٍ تُقرأ");
 
 /* ── الملحق صفحاتٌ بحسب طوله، لا صفحةٌ تُقصّ ──────────────────────────────── */
@@ -74,6 +76,8 @@ check(packPrintLines([1, 2], () => 99, 34, 42).length === 2, "والتغيير �
 /* ── كل مسار طباعةٍ يقيس قبل الأمر ───────────────────────────────────────── */
 
 const reports = fs.readFileSync(path.join(process.cwd(), "src/components/Reports.tsx"), "utf8");
+const authorityReport = fs.readFileSync(path.join(process.cwd(), "src/components/AuthorityPdfReport.tsx"), "utf8");
+const fitSource = fs.readFileSync(path.join(process.cwd(), "src/utils/printFit.ts"), "utf8");
 const printCss = fs.readFileSync(path.join(process.cwd(), "src/styles/08-print.css"), "utf8");
 const fitCalls = reports.split("fitPrintPages(document.getElementById(\"app-print-root\") || document);").length - 1;
 check(fitCalls === 3, "التقارير والشامل وتقرير التغييرات: ثلاثة مسارات طباعة، وكلها تقيس");
@@ -86,8 +90,37 @@ for (const marker of ["const printReport = ", "const runPrint = ", "const printA
 const flat = printCss.replace(/\s+/g, "");
 check(flat.includes(".print-explicit-page[data-print-fit]>*") && flat.includes(".print-comprehensive-page[data-print-fit]>*") && flat.includes("zoom:var(--print-fit,1)!important"),
   "والحجم يُطبَّق على محتوى الصفحة كله، لا على هوامشها");
-check(reports.includes('data-print-fit-group="appendix"'), "وصفحات الملحق حجمٌ واحد");
+check(fitSource.includes('page.dataset.printFitGroup || `page:${pageIndex}`'), "الصفحة بلا مجموعة صريحة تُقاس وحدها لتملأ A4");
+check(!reports.includes('data-print-fit-group="appendix"'), "وكل صفحةٍ من ملحق التغييرات تأخذ أكبر حجمها المناسب");
 check(reports.includes("data-print-fit-group={`instructor:"), "وورقة كل أستاذ بحجمها هي");
+check(reports.includes("pageIndex === pages.length - 1 ? <PrintSignatures approval={approval} /> : null")
+  && reports.includes("!changesAppendix && bookPage === totalPages ? <PrintSignatures approval={approval} /> : null"),
+  "التواقيع في آخر صفحة من الملحق أو الشامل فقط");
+check(reports.includes("!changesAppendix && bookPage === totalPages ? legendItems.map")
+  && reports.includes("pageIndex === pages.length - 1 ? (\n                  <div className=\"print-comprehensive-legend\""),
+  "مفتاح الأيام في آخر صفحة من الشامل أو ملحقه فقط");
+check(reports.includes("!changesAppendix && bookPage === totalPages && stampCode")
+  && reports.includes("pageIndex === pages.length - 1 && stampCode ? <PrintStamp"),
+  "رمز QR في آخر صفحة من الشامل أو ملحقه فقط");
+check(authorityReport.includes("lastDocumentPage ? (")
+  && !authorityReport.includes("مواقع القسم في هذا الفصل:"),
+  "توقيع تقرير التغييرات في آخر صفحة وسطر مواقع الفروع محذوف منه");
+check(authorityReport.includes("lastDocumentPage && stampCode ? <PrintStamp")
+  && authorityReport.includes("pageItems(entries, 28)")
+  && reports.includes("COMPREHENSIVE_FIRST_PAGE_ROWS = 28"),
+  "QR في آخر التغييرات فقط وعدد الصفوف المعتمد ٢٨");
+const comprehensiveGridStart = reports.indexOf('aria-label="تفاصيل المقررات والجدول"');
+const comprehensiveGrid = reports.slice(comprehensiveGridStart, reports.indexOf("className={`print-comprehensive-page-footer", comprehensiveGridStart));
+check(comprehensiveGridStart >= 0 && !comprehensiveGrid.includes('"م",') && !comprehensiveGrid.includes('className="print-num"')
+  && (comprehensiveGrid.match(/role="cell"/g) || []).length === 12
+  && printCss.includes("19mm 12mm minmax(51mm,1fr)"),
+  "عمود م محذوف من الشامل والمساحة المستعادة للمقرر، مع بقاء بقية الأعمدة ١٢ كما هي");
+check(printCss.includes("font-size:4.2pt !important;")
+  && printCss.includes("--safari-comprehensive-scale:1;")
+  && printCss.includes("--safari-rot-scale:1;"),
+  "رقم الصفحة صغير وتقارير Safari تملأ A4 الطولي بحجم الشامل دون تغيير الصفوف أو الاتجاه");
+check(printCss.includes('html[data-print-rotate="1"] .print-report.print-wide .print-explicit-page:last-child{\n    margin-bottom:0 !important;'),
+  "آخر صفحة في التقرير المدوّر لا تحجز خانةً زائدة تُنشئ صفحة A4 فارغة");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

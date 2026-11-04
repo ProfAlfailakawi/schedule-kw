@@ -232,6 +232,7 @@ fieldset.fld{border:0;margin:0;padding:0;min-width:0}
 textarea,input[type=time],input.civil{width:100%;padding:11px 13px;border:1.5px solid var(--line2);border-radius:13px;background:var(--raise);min-height:46px}
 textarea{min-height:92px;resize:vertical;line-height:1.7}
 input[type=time]{max-width:180px;direction:ltr;text-align:center}
+@supports(-webkit-touch-callout:none){input[type=time]{-webkit-appearance:none;appearance:none;box-sizing:border-box;min-width:0}}
 .cnt{font-size:12px;color:var(--muted2);text-align:end}
 .sign{display:grid;gap:8px;margin-top:14px;padding:14px;border-radius:16px;background:var(--soft);border:1px solid var(--line)}
 .sign label{display:grid;gap:7px;font-size:14px;font-weight:600}

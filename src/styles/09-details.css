@@ -1791,6 +1791,13 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 /* ── متى نلتقي؟ — committee window finder ─────────────────────────────────── */
 .meeting-slots{width:min(640px, calc(100vw - 28px))}
 .meeting-slots-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.meeting-slots-pick-time{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);padding:10px 12px}
+.meeting-slots-pick-time>strong{display:flex;align-items:center;gap:6px;color:var(--ink-2);font-size:12px}
+.meeting-slots-pick-time>strong svg{width:16px;height:16px;color:var(--accent)}
+.meeting-slots-pick-time label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;font-weight:700}
+.meeting-slots-pick-time select,.meeting-slots-pick-time input{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:7px 9px;font:inherit}
+.meeting-slots-pick-time input{direction:ltr;unicode-bidi:isolate;text-align:center;font-variant-numeric:tabular-nums;inline-size:92px}
+.meeting-inspect-names{margin:0;padding:10px 12px;border-radius:12px;background:var(--surface-2);color:var(--ink-2);font-size:13px}
 .meeting-slots-search{
   flex:1;min-width:200px;display:flex;align-items:center;gap:8px;
   border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:7px 12px;
@@ -1806,7 +1813,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 }
 .meeting-slots-people{
   list-style:none;margin:0;padding:4px;display:grid;gap:2px;
-  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));
   max-height:200px;overflow:auto;border:1px solid var(--line);border-radius:14px;
 }
 .meeting-slots-people label{
@@ -1830,7 +1837,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .meeting-slots-alternatives-title{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding:0 2px}
 .meeting-slots-alternatives-title small{color:var(--muted);font-size:12px;font-weight:700}
 .meeting-slots-alternatives-title strong{color:var(--ink);font-size:13px;font-weight:700}
-.meeting-slots-days{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.meeting-slots-days{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr))}
 .meeting-slots-days section{border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--surface)}
 .meeting-slots-days h3{margin:0 0 8px;font-size:12.5px;font-weight:700;color:var(--ink)}
 .meeting-slots-days ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
@@ -2027,7 +2034,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .section-plan-report>header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3)}
 .section-plan-report>header h2{margin:2px 0 0}
 .section-plan-report-actions{display:flex;align-items:center;gap:var(--s2)}
-.section-plan-report-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s3)}
+.section-plan-report-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:var(--s3)}
 .section-plan-report-stats>div{padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-sm);display:grid;gap:4px}
 .section-plan-report-stats span{color:var(--muted);font-size:var(--t-xs)}
 .section-plan-report-stats b{font-size:24px}

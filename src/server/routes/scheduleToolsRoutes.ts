@@ -19,7 +19,7 @@ import { isBlockingConflict, timeToMinutes } from "../../utils/scheduleIntellige
 import { ensureSectionFaculty } from "../sectionFaculty";
 import { isTrainingAssistant, planTaConversion } from "../../utils/taConversion";
 import type { FSchedule } from "../../types";
-import { computeMeetingSlots } from "../../utils/meetingSlots";
+import { computeMeetingSlots, inspectMeetingSlot } from "../../utils/meetingSlots";
 import { departmentFamily } from "../../utils/sectionLabel";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../../utils/termSequence";
 import { blockingConflicts } from "../../utils/scheduleBlockers";
@@ -628,6 +628,17 @@ app.post("/api/schedules/meeting-slots", requireMeetingAccess, async (req: Authe
   const participantIds = ids.filter(id => !drop.has(id));
   if (participantIds.length < 2) { res.status(400).json({ error: "اختر أستاذين على الأقل من غير المنتدبين" }); return; }
   const nameById = new Map(instructors.map(person => [Number(person.AdInstructorId), person.AdInstructorName]));
+  if (body.day || body.start) {
+    const day = String(body.day || "");
+    const start = String(body.start || "");
+    if (!/^(fsunday|fmonday|ftuesday|fwednesday|fthursday)$/.test(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(start)) {
+      res.status(400).json({ error: "تحقق من اليوم والوقت" }); return;
+    }
+    const startMinutes = Number(start.slice(0, 2)) * 60 + Number(start.slice(3));
+    if (startMinutes < 480 || startMinutes + duration > 1200) { res.status(400).json({ error: "الوقت خارج فترة الدوام (08:00–20:00)" }); return; }
+    res.json({ ...inspectMeetingSlot({ rows: termRows, ids: participantIds, nameById, duration, day, start }), busyScope: "allColleges" });
+    return;
+  }
   const answer = computeMeetingSlots({ rows: termRows, ids: participantIds, nameById, duration });
   res.json({ ...answer, busyScope: "allColleges" });
 });

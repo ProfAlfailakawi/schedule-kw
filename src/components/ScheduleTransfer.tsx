@@ -21,6 +21,7 @@ import { sortTermsNewest, termIsArchive } from "../utils/termSequence";
 import { useScopedTerms } from "./useScopedTerms";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { assignAuthoritySections, authoritySectionCodeLooksPlausible, withoutImportEvidence } from "../utils/authorityAcademicCodes";
+import { daysApprovedForHours, effectiveCourseHours, patternsForHours, type DayKey as RegulationDayKey } from "../utils/scheduleRegulations";
 import { applySmartFills, isPlaceholderValue, proposeSmartFills, type SmartFill } from "../utils/geminiScheduleLayer";
 import { campusOf } from "../utils/campusTravel";
 import { acceptedPdfSourceLabel, parseTermName, pdfTermAccepted } from "../utils/pdfTermRule";
@@ -487,6 +488,30 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     return { notes, issues: [...new Set(issues)] };
   }, [importKind, xlsxPreview?.rows, termId]);
 
+  /* ── الشكلُ المعدَّل يمرّ بمكتبة الأنماط، كما يمرّ موعدٌ جديد ──────────────────
+     ما قُرئ من الوثيقة الرسمية كما هو سجلُّ الجامعة فيُنشر كما طُبع (كالموعد القائم الذي لم يتغيّر شكله).
+     أما صفٌّ غيّر المراجعُ أيامه أو وقته بيده فاختيارُه هو: إن لم تكن أيامه نمطاً معتمداً لساعات المقرّر
+     في مكتبة الأنماط لم يُنشر، كما لا يُحفظ موعدٌ جديدٌ بنمطٍ غير معتمد (المالك 2026-10-30). والسببُ يقع على
+     خانة الأيام في صفّه — حمراءَ بسببها — لا في سطرٍ مخفيّ تحت زرٍّ اختفى. */
+  const manualPatternIssues = useMemo(() => {
+    const notes: Record<string, string[]> = {};
+    const issues: string[] = [];
+    const rows = Array.isArray(xlsxPreview?.rows) ? xlsxPreview.rows as ImportRow[] : [];
+    rows.forEach((row, index) => {
+      const touched = row.importEvidence?.days?.source === "MANUAL" || row.importEvidence?.time?.source === "MANUAL";
+      if (!touched) return;
+      const course = deptCourses.find((item: any) => Number(item.AdCourseId) === Number(row.AdCourseId));
+      const hours = effectiveCourseHours(course);
+      const days = (["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as RegulationDayKey[]).filter(day => Boolean(row[day]));
+      if (!hours || !days.length || daysApprovedForHours(hours, days) !== false) return;
+      /* «لساعات المقرر (3)» لا «بـ3 ساعات»: كلمةُ «ساعة» تنقل الملاحظةَ إلى خانة الوقت (importIssueField)، وموضعُها الأيام. */
+      const text = `الأيام بعد التعديل ليست نمطاً معتمداً لساعات المقرر (${hours.toLocaleString("ar-KW-u-nu-latn")}) في مكتبة الأنماط — المعتمد: ${patternsForHours(hours).map(pattern => pattern.label).join(" أو ")}.`;
+      notes[importRowKey(row)] = [text];
+      issues.push(`الصف ${(index + 1).toLocaleString("ar-KW-u-nu-latn")}: ${text}`);
+    });
+    return { notes, issues };
+  }, [xlsxPreview?.rows, deptCourses]);
+
   const importBlockingIssues = useMemo(() => {
     if (!xlsxPreview) return [] as string[];
     const sourceIssues=(Array.isArray(xlsxPreview.issues) ? xlsxPreview.issues : []).map((item: unknown) => String(item || "").trim()).filter(Boolean);
@@ -516,6 +541,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
       const instructorChosenByHand = row.importEvidence?.instructor?.source === "MANUAL";
       if (!Number(row.AdInstructorId)||(importKind!=="authority-pdf"&&!instructorChosenByHand&&!departmentIds.includes(Number(row.AdInstructorId))&&!roster.includes(Number(row.AdInstructorId)))) issues.add(`الصف ${n}: أستاذ المقرر غير محدد أو غير مثبت ضمن القسم/منتدبي الفصل الحالي.`);
     });
+    manualPatternIssues.issues.forEach(issue => issues.add(issue));
     /* حجز مزدوج لأستاذ أو قاعة يمنع النشر عند الخادم، فيمنع ظهور زر النشر هنا
        أيضاً. زرٌّ يظهر ثم يُرفض هو وعدٌ كاذب، لا مراجعة. */
     previewConflicts.issues.forEach(issue => issues.add(issue));
@@ -524,7 +550,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     /* صفحة قُبلت بأسطر مطبوعة بلا صف تنتظر «راجعت الصفحة» قبل النشر. */
     if (importKind === "authority-pdf") pageReviewIssues(xlsxPreview.pageDiagnostics, reviewedImportPages).forEach(issue => issues.add(issue));
     return [...issues];
-  }, [xlsxPreview, importKind, departmentIds, roster, previewConflicts, termConflicts, termConflictsFresh, reviewedImportPages]);
+  }, [xlsxPreview, importKind, departmentIds, roster, previewConflicts, termConflicts, termConflictsFresh, reviewedImportPages, manualPatternIssues]);
   /* Server notes arrive as «السطر N: …» against the whole draft. They are moved
      onto the rows they name so the table can colour the offending cell, instead
      of printing the same sentence five times under a table that looks fine. */
@@ -547,12 +573,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
      قبله. المراجع لا يعنيه من اكتشف التعارض. */
   const previewRowIssues = useMemo(() => {
     const merged: Record<string, string[]> = { ...serverRowIssues };
-    const live = [previewConflicts.notes, (termConflictsFresh && termConflicts?.notes) || {}];
+    const live = [previewConflicts.notes, (termConflictsFresh && termConflicts?.notes) || {}, manualPatternIssues.notes];
     live.forEach(source => Object.keys(source).forEach(key => {
       merged[key] = [...new Set([...(merged[key] || []), ...source[key]])];
     }));
     return merged;
-  }, [serverRowIssues, previewConflicts, termConflicts, termConflictsFresh]);
+  }, [serverRowIssues, previewConflicts, termConflicts, termConflictsFresh, manualPatternIssues]);
 
   const unplacedSaveIssues = useMemo(() => {
     const notes = Array.isArray(xlsxPreview?.saveIssues) ? xlsxPreview.saveIssues : [];
@@ -584,6 +610,26 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
      which otherwise just disappears with no word about why. */
   const pagesPendingReview = importKind === "authority-pdf" ? pagesAwaitingReview(xlsxPreview?.pageDiagnostics, reviewedImportPages) : [];
   const confirmImportPage = (page: number) => setReviewedImportPages(prev => prev.includes(page) ? prev : [...prev, page]);
+  /* ── كلُّ تغييرٍ على صفوف المعاينة يمرّ من بابٍ واحد ─────────────────────────
+     تعديلٌ في الجدول، أو حذف، أو تعبئةُ الأسماء من ملفٍ ثانٍ أو من الجدول: ملاحظاتُ الخادم القديمة («السطر N:
+     أستاذ المقرر غير صالح» من قراءة ملفٍ بلا أسماء) تُمحى لأن صفوفها تغيّرت، ويعيد الخادمُ فحصه عند الحفظ، ويعيد
+     الفحصُ المسبق فحصَ التعارض الآن. كانت التعبئةُ وحدها لا تمرّ من هنا، فبقيت كلُّ الأسماء المعبّأة حمراء بلا خطأ
+     وبقي النشرُ محجوباً بسببٍ زال (المالك 2026-10-30). */
+  const commitPreviewRows = (next: ImportRow[], extra?: (prev: any) => Record<string, unknown>) => {
+    if (!smartBusy) setError(null);
+    setXlsxPreview((prev: any) => {
+      if (!prev) return prev;
+      // The visual lock is the first guard; this is the one
+      // that actually protects the data if anything slips past it.
+      if (smartBusy) return prev;
+      const normalized = importKind === "authority-pdf" ? assignAuthoritySections(next) : next;
+      const documentWarnings = (Array.isArray(prev.issues) ? prev.issues : []).filter((issue: string) => /^تحذير:/.test(String(issue)));
+      // Any edit invalidates a previous server rejection: the
+      // rows it named may no longer exist, so its notes must go.
+      return { ...prev, ...(extra ? extra(prev) : {}), rows: normalized, count: normalized.length, issues: documentWarnings, saveIssues: undefined,
+        valid: normalized.length > 0 || (Array.isArray(prev.baselineRows) && prev.baselineRows.length > 0) };
+    });
+  };
   /* Reviewing a scanned timetable is reading a PAGE, not a card. In a 620px
      sheet the table needed a second, horizontal scrollbar, and a plain mouse
      had to travel in two directions to read one row. While the PDF preview is
@@ -1659,7 +1705,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                       click it is meant to prevent. Its result is already on the
                       table, and the «خلية عُبّئت» card records what it did. */}
                   {importKind === "authority-pdf" ? <div className="import-color-key" aria-label="تعريف ألوان المعاينة"><span className="derived"><i/>أخضر · مكتمل</span><span className="review"><i/>ذهبي · يحتاج مراجعة</span><span className="missing"><i/>أحمر · ناقص</span></div> : null}
-                  {(importKind === "authority-pdf" || xlsxPreview.editable) && xlsxPreview.rows?.length ? (
+                  {(importKind === "authority-pdf" || xlsxPreview.editable) ? (
                     <>
                       {/* The whole table, red on what the scan could not read,
                           and a quick edit + delete beside EVERY row. */}
@@ -1669,11 +1715,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                           rows={xlsxPreview.rows as ImportRow[]}
                           /* من رُبطوا بالتعبئة يدخلون قائمة العرض (resolvedInstructors) كما يدخلها من
                              طابقهم الخادم، فلا تبقى خانةٌ صحيحة الاسم حمراء لأن صاحبها خارج القائمة. */
-                          onRows={(next, filled) => setXlsxPreview((prev: any) => prev ? {
-                            ...prev, rows: next,
-                            ...(filled?.length ? { resolvedInstructors: [...new Map([...(Array.isArray(prev.resolvedInstructors) ? prev.resolvedInstructors : []), ...filled]
-                              .map((person: any) => [Number(person.AdInstructorId), { AdInstructorId: Number(person.AdInstructorId), AdInstructorName: String(person.AdInstructorName || "") }])).values()] } : {}),
-                          } : prev)}
+                          onRows={(next, filled) => commitPreviewRows(next as ImportRow[], prev => filled?.length ? { resolvedInstructors: [...new Map([...(Array.isArray(prev.resolvedInstructors) ? prev.resolvedInstructors : []), ...filled]
+                              .map((person: any) => [Number(person.AdInstructorId), { AdInstructorId: Number(person.AdInstructorId), AdInstructorName: String(person.AdInstructorName || "") }])).values()] } : {})}
                           /* أهلُ القسم كما يقرؤهم قانون النشر نفسه (departmentInstructorIds من الخادم،
                              يشمل مواقع الفرع كلها) مع تاريخ القسم ومنتدبي الفصل — لا تاريخ هذا الموقع وحده. */
                           people={[...new Map([...instructors, ...directoryPeople, ...((Array.isArray(xlsxPreview.resolvedInstructors) ? xlsxPreview.resolvedInstructors : []) as any[])]
@@ -1702,23 +1745,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                         sectionId={sectionId}
                         termId={termId}
                         rowIssues={previewRowIssues}
-                        onRows={next => {
-                          /* رسالة رفضٍ سابقة تخص صفوفاً تغيّرت: بقاؤها تحت جدولٍ
-                             صار أخضر هو «صح فوق وخطأ تحت». الخادم يعيد فحصه عند
-                             الضغط التالي. */
-                          if(!smartBusy)setError(null);
-                          setXlsxPreview((prev: any) => {
-                          if(!prev)return prev;
-                          // The visual lock is the first guard; this is the one
-                          // that actually protects the data if anything slips past it.
-                          if(smartBusy)return prev;
-                          const normalized=importKind==="authority-pdf"?assignAuthoritySections(next):next;
-                          const documentWarnings=(Array.isArray(prev.issues)?prev.issues:[]).filter((issue:string)=>/^تحذير:/.test(String(issue)));
-                          // Any edit invalidates a previous server rejection: the
-                          // rows it named may no longer exist, so its notes must go.
-                          return { ...prev, rows: normalized, count: normalized.length, issues: documentWarnings, saveIssues: undefined, valid: normalized.length > 0 || (Array.isArray(prev.baselineRows) && prev.baselineRows.length > 0) };
-                          });
-                        }}
+                        onRows={next => commitPreviewRows(next)}
                       />
                       {/* A note about a row belongs ON that row. Repeating the
                           same sentence once per line under a table that already

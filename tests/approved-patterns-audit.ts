@@ -111,6 +111,11 @@ check(departmentOff.sendable && /رأس الساعة/.test(departmentOff.advice 
 const teacherSunThu = judgeRequest(asked("10:00", ["fsunday", "fthursday"], 78), verdictContext(true));
 check(!teacherSunThu.sendable && teacherSunThu.reasons.some(reason => reason.code === "pattern" && /ليست نمطاً معتمداً/.test(reason.text)),
   "P9 كرت الأستاذ: ساعتان على الأحد·الخميس «ليست نمطاً معتمداً»");
+const fourSunThu = judgeRequest(asked("10:00", ["fsunday", "fthursday"], 4), {
+  ...verdictContext(true), courses: new Map([[4, { AdCourseId: 4, CourseHours: 4, CourseName: "أربع ساعات" } as any]]), instructorLoad: 0,
+} as any);
+check(fourSunThu.sendable && !fourSunThu.reasons.some(reason => reason.code === "pattern") && fourSunThu.reasons.some(reason => reason.source === "load" && !reason.blocking),
+  "P9 نمط الأربع ساعات الأحد·الخميس معتمد، وتجاوز النصاب تنبيه لا يمنع الطلب");
 const core = fs.readFileSync("src/server/core/instructorRequests.ts", "utf8");
 check(/ladderBlocks: !options\.forDepartment && !offeredByDepartment/.test(core) && /chosenAlternativeIndex\(departmentOffers, days, slot\?\.start \|\| ""\) >= 0/.test(core)
   && /message\.from === "department"/.test(core) && /decisionHistory/.test(core),
@@ -137,7 +142,8 @@ check(daysApprovedForHours(2, ["fmonday", "fwednesday"]) === true && meetingMinu
 check(["fsunday,ftuesday", "ftuesday,fthursday", "fmonday,fwednesday"].every(pair => daysApprovedForHours(5, pair.split(",") as any) === true)
   && meetingMinutes(["fsunday", "ftuesday"], lengthPatternsForHours(5)).join() === "170,110" && meetingMinutes(["ftuesday", "fthursday"], lengthPatternsForHours(5)).join() === "170,110",
   "P10 خمسُ ساعات على أزواج الأربع: الأحد·الثلاثاء والثلاثاء·الخميس والاثنين·الأربعاء (170 + 110)");
-check(daysApprovedForHours(5, ["fsunday", "fthursday"]) === false && daysApprovedForHours(4, ["fsunday", "fthursday"]) === false, "P10 والأحد·الخميس ليس نمطاً للأربع ولا للخمس");
+check(daysApprovedForHours(4, ["fsunday", "fthursday"]) === true && patternsForHours(4).some(pattern => pattern.days.join() === "fsunday,fthursday"), "P10 أربع ساعات على الأحد·الخميس نمطٌ معتمد 110+110");
+check(daysApprovedForHours(5, ["fsunday", "fthursday"]) === false, "P10 والأحد·الخميس ليس نمطاً للخمس ساعات");
 
 /* P11 الاثنين والأربعاء 8:00–9:20 ثم 9:30. */
 check(LONG_DAY_GAP_MINUTES === 10 && requiredGapForDays(["fmonday", "fwednesday"]) === 10, "P11 فاصل الاثنين والأربعاء 10 دقائق");

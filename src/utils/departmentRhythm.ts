@@ -1,9 +1,9 @@
-import { formatScheduleTimeRange, scheduleClockForDisplay } from "./scheduleTime";
+import { scheduleClockForDisplay } from "./scheduleTime";
 import type { FSchedule } from "../types";
 import { AR, countOf, oblique } from "../utils/arabicCount";
 import { SCHEDULE_DAYS, timeToMinutes, type DayKey } from "./scheduleIntelligence";
 import { patternForDay } from "./weekVisual";
-import { libraryLengthsForDay, startLadderNote } from "./scheduleRegulations";
+import { expectedMinutesForDay, libraryLengthsForDay, startLadderNote } from "./scheduleRegulations";
 
 /**
  * ── أسلوب القسم ─────────────────────────────────────────────────────────────
@@ -202,8 +202,6 @@ export function offRhythm(
   const start = timeToMinutes(String(row.fstarttime || ""));
   const end = timeToMinutes(String(row.fendtime || ""));
   const label = SCHEDULE_DAYS.find(item => item.key === day)?.label || "";
-  const clock = (minutes: number) =>
-    `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
   /* سُلّمُ اللائحة قبل عادة القسم (المالك 2026-10-30): بدايةٌ خارجه يُنبَّه عليها بجملته،
      وبدايةٌ عليه لا تُعدّ «خارج المعتاد» ولو اعتاد القسمُ غيرها — العادةُ لا تخالف اللائحة. */
@@ -226,12 +224,15 @@ export function offRhythm(
   }
 
   const length = end - start;
-  const [low, high] = rhythm.durationRange;
-  /* طولٌ معتمد في مكتبة الأنماط لهذا اليوم لا يُقال عنه «خارج إيقاع القسم»: العادةُ لا تخالف اللائحة (المالك 2026-10-30). */
-  if (libraryLengthsForDay(day).has(length)) return "";
-  if (rhythm.durationMinutes && length > 0 && (length < low || length > high)) {
-    const span = low === high ? countOf(low, AR.minute) : formatScheduleTimeRange(clock(low), clock(high));
-    return `مدة محاضرات ${label} في قسمك ${span}، ومدة هذا الموعد ${countOf(length, AR.minute)}.`;
+  /* الطولُ يُحكم بمكتبة الأنماط لا بعادة القسم (المالك 2026-10-30): طولٌ معتمدٌ لهذا اليوم لا يُقال عنه شيء، وطولٌ ليس
+     منها يُقال بأطوال المكتبة — كانت الجملةُ «مدة محاضرات الأحد في قسمك 75 دقيقة» تجعل العادةَ مرجعاً، و75 نفسُها
+     ليست من المكتبة. */
+  const allowed = libraryLengthsForDay(day);
+  if (allowed.has(length)) return "";
+  if (length > 0 && allowed.size) {
+    const lecture = expectedMinutesForDay(day);
+    const blocks = [...allowed].filter(value => value !== lecture).sort((a, b) => a - b);
+    return `مدة محاضرات ${label} في مكتبة الأنماط ${countOf(lecture, AR.minute)}${blocks.length ? ` (والكتل ${blocks.join(" و")})` : ""}، ومدة هذا الموعد ${countOf(length, AR.minute)}.`;
   }
   return "";
 }

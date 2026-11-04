@@ -165,7 +165,7 @@ check(parseWholeHours("8.5").value === 9 && parseWholeHours("8.5").rounded && pa
   check(loadLimitOf(history[0]) === 6, "التاريخ يحفظ حدوده: فصلٌ قبل الانتهاء يبقى على الاستثناء");
   const repo = fs.readFileSync("src/db/repository.ts", "utf8");
   check(repo.includes("getInstructors: async (loadTermId = 0)") && repo.includes("getInstructorById: async (id: number, loadTermId = 0)") && repo.includes("Number(loadTermId) || currentTermId(terms as any)") && repo.includes('withManagedLoad(await firestoreInstructorsByIds(ids), Number(filters.termId || 0))'), "القراءةُ تأخذ فصلَ الحساب (وبلا فصلٍ: الجاري)");
-  check(repo.includes("Repository.getInstructorById(Number(request.AdInstructorId), termId)") && repo.includes("Repository.getInstructorById(Number(next.AdInstructorId), termId)"), "الاعتماد يحسب النصاب في فصل الطلب");
+  check(repo.includes("Repository.getInstructorById(Number(request.AdInstructorId), termId)") && !repo.includes("Repository.getInstructorById(Number(next.AdInstructorId), termId)"), "الاعتماد لا يمنع تجاوز النصاب، ويقرأ إعداد الفصل لأغراض العرض");
   const sitesT: Array<[string, string]> = [
     ["src/server/core/instructorRequests.ts", "Repository.getInstructors(Number(request.AdTermId))"],
     ["src/server/routes/publicRequestRoutes.ts", "Repository.getInstructors(Number(request.AdTermId)), Repository.getTerms()"],
@@ -208,10 +208,10 @@ check(/Math\.round\(loadRaw\)/.test(server) && fs.readFileSync("src/db/repositor
 {
   const repo = fs.readFileSync("src/db/repository.ts", "utf8");
   check(/getInstructors: async \(loadTermId = 0\): Promise<AdInstructor\[\]> => withManagedLoad\(/.test(repo) && repo.includes("return person ? (await withManagedLoad([person], loadTermId))[0]") && repo.split("withManagedLoad(").length >= 5, "القراءةُ تزيّن كلَّ عضوٍ بنصابه الفعّال (الكل، والنطاق، والواحد)");
-  check(repo.includes("adding && loadLimit !== null && weeklyLoadOf(loadWeek, courseMap) > loadLimit") && repo.includes("if (loadLimit === null) return;") && repo.includes("> loadLimit)"), "الاعتماد: سقفُ طلب الأستاذ هو سقفُ درجته/استثنائه، والصفرُ الصريح قيد");
+  check(!repo.includes("تغيّر نصاب الأستاذ أثناء الاعتماد") && !repo.includes("تجاوز مجموع الطلبات والجدول نصابك المسجّل") && !repo.includes("weeklyLoadOf(loadWeek, courseMap)"), "الاعتماد وإرسال الطلب يسمحان بتجاوز النصاب؛ وحساب النصاب للتقارير باقٍ");
   check(repo.includes("invalidateReference(REFERENCE_KEYS.teachingLoad)") && repo.includes("scopedCachedReference(REFERENCE_KEYS.teachingLoad"), "إعدادُ النصاب في الذاكرة القصيرة ويسقط مع كل حفظ");
   const sites: Array<[string, RegExp]> = [
-    ["src/server/core/instructorRequests.ts", /instructorLoad: loadLimitOf\(/],
+    ["src/server/core/instructorRequests.ts", /instructorLoad: options\.forDepartment \? loadLimitOf\(/],
     ["src/server/routes/publicRequestRoutes.ts", /const load = loadLimitOf\(/],
     ["src/server/routes/publicRequestRoutes.ts", /load !== null && weeklyLoadOf\(mine/],
     ["src/server/routes/publicRequestRoutes.ts", /loadRing\(taHours, loadNisabOf\(person\)\.nisab, loadNisabOf\(person\)\.overtime, loadNisabOf\(person\)\.limited\)/],

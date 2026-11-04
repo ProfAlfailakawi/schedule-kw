@@ -1917,7 +1917,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") leftForPrint = true;
-      else if (leftForPrint) resume();
+      else if (leftForPrint) {
+        /* iOS Safari can make the document visible while its print preview is
+           still open. Resume live updates, but keep the landscape geometry
+           until `afterprint`; clearing it here collapses the letterhead. */
+        leftForPrint = false;
+        document.title = originalTitle;
+        openReportEvents();
+      }
     };
     window.addEventListener("afterprint", resume, { once: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -2142,7 +2149,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       };
       const onVisibilityChange = () => {
         if (document.visibilityState === "hidden") leftForPrint = true;
-        else if (leftForPrint) resume();
+        else if (leftForPrint) {
+          /* Returning from Safari's print sheet is not proof that preview has
+             closed. Keep page rotation until `afterprint` to avoid reflow. */
+          leftForPrint = false;
+          document.title = originalTitle;
+          openReportEvents();
+        }
       };
       window.addEventListener("afterprint", resume, { once: true });
       document.addEventListener("visibilitychange", onVisibilityChange);
@@ -3638,17 +3651,12 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               deleted: sum.deleted + entry.report.counts.deleted,
               changed: sum.changed + entry.report.counts.changed,
               unchanged: sum.unchanged + entry.report.counts.unchanged,
-            }), { added: 0, deleted: 0, changed: 0, unchanged: 0 }),
+              review: sum.review + (entry.report.counts.review || 0),
+            }), { added: 0, deleted: 0, changed: 0, unchanged: 0, review: 0 }),
             /* الرقاقة للفرع وحده: صفوف المقر الرئيسي تبقى بلا وسم — القاعدة
                نفسها المعمول بها في التقرير الشامل. */
             rows: authorityBook.flatMap(entry => entry.report.rows.map(row => ({ ...row, siteLabel: entry.site.isBase ? "" : entry.site.siteLabel }))),
           };
-          const bookSites = authorityBook.map(entry => ({
-            label: entry.site.siteLabel,
-            added: entry.report.counts.added,
-            deleted: entry.report.counts.deleted,
-            changed: entry.report.counts.changed,
-          }));
           return (
             <AuthorityPdfReport
               report={merged}
@@ -3661,7 +3669,6 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               instructorById={instructorById}
               visitingIds={visitingIds}
               isVisitingRow={bookRowIsVisiting}
-              bookSites={bookSites}
               showSite
               showCivil={authorityCivil}
               approval={printApproval ? { line: approvalScopeLine(printApproval), status: printApproval.status } : null}
@@ -4080,18 +4087,20 @@ const APPENDIX_FIRST_PAGE_LINES = 21;
 const APPENDIX_NEXT_PAGE_LINES = 23;
 const appendixLines = (entry: ChangesAppendix["entries"][number]) => 1 + Math.max(0, entry.changes.length - 1) * 0.7;
 
-function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, approval }: {
+function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, approval, stampCode, stampOrigin }: {
   appendix: ChangesAppendix;
   collegeName: string;
   sectionName: string;
   termName: string;
   approval?: PrintApproval | null;
+  stampCode?: string | null;
+  stampOrigin?: string;
 }) {
   const pages = packPrintLines(appendix.entries, appendixLines, APPENDIX_FIRST_PAGE_LINES, APPENDIX_NEXT_PAGE_LINES);
   return (
     <>
       {pages.map((pageEntries, pageIndex) => (
-        <section className="print-comprehensive-page print-changes-appendix" data-print-fit-group="appendix" key={`appendix-${pageIndex + 1}`}>
+        <section className="print-comprehensive-page print-changes-appendix" key={`appendix-${pageIndex + 1}`}>
           <header className="print-comprehensive-classic-head">
             <div className="print-comprehensive-head-top">
               <div className="print-comprehensive-title-block">
@@ -4137,13 +4146,19 @@ function PrintChangesAppendix({ appendix, collegeName, sectionName, termName, ap
             </div>
           ) : <p className="print-empty">لم يتغيّر شيء منذ المراجعة الأخيرة.</p>}
 
-          <footer className="print-comprehensive-page-footer">
-            <PrintSignatures approval={approval} />
-            {pages.length > 1 ? (
+          <footer className={`print-comprehensive-page-footer${pageIndex === pages.length - 1 && stampCode ? " has-print-stamp" : ""}`}>
+            {pageIndex === pages.length - 1 ? <PrintSignatures approval={approval} /> : null}
+            {pages.length > 1 || pageIndex === pages.length - 1 ? (
               <div className="print-comprehensive-legend-stack">
+                {pageIndex === pages.length - 1 ? (
+                  <div className="print-comprehensive-legend">
+                    {DAYS.map((day, index) => <span key={day.key}>{index + 1}={day.label}</span>)}
+                  </div>
+                ) : null}
                 <div className="print-comprehensive-page-number"><bdi dir="ltr">{pageIndex + 1} / {pages.length}</bdi></div>
               </div>
             ) : null}
+            {pageIndex === pages.length - 1 && stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
           </footer>
         </section>
       ))}
@@ -4440,7 +4455,6 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                 <div className="print-comprehensive-grid" role="table" aria-label="تفاصيل المقررات والجدول">
                   <div className="print-comprehensive-grid-row print-comprehensive-grid-head" role="row">
                     {[
-                      "م",
                       "رمز المقرر",
                       "الشعبة",
                       "المقرر الدراسي",
@@ -4459,12 +4473,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                     {pageRows.map((row, index) => {
                       const course = courseOf(row);
                       const instructor = instructorOf(row);
-                      const serial = pageIndex === 0
-                        ? index + 1
-                        : COMPREHENSIVE_FIRST_PAGE_ROWS + ((pageIndex - 1) * COMPREHENSIVE_NEXT_PAGE_ROWS) + index + 1;
                       return (
                         <div className="print-comprehensive-grid-row" role="row" key={row.id}>
-                          <div role="cell" className="print-num">{serial}</div>
                           <div role="cell" className="print-ltr print-course-id">{course?.CourseCode || "—"}</div>
                           <div role="cell" className="print-ltr">{row.SCode || "—"}</div>
                           {/* الموقع بطاقة بجانب اسم المقرر لا عموداً: العمود
@@ -4489,15 +4499,14 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                 </div>
 
                 <footer className={`print-comprehensive-page-footer${stampCode ? " has-print-stamp" : ""}`}>
-                  <PrintSignatures approval={approval} />
+                  {!changesAppendix && bookPage === totalPages ? <PrintSignatures approval={approval} /> : null}
                   <div className="print-comprehensive-legend-stack">
                     <div className="print-comprehensive-legend">
-                      {legendItems.map(item => <span key={item}>{item}</span>)}
+                      {!changesAppendix && bookPage === totalPages ? legendItems.map(item => <span key={item}>{item}</span>) : null}
                     </div>
                     <div className="print-comprehensive-page-number"><bdi dir="ltr">{bookPage} / {totalPages}</bdi></div>
                   </div>
-                  {/* الختم على كل صفحة لا على الأولى: صفحةٌ تُفصل من الرزمة تحمل ما يُطابَق به. */}
-                  {stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
+                  {(!changesAppendix && bookPage === totalPages && stampCode) ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
                 </footer>
               </section>
               );
@@ -4509,6 +4518,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                 sectionName={sectionName}
                 termName={termName || scopeLine}
                 approval={approval}
+                stampCode={stampCode}
+                stampOrigin={stampOrigin}
               />
             ) : null}
           </div>

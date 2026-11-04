@@ -1,18 +1,20 @@
 import SearchableSelect from "./SearchableSelect";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TimeField } from "./TimeField";
-import { AlertTriangle, Building2, Check, Clock3, MapPin, Pencil, Trash2, UsersRound } from "lucide-react";
+import { AlertTriangle, Building2, Check, Clock3, MapPin, Pencil, RotateCcw, Trash2, UsersRound } from "lucide-react";
 import type { AdCourse, AdInstructor } from "../types";
 import InstructorPicker from "./InstructorPicker";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import LocationPicker, { BuildingPicker, RoomPicker } from "./LocationPicker";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
-import { expectedMinutesForDay, type DayKey as RegulationDayKey } from "../utils/scheduleRegulations";
+import { daysApprovedForHours, effectiveCourseHours, expectedMinutesForDay, libraryLengthsForDay, patternsForHours, startLadderNote, type DayKey as RegulationDayKey } from "../utils/scheduleRegulations";
+import { regulationEnd } from "../utils/appointmentRegulation";
 import { cleanBuildingCode, cleanHallCode } from "../utils/cleanRoom";
 import { roomIdentityKey } from "../utils/locationRegistry";
 import { displayInstructorText, instructorIdentityTokens } from "../utils/instructorIdentity";
 import { authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
+import { AR, countOf } from "../utils/arabicCount";
 import CourseTags from "./CourseTags";
 
 /**
@@ -153,9 +155,31 @@ export default function ImportPreviewTable({
   const roomKnown = (building: string, hall: string) => normalizedRooms.some(room => room.building === cleanRoom(building) && room.hall === cleanRoom(hall));
 
   const patch = (index: number, values: Partial<ImportRow>) => onRows(rows.map((row, at) => at === index ? { ...row, ...values } : row));
-  const remove = (index: number) => {
+  /* ── ضغطةٌ واحدة تحذف صفاً واحداً ─────────────────────────────────────────
+     الصفُّ يُحذف فيصعد الذي تحته إلى مكانه، فكانت النقرةُ الثانية من نقرتين سريعتين — أو لمسةٌ تُحسب مرتين على
+     الشاشة — تصيب الصفَّ التالي فيُحذف صفّان بدل واحد (المالك 2026-10-30). فالنقرةُ الثانية من نقرةٍ مزدوجة لا
+     تُحسب، ولا يُحذف صفٌّ آخر قبل أن يستقرّ الجدول. والصفُّ المحذوف يعود بـ«تراجع» إلى مكانه، كما في الجدول. */
+  const lastRemoval = useRef(0);
+  const [removed, setRemoved] = useState<{ row: ImportRow; index: number; page: unknown } | null>(null);
+  const remove = (index: number, event?: React.MouseEvent) => {
+    if (event && event.detail > 1) return;
+    const now = Date.now();
+    if (now - lastRemoval.current < 700) return;
+    lastRemoval.current = now;
     if (editing === index) setEditing(null);
+    else if (editing !== null && editing > index) setEditing(editing - 1);
+    const row = rows[index];
+    if (row) setRemoved({ row, index, page: row.sourcePage });
     onRows(rows.filter((_, at) => at !== index));
+  };
+  /* التراجعُ يعيد الصفَّ إلى صفحته وموضعه؛ ويُنسى إن انتقل المراجع إلى صفحةٍ أخرى، فلا يقع الصفُّ في غيرها. */
+  const undoPage = rows[0]?.sourcePage;
+  const undoAvailable = Boolean(removed) && (!rows.length || removed!.page === undoPage);
+  const undoRemove = () => {
+    if (!removed) return;
+    const at = Math.min(removed.index, rows.length);
+    onRows([...rows.slice(0, at), removed.row, ...rows.slice(at)]);
+    setRemoved(null);
   };
 
   const beginEdit = (index: number) => {
@@ -279,8 +303,23 @@ export default function ImportPreviewTable({
     return String(proof.reason||"").trim()||undefined;
   };
 
+  /* ── النهاية من مكتبة الأنماط، كما في «موعد جديد» ─────────────────────────
+     بدايةٌ تُكتب أو يومٌ يُبدَّل يعيد النهايةَ من نمط اللائحة لساعات المقرّر بهذه الأيام (regulationEnd، دالةُ المحرّر
+     نفسها): الاثنين والأربعاء لمقرّرٍ بثلاث ساعات 80 دقيقة، والكتلةُ 170… وإلا طولُ اليوم (50/80) كما كان. */
+  const endFromLibrary = (row: ImportRow, days: RegulationDayKey[], start: string) =>
+    regulationEnd(courseById.get(Number(row.AdCourseId)) as any, days, start);
+  const rowDays = (row: ImportRow) => DAY_CHIPS.filter(day => Boolean(row[day.key])).map(day => day.key as RegulationDayKey);
+  const toggleDay = (index: number, key: keyof ImportRow & string) => {
+    const row = rows[index];
+    if (!row) return;
+    const next = { ...row, [key]: !row[key] } as ImportRow;
+    const end = row.fstarttime ? endFromLibrary(row, rowDays(next), row.fstarttime) : "";
+    patchManual(index, "days", { [key]: !row[key], ...(end && end !== row.fendtime ? { fendtime: end } : {}) } as Partial<ImportRow>);
+  };
   const autoEndForRow = (row:ImportRow, start:string) => {
     if(!start)return "";
+    const library=endFromLibrary(row,rowDays(row),start);
+    if(library)return library;
     const active=DAY_CHIPS.filter(day=>Boolean(row[day.key])).map(day=>day.key as RegulationDayKey);
     if(!active.length)return row.fendtime||"";
     const durations=[...new Set(active.map(day=>expectedMinutesForDay(day)))];
@@ -347,18 +386,54 @@ export default function ImportPreviewTable({
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [editing, rows, collegeId, sectionId, termId]);
 
+  /* ما تقوله اللائحةُ عن الصفّ المفتوح للتعديل — بالدوال نفسها التي يحكم بها «موعد جديد»: نمطٌ غير معتمد لساعات
+     المقرّر (يمنع النشر إن كان المراجعُ هو من غيّر الأيام أو الوقت)، وبدايةٌ خارج سُلّم البدايات وطولٌ خارج المكتبة
+     (تنبيهان لا يمنعان). يُحسب هنا لا على الخادم: الفحصُ الحيّ يرى جدولَ القسم القائم الذي سيحلّ الاستيرادُ محلّه. */
+  const regulationNotes = useMemo(() => {
+    if (editing === null || !rows[editing]) return [] as ConflictNote[];
+    const row = rows[editing];
+    const days = rowDays(row);
+    if (!days.length || !row.fstarttime || !row.fendtime) return [] as ConflictNote[];
+    const notes: ConflictNote[] = [];
+    const hours = effectiveCourseHours(courseById.get(Number(row.AdCourseId)));
+    if (hours && daysApprovedForHours(hours, days) === false) {
+      const touched = row.importEvidence?.days?.source === "MANUAL" || row.importEvidence?.time?.source === "MANUAL";
+      notes.push({ type: "pattern", severity: touched ? "high" : "low", message: touched ? "نمطٌ غير معتمد — لا يُنشر هذا الصف" : "نمطٌ غير معتمد في مكتبة الأنماط",
+        detail: `المعتمد لمقررٍ بـ${countOf(hours, AR.hour)}: ${patternsForHours(hours).map(pattern => pattern.label).join(" أو ")}.${touched ? "" : " كما طُبع في الوثيقة، فيُنشر كما هو."}` });
+    }
+    const ladder = startLadderNote(days, row.fstarttime);
+    if (ladder) notes.push({ type: "ladder", severity: "low", message: "خارج سُلّم البدايات في اللائحة", detail: ladder });
+    const length = minutes(row.fendtime) - minutes(row.fstarttime);
+    if (length > 0 && days.some(day => !libraryLengthsForDay(day).has(length)))
+      notes.push({ type: "length", severity: "low", message: "طولٌ خارج مكتبة الأنماط", detail: `${countOf(length, AR.minute)} ليست من أطوال المكتبة لهذه الأيام.` });
+    return notes;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, rows, courseById]);
+
   const conflictNotes = useMemo(() => {
-    const all = [...localConflicts, ...serverConflicts];
+    /* تنبيها السُّلّم والطول يُقالان مرة: من اللائحة هنا، لا مرةً ثانية من الفحص الحيّ بصياغته. */
+    const ladderSaid = regulationNotes.some(note => note.type === "ladder");
+    const lengthSaid = regulationNotes.some(note => note.type === "length");
+    const all = [...regulationNotes, ...localConflicts, ...serverConflicts.filter(note => {
+      const text = String(note.message || "");
+      return !(ladderSaid && /سُلّم البدايات/.test(text)) && !(lengthSaid && /خارج مكتبة الأنماط/.test(text));
+    })];
     const seen = new Set<string>();
     return all.filter(note => {
       const key = `${note.type || ""}|${note.message || ""}|${note.detail || ""}`;
       if (seen.has(key)) return false;
       seen.add(key); return true;
     });
-  }, [localConflicts, serverConflicts]);
+  }, [regulationNotes, localConflicts, serverConflicts]);
 
   return (
     <div className="import-preview-table-wrap">
+      {undoAvailable ? (
+        <div className="import-undo-bar" role="status">
+          <span>حُذف صف <b>{courseById.get(Number(removed!.row.AdCourseId))?.CourseName || removed!.row.AdCourseName || "المقرر"}<CourseTags courseId={removed!.row.AdCourseId} /></b> · شعبة {String(removed!.row.SCode || "—")}</span>
+          <button type="button" data-guide-ignore="يعيد الصف المحذوف إلى المعاينة في موضعه؛ لا يحفظ ولا ينشر" onClick={undoRemove}><RotateCcw aria-hidden="true" />تراجع</button>
+        </div>
+      ) : null}
       <table className="import-preview-table">
         <thead><tr>
           <th>م</th><th>المقرر</th><th>الشعبة</th><th>الأيام</th><th>الوقت</th>
@@ -407,7 +482,7 @@ export default function ImportPreviewTable({
                     <span className="import-locked-section" title="رقم الشعبة مثبت من المصدر ولا يتغير هنا">{String(row.SCode || "").trim() || "—"}</span>
                   </td>
                   <td className={cellClass("days",missing.days(row))} title={cellTitle("days")}>
-                    <span className="import-day-chips">{DAY_CHIPS.map(day => <button key={day.key} type="button" disabled={!open} data-guide-ignore="تبديل يوم داخل معاينة الاستيراد قبل أي حفظ" className={row[day.key] ? "on" : ""} onClick={() => patchManual(index, "days", { [day.key]: !row[day.key] } as Partial<ImportRow>)}>{day.label}</button>)}</span>
+                    <span className="import-day-chips">{DAY_CHIPS.map(day => <button key={day.key} type="button" disabled={!open} data-guide-ignore="تبديل يوم داخل معاينة الاستيراد قبل أي حفظ" className={row[day.key] ? "on" : ""} onClick={() => toggleDay(index, day.key)}>{day.label}</button>)}</span>
                   </td>
                   <td className={cellClass("time",missing.time(row))} title={cellTitle("time")} dir="ltr">
                     {open ? <div className="import-time-editor"><label><small>بداية الوقت</small><TimeField value={row.fstarttime || ""} onChange={event => { const start=event.target.value; patchManual(index, "time", { fstarttime:start, fendtime:autoEndForRow(row,start) }); }} /></label><span>—</span><label><small>نهاية الوقت</small><TimeField value={row.fendtime || ""} onChange={event => patchManual(index, "time", { fendtime: event.target.value })} /></label></div> : (row.fstarttime && row.fendtime ? formatScheduleTimeRange(row.fstarttime, row.fendtime) : "—")}
@@ -476,14 +551,14 @@ export default function ImportPreviewTable({
                   </td>
                   <td className="import-row-tools">
                     <button type="button" data-guide-ignore="تحرير صف داخل معاينة الاستيراد قبل أي حفظ" className={open ? "confirm" : ""} title={open ? "تم" : "تعديل سريع"} onClick={() => open ? setEditing(null) : beginEdit(index)}>{open ? <Check /> : <Pencil />}</button>
-                    <button type="button" data-guide-ignore="حذف صف من معاينة الاستيراد قبل أي حفظ" className="danger" title="حذف المقرر كاملاً" onClick={() => remove(index)}><Trash2 /></button>
+                    <button type="button" data-guide-ignore="حذف صف من معاينة الاستيراد قبل أي حفظ" className="danger" title="احذف هذا الصف" aria-label={`احذف صف ${course?.CourseName || "المقرر"} · شعبة ${String(row.SCode || "—")}`} onClick={event => remove(index, event)}><Trash2 /></button>
                   </td>
                 </tr>
                 {open && (roomOwner || checkingConflicts || conflictNotes.length) ? <tr className="import-row-review"><td colSpan={9}>
                   <div className="import-row-review-grid">
                     {roomOwner ? <article className="import-review-card room-owner"><Building2/><div><strong><bdi dir="ltr">{roomOwner.room}/{roomOwner.hall}</bdi> قاعة {roomOwner.section || "قسم آخر"}</strong><p>{roomOwner.college ? `${roomOwner.college} · ` : ""}{roomOwner.share ? `${roomOwner.share}٪ من حجوزاتها المسجلة لهذا القسم.` : "القاعة مرتبطة بنطاق آخر."} يمكنك المتابعة إذا كان الاستخدام متفقاً عليه.</p></div></article> : null}
                     {checkingConflicts ? <article className="import-review-card checking"><Clock3 /><div><strong>جاري فحص التعارضات…</strong><p>نفحص الوقت والقاعة والأستاذ قبل اعتماد هذا الصف.</p></div></article> : null}
-                    {conflictNotes.map((note, at) => { const room = note.type === "room" || String(note.message || "").includes("قاعة"); const instructor = note.type === "instructor" || String(note.message || "").includes("أستاذ"); const Icon = room ? Building2 : instructor ? UsersRound : AlertTriangle; return <article key={`${note.type || "note"}-${at}`} className={`import-review-card conflict ${room ? "room" : instructor ? "instructor" : "generic"}`}><Icon /><div><strong>{note.message || (room ? "تعارض قاعة" : instructor ? "تعارض أستاذ" : "تعارض")}</strong>{note.detail ? <p>{note.detail}</p> : null}</div></article>; })}
+                    {conflictNotes.map((note, at) => { const room = note.type === "room" || String(note.message || "").includes("قاعة"); const instructor = note.type === "instructor" || String(note.message || "").includes("أستاذ"); const regulation = note.type === "pattern" || note.type === "ladder" || note.type === "length"; const Icon = room ? Building2 : instructor ? UsersRound : regulation ? Clock3 : AlertTriangle; return <article key={`${note.type || "note"}-${at}`} className={`import-review-card ${regulation && note.severity !== "high" ? "regulation" : "conflict"} ${room ? "room" : instructor ? "instructor" : "generic"}`}><Icon /><div><strong>{note.message || (room ? "تعارض قاعة" : instructor ? "تعارض أستاذ" : "تعارض")}</strong>{note.detail ? <p>{note.detail}</p> : null}</div></article>; })}
                   </div>
                 </td></tr> : null}
               </React.Fragment>

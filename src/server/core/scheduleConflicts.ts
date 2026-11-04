@@ -256,7 +256,8 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
          message: "خارج سُلّم البدايات في اللائحة", detail: ladder }]
     : habit
     ? [{ type: "rhythm", severity: "low", soft: true, rowId: 0, otherId: 0,
-         message: "خارج إيقاع القسم المعتاد", detail: habit }]
+         /* طولٌ خارج المكتبة يُسمّى بالمكتبة لا بعادة القسم؛ وما بقي «خارج إيقاع القسم» فبدايةٌ زلّت عن عادته حيث لا سُلّمَ واحداً. */
+         message: /^مدة محاضرات .* في مكتبة الأنماط/.test(habit) ? "طولٌ خارج مكتبة الأنماط" : "خارج إيقاع القسم المعتاد", detail: habit }]
     : [];
 
   /* ── ذاكرة عشر سنوات، عند لحظة القرار وحدها ─────────────────────────────

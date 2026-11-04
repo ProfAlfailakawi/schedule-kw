@@ -4,12 +4,15 @@ import { AdCourse, AdInstructor, FSchedule } from "../types";
 import VisitingBadge from "./VisitingBadge";
 import { displayInstructorText } from "../utils/instructorIdentity";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
-import { authorityCourseCode } from "../utils/authorityAcademicCodes";
+import { authorityCourseCode, normalizeAuthoritySectionCode } from "../utils/authorityAcademicCodes";
+import { orderAuthorityReportRows } from "../utils/authorityReportOrdering";
 import PrintComprehensiveHead, { printIssueDate } from "./PrintComprehensiveHead";
 import PrintStamp from "./PrintStamp";
 
 export type AuthorityReportEntry = {
   status: "added" | "deleted" | "changed" | "unchanged";
+  /** Imported row whose original PDF identity could not be proven. */
+  needsSourceReview?: boolean;
   changedFields: string[];
   referenceNumber: string;
   source: FSchedule | null;
@@ -24,7 +27,7 @@ export type AuthorityReport = {
   sourceFileName: string;
   sourceBranchCode?: string;
   sourceBranchName?: string;
-  counts: { added: number; deleted: number; changed: number; unchanged: number };
+  counts: { added: number; deleted: number; changed: number; unchanged: number; review?: number };
   rows: AuthorityReportEntry[];
 };
 
@@ -49,8 +52,6 @@ interface Props {
    */
   pageOffset?: number;
   pageTotal?: number;
-  /** يُطبع مرة واحدة في أول صفحة من الكتاب: شكل القسم كله قبل تفصيله. */
-  bookSites?: Array<{ label: string; added: number; deleted: number; changed: number }>;
   /** حين تضم الوثيقة مواقع الفرع: عمود «الموقع» يظهر، وصفوف المواقع تتصل. */
   showSite?: boolean;
   /** النسخة نفسها بعمودٍ أخير للرقم المدني بعد اسم المدرس، لكل صف لا للمعدَّل وحده. */
@@ -83,7 +84,6 @@ export default function AuthorityPdfReport({
   isVisitingRow,
   pageOffset = 0,
   pageTotal,
-  bookSites,
   showSite = false,
   showCivil = false,
   approval = null,
@@ -91,13 +91,10 @@ export default function AuthorityPdfReport({
   stampOrigin,
   issueDate = printIssueDate(),
 }: Props) {
-  const entries = [...report.rows].sort((a, b) => {
-    const ar = Number((a.current || a.source)?.sourceOrder ?? Number.MAX_SAFE_INTEGER);
-    const br = Number((b.current || b.source)?.sourceOrder ?? Number.MAX_SAFE_INTEGER);
-    return ar - br;
-  });
-  /* ٢٨ صفاً كالتقرير الشامل، وبكثافة صفوفه نفسها (print-comprehensive-dense-rows):
-     الصف أقصر بالمليمترات التي كانت تُترك فراغاً أسفل الورقة، والتصميم كما هو. */
+  // Source PDF order is immutable; a renamed or recreated current row may
+  // have an entirely different sourceOrder. True new courses print last.
+  const entries = orderAuthorityReportRows(report.rows);
+  /* عدد الصفوف المعتمد في كل صفحة يبقى كما هو. */
   const pages = pageItems(entries, 28);
   const fieldChanged = (entry: AuthorityReportEntry, ...fields: string[]) =>
     entry.status === "changed" && fields.some(field => entry.changedFields.includes(field));
@@ -120,8 +117,10 @@ export default function AuthorityPdfReport({
   return (
     <div className={`print-report print-wide print-query-report print-comprehensive print-comprehensive-book print-comprehensive-dense-rows authority-pdf-report${showSite ? " authority-pdf-with-site" : ""}${showCivil ? " authority-pdf-with-civil" : ""}`}>
       <div className="print-comprehensive-pages">
-        {pages.map((pageEntries, pageIndex) => (
-          <section className="print-comprehensive-page authority-pdf-page" key={`authority-${pageIndex + 1}`}>
+        {pages.map((pageEntries, pageIndex) => {
+          const lastDocumentPage = pageOffset + pageIndex + 1 === (pageTotal ?? pages.length);
+          return (
+          <section className="print-comprehensive-page authority-pdf-page" key={`authority-${pageOffset + pageIndex + 1}`}>
             {/* ترويسة التقرير الشامل نفسها — هي المعتمدة — بعنوان هذه الوثيقة. */}
             <PrintComprehensiveHead
               title="تقرير تغييرات الجدول"
@@ -132,24 +131,6 @@ export default function AuthorityPdfReport({
               termName={termName}
               issueDate={issueDate}
             />
-            {pageOffset + pageIndex === 0 && bookSites?.length ? (
-              <div className="print-comprehensive-sites" role="note">
-                <span>مواقع القسم في هذا الفصل:</span>
-                {/* ── يُقرأ بلا شرح ────────────────────────────────────────
-                    كان السطر يقول «+1 −0 ±1»، وهي رموز يعرفها من كتبها. وما
-                    يحتاجه قارئ الوثيقة كلمتان: ماذا أُضيف وماذا حُذف وماذا
-                    عُدّل، وما لا تغيير فيه يُقال صراحةً لا بصفرٍ مركون. */}
-                {bookSites.map(site => {
-                  const parts = [
-                    site.added ? `مضاف ${site.added}` : "",
-                    site.deleted ? `محذوف ${site.deleted}` : "",
-                    site.changed ? `معدّل ${site.changed}` : "",
-                  ].filter(Boolean);
-                  return <b key={site.label}>{site.label} · {parts.length ? parts.join(" · ") : "بلا تغيير"}</b>;
-                })}
-              </div>
-            ) : null}
-
             <div className="print-comprehensive-grid authority-pdf-grid" role="table" aria-label="تقرير تغييرات الجدول">
               <div className="print-comprehensive-grid-row print-comprehensive-grid-head" role="row">
                 {/* أعمدة المستند بترتيبها كما تطبعه الهيئة، ثم عمود الرقم المدني في نسخته وحدها. */}
@@ -164,28 +145,24 @@ export default function AuthorityPdfReport({
                   const course = courseById.get(Number(row.AdCourseId));
                   const instructor = instructorById.get(Number(row.AdInstructorId));
                   const cell = (changed: boolean) => changed ? "authority-pdf-cell-changed" : "";
-                  const statusLabel = entry.status === "added" ? "مضاف" : entry.status === "deleted" ? "محذوف" : entry.status === "changed" ? "معدّل" : "";
+                  const statusLabel = entry.needsSourceReview ? "مراجعة المصدر" : entry.status === "added" ? "مضاف" : entry.status === "deleted" ? "محذوف" : entry.status === "changed" ? "معدّل" : "";
                   return (
-                    <div className={`print-comprehensive-grid-row authority-pdf-row authority-pdf-row-${entry.status}`} role="row" key={`${pageIndex}-${index}-${row.id || row.sourceOrder || index}-${entry.status}`}>
+                    <div className={`print-comprehensive-grid-row authority-pdf-row authority-pdf-row-${entry.status}${entry.needsSourceReview ? " authority-pdf-row-review" : ""}`} role="row" key={`${pageIndex}-${index}-${row.id || row.sourceOrder || index}-${entry.status}`}>
                       {statusLabel ? <span className="authority-pdf-row-marker" aria-hidden="true">{statusLabel}</span> : null}
                       <div role="cell" className={`print-ltr ${cell(fieldChanged(entry, "AdCourseId"))}`}>{authorityCourseCode(course?.CourseCode || row.CourseCodeSnapshot, departmentKeyBySection?.get(Number(course?.AdSectionId || row.AdSectionId))) || "—"}</div>
-                      {/* ── الرقم المرجعي لمقرر لم تُصدره الهيئة بعد ──────────────────
-                          A course added after the import has no CRN, because a
-                          CRN is the Authority's number and it has not issued one
-                          for this row yet. The column printed «—» for it, which
-                          is the same mark it prints for a row whose number is
-                          merely unknown — so the reader met a dash and had to
-                          work out which of the two it meant.
-                          «مقرر جديد» says it, and only on rows the report has already
-                          decided are added; a missing number on any other row is
-                          still an unknown, and still a dash. It is Arabic, so it
-                          drops the latin/ltr treatment the numbers carry. */}
-                      {entry.status === "added" && !String(entry.referenceNumber || row.referenceNumber || "").trim()
-                        ? <div role="cell" className="authority-pdf-reference-number authority-pdf-reference-new">مقرر جديد</div>
-                        : <div role="cell" className="print-ltr authority-pdf-reference-number">{entry.referenceNumber || row.referenceNumber || "—"}</div>}
+                      {/* A genuinely added appointment was absent from the immutable
+                          source PDF. Its current reference field may contain an OCR
+                          artefact or a number carried forward by an older import.
+                          Never present that unverified value as an official CRN.
+                          Matched historical rows always print the source CRN. */}
+                      {entry.status === "added"
+                        ? <div role="cell" className="authority-pdf-reference-number authority-pdf-reference-new">{entry.needsSourceReview ? "—" : "مقرر جديد"}</div>
+                        : <div role="cell" className="print-ltr authority-pdf-reference-number">{entry.referenceNumber || "—"}</div>}
                       {/* Section numbering is a system-canonical import convention, not
                           a user edit. Keep the value visible but never paint it yellow. */}
-                      <div role="cell" className="print-ltr">{String(row.SCode || "").trim() || "—"}</div>
+                      <div role="cell" className="print-ltr">{entry.status === "deleted" && Number(normalizeAuthoritySectionCode(entry.source?.sourceSectionText)) >= 500 && Number(normalizeAuthoritySectionCode(entry.source?.sourceSectionText)) <= 999
+                        ? normalizeAuthoritySectionCode(entry.source?.sourceSectionText)
+                        : String(row.SCode || "").trim() || "—"}</div>
                       {/* الموقع بطاقة صغيرة بجانب اسم المقرر، لا عموداً جديداً:
                           العمود يضيّق الجدول الرسمي كله لأجل كلمة، والبطاقة
                           تقولها حيث ينظر القارئ أصلاً — كما تقولها بطاقة
@@ -222,12 +199,14 @@ export default function AuthorityPdfReport({
               </div>
             </div>
 
-            <footer className={`print-comprehensive-page-footer authority-pdf-footer${stampCode ? " has-print-stamp" : ""}`}>
-              <div className="print-comprehensive-signatures">
-                <div><span>توقيع رئيس لجنة الجدول</span><i /></div>
-                <div><span>توقيع رئيس القسم العلمي</span><i /></div>
-                <div><span>توقيع العميد</span><i /></div>
-              </div>
+            <footer className={`print-comprehensive-page-footer authority-pdf-footer${lastDocumentPage && stampCode ? " has-print-stamp" : ""}`}>
+              {lastDocumentPage ? (
+                <div className="print-comprehensive-signatures">
+                  <div><span>توقيع رئيس لجنة الجدول</span><i /></div>
+                  <div><span>توقيع رئيس القسم العلمي</span><i /></div>
+                  <div><span>توقيع العميد</span><i /></div>
+                </div>
+              ) : null}
               <div className="print-comprehensive-legend-stack">
                 <div className="print-comprehensive-legend authority-pdf-legend">
                   <span className="authority-pdf-key authority-pdf-key-added">مضاف</span>
@@ -237,10 +216,11 @@ export default function AuthorityPdfReport({
                 <div className="print-comprehensive-page-number"><bdi dir="ltr">{pageOffset + pageIndex + 1} / {pageTotal ?? pages.length}</bdi></div>
               </div>
               {/* الختم على كل صفحة، كالتقرير الشامل: صفحةٌ تُفصل من الرزمة تحمل ما يُطابَق به. */}
-              {stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
+              {lastDocumentPage && stampCode ? <PrintStamp code={stampCode} origin={stampOrigin} /> : null}
             </footer>
           </section>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

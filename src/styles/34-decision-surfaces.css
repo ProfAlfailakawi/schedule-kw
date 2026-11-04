@@ -115,7 +115,7 @@
 .pi-insufficient>summary svg{width:16px;height:16px;color:var(--muted)}
 .pi-insufficient>summary b{padding:0 8px;border-radius:999px;background:var(--surface-3);font-variant-numeric:tabular-nums}
 .pi-insufficient>summary small{font-weight:400;color:var(--muted);font-size:.75rem}
-.pi-insufficient-list{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px}
+.pi-insufficient-list{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(210px,100%),1fr));gap:6px}
 .pi-insufficient-list li{display:flex;align-items:center;gap:6px;font-size:.8rem;padding:5px 8px;border-radius:9px;background:var(--surface)}
 .pi-insufficient-list li span{flex:1;min-width:0}
 .pi-insufficient-list li small{color:var(--muted)}

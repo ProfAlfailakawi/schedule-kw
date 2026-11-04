@@ -2323,7 +2323,7 @@
    ],
    "path": "/api/schedules/meeting-slots",
    "name": "bound dispatch",
-   "call": "352fc76136093eb7",
+   "call": "5dce99b580605258",
    "site": "src/server/routes/scheduleToolsRoutes.ts:600",
    "regexp": "/^\\/api\\/schedules\\/meeting-slots\\/?$/i",
    "end": true

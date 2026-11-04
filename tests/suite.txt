@@ -22,6 +22,7 @@ test:pdf-term-rule
 test:owner-features-1028
 test:course-reach
 test:prepublish-reach
+test:mobile-overflow-css
 test:ta-phase-flow
 test:publish-pick-teachers
 test:staff-global
@@ -35,6 +36,7 @@ test:demo-cases
 test:roles
 test:approval
 test:changes
+test:authority-identity
 test:authority-net-diff
 test:blockers
 test:blocker-oracle
@@ -49,6 +51,7 @@ test:updating-page
 test:id-types
 test:inbox-live
 test:inbox-studio
+test:inbox-campus
 test:public-syntax
 test:linked
 test:inbox-ask
@@ -72,6 +75,7 @@ test:inbox-proposal-pickers-r2
 test:teacher-card-hours-patterns
 test:teacher-card-logic
 test:approved-patterns
+test:import-review-rows
 test:voice-input
 test:staff-device
 test:study-proposal-page

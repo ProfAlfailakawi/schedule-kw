@@ -14,7 +14,7 @@ const html = patternLibraryHtml(patternLibraryInput());
 const library = patternLibraryByHours();
 const total = library.reduce((sum, group) => sum + group.patterns.length, 0);
 const fourHourPatterns = library.find(group => group.hours === 4)?.patterns || [];
-check(["fsunday,ftuesday", "ftuesday,fthursday"].every(days => fourHourPatterns.some(pattern => pattern.days.join(",") === days && pattern.minutesPerDay.every(minutes => minutes === 110) && pattern.weeklyMinutes === 200)), "٤ ساعات: نمطا الأحد/الثلاثاء والثلاثاء/الخميس يظهران 110 زمنية لكل لقاء و200 دقيقة تدريس أسبوعية");
+check(["fsunday,ftuesday", "ftuesday,fthursday", "fsunday,fthursday"].every(days => fourHourPatterns.some(pattern => pattern.days.join(",") === days && pattern.minutesPerDay.every(minutes => minutes === 110) && pattern.weeklyMinutes === 200)), "٤ ساعات: أزواج الأيام القصيرة المعتمدة تظهر 110 زمنية لكل لقاء و200 دقيقة تدريس أسبوعية");
 check((html.match(/<figure class="plib-pat"/g) || []).length === total, `كلُّ نمطٍ في المكتبة يُرسم (${total})`);
 check((html.match(/class="plib-group"/g) || []).length === library.length, "ومجموعةٌ لكل عدد ساعات");
 check(!/80 \+ 80 \+ 50/.test(html) && !patternsForHours(4).some(pattern => pattern.id === "4h-mon-wed-thu"),

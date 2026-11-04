@@ -103,7 +103,16 @@ const touch = (connId: string, holder: string, name: string, team: any, scopeKey
   check(!names.includes("أ. مرشد"), "P2 لا أرى نفسي", names);
   check(names.filter(n => n === "أ. الإرشاد العام").length === 1 && seen.find(p => p.name === "أ. الإرشاد العام")?.work?.id === "1:aa", "P2 لسانان لشخصٍ واحد: واحد، بأحدثهما نشاطاً وعمله", seen);
   check(names.includes("عضو أول") && names.includes("عضو ثانٍ"), "P2 عضوا فريقٍ بحسابٍ مشترك: شخصان", names);
-  check(seen.every(p => /^p[A-Za-z0-9_-]{12}$/.test(p.id) && !p.id.includes("19") && !("holder" in p)) && peerIdOf("19") === peerIdOf("19") && peerIdOf("19") !== peerIdOf("21"), "P2 معرّفٌ ثابت لا يكشف رقم الحساب", seen.map(p => p.id));
+  /* A salted SHA-256 digest may coincidentally contain the digits "19" inside
+     its opaque characters; substring exclusion is not a privacy guarantee.
+     Validate opaque format, no raw account id exposed as the identifier or
+     as a holder property, and deterministic/distinct account mapping. */
+  check(seen.every(p => /^p[A-Za-z0-9_-]{12}$/.test(p.id) && p.id !== "19" && !("holder" in p))
+    && peerIdOf("19") === peerIdOf("19")
+    && peerIdOf("19") !== peerIdOf("21")
+    && peerIdOf("19") !== "19"
+    && !seen.some(p => ["19","21","40:m1","40:m2"].includes(p.id)),
+    "P2 معرّفٌ ثابت لا يكشف رقم الحساب", seen.map(p => p.id));
   check(teamRoster(entries.values(), key("registration"), "14", now).length === 0 && teamRoster(entries.values(), key("registration"), "99", now).map(p => p.name).join() === "أ. موظف التسجيل",
     "P2 والتسجيلُ يرى فريقه وحده");
   check(teamRoster(entries.values(), "", "x", now).length === 0, "P2 بلا نطاق: لا أحد");

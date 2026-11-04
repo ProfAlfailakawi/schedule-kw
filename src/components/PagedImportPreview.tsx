@@ -392,9 +392,7 @@ export default function PagedImportPreview({
         })()}
       </div>
 
-      {currentRows.length ? (
-        <ImportPreviewTable rows={currentRows} onRows={mergePageRows} {...displayProps} />
-      ) : (
+      {!currentRows.length ? (
         (() => {
           const diagnostic = diagnosticByPage.get(activePage);
           if (!(Number(diagnostic?.missedLines) > 0)) return <div className="import-page-empty"><FileText /><strong>لا توجد صفوف في هذه الصفحة</strong><small>لن تُضاف أي بيانات منها ما لم تكن الصفحة تحتوي جدولًا فعليًا.</small></div>;
@@ -404,7 +402,8 @@ export default function PagedImportPreview({
             ? <div className="import-page-empty"><FileText /><strong>حُذفت صفوف هذه الصفحة في المعاينة</strong><small>وما طُبع فيها ولم يُقرأ يُضاف في الجدول بعد الاستيراد.</small></div>
             : <div className="import-page-empty"><FileText /><strong>لم يُقرأ صف من هذه الصفحة</strong><small>ما طُبع فيها ولم يُقرأ يُضاف في الجدول بعد الاستيراد.</small></div>;
         })()
-      )}
+      ) : null}
+      <ImportPreviewTable key={activePage} rows={currentRows} onRows={mergePageRows} {...displayProps} />
     </section>
   );
 }

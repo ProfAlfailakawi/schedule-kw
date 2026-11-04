@@ -198,7 +198,7 @@ a{color:inherit}
  .ring{width:270px;height:270px}
  .ring-word{font-size:34px}
  .plate b{font-size:40px}
- .tiles{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+ .tiles{grid-template-columns:repeat(auto-fill,minmax(min(170px,100%),1fr));gap:12px}
 }
 @media (max-width:360px){.plate{min-width:80px}.plate b{font-size:28px}}
 @media (prefers-reduced-motion:reduce){.ring .arc{transition:none}.st-soon .ring-ico,.st-busy .ring-ico{animation:none}}

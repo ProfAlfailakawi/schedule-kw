@@ -173,7 +173,7 @@
 .seat-scope-tree summary{cursor:pointer;font-weight:600;font-size:var(--ix-secondary)}
 .seat-scope-tree summary label{display:inline-flex;align-items:center;gap:7px}
 .seat-scope-tree summary small{color:var(--muted);font-weight:500}
-.seat-scope-sections{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px 12px;padding:8px 4px 4px 0}
+.seat-scope-sections{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:4px 12px;padding:8px 4px 4px 0}
 .seat-scope-sections label{display:flex;align-items:center;gap:7px;font-size:var(--t-sm)}
 .seat-scope-sections label.muted{color:var(--muted)}
 .seat-scope-tree input{inline-size:16px;block-size:16px;accent-color:var(--accent)}

@@ -89,7 +89,7 @@
 /* Desktop: use the width. Facts sit on one line when there is room for them. */
 @media screen and (min-width:901px){
   .academic-console .catalog-workspace,.academic-console .master-detail-shell{min-height:min(58vh,540px)}
-  .academic-inspector .inspector-facts{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .academic-inspector .inspector-facts{grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))}
 }
 
 /* Entrance: the shell settles in, rows step in one after another. */

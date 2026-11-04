@@ -661,7 +661,7 @@
 /* A row of StatCards that each carry a status tone — كشف التسجيل ونتائج
    استبيان الطلبة يقرآن بالشكل نفسه. The tone lives on the icon and a leading
    edge; the number stays ink so it is read first. */
-.stat-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s3)}
+.stat-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:var(--s3)}
 .stat-tone{--tone:var(--accent);--tone-soft:var(--accent-soft)}
 .stat-tone[data-tone="warning"]{--tone:var(--warning);--tone-soft:var(--warning-soft)}
 .stat-tone[data-tone="info"]{--tone:var(--info);--tone-soft:var(--info-soft)}
