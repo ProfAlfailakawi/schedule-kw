@@ -118,6 +118,11 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   const reopening = req.body?.reopen === true;
   const selectedInstructorId = individualOnly ? Number(req.body.instructorId) : 0;
   const emergencyReason = String(req.body?.reason || "").trim().slice(0, 400);
+  /* «لمن؟ ← أساتذة محددون»: قائمةٌ صريحة يُصدَر لها وحدها بالموعد نفسه، بلا سبب (ليست استثناءً).
+     ووجودُ الحقل وحده يكفي ليكون الإرسالُ محدداً: قائمةٌ فارغةٌ تُرفض، لا تصير «للجميع». */
+  const picking = !individualOnly && req.body?.instructorIds !== undefined;
+  const picked: number[] = picking && Array.isArray(req.body.instructorIds)
+    ? [...new Set<number>(req.body.instructorIds.map(Number))] : [];
   /* E1: صفةُ الإرسال (👁️ للعرض · ✏️ طلب تعديل) تُكتب على طلب كل أستاذ — `linkMode`، المصدرُ الواحد.
      و🎓 مرحلةُ التدريب لا تُفتح من هنا: لها مسارُها (/api/ta-phase/open) بموجاته ومقرّراته المسموحة. */
   const issueMode = issueLinkMode(req.body?.mode);
@@ -125,6 +130,9 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
   if (individualOnly && (!Number.isSafeInteger(selectedInstructorId) || selectedInstructorId <= 0 || !emergencyReason)) {
     res.status(400).json({ error: "اختر أستاذاً واكتب سبب إعادة فتح التعديل له." }); return;
+  }
+  if (picking && (!picked.length || picked.length > 300 || picked.some(id => !Number.isSafeInteger(id) || id <= 0))) {
+    res.status(400).json({ error: "اختر أستاذاً واحداً على الأقل." }); return;
   }
   if (await refuseIfTermFrozen(res, termId)) return;
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
@@ -209,6 +217,11 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   /* الاستثناء الفردي لا يُنشئ طلبات لزملاء الأستاذ ولا يفتح العائلة كلها.
      ولا يجوز منح الصلاحية لهوية «هيئة تدريسية» الافتراضية. */
   const person = individualOnly ? (instructors as any[]).find(row => Number(row.AdInstructorId) === selectedInstructorId) : null;
+  /* المختارون من جدول هذه العائلة وحدها: معرّفٌ من خارجها لا يُصدَر له شيء. */
+  const pickedSet = new Set(picked);
+  if (picking && picked.some(id => !byInstructor.has(id))) {
+    res.status(404).json({ error: "بعض الأساتذة المختارين ليسوا في جدول هذه العائلة والفصل." }); return;
+  }
   if (individualOnly && (!byInstructor.has(selectedInstructorId) || !person || isFacultyPlaceholder(person))) {
     res.status(404).json({ error: "الأستاذ غير موجود في جدول هذه العائلة والفصل." }); return;
   }
@@ -250,6 +263,8 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   const issued: Array<{ instructorId: number; linkId: string; reissued: boolean; renewed?: boolean }> = [];
   for (const [instructorId, own] of byInstructor) {
     if (individualOnly && instructorId !== selectedInstructorId) continue;
+    /* غيرُ المختارين لا يُمسّ طلبُهم ولا رابطُهم ولا صفتُه. */
+    if (picking && !pickedSet.has(instructorId)) continue;
     /* أستاذٌ له طلبٌ في هذا الفصل لا يُعطى ثانياً: طلبان يعنيان أن أحدهما
        سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. لكن طلباً مات موعدُه أو رابطُه
        لا يبقى «طلبَه» — يتبع الموعدَ الجديد (src/utils/requestReissue.ts). */
@@ -303,21 +318,57 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     });
     issued.push({ instructorId, linkId: link.id, reissued: false });
   }
-  if (!individualOnly) {
+  /* والإرسالُ المحدد لا يغيّر الموعدَ العام لبطاقات العائلة: موعدُ المختارين في طلباتهم. */
+  if (!individualOnly && !picking) {
     /* إعادة فتح الجميع تغيّر الموعد العام فقط؛ تبقى الروابط الشخصية نفسها.
        الاستثناء الفردي محفوظ منفصلاً فلا تفسده إعادة فتح دورة جماعية. */
     const shared = await staffFamilyShareLinks(collegeId, sectionId, termId);
     await Promise.all(shared.filter(link => !link.revoked && Date.parse(link.expiresAt) > Date.now())
       .map(link => Repository.setShareLinkRequestsCloseAt(link.id, windowClosesAt)));
   }
+  const pickedNames = () => picked.map(id => String((instructors as any[]).find(row => Number(row.AdInstructorId) === id)?.AdInstructorName || id)).join("، ");
   res.locals.auditChanges = (individualOnly
     ? `فتح تعديل استثنائي للأستاذ ${String(person?.AdInstructorName || selectedInstructorId)} حتى ${windowClosesAt} — ${emergencyReason}`
+    : picking ? `إرسال بطاقة الأستاذ لأساتذة محددين حتى ${windowClosesAt}: ${pickedNames()}`
     : `إعادة فتح استقبال طلبات الأساتذة لعائلة القسم حتى ${windowClosesAt}`) + ` · ${linkModeLabel(issueMode)}`;
   await Repository.saveFeatureDoc("linkModeLog", `${collegeId}:${sectionId}:${termId}:${Date.now()}`, {
     at: new Date().toISOString(), by: String(req.user?.Name || req.user?.UserName || ""), mode: issueMode,
-    scope: `${collegeId}:${sectionId}:${termId}`, instructorIds: issued.map(row => row.instructorId), single: individualOnly,
+    scope: `${collegeId}:${sectionId}:${termId}`, instructorIds: issued.map(row => row.instructorId), single: individualOnly, picked: picking,
   }).catch(() => undefined);
-  res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued && !row.renewed).length });
+  res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued && !row.renewed).length, ...(picking ? { picked: true } : {}) });
+});
+
+/* ── «لمن؟ ← أساتذة محددون»: من يمكن أن يُرسَل إليه ─────────────────────────
+ * القائمةُ نفسُها التي يُصدِر لها الإرسالُ أعلاه: أساتذةُ جدول عائلة القسم في الفصل
+ * (بلا «هيئة تدريسية»)، ولكلٍّ عددُ شعبه وجوّالُه للتسليم. لا رقم مدني ولا رابط. */
+app.get("/api/instructor-requests/recipients", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const [familyRows, instructors] = await Promise.all([
+    Promise.all(family.map(scope => Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId }))),
+    Repository.getInstructors(),
+  ]);
+  const placeholderIds = placeholderInstructorIds(instructors as any[]);
+  /* الشعبةُ مرّةً واحدة وإن تعدّدت مواعيدُها: (الموقع، المقرر، رقم الشعبة). */
+  const sectionKeys = new Map<number, Set<string>>();
+  for (const row of familyRows.flat() as any[]) {
+    const id = Number(row.AdInstructorId || 0);
+    if (!id || placeholderIds.has(id)) continue;
+    const key = `${row.AdCollegeId}:${row.AdCourseId}:${String(row.SCode || row.id)}`;
+    const held = sectionKeys.get(id);
+    if (held) held.add(key); else sectionKeys.set(id, new Set([key]));
+  }
+  const sections = new Map([...sectionKeys].map(([id, keys]) => [id, keys.size] as const));
+  const person = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), row]));
+  res.setHeader("Cache-Control", "no-store");
+  res.json([...sections].map(([id, count]) => ({
+    AdInstructorId: id,
+    AdInstructorName: String(person.get(id)?.AdInstructorName || ""),
+    AdInstructorMobile: String(person.get(id)?.AdInstructorMobile || ""),
+    sections: count,
+  })));
 });
 
 /** قائمة الاستثناءات تُقرأ بإذن القسم، وبلا أرقام مدنية أو روابط شخصية. */

@@ -13,6 +13,7 @@ import { cleanBuildingCode, cleanHallCode } from "../../utils/documentOcr";
 import { assignAuthoritySections } from "../../utils/authorityAcademicCodes";
 import { splitRowsByBranch } from "../../utils/branchScope";
 import { foldHeaderIdentity } from "./ordering";
+import { isAuthorityImportedRow, matchAuthorityThroughPublication, withFirstPublishedAuthorityInstructors } from "../../utils/authorityRowMatching";
 
 const AUTHORITY_PDF_COMPARE_FIELDS = [
   "AdCourseId","SCode","AdInstructorId",
@@ -29,82 +30,24 @@ export async function authorityCourseCodeMap(){
   return new Map<number,string>(courses.map((course:any)=>[Number(course.AdCourseId),String(course.CourseCode||"").trim()]));
 }
 
-export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{instructorNameById?:Map<number,string>;courseCodeById?:Map<number,string>}={}){
-  const baseline=assignAuthoritySections([...(baselineInput||[])]).sort((a:any,b:any)=>Number(a.sourceOrder)-Number(b.sourceOrder));
+export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{instructorNameById?:Map<number,string>;courseCodeById?:Map<number,string>;publishedRows?:any[]}={}){
+  const scanned=assignAuthoritySections([...(baselineInput||[])]).sort((a:any,b:any)=>Number(a.sourceOrder)-Number(b.sourceOrder));
   const current=[...(currentInput||[])];
-  const consumed=new Set<number>();
-  const refKey=(value:any)=>String(value||"").replace(/[\s\u200e\u200f\u202a-\u202e]/g,"").trim();
-  const sectionKey=(row:any)=>`${Number(row?.AdCourseId||0)}|${String(row?.SCode||"").trim()}`;
-  /* A row created after the Authority PDF is a new academic action forever:
-     editing it keeps it green, and deleting it removes it from the report.
-     sourceOrder >= 1,000,000 is the explicit post-PDF range. Older imported
-     rows that pre-date sourceOrder can still prove their PDF origin through
-     CRN/reference or the immutable import-evidence fields. */
-  const hasPdfEvidence=(row:any)=>Boolean(refKey(row?.referenceNumber)||row?.sourceCourseCode||row?.sourceCourseText||row?.sourceSectionText||row?.importEvidence);
-  const isImportedPdfRow=(row:any)=>{
-    const rawOrder=row?.sourceOrder;
-    /* sourceOrder alone is not provenance. A manual form can inherit stale UI
-       state, but it cannot manufacture immutable PDF evidence. Requiring both
-       keeps every post-PDF row green even after later edits. */
-    if(rawOrder!==undefined&&rawOrder!==null&&Number.isFinite(Number(rawOrder)))return Number(rawOrder)<1_000_000&&hasPdfEvidence(row);
-    return hasPdfEvidence(row);
-  };
-  const uniqueIndex=(predicate:(row:any)=>boolean)=>{
-    const matches:number[]=[];
-    current.forEach((row:any,index:number)=>{if(!consumed.has(index)&&predicate(row))matches.push(index);});
-    return matches.length===1?matches[0]:-1;
-  };
-  const matchIndex=(source:any)=>{
-    const reference=refKey(source?.referenceNumber);
-    const order=Number(source?.sourceOrder);
-
-    /* The CRN/reference number printed by the Authority is the strongest row
-       identity we own.  Prefer it BEFORE sourceOrder.  sourceOrder is a visual
-       import trace and can drift when an old baseline was renumbered/rebuilt;
-       pairing by a stale order is exactly how one untouched row can inherit a
-       different row and make every visible cell look yellow. */
-    if(reference){
-      const byReference=uniqueIndex((row:any)=>
-        isImportedPdfRow(row)&&refKey(row?.referenceNumber)===reference
-      );
-      if(byReference>=0)return byReference;
-
-      /* Legacy live rows can occasionally lose the persisted CRN while still
-         retaining the immutable imported order.  Allow that fallback only when
-         the candidate has NO conflicting reference.  Never pair a baseline CRN
-         with another non-empty CRN merely because sourceOrder happens to match. */
-      if(Number.isFinite(order)){
-        const byOrder=uniqueIndex((row:any)=>{
-          if(!isImportedPdfRow(row)||Number(row?.sourceOrder)!==order)return false;
-          const currentReference=refKey(row?.referenceNumber);
-          return !currentReference||currentReference===reference;
-        });
-        if(byOrder>=0)return byOrder;
-      }
-
-      /* A source row with a real CRN that is no longer present is a deletion.
-         Do NOT fall through to course+section and accidentally consume another
-         imported row, which would generate a full-row false diff. */
-      return -1;
-    }
-
-    if(Number.isFinite(order)){
-      const byOrder=uniqueIndex((row:any)=>isImportedPdfRow(row)&&Number(row?.sourceOrder)===order);
-      if(byOrder>=0)return byOrder;
-    }
-
-    /* Last conservative fallback for legacy imported rows that truly have no
-       reference number. A manual post-PDF row can never enter this path. */
-    const signature=sectionKey(source);
-    if(!signature.startsWith("0|")){
-      const bySection=uniqueIndex((row:any)=>isImportedPdfRow(row)&&!refKey(row?.referenceNumber)&&sectionKey(row)===signature);
-      if(bySection>=0)return bySection;
-    }
-    return -1;
-  };
+  /* The SWRSCHA original often leaves the entire instructor column empty.
+     That is not evidence of a teacher change. The published import snapshot
+     records who was FIRST assigned; subsequent changes can be compared to it.
+     Reconcile the same immutable source appointments against that snapshot
+     without ever writing to the PDF baseline or live schedule. */
+  const published=Array.isArray(options.publishedRows)?options.publishedRows:[];
+  const baseline=withFirstPublishedAuthorityInstructors(scanned,published,options.courseCodeById);
+  /* Reconcile by Authority CRN first, then by unique academic identity.
+     A changed/incorrectly imported reference must not create a fictitious
+     deletion and addition. No saved schedule or baseline row is modified. */
+  const matches=matchAuthorityThroughPublication(baseline,published,current,options.courseCodeById);
+  const consumed=new Set<number>(matches.values());
   const reportRows:any[]=[];
-  baseline.forEach((source:any)=>{
-    const index=matchIndex(source);
+  baseline.forEach((source:any,sourceIndex:number)=>{
+    const index=matches.get(sourceIndex)??-1;
     if(index<0){
       reportRows.push({status:"deleted",changedFields:[],referenceNumber:String(source.referenceNumber||""),source,current:null});
       return;
@@ -173,6 +116,9 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
       .replace(/\s+/g," ")
       .trim();
     const sameInstructorIdentity=()=>{
+      /* A blank PDF teacher without a proven first-published assignment is
+         UNKNOWN, not evidence that the current professor was newly changed. */
+      if(!Number(source.AdInstructorId||0)&&!String(source.sourceInstructorText||"").trim()&&!source.__hasPublishedInstructorBaseline)return true;
       if(comparable("AdInstructorId",source.AdInstructorId)===comparable("AdInstructorId",next.AdInstructorId))return true;
       /* هويتان مسجّلتان مختلفتان = أستاذ تغيّر، مهما تشابه الاسم المطبوع:
          «يحيى سالم» يقع داخل «يحيى سالم العنزي» و«يحيى سالم الشمري» معاً. */
@@ -223,9 +169,15 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
   });
   current.forEach((row:any,index:number)=>{
     if(consumed.has(index))return;
-    reportRows.push({status:"added",changedFields:[...AUTHORITY_PDF_COMPARE_FIELDS],referenceNumber:String(row.referenceNumber||""),source:null,current:row});
+    reportRows.push({status:"added",needsSourceReview:isAuthorityImportedRow(row),changedFields:[...AUTHORITY_PDF_COMPARE_FIELDS],referenceNumber:String(row.referenceNumber||""),source:null,current:row});
   });
-  const counts=reportRows.reduce((acc:any,row:any)=>(acc[row.status]=(acc[row.status]||0)+1,acc),{added:0,deleted:0,changed:0,unchanged:0});
+  /* An unlinked imported record is NOT a proven addition. Keep it visible
+     for explicit source review, outside the "added" count. */
+  const counts=reportRows.reduce((acc:any,row:any)=>{
+    if(row.status==="added"&&row.needsSourceReview)acc.review++;
+    else acc[row.status]=(acc[row.status]||0)+1;
+    return acc;
+  },{added:0,deleted:0,changed:0,unchanged:0,review:0});
   return{rows:reportRows,counts};
 }
 

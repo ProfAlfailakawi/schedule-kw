@@ -193,7 +193,7 @@ await (async () => {
 {
   const publish = read("src/components/SchedulePublish.tsx");
   const ta = read("src/components/TAPhasePanel.tsx");
-  check(publish.includes("onClick={() => void guardSend(create)}"), "P7 «إنشاء الرابط» يمرّ بالبوّابة");
+  check(publish.includes("onClick={() => void guardSend(create)}") || publish.includes("onClick={() => void guardSend(picking ? sendPicked : create)}"), "P7 «إنشاء الرابط» (والإرسالُ لأساتذة محددين) يمرّ بالبوّابة");
   check(publish.includes("confirmSend={proceed => void guardSend(proceed)}") && ta.includes("confirmSend ? confirmSend(open) : void open()"), "P7 «فتح مرحلة التدريب» يمرّ بالبوّابة");
   check(/if \(kind !== "staff"\) \{ await proceed\(\); return; \}/.test(publish), "P7 جدول القسم والاستبيان لا يُفحصان");
   check(publish.includes("mode: sendMode") && publish.includes("read: () => readOffering(collegeId, sectionId, termId)"), "P7 الفحص بصفة الإرسال ونطاق النشر نفسه");

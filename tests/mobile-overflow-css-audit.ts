@@ -30,9 +30,21 @@ const flat = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/
 
 const index = read("src/index.css");
 const guard = flat(read("src/styles/46-mobile-overflow.css"));
+const duo = flat(read("src/styles/47-duo-open-workspace.css"));
+const studio = flat(read("src/styles/40-appointment-studio.css"));
 const publish = read("src/components/SchedulePublish.tsx");
 
 check(/@import"\.\/styles\/46-mobile-overflow\.css";/.test(flat(index)), "ملفُّ الحارس مستورَدٌ في index.css");
+check(/@import"\.\/styles\/47-duo-open-workspace\.css";/.test(flat(index)), "تخطيط Duo المفتوح مستوردٌ بعد قواعد الاستجابة العامة");
+check(/@mediascreenand\(horizontal-viewport-segments:2\)and\(min-width:800px\)\{/.test(duo), "تخطيطٌ مستقلٌّ لوضعيّة الشاشتين المفتوحة فقط");
+check(/\.sidebar\{[^}]*left:env\(viewport-segment-left10\)[^}]*right:calc\(100vw-env\(viewport-segment-right10\)\)/.test(duo)
+  && /\.app-main\{[^}]*margin-inline-start:calc\(100vw-env\(viewport-segment-right00\)\)!important/.test(duo),
+  "التنقل في الشاشة اليمنى ومساحة العمل في الشاشة اليسرى وفق حدود المفصلة");
+check(/\.notify-bell\{[^}]*viewport-segment-left00/.test(duo) && /\.notify-panel\{[^}]*viewport-segment-width00/.test(duo),
+  "الجرس ولوحة التنبيهات داخل مساحة العمل اليسرى");
+check(!/\.schedule-editor-grid\.appt-layout\.has-week:has\(>\.editor-side\)\{grid-template-columns:minmax\(0,1fr\)/.test(duo)
+  && /@mediascreenand\(horizontal-viewport-segments:2\)and\(min-width:900px\)and\(max-width:1100px\)\{[^}]*\.schedule-editor-grid\.appt-layout\.has-week:has\(>\.editor-side\)\{grid-template-columns:minmax\(0,1fr\)clamp\(280px,34vw,380px\)/.test(studio),
+  "موعد Duo يحتفظ بعمود الأستاذ يسار الأسئلة كما في تخطيط سطح المكتب");
 
 /* 1) iOS: حقولُ التاريخ والساعة تطيع العرض. */
 const ios = guard.match(/@supports\(-webkit-touch-callout:none\)\{([\s\S]*?\})\}/)?.[1] || "";

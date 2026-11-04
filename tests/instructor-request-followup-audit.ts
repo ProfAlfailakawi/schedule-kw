@@ -159,7 +159,7 @@ check(inboxRoute.includes("Repository.getInstructorRequests(0, 0, termId)")
   })(),
   "وكلُّ بندٍ يصل منسّقَ كليته وحده، ولا يصل غيرَه منه شيء");
 check(inboxRoute.includes(".map(id => sectionNameOf.get(id) || \"\").filter(Boolean)"), "وكلُّ طلبٍ يحمل اسمَ قسم ما يُرى منه");
-check(inbox.includes('className="request-card-section"') && inbox.includes('item.action === "add" && item.after?.collegeName'),
+check(inbox.includes('className="request-card-section"') && inbox.includes('item.before?.sectionCode || campus || item.after?.collegeName') && inbox.includes('<CampusChip label={campus'),
   "والبطاقةُ تعرض القسمَ، والإضافةُ تعرض كليتَها");
 
 /* ── صفحةُ الأستاذ: ما يحتاجه من لا يعرف التقنية ──────────────────────────── */

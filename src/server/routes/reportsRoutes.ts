@@ -447,12 +447,15 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
   };
   let diff = diffSchedules(baselineVersion?.rows as any, live as any, names);
   let authoritySource: { draftId:string; name:string; sourceFileName:string; importedAt?:string; publishedAt?:string|null } | undefined;
+  let authorityReviewCount = 0;
   if(authorityDraft){
     const scopedBaseline=await authorityBaselineForScope(authorityDraft.baselineRows||[],authorityDraft,collegeId,sectionId);
     const authorityComparison=buildAuthorityPdfDiff(scopedBaseline,live as any,{
       instructorNameById:names.instructorById,
+      publishedRows:authorityDraft.rows||[],
       courseCodeById:new Map((courses as any[]).map(row=>[Number(row.AdCourseId),String(row.CourseCode||"").trim()])),
     });
+    authorityReviewCount=Number(authorityComparison.counts.review||0);
     const rawFieldGroups: Array<["course"|"sectionCode"|"days"|"time"|"room"|"instructor",string[]]> = [
       ["course",["AdCourseId"]],
       ["sectionCode",["SCode"]],
@@ -462,7 +465,7 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
       ["instructor",["AdInstructorId"]],
     ];
     const entries=authorityComparison.rows.flatMap((entry:any)=>{
-      if(entry.status==="unchanged")return [];
+      if(entry.status==="unchanged"||entry.needsSourceReview)return [];
       const row=entry.current||entry.source;
       if(!row)return [];
       const kind=entry.status==="deleted"?"removed":entry.status;
@@ -587,6 +590,7 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
        لا شيء. والشاشة تقول ذلك بدل أن يستنتجه القارئ من كثرة «المضاف». */
     baselineSource,
     authoritySource,
+    authorityReviewCount,
     diff: diffForClient,
     fullSchedule,
     summary: summarizeDiff(diff),
@@ -630,7 +634,7 @@ app.get("/api/reports/authority-pdf-diff", requireAnyPermission([7,8,9,10,14,16,
      baseline and let buildAuthorityPdfDiff classify every original row as
      `deleted` instead of suppressing the report. */
   const scopedBaseline=await authorityBaselineForScope(draft.baselineRows||[],draft,collegeId,sectionId);
-  const comparison=buildAuthorityPdfDiff(scopedBaseline,live,{instructorNameById,courseCodeById:await authorityCourseCodeMap()});
+  const comparison=buildAuthorityPdfDiff(scopedBaseline,live,{instructorNameById,courseCodeById:await authorityCourseCodeMap(),publishedRows:draft.rows||[]});
   res.json({
     draftId:draft.id,name:draft.name,sourceFileName:draft.sourceFileName||"الجدول المعتمد.pdf",
     sourceBranchCode:inferAuthorityBranchCode(draft,[...scopedBaseline,...live]),

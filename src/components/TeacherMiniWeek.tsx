@@ -276,7 +276,7 @@ export default function TeacherMiniWeek({
   room?: MiniRoom | null;
 }) {
   const bodyId = useId();
-  const sheet = useMedia("(max-width: 1100px)", variant === "side");
+  const sheet = useMedia("(max-width: 1100px) and not (horizontal-viewport-segments: 2)", variant === "side");
   const hoverable = useMedia("(hover: hover)", true);
   /* الرسم بالمؤشر: فأرةٌ أو قلم على سطح المكتب — لا الشريط السفلي ولا اللمس. */
   const canDraw = useMedia("(hover: hover) and (pointer: fine)", !sheet) && !sheet;

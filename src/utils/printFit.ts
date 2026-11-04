@@ -12,10 +12,10 @@
  * تكبيراً موحّداً (`zoom`) على محتواها. فالتصميم هو هو بخطوطه ونِسَبه وألوانه
  * وترويسته، والهوامش وعدد الصفوف كما هي؛ الذي يتغيّر الحجم وحده.
  *
- * والتقرير الشامل وتقرير التغييرات يُعامَلان بحذرٍ أشدّ: صفّهما مطابقٌ لورقة
- * التسجيل صفحةً بصفحة، فلا يُكبَّران أبداً — يبقيان بحجمهما المعتمد حرفاً بحرف،
- * ولا يُصغَّران إلا إذا كانت الصفحة ستُقصّ. أمّا ملحق التغييرات فوثيقةٌ نصية
- * تُملأ كبقية التقارير.
+ * والتقرير الشامل وتقرير التغييرات يُقاسان على حدّ صفحة A4 نفسها: يُكبَّران
+ * إن بقيت مساحةٌ بيضاء، ويُصغَّران إن احتاج المحتوى إلى ذلك. لا يتبدّل شيءٌ
+ * في تصميمهما أو بياناتهما؛ الذي يتغيّر حجم الطباعة وحده. وملحق التغييرات
+ * يُقاس بالطريقة نفسها.
  *
  * والقياس متزامن عمداً: Safari لا يفتح نافذة الطباعة إلا إذا جاء الأمر في
  * اللمسة نفسها بلا انتظار. فتُقلب وسائط الأوراق إلى وسائط الطباعة لحظةً،
@@ -208,11 +208,15 @@ const REPORT_PAGES = ".print-report:not(.print-comprehensive) .print-explicit-pa
 const BOOK_PAGES = ".print-comprehensive-book .print-comprehensive-page";
 
 /**
- * أقصى تكبيرٍ لكل صفحة: صفحة الشامل وتقرير التغييرات لا تُكبَّر — شكلها
- * الرسمي ثابت — والملحق وبقية التقارير تُكبَّر حتى تمتلئ الورقة.
+ * لكل صفحة سقفُ تكبيرٍ واحد؛ والقياس أدناه يختار أكبر حجمٍ يدخل حدود A4.
  */
-export function printFitCeiling(page: Pick<Element, "matches">): number {
-  return page.matches(".print-comprehensive-page") && !page.matches(".print-changes-appendix") ? 1 : PRINT_FIT_MAX;
+export function printFitCeiling(page: Pick<Element, "matches">, rotated = false): number {
+  /* الدوران على ورقة Safari يملأ A4 بتحويل الصفحة نفسه؛ لا نكبّر محتواها
+     مرة ثانية، وإلا خرج ذيل التواقيع إلى ورقة إضافية. */
+  if (page.matches(".print-comprehensive-page") && rotated) return 1;
+  /* صفحات الجدول المعتمد تُكبَّر إلى أقصى ما تسمح به أبعاد A4؛ قياس الفيضان
+     أدناه يوقف الزيادة إذا بدأت الأعمدة أو الخلايا تتجاوز عرض الورقة. */
+  return PRINT_FIT_MAX;
 }
 
 /** يُكتب أثناء القياس وحده: الصفحة بطولها الطبيعي، لا مقصوصةً ولا مُدارة. */
@@ -288,9 +292,9 @@ export interface PrintFitResult { pages: number; scales: number[] }
  * يملأ كل صفحةٍ في `scope` بأكبر حجمٍ تحمله ورقة A4، ويُصغّر ما تجاوزها.
  *
  * الصفحات التي تحمل `data-print-fit-group` واحداً في التقرير نفسه تأخذ حجماً
- * واحداً — أصغرَ ما احتاجته صفحاتها — حتى لا يتبدّل الخط بين صفحتين من الورقة
- * نفسها؛ وما لا يحمله يُجمع بتقريره كله. أستاذٌ في صفحتين بخطٍّ واحد، وأستاذٌ
- * آخر بخطّه هو.
+ * واحداً — أصغرَ ما احتاجته صفحاتها — حتى لا يتبدّل الخط بين صفحتين مرتبطتين.
+ * أمّا الصفحة التي لا تحمل مجموعةً صريحةً فتُقاس وحدها، حتى لا يترك ازدحام
+ * صفحةٍ فراغاً كبيراً في صفحةٍ أخرى أقصر منها.
  */
 export function fitPrintPages(scope: ParentNode = document): PrintFitResult {
   const root = document.documentElement;
@@ -307,10 +311,10 @@ export function fitPrintPages(scope: ParentNode = document): PrintFitResult {
   style.dataset.printFitMeasure = "true";
   style.textContent = MEASURE_CSS;
   const reports = new Map<Element, number>();
-  const groupOf = (page: HTMLElement) => {
+  const groupOf = (page: HTMLElement, pageIndex: number) => {
     const report = page.closest(".print-report") || page;
     if (!reports.has(report)) reports.set(report, reports.size);
-    return `${reports.get(report)}:${page.dataset.printFitGroup || ""}`;
+    return `${reports.get(report)}:${page.dataset.printFitGroup || `page:${pageIndex}`}`;
   };
 
   let scales: number[] = [];
@@ -324,7 +328,7 @@ export function fitPrintPages(scope: ParentNode = document): PrintFitResult {
         .map(page => {
           const fixed = parseFloat(getComputedStyle(page).maxHeight);
           const box = Number.isFinite(fixed) && fixed > 0 ? Math.min(fixed, sheetHeight) : sheetHeight;
-          return { page, limit: box - SAFETY_MM * MM, ceiling: printFitCeiling(page) };
+          return { page, limit: box - SAFETY_MM * MM, ceiling: printFitCeiling(page, root.dataset.printRotate === "1") };
         });
       if (!pages.length) return [];
 
@@ -368,12 +372,12 @@ export function fitPrintPages(scope: ParentNode = document): PrintFitResult {
 
       const groupScale = new Map<string, number>();
       pages.forEach((item, index) => {
-        const key = groupOf(item.page);
+        const key = groupOf(item.page, index);
         const scale = low[index] >= 1 && high[index] <= 1 ? 1 : Math.floor(low[index] * 100) / 100;
         groupScale.set(key, Math.min(groupScale.get(key) ?? Infinity, scale));
       });
-      return pages.map(item => {
-        const scale = groupScale.get(groupOf(item.page)) ?? 1;
+      return pages.map((item, index) => {
+        const scale = groupScale.get(groupOf(item.page, index)) ?? 1;
         setFit(item.page, scale);
         return scale;
       });

@@ -262,7 +262,7 @@ async function main() {
     check(page.includes("alts.length&&!open") && page.includes("alts-ro") && page.includes("أُغلق استقبال الطلبات"), "D3 البدائل تُعرض للاطلاع بعد الإغلاق");
     const submit = server.slice(server.indexOf('app.post("/api/public/request/:token", '), server.indexOf('app.post("/api/public/request/:token/check"'));
     check(submit.includes('kind: "alternative-chosen"') && submit.includes("...alternativeEvents"), "D3 اختيار البديل يُسجَّل في الخط الزمني");
-    const issue = server.slice(server.indexOf('app.post("/api/instructor-requests/issue"'), server.indexOf('app.post("/api/instructor-requests/issue"') + 9000);
+    const issue = server.slice(server.indexOf('app.post("/api/instructor-requests/issue"'));
     check(issue.includes("Date.parse(termLinkExpiresAt(issueTerm))"), "D3 رابط الطلب يصدر حتى نهاية الفصل");
     check(server.includes("if (!await shareLinkStillReadable(link)) return { error: \"انتهت صلاحية هذا الرابط\", status: 410 } as const;"), "D3 رابط الطلب القديم يُقرأ حتى نهاية فصله");
     check(submit.includes("requestWindowOpen(resolved.request)"), "D3 الكتابة تبقى محكومةً بنافذة الطلبات");
@@ -322,7 +322,7 @@ async function main() {
 
   /* ── D11: فصلٌ فارغ لا يُعلن فتح الطلبات ────────────────────────────────── */
   {
-    const issue = server.slice(server.indexOf('app.post("/api/instructor-requests/issue"'), server.indexOf('app.post("/api/instructor-requests/issue"') + 9000);
+    const issue = server.slice(server.indexOf('app.post("/api/instructor-requests/issue"'));
     check(issue.includes("if (!byInstructor.size) {") && issue.includes("emptyTerm: true"), "D11 الخادم يقول إن الفصل فارغ");
     check(issue.indexOf("emptyTerm: true") < issue.indexOf("for (const [instructorId, own] of byInstructor)"), "D11 قبل أي إصدار");
     const publish = read("src/components/SchedulePublish.tsx");

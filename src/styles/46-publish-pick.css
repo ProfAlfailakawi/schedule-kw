@@ -1,0 +1,28 @@
+/* ── «لمن؟» في نشر بطاقة الأستاذ: الكل أو أساتذة محددون ─────────────────────────
+   بإحساس اختيار المدرّبين في مرحلة التدريب (.of-chip / .ta-mini)، بلا عرضٍ ثابت. */
+.publish-audience{display:grid;gap:8px;margin:2px 0 12px}
+.publish-audience-title{font-size:.9rem}
+.publish-audience-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.publish-audience-choices button{display:flex;align-items:center;gap:10px;min-width:0;min-height:56px;padding:8px 12px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface,#fff);font:inherit;color:inherit;text-align:start;cursor:pointer;transition:border-color .15s,background .15s}
+.publish-audience-choices button>svg{flex:none;inline-size:20px;block-size:20px;color:var(--accent)}
+.publish-audience-choices button>span{display:grid;gap:2px;min-width:0}
+.publish-audience-choices button b{font-size:.9rem}
+.publish-audience-choices button small{font-size:.74rem;color:var(--muted,#6b7280);line-height:1.4}
+.publish-audience-choices button[aria-pressed=true]{border-color:var(--accent);background:var(--accent-softer);box-shadow:0 0 0 3px var(--accent-soft)}
+.publish-pick{display:grid;gap:8px;margin:0 0 12px;padding:10px;border:1px dashed var(--line);border-radius:12px;min-width:0}
+.publish-pick-search{display:flex;align-items:center;gap:6px;min-width:0;min-height:40px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff)}
+.publish-pick-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px}
+.publish-pick-actions{display:inline-flex;flex-wrap:wrap;gap:6px}
+.publish-pick-actions .ta-mini:disabled{opacity:.5;cursor:default}
+.publish-pick-search svg{flex:none;inline-size:16px;block-size:16px;color:var(--muted,#6b7280)}
+.publish-pick-search input{flex:1;min-width:0;border:0;background:transparent;font:inherit;outline:none}
+.publish-pick-count{font-size:.78rem;color:var(--muted,#6b7280)}
+.publish-pick-list{display:grid;gap:4px;max-block-size:300px;overflow:auto;padding-inline-end:2px}
+.publish-pick-list .of-chip{inline-size:100%;min-width:0;min-height:40px;padding:4px 10px;border-radius:12px;font:inherit;font-size:.86rem;color:inherit;text-align:start;cursor:pointer}
+.publish-pick-box{display:inline-grid;place-items:center;flex:none;inline-size:18px;block-size:18px;border:1.5px solid var(--line);border-radius:5px;background:var(--surface,#fff)}
+.publish-pick-box svg{inline-size:13px;block-size:13px}
+.publish-pick-list .of-chip[aria-pressed=true] .publish-pick-box{border-color:var(--accent);background:var(--accent);color:#fff}
+.publish-pick-name{flex:1;min-width:0;overflow-wrap:anywhere}
+.publish-pick-list .of-chip>small{flex:none;font-size:.74rem;font-weight:600;color:var(--muted,#6b7280)}
+.publish-delivered{margin-top:10px}
+.publish-delivered-actions{display:inline-flex;align-items:center;gap:6px;flex:none}

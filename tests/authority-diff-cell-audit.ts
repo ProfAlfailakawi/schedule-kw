@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { renderToString } from "react-dom/server";
 import React from "react";
 import AuthorityPdfReport, { AuthorityReport, AuthorityReportEntry } from "../src/components/AuthorityPdfReport";
+import { orderAuthorityReportRows } from "../src/utils/authorityReportOrdering";
 import { AdCourse, AdInstructor, FSchedule } from "../src/types";
 
 console.log("=========================================================================");
@@ -176,6 +177,78 @@ test("Scenario C: Unchanged row has ZERO authority-pdf-cell-changed occurrences"
 
   const matches = html.match(/authority-pdf-cell-changed/g) || [];
   assert.equal(matches.length, 0, `Expected 0 highlighted cells for unchanged row, found ${matches.length}`);
+});
+
+// An added row must never print an unverified, inherited reference as official.
+test("Scenario D: A new appointment always prints مقرر جديد, not an inherited CRN", () => {
+  const report: AuthorityReport = {
+    draftId: "draft-1",
+    name: "تقرير مقارنة",
+    sourceFileName: "الجدول.pdf",
+    counts: { added: 1, deleted: 0, changed: 0, unchanged: 0 },
+    rows: [{
+      status: "added", changedFields: [], referenceNumber: "20119",
+      source: null, current: { ...baseSchedule, referenceNumber: "20119" },
+    }],
+  };
+  const html = renderToString(React.createElement(AuthorityPdfReport, {
+    report, termName: "الفصل الثاني 2026/2027", collegeName: "كلية التربية الأساسية",
+    sectionName: "تكنولوجيا التعليم", sectionCode: "09",
+    courseById, instructorById, visitingIds: new Set(),
+  }));
+  assert.ok(html.includes("authority-pdf-reference-new\">مقرر جديد</div>"));
+  assert.ok(!html.includes(">20119</div>"));
+});
+
+test("Scenario E: Unmatched import is not misrepresented as a verified new course", () => {
+  const report: AuthorityReport = {
+    draftId: "draft-1", name: "تقرير مقارنة", sourceFileName: "الجدول.pdf",
+    counts: { added: 1, deleted: 0, changed: 0, unchanged: 0 },
+    rows: [{
+      status: "added",needsSourceReview: true,changedFields:[],
+      referenceNumber: "20119",source:null,current:{...baseSchedule,referenceNumber:"20119"},
+    }],
+  };
+  const html=renderToString(React.createElement(AuthorityPdfReport,{
+    report,termName:"الفصل الثاني 2026/2027",collegeName:"كلية التربية الأساسية",
+    sectionName:"تكنولوجيا التعليم",sectionCode:"09",courseById,instructorById,visitingIds:new Set(),
+  }));
+  assert.ok(html.includes("مراجعة المصدر"),"A document with untraceable import asks for its provenance");
+  assert.ok(html.includes("authority-pdf-reference-new\">—</div>"),"Unknown source reference is displayed as a dash, never as an official new CRN");
+  assert.ok(!html.includes(">20119</div>"),"A suspect live CRN is never printed as official");
+  assert.ok(!html.includes("مطابقة غير محسومة"),"Rejected phrase must never be printed");
+});
+
+// First import order wins over every later live/sourceOrder mutation.
+test("Scenario F: exact original PDF sequence, and new courses only at the end", () => {
+  const base = (ref: string, order: number, currentOrder: number, siteLabel = "") => ({
+    status: "changed" as const, source: { sourceOrder: order },
+    current: { sourceOrder: currentOrder }, referenceNumber: ref, siteLabel,
+  });
+  const added = (name: string, siteLabel = "") => ({
+    status: "added" as const, source: null,
+    current: { sourceOrder: 1 }, referenceNumber: name, siteLabel,
+  });
+  const rows = [
+    base("2056", 8, 2), added("new-base"), base("2053", 7, 1000033),
+    base("2063", 11, 3, "الجهراء"), added("new-jahra", "الجهراء"),
+    base("2061", 10, 1, "الجهراء"),
+    base("2046", 4, 900_000),
+  ];
+  assert.deepEqual(orderAuthorityReportRows(rows).map(row => row.referenceNumber),
+    ["2046","2053","2056","2061","2063","new-base","new-jahra"]);
+  assert.deepEqual(rows.map(row => row.referenceNumber),
+    ["2056","new-base","2053","2063","new-jahra","2061","2046"],
+    "Ordering must not modify the original report data");
+  const single = [
+    base("first",1,2_000_000),
+    added("new-1"),
+    base("second",2,1),
+    added("new-2"),
+  ];
+  assert.deepEqual(orderAuthorityReportRows(single).map(x=>x.referenceNumber),
+    ["first","second","new-1","new-2"],
+    "Live section sourceOrder cannot place a new course among official CRNs");
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

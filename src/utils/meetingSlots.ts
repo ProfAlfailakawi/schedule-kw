@@ -68,6 +68,37 @@ export type MeetingAnswer = {
   ranked: MeetingWindow[];
 };
 
+/** Inspect a coordinator-picked slot, then rank alternatives by distance from it. */
+export function inspectMeetingSlot({ rows, ids, nameById, duration, day, start, rankedLimit = 8 }: {
+  rows: MeetingRow[]; ids: number[]; nameById: Map<number, string>; duration: number;
+  day: string; start: string; rankedLimit?: number;
+}): { day: string; label: string; start: string; end: string; free: string[]; busy: string[]; alternatives: MeetingWindow[] } {
+  const targetStart = timeToMinutes(start);
+  const targetDay = SCHEDULE_DAYS.find(item => item.key === day);
+  const inspect = (dayKey: string, label: string, from: number): MeetingWindow => {
+    const to = from + duration;
+    const busyIds = ids.filter(id => rows.some(row => Number(row.AdInstructorId) === id && Boolean((row as any)[dayKey])
+      && timeToMinutes(row.fstarttime) < to && timeToMinutes(row.fendtime) > from));
+    return { day: dayKey, label, start: clock(from), end: clock(to), free: ids.length - busyIds.length,
+      total: ids.length, busy: busyIds.map(id => nameById.get(id) || `#${id}`) };
+  };
+  const selected = targetDay ? inspect(targetDay.key, targetDay.label, targetStart) : null;
+  const alternatives = SCHEDULE_DAYS.flatMap(item => {
+    const out: MeetingWindow[] = [];
+    for (let from = SCHEDULE_DAY_START; from + duration <= SCHEDULE_DAY_END; from += SCHEDULE_SLOT_MINUTES) {
+      if (item.key === day && from === targetStart) continue;
+      out.push(inspect(item.key, item.label, from));
+    }
+    return out;
+  }).sort((a, b) => Math.abs((SCHEDULE_DAYS.findIndex(d => d.key === a.day) - SCHEDULE_DAYS.findIndex(d => d.key === day)) * 720 + timeToMinutes(a.start) - targetStart)
+      - Math.abs((SCHEDULE_DAYS.findIndex(d => d.key === b.day) - SCHEDULE_DAYS.findIndex(d => d.key === day)) * 720 + timeToMinutes(b.start) - targetStart)
+    || Number(a.busy.length > 0) - Number(b.busy.length > 0))
+    .slice(0, rankedLimit);
+  return { day: day, label: selected?.label || day, start: clock(targetStart), end: clock(targetStart + duration),
+    free: selected ? ids.filter(id => !selected.busy.includes(nameById.get(id) || `#${id}`)).map(id => nameById.get(id) || `#${id}`) : [],
+    busy: selected?.busy || [], alternatives };
+}
+
 const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
 /* A committee meets where the day has room, not at 19:00: ties go to 10:00. */
 const MID_MORNING = 10 * 60;

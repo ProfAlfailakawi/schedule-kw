@@ -250,6 +250,10 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
     hours: 4, id: "4h-tue-thu", days: ["ftuesday", "fthursday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
     note: `أربع فترات تدريسية من ${countOf(50, AR.minute)} على يومين قصيرين؛ ${countOf(100, AR.minute)} تدريسية مع فاصل ${countOf(10, AR.minute)} لكل لقاء (${countOf(110, AR.minute)} زمنية).`
   },
+  {
+    hours: 4, id: "4h-sun-thu", days: ["fsunday", "fthursday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
+    note: `أربع فترات تدريسية من ${countOf(50, AR.minute)} على يومين قصيرين؛ ${countOf(100, AR.minute)} تدريسية مع فاصل ${countOf(10, AR.minute)} لكل لقاء (${countOf(110, AR.minute)} زمنية).`
+  },
   // Laboratories, workshops and field training run as one long sitting. The
   // articles describe lectures and never spell these out, but they are how a
   // large part of an applied-education timetable is actually taught, so they
