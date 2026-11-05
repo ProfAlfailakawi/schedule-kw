@@ -141,7 +141,9 @@ try {
         await call("DELETE", `/api/schedules/${blocker.body.id}`);
       } else check(true, "B3 (تعذّر بناء صفٍّ معارِض في بيانات التجربة)");
 
-      const applied = await call("POST", url, { itemIndex: index, requestRevision, revs: { [item.rowId]: (await rowNow(before.id)).rev } });
+      /* موعدُ القسم المعارِض دخل طلبَ الأستاذ ثم خرج: النسخةُ تقدّمت، والوارد يُقرأ من جديد. */
+      const freshRevision = (await inbox()).rows.find((row: any) => row.id === request.id).requestRevision;
+      const applied = await call("POST", url, { itemIndex: index, requestRevision: freshRevision, revs: { [item.rowId]: (await rowNow(before.id)).rev } });
       const after = await rowNow(before.id);
       check(applied.status === 200 && after.fstarttime === want.start && days(after) === want.days.join(), "B4 التثبيت يكتب الصفّ كما طلب الأستاذ", { status: applied.status, body: applied.body?.error, after });
       check(after.origin?.kind === "instructor-request" && after.origin?.refId === String(request.id), "B5 ومصدرُه في سجلّ الجدول: رغبة الأستاذ برقم طلبه", after.origin);

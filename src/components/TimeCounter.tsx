@@ -93,6 +93,7 @@ export function TimeWheels({
   preferredDuration,
   minTime = "08:00",
   maxTime = "20:00",
+  endLimit,
 }: {
   start: string;
   end: string;
@@ -100,10 +101,13 @@ export function TimeWheels({
   preferredDuration?: number;
   minTime?: string;
   maxTime?: string;
+  /** أقصى نهاية، حين تجوز بعد نهاية الدوام (تنبيه لا منع). */
+  endLimit?: string;
 }) {
   const from = minutesOf(start);
   const span = Math.max(30, minutesOf(end) - from);
   const minimum = minutesOf(minTime), maximum = minutesOf(maxTime);
+  const lastEnd = Math.max(maximum, endLimit ? minutesOf(endLimit) : 0);
   const hours = useMemo(
     () => Array.from({ length: Math.max(1, Math.floor(maximum / 60) - Math.floor(minimum / 60) + 1) }, (_, i) => Math.floor(minimum / 60) + i).filter((h) => h * 60 <= maximum),
     [minimum, maximum],
@@ -117,10 +121,10 @@ export function TimeWheels({
     const clamped = Math.min(Math.max(minutes, minimum), maximum - 30);
     // Keep the duration selected by the user when the hour or minute changes.
     // The caller applies its learned default once when the draft opens.
-    onChange({ start: timeOf(clamped), end: timeOf(Math.min(maximum, clamped + span)) });
+    onChange({ start: timeOf(clamped), end: timeOf(Math.min(lastEnd, clamped + span)) });
   };
   const setSpan = (length: number) =>
-    onChange({ start: timeOf(from), end: timeOf(Math.min(maximum, from + length)) });
+    onChange({ start: timeOf(from), end: timeOf(Math.min(lastEnd, from + length)) });
 
   return (
     <div className="qc-wheels">
@@ -170,6 +174,7 @@ export function TimeCounterPopover({
   preferredDuration,
   minTime,
   maxTime,
+  endLimit,
 }: {
   anchor: HTMLElement | null;
   start: string;
@@ -179,6 +184,7 @@ export function TimeCounterPopover({
   preferredDuration?: number;
   minTime?: string;
   maxTime?: string;
+  endLimit?: string;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [box, setBox] = useState<{ left: number; top: number } | null>(null);
@@ -225,7 +231,7 @@ export function TimeCounterPopover({
       style={box ? { left: box.left, top: box.top } : { left: -9999, top: -9999 }}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <TimeWheels start={start} end={end} onChange={onChange} preferredDuration={preferredDuration} minTime={minTime} maxTime={maxTime} />
+      <TimeWheels start={start} end={end} onChange={onChange} preferredDuration={preferredDuration} minTime={minTime} maxTime={maxTime} endLimit={endLimit} />
     </div>
   );
 }

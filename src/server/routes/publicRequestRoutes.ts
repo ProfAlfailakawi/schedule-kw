@@ -347,8 +347,11 @@ async function refreshUnsubmittedInstructorRequest(request: InstructorRequest): 
     [Number(row.AdCourseId), String(row.CourseName || row.CourseCode || "")]));
   const collegeNameById = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
   if (request.source === "previous-term" && !own.length) return request;
-  const nextItems: InstructorRequestItem[] = own.map(row =>
-    requestItemFromRow(row, courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), collegeNameById));
+  /* بندُ القسم (موعدٌ وضعه بنفسه) يبقى بقراره، ولا يتكرّر صفُّه بنداً عادياً. */
+  const departmentItems = (request.items || []).filter(item => item.decision?.fromSchedule && item.action === "add");
+  const departmentRows = new Set(departmentItems.map(item => Number(item.decision?.scheduleId)));
+  const nextItems: InstructorRequestItem[] = [...own.filter(row => !departmentRows.has(Number(row.id))).map(row =>
+    requestItemFromRow(row, courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), collegeNameById)), ...departmentItems];
   const shape = (items: InstructorRequestItem[]) => items.map(item => [
     Number(item.rowId || 0), item.before?.courseId, item.before?.sectionCode, item.before?.collegeId || 0,
     item.slots?.map(slot => `${slot.day}:${slot.start}:${slot.end}`).join("|"),

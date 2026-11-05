@@ -209,6 +209,7 @@ test:teacher-mini-week
 test:week-window
 test:appointment-forms-r2
 test:appointment-forms-r3
+test:holds-patterns-r4
 test:one-line-appointment
 test:schedule-wipe
 test:instructor-availability

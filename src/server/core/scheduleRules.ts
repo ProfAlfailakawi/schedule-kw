@@ -19,7 +19,7 @@ import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, interCampusMinutes } from "../../utils/campusTravel";
-import { clockRangesOverlap, formatScheduleTimeRange, isValidClock, scheduleDayWindowMinutes, withinScheduleDay } from "../../utils/scheduleTime";
+import { clockRangesOverlap, formatScheduleTimeRange, isValidClock, scheduleDayWindowMinutes, startsWithinScheduleDay } from "../../utils/scheduleTime";
 import { isSharedRoom, resolveBuilding, resolveRoom } from "../../utils/locationRegistry";
 import { courseHabit } from "./instructorRequests";
 import { confirmedDepartmentRoomIds, dataContextCacheKey, readLocationRegistry } from "./locations";
@@ -130,7 +130,7 @@ export async function schedulePayloadIssues(row:any){const issues:string[]=[];if
      with a number for anything — "10:76" becomes 676, i.e. 11:16 — so without
      this the row was stored at a time nobody typed. */
   if(!isValidClock(row.fstarttime)||!isValidClock(row.fendtime))issues.push("وقت المحاضرة غير صالح: الساعة بين 0 و23 والدقيقة بين 0 و59");
-  else{const start=timeToMinutes(String(row.fstarttime)),end=timeToMinutes(String(row.fendtime));if(end<=start)issues.push("وقت النهاية يجب أن يكون بعد وقت البداية");else{const window=await sectionScheduleWindow(Number(row.AdSectionId||0));if(!withinScheduleDay(start,end,window))issues.push(`وقت المحاضرة يجب أن يكون بين ${window.startTime} و${window.endTime}`);}}}return issues;}
+  else{const start=timeToMinutes(String(row.fstarttime)),end=timeToMinutes(String(row.fendtime));if(end<=start)issues.push("وقت النهاية يجب أن يكون بعد وقت البداية");else{const window=await sectionScheduleWindow(Number(row.AdSectionId||0));if(!startsWithinScheduleDay(start,end,window))issues.push(`وقت المحاضرة يجب أن يكون بين ${window.startTime} و${window.endTime}`);}}}return issues;}
 /**
  * Who does this hall belong to?
  *

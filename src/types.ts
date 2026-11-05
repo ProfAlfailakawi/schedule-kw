@@ -1492,6 +1492,10 @@ export interface InstructorRequestItem {
     decidedAt?: string;
     /** الصفُّ الذي أنتجه التثبيت، ليُربط القرارُ بأثره في الجدول. */
     scheduleId?: number;
+    /** بندٌ وضعه القسم من «موعد»: قراره هو، فيُلغى («إلغاء الموعد») ولا يُرفض. */
+    fromSchedule?: boolean;
+    /** ألغى القسم موعداً وضعه بنفسه؛ `note` سطرُه للأستاذ. */
+    cancelled?: boolean;
   };
   /** البديلُ الذي اختاره الأستاذ بعد الرفض. */
   chosenAlternative?: InstructorRequestSlot;

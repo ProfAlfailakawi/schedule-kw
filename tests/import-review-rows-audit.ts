@@ -39,7 +39,7 @@ check(/else if \(editing !== null && editing > index\) setEditing\(editing - 1\)
 const threeHours = { AdCourseId: 1, CourseHours: 3 } as any, fourHours = { AdCourseId: 2, CourseHours: 4 } as any;
 check(regulationEnd(threeHours, ["fmonday", "fwednesday"], "09:30") === "10:50" && regulationEnd(fourHours, ["fmonday", "fwednesday"], "08:00") === "09:50"
   && regulationEnd(threeHours, ["fsunday", "ftuesday", "fthursday"], "10:00") === "10:50", "R3 النهايةُ من المكتبة: ٣ ساعات ن·ر 80 د، ٤ ساعات ن·ر 110 د، ح·ث·خ 50 د");
-check(/const library=endFromLibrary\(row,rowDays\(row\),start\);/.test(table) && /regulationEnd\(courseById\.get\(Number\(row\.AdCourseId\)\) as any, days, start\)/.test(table), "R3 البدايةُ المكتوبة تأخذ نهايتها من المكتبة أولاً");
+check(/const library=endFromLibrary\(row,rowDays\(row\),start\);/.test(table) && /regulationEnd\(courseById\.get\(Number\(row\.AdCourseId\)\) as any, days, start, span\)/.test(table), "R3 البدايةُ المكتوبة تأخذ نهايتها من المكتبة أولاً");
 check(/onClick=\{\(\) => toggleDay\(index, day\.key\)\}/.test(table) && /const end = row\.fstarttime \? endFromLibrary\(row, rowDays\(next\), row\.fstarttime\) : ""/.test(table), "R3 وتبديلُ يومٍ يعيد النهاية من المكتبة كما في المحرّر");
 
 /* R4 */

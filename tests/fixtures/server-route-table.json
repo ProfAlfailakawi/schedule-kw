@@ -1878,7 +1878,7 @@
    ],
    "path": "/api/reports/schedule-changes",
    "name": "bound dispatch",
-   "call": "a2c407f01d98a117",
+   "call": "243760e6f26157f7",
    "site": "src/server/routes/reportsRoutes.ts:330",
    "regexp": "/^\\/api\\/reports\\/schedule-changes\\/?$/i",
    "end": true
@@ -1890,7 +1890,7 @@
    ],
    "path": "/api/reports/authority-pdf-diff",
    "name": "bound dispatch",
-   "call": "d8fc3c2dc5496d1d",
+   "call": "80777d71f0bf538f",
    "site": "src/server/routes/reportsRoutes.ts:613",
    "regexp": "/^\\/api\\/reports\\/authority-pdf-diff\\/?$/i",
    "end": true
@@ -4718,6 +4718,18 @@
    "call": "4ec2adef91afab45",
    "site": "src/server/routes/instructorRequestsRoutes.ts:505",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/decide\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/instructor-requests/:id/cancel-scheduled",
+   "name": "bound dispatch",
+   "call": "e2dd270fb3984d87",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:707",
+   "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/cancel-scheduled\\/?$/i",
    "end": true
   },
   {

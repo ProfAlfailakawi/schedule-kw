@@ -108,7 +108,7 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
   const schedules = fs.readFileSync(path.join(process.cwd(), "src/components/Schedules.tsx"), "utf8");
   check(server.includes("applyRequestHoldOverride(req)") && server.includes('code: "request-hold"') && schedules.includes('failure?.code !== "request-hold"') && schedules.includes("overrideRequestHolds"),
     "مسار الحفظ يسأل عند حجز الطلب ثم يعيد الإرسال بالتأكيد");
-  check(schedules.includes("return withRequestHoldPrompt(send);") && (schedules.match(/await deleteScheduleRow\(/g) || []).length === 2 && server.includes("const deleteOverrides = await applyRequestHoldOverride(req);"),
+  check(schedules.includes("return withRequestHoldPrompt(send, \"الحفظ\", form as Partial<FSchedule>);") && (schedules.match(/await deleteScheduleRow\(/g) || []).length === 2 && server.includes("const deleteOverrides = await applyRequestHoldOverride(req);"),
     "والحذفُ كذلك: يسأل ثم يعيد بالتأكيد");
 }
 

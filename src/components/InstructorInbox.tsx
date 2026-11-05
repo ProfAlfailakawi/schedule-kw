@@ -518,12 +518,13 @@ function CampusChip({ label }: { key?: React.Key; label?: { chip: string; name: 
   );
 }
 
-function RequestCard({ row, currentRows, campusLabels, onDecide, onReply, busyKey, filter, rowErrors, proposals, onOpenProposal, onBulk }: {
+function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelScheduled, onReply, busyKey, filter, rowErrors, proposals, onOpenProposal, onBulk }: {
   key?: React.Key;
   row: InboxRequest;
   currentRows: Map<number, FSchedule>;
   campusLabels: CampusLabels;
   onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => void;
+  onCancelScheduled: (index: number, note: string) => void;
   onReply: (index: number, text: string, slots: any[]) => void;
   busyKey: string | null;
   filter: (item: InstructorRequestItem, row: InboxRequest) => boolean;
@@ -650,6 +651,7 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onReply, busyKe
               onReject={() => setRejecting(index)}
               onCloseReject={() => setRejecting(null)}
               onDecide={onDecide}
+              onCancelScheduled={onCancelScheduled}
               onReply={onReply}
               onProposal={itemIndex => onOpenProposal({ requestId: row.id, itemIndex })}
               onBulk={onBulk}
@@ -664,13 +666,14 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onReply, busyKe
 /* ── صفُّ بند ─────────────────────────────────────────────────────────────
  * الحكمُ المحفوظ مع الطلب والفحصُ الحيّ يُقرآن معاً: ما منعه أحدُهما مُنع،
  * وما نبّه إليه أحدُهما قيل. ولا يُكرَّر السببُ نفسُه مرّتين. */
-function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onReply, onProposal, onBulk }: {
+function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onCancelScheduled, onReply, onProposal, onBulk }: {
   key?: React.Key;
   row: InboxRequest; item: InstructorRequestItem; index: number; current?: FSchedule;
   campus?: { chip: string; name: string };
   busy: boolean; rejecting: boolean; error?: string;
   onReject: () => void; onCloseReject: () => void;
   onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => void;
+  onCancelScheduled: (index: number, note: string) => void;
   onReply: (index: number, text: string, slots: any[]) => void;
   onProposal?: (index: number) => void;
   onBulk?: (key: string, entry: BulkEntry | null) => void;
@@ -681,6 +684,7 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
   const decided = item.decision?.state;
   const negotiation = negotiationState(item);
   const [talking, setTalking] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const hasThread = Boolean((item.thread || []).length);
   const candidate = useMemo(() => proposedRow(row, item, current), [row, item, current]);
   const live = useLiveCheck(candidate, !decided && item.action !== "delete");
@@ -872,7 +876,9 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
           ) : null}
           {decided ? (
             <p className="request-decided" data-state={decided}>
-              {decided === "fixed" ? <><Check aria-hidden="true" /> ثُبّت</> : <><X aria-hidden="true" /> رُفض — {REJECT_REASONS.find(([value]) => value === item.decision?.reasonCode)?.[1] || "بلا سبب"}</>}
+              {decided === "fixed" ? <><Check aria-hidden="true" /> {item.decision?.fromSchedule ? "من القسم" : "ثُبّت"}</>
+                : item.decision?.cancelled ? <><X aria-hidden="true" /> أُلغي</>
+                : <><X aria-hidden="true" /> رُفض — {REJECT_REASONS.find(([value]) => value === item.decision?.reasonCode)?.[1] || "بلا سبب"}</>}
               {item.decision?.note ? <span> · {item.decision.note}</span> : null}
             </p>
           ) : (
@@ -895,9 +901,17 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
               </SecondaryButton>
             </div>
           )}
+          {decided === "fixed" && item.decision?.fromSchedule && item.action === "add" ? (
+            <div className="request-actions">
+              <SecondaryButton type="button" disabled={busy} data-guide-ignore="يفتح ورقة إلغاء موعدٍ وضعه القسم" onClick={() => setCancelling(true)}>
+                <X aria-hidden="true" />إلغاء الموعد
+              </SecondaryButton>
+            </div>
+          ) : null}
           {error ? <p className="request-row-error"><ShieldAlert aria-hidden="true" />{error}</p> : null}
         </div>
       </div>
+      {cancelling ? <CancelScheduledSheet item={item} busy={busy} onClose={() => setCancelling(false)} onSubmit={note => { onCancelScheduled(index, note); setCancelling(false); }} /> : null}
       {hasThread || talking ? (
         <div className="request-thread-slot">
           <RequestThread
@@ -921,6 +935,31 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
         />
       ) : null}
     </li>
+  );
+}
+
+/* ── «إلغاء الموعد» لبندٍ وضعه القسم: قرارُه هو، فلا رفضَ له — حذفٌ وسطرٌ للأستاذ (ملاحظة المالك 1) ── */
+function CancelScheduledSheet({ item, busy, onClose, onSubmit }: { item: InstructorRequestItem; busy: boolean; onClose: () => void; onSubmit: (note: string) => void }) {
+  const [note, setNote] = useState("");
+  return (
+    <div className="changes-extend-sheet" role="dialog" aria-modal="true" aria-label="إلغاء الموعد">
+      <div className="changes-extend-card">
+        <header>
+          <strong>إلغاء «{item.after?.courseName || "الموعد"}»</strong>
+          <button type="button" onClick={onClose} aria-label="إغلاق" data-guide-ignore="إغلاق الورقة — لا يغيّر شيئاً"><X /></button>
+        </header>
+        <label>
+          <span>سطرٌ للأستاذ</span>
+          <input value={note} maxLength={160} onChange={event => setNote(event.target.value)} placeholder="سبب الإلغاء" />
+        </label>
+        <div className="changes-extend-actions">
+          <SecondaryButton type="button" onClick={onClose}>تراجع</SecondaryButton>
+          <PrimaryButton type="button" disabled={busy || !note.trim()} data-guide-ignore="يحذف الموعد الذي وضعه القسم ويرسل السطر إلى الأستاذ" onClick={() => onSubmit(note.trim())}>
+            {busy ? "يحفظ…" : "إلغاء الموعد"}
+          </PrimaryButton>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1525,6 +1564,22 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     finally { setBusyKey(null); }
   };
 
+  const cancelScheduled = async (row: InboxRequest, index: number, note: string) => {
+    if (frozen) return;
+    const key = `${row.id}:${index}`;
+    setBusyKey(key);
+    setRowErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
+    try {
+      await request(`/api/instructor-requests/${row.id}/cancel-scheduled`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIndex: index, itemId: requestItemId(row.items[index]), requestRevision: row.requestRevision || 0, note }),
+      });
+      await load();
+    } catch (e: any) { setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) })); }
+    finally { setBusyKey(null); }
+  };
+
   /* ── ردُّ القسم في حوار البند ─────────────────────────────────────────────
      رسالةٌ وأوقاتٌ مقترحة تصل الأستاذَ في صفحته. لا حفظَ في الجدول هنا. */
   const reply = async (row: InboxRequest, index: number, text: string, slots: any[]) => {
@@ -2023,6 +2078,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                       proposals={proposals.filter(view => view.proposal.requestId === row.id)}
                       onOpenProposal={openStudyProposal}
                       onDecide={(index, state, extra) => void decide(row, index, state, extra)}
+                      onCancelScheduled={(index, note) => void cancelScheduled(row, index, note)}
                       onReply={(index, text, slots) => void reply(row, index, text, slots)}
                       onBulk={reportBulk}
                     />

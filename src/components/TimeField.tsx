@@ -63,6 +63,23 @@ export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_ST
     }
   };
 
+  /* ما لم يكتمل أربعَ خانات يُحسب عند الخروج من الحقل: «14» ← 14:00، و«9» ← 09:00، و«930» ← 09:30.
+     لا يُحسب أثناء الكتابة لأن «14» قد تكون أولَ «1430». كان يُهمل فيعود الحقل إلى قيمته القديمة بلا كلمة. */
+  const settle = () => {
+    const digits = LATIN(text);
+    if (!digits || digits.length === 4) { setText(value || ""); setBad(false); return; }
+    const full = digits.length <= 2 ? `${digits.padStart(2, "0")}00` : `0${digits}`;
+    const clock = normalizeClock(full, min, max);
+    if (clock) { setText(clock); setBad(false); if (clock !== value) onChange({ target: { value: clock } }); return; }
+    setText(value || ""); setBad(false);
+    const hour = Number(full.slice(0, 2)), minute = Number(full.slice(2));
+    const attempted = `${full.slice(0, 2)}:${full.slice(2)}`;
+    if (hour <= 23 && minute <= 59) {
+      if (attempted < min) onOutOfRange?.("min", attempted, min);
+      else if (attempted > max) onOutOfRange?.("max", attempted, max);
+    }
+  };
+
   return (
     <input
       {...rest}
@@ -76,7 +93,7 @@ export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_ST
       value={text}
       aria-invalid={bad || rest["aria-invalid"] || undefined}
       onFocus={e => { focused.current = true; rest.onFocus?.(e); }}
-      onBlur={e => { focused.current = false; setText(value || ""); setBad(false); onBlur?.(e); }}
+      onBlur={e => { focused.current = false; settle(); onBlur?.(e); }}
       onChange={e => handle(e.target.value)}
     />
   );
