@@ -82,7 +82,8 @@ async function interCampusWarnings(candidate: any, all: any[]) {
       });
     }
   }
-  return warnings.slice(0, 3);
+  /* الملزمُ أولاً: الحدُّ الأقصى للعرض لا يُسقط ما يمنع الحفظ. */
+  return [...warnings.filter(item => !item.soft), ...warnings.filter(item => item.soft).slice(0, 3)];
 }
 
 /**

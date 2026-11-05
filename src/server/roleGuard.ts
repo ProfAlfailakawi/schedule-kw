@@ -113,6 +113,8 @@ export function roleWriteDecision(input: RoleGuardInput): RoleGuardVerdict {
   if (isAdvisorRole(input.role) && input.method.toUpperCase() === "POST" && ADVISOR_SEAT_WRITES.has(input.path)) return { allowed: true, reason: "approval" };
   /* «طلب شعبة» (src/utils/sectionRequests.ts): المرشدُ يرسل ويسحب، والتسجيلُ يعتمد ويسجّل. بابٌ ضيّقٌ
      لا يمسّ جدولاً؛ والمسارُ نفسه يحكم أيَّ طرفٍ يفعل ماذا وفي أيّ نطاق. وصفةُ العرض الصرف تقرأ وحدها. */
+  /* سياسةُ التنقّل بين المواقع يضبطها المسجّل العام، وصفتُه قراءةٌ لبيانات الجدول. */
+  if (input.path === "/campus-travel-policy" && input.method.toUpperCase() === "PUT" && roleDefinition(input.role).id === "registrarHead") return { allowed: true, reason: "approval" };
   if (isSectionRequestWritePath(input.path) && !isViewerOnlyRole(input.role)) return { allowed: true, reason: "approval" };
   /* المرشد يقرأ كشف التسجيل ولا يشارك في دورة الاعتماد: لا يمرّ من البابِ الضيّق. */
   if (isApprovalWritePath(input.path) && !isViewerOnlyRole(input.role) && !isAdvisorRole(input.role)) return { allowed: true, reason: "approval" };
