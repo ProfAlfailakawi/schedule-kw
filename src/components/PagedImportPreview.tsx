@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { instructorIdentityKey, instructorIdentityTokens, uniqueExactIdentityMatch } from "../utils/instructorIdentity";
 import { AlertTriangle, CheckCircle2, FileText, RotateCcw } from "lucide-react";
+import CourseTags from "./CourseTags";
 import ImportPreviewTable, { importRowKey, type ImportRow } from "./ImportPreviewTable";
 import { authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
 import { AR, countOf } from "../utils/arabicCount";
@@ -315,7 +316,7 @@ export default function PagedImportPreview({
   };
   const undoBar = lastRemoved ? (
     <div className="import-undo-bar" role="status">
-      <span><b>حُذف {countOf(removedRows.length, AR.row)}</b> · {String(lastRemoved.AdCourseName || "مقرر")} · ش{String(lastRemoved.SCode || "—")}</span>
+      <span><b>حُذف {countOf(removedRows.length, AR.row)}</b> · {String(lastRemoved.AdCourseName || "مقرر")}<CourseTags courseId={Number(lastRemoved.AdCourseId)} /> · ش{String(lastRemoved.SCode || "—")}</span>
       <button type="button" data-guide-ignore="يعيد آخر صف محذوف إلى المعاينة في موضعه؛ لا يحفظ ولا ينشر" onClick={restoreRemoved}><RotateCcw aria-hidden="true" />أعده</button>
     </div>
   ) : null;

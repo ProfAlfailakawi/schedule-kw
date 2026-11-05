@@ -7,7 +7,7 @@
 import { AR, countOf } from "../utils/arabicCount";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock, ClipboardCopy, FileText, RotateCcw, Check } from "lucide-react";
-import { applyNameFill, FILL_FIELD_LABEL, fillSummary, nameFillPdfOutcome, nameFillSnapshot, nameFillSourceTerms, planNameFill, undoNameFill, type SourceRow } from "../utils/importNameFill";
+import { applyNameFill, FILL_FIELD_LABEL, fillSummary, nameFillPdfOutcome, nameFillSourceTerms, planNameFill, undoNameFill, type SourceRow } from "../utils/importNameFill";
 import { PrimaryButton, SecondaryButton } from "./ui";
 
 type Row = any;
@@ -29,7 +29,7 @@ export default function ImportNameFillPanel({ rows, onRows, people, collegeId, s
   const decisions = useMemo(() => plan ? planNameFill(rows, plan.sourceRows, people) : [], [plan, rows, people]);
   const [accepted, setAccepted] = useState<Set<number>>(new Set());
   useEffect(() => { setAccepted(new Set()); }, [rows.length]);
-  const [undo, setUndo] = useState<ReturnType<typeof nameFillSnapshot> | null>(null);
+  const [undo, setUndo] = useState<string | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   /* من أيّ فصلٍ تُؤخذ الأسماء: هذا الفصل أو الذي قبله مباشرة — كلاهما مقبول. */
@@ -74,10 +74,11 @@ export default function ImportNameFillPanel({ rows, onRows, people, collegeId, s
   };
   const approve = () => {
     if (!plan) return;
-    setUndo(nameFillSnapshot(rows));
+    const batch = `fill-${Date.now()}`;
+    setUndo(batch);
     const chosen = new Set(decisions.filter(d => d.instructorId && (d.status === "match" || (d.status === "partial" && accepted.has(d.index)))).map(d => d.instructorId));
     const filled = people.filter(person => chosen.has(Number(person.AdInstructorId)));
-    onRows(applyNameFill(rows, decisions, accepted, plan.label), filled);
+    onRows(applyNameFill(rows, decisions, accepted, plan.label, batch), filled);
     setPlan(null);
   };
   const summary = plan ? fillSummary(decisions) : null;

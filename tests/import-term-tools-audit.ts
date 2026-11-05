@@ -12,7 +12,7 @@ import fs from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ImportNameFillPanel from "../src/components/ImportNameFillPanel";
-import { applyNameFill, nameFillSnapshot, planNameFill, undoNameFill } from "../src/utils/importNameFill";
+import { applyNameFill, planNameFill, undoNameFill } from "../src/utils/importNameFill";
 import { assignAuthoritySections } from "../src/utils/authorityAcademicCodes";
 import { importDiff } from "../src/utils/importDiff";
 import { safeDraftRows } from "../src/server/core/smartImport";
@@ -57,14 +57,15 @@ const named = assignAuthoritySections([row(1, "08:00", 11), row(2, "10:00", 12),
   check(decisions[0].status === "match" && decisions[0].instructorId === 12, "N2 الصف يأخذ اسمه هو لا اسم الصف المحذوف بعد إعادة الترقيم", decisions[0]);
   check(decisions[1].status === "match" && decisions[1].instructorId === 13, "N3 والصف التالي كذلك", decisions[1]);
 
-  const filled = applyNameFill(blank, planNameFill(blank, named, people));
-  const snapshot = nameFillSnapshot(blank);
+  const proved = blank.map(item => ({ ...item, importEvidence: { time: { confidence: "CONFIRMED" } } }));
+  const filled = applyNameFill(proved, planNameFill(proved, named, people), new Set(), "", "b1");
   const edited = assignAuthoritySections(filled.slice(1)).map(item => item.sourceOrder === 3 ? { ...item, fstarttime: "13:00" } : item);
-  const undone = undoNameFill(edited, snapshot);
+  const undone = undoNameFill(edited, "b1");
   check(undone.length === 2, "N4 التراجع عن التعبئة لا يعيد صفاً حذفه المراجع بعدها", undone.length);
   check(undone.every(item => item.AdInstructorId === 0), "N5 ويعيد الأسماء وحدها");
   check(undone.find(item => item.sourceOrder === 3)?.fstarttime === "13:00", "N6 ولا يمحو تعديل الوقت");
-  const byHand = undoNameFill(edited.map(item => item.sourceOrder === 3 ? { ...item, AdInstructorId: 13, importEvidence: { instructor: { method: "MANUAL_PICK" } } } : item), snapshot);
+  check(undone.every(item => (item as any).importEvidence?.time?.confidence === "CONFIRMED"), "N6b ويبقي برهان الخانات الأخرى");
+  const byHand = undoNameFill(edited.map(item => item.sourceOrder === 3 ? { ...item, AdInstructorId: 13, importEvidence: { instructor: { method: "MANUAL_PICK" } } } : item), "b1");
   check(byHand.find(item => item.sourceOrder === 3)?.AdInstructorId === 13, "N7 واسمٌ اختير باليد بعدها يبقى");
 
   const restored = assignAuthoritySections(blank.slice());
