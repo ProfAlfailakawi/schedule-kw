@@ -11,6 +11,7 @@ import { daysApprovedForHours, effectiveCourseHours, expectedMinutesForDay, libr
 import { regulationEnd } from "../utils/appointmentRegulation";
 import { cleanBuildingCode, cleanHallCode } from "../utils/cleanRoom";
 import { roomIdentityKey } from "../utils/locationRegistry";
+import { unlinkedCourseEvidence } from "../utils/authorityAcademicCodes";
 import { displayInstructorText, instructorIdentityTokens } from "../utils/instructorIdentity";
 import { authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
@@ -26,6 +27,7 @@ import CourseTags from "./CourseTags";
  */
 export type ImportRow = {
   referenceNumber?: string;
+  sourceReadMode?: string;
   AdCourseId: number;
   AdCourseName?: string;
   SCode: string;
@@ -482,7 +484,12 @@ export default function ImportPreviewTable({
                           onChange={value => { const picked = courseById.get(Number(value)); if (picked) patchManual(index, "course", { AdCourseId: Number(picked.AdCourseId), AdCourseName: String(picked.CourseName || "") }); }}
                           options={departmentCourseOptions.map(item => ({ value: item.AdCourseId, label: item.CourseName, badge: courseOptionBadge([Number(item.AdCourseId)], planBadges), hint: item.CourseCode, keywords: String(item.CourseCode || "") }))}
                           placeholder="اختر المقرر…" searchPlaceholder="اكتب اسم المقرر أو رمزه" />
-                      ) : course?.CourseName ? <strong>{course.CourseName}<CourseTags courseId={course.AdCourseId} /></strong> : <span className="import-unlinked-head"><small>رقم المقرر غير واضح</small><em className="import-unlinked-why">اضغط التعديل واختر المقرر</em></span>}{row.courseSiteLabel ? <span className="import-course-site-note" title={String(row.courseSiteMessage || "")}><MapPin />{String(row.courseSiteLabel)}</span> : null}{row.scopeMismatchType === "CROSS_BRANCH" ? <span className="import-course-scope-note" title={String(row.scopeMismatchMessage || "")}><AlertTriangle />{String(row.scopeMismatchLabel || "تابع لفرع آخر")}</span> : null}</span>
+                      ) : course?.CourseName ? <strong>{course.CourseName}<CourseTags courseId={course.AdCourseId} /></strong> : (() => {
+                        const printed = unlinkedCourseEvidence(row);
+                        return printed
+                          ? <span className="import-unlinked-head"><small dir="ltr">{printed.code}</small>{printed.name ? <small>{printed.name}</small> : null}{printed.section ? <small>شعبة مطبوعة {printed.section}</small> : null}<em className="import-unlinked-why">الرقم مقروء بوضوح لكنه ليس من مقررات هذا القسم؛ اضغط التعديل واختر المقرر</em></span>
+                          : <span className="import-unlinked-head"><small>رقم المقرر غير واضح</small><em className="import-unlinked-why">اضغط التعديل واختر المقرر</em></span>;
+                      })()}{row.courseSiteLabel ? <span className="import-course-site-note" title={String(row.courseSiteMessage || "")}><MapPin />{String(row.courseSiteLabel)}</span> : null}{row.scopeMismatchType === "CROSS_BRANCH" ? <span className="import-course-scope-note" title={String(row.scopeMismatchMessage || "")}><AlertTriangle />{String(row.scopeMismatchLabel || "تابع لفرع آخر")}</span> : null}</span>
                       {course?.CourseCode ? <small dir="ltr">{course.CourseCode}</small> : null}
                     </div>
                   </td>
