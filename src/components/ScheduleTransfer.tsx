@@ -637,7 +637,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
      downward, the way the document itself is read. */
   /* مراجعة التخطيط لا تبقى تحت تبويبٍ آخر: من غادرها يعود إلى شاشةٍ نظيفة، فلا تظهر شعب التخطيط في «استيراد». */
   const goTab = (next: Tab) => { if (fromPlanning) { setXlsxPreview(null); setXlsxDraft(""); } setTab(next); };
-  const importPreviewOpen = tab === "import" && importKind === "authority-pdf" && Boolean(xlsxPreview?.rows?.length) && !xlsxDraft;
+  const importPreviewOpen = tab === "import" && importKind === "authority-pdf" && Array.isArray(xlsxPreview?.rows) && !xlsxDraft;
   /* M1: استيراد PDF يأخذ الصفحة كلها — من أول قراءة الملف حتى المعاينة والنشر — لا ورقةً
      بعرض 880px تُمرَّر أفقياً. تبقى ورقةً عادية لبقية التبويبات. */
   const importFullPage = tab === "import" && !publishReceipt && (importPreviewOpen || (importKind === "authority-pdf" && (Boolean(readProgress) || Boolean(xlsxPreview))));
@@ -1728,6 +1728,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                         />
                       ) : null}
                       <PagedImportPreview
+                        key={String(xlsxPreview.importReceipt || xlsxPreview.fileName || "")}
                         rows={xlsxPreview.rows as ImportRow[]}
                         pageCount={Number(xlsxPreview.pages||0)}
                         pageDiagnostics={Array.isArray(xlsxPreview.pageDiagnostics)?xlsxPreview.pageDiagnostics:[]}

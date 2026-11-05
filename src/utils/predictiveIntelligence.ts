@@ -24,7 +24,7 @@
  *   · جدولٌ لم يكتمل (أقلُّ بكثيرٍ مما اعتاده القسم) يُخفّض ثقةَ كلِّ ما يُقاس عليه، ويُقال ذلك.
  */
 import type { AdCourse, FSchedule } from "../types";
-import { AR, countOf } from "./arabicCount";
+import { AR, countOf, oblique } from "./arabicCount";
 import { compareArabic } from "./arabicText";
 import { prereqMet, remainingNeed, unmetPrereq } from "./curriculumRules";
 import { roomIdentityKey } from "./locationRegistry";
@@ -979,7 +979,7 @@ export function readPredictive(input: PredictiveInput): PredictiveReading {
   const top: PredictiveReading["top"] = [];
   const name = (id?: number) => String(input.courses.find(course => Number(course.AdCourseId) === id)?.CourseName || "");
   for (const row of demand) if (row.action && row.action.kind === "open-sections") {
-    top.push({ id: `d${row.courseId}`, label: `افتح ${countOf(row.action.count || 1, AR.section)} لـ«${row.name}»`, reason: row.reason, confidence: row.confidence, action: row.action, impact: (row.action.count || 1) * (row.capacity || 30) });
+    top.push({ id: `d${row.courseId}`, label: `افتح ${countOf(row.action.count || 1, oblique(AR.section))} لـ«${row.name}»`, reason: row.reason, confidence: row.confidence, action: row.action, impact: (row.action.count || 1) * (row.capacity || 30) });
   }
   for (const row of prereq) if (row.action) {
     top.push({ id: `p${row.courseId}`, label: `افتح «${row.name}» — يحجز ${countOf(row.blockedStudents, AR.student)}`, reason: row.reason, confidence: row.confidence, action: row.action, impact: row.blockedStudents * 2 });
@@ -992,6 +992,13 @@ export function readPredictive(input: PredictiveInput): PredictiveReading {
   }
   const rank = (item: { impact: number; confidence: Confidence }) => item.impact * (item.confidence.score / 100);
   top.sort((a, b) => rank(b) - rank(a) || a.id.localeCompare(b.id));
+  /* المقرر الواحد لا يُقترح فتحه مرتين (نقصٌ ومسبقٌ معاً): إجراءٌ واحد، وأعلاهما رتبة. */
+  const openedCourses = new Set<number>();
+  for (let at = 0; at < top.length; at += 1) {
+    const { kind, courseId } = top[at].action;
+    if ((kind !== "open-sections" && kind !== "open-prereq") || !courseId) continue;
+    if (openedCourses.has(courseId)) { top.splice(at, 1); at -= 1; } else openedCourses.add(courseId);
+  }
   void name;
 
   const caveats: string[] = [];

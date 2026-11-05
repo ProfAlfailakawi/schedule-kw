@@ -111,3 +111,8 @@
 .pi-series-none{min-inline-size:92px;max-inline-size:120px;line-height:1.35;text-align:center;color:var(--muted);font-size:var(--t-xs)}
 .pi-legend .pi-legend-conf{display:inline-flex;align-items:center;gap:4px}
 .pi-legend .k-conf{inline-size:14px;block-size:10px;border-radius:2px;background:linear-gradient(90deg,var(--success) 0 30%,transparent 30% 35%,var(--success) 35% 65%,transparent 65% 70%,var(--success) 70% 100%)}
+
+/* اقتراحان لمقررٍ واحد: كلٌّ بسطره وزرّه. */
+.ap-wrap.has-slot{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--s2) var(--s3);inline-size:100%;padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.ap-slot{margin:0;min-inline-size:0;font-size:var(--t-sm);line-height:1.7;overflow-wrap:anywhere}
+@media (max-width:560px){.ap-wrap.has-slot{grid-template-columns:minmax(0,1fr)}.ap-wrap.has-slot .btn{inline-size:100%;justify-content:center}}

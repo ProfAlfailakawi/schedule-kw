@@ -5024,3 +5024,13 @@ button.twin-delta{width:100%}
 
 /* الشارة «منتدب» داخل رقائق الجولة والمسرح: اسمُ الأستاذ يحملها كما في الجدول الحقيقي. */
 .ob-chip span .visiting-badge,.choreo-chip .visiting-badge{color:color-mix(in srgb,var(--brass,#a8792a) 88%,var(--ink));font-size:10px;min-height:16px;padding-inline:5px;margin-inline-start:3px}
+
+/* بداية الفصل: حكم فحص الموعد في سطر، والتنبيه تحت صفه ولا يمنع. */
+.genesis-check-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px;font-weight:700}
+.genesis-check-line svg{width:16px;height:16px}
+.genesis-check-line b{padding:2px 10px;border-radius:999px;font-size:var(--t-xs);background:var(--accent-softer);color:var(--success)}
+.genesis-check-line b[data-tone="block"]{background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger)}
+.genesis-check-line b[data-tone="warn"]{background:color-mix(in srgb,var(--warning,#8a5a00) 14%,transparent);color:var(--warning,#8a5a00)}
+.genesis-row-note td{font-size:var(--t-xs);color:var(--ink-2)}
+.genesis-row-note svg{width:14px;height:14px;vertical-align:-2px;margin-inline-end:4px}
+.genesis-row-note strong{margin-inline-end:6px}

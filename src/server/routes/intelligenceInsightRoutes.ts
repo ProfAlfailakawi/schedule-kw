@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { draftAppointmentChecks, mergeRowIssues } from "../core/draftChecks";
 import type { Express } from "express";
 import { Response } from "express";
 import { Repository } from "../../db/repository";
@@ -613,9 +614,13 @@ app.post("/api/intelligence/genesis", requirePermission(7), async (req: Authenti
     if(!proposal.changed)break;
   }
   const adjustedRows=rows.filter((row,index)=>row.fstarttime!==initialRows[index]?.fstarttime||row.fendtime!==initialRows[index]?.fendtime).length;
-  const issues=await validateSmartRows(rows,collegeId,sectionId);
+  const structuralIssues=await validateSmartRows(rows,collegeId,sectionId);
   const genesisConflicts=blockingConflicts(rows,[...external,...rows],await approvalBlockerOptions());
-  const rowIssues=mapSmartIssuesToRows(rows,issues,genesisConflicts);
+  /* ما يُسأل عنه الموعد يُسأل عنه كل صفٍّ منسوخ: اللائحة والأنماط والتعارض (core/draftChecks). */
+  const appointmentChecks=await draftAppointmentChecks(req,rows,external);
+  const issues=[...new Set([...structuralIssues,...appointmentChecks.issues])];
+  const rowIssues=mergeRowIssues(mapSmartIssuesToRows(rows,structuralIssues,genesisConflicts),appointmentChecks.rowIssues);
+  const rowWarnings=appointmentChecks.rowWarnings;
   const issueRowIds=Object.keys(rowIssues).map(Number);
   const universe=external.concat(rows); const analysis=analyzeSchedule(rows,universe,courses,instructors,await approvalBlockerOptions()); const rules=evaluateScheduleConstraints(rows,constraints); const draft=await Repository.createScheduleDraft({SystemUserId:req.user.SystemUserId,userName:req.user.Name,AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:targetTermId,...scopeBase(targetUniverse.filter(r=>Number(r.AdCollegeId)===collegeId&&Number(r.AdSectionId)===sectionId)),name:`بداية الفصل · ${terms.find(t=>t.AdTermId===sourceTermId)?.AdTermName||sourceTermId} → ${terms.find(t=>t.AdTermId===targetTermId)?.AdTermName||targetTermId}`,source:"auto",rows});
   const courseById=new Map(courses.map(course=>[Number(course.AdCourseId),course]));
@@ -629,7 +634,7 @@ app.post("/api/intelligence/genesis", requirePermission(7), async (req: Authenti
     fsunday:Boolean(row.fsunday),fmonday:Boolean(row.fmonday),ftuesday:Boolean(row.ftuesday),fwednesday:Boolean(row.fwednesday),fthursday:Boolean(row.fthursday),
     building:row.AdRoomCode||"",hall:row.AdRoomHall||"",
   }));
-  res.status(201).json({draft:{id:draft.id,name:draft.name,status:draft.status,rowCount:draft.rows.length},analysis:{score:analysis.score,conflicts:analysis.metrics.criticalConflicts,avgGap:analysis.metrics.avgInstructorGap,constraintViolations:rules.total},coverage:{sourceRows:source.length,archivedSkipped:archivedSource.length,copiedRows:rows.length,skippedRows:source.length-rows.length,adjustedRows},reviewRequired:issues.length,issues:issues.slice(0,24),issueRowIds,rowIssues,previewRows,guardrail:(archivedSource.length?`لم تُنسخ ${countOf(archivedSource.length, AR.appointment)} لمقررات مؤرشفة أكاديمياً. `:"")+(issues.length?`أُنشئت المسودة بنجاح وبها ${countOf(issues.length, oblique(AR.note))} للمراجعة قبل النشر؛ الجدول الحقيقي لم يتغير.`:"بداية الفصل أنشأت مسودة كاملة قابلة للمراجعة؛ الجدول الرسمي لم يتغير بعد.")});
+  res.status(201).json({draft:{id:draft.id,name:draft.name,status:draft.status,rowCount:draft.rows.length},analysis:{score:analysis.score,conflicts:analysis.metrics.criticalConflicts,avgGap:analysis.metrics.avgInstructorGap,constraintViolations:rules.total},coverage:{sourceRows:source.length,archivedSkipped:archivedSource.length,copiedRows:rows.length,skippedRows:source.length-rows.length,adjustedRows},reviewRequired:issues.length,issues:issues.slice(0,24),issueRowIds,rowIssues,rowWarnings,previewRows,guardrail:(archivedSource.length?`لم تُنسخ ${countOf(archivedSource.length, AR.appointment)} لمقررات مؤرشفة أكاديمياً. `:"")+(issues.length?`أُنشئت المسودة بنجاح وبها ${countOf(issues.length, oblique(AR.note))} للمراجعة قبل النشر؛ الجدول الحقيقي لم يتغير.`:"بداية الفصل أنشأت مسودة كاملة قابلة للمراجعة؛ الجدول الرسمي لم يتغير بعد.")});
 });
 
 app.get("/api/intelligence/brief", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {

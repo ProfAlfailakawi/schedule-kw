@@ -106,7 +106,13 @@ export function planNameFill(rows: readonly FillRow[], source: readonly SourceRo
     if (Number(row.AdInstructorId || 0) && !placeholderIds.has(Number(row.AdInstructorId))) {
       return { index, status: "none" as const, instructorId: 0, instructorName: "", diffs: [], reason: "السطر يحمل أستاذاً" };
     }
-    const exact = source.filter(src => compare(row, src).length === 0);
+    /* رقمُ الشعبة في جدول الجهة مولَّدٌ بترتيب الصفوف (501، 502…): حذفُ صفٍّ في المعاينة يعيد ترقيم
+       ما بعده، فلا يبقى الرقم هويةً تقارَن بالملف الثاني. فمن لم يطابق بالرقم يطابق بكل ما سواه:
+       المقرر والأيام والوقت والقاعة كلُّها. */
+    const literal = source.filter(src => compare(row, src).length === 0);
+    const generated = (code: unknown) => /^[5-9]\d{2}$/.test(token(code));
+    const exact = literal.length ? literal : !generated(row.SCode) ? []
+      : source.filter(src => generated(src.SCode) && compare(row, src).every(diff => diff.field === "section"));
     if (exact.length === 1) {
       const who = personOf(exact[0]);
       return who.id
@@ -145,7 +151,7 @@ export function fillSummary(decisions: readonly FillDecision[]) {
  * بالأحمر وفيها الاسمُ الصحيح (الأحمر في المعاينة يقرأ البرهان لا الاسم). الاسمُ هنا
  * اعتمده المستخدم بعد معاينةٍ صريحة، فبرهانُه يدويّ مؤكَّد كأنه اختاره من القائمة.
  */
-export function applyNameFill<T extends FillRow>(rows: readonly T[], decisions: readonly FillDecision[], acceptedPartials: ReadonlySet<number> = new Set(), sourceLabel = ""): T[] {
+export function applyNameFill<T extends FillRow>(rows: readonly T[], decisions: readonly FillDecision[], acceptedPartials: ReadonlySet<number> = new Set(), sourceLabel = "", batch = ""): T[] {
   const byIndex = new Map(decisions.map(row => [row.index, row]));
   return rows.map((row, index) => {
     const decision = byIndex.get(index);
@@ -160,6 +166,9 @@ export function applyNameFill<T extends FillRow>(rows: readonly T[], decisions: 
           ...(evidence && typeof evidence === "object" ? evidence : {}),
           instructor: {
             ...prior,
+            ...(batch ? { fillBatch: batch } : {}),
+            filledFromId: Number(row.AdInstructorId || 0),
+            ...(evidence?.instructor ? { filledOver: evidence.instructor } : {}),
             canonical: String(decision.instructorId),
             confidence: "CONFIRMED", score: 100, source: "MANUAL", method: "NAME_FILL", derived: false,
             reason: `عُبّئ الاسم ${sourceLabel ? `${sourceLabel} ` : ""}${decision.status === "match" ? "بتطابق السطر ١٠٠٪" : "بعد قبول الفرق"} واعتُمد في المعاينة.`,
@@ -168,6 +177,21 @@ export function applyNameFill<T extends FillRow>(rows: readonly T[], decisions: 
       };
     }
     return row;
+  });
+}
+
+/**
+ * التراجعُ يعيد ما غيّرته آخر تعبئة وحده، صفاً صفاً، من أثرها المحفوظ في برهان الأستاذ: لا مواضع ولا لقطة
+ * للسطور. فلا يعود صفٌّ حذفه المراجع بعدها، ولا يُمحى تعديل، ويبقى برهان بقية الخانات، واسمٌ غيّره بيده قرارُه.
+ */
+export function undoNameFill<T extends FillRow>(rows: readonly T[], batch: string): T[] {
+  return rows.map(row => {
+    const evidence = (row as any).importEvidence;
+    const proof = evidence?.instructor;
+    if (proof?.method !== "NAME_FILL" || proof.fillBatch !== batch) return row;
+    const { instructor: _filled, ...others } = evidence;
+    const restored = proof.filledOver ? { ...others, instructor: proof.filledOver } : others;
+    return { ...row, AdInstructorId: Number(proof.filledFromId || 0), importEvidence: restored };
   });
 }
 

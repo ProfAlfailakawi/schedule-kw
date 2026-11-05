@@ -94,9 +94,11 @@ interface Props {
   icon?: "add" | "check";
   /** يقيس الأثر قبل التأكيد (اختياري): فإن تعذّر عاد النصّ البسيط. */
   preview?: () => Promise<ChangeImpact>;
+  /** ما يميّز هذا الاقتراح عن جاره قبل الضغط: اليوم والوقت والأستاذ. */
+  slot?: React.ReactNode;
 }
 
-export default function ApplyProposal({ lines, why, run, label = "اعتمد في الجدول", onApplied, disabled, disabledReason, compact, icon = "add", preview }: Props) {
+export default function ApplyProposal({ lines, why, run, label = "اعتمد في الجدول", onApplied, disabled, disabledReason, compact, icon = "add", preview, slot }: Props) {
   const [step, setStep] = useState<"idle" | "confirm" | "busy" | "done">("idle");
   const [error, setError] = useState("");
   const [outcome, setOutcome] = useState<ApplyOutcome | null>(null);
@@ -128,7 +130,8 @@ export default function ApplyProposal({ lines, why, run, label = "اعتمد ف�
 
   if (step === "idle") {
     return (
-      <div className={`ap-wrap${compact ? " compact" : ""}`}>
+      <div className={`ap-wrap${compact ? " compact" : ""}${slot ? " has-slot" : ""}`}>
+        {slot ? <p className="ap-slot">{slot}</p> : null}
         <PrimaryButton type="button" disabled={disabled} title={disabled ? disabledReason : undefined} onClick={() => { setStep("confirm"); if (preview) { setImpact("loading"); void preview().then(setImpact).catch(() => setImpact("failed")); } }}
           data-guide-ignore="يفتح تأكيد اعتماد الاقتراح؛ لا يكتب شيئاً قبل التأكيد">
           <Icon aria-hidden="true" /> {label}

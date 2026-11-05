@@ -100,7 +100,7 @@ const readableCourseEvidence = (value: unknown) => {
 
 export default function ImportPreviewTable({
   rows, courses, instructors, departmentIds = [], visitingIds = [], visitingPeople = [], matchedPeople = [], affiliatedIds = [], departmentRooms = [],
-  collegeId = 0, sectionId = 0, termId = 0, rowIssues = {}, onRows,
+  collegeId = 0, sectionId = 0, termId = 0, rowIssues = {}, onRows, onRowRemoved,
 }: {
   rows: ImportRow[];
   courses: AdCourse[];
@@ -122,6 +122,8 @@ export default function ImportPreviewTable({
       belong to instead of as a repeated list under the table. */
   rowIssues?: Record<string, string[]>;
   onRows: (next: ImportRow[]) => void;
+  /** من يحمل الملف كله يحفظ المحذوف ليعود ولو زالت صفحته؛ وبدونه يحفظه الجدول لنفسه. */
+  onRowRemoved?: (row: ImportRow) => void;
 }) {
   const planBadges = usePlanBadges();
   const [editing, setEditing] = useState<number | null>(null);
@@ -169,7 +171,8 @@ export default function ImportPreviewTable({
     if (editing === index) setEditing(null);
     else if (editing !== null && editing > index) setEditing(editing - 1);
     const row = rows[index];
-    if (row) setRemoved({ row, index, page: row.sourcePage });
+    if (row && onRowRemoved) onRowRemoved(row);
+    else if (row) setRemoved({ row, index, page: row.sourcePage });
     onRows(rows.filter((_, at) => at !== index));
   };
   /* التراجعُ يعيد الصفَّ إلى صفحته وموضعه؛ ويُنسى إن انتقل المراجع إلى صفحةٍ أخرى، فلا يقع الصفُّ في غيرها. */
