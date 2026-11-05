@@ -1012,7 +1012,8 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
   const departmentInstructorIds=[...departmentMembership];
   /* ومعهم «هيئة تدريسية» أهل القسم: قائمة الشاشة قد تكون لقسم فُتح قبل هذا، فيُعدّ السجل المشترك
      عندها شخصاً ويصير كل صفين متزامنين «حجزاً مزدوجاً» لا يراه الخادم. */
-  const resolvedInstructors=[...new Map([...(rows as any[]).map(row=>Number(row.AdInstructorId)||0),...[...departmentMembership].filter(id=>importPlaceholderIds.has(Number(id))).map(Number)].filter(id=>id>0)
+  const resolvedInstructors=[...new Map((rows as any[])
+    .map(row=>Number(row.AdInstructorId)||0).concat([...departmentMembership].filter(id=>importPlaceholderIds.has(Number(id))).map(Number)).filter(id=>id>0)
     .map(id=>[id,allInstructors.find((person:any)=>Number(person.AdInstructorId)===id)])
     .filter(([,person])=>Boolean(person)) as Array<[number,any]>).values()]
     .map((person:any)=>({AdInstructorId:Number(person.AdInstructorId),AdInstructorName:String(person.AdInstructorName||"")}));
