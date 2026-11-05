@@ -5,7 +5,7 @@ import { holdSavedTime } from "../src/components/RequestHoldSheet";
 import { reopenedRequest } from "../src/server/core/scheduleConflicts";
 import { scrubPlaceText } from "../src/utils/teacherPlaceScrub";
 import { sendLogSenderFor } from "../src/utils/activityTrail";
-import { proposalCourseChoices, proposalFamilyScopes } from "../src/utils/proposalCourseChoices";
+import { proposalCourseChoices, proposalCourseScopes } from "../src/utils/proposalCourseChoices";
 
 let failures = 0;
 const check = (ok: unknown, label: string, detail?: unknown) => { if (ok) console.log(`  ok  ${label}`); else { failures += 1; console.error(`FAIL  ${label}`, detail ?? ""); } };
@@ -70,22 +70,14 @@ const read = (path: string) => readFileSync(path, "utf8");
   check(sendLogSenderFor({ SeatActor: { kind: "holder" } }, "د. منى") === "د. منى" && sendLogSenderFor({ SeatActor: { kind: "member" } }, "د. منى") === "د. منى" && sendLogSenderFor({}, "د. منى") === "د. منى", "4 وغيره يصله");
   check(/by: sendLogSenderFor\(req\.user, row\.by\)/.test(read("src/server/routes/instructorRequestsRoutes.ts")), "4 الحجب في رد الخادم");
 }
-/* 16 «كل عائلة القسم» */
+/* 16 «كل عائلة القسم»: العائلة كلها، والبنون معها (قرار المالك النهائي) */
 {
-  const at = (collegeId: number, collegeName: string) => ({ collegeId, sectionId: collegeId * 10, collegeName });
-  const boys = at(5, "كلية التربية الأساسية - بنين"), girls = at(6, "كلية التربية الأساسية - بنات");
-  const jahra = at(10, "كلية التربية الأساسية - الجهراء - بنات"), fahaheel = at(11, "كلية التربية الأساسية - الفحيحيل - بنات");
-  const all = [boys, girls, jahra, fahaheel];
-  const ids = (list: Array<{ collegeId: number }>) => list.map(item => item.collegeId).sort((a, b) => a - b).join();
-  check(ids(proposalFamilyScopes(all, girls)) === "6,10,11", "16 البنات: بنات والجهراء والفحيحيل بلا بنين");
-  check(ids(proposalFamilyScopes(all, jahra)) === "6,10,11", "16 من الجهراء العائلة نفسها");
-  check(ids(proposalFamilyScopes(all, boys)) === "5", "16 البنون وحدهم، فلا يظهر الخيار");
-  const courses = all.map((scope, index) => ({ id: index + 1, code: "0109108", name: "م", ...scope, sheet: null })) as any;
-  const family = new Set(proposalFamilyScopes(all, girls).map(s => s.collegeId));
-  check(proposalCourseChoices(courses.filter((c: any) => family.has(c.collegeId)), null)[0].memberIds.join() === "2,3,4", "16 القائمة بلا سجل البنين");
+  const names = ["كلية التربية الأساسية - بنين", "كلية التربية الأساسية - بنات", "كلية التربية الأساسية - الجهراء - بنات", "كلية التربية الأساسية - الفحيحيل - بنات"];
+  const courses = names.map((collegeName, index) => ({ id: index + 1, code: "0109108", name: "م", collegeId: index + 1, sectionId: index + 1, collegeName, sheet: null })) as any;
+  check(proposalCourseScopes(courses, { collegeId: 2, sectionId: 2 }).length === 4, "16 شرائح المواقع كلها باقية");
+  check(proposalCourseChoices(courses, null)[0].memberIds.join() === "1,2,3,4", "16 القائمة تشمل البنين والجهراء والفحيحيل");
   const picker = read("src/components/proposal/ProposalCoursePicker.tsx");
-  check(/familyOpen \?/.test(picker) && !/scopes\.length > 1 \? \(\s*<button[^]*?WHOLE_FAMILY/.test(picker), "16 الخيار يتبع المسار");
-  check(/departmentFamily\(/.test(read("src/utils/sectionLabel.ts")) && !/proposalFamilyScopes/.test(read("src/utils/sectionLabel.ts")), "16 بقية استعمالات العائلة كما هي");
+  check(/familyOpen = scopes\.length > 1/.test(picker) && !/campusOf|proposalFamilyScopes/.test(picker), "16 لا قيد مسار على الخيار");
 }
 if (failures) { console.error(`${failures} failed`); process.exit(1); }
 console.log("undo-travel-rule-audit: all checks passed");

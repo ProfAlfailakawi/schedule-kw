@@ -21,7 +21,6 @@
 import { foldInstructorText } from "./instructorIdentity";
 import { toEnglishDigits } from "./digits";
 import { campusChips } from "./campusChip";
-import { campusOf } from "./campus";
 import type { CourseReach } from "./courseReach";
 import { byCourseNumber } from "./sheetMembership";
 
@@ -84,17 +83,6 @@ export function proposalCourseScopes(courses: readonly ProposalCourseLike[], req
   for (const scope of list) if ((counts.get(scope.label) || 0) > 1) scope.label = `${scope.label} · ${scope.sectionId}`;
   const own = requestScope ? scopeKeyOf(requestScope) : "";
   return list.sort((a, b) => Number(b.key === own) - Number(a.key === own));
-}
-
-/**
- * مواقعُ «كل عائلة القسم» (قرار المالك، البند 16): مسارُ الطلب وحده. البناتُ بنات + الجهراء + الفحيحيل،
- * والبنون بنون وحدهم، بالمسار الموجود نفسه (campusOf). الخيارُ يوسّع القائمة ولا يغيّر مكان التعديل.
- */
-export function proposalFamilyScopes<T extends { collegeName: string; collegeId: number; sectionId: number }>(scopes: readonly T[], requestScope?: { collegeId: number; sectionId: number }): T[] {
-  const own = (requestScope && scopes.find(scope => scopeKeyOf(scope) === scopeKeyOf(requestScope))) || scopes[0];
-  if (!own) return [];
-  const side = campusOf(own.collegeName);
-  return scopes.filter(scope => campusOf(scope.collegeName) === side);
 }
 
 /** مقرراتُ موقعٍ واحد، كلُّ مقررٍ مرّةً واحدة، مرتّبةً بالرقم ثم الاسم. */

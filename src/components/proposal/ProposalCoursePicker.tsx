@@ -13,7 +13,7 @@ import { ReachChain, ReachChip } from "../CourseReach";
 import { reachLocked } from "../../utils/courseReach";
 import { courseOptionBadge, usePlanBadges } from "../../utils/planBadges";
 import {
-  proposalCourseChoices, proposalCourseScopes, proposalFamilyScopes, sameCourseIn, scopeKeyOf, type ProposalCourseChoice,
+  proposalCourseChoices, proposalCourseScopes, sameCourseIn, scopeKeyOf, type ProposalCourseChoice,
 } from "../../utils/proposalCourseChoices";
 import type { Workspace } from "./useProposalWorkspace";
 
@@ -27,15 +27,11 @@ export function useProposalCourseChoices(ws: Workspace) {
   const chosen = courses.find(course => course.id === draft.courseId);
   const [picked, setPicked] = useState<string>("");
   /* الموقعُ: موقعُ المقرر المختار إن وُجد، ثم ما اختاره المستخدم، ثم موقعُ الطلب. */
-  const familyScopes = useMemo(() => proposalFamilyScopes(scopes, ctx?.scope), [scopes, ctx?.scope]);
-  const familyOpen = familyScopes.length > 1;
+  const familyOpen = scopes.length > 1;
   const wholeFamily = picked === WHOLE_FAMILY && familyOpen;
   const scopeKey = wholeFamily ? WHOLE_FAMILY : chosen ? scopeKeyOf(chosen) : (picked && scopes.some(s => s.key === picked) ? picked : scopes[0]?.key || "");
   const scope = scopes.find(s => s.key === scopeKey) || null;
-  const choices = useMemo(() => {
-    const family = new Set(familyScopes.map(scopeKeyOf));
-    return proposalCourseChoices(wholeFamily ? courses.filter(course => family.has(scopeKeyOf(course))) : courses, scope, ctx?.usedCodes || {});
-  }, [courses, scope, ctx?.usedCodes, wholeFamily, familyScopes]);
+  const choices = useMemo(() => proposalCourseChoices(courses, scope, ctx?.usedCodes || {}), [courses, scope, ctx?.usedCodes]);
   const setScope = (key: string) => {
     if (key === WHOLE_FAMILY) { setPicked(key); return; }
     const next = scopes.find(s => s.key === key);
