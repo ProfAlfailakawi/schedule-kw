@@ -404,9 +404,7 @@ app.put("/api/section-roster/:id", requirePermission(7), async (req: Authenticat
     if (!hasLoadOverride(entry as any)) { delete entry.reason; delete entry.untilTermId; }
     const problem = teachingLoadProblem({ ranks: config.ranks, assignments: { [String(id)]: entry } });
     if (problem) { res.status(400).json({ error: problem }); return; }
-    const assignments = { ...config.assignments, [String(id)]: entry as any };
-    if (!Object.keys(entry).length) delete assignments[String(id)];
-    await Repository.saveTeachingLoadConfig({ ...config, assignments }, String(req.user?.Name || ""));
+    await Repository.setTeachingLoadAssignment(id, Object.keys(entry).length ? entry : null, String(req.user?.Name || ""));
     changes.push("النصاب");
   }
   res.locals.auditChanges = `تعديل بيانات ${person.AdInstructorName} من أدوات البيانات: ${changes.join("، ")}`;

@@ -7631,6 +7631,33 @@ export const Repository = {
     return row;
   },
 
+  /* إسنادُ عضوٍ واحد ذرّياً: قسمان يحفظان معاً لا يمحو أحدهما تعديل الآخر. `null` تحذف الإسناد. */
+  setTeachingLoadAssignment: async (instructorId: number, entry: Record<string, unknown> | null, updatedBy?: string): Promise<TeachingLoadConfig> => {
+    const key = String(instructorId);
+    const apply = (current: unknown) => {
+      const config = normalizeTeachingLoadConfig(current);
+      const assignments: Record<string, any> = { ...config.assignments };
+      if (entry) assignments[key] = entry; else delete assignments[key];
+      return { ...config, assignments, updatedAt: new Date().toISOString(), ...(updatedBy ? { updatedBy } : {}) } as TeachingLoadConfig;
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("teachingLoadConfig").doc(TEACHING_LOAD_DOC_ID);
+      const row = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        const next = apply(snap.exists ? snap.data() : null);
+        tx.set(ref, next, { merge: false });
+        return next;
+      });
+      invalidateReference(REFERENCE_KEYS.teachingLoad);
+      return row;
+    }
+    const row = apply((db.teachingLoadConfig || [])[0]);
+    db.teachingLoadConfig = [row];
+    invalidateReference(REFERENCE_KEYS.teachingLoad);
+    saveDatabase();
+    return row;
+  },
+
   /* ── منتدبو القسم للعائلة كلها (departmentFamily في sectionLabel) ─────────
    *
    * «القسم واحد ومنتدبوه واحد في كل كلياته». بلا ترحيل بيانات: كلُّ عضوٍ يحتفظ

@@ -26,6 +26,8 @@ check(/isScopeAllowed/.test(rosterRead) && !/hours:.*AdInstructorCivil|AdInstruc
 check(/members\.has\(id\)/.test(routes), "لا يعدّل إلا أستاذ قسمه");
 check(/الأساتذة/.test(read("src/components/ScheduleTransfer.tsx")) && /DepartmentRoster/.test(read("src/components/ScheduleTransfer.tsx")), "أيقونة الأساتذة في أدوات البيانات");
 
+check(!/saveTeachingLoadConfig/.test(routes.split('"/api/section-roster/:id"')[1].split("/api/visiting-roster")[0]) && /runTransaction[\s\S]{0,200}teachingLoad|setTeachingLoadAssignment/.test(read("src/db/repository.ts")), "إسناد النصاب ذرّي");
+
 /* 22: الدرج لا يُقصّ */
 check(/createPortal\(\s*<LoadExceptionEditor/.test(read("src/components/LoadException.tsx")), "محرّر النصاب ببوّابة");
 

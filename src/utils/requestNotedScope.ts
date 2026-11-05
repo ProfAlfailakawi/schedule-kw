@@ -14,7 +14,8 @@ type StoredItem = { itemId?: unknown; action?: string; rowId?: unknown; after?: 
 
 /** بندٌ مخزَّنٌ أُعيد إرسالُه كما هو: طلبٌ سابق على موعدٍ مقفل يبقى، فهو ليس تعديلاً جديداً. */
 function sameAsStored(item: SentItem, stored: readonly StoredItem[]): boolean {
-  const held = stored.find(row => (item.itemId && row.itemId === item.itemId) || (item.rowId != null && row.rowId != null && Number(row.rowId) === Number(item.rowId)));
+  /* الهويتان معاً: بندٌ قديم بمعرّفه على موعدٍ مقفلٍ آخر ليس البندَ نفسه. */
+  const held = stored.find(row => String(row.itemId || "") === String(item.itemId || "") && Number(row.rowId || 0) === Number(item.rowId || 0));
   if (!held || held.action !== item.action) return false;
   if (item.action !== "change" && item.action !== "add") return true;
   if (item.action === "add" && Number(held.after?.courseId || 0) !== Number(item.courseId || 0)) return false;

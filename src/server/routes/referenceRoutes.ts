@@ -268,11 +268,9 @@ app.put("/api/admin/teaching-load/member/:id", requirePermission(7), requireRoot
   for (const key of ["rankId", "minHours", "maxHours", "extraHours", "reason", "untilTermId"]) if (body[key] !== undefined && body[key] !== null && body[key] !== "") entry[key] = body[key];
   if (entry.rankId && !config.ranks.some(rank => rank.id === entry.rankId)) { res.status(400).json({ error: "الدرجة غير موجودة." }); return; }
   if (!hasLoadOverride(entry as any)) { delete entry.reason; delete entry.untilTermId; }
-  const assignments = { ...config.assignments, [String(instructorId)]: entry as any };
-  if (!Object.keys(entry).length) delete assignments[String(instructorId)];
   const problem = teachingLoadProblem({ ranks: config.ranks, assignments: { [String(instructorId)]: entry } });
   if (problem) { res.status(400).json({ error: problem }); return; }
-  const saved = await Repository.saveTeachingLoadConfig({ ...config, assignments }, String(req.user?.Name || ""));
+  const saved = await Repository.setTeachingLoadAssignment(instructorId, Object.keys(entry).length ? entry : null, String(req.user?.Name || ""));
   res.json({ success: true, assignment: saved.assignments[String(instructorId)] || {} });
 });
 

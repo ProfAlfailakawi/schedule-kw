@@ -35,6 +35,7 @@ const stored = [
 check(notedScopeBreach([5], [{ itemId: "a", rowId: 1, action: "change", days: ["ftuesday", "fsunday"], start: "09:00" }, { rowId: 2, action: "delete" }, { itemId: "b", action: "add", courseId: 9, days: ["fmonday"], start: "10:00" }], stored) === -1, "طلب سابق أُعيد كما هو لا يُرفض");
 check(notedScopeBreach([5], [{ itemId: "a", rowId: 1, action: "change", days: ["fsunday"], start: "09:00" }], stored) === 0, "تعديل جديد على موعد مقفل مرفوض");
 check(notedScopeBreach([5], [{ itemId: "b", action: "add", courseId: 8, days: ["fmonday"], start: "10:00" }], stored) === 0, "تبديل مقرر الإضافة مرفوض");
+check(notedScopeBreach([5], [{ itemId: "a", rowId: 2, action: "change", days: ["fsunday", "ftuesday"], start: "09:00" }], stored) === 0, "معرّف بند قديم على موعد مقفل آخر مرفوض");
 const issue = read("src/server/routes/instructorRequestsRoutes.ts");
 check(/!reopening && !onlyNoted\)/.test(issue) && /onlyNoted && move === "keep"/.test(issue), "الطلب المرسل يأخذ نافذة جديدة");
 check(/notedScopeBreach\(resolved\.request\.notedRowIds, Array\.isArray/.test(routes), "الخادم يحرس الإرسال");
