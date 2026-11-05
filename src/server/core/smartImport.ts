@@ -323,7 +323,7 @@ export async function validateSmartRows(rows: any[], collegeId: number, sectionI
        cell or an OCR'd page, neither of which is bounded by a time picker. */
     if (!isValidClock(row.fstarttime) || !isValidClock(row.fendtime)) errors.push(`السطر ${index + 1}: وقت غير صالح (الساعة بين 0 و23 والدقيقة بين 0 و59)`);
     else if (timeToMinutes(row.fendtime) <= timeToMinutes(row.fstarttime)) errors.push(`السطر ${index + 1}: وقت النهاية يجب أن يكون بعد البداية`);
-    else if(!withinUniversityDay(timeToMinutes(row.fstarttime),timeToMinutes(row.fendtime))) errors.push(`السطر ${index + 1}: وقت المحاضرة يجب أن يكون بين ${SCHEDULE_DAY_START_TIME} و${SCHEDULE_DAY_END_TIME}`);
+    else if(!withinUniversityDay(timeToMinutes(row.fstarttime),timeToMinutes(row.fendtime))) errors.push(`السطر ${index + 1}: وقت المحاضرة يجب أن يكون ضمن الدوام الشامل (${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME})`);
     if (activeDays(row).length === 0) errors.push(`السطر ${index + 1}: لم يتم تحديد يوم للمحاضرة`);
     if (course) row.AdCourseName = course.CourseName;
   }

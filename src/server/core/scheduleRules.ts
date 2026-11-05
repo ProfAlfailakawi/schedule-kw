@@ -136,7 +136,7 @@ export async function schedulePayloadIssues(row:any,{keptTime=false}:{keptTime?:
      with a number for anything — "10:76" becomes 676, i.e. 11:16 — so without
      this the row was stored at a time nobody typed. */
   if(!isValidClock(row.fstarttime)||!isValidClock(row.fendtime))issues.push("وقت المحاضرة غير صالح: الساعة بين 0 و23 والدقيقة بين 0 و59");
-  else{const start=timeToMinutes(String(row.fstarttime)),end=timeToMinutes(String(row.fendtime));if(end<=start)issues.push("وقت النهاية يجب أن يكون بعد وقت البداية");else if(!keptTime&&!withinUniversityDay(start,end))issues.push(`وقت المحاضرة يجب أن يكون بين ${SCHEDULE_DAY_START_TIME} و${SCHEDULE_DAY_END_TIME}`);}}return issues;}
+  else{const start=timeToMinutes(String(row.fstarttime)),end=timeToMinutes(String(row.fendtime));if(end<=start)issues.push("وقت النهاية يجب أن يكون بعد وقت البداية");else if(!keptTime&&!withinUniversityDay(start,end))issues.push(`وقت المحاضرة يجب أن يكون ضمن الدوام الشامل (${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME})`);}}return issues;}
 /**
  * Who does this hall belong to?
  *

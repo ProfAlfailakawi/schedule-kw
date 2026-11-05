@@ -559,7 +559,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      السابعةَ صباحاً يمرّ سليماً — ثم لا يجد البحثُ عن البدائل موضعاً له، لأن
      سُلّمَ البدايات يبدأ من الثامنة. حَدٌّ واحدٌ يُحرَس من طرفيه. */
   if (slots.some(slot => toMinutes(slot.start) < SCHEDULE_DAY_START)) {
-    reasons.push({ source: "shape", text: "تبدأ المحاضرة قبل بداية اليوم الدراسي.", blocking: true });
+    reasons.push({ source: "shape", text: "تبدأ المحاضرة قبل بداية الدوام الشامل (08:00).", blocking: true });
     return verdictOf();
   }
   /* يُقاس على النهاية قبل الحدّ لا بعده: `endForRequest` تقصّ ما يتجاوز نهاية
@@ -571,14 +571,14 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      ويبقى تنبيهاً لمن يقرأ الطلب من القسم أو لموعدٍ عرضه القسم بنفسه. وبلا استثناء لا يختلف الحدّان فلا سبب ثانٍ. */
   const lastEnd = request.slots?.length ? Math.max(...slots.map(slot => toMinutes(slot.end))) : uncut;
   if (lastEnd > SCHEDULE_DAY_END || slots.some(slot => toMinutes(slot.end) <= toMinutes(slot.start))) {
-    reasons.push({ source: "shape", text: "تتجاوز المحاضرة نهاية اليوم الدراسي.", blocking: true });
+    reasons.push({ source: "shape", text: "تتجاوز المحاضرة نهاية الدوام الشامل (20:00).", blocking: true });
     return verdictOf();
   }
   const departmentHoursBlock = !context.departmentHoursWarnOnly;
   if (lastEnd > dayEnd || slots.some(slot => toMinutes(slot.start) >= dayEnd)) {
-    reasons.push({ source: "shape", code: "day-end", text: `تنتهي المحاضرة بعد نهاية دوام القسم (${minutesToTime(dayEnd)}).`, blocking: departmentHoursBlock });
+    reasons.push({ source: "shape", code: "day-end", text: `تنتهي المحاضرة بعد نهاية الدوام المسموح (${minutesToTime(dayEnd)}).`, blocking: departmentHoursBlock });
   } else if (slots.some(slot => toMinutes(slot.start) < dayStart)) {
-    reasons.push({ source: "shape", code: "day-end", text: `تبدأ المحاضرة قبل بداية دوام القسم (${minutesToTime(dayStart)}).`, blocking: departmentHoursBlock });
+    reasons.push({ source: "shape", code: "day-end", text: `تبدأ المحاضرة قبل بداية الدوام المسموح (${minutesToTime(dayStart)}).`, blocking: departmentHoursBlock });
   }
 
   /* ساعاتُ المقرّر تُؤخذ من المقرّر نفسه: أيامٌ لا تكفي لإتمامها ليست طلباً صالحاً. */

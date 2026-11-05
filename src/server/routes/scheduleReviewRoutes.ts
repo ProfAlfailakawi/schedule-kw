@@ -137,13 +137,15 @@ export function registerScheduleReviewRoutes(app: Express): void {
    تعارض) وكلٌّ منها يقرأ القاعدة بنفسه، فيطول «جاري الفحص». لا تعتمد أيٌّ منها
    على الأخرى، فتُطلق معاً، والنتيجة نفسها التي تحكم بها بوابة الحفظ. */
 app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
+  const savedRow=Number(row.excludeId||0)?await Repository.getScheduleById(Number(row.excludeId)).catch(()=>null):null;
+  const keptTime=Boolean(savedRow)&&savedRow!.fstarttime===row.fstarttime&&savedRow!.fendtime===row.fendtime;
   const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
   const [patternNotice,lectureNotice,departmentHours,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue]=await Promise.all([
     mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null),
     scheduleLengthNotice(row).catch(()=>null),
     hoursNotice(row).catch(()=>""),
     // Return the same payload and weekly-hours blockers the save gate uses.
-    schedulePayloadIssues(row),
+    schedulePayloadIssues(row,{keptTime}),
     checkLengthIssue(row),
     checkLocationIssues(row),
     scheduleConflicts(req,row,Number(row.excludeId||0)),

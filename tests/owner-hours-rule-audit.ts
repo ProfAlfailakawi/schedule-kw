@@ -32,9 +32,9 @@ const rules = read("src/server/core/scheduleRules.ts"), schedules = read("src/co
 
 /* المجموعات الأربع. */
 check(/!keptTime&&!withinUniversityDay\(start,end\)\)issues\.push/.test(rules), "نموذج الموعد + 20:00: الخادم يمنع");
-check(/!withinUniversityDay\(mins\(form\.fstarttime\), mins\(form\.fendtime\)\)/.test(schedules) && /outsideTeachingDay\?`وقت المحاضرة يجب أن يكون بين/.test(schedules), "نموذج الموعد + 20:00: العميل يمنع ويقول السبب");
+check(/!withinUniversityDay\(mins\(form\.fstarttime\), mins\(form\.fendtime\)\)/.test(schedules) && /outsideTeachingDay\?`وقت المحاضرة يجب أن يكون ضمن الدوام الشامل/.test(schedules), "نموذج الموعد + 20:00: العميل يمنع ويقول السبب");
 check(!/Math\.min\(SCHEDULE_DAY_END, mins\(start\) \+ duration\)/.test(schedules) && /endLimit=\{SCHEDULE_CLOCK_END_TIME\}/.test(schedules), "نموذج الموعد: لا قصّ للقيمة المكتوبة");
-check(/ينتهي بعد نهاية دوام القسم \(17:00\)/.test(departmentHoursNote(at(14), at(18), dept)), "نموذج الموعد + دوام القسم: تنبيه");
+check(/ينتهي بعد نهاية الدوام المسموح \(17:00\)/.test(departmentHoursNote(at(14), at(18), dept)), "نموذج الموعد + دوام القسم: تنبيه");
 check(!/sectionScheduleWindow/.test(rules.slice(rules.indexOf("export async function schedulePayloadIssues"), rules.indexOf("export async function schedulePayloadIssues") + 900)), "نموذج الموعد + دوام القسم: بوابة الحفظ لا تمنع به");
 {
   const base = { id: 1, AdCollegeId: 1, AdSectionId: 5, AdTermId: 20, AdCourseId: 100, AdCourseName: "م", SCode: "01", AdInstructorId: 7, fsunday: true, fmonday: false, ftuesday: false, fwednesday: false, fthursday: false, fstarttime: "08:00", fendtime: "08:50", AdRoomCode: "أ", AdRoomHall: "101" } as any;
@@ -54,6 +54,23 @@ check(!/sectionScheduleWindow/.test(rules.slice(rules.indexOf("export async func
   check(reasonsOf(late)[0]?.blocking === true, "كرت الأستاذ: قبل بداية دوام القسم يُمنع", late.reasons);
 }
 check(/departmentHoursWarnOnly: Boolean\(options\.forDepartment\) \|\| offeredByDepartment/.test(read("src/server/core/instructorRequests.ts")), "قراءة القسم وعرضه: تنبيه");
+
+/* اسمان ثابتان في الشاشة والرسائل. */
+{
+  const screen = read("src/components/SectionScheduleHours.tsx"), time = read("src/utils/scheduleTime.ts");
+  check(/<strong>الدوام الشامل<\/strong>/.test(screen) && /<b dir="ltr">08:00–20:00<\/b>/.test(screen) && !/<input[^>]*الدوام الشامل/.test(screen), "الدوام الشامل معروضٌ ثابتاً بلا حقل");
+  check(/<strong>الدوام المسموح<\/strong>/.test(screen) && /بداية الدوام المسموح/.test(screen) && /نهاية الدوام المسموح/.test(screen), "الدوام المسموح هو الحقل القابل للتعديل");
+  check(/startTime,endTime\}\)\}\)/.test(screen) || /sectionIds:selected,startTime,endTime/.test(screen), "والحقول المحفوظة نفسها بلا ترحيل");
+  check(/الدوام المسموح/.test(time) && /نهاية الدوام المسموح/.test(verdictSource) && /نهاية الدوام الشامل/.test(verdictSource) && /الدوام الشامل/.test(rules) && !/دوام القسم \(/.test(time + verdictSource), "الرسائل بالاسمين نفسيهما");
+}
+
+/* موعدٌ قائم لم يتغيّر وقته: الحفظ والفحص والنموذج على حكمٍ واحد، والوقت المتغيّر يبقى ممنوعاً. */
+{
+  const review = read("src/server/routes/scheduleReviewRoutes.ts"), writes = read("src/server/core/scheduleWrites.ts");
+  check(/keptTime:Boolean\(\(req as any\)\.__exactRestore\)\|\|\(existing\.fstarttime===req\.body\.fstarttime&&existing\.fendtime===req\.body\.fendtime\)/.test(writes), "الوقت القائم: بوابة الحفظ تعفيه");
+  check(/savedRow!\.fstarttime===row\.fstarttime&&savedRow!\.fendtime===row\.fendtime/.test(review) && /schedulePayloadIssues\(row,\{keptTime\}\)/.test(review), "الوقت القائم: الفحص الحيّ يعفيه بالمقارنة بالمحفوظ");
+  check(/savedForm!\.fstarttime === form\.fstarttime && savedForm!\.fendtime === form\.fendtime/.test(schedules) && /!timeRangeInvalid && !savedTimeKept &&/.test(schedules), "الوقت القائم: النموذج يعفيه");
+}
 
 /* آلة الزمن. */
 {

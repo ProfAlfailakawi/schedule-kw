@@ -49,8 +49,8 @@ export function departmentHoursNote(start: number, end: number, window?: Schedul
   if (!withinUniversityDay(start, end)) return "";
   const bounds = scheduleDayWindowMinutes(window);
   if (start >= bounds.start && end <= bounds.end) return "";
-  if (start >= bounds.start && start < bounds.end) return `ينتهي بعد نهاية دوام القسم (${scheduleClockForDisplay(bounds.endTime)})`;
-  return `خارج دوام القسم (${formatScheduleTimeRange(bounds.startTime, bounds.endTime)})`;
+  if (start >= bounds.start && start < bounds.end) return `ينتهي بعد نهاية الدوام المسموح (${scheduleClockForDisplay(bounds.endTime)})`;
+  return `خارج الدوام المسموح (${formatScheduleTimeRange(bounds.startTime, bounds.endTime)})`;
 }
 /** آخرُ دقيقةٍ يكتبها الوقت: الطولُ الحقيقي لا يُقصّ عند نهاية اليوم، فالتجاوزُ يُرى سببُه ولا يُخفى ولا تضيع القيمة المكتوبة. */
 export const SCHEDULE_CLOCK_END = 23 * 60 + 59;

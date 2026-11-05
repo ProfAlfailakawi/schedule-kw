@@ -62,17 +62,23 @@ export default function SectionScheduleHours({header,demoReadOnly=false}:{header
     }catch(error:any){setNotice({text:error.message||"تعذر حفظ أوقات الدوام",bad:true});}finally{setBusy(false);}
   };
   return <div className="content-stack admin-page section-schedule-hours">
-    {header}<PageTitle eyebrow="إدارة النظام · للمدير الرئيسي فقط" subtitle="الافتراضي لكل قسم: 8ص – 8م.">أوقات الدوام للأقسام</PageTitle>
+    {header}<PageTitle eyebrow="إدارة النظام · للمدير الرئيسي فقط" subtitle="الدوام الشامل ثابت، والدوام المسموح لكل قسم يساويه ما لم يُضيَّق.">أوقات الدوام للأقسام</PageTitle>
     {notice?<Notice>{notice.text}</Notice>:null}
     {demoReadOnly?<Notice type="info">الإعدادات للعرض في الديمو، والحفظ معطّل.</Notice>:null}
+    <Surface className="form-card section-hours-full">
+      <span className="section-hours-clock"><Clock3 /></span>
+      <div><strong>الدوام الشامل</strong><p>حدٌّ ثابت يمنع في كل مكان، ولا يُعدَّل.</p></div>
+      <b dir="ltr">08:00–20:00</b>
+    </Surface>
     <Surface className="form-card smart-form">
+      <div className="section-hours-allowed"><strong>الدوام المسموح</strong><p>للقسم، ويساوي الدوام الشامل افتراضاً. تضييقُه استثناء: يمنع كرت الأستاذ، وفي «موعد» تنبيهٌ فقط.</p></div>
       <div className="form-grid section-hours-time-grid">
         <label className="field"><span>الكلية</span><select value={collegeId||""} onChange={event=>setCollegeId(Number(event.target.value))}><option value="">اختر كلية</option>{colleges.map(college=><option key={college.AdCollegeId} value={college.AdCollegeId}>{college.AdCollegeName}</option>)}</select></label>
-        <label className="field"><span>بداية الدوام</span><input type="time" dir="ltr" lang="en" value={startTime} onChange={event=>setStartTime(event.target.value)} /></label>
-        <label className="field"><span>نهاية الدوام</span><input type="time" dir="ltr" lang="en" value={endTime} onChange={event=>setEndTime(event.target.value)} /></label>
+        <label className="field"><span>بداية الدوام المسموح</span><input type="time" dir="ltr" lang="en" value={startTime} onChange={event=>setStartTime(event.target.value)} /></label>
+        <label className="field"><span>نهاية الدوام المسموح</span><input type="time" dir="ltr" lang="en" value={endTime} onChange={event=>setEndTime(event.target.value)} /></label>
       </div>
       <DayBand start={startTime} end={endTime} />
-      {outsideUniversityDay?<p className="muted-note" role="alert">دوام القسم يبقى داخل اليوم الجامعي (08:00–20:00).</p>:null}
+      {outsideUniversityDay?<p className="muted-note" role="alert">الدوام المسموح يبقى داخل الدوام الشامل (08:00–20:00).</p>:null}
       <div className="section-hours-intro"><span className="section-hours-clock"><Clock3 /></span><div><strong>تطبيق النطاق على الأقسام</strong><p>قسمٌ أو أكثر.</p></div><SecondaryButton type="button" data-guide-target="section-hours-select-all" disabled={!sections.length} onClick={toggleAll}><CheckCheck />{allSelected?"إلغاء تحديد الكل":"تحديد الكل"}</SecondaryButton></div>
       {loading?<p role="status">يجري تحميل أقسام الكلية…</p>:sections.length?<div className="section-hours-list">{sections.map(section=><label key={section.AdSectionId} className="section-hours-row"><input type="checkbox" checked={selected.includes(section.AdSectionId)} onChange={event=>setSelected(current=>event.target.checked?[...current,section.AdSectionId]:current.filter(id=>id!==section.AdSectionId))}/><span>{section.AdSectionName}</span><small dir="ltr">{section.startTime}–{section.endTime}</small><DayBand compact start={section.startTime} end={section.endTime} /></label>)}</div>:<p>لا توجد أقسام في الكلية المحددة.</p>}
       {selectedSections.length?<p className="muted-note">سيُطبّق النطاق على {countOf(selectedSections.length,AR.section)}.</p>:null}

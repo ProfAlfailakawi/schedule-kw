@@ -2758,6 +2758,11 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 /* Section schedule hours: clear controls, readable times, and separated section choices. */
 .section-schedule-hours{gap:20px}
 .section-schedule-hours>.form-card{display:grid;gap:22px;padding:clamp(18px,3vw,32px)}
+.section-hours-full{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.section-hours-full>div{flex:1;min-width:0}
+.section-hours-full p,.section-hours-allowed p{margin:2px 0 0;font-size:.84rem;color:var(--muted,#6b7280)}
+.section-hours-full>b{font-size:1.05rem;white-space:nowrap}
+.section-hours-allowed{margin-bottom:14px}
 .section-hours-time-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:end}
 .section-hours-time-grid .field{min-width:0;margin:0}
 .section-hours-time-grid .field>span{display:block;margin-bottom:8px;font-weight:650}

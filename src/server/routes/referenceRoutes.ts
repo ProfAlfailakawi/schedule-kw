@@ -215,7 +215,7 @@ app.put("/api/admin/section-schedule-windows",requirePermission(7),requireRootAd
   const startTime=String(req.body?.startTime||""),endTime=String(req.body?.endTime||"");
   if(!college||!sectionIds.length){res.status(400).json({error:"اختر كليةً وقسمًا واحدًا على الأقل"});return;}
   if(!isValidClock(startTime)||!isValidClock(endTime)||timeToMinutes(endTime)<=timeToMinutes(startTime)){res.status(400).json({error:"تأكد أن البداية والنهاية صحيحتان وأن النهاية بعد البداية."});return;}
-  if(!withinUniversityDay(timeToMinutes(startTime),timeToMinutes(endTime))){res.status(400).json({error:`دوام القسم يبقى داخل اليوم الجامعي (${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME}).`});return;}
+  if(!withinUniversityDay(timeToMinutes(startTime),timeToMinutes(endTime))){res.status(400).json({error:`الدوام المسموح يبقى داخل الدوام الشامل (${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME}).`});return;}
   const sections:AdSection[]=await Repository.getSectionsByCollege(collegeId),sectionById=new Map<number,AdSection>(sections.map((section:AdSection):[number,AdSection]=>[Number(section.AdSectionId),section]));
   if(sectionIds.some(id=>!sectionById.has(id))){res.status(400).json({error:"بعض الأقسام المختارة لا تتبع الكلية المحددة."});return;}
   await Promise.all(sectionIds.map(id=>Repository.setSectionScheduleDayWindow(id,startTime,endTime)));

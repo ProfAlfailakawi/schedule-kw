@@ -3386,7 +3386,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const quickConflict = (draft: QuickDraft, day: DayKey): string | null => {
     const from = mins(draft.start), to = mins(draft.end);
     if (to <= from) return "وقت النهاية يجب أن يكون بعد وقت البداية.";
-    if (!withinUniversityDay(from, to)) return `الوقت خارج اليوم الدراسي (${formatScheduleTimeRange(SCHEDULE_DAY_START_TIME, SCHEDULE_DAY_END_TIME)}).`;
+    if (!withinUniversityDay(from, to)) return `الوقت خارج الدوام الشامل (${formatScheduleTimeRange(SCHEDULE_DAY_START_TIME, SCHEDULE_DAY_END_TIME)}).`;
     const busy = rows.find(r =>
       Boolean((r as any)[day]) &&
       mins(r.fstarttime) < to && mins(r.fendtime) > from &&
@@ -3696,14 +3696,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const editorRegulation = useMemo(() => editorReviewFindings.filter(finding => isDecision1912Finding(finding) && finding.approvalEffect === "block"), [editorReviewFindings]);
   const editorSupplementalReview = useMemo(() => editorReviewFindings.filter(finding => !isDecision1912Finding(finding)), [editorReviewFindings]);
   const timeRangeInvalid = Boolean(form.fstarttime&&form.fendtime)&&mins(form.fendtime)<=mins(form.fstarttime);
-  const outsideTeachingDay = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid &&
+  /* موعدٌ محفوظ لم يتغيّر وقته لا يُردّ بحدّ اليوم عند تعديل قاعته أو أستاذه، كما يفعل الخادم (keptTime). */
+  const savedForm = editor === "edit" ? rows.find(row => row.id === editId) : undefined;
+  const savedTimeKept = Boolean(savedForm) && savedForm!.fstarttime === form.fstarttime && savedForm!.fendtime === form.fendtime;
+  const outsideTeachingDay = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid && !savedTimeKept &&
     !withinUniversityDay(mins(form.fstarttime), mins(form.fendtime));
   /* قرار المالك 2026-11-05: استثناءُ دوام القسم تنبيهٌ لا يمنع هنا؛ ويومُ الجامعة (08:00–20:00) فوقه يمنع الحفظ. */
   const departmentHours = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid ? departmentHoursNote(mins(form.fstarttime), mins(form.fendtime), activeScheduleWindow) : "";
   const validationIssues=[
     !selectedFormDays.length?"يجب اختيار يوم واحد على الأقل للمحاضرة.":"",
     timeRangeInvalid?"وقت النهاية يجب أن يكون بعد وقت البداية.":"",
-    outsideTeachingDay?`وقت المحاضرة يجب أن يكون بين ${SCHEDULE_DAY_START_TIME} و${SCHEDULE_DAY_END_TIME}.`:"",
+    outsideTeachingDay?`وقت المحاضرة يجب أن يكون ضمن الدوام الشامل (${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME}).`:"",
     ...serverValidationIssues,
   ].filter(Boolean);
   const editorTimingNote = historicalTimingNote(form);
