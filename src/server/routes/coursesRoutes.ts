@@ -22,7 +22,7 @@ import { invalidateLocationRegistry, readLocationRegistry } from "../core/locati
 import { sortCoursesByName, sortTermsNewestServer } from "../core/ordering";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { degreeRuleFromName, planDegreeRule, storedDegreeRuleForSection, surveyPayloadCache } from "../core/studentIdentity";
-import { sheetSidesBySection } from "../planBadgeShared";
+import { serviceNames, sheetSidesBySection } from "../planBadgeShared";
 
 /** Same, but a decimal is legitimate (teaching hours run 1.5, 2.5 …). */
 function boundedDecimal(value: unknown, min: number, max: number, fallback: number | null = null): number | null {
@@ -223,26 +223,7 @@ app.get("/api/courses", requireAnyPermission([6, 7, 8, 9, 10, 14, 16, 17]), asyn
        own department, yet other departments' live sheets require it. Its
        owner schedules it, so the catalogue names who needs it instead of
        leaving it untagged and hidden by the sheet filter. */
-    const ruleSets=await Repository.listRuleSets();
-    const sectionNames=new Map((await Repository.getSections()).map(row=>[Number(row.AdSectionId),String(row.AdSectionName||"")]));
-    const wanted=new Set(courses.map(course=>Number(course.AdCourseId)));
-    const ownerOf=new Map(courses.map(course=>[Number(course.AdCourseId),Number(course.AdSectionId)]));
-    const livePlans=new Map<string,boolean>();
-    const isLive=async(rule:{planId:string;AdSectionId:number})=>{
-      if(!livePlans.has(rule.planId)){
-        const plans=await Repository.getCurriculumPlans(Number(rule.AdSectionId));
-        plans.forEach(plan=>livePlans.set(plan.id,plan.status!=="archived"));
-        if(!livePlans.has(rule.planId))livePlans.set(rule.planId,false);
-      }
-      return livePlans.get(rule.planId);
-    };
-    const serviceFor=new Map<number,Set<string>>();
-    for(const rule of ruleSets){
-      const hits=(rule.externals||[]).map(Number).filter(id=>wanted.has(id)&&ownerOf.get(id)!==Number(rule.AdSectionId));
-      if(!hits.length||!await isLive(rule))continue;
-      const name=sectionNames.get(Number(rule.AdSectionId));if(!name)continue;
-      for(const id of hits){const set=serviceFor.get(id)||new Set<string>();set.add(name);serviceFor.set(id,set);}
-    }
+    const serviceFor=await serviceNames();
     /* جهةُ كل مقرر (الجديدة/القديمة/الاثنتان) من عضوية الصحيفة الواحدة — المصدرُ نفسه الذي يكتب وسم «صحيفة 2026»؛
        فلا يقع مقررٌ موسومٌ «صحيفة 2026» في تبويب القديمة («كل المقررات»، محاكي الشعب). قسمٌ بلا الصحيفتين: كما كان. */
     /* قراءةٌ واحدة للعضوية لكل الأقسام (لا قراءةً لكل قسم). */

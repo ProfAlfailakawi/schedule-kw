@@ -237,10 +237,11 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
   const borrowerWindowViolation=selectedBarterDays.some(day=>borrowerOutsideApprovedWindow(sameRoomBarterWindows, day,
     String(candidate.fstarttime||""), String(candidate.fendtime||""), Number(candidate.AdCollegeId), Number(candidate.AdSectionId)));
   const barterNotes:any[] = [];
+  const lenderIsWriting=Boolean(barterReservation)&&Number(barterReservation!.ownerCollegeId)===Number(candidate.AdCollegeId)&&Number(barterReservation!.ownerSectionId)===Number(candidate.AdSectionId);
   if(barterReservation)barterNotes.push({
     type:"hallBarter",severity:"high",soft:false,rowId:0,otherId:0,
-    message:`القاعة ${candidate.AdRoomCode}/${candidate.AdRoomHall} محجوزة رقمياً عبر استعارة القاعات`,
-    detail:`نافذة الاستعارة المعتمدة ${HALL_BARTER_DAY_LABEL.get(barterReservation.day as typeof SCHEDULE_DAY_KEYS[number])||""} ${formatScheduleTimeRange(barterReservation.startTime, barterReservation.endTime)}.`
+    message:lenderIsWriting?`أعار قسمك القاعة ${candidate.AdRoomCode}/${candidate.AdRoomHall} في هذا الوقت`:`القاعة ${candidate.AdRoomCode}/${candidate.AdRoomHall} محجوزة رقمياً عبر استعارة القاعات`,
+    detail:`نافذة الاستعارة المعتمدة ${HALL_BARTER_DAY_LABEL.get(barterReservation.day as typeof SCHEDULE_DAY_KEYS[number])||""} ${formatScheduleTimeRange(barterReservation.startTime, barterReservation.endTime)}.${lenderIsWriting?" اختر وقتاً خارجها، أو أنهِ الإعارة من «استعارة القاعات».":""}`
   });
   if(borrowerWindowViolation)barterNotes.push({
     type:"hallBarterWindow",severity:"high",soft:false,rowId:0,otherId:0,

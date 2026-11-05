@@ -1721,7 +1721,7 @@ export default function AdminUsers({
                     <b>{selected.SystemUserId}</b>
                   </article>
                 </div>
-                <AccountInvitation name={selected.Name} login={selected.SystemUserLogin} active={selected.IsActive && !selected.IsLocked} hasPassword={selected.HasPassword} />
+                <AccountInvitation name={selected.Name} login={selected.SystemUserLogin} active={selected.IsActive && !selected.IsLocked} hasPassword={selected.HasPassword} passwordExpired={Boolean((selected as any).MustChangePassword && (selected as any).InitialPasswordExpiresAt && Date.parse((selected as any).InitialPasswordExpiresAt) <= Date.now())} />
                 {/* Note 26: the permission editor lives here now — pick a user on the
                     left and set exactly what they can reach, with no separate tab. */}
                 <section className="inspector-permissions" aria-label="صلاحيات المستخدم">

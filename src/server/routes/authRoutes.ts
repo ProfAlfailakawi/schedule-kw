@@ -27,7 +27,7 @@ import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
 import { seedDemoSectionRequests } from "../demoSectionRequestsSeed";
 import { demoActivityTrail } from "../../db/demoActivityTrail";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
-import { currentPasswordWaived, decidePasswordChange, initialPasswordMark, LEGACY_SHARED_PASSWORD } from "../accountPassword";
+import { currentPasswordWaived, decidePasswordChange, INITIAL_PASSWORD_EXPIRED, initialPasswordExpired, initialPasswordMark, LEGACY_SHARED_PASSWORD } from "../accountPassword";
 import { endForRequest, requestFullySettled, weeklyLoadOf, type RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { pushHooks } from "../pushRoutes";
 import { seatIdentity } from "../seats";
@@ -657,6 +657,12 @@ app.post("/api/auth/login", rateLimitLogin, async (req: Request, res: Response) 
     return;
   }
 
+  /* الكلمةُ الأولى انتهت مدّتها: الرفضُ بعد التحقق منها، فلا يكشف لمن لا يعرفها شيئاً. */
+  if (initialPasswordExpired(user as any)) {
+    res.status(403).json({ error: INITIAL_PASSWORD_EXPIRED, code: "initial-password-expired" });
+    return;
+  }
+
   /* من يدخل بالكلمة الموحّدة القديمة لا يُقفل: يدخل، ويُعلَّم فلا يصل إلى شيءٍ حتى يختار كلمته
      (passwordChangeGate). والعلامةُ على الحساب لا على الجلسة، فتبقى إن خرج قبل التغيير. */
   if (password === LEGACY_SHARED_PASSWORD && !(user as any).MustChangePassword) {
@@ -704,7 +710,10 @@ app.post("/api/auth/change-password", rateLimitLogin, requireAuth, async (req: A
     SystemUserPass: outcome.hash,
     SystemUserPassVault: outcome.vault,
     MustChangePassword: false,
+    InitialPasswordExpiresAt: "",
   } as any);
+  /* من عرف الكلمة القديمة لا يبقى داخلاً بعد تغييرها: تُغلق جلساتُ الحساب الأخرى، لا روابط الأعضاء. */
+  await Repository.deleteOtherSessionsForUser(Number(user!.SystemUserId), sessionId);
   forgetAuthSession(getCookies(req)["session_id"]);
   res.locals.auditChanges = "تغيير كلمة السر";
   res.json({ ok: true });

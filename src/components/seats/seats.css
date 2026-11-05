@@ -183,6 +183,9 @@
 .seat-sheet.is-card{padding-block-start:56px}
 .seat-access-note{display:flex;align-items:flex-start;gap:8px;margin:0;padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2,var(--canvas));color:var(--muted);font-size:var(--t-xs);line-height:1.85}
 .seat-access-note svg{inline-size:15px;block-size:15px;flex:none;margin-top:3px;color:var(--accent)}
+.seat-reissue{justify-self:center;display:inline-flex;align-items:center;gap:6px;min-block-size:40px;padding:6px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);font:inherit;font-size:var(--t-sm);cursor:pointer}
+.seat-reissue svg{inline-size:15px;block-size:15px}
+.seat-reissue:disabled{opacity:.6;cursor:default}
 .seat-link-done{justify-self:center;padding:6px 14px;border:0;background:none;color:var(--muted);font:inherit;font-size:var(--t-sm);text-decoration:underline;cursor:pointer}
 .seat-credentials{display:grid;gap:6px;margin:0;padding:10px 12px;border-radius:var(--r-md);background:var(--warning-soft)}
 .seat-credentials>div{display:flex;align-items:center;justify-content:space-between;gap:10px}

@@ -2785,6 +2785,21 @@ export const Repository = {
     return removed;
   },
 
+  /** بعد تغيير كلمة السر: تُغلق جلساتُ الحساب بكلمته إلا الحاضرة؛ وجلساتُ الأعضاء بروابطهم تبقى. */
+  deleteOtherSessionsForUser: async (userId: number, keepSessionId: string | undefined): Promise<number> => {
+    let removed = 0;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("sessions").where("userId", "==", Number(userId)).get();
+      for (const doc of snap.docs) {
+        if (doc.id === keepSessionId || (doc.data() as StoredSession).memberId) continue;
+        await doc.ref.delete();
+        removed += 1;
+      }
+    }
+    announceIdentityChange();
+    return removed;
+  },
+
   /** يبلّغ ذاكرةَ الهويات أن شيئاً فيها تغيّر (شاغلُ كرسي، فريقُه، نائبُه)، فتُقرأ من جديد. */
   notifyIdentityChanged: (): void => { announceIdentityChange(); },
 
