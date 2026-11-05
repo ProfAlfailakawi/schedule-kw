@@ -322,6 +322,7 @@ var REASONS={room:"لا تتوفّر قاعة في هذا الوقت",instructor
    السببَ والبدائلَ حيث يعدّل، ويطبّق البديلَ بضغطة. */
 function decisionBox(it,i,open){var d=it.decision;if(!d||!d.state||d.state==="pending")return "";
  if(d.state==="fixed")return '<div class="dept" data-state="fixed"><i aria-hidden="true">✓</i>ثبّته القسم'+(d.note?' · '+esc(d.note):'')+'</div>';
+ if(d.cancelled)return '<div class="dept" data-state="rejected"><b><i aria-hidden="true">✕</i>ألغى القسم هذا الموعد</b>'+(d.note?'<p>'+esc(d.note)+'</p>':'')+'</div>';
  /* وحين يصير الرفضُ ببدائل حواراً، تُعرض البدائلُ في الحوار بزرّ «أوافق» (threadBox). */
  var alts=it.negotiation==="proposed"?[]:(d.alternatives||[]);
  var askedAt=it.slots&&it.slots.length?fmtDays(it.slots.map(function(sl){return sl.day}))+" "+it.slots[0].start:"";
@@ -684,7 +685,7 @@ function activityHtml(r){
  var changed=state.map(function(it,i){return{it:it,i:i}}).filter(function(x){return x.it.action!=="keep"});
  var submitted=r.status&&r.status!=="sent";
  var rows=changed.map(function(x){var it=x.it,decision=it.decision||{},college=collegeOf(it),was=wasText(it),status=toneText(it);
-  var decisionText=decision.state==="fixed"?"قرار القسم: ثُبّت":decision.state==="rejected"?"قرار القسم: رُفض"+(decision.note?" · "+decision.note:""):submitted?"قرار القسم: بانتظار المراجعة":"لم يُرسل بعد — مسودة";
+  var decisionText=decision.state==="fixed"?"قرار القسم: ثُبّت":decision.cancelled?"ألغى القسم هذا الموعد"+(decision.note?" · "+decision.note:""):decision.state==="rejected"?"قرار القسم: رُفض"+(decision.note?" · "+decision.note:""):submitted?"قرار القسم: بانتظار المراجعة":"لم يُرسل بعد — مسودة";
   return '<li class="activity-item" data-kind="'+esc(it.action)+'">'+skActIcon(it.action)+'<div class="activity-main"><b>'+esc(actionName(it.action))+" · "+esc(courseOf(it))+'</b>'+
    (college?'<p class="activity-meta">الكلية: '+esc(college)+'</p>':'')+
    (was?'<div class="ev-was"><span>كان</span>'+skPillsText((it.before||{}).days||"")+'<span class="sr">'+esc((it.before||{}).days||"")+'</span><bdi>'+ltr(rangeText((it.before||{}).time||""))+'</bdi></div>':'')+

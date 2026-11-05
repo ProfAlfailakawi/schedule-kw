@@ -147,7 +147,7 @@ check(/fetchAlternatives\(/.test(editor) && !/\/api\/intelligence\/conflict-solu
 check(/fetchSuggestions\(suggestionBody\(payload/.test(quick) && /fetchSuggestions\(suggestionBody\(\{ \.\.\.form/.test(editor), "A8: البطاقة السريعة والمحرر يسألان الباب نفسه");
 check(/suggestionDuration\(\)/.test(editor) && /regulationChoiceFor\(courseById\.get/.test(editor), "A8: مدة «وقت وقاعة» من نمط اللائحة لا 60 دقيقة ثابتة");
 check(/chooseFormDay\(d\.key as RegDayKey, e\.target\.checked\)/.test(editor) && /endForStart\(p, start\)/.test(editor) && /<RegulationPatternChips/.test(editor), "B1: المحرر الكامل — اليوم يكمل النمط والبداية تحسب النهاية + شرائح");
-check(/pickDay\(course, \[\], seed\.day, true\)/.test(quick) && /<RegulationPatternChips compact/.test(quick) && /regulationEnd\(course, result\.days, current\.start\)/.test(quick), "B1: «موعد جديد» السريع — المقرر يكمل النمط والنهاية");
+check(/pickDay\(course, \[\], seed\.day, true\)/.test(quick) && /<RegulationPatternChips compact/.test(quick) && /regulationEnd\(course, result\.days, current\.start, span\)/.test(quick), "B1: «موعد جديد» السريع — المقرر يكمل النمط والنهاية");
 check(/\(draft\.days\?\.length \? draft\.days : \[quick\.day\]\)\.forEach/.test(editor) && /companionRoomId: draft\.companionRoomId \|\| ""/.test(editor), "B1/A3: الحفظ السريع يحفظ كل أيام النمط والمرفق المرافق");
 check(/appointmentVerdict\(\{/.test(quick) && /qc-checks/.test(quick), "A6: البطاقة السريعة تقرأ الحكم الواحد");
 check(/room-suggest-best/.test(cards) && /الأنسب/.test(cards) && /room-suggest-code/.test(cards) && /room-suggestion-time/.test(cards), "G1: رمز القاعة كبير + شريحة وقت + «الأنسب»");

@@ -192,6 +192,7 @@ import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal, onLiveState, setLiveScope, type LiveState } from "../utils/livePulse";
 import { adviseDayPattern, daysApprovedForHours, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
+import { askRequestHold, type RequestHold } from "./RequestHoldSheet";
 import { rowClashReasons } from "../utils/scheduleBlockers";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { fitsCoursePattern, teacherHeader, teacherRows } from "../utils/teacherMiniWeek";
@@ -228,7 +229,8 @@ import {
   SCHEDULE_DAY_START_TIME,
   SCHEDULE_SLOT_MINUTES,
   scheduleDayWindowMinutes,
-  withinScheduleDay,
+  endsPastScheduleDay,
+  startsWithinScheduleDay,
 } from "../utils/scheduleTime";
 export type ScheduleMode = "schedule" | "copy";
 interface Props {
@@ -713,14 +715,18 @@ function ScheduleSkeleton({ viewMode }: { viewMode: "week" | "list" | "rooms" })
 
 /** A phone stays a phone after rotation. Width-only media queries turn an
  * iPhone landscape into a desktop, so use the device short edge plus touch/
- * mobile capability instead. Tablets keep the full workspace. */
+ * mobile capability instead. A big touch screen (a tablet, or a folding phone
+ * opened like iPhone Duo) keeps the full workspace only while the page has the
+ * room: half of it in Split View is as narrow as a phone, so it reads as one.
+ * Re-run on resize so folding or splitting switches live, without a reload. */
 function isPhoneDevice() {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
   const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
   const mobileUa = Boolean(nav.userAgentData?.mobile) || /iPhone|iPod|Android.+Mobile|Mobile/i.test(nav.userAgent || "");
   const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  if (!mobileUa && !coarse) return false;
   const shortEdge = Math.min(Number(window.screen?.width || window.innerWidth), Number(window.screen?.height || window.innerHeight));
-  return shortEdge <= 600 && (mobileUa || coarse);
+  return shortEdge <= 600 || window.innerWidth < 700;
 }
 
 type RefusalReason = { kind: "room" | "instructor" | "cohort" | "other"; text: string; entity: string; state: string };
@@ -1465,13 +1471,25 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * القسمُ صاحبُ القرار (A2): موعدٌ حجزه طلبُ أستاذٍ ينتظرك لا يقفل عليك — سؤالٌ واحدٌ
    * ثم تُعاد العمليةُ نفسُها (حفظاً أو حذفاً) متجاوزةً حجزَ ذلك الطلب وحده.
    */
-  const withRequestHoldPrompt = async <T,>(send: (overrideRequestHolds?: string[]) => Promise<T>, verb = "التعديل"): Promise<T> => {
+  const withRequestHoldPrompt = async <T,>(send: (overrideRequestHolds?: string[]) => Promise<T>, verb = "التعديل", draft?: Partial<FSchedule>): Promise<T> => {
     try { return await send(); }
     catch (failure: any) {
       if (failure?.code !== "request-hold" || !Array.isArray(failure.holds) || !failure.holds.length) throw failure;
-      const names = failure.holds.map((hold: any) => hold.instructorName).filter(Boolean).join("، ");
-      if (!window.confirm(`⏳ هذا الموعد محجوز لطلب ${names || "أستاذ"} بانتظار قرارك.\nمتابعة ${verb}؟ يبقى الطلب في الوارد.`)) throw new Error("لم يتغيّر شيء: الموعد ما زال محجوزاً للطلب.");
-      return send(failure.holds.map((hold: any) => String(hold.requestId)));
+      const choice = await askRequestHold({ holds: failure.holds, verb, draft });
+      if (!choice) throw new Error("لم يتغيّر شيء: الموعد ما زال محجوزاً للطلب.");
+      if (choice === "reject") {
+        const revisions = new Map<string, number>();
+        for (const hold of failure.holds as RequestHold[]) {
+          if (hold.itemIndex == null) continue;
+          const decided: any = await fetchJson(`/api/instructor-requests/${hold.requestId}/decide`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ itemIndex: hold.itemIndex, itemId: hold.itemId, requestRevision: revisions.get(hold.requestId) ?? hold.requestRevision, state: "rejected", reasonCode: "department", note: "استخدم القسم هذا الوقت." }),
+          });
+          revisions.set(hold.requestId, Number(decided?.requestRevision));
+        }
+        return withRequestHoldPrompt(send, verb, draft);
+      }
+      return send([...new Set<string>(failure.holds.map((hold: any) => String(hold.requestId)))]);
     }
   };
   const deleteScheduleRow = (id: number | string) => withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${id}`, overrideRequestHolds
@@ -3356,7 +3374,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const from = mins(draft.start), to = mins(draft.end);
     if (to <= from) return "وقت النهاية يجب أن يكون بعد وقت البداية.";
     const window=scheduleDayWindowMinutes(sections.find(section=>Number(section.AdSectionId)===Number(filterSection)));
-    if (!withinScheduleDay(from, to, window)) return `الوقت خارج اليوم الدراسي (${formatScheduleTimeRange(window.startTime, window.endTime)}).`;
+    if (!startsWithinScheduleDay(from, to, window)) return `الوقت خارج اليوم الدراسي (${formatScheduleTimeRange(window.startTime, window.endTime)}).`;
     const busy = rows.find(r =>
       Boolean((r as any)[day]) &&
       mins(r.fstarttime) < to && mins(r.fendtime) > from &&
@@ -3376,6 +3394,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [timingOverride, setTimingOverride] = useState(false);
   /* أيامٌ بُذرت من خانة مرسومة (لم تُختر نمطاً) تُكمل حين يُعرف المقرر. */
   const daysSeeded = useRef(false);
+  const timingCourseKey = useRef(0);
   /* إضاءةٌ قصيرة على الأيام والنهاية حين يكملهما النمط آلياً — يرى المستخدم ما تغيّر. */
   const [autofillFlash, flashAutofill] = useAutofillFlash();
   /* أفرغ المستخدم الأيام بيده: لا يُعاد النمط المعتاد حتى يتغيّر المقرر أو البداية. */
@@ -3666,7 +3685,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const editorSupplementalReview = useMemo(() => editorReviewFindings.filter(finding => !isDecision1912Finding(finding)), [editorReviewFindings]);
   const timeRangeInvalid = Boolean(form.fstarttime&&form.fendtime)&&mins(form.fendtime)<=mins(form.fstarttime);
   const outsideTeachingDay = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid &&
-    !withinScheduleDay(mins(form.fstarttime), mins(form.fendtime),activeScheduleWindow);
+    !startsWithinScheduleDay(mins(form.fstarttime), mins(form.fendtime),activeScheduleWindow);
+  /* تجاوزُ نهاية دوام القسم تنبيهٌ لا يمنع (ملاحظة المالك 20). */
+  const pastTeachingDay = Boolean(form.fendtime) && !timeRangeInvalid && !outsideTeachingDay && endsPastScheduleDay(mins(form.fendtime), activeScheduleWindow);
   const validationIssues=[
     !selectedFormDays.length?"يجب اختيار يوم واحد على الأقل للمحاضرة.":"",
     timeRangeInvalid?"وقت النهاية يجب أن يكون بعد وقت البداية.":"",
@@ -4082,11 +4103,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return [...habit, ...live];
   };
   /** النهاية من البداية: دقائق نمط اللائحة أولاً، ثم عادة القسم. */
-  const endForStart = (row: Partial<FSchedule>, start: string) =>
-    regulationEnd(courseById.get(Number(row.AdCourseId || 0)), daysOfRow(row as any), start) || autoEndFor(row, start);
+  const endForStart = (row: Partial<FSchedule>, start: string) => {
+    const course = courseById.get(Number(row.AdCourseId || 0));
+    const span = row.fstarttime && row.fendtime ? mins(String(row.fendtime)) - mins(String(row.fstarttime)) : 0;
+    const library = regulationEnd(course, daysOfRow(row as any), start, span);
+    if (library) return library;
+    /* موعدٌ لا نمطَ يقرؤه (لقاءٌ منفرد مثلاً) يبقى طولُه: البدايةُ تنقله ولا تعيد تشكيله. */
+    return span > 0 && regulationHours(course) > 0 ? timeFromMins(Math.min(SCHEDULE_DAY_END, mins(start) + span)) : autoEndFor(row, start);
+  };
+  const formSpan = form.fstarttime && form.fendtime ? mins(String(form.fendtime)) - mins(String(form.fstarttime)) : 0;
   const chooseFormDay = (day: RegDayKey, checked: boolean) => {
     setScheduleTouched(true);
-    const result = pickDay(formCourse, formDays, day, checked);
+    const result = pickDay(formCourse, formDays, day, checked, formSpan);
     /* يومٌ يُضغط قبل اختيار مقررٍ له ساعات ليس قرار نمط: يُكمل نمطَه المعتاد حين يُعرف المقرر
        (الأحد ← أحد·ثلاثاء·خميس، لا «أحد · 170د» لأن يوماً واحداً صادف نمط الكتلة). */
     daysSeeded.current = !regulationHours(formCourse);
@@ -4167,7 +4195,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     /* بدايةٌ بلا يوم (كتابةً أو بالعجلة): النمط المعتاد لهذا المقرر يكمل الأيام والنهاية. */
     const usual = formDays.length || !form.fstarttime || usualDismissed.current === `${Number(form.AdCourseId) || 0}|${form.fstarttime}`
       ? null : usualRegulationChoice(formCourse, usualDaysFor(Number(form.AdCourseId) || 0));
-    const completed = completeRegulation(formCourse, formDays, String(form.fstarttime || ""), { fresh: daysSeeded.current, usual });
+    /* مقررٌ جديد يعيد قراءة الأيام بساعاته؛ أما تغيّرُ البداية أو اليوم فلا يبدّل أياماً اختارها صاحبُها. */
+    const courseKey = Number(form.AdCourseId) || 0;
+    const keepDays = timingCourseKey.current === courseKey;
+    timingCourseKey.current = courseKey;
+    const completed = completeRegulation(formCourse, formDays, String(form.fstarttime || ""), { fresh: daysSeeded.current, usual, minutes: formSpan, keepDays });
     if (!completed) return;
     daysSeeded.current = false;
     const sameDays = completed.days.join("+") === formDays.join("+");
@@ -4220,6 +4252,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     notes: [
       ...editorSupplementalCards.map(card => ({ kind: "time" as const, text: String(card.title || ""), detail: String(card.detail || "") || undefined })),
       ...(formReachNote ? [{ kind: "section" as const, text: formReachNote }] : []),
+      ...(pastTeachingDay ? [{ kind: "time" as const, text: `ينتهي بعد نهاية دوام القسم (${scheduleClockForDisplay(activeScheduleWindow.endTime)})` }] : []),
     ],
   });
   const [altBusy, setAltBusy] = useState(false);
@@ -5052,7 +5085,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           // rather than overwriting a change someone else made meanwhile.
           body: JSON.stringify({ ...form, rev: editor === "edit" ? rows.find(row => row.id === editId)?.rev : undefined, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
         });
-        return withRequestHoldPrompt(send);
+        return withRequestHoldPrompt(send, "الحفظ", form as Partial<FSchedule>);
       })();
       let guideUndoId = "";
       if (editor === "edit" && before) {
@@ -5542,7 +5575,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         : " مع الإبقاء على أيامه الحالية";
     try {
       const check=await fetchJson("/api/schedules/check-conflicts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,excludeId:row.id})});
-      const blocking=Array.isArray(check.conflicts)?check.conflicts.filter(isBlockingConflict):[];
+      const blocking=Array.isArray(check.conflicts)?check.conflicts.filter((item:any)=>isBlockingConflict(item)&&!item?.holdRequestId):[];
       if(blocking.length){const reasons=blocking.slice(0,3).map((c:any)=>[c?.message,c?.detail].filter(Boolean).join(" — ")).filter(Boolean);const reason=reasons.join(" | ")||"هذا النقل يسبب تعارضاً ولا يمكن حفظه.";setError(`تعذر نقل الموعد: ${reason}`);setPhysicsNotice(`رفض النقل: ${reason}`);return;}
     } catch(e:any){setError(friendlyError(e));return;}
     const decisionRipple =
@@ -9710,7 +9743,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         setStartTimeLimitNotice("");
                         setScheduleTouched(true);
                         const start = e.target.value;
-                        if (!timingOverride && start && regulationEnd(formCourse, formDays, start)) flashAutofill();
+                        if (!timingOverride && start && regulationEnd(formCourse, formDays, start, formSpan)) flashAutofill();
                         setForm((p) => ({ ...p, fstarttime: start, fendtime: timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
                       }}
                       required
@@ -9735,6 +9768,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       preferredDuration={formRegulationChoice?.minutes || expectedDurationForSelection(form)}
                       minTime={activeScheduleWindow.startTime}
                       maxTime={activeScheduleWindow.endTime}
+                      endLimit={SCHEDULE_DAY_END_TIME}
                       onChange={(next) => {
                         setScheduleTouched(true);
                         /* العجلة تحفظ المدة: تحريك الساعة يعيد النهاية إلى النمط، وتغيير «المدة» تجاوزٌ متعمَّد.
@@ -9745,7 +9779,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         const shownEnd = form.fendtime || form.fstarttime || SCHEDULE_DAY_START_TIME;
                         const spanBefore = Math.max(30, mins(shownEnd) - mins(shownStart));
                         const lengthChanged = mins(next.end) - mins(next.start) !== spanBefore;
-                        if (!lengthChanged && !timingOverride && regulationEnd(formCourse, formDays, next.start)) flashAutofill();
+                        if (!lengthChanged && !timingOverride && regulationEnd(formCourse, formDays, next.start, formSpan)) flashAutofill();
                         if (lengthChanged) setTimingOverride(regulationFit(formCourse, formDays, next.start, next.end) === "off" && regulationHours(formCourse) > 0);
                         setForm((p) => ({ ...p, fstarttime: next.start, fendtime: lengthChanged || timingOverride ? next.end : (endForStart(p, next.start) || next.end) }));
                       }}
@@ -9758,7 +9792,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <TimeField
                      
           min={activeScheduleWindow.startTime}
-          max={activeScheduleWindow.endTime}
+          max="23:59"
                       value={form.fendtime}
                       onOutOfRange={(limit) => {
                         const boundary = limit === "max" ? activeScheduleWindow.endTime : activeScheduleWindow.startTime;

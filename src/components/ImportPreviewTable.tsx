@@ -309,8 +309,10 @@ export default function ImportPreviewTable({
   /* ── النهاية من مكتبة الأنماط، كما في «موعد جديد» ─────────────────────────
      بدايةٌ تُكتب أو يومٌ يُبدَّل يعيد النهايةَ من نمط اللائحة لساعات المقرّر بهذه الأيام (regulationEnd، دالةُ المحرّر
      نفسها): الاثنين والأربعاء لمقرّرٍ بثلاث ساعات 80 دقيقة، والكتلةُ 170… وإلا طولُ اليوم (50/80) كما كان. */
-  const endFromLibrary = (row: ImportRow, days: RegulationDayKey[], start: string) =>
-    regulationEnd(courseById.get(Number(row.AdCourseId)) as any, days, start);
+  const endFromLibrary = (row: ImportRow, days: RegulationDayKey[], start: string) => {
+    const span = row.fstarttime && row.fendtime ? minutes(row.fendtime) - minutes(row.fstarttime) : 0;
+    return regulationEnd(courseById.get(Number(row.AdCourseId)) as any, days, start, span);
+  };
   const rowDays = (row: ImportRow) => DAY_CHIPS.filter(day => Boolean(row[day.key])).map(day => day.key as RegulationDayKey);
   const toggleDay = (index: number, key: keyof ImportRow & string) => {
     const row = rows[index];
@@ -323,6 +325,9 @@ export default function ImportPreviewTable({
     if(!start)return "";
     const library=endFromLibrary(row,rowDays(row),start);
     if(library)return library;
+    /* مقررٌ له نمطٌ لكن هذا الصفَّ لقاءٌ منفرد بطوله: البدايةُ تنقله ولا تعيد تشكيله. */
+    const kept=row.fstarttime&&row.fendtime?minutes(row.fendtime)-minutes(row.fstarttime):0;
+    if(kept>0&&rowDays(row).length===1&&Number(courseById.get(Number(row.AdCourseId))?.CourseHours||0)>0)return clockFromMinutes(Math.min(23*60+59,minutes(start)+kept));
     const active=DAY_CHIPS.filter(day=>Boolean(row[day.key])).map(day=>day.key as RegulationDayKey);
     if(!active.length)return row.fendtime||"";
     const durations=[...new Set(active.map(day=>expectedMinutesForDay(day)))];

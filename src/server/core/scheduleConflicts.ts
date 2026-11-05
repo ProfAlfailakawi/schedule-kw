@@ -14,15 +14,16 @@ import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { travelRuleFor } from "../../utils/campusTravelPolicy";
 import { readTravelPolicy } from "./travelPolicy";
 import { offRhythm } from "../../utils/departmentRhythm";
-import { startLadderNote } from "../../utils/scheduleRegulations";
-import { dayKeysOf } from "../../utils/instructorRequestItems";
+import { sameCourseSectionClash, startLadderNote } from "../../utils/scheduleRegulations";
+import { dayKeysOf, requestSnapshotAt } from "../../utils/instructorRequestItems";
+import { linkMode } from "../../utils/linkMode";
 import { withVisitingSuffix } from "../../utils/visitingText";
 import { campusOf } from "../../utils/campusTravel";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { approvedBarterReservation, borrowerOutsideApprovedWindow } from "../../utils/hallBarterWindow";
 import type { AuthenticatedRequest } from "./auth";
 import { barterRequestMatchesRow, HALL_BARTER_DAY_LABEL } from "./hallBarter";
-import { requestItemScope } from "./instructorRequests";
+import { currentInstructorRequestGeneration, instructorRequestItemIdentity, requestItemScope } from "./instructorRequests";
 import { canonicalizeHistoricalLocationForRuntime, readLocationRegistry } from "./locations";
 import { departmentStyle } from "./rhythm";
 import { roomOwnership, SCHEDULE_DAY_KEYS } from "./scheduleRules";
@@ -305,11 +306,17 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
         : roomNotice]
     : [];
   /* التعارضُ مع حجز طلبٍ ينتظر القسم يُوسم بصاحبه: الواجهةُ تسأل المنسّق بوضوح بدل «ممنوع» (A2). */
+  const holdNames = new Map(((await Repository.getInstructors()) as any[]).map(person => [Number(person.AdInstructorId), String(person.AdInstructorName || "")]));
   const withHolds = conflicts.map((conflict: any) => {
     const hold = holdOfRow(conflict.otherId);
-    return hold ? { ...conflict, holdRequestId: hold.requestId, holdItemId: hold.itemId } : conflict;
+    return hold ? { ...conflict, holdRequestId: hold.requestId, holdItemId: hold.itemId, holdInstructorName: holdNames.get(Number(hold.instructorId)) || "" } : conflict;
   });
-  return [...withHolds, ...barterNotes, ...roomNotes, ...softTravel, ...rhythmNote, ...memoryNotes];
+  /* شعبةٌ أخرى من مقرر التخصص في الوقت نفسه: في «موعد» تنبيهٌ لا يمنع (ملاحظة المالك 8). */
+  const clashCourse = Number(candidate.AdCourseId || 0) ? await Repository.getCourseById(Number(candidate.AdCourseId)) : null;
+  const sectionClash = clashCourse ? sameCourseSectionClash(candidate, all, clashCourse) : undefined;
+  const sectionClashNote = sectionClash ? [{ type: "regulation", severity: "low", soft: true, otherId: sectionClash.id,
+    message: `شعبة ${sectionClash.SCode || "أخرى"} من المقرر نفسه في الوقت نفسه`, detail: "م.7/5: يُفضَّل توزيع شعب المقرر على أوقات مختلفة." }] : [];
+  return [...withHolds, ...barterNotes, ...roomNotes, ...softTravel, ...rhythmNote, ...memoryNotes, ...sectionClashNote];
 }
 
 /**
@@ -348,23 +355,76 @@ export async function noteRequestHoldOverride(requestIds: string[], row: FSchedu
     const days = row ? dayKeysOf(row).sort().join(",") : "";
     const items = request.items.map(item => {
       if (!row || item.decision?.state === "fixed" || item.decision?.state === "rejected") return item;
-      const same = (Number(item.rowId) === Number(row.id) || (item.offeringRowIds || []).includes(Number(row.id)))
+      /* إضافةٌ بالمقرر نفسه للأستاذ نفسه: الموعدُ الجديد هو المطلوب (ملاحظة المالك 4: «ثبّت الطلب» من موعد). */
+      const addedHere = item.action === "add" && Number(item.after?.courseId || 0) === Number(row.AdCourseId) && Number(request.AdInstructorId) === Number(row.AdInstructorId);
+      const same = (addedHere || Number(item.rowId) === Number(row.id) || (item.offeringRowIds || []).includes(Number(row.id)))
         && (item.slots || []).map(slot => String(slot.day)).sort().join(",") === days
         && (item.slots || []).every(slot => timeToMinutes(slot.start) === timeToMinutes(row.fstarttime));
-      return same ? { ...item, decision: { state: "fixed" as const, decidedBy: by, decidedAt: at, scheduleId: Number(row.id), note: "ثبّته القسم من الجدول مباشرة." } } : item;
+      return same ? { ...item, decision: { state: "fixed" as const, decidedBy: by, decidedAt: at, scheduleId: Number(row.id), fromSchedule: true, note: "ثبّته القسم من الجدول مباشرة." } } : item;
     });
     await Repository.saveInstructorRequest({ ...request, items,
       timeline: [...(request.timeline || []), { kind: "schedule-edited" as const, at, by, detail: "عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره." }].slice(-300) }).catch(() => undefined);
   }
 }
 
-/** ردُّ 409 حين يحجز الموعدَ طلبُ أستاذٍ ينتظر القسم: من صاحبه، ليُسأل المنسّق بدل أن يُمنع. */
-export async function requestHoldRefusal(requestIds: string[]) {
+/**
+ * موعدٌ وضعه القسم من «موعد» لأستاذٍ له طلبٌ قائم (ملاحظة المالك 1): بندٌ في طلبه، قراره قرارُ القسم.
+ * لا «رفض» له لأن لا طلبَ يُرفض؛ يظهر بـ«إلغاء الموعد» وسطرٍ للأستاذ. فشلُ التسجيل لا يُسقط الحفظ.
+ */
+export async function noteDepartmentAddition(row: FSchedule, by: string): Promise<void> {
+  try {
+    const instructorId = Number(row.AdInstructorId || 0);
+    if (!instructorId) return;
+    const mine = (await Repository.getInstructorRequestsByInstructor(instructorId))
+      .filter(request => Number(request.AdTermId) === Number(row.AdTermId) && request.status !== "superseded" && linkMode(request) !== "view");
+    const request = (await currentInstructorRequestGeneration(mine)).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+    if (!request || (request.items || []).some(item => Number(item.rowId) === Number(row.id) || Number(item.decision?.scheduleId) === Number(row.id))) return;
+    const at = new Date().toISOString();
+    const slots = dayKeysOf(row).map(day => ({ day, start: String(row.fstarttime || ""), end: String(row.fendtime || "") }));
+    const items = [...(request.items || []), {
+      itemId: `department-${row.id}`, rowId: null, action: "add" as const,
+      after: requestSnapshotAt(row, String(row.AdCourseName || ""), new Map()), slots,
+      decision: { state: "fixed" as const, fromSchedule: true, scheduleId: Number(row.id), decidedBy: by, decidedAt: at, note: "أضافه القسم." },
+    }];
+    await Repository.saveInstructorRequest({ ...request, items,
+      timeline: [...(request.timeline || []), { kind: "item-fixed" as const, at, by, itemIndex: items.length - 1 }].slice(-300) });
+  } catch (error) {
+    console.error("[requests] تعذّر تسجيل موعد القسم في طلب الأستاذ:", error instanceof Error ? error.message : error);
+  }
+}
+
+/** حُذف موعدُ القسم من الجدول مباشرة: لا يبقى في طلب الأستاذ بندٌ يقول «ثبّته القسم». */
+export async function forgetDepartmentAddition(row: FSchedule): Promise<void> {
+  try {
+    const mine = await Repository.getInstructorRequestsByInstructor(Number(row.AdInstructorId || 0));
+    for (const request of mine.filter(item => Number(item.AdTermId) === Number(row.AdTermId))) {
+      const items = (request.items || []).filter(item => !(item.decision?.fromSchedule && item.decision.state === "fixed" && item.action === "add" && Number(item.decision.scheduleId) === Number(row.id)));
+      if (items.length !== (request.items || []).length) await Repository.saveInstructorRequest({ ...request, items });
+    }
+  } catch (error) {
+    console.error("[requests] تعذّر رفع موعد القسم من طلب الأستاذ:", error instanceof Error ? error.message : error);
+  }
+}
+
+/** ردُّ 409 حين يحجز الموعدَ طلبُ أستاذٍ ينتظر القسم: من صاحبه وما طلبه، ليُسأل المنسّق بدل أن يُمنع. */
+export async function requestHoldRefusal(requestIds: string[], itemIds: string[]) {
   const [instructors, requests] = await Promise.all([Repository.getInstructors(), Promise.all(requestIds.map(id => Repository.getInstructorRequest(id)))]);
   const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
   return {
     error: "هذا الموعد محجوزٌ لطلب أستاذ ينتظر قرارك. المتابعة تعتمد تعديلك وتُبقي الطلب في الوارد.",
     code: "request-hold",
-    holds: requests.filter(Boolean).map(request => ({ requestId: request!.id, instructorName: nameOf.get(Number(request!.AdInstructorId)) || "" })),
+    /* بندٌ لكل حجز بعينه: لا يُخمَّن أولُ بندٍ منتظر، فبلا هويةٍ مؤكدة يبقى السؤال بلا «ارفض». */
+    holds: requests.filter(Boolean).flatMap(request => {
+      const items = request!.items || [];
+      const base = { requestId: request!.id, requestRevision: Number(request!.requestRevision || 0),
+        instructorId: Number(request!.AdInstructorId), instructorName: nameOf.get(Number(request!.AdInstructorId)) || "" };
+      const matched = items.flatMap((item, itemIndex) => item.action !== "keep" && item.action !== "delete" && !item.decision?.state
+        && itemIds.includes(instructorRequestItemIdentity(item)) ? [{ item, itemIndex }] : []);
+      if (!matched.length) return [base];
+      return matched.map(({ item, itemIndex }) => ({ ...base, itemIndex, itemId: instructorRequestItemIdentity(item),
+        courseId: Number(item.after?.courseId || item.before?.courseId || 0),
+        courseName: String(item.after?.courseName || item.before?.courseName || ""),
+        days: (item.slots || []).map(slot => String(slot.day)), start: String(item.slots?.[0]?.start || ""), end: String(item.slots?.[0]?.end || "") }));
+    }),
   };
 }
