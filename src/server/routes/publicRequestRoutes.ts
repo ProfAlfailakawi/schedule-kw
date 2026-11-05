@@ -734,7 +734,7 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
     calendarLegacyKey: calendarToken,
     /* مقررات هذا القسم العلمي في كل كليةٍ يوجد فيها؛ الكلية تُختار صراحةً قبل المقرر.
        للعرض فقط ومرحلة التدريب: لا إضافةَ حرّة، فلا مقررات. */
-    courses: mode === "edit" ? await withPlanHints(coursesWithOffering(courses as any[], offeringViews), Number(request.AdTermId)) : [],
+    courses: mode === "edit" ? coursesWithOffering(await withPlanHints(courses as any[], Number(request.AdTermId)), offeringViews) : [],
     /* أنماطُ اللائحة لكل مقرر (B1/B2/B3): مصدرُها الواحد patternsForHours — يُكمَل بها اليومُ الأول ضغطةً واحدة. */
     dayPatterns: await requestDayPatterns([...(request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)), ...(courses as any[]).map(option => Number(option.id))]),
     /* أنماطُ اللائحة بدقائق كل يوم (والكتلةُ الواحدة): الصفحةُ تحسب بها النهايةَ بالمحرّك نفسِه الذي يحسب به الخادم

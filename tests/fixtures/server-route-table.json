@@ -4763,7 +4763,7 @@
    ],
    "path": "/api/public/request/:token",
    "name": "bound dispatch",
-   "call": "32321e80403a762d",
+   "call": "47a38961e43552fb",
    "site": "src/server/routes/publicRequestRoutes.ts:648",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?$/i",
    "end": true
