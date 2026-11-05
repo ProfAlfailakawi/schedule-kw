@@ -381,11 +381,11 @@ app.get("/api/section-roster", requirePermission(7), async (req: AuthenticatedRe
 });
 
 app.put("/api/section-roster/:id", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
-  const id = Number(req.params.id), collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0);
-  if (!collegeId || !sectionId || !id) { res.status(400).json({ error: "طلبٌ ناقص." }); return; }
+  const id = Number(req.params.id), collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
+  if (!collegeId || !sectionId || !id || !termId) { res.status(400).json({ error: "طلبٌ ناقص." }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
-  const terms = sortTermsNewestServer(await Repository.getTerms());
-  const members = await sectionRosterIds(collegeId, sectionId, Number(terms[0]?.AdTermId || 0));
+  /* الفصلُ المعروض نفسُه: عضويةُ القراءة والكتابة واحدة. */
+  const members = await sectionRosterIds(collegeId, sectionId, termId);
   const person: any = await Repository.getInstructorById(id);
   if (!person || !members.has(id) || isFacultyPlaceholder(person)) { res.status(404).json({ error: "هذا الأستاذ ليس في قسمك." }); return; }
   const body = req.body || {};

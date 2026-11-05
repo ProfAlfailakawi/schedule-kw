@@ -33,7 +33,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
     setBusy(true); setError("");
     try {
       const response = await fetch(`/api/section-roster/${person.id}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, ...body }),
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, termId, ...body }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "تعذّر الحفظ");
