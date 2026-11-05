@@ -548,7 +548,7 @@ function DayView({ entries, stats, marks, changeOf, chips, selectedKey, focusKey
             aria-label={`${item.outside ? "التزام خارج القسم" : item.courseName}${item.SCode ? ` شعبة ${item.SCode}` : ""}، ${timeRange(item.start, item.end)}${tag ? `، ${tag.text}` : ""}`}>
             <span className="sp-ev-top">
               {tag ? <span className="sp-glyph" data-kind={tag.kind} aria-hidden="true"><tag.Icon /></span> : null}
-              <span className="sp-ev-title">{item.outside ? "التزام خارج القسم" : item.courseName || "موعد"}</span>
+              <span className="sp-ev-title">{item.outside ? "التزام خارج القسم" : item.courseName || "موعد"}{item.readOnlyReason ? <Lock className="sp-ev-readonly" aria-label="للقراءة فقط" /> : null}</span>
               {tag ? <span className="sp-tag" data-kind={tag.kind}>{tag.text}</span> : null}
             </span>
             {!item.outside ? (
