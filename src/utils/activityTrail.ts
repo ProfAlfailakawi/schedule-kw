@@ -156,6 +156,7 @@ export const TRAIL_ROUTES: TrailRouteRule[] = [
   /* طلبات الأساتذة والمقترح الدراسي وتبادل القاعات */
   rule("POST", "/instructor-requests/issue", "send", "requests", "طلبات الأساتذة"),
   rule("POST", "/instructor-requests/:id/decide", "approve", "requests", "طلب أستاذ"),
+  rule("POST", "/instructor-requests/:id/reopen-fixed", "edit", "requests", "طلب أستاذ"),
   rule("POST", "/instructor-requests/:id/apply", "edit", "requests", "طلب أستاذ"),
   rule("POST", "/instructor-requests/:id/reply", "send", "requests", "ردٌّ على أستاذ"),
   rule("POST", "/instructor-requests/exception/revoke", "edit", "requests", "استثناء أستاذ"),
@@ -223,6 +224,10 @@ export function scopeSets(scopes: ReadonlyArray<{ AdCollegeId: number; AdSection
   const sections = uniq(scopes.filter(row => Number(row.AdSectionId) > 0).map(row => `${Number(row.AdCollegeId)}:${Number(row.AdSectionId)}`));
   return { colleges, sections };
 }
+
+/** اسمُ المُرسِل في سجل الإرسال: يُحجب عن النائب وحده، وقرارُه هنا في الخادم لا في الواجهة. */
+export const sendLogSenderFor = (user: { SeatActor?: { kind?: string } } | null | undefined, by: unknown): string =>
+  user?.SeatActor?.kind === "deputy" ? "" : String(by || "");
 
 export function trailAudience(viewer: TrailViewer, seats: readonly TrailSeat[]): TrailAudience {
   const audience = baseAudience(viewer, seats);

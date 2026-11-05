@@ -90,7 +90,7 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const room = verdict.checks?.find((item: any) => item.kind === "room") as any;
   check(!JSON.stringify(verdict).includes('"blocks":true') && JSON.stringify(verdict).includes("محجوز لطلب د. سالم"), "10 الحجز لا يمنع في الحكم ويسمّي صاحبه", room);
   const schedules = read("src/components/Schedules.tsx");
-  check(!/window\.confirm\(`⏳/.test(schedules) && /askRequestHold\(\{ holds: failure\.holds, verb, draft \}\)/.test(schedules), "4 ورقة قرار بدل نافذة التأكيد");
+  check(!/window\.confirm\(`⏳/.test(schedules) && /askRequestHold\(\{ holds: failure\.holds, verb, draft, patternEnd \}\)/.test(schedules), "4 ورقة قرار بدل نافذة التأكيد");
   check(/requestHoldRefusal\(\[\.\.\.new Set\(blockingSave/.test(read("src/server/core/scheduleWrites.ts")), "4 الرفض يحمل تفاصيل البند");
   const refusal = read("src/server/core/scheduleConflicts.ts");
   check(/itemIds\.includes\(instructorRequestItemIdentity\(item\)\)/.test(refusal) && !/findIndex\(waiting\)/.test(refusal) && /requestIds: string\[\], itemIds: string\[\]\)/.test(refusal), "4 الحجز يُعرَّف ببنده لا بأول بندٍ منتظر");

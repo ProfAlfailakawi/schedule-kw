@@ -102,7 +102,7 @@ check(/departmentHoursWarnOnly: Boolean\(options\.forDepartment\) \|\| offeredBy
 {
   const route = read("src/server/routes/instructorRequestsRoutes.ts"), view = read("src/components/PublishSendLog.tsx");
   check(/by: String\(req\.user\?\.Name \|\| req\.user\?\.UserName \|\| ""\), mode: issueMode/.test(route), "المُرسِل يُكتب من الجلسة");
-  check(/by: String\(row\.by \|\| ""\)/.test(route), "والسطر القديم يعود فارغاً");
+  check(/by: sendLogSenderFor\(req\.user, row\.by\)/.test(route) && /String\(by \|\| ""\)/.test(read("src/utils/activityTrail.ts")), "والسطر القديم يعود فارغاً");
   check(/row\.by \? `أرسله \$\{row\.by\}` : ""/.test(view), "ولا يُعرض له شيء");
 }
 

@@ -8,10 +8,10 @@
 import { reservationRows } from "../../utils/instructorRequestReservations";
 import { Repository } from "../../db/repository";
 import { findConflicts, timeToMinutes } from "../../utils/scheduleIntelligence";
-import type { FSchedule } from "../../types";
+import type { FSchedule, InstructorRequest, InstructorRequestItem } from "../../types";
 import { DAY_LABELS } from "../../utils/naturalQuery";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
-import { travelRuleFor } from "../../utils/campusTravelPolicy";
+import { travelShortfalls } from "../../utils/campusTravelPolicy";
 import { readTravelPolicy } from "./travelPolicy";
 import { offRhythm } from "../../utils/departmentRhythm";
 import { sameCourseSectionClash, startLadderNote } from "../../utils/scheduleRegulations";
@@ -40,52 +40,35 @@ async function roomScopeNotice(row:any){
 
 const CAMPUS_LABEL: Record<string, string> = { jahra: "الجهراء", fahaheel: "الفحيحيل", main: "الحرم الرئيسي" };
 /**
- * Note 38 — a soft "too little time between campuses" warning.
+ * Note 38 — a "too little time between campuses" warning.
  *
  * The instructor's appointments are fetched across the whole term (every
- * college), so a new placement can be checked against a same-day lecture on a
- * different campus. If the gap is smaller than the commute (الجهراء/الفحيحيل/
- * العارضية rules), we surface a `soft` warning: it explains the risk but never
- * blocks the save — a real timetable sometimes has to accept a tight transfer.
+ * college). In the department's form this only ever warns (owner 2026-11-05);
+ * the same duration, from the same settings, is mandatory in the teacher card
+ * (`judgeRequestItems`). The stored `required` flag is no longer read.
  */
 async function interCampusWarnings(candidate: any, all: any[]) {
   const instructorId = Number(candidate.AdInstructorId || 0);
   if (!instructorId || !candidate.fstarttime || !candidate.fendtime) return [];
   const colleges = await Repository.getColleges();
   const campusById = new Map<number, ReturnType<typeof campusOf>>(colleges.map((c: any) => [Number(c.AdCollegeId), campusOf(c.AdCollegeName)]));
-  const candCampus = campusById.get(Number(candidate.AdCollegeId));
-  if (!candCampus) return [];
   const own = all.filter(r => Number(r.AdInstructorId) === instructorId && Number(r.id) !== Number(candidate.id));
-  const days: Array<[string, string]> = [["fsunday", "الأحد"], ["fmonday", "الاثنين"], ["ftuesday", "الثلاثاء"], ["fwednesday", "الأربعاء"], ["fthursday", "الخميس"]];
-  const cStart = timeToMinutes(candidate.fstarttime), cEnd = timeToMinutes(candidate.fendtime);
+  const dayName: Record<string, string> = { fsunday: "الأحد", fmonday: "الاثنين", ftuesday: "الثلاثاء", fwednesday: "الأربعاء", fthursday: "الخميس" };
+  const slots = Object.keys(dayName).filter(day => candidate[day]).map(day => ({ day, start: candidate.fstarttime, end: candidate.fendtime }));
+  const policy = await readTravelPolicy();
   const seen = new Set<string>();
   const warnings: any[] = [];
-  const policy = await readTravelPolicy();
-  for (const [key, label] of days) {
-    if (!candidate[key]) continue;
-    for (const other of own) {
-      if (!other[key]) continue;
-      const otherCampus = campusById.get(Number(other.AdCollegeId));
-      if (!otherCampus) continue;
-      const rule = travelRuleFor(policy, candCampus, otherCampus, instructorId);
-      if (!rule) continue; // same campus, an exempt instructor, or a pair switched off
-      const need = rule.minutes;
-      const oStart = timeToMinutes(other.fstarttime), oEnd = timeToMinutes(other.fendtime);
-      // Gap only when the two do not overlap (an overlap is already a hard conflict).
-      const gap = cStart >= oEnd ? cStart - oEnd : (oStart >= cEnd ? oStart - cEnd : -1);
-      if (gap < 0 || gap >= need) continue;
-      const dedupe = `${key}:${[candCampus, otherCampus].sort().join("-")}`;
-      if (seen.has(dedupe)) continue;
-      seen.add(dedupe);
-      warnings.push({
-        type: "travel", severity: rule.required ? "high" : "warning", soft: !rule.required, rowId: 0,
-        message: `${rule.required ? "مدة التنقّل ملزمة" : "انتقال ضيّق"} بين ${CAMPUS_LABEL[candCampus]} و${CAMPUS_LABEL[otherCampus]}`,
-        detail: `${label}: التنقّل يحتاج قرابة ${countOf(need, oblique(AR.minute))}، والمتاح ${countOf(gap, AR.minute)} فقط بين موعدَي الأستاذ. ${rule.required ? "المدة ملزمة من التسجيل؛ غيّر الوقت." : "يمكنك الحفظ مع الانتباه لهذا الفارق."}`,
-      });
-    }
+  for (const short of travelShortfalls(policy, instructorId, id => campusById.get(id), { collegeId: Number(candidate.AdCollegeId), slots }, own)) {
+    const dedupe = `${short.day}:${[short.from, short.to].sort().join("-")}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
+    warnings.push({
+      type: "travel", severity: "warning", soft: true, rowId: 0,
+      message: `انتقال ضيّق بين ${CAMPUS_LABEL[short.from]} و${CAMPUS_LABEL[short.to]}`,
+      detail: `${dayName[short.day]}: التنقّل يحتاج قرابة ${countOf(short.need, oblique(AR.minute))}، والمتاح ${countOf(short.gap, AR.minute)} فقط بين موعدَي الأستاذ. يمكنك الحفظ مع الانتباه لهذا الفارق.`,
+    });
   }
-  /* الملزمُ أولاً: الحدُّ الأقصى للعرض لا يُسقط ما يمنع الحفظ. */
-  return [...warnings.filter(item => !item.soft), ...warnings.filter(item => item.soft).slice(0, 3)];
+  return warnings.slice(0, 3);
 }
 
 /**
@@ -351,8 +334,9 @@ export async function applyRequestHoldOverride(req: AuthenticatedRequest): Promi
 }
 
 /** بعد تعديلٍ أكّده القسم على موعدٍ محجوزٍ لطلب: يُسجَّل في خطّ الطلب، ويُثبَّت البندُ الذي صار موعدُه كما طُلب. */
-export async function noteRequestHoldOverride(requestIds: string[], row: FSchedule | null, by: string): Promise<void> {
+export async function noteRequestHoldOverride(requestIds: string[], row: FSchedule | null, by: string): Promise<RequestFixNote[]> {
   const at = new Date().toISOString();
+  const fixes: RequestFixNote[] = [];
   for (const id of requestIds) {
     const request = await Repository.getInstructorRequest(id);
     if (!request) continue;
@@ -364,7 +348,9 @@ export async function noteRequestHoldOverride(requestIds: string[], row: FSchedu
       const same = (addedHere || Number(item.rowId) === Number(row.id) || (item.offeringRowIds || []).includes(Number(row.id)))
         && (item.slots || []).map(slot => String(slot.day)).sort().join(",") === days
         && (item.slots || []).every(slot => timeToMinutes(slot.start) === timeToMinutes(row.fstarttime));
-      return same ? { ...item, decision: { state: "fixed" as const, decidedBy: by, decidedAt: at, scheduleId: Number(row.id), fromSchedule: true, note: "ثبّته القسم من الجدول مباشرة." } } : item;
+      return same ? { ...item, decision: { state: "fixed" as const, decidedBy: by, decidedAt: at, scheduleId: Number(row.id), fromSchedule: true, note: "ثبّته القسم من الجدول مباشرة.",
+        /* ما كان عليه الطلب والبند قبل التثبيت: «تراجع» يعيده هو بعينه. */
+        reopenTo: { status: request.status, ...(item.decision ? { decision: item.decision } : {}) } } } : item;
     });
     /* بندٌ ثُبّت من «موعد» نتيجتُه نتيجةُ اعتماده: الحالةُ والخطُّ الزمني كما في الوارد. */
     const fixedNow = items.flatMap((item, itemIndex) => item !== request.items[itemIndex] ? [itemIndex] : []);
@@ -373,8 +359,34 @@ export async function noteRequestHoldOverride(requestIds: string[], row: FSchedu
       ...(fixedNow.length ? { status: settled ? "settled" as const : "in-review" as const } : {}),
       timeline: [...(request.timeline || []), { kind: "schedule-edited" as const, at, by, detail: "عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره." },
         ...fixedNow.map(itemIndex => ({ kind: "item-fixed" as const, at, by, itemIndex })),
-        ...(fixedNow.length && settled ? [{ kind: "settled" as const, at, by }] : [])].slice(-300) }).catch(() => undefined);
+        ...(fixedNow.length && settled ? [{ kind: "settled" as const, at, by }] : [])].slice(-300) })
+      .then(() => { if (fixedNow.length && row) fixes.push({ requestId: id, scheduleId: Number(row.id), action: String(request.items[fixedNow[0]].action) }); }).catch(() => undefined);
   }
+  return fixes;
+}
+
+/** ما ثبّته القسم من الجدول في هذا الحفظ: يعود مع الرد ليبني منه «تراجع» إعادةَ فتح الطلب. */
+export interface RequestFixNote { requestId: string; scheduleId: number; action: string }
+
+/**
+ * يعيد بنوداً ثبّتها القسم من الجدول إلى ما كانت عليه والطلبَ إلى حاله. لا إشعار: التثبيتُ من الجدول لم يُرسل إشعاراً،
+ * والسطرُ في الخط الزمني يقول الحقيقة للأستاذ. وبندٌ قرّر فيه أحدٌ بعد التثبيت يترك الطلب «قيد المراجعة».
+ */
+export function reopenedRequest(request: InstructorRequest, scheduleId: number, by: string, at = new Date().toISOString()): InstructorRequest | null {
+  const isTarget = (item: InstructorRequestItem) => item.decision?.state === "fixed" && item.decision.fromSchedule
+    && Number(item.decision.scheduleId) === Number(scheduleId) && !String(item.itemId || "").startsWith("department-");
+  const reopened = (request.items || []).flatMap((item, index) => isTarget(item) ? [index] : []);
+  if (!reopened.length) return null;
+  const first = request.items[reopened[0]].decision!;
+  const items = request.items.map((item, index) => {
+    if (!reopened.includes(index)) return item;
+    const { decision: _fixed, ...rest } = item;
+    return item.decision?.reopenTo?.decision ? { ...rest, decision: item.decision.reopenTo.decision } : rest;
+  }) as InstructorRequestItem[];
+  const decidedSince = items.some((item, index) => !reopened.includes(index) && String(item.decision?.decidedAt || "") > String(first.decidedAt || ""));
+  const status = requestFullySettled(items) ? "settled" as const : decidedSince || !first.reopenTo ? "in-review" as const : first.reopenTo.status;
+  return { ...request, items, status,
+    timeline: [...(request.timeline || []), ...reopened.map(itemIndex => ({ kind: "item-reopened" as const, at, by, itemIndex }))].slice(-300) };
 }
 
 /**
@@ -408,8 +420,10 @@ export async function forgetDepartmentAddition(row: FSchedule): Promise<void> {
   try {
     const mine = await Repository.getInstructorRequestsByInstructor(Number(row.AdInstructorId || 0));
     for (const request of mine.filter(item => Number(item.AdTermId) === Number(row.AdTermId))) {
-      const items = (request.items || []).filter(item => !(item.decision?.fromSchedule && item.decision.state === "fixed" && item.action === "add" && Number(item.decision.scheduleId) === Number(row.id)));
-      if (items.length !== (request.items || []).length) await Repository.saveInstructorRequest({ ...request, items });
+      /* بندُ الأستاذ المثبَّت من الجدول طلبُه هو: يعود مفتوحاً ولا يُمحى. بندُ القسم وحده يُرفع. */
+      const reopened = reopenedRequest(request, Number(row.id), "القسم") || request;
+      const items = (reopened.items || []).filter(item => !(item.decision?.fromSchedule && item.decision.state === "fixed" && item.action === "add" && Number(item.decision.scheduleId) === Number(row.id)));
+      if (reopened !== request || items.length !== (request.items || []).length) await Repository.saveInstructorRequest({ ...reopened, items });
     }
   } catch (error) {
     console.error("[requests] تعذّر رفع موعد القسم من طلب الأستاذ:", error instanceof Error ? error.message : error);

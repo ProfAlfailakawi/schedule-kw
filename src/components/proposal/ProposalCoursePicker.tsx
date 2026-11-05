@@ -13,7 +13,7 @@ import { ReachChain, ReachChip } from "../CourseReach";
 import { reachLocked } from "../../utils/courseReach";
 import { courseOptionBadge, usePlanBadges } from "../../utils/planBadges";
 import {
-  proposalCourseChoices, proposalCourseScopes, sameCourseIn, scopeKeyOf, type ProposalCourseChoice,
+  proposalCourseChoices, proposalCourseScopes, proposalFamilyScopes, sameCourseIn, scopeKeyOf, type ProposalCourseChoice,
 } from "../../utils/proposalCourseChoices";
 import type { Workspace } from "./useProposalWorkspace";
 
@@ -27,10 +27,15 @@ export function useProposalCourseChoices(ws: Workspace) {
   const chosen = courses.find(course => course.id === draft.courseId);
   const [picked, setPicked] = useState<string>("");
   /* الموقعُ: موقعُ المقرر المختار إن وُجد، ثم ما اختاره المستخدم، ثم موقعُ الطلب. */
-  const wholeFamily = picked === WHOLE_FAMILY && scopes.length > 1;
+  const familyScopes = useMemo(() => proposalFamilyScopes(scopes, ctx?.scope), [scopes, ctx?.scope]);
+  const familyOpen = familyScopes.length > 1;
+  const wholeFamily = picked === WHOLE_FAMILY && familyOpen;
   const scopeKey = wholeFamily ? WHOLE_FAMILY : chosen ? scopeKeyOf(chosen) : (picked && scopes.some(s => s.key === picked) ? picked : scopes[0]?.key || "");
   const scope = scopes.find(s => s.key === scopeKey) || null;
-  const choices = useMemo(() => proposalCourseChoices(courses, scope, ctx?.usedCodes || {}), [courses, scope, ctx?.usedCodes]);
+  const choices = useMemo(() => {
+    const family = new Set(familyScopes.map(scopeKeyOf));
+    return proposalCourseChoices(wholeFamily ? courses.filter(course => family.has(scopeKeyOf(course))) : courses, scope, ctx?.usedCodes || {});
+  }, [courses, scope, ctx?.usedCodes, wholeFamily, familyScopes]);
   const setScope = (key: string) => {
     if (key === WHOLE_FAMILY) { setPicked(key); return; }
     const next = scopes.find(s => s.key === key);
@@ -38,15 +43,16 @@ export function useProposalCourseChoices(ws: Workspace) {
     setPicked(key);
     if (draft.courseId) ws.patchDraft({ courseId: sameCourseIn(courses, draft.courseId, next, ctx?.usedCodes || {}) });
   };
-  return { scopes, scope, scopeKey, setScope, choices };
+  return { scopes, scope, scopeKey, setScope, choices, familyOpen };
 }
 
-export default function ProposalCoursePicker({ ws, choices, scopes, scopeKey, setScope, autoFocus = false, compact = false }: {
+export default function ProposalCoursePicker({ ws, choices, scopes, scopeKey, setScope, familyOpen = false, autoFocus = false, compact = false }: {
   ws: Workspace;
   choices: ProposalCourseChoice[];
   scopes: ReturnType<typeof proposalCourseScopes>;
   scopeKey: string;
   setScope: (key: string) => void;
+  familyOpen?: boolean;
   autoFocus?: boolean;
   compact?: boolean;
 }) {
@@ -73,10 +79,12 @@ export default function ProposalCoursePicker({ ws, choices, scopes, scopeKey, se
               <MapPin aria-hidden="true" />{scope.label}
             </button>
           ))}
+          {familyOpen ? (
           <button type="button" role="radio" aria-checked={scopeKey === WHOLE_FAMILY} title="كل عائلة القسم"
             onClick={() => setScope(WHOLE_FAMILY)} data-guide-ignore="يعرض مقررات عائلة القسم كلها — لا يكتب في الجدول">
             <Network aria-hidden="true" />كل عائلة القسم
           </button>
+          ) : null}
         </div>
       ) : null}
       <SearchableSelect fixed className="ss-compact sp-course-select" ariaLabel="المقرر" value={value}
