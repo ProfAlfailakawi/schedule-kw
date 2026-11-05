@@ -1358,10 +1358,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "visiting" ? "active" : ""} onClick={() => goTab("visiting")} title="المنتدبون"><UserPlus />المنتدبون</button>
           )}
           {termEnded ? null : (
-            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "roster" ? "active" : ""} onClick={() => goTab("roster")} title="الأساتذة: النصاب والدرجة والحالة"><GraduationCap />الأساتذة</button>
-          )}
-          {termEnded ? null : (
             <>
+            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "roster" ? "active" : ""} onClick={() => goTab("roster")} title="الأساتذة: النصاب والدرجة والحالة"><GraduationCap />الأساتذة</button>
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "courses" ? "active" : ""} onClick={() => goTab("courses")} title="كل المقررات"><Library />كل المقررات</button>
             {/* 🧩 بجانب التخطيط، وبحكمه: فصلٌ منتهٍ لا محاكاةَ لشعبه. */}
