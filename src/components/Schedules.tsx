@@ -712,14 +712,18 @@ function ScheduleSkeleton({ viewMode }: { viewMode: "week" | "list" | "rooms" })
 
 /** A phone stays a phone after rotation. Width-only media queries turn an
  * iPhone landscape into a desktop, so use the device short edge plus touch/
- * mobile capability instead. Tablets keep the full workspace. */
+ * mobile capability instead. A big touch screen (a tablet, or a folding phone
+ * opened like iPhone Duo) keeps the full workspace only while the page has the
+ * room: half of it in Split View is as narrow as a phone, so it reads as one.
+ * Re-run on resize so folding or splitting switches live, without a reload. */
 function isPhoneDevice() {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
   const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
   const mobileUa = Boolean(nav.userAgentData?.mobile) || /iPhone|iPod|Android.+Mobile|Mobile/i.test(nav.userAgent || "");
   const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  if (!mobileUa && !coarse) return false;
   const shortEdge = Math.min(Number(window.screen?.width || window.innerWidth), Number(window.screen?.height || window.innerHeight));
-  return shortEdge <= 600 && (mobileUa || coarse);
+  return shortEdge <= 600 || window.innerWidth < 700;
 }
 
 type RefusalReason = { kind: "room" | "instructor" | "cohort" | "other"; text: string; entity: string; state: string };
