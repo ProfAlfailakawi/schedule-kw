@@ -33,6 +33,8 @@ const SHEET = "محرّرُ الصحيفة نفسها: نوعُ المتطلب �
 const NOT_COURSE = "ليس اسمَ مقرر (صحيفة/قسم/حملة/فئة طلبة)";
 const STUDENT = "شاشةُ الطالب/الإعلان — خارج نطاق الإدارة والأستاذ";
 const COURSE_EXCEPTIONS: Exception[] = [
+  { file: "src/components/InstructorInbox.tsx", text: `item.after?.courseName || "الموعد"`, reason: SENTENCE },
+  { file: "src/components/RequestHoldSheet.tsx", text: `hold.courseName`, reason: "سطرُ سؤالٍ عابر عند الحفظ — بطاقةُ البند في الوارد تحمل الوسوم" },
   { file: "src/components/InstructorInbox.tsx", text: `item.after?.courseName || item.before?.courseName || "البند"`, reason: SENTENCE },
   { file: "src/components/proposal/ProposalChecks.tsx", text: `op?.target.courseName || "المادة"`, reason: SENTENCE },
   { file: "src/components/proposal/ProposalDialogs.tsx", text: `op.target.courseName`, reason: SENTENCE },
@@ -78,6 +80,7 @@ const COURSE_EXCEPTIONS: Exception[] = [
 const ADMIN = "إدارةُ الحسابات وربطُها — هويةُ الحساب لا صفةُ التدريس";
 const RAW = "مطابقةُ أسماء الاستيراد الخام قبل الربط";
 const PERSON_EXCEPTIONS: Exception[] = [
+  { file: "src/components/RequestHoldSheet.tsx", text: `hold.instructorName || "أستاذ"`, reason: "سطرُ سؤالٍ عابر عند الحفظ — بطاقةُ الطلب في الوارد تحمل الوسوم" },
   { file: "src/components/AdminUsers.tsx", text: `linked?.AdInstructorName || "غير مربوطة"`, reason: ADMIN },
   { file: "src/components/ImportNameFillPanel.tsx", text: `d.instructorName`, reason: RAW },
   { file: "src/components/ScheduleTransfer.tsx", text: "person?.AdInstructorName||`منتدب ${id}`", reason: "قائمةُ نسخ المنتدبين نفسها — كلُّ من فيها منتدب" },

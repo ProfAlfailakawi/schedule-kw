@@ -470,6 +470,7 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       /* ورقةُ رفض القسم تعرض بدائلَ لكل بند، ولو كان متاحاً (مراجعة البروفة). */
       offerAlternatives: Boolean(options.forDepartment),
       ladderBlocks: !options.forDepartment && !offeredByDepartment,
+      sectionClashBlocks: !options.forDepartment && !offeredByDepartment,
       nature: habits,
       suggestNature: priorHabits,
       termId: Number(request.AdTermId),

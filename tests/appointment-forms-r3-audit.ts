@@ -60,7 +60,7 @@ const css = read("src/styles/36-appointment-forms.css");
 {
   check(/daysSeeded\.current = !regulationHours\(formCourse\);/.test(editor), "W1 المحرر الكامل: يومٌ قبل المقرر ليس قرار نمط (يُكمل حين يُعرف المقرر)");
   check(/const usual = formDays\.length \|\| !form\.fstarttime \|\| usualDismissed\.current === /.test(editor) && /\? null : usualRegulationChoice\(formCourse, usualDaysFor\(Number\(form\.AdCourseId\) \|\| 0\)\);/.test(editor)
-    && /completeRegulation\(formCourse, formDays, String\(form\.fstarttime \|\| ""\), \{ fresh: daysSeeded\.current, usual \}\)/.test(editor),
+    && /completeRegulation\(formCourse, formDays, String\(form\.fstarttime \|\| ""\), \{ fresh: daysSeeded\.current, usual, minutes: formSpan, keepDays \}\)/.test(editor),
     "W2 المحرر الكامل: المقرر + البداية بلا يوم → النمط المعتاد (عادة القسم ثم طبيعة المقرر)");
   check(/usualDismissed\.current = result\.days\.length \? "" : /.test(editor), "W2b من أفرغ الأيام بيده لا تُعاد عليه حتى يتغيّر المقرر أو البداية");
   check(/nature\.get\(courseId\)\?\.dayPatterns/.test(editor) && /rows\.filter\(row => Number\(row\.AdCourseId\) === courseId && Number\(row\.id\) !== Number\(editId \|\| 0\)\)/.test(editor),

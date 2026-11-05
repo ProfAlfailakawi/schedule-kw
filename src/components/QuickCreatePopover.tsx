@@ -13,6 +13,7 @@ import type { DayKey } from "./scheduleWorkspace";
 import {
   formatScheduleTimeRange,
   SCHEDULE_DAY_END,
+  SCHEDULE_DAY_END_TIME,
 } from "../utils/scheduleTime";
 import { toEnglishDigits } from "../utils/digits";
 import { isAssignableInstructor } from "../utils/instructorStatus";
@@ -207,11 +208,13 @@ export default function QuickCreatePopover({
   const applyDays = (course: AdCourse | undefined, result: { days: DayKey[]; alternatives: RegulationChoice[]; applied?: RegulationChoice | null }) => {
     setChosenDays(result.days);
     setDayChoices(result.alternatives);
-    const end = timeEdited.current || hasDifferentTimes ? "" : regulationEnd(course, result.days, draft.start);
+    /* نمطٌ طُبّق يحسب طولَه؛ وما لم يُطبَّق نمطٌ (يومٌ بقي وحده) يبقى طولُه. */
+    const span = result.applied ? undefined : minutesOf(draft.end) - minutesOf(draft.start);
+    const end = timeEdited.current || hasDifferentTimes ? "" : regulationEnd(course, result.days, draft.start, span);
     if (result.applied && (result.days.join("+") !== chosenDays.join("+") || (end && end !== draft.end))) flashAutofill();
     if (!end) return;
     setDraft(current => {
-      const next = regulationEnd(course, result.days, current.start);
+      const next = regulationEnd(course, result.days, current.start, span);
       return next && next !== current.end ? { ...current, end: next } : current;
     });
   };
@@ -228,7 +231,7 @@ export default function QuickCreatePopover({
     if (daysLocked) return;
     const checked = !chosenDays.includes(day);
     if (!checked && chosenDays.length === 1) return;
-    applyDays(selectedCourse, pickDay(selectedCourse, chosenDays, day, checked));
+    applyDays(selectedCourse, pickDay(selectedCourse, chosenDays, day, checked, minutesOf(draft.end) - minutesOf(draft.start)));
   };
   const applyChoice = (choice: RegulationChoice) => {
     if (daysLocked) return;
@@ -593,6 +596,7 @@ export default function QuickCreatePopover({
             {timeOpen ? (
               <div className="qc-time-wheels" id="qc-time-wheels">
                 <TimeWheels
+                  endLimit={SCHEDULE_DAY_END_TIME}
                   start={draft.start}
                   end={draft.end}
                   onChange={(next) => {
@@ -600,7 +604,7 @@ export default function QuickCreatePopover({
                     /* «المدة» بالعجلة تجاوزٌ متعمَّد؛ أما الساعة والدقيقة فتعيدان النهاية إلى النمط. */
                     const lengthChanged = minutesOf(next.end) - minutesOf(next.start) !== minutesOf(draft.end) - minutesOf(draft.start);
                     if (lengthChanged) timeEdited.current = regulationFit(selectedCourse, chosenDays, next.start, next.end) === "off";
-                    const fitted = !timeEdited.current && !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start) : "";
+                    const fitted = !timeEdited.current && !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start, minutesOf(next.end) - minutesOf(next.start)) : "";
                     if (fitted && fitted !== next.end) flashAutofill();
                     const end = fitted || next.end;
                     patch({ start: next.start, end });

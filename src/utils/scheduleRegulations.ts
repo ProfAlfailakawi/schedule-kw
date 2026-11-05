@@ -544,6 +544,34 @@ export function meetingsMatchApprovedPattern(meetings: ReadonlyArray<{ day: DayK
   });
 }
 
+/**
+ * ── شعبتان من مقرر واحد في الوقت نفسه (ملاحظة المالك 8) ───────────────────────
+ * قاعدةٌ واحدة بدرجتين: تنبيهٌ لا يمنع في «موعد»، ومنعٌ في كرت الأستاذ — لمقررات التخصص وحدها.
+ * مقررُ التخصص هو ما يملكه قسمُ الشعبة، ولو كان متطلبَ كليةٍ في صحف أقسامٍ أخرى؛ ومقررُ الخدمة
+ * القادم من قسمٍ آخر يتكرّر شعبُه في الساعة نفسها عادةً. والكليتان (بنين/بنات) لا تتنافسان (م.7/5).
+ */
+export function isSpecializationCourse(course: { AdSectionId?: unknown } | null | undefined, sectionId: unknown): boolean {
+  const owner = Number(course?.AdSectionId || 0);
+  return owner > 0 && owner === Number(sectionId || 0);
+}
+export function sameCourseSectionClash<T extends FSchedule>(
+  row: Partial<FSchedule>, others: readonly T[], course: { AdSectionId?: unknown } | null | undefined,
+): T | undefined {
+  const code = String(row.SCode ?? "").trim();
+  const owner = Number((course as any)?.AdSectionId || 0);
+  if (!owner || (row.AdSectionId != null && Number(row.AdSectionId) !== owner)) return undefined;
+  const days = DAY_KEYS.filter(day => Boolean((row as any)[day]));
+  const from = toMinutes(String(row.fstarttime || "")), to = toMinutes(String(row.fendtime || ""));
+  if (!days.length || !(to > from)) return undefined;
+  return others.find(other => Number(other.AdCourseId) === Number(row.AdCourseId)
+    && Number(other.AdCollegeId || 0) === Number(row.AdCollegeId || 0)
+    && Number(other.AdSectionId || 0) === owner
+    && Number(other.id) !== Number((row as any).id)
+    && String(other.SCode ?? "").trim() !== code
+    && days.some(day => Boolean((other as any)[day]))
+    && toMinutes(other.fstarttime) < to && toMinutes(other.fendtime) > from);
+}
+
 export function reviewSchedule(context: RegulationContext): RegulationFinding[] {
   const { rows, courses, instructors } = context;
   const findings: RegulationFinding[] = [];

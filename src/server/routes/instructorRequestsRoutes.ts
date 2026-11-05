@@ -36,7 +36,7 @@ import { buildRequestContext, buildSharedRequestContext, currentInstructorReques
 import { broadcastNotify } from "../core/liveChannel";
 import { canonicalizeHistoricalLocationForRuntime, readLocationRegistry } from "../core/locations";
 import { scheduleLengthIssue, unapprovedPatternIssue } from "../core/scheduleRules";
-import { createScheduleHandler, dayLabelOf, PROPOSAL_DAYS, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
+import { createScheduleHandler, dayLabelOf, deleteScheduleHandler, PROPOSAL_DAYS, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
 import { isScopeAllowed } from "../core/scope";
 import { shareLinkStillReadable } from "../core/shareLinks";
 import { placeholderInstructorIds } from "../core/smartImport";
@@ -720,6 +720,45 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
     ...stored, items, timeline,
     status: decided ? "settled" : "in-review",
   });
+  await pushHooks.requestDecided(saved, index);
+  res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
+});
+
+/**
+ * «إلغاء الموعد» (ملاحظة المالك 1): بندٌ وضعه القسم من «موعد» قرارُه هو، فلا يُرفض بل يُلغى:
+ * يُحذف صفُّه بمسار الحذف نفسه (نطاق وقفل ونسخة وأثر)، ويصل الأستاذَ سطرُ القسم.
+ */
+app.post("/api/instructor-requests/:id/cancel-scheduled", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
+  if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (!(await requireCurrentInstructorRequestGeneration(stored, res))) return;
+  if (!requireInstructorRequestRevision(req, res, stored)) return;
+  if (await refuseIfTermFrozen(res, Number(stored.AdTermId || 0))) return;
+  const index = Number(req.body?.itemIndex);
+  const item = (stored.items || [])[index];
+  if (!item || item.action !== "add" || item.decision?.state !== "fixed" || !item.decision.fromSchedule || !item.decision.scheduleId) {
+    res.status(409).json({ error: "هذا البند ليس موعداً وضعه القسم." }); return;
+  }
+  const scope = requestItemScope(stored, item);
+  if (!isScopeAllowed(req, scope.collegeId, scope.sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  if (String(req.body?.itemId || "") !== instructorRequestItemIdentity(item)) { res.status(409).json({ error: "تغيّر ترتيب البنود. حدّث الطلب.", code: "request-item" }); return; }
+  const note = String(req.body?.note || "").replace(/\s+/g, " ").trim().slice(0, 160);
+  if (!note) { res.status(400).json({ error: "اكتب سطراً للأستاذ." }); return; }
+  const scheduleId = Number(item.decision.scheduleId);
+  if (await Repository.getScheduleById(scheduleId)) {
+    (req as any).__cancelScheduled = true;
+    const removed = await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(scheduleId) }, body: {} });
+    if (removed.status >= 400) { res.status(removed.status).json(removed.body); return; }
+  }
+  const now = new Date().toISOString();
+  const by = roleLabel(req.user?.Role) || "القسم";
+  const items = [...stored.items];
+  items[index] = { ...item,
+    decisionHistory: [...(item.decisionHistory || []), item.decision],
+    decision: { state: "rejected", reasonCode: "department", cancelled: true, fromSchedule: true, note, decidedBy: by, decidedAt: now } };
+  const saved = await Repository.saveInstructorRequest({ ...stored, items,
+    timeline: [...(stored.timeline || []), { kind: "item-rejected" as InstructorRequestEventKind, at: now, by, itemIndex: index, detail: "department" }],
+    status: requestFullySettled(items) ? "settled" : stored.status });
   await pushHooks.requestDecided(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });

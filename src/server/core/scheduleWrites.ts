@@ -17,7 +17,7 @@ import { PENDING_ROOM } from "../../utils/locationRegistry";
 import { noteScheduleMutation, scheduleLockRefusal } from "./approvals";
 import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
-import { applyRequestHoldOverride, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./scheduleConflicts";
+import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./scheduleConflicts";
 import { describeScheduleChange, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues, unapprovedPatternIssue } from "./scheduleRules";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
@@ -133,7 +133,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   // Soft warnings (e.g. a tight inter-campus transfer, Note 38) are surfaced by
   // the live check but never block the save.
   const blockingSave=conflicts.filter((c:any)=>!c.soft);
-  if(blockingSave.length&&blockingSave.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingSave.map((c:any)=>String(c.holdRequestId)))]),issues:blockingSave});return;}
+  if(blockingSave.length&&blockingSave.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingSave.map((c:any)=>String(c.holdRequestId)))] as string[],blockingSave.map((c:any)=>String(c.holdItemId||""))),issues:blockingSave});return;}
   if(blockingSave.length){res.status(409).json({error:blockingSave[0].message||"يوجد تعارض يمنع الحفظ",issues:blockingSave});return;}
 
   /* القفل يُقرأ بعد أن يثبت أن الطلب صحيحٌ في ذاته: ردُّ «الجدول عند التسجيل»
@@ -184,10 +184,12 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   let newSched: FSchedule;
   try { newSched = await Repository.createSchedule(writeRow, (req as any).__requestReservationOwner || ""); }
   catch (error) {
-    if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId])); return; }
+    if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId], [error.holdItemId])); return; }
     throw error;
   }
   if (createOverrides.length) await noteRequestHoldOverride(createOverrides, newSched, String(req.user?.Name || "القسم"));
+  /* ما جاء من طلبٍ قائم له بندُه؛ وغيرُه موعدٌ من القسم يصل الأستاذَ بنداً في طلبه. */
+  if (!(req as any).__requestReservationOwner && !(req as any).__restoreOrigin && !req.body?.instructorRequestId) await noteDepartmentAddition(newSched, String(req.user?.Name || "القسم"));
 
   await recordVersionAfter(addVersion, before => [...before, newSched]);
   await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", row: newSched });
@@ -284,7 +286,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const overriddenHolds=await applyRequestHoldOverride(req);
   const conflicts=await scheduleConflicts(req,canonicalBody,id,(req as any).__hypotheticalWeek);
   const blockingEdit=conflicts.filter((c:any)=>!c.soft);
-  if(blockingEdit.length&&blockingEdit.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingEdit.map((c:any)=>String(c.holdRequestId)))]),issues:blockingEdit});return;}
+  if(blockingEdit.length&&blockingEdit.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingEdit.map((c:any)=>String(c.holdRequestId)))] as string[],blockingEdit.map((c:any)=>String(c.holdItemId||""))),issues:blockingEdit});return;}
   if(blockingEdit.length){res.status(409).json({error:blockingEdit[0].message||"يوجد تعارض يمنع التعديل",issues:blockingEdit});return;}
 
   /* النطاقان معاً: نقلُ موعدٍ من قسمٍ مُرسَلٍ إلى آخر يمسّ الجدولين، فيكفي
@@ -372,7 +374,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     }
     res.json(updated);
   } catch (e: any) {
-    if (e instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([e.holdRequestId])); return; }
+    if (e instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([e.holdRequestId], [e.holdItemId])); return; }
     if (e instanceof RequestReservationConflict) { res.status(409).json({ error: e.message, code: e.code }); return; }
     if (e instanceof ScheduleRevisionConflict) {
       /* Not a failure to write — a refusal to overwrite. Both versions go back
@@ -414,10 +416,12 @@ export const deleteScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const deleteOverrides = await applyRequestHoldOverride(req);
   try { await Repository.deleteSchedule(id, (req as any).__requestReservationOwner || ""); }
   catch (error) {
-    if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId])); return; }
+    if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId], [error.holdItemId])); return; }
     throw error;
   }
   if (deleteOverrides.length) await noteRequestHoldOverride(deleteOverrides, null, String(req.user?.Name || "القسم"));
+  /* «إلغاء الموعد» يكتب قراره بنفسه؛ حفظٌ ثانٍ هنا كان يقدّم النسخة فيُرفض حفظُ الإلغاء بعد وقوع الحذف. */
+  if (sched && !(req as any).__cancelScheduled) await forgetDepartmentAddition(sched);
   await recordVersionAfter(deleteVersion, before => before.filter(row => Number(row.id) !== Number(id)));
   if (sched) await noteScheduleMutation(req, sched.AdCollegeId, sched.AdSectionId, sched.AdTermId, { kind: "delete", row: sched });
   res.json({ success: true });

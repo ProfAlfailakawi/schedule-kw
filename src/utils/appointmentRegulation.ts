@@ -88,11 +88,28 @@ export function regulationChoicesForDay(course: RegulationCourse | null | undefi
     });
 }
 
-/** النمط المعتمد الذي تطابقه الأيام المختارة بالضبط (إن وُجد). */
-export function regulationChoiceFor(course: RegulationCourse | null | undefined, days: readonly DayKey[]): RegulationChoice | null {
+/**
+ * النمط المعتمد الذي تطابقه الأيام المختارة بالضبط (إن وُجد).
+ *
+ * ── السبب الجذري لشكوى «المكتبة تتصرف من تلقائها» (ملاحظة المالك 19) ─────────────
+ * نمطُ الكتلة يصلح لأي يوم، فكان كلُّ يومٍ منفرد يُقرأ «كتلة معتمدة»: صفُّ الأحد 50د من
+ * مقررٍ بثلاث ساعات يتحوّل 170د عند تغيير بدايته، ويومٌ بقي بعد إزالة أخيه يقفز طولُه، والضغطة
+ * التالية تُسقطه. `minutes` هو طولُ الموعد القائم: يومٌ منفرد بطولٍ آخر ليس كتلة. بلا طول تبقى
+ * القراءة القديمة (موعدٌ جديد لم يُعرف طوله بعد).
+ */
+export function regulationChoiceFor(course: RegulationCourse | null | undefined, days: readonly DayKey[], minutes?: number): RegulationChoice | null {
   if (!days.length) return null;
   const all = regulationChoicesForDay(course, days[0]);
-  return all.find(choice => choice.days.length === days.length && choice.days.every(day => days.includes(day))) || null;
+  const found = all.find(choice => choice.days.length === days.length && choice.days.every(day => days.includes(day))) || null;
+  if (found && found.days.length === 1 && Number(minutes) > 0 && found.minutes !== minutes) return null;
+  return found;
+}
+
+/** هل اليومُ المنفرد قرارُ كتلة؟ طولُه يقول، وبلا طولٍ يقوله نوعُ المقرر: النظريُّ لا يُفترض كتلة. */
+function pickedChoice(course: RegulationCourse | null | undefined, days: readonly DayKey[], minutes?: number): RegulationChoice | null {
+  const choice = regulationChoiceFor(course, days, minutes);
+  if (choice && choice.days.length === 1 && !(Number(minutes) > 0) && !prefersBlock(course)) return null;
+  return choice;
 }
 
 export interface DayPickResult {
@@ -113,9 +130,10 @@ export function pickDay(
   current: readonly DayKey[],
   day: DayKey,
   checked: boolean,
+  minutes?: number,
 ): DayPickResult {
   const choices = regulationChoicesForDay(course, day);
-  const currentChoice = regulationChoiceFor(course, current);
+  const currentChoice = pickedChoice(course, current, minutes);
   const fresh = !current.length || (Boolean(currentChoice) && checked && !current.includes(day));
   if (checked && fresh && choices.length) {
     const [applied, ...alternatives] = choices;
@@ -124,16 +142,16 @@ export function pickDay(
   const days = checked
     ? DAY_KEYS.filter(item => item === day || current.includes(item))
     : current.filter(item => item !== day);
-  const applied = regulationChoiceFor(course, days);
+  const applied = pickedChoice(course, days, minutes);
   const alternatives = days.length ? regulationChoicesForDay(course, days[0]).filter(choice => choice.id !== applied?.id) : [];
   return { days: [...days], applied, alternatives };
 }
 
 /** النهاية المحسوبة من البداية ودقائق النمط المعتمد للأيام المختارة؛ "" إن لم يُعرف نمط. */
-export function regulationEnd(course: RegulationCourse | null | undefined, days: readonly DayKey[], start: string): string {
+export function regulationEnd(course: RegulationCourse | null | undefined, days: readonly DayKey[], start: string, minutes?: number): string {
   const from = toMinutes(start);
   if (!Number.isFinite(from)) return "";
-  const choice = regulationChoiceFor(course, days);
+  const choice = regulationChoiceFor(course, days, minutes);
   if (!choice) return "";
   return clock(Math.min(SCHEDULE_DAY_END, from + choice.minutes));
 }
@@ -149,10 +167,18 @@ export function regulationFit(
 ): RegulationFit {
   if (!regulationHours(course) || !days.length) return "unknown";
   const from = toMinutes(start), to = toMinutes(end);
+  const length = to - from;
+  const ordered = DAY_KEYS.filter(day => days.includes(day));
+  /* صفٌّ هو لقاءٌ من نمطٍ معتمد: الخمس ساعات (170 + 110) صفّان بطولين، والنمطُ يُبنى أحياناً صفّاً لكل يوم.
+     كانت هذه تُقرأ «خارج اللائحة»، والمكتبةُ نفسها تعتمدها. */
+  const partOfPattern = Number.isFinite(length) && patternsForHours(regulationHours(course)).some(pattern => pattern.days.length > 1
+    && (ordered.length === 1
+      ? pattern.days.some((day, index) => day === ordered[0] && pattern.minutesPerDay[index] === length)
+      : !uniform(pattern) && pattern.days.length === ordered.length && pattern.days.every(day => ordered.includes(day)) && pattern.minutesPerDay.includes(length)));
   const choice = regulationChoiceFor(course, days);
-  if (!choice) return "off";
+  if (!choice) return partOfPattern ? "fits" : "off";
   if (!Number.isFinite(from) || !Number.isFinite(to)) return "unknown";
-  return to - from === choice.minutes ? "fits" : "off";
+  return length === choice.minutes || partOfPattern ? "fits" : "off";
 }
 
 /** الأيام المختارة في صفّ موعد. */
@@ -219,7 +245,7 @@ export function completeRegulation(
   course: RegulationCourse | null | undefined,
   days: readonly DayKey[],
   start: string,
-  options: { fresh?: boolean; usual?: RegulationChoice | null } = {},
+  options: { fresh?: boolean; usual?: RegulationChoice | null; minutes?: number; keepDays?: boolean } = {},
 ): RegulationCompletion | null {
   if (!regulationHours(course)) return null;
   const from = toMinutes(start);
@@ -228,7 +254,9 @@ export function completeRegulation(
     if (!usual || !Number.isFinite(from)) return null;
     return { days: [...usual.days], end: clock(Math.min(SCHEDULE_DAY_END, from + usual.minutes)), applied: usual };
   }
-  const exact = options.fresh ? null : regulationChoiceFor(course, days);
+  const exact = options.fresh ? null : regulationChoiceFor(course, days, options.minutes);
+  /* `keepDays`: الأيامُ اختارها صاحبُها أو كانت في الموعد المحفوظ — لا تُستبدل بأيامٍ لم يخترها. */
+  if (!exact && !options.fresh && options.keepDays) return null;
   const applied = exact || regulationChoicesForDay(course, days[0])[0];
   if (!applied) return null;
   return {

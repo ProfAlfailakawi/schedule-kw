@@ -11,7 +11,7 @@ import { retiredOrSabbaticalIds } from "../../utils/visitingToFaculty";
 import type { FSchedule } from "../../types";
 import { resolveSmartScope } from "../readScope";
 import { blockingConflicts, placeholderInstructorIds as sharedPlaceholderInstructorIds, type ApprovalBlockerOptions } from "../../utils/scheduleBlockers";
-import { isValidClock, normalizeClock, withinScheduleDay } from "../../utils/scheduleTime";
+import { isValidClock, normalizeClock, startsWithinScheduleDay } from "../../utils/scheduleTime";
 import { resolveBuilding, resolveRoom } from "../../utils/locationRegistry";
 import { collegeBranchRoot, siblingBranchScopes } from "../../utils/branchScope";
 import { locationPreflight } from "../locationRegistryEngine";
@@ -324,7 +324,7 @@ export async function validateSmartRows(rows: any[], collegeId: number, sectionI
        cell or an OCR'd page, neither of which is bounded by a time picker. */
     if (!isValidClock(row.fstarttime) || !isValidClock(row.fendtime)) errors.push(`السطر ${index + 1}: وقت غير صالح (الساعة بين 0 و23 والدقيقة بين 0 و59)`);
     else if (timeToMinutes(row.fendtime) <= timeToMinutes(row.fstarttime)) errors.push(`السطر ${index + 1}: وقت النهاية يجب أن يكون بعد البداية`);
-    else { const window=await sectionScheduleWindow(Number(row.AdSectionId||sectionId)); if(!withinScheduleDay(timeToMinutes(row.fstarttime),timeToMinutes(row.fendtime),window)) errors.push(`السطر ${index + 1}: وقت المحاضرة يجب أن يكون بين ${window.startTime} و${window.endTime}`); }
+    else { const window=await sectionScheduleWindow(Number(row.AdSectionId||sectionId)); if(!startsWithinScheduleDay(timeToMinutes(row.fstarttime),timeToMinutes(row.fendtime),window)) errors.push(`السطر ${index + 1}: وقت المحاضرة يجب أن يكون بين ${window.startTime} و${window.endTime}`); }
     if (activeDays(row).length === 0) errors.push(`السطر ${index + 1}: لم يتم تحديد يوم للمحاضرة`);
     if (course) row.AdCourseName = course.CourseName;
   }

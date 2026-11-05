@@ -29,6 +29,18 @@ export function withinScheduleDay(start: number, end: number, window?: ScheduleD
 }
 
 
+/**
+ * أوقاتُ دوام القسم (ملاحظة المالك 20): البدايةُ داخلها شرط، أما تجاوزُ النهاية فتنبيهٌ لا يمنع.
+ * بدايةٌ بعد نهاية الدوام ليست «تجاوزاً»: الموعد كلُّه خارجه.
+ */
+export function startsWithinScheduleDay(start: number, end: number, window?: ScheduleDayWindow | null): boolean {
+  const bounds = scheduleDayWindowMinutes(window);
+  return Number.isFinite(start) && Number.isFinite(end) && start >= bounds.start && start < bounds.end && end > start;
+}
+export function endsPastScheduleDay(end: number, window?: ScheduleDayWindow | null): boolean {
+  return Number.isFinite(end) && end > scheduleDayWindowMinutes(window).end;
+}
+
 export function scheduleClockForDisplay(value: string | null | undefined): string {
   const raw = String(value || "").trim();
   if (!raw) return "—";

@@ -48,6 +48,6 @@ assert.match(quick, /pendingCheck \|\| blocked \|\| checkFailed/);
   assert.match(checkRoute, /await Promise\.all\(\[/, "check-conflicts runs its independent reads in parallel");
 }
 assert.match(server, /return borrowingRequired && !borrowCovers\(String\(hall\.roomId\),day,from,to\)/);
-assert.match(wheels, /Math\.min\(maximum, clamped \+ span\)/);
+assert.match(wheels, /Math\.min\(lastEnd, clamped \+ span\)/);
 
 console.log("Appointment-entry parity: shared section codes, live checks, handoff, multi-time safety, borrowed-room windows, duration ✓");

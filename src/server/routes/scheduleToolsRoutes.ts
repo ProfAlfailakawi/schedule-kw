@@ -554,7 +554,7 @@ app.post("/api/schedules/placeholder-action", requirePermission(7), async (req: 
         for (const row of rows) { const issue = await scheduleLengthIssue(row, week); if (issue) throw new RequestReservationConflict(issue); }
       }, owners);
   } catch (error: any) {
-    if (error instanceof RequestHoldConflict) { res.status(409).json({ ...await requestHoldRefusal([error.holdRequestId]), applied: false }); return; }
+    if (error instanceof RequestHoldConflict) { res.status(409).json({ ...await requestHoldRefusal([error.holdRequestId], [error.holdItemId]), applied: false }); return; }
     res.status(error instanceof ScheduleRevisionConflict || error instanceof RequestReservationConflict ? 409 : 503)
       .json({ error: error?.message || "تعذّر التنفيذ. لم يُحفظ أي تغيير.", applied: false });
     return;

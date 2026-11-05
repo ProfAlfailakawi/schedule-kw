@@ -171,7 +171,7 @@ export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
   issues.forEach((text, index) => byKind.get(issueKind(text))!.push({ id: `issue-${index}`, text, blocks: true }));
   conflicts.forEach((conflict, index) => byKind.get(conflictKind(conflict))!.push({
     id: `conflict-${conflict?.type || "x"}-${conflict?.rowId || conflict?.otherId || index}-${index}`,
-    text: conflict?.holdRequestId ? `${conflictText(conflict)} · محجوز لطلب أستاذ — يُسأل عنه عند الحفظ` : conflictText(conflict),
+    text: conflict?.holdRequestId ? `${conflictText(conflict)} · محجوز لطلب ${conflict?.holdInstructorName || "أستاذ"} — يُسأل عنه عند الحفظ` : conflictText(conflict),
     detail: String(conflict?.detail || "").replace(/\s+/g, " ").trim() || undefined,
     /* حجزُ طلب أستاذٍ ينتظر القسم ليس مانعاً هنا: الحفظ يسأل عنه سؤالاً واحداً (overrideRequestHolds). */
     blocks: isBlockingConflict(conflict) && !conflict?.holdRequestId,
