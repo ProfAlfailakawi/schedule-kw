@@ -18,6 +18,17 @@ export const academicDigits = (value: unknown): string => String(value ?? "")
   .replace(/[۰-۹]/g, digit => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
   .replace(/\D/g, "");
 
+/**
+ * رقم المقرر في الكتالوج كما يقارَن بما تطبعه الهيئة. ثلثا مقررات 0114 في كتالوج
+ * الإنتاج مخزّنة بصفرها الأول ساقطاً (114101، نقلها جدول حوّلها أرقاماً)، وأمامها
+ * صفوف كاملة (0114101) وقصيرة (101). الست خانات التي تبدأ بغير صفر مفتاح كامل فقد
+ * صفره: كل مفاتيح الهيئة تبدأ بصفر الكلية (0x)، ولا يوجد مفتاح يبدأ بـ1.
+ */
+export function authorityCatalogueCourseDigits(value: unknown): string {
+  const digits = academicDigits(value);
+  return /^1\d{5}$/.test(digits) ? `0${digits}` : digits;
+}
+
 /** Return the document-level department key represented by this catalogue row. */
 export function authorityDepartmentCode(collegeCode: unknown, sectionCode: unknown): string {
   const collegeRaw = academicDigits(collegeCode);
@@ -96,7 +107,7 @@ export function authorityCoursePrefixes(departmentCode: unknown): string[] {
  * نفسه بالذيل ذاته. والمفتاح الكامل لا يُعبَر: 0120101 في الكتالوج ليس 0114101.
  */
 export function authorityInheritedCourseMatches(sourceCode: unknown, catalogueCourseCode: unknown, departmentCode: unknown): boolean {
-  const source = academicDigits(sourceCode), course = academicDigits(catalogueCourseCode), department = academicDigits(departmentCode);
+  const source = academicDigits(sourceCode), course = authorityCatalogueCourseDigits(catalogueCourseCode), department = academicDigits(departmentCode);
   if (source.length !== 7 || !course || course.length > 3) return false;
   if (!(AUTHORITY_INHERITED_COURSE_PREFIXES[department] || []).includes(source.slice(0, 4))) return false;
   return source.slice(-3) === course.padStart(3, "0");
@@ -124,7 +135,7 @@ export function authorityDepartmentMatches(sourceCode: unknown, collegeCode: unk
  */
 export function authorityCourseCodeMatches(sourceCode: unknown, catalogueCourseCode: unknown, departmentCode: unknown): boolean {
   const source = academicDigits(sourceCode);
-  const course = academicDigits(catalogueCourseCode);
+  const course = authorityCatalogueCourseDigits(catalogueCourseCode);
   const department = academicDigits(departmentCode);
   if (!source || !course) return false;
   if (source === course) return true;
@@ -163,10 +174,10 @@ export function authorityCourseCodeMatches(sourceCode: unknown, catalogueCourseC
  */
 export function authorityCourseCode(catalogueCourseCode: unknown, departmentCode: unknown): string {
   const stored = String(catalogueCourseCode ?? "").normalize("NFKC").trim();
-  const course = academicDigits(stored);
+  const course = authorityCatalogueCourseDigits(stored);
   const department = academicDigits(departmentCode);
   // رمزٌ فيه غير الأرقام ليس رقم مقرر للهيئة: يُعرض كما هو ولا تُنتزع منه أرقام.
-  if (!course || course.length !== stored.replace(/\s/g, "").length) return stored;
+  if (!course || academicDigits(stored).length !== stored.replace(/\s/g, "").length) return stored;
   if (department.length !== 4) return course;
   if (course.length <= 3) return `${department}${course.padStart(3, "0")}`;
   /* المفتاح الكامل من القسم نفسه ربما أُنشئ تحت كليةٍ أخرى أولاً، والهيئة تطبعه

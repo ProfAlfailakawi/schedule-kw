@@ -18,7 +18,7 @@ import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { displayInstructorText, instructorIdentityTokens, readableInstructorName, registryCandidatesFor } from "../../utils/instructorIdentity";
 import { ocrDocument, parseScheduleTable, readAuthorityPdfHeader, SCAN_READING_BUSY_MESSAGE, ScanReadingBusyError, GREY_PHOTO_REFUSAL, scanRefusalMessage, unresolvedDaysReason, restoredDaysReason } from "../../utils/documentOcr";
 import { recoverAuthorityScanRowsFromHistory } from "../../utils/authorityScanRecovery";
-import { academicDigits, assignAuthoritySections, authorityDepartmentCode, authorityDepartmentMatches, normalizeAuthoritySectionCode } from "../../utils/authorityAcademicCodes";
+import { academicDigits, assignAuthoritySections, authorityCatalogueCourseDigits, authorityDepartmentCode, authorityDepartmentMatches, normalizeAuthoritySectionCode } from "../../utils/authorityAcademicCodes";
 import { isInvalidLocationToken, resolveAuthorityLocation, resolveRoom } from "../../utils/locationRegistry";
 import { officialCollegeSitePrefix, officialSiteLabel } from "../../utils/locationCollegePrefixes";
 import { resolveBranchScope } from "../../utils/branchScope";
@@ -458,7 +458,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
      course-key rescue. The one-page OCR path is intentionally unchanged. */
   const ocrDepartmentKey=authorityDepartmentCode(targetAuthorityCollegeCode,targetSection?.AdSectionCode);
   const authorityCourseKeys=courses.map((course:any)=>{
-    const digits=academicDigits(course?.CourseCode);
+    const digits=authorityCatalogueCourseDigits(course?.CourseCode);
     /* A shared catalogue row can carry the seven-digit key of the college where
        it was first created (for example 0101101), while this SWRSCHA document
        belongs to another college (0201101 / 0401101 ...). Course identity is

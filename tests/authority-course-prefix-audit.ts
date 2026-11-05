@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { authorityCourseCellLooksPlausible, authorityPdfTextGridRows, parseScheduleTable, type GridRow, type OcrPage } from "../src/utils/documentOcr.ts";
-import { assignAuthoritySections, authorityCourseCodeMatches, authorityCoursePrefixes, authorityInheritedCourseMatches, unlinkedCourseEvidence } from "../src/utils/authorityAcademicCodes.ts";
+import { assignAuthoritySections, authorityCatalogueCourseDigits, authorityCourseCode, authorityCourseCodeMatches, authorityCoursePrefixes, authorityInheritedCourseMatches, unlinkedCourseEvidence } from "../src/utils/authorityAcademicCodes.ts";
 
 let passed = 0;
 const check = (name: string, run: () => void) => { run(); passed++; console.log(`  ok ${name}`); };
@@ -110,6 +110,22 @@ check("long printed blocks survive the text layer, and only the text layer", () 
   const rows = semantic([...full(100, "0114492", "1086", "01", "مقرر تجريبي", "1220 - 0800", "5 4 3 2 1", "", ""), ...full(113, "0107452", "1035", "01", "مقرر تجريبي", "1750 - 1300", "3", "F62", "011B20")]);
   assert.deepEqual(rows.map(row => [row.start, row.end]), [["08:00", "12:20"], ["13:00", "17:50"]]);
   assert.equal(semantic(full(100, "0107452", "1035", "01", "مقرر تجريبي", "2100 - 0800", "3", "F62"))[0].start, "", "thirteen hours is no block");
+});
+
+check("the catalogue's three real shapes resolve one printed key, with no neighbour taken", () => {
+  assert.equal(authorityCatalogueCourseDigits("114101"), "0114101", "a key that lost its leading zero");
+  assert.equal(authorityCatalogueCourseDigits("0114101"), "0114101");
+  assert.equal(authorityCatalogueCourseDigits("101"), "101");
+  assert.equal(authorityCatalogueCourseDigits("415114"), "415114", "only keys of college 01 with a lost zero are restored");
+  assert.equal(authorityCourseCode("114101", "0120"), "0114101", "the seven-digit rule holds for this shape");
+  const catalogue = [{ id: 1, code: "101", name: "أصول التربية" }, { id: 2, code: "114101", name: "أصول التربية" },
+    { id: 3, code: "464", name: "الإدارة التربوية والتعليمية" }, { id: 4, code: "114464", name: "الإدارة التربوية التعليمية" }];
+  const rows = parse([grid("0114101", "اصول التربيه"), grid("0120101", "أصول التربية"), grid("0114464", "اداره تربويه التعليميه"), grid("0120464", "الادارة التربوية والتعليمية")], "0120", catalogue).rows;
+  assert.deepEqual(rows.map(row => row.AdCourseId), [2, 1, 4, 3]);
+  assert.equal(parse([grid("0115151", "مقرر تجريبي")], "0115", [{ id: 5, code: "151", name: "مقرر تجريبي" }, { id: 6, code: "0115151", name: "مقرر تجريبي" }]).rows[0].AdCourseId, 6, "a stored full key beats the short twin");
+  assert.equal(parse([grid("0115151", "مقرر تجريبي")], "0115", [{ id: 7, code: "0115151", name: "أ" }, { id: 8, code: "115151", name: "ب" }]).rows[0].AdCourseId, 0, "the same key twice stays undecided");
+  assert.equal(parse([grid("0114324", "طرق تدريس (رياضيات)")], "0121", [{ id: 9, code: "324", name: "طرق تدريس (التربية الفنية)" }]).rows[0].AdCourseId, 0, "the same tail, another subject");
+  assert.equal(authorityCourseCodeMatches("0102101", "114101", "0120"), false);
 });
 
 console.log(JSON.stringify({ passed, guard: "authority-course-prefix" }));
