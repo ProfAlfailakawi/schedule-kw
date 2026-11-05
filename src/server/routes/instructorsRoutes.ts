@@ -349,11 +349,11 @@ app.delete("/api/instructors/:id", requirePermission(3), async (req: Request, re
 /* ── «الأساتذة» في أدوات البيانات: يديرهم القسم في نطاقه ───────────────────
  * المعرّف يُقرأ من أساتذة القسم وصفوف جدوله، فلا يلمس أحدٌ سجلَّ من ليس في قسمه.
  * لا رقم مدني ولا هاتف في الردّ. */
-async function sectionRosterIds(collegeId: number, sectionId: number, termId: number): Promise<Set<number>> {
-  const [faculty, rows] = await Promise.all([
-    Repository.getDepartmentFaculty(collegeId, sectionId),
-    termId ? Repository.getSchedulesByScope({ collegeId, sectionId, termId }) : Promise.resolve([]),
-  ]);
+/* العضوية من سجلّ القسم كلّه: المتقاعدُ وTA قد لا يكون لهما موعدٌ هذا الفصل، فلا يكفي
+ * الفصلُ المعروض ولا فرعٌ واحد؛ تُقرأ مواعيدُ عائلة القسم في كل الفصول. */
+async function sectionRosterIds(collegeId: number, sectionId: number): Promise<Set<number>> {
+  const [faculty, family] = await Promise.all([Repository.getDepartmentFaculty(collegeId, sectionId), Repository.familyOf(collegeId, sectionId)]);
+  const rows = (await Promise.all(family.map(member => Repository.getSchedulesByScope({ collegeId: member.collegeId, sectionId: member.sectionId })))).flat();
   return new Set<number>([...faculty.map(Number), ...(rows as any[]).map(row => Number(row.AdInstructorId)).filter(Boolean)]);
 }
 
@@ -362,7 +362,7 @@ app.get("/api/section-roster", requirePermission(7), async (req: AuthenticatedRe
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
   const [ids, instructors, config, terms, termRows, courses] = await Promise.all([
-    sectionRosterIds(collegeId, sectionId, termId), Repository.getInstructors(), Repository.getTeachingLoadConfig(), Repository.getTerms(),
+    sectionRosterIds(collegeId, sectionId), Repository.getInstructors(), Repository.getTeachingLoadConfig(), Repository.getTerms(),
     Repository.getSchedulesByScope({ termId }), Repository.getCourses(),
   ]);
   const hours = teachingHoursByInstructor(termRows, new Map<number, number>(courses.map(course => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number])));
@@ -384,14 +384,26 @@ app.put("/api/section-roster/:id", requirePermission(7), async (req: Authenticat
   const id = Number(req.params.id), collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
   if (!collegeId || !sectionId || !id || !termId) { res.status(400).json({ error: "طلبٌ ناقص." }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
-  /* الفصلُ المعروض نفسُه: عضويةُ القراءة والكتابة واحدة. */
-  const members = await sectionRosterIds(collegeId, sectionId, termId);
+  /* عضويةُ القراءة والكتابة واحدة. */
+  const members = await sectionRosterIds(collegeId, sectionId);
   const person: any = await Repository.getInstructorById(id);
   if (!person || !members.has(id) || isFacultyPlaceholder(person)) { res.status(404).json({ error: "هذا الأستاذ ليس في قسمك." }); return; }
   const body = req.body || {};
   const changes: string[] = [];
+  /* الاسم وحده: الرقم المدني لا يصل إلى هذا الباب ولا يتغيّر منه. */
+  if ("name" in body) {
+    const name = String(body.name ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
+    if (!name) { res.status(400).json({ error: "اكتب الاسم." }); return; }
+    if (name !== person.AdInstructorName) {
+      await Repository.updateInstructor(id, person.AdInstructorCivil, name, person.AdInstructorMobile || "", person.AdInstructorStatus ?? null, person.AdInstructorLoad ?? null, person.AdInstructorCategory ?? null);
+      person.AdInstructorName = name;
+      changes.push("الاسم");
+    }
+  }
   if ("status" in body || "category" in body) {
     const status = "status" in body ? (body.status === "retired" || body.status === "sabbatical" ? body.status : null) : person.AdInstructorStatus ?? null;
+    /* التحويلُ باتجاهٍ واحد: TA يصير أستاذاً، ولا يصير الأستاذُ TA. */
+    if ("category" in body && body.category === "ta" && person.AdInstructorCategory !== "ta") { res.status(400).json({ error: "لا يتحوّل الأستاذ إلى TA." }); return; }
     const category = "category" in body ? (body.category === "ta" ? "ta" : null) : person.AdInstructorCategory ?? null;
     await Repository.updateInstructor(id, person.AdInstructorCivil, person.AdInstructorName, person.AdInstructorMobile || "", status, person.AdInstructorLoad ?? null, category);
     changes.push(`الحالة: ${status || "نشط"} · التصنيف: ${category || "أستاذ"}`);
