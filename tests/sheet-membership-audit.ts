@@ -12,8 +12,10 @@
  *   W — كلُّ شاشةٍ تقرأ المصدرَ الواحد.
  */
 import fs from "node:fs";
-import { byCourseNumber, sheetBadgeOf, sheetMembership, sheetSideOf, splitBySide, type MembershipInput } from "../src/utils/sheetMembership";
+import { byCourseNumber, serviceRequirements, sheetBadgeOf, sheetMembership, sheetSideOf, splitBySide, type MembershipInput } from "../src/utils/sheetMembership";
 import { sheetTagOf } from "../src/utils/sheetTag";
+import { historyAcrossRecords, sheetReach } from "../src/utils/courseReach";
+import { termChronology } from "../src/utils/termSequence";
 import { offeringTabs } from "../src/utils/prepublishReach";
 import { setSheetMembershipSource, sheetSidesBySection, sheetSidesFor } from "../src/server/planBadgeShared";
 
@@ -129,6 +131,20 @@ check(side(TE_GIRLS, 301) === "new" && side(TE_GIRLS, 303) === "old", "M9 فرع
     ["src/utils/prepublishReach.ts", /byCourseNumber<PrepublishRow>/, "ورقة «لم نصل بعد»"],
   ];
   for (const [file, pattern, label] of sorts) check(pattern.test(read(file)), `W10 الترتيبُ برقم المقرر: ${label}`);
+}
+
+/* ── N: ملاحظتا المالك ١٧ و١٨ ──────────────────────────────────────────── */
+{
+  const required = serviceRequirements({ plans: [{ id: "m", sectionId: MATH }, { id: "g", sectionId: TE_GIRLS }], links: [{ planId: "m", courseId: 103 }, { planId: "g", courseId: 101 }], sets: [{ planId: "m", rules: [{ courseId: 105 }, { courseId: 201 }], externals: [] }], courses: input.courses, familyOf: input.familyOf });
+  check([...required.get("m")!].sort().join() === "103,105,303", "N1 مقرر تخصص تطلبه صحيفةُ قسمٍ آخر برابطٍ أو قاعدة (لا externals وحدها) ومعه سجلُّه في الفرع الآخر: قاعدةٌ عامة", required.get("m"));
+  check(required.get("g")!.length === 0, "N2 طلبُ فرعٍ من القسم نفسه ليس خدمة");
+  const same = historyAcrossRecords([1, 2, 3], id => ({ 1: "0109112", 2: "112", 3: "113" } as any)[id]);
+  check(same(2).join() === "1,2" && same(3).join() === "3", "N3 السجلّان بالرقم القصير نفسه تاريخٌ واحد");
+  const reach = sheetReach({ sheet: { courseIds: [1, 2], rules: [] }, history: [{ chronology: 20250, courseIds: [1] }], currentChronology: 20260, levelOf: id => (id === 2 ? 300 : 100), codeOf: String });
+  check(reach.get(2)?.state === "locked", "N4 المستوى المعطى هو الحكم");
+  check(termChronology({ AdTermName: "الفصل الثاني ٢٠٢٥-٢٠٢٦" }) === 20251 && termChronology({ AdTermName: "الفصل الأول 2025/2026" }) === 20250, "N5 ترتيبُ الفصل يقرأ الشرطة والأرقام العربية (لا يهبط إلى رقم المعرّف)");
+  const shared = read("src/server/courseReachShared.ts");
+  check(/sides\[id\] === "new"/.test(shared) && /ruleLevel\.get\(id\) \|\| courseLevelFromCode/.test(shared), "N6 الوصول يقرأ عضوية الجديدة الواحدة ومستوى الصحيفة");
 }
 
 /* ── C: الكلفة — قراءةُ العضوية مرةً واحدة لطلبٍ بأقسامٍ كثيرة، وطلباتٌ متزامنة لا تكرّرها ─────────── */

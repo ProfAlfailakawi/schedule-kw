@@ -15,7 +15,7 @@
  */
 import { ensureSectionFaculty } from "./sectionFaculty";
 import { setCourseFactSource, setPlanBadgeSource, setServiceSource, setSheetMembershipSource } from "./planBadgeShared";
-import { sheetBadgeOf, sheetMembership, type Membership } from "../utils/sheetMembership";
+import { serviceRequirements, sheetBadgeOf, sheetMembership, type Membership } from "../utils/sheetMembership";
 import { authoritativeRequirementKind, type RequirementKind } from "../utils/courseTags";
 import { createDataContextKey } from "./dataContextCache";
 import { groupDeptTracks, planMatchKey, trackLabels, type DeptTrack } from "../utils/collegeTrack";
@@ -279,6 +279,17 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   /* الصندوقُ التجريبي له عالَمُه: ما حُفظ في طلبٍ تجريبيٍّ لا يقرؤه الحقيقيّ (بطاقةُ الأستاذ العامة تقرأ هذا الآن). */
   const serviceKey = createDataContextKey(() => Repository.currentDemoSessionId());
   /* عضويةُ الصحيفة (src/utils/sheetMembership.ts): مصدرٌ واحد للوسم وللتبويبين — لا يُحسب أحدهما من غير ما يُحسب منه الآخر. */
+  /* ما تطلبه كلُّ صحيفةٍ من أقسامٍ أخرى — قراءةٌ واحدة لوسم «متطلب كلية» ولعضوية مقرر الخدمة. */
+  const requirementsOf = (sections: any[], plansOf: Map<number, any[]>, links: any[], courses: any[], ruleSets: CurriculumRuleSet[]) => {
+    const collegeOf = new Map(sections.map(section => [Number(section.AdSectionId), Number(section.AdCollegeId)]));
+    return serviceRequirements({
+      plans: [...plansOf].flatMap(([sid, plans]) => plans.filter(plan => !plan.virtual).map(plan => ({ id: String(plan.id), sectionId: sid }))),
+      sets: ruleSets.map(set => ({ planId: String(set.planId), externals: (set.externals || []).map(Number), rules: (set.rules || []).map(rule => ({ courseId: Number(rule.courseId) })) })),
+      links: links.map(link => ({ planId: String(link.planId), courseId: Number(link.AdCourseId) })),
+      courses: courses.map(course => ({ id: Number(course.AdCourseId), sectionId: Number(course.AdSectionId), collegeId: Number(course.AdCollegeId), code: String(course.CourseCode || "") })),
+      familyOf: sid => departmentFamily(sections, collegeOf.get(sid) || 0, sid).map(member => member.sectionId),
+    });
+  };
   let membershipCache: { key: string; at: number; rows: Map<string, Membership> } | null = null;
   /* قراءةٌ واحدة في الطريق لكل عالَم: طلباتٌ متزامنة بذاكرةٍ باردة تنتظر القراءةَ نفسها (لا قراءةً كاملة لكلٍّ منها). */
   let membershipInflight: { key: string; value: Promise<Map<string, Membership>> } | null = null;
@@ -298,7 +309,7 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
     const rows = sheetMembership({
       plans: [...plansOf].flatMap(([sid, plans]) => plans.map(plan => ({ id: String(plan.id), sectionId: sid, status: plan.status, track: plan.track, virtual: plan.virtual, sheetYear: plan.sheetYear, name: plan.name }))),
       links: allLinks.map(link => ({ planId: String(link.planId), courseId: Number(link.AdCourseId) })),
-      externals: ruleSets.map(set => ({ planId: String(set.planId), courseIds: (set.externals || []).map(Number) })),
+      externals: [...requirementsOf(sections, plansOf, allLinks, courses as any[], ruleSets)].map(([planId, courseIds]) => ({ planId, courseIds })),
       courses: courses.map(course => ({ id: Number(course.AdCourseId), sectionId: Number(course.AdSectionId), collegeId: Number(course.AdCollegeId), code: String(course.CourseCode || "") })),
       /* The admin catalog can contain a stale or mistaken membership link.
          For Technology Education, only the courses printed in the current
@@ -330,21 +341,18 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
   const serviceRows = async () => {
     const key = serviceKey("service");
     if (serviceCache && serviceCache.key === key && Date.now() - serviceCache.at < 15_000) return serviceCache.rows;
-    const [ruleSets, courses, sections] = await Promise.all([Repository.listRuleSets(), Repository.getCourses(), Repository.getSections()]);
+    const [ruleSets, courses, sections, plansOf, links] = await Promise.all([Repository.listRuleSets(), Repository.getCourses(), Repository.getSections(), plansBySection(), Repository.getAllCurriculumPlanCourses()]);
     const owner = new Map((courses as any[]).map(course => [Number(course.AdCourseId), course]));
     const names = new Map((sections as any[]).map(section => [Number(section.AdSectionId), String(section.AdSectionName || "")]));
-    const plansOf = await plansBySection();
-    const live = new Map<number, Set<string>>();
+    const required = requirementsOf(sections as any[], plansOf, links as any[], courses as any[], ruleSets);
     const rows = new Map<number, { names: Set<string>; collegeId: number; sectionId: number }>();
-    for (const rule of ruleSets) {
-      const sid = Number(rule.AdSectionId);
-      if (!live.has(sid)) live.set(sid, new Set((plansOf.get(sid) || []).filter(plan => plan.status !== "archived").map(plan => plan.id)));
-      if (!live.get(sid)!.has(rule.planId)) continue;
-      for (const id of (rule.externals || []).map(Number)) {
-        const course = owner.get(id), name = names.get(sid);
-        if (!course || !name || Number(course.AdSectionId) === sid) continue;
+    for (const [sid, plans] of plansOf) for (const plan of plans) {
+      if (plan.status === "archived" || !names.get(sid)) continue;
+      for (const id of required.get(String(plan.id)) || []) {
+        const course = owner.get(id);
+        if (!course) continue;
         const row = rows.get(id) || { names: new Set<string>(), collegeId: Number(course.AdCollegeId), sectionId: Number(course.AdSectionId) };
-        row.names.add(name); rows.set(id, row);
+        row.names.add(names.get(sid)!); rows.set(id, row);
       }
     }
     serviceCache = { key, at: Date.now(), rows };
