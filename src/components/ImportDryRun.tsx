@@ -4,8 +4,8 @@
  * (يُضاف · يُحذف · يتغيّر · كما هو · تعارضات) — ولا يُكتب شيء. «طبّق» خطوتان
  * (طلبٌ ثم تأكيد)، وكتابةٌ واحدة تحفظ قبلها نسخةً للتراجع؛ و«تراجع» يعيدها بنقرة.
  */
-import React, { useState } from "react";
-import { AlertTriangle, CheckCircle2, Equal, FlaskConical, Minus, PenLine, Plus, RotateCcw, Undo2, X } from "lucide-react";
+import React from "react";
+import { AlertTriangle, Equal, FlaskConical, Minus, PenLine, Plus, RotateCcw } from "lucide-react";
 import { DIFF_FIELD_LABEL, type ImportDiff } from "../utils/importDiff";
 import { AR, countOf } from "../utils/arabicCount";
 import { PrimaryButton, SecondaryButton } from "./ui";
@@ -34,19 +34,13 @@ export function DryRunBaselineFailed({ onRetry, busy }: { onRetry: () => void; b
   );
 }
 
-export default function ImportDryRun({ diff, conflicts, ready, checking, busy, applied, onApply, onUndo, onCancel }: {
+/** البطاقة تقول الفرق وحده؛ «طبّق» و«إغلاق» و«تراجع» في شريط الاستيراد، فلا يتنافس زرّان. */
+export default function ImportDryRun({ diff, conflicts, applied }: {
   diff: ImportDiff;
-  conflicts: number;
-  /** المعاينة نظيفة (لا ملاحظات تمنع)، وفحص التعارض انتهى. */
-  ready: boolean;
-  checking: boolean;
-  busy: boolean;
-  applied: { count: number; undoable: boolean; undone?: boolean } | null;
-  onApply: () => void;
-  onUndo: () => void;
-  onCancel: () => void;
+  /** null: فحص التعارض لم ينته، فلا يُقال «صفر». */
+  conflicts: number | null;
+  applied: { undone?: boolean } | null;
 }) {
-  const [confirming, setConfirming] = useState(false);
   const total = Math.max(1, diff.same + diff.changed.length + diff.added.length + diff.removed.length);
   const pct = (n: number) => `${(n / total) * 100}%`;
   const tiles = [
@@ -54,7 +48,7 @@ export default function ImportDryRun({ diff, conflicts, ready, checking, busy, a
     { key: "remove", icon: <Minus />, value: diff.removed.length, label: "يُحذف" },
     { key: "change", icon: <PenLine />, value: diff.changed.length, label: "يتغيّر" },
     { key: "same", icon: <Equal />, value: diff.same, label: "كما هو" },
-    { key: "conflict", icon: <AlertTriangle />, value: conflicts, label: "تعارض" },
+    { key: "conflict", icon: <AlertTriangle />, value: conflicts ?? 0, label: conflicts === null ? "يفحص" : "تعارض", pending: conflicts === null },
   ];
   return (
     <section className="dry" aria-label="تجربة بلا حفظ">
@@ -64,7 +58,7 @@ export default function ImportDryRun({ diff, conflicts, ready, checking, busy, a
         <em className="dry-badge">{applied ? (applied.undone ? "تراجعتَ عن التطبيق" : "طُبّق") : "لم يُكتب شيء"}</em>
       </header>
       <ul className="dry-tiles">
-        {tiles.map(tile => <li key={tile.key} className={tile.value ? `is-${tile.key}` : ""}>{tile.icon}<b>{num(tile.value)}</b><small>{tile.label}</small></li>)}
+        {tiles.map(tile => <li key={tile.key} className={tile.value ? `is-${tile.key}` : ""}>{tile.icon}<b>{(tile as { pending?: boolean }).pending ? "…" : num(tile.value)}</b><small>{tile.label}</small></li>)}
       </ul>
       <div className="dry-stack" role="img" aria-label={`كما هو ${diff.same}، يتغيّر ${diff.changed.length}، يُضاف ${diff.added.length}، يُحذف ${diff.removed.length}`}>
         <i className="is-same" style={{ width: pct(diff.same) }} /><i className="is-change" style={{ width: pct(diff.changed.length) }} />
@@ -75,22 +69,6 @@ export default function ImportDryRun({ diff, conflicts, ready, checking, busy, a
         {diff.removed.length ? <details><summary><Minus aria-hidden="true" />يُحذف {num(diff.removed.length)}</summary><ul>{diff.removed.map(item => <li key={item.key}><b>{item.label}</b></li>)}</ul></details> : null}
         {diff.changed.length ? <details open={diff.changed.length <= 6}><summary><PenLine aria-hidden="true" />يتغيّر {num(diff.changed.length)}</summary>
           <ul>{diff.changed.map(item => <li key={item.key}><b>{item.label}</b><em>{(item.fields || []).map(field => DIFF_FIELD_LABEL[field]).join(" · ")}</em></li>)}</ul></details> : null}
-      </div>
-      <div className="dry-actions">
-        {applied ? (
-          applied.undone ? <p className="tm-note"><Undo2 aria-hidden="true" /> عاد الجدول كما كان قبل التطبيق.</p> : <>
-            <p className="tm-note"><CheckCircle2 aria-hidden="true" /> طُبّق: {countOf(applied.count, AR.appointment)} في الجدول.</p>
-            {applied.undoable ? <SecondaryButton type="button" onClick={onUndo} disabled={busy} data-guide-ignore="تراجعٌ عن تطبيق الاستيراد إلى النسخة المحفوظة قبله"><Undo2 aria-hidden="true" />تراجع</SecondaryButton> : null}
-          </>
-        ) : confirming ? <>
-          <p className="tm-note" role="alert">سيُستبدل جدول الفصل ({countOf(diff.current, AR.section)}) بما في الملف ({countOf(diff.incoming, AR.section)}). تُحفظ نسخةٌ قبله للتراجع.</p>
-          <PrimaryButton type="button" onClick={() => { setConfirming(false); onApply(); }} disabled={busy} data-guide-ignore="تأكيد استبدال الجدول بالملف؛ كتابةٌ واحدة لها نقطة تراجع">نعم، طبّق</PrimaryButton>
-          <SecondaryButton type="button" onClick={() => setConfirming(false)} disabled={busy} data-guide-ignore="إلغاء التأكيد">إلغاء</SecondaryButton>
-        </> : <>
-          <p className="tm-note">{checking ? "جارٍ فحص التعارض…" : ready ? "لا شيء يُكتب حتى تضغط «طبّق»." : "عالج ملاحظات المعاينة أدناه قبل «طبّق»."}</p>
-          <PrimaryButton type="button" onClick={() => setConfirming(true)} disabled={busy || !ready || checking} data-guide-ignore="يطلب تأكيداً قبل استبدال الجدول بالملف">طبّق</PrimaryButton>
-          <SecondaryButton type="button" onClick={onCancel} disabled={busy} data-guide-ignore="إغلاق التجربة بلا كتابة"><X aria-hidden="true" />إغلاق</SecondaryButton>
-        </>}
       </div>
     </section>
   );

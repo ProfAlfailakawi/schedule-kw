@@ -1,0 +1,51 @@
+/* شريط الاستيراد — آخر ما في النافذة، فلا يغطّي محتوى: ما تحته ينتهي فوقه عند آخر التمرير.
+   على الهاتف ترفع النافذةُ نفسها فوق شريط التنقل ومنطقة الأمان (09-details.css)، فلا تُحسبان
+   مرتين هنا؛ وعلى الأجهزة الأعرض تُضاف منطقة الأمان. */
+.import-bar{
+  position:sticky;inset-block-end:0;z-index:7;
+  display:grid;gap:8px;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));
+  background:var(--surface);border-block-start:1px solid var(--line);
+  box-shadow:0 -10px 26px -22px color-mix(in srgb,var(--ink) 55%,transparent);
+}
+.import-bar-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-inline-size:0}
+.import-bar-status{display:flex;align-items:center;gap:10px;min-inline-size:0;flex:1}
+.import-bar-mark{display:grid;place-items:center;flex:none;inline-size:34px;block-size:34px;border-radius:50%;background:var(--surface-2);color:var(--muted)}
+.import-bar-mark svg{inline-size:19px;block-size:19px}
+.import-bar-copy{display:grid;min-inline-size:0}
+.import-bar-copy strong{color:var(--ink);font-size:var(--t-sm);font-weight:700;line-height:1.5}
+.import-bar-copy small{color:var(--muted);font-size:.75rem;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.import-bar-actions{display:flex;align-items:center;gap:8px;flex:none}
+.import-bar-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-block-size:44px;white-space:nowrap}
+.import-bar-actions button svg{inline-size:17px;block-size:17px}
+.import-bar-apply{min-block-size:48px!important;padding-inline:22px;font-size:var(--t-base,1rem);font-weight:700}
+.import-bar.is-ready .import-bar-mark,.import-bar.is-applied .import-bar-mark{background:color-mix(in srgb,var(--success) 14%,var(--surface));color:var(--success)}
+.import-bar.is-blocked .import-bar-mark,.import-bar.is-baseline-failed .import-bar-mark{background:color-mix(in srgb,var(--danger,#a2402f) 12%,var(--surface));color:var(--danger,#a2402f)}
+.import-bar.is-unverified .import-bar-mark{background:var(--brass-soft);color:var(--brass)}
+.import-bar.is-planning .import-bar-apply{background:var(--brass);border-color:var(--brass);color:#fff}
+.import-bar .transfer-commit-error{margin:0}
+.import-bar-spin{animation:import-bar-spin 1s linear infinite}
+@keyframes import-bar-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.import-bar-spin{animation:none}}
+
+/* في الصفحة (مركز الذكاء) لا نافذة ترفعه: يلتصق فوق شريط الجوال بنفسه. */
+.import-bar.is-inline{inset-block-end:calc(var(--dock-h,0px) + env(safe-area-inset-bottom,0px));padding-block-end:10px;margin-block-start:12px;border:1px solid var(--line);border-radius:16px}
+
+/* زر الإغلاق في رأس النافذة لا يغيب مع التمرير ما دامت المعاينة مفتوحة. */
+.transfer-sheet:has(>.import-bar)>header{position:sticky;inset-block-start:0;z-index:6;background:var(--surface)}
+
+/* وصلتَ من «اذهب إلى أول ملاحظة»: يُرى موضع الوصول. */
+.import-jump-flash{outline:2px solid var(--danger,#a2402f);outline-offset:2px}
+
+/* صفحةٌ لم يكتمل فحصها: لا لونَ نجاح. */
+.import-page-tabs button.checking>svg:last-child{color:var(--muted)}
+.is-import-checking .import-cell-derived{background:transparent}
+.import-summary-cards>span.is-checking b{color:var(--muted)}
+
+@media (max-width:720px){
+  .import-bar{padding-block-end:10px}
+  .import-bar-row{flex-direction:column;align-items:stretch;gap:8px}
+  .import-bar-actions{inline-size:100%;flex-wrap:wrap}
+  .import-bar-actions>button{flex:0 0 auto}
+  .import-bar-actions>.import-bar-apply,.import-bar-actions>.import-bar-jump{flex:1 1 60%;white-space:normal}
+  .import-bar-actions>.import-bar-close:only-child{margin-inline-start:auto}
+}

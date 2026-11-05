@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { instructorIdentityKey, instructorIdentityTokens, uniqueExactIdentityMatch } from "../utils/instructorIdentity";
-import { AlertTriangle, CheckCircle2, FileText, RotateCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Loader2, RotateCcw } from "lucide-react";
 import CourseTags from "./CourseTags";
 import ImportPreviewTable, { importRowKey, type ImportRow } from "./ImportPreviewTable";
 import { authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
@@ -30,6 +30,17 @@ export function PageReviewWait({ pages, onReviewPage, withButtons = false }: { p
   );
 }
 
+/** ينقل إلى أول موضع ملاحظة بعد أن تُرسم صفحته. موضعٌ واحد للشاشتين. */
+export function scrollToFirstImportIssue() {
+  window.setTimeout(() => {
+    const target = document.querySelector<HTMLElement>("[data-import-issue='true'], .import-preview-table td.import-cell-missing, .import-preview-table td.import-cell-review, .transfer-rejected, .transfer-row-issues-note");
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    target.classList.add("import-jump-flash");
+    window.setTimeout(() => target.classList.remove("import-jump-flash"), 1800);
+  }, 90);
+}
+
 /**
  * Page-scoped Authority PDF review.
  *
@@ -47,8 +58,14 @@ export default function PagedImportPreview({
   pageSummaries = [],
   reviewedPages = [],
   onReviewPage,
+  checking = false,
+  jumpToIssue = 0,
   ...tableProps
 }: TableProps & {
+  /** الفحوص لم تكتمل: لا علامة نجاح على صفحة، فالنتيجة تُعلن مرة واحدة. */
+  checking?: boolean;
+  /** يزيد بكل ضغطة «اذهب إلى أول ملاحظة»: تُفتح صفحة أول ملاحظة. */
+  jumpToIssue?: number;
   pageCount?: number;
   pageDiagnostics?: PageDiagnostic[];
   pageSummaries?: PageSummary[];
@@ -98,6 +115,14 @@ export default function PagedImportPreview({
   useEffect(() => {
     if (activePage > totalPages) setActivePage(totalPages);
   }, [activePage, totalPages]);
+
+  useEffect(() => {
+    if (!jumpToIssue) return;
+    const first = rows.find(row => rowIssues[importRowKey(row)]?.length || rowIncomplete(row));
+    const owed = pageDiagnostics.find(item => Number(item?.missedLines) > 0 && !reviewedPages.includes(Number(item?.page)));
+    if (first) setActivePage(rowPage(first)); else if (owed?.page) setActivePage(Number(owed.page));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpToIssue]);
 
   const currentRows = useMemo(() => rows.filter(row => rowPage(row) === activePage), [rows, activePage]);
   const summaryByPage = useMemo(() => new Map(pageSummaries.map(item => [Number(item.page || 0), item])), [pageSummaries]);
@@ -349,16 +374,16 @@ export default function PagedImportPreview({
     const warned = pageDiagnostics.find(item => item?.warning);
     const warning = String(warned?.warning || "");
     return (
-      <>
+      <div className={checking ? "is-import-checking" : undefined}>
         {warning ? <div className="import-page-status" role="alert" data-import-issue={awaitingReview(warned) ? "true" : undefined}><AlertTriangle /><span>{warning}.</span>{reviewControl(warned)}</div> : null}
         {undoBar}
         <ImportPreviewTable rows={rows} onRows={onRows} onRowRemoved={noteRemoved} {...displayProps} />
-      </>
+      </div>
     );
   }
 
   return (
-    <section className="import-page-review" aria-label="معاينة صفحات PDF كل صفحة على حدة">
+    <section className={`import-page-review${checking ? " is-import-checking" : ""}`} aria-label="معاينة صفحات PDF كل صفحة على حدة">
       <div className="import-page-review-head">
         <div>
           <strong>معاينة صفحة بصفحة</strong>
@@ -388,12 +413,12 @@ export default function PagedImportPreview({
               aria-selected={active}
               data-guide-ignore="تنقّل داخلي بين صفحات معاينة PDF فقط ولا ينفذ إجراءً على الجدول أو البيانات"
               data-import-issue={awaitingReview(diagnostic) ? "true" : undefined}
-              className={`${active ? "active" : ""} ${suspicious ? "review" : empty ? "empty" : "ready"}`.trim()}
+              className={`${active ? "active" : ""} ${suspicious ? "review" : empty ? "empty" : checking ? "checking" : "ready"}`.trim()}
               onClick={() => setActivePage(page)}
             >
               <FileText aria-hidden="true" />
               <span><b>صفحة {page.toLocaleString("ar-KW-u-nu-latn")}</b><small>{countOf(pageRows.length, AR.row)}</small></span>
-              {suspicious ? <AlertTriangle aria-label="تحتاج مراجعة" /> : empty ? null : <CheckCircle2 aria-label="تمت القراءة" />}
+              {suspicious ? <AlertTriangle aria-label="تحتاج مراجعة" /> : empty ? null : checking ? <Loader2 aria-label="يفحص" /> : <CheckCircle2 aria-label="تمت القراءة" />}
             </button>
           );
         })}
@@ -412,6 +437,7 @@ export default function PagedImportPreview({
           /* تنبيهُ القراءة (سطرٌ مطبوع لم يُقرأ) يُقال على صفحته ولو اكتملت صفوفها المقروءة. */
           if (diagnostic?.warning) return <><AlertTriangle /><span>{String(diagnostic.warning)}{review ? ` · ${countOf(review, AR.row)} بحاجة إلى مراجعة` : ""}.</span>{reviewControl(diagnostic)}</>;
           if (suspicious) return <><AlertTriangle /><span>هذه الصفحة تحتاج مراجعة: {review ? countOf(review, AR.row) : String(diagnostic?.reason || "بعض الخلايا لم تُحسم بعد")}.</span></>;
+          if (checking) return <><Loader2 /><span>قُرئت الصفحة {activePage.toLocaleString("ar-KW-u-nu-latn")} · {countOf(currentRows.length, AR.row)} · يفحص…</span></>;
           return <><CheckCircle2 /><span>تمت قراءة الصفحة {activePage.toLocaleString("ar-KW-u-nu-latn")} بنجاح · {countOf(currentRows.length, AR.row)}.</span></>;
         })()}
       </div>

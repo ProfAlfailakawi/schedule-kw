@@ -170,6 +170,7 @@ test:radar-insight
 test:reference-apply
 test:outcome-story
 test:section-build
+test:import-status-bar
 test:sound-schedule
 test:data-gaps
 test:post-review-fixes
