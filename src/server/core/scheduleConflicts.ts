@@ -17,6 +17,7 @@ import { offRhythm } from "../../utils/departmentRhythm";
 import { sameCourseSectionClash, startLadderNote } from "../../utils/scheduleRegulations";
 import { dayKeysOf, requestSnapshotAt } from "../../utils/instructorRequestItems";
 import { linkMode } from "../../utils/linkMode";
+import { requestFullySettled } from "../../utils/instructorRequestVerdict";
 import { withVisitingSuffix } from "../../utils/visitingText";
 import { campusOf } from "../../utils/campusTravel";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
@@ -115,7 +116,10 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
   }
   /* حجزُ التحرير المؤقّت لا يمنع القسم (A2): يحمي الأستاذَ من زميله وحده. */
   const heldEntries = (await Repository.getInstructorRequestReservations(termId)).filter(entry => !reservationOwners.has(entry.requestId) && !entry.heldUntil);
-  const heldRows = reservationRows(heldEntries, termId);
+  const heldCourses = new Map<number, string>();
+  for (const id of new Set(heldEntries.map(entry => Number(entry.courseId)).filter(Boolean))) heldCourses.set(id, String((await Repository.getCourseById(id))?.CourseName || ""));
+  /* صفُّ الحجز بلا اسم مقرر كان يُقرأ «مقرر —» في بطاقة التعارض. */
+  const heldRows = reservationRows(heldEntries, termId).map(row => ({ ...row, AdCourseName: row.AdCourseName || heldCourses.get(Number(row.AdCourseId)) || "" }));
   const holdOfRow = (id: unknown) => { const n = Number(id); return n <= -2_000_000_000 + heldEntries.length * 10 && n >= -2_000_000_000 ? heldEntries[Math.floor((n + 2_000_000_000) / 10)] : undefined; };
   const rowsWithReservations = [...termRowsRaw, ...heldRows];
   const candidateCanonical=canonicalizeHistoricalLocationForRuntime(candidate as FSchedule,registry);
@@ -362,8 +366,14 @@ export async function noteRequestHoldOverride(requestIds: string[], row: FSchedu
         && (item.slots || []).every(slot => timeToMinutes(slot.start) === timeToMinutes(row.fstarttime));
       return same ? { ...item, decision: { state: "fixed" as const, decidedBy: by, decidedAt: at, scheduleId: Number(row.id), fromSchedule: true, note: "ثبّته القسم من الجدول مباشرة." } } : item;
     });
+    /* بندٌ ثُبّت من «موعد» نتيجتُه نتيجةُ اعتماده: الحالةُ والخطُّ الزمني كما في الوارد. */
+    const fixedNow = items.flatMap((item, itemIndex) => item !== request.items[itemIndex] ? [itemIndex] : []);
+    const settled = requestFullySettled(items);
     await Repository.saveInstructorRequest({ ...request, items,
-      timeline: [...(request.timeline || []), { kind: "schedule-edited" as const, at, by, detail: "عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره." }].slice(-300) }).catch(() => undefined);
+      ...(fixedNow.length ? { status: settled ? "settled" as const : "in-review" as const } : {}),
+      timeline: [...(request.timeline || []), { kind: "schedule-edited" as const, at, by, detail: "عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره." },
+        ...fixedNow.map(itemIndex => ({ kind: "item-fixed" as const, at, by, itemIndex })),
+        ...(fixedNow.length && settled ? [{ kind: "settled" as const, at, by }] : [])].slice(-300) }).catch(() => undefined);
   }
 }
 
@@ -414,17 +424,19 @@ export async function requestHoldRefusal(requestIds: string[], itemIds: string[]
     error: "هذا الموعد محجوزٌ لطلب أستاذ ينتظر قرارك. المتابعة تعتمد تعديلك وتُبقي الطلب في الوارد.",
     code: "request-hold",
     /* بندٌ لكل حجز بعينه: لا يُخمَّن أولُ بندٍ منتظر، فبلا هويةٍ مؤكدة يبقى السؤال بلا «ارفض». */
-    holds: requests.filter(Boolean).flatMap(request => {
+    holds: (await Promise.all(requests.filter(Boolean).map(async request => {
       const items = request!.items || [];
       const base = { requestId: request!.id, requestRevision: Number(request!.requestRevision || 0),
         instructorId: Number(request!.AdInstructorId), instructorName: nameOf.get(Number(request!.AdInstructorId)) || "" };
       const matched = items.flatMap((item, itemIndex) => item.action !== "keep" && item.action !== "delete" && !item.decision?.state
         && itemIds.includes(instructorRequestItemIdentity(item)) ? [{ item, itemIndex }] : []);
-      if (!matched.length) return [base];
-      return matched.map(({ item, itemIndex }) => ({ ...base, itemIndex, itemId: instructorRequestItemIdentity(item),
+      if (!matched.length) return [base as any];
+      return Promise.all(matched.map(async ({ item, itemIndex }) => ({ ...base, itemIndex, itemId: instructorRequestItemIdentity(item),
+        action: item.action, rowId: item.rowId ?? undefined, rowRev: item.rowId ? Number((await Repository.getScheduleById(Number(item.rowId)))?.rev || 0) : undefined,
+        sectionCode: String(item.before?.sectionCode || ""),
         courseId: Number(item.after?.courseId || item.before?.courseId || 0),
         courseName: String(item.after?.courseName || item.before?.courseName || ""),
-        days: (item.slots || []).map(slot => String(slot.day)), start: String(item.slots?.[0]?.start || ""), end: String(item.slots?.[0]?.end || "") }));
-    }),
+        days: (item.slots || []).map(slot => String(slot.day)), start: String(item.slots?.[0]?.start || ""), end: String(item.slots?.[0]?.end || "") })));
+    }))).flat(),
   };
 }

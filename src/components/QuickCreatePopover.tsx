@@ -13,7 +13,8 @@ import type { DayKey } from "./scheduleWorkspace";
 import {
   formatScheduleTimeRange,
   SCHEDULE_DAY_END,
-  SCHEDULE_DAY_END_TIME,
+  SCHEDULE_CLOCK_END,
+  SCHEDULE_CLOCK_END_TIME,
 } from "../utils/scheduleTime";
 import { toEnglishDigits } from "../utils/digits";
 import { isAssignableInstructor } from "../utils/instructorStatus";
@@ -238,7 +239,7 @@ export default function QuickCreatePopover({
     meter?.mark("pattern");
     timeEdited.current = false;
     setChosenDays(choice.days as DayKey[]);
-    setDraft(current => ({ ...current, end: timeOf(Math.min(SCHEDULE_DAY_END, minutesOf(current.start) + choice.minutes)) }));
+    setDraft(current => ({ ...current, end: timeOf(Math.min(SCHEDULE_CLOCK_END, minutesOf(current.start) + choice.minutes)) }));
   };
 
   // A freshly mounted card may use the department's usual length exactly once.
@@ -251,7 +252,7 @@ export default function QuickCreatePopover({
     if (!learned) return;
     setDraft(current => {
       const from = minutesOf(current.start);
-      const end = timeOf(Math.min(SCHEDULE_DAY_END, from + learned));
+      const end = timeOf(Math.min(SCHEDULE_CLOCK_END, from + learned));
       return current.end === end ? current : { ...current, end };
     });
   }, [durationForDay, seed.day, hasDifferentTimes]);
@@ -596,7 +597,7 @@ export default function QuickCreatePopover({
             {timeOpen ? (
               <div className="qc-time-wheels" id="qc-time-wheels">
                 <TimeWheels
-                  endLimit={SCHEDULE_DAY_END_TIME}
+                  endLimit={SCHEDULE_CLOCK_END_TIME}
                   start={draft.start}
                   end={draft.end}
                   onChange={(next) => {

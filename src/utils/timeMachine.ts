@@ -25,7 +25,7 @@ import {
   minutesToTime, timeToMinutes, type ConflictInsight, type DayKey,
 } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
-import { patternsForHours, reviewSchedule } from "./scheduleRegulations";
+import { daysFitLibrary, effectiveCourseHours, patternsForHours, reviewSchedule, type DayKey as RegulationDay } from "./scheduleRegulations";
 import { findRepairChain, planDisruption, type RepairMove } from "./repairChain";
 import { parseNaturalQuery, toEnglishDigits } from "./naturalQuery";
 import { roomIdentityKey } from "./locationRegistry";
@@ -527,6 +527,37 @@ function verifyNoNewBlocking(before: FSchedule[], after: FSchedule[], context: T
   const placeholders = placeholderIdsOf(context);
   const inScope = scopeOf(context);
   return blockingConflicts(after.filter(inScope), after, placeholders).length <= blockingConflicts(before.filter(inScope), before, placeholders).length;
+}
+
+/**
+ * ما يقترحه السيناريو يمرّ بقاعدة «موعد» نفسها (unapprovedPatternIssue): صفٌّ تغيّر شكله تكون أيام شعبته كلُّها
+ * نمطاً معتمداً لساعات المقرر. كان الحلُّ يُعرض ثم يرفضه الاعتماد («ليست نمطاً معتمداً»).
+ */
+export function changedRowsFitPatterns(before: FSchedule[], after: FSchedule[], context: Pick<TmContext, "courses">): boolean {
+  const courses = courseMapOf(context);
+  const old = new Map(before.map(row => [Number(row.id), row] as const));
+  const sameShape = (a: FSchedule, b: FSchedule) => a.fstarttime === b.fstarttime && a.fendtime === b.fendtime && activeDays(a).join() === activeDays(b).join();
+  return after.every(row => {
+    const was = old.get(Number(row.id));
+    if (was && sameShape(was, row)) return true;
+    const hours = effectiveCourseHours(courses.get(Number(row.AdCourseId)));
+    const own = activeDays(row);
+    if (!(hours > 0) || !own.length) return true;
+    const union = new Set<RegulationDay>(own as RegulationDay[]);
+    for (const other of after) {
+      if (Number(other.id) === Number(row.id) || Number(other.AdCourseId) !== Number(row.AdCourseId) || String(other.SCode || "") !== String(row.SCode || "")
+        || Number(other.AdCollegeId) !== Number(row.AdCollegeId) || Number(other.AdSectionId) !== Number(row.AdSectionId) || Number(other.AdTermId) !== Number(row.AdTermId)) continue;
+      activeDays(other).forEach(day => union.add(day as RegulationDay));
+    }
+    return daysFitLibrary(hours, union, own.length > 1) !== false;
+  });
+}
+
+/** صفٌّ يكتبه الحلُّ يمرّ بفحص الحفظ كاملاً: تعارضٌ قائم عليه يُسقط اعتماده وإن لم يزد عددُ الموانع. */
+export function changedRowsClear(before: FSchedule[], after: FSchedule[], context: Pick<TmContext, "instructors">): boolean {
+  const old = new Map(before.map(row => [Number(row.id), JSON.stringify(row)] as const));
+  const changed = after.filter(row => old.get(Number(row.id)) !== JSON.stringify(row));
+  return !changed.length || blockingConflicts(changed, after, placeholderIdsOf(context)).length === 0;
 }
 
 /* ── أثر حذف شعبة ─────────────────────────────────────────────────────────── */
@@ -1104,7 +1135,7 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
     if (seen.has(signature)) continue;
     seen.add(signature);
     const after = applyChanges(base, draft.changes);
-    if (!verifyNoNewBlocking(base, after, context)) continue;
+    if (!verifyNoNewBlocking(base, after, context) || !changedRowsFitPatterns(base, after, context) || !changedRowsClear(base, after, context)) continue;
     const delta = compareBoards(base, after, context, beforeMetrics);
     const ok = satisfies(problem, base, after, context);
     solutions.push({

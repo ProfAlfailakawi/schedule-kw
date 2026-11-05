@@ -11,7 +11,7 @@
  *   • التعديل اليدوي مسموح، وما خرج عن اللائحة يُعلَّم ⚠️ ولا يُمنع.
  */
 import { DAY_KEYS, DAY_NAMES, patternsForHours, type DayKey, type WeeklyPattern } from "./scheduleRegulations";
-import { SCHEDULE_DAY_END } from "./scheduleTime";
+import { SCHEDULE_CLOCK_END } from "./scheduleTime";
 
 export type { DayKey } from "./scheduleRegulations";
 
@@ -122,8 +122,8 @@ export interface DayPickResult {
 
 /**
  * ضغطُ يوم في أي نموذج موعد.
- *  • إن كانت الأيام فارغة أو كانت نمطاً مطبَّقاً آلياً → يُطبَّق النمط الأنسب الذي يضم اليوم.
- *  • وإلا (اختيار يدوي جارٍ) → يُضاف/يُزال اليوم وحده، ويُقال إن خرج عن اللائحة.
+ *  • إن كانت الأيام فارغة → يُطبَّق النمط الأنسب الذي يضم اليوم.
+ *  • وإلا → يُضاف/يُزال اليوم وحده، ويُقال إن خرج عن اللائحة.
  */
 export function pickDay(
   course: RegulationCourse | null | undefined,
@@ -133,9 +133,9 @@ export function pickDay(
   minutes?: number,
 ): DayPickResult {
   const choices = regulationChoicesForDay(course, day);
-  const currentChoice = pickedChoice(course, current, minutes);
-  const fresh = !current.length || (Boolean(currentChoice) && checked && !current.includes(day));
-  if (checked && fresh && choices.length) {
+  /* أيامٌ قائمة لا تُستبدل بضغطة (ملاحظة المراجعة): اليومُ يُضاف إليها، وما خرج عن النمط يُنبَّه إليه
+     والشرائحُ تعرض النمط المعتمد لمن أراد التبديل. */
+  if (checked && !current.length && choices.length) {
     const [applied, ...alternatives] = choices;
     return { days: applied.days, applied, alternatives };
   }
@@ -153,7 +153,13 @@ export function regulationEnd(course: RegulationCourse | null | undefined, days:
   if (!Number.isFinite(from)) return "";
   const choice = regulationChoiceFor(course, days, minutes);
   if (!choice) return "";
-  return clock(Math.min(SCHEDULE_DAY_END, from + choice.minutes));
+  return clock(Math.min(SCHEDULE_CLOCK_END, from + choice.minutes));
+}
+
+/** نهايةٌ كتبها المستخدم ولا تساوي نهاية النمط: طولُه هو، ولا يعيده تغييرُ البداية. */
+export function endIsDeliberate(course: RegulationCourse | null | undefined, days: readonly DayKey[], start: string, end: string): boolean {
+  if (!regulationHours(course) || !end) return false;
+  return regulationEnd(course, days, start) !== end;
 }
 
 export type RegulationFit = "fits" | "off" | "unknown";
@@ -252,7 +258,7 @@ export function completeRegulation(
   if (!days.length) {
     const usual = options.usual;
     if (!usual || !Number.isFinite(from)) return null;
-    return { days: [...usual.days], end: clock(Math.min(SCHEDULE_DAY_END, from + usual.minutes)), applied: usual };
+    return { days: [...usual.days], end: clock(Math.min(SCHEDULE_CLOCK_END, from + usual.minutes)), applied: usual };
   }
   const exact = options.fresh ? null : regulationChoiceFor(course, days, options.minutes);
   /* `keepDays`: الأيامُ اختارها صاحبُها أو كانت في الموعد المحفوظ — لا تُستبدل بأيامٍ لم يخترها. */
@@ -261,7 +267,7 @@ export function completeRegulation(
   if (!applied) return null;
   return {
     days: [...applied.days],
-    end: Number.isFinite(from) ? clock(Math.min(SCHEDULE_DAY_END, from + applied.minutes)) : "",
+    end: Number.isFinite(from) ? clock(Math.min(SCHEDULE_CLOCK_END, from + applied.minutes)) : "",
     applied,
   };
 }
