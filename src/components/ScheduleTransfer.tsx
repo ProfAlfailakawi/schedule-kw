@@ -74,7 +74,7 @@ const AllCourses = lazy(() => import("./AllCourses"));
 import ImportDryRun, { DryRunBaselineFailed, DryRunOffer } from "./ImportDryRun";
 import { importDiff } from "../utils/importDiff";
 import ImportCatalogueGaps, { type GapDecisions } from "./ImportCatalogueGaps";
-import { gapKeyOf } from "../utils/importCatalogueGaps";
+import { gapKeyOf, withoutLinkedRowIssues } from "../utils/importCatalogueGaps";
 
 export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose }: Props) {
   useDialogDismiss(true, onClose);
@@ -965,7 +965,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     setSmartProposal(null);
     setSmartPicked(new Set());
   };
-  const readPdf = async (file: File, targetSectionId = sectionId, dry = Boolean(termRows?.length) && targetSectionId === sectionId) => {
+  const readPdf = async (file: File, targetSectionId = sectionId, dry = Boolean(termRows?.length) && targetSectionId === sectionId, freshCourses = false) => {
     setError(null); setPdfScopeFix(null); setTermMismatch(null); setXlsxPreview(null); setXlsxDraft(""); setImportKind("authority-pdf"); setBusy(true); setReviewedImportPages([]);
     setDryOffer(null); setDryRunActive(false); setDryApplied(null);
     setSmartProposal(null); setSmartPicked(new Set()); setSmartFile(file);
@@ -1054,11 +1054,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
       const linkedCodes=new Set(Object.keys(heldLinks));
       if(data.catalogueGaps)data.catalogueGaps={...data.catalogueGaps,choices:(data.catalogueGaps.choices||[]).filter((item:any)=>!linkedCodes.has(item.code))};
       const scannedRows=assignAuthoritySections(linkedRows);
-      /* حكم الخادم قيل قبل الربط: يسقط عن صفوف الربط وحدها، ويعيد فحصها عند الحفظ. */
-      if(linkedLines.size&&Array.isArray(data.blockingIssues))data.blockingIssues=data.blockingIssues.filter((issue:any)=>{
-        const line=/^السطر (\d+): المقرر غير صالح/.exec(String(issue||""));
-        return!(line&&linkedLines.has(Number(line[1])));
-      });
+      if(linkedLines.size&&Array.isArray(data.blockingIssues))data.blockingIssues=withoutLinkedRowIssues(data.blockingIssues,linkedLines);
       setDryRunActive(Boolean(data.dryRun));
       setImportSectionId(targetSectionId);
       setPdfScopeFix(null);
@@ -1074,7 +1070,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         sourceBranchCode:String(data.headerBranch?.code||""),
         sourceBranchName:String(data.headerBranch?.name||""),
       });
-      if(!deptCourses.length){
+      /* أُنشئ مقرر أو قسم: ما في هذا النداء من deptCourses قديم، فيُقرأ الكتالوج صراحةً. */
+      if(freshCourses||!deptCourses.length){
         try{
           const all=await (await fetch("/api/courses")).json();
           if(Array.isArray(all))setDeptCourses(all.filter((c:any)=>Number(c.AdCollegeId)===collegeId&&Number(c.AdSectionId)===targetSectionId));
@@ -1093,8 +1090,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         if(!response.ok)throw new Error(data.error||"تعذرت إضافة المقررات");
       }
       gapLinks.current={file:smartFile,links:{...(gapLinks.current.file===smartFile?gapLinks.current.links:{}),...decisions.link}};
-      setDeptCourses([]);
-      await readPdf(smartFile,activeImportSectionId,dryRunActive);
+      await readPdf(smartFile,activeImportSectionId,dryRunActive,true);
     }catch(e:any){setError(e?.message||"تعذرت إضافة المقررات");}
     finally{setBusy(false);}
   };
@@ -1114,8 +1110,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
       setImportSectionId(nextSectionId);
       onSectionChange?.(nextSectionId);
       setPdfScopeFix(null);
-      setDeptCourses([]);
-      await readPdf(fix.file,nextSectionId);
+      await readPdf(fix.file,nextSectionId,undefined,true);
     }catch(e:any){setError(e?.message||"تعذرت معالجة قسم ملف PDF");}
     finally{setBusy(false);}
   };

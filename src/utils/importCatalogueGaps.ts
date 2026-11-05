@@ -21,6 +21,17 @@ export function gapKeyOf(row: GapRow, departmentCode: string): string {
   return authorityPrintedCourseKey(row.sourceCourseCode, departmentCode);
 }
 
+/**
+ * حكم الخادم على صف قيل قبل أن يختار المستخدم مقرره: «المقرر غير صالح» و«الشعبة» (صف
+ * بلا مقرر لا شعبة له). يسقطان عن صفوف الربط وحدها، وما عداهما يبقى، ويُعاد الفحص عند الحفظ.
+ */
+export function withoutLinkedRowIssues<T>(issues: readonly T[], linkedLines: ReadonlySet<number>): T[] {
+  return issues.filter(issue => {
+    const line = /^السطر (\d+): (?:المقرر غير صالح|شعبة جدول PDF)/.exec(String(issue || ""));
+    return !(line && linkedLines.has(Number(line[1])));
+  });
+}
+
 /** طبقة نص الهيئة تعكس الأقواس في العربية: «طرق تدريس )علوم(». */
 const printedCourseName = (value: unknown) => String(value || "").replace(/\)([^()]*)\(/g, "($1)").replace(/\s+/g, " ").trim();
 

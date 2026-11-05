@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseScheduleTable, type GridRow, type OcrPage } from "../src/utils/documentOcr.ts";
 import { authorityCourseCode, authorityCourseCodeMatches, authorityForeignCourseKey, authorityInheritedCourseMatches, authorityPrintedCourseKey } from "../src/utils/authorityAcademicCodes.ts";
-import { catalogueGaps, gapKeyOf } from "../src/utils/importCatalogueGaps.ts";
+import { catalogueGaps, gapKeyOf, withoutLinkedRowIssues } from "../src/utils/importCatalogueGaps.ts";
 
 let passed = 0;
 const check = async (name: string, run: () => void | Promise<void>) => { await run(); passed++; console.log(`  ok ${name}`); };
@@ -74,5 +74,16 @@ await check("the routes keep creation behind confirmation, scope and permission"
   assert.doesNotMatch(route, /copiedCourses|templateSections/, "no silent catalogue copy");
   const read = route.slice(route.indexOf('app.post("/api/intelligence/pdf-import", requirePermission(7)'));
   assert.doesNotMatch(read, /createCourse|createSection/, "reading a file writes nothing");
+});
+await check("a chosen link drops only that row's stale course and section verdicts", () => {
+  const issues = ["السطر 2: المقرر غير صالح للقسم المحدد", "السطر 2: شعبة جدول PDF يجب أن تبدأ من 501", "السطر 2: وقت غير صالح", "السطر 3: المقرر غير صالح للقسم المحدد", "تحذير: عام"];
+  assert.deepEqual(withoutLinkedRowIssues(issues, new Set([2])), issues.slice(2));
+});
+await check("every catalogue change re-reads the catalogue explicitly, past the stale closure", () => {
+  const screen = readFileSync("src/components/ScheduleTransfer.tsx", "utf8");
+  assert.match(screen, /if\(freshCourses\|\|!deptCourses\.length\)/);
+  assert.match(screen, /readPdf\(smartFile,activeImportSectionId,dryRunActive,true\)/);
+  assert.match(screen, /readPdf\(fix\.file,nextSectionId,undefined,true\)/);
+  assert.doesNotMatch(screen, /setDeptCourses\(\[\]\);\s*await readPdf/);
 });
 console.log(`header-department-rule-audit: ${passed} passed`);
