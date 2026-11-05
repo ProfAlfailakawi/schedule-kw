@@ -1,3 +1,4 @@
+import { toEnglishDigits } from "./digits";
 /**
  * Guessing the next academic term from the most recent one.
  *
@@ -57,7 +58,7 @@ export function sameTermName(a: unknown, b: unknown): boolean {
 export function termChronology(term: { AdTermId?: number; AdTermName?: string } | undefined | null): number {
   if (!term) return Number.NEGATIVE_INFINITY;
   const name = String(term.AdTermName || "");
-  const years = name.match(/(\d{4})\s*\/\s*(\d{4})/);
+  const years = toEnglishDigits(name).match(/(\d{4})\s*[\/\\\-–—]\s*(\d{2,4})/);
   const season = name.includes("الصيفي") ? 2 : name.includes("الثاني") ? 1 : name.includes("الأول") ? 0 : 0;
   return years ? Number(years[1]) * 10 + season : Number(term.AdTermId || 0);
 }

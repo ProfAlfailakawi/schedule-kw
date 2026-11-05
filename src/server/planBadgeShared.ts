@@ -16,7 +16,7 @@ export async function planBadgeFor(courseId: unknown, sectionId: unknown): Promi
 }
 
 /** مقرراتُ الخدمة (تطلبها صحائفُ أقسامٍ أخرى): «رقم المقرر:رقم قسمه المالك». تضعها مسارات مراجعة الصحف وتقرؤها بطاقةُ الأستاذ. */
-type ServiceSource = () => Promise<Map<number, { sectionId: number }>>;
+type ServiceSource = () => Promise<Map<number, { sectionId: number; names?: Set<string> }>>;
 let serviceSource: ServiceSource | null = null;
 export const setServiceSource = (next: ServiceSource) => { serviceSource = next; };
 /** شارات الصحيفة للمقررات المطلوبة في كرت الأستاذ من المصدر المشترك، بقراءة واحدة. */
@@ -31,6 +31,12 @@ export async function planBadgesFor(pairs: Array<{ courseId: unknown; sectionId:
     }
     return badges;
   } catch { return {}; }
+}
+
+/** الأقسامُ التي تطلب كلَّ مقرر — المصدرُ نفسه الذي يكتب «متطلب كلية». */
+export async function serviceNames(): Promise<Map<number, string[]>> {
+  if (!serviceSource) return new Map();
+  try { return new Map([...await serviceSource()].map(([id, row]) => [id, [...(row.names || [])]])); } catch { return new Map(); }
 }
 
 export async function serviceCourseKeys(): Promise<Set<string>> {
