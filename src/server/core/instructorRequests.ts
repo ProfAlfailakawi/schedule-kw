@@ -288,7 +288,7 @@ export async function requestRulesForScope(
      فكانت خياراتُ نموذج الإضافة السريع تخرج فارغةً مع أن الحكم وجد لها قاعة. */
   const hallByKey = new Map<string, { room: string; hall: string; buildingId: any; roomId: any }>();
   halls.forEach((hall, index) => hallByKey.set(registryKeys[index], { room: String(hall.room || ""), hall: String(hall.hall || ""), buildingId: hall.buildingId, roomId: hall.roomId }));
-  /* أوقاتُ دوام القسم من شاشة المشرف («أوقات الدوام للأقسام»)، لا حدٌّ عامٌّ واحد. */
+  /* استثناءُ دوام القسم من شاشة المشرف («أوقات الدوام للأقسام»)؛ وبلا استثناء فاليومُ الجامعي كاملاً. */
   const dayWindow = scheduleDayWindowMinutes(await Repository.getSectionById(sectionId).catch(() => null));
   const roomEligible = (key: string, day: RequestDayKey, start: string, end: string) => {
     const hall = hallByKey.get(key);
@@ -471,6 +471,7 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       /* ورقةُ رفض القسم تعرض بدائلَ لكل بند، ولو كان متاحاً (مراجعة البروفة). */
       offerAlternatives: Boolean(options.forDepartment),
       ladderBlocks: !options.forDepartment && !offeredByDepartment,
+      departmentHoursWarnOnly: Boolean(options.forDepartment) || offeredByDepartment,
       sectionClashBlocks: !options.forDepartment && !offeredByDepartment,
       nature: habits,
       suggestNature: priorHabits,

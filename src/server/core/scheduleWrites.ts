@@ -243,7 +243,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     res.status(400).json({ error: "الرجاء كتابة الأرقام بالانجليزي" });
     return;
   }
-  const payloadIssues=await schedulePayloadIssues(req.body);
+  const payloadIssues=await schedulePayloadIssues(req.body,{keptTime:Boolean((req as any).__exactRestore)||(existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime)});
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   {const unchangedShape=existing&&existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(req.body?.[k]));
   const lengthIssue=unchangedShape?null:await scheduleLengthIssue({...req.body,id},(req as any).__hypotheticalWeek);

@@ -203,6 +203,8 @@ export interface VerdictContext {
    * يختارها الأستاذ بنفسه خارج السُّلّم لا تُرسل. وحين يغيب (شاشاتُ القسم، وما اقترحه القسمُ فقبله الأستاذ) تبقى تنبيهاً.
    */
   ladderBlocks?: boolean;
+  /** استثناءُ دوام القسم: يمنع كرتَ الأستاذ افتراضاً، وتنبيهٌ فقط لقراءة القسم ولما عرضه القسم بنفسه. */
+  departmentHoursWarnOnly?: boolean;
   /** شعبتان من مقرر تخصص في الوقت نفسه تُمنعان: كرتُ الأستاذ وحده (ملاحظة المالك 8). */
   sectionClashBlocks?: boolean;
 }
@@ -441,7 +443,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     ? (providedSlots?.length ? toMinutes(providedSlots[0].end) - toMinutes(providedSlots[0].start) : meetingMinutes(inbound.days, lengthPatterns, own)[0])
     : undefined;
   const request: RequestedRow = { ...inbound, slots: providedSlots, blockMinutes: singleDayLength };
-  const dayStart = context.dayStart ?? SCHEDULE_DAY_START, dayEnd = context.dayEnd ?? SCHEDULE_DAY_END;
+  const dayStart = Math.max(context.dayStart ?? SCHEDULE_DAY_START, SCHEDULE_DAY_START), dayEnd = Math.min(context.dayEnd ?? SCHEDULE_DAY_END, SCHEDULE_DAY_END);
   const slots = request.slots?.length ? request.slots : request.days.map(day =>
     ({ day, start: request.start, end: endForRequest([day], request.start, request.days.length === 1 ? request.blockMinutes : undefined) }));
   const computedEnd = request.slots?.length ? slots[0].end : endForRequest(request.days, request.start, request.blockMinutes);
@@ -556,8 +558,8 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* واليومُ الدراسيُّ له أوّلٌ كما له آخِر. الفحصُ كان يحرس آخِرَه وحده، فموعدٌ
      السابعةَ صباحاً يمرّ سليماً — ثم لا يجد البحثُ عن البدائل موضعاً له، لأن
      سُلّمَ البدايات يبدأ من الثامنة. حَدٌّ واحدٌ يُحرَس من طرفيه. */
-  if (slots.some(slot => toMinutes(slot.start) < dayStart)) {
-    reasons.push({ source: "shape", text: "تبدأ المحاضرة قبل بداية اليوم الدراسي.", blocking: true });
+  if (slots.some(slot => toMinutes(slot.start) < SCHEDULE_DAY_START)) {
+    reasons.push({ source: "shape", text: "تبدأ المحاضرة قبل بداية الدوام الشامل (08:00).", blocking: true });
     return verdictOf();
   }
   /* يُقاس على النهاية قبل الحدّ لا بعده: `endForRequest` تقصّ ما يتجاوز نهاية
@@ -565,15 +567,18 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      يفحصه بعدها — فمحاضرةٌ تبدأ السابعةَ والنصف مساءً يومَ اثنين تنتهي على
      الورق الثامنةَ تماماً وتبدو سليمة. الطولُ غيرُ المقصوص هو الذي يُسأل. */
   const uncut = toMinutes(request.start) + requestMinutes(request.days, request.blockMinutes);
-  /* أوقاتُ دوام القسم: تجاوزُها تنبيهٌ لا يمنع (ملاحظة المالك 20)؛ أما نهايةُ اليوم الدراسي للكلية كلها (20:00) فقرارٌ قائم
-     في الكرت (المالك 2026-10-30). وبدايةٌ عند نهاية الدوام أو بعدها ليست تجاوزاً: الموعد كلُّه خارجه. */
-  const pastDay = request.slots?.length ? slots.some(slot => toMinutes(slot.end) > SCHEDULE_DAY_END) : uncut > SCHEDULE_DAY_END;
-  if (pastDay || slots.some(slot => toMinutes(slot.end) <= toMinutes(slot.start)) || slots.some(slot => toMinutes(slot.start) >= dayEnd)) {
-    reasons.push({ source: "shape", text: "تتجاوز المحاضرة نهاية اليوم الدراسي.", blocking: true });
+  /* قرار المالك 2026-11-05: نهايةُ اليوم الجامعي (20:00) حدٌّ مطلق. واستثناءُ القسم الأضيق يمنع طلب الأستاذ،
+     ويبقى تنبيهاً لمن يقرأ الطلب من القسم أو لموعدٍ عرضه القسم بنفسه. وبلا استثناء لا يختلف الحدّان فلا سبب ثانٍ. */
+  const lastEnd = request.slots?.length ? Math.max(...slots.map(slot => toMinutes(slot.end))) : uncut;
+  if (lastEnd > SCHEDULE_DAY_END || slots.some(slot => toMinutes(slot.end) <= toMinutes(slot.start))) {
+    reasons.push({ source: "shape", text: "تتجاوز المحاضرة نهاية الدوام الشامل (20:00).", blocking: true });
     return verdictOf();
   }
-  if (slots.some(slot => toMinutes(slot.end) > dayEnd) || uncut > dayEnd) {
-    reasons.push({ source: "shape", code: "day-end", text: "تنتهي المحاضرة بعد نهاية دوام القسم.", blocking: false });
+  const departmentHoursBlock = !context.departmentHoursWarnOnly;
+  if (lastEnd > dayEnd || slots.some(slot => toMinutes(slot.start) >= dayEnd)) {
+    reasons.push({ source: "shape", code: "day-end", text: `تنتهي المحاضرة بعد نهاية الدوام المسموح (${minutesToTime(dayEnd)}).`, blocking: departmentHoursBlock });
+  } else if (slots.some(slot => toMinutes(slot.start) < dayStart)) {
+    reasons.push({ source: "shape", code: "day-end", text: `تبدأ المحاضرة قبل بداية الدوام المسموح (${minutesToTime(dayStart)}).`, blocking: departmentHoursBlock });
   }
 
   /* ساعاتُ المقرّر تُؤخذ من المقرّر نفسه: أيامٌ لا تكفي لإتمامها ليست طلباً صالحاً. */

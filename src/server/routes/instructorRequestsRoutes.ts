@@ -354,7 +354,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
 
 /* ── سجلُّ الإرسال: كلُّ إرسالٍ سطرٌ يُضاف ولا يمحو ما قبله ─────────────────────
  * يُقرأ من linkModeLog (يكتبه الإصدارُ ومرحلةُ التدريب) لعائلة القسم في الفصل، الأحدثُ أولاً.
- * للقراءة فقط، وبلا اسم المُرسِل: قرارُ المالك أن النائب لا يرى حركات الرئيس. */
+ * للقراءة فقط. واسمُ المُرسِل (قرار المالك 2026-11-05) من الجلسة عند الكتابة لا من العميل؛ والسطورُ القديمة بلا مُرسِل تعود فارغة. */
 app.get("/api/instructor-requests/send-log", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
@@ -371,7 +371,7 @@ app.get("/api/instructor-requests/send-log", requirePermission(7), async (req: A
     return {
       at: String(row.at || ""), mode: String(row.mode || "edit"), closesAt: String(row.closesAt || ""),
       audience: row.mode === "ta" ? "ta" : row.single ? "exception" : row.picked ? "picked" : "all",
-      count: ids.length, names: ids.map(id => nameOf.get(id) || "").filter(Boolean),
+      count: ids.length, names: ids.map(id => nameOf.get(id) || "").filter(Boolean), by: String(row.by || ""),
     };
   }));
 });
