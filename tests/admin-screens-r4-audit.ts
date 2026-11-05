@@ -21,6 +21,11 @@ check(!/Repository\.deleteInstructor/.test(read("src/server/routes/instructorsRo
 
 /* 26: الباب يخص القسم ولا يخرج رقماً مدنياً */
 const routes = read("src/server/routes/instructorsRoutes.ts");
+const rosterSource = read("src/components/DepartmentRoster.tsx"), rosterIds = routes.split("async function sectionRosterIds(")[1].split('app.get("/api/section-roster"')[0];
+check(/familyOf/.test(rosterIds) && !/termId/.test(rosterIds), "قائمة الأساتذة من عائلة القسم في كل الفصول: المتقاعد وTA لا يختفيان");
+check(/AdInstructorCategory === "ta" \? <button/.test(rosterSource) && /category: null/.test(rosterSource) && !/category: person/.test(rosterSource), "زر التحويل يظهر لـTA وحده");
+check(/لا يتحوّل الأستاذ إلى TA/.test(routes), "الخادم يرفض تحويل الأستاذ إلى TA");
+check(/save\(person, \{ name:/.test(rosterSource) && !/civil/i.test(rosterSource.split("<form")[1].split("</form>")[0]), "تعديل الاسم بلا رقم مدني");
 const rosterRead = routes.split('app.get("/api/section-roster"')[1].split('app.put("/api/section-roster')[0];
 check(/isScopeAllowed/.test(rosterRead) && !/hours:.*AdInstructorCivil|AdInstructorMobile/.test(rosterRead), "قراءة السجل بنطاق وبلا هاتف ولا مدني");
 check(/members\.has\(id\)/.test(routes), "لا يعدّل إلا أستاذ قسمه");

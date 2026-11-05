@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Archive, BookOpenCheck, GraduationCap, Scale, UsersRound } from "lucide-react";
+import { Archive, BookOpenCheck, Check, GraduationCap, Pencil, Scale, UsersRound, X } from "lucide-react";
 import type { AcademicRank, TeachingLoadAssignment } from "../types";
 import { ExceptionBadge, LoadExceptionEditor } from "./LoadException";
 import { Notice, SecondaryButton } from "./ui";
@@ -23,6 +23,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
   const [roster, setRoster] = useState<Roster | null>(null);
   const [group, setGroup] = useState<RosterGroup>("faculty");
   const [editing, setEditing] = useState<Person | null>(null);
+  const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const read = () => fetch(`/api/section-roster?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" })
@@ -38,6 +39,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "تعذّر الحفظ");
       setEditing(null);
+      setRenaming(null);
       await read();
     } catch (e: any) { setError(e.message || "تعذّر الحفظ"); } finally { setBusy(false); }
   };
@@ -67,15 +69,26 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
         <div className="dept-roster-list">
           {shown.map(person => (
             <article key={person.id} className="dept-roster-card">
-              <header><b>{person.name}</b><span>{person.hours} س</span></header>
+              <header>
+                {renaming?.id === person.id ? (
+                  <form className="dept-roster-rename" onSubmit={event => { event.preventDefault(); void save(person, { name: renaming.name }); }}>
+                    <input value={renaming.name} maxLength={120} autoFocus aria-label="اسم الأستاذ" onChange={event => setRenaming({ id: person.id, name: event.target.value })} />
+                    <button type="submit" disabled={busy || !renaming.name.trim()} aria-label="حفظ الاسم" data-guide-ignore="يحفظ اسم العضو فقط"><Check aria-hidden="true" /></button>
+                    <button type="button" disabled={busy} aria-label="إلغاء" onClick={() => setRenaming(null)} data-guide-ignore="يلغي تعديل الاسم"><X aria-hidden="true" /></button>
+                  </form>
+                ) : (
+                  <b>{person.name}<button type="button" className="dept-roster-rename-open" disabled={busy} aria-label={`تعديل اسم ${person.name}`} onClick={() => setRenaming({ id: person.id, name: person.name })} data-guide-ignore="يفتح تعديل الاسم؛ لا يحفظ حتى التأكيد"><Pencil aria-hidden="true" /></button></b>
+                )}
+                <span>{person.hours} س</span>
+              </header>
               <div className="dept-roster-load">
                 <span>{person.rankName || "بلا درجة"}{person.max !== null ? ` · ${person.min ?? 0}–${person.max}${person.extra ? ` +${person.extra}` : ""}` : ""}</span>
                 {person.exception ? <ExceptionBadge reason={person.exception.reason as any} /> : null}
               </div>
               <div className="dept-roster-actions">
                 {roster.enabled ? <button type="button" disabled={busy} onClick={() => setEditing(person)} data-guide-ignore="يفتح محرّر النصاب؛ لا يحفظ حتى «تطبيق»"><Scale aria-hidden="true" />النصاب</button> : null}
-                <button type="button" disabled={busy} className={person.AdInstructorCategory === "ta" ? "on" : ""} aria-pressed={person.AdInstructorCategory === "ta"}
-                  onClick={() => void save(person, { category: person.AdInstructorCategory === "ta" ? null : "ta" })} data-guide-ignore="يبدّل تصنيف العضو بين أستاذ وTA؛ لا يغيّر المواعيد السابقة"><GraduationCap aria-hidden="true" />TA</button>
+                {person.AdInstructorCategory === "ta" ? <button type="button" disabled={busy}
+                  onClick={() => void save(person, { category: null })} data-guide-ignore="يحوّل TA إلى أستاذ؛ لا يغيّر المواعيد السابقة"><GraduationCap aria-hidden="true" />حوّله أستاذاً</button> : null}
                 <button type="button" disabled={busy} className={person.AdInstructorStatus === "sabbatical" ? "on" : ""} aria-pressed={person.AdInstructorStatus === "sabbatical"}
                   onClick={() => void save(person, { status: person.AdInstructorStatus === "sabbatical" ? null : "sabbatical" })} data-guide-ignore="يبدّل حالة التفرّغ؛ لا يغيّر المواعيد السابقة"><BookOpenCheck aria-hidden="true" />تفرّغ</button>
                 <button type="button" disabled={busy} className={person.AdInstructorStatus === "retired" ? "on" : ""} aria-pressed={person.AdInstructorStatus === "retired"}

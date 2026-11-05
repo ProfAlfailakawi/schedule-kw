@@ -24,3 +24,8 @@
 .dept-roster-actions button svg{inline-size:14px;block-size:14px}
 .dept-roster-actions button.on{border-color:var(--accent,#1f6b5c);background:var(--accent-softer,#eef6f3);color:var(--accent-ink,#1f6b5c)}
 .dept-roster-actions button:disabled{opacity:.5;cursor:not-allowed}
+
+.dept-roster-rename{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.dept-roster-rename input{flex:1;min-width:0;font:inherit;padding:6px 10px;border:1px solid var(--line,#d8dcd6);border-radius:10px}
+.dept-roster-rename button,.dept-roster-rename-open{display:inline-grid;place-items:center;width:30px;height:30px;padding:0;background:none;border:0;border-radius:8px;cursor:pointer;color:inherit}
+.dept-roster-rename button svg,.dept-roster-rename-open svg{width:15px;height:15px}
