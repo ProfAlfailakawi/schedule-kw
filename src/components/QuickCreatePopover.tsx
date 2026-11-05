@@ -365,6 +365,7 @@ export default function QuickCreatePopover({
           notices: [
             ...(result.patternNotice ? ["نمط الأيام المختار غير معتمد لهذا المقرر؛ راجع الأنماط المعتادة."] : []),
             ...(result.lectureNotice ? ["مدة المحاضرة تختلف عن النمط المعتاد للمقرر."] : []),
+            ...(result.departmentHoursNotice ? [`${result.departmentHoursNotice} — تنبيه فقط`] : []),
           ],
           error: "",
         });

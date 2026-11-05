@@ -799,6 +799,34 @@ export function describeProblem(problem: TmProblem, context: TmContext): string 
   return `توفير ${countOf(problem.count, AR.room)}`;
 }
 
+const ABSENCE_WORDS = /(معتذر|اعتذر|غائب|غياب|اجاز|مريض|سفر|مسافر|مؤتمر|غير متاح|لا يستطيع|ما يقدر|مشغول)/;
+const nameWords = (value: string) => norm(value).replace(/(^|\s)(د|ا|م)\s*\.\s*/g, " ").split(/[^a-z0-9؀-ۿ]+/).filter(Boolean);
+const keptWord = (word: string) => /\d/.test(word) || word.length >= 3;
+
+/** الاسمُ بكلماته متتاليةً في الجملة، بلا لقب ولو احتوى أرقاماً؛ والأطولُ يغلب، وتطابقُ شخصين ليس جواباً. */
+function teacherByFullName(text: string, context: TmContext): number {
+  const said = ` ${nameWords(text).join(" ")} `;
+  const hits = context.instructors
+    .map(person => ({ id: Number(person.AdInstructorId), name: nameWords(person.AdInstructorName).join(" ") }))
+    .filter(person => person.name && said.includes(` ${person.name} `));
+  const longest = Math.max(0, ...hits.map(person => person.name.length));
+  const top = hits.filter(person => person.name.length === longest);
+  return top.length === 1 ? top[0].id : 0;
+}
+
+/** جزءٌ من الاسم: الأرقامُ تميّز ولا تكفي وحدها، وكلمةُ «هيئة» المشتركة لا تُعدّ. */
+function teacherNamed(text: string, context: TmContext): number {
+  const words = new Set(nameWords(text).filter(keptWord));
+  let best: { id: number; score: number } | null = null, tie = false;
+  for (const person of context.instructors) {
+    const hits = nameWords(person.AdInstructorName).filter(token => keptWord(token) && token !== "هيئه" && words.has(token));
+    if (!hits.some(token => !/^\d+$/.test(token))) continue;
+    if (!best || hits.length > best.score) { best = { id: Number(person.AdInstructorId), score: hits.length }; tie = false; }
+    else if (hits.length === best.score) tie = true;
+  }
+  return best && !tie ? best.id : 0;
+}
+
 /**
  * جملةٌ من المستخدم ← مشكلةٌ أو هدف. أنماطٌ محدّدة لا ذكاءٌ مدّعى: ما لا يُفهم
  * يعود null ويُقال ذلك صراحةً مع أمثلةٍ تُفهم.
@@ -808,6 +836,11 @@ export function parseProblem(input: string, context: TmContext): TmProblem | nul
   if (!text.trim()) return null;
   const query = parseNaturalQuery(input);
   const day = query.day === null ? null : TM_DAYS[query.day] || null;
+
+  /* الاسمُ الكامل قبل الأهداف: «الغ» من أفعال الإلغاء تقع داخل «الغانم»، فكانت الجملةُ تُقرأ تصفيرَ يوم. */
+  const absent = ABSENCE_WORDS.test(text);
+  const named = absent ? teacherByFullName(text, context) : 0;
+  if (named) return { kind: "teacherOff", instructorId: named, day };
 
   /* الأهداف أولاً: أفعالها صريحة. */
   if (/(صفر|فرغ|اخل|الغ)/.test(text) && day && !/قاع/.test(text)) return { kind: "clearDay", day };
@@ -826,18 +859,10 @@ export function parseProblem(input: string, context: TmContext): TmProblem | nul
     .sort((a, b) => b.hit.length - a.hit.length)[0]?.item;
   if (hall && (/(قاع|تعطل|معطل|عطل|مغلق|اغلاق|صيان|خارج|مكيف|تسرب)/.test(text) || /^[a-z]/.test(text.trim()))) return { kind: "roomDown", hall, day };
 
-  /* أستاذٌ باسمه. */
-  if (/(معتذر|اعتذر|غائب|غياب|اجاز|مريض|سفر|مسافر|مؤتمر|غير متاح|لا يستطيع|ما يقدر|مشغول)/.test(text)) {
-    const words = text.replace(/(د|ا|م)\s*\./g, " ").split(/[^a-z0-9؀-ۿ]+/).filter(word => word.length >= 3);
-    let best: { id: number; score: number } | null = null, tie = false;
-    for (const person of context.instructors) {
-      const tokens = norm(person.AdInstructorName).split(/\s+/).filter(token => token.length >= 3 && token !== "هيئه");
-      const score = tokens.filter(token => words.includes(token)).length;
-      if (!score) continue;
-      if (!best || score > best.score) { best = { id: Number(person.AdInstructorId), score }; tie = false; }
-      else if (score === best.score) tie = true;
-    }
-    if (best && !tie) return { kind: "teacherOff", instructorId: best.id, day };
+  /* أستاذٌ باسمه: قُرئ أولاً في teacherNamed. */
+  if (absent) {
+    const teacher = teacherNamed(text, context);
+    if (teacher) return { kind: "teacherOff", instructorId: teacher, day };
   }
 
   /* طلبٌ زائد على مقرر: برمزه أو باسمه. */

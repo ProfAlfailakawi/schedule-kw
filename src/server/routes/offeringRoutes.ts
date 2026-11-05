@@ -41,7 +41,7 @@ import { staffFamilyScopes, staffFamilyShareLinks } from "../core/staffCard";
 import { noteTrail } from "../activityTrail";
 
 /* ── F1–F3: مرحلة التدريب ──────────────────────────────────────────────────── */
-async function sendTaWave(doc: TaPhaseDoc, wave: TaWave, by: { SystemUserId?: number; UserName?: string }) {
+async function sendTaWave(doc: TaPhaseDoc, wave: TaWave, by: { SystemUserId?: number; UserName?: string; Name?: string }) {
   const family = await staffFamilyScopes(doc.AdCollegeId, doc.AdSectionId);
   const existing = (await Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, doc.AdTermId)))).flat();
   const terms = await Repository.getTerms();
@@ -71,7 +71,7 @@ async function sendTaWave(doc: TaPhaseDoc, wave: TaWave, by: { SystemUserId?: nu
 }
 
 /** يرسل كلَّ موجةٍ حلّ موعدها (يُستدعى عند القراءة ودورياً). ذرّيٌّ: الموجة تُعلَّم مرسلةً قبل الإرسال. */
-async function dispatchTaWaves(id: string, by: { SystemUserId?: number; UserName?: string } = {}) {
+async function dispatchTaWaves(id: string, by: { SystemUserId?: number; UserName?: string; Name?: string } = {}) {
   const claimed = await Repository.updateFeatureDoc<TaPhaseDoc, TaWave[]>("taPhases", id, current => {
     if (!current) return { refuse: [] };
     const due = dueWaves(current);
@@ -84,7 +84,7 @@ async function dispatchTaWaves(id: string, by: { SystemUserId?: number; UserName
   const out = [];
   for (const wave of claimed.result) out.push(...await sendTaWave(doc, wave, by));
   /* كلُّ موجةٍ تُرسل سطرٌ في سجلّ الإرسال — الأولى والمجدولة بعدها. */
-  if (out.length) await Repository.saveFeatureDoc("linkModeLog", `${id}:${Date.now()}`, { at: new Date().toISOString(), by: String(by.UserName || doc.openedBy || ""), mode: "ta", scope: id, closesAt: doc.closesAt, instructorIds: out.map(row => row.instructorId) }).catch(() => undefined);
+  if (out.length) await Repository.saveFeatureDoc("linkModeLog", `${id}:${Date.now()}`, { at: new Date().toISOString(), by: String(by.Name || by.UserName || doc.openedBy || ""), mode: "ta", scope: id, closesAt: doc.closesAt, instructorIds: out.map(row => row.instructorId) }).catch(() => undefined);
   if (out.length) broadcastNotify(Repository.currentDemoSessionId());
   if (out.length) await pushHooks.taWindowOpened(doc.closesAt, out);
   return out;

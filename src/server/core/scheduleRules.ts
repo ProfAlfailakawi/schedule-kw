@@ -19,7 +19,7 @@ import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, interCampusMinutes } from "../../utils/campusTravel";
-import { clockRangesOverlap, formatScheduleTimeRange, isValidClock, scheduleDayWindowMinutes, startsWithinScheduleDay } from "../../utils/scheduleTime";
+import { clockRangesOverlap, departmentHoursNote, formatScheduleTimeRange, isValidClock, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, scheduleDayWindowMinutes, withinUniversityDay } from "../../utils/scheduleTime";
 import { isSharedRoom, resolveBuilding, resolveRoom } from "../../utils/locationRegistry";
 import { courseHabit } from "./instructorRequests";
 import { confirmedDepartmentRoomIds, dataContextCacheKey, readLocationRegistry } from "./locations";
@@ -45,6 +45,10 @@ export const SCHEDULE_DAY_KEYS=["fsunday","fmonday","ftuesday","fwednesday","fth
  */
 export const scheduleOverlap=(aStart:string,aEnd:string,bStart:string,bEnd:string)=>
   clockRangesOverlap(aStart,aEnd,bStart,bEnd);
+export async function hoursNotice(row:any):Promise<string>{
+  if(!isValidClock(row?.fstarttime)||!isValidClock(row?.fendtime))return"";
+  return departmentHoursNote(timeToMinutes(String(row.fstarttime)),timeToMinutes(String(row.fendtime)),await sectionScheduleWindow(Number(row.AdSectionId||0)));
+}
 export const sectionScheduleWindowCache=new Map<string,{expiresAt:number;startTime:string;endTime:string}>();
 export async function sectionScheduleWindow(sectionId:number){
   const cacheKey=dataContextCacheKey(sectionId),cached=sectionScheduleWindowCache.get(cacheKey);if(cached&&cached.expiresAt>Date.now())return cached;
@@ -125,12 +129,14 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
   }
   return null;
 }
-export async function schedulePayloadIssues(row:any){const issues:string[]=[];if(!SCHEDULE_DAY_KEYS.some(k=>Boolean(row?.[k])))issues.push("يجب اختيار يوم واحد على الأقل للمحاضرة");if(row?.fstarttime&&row?.fendtime){
+/* قرار المالك 2026-11-05: اليومُ الجامعي يمنع الحفظ، ولا يُقصّ الوقت ولا يضيع. واستثناءُ القسم الأضيق ليس هنا: هو تنبيهُ
+   hoursNotice أعلاه. وموعدٌ محفوظ لم يتغيّر وقته (keptTime) لا يُردّ بهذا الحدّ، كسائر فحوص الشكل عند التعديل. */
+export async function schedulePayloadIssues(row:any,{keptTime=false}:{keptTime?:boolean}={}){const issues:string[]=[];if(!SCHEDULE_DAY_KEYS.some(k=>Boolean(row?.[k])))issues.push("يجب اختيار يوم واحد على الأقل للمحاضرة");if(row?.fstarttime&&row?.fendtime){
   /* An impossible clock is refused before it is measured. `timeToMinutes` answers
      with a number for anything — "10:76" becomes 676, i.e. 11:16 — so without
      this the row was stored at a time nobody typed. */
   if(!isValidClock(row.fstarttime)||!isValidClock(row.fendtime))issues.push("وقت المحاضرة غير صالح: الساعة بين 0 و23 والدقيقة بين 0 و59");
-  else{const start=timeToMinutes(String(row.fstarttime)),end=timeToMinutes(String(row.fendtime));if(end<=start)issues.push("وقت النهاية يجب أن يكون بعد وقت البداية");else{const window=await sectionScheduleWindow(Number(row.AdSectionId||0));if(!startsWithinScheduleDay(start,end,window))issues.push(`وقت المحاضرة يجب أن يكون بين ${window.startTime} و${window.endTime}`);}}}return issues;}
+  else{const start=timeToMinutes(String(row.fstarttime)),end=timeToMinutes(String(row.fendtime));if(end<=start)issues.push("وقت النهاية يجب أن يكون بعد وقت البداية");else if(!keptTime&&!withinUniversityDay(start,end))issues.push(`وقت المحاضرة يجب أن يكون ضمن الدوام الشامل (${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME})`);}}return issues;}
 /**
  * Who does this hall belong to?
  *

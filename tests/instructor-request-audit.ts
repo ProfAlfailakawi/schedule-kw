@@ -256,7 +256,7 @@ check(/^\S*\s*3|ثلاث/.test(line) || line.includes("3"), "ويبدأ بالع
       سُلّمَ البدايات يبدأ من الثامنة. */
 check(!judgeRequest(ask({ start: "07:00" }), context()).sendable,
   "موعدٌ قبل بداية اليوم الدراسي يُمنع");
-check(judgeRequest(ask({ start: "07:00" }), context()).reasons.some(r => r.text.includes("قبل بداية اليوم")),
+check(judgeRequest(ask({ start: "07:00" }), context()).reasons.some(r => r.text.includes("قبل بداية الدوام الشامل")),
   "ويُقال السببُ صراحة");
 check(judgeRequest(ask({ start: "08:00" }), context()).sendable, "وأوّلُ اليوم نفسُه مقبول");
 

@@ -1,6 +1,6 @@
 /**
  * ── سجلُّ الإرسال في «نشر ← الروابط» ────────────────────────────────────────
- * كلُّ إرسالٍ سطرٌ يُضاف فوق ما قبله ولا يمحوه: متى، وبأي صفة، ولمن، وإلى أي موعد.
+ * كلُّ إرسالٍ سطرٌ يُضاف فوق ما قبله ولا يمحوه: متى، ومن أرسل، وبأي صفة، ولمن، وإلى أي موعد.
  * للقراءة فقط؛ والمصدرُ الخادم (/api/instructor-requests/send-log) لا ذاكرةُ المتصفح،
  * فيبقى السجلُّ بعد إغلاق النافذة. نتيجةُ الإرسال الأخير تبقى مستقلةً فوقه.
  */
@@ -9,7 +9,7 @@ import { History } from "lucide-react";
 import { LINK_MODES } from "../utils/linkMode";
 import { AR, countOf } from "../utils/arabicCount";
 
-interface SendLogEntry { at: string; mode: string; closesAt: string; audience: "all" | "picked" | "exception" | "ta"; count: number; names: string[] }
+interface SendLogEntry { at: string; mode: string; closesAt: string; audience: "all" | "picked" | "exception" | "ta"; count: number; names: string[]; by?: string }
 
 const AUDIENCE: Record<SendLogEntry["audience"], string> = { all: "الكل", picked: "أساتذة محددون", exception: "استثناء", ta: "مرحلة التدريب" };
 const when = (value: string) => new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kuwait" }).format(new Date(value));
@@ -43,7 +43,7 @@ export default function PublishSendLog({ collegeId, sectionId, termId, active, s
               <span className="publish-send-log-mode" title={mode?.label} aria-hidden="true">{mode?.icon}</span>
               <div>
                 <b>{row.audience === "all" ? `الكل · ${countOf(row.count, AR.instructor)}` : `${AUDIENCE[row.audience]} · ${shown || countOf(row.count, AR.instructor)}${rest > 0 ? ` · و${countOf(rest, AR.instructor)}` : ""}`}</b>
-                <small>{[mode?.label, row.mode !== "view" && row.closesAt ? `حتى ${when(row.closesAt)}` : ""].filter(Boolean).join(" · ")}</small>
+                <small>{[row.by ? `أرسله ${row.by}` : "", mode?.label, row.mode !== "view" && row.closesAt ? `حتى ${when(row.closesAt)}` : ""].filter(Boolean).join(" · ")}</small>
               </div>
               <time dateTime={row.at}>{when(row.at)}</time>
             </li>

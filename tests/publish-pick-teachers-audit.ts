@@ -125,7 +125,7 @@ async function main() {
   check(log.status === 200 && entries.length >= 2, "P6 السجلُّ يحفظ الإرسالين معاً", entries.length);
   check(entries[0]?.mode === "view" && entries[0]?.audience === "picked" && entries[0]?.count === 1 && entries[0]?.names?.length === 1, "P6 الأحدثُ أولاً، وإرسالُ شخصٍ واحد سطرُه هو وحده", entries[0]);
   check(entries[1]?.mode === "edit" && entries[1]?.count === pickedIds.length, "P6 والإرسالُ الأقدم باقٍ كما كان", entries[1]);
-  check(entries.every(e => !("by" in e)), "P6 ولا اسمَ مُرسِل: النائبُ لا يرى حركات الرئيس");
+  check(entries.every(e => typeof e.by === "string" && e.by.length > 0), "P6 واسمُ المُرسِل من الجلسة في كل سطر (قرار المالك 2026-11-05)", entries);
   const third = await A("POST", "/api/instructor-requests/issue", { ...BODY, closesAt: deadline, mode: "edit", instructorIds: [pickedIds[1]] });
   const longer = (await A("GET", `/api/instructor-requests/send-log?${SCOPE}`)).json;
   check(third.status === 200 && longer.length === entries.length + 1 && JSON.stringify(longer.slice(1)) === JSON.stringify(entries), "P6 إرسالٌ ثالث يُضاف سطراً ولا يغيّر ما قبله");

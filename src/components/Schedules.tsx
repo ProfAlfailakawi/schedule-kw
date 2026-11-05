@@ -231,8 +231,8 @@ import {
   SCHEDULE_DAY_START_TIME,
   SCHEDULE_SLOT_MINUTES,
   scheduleDayWindowMinutes,
-  endsPastScheduleDay,
-  startsWithinScheduleDay,
+  departmentHoursNote,
+  withinUniversityDay,
 } from "../utils/scheduleTime";
 export type ScheduleMode = "schedule" | "copy";
 interface Props {
@@ -3386,8 +3386,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const quickConflict = (draft: QuickDraft, day: DayKey): string | null => {
     const from = mins(draft.start), to = mins(draft.end);
     if (to <= from) return "وقت النهاية يجب أن يكون بعد وقت البداية.";
-    const window=scheduleDayWindowMinutes(sections.find(section=>Number(section.AdSectionId)===Number(filterSection)));
-    if (!startsWithinScheduleDay(from, to, window)) return `الوقت خارج اليوم الدراسي (${formatScheduleTimeRange(window.startTime, window.endTime)}).`;
+    if (!withinUniversityDay(from, to)) return `الوقت خارج الدوام الشامل (${formatScheduleTimeRange(SCHEDULE_DAY_START_TIME, SCHEDULE_DAY_END_TIME)}).`;
     const busy = rows.find(r =>
       Boolean((r as any)[day]) &&
       mins(r.fstarttime) < to && mins(r.fendtime) > from &&
@@ -3697,14 +3696,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const editorRegulation = useMemo(() => editorReviewFindings.filter(finding => isDecision1912Finding(finding) && finding.approvalEffect === "block"), [editorReviewFindings]);
   const editorSupplementalReview = useMemo(() => editorReviewFindings.filter(finding => !isDecision1912Finding(finding)), [editorReviewFindings]);
   const timeRangeInvalid = Boolean(form.fstarttime&&form.fendtime)&&mins(form.fendtime)<=mins(form.fstarttime);
-  const outsideTeachingDay = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid &&
-    !startsWithinScheduleDay(mins(form.fstarttime), mins(form.fendtime),activeScheduleWindow);
-  /* تجاوزُ نهاية دوام القسم تنبيهٌ لا يمنع (ملاحظة المالك 20). */
-  const pastTeachingDay = Boolean(form.fendtime) && !timeRangeInvalid && !outsideTeachingDay && endsPastScheduleDay(mins(form.fendtime), activeScheduleWindow);
+  /* موعدٌ محفوظ لم يتغيّر وقته لا يُردّ بحدّ اليوم عند تعديل قاعته أو أستاذه، كما يفعل الخادم (keptTime). */
+  const savedForm = editor === "edit" ? rows.find(row => row.id === editId) : undefined;
+  const savedTimeKept = Boolean(savedForm) && savedForm!.fstarttime === form.fstarttime && savedForm!.fendtime === form.fendtime;
+  const outsideTeachingDay = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid && !savedTimeKept &&
+    !withinUniversityDay(mins(form.fstarttime), mins(form.fendtime));
+  /* قرار المالك 2026-11-05: استثناءُ دوام القسم تنبيهٌ لا يمنع هنا؛ ويومُ الجامعة (08:00–20:00) فوقه يمنع الحفظ. */
+  const departmentHours = Boolean(form.fstarttime && form.fendtime) && !timeRangeInvalid ? departmentHoursNote(mins(form.fstarttime), mins(form.fendtime), activeScheduleWindow) : "";
   const validationIssues=[
     !selectedFormDays.length?"يجب اختيار يوم واحد على الأقل للمحاضرة.":"",
     timeRangeInvalid?"وقت النهاية يجب أن يكون بعد وقت البداية.":"",
-    outsideTeachingDay?`وقت المحاضرة يجب أن يكون بين ${scheduleClockForDisplay(activeScheduleWindow.startTime)} و${scheduleClockForDisplay(activeScheduleWindow.endTime)}.`:"",
+    outsideTeachingDay?`وقت المحاضرة يجب أن يكون ضمن الدوام الشامل (${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME}).`:"",
     ...serverValidationIssues,
   ].filter(Boolean);
   const editorTimingNote = historicalTimingNote(form);
@@ -4265,7 +4267,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     notes: [
       ...editorSupplementalCards.map(card => ({ kind: "time" as const, text: String(card.title || ""), detail: String(card.detail || "") || undefined })),
       ...(formReachNote ? [{ kind: "section" as const, text: formReachNote }] : []),
-      ...(pastTeachingDay ? [{ kind: "time" as const, text: `ينتهي بعد نهاية دوام القسم (${scheduleClockForDisplay(activeScheduleWindow.endTime)})` }] : []),
+      ...(departmentHours ? [{ kind: "time" as const, text: departmentHours }] : []),
     ],
   });
   const [altBusy, setAltBusy] = useState(false);
@@ -5193,10 +5195,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // A save filed under another scope: the filters just moved, and the
       // scope effect reloads that workspace on its own — nothing to do here.
       const queuedOffline = Boolean((saved as any)?.queuedOffline);
-      const keepCreating = editor !== "edit" && !queuedOffline;
+      const keepCreating = editor !== "edit" && !queuedOffline && !movedExisting;
       setMessage(
         queuedOffline ? "حُفظ التعديل محلياً وسيُزامن عند عودة الاتصال."
-          : editor === "edit" ? "تم حفظ التعديل"
+          : movedExisting ? "نُقل الموعد القائم وثُبّت الطلب" : editor === "edit" ? "تم حفظ التعديل"
             : "تم إنشاء الموعد · الشعبة التالية جاهزة",
       );
       setPhysicsNotice([queuedOffline ? "بانتظار المزامنة" : "", editorTimingNote || ""].filter(Boolean).join(" · "));
@@ -9757,11 +9759,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <TimeField
                       data-guide-editor-field="time"
                      
-          min={activeScheduleWindow.startTime}
-          max={activeScheduleWindow.endTime}
+          min={SCHEDULE_DAY_START_TIME}
+          max={SCHEDULE_DAY_END_TIME}
                       value={form.fstarttime}
                       onOutOfRange={(limit) => {
-                        const boundary = limit === "max" ? activeScheduleWindow.endTime : activeScheduleWindow.startTime;
+                        const boundary = limit === "max" ? SCHEDULE_DAY_END_TIME : SCHEDULE_DAY_START_TIME;
                         setStartTimeLimitNotice(`${limit === "max" ? "ينتهي الدوام" : "يبدأ الدوام"} عند ${scheduleClockForDisplay(boundary)}.`);
                       }}
                       onChange={(e) => {
@@ -9792,8 +9794,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       start={form.fstarttime || SCHEDULE_DAY_START_TIME}
                       end={form.fendtime || form.fstarttime || SCHEDULE_DAY_START_TIME}
                       preferredDuration={formRegulationChoice?.minutes || expectedDurationForSelection(form)}
-                      minTime={activeScheduleWindow.startTime}
-                      maxTime={activeScheduleWindow.endTime}
+                      minTime={SCHEDULE_DAY_START_TIME}
+                      maxTime={SCHEDULE_DAY_END_TIME}
                       endLimit={SCHEDULE_CLOCK_END_TIME}
                       onChange={(next) => {
                         setScheduleTouched(true);
@@ -9817,11 +9819,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <div className={`schedule-time-control${autofillFlash ? " is-autofilled" : ""}`} dir="ltr">
                     <TimeField
                      
-          min={activeScheduleWindow.startTime}
+          min={SCHEDULE_DAY_START_TIME}
           max="23:59"
                       value={form.fendtime}
                       onOutOfRange={(limit) => {
-                        const boundary = limit === "max" ? activeScheduleWindow.endTime : activeScheduleWindow.startTime;
+                        const boundary = limit === "max" ? SCHEDULE_DAY_END_TIME : SCHEDULE_DAY_START_TIME;
                         setEndTimeLimitNotice(`${limit === "max" ? "ينتهي الدوام" : "يبدأ الدوام"} عند ${scheduleClockForDisplay(boundary)}.`);
                       }}
                       onChange={(e) => {
@@ -9836,7 +9838,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     />
                   </div>
                   {endTimeLimitNotice ? <small className="schedule-time-limit-note" role="status">{endTimeLimitNotice}</small> : null}
-                  {pastTeachingDay ? <small className="schedule-time-limit-note" role="status">ينتهي بعد نهاية الدوام ({scheduleClockForDisplay(activeScheduleWindow.endTime)}) — تنبيه فقط</small> : null}
+                  {departmentHours ? <small className="schedule-time-limit-note" role="status">{departmentHours} — تنبيه فقط</small> : null}
                 </Field>
                 <div className="field appt-duration">
                   <span className="appt-duration-label">المدة</span>

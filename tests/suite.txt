@@ -239,4 +239,5 @@ test:presentation-coverage
 test:admin-screens-r4
 test:admin-rules-r4
 test:publish-notes-r4
+test:owner-hours-rule
 test:authority-course-prefix
