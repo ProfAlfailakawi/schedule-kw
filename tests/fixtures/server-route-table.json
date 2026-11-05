@@ -2311,7 +2311,7 @@
    ],
    "path": "/api/schedules/placeholder-action",
    "name": "bound dispatch",
-   "call": "16c77737c88277c9",
+   "call": "1dc34d86c52cb1bd",
    "site": "src/server/routes/scheduleToolsRoutes.ts:471",
    "regexp": "/^\\/api\\/schedules\\/placeholder-action\\/?$/i",
    "end": true
@@ -4763,7 +4763,7 @@
    ],
    "path": "/api/instructor-requests/:id/cancel-scheduled",
    "name": "bound dispatch",
-   "call": "e2dd270fb3984d87",
+   "call": "655e79091f83d3ff",
    "site": "src/server/routes/instructorRequestsRoutes.ts:707",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/cancel-scheduled\\/?$/i",
    "end": true

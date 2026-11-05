@@ -374,7 +374,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     }
     res.json(updated);
   } catch (e: any) {
-    if (e instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([e.holdRequestId])); return; }
+    if (e instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([e.holdRequestId], [e.holdItemId])); return; }
     if (e instanceof RequestReservationConflict) { res.status(409).json({ error: e.message, code: e.code }); return; }
     if (e instanceof ScheduleRevisionConflict) {
       /* Not a failure to write — a refusal to overwrite. Both versions go back
@@ -416,11 +416,12 @@ export const deleteScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const deleteOverrides = await applyRequestHoldOverride(req);
   try { await Repository.deleteSchedule(id, (req as any).__requestReservationOwner || ""); }
   catch (error) {
-    if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId])); return; }
+    if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId], [error.holdItemId])); return; }
     throw error;
   }
   if (deleteOverrides.length) await noteRequestHoldOverride(deleteOverrides, null, String(req.user?.Name || "القسم"));
-  if (sched) await forgetDepartmentAddition(sched);
+  /* «إلغاء الموعد» يكتب قراره بنفسه؛ حفظٌ ثانٍ هنا كان يقدّم النسخة فيُرفض حفظُ الإلغاء بعد وقوع الحذف. */
+  if (sched && !(req as any).__cancelScheduled) await forgetDepartmentAddition(sched);
   await recordVersionAfter(deleteVersion, before => before.filter(row => Number(row.id) !== Number(id)));
   if (sched) await noteScheduleMutation(req, sched.AdCollegeId, sched.AdSectionId, sched.AdTermId, { kind: "delete", row: sched });
   res.json({ success: true });

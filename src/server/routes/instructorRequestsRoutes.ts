@@ -746,6 +746,7 @@ app.post("/api/instructor-requests/:id/cancel-scheduled", requirePermission(7), 
   if (!note) { res.status(400).json({ error: "اكتب سطراً للأستاذ." }); return; }
   const scheduleId = Number(item.decision.scheduleId);
   if (await Repository.getScheduleById(scheduleId)) {
+    (req as any).__cancelScheduled = true;
     const removed = await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(scheduleId) }, body: {} });
     if (removed.status >= 400) { res.status(removed.status).json(removed.body); return; }
   }

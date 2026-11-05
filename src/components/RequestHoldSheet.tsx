@@ -38,7 +38,7 @@ export function holdMatchesDraft(hold: RequestHold, draft?: Partial<FSchedule>):
 
 function RequestHoldSheet({ holds, verb, draft, onChoose }: { holds: RequestHold[]; verb: string; draft?: Partial<FSchedule>; onChoose: (choice: RequestHoldChoice) => void }) {
   const same = holds.every(hold => holdMatchesDraft(hold, draft));
-  const canReject = holds.some(hold => hold.itemIndex != null);
+  const canReject = holds.every(hold => hold.itemIndex != null);
   return (
     <div className="changes-extend-sheet request-hold-sheet" role="dialog" aria-modal="true" aria-label="حجز طلب أستاذ" dir="rtl">
       <div className="changes-extend-card">
@@ -48,7 +48,7 @@ function RequestHoldSheet({ holds, verb, draft, onChoose }: { holds: RequestHold
         </header>
         <ul className="request-hold-list">
           {holds.map(hold => (
-            <li key={hold.requestId}>
+            <li key={`${hold.requestId}:${hold.itemId || ""}`}>
               <b>{hold.instructorName || "أستاذ"}</b>
               {hold.courseName ? <span>{hold.courseName}</span> : null}
               {hold.days?.length ? <small>{hold.days.map(day => DAY_NAMES[day] || day).join(" · ")} <bdi dir="ltr">{hold.start}–{hold.end}</bdi></small> : null}

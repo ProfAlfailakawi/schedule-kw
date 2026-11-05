@@ -1473,16 +1473,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       const choice = await askRequestHold({ holds: failure.holds, verb, draft });
       if (!choice) throw new Error("لم يتغيّر شيء: الموعد ما زال محجوزاً للطلب.");
       if (choice === "reject") {
+        const revisions = new Map<string, number>();
         for (const hold of failure.holds as RequestHold[]) {
           if (hold.itemIndex == null) continue;
-          await fetchJson(`/api/instructor-requests/${hold.requestId}/decide`, {
+          const decided: any = await fetchJson(`/api/instructor-requests/${hold.requestId}/decide`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ itemIndex: hold.itemIndex, itemId: hold.itemId, requestRevision: hold.requestRevision, state: "rejected", reasonCode: "department", note: "استخدم القسم هذا الوقت." }),
+            body: JSON.stringify({ itemIndex: hold.itemIndex, itemId: hold.itemId, requestRevision: revisions.get(hold.requestId) ?? hold.requestRevision, state: "rejected", reasonCode: "department", note: "استخدم القسم هذا الوقت." }),
           });
+          revisions.set(hold.requestId, Number(decided?.requestRevision));
         }
         return withRequestHoldPrompt(send, verb, draft);
       }
-      return send(failure.holds.map((hold: any) => String(hold.requestId)));
+      return send([...new Set<string>(failure.holds.map((hold: any) => String(hold.requestId)))]);
     }
   };
   const deleteScheduleRow = (id: number | string) => withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${id}`, overrideRequestHolds

@@ -402,24 +402,24 @@ export async function forgetDepartmentAddition(row: FSchedule): Promise<void> {
 }
 
 /** ردُّ 409 حين يحجز الموعدَ طلبُ أستاذٍ ينتظر القسم: من صاحبه وما طلبه، ليُسأل المنسّق بدل أن يُمنع. */
-export async function requestHoldRefusal(requestIds: string[], itemIds: string[] = []) {
+export async function requestHoldRefusal(requestIds: string[], itemIds: string[]) {
   const [instructors, requests] = await Promise.all([Repository.getInstructors(), Promise.all(requestIds.map(id => Repository.getInstructorRequest(id)))]);
   const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
   return {
     error: "هذا الموعد محجوزٌ لطلب أستاذ ينتظر قرارك. المتابعة تعتمد تعديلك وتُبقي الطلب في الوارد.",
     code: "request-hold",
-    holds: requests.filter(Boolean).map(request => {
+    /* بندٌ لكل حجز بعينه: لا يُخمَّن أولُ بندٍ منتظر، فبلا هويةٍ مؤكدة يبقى السؤال بلا «ارفض». */
+    holds: requests.filter(Boolean).flatMap(request => {
       const items = request!.items || [];
-      const waiting = (item: typeof items[number]) => item.action !== "keep" && item.action !== "delete" && !item.decision?.state;
-      const itemIndex = Math.max(items.findIndex(item => waiting(item) && itemIds.includes(String(item.itemId || ""))), items.findIndex(waiting));
-      const item = items[itemIndex];
-      return {
-        requestId: request!.id, requestRevision: Number(request!.requestRevision || 0),
-        instructorId: Number(request!.AdInstructorId), instructorName: nameOf.get(Number(request!.AdInstructorId)) || "",
-        ...(item ? { itemIndex, itemId: instructorRequestItemIdentity(item), courseId: Number(item.after?.courseId || item.before?.courseId || 0),
-          courseName: String(item.after?.courseName || item.before?.courseName || ""),
-          days: (item.slots || []).map(slot => String(slot.day)), start: String(item.slots?.[0]?.start || ""), end: String(item.slots?.[0]?.end || "") } : {}),
-      };
+      const base = { requestId: request!.id, requestRevision: Number(request!.requestRevision || 0),
+        instructorId: Number(request!.AdInstructorId), instructorName: nameOf.get(Number(request!.AdInstructorId)) || "" };
+      const matched = items.flatMap((item, itemIndex) => item.action !== "keep" && item.action !== "delete" && !item.decision?.state
+        && itemIds.includes(instructorRequestItemIdentity(item)) ? [{ item, itemIndex }] : []);
+      if (!matched.length) return [base];
+      return matched.map(({ item, itemIndex }) => ({ ...base, itemIndex, itemId: instructorRequestItemIdentity(item),
+        courseId: Number(item.after?.courseId || item.before?.courseId || 0),
+        courseName: String(item.after?.courseName || item.before?.courseName || ""),
+        days: (item.slots || []).map(slot => String(slot.day)), start: String(item.slots?.[0]?.start || ""), end: String(item.slots?.[0]?.end || "") }));
     }),
   };
 }

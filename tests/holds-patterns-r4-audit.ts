@@ -94,6 +94,13 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const schedules = read("src/components/Schedules.tsx");
   check(!/window\.confirm\(`⏳/.test(schedules) && /askRequestHold\(\{ holds: failure\.holds, verb, draft \}\)/.test(schedules), "4 ورقة قرار بدل نافذة التأكيد");
   check(/requestHoldRefusal\(\[\.\.\.new Set\(blockingSave/.test(read("src/server/core/scheduleWrites.ts")), "4 الرفض يحمل تفاصيل البند");
+  const refusal = read("src/server/core/scheduleConflicts.ts");
+  check(/itemIds\.includes\(instructorRequestItemIdentity\(item\)\)/.test(refusal) && !/findIndex\(waiting\)/.test(refusal) && /requestIds: string\[\], itemIds: string\[\]\)/.test(refusal), "4 الحجز يُعرَّف ببنده لا بأول بندٍ منتظر");
+  for (const file of ["src/server/core/scheduleWrites.ts", "src/server/routes/scheduleToolsRoutes.ts"]) {
+    check(!/requestHoldRefusal\(\[[^\]]*\]\)/.test(read(file)), `4 كل مستدعٍ يمرّر هوية البند: ${file}`);
+  }
+  check(/canReject = holds\.every/.test(read("src/components/RequestHoldSheet.tsx")), "4 لا «ارفض» حين يُجهل البند");
+  check(/revisions\.get\(hold\.requestId\)/.test(schedules), "4 رفض بندين من طلبٍ واحد يتتبّع النسخة");
   check(/addedHere/.test(read("src/server/core/scheduleConflicts.ts")), "4 «ثبّت الطلب» يثبّت بند الإضافة المطابق");
 }
 
@@ -104,6 +111,7 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const route = read("src/server/routes/instructorRequestsRoutes.ts");
   check(/cancel-scheduled/.test(route) && /اكتب سطراً للأستاذ/.test(route) && /runScheduleHandler\(deleteScheduleHandler/.test(route), "1 الإلغاء يحذف بالمسار نفسه ويطلب سطراً للأستاذ");
   check(/noteDepartmentAddition\(newSched/.test(read("src/server/core/scheduleWrites.ts")), "1 موعد القسم يصير بنداً في طلب الأستاذ");
+  check(/__cancelScheduled = true/.test(route) && /!\(req as any\)\.__cancelScheduled\) await forgetDepartmentAddition/.test(read("src/server/core/scheduleWrites.ts")), "1 الإلغاء لا يتسابق مع رفع البند على نسخة الطلب");
   check(/ألغى القسم هذا الموعد/.test(read("src/server/pages/instructorRequestPage.ts")), "1 الأستاذ يقرأ السطر");
   check(/departmentItems/.test(read("src/server/routes/publicRequestRoutes.ts")), "1 إعادة بناء الطلب غير المرسل لا تُسقط بند القسم");
 }
