@@ -42,6 +42,11 @@ function staticChecks() {
   check(/disabled=\{[^}]*\(picking && !pickedPeople\.length\)/.test(publish), "P5 زرُّ الإرسال معطّلٌ حتى يُختار أحد");
   check(publish.includes('if (!ids.length) { setError("اختر أستاذاً واحداً على الأقل."); return; }'), "P5 ولا يُرسل بلا اختيار وإن نُقر");
   check(picker.includes("instructorPickerPeople(") && picker.includes("<PersonChips"), "P1 سطرٌ لكل شخص (هويةٌ واحدة لسجلّيه) ومعه وسومُه");
+  check(publish.includes("showDelivered(staffPublication.id, [{"), "P6 الاستثناءُ لشخصٍ واحد نتيجتُه هو وحده");
+  check(publish.includes("!delivered?.length ?") && publish.includes("<PublishSendLog"), "P6 النتيجةُ لمن وصلهم هذا الإرسال، والسابقُ في السجل");
+  check(publish.includes("if (!instructorId && !instructorIds) setDelivered(null);"), "P6 إرسالٌ للجميع يُسقط نتيجةَ إرسالٍ محددٍ سبقه");
+  const offering = fs.readFileSync("src/server/routes/offeringRoutes.ts", "utf8");
+  check(offering.slice(offering.indexOf("async function dispatchTaWaves"), offering.indexOf("/* موجاتُ التدريب المجدولة")).includes('saveFeatureDoc("linkModeLog"'), "P6 كلُّ موجة تدريبٍ مجدولة تُكتب في السجل عند إرسالها");
   check(picker.includes("/api/instructor-requests/recipients"), "P1 القائمةُ من مصدر الإصدار نفسه");
   check(/sendMode !== "ta" \? <AudiencePicker/.test(publish), "«لمن؟» للعرض والتعديل؛ ومرحلةُ التدريب تختار مدرّبيها في لوحتها");
 }
@@ -113,6 +118,18 @@ async function main() {
   check(viewOne.status === 200 && (viewOne.json.issued || []).length === 1 && (mine?.linkMode === "view" || mine?.linkMode === "ta"), "P4 «للعرض فقط» لأستاذٍ واحد تصله وحده", viewOne.json);
   check(JSON.stringify(afterView.filter(r => Number(r.AdInstructorId) !== pickedIds[0]).map(print).sort())
     === JSON.stringify(after.filter(r => Number(r.AdInstructorId) !== pickedIds[0]).map(print).sort()), "P4 والبقيةُ — ومنهم المختارُ الثاني — كما هم");
+
+  /* ── P6: سجلُّ الإرسال يُضاف ولا يمحو، وإرسالُ شخصٍ واحد سطرُه هو وحده ── */
+  const log = await A("GET", `/api/instructor-requests/send-log?${SCOPE}`);
+  const entries: any[] = Array.isArray(log.json) ? log.json : [];
+  check(log.status === 200 && entries.length >= 2, "P6 السجلُّ يحفظ الإرسالين معاً", entries.length);
+  check(entries[0]?.mode === "view" && entries[0]?.audience === "picked" && entries[0]?.count === 1 && entries[0]?.names?.length === 1, "P6 الأحدثُ أولاً، وإرسالُ شخصٍ واحد سطرُه هو وحده", entries[0]);
+  check(entries[1]?.mode === "edit" && entries[1]?.count === pickedIds.length, "P6 والإرسالُ الأقدم باقٍ كما كان", entries[1]);
+  check(entries.every(e => !("by" in e)), "P6 ولا اسمَ مُرسِل: النائبُ لا يرى حركات الرئيس");
+  const third = await A("POST", "/api/instructor-requests/issue", { ...BODY, closesAt: deadline, mode: "edit", instructorIds: [pickedIds[1]] });
+  const longer = (await A("GET", `/api/instructor-requests/send-log?${SCOPE}`)).json;
+  check(third.status === 200 && longer.length === entries.length + 1 && JSON.stringify(longer.slice(1)) === JSON.stringify(entries), "P6 إرسالٌ ثالث يُضاف سطراً ولا يغيّر ما قبله");
+  check((await http("GET", `/api/instructor-requests/send-log?${SCOPE}`)).status !== 200, "P6 والسجلُّ لا يُقرأ بلا جلسة");
 }
 
 main().catch(error => { failed++; console.error(error); }).finally(() => {
