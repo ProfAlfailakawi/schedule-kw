@@ -98,7 +98,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
               <div className="dept-roster-actions">
                 {roster.enabled ? <button type="button" disabled={busy} onClick={() => setEditing(person)} data-guide-ignore="يفتح محرّر الدرجة العلمية؛ لا يحفظ حتى «تطبيق»"><Scale aria-hidden="true" />الدرجة العلمية</button> : null}
                 {person.AdInstructorCategory === "ta" ? <button type="button" disabled={busy}
-                  onClick={() => void confirmed(person, "تحويله إلى أستاذ", `${person.name}: يصير أستاذاً ولا يعود TA من هذه الشاشة.`, "حوّله", { category: null })} data-guide-ignore="يحوّل TA إلى أستاذ؛ لا يغيّر المواعيد السابقة"><GraduationCap aria-hidden="true" />حوّله أستاذاً</button> : null}
+                  onClick={() => void confirmed(person, "تحويله إلى أستاذ", `${person.name}: يصبح أستاذاً ولا يعود TA من هذه الشاشة.`, "حوّله", { category: null })} data-guide-ignore="يحوّل TA إلى أستاذ؛ لا يغيّر المواعيد السابقة"><GraduationCap aria-hidden="true" />حوّله أستاذاً</button> : null}
                 <button type="button" disabled={busy} className={person.AdInstructorStatus === "sabbatical" ? "on" : ""} aria-pressed={person.AdInstructorStatus === "sabbatical"}
                   onClick={() => void toggleStatus(person, "sabbatical")} data-guide-ignore="يبدّل حالة التفرّغ؛ لا يغيّر المواعيد السابقة"><BookOpenCheck aria-hidden="true" />تفرّغ</button>
                 <button type="button" disabled={busy} className={person.AdInstructorStatus === "retired" ? "on" : ""} aria-pressed={person.AdInstructorStatus === "retired"}
