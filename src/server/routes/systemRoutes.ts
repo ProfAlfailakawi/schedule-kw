@@ -10,6 +10,7 @@ import type { Express } from "express";
 import { Request, Response } from "express";
 import { BUILD_STAMP } from "../../generated/buildStamp";
 import { state } from "../core/state";
+import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME } from "../../utils/scheduleTime";
 
 export function registerSystemRoutes(app: Express): void {
 /**
@@ -40,6 +41,12 @@ app.get("/api/demo/config", (_req, res) => {
 app.get("/api/version", (_req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({ build: BUILD_STAMP });
+});
+
+/* الدوام الشامل: كل متصفح يقرؤه قبل الدخول وبعده، ولا يحمل ما يُخفى. */
+app.get("/api/university-day", (_req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ startTime: SCHEDULE_DAY_START_TIME, endTime: SCHEDULE_DAY_END_TIME });
 });
 
 app.get("/api/health", (_req, res) => {

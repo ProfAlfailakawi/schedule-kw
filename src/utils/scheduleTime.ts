@@ -3,17 +3,63 @@ import { AR, nounFor } from "./arabicCount";
  * The single teaching-day contract shared by browser and server.
  * A view, suggestion and saved appointment must never disagree about it.
  */
-export const SCHEDULE_DAY_START = 8 * 60;
-export const SCHEDULE_DAY_END = 20 * 60;
-export const SCHEDULE_DAY_SPAN = SCHEDULE_DAY_END - SCHEDULE_DAY_START;
+export const DEFAULT_SCHEDULE_DAY_START_TIME = "08:00";
+export const DEFAULT_SCHEDULE_DAY_END_TIME = "20:00";
+export const SCHEDULE_DAY_STEP_MINUTES = 5;
 export const SCHEDULE_SLOT_MINUTES = 30;
 
-export const SCHEDULE_DAY_START_TIME = "08:00";
-export const SCHEDULE_DAY_END_TIME = "20:00";
+/**
+ * «الدوام الشامل»: إعدادٌ واحد للبرنامج كله. هذه الخمسة روابطُ حيّة (`export let`):
+ * يكتبها `applyUniversityDay` وحده، ويقرؤها كل مستورِدٍ بقيمتها الحالية — فالمتصفح
+ * والخادم يقرآن المصدر نفسه. ولذلك لا تُنسخ في ثابتٍ على مستوى الملف، فالنسخةُ
+ * تُجمَّد عند التحميل وتبقى 08:00–20:00 بعد التغيير (يفحصها full-day-setting-audit).
+ */
+export let SCHEDULE_DAY_START = 8 * 60;
+export let SCHEDULE_DAY_END = 20 * 60;
+export let SCHEDULE_DAY_SPAN = SCHEDULE_DAY_END - SCHEDULE_DAY_START;
+export let SCHEDULE_DAY_START_TIME = DEFAULT_SCHEDULE_DAY_START_TIME;
+export let SCHEDULE_DAY_END_TIME = DEFAULT_SCHEDULE_DAY_END_TIME;
+/** آخرُ دقيقةٍ يصحّ حفظها وقتاً: نهايةُ يومٍ عند 24:00 لا تُكتب ساعةً، فالقصُّ يقف عند 23:59. */
+export let SCHEDULE_DAY_LAST_MINUTE = SCHEDULE_DAY_END;
+
+export type UniversityDay = { startTime: string; endTime: string };
+const dayClockMinutes = (value: unknown): number => {
+  const match = String(value ?? "").trim().match(/^(\d{2}):(\d{2})$/);
+  if (!match) return NaN;
+  const hour = Number(match[1]), minute = Number(match[2]);
+  if (minute > 59 || hour > 24 || (hour === 24 && minute !== 0)) return NaN;
+  return hour * 60 + minute;
+};
+/** سببُ رفض قيمةٍ للدوام الشامل، وفارغٌ إن صحّت: HH:MM ضمن 00:00–24:00، وبخطوة خمس دقائق، والبداية قبل النهاية. */
+export function universityDayIssue(startTime: unknown, endTime: unknown): string {
+  const start = dayClockMinutes(startTime), end = dayClockMinutes(endTime);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "اكتب الوقتين بصيغة HH:MM بين 00:00 و24:00.";
+  if (start % SCHEDULE_DAY_STEP_MINUTES || end % SCHEDULE_DAY_STEP_MINUTES) return "الوقت بخطوة خمس دقائق.";
+  if (end <= start) return "البداية قبل النهاية.";
+  return "";
+}
+/** القيمةُ الغائبة أو الفاسدة تعني الافتراضي، فلا يتوقف البرنامج بسبب وثيقةٍ تالفة. */
+export function cleanUniversityDay(raw?: Partial<UniversityDay> | null): UniversityDay {
+  return raw && !universityDayIssue(raw.startTime, raw.endTime)
+    ? { startTime: String(raw.startTime).trim(), endTime: String(raw.endTime).trim() }
+    : { startTime: DEFAULT_SCHEDULE_DAY_START_TIME, endTime: DEFAULT_SCHEDULE_DAY_END_TIME };
+}
+/** يكتب الإعداد في الروابط الحيّة، ويعيد true إن تغيّر شيء. */
+export function applyUniversityDay(raw?: Partial<UniversityDay> | null): boolean {
+  const { startTime, endTime } = cleanUniversityDay(raw);
+  if (startTime === SCHEDULE_DAY_START_TIME && endTime === SCHEDULE_DAY_END_TIME) return false;
+  SCHEDULE_DAY_START_TIME = startTime;
+  SCHEDULE_DAY_END_TIME = endTime;
+  SCHEDULE_DAY_START = dayClockMinutes(startTime);
+  SCHEDULE_DAY_END = dayClockMinutes(endTime);
+  SCHEDULE_DAY_SPAN = SCHEDULE_DAY_END - SCHEDULE_DAY_START;
+  SCHEDULE_DAY_LAST_MINUTE = Math.min(SCHEDULE_DAY_END, 23 * 60 + 59);
+  return true;
+}
 
 export type ScheduleDayWindow = { startTime?: string | null; endTime?: string | null; scheduleDayStartTime?: string | null; scheduleDayEndTime?: string | null };
 /**
- * الافتراضي لكل قسم هو يوم الجامعة كاملاً (08:00–20:00)، ولا يضيق إلا باستثناءٍ محفوظ
+ * الافتراضي لكل قسم هو يوم الجامعة كاملاً، ولا يضيق إلا باستثناءٍ محفوظ
  * للقسم في «أوقات الدوام للأقسام» (المالك 2026-11-05). فقسمٌ بلا صفّ، أو بقيمةٍ
  * ناقصة أو فاسدة، لا يُنتج نافذةً أضيق. واليومُ الجامعي حدٌّ مطلق من طرفيه: نافذةٌ
  * محفوظة تتجاوزه تُقصر عليه، فلا يوسّعه استثناء.
@@ -38,7 +84,7 @@ export function withinScheduleDay(start: number, end: number, window?: ScheduleD
 
 
 /**
- * قرار المالك 2026-11-05: يومُ الجامعة (08:00–20:00) يمنع في نموذج الموعد وكرت الأستاذ معاً.
+ * قرار المالك 2026-11-05: يومُ الجامعة يمنع في نموذج الموعد وكرت الأستاذ معاً.
  * أما استثناءُ القسم الأضيق فيمنع كرتَ الأستاذ وحده، وفي نموذج الموعد تنبيهٌ يُقال ولا يمنع الحفظ.
  */
 export function withinUniversityDay(start: number, end: number): boolean {

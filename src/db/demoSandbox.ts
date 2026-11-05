@@ -62,7 +62,7 @@ export interface DemoSandboxState {
   terms: AdTerm[]; colleges: AdCollege[]; sections: AdSection[]; instructors: AdInstructor[]; courses: AdCourse[];
   schedules: FSchedule[]; rooms: AdRoom[];
   auditLogs: any[]; scheduleVersions: any[]; scheduleDrafts: any[]; scheduleOpenDecisions: any[]; clientTelemetry: any[];
-  scheduleComments: any[]; studentNeeds: any[]; schedulePublications: any[]; scheduleConstraints: any[]; visitingRosters: any[]; departmentDelegates: any[]; departmentRooms: any[];
+  scheduleComments: any[]; studentNeeds: any[]; schedulePublications: any[]; scheduleConstraints: any[]; visitingRosters: any[]; departmentDelegates: any[]; departmentFaculty: any[]; departmentRooms: any[];
   scheduleDecisionMemories: any[]; campusMobilityProfiles: any[]; scheduleShareLinks: any[]; hallBarterRequests: any[];
   /* دورة الاعتماد تعمل في البيئة التجريبية كما تعمل في الحقيقية: المدير يجرّب
      الدورة كاملةً — توقيعاً وإرسالاً وإرجاعاً وقبولاً — بحساباتٍ وهمية. */
@@ -84,6 +84,14 @@ export interface DemoSandboxState {
 /** مدرّبان (TA) لمرحلة التدريب: يختاران من الشعب الشاغرة («هيئة تدريسية») فتجري الرحلة كلها في الصندوق. */
 export const DEMO_TA_INSTRUCTOR_IDS = [29, 30] as const;
 
+/** لتظهر في «الأساتذة» مجموعتا المتفرّغين والمتقاعدين، بلا مواعيد تغيّر بقية القصة. */
+const DEMO_INACTIVE_INSTRUCTORS = [
+  { id: 31, status: "sabbatical" as const },
+  { id: 32, status: "sabbatical" as const },
+  { id: 33, status: "retired" as const },
+  { id: 34, status: "retired" as const },
+];
+
 function syntheticInstructors(): AdInstructor[] {
   return [...instructorNames.map((name, index) => ({
     AdInstructorId: index + 1,
@@ -100,6 +108,12 @@ function syntheticInstructors(): AdInstructor[] {
     AdInstructorMobile: `5000${String(id).padStart(4, "0")}`,
     AdInstructorCategory: "ta" as const,
     AdInstructorLoad: 12,
+  })), ...DEMO_INACTIVE_INSTRUCTORS.map(({ id, status }) => ({
+    AdInstructorId: id,
+    AdInstructorCivil: generateSyntheticCivilId(),
+    AdInstructorName: `عضو هيئة تدريس تجريبي ${id}`,
+    AdInstructorMobile: `5000${String(id).padStart(4, "0")}`,
+    AdInstructorStatus: status,
   }))];
 }
 
@@ -1125,6 +1139,10 @@ export function createDemoSandboxState(): DemoSandboxState {
       id: `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${termId}`, scopeKey: `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${termId}`,
       collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID, termId, instructorIds: [...DEMO_VISITING_INSTRUCTOR_IDS], updatedAt: now,
     })),
+    departmentFaculty: [{
+      scopeKey: `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}`,
+      instructorIds: [...Array.from({ length: DEPARTMENT_INSTRUCTORS }, (_, index) => index + 1), ...DEMO_TA_INSTRUCTOR_IDS, ...DEMO_INACTIVE_INSTRUCTORS.map(person => person.id)],
+    }],
     departmentDelegates: [{
       id: `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}`, scopeKey: `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}`,
       collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID, instructorIds: [...DEMO_VISITING_INSTRUCTOR_IDS], updatedAt: now,

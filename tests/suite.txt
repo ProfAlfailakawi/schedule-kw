@@ -245,3 +245,4 @@ test:authority-course-prefix
 test:undo-travel-rule
 test:header-department-rule
 test:proposal-family-timetable
+test:full-day-setting

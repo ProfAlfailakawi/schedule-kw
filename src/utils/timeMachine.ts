@@ -654,7 +654,9 @@ export function suggestPlacements(board: FSchedule[], courseId: number, context:
     const long = set.filter(day => day === "fmonday" || day === "fwednesday").length;
     const step = !long ? 60 : long === set.length ? 90 : 30;
     const out: number[] = [];
-    for (let start = 8 * 60; start + duration <= SCHEDULE_DAY_END; start += step) if (start >= SCHEDULE_DAY_START) out.push(start);
+    let first = 8 * 60;
+    while (first - step >= SCHEDULE_DAY_START) first -= step;
+    for (let start = first; start + duration <= SCHEDULE_DAY_END; start += step) if (start >= SCHEDULE_DAY_START) out.push(start);
     return out;
   };
   const index = new BusyIndex(board, placeholders);

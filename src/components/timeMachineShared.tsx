@@ -122,7 +122,11 @@ export function DeltaStrip({ delta, compact = false }: { delta: TmDelta; compact
 export function TimeSlider({ before, after, context, focus }: { before: FSchedule[]; after: FSchedule[]; context: TmContext; focus?: Set<number> }) {
   const [value, setValue] = useState(100);
   const inScope = (row: FSchedule) => Number(row.AdCollegeId) === context.scope.collegeId && Number(row.AdSectionId) === context.scope.sectionId;
-  const span = SCHEDULE_DAY_END - SCHEDULE_DAY_START;
+  /* المحورُ يتّسع لما خرج عن الدوام الشامل، فلا يسقط موعدٌ قائم خارج الرسم. */
+  const clocks = [...before, ...after].filter(inScope).filter(row => row.fstarttime && row.fendtime);
+  const axisStart = Math.min(SCHEDULE_DAY_START, ...clocks.map(row => timeToMinutes(row.fstarttime)));
+  const axisEnd = Math.max(SCHEDULE_DAY_END, ...clocks.map(row => timeToMinutes(row.fendtime)));
+  const span = axisEnd - axisStart;
   const rows = useMemo(() => {
     const b = new Map(before.filter(inScope).map(row => [Number(row.id), row]));
     const a = new Map(after.filter(inScope).map(row => [Number(row.id), row]));
@@ -133,7 +137,7 @@ export function TimeSlider({ before, after, context, focus }: { before: FSchedul
   const t = value / 100;
   const place = (row: FSchedule) => {
     const day = activeDays(row);
-    return day.map(d => ({ day: TM_DAYS.indexOf(d), top: (timeToMinutes(row.fstarttime) - SCHEDULE_DAY_START) / span * 100, height: Math.max(2.5, (timeToMinutes(row.fendtime) - timeToMinutes(row.fstarttime)) / span * 100) }));
+    return day.map(d => ({ day: TM_DAYS.indexOf(d), top: (timeToMinutes(row.fstarttime) - axisStart) / span * 100, height: Math.max(2.5, (timeToMinutes(row.fendtime) - timeToMinutes(row.fstarttime)) / span * 100) }));
   };
   const blocks: Array<{ key: string; day: number; top: number; height: number; opacity: number; kind: string; label: string }> = [];
   for (const item of rows) {

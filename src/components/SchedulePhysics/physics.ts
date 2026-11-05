@@ -10,7 +10,7 @@ import type {
   SchedulePhysicsStress,
   SchedulePhysicsTarget,
 } from "./types";
-import { SCHEDULE_DAY_END } from "../../utils/scheduleTime";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_LAST_MINUTE } from "../../utils/scheduleTime";
 import { expectedMinutesForDay } from "../../utils/scheduleRegulations";
 import { roomIdentityKey } from "../../utils/locationRegistry";
 import { isBlockingConflict } from "../../utils/scheduleIntelligence";
@@ -47,7 +47,7 @@ export function buildMoveCandidate(row: FSchedule, target: Pick<SchedulePhysicsT
   const candidate: any = {
     ...row,
     fstarttime: target.start,
-    fendtime: timeFromMinutes(Math.min(SCHEDULE_DAY_END, minutes(target.start) + duration)),
+    fendtime: timeFromMinutes(Math.min(SCHEDULE_DAY_LAST_MINUTE, minutes(target.start) + duration)),
   };
   if (selected.length === 1) PHYSICS_DAYS.forEach(day => { candidate[day.key] = day.key === target.day; });
   return candidate as FSchedule;

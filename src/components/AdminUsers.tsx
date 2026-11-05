@@ -875,7 +875,7 @@ export default function AdminUsers({
     { value: "audit", label: "السجل", icon: <ScrollText /> },
     rootAdmin ? { value: "locations", label: "المباني والقاعات", icon: <Landmark /> } : null,
     rootAdmin ? { value: "roomSetup", label: "إضافة مبانٍ وقاعات", icon: <DoorOpen /> } : null,
-    rootAdmin ? { value: "sectionHours", label: "أوقات دوام الأقسام", icon: <Clock3 /> } : null,
+    { value: "sectionHours", label: "أوقات دوام الأقسام", icon: <Clock3 /> },
     rootAdmin ? { value: "teachingLoad", label: "النصاب التدريسي", icon: <GraduationCap /> } : null,
     rootAdmin ? { value: "copyTerm", label: "نسخ فصل", icon: <CopyPlus /> } : null,
     rootAdmin ? { value: "backup", label: "النسخة الاحتياطية", icon: <DatabaseBackup /> } : null,
@@ -914,9 +914,7 @@ export default function AdminUsers({
   }
 
   if (mode === "sectionHours") {
-    return rootAdmin
-      ? <SectionScheduleHours header={consoleHead()} demoReadOnly={demoReadOnly} />
-      : <div className="content-stack admin-page">{consoleHead()}<Notice>ضبط أوقات دوام الأقسام متاح للمدير الرئيسي فقط.</Notice></div>;
+    return <SectionScheduleHours header={consoleHead()} demoReadOnly={demoReadOnly} rootAdmin={rootAdmin} />;
   }
 
   if (mode === "teachingLoad") {

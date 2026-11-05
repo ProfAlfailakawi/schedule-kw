@@ -31,7 +31,7 @@ import {
   buildVisitingHistoryModel, sortVisitingTerms, visitingHeatLevel, termSectionCount,
   type VisitingHistoryPerson, type VisitingHistoryYear,
 } from "../utils/visitingHistory";
-import { clockRangesOverlap, formatScheduleTimeRange, scheduleClockForDisplay, SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES } from "../utils/scheduleTime";
+import { clockRangesOverlap, formatScheduleTimeRange, scheduleClockForDisplay, SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES, SCHEDULE_DAY_SPAN } from "../utils/scheduleTime";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { summarizeVisitingTeaching, weeklyHours, type VisitingTeachingSummary } from "../utils/visitingTeaching";
 import { HISTORICAL_FINALITY_LABEL } from "../utils/finality";
@@ -253,12 +253,10 @@ const DAYS = [
 ];
 
 /** The teaching window every occupancy grid is measured against. */
-const GRID_START = SCHEDULE_DAY_START;
-const GRID_END = SCHEDULE_DAY_END;
 const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
-const QUERY_TIME_OPTIONS = Array.from(
-  { length: Math.floor((GRID_END - GRID_START) / SCHEDULE_SLOT_MINUTES) + 1 },
-  (_, index) => clock(GRID_START + index * SCHEDULE_SLOT_MINUTES)
+const queryTimeOptions = () => Array.from(
+  { length: Math.floor(SCHEDULE_DAY_SPAN / SCHEDULE_SLOT_MINUTES) + 1 },
+  (_, index) => clock(SCHEDULE_DAY_START + index * SCHEDULE_SLOT_MINUTES)
 );
 
 function QueryTimeSelect({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
@@ -271,7 +269,7 @@ function QueryTimeSelect({ value, onChange, label }: { value: string; onChange: 
       data-time-format="24h"
     >
       <option value="">--:--</option>
-      {QUERY_TIME_OPTIONS.map(option => <option key={`${label}-${option}`} value={option}>{scheduleClockForDisplay(option)}</option>)}
+      {queryTimeOptions().map(option => <option key={`${label}-${option}`} value={option}>{scheduleClockForDisplay(option)}</option>)}
     </select>
   );
 }
@@ -1652,8 +1650,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       (!matrixBuilding || String(row.buildingId) === matrixBuilding) &&
       (!matrixHall || String(row.roomId) === matrixHall));
 
-    const from = GRID_START;
-    const to = GRID_END;
+    /* الأعمدةُ تتّسع لموعدٍ خارج الدوام الشامل، فلا يختفي من الجدول. */
+    const from = Math.min(SCHEDULE_DAY_START, ...scoped.map(row => Math.floor(minutes(row.fstarttime) / 60) * 60));
+    const to = Math.max(SCHEDULE_DAY_END, ...scoped.map(row => minutes(row.fendtime)));
     const columns: number[] = [];
     for (let point = from; point < Math.max(to, from + 60); point += 60) columns.push(point);
 
@@ -1681,8 +1680,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
 
   const roomLoad = useMemo(() => {
     if (!occupancy?.rooms?.length) return null;
-    const dayStart = GRID_START;
-    const dayEnd = GRID_END;
+    const allBusy = occupancy.rooms.flatMap((room: any) => room.busy || []);
+    const dayStart = Math.min(SCHEDULE_DAY_START, ...allBusy.map((slot: any) => Math.floor(slot.from / 60) * 60));
+    const dayEnd = Math.max(SCHEDULE_DAY_END, ...allBusy.map((slot: any) => slot.to));
     const slots: number[] = [];
     for (let point = dayStart; point < dayEnd; point += 60) slots.push(point);
     const days = roomDay === "week" ? [0, 1, 2, 3, 4] : [roomDay];

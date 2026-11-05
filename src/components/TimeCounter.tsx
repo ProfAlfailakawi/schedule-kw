@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { scheduleClockForDisplay } from "../utils/scheduleTime";
+import { scheduleClockForDisplay, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME } from "../utils/scheduleTime";
 
 /**
  * ── عدّاد الوقت المشترك ─────────────────────────────────────────────────────
@@ -91,8 +91,8 @@ export function TimeWheels({
   end,
   onChange,
   preferredDuration,
-  minTime = "08:00",
-  maxTime = "20:00",
+  minTime = SCHEDULE_DAY_START_TIME,
+  maxTime = SCHEDULE_DAY_END_TIME,
   endLimit,
 }: {
   start: string;

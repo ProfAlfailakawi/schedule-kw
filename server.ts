@@ -90,6 +90,7 @@ import { registerScheduleHoldsRoutes } from "./src/server/scheduleHoldsRoutes";
 import { activityTrailRecorder, registerActivityTrailRoutes } from "./src/server/activityTrail";
 import { registerAppointmentMetricsRoutes } from "./src/server/appointmentMetrics";
 import { registerVerifyRoutes } from "./src/server/routes/verifyRoutes";
+import { universityDayFresh } from "./src/server/core/universityDay";
 
 const app = express();
 /**
@@ -159,6 +160,7 @@ app.use((req, res, next) => {
 // on Cloud Run the wire is the slow part, not the CPU. Event streams are left
 // alone (compression buffers them into silence), and anything under 1KB is not
 // worth the header.
+app.use(universityDayFresh);
 app.use(compression({
   threshold: 1024,
   filter: (req: any, res: any) => {

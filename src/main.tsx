@@ -1,4 +1,4 @@
-import {StrictMode} from "react";
+import {StrictMode,useEffect,useState} from "react";
 import {createRoot} from "react-dom/client";
 import App from "./App.tsx";
 import ErrorBoundary from "./components/ErrorBoundary.tsx";
@@ -6,6 +6,7 @@ import EntranceOverture from "./components/EntranceOverture.tsx";
 import {safeStorage} from "./utils/safeStorage";
 import {BUILD_STAMP} from "./generated/buildStamp";
 import {toEnglishDigits} from "./utils/digits";
+import {primeUniversityDay,syncUniversityDay} from "./utils/universityDayClient";
 import {unregisterAppWorkers} from "./utils/pushClient";
 import {isPlatformUpdating, SERVER_BACK_EVENT, showUpdatingNotice, UPDATING_MESSAGE, UPDATING_WRITE_MESSAGE} from "./utils/updatingNotice";
 import "./index.css";
@@ -295,7 +296,21 @@ window.addEventListener("error",event=>{
 window.addEventListener("load",()=>{window.setTimeout(()=>safeStorage.remove(RECOVERY_KEY,"session"),4000)});
 
 const container=document.getElementById("root")!;
-createRoot(container).render(<StrictMode><ErrorBoundary><App/><EntranceOverture/></ErrorBoundary></StrictMode>);
+primeUniversityDay();
+/* الدوامُ الشامل يُسأل عنه عند الفتح وعند العودة إلى التبويب. والتغييرُ في أول اللحظات يعيد
+   رسم الواجهة مرةً، أما بعدها فلا يُرمى ما كُتب: القيمةُ تصل مع الرسم التالي، والخادمُ يحكم. */
+function AppRoot(){
+  const [epoch,setEpoch]=useState(0);
+  useEffect(()=>{
+    const sync=()=>{void syncUniversityDay(()=>{if(performance.now()<8000)setEpoch(value=>value+1)})};
+    sync();
+    const onShow=()=>{if(!document.hidden)sync()};
+    document.addEventListener("visibilitychange",onShow);
+    return()=>document.removeEventListener("visibilitychange",onShow);
+  },[]);
+  return <App key={epoch}/>;
+}
+createRoot(container).render(<StrictMode><ErrorBoundary><AppRoot/><EntranceOverture/></ErrorBoundary></StrictMode>);
 
 // Tell the document-level boot guard that the screen is alive. It waits for a
 // real paint rather than for render() to return, because React commits later.
