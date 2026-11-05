@@ -2959,9 +2959,21 @@
    ],
    "path": "/api/intelligence/pdf-import/bootstrap-section",
    "name": "bound dispatch",
-   "call": "6ae80641ded67f16",
-   "site": "src/server/routes/pdfImportRoutes.ts:139",
+   "call": "b1f96f35b73a5570",
+   "site": "src/server/routes/pdfImportRoutes.ts:171",
    "regexp": "/^\\/api\\/intelligence\\/pdf-import\\/bootstrap-section\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/intelligence/pdf-import/create-courses",
+   "name": "bound dispatch",
+   "call": "41222fdd5519becf",
+   "site": "src/server/routes/pdfImportRoutes.ts:215",
+   "regexp": "/^\\/api\\/intelligence\\/pdf-import\\/create-courses\\/?$/i",
    "end": true
   },
   {
@@ -2971,8 +2983,8 @@
    ],
    "path": "/api/intelligence/pdf-import",
    "name": "bound dispatch",
-   "call": "00433b8261174110",
-   "site": "src/server/routes/pdfImportRoutes.ts:208",
+   "call": "9abaa7a6ca813dea",
+   "site": "src/server/routes/pdfImportRoutes.ts:241",
    "regexp": "/^\\/api\\/intelligence\\/pdf-import\\/?$/i",
    "end": true
   },

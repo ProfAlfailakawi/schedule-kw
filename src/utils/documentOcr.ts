@@ -1,5 +1,5 @@
 import type { AdCourse, AdInstructor } from "../types";
-import { academicDigits, assignAuthoritySections, authorityCatalogueCourseDigits, authorityCourseCodeMatches, authorityCoursePrefixes, authorityInheritedCourseMatches, authoritySectionCodeLooksPlausible, normalizeAuthoritySectionCode } from "./authorityAcademicCodes";
+import { academicDigits, assignAuthoritySections, authorityCatalogueCourseDigits, authorityCourseCodeMatches, authorityCoursePrefixes, authorityForeignCourseKey, authorityInheritedCourseMatches, authoritySectionCodeLooksPlausible, normalizeAuthoritySectionCode } from "./authorityAcademicCodes";
 import { OFFICIAL_COLLEGE_SITE_PREFIXES } from "./locationCollegePrefixes";
 import { instructorCleanName, instructorIdentityTokens } from "./instructorIdentity";
 import { AR, countOf, nounFor, oblique } from "./arabicCount";
@@ -54,7 +54,7 @@ export type AuthorityPdfHeader={
    *  refused in seconds instead of after minutes of reading. */
   greyPhotoPages?:number[];
 };
-export type OcrResult={pages:OcrPage[];text:string;pageCount:number;confidence:number;orientation:-1|0|1;legibility:Legibility;headerTerm?:HeaderTerm;headerBranch?:HeaderBranch;headerDepartment?:HeaderDepartment;pageDiagnostics:OcrPageDiagnostic[];suspiciousExtraction:boolean};
+export type OcrResult={/** رقم القسم في رأس كل صفحة، لطبقة النص وحدها. */pageDepartments?:Array<{page:number;code:string}>;pages:OcrPage[];text:string;pageCount:number;confidence:number;orientation:-1|0|1;legibility:Legibility;headerTerm?:HeaderTerm;headerBranch?:HeaderBranch;headerDepartment?:HeaderDepartment;pageDiagnostics:OcrPageDiagnostic[];suspiciousExtraction:boolean};
 export type GraduationSheetOcrResult={text:string;pageCount:number;confidence:number;legibility:Legibility};
 /** `notice` names the pages the first reading could not read, as soon as it
  *  finds them — the reviewer learns early that the file may be stopped. */
@@ -855,6 +855,7 @@ async function pdfTextLayer(input:Buffer,onProgress?:OcrProgress):Promise<OcrRes
       pages,text,pageCount:count,confidence,orientation:0,
       legibility:{readable:true,confidence,charactersPerPage:Math.round(totalChars/Math.max(1,count)),reason:""},
       headerTerm:header.term,headerBranch:header.branch,headerDepartment:header.department,
+      pageDepartments:pageTexts.map((page,index)=>({page:index+1,code:academicDigits(parseAuthorityHeaderText(page).department?.code)})).filter(item=>item.code),
       pageDiagnostics:pages.map(page=>page.diagnostic!),suspiciousExtraction:pages.some(page=>Boolean(page.diagnostic?.suspicious)),
     };
   }catch(error){if(error instanceof PdfPageLimitError)throw error;return null;}
@@ -5939,12 +5940,12 @@ function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstr
   /* صف يحمل رقم مقرر سليماً من سبع خانات صفُّ بيانات، ولو كان اسم مقرره
      «التقرير الفني» أو «الفصل الميداني» أو «مناهج التربية الأساسية»: فحص
      الترويسة بالكلمات كان يُسقطه بصمت. */
-  const provenRowCode=(code:string)=>/^\d{7}$/.test(academicDigits(code))&&authorityCourseCellLooksPlausible(academicDigits(code),authorityDepartment);
-  const headerLike=(grid:{code:string;courseText:string;scode?:string;instructorText?:string})=>provenRowCode(grid.code)
+  const provenRowCode=(code:string,sourceMode?:string)=>/^\d{7}$/.test(academicDigits(code))&&(authorityCourseCellLooksPlausible(academicDigits(code),authorityDepartment)||(sourceMode==="pdf-text"&&authorityForeignCourseKey(code,authorityDepartment)));
+  const headerLike=(grid:{code:string;courseText:string;scode?:string;instructorText?:string;sourceMode?:string})=>provenRowCode(grid.code,grid.sourceMode)
     ?isHeaderLine(grid.code)
     :(isHeaderLine(`${grid.code} ${grid.scode||""} ${grid.courseText} ${grid.instructorText||""}`)||isHeaderLine(grid.courseText)||isHeaderLine(grid.code));
   const matchCourse=(code:string,nameText:string,sourceMode?:string)=>{
-    if(isHeaderLine(code)||(!provenRowCode(code)&&isHeaderLine(nameText)))return null;
+    if(isHeaderLine(code)||(!provenRowCode(code,sourceMode)&&isHeaderLine(nameText)))return null;
     const source=academicDigits(code);
     if(!source)return null;
     const matches=catalogue.filter(item=>authorityCourseCodeMatches(source,item.digits,authorityDepartment));
@@ -5953,10 +5954,11 @@ function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstr
        نفسه مفتاح من سبع خانات؛ قراءة من ثلاث خانات يبقى شرطها تفرّد الذيل. وإن تكرر المفتاح الكامل نفسه بقي الصف بلا ربط: الكتالوج لا يحسم أيهما. */
     const exactKey=source.length===7?matches.filter(item=>item.digits===source):[];
     if(exactKey.length===1)return exactKey[0].course;
-    /* رقم موروث من القسم القديم (0114xxx تحت رأس 0120/0121): الذيل وحده لا يكفي،
+    /* رقم برمز قسم آخر تحت رأس هذا القسم (0114xxx تحت 0121): الذيل وحده لا يكفي،
        فصف الكتالوج القصير «464» قد يكون 0120464 الجديد لا 0114464 القديم. يُقبل
-       إن لم يطبع الملف رقم القسم نفسه بهذا الذيل، ووافق الاسمُ المطبوع اسمَ المقرر. */
-    if(!matches.length&&!departmentPrintedTails.has(source.slice(-3))){
+       إن لم يطبع الملف رقم القسم نفسه بهذا الذيل، ووافق الاسمُ المطبوع اسمَ المقرر.
+       والمسح لا يعبر إلا بما ثبت مطبوعاً (authorityCoursePrefixes). */
+    if(!matches.length&&!departmentPrintedTails.has(source.slice(-3))&&(sourceMode==="pdf-text"||authorityCoursePrefixes(authorityDepartment).includes(source.slice(0,4)))){
       const inherited=catalogue.filter(item=>authorityInheritedCourseMatches(source,item.digits,authorityDepartment));
       if(inherited.length===1&&authorityCourseNameScore(nameText,String(inherited[0].course.CourseName||""),true)>=AUTHORITY_NAME_PICK_MIN)return inherited[0].course;
     }

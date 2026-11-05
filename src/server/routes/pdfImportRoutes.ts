@@ -8,8 +8,8 @@
  */
 import type { Express } from "express";
 import express, { Response } from "express";
-import { createHmac } from "crypto";
-import { Repository } from "../../db/repository";
+import { createHmac, timingSafeEqual } from "crypto";
+import { DuplicateResourceError, Repository } from "../../db/repository";
 import { acceptedPdfSourceLabel, pdfTermAccepted } from "../../utils/pdfTermRule";
 import { applyVisitingToFaculty, recoverRetiredFromPrintedName } from "../../utils/visitingToFaculty";
 import { ensureSectionFaculty } from "../sectionFaculty";
@@ -18,16 +18,20 @@ import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { displayInstructorText, instructorIdentityTokens, readableInstructorName, registryCandidatesFor } from "../../utils/instructorIdentity";
 import { ocrDocument, parseScheduleTable, readAuthorityPdfHeader, SCAN_READING_BUSY_MESSAGE, ScanReadingBusyError, GREY_PHOTO_REFUSAL, scanRefusalMessage, unresolvedDaysReason, restoredDaysReason } from "../../utils/documentOcr";
 import { recoverAuthorityScanRowsFromHistory } from "../../utils/authorityScanRecovery";
-import { academicDigits, assignAuthoritySections, authorityDepartmentCode, authorityDepartmentMatches, normalizeAuthoritySectionCode } from "../../utils/authorityAcademicCodes";
+import { academicDigits, assignAuthoritySections, authorityCourseCode, authorityDepartmentCode, authorityDepartmentMatches, normalizeAuthoritySectionCode } from "../../utils/authorityAcademicCodes";
 import { isInvalidLocationToken, resolveAuthorityLocation, resolveRoom } from "../../utils/locationRegistry";
 import { officialCollegeSitePrefix, officialSiteLabel } from "../../utils/locationCollegePrefixes";
 import { resolveBranchScope } from "../../utils/branchScope";
 import { pagesAwaitingReview } from "../../utils/importPageReview";
-import { type AuthenticatedRequest, requirePermission, requireRootAdmin, ROOT_ADMIN_USER_ID } from "../core/auth";
+import { type AuthenticatedRequest, isPowerUser, requirePermission } from "../core/auth";
 import { documentReadingGate } from "../core/http";
 import { invalidateLocationRegistry, readLocationRegistry } from "../core/locations";
 import { academicSectionNameMatches, foldHeaderIdentity } from "../core/ordering";
 import { isScopeAllowed } from "../core/scope";
+import { catalogueGaps, type GapCourse } from "../../utils/importCatalogueGaps";
+import { departmentFamily } from "../../utils/sectionLabel";
+import { normalizeArabicText } from "../../utils/arabicText";
+import { committeeCatalogEditAllowed } from "./coursesRoutes";
 import { branchOwnScopes, collegeFallbackInstructorIds, departmentInstructorIdSet, type PdfImportReceipt, placeholderInstructorIds, safeDraftRows, smartContextFrom, validateSmartRows, visitingToFacultyPlan } from "../core/smartImport";
 import { asciiDigits } from "../core/studentIdentity";
 
@@ -127,20 +131,49 @@ async function signPdfImportReceipt(payload:PdfImportReceipt){
   return`${body}.${signature}`;
 }
 
+/* ── إيصال النواقص: ما أثبته الملف، موقّعاً ───────────────────────────────────
+   المقررات التي تُنشأ بعد التأكيد هي ما قرأه الخادم من الملف نفسه، لا ما يرسله
+   المتصفح: الرقم والاسم والوحدات داخل التوقيع، والمتصفح يختار منها فقط. */
+type GapsReceipt={v:1;collegeId:number;sectionId:number;termId:number;issuedAt:string;courses:GapCourse[]};
+const GAPS_RECEIPT_TTL_MS=6*60*60*1000;
+async function gapsSignature(body:string){
+  return createHmac("sha256",await Repository.getStudentCaseSecret()).update(`pdf-gaps|${body}`).digest("base64url");
+}
+async function signGapsReceipt(payload:GapsReceipt){
+  const body=Buffer.from(JSON.stringify(payload),"utf8").toString("base64url");
+  return`${body}.${await gapsSignature(body)}`;
+}
+async function verifyGapsReceipt(token:unknown):Promise<GapsReceipt|null>{
+  try{
+    const[body,signature]=String(token||"").split(".");if(!body||!signature)return null;
+    const a=Buffer.from(signature),b=Buffer.from(await gapsSignature(body));
+    if(a.length!==b.length||!timingSafeEqual(a,b))return null;
+    const payload=JSON.parse(Buffer.from(body,"base64url").toString("utf8")) as GapsReceipt;
+    if(payload.v!==1||Date.now()-Date.parse(payload.issuedAt)>GAPS_RECEIPT_TTL_MS)return null;
+    return payload;
+  }catch{return null;}
+}
+const grantedForms=async(req:AuthenticatedRequest)=>req.permissions??(await Repository.getSecurityByUser(req.user.SystemUserId)).map(item=>Number(item.FormNameId));
+/* صلاحية POST /api/sections نفسها: النموذج 4، وهو لإدارة النظام وحدها. */
+const canCreateSections=async(req:AuthenticatedRequest,collegeId:number)=>
+  isPowerUser(req)&&(await grantedForms(req)).includes(4)&&(isScopeAllowed(req,collegeId,0)||Boolean(req.user.IsAdminUser));
+/* صلاحية POST /api/courses نفسها: النموذج 6 داخل نطاق القسم، ونافذة مراجعة اللجنة. */
+const canCreateCourses=async(req:AuthenticatedRequest,collegeId:number,sectionId:number)=>
+  (await grantedForms(req)).includes(6)&&(isScopeAllowed(req,collegeId,sectionId)||Boolean(req.user.IsAdminUser))&&await committeeCatalogEditAllowed(req,sectionId);
+
 export function registerPdfImportRoutes(app: Express): void {
 
 
-/* Root-only recovery for a PDF that proves it belongs to another scientific
- * department in the SAME college. The file itself is re-read here; the client
- * is never trusted to invent a department code/name. If the department already
- * exists we return it. If it does not, the root administrator may create it
- * once, and a proven same-name catalogue elsewhere is used only as a template
- * for missing course rows. Repeating the action is idempotent. */
-app.post("/api/intelligence/pdf-import/bootstrap-section", requirePermission(7), requireRootAdmin, express.raw({ type: "application/octet-stream", limit: "24mb" }), documentReadingGate, async (req: AuthenticatedRequest, res: Response) => {
+/* قسم يثبت من ترويسة الملف ولا يوجد في هذه الكلية. يُعاد قراءة الملف هنا فلا يخترع
+ * المتصفح رمزاً ولا اسماً، ويُنشأ القسم بضغطة تأكيد وبصلاحية إنشاء الأقسام نفسها.
+ * الرقم هو الحكم: لا يُربط القسم بالاسم حين يثبت رمزه، فـ0125 «الاقتصاد» ليس 11
+ * «الاقتصاد المنزلي». ولا يُنسخ كتالوج من قسم آخر: ما يُنشأ يراه المستخدم في الملخص. */
+app.post("/api/intelligence/pdf-import/bootstrap-section", requirePermission(7), express.raw({ type: "application/octet-stream", limit: "24mb" }), documentReadingGate, async (req: AuthenticatedRequest, res: Response) => {
   const collegeId=Number(req.query.collegeId||0),termId=Number(req.query.termId||0);
   const bytes=Buffer.isBuffer(req.body)?req.body:Buffer.alloc(0);
   if(!collegeId||!termId||!bytes.length){res.status(400).json({error:"لم تكتمل بيانات الكلية/الفصل أو ملف PDF."});return;}
-  const [college,sections,allCourses]=await Promise.all([Repository.getCollegeById(collegeId),Repository.getSections(),Repository.getCourses()]);
+  if(!await canCreateSections(req,collegeId)||(!isScopeAllowed(req,collegeId,0)&&!req.user.IsAdminUser)){res.status(403).json({error:"إنشاء الأقسام لمدير النظام.",code:"PDF_DEPARTMENT_CREATE_FORBIDDEN"});return;}
+  const [college,sections]=await Promise.all([Repository.getCollegeById(collegeId),Repository.getSections()]);
   if(!college){res.status(404).json({error:"الكلية المحددة غير موجودة."});return;}
   const sitePrefix=officialCollegeSitePrefix(college.AdCollegeName);
   if(!sitePrefix){res.status(409).json({error:"لا يوجد كود موقع رسمي مثبت لهذه الكلية؛ لم تتم إضافة أي قسم."});return;}
@@ -162,47 +195,47 @@ app.post("/api/intelligence/pdf-import/bootstrap-section", requirePermission(7),
   const inCollege=sections.filter((item:any)=>Number(item.AdCollegeId)===collegeId);
   const numeric=inCollege.filter((item:any)=>authorityDepartmentMatches(sourceCode,authorityCollegeCode,item.AdSectionCode));
   const sourceName=String(header.department.name||"").trim();
-  const named=sourceName?inCollege.filter((item:any)=>academicSectionNameMatches(sourceName,item.AdSectionName)):[];
-  if(numeric.length>1||(!numeric.length&&named.length>1)){res.status(409).json({error:"يوجد أكثر من قسم محتمل داخل الكلية؛ لم يتم إنشاء قسم أو اختيار واحد عشوائياً.",code:"PDF_DEPARTMENT_AMBIGUOUS"});return;}
-  let section:any=numeric[0]||named[0];
-  let created=false;
-  const globalNameMatches=sourceName?sections.filter((item:any)=>academicSectionNameMatches(sourceName,item.AdSectionName)):[];
-  const canonicalNames=[...new Set(globalNameMatches.map((item:any)=>String(item.AdSectionName||"").trim()).filter(Boolean))];
-  const cleaned=sourceName.replace(/\s*\([^)]*\)\s*/g," ").replace(/^\s*قسم\s+/,"").replace(/\s+/g," ").trim();
-  const sectionName=canonicalNames.length===1?canonicalNames[0]:(cleaned?`قسم ${cleaned}`:`قسم ${sourceCode}`);
+  if(numeric.length>1){res.status(409).json({error:"يوجد أكثر من قسم بهذا الرمز؛ لم يتم إنشاء قسم أو اختيار واحد عشوائياً.",code:"PDF_DEPARTMENT_AMBIGUOUS"});return;}
+  /* اسم عائلة القسم إن كان له نظير في فرع آخر، وإلا فكما طبعته الهيئة. */
+  const canonicalNames=[...new Set(sections.filter((item:any)=>sourceName&&academicSectionNameMatches(sourceName,item.AdSectionName)).map((item:any)=>String(item.AdSectionName||"").trim()).filter(Boolean))];
+  const sectionName=canonicalNames.length===1?canonicalNames[0]:(normalizeArabicText(sourceName)||`قسم ${sourceCode}`);
+  let section:any=numeric[0],created=false;
   if(!section){
-    try{section=await Repository.createSection(collegeId,sourceCode,sectionName);created=true;}
-    catch(error:any){
-      const refreshed=await Repository.getSectionsByCollege(collegeId);
-      section=refreshed.find((item:any)=>authorityDepartmentMatches(sourceCode,authorityCollegeCode,item.AdSectionCode));
-      if(!section){res.status(409).json({error:error?.message||"تعذرت إضافة القسم من الملف.",code:"PDF_DEPARTMENT_CREATE_FAILED"});return;}
-    }
+    const once=await Repository.createSectionOnce(collegeId,sourceCode.slice(2),sectionName);
+    section=once.section;created=once.created;
+    if(created)console.info(`[pdf-bootstrap] section ${section.AdSectionId} (${sourceCode}) in college ${collegeId} by user ${req.user.SystemUserId}`);
   }
-
   if(created){try{await ensureSectionFaculty(Repository,collegeId,Number(section.AdSectionId));}catch(error:any){console.error("[pdf-bootstrap] faculty placeholder:",error?.stack||error);}}
-  /* If the section is new/empty, copy only catalogue identities from the best
-     proven same-name department already in the system. This is catalogue data,
-     never OCR text: course name/credits/hours/max all come from the existing
-     system row. The importer will still use only courses actually present in
-     the PDF and all normal validators remain in force. */
-  let copiedCourses=0;
-  const targetCourses=(await Repository.getCourses()).filter((course:any)=>Number(course.AdCollegeId)===collegeId&&Number(course.AdSectionId)===Number(section.AdSectionId));
-  const targetTails=new Set(targetCourses.map((course:any)=>academicDigits(course.CourseCode).slice(-3)).filter(Boolean));
-  const templateSections=globalNameMatches.filter((item:any)=>Number(item.AdSectionId)!==Number(section.AdSectionId));
-  const coursesBySection=new Map<number,any[]>();
-  for(const course of allCourses as any[]){const sid=Number(course.AdSectionId);const list=coursesBySection.get(sid)||[];list.push(course);coursesBySection.set(sid,list);}
-  templateSections.sort((a:any,b:any)=>(coursesBySection.get(Number(b.AdSectionId))?.length||0)-(coursesBySection.get(Number(a.AdSectionId))?.length||0));
-  const template=templateSections.find((item:any)=>(coursesBySection.get(Number(item.AdSectionId))?.length||0)>0);
-  if(template){
-    for(const origin of coursesBySection.get(Number(template.AdSectionId))||[]){
-      const tail=academicDigits(origin.CourseCode).slice(-3);if(!tail||targetTails.has(tail))continue;
-      try{
-        await Repository.createCourse(collegeId,Number(section.AdSectionId),String(origin.CourseCode||"").trim(),String(origin.CourseName||"").trim(),Number(origin.CourseCredit||0),Number(origin.CourseHours||0),Number(origin.MaxStudent||0));
-        targetTails.add(tail);copiedCourses+=1;
-      }catch{/* A concurrent/idempotent duplicate is harmless; normal import validation decides what is usable. */}
+  res.status(created?201:200).json({success:true,created,section:{AdSectionId:Number(section.AdSectionId),AdSectionCode:String(section.AdSectionCode||sourceCode),AdSectionName:String(section.AdSectionName||sectionName),AdCollegeId:collegeId},sourceDepartment:header.department.label});
+});
+
+/* إنشاء المقررات التي أكدها المستخدم من ملخص النواقص. لا يُنشأ إلا ما في الإيصال
+ * الموقّع، وفي قسم الإيصال، وبصلاحية إنشاء المقررات. وتكرار الطلب لا يكرر المقرر:
+ * رمز المقرر محجوز في معاملة الكتابة (DuplicateResourceError) فيُعاد القائم. */
+app.post("/api/intelligence/pdf-import/create-courses", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const receipt=await verifyGapsReceipt(req.body?.gapsReceipt);
+  if(!receipt){res.status(409).json({error:"انتهت صلاحية القراءة. أعد قراءة الملف.",code:"PDF_GAPS_RECEIPT_INVALID"});return;}
+  const {collegeId,sectionId}=receipt;
+  if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  if(!await canCreateCourses(req,collegeId,sectionId)){res.status(403).json({error:"لا تملك صلاحية إضافة المقررات.",code:"PDF_COURSE_CREATE_FORBIDDEN"});return;}
+  const section=await Repository.getSectionById(sectionId);
+  if(!section||Number(section.AdCollegeId)!==collegeId){res.status(404).json({error:"القسم غير موجود."});return;}
+  const wanted=new Set((Array.isArray(req.body?.codes)?req.body.codes:[]).map((code:unknown)=>String(code)));
+  const chosen=receipt.courses.filter(course=>wanted.has(course.code));
+  const created:string[]=[],existing:string[]=[];
+  for(const course of chosen){
+    try{
+      const present=(await Repository.getCoursesBySection(sectionId)).find((item:any)=>String(item.CourseCode)===course.code);
+      if(present){existing.push(course.code);continue;}
+      await Repository.createCourse(collegeId,sectionId,course.code,course.name,course.credit,course.hours,0);
+      created.push(course.code);
+    }catch(error){
+      if(!(error instanceof DuplicateResourceError))throw error;
+      existing.push(course.code);
     }
   }
-  res.status(created?201:200).json({success:true,created,copiedCourses,section:{AdSectionId:Number(section.AdSectionId),AdSectionCode:String(section.AdSectionCode||sourceCode),AdSectionName:String(section.AdSectionName||sectionName),AdCollegeId:collegeId},sourceDepartment:header.department.label});
+  if(created.length)console.info(`[pdf-gaps] ${created.length} courses in section ${sectionId} by user ${req.user.SystemUserId}: ${created.join(",")}`);
+  res.json({success:true,created,existing});
 });
 
 app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ type: "application/octet-stream", limit: "24mb" }), documentReadingGate, async (req: AuthenticatedRequest, res: Response) => {
@@ -247,7 +280,8 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
     const numeric=inCollege.filter((item:any)=>authorityDepartmentMatches(sourceDepartment,targetAuthorityCollegeCode,item.AdSectionCode));
     if(numeric.length===1)return numeric[0];
     const sourceName=foldHeaderIdentity(header.department.name);
-    if(sourceName.length>=5){
+    /* الرقم الثابت هو الحكم: قسم بلا هذا الرمز غير مسجل، ولو شابه اسمه قسماً آخر. */
+    if(!/^\d{4}$/.test(sourceDepartment)&&sourceName.length>=5){
       const named=inCollege.filter((item:any)=>academicSectionNameMatches(sourceName,foldHeaderIdentity(item.AdSectionName)));
       if(named.length===1)return named[0];
     }
@@ -296,6 +330,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
      rescue. A partial preflight is NOT a rejection: image-only CamScanner PDFs
      can make one tiny header field disappear at probe resolution even when the
      same field is perfectly readable on the high-resolution page. */
+  const mayCreateSections=await canCreateSections(req,collegeId);
   const headerScopeProblem=(header:any):{status:number;body:any}|null=>{
     if(header?.term&&targetTerm){
       const targetName=asciiDigits(String(targetTerm.AdTermName||"")).normalize("NFKC");
@@ -353,19 +388,19 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
       if(definiteMismatch){
         const sourceSection=authoritySectionFromHeader(header);
         const sourceCode=academicDigits(header.department.code);
-        const canBootstrapSection=Boolean(
-          Number(req.user?.SystemUserId||0)===ROOT_ADMIN_USER_ID&&
-          /^\d{4}$/.test(sourceCode)&&targetAuthorityCollegeCode&&sourceCode.startsWith(targetAuthorityCollegeCode)
-        );
+        const missing=!sourceSection&&/^\d{4}$/.test(sourceCode)&&Boolean(targetAuthorityCollegeCode)&&sourceCode.startsWith(targetAuthorityCollegeCode);
+        const canBootstrapSection=mayCreateSections&&(missing||Boolean(sourceSection));
         return{status:409,body:{
-          error:`هذا الملف للقسم «${header.department.label}»، بينما القسم المحدد هو «${String(targetSection.AdSectionName||targetSection.AdSectionCode||"")}». لم يتم استيراد أي صف.`,
+          error:missing&&!mayCreateSections
+            ?`القسم «${header.department.label}» غير مسجل في هذه الكلية، وإضافته لمدير النظام. لم يتم استيراد أي صف.`
+            :`هذا الملف للقسم «${header.department.label}»، بينما القسم المحدد هو «${String(targetSection.AdSectionName||targetSection.AdSectionCode||"")}». لم يتم استيراد أي صف.`,
           code:"PDF_DEPARTMENT_MISMATCH",
           sourceDepartment:header.department.label,
           sourceDepartmentCode:sourceCode,
           sourceDepartmentName:String(header.department.name||""),
           targetDepartment:String(targetSection.AdSectionName||targetSection.AdSectionCode||""),
           suggestedSectionId:Number(sourceSection?.AdSectionId||0)||undefined,
-          suggestedSectionName:String(sourceSection?.AdSectionName||suggestedSectionName(header)),
+          suggestedSectionName:String(sourceSection?.AdSectionName||String(header.department.name||"").trim()||suggestedSectionName(header)),
           canBootstrapSection,
         }};
       }
@@ -466,7 +501,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
        Rebuild the document key from that proven scope so multi-page OCR rescue
        uses the same college-aware identity as the normal row matcher. College
        01 is unchanged because ocrDepartmentKey remains its existing 01xx key. */
-    if(/^\d{7}$/.test(digits)&&/^\d{4}$/.test(ocrDepartmentKey))return`${ocrDepartmentKey}${digits.slice(-3)}`;
+    if(/^\d{7}$/.test(digits)&&/^\d{4}$/.test(ocrDepartmentKey))return authorityCourseCode(digits,ocrDepartmentKey);
     if(/^\d{3}$/.test(digits)&&/^\d{4}$/.test(ocrDepartmentKey))return`${ocrDepartmentKey}${digits}`;
     return"";
   }).filter(Boolean);
@@ -522,6 +557,16 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
   if(finalHeaderProblem){
     if(streaming){emit({type:"error",...finalHeaderProblem.body});res.end();return;}
     res.status(finalHeaderProblem.status).json(finalHeaderProblem.body);return;
+  }
+  /* رأس الصفحة يقرر القسم، فلا تدخل صفحة قسم آخر مع صفحات هذا القسم: كان رقم المقرر
+     يردّها، وصار الرقم يُقبل برأس الصفحة. طبقة النص تثبت رأس كل صفحة؛ والمسح لا
+     يثبت إلا الأولى، ولا يُنشأ منه مقرر ولا يعبر رمزاً غير الثابت طباعته. */
+  const headerCode=academicDigits(headerPreflight.department.code);
+  const otherPages=(recognized.pageDepartments||[]).filter(item=>item.code!==headerCode);
+  if(otherPages.length){
+    const body={error:`الملف يجمع أكثر من قسم (الصفحة ${otherPages[0].page}: ${otherPages[0].code}). ارفع صفحات كل قسم في ملف. لم يتم استيراد أي صف.`,code:"PDF_MIXED_DEPARTMENTS",pages:otherPages.map(item=>item.page)};
+    if(streaming){emit({type:"error",...body});res.end();return;}
+    res.status(409).json(body);return;
   }
   if(!occupiedChecked&&!dryRun){
     const occupied=await Repository.getSchedulesByScope({collegeId,sectionId,termId});
@@ -904,6 +949,13 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
     ...(reviewPages.length?{reviewPages}:{}),
     ...(dryRun?{replaceFilled:true}:{}),
   });
+  /* النواقص ملخصٌ يُؤكَّد لا كتابة: لا مقرر يُنشأ من القراءة نفسها (ولا من «تجربة بلا حفظ»). */
+  const familyIds=new Set(departmentFamily(sections as any,collegeId,sectionId).map(item=>item.sectionId));
+  const gapTemplates=(allCourses as any[]).filter(course=>Number(course.AdCollegeId)===collegeId||familyIds.has(Number(course.AdSectionId)));
+  const gaps=catalogueGaps(rows as any[],courses,documentDepartmentCode,gapTemplates);
+  const creatable=[...gaps.courses,...gaps.choices].map(({code,name,rows:count,credit,hours})=>({code,name,rows:count,credit,hours}));
+  const gapsReceipt=creatable.length?await signGapsReceipt({v:1,collegeId,sectionId,termId,issuedAt:new Date().toISOString(),courses:creatable}):undefined;
+  const mayCreateCourses=creatable.length?await canCreateCourses(req,collegeId,sectionId):false;
   const evidenceFields=["course","section","days","time","instructor","building","room"];
   let confirmedCells=0,derivedCells=0,reviewCells=0,readyRows=0;
   for(const row of rows as any[]){
@@ -955,6 +1007,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
     pageDiagnostics:recognized.pageDiagnostics,
     suspiciousExtraction:recognized.suspiciousExtraction,
     importReceipt,
+    catalogueGaps:gaps,gapsReceipt,canCreateCourses:mayCreateCourses,
     dryRun,
     headerBranch:headerPreflight.branch||recognized.headerBranch||undefined,
     headerDepartment:headerPreflight.department||recognized.headerDepartment||undefined,

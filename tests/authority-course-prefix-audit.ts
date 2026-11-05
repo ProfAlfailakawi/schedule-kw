@@ -37,8 +37,8 @@ check("the prefix list crosses only 0120/0121 to 0114, and the plain matcher sta
   assert.deepEqual(authorityCoursePrefixes("0115"), ["0115"]);
   assert.equal(authorityCourseCodeMatches("0114101", "101", "0120"), false);
   assert.equal(authorityInheritedCourseMatches("0114101", "101", "0120"), true);
-  assert.equal(authorityInheritedCourseMatches("0114101", "101", "0115"), false, "an unlisted department");
-  assert.equal(authorityInheritedCourseMatches("0102101", "101", "0120"), false, "an unrelated prefix");
+  assert.equal(authorityInheritedCourseMatches("0114101", "101", "0115"), true, "the header decides, not a list");
+  assert.equal(authorityInheritedCourseMatches("0214101", "101", "0120"), false, "another college");
   assert.equal(authorityInheritedCourseMatches("0114101", "0120101", "0120"), false, "a full key is never crossed");
   assert.equal(authorityCourseCellLooksPlausible("0114101", "0120"), true);
   assert.equal(authorityCourseCellLooksPlausible("0114101", "0102"), false);
@@ -61,7 +61,7 @@ check("an inherited number with a contradicting printed name fails closed", () =
 });
 
 check("a clear number outside the department is reported as such, with what was printed", () => {
-  const parsed = parse([grid("0114101", "اصول التربيه", "03")], "0115", [{ id: 6, code: "101", name: "اصول التربية" }]);
+  const parsed = parse([grid("0114101", "اصول التربيه", "03")], "0115", [{ id: 6, code: "101", name: "رياضيات عامة" }]);
   assert.equal(parsed.rows[0].AdCourseId, 0);
   assert.equal(parsed.rows[0].SCode, "", "an unproven course still gets no section");
   assert.deepEqual(unlinkedCourseEvidence(parsed.rows[0] as any), { code: "0114101", name: "اصول التربيه", section: "03" });

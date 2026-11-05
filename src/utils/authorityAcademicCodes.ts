@@ -78,38 +78,51 @@ export function authorityDepartmentCode(collegeCode: unknown, sectionCode: unkno
 }
 
 /**
- * ── رموز قسم التربية القديم (0114) ────────────────────────────────────────
+ * ── رأس الصفحة يحدد القسم (قرار المالك الدائم 2026-11-05) ───────────────────
  *
- * تقسيم قسم «علم التربية» القديم (14) إلى «الأصول والإدارة التربوية» (20) و«المناهج
- * وطرق التدريس» (21) لم يغيّر أرقام المقررات عند الهيئة: رأس الصفحة يطبع 0120 أو
- * 0121، والمقررات تحته مطبوعة 0114xxx، وقد تجاورها في الصفحة نفسها مقررات 0120xxx
- * (تقرير SWRSCHA للفصل الثاني 2026-2027). وهي القائمة الوحيدة التي تسمح بعبور رمز
- * قسم إلى قسم، ومصدرها ما طُبع لا قاعدة عامة: «كل ما يُطبع تحت الرأس مقبول» يعني
- * قبول أي خطأ طباعة أو تقرير مختلط، فكل زوج غير مذكور هنا يُرفض كما كان.
+ * رقم القسم في رأس الصفحة هو الذي يقرر قسم الشعبة، ولو بدأ رقم مقررها برمز قسم
+ * آخر من الكلية نفسها: صفحات 0121 تطبع مقررات 0114xxx منذ قُسّم القسم القديم 14.
+ * والرمز المطبوع لا يغيّر هوية المقرر: 0114464 ليس 0120464، والذيل وحده لا يربط.
  *
- * قسم علم النفس (15) ورث بعض أرقام 14 أيضاً، لكن الملف لا يطبع تحته 0114 فلا يُضاف.
+ * طبقة النص تُطبّق القاعدة على كل رمز من الكلية نفسها، لأن أرقامها ما طُبع فعلاً.
+ * أما المسح فأرقامه قراءة قد تخطئ، فلا يتسع له الرمز الغريب: تبقى القائمة أدناه
+ * مرساة عمود المقرر فيه، وهي الزوج الوحيد الذي ثبت مطبوعاً.
  */
-const AUTHORITY_INHERITED_COURSE_PREFIXES:Readonly<Record<string,readonly string[]>>={
+const AUTHORITY_SCAN_COURSE_PREFIXES:Readonly<Record<string,readonly string[]>>={
   "0120":["0114"],
   "0121":["0114"],
 };
 
-/** رموز المقررات التي يصح أن تُطبع تحت رأس هذا القسم: رمزه أولاً ثم الموروث. */
+/** رموز المقررات التي يُقبل بها عمود المقرر في المسح: رمز القسم أولاً ثم الثابت طباعته. */
 export function authorityCoursePrefixes(departmentCode: unknown): string[] {
   const department = academicDigits(departmentCode);
-  return department ? [department, ...(AUTHORITY_INHERITED_COURSE_PREFIXES[department] || [])] : [];
+  return department ? [department, ...(AUTHORITY_SCAN_COURSE_PREFIXES[department] || [])] : [];
+}
+
+/** الرقم كما تطبعه الهيئة بسبع خانات: 013099 تحت 0130 هو 0130099. وما لا يثبت يُعاد فارغاً. */
+export function authorityPrintedCourseKey(sourceCode: unknown, departmentCode: unknown): string {
+  const source = academicDigits(sourceCode), department = academicDigits(departmentCode);
+  if (department.length !== 4) return "";
+  if (source.length === 6 && source.startsWith(department)) return `${department}0${source.slice(4)}`;
+  return source.length === 7 && source.slice(0, 2) === department.slice(0, 2) ? source : "";
+}
+
+/** مفتاح مطبوع برمز قسم آخر من كلية القسم نفسها. */
+export function authorityForeignCourseKey(sourceCode: unknown, departmentCode: unknown): boolean {
+  const key = authorityPrintedCourseKey(sourceCode, departmentCode);
+  return Boolean(key) && !key.startsWith(academicDigits(departmentCode));
 }
 
 /**
- * رقمٌ موروث يطابق صف كتالوج القسم القصير (101) بالخانات الثلاث فقط، ومن هنا لا
- * يُستعمل وحده: 0114464 القديم مقرر غير 0120464 الجديد (انظر sheetReconcile)،
+ * رقم برمز قسم آخر يوافق صف كتالوج القسم القصير (101) بالخانات الثلاث فقط، ومن هنا
+ * لا يُستعمل وحده: 0114464 القديم مقرر غير 0120464 الجديد (انظر sheetReconcile)،
  * فالمستدعي يشترط أن يوافق الاسمُ المطبوع اسمَ المقرر وألا يطبع الملف رقم القسم
  * نفسه بالذيل ذاته. والمفتاح الكامل لا يُعبَر: 0120101 في الكتالوج ليس 0114101.
  */
 export function authorityInheritedCourseMatches(sourceCode: unknown, catalogueCourseCode: unknown, departmentCode: unknown): boolean {
-  const source = academicDigits(sourceCode), course = authorityCatalogueCourseDigits(catalogueCourseCode), department = academicDigits(departmentCode);
+  const source = academicDigits(sourceCode), course = authorityCatalogueCourseDigits(catalogueCourseCode);
   if (source.length !== 7 || !course || course.length > 3) return false;
-  if (!(AUTHORITY_INHERITED_COURSE_PREFIXES[department] || []).includes(source.slice(0, 4))) return false;
+  if (!authorityForeignCourseKey(source, departmentCode)) return false;
   return source.slice(-3) === course.padStart(3, "0");
 }
 

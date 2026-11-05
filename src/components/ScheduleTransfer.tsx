@@ -73,6 +73,8 @@ const DepartmentRoster = lazy(() => import("./DepartmentRoster"));
 const AllCourses = lazy(() => import("./AllCourses"));
 import ImportDryRun, { DryRunBaselineFailed, DryRunOffer } from "./ImportDryRun";
 import { importDiff } from "../utils/importDiff";
+import ImportCatalogueGaps, { type GapDecisions } from "./ImportCatalogueGaps";
+import { gapKeyOf } from "../utils/importCatalogueGaps";
 
 export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose }: Props) {
   useDialogDismiss(true, onClose);
@@ -85,6 +87,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   const [preview, setPreview] = useState<any>(null);
   // Kept so a reviewer can ask for a sharper second reading of the same file.
   const [smartFile, setSmartFile] = useState<File | null>(null);
+  /* ربطٌ اختاره المستخدم من ملخص النواقص: يبقى بعد إعادة قراءة الملف. */
+  const gapLinks = useRef<{ file: File | null; links: Record<string, number> }>({ file: null, links: {} });
   // True only while the sharper reading is in flight, so the chip can say so
   // and refuse a second click that would spend another read for nothing.
   const [smartBusy, setSmartBusy] = useState(false);
@@ -1037,7 +1041,24 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
          screen as an actionable recovery instead of a dead-end sentence. */
       if(data&&(data as any).error&&!(data as any).rows){if(offerScopeFix(data)||offerTermMismatch(data)||offerDryRun(data))return;throw new Error((data as any).error);}
       if(!data)throw new Error(interruptedImportMessage(response.status));
-      const scannedRows=assignAuthoritySections(Array.isArray(data.rows)?data.rows:[]);
+      const departmentKey=String(data.headerDepartment?.code||"");
+      const heldLinks=gapLinks.current.file===file?gapLinks.current.links:{};
+      const linkedLines=new Set<number>();
+      const linkedRows=(Array.isArray(data.rows)?data.rows:[]).map((row:any,index:number)=>{
+        const linked=heldLinks[gapKeyOf(row,departmentKey)];
+        if(!linked)return row;
+        linkedLines.add(index+1);
+        const picked=Array.isArray(data.catalogueGaps?.choices)?data.catalogueGaps.choices.flatMap((item:any)=>item.candidates).find((item:any)=>item.AdCourseId===linked):null;
+        return{...row,AdCourseId:linked,AdCourseName:String(picked?.name||""),importEvidence:{...(row.importEvidence||{}),course:{confidence:"CONFIRMED",score:100,source:"MANUAL",method:"USER_EDIT",derived:false,reason:"ثُبّتت هذه القيمة يدويًا في المعاينة."}}};
+      });
+      const linkedCodes=new Set(Object.keys(heldLinks));
+      if(data.catalogueGaps)data.catalogueGaps={...data.catalogueGaps,choices:(data.catalogueGaps.choices||[]).filter((item:any)=>!linkedCodes.has(item.code))};
+      const scannedRows=assignAuthoritySections(linkedRows);
+      /* حكم الخادم قيل قبل الربط: يسقط عن صفوف الربط وحدها، ويعيد فحصها عند الحفظ. */
+      if(linkedLines.size&&Array.isArray(data.blockingIssues))data.blockingIssues=data.blockingIssues.filter((issue:any)=>{
+        const line=/^السطر (\d+): المقرر غير صالح/.exec(String(issue||""));
+        return!(line&&linkedLines.has(Number(line[1])));
+      });
       setDryRunActive(Boolean(data.dryRun));
       setImportSectionId(targetSectionId);
       setPdfScopeFix(null);
@@ -1060,6 +1081,22 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         }catch{/* the picker simply lists nothing until a retry */}
       }
     }catch(e:any){setError(e.message||"تعذرت قراءة PDF");}finally{setBusy(false);setReadProgress(null);}
+  };
+
+  const confirmCatalogueGaps = async (decisions: GapDecisions) => {
+    if(!smartFile)return;
+    setBusy(true);setError(null);
+    try{
+      if(decisions.create.length){
+        const response=await fetch("/api/intelligence/pdf-import/create-courses",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gapsReceipt:xlsxPreview?.gapsReceipt,codes:decisions.create})});
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(data.error||"تعذرت إضافة المقررات");
+      }
+      gapLinks.current={file:smartFile,links:{...(gapLinks.current.file===smartFile?gapLinks.current.links:{}),...decisions.link}};
+      setDeptCourses([]);
+      await readPdf(smartFile,activeImportSectionId,dryRunActive);
+    }catch(e:any){setError(e?.message||"تعذرت إضافة المقررات");}
+    finally{setBusy(false);}
   };
 
   const resolvePdfDepartment = async () => {
@@ -1437,7 +1474,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         {tab==="import"&&pdfScopeFix?
           <div className="transfer-scope-fix" role="alert">
             <Building2 aria-hidden="true" />
-            <div><strong>الملف يخص «{pdfScopeFix.suggestedSectionName||pdfScopeFix.sourceDepartment}»</strong><small>{pdfScopeFix.suggestedSectionId?"القسم موجود بالفعل في هذه الكلية؛ سأنقلك إليه وأعيد قراءة الملف نفسه.":"القسم غير موجود في هذه الكلية. يمكن للمدير الرئيسي إضافته من ترويسة الملف الموثقة ثم إعادة الاستيراد تلقائياً."}</small></div>
+            <div><strong>الملف يخص «{pdfScopeFix.suggestedSectionName||pdfScopeFix.sourceDepartment}»</strong><small>{pdfScopeFix.suggestedSectionId?"القسم موجود بالفعل في هذه الكلية؛ سأنقلك إليه وأعيد قراءة الملف نفسه.":`القسم ${String(pdfScopeFix.sourceDepartmentCode||"")} غير مسجل في هذه الكلية. يُضاف باسمه المطبوع ثم يُعاد الاستيراد.`}</small></div>
             <PrimaryButton type="button" data-guide-ignore="تصحيح نطاق استيراد جدول الـ PDF أو إنشاء القسم المطابق من ترويسة الملف ثم إعادة الاستيراد تلقائياً" onClick={()=>void resolvePdfDepartment()} disabled={busy}><Plus/>{pdfScopeFix.suggestedSectionId?"فتح القسم الصحيح وإعادة الاستيراد":"إضافة القسم وإعادة الاستيراد"}</PrimaryButton>
           </div>:null}
 
@@ -1730,6 +1767,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                           courseName={id => String(deptCourses.find((course: any) => Number(course.AdCourseId) === id)?.CourseName || "")}
                         />
                       ) : null}
+                      {importKind==="authority-pdf"&&xlsxPreview.catalogueGaps?<ImportCatalogueGaps key={String(xlsxPreview.importReceipt||"")} gaps={xlsxPreview.catalogueGaps} canCreate={Boolean(xlsxPreview.canCreateCourses)} busy={busy} onConfirm={decisions=>void confirmCatalogueGaps(decisions)} />:null}
                       <PagedImportPreview
                         key={String(xlsxPreview.importReceipt || xlsxPreview.fileName || "")}
                         rows={xlsxPreview.rows as ImportRow[]}
