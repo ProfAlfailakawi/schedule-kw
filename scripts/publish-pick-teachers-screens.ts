@@ -101,6 +101,9 @@ async function run(browser: any, width: number) {
   note(`[${width}] الخبر: ${(await page.locator("#publish-step-links .share-created").first().innerText()).trim()}`);
   note(`[${width}] من وصلهم: ${(await page.locator(".publish-delivered .share-deliver-name").allInnerTexts()).join(" | ")}`);
   await shot(page, "5-delivered", width, page.locator(".share-sheet"));
+  await page.locator(".publish-send-log").scrollIntoViewIfNeeded();
+  await sleep(300);
+  await shot(page, "6-send-log", width, page.locator(".publish-send-log"));
   note(`[${width}] أخطاء الصفحة: ${errors.length}${errors.length ? " — " + errors.slice(0, 2).join(" | ") : ""}`);
   await context.close();
 }

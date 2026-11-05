@@ -99,6 +99,26 @@ export function scheduleViolatesApprovedBarterWindow(row: Partial<FSchedule>, wi
   });
 }
 
+export type LoanSegment = { kind: "lent" | "borrowed"; start: number; end: number; room: string };
+export type LoanStrip = { days: Array<{ day: string; segments: LoanSegment[] }>; lentMinutes: number; borrowedMinutes: number };
+
+/** الإعارةُ بعين قسمٍ واحد: كل نافذةٍ معتمدة قطعةٌ في يومها، معارةٌ منه أو مستعارةٌ له. */
+export function loanStripOf(rows: HallBarterWindow[], collegeId: number, sectionId: number): LoanStrip {
+  const days = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(day => ({ day, segments: [] as LoanSegment[] }));
+  let lentMinutes = 0, borrowedMinutes = 0;
+  for (const row of rows) {
+    const line = days.find(entry => entry.day === String(row.day));
+    const start = minutes(row.startTime), end = minutes(row.endTime);
+    if (row.status !== "approved" || !line || !(end > start)) continue;
+    const mine = (college: unknown, section: unknown) => Number(college) === collegeId && Number(section) === sectionId;
+    const kind = mine(row.requesterCollegeId, row.requesterSectionId) ? "borrowed" : mine(row.ownerCollegeId, row.ownerSectionId) ? "lent" : null;
+    if (!kind) continue;
+    line.segments.push({ kind, start, end, room: [row.roomCode, row.roomHall].filter(Boolean).join("/") });
+    if (kind === "lent") lentMinutes += end - start; else borrowedMinutes += end - start;
+  }
+  return { days, lentMinutes, borrowedMinutes };
+}
+
 /** Does an already-booked official row occupy a proposed barter window? */
 export function scheduleOccupiesApprovedBarterWindow(row: Partial<FSchedule>, window: HallBarterWindow) {
   return window.status === "approved" && approvedBarterWindowMatchesSchedule(row, window)

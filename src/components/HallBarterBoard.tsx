@@ -22,6 +22,7 @@ import { GhostButton, PrimaryButton, SecondaryButton, PrintPortal } from "./ui";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
+import RoomLoanStrip from "./RoomLoanStrip";
 
 type Opportunity = {
   id: string;
@@ -70,6 +71,8 @@ export type HallBarterReservationView = {
   ownerSectionId: number;
   createdAt: string;
   ageDays?: number;
+  /** القاعة مشغولة بغير المستعير في هذه النافذة. */
+  clash?: boolean;
 };
 
 type Facets = {
@@ -276,6 +279,8 @@ export default function HallBarterBoard({
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ decision }),
   }));
+  const endLoan = (requestId: string) => { if (window.confirm("إنهاء الإعارة؟ تعود النافذة إلى قسمك.")) void act(requestId, () => readJson(`/api/hall-barter/requests/${encodeURIComponent(requestId)}/end`, { method: "POST" })); };
+  const clashChip = (row: HallBarterReservationView) => row.clash ? <span className="hall-barter-clash" role="status"><CalendarX aria-hidden="true" />تعارض: القاعة مشغولة</span> : null;
   const cancel = (requestId: string) => act(requestId, () => readJson(`/api/hall-barter/requests/${encodeURIComponent(requestId)}/cancel`, { method: "POST" }));
 
   /* عمرُ الطلب المنتظر يُقال بهدوء: طلبٌ مرّ عليه ثلاثة أيام بلا ردّ يلوّن
@@ -350,6 +355,7 @@ export default function HallBarterBoard({
               <li><BookLock aria-hidden="true" />لا يتغيّر مقرر</li>
               <li><CalendarClock aria-hidden="true" />لهذا الفصل فقط</li>
               <li><Split aria-hidden="true" />البنون والبنات منفصلان</li>
+              <li><ArrowLeftRight aria-hidden="true" />المُعير يستخدم قاعته خارج الإعارة، أو بعد إنهائها</li>
               <li><ScanSearch aria-hidden="true" />الموعد عبر المحرر بفحص التضارب</li>
             </ul></div>
             <GhostButton type="button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? "spin" : ""} />تحديث</GhostButton>
@@ -395,9 +401,10 @@ export default function HallBarterBoard({
                     <div className="hall-barter-request-main">
                       <div className="hall-barter-request-head"><strong>{row.requesterSectionName}</strong>{ageChip(row)}</div>
                       {windowLine(row)}
+                      {clashChip(row)}
                     </div>
                     <div className="hall-barter-actions">
-                      <PrimaryButton type="button" disabled={busyId === row.id} onClick={() => void respond(row.id, "approve")}><Check />موافقة</PrimaryButton>
+                      <PrimaryButton type="button" data-guide-ignore="موافقة القسم المضيف على طلب استعارة؛ يحرسها الخادم بفحص التعارض" disabled={busyId === row.id || row.clash} onClick={() => void respond(row.id, "approve")}><Check />موافقة</PrimaryButton>
                       <SecondaryButton type="button" disabled={busyId === row.id} onClick={() => void respond(row.id, "reject")}><X />رفض</SecondaryButton>
                     </div>
                   </article>
@@ -409,6 +416,7 @@ export default function HallBarterBoard({
           {approved.length ? (
             <div className="hall-barter-section approved-list">
               <header><div><small>سارية الآن</small><strong>نوافذ استعارة معتمدة</strong></div><b>{approved.length}</b></header>
+              <RoomLoanStrip rows={approved} collegeId={collegeId} sectionId={sectionId} />
               <div className="hall-barter-active-grid">
                 {approved.map(row => {
                   const borrowing = row.requesterCollegeId === collegeId && row.requesterSectionId === sectionId;
@@ -417,7 +425,8 @@ export default function HallBarterBoard({
                       <span className="hall-barter-status-dot" />
                       <div><small>{borrowing ? "مستعارة لقسمك من" : "معارة إلى"}</small><strong>{borrowing ? row.ownerSectionName : row.requesterSectionName}</strong></div>
                       {windowLine(row)}
-                      {borrowing ? <GhostButton type="button" disabled={busyId === row.id} onClick={() => void cancel(row.id)}>إلغاء الاستعارة</GhostButton> : <span className="hall-barter-approved-label"><Check />معتمدة</span>}
+                      {clashChip(row)}
+                      {borrowing ? <GhostButton type="button" disabled={busyId === row.id} onClick={() => void cancel(row.id)}>إلغاء الاستعارة</GhostButton> : <GhostButton type="button" data-guide-ignore="إنهاء إعارة معتمدة للقسم المضيف؛ يحرسه الخادم بالنطاق وبموعد المستعير" disabled={busyId === row.id} onClick={() => endLoan(row.id)}>إنهاء الإعارة</GhostButton>}
                     </article>
                   );
                 })}
@@ -493,6 +502,7 @@ export default function HallBarterBoard({
                   <article key={row.id}>
                     <div><strong>{row.ownerSectionName}</strong></div>
                     {windowLine(row)}
+                    {clashChip(row)}
                     <span className="hall-barter-pending-label">{statusLabel(row.status)}{row.ageDays && row.ageDays >= 3 ? <em className="hall-barter-pending-age"> · {ageText(row.ageDays)}</em> : null}</span>
                     <GhostButton type="button" disabled={busyId === row.id} onClick={() => void cancel(row.id)}>إلغاء الطلب</GhostButton>
                   </article>

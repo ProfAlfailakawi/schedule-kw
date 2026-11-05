@@ -146,6 +146,9 @@ const AUDIT = `(() => {
     /* المثبَّتُ هو النافذةُ كلها (fixed)؟ فالزرّ يتحرّك معها ولا يطفو فوق محتواها إلا إن كان هو نفسه مثبَّتاً. */
     if (!pinned || pinned.matches('[role=dialog],[aria-modal=true],.share-sheet,[class*="backdrop"],[class*="-sheet"],aside')) continue;
     const root = btn.closest('[role=dialog],[aria-modal=true],.share-sheet,[class*="-sheet"],[class*="drawer"]:not(button),main') || document.body;
+    /* شريطٌ معتم بعرض النافذة رأسٌ حقيقي: ما يمرّ تحته محجوب، لا مغطّى بزرٍّ طافٍ. */
+    const pcs = getComputedStyle(pinned), pr = pinned.getBoundingClientRect(), rr0 = root.getBoundingClientRect();
+    if (pinned !== btn && !/rgba\\(0, 0, 0, 0\\)|transparent/.test(pcs.backgroundColor) && pr.width >= rr0.width - 2) continue;
     const hits = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let t = walker.nextNode(); t && hits.length < 2; t = walker.nextNode()) {
@@ -158,11 +161,9 @@ const AUDIT = `(() => {
         if (atop && (atop === btn || btn.contains(atop) || pinned.contains(atop))) { hits.push("«" + t.textContent.trim().slice(0, 24) + "» في " + label(t.parentElement)); break; }
       }
     }
-    /* أو يغطّي بطاقةً/صندوقاً مرسوماً (خلفية أو إطار) — إلا إن كان المثبَّتُ شريطاً معتماً بعرض النافذة (رأسٌ حقيقي). */
-    const pcs = getComputedStyle(pinned), pr = pinned.getBoundingClientRect(), rr0 = root.getBoundingClientRect();
-    const opaqueBar = pinned !== btn && !/rgba\(0, 0, 0, 0\)|transparent/.test(pcs.backgroundColor) && pr.width >= rr0.width - 2;
-    if (!hits.length && !opaqueBar) {
-      const painted = el => { const c = getComputedStyle(el); return !/rgba\(0, 0, 0, 0\)|transparent/.test(c.backgroundColor) || parseFloat(c.borderTopWidth) > 0 || parseFloat(c.borderLeftWidth) > 0; };
+    /* أو يغطّي بطاقةً/صندوقاً مرسوماً (خلفية أو إطار) */
+    if (!hits.length) {
+      const painted = el => { const c = getComputedStyle(el); return !/rgba\\(0, 0, 0, 0\\)|transparent/.test(c.backgroundColor) || parseFloat(c.borderTopWidth) > 0 || parseFloat(c.borderLeftWidth) > 0; };
       for (const [x, y] of [[r.left + r.width / 2, r.top + r.height / 2], [r.left + 2, r.top + 2], [r.right - 2, r.top + 2], [r.left + 2, r.bottom - 2], [r.right - 2, r.bottom - 2]]) {
         const under = document.elementsFromPoint(x, y).find(u => u !== btn && !btn.contains(u) && !u.contains(btn) && !pinned.contains(u) && root.contains(u) && u !== root && painted(u));
         if (under) { hits.push("صندوق " + label(under)); break; }

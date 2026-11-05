@@ -18,7 +18,7 @@ import "./seats.css";
  */
 
 type SeatRow = {
-  id: number; login: string; name: string; role: string; roleLabel: string; order: number; active: boolean; mustChangePassword: boolean;
+  id: number; login: string; name: string; role: string; roleLabel: string; order: number; active: boolean; mustChangePassword: boolean; firstPasswordExpired?: boolean;
   scopeLabel: string; holder: { name: string; since: string } | null; deputy: { name: string } | null;
   team: { active: number; pending: number; frozen: number; ended: number } | null;
   lastEvent: { at: string; kind: string; detail: string } | null;
@@ -193,7 +193,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
                     <span className="seats-row-tags">
                       {row.team ? <em title="الفريق"><UsersRound aria-hidden="true" />{row.team.active + row.team.pending}</em> : null}
                       {row.team?.frozen ? <em className="cool" title="مجمَّد"><Snowflake aria-hidden="true" />{row.team.frozen}</em> : null}
-                      {row.mustChangePassword ? <em className="warn" title="ينتظر اختيار كلمة السر">جديد</em> : null}
+                      {row.mustChangePassword ? <em className="warn" title={row.firstPasswordExpired ? "انتهت الكلمة الأولى: أعد إصدارها من البطاقة" : "ينتظر اختيار كلمة السر"}>{row.firstPasswordExpired ? "منتهية" : "جديد"}</em> : null}
                     </span>
                   </button>
                 </li>

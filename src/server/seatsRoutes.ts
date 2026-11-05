@@ -18,7 +18,7 @@ import { type AuthenticatedRequest, getCookies, isPowerUser, requireAuth, requir
 import { isScopeAllowed } from "./core/scope";
 import { ACADEMIC_ROLES, roleDefinition, roleLabel } from "../utils/academicRoles";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
-import { generateInitialPassword, LEGACY_SHARED_PASSWORD } from "./accountPassword";
+import { DEFAULT_FIRST_PASSWORD, defaultFirstPasswordFields, initialPasswordExpired } from "./accountPassword";
 import {
   activeDeputy, civilTailOf, handOverLedger, isSeatRole, scopeWithin, seatHolderSource, seatMemberBadge, seatTeamRule,
   SEAT_LINK_MAX_ATTEMPTS, SEAT_TEAM_LIMIT, withSeatEvent,
@@ -132,13 +132,14 @@ async function seatView(seat: any, ledger: SeatLedger | null, req: Authenticated
     seat: {
       id: Number(seat.SystemUserId), login: String(seat.SystemUserLogin || ""), name: String(seat.SeatName || seat.Name || ""),
       role: roleDefinition(seat.Role).id, roleLabel: roleLabel(seat.Role), active: Boolean(seat.IsActive) && !seat.IsLocked,
-      mustChangePassword: Boolean(seat.MustChangePassword), scopes: assigns.map(row => nameOf(row)),
+      mustChangePassword: Boolean(seat.MustChangePassword), ...firstPasswordState(seat), scopes: assigns.map(row => nameOf(row)),
     },
     holder: ledger?.holder || null,
     deputy: deputy || null,
     team: rule ? { ...rule, members: (ledger?.members || []).map(member => ({ ...memberView(member, manage), scopeNames: (member.scopes || []).map(nameOf) })) } : null,
     history: [...(ledger?.history || [])].reverse(),
     canManage: manage,
+    canReissuePassword: isPowerUser(req) && Boolean(seat.MustChangePassword),
     canHandOver: await handsOverSeat(req, seat),
     holderSource: seatHolderSource(seat.Role),
     scopeTree: manage && rule && rule.scope !== "seat" ? await scopeTreeFor(seat, rule.scope) : [],
@@ -168,13 +169,19 @@ async function scopeTreeFor(seat: any, mode: "college" | "any") {
   }));
 }
 
+const firstPasswordFields = () => defaultFirstPasswordFields(Repository.hashPassword(DEFAULT_FIRST_PASSWORD), Repository.encryptPasswordForVault(DEFAULT_FIRST_PASSWORD));
+
+/** ما تعرفه شاشةُ الفرق عن الكلمة الأولى: موعدُ سقوطها، لا هي. */
+const firstPasswordState = (seat: any) => ({
+  firstPasswordExpiresAt: seat.MustChangePassword && seat.InitialPasswordExpiresAt ? String(seat.InitialPasswordExpiresAt) : "",
+  firstPasswordExpired: initialPasswordExpired(seat),
+});
+
 /** يُطلق الكرسيَّ لشاغلٍ جديد: كلمةٌ أولى، وتغييرٌ إجباري عند الدخول، وإخراجُ كل جهازٍ مفتوح عليه. */
 async function resetSeatCredentials(seat: any, instructorId?: number) {
-  const password = generateInitialPassword();
+  const password = DEFAULT_FIRST_PASSWORD;
   await Repository.updateUser(Number(seat.SystemUserId), {
-    SystemUserPass: Repository.hashPassword(password),
-    SystemUserPassVault: Repository.encryptPasswordForVault(password),
-    MustChangePassword: true,
+    ...firstPasswordFields(),
     ...(instructorId !== undefined ? { AdInstructorId: Number(instructorId) || 0 } : {}),
   } as any);
   await Repository.deleteSessionsForUser(Number(seat.SystemUserId));
@@ -296,8 +303,8 @@ export async function ensureCollegeRegistrars(by: string, onlyCollegeIds?: numbe
     for (let n = 2; logins.has(login.toLowerCase()); n += 1) login = `${tag}registrar${n}`;
     const user = await Repository.createUser({
       Name: `${role.label} — ${campusFamilyName(missing.map(c => c.collegeName))}`, SystemUserLogin: login,
-      SystemUserPass: Repository.hashPassword(LEGACY_SHARED_PASSWORD), SystemUserPassVault: Repository.encryptPasswordForVault(LEGACY_SHARED_PASSWORD),
-      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: role.id, MustChangePassword: true,
+      ...firstPasswordFields(),
+      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: role.id,
     } as any);
     await Repository.saveSecurityByUser(user.SystemUserId, role.formIds);
     await Repository.saveUserAssigns(user.SystemUserId, missing.map(college => ({ AdCollegeId: college.collegeId, AdSectionId: 0 })));
@@ -345,7 +352,7 @@ app.get("/api/seats", requirePowerAdmin, async (_req: AuthenticatedRequest, res:
     const scopes = assignsOf.get(Number(user.SystemUserId)) || [];
     return {
       id: Number(user.SystemUserId), login: user.SystemUserLogin, name: user.Name, role: role.id, roleLabel: role.label, order: role.order,
-      active: Boolean(user.IsActive) && !user.IsLocked, mustChangePassword: Boolean((user as any).MustChangePassword),
+      active: Boolean(user.IsActive) && !user.IsLocked, mustChangePassword: Boolean((user as any).MustChangePassword), ...firstPasswordState(user),
       collegeIds: [...new Set(scopes.map(row => Number(row.AdCollegeId)))],
       scopeLabel: role.scopeMode === "allColleges" ? "كل الكليات" : scopes.slice(0, 2).map(nameOf).join("، ") + (scopes.length > 2 ? ` و${scopes.length - 2} غيرها` : ""),
       holder: ledger?.holder || null,
@@ -457,6 +464,16 @@ app.post("/api/seats/:id/handover", requireAuth, async (req: AuthenticatedReques
   const password = await resetSeatCredentials(seat, person.instructorId ?? 0);
   res.locals.auditChanges = `تسليم ${seat.Name}${before?.holder ? `: ${before.holder.name} ← ${holder.name}` : ` إلى ${holder.name}`}`;
   res.json({ handedOver: true, login: seat.SystemUserLogin, seatName: seat.Name, password, holder, selfHandover: Number(req.user?.SystemUserId) === Number(seat.SystemUserId) });
+});
+
+/** إعادةُ إصدار الكلمة الأولى: لمدير النظام، ولكرسيٍّ لم يختر شاغلُه كلمتَه؛ فلا تُمحى كلمةُ أحد. */
+app.post("/api/seats/:id/first-password", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const seat = await seatUser(Number(req.params.id));
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!seat.MustChangePassword) { res.status(409).json({ error: "اختار رئيس الفريق كلمته. سلّم الرئاسة إن أردت كلمة أولى جديدة." }); return; }
+  const password = await resetSeatCredentials(seat);
+  res.locals.auditChanges = `إعادة إصدار الكلمة الأولى: ${seat.Name}`;
+  res.json({ login: seat.SystemUserLogin, password });
 });
 
 app.post("/api/seats/:id/members", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
@@ -607,7 +624,7 @@ app.post("/api/seats/college-registrars/all", requirePowerAdmin, async (req: Aut
   authCache.clear();
   const created = results.filter(row => row.status === "created").length, extended = results.length - created;
   res.locals.auditChanges = `رؤساء تسجيل الكليات: أُنشئ ${created}، ووُسّع ${extended}`;
-  res.json({ results, password: LEGACY_SHARED_PASSWORD });
+  res.json({ results, password: DEFAULT_FIRST_PASSWORD });
 });
 
 app.post("/api/seats/college-registrar", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
@@ -627,12 +644,12 @@ app.post("/api/seats/college-registrar", requirePowerAdmin, async (req: Authenti
   const logins = new Set(users.map(user => String(user.SystemUserLogin || "").toLowerCase()));
   let login = `${tag}registrar`;
   for (let n = 2; logins.has(login.toLowerCase()); n += 1) login = `${tag}registrar${n}`;
-  const password = generateInitialPassword();
+  const password = DEFAULT_FIRST_PASSWORD;
   const role = roleDefinition("collegeRegistrar");
   const user = await Repository.createUser({
     Name: `${role.label} — ${campusFamilyName(picked.map(row => String(row.AdCollegeName || "")))}`, SystemUserLogin: login,
-    SystemUserPass: Repository.hashPassword(password), SystemUserPassVault: Repository.encryptPasswordForVault(password),
-    IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: role.id, MustChangePassword: true,
+    ...firstPasswordFields(),
+    IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: role.id,
   } as any);
   await Repository.saveSecurityByUser(user.SystemUserId, role.formIds);
   await Repository.saveUserAssigns(user.SystemUserId, picked.map(row => ({ AdCollegeId: Number(row.AdCollegeId), AdSectionId: 0 })));

@@ -26,3 +26,17 @@
 .publish-pick-list .of-chip>small{flex:none;font-size:.74rem;font-weight:600;color:var(--muted,#6b7280)}
 .publish-delivered{margin-top:10px}
 .publish-delivered-actions{display:inline-flex;align-items:center;gap:6px;flex:none}
+/* سجلُّ الإرسال: سطرٌ لكل إرسال، الأحدثُ أولاً */
+.publish-send-log{display:grid;gap:8px;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface,#fff);min-width:0}
+.publish-send-log header{display:flex;align-items:center;gap:8px}
+.publish-send-log header svg{flex:none;inline-size:17px;block-size:17px;color:var(--accent)}
+.publish-send-log header small{margin-inline-start:auto;font-size:.76rem;color:var(--muted,#6b7280)}
+.publish-send-log ol{display:grid;margin:0;padding:0;list-style:none;max-block-size:280px;overflow:auto}
+.publish-send-log li{display:flex;align-items:center;gap:10px;min-width:0;padding:8px 2px;border-top:1px solid var(--line)}
+.publish-send-log li:first-child{border-top:0}
+.publish-send-log li>div{display:grid;gap:2px;flex:1;min-width:0}
+.publish-send-log li b{font-size:.84rem;overflow-wrap:anywhere}
+.publish-send-log li small{font-size:.74rem;color:var(--muted,#6b7280)}
+.publish-send-log-mode{flex:none;font-size:18px;line-height:1}
+.publish-send-log time{flex:none;font-size:.74rem;color:var(--muted,#6b7280)}
+@media(max-width:560px){.publish-send-log li{flex-wrap:wrap}.publish-send-log time{inline-size:100%;padding-inline-start:28px}}

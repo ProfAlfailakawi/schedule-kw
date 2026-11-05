@@ -333,9 +333,33 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     : `إعادة فتح استقبال طلبات الأساتذة لعائلة القسم حتى ${windowClosesAt}`) + ` · ${linkModeLabel(issueMode)}`;
   await Repository.saveFeatureDoc("linkModeLog", `${collegeId}:${sectionId}:${termId}:${Date.now()}`, {
     at: new Date().toISOString(), by: String(req.user?.Name || req.user?.UserName || ""), mode: issueMode,
-    scope: `${collegeId}:${sectionId}:${termId}`, instructorIds: issued.map(row => row.instructorId), single: individualOnly, picked: picking,
+    scope: `${collegeId}:${sectionId}:${termId}`, instructorIds: issued.map(row => row.instructorId), single: individualOnly, picked: picking, closesAt: windowClosesAt,
   }).catch(() => undefined);
   res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued && !row.renewed).length, ...(picking ? { picked: true } : {}) });
+});
+
+/* ── سجلُّ الإرسال: كلُّ إرسالٍ سطرٌ يُضاف ولا يمحو ما قبله ─────────────────────
+ * يُقرأ من linkModeLog (يكتبه الإصدارُ ومرحلةُ التدريب) لعائلة القسم في الفصل، الأحدثُ أولاً.
+ * للقراءة فقط، وبلا اسم المُرسِل: قرارُ المالك أن النائب لا يرى حركات الرئيس. */
+app.get("/api/instructor-requests/send-log", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const [groups, instructors] = await Promise.all([
+    Promise.all(family.map(scope => Repository.listFeatureDocs<any>("linkModeLog", `${scope.collegeId}:${scope.sectionId}:${termId}:`))),
+    Repository.getInstructors(),
+  ]);
+  const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
+  res.setHeader("Cache-Control", "no-store");
+  res.json(groups.flat().sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 200).map(row => {
+    const ids: number[] = (Array.isArray(row.instructorIds) ? row.instructorIds : []).map(Number);
+    return {
+      at: String(row.at || ""), mode: String(row.mode || "edit"), closesAt: String(row.closesAt || ""),
+      audience: row.mode === "ta" ? "ta" : row.single ? "exception" : row.picked ? "picked" : "all",
+      count: ids.length, names: ids.map(id => nameOf.get(id) || "").filter(Boolean),
+    };
+  }));
 });
 
 /* ── «لمن؟ ← أساتذة محددون»: من يمكن أن يُرسَل إليه ─────────────────────────
