@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { CalendarClock, Info, KeyRound, RefreshCw } from "lucide-react";
 import AccessCard from "../AccessCard";
 import { whatsappNumber } from "../../utils/seats";
-import { FIRST_PASSWORD_DAYS, holderCardModel } from "../../utils/seatAccessCard";
+import { holderCardModel } from "../../utils/seatAccessCard";
 
 /**
  * ── «بطاقة الدخول» في الكراسي ────────────────────────────────────────────────
@@ -33,7 +33,7 @@ export default function SeatLinkCard({ title, subtitle, url, mobile, message, cr
           <dl className="seat-credentials">
             <div><dt>اسم الدخول</dt><dd dir="ltr">{credentials.login}</dd></div>
             <div><dt><KeyRound aria-hidden="true" /> الكلمة الأولى</dt><dd dir="ltr" className="seat-secret">{credentials.password}</dd></div>
-            <p>تعمل {FIRST_PASSWORD_DAYS} أيام، ويختار صاحبها كلمته الخاصة عند أول دخول.</p>
+            <p>تعمل سبعة أيام، ويختار صاحبها كلمته الخاصة عند أول دخول.</p>
           </dl>
         ) : null}
         {children}

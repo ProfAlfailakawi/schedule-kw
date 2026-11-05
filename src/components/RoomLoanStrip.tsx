@@ -11,7 +11,7 @@ export default function RoomLoanStrip({ rows, collegeId, sectionId }: { rows: Ha
   const strip = useMemo(() => loanStripOf(rows, collegeId, sectionId), [rows, collegeId, sectionId]);
   if (!strip.lentMinutes && !strip.borrowedMinutes) return null;
   return (
-    <figure className="room-loan-strip" aria-label={`معار ${hours(strip.lentMinutes)} ساعة، مستعار ${hours(strip.borrowedMinutes)} ساعة في الأسبوع`}>
+    <figure className="room-loan-strip" aria-label={`الساعات الأسبوعية: معار ${hours(strip.lentMinutes)}، مستعار ${hours(strip.borrowedMinutes)}`}>
       <figcaption className="room-loan-legend">
         <span className="lent"><ArrowUpLeft aria-hidden="true" />معار <b dir="ltr">{hours(strip.lentMinutes)}</b> س</span>
         <span className="borrowed"><ArrowDownLeft aria-hidden="true" />مستعار <b dir="ltr">{hours(strip.borrowedMinutes)}</b> س</span>
