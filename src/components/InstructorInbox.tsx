@@ -953,7 +953,7 @@ function CancelScheduledSheet({ item, busy, onClose, onSubmit }: { item: Instruc
           <input value={note} maxLength={160} onChange={event => setNote(event.target.value)} placeholder="سبب الإلغاء" />
         </label>
         <div className="changes-extend-actions">
-          <SecondaryButton type="button" onClick={onClose}>تراجع</SecondaryButton>
+          <SecondaryButton type="button" data-guide-ignore="إغلاق الورقة — لا يغيّر شيئاً" onClick={onClose}>تراجع</SecondaryButton>
           <PrimaryButton type="button" disabled={busy || !note.trim()} data-guide-ignore="يحذف الموعد الذي وضعه القسم ويرسل السطر إلى الأستاذ" onClick={() => onSubmit(note.trim())}>
             {busy ? "يحفظ…" : "إلغاء الموعد"}
           </PrimaryButton>
