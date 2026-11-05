@@ -6,7 +6,6 @@ import { officialCollegeSitePrefix, officialSiteLabel } from "../utils/locationC
 import { byArabic, sortByName } from "../utils/sorting";
 import { AR, countOf } from "../utils/arabicCount";
 import LocationRoomTypeManager from "./LocationRoomTypeManager";
-import "./admin-rules.css";
 
 type SetupData = { colleges: AdCollege[]; sections: AdSection[]; buildings: MasterBuilding[]; rooms: MasterRoom[] };
 const empty: SetupData = { colleges: [], sections: [], buildings: [], rooms: [] };

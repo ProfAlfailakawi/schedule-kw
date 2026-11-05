@@ -14,7 +14,6 @@ import SchedulePublish from "./SchedulePublish";
 import SectionPlanning from "./SectionPlanning";
 import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import StudentUnitCapField from "./StudentUnitCapField";
-import "./admin-rules.css";
 import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
 import { isAssignableInstructor } from "../utils/instructorStatus";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";

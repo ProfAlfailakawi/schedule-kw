@@ -1,5 +1,4 @@
 import CampusTravelPolicyCard from "./CampusTravelPolicyCard";
-import "./admin-rules.css";
 import TermSelect from "./TermSelect";
 import { byArabic } from "../utils/sorting";
 /**
