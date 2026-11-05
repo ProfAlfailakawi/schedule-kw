@@ -5614,8 +5614,10 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                   لا أخطاء ظاهرة.
                 </Notice>
               )) : null}
-              {importPreview.importLayout === "authority-pdf" && importPreview.rows?.length ? (
+              {/* بلا شرط «فيه صفوف»: حذفُ آخر صف كان يطوي الجدول ومعه «تراجع». */}
+              {importPreview.importLayout === "authority-pdf" ? (
                 <PagedImportPreview
+                  key={String(importPreview.importReceipt || importPreview.fileName || "")}
                   rows={importPreview.rows as ImportRow[]}
                   pageCount={Number(importPreview.pages||0)}
                   pageDiagnostics={Array.isArray(importPreview.pageDiagnostics)?importPreview.pageDiagnostics:[]}

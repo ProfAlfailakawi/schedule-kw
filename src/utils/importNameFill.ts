@@ -106,7 +106,11 @@ export function planNameFill(rows: readonly FillRow[], source: readonly SourceRo
     if (Number(row.AdInstructorId || 0) && !placeholderIds.has(Number(row.AdInstructorId))) {
       return { index, status: "none" as const, instructorId: 0, instructorName: "", diffs: [], reason: "السطر يحمل أستاذاً" };
     }
-    const exact = source.filter(src => compare(row, src).length === 0);
+    /* رقمُ الشعبة في جدول الجهة مولَّدٌ بترتيب الصفوف (501، 502…): حذفُ صفٍّ في المعاينة يعيد ترقيم
+       ما بعده، فلا يبقى الرقم هويةً تقارَن بالملف الثاني. فمن لم يطابق بالرقم يطابق بكل ما سواه:
+       المقرر والأيام والوقت والقاعة كلُّها. */
+    const literal = source.filter(src => compare(row, src).length === 0);
+    const exact = literal.length ? literal : source.filter(src => compare(row, src).every(diff => diff.field === "section"));
     if (exact.length === 1) {
       const who = personOf(exact[0]);
       return who.id
@@ -168,6 +172,29 @@ export function applyNameFill<T extends FillRow>(rows: readonly T[], decisions: 
       };
     }
     return row;
+  });
+}
+
+/* هويةُ السطر بعد التعديل: ترتيبُه في المستند لا موضعُه في القائمة، فالحذف يغيّر المواضع والأرقام. */
+const fillRowIdentity = (row: FillRow, index: number) => {
+  const order = Number(row.sourceOrder);
+  return row.sourceOrder !== undefined && row.sourceOrder !== null && row.sourceOrder !== "" && Number.isFinite(order) ? `o${order}` : `i${index}`;
+};
+
+/** لقطة ما قبل التعبئة: يكفي منها الاسم وبرهانه، لا السطور كلها. */
+export function nameFillSnapshot<T extends FillRow>(rows: readonly T[]) {
+  return new Map(rows.map((row, index) => [fillRowIdentity(row, index), { AdInstructorId: row.AdInstructorId, importEvidence: row.importEvidence }] as const));
+}
+
+/**
+ * التراجعُ يعيد ما غيّرته التعبئة وحده. إعادةُ السطور القديمة كاملةً كانت تُرجع صفاً حذفه
+ * المراجع بعد التعبئة، وتمحو كل تعديلٍ تلاها. واسمٌ غيّره المراجع بيده بعدها قرارُه فيبقى.
+ */
+export function undoNameFill<T extends FillRow>(rows: readonly T[], snapshot: ReadonlyMap<string, { AdInstructorId: number; importEvidence?: unknown }>): T[] {
+  return rows.map((row, index) => {
+    const prior = snapshot.get(fillRowIdentity(row, index));
+    const filled = (row as any).importEvidence?.instructor?.method === "NAME_FILL";
+    return prior && filled ? { ...row, AdInstructorId: prior.AdInstructorId, importEvidence: prior.importEvidence } : row;
   });
 }
 

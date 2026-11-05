@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { draftAppointmentChecks, isGenesisDraft, mergeRowIssues } from "../core/draftChecks";
 import type { Express } from "express";
 import { compareIntelligenceTerms } from "../../utils/intelligenceReadingScope";
 import { Response } from "express";
@@ -80,6 +81,8 @@ app.post("/api/intelligence/drafts", requirePermission(7), async (req: Authentic
   /* «تجربة بلا حفظ» ثم «طبّق»: استبدالُ فصلٍ فيه جدول مسموحٌ بثلاثة شروط معاً —
      إيصالُ قراءةٍ تجريبية موقَّع، وطلبٌ صريح من الواجهة، وتأكيدُ «replace-filled». */
   const replaceFilled=importLayout==="authority-pdf"&&Boolean(receipt?.replaceFilled)&&req.body?.replaceFilled===true&&confirmTokens(req).has("replace-filled");
+  /* معاينةٌ حُذفت صفوفها كلها ليست ملفاً يُطبَّق: «الاستبدال» بلا صفوف يمحو جدول الفصل كله. */
+  if(replaceFilled&&!rows.length){res.status(400).json({error:"لا صفوف في المعاينة. أعد ما حذفته أو أغلق التجربة؛ لم يتغيّر الجدول.",code:"PDF_REPLACE_EMPTY"});return;}
   if(importLayout==="authority-pdf"&&!replaceFilled){
     const occupied=await Repository.getSchedulesByScope({collegeId,sectionId,termId});
     if(occupied.length){res.status(409).json({error:"نسخ PDF مسموح إلى فصل فارغ فقط. اختر فصلاً بلا بيانات، أو استعمل «تجربة بلا حفظ».",code:"PDF_TARGET_TERM_OCCUPIED"});return;}
@@ -165,10 +168,12 @@ app.patch("/api/intelligence/drafts/:id/rows/:rowId", requirePermission(7), asyn
   const termRows = await Repository.getSchedulesByScope({ termId: draft.AdTermId });
   const external = termRows.filter(row => !(Number(row.AdCollegeId) === draft.AdCollegeId && Number(row.AdSectionId) === draft.AdSectionId));
   const conflictRows = blockingConflicts(rows, [...external, ...rows], await approvalBlockerOptions());
-  const rowIssues = mapSmartIssuesToRows(rows, issues, conflictRows);
+  const checks = isGenesisDraft(draft) ? await draftAppointmentChecks(req, rows, external) : null;
+  const allIssues = [...issues, ...(checks?.issues || [])];
+  const rowIssues = mergeRowIssues(mapSmartIssuesToRows(rows, issues, conflictRows), checks?.rowIssues || {});
   const issueRowIds = Object.keys(rowIssues).map(Number);
   const updated = await Repository.updateScheduleDraft(draft.id, { rows });
-  res.json({ success: true, row: rows[index], rows: updated.rows, issues, issueRowIds, rowIssues, ready: issues.length === 0 });
+  res.json({ success: true, row: rows[index], rows: updated.rows, issues: allIssues, issueRowIds, rowIssues, rowWarnings: checks?.rowWarnings || {}, ready: allIssues.length === 0 });
 });
 
 app.delete("/api/intelligence/drafts/:id/rows/:rowId", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -184,10 +189,12 @@ app.delete("/api/intelligence/drafts/:id/rows/:rowId", requirePermission(7), asy
   const termRows = await Repository.getSchedulesByScope({ termId: draft.AdTermId });
   const external = termRows.filter(row => !(Number(row.AdCollegeId) === draft.AdCollegeId && Number(row.AdSectionId) === draft.AdSectionId));
   const conflictRows = rows.length ? blockingConflicts(rows, [...external, ...rows], await approvalBlockerOptions()) : [];
-  const rowIssues = rows.length ? mapSmartIssuesToRows(rows, issues, conflictRows) : {};
+  const checks = rows.length && isGenesisDraft(draft) ? await draftAppointmentChecks(req, rows, external) : null;
+  const allIssues = [...issues, ...(checks?.issues || [])];
+  const rowIssues = mergeRowIssues(rows.length ? mapSmartIssuesToRows(rows, issues, conflictRows) : {}, checks?.rowIssues || {});
   const issueRowIds = Object.keys(rowIssues).map(Number);
   const updated = await Repository.updateScheduleDraft(draft.id, { rows });
-  res.json({ success: true, rows: updated.rows, issues, issueRowIds, rowIssues, ready: rows.length > 0 && issues.length === 0 });
+  res.json({ success: true, rows: updated.rows, issues: allIssues, issueRowIds, rowIssues, rowWarnings: checks?.rowWarnings || {}, ready: rows.length > 0 && allIssues.length === 0 });
 });
 
 app.delete("/api/intelligence/drafts/:id/rows", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -215,7 +222,7 @@ app.post("/api/intelligence/drafts/:id/publish", requirePermission(7), async (re
      بالموعد، لا عند رفع الملف — فقد يُرفع الملف قبل الموعد ويُنشر بعده. */
   const draftWholesaleKind: "import" | "copy-term" | undefined =
     draft.source === "import" || draft.importLayout === "authority-pdf" ? "import"
-      : /^بداية الفصل/.test(String(draft.name || "")) ? "copy-term" : undefined;
+      : isGenesisDraft(draft) ? "copy-term" : undefined;
   if (draftWholesaleKind) {
     const importRefusal = await wholesaleRefusal(draft.AdCollegeId, draft.AdSectionId, draft.AdTermId, { kind: draftWholesaleKind });
     if (importRefusal) { res.status(409).json({ error: importRefusal, code: "deadline-wholesale" }); return; }
@@ -246,7 +253,7 @@ app.post("/api/intelligence/drafts/:id/publish", requirePermission(7), async (re
      collides with the new term. Repair that case before rejecting: the existing
      optimiser is safety-first and moves time only — never course, teacher, day
      or room. This also repairs genesis drafts created before this release. */
-  if(issues.length&&/^بداية الفصل/.test(String(draft.name||""))){
+  if(issues.length&&isGenesisDraft(draft)){
     const termRows=await Repository.getSchedulesByScope({termId:draft.AdTermId});
     const external=termRows.filter(row=>!(Number(row.AdCollegeId)===Number(draft.AdCollegeId)&&Number(row.AdSectionId)===Number(draft.AdSectionId)));
     const original=new Map(publishRows.map(row=>[Number(row.id),`${row.fstarttime}|${row.fendtime}`]));
@@ -258,11 +265,16 @@ app.post("/api/intelligence/drafts/:id/publish", requirePermission(7), async (re
     adjusted=publishRows.filter(row=>original.get(Number(row.id))!==`${row.fstarttime}|${row.fendtime}`).length;
     issues=await validateSmartRows(publishRows,draft.AdCollegeId,draft.AdSectionId,{requireDepartmentInstructor:draft.importLayout==="authority-pdf"});
   }
+  /* بوابة الموعد تُسأل عن الصفوف كما ستُنشر، بعد الإصلاح لا قبله. */
+  const genesisChecks=isGenesisDraft(draft)
+    ?await draftAppointmentChecks(req,publishRows,(await Repository.getSchedulesByScope({termId:draft.AdTermId})).filter(row=>!(Number(row.AdCollegeId)===Number(draft.AdCollegeId)&&Number(row.AdSectionId)===Number(draft.AdSectionId))))
+    :null;
+  if(genesisChecks)issues=[...issues,...genesisChecks.issues];
   if(issues.length){
     const termRows=await Repository.getSchedulesByScope({termId:draft.AdTermId});
     const externalRows=termRows.filter(row=>!(Number(row.AdCollegeId)===draft.AdCollegeId&&Number(row.AdSectionId)===draft.AdSectionId));
     const conflictRows=blockingConflicts(publishRows,[...externalRows,...publishRows],await approvalBlockerOptions());
-    const rowIssues=mapSmartIssuesToRows(publishRows,issues,conflictRows);
+    const rowIssues=mergeRowIssues(mapSmartIssuesToRows(publishRows,issues,conflictRows),genesisChecks?.rowIssues||{});
     const issueRowIds=Object.keys(rowIssues).map(Number);
     res.status(400).json({error:"لا يمكن نشر المسودة قبل معالجة البيانات",issues,issueRowIds,rowIssues});return;
   }

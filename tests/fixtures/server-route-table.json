@@ -1782,7 +1782,7 @@
    ],
    "path": "/api/intelligence/genesis",
    "name": "bound dispatch",
-   "call": "771ae000a0721fa6",
+   "call": "08f5290a58037a2a",
    "site": "src/server/routes/intelligenceInsightRoutes.ts:571",
    "regexp": "/^\\/api\\/intelligence\\/genesis\\/?$/i",
    "end": true
@@ -1878,7 +1878,7 @@
    ],
    "path": "/api/reports/schedule-changes",
    "name": "bound dispatch",
-   "call": "a2c407f01d98a117",
+   "call": "243760e6f26157f7",
    "site": "src/server/routes/reportsRoutes.ts:330",
    "regexp": "/^\\/api\\/reports\\/schedule-changes\\/?$/i",
    "end": true
@@ -1890,7 +1890,7 @@
    ],
    "path": "/api/reports/authority-pdf-diff",
    "name": "bound dispatch",
-   "call": "d8fc3c2dc5496d1d",
+   "call": "80777d71f0bf538f",
    "site": "src/server/routes/reportsRoutes.ts:613",
    "regexp": "/^\\/api\\/reports\\/authority-pdf-diff\\/?$/i",
    "end": true
@@ -2719,7 +2719,7 @@
    ],
    "path": "/api/intelligence/drafts",
    "name": "bound dispatch",
-   "call": "5f54e3ab9af43fc2",
+   "call": "9af87204ddc581bc",
    "site": "src/server/routes/draftsRoutes.ts:54",
    "regexp": "/^\\/api\\/intelligence\\/drafts\\/?$/i",
    "end": true
@@ -2755,7 +2755,7 @@
    ],
    "path": "/api/intelligence/drafts/:id/rows/:rowId",
    "name": "bound dispatch",
-   "call": "9f713d98995a1a15",
+   "call": "65a1cbdda48d6527",
    "site": "src/server/routes/draftsRoutes.ts:145",
    "regexp": "/^\\/api\\/intelligence\\/drafts(?:\\/([^/]+?))\\/rows(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -2767,7 +2767,7 @@
    ],
    "path": "/api/intelligence/drafts/:id/rows/:rowId",
    "name": "bound dispatch",
-   "call": "db6d714cd155a3ef",
+   "call": "36c5162997d1d98b",
    "site": "src/server/routes/draftsRoutes.ts:174",
    "regexp": "/^\\/api\\/intelligence\\/drafts(?:\\/([^/]+?))\\/rows(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -2791,7 +2791,7 @@
    ],
    "path": "/api/intelligence/drafts/:id/publish",
    "name": "bound dispatch",
-   "call": "74db268398d01df1",
+   "call": "3a4c1e5ac428c725",
    "site": "src/server/routes/draftsRoutes.ts:202",
    "regexp": "/^\\/api\\/intelligence\\/drafts(?:\\/([^/]+?))\\/publish\\/?$/i",
    "end": true

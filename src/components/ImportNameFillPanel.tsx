@@ -5,9 +5,9 @@
  * بالضبط ويقرّر المستخدم، ❌ لا تخمين. معاينة قبل/بعد، اعتماد، تراجع. القاعدة: src/utils/importNameFill.ts.
  */
 import { AR, countOf } from "../utils/arabicCount";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock, ClipboardCopy, FileText, RotateCcw, Check } from "lucide-react";
-import { applyNameFill, FILL_FIELD_LABEL, fillSummary, nameFillPdfOutcome, nameFillSourceTerms, planNameFill, type FillDecision, type SourceRow } from "../utils/importNameFill";
+import { applyNameFill, FILL_FIELD_LABEL, fillSummary, nameFillPdfOutcome, nameFillSnapshot, nameFillSourceTerms, planNameFill, undoNameFill, type SourceRow } from "../utils/importNameFill";
 import { PrimaryButton, SecondaryButton } from "./ui";
 
 type Row = any;
@@ -21,9 +21,15 @@ export default function ImportNameFillPanel({ rows, onRows, people, collegeId, s
   people: Person[]; collegeId: number; sectionId: number; termId: number; terms?: Term[]; courseName?: (id: number) => string;
 }) {
   const missing = useMemo(() => rows.filter(row => !Number(row.AdInstructorId || 0)).length, [rows]);
-  const [plan, setPlan] = useState<{ source: "schedule" | "pdf"; label: string; decisions: FillDecision[] } | null>(null);
+  /* ── المقارنة تتبع الصفوف الحيّة ───────────────────────────────────────────
+     كانت قراراتُ المقارنة تُحفظ مرةً بمواضع الصفوف. فحذفُ صفٍّ والمقارنةُ مفتوحة يترك قراراً يشير إلى
+     موضعٍ لا صفَّ فيه، فيسقط الرسم وتسقط معه الشاشة كلها والملف المقروء (المالك 2026-11-05)، وحذفُ صفٍّ
+     من وسطها يعطي الاسم لصفٍّ آخر. فيُحفظ المصدر، وتُحسب القرارات من الصفوف كما هي الآن. */
+  const [plan, setPlan] = useState<{ source: "schedule" | "pdf"; label: string; sourceRows: SourceRow[] } | null>(null);
+  const decisions = useMemo(() => plan ? planNameFill(rows, plan.sourceRows, people) : [], [plan, rows, people]);
   const [accepted, setAccepted] = useState<Set<number>>(new Set());
-  const [undo, setUndo] = useState<Row[] | null>(null);
+  useEffect(() => { setAccepted(new Set()); }, [rows.length]);
+  const [undo, setUndo] = useState<ReturnType<typeof nameFillSnapshot> | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   /* من أيّ فصلٍ تُؤخذ الأسماء: هذا الفصل أو الذي قبله مباشرة — كلاهما مقبول. */
@@ -41,7 +47,7 @@ export default function ImportNameFillPanel({ rows, onRows, people, collegeId, s
       const list = await response.json().catch(() => null);
       if (!response.ok || !Array.isArray(list)) throw new Error(list?.error || `تعذّر قراءة جدول ${pickedTerm?.name || "الفصل"}`);
       if (!list.length) throw new Error(`لا مواعيد في جدول ${pickedTerm?.name || "هذا الفصل"} لهذا القسم.`);
-      setPlan({ source: "schedule", label: `من جدول ${pickedTerm?.name || "الفصل"}`, decisions: planNameFill(rows, list as SourceRow[], people) }); setAccepted(new Set());
+      setPlan({ source: "schedule", label: `من جدول ${pickedTerm?.name || "الفصل"}`, sourceRows: list as SourceRow[] }); setAccepted(new Set());
     } catch (e: any) { setError(e.message); } finally { setBusy(""); }
   };
   const fromPdf = async (file: File) => {
@@ -63,18 +69,18 @@ export default function ImportNameFillPanel({ rows, onRows, people, collegeId, s
       const outcome = nameFillPdfOutcome(response ? response.status : 0, text);
       if ("error" in outcome) throw new Error(outcome.error);
       const source: SourceRow[] = outcome.rows.map((row: any) => ({ ...row, instructorText: row.sourceInstructorText || "" }));
-      setPlan({ source: "pdf", label: "من PDF ثانٍ", decisions: planNameFill(rows, source, people) }); setAccepted(new Set());
+      setPlan({ source: "pdf", label: "من PDF ثانٍ", sourceRows: source }); setAccepted(new Set());
     } catch (e: any) { setError(e.message); } finally { setBusy(""); }
   };
   const approve = () => {
     if (!plan) return;
-    setUndo(rows);
-    const chosen = new Set(plan.decisions.filter(d => d.instructorId && (d.status === "match" || (d.status === "partial" && accepted.has(d.index)))).map(d => d.instructorId));
+    setUndo(nameFillSnapshot(rows));
+    const chosen = new Set(decisions.filter(d => d.instructorId && (d.status === "match" || (d.status === "partial" && accepted.has(d.index)))).map(d => d.instructorId));
     const filled = people.filter(person => chosen.has(Number(person.AdInstructorId)));
-    onRows(applyNameFill(rows, plan.decisions, accepted, plan.label), filled);
+    onRows(applyNameFill(rows, decisions, accepted, plan.label), filled);
     setPlan(null);
   };
-  const summary = plan ? fillSummary(plan.decisions) : null;
+  const summary = plan ? fillSummary(decisions) : null;
   const pct = (n: number) => (summary && summary.total ? Math.round((n / summary.total) * 100) : 0);
   const label = (row: Row) => `${courseName?.(Number(row.AdCourseId)) || row.AdCourseName || row.sourceCourseText || row.AdCourseId} · ${row.SCode || "—"}`;
 
@@ -97,7 +103,7 @@ export default function ImportNameFillPanel({ rows, onRows, people, collegeId, s
           <SecondaryButton data-guide-ignore="تعبئة أسماء الاستيراد — معاينة ثم اعتماد أو تراجع" type="button" disabled={!!busy} onClick={() => fileRef.current?.click()}><FileText aria-hidden="true" /> 📄 من PDF ثانٍ</SecondaryButton>
           <input ref={fileRef} type="file" accept="application/pdf" hidden onChange={e => { const f = e.target.files?.[0]; if (f) void fromPdf(f); e.target.value = ""; }} />
           {busy ? <span role="status">{busy === "pdf" ? "⏳ يقرأ الملف الثاني…" : "⏳"}</span> : null}
-          {undo ? <SecondaryButton data-guide-ignore="تعبئة أسماء الاستيراد — معاينة ثم اعتماد أو تراجع" type="button" onClick={() => { onRows(undo); setUndo(null); }}><RotateCcw aria-hidden="true" /> تراجع</SecondaryButton> : null}
+          {undo ? <SecondaryButton data-guide-ignore="تعبئة أسماء الاستيراد — معاينة ثم اعتماد أو تراجع" type="button" onClick={() => { onRows(undoNameFill(rows, undo)); setUndo(null); }}><RotateCcw aria-hidden="true" /> تراجع</SecondaryButton> : null}
         </div>
       ) : (
         <>
@@ -109,7 +115,7 @@ export default function ImportNameFillPanel({ rows, onRows, people, collegeId, s
           <table className="of-table">
             <thead><tr><th>السطر</th><th>قبل</th><th>بعد</th><th>الحالة</th></tr></thead>
             <tbody>
-              {plan.decisions.filter(d => d.reason !== "السطر يحمل أستاذاً").map(d => (
+              {decisions.filter(d => d.reason !== "السطر يحمل أستاذاً").map(d => (
                 <tr key={d.index}>
                   <td>{label(rows[d.index])}</td>
                   <td>—</td>

@@ -84,6 +84,9 @@ export default function RadarSchedule({ course, termId, onChanged }: { course: R
             <ApplyProposal
               key={slot.index}
               compact
+              /* شعبتان مقترحتان كانتا زرّين متطابقين بلا فرقٍ يُرى: كلُّ اقتراحٍ يقول أيَّ شعبةٍ هو ومتى. */
+              label={`اعتمد شعبة ${slot.sectionCode}`}
+              slot={<><b>{slot.dayLabel}</b> <bdi dir="ltr">{formatScheduleTimeRange(slot.start, slot.end)}</bdi> · {withVisitingSuffix(String(slot.instructorName || ""), isVisiting(slot.instructorId, course.collegeId, course.sectionId))}</>}
               lines={[`شعبة ${slot.sectionCode} لـ«${course.name}» · ${slot.dayLabel} ${formatScheduleTimeRange(slot.start, slot.end)} · ${slot.roomCode}${slot.roomHall ? `/${slot.roomHall}` : ""} · ${withVisitingSuffix(String(slot.instructorName || ""), isVisiting(slot.instructorId, course.collegeId, course.sectionId))}`]}
               why={`تخدم ${countOf(proposal.shortfall, AR.student)} بلا مقعدٍ في هذا المقرر.`}
               preview={() => postWhatIf({ kind: "opening", collegeId: course.collegeId, sectionId: course.sectionId, termId, courseId: course.courseId, placement: slot })}

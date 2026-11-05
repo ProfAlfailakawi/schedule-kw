@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { instructorIdentityKey, instructorIdentityTokens, uniqueExactIdentityMatch } from "../utils/instructorIdentity";
-import { AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, RotateCcw } from "lucide-react";
 import ImportPreviewTable, { importRowKey, type ImportRow } from "./ImportPreviewTable";
 import { authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
 import { AR, countOf } from "../utils/arabicCount";
@@ -299,6 +299,28 @@ export default function PagedImportPreview({
       : <button type="button" className="import-page-review-confirm" title="أؤكد أني قارنت هذه الصفحة بالورقة، وسأضيف أسطرها الناقصة في الجدول بعد الاستيراد" data-guide-ignore="تأكيد مراجعة صفحة ناقصة في المعاينة فقط؛ لا يحفظ ولا ينشر" onClick={() => { focusReviewed.current = page; onReviewPage(page); }}>راجعت الصفحة</button>;
   };
 
+  /* ── المحذوف يبقى قابلاً للرجوع ما دام الملف مفتوحاً ───────────────────────
+     «تراجع» كان يعيش داخل جدول الصفحة، فيضيع بزوال الصفحة أو الانتقال منها، ولا يعيد إلا آخر صف. فالمحذوفات
+     تُحفظ هنا مع الملف كله: يعود الصف بوقته وأستاذه وقاعته إلى موضعه في ترتيب المستند، فتعود شعبته كما كانت. */
+  const [removedRows, setRemovedRows] = useState<ImportRow[]>([]);
+  const lastRemoved = removedRows[removedRows.length - 1];
+  const restoreRemoved = () => {
+    if (!lastRemoved) return;
+    const order = Number(lastRemoved.sourceOrder);
+    const found = Number.isFinite(order) ? rows.findIndex(row => Number(row.sourceOrder) > order) : -1;
+    const at = found < 0 ? rows.length : found;
+    onRows([...rows.slice(0, at), lastRemoved, ...rows.slice(at)]);
+    setRemovedRows(list => list.slice(0, -1));
+    setActivePage(rowPage(lastRemoved));
+  };
+  const undoBar = lastRemoved ? (
+    <div className="import-undo-bar" role="status">
+      <span><b>حُذف {countOf(removedRows.length, AR.row)}</b> · {String(lastRemoved.AdCourseName || "مقرر")} · ش{String(lastRemoved.SCode || "—")}</span>
+      <button type="button" data-guide-ignore="يعيد آخر صف محذوف إلى المعاينة في موضعه؛ لا يحفظ ولا ينشر" onClick={restoreRemoved}><RotateCcw aria-hidden="true" />أعده</button>
+    </div>
+  ) : null;
+  const noteRemoved = (row: ImportRow) => setRemovedRows(list => [...list, row]);
+
   const mergePageRows = (nextPageRows: ImportRow[]) => {
     const stamped = nextPageRows.map(row => ({ ...row, sourcePage: activePage }));
     const others = rows.filter(row => rowPage(row) !== activePage);
@@ -328,7 +350,8 @@ export default function PagedImportPreview({
     return (
       <>
         {warning ? <div className="import-page-status" role="alert" data-import-issue={awaitingReview(warned) ? "true" : undefined}><AlertTriangle /><span>{warning}.</span>{reviewControl(warned)}</div> : null}
-        <ImportPreviewTable rows={rows} onRows={onRows} {...displayProps} />
+        {undoBar}
+        <ImportPreviewTable rows={rows} onRows={onRows} onRowRemoved={noteRemoved} {...displayProps} />
       </>
     );
   }
@@ -403,7 +426,8 @@ export default function PagedImportPreview({
             : <div className="import-page-empty"><FileText /><strong>لم يُقرأ صف من هذه الصفحة</strong><small>ما طُبع فيها ولم يُقرأ يُضاف في الجدول بعد الاستيراد.</small></div>;
         })()
       ) : null}
-      <ImportPreviewTable key={activePage} rows={currentRows} onRows={mergePageRows} {...displayProps} />
+      {undoBar}
+      <ImportPreviewTable key={activePage} rows={currentRows} onRows={mergePageRows} onRowRemoved={noteRemoved} {...displayProps} />
     </section>
   );
 }

@@ -32,7 +32,7 @@ import { roomIdentityKey } from "./locationRegistry";
 import { roomSuitability } from "./roomSuitability";
 import { nextCourseSectionCode } from "./nextCourseSectionCode";
 import { placeholderInstructorIds } from "./instructorIdentity";
-import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
+import { formatScheduleTimeRange, SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
 import { AR, countOf } from "./arabicCount";
 
 /* ── الأشكال ───────────────────────────────────────────────────────────────── */
@@ -1152,18 +1152,30 @@ export function compareScenarios(deltas: TmDelta[]): { rows: TmComparisonRow[]; 
 
 /* ── النشر: بطاقةٌ شخصية لكل أستاذٍ متأثر ────────────────────────────────── */
 
-export interface TmTeacherCard { instructorId: number; name: string; mobile: string; before: string[]; after: string[] }
+export interface TmTeacherCard {
+  instructorId: number; name: string; mobile: string; before: string[]; after: string[];
+  /** ما يصل الأستاذ نفسه: بلا اسم قاعة (قرار المالك 2026-10-29). */
+  notice: string;
+}
 
 export function teacherCards(before: FSchedule[], after: FSchedule[], context: TmContext): TmTeacherCard[] {
   const delta = compareBoards(before, after, context);
   const people = new Map(context.instructors.map(person => [Number(person.AdInstructorId), person] as const));
-  const line = (row: FSchedule) => `${row.AdCourseName} ش${row.SCode} · ${activeDays(row).map(dayLabel).join(" ")} ${row.fstarttime}–${row.fendtime} · ${hallLabel(row)}`;
+  /* الوقت والقاعة ينعزلان باتجاههما: «14:00–15:15» في سطرٍ عربي كان يُرى «15:15–14:00»
+     فيقرأ المراجع النهاية قبل البداية، وينكسر رمز القاعة عند التفاف السطر (المالك 2026-11-05). */
+  const slotLine = (row: FSchedule) => `${row.AdCourseName} ش${row.SCode} · ${activeDays(row).map(dayLabel).join(" ")} ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`;
+  const line = (row: FSchedule) => `${slotLine(row)} · \u2066${hallLabel(row)}\u2069`;
   const inScope = scopeOf(context);
   return delta.teachersAffected.map(id => {
     const mine = (rows: FSchedule[]) => rows.filter(row => inScope(row) && Number(row.AdInstructorId) === id).map(line).sort();
     const b = mine(before), a = mine(after);
+    const plain = (rows: FSchedule[]) => rows.filter(row => inScope(row) && Number(row.AdInstructorId) === id).map(slotLine);
+    const plainBefore = plain(before), plainAfter = plain(after);
+    const moved = plainAfter.find(item => !plainBefore.includes(item));
+    const gained = a.filter(item => !b.includes(item));
     return { instructorId: id, name: String(people.get(id)?.AdInstructorName || ""), mobile: String(people.get(id)?.AdInstructorMobile || ""),
-      before: b.filter(item => !a.includes(item)), after: a.filter(item => !b.includes(item)) };
+      before: b.filter(item => !a.includes(item)), after: gained,
+      notice: moved ? `الجديد: ${moved}` : gained.length ? "تغيّرت قاعة إحدى محاضراتك؛ الموعد كما هو." : "" };
   }).filter(card => card.before.length || card.after.length);
 }
 

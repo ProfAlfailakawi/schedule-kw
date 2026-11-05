@@ -50,8 +50,19 @@ export type PdfImportReceipt={v:1;collegeId:number;sectionId:number;termId:numbe
 export function safeDraftRows(input: unknown, collegeId: number, sectionId: number, termId: number): any[] {
   if (!Array.isArray(input)) return [];
   if (input.length > 450) throw new Error("المسودة أكبر من الحد الآمن المسموح");
+  /* الرقم هوية الصف في «احذف» و«عدّل» داخل المسودة. وكان `Number(null)` و`Number("")` يعطيان 0 لكل صفٍّ
+     بلا رقم، فيشترك الجميع في هوية واحدة ويذهب حذفُ صفٍّ بالمسودة كلها. فلكل صفٍّ رقمٌ لا يشاركه فيه غيره. */
+  const given = input.map((raw: any) => raw?.id === null || raw?.id === undefined || raw?.id === "" ? 0 : Number(raw.id));
+  const reserved = new Set(given.filter(id => Number.isInteger(id) && id !== 0));
+  const taken = new Set<number>();
+  const draftRowId = (index: number) => {
+    let id = Number.isInteger(given[index]) && given[index] !== 0 && !taken.has(given[index]) ? given[index] : -(index + 1);
+    while (id !== given[index] && (reserved.has(id) || taken.has(id))) id -= input.length + 1;
+    taken.add(id);
+    return id;
+  };
   return input.map((raw: any, index: number) => ({
-    id: Number.isInteger(Number(raw?.id)) ? Number(raw.id) : -(index + 1),
+    id: draftRowId(index),
     AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
     AdCourseId: Number(raw?.AdCourseId || 0), AdCourseName: String(raw?.AdCourseName || ""), SCode: String(raw?.SCode || ""),
     AdInstructorId: Number(raw?.AdInstructorId || 0),

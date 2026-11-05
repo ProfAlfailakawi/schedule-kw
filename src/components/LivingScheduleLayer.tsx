@@ -539,7 +539,7 @@ export default function LivingScheduleLayer({
       const instructor = instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit.AdInstructorId));
       setGenesis((current:any) => current ? {
         ...current,
-        issues: result.issues || [], issueRowIds: result.issueRowIds || [], rowIssues: result.rowIssues || {}, reviewRequired: (result.issues || []).length,
+        issues: result.issues || [], issueRowIds: result.issueRowIds || [], rowIssues: result.rowIssues || {}, rowWarnings: result.rowWarnings || {}, reviewRequired: (result.issues || []).length,
         previewRows: (current.previewRows || []).map((row:any) => Number(row.id) === genesisEditId ? {
           ...row, start: genesisEdit.fstarttime, end: genesisEdit.fendtime, building: genesisEdit.AdRoomCode, hall: genesisEdit.AdRoomHall,
           instructor: instructor?.AdInstructorName || row.instructor,
@@ -568,7 +568,7 @@ export default function LivingScheduleLayer({
         ...current,
         previewRows: (current.previewRows || []).filter((row:any) => Number(row.id) !== Number(rowId)),
         draftRows: (current.draftRows || []).filter((row:any) => Number(row.id) !== Number(rowId)),
-        issues: result.issues || [], issueRowIds: result.issueRowIds || [], rowIssues: result.rowIssues || {}, reviewRequired: (result.issues || []).length,
+        issues: result.issues || [], issueRowIds: result.issueRowIds || [], rowIssues: result.rowIssues || {}, rowWarnings: result.rowWarnings || {}, reviewRequired: (result.issues || []).length,
       } : current);
       if (genesisEditId === rowId) { setGenesisEditId(null); setGenesisEdit(null); }
       setMessage(result.ready ? "تم حذف الموعد وإعادة الفحص. المسودة جاهزة للنشر." : `تم حذف الموعد وإعادة الفحص · بقيت ${countOf((result.issues || []).length, AR.note)}.`);
@@ -1200,6 +1200,11 @@ export default function LivingScheduleLayer({
                             </div>
                             <b>{genesis.previewRows.length}</b>
                           </header>
+                          <p className="genesis-check-line" role="status">
+                            <ShieldAlert aria-hidden="true" />فحص الموعد
+                            <b data-tone={(genesis.issueRowIds || []).length ? "block" : "ok"}>{(genesis.issueRowIds || []).length ? `يمنع ${countOf(genesis.issueRowIds.length, AR.appointment)}` : "سليم"}</b>
+                            {Object.keys(genesis.rowWarnings || {}).length ? <b data-tone="warn">تنبيه {countOf(Object.keys(genesis.rowWarnings).length, AR.appointment)}</b> : null}
+                          </p>
                           <div className="genesis-bulk-tools" role="toolbar" aria-label="إجراءات سريعة على المسودة">
                             <button type="button" onClick={() => { setGenesisBulkEdit(true); const first = genesis.previewRows?.[0]; if (first) beginGenesisEdit(first); }} disabled={busy || !genesis.previewRows?.length}><Save /> تعديل للجميع</button>
                             {!genesisDeleteAllConfirm ? <button type="button" data-guide-ignore="حذف جماعي داخل مسودة بداية الفصل ويتطلب تأكيدًا صريحًا" className="danger" onClick={() => setGenesisDeleteAllConfirm(true)} disabled={busy || !genesis.previewRows?.length}><Trash2 /> حذف للجميع</button> : <span className="genesis-delete-confirm"><b>حذف كل المواعيد من المسودة؟</b><button type="button" data-guide-ignore="تأكيد حذف جماعي داخل المسودة فقط" className="danger" onClick={() => void deleteAllGenesisRows()} disabled={busy}>نعم، احذف</button><button type="button" onClick={() => setGenesisDeleteAllConfirm(false)}>إلغاء</button></span>}
@@ -1224,7 +1229,8 @@ export default function LivingScheduleLayer({
                                       <td data-choreo-target="instructor"><span>{row.instructor || "—"}{row.instructor && row.visiting ? <> <VisitingBadge compact /></> : null}</span></td>
                                       <td><div className="genesis-row-actions"><button className="genesis-fix" type="button" onClick={() => beginGenesisEdit(row)}><Save /> تعديل</button><button className="genesis-delete" data-guide-ignore="حذف موعد واحد من مسودة بداية الفصل فقط" type="button" onClick={() => void deleteGenesisRow(Number(row.id))} disabled={busy}><Trash2 /> حذف</button></div></td>
                                     </tr>
-                                    {flagged ? <tr className="genesis-row-reason"><td colSpan={8}><ShieldAlert /><strong>سبب المنع:</strong><span>{(genesis.rowIssues?.[String(row.id)] || [])[0] || "هذا الموعد مرتبط بمشكلة تمنع النشر."}</span></td></tr> : null}
+                                    {flagged ? <tr className="genesis-row-reason"><td colSpan={8}><ShieldAlert /><strong>مانع</strong><span>{(genesis.rowIssues?.[String(row.id)] || ["هذا الموعد مرتبط بمشكلة تمنع النشر."]).join(" · ")}</span></td></tr> : null}
+                                    {(genesis.rowWarnings?.[String(row.id)] || []).length ? <tr className="genesis-row-note"><td colSpan={8}><AlertTriangle /><strong>تنبيه</strong><span>{genesis.rowWarnings[String(row.id)].join(" · ")}</span></td></tr> : null}
                                     {editing ? <tr className="genesis-inline-editor"><td colSpan={8}><div>
                                       <label><span>الأستاذ</span><select value={genesisEdit?.AdInstructorId || ""} onChange={e => setGenesisEdit((v:any)=>({...v,AdInstructorId:Number(e.target.value)||0}))}><option value="">اختر</option>{Number(genesisEdit?.AdInstructorId || 0) && !isAssignableInstructor(instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit?.AdInstructorId))) ? <option value={genesisEdit.AdInstructorId} disabled>{withVisitingSuffix(instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit?.AdInstructorId))?.AdInstructorName || "أستاذ سابق", isVisiting(genesisEdit.AdInstructorId, collegeId, sectionId))} · غير متاح للإسناد</option> : null}{sortByName(instructors.filter(isAssignableInstructor), i => i.AdInstructorName).map(i=><option key={i.AdInstructorId} value={i.AdInstructorId}>{withVisitingSuffix(i.AdInstructorName, isVisiting(i.AdInstructorId, collegeId, sectionId))}</option>)}</select></label>
                                       <label><span>من</span><TimeField value={genesisEdit?.fstarttime || ""} onChange={e=>setGenesisEdit((v:any)=>({...v,fstarttime:e.target.value}))}/></label>

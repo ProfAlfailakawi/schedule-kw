@@ -303,7 +303,7 @@ function PublishPanel({ context, scenario }: { context: LoadedContext; scenario:
         {cards.map(card => {
           const id = links.get(card.instructorId);
           const url = id ? `${window.location.origin}/s/${id}` : "";
-          const reach = url ? reachAboutCard({ AdInstructorName: card.name, AdInstructorMobile: card.mobile } as AdInstructor, url, "changed", card.after[0] ? `الجديد: ${card.after[0]}` : "") : null;
+          const reach = url ? reachAboutCard({ AdInstructorName: card.name, AdInstructorMobile: card.mobile } as AdInstructor, url, "changed", card.notice) : null;
           return (
             <article key={card.instructorId} className="tm-teacher-card">
               <strong className="tm-th"><Ico n="teachers" />{card.name}</strong>
