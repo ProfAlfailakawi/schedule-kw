@@ -1,3 +1,4 @@
+import { roomForSection } from "../utils/roomTypeForSection";
 import React, { useEffect, useMemo, useState } from "react";
 import type { FSchedule, MasterBuilding, MasterRoom } from "../types";
 import { PENDING_ROOM, compareLocationCodes, roomGroups } from "../utils/locationRegistry";
@@ -141,7 +142,7 @@ export default function LocationPicker({collegeId,sectionId,termId,value,onChang
   },[showDepartmentHistory,shownBuildingId,departmentRooms,borrowed,rooms]);
   const selectedBuilding=buildings.find(b=>b.id===shownBuildingId);
   const selectedHistoricalRoom=historicalRooms.find(room=>room.id===shownRoomId);
-  const selectedRoom=rooms.find(room=>room.id===shownRoomId);
+  const selectedRoom=roomForSection(rooms.find(room=>room.id===shownRoomId),sectionId);
   const mode=String(courseTeachingMode||"").trim().toLowerCase();
   const roomType=String(selectedRoom?.roomType||"").trim().toLowerCase();
   const theoretical=/^(theoretical|نظري|نظرية)$/.test(mode);

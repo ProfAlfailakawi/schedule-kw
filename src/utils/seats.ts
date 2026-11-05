@@ -199,6 +199,14 @@ export function seatActorRole(actor: SeatActor): AcademicRole {
   return seatTeamRule(actor.seatRole)?.memberRole || actor.seatRole;
 }
 
+/**
+ * التوقيعُ لرئيس اللجنة وحده (قرار المالك 2026-11-05): عضوُ الفريق يعمل في نطاق الكرسي ولا يوقّع
+ * ولا يسحب توقيعاً. والنائبُ يقوم مقام الرئيس حتى تاريخ نهايته (docs/SEATS.md).
+ */
+export function actorMaySign(user: { SeatActor?: Pick<SeatActor, "kind"> | null } | null | undefined): boolean {
+  return user?.SeatActor?.kind !== "member";
+}
+
 /** كيف يُقال وصفُ الجالس تحت اسمه: «الشاغل»، «عضو لجنة»، «نائب حتى …». */
 export function seatActorCaption(actor: SeatActor): string {
   if (actor.kind === "holder") return roleLabel(actor.seatRole);

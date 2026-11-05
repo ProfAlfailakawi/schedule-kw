@@ -1,3 +1,4 @@
+import { roomTypeIn } from "./roomTypeForSection";
 /**
  * ── بياناتٌ ناقصة في الجدول — إشعارٌ لا مانع، إلا السعة ───────────────────
  *
@@ -74,7 +75,7 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
         const estimatedSeats=Number(course.MaxStudent)>0?Math.ceil(Number(course.MaxStudent)/sectionCount):0;
         if(estimatedSeats>0&&Number(room.capacity)>0&&estimatedSeats>Number(room.capacity))fitIssues.push({kind:"capacity",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,capacity:Number(room.capacity),requiredSeats:estimatedSeats,detail:`تقديريًا ${countOf(estimatedSeats,AR.seat)} مقابل سعة ${countOf(Number(room.capacity),AR.seat)}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
         else if(estimatedSeats>0&&!Number(room.capacity))unknownRoomCapacity++;
-        const requiredType=String(course.CourseRoomType||"").trim(),actualType=String(room.roomType||"").trim();
+        const requiredType=String(course.CourseRoomType||"").trim(),actualType=roomTypeIn(room as any,row.AdSectionId);
         if(requiredType&&actualType&&requiredType!==actualType)fitIssues.push({kind:"room-type",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,preferredType:requiredType,actualType,detail:`المقرر يفضّل ${requiredType} والقاعة من نوع ${actualType}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
       }
     }

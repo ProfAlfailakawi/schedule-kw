@@ -20,6 +20,7 @@ import { requestsCloseAtFromDate, termLinkExpiresAt } from "../../utils/shareLin
 import { isSessionIdShape } from "../anonymousGuard";
 import { verificationCode, kuwaitDateISO } from "../../utils/approvalWorkflow";
 import { effectiveCourseHours } from "../../utils/scheduleRegulations";
+import { actorMaySign } from "../../utils/seats";
 import { canExtendDeadline, canManageDeadline, canReviewSubmissions, canAnnotateCells, isAcademicRole, isAdvisorRole, isViewerOnlyRole, roleDefinition, roleLabel, signatureStage, watchesInbox } from "../../utils/academicRoles";
 import { seedDemoRadar, seedDemoMasariDemand } from "../demoRadarSeed";
 import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
@@ -505,6 +506,7 @@ function roleDescriptor(user: any) {
     watchesInbox: watchesInbox(definition.id),
     canAnnotate: canAnnotateCells(definition.id),
     signatureStage: signatureStage(definition.id),
+    canSign: actorMaySign(user),
     /* ── صفةٌ مكتوبةٌ، لا صفةٌ يُسقط إليها الغياب ─────────────────────────
      *
      * `definition` هي الصفةُ بعد السقوط إلى الافتراضيّ، فحسابٌ بلا صفةٍ

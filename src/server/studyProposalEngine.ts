@@ -10,6 +10,7 @@
  * ما يُكشف للمستخدم محدودٌ بصلاحيته: موعدُ أستاذٍ في قسمٍ خارج نطاقه يظهر
  * إشغالاً وحسب — لا مقرّر ولا شعبة ولا كلية.
  */
+import { roomTypeIn } from "../utils/roomTypeForSection";
 import { Repository } from "../db/repository";
 import type {
   AdCourse, AdInstructor, FSchedule, StudyProposalDayKey, StudyProposalOp, StudyProposalRowSnapshot,
@@ -607,7 +608,7 @@ export async function suggestAlternatives(
         const dayShift = days.join() === daysOf(op.target).join() ? 0 : 90;
         let rank = Math.abs(start - baseStart) + dayShift + (roomChanged ? 14 : 0);
         const record = room ? masterById.get(room.roomId) : undefined;
-        if (expectedType && record?.roomType && record.roomType !== expectedType) rank += 35;
+        if (expectedType && roomTypeIn(record, course?.AdSectionId) && roomTypeIn(record, course?.AdSectionId) !== expectedType) rank += 35;
         if (neededCapacity > 0 && Number(record?.capacity) > 0 && Number(record?.capacity) < neededCapacity) rank += 45;
         options.push({ days, start, room, rank });
       }

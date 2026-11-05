@@ -461,6 +461,8 @@ export interface MasterRoom {
   capacity?: number | null;
   /** Optional private planning category, such as classroom, lab, or computer lab. */
   roomType?: string;
+  /** نوعُ القاعة لقسمٍ يخالف النوعَ العام (مفتاحُه رقم القسم): G49 استوديو لقسمٍ ومختبرٌ لغيره. */
+  sectionRoomTypes?: Record<string, string>;
   /** Independent booking is separate from activation and physical room type. */
   bookingPolicy?: "normal" | "companion_only" | "blocked";
   active: boolean;

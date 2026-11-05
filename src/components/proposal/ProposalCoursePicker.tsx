@@ -7,7 +7,7 @@
  * القواعد كلّها في utils/proposalCourseChoices.ts.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, Network } from "lucide-react";
 import SearchableSelect from "../SearchableSelect";
 import { ReachChain, ReachChip } from "../CourseReach";
 import { reachLocked } from "../../utils/courseReach";
@@ -17,6 +17,9 @@ import {
 } from "../../utils/proposalCourseChoices";
 import type { Workspace } from "./useProposalWorkspace";
 
+/** «كل عائلة القسم»: مقرراتُ حرم القسم كلِّها في قائمةٍ واحدة، كلُّ مقررٍ مرّة. */
+const WHOLE_FAMILY = "__family";
+
 export function useProposalCourseChoices(ws: Workspace) {
   const { ctx, draft } = ws;
   const courses = ctx?.courses || [];
@@ -24,10 +27,12 @@ export function useProposalCourseChoices(ws: Workspace) {
   const chosen = courses.find(course => course.id === draft.courseId);
   const [picked, setPicked] = useState<string>("");
   /* الموقعُ: موقعُ المقرر المختار إن وُجد، ثم ما اختاره المستخدم، ثم موقعُ الطلب. */
-  const scopeKey = chosen ? scopeKeyOf(chosen) : (picked && scopes.some(s => s.key === picked) ? picked : scopes[0]?.key || "");
+  const wholeFamily = picked === WHOLE_FAMILY && scopes.length > 1;
+  const scopeKey = wholeFamily ? WHOLE_FAMILY : chosen ? scopeKeyOf(chosen) : (picked && scopes.some(s => s.key === picked) ? picked : scopes[0]?.key || "");
   const scope = scopes.find(s => s.key === scopeKey) || null;
   const choices = useMemo(() => proposalCourseChoices(courses, scope, ctx?.usedCodes || {}), [courses, scope, ctx?.usedCodes]);
   const setScope = (key: string) => {
+    if (key === WHOLE_FAMILY) { setPicked(key); return; }
     const next = scopes.find(s => s.key === key);
     if (!next) return;
     setPicked(key);
@@ -68,6 +73,10 @@ export default function ProposalCoursePicker({ ws, choices, scopes, scopeKey, se
               <MapPin aria-hidden="true" />{scope.label}
             </button>
           ))}
+          <button type="button" role="radio" aria-checked={scopeKey === WHOLE_FAMILY} title="كل عائلة القسم"
+            onClick={() => setScope(WHOLE_FAMILY)} data-guide-ignore="يعرض مقررات عائلة القسم كلها — لا يكتب في الجدول">
+            <Network aria-hidden="true" />كل عائلة القسم
+          </button>
         </div>
       ) : null}
       <SearchableSelect fixed className="ss-compact sp-course-select" ariaLabel="المقرر" value={value}

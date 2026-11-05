@@ -11,11 +11,13 @@ import { findConflicts, timeToMinutes } from "../../utils/scheduleIntelligence";
 import type { FSchedule } from "../../types";
 import { DAY_LABELS } from "../../utils/naturalQuery";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
+import { travelRuleFor } from "../../utils/campusTravelPolicy";
+import { readTravelPolicy } from "./travelPolicy";
 import { offRhythm } from "../../utils/departmentRhythm";
 import { startLadderNote } from "../../utils/scheduleRegulations";
 import { dayKeysOf } from "../../utils/instructorRequestItems";
 import { withVisitingSuffix } from "../../utils/visitingText";
-import { campusOf, interCampusMinutes } from "../../utils/campusTravel";
+import { campusOf } from "../../utils/campusTravel";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { approvedBarterReservation, borrowerOutsideApprovedWindow } from "../../utils/hallBarterWindow";
 import type { AuthenticatedRequest } from "./auth";
@@ -56,14 +58,16 @@ async function interCampusWarnings(candidate: any, all: any[]) {
   const cStart = timeToMinutes(candidate.fstarttime), cEnd = timeToMinutes(candidate.fendtime);
   const seen = new Set<string>();
   const warnings: any[] = [];
+  const policy = await readTravelPolicy();
   for (const [key, label] of days) {
     if (!candidate[key]) continue;
     for (const other of own) {
       if (!other[key]) continue;
       const otherCampus = campusById.get(Number(other.AdCollegeId));
       if (!otherCampus) continue;
-      const need = interCampusMinutes(candCampus, otherCampus);
-      if (need == null) continue; // same campus — the per-building matrix handles it
+      const rule = travelRuleFor(policy, candCampus, otherCampus, instructorId);
+      if (!rule) continue; // same campus, an exempt instructor, or a pair switched off
+      const need = rule.minutes;
       const oStart = timeToMinutes(other.fstarttime), oEnd = timeToMinutes(other.fendtime);
       // Gap only when the two do not overlap (an overlap is already a hard conflict).
       const gap = cStart >= oEnd ? cStart - oEnd : (oStart >= cEnd ? oStart - cEnd : -1);
@@ -72,13 +76,14 @@ async function interCampusWarnings(candidate: any, all: any[]) {
       if (seen.has(dedupe)) continue;
       seen.add(dedupe);
       warnings.push({
-        type: "travel", severity: "warning", soft: true, rowId: 0,
-        message: `انتقال ضيّق بين ${CAMPUS_LABEL[candCampus]} و${CAMPUS_LABEL[otherCampus]}`,
-        detail: `${label}: التنقّل يحتاج قرابة ${countOf(need, oblique(AR.minute))}، والمتاح ${countOf(gap, AR.minute)} فقط بين موعدَي الأستاذ. يمكنك الحفظ مع الانتباه لهذا الفارق.`,
+        type: "travel", severity: rule.required ? "high" : "warning", soft: !rule.required, rowId: 0,
+        message: `${rule.required ? "مدة التنقّل ملزمة" : "انتقال ضيّق"} بين ${CAMPUS_LABEL[candCampus]} و${CAMPUS_LABEL[otherCampus]}`,
+        detail: `${label}: التنقّل يحتاج قرابة ${countOf(need, oblique(AR.minute))}، والمتاح ${countOf(gap, AR.minute)} فقط بين موعدَي الأستاذ. ${rule.required ? "المدة ملزمة من التسجيل؛ غيّر الوقت." : "يمكنك الحفظ مع الانتباه لهذا الفارق."}`,
       });
     }
   }
-  return warnings.slice(0, 3);
+  /* الملزمُ أولاً: الحدُّ الأقصى للعرض لا يُسقط ما يمنع الحفظ. */
+  return [...warnings.filter(item => !item.soft), ...warnings.filter(item => item.soft).slice(0, 3)];
 }
 
 /**

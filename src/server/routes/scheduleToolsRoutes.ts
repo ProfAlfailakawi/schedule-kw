@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { roomTypeIn } from "../../utils/roomTypeForSection";
 import type { Express } from "express";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { placeholderMatch } from "../../utils/placeholderMatch";
@@ -351,7 +352,7 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
      طوال الموعد؛ والاقتراح يحمل المرفق المختار فيملأ النموذج بالاثنين معاً. */
   const companionType=String(course?.CourseCompanionRoomType||"").trim();
   const companionPool=companionType?registry.rooms
-    .filter(room=>room.active&&room.confidence==="CONFIRMED"&&room.bookingPolicy==="companion_only"&&String(room.roomType||"").trim()===companionType)
+    .filter(room=>room.active&&room.confidence==="CONFIRMED"&&room.bookingPolicy==="companion_only"&&roomTypeIn(room,course?.AdSectionId)===companionType)
     .map(room=>({room,building:registry.buildings.find(item=>item.id===room.buildingId)}))
     .filter(({building})=>Boolean(building?.active&&building.confidence==="CONFIRMED")):[];
   const companionFor=companionType?(hall:SuggestionHall,from:number,to:number)=>{

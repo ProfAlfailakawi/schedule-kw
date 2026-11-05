@@ -20,6 +20,7 @@ import type { LauncherPersonRequest } from "../../utils/instructorPickerChoices"
 import type { StudyProposalMetrics } from "../../types";
 import { AR, countOf, nounFor, type ArabicNoun } from "../../utils/arabicCount";
 import { STATUS_LABEL } from "../../utils/studyProposal";
+import { campusChips } from "../../utils/campusChip";
 import type { StudyProposal } from "../../types";
 import type { ProposalContext } from "./proposalApi";
 import type { EvalState } from "./useProposalWorkspace";
@@ -80,6 +81,15 @@ function Tile({ label, Icon, before, after, noun, beforeValue, afterValue, delta
   );
 }
 
+/** وسمان متطابقان لا يميّزان («بنات» و«بنات»): يُطال الوسمُ حتى يتمايز، ثم يُذكر القسم. */
+function siblingCampusLabels(siblings: LauncherPersonRequest[]): Map<string, string> {
+  const chips = campusChips(siblings.map(entry => entry.collegeName));
+  const base = siblings.map(entry => chips.get(entry.collegeName.replace(/\s+/g, " ").trim()) || entry.campus);
+  return new Map(siblings.map((entry, index) => [
+    entry.id, base.filter(label => label === base[index]).length > 1 && entry.sectionName ? `${base[index]} · ${entry.sectionName}` : base[index],
+  ]));
+}
+
 export default function ProposalHeader(props: {
   ctx: ProposalContext;
   proposal: StudyProposal | null;
@@ -105,6 +115,7 @@ export default function ProposalHeader(props: {
   const visiting = Boolean(ctx) && lookupVisiting(ctx!.instructor.id, ctx!.scope.collegeId, ctx!.scope.sectionId);
   /* «🎓 تدريب» بعد «منتدب» (PersonChips): طلبُه في النطاق بصفة مرحلة التدريب. */
   const trainee = useIsTrainee(ctx?.instructor.id, ctx?.scope.collegeId, ctx?.scope.sectionId, ctx?.term.id);
+  const siblingLabels = siblingCampusLabels(props.siblings || []);
   const checking = hasOps && !evalCurrent && evalState !== "failed";
   const failed = hasOps && evalState === "failed";
   /* بلا مواد: الوضع المتوقع هو الحالي نفسه (لا شيء يتغيّر)، لا «غير متوفر». */
@@ -138,7 +149,7 @@ export default function ProposalHeader(props: {
                   <button key={entry.id} type="button" aria-pressed={entry.id === props.requestId} disabled={!props.onSwitch}
                     title={[entry.collegeName, entry.sectionName].filter(Boolean).join(" — ")}
                     onClick={() => props.onSwitch?.(entry.id)} data-guide-ignore="ينقل مساحة المقترح إلى طلب الأستاذ في موقعٍ آخر — لا يكتب شيئاً">
-                    <MapPin aria-hidden="true" />{entry.campus}
+                    <MapPin aria-hidden="true" />{siblingLabels.get(entry.id) || entry.campus}
                     {entry.changedCount ? <em aria-label={countOf(entry.changedCount, AR.edit)}>{num(entry.changedCount)}</em> : null}
                   </button>
                 ))}

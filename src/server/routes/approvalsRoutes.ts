@@ -17,6 +17,7 @@ import { decideException, exceptionRefusal, normalizeExceptionDays, resolveExcep
 import { APPROVAL_STATUS_LABEL, blockingConflictPhrase, canSign, canSubmit, emptyApproval, inboxPriority, lastReviewedVersionId, readDeadline, verificationCode, acknowledgeAdditions, awaitsHeadSignature, canHeadReturn, canReturn, canWithdraw, CLOSED_BY_ACCEPTANCE_LABEL, countAnsweredRegistrarNotes, countOpenRegistrarNotes, extensionRefusal, kuwaitDateISO, openRound, pendingAdditionTotal, readViewExpectation, additionsAwaitingHead, withRemainingSignatures, extensionRequestRefusal, roundBaselineVersionId, staleViewRefusal, statusAfterSignatureChange, suggestedExtensionDate } from "../../utils/approvalWorkflow";
 import { diffSchedules } from "../../utils/scheduleDiff";
 import { approvalBlockerSummary } from "../../utils/scheduleBlockers";
+import { actorMaySign } from "../../utils/seats";
 import { canExtendDeadline, canManageDeadline, canReviewSubmissions, roleLabel, signatureStage, watchesInbox } from "../../utils/academicRoles";
 import { capacityGapItems, computeScheduleDataReadiness } from "../../utils/scheduleDataReadiness";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
@@ -388,7 +389,7 @@ app.post("/api/approvals/sign", requireAuth, async (req: AuthenticatedRequest, r
 
   const actor = approvalActor(req);
   const stage = signatureStage(actor.role);
-  if (!stage) { res.status(403).json({ error: "التوقيع لرئيس لجنة الجدول ولرئيس القسم العلمي فقط." }); return; }
+  if (!stage || !actorMaySign(req.user as any)) { res.status(403).json({ error: "التوقيع لرئيس لجنة الجدول ولرئيس القسم العلمي فقط." }); return; }
   if (await refuseIfTermClosed(res, termId)) return;
   const actorInstructorId = Number((req.user as any)?.SeatActor?.instructorId || 0) || undefined;
 
@@ -473,7 +474,7 @@ app.post("/api/approvals/withdraw", requireAuth, async (req: AuthenticatedReques
   const { collegeId, sectionId, termId } = scope;
   const actor = approvalActor(req);
   const stage = signatureStage(actor.role);
-  if (!stage) { res.status(403).json({ error: "سحب التوقيع لمن أثبته وحده." }); return; }
+  if (!stage || !actorMaySign(req.user as any)) { res.status(403).json({ error: "سحب التوقيع لمن أثبته وحده." }); return; }
   if (await refuseIfTermClosed(res, termId)) return;
   await approvalTransaction(res, collegeId, sectionId, termId, async () => {
     const approval = await readApproval(collegeId, sectionId, termId);

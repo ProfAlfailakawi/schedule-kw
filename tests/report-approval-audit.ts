@@ -176,7 +176,7 @@ check(bar.includes("انقضى موعد التسليم — يلزم تمديدٌ
 
 /* السحب متاحٌ حتى يُرسَل: من وقّع خطأً لا يُترك بلا مخرجٍ إلا الإرسال. */
 /* ولا بعد القبول (R1): السحبُ على جدولٍ معتمد كان يُسقطه صامتاً إلى الإعداد. */
-check(bar.includes("{mine && !locked && !accepted ? (") && !bar.includes("mine && !readyToSubmit && !locked"),
+check(bar.includes("{mine && canSign && !locked && !accepted ? (") && !bar.includes("mine && !readyToSubmit && !locked"),
   "وسحبُ التوقيع متاحٌ حتى الإرسال، لا حتى يوقّع الطرفُ الآخر");
 check(bar.includes("readyToSubmit && (signatureStage || powerAdmin)"),
   "والإدارة الرئيسية تُرسل حيث يسمح الخادم");

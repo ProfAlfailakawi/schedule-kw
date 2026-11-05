@@ -65,7 +65,7 @@ const noDeadline = readDeadline({}, "2026-10-01");
   const withdrawRoute = route('app.post("/api/approvals/withdraw"');
   check(withdrawRoute.includes("canWithdraw(approval, stage)") && withdrawRoute.includes("statusAfterSignatureChange(next)"),
     "R1 مسارُ السحب يقرأ القاعدة الواحدة");
-  check(bar.includes("{mine && !locked && !accepted ? ("), "R1 زرُّ «سحب توقيعي» يختفي بعد القبول");
+  check(bar.includes("{mine && canSign && !locked && !accepted ? ("), "R1 زرُّ «سحب توقيعي» يختفي بعد القبول");
 }
 
 /* ── R2/R3: الإرسالُ لا يمرّ على معتمدٍ ولا على تعارض ──────────────────────── */

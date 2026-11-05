@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { cleanSectionRoomTypes, roomTypeIn } from "../../utils/roomTypeForSection";
 import type { Express } from "express";
 import { Response } from "express";
 import { Repository } from "../../db/repository";
@@ -190,7 +191,7 @@ app.get("/api/companion-rooms",requirePermission(7),async(req:AuthenticatedReque
   const days=new Set(String(req.query.days||"").split(",").filter(Boolean));
   const from=String(req.query.start||""),to=String(req.query.end||"");
   const dayKeys=["fsunday","fmonday","ftuesday","fwednesday","fthursday"];
-  const roomOptions=registry.rooms.filter(room=>room.active&&room.confidence==="CONFIRMED"&&room.bookingPolicy==="companion_only"&&room.roomType===type&&type)
+  const roomOptions=registry.rooms.filter(room=>room.active&&room.confidence==="CONFIRMED"&&room.bookingPolicy==="companion_only"&&roomTypeIn(room,sectionId)===type&&type)
     .map(room=>({room,building:registry.buildings.find(b=>b.id===room.buildingId)}))
     .filter(({building})=>building?.active&&building.confidence==="CONFIRMED"&&String(building.officialCode||"").slice(0,4)===site)
     .map(({room,building})=>{
@@ -366,7 +367,7 @@ app.put("/api/admin/location-registry/rooms/:id", requirePermission(7), requireP
     ...(current.aliases||[]),
     ...(roomCodeChanged?[{value:current.canonicalCode,evidence:[`رمز القاعة السابق قبل تغييره إلى ${requestedCode}.`]}]:[]),
   ]:req.body.aliases);
-  const next={active:typeof req.body?.active==="boolean"?req.body.active:current.active,shared,collegeIds:roomCollegeIds,sectionIds,primarySectionIds,aliases,buildingId:targetBuilding.id,buildingCode:targetBuilding.officialCode,canonicalCode:requestedCode,capacity:roomCapacity??null,roomType:roomType,bookingPolicy:bookingPolicy as MasterRoom["bookingPolicy"]};
+  const next={active:typeof req.body?.active==="boolean"?req.body.active:current.active,shared,collegeIds:roomCollegeIds,sectionIds,primarySectionIds,aliases,buildingId:targetBuilding.id,buildingCode:targetBuilding.officialCode,canonicalCode:requestedCode,capacity:roomCapacity??null,roomType:roomType,sectionRoomTypes:cleanSectionRoomTypes(req.body?.sectionRoomTypes===undefined?current.sectionRoomTypes:req.body.sectionRoomTypes,sectionIds,roomType),bookingPolicy:bookingPolicy as MasterRoom["bookingPolicy"]};
   const row:MasterRoom={...current,...next,id:current.id,confidence:"CONFIRMED",sharedConfidence:"CONFIRMED",adminVerified:true,updatedAt:now,lastVerifiedAt:now,auditHistory:[...(current.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:targetBuildingId!==current.buildingId?"MOVE_BUILDING":roomCodeChanged?"RENAME_ROOM":"UPDATE",before:{buildingId:current.buildingId,buildingCode:current.buildingCode,canonicalCode:current.canonicalCode,active:current.active,shared:current.shared,collegeIds:current.collegeIds,sectionIds:current.sectionIds,primarySectionIds:current.primarySectionIds},after:next}]};
   /* ── لا نسخة كاملة للنظام قبل نقل قاعة ──────────────────────────────────
    * Moving a room between buildings used to copy the ENTIRE database first:

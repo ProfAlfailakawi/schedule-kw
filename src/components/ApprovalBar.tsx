@@ -79,6 +79,8 @@ interface Props {
   termId: number;
   /** مرحلة التوقيع التي يملكها صاحب الحساب، إن ملك واحدة. */
   signatureStage: "committee" | "head" | null;
+  /** عضوُ اللجنة يرى الشريط ولا يوقّع ولا يسحب: التوقيعُ لرئيسها. */
+  canSign?: boolean;
   /** حسابُ الإدارة الرئيسي يُرسل ويوقّع نيابةً حيث يسمح الخادم. */
   powerAdmin?: boolean;
   demoMode?: boolean;
@@ -127,7 +129,7 @@ const arabicDate = (iso?: string) => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString("ar-KW-u-nu-latn", { year: "numeric", month: "long", day: "numeric" });
 };
 
-export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps, onPlanningGaps }: Props) {
+export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, canSign = true, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps, onPlanningGaps }: Props) {
   const [state, setState] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -361,7 +363,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   /* شرطُ التوقيع كما يقرؤه الخادم: جدولٌ غيرُ فارغ، وترتيبٌ محفوظ، ولم يُوقَّع
      بعد، وليس عند التسجيل. */
   const hasRows = Number(state.rowCount || 0) > 0;
-  const canSignNow = Boolean(signatureStage) && !mine && !locked && hasRows
+  const canSignNow = Boolean(signatureStage) && canSign && !mine && !locked && hasRows
     && (signatureStage === "committee" || Boolean(committee));
   /* سعةُ المقرر شرطٌ للتوقيع كما يقرؤه الخادم (`canSign`): مقررٌ في الجدول بلا
      سعةٍ مسجّلة يُوقَف عنده الزرّ، وتُفتح قائمةُ إدخال السعة من الشارة. */
@@ -833,7 +835,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             يجد مخرجاً إلا أن يُرسل أو يسأل زميله أن يسحب توقيعه أولاً. والخادم
             يقبله ما دام الجدول لم يُرسَل. */}
         {/* ولا بعد القبول: سحبُ توقيعٍ على جدولٍ معتمد كان يُسقطه صامتاً إلى الإعداد. */}
-        {mine && !locked && !accepted ? (
+        {mine && canSign && !locked && !accepted ? (
           <IconButton label="سحب توقيعي" disabled={busy}
             data-guide-ignore="سحب توقيعٍ أثبته صاحبه قبل الإرسال — تراجعٌ عن فعلٍ مسجّل" onClick={() => void act("/api/approvals/withdraw")}>
             <Undo2 aria-hidden="true" />
