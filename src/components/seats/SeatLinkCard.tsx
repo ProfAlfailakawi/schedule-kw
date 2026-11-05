@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { Info, KeyRound } from "lucide-react";
+import { CalendarClock, Info, KeyRound, RefreshCw } from "lucide-react";
 import AccessCard from "../AccessCard";
 import { whatsappNumber } from "../../utils/seats";
-import { holderCardModel } from "../../utils/seatAccessCard";
+import { FIRST_PASSWORD_DAYS, holderCardModel } from "../../utils/seatAccessCard";
 
 /**
  * ── «بطاقة الدخول» في الكراسي ────────────────────────────────────────────────
@@ -33,7 +33,7 @@ export default function SeatLinkCard({ title, subtitle, url, mobile, message, cr
           <dl className="seat-credentials">
             <div><dt>اسم الدخول</dt><dd dir="ltr">{credentials.login}</dd></div>
             <div><dt><KeyRound aria-hidden="true" /> الكلمة الأولى</dt><dd dir="ltr" className="seat-secret">{credentials.password}</dd></div>
-            <p>تظهر هذه الكلمة الآن فقط، ويختار صاحبها كلمته الخاصة عند أول دخول.</p>
+            <p>تعمل {FIRST_PASSWORD_DAYS} أيام، ويختار صاحبها كلمته الخاصة عند أول دخول.</p>
           </dl>
         ) : null}
         {children}
@@ -45,17 +45,29 @@ export default function SeatLinkCard({ title, subtitle, url, mobile, message, cr
 }
 
 /** بطاقة شاغلٍ قائم: لا كلمة من الخادم؛ وإن كان ينتظر اختيار كلمته يكتب المسؤول الأولى إن كانت معه. */
-export function SeatHolderCard({ origin, seat, holder, onDone }: {
+export function SeatHolderCard({ origin, seat, holder, onReissue, onDone }: {
   origin: string;
-  seat: { login: string; name: string; roleLabel: string; mustChangePassword: boolean };
+  seat: { login: string; name: string; roleLabel: string; mustChangePassword: boolean; firstPasswordExpiresAt?: string; firstPasswordExpired?: boolean };
   holder: { name: string; mobile?: string };
+  /** لمدير النظام: يصدر الكلمة الأولى من جديد ويعيدها. */
+  onReissue?: () => Promise<string>;
   onDone?: () => void;
 }) {
   const [password, setPassword] = useState("");
-  const model = holderCardModel({ origin, login: seat.login, seatName: seat.name, roleLabel: seat.roleLabel, holderName: holder.name, mustChangePassword: seat.mustChangePassword, password });
+  const [busy, setBusy] = useState(false);
+  const [issued, setIssued] = useState(false);
+  const expired = Boolean(seat.firstPasswordExpired) && !issued;
+  const model = holderCardModel({ origin, login: seat.login, seatName: seat.name, roleLabel: seat.roleLabel, holderName: holder.name, mustChangePassword: seat.mustChangePassword, password: expired ? "" : password, expired });
+  const reissue = async () => {
+    if (!onReissue) return;
+    setBusy(true);
+    try { setPassword(await onReissue()); setIssued(true); } finally { setBusy(false); }
+  };
   return (
     <SeatLinkCard title={holder.name} subtitle={model.caption} url={model.url} mobile={holder.mobile} message={model.message} note={model.note} fileStem={model.fileStem} onDone={onDone}>
-      {seat.mustChangePassword ? (
+      {seat.firstPasswordExpiresAt && !expired && !issued ? <p className="seat-access-note"><CalendarClock aria-hidden="true" />تنتهي الكلمة الأولى في {new Date(seat.firstPasswordExpiresAt).toLocaleDateString("ar-KW")}</p> : null}
+      {onReissue ? <button type="button" data-guide-ignore="إعادة إصدار الكلمة الأولى؛ لمدير النظام ويحرسها الخادم" className="seat-reissue" disabled={busy || issued} onClick={() => void reissue()}><RefreshCw aria-hidden="true" />{issued ? "أُعيد الإصدار" : "أعد إصدار الكلمة الأولى"}</button> : null}
+      {seat.mustChangePassword && !expired ? (
         <label className="invitation-password seat-access-password">
           <span><KeyRound aria-hidden="true" /> الكلمة الأولى (اختياري)</span>
           <input dir="ltr" value={password} onChange={e => setPassword(e.target.value)} autoComplete="off" maxLength={128} aria-label="الكلمة الأولى" />

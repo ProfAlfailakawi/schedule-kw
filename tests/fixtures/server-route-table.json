@@ -338,7 +338,7 @@
    ],
    "path": "/api/auth/login",
    "name": "bound dispatch",
-   "call": "d356a0fab3404d21",
+   "call": "3aef85d79256fee5",
    "site": "src/server/routes/authRoutes.ts:618",
    "regexp": "/^\\/api\\/auth\\/login\\/?$/i",
    "end": true
@@ -350,8 +350,8 @@
    ],
    "path": "/api/auth/change-password",
    "name": "bound dispatch",
-   "call": "799e9f658fd091df",
-   "site": "src/server/routes/authRoutes.ts:692",
+   "call": "a6cbb78e624743b8",
+   "site": "src/server/routes/authRoutes.ts:698",
    "regexp": "/^\\/api\\/auth\\/change-password\\/?$/i",
    "end": true
   },
@@ -1533,6 +1533,18 @@
    "call": "5446ca133e90843d",
    "site": "src/server/routes/hallBarterRoutes.ts:429",
    "regexp": "/^\\/api\\/hall-barter\\/requests(?:\\/([^/]+?))\\/cancel\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/hall-barter/requests/:id/end",
+   "name": "bound dispatch",
+   "call": "96543d627d498dbc",
+   "site": "src/server/routes/hallBarterRoutes.ts:458",
+   "regexp": "/^\\/api\\/hall-barter\\/requests(?:\\/([^/]+?))\\/end\\/?$/i",
    "end": true
   },
   {
@@ -3403,8 +3415,8 @@
    ],
    "path": "/api/users",
    "name": "bound dispatch",
-   "call": "3f15ad2dfdf8afd5",
-   "site": "src/server/routes/usersRoutes.ts:166",
+   "call": "7752d1e7c6bba75a",
+   "site": "src/server/routes/usersRoutes.ts:167",
    "regexp": "/^\\/api\\/users\\/?$/i",
    "end": true
   },
@@ -3487,8 +3499,8 @@
    ],
    "path": "/api/users/:id",
    "name": "bound dispatch",
-   "call": "5f2f4787c88210ed",
-   "site": "src/server/routes/usersRoutes.ts:362",
+   "call": "1e7eb011c26d6a3d",
+   "site": "src/server/routes/usersRoutes.ts:364",
    "regexp": "/^\\/api\\/users(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3619,8 +3631,8 @@
    ],
    "path": "/api/seats",
    "name": "bound dispatch",
-   "call": "70b71048e80cbc8c",
-   "site": "src/server/seatsRoutes.ts:334",
+   "call": "1c747e26b297b981",
+   "site": "src/server/seatsRoutes.ts:341",
    "regexp": "/^\\/api\\/seats\\/?$/i",
    "end": true
   },
@@ -3694,6 +3706,18 @@
    "call": "6ec1a3c3b9001792",
    "site": "src/server/seatsRoutes.ts:440",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/handover\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/seats/:id/first-password",
+   "name": "bound dispatch",
+   "call": "cc5c3f4afda3b6a8",
+   "site": "src/server/seatsRoutes.ts:470",
+   "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/first-password\\/?$/i",
    "end": true
   },
   {
@@ -3775,8 +3799,8 @@
    ],
    "path": "/api/seats/college-registrars/all",
    "name": "bound dispatch",
-   "call": "2611516d3e740cef",
-   "site": "src/server/seatsRoutes.ts:605",
+   "call": "521969b4e69290d7",
+   "site": "src/server/seatsRoutes.ts:622",
    "regexp": "/^\\/api\\/seats\\/college-registrars\\/all\\/?$/i",
    "end": true
   },
@@ -3787,8 +3811,8 @@
    ],
    "path": "/api/seats/college-registrar",
    "name": "bound dispatch",
-   "call": "47cc97b4566dc3ab",
-   "site": "src/server/seatsRoutes.ts:613",
+   "call": "3f7faf096f1d921e",
+   "site": "src/server/seatsRoutes.ts:630",
    "regexp": "/^\\/api\\/seats\\/college-registrar\\/?$/i",
    "end": true
   },

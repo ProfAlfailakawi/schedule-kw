@@ -160,7 +160,7 @@ try {
   await as("admin");
   const nextHolder = seatDetail.body.holderCandidates.find((row: any) => row.id !== holderPick?.id && row.id !== memberPick?.id) || seatDetail.body.holderCandidates[1];
   const handover = await json("/api/seats/16/handover", { method: "POST", body: JSON.stringify({ instructorId: nextHolder?.id }) });
-  check(handover.status === 200 && String(handover.body?.password || "").length >= 10 && handover.body?.holder?.name === nextHolder?.name, "S6 التسليم: شاغلٌ جديد وكلمةٌ أولى تُعرض مرة واحدة", handover.body);
+  check(handover.status === 200 && handover.body?.password === "12345678" && handover.body?.holder?.name === nextHolder?.name, "S6 التسليم: شاغلٌ جديد وكلمةٌ أولى تُعرض مرة واحدة", handover.body);
   const after = await json("/api/seats/16");
   const frozen = after.body?.team?.members?.find((row: any) => row.instructorId === memberPick?.id);
   check(after.body?.seat?.mustChangePassword === true && frozen?.status === "frozen" && after.body?.history?.[0]?.kind === "member-frozen", "S6 الحساب مُعلَّمٌ بتغيير كلمته، والفريق مجمَّد، والتاريخ يقول", { seat: after.body?.seat, frozen, h: after.body?.history?.slice(0, 2) });

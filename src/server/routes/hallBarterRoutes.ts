@@ -7,7 +7,8 @@
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
 import type { Express } from "express";
-import { RequestReservationConflict } from "../../utils/instructorRequestReservations";
+import { RequestReservationConflict, reservationRows } from "../../utils/instructorRequestReservations";
+import { approvedBarterWindowMatchesSchedule } from "../../utils/hallBarterWindow";
 import { Response } from "express";
 import { Repository, withSerialLock } from "../../db/repository";
 import { byRoom, byArabic } from "../../utils/sorting";
@@ -105,12 +106,13 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
   if(cached&&cached.scheduleSerial===driftSerial&&cached.barterSerial===state.hallBarterSerial&&cached.expiresAt>Date.now())return cached.body;
   /* لا قراءة لكل جداول النظام بعد اليوم: السؤال صار عن هذا الفصل وحده،
      وقراءة عشر سنوات لكل لوحة كانت أثقل شيء فيها. */
-  const [termRowsRaw,collegeHistoryRaw,sections,colleges,requestsRaw,registry]=await Promise.all([
+  const [termRowsRaw,collegeHistoryRaw,sections,colleges,requestsRaw,registry,holdEntries]=await Promise.all([
     Repository.getSchedulesByScope({termId}),
     /* تاريخ هذه الكلية وحدها — لا جداول النظام كلها — ليُعرف صاحبُ كل قاعة
        ولو لم يكتب السجل اسمه ولم يُدخل القسمُ جدولَه بعد. */
     Repository.getSchedulesByScope({collegeId}),
     Repository.getSections(),Repository.getColleges(),Repository.getHallBarterRequests(termId),readLocationRegistry(),
+    Repository.getInstructorRequestReservations(termId),
   ]);
   /* طلبٌ معلّق تجاوز أسبوعاً يُلغى تلقائياً هنا، فيظهر في السجل «ملغي» بسببه
      ولا يعود يُحسب على أحد. */
@@ -124,6 +126,8 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
     return {...row,buildingId:b.value.id,roomId:r.value.id,AdRoomCode:b.value.officialCode,AdRoomHall:r.value.canonicalCode,locationStatus:"VERIFIED"};
   };
   const termRows=termRowsRaw.map(canonicalForBarter);
+  /* وقتٌ يشغله صاحبُ القاعة — بموعدٍ أو برغبة أستاذٍ محجوزة — لا يُعرض للمستعير أصلاً. */
+  const occupyingRows=[...termRows,...reservationRows(holdEntries,termId).map(canonicalForBarter)];
   const collegeHistory=collegeHistoryRaw.map(canonicalForBarter);
   const requesterCollege=colleges.find(college=>Number(college.AdCollegeId)===collegeId);
   const requesterGender=hallCampusGender(requesterCollege?.AdCollegeName);
@@ -230,7 +234,7 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
     const roomHall=String(room.canonicalCode||"").trim();
     if(!roomCode||!roomHall)continue;
     const roomKey=roomKeyOf(room.id,roomCode,roomHall);
-    const roomRows=termRows.filter(row=>rowOccupiesRoom(row,room.id,roomCode,roomHall));
+    const roomRows=occupyingRows.filter(row=>rowOccupiesRoom(row,room.id,roomCode,roomHall));
     for(const day of SCHEDULE_DAY_KEYS){
       let runStart:number|null=null,runEnd=0;
       const flush=()=>{
@@ -318,7 +322,11 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
   };
   const narrowed=opportunities.filter(row=>matchesOwner(row)&&matchesDay(row)&&matchesBuilding(row));
   const visible=fairSlice(narrowed,HALL_BARTER_MAX_OPPORTUNITIES);
-  const shaped=requests.map(request=>hallBarterRequestShape(request,sections,colleges));
+  /* وما سبق عرضُه ثم شغله غيرُ المستعير: يُقال للطرفين صريحاً بدل رفضٍ عند الموافقة. */
+  const clashesWithHolder=(request:HallBarterRequest)=>(request.status==="pending"||request.status==="approved")&&occupyingRows.some(row=>
+    (Number(row.AdCollegeId)!==Number(request.requesterCollegeId)||Number(row.AdSectionId)!==Number(request.requesterSectionId))
+    &&approvedBarterWindowMatchesSchedule(row,request)&&rowOccupiesWindow(row,request.day,request.startTime,request.endTime));
+  const shaped=requests.map(request=>({...hallBarterRequestShape(request,sections,colleges),clash:clashesWithHolder(request)}));
   const sameCampusRequests=shaped.filter(request=>sameHallCampusGender(request.requesterCollegeName,request.ownerCollegeName));
   const body={
     opportunities:visible,
@@ -442,6 +450,25 @@ app.post("/api/hall-barter/requests/:id/cancel", requirePermission(7), async (re
   state.hallBarterSerial++;hallBarterBoardCache.clear();
   broadcastScheduleChange();void Repository.markSchedulesChanged();
   res.json({request:updated,message:"تم إلغاء طلب الاستعارة وتحرير النافذة."});
+});
+
+/* ── المُعير يستردّ قاعته ─────────────────────────────────────────────────────
+ * القسمُ المضيف يستعمل قاعته خارج نافذة الإعارة بلا إذن، وفي داخلها بعد إنهائها فقط.
+ * ولا تُنهى إعارةٌ عليها محاضرةٌ للمستعير: تُنقل أولاً (ويحرس ذلك المستودعُ أيضاً). */
+app.post("/api/hall-barter/requests/:id/end", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const request=await Repository.getHallBarterRequestById(String(req.params.id||""));
+  if(!request){res.status(404).json({error:"طلب الاستعارة غير موجود"});return;}
+  if(!isScopeAllowed(req,request.ownerCollegeId,request.ownerSectionId)&&!req.user.IsAdminUser){res.status(403).json({error:"إنهاء الإعارة متاح للقسم المضيف فقط"});return;}
+  if(request.status!=="approved"){res.status(409).json({error:"هذه الإعارة ليست سارية"});return;}
+  await withSerialLock(`barter:term:${Number(request.AdTermId)||0}`,async()=>{
+    let updated:HallBarterRequest;
+    try{updated=await Repository.updateHallBarterRequest(request.id,{status:"cancelled",cancelReason:"أنهى القسم المضيف الإعارة"},"approved");}
+    catch(error:any){if(error instanceof RequestReservationConflict){res.status(409).json({error:"القسم المستعير يدرّس في هذه النافذة. يُنقل الموعد أولاً ثم تُنهى الإعارة.",code:error.code});return;}throw error;}
+    state.hallBarterSerial++;hallBarterBoardCache.clear();
+    broadcastScheduleChange();void Repository.markSchedulesChanged();
+    res.locals.auditChanges=`إنهاء إعارة ${request.roomCode}/${request.roomHall}`;
+    res.json({request:updated,message:"انتهت الإعارة، وعادت النافذة إلى قسمك."});
+  });
 });
 
 /* ── التنبيه يتبع القسم لا الشاشة ────────────────────────────────────────────

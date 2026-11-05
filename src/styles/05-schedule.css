@@ -4602,6 +4602,20 @@ html.schedule-physics-active .rooms-slot.physics-origin::before{
 .hall-barter-active-grid>article>div strong{font-size:12.5px;font-weight:700}
 .hall-barter-active-grid>article>div em{font-size:12px;font-style:normal;color:var(--ink-3)}
 .hall-barter-active-grid .hall-barter-window{grid-column:1/-1;margin-top:1px;padding-top:9px;border-top:1px solid var(--line-soft,var(--line))}
+.hall-barter-clash{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:3px 8px;border-radius:999px;background:color-mix(in srgb,var(--danger,#b42318) 12%,var(--surface));color:var(--danger,#b42318);font-size:12px;font-weight:700}
+.hall-barter-clash>svg{width:13px;height:13px}
+.room-loan-strip{display:grid;gap:4px;max-width:420px;margin:0 0 10px;font-size:11px;color:var(--ink-2)}
+.room-loan-legend{display:flex;gap:12px;flex-wrap:wrap}
+.room-loan-legend span{display:inline-flex;align-items:center;gap:4px}
+.room-loan-legend svg{width:13px;height:13px}
+.room-loan-legend .lent svg{color:var(--warning,#b54708)}
+.room-loan-legend .borrowed svg{color:var(--accent)}
+.room-loan-day{display:grid;grid-template-columns:42px 1fr;align-items:center;gap:6px}
+.room-loan-track{position:relative;height:10px;border-radius:3px;background:var(--line-soft,var(--line));overflow:hidden}
+.room-loan-track i{position:absolute;top:0;bottom:0;border-radius:2px}
+.room-loan-track i.lent{background:var(--warning,#b54708)}
+.room-loan-track i.borrowed{background:var(--accent)}
+.room-loan-axis{display:flex;justify-content:space-between;margin-inline-start:48px;font-size:10px;color:var(--muted)}
 .hall-barter-approved-label{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));color:var(--accent-strong,var(--accent));font-size:12px;font-weight:700}
 .hall-barter-approved-label>svg{width:13px;height:13px}
 
