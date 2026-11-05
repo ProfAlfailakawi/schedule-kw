@@ -13,6 +13,8 @@ const theory1 = { CourseHours: 1, CourseTeachingMode: "theoretical" };
 {
   const schedules = read("src/components/Schedules.tsx"), conflicts = read("src/server/core/scheduleConflicts.ts");
   check(/hold\.action === "change" && hold\.rowId/.test(schedules) && /`\/api\/schedules\/\$\{moved\.rowId\}`/.test(schedules), "1 ثبّت الطلب ينقل الموعد القائم ولا يُنشئ ثانياً");
+  check(/movedFromRow: original/.test(schedules) && /method: "PUT", url: `\/api\/schedules\/\$\{movedFromRow\.id\}`/.test(schedules) && /if \(movedExisting\) \{/.test(schedules) && /createdRowId = movedExisting \? 0/.test(schedules), "1 تراجع نقلٍ يستعيد الموعد الأصلي ولا يحذفه");
+  check(/"الإضافة"\)/.test(schedules) && !/fetchJson\("\/api\/schedules", \{[\s\S]{0,240}"الإضافة", /.test(schedules), "1 البطاقة السريعة بلا مسودة: لا تصل مسار النقل");
   check(/status: settled \? "settled" as const : "in-review" as const/.test(conflicts) && /kind: "item-fixed" as const, at, by, itemIndex/.test(conflicts), "1 الحالة والخط الزمني كالاعتماد");
   check(/action: item\.action, rowId:/.test(conflicts), "1 الرفض يحمل هوية الموعد وإصداره");
 }

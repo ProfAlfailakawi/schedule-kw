@@ -1482,10 +1482,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       /* «ثبّت الطلب» لبند تعديل: الموعدُ القائم هو الذي ينتقل — لا صفٌّ ثانٍ — فيُغلق البندُ كما لو اعتُمد. */
       const moved = choice === "fix" && draft ? (failure.holds as RequestHold[]).find(hold => hold.action === "change" && hold.rowId) : undefined;
       if (moved && editId !== moved.rowId) {
-        return await fetchJson(`/api/schedules/${moved.rowId}`, {
+        const original = rows.find(row => Number(row.id) === Number(moved.rowId)) || null;
+        const updated: any = await fetchJson(`/api/schedules/${moved.rowId}`, {
           method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...draft, id: undefined, SCode: moved.sectionCode, rev: moved.rowRev, overrideRequestHolds: [moved.requestId] }),
-        }) as T;
+        });
+        /* الحفظُ صار تعديلاً لا إضافة: يعود معه الصفُّ الأصلي ليستعيده «تراجع» بدل أن يحذفه. */
+        return { ...updated, movedFromRow: original } as T;
       }
       if (choice === "reject") {
         const revisions = new Map<string, number>();
@@ -5098,7 +5101,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         return withRequestHoldPrompt(send, "الحفظ", form as Partial<FSchedule>);
       })();
       let guideUndoId = "";
-      if (editor === "edit" && before) {
+      /* «ثبّت الطلب» عدّل موعداً قائماً: ليس إضافة، فلا حذفَ للتراجع ولا ربطَ كصفٍّ جديد. */
+      const movedExisting = Boolean(saved && typeof saved === "object" && "movedFromRow" in saved);
+      const movedFromRow: any = movedExisting ? (saved as any).movedFromRow : null;
+      if (movedExisting) delete (saved as any).movedFromRow;
+      if (movedExisting) {
+        if (movedFromRow) {
+          const { id: _id, AdCourseName: _name, ...previousValues } = movedFromRow;
+          guideUndoId = offerUndo(
+            `نقل ${movedFromRow.AdCourseName || courseById.get(movedFromRow.AdCourseId)?.CourseName || "موعد"}`,
+            [{ method: "PUT", url: `/api/schedules/${movedFromRow.id}`, body: { ...previousValues, rev: (saved as any)?.rev } }],
+          );
+        }
+      } else if (editor === "edit" && before) {
         const { id: _id, AdCourseName: _name, ...previousValues } = before as any;
         guideUndoId = offerUndo(
           `تعديل ${before.AdCourseName || courseById.get(before.AdCourseId)?.CourseName || "موعد"}`,
@@ -5124,7 +5139,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
        * إظهاره، لأن البندَ سيبدو منتهياً وليس كذلك.
        */
       const handoff = pendingHandoff.current;
-      const createdRowId = Number(saved?.id || 0);
+      const createdRowId = movedExisting ? 0 : Number(saved?.id || 0);
       /* ويُشترط أن يكون المحفوظُ هو المطلوبَ نفسَه: من يفتح البذرةَ ثم يتركها
          ويضيف موعداً آخرَ بيده كان سيُغلق بها بندَ الأستاذ على صفٍّ لا يخصّه. */
       const matchesHandoff = Boolean(handoff)
