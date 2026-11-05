@@ -14,7 +14,8 @@
  */
 import { Repository } from "../db/repository";
 import type { AdCourse, CurriculumCourseRule, CurriculumPlan, CurriculumPlanCourse, CurriculumRuleSet } from "../types";
-import { classifySheets, combineReach, sheetReach, sheetYearOf, shortCourseCode, type CourseReach, type ReachSheetKind } from "../utils/courseReach";
+import { sheetSidesFor } from "./planBadgeShared";
+import { classifySheets, combineReach, historyAcrossRecords, sheetReach, sheetYearOf, shortCourseCode, type CourseReach, type ReachSheetKind } from "../utils/courseReach";
 import { courseLevelFromCode, normalizeLevel } from "../utils/curriculumRules";
 import { termChronology } from "../utils/termSequence";
 import { offeringDocId, reachOverrides, type CourseOfferingDoc } from "../utils/courseOffering";
@@ -95,14 +96,19 @@ async function computeReach(collegeId: number, sectionId: number, termId: number
   const currentChronology = termChronology(term);
   const courseIds = courses.map(course => Number(course.AdCourseId));
   const rows = await Repository.getScheduleHistoryForCourses(courseIds).catch(() => []);
+  const codeById = new Map(courses.map(course => [Number(course.AdCourseId), String(course.CourseCode || "")] as const));
+  const sameCourse = historyAcrossRecords(courseIds, id => codeById.get(id));
   const byTerm = new Map<number, Set<number>>();
   for (const row of rows as any[]) {
     const chronology = chronologyOf.get(Number(row.AdTermId));
     if (chronology == null) continue;
-    byTerm.set(chronology, (byTerm.get(chronology) || new Set()).add(Number(row.AdCourseId)));
+    const held = byTerm.get(chronology) || new Set<number>();
+    for (const id of sameCourse(Number(row.AdCourseId))) held.add(id);
+    byTerm.set(chronology, held);
   }
   const history = [...byTerm].map(([chronology, ids]) => ({ chronology, courseIds: ids }));
-  const codeById = new Map(courses.map(course => [Number(course.AdCourseId), String(course.CourseCode || "")] as const));
+  /* عضويةُ الجديدة من المصدر الواحد نفسه: رابطٌ قديمٌ عالق لا يرفع «أعلى مستوى طُرح» فيفتح ما لم نصله. */
+  const sides = await sheetSidesFor(sectionId, courseIds);
   const overrides = reachOverrides(offeringDoc);
   const own = new Set(courseIds);
   const views: ReachSheetView[] = [];
@@ -110,12 +116,13 @@ async function computeReach(collegeId: number, sectionId: number, termId: number
     const set = ruleSets.find(row => row.planId === plan.id && row.status !== "review");
     const rules = (set?.rules || []).map(rule => remapRule(rule, remap)).filter(rule => own.has(Number(rule.courseId)));
     const ruleLevel = new Map(rules.map(rule => [Number(rule.courseId), normalizeLevel(rule.level) || 0] as const));
-    const memberIds = [...new Set(members.filter(row => row.planId === plan.id).map(row => remap(Number(row.AdCourseId))).filter(id => own.has(id)))];
+    const memberIds = [...new Set(members.filter(row => row.planId === plan.id).map(row => remap(Number(row.AdCourseId))).filter(id => own.has(id) && (kind !== "new" || !sides || sides[id] === "new" || sides[id] === "shared")))];
     const year = sheetYearOf(plan);
     const reach = sheetReach({
       sheet: { courseIds: memberIds, rules, isNew: kind === "new", startChronology: kind === "new" && year ? year * 10 : null },
       history, currentChronology,
-      levelOf: id => courseLevelFromCode(codeById.get(id)) || ruleLevel.get(id) || 0,
+      /* المستوى المكتوب في الصحيفة هو الحكم (وهو ما تعرضه اللوحة)، والرمزُ احتياطٌ. */
+      levelOf: id => ruleLevel.get(id) || courseLevelFromCode(codeById.get(id)) || 0,
       codeOf: id => shortCourseCode(codeById.get(id)),
       overrides,
     });

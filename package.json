@@ -21,6 +21,7 @@
     "test:calendar-ics": "tsx tests/calendar-ics-audit.ts",
     "test:review-audit-1028": "tsx tests/review-audit-2026-10-28.ts",
     "test:owner-approved-1029": "tsx tests/owner-approved-2026-10-29-audit.ts",
+    "test:first-password-room-loans": "tsx tests/first-password-room-loans-audit.ts",
     "test:owner-features-1028": "tsx tests/owner-features-2026-10-28-audit.ts",
     "test:course-reach": "tsx tests/course-reach-audit.ts",
     "test:prepublish-reach": "tsx tests/prepublish-reach-audit.tsx",

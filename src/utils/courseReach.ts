@@ -112,6 +112,19 @@ export function shortCourseCode(code: unknown): string {
 
 const ids = (list: Iterable<number> | undefined) => [...(list || [])].map(Number).filter(n => Number.isFinite(n) && n > 0);
 
+/**
+ * السجلّان بالرقم القصير نفسه في القسم مقررٌ واحد (مكررٌ أو وريثٌ برمزٍ آخر): طرحُ أحدهما طرحٌ للآخر.
+ * وإلا قيل «لم يُطرح» لمقررٍ يُدرَّس منذ سنوات لأن تاريخه على السجلّ الآخر.
+ */
+export function historyAcrossRecords(courseIds: Iterable<number>, codeOf: (id: number) => unknown): (id: number) => number[] {
+  const groups = new Map<string, number[]>();
+  for (const id of ids(courseIds)) {
+    const key = shortCourseCode(codeOf(id));
+    if (key) groups.set(key, [...(groups.get(key) || []), id]);
+  }
+  return id => groups.get(shortCourseCode(codeOf(id))) || [id];
+}
+
 /** المسبقاتُ داخل الصحيفة فقط: «كلها» ومجموعاتُ «أحدها يكفي». ما خارجها لا يُحكم به. */
 function inSheetPrereq(rule: CurriculumCourseRule | undefined, members: ReadonlySet<number>) {
   const all = ids(rule?.prereq?.all).filter(id => members.has(id) && id !== rule?.courseId);

@@ -128,6 +128,42 @@ export function sheetMembership(input: MembershipInput): Map<string, Membership>
   return out;
 }
 
+/**
+ * ما تطلبه كلُّ صحيفةٍ من مقررات أقسامٍ أخرى — قاعدةٌ عامة لوسم «متطلب كلية» (ملاحظة المالك: مقرر التخصص 112):
+ * لا يكفي externals؛ فالمقررُ قد يكون في قواعد الصحيفة أو روابطها فقط. ويُوسم معه سجلُّه في فروع قسمه
+ * (الرقم القصير نفسه)، لأن الصحيفة تذكر سجلَّ فرعٍ واحد. وطلبُ فرعٍ من القسم نفسه ليس خدمة.
+ */
+export function serviceRequirements(input: {
+  plans: readonly Pick<MembershipPlan, "id" | "sectionId">[];
+  sets: ReadonlyArray<{ planId: string; externals?: readonly number[] | null; rules?: ReadonlyArray<{ courseId: number }> | null }>;
+  links: ReadonlyArray<{ planId: string; courseId: number }>;
+  courses: readonly MembershipCourse[];
+  familyOf?: (sectionId: number) => readonly number[];
+}): Map<string, number[]> {
+  const byId = new Map(input.courses.map(course => [Number(course.id), course]));
+  const bySection = new Map<number, MembershipCourse[]>();
+  for (const course of input.courses) bySection.set(Number(course.sectionId), [...(bySection.get(Number(course.sectionId)) || []), course]);
+  const family = (sid: number) => new Set([sid, ...(input.familyOf?.(sid) || []).map(Number)]);
+  const out = new Map<string, number[]>();
+  for (const plan of input.plans) {
+    const sid = Number(plan.sectionId), mine = family(sid);
+    const raw = new Set<number>(input.links.filter(link => String(link.planId) === String(plan.id)).map(link => Number(link.courseId)));
+    for (const set of input.sets) if (String(set.planId) === String(plan.id)) {
+      for (const id of set.externals || []) raw.add(Number(id));
+      for (const rule of set.rules || []) raw.add(Number(rule.courseId));
+    }
+    const hits = new Set<number>();
+    for (const id of raw) {
+      const course = byId.get(id);
+      if (!course || mine.has(Number(course.sectionId))) continue;
+      hits.add(id);
+      for (const section of family(Number(course.sectionId))) for (const twin of bySection.get(section) || []) if (shortCode(twin.code) === shortCode(course.code)) hits.add(Number(twin.id));
+    }
+    out.set(String(plan.id), [...hits]);
+  }
+  return out;
+}
+
 /** جهةُ المقرر: «new» في الجديدة وحدها، «old» في القديمة وحدها، «shared» في الاثنتين؛ وإلا null. */
 export function sheetSideOf(row: Pick<Membership, "fresh" | "old"> | null | undefined): SheetSide | null {
   if (!row) return null;

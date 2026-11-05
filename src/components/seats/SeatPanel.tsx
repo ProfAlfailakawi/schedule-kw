@@ -27,7 +27,8 @@ type Member = Person & {
 type Candidate = { id: number; name: string; hasMobile: boolean };
 type ScopeTree = Array<{ collegeId: number; collegeName: string; sections: Array<{ sectionId: number; name: string }> }>;
 export interface SeatDetail {
-  seat: { id: number; login: string; name: string; role: string; roleLabel: string; active: boolean; mustChangePassword: boolean; scopes: string[] };
+  seat: { id: number; login: string; name: string; role: string; roleLabel: string; active: boolean; mustChangePassword: boolean; firstPasswordExpiresAt?: string; firstPasswordExpired?: boolean; scopes: string[] };
+  canReissuePassword?: boolean;
   holder: Person | null;
   deputy: { memberId: string; name: string; until: string } | null;
   team: null | { teamLabel: string; memberLabel: string; source: "department" | "manual"; scope: "seat" | "college" | "any"; members: Member[] };
@@ -241,7 +242,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
           {detail.seat.scopes.length > 3 ? ` و${detail.seat.scopes.length - 3} غيرها` : ""}
           <span className="seat-login" dir="ltr">{detail.seat.login}</span>
         </p>
-        {detail.seat.mustChangePassword ? <span className="seat-flag"><KeyRound aria-hidden="true" /> ينتظر أن يختار رئيسه كلمة سرّه</span> : null}
+        {detail.seat.mustChangePassword ? <span className="seat-flag"><KeyRound aria-hidden="true" /> {detail.seat.firstPasswordExpired ? "انتهت الكلمة الأولى" : "ينتظر أن يختار رئيسه كلمة سرّه"}</span> : null}
       </header>
 
       {error ? <p className="seat-error" role="alert">{error}</p> : null}
@@ -356,12 +357,17 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
                 onDone={() => { const after = sheet.after; closeSheet(); after?.(); }} />
             ) : null}
             {sheet.kind === "holderCard" && detail.holder ? (
-              <SeatHolderCard origin={origin()} seat={detail.seat} holder={detail.holder} onDone={closeSheet} />
+              <SeatHolderCard origin={origin()} seat={detail.seat} holder={detail.holder} onDone={closeSheet}
+                onReissue={detail.canReissuePassword ? async () => {
+                  const result = await call<{ password: string }>(`/api/seats/${id}/first-password`, { method: "POST" });
+                  onChanged?.(); void load();
+                  return result.password;
+                } : undefined} />
             ) : null}
             {sheet.kind === "handover" ? (
               <>
                 <h3 className="seat-sheet-title"><ArrowLeftRight aria-hidden="true" />تسليم {detail.seat.name}</h3>
-                <p className="seat-sheet-lead">اختر الرئيس الجديد. تُولَّد له كلمةٌ أولى يغيّرها عند أول دخول، ويخرج كل جهازٍ مفتوح على حساب الفريق{team ? "، ويُجمَّد الأعضاء حتى يقرّر من يستمر" : ""}.</p>
+                <p className="seat-sheet-lead">اختر الرئيس الجديد. تُصدَر له الكلمة الأولى الافتراضية لسبعة أيام، ويغيّرها عند أول دخول، ويخرج كل جهازٍ مفتوح على حساب الفريق{team ? "، ويُجمَّد الأعضاء حتى يقرّر من يستمر" : ""}.</p>
                 {personForm()}
                 <div className="seat-sheet-actions">
                   <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" disabled={busy || !personReady} onClick={() => void handOver(fromList)}><ArrowLeftRight aria-hidden="true" /> سلّم الرئاسة</button>

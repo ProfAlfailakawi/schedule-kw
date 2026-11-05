@@ -83,6 +83,8 @@ async function dispatchTaWaves(id: string, by: { SystemUserId?: number; UserName
   const doc = claimed.next;
   const out = [];
   for (const wave of claimed.result) out.push(...await sendTaWave(doc, wave, by));
+  /* كلُّ موجةٍ تُرسل سطرٌ في سجلّ الإرسال — الأولى والمجدولة بعدها. */
+  if (out.length) await Repository.saveFeatureDoc("linkModeLog", `${id}:${Date.now()}`, { at: new Date().toISOString(), by: String(by.UserName || doc.openedBy || ""), mode: "ta", scope: id, closesAt: doc.closesAt, instructorIds: out.map(row => row.instructorId) }).catch(() => undefined);
   if (out.length) broadcastNotify(Repository.currentDemoSessionId());
   if (out.length) await pushHooks.taWindowOpened(doc.closesAt, out);
   return out;
@@ -304,7 +306,6 @@ app.post("/api/ta-phase/open", requirePermission(7), async (req: AuthenticatedRe
     reminderHours: Math.max(1, Math.min(168, Number(req.body?.reminderHours || 24))) };
   await Repository.saveFeatureDoc("taPhases", id, doc);
   const sent = await dispatchTaWaves(id, req.user || {});
-  await Repository.saveFeatureDoc("linkModeLog", `${id}:${Date.now()}`, { at: doc.openedAt, by: doc.openedBy, mode: "ta", scope: id, instructorIds: sent.map(row => row.instructorId) });
   res.locals.auditChanges = `فتح مرحلة التدريب حتى ${closesAt} · ${waves.length} موجة · أُرسل لـ${sent.length}`;
   res.json({ doc: await Repository.getFeatureDoc("taPhases", id), sent });
 });

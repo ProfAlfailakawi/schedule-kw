@@ -7,16 +7,43 @@
  * الآن:
  *  • الحسابُ الجديد يولد بكلمةٍ عشوائية خاصةٍ به تُعرض للمسؤول مرّةً عند الإنشاء
  *    (ويملك دائماً تعيينَ غيرها من شاشة المستخدمين)، ويُعلَّم MustChangePassword.
+ *  • بطاقاتُ رؤساء الفرق (قرارُ المالك 2026-11-05) تُصدَر بالكلمة الافتراضية DEFAULT_FIRST_PASSWORD:
+ *    تُغيَّر عند أول دخول، ويسقط عملُها بعد سبعة أيام (InitialPasswordExpiresAt)، فيُرفض الدخول بها
+ *    حتى يعيد المسؤولُ إصدارها. لا تُحفظ نصّاً: بصمتُها وحدها كسائر الكلمات.
  *  • الحسابُ القائم الذي ما زال يدخل بالكلمة الموحّدة لا يُقفل: يدخل بها، فيُعلَّم
  *    عندها، ولا يصل إلى شيءٍ في الخادم حتى يختار كلمته (passwordChangeGate).
  */
 import { createHash, randomInt } from "node:crypto";
 import type { NextFunction, Response } from "express";
 import { AR, countOf } from "../utils/arabicCount";
+import { FIRST_PASSWORD_DAYS } from "../utils/seatAccessCard";
 import type { AuthenticatedRequest } from "./core/auth";
 
 /** الكلمةُ الموحّدة القديمة: لا تُعطى لحسابٍ جديد، ومن يدخل بها يُطلب منه تغييرها. */
 export const LEGACY_SHARED_PASSWORD = "12345678";
+
+/** الكلمةُ الأولى في بطاقات رؤساء الفرق: هي نفسها القديمة، لكنها الآن معلَّمة ومؤقتة. */
+export const DEFAULT_FIRST_PASSWORD = LEGACY_SHARED_PASSWORD;
+export const INITIAL_PASSWORD_EXPIRED = "انتهت صلاحية الكلمة الأولى. اطلب من مدير النظام إعادة إصدارها.";
+
+const firstPasswordDeadline = (now: number) => new Date(now + FIRST_PASSWORD_DAYS * 86_400_000).toISOString();
+
+/** حقولُ الحساب عند إصدار الكلمة الأولى الافتراضية: يبدأ عدُّ الأيام من لحظة الإصدار. */
+export function defaultFirstPasswordFields(hash: string, vault: string, now = Date.now()) {
+  return { SystemUserPass: hash, SystemUserPassVault: vault, MustChangePassword: true, InitialPasswordExpiresAt: firstPasswordDeadline(now) };
+}
+
+/** كلمةٌ كتبها مسؤولٌ لحسابِ غيره عرفها، فعلى صاحبها تغييرها؛ ومدّتُها تسقط إلا إن كانت الافتراضية. */
+export function adminSetPasswordFields(password: string, now = Date.now()) {
+  return { MustChangePassword: true, InitialPasswordExpiresAt: password === DEFAULT_FIRST_PASSWORD ? firstPasswordDeadline(now) : "" };
+}
+
+/** هل انتهت الكلمة الأولى؟ يكفي أن يختار صاحبها كلمته ليسقط الحكم، فالمدّة لا تمسّ كلمته هو. */
+export function initialPasswordExpired(user: { MustChangePassword?: boolean; InitialPasswordExpiresAt?: string } | null | undefined, now = Date.now()): boolean {
+  if (!user?.MustChangePassword || !user.InitialPasswordExpiresAt) return false;
+  const at = Date.parse(user.InitialPasswordExpiresAt);
+  return Number.isFinite(at) && now >= at;
+}
 
 /* بلا حروفٍ تتشابه عند الإملاء أو الطباعة (0/O، 1/l/I). */
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";

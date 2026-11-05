@@ -10,6 +10,9 @@ import { invitationHref } from "./invitationLink";
  *     (كما في «المستخدمون»: لا تُقرأ من الخادم أبداً) فتُضمَّن في جزء # من الرابط؛
  *     وإلا حمل الرابط اسم الدخول وحده.
  */
+/** أيامُ عمل الكلمة الأولى الافتراضية في بطاقة الرئيس. */
+export const FIRST_PASSWORD_DAYS = 7;
+
 export type SeatCardModel = { url: string; caption: string; message: string; note: string; fileStem: string };
 
 const site = (origin: string) => origin.replace(/\/+$/, "");
@@ -48,6 +51,8 @@ export function holderCardModel(input: {
   mustChangePassword: boolean;
   /** ما كتبه المسؤول من الكلمة الأولى؛ يُهمَل إن كان الشاغل قد اختار كلمته. */
   password?: string;
+  /** انتهت الكلمة الأولى: لا تعمل البطاقة حتى يُعاد إصدارها. */
+  expired?: boolean;
 }): SeatCardModel {
   const password = input.mustChangePassword ? String(input.password || "").trim() : "";
   const url = password
@@ -62,10 +67,12 @@ export function holderCardModel(input: {
     url,
     caption: seatCaption(input.roleLabel, input.seatName),
     message: [`أهلاً ${input.holderName}`, `بطاقة دخولك إلى فريق «${input.seatName}» في SCHEDULE.`, how, url, `اسم الدخول: ${input.login}`].join("\n"),
-    note: !input.mustChangePassword
+    note: input.expired && !password
+      ? "انتهت الكلمة الأولى، فلن يدخل بها. أعد إصدارها ثم أرسل البطاقة."
+      : !input.mustChangePassword
       ? `اختار ${input.holderName} كلمة سرّه بنفسه، فلا تحملها البطاقة: الرابط يملأ اسم الدخول، ويكتب هو كلمته.`
       : password
-        ? "الكلمة الأولى في الرابط، ويختار كلمته الخاصة عند أول دخول."
+        ? "الكلمة الأولى في الرابط وتعمل سبعة أيام، ويختار كلمته الخاصة عند أول دخول."
         : "ينتظر أن يختار كلمة سرّه. اكتب الكلمة الأولى التي ظهرت عند التسليم لتُضمَّن في الرابط، أو أرسل البطاقة باسم الدخول وحده وأبلغه الكلمة بنفسك.",
     fileStem: "SCHEDULE-seat",
   };
