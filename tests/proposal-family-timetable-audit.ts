@@ -29,5 +29,9 @@ check(/if \(oneClick\) void run\(true\)/.test(read("src/components/proposal/Prop
 const routes = read("src/server/studyProposalRoutes.ts");
 check(/reverse: true/.test(routes) && /canWriteScope\(req, scope\.c, scope\.s\)/.test(routes.slice(routes.indexOf("undo-commit"))), "التراجع عبر commitStudyProposal وبالصلاحيات نفسها");
 check(/undo: undefined, undoable/.test(routes), "اللقطة لا تصل شاشة");
+const undoRoute = routes.slice(routes.indexOf('"/api/study-proposals/:id/undo-commit"'), routes.indexOf('"/api/study-proposals/:id/commit"'));
+check(/guard: termRows/.test(undoRoute) && /expectedRev: item\.rev/.test(undoRoute), "حارسٌ في المعاملة ومراجعة التثبيت لا المراجعة الحية");
+const repo = read("src/db/repository.ts");
+check((repo.match(/if \(used\) throw new ScheduleRevisionConflict/g) || []).length === 2, "معرّفٌ مشغول يوقف الاستعادة كلها في المسارين");
 if (failures) { console.error(`${failures} failed`); process.exit(1); }
 console.log("proposal-family-timetable-audit: all checks passed");

@@ -6031,6 +6031,11 @@ export const Repository = {
           const termSnap = await transaction.get(firestoreDb!.collection("schedules").where("AdTermId", "==", plan.termId));
           plan.guard(termSnap.docs.map(doc => doc.data() as FSchedule));
         }
+        if (reverse && plan.creates.length) {
+          const taken = await transaction.getAll(...plan.creates.map(row => firestoreDb!.collection("schedules").doc(`schedule_${(row as FSchedule).id}`)));
+          const used = taken.find(doc => doc.exists);
+          if (used) throw new ScheduleRevisionConflict(used.data() as FSchedule);
+        }
         const refs = [...updateRefs, ...deleteRefs];
         const docs = refs.length ? await transaction.getAll(...refs) : [];
         const updated: FSchedule[] = [];
@@ -6080,6 +6085,10 @@ export const Repository = {
       const row = db.schedules.find(r => r.id === item.id);
       if (!row) throw new Error("الجدول غير موجود");
       if (Number(row.rev || 0) !== item.expectedRev) throw new ScheduleRevisionConflict(row);
+    }
+    if (reverse) {
+      const used = db.schedules.find(row => plan.creates.some(item => Number((item as FSchedule).id) === Number(row.id)));
+      if (used) throw new ScheduleRevisionConflict(used);
     }
     const held = db.instructorRequestReservationLedgers?.[String(plan.termId || current.AdTermId)] || [];
     const approved = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(plan.termId || current.AdTermId)));

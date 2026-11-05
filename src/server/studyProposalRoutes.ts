@@ -633,21 +633,33 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       if (lock) return void refuse(409, "schedule-locked", lock);
     }
     const liveById = new Map(world.termRows.map(row => [Number(row.id), row]));
-    const removed = undo.createdRowIds.map(id => liveById.get(id));
-    if (removed.some(row => !row) || undo.updates.some(item => !liveById.has(item.id))) return void refuse(409, "proposal-stale", "تغيّر أحد المواعيد بعد التثبيت. لم يُكتب شيء.");
-    const hypothetical = world.termRows.filter(row => !undo.createdRowIds.includes(Number(row.id)) && !undo.updates.some(item => item.id === Number(row.id)))
+    const removed = undo.created.map(item => liveById.get(item.id));
+    if (undo.created.some(item => Number(liveById.get(item.id)?.rev ?? -1) !== item.rev)
+      || undo.updates.some(item => Number(liveById.get(item.id)?.rev ?? -1) !== item.rev)) return void refuse(409, "proposal-stale", "تغيّر أحد المواعيد بعد التثبيت. لم يُكتب شيء.");
+    const hypothetical = world.termRows.filter(row => !undo.created.some(item => item.id === Number(row.id)) && !undo.updates.some(item => item.id === Number(row.id)))
       .concat(undo.updates.map(item => ({ ...liveById.get(item.id)!, ...item.fields })), undo.deletedRows);
     for (const row of [...undo.updates.map(item => ({ ...liveById.get(item.id)!, ...item.fields })), ...undo.deletedRows]) {
       const blocking = (await deps.scheduleConflicts(req, row, Number(row.id), hypothetical)).filter((conflict: any) => !conflict.soft);
       if (blocking.length) return void refuse(409, "undo-blocked", blocking[0].message || "الوقت القديم لم يعد متاحاً. لم يُكتب شيء.");
     }
+    const restored = [...undo.updates.map(item => ({ ...liveById.get(item.id)!, ...item.fields })), ...undo.deletedRows];
+    const owners = new Set([proposal.AdInstructorId, ...restored.map(row => Number(row.AdInstructorId))].map(Number));
+    const rooms = new Set(restored.map((row: any) => `${row.buildingId}|${row.roomId}|${row.AdRoomCode}`));
     const versions = await Promise.all(undo.scopes.map(scope => deps.captureScopeVersion(req, scope.c, scope.s, proposal.AdTermId, "قبل التراجع عن تثبيت مقترح", "manual")));
     const by = String(req.user?.Name || req.user?.SystemUserLogin || "");
     try {
       const result = await Repository.commitStudyProposal({
         reverse: true, proposalId: proposal.id, expectedRev: proposal.rev, termId: proposal.AdTermId,
         creates: undo.deletedRows as any, updates: undo.updates.map(item => ({ id: item.id, fields: item.fields, expectedRev: item.rev })),
-        deletes: removed.map(row => ({ id: Number(row!.id), expectedRev: Number(row!.rev || 0) })),
+        deletes: undo.created.map(item => ({ id: item.id, expectedRev: item.rev })),
+        /* ما فُحص عليه الوقت القديم ثم تغيّر قبل الكتابة (حجزٌ جديد للأستاذ أو القاعة) يلغي التراجع كلَّه. */
+        guard: termRows => {
+          const seen = new Map<number, number>(world.termRows.map((row: FSchedule) => [Number(row.id), Number(row.rev || 0)]));
+          for (const row of termRows as any[]) {
+            if (!owners.has(Number(row.AdInstructorId)) && !rooms.has(`${row.buildingId}|${row.roomId}|${row.AdRoomCode}`)) continue;
+            if (seen.get(Number(row.id)) !== Number(row.rev || 0)) throw new ScheduleRevisionConflict(row);
+          }
+        },
         build: () => {
           const { commit: _commit, ...rest } = proposal;
           /* الصفوف عادت بمراجعةٍ أحدث: اللقطةُ تتبعها، فلا يُحسب تراجعُنا تغيّراً يُبطل موافقة الأستاذ. */
@@ -808,7 +820,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
             commit: {
               at, by: Number(req.user?.SystemUserId || 0), byName: by, version: proposal.sentVersion,
               undo: {
-                status: proposal.status, scopes: touchedScopes, createdRowIds: created.map(row => Number(row.id)),
+                status: proposal.status, scopes: touchedScopes, created: created.map(row => ({ id: Number(row.id), rev: Number(row.rev || 0) })),
                 updates: updates.map(update => ({ id: update.id, rev: update.expectedRev + 1,
                   fields: Object.fromEntries(Object.keys(update.fields).map(key => [key, (liveById.get(update.id) as any)[key] ?? null])) as Partial<FSchedule> })),
                 deletedRows: deletes.map(item => liveById.get(item.id)!),

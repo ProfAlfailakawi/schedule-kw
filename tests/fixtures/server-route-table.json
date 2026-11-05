@@ -5207,7 +5207,7 @@
    ],
    "path": "/api/study-proposals/:id/undo-commit",
    "name": "bound dispatch",
-   "call": "0d8f7a7fcf1331a0",
+   "call": "2f24b56f39c237f3",
    "site": "src/server/studyProposalRoutes.ts:621",
    "regexp": "/^\\/api\\/study-proposals(?:\\/([^/]+?))\\/undo-commit\\/?$/i",
    "end": true
@@ -5219,8 +5219,8 @@
    ],
    "path": "/api/study-proposals/:id/commit",
    "name": "bound dispatch",
-   "call": "f62ec2bdab6eb8f8",
-   "site": "src/server/studyProposalRoutes.ts:672",
+   "call": "a0d7c3938eb5c7c2",
+   "site": "src/server/studyProposalRoutes.ts:684",
    "regexp": "/^\\/api\\/study-proposals(?:\\/([^/]+?))\\/commit\\/?$/i",
    "end": true
   },
@@ -5232,7 +5232,7 @@
    "path": "/api/public/request/:token/proposals",
    "name": "bound dispatch",
    "call": "36a2a37564fcb40f",
-   "site": "src/server/studyProposalRoutes.ts:930",
+   "site": "src/server/studyProposalRoutes.ts:942",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/proposals\\/?$/i",
    "end": true
   },
@@ -5244,7 +5244,7 @@
    "path": "/api/public/request/:token/proposals/:pid",
    "name": "bound dispatch",
    "call": "7dfb66e0b6a166ed",
-   "site": "src/server/studyProposalRoutes.ts:941",
+   "site": "src/server/studyProposalRoutes.ts:953",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/proposals(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5256,7 +5256,7 @@
    "path": "/api/public/request/:token/proposals/:pid/respond",
    "name": "bound dispatch",
    "call": "353131b14ac5dc31",
-   "site": "src/server/studyProposalRoutes.ts:957",
+   "site": "src/server/studyProposalRoutes.ts:969",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/proposals(?:\\/([^/]+?))\\/respond\\/?$/i",
    "end": true
   },

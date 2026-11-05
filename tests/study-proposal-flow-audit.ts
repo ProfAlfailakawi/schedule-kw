@@ -186,6 +186,12 @@ async function main() {
   const undone2 = await A("POST", `/api/study-proposals/${p2.proposal.id}/undo-commit`, { rev: done2.json.proposal.rev });
   check(undone2.status === 200 && (await rows()).filter(r => r.SCode === "701").length === 0, "التراجع يحذف الشعبة المنشأة", undone2.json);
   done2 = await A("POST", `/api/study-proposals/${p2.proposal.id}/commit`, { rev: undone2.json.proposal.rev, confirm: true });
+  /* صفٌّ أنشأه التثبيت ثم عُدّل: التراجع يتوقف ولا يمحو التعديل. */
+  const made701 = (await rows()).find(r => r.SCode === "701");
+  const touched = await A("PUT", `/api/schedules/${made701.id}`, { ...made701, id: undefined, fstarttime: "18:10", fendtime: "19:00" });
+  const staleUndo = await A("POST", `/api/study-proposals/${p2.proposal.id}/undo-commit`, { rev: done2.json.proposal.rev });
+  check(touched.status === 200 && staleUndo.status === 409 && staleUndo.json.code === "proposal-stale" && (await rows()).find(r => r.id === made701.id)?.fstarttime === "18:10", "تعديلٌ بعد التثبيت يوقف التراجع ولا يُمحى", staleUndo.json);
+  await A("PUT", `/api/schedules/${made701.id}`, { ...(await rows()).find(r => r.id === made701.id), id: undefined, fstarttime: made701.fstarttime, fendtime: made701.fendtime });
   const made = (await rows()).filter(r => r.SCode === "701");
   check(done2.status === 200 && made.length === 1 && made[0].AdInstructorId === salemInstructorId, "الشعبة الجديدة تُنشأ عند التثبيت وحده، مرةً واحدة", done2.json);
   check((await A("POST", `/api/study-proposals/${p2.proposal.id}/commit`, { rev: undone2.json.proposal.rev, confirm: true })).json.alreadyCommitted === true && (await rows()).filter(r => r.SCode === "701").length === 1, "تكرار التثبيت لا يكرّر الإنشاء");

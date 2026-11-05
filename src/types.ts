@@ -1994,7 +1994,7 @@ export interface StudyProposalImpact {
 export interface StudyProposalCommitUndo {
   status: StudyProposal["status"];
   scopes: Array<{ c: number; s: number }>;
-  createdRowIds: number[];
+  created: Array<{ id: number; rev: number }>;
   updates: Array<{ id: number; fields: Partial<FSchedule>; rev: number }>;
   deletedRows: FSchedule[];
 }
