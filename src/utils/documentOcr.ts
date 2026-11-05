@@ -1,5 +1,5 @@
 import type { AdCourse, AdInstructor } from "../types";
-import { academicDigits, assignAuthoritySections, authorityCourseCodeMatches, authorityCoursePrefixes, authorityInheritedCourseMatches, authoritySectionCodeLooksPlausible, normalizeAuthoritySectionCode } from "./authorityAcademicCodes";
+import { academicDigits, assignAuthoritySections, authorityCatalogueCourseDigits, authorityCourseCodeMatches, authorityCoursePrefixes, authorityInheritedCourseMatches, authoritySectionCodeLooksPlausible, normalizeAuthoritySectionCode } from "./authorityAcademicCodes";
 import { OFFICIAL_COLLEGE_SITE_PREFIXES } from "./locationCollegePrefixes";
 import { instructorCleanName, instructorIdentityTokens } from "./instructorIdentity";
 import { AR, countOf, nounFor, oblique } from "./arabicCount";
@@ -5916,7 +5916,7 @@ function isHeaderLine(text:string):boolean{
 }
 
 function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstructor[],startOrder:number,preferredInstructorIds?:Set<number>,authorityDepartment="",courseInstructorIds?:Map<number,Set<number>>,departmentPrintedTails:ReadonlySet<string>=new Set()){
-  const catalogue=courses.map(course=>({course,digits:academicDigits(course.CourseCode),folded:fold(course.CourseName)}));
+  const catalogue=courses.map(course=>({course,digits:authorityCatalogueCourseDigits(course.CourseCode),folded:fold(course.CourseName)}));
   const tailCounts=new Map<string,number>();
   for(const item of catalogue){
     if(item.digits.length>=3){const tail=item.digits.slice(-3);tailCounts.set(tail,(tailCounts.get(tail)||0)+1);}
@@ -5949,6 +5949,10 @@ function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstr
     if(!source)return null;
     const matches=catalogue.filter(item=>authorityCourseCodeMatches(source,item.digits,authorityDepartment));
     if(matches.length===1)return matches[0].course;
+    /* المفتاح الكامل المخزّن يسبق الصف القصير للمقرر ذاته (0115151 و151 معاً)، والمصدر
+       نفسه مفتاح من سبع خانات؛ قراءة من ثلاث خانات يبقى شرطها تفرّد الذيل. وإن تكرر المفتاح الكامل نفسه بقي الصف بلا ربط: الكتالوج لا يحسم أيهما. */
+    const exactKey=source.length===7?matches.filter(item=>item.digits===source):[];
+    if(exactKey.length===1)return exactKey[0].course;
     /* رقم موروث من القسم القديم (0114xxx تحت رأس 0120/0121): الذيل وحده لا يكفي،
        فصف الكتالوج القصير «464» قد يكون 0120464 الجديد لا 0114464 القديم. يُقبل
        إن لم يطبع الملف رقم القسم نفسه بهذا الذيل، ووافق الاسمُ المطبوع اسمَ المقرر. */
