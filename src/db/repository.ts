@@ -6008,11 +6008,18 @@ export const Repository = {
     updates: Array<{ id: number; fields: Partial<FSchedule>; expectedRev: number }>;
     deletes: Array<{ id: number; expectedRev: number }>;
     build: (created: FSchedule[]) => StudyProposal;
+    /** العملية العكسية: تراجعٌ عن تثبيتٍ سابق. `creates` صفوفٌ محذوفة تعود بمعرّفاتها. */
+    reverse?: boolean;
   }): Promise<{ proposal: StudyProposal; created: FSchedule[]; updated: FSchedule[] }> => {
+    const reverse = Boolean(plan.reverse);
+    const blockedByState = (current: StudyProposal) => {
+      if (reverse && !current.commit) throw new StudyProposalRevisionConflict(current);
+      if (!reverse && (current.commit || current.status === "committed")) throw new StudyProposalAlreadyCommitted(current);
+    };
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
-      const firstId = plan.creates.length ? await reserveFirestoreIds("schedules", plan.creates.length) : 0;
+      const firstId = plan.creates.length && !reverse ? await reserveFirestoreIds("schedules", plan.creates.length) : 0;
       const proposalRef = firestoreDb.collection("studyProposals").doc(plan.proposalId);
       const updateRefs = plan.updates.map(u => firestoreDb!.collection("schedules").doc(`schedule_${u.id}`));
       const deleteRefs = plan.deletes.map(d => firestoreDb!.collection("schedules").doc(`schedule_${d.id}`));
@@ -6020,11 +6027,16 @@ export const Repository = {
         const proposalDoc = await transaction.get(proposalRef);
         if (!proposalDoc.exists) throw new Error("المقترح غير موجود");
         const current = proposalDoc.data() as StudyProposal;
-        if (current.commit || current.status === "committed") throw new StudyProposalAlreadyCommitted(current);
+        blockedByState(current);
         if (Number(current.rev || 0) !== plan.expectedRev) throw new StudyProposalRevisionConflict(current);
         if (plan.guard && plan.termId !== undefined) {
           const termSnap = await transaction.get(firestoreDb!.collection("schedules").where("AdTermId", "==", plan.termId));
           plan.guard(termSnap.docs.map(doc => doc.data() as FSchedule));
+        }
+        if (reverse && plan.creates.length) {
+          const taken = await transaction.getAll(...plan.creates.map(row => firestoreDb!.collection("schedules").doc(`schedule_${(row as FSchedule).id}`)));
+          const used = taken.find(doc => doc.exists);
+          if (used) throw new ScheduleRevisionConflict(used.data() as FSchedule);
         }
         const refs = [...updateRefs, ...deleteRefs];
         const docs = refs.length ? await transaction.getAll(...refs) : [];
@@ -6036,7 +6048,7 @@ export const Repository = {
           if (Number(row.rev || 0) !== expected) throw new ScheduleRevisionConflict(row);
           if (index < plan.updates.length) updated.push({ ...row, ...plan.updates[index].fields, rev: Number(row.rev || 0) + 1 });
         });
-        const created: FSchedule[] = plan.creates.map((row, index) => ({ ...row, id: firstId + index, rev: 1 }));
+        const created: FSchedule[] = plan.creates.map((row, index) => (reverse ? { ...(row as FSchedule), rev: Number((row as FSchedule).rev || 0) + 1 } : { ...row, id: firstId + index, rev: 1 }));
         const termId = Number(plan.termId || current.AdTermId);
         const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(termId));
         const [ledger, barterSnapshot] = await Promise.all([transaction.get(ledgerRef), transaction.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))]);
@@ -6068,13 +6080,17 @@ export const Repository = {
     const at = db.studyProposals.findIndex(item => item.id === plan.proposalId);
     if (at < 0) throw new Error("المقترح غير موجود");
     const current = db.studyProposals[at];
-    if (current.commit || current.status === "committed") throw new StudyProposalAlreadyCommitted(current);
+    blockedByState(current);
     if (Number(current.rev || 0) !== plan.expectedRev) throw new StudyProposalRevisionConflict(current);
     if (plan.guard && plan.termId !== undefined) plan.guard(db.schedules.filter(r => Number(r.AdTermId) === plan.termId));
     for (const item of [...plan.updates, ...plan.deletes]) {
       const row = db.schedules.find(r => r.id === item.id);
       if (!row) throw new Error("الجدول غير موجود");
       if (Number(row.rev || 0) !== item.expectedRev) throw new ScheduleRevisionConflict(row);
+    }
+    if (reverse) {
+      const used = db.schedules.find(row => plan.creates.some(item => Number((item as FSchedule).id) === Number(row.id)));
+      if (used) throw new ScheduleRevisionConflict(used);
     }
     const held = db.instructorRequestReservationLedgers?.[String(plan.termId || current.AdTermId)] || [];
     const approved = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(plan.termId || current.AdTermId)));
@@ -6090,7 +6106,7 @@ export const Repository = {
     const deleteIds = new Set(plan.deletes.map(d => d.id));
     if (deleteIds.size) db.schedules = db.schedules.filter(r => !deleteIds.has(r.id));
     let nextId = db.schedules.length > 0 ? Math.max(...db.schedules.map(r => r.id)) + 1 : 1;
-    const created: FSchedule[] = plan.creates.map(row => ({ ...row, id: nextId++, rev: 1 }));
+    const created: FSchedule[] = plan.creates.map(row => (reverse ? { ...(row as FSchedule), rev: Number((row as FSchedule).rev || 0) + 1 } : { ...row, id: nextId++, rev: 1 }));
     db.schedules.push(...created);
     const next = { ...plan.build(created), rev: plan.expectedRev + 1, updatedAt: new Date().toISOString() };
     db.studyProposals[at] = next;

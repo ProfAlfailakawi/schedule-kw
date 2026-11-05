@@ -30,6 +30,7 @@ import {
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, isValidClock, scheduleDayWindowMinutes, withinScheduleDay } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
 import { loadLimitOf } from "../utils/teachingLoad";
+import { departmentFamily } from "../utils/sectionLabel";
 
 export interface EngineDeps {
   scheduleConflicts: (req: any, row: any, excludeId?: number, hypothetical?: FSchedule[]) => Promise<any[]>;
@@ -66,6 +67,8 @@ export interface LoadedWorld {
   /** سجلّاتُ الشخص نفسه في سجلّ الأساتذة (بنين وبنات، أو سجلّان باسمه): جدولُه الكامل يُقرأ منها كلّها.
    *  يضمّ معرّفَ الأستاذ نفسه دائماً. */
   personIds: Set<number>;
+  /** مواقعُ عائلة القسم المفتوح: تُرى كاملةً بلا قاعة وإن لم تكن من نطاق المستخدم. */
+  familyScopes?: Set<string>;
   instructor?: AdInstructor;
   term?: { AdTermId: number; AdTermName: string; AdTermClosed?: boolean };
 }
@@ -97,13 +100,21 @@ export const ofPerson = (world: Pick<LoadedWorld, "personIds">, row: { AdInstruc
 export const keyOfRow = (id: number) => `row:${id}`;
 export const keyOfNew = (opId: string) => `new:${opId}`;
 
+/** عائلةُ القسم المفتوح (المصدر الواحد departmentFamily) في عالم هذا الطلب. */
+export function withFamilyScopes(world: LoadedWorld, collegeId: number, sectionId: number): LoadedWorld {
+  world.familyScopes = new Set(departmentFamily(world.sections as any, collegeId, sectionId).map(scope => `${scope.collegeId}:${scope.sectionId}`));
+  return world;
+}
+
 export function gridItem(
   row: FSchedule, world: LoadedWorld, deps: EngineDeps, req: any,
   patch: Partial<GridItem> & Pick<GridItem, "state" | "key">,
 ): GridItem {
-  const visible = deps.canSee(req, Number(row.AdCollegeId), Number(row.AdSectionId));
+  const collegeId = Number(row.AdCollegeId), sectionId = Number(row.AdSectionId);
+  const visible = deps.canSee(req, collegeId, sectionId);
+  const familyOnly = !visible && Boolean(world.familyScopes?.has(`${collegeId}:${sectionId}`));
   const days = daysOf(row as any);
-  if (!visible) {
+  if (!visible && !familyOnly) {
     return {
       rowId: Number(row.id), courseName: "", courseCode: "", SCode: "", days,
       start: String(row.fstarttime || ""), end: String(row.fendtime || ""),
@@ -112,7 +123,8 @@ export function gridItem(
     } as GridItem;
   }
   const course = world.catalog.courseById.get(Number(row.AdCourseId));
-  const place = placeLabel(row);
+  const place = familyOnly ? { text: "", known: false } : placeLabel(row);
+  const readOnly = Boolean(req) && !req.user?.IsAdminUser && !deps.canWrite(req, collegeId, sectionId);
   const college = world.colleges.find(c => Number(c.AdCollegeId) === Number(row.AdCollegeId));
   const section = world.sections.find(c => Number(c.AdSectionId) === Number(row.AdSectionId));
   return {
@@ -125,10 +137,11 @@ export function gridItem(
     collegeName: college?.AdCollegeName, sectionName: section?.AdSectionName,
     /* موعدُه بسجلٍّ آخر في سجلّ الأساتذة: يُرى في جدوله الكامل ولا يُعدَّل من هذا الطلب. */
     ...(world.personIds && world.personIds.size > 1 && world.instructor && Number(row.AdInstructorId) !== Number(world.instructor.AdInstructorId) && world.personIds.has(Number(row.AdInstructorId)) ? { twin: true } : {}),
+    ...(readOnly ? { readOnlyReason: "للقراءة فقط: لا تملك التعديل في هذا الموقع." } : {}),
     src: {
-      courseId: Number(row.AdCourseId), collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId), rev: Number(row.rev || 0),
-      buildingId: row.buildingId, roomId: row.roomId, locationStatus: row.locationStatus,
-      roomCode: String(row.AdRoomCode || ""), roomHall: String(row.AdRoomHall || ""),
+      courseId: Number(row.AdCourseId), collegeId, sectionId, rev: Number(row.rev || 0),
+      buildingId: familyOnly ? undefined : row.buildingId, roomId: familyOnly ? undefined : row.roomId, locationStatus: row.locationStatus,
+      roomCode: familyOnly ? "" : String(row.AdRoomCode || ""), roomHall: familyOnly ? "" : String(row.AdRoomHall || ""),
     },
     ...patch,
   } as GridItem;
@@ -207,7 +220,7 @@ export async function proposalSchedulePreflight(
 }
 
 export async function evaluateProposal(deps: EngineDeps, req: any, input: EvaluateInput, preloaded?: LoadedWorld): Promise<ProposalEvaluation> {
-  const world = preloaded || await loadWorld(input.termId, input.instructorId);
+  const world = withFamilyScopes(preloaded || await loadWorld(input.termId, input.instructorId), input.collegeId, input.sectionId);
   const incompleteReasons: string[] = [];
   const onlyOpIds = input.onlyOpIds ? new Set(input.onlyOpIds) : undefined;
   const ops = input.ops.filter(op => !onlyOpIds || onlyOpIds.has(op.id));

@@ -192,7 +192,7 @@ const BOYS = "كلية التربية الأساسية - بنين", GIRLS = "ك�
   const grid = read("src/components/proposal/ProposalWeekGrid.tsx");
   check((grid.match(/<CampusChip item=\{/g) || []).length >= 3, "W5 وسمُ الموقع على كل موعد (الأسبوع واليوم والتفاصيل)");
   const ws = read("src/components/proposal/StudyProposalWorkspace.tsx"), form = read("src/components/proposal/ProposalOpForm.tsx");
-  check(/!item\.twin && item\.rowId > 0/.test(ws) && /!item\.outside && !item\.twin/.test(form), "W6 موعدُ سجلّه الآخر لا يُعدَّل ولا يُستبدل من هنا");
+  check(/!item\.twin && !item\.readOnlyReason && item\.rowId > 0/.test(ws) && /!item\.outside && !item\.twin/.test(form), "W6 موعدُ سجلّه الآخر لا يُعدَّل ولا يُستبدل من هنا");
   const routes = read("src/server/studyProposalRoutes.ts");
   check(/const instructorRows = world\.termRows\.filter\(row => ofPerson\(world, row\)\)/.test(routes) && /sheet: sheetTagOf\(/.test(routes), "W7 سياقُ المساحة: جدولُه الكامل ووسمُ الصحيفة لكل مقرر");
   const quick = read("src/components/proposal/ProposalQuickCard.tsx");

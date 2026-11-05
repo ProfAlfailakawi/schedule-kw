@@ -137,7 +137,7 @@ function RowPicker({ ws, label }: { ws: Workspace; label: string }) {
   const { draft, ops } = ws;
   const used = useMemo(() => new Set(ops.filter(op => op.id !== draft.editingOpId).flatMap(op => [op.source?.id, op.out?.snapshot.id]).filter((v): v is number => typeof v === "number")), [ops, draft.editingOpId]);
   /* موعدُه بسجلٍّ آخر (twin) يُرى في جدوله الكامل ولا يُعدَّل من هذا الطلب. */
-  const rows = ws.currentItems.filter(item => !item.outside && !item.twin);
+  const rows = ws.currentItems.filter(item => !item.outside && !item.twin && !item.readOnlyReason);
   if (!ws.currentItems.length) return <EmptyNote Icon={Clock3} title="ليس للأستاذ مواعيد حالياً" text="لا يوجد موعدٌ يُعدَّل أو يُستبدل. يمكنك إسناد شعبة أو إنشاء شعبة جديدة." />;
   if (!rows.length) return <EmptyNote Icon={Clock3} title="مواعيده خارج نطاق صلاحيتك" text="تظهر مواعيد الأستاذ في الأقسام الأخرى إشغالاً فقط، ولا يمكن تعديلها من هنا." />;
   return (

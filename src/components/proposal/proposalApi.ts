@@ -108,6 +108,8 @@ export const proposalApi = {
     call<StaffProposalView>(`/api/study-proposals/${encodeURIComponent(id)}/send`, json(body)),
   withdraw: (id: string, rev: number) =>
     call<StaffProposalView>(`/api/study-proposals/${encodeURIComponent(id)}/withdraw`, json({ rev })),
+  undoCommit: (id: string, rev: number) =>
+    call<any>(`/api/study-proposals/${encodeURIComponent(id)}/undo-commit`, json({ rev })),
   commit: (id: string, rev: number, confirm: boolean) =>
     call<any>(`/api/study-proposals/${encodeURIComponent(id)}/commit`, json({ rev, confirm })),
 };
