@@ -25,7 +25,7 @@ import { barterRequestRoomKey, HALL_BARTER_DAY_LABEL } from "../core/hallBarter"
 import { courseHabit } from "../core/instructorRequests";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { scheduleConflicts } from "../core/scheduleConflicts";
-import { describeScheduleChange, mixedPatternNotice, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, unapprovedPatternIssue } from "../core/scheduleRules";
+import { describeScheduleChange, hoursNotice, mixedPatternNotice, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, unapprovedPatternIssue } from "../core/scheduleRules";
 import { companionBookingFor } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed, legacyFDetail } from "../core/scope";
 import { approvalBlockerOptions } from "../core/smartImport";
@@ -138,9 +138,10 @@ export function registerScheduleReviewRoutes(app: Express): void {
    على الأخرى، فتُطلق معاً، والنتيجة نفسها التي تحكم بها بوابة الحفظ. */
 app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
   const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
-  const [patternNotice,lectureNotice,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue]=await Promise.all([
+  const [patternNotice,lectureNotice,departmentHours,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue]=await Promise.all([
     mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null),
     scheduleLengthNotice(row).catch(()=>null),
+    hoursNotice(row).catch(()=>""),
     // Return the same payload and weekly-hours blockers the save gate uses.
     schedulePayloadIssues(row),
     checkLengthIssue(row),
@@ -152,7 +153,7 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
   if(lengthIssue)validationIssues.push(lengthIssue);
   if(patternIssue)validationIssues.push(patternIssue);
   validationIssues.push(...placeIssues);
-  res.json({conflicts,validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{})}); });
+  res.json({conflicts,validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{})}); });
 
 
 /**

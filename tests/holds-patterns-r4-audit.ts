@@ -4,7 +4,7 @@
  */
 import { readFileSync } from "fs";
 import { completeRegulation, pickDay, regulationEnd, regulationFit } from "../src/utils/appointmentRegulation";
-import { endsPastScheduleDay, startsWithinScheduleDay } from "../src/utils/scheduleTime";
+import { departmentHoursNote, withinUniversityDay } from "../src/utils/scheduleTime";
 import { isSpecializationCourse, sameCourseSectionClash } from "../src/utils/scheduleRegulations";
 import { normalizeClock } from "../src/components/TimeField";
 import { holdMatchesDraft } from "../src/components/RequestHoldSheet";
@@ -57,11 +57,9 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
 /* ── 20: تجاوز نهاية الدوام تنبيه ── */
 {
   const window = { startTime: "08:00", endTime: "18:00" };
-  check(startsWithinScheduleDay(17 * 60, 18 * 60 + 50, window) && endsPastScheduleDay(18 * 60 + 50, window), "20 يبدأ داخل الدوام وينتهي بعده: مسموح ومنبَّه");
-  check(!startsWithinScheduleDay(18 * 60, 19 * 60, window) && !startsWithinScheduleDay(7 * 60, 9 * 60, window), "20 بدايةٌ خارج الدوام ما زالت مرفوضة");
-  check(/startsWithinScheduleDay\(start,end,window\)/.test(read("src/server/core/scheduleRules.ts")), "20 الخادم يقرأ البداية وحدها");
-  check(/ينتهي بعد نهاية دوام القسم/.test(read("src/components/Schedules.tsx")), "20 التنبيه في النموذج");
-  check(/code: "day-end", text: "تنتهي المحاضرة بعد نهاية دوام القسم\.", blocking: false/.test(read("src/utils/instructorRequestVerdict.ts")), "20 كرت الأستاذ لا يمنع");
+  check(withinUniversityDay(17 * 60, 18 * 60 + 50) && /ينتهي بعد نهاية دوام القسم/.test(departmentHoursNote(17 * 60, 18 * 60 + 50, window)), "20 داخل يوم الجامعة وبعد دوام القسم: تنبيه في النموذج");
+  check(!withinUniversityDay(7 * 60, 9 * 60) && !withinUniversityDay(19 * 60, 20 * 60 + 10), "20 خارج يوم الجامعة مرفوض (قرار 2026-11-05؛ التفاصيل في owner-hours-rule-audit)");
+  check(/withinUniversityDay\(start,end\)/.test(read("src/server/core/scheduleRules.ts")), "20 الخادم يقرأ يوم الجامعة");
 }
 
 /* ── 8: شعبتان من مقرر واحد ── */

@@ -46,6 +46,7 @@ export default function SectionScheduleHours({header,demoReadOnly=false}:{header
     const sameWindow=chosen.every(section=>section.startTime===first.startTime&&section.endTime===first.endTime);
     setStartTime(sameWindow?first.startTime:"08:00");setEndTime(sameWindow?first.endTime:"20:00");
   },[selected,sections]);
+  const outsideUniversityDay=startTime<"08:00"||endTime>"20:00";
   const allSelected=sections.length>0&&selected.length===sections.length;
   const selectedSections=useMemo(()=>sections.filter(section=>selected.includes(section.AdSectionId)),[sections,selected]);
   const toggleAll=()=>setSelected(allSelected?[]:sections.map(section=>section.AdSectionId));
@@ -71,10 +72,11 @@ export default function SectionScheduleHours({header,demoReadOnly=false}:{header
         <label className="field"><span>نهاية الدوام</span><input type="time" dir="ltr" lang="en" value={endTime} onChange={event=>setEndTime(event.target.value)} /></label>
       </div>
       <DayBand start={startTime} end={endTime} />
+      {outsideUniversityDay?<p className="muted-note" role="alert">دوام القسم يبقى داخل اليوم الجامعي (08:00–20:00).</p>:null}
       <div className="section-hours-intro"><span className="section-hours-clock"><Clock3 /></span><div><strong>تطبيق النطاق على الأقسام</strong><p>قسمٌ أو أكثر.</p></div><SecondaryButton type="button" data-guide-target="section-hours-select-all" disabled={!sections.length} onClick={toggleAll}><CheckCheck />{allSelected?"إلغاء تحديد الكل":"تحديد الكل"}</SecondaryButton></div>
       {loading?<p role="status">يجري تحميل أقسام الكلية…</p>:sections.length?<div className="section-hours-list">{sections.map(section=><label key={section.AdSectionId} className="section-hours-row"><input type="checkbox" checked={selected.includes(section.AdSectionId)} onChange={event=>setSelected(current=>event.target.checked?[...current,section.AdSectionId]:current.filter(id=>id!==section.AdSectionId))}/><span>{section.AdSectionName}</span><small dir="ltr">{section.startTime}–{section.endTime}</small><DayBand compact start={section.startTime} end={section.endTime} /></label>)}</div>:<p>لا توجد أقسام في الكلية المحددة.</p>}
       {selectedSections.length?<p className="muted-note">سيُطبّق النطاق على {countOf(selectedSections.length,AR.section)}.</p>:null}
-      <div className="form-actions"><PrimaryButton type="button" data-guide-target="section-hours-save" disabled={busy||demoReadOnly||!selected.length||endTime<=startTime} onClick={()=>void save()}><Save />{busy?"جارٍ الحفظ…":"حفظ وقت الدوام"}</PrimaryButton></div>
+      <div className="form-actions"><PrimaryButton type="button" data-guide-target="section-hours-save" disabled={busy||demoReadOnly||!selected.length||endTime<=startTime||outsideUniversityDay} onClick={()=>void save()}><Save />{busy?"جارٍ الحفظ…":"حفظ وقت الدوام"}</PrimaryButton></div>
     </Surface>
   </div>;
 }

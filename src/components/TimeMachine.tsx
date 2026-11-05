@@ -27,11 +27,13 @@ function examplesOf(context: LoadedContext): string[] {
   const busiest = new Map<string, number>();
   context.rows.filter(row => row.fsunday && row.AdRoomHall).forEach(row => busiest.set(String(row.AdRoomHall), (busiest.get(String(row.AdRoomHall)) || 0) + 1));
   const hall = [...busiest.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const thursday = context.rows.find(row => row.fthursday && context.instructors.some(p => p.AdInstructorId === row.AdInstructorId && !/^هيئة/.test(p.AdInstructorName)));
-  const teacher = context.instructors.find(p => p.AdInstructorId === thursday?.AdInstructorId)?.AdInstructorName;
+  /* الاقتراحُ وعد: لا يُعرض إلا ما يفهمه المحلِّل، ويفهمه عن الأستاذ نفسه. */
+  const teacher = context.instructors.find(person => !/^هيئة/.test(person.AdInstructorName)
+    && context.rows.some(row => row.fthursday && row.AdInstructorId === person.AdInstructorId)
+    && (() => { const read = parseProblem(`${person.AdInstructorName} معتذر الخميس`, context); return read?.kind === "teacherOff" && Number(read.instructorId) === Number(person.AdInstructorId); })())?.AdInstructorName;
   const wanted = context.demand ? Object.entries(context.demand).sort((a, b) => (b[1].wanted - b[1].seated) - (a[1].wanted - a[1].seated))[0]?.[0] : undefined;
   const course = context.courses.find(c => String(c.AdCourseId) === wanted) || context.courses.find(c => context.rows.some(r => r.AdCourseId === c.AdCourseId));
-  return [hall ? `قاعة ${hall} تعطلت الأحد` : "", teacher ? `${teacher} معتذر الخميس` : "", course ? `زاد الطلب على ${course.CourseCode}` : ""].filter(Boolean);
+  return [hall ? `قاعة ${hall} تعطلت الأحد` : "", teacher ? `${teacher} معتذر الخميس` : "", course ? `زاد الطلب على ${course.CourseCode}` : ""].filter(example => example && parseProblem(example, context));
 }
 const GOALS: Array<{ icon: IcoName; label: string; problem: TmProblem }> = [
   { icon: "clearDay", label: "صفّر الخميس", problem: { kind: "clearDay", day: "fthursday" } },

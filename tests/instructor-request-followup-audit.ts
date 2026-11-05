@@ -247,7 +247,7 @@ check(server.includes("headline: headlineReasonOf(item.reasons)?.text") && serve
   const late: RequestedRow = { rowId: null, action: "add", AdCourseId: 300, days: ["fsunday", "ftuesday", "fthursday"], start: "16:30" };
   const withRow = (extra: Partial<VerdictContext>) => judgeRequest(late, { ...context, ...extra, startLadder: [], instructorRowsAfter: [...busy, row({ id: -1, AdCourseId: 300, fthursday: true, fstarttime: "16:30", fendtime: "17:20" })] });
   check(!withRow({}).reasons.some(reason => reason.text.includes("نهاية اليوم")), "الافتراضيُّ يقبل ١٦:٣٠");
-  check(withRow({ dayEnd: 17 * 60 }).reasons.some(reason => reason.text.includes("نهاية دوام") && !reason.blocking), "ونهايةُ دوام القسم تنبّه ولا تمنع (ملاحظة المالك 20)");
+  check(withRow({ dayEnd: 17 * 60 }).reasons.some(reason => reason.text.includes("نهاية دوام") && reason.blocking) && withRow({ dayEnd: 17 * 60, departmentHoursWarnOnly: true }).reasons.some(reason => reason.text.includes("نهاية دوام") && !reason.blocking), "ونهايةُ دوام القسم تمنع كرت الأستاذ وتنبّه القسم (قرار 2026-11-05؛ كانت ملاحظة المالك 20)");
   check(withRow({ dayStart: 17 * 60 }).reasons.some(reason => reason.text.includes("قبل بداية")), "وبدايةُ دوامه كذلك");
 }
 

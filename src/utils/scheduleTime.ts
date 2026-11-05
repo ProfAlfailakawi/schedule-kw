@@ -12,12 +12,20 @@ export const SCHEDULE_DAY_START_TIME = "08:00";
 export const SCHEDULE_DAY_END_TIME = "20:00";
 
 export type ScheduleDayWindow = { startTime?: string | null; endTime?: string | null; scheduleDayStartTime?: string | null; scheduleDayEndTime?: string | null };
+/**
+ * الافتراضي لكل قسم هو يوم الجامعة كاملاً (08:00–20:00)، ولا يضيق إلا باستثناءٍ محفوظ
+ * للقسم في «أوقات الدوام للأقسام» (المالك 2026-11-05). فقسمٌ بلا صفّ، أو بقيمةٍ
+ * ناقصة أو فاسدة، لا يُنتج نافذةً أضيق. واليومُ الجامعي حدٌّ مطلق من طرفيه: نافذةٌ
+ * محفوظة تتجاوزه تُقصر عليه، فلا يوسّعه استثناء.
+ */
 export function scheduleDayWindowMinutes(window?: ScheduleDayWindow | null): { start: number; end: number; startTime: string; endTime: string } {
   const rawStart=window?.startTime??window?.scheduleDayStartTime,rawEnd=window?.endTime??window?.scheduleDayEndTime;
-  const startTime = isValidClock(rawStart) ? normalizeClock(rawStart) : SCHEDULE_DAY_START_TIME;
-  const endTime = isValidClock(rawEnd) ? normalizeClock(rawEnd) : SCHEDULE_DAY_END_TIME;
-  const start = Number(startTime.slice(0, 2)) * 60 + Number(startTime.slice(3, 5));
-  const end = Number(endTime.slice(0, 2)) * 60 + Number(endTime.slice(3, 5));
+  const clockMinutes = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+  const wanted = (raw: typeof rawStart, fallback: string) => isValidClock(raw) ? normalizeClock(raw) : fallback;
+  const startClock = wanted(rawStart, SCHEDULE_DAY_START_TIME), endClock = wanted(rawEnd, SCHEDULE_DAY_END_TIME);
+  const startTime = clockMinutes(startClock) < SCHEDULE_DAY_START ? SCHEDULE_DAY_START_TIME : startClock;
+  const endTime = clockMinutes(endClock) > SCHEDULE_DAY_END ? SCHEDULE_DAY_END_TIME : endClock;
+  const start = clockMinutes(startTime), end = clockMinutes(endTime);
   if (end <= start) return { start: SCHEDULE_DAY_START, end: SCHEDULE_DAY_END, startTime: SCHEDULE_DAY_START_TIME, endTime: SCHEDULE_DAY_END_TIME };
   return { start, end, startTime, endTime };
 }
@@ -30,20 +38,23 @@ export function withinScheduleDay(start: number, end: number, window?: ScheduleD
 
 
 /**
- * أوقاتُ دوام القسم (ملاحظة المالك 20): البدايةُ داخلها شرط، أما تجاوزُ النهاية فتنبيهٌ لا يمنع.
- * بدايةٌ بعد نهاية الدوام ليست «تجاوزاً»: الموعد كلُّه خارجه.
+ * قرار المالك 2026-11-05: يومُ الجامعة (08:00–20:00) يمنع في نموذج الموعد وكرت الأستاذ معاً.
+ * أما استثناءُ القسم الأضيق فيمنع كرتَ الأستاذ وحده، وفي نموذج الموعد تنبيهٌ يُقال ولا يمنع الحفظ.
  */
-export function startsWithinScheduleDay(start: number, end: number, window?: ScheduleDayWindow | null): boolean {
-  const bounds = scheduleDayWindowMinutes(window);
-  return Number.isFinite(start) && Number.isFinite(end) && start >= bounds.start && start < bounds.end && end > start;
+export function withinUniversityDay(start: number, end: number): boolean {
+  return withinScheduleDay(start, end);
 }
-/** آخرُ دقيقةٍ يكتبها الوقت: الطولُ الحقيقي لا يُقصّ عند نهاية الدوام، فالتجاوزُ يُنبَّه إليه ولا يُخفى. */
+/** نصُّ التنبيه حين يقع الموعد داخل يوم الجامعة وخارج استثناء القسم؛ وفارغٌ إن لم يكن للقسم استثناءٌ يخرج عنه. */
+export function departmentHoursNote(start: number, end: number, window?: ScheduleDayWindow | null): string {
+  if (!withinUniversityDay(start, end)) return "";
+  const bounds = scheduleDayWindowMinutes(window);
+  if (start >= bounds.start && end <= bounds.end) return "";
+  if (start >= bounds.start && start < bounds.end) return `ينتهي بعد نهاية دوام القسم (${scheduleClockForDisplay(bounds.endTime)})`;
+  return `خارج دوام القسم (${formatScheduleTimeRange(bounds.startTime, bounds.endTime)})`;
+}
+/** آخرُ دقيقةٍ يكتبها الوقت: الطولُ الحقيقي لا يُقصّ عند نهاية اليوم، فالتجاوزُ يُرى سببُه ولا يُخفى ولا تضيع القيمة المكتوبة. */
 export const SCHEDULE_CLOCK_END = 23 * 60 + 59;
 export const SCHEDULE_CLOCK_END_TIME = "23:59";
-export function endsPastScheduleDay(end: number, window?: ScheduleDayWindow | null): boolean {
-  return Number.isFinite(end) && end > scheduleDayWindowMinutes(window).end;
-}
-
 export function scheduleClockForDisplay(value: string | null | undefined): string {
   const raw = String(value || "").trim();
   if (!raw) return "—";
