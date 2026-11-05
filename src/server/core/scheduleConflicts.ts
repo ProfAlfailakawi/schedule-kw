@@ -360,19 +360,21 @@ export async function noteRequestHoldOverride(requestIds: string[], row: FSchedu
       timeline: [...(request.timeline || []), { kind: "schedule-edited" as const, at, by, detail: "عدّل القسم موعداً مرتبطاً بهذا الطلب أثناء انتظاره." },
         ...fixedNow.map(itemIndex => ({ kind: "item-fixed" as const, at, by, itemIndex })),
         ...(fixedNow.length && settled ? [{ kind: "settled" as const, at, by }] : [])].slice(-300) })
-      .then(() => { if (fixedNow.length && row) fixes.push({ requestId: id, scheduleId: Number(row.id), action: String(request.items[fixedNow[0]].action) }); }).catch(() => undefined);
+      .then(() => { if (fixedNow.length && row) fixes.push({ requestId: id, scheduleId: Number(row.id) }); }).catch(() => undefined);
   }
   return fixes;
 }
 
 /** ما ثبّته القسم من الجدول في هذا الحفظ: يعود مع الرد ليبني منه «تراجع» إعادةَ فتح الطلب. */
-export interface RequestFixNote { requestId: string; scheduleId: number; action: string }
+export interface RequestFixNote { requestId: string; scheduleId: number }
 
 /**
  * يعيد بنوداً ثبّتها القسم من الجدول إلى ما كانت عليه والطلبَ إلى حاله. لا إشعار: التثبيتُ من الجدول لم يُرسل إشعاراً،
  * والسطرُ في الخط الزمني يقول الحقيقة للأستاذ. وبندٌ قرّر فيه أحدٌ بعد التثبيت يترك الطلب «قيد المراجعة».
  */
 export function reopenedRequest(request: InstructorRequest, scheduleId: number, by: string, at = new Date().toISOString()): InstructorRequest | null {
+  /* طلبٌ مستبدَل حالُه نهائي: لا تُعيده لقطةٌ سبقت الاستبدال. */
+  if (request.status === "superseded") return null;
   const isTarget = (item: InstructorRequestItem) => item.decision?.state === "fixed" && item.decision.fromSchedule
     && Number(item.decision.scheduleId) === Number(scheduleId) && !String(item.itemId || "").startsWith("department-");
   const reopened = (request.items || []).flatMap((item, index) => isTarget(item) ? [index] : []);
@@ -421,7 +423,8 @@ export async function forgetDepartmentAddition(row: FSchedule): Promise<void> {
     const mine = await Repository.getInstructorRequestsByInstructor(Number(row.AdInstructorId || 0));
     for (const request of mine.filter(item => Number(item.AdTermId) === Number(row.AdTermId))) {
       /* بندُ الأستاذ المثبَّت من الجدول طلبُه هو: يعود مفتوحاً ولا يُمحى. بندُ القسم وحده يُرفع. */
-      const reopened = reopenedRequest(request, Number(row.id), "القسم") || request;
+      const current = request.status !== "superseded" && await Repository.isInstructorRequestInCurrentGeneration(request);
+      const reopened = (current ? reopenedRequest(request, Number(row.id), "القسم") : null) || request;
       const items = (reopened.items || []).filter(item => !(item.decision?.fromSchedule && item.decision.state === "fixed" && item.action === "add" && Number(item.decision.scheduleId) === Number(row.id)));
       if (reopened !== request || items.length !== (request.items || []).length) await Repository.saveInstructorRequest({ ...reopened, items });
     }

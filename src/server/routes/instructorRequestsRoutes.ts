@@ -799,11 +799,13 @@ app.post("/api/instructor-requests/:id/cancel-scheduled", requirePermission(7), 
 
 /**
  * «تراجع» عن «ثبّت الطلب» من الجدول: يعيد البند والطلب إلى ما كانا عليه، بلا إشعار. يُستدعى بعد إعادة الصف،
- * ولا يقع والصفُّ ما زال على الوقت المطلوب. وتكراره، أو طلبٌ استُبدل، لا يفعل شيئاً.
+ * ولا يقع والصفُّ ما زال على الوقت المطلوب، ولا على طلبٍ مستبدَل أو جولةٍ قديمة. وتكراره لا يفعل شيئاً.
  */
 app.post("/api/instructor-requests/:id/reopen-fixed", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
   if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (stored.status === "superseded") { res.status(409).json({ error: "استُبدل هذا الطلب ولا يُعاد فتحه." }); return; }
+  if (!(await requireCurrentInstructorRequestGeneration(stored, res))) return;
   if (await refuseIfTermFrozen(res, Number(stored.AdTermId || 0))) return;
   const scheduleId = Number(req.body?.scheduleId || 0);
   const targets = (stored.items || []).filter(item => item.decision?.state === "fixed" && item.decision.fromSchedule && Number(item.decision.scheduleId) === scheduleId);
@@ -812,7 +814,7 @@ app.post("/api/instructor-requests/:id/reopen-fixed", requirePermission(7), asyn
     res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return;
   }
   const live = await Repository.getScheduleById(scheduleId);
-  const stillThere = live && targets.some(item => item.action !== "add" && (item.slots || []).length > 0
+  const stillThere = live && targets.some(item => (item.slots || []).length > 0
     && (item.slots || []).every(slot => Boolean((live as any)[slot.day]) && String(slot.start).slice(0, 5) === String(live.fstarttime).slice(0, 5)));
   if (stillThere) { res.status(409).json({ error: "الموعد ما زال على الوقت المطلوب. أعِده أولاً." }); return; }
   const next = reopenedRequest(stored, scheduleId, roleLabel(req.user?.Role) || "القسم");

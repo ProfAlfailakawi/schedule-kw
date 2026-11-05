@@ -28,13 +28,16 @@ const read = (path: string) => readFileSync(path, "utf8");
   check(reopenedRequest(open, 7, "x") === null, "1 التكرار لا يفعل شيئاً");
   const legacy = reopenedRequest(base([{ itemId: "a", action: "add", decision: fixed(undefined) }]), 7, "x")!;
   check(legacy.status === "in-review" && !legacy.items[0].decision, "1 تثبيتٌ قديم بلا لقطة يعود قيد المراجعة");
+  check(reopenedRequest(base([{ itemId: "a", action: "change", decision: fixed({ status: "submitted" }) }], "superseded"), 7, "x") === null, "1 طلبٌ مستبدَل يبقى مستبدَلاً");
   const route = read("src/server/routes/instructorRequestsRoutes.ts");
   const handler = route.slice(route.indexOf('"/api/instructor-requests/:id/reopen-fixed"'), route.indexOf('"/api/instructor-requests/:id/apply"'));
   check(handler.length > 100 && !/pushHooks|requestDecided/.test(handler), "1 إعادة الفتح لا تُشعر أحداً");
   check(/isScopeAllowed/.test(handler) && /refuseIfTermFrozen/.test(handler) && /ما زال على الوقت المطلوب/.test(handler), "1 نطاقٌ وتجميد ولا تقع والصف باقٍ");
   check(/reopenTo: undefined/.test(read("src/server/routes/publicRequestRoutes.ts")), "1 لقطة القسم لا تصل الأستاذ");
   check(/reopenedRequest\(request, Number\(row\.id\)/.test(read("src/server/core/scheduleConflicts.ts")), "1 حذف صف الإضافة يعيد بند الأستاذ ولا يمحوه");
-  check(/\.\.\.reopenSteps\]/.test(read("src/components/Schedules.tsx")), "1 تراجع الصف يتبعه إعادة الطلب");
+  const undoSource = read("src/components/Schedules.tsx");
+  check(/\.\.\.reopenSteps\]/.test(undoSource) && /reopenSteps: UndoStep\[\] = requestFix\.map/.test(undoSource), "1 تراجع الصف يعيد الطلب أيّاً كان نوع البند");
+  check(/requireCurrentInstructorRequestGeneration\(stored, res\)/.test(handler) && /isInstructorRequestInCurrentGeneration\(request\)/.test(read("src/server/core/scheduleConflicts.ts")), "1 الجولة القديمة لا تُعاد في المسارين");
 }
 /* 2 ورقة الحجز */
 {

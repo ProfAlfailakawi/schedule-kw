@@ -5109,11 +5109,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       const movedExisting = Boolean(saved && typeof saved === "object" && "movedFromRow" in saved);
       const movedFromRow: any = movedExisting ? (saved as any).movedFromRow : null;
       if (movedExisting) delete (saved as any).movedFromRow;
-      /* بندٌ ثبّته هذا الحفظ: «تراجع» يعيد الصف ثم يعيد الطلب كما كان. الإضافةُ يعيدها حذفُ صفّها في الخادم. */
-      const requestFix: Array<{ requestId: string; scheduleId: number; action: string }> = (saved as any)?.requestFix || [];
+      /* بندٌ ثبّته هذا الحفظ: «تراجع» بالتعديل يعيد الصف ثم الطلب؛ وتراجع الحذف يعيده الخادم مع الحذف. */
+      const requestFix: Array<{ requestId: string; scheduleId: number }> = (saved as any)?.requestFix || [];
       if (saved && typeof saved === "object") delete (saved as any).requestFix;
-      const reopenSteps: UndoStep[] = requestFix.filter(fix => fix.action !== "add")
-        .map(fix => ({ method: "POST", url: `/api/instructor-requests/${fix.requestId}/reopen-fixed`, body: { scheduleId: fix.scheduleId } }));
+      const reopenSteps: UndoStep[] = requestFix.map(fix => ({ method: "POST", url: `/api/instructor-requests/${fix.requestId}/reopen-fixed`, body: { scheduleId: fix.scheduleId } }));
       const reopenLabel = requestFix.length ? " · ويعود الطلب مفتوحاً" : "";
       if (movedExisting) {
         if (movedFromRow) {
