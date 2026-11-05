@@ -4764,7 +4764,7 @@
    "path": "/api/instructor-requests/issue",
    "name": "bound dispatch",
    "call": "4b6b7370e4bc8ba3",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:113",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:115",
    "regexp": "/^\\/api\\/instructor-requests\\/issue\\/?$/i",
    "end": true
   },
@@ -4775,8 +4775,8 @@
    ],
    "path": "/api/instructor-requests/send-log",
    "name": "bound dispatch",
-   "call": "e7c1e056b31c2865",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:358",
+   "call": "f4e2c379848d07bb",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:361",
    "regexp": "/^\\/api\\/instructor-requests\\/send-log\\/?$/i",
    "end": true
   },
@@ -4788,7 +4788,7 @@
    "path": "/api/instructor-requests/registrar-noted",
    "name": "bound dispatch",
    "call": "866cc54e3b17ac14",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:389",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:392",
    "regexp": "/^\\/api\\/instructor-requests\\/registrar-noted\\/?$/i",
    "end": true
   },
@@ -4800,7 +4800,7 @@
    "path": "/api/instructor-requests/recipients",
    "name": "bound dispatch",
    "call": "f4dee7d5f8c0821c",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:399",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:402",
    "regexp": "/^\\/api\\/instructor-requests\\/recipients\\/?$/i",
    "end": true
   },
@@ -4812,7 +4812,7 @@
    "path": "/api/instructor-requests/exceptions",
    "name": "bound dispatch",
    "call": "4dfe0e600fb5794d",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:430",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:433",
    "regexp": "/^\\/api\\/instructor-requests\\/exceptions\\/?$/i",
    "end": true
   },
@@ -4824,7 +4824,7 @@
    "path": "/api/instructor-requests/exception/revoke",
    "name": "bound dispatch",
    "call": "9f10a3392a5671f0",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:453",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:456",
    "regexp": "/^\\/api\\/instructor-requests\\/exception\\/revoke\\/?$/i",
    "end": true
   },
@@ -4836,7 +4836,7 @@
    "path": "/api/instructor-requests",
    "name": "bound dispatch",
    "call": "6df03ddb6f0c0901",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:479",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:482",
    "regexp": "/^\\/api\\/instructor-requests\\/?$/i",
    "end": true
   },
@@ -4848,7 +4848,7 @@
    "path": "/api/instructor-requests/:id/decide",
    "name": "bound dispatch",
    "call": "4ec2adef91afab45",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:611",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:614",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/decide\\/?$/i",
    "end": true
   },
@@ -4860,8 +4860,20 @@
    "path": "/api/instructor-requests/:id/cancel-scheduled",
    "name": "bound dispatch",
    "call": "655e79091f83d3ff",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:762",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:765",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/cancel-scheduled\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/instructor-requests/:id/reopen-fixed",
+   "name": "bound dispatch",
+   "call": "e1a554c1da89b229",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:804",
+   "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reopen-fixed\\/?$/i",
    "end": true
   },
   {
@@ -4872,7 +4884,7 @@
    "path": "/api/instructor-requests/:id/apply",
    "name": "bound dispatch",
    "call": "21aa13a456850b36",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:797",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:825",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
   },
@@ -4884,7 +4896,7 @@
    "path": "/api/instructor-requests/:id/reply",
    "name": "bound dispatch",
    "call": "052daaf01a8ee463",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1091",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1119",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
   },
@@ -5003,7 +5015,7 @@
    ],
    "path": "/api/public/request/:token/check-times",
    "name": "bound dispatch",
-   "call": "ee65a290d09e6a51",
+   "call": "dbdb03ba6414372f",
    "site": "src/server/routes/publicRequestRoutes.ts:1336",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check-times\\/?$/i",
    "end": true

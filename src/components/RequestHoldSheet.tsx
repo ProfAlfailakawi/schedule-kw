@@ -41,7 +41,14 @@ export function holdMatchesDraft(hold: RequestHold, draft?: Partial<FSchedule>):
     && days.join("+") === DAY_KEYS.filter(day => hold.days!.includes(day)).join("+");
 }
 
-function RequestHoldSheet({ holds, verb, draft, onChoose }: { holds: RequestHold[]; verb: string; draft?: Partial<FSchedule>; onChoose: (choice: RequestHoldChoice) => void }) {
+/** الوقتُ الذي سيُحفظ فعلاً حين يخالف المطلوب: النهايةُ نهايةُ المسودة (من النمط المعتمد)، فتُرى قبل التأكيد. */
+export function holdSavedTime(hold: RequestHold, draft?: Partial<FSchedule>): string {
+  const start = String(draft?.fstarttime || "").slice(0, 5), end = String(draft?.fendtime || "").slice(0, 5);
+  if (!start || !end || (start === String(hold.start || "").slice(0, 5) && end === String(hold.end || "").slice(0, 5))) return "";
+  return `${start}–${end}`;
+}
+
+function RequestHoldSheet({ holds, verb, draft, patternEnd, onChoose }: { holds: RequestHold[]; verb: string; draft?: Partial<FSchedule>; patternEnd?: string; onChoose: (choice: RequestHoldChoice) => void }) {
   const same = holds.every(hold => holdMatchesDraft(hold, draft));
   const canReject = holds.every(hold => hold.itemIndex != null);
   return (
@@ -57,6 +64,7 @@ function RequestHoldSheet({ holds, verb, draft, onChoose }: { holds: RequestHold
               <b>{hold.instructorName || "أستاذ"}</b>
               {hold.courseName ? <span>{hold.courseName}</span> : null}
               {hold.days?.length ? <small>{hold.days.map(day => DAY_NAMES[day] || day).join(" · ")} <bdi dir="ltr">{hold.start}–{hold.end}</bdi></small> : null}
+              {holdSavedTime(hold, draft) ? <small className="request-hold-saved">يُحفظ <bdi dir="ltr">{holdSavedTime(hold, draft)}</bdi>{patternEnd && patternEnd === String(draft?.fendtime || "").slice(0, 5) ? " · النهاية من النمط المعتمد" : ""}</small> : null}
             </li>
           ))}
         </ul>
@@ -72,7 +80,7 @@ function RequestHoldSheet({ holds, verb, draft, onChoose }: { holds: RequestHold
 }
 
 /** يفتح الورقة ويعيد القرار. مركّبٌ مستقل لأن السؤال يقع داخل مسار حفظٍ لا داخل رسمٍ بعينه. */
-export function askRequestHold(input: { holds: RequestHold[]; verb: string; draft?: Partial<FSchedule> }): Promise<RequestHoldChoice> {
+export function askRequestHold(input: { holds: RequestHold[]; verb: string; draft?: Partial<FSchedule>; patternEnd?: string }): Promise<RequestHoldChoice> {
   return new Promise(resolve => {
     const host = document.createElement("div");
     document.body.appendChild(host);

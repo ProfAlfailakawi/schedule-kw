@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Route, ShieldAlert, UserX, X } from "lucide-react";
+import { Route, UserX, X } from "lucide-react";
 import { Notice, PrimaryButton } from "./ui";
 import { TRAVEL_PAIRS, type CampusTravelPolicy } from "../utils/campusTravelPolicy";
 
@@ -37,8 +37,9 @@ export default function CampusTravelPolicyCard() {
     } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
   return (
-    <details className="sd-block travel-policy">
+    <details className="sd-block travel-policy" open>
       <summary><Route aria-hidden="true" /> التنقّل بين المواقع</summary>
+      <p className="travel-policy-rule">إلزام في بطاقة الأستاذ · تنبيه في «موعد». الصفر يوقف المدة.</p>
       {error ? <Notice>{error}</Notice> : null}
       {message ? <Notice type="success" onDismiss={() => setMessage("")}>{message}</Notice> : null}
       <div className="travel-policy-rows">
@@ -50,16 +51,12 @@ export default function CampusTravelPolicyCard() {
               <label><span className="sr-only">المدة بالدقائق</span>
                 <input type="number" min={0} max={180} step={5} value={rule.minutes} aria-label={`مدة ${pair.label} بالدقائق`} onChange={e => patch(pair.key, { minutes: Number(e.target.value) })} /> د
               </label>
-              <button type="button" className={rule.required ? "on" : ""} aria-pressed={rule.required} onClick={() => patch(pair.key, { required: !rule.required })}
-                data-guide-ignore="يبدّل المدة بين تنبيه وإلزام داخل البطاقة؛ لا يحفظ حتى «حفظ»">
-                <ShieldAlert aria-hidden="true" />{rule.required ? "إلزام" : "تنبيه"}
-              </button>
             </div>
           );
         })}
       </div>
       <div className="travel-policy-exempt">
-        <strong><UserX aria-hidden="true" /> مستثنون</strong>
+        <strong><UserX aria-hidden="true" /> مستثنون من المدة</strong>
         <div className="travel-policy-chips">
           {policy.exemptInstructorIds.map(id => (
             <button key={id} type="button" onClick={() => setPolicy({ ...policy, exemptInstructorIds: policy.exemptInstructorIds.filter(item => item !== id) })}

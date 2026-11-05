@@ -1500,6 +1500,8 @@ export interface InstructorRequestItem {
     fromSchedule?: boolean;
     /** ألغى القسم موعداً وضعه بنفسه؛ `note` سطرُه للأستاذ. */
     cancelled?: boolean;
+    /** حالُ الطلب والبند قبل «ثبّت الطلب» من الجدول، ليعيدهما «تراجع». للقسم وحده. */
+    reopenTo?: { status: InstructorRequest["status"]; decision?: NonNullable<InstructorRequestItem["decision"]> };
   };
   /** البديلُ الذي اختاره الأستاذ بعد الرفض. */
   chosenAlternative?: InstructorRequestSlot;
@@ -1526,7 +1528,7 @@ export interface InstructorRequestMessage {
 export type InstructorRequestEventKind =
   | "link-created" | "link-opened" | "submitted" | "received" | "unchanged-confirmed" | "schedule-edited"
   | "schedule-replaced"
-  | "item-fixed" | "item-rejected" | "alternative-offered" | "alternative-chosen"
+  | "item-fixed" | "item-reopened" | "item-rejected" | "alternative-offered" | "alternative-chosen"
   | "settled" | "schedule-approved"
   | "department-replied" | "instructor-replied" | "proposal-accepted"
   | "study-proposal-sent" | "study-proposal-approved" | "study-proposal-changes"

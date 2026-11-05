@@ -277,7 +277,7 @@ function skAssignColors(){SKC.assign(state.map(skCid))}
 function skCourseColor(it){return SKC.color(skCid(it))}
 var SKSTAT={keep:"check",change:"pen",add:"plus",delete:"trash"};
 function skStat(act){return gi(SKSTAT[act]||"check")}
-var SKEV={"link-created":"plus","link-opened":"eye","submitted":"send","received":"check","item-fixed":"check","item-rejected":"x","alternative-offered":"swap","alternative-chosen":"check","settled":"lock","schedule-approved":"shield","department-replied":"chat","instructor-replied":"chat","proposal-accepted":"check","rejected-alt":"swap"};
+var SKEV={"link-created":"plus","link-opened":"eye","submitted":"send","received":"check","item-fixed":"check","item-reopened":"swap","item-rejected":"x","alternative-offered":"swap","alternative-chosen":"check","settled":"lock","schedule-approved":"shield","department-replied":"chat","instructor-replied":"chat","proposal-accepted":"check","rejected-alt":"swap"};
 var SKACT={add:"plus",change:"pen",delete:"trash"};
 function skEvIcon(k){return '<i class="activity-dot" aria-hidden="true">'+gi(SKEV[k]||"clock")+'</i>'}
 function skActIcon(a){return '<i class="activity-dot" aria-hidden="true">'+gi(SKACT[a]||"clock")+'</i>'}

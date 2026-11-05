@@ -70,7 +70,7 @@ export interface RequestReason {
   /** `hours`: المشكلةُ في الأيام (لا تغطّي ساعاتِ المقرّر) لا في وقت البداية، فلا يختلف الحكمُ بين الأوقات.
       `pattern`: الأيامُ ليست نمطاً معتمداً في مكتبة الأنماط — يُعرض بدلَ البدائل أزرارُ الأنماط المعتمدة.
       `ladder`: البدايةُ ليست من سُلّم البدايات في اللائحة — يمنع في كرت الأستاذ وحده، وبدائلُه من السُّلّم. */
-  code?: "hours" | "pattern" | "ladder" | "day-end" | "section-clash";
+  code?: "hours" | "pattern" | "ladder" | "day-end" | "section-clash" | "travel";
 }
 
 /** موضعٌ مقترح: يومٌ وبداية، والنهايةُ محسوبة. */
@@ -207,6 +207,10 @@ export interface VerdictContext {
   departmentHoursWarnOnly?: boolean;
   /** شعبتان من مقرر تخصص في الوقت نفسه تُمنعان: كرتُ الأستاذ وحده (ملاحظة المالك 8). */
   sectionClashBlocks?: boolean;
+  /** مدةُ التنقّل بين المواقع من إعدادات التسجيل: أولُ نقصٍ بين الموعد المطلوب وبقية مواعيد الأستاذ. */
+  travelShortfall?: (slots: ReadonlyArray<{ day: string; start: string; end: string }>, others: readonly any[]) => { need: number; gap: number } | null;
+  /** إلزامٌ في بطاقة الأستاذ، وتنبيهٌ في شاشات القسم. */
+  travelBlocks?: boolean;
 }
 
 const dayLabel = (day: DayKey) => DAY_NAMES[DAY_KEYS.indexOf(day)];
@@ -484,7 +488,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const verdictOf = (): RequestVerdict => {
     const blocking = reasons.some(reason => reason.blocking);
     /* Shared-student demand is advice, not an exception requiring a signed justification. */
-    const exceptionReasons = reasons.filter(reason => reason.source !== "cohort");
+    const exceptionReasons = reasons.filter(reason => reason.source !== "cohort" && reason.code !== "travel");
     const kind: RequestVerdictKind = blocking ? "conflict" : exceptionReasons.length ? "exception" : "clear";
     return {
       kind, reasons, sendable: !blocking, needsExcuse: kind === "exception",
@@ -769,6 +773,12 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       blocking: true,
     });
   }
+
+  /* مدةُ التنقّل: لا تذكر موقعاً ولا مبنى، فالسطرُ يصل الأستاذ كما هو. */
+  const travel = request.action === "add" || request.action === "change"
+    ? context.travelShortfall?.(slots, context.instructorRowsAfter.filter(row => !touched.has(row.id))) : null;
+  if (travel) reasons.push({ source: "instructor", code: "travel", blocking: Boolean(context.travelBlocks),
+    text: `وقت التنقّل بين موعدَيك لا يكفي: يلزم ${countOf(travel.need, AR.minute)} والمتاح ${countOf(travel.gap, AR.minute)}.` });
 
   /* ── طلبةٌ مشتركون ────────────────────────────────────────────────────── */
   if (slots.some(slot => cohortClash(request.AdCourseId, [slot.day], slot.start, slot.end, week.filter(row => !touched.has(row.id)), context.cohortPairs, identity))) {

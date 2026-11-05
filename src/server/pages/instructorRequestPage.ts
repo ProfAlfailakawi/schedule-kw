@@ -239,7 +239,7 @@ var f=DAYS.filter(function(x){return x[0]===d})[0];return f?f[1]:d}).join(" · "
 function dt(iso){if(!iso)return "";var d=new Date(iso);return isNaN(d)?"":
 d.toLocaleDateString("ar-KW-u-nu-latn",{month:"long",day:"numeric"})+" "+d.toLocaleTimeString("ar-KW-u-nu-latn",{hour:"2-digit",minute:"2-digit"})}
 function clockOf(iso){var d=new Date(iso);return isNaN(d)?"":("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)}
-var EVENTS={"link-created":"أُنشئ الرابط","link-opened":"فُتح الرابط","submitted":"أرسلتَ طلبك","unchanged-confirmed":"ثُبّت جدولك كما هو","schedule-edited":"عُدّل الموعد المرتبط بطلبك",
+var EVENTS={"item-reopened":"عاد طلبك قيد المراجعة","link-created":"أُنشئ الرابط","link-opened":"فُتح الرابط","submitted":"أرسلتَ طلبك","unchanged-confirmed":"ثُبّت جدولك كما هو","schedule-edited":"عُدّل الموعد المرتبط بطلبك",
 "received":"وصل إلى صندوق القسم","item-fixed":"ثُبّت بند","item-rejected":"رُفض بند",
 "alternative-offered":"عُرض عليك بديل","alternative-chosen":"اخترتَ بديلاً","settled":"أُغلق الطلب",
 "schedule-approved":"اعتُمد الجدول","department-replied":"ردّ القسم واقترح","instructor-replied":"رددتَ على القسم","proposal-accepted":"وافقتَ على مقترح القسم","rejected-alt":"رُفض بندٌ وعُرض عليك بديل"};
@@ -624,7 +624,7 @@ function weekStrip(){
    استثناء، أحمر لا يمكن. والزرُّ لا يُعطَّل بها (القرارُ للخادم عند الإرسال)، وإنما يُرى. */
 var heat={},heatKey={},heatTimer={},heatShape={},heatWhy={},heatShapes={};
 /* سببُ الوقت غير المتاح أيقونةً لا جملة (B2). */
-var WHY_IC={instructor:["user","لديك محاضرة"],room:["door","لا تتوفّر قاعة في هذا الوقت"],facility:["tool","المرفق مشغول"],cohort:["users","طلبة مشتركون"],load:["scale","يتجاوز نصابك"],regulation:["shield","اللائحة"],shape:["cal","الأيام"],window:["lock","مغلق"]};
+var WHY_IC={travel:["clock","وقت التنقّل لا يكفي"],instructor:["user","لديك محاضرة"],room:["door","لا تتوفّر قاعة في هذا الوقت"],facility:["tool","المرفق مشغول"],cohort:["users","طلبة مشتركون"],load:["scale","يتجاوز نصابك"],regulation:["shield","اللائحة"],shape:["cal","الأيام"],window:["lock","مغلق"]};
 function whyIcon(i,t){var w=heatWhy[i]&&heatWhy[i][t],m=WHY_IC[w]||["x","غير متاح"];return '<span class="why-ic" title="'+m[1]+'" aria-label="'+m[1]+'">'+gi(m[0])+'</span>'}
 function heatAttr(i,t){var h=heat[i]&&heat[i][t];if(!h)return "";
  return ' data-heat="'+h+'" aria-label="'+t+(h==="ok"?" · متاح":h==="warn"?" · يحتاج سبب استثناء":" · غير ممكن")+'"'}
