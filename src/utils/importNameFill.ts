@@ -167,6 +167,7 @@ export function applyNameFill<T extends FillRow>(rows: readonly T[], decisions: 
           instructor: {
             ...prior,
             ...(batch ? { fillBatch: batch } : {}),
+            filledFromId: Number(row.AdInstructorId || 0),
             ...(evidence?.instructor ? { filledOver: evidence.instructor } : {}),
             canonical: String(decision.instructorId),
             confidence: "CONFIRMED", score: 100, source: "MANUAL", method: "NAME_FILL", derived: false,
@@ -190,7 +191,7 @@ export function undoNameFill<T extends FillRow>(rows: readonly T[], batch: strin
     if (proof?.method !== "NAME_FILL" || proof.fillBatch !== batch) return row;
     const { instructor: _filled, ...others } = evidence;
     const restored = proof.filledOver ? { ...others, instructor: proof.filledOver } : others;
-    return { ...row, AdInstructorId: 0, importEvidence: restored };
+    return { ...row, AdInstructorId: Number(proof.filledFromId || 0), importEvidence: restored };
   });
 }
 
