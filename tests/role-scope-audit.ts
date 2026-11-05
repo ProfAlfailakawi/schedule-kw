@@ -180,6 +180,8 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   const REVIEWED: Record<string, string> = {
     "POST /api/schedules/apply-proposal": "يمرّ من معالجَي الحفظ نفسيهما (createScheduleHandler/updateScheduleHandler: isScopeAllowed + قفل + تعارض)، وللنقل يسأل applyProposalCore النطاقَ صراحةً",
     "GET /api/version": "رقم الإصدار — لا بيانات",
+    "GET /api/campus-travel-policy": "سياسة عامة لكل الكليات: للمسجّل العام ومدير النظام (canSetTravelPolicy)",
+    "PUT /api/campus-travel-policy": "سياسة عامة لكل الكليات: للمسجّل العام ومدير النظام (canSetTravelPolicy)",
     "GET /api/journey": "أعدادٌ مجمّعة عامّة عمداً (تُعرض قبل الدخول)، بلا أسماء",
     "GET /api/colleges": "أسماء كليات النطاق (تصفية بصفوف النطاق)",
     "POST /api/colleges": "دليلٌ جامعي، شاشة الكليات (٢)",

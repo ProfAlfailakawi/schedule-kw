@@ -74,7 +74,7 @@ h1{font-size:23px;line-height:1.35;margin:0 0 3px;letter-spacing:-.02em}
 .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 2px 9px}.section-head b{font-size:15px}.section-head small{font-size:12px;color:var(--muted)}
 .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:15px;margin-bottom:11px;box-shadow:0 5px 18px rgba(22,57,40,.035);overflow:hidden}
 .card::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:3px;background:transparent}.card[data-act="change"]::before{background:var(--warn)}.card[data-act="delete"]::before{background:var(--bad)}.card[data-act="add"]::before{background:var(--ok)}
-.card[data-act="delete"]{background:#fffafa}.card[data-act="delete"] .now{text-decoration:line-through;opacity:.72}
+.appt[data-noted="1"]{box-shadow:0 0 0 2px var(--warn)}.appt[data-locked="1"]{opacity:.6}.appt[data-locked="1"] .appt-head{cursor:default}.noted-banner{display:flex;align-items:center;gap:8px;margin-block-end:10px;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:13px;font-weight:600}.plan-hint{display:inline-block;margin-inline-start:6px;font-weight:700}.plan-hint[data-kind="open"]{color:var(--good,#1d7a58)}.plan-hint[data-kind="over"]{color:var(--warn)}.card[data-act="delete"]{background:#fffafa}.card[data-act="delete"] .now{text-decoration:line-through;opacity:.72}
 .row-head{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:4px}.row-head b{font-size:16px}.row-head small,.tag{color:var(--muted);font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--bg)}
 .tag{margin-inline-start:auto;font-weight:700}.tag[data-tone=change]{color:var(--warn);background:var(--warn2)}.tag[data-tone=delete]{color:var(--bad);background:var(--bad2)}.tag[data-tone=add]{color:var(--ok);background:var(--ok2)}
 .now{color:var(--muted);font-size:13px;margin:0 0 11px;direction:rtl}
@@ -533,7 +533,7 @@ function actionsHtml(it,i){
  if(it.action==="change")return actBtn(i,"keep","undo","إلغاء التعديل")+actBtn(i,"delete","trash","احذفه بدلًا منه","bad");
  return actBtn(i,"keep","undo","تراجع عن الحذف");
 }
-function offeringsHtml(){var list=(data.availableOfferings||[]).filter(function(o){return !state.some(function(it){return it.offeringId===o.id&&!(it.decision&&it.decision.state==="rejected")})});
+function offeringsHtml(){if(notedScope().length)return "";var list=(data.availableOfferings||[]).filter(function(o){return !state.some(function(it){return it.offeringId===o.id&&!(it.decision&&it.decision.state==="rejected")})});
  if(!data.windowOpen||!list.length)return "";
  var groups={};list.forEach(function(o){var key=[o.collegeId,o.sectionId,o.courseId].join(":");if(!groups[key]){var course=(data.courses||[]).filter(function(c){return Number(c.id)===Number(o.courseId)&&Number(c.collegeId)===Number(o.collegeId)&&Number(c.sectionId)===Number(o.sectionId)})[0]||{};groups[key]={id:key,name:o.courseName||course.name||"مقرر",code:course.code||"",college:o.collegeName||course.collegeName||"",courseId:o.courseId,sectionId:o.sectionId,options:[]}}groups[key].options.push(o)});
  var ordered=Object.keys(groups).map(function(key){return groups[key]}).sort(function(a,b){return a.name.localeCompare(b.name,"ar")});
@@ -585,7 +585,7 @@ function planTable(){
    var stat=negShown?'':'<span class="status" data-act="'+esc(act)+'">'+skStat(act)+(act==="keep"?"كما هو":actionName(act))+'</span>';
    var tone=!negShown&&act!=="keep"&&act!=="delete"&&toneText(it)?'<small class="plan-check" data-tone="'+esc(it.tone)+'">'+esc(toneText(it))+'</small>':'';
    var sub=(b.sectionCode?'شعبة '+esc(b.sectionCode):'')+((many||it.action==="add")&&col?(b.sectionCode?' · ':'')+esc(shortCollege(col)):'');
-   return '<div class="appt" role="listitem" style="--c:'+skCourseColor(it)+'" id="item-'+i+'" data-act="'+esc(act)+'" data-neg="'+esc(it.negotiation||"")+'" data-open="'+(expanded?"1":"0")+'">'+
+   return '<div class="appt" role="listitem" style="--c:'+skCourseColor(it)+'" id="item-'+i+'" data-noted="'+(isNoted(it)?"1":"0")+'" data-locked="'+(lockedByNotes(it)?"1":"0")+'" data-act="'+esc(act)+'" data-neg="'+esc(it.negotiation||"")+'" data-open="'+(expanded?"1":"0")+'">'+
     '<button type="button" class="appt-head" data-toggle="'+i+'" aria-expanded="'+expanded+'" aria-controls="item-body-'+i+'" aria-label="'+esc(courseOf(it)+" — "+(act==="keep"?"كما هو":actionName(act))+(expanded?"، اضغط للطيّ":"، اضغط لعرض الخيارات"))+'">'+
      '<span class="ap-ic">'+gi(rowIcon(it))+'</span>'+
      '<span class="ap-main"><b>'+esc(courseOf(it))+reqTag(it)+'</b>'+(sub?'<small>'+sub+'</small>':'')+
@@ -789,6 +789,10 @@ function restoreFocus(k){if(!k)return;var el=null;try{el=host.querySelector(k.se
  /* وقتٌ يُكتب ولم يكتمل بعد يبقى كما كُتب: رسمٌ وصل في منتصف الكتابة كان يعيد الحقلَ إلى آخر وقتٍ صالح. */
  if(k.typed!=null&&el.value!==k.typed)el.value=k.typed;
  if(k.caret&&el.setSelectionRange)try{el.setSelectionRange(k.caret[0],k.caret[1])}catch(e){}}
+/* نشرٌ بعد ملاحظات التسجيل: ما عليه ملاحظة مميَّز، وما سواه مقفل. والخادمُ يرفض غير ذلك. */
+function notedScope(){return (data&&data.request&&data.request.notedRowIds)||[]}
+function isNoted(it){return notedScope().indexOf(Number(it&&it.rowId))>=0}
+function lockedByNotes(it){return notedScope().length>0&&!isNoted(it)}
 function paint(){
  var keepFocus=focusKey(document.activeElement);
  if(data&&data.windowOpen&&state.length){var sig=JSON.stringify(payloadItems());if(paint.last!==undefined&&paint.last!==sig){dirty=true;saveDraft()}paint.last=sig}
@@ -810,14 +814,14 @@ function paint(){
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+tcRibbon(r,open)+
   (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited)+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
- h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(deckHtml()||calmHtml())+offeringsHtml()+replayHtml()+memoryHtml()+planTable();
- if(open&&data.courses&&data.courses.length){
+ h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(notedScope().length?'<div class="noted-banner" role="status">'+gi("eye")+'<span>التسجيل أعاد جدولك بملاحظات. عدّل المقررات المميّزة فقط.</span></div>':'')+(deckHtml()||calmHtml())+offeringsHtml()+replayHtml()+memoryHtml()+planTable();
+ if(open&&!notedScope().length&&data.courses&&data.courses.length){
   var collegeMap={};data.courses.forEach(function(c){if(c.collegeId&&!collegeMap[c.collegeId])collegeMap[c.collegeId]=c.collegeName||("كلية "+c.collegeId)});
   var collegeOptions=Object.keys(collegeMap).map(function(id){return{id:Number(id),name:collegeMap[id]}});
   h+='<div class="card add-card"><header><b>تريد إضافة موعد جديد؟</b><small>اختر الكلية أولًا، ثم المقرر والأيام والوقت. القسم والفصل معروفان تلقائيًا.</small></header>'+(chooserOpen?'<div class="course-chooser">'+
    '<label class="course-college"><span>الكلية</span><select id="courseCollege"><option value="">اختر الكلية أولًا</option>'+collegeOptions.map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'</option>'}).join("")+'</select></label>'+
    '<input class="course-search" id="courseSearch" type="search" placeholder="اكتب اسم المقرر أو رمزه…" autocomplete="off" disabled>'+
-   '<p class="course-none" id="courseNone" hidden>لا يوجد مقرر بهذا الاسم في هذه الكلية. جرّب كلمةً أقصر أو رمز المقرر.</p><div class="course-options">'+data.courses.map(function(c){return '<button type="button" class="course-option"'+(c.offering?' data-locked="1" aria-disabled="true"':'')+' data-course="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" data-search="'+esc((c.name+" "+c.code).toLowerCase())+'" hidden><b>'+esc(c.name||c.code)+courseTagsHtml(c.id,c.sectionId)+'</b><small>'+esc([c.code,c.collegeName].filter(Boolean).join(" · "))+(c.offeringNote?" · "+c.offeringNote:"")+(state.some(function(it){return it.action==="add"&&it.courseId===c.id&&Number(it.collegeId)===Number(c.collegeId)})?" · أضفتَه في هذا الطلب":"")+'</small>'+tcCourseLock(c)+'</button>'}).join("")+'</div>'+
+   '<p class="course-none" id="courseNone" hidden>لا يوجد مقرر بهذا الاسم في هذه الكلية. جرّب كلمةً أقصر أو رمز المقرر.</p><div class="course-options">'+data.courses.map(function(c){return '<button type="button" class="course-option"'+(c.offering?' data-locked="1" aria-disabled="true"':'')+' data-course="'+c.id+'" data-college="'+c.collegeId+'" data-section="'+c.sectionId+'" data-search="'+esc((c.name+" "+c.code).toLowerCase())+'" hidden><b>'+esc(c.name||c.code)+courseTagsHtml(c.id,c.sectionId)+'</b><small>'+esc([c.code,c.collegeName].filter(Boolean).join(" · "))+(c.offeringNote?" · "+c.offeringNote:"")+(c.planHint?'<span class="plan-hint" data-kind="'+esc(c.planHint.kind)+'">'+(c.planHint.kind==="open"?"↑ ":"⚠ ")+esc(c.planHint.line)+'</span>':'')+(state.some(function(it){return it.action==="add"&&it.courseId===c.id&&Number(it.collegeId)===Number(c.collegeId)})?" · أضفتَه في هذا الطلب":"")+'</small>'+tcCourseLock(c)+'</button>'}).join("")+'</div>'+
    '<button type="button" class="chooser-close" id="closeChooser">إغلاق القائمة</button></div>':'<button type="button" class="add-start" id="openChooser">+ اختر كلية ومقررًا وأضف موعدًا</button>')+'</div>'
  }
  if(open&&!sent&&!noteOpen&&!String(noteNow()).trim())h+='<button type="button" class="note-add" id="noteAdd">＋ أضف ملاحظة للقسم</button>';
@@ -890,6 +894,7 @@ function wire(){tcWire();
  }});
  host.querySelectorAll("[data-a]").forEach(function(el){el.onclick=function(){
   var i=+el.dataset.i,it=state[i],act=el.dataset.a;
+  if(lockedByNotes(it))return;
   if(act==="cancel-add"){releaseHold(it);state.splice(i,1);checkSeq++;paint();recheckAll();return}
   it.action=act;
   if(act==="change")openCards[i]=true;
@@ -904,7 +909,7 @@ function wire(){tcWire();
  host.querySelectorAll("[data-wk]").forEach(function(el){el.onclick=function(){focusItem(+el.dataset.wk)}});
  /* 🏫✓ على الهاتف لا تلميحَ بالمرور: الضغطةُ تقول الجملةَ نفسها. */
  host.querySelectorAll("[data-room-ok]").forEach(function(el){el.onclick=function(){toast("check",el.getAttribute("aria-label")||"")}});
- host.querySelectorAll("[data-toggle]").forEach(function(el){el.onclick=function(){var i=+el.dataset.toggle;openCards[i]=!(el.getAttribute("aria-expanded")==="true");paint();var row=document.getElementById("item-"+i),head=row&&row.querySelector(".appt-head");if(head)head.focus({preventScroll:true})}});
+ host.querySelectorAll("[data-toggle]").forEach(function(el){el.onclick=function(){var i=+el.dataset.toggle;if(lockedByNotes(state[i]))return;openCards[i]=!(el.getAttribute("aria-expanded")==="true");paint();var row=document.getElementById("item-"+i),head=row&&row.querySelector(".appt-head");if(head)head.focus({preventScroll:true})}});
  host.querySelectorAll("[data-dept-alt]").forEach(function(el){el.onclick=function(){
   var i=+el.dataset.i,it=state[i],p=el.dataset.deptAlt.split("|");if(!it)return;
   if(it.action!=="add")it.action="change";it.days=p[0].split(",").filter(Boolean);it.start=p[1];paint();recheckAll(i)}});

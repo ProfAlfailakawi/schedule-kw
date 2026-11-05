@@ -65,6 +65,7 @@ import SeatDrawer from "./components/seats/SeatDrawer";
 import TrailButton from "./components/trail/TrailButton";
 import { forgetTrailStamps, setTrailStampOwner } from "./components/trail/trailStampMemory";
 import { seatActorCaption, type SeatActor } from "./utils/seats";
+import RegistrationTabs from "./components/RegistrationTabs";
 
 /** من يُفتح له «👣 الأثر» من بطاقة الحساب، لا من رأس فريقه وحده. */
 const TRAIL_HOME_ROLES = new Set<string>(["dean", "departmentHead", "registrarHead", "registrarDean"]);
@@ -204,6 +205,8 @@ interface SessionRole {
   /** يعلّق على الخانات: التسجيل والقسم كلاهما. */
   canAnnotate: boolean;
   signatureStage: "committee" | "head" | null;
+  /** عضوُ لجنة الجدول يعمل بصفة الكرسي ولا يوقّع. */
+  canSign?: boolean;
   /**
    * صفةُ اللجنة مكتوبةً، لا مُسقَطاً إليها.
    *
@@ -1861,7 +1864,7 @@ export default function App() {
         );
       case "schedules":
         return hasPerm(7) ? (
-          <Schedules mode="schedule" user={user} scopes={scopes} permissions={permissions} signatureStage={sessionRole.signatureStage} committeeEligible={sessionRole.committeeEligible} onNavigate={(view) => go(view as View)} />
+          <Schedules mode="schedule" user={user} scopes={scopes} permissions={permissions} signatureStage={sessionRole.signatureStage} canSign={sessionRole.canSign !== false} committeeEligible={sessionRole.committeeEligible} onNavigate={(view) => go(view as View)} />
         ) : (
           unauthorized()
         );
@@ -1931,7 +1934,7 @@ export default function App() {
         );
       case "simulation":
         /* القراءةُ بحدود النطاق في الخادم؛ والأيقونةُ لا تظهر إلا إن كانت هناك تحديثٌ أو من يشغّلها. */
-        return simulationVisible ? <RegistrationRehearsal onNavigate={(view) => go(view as View)} canSchedule={hasPerm(7) && !sessionRole.viewerOnly && !sessionRole.advisorOnly} /> : unauthorized();
+        return simulationVisible ? <><RegistrationTabs active="simulation" canRoster={(allowed.schedule || hasPerm(14)) && !sessionRole.viewerOnly} canRadar onGo={view => go(view)} /><RegistrationRehearsal onNavigate={(view) => go(view as View)} canSchedule={hasPerm(7) && !sessionRole.viewerOnly && !sessionRole.advisorOnly} /></> : unauthorized();
       case "planReview":
         /* الحارسُ في الخادم (النطاقُ والصفةُ والملكية)؛ هنا نخفي ما لا يعمل فقط. */
         return planReviewAccess ? <PlanReview onNavigate={hasPerm(6) ? go : undefined} /> : unauthorized();
@@ -1940,7 +1943,10 @@ export default function App() {
            يبني الجدول يسلّم ويتابع. وصفةُ العرض الصرف لا تفتحه أصلاً — الخادمُ
            يردّ كتابتَها، وشاشةٌ كلُّ أزرارها مردودة ضجيجٌ في القائمة. */
         return (hasPerm(7) || hasPerm(14)) && !sessionRole.viewerOnly ? (
-          <StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} onNavigate={hasPerm(7) && !sessionRole.viewerOnly ? (view) => go(view as View) : undefined} />
+          <>
+            <RegistrationTabs active="studentRegistration" canRoster canRadar={simulationVisible} onGo={view => go(view)} />
+            <StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} onNavigate={hasPerm(7) && !sessionRole.viewerOnly ? (view) => go(view as View) : undefined} />
+          </>
         ) : (
           unauthorized()
         );

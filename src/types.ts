@@ -461,6 +461,8 @@ export interface MasterRoom {
   capacity?: number | null;
   /** Optional private planning category, such as classroom, lab, or computer lab. */
   roomType?: string;
+  /** نوعُ القاعة لقسمٍ يخالف النوعَ العام (مفتاحُه رقم القسم): G49 استوديو لقسمٍ ومختبرٌ لغيره. */
+  sectionRoomTypes?: Record<string, string>;
   /** Independent booking is separate from activation and physical room type. */
   bookingPolicy?: "normal" | "companion_only" | "blocked";
   active: boolean;
@@ -1561,6 +1563,8 @@ export interface InstructorRequest {
    * تضبطه أداةُ النشر؛ غيابُه = «edit» (كلُّ الروابط قبل وجوده). رابطُ العرض لا يُعدّ «لم يشارك».
    */
   linkMode?: "view" | "edit" | "ta";
+  /** نشرٌ بعد ملاحظات التسجيل: لا يُختار إلا في هذه المواعيد، وما سواها مقفل (utils/requestNotedScope). */
+  notedRowIds?: number[];
   /** أولُ فتحٍ للرابط. غيابُه يعني أنه لم يُفتح، لا أنه لم يصل. */
   linkOpenedAt?: string;
   /** مرّات فتح الرابط لكل يومٍ (توقيت الكويت). تُسجَّل مرةً كل نصف ساعة على الأكثر فلا تُضخّمها إعادة التحميل. */

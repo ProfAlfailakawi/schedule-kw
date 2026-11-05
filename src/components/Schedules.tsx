@@ -240,6 +240,7 @@ interface Props {
   permissions?: number[];
   /** مرحلة التوقيع التي يملكها صاحب الحساب في دورة الاعتماد، إن ملك واحدة. */
   signatureStage?: "committee" | "head" | null;
+  canSign?: boolean;
   /**
    * هل صفةُ اللجنة مكتوبةٌ في الحساب؟
    *
@@ -912,7 +913,7 @@ function ScheduleLegendScroller({
 const timingKeyOf = (row: any) =>
   `${Number(row?.AdCourseId || 0)}|${["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(key => row?.[key] ? 1 : 0).join("")}|${String(row?.fstarttime || "")}`;
 
-export default function Schedules({ mode, user, scopes = [], permissions = [], signatureStage: approvalStage = null, committeeEligible = false, onNavigate }: Props) {
+export default function Schedules({ mode, user, scopes = [], permissions = [], signatureStage: approvalStage = null, canSign = true, committeeEligible = false, onNavigate }: Props) {
   const prefsKey = `schedule-workspace-prefs-${user?.SystemUserId || 0}`;
   const lastSavedRef = useRef<any>(null);
   /** Where a press began, so a drag is never mistaken for a tap. */
@@ -11244,6 +11245,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           sectionId={filterSection}
           termId={filterTerm}
           signatureStage={approvalStage}
+          canSign={canSign}
           powerAdmin={Boolean(user?.IsAdminUser || user?.IsRootAdmin)}
           demoMode={Boolean(user?.IsDemo)}
           /* ── الشريط يسمع ما يقع في الجدول تحته ──────────────────────────

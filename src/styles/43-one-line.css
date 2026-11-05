@@ -137,3 +137,8 @@
   .ol-part,.ol-part.is-missing,.ol-part.is-doubt{border-color:CanvasText}
   .ol-week i.on{background:Highlight;color:HighlightText}
 }
+.share-noted{display:grid;gap:8px;margin-block:10px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--brass) 40%,var(--line));border-radius:var(--r-md);background:var(--brass-soft)}
+.share-noted strong{display:inline-flex;align-items:center;gap:6px;font-size:.88rem}
+.share-noted strong svg{inline-size:16px;block-size:16px;color:var(--brass)}
+.share-noted ul{margin:0;padding-inline-start:18px;display:grid;gap:2px;font-size:.8rem;max-block-size:150px;overflow:auto}
+.share-noted p{margin:0;font-size:.8rem;font-weight:600}

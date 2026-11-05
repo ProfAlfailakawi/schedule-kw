@@ -1,3 +1,4 @@
+import CampusTravelPolicyCard from "./CampusTravelPolicyCard";
 import TermSelect from "./TermSelect";
 import { byArabic } from "../utils/sorting";
 /**
@@ -589,6 +590,8 @@ export default function SubmissionDeadlines({ terms, termId, onTermChange, rows,
 
       {/* ── رحلة الطلبة: الرغبات، التجميد، جولات التسجيل، الإغلاق ── */}
       <StudentPhasesBlock term={term} terms={terms} canEdit={canEdit} onChanged={onChanged} />
+
+      {canEdit ? <CampusTravelPolicyCard /> : null}
 
       {/* ── طلبات الأقسام ── */}
       {requests.length ? (

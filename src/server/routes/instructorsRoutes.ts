@@ -18,6 +18,7 @@ import { expandScopeSections } from "../readScope";
 import { isFacultyPlaceholder, singleFacultyPlaceholder, withoutFacultyPlaceholderCivil } from "../../utils/placeholderInstructor";
 import { isReadOnlyRole } from "../../utils/academicRoles";
 import { foldInstructorText } from "../../utils/instructorIdentity";
+import { evaluateTeachingLoad, hasLoadOverride, loadTermContext, teachingHoursByInstructor, teachingLoadProblem } from "../../utils/teachingLoad";
 import { type AuthenticatedRequest, isPowerUser, requireAnyPermission, requirePermission } from "../core/auth";
 import { dataContextCacheKey } from "../core/locations";
 import { sortArabicNamed, sortTermsNewestServer } from "../core/ordering";
@@ -345,6 +346,71 @@ app.delete("/api/instructors/:id", requirePermission(3), async (req: Request, re
  * twenty names, and lets the schedule mark who is seconded without inventing a
  * second kind of person in the data.
  */
+/* ── «الأساتذة» في أدوات البيانات: يديرهم القسم في نطاقه ───────────────────
+ * المعرّف يُقرأ من أساتذة القسم وصفوف جدوله، فلا يلمس أحدٌ سجلَّ من ليس في قسمه.
+ * لا رقم مدني ولا هاتف في الردّ. */
+async function sectionRosterIds(collegeId: number, sectionId: number, termId: number): Promise<Set<number>> {
+  const [faculty, rows] = await Promise.all([
+    Repository.getDepartmentFaculty(collegeId, sectionId),
+    termId ? Repository.getSchedulesByScope({ collegeId, sectionId, termId }) : Promise.resolve([]),
+  ]);
+  return new Set<number>([...faculty.map(Number), ...(rows as any[]).map(row => Number(row.AdInstructorId)).filter(Boolean)]);
+}
+
+app.get("/api/section-roster", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  const [ids, instructors, config, terms, termRows, courses] = await Promise.all([
+    sectionRosterIds(collegeId, sectionId, termId), Repository.getInstructors(), Repository.getTeachingLoadConfig(), Repository.getTerms(),
+    Repository.getSchedulesByScope({ termId }), Repository.getCourses(),
+  ]);
+  const hours = teachingHoursByInstructor(termRows, new Map<number, number>(courses.map(course => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number])));
+  const context = loadTermContext(terms as any, termId);
+  const sorted = sortTermsNewestServer(terms);
+  const people = sortArabicNamed((instructors as any[]).filter(person => ids.has(Number(person.AdInstructorId)) && !isFacultyPlaceholder(person)), (person: any) => person.AdInstructorName).map((person: any) => {
+    const id = Number(person.AdInstructorId);
+    const status = evaluateTeachingLoad(config, id, hours.get(id) || 0, context);
+    return {
+      id, name: String(person.AdInstructorName || ""), AdInstructorStatus: person.AdInstructorStatus || null, AdInstructorCategory: person.AdInstructorCategory || null,
+      hours: status.hours, assignment: config.assignments[String(id)] || {}, rankName: status.rank?.name || "", min: status.min, max: status.max, extra: status.extra, exception: status.exception || null,
+    };
+  });
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ enabled: config.enabled, ranks: config.ranks, terms: sorted.map(term => ({ id: Number(term.AdTermId), name: String(term.AdTermName || "") })), people });
+});
+
+app.put("/api/section-roster/:id", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const id = Number(req.params.id), collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
+  if (!collegeId || !sectionId || !id || !termId) { res.status(400).json({ error: "طلبٌ ناقص." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  /* الفصلُ المعروض نفسُه: عضويةُ القراءة والكتابة واحدة. */
+  const members = await sectionRosterIds(collegeId, sectionId, termId);
+  const person: any = await Repository.getInstructorById(id);
+  if (!person || !members.has(id) || isFacultyPlaceholder(person)) { res.status(404).json({ error: "هذا الأستاذ ليس في قسمك." }); return; }
+  const body = req.body || {};
+  const changes: string[] = [];
+  if ("status" in body || "category" in body) {
+    const status = "status" in body ? (body.status === "retired" || body.status === "sabbatical" ? body.status : null) : person.AdInstructorStatus ?? null;
+    const category = "category" in body ? (body.category === "ta" ? "ta" : null) : person.AdInstructorCategory ?? null;
+    await Repository.updateInstructor(id, person.AdInstructorCivil, person.AdInstructorName, person.AdInstructorMobile || "", status, person.AdInstructorLoad ?? null, category);
+    changes.push(`الحالة: ${status || "نشط"} · التصنيف: ${category || "أستاذ"}`);
+  }
+  if (body.load && typeof body.load === "object") {
+    const config = await Repository.getTeachingLoadConfig();
+    const entry: Record<string, unknown> = {};
+    for (const key of ["rankId", "minHours", "maxHours", "extraHours", "reason", "untilTermId"]) if (body.load[key] !== undefined && body.load[key] !== null && body.load[key] !== "") entry[key] = body.load[key];
+    if (entry.rankId && !config.ranks.some(rank => rank.id === entry.rankId)) { res.status(400).json({ error: "الدرجة غير موجودة." }); return; }
+    if (!hasLoadOverride(entry as any)) { delete entry.reason; delete entry.untilTermId; }
+    const problem = teachingLoadProblem({ ranks: config.ranks, assignments: { [String(id)]: entry } });
+    if (problem) { res.status(400).json({ error: problem }); return; }
+    await Repository.setTeachingLoadAssignment(id, Object.keys(entry).length ? entry : null, String(req.user?.Name || ""));
+    changes.push("النصاب");
+  }
+  res.locals.auditChanges = `تعديل بيانات ${person.AdInstructorName} من أدوات البيانات: ${changes.join("، ")}`;
+  res.json({ success: true });
+});
+
 app.get("/api/visiting-roster", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0);
   const sectionId = Number(req.query.sectionId || 0);

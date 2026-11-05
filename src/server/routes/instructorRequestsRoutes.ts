@@ -26,6 +26,7 @@ import { requestItemFromRow } from "../../utils/instructorRequestItems";
 import { requestFullySettled } from "../../utils/instructorRequestVerdict";
 import { offeringStatesForTerm } from "../offeringStates";
 import { pushHooks } from "../pushRoutes";
+import { notedRowsOf } from "../../utils/requestNotedScope";
 import { issueLinkMode, linkMode, linkModeLabel, taPhaseOwns } from "../../utils/linkMode";
 import { notOpened } from "../../utils/requestParticipation";
 import { offeringBadge } from "../../utils/courseOffering";
@@ -120,12 +121,17 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   const emergencyReason = String(req.body?.reason || "").trim().slice(0, 400);
   /* «لمن؟ ← أساتذة محددون»: قائمةٌ صريحة يُصدَر لها وحدها بالموعد نفسه، بلا سبب (ليست استثناءً).
      ووجودُ الحقل وحده يكفي ليكون الإرسالُ محدداً: قائمةٌ فارغةٌ تُرفض، لا تصير «للجميع». */
-  const picking = !individualOnly && req.body?.instructorIds !== undefined;
-  const picked: number[] = picking && Array.isArray(req.body.instructorIds)
-    ? [...new Set<number>(req.body.instructorIds.map(Number))] : [];
+  /* «ما عليه ملاحظات فقط»: المستلمون أصحابُ المواعيد التي عليها ملاحظةٌ مفتوحة من التسجيل، يحسبهم الخادم. */
+  const onlyNoted = !individualOnly && req.body?.onlyNoted === true;
+  const notedRows = onlyNoted && collegeId && sectionId && termId ? await registrarNotedRows(collegeId, sectionId, termId) : [];
+  if (onlyNoted && !notedRows.length) { res.status(409).json({ error: "لا ملاحظات مفتوحة من التسجيل على هذا الجدول." }); return; }
+  const picking = !individualOnly && (onlyNoted || req.body?.instructorIds !== undefined);
+  const picked: number[] = onlyNoted ? [...new Set<number>(notedRows.map(row => Number(row.AdInstructorId)).filter(Boolean))]
+    : picking && Array.isArray(req.body.instructorIds) ? [...new Set<number>(req.body.instructorIds.map(Number))] : [];
   /* E1: صفةُ الإرسال (👁️ للعرض · ✏️ طلب تعديل) تُكتب على طلب كل أستاذ — `linkMode`، المصدرُ الواحد.
      و🎓 مرحلةُ التدريب لا تُفتح من هنا: لها مسارُها (/api/ta-phase/open) بموجاته ومقرّراته المسموحة. */
   const issueMode = issueLinkMode(req.body?.mode);
+  if (onlyNoted && issueMode !== "edit") { res.status(400).json({ error: "إعادة النشر للملاحظات تكون بطلب تعديل." }); return; }
   if (!issueMode) { res.status(400).json({ error: "مرحلة التدريب تُفتح من لوحتها في النشر، لا من إرسال بطاقة الأستاذ." }); return; }
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
   if (individualOnly && (!Number.isSafeInteger(selectedInstructorId) || selectedInstructorId <= 0 || !emergencyReason)) {
@@ -271,18 +277,19 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     const held = already.get(instructorId);
     const move = reissueMove(held);
     /* F3: بطاقةُ مرحلة التدريب القائمة لا يمسّها النشرُ الجماعي — تحكمها مرحلتُها. */
-    if (held && move !== "fresh" && taPhaseOwns(held, individualOnly)) {
+    if (held && move !== "fresh" && taPhaseOwns(held, individualOnly) && !onlyNoted) {
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
-    if (held && move === "keep" && !individualOnly && !reopening) {
+    if (held && move === "keep" && !individualOnly && !reopening && !onlyNoted) {
       /* طلبُه ورابطُه كما هما ينتظران قرارَ القسم؛ وصفةُ الإرسال الجديدة هي ما يحكم بطاقتَه (E1).
          تُكتب الصفةُ وحدها، لا الطلبُ كلُّه: قرارٌ أو ردٌّ يصل بين القراءة والكتابة لا يُمحى. */
       if (linkMode(held) !== issueMode) await Repository.setInstructorRequestLinkMode(held.id, issueMode);
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
-    if (held && move === "extend") {
+    /* ملاحظاتُ التسجيل تعيد فتح الطلب المرسَل: بلا نافذةٍ جديدة لا يستطيع صاحبه تصحيح ما مُيّز له. */
+    if (held && (move === "extend" || (onlyNoted && move === "keep"))) {
       const heldLink = await Repository.getShareLink(held.linkId);
       const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
       let linkId = held.linkId;
@@ -318,6 +325,13 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     });
     issued.push({ instructorId, linkId: link.id, reissued: false });
   }
+  /* نطاقُ الملاحظات لكل بطاقة: مواعيدُ صاحبها وحده. وأيُّ إصدارٍ عادي بعده يرفع القفل. */
+  const afterIssue = await Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId)));
+  const issuedIds = new Set(issued.map(row => row.instructorId));
+  await Promise.all(afterIssue.flat().filter(row => issuedIds.has(Number(row.AdInstructorId))).map(row => {
+    const own = notedRows.filter(item => Number(item.AdInstructorId) === Number(row.AdInstructorId)).map(item => Number(item.id));
+    return own.length || row.notedRowIds?.length ? Repository.setInstructorRequestNotedRows(row.id, own) : false;
+  }));
   /* والإرسالُ المحدد لا يغيّر الموعدَ العام لبطاقات العائلة: موعدُ المختارين في طلباتهم. */
   if (!individualOnly && !picking) {
     /* إعادة فتح الجميع تغيّر الموعد العام فقط؛ تبقى الروابط الشخصية نفسها.
@@ -365,6 +379,23 @@ app.get("/api/instructor-requests/send-log", requirePermission(7), async (req: A
 /* ── «لمن؟ ← أساتذة محددون»: من يمكن أن يُرسَل إليه ─────────────────────────
  * القائمةُ نفسُها التي يُصدِر لها الإرسالُ أعلاه: أساتذةُ جدول عائلة القسم في الفصل
  * (بلا «هيئة تدريسية»)، ولكلٍّ عددُ شعبه وجوّالُه للتسليم. لا رقم مدني ولا رابط. */
+/* ما عليه ملاحظاتٌ مفتوحة من التسجيل: يُميَّز في النشر ليُعاد لأصحابه وحدهم. */
+async function registrarNotedRows(collegeId: number, sectionId: number, termId: number) {
+  const [notes, rows] = await Promise.all([Repository.getScheduleCommentsByScope(collegeId, sectionId, termId), Repository.getSchedulesByScope({ collegeId, sectionId, termId })]);
+  const ids = new Set(notedRowsOf(notes as any));
+  return (rows as any[]).filter(row => ids.has(Number(row.id)));
+}
+
+app.get("/api/instructor-requests/registrar-noted", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  const [rows, courses, instructors] = await Promise.all([registrarNotedRows(collegeId, sectionId, termId), Repository.getCoursesBySection(sectionId), Repository.getInstructors()]);
+  const courseName = new Map((courses as any[]).map(course => [Number(course.AdCourseId), String(course.CourseName || "")]));
+  const personName = new Map((instructors as any[]).map(person => [Number(person.AdInstructorId), String(person.AdInstructorName || "")]));
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ rows: rows.map(row => ({ id: Number(row.id), course: courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), section: String(row.SCode || ""), instructor: personName.get(Number(row.AdInstructorId)) || "" })) });
+});
+
 app.get("/api/instructor-requests/recipients", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }

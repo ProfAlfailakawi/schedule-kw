@@ -263,7 +263,7 @@ const boardToken = secret.buildingDoorToken(key, building.id);
 
     const screen = await call(`/d/${f01Token}?screen=1`);
     check(screen.status === 200 && screen.text.includes('<html lang="ar" dir="rtl" class="screen">') && screen.text.includes('id="clk"')
-      && /wakeLock/.test(screen.text) && /\/api\/version/.test(screen.text) && screen.text.includes('content="dark"'), "R4 وضعُ الشاشة: داكن، بساعة، يُبقي الشاشة مستيقظة، ويتبع الإصدار");
+      && /wakeLock/.test(screen.text) && /\/api\/version/.test(screen.text) && screen.text.includes('name="color-scheme" content="light"') && !screen.text.includes("prefers-color-scheme:dark"), "R4 وضعُ الشاشة: داكن، بساعة، يُبقي الشاشة مستيقظة، ويتبع الإصدار");
 
     const board = await call(`/b/${boardToken}/now`);
     const codes = (board.json?.rooms || []).map((item: any) => item.code);

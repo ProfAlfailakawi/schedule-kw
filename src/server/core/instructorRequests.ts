@@ -5,6 +5,7 @@
  * نصُّ كل جملةٍ وترتيبُها كما كانا، إلا `export` على ما تستعمله وحداتٌ أخرى،
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  */
+import { roomTypeIn } from "../../utils/roomTypeForSection";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "../../utils/instructorRequestWeek";
 import { rankRequestRooms } from "../../utils/requestRoomRanking";
@@ -408,7 +409,7 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       const building = rules.registry.buildings.find(building => building.id === primary?.buildingId);
       return rules.registry.rooms.find(room => {
         const place = rules.registry.buildings.find(building => building.id === room.buildingId);
-        return room.active && room.confidence === "CONFIRMED" && room.bookingPolicy === "companion_only" && room.roomType === companionType
+        return room.active && room.confidence === "CONFIRMED" && room.bookingPolicy === "companion_only" && roomTypeIn(room, selectedCourse?.AdSectionId) === companionType
           && place?.active && place.confidence === "CONFIRMED" && building && place.officialCode.slice(0, 4) === building.officialCode.slice(0, 4)
           && !facilityWeek.some(row => rowOccupiesRoom(row, room.id, place.officialCode, room.canonicalCode)
             && slots.some(slot => Boolean((row as any)[slot.day]) && scheduleOverlap(slot.start, slot.end, row.fstarttime, row.fendtime)));

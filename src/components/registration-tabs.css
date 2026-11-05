@@ -1,0 +1,26 @@
+.registration-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;max-inline-size:520px;margin:0 auto var(--s3,12px);padding:4px;border-radius:var(--r-full,999px);background:var(--surface-3,#eef0ec)}
+.registration-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-block-size:42px;padding:6px 12px;border:0;border-radius:inherit;background:transparent;color:var(--muted,#667085);font:inherit;font-size:.88rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.registration-tabs button svg{inline-size:17px;block-size:17px;flex:none}
+.registration-tabs button.on{background:var(--surface,#fff);color:var(--accent-ink,#1f6b5c);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.registration-tabs button:focus-visible{outline:none;box-shadow:var(--ring,0 0 0 2px #1f6b5c)}
+@media (max-width:420px){.registration-tabs button{font-size:.8rem;padding-inline:8px}}
+
+.roster-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-block-end:var(--s2,8px);padding:4px;border-radius:var(--r-md,14px);background:var(--surface-3,#eef0ec)}
+.roster-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-block-size:40px;min-inline-size:0;padding:4px 6px;border:0;border-radius:calc(var(--r-md,14px) - 4px);background:transparent;color:var(--muted,#667085);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+.roster-tabs button svg{inline-size:15px;block-size:15px;flex:none}
+.roster-tabs button b{font-size:.74rem;font-weight:700;opacity:.8;font-variant-numeric:tabular-nums}
+.roster-tabs button.on{background:var(--surface,#fff);color:var(--accent-ink,#1f6b5c);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+@media (max-width:560px){.roster-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.dept-roster{display:grid;gap:var(--s3,12px);min-inline-size:0}
+.dept-roster-list{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr))}
+.dept-roster-card{display:grid;gap:8px;min-inline-size:0;padding:12px 14px;border:1px solid var(--line,#e3e5e0);border-radius:var(--r-md,14px);background:var(--surface,#fff)}
+.dept-roster-card header{display:flex;align-items:center;justify-content:space-between;gap:8px;min-inline-size:0}
+.dept-roster-card header b{min-inline-size:0;overflow-wrap:anywhere;font-size:.92rem}
+.dept-roster-card header span{flex:none;font-size:.78rem;color:var(--muted,#667085);font-variant-numeric:tabular-nums}
+.dept-roster-load{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.8rem;color:var(--muted,#667085)}
+.dept-roster-actions{display:flex;flex-wrap:wrap;gap:6px}
+.dept-roster-actions button{display:inline-flex;align-items:center;gap:5px;min-block-size:36px;padding:4px 10px;border:1px solid var(--line,#e3e5e0);border-radius:var(--r-full,999px);background:transparent;color:var(--ink,#1a1a1a);font:inherit;font-size:.78rem;font-weight:600;cursor:pointer}
+.dept-roster-actions button svg{inline-size:14px;block-size:14px}
+.dept-roster-actions button.on{border-color:var(--accent,#1f6b5c);background:var(--accent-softer,#eef6f3);color:var(--accent-ink,#1f6b5c)}
+.dept-roster-actions button:disabled{opacity:.5;cursor:not-allowed}

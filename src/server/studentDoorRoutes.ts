@@ -19,6 +19,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { createHash, randomUUID } from "crypto";
 import type { Express, Request, Response, NextFunction } from "express";
 import { Repository } from "../db/repository";
+import { DEFAULT_STUDENT_UNIT_CAP, sectionStudentSettingsId, studentUnitCapOf } from "../utils/studentUnitCap";
 import { offeringStatesForTerm } from "./offeringStates";
 import { offeringBadge, offeringBlocked } from "../utils/courseOffering";
 import type { AdCourse, StudentNeed, StudentProfile, StudentWishes } from "../types";
@@ -78,7 +79,13 @@ const GRADUATE_REASONS = ["field-conflict", "field-prerequisite-conflict"] as co
 
 /** وحداتُ الطالب في فصله: بين ١٢ و١٥. */
 export const WISH_UNITS_MIN = 12;
-export const WISH_UNITS_MAX = 15;
+export const WISH_UNITS_MAX = DEFAULT_STUDENT_UNIT_CAP;
+/** سقفُ القسم (ملاحظة المالك 14): يختاره القسم من ١٥/١٨/٢١، والغائب ١٥. */
+async function sectionUnitCap(sectionId: number): Promise<number> {
+  if (!sectionId) return WISH_UNITS_MAX;
+  const doc = await Repository.getFeatureDoc<{ maxUnits?: number }>("sectionStudentSettings", sectionStudentSettingsId(sectionId)).catch(() => null);
+  return studentUnitCapOf(doc?.maxUnits);
+}
 const SESSION_HOURS = 12;
 
 type Door = { fingerprint: string; profile: StudentProfile };
@@ -361,7 +368,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       timeline: studentTimeline(term?.AdTermStudentPhases, term?.AdTermSubmissionDeadline, today),
       signedIn: Boolean(door),
       profile: door ? await summaryOf(door.profile) : null,
-      limits: { codeLength: CODE_LENGTH, wishUnitsMin: WISH_UNITS_MIN, wishUnitsMax: WISH_UNITS_MAX, termUnits: TYPICAL_TERM_UNITS, afterGraduationDays: AFTER_GRADUATION_DAYS },
+      limits: { codeLength: CODE_LENGTH, wishUnitsMin: WISH_UNITS_MIN, wishUnitsMax: door ? await sectionUnitCap(door.profile.AdSectionId) : WISH_UNITS_MAX, termUnits: TYPICAL_TERM_UNITS, afterGraduationDays: AFTER_GRADUATION_DAYS },
     });
   });
 
@@ -692,7 +699,8 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     if (!term || !reading.canEditWishes) { fail(res, 409, "الرغبات غير مفتوحة الآن.", "wishes-closed", { line: reading.line }); return; }
     if (profile.AdSectionId <= 0) { fail(res, 409, "أكمل ملفّك أولاً: القسم والمقررات المنجزة.", "no-setup"); return; }
     const units = Math.round(Number(req.body?.targetUnits));
-    if (!Number.isFinite(units) || units < WISH_UNITS_MIN || units > WISH_UNITS_MAX) { fail(res, 400, `الوحدات من ${WISH_UNITS_MIN} إلى ${WISH_UNITS_MAX}.`, "bad-units"); return; }
+    const unitCap = await sectionUnitCap(profile.AdSectionId);
+    if (!Number.isFinite(units) || units < WISH_UNITS_MIN || units > unitCap) { fail(res, 400, `الوحدات من ${WISH_UNITS_MIN} إلى ${unitCap}.`, "bad-units"); return; }
     const catalog = await sectionCatalog(profile.AdSectionId);
     const credit = new Map([...catalog.courses].map(([id, course]) => [id, course.credit]));
     const remaining = new Set(planProgress(allowedFor(catalog, profile.curriculumPlanId), profile.passedCourseIds, credit).remainingIds);
@@ -728,6 +736,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       name: id => catalog.courses.get(id)?.name || `مقرر ${id}`, code: id => catalog.courses.get(id)?.code || "",
       offered: id => (index.get(id)?.sections || 0) > 0,
       targetUnits: profile.wishes && profile.wishes.termId === termId ? profile.wishes.targetUnits : DEFAULT_TERM_UNITS,
+      maxUnits: await sectionUnitCap(profile.AdSectionId),
     });
     res.json({ ready: true, termName: String(term.AdTermName || ""), ...advice });
   });
