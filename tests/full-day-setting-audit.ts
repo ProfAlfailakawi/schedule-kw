@@ -80,6 +80,37 @@ async function main() {
   await refreshUniversityDay();
   check(SCHEDULE_DAY_START_TIME === "08:00", "وثيقةٌ تالفة = الافتراضي");
 
+  /* قراءةٌ أقدم لا تكتب فوق حفظٍ أحدث */
+  {
+    await saveUniversityDay({ startTime: "08:00", endTime: "20:00" });
+    const original = Repository.getFeatureDoc;
+    let release: (value: any) => void = () => undefined;
+    (Repository as any).getFeatureDoc = () => new Promise(resolve => { release = resolve; });
+    invalidateUniversityDay();
+    const stale = refreshUniversityDay();
+    (Repository as any).getFeatureDoc = original;
+    await saveUniversityDay({ startTime: "06:00", endTime: "22:00" });
+    release({ startTime: "08:00", endTime: "20:00" });
+    await stale;
+    check(SCHEDULE_DAY_START_TIME === "06:00", "القراءة المعلّقة لا تطمس الحفظ");
+    await saveUniversityDay({ startTime: "08:00", endTime: "20:00" });
+  }
+
+  /* سُلّم البدايات في كرت الأستاذ */
+  {
+    const page = read("src/server/pages/instructorRequestPage.ts");
+    const body = page.slice(page.indexOf("function startChoices(days){"), page.indexOf("function fmtDays(days){"));
+    const choices = (dayStart: number, dayEnd: number, days: string[]) => new Function("DAY_S", "DAY_E", "LONG", "days", `${body}\nreturn startChoices(days);`)(dayStart, dayEnd, { fmonday: 80, fwednesday: 80 }, days) as string[];
+    check(choices(480, 1200, ["fmonday"]).join() === "08:00,09:30,11:00,12:30,14:00,15:30,17:00,18:30", "الطويلة بالافتراضي كما كانت");
+    check(choices(480, 1200, ["fsunday"]).join() === "08:00,09:00,10:00,11:00,12:00,13:00,14:00,15:00,16:00,17:00,18:00", "القصيرة بالافتراضي كما كانت");
+    const wide = choices(420, 1260, ["fsunday"]);
+    check(wide[0] === "07:00" && wide.includes("20:00"), "الأوسع يقدّم بدايات جديدة", wide);
+    const long = choices(390, 1290, ["fmonday"]);
+    check(long[0] === "06:30" && long.includes("20:00") && !long.includes("07:00"), "الطويلة تحفظ سُلّم 90 دقيقة", long);
+    const narrow = choices(540, 840, ["fsunday"]);
+    check(narrow[0] === "09:00" && narrow[narrow.length - 1] === "14:00", "الأضيق داخل الحدّين", narrow);
+  }
+
   /* الصلاحية في الخادم */
   let status = 0, passed = false;
   const res: any = { status(code: number) { status = code; return this; }, json() { return this; } };

@@ -14,17 +14,20 @@ const DOC_ID = "global";
 const TTL_MS = 30_000, WAIT_MS = 2_000;
 let loadedAt = 0;
 let loading: Promise<void> | null = null;
+/* يتقدّم مع كل حفظٍ وإبطال: قراءةٌ بدأت قبلهما قديمة، فلا تكتب فوق ما جاء بعدها. */
+let generation = 0;
 
-export function invalidateUniversityDay(): void { loadedAt = 0; }
+export function invalidateUniversityDay(): void { generation += 1; loadedAt = 0; loading = null; }
 
 export function refreshUniversityDay(): Promise<void> {
   if (loading) return loading;
-  const born = Date.now();
-  loading = Repository.outsideDemoSandbox(() => Repository.getFeatureDoc<UniversityDay>("universityDay", DOC_ID))
-    .then(doc => { applyUniversityDay(doc); loadedAt = born; })
+  const born = Date.now(), bornGeneration = generation;
+  const run: Promise<void> = Repository.outsideDemoSandbox(() => Repository.getFeatureDoc<UniversityDay>("universityDay", DOC_ID))
+    .then(doc => { if (bornGeneration === generation) { applyUniversityDay(doc); loadedAt = born; } })
     .catch(error => { console.error("University day read failed:", error); })
-    .finally(() => { loading = null; });
-  return loading;
+    .finally(() => { if (loading === run) loading = null; });
+  loading = run;
+  return run;
 }
 
 export function universityDayFresh(_req: Request, _res: Response, next: NextFunction): void {
@@ -35,7 +38,10 @@ export function universityDayFresh(_req: Request, _res: Response, next: NextFunc
 
 export async function saveUniversityDay(day: UniversityDay): Promise<void> {
   await Repository.outsideDemoSandbox(async () => {
+    generation += 1;
     await Repository.saveFeatureDoc("universityDay", DOC_ID, { ...day, updatedAt: new Date().toISOString() });
+    generation += 1;
+    loading = null;
     applyUniversityDay(day);
     loadedAt = Date.now();
     await Repository.markSchedulesChanged();

@@ -324,8 +324,14 @@ function instructorFree(instructorId: number, days: DayKey[], start: string, end
 function regulationLadder(days: DayKey[]): string[] {
   const long = days.some(day => day === "fmonday" || day === "fwednesday");
   const short = days.some(day => day !== "fmonday" && day !== "fwednesday");
-  if (long && !short) return ["08:00", "09:30", "11:00", "12:30", "14:00", "15:30", "17:00", "18:30"];
-  return ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+  /* مرساه الثامنة بخطوته، ويمتد في الاتجاهين داخل الدوام الشامل؛ وبلا توسيع يقف حيث وقف دائماً. */
+  const step = long && !short ? 90 : 60;
+  const last = SCHEDULE_DAY_END > 20 * 60 ? SCHEDULE_DAY_END : Math.min(SCHEDULE_DAY_END, step === 90 ? 18 * 60 + 30 : 18 * 60);
+  let first = 8 * 60;
+  while (first - step >= SCHEDULE_DAY_START) first -= step;
+  const out: string[] = [];
+  for (let at = first; at <= last; at += step) if (at >= SCHEDULE_DAY_START) out.push(minutesToTime(at));
+  return out;
 }
 
 function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: string[], week: FSchedule[], identity: number): RequestSlot[] {

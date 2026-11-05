@@ -234,8 +234,11 @@ if(!m||String(b.days||"").split("·").filter(function(x){return x.trim()}).lengt
 /* بداياتٌ جاهزة بضغطة: الأحد والثلاثاء والخميس محاضراتٌ قصيرة كل ساعة،
    والاثنين والأربعاء محاضراتٌ طويلة كل ساعة ونصف. ولا وقتَ يُكتب باليد (المالك 2026-10-30). */
 function startChoices(days){var long=days.some(function(d){return LONG[d]}),short=days.some(function(d){return !LONG[d]});
-if(long&&!short)return ["08:00","09:30","11:00","12:30","14:00","15:30","17:00","18:30"];
-return ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00"]}
+/* السُّلّم مرساه الثامنة بخطوته، ويمتد في الاتجاهين داخل الدوام الشامل؛ وبلا توسيع يقف حيث وقف دائماً. */
+var step=long&&!short?90:60,last=DAY_E>1200?DAY_E:Math.min(DAY_E,step===90?1110:1080),first=480,out=[];
+while(first-step>=DAY_S)first-=step;
+for(var at=first;at<=last;at+=step)if(at>=DAY_S)out.push(String(Math.floor(at/60)).padStart(2,"0")+":"+String(at%60).padStart(2,"0"));
+return out}
 function fmtDays(days){return days.map(function(d){
 var f=DAYS.filter(function(x){return x[0]===d})[0];return f?f[1]:d}).join(" · ")}
 function dt(iso){if(!iso)return "";var d=new Date(iso);return isNaN(d)?"":

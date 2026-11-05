@@ -9,6 +9,7 @@ import { courseHue, courseTexture, firstLast } from "../utils/weekVisual";
 import { scheduleDays, scheduleMinutes } from "./scheduleWorkspace";
 import type { FSchedule } from "../types";
 import VisitingBadge from "./VisitingBadge";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../utils/scheduleTime";
 
 /**
  * ── الترحيب: البرنامج يشتغل أمامك، لا يشرح نفسه ─────────────────────────────
