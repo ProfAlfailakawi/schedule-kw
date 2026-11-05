@@ -91,6 +91,7 @@ export function safeDraftRows(input: unknown, collegeId: number, sectionId: numb
     sourceCourseCode:String(raw?.sourceCourseCode||"").slice(0,40)||undefined,
     sourceCourseText:String(raw?.sourceCourseText||"").slice(0,220)||undefined,
     sourceSectionText:String(raw?.sourceSectionText||"").slice(0,40)||undefined,
+    sourceReadMode:String(raw?.sourceReadMode||"").slice(0,20)||undefined,
     importEvidence:safeImportEvidence(raw?.importEvidence),
     // Imported PDF rows carry their original stable order. New rows deliberately
     // live in a separate range so they can never impersonate a deleted source row.

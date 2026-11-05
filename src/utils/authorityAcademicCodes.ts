@@ -66,6 +66,42 @@ export function authorityDepartmentCode(collegeCode: unknown, sectionCode: unkno
   return section;
 }
 
+/**
+ * ── رموز قسم التربية القديم (0114) ────────────────────────────────────────
+ *
+ * تقسيم قسم «علم التربية» القديم (14) إلى «الأصول والإدارة التربوية» (20) و«المناهج
+ * وطرق التدريس» (21) لم يغيّر أرقام المقررات عند الهيئة: رأس الصفحة يطبع 0120 أو
+ * 0121، والمقررات تحته مطبوعة 0114xxx، وقد تجاورها في الصفحة نفسها مقررات 0120xxx
+ * (تقرير SWRSCHA للفصل الثاني 2026-2027). وهي القائمة الوحيدة التي تسمح بعبور رمز
+ * قسم إلى قسم، ومصدرها ما طُبع لا قاعدة عامة: «كل ما يُطبع تحت الرأس مقبول» يعني
+ * قبول أي خطأ طباعة أو تقرير مختلط، فكل زوج غير مذكور هنا يُرفض كما كان.
+ *
+ * قسم علم النفس (15) ورث بعض أرقام 14 أيضاً، لكن الملف لا يطبع تحته 0114 فلا يُضاف.
+ */
+const AUTHORITY_INHERITED_COURSE_PREFIXES:Readonly<Record<string,readonly string[]>>={
+  "0120":["0114"],
+  "0121":["0114"],
+};
+
+/** رموز المقررات التي يصح أن تُطبع تحت رأس هذا القسم: رمزه أولاً ثم الموروث. */
+export function authorityCoursePrefixes(departmentCode: unknown): string[] {
+  const department = academicDigits(departmentCode);
+  return department ? [department, ...(AUTHORITY_INHERITED_COURSE_PREFIXES[department] || [])] : [];
+}
+
+/**
+ * رقمٌ موروث يطابق صف كتالوج القسم القصير (101) بالخانات الثلاث فقط، ومن هنا لا
+ * يُستعمل وحده: 0114464 القديم مقرر غير 0120464 الجديد (انظر sheetReconcile)،
+ * فالمستدعي يشترط أن يوافق الاسمُ المطبوع اسمَ المقرر وألا يطبع الملف رقم القسم
+ * نفسه بالذيل ذاته. والمفتاح الكامل لا يُعبَر: 0120101 في الكتالوج ليس 0114101.
+ */
+export function authorityInheritedCourseMatches(sourceCode: unknown, catalogueCourseCode: unknown, departmentCode: unknown): boolean {
+  const source = academicDigits(sourceCode), course = academicDigits(catalogueCourseCode), department = academicDigits(departmentCode);
+  if (source.length !== 7 || !course || course.length > 3) return false;
+  if (!(AUTHORITY_INHERITED_COURSE_PREFIXES[department] || []).includes(source.slice(0, 4))) return false;
+  return source.slice(-3) === course.padStart(3, "0");
+}
+
 /** Compare a document department key to the current catalogue scope. */
 export function authorityDepartmentMatches(sourceCode: unknown, collegeCode: unknown, sectionCode: unknown): boolean {
   const source = academicDigits(sourceCode);
@@ -92,6 +128,9 @@ export function authorityCourseCodeMatches(sourceCode: unknown, catalogueCourseC
   const department = academicDigits(departmentCode);
   if (!source || !course) return false;
   if (source === course) return true;
+  /* مقررٌ رقمه خانتان (99) تطبعه الهيئة بست خانات لا سبع: 013099 هو 0130 + 099. */
+  if (source.length === 6 && department.length === 4 && source.startsWith(department))
+    return authorityCourseCodeMatches(`${department}0${source.slice(4)}`, catalogueCourseCode, departmentCode);
 
   // Catalogue frequently stores only the three-digit course number (e.g. 102),
   // while SWRSCHA prints the complete key (e.g. 0101102).
@@ -175,6 +214,7 @@ export function assignAuthoritySections<T extends {
   SCode?: unknown;
   sourceOrder?: unknown;
   sourceSectionText?: unknown;
+  referenceNumber?: unknown;
   importEvidence?: { section?: { method?: unknown } } | unknown;
 }>(input: readonly T[]): T[] {
   const rows = input.map(row => ({ ...row })) as T[];
@@ -183,14 +223,36 @@ export function assignAuthoritySections<T extends {
     return { row, index, order: Number.isFinite(numericOrder) ? numericOrder : index };
   }).sort((a, b) => a.order - b.order || a.index - b.index);
   const nextByCourse = new Map<number, number>();
+  /* شعبة بموعدين: الهيئة تطبع الموعد الثاني سطراً تحت الأول، والرقم المرجعي هو
+     هوية الشعبة عندها، فمرجعيٌّ واحد لمقرر واحد شعبةٌ واحدة لا شعبتان. */
+  const sectionByReference = new Map<string, string>();
   for (const item of ordered) {
     const courseId = Number((item.row as any).AdCourseId || 0);
     if (!Number.isFinite(courseId) || courseId <= 0) { (item.row as any).SCode = ""; continue; }
+    const reference = String((item.row as any).referenceNumber ?? "").trim();
+    const sectionKey = reference ? `${courseId}|${reference}` : "";
+    const known = sectionKey ? sectionByReference.get(sectionKey) : "";
+    if (known) { (item.row as any).SCode = known; continue; }
     const next = (nextByCourse.get(courseId) || 500) + 1;
     nextByCourse.set(courseId, next);
     (item.row as any).SCode = String(next);
+    if (sectionKey) sectionByReference.set(sectionKey, String(next));
   }
   return rows;
+}
+
+/**
+ * صف لم يُربط بمقرر، ورقمه مقروء بوضوح من طبقة نص PDF: الخلل في العضوية لا في
+ * القراءة، فيُعرض ما طُبع (الرقم والاسم والشعبة) بدل «رقم المقرر غير واضح».
+ * المسح مستثنى عمداً: ما يقرؤه OCR قد يكون أرقاماً ملتصقة، ولا يُعرض دليلاً.
+ */
+export function unlinkedCourseEvidence(row: {
+  AdCourseId?: unknown; sourceReadMode?: unknown; sourceCourseCode?: unknown; sourceCourseText?: unknown; sourceSectionText?: unknown;
+}): { code: string; name: string; section: string } | null {
+  if (Number(row.AdCourseId || 0) || row.sourceReadMode !== "pdf-text") return null;
+  const code = academicDigits(row.sourceCourseCode);
+  if (code.length !== 6 && code.length !== 7) return null;
+  return { code, name: String(row.sourceCourseText || "").trim(), section: normalizeAuthoritySectionCode(row.sourceSectionText) };
 }
 
 /**
