@@ -11,7 +11,7 @@ import type { LinkMode } from "../utils/linkMode";
 import { DnaStepper } from "./dna";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarPlus, Check, Copy, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
+import { CalendarPlus, Check, Copy, Flag, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
 import MasariQrButton from "./MasariQrButton";
 import { reachAboutCard, unreachable, whatsappNumber } from "../utils/reachInstructor";
 import type { AdInstructor } from "../types";
@@ -330,6 +330,26 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * القائمة تبقى كما هي — لا تُستبدل ولا يتغيّر موعدُها العام — وإن لم تكن بطاقةٌ حيّةٌ أُنشئت
    * بلا موعدٍ عام: الموعدُ في طلب كل مختارٍ وحده. ثم يُسكّ لكلٍّ رابطُه الشخصي للتسليم.
    */
+  /* ملاحظات التسجيل: تُميَّز المقررات، ويُعاد النشر لأصحابها فيما عليه ملاحظة فقط. */
+  const [notedRows, setNotedRows] = useState<Array<{ id: number; course: string; section: string; instructor: string }>>([]);
+  const [notedDone, setNotedDone] = useState("");
+  useEffect(() => {
+    if (!scoped || kind !== "staff") { setNotedRows([]); return; }
+    fetch(`/api/instructor-requests/registrar-noted?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" })
+      .then(response => (response.ok ? response.json() : { rows: [] })).then(data => setNotedRows(data.rows || [])).catch(() => setNotedRows([]));
+  }, [scoped, kind, collegeId, sectionId, termId]);
+  const sendNoted = async () => {
+    if (!closesAt) { setError("اكتب آخر موعدٍ لاستقبال طلبات التعديل."); return; }
+    setBusy(true); setError(null); setNotedDone("");
+    try {
+      const response = await fetch("/api/instructor-requests/issue", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collegeId, sectionId, termId, closesAt, mode: "edit", onlyNoted: true }),
+      });
+      const data = await readReply(response, "تعذّر إعادة النشر");
+      setNotedDone(`أُعيد النشر لـ${countOf(data.total || 0, oblique(AR.instructor))} فيما عليه ملاحظات فقط.`);
+    } catch (e: any) { setError(e?.message || "تعذّر إعادة النشر"); } finally { setBusy(false); }
+  };
   const sendPicked = async () => {
     const ids = pickedPeople.flatMap(person => person.ids);
     if (!ids.length) { setError("اختر أستاذاً واحداً على الأقل."); return; }
@@ -741,6 +761,16 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {kind === "staff" ? <SendModePicker value={sendMode} onChange={setSendMode} /> : null}
               {/* «لمن؟» للعرض والتعديل؛ ومرحلةُ التدريب تختار مدرّبيها في لوحتها. */}
               {kind === "staff" && sendMode !== "ta" ? <AudiencePicker value={audience} onChange={setAudience} /> : null}
+              {notedRows.length ? (
+                <div className="share-noted" role="group" aria-label="ملاحظات التسجيل">
+                  <strong><Flag aria-hidden="true" /> عليها ملاحظات من التسجيل: {notedRows.length}</strong>
+                  <ul>{notedRows.slice(0, 12).map(row => <li key={row.id}><b>{row.course}</b> · {row.section}{row.instructor ? ` · ${row.instructor}` : ""}</li>)}</ul>
+                  {notedDone ? <p role="status">{notedDone}</p> : null}
+                  <SecondaryButton type="button" disabled={busy} onClick={() => void sendNoted()} data-guide-ignore="يعيد نشر بطاقة الأستاذ لأصحاب الملاحظات فيما عليه ملاحظات فقط">
+                    <Send aria-hidden="true" /> إعادة النشر لما عليه ملاحظات فقط
+                  </SecondaryButton>
+                </div>
+              ) : null}
               {picking ? <PublishRecipientPicker collegeId={collegeId} sectionId={sectionId} termId={termId} onChange={setPickedPeople}
                 visitingOf={id => isVisiting(id, collegeId, sectionId)} traineeOf={id => trainees.has(Number(id))} /> : null}
               {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} checking={reachChecking} confirmSend={proceed => void guardSend(proceed)} /> : null}

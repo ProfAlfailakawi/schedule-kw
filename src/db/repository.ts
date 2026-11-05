@@ -5745,6 +5745,26 @@ export const Repository = {
    * قد يصله قرارٌ أو ردٌّ بين قراءة النشر وكتابته، فلا يُمحى. ولا يُرفع رقمُ مراجعته: بنودُه لم
    * تتغيّر، فلا يُردّ إرسالُ الأستاذ بـ«تغيّر الطلب». ويُبثّ الحفظُ فيُعيد الكرتُ الحيّ رسمَ صفته.
    */
+  /* نطاقُ الملاحظات يُكتب وحده كالصفة: قرارٌ يصل بين القراءة والكتابة لا يُمحى. */
+  setInstructorRequestNotedRows: async (id: string, notedRowIds: number[]): Promise<boolean> => {
+    const at = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        tx.update(ref, { notedRowIds, updatedAt: at });
+        return { ...(snap.data() as InstructorRequest), notedRowIds, updatedAt: at };
+      });
+      if (saved) announceInstructorRequestSaved(saved);
+      return Boolean(saved);
+    }
+    const row = await Repository.getInstructorRequest(id);
+    if (!row) return false;
+    await Repository.saveInstructorRequest({ ...row, notedRowIds, updatedAt: at } as InstructorRequest);
+    return true;
+  },
+
   setInstructorRequestLinkMode: async (id: string, mode: LinkMode): Promise<boolean> => {
     const at = new Date().toISOString();
     if (firestoreDb && !demoSandboxContext.getStore()) {

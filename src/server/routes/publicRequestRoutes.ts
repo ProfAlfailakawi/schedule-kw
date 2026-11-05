@@ -32,6 +32,7 @@ import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instruct
 import { endForRequest, headlineReasonOf, rowFromRequest, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
 import { offeringStatesForTerm } from "../offeringStates";
 import { pushHooks } from "../pushRoutes";
+import { coursePlanHint, notedScopeBreach } from "../../utils/requestNotedScope";
 import { linkMode, modeAllowsFreeEdit, modeAllowsWrite } from "../../utils/linkMode";
 import { bestPerSide, stickCandidates, stickForTeacher, topSticks, type StickAnchor, type StickJudged } from "../../utils/lectureStick";
 import { offeringBlocked, offeringView, toggleInterest, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
@@ -587,6 +588,29 @@ async function offeringViewsFor(termId: number, options: Array<{ id: number; col
 }
 
 /** ما يُرسل للكرت من مقررات القسم بعد حالة الطرح: المخفيّ لا يُرسل، والمقفل يُرسل باهتاً للنجمة. */
+/** سهمُ التخطيط لكل مقرر (ملاحظة المالك 6): من «تخطيط الشعب» والقائم في الجدول. تنبيهٌ لا يمنع. */
+async function withPlanHints<T extends { id: number; collegeId: number; sectionId: number }>(courses: T[], termId: number): Promise<Array<T & { planHint?: { kind: "open" | "over"; line: string } }>> {
+  const scopes = [...new Map(courses.map(course => [`${course.collegeId}:${course.sectionId}`, course])).values()];
+  const readings = new Map(await Promise.all(scopes.map(async scope => {
+    const [stats, rows] = await Promise.all([
+      Repository.getRegistrationStats(scope.collegeId, scope.sectionId, termId).catch(() => null),
+      Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId }),
+    ]);
+    const sections = new Map<number, Set<string>>();
+    for (const row of rows as any[]) {
+      const id = Number(row.AdCourseId);
+      if (!sections.has(id)) sections.set(id, new Set());
+      sections.get(id)!.add(String(row.SCode || row.id));
+    }
+    return [`${scope.collegeId}:${scope.sectionId}`, { accepted: stats?.accepted || {}, sections }] as const;
+  })));
+  return courses.map(course => {
+    const reading = readings.get(`${course.collegeId}:${course.sectionId}`);
+    const hint = coursePlanHint(reading?.accepted?.[String(course.id)], reading?.sections.get(Number(course.id))?.size || 0);
+    return hint ? { ...course, planHint: hint } : course;
+  });
+}
+
 function coursesWithOffering<T extends { id: number; collegeId: number; sectionId: number }>(courses: T[], views: Map<string, ReturnType<typeof offeringView> & { reach?: "locked" }>) {
   return courses.flatMap(course => {
     const view = views.get(`${course.collegeId}:${course.sectionId}:${course.id}`);
@@ -710,7 +734,7 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
     calendarLegacyKey: calendarToken,
     /* مقررات هذا القسم العلمي في كل كليةٍ يوجد فيها؛ الكلية تُختار صراحةً قبل المقرر.
        للعرض فقط ومرحلة التدريب: لا إضافةَ حرّة، فلا مقررات. */
-    courses: mode === "edit" ? coursesWithOffering(courses as any[], offeringViews) : [],
+    courses: mode === "edit" ? await withPlanHints(coursesWithOffering(courses as any[], offeringViews), Number(request.AdTermId)) : [],
     /* أنماطُ اللائحة لكل مقرر (B1/B2/B3): مصدرُها الواحد patternsForHours — يُكمَل بها اليومُ الأول ضغطةً واحدة. */
     dayPatterns: await requestDayPatterns([...(request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)), ...(courses as any[]).map(option => Number(option.id))]),
     /* أنماطُ اللائحة بدقائق كل يوم (والكتلةُ الواحدة): الصفحةُ تحسب بها النهايةَ بالمحرّك نفسِه الذي يحسب به الخادم
@@ -726,6 +750,8 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   if (isUnchangedConfirmed(resolved.request)) { res.status(409).json({ error: "تم تثبيت جدولك مسبقاً دون تعديلات." }); return; }
   const postMode = linkMode(resolved.request);
   if (postMode === "view") { res.status(403).json({ error: "هذا الرابط للعرض فقط." }); return; }
+  const breach = notedScopeBreach(resolved.request.notedRowIds, Array.isArray(req.body?.items) ? req.body.items : []);
+  if (breach >= 0) { res.status(403).json({ error: "التعديل متاح فيما عليه ملاحظات التسجيل فقط.", itemIndex: breach }); return; }
   if (!requestWindowOpen(resolved.request)) {
     res.status(403).json({ error: "انتهت مدّة استقبال الطلبات لهذا الفصل." });
     return;
@@ -1311,6 +1337,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
   const items = Array.isArray(req.body?.items) ? (req.body.items as any[]) : null;
   const index = Number(req.body?.itemIndex);
   const entry = items && Number.isInteger(index) ? items[index] : null;
+  if (entry && notedScopeBreach(resolved.request.notedRowIds, [entry]) >= 0) { res.status(403).json({ error: "التعديل متاح فيما عليه ملاحظات التسجيل فقط." }); return; }
   if (!items || items.length > 200 || !entry || (entry.action !== "change" && entry.action !== "add")) {
     res.status(400).json({ error: "تعذّر فحص الأوقات لهذا البند." });
     return;
