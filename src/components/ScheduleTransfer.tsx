@@ -8,7 +8,10 @@ import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { importRowKey, type ImportRow } from "./ImportPreviewTable";
-import PagedImportPreview, { PageReviewWait } from "./PagedImportPreview";
+import PagedImportPreview, { PageReviewWait, scrollToFirstImportIssue } from "./PagedImportPreview";
+import ImportStatusBar from "./ImportStatusBar";
+import { useImportPreflight } from "../hooks/useImportPreflight";
+import { importGateSettled, importGateState } from "../utils/importGate";
 import ImportNameFillPanel from "./ImportNameFillPanel";
 import SchedulePublish from "./SchedulePublish";
 import SectionPlanning from "./SectionPlanning";
@@ -387,72 +390,16 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
    * وتُستأنف عند كل تعديل، فلا تبقى ملاحظة قديمة عن صف أُصلح أو حُذف. وحتى
    * يصل جوابها عن الصفوف الحالية بالذات لا يُعرض زر النشر: قاعدة «لا يظهر إلا
    * وكل شيء مضبوط» تعني الانتظار لحظةً، لا الوعد ثم الرفض. */
-  const previewRowsSignature = useMemo(() => {
-    if (importKind !== "authority-pdf") return "";
-    const rows = Array.isArray(xlsxPreview?.rows) ? xlsxPreview.rows as ImportRow[] : [];
-    return JSON.stringify(rows.map(row => [
-      row.AdCourseId, row.SCode, row.AdInstructorId, row.roomId || row.AdRoomHall, row.buildingId || row.AdRoomCode,
-      row.fstarttime, row.fendtime, row.fsunday, row.fmonday, row.ftuesday, row.fwednesday, row.fthursday,
-    ]));
-  }, [importKind, xlsxPreview?.rows]);
-  const [termConflicts, setTermConflicts] = useState<{ signature: string; notes: Record<string, string[]>; issues: string[] } | null>(null);
-
-  useEffect(() => {
-    if (importKind !== "authority-pdf" || !collegeId || !sectionId || !termId) { setTermConflicts(null); return; }
-    const rows = Array.isArray(xlsxPreview?.rows) ? xlsxPreview.rows as ImportRow[] : [];
-    if (!rows.length) { setTermConflicts({ signature: previewRowsSignature, notes: {}, issues: [] }); return; }
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
-      try {
-        const response = await fetch("/api/schedules/import-preflight", {
-          method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
-          body: JSON.stringify({ collegeId, sectionId, termId, rows }),
-        });
-        if (!response.ok) throw new Error("preflight");
-        const data = await response.json();
-        const list = Array.isArray(data?.conflicts) ? data.conflicts : [];
-        const notes: Record<string, string[]> = {};
-        const issues: string[] = [];
-        const label = (at: number) => (at + 1).toLocaleString("ar-KW-u-nu-latn");
-        list.forEach((item: any) => {
-          const message = String(item?.message || "تعارض يمنع النشر");
-          const here = Number.isInteger(item?.rowIndex) ? Number(item.rowIndex) : null;
-          const there = Number.isInteger(item?.otherIndex) ? Number(item.otherIndex) : null;
-          /* الطرف الآخر إمّا صف في المسودة فيُسمّى برقمه، وإمّا موعد محفوظ لقسم
-             آخر لا رقم له هنا — وهو بالضبط ما كانت الشاشة تعجز عن قوله. */
-          const otherLabel = String(item?.otherLabel || "").trim();
-          const partner = there !== null ? `مع الصف ${label(there)}` : otherLabel ? `مع موعد محفوظ في ${otherLabel}` : "مع موعد محفوظ خارج هذا الجدول";
-          [here, there].forEach(at => {
-            if (at === null) return;
-            const row = rows[at];
-            if (!row) return;
-            const key = importRowKey(row);
-            const other = at === here ? partner : (here !== null ? `مع الصف ${label(here)}` : partner);
-            notes[key] = [...new Set([...(notes[key] || []), `${message} ${other}`])];
-          });
-          if (here !== null) issues.push(`الصف ${label(here)}: ${message} ${partner}.`);
-          else issues.push(`${message} ${partner}.`);
-        });
-        setTermConflicts({ signature: previewRowsSignature, notes, issues: [...new Set(issues)] });
-      } catch (fault: any) {
-        if (fault?.name === "AbortError") return;
-        /* تعذّر الفحص لا يحبس المستخدم إلى الأبد: تعود الشاشة إلى فحصها المحلي،
-           والبوابة على الخادم تبقى الحارس الأخير الذي لا يُتجاوز. */
-        setTermConflicts({ signature: previewRowsSignature, notes: {}, issues: [] });
-      }
-    }, 500);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [importKind, collegeId, sectionId, termId, previewRowsSignature, xlsxPreview?.rows]);
-
-  /* ── «عندنا جواب» و«لا ننتظر جواباً» ليسا شيئاً واحداً ──────────────────────
-     خلطهما في راية واحدة جعل مسار Excel يقول إن لديه نتائج فحصٍ لم يُجرَ أصلاً،
-     فتُقرأ حقول من `null` وتسقط الشاشة كلها — وهي أسوأ من العيب الذي كان يُراد
-     إصلاحه. فرايتان: واحدة تقول إن البيانات حاضرة وتخصّ هذه الصفوف بالذات،
-     وأخرى تقول إن بوابة النشر لم تعد تنتظر شيئاً. */
-  const termConflictsFresh = Boolean(termConflicts && termConflicts.signature === previewRowsSignature);
-  /* الفحص المسبق خاص بجدول PDF المعتمد؛ استيراد ملف Excel لا يمرّ به أصلاً،
-     فلا يجوز أن ينتظر جواباً لن يأتي ويبقى بلا زر نشر إلى الأبد. */
-  const publishGateSatisfied = importKind !== "authority-pdf" || termConflictsFresh;
+  const previewRows = useMemo(() => (Array.isArray(xlsxPreview?.rows) ? xlsxPreview.rows as ImportRow[] : []), [xlsxPreview?.rows]);
+  const preflight = useImportPreflight({
+    /* كل استيرادٍ يمرّ بالبوابة نفسها عند الخادم — ملف PDF وورقة Excel و«نزّل الشعب» —
+       فالفحص لها كلها؛ وأثناء قراءةٍ أدق الصفوف مجمّدة ستُستبدل، فلا يُسأل عنها. */
+    enabled: Boolean(xlsxPreview) && !smartBusy, collegeId, sectionId: activeImportSectionId, termId, rows: previewRows,
+    importLayout: importKind,
+  });
+  const termConflictsFresh = preflight.state === "done";
+  /* «تعذّر الفحص» لا يحبس المستخدم: البوابة لا تنتظر بعده، لكن الشريط يقوله ولا يقول «اكتمل». */
+  const publishGateSatisfied = preflight.state !== "pending";
 
   /* ── التعارض يُرى قبل الضغط، لا بعده ───────────────────────────────────────
    *
@@ -551,12 +498,15 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     /* حجز مزدوج لأستاذ أو قاعة يمنع النشر عند الخادم، فيمنع ظهور زر النشر هنا
        أيضاً. زرٌّ يظهر ثم يُرفض هو وعدٌ كاذب، لا مراجعة. */
     previewConflicts.issues.forEach(issue => issues.add(issue));
-    if (termConflictsFresh) (termConflicts?.issues || []).forEach(issue => issues.add(issue));
+    preflight.issues.forEach(issue => issues.add(issue));
+    /* ما يرفضه الحفظ في صفٍّ له ملاحظةٌ حيّة هنا لا يُعدّ مرتين. */
+    const noted = new Set([...issues].map(issue => issue.match(/^الصف (\d+):/)?.[1]));
+    preflight.rowChecks.forEach(check => { if (!noted.has(String(check.row))) issues.add(check.text); });
     if (importKind === "authority-pdf") (Array.isArray(xlsxPreview.saveIssues) ? xlsxPreview.saveIssues : []).forEach((issue: unknown) => { const text = String(issue || "").trim(); if (text) issues.add(text); });
     /* صفحة قُبلت بأسطر مطبوعة بلا صف تنتظر «راجعت الصفحة» قبل النشر. */
     if (importKind === "authority-pdf") pageReviewIssues(xlsxPreview.pageDiagnostics, reviewedImportPages).forEach(issue => issues.add(issue));
     return [...issues];
-  }, [xlsxPreview, importKind, departmentIds, roster, previewConflicts, termConflicts, termConflictsFresh, reviewedImportPages, manualPatternIssues]);
+  }, [xlsxPreview, importKind, departmentIds, roster, previewConflicts, preflight.issues, preflight.rowChecks, reviewedImportPages, manualPatternIssues]);
   /* Server notes arrive as «السطر N: …» against the whole draft. They are moved
      onto the rows they name so the table can colour the offending cell, instead
      of printing the same sentence five times under a table that looks fine. */
@@ -579,12 +529,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
      قبله. المراجع لا يعنيه من اكتشف التعارض. */
   const previewRowIssues = useMemo(() => {
     const merged: Record<string, string[]> = { ...serverRowIssues };
-    const live = [previewConflicts.notes, (termConflictsFresh && termConflicts?.notes) || {}, manualPatternIssues.notes];
+    const live = [previewConflicts.notes, preflight.notes, manualPatternIssues.notes];
     live.forEach(source => Object.keys(source).forEach(key => {
       merged[key] = [...new Set([...(merged[key] || []), ...source[key]])];
     }));
     return merged;
-  }, [serverRowIssues, previewConflicts, termConflicts, termConflictsFresh, manualPatternIssues]);
+  }, [serverRowIssues, previewConflicts, preflight.notes, manualPatternIssues]);
 
   const unplacedSaveIssues = useMemo(() => {
     const notes = Array.isArray(xlsxPreview?.saveIssues) ? xlsxPreview.saveIssues : [];
@@ -612,6 +562,18 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     const roomless = newRows.filter(row => !row.roomId && row.locationStatus !== "PENDING_ROOM");
     return { existing: existingNow, added: newRows.length, pending: roomless.length, removed: Math.max(0, originalExisting - existingNow), roomless: roomless.map(row => `${row.AdCourseName || ""} ${row.SCode || ""}`.trim()) };
   })();
+  /* الحالة الواحدة التي يقرؤها الشريط وعلامات الصفحات وبطاقة «جاهز»: لا نتيجة قبل اكتمال الفحوص كلها. */
+  const importGate = importGateState({
+    readingStep: readProgress?.message || (smartBusy ? "قراءة أدق للصفحات المحددة" : ""),
+    baselinePending: dryRunActive && !termRows && !termRowsFailed,
+    baselineFailed: dryRunActive && termRowsFailed,
+    preflight: preflight.state,
+    issues: importBlockingIssues,
+    hasContent: Boolean(xlsxPreview?.rows?.length || authorityBaselineCount > 0),
+  });
+  const importSettled = importGateSettled(importGate);
+  const [issueJump, setIssueJump] = useState(0);
+  const jumpToFirstIssue = () => { setIssueJump(value => value + 1); scrollToFirstImportIssue(); };
   /* Pages still waiting for «راجعت الصفحة» — named beside the publish button,
      which otherwise just disappears with no word about why. */
   const pagesPendingReview = importKind === "authority-pdf" ? pagesAwaitingReview(xlsxPreview?.pageDiagnostics, reviewedImportPages) : [];
@@ -1159,6 +1121,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
   };
 
   const saveExcelDraft = async (publishNow=false, replaceFilled=false) => {
+    /* الفحص لم ينته: لا كتابة، ولو وصل الضغط من أي طريق. */
+    if (!publishGateSatisfied) return;
     if (!importReady) {
       setError("أكمل ملاحظات المعاينة أولًا.");
       window.setTimeout(() => document.querySelector(".transfer-preview .import-preview-table-wrap, .transfer-preview .import-issues-fold, .transfer-preview")?.scrollIntoView({ behavior: "smooth", block: "center" }), 40);
@@ -1599,11 +1563,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                   rows to keep were captured when the request left, so an edit
                   made meanwhile would be silently overwritten by the merge. */}
               {xlsxPreview && dryDiff ? (
-                <ImportDryRun diff={dryDiff} conflicts={termConflictsFresh ? (termConflicts?.issues.length || 0) : 0}
-                  ready={importReady && publishGateSatisfied} checking={importReady && !publishGateSatisfied} busy={busy}
-                  applied={dryApplied ? { count: dryApplied.count, undoable: dryApplied.undoVersions.length > 0, undone: dryApplied.undone } : null}
-                  onApply={() => void saveExcelDraft(true, true)} onUndo={() => void undoDryApply()}
-                  onCancel={() => { setXlsxPreview(null); setDryRunActive(false); setDryApplied(null); }} />
+                <ImportDryRun diff={dryDiff} conflicts={termConflictsFresh ? preflight.issues.length : null}
+                  applied={dryApplied ? { undone: dryApplied.undone } : null} />
               ) : null}
               {xlsxPreview ? (
                 <div className={`transfer-preview${smartBusy ? " is-smart-locked" : ""}`} aria-busy={smartBusy}>
@@ -1611,7 +1572,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                     <span className="understood"><b>{Number(xlsxPreview.count || 0).toLocaleString("ar-KW-u-nu-latn")}</b><small>{nounFor(Number(xlsxPreview.count || 0), fromPlanning ? AR.appointment : AR.row)}</small></span>
                     {importKind!=="authority-pdf"?<span className={xlsxPreview.issues?.length ? "warn" : ""}><b>{(xlsxPreview.issues?.length || 0).toLocaleString("ar-KW-u-nu-latn")}</b><small>{nounFor(xlsxPreview.issues?.length || 0, AR.note)}</small></span>:null}
                     {importKind==="authority-pdf"?<span className="pages"><b>{Number(xlsxPreview.pages||0).toLocaleString("ar-KW-u-nu-latn")}</b><small>{nounFor(Number(xlsxPreview.pages||0), AR.page)}</small></span>:null}
-                    {importKind==="authority-pdf"&&pdfReadinessSummary?<span className="ready"><b>{pdfReadinessSummary.ready.toLocaleString("ar-KW-u-nu-latn")}</b><small>جاهز للنشر</small></span>:null}
+                    {importKind==="authority-pdf"&&pdfReadinessSummary?(importSettled
+                      ?<span className="ready"><b>{pdfReadinessSummary.ready.toLocaleString("ar-KW-u-nu-latn")}</b><small>جاهز للنشر</small></span>
+                      :<span className="is-checking"><b>…</b><small>يفحص</small></span>):null}
                     {/* One card, two units: the rows still waiting and the exact
                         number of blanks inside them — so filling two cells of a
                         three-blank row visibly moves the smaller number even
@@ -1782,6 +1745,8 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                         sectionId={sectionId}
                         termId={termId}
                         rowIssues={previewRowIssues}
+                        checking={!importSettled}
+                        jumpToIssue={issueJump}
                         onRows={next => commitPreviewRows(next)}
                       />
                       {/* A note about a row belongs ON that row. Repeating the
@@ -1803,55 +1768,26 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                         </ul>
                       ) : null}
                     </>
-                  ) : xlsxPreview.issues?.length ? (
-                    <ul className="transfer-rejected">
-                      {xlsxPreview.issues.slice(0, 8).map((issue: string, index: number) => (
+                  ) : importBlockingIssues.length ? (
+                    <ul className="transfer-rejected" data-import-issue="true">
+                      {importBlockingIssues.slice(0, 8).map((issue: string, index: number) => (
                         <li key={index}><span>{issue}</span></li>
                       ))}
-                      {xlsxPreview.issues.length > 8 ? <li className="muted">و{xlsxPreview.issues.length - 8} غيرها…</li> : null}
+                      {importBlockingIssues.length > 8 ? <li className="muted">و{importBlockingIssues.length - 8} غيرها…</li> : null}
                     </ul>
                   ) : null}
                   {/* حصيلة النشر لها صندوقها الذي يحلّ محلّ الشاشة كلها، فلم
                       يبق هنا إلا خبر المسودة. */}
-                  {xlsxDraft ? (
+                  {xlsxDraft && !dryApplied ? (
                     <p className="transfer-done"><Check /> حُفظت المسودة داخل أدوات البيانات. يمكنك نشرها من هنا متى شئت.</p>
                   ) : (
-                    <div className={`transfer-import-commit-wrap${fromPlanning ? " is-planning" : ""}`}>
-                      {/* الرسالة عند اليد التي تضغط. كانت تُعرض في أعلى النافذة
-                          وحدها، وأعلى النافذة يكون قد غاب عن الشاشة بعد جدول
-                          من ثلاثين صفاً — فيبدو الزر وكأنه لا يفعل شيئاً. */}
-                      {error ? (
-                        <div className="transfer-commit-error" role="alert">
-                          <AlertTriangle aria-hidden="true" />
-                          <div>
-                            <strong>{error}</strong>
-                            {Object.keys(previewRowIssues).length ? <small>الخلايا المعنية مظللة بالأحمر داخل الجدول أعلاه.</small> : null}
-                          </div>
-                        </div>
-                      ) : null}
-                      <div className={`transfer-import-commit${fromPlanning ? " is-planning" : ""}`}>
-                        {/* بلا صفوف تختفي معاينة الصفحات، فيقف زرّ المراجعة في سطر الانتظار. */}
-                        <PageReviewWait pages={pagesPendingReview} onReviewPage={confirmImportPage} withButtons={!xlsxPreview?.rows?.length} />
-                        {fromPlanning && !importReady ? (
-                          <p className="tp-blocked" role="status">
-                            <AlertTriangle aria-hidden="true" />
-                            <span>لا يمكن النزول بعد: {importBlockingIssues.length ? `${countOf(importBlockingIssues.length, AR.note)} تمنعه، أولها — ${importBlockingIssues[0]}` : "الجدول فارغ."}</span>
-                          </p>
-                        ) : null}
-                        {importReady && !publishGateSatisfied ? (
-                          <p className="transfer-preflight-wait" role="status">جارٍ فحص التعارض مع بقية الأقسام في هذا الفصل…</p>
-                        ) : null}
-                        {/* مع «تجربة بلا حفظ» مرسومةً، «طبّق» في بطاقتها هو الطريق الوحيد للكتابة. */}
-                        {importReady && publishGateSatisfied ? (dryDiff ? null :
-                          <PrimaryButton type="button" data-guide-ignore="إجراء استيراد له تحقق ومراجعة ونقطة أمان خاصة داخل نفس النافذة" onClick={() => void saveExcelDraft(true)} disabled={busy || !importReady}>
-                            {busy ? "يجهّز…" : fromPlanning ? <><Layers aria-hidden="true" /> {planningMeta.added > 0 ? `نزّل ${countOf(planningMeta.added, AR.section)} في الجدول` : "نزّل التعديلات في الجدول"}</> : importKind === "authority-pdf" && Number(xlsxPreview.count || 0) === 0 ? "اعتماد حذف جميع مواعيد PDF ونشره" : `تعبئة ${countOf(Number(xlsxPreview.count || 0), AR.appointment)} ونشرها`}
-                          </PrimaryButton>
-                        ) : null}
-                        {/* «حفظ كمسودة فقط» is gone on purpose: a saved draft
-                            looks published to the person who saved it, and a
-                            whole department's timetable stayed invisible because
-                            of it. Review here, then publish — one road out. */}
-                      </div>
+                    /* بلا صفوف تختفي معاينة الصفحات، فيقف زرّ المراجعة في سطر الانتظار. */
+                    <div className="transfer-import-commit" data-import-issue={pagesPendingReview.length ? "true" : undefined}>
+                      <PageReviewWait pages={pagesPendingReview} onReviewPage={confirmImportPage} withButtons={!xlsxPreview?.rows?.length} />
+                      {/* «حفظ كمسودة فقط» is gone on purpose: a saved draft
+                          looks published to the person who saved it, and a
+                          whole department's timetable stayed invisible because
+                          of it. Review here, then publish — one road out. */}
                     </div>
                   )}
                 </div>
@@ -2068,6 +2004,31 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         </div>
         </>
         )}
+        {tab === "import" && !branchSite && !publishReceipt && (xlsxPreview || readProgress) ? (
+          <ImportStatusBar
+            state={importGate}
+            planning={fromPlanning}
+            blockedVerb={fromPlanning ? "تمنع النزول" : undefined}
+            busy={busy}
+            applyLabel={busy ? "يجهّز…" : dryDiff ? "طبّق" : fromPlanning ? <><Layers aria-hidden="true" /> {planningMeta.added > 0 ? `نزّل ${countOf(planningMeta.added, AR.section)} في الجدول` : "نزّل التعديلات في الجدول"}</> : importKind === "authority-pdf" && Number(xlsxPreview?.count || 0) === 0 ? "اعتماد حذف جميع مواعيد PDF ونشره" : `تعبئة ${countOf(Number(xlsxPreview?.count || 0), AR.appointment)} ونشرها`}
+            confirmText={dryDiff ? `سيُستبدل جدول الفصل (${countOf(dryDiff.current, AR.section)}) بما في الملف (${countOf(dryDiff.incoming, AR.section)}). تُحفظ نسخةٌ قبله للتراجع.` : undefined}
+            onApply={() => void saveExcelDraft(true, Boolean(dryDiff))}
+            onJump={jumpToFirstIssue}
+            onRetry={() => { if (importGate.kind === "baseline-failed") void loadTermRows(); else preflight.retry(); }}
+            onClose={() => { if (fromPlanning) goTab("planning"); else { setXlsxPreview(null); setDryRunActive(false); setDryApplied(null); setXlsxDraft(""); setError(null); } }}
+            applied={dryApplied ? { text: dryApplied.undone ? "عاد الجدول كما كان قبل التطبيق." : `طُبّق: ${countOf(dryApplied.count, AR.appointment)} في الجدول.`, onUndo: !dryApplied.undone && dryApplied.undoVersions.length ? () => void undoDryApply() : undefined } : null}
+            message={error ? (
+              /* الرسالة عند اليد التي تضغط، لا في أعلى نافذةٍ غاب عن الشاشة بعد جدول طويل. */
+              <div className="transfer-commit-error" role="alert">
+                <AlertTriangle aria-hidden="true" />
+                <div>
+                  <strong>{error}</strong>
+                  {Object.keys(previewRowIssues).length ? <small>الخلايا المعنية مظللة بالأحمر داخل الجدول.</small> : null}
+                </div>
+              </div>
+            ) : null}
+          />
+        ) : null}
       </section>
     </div>
   );

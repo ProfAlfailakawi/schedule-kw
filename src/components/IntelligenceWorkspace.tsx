@@ -107,7 +107,10 @@ import { isAssignableInstructor } from "../utils/instructorStatus";
 import StudentCasesTable from "./StudentCasesTable";
 import { RegistrationJourney, journeyFromViews, viewStatuses, type StatusFilter as CaseStatusFilter } from "./StudentCaseStatus";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
-import PagedImportPreview, { PageReviewWait } from "./PagedImportPreview";
+import PagedImportPreview, { PageReviewWait, scrollToFirstImportIssue } from "./PagedImportPreview";
+import ImportStatusBar from "./ImportStatusBar";
+import { useImportPreflight } from "../hooks/useImportPreflight";
+import { importGateSettled, importGateState } from "../utils/importGate";
 import LocationPicker, { BuildingPicker } from "./LocationPicker";
 import { roomIdentityKey } from "../utils/locationRegistry";
 import { assignAuthoritySections, authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
@@ -2030,6 +2033,18 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     return byRow;
   }, [importPreview?.rows, termId, instructors]);
 
+  /* الفحص نفسه الذي في شاشة نقل الجدول: يرى بقية الأقسام، فلا يقول «جاهز» ما سترفضه البوابة. */
+  const importPreflightRows = useMemo(() => (Array.isArray(importPreview?.rows) ? importPreview.rows as ImportRow[] : []), [importPreview?.rows]);
+  const importPreflight = useImportPreflight({
+    enabled: importPreview?.importLayout === "authority-pdf", collegeId, sectionId, termId, rows: importPreflightRows, importLayout: "authority-pdf",
+  });
+  const importCellIssues = useMemo(() => {
+    const merged: Record<string, string[]> = { ...importRowIssues };
+    Object.keys(importPreflight.notes).forEach(key => { merged[key] = [...new Set([...(merged[key] || []), ...importPreflight.notes[key]])]; });
+    return merged;
+  }, [importRowIssues, importPreflight.notes]);
+  const [importIssueJump, setImportIssueJump] = useState(0);
+
   const importBlockingIssues = useMemo(() => {
     if (!importPreview) return [] as string[];
     const rows = Array.isArray(importPreview.rows) ? importPreview.rows as ImportRow[] : [];
@@ -2040,11 +2055,18 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       ...(Array.isArray(importPreview.issues) ? importPreview.issues : []),
       ...validateImportRowsLocally(rows),
       ...Object.values(importRowIssues).flat(),
+      ...importPreflight.issues,
+      ...importPreflight.rowChecks.map(check => check.text),
       /* صفحة قُبلت بأسطر مطبوعة بلا صف تنتظر «راجعت الصفحة» قبل النشر. */
       ...(importPreview.importLayout === "authority-pdf" ? pageReviewIssues(importPreview.pageDiagnostics, reviewedImportPages) : []),
     ])];
-  }, [importPreview, importRowIssues, reviewedImportPages]);
-  const importReady = Boolean(importPreview?.valid && importBlockingIssues.length === 0);
+  }, [importPreview, importRowIssues, importPreflight.issues, importPreflight.rowChecks, reviewedImportPages]);
+  const importReady = Boolean(importPreview?.valid && importBlockingIssues.length === 0 && importPreflight.state !== "pending");
+  const importGate = importGateState({
+    preflight: importPreflight.state, issues: importBlockingIssues,
+    hasContent: Boolean(importPreview?.rows?.length),
+  });
+  const importSettled = importPreview?.importLayout !== "authority-pdf" || importGateSettled(importGate);
   /* Scanned pages still waiting for «راجعت الصفحة» — named beside save and publish. */
   const importPagesPendingReview = importPreview?.importLayout === "authority-pdf" ? pagesAwaitingReview(importPreview.pageDiagnostics, reviewedImportPages) : [];
   const confirmImportPage = (page: number) => setReviewedImportPages(prev => prev.includes(page) ? prev : [...prev, page]);
@@ -5567,8 +5589,10 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                   <span className="surface-kicker">معاينة</span>
                   <h2>قُرئ {countOf(importPreview.count, AR.row)}</h2>
                 </div>
-                <Badge tone={importPreview.valid ? "success" : "danger"}>
-                  {importPreview.valid
+                <Badge tone={!importSettled ? "neutral" : importPreview.valid ? "success" : "danger"}>
+                  {!importSettled
+                    ? "يفحص"
+                    : importPreview.valid
                     ? "جاهز كمسودة"
                     : countOf(importPreview.issues.length, AR.note)}
                 </Badge>
@@ -5628,7 +5652,9 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                   instructors={instructors as any}
                   departmentIds={importInstructorIds}
                   visitingIds={importVisitingIds}
-                  rowIssues={importRowIssues}
+                  rowIssues={importCellIssues}
+                  checking={!importSettled}
+                  jumpToIssue={importIssueJump}
                   departmentRooms={importDepartmentRooms}
                   collegeId={collegeId}
                   sectionId={sectionId}
@@ -5670,35 +5696,17 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
               {/* ملاحظات صفحات PDF لا تُسرد فوق الجدول؛ فالصفحة التي تنتظر «راجعت الصفحة»
                   تُسمّى هنا بجوار الحفظ والنشر، كما في شاشة نقل الجدول. */}
               <PageReviewWait pages={importPagesPendingReview} onReviewPage={confirmImportPage} withButtons={!importPreview.rows?.length} />
-              {importBlockingIssues.length ? <button type="button" data-guide-ignore="ينقل المستخدم إلى ملاحظات الاستيراد داخل نفس المعاينة" className="import-review-jump" onClick={() => (document.querySelector(".import-preview [data-import-issue='true']")||document.querySelector(".import-preview"))?.scrollIntoView({behavior:"smooth",block:"center"})}>راجع {countOf(importBlockingIssues.length, oblique(AR.note))} لتفعيل الحفظ والنشر</button> : null}
-              <div className="import-actions">
-                <SecondaryButton
-                  onClick={() => {
-                    setImportPreview(null);
-                    setImportFile("");
-                  }}
-                >
-                  إلغاء
-                </SecondaryButton>
-                {importPreview.importLayout === "authority-pdf" ? (
-                  <>
-                    <SecondaryButton data-guide-ignore="حفظ نسخة PDF كمسودة قابلة للتعديل قبل الاعتماد" onClick={createImportDraft} disabled={!importReady || busy}>
-                      <Save /> حفظ كمسودة للتعديل
-                    </SecondaryButton>
-                    <PrimaryButton data-guide-ignore="اعتماد ونشر جدول PDF كاملاً إلى الفصل الفارغ بعد تأكيد صريح" onClick={approveAndPublishPdf} disabled={!importReady || busy}>
-                      <CheckCircle2 /> اعتمد وانزّل الجدول كاملاً
-                    </PrimaryButton>
-                  </>
-                ) : (
-                  <PrimaryButton
-                    data-guide-ignore="تحويل ملف الاستيراد المعاين إلى مسودة بعد اكتمال التحقق"
-                    onClick={createImportDraft}
-                    disabled={!importReady || busy}
-                  >
-                    <Save /> تحويل إلى مسودة
-                  </PrimaryButton>
-                )}
-              </div>
+              <ImportStatusBar
+                inline
+                state={importGate.kind === "ready" && !importReady ? { kind: "blocked", count: 0, first: "أكمل المعاينة أولاً." } : importGate}
+                busy={busy}
+                applyLabel={importPreview.importLayout === "authority-pdf" ? <><CheckCircle2 /> اعتمد وانزّل الجدول كاملاً</> : <><Save /> تحويل إلى مسودة</>}
+                onApply={importPreview.importLayout === "authority-pdf" ? approveAndPublishPdf : createImportDraft}
+                extra={importPreview.importLayout === "authority-pdf" ? <SecondaryButton data-guide-ignore="حفظ نسخة PDF كمسودة قابلة للتعديل قبل الاعتماد" onClick={createImportDraft} disabled={!importReady || busy}><Save /> حفظ كمسودة للتعديل</SecondaryButton> : null}
+                onJump={() => { setImportIssueJump(value => value + 1); scrollToFirstImportIssue(); }}
+                onRetry={importPreflight.retry}
+                onClose={() => { setImportPreview(null); setImportFile(""); }}
+              />
             </Surface>
           ) : null}
         </div>
