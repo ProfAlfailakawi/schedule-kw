@@ -26,6 +26,9 @@ check(/familyOf/.test(rosterIds) && !/termId/.test(rosterIds), "قائمة ال�
 check(/AdInstructorCategory === "ta" \? <button/.test(rosterSource) && /category: null/.test(rosterSource) && !/category: person/.test(rosterSource), "زر التحويل يظهر لـTA وحده");
 check(/لا يتحوّل الأستاذ إلى TA/.test(routes), "الخادم يرفض تحويل الأستاذ إلى TA");
 check(/save\(person, \{ name:/.test(rosterSource) && !/civil/i.test(rosterSource.split("<form")[1].split("</form>")[0]), "تعديل الاسم بلا رقم مدني");
+check(/الدرجة العلمية<\/button>/.test(rosterSource) && !/\/>النصاب<\/button>/.test(rosterSource), "زر الدرجة العلمية بدل النصاب");
+check(/visualConfirm/.test(rosterSource) && !/void save\(person, \{ (status|category)/.test(rosterSource), "التحويل والتقاعد والتفرّغ بتأكيد");
+check(/departmentFaculty: \[\{/.test(read("src/db/demoSandbox.ts")) && /status: "sabbatical"/.test(read("src/db/demoSandbox.ts")) && /status: "retired"/.test(read("src/db/demoSandbox.ts")), "الديمو فيه TA ومتفرّغون ومتقاعدون");
 const rosterRead = routes.split('app.get("/api/section-roster"')[1].split('app.put("/api/section-roster')[0];
 check(/isScopeAllowed/.test(rosterRead) && !/hours:.*AdInstructorCivil|AdInstructorMobile/.test(rosterRead), "قراءة السجل بنطاق وبلا هاتف ولا مدني");
 check(/members\.has\(id\)/.test(routes), "لا يعدّل إلا أستاذ قسمه");
