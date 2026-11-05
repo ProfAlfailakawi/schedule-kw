@@ -102,17 +102,20 @@ function hallBarterRequestShape(request:HallBarterRequest,sections:any[],college
 
 async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,sectionId:number,termId:number){
   const cacheKey=dataContextCacheKey(`${collegeId}:${sectionId}:${termId}:${String((req.query as any)?.ownerSectionId||"")}:${String((req.query as any)?.day||"")}:${String((req.query as any)?.buildingCode||"")}`);
+  /* دفترُ حجوز الرغبات يُكتب من مساراتٍ لا تعرف هذه الذاكرة، ويسقط منه المؤقّت وحده:
+     فيُقرأ أولاً (مستندٌ واحد)، وبصمتُه جزءٌ من صلاحية اللوحة، فلا يُعرض وقتٌ حُجز ولا يختفي وقتٌ تحرّر. */
+  const holdEntries=await Repository.getInstructorRequestReservations(termId);
+  const holdSignature=JSON.stringify(holdEntries);
   const cached=hallBarterBoardCache.get(cacheKey);
-  if(cached&&cached.scheduleSerial===driftSerial&&cached.barterSerial===state.hallBarterSerial&&cached.expiresAt>Date.now())return cached.body;
+  if(cached&&cached.scheduleSerial===driftSerial&&cached.barterSerial===state.hallBarterSerial&&cached.holdSignature===holdSignature&&cached.expiresAt>Date.now())return cached.body;
   /* لا قراءة لكل جداول النظام بعد اليوم: السؤال صار عن هذا الفصل وحده،
      وقراءة عشر سنوات لكل لوحة كانت أثقل شيء فيها. */
-  const [termRowsRaw,collegeHistoryRaw,sections,colleges,requestsRaw,registry,holdEntries]=await Promise.all([
+  const [termRowsRaw,collegeHistoryRaw,sections,colleges,requestsRaw,registry]=await Promise.all([
     Repository.getSchedulesByScope({termId}),
     /* تاريخ هذه الكلية وحدها — لا جداول النظام كلها — ليُعرف صاحبُ كل قاعة
        ولو لم يكتب السجل اسمه ولم يُدخل القسمُ جدولَه بعد. */
     Repository.getSchedulesByScope({collegeId}),
     Repository.getSections(),Repository.getColleges(),Repository.getHallBarterRequests(termId),readLocationRegistry(),
-    Repository.getInstructorRequestReservations(termId),
   ]);
   /* طلبٌ معلّق تجاوز أسبوعاً يُلغى تلقائياً هنا، فيظهر في السجل «ملغي» بسببه
      ولا يعود يُحسب على أحد. */
@@ -336,7 +339,7 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
     incoming:sameCampusRequests.filter(request=>request.ownerCollegeId===collegeId&&request.ownerSectionId===sectionId),
     outgoing:sameCampusRequests.filter(request=>request.requesterCollegeId===collegeId&&request.requesterSectionId===sectionId),
   };
-  hallBarterBoardCache.set(cacheKey,{scheduleSerial:driftSerial,barterSerial:state.hallBarterSerial,expiresAt:Date.now()+2*60*1000,body});
+  hallBarterBoardCache.set(cacheKey,{scheduleSerial:driftSerial,barterSerial:state.hallBarterSerial,holdSignature,expiresAt:Date.now()+2*60*1000,body});
   if(hallBarterBoardCache.size>120)hallBarterBoardCache.clear();
   return body;
 }

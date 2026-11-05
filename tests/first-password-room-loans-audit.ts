@@ -57,6 +57,8 @@ const issuedAt = Date.parse("2026-11-05T08:00:00Z");
   check(scheduleOccupiesApprovedBarterWindow(lenderRow("11:30", "12:30"), loan), "L2 موعدٌ قائم يُحسب شاغلاً للنافذة");
   const routes = read("src/server/routes/hallBarterRoutes.ts");
   check(routes.includes("const roomRows=occupyingRows.filter") && routes.includes("reservationRows(holdEntries,termId)"), "L2 الوقت المشغول أو المحجوز لا يُعرض للمستعير");
+  const board = routes.slice(routes.indexOf("async function buildHallBarterBoard"));
+  check(board.indexOf("getInstructorRequestReservations(termId)") < board.indexOf("hallBarterBoardCache.get(cacheKey)") && board.includes("cached.holdSignature===holdSignature") && /hallBarterBoardCache\.set\(cacheKey,\{[^}]*holdSignature/.test(board), "L2 تغيّرُ دفتر الحجوز يُسقط ذاكرة اللوحة");
   check(routes.includes("clash:clashesWithHolder(request)"), "L2 ما شُغل بعد الطلب يظهر تعارضاً للطرفين");
   check(routes.includes('"/api/hall-barter/requests/:id/end"') && /isScopeAllowed\(req,request\.ownerCollegeId,request\.ownerSectionId\)/.test(routes.slice(routes.indexOf("/end\""))), "L3 الإنهاء للقسم المضيف");
 
