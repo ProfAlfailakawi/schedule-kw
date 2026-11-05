@@ -5,6 +5,7 @@
  * نصُّ كل جملةٍ وترتيبُها كما كانا، إلا `export` على ما تستعمله وحداتٌ أخرى،
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  */
+import { roomTypeIn } from "../../utils/roomTypeForSection";
 import { RequestReservationConflict, RequestHoldConflict } from "../../utils/instructorRequestReservations";
 import { Response } from "express";
 import { Repository, ScheduleRevisionConflict } from "../../db/repository";
@@ -63,7 +64,7 @@ export async function companionBookingFor(course:AdCourse,body:any,canonical:any
   const primaryBuilding=registry.buildings.find(item=>item.id===canonical.buildingId);
   const building=room&&registry.buildings.find(item=>item.id===room.buildingId);
   if(!room||!building||!primaryBuilding||!room.active||room.confidence!=="CONFIRMED"||!building.active||building.confidence!=="CONFIRMED")return {issue:"المرفق المرافق غير متاح أو غير معتمد.",id:"",label:""};
-  if(room.id===canonical.roomId||room.bookingPolicy!=="companion_only"||String(room.roomType||"").trim()!==required)return {issue:"المرفق المختار غير مخصص لمرافقة هذا المقرر.",id:"",label:""};
+  if(room.id===canonical.roomId||room.bookingPolicy!=="companion_only"||roomTypeIn(room,course.AdSectionId)!==required)return {issue:"المرفق المختار غير مخصص لمرافقة هذا المقرر.",id:"",label:""};
   if(String(building.officialCode||"").slice(0,4)!==String(primaryBuilding.officialCode||"").slice(0,4))return {issue:"الاستوديو والقاعة الأساسية يجب أن يكونا في الموقع الدراسي نفسه.",id:"",label:""};
   return {id:room.id,label:`${building.officialCode} / ${room.canonicalCode}`};
 }

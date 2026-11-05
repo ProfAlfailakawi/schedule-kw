@@ -2601,7 +2601,7 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 }
 
 /** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
-export type FeatureCollection = "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
+export type FeatureCollection = "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
   /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
   | "seatLedgers" | "seatMemberLinks"
   /* طلبُ شعبة (src/utils/sectionRequests.ts): وثيقةٌ لكل طلب، معرّفُها يبدأ بفصله `${termId}:`. */

@@ -1,0 +1,26 @@
+.unit-cap-field{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-block-end:var(--s3,12px);padding:8px 12px;border:1px solid var(--line,#e3e5e0);border-radius:var(--r-md,14px);background:var(--surface,#fff);font-size:.84rem}
+.unit-cap-field>span{display:inline-flex;align-items:center;gap:6px;margin-inline-end:auto;font-weight:700}
+.unit-cap-field>span svg{inline-size:16px;block-size:16px;color:var(--accent,#1f6b5c)}
+.unit-cap-field button{min-inline-size:44px;min-block-size:38px;border:1px solid var(--line,#e3e5e0);border-radius:var(--r-full,999px);background:transparent;font:inherit;font-weight:700;cursor:pointer}
+.unit-cap-field button.on{border-color:var(--accent,#1f6b5c);background:var(--accent-softer,#eef6f3);color:var(--accent-ink,#1f6b5c)}
+.unit-cap-field small{flex-basis:100%;color:var(--danger,#973c38)}
+
+.travel-policy summary{display:flex;align-items:center;gap:7px;font-weight:700;cursor:pointer}
+.travel-policy summary svg{inline-size:16px;block-size:16px;color:var(--brass,#8a6d1f)}
+.travel-policy[open]{display:grid;gap:10px}
+.travel-policy-rows{display:grid;gap:6px}
+.travel-policy-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;font-size:.84rem}
+.travel-policy-row input{inline-size:72px;min-block-size:38px;text-align:center}
+.travel-policy-row button{display:inline-flex;align-items:center;gap:5px;min-block-size:38px;padding:4px 10px;border:1px solid var(--line,#e3e5e0);border-radius:var(--r-full,999px);background:transparent;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.travel-policy-row button svg{inline-size:14px;block-size:14px}
+.travel-policy-row button.on{border-color:var(--danger,#973c38);color:var(--danger,#973c38)}
+.travel-policy-exempt{display:grid;gap:6px}
+.travel-policy-exempt strong{display:inline-flex;align-items:center;gap:6px;font-size:.84rem}
+.travel-policy-exempt strong svg{inline-size:15px;block-size:15px}
+.travel-policy-chips,.travel-policy-found{display:flex;flex-wrap:wrap;gap:5px}
+.travel-policy-chips button,.travel-policy-found button{display:inline-flex;align-items:center;gap:4px;min-block-size:34px;padding:3px 10px;border:1px solid var(--line,#e3e5e0);border-radius:var(--r-full,999px);background:transparent;font:inherit;font-size:.78rem;cursor:pointer}
+.travel-policy-chips svg{inline-size:12px;block-size:12px}
+
+.section-room-types{display:grid;gap:6px}
+.section-room-types label{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:8px;font-size:.84rem}
+@media (max-width:420px){.travel-policy-row{grid-template-columns:minmax(0,1fr) auto}.travel-policy-row b{grid-column:1/-1}.section-room-types label{grid-template-columns:minmax(0,1fr)}}

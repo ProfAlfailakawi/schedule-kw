@@ -204,6 +204,8 @@ interface SessionRole {
   /** يعلّق على الخانات: التسجيل والقسم كلاهما. */
   canAnnotate: boolean;
   signatureStage: "committee" | "head" | null;
+  /** عضوُ لجنة الجدول يعمل بصفة الكرسي ولا يوقّع. */
+  canSign?: boolean;
   /**
    * صفةُ اللجنة مكتوبةً، لا مُسقَطاً إليها.
    *
@@ -1861,7 +1863,7 @@ export default function App() {
         );
       case "schedules":
         return hasPerm(7) ? (
-          <Schedules mode="schedule" user={user} scopes={scopes} permissions={permissions} signatureStage={sessionRole.signatureStage} committeeEligible={sessionRole.committeeEligible} onNavigate={(view) => go(view as View)} />
+          <Schedules mode="schedule" user={user} scopes={scopes} permissions={permissions} signatureStage={sessionRole.signatureStage} canSign={sessionRole.canSign !== false} committeeEligible={sessionRole.committeeEligible} onNavigate={(view) => go(view as View)} />
         ) : (
           unauthorized()
         );

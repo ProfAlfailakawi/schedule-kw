@@ -1,8 +1,10 @@
+import { roomTypeIn } from "./roomTypeForSection";
+
 /** Suitability ranks suggestions; a mismatch never becomes a save prohibition. */
 export function roomSuitability(course: { CourseRoomType?: unknown; CourseTeachingMode?: unknown; MaxStudent?: unknown } | null | undefined,
-  room: { roomType?: unknown; capacity?: unknown } | null | undefined) {
+  room: { roomType?: unknown; capacity?: unknown; sectionRoomTypes?: Record<string, string> } | null | undefined, sectionId?: unknown) {
   const expected = String(course?.CourseRoomType || "").trim();
-  const actual = String(room?.roomType || "").trim();
+  const actual = roomTypeIn(room as any, sectionId ?? (course as any)?.AdSectionId);
   const seats = Number(course?.MaxStudent || 0), capacity = Number(room?.capacity || 0);
   let adjustment = 0;
   const reasons: string[] = [];

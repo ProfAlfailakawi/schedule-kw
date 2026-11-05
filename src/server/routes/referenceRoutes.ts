@@ -20,6 +20,11 @@ import { provisionCollegeUsers } from "../sectionUsers";
 import { ensureCollegeRegistrars } from "../seatsRoutes";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { readDegreeRuleInput } from "../../utils/degreeRules";
+import { STUDENT_UNIT_CAPS, sectionStudentSettingsId, studentUnitCapOf } from "../../utils/studentUnitCap";
+import { cleanTravelPolicy } from "../../utils/campusTravelPolicy";
+import { readTravelPolicy, saveTravelPolicy } from "../core/travelPolicy";
+import { staffFamilyScopes } from "../core/staffCard";
+import { canManageDeadline } from "../../utils/academicRoles";
 import { DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES } from "../../utils/campusTravel";
 import { isValidClock, scheduleDayWindowMinutes, withinScheduleDay } from "../../utils/scheduleTime";
 import { type AuthenticatedRequest, isPowerUser, requireAuth, requirePermission, requireRootAdmin } from "../core/auth";
@@ -162,6 +167,40 @@ app.get("/api/schedule-day-window", requirePermission(7), async (req:Authenticat
   if(!section){res.status(404).json({error:"القسم غير موجود"});return;}
   if(!isScopeAllowed(req,Number(section.AdCollegeId),sectionId)&&!isPowerUser(req)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
   const {startTime,endTime}=scheduleDayWindowMinutes(section);res.setHeader("Cache-Control","no-store");res.json({startTime,endTime});
+});
+
+/* سقفُ وحدات الطالب في «مساري» (ملاحظة المالك 14): قرارُ القسم، يسري على حرمه كلِّها. */
+app.get("/api/section-student-settings",requirePermission(7),async(req:AuthenticatedRequest,res:Response)=>{
+  const collegeId=Number(req.query.collegeId||0),sectionId=Number(req.query.sectionId||0);
+  if(!collegeId||!sectionId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  const doc=await Repository.getFeatureDoc<{maxUnits?:number}>("sectionStudentSettings",sectionStudentSettingsId(sectionId));
+  res.setHeader("Cache-Control","no-store");res.json({maxUnits:studentUnitCapOf(doc?.maxUnits)});
+});
+app.put("/api/section-student-settings",requirePermission(7),async(req:AuthenticatedRequest,res:Response)=>{
+  const collegeId=Number(req.body?.collegeId||0),sectionId=Number(req.body?.sectionId||0),maxUnits=Number(req.body?.maxUnits);
+  if(!collegeId||!sectionId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  if(!(STUDENT_UNIT_CAPS as readonly number[]).includes(maxUnits)){res.status(400).json({error:"اختر 15 أو 18 أو 21."});return;}
+  const family=await staffFamilyScopes(collegeId,sectionId);
+  await Promise.all([{sectionId},...family].map(scope=>Repository.saveFeatureDoc("sectionStudentSettings",sectionStudentSettingsId(scope.sectionId),{maxUnits,by:String(req.user?.Name||""),at:new Date().toISOString()})));
+  res.locals.auditChanges=`سقف وحدات الطالب في مساري: ${maxUnits}`;
+  res.json({maxUnits});
+});
+
+/* سياسةُ التنقّل بين المواقع (ملاحظة المالك 13): يضبطها المسجّل العام أو مدير النظام. */
+const canSetTravelPolicy=(req:AuthenticatedRequest)=>isPowerUser(req)||canManageDeadline(req.user?.Role);
+app.get("/api/campus-travel-policy",requireAuth,async(req:AuthenticatedRequest,res:Response)=>{
+  if(!canSetTravelPolicy(req)){res.status(403).json({error:"لمن يضع مواعيد التسليم."});return;}
+  const policy=await readTravelPolicy();
+  const people=await Promise.all(policy.exemptInstructorIds.map(id=>Repository.getInstructorById(id)));
+  res.setHeader("Cache-Control","no-store");
+  res.json({policy,names:Object.fromEntries(people.filter(Boolean).map((person:any)=>[person.AdInstructorId,person.AdInstructorName]))});
+});
+app.put("/api/campus-travel-policy",requireAuth,async(req:AuthenticatedRequest,res:Response)=>{
+  if(!canSetTravelPolicy(req)){res.status(403).json({error:"لمن يضع مواعيد التسليم."});return;}
+  const policy=cleanTravelPolicy(req.body);
+  await saveTravelPolicy(policy);
+  res.locals.auditChanges="تعديل سياسة التنقّل بين المواقع";
+  res.json({policy});
 });
 
 app.get("/api/admin/section-schedule-windows",requirePermission(7),requireRootAdmin,async(req:AuthenticatedRequest,res:Response)=>{

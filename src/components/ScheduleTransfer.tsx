@@ -13,6 +13,8 @@ import ImportNameFillPanel from "./ImportNameFillPanel";
 import SchedulePublish from "./SchedulePublish";
 import SectionPlanning from "./SectionPlanning";
 import AcademicAdvicePanel from "./AcademicAdvicePanel";
+import StudentUnitCapField from "./StudentUnitCapField";
+import "./admin-rules.css";
 import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
 import { isAssignableInstructor } from "../utils/instructorStatus";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
@@ -1861,6 +1863,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
 
           {tab === "planning" ? (
             <>
+              {collegeId && sectionId ? <StudentUnitCapField collegeId={collegeId} sectionId={sectionId} /> : null}
               <div className="tool-lede">
                 <span className="tool-lede-mark"><UsersRound aria-hidden="true" /></span>
                 <div>
