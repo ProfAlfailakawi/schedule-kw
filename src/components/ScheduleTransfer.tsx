@@ -439,7 +439,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
       issues.push(`الصفان ${a.toLocaleString("ar-KW-u-nu-latn")} و${b.toLocaleString("ar-KW-u-nu-latn")}: ${item.message}.`);
     });
     return { notes, issues: [...new Set(issues)] };
-  }, [importKind, xlsxPreview?.rows, termId]);
+  }, [importKind, xlsxPreview?.rows, xlsxPreview?.resolvedInstructors, instructors, directoryPeople, termId]);
 
   /* ── الشكلُ المعدَّل يمرّ بمكتبة الأنماط، كما يمرّ موعدٌ جديد ──────────────────
      ما قُرئ من الوثيقة الرسمية كما هو سجلُّ الجامعة فيُنشر كما طُبع (كالموعد القائم الذي لم يتغيّر شكله).

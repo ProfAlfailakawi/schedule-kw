@@ -126,4 +126,8 @@ await check("department creation stays with system admins, with a clear message 
   assert.match(route, /const canBootstrapSection=mayCreateSections&&/);
   assert.match(readFileSync("src/server/routes/referenceRoutes.ts", "utf8"), /createSectionOnce\(collegeId, AdSectionCode/);
 });
+await check("the department's shared record reaches the screen, so simultaneous rows are not a false double booking", () => {
+  const route = readFileSync("src/server/routes/pdfImportRoutes.ts", "utf8");
+  assert.match(route, /departmentMembership\]\.filter\(id=>importPlaceholderIds\.has/);
+});
 console.log(`header-department-rule-audit: ${passed} passed`);
