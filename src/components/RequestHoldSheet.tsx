@@ -14,6 +14,11 @@ export interface RequestHold {
   requestRevision?: number;
   instructorId?: number;
   instructorName?: string;
+  /** بندُ تعديل: موعدُه القائم ينتقل بدل إنشاء صفٍّ ثانٍ. */
+  action?: string;
+  rowId?: number;
+  rowRev?: number;
+  sectionCode?: string;
   itemIndex?: number;
   itemId?: string;
   courseId?: number;

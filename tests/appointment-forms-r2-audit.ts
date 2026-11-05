@@ -71,7 +71,7 @@ const theory3 = { CourseHours: 3, CourseTeachingMode: "theoretical" };
     && /\[editor, timingOverride, formCourse, formDays\.join\("\+"\), form\.fstarttime\]/.test(editor), "R7 المحرر الكامل: أي تغيّر في المقرر/الأيام/البداية يكمل النمط ونهايته");
   check(/daysSeeded\.current = Boolean\(seed\?\.day && !seed\?\.days\?\.length\)/.test(editor), "R8 يوم الخانة المرسومة يُكمل حين يُعرف المقرر (السبب الجذري)");
   check(/timingOpenedKey\.current = timingKeyOf\(values\)/.test(editor) && /key === timingOpenedKey\.current\) return/.test(editor), "R9 «تعديل» لا يغيّر الموعد المحفوظ عند فتحه");
-  check(/const lengthChanged = mins\(next\.end\) - mins\(next\.start\) !== spanBefore/.test(editor) && /setTimingOverride\(regulationHours\(formCourse\) > 0 && regulationFit\(/.test(editor),
+  check(/const lengthChanged = mins\(next\.end\) - mins\(next\.start\) !== spanBefore/.test(editor) && /setTimingOverride\(regulationHours\(formCourse\) > 0 && \(?regulationFit\(/.test(editor),
     "R10 عجلة الوقت: الساعة تعيد النهاية إلى النمط، و«المدة» أو النهاية باليد تجاوزٌ متعمَّد");
   check(/const lengthChanged = minutesOf\(next\.end\) - minutesOf\(next\.start\) !== minutesOf\(draft\.end\) - minutesOf\(draft\.start\)/.test(quick)
     && !/onChange=\{\(next\) => \{ timeEdited\.current = true;/.test(quick), "R11 «موعد جديد» السريع: تحريك الساعة لم يعد يُطفئ الإكمال اللائحي");

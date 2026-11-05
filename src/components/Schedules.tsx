@@ -88,7 +88,7 @@ import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
-import { bestRegulationChoice, completeRegulation, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, completeRegulation, endIsDeliberate, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
 import {
@@ -225,6 +225,8 @@ import {
   scheduleClockForDisplay,
   SCHEDULE_DAY_END,
   SCHEDULE_DAY_END_TIME,
+  SCHEDULE_CLOCK_END,
+  SCHEDULE_CLOCK_END_TIME,
   SCHEDULE_DAY_START,
   SCHEDULE_DAY_START_TIME,
   SCHEDULE_SLOT_MINUTES,
@@ -1477,6 +1479,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (failure?.code !== "request-hold" || !Array.isArray(failure.holds) || !failure.holds.length) throw failure;
       const choice = await askRequestHold({ holds: failure.holds, verb, draft });
       if (!choice) throw new Error("لم يتغيّر شيء: الموعد ما زال محجوزاً للطلب.");
+      /* «ثبّت الطلب» لبند تعديل: الموعدُ القائم هو الذي ينتقل — لا صفٌّ ثانٍ — فيُغلق البندُ كما لو اعتُمد. */
+      const moved = choice === "fix" && draft ? (failure.holds as RequestHold[]).find(hold => hold.action === "change" && hold.rowId) : undefined;
+      if (moved && editId !== moved.rowId) {
+        const original = rows.find(row => Number(row.id) === Number(moved.rowId)) || null;
+        const updated: any = await fetchJson(`/api/schedules/${moved.rowId}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...draft, id: undefined, SCode: moved.sectionCode, rev: moved.rowRev, overrideRequestHolds: [moved.requestId] }),
+        });
+        /* الحفظُ صار تعديلاً لا إضافة: يعود معه الصفُّ الأصلي ليستعيده «تراجع» بدل أن يحذفه. */
+        return { ...updated, movedFromRow: original } as T;
+      }
       if (choice === "reject") {
         const revisions = new Map<string, number>();
         for (const hold of failure.holds as RequestHold[]) {
@@ -2922,7 +2935,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const autoEndFor = useCallback((row: Partial<FSchedule>, start: string) => {
     if (!start) return "";
     const duration = expectedDurationForSelection({ ...row, fstarttime: start });
-    return duration > 0 ? timeFromMins(Math.min(SCHEDULE_DAY_END, mins(start) + duration)) : String(row.fendtime || "");
+    return duration > 0 ? timeFromMins(Math.min(SCHEDULE_CLOCK_END, mins(start) + duration)) : String(row.fendtime || "");
   }, [expectedDurationForSelection]);
 
   const preferredStartForDrop = useCallback((row: Partial<FSchedule>, day: DayKey, picked: string) => {
@@ -3764,7 +3777,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      * stopped anything — «انتقال ضيّق بين الحرم الرئيسي والجهراء» — read as a
      * refusal, which is how people learn to stop reading the colour entirely.
      */
-    const blocks = isBlockingConflict(conflict);
+    const blocks = isBlockingConflict(conflict) && !conflict.holdRequestId;
     const typeLabel = isRoom ? (isScope ? "نطاق القاعة" : "تعارض قاعة")
       : isInstructor ? "تعارض أستاذ"
         : conflict.type === "duplicate" ? "تكرار"
@@ -3775,7 +3788,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 : conflict.type === "rhythm" ? "إيقاع القسم"
                   : conflict.type === "memory" ? "ذاكرة القسم"
                     : "ملاحظة";
-    const statusLabel = blocks ? "مانع" : "تنبيه";
+    const statusLabel = conflict.holdRequestId ? "حجز طلب" : blocks ? "مانع" : "تنبيه";
     const currentStart = form.fstarttime ? mins(form.fstarttime) : null;
     const currentEnd = form.fendtime ? mins(form.fendtime) : null;
     const otherStart = other?.fstarttime ? mins(other.fstarttime) : null;
@@ -4109,7 +4122,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const library = regulationEnd(course, daysOfRow(row as any), start, span);
     if (library) return library;
     /* موعدٌ لا نمطَ يقرؤه (لقاءٌ منفرد مثلاً) يبقى طولُه: البدايةُ تنقله ولا تعيد تشكيله. */
-    return span > 0 && regulationHours(course) > 0 ? timeFromMins(Math.min(SCHEDULE_DAY_END, mins(start) + span)) : autoEndFor(row, start);
+    return span > 0 && regulationHours(course) > 0 ? timeFromMins(Math.min(SCHEDULE_CLOCK_END, mins(start) + span)) : autoEndFor(row, start);
   };
   const formSpan = form.fstarttime && form.fendtime ? mins(String(form.fendtime)) - mins(String(form.fstarttime)) : 0;
   const chooseFormDay = (day: RegDayKey, checked: boolean) => {
@@ -4176,7 +4189,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       days.forEach(day => { next[day.key] = choice.days.includes(day.key as RegDayKey); });
       // Every meeting starts at the same hour (م.8/9); the pattern sets the length.
       const start = next.fstarttime || "";
-      if (start) next.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_END, mins(start) + choice.minutes));
+      if (start) next.fendtime = timeFromMins(Math.min(SCHEDULE_CLOCK_END, mins(start) + choice.minutes));
       return next;
     });
   };
@@ -4224,7 +4237,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* البداية تتحرك والمدة لا تتغيّر حين يكون التجاوز متعمَّداً. */
   const shiftedEnd = (row: Partial<FSchedule>, start: string) => {
     const span = row.fstarttime && row.fendtime ? mins(String(row.fendtime)) - mins(String(row.fstarttime)) : 0;
-    return span > 0 ? timeFromMins(Math.min(SCHEDULE_DAY_END, mins(start) + span)) : endForStart(row, start);
+    return span > 0 ? timeFromMins(Math.min(SCHEDULE_CLOCK_END, mins(start) + span)) : endForStart(row, start);
   };
   /* ── حكمٌ واحد للنموذج (A6) ───────────────────────────────────────────────
      الشريط «صحّح قبل الحفظ» ولوحة «فحص موانع الحفظ» وزرّ الحفظ يقرؤون هذا وحده،
@@ -5088,7 +5101,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         return withRequestHoldPrompt(send, "الحفظ", form as Partial<FSchedule>);
       })();
       let guideUndoId = "";
-      if (editor === "edit" && before) {
+      /* «ثبّت الطلب» عدّل موعداً قائماً: ليس إضافة، فلا حذفَ للتراجع ولا ربطَ كصفٍّ جديد. */
+      const movedExisting = Boolean(saved && typeof saved === "object" && "movedFromRow" in saved);
+      const movedFromRow: any = movedExisting ? (saved as any).movedFromRow : null;
+      if (movedExisting) delete (saved as any).movedFromRow;
+      if (movedExisting) {
+        if (movedFromRow) {
+          const { id: _id, AdCourseName: _name, ...previousValues } = movedFromRow;
+          guideUndoId = offerUndo(
+            `نقل ${movedFromRow.AdCourseName || courseById.get(movedFromRow.AdCourseId)?.CourseName || "موعد"}`,
+            [{ method: "PUT", url: `/api/schedules/${movedFromRow.id}`, body: { ...previousValues, rev: (saved as any)?.rev } }],
+          );
+        }
+      } else if (editor === "edit" && before) {
         const { id: _id, AdCourseName: _name, ...previousValues } = before as any;
         guideUndoId = offerUndo(
           `تعديل ${before.AdCourseName || courseById.get(before.AdCourseId)?.CourseName || "موعد"}`,
@@ -5114,7 +5139,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
        * إظهاره، لأن البندَ سيبدو منتهياً وليس كذلك.
        */
       const handoff = pendingHandoff.current;
-      const createdRowId = Number(saved?.id || 0);
+      const createdRowId = movedExisting ? 0 : Number(saved?.id || 0);
       /* ويُشترط أن يكون المحفوظُ هو المطلوبَ نفسَه: من يفتح البذرةَ ثم يتركها
          ويضيف موعداً آخرَ بيده كان سيُغلق بها بندَ الأستاذ على صفٍّ لا يخصّه. */
       const matchesHandoff = Boolean(handoff)
@@ -9744,7 +9769,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         setScheduleTouched(true);
                         const start = e.target.value;
                         if (!timingOverride && start && regulationEnd(formCourse, formDays, start, formSpan)) flashAutofill();
-                        setForm((p) => ({ ...p, fstarttime: start, fendtime: timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
+                        /* مسحُ البداية لا يحسب نهايةً من لا شيء (كانت 01:20). */
+                        setForm((p) => ({ ...p, fstarttime: start, fendtime: !start ? p.fendtime : timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
                       }}
                       required
                     />
@@ -9768,7 +9794,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       preferredDuration={formRegulationChoice?.minutes || expectedDurationForSelection(form)}
                       minTime={activeScheduleWindow.startTime}
                       maxTime={activeScheduleWindow.endTime}
-                      endLimit={SCHEDULE_DAY_END_TIME}
+                      endLimit={SCHEDULE_CLOCK_END_TIME}
                       onChange={(next) => {
                         setScheduleTouched(true);
                         /* العجلة تحفظ المدة: تحريك الساعة يعيد النهاية إلى النمط، وتغيير «المدة» تجاوزٌ متعمَّد.
@@ -9803,13 +9829,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         setScheduleTouched(true);
                         const end = e.target.value;
                         /* نهايةٌ بيد المستخدم لا تطابق النمط = تجاوزٌ متعمَّد (التنبيه + «طبّق النمط المعتمد»). */
-                        setTimingOverride(regulationHours(formCourse) > 0 && regulationFit(formCourse, formDays, String(form.fstarttime || ""), end) === "off");
+                        setTimingOverride(regulationHours(formCourse) > 0 && (regulationFit(formCourse, formDays, String(form.fstarttime || ""), end) === "off" || endIsDeliberate(formCourse, formDays, String(form.fstarttime || ""), end)));
                         setForm((p) => ({ ...p, fendtime: end }));
                       }}
                       required
                     />
                   </div>
                   {endTimeLimitNotice ? <small className="schedule-time-limit-note" role="status">{endTimeLimitNotice}</small> : null}
+                  {pastTeachingDay ? <small className="schedule-time-limit-note" role="status">ينتهي بعد نهاية الدوام ({scheduleClockForDisplay(activeScheduleWindow.endTime)}) — تنبيه فقط</small> : null}
                 </Field>
                 <div className="field appt-duration">
                   <span className="appt-duration-label">المدة</span>

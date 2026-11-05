@@ -37,6 +37,9 @@ export function startsWithinScheduleDay(start: number, end: number, window?: Sch
   const bounds = scheduleDayWindowMinutes(window);
   return Number.isFinite(start) && Number.isFinite(end) && start >= bounds.start && start < bounds.end && end > start;
 }
+/** آخرُ دقيقةٍ يكتبها الوقت: الطولُ الحقيقي لا يُقصّ عند نهاية الدوام، فالتجاوزُ يُنبَّه إليه ولا يُخفى. */
+export const SCHEDULE_CLOCK_END = 23 * 60 + 59;
+export const SCHEDULE_CLOCK_END_TIME = "23:59";
 export function endsPastScheduleDay(end: number, window?: ScheduleDayWindow | null): boolean {
   return Number.isFinite(end) && end > scheduleDayWindowMinutes(window).end;
 }

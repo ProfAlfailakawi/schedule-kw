@@ -31,7 +31,7 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const lab = pickDay(lab3, [], "fsunday", true);
   check(join(lab.days) === "fsunday" && regulationEnd(lab3, lab.days, "08:00") === "10:50", "B1: عملي 3 ساعات — كتلة واحدة 08:00 → 10:50");
   const monday = pickDay(theory3, ["fsunday", "ftuesday", "fthursday"], "fmonday", true);
-  check(join(monday.days) === "fmonday+fwednesday" && regulationEnd(theory3, monday.days, "09:30") === "10:50", "B1: نمطٌ مطبَّق + ضغط الاثنين → الاثنين·الأربعاء 80د");
+  check(join(monday.days) === "fsunday+fmonday+ftuesday+fthursday" && monday.applied === null && monday.alternatives.some(choice => join(choice.days) === "fsunday+ftuesday+fthursday"), "B1: أيامٌ قائمة لا تُستبدل بضغطة: يُضاف اليوم ويُنبَّه، والشرائح تعرض النمط");
   const manual = pickDay(theory3, ["fsunday", "ftuesday"], "fthursday", true);
   check(join(manual.days) === "fsunday+ftuesday+fthursday", "B1: الاختيار اليدوي يُضاف يوماً يوماً");
   const unpick = pickDay(theory3, ["fsunday", "ftuesday", "fthursday"], "fthursday", false);
