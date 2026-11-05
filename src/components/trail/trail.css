@@ -21,7 +21,8 @@
 @keyframes trailFade{from{opacity:0}}
 
 .trail-head{display:flex;align-items:center;gap:12px}
-.trail-head>div{flex:1;min-inline-size:0;display:grid}
+.trail-head>div{flex:1;min-inline-size:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.trail-head>.drawer-close{position:static;flex:none;margin:0}
 .trail-head h2{margin:0;font-size:var(--ix-card);letter-spacing:-.01em}
 .trail-head small{color:var(--muted);font-size:var(--t-xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .trail-mark{display:grid;place-items:center;inline-size:44px;block-size:44px;border-radius:14px;font-size:22px;
@@ -105,3 +106,8 @@
   .trail-sheet,.trail-backdrop,.trail-delta,.trail-empty span,.trail-skeleton span{animation:none}
   .trail-ring-fill{transition:none}
 }
+
+/* الصفوف طويلةُ النص لا توسّع الورقة: كلُّ طبقةٍ تنكمش، والنص يُختصر داخل سطره. */
+.trail-sheet>*,.trail-day,.trail-day>ol,.trail-item,.trail-item>button,.trail-text{min-inline-size:0;max-inline-size:100%}
+.trail-text{flex:1}
+.trail-day,.trail-day>ol{inline-size:100%}

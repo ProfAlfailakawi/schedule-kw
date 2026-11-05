@@ -80,6 +80,13 @@ const study = read("src/server/studyProposalPage.ts");
 check(/@supports\(-webkit-touch-callout:none\)\{input\[type=time\]\{-webkit-appearance:none;appearance:none;box-sizing:border-box;min-width:0\}\}/.test(study),
   "صفحةُ مقترح الدراسة: حقلُ الساعة على iOS لا يبرز عن خانته");
 
+/* 3د) «الأثر»: اسمُ الفصل الطويل لا يوسّع رأسَ الورقة على 360 ولا يمرّ تحت ✕. */
+const trailCss = flat(read("src/components/trail/trail.css"));
+check(/\.trail-head>div\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(trailCss) && /\.trail-head>\.drawer-close\{position:static;flex:none/.test(trailCss),
+  "رأسُ «الأثر»: عمودُ النص ينكمش، و✕ في مكانه");
+check(/\.trail-day,\.trail-day>ol,\.trail-item,\.trail-item>button,\.trail-text\{min-inline-size:0/.test(trailCss),
+  "وصفوفُ «الأثر» الطويلة لا توسّع الورقة (كانت 385 في عرض 360)");
+
 /* 4) لا حدَّ أدنى ثابتاً كبيراً في شبكات auto-fit/auto-fill. */
 const sources: string[] = [];
 const walk = (dir: string) => { for (const entry of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) { const rel = path.join(dir, entry.name); if (entry.isDirectory()) walk(rel); else if (/\.css$/.test(entry.name) || rel === path.join("src", "components", "AcademicAdvicePanel.tsx") || rel === path.join("src", "server", "roomDoorPage.ts")) sources.push(rel); } };
