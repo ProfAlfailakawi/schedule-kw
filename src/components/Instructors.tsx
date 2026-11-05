@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Phone, Trash2, UserRound, GraduationCap } from "lucide-react";
+import { Archive, BookOpenCheck, Trash2, UserRound, GraduationCap, UsersRound } from "lucide-react";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
 import { sortByName } from "../utils/sorting";
@@ -7,6 +7,7 @@ import VisitingConversionPanel from "./VisitingConversionPanel";
 import VisitingBadge from "./VisitingBadge";
 import { ExceptionBadge, InstructorLoadPanel } from "./LoadException";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
+import { ROSTER_GROUPS, rosterGroupOf, type RosterGroup } from "../utils/rosterGroups";
 import {
   AddButton,
   EmbeddedAction,
@@ -39,6 +40,7 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
     [mobile, setMobile] = useState(""),
     [teachingLoad, setTeachingLoad] = useState(""),
     [query, setQuery] = useState(""),
+    [group, setGroup] = useState<RosterGroup>("faculty"),
     [error, setError] = useState<string | null>(null),
     [loading, setLoading] = useState(false),
     [submitting, setSubmitting] = useState(false),
@@ -231,6 +233,7 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
       // Only real people belong in the instructors directory. Placeholders
       // remain available in the section's schedule picker, never with civil IDs.
       const realInstructors = items.filter(x => !isFacultyPlaceholder(x));
+      /* البحثُ يعبر المجموعات كلَّها: المتقاعدُ مخفيٌّ من القائمة لا من السجل. */
       const base = q
         ? realInstructors.filter((x) =>
             [
@@ -243,9 +246,14 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
                 .includes(q),
             ),
           )
-        : realInstructors;
+        : realInstructors.filter(x => rosterGroupOf(x) === group);
       return sortByName(base, (x: any) => x.AdInstructorName);
-    }, [items, query]),
+    }, [items, query, group]),
+    groupCounts = useMemo(() => {
+      const counts: Record<RosterGroup, number> = { faculty: 0, ta: 0, sabbatical: 0, retired: 0 };
+      for (const x of items) if (!isFacultyPlaceholder(x)) counts[rosterGroupOf(x)]++;
+      return counts;
+    }, [items]),
     selected =
       filtered.find((x) => x.AdInstructorId === selectedId) || filtered[0] || null,
     activeId = selected?.AdInstructorId ?? null;
@@ -350,7 +358,7 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
             {status ? (
               <p className="smart-term-hint">
                 <UserRound aria-hidden="true" />
-                {status === "retired" ? "متقاعد" : "متفرّغ"}: يبقى في السجل ويحتفظ بمواعيده السابقة، لكن لا يظهر عند إسناد مواعيد جديدة.
+                {status === "retired" ? "متقاعد" : "متفرّغ"}: يبقى في السجل ويحتفظ بمواعيده السابقة، لكن لا يظهر عند إسناد مواعيد جديدة.{status === "retired" ? " ويُنقل بعد الحفظ إلى تبويب «المتقاعدون»، وبياناته باقية." : ""}
               </p>
             ) : null}
             {mode === "edit" && editId ? <VisitingConversionPanel instructorId={Number(editId)} /> : null}
@@ -383,6 +391,17 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
       <div className="catalog-workspace" aria-busy={loading}>
         <Surface className="catalog-master">
           <h2 className="sr-only">قائمة أساتذة المقررات</h2>
+          <div className="roster-tabs" role="tablist" aria-label="مجموعات الأساتذة">
+            {ROSTER_GROUPS.map(entry => {
+              const Icon = { faculty: UsersRound, ta: GraduationCap, sabbatical: BookOpenCheck, retired: Archive }[entry.id];
+              return (
+                <button key={entry.id} type="button" role="tab" aria-selected={group === entry.id} className={group === entry.id ? "on" : ""}
+                  onClick={() => setGroup(entry.id)} data-guide-ignore="تصفية قائمة الأساتذة بالمجموعة — لا يغيّر بياناً">
+                  <Icon aria-hidden="true" />{entry.label}<b>{groupCounts[entry.id].toLocaleString("ar-KW-u-nu-latn")}</b>
+                </button>
+              );
+            })}
+          </div>
           <ListToolbar
             value={query}
             onChange={setQuery}

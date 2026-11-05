@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Copy, DoorOpen, ExternalLink, Printer, QrCode, X } from "lucide-react";
+import { Building2, Copy, DoorOpen, ExternalLink, MonitorPlay, Printer, QrCode, X } from "lucide-react";
 import { SecondaryButton, useDialogDismiss } from "./ui";
 import { roomDoorStickerSheet, type DoorStickerRoom } from "../utils/roomDoorStickers";
 import "./room-door.css";
@@ -92,13 +92,13 @@ export function RoomDoorBuildingActions({ links }: { links: RoomDoorLinks | null
       <span className="room-door-actions">
         <SecondaryButton type="button" onClick={() => void print()} disabled={busy} aria-busy={busy}
           data-guide-ignore="طباعة ملصقات الأبواب: ورقة قراءة وطباعة لا تكتب في السجل">
-          🖨️ ملصقات الأبواب
+          <Printer aria-hidden="true" /> ملصقات الأبواب
         </SecondaryButton>
         <a className="btn btn-secondary room-door-screen-link" href={links.building.screen} target="_blank" rel="noopener" title="افتحها على تلفاز الممر">
-          🖥️ شاشة الممر <ExternalLink aria-hidden="true" />
+          <MonitorPlay aria-hidden="true" /> شاشة الممر <ExternalLink aria-hidden="true" />
         </a>
-        <a className="btn btn-ghost room-door-screen-link" href={links.building.board} target="_blank" rel="noopener">
-          🏢 لوحة المبنى <ExternalLink aria-hidden="true" />
+        <a className="btn btn-secondary room-door-screen-link" href={links.building.board} target="_blank" rel="noopener">
+          <Building2 aria-hidden="true" /> لوحة المبنى <ExternalLink aria-hidden="true" />
         </a>
       </span>
       {error ? <small className="room-door-error" role="alert">{error}</small> : null}

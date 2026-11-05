@@ -2,7 +2,7 @@
  * ── صفحتا الباب: القاعة، ولوحةُ المبنى ──────────────────────────────────────
  *
  * صفحةٌ يفتحها طالبٌ بمسح الملصق على هاتفه، والصفحةُ نفسُها في «وضع الشاشة»
- * (‎?screen=1‎) على تلفازٍ في الممر: داكنة، بخطٍّ كبير، وساعة، وبلا تمرير، تُبقي
+ * (‎?screen=1‎) على تلفازٍ في الممر: بيضاء نهارية، بخطٍّ كبير، وساعة، وبلا تمرير، تُبقي
  * الشاشةَ مستيقظة (Wake Lock) وتعيد تحميل نفسها حين يُنشر إصدارٌ جديد.
  *
  * الحالُ تُحسب في المتصفّح كل دقيقة بالنصّ نفسه الذي يحسبها في الخادم
@@ -18,7 +18,7 @@ import {
   doorClockAt, doorDateLabel, doorSentence, doorStatusAt, doorViewAt,
 } from "../utils/roomDoor";
 import { PUBLIC_FONT_FACES } from "./publicKit";
-import { PUBLIC_DARK_VARS, PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
+import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
 import type { BoardDoorData, RoomDoorData } from "./roomDoorData";
 
 export interface DoorPageOptions {
@@ -291,20 +291,9 @@ const LIGHT_STATUS = [
   "--track:#e8ebe6", "--glow:#dcece7", "--r:22px",
   "--shadow:0 1px 2px rgba(19,24,23,.05),0 12px 30px -20px rgba(19,24,23,.32)",
 ].join(";");
-const DARK_STATUS = [
-  "--free:#3fd89a", "--free-s:#10291f", "--free-i:#5be3ab",
-  "--busy:#ff6b61", "--busy-s:#34130f", "--busy-i:#ff8d85",
-  "--soon:#ffc24d", "--soon-s:#33260b", "--soon-i:#ffd27a",
-  "--off:#8b9a93", "--off-s:#1a2421", "--off-i:#a9b6b0",
-  "--track:#1f2b27", "--glow:#0f2a22",
-  "--shadow:0 1px 2px rgba(0,0,0,.4),0 14px 34px -22px rgba(0,0,0,.8)",
-].join(";");
-/* الشاشةُ أعمقُ سواداً من الوضع الداكن العادي: التلفازُ في ممرٍّ مضاء، والأسودُ يُبرز الألوان. */
-const SCREEN_VARS = `${PUBLIC_DARK_VARS};${DARK_STATUS};--bg:#060b0a;--card:#0d1513;--card2:#111a18;--soft:#141e1b;--line:#1c2824;--glow:#0c241d`;
-
-function themeCss(screen: boolean): string {
-  if (screen) return `:root{${SCREEN_VARS}}`;
-  return `:root{${PUBLIC_LIGHT_VARS};${LIGHT_STATUS}}@media (prefers-color-scheme:dark){:root{${PUBLIC_DARK_VARS};${DARK_STATUS}}}`;
+/* قرار المالك (2026-11-05): الملصقُ والشاشةُ واللوحة نهاريةٌ بيضاء دائماً، أيّاً كان وضعُ الجهاز. */
+function themeCss(_screen: boolean): string {
+  return `:root{${PUBLIC_LIGHT_VARS};${LIGHT_STATUS};--bg:#fff;--glow:transparent}`;
 }
 
 const CLIENT = String.raw`
@@ -456,8 +445,8 @@ function shell(input: { title: string; screen: boolean; nonce: string; header: s
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta name="color-scheme" content="${input.screen ? "dark" : "light dark"}">
-<meta name="theme-color" content="${input.screen ? "#060b0a" : PUBLIC_THEME_COLOR}">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="${PUBLIC_THEME_COLOR}">
 <meta name="description" content="${esc(input.description)}">
 <title>${esc(input.title)}</title>
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml">
