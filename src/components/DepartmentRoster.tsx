@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Archive, BookOpenCheck, Check, GraduationCap, Pencil, Scale, UsersRound, X } from "lucide-react";
 import type { AcademicRank, TeachingLoadAssignment } from "../types";
 import { ExceptionBadge, LoadExceptionEditor } from "./LoadException";
-import { Notice, SecondaryButton } from "./ui";
+import { Notice, SecondaryButton, visualConfirm } from "./ui";
 import { ROSTER_GROUPS, rosterGroupOf, type RosterGroup } from "../utils/rosterGroups";
 import "./registration-tabs.css";
 
@@ -42,6 +42,16 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
       setRenaming(null);
       await read();
     } catch (e: any) { setError(e.message || "تعذّر الحفظ"); } finally { setBusy(false); }
+  };
+  /* تغييرُ الحالة يبدّل ظهور الأستاذ في الاختيار، فلا يقع بلمسةٍ عابرة. */
+  const confirmed = async (person: Person, title: string, message: string, label: string, body: Record<string, unknown>) => {
+    if (await visualConfirm({ title, message, confirmLabel: label, tone: "warning" })) await save(person, body);
+  };
+  const toggleStatus = (person: Person, status: "retired" | "sabbatical") => {
+    const word = status === "retired" ? "التقاعد" : "التفرّغ";
+    return person.AdInstructorStatus === status
+      ? confirmed(person, `إلغاء ${word}`, `يعود ${person.name} إلى قائمة الأساتذة.`, "إلغاء الحالة", { status: null })
+      : confirmed(person, status === "retired" ? "تسجيل التقاعد" : "تسجيل التفرّغ", `${person.name}: يبقى في السجل مع مواعيده السابقة، ولا يظهر في الاختيار.`, "تأكيد", { status });
   };
   const counts = useMemo(() => {
     const out: Record<RosterGroup, number> = { faculty: 0, ta: 0, sabbatical: 0, retired: 0 };
@@ -86,13 +96,13 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
                 {person.exception ? <ExceptionBadge reason={person.exception.reason as any} /> : null}
               </div>
               <div className="dept-roster-actions">
-                {roster.enabled ? <button type="button" disabled={busy} onClick={() => setEditing(person)} data-guide-ignore="يفتح محرّر النصاب؛ لا يحفظ حتى «تطبيق»"><Scale aria-hidden="true" />النصاب</button> : null}
+                {roster.enabled ? <button type="button" disabled={busy} onClick={() => setEditing(person)} data-guide-ignore="يفتح محرّر الدرجة العلمية؛ لا يحفظ حتى «تطبيق»"><Scale aria-hidden="true" />الدرجة العلمية</button> : null}
                 {person.AdInstructorCategory === "ta" ? <button type="button" disabled={busy}
-                  onClick={() => void save(person, { category: null })} data-guide-ignore="يحوّل TA إلى أستاذ؛ لا يغيّر المواعيد السابقة"><GraduationCap aria-hidden="true" />حوّله أستاذاً</button> : null}
+                  onClick={() => void confirmed(person, "تحويله إلى أستاذ", `${person.name}: يصير أستاذاً ولا يعود TA من هذه الشاشة.`, "حوّله", { category: null })} data-guide-ignore="يحوّل TA إلى أستاذ؛ لا يغيّر المواعيد السابقة"><GraduationCap aria-hidden="true" />حوّله أستاذاً</button> : null}
                 <button type="button" disabled={busy} className={person.AdInstructorStatus === "sabbatical" ? "on" : ""} aria-pressed={person.AdInstructorStatus === "sabbatical"}
-                  onClick={() => void save(person, { status: person.AdInstructorStatus === "sabbatical" ? null : "sabbatical" })} data-guide-ignore="يبدّل حالة التفرّغ؛ لا يغيّر المواعيد السابقة"><BookOpenCheck aria-hidden="true" />تفرّغ</button>
+                  onClick={() => void toggleStatus(person, "sabbatical")} data-guide-ignore="يبدّل حالة التفرّغ؛ لا يغيّر المواعيد السابقة"><BookOpenCheck aria-hidden="true" />تفرّغ</button>
                 <button type="button" disabled={busy} className={person.AdInstructorStatus === "retired" ? "on" : ""} aria-pressed={person.AdInstructorStatus === "retired"}
-                  onClick={() => void save(person, { status: person.AdInstructorStatus === "retired" ? null : "retired" })} data-guide-ignore="يبدّل حالة التقاعد: يُخفى من القائمة وتبقى بياناته"><Archive aria-hidden="true" />{person.AdInstructorStatus === "retired" ? "إعادة" : "تقاعد"}</button>
+                  onClick={() => void toggleStatus(person, "retired")} data-guide-ignore="يبدّل حالة التقاعد: يُخفى من القائمة وتبقى بياناته"><Archive aria-hidden="true" />{person.AdInstructorStatus === "retired" ? "إعادة" : "تقاعد"}</button>
               </div>
             </article>
           ))}
