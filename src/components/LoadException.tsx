@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BookOpen, Briefcase, CalendarClock, ClipboardList, Ellipsis, UserCog } from "lucide-react";
 import { CatalogFormDrawer, GhostButton, PrimaryButton, SecondaryButton } from "./ui";
 import {
@@ -221,9 +222,11 @@ export function InstructorLoadPanel({ instructorId, name, demoReadOnly = false, 
       <SecondaryButton type="button" data-guide-ignore="يفتح محرّر استثناء نصاب هذا الأستاذ؛ لا يحفظ حتى «تطبيق»" onClick={() => setOpen(true)}>
         <UserCog aria-hidden="true" /> {status.exception ? "تعديل الاستثناء" : "استثناء"}
       </SecondaryButton>
-      {open ? (
+      {/* البوّابة إلى body: لوحةُ التفاصيل ممرَّرةٌ ومقصوصة، فكان الدرجُ يُقصّ داخلها. */}
+      {open ? createPortal(
         <LoadExceptionEditor name={name} ranks={data.ranks} value={data.assignment} terms={data.terms} hours={status.hours}
-          readOnly={demoReadOnly} busy={busy} onApply={next => void apply(next)} onClose={() => setOpen(false)} />
+          readOnly={demoReadOnly} busy={busy} onApply={next => void apply(next)} onClose={() => setOpen(false)} />,
+        document.body,
       ) : null}
     </article>
   );

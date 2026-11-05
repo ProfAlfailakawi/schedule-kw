@@ -2,7 +2,7 @@ import TermSelect from "./TermSelect";
 import { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Lightbulb, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Puzzle, Library } from "lucide-react";
+import { GraduationCap, AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Lightbulb, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Puzzle, Library } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
@@ -64,9 +64,10 @@ interface Props {
 }
 
 /* «improve»: أيقونةُ «فرصة لتحسين الجدول» — مدخلُها الثاني بعد بطاقتها في مركز الذكاء، ولا ثالث. */
-type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "planning" | "courses" | "simulator" | "improve";
+type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "simulator" | "improve";
 /* 🧩 محاكي الشعب بجانب «تخطيط الشعب»: ماذا لو حذفنا/أضفنا/دمجنا/قسّمنا؟ (src/components/SectionSimulator.tsx) */
 const SectionSimulator = lazy(() => import("./SectionSimulator"));
+const DepartmentRoster = lazy(() => import("./DepartmentRoster"));
 /* 📚 «كل المقررات» بجانب التخطيط: كل مقررات الصحيفتين، و«− شعبة / + شعبة» بأثرٍ فوري (src/components/AllCourses.tsx). */
 const AllCourses = lazy(() => import("./AllCourses"));
 import ImportDryRun, { DryRunBaselineFailed, DryRunOffer } from "./ImportDryRun";
@@ -1358,6 +1359,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           )}
           {termEnded ? null : (
             <>
+            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "roster" ? "active" : ""} onClick={() => goTab("roster")} title="الأساتذة: النصاب والدرجة والحالة"><GraduationCap />الأساتذة</button>
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "courses" ? "active" : ""} onClick={() => goTab("courses")} title="كل المقررات"><Library />كل المقررات</button>
             {/* 🧩 بجانب التخطيط، وبحكمه: فصلٌ منتهٍ لا محاكاةَ لشعبه. */}
@@ -1876,6 +1878,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           {tab === "courses" ? (
             collegeId && sectionId && termId
               ? <Suspense fallback={<p>⏳</p>}><AllCourses collegeId={collegeId} sectionId={sectionId} termId={termId} onImportStats={() => setTab("planning")} /></Suspense>
+              : <p>اختر القسم والفصل أولاً.</p>
+          ) : null}
+
+          {tab === "roster" ? (
+            collegeId && sectionId && termId
+              ? <Suspense fallback={<p>⏳</p>}><DepartmentRoster collegeId={collegeId} sectionId={sectionId} termId={termId} /></Suspense>
               : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 
