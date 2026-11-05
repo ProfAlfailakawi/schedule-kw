@@ -174,10 +174,10 @@ export function authorityCourseCodeMatches(sourceCode: unknown, catalogueCourseC
  */
 export function authorityCourseCode(catalogueCourseCode: unknown, departmentCode: unknown): string {
   const stored = String(catalogueCourseCode ?? "").normalize("NFKC").trim();
-  const course = authorityCatalogueCourseDigits(stored);
+  const course = academicDigits(stored);
   const department = academicDigits(departmentCode);
   // رمزٌ فيه غير الأرقام ليس رقم مقرر للهيئة: يُعرض كما هو ولا تُنتزع منه أرقام.
-  if (!course || academicDigits(stored).length !== stored.replace(/\s/g, "").length) return stored;
+  if (!course || course.length !== stored.replace(/\s/g, "").length) return stored;
   if (department.length !== 4) return course;
   if (course.length <= 3) return `${department}${course.padStart(3, "0")}`;
   /* المفتاح الكامل من القسم نفسه ربما أُنشئ تحت كليةٍ أخرى أولاً، والهيئة تطبعه

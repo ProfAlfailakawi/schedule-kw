@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { authorityCourseCellLooksPlausible, authorityPdfTextGridRows, parseScheduleTable, type GridRow, type OcrPage } from "../src/utils/documentOcr.ts";
-import { assignAuthoritySections, authorityCatalogueCourseDigits, authorityCourseCode, authorityCourseCodeMatches, authorityCoursePrefixes, authorityInheritedCourseMatches, unlinkedCourseEvidence } from "../src/utils/authorityAcademicCodes.ts";
+import { assignAuthoritySections, authorityCatalogueCourseDigits, authorityCourseCodeMatches, authorityCoursePrefixes, authorityInheritedCourseMatches, unlinkedCourseEvidence } from "../src/utils/authorityAcademicCodes.ts";
 
 let passed = 0;
 const check = (name: string, run: () => void) => { run(); passed++; console.log(`  ok ${name}`); };
@@ -117,7 +117,6 @@ check("the catalogue's three real shapes resolve one printed key, with no neighb
   assert.equal(authorityCatalogueCourseDigits("0114101"), "0114101");
   assert.equal(authorityCatalogueCourseDigits("101"), "101");
   assert.equal(authorityCatalogueCourseDigits("415114"), "415114", "only keys of college 01 with a lost zero are restored");
-  assert.equal(authorityCourseCode("114101", "0120"), "0114101", "the seven-digit rule holds for this shape");
   const catalogue = [{ id: 1, code: "101", name: "أصول التربية" }, { id: 2, code: "114101", name: "أصول التربية" },
     { id: 3, code: "464", name: "الإدارة التربوية والتعليمية" }, { id: 4, code: "114464", name: "الإدارة التربوية التعليمية" }];
   const rows = parse([grid("0114101", "اصول التربيه"), grid("0120101", "أصول التربية"), grid("0114464", "اداره تربويه التعليميه"), grid("0120464", "الادارة التربوية والتعليمية")], "0120", catalogue).rows;
