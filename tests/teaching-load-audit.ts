@@ -196,7 +196,7 @@ check(block.includes("if (!config.enabled) { res.json({ enabled: false"), "مع�
 check(!/Repository\.(create|update|delete|save)\w*Schedule/.test(block), "مساراتُ النصاب لا تكتب جدولاً");
 const at = server.indexOf('app.post("/api/schedules"');
 check(at > 0 && !/teachingLoad|TeachingLoad|evaluateTeachingLoad/.test(server.slice(at, at + 12000)), "حفظُ الموعد لا يعرف النصاب: لا منعَ ولا رفض");
-check(server.includes('"/admin/teaching-load"]'), "الديمو: الإعداد للعرض لا يُعدَّل (كبقية إدارة النظام)");
+check(server.includes('"/admin/teaching-load"'), "الديمو: الإعداد للعرض لا يُعدَّل (كبقية إدارة النظام)");
 check(/app\.get\("\/api\/admin\/teaching-load\/member\/:id",[^\n]*requireRootAdmin/.test(block) && /app\.put\("\/api\/admin\/teaching-load\/member\/:id",[^\n]*requireRootAdmin/.test(block), "استثناءُ العضو (قراءةً وحفظاً) للمدير الرئيسي وحده");
 {
   const memberPut = block.slice(block.indexOf('app.put("/api/admin/teaching-load/member/:id"'));

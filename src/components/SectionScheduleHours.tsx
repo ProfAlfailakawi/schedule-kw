@@ -58,7 +58,7 @@ function UniversityDayCard({canEdit,demoReadOnly,onSaved}:{canEdit:boolean;demoR
       {issue?<p className="muted-note" role="alert">{issue}</p>:null}
       {outside?<p className="muted-note" role="status">{countOf(outside,AR.appointment)} في الفصل الحالي خارج هذا الدوام. يبقى كما هو ولا يُمنع الحفظ.</p>:null}
       {notice?<p className="muted-note" role="status">{notice}</p>:null}
-      <div className="form-actions"><PrimaryButton type="button" disabled={busy||demoReadOnly||!changed||Boolean(issue)} onClick={()=>void save()}><Save />{busy?"جارٍ الحفظ…":"حفظ الدوام الشامل"}</PrimaryButton></div>
+      <div className="form-actions"><PrimaryButton type="button" data-guide-target="university-day-save" disabled={busy||demoReadOnly||!changed||Boolean(issue)} onClick={()=>void save()}><Save />{busy?"جارٍ الحفظ…":"حفظ الدوام الشامل"}</PrimaryButton></div>
     </div>:null}
   </Surface>;
 }
