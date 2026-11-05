@@ -71,7 +71,7 @@ function tcStar(option,e){var b=e&&e.target&&e.target.closest?e.target.closest("
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/interest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({courseId:id,collegeId:Number(b.dataset.college),sectionId:Number(b.dataset.section),on:on})}).catch(function(){})}
 var tcStick={};
 function tcMin(t){var p=String(t||"0:0").split(":");return Number(p[0])*60+Number(p[1]||0)}
-function tcBar(a,c){var span=720,o=480,pos=function(t){return Math.max(0,Math.min(100,(tcMin(t)-o)/span*100))};
+function tcBar(a,c){var o=typeof DAY_S==="number"?DAY_S:480,span=(typeof DAY_E==="number"?DAY_E:1200)-o,pos=function(t){return Math.max(0,Math.min(100,(tcMin(t)-o)/span*100))};
  return '<div class="tc-tl" aria-hidden="true"><i class="a" style="inset-inline-start:'+pos(a.start)+'%;inline-size:'+(pos(a.end)-pos(a.start))+'%"></i>'+(c?'<i class="c" data-tone="'+esc(c.tone)+'" style="inset-inline-start:'+pos(c.start)+'%;inline-size:'+(pos(c.end)-pos(c.start))+'%"></i>':'')+'</div>'}
 function tcShift(c){return c.shift?(c.side==="after"?"+":"−")+c.shift+"د":"ملاصق"}
 function tcSideBtn(i,c,label){if(!c)return '<button type="button" class="tc-side" data-tone="bad" disabled>'+label+' · —</button>';

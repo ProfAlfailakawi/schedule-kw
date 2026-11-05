@@ -42,7 +42,7 @@ import { sameCourseSectionClash,
 } from "./scheduleRegulations";
 import { findConflicts, minutesToTime } from "./scheduleIntelligence";
 import { rowsForRequestSlots } from "./instructorRequestWeek";
-import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, isValidClock } from "./scheduleTime";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, isValidClock } from "./scheduleTime";
 import { roomIdentityKey } from "./locationRegistry";
 import { habitualBlockMinutes, historicalOrigin, type CourseNature } from "./courseNature";
 import { lengthPatternsForHours, meetingMinutes, meetingSlots, type OwnMeeting } from "./requestMeetingLength";
@@ -324,8 +324,14 @@ function instructorFree(instructorId: number, days: DayKey[], start: string, end
 function regulationLadder(days: DayKey[]): string[] {
   const long = days.some(day => day === "fmonday" || day === "fwednesday");
   const short = days.some(day => day !== "fmonday" && day !== "fwednesday");
-  if (long && !short) return ["08:00", "09:30", "11:00", "12:30", "14:00", "15:30", "17:00", "18:30"];
-  return ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+  /* مرساه الثامنة بخطوته، ويمتد في الاتجاهين داخل الدوام الشامل؛ وبلا توسيع يقف حيث وقف دائماً. */
+  const step = long && !short ? 90 : 60;
+  const last = SCHEDULE_DAY_END > 20 * 60 ? SCHEDULE_DAY_END : Math.min(SCHEDULE_DAY_END, step === 90 ? 18 * 60 + 30 : 18 * 60);
+  let first = 8 * 60;
+  while (first - step >= SCHEDULE_DAY_START) first -= step;
+  const out: string[] = [];
+  for (let at = first; at <= last; at += step) if (at >= SCHEDULE_DAY_START) out.push(minutesToTime(at));
+  return out;
 }
 
 function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: string[], week: FSchedule[], identity: number): RequestSlot[] {
@@ -563,7 +569,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      السابعةَ صباحاً يمرّ سليماً — ثم لا يجد البحثُ عن البدائل موضعاً له، لأن
      سُلّمَ البدايات يبدأ من الثامنة. حَدٌّ واحدٌ يُحرَس من طرفيه. */
   if (slots.some(slot => toMinutes(slot.start) < SCHEDULE_DAY_START)) {
-    reasons.push({ source: "shape", text: "تبدأ المحاضرة قبل بداية الدوام الشامل (08:00).", blocking: true });
+    reasons.push({ source: "shape", text: `تبدأ المحاضرة قبل بداية الدوام الشامل (${minutesToTime(SCHEDULE_DAY_START)}).`, blocking: true });
     return verdictOf();
   }
   /* يُقاس على النهاية قبل الحدّ لا بعده: `endForRequest` تقصّ ما يتجاوز نهاية
@@ -571,11 +577,11 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
      يفحصه بعدها — فمحاضرةٌ تبدأ السابعةَ والنصف مساءً يومَ اثنين تنتهي على
      الورق الثامنةَ تماماً وتبدو سليمة. الطولُ غيرُ المقصوص هو الذي يُسأل. */
   const uncut = toMinutes(request.start) + requestMinutes(request.days, request.blockMinutes);
-  /* قرار المالك 2026-11-05: نهايةُ اليوم الجامعي (20:00) حدٌّ مطلق. واستثناءُ القسم الأضيق يمنع طلب الأستاذ،
+  /* قرار المالك 2026-11-05: نهايةُ اليوم الجامعي حدٌّ مطلق. واستثناءُ القسم الأضيق يمنع طلب الأستاذ،
      ويبقى تنبيهاً لمن يقرأ الطلب من القسم أو لموعدٍ عرضه القسم بنفسه. وبلا استثناء لا يختلف الحدّان فلا سبب ثانٍ. */
   const lastEnd = request.slots?.length ? Math.max(...slots.map(slot => toMinutes(slot.end))) : uncut;
   if (lastEnd > SCHEDULE_DAY_END || slots.some(slot => toMinutes(slot.end) <= toMinutes(slot.start))) {
-    reasons.push({ source: "shape", text: "تتجاوز المحاضرة نهاية الدوام الشامل (20:00).", blocking: true });
+    reasons.push({ source: "shape", text: `تتجاوز المحاضرة نهاية الدوام الشامل (${SCHEDULE_DAY_END_TIME}).`, blocking: true });
     return verdictOf();
   }
   const departmentHoursBlock = !context.departmentHoursWarnOnly;

@@ -20,6 +20,7 @@
  */
 import { ARABIC_COUNT_SCRIPT } from "../utils/arabicCount";
 import { PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT } from "./publicKit";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_DAY_START_TIME } from "../utils/scheduleTime";
 
 const PAGE_CSS = String.raw`
 :root{--raise:#fff;--on:#fff;--seg:#e8efea;--tt-bg:#fbfdfc;--tt-sum:linear-gradient(#fbfdfc,#f6faf7);--chip-mute:#eef2ef;--sk-on:#fff;--ink:#15251d;--ink2:#2c3f34;--muted:#5d6e64;--muted2:#8a9890;--line:#dde6e0;--line2:#c8d5cd;--bg:#f3f7f4;--card:var(--raise);--soft:#edf5f0;
@@ -145,9 +146,9 @@ svg.i{width:1.15em;height:1.15em;flex:none;fill:none;stroke:currentColor;stroke-
 .tt-head{padding-bottom:6px}
 .tt-head div{padding:6px 4px 7px;text-align:center;font-size:14px;font-weight:700;color:var(--ink2);border-radius:10px;background:var(--soft)}
 .tt-head div:first-child{background:transparent}
-.tt-times{position:relative;height:calc(var(--H)*12)}
+.tt-times{position:relative;height:calc(var(--H)*var(--hrs,12))}
 .tt-times span{position:absolute;inset-inline:0;font-size:11.5px;color:var(--muted2);text-align:center;transform:translateY(-.55em);direction:ltr;font-variant-numeric:tabular-nums}
-.tt-col{position:relative;height:calc(var(--H)*12);border-radius:12px;background-color:#fbfdfc;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(rgba(221,230,224,.5) 1px,transparent 1px);background-size:100% var(--H),100% calc(var(--H)/2);background-position:0 0,0 0;border:1px solid var(--line)}
+.tt-col{position:relative;height:calc(var(--H)*var(--hrs,12));border-radius:12px;background-color:#fbfdfc;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(rgba(221,230,224,.5) 1px,transparent 1px);background-size:100% var(--H),100% calc(var(--H)/2);background-position:0 0,0 0;border:1px solid var(--line)}
 .ev{position:absolute;display:flex;flex-direction:column;gap:1px;padding:4px 7px 3px;margin:0;text-align:start;overflow:hidden;border-radius:10px;border:1px solid var(--line2);border-inline-start-width:4px;background:#f1f5f2;color:var(--ink);font-size:12.5px;line-height:1.35;min-width:0;transition:opacity .18s,transform .18s,box-shadow .18s}
 .ev:hover{box-shadow:0 4px 14px rgba(22,57,40,.16);z-index:2}
 .ev>*{flex:none;max-width:100%}
@@ -481,7 +482,9 @@ function impactHtml(){var S=D.schedule;if(!S)return "";var b=S.before.metrics,a=
  return '<div class="impact">'+cards.map(metricCard).join("")+'</div>'}
 
 /* ── الجدول الأسبوعي ─────────────────────────────────────────────────────── */
-var START=8*60,END=20*60;
+var DAY_S=__DAY_START__,DAY_E=__DAY_END__,START=Math.floor(DAY_S/60)*60,END=Math.ceil(DAY_E/60)*60;SK.day("__DAY_START_TIME__","__DAY_END_TIME__");
+/* المحورُ يتّسع لموعدٍ خارج الدوام الشامل، فلا يُقصّ. */
+function fitAxis(list){list.forEach(function(it){START=Math.min(START,Math.floor(mins(it.start)/60)*60);END=Math.max(END,Math.ceil(mins(it.end)/60)*60)})}
 function itemsNow(){var S=D.schedule;if(!S)return [];
  if(D.committedAt)return S.after.items.map(function(it){var c={};for(var k in it)c[k]=it[k];c.state="current";return c});
  if(UI.mode==="before")return S.before.items.slice();
@@ -525,8 +528,8 @@ function ttHtml(swap){var S=D.schedule;if(!S)return "";var list=itemsNow(),done=
  h+='<div class="ttcard"><div class="tt-sum" aria-live="polite">'+ttSummary(list)+'</div>';
  if(UI.view==="agenda")h+=agendaHtml(list,swap);else h+=gridHtml(list,swap);
  h+='<div class="legend" aria-label="دليل الألوان والأنماط">'+legendHtml()+'</div></div>';return h}
-function gridHtml(list,swap){var h='<div class="tt-scroll" tabindex="-1"><div class="tt" role="group" aria-label="الجدول الأسبوعي من الأحد إلى الخميس"><div class="tt-row tt-head"><div></div>'+DAYS.map(function(d){return '<div>'+d[1]+'</div>'}).join("")+'</div><div class="tt-row"><div class="tt-times" aria-hidden="true">';
- for(var hr=8;hr<=19;hr++)h+='<span style="top:calc(var(--H)*'+(hr-8)+')">'+pad(hr)+':00</span>';
+function gridHtml(list,swap){fitAxis(list);var h='<div class="tt-scroll" tabindex="-1"><div class="tt" style="--hrs:'+((END-START)/60)+'" role="group" aria-label="الجدول الأسبوعي من الأحد إلى الخميس"><div class="tt-row tt-head"><div></div>'+DAYS.map(function(d){return '<div>'+d[1]+'</div>'}).join("")+'</div><div class="tt-row"><div class="tt-times" aria-hidden="true">';
+ for(var hr=START/60;hr<END/60;hr++)h+='<span style="top:calc(var(--H)*'+(hr-START/60)+')">'+pad(hr)+':00</span>';
  h+='</div>';
  DAYS.forEach(function(d){var rows=itemsOfDay(list,d[0]).map(function(it){return {it:it,s:Math.max(START,mins(it.start)),e:Math.min(END,mins(it.end))}});
   h+='<div class="tt-col" role="group" aria-label="'+d[1]+'">'+lanesFor(rows).map(function(c){return evHtml(c.it,c,d[0],swap)}).join("")+'</div>'});
@@ -721,7 +724,9 @@ export function studyProposalPage(token: string, proposalId: string, nonce: stri
   /* القيمُ تدخل السكربت JSON، ويُهرَّب '<' فلا يُغلق وسمٌ مبكّراً ولا يُقرأ ‎<!--‎ تعليقاً. */
   const lit = (v: string) => JSON.stringify(String(v)).replace(/</g, "\\u003c");
   const script = PAGE_SCRIPT.replace("__TOKEN__", () => lit(token)).replace("__PID__", () => lit(proposalId))
-    .replace("__KIT__", () => PUBLIC_KIT_SCRIPT);
+    .replace("__KIT__", () => PUBLIC_KIT_SCRIPT)
+    .replace("__DAY_START__", () => String(SCHEDULE_DAY_START)).replace("__DAY_END__", () => String(SCHEDULE_DAY_END))
+    .replace("__DAY_START_TIME__", () => SCHEDULE_DAY_START_TIME).replace("__DAY_END_TIME__", () => SCHEDULE_DAY_END_TIME);
   return `<!doctype html><html lang="ar" dir="rtl"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#247756">

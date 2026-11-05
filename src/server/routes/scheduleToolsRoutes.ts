@@ -27,7 +27,7 @@ import { blockingConflicts } from "../../utils/scheduleBlockers";
 import { roleDefinition } from "../../utils/academicRoles";
 import { AR, countOf } from "../../utils/arabicCount";
 import { learnAll } from "../../utils/courseNature";
-import { formatScheduleTimeRange, SCHEDULE_SLOT_MINUTES, scheduleDayWindowMinutes } from "../../utils/scheduleTime";
+import { formatScheduleTimeRange, withinUniversityDay, SCHEDULE_SLOT_MINUTES, scheduleDayWindowMinutes } from "../../utils/scheduleTime";
 import { eligibleHallsForSection, rowOccupiesRoom } from "../../utils/locationRegistry";
 import { noteScheduleMutation, scheduleLockRefusal } from "../core/approvals";
 import { type AuthenticatedRequest, requirePermission, signInRequiredMessage } from "../core/auth";
@@ -636,7 +636,7 @@ app.post("/api/schedules/meeting-slots", requireMeetingAccess, async (req: Authe
       res.status(400).json({ error: "تحقق من اليوم والوقت" }); return;
     }
     const startMinutes = Number(start.slice(0, 2)) * 60 + Number(start.slice(3));
-    if (startMinutes < 480 || startMinutes + duration > 1200) { res.status(400).json({ error: "الوقت خارج فترة الدوام (08:00–20:00)" }); return; }
+    if (!withinUniversityDay(startMinutes, startMinutes + duration)) { res.status(400).json({ error: `الوقت خارج الدوام الشامل (${scheduleDayWindowMinutes().startTime}–${scheduleDayWindowMinutes().endTime})` }); return; }
     res.json({ ...inspectMeetingSlot({ rows: termRows, ids: participantIds, nameById, duration, day, start }), busyScope: "allColleges" });
     return;
   }

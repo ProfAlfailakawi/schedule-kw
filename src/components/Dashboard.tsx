@@ -20,7 +20,7 @@ const clockOf=(minutes:number)=>scheduleClockForDisplay(`${String(Math.floor(min
 const num=(value:number|undefined)=>Number(value||0).toLocaleString("ar-KW-u-nu-latn");
 const minutesOf=(value:string)=>{const[h,m]=String(value||"0:0").split(":").map(Number);return(h||0)*60+(m||0)};
 const spot=(minutes:number)=>`${Math.min(100,Math.max(0,((minutes-SCHEDULE_DAY_START)/SCHEDULE_DAY_SPAN)*100))}%`;
-const laneWidth=(start:number,end:number)=>`${Math.max(0,(Math.min(SCHEDULE_DAY_END,end)-Math.max(SCHEDULE_DAY_START,start))/SCHEDULE_DAY_SPAN*100)}%`;
+const laneWidth=(start:number,end:number)=>`${Math.max(2,(Math.min(SCHEDULE_DAY_END,end)-Math.max(SCHEDULE_DAY_START,start))/SCHEDULE_DAY_SPAN*100)}%`;
 const percent=(value:unknown)=>Math.min(100,Math.max(0,Math.round(Number(value)||0)));
 const decisionTitle=(item?:DecisionItem)=>item?.title||item?.label||"";
 const decisionDetail=(item?:DecisionItem)=>item?.detail||item?.description||item?.message||"";

@@ -120,14 +120,14 @@ function layout(entries: ReadonlyArray<{ item: GridItem; vacancy?: VacancyItem }
 }
 
 export function windowFor(items: readonly GridItem[]) {
-  let start = SCHEDULE_DAY_START, end = 16 * 60;
+  let start = SCHEDULE_DAY_START, end = Math.min(SCHEDULE_DAY_END, 16 * 60);
   for (const item of items) {
     start = Math.min(start, Math.floor(timeToMinutes(item.start) / 60) * 60);
     end = Math.max(end, Math.ceil(timeToMinutes(item.end) / 60) * 60);
   }
-  start = Math.max(SCHEDULE_DAY_START, start);
-  end = Math.min(SCHEDULE_DAY_END, Math.max(end, 16 * 60));
-  return { start, end };
+  /* لا قصّ عند الدوام الشامل: موعدٌ قائم خارجه يبقى مرئياً بعد تضييقه. */
+  end = Math.max(end, Math.min(SCHEDULE_DAY_END, 16 * 60), start + 60);
+  return { start, end: Math.min(24 * 60, end) };
 }
 
 export interface WeekGridProps {

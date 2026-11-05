@@ -9,6 +9,7 @@ import { courseHue, courseTexture, firstLast } from "../utils/weekVisual";
 import { scheduleDays, scheduleMinutes } from "./scheduleWorkspace";
 import type { FSchedule } from "../types";
 import VisitingBadge from "./VisitingBadge";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../utils/scheduleTime";
 
 /**
  * ── الترحيب: البرنامج يشتغل أمامك، لا يشرح نفسه ─────────────────────────────
@@ -109,8 +110,8 @@ const SAMPLE_REPAIRED = { col: 3, row: 4 };
  * العيّنة كما كانت. شاشة الترحيب لا يصحّ أن تكون الشاشة التي تفشل.
  */
 const STAGE_ROWS = 6;
-const DAY_OPENS = 8;
-const DAY_CLOSES = 20;
+const dayOpens = () => Math.floor(SCHEDULE_DAY_START / 60);
+const dayCloses = () => Math.ceil(SCHEDULE_DAY_END / 60);
 
 type StageBoard = {
   chips: Chip[];
@@ -199,7 +200,7 @@ function stageFromWorkspace(payload: unknown): StageBoard | null {
    * lecture instead, so the rail beside the grid is their morning, not a
    * decoration. */
   const earliest = Math.min(...usable.map(row => scheduleMinutes(String(row.fstarttime || ""))));
-  const baseHour = Math.min(Math.max(Math.floor(earliest / 60), DAY_OPENS), DAY_CLOSES - STAGE_ROWS);
+  const baseHour = Math.min(Math.max(Math.floor(earliest / 60), dayOpens()), dayCloses() - STAGE_ROWS);
   const base = baseHour * 60;
 
   /* One lecture per day column, so the miniature reads as a week rather than a

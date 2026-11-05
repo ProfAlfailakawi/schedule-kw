@@ -2115,8 +2115,8 @@ export default function App() {
           <AdminUsers mode="roomSetup" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
         ) : unauthorized();
       case "sectionHours":
-        return user.IsRootAdmin && allowed.admin ? (
-          <AdminUsers mode="sectionHours" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
+        return allowed.admin ? (
+          <AdminUsers mode="sectionHours" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} demoReadOnly={Boolean(user.IsDemo)} />
         ) : unauthorized();
       case "teachingLoad":
         return user.IsRootAdmin && allowed.admin ? (

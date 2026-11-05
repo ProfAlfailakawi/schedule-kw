@@ -216,10 +216,12 @@ function sign(o){var again=false;
     civil=c;at=Date.now();close();if(o.ok)toast("check",o.ok)})}}
  draw()}
 /* حقلُ الوقت: «HH:MM» بأرقامٍ إنجليزية. يكتب الأستاذُ 930 فيصير 09:30، والخانةُ الحمراء تقول إنه خارج الدوام. */
-function norm(v,min,max){min=min||"08:00";max=max||"20:00";var d=digits(v);if(d.length===3)d="0"+d;if(d.length!==4)return "";
+var dayMin="08:00",dayMax="20:00";
+function day(a,b){dayMin=a;dayMax=b}
+function norm(v,min,max){min=min||dayMin;max=max||dayMax;var d=digits(v);if(d.length===3)d="0"+d;if(d.length!==4)return "";
  var h=+d.slice(0,2),m=+d.slice(2);if(h>23||m>59)return "";
  var t=("0"+h).slice(-2)+":"+("0"+m).slice(-2);if(t<min||t>max)return "";return t}
-function tf(attrs,value,min,max){return '<input class="sk-tf" type="text" inputmode="numeric" dir="ltr" maxlength="5" autocomplete="off" placeholder="09:30" data-min="'+esc(min||"08:00")+'" data-max="'+esc(max||"20:00")+'" '+(attrs||"")+' value="'+esc(value||"")+'">'}
+function tf(attrs,value,min,max){return '<input class="sk-tf" type="text" inputmode="numeric" dir="ltr" maxlength="5" autocomplete="off" placeholder="09:30" data-min="'+esc(min||dayMin)+'" data-max="'+esc(max||dayMax)+'" '+(attrs||"")+' value="'+esc(value||"")+'">'}
 var tfHandlers=[];
 function onTime(fn){tfHandlers.push(fn)}
 document.addEventListener("input",function(e){var el=e.target;if(!el||!el.classList||!el.classList.contains("sk-tf"))return;
@@ -228,6 +230,6 @@ document.addEventListener("input",function(e){var el=e.target;if(!el||!el.classL
  var t=d.length===4?norm(d,el.getAttribute("data-min"),el.getAttribute("data-max")):"";
  el.setAttribute("data-bad",d.length===4&&!t?"1":"0");
  for(var k=0;k<tfHandlers.length;k++)tfHandlers[k](el,t)});
-return {G:G,esc:esc,gi:gi,digits:digits,sheet:sheet,close:close,toast:toast,known:known,sign:sign,norm:norm,tf:tf,onTime:onTime};
+return {G:G,esc:esc,gi:gi,digits:digits,sheet:sheet,close:close,toast:toast,known:known,sign:sign,norm:norm,tf:tf,onTime:onTime,day:day};
 })();
 ` + DEMO_COPY_SCRIPT;

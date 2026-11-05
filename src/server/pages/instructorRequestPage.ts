@@ -23,6 +23,7 @@ import { ARABIC_COUNT_SCRIPT } from "../../utils/arabicCount";
 import { CALENDAR_LINKS_CLIENT_JS } from "../../utils/calendarLinks";
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from "../teacherCardExtras";
 import { PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead } from "../pushCard";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_DAY_START_TIME } from "../../utils/scheduleTime";
 
 /**
  * ── صفحةُ الأستاذ ───────────────────────────────────────────────────────────
@@ -200,12 +201,13 @@ var PLIB=${JSON.stringify(patternLibraryHtml(patternLibraryInput()))},PLIB_ICON=
 document.addEventListener("click",function(e){var d=document.querySelector(".plib[open]");if(d&&!d.contains(e.target))d.removeAttribute("open")});
 var TOKEN=${JSON.stringify(token)},host=document.getElementById("host"),demoNode=document.querySelector("#demoTop .demo-hint"),demoOpen=false,data=null,state=[],activeTab="schedule",chooserOpen=false,offeringsOpen=false,offeringSearch="";
 ${typeof ACADEMIC_ADVICE_SCRIPT !== "undefined" ? ACADEMIC_ADVICE_SCRIPT : "function academicCardHtml(){return \"\";} function academicClashCount(){return 0;} function loadAcademicAdvice(){}"}
+var DAY_S=${SCHEDULE_DAY_START},DAY_E=${SCHEDULE_DAY_END};SK.day("${SCHEDULE_DAY_START_TIME}","${SCHEDULE_DAY_END_TIME}");
 var DAYS=[["fsunday","الأحد"],["fmonday","الاثنين"],["ftuesday","الثلاثاء"],["fwednesday","الأربعاء"],["fthursday","الخميس"]];
 var LONG={fmonday:80,fwednesday:80},SHORT=50;
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){
 return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function mins(t){var p=String(t||"0:0").split(":");return (+p[0]||0)*60+(+p[1]||0)}
-function clock(m){m=Math.min(m,20*60);return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")}
+function clock(m){m=Math.min(m,Math.min(DAY_E,1439));return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")}
 /* ── النهايةُ بالمحرّك الواحد (REQUEST_LENGTH_SCRIPT) الذي يحسب به الخادم ──
    الأيامُ نفسُها ← طولُ الموعد نفسه، ويومٌ واحد يُنقل ← طولُه، وإلا نمطُ اللائحة لساعات المقرّر، وإلا 50/80.
    وما أجاب به الخادمُ لهذه الأيام وهذه البداية يُقدَّم على الحساب هنا. ولا تُقصّ النهايةُ عند الثامنة مساءً:
@@ -225,15 +227,18 @@ if(list.every(function(sl){return sl.start===a.start&&sl.end===a.end}))return a.
 var groups=[];list.forEach(function(sl){var k=sl.start+"|"+sl.end,g=groups.filter(function(x){return x.k===k})[0];if(!g){g={k:k,s:sl.start,e:sl.end,d:[]};groups.push(g)}g.d.push(sl.day)});
 return groups.map(function(g){return g.s+" – "+g.e+" ("+g.d.map(dayShort).join(" ")+")"}).join(" · ")}
 /* بدايةٌ لا تتّسع لها المحاضرةُ قبل الثامنة مساءً لا تُعرض زرّاً. */
-function fitsDay(it,days,t){var e=endOf(it,days,t);return !e||mins(e)<=20*60}
+function fitsDay(it,days,t){var e=endOf(it,days,t);return !e||mins(e)<=DAY_E}
 /* لقاءٌ ممتدّ (مختبر/ورشة): يومٌ واحد أطول من محاضرة اللائحة — يبقى طولُه إن نُقل. */
 function blockOf(b){if(!b)return 0;var m=/(\\d{1,2}:\\d{2})\\D+(\\d{1,2}:\\d{2})/.exec(String(b.time||""));
 if(!m||String(b.days||"").split("·").filter(function(x){return x.trim()}).length!==1)return 0;var span=mins(m[2])-mins(m[1]);var df=DAYS.filter(function(x){return x[1]===String(b.days||"").trim()})[0],exp=df&&LONG[df[0]]?LONG.fmonday:SHORT;return span>LONG.fmonday||(span>0&&span!==exp)?span:0}
 /* بداياتٌ جاهزة بضغطة: الأحد والثلاثاء والخميس محاضراتٌ قصيرة كل ساعة،
    والاثنين والأربعاء محاضراتٌ طويلة كل ساعة ونصف. ولا وقتَ يُكتب باليد (المالك 2026-10-30). */
 function startChoices(days){var long=days.some(function(d){return LONG[d]}),short=days.some(function(d){return !LONG[d]});
-if(long&&!short)return ["08:00","09:30","11:00","12:30","14:00","15:30","17:00","18:30"];
-return ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00"]}
+/* السُّلّم مرساه الثامنة بخطوته، ويمتد في الاتجاهين داخل الدوام الشامل؛ وبلا توسيع يقف حيث وقف دائماً. */
+var step=long&&!short?90:60,last=DAY_E>1200?DAY_E:Math.min(DAY_E,step===90?1110:1080),first=480,out=[];
+while(first-step>=DAY_S)first-=step;
+for(var at=first;at<=last;at+=step)if(at>=DAY_S)out.push(String(Math.floor(at/60)).padStart(2,"0")+":"+String(at%60).padStart(2,"0"));
+return out}
 function fmtDays(days){return days.map(function(d){
 var f=DAYS.filter(function(x){return x[0]===d})[0];return f?f[1]:d}).join(" · ")}
 function dt(iso){if(!iso)return "";var d=new Date(iso);return isNaN(d)?"":
@@ -399,10 +404,10 @@ function pathHtml(s){if(s===undefined)s=stageIdx();var w=Math.min(s,3)/3*75;
   var st=s>=4||k<s?"done":k===s?"now":"next",label=k===0&&s===0?"أرسِل":k===3&&s>=4?"ثُبّت":p[1];
   return '<div class="st" data-s="'+st+'"'+(k===2&&st==="now"?' data-you="1"':'')+'><span class="c">'+gi(st==="done"?"check":p[0])+'</span>'+label+'</div>'}).join("")+'</nav>'}
 /* الموعدُ كرسم: أيامُ الأسبوع، ومسطرةُ اليوم من الثامنة إلى الثامنة مساءً. */
-function slotCard(x,k,old,tag){var L=480,R=1200;function pos(m){return Math.max(0,Math.min(100,(m-L)/(R-L)*100))}
+function slotCard(x,k,old,tag){var L=Math.min(DAY_S,x.s,old?old.s:DAY_S),R=Math.max(DAY_E,x.e,old?old.e:DAY_E);function pos(m){return Math.max(0,Math.min(100,(m-L)/(R-L)*100))}
  var days=DAYS.map(function(d){var kk=x.d.indexOf(d[0])>=0?k:(old&&old.d.indexOf(d[0])>=0?"old":"");return '<div class="sd" data-k="'+kk+'"><i></i>'+dayShort(d[0])+'</div>'}).join("");
  function blk(o,kk){var a=pos(o.s),b=pos(o.e);return '<i class="blk" data-k="'+kk+'" style="right:'+a+'%;width:'+Math.max(2,b-a)+'%"></i>'}
- var ticks=[8,10,12,14,16,18,20].map(function(h){return '<span class="tk num" style="right:'+pos(h*60)+'%;transform:translateX('+(h===8?"0":h===20?"100%":"50%")+')">'+h+'</span>'}).join("");
+ var ticks=[];for(var tk=Math.ceil(L/60);tk<=Math.floor(R/60);tk+=2)ticks.push(tk);var tkA=ticks[0],tkZ=ticks[ticks.length-1];ticks=ticks.map(function(h){return '<span class="tk num" style="right:'+pos(h*60)+'%;transform:translateX('+(h===tkA?"0":h===tkZ?"100%":"50%")+')">'+h+'</span>'}).join("");
  return '<div class="slot"><div class="when"><span class="big num">'+hh(x.s)+' – '+hh(x.e)+'</span><span class="tag" data-k="'+k+'">'+gi(k==="new"?"star":"pen")+tag+'</span></div>'+
   '<div class="sdays" role="img" aria-label="'+esc(fmtDays(x.d))+'">'+days+'</div>'+
   '<div class="ruler" aria-hidden="true"><i class="track"></i>'+(old?blk(old,"old"):"")+blk(x,k)+ticks+'</div>'+
@@ -600,7 +605,7 @@ function planTable(){
    أعمدةُ الأيام وفيها كتلُ المحاضرات في موضعها من اليوم (٨ صباحاً إلى ٨ مساءً): يرى الأستاذ تعارضَه بعينه قبل أن
    يقوله الفاحص. الموعدُ الحاليّ قبل التعديل ظلٌّ متقطّع، والمطلوبُ كتلةٌ ملوّنة، والمحذوفُ مخطّط. */
 function weekStrip(){
- skAssignColors();var today=new Date().getDay(),L=480,R=1200,cols={},ghost=false,counts={};
+ skAssignColors();var today=new Date().getDay(),L=DAY_S,R=DAY_E,cols={},ghost=false,counts={};
  DAYS.forEach(function(d){cols[d[0]]=[];counts[d[0]]=0});
  function pos(m){return Math.max(0,Math.min(100,(m-L)/(R-L)*100))}
  var cur=0;
@@ -613,8 +618,13 @@ function weekStrip(){
   if(o){put(o,"ghost");ghost=true}
   if(off){put({d:off.d,s:off.s,e:off.e},"prop");return}
   put(askSlot(it),it.decision&&it.decision.state==="fixed"?"fix":"chg")});
+/* المحورُ يتّسع لموعدٍ خارج الدوام الشامل، وتسمياتُه من حدّيه: أربعٌ إن انقسم على ثلاث ساعاتٍ كاملة، وإلا الطرفان وحدهما فلا تكذب مواضعها. */
+ DAYS.forEach(function(d){cols[d[0]].forEach(function(x){L=Math.min(L,x.s);R=Math.max(R,x.e)})});
+ function axisLabel(m){var h=m/60,t=h%12||12;return h===12?"12":h<12?t+" ص":t+" م"}
+ var axisStep=(R-L)/3,axisAt=(R-L)%180===0&&L%60===0?[L,L+axisStep,L+2*axisStep,R]:[L,R],axisHtml=axisAt.map(function(m,i){var n=m%60?hmOf(m):axisLabel(m);if(i===1&&axisAt.length===4)n=String(n).replace(/ ص$/,"");return "<span>"+n+"</span>"}).join("");
+ function hmOf(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")}
  var label="أسبوعك: "+DAYS.map(function(d){return d[1]+" "+counts[d[0]]}).join("، ");
- return '<div class="wk" role="group" aria-label="'+esc(label)+'">'+skKey()+'<div class="wk-body"><div class="wk-axis" aria-hidden="true"><span>8 ص</span><span>12</span><span>4 م</span><span>8 م</span></div><div class="wk-grid">'+DAYS.map(function(d,k){
+ return '<div class="wk" role="group" aria-label="'+esc(label)+'">'+skKey()+'<div class="wk-body"><div class="wk-axis" aria-hidden="true">'+axisHtml+'</div><div class="wk-grid">'+DAYS.map(function(d,k){
   var blocks=cols[d[0]].map(function(b){return '<button type="button" class="wb" data-wk="'+b.i+'" data-k="'+b.k+'" aria-label="'+esc(courseOf(state[b.i])+"، "+d[1]+" "+clock(b.s))+'" style="--c:'+skCourseColor(state[b.i])+';inset-block-start:'+pos(b.s)+'%;block-size:'+Math.max(5,pos(b.e)-pos(b.s))+'%"><span>'+esc(skShort(state[b.i]))+'</span></button>'}).join("");
   return '<div class="wc" data-today="'+(k===today?1:0)+'" data-n="'+counts[d[0]]+'"><div class="wc-t">'+blocks+'</div><span class="wc-n">'+d[1]+'</span></div>'}).join("")+
   '</div></div>'+skLegend()+'</div>'

@@ -3349,7 +3349,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             </div>
             <details className="insight-disclosure">
               <summary>كيف وصلنا لهذه النتيجة؟</summary>
-              <p className="insight-method">الاستخدام التقديري لكل قاعة = ساعات إشغالها ÷ ساعات اليوم الرسمية (<b dir="ltr">{formatScheduleTimeRange("08:00", "20:00")}</b>) على مدى أيام النطاق، والترتيب حسب عدد المواعيد.</p>
+              <p className="insight-method">الاستخدام التقديري لكل قاعة = ساعات إشغالها ÷ ساعات اليوم الرسمية (<b dir="ltr">{formatScheduleTimeRange(SCHEDULE_DAY_START_TIME, SCHEDULE_DAY_END_TIME)}</b>) على مدى أيام النطاق، والترتيب حسب عدد المواعيد.</p>
             </details>
           </Surface>
             </div>

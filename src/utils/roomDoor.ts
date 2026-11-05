@@ -20,9 +20,6 @@ import { defaultTermDates, termEndDate } from "./termSequence";
 
 /** محاضرةٌ تبدأ خلال هذه الدقائق تجعل القاعة «تبدأ بعد…» لا «فاضية». */
 export const DOOR_SOON_MINUTES = 15;
-/** حدّا الخطّ الزمني لليوم: من الثامنة صباحاً إلى الثامنة مساءً. */
-export const DOOR_DAY_START = 8 * 60;
-export const DOOR_DAY_END = 20 * 60;
 export const DOOR_DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"] as const;
 export const DOOR_MONTH_NAMES = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"] as const;
 

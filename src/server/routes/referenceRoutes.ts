@@ -26,7 +26,7 @@ import { readTravelPolicy, saveTravelPolicy } from "../core/travelPolicy";
 import { staffFamilyScopes } from "../core/staffCard";
 import { canManageDeadline } from "../../utils/academicRoles";
 import { DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES } from "../../utils/campusTravel";
-import { isValidClock, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, scheduleDayWindowMinutes, withinScheduleDay, withinUniversityDay } from "../../utils/scheduleTime";
+import { isValidClock, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, scheduleDayWindowMinutes, withinScheduleDay, withinUniversityDay, universityDayIssue } from "../../utils/scheduleTime";
 import { type AuthenticatedRequest, isPowerUser, requireAuth, requirePermission, requireRootAdmin } from "../core/auth";
 import { boundedInt, cleanText, TEXT_LIMIT } from "../core/input";
 import { dataContextCacheKey } from "../core/locations";
@@ -36,6 +36,7 @@ import { normalizedBuilding, sectionScheduleWindowCache, travelPairKey } from ".
 import { filterByScope, intelligenceReadScopes, isScopeAllowed } from "../core/scope";
 import { smartContextFrom } from "../core/smartImport";
 import { degreeRuleFromName, graduationCandidatesForSection, surveyPayloadCache } from "../core/studentIdentity";
+import { saveUniversityDay } from "../core/universityDay";
 
 const collegeMobilityHistoryCache=new Map<string,{expiresAt:number;history:any[]}>();
 
@@ -223,6 +224,28 @@ app.put("/api/admin/section-schedule-windows",requirePermission(7),requireRootAd
   const selectedIds=new Set(sectionIds),terms=sortTermsNewestServer(await Repository.getTerms()),termId=Number(currentTermId(terms as any)||terms[0]?.AdTermId||0),rows=termId?await Repository.getSchedulesByScope({collegeId,termId}):[];
   const outOfWindowAppointments=rows.filter(row=>selectedIds.has(Number(row.AdSectionId))&&(!withinScheduleDay(timeToMinutes(row.fstarttime),timeToMinutes(row.fendtime),{startTime,endTime}))).length;
   res.json({success:true,updated:sectionIds.length,startTime,endTime,outOfWindowAppointments});
+});
+
+/* الدوام الشامل: أثرُ القيمة الجديدة على مواعيد الفصل الحالي — تنبيهٌ لا يمنع الحفظ. */
+async function outsideUniversityDay(startTime:string,endTime:string){
+  const terms=sortTermsNewestServer(await Repository.getTerms()),termId=Number(currentTermId(terms as any)||terms[0]?.AdTermId||0);
+  if(!termId)return 0;
+  const start=timeToMinutes(startTime),end=endTime==="24:00"?1440:timeToMinutes(endTime);
+  return (await Repository.getSchedulesByScope({termId})).filter(row=>isValidClock(row.fstarttime)&&isValidClock(row.fendtime)&&(timeToMinutes(row.fstarttime)<start||timeToMinutes(row.fendtime)>end)).length;
+}
+app.get("/api/admin/university-day/impact",requirePermission(7),requireRootAdmin,async(req:AuthenticatedRequest,res:Response)=>{
+  const startTime=String(req.query.startTime||""),endTime=String(req.query.endTime||""),issue=universityDayIssue(startTime,endTime);
+  if(issue){res.status(400).json({error:issue});return;}
+  res.setHeader("Cache-Control","no-store");res.json({outside:await outsideUniversityDay(startTime,endTime)});
+});
+app.put("/api/admin/university-day",requirePermission(7),requireRootAdmin,async(req:AuthenticatedRequest,res:Response)=>{
+  const startTime=String(req.body?.startTime||""),endTime=String(req.body?.endTime||""),issue=universityDayIssue(startTime,endTime);
+  if(issue){res.status(400).json({error:issue});return;}
+  const before=`${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME}`;
+  await saveUniversityDay({startTime,endTime});
+  sectionScheduleWindowCache.clear();
+  res.locals.auditChanges=`الدوام الشامل: ${before} ← ${startTime}–${endTime}`;
+  res.json({startTime,endTime,outside:await outsideUniversityDay(startTime,endTime)});
 });
 
 app.get("/api/admin/teaching-load", requirePermission(7), requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
