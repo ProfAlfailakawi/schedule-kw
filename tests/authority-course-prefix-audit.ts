@@ -122,6 +122,7 @@ check("the catalogue's three real shapes resolve one printed key, with no neighb
   const rows = parse([grid("0114101", "اصول التربيه"), grid("0120101", "أصول التربية"), grid("0114464", "اداره تربويه التعليميه"), grid("0120464", "الادارة التربوية والتعليمية")], "0120", catalogue).rows;
   assert.deepEqual(rows.map(row => row.AdCourseId), [2, 1, 4, 3]);
   assert.equal(parse([grid("0115151", "مقرر تجريبي")], "0115", [{ id: 5, code: "151", name: "مقرر تجريبي" }, { id: 6, code: "0115151", name: "مقرر تجريبي" }]).rows[0].AdCourseId, 6, "a stored full key beats the short twin");
+  assert.equal(parse([grid("151", "مقرر تجريبي")], "0115", [{ id: 5, code: "151", name: "مقرر تجريبي" }, { id: 6, code: "0115151", name: "مقرر تجريبي" }]).rows[0].AdCourseId, 0, "a short reading with an ambiguous tail stays unresolved");
   assert.equal(parse([grid("0115151", "مقرر تجريبي")], "0115", [{ id: 7, code: "0115151", name: "أ" }, { id: 8, code: "115151", name: "ب" }]).rows[0].AdCourseId, 0, "the same key twice stays undecided");
   assert.equal(parse([grid("0114324", "طرق تدريس (رياضيات)")], "0121", [{ id: 9, code: "324", name: "طرق تدريس (التربية الفنية)" }]).rows[0].AdCourseId, 0, "the same tail, another subject");
   assert.equal(authorityCourseCodeMatches("0102101", "114101", "0120"), false);

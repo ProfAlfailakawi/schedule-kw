@@ -5949,9 +5949,9 @@ function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstr
     if(!source)return null;
     const matches=catalogue.filter(item=>authorityCourseCodeMatches(source,item.digits,authorityDepartment));
     if(matches.length===1)return matches[0].course;
-    /* المفتاح الكامل المخزّن يسبق الصف القصير للمقرر ذاته (0115151 و151 معاً). وإن
-       تكرر المفتاح الكامل نفسه بقي الصف بلا ربط: الكتالوج لا يحسم أيهما. */
-    const exactKey=matches.filter(item=>item.digits===source);
+    /* المفتاح الكامل المخزّن يسبق الصف القصير للمقرر ذاته (0115151 و151 معاً)، والمصدر
+       نفسه مفتاح من سبع خانات؛ قراءة من ثلاث خانات يبقى شرطها تفرّد الذيل. وإن تكرر المفتاح الكامل نفسه بقي الصف بلا ربط: الكتالوج لا يحسم أيهما. */
+    const exactKey=source.length===7?matches.filter(item=>item.digits===source):[];
     if(exactKey.length===1)return exactKey[0].course;
     /* رقم موروث من القسم القديم (0114xxx تحت رأس 0120/0121): الذيل وحده لا يكفي،
        فصف الكتالوج القصير «464» قد يكون 0120464 الجديد لا 0114464 القديم. يُقبل
