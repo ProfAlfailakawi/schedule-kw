@@ -27,6 +27,16 @@ check(notedScopeBreach(undefined, [{ action: "change", rowId: 1 }]) === -1, "ا�
 check(notedScopeBreach([5], [{ action: "keep", rowId: 1 }, { action: "change", rowId: 5 }]) === -1, "تعديل المميّز مسموح");
 check(notedScopeBreach([5], [{ action: "change", rowId: 1 }]) === 0, "تعديل غيره مرفوض");
 check(notedScopeBreach([5], [{ action: "keep", rowId: 5 }, { action: "add" }]) === 1, "الإضافة مرفوضة");
+const stored = [
+  { itemId: "a", rowId: 1, action: "change", slots: [{ day: "fsunday", start: "09:00" }, { day: "ftuesday", start: "09:00" }] },
+  { itemId: "b", action: "add", after: { courseId: 9 }, slots: [{ day: "fmonday", start: "10:00" }] },
+  { rowId: 2, action: "delete" },
+];
+check(notedScopeBreach([5], [{ itemId: "a", rowId: 1, action: "change", days: ["ftuesday", "fsunday"], start: "09:00" }, { rowId: 2, action: "delete" }, { itemId: "b", action: "add", courseId: 9, days: ["fmonday"], start: "10:00" }], stored) === -1, "طلب سابق أُعيد كما هو لا يُرفض");
+check(notedScopeBreach([5], [{ itemId: "a", rowId: 1, action: "change", days: ["fsunday"], start: "09:00" }], stored) === 0, "تعديل جديد على موعد مقفل مرفوض");
+check(notedScopeBreach([5], [{ itemId: "b", action: "add", courseId: 8, days: ["fmonday"], start: "10:00" }], stored) === 0, "تبديل مقرر الإضافة مرفوض");
+const issue = read("src/server/routes/instructorRequestsRoutes.ts");
+check(/!reopening && !onlyNoted\)/.test(issue) && /onlyNoted && move === "keep"/.test(issue), "الطلب المرسل يأخذ نافذة جديدة");
 check(/notedScopeBreach\(resolved\.request\.notedRowIds, Array\.isArray/.test(routes), "الخادم يحرس الإرسال");
 check(/onlyNoted/.test(read("src/server/routes/instructorRequestsRoutes.ts")), "الإصدار يقبل ما عليه ملاحظات");
 

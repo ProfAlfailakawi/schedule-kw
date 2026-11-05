@@ -276,18 +276,19 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     const held = already.get(instructorId);
     const move = reissueMove(held);
     /* F3: بطاقةُ مرحلة التدريب القائمة لا يمسّها النشرُ الجماعي — تحكمها مرحلتُها. */
-    if (held && move !== "fresh" && taPhaseOwns(held, individualOnly)) {
+    if (held && move !== "fresh" && taPhaseOwns(held, individualOnly || onlyNoted)) {
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
-    if (held && move === "keep" && !individualOnly && !reopening) {
+    if (held && move === "keep" && !individualOnly && !reopening && !onlyNoted) {
       /* طلبُه ورابطُه كما هما ينتظران قرارَ القسم؛ وصفةُ الإرسال الجديدة هي ما يحكم بطاقتَه (E1).
          تُكتب الصفةُ وحدها، لا الطلبُ كلُّه: قرارٌ أو ردٌّ يصل بين القراءة والكتابة لا يُمحى. */
       if (linkMode(held) !== issueMode) await Repository.setInstructorRequestLinkMode(held.id, issueMode);
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
-    if (held && move === "extend") {
+    /* ملاحظاتُ التسجيل تعيد فتح الطلب المرسَل: بلا نافذةٍ جديدة لا يستطيع صاحبه تصحيح ما مُيّز له. */
+    if (held && (move === "extend" || (onlyNoted && move === "keep"))) {
       const heldLink = await Repository.getShareLink(held.linkId);
       const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
       let linkId = held.linkId;

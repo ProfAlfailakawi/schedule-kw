@@ -750,7 +750,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   if (isUnchangedConfirmed(resolved.request)) { res.status(409).json({ error: "تم تثبيت جدولك مسبقاً دون تعديلات." }); return; }
   const postMode = linkMode(resolved.request);
   if (postMode === "view") { res.status(403).json({ error: "هذا الرابط للعرض فقط." }); return; }
-  const breach = notedScopeBreach(resolved.request.notedRowIds, Array.isArray(req.body?.items) ? req.body.items : []);
+  const breach = notedScopeBreach(resolved.request.notedRowIds, Array.isArray(req.body?.items) ? req.body.items : [], resolved.request.items || []);
   if (breach >= 0) { res.status(403).json({ error: "التعديل متاح فيما عليه ملاحظات التسجيل فقط.", itemIndex: breach }); return; }
   if (!requestWindowOpen(resolved.request)) {
     res.status(403).json({ error: "انتهت مدّة استقبال الطلبات لهذا الفصل." });
@@ -1337,7 +1337,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
   const items = Array.isArray(req.body?.items) ? (req.body.items as any[]) : null;
   const index = Number(req.body?.itemIndex);
   const entry = items && Number.isInteger(index) ? items[index] : null;
-  if (entry && notedScopeBreach(resolved.request.notedRowIds, [entry]) >= 0) { res.status(403).json({ error: "التعديل متاح فيما عليه ملاحظات التسجيل فقط." }); return; }
+  if (entry && notedScopeBreach(resolved.request.notedRowIds, [entry], resolved.request.items || []) >= 0) { res.status(403).json({ error: "التعديل متاح فيما عليه ملاحظات التسجيل فقط." }); return; }
   if (!items || items.length > 200 || !entry || (entry.action !== "change" && entry.action !== "add")) {
     res.status(400).json({ error: "تعذّر فحص الأوقات لهذا البند." });
     return;

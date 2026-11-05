@@ -9,11 +9,25 @@ export function notedRowsOf(notes: ReadonlyArray<{ origin?: string; resolved?: b
   return [...new Set(notes.filter(note => note.origin === "registrar" && !note.resolved).map(note => Number(note.scheduleId)).filter(id => id > 0))];
 }
 
-/** هل في المُرسَل ما يخرج عن المواعيد المسموحة؟ يعيد رقم البند، أو -1. */
-export function notedScopeBreach(notedRowIds: readonly number[] | undefined, items: ReadonlyArray<{ action?: string; rowId?: unknown }>): number {
+type SentItem = { itemId?: unknown; action?: string; rowId?: unknown; courseId?: unknown; days?: unknown; start?: unknown };
+type StoredItem = { itemId?: unknown; action?: string; rowId?: unknown; after?: { courseId?: unknown } | null; slots?: ReadonlyArray<{ day?: unknown; start?: unknown }> };
+
+/** بندٌ مخزَّنٌ أُعيد إرسالُه كما هو: طلبٌ سابق على موعدٍ مقفل يبقى، فهو ليس تعديلاً جديداً. */
+function sameAsStored(item: SentItem, stored: readonly StoredItem[]): boolean {
+  const held = stored.find(row => (item.itemId && row.itemId === item.itemId) || (item.rowId != null && row.rowId != null && Number(row.rowId) === Number(item.rowId)));
+  if (!held || held.action !== item.action) return false;
+  if (item.action !== "change" && item.action !== "add") return true;
+  if (item.action === "add" && Number(held.after?.courseId || 0) !== Number(item.courseId || 0)) return false;
+  const daysOf = (days: unknown[]) => [...new Set(days.map(String))].sort().join();
+  return daysOf((held.slots || []).map(slot => slot.day)) === daysOf(Array.isArray(item.days) ? item.days : [])
+    && String(held.slots?.[0]?.start || "") === String(item.start || "");
+}
+
+/** هل في المُرسَل تعديلٌ جديدٌ خارج المواعيد المسموحة؟ يعيد رقم البند، أو -1. */
+export function notedScopeBreach(notedRowIds: readonly number[] | undefined, items: readonly SentItem[], stored: readonly StoredItem[] = []): number {
   if (!notedRowIds?.length) return -1;
   const allowed = new Set(notedRowIds.map(Number));
-  return items.findIndex(item => item.action !== "keep" && (item.action === "add" || !allowed.has(Number(item.rowId))));
+  return items.findIndex(item => item.action !== "keep" && (item.action === "add" || !allowed.has(Number(item.rowId))) && !sameAsStored(item, stored));
 }
 
 /**
