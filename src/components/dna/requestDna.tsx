@@ -66,6 +66,7 @@ const EVENT: Record<InstructorRequestEventKind, { title: string; icon: ReactElem
   "schedule-edited": { title: "عُدّل الموعد المرتبط بالطلب", icon: <Wrench />, tone: "amber" },
   "received": { title: "استلمه القسم", icon: <Inbox />, tone: "indigo" },
   "item-fixed": { title: "ثُبّت", icon: <Wrench />, tone: "mint" },
+  "item-reopened": { title: "تراجع القسم فعاد البند مفتوحاً", icon: <Replace />, tone: "amber" },
   "item-rejected": { title: "رُفض", icon: <CircleX />, tone: "coral" },
   "alternative-offered": { title: "عُرض بديل", icon: <Replace />, tone: "amber" },
   "alternative-chosen": { title: "اختار بديلاً", icon: <BadgeCheck />, tone: "lilac" },

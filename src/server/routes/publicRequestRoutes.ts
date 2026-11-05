@@ -84,7 +84,7 @@ function stripForInstructor(request: InstructorRequest) {
      يسقط والكلمةُ العامة تبقى. ورموزُ قاعات البنود كلِّها تُعرف، فملاحظةٌ على بندٍ قد تذكر قاعةَ آخر. */
   const placeTokens = (request.items || []).flatMap(item => roomTokensOf(item));
   const clean = <T extends string | undefined>(text: T): T => (text == null ? text : scrubPlaceText(text, placeTokens) as T);
-  const cleanDecision = (decision: any) => decision ? { ...decision, ...(decision.note ? { note: clean(decision.note) } : {}) } : decision;
+  const cleanDecision = (decision: any) => decision ? { ...decision, reopenTo: undefined, ...(decision.note ? { note: clean(decision.note) } : {}) } : decision;
   const cleanThread = (thread: any[] | undefined) => thread?.map(message =>
     message?.from === "department" && message.text ? { ...message, text: clean(message.text) } : message);
   return {
@@ -1386,7 +1386,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
       if (!shapes.length) shapes = (judged.items[index]?.shapes || []) as any[];
     }
     const blocking = reasons.find((reason: any) => reason.blocking);
-    if (verdict === "conflict" && blocking) why[start] = blocking.source === "room" && /المرفق/.test(String(blocking.text || "")) ? "facility" : String(blocking.source || "");
+    if (verdict === "conflict" && blocking) why[start] = blocking.source === "room" && /المرفق/.test(String(blocking.text || "")) ? "facility" : blocking.code === "travel" ? "travel" : String(blocking.source || "");
   }
   /* الأيامُ لا تغطّي ساعاتِ المقرّر: الحكمُ نفسُه لكل الأوقات، فلا تُلوَّن كلُّها حمراء كأن الوقتَ هو الخطأ — وتُعرض أنماطُ اللائحة لتُكمَل بضغطة. */
   if (problemIsShape) { res.json({ times: {}, problem: "shape", shapes: shapes.slice(0, 3) }); return; }

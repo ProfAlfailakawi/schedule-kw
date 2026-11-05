@@ -1477,7 +1477,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     try { return await send(); }
     catch (failure: any) {
       if (failure?.code !== "request-hold" || !Array.isArray(failure.holds) || !failure.holds.length) throw failure;
-      const choice = await askRequestHold({ holds: failure.holds, verb, draft });
+      const draftCourse = draft ? courseById.get(Number(draft.AdCourseId)) : undefined;
+      const patternEnd = draft?.fstarttime ? regulationEnd(draftCourse, ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].filter(day => Boolean((draft as any)[day])) as any, draft.fstarttime) : "";
+      const choice = await askRequestHold({ holds: failure.holds, verb, draft, patternEnd });
       if (!choice) throw new Error("لم يتغيّر شيء: الموعد ما زال محجوزاً للطلب.");
       /* «ثبّت الطلب» لبند تعديل: الموعدُ القائم هو الذي ينتقل — لا صفٌّ ثانٍ — فيُغلق البندُ كما لو اعتُمد. */
       const moved = choice === "fix" && draft ? (failure.holds as RequestHold[]).find(hold => hold.action === "change" && hold.rowId) : undefined;
@@ -5107,25 +5109,30 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       const movedExisting = Boolean(saved && typeof saved === "object" && "movedFromRow" in saved);
       const movedFromRow: any = movedExisting ? (saved as any).movedFromRow : null;
       if (movedExisting) delete (saved as any).movedFromRow;
+      /* بندٌ ثبّته هذا الحفظ: «تراجع» بالتعديل يعيد الصف ثم الطلب؛ وتراجع الحذف يعيده الخادم مع الحذف. */
+      const requestFix: Array<{ requestId: string; scheduleId: number }> = (saved as any)?.requestFix || [];
+      if (saved && typeof saved === "object") delete (saved as any).requestFix;
+      const reopenSteps: UndoStep[] = requestFix.map(fix => ({ method: "POST", url: `/api/instructor-requests/${fix.requestId}/reopen-fixed`, body: { scheduleId: fix.scheduleId } }));
+      const reopenLabel = requestFix.length ? " · ويعود الطلب مفتوحاً" : "";
       if (movedExisting) {
         if (movedFromRow) {
           const { id: _id, AdCourseName: _name, ...previousValues } = movedFromRow;
           guideUndoId = offerUndo(
-            `نقل ${movedFromRow.AdCourseName || courseById.get(movedFromRow.AdCourseId)?.CourseName || "موعد"}`,
-            [{ method: "PUT", url: `/api/schedules/${movedFromRow.id}`, body: { ...previousValues, rev: (saved as any)?.rev } }],
+            `نقل ${movedFromRow.AdCourseName || courseById.get(movedFromRow.AdCourseId)?.CourseName || "موعد"}${reopenLabel}`,
+            [{ method: "PUT", url: `/api/schedules/${movedFromRow.id}`, body: { ...previousValues, rev: (saved as any)?.rev } }, ...reopenSteps],
           );
         }
       } else if (editor === "edit" && before) {
         const { id: _id, AdCourseName: _name, ...previousValues } = before as any;
         guideUndoId = offerUndo(
-          `تعديل ${before.AdCourseName || courseById.get(before.AdCourseId)?.CourseName || "موعد"}`,
-          [{ method: "PUT", url: `/api/schedules/${editId}`, body: previousValues }],
+          `تعديل ${before.AdCourseName || courseById.get(before.AdCourseId)?.CourseName || "موعد"}${reopenLabel}`,
+          [{ method: "PUT", url: `/api/schedules/${editId}`, body: previousValues }, ...reopenSteps],
         );
       } else if (editor !== "edit") {
         const createdId = Number(saved?.id || 0);
         if (createdId) {
           guideUndoId = offerUndo(
-            `إضافة ${courseById.get(form.AdCourseId)?.CourseName || "موعد"}`,
+            `إضافة ${courseById.get(form.AdCourseId)?.CourseName || "موعد"}${reopenLabel}`,
             [{ method: "DELETE", url: `/api/schedules/${createdId}` }],
           );
         }

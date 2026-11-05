@@ -24,6 +24,8 @@ import { awaitedItemIndexes } from "../../utils/linkedRequestItems";
 import { roleLabel } from "../../utils/academicRoles";
 import { requestItemFromRow } from "../../utils/instructorRequestItems";
 import { requestFullySettled } from "../../utils/instructorRequestVerdict";
+import { reopenedRequest } from "../core/scheduleConflicts";
+import { sendLogSenderFor } from "../../utils/activityTrail";
 import { offeringStatesForTerm } from "../offeringStates";
 import { pushHooks } from "../pushRoutes";
 import { notedRowsOf } from "../../utils/requestNotedScope";
@@ -354,7 +356,8 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
 
 /* ── سجلُّ الإرسال: كلُّ إرسالٍ سطرٌ يُضاف ولا يمحو ما قبله ─────────────────────
  * يُقرأ من linkModeLog (يكتبه الإصدارُ ومرحلةُ التدريب) لعائلة القسم في الفصل، الأحدثُ أولاً.
- * للقراءة فقط. واسمُ المُرسِل (قرار المالك 2026-11-05) من الجلسة عند الكتابة لا من العميل؛ والسطورُ القديمة بلا مُرسِل تعود فارغة. */
+ * للقراءة فقط. واسمُ المُرسِل (قرار المالك 2026-11-05) من الجلسة عند الكتابة لا من العميل؛ والسطورُ القديمة بلا مُرسِل تعود فارغة.
+ * والنائبُ لا يرى حركاتِ الرئيس (القاعدة نفسها في الأثر): الاسمُ لا يخرج في ردّه أصلاً. */
 app.get("/api/instructor-requests/send-log", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
@@ -371,7 +374,7 @@ app.get("/api/instructor-requests/send-log", requirePermission(7), async (req: A
     return {
       at: String(row.at || ""), mode: String(row.mode || "edit"), closesAt: String(row.closesAt || ""),
       audience: row.mode === "ta" ? "ta" : row.single ? "exception" : row.picked ? "picked" : "all",
-      count: ids.length, names: ids.map(id => nameOf.get(id) || "").filter(Boolean), by: String(row.by || ""),
+      count: ids.length, names: ids.map(id => nameOf.get(id) || "").filter(Boolean), by: sendLogSenderFor(req.user, row.by),
     };
   }));
 });
@@ -792,6 +795,31 @@ app.post("/api/instructor-requests/:id/cancel-scheduled", requirePermission(7), 
     status: requestFullySettled(items) ? "settled" : stored.status });
   await pushHooks.requestDecided(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
+});
+
+/**
+ * «تراجع» عن «ثبّت الطلب» من الجدول: يعيد البند والطلب إلى ما كانا عليه، بلا إشعار. يُستدعى بعد إعادة الصف،
+ * ولا يقع والصفُّ ما زال على الوقت المطلوب، ولا على طلبٍ مستبدَل أو جولةٍ قديمة. وتكراره لا يفعل شيئاً.
+ */
+app.post("/api/instructor-requests/:id/reopen-fixed", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
+  if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (stored.status === "superseded") { res.status(409).json({ error: "استُبدل هذا الطلب ولا يُعاد فتحه." }); return; }
+  if (!(await requireCurrentInstructorRequestGeneration(stored, res))) return;
+  if (await refuseIfTermFrozen(res, Number(stored.AdTermId || 0))) return;
+  const scheduleId = Number(req.body?.scheduleId || 0);
+  const targets = (stored.items || []).filter(item => item.decision?.state === "fixed" && item.decision.fromSchedule && Number(item.decision.scheduleId) === scheduleId);
+  if (!scheduleId || !targets.length) { res.json({ ok: true, reopened: 0 }); return; }
+  if (targets.some(item => { const scope = requestItemScope(stored, item); return !isScopeAllowed(req, scope.collegeId, scope.sectionId); })) {
+    res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return;
+  }
+  const live = await Repository.getScheduleById(scheduleId);
+  const stillThere = live && targets.some(item => (item.slots || []).length > 0
+    && (item.slots || []).every(slot => Boolean((live as any)[slot.day]) && String(slot.start).slice(0, 5) === String(live.fstarttime).slice(0, 5)));
+  if (stillThere) { res.status(409).json({ error: "الموعد ما زال على الوقت المطلوب. أعِده أولاً." }); return; }
+  const next = reopenedRequest(stored, scheduleId, roleLabel(req.user?.Role) || "القسم");
+  if (next) await Repository.saveInstructorRequest(next);
+  res.json({ ok: true, reopened: targets.length });
 });
 
 app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
