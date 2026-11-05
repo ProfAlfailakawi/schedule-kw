@@ -149,7 +149,7 @@ ok('52d pinned directory rooms are selectable and save with the same scope rule'
 ok('52e historical use owned elsewhere stays visible but cannot bypass barter', 'historyNeedsBorrowing' in server and 'استخدام تاريخي يحتاج استعارة' in picker and 'disabled>{r.canonicalCode} · تحتاج استعارة معتمدة' in picker)
 ok('53 section selectors are Arabic-natural sorted', 'sortByName(data.sections.filter' in admin and 'sortByName(availableSections' in (ROOT/'src/components/IntelligenceContextBar.tsx').read_text())
 
-ok('54 import publish is disabled while any issue remains', 'importReady = Boolean(importPreview?.valid && importBlockingIssues.length === 0)' in intel and 'disabled={!importReady || busy}' in intel)
+ok('54 import publish is disabled while any issue remains', 'importReady = Boolean(importPreview?.valid && importBlockingIssues.length === 0 &&' in intel and 'disabled={!importReady || busy}' in intel)
 ok('55 empty query hides all print/report actions, including Authority change report', 'authorityReportAvailable && all.length > 0' in reports and '{results.length ? <>' in reports and 'تقرير تغييرات الجدول' in reports)
 ok('56 query facets cascade through the actual intersected dataset', 'rowLocation = useCallback' in reports and 'rowsForFacet = useCallback' in reports and 'rowsForFacet("course")' in reports and 'rowsForFacet("instructor")' in reports and 'rowsForFacet("building")' in reports and 'rowsForFacet("room")' in reports)
 ok('57 late alert shows thin course name under course code', 'subtitle: courseName || undefined' in intel and 'intel-reason-course-name' in intel)
@@ -161,12 +161,12 @@ transfer=(ROOT/'src/components/ScheduleTransfer.tsx').read_text()
 # النشر يبقى مخفياً ومعطّلاً كما كان، ويضيف الآن شرطاً ثالثاً: أن يكون فحص
 # التعارض مع بقية أقسام الفصل قد أجاب عن هذه الصفوف بالذات. الوعد ثم الرفض بعد
 # الضغط ليس مراجعة، فالانتظار لحظةً هو الشكل الصحيح للقاعدة لا تخفيفها.
-ok('61 transfer publish is hidden and hard-disabled for any unresolved preview note while a saved Authority baseline may publish zero live rows', 'const importReady = Boolean((xlsxPreview?.rows?.length || authorityBaselineCount > 0) && importBlockingIssues.length === 0)' in transfer and '{importReady && publishGateSatisfied ? (' in transfer and 'disabled={busy || !importReady}' in transfer and 'previewIssues: importBlockingIssues' in transfer and 'if (!importReady)' in transfer)
+ok('61 transfer publish is hidden and hard-disabled for any unresolved preview note while a saved Authority baseline may publish zero live rows', 'const importReady = Boolean((xlsxPreview?.rows?.length || authorityBaselineCount > 0) && importBlockingIssues.length === 0)' in transfer and 'if (!publishGateSatisfied) return;' in transfer and 'previewIssues: importBlockingIssues' in transfer and 'if (!importReady)' in transfer)
 # الانتظار خاص بجدول PDF المعتمد: استيراد Excel لا يمرّ بالفحص المسبق أصلاً،
 # فلو شمله الشرط لبقي بلا زر نشر إلى الأبد.
 # رايتان لا راية: «عندنا جواب يخصّ هذه الصفوف» غير «بوابة النشر لا تنتظر». خلطهما
 # جعل مسار Excel يدّعي نتائج فحصٍ لم يُجرَ، فتُقرأ حقول من null وتسقط الشاشة.
-ok('61b transfer publish waits for the term-wide conflict preflight, and only for the Authority PDF path', '/api/schedules/import-preflight' in transfer and 'const termConflictsFresh = Boolean(termConflicts && termConflicts.signature === previewRowsSignature)' in transfer and 'const publishGateSatisfied = importKind !== "authority-pdf" || termConflictsFresh' in transfer and '{importReady && publishGateSatisfied ? (' in transfer and 'import-preflight' in server and 'blockingImportConflicts(' in server)
+ok('61b transfer publish waits for the term-wide conflict preflight, on every import path', '/api/schedules/import-preflight' in (ROOT/'src/hooks/useImportPreflight.ts').read_text(encoding='utf-8') and 'const publishGateSatisfied = preflight.state !== "pending"' in transfer and 'import-preflight' in server and 'blockingImportConflicts(' in server)
 # ولا يُقرأ من termConflicts إلا عبر وصول آمن، فلا تسقط الشاشة إن اختلّت الراية.
 # «موجود عندنا للقسم» حقيقة يسجّلها النظام لحظة الإضافة، لا استنتاجاً من جداول
 # منشورة: الإضافة من سياق قسم تُدرِج العضو في دليل القسم اليدوي الذي تقرأه
@@ -211,7 +211,7 @@ ok('96c the preview self-heals with the shared identity law, department-scoped a
 # ربط الآلة يحمل نسبته ويُنقض عند الخلاف، والمتقاعد/المجاز لا يُربط تلقائياً،
 # والتعميم ليس مصدر قرار — وإلا شهد القرار على نفسه ولم يُنقض أبداً.
 ok('96f machine links carry provenance, yield to disputes, and never pick inactive staff', 'NAME_PROPAGATION' in paged and 'DISPUTED_NAME' in paged and 'evidence?.method === "NAME_PROPAGATION"' in paged and '"retired"' in paged and '"sabbatical"' in paged and 'addDepartmentDelegate' in server)
-ok('61d transfer never dereferences absent preflight data', 'termConflicts!' not in transfer and '(termConflicts?.issues || [])' in transfer and '(termConflictsFresh && termConflicts?.notes) || {}' in transfer)
+ok('61d transfer never dereferences absent preflight data', 'termConflicts!' not in transfer and 'preflight.issues.forEach' in transfer and 'preflight.notes' in transfer)
 # المعرّف السالب يبقى مع الصف بعد حذف ما قبله، فلا يساوي موضعه. العلامة تُقرأ
 # من الترتيب الحالي وإلا وقعت على صف بريء بينما يُمنع النشر بسبب لا يُرى.
 ok('61c preflight conflict positions come from the current row order, never from decoding the negative id', 'const positionById=new Map<number,number>()' in server and 'positionById.get(Number(id))' in server and 'return value<0?-value-1:null' not in server)
@@ -717,7 +717,7 @@ ok('219 a short-name instructor match that would double-book that person in anot
    and 'instructorIdentityTokens(person).length<instructorIdentityTokens(String(row.sourceInstructorText||"")).length' in server)
 ok('220 the import conflict note names the other saved lecture instead of only "outside this department"',
    'otherLabel:describeOther(item?.otherId)||describeOther(item?.rowId)' in server
-   and 'مع موعد محفوظ في ${otherLabel}' in transfer)
+   and 'مع موعد محفوظ في ${otherLabel}' in (ROOT/'src/hooks/useImportPreflight.ts').read_text(encoding='utf-8'))
 
 preview_src=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
 ok('221 an instructor double booking marks the TIME cell (the value that is wrong), not the correctly read name',

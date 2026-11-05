@@ -19,7 +19,7 @@ import { type AuthenticatedRequest, requirePermission } from "../core/auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
-import { approvalBlockerOptions, blockingImportConflicts, branchOwnScopes, placeholderInstructorIds, safeDraftRows, visitingToFacultyPlan } from "../core/smartImport";
+import { approvalBlockerOptions, blockingImportConflicts, branchOwnScopes, placeholderInstructorIds, safeDraftRows, validateSmartRows, visitingToFacultyPlan } from "../core/smartImport";
 
 export function registerScheduleImportRoutes(app: Express): void {
 
@@ -47,6 +47,10 @@ app.post("/api/schedules/import-preflight", requirePermission(7), async (req: Au
   const [colleges,sections,termRows,allInstructors]=await Promise.all([
     Repository.getColleges(),Repository.getSections(),Repository.getSchedulesByScope({termId}),Repository.getInstructors(),
   ]);
+  /* وما يرفضه الحفظ صفاً صفاً (draftsRoutes) يُسأل عنه هنا بالدالة نفسها وخياراتها، على نسخة لا تُحفظ:
+     فلا يقول الشريط «جاهز» لجدولٍ سيُرفض بعد الضغط. عميلٌ قديم بلا importLayout لا يُطلب منه. */
+  const importLayout=req.body?.importLayout==="authority-pdf"?"authority-pdf":req.body?.importLayout==="worksheet"?"worksheet":undefined;
+  const issues=importLayout?await validateSmartRows(rows.map(row=>({...row})),collegeId,sectionId,{checkConflicts:false,requireDepartmentInstructor:importLayout==="authority-pdf"}):[];
   const conflicts=blockingImportConflicts(
     rows,termRows as any[],collegeId,sectionId,
     branchOwnScopes(colleges as any,sections as any,collegeId,sectionId),
@@ -82,7 +86,7 @@ app.post("/api/schedules/import-preflight", requirePermission(7), async (req: Au
     const course=[String(other.AdCourseName||"").trim(),other.SCode?`شعبة ${other.SCode}`:""].filter(Boolean).join(" ");
     return [[college,section].filter(Boolean).join(" — "),course,when].filter(Boolean).join(" · ");
   };
-  res.json({conflicts:conflicts.slice(0,60).map((item:any)=>({
+  res.json({issues,conflicts:conflicts.slice(0,60).map((item:any)=>({
     type:String(item?.type||""),message:String(item?.message||""),detail:String(item?.detail||""),
     rowIndex:positionOf(item?.rowId),otherIndex:positionOf(item?.otherId),
     otherLabel:describeOther(item?.otherId)||describeOther(item?.rowId),

@@ -36,11 +36,6 @@
 .tp-kicker{justify-self:start;padding:1px 10px;border-radius:999px;background:var(--brass);color:#fff;font-size:.7rem;font-weight:700}
 .tp-banner strong{font-size:1.08rem}.tp-banner p{margin:0;font-size:.82rem;line-height:1.8;color:var(--muted)}.tp-banner p b{color:var(--text)}
 .transfer-tabs button.is-planning.active svg{color:var(--brass)}
-.transfer-import-commit-wrap.is-planning{position:sticky;inset-block-end:0;z-index:3}
-.transfer-import-commit.is-planning{display:flex;align-items:center;justify-content:center;gap:10px;margin-block-start:12px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--brass) 50%,var(--line));border-radius:14px;background:var(--brass-soft);box-shadow:0 -10px 26px color-mix(in srgb,var(--text) 12%,transparent)}
-.transfer-import-commit.is-planning button{background:var(--brass);border-color:var(--brass);color:#fff;display:inline-flex;align-items:center;gap:8px}.transfer-import-commit.is-planning button svg{inline-size:18px;block-size:18px}
-.transfer-import-commit.is-planning button:disabled{opacity:.55}
-.tp-blocked{display:flex;align-items:center;gap:8px;margin:0;font-size:.84rem;color:var(--warning)}.tp-blocked svg{flex:none;inline-size:18px;block-size:18px}
 .tp-banner .tp-removed{color:var(--danger);font-weight:700}
 /* شعبٌ لم يجد لها النظام قاعةً خالية: رسالةٌ هادئة بعددها وأسمائها، لا خطأ. */
 .tp-rooms{display:flex;align-items:flex-start;gap:12px;margin-block:-4px 14px;padding:11px 14px;border:1px dashed color-mix(in srgb,var(--warning) 55%,var(--line));border-radius:14px;background:var(--warning-soft)}
