@@ -31,10 +31,9 @@ check(travelRuleFor(custom, "fahaheel", "jahra", 1)?.minutes === 90 && travelRul
 check(travelRuleFor(custom, "fahaheel", "jahra", 7) === null, "الاستثناء يسقط القاعدة");
 check(custom.exemptInstructorIds.length === 1, "الاستثناءات منظفة");
 check(travelRuleFor(cleanTravelPolicy({ pairs: { "jahra|main": { minutes: 0 } } }), "jahra", "main", 1) === null, "صفر يوقف القاعدة");
-check(/soft: !rule\.required/.test(read("src/server/core/scheduleConflicts.ts")), "الإلزام وحده يمنع الحفظ");
+check(/severity: "warning", soft: true/.test(read("src/server/core/scheduleConflicts.ts")), "«موعد» تنبيهٌ لا يمنع الحفظ");
 
 check(/"\/campus-travel-policy"/.test(read("src/server/roleGuard.ts")), "حارس الأدوار يسمح للمسجّل العام");
-check(/warnings\.filter\(item => !item\.soft\), \.\.\.warnings/.test(read("src/server/core/scheduleConflicts.ts")), "الحد لا يسقط الملزم");
 
 /* 14 */
 check(studentUnitCapOf(21) === 21 && studentUnitCapOf(18) === 18 && studentUnitCapOf(undefined) === 15 && studentUnitCapOf(30) === 15, "خيارات السقف");

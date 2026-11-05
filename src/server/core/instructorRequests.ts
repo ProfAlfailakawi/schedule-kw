@@ -5,6 +5,9 @@
  * نصُّ كل جملةٍ وترتيبُها كما كانا، إلا `export` على ما تستعمله وحداتٌ أخرى،
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  */
+import { travelShortfalls } from "../../utils/campusTravelPolicy";
+import { campusOf } from "../../utils/campusTravel";
+import { readTravelPolicy } from "./travelPolicy";
 import { roomTypeIn } from "../../utils/roomTypeForSection";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "../../utils/instructorRequestWeek";
@@ -202,12 +205,14 @@ export async function buildRequestContext(request: InstructorRequest) {
  * الوارد. لا يستثني حجزَ أحد — الاستثناءُ لكل طلبٍ في `requestContextFor`.
  */
 export async function buildSharedRequestContext(request: InstructorRequest) {
-  const [allRows, courses, instructors, needs, ledger] = await Promise.all([
+  const [allRows, courses, instructors, needs, ledger, travelPolicy, colleges] = await Promise.all([
     Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }),
     Repository.getCourses(),
     Repository.getInstructors(Number(request.AdTermId)),
     Repository.getStudentNeeds(Number(request.AdCollegeId), Number(request.AdSectionId), Number(request.AdTermId)).catch(() => []),
     Repository.getInstructorRequestReservations(Number(request.AdTermId)),
+    readTravelPolicy(),
+    Repository.getColleges(),
   ]);
   const officialRows = allRows as FSchedule[];
   const scopeRows = (allRows as any[]).filter(row =>
@@ -221,6 +226,8 @@ export async function buildSharedRequestContext(request: InstructorRequest) {
   const roomKeys = [...new Set((scopeRows as any[]).map(row => roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall)).filter(Boolean))];
   return {
     termId: Number(request.AdTermId),
+    travelPolicy,
+    campusByCollege: new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), campusOf(row.AdCollegeName)])),
     allRows: officialRows as any[],
     officialRows, reservationsAll: liveReservations(ledger), reservations: liveReservations(ledger),
     ownerRequestId: "" as string,
@@ -473,6 +480,9 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       ladderBlocks: !options.forDepartment && !offeredByDepartment,
       departmentHoursWarnOnly: Boolean(options.forDepartment) || offeredByDepartment,
       sectionClashBlocks: !options.forDepartment && !offeredByDepartment,
+      travelShortfall: (slots, others) => travelShortfalls(context.travelPolicy, Number(request.AdInstructorId), id => context.campusByCollege.get(id),
+        { collegeId: targetCollegeId, slots }, others)[0] || null,
+      travelBlocks: !options.forDepartment && !offeredByDepartment,
       nature: habits,
       suggestNature: priorHabits,
       termId: Number(request.AdTermId),

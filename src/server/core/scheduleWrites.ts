@@ -188,7 +188,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId], [error.holdItemId])); return; }
     throw error;
   }
-  if (createOverrides.length) await noteRequestHoldOverride(createOverrides, newSched, String(req.user?.Name || "القسم"));
+  const createFixes = createOverrides.length ? await noteRequestHoldOverride(createOverrides, newSched, String(req.user?.Name || "القسم")) : [];
   /* ما جاء من طلبٍ قائم له بندُه؛ وغيرُه موعدٌ من القسم يصل الأستاذَ بنداً في طلبه. */
   if (!(req as any).__requestReservationOwner && !(req as any).__restoreOrigin && !req.body?.instructorRequestId) await noteDepartmentAddition(newSched, String(req.user?.Name || "القسم"));
 
@@ -197,7 +197,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
 
   res.locals.auditRowIds = [Number(newSched.id)];
   noteTrail(res, { target: trailTarget(newSched), after: trailSlot(newSched), scope: { collegeId, sectionId, termId }, row: Number(newSched.id) });
-  res.status(201).json(newSched);
+  res.status(201).json(createFixes.length ? { ...newSched, requestFix: createFixes } : newSched);
 };
 
 export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
@@ -336,7 +336,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
       : undefined;
     const updated = await Repository.updateSchedule(id, writeFields,
       req.body?.rev == null ? undefined : Number(req.body.rev), (req as any).__requestReservationOwner || "");
-    if (overriddenHolds.length) await noteRequestHoldOverride(overriddenHolds, updated, String(req.user?.Name || "القسم"));
+    const editFixes = overriddenHolds.length ? await noteRequestHoldOverride(overriddenHolds, updated, String(req.user?.Name || "القسم")) : [];
     /* يظلّ تعديلُ الموعد من الجدول مرتبطاً برغبة الأستاذ الأصلية، فيظهر في
        سجلّها للقسم وللأستاذ بدلاً من أن يختفي أثر التعديل خارج الوارد. */
     if (existing.origin?.kind === "instructor-request" && existing.origin.refId) {
@@ -373,7 +373,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     if (movedScope) {
       await noteScheduleMutation(req, existing.AdCollegeId, existing.AdSectionId, existing.AdTermId, { kind: "delete", row: existing });
     }
-    res.json(updated);
+    res.json(editFixes.length ? { ...updated, requestFix: editFixes } : updated);
   } catch (e: any) {
     if (e instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([e.holdRequestId], [e.holdItemId])); return; }
     if (e instanceof RequestReservationConflict) { res.status(409).json({ error: e.message, code: e.code }); return; }
