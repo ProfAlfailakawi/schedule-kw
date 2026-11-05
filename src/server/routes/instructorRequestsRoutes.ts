@@ -130,7 +130,8 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     : picking && Array.isArray(req.body.instructorIds) ? [...new Set<number>(req.body.instructorIds.map(Number))] : [];
   /* E1: صفةُ الإرسال (👁️ للعرض · ✏️ طلب تعديل) تُكتب على طلب كل أستاذ — `linkMode`، المصدرُ الواحد.
      و🎓 مرحلةُ التدريب لا تُفتح من هنا: لها مسارُها (/api/ta-phase/open) بموجاته ومقرّراته المسموحة. */
-  const issueMode = onlyNoted ? "edit" as const : issueLinkMode(req.body?.mode);
+  const issueMode = issueLinkMode(req.body?.mode);
+  if (onlyNoted && issueMode !== "edit") { res.status(400).json({ error: "إعادة النشر للملاحظات تكون بطلب تعديل." }); return; }
   if (!issueMode) { res.status(400).json({ error: "مرحلة التدريب تُفتح من لوحتها في النشر، لا من إرسال بطاقة الأستاذ." }); return; }
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
   if (individualOnly && (!Number.isSafeInteger(selectedInstructorId) || selectedInstructorId <= 0 || !emergencyReason)) {
@@ -276,7 +277,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     const held = already.get(instructorId);
     const move = reissueMove(held);
     /* F3: بطاقةُ مرحلة التدريب القائمة لا يمسّها النشرُ الجماعي — تحكمها مرحلتُها. */
-    if (held && move !== "fresh" && taPhaseOwns(held, individualOnly || onlyNoted)) {
+    if (held && move !== "fresh" && taPhaseOwns(held, individualOnly) && !onlyNoted) {
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
