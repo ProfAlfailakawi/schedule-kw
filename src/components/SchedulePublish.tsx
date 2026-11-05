@@ -3,6 +3,7 @@ import PersonChips from "./PersonChips";
 import { useTrainees } from "../utils/trainees";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import TAPhasePanel from "./TAPhasePanel";
+import PublishSendLog from "./PublishSendLog";
 import PublishRecipientPicker, { AudiencePicker, type Audience, type PickedPerson } from "./PublishRecipientPicker";
 import CourseOfferingPanel from "./CourseOfferingPanel";
 import PrepublishReachSheet from "./PrepublishReachSheet";
@@ -154,6 +155,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     [audience, setAudience] = useState<Audience>("all"),
     [pickedPeople, setPickedPeople] = useState<PickedPerson[]>([]),
     [delivered, setDelivered] = useState<Array<PickedPerson & { personalId: string }> | null>(null),
+    /* يُعاد به تحميلُ سجلّ الإرسال بعد كل إرسال. */
+    [sendLogStamp, setSendLogStamp] = useState(0),
     /* قبل الإرسال (✏️ و🎓): ورقةُ «لم نصل بعد» إن كان في النطاق مقررٌ مقفل، ولوحةُ حالة الطرح عند «راجع المقررات». */
     [reachGate, setReachGate] = useState<{ rows: PrepublishRow[]; proceed: () => unknown; scope: string } | null>(null),
     [reachChecking, setReachChecking] = useState(false),
@@ -236,6 +239,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     const reissued = rows.filter(row => row.reissued).length;
     const renewed = rows.filter(row => row.renewed).length;
     setIssued({ created: rows.length - reissued - renewed, reissued, renewed, mode });
+    setSendLogStamp(stamp => stamp + 1);
     return data;
   };
 
@@ -264,6 +268,11 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       setManageSuccess(manageMode === "one" ? "فُتح التعديل لهذا الأستاذ فقط، من بطاقته الحالية." : "أُعيد فتح التعديل للجميع دون تبديل روابطهم.");
       setManageMode(null);
       await load();
+      /* الاستثناءُ لشخصٍ واحد: النتيجةُ هو وحده، لا القائمةُ كلها. */
+      if (manageMode === "one" && staffPublication) {
+        const person = manageFaculty.find(row => personIds.includes(Number(row.AdInstructorId)));
+        await showDelivered(staffPublication.id, [{ key: personIds[0], ids: personIds, name: String(person?.AdInstructorName || ""), mobile: String(person?.AdInstructorMobile || ""), sections: 0 }]);
+      }
     } catch (e: any) { setError(e.message); }
     finally { setBusy(false); }
   };
@@ -310,6 +319,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       setReplaced(Number(data.replaced || 0));
       setCreatedId(data.id);
       setIssued(null);
+      setDelivered(null);
       setStep("links");
       /* البطاقةُ أُنشئت أولاً: إن تعذّر فتحُ الطلبات (جدولٌ مجمَّد مثلاً) بقي
          رابطُ الاطّلاع صالحاً، وقيل سببُ الطلبات وحدها. */
@@ -330,6 +340,17 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * القائمة تبقى كما هي — لا تُستبدل ولا يتغيّر موعدُها العام — وإن لم تكن بطاقةٌ حيّةٌ أُنشئت
    * بلا موعدٍ عام: الموعدُ في طلب كل مختارٍ وحده. ثم يُسكّ لكلٍّ رابطُه الشخصي للتسليم.
    */
+  /* نتيجةُ الإرسال المحدد: من وصلهم هذا الإرسال وحدهم، لا كلُّ من وصله شيءٌ من قبل (السابق في سجلّ الإرسال). */
+  const showDelivered = async (publicationId: string, people: PickedPerson[]) => {
+    const response = await fetch(`/api/share/${encodeURIComponent(publicationId)}/personal`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instructorIds: people.flatMap(person => person.ids) }),
+    });
+    const minted = await readReply(response, "تعذر تجهيز الروابط الشخصية");
+    const personal = new Map<number, string>((minted?.links || []).map((row: { instructorId: number; id: string }) => [Number(row.instructorId), row.id]));
+    setDelivered(people.map(person => ({ ...person, personalId: person.ids.map(id => personal.get(id) || "").find(Boolean) || "" })));
+    void loadPersonal();
+  };
   const sendPicked = async () => {
     const ids = pickedPeople.flatMap(person => person.ids);
     if (!ids.length) { setError("اختر أستاذاً واحداً على الأقل."); return; }
@@ -354,15 +375,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       setIssued(null);
       setDelivered(null);
       await issueRequests(`${closesAt}T${closeTime}`, 0, "", false, sendMode, ids);
-      const response = await fetch(`/api/share/${encodeURIComponent(publication.id)}/personal`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instructorIds: ids }),
-      });
-      const minted = await readReply(response, "تعذر تجهيز الروابط الشخصية");
-      const personal = new Map<number, string>((minted?.links || []).map((row: { instructorId: number; id: string }) => [Number(row.instructorId), row.id]));
-      setDelivered(people.map(person => ({ ...person, personalId: person.ids.map(id => personal.get(id) || "").find(Boolean) || "" })));
+      await showDelivered(publication.id, people);
       setStep("links");
-      void loadPersonal();
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -854,7 +868,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {/* من وصله الإرسالُ المحدد: لكلٍّ رابطُه الشخصي، يُنسخ أو يُفتح به واتساب. لا يُرسل البرنامجُ شيئاً بنفسه. */}
               {delivered?.length ? (
                 <div className="share-deliver publish-delivered">
-                  <p className="share-deliver-lead">أُرسلت إلى {countOf(delivered.length, AR.instructor)} فقط — والبقية لم يُمسّ شيءٌ لهم. سلّم كلاً رابطَه الشخصي:</p>
+                  <p className="share-deliver-lead">{delivered.length === 1 ? `أُرسلت إلى ${delivered[0].name} وحده — سلّمه رابطَه الشخصي:` : `أُرسلت إلى ${countOf(delivered.length, AR.instructor)} فقط — سلّم كلاً رابطَه الشخصي:`}</p>
                   <ul className="share-deliver-list">
                     {delivered.map(person => {
                       const url = person.personalId ? personalUrl(person.personalId) : "";
@@ -1162,7 +1176,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                   {showPast ? "إخفاء السابقة" : `السابقة (${pastLinks.length.toLocaleString("ar-KW-u-nu-latn")})`}
                 </button>
               ) : null}
-              {personalLinks.length ? (
+              <PublishSendLog collegeId={collegeId} sectionId={sectionId} termId={termId} active={open && step === "links"} stamp={sendLogStamp} />
+              {/* بعد إرسالٍ محدد تبقى النتيجةُ لمن وصلهم؛ وكاملُ الروابط الشخصية عند البدء من جديد. */}
+              {personalLinks.length && !delivered?.length ? (
                 <section className="share-personal" aria-label="الروابط الشخصية للأساتذة">
                   <header>
                     <strong>الروابط الشخصية{livePersonal.length ? ` (${countOf(livePersonal.length, AR.instructor)})` : ""}</strong>

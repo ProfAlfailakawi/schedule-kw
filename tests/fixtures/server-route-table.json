@@ -4655,9 +4655,21 @@
    ],
    "path": "/api/instructor-requests/issue",
    "name": "bound dispatch",
-   "call": "82786fc3795960d8",
+   "call": "29a138afb66fda4e",
    "site": "src/server/routes/instructorRequestsRoutes.ts:112",
    "regexp": "/^\\/api\\/instructor-requests\\/issue\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/instructor-requests/send-log",
+   "name": "bound dispatch",
+   "call": "44eb82cb141c424f",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:344",
+   "regexp": "/^\\/api\\/instructor-requests\\/send-log\\/?$/i",
    "end": true
   },
   {
@@ -4668,7 +4680,7 @@
    "path": "/api/instructor-requests/recipients",
    "name": "bound dispatch",
    "call": "f4dee7d5f8c0821c",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:344",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:368",
    "regexp": "/^\\/api\\/instructor-requests\\/recipients\\/?$/i",
    "end": true
   },
