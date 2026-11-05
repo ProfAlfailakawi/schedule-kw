@@ -37,7 +37,7 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const sunThu = pickDay(theory4, ["fsunday"], "fthursday", true, 110);
   check(join(sunThu.days) === "fsunday+fthursday" && Boolean(sunThu.applied), "19 الأحد·الخميس لأربع ساعات صار يُوصل إليه بالضغط (كان يُسقط الأحد)", sunThu);
   const labMove = pickDay(lab3, ["fwednesday"], "fmonday", true, 170);
-  check(join(labMove.days) === "fmonday", "19 الكتلة المقصودة تنتقل كما كانت", labMove);
+  check(join(labMove.days) === "fmonday+fwednesday" && labMove.alternatives.length > 0, "19 ضغط يوم لا يحذف يوم الكتلة، والشرائح تعرض البديل", labMove);
   check(regulationFit(theory3, ["fsunday"], "08:00", "08:50") === "fits", "19 لقاءٌ من نمطٍ معتمد في صفٍّ مستقل ليس «خارج اللائحة»");
   check(regulationFit(theory5, ["fmonday", "fwednesday"], "08:00", "10:50") === "fits", "19 نمط الخمس ساعات (170+110) معتمد في المكتبة فلا يُعلَّم");
   check(regulationFit(theory3, ["fsunday"], "08:00", "09:00") === "off", "19 طولٌ خارج المكتبة ما زال يُنبَّه إليه");
