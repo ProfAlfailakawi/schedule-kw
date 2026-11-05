@@ -240,6 +240,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     const renewed = rows.filter(row => row.renewed).length;
     setIssued({ created: rows.length - reissued - renewed, reissued, renewed, mode });
     setSendLogStamp(stamp => stamp + 1);
+    /* إرسالٌ للجميع يُسقط نتيجةَ إرسالٍ محددٍ سبقه: لا يُقال «وصل فلاناً وحده» بعده. */
+    if (!instructorId && !instructorIds) setDelivered(null);
     return data;
   };
 

@@ -5207,8 +5207,8 @@
    ],
    "path": "/api/ta-phase/open",
    "name": "bound dispatch",
-   "call": "7bc88fe8c6cd6685",
-   "site": "src/server/routes/offeringRoutes.ts:281",
+   "call": "564fa125691613e1",
+   "site": "src/server/routes/offeringRoutes.ts:290",
    "regexp": "/^\\/api\\/ta-phase\\/open\\/?$/i",
    "end": true
   },

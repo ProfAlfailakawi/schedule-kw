@@ -44,6 +44,9 @@ function staticChecks() {
   check(picker.includes("instructorPickerPeople(") && picker.includes("<PersonChips"), "P1 سطرٌ لكل شخص (هويةٌ واحدة لسجلّيه) ومعه وسومُه");
   check(publish.includes("showDelivered(staffPublication.id, [{"), "P6 الاستثناءُ لشخصٍ واحد نتيجتُه هو وحده");
   check(publish.includes("!delivered?.length ?") && publish.includes("<PublishSendLog"), "P6 النتيجةُ لمن وصلهم هذا الإرسال، والسابقُ في السجل");
+  check(publish.includes("if (!instructorId && !instructorIds) setDelivered(null);"), "P6 إرسالٌ للجميع يُسقط نتيجةَ إرسالٍ محددٍ سبقه");
+  const offering = fs.readFileSync("src/server/routes/offeringRoutes.ts", "utf8");
+  check(offering.slice(offering.indexOf("async function dispatchTaWaves"), offering.indexOf("/* موجاتُ التدريب المجدولة")).includes('saveFeatureDoc("linkModeLog"'), "P6 كلُّ موجة تدريبٍ مجدولة تُكتب في السجل عند إرسالها");
   check(picker.includes("/api/instructor-requests/recipients"), "P1 القائمةُ من مصدر الإصدار نفسه");
   check(/sendMode !== "ta" \? <AudiencePicker/.test(publish), "«لمن؟» للعرض والتعديل؛ ومرحلةُ التدريب تختار مدرّبيها في لوحتها");
 }
