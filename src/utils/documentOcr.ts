@@ -1,5 +1,5 @@
 import type { AdCourse, AdInstructor } from "../types";
-import { academicDigits, assignAuthoritySections, authorityCourseCodeMatches, authoritySectionCodeLooksPlausible, normalizeAuthoritySectionCode } from "./authorityAcademicCodes";
+import { academicDigits, assignAuthoritySections, authorityCourseCodeMatches, authorityCoursePrefixes, authorityInheritedCourseMatches, authoritySectionCodeLooksPlausible, normalizeAuthoritySectionCode } from "./authorityAcademicCodes";
 import { OFFICIAL_COLLEGE_SITE_PREFIXES } from "./locationCollegePrefixes";
 import { instructorCleanName, instructorIdentityTokens } from "./instructorIdentity";
 import { AR, countOf, nounFor, oblique } from "./arabicCount";
@@ -546,12 +546,32 @@ export function authorityPdfTextGridRows(words:Word[],pageWidth:number,layout:Au
     const row=group.words;
     const rightText=rtlText(zone(row,.885,1.001));
     const rightRuns=(toAscii(rightText).match(/\d+/g)||[]);
-    const code=rightRuns.find(run=>/^\d{7}$/.test(run))||"";
-    if(!code)continue;
+    let code=rightRuns.find(run=>/^\d{7}$/.test(run))||rightRuns.find(run=>/^0\d{5}$/.test(run))||"";
+    /* ── الموعد الثاني للشعبة ─────────────────────────────────────────────
+       شعبةٌ موعدا أيامها مختلفان تُطبع سطرين: الأول كامل، والثاني بلا رقم مقرر
+       ولا مرجعي ولا شعبة ولا اسم (المقاعد والقاعة والمبنى والوقت والنشاط والأيام
+       فقط). يرث هويته من السطر الذي فوقه مباشرة؛ ولأول سطر في الصفحة لا أصل له
+       فيبقى خارج الشبكة ويتولاه فحص «طُبع أكثر مما ثبت». */
+    const parentRow=rows[rows.length-1];
+    const secondMeeting=!code&&Boolean(parentRow)&&!rightRuns.length
+      &&row.some(word=>{const label=nativeAuthorityLabel(word.text);return activityNames.has(label);})
+      &&Boolean(timePair(toAscii(rtlText(row)),PRINTED_TIME_MAX_MINUTES));
+    if(!code&&!secondMeeting){
+      /* اسم قاعة أطول من خليتها («G82B») يلتف حرفه الأخير إلى سطر مستقل تحت الصف. */
+      const only=row.length===1?row[0]:undefined;
+      const wrapped=only&&/^[A-Z]$/.test(only.text)&&parentRow?.y!==undefined&&roomWindow
+        &&center(only)>roomWindow.from&&center(only)<roomWindow.to&&group.y-parentRow.y<=medianHeight*2;
+      if(wrapped&&cleanHallCode(`${parentRow.hall}${only!.text}`)){
+        parentRow.hall=`${parentRow.hall}${only!.text}`;
+        parentRow.hallRaw=`${parentRow.hallRaw||""}${only!.text}`;
+      }
+      continue;
+    }
+    if(secondMeeting)code=parentRow.code;
 
     /* The girls lane is intentionally bit-for-bit the existing production
        reader. Do not widen or reinterpret its columns here. */
-    if(layout==="legacy-basic-girls"){
+    if(layout==="legacy-basic-girls"&&!secondMeeting){
       const referenceText=toAscii(rtlText(zone(row,.895,.945)));
       const reference=(referenceText.match(/\b\d{4,8}\b/g)||[]).find(value=>value!==code)||"";
       const sectionText=toAscii(compact(zone(row,.862,.900)));
@@ -560,7 +580,7 @@ export function authorityPdfTextGridRows(words:Word[],pageWidth:number,layout:Au
       const instructorText=rtlText(zone(row,0,.128));
       const days=toAscii(rtlText(zone(row,.128,.182))).replace(/[^1-5]+/g," ").trim();
       const timeRaw=toAscii(rtlText(zone(row,.225,.300)));
-      const pair=timePair(timeRaw);
+      const pair=timePair(timeRaw,PRINTED_TIME_MAX_MINUTES);
       /* Building and room are read ONLY from their physical native-PDF cells.
          Capacity/seat columns start to the right of x=.39 and can therefore never
          become 345045/520020 in AdRoomCode. */
@@ -584,7 +604,7 @@ export function authorityPdfTextGridRows(words:Word[],pageWidth:number,layout:Au
        stronger evidence than x-ratios, so use that evidence directly. */
     const rowAsc=[...row].sort((a,b)=>center(a)-center(b));
     const asciiOf=(word:Word)=>toAscii(String(word.text||"")).trim();
-    const codeWord=[...row].filter(word=>/^\d{7}$/.test(asciiOf(word).replace(/\D/g,""))).sort((a,b)=>center(b)-center(a))[0];
+    const codeWord=[...row].filter(word=>/^(?:\d{7}|0\d{5})$/.test(asciiOf(word).replace(/\D/g,""))).sort((a,b)=>center(b)-center(a))[0];
     const codeX=codeWord?center(codeWord):pageWidth*.94;
 
     const numericBeforeCode=row
@@ -670,7 +690,7 @@ export function authorityPdfTextGridRows(words:Word[],pageWidth:number,layout:Au
     const buildingX=buildingWord?center(buildingWord):Math.min(pageWidth*.42,activityX+pageWidth*.20);
     const timeWords=row.filter(word=>center(word)>activityX&&center(word)<buildingX);
     let timeRaw=toAscii(rtlText(timeWords));
-    let pair=timePair(timeRaw);
+    let pair=timePair(timeRaw,PRINTED_TIME_MAX_MINUTES);
     /* المسح قد يُسقط شرطة الوقت («1400 1450»). داخل ممر خلية الوقت نفسها —
        بين النشاط والمبنى — ساعتان متتاليتان فقط هما زوج الوقت؛ ويبقى شرط
        المدة المعقولة في timePair نفسه. خارج الممر لا يُقبل زوج بلا شرطة. */
@@ -700,6 +720,8 @@ export function authorityPdfTextGridRows(words:Word[],pageWidth:number,layout:Au
       code,reference,scode,courseText,instructorText,days,daysRaw:days,timeRaw,
       start:pair?.start||"",end:pair?.end||"",
       building,hall,buildingRaw,hallRaw,sourceMode:"pdf-text",y:group.y,
+      ...(secondMeeting?{reference:parentRow.reference,scode:parentRow.scode,courseText:parentRow.courseText,
+        instructorText:instructorText||parentRow.instructorText,secondMeeting:true}:{}),
     });
   }
   return rows;
@@ -1667,6 +1689,8 @@ export type GridRow={
   /** صفٌّ أضافه الدمج بهويته وحدها وأُفرغت جدولته عمداً للمراجعة: لا يُحسب
    * على الصفحة في حكم «بلا وقت ولا مبنى» — فراغه قرارٌ لا فشلُ قراءة. */
   identityOnly?:boolean;
+  /** الموعد الثاني لشعبة السطر السابق: ورث هويتها ولم يُطبع له رقم مقرر. */
+  secondMeeting?:boolean;
   /** وسط سطر الصف رأسياً بمقياس 842، من تجميع الكلمات: به تُسند قراءةُ
    * حزامٍ عمودي (الوقت والمبنى) إلى صفها دون مرسى نصيٍّ لكل صف. */
   y?:number;
@@ -2267,7 +2291,7 @@ export const authorityCourseCellLooksPlausible=(raw:string,departmentCode=""):bo
   if(!/^\d{7}$/.test(token))return false;
   const department=academicDigits(departmentCode);
   if(!department)return true;
-  return token.length===department.length+3&&token.startsWith(department);
+  return token.length===department.length+3&&authorityCoursePrefixes(department).some(prefix=>token.startsWith(prefix));
 };
 
 /* Column discovery is allowed one deliberately narrower tolerance than final
@@ -2289,7 +2313,7 @@ export const authorityCourseColumnLooksPlausible=(raw:string,departmentCode=""):
      department-anchored physical column. Canonical course identity is still
      accepted later only by authorityCourseCellLooksPlausible after PSM-7
      same-cell rescue, so no shortened/contaminated code can escape readGrid. */
-  const discoveryShape=(value:string)=>value.startsWith(department)
+  const discoveryShape=(value:string)=>authorityCoursePrefixes(department).some(prefix=>value.startsWith(prefix))
     &&(value.length===department.length+2||value.length===department.length+3);
   const exactLength=department.length+3;
   /* On the older phone/CamScanner PDF, the outer course-cell rule is sometimes
@@ -5291,7 +5315,8 @@ export const cleanHallCode = (raw: string): string => {
   /* A proven official building token can never be a room, even if it contains
      a room-looking suffix such as F15. */
   if(OFFICIAL_BUILDING_PATTERN.test(clean))return"";
-  if(/^[A-Z]\d{1,3}$/.test(clean))return clean;
+  /* لاحقة حرف واحد قاعة مطبوعة بذاتها: G82A و G82B قاعتان في المبنى نفسه. */
+  if(/^[A-Z]\d{1,3}[A-Z]?$/.test(clean))return clean;
   /* RTL reversal check: e.g. 31F -> F31, 07F -> F07, 12F -> F12 */
   const reversed=clean.match(/^(\d{1,3})([A-Z])$/);
   if(reversed){
@@ -5345,7 +5370,10 @@ export function extractAuthorityLocationEvidence(raw:string):{building:string;ha
 }
 
 
-const timePair=(text:string)=>{
+/* السقف 240 دقيقة يصد أزواجاً ملفقة من المسح. طبقة النص تطبع الوقت حقاً، وفيها كتل
+   أطول: التربية العملية 0800–1220 والمراسم 1300–1750. */
+const PRINTED_TIME_MAX_MINUTES=360;
+const timePair=(text:string,maxMinutes=240)=>{
   const ascii=repairClockDigits(toAscii(text));
   
   // 1. Explicit colon/dot format: 15:30 - 16:50 or 08:00 - 09:20 or 11:00-11:50
@@ -5380,7 +5408,7 @@ const timePair=(text:string)=>{
       const start = minA <= minB ? tA : tB;
       const end = minA <= minB ? tB : tA;
       const diff = Math.abs(minA - minB);
-      if (diff >= 30 && diff <= 240 && Math.min(minA, minB) >= 7 * 60 && Math.max(minA, minB) <= 22 * 60) {
+      if (diff >= 30 && diff <= maxMinutes && Math.min(minA, minB) >= 7 * 60 && Math.max(minA, minB) <= 22 * 60) {
         return { start, end };
       }
     }
@@ -5887,7 +5915,7 @@ function isHeaderLine(text:string):boolean{
   return false;
 }
 
-function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstructor[],startOrder:number,preferredInstructorIds?:Set<number>,authorityDepartment="",courseInstructorIds?:Map<number,Set<number>>){
+function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstructor[],startOrder:number,preferredInstructorIds?:Set<number>,authorityDepartment="",courseInstructorIds?:Map<number,Set<number>>,departmentPrintedTails:ReadonlySet<string>=new Set()){
   const catalogue=courses.map(course=>({course,digits:academicDigits(course.CourseCode),folded:fold(course.CourseName)}));
   const tailCounts=new Map<string,number>();
   for(const item of catalogue){
@@ -5921,6 +5949,13 @@ function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstr
     if(!source)return null;
     const matches=catalogue.filter(item=>authorityCourseCodeMatches(source,item.digits,authorityDepartment));
     if(matches.length===1)return matches[0].course;
+    /* رقم موروث من القسم القديم (0114xxx تحت رأس 0120/0121): الذيل وحده لا يكفي،
+       فصف الكتالوج القصير «464» قد يكون 0120464 الجديد لا 0114464 القديم. يُقبل
+       إن لم يطبع الملف رقم القسم نفسه بهذا الذيل، ووافق الاسمُ المطبوع اسمَ المقرر. */
+    if(!matches.length&&!departmentPrintedTails.has(source.slice(-3))){
+      const inherited=catalogue.filter(item=>authorityInheritedCourseMatches(source,item.digits,authorityDepartment));
+      if(inherited.length===1&&authorityCourseNameScore(nameText,String(inherited[0].course.CourseName||""),true)>=AUTHORITY_NAME_PICK_MIN)return inherited[0].course;
+    }
     /* A 3-digit source can only resolve when that tail is unique in the selected
        department. Course NAMES are display evidence only and never create ID. */
     if(source.length===3&&tailCounts.get(source)===1){
@@ -6018,7 +6053,11 @@ function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstr
         sourceDaysText:grid.daysRaw||grid.days,sourceTimeText:grid.timeRaw||[grid.start,grid.end].filter(Boolean).join(" - "),sourceReadMode:grid.sourceMode||"ocr-grid",
         instructorMatchMethod:instructorMatch?.method,instructorMatchScore:instructorMatch?.score,instructorMatchedTokens:instructorMatch?.matchedTokens,
       });
-      issues.push(`صف «${issueLabel}» شعبة ${grid.scode||"—"}: لم يتم إثبات رقم المقرر من كتالوج القسم — يرجى اختياره من القائمة`);
+      /* رقم طبقة النص ما طُبع فعلاً: لا غموض في قراءته، بل هو خارج مقررات القسم. */
+      const clearNumber=grid.sourceMode==="pdf-text"&&/^\d{6,7}$/.test(academicDigits(grid.code));
+      issues.push(clearNumber
+        ?`صف «${issueLabel}» شعبة ${grid.scode||"—"}: الرقم ${academicDigits(grid.code)} مقروء بوضوح لكنه ليس من مقررات هذا القسم — يرجى اختيار المقرر من القائمة`
+        :`صف «${issueLabel}» شعبة ${grid.scode||"—"}: لم يتم إثبات رقم المقرر من كتالوج القسم — يرجى اختياره من القائمة`);
       if(!grid.start)issues.push(`صف «${issueLabel}» شعبة ${grid.scode||"—"}: لم أتعرف على الوقت`);
       if(!Object.values(flags).some(Boolean))issues.push(`صف «${issueLabel}» شعبة ${grid.scode||"—"}: لم أتعرف على الأيام`);
       if(!instructorHit&&grid.instructorText&&!grid.instructorText.includes("هيئة")&&!grid.instructorText.includes("هيئه"))
@@ -6059,6 +6098,11 @@ function parseGridRows(gridRows:GridRow[],courses:AdCourse[],instructors:AdInstr
 
 export function parseScheduleTable(pages:OcrPage[],courses:AdCourse[],instructors:AdInstructor[],preferredInstructorIds?:Set<number>,options?:{authorityDepartmentCode?:string;sequentialSections?:boolean;courseInstructorIds?:Map<number,Set<number>>}){
   const activeCourses=courses;
+  const gridDepartment=academicDigits(options?.authorityDepartmentCode);
+  /* أرقام القسم المطبوعة في الملف كله، لا في الصفحة: 0120464 في الصفحة 4 يمنع أن
+     يُربط 0114464 في الصفحة 2 بصف الكتالوج القصير «464». */
+  const departmentPrintedTails=new Set(pages.flatMap(page=>page.gridRows||[]).map(grid=>academicDigits(grid.code))
+    .filter(code=>gridDepartment.length===4&&code.length===7&&code.startsWith(gridDepartment)).map(code=>code.slice(-3)));
   const catalogue=activeCourses.map(course=>({
     course,
     digits:toAscii(String(course.CourseCode||"")).replace(/\D/g,""),
@@ -6078,7 +6122,7 @@ export function parseScheduleTable(pages:OcrPage[],courses:AdCourse[],instructor
   for(let pageIndex=0;pageIndex<pages.length;pageIndex++){
     const page=pages[pageIndex];
     if(page.gridRows?.length){
-      const parsed=parseGridRows(page.gridRows,activeCourses,instructors,order,preferredInstructorIds,academicDigits(options?.authorityDepartmentCode),options?.courseInstructorIds);
+      const parsed=parseGridRows(page.gridRows,activeCourses,instructors,order,preferredInstructorIds,gridDepartment,options?.courseInstructorIds,departmentPrintedTails);
       const pageRows=parsed.rows.map(row=>({...row,sourcePage:pageIndex+1}));
       rows.push(...pageRows);issues.push(...parsed.issues);order=parsed.order;scanned+=page.gridRows.length;
     }
