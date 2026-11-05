@@ -71,7 +71,7 @@ export default function SectionScheduleHours({header,demoReadOnly=false}:{header
       <b dir="ltr">08:00–20:00</b>
     </Surface>
     <Surface className="form-card smart-form">
-      <div className="section-hours-allowed"><strong>الدوام المسموح</strong><p>للقسم، ويساوي الدوام الشامل افتراضاً. تضييقُه استثناء: يمنع كرت الأستاذ، وفي «موعد» تنبيهٌ فقط.</p></div>
+      <div className="section-hours-allowed"><strong>الدوام المسموح</strong><p>للقسم، ويساوي الدوام الشامل افتراضاً. تضييقُه استثناء: يمنع بطاقة الأستاذ، وفي «موعد» تنبيهٌ فقط.</p></div>
       <div className="form-grid section-hours-time-grid">
         <label className="field"><span>الكلية</span><select value={collegeId||""} onChange={event=>setCollegeId(Number(event.target.value))}><option value="">اختر كلية</option>{colleges.map(college=><option key={college.AdCollegeId} value={college.AdCollegeId}>{college.AdCollegeName}</option>)}</select></label>
         <label className="field"><span>بداية الدوام المسموح</span><input type="time" dir="ltr" lang="en" value={startTime} onChange={event=>setStartTime(event.target.value)} /></label>
