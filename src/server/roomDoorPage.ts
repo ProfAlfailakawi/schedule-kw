@@ -361,7 +361,7 @@ function weekHtml(v){
   cls=day.date===v.clock.date?"today":day.date<v.clock.date?"past":"";
   if(cls==="today"&&v.clock.minute>=LO&&v.clock.minute<=HI)bars+='<i class="wk-now" style="right:'+pos(v.clock.minute).toFixed(2)+'%"></i>';
   rows+='<div class="wk-row '+cls+'"><b>'+DAYS[day.wd]+'</b><div class="wk-bar">'+bars+"</div></div>"}
- return '<section class="card"><h2><span class="b">'+ic("week")+"</span>الأسبوع<small>8 – 20</small></h2>"+'<div class="wk">'+rows+"</div></section>"}
+ return '<section class="card"><h2><span class="b">'+ic("week")+"</span>الأسبوع<small>"+(LO/60)+" – "+(HI/60)+"</small></h2>"+'<div class="wk">'+rows+"</div></section>"}
 function renderRoom(){
  var v=viewOf(D);
  root.innerHTML='<div class="door-grid"><div class="col">'+heroHtml(v)+nextHtml(v)+'</div><div class="col">'+todayHtml(v)+weekHtml(v)+"</div></div>";

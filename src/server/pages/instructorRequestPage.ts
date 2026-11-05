@@ -618,8 +618,13 @@ function weekStrip(){
   if(o){put(o,"ghost");ghost=true}
   if(off){put({d:off.d,s:off.s,e:off.e},"prop");return}
   put(askSlot(it),it.decision&&it.decision.state==="fixed"?"fix":"chg")});
+/* المحورُ يتّسع لموعدٍ خارج الدوام الشامل، وتسمياتُه من حدّيه: أربعٌ إن انقسم على ثلاث ساعاتٍ كاملة، وإلا الطرفان وحدهما فلا تكذب مواضعها. */
+ DAYS.forEach(function(d){cols[d[0]].forEach(function(x){L=Math.min(L,x.s);R=Math.max(R,x.e)})});
+ function axisLabel(m){var h=m/60,t=h%12||12;return h===12?"12":h<12?t+" ص":t+" م"}
+ var axisStep=(R-L)/3,axisAt=(R-L)%180===0&&L%60===0?[L,L+axisStep,L+2*axisStep,R]:[L,R],axisHtml=axisAt.map(function(m,i){var n=m%60?hmOf(m):axisLabel(m);if(i===1&&axisAt.length===4)n=String(n).replace(/ ص$/,"");return "<span>"+n+"</span>"}).join("");
+ function hmOf(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")}
  var label="أسبوعك: "+DAYS.map(function(d){return d[1]+" "+counts[d[0]]}).join("، ");
- return '<div class="wk" role="group" aria-label="'+esc(label)+'">'+skKey()+'<div class="wk-body"><div class="wk-axis" aria-hidden="true"><span>8 ص</span><span>12</span><span>4 م</span><span>8 م</span></div><div class="wk-grid">'+DAYS.map(function(d,k){
+ return '<div class="wk" role="group" aria-label="'+esc(label)+'">'+skKey()+'<div class="wk-body"><div class="wk-axis" aria-hidden="true">'+axisHtml+'</div><div class="wk-grid">'+DAYS.map(function(d,k){
   var blocks=cols[d[0]].map(function(b){return '<button type="button" class="wb" data-wk="'+b.i+'" data-k="'+b.k+'" aria-label="'+esc(courseOf(state[b.i])+"، "+d[1]+" "+clock(b.s))+'" style="--c:'+skCourseColor(state[b.i])+';inset-block-start:'+pos(b.s)+'%;block-size:'+Math.max(5,pos(b.e)-pos(b.s))+'%"><span>'+esc(skShort(state[b.i]))+'</span></button>'}).join("");
   return '<div class="wc" data-today="'+(k===today?1:0)+'" data-n="'+counts[d[0]]+'"><div class="wc-t">'+blocks+'</div><span class="wc-n">'+d[1]+'</span></div>'}).join("")+
   '</div></div>'+skLegend()+'</div>'

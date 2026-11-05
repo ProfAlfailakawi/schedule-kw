@@ -111,6 +111,9 @@ async function main() {
     check(narrow[0] === "09:00" && narrow[narrow.length - 1] === "14:00", "الأضيق داخل الحدّين", narrow);
   }
 
+  check(!read("src/server/pages/instructorRequestPage.ts").includes("<span>8 ص</span>"), "محور أسبوع الأستاذ من الحدّين");
+  check(!read("src/server/roomDoorPage.ts").includes("<small>8 – 20</small>"), "عنوان أسبوع الباب من الحدّين");
+
   /* الصلاحية في الخادم */
   let status = 0, passed = false;
   const res: any = { status(code: number) { status = code; return this; }, json() { return this; } };
