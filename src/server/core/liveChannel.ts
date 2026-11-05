@@ -15,6 +15,7 @@ import type { AuthenticatedRequest } from "./auth";
 import { hallBarterBoardCache } from "./hallBarter";
 import { bellBlockingMemo, studentQueueMemo } from "./notifications";
 import { livingResponseCache } from "./versions";
+import { invalidateUniversityDay } from "./universityDay";
 
 /**
  * The living schedule: one message the moment anything changes.
@@ -237,6 +238,7 @@ export function listenForScheduleChangesAcrossInstances() {
     // quietly, because announcing a change we did not make would send the
     // beacon straight back out and the two instances would echo forever.
     clearScheduleCacheQuietly();
+    invalidateUniversityDay();
     studentQueueMemo.invalidate();
     bellBlockingMemo.invalidate();
     state.hallBarterSerial += 1;

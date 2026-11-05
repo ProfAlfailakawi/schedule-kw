@@ -30,6 +30,7 @@ import { prereqMet, remainingNeed, unmetPrereq } from "./curriculumRules";
 import { roomIdentityKey } from "./locationRegistry";
 import { SIM_UNITS_DEFAULT, SIM_UNITS_MAX, type SimPlanRules, type SimStudent } from "./registrationSim";
 import { termChronology, termSeasonOf, type TermSeason } from "./termSequence";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
 
 /* ═══════════════════════════ الثقة ═══════════════════════════ */
 
@@ -606,18 +607,19 @@ const toMin = (clock: string): number | null => {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 };
 const clockOf = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-const DAY_START = 7 * 60, DAY_END = 20 * 60, SLOT = 60;
+const SLOT = 60;
+const DAY_START = () => Math.min(7 * 60, SCHEDULE_DAY_START), DAY_END = () => SCHEDULE_DAY_END;
 
 /** تزامنُ الشعب في كل ساعةٍ من كل يوم: أي شعبةٍ (رمزٌ مميّز) لها محاضرةٌ تتقاطع مع الساعة. */
 function concurrency(rows: readonly FSchedule[]): number[][] {
-  const grid = DAY_FIELDS.map(() => Array.from({ length: Math.ceil((DAY_END - DAY_START) / SLOT) }, () => new Set<string>()));
+  const grid = DAY_FIELDS.map(() => Array.from({ length: Math.ceil((DAY_END() - DAY_START()) / SLOT) }, () => new Set<string>()));
   for (const row of rows) {
     const start = toMin(row.fstarttime), end = toMin(row.fendtime);
     if (start === null || end === null || end <= start) continue;
     DAY_FIELDS.forEach(([field], day) => {
       if (!row[field]) return;
       for (let slot = 0; slot < grid[day].length; slot++) {
-        const from = DAY_START + slot * SLOT, to = from + SLOT;
+        const from = DAY_START() + slot * SLOT, to = from + SLOT;
         if (start < to && from < end) grid[day][slot].add(`${row.AdCourseId}|${sectionKey(row)}`);
       }
     });
@@ -683,17 +685,17 @@ export function predictTimeHotspots(input: PredictiveInput, options: { backtest?
       if (!beyondHistory && !nearRooms) return;
       const calmer = daySlots
         .map((value, index) => ({ value, index }))
-        .filter(item => item.index !== slot && item.value < count - 1 && (DAY_START + item.index * SLOT) >= 8 * 60 && (DAY_START + item.index * SLOT) <= 14 * 60)
+        .filter(item => item.index !== slot && item.value < count - 1 && (DAY_START() + item.index * SLOT) >= SCHEDULE_DAY_START && (DAY_START() + item.index * SLOT) <= 14 * 60)
         .sort((a, b) => a.value - b.value || a.index - b.index)[0];
       const confidence = confidenceFrom({
         termsUsed: past.length, sameSeason, values: history.map(grid => grid[day][slot]),
         quality: (completeness ?? 0.7) * (roomsKnown >= 3 ? 1 : 0.6), backtestError,
       });
       if (completeness !== null && completeness < 0.6) confidence.caveat = "جدول الفصل القادم لم يكتمل بعد.";
-      const from = clockOf(DAY_START + slot * SLOT), to = clockOf(DAY_START + (slot + 1) * SLOT);
+      const from = clockOf(DAY_START() + slot * SLOT), to = clockOf(DAY_START() + (slot + 1) * SLOT);
       out.push({
         day: DAY_FIELDS[day][1], dayIndex: day, from, to, planned: count, historicalPeak, roomsKnown,
-        calmer: calmer ? { from: clockOf(DAY_START + calmer.index * SLOT), to: clockOf(DAY_START + (calmer.index + 1) * SLOT), planned: calmer.value } : null,
+        calmer: calmer ? { from: clockOf(DAY_START() + calmer.index * SLOT), to: clockOf(DAY_START() + (calmer.index + 1) * SLOT), planned: calmer.value } : null,
         confidence,
         reason: beyondHistory
           ? `${countOf(count, AR.section)} معاً — أكثر مما رآه القسم هنا (${historicalPeak}) في ${countOf(past.length, AR.term)}`

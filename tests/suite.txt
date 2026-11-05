@@ -243,3 +243,4 @@ test:publish-notes-r4
 test:owner-hours-rule
 test:authority-course-prefix
 test:header-department-rule
+test:full-day-setting

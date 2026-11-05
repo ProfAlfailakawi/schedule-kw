@@ -193,4 +193,4 @@ export function quickOverlap(item: { days: readonly StudyProposalDayKey[]; start
   return null;
 }
 
-export const DAY_WINDOW = { start: SCHEDULE_DAY_START, end: SCHEDULE_DAY_END };
+export const dayWindow = () => ({ start: SCHEDULE_DAY_START, end: SCHEDULE_DAY_END });

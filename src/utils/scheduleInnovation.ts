@@ -49,7 +49,7 @@ export function evaluateScheduleConstraints(rows:FSchedule[],constraints:Schedul
 function profileTerm(rows:FSchedule[],courses:AdCourse[],instructors:AdInstructor[]){
   const occurrences=Math.max(1,rows.reduce((sum,row)=>sum+activeDays(row).length,0));
   const dayShares=Object.fromEntries(SCHEDULE_DAYS.map(day=>[day.key,Math.round(rows.filter(r=>Boolean(r[day.key])).length/occurrences*1000)/10]));
-  const buckets=[{key:"08-10",from:8*60,to:10*60},{key:"10-12",from:10*60,to:12*60},{key:"12-14",from:12*60,to:14*60},{key:"14-16",from:14*60,to:16*60},{key:"16-20",from:16*60,to:SCHEDULE_DAY_END}];
+  const buckets=[{key:"08-10",from:8*60,to:10*60},{key:"10-12",from:10*60,to:12*60},{key:"12-14",from:12*60,to:14*60},{key:"14-16",from:14*60,to:16*60},{key:"16-20",from:16*60,to:Math.max(16*60,SCHEDULE_DAY_END)}];
   const timeShares=Object.fromEntries(buckets.map(b=>[b.key,Math.round(rows.filter(r=>{const m=timeToMinutes(r.fstarttime);return m>=b.from&&m<b.to}).length/Math.max(1,rows.length)*1000)/10]));
   const roomCounts=new Map<string,number>(),roomLabels=new Map<string,string>();rows.forEach(r=>{const key=roomKey(r);if(key){roomCounts.set(key,(roomCounts.get(key)||0)+1);if(!roomLabels.has(key))roomLabels.set(key,roomDisplay(r)||key)}});
   const rooms=[...roomCounts.entries()].sort((a,b)=>b[1]-a[1]).map(([key,count])=>({key,label:roomLabels.get(key)||key,count,share:Math.round(count/Math.max(1,rows.length)*1000)/10}));

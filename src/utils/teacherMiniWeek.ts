@@ -111,7 +111,7 @@ export function freeTargets(
     if (!pattern) continue;
     const gap = requiredGapForDays(pattern.days);
     const step = ladderStepForDays(pattern.days);
-    const snap = (value: number) => step ? LADDER_START + Math.max(0, Math.ceil((value - LADDER_START) / step)) * step : ceilTo(value, 30);
+    const snap = (value: number) => step ? LADDER_START + Math.ceil((value - LADDER_START) / step) * step : ceilTo(value, 30);
     let start = snap(span.start);
     while (start + pattern.minutes <= span.end) {
       const end = start + pattern.minutes;

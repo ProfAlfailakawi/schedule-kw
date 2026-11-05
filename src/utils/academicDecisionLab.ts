@@ -10,6 +10,7 @@
 import { coreqMet, prereqMet } from "./curriculumRules";
 import { mandatoryPrecedes, type AcademicInput, type AcademicReading, type AcademicSlot } from "./academicAdvisory";
 import type { FSchedule, StudentProfile } from "../types";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
 
 export interface AcademicDecisionScenario {
   id: string; courseId: number; courseName: string; section: string;
@@ -245,7 +246,7 @@ function combineScenarios(people:Person[],rows:FSchedule[],scenarios:AcademicDec
       return {...row,fstarttime:clock(toMinute(row.fstarttime)+offset),fendtime:clock(toMinute(row.fendtime)+offset)};
     });
     const touched=projected.filter(row=>keys.includes(offeringKey(row)));
-    if(touched.some(row=>toMinute(row.fstarttime)<480 || toMinute(row.fendtime)>1200))continue;
+    if(touched.some(row=>toMinute(row.fstarttime)<SCHEDULE_DAY_START || toMinute(row.fendtime)>SCHEDULE_DAY_END))continue;
     // Confirm the two relocated sections do not collide with one another's resources.
     const originals=rows.filter(row=>keys.includes(offeringKey(row)));
     if(resourceImpact(touched,originals,projected)==="conflict")continue;
@@ -298,7 +299,7 @@ export function buildAcademicDecisionLab(input: AcademicInput, reading: Academic
         const delta=toMinute(newTime)-start;
         if(!delta || Math.abs(delta)>300)continue;
         const transformed=shiftRows(offer.rows,delta);
-        if(transformed.some(row=>toMinute(row.fstarttime)<480 || toMinute(row.fendtime)>1200))continue;
+        if(transformed.some(row=>toMinute(row.fstarttime)<SCHEDULE_DAY_START || toMinute(row.fendtime)>SCHEDULE_DAY_END))continue;
         const resource=resourceImpact(transformed,offer.rows,current);
         diagnostics.timesTested++;
         if(resource==="conflict"){diagnostics.resourceConflicts++;continue;}

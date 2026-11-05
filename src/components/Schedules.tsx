@@ -223,7 +223,7 @@ import { buildWeekDensityPlan, courseHue, courseTexture as textureFor, dayLoad a
 import {
   formatScheduleTimeRange,
   scheduleClockForDisplay,
-  SCHEDULE_DAY_END,
+  SCHEDULE_DAY_END, SCHEDULE_DAY_LAST_MINUTE,
   SCHEDULE_DAY_END_TIME,
   SCHEDULE_CLOCK_END,
   SCHEDULE_CLOCK_END_TIME,
@@ -3165,11 +3165,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         const seededMinutes = seed.day ? expectedMinutesForDay(seed.day as RegDayKey) : 50;
         next.fendtime = seed.end && mins(seed.end) > mins(seed.start)
           ? seed.end
-          : timeFromMins(Math.min(SCHEDULE_DAY_END, mins(seed.start) + seededMinutes));
+          : timeFromMins(Math.min(SCHEDULE_DAY_LAST_MINUTE, mins(seed.start) + seededMinutes));
       }
       // A tap paints one cell, which follows the selected day family.
       if (seed?.end && seed.start && mins(seed.end) - mins(seed.start) <= 30) {
-        next.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_END, mins(seed.start) + (seed.day ? expectedMinutesForDay(seed.day as RegDayKey) : 50)));
+        next.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_LAST_MINUTE, mins(seed.start) + (seed.day ? expectedMinutesForDay(seed.day as RegDayKey) : 50)));
       }
       setForm(next);
       /* يومُ خانةٍ مرسومة لم يختره المستخدم نمطاً: يُكمل نمطَ المقرر حين يُعرف (completeRegulation). */
@@ -4571,7 +4571,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       days.forEach(item => { (candidate as any)[item.key] = rhythmSwitch.includes(item.key as DayKey); });
       const originalDuration = Math.max(0, mins(row.fendtime) - mins(row.fstarttime));
       if (originalDuration <= 100) {
-        candidate.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_END, mins(candidate.fstarttime) + expectedMinutesForDay(target.day as RegDayKey)));
+        candidate.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_LAST_MINUTE, mins(candidate.fstarttime) + expectedMinutesForDay(target.day as RegDayKey)));
       }
     }
     if (target.room) {
@@ -5767,7 +5767,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         days.forEach(d => { (candidate as any)[d.key] = rhythmSwitch.includes(d.key as DayKey); });
         const originalDuration = Math.max(0, mins(item.fendtime) - mins(item.fstarttime));
         if (originalDuration <= 100) {
-          candidate.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_END, mins(candidate.fstarttime) + expectedMinutesForDay(day as RegDayKey)));
+          candidate.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_LAST_MINUTE, mins(candidate.fstarttime) + expectedMinutesForDay(day as RegDayKey)));
         }
       }
       return { before: item, after: candidate };
@@ -6222,7 +6222,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     });
     return busy;
   }, [rows, lens.building, lens.rooms, lensRoomActive]);
-  /** The university clock is fixed: every timetable reads 08:00–20:00. */
   /**
    * The minute the grid believes it is.
    *

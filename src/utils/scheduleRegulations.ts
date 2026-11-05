@@ -1,6 +1,6 @@
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { type CourseNature } from "./courseNature";
-import { SCHEDULE_DAY_END , formatScheduleTimeRange } from "./scheduleTime";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_LAST_MINUTE , formatScheduleTimeRange } from "./scheduleTime";
 import { AR, countOf, oblique } from "./arabicCount";
 import { placeholderInstructorIds } from "./instructorIdentity";
 
@@ -166,7 +166,7 @@ export function adviseDayPattern(days: DayKey[], start: string, currentEnd: stri
     };
   }
   const expected = long ? LONG_LECTURE_MINUTES : SHORT_LECTURE_MINUTES;
-  const suggestedEnd = clock(Math.min(SCHEDULE_DAY_END, toMinutes(start) + expected));
+  const suggestedEnd = clock(Math.min(SCHEDULE_DAY_LAST_MINUTE, toMinutes(start) + expected));
   const changed = suggestedEnd !== currentEnd;
   return {
     family: long ? "hourAndHalf" : "hour",
@@ -429,7 +429,7 @@ export function planMove(options: {
     const expected = expectedMinutesForDay(targetDay);
     return {
       pattern: null,
-      meetings: [{ day: targetDay, start: targetStart, end: clock(Math.min(SCHEDULE_DAY_END, start + expected)) }],
+      meetings: [{ day: targetDay, start: targetStart, end: clock(Math.min(SCHEDULE_DAY_LAST_MINUTE, start + expected)) }],
       reshapes: false,
       headline: `${dayLabel(targetDay)} ${targetStart}`,
       detail: `مدة اللقاء ${countOf(expected, AR.minute)} على هذا اليوم (م.7/8/أ،ب).`
@@ -439,7 +439,7 @@ export function planMove(options: {
   const meetings = pattern.days.map((day, index) => ({
     day,
     start: targetStart,
-    end: clock(Math.min(SCHEDULE_DAY_END, start + pattern.minutesPerDay[index]))
+    end: clock(Math.min(SCHEDULE_DAY_LAST_MINUTE, start + pattern.minutesPerDay[index]))
   }));
   const sameDays =
     pattern.days.length === currentDays.length &&

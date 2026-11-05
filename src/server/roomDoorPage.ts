@@ -20,6 +20,7 @@ import {
 import { PUBLIC_FONT_FACES } from "./publicKit";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
 import type { BoardDoorData, RoomDoorData } from "./roomDoorData";
+import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../utils/scheduleTime";
 
 export interface DoorPageOptions {
   nonce: string;
@@ -308,7 +309,10 @@ var offset=D.at-Date.now(),fails=0,lastOk=Date.now(),reloading=false;
 function now(){return Date.now()+offset}
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function hm(t){t=Math.max(0,Math.round(t));var h=Math.floor(t/60)%24,m=t%60;return(h<10?"0":"")+h+":"+(m<10?"0":"")+m}
-function pos(t){return Math.max(0,Math.min(100,(t-480)/7.2))}
+/* محورُ اليوم: الدوامُ الشامل بساعاتٍ كاملة، ويتّسع لمحاضرةٍ خارجه فلا تختفي. */
+var LO=Math.floor(__DAY_START__/60)*60,HI=Math.ceil(__DAY_END__/60)*60;
+function fit(list){for(var i=0;i<list.length;i++){LO=Math.min(LO,Math.floor(list[i].s/60)*60);HI=Math.max(HI,Math.ceil(list[i].e/60)*60)}}
+function pos(t){return Math.max(0,Math.min(100,(t-LO)*100/(HI-LO)))}
 function ic(n,c){return '<svg class="'+(c||"i")+'" aria-hidden="true" focusable="false"><use href="#i-'+n+'" xlink:href="#i-'+n+'"></use></svg>'}
 function dateLabel(date){var p=String(date||"").split("-");if(p.length<3)return "";var d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));return DAYS[d.getUTCDay()]+" "+(+p[2])+" "+MONTHS[+p[1]-1]}
 /* داخل كتلة الخط الزمني يتّسع الرمزُ القصير وحده (آخرُ ثلاث خانات، كما في شاشات الجدول). */
@@ -334,11 +338,11 @@ function nextHtml(v){
  return '<section class="card next"><span class="b">'+ic("next")+'</span><div class="txt"><small>التالية'+(day?" · "+day:"")+"</small><b>"+codeOf(l)+(l.title&&l.code?" · "+esc(l.title):"")+"</b>"+(l.sec?secOf(l):"")+'</div><div class="when">'+hm(l.s)+"<span>حتى "+hm(l.e)+"</span></div></section>"}
 function timelineHtml(list,minute,showNow){
  var h="",i,t,l,cls;
- for(t=600;t<1200;t+=120)h+='<i class="tl-h" style="right:'+pos(t).toFixed(2)+'%"></i>';
- for(i=0;i<list.length;i++){l=list[i];if(l.e<=480||l.s>=1200)continue;cls=l.x?"off":showNow&&l.s<=minute&&minute<l.e?"now":showNow&&l.e<=minute?"past":"";
+ fit(list);for(t=LO+120;t<HI;t+=120)h+='<i class="tl-h" style="right:'+pos(t).toFixed(2)+'%"></i>';
+ for(i=0;i<list.length;i++){l=list[i];cls=l.x?"off":showNow&&l.s<=minute&&minute<l.e?"now":showNow&&l.e<=minute?"past":"";
   h+='<span class="tl-b '+cls+'" style="right:'+pos(l.s).toFixed(2)+"%;width:"+(pos(l.e)-pos(l.s)).toFixed(2)+'%" title="'+esc((l.code||l.title||"")+" "+hm(l.s)+"–"+hm(l.e))+'">'+((l.e-l.s)>=50?esc(shortCode(l.code)):"")+"</span>"}
- if(showNow&&minute>=480&&minute<=1200)h+='<i class="tl-now" style="right:'+pos(minute).toFixed(2)+'%"></i>';
- var lb="";for(t=480;t<=1200;t+=120)lb+='<span style="right:'+pos(t).toFixed(2)+"%;transform:translateX("+(t===480?"0":t===1200?"100%":"50%")+')">'+(t/60)+"</span>";
+ if(showNow&&minute>=LO&&minute<=HI)h+='<i class="tl-now" style="right:'+pos(minute).toFixed(2)+'%"></i>';
+ var lb="";for(t=LO;t<=HI;t+=120)lb+='<span style="right:'+pos(t).toFixed(2)+"%;transform:translateX("+(t===LO?"0":t===HI?"100%":"50%")+')">'+(t/60)+"</span>";
  return '<div class="tl"><div class="tl-track">'+h+'</div><div class="tl-lb" aria-hidden="true">'+lb+"</div></div>"}
 function todayHtml(v){
  if(v.state==="weekend"||v.state==="outside")return "";
@@ -351,10 +355,11 @@ function todayHtml(v){
 function weekHtml(v){
  if(v.state==="outside"||!D.week||!D.week.length)return "";
  var rows="",i,j,day,l,bars,cls;
+ for(i=0;i<D.week.length;i++)fit(D.week[i].lectures);
  for(i=0;i<D.week.length;i++){day=D.week[i];bars="";
-  for(j=0;j<day.lectures.length;j++){l=day.lectures[j];if(l.e<=480||l.s>=1200)continue;bars+='<i class="'+(l.x?"off":"")+'" style="right:'+pos(l.s).toFixed(2)+"%;width:"+(pos(l.e)-pos(l.s)).toFixed(2)+'%"></i>'}
+  for(j=0;j<day.lectures.length;j++){l=day.lectures[j];bars+='<i class="'+(l.x?"off":"")+'" style="right:'+pos(l.s).toFixed(2)+"%;width:"+(pos(l.e)-pos(l.s)).toFixed(2)+'%"></i>'}
   cls=day.date===v.clock.date?"today":day.date<v.clock.date?"past":"";
-  if(cls==="today"&&v.clock.minute>=480&&v.clock.minute<=1200)bars+='<i class="wk-now" style="right:'+pos(v.clock.minute).toFixed(2)+'%"></i>';
+  if(cls==="today"&&v.clock.minute>=LO&&v.clock.minute<=HI)bars+='<i class="wk-now" style="right:'+pos(v.clock.minute).toFixed(2)+'%"></i>';
   rows+='<div class="wk-row '+cls+'"><b>'+DAYS[day.wd]+'</b><div class="wk-bar">'+bars+"</div></div>"}
  return '<section class="card"><h2><span class="b">'+ic("week")+"</span>الأسبوع<small>8 – 20</small></h2>"+'<div class="wk">'+rows+"</div></section>"}
 function renderRoom(){
@@ -434,6 +439,8 @@ function clientScript(data: RoomDoorData | BoardDoorData, opts: DoorPageOptions)
     .replace("__SCREEN__", () => (opts.screen ? "true" : "false"))
     .replace("__LIVE__", () => scriptJson(opts.live))
     .replace("__BUILD__", () => scriptJson(data.build))
+    .replace("__DAY_START__", () => String(SCHEDULE_DAY_START))
+    .replace("__DAY_END__", () => String(SCHEDULE_DAY_END))
     .replace("__DAYS__", () => scriptJson(DOOR_DAY_NAMES))
     .replace("__MONTHS__", () => scriptJson(DOOR_MONTH_NAMES));
 }

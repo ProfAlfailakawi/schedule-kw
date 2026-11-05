@@ -218,7 +218,7 @@ export function bindPublicLinkContext(req: Request, _res: Response, next: NextFu
 
 // System administration is a showroom in demo: readable, never mutable. This is
 // server-side enforcement, so removing `disabled` in DevTools still cannot change it.
-export const DEMO_READ_ONLY_PREFIXES = ["/users", "/permissions", "/user-scopes", "/system-backup", "/admin/teaching-load"];
+export const DEMO_READ_ONLY_PREFIXES = ["/users", "/permissions", "/user-scopes", "/system-backup", "/admin/teaching-load", "/admin/university-day"];
 
 /*
  * ── «سجّل الدخول» لمن لا حسابَ له: الجلسةُ التجريبية المفقودة ─────────────────

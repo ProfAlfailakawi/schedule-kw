@@ -74,13 +74,15 @@ const percent = (part: number, whole: number) => (whole > 0 ? Math.round((part /
  * بلا قاعة)، ويجب أن يميّز قاعتين تحملان الرقم نفسه في موقعين.
  */
 export function buildOccupancyHeat(rows: readonly FSchedule[], roomKeyOf: (row: FSchedule) => string): OccupancyHeat {
-  const hours: number[] = [];
-  for (let point = SCHEDULE_DAY_START; point < SCHEDULE_DAY_END; point += 60) hours.push(point);
-
   const timed = rows.filter(row => {
     const start = minutesOf(row.fstarttime), end = minutesOf(row.fendtime);
     return end > start && OCCUPANCY_DAYS.some(day => Boolean((row as any)[day.flag]));
   });
+  /* الأعمدةُ تتّسع لما خرج عن الدوام الشامل، فلا تُخفى محاضرةٌ قائمة بعد تضييقه. */
+  const axisStart = Math.min(SCHEDULE_DAY_START, ...timed.map(row => minutesOf(row.fstarttime)));
+  const axisEnd = Math.max(SCHEDULE_DAY_END, ...timed.map(row => minutesOf(row.fendtime)));
+  const hours: number[] = [];
+  for (let point = axisStart; point < axisEnd; point += 60) hours.push(point);
   const rooms = new Set(timed.map(roomKeyOf).filter(Boolean)).size;
 
   const days: OccupancyDay[] = OCCUPANCY_DAYS.map((day, index) => {

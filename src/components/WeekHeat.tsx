@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Flame, Leaf } from "lucide-react";
 import type { FSchedule } from "../types";
-import { normalizeClock } from "../utils/scheduleTime";
+import { normalizeClock, SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
 
 /**
@@ -19,8 +19,6 @@ const DAYS = [
   ["fwednesday", "الأربعاء"],
   ["fthursday", "الخميس"],
 ] as const;
-const FIRST_HOUR = 8;
-const HOURS = 12; // 08:00 → 20:00
 
 const minutesOf = (value: unknown) => {
   const [h, m] = normalizeClock(value).split(":").map(Number);
@@ -29,6 +27,10 @@ const minutesOf = (value: unknown) => {
 
 export default function WeekHeat({ rows }: { rows: FSchedule[] }) {
   const model = useMemo(() => {
+    /* الدوام الشامل بساعاتٍ كاملة، ويتّسع لمحاضرةٍ قائمة خارجه فلا تختفي. */
+    const clocks = rows.map(row => [minutesOf(row.fstarttime), minutesOf(row.fendtime)]).filter(([from, to]) => to > from);
+    const FIRST_HOUR = Math.floor(Math.min(SCHEDULE_DAY_START, ...clocks.map(([from]) => from)) / 60);
+    const HOURS = Math.max(1, Math.ceil(Math.max(SCHEDULE_DAY_END, ...clocks.map(([, to]) => to)) / 60) - FIRST_HOUR);
     const cells = DAYS.map(() => Array.from({ length: HOURS }, () => ({ count: 0, names: [] as string[] })));
     for (const row of rows) {
       const start = minutesOf(row.fstarttime), end = minutesOf(row.fendtime);
@@ -51,10 +53,11 @@ export default function WeekHeat({ rows }: { rows: FSchedule[] }) {
     cells.forEach((line, day) => line.forEach((cell, hour) => { if (cell.count > peak.count) peak = { day, hour, count: cell.count }; }));
     const totals = cells.map(line => line.reduce((sum, cell) => sum + cell.count, 0));
     const quiet = totals.indexOf(Math.min(...totals));
-    return { cells, max, peak, quiet };
+    return { cells, max, peak, quiet, FIRST_HOUR, HOURS };
   }, [rows]);
 
   if (!rows.length || model.peak.count === 0) return null;
+  const { FIRST_HOUR, HOURS } = model;
   const clock = (hour: number) => String(FIRST_HOUR + hour).padStart(2, "0");
   const summary = `الذروة ${DAYS[model.peak.day][1]} ${clock(model.peak.hour)}:00 بـ${countOf(model.peak.count, AR.appointment)}، والأهدأ ${DAYS[model.quiet][1]}`;
 
@@ -64,7 +67,7 @@ export default function WeekHeat({ rows }: { rows: FSchedule[] }) {
         <span className="week-heat-chip is-peak"><Flame /> {DAYS[model.peak.day][1]} <b dir="ltr">{clock(model.peak.hour)}:00</b> · {countOf(model.peak.count, AR.appointment)}</span>
         <span className="week-heat-chip is-quiet"><Leaf /> الأهدأ {DAYS[model.quiet][1]}</span>
       </header>
-      <div className="week-heat-grid" aria-hidden="true">
+      <div className="week-heat-grid" aria-hidden="true" style={{ "--hours": HOURS } as React.CSSProperties}>
         <span className="week-heat-corner" />
         {Array.from({ length: HOURS }, (_, hour) => <span key={hour} className="week-heat-hour" dir="ltr">{hour % 2 === 0 ? clock(hour) : ""}</span>)}
         {model.cells.map((line, day) => (

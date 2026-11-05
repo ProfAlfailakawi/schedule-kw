@@ -58,7 +58,7 @@ check(/departmentHoursWarnOnly: Boolean\(options\.forDepartment\) \|\| offeredBy
 /* اسمان ثابتان في الشاشة والرسائل. */
 {
   const screen = read("src/components/SectionScheduleHours.tsx"), time = read("src/utils/scheduleTime.ts");
-  check(/<strong>الدوام الشامل<\/strong>/.test(screen) && /<b dir="ltr">08:00–20:00<\/b>/.test(screen) && !/<input[^>]*الدوام الشامل/.test(screen), "الدوام الشامل معروضٌ ثابتاً بلا حقل");
+  check(/<strong>الدوام الشامل<\/strong>/.test(screen) && /<b dir="ltr">\{current\.startTime\}–\{current\.endTime\}<\/b>/.test(screen), "الدوام الشامل يُقرأ لغير المدير");
   check(/<strong>الدوام المسموح<\/strong>/.test(screen) && /بداية الدوام المسموح/.test(screen) && /نهاية الدوام المسموح/.test(screen), "الدوام المسموح هو الحقل القابل للتعديل");
   check(/startTime,endTime\}\)\}\)/.test(screen) || /sectionIds:selected,startTime,endTime/.test(screen), "والحقول المحفوظة نفسها بلا ترحيل");
   check(/الدوام المسموح/.test(time) && /نهاية الدوام المسموح/.test(verdictSource) && /نهاية الدوام الشامل/.test(verdictSource) && /الدوام الشامل/.test(rules) && !/دوام القسم \(/.test(time + verdictSource), "الرسائل بالاسمين نفسيهما");

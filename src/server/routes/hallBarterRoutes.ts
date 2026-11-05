@@ -14,7 +14,7 @@ import { Repository, withSerialLock } from "../../db/repository";
 import { byRoom, byArabic } from "../../utils/sorting";
 import { minutesToTime } from "../../utils/scheduleIntelligence";
 import type { FSchedule, HallBarterRequest } from "../../types";
-import { normalizeClock, SCHEDULE_DAY_END, SCHEDULE_DAY_START, SCHEDULE_SLOT_MINUTES } from "../../utils/scheduleTime";
+import { normalizeClock, SCHEDULE_DAY_END, SCHEDULE_DAY_LAST_MINUTE, SCHEDULE_DAY_START, SCHEDULE_SLOT_MINUTES } from "../../utils/scheduleTime";
 import { roomKeyOf, rowOccupiesRoom, resolveBuilding, resolveRoom } from "../../utils/locationRegistry";
 import { fairShareByOwner } from "../../utils/hallBarterFairness";
 import { state } from "../core/state";
@@ -262,12 +262,12 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
         runStart=null;runEnd=0;
       };
       for(let minute=SCHEDULE_DAY_START;minute<SCHEDULE_DAY_END;minute+=SCHEDULE_SLOT_MINUTES){
-        const start=minutesToTime(minute),end=minutesToTime(Math.min(SCHEDULE_DAY_END,minute+SCHEDULE_SLOT_MINUTES));
+        const start=minutesToTime(minute),end=minutesToTime(Math.min(SCHEDULE_DAY_LAST_MINUTE,minute+SCHEDULE_SLOT_MINUTES));
         const free=!roomRows.some(row=>rowOccupiesWindow(row,day,start,end))
           &&!activeReservations.some(request=>barterRequestOverlaps(request,roomCode,roomHall,day,start,end,room.id));
         if(free){
           if(runStart==null)runStart=minute;
-          runEnd=Math.min(SCHEDULE_DAY_END,minute+SCHEDULE_SLOT_MINUTES);
+          runEnd=Math.min(SCHEDULE_DAY_LAST_MINUTE,minute+SCHEDULE_SLOT_MINUTES);
         }else flush();
       }
       flush();
