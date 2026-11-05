@@ -282,7 +282,7 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
       >
         <span className="sp-ev-top">
           {tag ? <span className="sp-glyph" data-kind={tag.kind} aria-hidden="true"><tag.Icon /></span> : null}
-          <span className="sp-ev-title">{item.outside ? "التزام خارج القسم" : item.courseName || "موعد"}</span>
+          <span className="sp-ev-title">{item.outside ? "التزام خارج القسم" : item.courseName || "موعد"}{item.readOnlyReason ? <Lock className="sp-ev-readonly" aria-label="للقراءة فقط" /> : null}</span>
         </span>
         {!tiny && !item.outside ? (
           <span className="sp-ev-meta">{item.SCode ? <bdi className="sp-sec">{item.SCode}</bdi> : null}<bdi className="sp-time">{!overlay && entry.lanes > 1 ? String(item.start).slice(0, 5) : timeRange(item.start, item.end)}</bdi><CampusChip item={item} chips={chips} /></span>
@@ -338,6 +338,7 @@ export default function ProposalWeekGrid(props: WeekGridProps) {
         </dl>
       )}
       {selected.twin ? <p className="sp-detail-finding" data-kind="info"><Lock aria-hidden="true" /><span>موعده المسجّل بسجلٍّ آخر في سجلّ الأساتذة — يُرى هنا ضمن جدوله الكامل، ويُعدَّل من طلبه في موقعه.</span></p> : null}
+      {selected.readOnlyReason ? <p className="sp-detail-finding" data-kind="info"><Lock aria-hidden="true" /><span>{selected.readOnlyReason}</span></p> : null}
       {selectedVacancy?.note ? <p className="sp-detail-finding" data-kind="review"><Sparkles aria-hidden="true" /><span>{selectedVacancy.note}</span></p> : null}
       {props.findingsFor(selected.key).map(finding => (
         <p key={finding.id} className="sp-detail-finding" data-kind={finding.kind}>

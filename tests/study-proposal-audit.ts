@@ -245,7 +245,7 @@ import fs from "fs";
   const staffRoutes = [...routes.matchAll(/app\.(?:get|post|put)\("(\/api\/study-proposals[^"]*)",\s*([^,]+),/g)];
   check(staffRoutes.length >= 8 && staffRoutes.every(m => m[2].trim() === "staff"), "كل مسارات القسم تمرّ بحارس صلاحية الجداول (٧)", staffRoutes.map(m => `${m[1]}:${m[2]}`));
   check(!/Repository\.(createSchedule|updateSchedule|deleteSchedule|moveSchedulesBatch)\(/.test(routes.slice(0, routes.indexOf("export async function seedDemoStudyProposals")) + engine), "لا كتابةَ في جدول المواعيد إلا عبر معاملة التثبيت (commitStudyProposal)");
-  check((routes.match(/Repository\.commitStudyProposal\(/g) || []).length === 1, "التثبيت له موضعٌ واحد");
+  check((routes.match(/Repository\.commitStudyProposal\(/g) || []).length === 2 && /reverse: true/.test(routes), "التثبيت له موضعٌ واحد وعكسُه");
   check(!/\bfindConflicts\(/.test(routes + engine), "لا فاحصَ تعارضاتٍ ثانياً: الحكمُ لـscheduleConflicts نفسه");
   check(/scheduleConflicts\(req, \{ \.\.\.candidate/.test(engine) && /hypothetical/.test(server), "الفحص يمرّ ببوابة الحفظ على الجدول الناتج");
   check(!/AdInstructorCivil\s*[:=]/.test(routes) && /surveyFingerprint/.test(routes), "الرقم المدني يُتحقَّق منه وتُحفظ بصمتُه فقط");

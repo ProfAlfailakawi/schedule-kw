@@ -12,6 +12,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeftRight, Ban, CalendarClock, CalendarPlus, CircleAlert, Eye, GitCompareArrows, LoaderCircle, Pencil, RefreshCw, Save, Send, ShieldCheck, ShieldAlert, Trash2, CheckCircle2, History, Table2, Plus, Lock, UserRoundPlus, X,
+  Undo2,
 } from "lucide-react";
 import { useDrawerA11y } from "../ui";
 import { commitReadiness, effectiveStatus, type GridItem } from "../../utils/studyProposal";
@@ -83,6 +84,7 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
   const [dialog, setDialog] = useState<Dialog>(null);
   const [now, setNow] = useState(Date.now());
   const [notice, setNotice] = useState("");
+  const [oneClick, setOneClick] = useState(false);
   const dialogRef = useRef<Dialog>(null);
   dialogRef.current = dialog;
   const wsRef = useRef(ws);
@@ -186,7 +188,7 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
       list.push({ label: "تعديل المادة", Icon: Pencil, run: () => openForOp(op.id) });
       if (ws.marks.blocker.has(item.key)) list.push({ label: "أوقات بديلة", Icon: CalendarClock, run: () => { ws.loadAlternatives(op.id); setTab("checks"); } });
       list.push({ label: "إزالة من المقترح", Icon: Trash2, tone: "danger", run: () => { ws.removeOp(op.id); ws.setSelectedKey(null); } });
-    } else if (item.state === "current" && !item.outside && !item.twin && item.rowId > 0) {
+    } else if (item.state === "current" && !item.outside && !item.twin && !item.readOnlyReason && item.rowId > 0) {
       list.push({ label: "تعديل موعد هذا الأستاذ", Icon: Pencil, run: () => { ws.chooseMode("edit"); ws.pickRow(item.rowId); setCard({ kind: "edit" }); } });
       list.push({ label: "استبدال هذا الموعد", Icon: ArrowLeftRight, run: () => { ws.chooseMode("replace"); ws.pickRow(item.rowId); setMore(true); } });
     }
@@ -194,6 +196,11 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
   };
 
   /* ── الإجراءات ───────────────────────────────────────────────────────── */
+  const undoCommit = async () => {
+    if (!proposal) return;
+    try { ws.replaceView(await proposalApi.undoCommit(proposal.id, proposal.rev)); setNotice("أُلغي التثبيت وعادت المواعيد في كل المواقع."); }
+    catch (error) { setNotice(error instanceof ProposalApiError ? error.message : "تعذّر التراجع."); }
+  };
   const saveNow = async () => { const result = await ws.save(); if (result) setNotice("حُفظت المسودة."); };
   const saveAndClose = async () => { const result = await ws.save(); if (result || !ws.ops.length) { setDialog(null); onClose(); } else setDialog(null); };
   const withdraw = async () => {
@@ -370,7 +377,12 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
               </button>
             ) : null}
             {canCommit ? (
-              <button type="button" className="btn btn-primary" onClick={() => setDialog("commit")} data-guide-target="proposal-commit-open"><ShieldCheck aria-hidden="true" />مراجعة وتثبيت</button>
+              <button type="button" className="btn btn-primary" onClick={() => { setOneClick(true); setDialog("commit"); }} data-guide-target="proposal-commit-open"><ShieldCheck aria-hidden="true" />تثبيت في كل المواقع</button>
+            ) : null}
+            {proposal?.commit?.undoable ? (
+              <button type="button" className="btn btn-secondary" onClick={() => void undoCommit()} data-guide-ignore="يعيد مواعيد هذا المقترح في كل المواقع إلى ما قبل التثبيت">
+                <Undo2 aria-hidden="true" />تراجع عن التثبيت
+              </button>
             ) : null}
             {!terminal ? (
               <button type="button" className={`btn ${canCommit ? "btn-secondary" : "btn-primary"}`} onClick={() => setDialog("send")} disabled={!ws.ops.length || ctx.term.closed} data-guide-target="proposal-preview">
@@ -398,7 +410,7 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
         </aside>
       ) : null}
       {dialog === "send" ? <SendDialog ws={ws} onClose={() => setDialog(null)} onSent={() => setNotice("أُرسل المقترح.")} /> : null}
-      {dialog === "commit" ? <CommitDialog ws={ws} onClose={() => setDialog(null)} onDone={() => setNotice("ثُبّت المقترح.")} /> : null}
+      {dialog === "commit" ? <CommitDialog ws={ws} oneClick={oneClick} onClose={() => { setDialog(null); setOneClick(false); }} onDone={() => setNotice("ثُبّت المقترح.")} /> : null}
       {dialog === "close" ? (
         <ConfirmDialog title="لديك تعديلاتٌ غير محفوظة" text="إن أغلقت المساحة الآن ضاعت التعديلات الأخيرة. احفظ المسودة لتكمل لاحقاً."
           actions={[

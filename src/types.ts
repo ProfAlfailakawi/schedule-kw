@@ -1530,7 +1530,7 @@ export type InstructorRequestEventKind =
   | "settled" | "schedule-approved"
   | "department-replied" | "instructor-replied" | "proposal-accepted"
   | "study-proposal-sent" | "study-proposal-approved" | "study-proposal-changes"
-  | "study-proposal-revised" | "study-proposal-withdrawn" | "study-proposal-committed"
+  | "study-proposal-revised" | "study-proposal-withdrawn" | "study-proposal-committed" | "study-proposal-commit-undone"
   | "study-proposal-expired";
 
 export interface InstructorRequestEvent {
@@ -1947,7 +1947,7 @@ export interface StudyProposalResponse {
 }
 
 export interface StudyProposalEvent {
-  kind: "created" | "saved" | "sent" | "approved" | "partial" | "changes" | "revised" | "withdrawn" | "expired" | "committed" | "commit-refused" | "link-shared";
+  kind: "created" | "saved" | "sent" | "approved" | "partial" | "changes" | "revised" | "withdrawn" | "expired" | "committed" | "commit-undone" | "commit-refused" | "link-shared";
   at: string;
   by?: string;
   version?: number;
@@ -1991,6 +1991,14 @@ export interface StudyProposalImpact {
   loadCap: number | null;
 }
 
+export interface StudyProposalCommitUndo {
+  status: StudyProposal["status"];
+  scopes: Array<{ c: number; s: number }>;
+  createdRowIds: number[];
+  updates: Array<{ id: number; fields: Partial<FSchedule>; rev: number }>;
+  deletedRows: FSchedule[];
+}
+
 export interface StudyProposalCommitResult {
   at: string;
   by: number;
@@ -2004,6 +2012,10 @@ export interface StudyProposalCommitResult {
     updatedRowIds?: number[];
     deletedRowIds?: number[];
   }>;
+  /** ما يعيد التثبيت كلَّه إلى ما كان: للخادم وحده، لا يصل شاشة. */
+  undo?: StudyProposalCommitUndo;
+  /** يقوله الخادم للشاشة بدل لقطة `undo`. */
+  undoable?: boolean;
 }
 
 export interface StudyProposal {

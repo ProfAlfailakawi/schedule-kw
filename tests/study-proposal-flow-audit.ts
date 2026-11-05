@@ -161,6 +161,16 @@ async function main() {
   check(after1.find(r => r.id === fac1.id).AdInstructorId === salemInstructorId, "الشعبة نفسها (بمعرّفها) صارت للأستاذ");
   const again = await A("POST", `/api/study-proposals/${p1.proposal.id}/commit`, { rev: cur1.proposal.rev, confirm: true });
   check(again.status === 200 && again.json.alreadyCommitted === true && (await rows()).length === termCount0, "تكرار التثبيت لا يكرّر الإسناد");
+  /* تراجعٌ واحد عن التثبيت كلِّه، ثم تثبيتٌ بالموافقة نفسها بلا إعادة إرسال. */
+  const committed1 = await getP(p1.proposal.id);
+  check(committed1.proposal.commit.undoable === true && committed1.proposal.commit.undo === undefined, "لقطة التراجع لا تصل الشاشة");
+  const undone1 = await A("POST", `/api/study-proposals/${p1.proposal.id}/undo-commit`, { rev: committed1.proposal.rev });
+  check(undone1.status === 200 && undone1.json.proposal.status === "approved" && !undone1.json.proposal.commit, "التراجع يعيد المقترح موافَقاً عليه", undone1.json);
+  check((await rows()).find(r => r.id === fac1.id).AdInstructorId === placeholder.AdInstructorId, "التراجع يعيد الشعبة إلى حالها");
+  const undoneAgain = await A("POST", `/api/study-proposals/${p1.proposal.id}/undo-commit`, { rev: undone1.json.proposal.rev });
+  check(undoneAgain.status === 409, "لا تراجع ثانٍ");
+  const redo = await A("POST", `/api/study-proposals/${p1.proposal.id}/commit`, { rev: undone1.json.proposal.rev, confirm: true });
+  check(redo.status === 200 && redo.json.proposal.status === "committed", "يُعاد التثبيت بالموافقة نفسها", redo.json);
   const closed = await respond(salem, p1.proposal.id, 1, [{ opId: "a1", decision: "changes" }], salem.instructorName, { reason: "time" });
   check(closed.status === 409, "لا ردّ على مقترحٍ مثبّت", closed.json);
 
@@ -172,10 +182,13 @@ async function main() {
   check((await rows()).filter(r => r.SCode === "701").length === 0, "إرسالها للأستاذ لا يُنشئها أيضاً");
   await respond(salem, p2.proposal.id, 1, [{ opId: "c1", decision: "approve" }], salem.instructorName);
   const c2 = await getP(p2.proposal.id);
-  const done2 = await A("POST", `/api/study-proposals/${p2.proposal.id}/commit`, { rev: c2.proposal.rev, confirm: true });
+  let done2 = await A("POST", `/api/study-proposals/${p2.proposal.id}/commit`, { rev: c2.proposal.rev, confirm: true });
+  const undone2 = await A("POST", `/api/study-proposals/${p2.proposal.id}/undo-commit`, { rev: done2.json.proposal.rev });
+  check(undone2.status === 200 && (await rows()).filter(r => r.SCode === "701").length === 0, "التراجع يحذف الشعبة المنشأة", undone2.json);
+  done2 = await A("POST", `/api/study-proposals/${p2.proposal.id}/commit`, { rev: undone2.json.proposal.rev, confirm: true });
   const made = (await rows()).filter(r => r.SCode === "701");
   check(done2.status === 200 && made.length === 1 && made[0].AdInstructorId === salemInstructorId, "الشعبة الجديدة تُنشأ عند التثبيت وحده، مرةً واحدة", done2.json);
-  check((await A("POST", `/api/study-proposals/${p2.proposal.id}/commit`, { rev: c2.proposal.rev, confirm: true })).json.alreadyCommitted === true && (await rows()).filter(r => r.SCode === "701").length === 1, "تكرار التثبيت لا يكرّر الإنشاء");
+  check((await A("POST", `/api/study-proposals/${p2.proposal.id}/commit`, { rev: undone2.json.proposal.rev, confirm: true })).json.alreadyCommitted === true && (await rows()).filter(r => r.SCode === "701").length === 1, "تكرار التثبيت لا يكرّر الإنشاء");
   const result2 = done2.json.proposal.commit.results[0];
   check(result2.createdRowIds?.length === 1 && result2.createdRowIds[0] === made[0].id, "نتيجة التثبيت تحمل مرجع السجل الناتج");
 

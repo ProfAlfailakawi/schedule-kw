@@ -28,6 +28,7 @@ import type {
 } from "../types";
 import { toEnglishDigits } from "../utils/digits";
 import { departmentVacancyRows } from "../utils/proposalVacancyScope";
+import { withFamilyScopes } from "./studyProposalEngine";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../utils/termSequence";
 import { normalizeClock, withinScheduleDay, scheduleDayWindowMinutes } from "../utils/scheduleTime";
 import { timeToMinutes } from "../utils/scheduleIntelligence";
@@ -162,10 +163,13 @@ async function sanitizeOps(
 /* ── تحويل الوثيقة إلى ما يُعرض ──────────────────────────────────────────── */
 
 function compact(proposal: StudyProposal) {
-  return { ...proposal, versions: proposal.versions.map(v => ({ ...v, ops: undefined, opCount: v.ops.length })) };
+  return { ...proposal, ...(proposal.commit ? { commit: { ...proposal.commit, undo: undefined, undoable: Boolean(proposal.commit.undo) } } : {}),
+    versions: proposal.versions.map(v => ({ ...v, ops: undefined, opCount: v.ops.length })) };
 }
 
-function staffView(proposal: StudyProposal, termClosed = false) {
+function staffView(stored: StudyProposal, termClosed = false) {
+  const proposal = stored.commit
+    ? { ...stored, commit: { ...stored.commit, undo: undefined, undoable: Boolean(stored.commit.undo) } } : stored;
   const decision = decisionStateOf(proposal);
   return {
     proposal,
@@ -291,7 +295,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     const request = await loadRequestForStaff(req, res, String(req.query.requestId || ""));
     if (!request) return;
     const termId = Number(request.AdTermId);
-    const world = await loadWorld(termId, Number(request.AdInstructorId));
+    const world = withFamilyScopes(await loadWorld(termId, Number(request.AdInstructorId)), Number(request.AdCollegeId), Number(request.AdSectionId));
     if (!world.instructor) { res.status(404).json({ error: "لم يُعثر على الأستاذ." }); return; }
 
     const baseScopes = deps.departmentScopes
@@ -594,6 +598,77 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
    * «مراجعة وتثبيت». بلا `confirm` تُعيد الفحصَ وتقول ما سيحدث دون أن تكتب؛ ومع
    * `confirm` تنفّذ المجموعة كلَّها في معاملةٍ واحدة، أو لا تنفّذ شيئاً.
    */
+  /** ما بعد كتابة التثبيت أو عكسه: نسخةُ كل قسمٍ وحركتُه. */
+  const noteWrites = async (req: any, termId: number, scopes: Array<{ c: number; s: number }>, versions: any[],
+    result: { created: FSchedule[]; updated: FSchedule[] }, gone: FSchedule[]) => {
+    const updatedById = new Map(result.updated.map(row => [row.id, row]));
+    const goneIds = new Set(gone.map(row => row.id));
+    for (let i = 0; i < scopes.length; i += 1) {
+      const scope = scopes[i];
+      const inScope = (row: any) => Number(row.AdCollegeId) === scope.c && Number(row.AdSectionId) === scope.s;
+      await deps.recordVersionAfter(versions[i], (before: any[]) => before.filter(row => !goneIds.has(row.id))
+        .map(row => updatedById.get(row.id) || row).concat(result.created.filter(inScope)));
+      for (const row of result.created.filter(inScope)) await deps.noteScheduleMutation(req, scope.c, scope.s, termId, { kind: "add", row });
+      for (const row of result.updated.filter(inScope)) await deps.noteScheduleMutation(req, scope.c, scope.s, termId, { kind: "edit", row });
+      for (const row of gone.filter(inScope)) await deps.noteScheduleMutation(req, scope.c, scope.s, termId, { kind: "delete", row });
+    }
+  };
+
+  /**
+   * تراجعٌ واحد عن التثبيت كلِّه: العملية العكسية في `commitStudyProposal`، كلُّها أو لا شيء، عبر كل المواقع.
+   * موعدٌ تغيّر بعد التثبيت يوقفها، وموافقةُ الأستاذ تبقى فيعود المقترح جاهزاً للتثبيت.
+   */
+  app.post("/api/study-proposals/:id/undo-commit", staff, heavyLimit, async (req: any, res: Response) => {
+    const proposal = await loadForStaff(req, res, String(req.params.id), true);
+    if (!proposal) return;
+    const undo = proposal.commit?.undo;
+    if (!undo) { res.status(409).json({ error: "لا يوجد تثبيتٌ يمكن التراجع عنه.", code: "not-undoable" }); return; }
+    if (Number(req.body?.rev) !== proposal.rev) { res.status(409).json(conflictBody(proposal)); return; }
+    const refuse = (status: number, code: string, error: string) => res.status(status).json({ error, code });
+    const world = await loadWorld(proposal.AdTermId, proposal.AdInstructorId);
+    if (termClosedOf(world)) return void refuse(409, "term-closed", "انتهى هذا الفصل.");
+    for (const scope of undo.scopes) {
+      if (!canWriteScope(req, scope.c, scope.s)) return void refuse(403, "scope-denied", "أحد المواقع لا تملك التعديل فيه.");
+      const lock = await deps.scheduleLockRefusal(req, scope.c, scope.s, proposal.AdTermId);
+      if (lock) return void refuse(409, "schedule-locked", lock);
+    }
+    const liveById = new Map(world.termRows.map(row => [Number(row.id), row]));
+    const removed = undo.createdRowIds.map(id => liveById.get(id));
+    if (removed.some(row => !row) || undo.updates.some(item => !liveById.has(item.id))) return void refuse(409, "proposal-stale", "تغيّر أحد المواعيد بعد التثبيت. لم يُكتب شيء.");
+    const hypothetical = world.termRows.filter(row => !undo.createdRowIds.includes(Number(row.id)) && !undo.updates.some(item => item.id === Number(row.id)))
+      .concat(undo.updates.map(item => ({ ...liveById.get(item.id)!, ...item.fields })), undo.deletedRows);
+    for (const row of [...undo.updates.map(item => ({ ...liveById.get(item.id)!, ...item.fields })), ...undo.deletedRows]) {
+      const blocking = (await deps.scheduleConflicts(req, row, Number(row.id), hypothetical)).filter((conflict: any) => !conflict.soft);
+      if (blocking.length) return void refuse(409, "undo-blocked", blocking[0].message || "الوقت القديم لم يعد متاحاً. لم يُكتب شيء.");
+    }
+    const versions = await Promise.all(undo.scopes.map(scope => deps.captureScopeVersion(req, scope.c, scope.s, proposal.AdTermId, "قبل التراجع عن تثبيت مقترح", "manual")));
+    const by = String(req.user?.Name || req.user?.SystemUserLogin || "");
+    try {
+      const result = await Repository.commitStudyProposal({
+        reverse: true, proposalId: proposal.id, expectedRev: proposal.rev, termId: proposal.AdTermId,
+        creates: undo.deletedRows as any, updates: undo.updates.map(item => ({ id: item.id, fields: item.fields, expectedRev: item.rev })),
+        deletes: removed.map(row => ({ id: Number(row!.id), expectedRev: Number(row!.rev || 0) })),
+        build: () => {
+          const { commit: _commit, ...rest } = proposal;
+          /* الصفوف عادت بمراجعةٍ أحدث: اللقطةُ تتبعها، فلا يُحسب تراجعُنا تغيّراً يُبطل موافقة الأستاذ. */
+          const nextRev = new Map<number, number>([...undo.updates.map(item => [item.id, item.rev + 1] as [number, number]),
+            ...undo.deletedRows.map(row => [Number(row.id), Number(row.rev || 0) + 1] as [number, number])]);
+          const rebased = <T extends { id: number; rev?: number }>(snapshot: T): T => nextRev.has(snapshot.id) ? { ...snapshot, rev: nextRev.get(snapshot.id)! } : snapshot;
+          return { ...rest, status: undo.status,
+            ops: proposal.ops.map(op => ({ ...op, ...(op.source ? { source: rebased(op.source) } : {}), ...(op.out ? { out: { ...op.out, snapshot: rebased(op.out.snapshot) } } : {}) })), events: pushEvent(proposal, { kind: "commit-undone", by, version: proposal.sentVersion }) } as StudyProposal;
+        },
+      });
+      await noteWrites(req, proposal.AdTermId, undo.scopes, versions, result, removed as FSchedule[]);
+      await noteOnRequest(proposal.requestId, "study-proposal-commit-undone", by, proposal.id);
+      deps.broadcastNotify(deps.demoSessionId());
+      res.json({ ...staffView(result.proposal, termClosedOf(world)), undone: true });
+    } catch (error) {
+      if (error instanceof StudyProposalRevisionConflict) { res.status(409).json(conflictBody(error.current)); return; }
+      if (error instanceof ScheduleRevisionConflict) return void refuse(409, "proposal-stale", "تغيّر أحد المواعيد بعد التثبيت. لم يُكتب شيء.");
+      throw error;
+    }
+  });
+
   app.post("/api/study-proposals/:id/commit", staff, heavyLimit, async (req: any, res: Response) => {
     const proposal = await loadForStaff(req, res, String(req.params.id), true);
     if (!proposal) return;
@@ -732,6 +807,12 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
             events: pushEvent(proposal, { kind: "committed", at, by, version: proposal.sentVersion }),
             commit: {
               at, by: Number(req.user?.SystemUserId || 0), byName: by, version: proposal.sentVersion,
+              undo: {
+                status: proposal.status, scopes: touchedScopes, createdRowIds: created.map(row => Number(row.id)),
+                updates: updates.map(update => ({ id: update.id, rev: update.expectedRev + 1,
+                  fields: Object.fromEntries(Object.keys(update.fields).map(key => [key, (liveById.get(update.id) as any)[key] ?? null])) as Partial<FSchedule> })),
+                deletedRows: deletes.map(item => liveById.get(item.id)!),
+              },
               results: proposal.ops.map(op => {
                 const e = perOp.get(op.id);
                 return ready.opIds.includes(op.id)
@@ -742,22 +823,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
           } as StudyProposal;
         },
       });
-      const touchedIds = new Set([...result.updated.map(r => r.id), ...deletes.map(d => d.id)]);
-      for (let i = 0; i < touchedScopes.length; i += 1) {
-        const scope = touchedScopes[i];
-        const inScope = (row: any) => Number(row.AdCollegeId) === scope.c && Number(row.AdSectionId) === scope.s;
-        await deps.recordVersionAfter(versions[i], (before: any[]) => {
-          const updatedById = new Map(result.updated.map(r => [r.id, r]));
-          const deletedIds = new Set(deletes.map(d => d.id));
-          return before.filter(r => !deletedIds.has(r.id)).map(r => updatedById.get(r.id) || r)
-            .concat(result.created.filter(inScope));
-        });
-        for (const row of result.created.filter(inScope)) await deps.noteScheduleMutation(req, scope.c, scope.s, proposal.AdTermId, { kind: "add", row });
-        for (const row of result.updated.filter(inScope)) await deps.noteScheduleMutation(req, scope.c, scope.s, proposal.AdTermId, { kind: "edit", row });
-        const gone = deletes.map(d => liveById.get(d.id)).filter(row => row && inScope(row));
-        for (const row of gone) await deps.noteScheduleMutation(req, scope.c, scope.s, proposal.AdTermId, { kind: "delete", row });
-      }
-      void touchedIds;
+      await noteWrites(req, proposal.AdTermId, touchedScopes, versions, result, deletes.map(d => liveById.get(d.id)!).filter(Boolean));
       await noteOnRequest(proposal.requestId, "study-proposal-committed", by, proposal.id);
       deps.broadcastNotify(deps.demoSessionId());
       res.json({ ...staffView(result.proposal, termClosedOf(world)), committed: true });

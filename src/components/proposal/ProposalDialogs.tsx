@@ -243,7 +243,7 @@ const COMMIT_REASONS: Record<string, string> = {
   "linked-incomplete": "الترتيب المترابط لا يُثبَّت إلا بموافقة الأستاذ على المجموعة كاملة.",
 };
 
-export function CommitDialog({ ws, onClose, onDone }: { ws: Workspace; onClose: () => void; onDone: () => void }) {
+export function CommitDialog({ ws, onClose, onDone, oneClick = false }: { ws: Workspace; onClose: () => void; onDone: () => void; oneClick?: boolean }) {
   const { proposal, ctx } = ws;
   const [state, setState] = useState<"checking" | "ready" | "refused" | "committing" | "done">("checking");
   const [info, setInfo] = useState<{ evaluation?: ProposalEvaluation; opIds?: string[]; partial?: boolean; code?: string; error?: string; drift?: Array<{ message: string }> } | null>(null);
@@ -255,7 +255,8 @@ export function CommitDialog({ ws, onClose, onDone }: { ws: Workspace; onClose: 
     try {
       const result = await proposalApi.commit(proposal.id, proposal.rev, confirm);
       if (confirm) { ws.replaceView(result); setState("done"); onDone(); }
-      else { setInfo({ evaluation: result.evaluation, opIds: result.opIds, partial: result.partial }); setState("ready"); }
+      /* ضغطةٌ واحدة على زرّ التثبيت نفسه (قرار المالك): الفحصُ سليم فيُكتب مباشرة. والفتحُ من الوارد أو تنبيهٍ يبقى مراجعةً لا كتابة. */
+      else { setInfo({ evaluation: result.evaluation, opIds: result.opIds, partial: result.partial }); if (oneClick) void run(true); else setState("ready"); }
     } catch (error) {
       if (error instanceof ProposalApiError) {
         setInfo({ evaluation: error.body?.evaluation, code: error.code, error: error.message, drift: error.body?.drift });
