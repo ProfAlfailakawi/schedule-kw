@@ -33,6 +33,8 @@ const SHEET = "محرّرُ الصحيفة نفسها: نوعُ المتطلب �
 const NOT_COURSE = "ليس اسمَ مقرر (صحيفة/قسم/حملة/فئة طلبة)";
 const STUDENT = "شاشةُ الطالب/الإعلان — خارج نطاق الإدارة والأستاذ";
 const COURSE_EXCEPTIONS: Exception[] = [
+  { file: "src/components/ImportCatalogueGaps.tsx", text: `course.name || "—"`, reason: "اسمٌ مطبوع لمقرر لم يُنشأ بعد: لا رقم له تُقرأ وسومه منه" },
+  { file: "src/components/ImportCatalogueGaps.tsx", text: `candidate.name`, reason: "سطرُ اختيارٍ عابر داخل زرّ راديو — بطاقةُ المقرر تحمل وسومه" },
   { file: "src/components/InstructorInbox.tsx", text: `item.after?.courseName || "الموعد"`, reason: SENTENCE },
   { file: "src/components/RequestHoldSheet.tsx", text: `hold.courseName`, reason: "سطرُ سؤالٍ عابر عند الحفظ — بطاقةُ البند في الوارد تحمل الوسوم" },
   { file: "src/components/InstructorInbox.tsx", text: `item.after?.courseName || item.before?.courseName || "البند"`, reason: SENTENCE },

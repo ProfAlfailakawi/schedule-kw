@@ -1725,7 +1725,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                           courseName={id => String(deptCourses.find((course: any) => Number(course.AdCourseId) === id)?.CourseName || "")}
                         />
                       ) : null}
-                      {importKind==="authority-pdf"&&xlsxPreview.catalogueGaps?<ImportCatalogueGaps key={String(xlsxPreview.importReceipt||"")} gaps={xlsxPreview.catalogueGaps} canCreate={Boolean(xlsxPreview.canCreateCourses)} busy={busy} onConfirm={decisions=>void confirmCatalogueGaps(decisions)} />:null}
+                      {importKind==="authority-pdf"&&xlsxPreview.catalogueGaps?<ImportCatalogueGaps key={String(xlsxPreview.importReceipt||"")} gaps={xlsxPreview.catalogueGaps} canCreate={Boolean(xlsxPreview.canCreateCourses)} canCreateSites={Boolean(xlsxPreview.canCreateSites)} busy={busy} onConfirm={decisions=>void confirmCatalogueGaps(decisions)} />:null}
                       <PagedImportPreview
                         key={String(xlsxPreview.importReceipt || xlsxPreview.fileName || "")}
                         rows={xlsxPreview.rows as ImportRow[]}

@@ -165,3 +165,39 @@ export function splitRowsByBranch<Row extends { sourceSitePrefix?: string }>(
     unplaced: [...unplaced.values()],
   };
 }
+
+/**
+ * الموقع يُقرأ من المبنى المثبت أولاً، ولا يُرجع إلى الحقل إلا حين لا يكون هناك مبنى.
+ * الدالة نفسها عند النشر وعند الفحص قبل «جاهز»، فلا يختلف الحكمان.
+ */
+export function locateRowsBySite<Row extends { sourceSitePrefix?: string; buildingId?: unknown }>(
+  rows: readonly Row[],
+  buildings: ReadonlyArray<{ id?: unknown; sitePrefix?: string; officialCode?: string }>,
+): Row[] {
+  const byId = new Map(buildings.map(item => [String(item.id), item]));
+  return rows.map(row => {
+    const building = byId.get(String(row?.buildingId || ""));
+    const site = String(building?.sitePrefix || building?.officialCode?.slice(0, 4) || "").toUpperCase() || String(row?.sourceSitePrefix || "").toUpperCase();
+    return site ? { ...row, sourceSitePrefix: site } : row;
+  });
+}
+
+/** جملة الموقع بلا قسم مناظر: رفض النشر وفحص ما قبل «جاهز» يقولانها بالنص نفسه. */
+export const unplacedSiteIssue = (count: string, siteLabel: string) => `${count} في «${siteLabel}» بلا قسم مناظر بالرمز نفسه في هذا الفرع.`;
+
+/** موقع له كلية مسجلة وليس فيها القسم: وحده ما يمكن إنشاؤه؛ والباقي يُبلَّغ ولا يُخمَّن. */
+export function missingSiteSections(
+  unplaced: ReadonlyArray<{ sitePrefix: string; siteLabel: string; rows: readonly unknown[] }>,
+  context: { colleges: readonly BranchCollege[]; sections: readonly BranchSection[]; baseCollegeId: number; baseSectionId: number },
+): Array<{ collegeId: number; siteLabel: string; rows: number }> {
+  const base = context.sections.find(item => Number(item.AdSectionId) === Number(context.baseSectionId));
+  const code = String(base?.AdSectionCode || "").trim();
+  const basePrefix = collegeSitePrefix(context.colleges, context.baseCollegeId);
+  return unplaced.flatMap(entry => {
+    if (!code || branchRootOf(entry.sitePrefix) !== branchRootOf(basePrefix)) return [];
+    const college = context.colleges.find(item => collegeSitePrefix(context.colleges, item.AdCollegeId) === entry.sitePrefix);
+    if (!college) return [];
+    const present = context.sections.some(item => Number(item.AdCollegeId) === Number(college.AdCollegeId) && String(item.AdSectionCode || "").trim() === code);
+    return present ? [] : [{ collegeId: Number(college.AdCollegeId), siteLabel: entry.siteLabel, rows: entry.rows.length }];
+  });
+}

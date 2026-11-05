@@ -1638,8 +1638,8 @@
    ],
    "path": "/api/schedules/import-preflight",
    "name": "bound dispatch",
-   "call": "6aa014dfe05e78cd",
-   "site": "src/server/routes/scheduleImportRoutes.ts:39",
+   "call": "eb99f797ba71a147",
+   "site": "src/server/routes/scheduleImportRoutes.ts:41",
    "regexp": "/^\\/api\\/schedules\\/import-preflight\\/?$/i",
    "end": true
   },
@@ -1651,7 +1651,7 @@
    "path": "/api/schedules/export",
    "name": "bound dispatch",
    "call": "b5d2f234c908c7c0",
-   "site": "src/server/routes/scheduleImportRoutes.ts:109",
+   "site": "src/server/routes/scheduleImportRoutes.ts:117",
    "regexp": "/^\\/api\\/schedules\\/export\\/?$/i",
    "end": true
   },
@@ -1663,7 +1663,7 @@
    "path": "/api/schedules/import",
    "name": "bound dispatch",
    "call": "24b565af6057dab1",
-   "site": "src/server/routes/scheduleImportRoutes.ts:198",
+   "site": "src/server/routes/scheduleImportRoutes.ts:206",
    "regexp": "/^\\/api\\/schedules\\/import\\/?$/i",
    "end": true
   },
@@ -2875,7 +2875,7 @@
    ],
    "path": "/api/intelligence/drafts/:id/publish",
    "name": "bound dispatch",
-   "call": "3a4c1e5ac428c725",
+   "call": "300ec391dd94a9be",
    "site": "src/server/routes/draftsRoutes.ts:209",
    "regexp": "/^\\/api\\/intelligence\\/drafts(?:\\/([^/]+?))\\/publish\\/?$/i",
    "end": true
@@ -2888,7 +2888,7 @@
    "path": "/api/intelligence/versions",
    "name": "bound dispatch",
    "call": "ee9b650fe1e86373",
-   "site": "src/server/routes/draftsRoutes.ts:464",
+   "site": "src/server/routes/draftsRoutes.ts:455",
    "regexp": "/^\\/api\\/intelligence\\/versions\\/?$/i",
    "end": true
   },
@@ -2900,7 +2900,7 @@
    "path": "/api/intelligence/versions/compare",
    "name": "bound dispatch",
    "call": "44a8ef69bc587a7a",
-   "site": "src/server/routes/draftsRoutes.ts:478",
+   "site": "src/server/routes/draftsRoutes.ts:469",
    "regexp": "/^\\/api\\/intelligence\\/versions\\/compare\\/?$/i",
    "end": true
   },
@@ -2912,7 +2912,7 @@
    "path": "/api/intelligence/versions/:id/restore",
    "name": "bound dispatch",
    "call": "1b85abf4fa34a23b",
-   "site": "src/server/routes/draftsRoutes.ts:481",
+   "site": "src/server/routes/draftsRoutes.ts:472",
    "regexp": "/^\\/api\\/intelligence\\/versions(?:\\/([^/]+?))\\/restore\\/?$/i",
    "end": true
   },
@@ -2924,7 +2924,7 @@
    "path": "/api/intelligence/compare-terms",
    "name": "bound dispatch",
    "call": "781fc4cfa434065b",
-   "site": "src/server/routes/draftsRoutes.ts:485",
+   "site": "src/server/routes/draftsRoutes.ts:476",
    "regexp": "/^\\/api\\/intelligence\\/compare-terms\\/?$/i",
    "end": true
   },
@@ -2960,7 +2960,7 @@
    "path": "/api/intelligence/pdf-import/bootstrap-section",
    "name": "bound dispatch",
    "call": "b1f96f35b73a5570",
-   "site": "src/server/routes/pdfImportRoutes.ts:171",
+   "site": "src/server/routes/pdfImportRoutes.ts:172",
    "regexp": "/^\\/api\\/intelligence\\/pdf-import\\/bootstrap-section\\/?$/i",
    "end": true
   },
@@ -2971,8 +2971,8 @@
    ],
    "path": "/api/intelligence/pdf-import/create-courses",
    "name": "bound dispatch",
-   "call": "41222fdd5519becf",
-   "site": "src/server/routes/pdfImportRoutes.ts:215",
+   "call": "49290259da3cfa5a",
+   "site": "src/server/routes/pdfImportRoutes.ts:216",
    "regexp": "/^\\/api\\/intelligence\\/pdf-import\\/create-courses\\/?$/i",
    "end": true
   },
@@ -2983,8 +2983,8 @@
    ],
    "path": "/api/intelligence/pdf-import",
    "name": "bound dispatch",
-   "call": "9abaa7a6ca813dea",
-   "site": "src/server/routes/pdfImportRoutes.ts:241",
+   "call": "342a5ad42de17c82",
+   "site": "src/server/routes/pdfImportRoutes.ts:252",
    "regexp": "/^\\/api\\/intelligence\\/pdf-import\\/?$/i",
    "end": true
   },

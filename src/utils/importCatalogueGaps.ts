@@ -10,7 +10,8 @@ import { academicDigits, authorityCatalogueCourseDigits, authorityForeignCourseK
 
 export type GapCourse = { code: string; name: string; rows: number; credit: number; hours: number };
 export type GapChoice = GapCourse & { candidates: Array<{ AdCourseId: number; code: string; name: string }> };
-export type CatalogueGaps = { courses: GapCourse[]; choices: GapChoice[] };
+export type GapSite = { collegeId: number; siteLabel: string; rows: number };
+export type CatalogueGaps = { courses: GapCourse[]; choices: GapChoice[]; sites?: GapSite[] };
 
 type GapRow = { AdCourseId?: unknown; sourceReadMode?: unknown; sourceCourseCode?: unknown; sourceCourseText?: unknown };
 type GapCatalogue = { AdCourseId?: unknown; CourseCode?: unknown; CourseName?: unknown; CourseCredit?: unknown; CourseHours?: unknown };

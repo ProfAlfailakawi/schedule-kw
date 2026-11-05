@@ -10,13 +10,16 @@ import { AR, countOf } from "../utils/arabicCount";
 
 export type GapDecisions = { create: string[]; link: Record<string, number> };
 
-type Props = { key?: React.Key; gaps: CatalogueGaps; canCreate: boolean; busy: boolean; onConfirm: (decisions: GapDecisions) => void };
+type Props = { key?: React.Key; gaps: CatalogueGaps; canCreate: boolean; canCreateSites: boolean; busy: boolean; onConfirm: (decisions: GapDecisions) => void };
 
-export default function ImportCatalogueGaps({ gaps, canCreate, busy, onConfirm }: Props) {
+export default function ImportCatalogueGaps({ gaps, canCreate, canCreateSites, busy, onConfirm }: Props) {
   const [picked, setPicked] = useState<Record<string, string>>({});
-  if (!gaps.courses.length && !gaps.choices.length) return null;
+  const sites = gaps.sites || [];
+  if (!gaps.courses.length && !gaps.choices.length && !sites.length) return null;
+  const siteKeys = canCreateSites ? sites.map(site => `site:${site.collegeId}`) : [];
+  const courseCodes = canCreate ? [...gaps.courses.map(course => course.code), ...gaps.choices.filter(item => picked[item.code] === "create").map(item => item.code)] : [];
   const decisions: GapDecisions = {
-    create: [...gaps.courses.map(course => course.code), ...gaps.choices.filter(item => picked[item.code] === "create").map(item => item.code)],
+    create: [...siteKeys, ...courseCodes],
     link: Object.fromEntries(gaps.choices.filter(item => Number(picked[item.code]) > 0).map(item => [item.code, Number(picked[item.code])])),
   };
   const pending = gaps.choices.length - Object.keys(picked).length;
@@ -24,6 +27,13 @@ export default function ImportCatalogueGaps({ gaps, canCreate, busy, onConfirm }
   const unknownHours = gaps.courses.filter(course => !course.credit).length;
   return (
     <section className="import-gaps" aria-label="مقررات غير مسجلة في القسم">
+      {sites.length ? <>
+        <h4>مواقع بلا هذا القسم ({sites.length})</h4>
+        <ul>{sites.map(site => (
+          <li key={site.collegeId}><span />{<span>{site.siteLabel}</span>}<small>{countOf(site.rows, AR.row)}</small></li>
+        ))}</ul>
+        {!canCreateSites ? <p role="note">إضافة القسم في الموقع لمدير النظام.</p> : null}
+      </> : null}
       {gaps.courses.length ? <>
         <h4>مقررات غير مسجلة في القسم ({gaps.courses.length})</h4>
         <ul>{gaps.courses.map(course => (
@@ -49,15 +59,15 @@ export default function ImportCatalogueGaps({ gaps, canCreate, busy, onConfirm }
           </fieldset>
         ))}
       </> : null}
-      {canCreate || Object.keys(decisions.link).length ? (
+      {actions ? (
         <footer>
-          <PrimaryButton type="button" data-guide-ignore="إنشاء المقررات الناقصة من ملف الجدول وربط صفوفها بعد التأكيد" disabled={busy || !actions || (!canCreate && !Object.keys(decisions.link).length)} onClick={() => onConfirm(canCreate ? decisions : { create: [], link: decisions.link })}>
-            <Plus aria-hidden="true" />{canCreate ? `إنشاء وربط (${actions})` : `ربط (${Object.keys(decisions.link).length})`}
+          <PrimaryButton type="button" data-guide-ignore="إنشاء المقررات الناقصة من ملف الجدول وربط صفوفها بعد التأكيد" disabled={busy} onClick={() => onConfirm(decisions)}>
+            <Plus aria-hidden="true" />{decisions.create.length ? `إنشاء وربط (${actions})` : `ربط (${actions})`}
           </PrimaryButton>
           {pending > 0 ? <small>بقي اختيار {countOf(pending, AR.course)}.</small> : null}
         </footer>
       ) : null}
-      {!canCreate ? <p role="note">إضافة المقررات تتطلب صلاحية إدارة المقررات.</p> : null}
+      {!canCreate && (gaps.courses.length || gaps.choices.length) ? <p role="note">إضافة المقررات تتطلب صلاحية إدارة المقررات.</p> : null}
     </section>
   );
 }

@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseScheduleTable, type GridRow, type OcrPage } from "../src/utils/documentOcr.ts";
 import { authorityCourseCode, authorityCourseCodeMatches, authorityForeignCourseKey, authorityInheritedCourseMatches, authorityPrintedCourseKey } from "../src/utils/authorityAcademicCodes.ts";
+import { locateRowsBySite, missingSiteSections, splitRowsByBranch } from "../src/utils/branchScope.ts";
 import { catalogueGaps, gapKeyOf, withoutLinkedRowIssues } from "../src/utils/importCatalogueGaps.ts";
 
 let passed = 0;
@@ -66,7 +67,7 @@ await check("the routes keep creation behind confirmation, scope and permission"
   assert.match(route, /const canCreateSections=async[\s\S]{0,160}includes\(4\)/);
   assert.match(route, /const canCreateCourses=async[\s\S]{0,200}includes\(6\)[\s\S]{0,120}committeeCatalogEditAllowed/);
   assert.match(route, /bootstrap-section"[\s\S]{0,800}canCreateSections\(req,collegeId\)/);
-  assert.match(route, /create-courses"[\s\S]{0,600}isScopeAllowed\(req,collegeId,sectionId\)[\s\S]{0,200}canCreateCourses/);
+  assert.match(route, /create-courses"[\s\S]{0,900}isScopeAllowed\(req,collegeId,sectionId\)[\s\S]{0,2500}canCreateCourses/);
   assert.match(route, /receipt\.courses\.filter\(course=>wanted\.has\(course\.code\)\)/, "only what the signed reading proved");
   assert.match(route, /createSectionOnce/);
   assert.match(route, /DuplicateResourceError/);
@@ -85,5 +86,18 @@ await check("every catalogue change re-reads the catalogue explicitly, past the 
   assert.match(screen, /readPdf\(smartFile,activeImportSectionId,dryRunActive,true\)/);
   assert.match(screen, /readPdf\(fix\.file,nextSectionId,undefined,true\)/);
   assert.doesNotMatch(screen, /setDeptCourses\(\[\]\);\s*await readPdf/);
+});
+await check("a site without the department is known before ready, and only a registered college is creatable", () => {
+  const context = { colleges: [{ AdCollegeId: 1, AdCollegeName: "كلية التربية الأساسية - بنات" }, { AdCollegeId: 2, AdCollegeName: "كلية التربية الأساسية - بنات - الجهراء" }], sections: [{ AdSectionId: 9, AdCollegeId: 1, AdSectionCode: "14" }], baseCollegeId: 1, baseSectionId: 9 };
+  const rows = [{ sourceSitePrefix: "012B" }, { sourceSitePrefix: "x", buildingId: "j" }, { sourceSitePrefix: "012F" }];
+  const located = locateRowsBySite(rows as any[], [{ id: "j", sitePrefix: "012J" }]);
+  const split = splitRowsByBranch(located, context);
+  assert.deepEqual(split.unplaced.map(entry => entry.sitePrefix).sort(), ["012F", "012J"]);
+  assert.deepEqual(missingSiteSections(split.unplaced, context).map(site => site.collegeId), [2], "012F has no college: reported, never invented");
+  const after = splitRowsByBranch(located.slice(0, 2), { ...context, sections: [...context.sections, { AdSectionId: 10, AdCollegeId: 2, AdSectionCode: "14" }] });
+  assert.equal(after.unplaced.length, 0, "the created sibling carries the same code, so publishing places it");
+  const preflight = readFileSync("src/server/routes/scheduleImportRoutes.ts", "utf8");
+  assert.match(preflight, /splitRowsByBranch\(locateRowsBySite\(rows/);
+  assert.match(preflight, /unplacedSiteIssue/);
 });
 console.log(`header-department-rule-audit: ${passed} passed`);

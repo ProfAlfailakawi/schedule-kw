@@ -353,7 +353,7 @@ ok('130h the comprehensive report states the department shape; the changes repor
 ok('130i a site outside the reader permissions is named, never silently dropped from the document', 'لم تُدرج مواقع خارج صلاحياتك' in reports_branch and 'denied.push(site.siteLabel)' in reports_branch)
 ok('130j the branch document takes each site whole timetable, never one filtered site beside three complete ones', 'rows: site.isBase ? all :' in reports_branch)
 # A row belongs to the site its OFFICIAL BUILDING names — a field can be lost, a building code cannot.
-ok('130k publishing reads each row site from the confirmed building, never only from a field that an edit can clear', 'const siteOfRow=(row:any)=>{' in server and 'building?.sitePrefix||building?.officialCode?.slice(0,4)' in server and 'splitRowsByBranch(locatedRows,branchContext)' in server)
+ok('130k publishing reads each row site from the confirmed building, never only from a field that an edit can clear', 'locateRowsBySite(publishRows' in server and 'building?.sitePrefix || building?.officialCode?.slice(0, 4)' in (ROOT/'src/utils/branchScope.ts').read_text() and 'splitRowsByBranch(locatedRows,branchContext)' in server)
 ok('130l choosing a building in the preview SETS the site instead of erasing it', 'sourceSitePrefix: String(b?.sitePrefix || b?.officialCode?.slice(0, 4) || "").toUpperCase() || undefined' in (ROOT/'src/components/ImportPreviewTable.tsx').read_text())
 ok('130m a publication spread across sites names every site and its count instead of closing in silence', 'transfer-receipt-scopes' in transfer and 'setPublishReceipt({count:total,scopes})' in transfer and 'data?.scopes' in transfer)
 location_picker=(ROOT/'src/components/LocationPicker.tsx').read_text()
@@ -702,7 +702,7 @@ ok('217 a PDF department mismatch is actionable for root admin: the same file ca
    and 'PDF_DEPARTMENT_AMBIGUOUS' in server
    and 'const resolvePdfDepartment = async () =>' in transfer_src
    and 'إضافة القسم وإعادة الاستيراد' in transfer_src
-   and 'readPdf(fix.file,nextSectionId)' in transfer_src)
+   and 'readPdf(fix.file,nextSectionId,undefined,true)' in transfer_src)
 
 ok('218 resolving the PDF department also moves the live schedule selector, and draft saving uses that effective section rather than the stale original selector',
    'onSectionChange?: (sectionId: number) => void' in transfer_src

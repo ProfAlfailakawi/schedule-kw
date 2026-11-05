@@ -18,10 +18,10 @@ import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { displayInstructorText, instructorIdentityTokens, readableInstructorName, registryCandidatesFor } from "../../utils/instructorIdentity";
 import { ocrDocument, parseScheduleTable, readAuthorityPdfHeader, SCAN_READING_BUSY_MESSAGE, ScanReadingBusyError, GREY_PHOTO_REFUSAL, scanRefusalMessage, unresolvedDaysReason, restoredDaysReason } from "../../utils/documentOcr";
 import { recoverAuthorityScanRowsFromHistory } from "../../utils/authorityScanRecovery";
-import { academicDigits, assignAuthoritySections, authorityCourseCode, authorityDepartmentCode, authorityDepartmentMatches, normalizeAuthoritySectionCode } from "../../utils/authorityAcademicCodes";
+import { academicDigits, assignAuthoritySections, authorityDepartmentCode, authorityDepartmentMatches, normalizeAuthoritySectionCode } from "../../utils/authorityAcademicCodes";
 import { isInvalidLocationToken, resolveAuthorityLocation, resolveRoom } from "../../utils/locationRegistry";
 import { officialCollegeSitePrefix, officialSiteLabel } from "../../utils/locationCollegePrefixes";
-import { resolveBranchScope } from "../../utils/branchScope";
+import { locateRowsBySite, missingSiteSections, resolveBranchScope, splitRowsByBranch, unplacedSiteIssue } from "../../utils/branchScope";
 import { pagesAwaitingReview } from "../../utils/importPageReview";
 import { type AuthenticatedRequest, isPowerUser, requirePermission } from "../core/auth";
 import { documentReadingGate } from "../core/http";
@@ -134,7 +134,8 @@ async function signPdfImportReceipt(payload:PdfImportReceipt){
 /* ── إيصال النواقص: ما أثبته الملف، موقّعاً ───────────────────────────────────
    المقررات التي تُنشأ بعد التأكيد هي ما قرأه الخادم من الملف نفسه، لا ما يرسله
    المتصفح: الرقم والاسم والوحدات داخل التوقيع، والمتصفح يختار منها فقط. */
-type GapsReceipt={v:1;collegeId:number;sectionId:number;termId:number;issuedAt:string;courses:GapCourse[]};
+type GapSite={collegeId:number;siteLabel:string;rows:number;code:string;name:string};
+type GapsReceipt={v:1;collegeId:number;sectionId:number;termId:number;issuedAt:string;courses:GapCourse[];sites?:GapSite[]};
 const GAPS_RECEIPT_TTL_MS=6*60*60*1000;
 async function gapsSignature(body:string){
   return createHmac("sha256",await Repository.getStudentCaseSecret()).update(`pdf-gaps|${body}`).digest("base64url");
@@ -217,10 +218,20 @@ app.post("/api/intelligence/pdf-import/create-courses", requirePermission(7), as
   if(!receipt){res.status(409).json({error:"انتهت صلاحية القراءة. أعد قراءة الملف.",code:"PDF_GAPS_RECEIPT_INVALID"});return;}
   const {collegeId,sectionId}=receipt;
   if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
-  if(!await canCreateCourses(req,collegeId,sectionId)){res.status(403).json({error:"لا تملك صلاحية إضافة المقررات.",code:"PDF_COURSE_CREATE_FORBIDDEN"});return;}
+  const wantedCodes=(Array.isArray(req.body?.codes)?req.body.codes:[]).map((code:unknown)=>String(code));
+  const sites=(receipt.sites||[]).filter(site=>wantedCodes.includes(`site:${site.collegeId}`));
+  for(const site of sites)if(!await canCreateSections(req,site.collegeId)){res.status(403).json({error:"إنشاء الأقسام لمدير النظام.",code:"PDF_DEPARTMENT_CREATE_FORBIDDEN"});return;}
+  for(const site of sites){
+    const once=await Repository.createSectionOnce(site.collegeId,site.code,site.name);
+    if(once.created){
+      console.info(`[pdf-gaps] section ${once.section.AdSectionId} (${site.code}) in college ${site.collegeId} by user ${req.user.SystemUserId}`);
+      try{await ensureSectionFaculty(Repository,site.collegeId,Number(once.section.AdSectionId));}catch(error:any){console.error("[pdf-gaps] faculty placeholder:",error?.stack||error);}
+    }
+  }
+  if(wantedCodes.some(code=>!code.startsWith("site:"))&&!await canCreateCourses(req,collegeId,sectionId)){res.status(403).json({error:"لا تملك صلاحية إضافة المقررات.",code:"PDF_COURSE_CREATE_FORBIDDEN"});return;}
   const section=await Repository.getSectionById(sectionId);
   if(!section||Number(section.AdCollegeId)!==collegeId){res.status(404).json({error:"القسم غير موجود."});return;}
-  const wanted=new Set((Array.isArray(req.body?.codes)?req.body.codes:[]).map((code:unknown)=>String(code)));
+  const wanted=new Set(wantedCodes);
   const chosen=receipt.courses.filter(course=>wanted.has(course.code));
   const created:string[]=[],existing:string[]=[];
   for(const course of chosen){
@@ -501,7 +512,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
        Rebuild the document key from that proven scope so multi-page OCR rescue
        uses the same college-aware identity as the normal row matcher. College
        01 is unchanged because ocrDepartmentKey remains its existing 01xx key. */
-    if(/^\d{7}$/.test(digits)&&/^\d{4}$/.test(ocrDepartmentKey))return authorityCourseCode(digits,ocrDepartmentKey);
+    if(/^\d{7}$/.test(digits)&&/^\d{4}$/.test(ocrDepartmentKey))return digits.slice(2,4)===ocrDepartmentKey.slice(2,4)?`${ocrDepartmentKey}${digits.slice(-3)}`:digits;
     if(/^\d{3}$/.test(digits)&&/^\d{4}$/.test(ocrDepartmentKey))return`${ocrDepartmentKey}${digits}`;
     return"";
   }).filter(Boolean);
@@ -942,6 +953,13 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
     ...parserNotes.filter((issue:string)=>/^تحذير:/.test(String(issue))),
   ])];
   const issues=[...new Set([...blocking,...parserNotes])];
+  /* موقع بلا قسم مناظر يوقف النشر، فيُقال من أول قراءة لا بعد «جاهز». */
+  const siteRegistry=await readLocationRegistry();
+  const branchContext={colleges:colleges as any,sections:sections as any,baseCollegeId:collegeId,baseSectionId:sectionId};
+  const unplacedSites=splitRowsByBranch(locateRowsBySite(rows as any[],siteRegistry.buildings as any[]),branchContext).unplaced;
+  const siteGaps:GapSite[]=missingSiteSections(unplacedSites,branchContext).map(site=>({...site,code:String(targetSection?.AdSectionCode||""),name:String(targetSection?.AdSectionName||"")}));
+  const siteIssues=unplacedSites.map(entry=>unplacedSiteIssue(countOf(entry.rows.length,AR.row),entry.siteLabel));
+  blocking.unshift(...siteIssues);issues.unshift(...siteIssues);
   const reviewPages=pagesAwaitingReview(recognized.pageDiagnostics,[]);
   const importReceipt=await signPdfImportReceipt({
     v:1,collegeId,sectionId,termId,issuedAt:new Date().toISOString(),
@@ -954,7 +972,8 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
   const gapTemplates=(allCourses as any[]).filter(course=>Number(course.AdCollegeId)===collegeId||familyIds.has(Number(course.AdSectionId)));
   const gaps=catalogueGaps(rows as any[],courses,documentDepartmentCode,gapTemplates);
   const creatable=[...gaps.courses,...gaps.choices].map(({code,name,rows:count,credit,hours})=>({code,name,rows:count,credit,hours}));
-  const gapsReceipt=creatable.length?await signGapsReceipt({v:1,collegeId,sectionId,termId,issuedAt:new Date().toISOString(),courses:creatable}):undefined;
+  const gapsReceipt=creatable.length||siteGaps.length?await signGapsReceipt({v:1,collegeId,sectionId,termId,issuedAt:new Date().toISOString(),courses:creatable,sites:siteGaps}):undefined;
+  const mayCreateSites=siteGaps.length?await canCreateSections(req,collegeId):false;
   const mayCreateCourses=creatable.length?await canCreateCourses(req,collegeId,sectionId):false;
   const evidenceFields=["course","section","days","time","instructor","building","room"];
   let confirmedCells=0,derivedCells=0,reviewCells=0,readyRows=0;
@@ -1007,7 +1026,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
     pageDiagnostics:recognized.pageDiagnostics,
     suspiciousExtraction:recognized.suspiciousExtraction,
     importReceipt,
-    catalogueGaps:gaps,gapsReceipt,canCreateCourses:mayCreateCourses,
+    catalogueGaps:{...gaps,sites:siteGaps},gapsReceipt,canCreateCourses:mayCreateCourses,canCreateSites:mayCreateSites,
     dryRun,
     headerBranch:headerPreflight.branch||recognized.headerBranch||undefined,
     headerDepartment:headerPreflight.department||recognized.headerDepartment||undefined,
