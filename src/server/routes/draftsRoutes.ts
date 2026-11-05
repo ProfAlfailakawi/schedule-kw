@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { authorityCourseSnapshot } from "../../utils/authorityAcademicCodes";
 import { draftAppointmentChecks, isGenesisDraft, mergeRowIssues } from "../core/draftChecks";
 import type { Express } from "express";
 import { compareIntelligenceTerms } from "../../utils/intelligenceReadingScope";
@@ -436,7 +437,12 @@ app.post("/api/intelligence/drafts/:id/publish", requirePermission(7), async (re
   let publication:any=null;
   const publishedScopes:Array<{siteLabel:string;count:number}>=[];
   for(const group of groups){
-    const rows=await Repository.replaceScheduleScope(group.scope.collegeId,group.scope.sectionId,draft.AdTermId,group.rows);
+    /* صف رُبط برقم مطبوع برمز آخر يحفظ رقمه المطبوع، فتطبعه التقارير كما طبعته الهيئة. */
+    const printedRows=group.rows.map((row:any)=>{
+      const snapshot=authorityCourseSnapshot(row.sourceCourseCode,courseByIdForPublish.get(Number(row.AdCourseId))?.CourseCode);
+      return snapshot?{...row,CourseCodeSnapshot:snapshot}:row;
+    });
+    const rows=await Repository.replaceScheduleScope(group.scope.collegeId,group.scope.sectionId,draft.AdTermId,printedRows);
     await recordVersionAfter(publishVersions.get(group),rows as any[]);
     /* وكلُّ موقعٍ يُبلَّغ عن نشره: جدولٌ مقبولٌ يعود جولةً جديدة، وصفٌّ يصل
        بعد توقيع رئيس القسم ينتظر إقراره — في موقعه هو، لا في موقع المسودة. */

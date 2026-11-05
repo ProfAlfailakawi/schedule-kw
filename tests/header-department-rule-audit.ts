@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseScheduleTable, type GridRow, type OcrPage } from "../src/utils/documentOcr.ts";
-import { authorityCourseCode, authorityCourseCodeMatches, authorityForeignCourseKey, authorityInheritedCourseMatches, authorityPrintedCourseKey } from "../src/utils/authorityAcademicCodes.ts";
+import { authorityCourseCode, authorityCourseSnapshot, authorityCourseCodeMatches, authorityForeignCourseKey, authorityInheritedCourseMatches, authorityPrintedCourseKey } from "../src/utils/authorityAcademicCodes.ts";
 import { locateRowsBySite, missingSiteSections, splitRowsByBranch } from "../src/utils/branchScope.ts";
 import { catalogueGaps, gapKeyOf, withoutLinkedRowIssues } from "../src/utils/importCatalogueGaps.ts";
 
@@ -45,12 +45,21 @@ await check("the same name links; a wrong name never does and asks", () => {
   assert.equal(gaps.courses.length, 0);
   assert.deepEqual(gaps.choices.map(item => [item.code, item.name, item.candidates[0].AdCourseId]), [["0114324", "رياضيات متقدمة", 7]]);
 });
-await check("a missing course is listed once, with its printed number and name, and credit from the same key", () => {
-  const rows = parse([grid("0114200", "تطبيق ميداني"), grid("0114200", "تطبيق ميداني"), grid("013099", "بديل")], "0130", []);
-  const gaps = catalogueGaps(rows, [], "0130", [{ AdCourseId: 9, CourseCode: "114200", CourseName: "كتالوج", CourseCredit: 4, CourseHours: 6 }]);
-  const course = gaps.courses.find(item => item.code === "0114200");
-  assert.deepEqual([course?.name, course?.rows, course?.credit, course?.hours], ["تطبيق ميداني", 2, 4, 6]);
-  assert.equal(gaps.courses.find(item => item.code === "0130099")?.credit, 0, "what no source proves stays zero, never guessed");
+await check("a created course takes its details from the whole catalogue, in every code shape, behind the name check", () => {
+  const score = (a: string, b: string) => (a === b ? 1 : 0);
+  const rows = parse([grid("0114200", "تطبيق ميداني"), grid("0114200", "تطبيق ميداني"), grid("0114201", "مقرر اول"), grid("0114202", "مقرر ثان"), grid("0114203", "بلا اصل")], "0130", []);
+  const templates = [
+    { CourseCode: "114200", CourseName: "تطبيق ميداني", CourseCredit: 4, CourseHours: 6 },
+    { CourseCode: "201", CourseName: "مقرر اول", CourseCredit: 2, CourseHours: 3 },
+    { CourseCode: "202", CourseName: "اسم مختلف", CourseCredit: 9, CourseHours: 9 },
+    { CourseCode: "0114203", CourseName: "مقرر غيره", CourseCredit: 9, CourseHours: 9 },
+  ];
+  const by = Object.fromEntries(catalogueGaps(rows, [], "0130", templates, score).courses.map(item => [item.code, item]));
+  assert.deepEqual([by["0114200"].rows, by["0114200"].credit, by["0114200"].hours], [2, 4, 6]);
+  assert.equal(by["0114201"].credit, 2, "a short row with the matching name");
+  assert.equal(by["0114202"].credit, 0, "the tail alone is no source");
+  assert.equal(by["0114203"].credit, 0, "nor is a full key under another name");
+  assert.equal(by["0114203"].name, "بلا اصل");
 });
 await check("after creation the same file links by its full key, and reports keep the printed number", () => {
   const rows = parse([grid("0114200", "تطبيق ميداني")], "0121", [{ id: 20, code: "0114200", name: "تطبيق ميداني" }]);
@@ -99,5 +108,22 @@ await check("a site without the department is known before ready, and only a reg
   const preflight = readFileSync("src/server/routes/scheduleImportRoutes.ts", "utf8");
   assert.match(preflight, /splitRowsByBranch\(locateRowsBySite\(rows/);
   assert.match(preflight, /unplacedSiteIssue/);
+});
+await check("an auto-linked row keeps its printed number for the reports", () => {
+  const snapshot = authorityCourseSnapshot("0114101", "101");
+  assert.equal(snapshot, "0114101");
+  assert.equal(authorityCourseCode(snapshot, "0121"), "0114101");
+  assert.equal(authorityCourseSnapshot("0121101", "101"), "0121101");
+  assert.equal(authorityCourseCode(authorityCourseSnapshot("0121101", "101"), "0121"), "0121101");
+  assert.equal(authorityCourseSnapshot("", "101"), "101");
+  assert.equal(authorityCourseSnapshot("0114102", "101"), "101", "another tail never replaces the catalogue code");
+  assert.equal(authorityCourseSnapshot("0114101", "0120101"), "0120101", "a full key stays");
+});
+await check("department creation stays with system admins, with a clear message for everyone else", () => {
+  const route = readFileSync("src/server/routes/pdfImportRoutes.ts", "utf8");
+  assert.match(route, /const canCreateSections=async[\s\S]{0,120}isPowerUser\(req\)&&\(await grantedForms\(req\)\)\.includes\(4\)/);
+  assert.match(route, /وإضافته لمدير النظام/);
+  assert.match(route, /const canBootstrapSection=mayCreateSections&&/);
+  assert.match(readFileSync("src/server/routes/referenceRoutes.ts", "utf8"), /createSectionOnce\(collegeId, AdSectionCode/);
 });
 console.log(`header-department-rule-audit: ${passed} passed`);

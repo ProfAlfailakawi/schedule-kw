@@ -3392,6 +3392,9 @@ export const Repository = {
     name = normalizeArabicText(name);
     invalidateReference(REFERENCE_KEYS.sections);
     if (firestoreDb && !demoSandboxContext.getStore()) {
+      /* قسم أقدم من الحجز لا سند له: يُعرف بالقراءة، والحجز يحسم ما بعدها. */
+      const legacy = (await Repository.getSectionsByCollege(collegeId)).find(s => String(s.AdSectionCode) === code);
+      if (legacy) return { section: legacy, created: false };
       const nextId = await reserveFirestoreIds("sections");
       const newSec = { AdSectionId: nextId, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name };
       const claimRef = firestoreDb.collection("sectionCodeClaims").doc(`${collegeId}_${encodeURIComponent(code)}`);

@@ -33,15 +33,38 @@ export function withoutLinkedRowIssues<T>(issues: readonly T[], linkedLines: Rea
   });
 }
 
+type NameScore = (printed: string, catalogueName: string) => number;
+export const GAP_NAME_MIN = .7;
+
+/**
+ * أصل المقرر في الكتالوج كله، بأشكال رقمه الثلاثة: 0114101 و114101 و101. الاسم شرط في
+ * كلها، حتى المفتاح الكامل: الرقم لا يكفي وحده. يُقدَّم المفتاح الكامل على الذيل، ثم الأعلى
+ * اسماً، ثم الأكثر تكراراً؛ وصف بلا وحدات ليس مصدراً.
+ */
+export function catalogueOrigin(code: string, printedName: string, templates: readonly GapCatalogue[], nameScore: NameScore): GapCatalogue | undefined {
+  const tail = code.slice(-3);
+  const scored = templates.flatMap(course => {
+    const digits = authorityCatalogueCourseDigits(course.CourseCode);
+    const exact = digits === code, short = digits.length <= 3 && digits.padStart(3, "0") === tail;
+    if ((!exact && !short) || !(Number(course.CourseCredit) > 0)) return [];
+    const score = nameScore(printedName, String(course.CourseName || ""));
+    return score >= GAP_NAME_MIN ? [{ course, exact, score }] : [];
+  });
+  const shape = (item: { course: GapCatalogue }) => `${item.course.CourseCredit}|${item.course.CourseHours}`;
+  const votes = new Map<string, number>();
+  for (const item of scored) votes.set(shape(item), (votes.get(shape(item)) || 0) + 1);
+  return scored.sort((a, b) => Number(b.exact) - Number(a.exact) || b.score - a.score || votes.get(shape(b))! - votes.get(shape(a))!)[0]?.course;
+}
+
 /** طبقة نص الهيئة تعكس الأقواس في العربية: «طرق تدريس )علوم(». */
-const printedCourseName = (value: unknown) => String(value || "").replace(/\)([^()]*)\(/g, "($1)").replace(/\s+/g, " ").trim();
+export const printedCourseName = (value: unknown) => String(value || "").replace(/\)([^()]*)\(/g, "($1)").replace(/\s+/g, " ").trim();
 
 /**
  * @param courses مقررات قسم الرأس.
- * @param templates مقررات الكلية وعائلتها: منها الوحدات والساعات إن وُجد المفتاح نفسه.
- * الهيئة لا تطبعهما، فما لا مصدر له يبقى صفراً ويراه المستخدم في الملخص.
+ * @param templates الكتالوج كله، كل كلية وفرع: منه الوحدات والساعات والاسم (قرار المالك).
+ * الهيئة لا تطبعهما، فما لا مصدر له في الجامعة كلها يبقى صفراً ويراه المستخدم في الملخص.
  */
-export function catalogueGaps(rows: readonly GapRow[], courses: readonly GapCatalogue[], departmentCode: string, templates: readonly GapCatalogue[] = []): CatalogueGaps {
+export function catalogueGaps(rows: readonly GapRow[], courses: readonly GapCatalogue[], departmentCode: string, templates: readonly GapCatalogue[] = [], nameScore: NameScore = () => 0): CatalogueGaps {
   const department = academicDigits(departmentCode);
   const ownTails = new Set(rows.map(row => academicDigits(row.sourceCourseCode))
     .filter(code => code.length === 7 && code.startsWith(department)).map(code => code.slice(-3)));
@@ -56,8 +79,8 @@ export function catalogueGaps(rows: readonly GapRow[], courses: readonly GapCata
   const gaps: CatalogueGaps = { courses: [], choices: [] };
   for (const [code, group] of groups) {
     const tail = code.slice(-3);
-    const template = templates.find(course => authorityCatalogueCourseDigits(course.CourseCode) === code);
-    const printed = { code, ...group, credit: Number(template?.CourseCredit) || 0, hours: Number(template?.CourseHours) || 0 };
+    const origin = catalogueOrigin(code, group.name, templates, nameScore);
+    const printed = { code, ...group, name: String(origin?.CourseName || "").trim() || group.name, credit: Number(origin?.CourseCredit) || 0, hours: Number(origin?.CourseHours) || 0 };
     const sameTail = courses.filter(course => {
       const digits = authorityCatalogueCourseDigits(course.CourseCode);
       return digits.length <= 3 ? digits.padStart(3, "0") === tail : digits === `${department}${tail}`;

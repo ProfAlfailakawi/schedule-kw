@@ -126,6 +126,16 @@ export function authorityInheritedCourseMatches(sourceCode: unknown, catalogueCo
   return source.slice(-3) === course.padStart(3, "0");
 }
 
+/**
+ * رقم المقرر في لقطة الصف: صف رُبط برقم مطبوع برمز آخر (0114101 على كتالوج «101») يُحفظ
+ * برقمه المطبوع، فتطبعه التقارير كما طبعته الهيئة. وما عداه رمز الكتالوج كما هو.
+ */
+export function authorityCourseSnapshot(sourceCode: unknown, catalogueCourseCode: unknown): string {
+  const stored = String(catalogueCourseCode ?? "");
+  const source = academicDigits(sourceCode), course = authorityCatalogueCourseDigits(stored);
+  return source.length === 7 && course && course.length <= 3 && source.slice(-3) === course.padStart(3, "0") ? source : stored;
+}
+
 /** Compare a document department key to the current catalogue scope. */
 export function authorityDepartmentMatches(sourceCode: unknown, collegeCode: unknown, sectionCode: unknown): boolean {
   const source = academicDigits(sourceCode);

@@ -16,7 +16,7 @@ import { ensureSectionFaculty } from "../sectionFaculty";
 import type { MasterBuilding, MasterRoom } from "../../types";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { displayInstructorText, instructorIdentityTokens, readableInstructorName, registryCandidatesFor } from "../../utils/instructorIdentity";
-import { ocrDocument, parseScheduleTable, readAuthorityPdfHeader, SCAN_READING_BUSY_MESSAGE, ScanReadingBusyError, GREY_PHOTO_REFUSAL, scanRefusalMessage, unresolvedDaysReason, restoredDaysReason } from "../../utils/documentOcr";
+import { authorityCourseNameScore, ocrDocument, parseScheduleTable, readAuthorityPdfHeader, SCAN_READING_BUSY_MESSAGE, ScanReadingBusyError, GREY_PHOTO_REFUSAL, scanRefusalMessage, unresolvedDaysReason, restoredDaysReason } from "../../utils/documentOcr";
 import { recoverAuthorityScanRowsFromHistory } from "../../utils/authorityScanRecovery";
 import { academicDigits, assignAuthoritySections, authorityDepartmentCode, authorityDepartmentMatches, normalizeAuthoritySectionCode } from "../../utils/authorityAcademicCodes";
 import { isInvalidLocationToken, resolveAuthorityLocation, resolveRoom } from "../../utils/locationRegistry";
@@ -29,7 +29,6 @@ import { invalidateLocationRegistry, readLocationRegistry } from "../core/locati
 import { academicSectionNameMatches, foldHeaderIdentity } from "../core/ordering";
 import { isScopeAllowed } from "../core/scope";
 import { catalogueGaps, type GapCourse } from "../../utils/importCatalogueGaps";
-import { departmentFamily } from "../../utils/sectionLabel";
 import { normalizeArabicText } from "../../utils/arabicText";
 import { committeeCatalogEditAllowed } from "./coursesRoutes";
 import { branchOwnScopes, collegeFallbackInstructorIds, departmentInstructorIdSet, type PdfImportReceipt, placeholderInstructorIds, safeDraftRows, smartContextFrom, validateSmartRows, visitingToFacultyPlan } from "../core/smartImport";
@@ -968,9 +967,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
     ...(dryRun?{replaceFilled:true}:{}),
   });
   /* النواقص ملخصٌ يُؤكَّد لا كتابة: لا مقرر يُنشأ من القراءة نفسها (ولا من «تجربة بلا حفظ»). */
-  const familyIds=new Set(departmentFamily(sections as any,collegeId,sectionId).map(item=>item.sectionId));
-  const gapTemplates=(allCourses as any[]).filter(course=>Number(course.AdCollegeId)===collegeId||familyIds.has(Number(course.AdSectionId)));
-  const gaps=catalogueGaps(rows as any[],courses,documentDepartmentCode,gapTemplates);
+  const gaps=catalogueGaps(rows as any[],courses,documentDepartmentCode,allCourses as any[],(printed,name)=>authorityCourseNameScore(printed,name,true));
   const creatable=[...gaps.courses,...gaps.choices].map(({code,name,rows:count,credit,hours})=>({code,name,rows:count,credit,hours}));
   const gapsReceipt=creatable.length||siteGaps.length?await signGapsReceipt({v:1,collegeId,sectionId,termId,issuedAt:new Date().toISOString(),courses:creatable,sites:siteGaps}):undefined;
   const mayCreateSites=siteGaps.length?await canCreateSections(req,collegeId):false;
