@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { authorityCourseSnapshot } from "../../utils/authorityAcademicCodes";
 import { draftAppointmentChecks, isGenesisDraft, mergeRowIssues } from "../core/draftChecks";
 import type { Express } from "express";
 import { compareIntelligenceTerms } from "../../utils/intelligenceReadingScope";
@@ -18,7 +19,7 @@ import { blockingConflicts } from "../../utils/scheduleBlockers";
 import { AR, countOf } from "../../utils/arabicCount";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { academicDigits, assignAuthoritySections, withoutImportEvidence } from "../../utils/authorityAcademicCodes";
-import { splitRowsByBranch, type BranchScope } from "../../utils/branchScope";
+import { locateRowsBySite, splitRowsByBranch, unplacedSiteIssue, type BranchScope } from "../../utils/branchScope";
 import { pageReviewWaitLine, unconfirmedReviewPages } from "../../utils/importPageReview";
 import { noteScheduleMutation, scheduleLockRefusal, wholesaleRefusal } from "../core/approvals";
 import { type AuthenticatedRequest, requirePermission, requirePowerAdmin } from "../core/auth";
@@ -302,22 +303,13 @@ app.post("/api/intelligence/drafts/:id/publish", requirePermission(7), async (re
    * فيختفي جدول الجهراء داخل جدول الرئيسي. والحقيقة لا تحتاج ذلك الحقل
    * أصلاً: المبنى الرسمي المثبت في الصف يحمل موقعه في كوده (012J14 ⇦ 012J).
    * فتُشتق من السجل أولاً، ولا يُرجع إلى الحقل إلا حين لا يكون هناك مبنى. */
-  const buildingById=new Map(publishRegistry.buildings.map((item:any)=>[String(item.id),item]));
-  const siteOfRow=(row:any)=>{
-    const building=buildingById.get(String(row?.buildingId||""));
-    const official=String(building?.sitePrefix||building?.officialCode?.slice(0,4)||"").toUpperCase();
-    return official||String(row?.sourceSitePrefix||"").toUpperCase();
-  };
-  const locatedRows=(publishRows as any[]).map(row=>{
-    const site=siteOfRow(row);
-    return site?{...row,sourceSitePrefix:site}:row;
-  });
+  const locatedRows=locateRowsBySite(publishRows as any[],publishRegistry.buildings as any[]);
   const split=splitRowsByBranch(locatedRows,branchContext);
   if(split.unplaced.length){
     res.status(400).json({
       error:"تعذّر تحديد القسم الذي تنتمي إليه بعض الصفوف بحسب موقع المبنى؛ لم يُنشر أي صف.",
       code:"BRANCH_SCOPE_UNRESOLVED",
-      issues:split.unplaced.map(entry=>`${countOf(entry.rows.length,AR.row)} في «${entry.siteLabel}» بلا قسم مناظر بالرمز نفسه في هذا الفرع.`),
+      issues:split.unplaced.map(entry=>unplacedSiteIssue(countOf(entry.rows.length,AR.row),entry.siteLabel)),
     });return;
   }
 
@@ -445,7 +437,12 @@ app.post("/api/intelligence/drafts/:id/publish", requirePermission(7), async (re
   let publication:any=null;
   const publishedScopes:Array<{siteLabel:string;count:number}>=[];
   for(const group of groups){
-    const rows=await Repository.replaceScheduleScope(group.scope.collegeId,group.scope.sectionId,draft.AdTermId,group.rows);
+    /* صف رُبط برقم مطبوع برمز آخر يحفظ رقمه المطبوع، فتطبعه التقارير كما طبعته الهيئة. */
+    const printedRows=group.rows.map((row:any)=>{
+      const snapshot=authorityCourseSnapshot(row.sourceCourseCode,courseByIdForPublish.get(Number(row.AdCourseId))?.CourseCode);
+      return snapshot?{...row,CourseCodeSnapshot:snapshot}:row;
+    });
+    const rows=await Repository.replaceScheduleScope(group.scope.collegeId,group.scope.sectionId,draft.AdTermId,printedRows);
     await recordVersionAfter(publishVersions.get(group),rows as any[]);
     /* وكلُّ موقعٍ يُبلَّغ عن نشره: جدولٌ مقبولٌ يعود جولةً جديدة، وصفٌّ يصل
        بعد توقيع رئيس القسم ينتظر إقراره — في موقعه هو، لا في موقع المسودة. */

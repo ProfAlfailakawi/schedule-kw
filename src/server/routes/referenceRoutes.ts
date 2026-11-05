@@ -319,7 +319,8 @@ app.post("/api/sections", requirePermission(4), async (req: AuthenticatedRequest
     res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
     return;
   }
-  const newSec = await Repository.createSection(collegeId, AdSectionCode, AdSectionName);
+  const { section: newSec, created } = await Repository.createSectionOnce(collegeId, AdSectionCode, AdSectionName);
+  if (!created) { res.status(400).json({ error: "رمز القسم مسجل في هذه الكلية" }); return; }
   /* القسم الجديد يولد بسجل «هيئة تدريسية»؛ وتعثّره لا يُسقط القسم، فيُعاد عند أول استيراد. */
   try { await ensureSectionFaculty(Repository, collegeId, Number(newSec.AdSectionId)); } catch (error: any) { console.error("[sections] faculty placeholder:", error?.stack || error); }
   res.status(201).json(newSec);

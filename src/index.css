@@ -213,3 +213,15 @@
 
 /* الفصل الوحيد قيمة ثابتة، والمنتقي يظهر عند وجود بدائل. */
 .term-static-value{display:flex;align-items:center;min-height:44px;width:100%;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-sm,12px);background:var(--surface);color:var(--ink);font:inherit;line-height:1.6;overflow-wrap:anywhere}.term-static-value:empty{display:none}
+
+/* ملخص ما ينقص كتالوج القسم من ملف الهيئة */
+.import-gaps { grid-column: 1 / -1; display: grid; gap: 8px; margin: 10px 0; padding: 12px; border: 1px solid var(--line, #d7dde5); border-radius: 8px; background: var(--surface, #fff); }
+.import-gaps h4 { margin: 0; font-size: 14px; }
+.import-gaps ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: 220px; overflow-y: auto; }
+.import-gaps li { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; font-size: 13px; }
+.import-gaps li small, .import-gaps footer small, .import-gaps p { color: var(--muted, #5b6675); font-size: 12px; margin: 0; }
+.import-gaps fieldset { display: grid; gap: 4px; margin: 0; padding: 8px; border: 1px solid var(--line, #d7dde5); border-radius: 6px; min-width: 0; }
+.import-gaps legend { padding: 0 4px; font-size: 13px; font-weight: 600; }
+.import-gaps label { display: flex; gap: 6px; align-items: baseline; font-size: 13px; overflow-wrap: anywhere; min-height: 28px; }
+.import-gaps footer { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.transfer-preview .import-gaps { width: 100%; max-width: none; justify-self: stretch; }

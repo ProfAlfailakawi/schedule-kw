@@ -92,7 +92,7 @@ async function curriculumArchiveReadiness(sectionId:number,planId:string){
 }
 
 /** Committee corrections are available only while its own curriculum is a draft awaiting review. */
-async function committeeCatalogEditAllowed(req: AuthenticatedRequest, sectionId: number): Promise<boolean> {
+export async function committeeCatalogEditAllowed(req: AuthenticatedRequest, sectionId: number): Promise<boolean> {
   /* مدير النظام لا يُقيَّد بنافذة المراجعة: قيدُها لرؤساء اللجان. وحسابُه بلا دورٍ محدّد يقع افتراضياً
      على «رئيس لجنة الجدول»، فكان يُمنع من تعديل المقررات خارج المراجعة كأنه رئيس لجنة. */
   if (req.user?.IsAdminUser) return true;

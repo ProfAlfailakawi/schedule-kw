@@ -116,6 +116,7 @@
     "test:feature-notifications": "tsx tests/feature-notifications-audit.ts",
     "test:authority-course-prefix": "tsx tests/authority-course-prefix-audit.ts",
     "test:undo-travel-rule": "tsx tests/undo-travel-rule-audit.ts",
+    "test:header-department-rule": "tsx tests/header-department-rule-audit.ts",
     "test:demo-radar": "tsx tests/demo-radar-audit.ts",
     "test:demo-firestore-isolation": "tsx tests/demo-firestore-isolation-audit.ts",
     "test:term-forecast": "tsx tests/term-forecast-audit.ts",

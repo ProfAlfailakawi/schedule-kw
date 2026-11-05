@@ -862,7 +862,7 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
   const courseNumberOf = (s: any) => {
     const course = courseById.get(s.AdCourseId);
     const owner = sectionById.get(Number(course?.AdSectionId || s.AdSectionId));
-    return authorityCourseCode(course?.CourseCode, authorityDepartmentCode(collegeById.get(Number(owner?.AdCollegeId))?.AdCollegeCode, owner?.AdSectionCode));
+    return authorityCourseCode(s.CourseCodeSnapshot || course?.CourseCode, authorityDepartmentCode(collegeById.get(Number(owner?.AdCollegeId))?.AdCollegeCode, owner?.AdSectionCode));
   };
 
   // These two read through a relation, so they wait for the maps above.

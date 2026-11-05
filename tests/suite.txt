@@ -243,3 +243,4 @@ test:publish-notes-r4
 test:owner-hours-rule
 test:authority-course-prefix
 test:undo-travel-rule
+test:header-department-rule
