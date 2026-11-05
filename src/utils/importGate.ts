@@ -41,8 +41,11 @@ export function importGateState(input: ImportGateInput): ImportGateState {
 /** ما دامت النتيجة لم تُعلن، لا تُرسم علامة نجاح في أي موضع. */
 export const importGateSettled = (state: ImportGateState) => state.kind !== "checking" && state.kind !== "unverified";
 
-/** توقيعُ ما يقرؤه فحص البوابة من كل صف: تغيّرٌ آخر (دليل، ترقيم) لا يعيد الفحص. */
+/** توقيعُ ما يقرؤه فحص البوابة من كل صف، ودليلُه الذي يحكم به الحفظ: تغيّرٌ آخر لا يعيد الفحص. */
 export const importRowsSignature = (rows: any[]) => JSON.stringify(rows.map(row => [
   row.AdCourseId, row.SCode, row.AdInstructorId, row.roomId || row.AdRoomHall, row.buildingId || row.AdRoomCode,
   row.fstarttime, row.fendtime, row.fsunday, row.fmonday, row.ftuesday, row.fwednesday, row.fthursday,
+  /* وما يقرؤه الحفظ من الدليل: «تثبيت» يغيّر مصدر الأستاذ لا رقمه، فيزول الرفض ولا بد من إعادة الفحص. */
+  row.importEvidence?.instructor?.source, row.importEvidence?.instructor?.method, Boolean(row.importEvidence?.section),
+  row.sourceSectionText, row.locationStatus, row.companionRoomId,
 ]));

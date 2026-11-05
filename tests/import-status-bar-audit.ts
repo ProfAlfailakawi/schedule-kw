@@ -44,6 +44,11 @@ check(Object.keys(answer.notes).length === 2, "3.3 الملاحظات على خ�
 check(importRowsSignature(rows) === importRowsSignature(rows.map(row => ({ ...row, importEvidence: { x: 1 } }))), "3.4 دليل الصف لا يعيد الفحص");
 check(importRowsSignature(rows) !== importRowsSignature([{ ...rows[0], fstarttime: "08:00" }, rows[1]]), "3.5 تغيّر الوقت يعيد الفحص");
 
+const manual = [{ ...rows[0], importEvidence: { instructor: { source: "MANUAL" } } }, rows[1]];
+check(importRowsSignature(rows) !== importRowsSignature(manual), "3.6 «تثبيت» يغيّر المصدر لا الرقم، فيُعاد الفحص");
+check(importRowsSignature(rows) !== importRowsSignature([{ ...rows[0], importEvidence: { instructor: { method: "EXACT_FULL" } } }, rows[1]]), "3.7 برهان الاسم الكامل يعيد الفحص");
+check(importRowsSignature(rows) !== importRowsSignature([{ ...rows[0], locationStatus: "PENDING_ROOM" }, rows[1]]), "3.8 «بانتظار التثبيت» يعيد الفحص");
+
 /* 4) الوصل في المصدر. */
 const transfer = read("src/components/ScheduleTransfer.tsx");
 const dry = read("src/components/ImportDryRun.tsx");
