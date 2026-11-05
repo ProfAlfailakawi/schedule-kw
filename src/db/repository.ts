@@ -3384,6 +3384,39 @@ export const Repository = {
     return newSec;
   },
 
+  /**
+   * قسمٌ من ترويسة ملف: طلبان متزامنان للرمز نفسه في الكلية لا يُنشئان قسمين. يُحجز
+   * الرمز في المعاملة التي تكتب القسم، كما يُحجز رمز المقرر، ويُعاد القسم القائم.
+   */
+  createSectionOnce: async (collegeId: number, code: string, name: string): Promise<{ section: AdSection; created: boolean }> => {
+    name = normalizeArabicText(name);
+    invalidateReference(REFERENCE_KEYS.sections);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      /* قسم أقدم من الحجز لا سند له: يُعرف بالقراءة، والحجز يحسم ما بعدها. */
+      const legacy = (await Repository.getSectionsByCollege(collegeId)).find(s => String(s.AdSectionCode) === code);
+      if (legacy) return { section: legacy, created: false };
+      const nextId = await reserveFirestoreIds("sections");
+      const newSec = { AdSectionId: nextId, AdCollegeId: collegeId, AdSectionCode: code, AdSectionName: name };
+      const claimRef = firestoreDb.collection("sectionCodeClaims").doc(`${collegeId}_${encodeURIComponent(code)}`);
+      const sectionRef = firestoreDb.collection("sections").doc(`section_${nextId}`);
+      const result = await firestoreDb.runTransaction(async transaction => {
+        const claim = await transaction.get(claimRef);
+        const ownerId = Number(claim.data()?.AdSectionId || 0);
+        const owner = ownerId ? await transaction.get(firestoreDb!.collection("sections").doc(`section_${ownerId}`)) : null;
+        const ownerData = owner?.exists ? owner.data() as AdSection : null;
+        if (ownerData && Number(ownerData.AdCollegeId) === collegeId && ownerData.AdSectionCode === code) return { section: ownerData, created: false };
+        transaction.set(claimRef, { AdCollegeId: collegeId, AdSectionCode: code, AdSectionId: nextId });
+        transaction.set(sectionRef, newSec);
+        return { section: newSec, created: true };
+      });
+      invalidateScheduleRelationCache();
+      return result;
+    }
+    const existing = db.sections.find(s => s.AdCollegeId === collegeId && s.AdSectionCode === code);
+    if (existing) return { section: existing, created: false };
+    return { section: await Repository.createSection(collegeId, code, name), created: true };
+  },
+
   updateSection: async (id: number, collegeId: number, code: string, name: string): Promise<AdSection> => {
     invalidateReference(REFERENCE_KEYS.sections);
     if (firestoreDb && !demoSandboxContext.getStore()) {

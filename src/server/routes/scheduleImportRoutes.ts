@@ -17,6 +17,8 @@ import { resolveBuilding, resolveRoom } from "../../utils/locationRegistry";
 import { noteScheduleMutation, scheduleLockRefusal, wholesaleRefusal } from "../core/approvals";
 import { type AuthenticatedRequest, requirePermission } from "../core/auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
+import { locateRowsBySite, splitRowsByBranch, unplacedSiteIssue } from "../../utils/branchScope";
+import { AR, countOf } from "../../utils/arabicCount";
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { approvalBlockerOptions, blockingImportConflicts, branchOwnScopes, placeholderInstructorIds, safeDraftRows, validateSmartRows, visitingToFacultyPlan } from "../core/smartImport";
@@ -51,6 +53,12 @@ app.post("/api/schedules/import-preflight", requirePermission(7), async (req: Au
      فلا يقول الشريط «جاهز» لجدولٍ سيُرفض بعد الضغط. عميلٌ قديم بلا importLayout لا يُطلب منه. */
   const importLayout=req.body?.importLayout==="authority-pdf"?"authority-pdf":req.body?.importLayout==="worksheet"?"worksheet":undefined;
   const issues=importLayout?await validateSmartRows(rows.map(row=>({...row})),collegeId,sectionId,{checkConflicts:false,requireDepartmentInstructor:importLayout==="authority-pdf"}):[];
+  /* ما يوقف النشر بالموقع يوقف «جاهز» قبله (BRANCH_SCOPE_UNRESOLVED في draftsRoutes). */
+  if(importLayout==="authority-pdf"){
+    const registry=await readLocationRegistry();
+    const placed=splitRowsByBranch(locateRowsBySite(rows,registry.buildings as any[]),{colleges:colleges as any,sections:sections as any,baseCollegeId:collegeId,baseSectionId:sectionId});
+    issues.push(...placed.unplaced.map(entry=>unplacedSiteIssue(countOf(entry.rows.length,AR.row),entry.siteLabel)));
+  }
   const conflicts=blockingImportConflicts(
     rows,termRows as any[],collegeId,sectionId,
     branchOwnScopes(colleges as any,sections as any,collegeId,sectionId),
