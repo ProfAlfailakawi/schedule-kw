@@ -12,7 +12,8 @@ import { Repository } from "../../db/repository";
 import { ADVISOR_ROLE, DEPARTMENT_HEAD_ROLE, planAdvisorAccounts, planDepartmentHeadAccounts } from "../../utils/departmentHeadAccounts";
 import { ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, isAcademicRole, roleDefinition, roleLabel, type AcademicRole } from "../../utils/academicRoles";
 import { AR, countOf } from "../../utils/arabicCount";
-import { type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin } from "../core/auth";
+import { adminSetPasswordFields } from "../accountPassword";
+import { authCache, type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin } from "../core/auth";
 import { safeSystemUser } from "../core/scope";
 
 /* The schedule workspace and مركز الذكاء are the same permission — every
@@ -183,6 +184,7 @@ app.post("/api/users", requirePermission(11), async (req: Request, res: Response
     SystemUserLogin,
     SystemUserPass: Repository.hashPassword(password),
     SystemUserPassVault: Repository.encryptPasswordForVault(password),
+    ...adminSetPasswordFields(String(password)),
     IsAdminUser: !!IsAdminUser,
     IsActive: IsActive !== undefined ? !!IsActive : true,
     IsLocked: !!IsLocked,
@@ -387,14 +389,20 @@ app.put("/api/users/:id", requirePermission(11), async (req: Request, res: Respo
   };
   if (isAcademicRole(Role)) (fields as any).Role = Role;
 
+  let resetsAnotherUser = false;
   if (password && password.trim() !== "") {
     fields.SystemUserPass = Repository.hashPassword(password);
     fields.SystemUserPassVault = Repository.encryptPasswordForVault(password);
+    /* كلمةٌ عيّنها مسؤولٌ لغيره: يعرفها اثنان، فيغيّرها صاحبها عند دخوله ويخرج كلُّ جهازٍ مفتوح.
+       ومن غيّر كلمته هو من هذه الشاشة تسقط عنه مدّةُ الكلمة الأولى فقط. */
+    resetsAnotherUser = Number((req as AuthenticatedRequest).user?.SystemUserId) !== id;
+    Object.assign(fields, resetsAnotherUser ? adminSetPasswordFields(password) : { InitialPasswordExpiresAt: "" });
   }
 
   const before = await Repository.getUserById(id);
   try {
     const updated = await Repository.updateUser(id, fields);
+    if (resetsAnotherUser) { await Repository.deleteSessionsForUser(id); authCache.clear(); }
     /**
      * ── القالب يُكتب عند تغيير الصفة، لا عند كل حفظ ───────────────────────
      *

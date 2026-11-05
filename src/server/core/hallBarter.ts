@@ -13,7 +13,7 @@ import { roomIdentityKey, roomKeyOf } from "../../utils/locationRegistry";
 import { SCHEDULE_DAY_KEYS } from "./scheduleRules";
 
 export const HALL_BARTER_DAY_LABEL = new Map(SCHEDULE_DAY_KEYS.map((key,index)=>[key,DAY_LABELS[index]]));
-export const hallBarterBoardCache = new Map<string,{ scheduleSerial:number; barterSerial:number; expiresAt:number; body:any }>();
+export const hallBarterBoardCache = new Map<string,{ scheduleSerial:number; barterSerial:number; holdSignature:string; expiresAt:number; body:any }>();
 
 export function academicStartYear(name: unknown): number | null {
   const match=String(name||"").match(/(?:19|20)\d{2}/);
