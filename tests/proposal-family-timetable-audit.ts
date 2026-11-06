@@ -33,5 +33,8 @@ const undoRoute = routes.slice(routes.indexOf('"/api/study-proposals/:id/undo-co
 check(/guard: termRows/.test(undoRoute) && /expectedRev: item\.rev/.test(undoRoute), "حارسٌ في المعاملة ومراجعة التثبيت لا المراجعة الحية");
 const repo = read("src/db/repository.ts");
 check((repo.match(/if \(used\) throw new ScheduleRevisionConflict/g) || []).length === 2, "معرّفٌ مشغول يوقف الاستعادة كلها في المسارين");
+const evalRoute = read("src/server/studyProposalRoutes.ts").split('"/api/study-proposals/evaluate"')[1].split('"/api/study-proposals/alternatives"')[0];
+check(/stored\.requestId === request\.id/.test(evalRoute) && /savedRowIds\.has/.test(evalRoute), "الفحص يقرأ مواعيد مقترح الطلب نفسه فقط، فيقول «خارج صلاحياتك» ولا يتعذّر");
+check(/finding\.code === "scope-denied"/.test(read("src/components/proposal/StudyProposalWorkspace.tsx")) && /&& !outOfScope/.test(read("src/components/proposal/StudyProposalWorkspace.tsx")), "زر التثبيت يختفي حين يوجد موعدٌ خارج الصلاحية");
 if (failures) { console.error(`${failures} failed`); process.exit(1); }
 console.log("proposal-family-timetable-audit: all checks passed");

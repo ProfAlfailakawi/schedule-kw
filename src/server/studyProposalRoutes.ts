@@ -398,7 +398,11 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     if (!request) return;
     const world = await loadWorld(Number(request.AdTermId), Number(request.AdInstructorId));
     const stored = req.body?.proposalId ? await Repository.getStudyProposal(String(req.body.proposalId)) : undefined;
-    const clean = await sanitizeOps(req.body?.ops, world, stored, row => canWriteScope(req, Number(row.AdCollegeId), Number(row.AdSectionId)));
+    /* مقترحٌ فيه موعدٌ خارج صلاحية القارئ: الفحص يقول «خارج صلاحياتك» بدل أن يتعذّر.
+       هذا للمواعيد المحفوظة في مقترح الطلب نفسه فقط؛ الحفظ والتثبيت يبقيان بصلاحية الكتابة. */
+    const savedRowIds = new Set<number>(stored && stored.requestId === request.id
+      ? stored.ops.flatMap(op => [op.source?.id, op.out?.snapshot?.id]).filter(Boolean).map(Number) : []);
+    const clean = await sanitizeOps(req.body?.ops, world, stored, row => canWriteScope(req, Number(row.AdCollegeId), Number(row.AdSectionId)) || savedRowIds.has(Number(row.id)));
     if (clean.error) { res.status(400).json({ error: clean.error }); return; }
     const evaluation = await evaluateProposal(deps, req, {
       instructorId: Number(request.AdInstructorId), termId: Number(request.AdTermId),
