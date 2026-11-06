@@ -4223,6 +4223,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="اكتب سؤالك عن جدول هذا القسم..."
+                aria-label="سؤالك عن جدول هذا القسم"
                 rows={2}
               />
               <button
@@ -4243,7 +4244,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             </Surface>
             <Surface className="decision-inbox-mini">
               <div className="decision-inbox-mini-head"><div><span className="surface-kicker">دفتر القرارات</span><h3>{Number(decisionInbox?.totalOpen||0).toLocaleString("ar-KW-u-nu-latn")} مفتوح</h3></div><button type="button" onClick={()=>setDecisionCompose(value=>!value)} aria-label="إضافة قرار"><Plus /></button></div>
-              {decisionCompose?<form onSubmit={e=>{e.preventDefault();void addOpenDecision();}} className="decision-inbox-compose"><input autoFocus value={decisionTitle} onChange={e=>setDecisionTitle(e.target.value)} placeholder="قرار يحتاج حسم…" maxLength={140}/><button type="submit" aria-label="أضف القرار" title="أضف القرار" data-guide-ignore="زر إرسال داخل نموذج «قرار يحتاج حسم» — يضيف السطر الذي كُتب في الحقل بجواره ولا يمثل ميزة مستقلة" disabled={busy||decisionTitle.trim().length<3}><Save /></button></form>:null}
+              {decisionCompose?<form onSubmit={e=>{e.preventDefault();void addOpenDecision();}} className="decision-inbox-compose"><input autoFocus value={decisionTitle} onChange={e=>setDecisionTitle(e.target.value)} placeholder="قرار يحتاج حسم…" aria-label="نص القرار" maxLength={140}/><button type="submit" aria-label="أضف القرار" title="أضف القرار" data-guide-ignore="زر إرسال داخل نموذج «قرار يحتاج حسم» — يضيف السطر الذي كُتب في الحقل بجواره ولا يمثل ميزة مستقلة" disabled={busy||decisionTitle.trim().length<3}><Save /></button></form>:null}
               <div className="decision-inbox-list">
                 {[...(decisionInbox?.manual||[]).filter((item:any)=>item.status==="open"),...(decisionInbox?.inferred||[])].slice(0,5).map((item:any)=><button key={item.id} type="button" className={`priority-${item.priority||"medium"}`} onClick={()=>{if(!String(item.id).startsWith("inferred:"))void closeOpenDecision(item);}} title={String(item.id).startsWith("inferred:")?"مستنتج تلقائياً من الجدول":"اضغط لإغلاق القرار"}><i/><span><strong>{item.title}</strong>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}{item.detail?<small>{item.detail}</small>:null}</span>{String(item.id).startsWith("inferred:")?<Sparkles/>:<CheckCircle2/>}</button>)}
               </div>
@@ -4809,6 +4810,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                     value={autopilotGoal}
                     onChange={(e) => setAutopilotGoal(e.target.value)}
                     placeholder="مثال: قلل الفراغات، لا تغيّر الأيام…"
+                    aria-label="هدف الطيار الآلي"
                   />
                   <div className="autopilot-guard">
                     <span>
@@ -5362,6 +5364,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             <div className="version-compare">
               <select
                 value={versionFrom}
+                aria-label="نسخة البداية"
                 onChange={(e) => { setVersionFrom(e.target.value); setVersionTo(""); setVersionCompare(null); }}
               >
                 <option value="">نسخة البداية...</option>
@@ -5374,6 +5377,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
               <ArrowLeftRight />
               <select
                 value={versionTo}
+                aria-label="نسخة المقارنة"
                 onChange={(e) => setVersionTo(e.target.value)}
               >
                 <option value="">نسخة المقارنة...</option>

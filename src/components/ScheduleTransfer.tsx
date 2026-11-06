@@ -1414,7 +1414,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           <div className="transfer-term-card" role="group" aria-label="فصل الملف">
             <header><AlertTriangle aria-hidden="true" /><strong>من أي فصلٍ أُخذ هذا الملف؟</strong></header>
             <p className="transfer-note">الملف لا يذكر فصله. اختر فصله ليُطبَّق عليه شرط الفصل المقبول نفسه المطبَّق على PDF.</p>
-            <select value={sourceTermAsk.choice} onChange={event => setSourceTermAsk({ ...sourceTermAsk, choice: event.target.value })}>
+            <select aria-label="فصل الملف" value={sourceTermAsk.choice} onChange={event => setSourceTermAsk({ ...sourceTermAsk, choice: event.target.value })}>
               <option value="">اختر الفصل…</option>
               {sortedTerms.map(term => <option key={term.AdTermId} value={term.AdTermName}>{term.AdTermName}</option>)}
             </select>

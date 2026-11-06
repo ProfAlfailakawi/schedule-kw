@@ -99,7 +99,7 @@ export default function CourseOfferingPanel({ collegeId, sectionId, termId, focu
         <span>في بطاقة الأستاذ:</span>
         <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" className="of-chip" aria-pressed={display === "fade"} onClick={() => setDisplay("fade")}>🔒 باهت بقفل</button>
         <button data-guide-ignore="حالة طرح المقرر — اختيار بصري داخل اللوحة" type="button" className="of-chip" aria-pressed={display === "hide"} onClick={() => setDisplay("hide")}>🙈 مخفي</button>
-        <input type="search" placeholder="بحث…" value={query} onChange={e => setQuery(e.target.value)} style={{ minHeight: 36, borderRadius: 10, border: "1px solid var(--line)", padding: "4px 10px", font: "inherit" }} />
+        <input type="search" placeholder="بحث…" aria-label="بحث في المقررات" value={query} onChange={e => setQuery(e.target.value)} style={{ minHeight: 36, borderRadius: 10, border: "1px solid var(--line)", padding: "4px 10px", font: "inherit" }} />
       </div>
       {data.suggestions.length ? (
         <div className="of-suggest" role="note">🌱 من الصحيفة: {countOf(data.suggestions.length, AR.course)} لم تصل دفعته (أعلى مستوى مطروح {data.suggestions[0].reachedLevel})

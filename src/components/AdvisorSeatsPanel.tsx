@@ -135,7 +135,7 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
           <PrimaryButton data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" disabled={busy === "config"} onClick={() => void saveConfig()}>حفظ</PrimaryButton>
         </div>
       ) : null}
-      <input type="search" placeholder="بحث عن مقرر…" value={query} onChange={e => setQuery(e.target.value)} style={{ minHeight: 38, borderRadius: 10, border: "1px solid var(--line)", padding: "4px 10px", font: "inherit", marginBottom: 10, width: "100%", maxWidth: 320 }} />
+      <input type="search" placeholder="بحث عن مقرر…" aria-label="بحث عن مقرر" value={query} onChange={e => setQuery(e.target.value)} style={{ minHeight: 38, borderRadius: 10, border: "1px solid var(--line)", padding: "4px 10px", font: "inherit", marginBottom: 10, width: "100%", maxWidth: 320 }} />
       <div className="of-grid">
         {shown.map(s => (
           <div className="of-card" key={s.key} onFocusCapture={() => touch(s)}>

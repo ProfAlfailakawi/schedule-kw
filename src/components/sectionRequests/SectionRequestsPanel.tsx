@@ -46,6 +46,8 @@ interface Props {
   collegeName?: string;
   /** يفتح الورشة على محرّر الموعد (للجنة). */
   onNavigate?: (view: string) => void;
+  /** يرسل هذا الحساب طلب شعبة من قسمه (المرشد أو الإدارة)؛ غيره لا يُسأل الخادم عنه فلا يُرفض. */
+  mayCompose?: boolean;
 }
 
 const fmt = (n: number) => Number(n || 0).toLocaleString("ar-KW-u-nu-latn");
@@ -417,7 +419,7 @@ function Compose({ collegeId, sectionId, termId, collegeName, onSent, onCancel }
 }
 
 /* ── اللوحة ───────────────────────────────────────────────────────────────── */
-export default function SectionRequestsPanel({ collegeId, sectionId, termId, collegeName, onNavigate }: Props) {
+export default function SectionRequestsPanel({ collegeId, sectionId, termId, collegeName, onNavigate, mayCompose = false }: Props) {
   const [rows, setRows] = useState<RequestRow[] | null>(null);
   const [canCompose, setCanCompose] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -437,10 +439,10 @@ export default function SectionRequestsPanel({ collegeId, sectionId, termId, col
   /* «طلب شعبة» للإرشاد وحده: الخادمُ يقول إن كان هذا الحساب يرسل من نطاق القسم المختار. */
   useEffect(() => {
     setCanCompose(false);
-    if (!collegeId || !sectionId || !termId) return;
+    if (!mayCompose || !collegeId || !sectionId || !termId) return;
     void fetch(`/api/section-requests/compose?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include", method: "GET" })
       .then(response => setCanCompose(response.ok)).catch(() => setCanCompose(false));
-  }, [collegeId, sectionId, termId]);
+  }, [collegeId, sectionId, termId, mayCompose]);
 
   /* ما يخصّ النطاق المختار: طلبٌ لمقررات هذا القسم أو من إرشاده، وفي الحرم المختار. */
   const shown = useMemo(() => (rows || []).filter(row =>

@@ -1837,7 +1837,7 @@ export default function App() {
   const renderView = () => {
     /* مرشد القسم: أيقونتان فقط. أيُّ وجهةٍ أخرى (لوحة العمل أو رابطٌ مباشر) تعود إلى كشف التسجيل. */
     if (sessionRole.advisorOnly && activeView !== "studentRegistration" && activeView !== "simulation") {
-      return <StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} />;
+      return <StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} canReadDemand={hasPerm(7)} mayCompose={isPowerAdmin || sessionRole.id === "advisor"} />;
     }
     switch (activeView) {
       case "dashboard":
@@ -1955,7 +1955,7 @@ export default function App() {
         return (hasPerm(7) || hasPerm(14)) && !sessionRole.viewerOnly ? (
           <>
             <RegistrationTabs active="studentRegistration" canRoster canRadar={simulationVisible} onGo={view => go(view)} />
-            <StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} onNavigate={hasPerm(7) && !sessionRole.viewerOnly ? (view) => go(view as View) : undefined} />
+            <StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} canReadDemand={hasPerm(7)} mayCompose={isPowerAdmin || sessionRole.id === "advisor"} onNavigate={hasPerm(7) && !sessionRole.viewerOnly ? (view) => go(view as View) : undefined} />
           </>
         ) : (
           unauthorized()
@@ -2929,6 +2929,7 @@ export default function App() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="ابحث في كل شيء…"
+                aria-label="بحث شامل"
               />
               <button
                 type="button"
