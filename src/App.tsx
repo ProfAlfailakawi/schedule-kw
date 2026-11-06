@@ -493,6 +493,7 @@ function MobileDockLink({
       type="button"
       className={`mobile-dock-link ${on ? "active" : ""}`}
       data-guide-dock={view}
+      data-guide-ignore="وجهة تنقل مسجلة في المرشد باسم الصفحة نفسها"
       aria-current={on ? "page" : undefined}
       aria-label={label}
       onPointerEnter={() => prefetchView(view)}
