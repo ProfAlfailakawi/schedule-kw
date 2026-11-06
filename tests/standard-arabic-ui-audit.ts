@@ -66,6 +66,8 @@ const WORDING_TOKEN = new RegExp(`(?:^|[^${"ء-يٱ-ۓً-ْـ"}])[وف]?(?:با�
 
 /** مواضعُ مشروعة: [ملف، الكلمة، سبب]. أبقِها قصيرة. */
 const ALLOW: Array<[string, string, string]> = [
+  ["src/guide/brain/lexicon.ts", "يبي", "معجم فهم السؤال؛ لا يُعرض"],
+  ["src/guide/brain/lexicon.ts", "كرسي", "معجم فهم السؤال؛ لا يُعرض"],
   // كلماتُ توقّفٍ يُسقطها مركزُ الوارد من سؤال المستخدم — لا تُعرض.
   ["src/utils/inboxAsk.ts", "اللي", "كلمة توقّف في فهم السؤال"],
   ["src/utils/inboxAsk.ts", "شنو", "كلمة توقّف في فهم السؤال"],
