@@ -31,11 +31,11 @@ button,input{font:inherit}
 .who p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
 .lbl{margin:0;font-size:13.5px;font-weight:700;color:var(--muted);text-align:center}
 .otp{position:relative;display:flex;gap:10px;justify-content:center;direction:ltr}
-.otp i{inline-size:58px;block-size:66px;border-radius:16px;border:1.5px solid var(--line-strong);display:grid;place-items:center;font:700 26px/1 inherit;font-style:normal;font-variant-numeric:tabular-nums;background:var(--card);transition:border-color .15s,box-shadow .15s}
+.otp i{flex:1 1 0;min-inline-size:0;max-inline-size:58px;block-size:66px;border-radius:16px;border:1.5px solid var(--line-strong);display:grid;place-items:center;font:700 26px/1 inherit;font-style:normal;font-variant-numeric:tabular-nums;background:var(--card);transition:border-color .15s,box-shadow .15s}
 .otp i.on{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 20%,transparent)}
 .otp i.fill{border-color:color-mix(in srgb,var(--accent) 55%,var(--line-strong))}
 .otp input{position:absolute;inset:0;inline-size:100%;block-size:100%;opacity:0;font-size:16px;border:0;background:transparent;direction:ltr}
-.remember{display:flex;align-items:center;justify-content:center;gap:9px;font-size:13.5px;color:var(--muted);cursor:pointer}
+.remember{display:flex;align-items:center;justify-content:center;gap:9px;min-block-size:44px;font-size:13.5px;color:var(--muted);cursor:pointer}
 .remember input{inline-size:18px;block-size:18px;accent-color:var(--accent)}
 .go{inline-size:100%;min-block-size:56px;border:0;border-radius:18px;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:17px;cursor:pointer;box-shadow:0 10px 24px color-mix(in srgb,var(--accent) 28%,transparent);transition:transform .1s}
 .go:active{transform:scale(.985)}

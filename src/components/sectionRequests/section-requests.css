@@ -164,3 +164,11 @@
   .srq-card-foot>.btn{flex:1 1 auto;justify-content:center}
   .srq-compose-foot>.btn{inline-size:100%;justify-content:center}
 }
+
+/* Touch: growth of the hit area only (drawing unchanged) for the small controls of the advising cards. */
+@media (pointer:coarse) and (max-width:1024px){
+  .srq-link,.srq-roster summary,.srq-section button{position:relative}
+  .srq-link::after,.srq-roster summary::after{content:"";position:absolute;inset-block:-8px;inset-inline:0}
+  .srq-section button::after{content:"";position:absolute;inset:-10px}
+  .srq-available button,.srq-pick li label,.srq-masari li label{min-block-size:44px}
+}
