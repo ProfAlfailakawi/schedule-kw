@@ -85,7 +85,6 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
   const [screen, setScreen] = useState<Screen>("ask");
   const [picked, setPicked] = useState<string | null>(null);
   const [pointing, setPointing] = useState(false);
-  const [nowAsked, setNowAsked] = useState(false);
   const [profile, setProfile] = useState(() => loadGuideProfile(userId));
   const [progress, setProgress] = useState(() => loadTourProgress(userId));
   const [unanswered, setUnanswered] = useState<Array<{ text: string; count: number }>>([]);
@@ -254,17 +253,18 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
 
   const answerCard = (feature: GuideFeature, key: string, primary: boolean, alternatives: string[] = []) => {
     const row = unfinishedTour(progress, feature.id);
-    const lines = answerSteps(buildTour(feature, tourEnv()));
+    const plan = buildTour(feature, tourEnv());
+    if (plan.note) return <article className="guide-answer" key={key}><h3>{feature.title}</h3><p>تتم من الحاسوب.</p></article>;
+    const lines = answerSteps(plan);
     return (
       <article className="guide-answer" key={key}>
         <h3>{feature.title}</h3>
         <ol>{(lines.length ? lines : [feature.summary]).map(step => <li key={step}>{step}</li>)}</ol>
-        {finished.has(feature.id) ? <p className="guide-quiet-line">أنهيت هذه الجولة مؤخراً.</p> : null}
         <div className="guide-answer-actions">
           <button type="button" className={primary ? "guide-primary" : "guide-secondary"} onClick={() => showTour(feature)}>{row ? `أكمل من الخطوة ${row.step + 1}` : "أرني"}</button>
           {feature.simulationAction ? <button type="button" className="guide-link" onClick={() => tryIt(feature)}>جرّب دون حفظ</button> : null}
         </div>
-        {alternatives.length ? <p className="guide-maybe"><span>هل تقصد؟</span>{alternatives.map(id => allowed.get(id)).filter(Boolean).map(other => <button type="button" key={other!.id} onClick={() => openFeature(other!)}>{other!.title}</button>)}</p> : null}
+        {alternatives.length ? <p className="guide-maybe"><span>هل تقصد؟</span>{alternatives.map(id => allowed.get(id)).filter(Boolean).slice(0, 1).map(other => <button type="button" key={other!.id} onClick={() => openFeature(other!)}>{other!.title}</button>)}</p> : null}
       </article>
     );
   };
@@ -323,7 +323,7 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
       <div className="guide-scrim no-print" onPointerDown={onClose} aria-hidden="true" />
       <section className="guide-panel no-print" role="dialog" aria-modal="false" aria-label="المرشد" data-guide-ignore="لوحة المرشد نفسها">
         <header className="guide-head">
-          {screen !== "ask" ? <button type="button" className="guide-icon" aria-label="رجوع" onClick={() => setScreen(screen === "more" ? "ask" : "more")}><ChevronLeft style={{ transform: "scaleX(-1)" }} aria-hidden="true" /></button> : null}
+          {screen !== "ask" ? <button type="button" className="guide-icon" aria-label="رجوع" onClick={() => setScreen(screen === "more" ? "ask" : screen === "unanswered" ? "all" : "more")}><ChevronLeft style={{ transform: "scaleX(-1)" }} aria-hidden="true" /></button> : null}
           <p>{screen === "ask" ? (hint?.title || greetingFor(situation)) : screen === "more" ? "المزيد" : screen === "all" ? "كل ما يمكنني شرحه" : screen === "new" ? "الجديد" : "أسئلة بلا جواب"}</p>
           <button type="button" className="guide-icon" aria-label="إغلاق المرشد" onClick={onClose}><X aria-hidden="true" /></button>
         </header>
@@ -346,11 +346,9 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
 
           {screen === "more" ? <div className="guide-list">
             <SuggestionRow label="أشّر لي" onClick={() => { setScreen("ask"); setPointing(true); }} />
-            <SuggestionRow label="ماذا الآن؟" onClick={() => { setScreen("ask"); setQuery("ماذا الآن"); setNowAsked(!nowAsked); }} />
             <SuggestionRow label={unread.length ? `الجديد (${unread.length.toLocaleString("ar-KW-u-nu-latn")})` : "الجديد"} onClick={() => setScreen("new")} />
             <SuggestionRow label="الكل" onClick={() => setScreen("all")} />
             {allowed.has("schedule.practice") ? <SuggestionRow label="جرّب دون حفظ" onClick={() => openFeature(allowed.get("schedule.practice")!)} /> : null}
-            {root ? <SuggestionRow label="أسئلة بلا جواب" onClick={() => setScreen("unanswered")} /> : null}
             <label className="guide-toggle"><input type="checkbox" checked={profile.hintMode !== "off"} onChange={event => { setHintMode(userId, event.target.checked ? "auto" : "off"); setProfile(loadGuideProfile(userId)); }} /><span>تلميحات أثناء العمل</span></label>
           </div> : null}
 
@@ -360,6 +358,7 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
                 {allowedList.filter(feature => feature.group === group).map(feature => <SuggestionRow key={feature.id} label={feature.title} onClick={() => openFeature(feature)} />)}
               </details>
             ))}
+            {root ? <button type="button" className="guide-link" onClick={() => setScreen("unanswered")}>أسئلة بلا جواب</button> : null}
           </div> : null}
 
           {screen === "new" ? <div className="guide-list">
