@@ -2799,14 +2799,6 @@ export const Repository = {
         await doc.ref.delete();
         removed += 1;
       }
-    } else {
-      /* في البيئة التجريبية جلسةُ الزائر هي صندوقُه: لا تُحذف من تحته. */
-      const current = demoSandboxContext.getStore()?.sessionId;
-      for (const [id, session] of demoSessions) {
-        if (id === keepSessionId || id === current || Number(session.userId) !== Number(userId) || session.memberId) continue;
-        demoSessions.delete(id);
-        removed += 1;
-      }
     }
     announceIdentityChange();
     return removed;
@@ -2952,6 +2944,32 @@ export const Repository = {
     db.users[idx] = { ...db.users[idx], ...fields };
     saveDatabase();
     return db.users[idx];
+  },
+
+  /**
+   * إعادةُ التعيين تكتب الكلمة وسجلَّها معاً في معاملةٍ واحدة: لو كُتبا منفصلين لاقترنت في إعادتين
+   * متزامنتين كلمةُ إحداهما بسجلّ الأخرى، فتسقط عنها قاعدةُ الدخول الواحد.
+   */
+  applyPasswordReset: async (id: number, fields: Partial<SystemUser>, record: { userId: number }, recordId: string): Promise<void> => {
+    announceIdentityChange();
+    const key = featureDocId(recordId);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const userRef = firestoreDb.collection("users").doc(`user_${id}`);
+      const recordRef = firestoreDb.collection("passwordResets").doc(key);
+      await firestoreDb.runTransaction(async tx => {
+        const doc = await tx.get(userRef);
+        if (!doc.exists) throw new Error("المستخدم غير موجود");
+        tx.set(userRef, { ...(doc.data() as SystemUser), ...fields });
+        tx.set(recordRef, record as any, { merge: false });
+      });
+      return;
+    }
+    const idx = db.users.findIndex(u => u.SystemUserId === id);
+    if (idx === -1) throw new Error("المستخدم غير موجود");
+    db.users[idx] = { ...db.users[idx], ...fields };
+    const all = db.featureDocs || {};
+    db.featureDocs = { ...all, passwordResets: { ...(all.passwordResets || {}), [key]: record } };
+    saveDatabase();
   },
 
   /**

@@ -501,9 +501,8 @@ app.post("/api/seats/:id/password-reset", requirePowerAdmin, resetLimit, async (
   const hash = Repository.hashPassword(password);
   const fields = temporaryPasswordFields(hash);
   const by = byName(req);
-  await Repository.saveFeatureDoc("passwordResets", passwordResetId(seat.SystemUserId), passwordResetRecord(seat.SystemUserId, hash, fields.InitialPasswordExpiresAt, by));
   /* في البيئة التجريبية لا دخولَ بكلمة ولا تغييرَ لها: تُعرض البطاقة، ولا تُقفل صفةٌ لا مخرج لها. */
-  if (!Repository.isDemoRequest()) await Repository.updateUser(Number(seat.SystemUserId), fields as any);
+  if (!Repository.isDemoRequest()) await Repository.applyPasswordReset(Number(seat.SystemUserId), fields as any, passwordResetRecord(seat.SystemUserId, hash, fields.InitialPasswordExpiresAt, by), passwordResetId(seat.SystemUserId));
   await Repository.deleteOtherSessionsForUser(Number(seat.SystemUserId), undefined);
   authCache.clear();
   await updateSeatLedger(Number(seat.SystemUserId), ledger => ({ next: withSeatEvent(ledger, { at: new Date().toISOString(), kind: "password-reset", by, detail: "كلمةٌ مؤقتة لأربعٍ وعشرين ساعة" }), result: true }));
