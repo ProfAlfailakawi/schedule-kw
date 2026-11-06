@@ -432,6 +432,7 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
                               <input
                                 type="number" min={0} max={999} inputMode="numeric" dir="ltr"
                                 value={draft[key]}
+                                aria-label={label}
                                 onChange={event => setRuleDraft({ ...draft, [key]: event.target.value })}
                               />
                             ) : (

@@ -1439,7 +1439,7 @@ export default function AdminUsers({
           <Surface className="system-vault-action vault-reset">
             <span className="vault-action-icon"><Eraser /></span>
             <div><small>03</small><h3>تصفير النظام</h3><p>يمسح بيانات العمل كاملة ويُبقي حساب الإدارة الرئيسي فقط كي لا تفقد باب التراجع.</p></div>
-            <input className="vault-confirm-input" value={resetPhrase} onChange={(event) => setResetPhrase(event.target.value)} placeholder="اكتب: تصفير النظام" autoComplete="off" />
+            <input className="vault-confirm-input" value={resetPhrase} onChange={(event) => setResetPhrase(event.target.value)} placeholder="اكتب: تصفير النظام" aria-label="عبارة التأكيد" autoComplete="off" />
             <SecondaryButton type="button" disabled={resetPhrase !== "تصفير النظام" || vaultLocked} onClick={() => void resetFullSystem()}>
               <Eraser /> {backupBusy === "reset" ? "أصنع نقطة أمان ثم أصفّر…" : "تصفير"}
             </SecondaryButton>
@@ -1825,6 +1825,7 @@ export default function AdminUsers({
             <header className="master-filter-stack">
               <SearchBox value={query} onChange={setQuery} placeholder="بحث بالمستخدم أو الوظيفة" />
               <select
+                aria-label="المستخدم"
                 value={filterUser || ""}
                 onChange={(e) => setFilterUser(Number(e.target.value) || 0)}
               >
@@ -1962,6 +1963,7 @@ export default function AdminUsers({
             <header className="master-filter-stack">
               <SearchBox value={query} onChange={setQuery} placeholder="بحث بالمستخدم أو القسم" />
               <select
+                aria-label="المستخدم"
                 value={filterUser || ""}
                 onChange={(e) => setFilterUser(Number(e.target.value) || 0)}
               >

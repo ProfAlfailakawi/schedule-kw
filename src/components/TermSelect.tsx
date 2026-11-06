@@ -10,6 +10,8 @@ export default function TermSelect({ value, onValueChange, children, ...props }:
   useEffect(() => {
     if (soleId && Number(value) !== soleId && !props.disabled) callback.current(soleId);
   }, [soleId, value, props.disabled]);
-  if (choices.length <= 1) return <output className={`term-static-value ${props.className || ""}`} aria-label={props["aria-label"]} title={sole ? String(sole.props.children || "") : undefined} data-guide-target={(props as any)["data-guide-target"]}>{sole?.props.children || "الفصول غير متاحة حاليًا"}</output>;
+  if (choices.length <= 1) return <output id={props.id} className={`term-static-value ${props.className || ""}`} aria-label={props["aria-label"]} title={sole ? String(sole.props.children || "") : undefined} data-guide-target={(props as any)["data-guide-target"]}>{sole?.props.children || "الفصول غير متاحة حاليًا"}</output>;
   return <select {...props} value={value || ""} onChange={event => onValueChange(Number(event.target.value) || 0)}>{children}</select>;
 }
+/** Field (ui.tsx) hands its label id to a control carrying this mark, as it does to a native input. */
+(TermSelect as unknown as { labelableControl: boolean }).labelableControl = true;

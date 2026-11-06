@@ -10036,6 +10036,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                               value={borrowQuery}
                               onChange={event => setBorrowQuery(event.target.value)}
                               placeholder="ابحث بالقاعة أو القسم…"
+                              aria-label="ابحث بالقاعة أو القسم"
                               data-guide-ignore="بحثٌ خفيف داخل قائمة الاستعارة المصغّرة"
                             />
                           </div>
@@ -14033,6 +14034,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="مثلاً: بانتظار موافقة رئيس القسم"
+                  aria-label="نص الملاحظة"
                   maxLength={600}
                 />
                 <button

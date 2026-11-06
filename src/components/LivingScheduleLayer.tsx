@@ -1292,6 +1292,7 @@ export default function LivingScheduleLayer({
                       value={memoryReason}
                       onChange={(e) => setMemoryReason(e.target.value)}
                       placeholder="مثال: رُفض الثلاثاء 12 — القاعة لا تناسب المقرر"
+                      aria-label="سبب الحفظ في الذاكرة"
                       maxLength={700}
                     />
                     <PrimaryButton

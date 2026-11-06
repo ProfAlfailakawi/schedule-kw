@@ -27,6 +27,7 @@
     "test:course-reach": "tsx tests/course-reach-audit.ts",
     "test:prepublish-reach": "tsx tests/prepublish-reach-audit.tsx",
     "test:mobile-overflow-css": "tsx tests/mobile-overflow-css-audit.ts",
+    "test:forbidden-fetch-guard": "tsx tests/forbidden-fetch-guard-audit.ts",
     "test:ta-phase-flow": "tsx tests/ta-phase-flow-audit.ts",
     "test:publish-pick-teachers": "tsx tests/publish-pick-teachers-audit.ts",
     "test:visiting-status": "tsx tests/visiting-status-permanent-audit.ts",

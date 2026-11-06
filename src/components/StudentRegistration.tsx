@@ -77,6 +77,10 @@ interface Props {
   powerAdmin?: boolean;
   /** «افتح الشعبة» في بطاقة طلب الشعبة يفتح الورشة على محرّر الموعد. */
   onNavigate?: (view: string) => void;
+  /** يملك شاشة الجدول (٧): وحدها تقرأ اقتراحات فتح الشعب (/api/schedules/demand). */
+  canReadDemand?: boolean;
+  /** يرسل طلب شعبة من قسمه (مرشدٌ أو إدارة): هو حكم الخادم نفسه على /api/section-requests/compose. */
+  mayCompose?: boolean;
 }
 
 interface CaseCourse {
@@ -293,7 +297,7 @@ function QuickDecide({ items, busy, onApprove, onReject, onClose, peers = [] }: 
 
 /* ── الشاشة ─────────────────────────────────────────────────────────────── */
 
-export default function StudentRegistration({ scopes, powerAdmin = false, onNavigate }: Props) {
+export default function StudentRegistration({ scopes, powerAdmin = false, onNavigate, canReadDemand = false, mayCompose = false }: Props) {
   const [terms, setTerms] = useState<AdTerm[] | null>(null);
   const [termId, setTermId] = useState(0);
   /* الكلية والقسم من النطاق المشترك (src/utils/sharedScope.ts)، معروضين على
@@ -422,7 +426,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
   const { isVisiting } = useVisitingLookup(termId);
   const [openings, setOpenings] = useState<Map<number, { shortfall: number; slot: any }>>(new Map());
   const loadOpenings = useCallback(async () => {
-    if (!collegeId || !sectionId || !termId) { setOpenings(new Map()); return; }
+    if (!canReadDemand || !collegeId || !sectionId || !termId) { setOpenings(new Map()); return; }
     try {
       const data = await request(`/api/schedules/demand?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`);
       const next = new Map<number, { shortfall: number; slot: any }>();
@@ -432,7 +436,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
       }
       setOpenings(next);
     } catch { setOpenings(new Map()); }
-  }, [collegeId, sectionId, termId]);
+  }, [canReadDemand, collegeId, sectionId, termId]);
   useEffect(() => { void loadOpenings(); }, [loadOpenings]);
 
   /* النبضةُ الحيّة: قرارٌ كتبته اللجنة أو التسجيل من شاشةٍ أخرى يُقرأ هنا خلال
@@ -862,7 +866,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
       </PageTitle>
 
       {/* «طلب شعبة»: الإرشاد ← لجنة الجدول ← التسجيل، على الشاشة التي يفتحها الثلاثة أصلاً. */}
-      {termId ? <SectionRequestsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} onNavigate={onNavigate} /> : null}
+      {termId ? <SectionRequestsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} onNavigate={onNavigate} mayCompose={mayCompose} /> : null}
 
       {Boolean(collegeId && sectionId && termId) && <details className="surface" style={{ padding: "10px 14px" }}><summary>🎟️ رصيد مقاعد المرشد <CampusChip collegeName={collegeName} /></summary><AdvisorSeatsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} /></details>}
 
