@@ -1,0 +1,23 @@
+/* ── أوراق التقرير: سطرٌ لكل ورقة، واختيارٌ واحد، وطباعةٌ واحدة ─────────────
+   تحت .report-choice وحدها، فقائمة تقرير الأستاذ باقيةٌ كما هي، ولا شيء هنا
+   يصل إلى الورقة المطبوعة: اللوحة داخل رأسٍ .no-print. */
+.query-scope-menu.report-choice{width:min(300px,calc(100vw - 32px));min-width:0;gap:6px;padding:6px}
+.report-choice-list{display:grid;gap:2px}
+.query-scope-menu.report-choice .report-choice-list button{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s2);
+  min-height:40px;padding:0 11px;white-space:nowrap;
+}
+.query-scope-menu.report-choice .report-choice-list button[aria-checked="true"]{background:var(--accent-soft);color:var(--accent-ink)}
+.report-choice-list button svg{flex:none;width:16px;height:16px}
+.query-scope-menu.report-choice button:focus-visible{outline:0;box-shadow:var(--ring)}
+.report-choice-note{margin:0;padding:0 11px;color:var(--muted);font-size:.75rem;font-weight:600;line-height:1.5}
+.query-scope-menu.report-choice .report-choice-print{
+  display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;
+  background:var(--accent);color:var(--accent-contrast);
+}
+.query-scope-menu.report-choice .report-choice-print:hover,
+.query-scope-menu.report-choice .report-choice-print:focus-visible{background:var(--accent-strong)}
+.report-choice-print svg{width:16px;height:16px}
+@media screen and (max-width:760px){
+  .query-scope-menu.report-choice{width:auto;scroll-margin-block:88px 104px}
+}
