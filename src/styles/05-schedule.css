@@ -5899,6 +5899,8 @@ html.schedule-physics-active .rooms-slot:hover::after{content:none}
 }
 /* العنوان صار داخل غلافٍ مع شارة نوع القاعة: الغلاف هو من يشغل الصفّ الأول كاملاً. */
 .week-strip-track .week-identity-line[data-mode="double"]>.week-course-title-wrap{grid-column:1 / -1;grid-row:1;align-self:end}
+/* الرمز في الصفّ الأول بجانب العنوان: الغلاف يبقى في العمود الأول فلا تغطّي شارةُ القاعة شارةَ الرمز. */
+.week-strip-track .week-identity-line[data-mode="double"][data-code-row="headline"]>.week-course-title-wrap{grid-column:1}
 .week-strip-track .week-identity-line[data-mode="double"] .week-course-title-wrap .week-title{overflow:hidden;text-overflow:ellipsis}
 .week-strip-track .week-identity-line[data-mode="double"] .week-who{
   grid-column:1;
