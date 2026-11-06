@@ -116,6 +116,7 @@ const picked = readSituation("schedules", { selected: { id: 9 } }, [], dom({}));
 const sug = suggestFor(picked, all, profile);
 check(sug.length <= 3 && sug[0].id === "schedule.action.change-time", "الاقتراح يتبع المحدد");
 check(suggestFor(readSituation("dashboard", {}, [], dom({ "[data-guide-blocker]": {} })), all, profile)[0].id === "schedule.tool.review", "المانع يتقدم الاقتراحات");
+check(suggestFor(readSituation("dashboard", {}, [], dom({ "[data-guide-blocker]": {} })), all, profile, new Set(["schedule.tool.review"]))[0].id === "schedule.tool.review", "المانع القائم يبقى أول اقتراح بعد إنهاء جولته");
 const editing = suggestFor(readSituation("schedules", {}, [], dom({ "[data-guide-editor-field]": {} })), all, profile);
 check(editing[0].id === "schedule.action.quick-fill", "المحرر المفتوح يغيّر الاقتراح");
 const restricted = new Map([...all].filter(([id]) => id !== "schedule.action.change-time"));

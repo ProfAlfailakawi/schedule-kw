@@ -83,7 +83,9 @@ export function suggestFor(s: Situation, allowed: Map<string, GuideFeature>, pro
   const out: GuideFeature[] = [];
   for (const id of ids) {
     const feature = allowed.get(id);
-    if (!feature || out.includes(feature) || finished.has(id) || s.recent.slice(-1)[0] === id) continue;
+    // المانع قائم ما لم يُعالَج، فلا تُخفيه جولة أُنهيت من قبل.
+    const urgent = s.blocker && id === "schedule.tool.review";
+    if (!feature || out.includes(feature) || (!urgent && (finished.has(id) || s.recent.slice(-1)[0] === id))) continue;
     out.push(feature);
     if (out.length === 3) break;
   }
