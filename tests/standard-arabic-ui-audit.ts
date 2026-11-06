@@ -66,6 +66,7 @@ const WORDING_TOKEN = new RegExp(`(?:^|[^${"ء-يٱ-ۓً-ْـ"}])[وف]?(?:با�
 
 /** مواضعُ مشروعة: [ملف، الكلمة، سبب]. أبقِها قصيرة. */
 const ALLOW: Array<[string, string, string]> = [
+  ["src/guide/brain/lexicon.ts", "يبي", "معجم فهم السؤال؛ لا يُعرض"],
   // كلماتُ توقّفٍ يُسقطها مركزُ الوارد من سؤال المستخدم — لا تُعرض.
   ["src/utils/inboxAsk.ts", "اللي", "كلمة توقّف في فهم السؤال"],
   ["src/utils/inboxAsk.ts", "شنو", "كلمة توقّف في فهم السؤال"],
@@ -93,7 +94,7 @@ function isInputMatcher(node: ts.Node): boolean {
       return false;
     }
     if (ts.isNewExpression(cur) && ts.isIdentifier(cur.expression) && cur.expression.text === "RegExp") return true;
-    if (ts.isPropertyAssignment(cur) && /^(keywords|aliases|synonyms)$/.test(cur.name.getText())) return true;
+    if (ts.isPropertyAssignment(cur) && /^(keywords|aliases|synonyms|q)$/.test(cur.name.getText())) return true;
     if (ts.isBlock(cur) || ts.isSourceFile(cur)) return false;
   }
   return false;

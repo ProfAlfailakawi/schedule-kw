@@ -1153,193 +1153,39 @@ html[data-schedule-workspace="focus"] .quick-create{z-index:2600}
 .smart-guide-fab-pulse{width:8px;height:8px;border-radius:50%;background:var(--warning);animation:smartGuidePulse 1.8s ease-out infinite}
 .smart-guide-fab-new{min-width:23px;height:23px;display:grid;place-items:center;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--accent-contrast);font:700 10px/1 var(--font-ui);font-style:normal}
 @keyframes smartGuidePulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--warning) 45%,transparent)}100%{box-shadow:0 0 0 17px transparent}}
-
-.smart-guide{
-  position:fixed;left:18px;top:18px;bottom:18px;z-index:2200;width:min(430px,calc(100vw - 36px));
-  overflow:auto;overscroll-behavior:contain;padding:18px;display:flex;flex-direction:column;gap:14px;
-  border:1px solid color-mix(in srgb,var(--line) 78%,transparent);border-radius:28px;
-  background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 96%,transparent),color-mix(in srgb,var(--surface-2) 91%,transparent));
-  box-shadow:0 30px 80px rgba(15,23,42,.24);backdrop-filter:blur(22px) saturate(1.12);
-  animation:smartGuideIn .26s cubic-bezier(.2,.8,.2,1) both;
-}
 @keyframes smartGuideIn{from{opacity:0;transform:translateX(-14px) scale(.985)}to{opacity:1;transform:none}}
-.smart-guide::-webkit-scrollbar{width:7px}.smart-guide::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 28%,transparent);border-radius:99px}
-.smart-guide button,.smart-guide input{font-family:var(--font-ui)}
-.smart-guide button{cursor:pointer}
-.smart-guide-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:2px 2px 4px}
-.smart-guide-hero>div{min-width:0}.smart-guide-kicker{display:inline-flex;align-items:center;gap:7px;color:var(--accent);font-size:12px;font-weight:700}.smart-guide-kicker svg{width:15px}
-.smart-guide-hero h2{margin:7px 0 5px;font-size:30px;line-height:1;font-weight:700;letter-spacing:-.035em}
-.smart-guide-hero p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.7;max-width:330px}
-.smart-guide-close{width:38px;height:38px;display:grid;place-items:center;flex:none;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--muted)}
-.smart-guide-close:hover{color:var(--ink);background:var(--surface-2)}
-
-.smart-guide-location{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;padding:12px 13px;border:1px solid color-mix(in srgb,var(--accent) 13%,var(--line));border-radius:20px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 7%,var(--surface)),var(--surface))}
-.smart-guide-location>span{width:38px;height:38px;display:grid;place-items:center;border-radius:14px;background:var(--accent-soft);color:var(--accent)}
-.smart-guide-location>span svg{width:17px}.smart-guide-location>div{min-width:0;display:grid;gap:2px}.smart-guide-location small{font-size:12px;color:var(--muted)}.smart-guide-location strong{font-size:14px}.smart-guide-location p{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:12px}
-.smart-guide-location>i{font-style:normal;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:700}.smart-guide-location>i.expert{background:var(--success-soft);color:var(--success)}.smart-guide-location>i.learning{background:var(--accent-soft);color:var(--accent)}
-
-.smart-guide-onboarding{padding:14px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:22px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 9%,var(--surface)),var(--surface))}
-.smart-guide-onboarding>header{display:flex;align-items:center;gap:9px;margin-bottom:10px}.smart-guide-onboarding>header>svg{width:20px;color:var(--accent)}.smart-guide-onboarding>header div{display:grid}.smart-guide-onboarding>header small{font-size:12px;color:var(--muted)}.smart-guide-onboarding>header strong{font-size:14px}
-.smart-guide-onboarding>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.smart-guide-onboarding button{border:1px solid var(--line);border-radius:17px;background:var(--surface);padding:11px 9px;display:grid;justify-items:start;gap:8px;text-align:right;color:var(--ink)}.smart-guide-onboarding button>svg{width:20px;color:var(--accent)}.smart-guide-onboarding button span{display:grid;gap:3px}.smart-guide-onboarding button strong{font-size:12px}.smart-guide-onboarding button small{font-size:12px;line-height:1.45;color:var(--muted)}
-
-.smart-guide-search{height:48px;display:flex;align-items:center;gap:9px;padding:0 13px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 7px 20px rgba(15,23,42,.04)}
-.smart-guide-search>svg{width:17px;color:var(--muted);flex:none}.smart-guide-search input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:var(--ink);font-size:12.5px}.smart-guide-search input::placeholder{color:var(--muted-2)}.smart-guide-search button{border:0;background:none;color:var(--muted);font-size:18px}
-.smart-guide-hint{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:11px 12px;text-align:right;border:1px solid color-mix(in srgb,var(--warning) 25%,var(--line));border-radius:18px;background:color-mix(in srgb,var(--warning) 7%,var(--surface));color:var(--ink)}.smart-guide-hint.strong{border-color:color-mix(in srgb,var(--warning) 48%,var(--line));box-shadow:0 8px 24px color-mix(in srgb,var(--warning) 8%,transparent)}.smart-guide-hint>svg:first-child{width:18px;color:var(--warning)}.smart-guide-hint span{display:grid;gap:2px}.smart-guide-hint strong{font-size:12px}.smart-guide-hint small{font-size:12px;line-height:1.55;color:var(--muted)}.smart-guide-hint>svg:last-child{width:15px;color:var(--muted)}
-
-.smart-guide-selected-context{display:grid;grid-template-columns:auto 1fr;gap:11px;padding:13px;border:1px solid color-mix(in srgb,var(--accent) 15%,var(--line));border-radius:21px;background:var(--surface)}
-.smart-guide-selected-visual{position:relative;width:54px;height:54px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(145deg,var(--accent-soft),var(--surface-3));color:var(--accent);overflow:hidden}.smart-guide-selected-visual svg{width:20px;z-index:2}.smart-guide-selected-visual i,.smart-guide-selected-visual b{position:absolute;border-radius:50%;border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)}.smart-guide-selected-visual i{width:42px;height:42px}.smart-guide-selected-visual b{width:68px;height:68px}
-.smart-guide-selected-context>div:nth-child(2){display:grid;align-content:center;gap:2px;min-width:0}.smart-guide-selected-context small{font-size:12px;color:var(--muted)}.smart-guide-selected-context strong{font-size:13px}.smart-guide-selected-context span{font-size:12px;color:var(--muted)}
-.smart-guide-selected-actions{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}.smart-guide-selected-actions button{padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);color:var(--ink);font-size:12px}.smart-guide-selected-actions button:first-child{background:var(--accent);color:var(--accent-contrast);border-color:var(--accent)}
-
-.smart-guide-notice{display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:9px;padding:11px 12px;border-radius:17px;background:var(--surface-2);border:1px solid var(--line);font-size:12px;line-height:1.65;color:var(--ink-2)}.smart-guide-notice>svg{width:17px;color:var(--accent)}.smart-guide-notice button{border:0;background:none;color:var(--muted)}
-.smart-guide-section-head{display:flex;align-items:end;justify-content:space-between;padding:2px 2px 0}.smart-guide-section-head small{display:block;font-size:12px;color:var(--muted);margin-bottom:1px}.smart-guide-section-head strong{font-size:13px}
-
-.smart-guide-results,.smart-guide-feature-grid,.smart-guide-new-grid,.smart-guide-live-controls{display:grid;gap:7px}.smart-guide-results>button,.smart-guide-feature-grid>button,.smart-guide-new-grid>button,.smart-guide-live-controls>button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px 12px;text-align:right;border:1px solid var(--line);border-radius:17px;background:var(--surface);color:var(--ink)}.smart-guide-results>button>span:first-child,.smart-guide-feature-grid>button>span:first-child{width:34px;height:34px;display:grid;place-items:center;border-radius:12px;background:var(--surface-3);color:var(--accent)}.smart-guide-results>button svg,.smart-guide-feature-grid>button svg,.smart-guide-new-grid>button>svg,.smart-guide-live-controls>button>svg{width:16px;color:var(--accent)}.smart-guide-results>button>div,.smart-guide-feature-grid>button>div,.smart-guide-new-grid>button>span,.smart-guide-live-controls>button>span{min-width:0;display:grid;gap:2px}.smart-guide-results strong,.smart-guide-feature-grid strong,.smart-guide-new-grid strong,.smart-guide-live-controls strong{font-size:12px}.smart-guide-results small,.smart-guide-feature-grid small,.smart-guide-new-grid small,.smart-guide-live-controls small{font-size:9.7px;line-height:1.45;color:var(--muted)}.smart-guide-results>p,.smart-guide-live-controls>p{margin:0;padding:9px 11px;color:var(--muted);font-size:12px;line-height:1.6}.smart-guide-feature-grid>button>i{font-style:normal;font-size:12px;padding:4px 7px;border-radius:99px;background:var(--success-soft);color:var(--success)}
-.smart-guide-new-grid>button,.smart-guide-live-controls>button{grid-template-columns:auto 1fr}.smart-guide-new-grid>button{background:linear-gradient(110deg,color-mix(in srgb,var(--accent) 6%,var(--surface)),var(--surface))}
-
-.smart-guide-focus-card{display:flex;flex-direction:column;gap:12px;padding:15px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:23px;background:var(--surface);box-shadow:0 12px 30px rgba(15,23,42,.06)}.smart-guide-focus-card>header{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}.smart-guide-focus-card>header>span{width:42px;height:42px;display:grid;place-items:center;border-radius:15px;background:var(--accent-soft);color:var(--accent)}.smart-guide-focus-card>header svg{width:18px}.smart-guide-focus-card>header div{display:grid;gap:2px}.smart-guide-focus-card>header small{font-size:12px;color:var(--accent)}.smart-guide-focus-card>header strong{font-size:14px}.smart-guide-focus-card>header p{margin:3px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
-.smart-guide-infographic{height:48px;display:grid;grid-template-columns:36px 1fr 36px 1fr 36px;align-items:center;gap:6px;padding:0 7px}.smart-guide-infographic>span{width:36px;height:36px;display:grid;place-items:center;border-radius:13px;background:var(--surface-3);color:var(--accent)}.smart-guide-infographic>span:last-child{background:var(--success-soft);color:var(--success)}.smart-guide-infographic>i{height:2px;border-radius:9px;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 20%,transparent),var(--accent),color-mix(in srgb,var(--accent) 20%,transparent));position:relative}.smart-guide-infographic>i:after{content:"";position:absolute;inset-inline-end:-2px;top:-2px;width:6px;height:6px;border-radius:50%;background:var(--accent)}.smart-guide-infographic svg{width:16px}
-.smart-guide-steps{display:grid;gap:6px;margin:0;padding:0;list-style:none}.smart-guide-steps li{display:grid;grid-template-columns:30px 1fr;align-items:center;gap:9px;padding:8px 9px;border-radius:14px;background:var(--surface-2)}.smart-guide-steps b{width:30px;height:30px;display:grid;place-items:center;border-radius:11px;background:var(--surface);font-size:12px;color:var(--accent)}.smart-guide-steps span{font-size:12px;line-height:1.55}
-.smart-guide-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.smart-guide-actions.one{grid-template-columns:1fr}.smart-guide-actions button{min-height:45px;border:1px solid var(--line);border-radius:15px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;gap:6px;color:var(--ink);font-size:12px;font-weight:600}.smart-guide-actions button:first-child{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}.smart-guide-actions svg{width:15px}.smart-guide-back-link{align-self:flex-start;border:0;background:none;color:var(--accent);display:flex;align-items:center;gap:5px;font-size:12px}.smart-guide-back-link svg{width:14px}
-
-.smart-guide-next{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:11px 12px;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));border-radius:18px;background:linear-gradient(110deg,color-mix(in srgb,var(--accent) 8%,var(--surface)),var(--surface));color:var(--ink);text-align:right}.smart-guide-next>svg:first-child{width:17px;color:var(--accent)}.smart-guide-next span{display:grid;gap:1px}.smart-guide-next small{font-size:12px;color:var(--muted)}.smart-guide-next strong{font-size:12px}.smart-guide-next>svg:last-child{width:14px;color:var(--muted)}
-
-.smart-guide-workflows,.smart-guide-routines{display:grid;gap:7px}.smart-guide-workflows article,.smart-guide-routines article{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center;padding:11px;border:1px solid var(--line);border-radius:17px;background:var(--surface)}.smart-guide-workflows article>div:first-child{display:grid;gap:2px}.smart-guide-workflows strong,.smart-guide-routines strong{font-size:12px}.smart-guide-workflows small,.smart-guide-routines small{font-size:12px;line-height:1.45;color:var(--muted)}.smart-guide-workflows article>div:last-child{display:flex;gap:5px}.smart-guide-workflows button,.smart-guide-routines button{display:flex;align-items:center;gap:4px;padding:6px 8px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--ink);font-size:12px;white-space:nowrap}.smart-guide-workflows button svg,.smart-guide-routines button svg{width:12px}
-.smart-guide-routines article{grid-template-columns:auto minmax(0,1fr) auto auto}.smart-guide-routines article>span{width:32px;height:32px;display:grid;place-items:center;border-radius:12px;background:var(--accent-soft);color:var(--accent)}.smart-guide-routines .danger{color:var(--danger);padding:6px}
-.smart-guide-routine-editor{display:grid;grid-template-columns:auto 1fr auto auto;align-items:end;gap:8px;padding:10px;border:1px dashed color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:16px;background:var(--accent-softer)}.smart-guide-routine-editor>svg{width:17px;color:var(--accent);align-self:center}.smart-guide-routine-editor>div{display:grid;gap:3px}.smart-guide-routine-editor small{font-size:12px;color:var(--muted)}.smart-guide-routine-editor input{width:100%;height:34px;border:1px solid var(--line);border-radius:10px;padding:0 8px;background:var(--surface);color:var(--ink);font-size:12px}.smart-guide-routine-editor button{height:34px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 9px;font-size:12px}.smart-guide-routine-editor button:first-of-type{background:var(--accent);color:var(--accent-contrast);border-color:var(--accent)}
-
-.smart-guide-friction{display:grid;gap:7px}.smart-guide-friction article{position:relative;overflow:hidden;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:9px;padding:10px 11px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}.smart-guide-friction article>svg{width:16px;color:var(--warning)}.smart-guide-friction article span{display:grid;gap:2px;z-index:2}.smart-guide-friction strong{font-size:12px}.smart-guide-friction small{font-size:12px;color:var(--muted)}.smart-guide-friction article>i{position:absolute;bottom:0;right:0;height:3px;width:var(--guide-friction);background:linear-gradient(90deg,var(--warning),var(--accent));border-radius:99px}
-
-.smart-guide-footer{display:grid;grid-template-columns:1fr auto;align-items:center;gap:5px;padding-top:5px;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}.smart-guide-footer button{justify-self:start;display:flex;align-items:center;gap:6px;border:0;background:none;color:var(--ink-2);font-size:12px}.smart-guide-footer button svg{width:14px}.smart-guide-footer>small{font-size:12px;color:var(--accent)}.smart-guide-footer>em{grid-column:1/-1;font-style:normal;font-size:8.8px;line-height:1.5;color:var(--muted)}
-.smart-guide-settings{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.smart-guide-settings button{height:34px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:12px;color:var(--ink)}.smart-guide-settings button.active{background:var(--accent);color:var(--accent-contrast);border-color:var(--accent)}
 
 [data-guide-hot="true"]{position:relative!important;z-index:95!important;outline:3px solid color-mix(in srgb,var(--accent) 58%,transparent)!important;outline-offset:5px!important;box-shadow:0 0 0 9px color-mix(in srgb,var(--accent) 12%,transparent),0 18px 40px rgba(15,23,42,.18)!important;border-radius:14px;animation:guideTargetBreathe 1.8s ease-in-out infinite alternate}
 @keyframes guideTargetBreathe{from{filter:brightness(1)}to{filter:brightness(1.04)}}
-body.guide-point-mode [data-guide-target],body.guide-point-mode button,body.guide-point-mode a,body.guide-point-mode select{cursor:crosshair!important}body.guide-point-mode [data-guide-target]:hover,body.guide-point-mode button:hover,body.guide-point-mode a:hover{outline:2px dashed color-mix(in srgb,var(--accent) 62%,transparent)!important;outline-offset:5px!important}
 /* Anchored on both edges rather than one, for the reason spelled out at
    .idle-warning: a box with a single inset shrinks to fit the space left
    over — half the screen — so its max-width never applied and the line
    wrapped into a narrow stack on a phone. */
-.guide-point-banner{position:fixed;inset-inline:14px;margin-inline:auto;width:fit-content;bottom:22px;z-index:2240;max-width:min(620px,calc(100vw - 28px));display:flex;align-items:center;gap:10px;padding:10px 13px;border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));border-radius:18px;background:color-mix(in srgb,var(--surface) 95%,transparent);box-shadow:0 20px 55px rgba(15,23,42,.24);backdrop-filter:blur(18px);color:var(--ink)}.guide-point-banner>svg{width:18px;color:var(--accent);flex:none}.guide-point-banner span{font-size:12px;line-height:1.5}.guide-point-banner strong{margin-inline-end:5px}.guide-point-banner button{margin-inline-start:auto;border:0;background:none;color:var(--muted);font-size:12px}
 
 .guide-ghost-layer{position:fixed;inset:0;z-index:var(--z-guide-spot);pointer-events:none;background:radial-gradient(circle at center,transparent 35%,rgba(9,14,27,.08));}.guide-ghost-ring{position:fixed;border:2px solid color-mix(in srgb,var(--accent) 75%,white);border-radius:18px;box-shadow:0 0 0 9999px rgba(6,11,24,.22),0 0 0 7px color-mix(in srgb,var(--accent) 14%,transparent),0 18px 50px rgba(15,23,42,.25);animation:guideRing .9s ease-in-out infinite alternate;pointer-events:none}.guide-ghost-hand{position:fixed;width:27px;height:27px;color:var(--accent);filter:drop-shadow(0 5px 10px rgba(15,23,42,.35));animation:guideHand 1.2s ease-in-out infinite alternate;pointer-events:none}.guide-ghost-card{position:fixed;width:min(310px,calc(100vw - 30px));pointer-events:auto;padding:12px 13px;border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line));border-radius:18px;background:var(--surface);box-shadow:0 22px 60px rgba(15,23,42,.28);display:grid;gap:7px}.guide-ghost-card>small{font-size:12px;color:var(--accent)}.guide-ghost-card>strong{font-size:12px;line-height:1.6}.guide-ghost-card>div{display:flex;justify-content:flex-end;gap:6px}.guide-ghost-card button{height:34px;padding:0 10px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);font-size:12px;color:var(--ink)}.guide-ghost-card button.primary{display:flex;align-items:center;gap:4px;background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}.guide-ghost-card button svg{width:13px}@keyframes guideRing{from{transform:scale(.995)}to{transform:scale(1.012)}}@keyframes guideHand{from{transform:translate(-2px,-2px)}to{transform:translate(5px,5px)}}
 
 /* نافذة التأكيد فوق لوحة المرشد لا تحتها: اللوحة على 2200، وكانت المعاينة على
    155 — فتظهر خلفها، لا تُقرأ ولا تُغلق، ويبقى المستخدم عالقاً بلا مخرج. */
-.guide-preview-backdrop{position:fixed;inset:0;z-index:2300;display:grid;place-items:center;padding:18px;background:rgba(8,13,25,.28);backdrop-filter:blur(6px)}.guide-preview{width:min(390px,100%);padding:20px;border:1px solid color-mix(in srgb,var(--accent) 20%,var(--line));border-radius:24px;background:var(--surface);box-shadow:0 28px 80px rgba(15,23,42,.3);text-align:center}.guide-preview>span{width:52px;height:52px;margin:0 auto 10px;display:grid;place-items:center;border-radius:18px;background:var(--accent-soft);color:var(--accent)}.guide-preview>span svg{width:22px}.guide-preview h3{margin:0 0 7px;font-size:17px}.guide-preview p{margin:0;color:var(--muted);font-size:12px;line-height:1.7}.guide-preview>div{display:flex;justify-content:center;gap:7px;margin-top:15px}.guide-preview button{height:38px;padding:0 13px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-size:12px}.guide-preview button.primary{display:flex;align-items:center;gap:5px;background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}.guide-preview button svg{width:14px}
 
-@media (max-width:900px){.smart-guide{left:0;right:0;top:auto;bottom:0;width:100%;height:min(86dvh,760px);border-radius:26px 26px 0 0;border-bottom:0;padding-bottom:calc(18px + env(safe-area-inset-bottom));animation-name:smartGuideUp}@keyframes smartGuideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}.smart-guide-fab{left:12px}/* bottom comes from --fab-floor, which already clears the phone dock */.smart-guide-onboarding>div{grid-template-columns:1fr}.guide-ghost-card{left:15px!important;right:15px!important;width:auto!important}}
-@media (max-width:560px){.smart-guide{padding:15px;gap:12px}.smart-guide-hero h2{font-size:27px}.smart-guide-actions{grid-template-columns:1fr}.smart-guide-workflows article{grid-template-columns:1fr}.smart-guide-workflows article>div:last-child{justify-content:flex-start}.smart-guide-routines article{grid-template-columns:auto 1fr auto}.smart-guide-routines article>.danger{grid-column:3}.smart-guide-routine-editor{grid-template-columns:auto 1fr}.smart-guide-routine-editor button{grid-row:2}.smart-guide-fab{min-width:136px}.smart-guide-fab-copy strong{font-size:16px}}
-@media (prefers-reduced-motion:reduce){.smart-guide,.smart-guide-fab,.guide-ghost-hand,.guide-ghost-ring,[data-guide-hot="true"]{animation:none!important;transition:none!important}.smart-guide-fab-pulse{animation:none}}
+@media (max-width:900px){@keyframes smartGuideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}.smart-guide-fab{left:12px}/* bottom comes from --fab-floor, which already clears the phone dock */.guide-ghost-card{left:15px!important;right:15px!important;width:auto!important}}
+@media (max-width:560px){.smart-guide-fab{min-width:136px}.smart-guide-fab-copy strong{font-size:16px}}
+@media (prefers-reduced-motion:reduce){.smart-guide-fab,.guide-ghost-hand,.guide-ghost-ring,[data-guide-hot="true"]{animation:none!important;transition:none!important}.smart-guide-fab-pulse{animation:none}}
 
 /* Smart Guide compact browsing and hint controls */
-.smart-guide-browse{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:4px;border:1px solid var(--line);border-radius:15px;background:var(--surface-2)}
-.smart-guide-browse button{position:relative;min-height:32px;border:0;border-radius:11px;background:transparent;color:var(--muted);font-size:12px;font-weight:600}.smart-guide-browse button.active{background:var(--surface);color:var(--ink);box-shadow:0 4px 12px rgba(15,23,42,.06)}.smart-guide-browse i{position:absolute;top:-5px;left:-3px;min-width:17px;height:17px;display:grid;place-items:center;padding:0 4px;border-radius:99px;background:var(--accent);color:var(--accent-contrast);font:700 12px/1 var(--font-ui);font-style:normal}
-.smart-guide-hint{grid-template-columns:auto 1fr!important}.smart-guide-hint>div{grid-column:1/-1;display:flex;justify-content:flex-end;gap:5px}.smart-guide-hint>div button{height:29px;padding:0 9px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:8.8px}.smart-guide-hint>div button:last-child{color:var(--muted)}
-@media(max-width:560px){.smart-guide-browse{grid-template-columns:repeat(2,1fr)}}
-.smart-guide-actions.expert{grid-template-columns:repeat(2,minmax(0,1fr))}.smart-guide-actions.expert button:first-child{background:var(--accent);color:var(--accent-contrast)}
-.smart-guide-feature-grid small,.smart-guide-results small,.smart-guide-new-grid small,.smart-guide-live-controls small{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-body.guide-point-mode .smart-guide{opacity:0;pointer-events:none;transform:translateX(-18px) scale(.985)}
-@media(max-width:900px){body.guide-point-mode .smart-guide{transform:translateY(105%)}}
 
 /* إجابات سياقية قصيرة داخل المرشد: مرئية أكثر من كونها نصية. */
-.smart-guide-special-answer{
-  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;
-  padding:12px 14px;border:1px solid var(--line);border-radius:18px;background:var(--surface-2);
-}
-.smart-guide-special-answer>span{width:38px;height:38px;border-radius:14px;display:grid;place-items:center;background:var(--surface-3);color:var(--accent)}
-.smart-guide-special-answer>div{display:flex;flex-direction:column;gap:3px;min-width:0}
-.smart-guide-special-answer small{color:var(--muted);line-height:1.55}
-.smart-guide-special-answer>button,.smart-guide-next-why{border:0;background:transparent;color:var(--accent);font:inherit;font-weight:700;padding:7px 8px}
-.smart-guide-next-wrap{display:grid;gap:4px}
-.smart-guide-next-why{justify-self:start;font-size:12px}
-@media(max-width:620px){.smart-guide-special-answer{grid-template-columns:auto minmax(0,1fr)}.smart-guide-special-answer>button{grid-column:2;justify-self:start}}
-.smart-guide-pending-task{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:17px;background:color-mix(in srgb,var(--accent) 5%,var(--surface));color:var(--ink);text-align:start}
-.smart-guide-pending-task>svg:first-child{width:18px;color:var(--accent)}.smart-guide-pending-task>span{display:grid;gap:2px}.smart-guide-pending-task small{font-size:12px;color:var(--muted)}.smart-guide-pending-task strong{font-size:12px}.smart-guide-pending-task>svg:last-child{width:14px;color:var(--muted)}
 
 /* الهاتف: مرشد خفيف يعتمد على التبويبات والرموز بدل البطاقات الكبيرة. */
-.smart-guide-kicker i{font-style:normal;opacity:.35}.smart-guide-kicker b{font:inherit;color:var(--muted);font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:560px){
-  .smart-guide{
-    height:min(82dvh,690px);padding:12px 12px calc(12px + env(safe-area-inset-bottom));gap:9px;
-    border-radius:24px 24px 0 0;background:color-mix(in srgb,var(--surface) 97%,transparent);
-    box-shadow:0 -18px 55px rgba(15,23,42,.18);
-  }
-  .smart-guide-hero{align-items:center;padding:0 1px 2px}
-  .smart-guide-hero h2{font-size:22px;margin:3px 0 0}
-  .smart-guide-hero p{display:none}
-  .smart-guide-kicker{font-size:12px;max-width:calc(100vw - 86px);overflow:hidden;white-space:nowrap}
-  .smart-guide-kicker b{max-width:120px}
-  .smart-guide-close{width:34px;height:34px;border-radius:12px}
-  .smart-guide-location{display:none}
-
-  .smart-guide-onboarding{padding:8px;border-radius:16px}
-  .smart-guide-onboarding>header{margin-bottom:7px}.smart-guide-onboarding>header small{display:none}.smart-guide-onboarding>header strong{font-size:12px}
-  .smart-guide-onboarding>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
-  .smart-guide-onboarding button{min-height:48px;padding:7px 5px;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center}
-  .smart-guide-onboarding button>svg{width:16px;height:16px}.smart-guide-onboarding button strong{font-size:12px;white-space:nowrap}.smart-guide-onboarding button small{display:none}
-
-  .smart-guide-search{height:42px;padding:0 11px;border-radius:15px;box-shadow:none}
-  .smart-guide-search input{font-size:12px}.smart-guide-search>svg{width:16px}
-
-  .smart-guide-browse{grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;padding:3px;border-radius:13px;position:sticky;top:-12px;z-index:5;backdrop-filter:blur(14px)}
-  .smart-guide-browse button{min-height:30px;font-size:12px;border-radius:9px}
-  .smart-guide-browse i{top:-3px;left:-1px;min-width:14px;height:14px;font-size:7px}
-
-  .smart-guide-pending-task{padding:8px 10px;border-radius:14px;gap:8px}.smart-guide-pending-task>svg:first-child{width:15px}.smart-guide-pending-task small{display:none}.smart-guide-pending-task strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-  .smart-guide-hint{padding:8px 9px;border-radius:14px;gap:7px}.smart-guide-hint>svg:first-child{width:15px}.smart-guide-hint strong{font-size:12px}.smart-guide-hint small{font-size:12px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}.smart-guide-hint>div{gap:3px}.smart-guide-hint>div button{height:25px;padding:0 7px;font-size:12px}
-
-  .smart-guide-selected-context{grid-template-columns:auto minmax(0,1fr);padding:8px 9px;border-radius:15px;gap:8px}.smart-guide-selected-visual{width:38px;height:38px;border-radius:13px}.smart-guide-selected-visual svg{width:16px}.smart-guide-selected-context small{display:none}.smart-guide-selected-context strong{font-size:12px}.smart-guide-selected-context span{font-size:12px}.smart-guide-selected-actions{flex-wrap:nowrap;overflow-x:auto;padding-bottom:1px;scrollbar-width:none}.smart-guide-selected-actions::-webkit-scrollbar{display:none}.smart-guide-selected-actions button{flex:none;padding:5px 8px;font-size:12px}
-
-  .smart-guide-notice{padding:8px 9px;border-radius:14px;font-size:12px;line-height:1.5}.smart-guide-notice>svg{width:14px}
-  .smart-guide-section-head{padding-top:0}.smart-guide-section-head small{display:none}.smart-guide-section-head strong{font-size:12px}
-
-  .smart-guide-feature-grid,.smart-guide-new-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-  .smart-guide-feature-grid>button,.smart-guide-new-grid>button{min-height:70px;padding:9px;border-radius:15px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:6px}
-  .smart-guide-feature-grid>button>span:first-child{width:28px;height:28px;border-radius:10px}.smart-guide-feature-grid>button>div,.smart-guide-new-grid>button>span{gap:0}.smart-guide-feature-grid strong,.smart-guide-new-grid strong{font-size:12px;line-height:1.35}.smart-guide-feature-grid small,.smart-guide-new-grid small{display:none!important}.smart-guide-feature-grid>button>i{position:absolute;inset-inline-start:7px;inset-block-start:7px;font-size:7px}
-  .smart-guide-feature-grid>button,.smart-guide-new-grid>button{position:relative}
-
-  .smart-guide-live-controls{gap:5px}.smart-guide-live-controls>button{padding:8px 9px;border-radius:14px}.smart-guide-live-controls small{display:none!important}.smart-guide-live-controls>p{padding:8px 9px;font-size:12px;line-height:1.5}
-  .smart-guide-results{gap:5px}.smart-guide-results>button{padding:8px 9px;border-radius:14px}.smart-guide-results>button>span:first-child{width:29px;height:29px;border-radius:10px}.smart-guide-results strong{font-size:12px}.smart-guide-results small{font-size:8.8px;-webkit-line-clamp:1}
-
-  .smart-guide-focus-card{padding:10px;border-radius:17px;gap:8px}.smart-guide-focus-card>header{gap:8px}.smart-guide-focus-card>header>span{width:34px;height:34px;border-radius:12px}.smart-guide-focus-card>header small{display:none}.smart-guide-focus-card>header strong{font-size:12px}.smart-guide-focus-card>header p{font-size:12px;line-height:1.5;margin-top:2px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-  .smart-guide-infographic,.smart-guide-steps{display:none}
-  .smart-guide-actions,.smart-guide-actions.expert{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.smart-guide-actions.expert{grid-template-columns:repeat(2,minmax(0,1fr))}.smart-guide-actions button{min-height:38px;border-radius:12px;font-size:12px;padding:4px}.smart-guide-actions svg{width:13px}.smart-guide-back-link{font-size:12px}
-
-  .smart-guide-next{padding:8px 9px;border-radius:14px}.smart-guide-next small{display:none}.smart-guide-next strong{font-size:12px}.smart-guide-next-why{font-size:12px;padding:2px 6px}
-  .smart-guide-workflows,.smart-guide-routines{gap:5px}.smart-guide-workflows article,.smart-guide-routines article{padding:8px 9px;border-radius:14px}.smart-guide-workflows strong,.smart-guide-routines strong{font-size:12px}.smart-guide-workflows small,.smart-guide-routines small{display:none}.smart-guide-workflows button,.smart-guide-routines button{padding:5px 7px;font-size:12px}
-  .smart-guide-routines article>span{width:27px;height:27px;border-radius:10px}
-
-  .smart-guide-footer{padding-top:4px}.smart-guide-footer button{font-size:12px}.smart-guide-footer>small{font-size:12px}.smart-guide-footer>em{display:none}
-  .smart-guide-settings button{height:30px;font-size:12px}
-
-  .guide-point-banner{top:calc(10px + env(safe-area-inset-top));bottom:auto;max-width:calc(100vw - 20px);padding:7px 9px;border-radius:14px;gap:7px}.guide-point-banner span{font-size:12px;white-space:nowrap}.guide-point-banner span strong{margin-inline-end:3px}.guide-point-banner button{font-size:12px;padding:4px}
   .guide-ghost-card{bottom:calc(14px + env(safe-area-inset-bottom))!important;top:auto!important;padding:9px 10px;border-radius:15px;gap:5px}.guide-ghost-card>small{font-size:12px}.guide-ghost-card>strong{font-size:12px;line-height:1.45}.guide-ghost-card button{height:30px;font-size:12px;border-radius:9px}
-  .guide-preview{padding:14px;border-radius:19px}.guide-preview>span{width:42px;height:42px;border-radius:14px}.guide-preview h3{font-size:14px}.guide-preview p{font-size:12px;line-height:1.55}.guide-preview button{height:34px;font-size:12px}
 
   .smart-guide-fab{min-width:0;width:auto;min-height:46px;padding:7px 10px;border-radius:16px;gap:7px}.smart-guide-fab-mark{width:32px;height:32px;border-radius:11px}.smart-guide-fab-copy small{display:none}.smart-guide-fab-copy strong{font-size:13px}.smart-guide-fab-new{min-width:18px;height:18px;font-size:8px;padding:0 4px}
 }
-.smart-guide-browse button{display:flex;align-items:center;justify-content:center;gap:4px}.smart-guide-browse button>svg{width:12px;height:12px;flex:none}
 
 /* ── Smart Guide final refinement: progressive disclosure, invisible expert UI ── */
-.smart-guide-fab.icon-only{min-width:0;width:48px;height:48px;min-height:48px;padding:0;border-radius:17px;justify-content:center;gap:0}
+.smart-guide-fab.icon-only{min-width:0;width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;background:var(--surface);justify-content:center;gap:0}
 .smart-guide-fab.icon-only .smart-guide-fab-mark{width:34px;height:34px;border-radius:12px;box-shadow:none}
 .smart-guide-fab.icon-only .smart-guide-fab-pulse,.smart-guide-fab.icon-only .smart-guide-fab-new{position:absolute;inset-inline-start:-3px;inset-block-start:-3px}
-.smart-guide.is-screen-action{opacity:0;pointer-events:none;transform:translateX(-24px) scale(.985);transition:opacity .18s var(--ease),transform .18s var(--ease)}
-.smart-guide-sheet-handle{display:none;border:0;background:transparent;height:12px;padding:0;place-items:center}
-.smart-guide-sheet-handle>i{display:block;width:42px;height:4px;border-radius:99px;background:color-mix(in srgb,var(--muted) 34%,transparent)}
-.smart-guide-hero-tools{display:flex;align-items:center;gap:5px;flex:none}
-.smart-guide-hero-tools>button{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted)}
-.smart-guide-hero-tools>button:hover{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 28%,var(--line));background:var(--accent-softer)}
-.smart-guide-hero-tools svg{width:15px;height:15px}
-.smart-guide-onboarding{padding:0;overflow:hidden}
-.smart-guide-onboarding>summary{list-style:none;min-height:42px;padding:8px 11px;display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink)}
-.smart-guide-onboarding>summary::-webkit-details-marker{display:none}.smart-guide-onboarding>summary>svg:first-child{width:16px;color:var(--accent)}.smart-guide-onboarding>summary>span{flex:1;font-size:12px;font-weight:700}.smart-guide-onboarding>summary>svg:last-child{width:13px;color:var(--muted);transition:transform .18s var(--ease)}.smart-guide-onboarding[open]>summary>svg:last-child{transform:rotate(-90deg)}
-.smart-guide-onboarding>div{padding:0 8px 8px}
-.smart-guide-intent-status{display:flex;align-items:center;gap:8px;padding:8px 10px;color:var(--muted);font-size:12px}.smart-guide-intent-status svg{width:14px;color:var(--accent)}
-.smart-guide-intent-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 11px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:17px;background:color-mix(in srgb,var(--accent) 5%,var(--surface))}.smart-guide-intent-card>span{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}.smart-guide-intent-card>span svg{width:16px}.smart-guide-intent-card>div{display:grid;gap:2px;min-width:0}.smart-guide-intent-card small{font-size:12px;color:var(--muted)}.smart-guide-intent-card strong{font-size:12px}.smart-guide-intent-card em{font-style:normal;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.smart-guide-intent-card>button{border:0;background:transparent;color:var(--accent);font-size:12px;font-weight:700;white-space:nowrap}
-.smart-guide-transaction-undo{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--line);border-radius:15px;background:var(--surface-2);color:var(--ink);text-align:start}.smart-guide-transaction-undo>svg{width:16px;color:var(--accent)}.smart-guide-transaction-undo>span{display:grid;gap:1px;min-width:0}.smart-guide-transaction-undo small{font-size:12px;color:var(--muted)}.smart-guide-transaction-undo strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.smart-guide-transaction-undo>b{font-size:12px;color:var(--accent)}
 .smart-guide-ambient-next{position:fixed;z-index:84;inset-inline-start:76px;inset-block-end:24px;display:flex;align-items:center;gap:7px;max-width:240px;min-height:38px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--surface) 94%,transparent);box-shadow:0 12px 30px rgba(15,23,42,.12);backdrop-filter:blur(14px);color:var(--ink);font:inherit;font-size:12px;animation:guideAmbientLife 7s both}.smart-guide-ambient-next>svg:first-child{width:14px;color:var(--accent)}.smart-guide-ambient-next>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.smart-guide-ambient-next>svg:last-child{width:12px;color:var(--muted)}
 @keyframes guideAmbientLife{0%{opacity:0;transform:translateY(5px)}8%,82%{opacity:1;transform:none}100%{opacity:0;transform:translateY(3px);pointer-events:none}}
 
@@ -1351,47 +1197,22 @@ body.guide-point-mode .smart-guide{opacity:0;pointer-events:none;transform:trans
 .schedule-guide-ghost-diff>p,.guide-simulation-brief>p{margin:8px 0 0;font-size:12px;color:var(--muted)}.schedule-guide-ghost-diff>p.warn{color:var(--warning)}.schedule-guide-ghost-diff>p.ok{color:var(--success)}.schedule-guide-ghost-diff footer,.guide-simulation-brief footer{display:flex;justify-content:flex-end;gap:6px;margin-top:9px}.schedule-guide-ghost-diff footer button,.guide-simulation-brief footer button{min-height:32px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font:inherit;font-size:12px}.schedule-guide-ghost-diff footer button.primary,.guide-simulation-brief footer button.primary{background:var(--accent);color:var(--accent-contrast);border-color:var(--accent)}
 
 @media (max-width:900px){
-  .smart-guide{top:auto;bottom:0;left:0;right:0;width:100%;max-width:none;min-height:0;transition:height .2s var(--ease),transform .18s var(--ease),opacity .18s var(--ease)}
-  .smart-guide.level-peek{height:36dvh}.smart-guide.level-medium{height:60dvh}.smart-guide.level-full{height:92dvh}
-  .smart-guide-sheet-handle{display:grid;position:sticky;top:-1px;z-index:8;margin:-8px 0 0;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px)}
-  .smart-guide.is-screen-action{transform:translateY(105%)}
   .smart-guide-ambient-next{inset-inline-start:65px;inset-block-end:88px;max-width:190px}
 }
 @media (max-width:560px){
-  .smart-guide{padding:9px 10px calc(10px + env(safe-area-inset-bottom));gap:7px;border-radius:21px 21px 0 0}
-  .smart-guide.level-peek{height:34dvh}.smart-guide.level-medium{height:58dvh}.smart-guide.level-full{height:94dvh}
-  .smart-guide-hero{min-height:34px;gap:6px}.smart-guide-hero>div:first-child{flex:1}.smart-guide-hero h2{display:none}.smart-guide-kicker{font-size:12px}.smart-guide-hero-tools{gap:3px}.smart-guide-hero-tools>button{width:30px;height:30px;border-radius:10px}.smart-guide-hero-tools svg{width:13px}
-  .smart-guide.level-peek .smart-guide-pending-task,.smart-guide.level-peek .smart-guide-onboarding,.smart-guide.level-peek .smart-guide-hint,.smart-guide.level-peek .smart-guide-selected-context,.smart-guide.level-peek .smart-guide-footer,.smart-guide.level-peek .smart-guide-settings,.smart-guide.level-peek .smart-guide-transaction-undo{display:none}
-  .smart-guide-search{height:39px}.smart-guide-browse{position:static;top:auto;grid-template-columns:repeat(4,minmax(0,1fr));border-radius:12px}.smart-guide-browse button{min-height:29px}.smart-guide-browse button span{font-size:12px}
-  .smart-guide-onboarding>summary{min-height:36px;padding:6px 8px}.smart-guide-onboarding>div{grid-template-columns:repeat(3,minmax(0,1fr));padding:0 6px 6px}.smart-guide-onboarding button{min-height:42px;padding:5px}.smart-guide-onboarding button strong{font-size:12px}
-  .smart-guide-intent-card{padding:7px 8px;gap:7px;border-radius:13px}.smart-guide-intent-card>span{width:29px;height:29px;border-radius:10px}.smart-guide-intent-card em{font-size:12px}.smart-guide-intent-card>button{font-size:12px}
   .smart-guide-fab.icon-only{width:42px;height:42px;min-height:42px;padding:0;border-radius:14px}.smart-guide-fab.icon-only .smart-guide-fab-mark{width:30px;height:30px;border-radius:10px}
   .schedule-practice-strip{padding:5px 8px}.schedule-practice-strip small{display:none}
   .schedule-guide-ghost-diff{top:6px;padding:9px;border-radius:16px}.schedule-guide-ghost-diff footer button{min-height:29px;padding:0 8px}
   .guide-simulation-brief{padding:9px;border-radius:16px}.guide-simulation-brief footer{overflow-x:auto;justify-content:flex-start}.guide-simulation-brief footer button{flex:none}
 }
-@media (prefers-reduced-motion:reduce){.smart-guide-ambient-next{animation:none}.smart-guide,.smart-guide.is-screen-action,.smart-guide-onboarding>summary>svg:last-child{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.smart-guide-ambient-next{animation:none}}
 
 /* Smart Guide: a click outside the card exits the guide immediately. The layer
    disappears whenever the guide hands interaction back to the real screen. */
-.smart-guide-outside-dismiss{position:fixed;inset:0;z-index:95;background:transparent}
-.smart-guide-icon-intro{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;padding:9px 10px;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:15px;background:color-mix(in srgb,var(--accent) 5%,var(--surface));box-shadow:0 8px 20px rgba(15,23,42,.05)}
-.smart-guide-icon-intro>svg{width:16px;color:var(--accent)}.smart-guide-icon-intro>div{display:grid;gap:2px;min-width:0}.smart-guide-icon-intro strong{font-size:12px}.smart-guide-icon-intro small{font-size:12px;line-height:1.45;color:var(--muted)}.smart-guide-icon-intro>button{width:28px;height:28px;border:0;border-radius:9px;background:transparent;color:var(--muted);display:grid;place-items:center}.smart-guide-icon-intro>button svg{width:13px}
-@media (max-width:900px){.smart-guide-outside-dismiss{background:transparent}.smart-guide-icon-intro{padding:7px 8px;border-radius:13px}.smart-guide-icon-intro strong{font-size:12px}.smart-guide-icon-intro small{font-size:12px}}
-@media (prefers-reduced-motion:reduce){.smart-guide-outside-dismiss{backdrop-filter:none}}
 
 /* Smart Guide integrity pass: deterministic badges, explicit first-use actions,
    separated update sources, accessible clarification and visible screen handoff. */
-.smart-guide-fab-new,.smart-guide-browse i{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
-.smart-guide:focus{outline:none}.smart-guide:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 48%,transparent);outline-offset:-3px}
-.smart-guide-icon-intro-actions{display:flex!important;align-items:center;justify-content:flex-end;gap:5px;min-width:max-content!important}
-.smart-guide-icon-intro-actions>button{min-width:30px;height:30px;padding:0 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;gap:4px;font:inherit;font-size:12px}
-.smart-guide-icon-intro-actions>button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast);font-weight:700}.smart-guide-icon-intro-actions>button svg{width:12px;height:12px}
-.smart-guide-clarification{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:9px 10px;border:1px dashed color-mix(in srgb,var(--accent) 28%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--accent) 4%,var(--surface));color:var(--ink-2)}
-.smart-guide-clarification>svg{width:15px;color:var(--accent)}.smart-guide-clarification>span{font-size:12px;line-height:1.55}.smart-guide-clarification>button{border:0;background:transparent;color:var(--accent);font-size:12px;font-weight:700;white-space:nowrap}
-.smart-guide-new-head{align-items:center;gap:8px}.smart-guide-mark-all{min-height:30px;padding:0 9px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--accent);font:inherit;font-size:12px;font-weight:700;white-space:nowrap}
-.smart-guide-new-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.smart-guide-new-summary>article{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
-.smart-guide-new-summary svg{width:15px;color:var(--accent);flex:none}.smart-guide-new-summary span{display:grid;gap:1px}.smart-guide-new-summary strong{font-size:13px}.smart-guide-new-summary small{font-size:12px;line-height:1.35;color:var(--muted)}
+.smart-guide-fab-new{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
 /* ── لماذا كان يختفي خارج الشاشة ────────────────────────────────────────
    `inset-inline-start:50%` resolves to `right:50%` in Arabic, which puts
    the box's RIGHT edge at the centre; centring it then needs a shift to
@@ -1400,16 +1221,7 @@ body.guide-point-mode .smart-guide{opacity:0;pointer-events:none;transform:trans
    width past the centre. Measured on a 375px phone it landed at
    left:-345 of a 352px box: seven visible pixels. Both edges plus auto
    margins centre it without a transform, in either direction. */
-.guide-screen-handoff{position:fixed;z-index:2250;inset-inline:14px;margin-inline:auto;inset-block-start:max(18px,env(safe-area-inset-top));width:min(420px,calc(100vw - 28px));display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px;padding:11px 13px;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:17px;background:color-mix(in srgb,var(--surface) 96%,transparent);box-shadow:0 18px 50px rgba(15,23,42,.24);backdrop-filter:blur(18px);pointer-events:none;animation:guideHandoffIn .22s var(--ease) both}
-.guide-screen-handoff>span{width:34px;height:34px;display:grid;place-items:center;border-radius:12px;background:var(--accent-soft);color:var(--accent)}.guide-screen-handoff>span svg{width:16px}.guide-screen-handoff>div{display:grid;gap:2px;min-width:0}.guide-screen-handoff strong{font-size:12px}.guide-screen-handoff small{font-size:9.3px;line-height:1.45;color:var(--muted)}
 @keyframes guideHandoffIn{from{opacity:0;transform:translateY(-9px) scale(.985)}to{opacity:1;transform:none}}
-@media(max-width:560px){
-  .smart-guide-icon-intro{grid-template-columns:auto minmax(0,1fr);align-items:start}.smart-guide-icon-intro-actions{grid-column:1/-1;justify-content:flex-end}
-  .smart-guide-clarification{grid-template-columns:auto minmax(0,1fr)}.smart-guide-clarification>button{grid-column:2;justify-self:start;padding:0}
-  .smart-guide-new-head{align-items:center}.smart-guide-new-summary{gap:5px}.smart-guide-new-summary>article{padding:7px 8px;border-radius:12px}.smart-guide-new-summary strong{font-size:12px}.smart-guide-new-summary small{font-size:7.7px}.guide-screen-handoff{inset-block-start:max(9px,env(safe-area-inset-top));inset-inline:9px;width:auto;padding:8px 9px;border-radius:14px}.guide-screen-handoff>span{width:29px;height:29px;border-radius:10px}.guide-screen-handoff strong{font-size:12px}.guide-screen-handoff small{font-size:8.4px}
-  .guide-point-banner span{white-space:normal;min-width:0}
-}
-@media(prefers-reduced-motion:reduce){.guide-screen-handoff{animation:none!important}}
 
 
 /* --- Final smart-guide polish --------------------------------------------
@@ -1422,29 +1234,6 @@ body.guide-point-mode .smart-guide{opacity:0;pointer-events:none;transform:trans
 }
 .smart-guide-fab:not(.icon-only){padding-inline-start:16px}
 .smart-guide-fab.icon-only .smart-guide-fab-new{inset-inline-start:-6px;inset-block-start:-6px;min-width:22px;height:22px;padding:0 5px;border-width:2px;font-size:9px}
-.smart-guide-browse i{top:-6px;left:-5px;min-width:20px;height:20px;padding:0 5px;border:2px solid var(--surface);box-shadow:0 8px 18px rgba(17,25,22,.12);font-size:12px}
-.smart-guide-new-summary>article{padding:10px 11px;border-radius:16px;background:linear-gradient(145deg,color-mix(in srgb,var(--accent) 6%,var(--surface)),var(--surface))}
-.smart-guide-new-summary strong{font-size:15px;font-weight:700}
-.smart-guide-new-summary small{font-size:12px}
-.smart-guide-mark-all{padding:8px 12px;border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line));border-radius:999px;background:var(--surface);color:var(--accent-strong,var(--accent));font:700 12px/1 var(--font-ui)}
-.smart-guide-mark-all:hover{background:var(--accent-softer)}
-.smart-guide-workflows article,.smart-guide-routines article{padding:12px;border-radius:18px;background:linear-gradient(160deg,var(--surface),color-mix(in srgb,var(--accent) 4%,var(--surface)))}
-.smart-guide-workflows strong,.smart-guide-routines strong{font-size:12px;line-height:1.5}
-.smart-guide-workflows small,.smart-guide-routines small{font-size:12px;line-height:1.55}
-.smart-guide-workflows button,.smart-guide-routines button{min-height:31px;padding:7px 10px;border-radius:12px;font-size:12px;font-weight:700}
-.smart-guide-pending-task,.smart-guide-transaction-undo{box-shadow:var(--shadow-sm)}
-@media (max-width:560px){
-  .smart-guide{padding:16px 14px 18px;gap:13px}
-  .smart-guide-hero h2{font-size:29px}
-  .smart-guide-hero p,.smart-guide-search input{font-size:13px}
-  .smart-guide-location strong,.smart-guide-section-head strong{font-size:13.5px}
-  .smart-guide-results strong,.smart-guide-feature-grid strong,.smart-guide-new-grid strong,.smart-guide-live-controls strong,.smart-guide-workflows strong,.smart-guide-routines strong{font-size:12px}
-  .smart-guide-results small,.smart-guide-feature-grid small,.smart-guide-new-grid small,.smart-guide-live-controls small,.smart-guide-workflows small,.smart-guide-routines small{font-size:12px}
-  .smart-guide-browse button{font-size:12px}
-  .smart-guide-new-summary{grid-template-columns:1fr 1fr}
-  .smart-guide-new-summary>article{padding:9px 10px;border-radius:14px}
-  .smart-guide-mark-all{min-height:30px;padding-inline:10px}
-}
 
 /* ── Smart Guide · final visual lock --------------------------------------
  * One launcher, one counter, one visual hierarchy. The day's undo log is a
@@ -1459,46 +1248,11 @@ body.guide-point-mode .smart-guide{opacity:0;pointer-events:none;transform:trans
   inset-inline-start:-5px;inset-block-start:-5px;min-width:24px;height:24px;padding:0 6px;border-width:2px;font-size:9px;
 }
 .smart-guide-fab.active{box-shadow:0 14px 34px rgba(17,24,39,.17)}
-.smart-guide-mark-all{display:inline-flex;align-items:center;justify-content:center;gap:6px}
-.smart-guide-mark-all svg{width:13px;height:13px;flex:none}
-.smart-guide-new-summary>article{position:relative;overflow:hidden}
-.smart-guide-new-summary>article::after{
-  content:"";position:absolute;inset-block:0;inset-inline-start:0;width:3px;border-radius:999px;background:var(--accent);opacity:.65;
-}
-.smart-guide-new-summary>article.is-runtime::after{background:var(--brass)}
-.smart-guide-new-summary>article.is-runtime>svg{color:var(--brass)}
-.smart-guide-new-summary>article.is-product>svg{color:var(--accent)}
-.smart-guide-browse button{min-height:38px}
-.smart-guide-browse button>svg{width:14px;height:14px}
-.smart-guide-location,.smart-guide-search,.smart-guide-new-summary>article,.smart-guide-workflows article,.smart-guide-routines article{box-shadow:0 8px 22px rgba(17,25,22,.035)}
-.smart-guide-hero-tools>button,.smart-guide-close{box-shadow:0 2px 8px rgba(17,25,22,.035)}
 
 /* There is no useful information at 7–9px. On a phone, secondary prose either
    disappears or remains genuinely readable; it never becomes visual texture. */
 @media(max-width:560px){
-  .smart-guide{padding:15px 13px calc(16px + env(safe-area-inset-bottom));gap:11px;border-radius:25px 25px 0 0}
-  .smart-guide-sheet-handle{height:15px;margin:-5px 0 0}
-  .smart-guide-sheet-handle>i{width:46px;height:5px}
-  .smart-guide-kicker{font-size:12px}
-  .smart-guide-hero{min-height:38px}.smart-guide-hero-tools>button{width:34px;height:34px;border-radius:12px}.smart-guide-hero-tools svg{width:15px}
-  .smart-guide-search{height:44px;border-radius:15px}.smart-guide-search input{font-size:13px}
-  .smart-guide-browse{padding:4px;border-radius:15px}.smart-guide-browse button{min-height:37px;border-radius:11px}.smart-guide-browse button span{font-size:12px}.smart-guide-browse button>svg{width:15px;height:15px}.smart-guide-browse i{font-size:12px}
-  .smart-guide-location{padding:10px 11px;border-radius:17px}.smart-guide-location small{font-size:12px}.smart-guide-location strong{font-size:13px}.smart-guide-location p{font-size:12px}.smart-guide-location>i{font-size:12px}
-  .smart-guide-section-head strong{font-size:13px}.smart-guide-section-head small{font-size:12px}
-  .smart-guide-results strong,.smart-guide-feature-grid strong,.smart-guide-new-grid strong,.smart-guide-live-controls strong,.smart-guide-workflows strong,.smart-guide-routines strong{font-size:12px}
-  .smart-guide-results small,.smart-guide-live-controls small,.smart-guide-workflows small,.smart-guide-routines small,.smart-guide-new-summary small,.smart-guide-new-scope small{font-size:12px;line-height:1.5}
-  .smart-guide-new-summary{gap:7px}.smart-guide-new-summary>article{padding:10px;border-radius:15px}.smart-guide-new-summary strong{font-size:14px}
-  .smart-guide-mark-all{min-height:34px;padding:0 10px;font-size:12px}
-  .smart-guide-hint strong,.smart-guide-next strong,.smart-guide-focus-card>header strong{font-size:12px}
-  .smart-guide-hint small,.smart-guide-focus-card>header p,.smart-guide-notice,.smart-guide-live-controls>p{font-size:12px;line-height:1.55}
-  .smart-guide-selected-context strong{font-size:12px}.smart-guide-selected-context span{font-size:12px}.smart-guide-selected-actions button{font-size:12px;padding:6px 9px}
-  .smart-guide-workflows article,.smart-guide-routines article{padding:10px;border-radius:16px}
-  .smart-guide-workflows button,.smart-guide-routines button{min-height:32px;font-size:12px;padding:6px 8px}
-  .smart-guide-footer button{font-size:12px}.smart-guide-footer>small{font-size:12px}.smart-guide-settings button{font-size:12px}
   .smart-guide-fab-new{min-width:24px;height:24px;font-size:9px}
-  .guide-screen-handoff strong{font-size:12px}.guide-screen-handoff small{font-size:12px}
-  .guide-preview p{font-size:12px}.guide-preview button{font-size:12px}
-  .guide-point-banner span{font-size:12px}.guide-point-banner button{font-size:12px}
   .guide-ghost-card>small{font-size:12px}.guide-ghost-card>strong{font-size:12px}.guide-ghost-card button{font-size:12px}
   .schedule-guide-ghost-flow small,.guide-simulation-flow small{font-size:12px}.schedule-guide-ghost-flow em,.guide-simulation-flow em{font-size:12px}.schedule-guide-ghost-diff>p,.guide-simulation-brief>p{font-size:12px}.schedule-guide-ghost-diff footer button,.guide-simulation-brief footer button{font-size:12px}
 }
@@ -1580,123 +1334,10 @@ html[data-schedule-workspace="focus"] .schedule-page>.schedule-agenda-surface{
 /* === Smart Guide V15: action-first visual dashboard =======================
    Keep every capability, but make the default surface icon-led and quiet.
    Detail returns only after the user chooses a feature. */
-.smart-guide.visual-minimal{
-  gap:10px;
-  padding:15px;
-}
-.smart-guide.visual-minimal .smart-guide-hero{
-  align-items:center;
-  padding-block:0 2px;
-}
-.smart-guide-hero-state{
-  display:block;
-  margin-top:5px;
-  font-size:17px;
-  line-height:1.15;
-  font-weight:700;
-  letter-spacing:-.02em;
-}
-.smart-guide.visual-minimal .smart-guide-location{
-  min-height:58px;
-  padding:9px 10px;
-  border-radius:18px;
-}
-.smart-guide.visual-minimal .smart-guide-location>span{
-  width:34px;height:34px;border-radius:12px;
-}
-.smart-guide.visual-minimal .smart-guide-location>div{gap:1px}
-.smart-guide.visual-minimal .smart-guide-location strong{font-size:12.5px}
-.smart-guide.visual-minimal .smart-guide-location p{font-size:9.8px;line-height:1.35}
-.smart-guide.visual-minimal .smart-guide-location>i{
-  width:32px;height:32px;padding:0;display:grid;place-items:center;border-radius:11px;
-}
-.smart-guide.visual-minimal .smart-guide-location>i svg{width:15px;height:15px}
-.smart-guide.visual-minimal .smart-guide-search{height:43px;border-radius:15px}
-.smart-guide.visual-minimal .smart-guide-browse{
-  position:sticky;top:-1px;z-index:4;
-  grid-template-columns:repeat(4,minmax(0,1fr));
-  padding:4px;border-radius:16px;
-  backdrop-filter:blur(14px);
-}
-.smart-guide.visual-minimal .smart-guide-browse button{
-  min-height:42px;display:grid;grid-template-columns:1fr;place-items:center;gap:2px;padding:4px;
-}
-.smart-guide.visual-minimal .smart-guide-browse button>svg{width:17px;height:17px}
-.smart-guide.visual-minimal .smart-guide-browse button>span{font-size:12px}
-.smart-guide-selected-actions.icon-only{
-  display:grid;grid-template-columns:repeat(5,38px);justify-content:start;gap:7px;
-}
-.smart-guide-selected-actions.icon-only button,
-.smart-guide-selected-actions.icon-only button:first-child{
-  width:38px;height:38px;padding:0;display:grid;place-items:center;
-  border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);
-}
-.smart-guide-selected-actions.icon-only button:first-child{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 24%,var(--line))}
-.smart-guide-selected-actions.icon-only button:hover{background:var(--accent-soft);color:var(--accent)}
-.smart-guide-selected-actions.icon-only svg{width:16px;height:16px}
-.smart-guide-learning-orbit{
-  min-height:88px;display:flex;align-items:center;justify-content:center;gap:8px;
-  border:1px solid color-mix(in srgb,var(--accent) 12%,var(--line));border-radius:20px;
-  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 5%,var(--surface)),var(--surface));
-}
-.smart-guide-learning-orbit span{
-  width:42px;height:42px;display:grid;place-items:center;border-radius:15px;
-  background:var(--surface-2);color:var(--accent);border:1px solid var(--line);
-}
-.smart-guide-learning-orbit span:nth-of-type(2){width:50px;height:50px;background:var(--accent-soft)}
-.smart-guide-learning-orbit svg{width:18px;height:18px}
-.smart-guide-learning-orbit i{width:28px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 34%,transparent),transparent)}
 /* Titles are enough in browsing mode. Prose is available when a feature is
    opened, so the overview no longer repeats the same explanation everywhere. */
-.smart-guide.visual-minimal .smart-guide-feature-grid>button small,
-.smart-guide.visual-minimal .smart-guide-results>button small,
-.smart-guide.visual-minimal .smart-guide-new-grid>button small,
-.smart-guide.visual-minimal .smart-guide-routines article small,
-.smart-guide.visual-minimal .smart-guide-workflows article small{display:none}
-.smart-guide.visual-minimal .smart-guide-feature-grid>button,
-.smart-guide.visual-minimal .smart-guide-results>button,
-.smart-guide.visual-minimal .smart-guide-new-grid>button{min-height:48px;padding:8px 10px}
-.smart-guide.visual-minimal .smart-guide-focus-card>header p{display:none}
-.smart-guide.visual-minimal .smart-guide-steps{display:none}
-.smart-guide.visual-minimal .smart-guide-section-head small{display:none}
-.smart-guide.visual-minimal .smart-guide-section-head strong{font-size:12px;font-weight:700}
-.smart-guide.visual-minimal .smart-guide-footer{
-  grid-template-columns:auto auto;justify-content:start;border-top:0;padding-top:1px;opacity:.82;
-}
-.smart-guide.visual-minimal .smart-guide-footer button{font-size:12px}
-@media(max-width:560px){
-  .smart-guide.visual-minimal{gap:9px;padding:13px 12px calc(14px + env(safe-area-inset-bottom))}
-  .smart-guide-hero-state{font-size:15px}
-  .smart-guide.visual-minimal .smart-guide-location{min-height:52px}
-  .smart-guide-selected-actions.icon-only{grid-template-columns:repeat(5,36px)}
-  .smart-guide-selected-actions.icon-only button,.smart-guide-selected-actions.icon-only button:first-child{width:36px;height:36px}
-}
 
 /* Guide progressive disclosure: dense collections stay folded until asked for. */
-.smart-guide-fold{
-  border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden;
-}
-.smart-guide-fold+ .smart-guide-fold{margin-top:8px}
-.smart-guide-fold>summary{
-  list-style:none;min-height:58px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
-  align-items:center;gap:10px;padding:10px 12px;cursor:pointer;color:var(--ink);
-}
-.smart-guide-fold>summary::-webkit-details-marker{display:none}
-.smart-guide-fold>summary>svg{width:18px;height:18px;color:var(--accent)}
-.smart-guide-fold>summary>span{min-width:0;display:grid;gap:1px}
-.smart-guide-fold>summary small{font-size:12px;color:var(--muted)}
-.smart-guide-fold>summary strong{font-size:12.5px;font-weight:700}
-.smart-guide-fold>summary>b{min-width:28px;height:28px;display:grid;place-items:center;border-radius:999px;background:var(--surface-2);font-size:12px;color:var(--muted)}
-.smart-guide-fold[open]>summary{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 3%,var(--surface))}
-.smart-guide-fold>.smart-guide-feature-grid,
-.smart-guide-fold>.smart-guide-live-controls,
-.smart-guide-fold>.smart-guide-routines,
-.smart-guide-fold>.smart-guide-workflows,
-.smart-guide-fold>.smart-guide-new-grid{padding:10px}
-.smart-guide-mark-all{width:32px!important;min-width:32px!important;height:32px!important;padding:0!important;border-radius:999px!important}
-.smart-guide-mark-all span{display:none!important}
-.smart-guide-point-answer header p{margin-top:5px;line-height:1.65}
-.smart-guide-point-answer header p>b{color:var(--ink);font-weight:700}
 
 
 .guide-ghost-wait{display:inline-flex;align-items:center;min-height:34px;padding:0 10px;border:1px dashed color-mix(in srgb,var(--accent) 28%,var(--line));border-radius:11px;background:color-mix(in srgb,var(--accent) 5%,var(--surface));color:var(--accent);font-size:12px;font-weight:700}
@@ -1704,70 +1345,11 @@ html[data-schedule-workspace="focus"] .schedule-page>.schedule-agenda-surface{
 /* === Smart Guide V16 · first-use clarity and deterministic navigation ======
    A chosen answer must never appear "somewhere below", unread counters must
    explain themselves, and every bottom-sheet state must remain scrollable. */
-.smart-guide{
-  min-height:0;
-  max-height:calc(100dvh - 36px);
-  overflow-x:hidden!important;
-  overflow-y:auto!important;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior-y:contain;
-  touch-action:pan-y;
-  scroll-padding-block:78px 54px;
-}
-.smart-guide-pending-task{
-  position:relative;z-index:2;pointer-events:auto!important;
-  transition:border-color .16s var(--ease),background .16s var(--ease),transform .16s var(--ease);
-}
-.smart-guide-pending-task:hover{border-color:color-mix(in srgb,var(--accent) 34%,var(--line));background:var(--accent-softer);transform:translateY(-1px)}
-
-.smart-guide-onboarding{padding:0!important;overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:18px;background:var(--surface)}
-.smart-guide-onboarding-toggle{
-  width:100%;min-height:44px;padding:8px 11px;border:0;background:transparent;color:var(--ink);
-  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;text-align:start;
-}
-.smart-guide-onboarding-toggle>svg:first-child{width:16px;height:16px;color:var(--accent)}
-.smart-guide-onboarding-toggle>span{font-size:12px;font-weight:700}
-.smart-guide-onboarding-toggle>svg:last-child{width:13px;height:13px;color:var(--muted);transition:transform .18s var(--ease)}
-.smart-guide-onboarding.is-open .smart-guide-onboarding-toggle{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 3%,var(--surface))}
-.smart-guide-onboarding.is-open .smart-guide-onboarding-toggle>svg:last-child{transform:rotate(-90deg)}
-.smart-guide-onboarding>div{padding:8px!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-
-.smart-guide-unread-brief{
-  width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;
-  padding:9px 11px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:16px;
-  background:linear-gradient(115deg,color-mix(in srgb,var(--accent) 7%,var(--surface)),var(--surface));color:var(--ink);text-align:start;
-}
-.smart-guide-unread-brief>svg:first-child{width:17px;height:17px;color:var(--accent)}
-.smart-guide-unread-brief>span{display:grid;gap:1px;min-width:0}
-.smart-guide-unread-brief strong{font-size:12px;font-weight:700}
-.smart-guide-unread-brief small{font-size:12px;line-height:1.45;color:var(--muted)}
-.smart-guide-unread-brief>svg:last-child{width:13px;height:13px;color:var(--muted)}
-.smart-guide-unread-brief:hover{border-color:color-mix(in srgb,var(--accent) 38%,var(--line));background:var(--accent-softer)}
-
-.smart-guide-browse i{
-  min-width:22px!important;width:auto!important;max-width:none!important;height:20px!important;padding:0 6px!important;
-  white-space:nowrap;font-variant-numeric:tabular-nums lining-nums;
-}
-.smart-guide-mark-all{
-  width:auto!important;min-width:0!important;height:32px!important;padding:0 10px!important;border-radius:999px!important;
-  display:inline-flex!important;align-items:center;gap:5px;white-space:nowrap;
-}
-.smart-guide-mark-all span{display:inline!important;font-size:12px;font-weight:700}
-
-.smart-guide-result-jump{width:15px!important;height:15px!important;color:var(--accent)!important;opacity:.8;transition:transform .16s var(--ease)}
-.smart-guide-results>button:hover .smart-guide-result-jump{transform:translateY(3px)}
-.smart-guide-focus-card{scroll-margin-block:86px 42px}
-.smart-guide-focus-card.is-arrived{animation:smartGuideFocusArrived .9s ease both}
 @keyframes smartGuideFocusArrived{
   0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 0%,transparent),0 12px 30px rgba(15,23,42,.06)}
   35%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 14%,transparent),0 16px 36px rgba(15,23,42,.09)}
   100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 0%,transparent),0 12px 30px rgba(15,23,42,.06)}
 }
-.smart-guide-fold[open]>.smart-guide-feature-grid,
-.smart-guide-fold[open]>.smart-guide-live-controls,
-.smart-guide-fold[open]>.smart-guide-routines,
-.smart-guide-fold[open]>.smart-guide-workflows,
-.smart-guide-fold[open]>.smart-guide-new-grid{max-height:none!important;overflow:visible!important}
 
 .smart-guide-fab-new{
   width:auto!important;max-width:none!important;min-width:0!important;height:25px!important;padding:0 7px!important;
@@ -1777,73 +1359,11 @@ html[data-schedule-workspace="focus"] .schedule-page>.schedule-agenda-surface{
   width:auto!important;min-width:0!important;height:24px!important;padding:0 6px!important;font-size:8px!important;
   inset-inline-start:-12px!important;inset-block-start:-8px!important;
 }
-
-@media(max-width:900px){
-  .smart-guide{max-height:100dvh;scroll-padding-block:72px calc(60px + env(safe-area-inset-bottom))}
-  .smart-guide.level-full{height:94dvh;overflow-y:auto!important}
-}
 @media(max-width:560px){
-  .smart-guide.level-full{height:94dvh!important;max-height:94dvh!important;overflow-y:auto!important;padding-bottom:calc(28px + env(safe-area-inset-bottom))!important}
-  .smart-guide-onboarding-toggle{min-height:40px;padding:7px 9px}
-  .smart-guide-onboarding-toggle>span{font-size:12px}
-  .smart-guide-onboarding>div{grid-template-columns:1fr 1fr 1fr!important;padding:7px!important;gap:6px}
-  .smart-guide-unread-brief{padding:8px 9px;border-radius:14px}
-  .smart-guide-unread-brief small{font-size:12px}
-  .smart-guide-mark-all{height:30px!important;padding:0 8px!important}
-  .smart-guide-mark-all span{font-size:12px}
   .smart-guide-fab.icon-only .smart-guide-fab-new{inset-inline-start:-18px!important;min-width:52px!important;justify-content:center}
 }
 
 /* === Smart Guide V17 · calm first-use hierarchy and collision-safe scroll == */
-.smart-guide>*{flex:0 0 auto;min-width:0}
-.smart-guide .smart-guide-fold,
-.smart-guide .smart-guide-focus-card,
-.smart-guide .smart-guide-selected-context,
-.smart-guide .smart-guide-notice,
-.smart-guide .smart-guide-pending-task{
-  position:relative;
-  z-index:1;
-  margin-block:0;
-  contain:layout paint;
-}
-.smart-guide .smart-guide-browse{z-index:8}
-.smart-guide-fold+ .smart-guide-fold{margin-top:0}
-.smart-guide-intent-fold>summary{min-height:50px}
-.smart-guide-intent-fold>.smart-guide-intent-results{
-  padding:10px;
-  max-height:min(46dvh,430px);
-  overflow-y:auto;
-  overscroll-behavior:contain;
-  scrollbar-gutter:stable;
-  -webkit-overflow-scrolling:touch;
-}
-.smart-guide-intent-results::-webkit-scrollbar,
-.smart-guide-live-controls::-webkit-scrollbar{width:6px}
-.smart-guide-intent-results::-webkit-scrollbar-thumb,
-.smart-guide-live-controls::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 28%,transparent);border-radius:99px}
-.smart-guide-live-fold[open]>.smart-guide-live-controls{
-  max-height:min(52dvh,500px)!important;
-  overflow-y:auto!important;
-  overscroll-behavior:contain;
-  scrollbar-gutter:stable;
-  -webkit-overflow-scrolling:touch;
-  touch-action:pan-y;
-  outline:none;
-}
-.smart-guide-live-fold[open]>.smart-guide-live-controls:focus-visible{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 28%,transparent);border-radius:12px}
-.smart-guide-live-fold[open]>summary{position:sticky;top:0;z-index:2}
-.smart-guide-focus-card{isolation:isolate}
-.smart-guide-results>button,.smart-guide-live-controls>button,.smart-guide-feature-grid>button,.smart-guide-new-grid>button{position:relative;z-index:0;transform:none!important}
-.smart-guide-results>button+button,.smart-guide-live-controls>button+button,.smart-guide-feature-grid>button+button,.smart-guide-new-grid>button+button{margin-top:0}
-
-@media(max-width:900px){
-  .smart-guide-intent-fold>.smart-guide-intent-results{max-height:48dvh}
-  .smart-guide-live-fold[open]>.smart-guide-live-controls{max-height:54dvh!important}
-}
-@media(max-width:560px){
-  .smart-guide-intent-fold>.smart-guide-intent-results{max-height:44dvh;padding:8px}
-  .smart-guide-live-fold[open]>.smart-guide-live-controls{max-height:50dvh!important;padding:8px}
-}
 
 /* Demo status is informative, not alarming: permanent, compact, and resettable. */
 
@@ -1863,18 +1383,12 @@ html[data-schedule-workspace="focus"] .schedule-page>.schedule-agenda-surface{
    treatment: the floating dock and the guide were painting on top of it, in the
    middle of the sheet, which read as two loose controls dropped over the page. */
 html[data-barter-open="true"] .smart-guide-fab,
-html[data-barter-open="true"] .smart-guide,
 html[data-barter-open="true"] .smart-guide-ambient-next,
 html[data-barter-open="true"] .schedule-dock,
 html[data-barter-open="true"] .quick-create,
 html[data-journey-open="true"] .smart-guide-fab,
-html[data-journey-open="true"] .smart-guide,
 html[data-journey-open="true"] .smart-guide-ambient-next,
-html[data-journey-open="true"] .guide-point-banner,
 html[data-journey-open="true"] .guide-ghost-layer,
-html[data-journey-open="true"] .guide-preview-backdrop,
-html[data-journey-open="true"] .guide-screen-handoff,
-html[data-journey-open="true"] .smart-guide-outside-dismiss,
 html[data-journey-open="true"] .schedule-dock,
 html[data-journey-open="true"] .quick-create,
 html[data-journey-open="true"] .schedule-guide-backdrop{
@@ -1888,26 +1402,8 @@ html[data-journey-open="true"] .schedule-guide-backdrop{
    above a caption so the row stays the same height it always was, and the
    close keeps its bare ✕. On a narrow drawer the captions are the first thing
    dropped, which is the right order — a named action beats a cramped one. */
-.smart-guide-hero-action{
-  width:auto!important;min-width:38px;padding:3px 7px!important;
-  grid-template-rows:auto auto;row-gap:1px;
-  line-height:1;
-}
-.smart-guide-hero-action>span{
-  font-size:12px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;color:inherit;
-}
-@media (max-width:420px){
-  .smart-guide-hero-action{min-width:34px;padding:0!important}
-  .smart-guide-hero-action>span{display:none}
-}
-.smart-guide-footer>small{font-size:12px}
 
 /* One line under the four tabs, saying what the open one is showing. */
-.smart-guide-browse-caption{
-  margin:5px 2px 0;
-  color:var(--muted);
-  font-size:12px;line-height:1.6;
-}
 
 @keyframes railScrimIn{from{opacity:0}to{opacity:1}}
 

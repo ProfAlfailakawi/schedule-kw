@@ -130,11 +130,13 @@ app.get("/api/intelligence/guide-friction", requirePermission(7), async (req: Au
   const rows=await Repository.getClientTelemetry(collegeId,sectionId,1800).catch(()=>[]);
   const now=Date.now(), day=24*60*60*1000, cutoff=now-30*day, previousCutoff=now-60*day;
   const counts=new Map<string,number>();
+  const unanswered=new Map<string,number>();
   type FrictionAggregate={feature:string;version:number;step:string;attempt:number;completed:number;failed:number;abandoned:number;helped:number;resolvedAfterHelp:number;previousFailed:number;previousTotal:number};
   const structured=new Map<string,FrictionAggregate>();
   rows.filter(item=>item.kind==="guide"&&Date.parse(item.timestamp)>=previousCutoff).forEach(item=>{
     const name=String(item.name||"نقطة تعثر").slice(0,140);
     const stamp=Date.parse(item.timestamp);
+    if(name.startsWith("unanswered|")){if(stamp>=cutoff){const text=name.split("|")[1]||"";if(text)unanswered.set(text,(unanswered.get(text)||0)+1);}return;}
     if(stamp>=cutoff)counts.set(name,(counts.get(name)||0)+1);
     if(!name.startsWith("journey|"))return;
     const [,feature="unknown",versionText="0",step="journey",outcome="attempt"]=name.split("|");
@@ -160,7 +162,7 @@ app.get("/api/intelligence/guide-friction", requirePermission(7), async (req: Au
     return{featureId:value.feature,version:value.version,step:value.step,attempt:value.attempt,completed:value.completed,failed:value.failed,abandoned:value.abandoned,helped:value.helped,resolvedAfterHelp:value.resolvedAfterHelp,failureRate:Number(failureRate.toFixed(3)),abandonRate:Number((value.abandoned/total).toFixed(3)),helpRate:Number((value.helped/total).toFixed(3)),helpToSuccessRate:Number((value.resolvedAfterHelp/Math.max(1,value.helped)).toFixed(3)),changeVsPrevious:Number((failureRate-previousRate).toFixed(3))};
   }).sort((a,b)=>(b.failureRate+b.helpRate*.35)-(a.failureRate+a.helpRate*.35)).slice(0,12);
   const items=[...counts.entries()].map(([name,count])=>({name,count})).filter(item=>!item.name.startsWith("journey|")).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,"ar")).slice(0,8);
-  res.json({items,insights,windowDays:30,anonymous:true,interpretation:"ارتفاع التعثر الجماعي بعد إصدار جديد قد يعني أن الواجهة نفسها تحتاج إعادة تصميم، لا أن المستخدم يحتاج شرحًا أكثر."});
+  res.json({items,insights,unanswered:[...unanswered.entries()].map(([text,count])=>({text,count})).sort((a,b)=>b.count-a.count).slice(0,30),windowDays:30,anonymous:true,interpretation:"ارتفاع التعثر الجماعي بعد إصدار جديد قد يعني أن الواجهة نفسها تحتاج إعادة تصميم، لا أن المستخدم يحتاج شرحًا أكثر."});
 });
 
 app.get("/api/intelligence/experience-health", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {

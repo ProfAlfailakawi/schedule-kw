@@ -438,15 +438,11 @@ time,.num,.code-chip{
 time,[dir="ltr"],bdi{unicode-bidi:isolate;font-variant-numeric:tabular-nums}
 
 /* One optical language for icon-only controls. */
-.icon-action,.drawer-close,.notice-close,.qc-close,.share-close,
-.master-search>button,.travel-search>button,.smart-guide-search>button,
-.occupancy-pick header>button{
+.icon-action,.drawer-close,.notice-close,.qc-close,.share-close,.master-search>button,.travel-search>button,.occupancy-pick header>button{
   display:inline-grid;place-items:center;inline-size:var(--icon-btn);block-size:var(--icon-btn);
   min-inline-size:var(--icon-btn);padding:0;border-radius:var(--radius-control);
 }
-.icon-action svg,.drawer-close svg,.notice-close svg,.qc-close svg,.share-close svg,
-.master-search>button svg,.travel-search>button svg,.smart-guide-search>button svg,
-.occupancy-pick header>button svg{inline-size:var(--icon-md);block-size:var(--icon-md)}
+.icon-action svg,.drawer-close svg,.notice-close svg,.qc-close svg,.share-close svg,.master-search>button svg,.travel-search>button svg,.occupancy-pick header>button svg{inline-size:var(--icon-md);block-size:var(--icon-md)}
 
 /* Empty screens should read as a visual state before they read as prose. */
 .empty-state,.master-empty{

@@ -602,53 +602,6 @@ export function predictedNextFeature(profile:GuideProfile,currentId:string){
   return route?{...route,last:0,confidence:Math.min(.64,Number(route.confidence||0)*.64),successful:0,successRate:0}:null;
 }
 
-export function dialectIntentTerms(value:string):string[]{const text=String(value||"").toLowerCase().replace(/[إأآ]/g,"ا").replace(/ى/g,"ي").replace(/[ً-ْٰـ]/g,"");const terms=new Set(text.split(/\s+/).filter(Boolean));const add=(...items:string[])=>items.forEach(item=>terms.add(item));if(/شلون|كيف/.test(text))add("كيف","طريقة","شرح");if(/شنو|ماذا/.test(text))add("ماذا","شرح");if(/وين|اين|وين القى|وين احصل|ما لقيت/.test(text))add("اين","مكان","افتح","بحث");if(/ليش|لماذا/.test(text))add("لماذا","سبب","تعارض","مشكلة");if(/ابي|اريد|ودي|سوي|سو لي|خلني|خله/.test(text))add("اريد","تنفيذ");if(/مادري|ما ادري|ما اعرف|مو عارف|متوهق/.test(text))add("شرح","مساعدة","طريقة");if(/طلع لي|ظهر لي|قاعد يطلع/.test(text))add("رسالة","مشكلة","سبب");if(/ضيعت|ضاع|راح علي|رجع لي/.test(text))add("تراجع","سجل","اخر تعديل");if(/ماده|الماده/.test(text))add("مقرر","نقل");if(/دكتور|الدكتور/.test(text))add("استاذ","عضو هيئة تدريس");if(/مو راضي|ما يرضى|ما يقبل|مو قابل|علق|متوهق/.test(text))add("مشكلة","تعارض","لا يقبل","نقل");if(/قاعه|قاعات|مبنى|مباني/.test(text))add("قاعة","قاعات","مبنى","نقل");if(/اسرع|اختصر|روتين|طريقتي/.test(text))add("مسار","اختصار","روتين");if(/وين كنت|شنو كنت|كنت اسوي|كنت اسوي شنو|ماذا كنت|اين توقفت|وين وقفت/.test(text))add("مهمة","اكمل","سابق");if(/نفس اللي|نفس الي|مثل امس|مثل أمس|سويته امس|سويته أمس|كرر السابق/.test(text))add("مسار","روتين","سابق","كرر");if(/جديد|شنو الجديد|ما الجديد/.test(text))add("جديد","تحديث");if(/الاربعاء|الأربعاء/.test(text))add("fwednesday","الأربعاء");if(/الثلاثاء/.test(text))add("ftuesday","الثلاثاء");if(/الاثنين|الإثنين/.test(text))add("fmonday","الاثنين");if(/الاحد|الأحد/.test(text))add("fsunday","الأحد");if(/الخميس/.test(text))add("fthursday","الخميس");return [...terms];}
-
-export const GUIDE_INTENT_FEATURES:Record<string,string>={
-  "move-room":"schedule.action.move-room","change-time":"schedule.action.change-time","change-course":"schedule.action.change-course","change-instructor":"schedule.action.change-instructor","find-room":"schedule.action.find-room",
-  "view-list":"schedule.view.list","view-week":"schedule.view.week","view-rooms":"schedule.view.rooms","quick-search":"schedule.search.quick","undo":"schedule.undo","undo-log":"schedule.undo.log","review":"schedule.tool.review","data-tools":"schedule.tool.data","publish":"schedule.publish","practice":"schedule.practice",
-  "dashboard":"page.dashboard","schedules":"page.schedules","intelligence":"page.intelligence","intelligence-understand":"intelligence.scene.understand","ask-table":"intelligence.ask-table","intelligence-try":"intelligence.scene.try","intelligence-approve":"intelligence.scene.approve",
-  "search-instructor":"page.searchInstructor","search-room":"page.searchRoom","search-time":"page.searchTime","search-room-time":"page.searchRoomTime","search-advanced":"page.searchAdvanced",
-  "report-department":"page.reportDepartment","departmentSchedule":"page.departmentSchedule","report-instructor":"page.reportInstructor","report-room":"page.reportRoom","report-time":"page.reportTime","report-room-time":"page.reportRoomTime",
-  "terms":"page.terms","colleges":"page.colleges","sections":"page.sections","instructors":"page.instructors","courses":"page.courses","users":"page.users","seats":"page.seats","permissions":"page.permissions","scopes":"page.scopes","audit":"page.audit","locations":"page.locations","roomSetup":"page.roomSetup","sectionHours":"page.sectionHours","teachingLoad":"page.teachingLoad","backup":"page.backup","audience":"page.audience","ads":"page.ads","about":"page.about",
-};
-export function featureIdForGuideIntentGoal(goal:string){
-  const clean=String(goal||"").trim();
-  if(clean.startsWith("feature:")){const id=clean.slice(8);return featureById(id)?id:"";}
-  return GUIDE_INTENT_FEATURES[clean]||"";
-}
-
-export type StructuredGuideIntent={goal:string;entities:{selectedId?:number;course?:string;day?:string;time?:string;room?:string;instructor?:string};constraints:{keepInstructor?:boolean;keepRoom?:boolean;findAlternativeRoom?:boolean};requestedAction:"explain"|"navigate"|"prepare"|"simulate"|"execute"|"unknown";confidence:number;compound:boolean;source:"rules"|"ai";clarification?:string};
-function genericGuideIntentFeature(text:string){
-  const needle=String(text||"").trim();
-  if(!needle)return null;
-  const terms=dialectIntentTerms(needle).map(term=>term.trim()).filter(term=>term.length>1);
-  let best:{feature:GuideFeature;score:number}|null=null;
-  for(const feature of GUIDE_FEATURES){
-    const title=feature.title.toLowerCase().replace(/[إأآ]/g,"ا").replace(/ى/g,"ي");
-    const hay=[feature.title,feature.summary,feature.group,...(feature.keywords||[])].join(" ").toLowerCase().replace(/[إأآ]/g,"ا").replace(/ى/g,"ي");
-    let score=0;
-    if(needle.includes(title)||title.includes(needle))score+=12;
-    for(const term of terms){if(title.includes(term))score+=5;else if(hay.includes(term))score+=2;}
-    if(!best||score>best.score)best={feature,score};
-  }
-  return best&&best.score>=6?best:null;
-}
-export function parseStructuredGuideIntent(value:string):StructuredGuideIntent{
-  const raw=String(value||"");const text=raw.toLowerCase().replace(/[إأآ]/g,"ا").replace(/ى/g,"ي").replace(/[ً-ْٰـ]/g,"");
-  const day=/اربعاء/.test(text)?"fwednesday":/ثلاثاء/.test(text)?"ftuesday":/اثنين/.test(text)?"fmonday":/احد/.test(text)?"fsunday":/خميس/.test(text)?"fthursday":undefined;
-  const timeMatch=text.match(/(?:الساعه|الساعة|وقت)\s*(\d{1,2})(?::(\d{2}))?|(?:^|\s)(\d{1,2}):(\d{2})(?:\s|$)/);const timeHour=timeMatch?Number(timeMatch[1]||timeMatch[3]):NaN;const timeMinute=timeMatch?Number(timeMatch[2]||timeMatch[4]||0):NaN;const time=Number.isFinite(timeHour)?`${String(Math.min(23,Math.max(0,timeHour))).padStart(2,"0")}:${String(Math.min(59,Math.max(0,timeMinute))).padStart(2,"0")}`:undefined;
-  const move=/(?:نقل|انقل|غير\s+(?:ال)?قاع|غير\s+قاع)/.test(text);const timeChange=/غير.*وقت|تغيير.*وقت|يصير يوم|خله يوم|خليه يوم|موعد/.test(text);const instructor=/غير.*دكتور|غير.*استاذ|تغيير.*استاذ/.test(text);const courseChange=/(?:غير|تغيير|استبدل|استبدال)\s+(?:هذا\s+|هذه\s+)?(?:المقرر|الماده|المادة)(?!\s*(?:وقته|وقت|استاذ|الأستاذ|الاستاذ|دكتور|قاعه|قاعة))/.test(text);const simulate=/جرب|جرّب|ماذا لو|بدون تغيير/.test(text);const explain=/شلون|كيف|وضح|شرح|ليش/.test(text);const navigate=/افتح|روح|اذهب|وين|اين|ابي اشوف|ارني/.test(text);const keepInstructor=/لا.*(?:ابي|اريد).*غير.*(?:دكتور|استاذ)|خله.*(?:دكتور|استاذ)|ابق.*(?:الاستاذ|الأستاذ)/.test(text);const findAlternativeRoom=/اذا.*قاع.*مشغ|دور.*قاع|قاعة.*بديل|قاعه.*بديل/.test(text);
-  let goal=move?"move-room":timeChange?"change-time":instructor?"change-instructor":courseChange?"change-course":findAlternativeRoom?"find-room":"unknown";if(goal==="unknown"&&day&&time)goal="change-time";
-  let generic:{feature:GuideFeature;score:number}|null=null;if(goal==="unknown"){generic=genericGuideIntentFeature(text);if(generic)goal=`feature:${generic.feature.id}`;}
-  let requestedAction:StructuredGuideIntent["requestedAction"]=simulate?"simulate":move||timeChange||instructor||courseChange?"prepare":findAlternativeRoom?"navigate":explain?"explain":navigate?"navigate":"unknown";
-  if(generic&&requestedAction==="unknown")requestedAction=generic.feature.risk==="prepare"||generic.feature.risk==="write"?"prepare":generic.feature.view?"navigate":"explain";
-  const compound=[day,time,keepInstructor,findAlternativeRoom].filter(Boolean).length>=2;
-  let confidence=goal!=="unknown"?.68:.25;if(day)confidence+=.08;if(time)confidence+=.08;if(move||timeChange||instructor||courseChange)confidence+=.08;if(simulate)confidence+=.05;if(compound)confidence+=.03;if(generic)confidence=Math.max(confidence,Math.min(.9,.56+generic.score*.025));
-  const clarification=confidence<.62?"هل تقصد أن أشرح لك مكان الوظيفة، أم أجهز الخطوة الآمنة داخل الشاشة؟":undefined;
-  return{goal,entities:{day,time},constraints:{keepInstructor,findAlternativeRoom},requestedAction,confidence:Math.min(.98,confidence),compound,source:"rules",clarification};
-}
-export function needsGuideAIFallback(intent:StructuredGuideIntent,query:string){return intent.confidence<.72||intent.compound||dialectIntentTerms(query).length>=10;}
 
 export function noteDiscoveredControls(userId:number,activeView:string,items:DynamicGuideFeature[]){
   const p=loadGuideProfile(userId);

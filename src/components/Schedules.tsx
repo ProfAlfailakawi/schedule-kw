@@ -10536,9 +10536,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         return;
       }
       if (detail.type === "showTarget") {
-        if (detail.target === "schedule.tool.review" || detail.target === "schedule.tool.data") {
-          setWorkspaceToolsOpen(true);
-        }
+        setWorkspaceToolsOpen(true);
         return;
       }
       if (detail.type === "openEditRow" && detail.value) {

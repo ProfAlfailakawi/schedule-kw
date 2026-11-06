@@ -3216,10 +3216,6 @@ html[data-schedule-workspace="presentation"] .cinema-day-track time b{font-size:
 /* Even a sliver keeps both identities. Time yields first because the axis
    already says it; subject and instructor never disappear. */
 .rooms-card{container-type:inline-size}
-@container (max-width:90px){
-}
-@container (max-width:44px){
-}
 .rooms-empty{color:var(--muted);font-size:var(--t-sm);padding:var(--s4) 0}
 .rooms-card .week-moved-pill{top:2px;inset-inline-end:2px}
 
@@ -5337,30 +5333,13 @@ html.schedule-physics-active .rooms-slot:hover::after{content:none}
 .intel-context.visual-minimal .intel-context-copy strong{font-size:1rem}
 .intel-context.visual-minimal .intel-context-copy small{display:none}
 .intel-context.visual-minimal .intel-context-fields .field{border-radius:18px}
-.smart-guide.visual-minimal .smart-guide-kicker i,
-.smart-guide.visual-minimal .smart-guide-selected-context small,
-.smart-guide.visual-minimal .smart-guide-intent-status span,
-.smart-guide.visual-minimal .smart-guide-results small{opacity:.78}
-.smart-guide.visual-minimal .smart-guide-browse button,
-.smart-guide.visual-minimal .smart-guide-close,
-.smart-guide.visual-minimal .smart-guide-sheet-handle{border-radius:16px}
-.smart-guide.visual-minimal .smart-guide-browse button,
-.smart-guide.visual-minimal .smart-guide-selected-actions button,
-.smart-guide.visual-minimal .smart-guide-pending-task{min-height:48px}
-.smart-guide.visual-minimal .smart-guide-selected-visual,
-.smart-guide.visual-minimal .smart-guide-icon-intro,
-.smart-guide.visual-minimal .smart-guide-selected-context,
-.smart-guide.visual-minimal .smart-guide-special-answer,
-.smart-guide.visual-minimal .smart-guide-intent-card,
-.smart-guide.visual-minimal .smart-guide-clarification{border-radius:20px}
 
 /* ========================================================================== 
    EXHAUSTIVE VISUAL PASS — schedule ecosystem.
    ========================================================================== */
 
 /* Compact icon actions are visually consistent in every schedule popover. */
-.quick-create.visual-minimal,.share-sheet.visual-minimal,.transfer-sheet.visual-minimal,
-.review-sheet.visual-minimal,.hall-barter-board.visual-minimal,.smart-guide.visual-minimal{
+.quick-create.visual-minimal,.share-sheet.visual-minimal,.transfer-sheet.visual-minimal,.review-sheet.visual-minimal,.hall-barter-board.visual-minimal{
   --local-radius:var(--radius-card);
 }
 .quick-create.visual-minimal{border-radius:var(--radius-card);box-shadow:var(--shadow-lg)}
@@ -5423,14 +5402,6 @@ html.schedule-physics-active .rooms-slot:hover::after{content:none}
 
 /* Guide: screen chrome is icon-first while explanation text remains where it is
    the product itself, not decoration. */
-.smart-guide.visual-minimal .smart-guide-hero-tools button,
-.smart-guide.visual-minimal .smart-guide-browse button{border-radius:14px}
-.smart-guide.visual-minimal .smart-guide-search>button{border:0;background:transparent;color:var(--muted);cursor:pointer}
-.smart-guide.visual-minimal .smart-guide-search>button:hover{color:var(--ink)}
-.smart-guide.visual-minimal .smart-guide-workflows article{border-radius:20px}
-.smart-guide.visual-minimal .smart-guide-workflows article>div>strong{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.smart-guide.visual-minimal .guide-flow-arrow{inline-size:13px;block-size:13px;color:var(--muted);flex:none}
-.smart-guide.visual-minimal .smart-guide-selected-visual{background:linear-gradient(180deg,var(--accent-softer),var(--surface))}
 
 /* Search clears and other icon-only controls no longer look like stray text. */
 .schedule-toolbar button[aria-label*="مسح"],
@@ -5444,7 +5415,6 @@ html.schedule-physics-active .rooms-slot:hover::after{content:none}
   .share-sheet.visual-minimal,.transfer-sheet.visual-minimal,.review-sheet.visual-minimal{border-radius:24px 24px 0 0}
   .transfer-sheet.visual-minimal .transfer-tabs{grid-template-columns:repeat(5,minmax(52px,1fr));gap:6px}
   .share-sheet.visual-minimal .share-kind button{min-inline-size:72px;min-block-size:72px}
-  .smart-guide.visual-minimal .smart-guide-workflows article>div>strong{gap:4px}
 }
 
 

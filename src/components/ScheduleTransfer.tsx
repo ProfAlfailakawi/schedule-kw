@@ -1347,7 +1347,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           {termEnded ? null : (
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "import" && !fromPlanning ? "active" : ""} onClick={() => goTab("import")} title="استيراد"><Upload />استيراد</button>
           )}
-          <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "publish" ? "active" : ""} onClick={() => goTab("publish")} title="نشر"><Link2 />نشر</button>
+          <button type="button" data-guide-feature-id="schedule.tool.data" data-guide-tab="publish" className={tab === "publish" ? "active" : ""} onClick={() => goTab("publish")} title="نشر"><Link2 />نشر</button>
           {termEnded ? null : (
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "retire" ? "active" : ""} onClick={() => goTab("retire")} title="استبدال"><UserMinus />استبدال</button>
           )}
