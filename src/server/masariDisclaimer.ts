@@ -35,7 +35,7 @@ function placeRibbon(){var r=document.getElementById("mribbon");if(!r)return;if(
   if(d&&d.firstElementChild)h=Math.max(h,d.offsetHeight-4);
   if(k&&!k.hidden)h=Math.max(h,(parseFloat(getComputedStyle(k).bottom)||0)+k.offsetHeight);
   r.style.insetBlockEnd=h?(h+8)+"px":""}
-if(!window.__ribbonWatch){window.__ribbonWatch=1;var rq=0,rs=function(){if(rq)return;rq=requestAnimationFrame(function(){rq=0;placeRibbon()})};window.addEventListener("resize",rs);if(window.MutationObserver)new MutationObserver(rs).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["hidden","class"]})}
+if(typeof window!=="undefined"&&!window.__ribbonWatch){window.__ribbonWatch=1;var rq=0,rs=function(){if(rq)return;rq=requestAnimationFrame(function(){rq=0;placeRibbon()})};window.addEventListener("resize",rs);if(window.MutationObserver)new MutationObserver(rs).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["hidden","class"]})}
 function viewAck(){var r=document.getElementById("mribbon");if(r)r.remove();
   app.innerHTML='<section class="mack fade" role="dialog" aria-modal="true" aria-labelledby="mackT"><h1 id="mackT">${MASARI_ACK_TEXT}</h1>'+
   '<div class="mack-flow" aria-hidden="true"><div class="mack-step"><i>💡</i><b>مقترحات</b><small>مساري يقترح</small></div><span class="mack-arrow">←</span>'+
