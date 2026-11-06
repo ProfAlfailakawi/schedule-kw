@@ -303,7 +303,7 @@ for (const [name, src] of [["وارد الأساتذة", inboxSrc], ["كشف ا�
   check(src.includes("}, [scopes, catalog]);") && src.includes("}, [scopes, collegeId, catalog]);"),
     `${name}: والقائمتان تتبعان الكتالوجَ حين يوجد`);
 }
-check(appSrc.includes("<StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} />"),
+check(appSrc.includes("<StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} canReadDemand={hasPerm(7)}"),
   "والصفةُ تصل كشفَ التسجيل، وإلا بقي الإصلاحُ معطّلاً في شاشةٍ لا تعرفه");
 check(responsiveCss.includes(".sidebar .side-nav-link{")
   && responsiveCss.includes("grid-template-columns:24px minmax(0,1fr) auto auto"),
