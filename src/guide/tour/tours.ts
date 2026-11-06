@@ -61,7 +61,7 @@ function coreSteps(feature: GuideFeature, env: TourEnv): TourStepSpec[] {
   if (edit) {
     const selected = Boolean(env.selectedId);
     return [
-      ...(selected ? [] : [{ id: "pick", selector: ".week-event[data-row-id],[data-row-id]", command: changeView("week"), needs: "selection" as const, text: edit.ask }]),
+      ...(selected ? [] : [{ id: "pick", selector: "[data-row-id]", needs: "selection" as const, text: edit.ask }]),
       { id: "field", selector: edit.field, command: { scope: "schedule", type: "openEditSelected", task: edit.task, featureId: feature.id }, text: feature.steps?.[1]?.text || bank.s[bank.s.length - 1] },
     ];
   }
