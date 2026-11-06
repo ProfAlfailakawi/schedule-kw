@@ -209,6 +209,7 @@ import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmSt
 import { historicalDurationMinutes, pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
 import { setTelemetryScope, telemetryApi, telemetryBreadcrumb, telemetryError, telemetryGuide, telemetryOffline, telemetryTiming } from "../utils/clientTelemetry";
 import { canQueueScheduleMutation, discardParkedMutation, enqueueScheduleMutation, flushOfflineScheduleQueue, offlineQueueCount, parkedMutations, queuedPseudoResponse, retryParkedMutation, setOfflineQueueOwner, subscribeOfflineQueue, subscribeParkedMutations, type ParkedMutation } from "../utils/offlineScheduleQueue";
+import { isPhoneDevice } from "../utils/phoneDevice";
 import { GUIDE_ACTIONS, allAllowedGuideFeatures, canRunGuideAction, featureById, loadGuideProfile, masteryScore, recordFeatureEvent, evaluateGuideFriction, classifyGuideReason, ensureGuideJourney, advanceGuideJourney, completeGuideJourney, failGuideJourney, type GuideCommand } from "../guide/smartGuide";
 /* The same six hues the stylesheet paints from, so a chip and the ring it
    refers to are the same colour. Red is absent on purpose: it belongs to
@@ -721,15 +722,6 @@ function ScheduleSkeleton({ viewMode }: { viewMode: "week" | "list" | "rooms" })
  * opened like iPhone Duo) keeps the full workspace only while the page has the
  * room: half of it in Split View is as narrow as a phone, so it reads as one.
  * Re-run on resize so folding or splitting switches live, without a reload. */
-function isPhoneDevice() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
-  const mobileUa = Boolean(nav.userAgentData?.mobile) || /iPhone|iPod|Android.+Mobile|Mobile/i.test(nav.userAgent || "");
-  const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
-  if (!mobileUa && !coarse) return false;
-  const shortEdge = Math.min(Number(window.screen?.width || window.innerWidth), Number(window.screen?.height || window.innerHeight));
-  return shortEdge <= 600 || window.innerWidth < 700;
-}
 
 type RefusalReason = { kind: "room" | "instructor" | "cohort" | "other"; text: string; entity: string; state: string };
 
@@ -10551,9 +10543,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         return;
       }
       if (detail.type === "showTarget") {
-        if (detail.target === "schedule.tool.review" || detail.target === "schedule.tool.data") {
-          setWorkspaceToolsOpen(true);
-        }
+        setWorkspaceToolsOpen(true);
         return;
       }
       if (detail.type === "openEditRow" && detail.value) {

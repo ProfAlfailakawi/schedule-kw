@@ -213,7 +213,7 @@ for (const journey of journeys) {
 // data-guide-feature-id / data-guide-target, or an explicit documented ignore.
 const controlBaselineFile = path.join(root, "scripts/guide-control-baseline.json");
 const controlFingerprint = (c) => `${c.file}|${c.tag}|${String(c.label || "").replace(/\d+/g,"#").replace(/\s+/g," ").trim().slice(0,140)}|${String(c.source || "").replace(/\d+/g,"#").replace(/\s+/g," ").trim().slice(0,180)}`;
-const unannotatedControls = controls.filter(c => !c.target && !c.featureId && !(typeof c.ignore === "string" && c.ignore.length > 5));
+const unannotatedControls = controls.filter(c => !c.file.startsWith("src/components/guide/") && !c.target && !c.featureId && !(typeof c.ignore === "string" && c.ignore.length > 5));
 if (process.env.GUIDE_UPDATE_CONTROL_BASELINE === "1") {
   const fingerprints = [...new Set(unannotatedControls.map(controlFingerprint))].sort();
   fs.writeFileSync(controlBaselineFile, JSON.stringify({ version:1, generatedAt:new Date().toISOString(), fingerprints }, null, 2) + "\n");
@@ -230,7 +230,7 @@ for (const c of unannotatedControls) {
 // كل أداة مؤثرة يجب أن تكون مسجلة أو مفسرة بسبب واضح.
 const important = /حذف|نشر|اعتماد|استعادة|استيراد|تصدير|استبدال|نقل|تغيير\s+(?:القاعة|الأستاذ|الاستاذ|الوقت)|طبّق\s+النقل|حفظ\s+المسودة/;
 for (const c of controls) {
-  if (!important.test(c.label)) continue;
+  if (!important.test(c.label) || c.file.startsWith("src/components/guide/")) continue;
   if (c.target || c.featureId || (typeof c.ignore === "string" && c.ignore.length > 5)) continue;
   failures.push(`عنصر مؤثر بلا guideFeatureId/target أو ignore موثق: ${c.file}:${c.line} «${c.label.slice(0,90)}»`);
 }
@@ -240,41 +240,32 @@ const pathBlock = app.match(/const pathByView:[\s\S]*?=\s*\{([\s\S]*?)\n\};/);
 const views = new Set(pathBlock ? [...pathBlock[1].matchAll(/^\s*([A-Za-z][A-Za-z0-9]*):\s*"/gm)].map(m => m[1]) : []);
 for (const view of views) if (!featureIds.has(`page.${view}`)) failures.push(`لا يوجد تعريف للواجهة: page.${view}`);
 
-const smart = read("src/components/SmartGuide.tsx");
+const smart = read("src/components/guide/GuideAssistant.tsx");
 const schedules = read("src/components/Schedules.tsx");
 const intelligence = read("src/components/IntelligenceWorkspace.tsx");
-const css = read("src/styles/03-shell.css");
+const css = read("src/styles/45-guide.css");
+if (!/\.guide-tour\{[^}]*pointer-events:none/.test(css)) failures.push("طبقة الجولة تحجب الضغط عن العنصر المنتظَر.");
 const server = readServerSource();
 const packageJson = JSON.parse(read("package.json"));
 
 const tokens = [
   [registrySource.text,"canAccessGuideFeature","Predicate صلاحيات مركزي"],
   [smart,"allAllowedGuideFeatures","البحث عبر ميزات مصفاة مركزيًا"],
+  [smart,"guide-scrim","النقر خارج اللوحة يغلقها"],
   [registrySource.text,"recordFeatureEvent","نتائج حقيقية بدل نجاح النقرة"],
   [registrySource.text,"GUIDE_JOURNEYS","Journey Engine"],
   [registrySource.text,"medianCompletionMs","Baseline زمني"],
   [registrySource.text,"evaluateGuideFriction","محرك تعثر low/medium/high"],
   [registrySource.text,"GUIDE_ACTIONS","Action Registry"],
   [registrySource.text,"GuideTransaction","Transaction/Undo"],
-  [registrySource.text,"parseStructuredGuideIntent","فهم اللغة المركبة"],
-  [smart,"/api/guide/intent","AI fallback اختياري"],
   [registrySource.text,"classifyGuideReason","Reason Classifier"],
-  [registrySource.text,"discoverVisibleControls","Runtime discovery"],
   [smart,"schedule-guide-simulation","Simulation handoff"],
   [schedules,"practiceMode","Practice Mode"],
   [schedules,"schedule-guide-ghost-diff","Ghost Diff"],
   [app,"smart-guide-ambient-next","Ambient Next Step"],
   [server,"/api/intelligence/guide-friction","Product friction telemetry"],
-  [css,"smart-guide-fab.icon-only","Expert/after-first-use icon-only launcher"],
-  [css,"smart-guide.level-peek","Progressive mobile sheet"],
-  [smart,"setDrawerHidden(true)","إخفاء الدرج عند التعامل مع الشاشة"],
-  [server,"canAccessGuideFeature(feature", "Predicate الصلاحيات المركزي مستخدم أيضًا في fallback الخادم"],
   [schedules,"allAllowedGuideFeatures", "سجل الميزات مربوط بلوحة الأوامر"],
   [schedules,"canRunGuideAction", "لوحة الأوامر تستخدم صلاحيات Action Registry المركزية"],
-  [server,"OPENAI_API_KEY", "AI fallback فعلي عبر مزود أصلي عند عدم ضبط Adapter خارجي"],
-  [server,"/responses", "AI fallback يستخدم Responses API من الخادم فقط"],
-  [smart,"smart-guide-outside-dismiss", "النقر خارج بطاقة المرشد يغلقها"],
-  [smart,"markGuideIconHintSeen", "تعريف أول ضغطة لأيقونات الهاتف"],
 ];
 for (const [text, token, label] of tokens) if (!text.includes(token)) failures.push(`آلية ناقصة: ${label}`);
 
@@ -285,10 +276,9 @@ for (const file of sourceFiles) {
 if (/<video\b|\bvideo\s*:/i.test(smart)) failures.push("المرشد يحتوي فيديو رغم اعتماد الإرشاد الحي.");
 if (/recordFeatureUse\([^\n]*["']success["']/.test([app,smart,schedules].join("\n"))) failures.push("يوجد نجاح مبني على recordFeatureUse بدل تحقق النتيجة الفعلية.");
 if (!intelligence.includes("copy[index] = after")) failures.push("المحاكاة لا تطبق التغيير المطلوب على نسخة Sandbox.");
-if (!css.includes("body.guide-point-mode .smart-guide") && !css.includes(".smart-guide.is-screen-action")) failures.push("وضع أشر لي لا يخفي درج المرشد.");
-if (!/smart-guide-browse[\s\S]{0,350}repeat\(4/.test(css)) failures.push("تبويبات الهاتف ليست أربعة أقسام مضغوطة.");
 if (!css.includes("prefers-reduced-motion")) failures.push("الحركة لا تحترم prefers-reduced-motion.");
-if (server.includes("rawHistory") && !server.includes("rawHistorySent:false")) warnings.push("راجع سياق AI للتأكد من عدم إرسال سجل خام.");
+if (/\/api\/guide\/intent|OPENAI_API_KEY|GUIDE_AI_/.test(server + smart)) failures.push("المرشد يعتمد على ذكاء مدفوع وقت التشغيل.");
+for (const f of features) if (!read("src/guide/bank.ts").includes(`"${f.id}":`)) failures.push(`ميزة بلا جواب في بنك المعرفة: ${f.id}`);
 if (/GUIDE_(?:ADMIN|ROOT|PERMISSION)_FEATURES/.test(server)) failures.push("الخادم يكرر خرائط صلاحيات المرشد بدل استخدام canAccessGuideFeature المركزي.");
 if (!String(packageJson.scripts?.build || "").includes("audit:guide")) failures.push("production build لا يشغل guide audit.");
 if (!String(packageJson.scripts?.build || "").includes("test:guide")) failures.push("production build لا يشغل guide behavior tests.");

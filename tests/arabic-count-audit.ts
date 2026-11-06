@@ -69,7 +69,6 @@ const ALLOW: Array<{ file: string; contains: string; why: string }> = [
   { file: "src/components/Reports.tsx", contains: "<i>شعبة {row.SCode", why: "رمز المقرر ثم «شعبة 01»" },
   { file: "src/components/LocationRegistryAdmin.tsx", contains: "<p>مبنى {buildingNumberLabel", why: "رمز المبنى ثم «مبنى 7»" },
   { file: "src/components/Schedules.tsx", contains: "</b><span>موعد جديد</span>", why: "نطاق وقت ثم وسم «موعد جديد»، لا عدد" },
-  { file: "src/components/SmartGuide.tsx", contains: "<small>عنصر واجهة جديد", why: "عنوان العنصر ثم وصفه «عنصر واجهة جديد»" },
   { file: "src/server/studentHomePage.ts", contains: "<span class=\"lbl\">صحيفة التخرّج الرسمية", why: "عنوان حقل «صحيفة التخرّج» بعد وصلة نصّية، لا عدد" },
 ];
 

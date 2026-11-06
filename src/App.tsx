@@ -38,6 +38,7 @@ import {
   Wrench,
   X,
   Hourglass,
+  CircleHelp,
 } from "lucide-react";
 import { controlLabel } from "./utils/controlLabel";
 
@@ -148,7 +149,8 @@ const loadJourney = () => import("./components/ScheduleJourney");
 const ScheduleJourney = safeLazy(loadJourney);
 const IntelligenceWorkspace = safeLazy(loadIntelligence);
 import { MicroLoader, PrimaryButton } from "./components/ui";
-import SmartGuide from "./components/SmartGuide";
+const GuideAssistant = lazy(() => import("./components/guide/GuideAssistant"));
+import { noteSessionAction } from "./guide/sessionTrail";
 import AdSlot, { usePulse } from "./components/AdSlot";
 import { canProactivelyHint, allAllowedGuideFeatures, guideUnreadSummary, featureById, loadGuideProfile, masteryScore, noteFriction, noteHint, recordFeatureEvent, recordFeatureDwell, recordRoute, setGuideTask, setLauncherIntroduced, evaluateGuideFriction, classifyGuideReason, predictedNextFeature, canAccessGuideFeature } from "./guide/smartGuide";
 
@@ -966,14 +968,14 @@ export default function App() {
     };
     const onInput = (event: Event) => {
       const element = event.target instanceof HTMLElement ? event.target : null;
-      if (!element || element.closest(".smart-guide") || !element.closest("form,.content-stack,.inspector-pane,.academic-inspector")) return;
+      if (!element || element.closest(".guide-panel,.guide-tour") || !element.closest("form,.content-stack,.inspector-pane,.academic-inspector")) return;
       if (element.matches('input[type="search"],input[role="searchbox"]')) return;
       dirty.add(element);
       publish();
     };
     const onClick = (event: MouseEvent) => {
       const raw = event.target instanceof HTMLElement ? event.target : null;
-      if (!raw || raw.closest(".smart-guide")) return;
+      if (!raw || raw.closest(".guide-panel,.guide-tour")) return;
       const card = raw.closest<HTMLElement>(".record-card,.master-list button,.catalog-master button,[aria-selected='true']");
       if (card) selectedLabel = labelOf(card);
       const control = raw.closest<HTMLElement>("button,a,[role='button']");
@@ -1052,7 +1054,7 @@ export default function App() {
     const onClick = (event: MouseEvent) => {
       const raw = event.target instanceof HTMLElement ? event.target : null;
       const control = raw?.closest<HTMLElement>("[data-guide-target],button,a,[role='button']");
-      if (!control || control.closest(".smart-guide")) return;
+      if (!control || control.closest(".guide-panel,.guide-tour")) return;
       if (activeView !== "schedules" && activeView !== "intelligence") {
         const card = raw?.closest<HTMLElement>(".record-card,.catalog-master button,.master-list button");
         if (card) {
@@ -1065,7 +1067,7 @@ export default function App() {
       const clickedControlLabel = labelOf(control);
       const naturallyRepeatable = /التالي|السابق|اليوم|الأسبوع التالي|الأسبوع السابق|تكبير|تصغير|تمرير|صفحة تالية|صفحة سابقة/.test(clickedControlLabel);
       const explicit = control.getAttribute("data-guide-target") || control.closest<HTMLElement>("[data-guide-target]")?.getAttribute("data-guide-target") || "";
-      if (explicit && featureById(explicit)) recordFeatureEvent(userId, explicit, "attempt");
+      if (explicit && featureById(explicit)) { recordFeatureEvent(userId, explicit, "attempt"); noteSessionAction(explicit); }
       const key = explicit || `${activeView}:${clickedControlLabel}`;
       if (naturallyRepeatable) return;
       const now = Date.now();
@@ -1087,7 +1089,7 @@ export default function App() {
     const onPointerOver = (event: PointerEvent) => {
       const raw = event.target instanceof HTMLElement ? event.target : null;
       const control = raw?.closest<HTMLElement>("button,[role='button']");
-      if (!control || control.closest(".smart-guide")) return;
+      if (!control || control.closest(".guide-panel,.guide-tour")) return;
       const label = labelOf(control);
       if (!/حذف|نشر|اعتماد|استعادة|استعاده|استبدال|مسح/.test(label)) return;
       if (hoverTimer != null) window.clearTimeout(hoverTimer);
@@ -1110,7 +1112,7 @@ export default function App() {
     const onGeneralHover = (event: PointerEvent) => {
       const raw = event.target instanceof HTMLElement ? event.target : null;
       const control = raw?.closest<HTMLElement>("[data-guide-target]");
-      if (!control || control.closest(".smart-guide")) return;
+      if (!control || control.closest(".guide-panel,.guide-tour")) return;
       const explicit = control.getAttribute("data-guide-target") || "";
       const feature = featureById(explicit);
       if (!feature) return;
@@ -2866,42 +2868,37 @@ export default function App() {
         </button>
       ) : null}
       {guideOpen ? (
-        <SmartGuide
-          open={guideOpen}
-          onClose={() => setGuideOpen(false)}
-          activeView={activeView}
-          user={user}
-          permissions={permissions}
-          root={Boolean(user.IsRootAdmin)}
-          hint={guideHint}
-          onDismissHint={() => setGuideHint(null)}
-          context={guideContext}
-          onNavigate={(view) => go(view as View)}
-        />
+        <Suspense fallback={null}>
+          <GuideAssistant
+            open={guideOpen}
+            onClose={() => setGuideOpen(false)}
+            activeView={activeView}
+            user={user}
+            permissions={permissions}
+            root={Boolean(user.IsRootAdmin)}
+            hint={guideHint}
+            onDismissHint={() => setGuideHint(null)}
+            context={guideContext}
+            onNavigate={(view) => go(view as View)}
+          />
+        </Suspense>
       ) : null}
       <button
         type="button"
         data-guide-ignore="زر المرشد نفسه لا يحتاج تعريفًا داخل المرشد"
-        className={`smart-guide-fab no-print ${guideIntroduced ? "icon-only" : ""} ${guideHint ? "has-hint" : ""} ${guideOpen ? "active" : ""}`}
+        className={`smart-guide-fab icon-only no-print ${guideHint ? "has-hint" : ""} ${guideOpen ? "active" : ""}`}
+        onPointerEnter={() => { void import("./components/guide/GuideAssistant"); }}
+        onFocus={() => { void import("./components/guide/GuideAssistant"); }}
         onClick={() => {
-          if (guideOpen) {
-            window.dispatchEvent(new CustomEvent("schedule-smart-guide-restore"));
-            return;
-          }
           if (!guideIntroduced && user) setLauncherIntroduced(Number(user.SystemUserId), true);
-          setGuideOpen(true);
+          setGuideOpen(value => !value);
         }}
-        aria-label={guideHint ? `${guideHint.title} — افتح المرشد` : guideNewCount ? `افتح مرشد SCHEDULE — لديك ${countOf(guideNewCount, AR.element)} ${nounFor(guideNewCount, AR.newAdj)}: ${countOf(guideUnread.product.length, AR.update)} للميزات و${countOf(guideUnread.runtime.length, AR.element)} في هذه الشاشة` : "افتح مرشد SCHEDULE"}
-        title={guideHint ? `${guideHint.title}` : guideNewCount ? `${guideNewCount} جديد — اضغط لمعرفة ما هو` : "مرشد SCHEDULE"}
+        aria-label={guideHint ? `${guideHint.title} — افتح المرشد` : "افتح المرشد"}
+        aria-expanded={guideOpen}
+        title="المرشد"
       >
-        <span className="smart-guide-fab-mark" aria-hidden="true"><Sparkles /></span>
-        {!guideIntroduced ? (
-          <span className="smart-guide-fab-copy">
-            <small>{guideHint ? "مساعدة مقترحة" : guideNewCount ? `${guideNewCount.toLocaleString("ar-KW-u-nu-latn")} جديد` : "مرشد حي"}</small>
-            <strong>كيف؟</strong>
-          </span>
-        ) : null}
-        {guideHint ? <i className="smart-guide-fab-pulse" aria-hidden="true" /> : !guideOpen && guideNewCount ? <i className="smart-guide-fab-new" aria-hidden="true">{guideNewCount.toLocaleString("ar-KW-u-nu-latn")}<span className="smart-guide-fab-new-word"> جديد</span></i> : null}
+        <span className="smart-guide-fab-mark" aria-hidden="true"><CircleHelp /></span>
+        {guideHint || guideNewCount ? <i className="smart-guide-fab-pulse" aria-hidden="true" /> : null}
       </button>
 
       {searchOpen ? (

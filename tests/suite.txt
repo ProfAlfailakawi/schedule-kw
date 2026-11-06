@@ -202,6 +202,9 @@ test:visiting-badge-g3
 test:visiting-badge-g4
 test:visiting-status
 audit:guide
+audit:guide-brain
+audit:guide-targets
+audit:guide-tours
 test:pattern-library
 test:lecture-length
 test:appointment-entry-parity

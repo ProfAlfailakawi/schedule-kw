@@ -1,0 +1,1255 @@
+[
+{
+"q": "كيف أضيف موعد مقرر جديد إلى جدول القسم؟",
+"kind": "fusha",
+"expected": [
+"page.schedules"
+]
+},
+{
+"q": "أين أجد الخطوات لنقل شعبة من قاعة إلى قاعة أخرى؟",
+"kind": "fusha",
+"expected": [
+"schedule.action.move-room",
+"schedule.view.rooms"
+]
+},
+{
+"q": "كيف أغيّر وقت محاضرة موجودة في الجدول؟",
+"kind": "fusha",
+"expected": [
+"schedule.action.change-time"
+]
+},
+{
+"q": "أريد استبدال الأستاذ المسند لإحدى الشعب، ما الطريقة؟",
+"kind": "fusha",
+"expected": [
+"schedule.action.change-instructor"
+]
+},
+{
+"q": "كيف أتراجع عن تعديل أجريته بالخطأ قبل قليل؟",
+"kind": "fusha",
+"expected": [
+"schedule.undo",
+"schedule.undo.log"
+]
+},
+{
+"q": "ما الطريقة المناسبة لإرسال الجدول إلى التسجيل بعد اكتماله؟",
+"kind": "fusha",
+"expected": [
+"approval.action.submit"
+]
+},
+{
+"q": "من يوقّع الجدول أولاً وكيف تتم التوقيعات؟",
+"kind": "fusha",
+"expected": [
+"approval.action.sign"
+]
+},
+{
+"q": "كيف أنشر جدول القسم ليطلع عليه الأساتذة؟",
+"kind": "fusha",
+"expected": [
+"schedule.publish"
+]
+},
+{
+"q": "كيف أنسخ جدول الفصل السابق إلى الفصل الحالي؟",
+"kind": "fusha",
+"expected": [
+"page.scheduleCopy",
+"page.copyTerm"
+]
+},
+{
+"q": "كيف أحدد بداية ونهاية الدوام اليومي لقسم معين؟",
+"kind": "fusha",
+"expected": [
+"page.sectionHours",
+"section-hours-save"
+]
+},
+{
+"q": "كيف أضيف مستخدماً جديداً وأحدد صلاحياته؟",
+"kind": "fusha",
+"expected": [
+"page.users",
+"page.permissions"
+]
+},
+{
+"q": "كيف أحصر الكليات والأقسام التي يستطيع المستخدم الاطلاع عليها؟",
+"kind": "fusha",
+"expected": [
+"page.scopes"
+]
+},
+{
+"q": "أين يمكنني الاطلاع على سجل التغييرات الإدارية في النظام؟",
+"kind": "fusha",
+"expected": [
+"page.audit"
+]
+},
+{
+"q": "كيف أعدّ مقترحاً دراسياً لأحد الأساتذة؟",
+"kind": "fusha",
+"expected": [
+"proposal-start"
+]
+},
+{
+"q": "كيف أرفض طلباً قدّمه أستاذ على مسودة جدوله؟",
+"kind": "fusha",
+"expected": [
+"requests.action.reject"
+]
+},
+{
+"q": "كيف أُرجع الجدول إلى القسم مع ملاحظات؟",
+"kind": "fusha",
+"expected": [
+"changes.action.return"
+]
+},
+{
+"q": "ما شروط قبول جدول القسم نهائياً من قبل التسجيل؟",
+"kind": "fusha",
+"expected": [
+"changes.action.accept"
+]
+},
+{
+"q": "كيف أحدد آخر موعد لتسليم الجداول في الفصل؟",
+"kind": "fusha",
+"expected": [
+"changes.action.deadline"
+]
+},
+{
+"q": "كيف أمنح قسماً مهلة إضافية لتسليم جدوله؟",
+"kind": "fusha",
+"expected": [
+"changes.action.exceptions"
+]
+},
+{
+"q": "كيف أطّلع على تقرير استخدام قاعة معينة؟",
+"kind": "fusha",
+"expected": [
+"page.reportRoom"
+]
+},
+{
+"q": "كيف أستعلم عن جدول أحد أعضاء هيئة التدريس؟",
+"kind": "fusha",
+"expected": [
+"page.searchInstructor",
+"page.reportInstructor"
+]
+},
+{
+"q": "أين أجد النصاب التدريسي للدرجات العلمية؟",
+"kind": "fusha",
+"expected": [
+"page.teachingLoad"
+]
+},
+{
+"q": "كيف أستعيد نسخة احتياطية سابقة من البيانات؟",
+"kind": "fusha",
+"expected": [
+"page.backup"
+]
+},
+{
+"q": "كيف أضيف مبنى جديداً وقاعاته وأخصصها لقسم؟",
+"kind": "fusha",
+"expected": [
+"page.roomSetup",
+"page.locations"
+]
+},
+{
+"q": "ما هو وضع التركيز في شاشة الجدول؟",
+"kind": "fusha",
+"expected": [
+"schedule.tool.focus"
+]
+},
+{
+"q": "كيف أرى الجدول موزعاً على أيام الأسبوع؟",
+"kind": "fusha",
+"expected": [
+"schedule.view.week",
+"schedule.week.board"
+]
+},
+{
+"q": "كيف أجرّب تعديلات على الجدول دون المساس بالبيانات الفعلية؟",
+"kind": "fusha",
+"expected": [
+"schedule.practice",
+"intelligence.scene.try",
+"page.timeMachine"
+]
+},
+{
+"q": "كيف أفتح شاشة كشف تسجيل الطلبة وأوافق على طلباتهم؟",
+"kind": "fusha",
+"expected": [
+"page.studentRegistration"
+]
+},
+{
+"q": "شلون أغير القاعة حق المحاضرة؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.action.move-room",
+"schedule.view.rooms"
+]
+},
+{
+"q": "وين ألقى تقرير القسم؟",
+"kind": "kuwaiti",
+"expected": [
+"page.reportDepartment"
+]
+},
+{
+"q": "ابي أطبع جدول الدكتور، شلون؟",
+"kind": "kuwaiti",
+"expected": [
+"page.reportInstructor",
+"page.searchInstructor"
+]
+},
+{
+"q": "شنو الفرق بين عرض القائمة وعرض الأسبوع؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.view.list",
+"schedule.view.week"
+]
+},
+{
+"q": "شلون أسوي نسخة من الجدول للترم الجاي؟",
+"kind": "kuwaiti",
+"expected": [
+"page.scheduleCopy",
+"page.copyTerm"
+]
+},
+{
+"q": "وين اطلع على الصلاحيات حق المستخدمين؟",
+"kind": "kuwaiti",
+"expected": [
+"page.permissions"
+]
+},
+{
+"q": "مو قادر أوقع الجدول، شنو السبب؟",
+"kind": "kuwaiti",
+"expected": [
+"approval.action.sign"
+]
+},
+{
+"q": "شلون أرسل الجدول للتسجيل؟",
+"kind": "kuwaiti",
+"expected": [
+"approval.action.submit"
+]
+},
+{
+"q": "ابي أغير المادة في الموعد مو الوقت",
+"kind": "kuwaiti",
+"expected": [
+"schedule.action.change-course"
+]
+},
+{
+"q": "شلون أدور على قاعة مناسبة للشعبة؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.action.find-room"
+]
+},
+{
+"q": "وين أشوف رغبات الأساتذة اللي ردوا؟",
+"kind": "kuwaiti",
+"expected": [
+"page.instructorRequests"
+]
+},
+{
+"q": "شلون أخلي الأستاذ يشوف مقترح الجدول حقه؟",
+"kind": "kuwaiti",
+"expected": [
+"proposal-send",
+"schedule.publish.requests"
+]
+},
+{
+"q": "ليش الجدول انقفل علي وما أقدر أعدل؟",
+"kind": "kuwaiti",
+"expected": [
+"approval.action.submit",
+"changes.action.return",
+"page.scheduleChanges"
+]
+},
+{
+"q": "شلون أسوي نسخة احتياطية؟",
+"kind": "kuwaiti",
+"expected": [
+"page.backup"
+]
+},
+{
+"q": "ابي أضيف كلية جديدة للنظام",
+"kind": "kuwaiti",
+"expected": [
+"page.colleges"
+]
+},
+{
+"q": "شلون أحط قسم جديد وأربطه بالكلية؟",
+"kind": "kuwaiti",
+"expected": [
+"page.sections"
+]
+},
+{
+"q": "وين أغير الفصل الدراسي اللي اشتغل عليه؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.filter.term",
+"page.terms"
+]
+},
+{
+"q": "شلون أحفظ مسودة المقترح وأكملها بعدين؟",
+"kind": "kuwaiti",
+"expected": [
+"proposal-save"
+]
+},
+{
+"q": "ابي أثبت المقترح بالجدول بعد ما وافق الدكتور",
+"kind": "kuwaiti",
+"expected": [
+"proposal-commit",
+"proposal-commit-open"
+]
+},
+{
+"q": "شلون أرجع الجدول مثل ما كان قبل السيناريو؟",
+"kind": "kuwaiti",
+"expected": [
+"timeMachine.action.restore"
+]
+},
+{
+"q": "شنو هي آلة الزمن وشلون أستخدمها؟",
+"kind": "kuwaiti",
+"expected": [
+"page.timeMachine"
+]
+},
+{
+"q": "وين الإعلانات وحملات الشركات؟",
+"kind": "kuwaiti",
+"expected": [
+"page.ads"
+]
+},
+{
+"q": "شلون أعرف وين الزحمة في التسجيل؟",
+"kind": "kuwaiti",
+"expected": [
+"page.simulation"
+]
+},
+{
+"q": "ابي أشوف مين من الأساتذة ما فتح رابطه للحين",
+"kind": "kuwaiti",
+"expected": [
+"page.instructorRequests",
+"schedule.publish.requests"
+]
+},
+{
+"q": "شلون أحط ملاحظة على خانة القاعة في تغييرات الجدول؟",
+"kind": "kuwaiti",
+"expected": [
+"changes.action.note"
+]
+},
+{
+"q": "كيف اغير وقت الماده؟",
+"kind": "typo",
+"expected": [
+"schedule.action.change-time"
+]
+},
+{
+"q": "شلون ارجع عن اخر تعديل",
+"kind": "typo",
+"expected": [
+"schedule.undo",
+"schedule.undo.log"
+]
+},
+{
+"q": "كيف انشر الجدوال للاساتذه",
+"kind": "typo",
+"expected": [
+"schedule.publish"
+]
+},
+{
+"q": "وين الصلاحيات حق المستحدمين",
+"kind": "typo",
+"expected": [
+"page.permissions",
+"page.users"
+]
+},
+{
+"q": "كيف اضيف اسـتاذ جديد؟",
+"kind": "typo",
+"expected": [
+"page.instructors"
+]
+},
+{
+"q": "استعلام قاعه فاضيه",
+"kind": "typo",
+"expected": [
+"page.searchRoomTime",
+"page.searchRoom"
+]
+},
+{
+"q": "كيف اقبل الجدول نهائيآ",
+"kind": "typo",
+"expected": [
+"changes.action.accept"
+]
+},
+{
+"q": "ابى اسوي نسحه احتياطيه",
+"kind": "typo",
+"expected": [
+"page.backup"
+]
+},
+{
+"q": "كيف احفض الدوام الشامل",
+"kind": "typo",
+"expected": [
+"university-day-save"
+]
+},
+{
+"q": "مقتراح الاستاذ كيف ارسله",
+"kind": "typo",
+"expected": [
+"proposal-send"
+]
+},
+{
+"q": "كيف اضيف مقرار جديد",
+"kind": "typo",
+"expected": [
+"page.courses"
+]
+},
+{
+"q": "وين تغييرات الجدول ملاحضات التسجيل",
+"kind": "typo",
+"expected": [
+"page.scheduleChanges"
+]
+},
+{
+"q": "كيف أغيّر وقت المحاضرة وكيف أتراجع لو أخطأت؟",
+"kind": "compound",
+"parts": [
+[
+"schedule.action.change-time"
+],
+[
+"schedule.undo",
+"schedule.undo.log"
+]
+]
+},
+{
+"q": "شلون أضيف قسم جديد وبعدها أحدد دوامه؟",
+"kind": "compound",
+"parts": [
+[
+"page.sections"
+],
+[
+"page.sectionHours",
+"section-hours-save"
+]
+]
+},
+{
+"q": "كيف أوقّع الجدول ثم أرسله إلى التسجيل؟",
+"kind": "compound",
+"parts": [
+[
+"approval.action.sign"
+],
+[
+"approval.action.submit"
+]
+]
+},
+{
+"q": "ابي أعرف شلون أنسخ الفصل وأنشر الجدول",
+"kind": "compound",
+"parts": [
+[
+"page.scheduleCopy",
+"page.copyTerm"
+],
+[
+"schedule.publish"
+]
+]
+},
+{
+"q": "كيف أنقل شعبة لقاعة ثانية وكيف أدور على قاعة فاضية مناسبة؟",
+"kind": "compound",
+"parts": [
+[
+"schedule.action.move-room"
+],
+[
+"schedule.action.find-room"
+]
+]
+},
+{
+"q": "كيف أضيف مستخدماً وأحدد الأقسام المسموحة له؟",
+"kind": "compound",
+"parts": [
+[
+"page.users"
+],
+[
+"page.scopes"
+]
+]
+},
+{
+"q": "شلون أرفض طلب أستاذ وأسوي له مقترح بديل؟",
+"kind": "compound",
+"parts": [
+[
+"requests.action.reject"
+],
+[
+"proposal-start",
+"proposal-from-thread"
+]
+]
+},
+{
+"q": "how do I take a backup and see the audit log?",
+"kind": "compound",
+"parts": [
+[
+"page.backup"
+],
+[
+"page.audit"
+]
+]
+},
+{
+"q": "How do I change the room for a lecture?",
+"kind": "en",
+"expected": [
+"schedule.action.move-room",
+"schedule.view.rooms"
+]
+},
+{
+"q": "Where can I print the department report?",
+"kind": "en",
+"expected": [
+"page.reportDepartment"
+]
+},
+{
+"q": "How do I undo my last change?",
+"kind": "en",
+"expected": [
+"schedule.undo",
+"schedule.undo.log"
+]
+},
+{
+"q": "How can I send my timetable to the registrar?",
+"kind": "en",
+"expected": [
+"approval.action.submit"
+]
+},
+{
+"q": "How do I give an instructor access to the proposal?",
+"kind": "en",
+"expected": [
+"proposal-send"
+]
+},
+{
+"q": "How do I set the submission deadline for schedules?",
+"kind": "en",
+"expected": [
+"changes.action.deadline"
+]
+},
+{
+"q": "كم محاضرة عند الدكتور أحمد هذا الفصل؟",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "أي قاعة فاضية الحين؟",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "كم عدد الشعب في قسم الحاسوب؟",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "شنو جدول الدكتورة سارة يوم الأحد؟",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "how many sections does Dr Khalid teach?",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "هل القاعة 204 مشغولة الساعة العاشرة؟",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "شلون الجو اليوم؟",
+"kind": "unknown",
+"expected": [
+"unsure"
+]
+},
+{
+"q": "كم راتب الأستاذ المساعد؟",
+"kind": "unknown",
+"expected": [
+"unsure"
+]
+},
+{
+"q": "وين أقرب مطعم للجامعة؟",
+"kind": "unknown",
+"expected": [
+"unsure"
+]
+},
+{
+"q": "اكتب لي قصيدة عن الصيف",
+"kind": "unknown",
+"expected": [
+"unsure"
+]
+},
+{
+"q": "متى مباراة الكويت القادمة؟",
+"kind": "unknown",
+"expected": [
+"unsure"
+]
+},
+{
+"q": "كيف أعرف ما الذي تغيّر في جدول قسمنا بعد آخر مراجعة من التسجيل؟",
+"kind": "fusha",
+"expected": [
+"page.scheduleChanges"
+]
+},
+{
+"q": "هل يمكنني التراجع عن تعديل أجريته قبل قليل دون أن أفقد بقية العمل؟",
+"kind": "fusha",
+"expected": [
+"schedule.undo",
+"schedule.undo.log",
+"living.scene.safety"
+]
+},
+{
+"q": "أين أجد اللوحة التي أضع فيها آخر موعد لتسليم الجداول؟",
+"kind": "fusha",
+"expected": [
+"changes.action.deadline"
+]
+},
+{
+"q": "ما طريقة منح قسمٍ مهلة إضافية بعد انتهاء الموعد المحدد؟",
+"kind": "fusha",
+"expected": [
+"changes.action.exceptions"
+]
+},
+{
+"q": "أريد إرسال الجدول إلى التسجيل بعد التوقيع، ما الخطوات؟",
+"kind": "fusha",
+"expected": [
+"approval.action.submit",
+"approval.action.sign"
+]
+},
+{
+"q": "من الذي يوقّع الجدول أولاً، رئيس القسم أم رئيس اللجنة؟",
+"kind": "fusha",
+"expected": [
+"approval.action.sign"
+]
+},
+{
+"q": "كيف أعرف أي القاعات خالية في وقت معين؟",
+"kind": "fusha",
+"expected": [
+"page.searchRoomTime",
+"schedule.action.find-room",
+"page.searchRoom"
+]
+},
+{
+"q": "كيف أضيف قاعة جديدة وأخصصها لأكثر من قسم؟",
+"kind": "fusha",
+"expected": [
+"page.roomSetup",
+"page.locations"
+]
+},
+{
+"q": "ما المقصود بالنصاب التدريسي وكيف أضبطه لكل درجة علمية؟",
+"kind": "fusha",
+"expected": [
+"page.teachingLoad"
+]
+},
+{
+"q": "كيف أعدّل بداية ونهاية الدوام اليومي لقسم واحد؟",
+"kind": "fusha",
+"expected": [
+"page.sectionHours",
+"section-hours-save"
+]
+},
+{
+"q": "أود تجربة تعديلات على الجدول دون المساس بالبيانات الحقيقية",
+"kind": "fusha",
+"expected": [
+"schedule.practice",
+"intelligence.scene.try",
+"page.timeMachine"
+]
+},
+{
+"q": "كيف أستورد ملف مواعيد من إكسل وأصدّر نسخة منه؟",
+"kind": "fusha",
+"expected": [
+"schedule.tool.data"
+]
+},
+{
+"q": "ما الفرق بين رابط جدول القسم وبطاقة الأستاذ عند النشر؟",
+"kind": "fusha",
+"expected": [
+"schedule.publish",
+"schedule.publish.requests"
+]
+},
+{
+"q": "كيف أرفض طلب أستاذ مع بيان السبب؟",
+"kind": "fusha",
+"expected": [
+"requests.action.reject"
+]
+},
+{
+"q": "كيف أُنشئ مستخدماً جديداً وأحدد الكليات المسموحة له؟",
+"kind": "fusha",
+"expected": [
+"page.users",
+"page.scopes"
+]
+},
+{
+"q": "أين أطّلع على سجل الأحداث الإدارية المهمة في النظام؟",
+"kind": "fusha",
+"expected": [
+"page.audit"
+]
+},
+{
+"q": "كيف أنسخ جدول الفصل السابق إلى الفصل الجديد؟",
+"kind": "fusha",
+"expected": [
+"page.scheduleCopy",
+"page.copyTerm"
+]
+},
+{
+"q": "ما هي مراجعة الصحيفة وكيف أحدد المتطلبات السابقة للمقرر؟",
+"kind": "fusha",
+"expected": [
+"page.planReview"
+]
+},
+{
+"q": "كيف أكتب حالة المقرر للطالب في كشف التسجيل بأنه سُجّل أو رُدّ؟",
+"kind": "fusha",
+"expected": [
+"registration.action.state",
+"page.studentRegistration"
+]
+},
+{
+"q": "كيف أعدّ مقترحاً دراسياً لأستاذ يتضمن أكثر من مادة؟",
+"kind": "fusha",
+"expected": [
+"proposal-start"
+]
+},
+{
+"q": "كيف أنقل مقرراً من قاعة إلى قاعة أخرى بالسحب؟",
+"kind": "fusha",
+"expected": [
+"schedule.action.move-room",
+"schedule.view.rooms"
+]
+},
+{
+"q": "كيف أنشئ نسخة احتياطية وأستعيدها عند الحاجة؟",
+"kind": "fusha",
+"expected": [
+"page.backup"
+]
+},
+{
+"q": "شلون أغير الدكتور حق المادة؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.action.change-instructor"
+]
+},
+{
+"q": "وين ألقى قاعة فاضية الساعة عشرة؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.action.find-room",
+"page.searchRoomTime",
+"page.searchRoom"
+]
+},
+{
+"q": "سويت غلطة بالجدول وابي أرجعه، شسوي؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.undo",
+"schedule.undo.log"
+]
+},
+{
+"q": "شلون أعرف الدكتور متى فاضي؟",
+"kind": "kuwaiti",
+"expected": [
+"page.searchInstructor"
+]
+},
+{
+"q": "ابي أغير وقت المحاضرة من الثامنة للتاسعة",
+"kind": "kuwaiti",
+"expected": [
+"schedule.action.change-time"
+]
+},
+{
+"q": "ليش ما يخليني أوقّع الجدول؟",
+"kind": "kuwaiti",
+"expected": [
+"approval.action.sign"
+]
+},
+{
+"q": "الطلبة يسألون ليش انرفضت مادتهم، وين أكتب السبب؟",
+"kind": "kuwaiti",
+"expected": [
+"registration.action.state",
+"page.studentRegistration"
+]
+},
+{
+"q": "شلون أدز الجدول للتسجيل؟",
+"kind": "kuwaiti",
+"expected": [
+"approval.action.submit"
+]
+},
+{
+"q": "ابي أطبع تقرير للقسم كامل",
+"kind": "kuwaiti",
+"expected": [
+"page.reportDepartment"
+]
+},
+{
+"q": "شلون أخلي الدكاترة يطلبون تعديل جداولهم؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.publish.requests",
+"schedule.publish"
+]
+},
+{
+"q": "القاعة خربت وابي أشوف شو يصير لو نقلنا المواد، في شي أجرب عليه؟",
+"kind": "kuwaiti",
+"expected": [
+"page.timeMachine",
+"intelligence.scene.try"
+]
+},
+{
+"q": "شلون أضيف يوزر جديد لسكرتيرة القسم؟",
+"kind": "kuwaiti",
+"expected": [
+"page.users"
+]
+},
+{
+"q": "وين أحط تاريخ آخر يوم يسلمون فيه الجداول؟",
+"kind": "kuwaiti",
+"expected": [
+"changes.action.deadline"
+]
+},
+{
+"q": "القسم طالب مهلة زيادة، شلون أمدد له؟",
+"kind": "kuwaiti",
+"expected": [
+"changes.action.exceptions"
+]
+},
+{
+"q": "ابي أركز على الجدول بس بدون الأشياء الثانية اللي تزحم الشاشة",
+"kind": "kuwaiti",
+"expected": [
+"schedule.tool.focus"
+]
+},
+{
+"q": "شلون أغير المادة اللي بهالموعد؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.action.change-course"
+]
+},
+{
+"q": "الدكتور ما رد على المقترح، وين أشوف مين فتح رابطه؟",
+"kind": "kuwaiti",
+"expected": [
+"page.instructorRequests",
+"proposal-send"
+]
+},
+{
+"q": "وين أبحث عن اسم دكتور بسرعة بالجدول؟",
+"kind": "kuwaiti",
+"expected": [
+"schedule.search.quick",
+"page.searchInstructor"
+]
+},
+{
+"q": "شلون أسوي مبنى جديد وأوزع قاعاته على الأقسام؟",
+"kind": "kuwaiti",
+"expected": [
+"page.roomSetup",
+"page.locations"
+]
+},
+{
+"q": "ابي أشوف مين غيّر بالجدول اليوم",
+"kind": "kuwaiti",
+"expected": [
+"schedule.undo.log",
+"page.audit"
+]
+},
+{
+"q": "كيف اغير وقت المحاظره",
+"kind": "typo",
+"expected": [
+"schedule.action.change-time"
+]
+},
+{
+"q": "شلون اسوي نسخه احتياطيه",
+"kind": "typo",
+"expected": [
+"page.backup"
+]
+},
+{
+"q": "وين تقرير القاعه",
+"kind": "typo",
+"expected": [
+"page.reportRoom"
+]
+},
+{
+"q": "ابغى اعرف كيف اتراجع عن تعديل",
+"kind": "typo",
+"expected": [
+"schedule.undo",
+"schedule.undo.log"
+]
+},
+{
+"q": "كيف ارسل المقترح للاستاذ",
+"kind": "typo",
+"expected": [
+"proposal-send",
+"proposal-preview"
+]
+},
+{
+"q": "الاستيار من اكسل ماشتغل",
+"kind": "typo",
+"expected": [
+"schedule.tool.data"
+]
+},
+{
+"q": "كيف اظيف مستحدم جديد",
+"kind": "typo",
+"expected": [
+"page.users"
+]
+},
+{
+"q": "ما اقدر اوقع الجدوال",
+"kind": "typo",
+"expected": [
+"approval.action.sign"
+]
+},
+{
+"q": "تقرير الدكتر وين الاقيه",
+"kind": "typo",
+"expected": [
+"page.reportInstructor"
+]
+},
+{
+"q": "كيف اغير قاعه الماده بلسحب",
+"kind": "typo",
+"expected": [
+"schedule.action.move-room",
+"schedule.view.rooms"
+]
+},
+{
+"q": "كيف أغير أستاذ المادة وبعدها أرسل الجدول للتسجيل؟",
+"kind": "compound",
+"parts": [
+[
+"schedule.action.change-instructor"
+],
+[
+"approval.action.submit"
+]
+]
+},
+{
+"q": "أبي أنسخ الفصل الماضي وأعرف وين أحط موعد التسليم",
+"kind": "compound",
+"parts": [
+[
+"page.scheduleCopy",
+"page.copyTerm"
+],
+[
+"changes.action.deadline"
+]
+]
+},
+{
+"q": "كيف أضيف مستخدم وأعطيه صلاحية على قسم واحد فقط؟",
+"kind": "compound",
+"parts": [
+[
+"page.users"
+],
+[
+"page.permissions",
+"page.scopes"
+]
+]
+},
+{
+"q": "وين أشوف تقرير القاعة وكيف أطلع الجدول بصيغة اكسل؟",
+"kind": "compound",
+"parts": [
+[
+"page.reportRoom"
+],
+[
+"schedule.tool.data"
+]
+]
+},
+{
+"q": "كيف أرفض طلب أستاذ وبعدها أجهز له مقترح بديل؟",
+"kind": "compound",
+"parts": [
+[
+"requests.action.reject"
+],
+[
+"proposal-start",
+"proposal-from-thread"
+]
+]
+},
+{
+"q": "شلون أضبط ساعات الدوام للقسم وأحدد نصاب الدكاترة؟",
+"kind": "compound",
+"parts": [
+[
+"page.sectionHours"
+],
+[
+"page.teachingLoad"
+]
+]
+},
+{
+"q": "how do I undo my last change to the schedule?",
+"kind": "en",
+"expected": [
+"schedule.undo",
+"schedule.undo.log"
+]
+},
+{
+"q": "where can I look up which rooms are free on Sunday morning",
+"kind": "en",
+"expected": [
+"page.searchRoomTime",
+"schedule.action.find-room",
+"page.searchRoom"
+]
+},
+{
+"q": "how to share the department timetable link so instructors can request edits",
+"kind": "en",
+"expected": [
+"schedule.publish",
+"schedule.publish.requests"
+]
+},
+{
+"q": "what does the audience dashboard show and who can open it",
+"kind": "en",
+"expected": [
+"page.audience"
+]
+},
+{
+"q": "كم قاعة فاضية يوم الأحد الساعة عشرة عندنا؟",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "مين أكثر دكتور عنده ساعات هالفصل؟",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "how many sections are scheduled on Thursday in my department?",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "كم طالب سجّل على مقرر الإحصاء حتى الآن؟",
+"kind": "live",
+"expected": [
+"live"
+]
+},
+{
+"q": "شو أحسن مطعم قريب من الجامعة؟",
+"kind": "unknown",
+"expected": [
+"unsure"
+]
+},
+{
+"q": "ما هي عاصمة اليابان؟",
+"kind": "unknown",
+"expected": [
+"unsure"
+]
+},
+{
+"q": "كيف أطبخ مجبوس دجاج؟",
+"kind": "unknown",
+"expected": [
+"unsure"
+]
+},
+{
+"q": "what's the weather in Kuwait tomorrow?",
+"kind": "unknown",
+"expected": [
+"unsure"
+]
+}
+]

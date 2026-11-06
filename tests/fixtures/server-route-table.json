@@ -2465,21 +2465,9 @@
    ],
    "path": "/api/telemetry/client",
    "name": "bound dispatch",
-   "call": "4cb168746aa87fe0",
-   "site": "src/server/routes/guideRoutes.ts:117",
+   "call": "335f8dd0490222e5",
+   "site": "src/server/routes/guideRoutes.ts:19",
    "regexp": "/^\\/api\\/telemetry\\/client\\/?$/i",
-   "end": true
-  },
-  {
-   "kind": "route",
-   "methods": [
-    "post"
-   ],
-   "path": "/api/guide/intent",
-   "name": "bound dispatch",
-   "call": "2e94a36d72508286",
-   "site": "src/server/routes/guideRoutes.ts:146",
-   "regexp": "/^\\/api\\/guide\\/intent\\/?$/i",
    "end": true
   },
   {
@@ -2489,7 +2477,7 @@
    ],
    "path": "/api/intelligence/guide-friction",
    "name": "bound dispatch",
-   "call": "31929c6f862ffa36",
+   "call": "836dd2bf770dc861",
    "site": "src/server/routes/intelligenceRoutes.ts:126",
    "regexp": "/^\\/api\\/intelligence\\/guide-friction\\/?$/i",
    "end": true
@@ -2502,7 +2490,7 @@
    "path": "/api/intelligence/experience-health",
    "name": "bound dispatch",
    "call": "e0e6f6d1992bc585",
-   "site": "src/server/routes/intelligenceRoutes.ts:166",
+   "site": "src/server/routes/intelligenceRoutes.ts:168",
    "regexp": "/^\\/api\\/intelligence\\/experience-health\\/?$/i",
    "end": true
   },
@@ -2514,7 +2502,7 @@
    "path": "/api/intelligence/open-decisions",
    "name": "bound dispatch",
    "call": "58d461b37844fd83",
-   "site": "src/server/routes/intelligenceRoutes.ts:188",
+   "site": "src/server/routes/intelligenceRoutes.ts:190",
    "regexp": "/^\\/api\\/intelligence\\/open-decisions\\/?$/i",
    "end": true
   },
@@ -2526,7 +2514,7 @@
    "path": "/api/intelligence/open-decisions",
    "name": "bound dispatch",
    "call": "8d1f96a8a9b7127c",
-   "site": "src/server/routes/intelligenceRoutes.ts:205",
+   "site": "src/server/routes/intelligenceRoutes.ts:207",
    "regexp": "/^\\/api\\/intelligence\\/open-decisions\\/?$/i",
    "end": true
   },
@@ -2538,7 +2526,7 @@
    "path": "/api/intelligence/open-decisions/:id",
    "name": "bound dispatch",
    "call": "f03a20f88db04010",
-   "site": "src/server/routes/intelligenceRoutes.ts:218",
+   "site": "src/server/routes/intelligenceRoutes.ts:220",
    "regexp": "/^\\/api\\/intelligence\\/open-decisions(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2550,7 +2538,7 @@
    "path": "/api/intelligence/operations-review",
    "name": "bound dispatch",
    "call": "35f084438b49c18b",
-   "site": "src/server/routes/intelligenceRoutes.ts:231",
+   "site": "src/server/routes/intelligenceRoutes.ts:233",
    "regexp": "/^\\/api\\/intelligence\\/operations-review\\/?$/i",
    "end": true
   },
@@ -2562,7 +2550,7 @@
    "path": "/api/intelligence/policy-simulate",
    "name": "bound dispatch",
    "call": "faf557668043d9b1",
-   "site": "src/server/routes/intelligenceRoutes.ts:243",
+   "site": "src/server/routes/intelligenceRoutes.ts:245",
    "regexp": "/^\\/api\\/intelligence\\/policy-simulate\\/?$/i",
    "end": true
   },
@@ -2574,7 +2562,7 @@
    "path": "/api/intelligence/overview",
    "name": "bound dispatch",
    "call": "a8f62d719b34778d",
-   "site": "src/server/routes/intelligenceRoutes.ts:264",
+   "site": "src/server/routes/intelligenceRoutes.ts:266",
    "regexp": "/^\\/api\\/intelligence\\/overview\\/?$/i",
    "end": true
   },
@@ -2586,7 +2574,7 @@
    "path": "/api/intelligence/spatial-burnout",
    "name": "bound dispatch",
    "call": "e48a0233e5897fb9",
-   "site": "src/server/routes/intelligenceRoutes.ts:310",
+   "site": "src/server/routes/intelligenceRoutes.ts:312",
    "regexp": "/^\\/api\\/intelligence\\/spatial-burnout\\/?$/i",
    "end": true
   },
@@ -2598,7 +2586,7 @@
    "path": "/api/intelligence/conflict-solutions",
    "name": "bound dispatch",
    "call": "41c742816736291d",
-   "site": "src/server/routes/intelligenceRoutes.ts:317",
+   "site": "src/server/routes/intelligenceRoutes.ts:319",
    "regexp": "/^\\/api\\/intelligence\\/conflict-solutions\\/?$/i",
    "end": true
   },
@@ -2610,7 +2598,7 @@
    "path": "/api/intelligence/ripple/:id",
    "name": "bound dispatch",
    "call": "bb5d9f4a306b487a",
-   "site": "src/server/routes/intelligenceRoutes.ts:327",
+   "site": "src/server/routes/intelligenceRoutes.ts:329",
    "regexp": "/^\\/api\\/intelligence\\/ripple(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2622,7 +2610,7 @@
    "path": "/api/intelligence/lookups",
    "name": "bound dispatch",
    "call": "0e6fb599f8eb823e",
-   "site": "src/server/routes/intelligenceRoutes.ts:347",
+   "site": "src/server/routes/intelligenceRoutes.ts:349",
    "regexp": "/^\\/api\\/intelligence\\/lookups\\/?$/i",
    "end": true
   },
@@ -2634,7 +2622,7 @@
    "path": "/api/intelligence/genome",
    "name": "bound dispatch",
    "call": "94e3309302623bd0",
-   "site": "src/server/routes/intelligenceRoutes.ts:364",
+   "site": "src/server/routes/intelligenceRoutes.ts:366",
    "regexp": "/^\\/api\\/intelligence\\/genome\\/?$/i",
    "end": true
   },
@@ -2646,7 +2634,7 @@
    "path": "/api/intelligence/constraints",
    "name": "bound dispatch",
    "call": "6cafb361408a85a7",
-   "site": "src/server/routes/intelligenceRoutes.ts:374",
+   "site": "src/server/routes/intelligenceRoutes.ts:376",
    "regexp": "/^\\/api\\/intelligence\\/constraints\\/?$/i",
    "end": true
   },
@@ -2658,7 +2646,7 @@
    "path": "/api/intelligence/constraints",
    "name": "bound dispatch",
    "call": "a38831cbda650b66",
-   "site": "src/server/routes/intelligenceRoutes.ts:379",
+   "site": "src/server/routes/intelligenceRoutes.ts:381",
    "regexp": "/^\\/api\\/intelligence\\/constraints\\/?$/i",
    "end": true
   },
@@ -2670,7 +2658,7 @@
    "path": "/api/intelligence/constraints/:id",
    "name": "bound dispatch",
    "call": "df0dd06c6b0b1a7a",
-   "site": "src/server/routes/intelligenceRoutes.ts:402",
+   "site": "src/server/routes/intelligenceRoutes.ts:404",
    "regexp": "/^\\/api\\/intelligence\\/constraints(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2682,7 +2670,7 @@
    "path": "/api/intelligence/constraints/:id",
    "name": "bound dispatch",
    "call": "e941354a56247bea",
-   "site": "src/server/routes/intelligenceRoutes.ts:408",
+   "site": "src/server/routes/intelligenceRoutes.ts:410",
    "regexp": "/^\\/api\\/intelligence\\/constraints(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2694,7 +2682,7 @@
    "path": "/api/intelligence/war-room",
    "name": "bound dispatch",
    "call": "f2527013432faca6",
-   "site": "src/server/routes/intelligenceRoutes.ts:413",
+   "site": "src/server/routes/intelligenceRoutes.ts:415",
    "regexp": "/^\\/api\\/intelligence\\/war-room\\/?$/i",
    "end": true
   },
@@ -2706,7 +2694,7 @@
    "path": "/api/intelligence/autopilot",
    "name": "bound dispatch",
    "call": "854a4a2e74041cd2",
-   "site": "src/server/routes/intelligenceRoutes.ts:429",
+   "site": "src/server/routes/intelligenceRoutes.ts:431",
    "regexp": "/^\\/api\\/intelligence\\/autopilot\\/?$/i",
    "end": true
   },
@@ -2718,7 +2706,7 @@
    "path": "/api/intelligence/evaluate",
    "name": "bound dispatch",
    "call": "6d834cecc093eb1c",
-   "site": "src/server/routes/intelligenceRoutes.ts:435",
+   "site": "src/server/routes/intelligenceRoutes.ts:437",
    "regexp": "/^\\/api\\/intelligence\\/evaluate\\/?$/i",
    "end": true
   },
@@ -2730,7 +2718,7 @@
    "path": "/api/intelligence/auto-schedule",
    "name": "bound dispatch",
    "call": "c0486bab0764a78a",
-   "site": "src/server/routes/intelligenceRoutes.ts:446",
+   "site": "src/server/routes/intelligenceRoutes.ts:448",
    "regexp": "/^\\/api\\/intelligence\\/auto-schedule\\/?$/i",
    "end": true
   },
@@ -2742,7 +2730,7 @@
    "path": "/api/intelligence/copilot",
    "name": "bound dispatch",
    "call": "40a295abc411d5ca",
-   "site": "src/server/routes/intelligenceRoutes.ts:463",
+   "site": "src/server/routes/intelligenceRoutes.ts:465",
    "regexp": "/^\\/api\\/intelligence\\/copilot\\/?$/i",
    "end": true
   },
@@ -2754,7 +2742,7 @@
    "path": "/api/intelligence/context/:id",
    "name": "bound dispatch",
    "call": "b79eecd51be30056",
-   "site": "src/server/routes/intelligenceRoutes.ts:641",
+   "site": "src/server/routes/intelligenceRoutes.ts:643",
    "regexp": "/^\\/api\\/intelligence\\/context(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2766,7 +2754,7 @@
    "path": "/api/intelligence/replay/:id",
    "name": "bound dispatch",
    "call": "ebd66e9c501a0098",
-   "site": "src/server/routes/intelligenceRoutes.ts:701",
+   "site": "src/server/routes/intelligenceRoutes.ts:703",
    "regexp": "/^\\/api\\/intelligence\\/replay(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2778,7 +2766,7 @@
    "path": "/api/intelligence/room",
    "name": "bound dispatch",
    "call": "51cb3aacfc88f333",
-   "site": "src/server/routes/intelligenceRoutes.ts:734",
+   "site": "src/server/routes/intelligenceRoutes.ts:736",
    "regexp": "/^\\/api\\/intelligence\\/room\\/?$/i",
    "end": true
   },
@@ -2790,7 +2778,7 @@
    "path": "/api/intelligence/professor/:id",
    "name": "bound dispatch",
    "call": "caf0750a9931270f",
-   "site": "src/server/routes/intelligenceRoutes.ts:758",
+   "site": "src/server/routes/intelligenceRoutes.ts:760",
    "regexp": "/^\\/api\\/intelligence\\/professor(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2802,7 +2790,7 @@
    "path": "/api/intelligence/comments/:scheduleId",
    "name": "bound dispatch",
    "call": "0e3eab27a602b641",
-   "site": "src/server/routes/intelligenceRoutes.ts:762",
+   "site": "src/server/routes/intelligenceRoutes.ts:764",
    "regexp": "/^\\/api\\/intelligence\\/comments(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2814,7 +2802,7 @@
    "path": "/api/intelligence/comments/:scheduleId",
    "name": "bound dispatch",
    "call": "9b9d9df2601ef36c",
-   "site": "src/server/routes/intelligenceRoutes.ts:765",
+   "site": "src/server/routes/intelligenceRoutes.ts:767",
    "regexp": "/^\\/api\\/intelligence\\/comments(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2826,7 +2814,7 @@
    "path": "/api/intelligence/comments/:scheduleId/:commentId",
    "name": "bound dispatch",
    "call": "1869887f0bbd5502",
-   "site": "src/server/routes/intelligenceRoutes.ts:768",
+   "site": "src/server/routes/intelligenceRoutes.ts:770",
    "regexp": "/^\\/api\\/intelligence\\/comments(?:\\/([^/]+?))(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },

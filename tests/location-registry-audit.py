@@ -362,10 +362,7 @@ import_preview=(ROOT/'src/components/ImportPreviewTable.tsx').read_text()
 ok('130n reviewing a Jahra row offers Jahra buildings and halls, and only in the import preview', "String(req.query.branchSites||\"\")===\"1\"" in server and 'inBranch(building.officialCode)' in server and 'branchSectionIds.has(Number(id))' in server and 'branchSites=false' in location_picker and 'branchSites\n' in import_preview)
 ok('130o a refused publication paints the rows it names instead of a lone sentence above a spotless table', 'data.rowIssues' in transfer and 'saveIssues:merged' in transfer and 'transfer-commit-error' in transfer and '.transfer-commit-error{' in (ROOT/'src/styles/05-schedule.css').read_text())
 # The guide hands a step to the screen; both the confirmation and the handover must be escapable.
-smart_guide=(ROOT/'src/components/SmartGuide.tsx').read_text()
 shell_css=(ROOT/'src/styles/03-shell.css').read_text()
-ok('130p the guide confirmation sits ABOVE the guide panel instead of trapped behind it', '.guide-preview-backdrop{position:fixed;inset:0;z-index:2300' in shell_css and '.smart-guide{\n  position:fixed;left:18px;top:18px;bottom:18px;z-index:2200' in shell_css)
-ok('130q a handover banner ends when the screen resolves it, and can never outlive its purpose', 'if (!tourActiveRef.current) finishHandoffToScreen();' in smart_guide and 'finishHandoffRef.current?.();' in smart_guide and '}, 12000);' in smart_guide)
 # القاعدة نفسها لم تتغير، لكنها انتقلت إلى `blockingImportConflicts` كي تقرأها
 # بوابة النشر والفحص المسبق من موضع واحد: نسختان منها كانتا ستفترقان، فتقول
 # المعاينة «مضبوط» عن جدول يرفضه الحفظ — وهو العيب الذي جاء الفحص ليزيله.

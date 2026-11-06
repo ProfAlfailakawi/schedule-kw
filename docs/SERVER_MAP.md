@@ -291,7 +291,6 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `POST /api/schedules/wipe-scope` | 9631 | `src/server/routes/schedulesRoutes.ts` |
 | `POST /api/schedules/wipe-scope/restore` | 9678 | `src/server/routes/schedulesRoutes.ts` |
 | `POST /api/telemetry/client` | 9716 | `src/server/routes/guideRoutes.ts` |
-| `POST /api/guide/intent` | 9927 | `src/server/routes/guideRoutes.ts` |
 | `GET /api/intelligence/guide-friction` | 9967 | `src/server/routes/intelligenceRoutes.ts` |
 | `GET /api/intelligence/experience-health` | 10007 | `src/server/routes/intelligenceRoutes.ts` |
 | `GET /api/intelligence/open-decisions` | 10029 | `src/server/routes/intelligenceRoutes.ts` |

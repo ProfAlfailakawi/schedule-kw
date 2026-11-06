@@ -1574,16 +1574,6 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior:non
      actions take 1px each into their 3px gaps and meet without overlapping;
      the close button has 145px of clear space beside it and can afford the
      full 44 on both axes. */
-  .smart-guide-hero-tools>button,
-  .smart-guide-close{position:relative}
-  .smart-guide-hero-tools>button::after{
-    content:"";position:absolute;
-    inset-block:-5px;inset-inline:-1px;
-  }
-  .smart-guide-close::after{
-    content:"";position:absolute;
-    inset-block:-5px;inset-inline:-5px;
-  }
 }
 
 /* ── الحروفُ العربية لا تُباعَد ─────────────────────────────────────────────
@@ -1665,10 +1655,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior:non
    the readiness panel's close, the "all" link and the data chip in the approval bar, and the
    guide's pointer button. The guide launcher is an edge tab 34px wide: it grows toward the page. */
 @media (pointer:coarse) and (max-width:760px){
-  .apb-dr-close,.apb-gap-link,.apb-data-btn,.smart-guide-hero-action{position:relative}
+  .apb-dr-close,.apb-gap-link,.apb-data-btn{position:relative}
   .apb-dr-close::after{content:"";position:absolute;inset:-8px}
   .apb-gap-link::after,.apb-data-btn::after{content:"";position:absolute;inset:-6px 0}
-  .smart-guide-hero-action::after{content:"";position:absolute;inset:-5px}
   .smart-guide-fab:not(.icon-only)::after{content:"";position:absolute;inset:-4px -8px -4px 0} /* physical: the tab sits on the screen's left edge in this RTL page */
 }
 
@@ -1695,28 +1684,10 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior:non
    here moves, hides or reorders anything: it only lifts the type to a readable
    size. Scoped to the guide's own classes, phone width only. */
 @media (max-width:560px){
-  .smart-guide small,.smart-guide em,.smart-guide p,
-  .smart-guide-kicker,.smart-guide-footer>small,.smart-guide-footer button,
-  .smart-guide-back-link,.smart-guide-next-why,.smart-guide-hint small,
-  .smart-guide-selected-context span,.smart-guide-notice,.smart-guide-intent-card em,
-  .smart-guide-intent-card>button,.smart-guide-transaction-undo>b,
-  .guide-point-banner span,.guide-ghost-card>small,
-  .guide-preview p,.schedule-guide-ghost-diff>p,.guide-simulation-brief>p{font-size:12px}
-  .smart-guide button,.smart-guide-browse button,.smart-guide-browse button span,
-  .smart-guide-selected-actions button,.smart-guide-actions button,
-  .smart-guide-workflows button,.smart-guide-routines button,.smart-guide-settings button,
-  .smart-guide-hint>div button,.guide-point-banner button,.guide-ghost-card button,
-  .guide-preview button,.schedule-guide-ghost-diff footer button,
-  .guide-simulation-brief footer button{font-size:12px}
-  .smart-guide-browse i{font-size:12px}
-  .smart-guide-onboarding button strong,.smart-guide strong,.guide-ghost-card>strong{font-size:12px}
-  .smart-guide-steps span,.smart-guide-focus-card>header p{font-size:12px}
-  .smart-guide-hint>div button{height:30px}
-  .smart-guide-selected-actions button{min-height:30px}
+  .guide-ghost-card>small,.schedule-guide-ghost-diff>p,.guide-simulation-brief>p{font-size:12px}
+  .guide-ghost-card button,.schedule-guide-ghost-diff footer button,.guide-simulation-brief footer button{font-size:12px}
+  .guide-ghost-card>strong{font-size:12px}
   /* Rules with a longer selector chain elsewhere set these at 9–10px. */
-  .smart-guide.smart-guide.smart-guide .smart-guide-browse button span,
-  .smart-guide.smart-guide.smart-guide .smart-guide-footer button,
-  .smart-guide.smart-guide.smart-guide .smart-guide-onboarding-toggle>span{font-size:12px}
 }
 
 /* Login on a phone: the form comes before the feature chips (visual order only —
@@ -1816,10 +1787,6 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior:non
 
 /* Guide header on narrow phones: the place name ends with an ellipsis before the
    tool buttons instead of running 10px under them. */
-@media (max-width:760px){
-  .smart-guide-hero>div:first-child .smart-guide-kicker{max-width:100%;min-width:0}
-  .smart-guide-hero>div:first-child .smart-guide-kicker b{min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-}
 
 /* Buildings and rooms on phones: the room list flows with the page instead of
    being a second scroll area inside it (the building list above keeps its own). */
