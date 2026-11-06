@@ -58,12 +58,16 @@ const RAW: Record<string, string> = {
   ازدحام: "ازدحام زحمه زحام مزدحم ضغط crowd congestion busy",
   تسجيل: "تسجيل سجل_الطلبه registration register",
   سجل: "سجل لوق سجلات log audit history تاريخ",
-  فريق: "فريق فرق لجنه لجان رئيس_لجنه team committee كرسي كراسي",
+  فريق: "فريق فرق لجنه لجان رئيس_لجنه team committee",
   نطاق: "نطاق نطاقات scope",
   اعلان: "اعلان اعلانات دعايه بانر ads ad advertisement",
   جمهور: "جمهور زوار زيارات audience visitors",
   مرشد: "مرشد الدليل دليل مساعد المساعد guide helper help",
 };
+
+/** تسمية قديمة يكتبها الناس؛ تُفهم ولا تُعرض. */
+const LEGACY = { synonyms: "كرسي كراسي" };
+RAW.فريق += ` ${LEGACY.synonyms}`;
 
 export const CONCEPT_OF = new Map<string, string>();
 for (const [concept, words] of Object.entries(RAW)) {
