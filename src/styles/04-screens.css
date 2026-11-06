@@ -2739,6 +2739,9 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .inspector-facts .course-detail-fact b{font-size:.9rem}
 .week-course-title-wrap{display:flex;align-items:center;gap:4px;min-width:0;max-width:100%;overflow:hidden}
 .week-course-title-wrap .week-title{flex:1;min-width:0}
+/* شارة نوع القاعة في بطاقة الأسبوع أيقونةٌ فقط (النص في title): لا تأكل عرض العنوان في البطاقات الضيقة. */
+.week-course-title-wrap .course-room-type-badge.is-compact{flex:none;gap:0;padding:2px 4px;font-size:0}
+.week-course-title-wrap .course-room-type-badge.is-compact svg{inline-size:11px;block-size:11px}
 .location-type-manager-heading{display:flex;align-items:center;gap:12px}
 .location-type-manager-heading>span{display:grid;place-items:center;inline-size:42px;block-size:42px;flex:none;border-radius:13px;background:color-mix(in srgb,var(--lqs-accent) 11%,white);color:var(--lqs-accent)}
 .location-type-manager-heading h2{margin:0;color:var(--lqs-ink);font-size:1.05rem}
