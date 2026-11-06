@@ -2606,6 +2606,8 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 export type FeatureCollection = "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
   /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
   | "seatLedgers" | "seatMemberLinks"
+  /* إعادةُ تعيين كلمة السر: أثرُ الكلمة المؤقتة ودخولُها الواحد، لا الكلمة (src/server/accountPassword.ts). */
+  | "passwordResets"
   /* طلبُ شعبة (src/utils/sectionRequests.ts): وثيقةٌ لكل طلب، معرّفُها يبدأ بفصله `${termId}:`. */
   | "sectionRequests"
   /* حارسُ الزملاء (src/server/scheduleHolds.ts): حجزٌ واحد لكل جالس يعيش دقيقتين. ومقياسُ إدخال
@@ -2944,6 +2946,32 @@ export const Repository = {
     db.users[idx] = { ...db.users[idx], ...fields };
     saveDatabase();
     return db.users[idx];
+  },
+
+  /**
+   * إعادةُ التعيين تكتب الكلمة وسجلَّها معاً في معاملةٍ واحدة: لو كُتبا منفصلين لاقترنت في إعادتين
+   * متزامنتين كلمةُ إحداهما بسجلّ الأخرى، فتسقط عنها قاعدةُ الدخول الواحد.
+   */
+  applyPasswordReset: async (id: number, fields: Partial<SystemUser>, record: { userId: number }, recordId: string): Promise<void> => {
+    announceIdentityChange();
+    const key = featureDocId(recordId);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const userRef = firestoreDb.collection("users").doc(`user_${id}`);
+      const recordRef = firestoreDb.collection("passwordResets").doc(key);
+      await firestoreDb.runTransaction(async tx => {
+        const doc = await tx.get(userRef);
+        if (!doc.exists) throw new Error("المستخدم غير موجود");
+        tx.set(userRef, { ...(doc.data() as SystemUser), ...fields });
+        tx.set(recordRef, record as any, { merge: false });
+      });
+      return;
+    }
+    const idx = db.users.findIndex(u => u.SystemUserId === id);
+    if (idx === -1) throw new Error("المستخدم غير موجود");
+    db.users[idx] = { ...db.users[idx], ...fields };
+    const all = db.featureDocs || {};
+    db.featureDocs = { ...all, passwordResets: { ...(all.passwordResets || {}), [key]: record } };
+    saveDatabase();
   },
 
   /**

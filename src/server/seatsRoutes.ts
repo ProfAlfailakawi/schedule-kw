@@ -1,10 +1,10 @@
 /**
  * ── مسارات الكراسي (docs/SEATS.md) ──────────────────────────────────────────
  *
- *   مدير النظام:  GET /api/seats · POST /api/seats/:id/holder · POST /api/seats/college-registrar
+ *   مدير النظام:  GET /api/seats · POST /api/seats/:id/holder · POST /api/seats/:id/password-reset · POST /api/seats/college-registrar
  *   من يدير الكرسي (شاغله، أو مدير النظام):
  *                 GET /api/seats/:id · POST /api/seats/:id/handover
- *                 POST /api/seats/:id/members · …/members/:mid/link · …/status · …/scopes
+ *                 POST /api/seats/:id/members · …/members/:mid/link · …/reset · …/status · …/scopes
  *                 POST /api/seats/:id/deputy · POST /api/seats/:id/deputy/end
  *   كل جالس:      GET /api/seats/mine · GET /api/seats/switch-options · POST /api/seats/switch
  *   عامّ:          GET /k/:token (صفحة الدخول) · POST /api/public/team/:token
@@ -13,12 +13,14 @@
  */
 import type { Express, NextFunction, Request, Response } from "express";
 import { randomBytes } from "crypto";
+import { rateLimit } from "express-rate-limit";
 import { Repository } from "../db/repository";
 import { type AuthenticatedRequest, getCookies, isPowerUser, requireAuth, requirePowerAdmin, SERVER_IDLE_SESSION_MS, DEMO_SESSION_TTL_MS, authCache } from "./core/auth";
 import { isScopeAllowed } from "./core/scope";
 import { ACADEMIC_ROLES, roleDefinition, roleLabel } from "../utils/academicRoles";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
-import { DEFAULT_FIRST_PASSWORD, defaultFirstPasswordFields, initialPasswordExpired } from "./accountPassword";
+import { DEFAULT_FIRST_PASSWORD, defaultFirstPasswordFields, generateInitialPassword, initialPasswordExpired, passwordResetId, passwordResetRecord, TEMPORARY_PASSWORD_LENGTH, temporaryPasswordFields } from "./accountPassword";
+import { TEMPORARY_PASSWORD_HOURS } from "../utils/seatAccessCard";
 import {
   activeDeputy, civilTailOf, handOverLedger, isSeatRole, scopeWithin, seatHolderSource, seatMemberBadge, seatTeamRule,
   SEAT_LINK_MAX_ATTEMPTS, SEAT_TEAM_LIMIT, withSeatEvent,
@@ -140,6 +142,7 @@ async function seatView(seat: any, ledger: SeatLedger | null, req: Authenticated
     history: [...(ledger?.history || [])].reverse(),
     canManage: manage,
     canReissuePassword: isPowerUser(req) && Boolean(seat.MustChangePassword),
+    canResetPassword: isPowerUser(req),
     canHandOver: await handsOverSeat(req, seat),
     holderSource: seatHolderSource(seat.Role),
     scopeTree: manage && rule && rule.scope !== "seat" ? await scopeTreeFor(seat, rule.scope) : [],
@@ -220,7 +223,7 @@ async function memberScopesFrom(body: any, seat: any): Promise<SeatScope[] | { e
 }
 
 /** يُصدر رابطاً جديداً لعضو ويُبطل القديم. يُستدعى داخل الكتابة الذرّية لا قبلها. */
-async function issueMemberLink(seatId: number, memberId: string, by: string) {
+async function issueMemberLink(seatId: number, memberId: string, by: string, reset = false) {
   const token = newSeatLinkToken();
   const at = new Date().toISOString();
   let previous: string | undefined;
@@ -228,9 +231,12 @@ async function issueMemberLink(seatId: number, memberId: string, by: string) {
     const member = ledger.members.find(row => row.id === memberId);
     if (!member) return { refuse: "العضو غير موجود." };
     if (member.status === "ended") return { refuse: "انتهت عضويته. أعده إلى الفريق أولاً." };
+    if (reset && member.status !== "active") return { refuse: "عضويته بانتظار تأكيدك. أكّدها أولاً." };
     previous = member.linkToken;
-    const members = ledger.members.map(row => row.id === memberId ? { ...row, linkToken: token, linkIssuedAt: at, failedAttempts: 0 } : row);
-    return { next: withSeatEvent({ ...ledger, members }, { at, kind: "link-issued", by, detail: `رابطٌ جديد لـ${member.name}${previous ? "، وأُبطل السابق" : ""}` }), result: token };
+    const linkExpiresAt = reset ? new Date(Date.parse(at) + TEMPORARY_PASSWORD_HOURS * 3_600_000).toISOString() : undefined;
+    const members = ledger.members.map(row => row.id === memberId ? { ...row, linkToken: token, linkIssuedAt: at, linkExpiresAt, failedAttempts: 0 } : row);
+    const detail = reset ? `إعادة تعيين دخول ${member.name}${previous ? "، وأُبطل رابطه السابق" : ""}` : `رابطٌ جديد لـ${member.name}${previous ? "، وأُبطل السابق" : ""}`;
+    return { next: withSeatEvent({ ...ledger, members }, { at, kind: "link-issued", by, detail }), result: token };
   });
   if ("error" in out) return out;
   await saveSeatLink({ token, userId: seatId, memberId, createdAt: at });
@@ -332,6 +338,13 @@ export function seatMemberGuard(req: AuthenticatedRequest, res: Response, next: 
   }
   next();
 }
+
+/** حدٌّ لكل مسؤول: إعادةُ التعيين تُخرج أصحابها، فلا تُكرَّر آلياً. */
+const resetLimit = rateLimit({
+  windowMs: 10 * 60_000, limit: 12, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: req => `password-reset:${Number((req as AuthenticatedRequest).user?.SystemUserId) || 0}`,
+  message: { error: "عملياتُ إعادة تعيين كثيرة. انتظر قليلاً ثم أعد المحاولة." },
+});
 
 /* ── المسارات ─────────────────────────────────────────────────────────────── */
 
@@ -476,6 +489,27 @@ app.post("/api/seats/:id/first-password", requirePowerAdmin, async (req: Authent
   res.json({ login: seat.SystemUserLogin, password });
 });
 
+/**
+ * إعادةُ تعيين كلمة سرّ رئيس الفريق: لمدير النظام. كلمةٌ عشوائية تظهر هنا مرةً واحدة ولا تُحفظ إلا بصمتها،
+ * تعمل 24 ساعة ولدخولٍ واحد، ويختار بعدها كلمته. تخرج جلساتُ الرئيس؛ وأعضاءُ الفريق يبقون بروابطهم.
+ */
+app.post("/api/seats/:id/password-reset", requirePowerAdmin, resetLimit, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const seat = await seatUser(Number(req.params.id));
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  const password = generateInitialPassword(TEMPORARY_PASSWORD_LENGTH);
+  const hash = Repository.hashPassword(password);
+  const fields = temporaryPasswordFields(hash);
+  const by = byName(req);
+  /* في البيئة التجريبية لا دخولَ بكلمة ولا تغييرَ لها: تُعرض البطاقة، ولا تُقفل صفةٌ لا مخرج لها. */
+  if (!Repository.isDemoRequest()) await Repository.applyPasswordReset(Number(seat.SystemUserId), fields as any, passwordResetRecord(seat.SystemUserId, hash, fields.InitialPasswordExpiresAt, by), passwordResetId(seat.SystemUserId));
+  await Repository.deleteOtherSessionsForUser(Number(seat.SystemUserId), undefined);
+  authCache.clear();
+  await updateSeatLedger(Number(seat.SystemUserId), ledger => ({ next: withSeatEvent(ledger, { at: new Date().toISOString(), kind: "password-reset", by, detail: "كلمةٌ مؤقتة لأربعٍ وعشرين ساعة" }), result: true }));
+  res.locals.auditChanges = `إعادة تعيين كلمة السر: ${seat.Name}`;
+  res.json({ login: seat.SystemUserLogin, password, expiresAt: fields.InitialPasswordExpiresAt, seatName: seat.Name, roleLabel: roleLabel(seat.Role) });
+});
+
 app.post("/api/seats/:id/members", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const seat = await seatUser(Number(req.params.id));
   if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
@@ -524,6 +558,22 @@ app.post("/api/seats/:id/members/:mid/link", requireAuth, async (req: Authentica
   if ("error" in link) { res.status(409).json({ error: link.error }); return; }
   const member = (await readSeatLedger(seatId))?.members.find(row => row.id === String(req.params.mid));
   res.locals.auditChanges = `رابطٌ جديد لـ${member?.name || "عضو"} في ${seat.Name}`;
+  res.json({ token: link.token, mobile: member?.mobile || "", name: member?.name || "" });
+});
+
+/** إعادةُ تعيين دخول عضوٍ من الفريق نفسه: رابطٌ جديد لأربعٍ وعشرين ساعة، ويسقط السابق وتخرج أجهزته. */
+app.post("/api/seats/:id/members/:mid/reset", requireAuth, resetLimit, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const seatId = Number(req.params.id), memberId = String(req.params.mid);
+  const seat = await seatUser(seatId);
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يعيد التعيينَ رئيسُ الفريق أو مدير النظام." }); return; }
+  const link = await issueMemberLink(seatId, memberId, byName(req), true);
+  if ("error" in link) { res.status(409).json({ error: link.error }); return; }
+  await Repository.deleteSessionsForUser(seatId, memberId);
+  authCache.clear();
+  const member = (await readSeatLedger(seatId))?.members.find(row => row.id === memberId);
+  res.locals.auditChanges = `إعادة تعيين دخول ${member?.name || "عضو"} في ${seat.Name}`;
   res.json({ token: link.token, mobile: member?.mobile || "", name: member?.name || "" });
 });
 
@@ -697,6 +747,7 @@ async function linkContext(token: string) {
   if (!seat || !seat.IsActive || seat.IsLocked || !ledger || !member || member.linkToken !== link.token) return { error: "هذا الرابط لم يعد صالحاً. اطلب رابطاً جديداً من رئيس الفريق." } as const;
   if (member.status === "frozen") return { error: "تسلّم رئاسةَ الفريق رئيسٌ جديد، وعضويتك بانتظار تأكيده. سيصلك الخبر حين يؤكّدها." } as const;
   if (member.status !== "active") return { error: "انتهت عضويتك في هذا الفريق." } as const;
+  if (member.linkExpiresAt && Date.now() >= Date.parse(member.linkExpiresAt)) return { error: "انتهت مدة هذا الرابط. اطلب إعادة التعيين من رئيس الفريق." } as const;
   return { link, seat, ledger, member } as const;
 }
 
@@ -741,7 +792,7 @@ app.post("/api/public/team/:token", async (req: AuthenticatedRequest, res: Respo
   }
   const at = new Date().toISOString();
   await updateSeatLedger(seat.SystemUserId, ledger => ({
-    next: { ...ledger, members: ledger.members.map(item => item.id === member.id ? { ...item, failedAttempts: 0, firstEnteredAt: item.firstEnteredAt || at, lastEnteredAt: at } : item) },
+    next: { ...ledger, members: ledger.members.map(item => item.id === member.id ? { ...item, failedAttempts: 0, firstEnteredAt: item.firstEnteredAt || at, lastEnteredAt: at, linkExpiresAt: undefined } : item) },
     result: true,
   }));
   const cookies: string[] = [];

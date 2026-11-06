@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeftRight, BadgeCheck, Building2, CalendarClock, Crown, History, IdCard, KeyRound, Link2, Search, Snowflake,
+  ArrowLeftRight, BadgeCheck, Building2, CalendarClock, Crown, History, IdCard, KeyRound, Link2, RotateCcw, Search, Snowflake,
   UserCheck, UserMinus, UserPlus, UsersRound, X,
 } from "lucide-react";
 import SeatLinkCard, { SeatHolderCard } from "./SeatLinkCard";
 import { invitationHref } from "../../utils/invitationLink";
-import { memberCardModel, seatCaption } from "../../utils/seatAccessCard";
+import { memberCardModel, seatCaption, temporaryPasswordCardModel } from "../../utils/seatAccessCard";
 import { SEAT_MEMBER_BADGE_LABEL, type SeatEventKind, type SeatMemberBadge } from "../../utils/seats";
 import "../account-invitation.css";
 import "./seats.css";
@@ -22,13 +22,14 @@ type Person = { name: string; instructorId?: number; mobile?: string; since?: st
 type Member = Person & {
   id: string; status: "active" | "frozen" | "ended"; badge: SeatMemberBadge; civilTail?: string;
   scopeNames?: string[]; scopes?: Array<{ AdCollegeId: number; AdSectionId: number }>;
-  hasLink: boolean; linkToken?: string; firstEnteredAt?: string; lastEnteredAt?: string; addedAt: string;
+  hasLink: boolean; linkToken?: string; linkExpiresAt?: string; firstEnteredAt?: string; lastEnteredAt?: string; addedAt: string;
 };
 type Candidate = { id: number; name: string; hasMobile: boolean };
 type ScopeTree = Array<{ collegeId: number; collegeName: string; sections: Array<{ sectionId: number; name: string }> }>;
 export interface SeatDetail {
   seat: { id: number; login: string; name: string; role: string; roleLabel: string; active: boolean; mustChangePassword: boolean; firstPasswordExpiresAt?: string; firstPasswordExpired?: boolean; scopes: string[] };
   canReissuePassword?: boolean;
+  canResetPassword?: boolean;
   holder: Person | null;
   deputy: { memberId: string; name: string; until: string } | null;
   team: null | { teamLabel: string; memberLabel: string; source: "department" | "manual"; scope: "seat" | "college" | "any"; members: Member[] };
@@ -62,17 +63,17 @@ const origin = () => (typeof window !== "undefined" ? window.location.origin : "
 const EVENT_ICON: Record<SeatEventKind, React.ReactNode> = {
   "seat-created": <UsersRound />, "seat-colleges": <Building2 />, "holder-set": <Crown />, handover: <ArrowLeftRight />,
   "member-added": <UserPlus />, "member-continued": <UserCheck />, "member-ended": <UserMinus />, "member-frozen": <Snowflake />,
-  "member-scopes": <UsersRound />, "link-issued": <Link2 />, "link-locked": <KeyRound />, "deputy-set": <BadgeCheck />, "deputy-ended": <CalendarClock />,
+  "member-scopes": <UsersRound />, "link-issued": <Link2 />, "link-locked": <KeyRound />, "deputy-set": <BadgeCheck />, "deputy-ended": <CalendarClock />, "password-reset": <KeyRound />,
 };
 const EVENT_LABEL: Record<SeatEventKind, string> = {
   "seat-created": "أُنشئ الفريق", "seat-colleges": "تغيير الحرم", "holder-set": "سُجّل الرئيس", handover: "تسليم الرئاسة",
   "member-added": "عضوٌ جديد", "member-continued": "استمرار عضو", "member-ended": "انتهاء عضوية", "member-frozen": "تجميد الأعضاء",
-  "member-scopes": "نطاق موظف", "link-issued": "رابطٌ جديد", "link-locked": "أُقفل رابط", "deputy-set": "تكليف نائب", "deputy-ended": "انتهاء النيابة",
+  "member-scopes": "نطاق موظف", "link-issued": "رابطٌ جديد", "link-locked": "أُقفل رابط", "deputy-set": "تكليف نائب", "deputy-ended": "انتهاء النيابة", "password-reset": "إعادة تعيين كلمة السر",
 };
 
 type Sheet =
   | { kind: "handover" } | { kind: "holder" } | { kind: "add" } | { kind: "deputy" } | { kind: "campuses" } | { kind: "holderCard" }
-  | { kind: "link"; title: string; subtitle?: string; url: string; mobile?: string; message: string; note?: string; fileStem?: string; credentials?: { login: string; password: string }; after?: () => void };
+  | { kind: "link"; title: string; subtitle?: string; url: string; mobile?: string; message: string; note?: string; fileStem?: string; credentials?: { login: string; password: string }; temporary?: boolean; after?: () => void };
 
 function PersonPicker({ candidates, value, onPick, placeholder }: { candidates: Candidate[]; value: number | null; onPick: (id: number) => void; placeholder: string }) {
   const [query, setQuery] = useState("");
@@ -146,8 +147,8 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
     try { await fn(); } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
 
-  const showMemberLink = (name: string, token: string, mobile?: string, withTail = true) => {
-    const card = memberCardModel({ origin: origin(), token, name, memberLabel: detail?.team?.memberLabel, teamLabel: detail?.team?.teamLabel, seatName: detail?.seat.name || "", withTail });
+  const showMemberLink = (name: string, token: string, mobile?: string, withTail = true, reset = false) => {
+    const card = memberCardModel({ origin: origin(), token, name, memberLabel: detail?.team?.memberLabel, teamLabel: detail?.team?.teamLabel, seatName: detail?.seat.name || "", withTail, reset });
     setSheet({ kind: "link", title: name, subtitle: card.caption, url: card.url, mobile, message: card.message, note: card.note, fileStem: card.fileStem });
   };
 
@@ -185,7 +186,23 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
     showMemberLink(result.name, result.token, result.mobile, Boolean(member.civilTail));
     await load();
   });
-  const showLink = (member: Member) => member.linkToken ? showMemberLink(member.name, member.linkToken, member.mobile, Boolean(member.civilTail)) : void reissue(member);
+  const resetMember = (member: Member) => run(async () => {
+    if (!window.confirm(`إعادة تعيين دخول ${member.name}؟ يُبطَل رابطه الحالي ويخرج من كل جهاز، ويعمل الرابط الجديد 24 ساعة.`)) return;
+    const result = await call<{ token: string; mobile: string; name: string }>(`/api/seats/${id}/members/${member.id}/reset`, { method: "POST" });
+    showMemberLink(result.name, result.token, result.mobile, Boolean(member.civilTail), true);
+    await load();
+  });
+  const resetHolder = () => run(async () => {
+    const name = detail?.holder?.name || detail?.seat.name || "";
+    if (!window.confirm(`إعادة تعيين كلمة سرّ ${name}؟ تسقط كلمته الحالية ويخرج من كل جهاز، ويبقى أعضاء الفريق داخلين.`)) return;
+    const result = await call<{ login: string; password: string; seatName: string; roleLabel: string }>(`/api/seats/${id}/password-reset`, { method: "POST" });
+    const card = temporaryPasswordCardModel({ origin: origin(), login: result.login, password: result.password, seatName: result.seatName, roleLabel: result.roleLabel, holderName: name });
+    setSheet({ kind: "link", title: name, subtitle: card.caption, url: card.url, mobile: detail?.holder?.mobile, message: card.message, note: card.note, fileStem: card.fileStem, credentials: { login: result.login, password: result.password }, temporary: true });
+    onChanged?.();
+    await load();
+  });
+  const linkExpired = (member: Member) => Boolean(member.linkExpiresAt) && Date.parse(member.linkExpiresAt!) <= Date.now();
+  const showLink = (member: Member) => member.linkToken && !linkExpired(member) ? showMemberLink(member.name, member.linkToken, member.mobile, Boolean(member.civilTail)) : void reissue(member);
   const setStatus = (member: Member, status: "active" | "ended") => run(async () => {
     if (status === "ended" && !window.confirm(`إنهاء عضوية ${member.name}؟ يُبطَل رابطه ويخرج من كل جهاز.`)) return;
     await call(`/api/seats/${id}/members/${member.id}/status`, { method: "POST", body: JSON.stringify({ status }) });
@@ -269,6 +286,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
           {detail.holder?.since ? <span>منذ {dayOf(detail.holder.since)}</span> : null}
         </div>
         <div className="seat-holder-actions">
+          {detail.canResetPassword ? <button data-guide-ignore="إعادة تعيين كلمة سرّ رئيس الفريق؛ لمدير النظام ويحرسها الخادم" type="button" className="btn btn-ghost" onClick={() => void resetHolder()} disabled={busy}><RotateCcw aria-hidden="true" /> إعادة تعيين</button> : null}
           {detail.canHandOver ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" onClick={() => setSheet({ kind: "handover" })} disabled={busy}><ArrowLeftRight aria-hidden="true" /> تسليم الرئاسة</button> : null}
           {detail.canManage && source === "seat" ? <button data-guide-ignore="يعرض بطاقة دخول رئيس الفريق لإرسالها إليه؛ لا يغيّر كلمة المرور ولا بيانات" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holderCard" })} disabled={busy}><IdCard aria-hidden="true" /> البطاقة</button> : null}
           {detail.canManage && source === "seat" && !detail.holder ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holder" })} disabled={busy}><Crown aria-hidden="true" /> سجّل الرئيس الحالي</button> : null}
@@ -305,7 +323,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
                       ) : (
                         <>
                           <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-secondary btn-sm" onClick={() => showLink(member)} disabled={busy}><Link2 aria-hidden="true" /> الرابط</button>
-                          <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="icon-btn" title="رابط جديد يُبطل السابق" aria-label={`رابط جديد لـ${member.name}`} onClick={() => void reissue(member)} disabled={busy}><KeyRound aria-hidden="true" /></button>
+                          <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-ghost btn-sm" onClick={() => void resetMember(member)} disabled={busy}><RotateCcw aria-hidden="true" /> إعادة تعيين</button>
                           <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="icon-btn danger" title="إنهاء العضوية" aria-label={`إنهاء عضوية ${member.name}`} onClick={() => void setStatus(member, "ended")} disabled={busy}><UserMinus aria-hidden="true" /></button>
                         </>
                       )}
@@ -353,7 +371,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
           <div className={`seat-sheet ${sheet.kind === "link" || sheet.kind === "holderCard" ? "is-card" : ""}`.trim()} role="dialog" aria-modal="true" aria-label={sheet.kind === "link" ? sheet.title : sheet.kind === "holderCard" ? `بطاقة الدخول: ${detail.holder?.name || ""}` : "الفريق"}>
             <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="seat-sheet-close" onClick={() => { const after = sheet.kind === "link" ? sheet.after : undefined; closeSheet(); after?.(); }} aria-label="إغلاق"><X aria-hidden="true" /></button>
             {sheet.kind === "link" ? (
-              <SeatLinkCard title={sheet.title} subtitle={sheet.subtitle} url={sheet.url} mobile={sheet.mobile} message={sheet.message} credentials={sheet.credentials} note={sheet.note} fileStem={sheet.fileStem}
+              <SeatLinkCard title={sheet.title} subtitle={sheet.subtitle} url={sheet.url} mobile={sheet.mobile} message={sheet.message} credentials={sheet.credentials} temporary={sheet.temporary} note={sheet.note} fileStem={sheet.fileStem}
                 onDone={() => { const after = sheet.after; closeSheet(); after?.(); }} />
             ) : null}
             {/* فريقٌ بلا رئيسٍ مسجَّل: البطاقة باسم الكرسي، كما كانت في «المستخدمون»، فلا يبقى حسابٌ بلا بطاقة. */}
