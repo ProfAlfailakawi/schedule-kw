@@ -53,6 +53,9 @@
     padding-bottom:4px;
   }
   .schedule-editor.is-studio .appt-layout>.editor-side:empty{display:none}
+  /* حين تطفو النافذة يفرغ عمودها: يعود للأسئلة عرضُها كاملاً (كما من 1101). */
+  .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout.has-week:has(>.editor-side:empty){grid-template-columns:minmax(0,1fr)}
+  .schedule-editor.is-studio .appt-layout:has(>.editor-side:empty)>.appt-form{width:100%;max-width:1000px;margin-inline:auto}
 }
 
 /* الأسئلة: بطاقةٌ لكل سؤال، والمحرَّرة الآن تضيء */

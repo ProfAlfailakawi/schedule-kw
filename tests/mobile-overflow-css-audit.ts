@@ -53,6 +53,8 @@ check(/useMedia\("\(max-width: 639px\)", variant === "side"\)/.test(miniWeek) &&
   "أسبوع الأستاذ شريطٌ سفلي على الهاتف (<640) فقط، وعمودٌ جانبي من 640 فما فوق");
 check(/@media\(max-width:639px\)\{\.appt-week-ghost\{display:none\}\}/.test(studio),
   "الإطار الشبحي يملأ عمود الأسبوع من 640 ويغيب عن الهاتف");
+check(/@media\(min-width:640px\)and\(max-width:1100px\)\{[\s\S]*?\.appt-layout\.has-week:has\(>\.editor-side:empty\)\{grid-template-columns:minmax\(0,1fr\)\}/.test(studio),
+  "حين تطفو نافذة الأسبوع (640–1100) يُطوى عمودها الفارغ ويعود للأسئلة عرضها كاملاً");
 
 /* 1) iOS: حقولُ التاريخ والساعة تطيع العرض. */
 const ios = guard.match(/@supports\(-webkit-touch-callout:none\)\{([\s\S]*?\})\}/)?.[1] || "";
