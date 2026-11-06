@@ -19,7 +19,7 @@ import {
 import { GUIDE_BANK } from "../../guide/bank";
 import { buildIndex, maskUnknownWords, understand, type Understood } from "../../guide/brain/engine";
 import { anonymizeQuestion, finishedTours, greetingFor, loadTourProgress, readSituation, saveTourProgress, situationAnswer, suggestFor, unfinishedTour, type SituationAnswer } from "../../guide/awareness";
-import { buildTour, type TourStepSpec } from "../../guide/tour/tours";
+import { answerSteps, buildTour, type TourStepSpec } from "../../guide/tour/tours";
 import { TourRunner, type TourSnapshot } from "../../guide/tour/runner";
 import GuideTour from "./GuideTour";
 import "../../styles/45-guide.css";
@@ -47,7 +47,15 @@ function findStep(step: TourStepSpec): HTMLElement | null {
   if (!query) return null;
   return [...document.querySelectorAll<HTMLElement>(query)].find(visible) || null;
 }
+/** الشريط المطوي يتمدد عند المرور فيتحرك العنصر تحت المؤشر: يُفتح ما دامت خطوته قائمة. */
+let railOpenedByTour = false;
+function holdRail(open: boolean) {
+  const root = document.documentElement;
+  if (open && root.dataset.rail === "closed") { root.dataset.rail = "open"; railOpenedByTour = true; }
+  if (!open && railOpenedByTour) { root.dataset.rail = "closed"; railOpenedByTour = false; }
+}
 function revealSidebar(step: TourStepSpec) {
+  holdRail(true);
   const item = document.querySelector<HTMLElement>(`[data-guide-target="${step.target}"]`);
   if (!item) return;
   const drawer = document.querySelector<HTMLElement>(".mobile-dock-more");
@@ -55,6 +63,10 @@ function revealSidebar(step: TourStepSpec) {
   const fold = item.closest(".nav-section")?.querySelector<HTMLElement>(".nav-section-title");
   if (fold?.getAttribute("aria-expanded") === "false") fold.click();
 }
+const closeDrawer = () => {
+  const drawer = document.querySelector<HTMLElement>(".mobile-dock-more");
+  if (drawer?.getAttribute("aria-expanded") === "true") document.querySelector<HTMLElement>(".sidebar-backdrop")?.click();
+};
 
 const SuggestionRow: React.FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => {
   return <button type="button" className="guide-row" onClick={onClick}><span>{label}</span><ChevronLeft aria-hidden="true" /></button>;
@@ -112,6 +124,7 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
     cancel: handle => window.clearTimeout(handle as number),
     onChange: (state, element) => setTourView(state.status === "done" ? null : { state, element }),
     onProgress: (index, step) => {
+      if (!step.sidebar) holdRail(false);
       const meta = metaRef.current;
       if (!meta) return;
       saveTourProgress(userId, meta.feature.id, { step: index, total: 99 });
@@ -125,6 +138,8 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
         setGuideTask(userId, undefined);
         telemetryGuideJourney({ featureId: meta.feature.id, step: "tour", outcome: completed ? "helped" : "abandoned" });
       }
+      closeDrawer();
+      holdRail(false);
       setProgress(loadTourProgress(userId));
       setTourMeta(null);
       closeRef.current();
@@ -163,13 +178,15 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
     });
   };
 
+  const tourEnv = useCallback(() => ({
+    activeView, scheduleView: situation.scheduleView, selectedId: Number(context?.selected?.id || 0),
+    selectedCourse: "", phone: isPhone(), phoneReadOnly: isPhoneDevice(),
+    dock: [...document.querySelectorAll<HTMLElement>("[data-guide-dock]")].filter(visible).map(item => item.dataset.guideDock || ""),
+  }), [activeView, situation.scheduleView, context?.selected?.id]);
+
   const showTour = useCallback((feature: GuideFeature) => {
     if (!canAccessGuideFeature(feature, session)) return;
-    const env = {
-      activeView, scheduleView: situation.scheduleView, selectedId: Number(context?.selected?.id || 0),
-      selectedCourse: "", phone: isPhone(), phoneReadOnly: isPhoneDevice(),
-    };
-    const plan = buildTour(feature, env);
+    const plan = buildTour(feature, tourEnv());
     const row = unfinishedTour(loadTourProgress(userId), feature.id);
     const at = row && plan.steps[0]?.id !== "nav" ? Math.min(row.step, plan.steps.length - 1) : 0;
     const steps: TourStepSpec[] = plan.steps.length ? plan.steps : [{ id: "note", selector: ".content-frame", text: plan.note || feature.summary }];
@@ -181,7 +198,7 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
     setTourMeta({ feature, note: plan.note });
     metaRef.current = { feature, note: plan.note };
     runner.start(steps, at);
-  }, [activeView, context?.selected?.id, hint, onDismissHint, runner, session, situation.scheduleView, userId]);
+  }, [hint, onDismissHint, runner, session, tourEnv, userId]);
 
   const openFeature = (feature: GuideFeature) => { setPicked(feature.id); setScreen("ask"); setQuery(""); setSubmitted(""); };
   const tryIt = (feature: GuideFeature) => {
@@ -235,18 +252,19 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
     return () => window.removeEventListener("keydown", onKey);
   }, [open, tourView, pointing, onClose]);
 
-  const answerCard = (feature: GuideFeature, key: string, primary: boolean) => {
-    const entry = GUIDE_BANK[feature.id];
+  const answerCard = (feature: GuideFeature, key: string, primary: boolean, alternatives: string[] = []) => {
     const row = unfinishedTour(progress, feature.id);
+    const lines = answerSteps(buildTour(feature, tourEnv()));
     return (
       <article className="guide-answer" key={key}>
         <h3>{feature.title}</h3>
-        <ol>{(entry?.s || [feature.summary]).map(step => <li key={step}>{step}</li>)}</ol>
+        <ol>{(lines.length ? lines : [feature.summary]).map(step => <li key={step}>{step}</li>)}</ol>
         {finished.has(feature.id) ? <p className="guide-quiet-line">أنهيت هذه الجولة مؤخراً.</p> : null}
         <div className="guide-answer-actions">
           <button type="button" className={primary ? "guide-primary" : "guide-secondary"} onClick={() => showTour(feature)}>{row ? `أكمل من الخطوة ${row.step + 1}` : "أرني"}</button>
           {feature.simulationAction ? <button type="button" className="guide-link" onClick={() => tryIt(feature)}>جرّب دون حفظ</button> : null}
         </div>
+        {alternatives.length ? <p className="guide-maybe"><span>هل تقصد؟</span>{alternatives.map(id => allowed.get(id)).filter(Boolean).map(other => <button type="button" key={other!.id} onClick={() => openFeature(other!)}>{other!.title}</button>)}</p> : null}
       </article>
     );
   };
@@ -268,7 +286,7 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
   };
   const answers = understood.map((item, index) => {
     const primary = index === 0;
-    if (item.kind === "answer") { const feature = allowed.get(item.id); return feature ? answerCard(feature, `${item.id}-${index}`, primary) : null; }
+    if (item.kind === "answer") { const feature = allowed.get(item.id); return feature ? answerCard(feature, `${item.id}-${index}`, primary, item.alternatives) : null; }
     if (item.kind === "live") {
       const feature = item.ids[0] ? allowed.get(item.ids[0]) : undefined;
       return <article className="guide-answer" key={`live-${index}`}>
@@ -284,12 +302,14 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
     </article>;
   });
 
+  const lost = useCallback(() => runner.relocate(), [runner]);
+  const targetClick = useCallback((index: number) => runner.targetClicked(index), [runner]);
   const pickedFeature = picked ? allowed.get(picked) : undefined;
   if (!open) return null;
   if (tourView && tourMeta) {
     const entry = GUIDE_BANK[tourMeta.feature.id];
-    return <GuideTour state={tourView.state} element={tourView.element} title={tourMeta.feature.title} when={entry?.w} note={tourMeta.note}
-      onNext={() => runner.next()} onBack={() => runner.back()} onStop={() => runner.stop()} onRetry={() => runner.retry()} onSkipStep={() => runner.skipStep()} onLost={() => runner.relocate()} />;
+    return <GuideTour state={tourView.state} element={tourView.element} title={tourMeta.feature.title} when={entry?.w} note={tourMeta.note} canPress={tourMeta.feature.risk === "read"}
+      onNext={() => runner.next()} onBack={() => runner.back()} onStop={() => runner.stop()} onRetry={() => runner.retry()} onSkipStep={() => runner.skipStep()} onLost={lost} onTargetClick={targetClick} />;
   }
   if (pointing) return createPortal(
     <div className="guide-point-bar no-print" role="status" data-guide-ignore="شريط أشّر لي">

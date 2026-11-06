@@ -18,6 +18,8 @@ export type Situation = {
   selectedId: number;
   selectionConflict: boolean;
   unsaved: boolean;
+  /** مانع اعتماد معروض في الرئيسية؛ علامة فقط بلا تفاصيل. */
+  blocker: boolean;
   recent: string[];
 };
 export type DomProbe = { query: (selector: string) => { getAttribute: (name: string) => string | null } | null };
@@ -36,6 +38,7 @@ export function readSituation(view: string, context: any, recent: string[], dom:
     selectedId: Number(context?.selected?.id || 0),
     selectionConflict: Boolean(context?.selected?.conflict),
     unsaved: Boolean(context?.unsaved),
+    blocker: Boolean(dom.query("[data-guide-blocker]")),
     recent,
   };
 }
@@ -70,6 +73,7 @@ const EDITOR_SUGGESTIONS = ["schedule.action.quick-fill", "schedule.undo", "sche
 /** ثلاثة اقتراحات هادئة على الأكثر، من الموقف ثم العادة ثم الشاشة، بلا ما سبق إكماله الآن. */
 export function suggestFor(s: Situation, allowed: Map<string, GuideFeature>, profile: GuideProfile, finished: Set<string> = new Set()): GuideFeature[] {
   const ids: string[] = [];
+  if (s.blocker) ids.push("schedule.tool.review");
   if (s.dialog === "editor") ids.push(...EDITOR_SUGGESTIONS);
   else if (s.selectedId) ids.push(...SELECTION_SUGGESTIONS);
   const last = s.recent[s.recent.length - 1];

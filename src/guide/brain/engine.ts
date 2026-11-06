@@ -20,7 +20,7 @@ export type GuideIndex = { docs: Doc[]; df: Map<string, number>; vocabulary: str
 export type RankContext = { view?: string; recentFeatureIds?: string[]; boostFeatureIds?: string[] };
 export type Hit = { id: string; score: number; confidence: number };
 export type Understood =
-  | { kind: "answer"; id: string; confidence: number; query: string }
+  | { kind: "answer"; id: string; confidence: number; query: string; alternatives: string[] }
   | { kind: "live"; ids: string[]; query: string }
   | { kind: "unsure"; closest: string[]; query: string };
 
@@ -153,6 +153,7 @@ export function splitQuestion(query: string): string[] {
 }
 
 export const CONFIDENCE_THRESHOLD = .34;
+const WEAK_CONFIDENCE = .55;
 const LIVE_HINT = /الان|الحين|اليوم|هاليوم|now|today/;
 
 export function isLiveQuestion(query: string): string[] | null {
@@ -170,7 +171,12 @@ export function understand(index: GuideIndex, query: string, allowed: Set<string
     if (OFF_TOPIC.test(prepare(part))) return { kind: "unsure" as const, closest: [], query: part };
     const hits = rank(index, part, allowed, ctx);
     const top = hits[0];
-    if (top && top.confidence >= CONFIDENCE_THRESHOLD) return { kind: "answer" as const, id: top.id, confidence: top.confidence, query: part };
+    if (top && top.confidence >= CONFIDENCE_THRESHOLD) {
+      // فهم ضعيف أو متقارب أو فيه كلمات مجهولة: الجواب الأقرب يبقى، ومعه «هل تقصد؟».
+      const vague = top.confidence < WEAK_CONFIDENCE || queryTerms(index, part).some(term => !term.weight) || Boolean(hits[1] && hits[1].score >= top.score * .9);
+      const rivals = hits.slice(1, 3).filter(hit => vague && hit.score > .1).map(hit => hit.id);
+      return { kind: "answer" as const, id: top.id, confidence: top.confidence, query: part, alternatives: rivals };
+    }
     return { kind: "unsure" as const, closest: hits.filter(hit => hit.score > .08).slice(0, 3).map(hit => hit.id), query: part };
   });
 }

@@ -40,6 +40,8 @@
 .guide-primary:hover,.guide-tour-primary:hover{filter:brightness(1.07)}
 .guide-secondary{border:1px solid var(--line);background:transparent;color:var(--ink)}
 .guide-link{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;cursor:pointer;padding:6px 2px;text-decoration:underline;text-underline-offset:3px}
+.guide-maybe{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;margin:10px 0 0;font-size:12.5px;color:var(--muted)}
+.guide-maybe button{border:0;background:transparent;color:var(--accent);font:inherit;min-block-size:28px;padding:2px 0;cursor:pointer}
 .guide-quiet-line{margin:2px 0;font-size:13px;color:var(--muted);line-height:1.6}
 .guide-more{position:relative;align-self:flex-start;border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;min-block-size:32px;padding:4px 2px;cursor:pointer}
 .guide-more:hover{color:var(--ink)}

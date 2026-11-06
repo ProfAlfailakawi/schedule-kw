@@ -259,7 +259,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
      <strong id="dashboard-primary-decision">{home?.awaitingApproval?"لم يُعتمد جدولُ هذا الفصل بعد":"لا مواعيد في هذا الفصل بعد"}</strong>
      <small>{home?.awaitingApproval?"تظهر هنا جداولُ الأقسام حين يعتمدها التسجيل.":`${data.latestTermName||"هذا الفصل"} — لا شيء يُعرض بعد.`}</small>
     </div>
-   </section>:<section className={`deck-decision level-${decisionLevel}`} aria-labelledby="dashboard-primary-decision">
+   </section>:<section className={`deck-decision level-${decisionLevel}`} aria-labelledby="dashboard-primary-decision" data-guide-blocker={/مانع|موانع|تعارض/.test(decisionTitle(primaryDecision)||"")?"true":undefined}>
     <span className="deck-decision-mark">{primaryDecision?<ShieldAlert aria-hidden="true"/>:<CheckCircle2 aria-hidden="true"/>}</span>
     <div>
      <strong id="dashboard-primary-decision">{decisionTitle(primaryDecision)||"الجدول سليم"}</strong>

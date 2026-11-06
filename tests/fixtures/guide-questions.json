@@ -1251,5 +1251,13 @@
 "expected": [
 "unsure"
 ]
+},
+{
+"q": "الدكتور ما يبي يدرس الصبح",
+"kind": "kuwaiti",
+"expected": [
+"page.instructorRequests",
+"schedule.action.change-time"
+]
 }
 ]

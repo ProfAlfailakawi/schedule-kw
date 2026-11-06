@@ -4,7 +4,7 @@
  * عشر جولات كاملة عبر الأدوار، ثم ما يجب ألا يحدث: اختفاء صامت أو تكرار خطوة.
  */
 import { GUIDE_FEATURES, allAllowedGuideFeatures, featureById, loadGuideProfile, type GuideFeature } from "../src/guide/smartGuide";
-import { buildTour, type TourEnv, type TourStepSpec } from "../src/guide/tour/tours";
+import { answerSteps, buildTour, type TourEnv, type TourStepSpec } from "../src/guide/tour/tours";
 import { TourRunner, type TourSnapshot } from "../src/guide/tour/runner";
 import { anonymizeQuestion, finishedTours, greetingFor, loadTourProgress, readSituation, saveTourProgress, situationAnswer, suggestFor, unfinishedTour } from "../src/guide/awareness";
 import { clearSessionTrail, noteSessionAction, sessionTrail } from "../src/guide/sessionTrail";
@@ -69,6 +69,17 @@ check(buildTour(move, { activeView: "schedules", phoneReadOnly: true }).note, "�
 
 check(buildTour(featureById("schedule.publish")!, { activeView: "schedules" }).steps[0].press, "النشر يفتح تبويبه");
 
+for (const f of GUIDE_FEATURES) check(answerSteps(buildTour(f, { activeView: "x" })).length === buildTour(f, { activeView: "x" }).steps.length, `عدد خطوات الجواب والجولة: ${f.id}`);
+check(buildTour(move, { activeView: "dashboard", dock: ["schedules"] }).steps[0].selector === '[data-guide-dock="schedules"]', "الطريق الظاهر قبل الدرج");
+const clicked = harness({ activeView: "x" });
+clicked.runner.start([{ id: "a", target: "t", navigate: "v", text: "ن" }, { id: "b", target: "u", text: "م" }]);
+clicked.runner.targetClicked(0);
+check(clicked.state.index === 1 && !clicked.log.includes("nav:v"), "ضغط العنصر يكمل الخطوة بلا انتقال مكرر");
+clicked.runner.targetClicked(0);
+check(clicked.state.index === 1 && clicked.finished === null, "ضغطة متأخرة لا تُحسب على الخطوة التالية");
+clicked.runner.targetClicked(1);
+check(clicked.finished === true, "ضغط آخر عنصر ينهي الجولة");
+
 // عنصر غائب: يقال ذلك وتبقى الجولة حية.
 const lost = harness({ activeView: "x" }, { absent: () => true });
 lost.runner.start([{ id: "a", target: "t", text: "ن" }, { id: "b", target: "u", text: "م" }]);
@@ -104,6 +115,7 @@ const profile = loadGuideProfile(0);
 const picked = readSituation("schedules", { selected: { id: 9 } }, [], dom({}));
 const sug = suggestFor(picked, all, profile);
 check(sug.length <= 3 && sug[0].id === "schedule.action.change-time", "الاقتراح يتبع المحدد");
+check(suggestFor(readSituation("dashboard", {}, [], dom({ "[data-guide-blocker]": {} })), all, profile)[0].id === "schedule.tool.review", "المانع يتقدم الاقتراحات");
 const editing = suggestFor(readSituation("schedules", {}, [], dom({ "[data-guide-editor-field]": {} })), all, profile);
 check(editing[0].id === "schedule.action.quick-fill", "المحرر المفتوح يغيّر الاقتراح");
 const restricted = new Map([...all].filter(([id]) => id !== "schedule.action.change-time"));

@@ -36,6 +36,8 @@ export type TourEnv = {
   phone?: boolean;
   /** الجدول على الهاتف قائمة للقراءة: لا أسبوع ولا قاعات ولا محرر. */
   phoneReadOnly?: boolean;
+  /** وجهات الشريط السفلي الظاهرة الآن: الطريق الظاهر أولى من فتح الدرج. */
+  dock?: string[];
 };
 export type TourPlan = { steps: TourStepSpec[]; note?: string };
 
@@ -82,7 +84,11 @@ function coreSteps(feature: GuideFeature, env: TourEnv): TourStepSpec[] {
   const authored = (feature.steps || []).filter(step => step.target !== "schedule.tool.more");
   const raw: TourStepSpec[] = authored.map((step, index) => ({ id: `s${index}`, target: step.target, selector: step.selector, command: step.command, text: step.text }));
   if (!raw.length && feature.target) raw.push({ id: "target", target: feature.target, text: feature.summary });
-  if (!raw.length && feature.view) raw.push({ id: "screen", selector: ".content-frame", text: bank?.s[bank.s.length - 1] || feature.summary });
+  if (!raw.length && feature.view) {
+    // الجواب والجولة مصدر واحد: كل سطر بعد «افتح…» خطوة على الشاشة.
+    const lines = (bank?.s || []).filter(line => !/^افتح/.test(line));
+    (lines.length ? lines : [feature.summary]).forEach((text, index) => raw.push({ id: `screen${index}`, selector: ".content-frame", text }));
+  }
   return raw.map(step => {
     const key = step.target || "";
     if (!step.command && (IN_MORE.has(key) || IN_MORE.has(feature.id))) return { ...step, command: { scope: "schedule", type: "showTarget", target: key || feature.id } };
@@ -96,7 +102,10 @@ export function buildTour(feature: GuideFeature, env: TourEnv): TourPlan {
   const needsWide = Boolean(feature.view === "schedules" && env.phoneReadOnly && (EDIT_FIELD[feature.id] || feature.id === "schedule.action.move-room" || feature.id === "schedule.action.find-room" || feature.id === "schedule.action.quick-fill"));
   const steps: TourStepSpec[] = [];
   if (feature.view && feature.view !== env.activeView) {
-    steps.push({ id: "nav", target: `page.${feature.view}`, sidebar: true, navigate: feature.view, optional: true, text: `افتح «${navTitle(feature)}» من القائمة.` });
+    const dockLabel = DOCK_LABELS[feature.view];
+    steps.push(dockLabel && env.dock?.includes(feature.view)
+      ? { id: "nav", selector: `[data-guide-dock="${feature.view}"]`, navigate: feature.view, optional: true, text: `اضغط «${dockLabel}» في الشريط السفلي.` }
+      : { id: "nav", target: `page.${feature.view}`, sidebar: true, navigate: feature.view, optional: true, text: `افتح «${navTitle(feature)}» من القائمة.` });
   }
   if (needsWide) return { steps, note: "هذه العملية تحتاج شاشة أوسع: الجدول على الهاتف قائمة للقراءة. افتحه من حاسوب لإكمالها." };
   let core = coreSteps(feature, env);
@@ -107,6 +116,10 @@ export function buildTour(feature: GuideFeature, env: TourEnv): TourPlan {
   return { steps: [...steps, ...core] };
 }
 
+/** ما يقرؤه الجواب هو ما تمشيه الجولة، فلا يختلف العدد أبداً. */
+export const answerSteps = (plan: TourPlan) => [...plan.steps.map(step => step.text), ...(plan.note ? [plan.note] : [])];
+
+const DOCK_LABELS: Record<string, string> = { dashboard: "الرئيسية", schedules: "الجدول" };
 function navTitle(feature: GuideFeature) {
   if (feature.id.startsWith("page.")) return feature.title;
   return VIEW_TITLES[feature.view || ""] || feature.title;
