@@ -17,6 +17,7 @@ test:calendar-ics
 test:review-audit-1028
 test:owner-approved-1029
 test:first-password-room-loans
+test:password-reset
 test:demand-repair-simulation
 test:visiting-to-faculty
 test:pdf-term-rule

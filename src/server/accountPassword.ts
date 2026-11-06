@@ -10,13 +10,15 @@
  *  • بطاقاتُ رؤساء الفرق (قرارُ المالك 2026-11-05) تُصدَر بالكلمة الافتراضية DEFAULT_FIRST_PASSWORD:
  *    تُغيَّر عند أول دخول، ويسقط عملُها بعد سبعة أيام (InitialPasswordExpiresAt)، فيُرفض الدخول بها
  *    حتى يعيد المسؤولُ إصدارها. لا تُحفظ نصّاً: بصمتُها وحدها كسائر الكلمات.
+ *  • إعادةُ التعيين (قرارُ المالك 2026-11-06): كلمةٌ مؤقتة عشوائية لا تُشتق من بيانات صاحبها، بصمتُها
+ *    وحدها محفوظة، تعمل 24 ساعة ولدخولٍ واحد (passwordResets)، ثم يختار صاحبها كلمته.
  *  • الحسابُ القائم الذي ما زال يدخل بالكلمة الموحّدة لا يُقفل: يدخل بها، فيُعلَّم
  *    عندها، ولا يصل إلى شيءٍ في الخادم حتى يختار كلمته (passwordChangeGate).
  */
 import { createHash, randomInt } from "node:crypto";
 import type { NextFunction, Response } from "express";
 import { AR, countOf } from "../utils/arabicCount";
-import { FIRST_PASSWORD_DAYS } from "../utils/seatAccessCard";
+import { FIRST_PASSWORD_DAYS, TEMPORARY_PASSWORD_HOURS } from "../utils/seatAccessCard";
 import type { AuthenticatedRequest } from "./core/auth";
 
 /** الكلمةُ الموحّدة القديمة: لا تُعطى لحسابٍ جديد، ومن يدخل بها يُطلب منه تغييرها. */
@@ -43,6 +45,36 @@ export function initialPasswordExpired(user: { MustChangePassword?: boolean; Ini
   if (!user?.MustChangePassword || !user.InitialPasswordExpiresAt) return false;
   const at = Date.parse(user.InitialPasswordExpiresAt);
   return Number.isFinite(at) && now >= at;
+}
+
+export const TEMPORARY_PASSWORD_EXPIRED = "انتهت الكلمة المؤقتة. اطلب إعادة التعيين من مدير النظام.";
+export const TEMPORARY_PASSWORD_USED = "استُعملت الكلمة المؤقتة من قبل، وهي لدخولٍ واحد. اطلب إعادة التعيين من مدير النظام.";
+
+/** طولُ الكلمة المؤقتة: أربعة عشر حرفاً ≈ 80 بِتّاً. */
+export const TEMPORARY_PASSWORD_LENGTH = 14;
+
+/** حقولُ الحساب عند إعادة التعيين: لا نسخةَ قابلةً للفك، والمدّةُ تبدأ من لحظة الإصدار. */
+export function temporaryPasswordFields(hash: string, now = Date.now()) {
+  return { SystemUserPass: hash, SystemUserPassVault: "", MustChangePassword: true, InitialPasswordExpiresAt: new Date(now + TEMPORARY_PASSWORD_HOURS * 3_600_000).toISOString() };
+}
+
+/** سجلُّ إعادة التعيين: أثرُ الكلمة لا هي؛ فأيُّ تغييرٍ للكلمة بعده يُسقطه بلا تنظيف. */
+export interface PasswordResetRecord { userId: number; mark: string; issuedAt: string; expiresAt: string; by: string; usedAt?: string }
+
+export const passwordResetId = (userId: number) => `reset_${Number(userId)}`;
+
+export function passwordResetRecord(userId: number, hash: string, expiresAt: string, by: string, now = Date.now()): PasswordResetRecord {
+  return { userId: Number(userId), mark: initialPasswordMark(hash), issuedAt: new Date(now).toISOString(), expiresAt, by };
+}
+
+/** هل هذا السجلُّ للكلمة المحفوظة الآن؟ */
+export const passwordResetApplies = (record: PasswordResetRecord | null | undefined, storedHash: string): boolean =>
+  Boolean(record && storedHash && record.mark === initialPasswordMark(storedHash));
+
+/** يُحسب الدخولُ مرةً واحدة: يُستدعى داخل كتابةٍ ذرّية، فلا يمرّ دخولان متزامنان بالكلمة نفسها. */
+export function claimPasswordReset(record: PasswordResetRecord | null, storedHash: string, now = Date.now()): { next: PasswordResetRecord; result: true } | { refuse: false } {
+  if (!record || !passwordResetApplies(record, storedHash) || record.usedAt) return { refuse: false };
+  return { next: { ...record, usedAt: new Date(now).toISOString() }, result: true };
 }
 
 /* بلا حروفٍ تتشابه عند الإملاء أو الطباعة (0/O، 1/l/I). */

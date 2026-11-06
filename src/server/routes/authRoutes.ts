@@ -27,7 +27,7 @@ import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
 import { seedDemoSectionRequests } from "../demoSectionRequestsSeed";
 import { demoActivityTrail } from "../../db/demoActivityTrail";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
-import { currentPasswordWaived, decidePasswordChange, INITIAL_PASSWORD_EXPIRED, initialPasswordExpired, initialPasswordMark, LEGACY_SHARED_PASSWORD } from "../accountPassword";
+import { adminSetPasswordFields, claimPasswordReset, currentPasswordWaived, decidePasswordChange, INITIAL_PASSWORD_EXPIRED, initialPasswordExpired, initialPasswordMark, LEGACY_SHARED_PASSWORD, passwordResetApplies, passwordResetId, type PasswordResetRecord, TEMPORARY_PASSWORD_EXPIRED, TEMPORARY_PASSWORD_USED } from "../accountPassword";
 import { endForRequest, requestFullySettled, weeklyLoadOf, type RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { pushHooks } from "../pushRoutes";
 import { seatIdentity } from "../seats";
@@ -658,15 +658,27 @@ app.post("/api/auth/login", rateLimitLogin, async (req: Request, res: Response) 
   }
 
   /* الكلمةُ الأولى انتهت مدّتها: الرفضُ بعد التحقق منها، فلا يكشف لمن لا يعرفها شيئاً. */
+  const reset = (user as any).MustChangePassword ? await Repository.getFeatureDoc<PasswordResetRecord>("passwordResets", passwordResetId(user.SystemUserId)) : null;
+  const temporary = passwordResetApplies(reset, user.SystemUserPass);
   if (initialPasswordExpired(user as any)) {
-    res.status(403).json({ error: INITIAL_PASSWORD_EXPIRED, code: "initial-password-expired" });
+    res.status(403).json({ error: temporary ? TEMPORARY_PASSWORD_EXPIRED : INITIAL_PASSWORD_EXPIRED, code: "initial-password-expired" });
     return;
+  }
+
+  /* الكلمةُ المؤقتة لدخولٍ واحد: يُحسب ذرّياً، فلا يدخل بها جهازان. */
+  if (temporary) {
+    const claim = await Repository.updateFeatureDoc<PasswordResetRecord, boolean>("passwordResets", passwordResetId(user.SystemUserId), current => claimPasswordReset(current, user.SystemUserPass));
+    if (!claim.ok) {
+      res.status(403).json({ error: TEMPORARY_PASSWORD_USED, code: "temporary-password-used" });
+      return;
+    }
   }
 
   /* من يدخل بالكلمة الموحّدة القديمة لا يُقفل: يدخل، ويُعلَّم فلا يصل إلى شيءٍ حتى يختار كلمته
      (passwordChangeGate). والعلامةُ على الحساب لا على الجلسة، فتبقى إن خرج قبل التغيير. */
-  if (password === LEGACY_SHARED_PASSWORD && !(user as any).MustChangePassword) {
-    await Repository.updateUser(Number(user.SystemUserId), { MustChangePassword: true } as any);
+  if (password === LEGACY_SHARED_PASSWORD && (!(user as any).MustChangePassword || !(user as any).InitialPasswordExpiresAt)) {
+    /* وحسابٌ مُعلَّمٌ بلا موعد (قبل #362) يأخذ موعده من هذا الدخول، فلا تبقى الكلمة الموحّدة بلا نهاية. */
+    await Repository.updateUser(Number(user.SystemUserId), { MustChangePassword: true, InitialPasswordExpiresAt: adminSetPasswordFields(password).InitialPasswordExpiresAt } as any);
     (user as any).MustChangePassword = true;
   }
 

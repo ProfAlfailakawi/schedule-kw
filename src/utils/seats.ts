@@ -38,6 +38,8 @@ export interface SeatMember extends SeatPerson {
   addedAt: string;
   addedBy: string;
   linkToken?: string;
+  /** رابطُ إعادة التعيين: يسقط في هذا الموعد إن لم يُفتح، ويُمحى عند أول دخول. */
+  linkExpiresAt?: string;
   linkIssuedAt?: string;
   firstEnteredAt?: string;
   lastEnteredAt?: string;
@@ -59,7 +61,7 @@ export interface SeatDeputy {
 export type SeatEventKind =
   | "seat-created" | "seat-colleges" | "holder-set" | "handover"
   | "member-added" | "member-continued" | "member-ended" | "member-frozen" | "member-scopes"
-  | "link-issued" | "link-locked" | "deputy-set" | "deputy-ended";
+  | "link-issued" | "link-locked" | "deputy-set" | "deputy-ended" | "password-reset";
 
 export interface SeatEvent {
   at: string;

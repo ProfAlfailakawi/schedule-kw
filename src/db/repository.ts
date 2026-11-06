@@ -2604,6 +2604,8 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 export type FeatureCollection = "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
   /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
   | "seatLedgers" | "seatMemberLinks"
+  /* إعادةُ تعيين كلمة السر: أثرُ الكلمة المؤقتة ودخولُها الواحد، لا الكلمة (src/server/accountPassword.ts). */
+  | "passwordResets"
   /* طلبُ شعبة (src/utils/sectionRequests.ts): وثيقةٌ لكل طلب، معرّفُها يبدأ بفصله `${termId}:`. */
   | "sectionRequests"
   /* حارسُ الزملاء (src/server/scheduleHolds.ts): حجزٌ واحد لكل جالس يعيش دقيقتين. ومقياسُ إدخال
@@ -2795,6 +2797,14 @@ export const Repository = {
       for (const doc of snap.docs) {
         if (doc.id === keepSessionId || (doc.data() as StoredSession).memberId) continue;
         await doc.ref.delete();
+        removed += 1;
+      }
+    } else {
+      /* في البيئة التجريبية جلسةُ الزائر هي صندوقُه: لا تُحذف من تحته. */
+      const current = demoSandboxContext.getStore()?.sessionId;
+      for (const [id, session] of demoSessions) {
+        if (id === keepSessionId || id === current || Number(session.userId) !== Number(userId) || session.memberId) continue;
+        demoSessions.delete(id);
         removed += 1;
       }
     }
