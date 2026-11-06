@@ -23,7 +23,7 @@
   .apex-login .apex-login-principles>span{border-top-style:solid}
 }
 /* Landscape / wide: story and card side by side, centred together. */
-@media (min-width:860px) and (min-height:480px){
+@media (min-width:901px) and (min-height:480px){
   .apex-login .apex-login-stage{
     grid-template-columns:minmax(0,340px) minmax(0,420px)!important;
     grid-template-rows:auto!important;
@@ -35,7 +35,7 @@
   .apex-login .apex-login-access{max-inline-size:420px}
 }
 /* Opened portrait / wide Split View: one calm column, everything centred. */
-@media (min-width:600px) and (max-width:859px) and (min-height:480px){
+@media (min-width:600px) and (max-width:900px) and (min-height:480px){
   .apex-login{position:relative!important;inset:auto!important;height:auto!important;max-height:none!important;min-height:100dvh!important;overflow:clip!important}
   .apex-login .apex-login-stage{
     grid-template-columns:minmax(0,520px)!important;
