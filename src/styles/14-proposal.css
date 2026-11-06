@@ -935,6 +935,9 @@ body:has(.sp-root) .smart-guide-fab{visibility:hidden}
 .sp-tl-card{position:relative;min-inline-size:0}
 .sp-ev-flow{position:relative;inline-size:100%;min-block-size:62px;padding:9px 12px;gap:5px;font-size:13px}
 .sp-ev-flow .sp-ev-title{font-size:13.5px;-webkit-line-clamp:3}
+/* وسمٌ طويل («شاغرة · للمراجعة») لا يعصر العنوان إلى ثلاثة أسطر: يلتفّ تحته. */
+.sp-ev-flow .sp-ev-top{flex-wrap:wrap}
+.sp-ev-flow .sp-ev-title{flex:1 1 8.5em}
 .sp-ev-flow .sp-ev-top .sp-tag{margin-inline-start:auto}
 .sp-ev-flow .sp-ev-meta{gap:4px 10px}
 .sp-tl-card .sp-ev-assign{inset-block-end:8px;inset-inline-end:8px;min-block-size:30px;padding-inline:12px 10px}
@@ -1040,7 +1043,9 @@ body:has(.sp-root) .smart-guide-fab{visibility:hidden}
 .sp-save-btn[data-dirty]::after{content:"";position:absolute;inset-block-start:5px;inset-inline-end:5px;inline-size:8px;block-size:8px;border-radius:50%;background:var(--brass);box-shadow:0 0 0 2px var(--surface)}
 
 /* ── شريطُ الأدوات فوق الجدول: «ما تغيّر» في البداية، والإضافةُ في النهاية ── */
-.sp-root .sp-main-bar{min-block-size:38px}
+/* flex:none — داخل لوحةٍ عموديةٍ ذات تمرير يُبطل min-block-size الصريحُ الحدَّ الأدنى التلقائي فينكمش الشريطُ إلى 38px
+   حين يلتفّ صفّاً ثانياً، فتطفو أزرارُ «شعبة جديدة / إسناد شعبة» فوق شريط الأسبوع تحتها. */
+.sp-root .sp-main-bar{min-block-size:38px;flex:none}
 .sp-week .sp-seg{flex-wrap:nowrap}
 /* ── عرضٌ متوسط (نافذة غير مكبّرة) ──────────────────────────────────────── */
 @media (max-width:999px){
@@ -1075,7 +1080,7 @@ body:has(.sp-root) .smart-guide-fab{visibility:hidden}
   .sp-root .sp-tabs{padding:3px;gap:2px}
   .sp-root .sp-tabs button{flex-direction:column;gap:1px;min-block-size:48px;font-size:11.5px;padding:4px 2px;position:relative}
   .sp-root .sp-tabs .sp-count{position:absolute;inset-block-start:3px;inset-inline-start:calc(50% + 6px)}
-  .sp-root .sp-panel{padding:10px}
+  .sp-root .sp-panel{padding:14px 10px 10px}
   .sp-root .sp-main-bar{gap:8px}
   .sp-root .sp-toolbar{inline-size:100%;margin:0}
   .sp-root .sp-toolbar .btn{flex:1 1 0;justify-content:center;min-block-size:40px}
@@ -1132,4 +1137,15 @@ body:has(.sp-root) .smart-guide-fab{visibility:hidden}
 @media (max-width:639px){
   .sp-root .sp-meta.sp-meta-person{display:flex;margin-block-start:4px}
   .sp-root .sp-meta.sp-meta-person>span{display:none}
+}
+
+/* ── اللمس: كلُّ ما يُضغط بالإصبع لا يقلّ عن 44px (شاشاتُ اللمس فقط؛ المكتب يبقى كثيفاً) ── */
+@media (pointer:coarse){
+  .sp-root .sp-close{inline-size:44px;block-size:44px}
+  .sp-root .btn,.sp-root .sp-head .sp-back,.sp-root .sp-toolbar .btn,.sp-root .sp-bar .btn{min-block-size:44px}
+  .sp-root .sp-tabs button{min-block-size:max(44px,var(--sp-tab-min,0px))}
+  .sp-root .sp-bar .sp-save-btn{min-inline-size:44px}
+  .sp-root .sp-week .sp-seg button,.sp-root .sp-toggle,.sp-root .sp-legend-btn,.sp-root .sp-seg-sm button{min-block-size:44px}
+  .sp-root .sp-legend-btn,.sp-root .sp-toggle{min-inline-size:44px;justify-content:center}
+  .sp-ev-assign::before{content:"";position:absolute;inset:-9px -6px}
 }
