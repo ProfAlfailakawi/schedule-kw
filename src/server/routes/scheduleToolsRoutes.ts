@@ -382,7 +382,7 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
       const borrowingRequired=borrowedRoomIds.has(String(hall.roomId)) && !record?.shared && !record?.sectionIds?.includes(sectionId);
       return borrowingRequired && !borrowCovers(String(hall.roomId),day,from,to);
     },
-    suitability: hall => roomSuitability(course, roomById.get(String(hall.roomId))),
+    suitability: hall => roomSuitability(course, roomById.get(String(hall.roomId)), undefined, registry.roomTypeScopes),
     companion: companionFor,
   });
 

@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { borrowFit } from "../../utils/roomSuitability";
 import type { Express } from "express";
 import { RequestReservationConflict, reservationRows } from "../../utils/instructorRequestReservations";
 import { approvedBarterWindowMatchesSchedule } from "../../utils/hallBarterWindow";
@@ -211,6 +212,14 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
     return Boolean(usageByRoom.get(room.id)?.colleges.has(collegeId))
       ||Boolean(historyByRoom.get(room.id)?.colleges.has(collegeId));
   });
+  /* أكبرُ شعبةٍ عند القسم الطالب: اللوحةُ تعرض وقتاً لا مقرراً، فهذا أقربُ ما يقال عن طلبته. */
+  const ownRows=termRows.filter(row=>Number(row.AdCollegeId)===collegeId&&Number(row.AdSectionId)===sectionId);
+  const ownCourseIds=new Set(ownRows.map(row=>Number(row.AdCourseId)));
+  const ownCourses=(await Repository.getCourses()).filter(course=>ownCourseIds.has(Number(course.AdCourseId)));
+  const expectedSeats=ownCourses.reduce((largest:number,course:any)=>{
+    const groups=new Set(ownRows.filter(row=>Number(row.AdCourseId)===Number(course.AdCourseId)).map(row=>String(row.SCode||""))).size||1;
+    return Math.max(largest,Math.ceil(Number(course.MaxStudent||0)/groups));
+  },0);
   const opportunities:any[]=[];
   for(const room of collegeRooms){
     /* السجل أولاً، فإن سكت عن هذه القاعة — أو نسب أقسامها إلى كلية أخرى —
@@ -256,6 +265,7 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
               ownerCollegeId,ownerSectionId,
               ownerCollegeName:ownerCollege.AdCollegeName,ownerSectionName:ownerSection.AdSectionName,
               ownerSections,shared:ownerSections.length>1,
+              fit:borrowFit(room,sectionId,expectedSeats,registry.roomTypeScopes),
             });
           }
         }

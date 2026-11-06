@@ -1,3 +1,4 @@
+import { cleanRoomTypeScopes } from "../utils/roomTypeForSection";
 import { departmentFamily } from "../utils/sectionLabel";
 import { VERSION_META_FIELDS, newestVersions, normalizeVersionMeta } from "../utils/scheduleVersionList";
 import type { TmScenarioRecord } from "../utils/timeMachine";
@@ -303,6 +304,7 @@ interface DBState {
   locationBuildings?: MasterBuilding[];
   locationRooms?: MasterRoom[];
   locationRoomTypes?: string[];
+  locationRoomTypeScopes?: Record<string, number[]>;
   locationReviewCases?: LocationReviewCase[];
   locationMigrationLogs?: LocationMigrationLog[];
   locationMigrationRuns?: LocationMigrationRun[];
@@ -8324,6 +8326,23 @@ export const Repository = {
       return;
     }
     db.locationRoomTypes=normalized;saveDatabase();
+  },
+  /* أقسامُ كل نوعٍ خاص. مستندٌ مستقل لأن حفظ الأنواع يكتب مستندها كاملاً؛ وغيابُه = كل الأنواع عامة. */
+  getLocationRoomTypeScopes: async (): Promise<Record<string, number[]>> => {
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      const doc=await firestoreDb.collection("adSettings").doc("locationRoomTypeScopes").get();
+      const entries=Array.isArray(doc.data()?.entries)?doc.data()!.entries:[];
+      return cleanRoomTypeScopes(Object.fromEntries(entries.map((entry:any)=>[String(entry?.type||""),entry?.sectionIds])));
+    }
+    return cleanRoomTypeScopes(db.locationRoomTypeScopes);
+  },
+  setLocationRoomTypeScopes: async (scopes:Record<string,number[]>): Promise<void> => {
+    const clean=cleanRoomTypeScopes(scopes);
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      await firestoreDb.collection("adSettings").doc("locationRoomTypeScopes").set({entries:Object.entries(clean).map(([type,sectionIds])=>({type,sectionIds})),updatedAt:new Date().toISOString()});
+      return;
+    }
+    db.locationRoomTypeScopes=clean;saveDatabase();
   },
   /* نوعُ القاعة لنسخٍ محدّدة من المقرر دفعةً واحدة (مزامنةُ نسخ القسم الواحد بين الأحرام). */
   setCourseRoomTypeForIds: async (ids:number[],type:string): Promise<number> => {

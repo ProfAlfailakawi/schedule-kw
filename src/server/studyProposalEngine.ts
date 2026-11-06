@@ -621,7 +621,8 @@ export async function suggestAlternatives(
         const dayShift = days.join() === daysOf(op.target).join() ? 0 : 90;
         let rank = Math.abs(start - baseStart) + dayShift + (roomChanged ? 14 : 0);
         const record = room ? masterById.get(room.roomId) : undefined;
-        if (expectedType && roomTypeIn(record, course?.AdSectionId) && roomTypeIn(record, course?.AdSectionId) !== expectedType) rank += 35;
+        const seenType = roomTypeIn(record, course?.AdSectionId, registry.roomTypeScopes);
+        if (expectedType && seenType && seenType !== expectedType) rank += 35;
         if (neededCapacity > 0 && Number(record?.capacity) > 0 && Number(record?.capacity) < neededCapacity) rank += 45;
         options.push({ days, start, room, rank });
       }
