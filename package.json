@@ -219,6 +219,7 @@
     "test:course-number-seven-digit": "tsx tests/course-number-seven-digit-audit.ts",
     "test:report-stamp": "tsx tests/report-stamp-audit.ts",
     "test:report-print-menus": "tsx tests/report-print-menus-audit.ts",
+    "test:report-choices": "tsx tests/report-choices-audit.ts",
     "test:report-approval": "tsx tests/report-approval-audit.ts",
     "test:approval-integrity": "tsx tests/approval-integrity-audit.ts",
     "test:relay-fixes": "tsx tests/relay-fixes-audit.ts",

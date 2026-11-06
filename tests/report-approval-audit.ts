@@ -69,7 +69,7 @@ check(reports.indexOf("print-unapproved-mark") < pagesLoopAt,
 
 check(reports.includes("function PrintChangesAppendix"), "ملحق التغييرات مكوّنٌ قائم");
 check(reports.includes("printComprehensiveWithChanges"), "الوثيقتان تُطبعان معاً بأمرٍ واحد");
-check(reports.includes("مع ملحق التغييرات"), "الخيار مسمّى في القائمة");
+check(fs.readFileSync(path.join(process.cwd(), "src/utils/reportChoices.ts"), "utf8").includes("مع ملحق التغييرات"), "الخيار مسمّى في القائمة");
 check(printCss.includes("break-before:page"), "الملحق يبدأ صفحةً جديدة، فلا يُقرأ امتداداً للجدول");
 check(reports.includes("setChangesAppendix(null)"),
   "الملحق يُرفع بعد الطباعة: الضغطة التالية على الشامل وحده لا تُخرج ورقةً لم تُطلب");
