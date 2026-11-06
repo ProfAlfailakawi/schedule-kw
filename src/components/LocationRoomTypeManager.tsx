@@ -52,7 +52,7 @@ export default function LocationRoomTypeManager({ demoReadOnly = false, onTypesC
   const rename = async (oldName: string) => {
     const name = draft.normalize("NFKC").trim(); if (!name) return;
     setBusy(true); setError(""); setNotice("");
-    try { const result = await request(`/api/admin/location-room-types/${encodeURIComponent(oldName)}`, { method: "PUT", body: JSON.stringify({ name }) }); const next = result.types || []; setTypes(next); onTypesChange?.(next); setEditing(null); setDraft(""); setNotice(`تم تغيير «${oldName}» إلى «${name}» وتحديث ${countOf(Number(result.updatedRooms || 0), AR.room)} و${countOf(Number(result.updatedCourses || 0), AR.course)} مرتبطة.`); }
+    try { const result = await request(`/api/admin/location-room-types/${encodeURIComponent(oldName)}`, { method: "PUT", body: JSON.stringify({ name }) }); const next = result.types || []; setTypes(next); onTypesChange?.(next); if (scopes[oldName]) { const { [oldName]: owners, ...rest } = scopes; applyScopes({ ...rest, [name]: owners }); } setEditing(null); setDraft(""); setNotice(`تم تغيير «${oldName}» إلى «${name}» وتحديث ${countOf(Number(result.updatedRooms || 0), AR.room)} و${countOf(Number(result.updatedCourses || 0), AR.course)} مرتبطة.`); }
     catch (e: any) { setError(e?.message || "تعذر تغيير نوع القاعة"); } finally { setBusy(false); }
   };
   const remove = async (name: string) => {

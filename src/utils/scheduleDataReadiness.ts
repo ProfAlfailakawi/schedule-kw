@@ -25,11 +25,11 @@ export interface DataReadinessInput {
   roomTypeScopes?: Record<string, number[]>;
 }
 
-export function computeScheduleDataReadiness({ rows, courses, instructorIds, rooms: registryRooms, normalizeRow, roomTypeOptions=[], roomTypeScopes }: DataReadinessInput) {
+export function computeScheduleDataReadiness({ rows, courses, instructorIds, rooms: registryRooms, normalizeRow, roomTypeOptions, roomTypeScopes }: DataReadinessInput) {
   const scheduleRows = normalizeRow ? rows.map(row => normalizeRow(row)) : rows;
   const courseById = new Map(courses.map(course => [Number(course.AdCourseId), course]));
   const roomById = new Map(registryRooms.map(room => [String(room.id), room]));
-  const registeredRoomTypes=[...new Set((roomTypeOptions.length?roomTypeOptions:registryRooms.filter(room=>room.active!==false&&room.confidence!=="UNVERIFIED").map(room=>String(room.roomType||""))).map(type=>String(type||"").normalize("NFKC").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));
+  const registeredRoomTypes=[...new Set((roomTypeOptions?roomTypeOptions:registryRooms.filter(room=>room.active!==false&&room.confidence!=="UNVERIFIED").map(room=>String(room.roomType||""))).map(type=>String(type||"").normalize("NFKC").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));
   const missing = new Map<string, DataGapItem>();
   const sectionsByCourse=new Map<number,Set<string>>();
   for(const row of scheduleRows){const id=Number(row.AdCourseId||0);if(!id)continue;const set=sectionsByCourse.get(id)||new Set<string>();set.add(String(row.SCode||row.id));sectionsByCourse.set(id,set);}

@@ -61,5 +61,12 @@ const readiness = computeScheduleDataReadiness({
 check(!JSON.stringify(readiness).includes("استوديو صوت"), "جاهزية البيانات تقرأ النوع كما يراه القسم");
 check(fs.readFileSync("src/components/Reports.tsx", "utf8").includes("roomTypeIn(room as any, row.AdSectionId, locationRegistry.roomTypeScopes)"), "التقارير تقارن بنوع القاعة عند قسم الموعد");
 
+const emptyOptions = computeScheduleDataReadiness({
+  rows: [{ id: 1, AdCourseId: 9, AdSectionId: ART, AdInstructorId: 1, roomId: "r", AdRoomHall: "S1", SCode: "1" }], courses: [{ AdCourseId: 9, MaxStudent: 10 }],
+  instructorIds: new Set([1]), rooms: [{ id: "r", roomType: "استوديو صوت", sectionIds: [TECH], capacity: 20, canonicalCode: "S1" }], roomTypeOptions: [], roomTypeScopes: scopes,
+});
+check(!JSON.stringify(emptyOptions).includes("استوديو صوت"), "قائمةٌ فارغة لقسمٍ لا ترتدّ إلى أنواع السجل كله");
+check(/if \(scopes\[oldName\]\)[^\n]*applyScopes/.test(fs.readFileSync("src/components/LocationRoomTypeManager.tsx", "utf8")), "إعادة التسمية تنقل أقسام النوع في الواجهة فورًا");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
