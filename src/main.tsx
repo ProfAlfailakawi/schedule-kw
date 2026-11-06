@@ -19,54 +19,11 @@ import "./components/academic-decision-lab.css";
    anything before this module runs anyway, so the race is unlosable. */
 void import("./styles/deferred.css");
 
-/**
- * Mobile viewport lock.
- *
- * iOS Safari can still honor pinch/double-tap magnification after rotation even
- * when the viewport meta says user-scalable=no. SCHEDULE is a fixed-scale
- * workspace, so coarse-pointer devices get one global guard shared by every
- * route, dialog and internal screen. Ordinary one-finger scrolling and all
- * existing drag interactions remain untouched.
- */
-const installMobileViewportLock = () => {
-  const touchDevice = navigator.maxTouchPoints > 0 || window.matchMedia?.("(pointer: coarse)").matches;
-  if (!touchDevice) return;
-
-  const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-  const lockedViewport = "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
-  const reinforceViewport = () => {
-    if (viewport && viewport.content !== lockedViewport) viewport.content = lockedViewport;
-  };
-  reinforceViewport();
-
-  // Safari-specific gesture events are what let landscape pinch zoom escape
-  // the viewport contract on iPhone/iPad.
-  const stopGesture = (event: Event) => event.preventDefault();
-  document.addEventListener("gesturestart", stopGesture, { passive: false });
-  document.addEventListener("gesturechange", stopGesture, { passive: false });
-  document.addEventListener("gestureend", stopGesture, { passive: false });
-  document.addEventListener("touchmove", event => {
-    if (event.touches.length > 1) event.preventDefault();
-  }, { passive: false });
-
-  // Prevent double-tap magnification without interfering with normal taps.
-  let lastTouchEnd = 0;
-  document.addEventListener("touchend", event => {
-    const now = Date.now();
-    if (now - lastTouchEnd <= 280) event.preventDefault();
-    lastTouchEnd = now;
-  }, { passive: false });
-
-  // Reassert immediately after device rotation; older WebKit may recalculate
-  // the visual viewport before applying the existing meta tag again.
-  window.addEventListener("orientationchange", () => {
-    reinforceViewport();
-    window.setTimeout(reinforceViewport, 120);
-    window.setTimeout(reinforceViewport, 420);
-  }, { passive: true });
-};
-
-installMobileViewportLock();
+/* Pinch-zoom is never blocked: it is an accessibility need, and a foldable
+   opened to a big screen needs it most. Only the double-tap magnification is
+   switched off, in CSS (`touch-action: manipulation` in 01-foundation.css), so a
+   quick second tap on a button is a tap. The old JS gesture guards and the
+   `user-scalable=no` viewport rewrite are gone. */
 
 // Global safety layer for the existing application. It never changes successful online
 // responses; it only blocks writes while offline and softens unexpected infrastructure

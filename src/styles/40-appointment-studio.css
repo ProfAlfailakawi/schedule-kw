@@ -32,12 +32,15 @@
   .schedule-editor.is-studio .appt-layout:has(>.editor-side:empty)>.appt-form{width:100%;max-width:1000px;margin-inline:auto}
 }
 
-/* Duo opened landscape has enough combined width for the desktop appointment
-   workspace even when its CSS viewport is just below the regular 1101px cut. */
-@media screen and (horizontal-viewport-segments:2) and (min-width:900px) and (max-width:1100px){
+/* A foldable opened (portrait ~669px, landscape ~951px) and the wide share of Split
+   View are not phones: the appointment keeps the desktop arrangement — the questions
+   on the right, the instructor's week on the left, level with «متى؟». Below 640px the
+   week is a bottom sheet instead (see TeacherMiniWeek). Width alone decides; the
+   preview-only viewport-segments feature is off in Safari by default. */
+@media (min-width:640px) and (max-width:1100px){
   .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout.has-week:has(>.editor-side){
-    grid-template-columns:minmax(0,1fr) clamp(280px,34vw,380px);
-    column-gap:18px;
+    grid-template-columns:minmax(0,1fr) clamp(272px,41vw,380px);
+    column-gap:clamp(14px,2.4vw,24px);
   }
   .schedule-editor.is-studio .appt-layout>.editor-side{
     align-self:start;
@@ -196,13 +199,15 @@
 @media (max-width:1100px){
   .schedule-editor.is-studio .page-heading{padding-inline-end:56px}
   .appt-esc{display:none}
-  .appt-week-ghost{display:none}
   .schedule-editor.is-studio .mini-week.is-sheet{bottom:calc(var(--dock-h,0px) + var(--appt-bar-h,76px) + 8px + env(safe-area-inset-bottom))}
   .appt-drawer{inset:auto 0 0 0;top:auto;width:auto;max-height:84dvh;border-inline-start:0;border-top:1px solid var(--line);border-radius:24px 24px 0 0;box-shadow:0 -24px 60px -30px rgba(10,20,16,.45);transform:translateY(102%);padding-bottom:env(safe-area-inset-bottom)}
   .appt-drawer.is-open{transform:none}
   .appt-drawer-grip{display:block;position:absolute;top:6px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:99px;background:var(--line-strong)}
   .appt-drawer-head{padding-top:20px;border-radius:24px 24px 0 0}
 }
+
+/* الإطار الشبحي يملأ عمود الأسبوع قبل اختيار الأستاذ، فلا يبقى فارغاً؛ ويغيب حيث لا عمود (الهاتف). */
+@media (max-width:639px){.appt-week-ghost{display:none}}
 
 /* أثناء النموذج على الهاتف يغيب شريط التنقل السفلي: شريط الحفظ مكانه، و«✕» و«تراجع» للخروج. */
 @media (max-width:900px){

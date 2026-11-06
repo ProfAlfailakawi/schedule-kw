@@ -511,3 +511,6 @@ html[lang="ar"] td,
 html[lang="ar"] legend,
 html[lang="ar"] figcaption,
 html[lang="ar"] em{letter-spacing:0!important}
+
+/* Pinch-zoom stays available (accessibility). Only double-tap magnification is off, so a quick second tap on a button is a tap, not a zoom. */
+html{touch-action:manipulation}
