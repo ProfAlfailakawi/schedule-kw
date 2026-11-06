@@ -144,6 +144,8 @@ export function visualConfirm({
     const close = (value: boolean) => {
       root.unmount();
       host.remove();
+      /* Focus goes back to the control that asked, so a keyboard reader resumes where they were. */
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
       resolve(value);
     };
     function ConfirmDialog() {
@@ -154,6 +156,15 @@ export function visualConfirm({
           if (event.key === "Escape") {
             event.preventDefault();
             close(false);
+          }
+          /* The card is modal: Tab cycles inside it instead of walking into the page behind. */
+          if (event.key === "Tab") {
+            const items = Array.from(document.querySelectorAll<HTMLElement>(".schedule-confirm-card button, .schedule-confirm-inline button"));
+            if (!items.length) return;
+            const first = items[0], last = items[items.length - 1];
+            if (!items.includes(document.activeElement as HTMLElement)) { event.preventDefault(); first.focus(); }
+            else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
           }
         };
         document.addEventListener("keydown", onKey);

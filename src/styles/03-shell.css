@@ -1625,3 +1625,12 @@ html[data-schedule-workspace="presentation"] .scope-context{display:none}
   .smart-guide-fab.icon-only .smart-guide-fab-new{min-width:24px!important;justify-content:center}
   .smart-guide-fab.icon-only .smart-guide-fab-new{inset-inline-start:-4px!important}
 }
+
+/* لوحة الإشعارات على الهاتف: لا تنزل تحت حافة شريط التنقل السفلي (كانت تغطي أعلاه بنحو 14 بكسل)، وأزرار رأسها ترث مساحةَ لمسٍ شفافة. */
+@media (max-width:900px){
+  .notify-panel{max-height:calc(100dvh - var(--topbar-h,64px) - 16px - var(--dock-h) - env(safe-area-inset-bottom))}
+}
+@media (pointer:coarse){
+  .notify-panel>header button{position:relative}
+  .notify-panel>header button::after{content:"";position:absolute;inset:-5px}
+}

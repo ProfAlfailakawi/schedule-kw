@@ -91,3 +91,12 @@ body.guide-point-mode [data-guide-target]:hover,body.guide-point-mode button:hov
 .smart-guide-fab.icon-only .smart-guide-fab-mark{inline-size:100%;block-size:100%;border-radius:50%;background:transparent;box-shadow:none;color:var(--muted)}
 .smart-guide-fab.icon-only:hover .smart-guide-fab-mark,.smart-guide-fab.icon-only.active .smart-guide-fab-mark{color:var(--accent)}
 .smart-guide-fab.icon-only .smart-guide-fab-pulse{position:absolute;inset-block-start:3px;inset-inline-end:3px;inline-size:7px;block-size:7px}
+
+/* اللمس: أهدافُ المرشد لا تقلّ عن 44 بكسل. الأيقونةُ تكبر مساحتَها لا رسمَها، والمشغّلُ يكبر بطبقةٍ شفافة. */
+@media (pointer:coarse){
+  .guide-icon{inline-size:44px;block-size:44px}
+  .guide-ask button{inline-size:40px;block-size:40px}
+  .guide-more{min-block-size:44px;padding-inline:10px}
+  .guide-tour-primary,.guide-tour-quiet,.guide-point-bar button{min-block-size:44px}
+  .smart-guide-fab.icon-only::after{content:"";position:absolute;inset:-3px}
+}
