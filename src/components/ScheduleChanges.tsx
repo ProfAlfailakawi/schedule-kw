@@ -19,7 +19,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { takeNotifyFocus, type NotifyFocus } from "../utils/notifyFocus";
 import { compareCourseSection } from "../utils/scheduleOrder";
 import {
-  AlertTriangle, ArrowRight, CalendarDays, CalendarRange, Check, CheckCircle2, ChevronDown, ChevronLeft, ClipboardCheck, ClipboardList, Clock3,
+  AlertTriangle, ArrowLeft, ArrowRight, CalendarDays, CalendarRange, Check, CheckCircle2, ChevronDown, ChevronLeft, ClipboardCheck, ClipboardList, Clock3,
   CalendarPlus, CornerUpLeft, FileCheck, FileDiff, Inbox, Info, MapPin, MessageSquarePlus, Search, Send, ShieldCheck, Trash2,
   UsersRound, X, FilePenLine, OctagonAlert, MessageSquareWarning, MessageSquareReply, ListPlus,
 } from "lucide-react";
@@ -821,7 +821,7 @@ function ScheduleRowCard({ row, index, kind, tag, changes, children }: {
     return (
       <span className="changes-moved" title={`${change.label}: من ${change.before} إلى ${change.after}`}>
         <s>{change.before}</s>
-        <ArrowRight aria-hidden="true" />
+        <ArrowLeft aria-hidden="true" />
         <b>{change.after}</b>
       </span>
     );
