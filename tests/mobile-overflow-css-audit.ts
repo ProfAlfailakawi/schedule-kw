@@ -97,6 +97,12 @@ check(/\.trail-head>div\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(trailC
 check(/\.trail-day,\.trail-day>ol,\.trail-item,\.trail-item>button,\.trail-text\{min-inline-size:0/.test(trailCss),
   "وصفوفُ «الأثر» الطويلة لا توسّع الورقة (كانت 385 في عرض 360)");
 
+/* 3هـ) آلة الزمن: أزرار الأمثلة الطويلة تلتفّ داخل البطاقة بدل أن تتجاوز العرض (كانت -66..353 على 382)، ومفتاح النصاب يحصل على منطقة لمس ≥44px. */
+const timeMachineCss = flat(read("src/styles/33-time-machine.css"));
+check(/\.tm-examplesbutton\{max-inline-size:100%;white-space:normal/.test(timeMachineCss), "أزرارُ أمثلة آلة الزمن تلتفّ ولا تتجاوز عرضَ الشاشة");
+const teachingLoadCss = flat(read("src/styles/29-teaching-load.css"));
+check(/\.tl-toggle::after\{content:"";position:absolute;inset:-9px-4px\}/.test(teachingLoadCss), "مفتاحُ النصاب التدريسي: منطقةُ لمس ≥44px بلا تغيير الرسم");
+
 /* 4) لا حدَّ أدنى ثابتاً كبيراً في شبكات auto-fit/auto-fill. */
 const sources: string[] = [];
 const walk = (dir: string) => { for (const entry of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) { const rel = path.join(dir, entry.name); if (entry.isDirectory()) walk(rel); else if (/\.css$/.test(entry.name) || rel === path.join("src", "components", "AcademicAdvicePanel.tsx") || rel === path.join("src", "server", "roomDoorPage.ts")) sources.push(rel); } };

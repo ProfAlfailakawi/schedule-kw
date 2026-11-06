@@ -8,6 +8,7 @@
 .tl-switch-copy{display:grid;gap:2px;flex:1;min-inline-size:0}
 .tl-switch-copy small,.tl-head small{color:var(--muted);font-size:var(--t-sm)}
 .tl-toggle{position:relative;display:inline-block;flex:none;inline-size:46px;block-size:26px;cursor:pointer}
+.tl-toggle::after{content:"";position:absolute;inset:-9px -4px}
 .tl-toggle input{position:absolute;inset:0;margin:0;opacity:0;cursor:pointer}
 .tl-toggle i{position:absolute;inset:0;border-radius:999px;background:var(--line-strong);transition:background .18s}
 .tl-toggle i::after{content:"";position:absolute;inset-block-start:3px;inset-inline-start:3px;inline-size:20px;block-size:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:inset-inline-start .18s}
