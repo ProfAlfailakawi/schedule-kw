@@ -492,6 +492,7 @@ function MobileDockLink({
     <button
       type="button"
       className={`mobile-dock-link ${on ? "active" : ""}`}
+      data-guide-dock={view}
       aria-current={on ? "page" : undefined}
       aria-label={label}
       onPointerEnter={() => prefetchView(view)}

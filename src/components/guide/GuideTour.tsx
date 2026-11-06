@@ -24,18 +24,21 @@ function place(rect: Rect | null, cardH: number): React.CSSProperties {
   return { top, left: Math.min(vw - CARD_W - 12, Math.max(12, left)), width: CARD_W };
 }
 
-export default function GuideTour({ state, element, title, when, note, onNext, onBack, onStop, onRetry, onSkipStep, onLost }: {
+export default function GuideTour({ state, element, title, when, note, writes, onNext, onBack, onStop, onRetry, onSkipStep, onLost, onTargetClick }: {
   state: TourSnapshot;
   element: HTMLElement | null;
   title: string;
   when?: string;
   note?: string;
+  /** الميزة تكتب: يضغطها المستخدم بنفسه ولا يضغطها المرشد. */
+  writes?: boolean;
   onNext: () => void;
   onBack: () => void;
   onStop: () => void;
   onRetry: () => void;
   onSkipStep: () => void;
   onLost: () => void;
+  onTargetClick: () => void;
 }) {
   const [rect, setRect] = useState<Rect | null>(null);
   const cardRef = useRef<HTMLElement | null>(null);
@@ -62,23 +65,38 @@ export default function GuideTour({ state, element, title, when, note, onNext, o
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onStop(); }
-      if (state.status === "showing" && event.key === "ArrowLeft") onNext();
+      if (state.status === "showing" && state.index + 1 < state.total && event.key === "ArrowLeft") onNext();
       if (state.index > 0 && event.key === "ArrowRight") onBack();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [state.status, state.index, onStop, onNext, onBack]);
+  }, [state.status, state.index, state.total, onStop, onNext, onBack]);
+
+  // الضغط الحقيقي على العنصر المضاء يمر إليه ويكمل الخطوة.
+  useEffect(() => {
+    if (!element || state.status !== "showing") return;
+    const onClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && element.contains(event.target)) window.setTimeout(onTargetClick, 60);
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [element, state.status, onTargetClick]);
 
   const hole = rect ? { top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2 } : null;
   const waiting = state.status === "waiting";
   const missing = state.status === "missing";
   const last = state.index + 1 >= state.total;
+  const clip = hole
+    ? `polygon(evenodd,0 0,100% 0,100% 100%,0 100%,0 0,${hole.left}px ${hole.top}px,${hole.left + hole.width}px ${hole.top}px,${hole.left + hole.width}px ${hole.top + hole.height}px,${hole.left}px ${hole.top + hole.height}px,${hole.left}px ${hole.top}px)`
+    : undefined;
+  // الجولة لا تنتهي عند الإشارة: آخر زر يُضغط فعلاً.
+  const finalAction = last && state.status === "showing" && Boolean(element?.matches("button,a,[role='button'],[role='tab'],summary"));
   const text = note && last ? note : state.step?.text || "";
 
   return createPortal(
     <div className="guide-tour no-print" data-guide-ignore="جولة المرشد نفسها">
       {/* في انتظار الاختيار تبقى الشاشة كلها متاحة: قد تكون محاضرته غير المضاءة. */}
-      {waiting ? null : <div className="guide-tour-block" onClick={event => event.stopPropagation()} />}
+      {waiting ? null : <div className="guide-tour-block" style={{ clipPath: clip }} onClick={event => event.stopPropagation()} />}
       {hole ? <div className={`guide-tour-spot${waiting ? " is-open" : ""}`} style={hole} /> : <div className="guide-tour-dim" />}
       <section ref={cardRef} className={`guide-tour-card is-${state.status}`} style={place(rect, cardH)} role="dialog" aria-modal="false" aria-label={`جولة: ${title}`}>
         <header><span>{title}</span><b dir="ltr">{state.index + 1} / {state.total}</b></header>
@@ -91,7 +109,10 @@ export default function GuideTour({ state, element, title, when, note, onNext, o
             <button type="button" className="guide-tour-quiet" onClick={onRetry}>أعد المحاولة</button>
             <button ref={primaryRef} type="button" className="guide-tour-primary" onClick={last ? onStop : onSkipStep}>{last ? "إنهاء" : "تخطَّ الخطوة"}</button>
           </> : waiting ? <button ref={primaryRef} type="button" className="guide-tour-quiet" onClick={onSkipStep}>تخطَّ</button>
-            : <button ref={primaryRef} type="button" className="guide-tour-primary" disabled={state.status === "seeking"} onClick={onNext}>{last ? "تم" : "التالي"}</button>}
+            : finalAction
+              ? writes ? <small className="guide-tour-wait"><i aria-hidden="true" />اضغط الزر المضاء</small>
+                : <button ref={primaryRef} type="button" className="guide-tour-primary" onClick={() => element?.click()}>افتحها</button>
+              : <button ref={primaryRef} type="button" className="guide-tour-primary" disabled={state.status === "seeking"} onClick={onNext}>{last ? "تم" : "التالي"}</button>}
         </footer>
       </section>
     </div>,

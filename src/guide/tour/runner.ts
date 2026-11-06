@@ -111,6 +111,13 @@ export class TourRunner<E> {
     this.go(this.index + 1);
   }
 
+  /** ضغط المستخدم العنصر المضاء بنفسه: الفعل تم، فلا يُعاد الانتقال ولا الضغط. */
+  targetClicked() {
+    const step = this.steps[this.index];
+    if (!step || this.status !== "showing") return;
+    if (this.index >= this.steps.length - 1) { this.finish(true); return; }
+    this.go(this.index + 1);
+  }
   next() { const step = this.steps[this.index]; if (step) this.advanceFrom(step); }
   back() { if (this.index > 0) this.go(this.index - 1); }
   /** يتخطى خطوة لم يجدها إلى ما بعدها. */

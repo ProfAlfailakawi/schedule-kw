@@ -42,6 +42,11 @@ const score = (rows: any[]) => rows.filter(c => {
   const u = understand(index, c.q, null);
   return c.parts ? c.parts.every((p: string[]) => u.some(x => p.includes(got(x)))) : c.expected.includes(got(u[0]));
 }).length;
+const heldOut = questions.slice(90, 160);
+const vague = understand(index, "الدكتور ما يبي يدرس الصبح", null)[0];
+check(vague.kind !== "answer" || vague.alternatives.length >= 2, "الفهم الضعيف يعرض «هل تقصد؟»");
+check(understand(index, "كيف أنقل مقررا إلى قاعة أخرى", null)[0].kind === "answer", "السؤال الواضح يُجاب");
+console.log(`المحجوزة: ${score(heldOut)}/${heldOut.length}`);
 const ok = score(questions), rate = ok / questions.length;
 check(questions.length >= 60, "60 سؤالاً على الأقل");
 check(rate >= .9, `الدقة ${(rate * 100).toFixed(1)}٪ دون الحد 90٪`);
