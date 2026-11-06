@@ -12,24 +12,30 @@
  * splitting switches live without a reload and without losing what is typed.
  */
 
-/** Below this page width a touch device gets the phone workspace. */
-export const WORKSPACE_MIN_WIDTH = 600;
+/** Below this page width a touch device gets the phone workspace. Kept a little
+ * under the Duo's opened portrait width so the exact CSS width a real device
+ * reports (it varies with Safari's chrome and Split View) never flips it back. */
+export const WORKSPACE_MIN_WIDTH = 560;
+
+/** And below this page height too: an iPhone turned to landscape is wide but
+ * short (~390-430px), an opened Duo (portrait or landscape) is tall enough. */
+export const WORKSPACE_MIN_HEIGHT = 480;
 
 /** The legacy desktop fold: a narrow mouse window keeps the old 760px rule. */
 const DESKTOP_NARROW_WIDTH = 760;
 
-/** A phone stays a phone after rotation. Width-only media queries turn an
- * iPhone landscape into a desktop, so touch devices are judged by the device
- * short edge too (an iPhone is ≤600pt on its short side whatever the page
- * width); a big touch screen is judged by the width the page really has. */
+/** A phone stays a phone after rotation: wide-but-short (iPhone landscape) is
+ * still a phone. Judged only by the room the page really has (width AND height),
+ * never by `screen.*`, which a foldable may keep reporting as the folded size
+ * after it is opened. Opened Duo (≈669×880 / ≈951×600), the wide share of Split
+ * View (≈620×600) and a tablet get the full workspace (week + rooms editable). */
 export function isPhoneDevice(): boolean {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
   const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
   const mobileUa = Boolean(nav.userAgentData?.mobile) || /iPhone|iPod|Android.+Mobile|Mobile/i.test(nav.userAgent || "");
   const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
   if (!mobileUa && !coarse) return false;
-  const shortEdge = Math.min(Number(window.screen?.width || window.innerWidth), Number(window.screen?.height || window.innerHeight));
-  return shortEdge <= 600 || window.innerWidth < WORKSPACE_MIN_WIDTH;
+  return window.innerWidth < WORKSPACE_MIN_WIDTH || window.innerHeight < WORKSPACE_MIN_HEIGHT;
 }
 
 /** Narrow workspace for any device: touch devices follow {@link isPhoneDevice};
