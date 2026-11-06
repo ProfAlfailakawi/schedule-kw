@@ -155,8 +155,8 @@ export default function StudyProposalWorkspace({ requestId, proposalId = null, i
   const statusKey = proposal ? status : "new";
   const sent = Boolean(proposal && proposal.sentVersion > 0);
   const commit = proposal ? commitReadiness(proposal) : null;
-  /* موعدٌ في موقعٍ لا يكتب فيه القارئ: لا يُعرض زرٌّ يرفضه الخادم؛ لوحة الفحص تقول السبب. */
-  const outOfScope = Boolean(ws.evaluation?.findings.some(finding => finding.code === "scope-denied"));
+  /* موعدٌ معتمد في موقعٍ لا يكتب فيه القارئ: لا يُعرض زرٌّ يرفضه الخادم. التثبيت الجزئي يُحسب بمواده هو فقط. */
+  const outOfScope = Boolean(ws.evaluation?.findings.some(finding => finding.code === "scope-denied" && (!finding.opId || commit?.opIds?.includes(finding.opId))));
   const canCommit = Boolean(commit?.ok) && !ws.dirty && !outOfScope;
   /* فصلٌ سابق: المقترحُ يُقرأ ولا يُعدَّل (والخادم يرفض أيضاً). يُعامل كالمنتهي في الواجهة، ببيانٍ يخصّه. */
   const frozen = Boolean(ws.ctx?.term.frozen);
