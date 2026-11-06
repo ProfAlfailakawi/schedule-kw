@@ -94,6 +94,7 @@ export const STUDENT_MAP_CSS = `
 .kc small{font-size:12px;color:var(--muted);line-height:1.5}
 .kc .u{inline-size:24px;block-size:24px;border-radius:50%;background:var(--h);color:#fff;display:grid;place-items:center;font-size:12.5px;font-weight:700}
 .kc-add{inline-size:34px;block-size:34px;border-radius:50%;border:2px solid var(--h);background:var(--card);color:var(--h);display:grid;place-items:center;cursor:pointer;padding:0;transition:background .15s,color .15s,transform .15s var(--ease)}
+.kc-add{position:relative}.kc-add::after{content:"";position:absolute;inset:-5px}
 .kc-add .i{inline-size:18px;block-size:18px;stroke-width:2.4}
 .kc-add:hover{transform:scale(1.08)}
 .kc-add[aria-pressed="true"]{background:var(--h);color:#fff;animation:kpop .3s var(--ease)}
@@ -256,9 +257,9 @@ body.km-lock{overflow:hidden}
 .kbar .kb-m{gap:3px}
 .kbar b{font-size:12px}
 .kbar small{font-size:12px;line-height:1.35}
-.kbar .btn{min-inline-size:112px;min-block-size:42px;padding:7px 9px;font-size:12px;gap:5px}
+.kbar .btn{min-inline-size:112px;min-block-size:44px;padding:7px 9px;font-size:12px;gap:5px}
 .km-seg{position:sticky;top:0;z-index:30;display:flex;gap:6px;margin-inline:-4px;padding:8px 4px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(10px)}
-.km-seg button{flex:1 1 0;min-block-size:40px;padding:6px 4px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--dim);font:inherit;font-size:13.5px;font-weight:800;cursor:pointer;transition:background .18s,color .18s,border-color .18s}
+.km-seg button{flex:1 1 0;min-block-size:44px;padding:6px 4px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--dim);font:inherit;font-size:13.5px;font-weight:800;cursor:pointer;transition:background .18s,color .18s,border-color .18s}
 .km-seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 30%,transparent)}
 .km-seg button:focus-visible{outline:2px solid #0F5E4A;outline-offset:2px}
 .km[data-pane="reg"] [data-pane]:not([data-pane="reg"]),.km[data-pane="progress"] [data-pane]:not([data-pane="progress"]){display:none}

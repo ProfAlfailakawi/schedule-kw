@@ -28,7 +28,14 @@ export const MASARI_ACK_CSS = `
 export const MASARI_ACK_JS = String.raw`
 function masariAckKey(){var s=S.state||{},p=s.profile||{},t=s.term||{};return "masari-ack:"+(t.id||"")+":"+(p.sectionId||"")+":"+(p.planId||p.curriculumPlanId||"")}
 function masariAcked(){var p=(S.state||{}).profile||{};return p.masariAck===masariAckKey()}
-function masariRibbon(){var r=document.getElementById("mribbon");if(!r){r=document.createElement("div");r.id="mribbon";r.className="mribbon";r.setAttribute("role","note");document.body.appendChild(r)}r.textContent="💡 مقترح · غير نهائي"}
+function masariRibbon(){var r=document.getElementById("mribbon");if(!r){r=document.createElement("div");r.id="mribbon";r.className="mribbon";r.setAttribute("role","note");document.body.appendChild(r)}r.textContent="💡 مقترح · غير نهائي";placeRibbon()}
+/* الشريط يجلس فوق كل ما يلصق بأسفل الشاشة (شريط الرغبات + التبويبات) فلا يغطي نصَّه. */
+function placeRibbon(){var r=document.getElementById("mribbon");if(!r)return;if(!window.matchMedia("(max-width:520px)").matches){r.style.insetBlockEnd="";return}
+  var h=0,d=document.getElementById("dock"),k=document.getElementById("kbar");
+  if(d&&d.firstElementChild)h=Math.max(h,d.offsetHeight-4);
+  if(k&&!k.hidden)h=Math.max(h,(parseFloat(getComputedStyle(k).bottom)||0)+k.offsetHeight);
+  r.style.insetBlockEnd=h?(h+8)+"px":""}
+if(!window.__ribbonWatch){window.__ribbonWatch=1;var rq=0,rs=function(){if(rq)return;rq=requestAnimationFrame(function(){rq=0;placeRibbon()})};window.addEventListener("resize",rs);if(window.MutationObserver)new MutationObserver(rs).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["hidden","class"]})}
 function viewAck(){var r=document.getElementById("mribbon");if(r)r.remove();
   app.innerHTML='<section class="mack fade" role="dialog" aria-modal="true" aria-labelledby="mackT"><h1 id="mackT">${MASARI_ACK_TEXT}</h1>'+
   '<div class="mack-flow" aria-hidden="true"><div class="mack-step"><i>💡</i><b>مقترحات</b><small>مساري يقترح</small></div><span class="mack-arrow">←</span>'+

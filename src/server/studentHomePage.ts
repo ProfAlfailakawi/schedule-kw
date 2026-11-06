@@ -62,7 +62,7 @@ const DESKTOP_CSS = `
    يُقرَّر مرةً بعرض النافذة (٩٦٠px فأكثر) وبالشاشة (الرئيسية فقط)، لا بوصول بياناتٍ متأخرة، فلا تقفز الصفحة بعد الرسم.
    النماذج (الدخول، الإعداد، الرغبات) تبقى عموداً ضيقاً في الوسط؛ والرئيسية عمودان: ما يُفعل الآن، وبجانبه البقية.
    data-device="phone" (الديمو وحده) يُلغي كلَّ هذا ويعرض الصفحة بعرض الهاتف. */
-.devbtn{display:none;place-items:center;inline-size:40px;block-size:40px;padding:0;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer}
+.devbtn{display:none;place-items:center;inline-size:44px;block-size:44px;padding:0;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer}
 .devbtn:hover,.devbtn:focus-visible{border-color:var(--brass)}
 .devbtn .i{inline-size:19px;block-size:19px}
 @media (min-width:960px){
@@ -135,11 +135,11 @@ button,input,textarea,select{font:inherit;color:inherit}
 .term .i{inline-size:14px;block-size:14px;color:var(--accent)}
 .topr{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;min-inline-size:0}
 header.top{flex-wrap:wrap}
-.jrn{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--ink,inherit);text-decoration:none;transition:border-color .2s,transform .2s}
+.jrn{display:inline-flex;align-items:center;gap:6px;min-block-size:44px;padding:5px 13px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--ink,inherit);text-decoration:none;transition:border-color .2s,transform .2s}
 .jrn:hover,.jrn:focus-visible{border-color:var(--brass);outline:none;transform:translateY(-1px)}
 .jrn .i{inline-size:15px;block-size:15px;color:var(--brass)}
 /* على الهاتف: «عن النظام» أيقونةٌ وحدها (التسمية باقية لقارئ الشاشة)، فتبقى شرائح الرأس في سطرٍ واحد. */
-@media (max-width:430px){.jrn{padding:6px 8px}.jrn>span{position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.jrn .i{inline-size:17px;block-size:17px}}
+@media (max-width:430px){.jrn{padding:6px 8px;min-inline-size:44px;min-block-size:44px;justify-content:center}.jrn>span{position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.jrn .i{inline-size:17px;block-size:17px}}
 
 /* ── بطاقات ── */
 .hero{display:grid;gap:12px;padding:22px 20px;border-radius:26px;color:#fff;background:linear-gradient(155deg,#1f6b5c 0%,#164f44 70%);box-shadow:0 18px 36px -22px rgba(22,79,68,.7);position:relative;overflow:hidden}
@@ -153,7 +153,7 @@ header.top{flex-wrap:wrap}
 .card{margin-block-start:14px;padding:18px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:grid;gap:14px}
 .card h2{margin:0;font-size:17px;line-height:1.4;font-weight:700;display:flex;align-items:center;gap:10px}
 .card h2 .b{inline-size:36px;block-size:36px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);flex:none}
-.card h2 .chip{margin-inline-start:auto}
+.card h2 .chip{margin-inline-start:auto;flex:none;white-space:nowrap}
 .chip{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--soft);color:var(--dim)}
 .chip.gold{background:var(--gold-soft);color:var(--gold)}
 .chip.ok{background:var(--ok-soft);color:var(--ok)}
@@ -174,7 +174,7 @@ header.top{flex-wrap:wrap}
 .btn.alt{background:var(--card);color:var(--ink);border:1.5px solid var(--line-strong);box-shadow:none}
 .btn.danger{background:var(--bad)}
 .btn.small{min-block-size:44px;font-size:15px;border-radius:14px}
-.link{border:0;background:none;color:var(--accent);font-weight:600;font-size:14px;cursor:pointer;padding:8px;text-decoration:underline;text-underline-offset:3px}
+.link{min-block-size:44px;border:0;background:none;color:var(--accent);font-weight:600;font-size:14px;cursor:pointer;padding:8px;text-decoration:underline;text-underline-offset:3px}
 .row{display:flex;align-items:center;gap:10px}
 .row.between{justify-content:space-between}
 .case-row{padding:12px 0;border-top:1px solid var(--line);display:grid;gap:5px}.case-row:first-of-type{border-top:0;padding-top:0}.case-row .case-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.case-row .case-head b{font-size:14px}.case-row .ref{font:600 12px/1.4 ui-monospace,monospace;direction:ltr;color:var(--muted)}.case-row .case-courses{display:flex;flex-wrap:wrap;gap:6px}.case-row .case-course{padding:3px 8px;border-radius:9px;background:var(--card2);font-size:12px}.case-row .case-detail{font-size:12.5px;color:var(--muted);margin:0}
@@ -406,7 +406,7 @@ details.how p{margin:0}
 details.later{margin-block-start:14px}
 details.later>summary{justify-content:center;border:1.5px dashed var(--line-strong);border-radius:16px;background:var(--card);min-block-size:52px}
 #laterBody>:first-child{margin-block-start:14px}
-.lvq{margin-block-start:12px}.lvh{display:flex;align-items:center;justify-content:space-between;gap:10px}.lvh .link{padding:4px 8px;font-size:13px}
+.lvq{margin-block-start:12px}.lvh{display:flex;align-items:center;justify-content:space-between;gap:10px}.lvh .link{padding:4px 8px;min-block-size:44px;font-size:13px}
 .peer{display:inline-flex;align-items:center;gap:5px;color:var(--accent);font-size:12px;font-weight:600}.peer .i{inline-size:13px;block-size:13px}
 .wi{display:grid;gap:12px}.wi .lead{font-weight:600}
 .fine-more>summary{min-block-size:32px;font-size:12.5px;color:var(--muted);margin-block-start:-8px}

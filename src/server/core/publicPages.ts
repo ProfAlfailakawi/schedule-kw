@@ -91,7 +91,7 @@ export async function demoPageHint(link: ScheduleShareLink, page: "staff" | "sur
   }
   if (!lines.length) return "";
   const copyCss = `<style>.demo-num{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;vertical-align:middle}`
-    + `.demo-copy{display:inline-grid;place-items:center;inline-size:34px;block-size:34px;padding:0;border-radius:50%;border:1px solid #c79b5f;background:#fffdf7;color:#5b4520;font:inherit;font-size:11.5px;font-weight:700;line-height:1.4;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s ease,color .15s ease,border-color .15s ease}`
+    + `.demo-copy{display:inline-grid;place-items:center;inline-size:44px;block-size:44px;padding:0;border-radius:50%;border:1px solid #c79b5f;background:#fffdf7;color:#5b4520;font:inherit;font-size:11.5px;font-weight:700;line-height:1.4;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s ease,color .15s ease,border-color .15s ease}`
     + `.demo-copy svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;grid-area:1/1}.demo-copy .ic-ok{display:none}.demo-copy[data-copied] .ic-copy{display:none}.demo-copy[data-copied] .ic-ok{display:block}`
     + `.demo-copy:hover{background:#f6e7c6}.demo-copy:focus-visible{outline:2px solid #5b4520;outline-offset:2px}.demo-copy:active{transform:scale(.97)}`
     + `.demo-copy[data-copied]{background:#e8f5ee;border-color:#8fc7a9;color:#1f6b46}</style>`;
