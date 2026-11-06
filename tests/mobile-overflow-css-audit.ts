@@ -43,8 +43,18 @@ check(/\.sidebar\{[^}]*left:env\(viewport-segment-left10\)[^}]*right:calc\(100vw
 check(/\.notify-bell\{[^}]*viewport-segment-left00/.test(duo) && /\.notify-panel\{[^}]*viewport-segment-width00/.test(duo),
   "الجرس ولوحة التنبيهات داخل مساحة العمل اليسرى");
 check(!/\.schedule-editor-grid\.appt-layout\.has-week:has\(>\.editor-side\)\{grid-template-columns:minmax\(0,1fr\)/.test(duo)
-  && /@mediascreenand\(horizontal-viewport-segments:2\)and\(min-width:900px\)and\(max-width:1100px\)\{[^}]*\.schedule-editor-grid\.appt-layout\.has-week:has\(>\.editor-side\)\{grid-template-columns:minmax\(0,1fr\)clamp\(280px,34vw,380px\)/.test(studio),
-  "موعد Duo يحتفظ بعمود الأستاذ يسار الأسئلة كما في تخطيط سطح المكتب");
+  && /@media\(min-width:640px\)and\(max-width:1100px\)\{[^}]*\.schedule-editor-grid\.appt-layout\.has-week:has\(>\.editor-side\)\{grid-template-columns:minmax\(0,1fr\)clamp\(272px,41vw,380px\)/.test(studio),
+  "موعد Duo المفتوح (640–1100) يحتفظ بعمود الأستاذ يسار الأسئلة كسطح المكتب، بالعرض وحده");
+/* الميزة المعاينة (viewport-segments) مغلقة افتراضياً في Safari: لا يُبنى عليها تخطيطُ الموعد الأساسي. */
+check(!/horizontal-viewport-segments[^{]*\{[^}]*\.appt-layout/.test(studio),
+  "تخطيط الموعد الأساسي لا يعتمد على ميزة viewport-segments المعاينة");
+const miniWeek = read("src/components/TeacherMiniWeek.tsx");
+check(/useMedia\("\(max-width: 639px\)", variant === "side"\)/.test(miniWeek) && !/useMedia\("\(max-width: 1100px\)/.test(miniWeek),
+  "أسبوع الأستاذ شريطٌ سفلي على الهاتف (<640) فقط، وعمودٌ جانبي من 640 فما فوق");
+check(/@media\(max-width:639px\)\{\.appt-week-ghost\{display:none\}\}/.test(studio),
+  "الإطار الشبحي يملأ عمود الأسبوع من 640 ويغيب عن الهاتف");
+check(/@media\(min-width:640px\)and\(max-width:1100px\)\{[\s\S]*?\.appt-layout\.has-week:has\(>\.editor-side:empty\)\{grid-template-columns:minmax\(0,1fr\)\}/.test(studio),
+  "حين تطفو نافذة الأسبوع (640–1100) يُطوى عمودها الفارغ ويعود للأسئلة عرضها كاملاً");
 
 /* 1) iOS: حقولُ التاريخ والساعة تطيع العرض. */
 const ios = guard.match(/@supports\(-webkit-touch-callout:none\)\{([\s\S]*?\})\}/)?.[1] || "";

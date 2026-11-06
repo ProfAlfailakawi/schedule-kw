@@ -3,6 +3,7 @@ import SearchableSelect from "./SearchableSelect";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildingNumberLabel } from "../utils/locationCollegePrefixes";
 import { flushSync } from "react-dom";
+import { isNarrowWorkspace } from "../utils/workspaceSize";
 import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
@@ -605,13 +606,16 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const [loading, setLoading] = useState(true);
   const [visibleLimit, setVisibleLimit] = useState(150);
   /* Phone-width fold of the appointment list (display only). Follows the viewport. */
-  const [phoneFold, setPhoneFold] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 760px)").matches);
+  const [phoneFold, setPhoneFold] = useState(() => isNarrowWorkspace());
   useEffect(() => {
-    const query = window.matchMedia?.("(max-width: 760px)");
-    if (!query) return;
-    const sync = () => setPhoneFold(query.matches);
-    query.addEventListener?.("change", sync);
-    return () => query.removeEventListener?.("change", sync);
+    const sync = () => setPhoneFold(isNarrowWorkspace());
+    sync();
+    window.addEventListener("resize", sync, { passive: true });
+    window.addEventListener("orientationchange", sync);
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("orientationchange", sync);
+    };
   }, []);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [directorySide, setDirectorySide] = useState<"rooms" | "teachers">("rooms");
@@ -2309,7 +2313,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   }, [occupancyPick]);
 
   const selectLens = (next: Lens) => {
-    const phone = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
+    const phone = isNarrowWorkspace();
     if (phone && (next === "week" || next === "room" || next === "matrix")) {
       setMobileWideNotice(next);
       return;
@@ -2324,7 +2328,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   };
 
   useEffect(() => {
-    const phone = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
+    const phone = isNarrowWorkspace();
     if (phone && (lens === "week" || lens === "room" || lens === "matrix")) {
       setLens("list");
       setPrintKind("list");

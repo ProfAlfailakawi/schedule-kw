@@ -276,7 +276,11 @@ export default function TeacherMiniWeek({
   room?: MiniRoom | null;
 }) {
   const bodyId = useId();
-  const sheet = useMedia("(max-width: 1100px) and not (horizontal-viewport-segments: 2)", variant === "side");
+  /* The instructor week is a side column wherever the page has the room — a desk, a
+     tablet, a foldable opened (portrait ~669px, landscape ~951px) or the wide share of
+     Split View — and a bottom sheet only on a phone-sized page. Decided by the page
+     width alone: the preview-only viewport-segments feature is off in Safari by default. */
+  const sheet = useMedia("(max-width: 639px)", variant === "side");
   const hoverable = useMedia("(hover: hover)", true);
   /* الرسم بالمؤشر: فأرةٌ أو قلم على سطح المكتب — لا الشريط السفلي ولا اللمس. */
   const canDraw = useMedia("(hover: hover) and (pointer: fine)", !sheet) && !sheet;
