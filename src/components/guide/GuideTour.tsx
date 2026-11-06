@@ -73,15 +73,13 @@ export default function GuideTour({ state, element, title, when, note, onNext, o
   const waiting = state.status === "waiting";
   const missing = state.status === "missing";
   const last = state.index + 1 >= state.total;
-  const clip = hole && waiting
-    ? `polygon(evenodd,0 0,100% 0,100% 100%,0 100%,0 0,${hole.left}px ${hole.top}px,${hole.left + hole.width}px ${hole.top}px,${hole.left + hole.width}px ${hole.top + hole.height}px,${hole.left}px ${hole.top + hole.height}px,${hole.left}px ${hole.top}px)`
-    : undefined;
   const text = note && last ? note : state.step?.text || "";
 
   return createPortal(
     <div className="guide-tour no-print" data-guide-ignore="جولة المرشد نفسها">
-      <div className="guide-tour-block" style={{ clipPath: clip }} onClick={event => event.stopPropagation()} />
-      {hole ? <div className="guide-tour-spot" style={hole} /> : <div className="guide-tour-dim" />}
+      {/* في انتظار الاختيار تبقى الشاشة كلها متاحة: قد تكون محاضرته غير المضاءة. */}
+      {waiting ? null : <div className="guide-tour-block" onClick={event => event.stopPropagation()} />}
+      {hole ? <div className={`guide-tour-spot${waiting ? " is-open" : ""}`} style={hole} /> : <div className="guide-tour-dim" />}
       <section ref={cardRef} className={`guide-tour-card is-${state.status}`} style={place(rect, cardH)} role="dialog" aria-modal="false" aria-label={`جولة: ${title}`}>
         <header><span>{title}</span><b dir="ltr">{state.index + 1} / {state.total}</b></header>
         <p aria-live="polite">{missing ? `لم أجد هذا العنصر في حالتك الآن.${when ? ` ${when}` : ""}` : state.status === "seeking" ? "لحظة، أجهز لك الخطوة…" : text}</p>

@@ -204,6 +204,7 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
       const carrier = raw.closest<HTMLElement>("[data-guide-feature-id],[data-guide-target],button,a,[role='button'],select,input,textarea,[data-row-id],[tabindex]:not([tabindex='-1'])");
       if (!carrier) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      window.addEventListener("click", swallow, { capture: true, once: true });
       const owner = carrier.closest<HTMLElement>("[data-guide-feature-id],[data-guide-target]");
       const id = owner?.getAttribute("data-guide-feature-id") || owner?.getAttribute("data-guide-target") || "";
       const known = allowed.get(id);
@@ -214,8 +215,7 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
     };
     const swallow = (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); };
     window.addEventListener("pointerdown", pick, true);
-    window.addEventListener("click", swallow, { capture: true, once: true });
-    return () => { document.body.classList.remove("guide-point-mode"); window.removeEventListener("pointerdown", pick, true); window.removeEventListener("click", swallow, true); };
+    return () => { document.body.classList.remove("guide-point-mode"); window.removeEventListener("pointerdown", pick, true); };
   }, [pointing, allowed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
