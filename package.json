@@ -63,6 +63,7 @@
     "test:holds-patterns-r4": "tsx tests/holds-patterns-r4-audit.ts",
     "test:one-line-appointment": "tsx tests/one-line-appointment-audit.ts",
     "test:admin-screens-r4": "tsx tests/admin-screens-r4-audit.ts",
+    "test:roster-delegates-card": "tsx tests/roster-delegates-card-audit.ts",
     "test:admin-rules-r4": "tsx tests/admin-rules-r4-audit.ts",
     "test:publish-notes-r4": "tsx tests/publish-notes-r4-audit.ts",
     "test:schedule-interface": "tsx tests/schedule-interface-audit.ts",

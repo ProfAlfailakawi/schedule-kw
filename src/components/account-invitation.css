@@ -21,3 +21,5 @@
 .access-card-whatsapp:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* واتساب هو الزر الأول حين يُعرف الجوال، فيصير «انسخ الرسالة» ثانوياً كالبقية. */
 .access-card-actions.has-whatsapp button:first-child{background:var(--surface);color:var(--ink);border-color:var(--line)}
+
+.users-card-moved{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-block:20px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);color:var(--muted);font-size:var(--t-sm)}
