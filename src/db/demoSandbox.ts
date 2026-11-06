@@ -68,7 +68,7 @@ export interface DemoSandboxState {
      الدورة كاملةً — توقيعاً وإرسالاً وإرجاعاً وقبولاً — بحساباتٍ وهمية. */
   scheduleApprovals: any[];
   /* سجلُّ المباني والقاعات: بدونه لا يُحفظ موعدٌ في الصندوق (locationPreflight). */
-  locationBuildings: MasterBuilding[]; locationRooms: MasterRoom[];
+  locationBuildings: MasterBuilding[]; locationRooms: MasterRoom[]; locationRoomTypeScopes: Record<string, number[]>;
   registrationStats?: any[];
   /* النصاب التدريسي (ميزةٌ اختيارية مفعَّلةٌ في الصندوق لتُشرح): انظر DEMO_TEACHING_LOAD. */
   teachingLoadConfig?: any[];
@@ -199,7 +199,7 @@ interface DemoBuildingSeed {
 const DEMO_BUILDINGS: readonly DemoBuildingSeed[] = [
   { prefix: "901", siteLetter: "A", number: "01", collegeId: DEMO_COLLEGE_ID, name: "مبنى تكنولوجيا التعليم", rooms: [
     ["101", [1], "قاعة ذكية 40 مقعدًا"], ["102", [1], "قاعة محاضرات 35 مقعدًا"], ["103", [1], "قاعة نقاش 30 مقعدًا"],
-    ["104", [1], "قاعة محاضرات 45 مقعدًا"], ["L01", [1], "مختبر حاسب"], ["S01", [1], "استوديو إنتاج"],
+    ["104", [1], "قاعة محاضرات 45 مقعدًا"], ["L01", [1], "مختبر حاسب"], ["S01", [1], "استوديو إنتاج 20 مقعدًا"],
     ["201", [2], "قاعة قسم التربية الفنية 35 مقعدًا"], ["202", [3], "قاعة قسم التصميم التعليمي 30 مقعدًا"],
     ["203", [2], "قاعة محاضرات التربية الفنية 32 مقعدًا"], ["204", [2], "قاعة نقاش التربية الفنية 28 مقعدًا"], ["S02", [2], "مرسم 28 مقعدًا"],
     ["205", [3], "قاعة محاضرات التصميم التعليمي 30 مقعدًا"], ["206", [3], "قاعة نقاش التصميم التعليمي 26 مقعدًا"], ["L02", [3], "مختبر تصميم 26 مقعدًا"],
@@ -1172,6 +1172,8 @@ export function createDemoSandboxState(): DemoSandboxState {
       ...(item.status === "cancelled" ? { cancelReason: "انتهت مهلة الرد قبل أن يردّ القسم المالك." } : {}),
     }))], scheduleApprovals: seeded.approvals,
     locationBuildings: registry.buildings, locationRooms: registry.rooms,
+    /* استوديو القسم نوعٌ خاصٌّ به: يراه غيرُه «قاعة عامة»، ويُنبَّه إن استعاره. */
+    locationRoomTypeScopes: { "استوديو إنتاج": [DEMO_SECTION_ID] },
     teachingLoadConfig: [{
       id: "main", enabled: true, ranks: DEMO_TEACHING_LOAD_RANKS.map(rank => ({ ...rank })),
       assignments: structuredClone(DEMO_TEACHING_LOAD_ASSIGNMENTS), updatedAt: now, updatedBy: "بيانات الديمو",

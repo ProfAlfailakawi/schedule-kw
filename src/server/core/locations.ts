@@ -27,18 +27,18 @@ import { HALL_BARTER_DAY_LABEL, hallBarterAllowsRoomUse } from "./hallBarter";
  * (القاعدة في src/server/dataContextCache.ts). */
 export const dataContextCacheKey = createDataContextKey(() => Repository.currentDemoSessionId());
 
-const locationRegistryCache=new Map<string,{at:number;buildings:MasterBuilding[];rooms:MasterRoom[]}>();
+const locationRegistryCache=new Map<string,{at:number;buildings:MasterBuilding[];rooms:MasterRoom[];roomTypeScopes:Record<string,number[]>}>();
 export async function readLocationRegistry(force=false){
   const cacheKey=dataContextCacheKey("registry");
   const held=locationRegistryCache.get(cacheKey);
   if(!force&&held&&Date.now()-held.at<60_000)return held;
-  const [buildings,rooms]=await Promise.all([Repository.getLocationBuildings(),Repository.getLocationRooms()]);
+  const [buildings,rooms,roomTypeScopes]=await Promise.all([Repository.getLocationBuildings(),Repository.getLocationRooms(),Repository.getLocationRoomTypeScopes()]);
   /* بذرةُ السجل مأخوذةٌ من تاريخ الجامعة الحقيقي؛ الصندوقُ التجريبي له سجلُّه
      الوهميّ وحده (demoSandbox.ts) ولا يُخلط بمباني الجامعة. */
   const merged=Repository.isDemoRequest()?{buildings:[...buildings],rooms:[...rooms]}:mergeRegistryWithSeed({buildings,rooms});
   merged.buildings.sort((a,b)=>compareLocationCodes(a.officialCode,b.officialCode));
   merged.rooms.sort((a,b)=>compareLocationCodes(a.buildingCode,b.buildingCode)||compareLocationCodes(a.canonicalCode,b.canonicalCode));
-  const entry={at:Date.now(),...merged};
+  const entry={at:Date.now(),...merged,roomTypeScopes};
   if(locationRegistryCache.size>100)locationRegistryCache.clear();
   locationRegistryCache.set(cacheKey,entry);return entry;
 }

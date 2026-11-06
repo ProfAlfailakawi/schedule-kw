@@ -47,6 +47,7 @@ import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import PersonChips from "./PersonChips";
 import { useTrainees } from "../utils/trainees";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
+import { roomTypeIn } from "../utils/roomTypeForSection";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import SubmissionDeadlines, { type DeadlineRow } from "./SubmissionDeadlines";
 import { inboxAudience } from "../utils/inboxAudience";
@@ -538,7 +539,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   /* لحظةُ آخر قراءةٍ ناجحة للنطاق — ليُحكم على «فارغ» بعد القراءة لا قبلها. */
   const [scopeReadAt, setScopeReadAt] = useState(0);
   const historicalScopeCount = useMemo(() => Object.values(finality).filter(value => value === "historical").length, [finality]);
-  const [locationRegistry, setLocationRegistry] = useState<{buildings:MasterBuilding[];rooms:MasterRoom[]}>({buildings:[],rooms:[]});
+  const [locationRegistry, setLocationRegistry] = useState<{buildings:MasterBuilding[];rooms:MasterRoom[];roomTypeScopes?:Record<string,number[]>}>({buildings:[],rooms:[]});
   const [filters, setFilters] = useState<Filters>(() => ({
     ...fresh(),
     ...(saved.filters || {}),
@@ -721,7 +722,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     if(filters.termId)qs.set("termId",String(filters.termId));
     fetch(`/api/location-registry?${qs}`,{signal:controller.signal})
       .then(async response=>{if(!response.ok)throw new Error("تعذر تحميل سجل المباني والقاعات");return response.json();})
-      .then(data=>setLocationRegistry({buildings:Array.isArray(data.buildings)?data.buildings:[],rooms:Array.isArray(data.rooms)?data.rooms:[]}))
+      .then(data=>setLocationRegistry({buildings:Array.isArray(data.buildings)?data.buildings:[],rooms:Array.isArray(data.rooms)?data.rooms:[],roomTypeScopes:data.roomTypeScopes}))
       .catch(error=>{if(error?.name!=="AbortError")setError(String(error?.message||error));});
     return()=>controller.abort();
   },[filters.collegeId,filters.sectionId,filters.termId]);
@@ -2202,7 +2203,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const roomTypeMismatches = useMemo(() => results.flatMap(row => {
     const wanted = String(courseById.get(row.AdCourseId)?.CourseRoomType || "").trim();
     const room = rowLocation(row).room;
-    const actual = String(room?.roomType || "").trim();
+    const actual = roomTypeIn(room as any, row.AdSectionId, locationRegistry.roomTypeScopes);
     return wanted && actual && wanted !== actual ? [{ row, wanted, actual, room: [row.AdRoomCode, room?.canonicalCode || row.AdRoomHall].filter(Boolean).join("/") }] : [];
   }).sort((a, b) => byArabic(String(a.row.AdCourseName || ""), String(b.row.AdCourseName || "")) || String(a.row.SCode).localeCompare(String(b.row.SCode), "en")),
   [results, courseById, rowLocation]);

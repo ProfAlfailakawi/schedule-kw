@@ -43,7 +43,7 @@ export const canonicalRoomShape = (value: unknown): string | null => {
   return /^[A-Z0-9]{1,12}$/.test(token) && /\d/.test(token) ? token : null;
 };
 
-export interface LocationRegistry { buildings: MasterBuilding[]; rooms: MasterRoom[]; }
+export interface LocationRegistry { buildings: MasterBuilding[]; rooms: MasterRoom[]; roomTypeScopes?: Record<string, number[]>; }
 export interface ResolveContext { collegeId?: number; sectionId?: number; buildingId?: string; }
 export interface Resolution<T> { status: LocationConfidence; value?: T; evidence: string[]; }
 

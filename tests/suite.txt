@@ -247,3 +247,4 @@ test:undo-travel-rule
 test:header-department-rule
 test:proposal-family-timetable
 test:full-day-setting
+test:room-types-by-department
