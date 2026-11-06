@@ -24,21 +24,21 @@ function place(rect: Rect | null, cardH: number): React.CSSProperties {
   return { top, left: Math.min(vw - CARD_W - 12, Math.max(12, left)), width: CARD_W };
 }
 
-export default function GuideTour({ state, element, title, when, note, writes, onNext, onBack, onStop, onRetry, onSkipStep, onLost, onTargetClick }: {
+export default function GuideTour({ state, element, title, when, note, canPress, onNext, onBack, onStop, onRetry, onSkipStep, onLost, onTargetClick }: {
   state: TourSnapshot;
   element: HTMLElement | null;
   title: string;
   when?: string;
   note?: string;
-  /** الميزة تكتب: يضغطها المستخدم بنفسه ولا يضغطها المرشد. */
-  writes?: boolean;
+  /** قراءة صريحة في السجل: وحدها يضغطها المرشد، وما عداها يضغطه المستخدم بنفسه. */
+  canPress?: boolean;
   onNext: () => void;
   onBack: () => void;
   onStop: () => void;
   onRetry: () => void;
   onSkipStep: () => void;
   onLost: () => void;
-  onTargetClick: () => void;
+  onTargetClick: (index: number) => void;
 }) {
   const [rect, setRect] = useState<Rect | null>(null);
   const cardRef = useRef<HTMLElement | null>(null);
@@ -75,12 +75,13 @@ export default function GuideTour({ state, element, title, when, note, writes, o
   // الضغط الحقيقي على العنصر المضاء يمر إليه ويكمل الخطوة.
   useEffect(() => {
     if (!element || state.status !== "showing") return;
+    const index = state.index;
     const onClick = (event: MouseEvent) => {
-      if (event.target instanceof Node && element.contains(event.target)) window.setTimeout(onTargetClick, 60);
+      if (event.target instanceof Node && element.contains(event.target)) window.setTimeout(() => onTargetClick(index), 60);
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [element, state.status, onTargetClick]);
+  }, [element, state.status, state.index, onTargetClick]);
 
   const hole = rect ? { top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2 } : null;
   const waiting = state.status === "waiting";
@@ -110,8 +111,8 @@ export default function GuideTour({ state, element, title, when, note, writes, o
             <button ref={primaryRef} type="button" className="guide-tour-primary" onClick={last ? onStop : onSkipStep}>{last ? "إنهاء" : "تخطَّ الخطوة"}</button>
           </> : waiting ? <button ref={primaryRef} type="button" className="guide-tour-quiet" onClick={onSkipStep}>تخطَّ</button>
             : finalAction
-              ? writes ? <small className="guide-tour-wait"><i aria-hidden="true" />اضغط الزر المضاء</small>
-                : <button ref={primaryRef} type="button" className="guide-tour-primary" onClick={() => element?.click()}>افتحها</button>
+              ? canPress ? <button ref={primaryRef} type="button" className="guide-tour-primary" onClick={() => element?.click()}>افتحها</button>
+                : <small className="guide-tour-wait"><i aria-hidden="true" />اضغط الزر المضاء</small>
               : <button ref={primaryRef} type="button" className="guide-tour-primary" disabled={state.status === "seeking"} onClick={onNext}>{last ? "تم" : "التالي"}</button>}
         </footer>
       </section>

@@ -303,12 +303,12 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
   });
 
   const lost = useCallback(() => runner.relocate(), [runner]);
-  const targetClick = useCallback(() => runner.targetClicked(), [runner]);
+  const targetClick = useCallback((index: number) => runner.targetClicked(index), [runner]);
   const pickedFeature = picked ? allowed.get(picked) : undefined;
   if (!open) return null;
   if (tourView && tourMeta) {
     const entry = GUIDE_BANK[tourMeta.feature.id];
-    return <GuideTour state={tourView.state} element={tourView.element} title={tourMeta.feature.title} when={entry?.w} note={tourMeta.note} writes={tourMeta.feature.risk === "write" || tourMeta.feature.risk === "sensitive"}
+    return <GuideTour state={tourView.state} element={tourView.element} title={tourMeta.feature.title} when={entry?.w} note={tourMeta.note} canPress={tourMeta.feature.risk === "read"}
       onNext={() => runner.next()} onBack={() => runner.back()} onStop={() => runner.stop()} onRetry={() => runner.retry()} onSkipStep={() => runner.skipStep()} onLost={lost} onTargetClick={targetClick} />;
   }
   if (pointing) return createPortal(

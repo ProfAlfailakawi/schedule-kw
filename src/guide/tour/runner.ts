@@ -112,9 +112,10 @@ export class TourRunner<E> {
   }
 
   /** ضغط المستخدم العنصر المضاء بنفسه: الفعل تم، فلا يُعاد الانتقال ولا الضغط. */
-  targetClicked() {
+  targetClicked(index: number) {
     const step = this.steps[this.index];
-    if (!step || this.status !== "showing") return;
+    // ضغطة تأخر أثرها لا تُحسب على خطوة تالية.
+    if (!step || index !== this.index || this.status !== "showing") return;
     if (this.index >= this.steps.length - 1) { this.finish(true); return; }
     this.go(this.index + 1);
   }

@@ -73,9 +73,11 @@ for (const f of GUIDE_FEATURES) check(answerSteps(buildTour(f, { activeView: "x"
 check(buildTour(move, { activeView: "dashboard", dock: ["schedules"] }).steps[0].selector === '[data-guide-dock="schedules"]', "الطريق الظاهر قبل الدرج");
 const clicked = harness({ activeView: "x" });
 clicked.runner.start([{ id: "a", target: "t", navigate: "v", text: "ن" }, { id: "b", target: "u", text: "م" }]);
-clicked.runner.targetClicked();
+clicked.runner.targetClicked(0);
 check(clicked.state.index === 1 && !clicked.log.includes("nav:v"), "ضغط العنصر يكمل الخطوة بلا انتقال مكرر");
-clicked.runner.targetClicked();
+clicked.runner.targetClicked(0);
+check(clicked.state.index === 1 && clicked.finished === null, "ضغطة متأخرة لا تُحسب على الخطوة التالية");
+clicked.runner.targetClicked(1);
 check(clicked.finished === true, "ضغط آخر عنصر ينهي الجولة");
 
 // عنصر غائب: يقال ذلك وتبقى الجولة حية.
