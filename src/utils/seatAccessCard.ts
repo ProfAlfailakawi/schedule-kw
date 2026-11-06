@@ -12,6 +12,8 @@ import { invitationHref } from "./invitationLink";
  */
 /** أيامُ عمل الكلمة الأولى الافتراضية في بطاقة الرئيس. */
 export const FIRST_PASSWORD_DAYS = 7;
+/** ساعاتُ عمل الكلمة المؤقتة ورابط إعادة التعيين. */
+export const TEMPORARY_PASSWORD_HOURS = 24;
 
 export type SeatCardModel = { url: string; caption: string; message: string; note: string; fileStem: string };
 
@@ -25,8 +27,22 @@ export function seatCaption(roleLabel: string | undefined, seatName: string): st
   return `${role} · ${seat}`;
 }
 
-export function memberCardModel(input: { origin: string; token: string; name: string; memberLabel?: string; teamLabel?: string; seatName: string; withTail: boolean }): SeatCardModel {
+export function memberCardModel(input: { origin: string; token: string; name: string; memberLabel?: string; teamLabel?: string; seatName: string; withTail: boolean; reset?: boolean }): SeatCardModel {
   const url = `${site(input.origin)}/k/${input.token}`;
+  if (input.reset) return {
+    url,
+    caption: [input.memberLabel || "عضو", input.seatName].filter(Boolean).join(" · "),
+    message: [
+      `أهلاً ${input.name}`,
+      `أُعيد تعيين دخولك إلى ${input.teamLabel || "فريق"} في SCHEDULE — ${input.seatName}.`,
+      "افتح رابطك الجديد خلال 24 ساعة:",
+      url,
+      input.withTail ? "سيُطلب منك آخر أربعة أرقام من رقمك المدني." : "",
+      "الرابط لك وحدك، فلا تشاركه.",
+    ].filter(Boolean).join("\n"),
+    note: "الرابط يعمل 24 ساعة إن لم يُفتح، وبعد أول دخول يبقى رابطه الشخصي. أُبطل الرابط السابق وخرج من كل جهاز.",
+    fileStem: "SCHEDULE-member",
+  };
   return {
     url,
     caption: [input.memberLabel || "عضو", input.seatName].filter(Boolean).join(" · "),
@@ -42,6 +58,24 @@ export function memberCardModel(input: { origin: string; token: string; name: st
       ? "لا كلمة مرور في هذه البطاقة: الرابط شخصيّ له وحده، ويؤكّد عند فتحه آخر أربعة أرقام من رقمه المدني."
       : "لا كلمة مرور في هذه البطاقة: الرابط شخصيّ له وحده، فلا يُشارَك.",
     fileStem: "SCHEDULE-member",
+  };
+}
+
+/** بطاقةُ إعادة التعيين لرئيس الفريق: الكلمةُ في جزء # وحده، فلا تصل الخادم في طلب الصفحة. */
+export function temporaryPasswordCardModel(input: { origin: string; login: string; password: string; seatName: string; roleLabel: string; holderName: string }): SeatCardModel {
+  const url = invitationHref(`${site(input.origin)}/`, input.login, input.password);
+  return {
+    url,
+    caption: seatCaption(input.roleLabel, input.seatName),
+    message: [
+      `أهلاً ${input.holderName}`,
+      `أُعيد تعيين كلمة سرّ فريق «${input.seatName}» في SCHEDULE.`,
+      "ادخل من هذا الرابط خلال 24 ساعة، واختر كلمة سرّك الجديدة عند الدخول:",
+      url,
+      `اسم الدخول: ${input.login}`,
+    ].join("\n"),
+    note: "تعمل 24 ساعة ولدخولٍ واحد. لا يظهر منها شيء بعد إغلاق البطاقة، ولا تكشف الكلمة السابقة.",
+    fileStem: "SCHEDULE-reset",
   };
 }
 

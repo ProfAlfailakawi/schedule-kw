@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Split,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { GhostButton, PrimaryButton, SecondaryButton, PrintPortal } from "./ui";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
@@ -45,6 +46,7 @@ type Opportunity = {
   ownerSectionName: string;
   ownerSections?: Array<{ id: number; name: string }>;
   shared?: boolean;
+  fit?: { specialised: boolean; capacityShort: boolean; capacity: number; seats: number; warn: boolean };
 };
 
 export type HallBarterReservationView = {
@@ -485,6 +487,13 @@ export default function HallBarterBoard({
                     <div className="hall-barter-opportunity-meta">
                       <div className="hall-barter-slot"><span>{opportunity.dayLabel}</span><time dir="ltr">{formatScheduleTimeRange(opportunity.startTime, opportunity.endTime)}</time><small>{countOf(opportunity.durationMinutes, AR.minute)}</small></div>
                     </div>
+                    {opportunity.fit?.warn ? (
+                      <p className="hall-barter-fit" role="status"><AlertTriangle aria-hidden="true" /><span>
+                        {opportunity.fit.specialised ? "قاعة متخصصة لقسم آخر وقد لا تناسب مقررات قسمك." : null}
+                        {opportunity.fit.capacityShort ? ` سعتها ${countOf(opportunity.fit.capacity, AR.seat)} وأكبر شعبة لديك ${countOf(opportunity.fit.seats, AR.seat)}.` : null}
+                        {" "}يمكنك الطلب مع ذلك.
+                      </span></p>
+                    ) : null}
                     <PrimaryButton type="button" disabled={busyId === opportunity.id} onClick={() => void request(opportunity)}><ArrowLeftRight />اطلب استعارة النطاق</PrimaryButton>
                   </article>
                 ))}

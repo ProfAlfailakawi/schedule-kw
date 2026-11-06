@@ -8,7 +8,7 @@
  */
 import { ACADEMIC_ROLES, roleDefinition } from "../utils/academicRoles";
 import { englishPrefixOf } from "../utils/englishPrefix";
-import { generateInitialPassword } from "./accountPassword";
+import { adminSetPasswordFields, generateInitialPassword } from "./accountPassword";
 
 /** صفات القسم ولاحقة اسم الدخول لكلٍّ منها. */
 export const SECTION_ACCOUNT_ROLES: Array<{ id: string; suffix: string }> = [
@@ -59,7 +59,7 @@ export async function provisionSectionUsers(Repository: any, college: { AdColleg
     const user = await Repository.createUser({
       Name: `${role.label} — ${section.AdSectionName}`, SystemUserLogin: login,
       SystemUserPass: Repository.hashPassword(initial), SystemUserPassVault: Repository.encryptPasswordForVault(initial),
-      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: id, MustChangePassword: true,
+      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: id, ...adminSetPasswordFields(initial),
     });
     await Repository.saveSecurityByUser(user.SystemUserId, role.formIds);
     await Repository.saveUserAssigns(user.SystemUserId, [{ AdCollegeId: collegeId, AdSectionId: sectionId }]);
@@ -96,7 +96,7 @@ export async function provisionCollegeUsers(Repository: any, college: { AdColleg
     const user = await Repository.createUser({
       Name: `${role.label} — ${college.AdCollegeName}`, SystemUserLogin: login,
       SystemUserPass: Repository.hashPassword(initial), SystemUserPassVault: Repository.encryptPasswordForVault(initial),
-      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: id, MustChangePassword: true,
+      IsAdminUser: false, IsActive: true, IsLocked: false, IsDeleted: false, AdInstructorId: 0, Role: id, ...adminSetPasswordFields(initial),
     });
     await Repository.saveSecurityByUser(user.SystemUserId, role.formIds);
     await Repository.saveUserAssigns(user.SystemUserId, [{ AdCollegeId: collegeId, AdSectionId: 0 }]);

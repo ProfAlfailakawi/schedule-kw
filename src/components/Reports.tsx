@@ -3,10 +3,11 @@ import SearchableSelect from "./SearchableSelect";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildingNumberLabel } from "../utils/locationCollegePrefixes";
 import { flushSync } from "react-dom";
+import { isNarrowWorkspace } from "../utils/workspaceSize";
 import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
-  ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, IdCard, Grid3x3, Network,
+  ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, Grid3x3, Network,
 } from "lucide-react";
 import { parseNaturalQuery } from "../utils/naturalQuery";
 import { EmptyState, Field, GhostButton, Notice, PageTitle, PrintLetterhead, PrintPortal, SecondaryButton } from "./ui";
@@ -47,6 +48,7 @@ import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import PersonChips from "./PersonChips";
 import { useTrainees } from "../utils/trainees";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
+import { roomTypeIn } from "../utils/roomTypeForSection";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import SubmissionDeadlines, { type DeadlineRow } from "./SubmissionDeadlines";
 import { inboxAudience } from "../utils/inboxAudience";
@@ -62,6 +64,8 @@ import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { teachingHoursByInstructor } from "../utils/teachingLoad";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
 import { authorityCourseCode, authorityDepartmentCode } from "../utils/authorityAcademicCodes";
+import ReportChoicePanel from "./ReportChoicePanel";
+import { activeChoice, authorityChoices, comprehensiveChoices, type AuthorityChoiceId, type ComprehensiveChoiceId } from "../utils/reportChoices";
 import PrintComprehensiveHead, { printIssueDate } from "./PrintComprehensiveHead";
 import PrintStamp from "./PrintStamp";
 import { buildReportStamp, type ReportStampClaim } from "../utils/reportStamp";
@@ -525,6 +529,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const [scopeMenu, setScopeMenu] = useState<"comprehensive" | "authority" | "instructor" | null>(null);
   /* تقرير التغييرات نفسه، بعمود الرقم المدني بعد اسم المدرس — يختاره زرّ البطاقة بجانب الزر الأصلي. */
   const [authorityCivil, setAuthorityCivil] = useState(false);
+  const [comprehensiveChoiceId, setComprehensiveChoiceId] = useState<ComprehensiveChoiceId | null>(null);
+  const [authorityChoiceId, setAuthorityChoiceId] = useState<AuthorityChoiceId | null>(null);
   const [printRowsOverride, setPrintRowsOverride] = useState<FSchedule[] | null>(null);
   const [printCollegeOverride, setPrintCollegeOverride] = useState("");
   const [courses, setCourses] = useState<AdCourse[]>([]);
@@ -538,7 +544,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   /* لحظةُ آخر قراءةٍ ناجحة للنطاق — ليُحكم على «فارغ» بعد القراءة لا قبلها. */
   const [scopeReadAt, setScopeReadAt] = useState(0);
   const historicalScopeCount = useMemo(() => Object.values(finality).filter(value => value === "historical").length, [finality]);
-  const [locationRegistry, setLocationRegistry] = useState<{buildings:MasterBuilding[];rooms:MasterRoom[]}>({buildings:[],rooms:[]});
+  const [locationRegistry, setLocationRegistry] = useState<{buildings:MasterBuilding[];rooms:MasterRoom[];roomTypeScopes?:Record<string,number[]>}>({buildings:[],rooms:[]});
   const [filters, setFilters] = useState<Filters>(() => ({
     ...fresh(),
     ...(saved.filters || {}),
@@ -600,13 +606,16 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const [loading, setLoading] = useState(true);
   const [visibleLimit, setVisibleLimit] = useState(150);
   /* Phone-width fold of the appointment list (display only). Follows the viewport. */
-  const [phoneFold, setPhoneFold] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 760px)").matches);
+  const [phoneFold, setPhoneFold] = useState(() => isNarrowWorkspace());
   useEffect(() => {
-    const query = window.matchMedia?.("(max-width: 760px)");
-    if (!query) return;
-    const sync = () => setPhoneFold(query.matches);
-    query.addEventListener?.("change", sync);
-    return () => query.removeEventListener?.("change", sync);
+    const sync = () => setPhoneFold(isNarrowWorkspace());
+    sync();
+    window.addEventListener("resize", sync, { passive: true });
+    window.addEventListener("orientationchange", sync);
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("orientationchange", sync);
+    };
   }, []);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [directorySide, setDirectorySide] = useState<"rooms" | "teachers">("rooms");
@@ -721,7 +730,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     if(filters.termId)qs.set("termId",String(filters.termId));
     fetch(`/api/location-registry?${qs}`,{signal:controller.signal})
       .then(async response=>{if(!response.ok)throw new Error("تعذر تحميل سجل المباني والقاعات");return response.json();})
-      .then(data=>setLocationRegistry({buildings:Array.isArray(data.buildings)?data.buildings:[],rooms:Array.isArray(data.rooms)?data.rooms:[]}))
+      .then(data=>setLocationRegistry({buildings:Array.isArray(data.buildings)?data.buildings:[],rooms:Array.isArray(data.rooms)?data.rooms:[],roomTypeScopes:data.roomTypeScopes}))
       .catch(error=>{if(error?.name!=="AbortError")setError(String(error?.message||error));});
     return()=>controller.abort();
   },[filters.collegeId,filters.sectionId,filters.termId]);
@@ -1953,6 +1962,28 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     }, 2500);
   };
 
+  /* أوراق التقريرين المركّبين: كل خيارٍ يصل إلى أمر الطباعة الذي كان يخرج به. */
+  const reportChoiceContext = { collegeName, branchLabels: branchSites.map(site => site.siteLabel) };
+  const comprehensiveList = comprehensiveChoices(reportChoiceContext);
+  const authorityList = authorityChoices(reportChoiceContext);
+  const printComprehensiveChoice = (id: ComprehensiveChoiceId) => {
+    setScopeMenu(null);
+    switch (id) {
+      case "site": printReport("comprehensive"); break;
+      case "site-appendix": void printComprehensiveWithChanges(); break;
+      case "branches": void printBranchComprehensive(); break;
+    }
+  };
+  const printAuthorityChoice = (id: AuthorityChoiceId) => {
+    setScopeMenu(null);
+    switch (id) {
+      case "site": void printAuthorityReport(false); break;
+      case "branches": void printBranchAuthorityReport(false); break;
+      case "site-civil": void printAuthorityReport(true); break;
+      case "branches-civil": void printBranchAuthorityReport(true); break;
+    }
+  };
+
   /* يطبع تقرير الأستاذ من نطاق مستقل عن مرشحات العرض الحالية. كل قراءة تمر
      عبر /api/schedules، الذي يقصر الصفوف على صلاحيات الحساب قبل إرجاعها. */
   const printInstructorScope = async (scope: "college" | "all-colleges", collegeId = filters.collegeId) => {
@@ -2202,7 +2233,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const roomTypeMismatches = useMemo(() => results.flatMap(row => {
     const wanted = String(courseById.get(row.AdCourseId)?.CourseRoomType || "").trim();
     const room = rowLocation(row).room;
-    const actual = String(room?.roomType || "").trim();
+    const actual = roomTypeIn(room as any, row.AdSectionId, locationRegistry.roomTypeScopes);
     return wanted && actual && wanted !== actual ? [{ row, wanted, actual, room: [row.AdRoomCode, room?.canonicalCode || row.AdRoomHall].filter(Boolean).join("/") }] : [];
   }).sort((a, b) => byArabic(String(a.row.AdCourseName || ""), String(b.row.AdCourseName || "")) || String(a.row.SCode).localeCompare(String(b.row.SCode), "en")),
   [results, courseById, rowLocation]);
@@ -2282,7 +2313,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   }, [occupancyPick]);
 
   const selectLens = (next: Lens) => {
-    const phone = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
+    const phone = isNarrowWorkspace();
     if (phone && (next === "week" || next === "room" || next === "matrix")) {
       setMobileWideNotice(next);
       return;
@@ -2297,7 +2328,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   };
 
   useEffect(() => {
-    const phone = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
+    const phone = isNarrowWorkspace();
     if (phone && (lens === "week" || lens === "room" || lens === "matrix")) {
       setLens("list");
       setPrintKind("list");
@@ -2656,38 +2687,23 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               {/* ── السؤال يُطرح عند الضغط، لا قبله ────────────────────────────
                   زر لكل تقرير، ومفتاح دائم للنطاق: ثلاثة عناصر تشغل الشريط
                   طوال الوقت لأجل قرار يُتخذ لحظةَ الطباعة فقط. فصار الزر يسأل
-                  حين يُضغط: هذا الموقع أم كل الفروع؟ ولقسم في موقع واحد لا
-                  سؤال أصلاً — يطبع مباشرة كما كان. */}
+                  حين يُضغط: أيّ ورقة؟ سطرٌ لكل ورقة واختيارٌ واحد (ReportChoicePanel). */}
               <div className="query-report-action">
                 <SecondaryButton type="button" data-guide-ignore="طباعة التقرير الشامل بنطاقه المختار داخل مركز الاستعلامات" aria-haspopup aria-expanded={scopeMenu === "comprehensive" || undefined} onClick={() => setScopeMenu(scopeMenu === "comprehensive" ? null : "comprehensive")} disabled={branchBusy || appendixBusy} title="وثيقة القسم الرسمية بكل تفاصيل الجدول">
                   <Table2 aria-hidden="true" />{branchBusy ? "يجمع الفروع…" : appendixBusy ? "يجهّز الملحق…" : "التقرير الشامل"}
                 </SecondaryButton>
                 {scopeMenu === "comprehensive" ? (
-                  <div className="query-scope-menu" role="menu">
-                    <button type="button" role="menuitem" data-guide-ignore="طباعة التقرير الشامل للموقع المفتوح" onClick={() => { setScopeMenu(null); printReport("comprehensive"); }}>هذا الموقع<small>{collegeName || "—"}</small></button>
-                    {/* الوثيقتان معاً: الشامل يعرض الجدول كما هو، والملحق يعرض
-                        كيف وصل إليه. وهي الورقة التي تُحفظ في الملف. */}
-                    <button type="button" role="menuitem" data-guide-ignore="طباعة التقرير الشامل ومعه ملحق التغييرات في وثيقة واحدة" onClick={() => { setScopeMenu(null); void printComprehensiveWithChanges(); }}>مع ملحق التغييرات<small>وثيقة واحدة تُحفظ في الملف</small></button>
-                    {branchSites.length > 1 ? (
-                      <button type="button" role="menuitem" data-guide-ignore="طباعة التقرير الشامل لمواقع الفرع في وثيقة واحدة" onClick={() => { setScopeMenu(null); void printBranchComprehensive(); }}>كل الفروع<small>{branchSites.map(site => site.siteLabel).join(" · ")}</small></button>
-                    ) : null}
-                  </div>
+                  <ReportChoicePanel title="التقرير الشامل" choices={comprehensiveList} active={activeChoice(comprehensiveList, comprehensiveChoiceId)} onChoose={setComprehensiveChoiceId} onPrint={printComprehensiveChoice} />
                 ) : null}
               </div>
             </> : null}
             {!pending && authorityReportAvailable && all.length > 0 ? (
               <div className="query-report-action">
-                <SecondaryButton type="button" data-guide-ignore="طباعة تقرير قراءة فقط داخل مركز الاستعلامات" aria-haspopup={branchSites.length > 1 || undefined} aria-expanded={scopeMenu === "authority" || undefined} onClick={() => { setAuthorityCivil(false); branchSites.length > 1 ? setScopeMenu(scopeMenu === "authority" && !authorityCivil ? null : "authority") : void printAuthorityReport(); }} disabled={authorityReportBusy} title="يقارن النسخة الأصلية المستوردة بالجدول الحالي ويعرض ما أضيف أو حُذف أو عُدّل">
+                <SecondaryButton type="button" data-guide-ignore="طباعة تقرير قراءة فقط داخل مركز الاستعلامات" aria-haspopup aria-expanded={scopeMenu === "authority" || undefined} onClick={() => setScopeMenu(scopeMenu === "authority" ? null : "authority")} disabled={authorityReportBusy} title="يقارن النسخة الأصلية المستوردة بالجدول الحالي ويعرض ما أضيف أو حُذف أو عُدّل">
                   <ClipboardList aria-hidden="true" />{authorityReportBusy ? "يجهّز التقرير…" : "تقرير تغييرات الجدول"}
                 </SecondaryButton>
-                <button type="button" className="query-print-icon" data-guide-ignore="طباعة تقرير التغييرات نفسه مع الرقم المدني؛ قراءة فقط" aria-label="تقرير تغييرات الجدول مع الرقم المدني" aria-haspopup={branchSites.length > 1 || undefined} title="التقرير نفسه مع الرقم المدني بعد اسم المدرس" disabled={authorityReportBusy} onClick={() => { setAuthorityCivil(true); branchSites.length > 1 ? setScopeMenu(scopeMenu === "authority" && authorityCivil ? null : "authority") : void printAuthorityReport(true); }}>
-                  <IdCard aria-hidden="true" />
-                </button>
                 {scopeMenu === "authority" ? (
-                  <div className="query-scope-menu" role="menu">
-                    <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير التغييرات للموقع المفتوح" onClick={() => { setScopeMenu(null); void printAuthorityReport(authorityCivil); }}>هذا الموقع<small>{collegeName || "—"}</small></button>
-                    <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير التغييرات لمواقع الفرع في وثيقة واحدة" onClick={() => { setScopeMenu(null); void printBranchAuthorityReport(authorityCivil); }}>كل الفروع<small>{branchSites.map(site => site.siteLabel).join(" · ")}</small></button>
-                  </div>
+                  <ReportChoicePanel title="تقرير تغييرات الجدول" choices={authorityList} active={activeChoice(authorityList, authorityChoiceId)} onChoose={setAuthorityChoiceId} onPrint={printAuthorityChoice} />
                 ) : null}
               </div>
             ) : null}

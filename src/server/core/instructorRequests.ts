@@ -311,7 +311,7 @@ export async function requestRulesForScope(
   };
   const selectedCourseFit = (key: string, courseId: number) => {
     const hall = hallByKey.get(key), room = registry.rooms.find(room => room.id === hall?.roomId), course = context.courses.get(courseId);
-    const fit = roomSuitability(course, room);
+    const fit = roomSuitability(course, room, undefined, registry.roomTypeScopes);
     return fit.typeRank * 1000 + fit.adjustment;
   };
   return { scopeRows, cohortPairs: cohortPairs(demand), startLadder, knownRoomKeys, roomAliases, hallByKey, registry, roomEligible, selectedCourseFit, dayStart: dayWindow.start, dayEnd: dayWindow.end };
@@ -547,7 +547,7 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       advice: verdict.advice || (!item.offeringRowIds?.length && !rules.knownRoomKeys.length
         ? "يحتاج القسم التحقق من القاعة قبل الاعتماد؛ بيانات القاعات المتاحة غير مكتملة."
         : (() => { const hall = rules.hallByKey.get(verdict.roomCandidates[0]); const room = rules.registry.rooms.find(room => room.id === hall?.roomId);
-          const fit = roomSuitability(selectedCourse, room);
+          const fit = roomSuitability(selectedCourse, room, undefined, rules.registry.roomTypeScopes);
           /* «يمكن تقديم الطلب» لا تُقال تحت حكمٍ يمنعه (كانت تظهر تحت «وقت البداية غير معتمد»). */
           return verdict.kind !== "conflict" && fit.reasons.some(reason => /مختلف|أقل/.test(reason)) ? "يمكن تقديم الطلب؛ ملاءمة نوع القاعة أو سعتها تحتاج مراجعة القسم." : undefined; })()),
       block: verdict.blockMinutes || (item.slots?.length === 1 ? timeToMinutes(item.slots[0].end) - timeToMinutes(item.slots[0].start) : undefined),

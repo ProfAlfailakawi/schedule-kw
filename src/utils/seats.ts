@@ -38,6 +38,8 @@ export interface SeatMember extends SeatPerson {
   addedAt: string;
   addedBy: string;
   linkToken?: string;
+  /** رابطُ إعادة التعيين: يسقط في هذا الموعد إن لم يُفتح، ويُمحى عند أول دخول. */
+  linkExpiresAt?: string;
   linkIssuedAt?: string;
   firstEnteredAt?: string;
   lastEnteredAt?: string;
@@ -59,7 +61,7 @@ export interface SeatDeputy {
 export type SeatEventKind =
   | "seat-created" | "seat-colleges" | "holder-set" | "handover"
   | "member-added" | "member-continued" | "member-ended" | "member-frozen" | "member-scopes"
-  | "link-issued" | "link-locked" | "deputy-set" | "deputy-ended";
+  | "link-issued" | "link-locked" | "deputy-set" | "deputy-ended" | "password-reset";
 
 export interface SeatEvent {
   at: string;
@@ -150,6 +152,11 @@ export function seatHolderSource(role: unknown): "department" | "college" | "man
 /** «مستخدم عادي» ليس كرسياً: حسابٌ يُعيَّن يدوياً لا منصبٌ يُسلَّم. */
 export function isSeatRole(role: unknown): boolean {
   return roleDefinition(role).id !== "standard";
+}
+
+/** لهذا الحساب بطاقةُ دخول في «الفرق»؟ ما ليس كرسياً (مستخدمٌ عادي، حسابُ إدارة) بطاقتُه في «المستخدمون». */
+export function hasTeamCard(user: { IsAdminUser?: unknown; Role?: unknown }): boolean {
+  return !user.IsAdminUser && isSeatRole(user.Role);
 }
 
 const today = (now = new Date()) => now.toISOString().slice(0, 10);

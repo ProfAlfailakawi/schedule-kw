@@ -5,6 +5,7 @@ import TAConversionPanel from "./TAConversionPanel";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { isPhoneDevice } from "../utils/workspaceSize";
 import RowHistory from "./RowHistory";
 import TrailStamp from "./trail/TrailStamp";
 import { TimeField } from "./TimeField";
@@ -209,7 +210,6 @@ import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmSt
 import { historicalDurationMinutes, pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
 import { setTelemetryScope, telemetryApi, telemetryBreadcrumb, telemetryError, telemetryGuide, telemetryOffline, telemetryTiming } from "../utils/clientTelemetry";
 import { canQueueScheduleMutation, discardParkedMutation, enqueueScheduleMutation, flushOfflineScheduleQueue, offlineQueueCount, parkedMutations, queuedPseudoResponse, retryParkedMutation, setOfflineQueueOwner, subscribeOfflineQueue, subscribeParkedMutations, type ParkedMutation } from "../utils/offlineScheduleQueue";
-import { isPhoneDevice } from "../utils/phoneDevice";
 import { GUIDE_ACTIONS, allAllowedGuideFeatures, canRunGuideAction, featureById, loadGuideProfile, masteryScore, recordFeatureEvent, evaluateGuideFriction, classifyGuideReason, ensureGuideJourney, advanceGuideJourney, completeGuideJourney, failGuideJourney, type GuideCommand } from "../guide/smartGuide";
 /* The same six hues the stylesheet paints from, so a chip and the ring it
    refers to are the same colour. Red is absent on purpose: it belongs to
@@ -715,13 +715,6 @@ function ScheduleSkeleton({ viewMode }: { viewMode: "week" | "list" | "rooms" })
     </div>
   );
 }
-
-/** A phone stays a phone after rotation. Width-only media queries turn an
- * iPhone landscape into a desktop, so use the device short edge plus touch/
- * mobile capability instead. A big touch screen (a tablet, or a folding phone
- * opened like iPhone Duo) keeps the full workspace only while the page has the
- * room: half of it in Split View is as narrow as a phone, so it reads as one.
- * Re-run on resize so folding or splitting switches live, without a reload. */
 
 type RefusalReason = { kind: "room" | "instructor" | "cohort" | "other"; text: string; entity: string; state: string };
 

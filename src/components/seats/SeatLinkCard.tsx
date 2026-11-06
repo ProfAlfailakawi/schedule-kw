@@ -7,18 +7,20 @@ import { holderCardModel } from "../../utils/seatAccessCard";
 /**
  * ── «بطاقة الدخول» في الكراسي ────────────────────────────────────────────────
  *
- * البطاقةُ نفسها التي في «المستخدمون» (AccessCard): لعضو الفريق برابطه الشخصي، وللشاغل
+ * البطاقةُ نفسها (AccessCard): لعضو الفريق برابطه الشخصي، وللشاغل
  * حين يُسلَّم الكرسي أو يُنشأ (فتحمل اسمَ الدخول والكلمة الأولى مرة واحدة)، ولشاغلٍ قائم
  * من زر «البطاقة» (SeatHolderCard). والرسالةُ تُرسل في واتساب إلى جوال صاحبها إن عُرف.
  */
 
-export default function SeatLinkCard({ title, subtitle, url, mobile, message, credentials, note, fileStem, onDone, children }: {
+export default function SeatLinkCard({ title, subtitle, url, mobile, message, credentials, temporary, note, fileStem, onDone, children }: {
   title: string;
   subtitle?: string;
   url: string;
   mobile?: string;
   message: string;
   credentials?: { login: string; password: string };
+  /** كلمةٌ مؤقتة من إعادة التعيين، لا الكلمة الأولى. */
+  temporary?: boolean;
   note?: string;
   fileStem?: string;
   onDone?: () => void;
@@ -32,8 +34,8 @@ export default function SeatLinkCard({ title, subtitle, url, mobile, message, cr
         {credentials ? (
           <dl className="seat-credentials">
             <div><dt>اسم الدخول</dt><dd dir="ltr">{credentials.login}</dd></div>
-            <div><dt><KeyRound aria-hidden="true" /> الكلمة الأولى</dt><dd dir="ltr" className="seat-secret">{credentials.password}</dd></div>
-            <p>تعمل سبعة أيام، ويختار صاحبها كلمته الخاصة عند أول دخول.</p>
+            <div><dt><KeyRound aria-hidden="true" /> {temporary ? "الكلمة المؤقتة" : "الكلمة الأولى"}</dt><dd dir="ltr" className="seat-secret">{credentials.password}</dd></div>
+            <p>{temporary ? "تعمل 24 ساعة ولدخولٍ واحد، ويختار صاحبها كلمته الجديدة." : "تعمل سبعة أيام، ويختار صاحبها كلمته الخاصة عند أول دخول."}</p>
           </dl>
         ) : null}
         {children}

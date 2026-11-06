@@ -41,7 +41,7 @@ const issuedAt = Date.parse("2026-11-05T08:00:00Z");
   const change = auth.slice(auth.indexOf('app.post("/api/auth/change-password"'), auth.indexOf('app.post("/api/auth/logout"'));
   check(change.includes('InitialPasswordExpiresAt: ""') && change.includes("deleteOtherSessionsForUser"), "P2 التغيير يمحو المدة ويغلق الجلسات الأخرى");
   const seats = read("src/server/seatsRoutes.ts");
-  check(!seats.includes("generateInitialPassword"), "P2 بطاقات الرؤساء بالكلمة الافتراضية");
+  check(seats.slice(seats.indexOf("async function resetSeatCredentials"), seats.indexOf("/** نطاقُ موظف التسجيل")).includes("DEFAULT_FIRST_PASSWORD") && !seats.slice(0, seats.indexOf("app.post(\"/api/seats/:id/password-reset\"")).replace("generateInitialPassword, initialPasswordExpired", "").includes("generateInitialPassword"), "P2 بطاقات الرؤساء بالكلمة الافتراضية، والعشوائية لإعادة التعيين وحدها");
   check(/"\/api\/seats\/:id\/first-password", requirePowerAdmin/.test(seats) && seats.includes("if (!seat.MustChangePassword)"), "P2 إعادة الإصدار للمدير، ولا تمحو كلمة اختارها صاحبها");
   check(!/SystemUserPass: DEFAULT_FIRST_PASSWORD/.test(seats), "P2 لا تُكتب الكلمة نصّاً");
   const base = { origin: "https://schedule-kw.com", login: "seat-login", seatName: "فريق", roleLabel: "رئيس", holderName: "اسم", mustChangePassword: true };

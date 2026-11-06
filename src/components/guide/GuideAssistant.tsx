@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { ArrowUp, ChevronLeft, Hand, X } from "lucide-react";
 import { controlLabel } from "../../utils/controlLabel";
-import { isPhoneDevice } from "../../utils/phoneDevice";
+import { isPhoneDevice } from "../../utils/workspaceSize";
 import { telemetryGuide, telemetryGuideJourney } from "../../utils/clientTelemetry";
 import { sessionTrail } from "../../guide/sessionTrail";
 import {

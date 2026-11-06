@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { visibleRoomTypes } from "../../utils/roomTypeForSection";
 import type { Express } from "express";
 import { Response } from "express";
 import { ApprovalRevisionConflict, Repository, withSerialLock } from "../../db/repository";
@@ -150,9 +151,9 @@ async function scheduleDataReadiness(collegeId: number, sectionId: number, termI
   const roomTypes=new Set(configuredRoomTypes.length?configuredRoomTypes:["تدريسية","مختبر","مختبر حاسوب"]);
   for(const room of registry.rooms){
     if(!room.active||room.confidence!=="CONFIRMED"||!room.sectionIds.includes(sectionId))continue;
-    const type=String(room.roomType||"").normalize("NFKC").trim();if(type)roomTypes.add(type);
+    for(const value of [room.roomType,room.sectionRoomTypes?.[String(sectionId)]]){const type=String(value||"").normalize("NFKC").trim();if(type)roomTypes.add(type);}
   }
-  const registeredRoomTypes=[...roomTypes].sort((a,b)=>a.localeCompare(b,"ar"));
+  const registeredRoomTypes=visibleRoomTypes([...roomTypes],sectionId,registry.roomTypeScopes).sort((a,b)=>a.localeCompare(b,"ar"));
   /* التطبيعُ نفسه الذي يعدّ به `approvalBlockerOptions` الموانع — قاعدةٌ واحدة. */
   return computeScheduleDataReadiness({
     rows: scheduleRows as any[],
@@ -160,6 +161,7 @@ async function scheduleDataReadiness(collegeId: number, sectionId: number, termI
     instructorIds: new Set((instructors as any[]).map(instructor => Number(instructor.AdInstructorId))),
     rooms: registry.rooms,
     roomTypeOptions:registeredRoomTypes,
+    roomTypeScopes:registry.roomTypeScopes,
     normalizeRow: (row: any) => canonicalizeHistoricalLocationForRuntime(row as FSchedule, registry),
   });
 }

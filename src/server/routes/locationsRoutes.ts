@@ -6,7 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
-import { cleanSectionRoomTypes, roomTypeIn } from "../../utils/roomTypeForSection";
+import { cleanSectionRoomTypes, roomTypeIn, roomViewForSection } from "../../utils/roomTypeForSection";
 import type { Express } from "express";
 import { Response } from "express";
 import { Repository } from "../../db/repository";
@@ -151,6 +151,8 @@ app.get("/api/location-registry", requireAuth, async (req:AuthenticatedRequest,r
    * section table to the browser to resolve two of them would be the wrong
    * trade. The names of the OTHER departments are resolved here, per room. */
   const sectionNameById=new Map((await Repository.getSections()).map(item=>[Number(item.AdSectionId),String(item.AdSectionName||"")]));
+  /* المديرُ بلا قسمٍ يقرأ السجل كما هو؛ وكلُّ من عداه يقرأ القاعة باسمها عند قسمه. */
+  const rawRegistry=!sectionId&&isPowerUser(req);
   const rooms=eligibleRooms.filter(room=>ids.has(room.buildingId)).map(room=>{
     const shared=isSharedRoom(room);
     const fromDepartmentHistory=departmentHistoryRoomIds.has(room.id);
@@ -160,7 +162,7 @@ app.get("/api/location-registry", requireAuth, async (req:AuthenticatedRequest,r
        room, or an approved barter window remains selectable. */
     const historyNeedsBorrowing=Boolean(fromDepartmentHistory&&!pinnedForDepartment&&!borrowedSet.has(room.id)&&!shared&&room.sectionIds.length&&sectionId&&!room.sectionIds.includes(sectionId));
     return {
-      ...room,
+      ...(rawRegistry?room:roomViewForSection(room,sectionId,registry.roomTypeScopes)),
       fromDepartmentHistory,pinnedForDepartment,historyNeedsBorrowing,
       /* القاعة المستعارة تقول من صاحبها: «S27» وحدها لا تخبر المستعير في
          قاعة مَن يجلس، ومن حقّ صاحبها أن يُذكر اسمه في مختار من استعارها. */
@@ -174,7 +176,7 @@ app.get("/api/location-registry", requireAuth, async (req:AuthenticatedRequest,r
         : [],
     };
   });
-  res.json({version:LOCATION_MIGRATION_VERSION,buildings:openBuildings,rooms,borrowedRoomIds,pendingRoomCode:PENDING_ROOM});
+  res.json({version:LOCATION_MIGRATION_VERSION,buildings:openBuildings,rooms,borrowedRoomIds,pendingRoomCode:PENDING_ROOM,...(rawRegistry?{roomTypeScopes:registry.roomTypeScopes}:{})});
 });
 
 /** Shared studios are campus resources, not permanently attached to teaching rooms or sections. */

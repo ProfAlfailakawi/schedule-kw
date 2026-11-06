@@ -8753,3 +8753,8 @@ html[data-schedule-workspace="presentation"] .schedule-status{padding:0;border:0
 .agenda-place .companion-facility-badge{flex:0 1 auto}
 .lens-room .companion-facility-badge,.print-list-room .companion-facility-badge{margin-inline-start:6px}
 @media print{.companion-facility-badge{background:#fff!important;color:#222!important;border:1px solid #777!important;box-shadow:none!important;padding:1px 4px!important;break-inside:avoid;font-size:8px!important}.companion-facility-badge svg{width:10px;height:10px}.companion-facility-badge bdi{font-size:8px!important}}
+
+.hall-barter-fit{display:grid;grid-template-columns:18px minmax(0,1fr);gap:.4rem;align-items:start;margin:0;padding:.5rem .6rem;border:1px solid #e8d6a9;border-radius:12px;background:#fbf6e9;color:#70551a;font-size:.78rem;line-height:1.5}
+.hall-barter-fit svg{width:16px;height:16px;margin-top:.15rem}
+:root[data-theme="dark"] .hall-barter-fit{background:#3a3120;border-color:#5f4f2c;color:#ecd9a8}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .hall-barter-fit{background:#3a3120;border-color:#5f4f2c;color:#ecd9a8}}
