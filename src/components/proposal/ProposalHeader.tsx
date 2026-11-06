@@ -92,12 +92,12 @@ function siblingCampusLabels(siblings: LauncherPersonRequest[]): Map<string, str
 
 /** طلبان لوسمٍ واحد (سجلٌّ مكرّر لشخصٍ في القسم نفسه) يُرسمان وسماً واحداً — لا وسمان متطابقان يلتفّان تحت بعض. */
 function siblingChips(siblings: LauncherPersonRequest[], labels: Map<string, string>, currentId?: string) {
-  const out: Array<{ first: LauncherPersonRequest; label: string; current: boolean; changed: number }> = [];
+  const out: Array<{ first: LauncherPersonRequest; ids: string[]; label: string; current: boolean; changed: number }> = [];
   for (const entry of siblings) {
     const label = labels.get(entry.id) || entry.campus;
     const held = out.find(chip => chip.label === label);
-    if (held) { held.current ||= entry.id === currentId; held.changed += entry.changedCount || 0; }
-    else out.push({ first: entry, label, current: entry.id === currentId, changed: entry.changedCount || 0 });
+    if (held) { held.ids.push(entry.id); held.current ||= entry.id === currentId; held.changed += entry.changedCount || 0; }
+    else out.push({ first: entry, ids: [entry.id], label, current: entry.id === currentId, changed: entry.changedCount || 0 });
   }
   return out;
 }
@@ -160,7 +160,7 @@ export default function ProposalHeader(props: {
                 {siblingChips(props.siblings, siblingLabels, props.requestId).map(chip => (
                   <button key={chip.first.id} type="button" aria-pressed={chip.current} disabled={!props.onSwitch}
                     title={[chip.first.collegeName, chip.first.sectionName].filter(Boolean).join(" — ")}
-                    onClick={() => { if (!chip.current) props.onSwitch?.(chip.first.id); }} data-guide-ignore="ينقل مساحة المقترح إلى طلب الأستاذ في موقعٍ آخر — لا يكتب شيئاً">
+                    onClick={() => { const at = chip.ids.indexOf(props.requestId || ""); const next = chip.current ? (chip.ids.length > 1 ? chip.ids[(at + 1) % chip.ids.length] : "") : chip.first.id; if (next) props.onSwitch?.(next); }} data-guide-ignore="ينقل مساحة المقترح إلى طلب الأستاذ في موقعٍ آخر — لا يكتب شيئاً">
                     <MapPin aria-hidden="true" />{chip.label}
                     {chip.changed ? <em aria-label={countOf(chip.changed, AR.edit)}>{num(chip.changed)}</em> : null}
                   </button>
