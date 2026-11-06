@@ -47,7 +47,15 @@ function findStep(step: TourStepSpec): HTMLElement | null {
   if (!query) return null;
   return [...document.querySelectorAll<HTMLElement>(query)].find(visible) || null;
 }
+/** الشريط المطوي يتمدد عند المرور فيتحرك العنصر تحت المؤشر: يُفتح ما دامت خطوته قائمة. */
+let railOpenedByTour = false;
+function holdRail(open: boolean) {
+  const root = document.documentElement;
+  if (open && root.dataset.rail === "closed") { root.dataset.rail = "open"; railOpenedByTour = true; }
+  if (!open && railOpenedByTour) { root.dataset.rail = "closed"; railOpenedByTour = false; }
+}
 function revealSidebar(step: TourStepSpec) {
+  holdRail(true);
   const item = document.querySelector<HTMLElement>(`[data-guide-target="${step.target}"]`);
   if (!item) return;
   const drawer = document.querySelector<HTMLElement>(".mobile-dock-more");
@@ -116,6 +124,7 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
     cancel: handle => window.clearTimeout(handle as number),
     onChange: (state, element) => setTourView(state.status === "done" ? null : { state, element }),
     onProgress: (index, step) => {
+      if (!step.sidebar) holdRail(false);
       const meta = metaRef.current;
       if (!meta) return;
       saveTourProgress(userId, meta.feature.id, { step: index, total: 99 });
@@ -130,6 +139,7 @@ export default function GuideAssistant({ open, onClose, activeView, user, permis
         telemetryGuideJourney({ featureId: meta.feature.id, step: "tour", outcome: completed ? "helped" : "abandoned" });
       }
       closeDrawer();
+      holdRail(false);
       setProgress(loadTourProgress(userId));
       setTourMeta(null);
       closeRef.current();
