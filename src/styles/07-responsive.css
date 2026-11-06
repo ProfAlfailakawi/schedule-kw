@@ -1985,3 +1985,20 @@ html[data-demo-admin-readonly="true"] .app-main::before{
     bottom:auto;
   }
 }
+
+/* حافّتا الشاشة المفلوقة (الهاتف الأفقي): الشريطان العلوي والسفلي لا يدخلان تحت الفتحة، فيبقى أول زر وآخره في المتناول. */
+@media screen and (max-width:1119px){
+  .mobile-topbar{padding-inline:max(var(--s4),env(safe-area-inset-left)) max(var(--s4),env(safe-area-inset-right))}
+}
+@media screen and (max-width:768px){
+  .mobile-topbar{padding-inline:max(var(--s3),env(safe-area-inset-left)) max(var(--s3),env(safe-area-inset-right))}
+}
+@media screen and (max-width:900px){
+  .mobile-bottom-dock{padding-inline:max(var(--s2),env(safe-area-inset-left)) max(var(--s2),env(safe-area-inset-right))}
+}
+
+/* تذييل الدخول على 320: «تجربة النظام» لا تنكسر على سطرين (كانت تنتفخ كبسولةً طويلة)؛ وتتنازل السنةُ بجوار التوقيع عن موضعها. */
+.demo-entry-link{white-space:nowrap;flex:none}
+@media (max-width:340px){
+  .apex-login-signature small{display:none}
+}

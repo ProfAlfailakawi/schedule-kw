@@ -1635,7 +1635,13 @@ export default function App() {
       setSidebarOpen(false);
     };
     window.addEventListener("pointerdown", dismiss);
-    return () => window.removeEventListener("pointerdown", dismiss);
+    /* On a phone the rail is a drawer: Escape closes it like any dialog, and it takes focus on opening so a keyboard
+       reader is not left behind the backdrop. On a desk the rail is a permanent column and keeps both as they were. */
+    const drawer = !window.matchMedia("(min-width:1120px)").matches;
+    const escape = (event: KeyboardEvent) => { if (drawer && event.key === "Escape") setSidebarOpen(false); };
+    window.addEventListener("keydown", escape);
+    if (drawer) document.querySelector<HTMLElement>("#app-sidebar .sidebar-close")?.focus({ preventScroll: true });
+    return () => { window.removeEventListener("pointerdown", dismiss); window.removeEventListener("keydown", escape); };
   }, [sidebarOpen]);
   const go = (view: View) => {
     prefetchView(view);
