@@ -60,6 +60,10 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
   }, [roster]);
   if (!roster) return error ? <Notice>{error}</Notice> : <p>⏳</p>;
   const shown = roster.people.filter(person => rosterGroupOf(person) === group);
+  /* الزرّ ظاهرٌ دائماً: تعطيلُ النصاب أو خلوُّ الدرجات يُقال داخل المحرّر، ولا يختفي الزرّ بلا سبب. */
+  const editorNote = !roster.ranks.length
+    ? "لم تُعرَّف درجاتٌ علمية بعد؛ يعرّفها المدير الرئيسي من «النصاب التدريسي»."
+    : roster.enabled ? "" : "النصاب غير مفعّل: تُحفظ الدرجة الآن، وتُحتسب حدودها حين يفعّله المدير الرئيسي.";
   const icons = { faculty: UsersRound, ta: GraduationCap, sabbatical: BookOpenCheck, retired: Archive };
   return (
     <div className="dept-roster">
@@ -96,7 +100,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
                 {person.exception ? <ExceptionBadge reason={person.exception.reason as any} /> : null}
               </div>
               <div className="dept-roster-actions">
-                {roster.enabled ? <button type="button" disabled={busy} onClick={() => setEditing(person)} data-guide-ignore="يفتح محرّر الدرجة العلمية؛ لا يحفظ حتى «تطبيق»"><Scale aria-hidden="true" />الدرجة العلمية</button> : null}
+                <button type="button" disabled={busy} onClick={() => { setError(""); setEditing(person); }} data-guide-ignore="يفتح محرّر الدرجة العلمية؛ لا يحفظ حتى «تطبيق»"><Scale aria-hidden="true" />الدرجة العلمية</button>
                 {person.AdInstructorCategory === "ta" ? <button type="button" disabled={busy}
                   onClick={() => void confirmed(person, "تحويله إلى أستاذ", `${person.name}: يصبح أستاذاً ولا يعود TA من هذه الشاشة.`, "حوّله", { category: null })} data-guide-ignore="يحوّل TA إلى أستاذ؛ لا يغيّر المواعيد السابقة"><GraduationCap aria-hidden="true" />حوّله أستاذاً</button> : null}
                 <button type="button" disabled={busy} className={person.AdInstructorStatus === "sabbatical" ? "on" : ""} aria-pressed={person.AdInstructorStatus === "sabbatical"}
@@ -110,7 +114,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
       ) : <p className="sd-muted">لا أحد في هذه المجموعة.</p>}
       {editing ? createPortal(
         <LoadExceptionEditor name={editing.name} ranks={roster.ranks} value={editing.assignment} terms={roster.terms} hours={editing.hours}
-          readOnly={false} busy={busy} onApply={next => void save(editing, { load: next || {} })} onClose={() => setEditing(null)} />,
+          readOnly={false} busy={busy} raised error={error} note={editorNote} onApply={next => void save(editing, { load: next || {} })} onClose={() => setEditing(null)} />,
         document.body,
       ) : null}
     </div>

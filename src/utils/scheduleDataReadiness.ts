@@ -22,13 +22,14 @@ export interface DataReadinessInput {
   rooms: any[];
   normalizeRow?: (row: any) => any;
   roomTypeOptions?: string[];
+  roomTypeScopes?: Record<string, number[]>;
 }
 
-export function computeScheduleDataReadiness({ rows, courses, instructorIds, rooms: registryRooms, normalizeRow, roomTypeOptions=[] }: DataReadinessInput) {
+export function computeScheduleDataReadiness({ rows, courses, instructorIds, rooms: registryRooms, normalizeRow, roomTypeOptions, roomTypeScopes }: DataReadinessInput) {
   const scheduleRows = normalizeRow ? rows.map(row => normalizeRow(row)) : rows;
   const courseById = new Map(courses.map(course => [Number(course.AdCourseId), course]));
   const roomById = new Map(registryRooms.map(room => [String(room.id), room]));
-  const registeredRoomTypes=[...new Set((roomTypeOptions.length?roomTypeOptions:registryRooms.filter(room=>room.active!==false&&room.confidence!=="UNVERIFIED").map(room=>String(room.roomType||""))).map(type=>String(type||"").normalize("NFKC").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));
+  const registeredRoomTypes=[...new Set((roomTypeOptions?roomTypeOptions:registryRooms.filter(room=>room.active!==false&&room.confidence!=="UNVERIFIED").map(room=>String(room.roomType||""))).map(type=>String(type||"").normalize("NFKC").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));
   const missing = new Map<string, DataGapItem>();
   const sectionsByCourse=new Map<number,Set<string>>();
   for(const row of scheduleRows){const id=Number(row.AdCourseId||0);if(!id)continue;const set=sectionsByCourse.get(id)||new Set<string>();set.add(String(row.SCode||row.id));sectionsByCourse.set(id,set);}
@@ -75,7 +76,7 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
         const estimatedSeats=Number(course.MaxStudent)>0?Math.ceil(Number(course.MaxStudent)/sectionCount):0;
         if(estimatedSeats>0&&Number(room.capacity)>0&&estimatedSeats>Number(room.capacity))fitIssues.push({kind:"capacity",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,capacity:Number(room.capacity),requiredSeats:estimatedSeats,detail:`تقديريًا ${countOf(estimatedSeats,AR.seat)} مقابل سعة ${countOf(Number(room.capacity),AR.seat)}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
         else if(estimatedSeats>0&&!Number(room.capacity))unknownRoomCapacity++;
-        const requiredType=String(course.CourseRoomType||"").trim(),actualType=roomTypeIn(room as any,row.AdSectionId);
+        const requiredType=String(course.CourseRoomType||"").trim(),actualType=roomTypeIn(room as any,row.AdSectionId,roomTypeScopes);
         if(requiredType&&actualType&&requiredType!==actualType)fitIssues.push({kind:"room-type",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,preferredType:requiredType,actualType,detail:`المقرر يفضّل ${requiredType} والقاعة من نوع ${actualType}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
       }
     }

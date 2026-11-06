@@ -1456,6 +1456,9 @@
   box-shadow:var(--shadow-lg);
   animation:drawer-in .26s var(--ease-out) both;
 }
+/* درجٌ مفتوحٌ من داخل ورقة أدوات الجدول: فوق طبقتها (500) وفوق شريط الجوال السفلي. */
+.catalog-form-backdrop.is-raised{z-index:520}
+.catalog-form-drawer.is-raised{z-index:521;padding-block-end:calc(var(--s6) + env(safe-area-inset-bottom))}
 /* The heading keeps clear of the close button's corner so the title and the ✕
    never share the same pixels. */
 .catalog-form-drawer .page-heading{padding-top:0;padding-inline-end:44px}
@@ -2827,3 +2830,16 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .first-login .first-login-greeting{margin-top:10px;font-size:15px;line-height:1.6;color:var(--muted)}
 .first-login .first-login-greeting b{display:block;margin-top:2px;font-size:19px;font-weight:700;line-height:1.5;color:var(--ink);overflow-wrap:anywhere}
 .first-login .first-login-lead{margin-top:6px;font-size:var(--t-sm,13px);line-height:1.7;color:var(--muted)}
+
+.location-type-row{flex-wrap:wrap}
+.location-type-scope{display:inline-flex;align-items:center;gap:4px;min-height:28px;max-width:100%;padding:2px 9px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted,inherit);font:inherit;font-size:.74rem;cursor:pointer}
+.location-type-scope svg{width:13px;height:13px;flex:none}
+.location-type-scope span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.location-type-scope-panel{display:grid;gap:8px;flex:1 0 100%;padding:8px 0 4px}
+.location-type-scope-panel p{margin:0;font-size:.8rem}
+.location-type-scope-list{display:grid;gap:4px;max-height:200px;overflow:auto}
+.location-type-scope-list label{display:flex;align-items:center;gap:8px;min-height:32px;font-size:.84rem}
+.location-type-scope-list input{min-width:0;width:auto}
+.location-type-scope-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px}
+.location-type-row:has(.location-type-scope-panel){grid-column:1/-1}
+.location-type-scope-list label{display:grid;grid-template-columns:18px minmax(0,1fr);justify-items:start}

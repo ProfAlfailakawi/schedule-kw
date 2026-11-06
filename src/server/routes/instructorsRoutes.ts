@@ -24,7 +24,8 @@ import { dataContextCacheKey } from "../core/locations";
 import { sortArabicNamed, sortTermsNewestServer } from "../core/ordering";
 import { filterByScope, instructorsForReader, isScopeAllowed } from "../core/scope";
 import { collegeFallbackInstructorIds, placeholderInstructorIds } from "../core/smartImport";
-import { readLiveVisitingRoster } from "../core/visiting";
+import { readLiveVisitingRoster, readVisitingStatus } from "../core/visiting";
+import { rosterMemberIds } from "../../utils/rosterGroups";
 
 /**
  * ── الرقم المدني والهاتف لأهل القسم وحدهم ──────────────────────────────────
@@ -350,11 +351,15 @@ app.delete("/api/instructors/:id", requirePermission(3), async (req: Request, re
  * المعرّف يُقرأ من أساتذة القسم وصفوف جدوله، فلا يلمس أحدٌ سجلَّ من ليس في قسمه.
  * لا رقم مدني ولا هاتف في الردّ. */
 /* العضوية من سجلّ القسم كلّه: المتقاعدُ وTA قد لا يكون لهما موعدٌ هذا الفصل، فلا يكفي
- * الفصلُ المعروض ولا فرعٌ واحد؛ تُقرأ مواعيدُ عائلة القسم في كل الفصول. */
+ * الفصلُ المعروض ولا فرعٌ واحد؛ تُقرأ مواعيدُ عائلة القسم في كل الفصول.
+ * والمنتدب ليس من أساتذة القسم: اختبارُ «منتدب» نفسُه (readVisitingStatus) بعائلة القسم وبلا فصل،
+ * فالقائمة لا فصل لها. ولأن القراءة والكتابة تمرّان من هنا فالمنتدب لا يُعدَّل من هذا الباب أيضاً. */
 async function sectionRosterIds(collegeId: number, sectionId: number): Promise<Set<number>> {
-  const [faculty, family] = await Promise.all([Repository.getDepartmentFaculty(collegeId, sectionId), Repository.familyOf(collegeId, sectionId)]);
+  const [faculty, family, visiting, people] = await Promise.all([
+    Repository.getDepartmentFaculty(collegeId, sectionId), Repository.familyOf(collegeId, sectionId), readVisitingStatus(collegeId, sectionId), Repository.getInstructors(),
+  ]);
   const rows = (await Promise.all(family.map(member => Repository.getSchedulesByScope({ collegeId: member.collegeId, sectionId: member.sectionId })))).flat();
-  return new Set<number>([...faculty.map(Number), ...(rows as any[]).map(row => Number(row.AdInstructorId)).filter(Boolean)]);
+  return rosterMemberIds({ faculty, taught: (rows as any[]).map(row => row.AdInstructorId), delegates: visiting.instructorIds, people: people as any[] });
 }
 
 app.get("/api/section-roster", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {

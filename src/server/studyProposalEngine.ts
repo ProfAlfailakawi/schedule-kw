@@ -610,6 +610,7 @@ export async function suggestAlternatives(
   const expectedType = String(course?.CourseRoomType || "").trim();
   const neededCapacity = Number(course?.MaxStudent || 0);
   const masterById = new Map(registry.rooms.map(room => [String(room.id), room]));
+  const roomTypeScopes = await Repository.getLocationRoomTypeScopes();
 
   const options: Array<{ days: StudyProposalDayKey[]; start: number; room: Room | null; rank: number }> = [];
   for (const days of variants) {
@@ -621,7 +622,8 @@ export async function suggestAlternatives(
         const dayShift = days.join() === daysOf(op.target).join() ? 0 : 90;
         let rank = Math.abs(start - baseStart) + dayShift + (roomChanged ? 14 : 0);
         const record = room ? masterById.get(room.roomId) : undefined;
-        if (expectedType && roomTypeIn(record, course?.AdSectionId) && roomTypeIn(record, course?.AdSectionId) !== expectedType) rank += 35;
+        const seenType = roomTypeIn(record, course?.AdSectionId, roomTypeScopes);
+        if (expectedType && seenType && seenType !== expectedType) rank += 35;
         if (neededCapacity > 0 && Number(record?.capacity) > 0 && Number(record?.capacity) < neededCapacity) rank += 45;
         options.push({ days, start, room, rank });
       }

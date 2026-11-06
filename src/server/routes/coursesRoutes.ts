@@ -10,6 +10,8 @@ import type { Express } from "express";
 import { Response } from "express";
 import { DuplicateResourceError, Repository } from "../../db/repository";
 import { roomTypeSiblingIds } from "../../utils/courseRoomTypeSync";
+import type { MasterRoom } from "../../types";
+import { visibleRoomTypes } from "../../utils/roomTypeForSection";
 import { toEnglishDigits } from "../../utils/digits";
 import { normalizeArabicText } from "../../utils/arabicText";
 import type { AdCourse, CurriculumDegreeRule } from "../../types";
@@ -129,14 +131,17 @@ app.get("/api/location-room-types", requireAnyPermission([6, 7]), async (req:Aut
     if(sectionId&&!room.sectionIds.includes(sectionId))continue;
     if(!sectionId&&collegeId&&!room.collegeIds.includes(collegeId))continue;
     const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);
+    const own=String(room.sectionRoomTypes?.[String(sectionId)]||"").normalize("NFKC").trim();if(own)types.add(own);
   }
-  res.json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar"))});
+  /* قائمةُ كل قسمٍ عامٌّ ونوعُه؛ والمديرُ بلا قسمٍ يرى الكل ليضبطه. */
+  const power=!sectionId&&isPowerUser(req);
+  res.json({types:visibleRoomTypes([...types],power?null:sectionId,registry.roomTypeScopes).sort((a,b)=>a.localeCompare(b,"ar")),...(power?{scopes:registry.roomTypeScopes}:{})});
 });
 
 app.get("/api/admin/location-room-types",requirePermission(7),requireRootAdmin,async(_req:AuthenticatedRequest,res:Response)=>{
   const [configured,registry,courses]=await Promise.all([Repository.getLocationRoomTypes(),readLocationRegistry(),Repository.getCourses()]);
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
-  registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  registry.rooms.forEach(room=>{for(const value of [room.roomType,...Object.values(room.sectionRoomTypes||{})]){const type=String(value||"").normalize("NFKC").trim();if(type)types.add(type);}});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   res.json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar"))});
@@ -146,7 +151,7 @@ app.post("/api/admin/location-room-types",requirePermission(7),requireRootAdmin,
   if(!name||name.length>60){res.status(400).json({error:"أدخل اسم نوع من حرف إلى 60 حرفًا."});return;}
   const [configured,registry,courses]=await Promise.all([Repository.getLocationRoomTypes(),readLocationRegistry(),Repository.getCourses()]);
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
-  registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  registry.rooms.forEach(room=>{for(const value of [room.roomType,...Object.values(room.sectionRoomTypes||{})]){const type=String(value||"").normalize("NFKC").trim();if(type)types.add(type);}});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   if([...types].some(type=>type.toLocaleLowerCase("ar")===name.toLocaleLowerCase("ar"))){res.status(409).json({error:"هذا النوع موجود مسبقًا."});return;}
@@ -158,34 +163,50 @@ app.put("/api/admin/location-room-types/:type",requirePermission(7),requireRootA
   if(!oldName||!newName||newName.length>60){res.status(400).json({error:"أدخل اسم نوع من حرف إلى 60 حرفًا."});return;}
   const [configured,registry,courses]=await Promise.all([Repository.getLocationRoomTypes(),readLocationRegistry(),Repository.getCourses()]);
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
-  registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  registry.rooms.forEach(room=>{for(const value of [room.roomType,...Object.values(room.sectionRoomTypes||{})]){const type=String(value||"").normalize("NFKC").trim();if(type)types.add(type);}});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   if(!types.has(oldName)){res.status(404).json({error:"نوع القاعة غير موجود."});return;}
   if([...types].some(type=>type!==oldName&&type.toLocaleLowerCase("ar")===newName.toLocaleLowerCase("ar"))){res.status(409).json({error:"يوجد نوع آخر بهذا الاسم."});return;}
   if(oldName===newName){res.json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar")),updatedRooms:0,updatedCourses:0});return;}
   const now=new Date().toISOString();
-  const changedRooms=registry.rooms.filter(room=>String(room.roomType||"").normalize("NFKC").trim()===oldName).map(room=>({...room,roomType:newName,updatedAt:now,auditHistory:[...(room.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:"UPDATE"}]}));
+  const inRoom=(room:MasterRoom)=>[room.roomType,...Object.values(room.sectionRoomTypes||{})].some(value=>String(value||"").normalize("NFKC").trim()===oldName);
+  const changedRooms=registry.rooms.filter(inRoom).map(room=>({...room,roomType:String(room.roomType||"").normalize("NFKC").trim()===oldName?newName:room.roomType,sectionRoomTypes:Object.fromEntries(Object.entries(room.sectionRoomTypes||{}).map(([id,value])=>[id,String(value||"").normalize("NFKC").trim()===oldName?newName:value])),updatedAt:now,auditHistory:[...(room.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:"UPDATE"}]}));
   const updatedCourses=await Repository.renameCourseRoomType(oldName,newName);
   await Repository.upsertLocationRooms(changedRooms);
-  types.delete(oldName);types.add(newName);await Repository.setLocationRoomTypes([...types]);invalidateLocationRegistry();
+  types.delete(oldName);types.add(newName);await Repository.setLocationRoomTypes([...types]);
+  if(registry.roomTypeScopes[oldName]){const {[oldName]:owners,...scopes}=registry.roomTypeScopes;await Repository.setLocationRoomTypeScopes({...scopes,[newName]:owners});}
+  invalidateLocationRegistry();
   res.json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar")),updatedRooms:changedRooms.length,updatedCourses});
 });
 
+/* «هذا النوع لنا»: تخصيصُ نوعٍ بأقسامه، بصلاحية إدارة الأنواع نفسها. قائمةٌ فارغة تعيده عامًّا. */
+app.put("/api/admin/location-room-types/:type/scope",requirePermission(7),requireRootAdmin,async(req:AuthenticatedRequest,res:Response)=>{
+  const name=String(req.params.type||"").normalize("NFKC").trim();
+  const [registry,sections]=await Promise.all([readLocationRegistry(true),Repository.getSections()]);
+  const known=new Set(sections.map(section=>Number(section.AdSectionId)));
+  const sectionIds=Array.isArray(req.body?.sectionIds)?[...new Set(req.body.sectionIds.map(Number))] as number[]:[];
+  if(!name){res.status(400).json({error:"نوع القاعة مطلوب."});return;}
+  if(sectionIds.some(id=>!known.has(id))){res.status(400).json({error:"أحد الأقسام المحددة غير موجود."});return;}
+  const scopes={...registry.roomTypeScopes,[name]:sectionIds};
+  await Repository.setLocationRoomTypeScopes(scopes);invalidateLocationRegistry();
+  res.json({scopes:await Repository.getLocationRoomTypeScopes()});
+});
 app.delete("/api/admin/location-room-types/:type",requirePermission(7),requireRootAdmin,async(req:AuthenticatedRequest,res:Response)=>{
   const name=String(req.params.type||"").normalize("NFKC").trim();
   if(!name){res.status(400).json({error:"اختر نوع القاعة المراد حذفه."});return;}
   const [configured,registry,courses]=await Promise.all([Repository.getLocationRoomTypes(),readLocationRegistry(),Repository.getCourses()]);
   const types=new Set(configured.length?configured:["تدريسية","مختبر","مختبر حاسوب"]);
-  registry.rooms.forEach(room=>{const type=String(room.roomType||"").normalize("NFKC").trim();if(type)types.add(type);});
+  registry.rooms.forEach(room=>{for(const value of [room.roomType,...Object.values(room.sectionRoomTypes||{})]){const type=String(value||"").normalize("NFKC").trim();if(type)types.add(type);}});
   courses.forEach(course=>{const type=String(course.CourseRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   courses.forEach(course=>{const type=String(course.CourseCompanionRoomType||"").normalize("NFKC").trim();if(type)types.add(type);});
   if(!types.has(name)){res.status(404).json({error:"نوع القاعة غير موجود."});return;}
-  const linkedRooms=registry.rooms.filter(room=>String(room.roomType||"").normalize("NFKC").trim()===name).length;
+  const linkedRooms=registry.rooms.filter(room=>[room.roomType,...Object.values(room.sectionRoomTypes||{})].some(value=>String(value||"").normalize("NFKC").trim()===name)).length;
   const linkedCourses=courses.filter(course=>[course.CourseRoomType,course.CourseCompanionRoomType].some(type=>String(type||"").normalize("NFKC").trim()===name)).length;
   if(linkedRooms||linkedCourses){res.status(409).json({error:`لا يمكن حذف «${name}» لأنه مرتبط بـ ${countOf(linkedRooms,AR.room)} و${countOf(linkedCourses,AR.course)}. غيّر ارتباطاتها أولاً.`});return;}
   if(types.size<=1){res.status(409).json({error:"أبقِ نوعًا واحدًا على الأقل للقاعات."});return;}
   types.delete(name);await Repository.setLocationRoomTypes([...types]);
+  if(registry.roomTypeScopes[name]){const {[name]:_gone,...scopes}=registry.roomTypeScopes;await Repository.setLocationRoomTypeScopes(scopes);invalidateLocationRegistry();}
   res.json({types:[...types].sort((a,b)=>a.localeCompare(b,"ar")),deleted:name});
 });
 

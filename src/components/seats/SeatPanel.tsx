@@ -270,7 +270,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
         </div>
         <div className="seat-holder-actions">
           {detail.canHandOver ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" onClick={() => setSheet({ kind: "handover" })} disabled={busy}><ArrowLeftRight aria-hidden="true" /> تسليم الرئاسة</button> : null}
-          {detail.canManage && source === "seat" && detail.holder ? <button data-guide-ignore="يعرض بطاقة دخول رئيس الفريق لإرسالها إليه؛ لا يغيّر كلمة المرور ولا بيانات" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holderCard" })} disabled={busy}><IdCard aria-hidden="true" /> البطاقة</button> : null}
+          {detail.canManage && source === "seat" ? <button data-guide-ignore="يعرض بطاقة دخول رئيس الفريق لإرسالها إليه؛ لا يغيّر كلمة المرور ولا بيانات" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holderCard" })} disabled={busy}><IdCard aria-hidden="true" /> البطاقة</button> : null}
           {detail.canManage && source === "seat" && !detail.holder ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holder" })} disabled={busy}><Crown aria-hidden="true" /> سجّل الرئيس الحالي</button> : null}
         </div>
       </section>
@@ -356,8 +356,9 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
               <SeatLinkCard title={sheet.title} subtitle={sheet.subtitle} url={sheet.url} mobile={sheet.mobile} message={sheet.message} credentials={sheet.credentials} note={sheet.note} fileStem={sheet.fileStem}
                 onDone={() => { const after = sheet.after; closeSheet(); after?.(); }} />
             ) : null}
-            {sheet.kind === "holderCard" && detail.holder ? (
-              <SeatHolderCard origin={origin()} seat={detail.seat} holder={detail.holder} onDone={closeSheet}
+            {/* فريقٌ بلا رئيسٍ مسجَّل: البطاقة باسم الكرسي، كما كانت في «المستخدمون»، فلا يبقى حسابٌ بلا بطاقة. */}
+            {sheet.kind === "holderCard" ? (
+              <SeatHolderCard origin={origin()} seat={detail.seat} holder={detail.holder || { name: detail.seat.name }} onDone={closeSheet}
                 onReissue={detail.canReissuePassword ? async () => {
                   const result = await call<{ password: string }>(`/api/seats/${id}/first-password`, { method: "POST" });
                   onChanged?.(); void load();
