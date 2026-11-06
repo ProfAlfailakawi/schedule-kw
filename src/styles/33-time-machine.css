@@ -23,7 +23,8 @@
 .tm-ask>svg{color:var(--danger);width:24px;height:24px}
 .tm-ask input{min-height:var(--ix-tap);border:0;background:transparent;font:inherit;font-size:var(--ix-card);color:var(--ink);outline:none}
 .tm-examples{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
-.tm-examples button{border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);border-radius:var(--r-full);padding:6px 12px;font:inherit;font-size:var(--t-sm);cursor:pointer}
+.tm-examples{min-inline-size:0}
+.tm-examples button{max-inline-size:100%;white-space:normal;text-align:start;line-height:1.5;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);border-radius:var(--r-full);padding:6px 12px;font:inherit;font-size:var(--t-sm);cursor:pointer}
 
 .tm-solutions h2{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:var(--ix-section);margin:0 0 10px}
 .tm-solutions h2 small{color:var(--muted);font-size:var(--t-sm);font-weight:500}
