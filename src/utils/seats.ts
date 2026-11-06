@@ -152,6 +152,11 @@ export function isSeatRole(role: unknown): boolean {
   return roleDefinition(role).id !== "standard";
 }
 
+/** لهذا الحساب بطاقةُ دخول في «الفرق»؟ ما ليس كرسياً (مستخدمٌ عادي، حسابُ إدارة) بطاقتُه في «المستخدمون». */
+export function hasTeamCard(user: { IsAdminUser?: unknown; Role?: unknown }): boolean {
+  return !user.IsAdminUser && isSeatRole(user.Role);
+}
+
 const today = (now = new Date()) => now.toISOString().slice(0, 10);
 
 /** النائبُ قائمٌ حتى آخر يوم نهايته، ثم يعود كلُّ شيءٍ إلى الشاغل وحده. */

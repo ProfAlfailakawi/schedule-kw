@@ -68,9 +68,9 @@ export function ExceptionBadge({ reason, untilName }: { reason?: LoadExceptionRe
  * محرّرُ استثناء عضوٍ واحد: درجتُه، وحدودٌ خاصّة به (فارغٌ = من الدرجة)، وسببٌ برقاقة، وفصلُ انتهاءٍ اختياري.
  * لا يحفظ بنفسه: `onApply` يتسلّم الإسناد الجديد (أو null لإزالة كل ما للعضو).
  */
-export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, readOnly = false, busy = false, onApply, onClose }: {
+export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, readOnly = false, busy = false, raised = false, note = "", error = "", onApply, onClose }: {
   name: string; ranks: AcademicRank[]; value: TeachingLoadAssignment; terms: TermOption[]; hours?: number;
-  readOnly?: boolean; busy?: boolean; onApply: (next: TeachingLoadAssignment | null) => void; onClose: () => void;
+  readOnly?: boolean; busy?: boolean; raised?: boolean; note?: string; error?: string; onApply: (next: TeachingLoadAssignment | null) => void; onClose: () => void;
 }) {
   const [draft, setDraft] = useState<TeachingLoadAssignment>(() => ({ ...value }));
   const [hint, setHint] = useState("");
@@ -100,7 +100,7 @@ export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, read
   };
 
   return (
-    <CatalogFormDrawer label={`استثناء النصاب: ${name}`} onClose={onClose}>
+    <CatalogFormDrawer label={`استثناء النصاب: ${name}`} onClose={onClose} raised={raised}>
       <div className="tl-editor">
         <header className="tl-editor-head">
           <span className="tl-mark"><UserCog aria-hidden="true" /></span>
@@ -111,6 +111,7 @@ export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, read
           {overriding ? <ExceptionBadge reason={draft.reason} /> : null}
         </header>
 
+        {note ? <p className="tl-round-hint" role="status">{note}</p> : null}
         <label className="tl-editor-rank">
           <span>الدرجة العلمية</span>
           <select value={draft.rankId || ""} disabled={readOnly} onChange={event => patch({ rankId: event.target.value || undefined })} aria-label={`درجة ${name}`}>
@@ -160,7 +161,7 @@ export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, read
           </select>
         </label>
 
-        {problem ? <p className="tl-problem" role="alert">{problem}</p> : null}
+        {problem || error ? <p className="tl-problem" role="alert">{problem || error}</p> : null}
         <div className="tl-editor-actions">
           <PrimaryButton type="button" disabled={readOnly || busy || Boolean(problem)} data-guide-ignore="تطبيق استثناء نصاب العضو؛ لا يغيّر جدولاً"
             onClick={() => onApply(clean(draft))}>{busy ? "جارٍ الحفظ…" : "تطبيق"}</PrimaryButton>

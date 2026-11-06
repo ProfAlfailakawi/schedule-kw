@@ -325,12 +325,13 @@ export function useDrawerA11y<T extends HTMLElement>(onClose: () => void) {
   return ref;
 }
 /** The academic add/edit side panel: a backdrop, a keyboard-complete drawer, one close. */
-export function CatalogFormDrawer({ label, onClose, children, wide = false }: { label: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+/* `raised`: درجٌ يُفتح من داخل ورقة (`.transfer-backdrop` طبقتها 500) لا من صفحة؛ بطبقته العادية 121 يُرسم تحتها فلا يُرى ولا يُلمس. */
+export function CatalogFormDrawer({ label, onClose, children, wide = false, raised = false }: { label: string; onClose: () => void; children: React.ReactNode; wide?: boolean; raised?: boolean }) {
   const ref = useDrawerA11y<HTMLElement>(onClose);
   return (
     <>
-      <div className="catalog-form-backdrop no-print" onMouseDown={onClose} aria-hidden="true" />
-      <aside ref={ref} className={`content-stack editor-page catalog-form-drawer no-print ${wide ? "catalog-form-drawer-wide" : ""}`.trim()} role="dialog" aria-modal="true" aria-label={label}>
+      <div className={`catalog-form-backdrop no-print ${raised ? "is-raised" : ""}`.trim()} onMouseDown={onClose} aria-hidden="true" />
+      <aside ref={ref} className={`content-stack editor-page catalog-form-drawer no-print ${wide ? "catalog-form-drawer-wide" : ""} ${raised ? "is-raised" : ""}`.trim()} role="dialog" aria-modal="true" aria-label={label}>
         <button type="button" className="drawer-close catalog-drawer-close" onClick={onClose} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
         {children}
       </aside>

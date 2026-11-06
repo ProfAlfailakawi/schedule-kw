@@ -1456,6 +1456,9 @@
   box-shadow:var(--shadow-lg);
   animation:drawer-in .26s var(--ease-out) both;
 }
+/* درجٌ مفتوحٌ من داخل ورقة أدوات الجدول: فوق طبقتها (500) وفوق شريط الجوال السفلي. */
+.catalog-form-backdrop.is-raised{z-index:520}
+.catalog-form-drawer.is-raised{z-index:521;padding-block-end:calc(var(--s6) + env(safe-area-inset-bottom))}
 /* The heading keeps clear of the close button's corner so the title and the ✕
    never share the same pixels. */
 .catalog-form-drawer .page-heading{padding-top:0;padding-inline-end:44px}

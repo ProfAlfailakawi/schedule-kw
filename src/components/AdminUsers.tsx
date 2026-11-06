@@ -5,6 +5,7 @@ import LocationQuickSetup from "./LocationQuickSetup";
 import SectionScheduleHours from "./SectionScheduleHours";
 import TeachingLoadSettings from "./TeachingLoadSettings";
 import AccountInvitation from "./AccountInvitation";
+import { hasTeamCard } from "../utils/seats";
 import SeatsAdmin from "./seats/SeatsAdmin";
 import { Activity, ArchiveRestore, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
 import {
@@ -1719,7 +1720,10 @@ export default function AdminUsers({
                     <b>{selected.SystemUserId}</b>
                   </article>
                 </div>
-                <AccountInvitation name={selected.Name} login={selected.SystemUserLogin} active={selected.IsActive && !selected.IsLocked} hasPassword={selected.HasPassword} passwordExpired={Boolean((selected as any).MustChangePassword && (selected as any).InitialPasswordExpiresAt && Date.parse((selected as any).InitialPasswordExpiresAt) <= Date.now())} />
+                {/* بطاقةُ الكرسي في «الفرق» وحدها؛ وما لا كرسيَّ له (مستخدمٌ عادي، حسابُ إدارة) لا بابَ له غير هذا. */}
+                {hasTeamCard(selected)
+                  ? <p className="users-card-moved">بطاقة الدخول لهذا الحساب في «الفرق». <button type="button" className="btn btn-ghost btn-sm" data-guide-ignore="ينتقل إلى شاشة الفرق؛ لا يغيّر بيانات" onClick={() => onNavigate?.("seats")}>افتح الفرق</button></p>
+                  : <AccountInvitation name={selected.Name} login={selected.SystemUserLogin} active={selected.IsActive && !selected.IsLocked} hasPassword={selected.HasPassword} passwordExpired={Boolean((selected as any).MustChangePassword && (selected as any).InitialPasswordExpiresAt && Date.parse((selected as any).InitialPasswordExpiresAt) <= Date.now())} />}
                 {/* Note 26: the permission editor lives here now — pick a user on the
                     left and set exactly what they can reach, with no separate tab. */}
                 <section className="inspector-permissions" aria-label="صلاحيات المستخدم">

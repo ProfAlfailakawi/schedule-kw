@@ -72,9 +72,9 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
   check(pendingBlank.url.endsWith("/i/techdept") && pendingBlank.note.includes("ينتظر أن يختار كلمة سرّه"), "C3 بلا كلمة مكتوبة: اسم الدخول وحده، والبطاقة تشرح", pendingBlank);
   const panel = read("src/components/seats/SeatPanel.tsx");
   const holderLine = panel.split("\n").find(line => line.includes('setSheet({ kind: "holderCard" })')) || "";
-  check(holderLine.includes('detail.canManage && source === "seat" && detail.holder ? <button') && holderLine.includes('<IdCard aria-hidden="true" /> البطاقة</button>')
+  check(holderLine.includes('detail.canManage && source === "seat" ? <button') && holderLine.includes('<IdCard aria-hidden="true" /> البطاقة</button>')
     && panel.indexOf(holderLine) > panel.indexOf('className="seat-holder-actions"'), "C3 زر «البطاقة» على «يجلس على الكرسي» لمدير النظام", holderLine);
-  check(panel.includes('sheet.kind === "holderCard" && detail.holder ? (') && panel.includes("<SeatHolderCard origin={origin()} seat={detail.seat} holder={detail.holder}"), "C3 الزر يفتح بطاقة الشاغل");
+  check(panel.includes('sheet.kind === "holderCard" ? (') && panel.includes("<SeatHolderCard origin={origin()} seat={detail.seat} holder={detail.holder || { name: detail.seat.name }}"), "C3 الزر يفتح بطاقة الشاغل");
   const seat = { login: "techdept", name: "قسم تكنولوجيا التعليم", roleLabel: "رئيس لجنة الجدول" };
   const htmlChosen = renderToStaticMarkup(<SeatHolderCard origin="https://schedule-kw.com" seat={{ ...seat, mustChangePassword: false }} holder={{ name: "د. بدر" }} />);
   check(htmlChosen.includes("د. بدر") && htmlChosen.includes("رئيس لجنة الجدول · قسم تكنولوجيا التعليم") && htmlChosen.includes("كلمة سرّه بنفسه") && !htmlChosen.includes("<input"), "C3 بطاقة الشاغل تُرسم؛ اختار كلمته: لا حقل كلمة");
