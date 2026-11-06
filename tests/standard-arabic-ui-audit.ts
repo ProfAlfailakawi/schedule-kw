@@ -93,7 +93,7 @@ function isInputMatcher(node: ts.Node): boolean {
       return false;
     }
     if (ts.isNewExpression(cur) && ts.isIdentifier(cur.expression) && cur.expression.text === "RegExp") return true;
-    if (ts.isPropertyAssignment(cur) && /^(keywords|aliases|synonyms)$/.test(cur.name.getText())) return true;
+    if (ts.isPropertyAssignment(cur) && /^(keywords|aliases|synonyms|q)$/.test(cur.name.getText())) return true;
     if (ts.isBlock(cur) || ts.isSourceFile(cur)) return false;
   }
   return false;
