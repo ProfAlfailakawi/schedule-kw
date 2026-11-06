@@ -490,7 +490,7 @@ export default function HallBarterBoard({
                     {opportunity.fit?.warn ? (
                       <p className="hall-barter-fit" role="status"><AlertTriangle aria-hidden="true" /><span>
                         {opportunity.fit.specialised ? "قاعة متخصصة لقسم آخر وقد لا تناسب مقررات قسمك." : null}
-                        {opportunity.fit.capacityShort ? ` سعتها ${countOf(opportunity.fit.capacity, AR.seat)} وأكبر شعبة عندك ${countOf(opportunity.fit.seats, AR.seat)}.` : null}
+                        {opportunity.fit.capacityShort ? ` سعتها ${countOf(opportunity.fit.capacity, AR.seat)} وأكبر شعبة لديك ${countOf(opportunity.fit.seats, AR.seat)}.` : null}
                         {" "}يمكنك الطلب مع ذلك.
                       </span></p>
                     ) : null}
