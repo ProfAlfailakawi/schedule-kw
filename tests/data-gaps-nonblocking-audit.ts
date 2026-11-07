@@ -63,8 +63,8 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
 {
   const demo=createDemoSandboxState();
   const rows=demo.schedules.filter(item=>Number(item.AdTermId)===1&&Number(item.AdSectionId)===1);
-  const review=computeScheduleDataReadiness({courses:demo.courses,instructorIds:new Set(demo.instructors.map(item=>Number(item.AdInstructorId))),rows,rooms:demo.locationRooms,roomTypeOptions:["تدريسية","مختبر","مختبر حاسوب"]});
-  check(rows.some(item=>{const c=demo.courses.find(course=>Number(course.AdCourseId)===Number(item.AdCourseId));const r=demo.locationRooms.find(room=>room.id===item.roomId);return c?.CourseRoomType==="مختبر حاسوب"&&r?.roomType==="تدريسية";}),"الديمو يجهّز في الجدول مقرراً مختبرياً بقاعة تدريسية لشرح التنبيه الترويجي");
+  const review=computeScheduleDataReadiness({courses:demo.courses,instructorIds:new Set(demo.instructors.map(item=>Number(item.AdInstructorId))),rows,rooms:demo.locationRooms,roomTypeOptions:["قاعة تدريسية","مختبر","مختبر حاسوب"]});
+  check(rows.some(item=>{const c=demo.courses.find(course=>Number(course.AdCourseId)===Number(item.AdCourseId));const r=demo.locationRooms.find(room=>room.id===item.roomId);return c?.CourseRoomType==="مختبر حاسوب"&&r?.roomType==="قاعة تدريسية";}),"الديمو يجهّز في الجدول مقرراً مختبرياً بقاعة تدريسية لشرح التنبيه الترويجي");
   check(review.roomFit.items.some(item=>item.kind==="room-type")&&review.roomFit.items.some(item=>item.kind==="capacity"),"مشهد الديمو يعرض ملاحظتي النوع والتكدس للمخطط قبل الاعتماد");
 }
 
