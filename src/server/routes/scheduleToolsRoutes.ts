@@ -11,7 +11,7 @@ import type { Express } from "express";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { placeholderMatch } from "../../utils/placeholderMatch";
 import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "../../utils/slotSuggestionScope";
-import { emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, SUGGESTION_EMPTY_WORD, toClock, type SuggestionDayKey, type SuggestionEmptyReason, type SuggestionHall } from "../../utils/suggestionEngine";
+import { deferCoreqClashes, emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, SUGGESTION_EMPTY_WORD, toClock, type SuggestionDayKey, type SuggestionEmptyReason, type SuggestionHall } from "../../utils/suggestionEngine";
 import { reservationRows, RequestReservationConflict, RequestHoldConflict } from "../../utils/instructorRequestReservations";
 import { Response, NextFunction } from "express";
 import { createHash } from "crypto";
@@ -37,6 +37,7 @@ import { meetingExcludedIds, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIss
 import { createScheduleHandler, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { coreqPairsOfSection } from "../core/coreqPairs";
+import { coreqForcedClash, partnersOfCourse } from "../../utils/coreqSections";
 import { approvalBlockerOptions, placeholderInstructorIds } from "../core/smartImport";
 import { captureScopeVersion, confirmTokens, recordVersionAfter } from "../core/versions";
 
@@ -400,7 +401,12 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
      الأكاديمية والقاعة وفق منطق موعد جديد حرفياً قبل إظهار أي خيار. والبوابة
      تمشي القائمة المرتّبة كلها (بسقف) لا أول 18 فقط: كان رفضُ الأوائل يُفرغ
      النتيجة رغم وجود خيارات صالحة بعدهم — «يعمل مرة ولا يعمل مرة». */
-  const ranked = orderSuggestionCandidates(candidates, roomOnly);
+  /* المقرن: حُكمُ تنبيه «موعد» نفسه يؤخّر الوقت الذي تتداخل فيه كلُّ التركيبات. لا يتغير شيءٌ لمقررٍ بلا مقرن. */
+  const coreqPartners = roomOnly ? [] : partnersOfCourse(await coreqPairsOfSection(sectionId), Number(body.AdCourseId || 0));
+  const coreqRows = coreqPartners.length ? live.filter(row => Number(row.AdSectionId) === sectionId) : [];
+  const dayFlags = Object.fromEntries(SCHEDULE_DAY_KEYS.map(key => [key, dayKeys.includes(key as SuggestionDayKey)]));
+  const { ranked, deferred } = deferCoreqClashes(orderSuggestionCandidates(candidates, roomOnly), slot => coreqPartners.length > 0
+    && coreqForcedClash({ ...dayFlags, id: -1, AdCourseId: Number(body.AdCourseId || 0), SCode: String(body.SCode || ""), fstarttime: slot.start, fendtime: slot.end }, coreqRows as any, coreqPartners, editedRowId));
   const conflictReq = Object.create(req) as AuthenticatedRequest;
   if (owner) (conflictReq as any).__requestReservationOwner = owner;
   const wanted = roomOnly ? 6 : 3;
@@ -409,6 +415,7 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   let rejectedByScheduleGate = 0, gated = 0;
   for (const slot of ranked) {
     if (slots.length >= wanted || gated >= GATE_LIMIT) break;
+    if (deferred.has(slot) && slots.some(chosen => deferred.has(chosen))) break;
     gated++;
     const candidate = {
       ...body,

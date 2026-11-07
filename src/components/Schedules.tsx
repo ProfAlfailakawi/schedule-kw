@@ -9802,7 +9802,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     days={selectedFormDays.map(d => d.key as any)} start={String(form.fstarttime || "")} end={String(form.fendtime || "")}
                     excludeId={editId} skipIds={conflicts.flatMap((c: any) => [c?.rowId, c?.otherId]).filter(Boolean)}
                     courseId={Number(form.AdCourseId) || undefined} sectionId={Number(form.AdSectionId) || filterSection || undefined} termId={Number(form.AdTermId) || filterTerm || undefined}
-                    collegeId={Number(form.AdCollegeId) || filterCollege || undefined} scode={String(form.SCode || "")} />
+                    collegeId={Number(form.AdCollegeId) || filterCollege || undefined} scode={String(form.SCode || "")} dayWindow={activeScheduleWindow} />
                   </div>
                 </div>
                   </div>
@@ -13084,7 +13084,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             AdCollegeId: filterCollege, AdSectionId: filterSection, AdTermId: filterTerm,
           }, day)}
           conflictOf={quickConflict}
-          sameSlot={{ rows, courseOf: (id: number) => courseById.get(id), instructorName: (id: number) => instructorById.get(id)?.AdInstructorName || "" }}
+          sameSlot={{ rows, courseOf: (id: number) => courseById.get(id), instructorName: (id: number) => instructorById.get(id)?.AdInstructorName || "", dayWindow: sections.find(section => Number(section.AdSectionId) === Number(quickScope().sectionId)) }}
           nextSectionCode={(courseId) => nextSectionCode(courseId, Number(filterTerm) || 0)}
           departmentIds={departmentInstructorIds}
           visitingIds={visitingIds}

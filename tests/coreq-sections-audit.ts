@@ -4,7 +4,8 @@
  * ثم ربطُ التنبيه اللين في بوابة «موعد» بلا منع، ونطاقُ القراءة في الخادم.
  */
 import fs from "node:fs";
-import { coreqFindings, partnersOfCourse } from "../src/utils/coreqSections";
+import { coreqFindings, coreqForcedClash, coreqFreeTime, partnersOfCourse } from "../src/utils/coreqSections";
+import { deferCoreqClashes, orderSuggestionCandidates, type SuggestionCandidate } from "../src/utils/suggestionEngine";
 import { isBlockingConflict } from "../src/utils/scheduleIntelligence";
 import { conflictKind } from "../src/utils/appointmentVerdict";
 import type { SlotRow } from "../src/utils/sameSlot";
@@ -82,6 +83,53 @@ const routes = fs.readFileSync("src/server/routes/scheduleToolsRoutes.ts", "utf8
 check(/coreq-pairs[\s\S]{0,400}isScopeAllowed\(req, collegeId, sectionId\)/.test(routes), "مسار المقرنات يحرس النطاق");
 const pairsSrc = fs.readFileSync("src/server/core/coreqPairs.ts", "utf8");
 check(/status !== "archived"/.test(pairsSrc) && /getRuleSet/.test(pairsSrc) && !/getRuleDraft/.test(pairsSrc), "من الصحيفة المعتمدة لا المسوّدات");
+
+/* ── أين يخلو الموعد؟ مثال المالك والحالات الحدّية ── */
+const DAY = { start: 8 * 60, end: 20 * 60 };
+const hm = (t?: number) => (t === undefined ? "" : `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
+const owner = [row(10, B, "1", "h", "11:00", "15:00"), row(11, B, "2", "h", "12:00", "16:00")];
+let w = coreqFreeTime(mine("1", "h", "12:00", "14:00"), owner, B, DAY);
+check(w.placement?.side === "after" && hm(w.placement.start) === "15:00" && hm(w.placement.end) === "17:00", "مثال المالك: التعادل (09:00 و15:00) يقدّم الأحدث", w);
+check(w.sectionSpans.length === 1 && hm(w.sectionSpans[0][1]) === "15:00", "ويرسم الشعبة التي يخلو منها (11–15)", w);
+w = coreqFreeTime(mine("1", "h", "12:00", "14:00"), owner, B, { start: 8 * 60, end: 16 * 60 });
+check(w.placement?.side === "before" && hm(w.placement.start) === "09:00" && hm(w.placement.end) === "11:00", "مثال المالك بيومٍ ينتهي 16:00: قبل 11:00", w);
+w = coreqFreeTime(mine("1", "h", "12:00", "14:00"), owner, B, { start: 10 * 60, end: 16 * 60 });
+check(w.placement?.side === "before" && hm(w.placement.start) === "10:00" && hm(w.placement.end) === "12:00", "لا وقتَ يسبق الشعبتين: يكفي الخلوّ من شعبةٍ واحدة", w);
+w = coreqFreeTime(mine("1", "h", "12:00", "14:00"), [row(10, B, "1", "h", "08:00", "20:00")], B, DAY);
+check(!w.placement && !w.partnerSection && !w.ownSection, "يومٌ بلا نافذة: لا يُقال وقت", w);
+w = coreqFreeTime(mine("1", "h", "12:00", "14:00"), [row(10, B, "1", "h", "12:30", "13:00")], B, DAY);
+check(hm(w.placement?.start) === "13:00" && w.placement?.side === "after", "أقرب وقت: البعدُ أقرب من القبل", w);
+w = coreqFreeTime(mine("1", "h", "12:00", "14:00"), [row(10, B, "1", "h", "13:00", "16:00")], B, DAY);
+check(w.placement?.side === "before" && hm(w.placement.end) === "13:00", "القبلُ أقرب فيُختار ونهايته بداية الشعبة", w);
+w = coreqFreeTime(mine("1", "mw", "10:00", "11:15"), [row(10, B, "1", "m", "09:00", "11:00"), row(12, B, "1", "w", "11:00", "13:00"), row(11, B, "2", "s", "10:00", "11:00")], B, DAY);
+check(w.partnerSection === "2" && !w.placement, "شعبةٌ للمقرن خالية الآن تُسمّى ولا يُنقل الموعد", w);
+w = coreqFreeTime(mine("1", "mw", "10:30", "11:30"), [row(10, B, "1", "m", "09:00", "11:00"), row(12, B, "1", "w", "11:00", "13:00")], B, DAY);
+check(hm(w.placement?.start) === "13:00" && w.placement?.side === "after", "شعبةٌ ذات صفّين: الوقت يخلو من صفّيها معاً في يوميه", w);
+w = coreqFreeTime(mine("1", "s", "10:00", "11:00"), [row(10, B, "1", "s", "10:00", "11:00"), row(21, A, "1", "s", "11:00", "12:00")], B, DAY);
+check(hm(w.placement?.start) === "09:00", "لا يقع الوقت على إخوة الشعبة نفسها", w);
+w = coreqFreeTime(mine("1", "t", "10:00", "11:00"), [row(10, B, "1", "t", "08:00", "20:00"), row(20, A, "2", "s", "10:00", "11:00")], B, DAY);
+check(w.ownSection === "2" && !w.placement, "لا وقتَ ولا شعبةَ للمقرن: تُسمّى الشعبة الأخرى من المقرر نفسه", w);
+w = coreqFreeTime(mine("1", "h", "12:00", "14:00"), owner, B, DAY, 10);
+check(w.placement?.side === "before" && hm(w.placement.end) === "12:00", "المعدَّل يُستثنى من الحساب", w);
+
+/* ── الاقتراح يحترم المقرن ── */
+const clashAt = (start: string, end: string) => coreqForcedClash(mine("1", "h", start, end), owner, [B]);
+check(clashAt("12:00", "14:00") && !clashAt("15:00", "17:00") && !clashAt("09:00", "11:00"), "حُكم الاقتراح هو حُكم التنبيه");
+check(!coreqForcedClash(mine("1", "h", "12:00", "14:00"), owner, []), "بلا مقرن: لا تأخير");
+const slot = (start: string, score: number) => ({ start, end: start, room: "1", hall: "1", buildingId: "", roomId: "", days: ["fthursday"], score, idleMinutes: 0, walkMinutes: 0, reasons: [] }) as SuggestionCandidate;
+const all = [slot("12:00", 90), slot("09:00", 70), slot("15:00", 60), slot("13:00", 80)];
+const plain = orderSuggestionCandidates(all, false);
+const none2 = deferCoreqClashes(plain, () => false);
+check(none2.ranked.map(s => s.start).join() === plain.map(s => s.start).join() && none2.deferred.size === 0, "مقررٌ بلا مقرن: الترتيب نفسه تماماً");
+const some = deferCoreqClashes(plain, s => s.start === "12:00" || s.start === "13:00");
+check(some.ranked.map(s => s.start).join() === "09:00,15:00,12:00,13:00", "أوقات التداخل الإجباري في الآخر بترتيبها", some.ranked.map(s => s.start));
+const only = deferCoreqClashes(plain, () => true);
+check(only.ranked.length === 4 && only.ranked[0].start === "12:00", "لا أوقات غيرها: تبقى مقترحة", only.ranked.map(s => s.start));
+const tools = fs.readFileSync("src/server/routes/scheduleToolsRoutes.ts", "utf8");
+check(/roomOnly \? \[\] : partnersOfCourse\(await coreqPairsOfSection\(sectionId\)/.test(tools) && tools.includes("deferCoreqClashes(orderSuggestionCandidates(candidates, roomOnly)"), "الاقتراح يقرأ الحُكم نفسه، و«اقترح قاعة» بوقتها الثابت لا يتأثر");
+check(/deferred\.has\(slot\) && slots\.some\(chosen => deferred\.has\(chosen\)\)\) break;/.test(tools), "واحدٌ منها على الأكثر");
+const hint = fs.readFileSync("src/components/SameSlotHint.tsx", "utf8");
+check(!/AdRoom|roomId|RoomCode/.test(hint), "ورقة المقرن لا تعرض قاعة");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
