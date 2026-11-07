@@ -28,6 +28,19 @@
   .of-chip{position:relative}
   .of-chip::after{content:"";position:absolute;inset-block:-8px;inset-inline:0}
 }
+/* استعارة القاعات على الهاتف: الموافقة والرفض وطلب الاستعارة والبحث والتصفية والإغلاق 44px. */
+@media (max-width:760px){
+  .hall-barter-actions .btn,
+  .hall-barter-opportunity-grid>article>.btn,
+  .hall-barter-search,
+  .hall-barter-selects select{min-height:44px}
+  .hall-barter-screen-close{width:44px;height:44px}
+}
+/* الجدول الدراسي على الهاتف: أزرار أدوات الجدول (مكتبة الأنماط وغيرها) 38px، وأزرار فرز الخطة 30px. */
+@media (max-width:760px){
+  .schedule-tool-actions .btn,
+  .plan-triage-act{min-height:44px}
+}
 /* لوحٌ بلا مؤشرٍ خشن في المقاسات نفسها: الألسنةُ والزرُّ الثانويّ 44px أيضاً. */
 @media (max-width:1024px){
   .lens-strip button[id^="query-lens-tab-"],[id^="query-lens-tab-"],.btn-secondary{min-height:44px}
