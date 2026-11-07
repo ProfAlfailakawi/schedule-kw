@@ -1,0 +1,2652 @@
+{
+  "id": "STU",
+  "order": 11,
+  "icon": "graduation-cap",
+  "title": {
+    "ar": "خدمات الطلبة والإرشاد",
+    "en": "Student and advising services"
+  },
+  "tagline": {
+    "ar": "مساري للطالب، وكشف التسجيل، وطلب الشعبة، والكراسي، وبروفة التسجيل",
+    "en": "Masari for students, the registration sheet, section requests, seats and the registration rehearsal"
+  },
+  "summary": {
+    "ar": "تغطي الوحدة باب الطالب الدائم «مساري» (ملف برمزٍ شخصي ورغباتٌ في مرحلتها وحالة الطلب)، وكشف التسجيل الذي تقرر عليه لجنة القسم ثم التسجيل، وطلب الشعبة من الإرشاد إلى لجنة الجدول فالتسجيل، ورصيد مقاعد المرشد، وكراسي الحسابات وفرقها. وتضم رادار التسجيل (بروفة التسجيل) الذي يقدّر ازدحام يوم التسجيل من ملفات الطلبة والجداول. كل ما يراه الطالب تقديرٌ لا حجزٌ ولا تسجيلٌ رسمي، وهوية الطالب مختومة ولا تُعرض إلا لمن يعمل على حالته.",
+    "en": "The module covers the permanent student door «Masari» (a profile with a personal code, wishes within their phase, request status), the registration sheet on which the department committee and then registration decide, section requests from advising to the schedule committee and then registration, the advisor seat balance, and seats (account chairs) with their teams. It includes the registration radar (rehearsal) that estimates registration-day crowding from student profiles and schedules. Everything the student sees is an estimate, not a reservation or an official registration, and student identity is sealed and shown only to those working on the case."
+  },
+  "actors": [
+    "student",
+    "advisor",
+    "committeeChair",
+    "departmentHead",
+    "registrarStaff",
+    "collegeRegistrar",
+    "registrarHead",
+    "admin",
+    "rootAdmin",
+    "dean",
+    "visitor",
+    "system"
+  ],
+  "sources": [
+    "src/server/studentDoor.ts",
+    "src/server/studentDoorRoutes.ts",
+    "src/server/studentHomePage.ts",
+    "src/server/studentShowcase.ts",
+    "src/server/studentMapUi.ts",
+    "src/server/studentCaseSecret.ts",
+    "src/server/masariDisclaimer.ts",
+    "src/server/core/studentIdentity.ts",
+    "src/server/pages/studentSchedulePage.ts",
+    "src/server/pages/studentCaseStatusPage.ts",
+    "src/server/routes/studentRegistrationRoutes.ts",
+    "src/server/sectionRequestsRoutes.ts",
+    "src/server/demoSectionRequestsSeed.ts",
+    "src/server/seatsRoutes.ts",
+    "src/server/seats.ts",
+    "src/server/seatTeamPage.ts",
+    "src/server/academicAdvisoryData.ts",
+    "src/server/academicAdvisoryVisual.ts",
+    "src/server/simulationRoutes.ts",
+    "src/server/simulationData.ts",
+    "src/server/radarInsight.ts",
+    "src/server/demoRadarSeed.ts",
+    "src/utils/academicAdvisory.ts",
+    "src/utils/advisorSeats.ts",
+    "src/utils/registrationCauses.ts",
+    "src/utils/registrationSim.ts",
+    "src/utils/seatAccessCard.ts",
+    "src/utils/seats.ts",
+    "src/utils/sectionRequestHandoff.ts",
+    "src/utils/sectionRequests.ts",
+    "src/utils/studentAdvice.ts",
+    "src/utils/studentCase*.ts",
+    "src/utils/studentDemand.ts",
+    "src/utils/studentMap.ts",
+    "src/utils/studentNeed*.ts",
+    "src/utils/studentNotices.ts",
+    "src/utils/studentProfile.ts",
+    "src/utils/studentUnitCap.ts",
+    "src/utils/termStudentPhases.ts",
+    "src/components/Student*.tsx",
+    "src/components/AdvisorSeatsPanel.tsx",
+    "src/components/AcademicAdvicePanel.tsx",
+    "src/components/AdvisingScopePicker.tsx",
+    "src/components/ApplyProposal.tsx",
+    "src/components/MasariQrButton.tsx",
+    "src/components/RegistrationRehearsal.tsx",
+    "src/components/RegistrationTabs.tsx",
+    "src/components/registration-tabs.css",
+    "src/components/seats/*",
+    "src/components/sectionRequests/*",
+    "src/styles/19-beauty-admin-registration.css",
+    "docs/STUDENT_DOOR.md",
+    "docs/SEATS.md",
+    "docs/REGISTRATION_REHEARSAL.md",
+    "tests/student-*.ts",
+    "tests/seats-audit.ts",
+    "tests/seat-access-card-audit.tsx",
+    "tests/registration-*.ts",
+    "tests/rehearsal-audit.ts",
+    "tests/masari-*.ts",
+    "tests/section-requests-audit.ts",
+    "tests/term-student-phases-audit.ts",
+    "tests/academic-advice-audit.ts"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "مساري (/me)",
+        "en": "Masari (/me)"
+      },
+      "file": "src/server/studentHomePage.ts",
+      "note": {
+        "ar": "بابُ الطالب: الدخول، الإعداد، الرغبات، «خطتي»، «هل سجّلت؟»، حالاتي.",
+        "en": "The student door: entry, setup, wishes, «my plan», «did you register?», my cases."
+      }
+    },
+    {
+      "name": {
+        "ar": "خريطتي",
+        "en": "My map"
+      },
+      "file": "src/server/studentMapUi.ts",
+      "note": {
+        "ar": "لوحة صحيفة الطالب كلها بحساب يطابق حساب الخادم.",
+        "en": "The whole-plan board, computed identically to the server."
+      }
+    },
+    {
+      "name": {
+        "ar": "حالة طلبي",
+        "en": "My request status"
+      },
+      "file": "src/server/pages/studentCaseStatusPage.ts",
+      "note": {
+        "ar": "بالرقم المدني ورقم الحالة.",
+        "en": "By civil ID and case number."
+      }
+    },
+    {
+      "name": {
+        "ar": "جدول الطلبة العام",
+        "en": "Public student schedule"
+      },
+      "file": "src/server/pages/studentSchedulePage.ts",
+      "note": {
+        "ar": "جدول القسم المعتمد أو «مبدئي».",
+        "en": "The approved department schedule or «provisional»."
+      }
+    },
+    {
+      "name": {
+        "ar": "كشف التسجيل",
+        "en": "Registration sheet"
+      },
+      "file": "src/components/StudentRegistration.tsx",
+      "note": {
+        "ar": "شاشةٌ واحدةٌ للجنة والتسجيل.",
+        "en": "One screen for the committee and registration."
+      }
+    },
+    {
+      "name": {
+        "ar": "طلب شعبة",
+        "en": "Section requests"
+      },
+      "file": "src/components/sectionRequests/SectionRequestsPanel.tsx",
+      "note": {
+        "ar": "للإرشاد واللجنة والتسجيل.",
+        "en": "For advising, the committee and registration."
+      }
+    },
+    {
+      "name": {
+        "ar": "رصيد مقاعد المرشد",
+        "en": "Advisor seat balance"
+      },
+      "file": "src/components/AdvisorSeatsPanel.tsx",
+      "note": {
+        "ar": "حلقة لكل شعبة وإضافة ذرّية وطلب استثناء.",
+        "en": "A ring per section, atomic addition and exception request."
+      }
+    },
+    {
+      "name": {
+        "ar": "الكراسي",
+        "en": "Seats"
+      },
+      "file": "src/components/seats/SeatsAdmin.tsx",
+      "note": {
+        "ar": "إدارة الكراسي وفرقها وبطاقات الدخول.",
+        "en": "Managing seats, teams and access cards."
+      }
+    },
+    {
+      "name": {
+        "ar": "رادار التسجيل",
+        "en": "Registration radar"
+      },
+      "file": "src/components/RegistrationRehearsal.tsx",
+      "note": {
+        "ar": "بروفة يوم التسجيل بأعدادٍ لا أسماء.",
+        "en": "Registration-day rehearsal in counts, not names."
+      }
+    },
+    {
+      "name": {
+        "ar": "رحلة الطلبة",
+        "en": "Student journey"
+      },
+      "file": "src/components/StudentPhasesBlock.tsx",
+      "note": {
+        "ar": "مواعيد الرغبات والجولات والإغلاق.",
+        "en": "Dates for wishes, rounds and close."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "student",
+      "title": {
+        "ar": "من الرقم المدني إلى جدولي المقترح",
+        "en": "From civil ID to my suggested schedule"
+      },
+      "steps": [
+        {
+          "ar": "يفتح /me ويدخل رقمه المدني، فيعلم أن لا ملف له.",
+          "en": "Opens /me and enters the civil ID, learning that no profile exists."
+        },
+        {
+          "ar": "يوافق على حفظ ملفه ويختار رمزاً من ٦ أرقام غير متتالية.",
+          "en": "Consents to storing the profile and chooses a 6-digit non-sequential code."
+        },
+        {
+          "ar": "يختار قسمه وصحيفته ويعلّم ما أنجز؛ فيُسقط النظام ما اختلّ مسبقه.",
+          "en": "Chooses department and plan and marks what is done; the system drops what lost its prerequisite."
+        },
+        {
+          "ar": "يقرأ بطاقة «مقترحات فقط» ويضغط «فهمت».",
+          "en": "Reads the «suggestions only» card and presses «understood»."
+        },
+        {
+          "ar": "في مرحلة الرغبات يكتب وحداته (١٢ إلى سقف قسمه) ومقرراته وقيود وقته.",
+          "en": "In the wishes phase writes units (12 up to the department cap), courses and time constraints."
+        },
+        {
+          "ar": "بعد التجميد يرى تذكرته بخططها الثلاث ونافذته، دون موعدٍ لشعبة جدولها غير موقَّع.",
+          "en": "After the freeze sees the ticket with three plans and window, without a time for a section whose schedule is unsigned."
+        }
+      ]
+    },
+    {
+      "actor": "advisor",
+      "title": {
+        "ar": "طلب شعبة من الإرشاد إلى التسجيل",
+        "en": "A section request from advising to registration"
+      },
+      "steps": [
+        {
+          "ar": "يختار المقرر والحرم والفصل ويرى الطلبة المحتاجين من «مساري» أو يلصق قائمة.",
+          "en": "Chooses course, campus and term and sees students in need from Masari, or pastes a list."
+        },
+        {
+          "ar": "يحدد الفترة المفضلة والعدد ويرسل الطلب إلى لجنة جدول قسم المقرر.",
+          "en": "Sets the preferred period and count and sends the request to the course department's schedule committee."
+        },
+        {
+          "ar": "تفتح اللجنة الشعبة بمحرّر الموعد أو تربط شعبة قائمة، فتُكتب سعتها في رصيد المقاعد.",
+          "en": "The committee opens the section in the slot editor or links an existing one, writing its capacity into the seat balance."
+        },
+        {
+          "ar": "تعتمد اللجنة الطلبة كلهم أو بعضهم فيصل الإرشادَ «تم الاعتماد» ويصل التسجيلَ ما ينتظر.",
+          "en": "The committee approves all or some students; advising receives «approved» and registration receives what awaits."
+        },
+        {
+          "ar": "يعلّم التسجيل من سُجّل، فيرى الإرشاد «سُجّل ن من م».",
+          "en": "Registration marks who was registered, and advising sees «registered n of m»."
+        }
+      ]
+    },
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "قرار اللجنة ثم التسجيل على طلب طالب",
+        "en": "Committee then registration decision on a student request"
+      },
+      "steps": [
+        {
+          "ar": "يفتح كشف التسجيل لقسمه فيرى حالات طلبة قسمه ومقررات أقسام أخرى للقراءة وحدها.",
+          "en": "Opens the registration sheet for the department and sees its students' cases and other departments' courses read-only."
+        },
+        {
+          "ar": "يوافق على مقرر، ويختار «موافقة + فتح شعبة» إن ثبت خلوّ شعبة جديدة من التعارض.",
+          "en": "Approves a course, choosing «approve + open section» when a new section is proved conflict-free."
+        },
+        {
+          "ar": "يختار لما لا يوافق عليه سبباً من المجموعة المحددة.",
+          "en": "Chooses for what it does not approve a reason from the defined set."
+        },
+        {
+          "ar": "بعد توقيع جدول القسم يرى موظف التسجيل ما سلّمته اللجنة فيقول «سُجّل» أو «رُدّ» بسبب.",
+          "en": "After the department schedule is signed, the registration officer sees what the committee handed over and says «registered» or «rejected» with a reason."
+        },
+        {
+          "ar": "يقرأ الطالب القرار بسببه في «حالة طلبي» برقم حالته.",
+          "en": "The student reads the decision with its reason in «my request status» under the case number."
+        }
+      ]
+    },
+    {
+      "actor": "admin",
+      "title": {
+        "ar": "تسليم كرسي إلى شاغل جديد",
+        "en": "Handing a seat to a new holder"
+      },
+      "steps": [
+        {
+          "ar": "يفتح «الكراسي» ويختار الكرسي.",
+          "en": "Opens «Seats» and chooses the seat."
+        },
+        {
+          "ar": "يسجّل الشاغل الجديد (من أساتذة القسم أو يدوياً) ويسلّم الكرسي.",
+          "en": "Records the new holder (from department faculty or manually) and hands over the seat."
+        },
+        {
+          "ar": "تظهر الكلمة الأولى مرةً واحدة وتُخرَج الأجهزة المفتوحة ويُجمَّد الفريق.",
+          "en": "The first password shows once, open devices are signed out and the team is frozen."
+        },
+        {
+          "ar": "يختار الشاغل الجديد لكل عضو «مستمر» أو «انتهت عضويته».",
+          "en": "The new holder marks each member «continuing» or «ended»."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "stu-phases",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "مراحل رحلة الطلبة في الفصل",
+        "en": "Student-journey phases in a term"
+      },
+      "caption": {
+        "ar": "المرحلة تُقرأ من تاريخ اليوم بتوقيت الكويت، ويشمل كل تاريخ يومه كاملاً.",
+        "en": "The phase is read from today's date in Kuwait, each date inclusive of its whole day."
+      },
+      "nodes": [
+        {
+          "id": "u",
+          "label": {
+            "ar": "لم تُحدَّد",
+            "en": "Unset"
+          },
+          "icon": "clock",
+          "kind": "start"
+        },
+        {
+          "id": "w",
+          "label": {
+            "ar": "الرغبات",
+            "en": "Wishes"
+          },
+          "icon": "list-checks",
+          "kind": "state"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "التجميد",
+            "en": "Frozen"
+          },
+          "icon": "lock",
+          "kind": "state"
+        },
+        {
+          "id": "r",
+          "label": {
+            "ar": "جولة جارية",
+            "en": "Round running"
+          },
+          "icon": "ticket",
+          "kind": "state"
+        },
+        {
+          "id": "bt",
+          "label": {
+            "ar": "بين الجولات",
+            "en": "Between rounds"
+          },
+          "icon": "flag",
+          "kind": "state"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "الإغلاق",
+            "en": "Closed"
+          },
+          "icon": "circle-check",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "u",
+          "to": "w",
+          "label": {
+            "ar": "حفظ المواعيد",
+            "en": "Dates saved"
+          }
+        },
+        {
+          "from": "w",
+          "to": "f",
+          "label": {
+            "ar": "بعد نهاية الرغبات",
+            "en": "After wishes end"
+          }
+        },
+        {
+          "from": "f",
+          "to": "r",
+          "label": {
+            "ar": "بداية جولة",
+            "en": "Round starts"
+          }
+        },
+        {
+          "from": "r",
+          "to": "bt",
+          "label": {
+            "ar": "نهاية جولة",
+            "en": "Round ends"
+          }
+        },
+        {
+          "from": "bt",
+          "to": "r",
+          "label": {
+            "ar": "جولة تالية",
+            "en": "Next round"
+          }
+        },
+        {
+          "from": "bt",
+          "to": "c",
+          "label": {
+            "ar": "بعد إغلاق الطلبات",
+            "en": "After requests close"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stu-request-stages",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "مراحل طلب الشعبة",
+        "en": "Section request stages"
+      },
+      "caption": {
+        "ar": "المرحلة مشتقة من الوثيقة دائماً؛ الاعتماد يغلق الربط والفك والسحب والاعتذار.",
+        "en": "The stage is always derived from the document; approval closes linking, unlinking, withdrawal and decline."
+      },
+      "nodes": [
+        {
+          "id": "s",
+          "label": {
+            "ar": "أُرسل",
+            "en": "Sent"
+          },
+          "icon": "send",
+          "kind": "start"
+        },
+        {
+          "id": "o",
+          "label": {
+            "ar": "فُتحت الشعبة",
+            "en": "Section opened"
+          },
+          "icon": "door-open",
+          "kind": "state"
+        },
+        {
+          "id": "a",
+          "label": {
+            "ar": "تم الاعتماد",
+            "en": "Approved"
+          },
+          "icon": "file-check",
+          "kind": "state"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "يُسجَّل",
+            "en": "Registering"
+          },
+          "icon": "clipboard-check",
+          "kind": "state"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "سُجّلوا",
+            "en": "Registered"
+          },
+          "icon": "circle-check",
+          "kind": "end"
+        },
+        {
+          "id": "x",
+          "label": {
+            "ar": "سُحب أو اعتُذر",
+            "en": "Withdrawn or declined"
+          },
+          "icon": "flag",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "s",
+          "to": "o",
+          "label": {
+            "ar": "ربط شعبة",
+            "en": "Link a section"
+          }
+        },
+        {
+          "from": "o",
+          "to": "a",
+          "label": {
+            "ar": "اعتماد الطلبة",
+            "en": "Approve students"
+          }
+        },
+        {
+          "from": "a",
+          "to": "g",
+          "label": {
+            "ar": "تسجيل البعض",
+            "en": "Some registered"
+          }
+        },
+        {
+          "from": "g",
+          "to": "d",
+          "label": {
+            "ar": "تسجيل الكل",
+            "en": "All registered"
+          }
+        },
+        {
+          "from": "s",
+          "to": "x",
+          "label": {
+            "ar": "سحب أو اعتذار",
+            "en": "Withdraw or decline"
+          }
+        },
+        {
+          "from": "o",
+          "to": "x",
+          "label": {
+            "ar": "سحب أو اعتذار",
+            "en": "Withdraw or decline"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stu-decision",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "قرار الحالة: اللجنة ثم التسجيل",
+        "en": "Case decision: committee then registration"
+      },
+      "caption": {
+        "ar": "لا يكتب التسجيل فيما لم توافق عليه اللجنة، ولا تنقض اللجنة قرار التسجيل.",
+        "en": "Registration never writes on what the committee has not approved, and the committee never overturns registration."
+      },
+      "nodes": [
+        {
+          "id": "p",
+          "label": {
+            "ar": "بانتظار اللجنة",
+            "en": "Awaiting committee"
+          },
+          "icon": "clock",
+          "kind": "start"
+        },
+        {
+          "id": "q",
+          "label": {
+            "ar": "قرار اللجنة",
+            "en": "Committee decision"
+          },
+          "icon": "users",
+          "kind": "decision"
+        },
+        {
+          "id": "cr",
+          "label": {
+            "ar": "لم توافق اللجنة",
+            "en": "Committee declined"
+          },
+          "icon": "flag",
+          "kind": "end"
+        },
+        {
+          "id": "ap",
+          "label": {
+            "ar": "بانتظار التسجيل",
+            "en": "Awaiting registration"
+          },
+          "icon": "hand-helping",
+          "kind": "state"
+        },
+        {
+          "id": "rg",
+          "label": {
+            "ar": "قرار التسجيل",
+            "en": "Registration decision"
+          },
+          "icon": "clipboard-check",
+          "kind": "decision"
+        },
+        {
+          "id": "ok",
+          "label": {
+            "ar": "سُجّل",
+            "en": "Registered"
+          },
+          "icon": "circle-check",
+          "kind": "end"
+        },
+        {
+          "id": "rj",
+          "label": {
+            "ar": "رُدّ",
+            "en": "Rejected"
+          },
+          "icon": "flag",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "p",
+          "to": "q"
+        },
+        {
+          "from": "q",
+          "to": "cr",
+          "label": {
+            "ar": "لا توافق + سبب",
+            "en": "Declines + reason"
+          }
+        },
+        {
+          "from": "q",
+          "to": "ap",
+          "label": {
+            "ar": "توافق",
+            "en": "Approves"
+          }
+        },
+        {
+          "from": "ap",
+          "to": "rg",
+          "label": {
+            "ar": "جدول القسم موقَّع",
+            "en": "Schedule signed"
+          }
+        },
+        {
+          "from": "rg",
+          "to": "ok",
+          "label": {
+            "ar": "سُجّل",
+            "en": "Registered"
+          }
+        },
+        {
+          "from": "rg",
+          "to": "rj",
+          "label": {
+            "ar": "رُدّ + سبب",
+            "en": "Rejected + reason"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stu-rehearsal",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "بروفة التسجيل",
+        "en": "Registration rehearsal"
+      },
+      "caption": {
+        "ar": "تقدير حتمي من ملفات الطلبة والجداول؛ لا حجز مقاعد ولا بيانات رسمية.",
+        "en": "A deterministic estimate from profiles and schedules; no seat reservation and no official data."
+      },
+      "nodes": [
+        {
+          "id": "pf",
+          "label": {
+            "ar": "ملفات الطلبة",
+            "en": "Student profiles"
+          },
+          "icon": "users",
+          "kind": "start"
+        },
+        {
+          "id": "sc",
+          "label": {
+            "ar": "جداول الأقسام",
+            "en": "Department schedules"
+          },
+          "icon": "calendar-days",
+          "kind": "start"
+        },
+        {
+          "id": "en",
+          "label": {
+            "ar": "محرّك المحاكاة",
+            "en": "Simulation engine"
+          },
+          "icon": "radar",
+          "kind": "system"
+        },
+        {
+          "id": "tk",
+          "label": {
+            "ar": "تذكرة الطالب (أ ب ج)",
+            "en": "Student ticket (A B C)"
+          },
+          "icon": "ticket",
+          "kind": "end"
+        },
+        {
+          "id": "rs",
+          "label": {
+            "ar": "ملخّص القسم بالأعداد",
+            "en": "Department summary in counts"
+          },
+          "icon": "layout-grid",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "pf",
+          "to": "en"
+        },
+        {
+          "from": "sc",
+          "to": "en"
+        },
+        {
+          "from": "en",
+          "to": "tk",
+          "label": {
+            "ar": "طالباً طالباً",
+            "en": "Per student"
+          }
+        },
+        {
+          "from": "en",
+          "to": "rs",
+          "label": {
+            "ar": "أعداد بلا أسماء",
+            "en": "Counts, no names"
+          }
+        }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": {
+      "ar": "من يفعل ماذا",
+      "en": "Who does what"
+    },
+    "cols": [
+      {
+        "ar": "مساري",
+        "en": "Masari"
+      },
+      {
+        "ar": "كشف التسجيل (قرار اللجنة)",
+        "en": "Registration sheet (committee decision)"
+      },
+      {
+        "ar": "كشف التسجيل (قرار التسجيل)",
+        "en": "Registration sheet (registration decision)"
+      },
+      {
+        "ar": "طلب شعبة",
+        "en": "Section request"
+      },
+      {
+        "ar": "رصيد المقاعد",
+        "en": "Seat balance"
+      },
+      {
+        "ar": "الكراسي",
+        "en": "Seats"
+      },
+      {
+        "ar": "الرادار",
+        "en": "Radar"
+      }
+    ],
+    "rows": [
+      {
+        "actor": "student",
+        "cells": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "actor": "advisor",
+        "cells": [
+          0,
+          1,
+          0,
+          2,
+          2,
+          0,
+          1
+        ]
+      },
+      {
+        "actor": "committeeChair",
+        "cells": [
+          0,
+          2,
+          0,
+          2,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "actor": "departmentHead",
+        "cells": [
+          0,
+          1,
+          0,
+          1,
+          2,
+          1,
+          1
+        ]
+      },
+      {
+        "actor": "registrarStaff",
+        "cells": [
+          0,
+          0,
+          2,
+          2,
+          0,
+          1,
+          1
+        ]
+      },
+      {
+        "actor": "collegeRegistrar",
+        "cells": [
+          0,
+          0,
+          2,
+          2,
+          0,
+          2,
+          1
+        ]
+      },
+      {
+        "actor": "registrarHead",
+        "cells": [
+          0,
+          0,
+          2,
+          2,
+          0,
+          2,
+          1
+        ]
+      },
+      {
+        "actor": "dean",
+        "cells": [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "actor": "admin",
+        "cells": [
+          0,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "FR-STU-001",
+      "kind": "functional",
+      "title": {
+        "ar": "الدخول إلى مساري بالرقم المدني والرمز",
+        "en": "Masari entry by civil ID and personal code"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للطالب فتح ملف «مساري» أو إنشاءه من الرابط الدائم /me بالرقم المدني (١٢ رقماً صحيح المجموع الاختباري) ورمزٍ شخصي من ٦ أرقام يختاره بنفسه، ولا يُنشأ الملف إلا بعد موافقته الصريحة على حفظه، ويُرفض الرمز المؤلف من رقمٍ مكرر أو أرقامٍ متتالية.",
+        "en": "The system shall let a student open or create a Masari profile from the permanent link /me using a 12-digit civil ID that passes the checksum and a 6-digit personal code the student chooses, shall create the profile only after explicit consent to store it, and shall reject a code made of one repeated digit or a run of consecutive digits."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم مدني من ١٢ رقماً غير صالح ← ٤٠٠ برمز bad-civil.",
+          "en": "A 12-digit civil ID with a bad checksum yields 400 with code bad-civil."
+        },
+        {
+          "ar": "إنشاء بلا agree=true ← ٤٠٠ no-consent؛ ورمز 111111 أو 123456 ← ٤٠٠ weak-code.",
+          "en": "Create without agree=true yields 400 no-consent; code 111111 or 123456 yields 400 weak-code."
+        },
+        {
+          "ar": "إنشاء ملفٍّ موجود ← ٤٠٩ exists؛ وملف جديد ← ٢٠١ مع كوكي جلسة.",
+          "en": "Creating an existing profile yields 409 exists; a new profile yields 201 with a session cookie."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/utils/studentProfile.ts",
+          "src/server/studentDoor.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-002",
+      "kind": "functional",
+      "title": {
+        "ar": "قفل الملف بعد أخطاء الرمز",
+        "en": "Profile lockout after wrong codes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقفل ملف الطالب ١٥ دقيقة بعد ٥ أخطاء متتالية في الرمز، وأن يُبقي القفل قائماً ولو وصل رمزٌ صحيح بالتوازي، وأن يحسب على عنوان الشبكة التخمينَ الفعلي وحده (رمزٌ خطأ لملفٍ موجود) لا الدخولَ الناجح ولا الرقمَ الخطأ.",
+        "en": "The system shall lock a student profile for 15 minutes after 5 consecutive wrong codes, shall keep the lock even when a correct code arrives in parallel, and shall count against the network address only real guesses (a wrong code for an existing profile), not successful entries or wrong civil IDs."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "الخطأ الخامس ← ٤٠١ مع locked، والمحاولة التالية ← ٤٢٣ مع retryInSeconds.",
+          "en": "The fifth failure yields 401 with locked; the next attempt yields 423 with retryInSeconds."
+        },
+        {
+          "ar": "حدّ العنوان ٦٠٠ تخميناً في ١٠ دقائق، وسقف مطلق خمسة أضعافه (٣٠٠٠)، ويُرجَع الرصيد حين لا يكون الطلب تخميناً.",
+          "en": "The address cap is 600 guesses per 10 minutes with a hard ceiling of five times that (3000); credit is returned when the request is not a guess."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/utils/studentProfile.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/student-door-shared-network-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-003",
+      "kind": "functional",
+      "title": {
+        "ar": "جلسة الباب الموقَّعة",
+        "en": "Signed door session"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يُصدر بعد الدخول كوكي sh_session موقَّعاً (HMAC) بخاصيتي HttpOnly وSameSite=Lax يحمل البصمة وتاريخ الانتهاء ونسخةً من الرمز لا الاسمَ ولا الرقمَ المدني، وأن تدوم الجلسة ١٢ ساعة (وتزول بإغلاق المتصفح) أو ١٨٠ يوماً عند «هذا جهازي»، وأن يُنهي تغييرُ الرمز كلَّ الجلسات السابقة.",
+        "en": "The system shall issue after entry a signed (HMAC) sh_session cookie with HttpOnly and SameSite=Lax that carries the fingerprint, expiry and a code version but neither the name nor the civil ID, shall keep the session 12 hours (ending when the browser closes) or 180 days under «this is my device», and shall end every earlier session when the code changes."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "كوكي بلا remember ← بلا Max-Age؛ ومع remember ← Max-Age = ١٨٠ × ٨٦٤٠٠ ثانية.",
+          "en": "A cookie without remember has no Max-Age; with remember it has Max-Age = 180 × 86400 seconds."
+        },
+        {
+          "ar": "بعد POST /api/public/me/code تعيد جلسةٌ قديمة ٤٠١ signed-out.",
+          "en": "After POST /api/public/me/code an old session returns 401 signed-out."
+        },
+        {
+          "ar": "توقيعٌ معدَّل أو منتهٍ لا يُقرأ.",
+          "en": "A tampered or expired signature is not accepted."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoor.ts",
+          "src/server/studentDoorRoutes.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-STU-001",
+      "kind": "data",
+      "title": {
+        "ar": "تخزين الهوية مختومةً",
+        "en": "Identity stored sealed"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يحفظ في ملف الطالب اسمَه ولا رقمَه المدني مكشوفين: بصمةٌ HMAC للرقم مفتاحاً للملف، والاسم والرقم مختومان بـAES-256-GCM، والرمز مُلحَّم بـscrypt، ولا يُعاد الرقم المدني إلى الطالب إلا مقنَّعاً (آخر ثلاثة أرقام) ولا يُفتح المختوم إلا لصاحب الجلسة وللعاملين المخوَّلين.",
+        "en": "The system shall never store a student's name or civil ID in the clear: an HMAC fingerprint of the ID is the profile key, the name and ID are sealed with AES-256-GCM, the code is salted with scrypt, the civil ID is returned to the student only masked (last three digits), and sealed values open only for the session owner and authorised staff."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "وثيقة الملف لا تحوي الاسم ولا الرقم نصّاً، وتحوي nameCipher وcivilCipher وcodeHash.",
+          "en": "The profile document holds no plain name or ID and holds nameCipher, civilCipher and codeHash."
+        },
+        {
+          "ar": "الاستجابة تقول hasIdentity فقط وتعرض الرقم مقنَّعاً بثلاثة أرقام أخيرة.",
+          "en": "The response says only hasIdentity and shows the ID masked to its last three digits."
+        },
+        {
+          "ar": "تغيير سرّ الحالات المحفوظ يجعل المختوم السابق غير مقروء، لذا يُقدَّم المحفوظ على المتغير البيئي عند التعارض.",
+          "en": "A different case secret makes earlier sealed values unreadable, so the stored secret wins over the environment value on conflict."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/studentIdentity.ts",
+          "src/server/studentCaseSecret.ts",
+          "src/server/studentDoorRoutes.ts",
+          "src/server/studentDoor.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/masari-approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-STU-002",
+      "kind": "data",
+      "title": {
+        "ar": "عمر ملف الطالب وحذفه",
+        "en": "Student profile lifetime and deletion"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحسب لكل ملفٍّ تاريخ حذفٍ هو الأقرب بين التخرج المتوقع + ٣٦٥ يوماً وآخر دخول + ٧٣٠ يوماً (والإنشاء + ٦ سنوات إن لم تُحدَّد صحيفة)، وأن يحذف الملفات المنتهية عند الإقلاع ثم كل ٦ ساعات بدفعةٍ لا تتجاوز ٤٠٠، وأن يجعل «نسيت رمزي» طلبَ حذفٍ يُنفَّذ بعد ٣٠ يوماً ويُلغيه دخولُ صاحب الملف بالرمز.",
+        "en": "The system shall compute for every profile a deletion date equal to the earlier of expected graduation + 365 days and last sign-in + 730 days (creation + 6 years when no plan is set), shall purge expired profiles at start-up and every 6 hours in batches of at most 400, and shall treat «forgot my code» as a deletion request executed after 30 days that the owner cancels by entering with the code."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف بلا صحيفة أُنشئ اليوم ← deleteAt = آخر دخول + ٧٣٠ يوماً (الأقرب).",
+          "en": "A profile with no plan created today gets deleteAt = last sign-in + 730 days (the nearer date)."
+        },
+        {
+          "ar": "POST /api/public/me/reset ← days = ٣٠، ثم دخول صاحبه يمحو resetRequestedAt.",
+          "en": "POST /api/public/me/reset returns days = 30, and the owner's next entry clears resetRequestedAt."
+        },
+        {
+          "ar": "لا استرجاع للرمز بالهاتف أو القسم؛ الحذف هو المسار الوحيد.",
+          "en": "There is no recovery of the code through phone or department; deletion is the only path."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/studentProfile.ts",
+          "src/server/studentDoorRoutes.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-004",
+      "kind": "functional",
+      "title": {
+        "ar": "إعداد الملف: القسم والصحيفة والمنجَز",
+        "en": "Profile setup: department, plan, passed courses"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ قسم الطالب وصحيفته (إلزامياً إن وُجدت صحيفتان فأكثر) والمقررات المنجَزة بعد إغلاقها على المسبقات، فيُسقط ما اختلّ شرطه مع ما بُني عليه إلا ما أعلنه المحوَّلُ معادَلاً، وأن يُبقي الرغبات ما دام القسم والصحيفة كما هما مع إسقاط ما أُنجز أو فقد مسبقه.",
+        "en": "The system shall save the student's department, plan (mandatory when two or more plans exist) and passed courses after closing them over prerequisites, dropping any course whose condition fails together with what depends on it except what a transfer student declared as equivalent, and shall keep the wishes while department and plan are unchanged, removing those that became passed or lost their prerequisite."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "قسمان بصحيفتين دون اختيار صحيفة ← ٤٠٠ bad-plan.",
+          "en": "A department with two plans and no plan chosen yields 400 bad-plan."
+        },
+        {
+          "ar": "وسم مقرر مجتاز دون مسبقه ← يُسقط ويرجع droppedPassed ≥ ١.",
+          "en": "Marking a course passed without its prerequisite drops it and returns droppedPassed ≥ 1."
+        },
+        {
+          "ar": "تغيير القسم يمحو الرغبات.",
+          "en": "Changing the department clears the wishes."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/utils/studentProfile.ts",
+          "src/utils/studentMap.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/student-map-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-005",
+      "kind": "functional",
+      "title": {
+        "ar": "فحص تواريخ رحلة الطلبة",
+        "en": "Validation of the student-journey dates"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يفرض على مواعيد الفصل الترتيب: موعد تسليم الجداول ثم الرغبات (بداية ونهاية معاً) ثم الجولات (حتى ٨ جولات، اسمٌ حتى ٣٠ حرفاً، دون تداخل) ثم إغلاق الطلبات بعد آخر جولة، وألا تمتد التواريخ أكثر من ٤٠٠ يوم، وأن يسمّي كل رفضٍ الحقلَ الخطأ، وألا تُوضع مواعيد لفصلٍ منتهٍ أو مغلق.",
+        "en": "The system shall enforce on term dates the order: schedule submission deadline, then wishes (open and close together), then rounds (up to 8, name up to 30 characters, no overlap), then request close after the last round, shall refuse dates spanning more than 400 days, shall name the offending field in every refusal, and shall not accept dates for an ended or closed term."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "بداية الرغبات في يوم التسليم أو قبله ← رفض على wishesOpen.",
+          "en": "Wishes opening on or before the submission day is refused on wishesOpen."
+        },
+        {
+          "ar": "جولتان متداخلتان ← رفض rounds.1؛ والجولة التي تبدأ مع نهاية الرغبات ← رفض rounds.0.",
+          "en": "Two overlapping rounds are refused on rounds.1; a round starting with the wishes close is refused on rounds.0."
+        },
+        {
+          "ar": "POST /api/approvals/student-phases لغير المسجّل العام أو مدير النظام ← ٤٠٣، ولفصل منتهٍ ← ٤٠٩ term-closed.",
+          "en": "POST /api/approvals/student-phases by anyone but the university registrar or an administrator yields 403, and for an ended term yields 409 term-closed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/termStudentPhases.ts",
+          "src/server/routes/approvalsRoutes.ts",
+          "src/components/StudentPhasesBlock.tsx"
+        ],
+        "tests": [
+          "tests/term-student-phases-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-006",
+      "kind": "functional",
+      "title": {
+        "ar": "قراءة المرحلة واختيار فصل الباب",
+        "en": "Phase reading and door-term choice"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحدد مرحلة الطلبة (انتظار، رغبات، تجميد، جولة، بين الجولات، إغلاق، أو لم تُحدَّد) من تاريخ اليوم بتوقيت الكويت بحيث يشمل كل تاريخ يومَه كاملاً، وأن يختار لباب الطالب أحدث فصلٍ لم ينتهِ وله مواعيدُ لم تُغلق طلباته، وإلا فصل التخطيط القادم، وإلا الجاري، وأن يعمل فصلٌ بلا مواعيد كما كان دون منعٍ ولا فتحٍ.",
+        "en": "The system shall derive the student phase (waiting, wishes, frozen, round, between rounds, closed, or unset) from today's date in Kuwait with each date inclusive of its whole day, shall give the student door the newest unfinished term whose dates are not yet closed, otherwise the upcoming planning term, otherwise the current term, and shall let a term without dates behave as before, neither blocking nor opening anything."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "اليوم = wishesClose ← mode wishes؛ اليوم التالي ← mode frozen.",
+          "en": "Today = wishesClose gives mode wishes; the next day gives mode frozen."
+        },
+        {
+          "ar": "اليوم التالي لـrequestsClose ← mode closed ويتحول الباب إلى الفصل التالي.",
+          "en": "The day after requestsClose gives mode closed and the door moves to the next term."
+        },
+        {
+          "ar": "فصل بلا مواعيد ← key unset وmode none.",
+          "en": "A term without dates gives key unset and mode none."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/termStudentPhases.ts",
+          "src/server/studentDoorRoutes.ts"
+        ],
+        "tests": [
+          "tests/term-student-phases-audit.ts",
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-007",
+      "kind": "functional",
+      "title": {
+        "ar": "كتابة الرغبات في مرحلتها",
+        "en": "Writing wishes during the wishes phase"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يقبل الرغبات إلا في مرحلة الرغبات، وبعد اكتمال الملف، بوحداتٍ بين ١٢ وسقف القسم، وبحدٍّ أقصى ١٢ مقرراً من المتبقي في صحيفته، وألا يُدخل مقرراً ينقصه مسبق، وأن يحفظ قيود الوقت الثلاثة (بلا صباح، بلا ظهر، يوم فراغ).",
+        "en": "The system shall accept wishes only during the wishes phase, after the profile is complete, with units from 12 up to the department cap, at most 12 courses taken from the remainder of the student's plan, shall exclude any course whose prerequisite is unmet, and shall store the three time constraints (no morning, no afternoon, a free day)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "PUT /api/public/me/wishes خارج المرحلة ← ٤٠٩ wishes-closed؛ وبلا قسم ← ٤٠٩ no-setup.",
+          "en": "PUT /api/public/me/wishes outside the phase yields 409 wishes-closed; without a department yields 409 no-setup."
+        },
+        {
+          "ar": "targetUnits = 11 أو فوق السقف ← ٤٠٠ bad-units.",
+          "en": "targetUnits = 11 or above the cap yields 400 bad-units."
+        },
+        {
+          "ar": "١٥ مقرراً مُرسَلة ← تُحفظ ١٢ فقط وتُستبعد ما ينقصه مسبق.",
+          "en": "15 submitted courses keep at most 12 and exclude any with an unmet prerequisite."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/utils/studentNeedRequest.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-008",
+      "kind": "functional",
+      "title": {
+        "ar": "سقف وحدات الطالب لكل قسم",
+        "en": "Per-department student unit cap"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لقسمٍ بصلاحية الجدول اختيار سقف وحدات الطلبة في «مساري» من ١٥ أو ١٨ أو ٢١، وأن يسري على القسم وأقسام حرمه، وأن يكون الافتراضي ١٥ حين لا اختيار، وأن يُرسل الخادمُ السقف في limits.wishUnitsMax.",
+        "en": "The system shall let a department holding the schedule permission choose the student unit cap in Masari as 15, 18 or 21, shall apply it to the department and its campus family, shall default to 15 when nothing is chosen, and shall send the cap to the page in limits.wishUnitsMax."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "PUT /api/section-student-settings بقيمة 16 ← ٤٠٠ «اختر 15 أو 18 أو 21».",
+          "en": "PUT /api/section-student-settings with 16 yields 400 asking for 15, 18 or 21."
+        },
+        {
+          "ar": "قسم بلا إعداد ← wishUnitsMax = ١٥.",
+          "en": "A department with no setting returns wishUnitsMax = 15."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/studentUnitCap.ts",
+          "src/server/routes/referenceRoutes.ts",
+          "src/server/studentDoorRoutes.ts",
+          "src/components/StudentUnitCapField.tsx"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-009",
+      "kind": "functional",
+      "title": {
+        "ar": "مقترح الطالب وأعداد الزملاء",
+        "en": "Student advice and peer counts"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقترح للطالب مقررات فصله من صحيفته وقواعدها ومما يُطرح فعلاً بوحدات بين ١٢ وسقف قسمه، مرتّبةً بما تفتحه أولاً، مع سبب كل اقتراح وتقدير فصول ما بعد الفصل (حتى ١٤)، وألا يعرض «يريده N طالباً» إلا في قسمٍ فيه ١٠ ملفاتٍ فأكثر ولمقررٍ طلبه ٥ فأكثر.",
+        "en": "The system shall suggest to the student the term's courses from the plan, its rules and what is actually offered, with units from 12 up to the department cap, ordered by what each course unlocks, giving the reason for every pick and an estimate of remaining terms (up to 14), and shall show «wanted by N students» only in a department with at least 10 profiles and for a course wanted by at least 5."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر ينقصه مسبق لا يُقترح ويظهر في «ينتظرك» بما ينقصه.",
+          "en": "A course lacking a prerequisite is not suggested and appears under waiting with what is missing."
+        },
+        {
+          "ar": "قسم فيه ٩ ملفات ← show=false وbyCourse فارغ؛ ومقرر طلبه ٤ لا يُرسَل.",
+          "en": "A department with 9 profiles gives show=false and an empty byCourse; a course wanted by 4 is not sent."
+        },
+        {
+          "ar": "لا مقترح لفصلٍ بلا فصل مفتوح (reason no-term) أو بلا صحيفة (no-plan).",
+          "en": "No advice is returned without an open term (reason no-term) or without a plan (no-plan)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/studentAdvice.ts",
+          "src/utils/studentProfile.ts",
+          "src/server/studentDoorRoutes.ts"
+        ],
+        "tests": [
+          "tests/student-advice-audit.ts",
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-010",
+      "kind": "functional",
+      "title": {
+        "ar": "بطاقة «مقترحات فقط»",
+        "en": "The «suggestions only» acknowledgement"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض عند دخول مساري بطاقةً تقول «هذه مقترحات فقط، وليست تسجيلاً نهائياً» ولا يكمل الطالب قبل «فهمت»، وأن يحفظ الإقرار في ملفه على الخادم بمفتاح الفصل والقسم والصحيفة فيعود إن تغيّر مساره، وأن يُبقي شريطاً ثابتاً «مقترح · غير نهائي» في كل شاشة بعده.",
+        "en": "The system shall show on entering Masari a card stating «these are suggestions only, not a final registration», shall not let the student continue before acknowledging, shall store the acknowledgement in the profile on the server under a key of term, department and plan so it returns when the path changes, and shall keep a fixed «suggested · not final» ribbon on every screen afterwards."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "POST /api/public/me/ack بمفتاح غير مطابق للنمط masari-ack:… ← ٤٠٠ bad-ack.",
+          "en": "POST /api/public/me/ack with a key not matching masari-ack:… yields 400 bad-ack."
+        },
+        {
+          "ar": "الإقرار يُقرأ من الملف على جهازٍ آخر دون تخزين متصفح.",
+          "en": "The acknowledgement is read from the profile on another device with no browser storage."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/masariDisclaimer.ts",
+          "src/server/studentDoorRoutes.ts"
+        ],
+        "tests": [
+          "tests/student-journey-audit.ts",
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-STU-001",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الرئيسية المجمَّعة وعدم التخزين المؤقت",
+        "en": "Aggregated home and no caching"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم رئيسية الطالب بطلبٍ واحد GET /api/public/me/home يجمع تسعة أجزاء (notices وcases وgraduate وrequest-context وticket وreport وadvice وoffered وmap) يُسقَط بطيئها بعد ٨ ثوانٍ دون حجب البقية، وأن تُرسل كل استجابات الباب بـCache-Control: no-store.",
+        "en": "The system shall serve the student home through one request GET /api/public/me/home that gathers nine parts (notices, cases, graduate, request-context, ticket, report, advice, offered, map) of which a slow one is dropped after 8 seconds without blocking the rest, and shall send every door response with Cache-Control: no-store."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "جزء يتجاوز ٨ ثوانٍ ← parts[key] = {ok:false,status:504}.",
+          "en": "A part exceeding 8 seconds returns parts[key] = {ok:false,status:504}."
+        },
+        {
+          "ar": "استجابات /api/public/me/* تحمل no-store.",
+          "en": "Responses of /api/public/me/* carry no-store."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-011",
+      "kind": "functional",
+      "title": {
+        "ar": "طلب الطالب فتح مقرر أو مراجعة تعارض",
+        "en": "Student request to open a course or review a conflict"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يقبل طلب الطالب الفردي (فتح مقرر، حتى ١٢ مقرراً، أو تعارض مقررين) إلا بموافقته على إرسال هويته وبعد أن تثبت آخر محاكاة سارية تعذّر بلوغه ١٢ وحدة، وبسببٍ من ٣ إلى ٦٠٠ حرف، وأن يُرسَل إلى كل قسمٍ يملك مقرراً مطلوباً حالةً واحدةً برقم حالة، وألا يُقبل التعارض إلا إن ثبت تعذّر حله من الجداول المنشورة المكتملة.",
+        "en": "The system shall accept an individual student request (open a course, up to 12 courses, or a two-course conflict) only with the student's consent to send identity, only after the latest current simulation proves the student cannot reach 12 units, with a reason of 3 to 600 characters, shall send one case with a case number to each department owning a requested course, and shall accept a conflict only when published complete schedules prove it unresolvable."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا consent ← ٤٠٠ consent-needed؛ وبلا إثبات تعثر ← ٤٠٩ no-proven-blocker.",
+          "en": "Without consent yields 400 consent-needed; without a proven blocker yields 409 no-proven-blocker."
+        },
+        {
+          "ar": "تفاصيل بطول ٢ ← ٤٠٠ details-needed؛ ومقرر خارج المتبقي أو غير المتعذّر ← ٤٠٠ course-outside-plan.",
+          "en": "Details of length 2 yield 400 details-needed; a course outside the remainder or not blocked yields 400 course-outside-plan."
+        },
+        {
+          "ar": "تعارض غير مثبت ← ٤٠٩ conflict-not-proven.",
+          "en": "An unproven conflict yields 409 conflict-not-proven."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/utils/studentNeedRequest.ts",
+          "src/utils/studentCaseConflict.ts",
+          "src/utils/studentNeedMerge.ts"
+        ],
+        "tests": [
+          "tests/masari-approval-integrity-audit.ts",
+          "tests/registration-flow-audit.ts",
+          "tests/student-needs-scale-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-012",
+      "kind": "functional",
+      "title": {
+        "ar": "سؤال «هل سجّلت؟» بعد الجولة",
+        "en": "The «did you register?» question after a round"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يفتح سؤال «هل سجّلت؟» في الجولة الجارية وبعدها حتى إغلاق الطلبات فقط، فيقبل حتى ٤٠ جواباً (سجّلت أو تعثّرت بسبب: امتلأت، مسبق، تعارض، آخر) على مقررات خطته وحدها، ويجمعها في ٦٤ شظيةَ عدّاد، وإن طلب المتعثّر مساعدة القسم أنشأ حالةً لكل قسمٍ يملك مقرراً متعثَّراً فيه بعد التحقق من أن الرقم المدني يطابق بصمة ملفه.",
+        "en": "The system shall open the «did you register?» question only during a running round and after it until requests close, shall accept up to 40 answers (registered, or stuck with a reason: full, prerequisite, conflict, other) on courses of the student's own plan, shall tally them in 64 counter shards, and when a stuck student asks for department help shall create one case per department owning a stuck course after verifying the civil ID matches the profile fingerprint."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "POST /api/public/me/report خارج الجولة ← ٤٠٩ report-closed؛ وبلا جواب صالح ← ٤٠٠ empty.",
+          "en": "POST /api/public/me/report outside a round yields 409 report-closed; with no valid answer yields 400 empty."
+        },
+        {
+          "ar": "رقم مدني لا يطابق بصمة الملف ← ٤٠٣ civil-mismatch.",
+          "en": "A civil ID not matching the profile fingerprint yields 403 civil-mismatch."
+        },
+        {
+          "ar": "مقررات متعثرة لقسمين ← حالتان، لكل قسمٍ حالة.",
+          "en": "Stuck courses of two departments create two cases, one per department."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/utils/studentNotices.ts",
+          "src/utils/registrationCauses.ts"
+        ],
+        "tests": [
+          "tests/registration-flow-audit.ts",
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-013",
+      "kind": "functional",
+      "title": {
+        "ar": "طلب الخريج وإثبات صحيفة التخرج",
+        "en": "Graduate request and graduation-sheet proof"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقبل طلب الخريج (نوع الميداني: تعارض أو مسبق) ما دامت الطلبات غير مغلقة ولو خارج مرحلة الرغبات، بشرط إثبات صحيفة التخرج المرفوعة (PDF أو صورة حتى ١٤ ميغابايت، ١٢ محاولة في ١٠ دقائق للملف) بمطابقة الرقم المدني والبرنامج لقسمه، ورمزِ إثباتٍ موقَّع صالحٍ ٢٠ دقيقة، ويفشل مغلقاً حين لا قاعدةَ تخرجٍ معتمدة للقسم.",
+        "en": "The system shall accept a graduate request (field-training kind: conflict or prerequisite) while requests are not closed even outside the wishes phase, provided the uploaded graduation sheet (PDF or image up to 14 MB, 12 attempts per 10 minutes per profile) is proved by matching the civil ID and programme to the student's department, with a signed proof token valid for 20 minutes, and shall fail closed when the department has no approved graduation rule."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "رفع صحيفة لقسمٍ بلا قواعد تخرج محفوظة ← ٤٢٢ دون قراءة المستند.",
+          "en": "Uploading a sheet for a department without a saved graduation rule yields 422 without reading the document."
+        },
+        {
+          "ar": "رقم مدني في الصحيفة لا يطابق المُدخَل ← ٤٢٢؛ وبرنامج لا يطابق القسم ← ٤٢٢.",
+          "en": "A civil ID on the sheet not matching the entered one yields 422; a programme not matching the department yields 422."
+        },
+        {
+          "ar": "الطلب في مرحلة closed ← ٤٠٩ requests-closed.",
+          "en": "A request in the closed phase yields 409 requests-closed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/server/core/studentIdentity.ts",
+          "src/utils/studentCaseDecision.ts"
+        ],
+        "tests": [
+          "tests/masari-approval-integrity-audit.ts",
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-014",
+      "kind": "functional",
+      "title": {
+        "ar": "حالة طلبي برقم الحالة",
+        "en": "Request status by case number"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للطالب قراءة حالة طلبه من الرابط /m/:token بالرقم المدني ورقم الحالة معاً، وأن يجيب بالجواب نفسه «لا طلب» حين يخطئ أيٌّ منهما، وأن يحدّ المحاولات، وألا يَعِد بالتسجيل: ما وافقت عليه اللجنة وجدول قسمه غير موقَّع يُقال فيه «بانتظار اكتمال التوقيعات».",
+        "en": "The system shall let a student read the status of a request from the link /m/:token using the civil ID and the case number together, shall give the same «no request» answer when either is wrong, shall limit attempts, and shall not promise registration: what the committee approved while the department's schedule is unsigned is reported as awaiting signatures."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم مدني صحيح ورقم حالة خطأ ← found:false مطابقاً لرقمٍ لا طلب له.",
+          "en": "A valid civil ID with a wrong case number returns found:false, identical to an ID with no request."
+        },
+        {
+          "ar": "رقم الحالة = أول ٨ خانات كبيرة من معرّف السجل.",
+          "en": "The case number is the first 8 uppercase characters of the record id."
+        },
+        {
+          "ar": "حالة approved لقسمٍ لم يوقّع ← awaiting-signatures.",
+          "en": "Status approved for a department that has not signed returns awaiting-signatures."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/pages/studentCaseStatusPage.ts",
+          "src/server/routes/surveyRoutes.ts",
+          "src/utils/studentNeedMerge.ts",
+          "src/components/StudentCaseStatus.tsx"
+        ],
+        "tests": [
+          "tests/student-case-status-audit.ts",
+          "tests/masari-approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-STU-001",
+      "kind": "interface",
+      "title": {
+        "ar": "صفحة جدول الطلبة العامة",
+        "en": "Public student schedule page"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم صفحة جدول القسم للطلبة من الرابط /t/:token ذي النوع students، بالجدول المعتمد للفصل الجاري، وقبل الاعتماد يعرض الجدول الحالي موسوماً «مبدئي»، دون الاعتماد على تسجيل دخول، ويرفض رابطاً من نوعٍ آخر.",
+        "en": "The system shall serve the department schedule page to students from the link /t/:token of kind students, showing the approved schedule of the current term, and before approval the current schedule marked «provisional», with no sign-in, and shall refuse a link of another kind."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "استجابة /api/public/students/:token تحمل provisional:true حين لا صفوف معتمدة وفي الجدول صفوف.",
+          "en": "The /api/public/students/:token response carries provisional:true when no approved rows exist and the schedule has rows."
+        },
+        {
+          "ar": "رابط من نوع survey ← ٤٠٤ «هذا الرابط ليس جدول الطلبة».",
+          "en": "A link of kind survey yields 404 stating it is not the students' schedule."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/pages/studentSchedulePage.ts",
+          "src/server/routes/publicStaffRoutes.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-STU-015",
+      "kind": "functional",
+      "title": {
+        "ar": "«جرّب كطالب»: تجربة معزولة",
+        "en": "«Try as a student»: isolated demonstration"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يفتح عند /me/demo صندوق تجربةٍ خاصاً بالزائر فارغاً من البيانات الحقيقية، بكوكيين وطالبةٍ افتراضية ورغباتٍ ورادارٍ مشغَّل داخله، يعيش ساعتين، بحدٍّ أقصى ١٥٠ صندوقاً، و٣٠ إنشاءً كل ١٠ دقائق، ولا يقرأ منه الحقيقي ولا يكتب فيه.",
+        "en": "The system shall open at /me/demo a private demonstration sandbox for the visitor, empty of real data, with two cookies, a fictional student, wishes and a rehearsal run inside it, living 2 hours, at most 150 sandboxes, 30 creations per 10 minutes, and neither read from nor written to by real data."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "/me/demo ← ٣٠٢ إلى /me?track=girls#now مع كوكيّ sh_demo_stu وsh_session.",
+          "en": "/me/demo returns 302 to /me?track=girls#now with cookies sh_demo_stu and sh_session."
+        },
+        {
+          "ar": "صندوق منتهٍ ← يُمسح الكوكيان وتعود الطلبات 401 في الحقيقي.",
+          "en": "An expired sandbox clears both cookies and requests return 401 against real data."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentShowcase.ts",
+          "src/server/demoRadarSeed.ts"
+        ],
+        "tests": [
+          "tests/student-showcase-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-016",
+      "kind": "functional",
+      "title": {
+        "ar": "كشف التسجيل: القراءة بالنطاق والتوقيع",
+        "en": "Registration sheet: scope and signature gating"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض كشف التسجيل (GET /api/student-registration) لمن يملك الورشة (٧) أو تقرير القسم (١٤) بحدود نطاقه، وأن يعرض الطلبات نفسها التي يقرؤها مركز التحليلات بقاعدة الملكية نفسها، وألا يعرضه لموظف التسجيل قبل أن يوقّع رئيس لجنة الجدول ورئيس القسم جدول القسم، وأن تُحجب الهوية عن صفة العرض الصرف.",
+        "en": "The system shall serve the registration sheet (GET /api/student-registration) to holders of the workshop (7) or department-report (14) permission within their scope, shall show the same requests the Analytics Center reads under the same ownership rule, shall withhold it from registration officers until the schedule committee chair and the department head have both signed the department's schedule, and shall hide identity from view-only roles."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "registrarStaff",
+        "collegeRegistrar",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "موظف تسجيل وجدولٌ غير موقَّع ← ٤٠٩ not-signed.",
+          "en": "A registration officer with an unsigned schedule gets 409 not-signed."
+        },
+        {
+          "ar": "قسم خارج النطاق ← ٤٠٣.",
+          "en": "A department outside scope yields 403."
+        },
+        {
+          "ar": "عميد (عرض صرف) يرى العدد بلا اسم ولا رقم مدني.",
+          "en": "A dean (view-only) sees counts without name or civil ID."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/studentRegistrationRoutes.ts",
+          "src/utils/studentCaseScope.ts",
+          "src/components/StudentRegistration.tsx",
+          "src/components/StudentCasesTable.tsx"
+        ],
+        "tests": [
+          "tests/student-registration-audit.ts",
+          "tests/masari-approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-017",
+      "kind": "functional",
+      "title": {
+        "ar": "اللجنة أولاً ثم التسجيل",
+        "en": "Committee first, then registration"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يجعل القرار على طلب الطالب بالترتيب: لجنة القسم توافق أو لا توافق (بسببٍ من: غير مؤهل، ليس في الخطة، مسبق، مكرر، آخر)، ثم يقرر التسجيل «سُجّل» أو «رُدّ» (بسببٍ من: لا مقعد، مسبق، مستوى، تعارض، مغلق، آخر) فيما سلّمته اللجنة وحده، وألا تنقض اللجنة قرار التسجيل، وأن تُقرَّر حالة الخريج بقرارٍ واحدٍ للحالة كلها بالترتيب نفسه.",
+        "en": "The system shall order decisions on a student request as: the department committee approves or declines (with a reason from not eligible, not in plan, prerequisite, duplicate, other), then registration decides «registered» or «rejected» (with a reason from no seat, prerequisite, level, conflict, closed, other) only on what the committee handed over, shall not let the committee overturn a registration decision, and shall decide a graduate case with one decision for the whole case in the same order."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff",
+        "collegeRegistrar"
+      ],
+      "acceptance": [
+        {
+          "ar": "اللجنة تكتب registered ← ٤٠٣؛ والتسجيل يكتب committee-rejected ← ٤٠٣.",
+          "en": "The committee writing registered yields 403; registration writing committee-rejected yields 403."
+        },
+        {
+          "ar": "التسجيل في مقرر لم توافق عليه اللجنة ← ٤٠٩ برسالة «لم توافق لجنةُ القسم».",
+          "en": "Registration on a course the committee has not approved yields 409 with the committee-not-approved message."
+        },
+        {
+          "ar": "رفضٌ بلا reasonCode من المجموعة المسموحة ← ٤٠٠.",
+          "en": "A rejection without an allowed reasonCode yields 400."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/studentRegistrationRoutes.ts",
+          "src/utils/studentCaseDecision.ts"
+        ],
+        "tests": [
+          "tests/student-registration-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-018",
+      "kind": "functional",
+      "title": {
+        "ar": "منع الكتابة على نسخةٍ قديمة",
+        "en": "Stale-write refusal on decisions"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض بـ٤٠٩ برمز stale-write كتابةَ قرارٍ بُني على نسخةٍ لم تعد الحاضرة (expectedAt للمقرر، وexpectedStamp للحالة)، داخل المعاملة نفسها، فلا يسبق زميلٌ زميلاً على الحالة القديمة، وأن يقول للكاتب «حدّث ثم أعد» دون تعديل.",
+        "en": "The system shall refuse with 409 and code stale-write a decision built on a version that is no longer current (expectedAt for a course, expectedStamp for a case), inside the same transaction so two colleagues cannot overwrite each other on an old state, telling the writer to refresh and retry without changing anything."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "ختم لا يطابق السجل الحاضر ← ٤٠٩ code=stale-write وحالة المقرر لم تتغير.",
+          "en": "A stamp not matching the current record yields 409 code=stale-write and the course state is unchanged."
+        },
+        {
+          "ar": "ختم مطابق ← ٢٠٠ وقيمة at جديدة.",
+          "en": "A matching stamp yields 200 and a new at value."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/studentRegistrationRoutes.ts",
+          "src/utils/staleWrite.ts"
+        ],
+        "tests": [
+          "tests/student-registration-audit.ts",
+          "tests/colleagues-advising-registration-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-019",
+      "kind": "functional",
+      "title": {
+        "ar": "موافقة اللجنة مع فتح شعبة",
+        "en": "Committee approval with section opening"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للجنة التي تملك صلاحية الجدول (٧) «موافقة + فتح شعبة» تُفتح فيها الشعبة بمسار التعديل نفسه الذي تفتح به الورشة (نطاق، قفل، تعارض)، فلا تُسجَّل الموافقة إن رُفضت الشعبة (stateSaved:false)، وتُحذف الشعبةُ إن فشل حفظ القرار بعدها، وتُلتقط الشعبة المفتوحة سابقاً بمرجع need:<الطلب>:course:<المقرر> فلا تُفتح مرتين.",
+        "en": "The system shall let a committee holding the schedule permission (7) use «approve + open section», opening the section through the same change path the workshop uses (scope, lock, conflict), so the approval is not recorded when the section is refused (stateSaved:false), the section is removed if saving the decision fails afterwards, and a section opened earlier is picked up through the reference need:<request>:course:<course> so it is never opened twice."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "openSection دون صلاحية ٧ ← ٤٠٣ no-schedule-permission.",
+          "en": "openSection without permission 7 yields 403 no-schedule-permission."
+        },
+        {
+          "ar": "ضغطتان متزامنتان ← شعبةٌ واحدة وopened.reused = true في الثانية.",
+          "en": "Two simultaneous presses create one section and opened.reused = true in the second."
+        },
+        {
+          "ar": "رفض الشعبة لتعارض ← الاستجابة stateSaved:false وحالة المقرر كما كانت.",
+          "en": "Refusing the section for a conflict returns stateSaved:false and leaves the course state unchanged."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/studentRegistrationRoutes.ts",
+          "src/components/ApplyProposal.tsx",
+          "src/server/core/scheduleWrites.ts"
+        ],
+        "tests": [
+          "tests/student-registration-audit.ts",
+          "tests/masari-approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-020",
+      "kind": "functional",
+      "title": {
+        "ar": "إرسال طلب شعبة من الإرشاد",
+        "en": "Advising sends a section request"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لمرشد القسم إرسال طلب شعبة واحد لمقرر وحرم وفصل بفترةٍ مفضلة (صباحية أو مسائية أو أي فترة) وعددٍ وقائمةِ طلبة من «مساري» أو ملصقةٍ تُختم هويتها، بحدٍّ أقصى ٤٠٠ طالب في القائمة و١٠٠٠ في العدد وملاحظة حتى ٣٠٠ حرف، وألا يُرسَل إلا من نطاق قسم المرشد وفي فصلٍ غير مجمَّد.",
+        "en": "The system shall let a department advisor send one section request for a course, campus and term with a preferred period (morning, evening or any), a count and a student list taken from Masari or pasted (identities sealed), with at most 400 students in the list, 1000 in the count and a note of up to 300 characters, only from the advisor's own department scope and in a term that is not frozen."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "advisor"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب بلا فترة صالحة ← ٤٠٠ «اختر الفترة المفضلة».",
+          "en": "A request without a valid period yields 400 asking for the preferred period."
+        },
+        {
+          "ar": "مرسِل ليس مرشداً في نطاق القسم ← ٤٠٣.",
+          "en": "A sender who is not an advisor in the department scope yields 403."
+        },
+        {
+          "ar": "عدد ٥٠٠٠ ← يُقصّ إلى ١٠٠٠؛ وطلبة مكرّرون بالبصمة يُدمجون.",
+          "en": "A count of 5000 is clipped to 1000; students duplicated by fingerprint are merged."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/sectionRequestsRoutes.ts",
+          "src/utils/sectionRequests.ts",
+          "src/components/sectionRequests/SectionRequestsPanel.tsx",
+          "src/utils/sectionRequestHandoff.ts"
+        ],
+        "tests": [
+          "tests/section-requests-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-021",
+      "kind": "functional",
+      "title": {
+        "ar": "مراحل طلب الشعبة وانتقالاتها",
+        "en": "Section request stages and transitions"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يشتق مرحلة طلب الشعبة دائماً من وثيقته (أُرسل، فُتحت الشعبة، تم الاعتماد، يُسجَّل، سُجّلوا، سُحب، اعتذرت اللجنة) لا من حقلٍ مخزَّن، وأن يفرض الانتقالات: لا اعتماد قبل ربط شعبة، ولا ربط ولا فك ولا سحب ولا اعتذار بعد الاعتماد، ولا تسجيل إلا لمن اعتُمد، ولا يُنزع اعتماد من سُجّل، ويكون الاعتذار بسببٍ مكتوب يصل الإرشاد.",
+        "en": "The system shall always derive a section request's stage from its document (sent, section opened, approved, registering, registered, withdrawn, declined) rather than a stored field, and shall enforce the transitions: no approval before a section is linked, no linking, unlinking, withdrawal or decline after approval, registration only for approved students, no removal of approval from a registered student, and a decline carries a written reason that reaches advising."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "اعتماد بلا شعبة مربوطة ← ٤٠٩ «اربط شعبةً بالطلب أولاً».",
+          "en": "Approval with no linked section yields 409 asking to link a section first."
+        },
+        {
+          "ar": "اعتذار بلا نص ← ٤٠٠؛ ثم الاعتذار يغلق الطلب فتُرفض كل كتابة بعده بـ٤٠٩.",
+          "en": "A decline without text yields 400; after the decline every write is refused with 409."
+        },
+        {
+          "ar": "تسجيل طالبٍ لم يُعتمد ← ٤٠٩ «لا يُسجَّل إلا من اعتُمد».",
+          "en": "Registering an unapproved student yields 409 stating only approved students are registered."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/sectionRequests.ts",
+          "src/server/sectionRequestsRoutes.ts"
+        ],
+        "tests": [
+          "tests/section-requests-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-022",
+      "kind": "functional",
+      "title": {
+        "ar": "توزيع سعة الطلب على الشعب",
+        "en": "Distributing request capacity across sections"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يوزّع عدد الطلب على شعبه المربوطة كلها بالتقريب إلى الأعلى (العدد ÷ عدد الشعب) ويكتب نصيب كل شعبة سعةً أساسية في رصيد مقاعد المرشد بحدٍّ أقصى ٢٠٠ للشعبة، ويعيد التوزيع عند كل ربطٍ أو فك، ولا يمسّ سعةً كتبها المسؤول يدوياً.",
+        "en": "The system shall distribute the request count over all its linked sections rounding up (count ÷ number of sections) and write each section's share as base capacity in the advisor seat balance up to 200 per section, shall redistribute on every link or unlink, and shall never touch a capacity an administrator wrote by hand."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "١٠٠ طالب وشعبتان ← نصيب كل شعبة ٥٠؛ وبعد ربط ثالثة ← ٣٤.",
+          "en": "100 students and two sections give 50 each; after a third link, 34."
+        },
+        {
+          "ar": "سعة مكتوبة يدوياً تختلف عن appliedCapacity ← تبقى كما هي.",
+          "en": "A hand-written capacity different from appliedCapacity stays as it is."
+        },
+        {
+          "ar": "فك شعبة كتبها الطلب ← تُمحى سعتها من الرصيد.",
+          "en": "Unlinking a section the request wrote removes its capacity from the balance."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/sectionRequests.ts",
+          "src/server/sectionRequestsRoutes.ts",
+          "src/utils/advisorSeats.ts"
+        ],
+        "tests": [
+          "tests/section-requests-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-023",
+      "kind": "functional",
+      "title": {
+        "ar": "صلاحيات الأطراف والتنبيهات",
+        "en": "Party powers and notifications"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحدد ما يفعله كل طرف في طلب الشعبة من صفته ونطاقه وصلاحياته لا من القالب (الإرشاد يرسل ويسحب، لجنة قسم المقرر تربط وتعتذر وتعتمد، التسجيل يعتمد ويسجّل، وصفة العرض الصرف تقرأ بلا أسماء)، وأن يصل كل طرفٍ ما ينتظره في الجرس وتنبيهات الجوال دون أن يُوقَظ مدير النظام لكل طلب.",
+        "en": "The system shall decide what each party may do on a section request from role, scope and granted permissions rather than the role template (advising sends and withdraws, the course department's committee links, declines and approves, registration approves and records, a view-only role reads without names), and shall deliver to each party what awaits it through the bell and mobile alerts without waking the system administrator for every request."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "committeeChair",
+        "registrarStaff",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "مرشد قسمٍ آخر يطلب طلباً ليس من قسمه ← ٤٠٤.",
+          "en": "An advisor of another department requesting a request not from their department gets 404."
+        },
+        {
+          "ar": "حساب بلا إذن ٧ أو ١٤ ← لا قراءة.",
+          "en": "An account without permission 7 or 14 cannot read."
+        },
+        {
+          "ar": "الجرس يعرض حتى ٨ عناصر ويشتقها لحظة السؤال دون تخزين.",
+          "en": "The bell shows up to 8 items derived at query time with nothing stored."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/sectionRequestsRoutes.ts",
+          "src/utils/sectionRequests.ts"
+        ],
+        "tests": [
+          "tests/section-requests-audit.ts",
+          "tests/colleagues-advising-registration-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-024",
+      "kind": "functional",
+      "title": {
+        "ar": "رصيد مقاعد المرشد",
+        "en": "Advisor seat balance"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحسب لكل شعبة سقفاً صلباً = أقل من (السعة الأساسية + الرصيد) وسعة القاعة، وأن يضيف المرشد مقاعد (١ إلى ٥٠) ذرّياً كلّها أو لا شيء، فلا يتجاوز مرشدان معاً السقف، وأن يقسم الرصيد بالتساوي عند التوزيع العادل، وأن يقترح شعباً بديلة عند الامتلاء، وأن يتيح طلب استثناء للمسؤول (حتى ٥٠ مقعداً وملاحظة ٣٠٠ حرف).",
+        "en": "The system shall compute for each section a hard cap = the lesser of (base capacity + balance) and the hall capacity, shall let an advisor add seats (1 to 50) atomically, all or nothing, so two advisors acting together cannot exceed the cap, shall split the balance evenly under fair split, shall suggest alternative sections when full, and shall allow an exception request to the administrator (up to 50 seats and a 300-character note)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "سعة ٦٠ ورصيد ١٠ ← الحلقة «60 + 0/10»؛ وإضافة ١١ ← رفض full.",
+          "en": "Capacity 60 with balance 10 shows «60 + 0/10»; adding 11 is refused as full."
+        },
+        {
+          "ar": "إضافة ٠ أو ٥١ ← invalid؛ وسعة أساسية غير محددة ← ٤٠٩.",
+          "en": "Adding 0 or 51 is invalid; an undefined base capacity yields 409."
+        },
+        {
+          "ar": "ختم rev لا يطابق عدد الإضافات ← ٤٠٩ stale-write.",
+          "en": "A rev not matching the number of additions yields 409 stale-write."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/advisorSeats.ts",
+          "src/server/routes/offeringRoutes.ts",
+          "src/components/AdvisorSeatsPanel.tsx"
+        ],
+        "tests": [
+          "tests/section-requests-audit.ts",
+          "tests/colleagues-advising-registration-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-025",
+      "kind": "functional",
+      "title": {
+        "ar": "الكرسي والشاغل والتسليم",
+        "en": "Seat, holder and handover"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتعامل مع الحساب بوصفه كرسياً ثابتاً يتبدّل شاغله: سجلٌّ لكل كرسي (الشاغل، الفريق، النائب، التاريخ حتى ٤٠٠ حدثاً)، ويسلّم الكرسيَّ شاغلُه أو مدير النظام فتُولَّد كلمةٌ أولى تظهر مرةً واحدة وتُخرَج كل الأجهزة ويُجمَّد الفريق حتى يقرر الشاغل الجديد لكل عضو «مستمر» أو «انتهت عضويته»، ويعمل صاحب الجلسة باسمه في السجل والتوقيع.",
+        "en": "The system shall treat an account as a fixed seat whose holder changes: one ledger per seat (holder, team, deputy, history up to 400 events); the holder or the system administrator hands it over, a first password is generated and shown once, all open devices are signed out and the team is frozen until the new holder marks each member «continuing» or «ended», and the session owner acts under their own name in the log and signature."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair",
+        "collegeRegistrar",
+        "registrarHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "تسليم لنفس الشاغل الحالي (رقم الأستاذ نفسه) ← ٤٠٩ «هذا هو الرئيس الحالي نفسه».",
+          "en": "Handing over to the same current holder (same instructor number) yields 409."
+        },
+        {
+          "ar": "غير الشاغل ومدير النظام ← ٤٠٣.",
+          "en": "Anyone other than the holder or the administrator yields 403."
+        },
+        {
+          "ar": "بعد التسليم يحمل كل عضو الحالة frozen.",
+          "en": "After handover every member has status frozen."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/seatsRoutes.ts",
+          "src/server/seats.ts",
+          "src/utils/seats.ts",
+          "src/components/seats/SeatsAdmin.tsx",
+          "src/components/seats/SeatPanel.tsx",
+          "src/components/seats/SeatDrawer.tsx"
+        ],
+        "tests": [
+          "tests/seats-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-026",
+      "kind": "functional",
+      "title": {
+        "ar": "رابط عضو الفريق والنائب",
+        "en": "Team member link and deputy"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يدخل عضو الفريق برابطه الشخصي /k/<رمز> مع تأكيد آخر أربعة أرقام من رقمه المدني، فيعمل باسمه وبصفة فريقه (موظف التسجيل في نطاقه هو) لا بكلمة سرّ الكرسي ولا يوقّع، ويُقفل الرابط بعد ٥ محاولات خاطئة، ويسقط رابط إعادة التعيين بعد ٢٤ ساعة إن لم يُفتح، ويُحدَّد الفريق بـ٤٠ عضواً، ويعمل النائب المكلَّف من الفريق حتى تاريخ نهايته ويوقّع.",
+        "en": "The system shall let a team member enter through the personal link /k/<token> after confirming the last four digits of their civil ID, working under their own name and team role (a registration officer within their own scope), not with the seat password, and not signing; the link locks after 5 wrong attempts, a reset link expires after 24 hours if unopened, the team is limited to 40 members, and a deputy appointed from the team acts and signs until the end date."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "خمس محاولات خاطئة ← ٤٢٣ ويُبطل الرمز ويسجَّل link-locked.",
+          "en": "Five wrong attempts yield 423, revoke the token and log link-locked."
+        },
+        {
+          "ar": "عضو جديد بعد ٤٠ عضواً عاملاً ← ٤٠٩ «الفريق مكتمل».",
+          "en": "A new member after 40 active members yields 409 stating the team is full."
+        },
+        {
+          "ar": "نيابة بتاريخ قبل اليوم ← ٤٠٠.",
+          "en": "A deputy end date before today yields 400."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/seatsRoutes.ts",
+          "src/server/seats.ts",
+          "src/utils/seats.ts",
+          "src/server/seatTeamPage.ts",
+          "src/components/seats/SeatLinkCard.tsx",
+          "src/utils/seatAccessCard.ts"
+        ],
+        "tests": [
+          "tests/seats-audit.ts",
+          "tests/seat-access-card-audit.tsx"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-027",
+      "kind": "functional",
+      "title": {
+        "ar": "محرّك بروفة التسجيل",
+        "en": "Registration rehearsal engine"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحاكي بحتمية تامة لكل طالبٍ ذي رغبات مقرراته المتبقية بقواعد صحيفته ويبني له ثلاث خطط: (أ) الأقرب لرغباته وقيوده بخصمٍ من دفتر مقاعد افتراضي بترتيب النوافذ، و(ب) شعب بديلة، و(ج) حدّ أدنى آمن ١٢ وحدة، بوحدات مقصوصة بين ١٢ و١٨ (الافتراضي ١٥)، ويرتّب الطلبة بالأشدّ حاجةً أولاً ويقسّمهم بالتساوي على الجولات، وأن يبقى تقديراً لا حجزاً.",
+        "en": "The system shall deterministically simulate for each student with wishes the remaining courses under the plan's rules and build three plans: (A) closest to wishes and constraints, drawing on a virtual seat ledger in window order, (B) alternative sections, and (C) a safe minimum of 12 units, with units clamped between 12 and 18 (default 15), ordering students by greatest need first and splitting them evenly over rounds, and shall remain an estimate rather than a reservation."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "المدخلات نفسها ← المخرجات نفسها (حتمية).",
+          "en": "The same inputs produce the same outputs (determinism)."
+        },
+        {
+          "ar": "targetUnits = 21 ← يُقصّ إلى ١٨ في المحاكاة.",
+          "en": "targetUnits = 21 is clamped to 18 in the simulation."
+        },
+        {
+          "ar": "الخطتان (ب) و(ج) لا تخصمان من الدفتر.",
+          "en": "Plans B and C do not draw on the ledger."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/registrationSim.ts",
+          "src/server/simulationData.ts"
+        ],
+        "tests": [
+          "tests/registration-sim-audit.ts",
+          "tests/registration-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-028",
+      "kind": "functional",
+      "title": {
+        "ar": "تشغيل الرادار وتحديثه",
+        "en": "Running and refreshing the radar"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقصر تشغيل الرادار على إدارة النظام بقفلٍ في العملية وقفلٍ في قاعدة البيانات بين الخوادم، وأن يحدّثه تلقائياً كل ٢٤ ساعة (RADAR_AUTO_HOURS) أثناء الرغبات وبعدها حتى إغلاق الطلبات ومرةً بعد إغلاق الرغبات، ويفحص كل ٥ دقائق، ويوقفه RADAR_AUTO=false ولا يعمل في التجربة، وأن يُظهر للأقسام مقرراتها بأعداد لا أسماء، وأن يخزّن لكل طالب تذكرةً بلا اسم ولا رقم مدني.",
+        "en": "The system shall restrict running the radar to system administration with an in-process lock and a database lock across servers, shall refresh it automatically every 24 hours (RADAR_AUTO_HOURS) during and after wishes until requests close and once after wishes close, checking every 5 minutes, stoppable with RADAR_AUTO=false and inactive in the demonstration, shall show departments their own courses as counts not names, and shall store for each student a ticket with no name or civil ID."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin",
+        "departmentHead",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "POST /api/simulation/run لغير مدير النظام ← ٤٠٣؛ وأثناء تشغيل آخر ← ٤٠٩ busy.",
+          "en": "POST /api/simulation/run by a non-administrator yields 403; during another run yields 409 busy."
+        },
+        {
+          "ar": "فصل مجمَّد ← ٤٠٩ term-frozen.",
+          "en": "A frozen term yields 409 term-frozen."
+        },
+        {
+          "ar": "تذكرة runId لا يطابق الملخّص تُهمل.",
+          "en": "A ticket whose runId does not match the summary is ignored."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/simulationRoutes.ts",
+          "src/server/simulationData.ts",
+          "src/components/RegistrationRehearsal.tsx"
+        ],
+        "tests": [
+          "tests/registration-flow-audit.ts",
+          "tests/rehearsal-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-029",
+      "kind": "functional",
+      "title": {
+        "ar": "أسباب ألا يبلغ الطالب ١٢ وحدة",
+        "en": "Why a student does not reach 12 units"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يفسّر قصور الطالب عن ١٢ وحدة بمقارنة سيناريوهات: يُرفع قيدٌ واحد عن الجميع (السعة، التعارض، قيود الطالب، المسبق) ثم يُسأل هل بلغ ١٢، فيُسمّى سببٌ واحد، وأكثر من سبب «مشترك»، ولا شيء «مقرر غير مطروح أو غير ذلك»، ويُقال في الواجهة إنه تقدير لا إثبات.",
+        "en": "The system shall explain a student's shortfall below 12 units by comparing scenarios: one constraint (capacity, conflict, student constraints, prerequisite) is lifted for everyone and the question is whether the student then reaches 12, so a single cause is named, more than one is «shared», and none is «course not offered or other», with the interface stating it is an estimate not proof."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "رفع السعة وحده يحلّ الحالة ← السبب full.",
+          "en": "Lifting capacity alone resolves the case so the cause is full."
+        },
+        {
+          "ar": "رفع قيدين يحلّها ← السبب shared.",
+          "en": "Lifting two constraints resolves it so the cause is shared."
+        },
+        {
+          "ar": "لا قيد يحلّها ← السبب other.",
+          "en": "No constraint resolves it so the cause is other."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/registrationCauses.ts",
+          "src/utils/registrationSim.ts"
+        ],
+        "tests": [
+          "tests/registration-causes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-STU-002",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الحدود على شبكة جامعية مشتركة",
+        "en": "Limits on a shared university network"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتحمل دخول آلاف الطلبة من عنوان شبكةٍ واحد بحدودٍ مضبوطة: ٢٤٬٠٠٠ سؤال هوية و٦٠٠ خطأ رمز لكل عنوان في ١٠ دقائق، و٦٠ كتابة في الدقيقة لكل طالب وسقف ١٢٠٠ كتابة في الدقيقة لكل عنوان، قابلةٌ للضبط بمتغيرات STUDENT_DOOR_*، وألا يُحسب /api/public/me/* على عدّاد العنوان العام.",
+        "en": "The system shall withstand thousands of students entering from one network address under tuned limits: 24,000 identity queries and 600 code errors per address per 10 minutes, 60 writes per minute per student and a ceiling of 1200 writes per minute per address, adjustable through STUDENT_DOOR_* variables, and shall not count /api/public/me/* against the general public address counter."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "٦٠٠ طالب من عنوان واحد في دقيقتين ← لا يُحجب منهم أحد بحدّ الهوية.",
+          "en": "600 students from one address within two minutes are not blocked by the identity limit."
+        },
+        {
+          "ar": "الكتابة رقم ٦١ في دقيقة لطالبٍ واحد ← ٤٢٩ برسالة «طلباتٌ كثيرة في وقتٍ قصير».",
+          "en": "The 61st write within a minute by one student yields 429 with the too-many-requests message."
+        },
+        {
+          "ar": "متغير STUDENT_DOOR_WRITES_PER_MINUTE يغيّر الحدّ.",
+          "en": "The STUDENT_DOOR_WRITES_PER_MINUTE variable changes the limit."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts"
+        ],
+        "tests": [
+          "tests/student-door-shared-network-audit.ts",
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-STU-002",
+      "kind": "interface",
+      "title": {
+        "ar": "لوحة النصيحة الأكاديمية للأقسام",
+        "en": "Academic advice panel for departments"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض للقسم قراءة أكاديمية غير مانعة من الصحائف المعتمدة والرغبات: أزواج مقررات يحتاجها ٣ طلبة مؤهلين فأكثر ويتداخل وقتها مع بيان هل لها شعبٌ بديلة، وتفضيل الصباح أو الظهر لمقررٍ طلبه ٣ فأكثر (حتى ١٦٠ زوجاً و٢٤ تفضيلاً)، وألا تغيّر حكم الحفظ أو التوقيع أو الإرسال، وألا تعرض هوية ولا أعداداً أصغر من ٣.",
+        "en": "The system shall show a department a non-blocking academic reading from approved plans and wishes: course pairs needed by at least 3 eligible students whose times overlap with whether alternative sections exist, and a morning or afternoon preference for a course wanted by at least 3 (up to 160 pairs and 24 preferences), shall never change the save, sign or send verdict, and shall show neither identity nor counts below 3."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "طالب واحد يطلب الزوج ← shared = ٠ وbasis = curriculum.",
+          "en": "A single student wanting the pair gives shared = 0 and basis = curriculum."
+        },
+        {
+          "ar": "المسبق الإلزامي ليس طلباً متزامناً ← لا زوج بين مقرر ومسبقه.",
+          "en": "A mandatory prerequisite is not simultaneous demand, so no pair forms between a course and its prerequisite."
+        },
+        {
+          "ar": "الاستجابة تحمل nonBlocking:true.",
+          "en": "The response carries nonBlocking:true."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/academicAdvisory.ts",
+          "src/server/academicAdvisoryData.ts",
+          "src/server/academicAdvisoryVisual.ts",
+          "src/components/AcademicAdvicePanel.tsx"
+        ],
+        "tests": [
+          "tests/academic-advice-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-STU-003",
+      "kind": "interface",
+      "title": {
+        "ar": "تبويبا كشف التسجيل والرادار والمرحلة",
+        "en": "Registration and radar tabs and the phase line"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يجمع «كشف التسجيل» و«رادار يوم التسجيل» بتبويبين أعلى الشاشة لمن يملك الاثنين معاً (ومن يملك أحدهما لا يرى الشريط)، وأن يقول شريطُ المرحلة قبل التسجيل «أرقامٌ فقط» ويُظهر أسماء المتعثرين للأقسام المالكة بعد بدء الجولة فقط، ويحمل زرَّ رمز QR لرابط /me الدائم، ويضيّق منتقي الكلية والقسم ما يراه القارئ داخل نطاقه ولا يوسّعه.",
+        "en": "The system shall join «registration sheet» and «registration-day radar» in two tabs atop the screen for someone holding both (someone holding one sees no bar), shall have the phase line say «numbers only» before registration and show the names of stuck students to the owning departments only once a round starts, shall carry a QR code button for the permanent /me link, and shall let the college and department picker narrow what the reader sees inside their scope, never widen it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "registrarStaff",
+        "collegeRegistrar",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حساب بلا إذن الرادار أو بلا إذن الكشف ← RegistrationTabs لا يُرسم.",
+          "en": "An account without radar or sheet permission gets no RegistrationTabs bar."
+        },
+        {
+          "ar": "phase.namesVisible = false قبل الجولة وtrue أثناءها وبعدها.",
+          "en": "phase.namesVisible is false before a round and true during and after it."
+        },
+        {
+          "ar": "?collegeId&sectionId خارج النطاق لا يوسّع النتائج.",
+          "en": "?collegeId&sectionId outside scope does not widen results."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/RegistrationTabs.tsx",
+          "src/components/MasariQrButton.tsx",
+          "src/components/AdvisingScopePicker.tsx",
+          "src/server/simulationRoutes.ts",
+          "src/utils/termStudentPhases.ts"
+        ],
+        "tests": [
+          "tests/registration-flow-audit.ts",
+          "tests/rehearsal-audit.ts"
+        ]
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "تغيير الرمز أثناء جلسةٍ مفتوحة",
+        "en": "Changing the code during an open session"
+      },
+      "scenario": {
+        "ar": "طالب يغيّر رمزه من جهازٍ بينما جهازٌ آخر مفتوح.",
+        "en": "A student changes the code on one device while another stays open."
+      },
+      "behavior": {
+        "ar": "نسخة الرمز في الكوكي لا تطابق الملف، فيعيد الجهاز الآخر ٤٠١ signed-out ويطلب الدخول من جديد.",
+        "en": "The code version in the cookie no longer matches the profile, so the other device receives 401 signed-out and must sign in again."
+      },
+      "evidence": [
+        "tests/student-door-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "قفلٌ ينشأ أثناء التحقق من رمزٍ صحيح",
+        "en": "A lock raised while a correct code is being verified"
+      },
+      "scenario": {
+        "ar": "طلبات متوازية: أخطاء تبلغ الحد الخامس بينما يصل رمزٌ صحيح.",
+        "en": "Parallel requests: failures reach the fifth while a correct code arrives."
+      },
+      "behavior": {
+        "ar": "يبقى القفل ولا يُمحى بالنجاح اللاحق ويُرجع ٤٢٣ locked.",
+        "en": "The lock stays and is not erased by the later success, returning 423 locked."
+      },
+      "evidence": [
+        "tests/student-door-audit.ts",
+        "tests/student-door-shared-network-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "طالب يحذف مقرراً بعد أن قيل فيه شيء",
+        "en": "A student removes a course after a decision"
+      },
+      "scenario": {
+        "ar": "طالب يعيد إرسال طلبه دون مقررٍ سبق أن سجّله التسجيل.",
+        "en": "A student resubmits a request without a course registration already recorded."
+      },
+      "behavior": {
+        "ar": "يُحدَّث الطلب ولا يُستبدل: يبقى المعرّف ورقم الحالة، ويبقى القرار معلَّماً «ألغاه الطالب بعد التسجيل» فلا يبقى مقعدٌ محجوز بلا علم أحد.",
+        "en": "The request is updated, not replaced: the id and case number remain, and the decision stays marked «cancelled by the student after registration» so no held seat goes unnoticed."
+      },
+      "evidence": [
+        "tests/masari-approval-integrity-audit.ts",
+        "tests/student-registration-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "طلبان يعتمدان قائمة الشعبة نفسها معاً",
+        "en": "Two people approving the same section list at once"
+      },
+      "scenario": {
+        "ar": "عضوان في لجنة الجدول يضغطان اعتماد الطلب نفسه في اللحظة نفسها.",
+        "en": "Two committee members press approve on the same request at the same moment."
+      },
+      "behavior": {
+        "ar": "الكتابة ذرّية بختم الإصدار rev: تنجح واحدة والأخرى ٤٠٩ «حدّث ثم أعد» دون تعديل.",
+        "en": "The write is atomic with the rev stamp: one succeeds and the other gets 409 refresh-and-retry without any change."
+      },
+      "evidence": [
+        "tests/section-requests-audit.ts",
+        "tests/colleagues-advising-registration-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "فصل جديد يُحفظ قبل إغلاق طلبات الحالي",
+        "en": "A new term saved before the current term's requests close"
+      },
+      "scenario": {
+        "ar": "حُفظت مواعيد فصلٍ أحدث بينما في الفصل الحالي جولةٌ لم تُغلق.",
+        "en": "Dates for a newer term are saved while the current term still has an open round."
+      },
+      "behavior": {
+        "ar": "يتحول الباب فوراً إلى الأحدث لأنه أحدث فصلٍ لم ينتهِ؛ والتدبير تقديم «إغلاق الطلبات» في الحالي أو ضبط الجديد بعد إغلاقه.",
+        "en": "The door switches at once to the newer term as the newest unfinished one; the remedy is to move the current term's request close earlier or to set the new term after it closes."
+      },
+      "evidence": [
+        "tests/term-student-phases-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "مرور موظف تسجيل على جدولٍ لم يوقّعه القسم",
+        "en": "A registration officer meeting an unsigned schedule"
+      },
+      "scenario": {
+        "ar": "طلب كتابة قرارٍ على مقرّرٍ لقسمٍ لم يوقّع جدوله بينما شريكه في الطلب موقَّع.",
+        "en": "A decision is written on a course of a department whose schedule is unsigned while the other course in the request belongs to a signed one."
+      },
+      "behavior": {
+        "ar": "يُسأل التوقيع عن قسم المقرر المطلوب بعينه لا عن أول قسمٍ يملك الطلب، فيُرد بـ٤٠٩ not-signed ولو كان القسم الآخر موقَّعاً.",
+        "en": "Signature is checked for the requested course's own department, not the first department owning the request, so it returns 409 not-signed even if the other department has signed."
+      },
+      "evidence": [
+        "tests/student-registration-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "مساري",
+      "en": "Masari",
+      "def": {
+        "ar": "بابُ الطالب الدائم /me: ملفٌّ برمزٍ شخصي ورغباتٌ وخطةٌ وحالة طلب.",
+        "en": "The permanent student door /me: a profile with a personal code, wishes, a plan and request status."
+      }
+    },
+    {
+      "ar": "الرغبات",
+      "en": "Wishes",
+      "def": {
+        "ar": "وحداتُ الطالب ومقرراتُه وقيود وقته في مرحلة الرغبات.",
+        "en": "A student's units, courses and time constraints during the wishes phase."
+      }
+    },
+    {
+      "ar": "الجولة",
+      "en": "Registration round",
+      "def": {
+        "ar": "نافذةٌ بتاريخي بداية ونهاية يُسأل فيها الطالب «هل سجّلت؟».",
+        "en": "A window with start and end dates in which the student is asked «did you register?»."
+      }
+    },
+    {
+      "ar": "كشف التسجيل",
+      "en": "Registration sheet",
+      "def": {
+        "ar": "الشاشة الواحدة التي تقرر فيها لجنة القسم ثم التسجيل على طلبات الطلبة.",
+        "en": "The one screen where the department committee and then registration decide on student requests."
+      }
+    },
+    {
+      "ar": "رقم الحالة",
+      "en": "Case number",
+      "def": {
+        "ar": "أول ٨ خانات كبيرة من معرّف السجل، يحملها الطالب.",
+        "en": "The first 8 uppercase characters of the record id, held by the student."
+      }
+    },
+    {
+      "ar": "طلب شعبة",
+      "en": "Section request",
+      "def": {
+        "ar": "طلبٌ من الإرشاد بفتح شعبة لعددٍ من الطلبة، يمرّ باللجنة فالتسجيل.",
+        "en": "A request from advising to open a section for a number of students, passing through the committee and then registration."
+      }
+    },
+    {
+      "ar": "رصيد مقاعد المرشد",
+      "en": "Advisor seat balance",
+      "def": {
+        "ar": "مقاعد إضافية يمنحها المسؤول للمرشدين فوق السعة الأساسية للشعبة.",
+        "en": "Extra seats the administrator grants advisors above a section's base capacity."
+      }
+    },
+    {
+      "ar": "الكرسي",
+      "en": "Seat (account chair)",
+      "def": {
+        "ar": "حسابٌ ثابتٌ بصفته ونطاقه يتبدّل شاغلُه ويبقى سجلُّه.",
+        "en": "An account fixed by role and scope whose holder changes while its ledger stays."
+      }
+    },
+    {
+      "ar": "رادار التسجيل",
+      "en": "Registration radar (rehearsal)",
+      "def": {
+        "ar": "بروفة يوم التسجيل: تقدير ازدحام المقررات من ملفات الطلبة والجداول.",
+        "en": "The registration-day rehearsal: an estimate of course crowding from student profiles and schedules."
+      }
+    },
+    {
+      "ar": "التذكرة",
+      "en": "Student ticket",
+      "def": {
+        "ar": "ما تقدّره المحاكاة لطالبٍ بعينه: خططه الثلاث ونافذته، بلا اسم.",
+        "en": "What the simulation estimates for one student: three plans and a window, with no name."
+      }
+    },
+    {
+      "ar": "مركز التحليلات",
+      "en": "Analytics Center",
+      "def": {
+        "ar": "الشاشة التي تقرأ منها الأقسام سجل حالات الطلبة نفسه الذي يقرؤه الكشف.",
+        "en": "The screen from which departments read the same student-case register that the sheet reads."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "رقم المقرر سبع خانات دائماً في كل ما يراه الطالب أو العامل، ولا يُعرض الرمز المخزَّن الثلاثي ولا AdCourseId.",
+      "en": "Course numbers are always seven digits in everything a student or staff member sees; the stored three-digit code and AdCourseId are never shown."
+    },
+    {
+      "ar": "تصميم التقارير والصفحات المطبوعة (كشف التسجيل وصحيفة الخطة) لا يُمسّ؛ يُصلَح في البيانات لا في الشكل.",
+      "en": "The design of printed reports and sheets (the registration sheet and the plan sheet) is not changed; fixes go into data, not layout."
+    },
+    {
+      "ar": "«مساري» نهاريٌّ دائماً ولا يتبع الوضع الداكن للجهاز، ولا يظهر فيه نصٌّ بعنوان «الرادار».",
+      "en": "Masari is always light and never follows the device's dark mode, and the word «radar» never appears in student-facing text."
+    },
+    {
+      "ar": "الكرسي ثابت والشخص يتبدّل: لا تُنشأ حسابات جديدة لكل شخص.",
+      "en": "The seat is fixed and the person changes: no new account is created per person."
+    },
+    {
+      "ar": "ما يراه الطالب تقديرٌ لا حجزٌ ولا تسجيلٌ رسمي، وكل شاشةٍ تقول ذلك.",
+      "en": "What the student sees is an estimate, not a reservation or official registration, and every screen says so."
+    }
+  ]
+}

@@ -1,0 +1,1698 @@
+{
+  "id": "DAT",
+  "order": 19,
+  "icon": "database",
+  "title": {
+    "ar": "نموذج البيانات وسلامتها",
+    "en": "Data model and integrity"
+  },
+  "tagline": {
+    "ar": "ما يُحفظ، وكيف يرتبط، وما الذي يمنع فساده",
+    "en": "What is stored, how it relates, and what keeps it sound"
+  },
+  "summary": {
+    "ar": "تصف هذه الوحدة الكيانات المحفوظة في Firestore (الحسابات والصلاحيات والفصول والكليات والأقسام والمقررات والأساتذة والشعب والنسخ والمسودات والروابط) ومعرّفاتها وعلاقاتها وقواعد التفرّد والحذف. وتصف توافق البيانات القديمة المستوردة من نسخة SQL Server، واللقطات التي تحفظ الهوية الأكاديمية للموعد، وذاكرات القراءة المؤقتة، وقاعدة تحويل الأستاذ بين منتدب ومعيّن، والاحتفاظ والفهارس. القاعدة العامة أن السجل القديم يبقى صالحاً كما هو، وأن كل حقل جديد اختياري.",
+    "en": "This module describes the entities persisted in Firestore (accounts, permissions, terms, colleges, departments, courses, instructors, class sections, versions, drafts and links), their identifiers, relationships, uniqueness and deletion rules. It also covers compatibility with the data imported from the legacy SQL Server backup, the snapshots that freeze an appointment's academic identity, short-lived read caches, the rule for converting an instructor between visiting and appointed, retention and indexes. The governing principle is that an old record stays valid as it is and every new field is optional."
+  },
+  "actors": [
+    "rootAdmin",
+    "admin",
+    "departmentHead",
+    "committeeChair",
+    "system"
+  ],
+  "sources": [
+    "src/types.ts",
+    "src/db/*.ts",
+    "src/server/dataContextCache.ts",
+    "src/server/core/state.ts",
+    "src/utils/visitingConversion.ts",
+    "src/utils/civilId.ts",
+    "firestore.rules",
+    "firestore.indexes.json",
+    "firebase-blueprint.json",
+    "scripts/extract-legacy-bak.py",
+    "scripts/import-legacy-json.ts",
+    "scripts/export-legacy-sql.ps1",
+    "docs/LEGACY_PARITY_MATRIX.md",
+    "docs/DATA_MIGRATION.md",
+    "docs/FIRESTORE_IMPORT.md",
+    "docs/LEGACY_DATA_EXTRACTION_REPORT.json",
+    "tests/parity_audit.py",
+    "tests/legacy-data-audit.py",
+    "tests/snapshot_loader.py"
+  ],
+  "journeys": [
+    {
+      "actor": "rootAdmin",
+      "title": {
+        "ar": "استيراد البيانات القديمة والتحقق منها",
+        "en": "Importing and verifying the legacy data"
+      },
+      "steps": [
+        {
+          "ar": "يُستخرج ملف النسخة القديمة إلى لقطة JSON بسكربت الاستخراج، وتُطابَق أعداد الجداول مع فهرس SQL Server.",
+          "en": "The legacy backup is extracted to a JSON snapshot by the extraction script and the table counts are matched against the SQL Server catalogue."
+        },
+        {
+          "ar": "عند تشغيل الخادم على قاعدة فارغة والاستيراد التلقائي مفعّل، يكتب الجداول الفعالة بمعرّفاتها القديمة نفسها.",
+          "en": "When the server starts on an empty database with auto-import enabled, it writes the active tables under their original identifiers."
+        },
+        {
+          "ar": "تُحفظ الجداول التاريخية الثمانية والعشرون تحت legacyArchive كما هي.",
+          "en": "The 28 historical tables are kept under legacyArchive unchanged."
+        },
+        {
+          "ar": "تُهيّأ العدّادات من أعلى معرّف قديم في كل جدول.",
+          "en": "Counters are initialised from the highest legacy identifier of each table."
+        },
+        {
+          "ar": "يقارن الخادم أعداد كل مجموعة بما كُتب، فإن اختلف عدد فشل التشغيل ولم يُقبل أي دخول.",
+          "en": "The server compares each collection's count with what was written; any mismatch fails startup and no login is accepted."
+        },
+        {
+          "ar": "تُكتب وثيقة _meta/legacyImport بالأعداد وبصمة النسخة.",
+          "en": "A _meta/legacyImport document records the counts and the backup fingerprint."
+        }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": {
+        "ar": "محاولة حذف مقرر مستعمل",
+        "en": "Trying to delete a course that is in use"
+      },
+      "steps": [
+        {
+          "ar": "يفتح رئيس القسم شاشة المقررات ويختار مقرراً للحذف.",
+          "en": "The department head opens the courses screen and chooses a course to delete."
+        },
+        {
+          "ar": "يفحص الخادم عضويته في صحيفة أكاديمية، فإن وُجدت رُفض الحذف برسالة 409 تقترح إخراجه من الصحيفة.",
+          "en": "The server checks its membership in an academic plan sheet; if found, the delete is refused with 409 suggesting removal from the sheet first."
+        },
+        {
+          "ar": "ثم يفحص وجود مواعيد في أي فصل تشير إلى المقرر، فإن وُجدت رُفض الحذف كذلك.",
+          "en": "It then checks for appointments in any term that point to the course and refuses the delete in that case too."
+        },
+        {
+          "ar": "إن خلا من الإشارات نُسخت وثيقته إلى سلة المحذوفات ثم حُذفت.",
+          "en": "If nothing refers to it, its document is copied to the deleted-records bin and then removed."
+        }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": {
+        "ar": "تحويل أستاذ من منتدب إلى معيّن",
+        "en": "Converting a visiting instructor to appointed"
+      },
+      "steps": [
+        {
+          "ar": "يختار رئيس القسم الأستاذ ويطلب «معيّن» ويحدد القسم أو الأقسام التي يُرفع منها الانتداب.",
+          "en": "The department head picks the instructor, asks for «appointed» and selects the department(s) the secondment is lifted from."
+        },
+        {
+          "ar": "تُحسب خطة تعديلات نقية: رفع من دليل المنتدبين ومن روستر الفصل الجاري وكل فصل قادم.",
+          "en": "A pure plan of changes is computed: removal from the visiting directory and from the current and every future term roster."
+        },
+        {
+          "ar": "تُعرض المعاينة دون كتابة، وتُحجب الخطة كلها إن كان في أحد الأقسام خطأ.",
+          "en": "A dry-run preview is shown without writing, and the whole plan is blocked if any department has an error."
+        },
+        {
+          "ar": "عند التأكيد تُكتب التعديلات وحدها، ولا يُمسّ جدول ولا روستر فصل ماضٍ.",
+          "en": "On confirmation only those changes are written; no schedule and no past-term roster is touched."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "dat-entities",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "علاقات الكيانات",
+        "en": "Entity relationships"
+      },
+      "caption": {
+        "ar": "الأسهم تعني «يشير إلى» بمعرّف رقمي؛ الحذف يُرفض ما دام سهمٌ يصل إلى السجل.",
+        "en": "Arrows mean «refers to» by numeric id; deletion is refused while an arrow still reaches the record."
+      },
+      "nodes": [
+        {
+          "id": "college",
+          "label": {
+            "ar": "كلية",
+            "en": "College"
+          },
+          "icon": "landmark",
+          "kind": "state"
+        },
+        {
+          "id": "dept",
+          "label": {
+            "ar": "قسم علمي",
+            "en": "Department"
+          },
+          "icon": "building-2",
+          "kind": "state"
+        },
+        {
+          "id": "course",
+          "label": {
+            "ar": "مقرر",
+            "en": "Course"
+          },
+          "icon": "book-open",
+          "kind": "state"
+        },
+        {
+          "id": "plan",
+          "label": {
+            "ar": "صحيفة",
+            "en": "Plan sheet"
+          },
+          "icon": "layers",
+          "kind": "state"
+        },
+        {
+          "id": "row",
+          "label": {
+            "ar": "موعد (شعبة)",
+            "en": "Appointment"
+          },
+          "icon": "calendar-days",
+          "kind": "system"
+        },
+        {
+          "id": "term",
+          "label": {
+            "ar": "فصل",
+            "en": "Term"
+          },
+          "icon": "calendar-range",
+          "kind": "state"
+        },
+        {
+          "id": "inst",
+          "label": {
+            "ar": "أستاذ",
+            "en": "Instructor"
+          },
+          "icon": "presentation",
+          "kind": "state"
+        },
+        {
+          "id": "version",
+          "label": {
+            "ar": "نسخة أو مسودة",
+            "en": "Version or draft"
+          },
+          "icon": "history",
+          "kind": "state"
+        },
+        {
+          "id": "link",
+          "label": {
+            "ar": "رابط مشاركة",
+            "en": "Share link"
+          },
+          "icon": "link",
+          "kind": "state"
+        },
+        {
+          "id": "roster",
+          "label": {
+            "ar": "روستر المنتدبين",
+            "en": "Visiting roster"
+          },
+          "icon": "users",
+          "kind": "state"
+        },
+        {
+          "id": "user",
+          "label": {
+            "ar": "حساب ونطاق",
+            "en": "Account and scope"
+          },
+          "icon": "key-round",
+          "kind": "state"
+        }
+      ],
+      "edges": [
+        {
+          "from": "dept",
+          "to": "college",
+          "label": {
+            "ar": "AdCollegeId",
+            "en": "AdCollegeId"
+          }
+        },
+        {
+          "from": "course",
+          "to": "dept",
+          "label": {
+            "ar": "AdSectionId",
+            "en": "AdSectionId"
+          }
+        },
+        {
+          "from": "plan",
+          "to": "dept",
+          "label": {
+            "ar": "قسم الصحيفة",
+            "en": "owning department"
+          }
+        },
+        {
+          "from": "plan",
+          "to": "course",
+          "label": {
+            "ar": "عضوية",
+            "en": "membership"
+          }
+        },
+        {
+          "from": "row",
+          "to": "course",
+          "label": {
+            "ar": "AdCourseId",
+            "en": "AdCourseId"
+          }
+        },
+        {
+          "from": "row",
+          "to": "term",
+          "label": {
+            "ar": "AdTermId",
+            "en": "AdTermId"
+          }
+        },
+        {
+          "from": "row",
+          "to": "inst",
+          "label": {
+            "ar": "AdInstructorId",
+            "en": "AdInstructorId"
+          }
+        },
+        {
+          "from": "version",
+          "to": "row",
+          "label": {
+            "ar": "لقطة صفوف النطاق",
+            "en": "snapshot of scope rows"
+          }
+        },
+        {
+          "from": "link",
+          "to": "term",
+          "label": {
+            "ar": "كلية:قسم:فصل",
+            "en": "college:dept:term"
+          }
+        },
+        {
+          "from": "roster",
+          "to": "inst",
+          "label": {
+            "ar": "معرّفات الأساتذة",
+            "en": "instructor ids"
+          }
+        },
+        {
+          "from": "roster",
+          "to": "dept",
+          "label": {
+            "ar": "لكل قسم وفصل",
+            "en": "per department and term"
+          }
+        },
+        {
+          "from": "user",
+          "to": "dept",
+          "label": {
+            "ar": "صفوف النطاق",
+            "en": "scope rows"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dat-conversion",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "تحويل منتدب ⇄ معيّن",
+        "en": "Visiting ⇄ appointed conversion"
+      },
+      "caption": {
+        "ar": "الخطة دالة نقية تقرأ حالة السجلات وتعيد تعديلات أو أخطاء؛ الكتابة بعدها فقط.",
+        "en": "The plan is a pure function that reads the state of the records and returns changes or errors; writing happens only afterwards."
+      },
+      "nodes": [
+        {
+          "id": "req",
+          "label": {
+            "ar": "طلب التحويل",
+            "en": "Conversion request"
+          },
+          "icon": "user",
+          "kind": "start"
+        },
+        {
+          "id": "state",
+          "label": {
+            "ar": "قراءة الحالة",
+            "en": "Read state"
+          },
+          "icon": "database",
+          "kind": "system"
+        },
+        {
+          "id": "valid",
+          "label": {
+            "ar": "صالح؟",
+            "en": "Valid?"
+          },
+          "icon": "help-circle",
+          "kind": "decision"
+        },
+        {
+          "id": "errors",
+          "label": {
+            "ar": "أخطاء بلا كتابة",
+            "en": "Errors, no write"
+          },
+          "icon": "x-circle",
+          "kind": "end"
+        },
+        {
+          "id": "dry",
+          "label": {
+            "ar": "معاينة فقط؟",
+            "en": "Dry run?"
+          },
+          "icon": "eye",
+          "kind": "decision"
+        },
+        {
+          "id": "preview",
+          "label": {
+            "ar": "تعديلات مقترحة",
+            "en": "Proposed changes"
+          },
+          "icon": "list-checks",
+          "kind": "end"
+        },
+        {
+          "id": "write",
+          "label": {
+            "ar": "كتابة الدليل والروستر",
+            "en": "Write directory and rosters"
+          },
+          "icon": "save",
+          "kind": "system"
+        },
+        {
+          "id": "done",
+          "label": {
+            "ar": "الجداول والماضي كما هما",
+            "en": "Schedules and past unchanged"
+          },
+          "icon": "check-circle",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "req",
+          "to": "state"
+        },
+        {
+          "from": "state",
+          "to": "valid"
+        },
+        {
+          "from": "valid",
+          "to": "errors",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "valid",
+          "to": "dry",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "dry",
+          "to": "preview",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "dry",
+          "to": "write",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "write",
+          "to": "done"
+        }
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "DR-DAT-001",
+      "kind": "data",
+      "title": {
+        "ar": "مخزن واحد مغلق على العملاء",
+        "en": "One store, closed to clients"
+      },
+      "text": {
+        "ar": "يجب أن تُحفظ كل البيانات الدائمة في قاعدة Firestore واحدة يصل إليها الخادم وحده بحزمة الإدارة، وأن تمنع قواعد الأمان كل قراءة وكتابة مباشرة من المتصفحات؛ ولا يُشغَّل الخادم على بيانات بديلة إن تعذّر الاتصال.",
+        "en": "All durable data shall be kept in a single Firestore database reachable only by the server through the Admin SDK; the security rules shall deny every direct browser read and write, and the server shall never run on substitute data when the connection fails."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "قاعدة match /{document=**} تعيد allow read, write: if false.",
+          "en": "The rule match /{document=**} yields allow read, write: if false."
+        },
+        {
+          "ar": "عند فشل الاتصال يجيب /api برسالة 503 ولا يُقرأ من لقطة محزومة.",
+          "en": "When the connection fails /api answers 503 and nothing is read from a packaged snapshot."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "firestore.rules",
+          "src/db/repository.ts",
+          "src/server/core/state.ts"
+        ],
+        "tests": [
+          "tests/demo-firestore-isolation-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-002",
+      "kind": "data",
+      "title": {
+        "ar": "الكيانات الأساسية ومعرّفاتها",
+        "en": "Core entities and identifiers"
+      },
+      "text": {
+        "ar": "يجب أن يكون لكل كيان أساسي معرّف رقمي ووثيقة اسمها بادئة ثم المعرّف: user_ للحسابات، form_ للشاشات، permission_ و scope_ للصلاحيات والنطاقات، term_ و college_ و section_ و instructor_ و course_ و schedule_ و room_.",
+        "en": "Each core entity shall have a numeric identifier and a document named prefix plus identifier: user_ for accounts, form_ for screens, permission_ and scope_ for permissions and scopes, and term_, college_, section_, instructor_, course_, schedule_ and room_."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "المقرر 418 يُحفظ في course_418 والموعد 15430 في schedule_15430.",
+          "en": "Course 418 is stored in course_418 and appointment 15430 in schedule_15430."
+        },
+        {
+          "ar": "القسم العلمي يُخزَّن باسم الحقل AdSectionId وتسميته في الواجهات «القسم».",
+          "en": "The department is stored under the field name AdSectionId and called «القسم» (Department) in the interface."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/types.ts",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/parity_audit.py"
+        ]
+      }
+    },
+    {
+      "id": "FR-DAT-003",
+      "kind": "functional",
+      "title": {
+        "ar": "تخصيص المعرّفات بكتل",
+        "en": "Block-based id allocation"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخصّص المعرّفات الجديدة من عدّاد واحد في المستند _meta/counters بمعاملة، في كتل من 32 معرّفاً لكل مجموعة، وألا يعيد استعمال معرّف خُصّص ولو لم يُستعمل.",
+        "en": "The system shall allocate new identifiers from a single counter in the _meta/counters document inside a transaction, in blocks of 32 identifiers per collection, and shall never reuse an identifier that was handed out even if it went unused."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "نداءان متزامنان على إنشاء مقررين لا يأخذان المعرّف نفسه.",
+          "en": "Two concurrent course creations never receive the same identifier."
+        },
+        {
+          "ar": "تعثّر إنشاء بعد التخصيص يترك فجوة في الأرقام ولا يتسبب في تكرار.",
+          "en": "A creation that fails after allocation leaves a gap in the numbering and never a duplicate."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#reserveFirestoreIds"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-DAT-004",
+      "kind": "data",
+      "title": {
+        "ar": "التسلسل الهرمي: كلية ثم قسم ثم مقرر",
+        "en": "Hierarchy: college, department, course"
+      },
+      "text": {
+        "ar": "يجب أن يشير القسم إلى كليته والمقرر إلى قسمه والموعد إلى مقرره وفصله وأستاذه بمعرّفات رقمية، وأن تُشتقّ كلية المقرر وقسمه وكلية الموعد من علاقة المقرر بالقسم عند كل قراءة لا من قيمة مخزونة قديمة.",
+        "en": "A department shall refer to its college, a course to its department, and an appointment to its course, term and instructor by numeric identifiers, and the college of a course and the department and college of an appointment shall be derived from the course-to-department relation on every read rather than from a stale stored value."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "نقل مقرر إلى قسم آخر يغيّر قسم مواعيده وكليتها في القراءة التالية دون كتابة.",
+          "en": "Moving a course to another department changes the department and college of its appointments on the next read with no write."
+        },
+        {
+          "ar": "كل صف موعد في اللقطة المهاجَرة يشير إلى كلية وقسم وفصل ومقرر وأستاذ موجودة.",
+          "en": "Every appointment row in the migrated snapshot points to an existing college, department, term, course and instructor."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#hydrateSchedules",
+          "src/types.ts"
+        ],
+        "tests": [
+          "tests/parity_audit.py"
+        ]
+      }
+    },
+    {
+      "id": "FR-DAT-005",
+      "kind": "functional",
+      "title": {
+        "ar": "رفض الحذف ما دامت إشارة قائمة",
+        "en": "Delete refused while referenced"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض بالرمز 409 حذف كلية فيها أقسام، وقسم فيه مقررات، ومقرر له مواعيد أو عضوية في صحيفة، وفصل له مواعيد، وأستاذ له مواعيد.",
+        "en": "The system shall refuse with 409 the deletion of a college that has departments, a department that has courses, a course that has appointments or plan-sheet membership, a term that has appointments, and an instructor that has appointments."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف كلية فيها قسم واحد يرد 409 والوثيقة باقية.",
+          "en": "Deleting a college with one department returns 409 and the document remains."
+        },
+        {
+          "ar": "حذف مقرر مرتبط بصحيفة يرد 409 برسالة تقترح إخراجه من الصحيفة أولاً.",
+          "en": "Deleting a course attached to a sheet returns 409 with a message suggesting its removal from the sheet first."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/referenceRoutes.ts",
+          "src/server/routes/coursesRoutes.ts",
+          "src/server/routes/instructorsRoutes.ts"
+        ],
+        "tests": [
+          "tests/parity_audit.py"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-006",
+      "kind": "data",
+      "title": {
+        "ar": "رمز المقرر فريد داخل القسم",
+        "en": "Course code unique within a department"
+      },
+      "text": {
+        "ar": "يجب أن يكون رمز المقرر فريداً داخل قسمه، وأن يُحجز الرمز في المعاملة نفسها التي تكتب المقرر عبر وثيقة في courseCodeClaims، وأن يُؤخذ الحجز القديم إن لم يعد المقرر الذي سجّله يحمل الرمز.",
+        "en": "A course code shall be unique within its department; the code shall be claimed, in the same transaction that writes the course, through a document in courseCodeClaims, and a stale claim shall be taken over when the course that registered it no longer holds the code."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "إرسالان متطابقان لإنشاء المقرر لا ينجح إلا أحدهما والثاني يُرفض برسالة «تم تسجيل رمز المقرر الدراسي هذا من قبل».",
+          "en": "Two identical create submissions: only one succeeds and the other is refused with «تم تسجيل رمز المقرر الدراسي هذا من قبل»."
+        },
+        {
+          "ar": "بعد حذف المقرر يمكن إنشاء مقرر جديد بالرمز نفسه.",
+          "en": "After a course is deleted a new course with the same code can be created."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#createCourse"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-DAT-007",
+      "kind": "data",
+      "title": {
+        "ar": "تفرّد رمز القسم واسم الفصل",
+        "en": "Uniqueness of department code and term name"
+      },
+      "text": {
+        "ar": "يجب ألا يُنشأ قسم من ترويسة ملف إلا مرة واحدة لكل رمز داخل الكلية (sectionCodeClaims)، وألا يُنشأ فصل تلقائي مرتين بالاسم نفسه أو بالموسم والسنتين نفسيهما (autoTermClaims بمعرّف من 32 خانة مشتقة من الاسم).",
+        "en": "A department created from a file header shall exist once per code within a college (sectionCodeClaims), and an automatic term shall not be created twice for the same name or the same season and years (autoTermClaims keyed by a 32-character digest of the name)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلبان متزامنان لرمز قسم واحد يُنتجان قسماً واحداً ويعيد الثاني القسم القائم.",
+          "en": "Two concurrent requests for one department code produce one department and the second returns the existing one."
+        },
+        {
+          "ar": "فصل باسم يحمل «2026/2027» مدخل يدوياً يمنع إنشاء الفصل التلقائي المطابق له موسماً وسنتين.",
+          "en": "A manually entered term named with «2026/2027» prevents creating the automatic term matching it in season and years."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#createSectionOnce",
+          "src/db/repository.ts#createTermIfAbsent"
+        ],
+        "tests": [
+          "tests/term-calendar-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-008",
+      "kind": "data",
+      "title": {
+        "ar": "الرقم المدني للأستاذ",
+        "en": "Instructor civil number"
+      },
+      "text": {
+        "ar": "يجب أن يُخزَّن الرقم المدني للأستاذ بأرقام لاتينية فقط بطول 12 خانة وأن يجتاز فحص المجموع المطابق للنظام القديم، وألا يُسجَّل رقم مدني مرتين؛ ويُضمّ الأستاذ القائم إلى القسم بدل تكرار سجله.",
+        "en": "An instructor's civil number shall be stored in Latin digits only, 12 digits long, and shall pass the checksum inherited from the legacy system; a civil number shall not be registered twice, and an existing instructor is enrolled in the department instead of duplicating the record."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم من 11 خانة يُرفض بالرمز 400 والرسالة «الرقم المدني 12 رقمًا بالضبط.».",
+          "en": "An 11-digit number is refused with 400 and the message «الرقم المدني 12 رقمًا بالضبط.»."
+        },
+        {
+          "ar": "الأرقام العربية والفارسية والمسافات تُحوَّل إلى لاتينية قبل المقارنة والحفظ.",
+          "en": "Arabic and Persian digits and spaces are normalised to Latin digits before comparison and storage."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/civilId.ts",
+          "src/server/routes/instructorsRoutes.ts"
+        ],
+        "tests": [
+          "tests/legacy-data-audit.py"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-009",
+      "kind": "data",
+      "title": {
+        "ar": "حقول الموعد الأساسية",
+        "en": "Core appointment fields"
+      },
+      "text": {
+        "ar": "يجب أن يحمل صف الموعد أيام الأسبوع منطقيةً (fsunday إلى fthursday، من الأحد إلى الخميس)، ووقتي البداية والنهاية نصّين، والشعبة SCode، ورمز المبنى AdRoomCode والقاعة AdRoomHall، مع مراجع اختيارية إلى سجل المواقع (buildingId، roomId، companionRoomId وحالة locationStatus).",
+        "en": "An appointment row shall carry weekdays as booleans (fsunday to fthursday, Sunday to Thursday), start and end times as text, the class-section code SCode, the building code AdRoomCode and hall AdRoomHall, plus optional references into the location registry (buildingId, roomId, companionRoomId and the locationStatus state)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "حالة الموقع إحدى أربع قيم: VERIFIED وPENDING_ROOM وLOCATION_REVIEW_REQUIRED وINVALID_HISTORICAL.",
+          "en": "locationStatus is one of four values: VERIFIED, PENDING_ROOM, LOCATION_REVIEW_REQUIRED and INVALID_HISTORICAL."
+        },
+        {
+          "ar": "سجل قديم بلا مراجع المواقع يبقى صالحاً ويُعرض بالنص الخام.",
+          "en": "A legacy row without location references remains valid and is shown with its raw text."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/types.ts#FSchedule"
+        ],
+        "tests": [
+          "tests/parity_audit.py"
+        ]
+      }
+    },
+    {
+      "id": "FR-DAT-010",
+      "kind": "functional",
+      "title": {
+        "ar": "رقم المراجعة ورفض الكتابة فوق الأحدث",
+        "en": "Revision number and no overwriting of newer data"
+      },
+      "text": {
+        "ar": "يجب أن يُرقَّم كل موعد بحقل rev يبدأ من 1 عند الإنشاء ويزيد واحداً مع كل كتابة، وأن يُرفض الحفظ بخطأ تعارض مراجعة إن حمل المحفوظ رقماً أحدث مما بُني عليه الطلب؛ ويُعدّ الغياب صفراً.",
+        "en": "Each appointment shall carry a rev field that starts at 1 on creation and increases by one on every write, and a save shall be refused with a revision-conflict error when the stored number is newer than the one the request was based on; absence counts as zero."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "حفظان مبنيان على المراجعة 3: الأول ينجح والمراجعة تصير 4 والثاني يُرفض بتعارض.",
+          "en": "Two saves based on revision 3: the first succeeds and the revision becomes 4, the second is refused as a conflict."
+        },
+        {
+          "ar": "صف قديم بلا rev يقبل حفظاً يتوقع 0 ويأخذ رقمه الأول.",
+          "en": "A legacy row without rev accepts a save expecting 0 and takes its first number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "src/types.ts#FSchedule"
+        ],
+        "tests": [
+          "tests/proposal-undo-emulator-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-011",
+      "kind": "data",
+      "title": {
+        "ar": "لقطة الهوية الأكاديمية للموعد",
+        "en": "Academic identity snapshot of an appointment"
+      },
+      "text": {
+        "ar": "يجب أن يحتفظ الموعد برمز المقرر واسمه ومعرّف صحيفته كما كانت عند إنشائه (CourseCodeSnapshot وCourseNameSnapshot وCurriculumPlanIdSnapshot)، وألا يُعيد تغيير اسم المقرر لاحقاً كتابة فصل مضى عند قراءته؛ وأن يُبنى رقم المقرر المعروض من سبع خانات (كلية 2 + قسم 2 + مقرر 3) لا من الخانات الثلاث المخزّنة ولا من AdCourseId.",
+        "en": "An appointment shall keep the course code, name and plan-sheet id as they stood when it was created (CourseCodeSnapshot, CourseNameSnapshot, CurriculumPlanIdSnapshot), a later rename of the course shall not rewrite an old term when read, and the displayed course number shall be built as seven digits (college 2 + department 2 + course 3), never from the stored three digits or from AdCourseId."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر أُعيدت تسميته يعرض في فصل 2018 اسمه وقتها وفي الفصل الجاري اسمه الجديد.",
+          "en": "A renamed course shows its then-name in a 2018 term and its new name in the current term."
+        },
+        {
+          "ar": "رقم 105 المخزّن مع كلية 01 وقسم 09 يُعرض 0109105.",
+          "en": "A stored 105 with college 01 and department 09 is displayed as 0109105."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#hydrateSchedules",
+          "src/utils/authorityAcademicCodes.ts"
+        ],
+        "tests": [
+          "tests/course-number-seven-digit-audit.ts",
+          "tests/safety-net-restore-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-012",
+      "kind": "data",
+      "title": {
+        "ar": "مفتاح النطاق",
+        "en": "Scope key"
+      },
+      "text": {
+        "ar": "يجب أن يُعرَّف نطاق العمل على الجدول بمفتاح «كلية:قسم:فصل»، وتُحفظ به النسخ والمسودات والملاحظات والقرارات المفتوحة والمنشورات وروابط المشاركة وإحصاءات التسجيل؛ وتُستبدل النقطتان بشرطة سفلية حين يدخل المفتاح في اسم وثيقة.",
+        "en": "The working scope of a timetable shall be identified by the key «college:department:term», under which versions, drafts, notes, open decisions, publications, share links and registration statistics are stored; the colons are replaced by underscores when the key becomes part of a document name."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "النسخة المحفوظة للكلية 6 والقسم 7 والفصل 107 تحمل scopeKey = 6:7:107.",
+          "en": "A version saved for college 6, department 7 and term 107 carries scopeKey = 6:7:107."
+        },
+        {
+          "ar": "روستر المنتدبين للنطاق نفسه يُحفظ في وثيقة اسمها 6_7_107.",
+          "en": "The visiting roster for the same scope is stored in a document named 6_7_107."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/schedule-versions-list-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-013",
+      "kind": "data",
+      "title": {
+        "ar": "نسخ الجدول",
+        "en": "Timetable versions"
+      },
+      "text": {
+        "ar": "يجب أن تحفظ كل نسخة لقطة كاملة لصفوف النطاق مع التسمية والمصدر (manual أو draft أو publish أو undo أو copy أو import) وعدد الصفوف، وأن تقرأ قائمة النسخ حقول الوصف وحدها دون ترتيب في قاعدة البيانات وبحدّ افتراضي 60 وأقصى 100، وأن تُجلب اللقطات الكاملة للأحدث فقط (افتراضياً 12 وأقصى 24).",
+        "en": "Each version shall store a complete snapshot of the scope rows with its label, source (manual, draft, publish, undo, copy or import) and row count; the version list shall read metadata fields only, with no database-side ordering, a default limit of 60 and a maximum of 100; and full snapshots shall be fetched only for the newest (default 12, maximum 24)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "قائمة النسخ لا تستعمل orderBy ولا تقرأ الحقل rows.",
+          "en": "The version list uses no orderBy and does not read the rows field."
+        },
+        {
+          "ar": "طلب 500 نسخة يعيد 100 على الأكثر.",
+          "en": "Requesting 500 versions returns at most 100."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#getScheduleVersions",
+          "src/types.ts#ScheduleVersion"
+        ],
+        "tests": [
+          "tests/schedule-versions-list-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-014",
+      "kind": "data",
+      "title": {
+        "ar": "المسودات",
+        "en": "Drafts"
+      },
+      "text": {
+        "ar": "يجب أن تحمل المسودة صفوفها كاملة وحالتها (draft أو published أو archived) ومصدرها (what-if أو auto أو import أو manual) وبصمة النطاق الذي بُنيت عليه، وأن تحفظ المسودة المستوردة من PDF صفوف الأصل الممسوح دون تعديل (baselineRows) وإيصال الاستيراد الموقَّع من الخادم.",
+        "en": "A draft shall carry all its rows, its status (draft, published or archived), its source (what-if, auto, import or manual) and the fingerprint of the scope it was built on; a draft imported from PDF shall keep the scanned original rows unmodified (baselineRows) and the server-signed import receipt."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "قراءة مسودات نطاق تعيد 100 على الأكثر.",
+          "en": "Reading a scope's drafts returns at most 100."
+        },
+        {
+          "ar": "تعديل صفوف المسودة لا يغيّر baselineRows.",
+          "en": "Editing the draft rows does not change baselineRows."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/types.ts#ScheduleDraft",
+          "src/db/repository.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-DAT-015",
+      "kind": "data",
+      "title": {
+        "ar": "روابط المشاركة في التخزين",
+        "en": "Share links in storage"
+      },
+      "text": {
+        "ar": "يجب أن يُخزَّن رابط المشاركة بمعرّف عشوائي من 24 بايتاً بترميز base64url (32 خانة) هو الرمز نفسه، وأن يحمل النطاق والنوع (department أو staff أو survey أو request أو students) وتاريخ الانتهاء وعلامة الإيقاف وعدد الزيارات؛ ويسبق رمزَ الصندوق التجريبي «demo.».",
+        "en": "A share link shall be stored under a random 24-byte base64url identifier (32 characters) that is the token itself, carrying its scope, kind (department, staff, survey, request or students), expiry date, revoked flag and view count; a demo-sandbox token is prefixed «demo.»."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط جدول القسم يُنشأ لمدة 30 يوماً افتراضياً وبحد أقصى 180، ورابط الطلبة لمدة 365 يوماً.",
+          "en": "A department timetable link is created for 30 days by default and at most 180; a students link for 365 days."
+        },
+        {
+          "ar": "البطاقة الشخصية للأستاذ تنتهي بنهاية الفصل، أو بعد 150 يوماً إن جُهل تاريخه.",
+          "en": "An instructor's personal card expires at the end of the term, or after 150 days when its dates are unknown."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#createShareLink",
+          "src/server/routes/shareRoutes.ts",
+          "src/utils/shareLinkLifetime.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-016",
+      "kind": "data",
+      "title": {
+        "ar": "الحسابات وكلمات السر",
+        "en": "Accounts and passwords"
+      },
+      "text": {
+        "ar": "يجب أن يخزّن الحساب كلمة السر مشتقة بـ scrypt بملح عشوائي، وأن تُحفظ قيمة التوافق مع شاشة الإدارة القديمة مشفّرة بـ AES-256-GCM في حقل منفصل لا يُرسَل إلى العملاء العاديين، وألا يُحفظ نص كلمة السر الصريح في أي مكان؛ والدور الأكاديمي اختياري، وغيابه يُقرأ «رئيس لجنة».",
+        "en": "An account shall store its password derived with scrypt and a random salt; the compatibility value for the legacy administration screen shall be stored AES-256-GCM encrypted in a separate field never sent to ordinary clients; plaintext passwords shall not be stored anywhere; the academic role is optional and its absence reads as «committee chair»."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "كل حسابات اللقطة الأصلية (29) تحمل تجزئة بصيغة scrypt.",
+          "en": "All 29 accounts in the original snapshot carry a scrypt-shaped hash."
+        },
+        {
+          "ar": "حساب أُنشئ قبل ظهور الحقل Role يعمل بصلاحيات رئيس لجنة دون ترحيل.",
+          "en": "An account created before the Role field existed works with committee-chair permissions without migration."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/types.ts#SystemUser",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/legacy-data-audit.py"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-017",
+      "kind": "data",
+      "title": {
+        "ar": "الصلاحيات والنطاقات",
+        "en": "Permissions and scopes"
+      },
+      "text": {
+        "ar": "يجب أن تُحفظ صلاحية الشاشة صفاً (مستخدم، شاشة) في formSecurity ونطاق البيانات صفاً (مستخدم، كلية، قسم) في userScopes، لكل منهما legacyId، وأن يحذف حذفُ الحساب صفوفَه من المجموعتين في دفعة واحدة؛ ويعني القسم صفر «الكلية كلها» لأدوار نطاقها كلية فقط.",
+        "en": "A screen permission shall be stored as a row (user, screen) in formSecurity and a data scope as a row (user, college, department) in userScopes, each with a legacyId, and deleting an account shall delete its rows from both collections in one batch; department zero means «the whole college» for roles whose scope is a college only."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف حساب له 4 صلاحيات و3 نطاقات يترك صفر صفوف يتيمة له.",
+          "en": "Deleting an account with 4 permissions and 3 scopes leaves zero orphan rows for it."
+        },
+        {
+          "ar": "صفوف الصلاحيات اليتيمة القديمة (28 صفاً في اللقطة الأصلية) تبقى كما هي ولا أثر لها.",
+          "en": "Legacy orphan permission rows (28 in the original snapshot) stay unchanged and have no effect."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#deleteUser",
+          "src/server/core/scope.ts"
+        ],
+        "tests": [
+          "tests/parity_audit.py",
+          "tests/role-scope-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-018",
+      "kind": "data",
+      "title": {
+        "ar": "الجلسات",
+        "en": "Sessions"
+      },
+      "text": {
+        "ar": "يجب أن تُحفظ الجلسة بوثيقة اسمها معرّف الجلسة (يبدأ بـ sess_ أو demo_ ثم 64 خانة ست عشرية) فيها انتهاء رقمي expiresAt ونظير زمني expiresAtTtl لسياسة الحذف التلقائي، وأن تنتهي بعد 15 دقيقة خمولاً (ساعة للتجريبية)، وأن تُحذف الجلسة المنتهية عند أول قراءة، ولا تدخل في أي نسخة احتياطية.",
+        "en": "A session shall be stored in a document named by the session id (sess_ or demo_ followed by 64 hex characters) holding a numeric expiresAt and a timestamp twin expiresAtTtl for the automatic-deletion policy; it shall expire after 15 minutes idle (one hour for demo), an expired session shall be deleted on first read, and sessions shall never be part of any backup."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "جلسة قديمة تُقرأ فتُحذف ويُرجع المستند غير موجود.",
+          "en": "An expired session is read, deleted and reported as not found."
+        },
+        {
+          "ar": "تغيير كلمة السر يحذف جلسات الحساب الأخرى ويُبقي الجلسة الحاضرة.",
+          "en": "A password change deletes the account's other sessions and keeps the current one."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#createSession",
+          "src/server/core/auth.ts"
+        ],
+        "tests": [
+          "tests/anonymous-guard-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-019",
+      "kind": "data",
+      "title": {
+        "ar": "نموذج المنتدبين",
+        "en": "Visiting-instructor model"
+      },
+      "text": {
+        "ar": "يجب ألا يُعدّ الانتداب صفة في سجل الأستاذ، بل اسماً في دليل منتدبي القسم الدائم (departmentDelegates، لكل قسم وعائلته عبر كلياته) واسماً في روستر القسم للفصل (visitingRosters)، فلا يتكرر الأستاذ في سجل الأساتذة.",
+        "en": "Secondment shall not be an attribute of the instructor record; it is a name in the department's permanent visiting directory (departmentDelegates, per department and its family across colleges) and a name in the department's roster for a term (visitingRosters), so the instructor is not duplicated in the instructor register."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "الأستاذ الواحد يظهر في دليلي قسمين دون سجلين.",
+          "en": "One instructor appears in the directories of two departments without two records."
+        },
+        {
+          "ar": "فصل جديد يبدأ بنسخة روستر الفصل السابق.",
+          "en": "A new term starts from a copy of the previous term's roster."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/types.ts#VisitingRoster",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/visiting-conversion-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DAT-020",
+      "kind": "functional",
+      "title": {
+        "ar": "قاعدة تحويل منتدب ⇄ معيّن",
+        "en": "Visiting ⇄ appointed conversion rule"
+      },
+      "text": {
+        "ar": "يجب على النظام عند تحويل أستاذ إلى «معيّن» أن يرفعه من دليل منتدبي الأقسام المختارة ومن روستر الفصل الجاري وكل فصل قادم لها، وعند تحويله إلى «منتدب» أن يضيفه إلى دليل قسم واحد وروستر فصل واحد حاضر أو قادم؛ وألا يكتب روستر فصل ماضٍ ولا يمسّ أي جدول، وأن تتيح المعاينة دون كتابة.",
+        "en": "When converting an instructor to «appointed» the system shall remove him from the visiting directory of the chosen departments and from the current and every future term roster of those departments; when converting to «visiting» it shall add him to the directory of exactly one department and to the roster of one current or future term; it shall never write a past-term roster, never touch any schedule, and shall offer a dry-run preview."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "تحويل إلى معيّن في فصل جارٍ رقمه 5 وقادم 6 يُنتج رفعاً من الدليل ومن الروسترين 5 و6 ولا يمسّ روستر الفصل الماضي 4.",
+          "en": "Converting to appointed with current term 5 and future term 6 removes him from the directory and from rosters 5 and 6 and leaves past roster 4 untouched."
+        },
+        {
+          "ar": "تحويل إلى منتدب في فصل ماضٍ أو غير موجود أو بلا قسم يُرفض ولا تُكتب أي تعديلات.",
+          "en": "Converting to visiting for a past or unknown term, or with no department, is refused and nothing is written."
+        },
+        {
+          "ar": "قسمان من عائلة واحدة يُنتجان دليلاً واحداً.",
+          "en": "Two departments of one family yield a single directory entry."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/visitingConversion.ts",
+          "src/db/visitingConversion.ts"
+        ],
+        "tests": [
+          "tests/visiting-conversion-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DAT-021",
+      "kind": "functional",
+      "title": {
+        "ar": "استيراد البيانات القديمة بمعرّفاتها",
+        "en": "Legacy import under original ids"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يستورد اللقطة القديمة إلا حين تكون مجموعة users فارغة والاستيراد التلقائي غير معطّل، وأن يكتب كل جدول فعّال بمعرّفاته القديمة (29 حساباً و18 شاشة و219 صلاحية و189 نطاقاً و31 فصلاً و13 كلية و87 قسماً و743 أستاذاً و1404 مقررات و15430 صف جدول وقاعة واحدة)، ثم يطابق الأعداد قبل قبول أي دخول، ويكتب _meta/legacyImport.",
+        "en": "The system shall import the legacy snapshot only when the users collection is empty and auto-import is not disabled, shall write each active table under its original identifiers (29 accounts, 18 screens, 219 permissions, 189 scopes, 31 terms, 13 colleges, 87 departments, 743 instructors, 1,404 courses, 15,430 schedule rows and 1 room), then match the counts before accepting any login and write _meta/legacyImport."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "نقص في عدد أي مجموعة عن المتوقع يُنهي التشغيل برسالة «فشل التحقق من نقل …».",
+          "en": "A count short of the expected in any collection ends startup with «فشل التحقق من نقل …»."
+        },
+        {
+          "ar": "على Cloud Run مع AUTO_IMPORT_LEGACY_DATA=false وقاعدة فارغة يرفض الخادم الإقلاع ولا يكتب شيئاً.",
+          "en": "On Cloud Run with AUTO_IMPORT_LEGACY_DATA=false and an empty database the server refuses to start and writes nothing."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#seedFirestoreFromLocalSnapshotIfNeeded",
+          "scripts/import-legacy-json.ts",
+          "scripts/extract-legacy-bak.py"
+        ],
+        "tests": [
+          "tests/parity_audit.py",
+          "tests/legacy-data-audit.py"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-022",
+      "kind": "data",
+      "title": {
+        "ar": "أرشيف الجداول التاريخية",
+        "en": "Historical table archive"
+      },
+      "text": {
+        "ar": "يجب أن تُحفظ الجداول التاريخية الثمانية والعشرون من النسخة القديمة تحت legacyArchive/<جدول>/rows/row_000000001 وما بعدها دون تعديل، ويُستثنى منها وحده نص كلمات السر الصريح، وألا تقرأ الشاشات منها شيئاً.",
+        "en": "The 28 historical tables of the legacy backup shall be kept under legacyArchive/<table>/rows/row_000000001 onward without modification, with plaintext passwords as the only exclusion, and no screen shall read from it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "عدد وثائق كل جدول في الأرشيف يساوي rowCount المسجّل وإلا فشل التحقق.",
+          "en": "The document count of each archived table equals the recorded rowCount, otherwise verification fails."
+        },
+        {
+          "ar": "الجداول الفارغة في تقرير الاستخراج (مثل Student وHistory) مسجّلة بصفر صف.",
+          "en": "Tables empty in the extraction report (such as Student and History) are recorded with zero rows."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#seedFirestoreFromLocalSnapshotIfNeeded",
+          "docs/LEGACY_DATA_EXTRACTION_REPORT.json"
+        ],
+        "tests": [
+          "tests/parity_audit.py"
+        ]
+      }
+    },
+    {
+      "id": "NFR-DAT-023",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "ذاكرات القراءة المؤقتة",
+        "en": "Short-lived read caches"
+      },
+      "text": {
+        "ar": "يجب أن تحتفظ العملية بمجموعات المراجع (الكليات والأقسام والفصول والأساتذة والمقررات) 90 ثانية وبصفوف الجدول 300 ثانية، وأن تُسقطها كل كتابة فوراً، وأن يعلن مستند _meta/schedulesChanged كل كتابة بعدّاد كلي وعدّاد لكل كاتب فتعدّ النسخة الأخرى فرق العدّادين كتابةً غريبة، ويُعدّ أي تراجع في العدّاد كتابة غريبة.",
+        "en": "The process shall keep reference collections (colleges, departments, terms, instructors, courses) for 90 seconds and schedule rows for 300 seconds, every write shall drop them at once, and the _meta/schedulesChanged document shall announce every write with a total counter and a per-writer counter so another instance counts the difference as foreign writes, and any counter that goes backwards counts as a foreign write."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "بعد تعديل مقرر لا تعيد القراءة التالية القيمة القديمة.",
+          "en": "After a course edit the next read does not return the old value."
+        },
+        {
+          "ar": "سجل كاتبين بزيادة 3 في الكلي و1 في كاتب هذه النسخة يعطي كتابتين غريبتين.",
+          "en": "A snapshot with a total increase of 3 and 1 from this instance yields two foreign writes."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/referenceCache.ts",
+          "src/db/beaconEcho.ts",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/live-pulse-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-024",
+      "kind": "data",
+      "title": {
+        "ar": "عزل العالم التجريبي عن الحقيقي",
+        "en": "Demo world separated from the real one"
+      },
+      "text": {
+        "ar": "يجب أن يعمل الصندوق التجريبي على بياناته في الذاكرة لكل جلسة دون كتابة أي شيء في Firestore، وأن تبدأ مفاتيح كل ذاكرة تحفظ ما قرأه المستودع بـ «real|» للعالم الحقيقي أو «demo:<الجلسة>|» للتجريبي.",
+        "en": "The demo sandbox shall run on its own in-memory data per session without writing anything to Firestore, and the key of every cache that holds what the repository read shall start with «real|» for the real world or «demo:<session>|» for the demo."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعديل صحيفة في الصندوق التجريبي لا يُعلّم تشغيلات الرادار الحقيقية قديمة.",
+          "en": "Editing a sheet in the demo sandbox does not mark real radar runs stale."
+        },
+        {
+          "ar": "ما يحفظه طلب تجريبي في ذاكرة لا يقرؤه طلب حقيقي.",
+          "en": "What a demo request stores in a cache is never read by a real request."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/dataContextCache.ts",
+          "src/db/demoSandbox.ts",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/demo-firestore-isolation-audit.ts",
+          "tests/demo-complete-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DAT-025",
+      "kind": "functional",
+      "title": {
+        "ar": "سلة المحذوفات",
+        "en": "Deleted-records bin"
+      },
+      "text": {
+        "ar": "يجب على النظام قبل حذف كلية أو قسم أو فصل أو أستاذ أو مقرر أن ينسخ وثيقته كاملة إلى deletedRecords باسم «<مجموعة>__<وثيقة>» مع وقت الحذف، وألا يمنع فشل النسخ الحذف المطلوب، وأن يؤرشف المقررات المدموجة بالطريقة نفسها.",
+        "en": "Before deleting a college, department, term, instructor or course the system shall copy its complete document to deletedRecords under «<collection>__<document>» with the deletion time, a failed copy shall not block the requested deletion, and merged duplicate courses shall be archived the same way."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف المقرر 418 ينتج وثيقة courses__course_418 فيها payload كامل.",
+          "en": "Deleting course 418 produces a courses__course_418 document with the full payload."
+        },
+        {
+          "ar": "لا مسار في التطبيق يقرأ هذه المجموعة؛ الاستعادة يدوية من قاعدة البيانات.",
+          "en": "No application path reads this collection; restoration is manual from the database."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#archiveBeforeDelete"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-DAT-026",
+      "kind": "data",
+      "title": {
+        "ar": "الاحتفاظ والحذف التلقائي",
+        "en": "Retention and automatic expiry"
+      },
+      "text": {
+        "ar": "يجب أن تنتهي التقارير التشخيصية للعميل (clientTelemetry) بعد 30 يوماً وتُقرأ منها 14 يوماً، وأن تعلن الجلسات وهذه التقارير حقل expiresAtTtl، وأن تحتفظ نسخ الاسترجاع بثماني نقاط فقط، وأن تُقتطع في الوضع المحلي القوائم إلى 4000 تقرير و2000 سجل تدقيق؛ مع الإشارة إلى أن سياسات TTL معلنة في الملف وغير مفعّلة في الإنتاج بقرار المالك.",
+        "en": "Client diagnostics (clientTelemetry) shall expire after 30 days and be read for 14, sessions and these diagnostics shall declare an expiresAtTtl field, restore points shall keep only eight, and the local mode shall truncate lists to 4,000 diagnostics and 2,000 audit entries; the TTL policies are declared in the file but are not enabled in production, by the owner's decision."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "نقطة الاسترجاع التاسعة تحذف الأقدم.",
+          "en": "The ninth restore point deletes the oldest."
+        },
+        {
+          "ar": "firestore.indexes.json يعلن سياسة TTL لـ sessions وclientTelemetry.",
+          "en": "firestore.indexes.json declares a TTL policy for sessions and clientTelemetry."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "firestore.indexes.json"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-DAT-027",
+      "kind": "data",
+      "title": {
+        "ar": "الفهارس",
+        "en": "Indexes"
+      },
+      "text": {
+        "ar": "يجب أن يعلن firestore.indexes.json كل فهرس مستعمل في الإنتاج (23 فهرساً: 5 على schedules و4 على activityTrail و2 لكل من scheduleComments وcourses وinstructorRequests وواحد لباقي المجموعات الكبيرة)، وأن يبدأ كل استعلام على مجموعة كبيرة بحقل يتصدّر فهرساً، وأن يفشل الاختبار عند استعلام جديد بلا فهرس.",
+        "en": "firestore.indexes.json shall declare every index used in production (23 indexes: 5 on schedules, 4 on activityTrail, 2 each on scheduleComments, courses and instructorRequests, and one for the other large collections), every query on a large collection shall start with a field that leads an index, and the test shall fail on a new query without an index."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "استعلام schedules بـ AdTermId يجد فهرساً يبدأ به.",
+          "en": "A schedules query on AdTermId finds an index that starts with it."
+        },
+        {
+          "ar": "الملف غير منشور تلقائياً: الفهرس يُنشأ يدوياً في وحدة التحكم حسب دليل التشغيل.",
+          "en": "The file is not deployed automatically: an index is created by hand in the console as the operations guide describes."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "firestore.indexes.json"
+        ],
+        "tests": [
+          "tests/firestore-index-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-028",
+      "kind": "data",
+      "title": {
+        "ar": "النسخ الاحتياطي والاسترجاع",
+        "en": "Backup and restore"
+      },
+      "text": {
+        "ar": "يجب أن يصدّر النسخ الاحتياطي (صيغة schedule-system-backup/1، للمدير الأعلى وحده) كل ما هو دائم، ويستثني sessions وclientTelemetry وsystemSecrets ومجموعات الوظائف ونقاط الاسترجاع، وأن تُؤخذ نقطة أمان قبل أي استيراد أو تصفير.",
+        "en": "The backup export (format schedule-system-backup/1, root administrator only) shall include everything durable and exclude sessions, clientTelemetry, systemSecrets, job collections and restore points, and a safety point shall be taken before any import or reset."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "استيراد نسخة لا يُسقط جلسات الدخول الحالية.",
+          "en": "Importing a backup does not drop the current login sessions."
+        },
+        {
+          "ar": "المسارات /api/system-backup/* ترفض كل من ليس مديراً أعلى.",
+          "en": "The /api/system-backup/* routes refuse anyone who is not a root administrator."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "src/server/routes/adminRoutes.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-DAT-029",
+      "kind": "data",
+      "title": {
+        "ar": "خصوصية بيانات الطلبة",
+        "en": "Student data privacy"
+      },
+      "text": {
+        "ar": "يجب ألا يُحفظ الرقم المدني للطالب صريحاً في سجل الحاجة أو الملف الشخصي، بل بصمة HMAC بمفتاح تكون مفتاح التفرّد، وهويته في حقول مشفّرة، ورمزه الشخصي بتجزئة scrypt بملح عشوائي مع عدّ محاولات خاطئة وقفل مؤقت.",
+        "en": "A student's civil number shall not be stored in clear in a need record or profile; instead a keyed HMAC fingerprint serves as the uniqueness key, identity is held in encrypted fields, and the personal code is stored as a scrypt hash with a random salt, a failed-attempt counter and a temporary lock."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "وثيقة واحدة لكل طالب في studentProfiles معرّفها هو البصمة.",
+          "en": "One document per student in studentProfiles whose id is the fingerprint."
+        },
+        {
+          "ar": "الخدمة لا تحفظ الرمز الشخصي نفسه.",
+          "en": "The service never stores the personal code itself."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/types.ts#StudentNeed",
+          "src/types.ts#StudentProfile"
+        ]
+      },
+      "inferred": true
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "معرّفات بنوعين مختلفين",
+        "en": "Identifiers of two different types"
+      },
+      "scenario": {
+        "ar": "يصل معرّف الأستاذ نصاً من قاعدة البيانات ورقماً من الطلب.",
+        "en": "An instructor identifier arrives as text from the database and as a number from the request."
+      },
+      "behavior": {
+        "ar": "تُقارن المعرّفات أرقاماً، فيُكتشف تعارض الأستاذ ولا يفوته اختلاف النوع.",
+        "en": "Identifiers are compared as numbers, so the instructor conflict is detected despite the type difference."
+      },
+      "evidence": [
+        "tests/id-type-conflict-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "إعادة استعمال رمز مقرر محذوف",
+        "en": "Reusing the code of a deleted course"
+      },
+      "scenario": {
+        "ar": "حُذف مقرر ثم أُنشئ مقرر جديد بالرمز نفسه في القسم نفسه والحجز القديم ما زال موجوداً.",
+        "en": "A course was deleted and a new course with the same code is created in the same department while the old claim still exists."
+      },
+      "behavior": {
+        "ar": "يُتحقق من الحجز مقابل المقرر الذي سجّله، فإن لم يعد يحمل الرمز أُخذ الحجز وقُبل الإنشاء.",
+        "en": "The claim is verified against the course that registered it; if it no longer holds the code the claim is taken over and the creation succeeds."
+      },
+      "evidence": [
+        "src/db/repository.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "تحويل إلى معيّن وروستر فصل ماضٍ فيه اسمه",
+        "en": "Converting to appointed while a past roster still holds his name"
+      },
+      "scenario": {
+        "ar": "يُحوَّل منتدب إلى معيّن وروستر فصل مضى يحوي اسمه.",
+        "en": "A visiting instructor is converted to appointed and a past-term roster still contains his name."
+      },
+      "behavior": {
+        "ar": "يبقى روستر الفصل الماضي كما هو وتزول شارة «منتدب» من الحاضر، ويُحفظ تاريخ الروستر.",
+        "en": "The past roster stays unchanged, the «visiting» badge disappears from the present, and the roster history is kept."
+      },
+      "evidence": [
+        "tests/visiting-conversion-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "عدّاد إعلان الكتابة يتراجع",
+        "en": "The write-announcement counter goes backwards"
+      },
+      "scenario": {
+        "ar": "أُعيد إنشاء مستند _meta/schedulesChanged أو قُلّصت خريطة الكاتبين.",
+        "en": "The _meta/schedulesChanged document is recreated or the writers map is pruned."
+      },
+      "behavior": {
+        "ar": "يُعدّ التراجع كتابة غريبة واحدة فتُسقط النسخة ذاكرتها؛ تحديث زائد أرخص من تغيير فائت.",
+        "en": "The regression counts as one foreign write and the instance drops its cache; one needless refresh is cheaper than a missed change."
+      },
+      "evidence": [
+        "tests/live-pulse-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "حفظان متزامنان للموعد نفسه",
+        "en": "Two simultaneous saves of the same appointment"
+      },
+      "scenario": {
+        "ar": "يفتح منسقان المحاضرة نفسها ويحفظ كل منهما تعديله.",
+        "en": "Two coordinators open the same lecture and each saves a change."
+      },
+      "behavior": {
+        "ar": "الحفظ الأول ينجح ويرفع rev، والثاني يُرفض بتعارض مراجعة ويُعرض عليه الصف الحالي.",
+        "en": "The first save succeeds and raises rev; the second is refused with a revision conflict and is shown the current row."
+      },
+      "evidence": [
+        "tests/proposal-undo-emulator-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "قسم",
+      "en": "Department",
+      "def": {
+        "ar": "القسم العلمي؛ يُخزَّن في الكود باسم AdSectionId ويتبع كلية.",
+        "en": "The scientific department; stored in code as AdSectionId and belonging to a college."
+      }
+    },
+    {
+      "ar": "شعبة",
+      "en": "Class section",
+      "def": {
+        "ar": "موعد أو أكثر لمقرر في فصل برمز SCode؛ صف واحد في جدول المواعيد.",
+        "en": "One or more meetings of a course in a term with code SCode; one row of the schedule collection."
+      }
+    },
+    {
+      "ar": "الصحيفة",
+      "en": "Plan sheet",
+      "def": {
+        "ar": "نسخة المنهج الأكاديمي لقسم، وعضوية المقررات فيها.",
+        "en": "A department's curriculum version and the course membership in it."
+      }
+    },
+    {
+      "ar": "نطاق",
+      "en": "Scope",
+      "def": {
+        "ar": "تركيبة «كلية:قسم:فصل» التي تُحفظ بها النسخ والمسودات والروابط.",
+        "en": "The «college:department:term» combination under which versions, drafts and links are stored."
+      }
+    },
+    {
+      "ar": "لقطة",
+      "en": "Snapshot",
+      "def": {
+        "ar": "نسخة مجمّدة من الهوية الأكاديمية للموعد أو من صفوف نطاق كاملة.",
+        "en": "A frozen copy of an appointment's academic identity or of a whole scope's rows."
+      }
+    },
+    {
+      "ar": "منتدب",
+      "en": "Visiting instructor",
+      "def": {
+        "ar": "أستاذ مُنتدَب إلى قسم؛ اسمٌ في دليل القسم وروستر الفصل لا صفة في سجله.",
+        "en": "An instructor seconded to a department; a name in the department directory and term roster, not an attribute of his record."
+      }
+    },
+    {
+      "ar": "معيّن",
+      "en": "Appointed instructor",
+      "def": {
+        "ar": "أستاذ دائم لا يظهر في دليل المنتدبين.",
+        "en": "A permanent instructor who does not appear in the visiting directory."
+      }
+    },
+    {
+      "ar": "الروستر",
+      "en": "Term roster",
+      "def": {
+        "ar": "قائمة المنتدبين في قسم لفصل واحد.",
+        "en": "The list of visiting instructors of one department for one term."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "رقم المقرر المعروض سبع خانات دائماً (كلية 2 + قسم 2 + مقرر 3، مثل 0109105)؛ لا يُعرض CourseCode المخزّن ولا AdCourseId.",
+      "en": "A displayed course number is always seven digits (college 2 + department 2 + course 3, e.g. 0109105); the stored CourseCode and AdCourseId are never shown."
+    },
+    {
+      "ar": "تصميم التقارير المطبوعة لا يُمسّ: الإصلاح في القيم والبيانات لا في الشكل.",
+      "en": "The design of printed reports is not touched: fixes go into values and data, not layout."
+    },
+    {
+      "ar": "لا لقطة بيانات محلية ولا اعتماد إنتاج في الشيفرة أو في أرشيفات التسليم؛ تُضبط في بيئة خاصة.",
+      "en": "No local data snapshot and no production credential in source control or delivery archives; they are configured in a private environment."
+    }
+  ]
+}
