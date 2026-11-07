@@ -160,7 +160,7 @@ async function notificationItemsForTerm(req: AuthenticatedRequest, termId: numbe
   const watchesSubmission = registrarReader || role === "registrarDean" || role === "dean" || role === "viceDean";
   const active = inScope.filter(row => {
     const key = `${Number(row.AdCollegeId)}:${Number(row.AdSectionId)}`;
-    /* من يُحاسِب على التسليم (التسجيل، والعميدان، وعميد التسجيل) يُعدّ له كلُّ
+    /* من يُحاسِب على التسليم (التسجيل، والعميدان، وعميد القبول والتسجيل) يُعدّ له كلُّ
        قسمٍ في نطاقه — قسمٌ لم يكتب شيئاً ولم يبدأ الدورة هو أوّلُ من يتأخّر،
        وكان يسقط من الجرس لأنه بلا صفوف ولا سجلّ (N21). */
     return rowsPer.has(key) || stored.has(key) || pendingByScope.has(key) || studentQueueByScope.has(key) || department || watchesSubmission;

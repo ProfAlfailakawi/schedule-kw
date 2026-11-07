@@ -605,7 +605,7 @@ const DEMO_USER_INSTRUCTOR_LINKS: Record<number, number> = { 15: 1, 16: 2, 17: 3
 const DEMO_ROLE_SEEDS: DemoRoleSeed[] = [
   { role: "dean",           id: 10, name: "د. عميد كلية التربية الأساسية",    login: "demo.dean" },
   { role: "viceDean",       id: 11, name: "د. العميد المساعد الأكاديمي",      login: "demo.vicedean" },
-  { role: "registrarDean",  id: 12, name: "د. عميد التسجيل",                 login: "demo.regdean" },
+  { role: "registrarDean",  id: 12, name: "د. عميد القبول والتسجيل",                 login: "demo.regdean" },
   { role: "registrarHead",  id: 13, name: "أ. المسجّل العام",                 login: "demo.reghead" },
   { role: "collegeRegistrar", id: 22, name: "أ. رئيس تسجيل كلية التربية الأساسية", login: "demo.collegereg" },
   { role: "registrarStaff", id: 14, name: "أ. موظف التسجيل",                 login: "demo.regstaff" },
@@ -615,7 +615,7 @@ const DEMO_ROLE_SEEDS: DemoRoleSeed[] = [
   { role: "standard",       id: 17, name: "أ. مستخدم عادي",                  login: "demo.standard" },
 ];
 /* حسابٌ إضافيٌّ لعرض الديمو على الإدارة العامة: «الإرشاد العام» بصفة المرشد. («المسجّل العام» صار صفةً قائمة
-   بذاتها — registrarHead — فلم يعد حساباً إضافياً.) والنصُّ القديم: «المسجل العام» بصلاحيات عميد التسجيل نفسها،
+   بذاتها — registrarHead — فلم يعد حساباً إضافياً.) والنصُّ القديم: «المسجل العام» بصلاحيات عميد القبول والتسجيل نفسها،
    و«الإرشاد العام» بصفة المرشد. وفي الصندوق قسمٌ واحدٌ ذو بيانات، فنطاقاهما نطاقُ صفتيهما نفسُه؛ وصفتاهما من الصفات القائمة، فلا قاعدةَ جديدة
    ولا شاشة؛ ومفتاحُ الشريط وحدَه يميّزهما، لأن التبديل يتمّ بمفتاح الصفة. */
 interface DemoExtraSeed extends DemoRoleSeed { key: string; label: string }

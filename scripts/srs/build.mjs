@@ -11,6 +11,8 @@ import { validateAll } from "./validate.mjs";
 import { buildModel } from "./lib/model.mjs";
 import { renderInteractive } from "./lib/render-interactive.mjs";
 import { renderPrint } from "./lib/render-print.mjs";
+import { validateHistory } from "./lib/history.mjs";
+import { validateAlgorithms } from "./lib/algorithms.mjs";
 import { missingIcons } from "./lib/icons.mjs";
 
 /** حساب المالك على منصة الاستضافة ومعرّفات المشاريع السحابية: لا تظهر في أي ناتج. */
@@ -33,6 +35,8 @@ export function buildAll({ strict = true } = {}) {
   const { errors, warnings } = validateAll();
   if (errors.length && strict) { console.error(errors.map(e => `✗ ${e}`).join("\n")); throw new Error(`${errors.length} خطأ في وحدات الوثيقة`); }
   const model = buildModel();
+  validateHistory(model);
+  if (strict) validateAlgorithms(model);
   const html = renderInteractive(model, { pdfs: pdfFiles(), pdfInfo: pdfInfo(model.hash) });
   if (missingIcons().length) console.warn(`⚠ أيقونات غير موجودة في lucide: ${missingIcons().join(", ")}`);
   for (const c of model.glossaryConflicts) console.warn(`⚠ تعارض مصطلح: ${c}`);

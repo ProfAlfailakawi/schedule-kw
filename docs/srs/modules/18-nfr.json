@@ -534,7 +534,7 @@
         "en": "Permission enforced on the server"
       },
       "text": {
-        "ar": "يجب أن يفرض الخادم الصلاحية في نقطة واحدة على مدخل /api كله: أي طلب غير قراءة من دور قارئ (العميد والعميد المساعد وعميد التسجيل) يُرفض بـ 403 مهما أخفت الواجهة من أزرار، ولا يُفتح للقارئ إلا مسارات دورة الاعتماد بحسب دوره؛ وإخفاء أيقونة في الواجهة ليس صلاحية.",
+        "ar": "يجب أن يفرض الخادم الصلاحية في نقطة واحدة على مدخل /api كله: أي طلب غير قراءة من دور قارئ (العميد والعميد المساعد وعميد القبول والتسجيل) يُرفض بـ 403 مهما أخفت الواجهة من أزرار، ولا يُفتح للقارئ إلا مسارات دورة الاعتماد بحسب دوره؛ وإخفاء أيقونة في الواجهة ليس صلاحية.",
         "en": "The server shall enforce permission at a single point at the entrance of all of /api: any non-read request from a read-only role (dean, vice dean, dean of registration) is refused with 403 whatever buttons the interface hides, and only approval-cycle paths are open to a reader according to the role; hiding an icon in the interface is not permission."
       },
       "rationale": {

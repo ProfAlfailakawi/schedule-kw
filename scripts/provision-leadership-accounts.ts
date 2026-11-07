@@ -2,8 +2,8 @@
  * ── حسابات القيادة: العمداء والتسجيل ──────────────────────────────────────────
  *
  *   سبعة حسابات، وكلٌّ منها على كل الكليات والأقسام:
- *   عميد الكلية · العميد المساعد · عميد التسجيل · رئيس التسجيل · موظف التسجيل
- *   · المسجل العام (بصفة عميد التسجيل) · الإرشاد العام (بصفة مرشد القسم، على كل أقسام الكليات)
+ *   عميد الكلية · العميد المساعد · عميد القبول والتسجيل · رئيس التسجيل · موظف التسجيل
+ *   · المسجل العام (بصفة عميد القبول والتسجيل) · الإرشاد العام (بصفة مرشد القسم، على كل أقسام الكليات)
  *
  * تُنشأ مفعَّلةً بكلمة السر الافتراضية (scripts/lib/defaultPassword.ts) ليغيّرها صاحبها عند أول دخول.
  * الحساب القائم الموقوف بلا كلمة سر يُفعَّل بها أيضاً؛ وما له كلمة سر لا يُمسّ.
@@ -39,7 +39,7 @@ type Plan = { login: string; name: string; role: any; assigns: Array<{ AdCollege
 const plans: Plan[] = [
   { login: "dean", name: "عميد الكلية", role: "dean", assigns: everyCollege },
   { login: "vicedean", name: "العميد المساعد للشؤون الأكاديمية", role: "viceDean", assigns: everyCollege },
-  { login: "registrardean", name: "عميد التسجيل", role: "registrarDean", assigns: everyCollege },
+  { login: "registrardean", name: "عميد القبول والتسجيل", role: "registrarDean", assigns: everyCollege },
   { login: "registrarhead", name: "رئيس التسجيل", role: "registrarHead", assigns: everyCollege },
   { login: "registrarstaff", name: "موظف التسجيل", role: "registrarStaff", assigns: everyCollege },
   { login: "registrargeneral", name: "المسجل العام", role: "registrarDean", assigns: everyCollege },

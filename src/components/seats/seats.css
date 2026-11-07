@@ -160,6 +160,14 @@
 .seat-picker-list button.on i{background:var(--accent);color:var(--accent-contrast)}
 .seat-picker-list span{flex:1}
 .seat-picker-list small{color:var(--muted);font-size:var(--t-xs)}
+.seat-picker-list span small,.seat-chosen span small{display:block;color:var(--muted);font-size:var(--t-xs);font-weight:400}
+.seat-chosen{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1.5px solid var(--accent);border-radius:var(--r-md);background:var(--accent-softer);color:var(--ink);font-size:var(--ix-secondary)}
+.seat-chosen i{inline-size:30px;block-size:30px;flex:none;display:grid;place-items:center;border-radius:10px;background:var(--accent);color:var(--accent-contrast);font-style:normal;font-weight:700}
+.seat-chosen>span{flex:1;min-inline-size:0}
+.seat-chosen button{flex:none;inline-size:44px;block-size:44px;margin-block:-8px;margin-inline-end:-10px;display:grid;place-items:center;border:0;background:none;color:var(--muted);cursor:pointer}
+.seat-chosen button svg{inline-size:16px;block-size:16px}
+.seat-phone-need{display:grid;gap:4px;font-size:var(--t-sm);color:var(--muted)}
+.seat-phone-need input{box-sizing:border-box;inline-size:100%;min-block-size:44px;padding:0 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font:inherit}
 .seat-link-btn{justify-self:start;border:0;background:none;padding:2px;color:var(--accent);font:inherit;font-size:var(--t-sm);font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .seat-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .seat-form-grid.three{grid-template-columns:2fr 1fr 1.2fr}

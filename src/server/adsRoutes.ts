@@ -372,7 +372,8 @@ async function heavyInputs(): Promise<Heavy> {
   return heavy;
 }
 
-const HEADLINE_TTL_MS = 10 * 60_000;
+/* مرةً في اليوم: الحساب يقرأ مجموعاتٍ كثيرة، والأرقام الكبرى لا تحتاج دقيقةً بدقيقة (قرار المالك: التحديث اليومي يكفي ولا كلفة). */
+const HEADLINE_TTL_MS = 24 * 60 * 60_000;
 let headlineMemo: { at: number; body: ReturnType<typeof headlineBody> } | null = null;
 let headlinePending: Promise<ReturnType<typeof headlineBody>> | null = null;
 
@@ -773,11 +774,11 @@ export function registerAdsRoutes(app: Express, deps: AdsDeps): void {
     res.json({ ...buildAudienceStats(input), termChoices });
   });
 
-  /* الأرقام الكبرى وحدها للعرض التقديمي العام (public/schedule-presentation.html): الرصيد الذي أقرّته الإدارة وما قيس بعده،
-     مجمّعةً بلا هوية كما في ملف الشراكة. تُحسب مرةً كل عشر دقائق مهما كثر الطلب، والطلبات المتزامنة تنتظر الحساب نفسه. */
+  /* الأرقام الكبرى وحدها للعرض التقديمي العام (public/schedule-presentation.html) ولوثيقة المتطلبات: الرصيد الذي أقرّته الإدارة وما قيس بعده،
+     مجمّعةً بلا هوية كما في ملف الشراكة. تُحسب مرةً في اليوم مهما كثر الطلب، والطلبات المتزامنة تنتظر الحساب نفسه. */
   app.get("/api/public/audience-headline", async (_req: Request, res: Response) => {
     try {
-      res.set("Cache-Control", "public, max-age=300");
+      res.set("Cache-Control", "public, max-age=3600");
       res.json(await audienceHeadline());
     } catch {
       fail(res, 503, "تعذّر حساب الأرقام الآن.");

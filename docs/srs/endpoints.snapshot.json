@@ -208,6 +208,7 @@
   "GET /api/search/natural",
   "GET /api/seats",
   "GET /api/seats/:id",
+  "GET /api/seats/:id/handover-candidates",
   "GET /api/seats/mine",
   "GET /api/seats/switch-options",
   "GET /api/section-requests",

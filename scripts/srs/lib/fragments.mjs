@@ -1,6 +1,6 @@
 /** مقاطعُ HTML مشتركة بين الصفحة التفاعلية والنسخة المطبوعة. mode: dual | ar | en. */
 import { icon } from "./icons.mjs";
-import { flowSvg } from "./diagram.mjs";
+import { flowSvg, bestFlowSvg } from "./diagram.mjs";
 import { LABELS, STATUS_ORDER } from "./model.mjs";
 
 export const esc = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -22,15 +22,30 @@ export const statusBadge = (c, s) => badge(`b-${s}`, c.T(LABELS.status[s]), STAT
 export const priorityBadge = (c, p) => badge(`b-${p}`, c.T(LABELS.priority[p]));
 export const kindBadge = (c, k) => badge("b-kind", c.T(LABELS.kind[k]));
 
+/** صفّ شارات الأدوار: ستٌّ ظاهرة والباقي خلف «+N» (على الشاشة فقط). */
+export function actorChips(c, m, ids) {
+  const chips = ids.map(a => actorChip(c, m, a)).join("");
+  if (c.print || ids.length <= 6) return `<div class="req-meta" style="margin:.4rem 0">${chips}</div>`;
+  return `<div class="req-meta cap" style="margin:.4rem 0">${chips}<button class="chip more" type="button" data-more>+${ids.length - 6}</button></div>`;
+}
+
 export function actorChip(c, m, id) {
   const a = m.actorMap.get(id);
   return a ? `<span class="chip">${c.print ? "" : icon(a.icon, 13)}${c.T(a.name)}</span>` : "";
 }
 
 export function diagramBlock(c, d) {
-  const svg = c.mode === "dual"
-    ? `<div class="ar">${flowSvg(d, "ar", c.orient)}</div><div class="en">${flowSvg(d, "en", c.orient)}</div>`
-    : flowSvg(d, c.mode, c.orient);
+  /* الطباعة تختار أنظف تخطيطٍ لكل مخطط (رأسي أو عمودي للقصير)؛ الشاشة أفقية، والهاتف عمودي. */
+  const printCandidates = d.nodes.length <= 9 ? ["tb", "col"] : ["tb"];
+  const one = (lang, orient) => {
+    if (c.print) return bestFlowSvg(d, lang, printCandidates).svg;
+    if (orient === "lr") return bestFlowSvg(d, lang, ["lr", "tb"], { pageW: 1000, colW: 420, pageH: 560 }).svg;
+    return flowSvg(d, lang, orient);
+  };
+  const both = orient => (c.mode === "dual"
+    ? `<div class="ar">${one("ar", orient)}</div><div class="en">${one("en", orient)}</div>`
+    : one(c.mode, orient));
+  const svg = c.mode === "dual" && !c.print ? `<div class="dg-d">${both(c.orient)}</div><div class="dg-m">${both("col")}</div>` : both(c.orient);
   return `<figure class="diagram" id="dg-${esc(d.id)}"><h4>${c.T(d.title)}</h4>${d.caption ? `<p class="cap">${c.T(d.caption)}</p>` : ""}${svg}</figure>`;
 }
 
@@ -49,6 +64,7 @@ export function matrixBlock(c, m, mx) {
 export function reqCard(c, m, r) {
   const ev = r.evidence || {};
   const more = [];
+  if (!c.print && (r.actors || []).length) more.push(`<div class="dl-title">${c.T({ ar: "الأدوار", en: "Actors" })}</div><div class="req-meta">${r.actors.map(a => actorChip(c, m, a)).join("")}</div>`);
   if (r.rationale) more.push(`<div class="dl-title">${c.T({ ar: "المبرر", en: "Rationale" })}</div><p class="req-rat">${c.M(r.rationale)}</p>`);
   more.push(`<div class="dl-title">${c.T({ ar: "معايير القبول", en: "Acceptance criteria" })}</div><ol>${r.acceptance.map(a => `<li>${c.M(a)}</li>`).join("")}</ol>`);
   if ((ev.code || []).length || (ev.tests || []).length) {
@@ -58,10 +74,10 @@ export function reqCard(c, m, r) {
     ? `<div class="req-more">${more.join("")}</div>`
     : `<details><summary>${c.T({ ar: "معايير القبول والمراجع", en: "Acceptance and evidence" })}</summary>${more.join("")}</details>`;
   const q = norm([r.id, r.title.ar, r.title.en, r.text.ar, r.text.en, ...r.acceptance.map(a => a.ar + " " + a.en)].join(" "));
-  return `<article class="req" id="${r.id}" data-id="${r.id}" data-module="${m.id}" data-status="${r.status}" data-priority="${r.priority}" data-kind="${r.kind}" data-actors="${(r.actors || []).join(" ")}" data-inferred="${r.inferred ? 1 : 0}" data-q="${esc(q)}">`
-    + `<div class="req-head"><a class="req-id" href="#${r.id}">${r.id}</a><h4>${c.T(r.title)}</h4>${statusBadge(c, r.status)}${priorityBadge(c, r.priority)}${r.inferred ? badge("b-inferred", c.T({ ar: "مستنتج", en: "Inferred" }), "circle-help", c.print) : ""}</div>`
+  return `<article class="req" id="${r.id}" data-id="${r.id}" data-module="${r.module}" data-status="${r.status}" data-priority="${r.priority}" data-kind="${r.kind}" data-actors="${(r.actors || []).join(" ")}" data-inferred="${r.inferred ? 1 : 0}" data-q="${esc(q)}">`
+    + `<div class="req-head"><a class="req-id" href="#${r.id}">${r.id}</a><h4>${c.T(r.title)}</h4>${r.status !== "implemented" ? statusBadge(c, r.status) : ""}${r.inferred ? badge("b-inferred", c.T({ ar: "مستنتج", en: "Inferred" }), "circle-help", c.print) : ""}</div>`
     + `<p class="req-text">${c.M(r.text)}</p>`
-    + `<div class="req-meta">${kindBadge(c, r.kind)}${(r.actors || []).map(a => actorChip(c, m, a)).join("")}</div>${body}</article>`;
+    + `<div class="rm"><i class="sdot s-${r.status}"></i><span>${c.T(LABELS.status[r.status])}</span><span class="sep">·</span><span>${c.T(LABELS.priority[r.priority])}</span><span class="sep">·</span><span>${c.T(LABELS.kind[r.kind])}</span>${c.print && (r.actors || []).length ? `<span class="sep">·</span><span class="ra">${r.actors.map(a => c.T(m.actorMap.get(a).name)).join(c.mode === "ar" ? "، " : ", ")}</span>` : ""}</div>${body}</article>`;
 }
 
 export function screensBlock(c, s) {
