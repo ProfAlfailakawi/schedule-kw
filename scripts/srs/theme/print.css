@@ -158,3 +158,4 @@ td a,.toc-row,.req-id{color:inherit}
 .keyrows{grid-template-columns:1fr 1fr;gap:6px}
 .tbl.cfg,.tbl.routes{font-size:7.6pt}.tbl.routes td code{font-size:7.2pt}.acc{font-size:6.8pt}
 .tbl.routes tr,.tbl.cfg tr{break-inside:avoid}
+.ptext{font-size:8.6pt;line-height:1.6}

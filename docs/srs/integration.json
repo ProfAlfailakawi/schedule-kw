@@ -8,6 +8,41 @@
       "ar": "يدخل كل مستخدم اليوم بحساب داخلي في النظام. هذا القسم يبيّن بالضبط أين يحدث كل دخول في الكود، وما الذي يبقى كما هو، وما الذي يُستبدل إن أرادت الجامعة أن يدخل الجميع بحساباتها (دخول موحّد عبر OpenID Connect أو SAML أو الدليل). القاعدة: يُستبدل باب الدخول وحده، ويبقى ما بعده؛ فكل صلاحية ونطاق وتوقيع وسجل يُقرأ من الجلسة لا من طريقة الدخول.",
       "en": "Today every user signs in with an internal account. This section shows exactly where each sign-in happens in the code, what stays as is, and what is replaced if the university wants everyone to sign in with its own accounts (single sign-on through OpenID Connect, SAML or the directory). The rule: only the entrance is replaced and everything after it stays; every permission, scope, signature and audit entry is read from the session, not from how the user signed in."
     },
+    "pathsTitle": {
+      "ar": "طريقتان: اسم الجامعة وحده، أو كلمة سر الجامعة أيضاً",
+      "en": "Two paths: the university name alone, or the university password too"
+    },
+    "paths": [
+      {
+        "icon": "at-sign",
+        "title": {
+          "ar": "1. اسم المستخدم أو البريد الجامعي كاسم دخول (بلا تعديل في الكود)",
+          "en": "1. The university username or email as the login name (no code change)"
+        },
+        "text": {
+          "ar": "لا يوجد في حساب النظام حقل بريد مستقل؛ اسم الدخول هو الحقل SystemUserLogin، ويقبل أي نص، ومنه البريد الجامعي مثل name@university.edu. يُغيَّر من شاشة المستخدمين لكل حساب (التعديل يفحص ألا يتكرر الاسم)، والمطابقة عند الدخول لا تفرّق بين الحروف الكبيرة والصغيرة. فيدخل كل شخص باسمه أو بريده الجامعي، وتبقى كلمة السر كلمة النظام، وتبقى الصلاحيات والنطاقات كما هي لأنها مربوطة برقم الحساب لا باسمه.",
+          "en": "A system account has no separate email field; the login name is the SystemUserLogin field, which accepts any text, including a university email such as name@university.edu. It is changed per account from the users screen (editing checks the name is not taken), and matching at sign-in ignores letter case. Everyone then signs in with their university name or email, the password stays the system's own, and permissions and scopes stay as they are because they are tied to the account number, not its name."
+        },
+        "evidence": [
+          "src/server/routes/usersRoutes.ts#/api/users/:id",
+          "src/db/repository.ts#getUserByLogin"
+        ]
+      },
+      {
+        "icon": "shield-check",
+        "title": {
+          "ar": "2. الدخول بكلمة سر الجامعة نفسها (دخول موحّد، تطوير محدود)",
+          "en": "2. Signing in with the university password itself (single sign-on, a limited change)"
+        },
+        "text": {
+          "ar": "يُضاف مسار عودة من نظام هوية الجامعة كما في الجدول أدناه، فلا يكتب أحد كلمة سر في النظام. تبقى المطابقة باسم الدخول كما في الطريقة الأولى، فإذا وُحّدت أسماء الدخول بالبريد الجامعي أولاً صار الربط مطابقة مباشرة لما يرسله نظام الجامعة.",
+          "en": "A callback route from the university identity system is added as in the table below, so nobody types a password into the system. Matching stays by login name as in the first path, so if login names are first set to the university email, linking becomes a direct match of what the university system sends."
+        },
+        "evidence": [
+          "src/server/routes/authRoutes.ts#/api/auth/login"
+        ]
+      }
+    ],
     "rows": [
       {
         "icon": "log-in",
@@ -20,8 +55,8 @@
           "en": "A username and a stored salted password hash; on success a sess_ session is created in the database with a 15-minute idle timeout, and a session_id cookie is set HttpOnly and SameSite=Lax."
         },
         "change": {
-          "ar": "يُستبدل معالج الدخول بمسار عودة من مزوّد الهوية: يتحقق من رد المزوّد، ويطابق المستخدم بحسابه في النظام (SystemUserLogin أو البريد)، ثم ينشئ الجلسة نفسها بـ Repository.createSession ويضبط ملف الارتباط نفسه. لا يتغير شيء بعدها.",
-          "en": "The sign-in handler is replaced by a callback route from the identity provider: it verifies the provider's response, matches the user to their system account (SystemUserLogin or email), then creates the same session with Repository.createSession and sets the same cookie. Nothing after it changes."
+          "ar": "يُستبدل معالج الدخول بمسار عودة من مزوّد الهوية: يتحقق من رد المزوّد، ويأخذ منه اسم الدخول أو البريد الجامعي، ويطابقه بحقل SystemUserLogin بالدالة نفسها Repository.getUserByLogin (مطابقة تامة ثم بلا حالة أحرف)، ثم ينشئ الجلسة نفسها بـ Repository.createSession ويضبط ملف الارتباط نفسه. لا يتغير شيء بعدها.",
+          "en": "The sign-in handler is replaced by a callback route from the identity provider: it verifies the provider's response, takes the university login name or email from it, matches it against the SystemUserLogin field with the same Repository.getUserByLogin (exact match, then case-insensitive), then creates the same session with Repository.createSession and sets the same cookie. Nothing after it changes."
         },
         "evidence": [
           "src/server/routes/authRoutes.ts#/api/auth/login",

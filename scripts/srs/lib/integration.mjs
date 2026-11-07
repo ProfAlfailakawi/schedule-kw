@@ -65,7 +65,7 @@ export function loadIntegration(m) {
 /** المراجع موجودة (والرمز بعد # موجودٌ في الملف)، وكل متغيرٍ يقرؤه الكود موصوف، ولا وصفَ لمتغيرٍ لا يُقرأ. */
 export function validateIntegration(m) {
   const g = m.integration, errs = [], files = new Set(trackedFiles());
-  const refs = [...g.identity.rows.flatMap(r => r.evidence || []), ...g.keys.rows.flatMap(r => r.evidence || [])];
+  const refs = [...g.identity.rows, ...(g.identity.paths || []), ...g.keys.rows].flatMap(r => r.evidence || []);
   for (const ref of refs) {
     const file = stripRef(ref), sym = String(ref).includes("#") ? String(ref).split("#")[1] : "";
     if (!files.has(file)) { errs.push(`مرجع غير موجود: ${ref}`); continue; }
@@ -91,7 +91,8 @@ export function identityBlock(c, m) {
   const rows = g.rows.map(r => `<article class="idrow"><header>${icon(r.icon, 20)}<b>${T(r.who)}</b></header>`
     + `<div class="idcols"><div><small>${T({ ar: "اليوم", en: "Today" })}</small><p>${T(r.today)}</p></div><div class="idchg"><small>${T({ ar: "مع حسابات الجامعة", en: "With university accounts" })}</small><p>${T(r.change)}</p></div></div>${ev(r.evidence)}${reqLinks(r.reqs)}</article>`).join("");
   const qs = `<div class="idq"><h4>${icon("list-checks", 18)}${T(g.questionsTitle)}</h4><ol>${g.questions.map(q => `<li>${T(q)}</li>`).join("")}</ol></div>`;
-  return `<div class="integ"><p class="ilead">${T(g.lead)}</p><div class="idrows">${rows}</div>${qs}</div>`;
+  const paths = (g.paths || []).length ? `<h4 class="cfg-h">${T(g.pathsTitle)}</h4><div class="keyrows idpaths">${g.paths.map(p => `<article class="keyrow"><header>${icon(p.icon, 18)}<b>${T(p.title)}</b></header><p class="ptext">${T(p.text)}</p>${ev(p.evidence)}</article>`).join("")}</div><h4 class="cfg-h">${T({ ar: "كل باب دخول في الكود", en: "Every entrance in the code" })}</h4>` : "";
+  return `<div class="integ"><p class="ilead">${T(g.lead)}</p>${paths}<div class="idrows">${rows}</div>${qs}</div>`;
 }
 
 export function keysBlock(c, m) {

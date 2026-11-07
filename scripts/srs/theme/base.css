@@ -340,3 +340,5 @@ html[dir="rtl"] .htl::before{background:linear-gradient(270deg,var(--brass-brigh
 .tbl.routes td.rq .more{font-size:.72rem;color:var(--ink-3)}
 .tbl.routes tr[hidden]{display:none}
 @media (max-width:760px){.idcols{grid-template-columns:1fr}.keyrow dl{grid-template-columns:1fr}.tbl.routes th:nth-child(4),.tbl.routes td:nth-child(4){display:none}}
+.ptext{margin:0 0 .3rem;font-size:.9rem;line-height:1.75}
+.idpaths{margin-bottom:.4rem}.idpaths .keyrow header b{font-size:.95rem}
