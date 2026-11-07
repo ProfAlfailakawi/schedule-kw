@@ -201,3 +201,9 @@ html[lang="ar"] .tt span{direction:rtl}
 .tsvc ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.7rem}
 .tsvc li{display:flex;gap:.7rem;align-items:center}
 .tsvc .si{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--jade-soft),var(--jade-softer));color:var(--jade-ink);flex:none}
+
+/* وجه البطاقة هادئ: المعلومة المعتادة سطرٌ صغير، والشارة للاستثناء وحده */
+.rm{display:flex;align-items:center;gap:.4rem;color:var(--ink-3);font-size:.79rem;margin:.1rem 0 .15rem}
+.rm .sep{opacity:.5}
+.sdot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.sdot.s-implemented{background:var(--jade)}.sdot.s-in-progress{background:var(--brass-bright)}.sdot.s-planned{background:var(--slate)}
