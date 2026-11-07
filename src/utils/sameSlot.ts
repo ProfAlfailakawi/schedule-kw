@@ -5,7 +5,7 @@
  *
  * تلميحٌ هادئ لا حاجز: من يُدخل موعداً بسرعةٍ ينسى أن مقرراتٍ أخرى تشغل الساعة ذاتها،
  * فيُرى له عددُها وأسماؤها. ليس بديلاً عن تعارض القاعة والأستاذ (الخادم حَكَمُهما)،
- * ولا يعيد ذكر ما سمّاه فحصُ التعارض نفسُه (skipIds).
+ * ولا يعيد ذكر ما سمّاه فحصُ التعارض نفسُه (skipIds)، إلا قرينَ «تفتح» حين لا يسمّيه غيرُ ملاحظةٍ لينة (softSkipIds).
  *
  * غيرُ الأقران: التطابقُ التام وحده، فتبقى الشارةُ هادئة. الأقران: يكفي التداخل، لأن الطالب يريدهما معاً،
  * ما دام قسمُ الموعد وفصلُه وكليتُه معروفة؛ والقربُ بين مقررين مختلفين لا يُقال لأنه لا يمنع أخذهما.
@@ -14,9 +14,11 @@
  * لأن من يفتح شعبتين متقاربتين قد ينسى؛ فالطالب يختار إحداهما والتقارب يضيّق خياره.
  * والتلاصقُ (تنتهي إحداهما حين تبدأ الأخرى) ليس تداخلاً: يسكت بين مقررين ويُعدّ قرباً بين شعبتين.
  * وصفٌّ من قسمٍ آخر أو كليةٍ أخرى لا يُعدّ في أي فرع؛ وصفوفُ الشعبة الجارية نفسها ليست شعبةً أخرى.
+ * وصفوفُ «وضع تجربة» مؤقتة فلا تُعدّ (isPracticeRow)، وصفٌّ بلا فصل لا يُعدّ في سؤالٍ سمّى فصله.
  * ملفٌّ خالص بلا React ولا شبكة؛ يُختبر في tests/same-slot-audit.ts.
  */
 
+import { toEnglishDigits } from "./digits";
 import type { UnlockLink } from "./planPeers";
 
 export type SlotDay = "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday";
@@ -62,6 +64,8 @@ export interface SameSlotQuery {
   excludeId?: number | string | null;
   /** صفوفٌ سمّاها فحصُ التعارض الصريح (قاعة/أستاذ/تكرار): لا تُكرَّر هنا. */
   skipIds?: Iterable<number | string>;
+  /** صفوفٌ سمّتها ملاحظةٌ لينة: لا تُكرَّر، إلا قرينَ «تفتح» فالملاحظةُ لا تقول ما يفتحانه. */
+  softSkipIds?: Iterable<number | string>;
   /** المقررُ الذي يُنشأ له الموعد — لمعرفة أقرانه وشعبه. */
   courseId?: number;
   sectionId?: number;
@@ -110,6 +114,34 @@ export const slotMinutes = (value: unknown): number => {
   return m > 59 ? NaN : h * 60 + m;
 };
 
+/**
+ * رقمُ الشعبة للمقارنة وحدها: «01» و«1» و«٠١» شعبةٌ واحدة، والرمزُ غير الرقمي يبقى كما هو.
+ * لا يُخزَّن ولا يُعرض: المخزونُ والمعروضُ كما أُدخلا.
+ */
+export function sectionCodeKey(value: unknown): string {
+  const code = String(value ?? "").trim();
+  const digits = toEnglishDigits(code);
+  return /^\d+$/.test(digits) ? digits.replace(/^0+(?=\d)/, "") : code;
+}
+
+/* «وضع تجربة» يعطي صفوفه -(1…999,999,999) وحجوزُ الطلبات تبدأ من -2,000,000,000 (reservationRows). */
+const PRACTICE_ROW_FLOOR = -1_000_000_000;
+
+/** صفٌّ من «وضع تجربة»: مؤقتٌ في المتصفح، فلا يدخل التلميح. أما حجزُ الطلب فسالبٌ أيضاً لكنه حقيقي. */
+export const isPracticeRow = (row: { id?: number | string }): boolean => {
+  const id = Number(row.id);
+  return id < 0 && id >= PRACTICE_ROW_FLOOR;
+};
+
+/**
+ * معرّفاتُ ما سمّاه فحصُ التعارض: الصريحُ يُسقط صفَّه من القائمة بلا استثناء (skipIds)،
+ * والملاحظةُ اللينة تُسقطه ما لم يكن قرينَ «تفتح» (softSkipIds). `isBlocking` هو isBlockingConflict.
+ */
+export function conflictSkipIds(conflicts: readonly any[], isBlocking: (conflict: any) => boolean) {
+  const idsOf = (list: readonly any[]) => list.flatMap(conflict => [conflict?.rowId, conflict?.otherId]).filter(Boolean) as Array<number | string>;
+  return { skipIds: idsOf(conflicts.filter(isBlocking)), softSkipIds: idsOf(conflicts.filter(conflict => !isBlocking(conflict))) };
+}
+
 const numeric = (value: unknown): number => {
   const n = Number(String(value ?? "").replace(/\D/g, ""));
   return Number.isFinite(n) ? n : 0;
@@ -120,6 +152,7 @@ export function sameSlotOf<R extends SlotRow>(rows: readonly R[], query: SameSlo
   const from = slotMinutes(query.start), to = slotMinutes(query.end);
   if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || !query.days.length) return empty;
   const skip = new Set<string>([...(query.skipIds || [])].map(String));
+  const softSkip = new Set<string>([...(query.softSkipIds || [])].map(String));
   if (query.excludeId != null && query.excludeId !== "" && Number(query.excludeId) !== 0) skip.add(String(query.excludeId));
   const wanted = SLOT_DAYS.filter(day => query.days.includes(day.key));
   const own = Number(query.courseId) || 0;
@@ -139,7 +172,7 @@ export function sameSlotOf<R extends SlotRow>(rows: readonly R[], query: SameSlo
     const rowFrom = slotMinutes(row.fstarttime), rowTo = slotMinutes(row.fendtime);
     return rowTo > rowFrom ? Math.max(rowFrom - to, from - rowTo) : NaN;
   };
-  const ownCode = String(query.scode ?? "").trim();
+  const ownCode = sectionCodeKey(query.scode);
 
   const ownSection = (row: R) => own > 0 && Number(row.AdCourseId) === own;
   const describe = (row: R, kind: SameSlotKind) => {
@@ -147,11 +180,12 @@ export function sameSlotOf<R extends SlotRow>(rows: readonly R[], query: SameSlo
     return { unlock, sameLevel: !unlock && sameLevelAs(row), sameCourse: ownSection(row), kind };
   };
   const found = rows.flatMap(row => {
-    if (skip.has(String(row.id))) return [];
-    if (query.termId && row.AdTermId && Number(row.AdTermId) !== Number(query.termId)) return [];
+    if (skip.has(String(row.id)) || isPracticeRow(row)) return [];
+    if (softSkip.has(String(row.id)) && !unlockAs(row)) return [];
+    if (query.termId && Number(row.AdTermId) !== Number(query.termId)) return [];
     if (query.sectionId && row.AdSectionId && Number(row.AdSectionId) !== Number(query.sectionId)) return [];
     if (query.collegeId && row.AdCollegeId && Number(row.AdCollegeId) !== Number(query.collegeId)) return [];
-    if (ownCode && ownSection(row) && String(row.SCode ?? "").trim() === ownCode) return [];
+    if (ownCode && ownSection(row) && sectionCodeKey(row.SCode) === ownCode) return [];
     if (isExact(row)) return [{ row, ...describe(row, "exact") }];
     const gap = gapOf(row);
     if (!inScope(row) || !Number.isFinite(gap)) return [];
@@ -170,7 +204,7 @@ export function sameSlotOf<R extends SlotRow>(rows: readonly R[], query: SameSlo
     const days = wanted.filter(day => Boolean(row[day.key])).map(day => day.key);
     if (!days.length) continue;
     /* صفٌّ بلا مقرر لا شعبةَ له يُجمع إليها: بندٌ بمعرّفه. */
-    const key = `${Number(row.AdCourseId) || `#${row.id}`}|${String(row.SCode ?? "").trim() || `#${row.id}`}|${slotMinutes(row.fstarttime)}|${slotMinutes(row.fendtime)}`;
+    const key = `${Number(row.AdCourseId) || `#${row.id}`}|${sectionCodeKey(row.SCode) || `#${row.id}`}|${slotMinutes(row.fstarttime)}|${slotMinutes(row.fendtime)}`;
     const held = merged.get(key);
     if (held) held.days = wanted.filter(day => held.days.includes(day.key) || days.includes(day.key)).map(day => day.key);
     else merged.set(key, { row, days, ...facts });

@@ -7,7 +7,7 @@ import { formatScheduleTimeRange, scheduleClockForDisplay, scheduleDayWindowMinu
 import { capSameSlot, sameSlotOf, slotMinutes, SLOT_DAYS, type SameSlotItem, type SameSlotQuery, type SameSlotResult, type SlotDay, type SlotRow } from "../utils/sameSlot";
 import { sameLevelLookup, unlockLookup } from "../utils/planPeers";
 import { cachedPlanFacts, loadPlanFacts, NO_PLAN_FACTS, type PlanFacts } from "../utils/planFactsCache";
-import { coreqFindings, coreqFreeTime, partnersOfCourse, type CoreqFreeTime } from "../utils/coreqSections";
+import { coreqFindings, coreqFreeTime, coreqScopeRows, partnersOfCourse, type CoreqFreeTime } from "../utils/coreqSections";
 
 /**
  * «في الوقت نفسه» — شارةٌ صغيرة تظهر فقط حين يوجد موعدٌ آخر في اليوم والساعة ذاتهما، أو قرينٌ
@@ -29,6 +29,7 @@ export interface SameSlotHintProps<R extends SlotRow & { AdCourseName?: string; 
   end: string;
   excludeId?: number | string | null;
   skipIds?: Iterable<number | string>;
+  softSkipIds?: Iterable<number | string>;
   courseId?: number;
   sectionId?: number;
   termId?: number;
@@ -87,11 +88,12 @@ function useSettled<T>(value: T, key: string, ms = 180): T {
 const hueOf = (seed: number) => (Math.abs(Math.round(seed)) * 47) % 360;
 
 export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string; AdInstructorId?: number }>(props: SameSlotHintProps<R>) {
-  const { rows, courseOf, instructorName, days, start, end, excludeId, skipIds, courseId, sectionId, termId, collegeId, scode, dayWindow, className } = props;
+  const { rows, courseOf, instructorName, days, start, end, excludeId, skipIds, softSkipIds, courseId, sectionId, termId, collegeId, scode, dayWindow, className } = props;
   const skipKey = [...(skipIds || [])].join(",");
-  const queryKey = `${days.join("+")}|${start}|${end}|${excludeId ?? ""}|${skipKey}|${courseId ?? ""}|${sectionId ?? ""}|${termId ?? ""}|${collegeId ?? ""}|${scode ?? ""}`;
+  const softSkipKey = [...(softSkipIds || [])].join(",");
+  const queryKey = `${days.join("+")}|${start}|${end}|${excludeId ?? ""}|${skipKey}|${softSkipKey}|${courseId ?? ""}|${sectionId ?? ""}|${termId ?? ""}|${collegeId ?? ""}|${scode ?? ""}`;
   const query = useSettled<SameSlotQuery>(
-    { days, start, end, excludeId, skipIds: skipKey ? skipKey.split(",") : [], courseId, sectionId, termId, collegeId, scode, codeOf: (id) => courseOf(id)?.CourseCode },
+    { days, start, end, excludeId, skipIds: skipKey ? skipKey.split(",") : [], softSkipIds: softSkipKey ? softSkipKey.split(",") : [], courseId, sectionId, termId, collegeId, scode, codeOf: (id) => courseOf(id)?.CourseCode },
     queryKey,
   );
 
@@ -105,7 +107,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
     const flags: Partial<SlotRow> = {};
     for (const day of SLOT_DAYS) flags[day.key] = query.days.includes(day.key);
     const candidate: SlotRow = { id: -1, AdCourseId: courseId, AdSectionId: sectionId, SCode: scode, fstarttime: query.start, fendtime: query.end, ...flags };
-    const scoped = rows.filter(row => (!sectionId || !row.AdSectionId || Number(row.AdSectionId) === Number(sectionId)) && (!termId || !row.AdTermId || Number(row.AdTermId) === Number(termId)));
+    const scoped = coreqScopeRows(rows, { sectionId, termId });
     return coreqFindings(candidate, scoped, partners, excludeId).map(finding => ({
       ...finding,
       row: scoped.find(row => String(row.id) === String(finding.overlapRowIds[0])) as (R | undefined),
@@ -113,12 +115,12 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
     }));
   }, [pairs, courseId, sectionId, scode, termId, rows, query, excludeId, dayStart, dayEnd]);
 
-  /* ما يرويه بطاقةُ المقرن لا يُعاد في قائمة «الوقت نفسه». */
+  /* ما يرويه بطاقةُ المقرن لا يُعاد في قائمة «الوقت نفسه»، إلا ما يفتحانه معاً: البطاقةُ لا تقوله. */
   const twinIds = useMemo(() => twins.flatMap(twin => twin.overlapRowIds).map(String), [twins]);
   /* الصفوف تتجدد حياً؛ الاستعلام وحده يُؤخَّر. */
   const sameLevel = useMemo(() => sameLevelLookup(levelGroups), [levelGroups]);
   const unlockOf = useMemo(() => unlockLookup(unlockGroups), [unlockGroups]);
-  const result: SameSlotResult<R> = useMemo(() => sameSlotOf<R>(rows, { ...query, skipIds: [...(query.skipIds || []), ...twinIds], codeOf: (id) => courseOf(id)?.CourseCode, sameLevel, unlockOf }), [rows, query, twinIds, sameLevel, unlockOf]); // eslint-disable-line react-hooks/exhaustive-deps
+  const result: SameSlotResult<R> = useMemo(() => sameSlotOf<R>(rows, { ...query, softSkipIds: [...(query.softSkipIds || []), ...twinIds], codeOf: (id) => courseOf(id)?.CourseCode, sameLevel, unlockOf }), [rows, query, twinIds, sameLevel, unlockOf]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const sheet = useRef<HTMLDivElement>(null);

@@ -153,6 +153,27 @@ await Repository.withDemoSandbox(sandboxId, async () => {
   check(askedIds.sort().join() === "900,901", "D2d ولا يُسأل إلا عن الأسماء الناقصة", askedIds);
 }
 
+/* ── D2e: المقرنات تُقرأ من الصحيفة الفعّالة والانتقالية معاً، كل صحيفةٍ بقواعدها ── */
+{
+  const saved = { getCurriculumPlans: Repository.getCurriculumPlans, getRuleSet: Repository.getRuleSet, getCoursesBySection: Repository.getCoursesBySection, getCourseById: Repository.getCourseById };
+  const sets: Record<string, any> = {
+    now: { rules: [{ courseId: 1, kind: "compulsory", coreq: [2] }, { courseId: 2, kind: "compulsory", coreq: [1] }] },
+    old: { rules: [{ courseId: 3, kind: "compulsory", coreq: [4] }, { courseId: 1, kind: "compulsory", coreq: [2] }] },
+    gone: { rules: [{ courseId: 5, kind: "compulsory", coreq: [6] }] },
+  };
+  Object.assign(Repository, {
+    getCurriculumPlans: async () => [{ id: "now", status: "active" }, { id: "old", status: "transition" }, { id: "gone", status: "archived" }],
+    getRuleSet: async (id: string) => sets[id],
+    getCoursesBySection: async () => [],
+    getCourseById: async () => undefined,
+  });
+  forgetCoreqPairs();
+  const read = await sectionPlanFacts(78);
+  Object.assign(Repository, saved);
+  forgetCoreqPairs();
+  check(read.pairs.map((pair: number[]) => pair.join("-")).sort().join() === "1-2,3-4", "D2e مقرنُ الانتقالية يُقرأ مع الفعّالة، بلا تكرار، والمؤرشفةُ لا تُقرأ", read.pairs);
+}
+
 /* ── D3 ── */
 {
   const real = (r: any) => !String(r.fdetail || "").includes("حالة تجريبية مقصودة");
