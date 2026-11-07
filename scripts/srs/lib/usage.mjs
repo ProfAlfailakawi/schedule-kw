@@ -29,11 +29,11 @@ const compact = (n, lang) => {
 /** البطاقات بترتيبها: «حوالي» للتقدير، و«أكثر من» للحدّ الأدنى، كما تقول لوحة الجمهور نفسها. */
 export function usageCards(u) {
   return [
-    { icon: "graduation-cap", kind: "about", value: l => compact(u.students, l), label: { ar: "طالب استفاد من النظام", en: "students served" } },
-    { icon: "mouse-pointer-click", kind: "min", value: l => compact(u.visits, l), label: { ar: "زيارة", en: "visits" } },
-    { icon: "presentation", kind: "about", value: l => compact(u.instructors, l), label: { ar: "عضو هيئة تدريس", en: "faculty members" } },
-    { icon: "id-card", kind: "min", value: l => compact(u.instructorOpens, l), label: { ar: "فتحٍ لبطاقات الأساتذة", en: "faculty card opens" } },
-    { icon: "badge-percent", kind: "min", value: () => `${u.instructorOpenRate}%`, label: { ar: "من الأساتذة يفتحون بطاقاتهم", en: "of faculty open their card" } },
+    { key: "students", icon: "graduation-cap", kind: "about", value: l => compact(u.students, l), label: { ar: "طالب استفاد من النظام", en: "students served" } },
+    { key: "visits", icon: "mouse-pointer-click", kind: "min", value: l => compact(u.visits, l), label: { ar: "زيارة", en: "visits" } },
+    { key: "instructors", icon: "presentation", kind: "about", value: l => compact(u.instructors, l), label: { ar: "عضو هيئة تدريس", en: "faculty members" } },
+    { key: "instructorOpens", icon: "id-card", kind: "min", value: l => compact(u.instructorOpens, l), label: { ar: "فتحٍ لبطاقات الأساتذة", en: "faculty card opens" } },
+    { key: "", icon: "badge-percent", kind: "min", value: () => `${u.instructorOpenRate}%`, label: { ar: "من الأساتذة يفتحون بطاقاتهم", en: "of faculty open their card" } },
   ];
 }
 export const USAGE_PREFIX = { about: { ar: "حوالي", en: "about" }, min: { ar: "أكثر من", en: "over" } };

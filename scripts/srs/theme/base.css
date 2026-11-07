@@ -224,3 +224,8 @@ html[lang="ar"] .tt span{direction:rtl}
 .ucard>span{color:var(--ink-2);font-size:.84rem}
 .unote{color:var(--ink-3);font-size:.8rem;margin:.6rem 0 0}
 .hchip.since{background:rgb(95 191 166/.14);border-color:rgb(95 191 166/.4);color:#c9f0e5}
+
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2fb37e;margin-inline-end:.45rem;vertical-align:middle;box-shadow:0 0 0 0 rgb(47 179 126/.55);animation:livepulse 1.8s ease-out infinite}
+.live-dot[hidden]{display:none}
+@keyframes livepulse{0%{box-shadow:0 0 0 0 rgb(47 179 126/.55)}80%,100%{box-shadow:0 0 0 7px rgb(47 179 126/0)}}
+@media (prefers-reduced-motion:reduce){.live-dot{animation:none}}

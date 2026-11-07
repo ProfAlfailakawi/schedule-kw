@@ -8,7 +8,8 @@
  * ويُقدَّم المجلدُ المطابق إن وُجد، وإلا 404 بلا تلميحٍ، وعدّادُ الأخطاء للعنوان
  * (publicAttemptLimiter) يوقف من يخمّن.
  *
- * ولا تُفهرَس الصفحة ولا تُخزَّن ولا تُفتح داخل إطار.
+ * ولا تُفهرَس الصفحة ولا تُخزَّن ولا تُفتح داخل إطار. وتقرأ من الأصل نفسه فقط أرقامَ الجمهور العامة
+ * (/api/public/audience-headline) لتبقى أرقامُ «النظام في الاستخدام» حيّةً كما في لوحة الجمهور.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -18,7 +19,7 @@ import { createAttemptLimiter } from "./publicAttemptLimiter";
 
 const KEY_SHAPE = /^[A-Za-z0-9_-]{32,128}$/;
 const FOLDER_SHAPE = /^[0-9a-f]{64}$/;
-const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
 /** يُسجَّل المسار دائماً (ولو بلا بناء فيردّ 404) حتى لا يتغيّر جدولُ المسارات بحسب وجود مجلد البناء. */
 export function registerSrsDocRoutes(app: Express, base = path.resolve(process.cwd(), "dist/srs-private")): number {

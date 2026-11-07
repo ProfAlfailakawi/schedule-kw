@@ -156,6 +156,38 @@
   tabs.forEach(function (t) { t.addEventListener("click", fitSoon); });
   fitSoon();
 
+  /* ── أرقام «النظام في الاستخدام» حيّة: من لوحة الجمهور نفسها، وتتحرك عند التغيّر ── */
+  function fmtN(n, l) {
+    if (n >= 1e6) { var v = (n / 1e6).toFixed(1).replace(/\.0$/, ""); return l === "ar" ? v + " مليون" : v + " million"; }
+    return Math.round(n).toLocaleString("en-US");
+  }
+  var shown = {};
+  function paint(el, n) {
+    var a = el.querySelector(".ar"), e = el.querySelector(".en");
+    if (a) a.textContent = fmtN(n, "ar"); if (e) e.textContent = fmtN(n, "en");
+  }
+  function animateTo(el, key, target) {
+    var from = shown[key] || 0;
+    shown[key] = target;
+    if (reduce || from === target) { paint(el, target); return; }
+    var t0 = performance.now();
+    (function tick(t) { var p = Math.min(1, (t - t0) / 1400), v = from + (target - from) * (1 - Math.pow(1 - p, 3)); paint(el, p < 1 && target < 1e6 ? Math.round(v) : (p < 1 ? v : target)); if (p < 1) requestAnimationFrame(tick); })(t0);
+  }
+  function liveUsage() {
+    if (!window.fetch) return;
+    fetch("/api/public/audience-headline", { credentials: "omit", cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || typeof d.students !== "number") return;
+      $$("[data-usage]").forEach(function (el) { var k = el.getAttribute("data-usage"); if (typeof d[k] === "number") animateTo(el, k, d[k]); });
+      var base = $("#unote-base"), live = $("#unote-live"), dot = $(".live-dot"), tm = $("#unote-time");
+      if (base) base.hidden = true; if (live) live.hidden = false; if (dot) dot.hidden = false;
+      if (tm && d.computedAt) { tm.dateTime = d.computedAt; tm.textContent = new Date(d.computedAt).toLocaleString(root.lang === "ar" ? "ar-KW-u-nu-latn" : "en-GB", { dateStyle: "medium", timeStyle: "short" }); }
+    }).catch(function () { /* بلا اتصال: يبقى الرصيد المعتمد مع تاريخه */ });
+  }
+  $$("[data-usage]").forEach(function (el) { var t = (el.querySelector(".en") || el).textContent; var m = /([\d.,]+)\s*(million)?/.exec(t); if (m) shown[el.getAttribute("data-usage")] = parseFloat(m[1].replace(/,/g, "")) * (m[2] ? 1e6 : 1); });
+  liveUsage();
+  setInterval(function () { if (!document.hidden) liveUsage(); }, 5 * 60 * 1000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) liveUsage(); });
+
   /* ── سهم العودة إلى الأعلى: يظهر بعد النزول، ويصعد بنعومة ───────── */
   var top = $("#totop");
   if (top) {
