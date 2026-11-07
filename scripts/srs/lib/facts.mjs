@@ -13,7 +13,11 @@ export const WATCHED = [
   "src/components/**/*.tsx", "src/components/**/*.ts",
   "src/utils/**/*.ts", "src/utils/**/*.tsx",
   "src/db/**/*.ts", "src/hooks/**/*.ts", "src/hooks/**/*.tsx", "src/pages/**/*.tsx",
-  "src/guide/**/*.ts", "src/guide/**/*.tsx", "src/data/**/*.ts",
+  "src/guide/**/*.ts", "src/guide/**/*.tsx", "src/data/**/*.ts", "src/utils/**/*.js",
+  /* ما يصل إلى المتصفح من public: عامل الخدمة، والتنبيهات، والصفحات الثابتة. */
+  "public/*.js", "public/*.html", "public/landing/**/*.html", "public/plans/**/*.html",
+  /* أدوات التشغيل والترحيل والتهيئة: جزءٌ من النظام المسلَّم. أداةُ الوثيقة نفسها خارجها. */
+  "scripts/*.ts", "scripts/*.mjs", "scripts/lib/**/*.ts", "scripts/split-server/**/*.mjs", "scripts/loadtest/**/*.ts", "scripts/loadtest/**/*.mjs",
 ];
 /** مستثنى بنصّ صريح: مولَّد أو تعريفات أنواع. */
 export const UNWATCHED = [/^src\/generated\//, /\.d\.ts$/];

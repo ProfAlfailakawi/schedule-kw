@@ -46,6 +46,7 @@
     "src/server/core/rateLimits.ts",
     "public/sw.js",
     "public/push-sw.js",
+    "public/orbit-sensor.js",
     "public/manifest.webmanifest",
     "public/me.webmanifest",
     "public/updating.html",
@@ -1747,6 +1748,53 @@
         "code": [
           "src/server/routes/publicCalendarRoutes.ts#/api/public/schedule/:token",
           "src/server/core/shareLinks.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-033",
+      "kind": "interface",
+      "title": {
+        "ar": "مستشعر أخطاء المتصفح المرسَل إلى خدمة خارجية",
+        "en": "Browser error sensor reporting to an external service"
+      },
+      "text": {
+        "ar": "يجب أن تحمّل الواجهة الرئيسية (index.html) وصفحة الهبوط السكربت /orbit-sensor.js دون انتظار، فيرصد أخطاء السكربت والوعود غير المعالجة وتعذّر تحميل الموارد وكل استجابةٍ 5xx واستجابة 404 من الموقع نفسه وانقطاع الاتصال في fetch وXMLHttpRequest، ويرسل عنها ملاحظاتٍ مجهولة إلى نقطة جمعٍ خارجية تابعة لخدمة ORBIT: يُحذف من الروابط الاستعلام والجزء بعد #، ويُستبدل بكل مقطع مسارٍ يشبه معرّفاً (أرقام، UUID، رمز طويل، حروف مختلطة بأرقام، بريد، قيمة مرمّزة) :id، وتُقنَّع في الرسائل عناوين البريد والأرقام الطويلة والرموز من 24 حرفاً فأكثر والقيم بين علامات اقتباس، وتُقصّ الرسالة إلى 160 حرفاً ولا تتكرر؛ ويرافقها أثرٌ لآخر 20 نقرة أو إرسال نموذج أو تنقّل (يُرسَل منها 12) بالوسم والمعرّف والمسار دون أي نصٍّ كتبه المستخدم؛ وتُرسل دفعاتٍ من 5 كل 3 ثوانٍ بحدٍّ أقصى 8 إرسالات في الصفحة عبر sendBeacon أو fetch بـkeepalive، مع معرّف جلسةٍ عشوائي لكل لسان في sessionStorage باسم orbit-s، ولا يكسر السكربت الصفحة أبداً.",
+        "en": "The main interface (index.html) and the landing page shall load /orbit-sensor.js without waiting; it observes script errors, unhandled promise rejections, resources that fail to load, any 5xx response, a 404 from the site itself and connection failures in fetch and XMLHttpRequest, and sends anonymous notes about them to an external collection endpoint of the ORBIT service: query strings and fragments are stripped from links, every path segment that looks like an identifier (digits, a UUID, a long token, letters mixed with digits, an email, an encoded value) is replaced by :id, emails, long numbers, tokens of 24 characters or more and quoted values are masked in messages, a message is cut to 160 characters and never repeated; a trail of the last 20 clicks, form submissions or navigations (12 of them sent) carries only the tag, id and path, never text the user typed; notes go in batches of 5 every 3 seconds with at most 8 sends per page through sendBeacon or a keepalive fetch, with a random per-tab session id kept in sessionStorage as orbit-s, and the script never breaks the page."
+      },
+      "rationale": {
+        "ar": "يصل المطوّرَ ما تعطّل في متصفحات المستخدمين دون أن يغادر المتصفحَ ما يدلّ على صاحبه.",
+        "en": "Developers learn what broke in users' browsers without anything identifying the user leaving the browser."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "system",
+        "external"
+      ],
+      "acceptance": [
+        {
+          "ar": "خطأ في صفحة /r/abc123def456ghi789jkl ← المسار يصل /r/:id.",
+          "en": "An error on page /r/abc123def456ghi789jkl ← the path arrives as /r/:id."
+        },
+        {
+          "ar": "رسالة خطأ تحمل رقماً مدنياً من 12 رقماً ← يصل [num] بدل الرقم.",
+          "en": "An error message holding a 12-digit civil ID ← [num] arrives instead of the number."
+        },
+        {
+          "ar": "عشرون خطأً مختلفاً في صفحة واحدة ← لا تُرسَل أكثر من 8 دفعات.",
+          "en": "Twenty different errors on one page ← no more than 8 batches are sent."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "public/orbit-sensor.js",
+          "public/orbit-sensor.js#ENDPOINT",
+          "index.html",
+          "public/landing/index.html"
         ],
         "tests": []
       },

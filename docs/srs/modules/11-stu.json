@@ -219,7 +219,7 @@
           "en": "Opens /me and enters the civil ID, learning that no profile exists."
         },
         {
-          "ar": "يوافق على حفظ ملفه ويختار رمزاً من ٦ أرقام غير متتالية.",
+          "ar": "يوافق على حفظ ملفه ويختار رمزاً من 6 أرقام غير متتالية.",
           "en": "Consents to storing the profile and chooses a 6-digit non-sequential code."
         },
         {
@@ -231,7 +231,7 @@
           "en": "Reads the «suggestions only» card and presses «understood»."
         },
         {
-          "ar": "في مرحلة الرغبات يكتب وحداته (١٢ إلى سقف قسمه) ومقرراته وقيود وقته.",
+          "ar": "في مرحلة الرغبات يكتب وحداته (12 إلى سقف قسمه) ومقرراته وقيود وقته.",
           "en": "In the wishes phase writes units (12 up to the department cap), courses and time constraints."
         },
         {
@@ -939,15 +939,15 @@
       ],
       "acceptance": [
         {
-          "ar": "رقم مدني من ١٢ رقماً غير صالح ← ٤٠٠ برمز bad-civil.",
+          "ar": "رقم مدني من 12 رقماً غير صالح ← 400 برمز bad-civil.",
           "en": "A 12-digit civil ID with a bad checksum yields 400 with code bad-civil."
         },
         {
-          "ar": "إنشاء بلا agree=true ← ٤٠٠ no-consent؛ ورمز 111111 أو 123456 ← ٤٠٠ weak-code.",
+          "ar": "إنشاء بلا agree=true ← 400 no-consent؛ ورمز 111111 أو 123456 ← 400 weak-code.",
           "en": "Create without agree=true yields 400 no-consent; code 111111 or 123456 yields 400 weak-code."
         },
         {
-          "ar": "إنشاء ملفٍّ موجود ← ٤٠٩ exists؛ وملف جديد ← ٢٠١ مع كوكي جلسة.",
+          "ar": "إنشاء ملفٍّ موجود ← 409 exists؛ وملف جديد ← 201 مع كوكي جلسة.",
           "en": "Creating an existing profile yields 409 exists; a new profile yields 201 with a session cookie."
         },
         {
@@ -975,7 +975,7 @@
         "en": "Profile lockout after wrong codes"
       },
       "text": {
-        "ar": "يجب على النظام أن يقفل ملف الطالب ١٥ دقيقة بعد ٥ أخطاء متتالية في الرمز، وأن يُبقي القفل قائماً ولو وصل رمزٌ صحيح بالتوازي، وأن يحسب على عنوان الشبكة التخمينَ الفعلي وحده (رمزٌ خطأ لملفٍ موجود) لا الدخولَ الناجح ولا الرقمَ الخطأ.",
+        "ar": "يجب على النظام أن يقفل ملف الطالب 15 دقيقة بعد 5 أخطاء متتالية في الرمز، وأن يُبقي القفل قائماً ولو وصل رمزٌ صحيح بالتوازي، وأن يحسب على عنوان الشبكة التخمينَ الفعلي وحده (رمزٌ خطأ لملفٍ موجود) لا الدخولَ الناجح ولا الرقمَ الخطأ.",
         "en": "The system shall lock a student profile for 15 minutes after 5 consecutive wrong codes, shall keep the lock even when a correct code arrives in parallel, and shall count against the network address only real guesses (a wrong code for an existing profile), not successful entries or wrong civil IDs."
       },
       "priority": "must",
@@ -985,11 +985,11 @@
       ],
       "acceptance": [
         {
-          "ar": "الخطأ الخامس ← ٤٠١ مع locked، والمحاولة التالية ← ٤٢٣ مع retryInSeconds.",
+          "ar": "الخطأ الخامس ← 401 مع locked، والمحاولة التالية ← 423 مع retryInSeconds.",
           "en": "The fifth failure yields 401 with locked; the next attempt yields 423 with retryInSeconds."
         },
         {
-          "ar": "حدّ العنوان ٦٠٠ تخميناً في ١٠ دقائق، وسقف مطلق خمسة أضعافه (٣٠٠٠)، ويُرجَع الرصيد حين لا يكون الطلب تخميناً.",
+          "ar": "حدّ العنوان 600 تخميناً في 10 دقائق، وسقف مطلق خمسة أضعافه (3000)، ويُرجَع الرصيد حين لا يكون الطلب تخميناً.",
           "en": "The address cap is 600 guesses per 10 minutes with a hard ceiling of five times that (3000); credit is returned when the request is not a guess."
         }
       ],
@@ -1012,7 +1012,7 @@
         "en": "Signed door session"
       },
       "text": {
-        "ar": "يجب على النظام أن يُصدر بعد الدخول كوكي sh_session موقَّعاً (HMAC) بخاصيتي HttpOnly وSameSite=Lax يحمل البصمة وتاريخ الانتهاء ونسخةً من الرمز لا الاسمَ ولا الرقمَ المدني، وأن تدوم الجلسة ١٢ ساعة (وتزول بإغلاق المتصفح) أو ١٨٠ يوماً عند «هذا جهازي»، وأن يُنهي تغييرُ الرمز كلَّ الجلسات السابقة.",
+        "ar": "يجب على النظام أن يُصدر بعد الدخول كوكي sh_session موقَّعاً (HMAC) بخاصيتي HttpOnly وSameSite=Lax يحمل البصمة وتاريخ الانتهاء ونسخةً من الرمز لا الاسمَ ولا الرقمَ المدني، وأن تدوم الجلسة 12 ساعة (وتزول بإغلاق المتصفح) أو 180 يوماً عند «هذا جهازي»، وأن يُنهي تغييرُ الرمز كلَّ الجلسات السابقة.",
         "en": "The system shall issue after entry a signed (HMAC) sh_session cookie with HttpOnly and SameSite=Lax that carries the fingerprint, expiry and a code version but neither the name nor the civil ID, shall keep the session 12 hours (ending when the browser closes) or 180 days under «this is my device», and shall end every earlier session when the code changes."
       },
       "priority": "must",
@@ -1022,11 +1022,11 @@
       ],
       "acceptance": [
         {
-          "ar": "كوكي بلا remember ← بلا Max-Age؛ ومع remember ← Max-Age = ١٨٠ × ٨٦٤٠٠ ثانية.",
+          "ar": "كوكي بلا remember ← بلا Max-Age؛ ومع remember ← Max-Age = 180 × 86400 ثانية.",
           "en": "A cookie without remember has no Max-Age; with remember it has Max-Age = 180 × 86400 seconds."
         },
         {
-          "ar": "بعد POST /api/public/me/code تعيد جلسةٌ قديمة ٤٠١ signed-out.",
+          "ar": "بعد POST /api/public/me/code تعيد جلسةٌ قديمة 401 signed-out.",
           "en": "After POST /api/public/me/code an old session returns 401 signed-out."
         },
         {
@@ -1096,7 +1096,7 @@
         "en": "Student profile lifetime and deletion"
       },
       "text": {
-        "ar": "يجب على النظام أن يحسب لكل ملفٍّ تاريخ حذفٍ هو الأقرب بين التخرج المتوقع + ٣٦٥ يوماً وآخر دخول + ٧٣٠ يوماً (والإنشاء + ٦ سنوات إن لم تُحدَّد صحيفة)، وأن يحذف الملفات المنتهية بعد دقيقة من الإقلاع ثم كل 6 ساعات بدفعةٍ لا تتجاوز 400 (ولا تُجدول المهمة إن تعذّر الاتصال بقاعدة البيانات عند الإقلاع)، وأن يجعل «نسيت رمزي» طلبَ حذفٍ يُنفَّذ بعد 30 يوماً ويُلغيه دخولُ صاحب الملف بالرمز. والتخرج المتوقع يُقدَّر عند كل حفظٍ للملف: الوحدات المتبقية ÷ 13.5 مقرّباً للأعلى × 6 أشهر.",
+        "ar": "يجب على النظام أن يحسب لكل ملفٍّ تاريخ حذفٍ هو الأقرب بين التخرج المتوقع + 365 يوماً وآخر دخول + 730 يوماً (والإنشاء + 6 سنوات إن لم تُحدَّد صحيفة)، وأن يحذف الملفات المنتهية بعد دقيقة من الإقلاع ثم كل 6 ساعات بدفعةٍ لا تتجاوز 400 (ولا تُجدول المهمة إن تعذّر الاتصال بقاعدة البيانات عند الإقلاع)، وأن يجعل «نسيت رمزي» طلبَ حذفٍ يُنفَّذ بعد 30 يوماً ويُلغيه دخولُ صاحب الملف بالرمز. والتخرج المتوقع يُقدَّر عند كل حفظٍ للملف: الوحدات المتبقية ÷ 13.5 مقرّباً للأعلى × 6 أشهر.",
         "en": "The system shall compute for every profile a deletion date equal to the earlier of expected graduation + 365 days and last sign-in + 730 days (creation + 6 years when no plan is set), shall purge expired profiles one minute after start-up and every 6 hours in batches of at most 400 (the job is not scheduled when the database failed at start-up), and shall treat «forgot my code» as a deletion request executed after 30 days that the owner cancels by entering with the code. Expected graduation is re-estimated on every profile save as remaining units ÷ 13.5 rounded up × 6 months."
       },
       "priority": "must",
@@ -1107,11 +1107,11 @@
       ],
       "acceptance": [
         {
-          "ar": "ملف بلا صحيفة أُنشئ اليوم ← deleteAt = آخر دخول + ٧٣٠ يوماً (الأقرب).",
+          "ar": "ملف بلا صحيفة أُنشئ اليوم ← deleteAt = آخر دخول + 730 يوماً (الأقرب).",
           "en": "A profile with no plan created today gets deleteAt = last sign-in + 730 days (the nearer date)."
         },
         {
-          "ar": "POST /api/public/me/reset ← days = ٣٠، ثم دخول صاحبه يمحو resetRequestedAt.",
+          "ar": "POST /api/public/me/reset ← days = 30، ثم دخول صاحبه يمحو resetRequestedAt.",
           "en": "POST /api/public/me/reset returns days = 30, and the owner's next entry clears resetRequestedAt."
         },
         {
@@ -1147,11 +1147,11 @@
       ],
       "acceptance": [
         {
-          "ar": "قسمان بصحيفتين دون اختيار صحيفة ← ٤٠٠ bad-plan.",
+          "ar": "قسمان بصحيفتين دون اختيار صحيفة ← 400 bad-plan.",
           "en": "A department with two plans and no plan chosen yields 400 bad-plan."
         },
         {
-          "ar": "وسم مقرر مجتاز دون مسبقه ← يُسقط ويرجع droppedPassed ≥ ١.",
+          "ar": "وسم مقرر مجتاز دون مسبقه ← يُسقط ويرجع droppedPassed ≥ 1.",
           "en": "Marking a course passed without its prerequisite drops it and returns droppedPassed ≥ 1."
         },
         {
@@ -1179,7 +1179,7 @@
         "en": "Validation of the student-journey dates"
       },
       "text": {
-        "ar": "يجب على النظام أن يفرض على مواعيد الفصل الترتيب: موعد تسليم الجداول ثم الرغبات (بداية ونهاية معاً) ثم الجولات (حتى ٨ جولات، اسمٌ حتى ٣٠ حرفاً، دون تداخل) ثم إغلاق الطلبات بعد آخر جولة، وألا تمتد التواريخ أكثر من ٤٠٠ يوم، وأن يسمّي كل رفضٍ الحقلَ الخطأ، وألا تُوضع مواعيد لفصلٍ منتهٍ أو مغلق.",
+        "ar": "يجب على النظام أن يفرض على مواعيد الفصل الترتيب: موعد تسليم الجداول ثم الرغبات (بداية ونهاية معاً) ثم الجولات (حتى 8 جولات، اسمٌ حتى 30 حرفاً، دون تداخل) ثم إغلاق الطلبات بعد آخر جولة، وألا تمتد التواريخ أكثر من 400 يوم، وأن يسمّي كل رفضٍ الحقلَ الخطأ، وألا تُوضع مواعيد لفصلٍ منتهٍ أو مغلق.",
         "en": "The system shall enforce on term dates the order: schedule submission deadline, then wishes (open and close together), then rounds (up to 8, name up to 30 characters, no overlap), then request close after the last round, shall refuse dates spanning more than 400 days, shall name the offending field in every refusal, and shall not accept dates for an ended or closed term."
       },
       "priority": "must",
@@ -1198,7 +1198,7 @@
           "en": "Two overlapping rounds are refused on rounds.1; a round starting with the wishes close is refused on rounds.0."
         },
         {
-          "ar": "POST /api/approvals/student-phases لغير المسجّل العام أو مدير النظام ← ٤٠٣، ولفصل منتهٍ ← ٤٠٩ term-closed.",
+          "ar": "POST /api/approvals/student-phases لغير المسجّل العام أو مدير النظام ← 403، ولفصل منتهٍ ← 409 term-closed.",
           "en": "POST /api/approvals/student-phases by anyone but the university registrar or an administrator yields 403, and for an ended term yields 409 term-closed."
         }
       ],
@@ -1263,7 +1263,7 @@
         "en": "Writing wishes during the wishes phase"
       },
       "text": {
-        "ar": "يجب على النظام ألا يقبل الرغبات إلا في مرحلة الرغبات، وبعد اكتمال الملف، بوحداتٍ بين ١٢ وسقف القسم، وبحدٍّ أقصى ١٢ مقرراً من المتبقي في صحيفته، وألا يُدخل مقرراً ينقصه مسبق، وأن يحفظ قيود الوقت الثلاثة (بلا صباح، بلا ظهر، يوم فراغ).",
+        "ar": "يجب على النظام ألا يقبل الرغبات إلا في مرحلة الرغبات، وبعد اكتمال الملف، بوحداتٍ بين 12 وسقف القسم، وبحدٍّ أقصى 12 مقرراً من المتبقي في صحيفته، وألا يُدخل مقرراً ينقصه مسبق، وأن يحفظ قيود الوقت الثلاثة (بلا صباح، بلا ظهر، يوم فراغ).",
         "en": "The system shall accept wishes only during the wishes phase, after the profile is complete, with units from 12 up to the department cap, at most 12 courses taken from the remainder of the student's plan, shall exclude any course whose prerequisite is unmet, and shall store the three time constraints (no morning, no afternoon, a free day)."
       },
       "priority": "must",
@@ -1273,15 +1273,15 @@
       ],
       "acceptance": [
         {
-          "ar": "PUT /api/public/me/wishes خارج المرحلة ← ٤٠٩ wishes-closed؛ وبلا قسم ← ٤٠٩ no-setup.",
+          "ar": "PUT /api/public/me/wishes خارج المرحلة ← 409 wishes-closed؛ وبلا قسم ← 409 no-setup.",
           "en": "PUT /api/public/me/wishes outside the phase yields 409 wishes-closed; without a department yields 409 no-setup."
         },
         {
-          "ar": "targetUnits = 11 أو فوق السقف ← ٤٠٠ bad-units.",
+          "ar": "targetUnits = 11 أو فوق السقف ← 400 bad-units.",
           "en": "targetUnits = 11 or above the cap yields 400 bad-units."
         },
         {
-          "ar": "١٥ مقرراً مُرسَلة ← تُحفظ ١٢ فقط وتُستبعد ما ينقصه مسبق.",
+          "ar": "15 مقرراً مُرسَلة ← تُحفظ 12 فقط وتُستبعد ما ينقصه مسبق.",
           "en": "15 submitted courses keep at most 12 and exclude any with an unmet prerequisite."
         }
       ],
@@ -1304,7 +1304,7 @@
         "en": "Per-department student unit cap"
       },
       "text": {
-        "ar": "يجب على النظام أن يتيح لقسمٍ بصلاحية الجدول اختيار سقف وحدات الطلبة في «مساري» من ١٥ أو ١٨ أو ٢١، وأن يسري على القسم وأقسام حرمه، وأن يكون الافتراضي ١٥ حين لا اختيار، وأن يُرسل الخادمُ السقف في limits.wishUnitsMax.",
+        "ar": "يجب على النظام أن يتيح لقسمٍ بصلاحية الجدول اختيار سقف وحدات الطلبة في «مساري» من 15 أو 18 أو 21، وأن يسري على القسم وأقسام حرمه، وأن يكون الافتراضي 15 حين لا اختيار، وأن يُرسل الخادمُ السقف في limits.wishUnitsMax.",
         "en": "The system shall let a department holding the schedule permission choose the student unit cap in Masari as 15, 18 or 21, shall apply it to the department and its campus family, shall default to 15 when nothing is chosen, and shall send the cap to the page in limits.wishUnitsMax."
       },
       "priority": "should",
@@ -1316,11 +1316,11 @@
       ],
       "acceptance": [
         {
-          "ar": "PUT /api/section-student-settings بقيمة 16 ← ٤٠٠ «اختر 15 أو 18 أو 21».",
+          "ar": "PUT /api/section-student-settings بقيمة 16 ← 400 «اختر 15 أو 18 أو 21».",
           "en": "PUT /api/section-student-settings with 16 yields 400 asking for 15, 18 or 21."
         },
         {
-          "ar": "قسم بلا إعداد ← wishUnitsMax = ١٥.",
+          "ar": "قسم بلا إعداد ← wishUnitsMax = 15.",
           "en": "A department with no setting returns wishUnitsMax = 15."
         }
       ],
@@ -1344,7 +1344,7 @@
         "en": "Student advice and peer counts"
       },
       "text": {
-        "ar": "يجب على النظام أن يقترح للطالب مقررات فصله من صحيفته وقواعدها ومما يُطرح فعلاً بوحدات بين ١٢ وسقف قسمه، مرتّبةً بما تفتحه أولاً، مع سبب كل اقتراح وتقدير فصول ما بعد الفصل (حتى ١٤)، وألا يعرض «يريده N طالباً» إلا في قسمٍ فيه ١٠ ملفاتٍ فأكثر ولمقررٍ طلبه ٥ فأكثر.",
+        "ar": "يجب على النظام أن يقترح للطالب مقررات فصله من صحيفته وقواعدها ومما يُطرح فعلاً بوحدات بين 12 وسقف قسمه، مرتّبةً بما تفتحه أولاً، مع سبب كل اقتراح وتقدير فصول ما بعد الفصل (حتى 14)، وألا يعرض «يريده N طالباً» إلا في قسمٍ فيه 10 ملفاتٍ فأكثر ولمقررٍ طلبه 5 فأكثر.",
         "en": "The system shall suggest to the student the term's courses from the plan, its rules and what is actually offered, with units from 12 up to the department cap, ordered by what each course unlocks, giving the reason for every pick and an estimate of remaining terms (up to 14), and shall show «wanted by N students» only in a department with at least 10 profiles and for a course wanted by at least 5."
       },
       "priority": "should",
@@ -1358,7 +1358,7 @@
           "en": "A course lacking a prerequisite is not suggested and appears under waiting with what is missing."
         },
         {
-          "ar": "قسم فيه ٩ ملفات ← show=false وbyCourse فارغ؛ ومقرر طلبه ٤ لا يُرسَل.",
+          "ar": "قسم فيه 9 ملفات ← show=false وbyCourse فارغ؛ ومقرر طلبه 4 لا يُرسَل.",
           "en": "A department with 9 profiles gives show=false and an empty byCourse; a course wanted by 4 is not sent."
         },
         {
@@ -1396,7 +1396,7 @@
       ],
       "acceptance": [
         {
-          "ar": "POST /api/public/me/ack بمفتاح غير مطابق للنمط masari-ack:… ← ٤٠٠ bad-ack.",
+          "ar": "POST /api/public/me/ack بمفتاح غير مطابق للنمط masari-ack:… ← 400 bad-ack.",
           "en": "POST /api/public/me/ack with a key not matching masari-ack:… yields 400 bad-ack."
         },
         {
@@ -1423,7 +1423,7 @@
         "en": "Aggregated home and no caching"
       },
       "text": {
-        "ar": "يجب على النظام أن يخدم رئيسية الطالب بطلبٍ واحد GET /api/public/me/home يجمع تسعة أجزاء (notices وcases وgraduate وrequest-context وticket وreport وadvice وoffered وmap) يُسقَط بطيئها بعد ٨ ثوانٍ دون حجب البقية، وأن تُرسل كل استجابات الباب بـCache-Control: no-store.",
+        "ar": "يجب على النظام أن يخدم رئيسية الطالب بطلبٍ واحد GET /api/public/me/home يجمع تسعة أجزاء (notices وcases وgraduate وrequest-context وticket وreport وadvice وoffered وmap) يُسقَط بطيئها بعد 8 ثوانٍ دون حجب البقية، وأن تُرسل كل استجابات الباب بـCache-Control: no-store.",
         "en": "The system shall serve the student home through one request GET /api/public/me/home that gathers nine parts (notices, cases, graduate, request-context, ticket, report, advice, offered, map) of which a slow one is dropped after 8 seconds without blocking the rest, and shall send every door response with Cache-Control: no-store."
       },
       "priority": "should",
@@ -1434,7 +1434,7 @@
       ],
       "acceptance": [
         {
-          "ar": "جزء يتجاوز ٨ ثوانٍ ← parts[key] = {ok:false,status:504}.",
+          "ar": "جزء يتجاوز 8 ثوانٍ ← parts[key] = {ok:false,status:504}.",
           "en": "A part exceeding 8 seconds returns parts[key] = {ok:false,status:504}."
         },
         {
@@ -1460,7 +1460,7 @@
         "en": "Student request to open a course or review a conflict"
       },
       "text": {
-        "ar": "يجب على النظام ألا يقبل طلب الطالب الفردي (فتح مقرر، حتى ١٢ مقرراً، أو تعارض مقررين) إلا بموافقته على إرسال هويته وبعد أن تثبت آخر محاكاة سارية تعذّر بلوغه ١٢ وحدة، وبسببٍ من ٣ إلى ٦٠٠ حرف، وأن يُرسَل إلى كل قسمٍ يملك مقرراً مطلوباً حالةً واحدةً برقم حالة، وألا يُقبل التعارض إلا إن ثبت تعذّر حله من الجداول المنشورة المكتملة.",
+        "ar": "يجب على النظام ألا يقبل طلب الطالب الفردي (فتح مقرر، حتى 12 مقرراً، أو تعارض مقررين) إلا بموافقته على إرسال هويته وبعد أن تثبت آخر محاكاة سارية تعذّر بلوغه 12 وحدة، وبسببٍ من 3 إلى 600 حرف، وأن يُرسَل إلى كل قسمٍ يملك مقرراً مطلوباً حالةً واحدةً برقم حالة، وألا يُقبل التعارض إلا إن ثبت تعذّر حله من الجداول المنشورة المكتملة.",
         "en": "The system shall accept an individual student request (open a course, up to 12 courses, or a two-course conflict) only with the student's consent to send identity, only after the latest current simulation proves the student cannot reach 12 units, with a reason of 3 to 600 characters, shall send one case with a case number to each department owning a requested course, and shall accept a conflict only when published complete schedules prove it unresolvable."
       },
       "priority": "must",
@@ -1470,15 +1470,15 @@
       ],
       "acceptance": [
         {
-          "ar": "بلا consent ← ٤٠٠ consent-needed؛ وبلا إثبات تعثر ← ٤٠٩ no-proven-blocker.",
+          "ar": "بلا consent ← 400 consent-needed؛ وبلا إثبات تعثر ← 409 no-proven-blocker.",
           "en": "Without consent yields 400 consent-needed; without a proven blocker yields 409 no-proven-blocker."
         },
         {
-          "ar": "تفاصيل بطول ٢ ← ٤٠٠ details-needed؛ ومقرر خارج المتبقي أو غير المتعذّر ← ٤٠٠ course-outside-plan.",
+          "ar": "تفاصيل بطول 2 ← 400 details-needed؛ ومقرر خارج المتبقي أو غير المتعذّر ← 400 course-outside-plan.",
           "en": "Details of length 2 yield 400 details-needed; a course outside the remainder or not blocked yields 400 course-outside-plan."
         },
         {
-          "ar": "تعارض غير مثبت ← ٤٠٩ conflict-not-proven.",
+          "ar": "تعارض غير مثبت ← 409 conflict-not-proven.",
           "en": "An unproven conflict yields 409 conflict-not-proven."
         }
       ],
@@ -1504,7 +1504,7 @@
         "en": "The «did you register?» question after a round"
       },
       "text": {
-        "ar": "يجب على النظام أن يفتح سؤال «هل سجّلت؟» في الجولة الجارية وبعدها حتى إغلاق الطلبات فقط، فيقبل حتى ٤٠ جواباً (سجّلت أو تعثّرت بسبب: امتلأت، مسبق، تعارض، آخر) على مقررات خطته وحدها، ويجمعها في ٦٤ شظيةَ عدّاد، وإن طلب المتعثّر مساعدة القسم أنشأ حالةً لكل قسمٍ يملك مقرراً متعثَّراً فيه بعد التحقق من أن الرقم المدني يطابق بصمة ملفه.",
+        "ar": "يجب على النظام أن يفتح سؤال «هل سجّلت؟» في الجولة الجارية وبعدها حتى إغلاق الطلبات فقط، فيقبل حتى 40 جواباً (سجّلت أو تعثّرت بسبب: امتلأت، مسبق، تعارض، آخر) على مقررات خطته وحدها، ويجمعها في 64 شظيةَ عدّاد، وإن طلب المتعثّر مساعدة القسم أنشأ حالةً لكل قسمٍ يملك مقرراً متعثَّراً فيه بعد التحقق من أن الرقم المدني يطابق بصمة ملفه.",
         "en": "The system shall open the «did you register?» question only during a running round and after it until requests close, shall accept up to 40 answers (registered, or stuck with a reason: full, prerequisite, conflict, other) on courses of the student's own plan, shall tally them in 64 counter shards, and when a stuck student asks for department help shall create one case per department owning a stuck course after verifying the civil ID matches the profile fingerprint."
       },
       "priority": "must",
@@ -1515,11 +1515,11 @@
       ],
       "acceptance": [
         {
-          "ar": "POST /api/public/me/report خارج الجولة ← ٤٠٩ report-closed؛ وبلا جواب صالح ← ٤٠٠ empty.",
+          "ar": "POST /api/public/me/report خارج الجولة ← 409 report-closed؛ وبلا جواب صالح ← 400 empty.",
           "en": "POST /api/public/me/report outside a round yields 409 report-closed; with no valid answer yields 400 empty."
         },
         {
-          "ar": "رقم مدني لا يطابق بصمة الملف ← ٤٠٣ civil-mismatch.",
+          "ar": "رقم مدني لا يطابق بصمة الملف ← 403 civil-mismatch.",
           "en": "A civil ID not matching the profile fingerprint yields 403 civil-mismatch."
         },
         {
@@ -1551,7 +1551,7 @@
         "en": "Graduate request and graduation-sheet proof"
       },
       "text": {
-        "ar": "يجب على النظام أن يقبل طلب الخريج (نوع الميداني: تعارض أو مسبق) ما دامت الطلبات غير مغلقة ولو خارج مرحلة الرغبات، بشرط إثبات صحيفة التخرج المرفوعة (PDF أو صورة حتى ١٤ ميغابايت، ١٢ محاولة في ١٠ دقائق للملف) بمطابقة الرقم المدني والبرنامج لقسمه، ورمزِ إثباتٍ موقَّع صالحٍ ٢٠ دقيقة، ويفشل مغلقاً حين لا قاعدةَ تخرجٍ معتمدة للقسم.",
+        "ar": "يجب على النظام أن يقبل طلب الخريج (نوع الميداني: تعارض أو مسبق) ما دامت الطلبات غير مغلقة ولو خارج مرحلة الرغبات، بشرط إثبات صحيفة التخرج المرفوعة (PDF أو صورة حتى 14 ميغابايت، 12 محاولة في 10 دقائق للملف) بمطابقة الرقم المدني والبرنامج لقسمه، ورمزِ إثباتٍ موقَّع صالحٍ 20 دقيقة، ويفشل مغلقاً حين لا قاعدةَ تخرجٍ معتمدة للقسم.",
         "en": "The system shall accept a graduate request (field-training kind: conflict or prerequisite) while requests are not closed even outside the wishes phase, provided the uploaded graduation sheet (PDF or image up to 14 MB, 12 attempts per 10 minutes per profile) is proved by matching the civil ID and programme to the student's department, with a signed proof token valid for 20 minutes, and shall fail closed when the department has no approved graduation rule."
       },
       "priority": "must",
@@ -1562,15 +1562,15 @@
       ],
       "acceptance": [
         {
-          "ar": "رفع صحيفة لقسمٍ بلا قواعد تخرج محفوظة ← ٤٢٢ دون قراءة المستند.",
+          "ar": "رفع صحيفة لقسمٍ بلا قواعد تخرج محفوظة ← 422 دون قراءة المستند.",
           "en": "Uploading a sheet for a department without a saved graduation rule yields 422 without reading the document."
         },
         {
-          "ar": "رقم مدني في الصحيفة لا يطابق المُدخَل ← ٤٢٢؛ وبرنامج لا يطابق القسم ← ٤٢٢.",
+          "ar": "رقم مدني في الصحيفة لا يطابق المُدخَل ← 422؛ وبرنامج لا يطابق القسم ← 422.",
           "en": "A civil ID on the sheet not matching the entered one yields 422; a programme not matching the department yields 422."
         },
         {
-          "ar": "الطلب في مرحلة closed ← ٤٠٩ requests-closed.",
+          "ar": "الطلب في مرحلة closed ← 409 requests-closed.",
           "en": "A request in the closed phase yields 409 requests-closed."
         }
       ],
@@ -1608,7 +1608,7 @@
           "en": "A valid civil ID with a wrong case number returns found:false, identical to an ID with no request."
         },
         {
-          "ar": "رقم الحالة = أول ٨ خانات كبيرة من معرّف السجل.",
+          "ar": "رقم الحالة = أول 8 خانات كبيرة من معرّف السجل.",
           "en": "The case number is the first 8 uppercase characters of the record id."
         },
         {
@@ -1652,7 +1652,7 @@
           "en": "The /api/public/students/:token response carries provisional:true when no approved rows exist and the schedule has rows."
         },
         {
-          "ar": "رابط من نوع survey ← ٤٠٤ «هذا الرابط ليس جدول الطلبة».",
+          "ar": "رابط من نوع survey ← 404 «هذا الرابط ليس جدول الطلبة».",
           "en": "A link of kind survey yields 404 stating it is not the students' schedule."
         }
       ],
@@ -1673,7 +1673,7 @@
         "en": "«Try as a student»: isolated demonstration"
       },
       "text": {
-        "ar": "يجب على النظام أن يفتح عند /me/demo صندوق تجربةٍ خاصاً بالزائر فارغاً من البيانات الحقيقية، بكوكيين وطالبةٍ افتراضية ورغباتٍ ورادارٍ مشغَّل داخله، يعيش ساعتين، بحدٍّ أقصى ١٥٠ صندوقاً، و٣٠ إنشاءً كل ١٠ دقائق، ولا يقرأ منه الحقيقي ولا يكتب فيه.",
+        "ar": "يجب على النظام أن يفتح عند /me/demo صندوق تجربةٍ خاصاً بالزائر فارغاً من البيانات الحقيقية، بكوكيين وطالبةٍ افتراضية ورغباتٍ ورادارٍ مشغَّل داخله، يعيش ساعتين، بحدٍّ أقصى 150 صندوقاً، و30 إنشاءً كل 10 دقائق، ولا يقرأ منه الحقيقي ولا يكتب فيه.",
         "en": "The system shall open at /me/demo a private demonstration sandbox for the visitor, empty of real data, with two cookies, a fictional student, wishes and a rehearsal run inside it, living 2 hours, at most 150 sandboxes, 30 creations per 10 minutes, and neither read from nor written to by real data."
       },
       "priority": "could",
@@ -1684,7 +1684,7 @@
       ],
       "acceptance": [
         {
-          "ar": "/me/demo ← ٣٠٢ إلى /me?track=girls#now مع كوكيّ sh_demo_stu وsh_session.",
+          "ar": "/me/demo ← 302 إلى /me?track=girls#now مع كوكيّ sh_demo_stu وsh_session.",
           "en": "/me/demo returns 302 to /me?track=girls#now with cookies sh_demo_stu and sh_session."
         },
         {
@@ -1710,7 +1710,7 @@
         "en": "Registration sheet: scope and signature gating"
       },
       "text": {
-        "ar": "يجب على النظام أن يعرض كشف التسجيل (GET /api/student-registration) لمن يملك الورشة (٧) أو تقرير القسم (١٤) بحدود نطاقه، وأن يعرض الطلبات نفسها التي يقرؤها مركز التحليلات بقاعدة الملكية نفسها، وألا يعرضه لموظف التسجيل قبل أن يوقّع رئيس لجنة الجدول ورئيس القسم جدول القسم، وأن تُحجب الهوية عن صفة العرض الصرف.",
+        "ar": "يجب على النظام أن يعرض كشف التسجيل (GET /api/student-registration) لمن يملك الورشة (7) أو تقرير القسم (14) بحدود نطاقه، وأن يعرض الطلبات نفسها التي يقرؤها مركز التحليلات بقاعدة الملكية نفسها، وألا يعرضه لموظف التسجيل قبل أن يوقّع رئيس لجنة الجدول ورئيس القسم جدول القسم، وأن تُحجب الهوية عن صفة العرض الصرف.",
         "en": "The system shall serve the registration sheet (GET /api/student-registration) to holders of the workshop (7) or department-report (14) permission within their scope, shall show the same requests the Analytics Center reads under the same ownership rule, shall withhold it from registration officers until the schedule committee chair and the department head have both signed the department's schedule, and shall hide identity from view-only roles."
       },
       "priority": "must",
@@ -1723,11 +1723,11 @@
       ],
       "acceptance": [
         {
-          "ar": "موظف تسجيل وجدولٌ غير موقَّع ← ٤٠٩ not-signed.",
+          "ar": "موظف تسجيل وجدولٌ غير موقَّع ← 409 not-signed.",
           "en": "A registration officer with an unsigned schedule gets 409 not-signed."
         },
         {
-          "ar": "قسم خارج النطاق ← ٤٠٣.",
+          "ar": "قسم خارج النطاق ← 403.",
           "en": "A department outside scope yields 403."
         },
         {
@@ -1769,15 +1769,15 @@
       ],
       "acceptance": [
         {
-          "ar": "اللجنة تكتب registered ← ٤٠٣؛ والتسجيل يكتب committee-rejected ← ٤٠٣.",
+          "ar": "اللجنة تكتب registered ← 403؛ والتسجيل يكتب committee-rejected ← 403.",
           "en": "The committee writing registered yields 403; registration writing committee-rejected yields 403."
         },
         {
-          "ar": "التسجيل في مقرر لم توافق عليه اللجنة ← ٤٠٩ برسالة «لم توافق لجنةُ القسم».",
+          "ar": "التسجيل في مقرر لم توافق عليه اللجنة ← 409 برسالة «لم توافق لجنةُ القسم».",
           "en": "Registration on a course the committee has not approved yields 409 with the committee-not-approved message."
         },
         {
-          "ar": "رفضٌ بلا reasonCode من المجموعة المسموحة ← ٤٠٠.",
+          "ar": "رفضٌ بلا reasonCode من المجموعة المسموحة ← 400.",
           "en": "A rejection without an allowed reasonCode yields 400."
         }
       ],
@@ -1799,7 +1799,7 @@
         "en": "Stale-write refusal on decisions"
       },
       "text": {
-        "ar": "يجب على النظام أن يرفض بـ٤٠٩ برمز stale-write كتابةَ قرارٍ بُني على نسخةٍ لم تعد الحاضرة (expectedAt للمقرر، وexpectedStamp للحالة)، داخل المعاملة نفسها، فلا يسبق زميلٌ زميلاً على الحالة القديمة، وأن يقول للكاتب «حدّث ثم أعد» دون تعديل.",
+        "ar": "يجب على النظام أن يرفض بـ409 برمز stale-write كتابةَ قرارٍ بُني على نسخةٍ لم تعد الحاضرة (expectedAt للمقرر، وexpectedStamp للحالة)، داخل المعاملة نفسها، فلا يسبق زميلٌ زميلاً على الحالة القديمة، وأن يقول للكاتب «حدّث ثم أعد» دون تعديل.",
         "en": "The system shall refuse with 409 and code stale-write a decision built on a version that is no longer current (expectedAt for a course, expectedStamp for a case), inside the same transaction so two colleagues cannot overwrite each other on an old state, telling the writer to refresh and retry without changing anything."
       },
       "priority": "must",
@@ -1810,11 +1810,11 @@
       ],
       "acceptance": [
         {
-          "ar": "ختم لا يطابق السجل الحاضر ← ٤٠٩ code=stale-write وحالة المقرر لم تتغير.",
+          "ar": "ختم لا يطابق السجل الحاضر ← 409 code=stale-write وحالة المقرر لم تتغير.",
           "en": "A stamp not matching the current record yields 409 code=stale-write and the course state is unchanged."
         },
         {
-          "ar": "ختم مطابق ← ٢٠٠ وقيمة at جديدة.",
+          "ar": "ختم مطابق ← 200 وقيمة at جديدة.",
           "en": "A matching stamp yields 200 and a new at value."
         }
       ],
@@ -1837,7 +1837,7 @@
         "en": "Committee approval with section opening"
       },
       "text": {
-        "ar": "يجب على النظام أن يتيح للجنة التي تملك صلاحية الجدول (٧) «موافقة + فتح شعبة» تُفتح فيها الشعبة بمسار التعديل نفسه الذي تفتح به الورشة (نطاق، قفل، تعارض)، فلا تُسجَّل الموافقة إن رُفضت الشعبة (stateSaved:false)، وتُحذف الشعبةُ إن فشل حفظ القرار بعدها، وتُلتقط الشعبة المفتوحة سابقاً بمرجع need:<الطلب>:course:<المقرر> فلا تُفتح مرتين.",
+        "ar": "يجب على النظام أن يتيح للجنة التي تملك صلاحية الجدول (7) «موافقة + فتح شعبة» تُفتح فيها الشعبة بمسار التعديل نفسه الذي تفتح به الورشة (نطاق، قفل، تعارض)، فلا تُسجَّل الموافقة إن رُفضت الشعبة (stateSaved:false)، وتُحذف الشعبةُ إن فشل حفظ القرار بعدها، وتُلتقط الشعبة المفتوحة سابقاً بمرجع need:<الطلب>:course:<المقرر> فلا تُفتح مرتين.",
         "en": "The system shall let a committee holding the schedule permission (7) use «approve + open section», opening the section through the same change path the workshop uses (scope, lock, conflict), so the approval is not recorded when the section is refused (stateSaved:false), the section is removed if saving the decision fails afterwards, and a section opened earlier is picked up through the reference need:<request>:course:<course> so it is never opened twice."
       },
       "priority": "should",
@@ -1847,7 +1847,7 @@
       ],
       "acceptance": [
         {
-          "ar": "openSection دون صلاحية ٧ ← ٤٠٣ no-schedule-permission.",
+          "ar": "openSection دون صلاحية 7 ← 403 no-schedule-permission.",
           "en": "openSection without permission 7 yields 403 no-schedule-permission."
         },
         {
@@ -1879,7 +1879,7 @@
         "en": "Advising sends a section request"
       },
       "text": {
-        "ar": "يجب على النظام أن يتيح لمرشد القسم إرسال طلب شعبة واحد لمقرر وحرم وفصل بفترةٍ مفضلة (صباحية أو مسائية أو أي فترة) وعددٍ وقائمةِ طلبة من «مساري» أو ملصقةٍ تُختم هويتها، بحدٍّ أقصى ٤٠٠ طالب في القائمة و١٠٠٠ في العدد وملاحظة حتى ٣٠٠ حرف، وألا يُرسَل إلا من نطاق قسم المرشد وفي فصلٍ غير مجمَّد.",
+        "ar": "يجب على النظام أن يتيح لمرشد القسم إرسال طلب شعبة واحد لمقرر وحرم وفصل بفترةٍ مفضلة (صباحية أو مسائية أو أي فترة) وعددٍ وقائمةِ طلبة من «مساري» أو ملصقةٍ تُختم هويتها، بحدٍّ أقصى 400 طالب في القائمة و1000 في العدد وملاحظة حتى 300 حرف، وألا يُرسَل إلا من نطاق قسم المرشد وفي فصلٍ غير مجمَّد.",
         "en": "The system shall let a department advisor send one section request for a course, campus and term with a preferred period (morning, evening or any), a count and a student list taken from Masari or pasted (identities sealed), with at most 400 students in the list, 1000 in the count and a note of up to 300 characters, only from the advisor's own department scope and in a term that is not frozen."
       },
       "priority": "must",
@@ -1889,15 +1889,15 @@
       ],
       "acceptance": [
         {
-          "ar": "طلب بلا فترة صالحة ← ٤٠٠ «اختر الفترة المفضلة».",
+          "ar": "طلب بلا فترة صالحة ← 400 «اختر الفترة المفضلة».",
           "en": "A request without a valid period yields 400 asking for the preferred period."
         },
         {
-          "ar": "مرسِل ليس مرشداً في نطاق القسم ← ٤٠٣.",
+          "ar": "مرسِل ليس مرشداً في نطاق القسم ← 403.",
           "en": "A sender who is not an advisor in the department scope yields 403."
         },
         {
-          "ar": "عدد ٥٠٠٠ ← يُقصّ إلى ١٠٠٠؛ وطلبة مكرّرون بالبصمة يُدمجون.",
+          "ar": "عدد 5000 ← يُقصّ إلى 1000؛ وطلبة مكرّرون بالبصمة يُدمجون.",
           "en": "A count of 5000 is clipped to 1000; students duplicated by fingerprint are merged."
         }
       ],
@@ -1933,15 +1933,15 @@
       ],
       "acceptance": [
         {
-          "ar": "اعتماد بلا شعبة مربوطة ← ٤٠٩ «اربط شعبةً بالطلب أولاً».",
+          "ar": "اعتماد بلا شعبة مربوطة ← 409 «اربط شعبةً بالطلب أولاً».",
           "en": "Approval with no linked section yields 409 asking to link a section first."
         },
         {
-          "ar": "اعتذار بلا نص ← ٤٠٠؛ ثم الاعتذار يغلق الطلب فتُرفض كل كتابة بعده بـ٤٠٩.",
+          "ar": "اعتذار بلا نص ← 400؛ ثم الاعتذار يغلق الطلب فتُرفض كل كتابة بعده بـ409.",
           "en": "A decline without text yields 400; after the decline every write is refused with 409."
         },
         {
-          "ar": "تسجيل طالبٍ لم يُعتمد ← ٤٠٩ «لا يُسجَّل إلا من اعتُمد».",
+          "ar": "تسجيل طالبٍ لم يُعتمد ← 409 «لا يُسجَّل إلا من اعتُمد».",
           "en": "Registering an unapproved student yields 409 stating only approved students are registered."
         }
       ],
@@ -1963,7 +1963,7 @@
         "en": "Distributing request capacity across sections"
       },
       "text": {
-        "ar": "يجب على النظام أن يوزّع عدد الطلب على شعبه المربوطة كلها بالتقريب إلى الأعلى (العدد ÷ عدد الشعب) ويكتب نصيب كل شعبة سعةً أساسية في رصيد مقاعد المرشد بحدٍّ أقصى ٢٠٠ للشعبة، ويعيد التوزيع عند كل ربطٍ أو فك، ولا يمسّ سعةً كتبها المسؤول يدوياً.",
+        "ar": "يجب على النظام أن يوزّع عدد الطلب على شعبه المربوطة كلها بالتقريب إلى الأعلى (العدد ÷ عدد الشعب) ويكتب نصيب كل شعبة سعةً أساسية في رصيد مقاعد المرشد بحدٍّ أقصى 200 للشعبة، ويعيد التوزيع عند كل ربطٍ أو فك، ولا يمسّ سعةً كتبها المسؤول يدوياً.",
         "en": "The system shall distribute the request count over all its linked sections rounding up (count ÷ number of sections) and write each section's share as base capacity in the advisor seat balance up to 200 per section, shall redistribute on every link or unlink, and shall never touch a capacity an administrator wrote by hand."
       },
       "priority": "should",
@@ -1973,7 +1973,7 @@
       ],
       "acceptance": [
         {
-          "ar": "١٠٠ طالب وشعبتان ← نصيب كل شعبة ٥٠؛ وبعد ربط ثالثة ← ٣٤.",
+          "ar": "100 طالب وشعبتان ← نصيب كل شعبة 50؛ وبعد ربط ثالثة ← 34.",
           "en": "100 students and two sections give 50 each; after a third link, 34."
         },
         {
@@ -2017,15 +2017,15 @@
       ],
       "acceptance": [
         {
-          "ar": "مرشد قسمٍ آخر يطلب طلباً ليس من قسمه ← ٤٠٤.",
+          "ar": "مرشد قسمٍ آخر يطلب طلباً ليس من قسمه ← 404.",
           "en": "An advisor of another department requesting a request not from their department gets 404."
         },
         {
-          "ar": "حساب بلا إذن ٧ أو ١٤ ← لا قراءة.",
+          "ar": "حساب بلا إذن 7 أو 14 ← لا قراءة.",
           "en": "An account without permission 7 or 14 cannot read."
         },
         {
-          "ar": "الجرس يعرض حتى ٨ عناصر ويشتقها لحظة السؤال دون تخزين.",
+          "ar": "الجرس يعرض حتى 8 عناصر ويشتقها لحظة السؤال دون تخزين.",
           "en": "The bell shows up to 8 items derived at query time with nothing stored."
         }
       ],
@@ -2048,7 +2048,7 @@
         "en": "Advisor seat balance"
       },
       "text": {
-        "ar": "يجب على النظام أن يحسب لكل شعبة سقفاً صلباً = أقل من (السعة الأساسية + الرصيد) وسعة القاعة، وأن يضيف المرشد مقاعد (١ إلى ٥٠) ذرّياً كلّها أو لا شيء، فلا يتجاوز مرشدان معاً السقف، وأن يقسم الرصيد بالتساوي عند التوزيع العادل، وأن يقترح شعباً بديلة عند الامتلاء، وأن يتيح طلب استثناء للمسؤول (حتى ٥٠ مقعداً وملاحظة ٣٠٠ حرف).",
+        "ar": "يجب على النظام أن يحسب لكل شعبة سقفاً صلباً = أقل من (السعة الأساسية + الرصيد) وسعة القاعة، وأن يضيف المرشد مقاعد (1 إلى 50) ذرّياً كلّها أو لا شيء، فلا يتجاوز مرشدان معاً السقف، وأن يقسم الرصيد بالتساوي عند التوزيع العادل، وأن يقترح شعباً بديلة عند الامتلاء، وأن يتيح طلب استثناء للمسؤول (حتى 50 مقعداً وملاحظة 300 حرف).",
         "en": "The system shall compute for each section a hard cap = the lesser of (base capacity + balance) and the hall capacity, shall let an advisor add seats (1 to 50) atomically, all or nothing, so two advisors acting together cannot exceed the cap, shall split the balance evenly under fair split, shall suggest alternative sections when full, and shall allow an exception request to the administrator (up to 50 seats and a 300-character note)."
       },
       "priority": "must",
@@ -2060,15 +2060,15 @@
       ],
       "acceptance": [
         {
-          "ar": "سعة ٦٠ ورصيد ١٠ ← الحلقة «60 + 0/10»؛ وإضافة ١١ ← رفض full.",
+          "ar": "سعة 60 ورصيد 10 ← الحلقة «60 + 0/10»؛ وإضافة 11 ← رفض full.",
           "en": "Capacity 60 with balance 10 shows «60 + 0/10»; adding 11 is refused as full."
         },
         {
-          "ar": "إضافة ٠ أو ٥١ ← invalid؛ وسعة أساسية غير محددة ← ٤٠٩.",
+          "ar": "إضافة 0 أو 51 ← invalid؛ وسعة أساسية غير محددة ← 409.",
           "en": "Adding 0 or 51 is invalid; an undefined base capacity yields 409."
         },
         {
-          "ar": "ختم rev لا يطابق عدد الإضافات ← ٤٠٩ stale-write.",
+          "ar": "ختم rev لا يطابق عدد الإضافات ← 409 stale-write.",
           "en": "A rev not matching the number of additions yields 409 stale-write."
         }
       ],
@@ -2092,7 +2092,7 @@
         "en": "Seat, holder and handover"
       },
       "text": {
-        "ar": "يجب على النظام أن يتعامل مع الحساب بوصفه كرسياً ثابتاً يتبدّل شاغله: سجلٌّ لكل كرسي (الشاغل، الفريق، النائب، التاريخ حتى ٤٠٠ حدثاً)، ويسلّم الكرسيَّ شاغلُه أو مدير النظام فتُولَّد كلمةٌ أولى تظهر مرةً واحدة وتُخرَج كل الأجهزة ويُجمَّد الفريق حتى يقرر الشاغل الجديد لكل عضو «مستمر» أو «انتهت عضويته»، ويعمل صاحب الجلسة باسمه في السجل والتوقيع.",
+        "ar": "يجب على النظام أن يتعامل مع الحساب بوصفه كرسياً ثابتاً يتبدّل شاغله: سجلٌّ لكل كرسي (الشاغل، الفريق، النائب، التاريخ حتى 400 حدثاً)، ويسلّم الكرسيَّ شاغلُه أو مدير النظام فتُولَّد كلمةٌ أولى تظهر مرةً واحدة وتُخرَج كل الأجهزة ويُجمَّد الفريق حتى يقرر الشاغل الجديد لكل عضو «مستمر» أو «انتهت عضويته»، ويعمل صاحب الجلسة باسمه في السجل والتوقيع.",
         "en": "The system shall treat an account as a fixed seat whose holder changes: one ledger per seat (holder, team, deputy, history up to 400 events); the holder or the system administrator hands it over, a first password is generated and shown once, all open devices are signed out and the team is frozen until the new holder marks each member «continuing» or «ended», and the session owner acts under their own name in the log and signature."
       },
       "priority": "must",
@@ -2105,11 +2105,11 @@
       ],
       "acceptance": [
         {
-          "ar": "تسليم لنفس الشاغل الحالي (رقم الأستاذ نفسه) ← ٤٠٩ «هذا هو الرئيس الحالي نفسه».",
+          "ar": "تسليم لنفس الشاغل الحالي (رقم الأستاذ نفسه) ← 409 «هذا هو الرئيس الحالي نفسه».",
           "en": "Handing over to the same current holder (same instructor number) yields 409."
         },
         {
-          "ar": "غير الشاغل ومدير النظام ← ٤٠٣.",
+          "ar": "غير الشاغل ومدير النظام ← 403.",
           "en": "Anyone other than the holder or the administrator yields 403."
         },
         {
@@ -2139,7 +2139,7 @@
         "en": "Team member link and deputy"
       },
       "text": {
-        "ar": "يجب على النظام أن يدخل عضو الفريق برابطه الشخصي /k/<رمز> مع تأكيد آخر أربعة أرقام من رقمه المدني، فيعمل باسمه وبصفة فريقه (موظف التسجيل في نطاقه هو) لا بكلمة سرّ الكرسي ولا يوقّع، ويُقفل الرابط بعد ٥ محاولات خاطئة، ويسقط رابط إعادة التعيين بعد ٢٤ ساعة إن لم يُفتح، ويُحدَّد الفريق بـ٤٠ عضواً، ويعمل النائب المكلَّف من الفريق حتى تاريخ نهايته ويوقّع.",
+        "ar": "يجب على النظام أن يدخل عضو الفريق برابطه الشخصي /k/<رمز> مع تأكيد آخر أربعة أرقام من رقمه المدني، فيعمل باسمه وبصفة فريقه (موظف التسجيل في نطاقه هو) لا بكلمة سرّ الكرسي ولا يوقّع، ويُقفل الرابط بعد 5 محاولات خاطئة، ويسقط رابط إعادة التعيين بعد 24 ساعة إن لم يُفتح، ويُحدَّد الفريق بـ40 عضواً، ويعمل النائب المكلَّف من الفريق حتى تاريخ نهايته ويوقّع.",
         "en": "The system shall let a team member enter through the personal link /k/<token> after confirming the last four digits of their civil ID, working under their own name and team role (a registration officer within their own scope), not with the seat password, and not signing; the link locks after 5 wrong attempts, a reset link expires after 24 hours if unopened, the team is limited to 40 members, and a deputy appointed from the team acts and signs until the end date."
       },
       "priority": "must",
@@ -2152,15 +2152,15 @@
       ],
       "acceptance": [
         {
-          "ar": "خمس محاولات خاطئة ← ٤٢٣ ويُبطل الرمز ويسجَّل link-locked.",
+          "ar": "خمس محاولات خاطئة ← 423 ويُبطل الرمز ويسجَّل link-locked.",
           "en": "Five wrong attempts yield 423, revoke the token and log link-locked."
         },
         {
-          "ar": "عضو جديد بعد ٤٠ عضواً عاملاً ← ٤٠٩ «الفريق مكتمل».",
+          "ar": "عضو جديد بعد 40 عضواً عاملاً ← 409 «الفريق مكتمل».",
           "en": "A new member after 40 active members yields 409 stating the team is full."
         },
         {
-          "ar": "نيابة بتاريخ قبل اليوم ← ٤٠٠.",
+          "ar": "نيابة بتاريخ قبل اليوم ← 400.",
           "en": "A deputy end date before today yields 400."
         }
       ],
@@ -2187,7 +2187,7 @@
         "en": "Registration rehearsal engine"
       },
       "text": {
-        "ar": "يجب على النظام أن يحاكي بحتمية تامة لكل طالبٍ ذي رغبات مقرراته المتبقية بقواعد صحيفته ويبني له ثلاث خطط: (أ) الأقرب لرغباته وقيوده بخصمٍ من دفتر مقاعد افتراضي بترتيب النوافذ، و(ب) شعب بديلة، و(ج) حدّ أدنى آمن ١٢ وحدة، بوحدات مقصوصة بين ١٢ و١٨ (الافتراضي ١٥)، ويرتّب الطلبة بالأشدّ حاجةً أولاً ويقسّمهم بالتساوي على الجولات، وأن يبقى تقديراً لا حجزاً.",
+        "ar": "يجب على النظام أن يحاكي بحتمية تامة لكل طالبٍ ذي رغبات مقرراته المتبقية بقواعد صحيفته ويبني له ثلاث خطط: (أ) الأقرب لرغباته وقيوده بخصمٍ من دفتر مقاعد افتراضي بترتيب النوافذ، و(ب) شعب بديلة، و(ج) حدّ أدنى آمن 12 وحدة، بوحدات مقصوصة بين 12 و18 (الافتراضي 15)، ويرتّب الطلبة بالأشدّ حاجةً أولاً ويقسّمهم بالتساوي على الجولات، وأن يبقى تقديراً لا حجزاً.",
         "en": "The system shall deterministically simulate for each student with wishes the remaining courses under the plan's rules and build three plans: (A) closest to wishes and constraints, drawing on a virtual seat ledger in window order, (B) alternative sections, and (C) a safe minimum of 12 units, with units clamped between 12 and 18 (default 15), ordering students by greatest need first and splitting them evenly over rounds, and shall remain an estimate rather than a reservation."
       },
       "priority": "must",
@@ -2202,7 +2202,7 @@
           "en": "The same inputs produce the same outputs (determinism)."
         },
         {
-          "ar": "targetUnits = 21 ← يُقصّ إلى ١٨ في المحاكاة.",
+          "ar": "targetUnits = 21 ← يُقصّ إلى 18 في المحاكاة.",
           "en": "targetUnits = 21 is clamped to 18 in the simulation."
         },
         {
@@ -2229,7 +2229,7 @@
         "en": "Running and refreshing the radar"
       },
       "text": {
-        "ar": "يجب على النظام أن يقصر تشغيل الرادار على إدارة النظام بقفلٍ في العملية وقفلٍ في قاعدة البيانات بين الخوادم، وأن يحدّثه تلقائياً كل ٢٤ ساعة (RADAR_AUTO_HOURS) أثناء الرغبات وبعدها حتى إغلاق الطلبات ومرةً بعد إغلاق الرغبات، ويفحص كل ٥ دقائق، ويوقفه RADAR_AUTO=false ولا يعمل في التجربة، وأن يُظهر للأقسام مقرراتها بأعداد لا أسماء، وأن يخزّن لكل طالب تذكرةً بلا اسم ولا رقم مدني.",
+        "ar": "يجب على النظام أن يقصر تشغيل الرادار على إدارة النظام بقفلٍ في العملية وقفلٍ في قاعدة البيانات بين الخوادم، وأن يحدّثه تلقائياً كل 24 ساعة (RADAR_AUTO_HOURS) أثناء الرغبات وبعدها حتى إغلاق الطلبات ومرةً بعد إغلاق الرغبات، ويفحص كل 5 دقائق، ويوقفه RADAR_AUTO=false ولا يعمل في التجربة، وأن يُظهر للأقسام مقرراتها بأعداد لا أسماء، وأن يخزّن لكل طالب تذكرةً بلا اسم ولا رقم مدني.",
         "en": "The system shall restrict running the radar to system administration with an in-process lock and a database lock across servers, shall refresh it automatically every 24 hours (RADAR_AUTO_HOURS) during and after wishes until requests close and once after wishes close, checking every 5 minutes, stoppable with RADAR_AUTO=false and inactive in the demonstration, shall show departments their own courses as counts not names, and shall store for each student a ticket with no name or civil ID."
       },
       "priority": "must",
@@ -2242,11 +2242,11 @@
       ],
       "acceptance": [
         {
-          "ar": "POST /api/simulation/run لغير مدير النظام ← ٤٠٣؛ وأثناء تشغيل آخر ← ٤٠٩ busy.",
+          "ar": "POST /api/simulation/run لغير مدير النظام ← 403؛ وأثناء تشغيل آخر ← 409 busy.",
           "en": "POST /api/simulation/run by a non-administrator yields 403; during another run yields 409 busy."
         },
         {
-          "ar": "فصل مجمَّد ← ٤٠٩ term-frozen.",
+          "ar": "فصل مجمَّد ← 409 term-frozen.",
           "en": "A frozen term yields 409 term-frozen."
         },
         {
@@ -2270,11 +2270,11 @@
       "id": "FR-STU-029",
       "kind": "functional",
       "title": {
-        "ar": "أسباب ألا يبلغ الطالب ١٢ وحدة",
+        "ar": "أسباب ألا يبلغ الطالب 12 وحدة",
         "en": "Why a student does not reach 12 units"
       },
       "text": {
-        "ar": "يجب على النظام أن يفسّر قصور الطالب عن ١٢ وحدة بمقارنة سيناريوهات: يُرفع قيدٌ واحد عن الجميع (السعة، التعارض، قيود الطالب، المسبق) ثم يُسأل هل بلغ ١٢، فيُسمّى سببٌ واحد، وأكثر من سبب «مشترك»، ولا شيء «مقرر غير مطروح أو غير ذلك»، ويُقال في الواجهة إنه تقدير لا إثبات.",
+        "ar": "يجب على النظام أن يفسّر قصور الطالب عن 12 وحدة بمقارنة سيناريوهات: يُرفع قيدٌ واحد عن الجميع (السعة، التعارض، قيود الطالب، المسبق) ثم يُسأل هل بلغ 12، فيُسمّى سببٌ واحد، وأكثر من سبب «مشترك»، ولا شيء «مقرر غير مطروح أو غير ذلك»، ويُقال في الواجهة إنه تقدير لا إثبات.",
         "en": "The system shall explain a student's shortfall below 12 units by comparing scenarios: one constraint (capacity, conflict, student constraints, prerequisite) is lifted for everyone and the question is whether the student then reaches 12, so a single cause is named, more than one is «shared», and none is «course not offered or other», with the interface stating it is an estimate not proof."
       },
       "priority": "should",
@@ -2315,7 +2315,7 @@
         "en": "Limits on a shared university network"
       },
       "text": {
-        "ar": "يجب على النظام أن يتحمل دخول آلاف الطلبة من عنوان شبكةٍ واحد بحدودٍ مضبوطة: ٢٤٬٠٠٠ سؤال هوية و٦٠٠ خطأ رمز لكل عنوان في ١٠ دقائق، و٦٠ كتابة في الدقيقة لكل طالب وسقف ١٢٠٠ كتابة في الدقيقة لكل عنوان، قابلةٌ للضبط بمتغيرات STUDENT_DOOR_*، وألا يُحسب /api/public/me/* على عدّاد العنوان العام.",
+        "ar": "يجب على النظام أن يتحمل دخول آلاف الطلبة من عنوان شبكةٍ واحد بحدودٍ مضبوطة: 24,000 سؤال هوية و600 خطأ رمز لكل عنوان في 10 دقائق، و60 كتابة في الدقيقة لكل طالب وسقف 1200 كتابة في الدقيقة لكل عنوان، قابلةٌ للضبط بمتغيرات STUDENT_DOOR_*، وألا يُحسب /api/public/me/* على عدّاد العنوان العام.",
         "en": "The system shall withstand thousands of students entering from one network address under tuned limits: 24,000 identity queries and 600 code errors per address per 10 minutes, 60 writes per minute per student and a ceiling of 1200 writes per minute per address, adjustable through STUDENT_DOOR_* variables, and shall not count /api/public/me/* against the general public address counter."
       },
       "priority": "must",
@@ -2326,11 +2326,11 @@
       ],
       "acceptance": [
         {
-          "ar": "٦٠٠ طالب من عنوان واحد في دقيقتين ← لا يُحجب منهم أحد بحدّ الهوية.",
+          "ar": "600 طالب من عنوان واحد في دقيقتين ← لا يُحجب منهم أحد بحدّ الهوية.",
           "en": "600 students from one address within two minutes are not blocked by the identity limit."
         },
         {
-          "ar": "الكتابة رقم ٦١ في دقيقة لطالبٍ واحد ← ٤٢٩ برسالة «طلباتٌ كثيرة في وقتٍ قصير».",
+          "ar": "الكتابة رقم 61 في دقيقة لطالبٍ واحد ← 429 برسالة «طلباتٌ كثيرة في وقتٍ قصير».",
           "en": "The 61st write within a minute by one student yields 429 with the too-many-requests message."
         },
         {
@@ -2356,7 +2356,7 @@
         "en": "Academic advice panel for departments"
       },
       "text": {
-        "ar": "يجب على النظام أن يعرض للقسم قراءة أكاديمية غير مانعة من الصحائف المعتمدة والرغبات: أزواج مقررات يحتاجها ٣ طلبة مؤهلين فأكثر ويتداخل وقتها مع بيان هل لها شعبٌ بديلة، وتفضيل الصباح أو الظهر لمقررٍ طلبه ٣ فأكثر (حتى ١٦٠ زوجاً و٢٤ تفضيلاً)، وألا تغيّر حكم الحفظ أو التوقيع أو الإرسال، وألا تعرض هوية ولا أعداداً أصغر من ٣.",
+        "ar": "يجب على النظام أن يعرض للقسم قراءة أكاديمية غير مانعة من الصحائف المعتمدة والرغبات: أزواج مقررات يحتاجها 3 طلبة مؤهلين فأكثر ويتداخل وقتها مع بيان هل لها شعبٌ بديلة، وتفضيل الصباح أو الظهر لمقررٍ طلبه 3 فأكثر (حتى 160 زوجاً و24 تفضيلاً)، وألا تغيّر حكم الحفظ أو التوقيع أو الإرسال، وألا تعرض هوية ولا أعداداً أصغر من 3.",
         "en": "The system shall show a department a non-blocking academic reading from approved plans and wishes: course pairs needed by at least 3 eligible students whose times overlap with whether alternative sections exist, and a morning or afternoon preference for a course wanted by at least 3 (up to 160 pairs and 24 preferences), shall never change the save, sign or send verdict, and shall show neither identity nor counts below 3."
       },
       "priority": "should",
@@ -2367,7 +2367,7 @@
       ],
       "acceptance": [
         {
-          "ar": "طالب واحد يطلب الزوج ← shared = ٠ وbasis = curriculum.",
+          "ar": "طالب واحد يطلب الزوج ← shared = 0 وbasis = curriculum.",
           "en": "A single student wanting the pair gives shared = 0 and basis = curriculum."
         },
         {
@@ -2663,8 +2663,8 @@
         "en": "Door state, specialisation list and department plans"
       },
       "text": {
-        "ar": "يجب على النظام أن يعيد GET /api/public/me/state بلا جلسة: علامة التجربة، وفصل الباب، والمرحلة (المفتاح والنمط والسطر وإمكان تعديل الرغبات والإبلاغ والموعد التالي واسم الجولة)، ومسار الفصل، وهل الزائر داخل وملخص ملفه، والحدود (طول الرمز 6، والوحدات من 12 إلى سقف القسم، و13.5 وحدة للفصل المعتاد، و365 يوماً بعد التخرج)؛ وأن يعيد GET /api/public/me/catalog?track=boys|girls تخصصات كليات التربية الأساسية للمسار بلا تكرار بالاسم مفضّلاً المقر الرئيسي ثم الجهراء ثم الفحيحيل، ولا شيء بلا مسار، بتخزينٍ عام 300 ثانية؛ وأن يعيد GET /api/public/me/plan?sectionId صحائف القسم غير المؤرشفة وغير الفارغة بمقرراتها ومسبقات كلٍّ منها، أو مقررات القسم التشغيلية إن لم تكن له صحائف.",
-        "en": "The system shall return GET /api/public/me/state without a session: the demonstration flag, the door term, the phase (key, mode, line, whether wishes can be edited and reports made, next date, round name), the term timeline, whether the visitor is signed in with the profile summary, and the limits (code length 6, units from 12 to the department cap, 13.5 units for a typical term, 365 days after graduation); shall return GET /api/public/me/catalog?track=boys|girls the specialisations of the track's Basic Education colleges without duplicate names, preferring the main campus, then Jahra, then Fahaheel, nothing without a track, with public caching for 300 seconds; and shall return GET /api/public/me/plan?sectionId the department's non-archived, non-empty plans with their courses and each course's prerequisites, or the department's operational courses when it has no plans."
+        "ar": "يجب على النظام أن يعيد GET /api/public/me/state بلا جلسة: علامة التجربة، وفصل الباب، والمرحلة (المفتاح والنمط والسطر وإمكان تعديل الرغبات والإبلاغ والموعد التالي واسم الجولة)، ومسار الفصل، وهل الزائر داخل وملخص ملفه، والحدود (طول الرمز 6، والوحدات من 12 إلى سقف القسم، و13.5 وحدة للفصل المعتاد، و365 يوماً بعد التخرج)؛ وأن يعيد GET /api/public/me/catalog?track=boys|girls تخصصات كليات المسار المشمولة بلا تكرار بالاسم مفضّلاً المقر الرئيسي ثم الموقع الفرعي الأول ثم الثاني، ولا شيء بلا مسار، بتخزينٍ عام 300 ثانية؛ وأن يعيد GET /api/public/me/plan?sectionId صحائف القسم غير المؤرشفة وغير الفارغة بمقرراتها ومسبقات كلٍّ منها، أو مقررات القسم التشغيلية إن لم تكن له صحائف.",
+        "en": "The system shall return GET /api/public/me/state without a session: the demonstration flag, the door term, the phase (key, mode, line, whether wishes can be edited and reports made, next date, round name), the term timeline, whether the visitor is signed in with the profile summary, and the limits (code length 6, units from 12 to the department cap, 13.5 units for a typical term, 365 days after graduation); shall return GET /api/public/me/catalog?track=boys|girls the specialisations of the track's participating colleges without duplicate names, preferring the main campus, then the first branch site, then the second, nothing without a track, with public caching for 300 seconds; and shall return GET /api/public/me/plan?sectionId the department's non-archived, non-empty plans with their courses and each course's prerequisites, or the department's operational courses when it has no plans."
       },
       "priority": "should",
       "status": "implemented",
@@ -3379,6 +3379,572 @@
           "tests/student-showcase-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-STU-052",
+      "kind": "functional",
+      "title": {
+        "ar": "شاشات الدخول إلى «مساري» في المتصفح",
+        "en": "Masari entry screens in the browser"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تنظّف الرقم المدني أثناء كتابته (تحويل الأرقام الهندية والفارسية إلى أرقام لاتينية وحذف ما سواها، وبحدٍّ أقصى 12 رقماً)، وتعرض «باقي N رقماً» حتى يكتمل، ثم تتحقق من رقم التحقق في المتصفح فلا تفعّل «تابع» إلا لرقمٍ صحيح (ويُرسَل بـEnter)؛ وأن تقبل في شاشة الرمز 6 أرقام تُعرض نقاطاً مخفية، وتذكر المحاولات المتبقية حين تكون بين 1 و4، وتعرض تنبيه طلب الحذف المعلّق بتاريخه، ورابطي «نسيت رمزي» و«رقم مدني آخر»؛ وأن تقبل في شاشة الإنشاء اسماً ثلاثياً من 6 إلى 80 حرفاً بعد ضمّ المسافات بلا أرقام ولا < > { } \\، وتُظهر حقل إعادة الرمز بعد اكتمال 6 أرقام في الأول، وتقول «الرمزان غير متطابقين»، وتشترط مربع «أوافق على حفظ ملفّي»، وتعرض مفتاح «هذا جهازي الشخصي · يبقى دخولك 180 يوماً» مطفأً افتراضياً.",
+        "en": "The Masari page shall clean the civil ID as it is typed (Arabic-Indic and Persian digits become Western digits, anything else is removed, at most 12 digits), show «N digits left» until it is complete, then check the check digit in the browser and enable «Continue» only for a valid number (Enter submits); on the code screen it shall accept 6 digits shown as masked dots, state the attempts left when 1 to 4 remain, show the pending-deletion notice with its date and offer «I forgot my code» and «another civil ID»; on the create screen it shall accept a full name of 6 to 80 characters after collapsing spaces with no digits and none of < > { } \\, reveal the repeat-code field once the first code has 6 digits, say «the two codes do not match», require the «I agree to save my profile» box, and offer a «this is my personal device · stays signed in 180 days» switch that is off by default."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "11 رقماً ← «باقي 1 رقماً» و«تابع» معطّل؛ و12 رقماً لا يصحّ رقم تحققها ← «هذا الرقم غير صحيح — راجع بطاقتك المدنية».",
+          "en": "11 digits ← «1 digit left» with «Continue» disabled; 12 digits with a wrong check digit ← «this number is not valid — check your civil ID card»."
+        },
+        {
+          "ar": "رمز خاطئ والخادم يعيد attemptsLeft = 3 ← الرسالة متبوعة بـ«(تبقّى 3 محاولات)»، ويُفرَّغ حقل الرمز ويعود إليه المؤشر.",
+          "en": "A wrong code with attemptsLeft = 3 from the server ← the message is followed by «(3 attempts left)», and the code field is cleared and refocused."
+        },
+        {
+          "ar": "زر «أنشئ ملفّي» يبقى معطّلاً حتى يصح الاسم ويكتمل الرمزان متطابقين ويُختار مربع الموافقة.",
+          "en": "The «Create my profile» button stays disabled until the name is valid, both codes are complete and equal, and the consent box is ticked."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#viewGate",
+          "src/server/studentHomePage.ts#viewCode",
+          "src/server/studentHomePage.ts#viewCreate",
+          "src/server/studentHomePage.ts#civilValid",
+          "src/server/studentHomePage.ts#digits"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-STU-053",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "مهلة القراءة والكتابة في «مساري» وما يُحفظ في المتصفح",
+        "en": "Read and write deadlines in Masari and what the browser keeps"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تلغي القراءة بعد 15 ثانية برسالة «الشبكة بطيئة. أعد المحاولة.»، وألا تلغي الكتابة أبداً، بل تعيد الشاشة للطالب بعد 30 ثانية بلا جواب برسالة «لم نتأكد أن طلبك تمّ. افتح الصفحة من جديد وتحقق قبل أن تعيده.» ويبقى الطلب الأصلي يعمل وتُهمل نتيجته المتأخرة؛ وأن تقول عند انقطاع الشبكة «تعذّر الاتصال. تحقق من الإنترنت ثم أعد المحاولة.»؛ وأن تطلب كل جزءٍ من الرئيسية من مساره الخاص /api/public/me/<الجزء> إن تعذّر الطلب المجمّع أو عاد الجزء بحالة 500 فأكثر؛ وألا تكتب في تخزين المتصفح شيئاً غير تفضيل العرض masari-device.",
+        "en": "The Masari page shall abort a read after 15 seconds with «the network is slow, try again», never abort a write but, after 30 seconds without a reply, return the screen to the student with «we could not confirm your request went through; reopen the page and check before repeating it» while the original request keeps running and its late result is ignored; shall say «could not connect, check the internet and try again» on a network failure; shall fetch each home part from its own route /api/public/me/<part> when the aggregated request fails or the part came back with status 500 or more; and shall write nothing to browser storage other than the display preference masari-device."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "كتابة لم يصلها جواب خلال 30 ثانية ← نتيجة unknown:true والرسالة أعلاه، ولا تُكرَّر الكتابة تلقائياً.",
+          "en": "A write with no reply within 30 seconds ← an unknown:true result with the message above, and the write is not repeated automatically."
+        },
+        {
+          "ar": "جزء «ticket» في الرئيسية بحالة 504 ← يُطلب GET /api/public/me/ticket وحده.",
+          "en": "A home «ticket» part with status 504 ← GET /api/public/me/ticket is requested on its own."
+        },
+        {
+          "ar": "لا localStorage ولا sessionStorage ولا IndexedDB في سكربت الصفحة سوى قراءة masari-device وكتابته.",
+          "en": "No localStorage, sessionStorage or IndexedDB in the page script other than reading and writing masari-device."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#api",
+          "src/server/studentHomePage.ts#homePart"
+        ],
+        "tests": [
+          "tests/masari-visual-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-054",
+      "kind": "functional",
+      "title": {
+        "ar": "معالج إعداد الملف في المتصفح: المسار، التخصص، الصحيفة، المنجَز",
+        "en": "Profile setup wizard in the browser: track, specialisation, plan, passed courses"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعدّ الملف في ثلاث خطوات: اختيار مسار البنين أو البنات حين لا يحمل الرابط مساراً (ويُستبدل العنوان بـ/me?track=)، ثم التخصص بالبحث في كتالوج المسار، ثم الصحيفة (وتُتخطى إن كانت واحدة)، ثم المقررات المنجزة مرتّبةً بالمستوى (أول رقم من الرقم الثلاثي للمقرر × 100) ثم بالرمز؛ وأن تعرض حين تزيد المقررات على 10 بحثاً بالاسم أو الرمز وتصفية «الكل / المنجَز / الباقي»، وحين يتعدد المستوى اختصار «أنهيت حتى مستوى» و«علّم الكل / ألغِ الكل» لكل مستوى؛ وألا تسمح بتعليم مقرر قبل مسبقاته («يتطلب أولاً: …»)، وأن تُزيل مع إلغاء مقررٍ ما بُني عليه وتعدّه في رسالة، وأن يتكرر التعليم الجماعي حتى يستقر فيُعلَّم 102 بعد 101 في اللمسة نفسها؛ وأن تتيح بعد تأكيدٍ صريح «وضع المعادلة» للطالب المحوّل فيُعلَّم المعادَل بلا مسبقاته ويُحفظ معادَلاً؛ وأن تمحو المنجَز والصحيفة عند تغيير القسم؛ وأن تحفظ عبر PUT /api/public/me/profile وتعيد الطالب إلى شاشة الدخول عند 401.",
+        "en": "The Masari page shall set up the profile in steps: choosing the boys' or girls' track when the link carries none (replacing the address with /me?track=), the specialisation by searching the track's catalogue, the plan (skipped when there is only one), then the passed courses ordered by level (the first digit of the three-digit course number × 100) then by code; when there are more than 10 courses it shall offer search by name or code and an all / passed / remaining filter, and when there is more than one level a «finished up to level» shortcut and «mark all / unmark all» per level; it shall not let a course be ticked before its prerequisites («needs first: …»), shall remove with an unticked course what depends on it and count them in a message, and shall repeat bulk marking until stable so 102 is marked after 101 in the same touch; after an explicit confirmation it shall offer a transfer mode in which an equivalent course is ticked without its prerequisites and saved as equivalent; changing the department clears the passed courses and the plan; it saves through PUT /api/public/me/profile and returns the student to the entry screen on 401."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر رمزه ARB 302 ← المستوى 300؛ ومقرر بلا رقم ثلاثي ← المستوى «عام» (0).",
+          "en": "A course coded ARB 302 ← level 300; a course with no three-digit number ← level «general» (0)."
+        },
+        {
+          "ar": "إلغاء تعليم مسبقٍ بُني عليه مقرران ← يُزالان معه ورسالة «أُزيل أيضاً 2 مقرر يعتمد عليه».",
+          "en": "Unticking a prerequisite two courses depend on ← both are removed with a message counting them."
+        },
+        {
+          "ar": "صحيفة فيها 8 مقررات ← لا بحث ولا تصفية ولا اختصار المستوى.",
+          "en": "A plan with 8 courses ← no search, filter or level shortcut."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#setupSection",
+          "src/server/studentHomePage.ts#setupPlan",
+          "src/server/studentHomePage.ts#setupPassed",
+          "src/server/studentHomePage.ts#lvOf"
+        ],
+        "tests": [
+          "tests/masari-ease-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-055",
+      "kind": "functional",
+      "title": {
+        "ar": "الرئيسية: ثلاثة ألسنة وبطاقة رئيسية واحدة بحسب المرحلة",
+        "en": "Home: three tabs and one primary card by phase"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعرض للطالب الداخل بطاقةً رأسية (حلقة نسبة ما اجتازه من وحدات صحيفته، والتحية باسمه الأول، والقسم والصحيفة والوحدات المجتازة، والوحدات المتبقية، وفصول التخرج المقدّرة، والمرحلة بموعدها التالي) وثلاثة ألسنة: «الآن» و«خطتي» و«ملفي»؛ وأن تضع في «الآن» بطاقة «خطوتك الآن» واحدة (راجع رغباتك أو سجّلها في مرحلة الرغبات، افتح جدولك المقترح في مرحلتي الجولة والتجميد حين يجهز، سجّل ما أنجزت لمن لم يعلّم شيئاً، وإلا راجع خطتك)، وبطاقةً رئيسية بحسب المرحلة (الرغبات ثم الجدول المقترح في مرحلة الرغبات، و«هل سجّلت؟» ثم الجدول في الجولة، والجدول ثم الرغبات في التجميد، ورحلة الفصل في غيرها)، وتطوي الباقي تحت «المزيد من مساري (n)» وترفع فوقه الإشعارات التي فيها مطلوبٌ أو تنبيه وتُصعد «طلب للقسم» تحت البطاقة الرئيسية حين ينطبق؛ وأن تحجز مساحة البطاقة المنتظرة بهيكلٍ حتى يصل جواب الرئيسية (4 ثوانٍ كحدٍّ أقصى)؛ وأن تنقل الألسنة إلى الترويسة اللاصقة وتفتح «المزيد» على عرض 960px فأكثر خارج وضع الهاتف؛ وأن يفتح العنوان المنتهي بـ#plan لسان «خطتي». ويحمل اللون معنى ثابتاً: الأخضر لما تمّ، والذهبي لما هو الآن، والرمادي لما لم يأتِ.",
+        "en": "The Masari page shall show the signed-in student a header card (a ring of the share of plan units passed, a greeting by first name, the department, plan and passed units, the remaining units, the estimated terms to graduation, and the phase with its next date) and three tabs «Now», «My plan» and «My profile»; on «Now» it shall place one «your step now» card (review or write your wishes during wishes, open your suggested schedule during a round or the freeze once it is ready, record what you passed when nothing is ticked, otherwise review your plan) and one primary card by phase (wishes then the ticket during wishes, «did you register?» then the ticket during a round, the ticket then wishes during the freeze, and the term journey otherwise), folding the rest under «More from Masari (n)», raising above it notices that carry an action or alert, and raising «request to the department» under the primary card when it applies; it shall reserve the awaited card's space with a skeleton until the home answer arrives (4 seconds at most); at 960px and wider outside phone mode it shall move the tabs into the sticky header and open «More»; an address ending in #plan opens «My plan». Colour carries a fixed meaning: green for done, gold for now, grey for not yet."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "مرحلة الرغبات ← ترتيب البطاقة الرئيسية wishes ثم ticket؛ ومرحلة غير محددة ← رحلة الفصل.",
+          "en": "Wishes phase ← primary order wishes then ticket; an unset phase ← the term journey."
+        },
+        {
+          "ar": "نافذة بعرض 1280px وجهاز في وضع الهاتف (التجربة) ← لا يُعدّ العرض واسعاً وتبقى الألسنة في الشريط السفلي.",
+          "en": "A 1280px window with the device forced to phone mode (demo) ← not wide, and the tabs stay in the bottom bar."
+        },
+        {
+          "ar": "فتح /me#plan ← يُفتح لسان «خطتي».",
+          "en": "Opening /me#plan ← the «My plan» tab opens."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#viewHome",
+          "src/server/studentHomePage.ts#nextStepInfo",
+          "src/server/studentHomePage.ts#primaryOrder",
+          "src/server/studentHomePage.ts#laterUpdate",
+          "src/server/studentHomePage.ts#placeTabs"
+        ],
+        "tests": [
+          "tests/masari-ease-audit.ts",
+          "tests/masari-desktop-audit.ts",
+          "tests/masari-responsive-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-056",
+      "kind": "functional",
+      "title": {
+        "ar": "بطاقتا «ما الجديد؟» و«حالاتي» في الصفحة",
+        "en": "The «What's new?» and «My cases» cards on the page"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعرض أول 3 إشعارات وزر «عرض الكل (n)»، وعدّاداً ذهبياً بالإشعارات التي فيها مطلوب أو تنبيه ونقطةً على لسان «الآن» حين يوجد منها شيء، وأن تُخفي إشعار «سجّل رغباتك» حين تكون بطاقة الرغبات معروضة، وأن ينقل لمسُ الإشعار إلى هدفه فيفتح ما طُوي من قسمٍ أو لسانٍ ويمرّر إليه (وهدف «أكمل ملفك» يفتح خطوة المنجَز)؛ وأن تعرض بطاقة «حالاتي» كل حالة بعنوانها وشارة حالتها (أخضر للموافقة، وذهبي لعدم موافقة اللجنة أو الرفض) والفصل ورقم الحالة والمقررات مع «أُزيل من الطلب» أو حالة كل مقرر، وتفاصيلها.",
+        "en": "The Masari page shall show the first 3 notices with a «show all (n)» button, a gold counter of notices carrying an action or alert and a dot on the «Now» tab when any exist, shall hide the «write your wishes» notice while the wishes card is shown, and touching a notice shall take the student to its target, opening a folded section or tab and scrolling to it (the «complete your profile» target opens the passed-courses step); the «My cases» card shall show each case with its title and a status chip (green for approved, gold for committee-declined or rejected), the term, the case number, its courses with «removed from the request» or each course's status, and its detail."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "5 إشعارات منها اثنان action ← تظهر 3، وزر «عرض الكل (5)»، وعدّاد 2، ونقطة على «الآن».",
+          "en": "5 notices of which two are action ← 3 shown, a «show all (5)» button, a counter of 2 and a dot on «Now»."
+        },
+        {
+          "ar": "حالة بحالة approved ← شارة خضراء؛ وrejected ← ذهبية.",
+          "en": "A case with status approved ← a green chip; rejected ← gold."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#loadNotices",
+          "src/server/studentHomePage.ts#loadCases",
+          "src/server/studentHomePage.ts#reveal"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-STU-057",
+      "kind": "functional",
+      "title": {
+        "ar": "معالج الرغبات وعدّاد الزملاء في الصفحة",
+        "en": "Wishes wizard and peer counter on the page"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تجمع الرغبات في ثلاث شرائح تُمرَّر بالأزرار أو بسحبٍ أفقي لا يقل عن 60px: عدد الوحدات بين wishUnitsMin (12) وwishUnitsMax (15 افتراضياً) ويبدأ بما كتبه الطالب أو 15، ثم ما لا يناسبه اختيارياً (لا أستطيع الصباح الباكر، لا أستطيع بعد الظهر، أحتاج يوماً فارغاً)، ثم مقررات بعينها اختيارياً حتى 12 من المتبقي المستوفي مسبقاته مع قائمة مطويّة بالمقفل وسببه؛ وأن تعرض بعد الحفظ شارة «وصلت» بنبضةٍ واحدة وسطر «أنت واحدٌ من N أرسلوا رغباتهم في قسمك» حين يسمح الخادم بالعدد، وإلا «رغباتك تغذّي رادار التسجيل لقسمك»؛ وأن تعرض الرغبات للقراءة فقط في مرحلة التجميد وتخفيها في غير المرحلتين؛ وأن يحفظ زر «استخدمها في رغباتي» مقررات الاقتراح بوحداتٍ مقصوصة بين 12 والسقف (15 افتراضياً).",
+        "en": "The Masari page shall collect wishes in three slides moved by buttons or a horizontal swipe of at least 60px: the number of units between wishUnitsMin (12) and wishUnitsMax (15 by default), starting from what the student wrote or 15; then optional constraints (no early morning, no afternoon, a free day); then optional specific courses, up to 12, from the remainder whose prerequisites are met, with a folded list of locked courses and their reason; after saving it shall show a «received» chip that pulses once and the line «you are one of N who sent their wishes in your department» when the server allows the count, otherwise «your wishes feed your department's registration radar»; it shall show the wishes read-only during the freeze and hide them outside these two phases; and «use them in my wishes» shall save the suggested courses with units clamped between 12 and the cap (15 by default)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "اختيار مقرر ثالث عشر ← رسالة «حتى 12 مقرراً» ولا يُضاف.",
+          "en": "Choosing a thirteenth course ← the message «up to 12 courses» and it is not added."
+        },
+        {
+          "ar": "شارة المقررات: 1 «مقرر بعينه»، 2 «مقرران بعينهما»، 3 «3 مقرر بعينها» بقاعدة العدّ، و11 «11 مقرراً بعينه».",
+          "en": "Course chip wording: 1 «one specific course», 2 «two specific courses», 3 and 11 follow the Arabic counting rule."
+        },
+        {
+          "ar": "سحب أفقي 40px ← لا تنتقل الشريحة.",
+          "en": "A 40px horizontal swipe ← the slide does not change."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#renderWishes",
+          "src/server/studentHomePage.ts#wishesDone",
+          "src/server/studentHomePage.ts#chosenCourses",
+          "src/server/studentHomePage.ts#loadPlan"
+        ],
+        "tests": [
+          "tests/masari-ease-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-058",
+      "kind": "functional",
+      "title": {
+        "ar": "مقارنة الخطط الثلاث وتعديلات الجدول المقترح في المتصفح",
+        "en": "Comparing the three plans and editing the suggested schedule in the browser"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعرض الخطط أ «الأقرب لرغباتك» وب «شعبٌ بديلة إن امتلأت أ» وج «الحدّ الأدنى الآمن» بترتيبٍ ثابت لا يتغيّر بالنقاط، وأن تحسب لكل خطةٍ (بنسختها المعدّلة) مؤشراً: ملاءمة الوحدات = max(0، 100 − |الوحدات − الهدف| × 12) والهدف وحدات الرغبات أو 15؛ وحين تظهر كل المواعيد ملاءمة الجدول = max(0، 100 − 22 × مخالفات القيود (بداية قبل 08:00 مع «لا صباحاً»، أو من 13:00 فأكثر مع «لا بعد الظهر») − 9 × (الأيام − 1) مع «يوم فارغ» أو 3 × (الأيام − 3) بدونه − 5 × ساعات الفراغ الكاملة)، والمؤشر = 0.45 × الوحدات + 0.45 × الجدول + 0.10 × max(0، 100 − 14 × الشعب قليلة المقاعد)، وإلا المؤشر = ملاءمة الوحدات؛ والأفضل أعلاها ثم أقلها وحدات، موسوماً «الأنسب لك» أو «الأقرب لهدفك» حين لم تُعتمد المواعيد؛ وأن تعرض الأسبوع شبكةً أو قائمة، ويُظهر لمسُ مقررٍ شعبه البديلة على الشبكة (الأحمر يتعارض) ويُرفض اختيار شعبة متعارضة برسالة، ويتيح «لا أريده» مع زر استرجاع، و«أضف مقرراً» و«بدّله» من مجمّع المتاح مع وسم المقفل بمسبق والمتعارض وما يتجاوز السقف، واقتراح تبديل شعبة مقررٍ واحدٍ آخر حين يُزيل ذلك التعارض الوحيد؛ وأن تنبّه «أقل من 12»، وتعرض «ما لم نضعه (n)» بأسبابه، ولا تُظهر «اجعلها رغباتي» إلا بعد تعديلٍ وما دامت الرغبات قابلة للتعديل فتحفظ أول 12 مقرراً بهدف الوحدات الحالي أو 15. وكل ذلك معاينة شخصية لا تغيّر جدول القسم.",
+        "en": "The Masari page shall show plans A «closest to your wishes», B «alternative sections if A fills» and C «safe minimum» in a fixed order that the score never reorders, and shall compute for each plan (in its edited form) a score: unit fit = max(0, 100 − |units − target| × 12), with the target being the wishes' units or 15; when all times are visible, schedule fit = max(0, 100 − 22 × constraint violations (a start before 08:00 under «no morning», or at 13:00 or later under «no afternoon») − 9 × (days − 1) with «free day» or 3 × (days − 3) without it − 5 × whole gap hours), and score = 0.45 × unit fit + 0.45 × schedule fit + 0.10 × max(0, 100 − 14 × low-seat sections), otherwise score = unit fit; the best is the highest, then the fewest units, labelled «best for you», or «closest to your target» when times are not approved; it shall show the week as a grid or a list, touching a course shows its alternative sections on the grid (red when clashing), choosing a clashing section is refused with a message, «I don't want it» comes with an undo chip, «add a course» and «swap it» open the available pool marking courses locked by a prerequisite, clashing, or above the cap, and proposing to switch one other course's section when that removes the only clash; it shall warn «less than 12», list «what we could not place (n)» with reasons, and show «make these my wishes» only after an edit and while wishes are editable, saving the first 12 courses with the current unit target or 15. All of it is a personal preview that does not change the department schedule."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "خطة بـ15 وحدة وهدف 15 دون مواعيد معتمدة ← المؤشر 100 ووسم «الأقرب لهدفك».",
+          "en": "A 15-unit plan with a 15-unit target and no approved times ← score 100 labelled «closest to your target»."
+        },
+        {
+          "ar": "مقرر جديد يتعارض مع مقرر واحد فقط له شعبة بديلة خالية ← يُقترح تبديل شعبته ثم الإضافة؛ ومع مقررين ← لا اقتراح.",
+          "en": "A new course clashing with exactly one course that has a free alternative section ← switching that section then adding is offered; clashing with two courses ← no offer."
+        },
+        {
+          "ar": "شعبة بديلة تتعارض مع مقرر آخر ← «هذه الشعبة تتعارض مع مقرر آخر في خطتك؛ اختر شعبة أخرى.» ولا تتغيّر الخطة.",
+          "en": "An alternative section clashing with another course ← «this section clashes with another course in your plan; choose another section» and the plan does not change."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#tkPlanFit",
+          "src/server/studentHomePage.ts#tkPlanCompare",
+          "src/server/studentHomePage.ts#paintTicket",
+          "src/server/studentHomePage.ts#tkPoolSheet",
+          "src/server/studentHomePage.ts#tkFix",
+          "src/server/studentHomePage.ts#tkSaveWishes"
+        ],
+        "tests": [
+          "tests/masari-ease-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-059",
+      "kind": "functional",
+      "title": {
+        "ar": "«ماذا لو؟» وتقدير فصول التخرج",
+        "en": "«What if?» and the graduation-terms estimate"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تقدّر فصول التخرج بوحدات الطالب في الفصل: هدف رغباته لفصل الباب إن كتبها، وإلا متوسط termUnits مقرّباً (13.5 افتراضياً)، مقصوصاً بين wishUnitsMin وwishUnitsMax؛ وأن تتيح في «خطتي» حاسبة «ماذا لو؟» بأزرار وحداتٍ من wishUnitsMin إلى wishUnitsMax ومفتاح «أضيف فصلاً صيفياً كل سنة» بنحو 6 وحدات في كل فصلٍ ثالث، فتقول عدد الفصول العادية (والصيفية) ونحو السنوات = سقف(الفصول ÷ 2، أو ÷ 3 مع الصيفي)، بسقفٍ للحلقة قدره 60 فصلاً، و«أكملت وحدات الصحيفة.» حين لا يبقى شيء؛ وأن تشرح «كيف قدّرنا التخرج؟» بأنه تقدير يتغيّر وليس موعداً رسمياً.",
+        "en": "The Masari page shall estimate the terms to graduation from the student's units per term: his wishes' target for the door term when written, otherwise the average termUnits rounded (13.5 by default), clamped between wishUnitsMin and wishUnitsMax; under «My plan» it shall offer a «what if?» calculator with unit buttons from wishUnitsMin to wishUnitsMax and an «add a summer term every year» switch worth about 6 units in every third term, stating the regular (and summer) terms and about the years = ceil(terms ÷ 2, or ÷ 3 with summer), with a loop cap of 60 terms, and «you have completed your plan's units.» when nothing remains; «how did we estimate graduation?» explains that it is an estimate that changes, not an official date."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "90 وحدة بمعدل 15 بلا صيفي ← 6 فصول ونحو 3 سنوات؛ وبمعدل 12 ← 8 فصول.",
+          "en": "90 units at 15 without summer ← 6 terms, about 3 years; at 12 ← 8 terms."
+        },
+        {
+          "ar": "100 وحدة ← 4 سنوات بلا صيفي و3 معه.",
+          "en": "100 units ← 4 years without summer and 3 with it."
+        },
+        {
+          "ar": "من لم يكتب رغباته ومتوسط وحدات قسمه 13.5 ← 14 وحدة للفصل.",
+          "en": "A student with no wishes and a department average of 13.5 ← 14 units per term."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#whatIf",
+          "src/server/studentHomePage.ts#wireWhatIf",
+          "src/server/studentHomePage.ts#defaultUnits",
+          "src/server/studentHomePage.ts#termsLeft"
+        ],
+        "tests": [
+          "tests/masari-return-audit.ts",
+          "tests/masari-ease-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-060",
+      "kind": "functional",
+      "title": {
+        "ar": "أوراق «طلب للقسم» في الصفحة",
+        "en": "The «request to the department» sheets on the page"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعرض بلاطة «مقرر لم يُفتح» حين يعيد سياق الطلب مقرراتٍ متعذرة، و«تعارض مقررين» حين توجد أزواج تعارضٍ مثبتة، و«خريج / متوقع» حين تُحفظ قاعدة التخرج (باهتةً حين تنقص الوحدات)؛ وأن تتيح في ورقة المقررات اختيار حتى 12 مقرراً (ويُلغى الثالث عشر برسالة «يمكنك اختيار حتى 12 مقرراً في الطلب الواحد.»)، وفي ورقة التعارض المقرر المتعثر من صحيفته ثم الآخر من الأزواج المثبتة وحدها؛ وأن تشترط سبباً من 3 إلى 600 حرف ومربع الموافقة على إرسال الاسم والرقم المدني قبل تفعيل الإرسال، وتعرض بعده رقم الحالة لكل قسمٍ وتحدّث «حالاتي»؛ وأن تعرض في ورقة الخريج مقياس الوحدات المجتازة من الحد (مع «(الأدنى)» حين لا يكون الحد دقيقاً) ونوع الفصل، وتطلب نوع الطلب (مقرر يتعارض مع وقت الميداني، أو مسبق ميداني يتعارض مع مسبق آخر) وصحيفة التخرج PDF أو صورة يُرفض في المتصفح ما زاد منها على 14 ميغابايت قبل الرفع، وتقول إن لديه طلباً سابقاً يُحدَّث بالإرسال، وتمسح الملف عند proof-expired أو proof-required.",
+        "en": "The Masari page shall show the «course not opened» tile when the request context returns blocked courses, «two-course conflict» when proven conflict pairs exist, and «graduate / expected» when a graduation rule is saved (dimmed when units are short); the courses sheet shall allow up to 12 courses (a thirteenth is unticked with «you can choose up to 12 courses in one request»), and the conflict sheet the stuck course from the plan then the other only from proven pairs; sending shall require a reason of 3 to 600 characters and the box consenting to send the name and civil ID, after which each department's case number is shown and «My cases» refreshes; the graduate sheet shall show a meter of passed units against the threshold (with «(minimum)» when the threshold is not exact) and the term kind, ask for the request kind (a course clashing with field training, or a field prerequisite clashing with another prerequisite) and the graduation sheet as a PDF or image, refusing in the browser before upload anything over 14 MB, say when an earlier request exists that sending will update, and clear the file on proof-expired or proof-required."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف 15 ميغابايت ← «حجم الملف أكبر من 14 ميغابايت…» ولا يُرسَل شيء.",
+          "en": "A 15 MB file ← «the file is larger than 14 MB…» and nothing is sent."
+        },
+        {
+          "ar": "سبب بحرفين ← زر الإرسال معطّل.",
+          "en": "A two-character reason ← the send button stays disabled."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#loadCaseRequest",
+          "src/server/studentHomePage.ts#reqCourses",
+          "src/server/studentHomePage.ts#reqGrad",
+          "src/server/studentHomePage.ts#reqDone"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-STU-061",
+      "kind": "functional",
+      "title": {
+        "ar": "بطاقة «هل سجّلت؟» في الصفحة",
+        "en": "The «did you register?» card on the page"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعرض بطاقة «هل سجّلت؟» حين يجهز السؤال وفيه مقررات، بزرين لكل مقرر «سجّلت / تعثّرت» وأسباب التعثر (امتلأت الشعب، المسبق لا يسمح، تعارض، آخر) ويُرسَل «آخر» حين لا يُختار سبب؛ وأن تعرض مربع «أريد أن يساعدني القسم في حالتي» حين يتعثر مقرر والسؤال مفتوح، فتستعمل الهوية المحفوظة إن كانت في الملف وإلا تطلب الاسم الثلاثي والرقم المدني ولا تحفظهما في الملف الدائم؛ وأن تعرض الأجوبة للقراءة حين يُغلق السؤال وقد أُجيب، وأرقام الحالات بعد الإرسال.",
+        "en": "The Masari page shall show the «did you register?» card when the question is ready and has courses, with «registered / stuck» buttons per course and stuck reasons (sections full, prerequisite does not allow, clash, other), sending «other» when no reason is chosen; it shall show the «I want my department to help with my case» box when a course is stuck and reporting is open, using the saved identity when the profile holds one and otherwise asking for the full name and civil ID without saving them in the permanent profile; it shall show the answers read-only once reporting is closed after an answer, and the case numbers after sending."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "«تعثّرت» دون اختيار سبب ← يُرسَل reason = other.",
+          "en": "«Stuck» with no reason chosen ← reason = other is sent."
+        },
+        {
+          "ar": "ملف فيه هوية محفوظة ← help = true دون حقلي الاسم والرقم.",
+          "en": "A profile with a saved identity ← help = true without the name and number fields."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#loadReport",
+          "src/server/studentHomePage.ts#paintReport"
+        ],
+        "tests": [
+          "tests/masari-ease-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-062",
+      "kind": "functional",
+      "title": {
+        "ar": "لسان «ملفي»: التصحيح والرمز والخروج والحذف",
+        "en": "The «My profile» tab: correction, code, sign-out and deletion"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعرض في «ملفي» الاسم والرقم المدني مقنّعاً مع زر «تصحيح» يفتح ورقة الاسم (PUT /api/public/me/name)، وورقة «تغيير الرمز» بالرمز الحالي والجديد (6 أرقام لكلٍّ منهما)، وزر «اخرج» (POST /api/public/me/exit) يعود إلى شاشة الدخول ويمحو ما في الذاكرة، وورقة «احذف ملفّي» التي تقول إن الحذف نهائي وتطلب الرمز للتأكيد (POST /api/public/me/forget)، وسطر «يُحفظ حتى <التاريخ>» مضافاً إليه «ما لم تعد إليه» حين يكون سبب الحفظ الانقطاع.",
+        "en": "The Masari page shall show under «My profile» the name and masked civil ID with a «correct» button opening the name sheet (PUT /api/public/me/name), a «change code» sheet with the current and the new code (6 digits each), a «sign out» button (POST /api/public/me/exit) that returns to the entry screen and clears what is in memory, a «delete my profile» sheet that states the deletion is final and asks for the code to confirm (POST /api/public/me/forget), and the line «kept until <date>», adding «unless you come back to it» when the reason for keeping is inactivity."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "keepsReason = inactive ← السطر ينتهي بـ«ما لم تعد إليه».",
+          "en": "keepsReason = inactive ← the line ends with «unless you come back to it»."
+        },
+        {
+          "ar": "زر الحذف معطّل حتى يكتمل رمز التأكيد 6 أرقام.",
+          "en": "The delete button stays disabled until the 6-digit confirmation code is complete."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#viewHome",
+          "src/server/studentHomePage.ts#sheetName",
+          "src/server/studentHomePage.ts#sheetCode",
+          "src/server/studentHomePage.ts#sheetForget"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-STU-063",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الأوراق المنبثقة والرسائل وإمكانية الوصول",
+        "en": "Sheets, messages and accessibility"
+      },
+      "text": {
+        "ar": "يجب أن تفتح أوراق «مساري» حواراً role=dialog وaria-modal يضع المؤشر على أول حقل ويحبس Tab داخله، ويُغلق بـEscape أو بلمس الخلفية (حتى إن لم يُطلق المتصفح click بعد اللمس) ويعيد المؤشر إلى العنصر الذي فتحه؛ وأن تبقى الرسالة المنبثقة 3.8 ثانية بدور alert للخطأ وstatus لغيره؛ وأن تُعرض المفاتيح بدور switch والقوائم المختارة بدور checkbox تعمل بالمسافة وEnter.",
+        "en": "Masari sheets shall open a role=dialog, aria-modal dialog that puts focus on the first field and traps Tab inside it, closes with Escape or a touch on the backdrop (even when the browser fires no click after the touch) and returns focus to the element that opened it; a toast shall last 3.8 seconds with role alert for an error and status otherwise; switches use role switch and selectable rows role checkbox, working with Space and Enter."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "Shift+Tab على أول عنصر في الورقة ← ينتقل إلى آخر عنصر فيها.",
+          "en": "Shift+Tab on the first element of a sheet ← moves to its last element."
+        },
+        {
+          "ar": "لمس الخلفية ← تُغلق الورقة ويعود المؤشر إلى الزر الذي فتحها.",
+          "en": "Touching the backdrop ← the sheet closes and focus returns to the button that opened it."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#sheet",
+          "src/server/studentHomePage.ts#sheetKeys",
+          "src/server/studentHomePage.ts#closeSheet",
+          "src/server/studentHomePage.ts#toast"
+        ],
+        "tests": [
+          "tests/masari-responsive-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-064",
+      "kind": "functional",
+      "title": {
+        "ar": "تبديل عرض الهاتف والحاسوب في التجربة وغلاف الصفحة",
+        "en": "Phone and desktop view switch in the demonstration, and the page shell"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعرض في التجربة وحدها شارة «تجربة · افتراضي» وزراً يبدّل بين عرض الهاتف والحاسوب ويحفظ الاختيار في المتصفح بمفتاح masari-device، وأن يفرض ?device=phone أو ?device=desktop في الرابط العرضَ ويُزال من العنوان عند التبديل، وأن يعود العرض إلى «الحاسوب» (تبعاً لعرض النافذة) لقيمةٍ غريبة أو تخزينٍ محجوب، وألا يُطبَّق الاختيار خارج التجربة؛ وأن تعرض التجربة شرحاً تفاعلياً للخطط الثلاث؛ وأن تحمل الصفحة robots noindex,nofollow والبيان /me.webmanifest ورابط «عن النظام» إلى /?journey=1&back=/me ورسالة «يلزم تفعيل JavaScript لفتح مساري.» بلا سكربت، وتعرض عند تعذّر فتحها الخطأ وزر «أعد المحاولة» الذي يعيد التحميل.",
+        "en": "The Masari page shall show in the demonstration only a «demo · fictional» chip and a button switching between phone and desktop views, keeping the choice in the browser under masari-device; ?device=phone or ?device=desktop in the link forces the view and is removed from the address when switching; an unknown value or blocked storage falls back to «desktop» (following the window width), and the choice is not applied outside the demonstration; the demonstration also shows an interactive explanation of the three plans; the page carries robots noindex,nofollow, the manifest /me.webmanifest, an «about the system» link to /?journey=1&back=/me and the message «JavaScript must be enabled to open Masari» without script, and when it cannot open it shows the error with a «try again» button that reloads."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "?device=desktop مع masari-device = phone محفوظ ← عرض الحاسوب.",
+          "en": "?device=desktop with masari-device = phone stored ← desktop view."
+        },
+        {
+          "ar": "حساب حقيقي بقيمة masari-device قديمة ← لا تُطبَّق سمة data-device.",
+          "en": "A real account with an old masari-device value ← no data-device attribute is applied."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#deviceMode",
+          "src/server/studentHomePage.ts#applyDevice",
+          "src/server/studentHomePage.ts#setTop",
+          "src/server/studentHomePage.ts#studentHomePage",
+          "src/server/studentHomePage.ts#boot"
+        ],
+        "tests": [
+          "tests/masari-desktop-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-065",
+      "kind": "functional",
+      "title": {
+        "ar": "القرار السريع والتصفية والتصدير في كشف التسجيل",
+        "en": "Quick decision, filtering and export in the registration sheet"
+      },
+      "text": {
+        "ar": "يجب على شاشة كشف التسجيل أن تتيح لمن يكتب نافذة «قرار سريع» تعرض بطاقةً واحدة بعد أخرى مع «x من y» وشريط تقدّم: Enter يوافق، وR أو ر يفتح سبب الرفض، والسهم الأيسر أو المسافة يتخطى، وEscape يغلق، والسحب 80px فأكثر أفقياً يميناً يوافق ويساراً يتخطى؛ وتعرض لمن يملك الجهتين بنود اللجنة أولاً فإذا فرغت جاءت بنود التسجيل؛ وأن تتيح للجنة «موافقة على كل مقررات الطالب» لكل ما ينتظرها في طلب طالبٍ واحد؛ وأن تضبط التصفية الافتراضية مرة واحدة لكل قارئ (اللجنة «بانتظار اللجنة»، والتسجيل «بانتظار التسجيل») إن كان فيها طالب ولا تعيدها بعد اختيار المستخدم؛ وأن تبحث برقم الحالة أو الاسم أو الرقم المدني؛ وأن تصدّر ما يُعرض بالتصفية نفسها إلى كشف_التسجيل_<القسم>_<الفصل>.xlsx؛ وأن تعيد القراءة بعد 800 ملّي ثانية من نبضة إشعار أو عمل وعند صحوة اللسان، وتُعلن للزملاء «أعمل على هذا الطالب» ما دامت ورقته مفتوحة ولمدة 60 ثانية بعد القرار؛ وأن تصفّي الكليات بالبنين أو البنات؛ وأن تعرض «للقراءة فقط» لمن لا يكتب وتعطّل كل قرارٍ في فصلٍ سابق.",
+        "en": "The registration sheet screen shall offer writers a «quick decision» window showing one card after another with «x of y» and a progress bar: Enter approves, R (or its Arabic key) opens the rejection reason, Left arrow or Space skips, Escape closes, and a horizontal swipe of 80 px or more approves to the right and skips to the left; for someone holding both roles it shows committee items first and registration items once those are done; the committee can «approve all courses of this student» for everything awaiting it in one student's request; the default status filter is set once per viewer (committee «awaiting the committee», registration «awaiting registration») when it has students, and never reset after the user chooses; search works by case number, name or civil ID; export writes what is shown, with the same filter, to an .xlsx file named «registration sheet_<department>_<term>» in Arabic; the sheet re-reads 800 ms after a notify or work pulse and when the tab wakes, and tells teammates «working on this student» while the student's sheet is open and for 60 seconds after a decision; colleges can be filtered by the boys' or girls' campus; a «read only» chip shows for someone who cannot write, and every decision is disabled for a past term."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "registrarStaff",
+        "collegeRegistrar"
+      ],
+      "acceptance": [
+        {
+          "ar": "سحب 60px إلى اليمين في القرار السريع ← لا قرار.",
+          "en": "A 60 px right swipe in quick decision ← no decision."
+        },
+        {
+          "ar": "حساب يملك اللجنة والتسجيل وفيه بنود للجنة ← لا تظهر بنود التسجيل في القرار السريع حتى تفرغ بنود اللجنة.",
+          "en": "An account holding both roles with committee items pending ← registration items do not appear in quick decision until committee items are done."
+        },
+        {
+          "ar": "تصفية «سُجّل» ثم تصدير ← يحوي الملف المقررات المسجّلة وحدها.",
+          "en": "Filtering «registered» then exporting ← the file holds only registered courses."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/StudentRegistration.tsx#QuickDecide",
+          "src/components/StudentRegistration.tsx#approveAll",
+          "src/components/StudentRegistration.tsx#exportVisible",
+          "src/components/StudentRegistration.tsx#quickItems",
+          "src/components/StudentRegistration.tsx"
+        ],
+        "tests": []
+      },
+      "inferred": true
     }
   ],
   "edgeCases": [
@@ -3392,7 +3958,7 @@
         "en": "A student changes the code on one device while another stays open."
       },
       "behavior": {
-        "ar": "نسخة الرمز في الكوكي لا تطابق الملف، فيعيد الجهاز الآخر ٤٠١ signed-out ويطلب الدخول من جديد.",
+        "ar": "نسخة الرمز في الكوكي لا تطابق الملف، فيعيد الجهاز الآخر 401 signed-out ويطلب الدخول من جديد.",
         "en": "The code version in the cookie no longer matches the profile, so the other device receives 401 signed-out and must sign in again."
       },
       "evidence": [
@@ -3409,7 +3975,7 @@
         "en": "Parallel requests: failures reach the fifth while a correct code arrives."
       },
       "behavior": {
-        "ar": "يبقى القفل ولا يُمحى بالنجاح اللاحق ويُرجع ٤٢٣ locked.",
+        "ar": "يبقى القفل ولا يُمحى بالنجاح اللاحق ويُرجع 423 locked.",
         "en": "The lock stays and is not erased by the later success, returning 423 locked."
       },
       "evidence": [
@@ -3445,7 +4011,7 @@
         "en": "Two committee members press approve on the same request at the same moment."
       },
       "behavior": {
-        "ar": "الكتابة ذرّية بختم الإصدار rev: تنجح واحدة والأخرى ٤٠٩ «حدّث ثم أعد» دون تعديل.",
+        "ar": "الكتابة ذرّية بختم الإصدار rev: تنجح واحدة والأخرى 409 «حدّث ثم أعد» دون تعديل.",
         "en": "The write is atomic with the rev stamp: one succeeds and the other gets 409 refresh-and-retry without any change."
       },
       "evidence": [
@@ -3480,7 +4046,7 @@
         "en": "A decision is written on a course of a department whose schedule is unsigned while the other course in the request belongs to a signed one."
       },
       "behavior": {
-        "ar": "يُسأل التوقيع عن قسم المقرر المطلوب بعينه لا عن أول قسمٍ يملك الطلب، فيُرد بـ٤٠٩ not-signed ولو كان القسم الآخر موقَّعاً.",
+        "ar": "يُسأل التوقيع عن قسم المقرر المطلوب بعينه لا عن أول قسمٍ يملك الطلب، فيُرد بـ409 not-signed ولو كان القسم الآخر موقَّعاً.",
         "en": "Signature is checked for the requested course's own department, not the first department owning the request, so it returns 409 not-signed even if the other department has signed."
       },
       "evidence": [
@@ -3542,7 +4108,7 @@
       "ar": "رقم الحالة",
       "en": "Case number",
       "def": {
-        "ar": "أول ٨ خانات كبيرة من معرّف السجل، يحملها الطالب.",
+        "ar": "أول 8 خانات كبيرة من معرّف السجل، يحملها الطالب.",
         "en": "The first 8 uppercase characters of the record id, held by the student."
       }
     },

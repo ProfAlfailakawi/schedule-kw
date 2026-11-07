@@ -88,7 +88,7 @@
       "actor": "rootAdmin",
       "title": { "ar": "إضافة مبنى وقاعاته وطباعة ملصقات أبوابه", "en": "Adding a building and its halls and printing its door stickers" },
       "steps": [
-        { "ar": "يختار مدير النظام الرئيسي الحرم ويدخل رقم المبنى، فيتكوّن الكود الرسمي من رمز الموقع ورقمين (مثل 012B07).", "en": "The root administrator picks the campus and enters the building number; the official code is the site prefix plus two digits (for example 012B07)." },
+        { "ar": "يختار مدير النظام الرئيسي الحرم ويدخل رقم المبنى، فيتكوّن الكود الرسمي من رمز الموقع ورقمين (مثل 012A07).", "en": "The root administrator picks the campus and enters the building number; the official code is the site prefix plus two digits (for example 012A07)." },
         { "ar": "يضيف قاعات المبنى برموزها مرة واحدة ويربطها بقسم أو أكثر؛ ما ارتبط بأكثر من قسم يُعدّ مشتركاً.", "en": "He adds the building's halls by code in one go and links them to one or more departments; a hall linked to several departments is shared." },
         { "ar": "يفتح روابط المبنى، فيحصل على لوحة المبنى وشاشة الممر ورابط كل قاعة.", "en": "He opens the building links and gets the building board, the corridor screen and a link for each hall." },
         { "ar": "يطبع ورقة A4 فيها أربعة ملصقات برمز QR، ويلصق الملصق على باب كل قاعة.", "en": "He prints an A4 sheet with four QR stickers and fixes each sticker on its hall door." }
@@ -213,7 +213,7 @@
       "status": "implemented",
       "actors": ["rootAdmin"],
       "acceptance": [
-        { "ar": "كلية التربية الأساسية - بنات ورقم المبنى 7 ينتجان 012B07، ورقم المبنى 0 أو أكثر من ثلاث خانات يُرفض.", "en": "The girls' Basic Education college with building number 7 yields 012B07, and number 0 or more than three digits is rejected." },
+        { "ar": "كليةٌ رمز موقعها 012A ورقم المبنى 7 ينتجان 012A07، ورقم المبنى 0 أو أكثر من ثلاث خانات يُرفض.", "en": "A college with site code 012A and building number 7 yields 012A07, and number 0 or more than three digits is rejected." },
         { "ar": "كلية بلا رمز موقع رسمي لا يُنشأ لها مبنى ويُقال إن الكود المرجعي مفقود.", "en": "A college with no official site prefix cannot receive a building and the reply says the reference code is missing." }
       ],
       "evidence": { "code": ["src/utils/locationCollegePrefixes.ts", "src/server/routes/locationsRoutes.ts"], "tests": ["tests/location-registry-audit.py"] }
@@ -346,7 +346,7 @@
       "status": "implemented",
       "actors": ["departmentHead", "committeeChair", "system"],
       "acceptance": [
-        { "ar": "قاعة جهراء مع موعد فُتح من الرئيسي لا تُرفض لاختلاف الكلية، أما فرع آخر (بنين مقابل بنات) فيُرفض.", "en": "A Jahra hall on an appointment opened from the main campus is not rejected for a different college, whereas another branch (boys versus girls) is rejected." },
+        { "ar": "قاعة في موقع فرعي مع موعد فُتح من الرئيسي لا تُرفض لاختلاف الكلية، أما فرع آخر (بنين مقابل بنات) فيُرفض.", "en": "A branch-site hall on an appointment opened from the main campus is not rejected for a different college, whereas another branch (boys versus girls) is rejected." },
         { "ar": "موعد الثلاثاء خارج نافذة استعارة الأحد يُرفض برسالة تسمّي نوافذ القسم المعتمدة حتى أربع منها بأيامها وأوقاتها.", "en": "A Tuesday appointment outside a Sunday loan window is refused with a message naming the department's approved windows, up to four, with days and times." },
         { "ar": "الموعد بقاعة بانتظار التثبيت يُحفظ ومعه تحذير pending_room.", "en": "An appointment with a pending hall is saved with a pending_room warning." }
       ],
@@ -621,7 +621,7 @@
       "id": "FR-LOC-028",
       "kind": "functional",
       "title": { "ar": "سياسة التنقل بين المواقع", "en": "Travel policy between campuses" },
-      "text": { "ar": "يجب أن يضبط المسجّل العام أو مدير النظام مدة التنقل لكل زوج من الجهراء والفحيحيل والرئيسي من 0 إلى 180 دقيقة (الصفر يوقفها) مع قائمة أساتذة مستثنين حتى 500، وأن تكون القيم الافتراضية 60 دقيقة بين الجهراء والفحيحيل و30 لغيرهما، وأن تُطبق المدة تنبيهاً في «موعد» القسم وإلزاماً في بطاقة الأستاذ.", "en": "The registrar general or an administrator shall set the travel time for each pair among Jahra, Fahaheel and the main campus from 0 to 180 minutes (zero disables it) with an exemption list of up to 500 instructors; defaults are 60 minutes between Jahra and Fahaheel and 30 for the others; the time applies as a warning in the department appointment and as an obligation in the faculty card." },
+      "text": { "ar": "يجب أن يضبط المسجّل العام أو مدير النظام مدة التنقل لكل زوج من الموقعين الفرعيين والرئيسي من 0 إلى 180 دقيقة (الصفر يوقفها) مع قائمة أساتذة مستثنين حتى 500، وأن تكون القيم الافتراضية 60 دقيقة بين الموقعين الفرعيين و30 لغيرهما، وأن تُطبق المدة تنبيهاً في «موعد» القسم وإلزاماً في بطاقة الأستاذ.", "en": "The registrar general or an administrator shall set the travel time for each pair among the two branch sites and the main campus from 0 to 180 minutes (zero disables it) with an exemption list of up to 500 instructors; defaults are 60 minutes between the two branch sites and 30 for the others; the time applies as a warning in the department appointment and as an obligation in the faculty card." },
       "priority": "must",
       "status": "implemented",
       "actors": ["registrarHead", "admin", "rootAdmin"],
@@ -658,7 +658,7 @@
       "actors": ["system"],
       "acceptance": [
         { "ar": "الصف الذي يحمل المبنى والقاعة نصاً يشغل القاعة كالمربوط بمعرّفها.", "en": "A row carrying the building and hall as text occupies the hall just like one linked by id." },
-        { "ar": "legacy:012B08|G20 يطابق legacy:012b08|g20 بعد التطبيع.", "en": "legacy:012B08|G20 matches legacy:012b08|g20 after normalisation." }
+        { "ar": "legacy:012A08|G20 يطابق legacy:012a08|g20 بعد التطبيع.", "en": "legacy:012A08|G20 matches legacy:012a08|g20 after normalisation." }
       ],
       "evidence": { "code": ["src/utils/locationRegistry.ts", "src/server/core/hallBarter.ts", "src/server/roomDoorData.ts"], "tests": ["tests/room-occupancy-audit.ts", "tests/companion-rooms-audit.ts"] }
     },
@@ -716,6 +716,22 @@
         { "ar": "الصيغ التاريخية المحرَّرة يدوياً حتى 250 صيغة، لكل منها حتى 12 دليلاً، ويُسقط منها الرمز البديل؛ والأقسام الرئيسية للقاعة جزء من أقسامها.", "en": "Manually edited historical forms are capped at 250, each with up to 12 evidence lines, placeholders are dropped, and a room's primary departments are a subset of its departments." }
       ],
       "evidence": { "code": ["src/server/routes/locationsRoutes.ts#/api/admin/location-setup", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms/:id", "src/components/LocationQuickSetup.tsx", "src/components/LocationRegistryAdmin.tsx"], "tests": ["tests/location-registry-audit.py"] }
+    },
+    {
+      "id": "FR-LOC-034",
+      "kind": "functional",
+      "title": { "ar": "الاستعارة داخل ورشة الجدول", "en": "Hall barter inside the schedule workshop" },
+      "text": { "ar": "يجب أن تُظهر ورشة الجدول عددَ طلبات الاستعارة التي تنتظر قرار القسم في شريطٍ ثابت أسفل الجدول يفتح لوحة الاستعارة على الطلب، وأن تُبلغ صاحب الطلب بالموافقة أو الرفض مرةً واحدة، وأن ترسم نوافذ الاستعارة المعتمدة على أيام الأسبوع، وأن تتيح من محرّر الموعد طلب استعارة قاعةٍ في أيام الموعد ووقته دون مغادرته.", "en": "The schedule workshop shall show the number of barter requests awaiting the department's decision in a fixed strip below the schedule that opens the barter board on the request, shall tell the requester once about approval or rejection, shall draw approved barter windows on the week days, and shall let the appointment editor request a hall for the appointment's days and time without leaving it." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "الشريط يقول «N طلب تنتظر قرارك — قسمٌ آخر يستأذن في قاعة من قاعاتك» مع «افتح»، ويُحدَّث مع كل حركةٍ في القناة الحية، ولا يظهر بلا كلية وقسم وفصل.", "en": "The strip says «N requests await your decision — another department asks for one of your halls» with «open», refreshes with every live-channel change, and does not appear without college, department and term." },
+        { "ar": "خبر القرار «وُوفق على استعارتك» أو «لم يُوافق على استعارتك» يذكر القسم المضيف والقاعة واليوم والوقت و«و N أخرى»، و«تم» يخفيه نهائياً بحفظ معرّفاته في المتصفح (schedule-hall-barter-seen-decisions، آخر 200).", "en": "The decision notice «your borrowing was approved» or «your borrowing was not approved» names the host department, hall, day and time and «and N more», and «done» hides it for good by storing its ids in the browser (schedule-hall-barter-seen-decisions, last 200)." },
+        { "ar": "لوحة الاستعارة في «المزيد» لا تُعرض لفصلٍ منتهٍ؛ والنافذة المرسومة على الأسبوع تُوسم «مستعارة» إن كان القسم طالبها و«معارة» إن كان مالكها.", "en": "The barter board under «more» is not shown for an ended term; a window drawn on the week reads «borrowed» when the department is its requester and «lent» when it is the owner." },
+        { "ar": "من المحرّر: جسرٌ «لم تجد قاعة متاحة في هذا الوقت؟ استعِر قاعة من قسم آخر» يظهر حين تُحدَّد الأيام أو الوقت دون قاعة، و«اطلب» يرسل POST /api/hall-barter/requests ويقول «أُرسل طلب استعارة … تظهر في مختار القاعة بعد الموافقة — واصل جدولك.».", "en": "From the editor: a bridge «found no available hall at this time? borrow one from another department» appears when days or time are set without a hall, and «request» sends POST /api/hall-barter/requests and says the borrowing request was sent and the hall will appear in the hall picker after approval." }
+      ],
+      "evidence": { "code": ["src/components/Schedules.tsx#barterInbox", "src/components/Schedules.tsx#dismissBarterDecisions", "src/components/Schedules.tsx#openBorrow", "src/components/Schedules.tsx#requestBorrow", "src/components/HallBarterBoard.tsx", "src/server/routes/hallBarterRoutes.ts#/api/hall-barter/requests"], "tests": ["tests/location-registry-audit.py"] }
     }
   ],
   "edgeCases": [

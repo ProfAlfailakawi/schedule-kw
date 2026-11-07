@@ -81,7 +81,7 @@
       "name": {"ar": "زمن التنقّل بين المواقع والمباني", "en": "Travel time between campuses and buildings"},
       "question": {"ar": "هل يترك الموعد للأستاذ وقتاً كافياً للانتقال من موعده المجاور في موقعٍ آخر؟", "en": "Does the appointment leave the instructor enough time to travel from an adjacent appointment at another campus?"},
       "method": [
-        {"ar": "يُحدَّد موقع كل كلية (الرئيسي، الجهراء، الفحيحيل) ويُقرأ زمن كل زوج من سياسة التسجيل مع قائمة المستثنَين.", "en": "Each college's campus (main, Jahra, Fahaheel) is identified and the time for each pair is read from the registrar's policy with its exemption list."},
+        {"ar": "يُحدَّد موقع كل كلية (الرئيسي أو أحد الموقعين الفرعيين) ويُقرأ زمن كل زوج من سياسة التسجيل مع قائمة المستثنَين.", "en": "Each college's campus (main or one of the two branch sites) is identified and the time for each pair is read from the registrar's policy with its exemption list."},
         {"ar": "لكل يومٍ من أيام الموعد ولكل موعدٍ آخر للأستاذ في موقعٍ مختلف يُحسب الفارق بين النهاية والبداية المتجاورتين، ويُتجاهل التداخل (له حكمه).", "en": "For each day of the appointment and each other appointment of the instructor at a different campus, the gap between the adjacent end and start is measured; overlaps are ignored (they have their own rule)."},
         {"ar": "إذا قلّ الفارق عن الزمن المضبوط سُجّل نقصٌ؛ وتُزال المكررات باليوم والزوج.", "en": "If the gap is below the configured time a shortfall is recorded; duplicates by day and pair are removed."},
         {"ar": "داخل الموقع الواحد يُقرأ زمن المشي بين مبنيين من إعداد الكلية.", "en": "Within one campus the walking time between two buildings is read from the college's settings."}
@@ -90,7 +90,7 @@
       "output": {"ar": "حتى ثلاثة تنبيهات «انتقال ضيّق» بالدقائق المطلوبة والمتاحة.", "en": "Up to three 'tight transfer' warnings stating the minutes needed and available."},
       "guarantee": {"ar": "تنبيهٌ لا يمنع في نموذج القسم؛ الصفر يوقف القاعدة لزوجٍ، والمستثنى لا يُفحص.", "en": "A non-blocking warning in the department form; zero disables a pair and exempt instructors are not checked."},
       "numbers": [
-        {"ar": "60 دقيقة بين الجهراء والفحيحيل، و30 لغيرهما افتراضياً؛ المدى 0–180 وحتى 500 مستثنى.", "en": "60 minutes Jahra–Fahaheel and 30 for other pairs by default; range 0–180 with up to 500 exemptions."},
+        {"ar": "60 دقيقة بين الموقعين الفرعيين، و30 لغيرهما افتراضياً؛ المدى 0–180 وحتى 500 مستثنى.", "en": "60 minutes between the two branch sites and 30 for other pairs by default; range 0–180 with up to 500 exemptions."},
         {"ar": "داخل المبنى 3 دقائق، وبين مبنيين غير مضبوطين 5 دقائق، والزوج المضبوط 1–120.", "en": "3 minutes inside a building, 5 between unconfigured buildings, configured pairs 1–120."}
       ],
       "evidence": {"code": ["src/utils/campusTravelPolicy.ts#travelShortfalls", "src/utils/campusTravel.ts#interCampusMinutes", "src/server/core/travelPolicy.ts#readTravelPolicy", "src/server/core/scheduleRules.ts#travelMinutesFor"], "tests": ["tests/undo-travel-rule-audit.ts"]},

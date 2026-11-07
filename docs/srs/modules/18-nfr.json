@@ -1396,8 +1396,8 @@
           "en": "The check fails on a whole colloquial word in interface text and names the file and line."
         },
         {
-          "ar": "«قسم الدراسات الإجتماعية» و«قسم الدراسات الاجتماعية» يعطيان مفتاح مطابقة واحداً.",
-          "en": "The two spellings of 'Department of Social Studies' differing in hamza give one match key."
+          "ar": "«قسم الإحصاء» و«قسم الاحصاء» يعطيان مفتاح مطابقة واحداً.",
+          "en": "The two spellings of 'Department of Statistics' differing in hamza give one match key."
         },
         {
           "ar": "الترتيب الأبجدي يقارن مفتاح المطابقة بقواعد العربية مع الأرقام بقيمتها، فتقع «أصول» و«اصول» و«إدارة» حيث يتوقعها القارئ.",
@@ -1892,6 +1892,132 @@
         "tests": []
       },
       "inferred": true
+    },
+    {
+      "id": "NFR-NFR-041",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "طبقة رسائل واحدة وأعمارها",
+        "en": "One message layer and message lifetimes"
+      },
+      "text": {
+        "ar": "يجب أن تظهر رسائل الواجهة كلها في طبقة واحدة ثابتة أعلى نافذة العرض بأربعة أنواع فقط (نجاح، معلومة، تحذير، منع)، وأن تختفي كل رسالة وحدها بعد عمرٍ يطول بثقلها، وأن تُعلَن رسائل المنع لقارئ الشاشة فوراً وغيرها بأدب، مع زر «إغلاق الرسالة» في كلٍّ منها.",
+        "en": "All interface messages shall appear in a single fixed layer at the top of the viewport with four kinds only (success, information, warning, block), each disappearing by itself after a lifetime that grows with its weight; block messages shall be announced to a screen reader immediately and the others politely, each with a «close the message» button."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "النجاح والمعلومة 3.5 ثانية، والتحذير 5 ثوانٍ، والمنع والخطأ 6.5 ثانية.",
+          "en": "Success and information 3.5 seconds, warning 5 seconds, block and error 6.5 seconds."
+        },
+        {
+          "ar": "رسالة المنع role=alert وaria-live=assertive، وغيرها role=status وaria-live=polite.",
+          "en": "A block message is role=alert with aria-live=assertive, the others role=status with aria-live=polite."
+        },
+        {
+          "ar": "الرسالة «المضمّنة» (بطاقة الدخول والورقة المطبوعة) تبقى في مكانها ولا تنقضي.",
+          "en": "An «inline» message (the sign-in card and a printed sheet) stays in place and does not expire."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ui.tsx#Notice",
+          "src/components/ui.tsx#getToastHost"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-042",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "سلوك لوحة المفاتيح في الحوارات والأدراج",
+        "en": "Keyboard behaviour of dialogs and drawers"
+      },
+      "text": {
+        "ar": "يجب أن يغلق Escape الحوار الأعلى المفتوح وحده لا ما تحته، وأن يعود التركيز بعد الإغلاق إلى العنصر الذي فتحه، وأن يضع حوار التأكيد التركيز على «إلغاء» ويحصر Tab داخله ويُلغى بـEscape أو بالضغط خارجه، وأن تحصر الأدراج الجانبية التركيز داخلها وتفتح على أول حقلٍ لا على زر الإغلاق.",
+        "en": "Escape shall close the topmost open dialog only, not the one beneath; after closing, focus shall return to the element that opened it; the confirmation dialog shall place focus on «cancel», keep Tab inside it and cancel on Escape or an outside click; side drawers shall keep focus inside and open on the first field rather than the close button."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "حوارٌ داخل حوار (ورقة «قبل أن تطبّق» داخل أدوات البيانات): Escape يغلق الداخلي ويبقى الخارجي.",
+          "en": "A dialog inside a dialog (the «before you apply» sheet within data tools): Escape closes the inner one and the outer stays."
+        },
+        {
+          "ar": "تأكيد الحذف المصغّر يظهر بجوار زرّه ويُلغى وحده بعد 4.2 ثانية بلا إجابة.",
+          "en": "The compact delete confirmation appears beside its button and cancels itself after 4.2 seconds without an answer."
+        },
+        {
+          "ar": "الكتابة في حقل داخل الدرج لا تنقل التركيز إلى زر الإغلاق.",
+          "en": "Typing in a field inside a drawer does not move focus to the close button."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ui.tsx#listenForDialogDismiss",
+          "src/components/ui.tsx#useDialogDismiss",
+          "src/components/ui.tsx#visualConfirm",
+          "src/components/ui.tsx#useDrawerA11y"
+        ],
+        "tests": [
+          "tests/time-machine-scope-escape-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-043",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "تسمية الحقول وطريق الخروج من النماذج",
+        "en": "Field labels and the way out of forms"
+      },
+      "text": {
+        "ar": "يجب أن تُربط تسمية كل حقل في كتلة الحقل بأول عنصر إدخال داخلها برباط برمجي (htmlFor ومعرّف) مع إبقاء معرّف العنصر إن وُجد، وأن يبقى زر «تراجع» في أزرار النماذج فعّالاً دائماً ولو كان الحفظ جارياً، وأن يُعزل كل رقم داخل نص عربي باتجاهه فلا تنتقل علامة / أو + أو ٪ إلى الطرف الخطأ.",
+        "en": "Every field block's label shall be bound to the first input control inside it programmatically (htmlFor and an id), keeping the control's own id when it has one; the «back» button in form actions shall remain enabled at all times, even while saving; and every number inside Arabic text shall be isolated in its own direction so a /, + or % sign does not move to the wrong end."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الضغط على كلمة التسمية يضع التركيز في الحقل، وقارئ الشاشة يقرأ اسم الحقل لا «حقل نص».",
+          "en": "Clicking the label word focuses the field, and a screen reader reads the field's name, not just «text field»."
+        },
+        {
+          "ar": "طلبٌ لا يعود أبداً لا يحبس المستخدم في النموذج: «تراجع» يعمل، و«موافق» وحده معطّل.",
+          "en": "A request that never returns does not trap the user in the form: «back» works and only «OK» is disabled."
+        },
+        {
+          "ar": "«58 / 100» و«+11» تُعرضان كما كُتبتا داخل جملة عربية.",
+          "en": "«58 / 100» and «+11» display as written inside an Arabic sentence."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ui.tsx#Field",
+          "src/components/ui.tsx#withControlId",
+          "src/components/ui.tsx#FormActions",
+          "src/components/ui.tsx#Num"
+        ],
+        "tests": [
+          "tests/accessibility-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

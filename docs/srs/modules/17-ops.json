@@ -70,7 +70,28 @@
     "docs/DELIVERY_OPERATIONS.md",
     "docs/SAFE_DEPLOYMENT.md",
     "docs/SERVER_MAP.md",
-    "docs/DEMO_GUIDE.md"
+    "docs/DEMO_GUIDE.md",
+    "scripts/activity-trail-screens.ts",
+    "scripts/consistent-badges-screens.ts",
+    "scripts/course-reach-screens.ts",
+    "scripts/course-tags-coverage-screens.ts",
+    "scripts/owner-1028-screens.ts",
+    "scripts/prepublish-reach-screens.ts",
+    "scripts/publish-pick-teachers-screens.ts",
+    "scripts/ranks-load-screens.ts",
+    "scripts/split-server/analyze.mjs",
+    "scripts/split-server/generate.mjs",
+    "scripts/split-server/mapping.mjs",
+    "scripts/split-server/plan.mjs",
+    "scripts/split-server/rewriteTests.mjs",
+    "scripts/split-server/routeOverlap.mjs",
+    "scripts/split-server/split.mjs",
+    "scripts/render-brand.mjs",
+    "scripts/render-icons.mjs",
+    "scripts/guide-audit.mjs",
+    "scripts/guide-behavior-tests.mjs",
+    "scripts/make-scan-pdf.mjs",
+    "scripts/make-graduation-sheet-example.mjs"
   ],
   "screens": [
     {
@@ -2064,6 +2085,299 @@
         "tests": []
       },
       "inferred": true
+    },
+    {
+      "id": "FR-OPS-033",
+      "kind": "functional",
+      "title": {
+        "ar": "شاشة خزنة النظام ومحرّك المهام في المتصفح",
+        "en": "The system vault screen and its in-browser job driver"
+      },
+      "text": {
+        "ar": "يجب أن تفتح شاشة «النسخة الاحتياطية» لحساب الإدارة الرئيسي وحده (وتقول لغيره «هذه الخزنة مخصصة لحساب الإدارة الرئيسي فقط»)، وأن تستأنف زرُّ التصدير مهمةً لم تكتمل (في الانتظار أو جارية أو في الإنهاء أو متوقفة) بدل بدء أخرى، وأن يدفع المتصفحُ المهمة خطوةً بعد خطوة بمهلة 140 ملّي ثانية بين الخطوات (180 للاستيراد)، ويعيد محاولة خطأ الاتصال حتى 12 مرة بانتظارٍ 350 ملّي ثانية × 2^(n−1) بحدٍّ أقصى 5 ثوانٍ (400 أساساً للاستيراد)، ويعيد الخطوة المتوقفة حتى 8 مرات بانتظار 900 ملّي ثانية × n، ثم يقول إن التقدم محفوظ ويمكن استكماله؛ وأن تعرض نسبة التصدير بين 2% و97% أثناء الجمع و99% في الإنهاء و100% عند الجاهزية مع عدد السجلات والمراحل والحجم وبصمة SHA-256، وأزرار «تنزيل النسخة» (اسمها الافتراضي schedule-full-backup.json.gz مع حجمها بالميغابايت) و«إنشاء نسخة أحدث» و«استكمال من x/y» و«بدء تصدير جديد» و«تصفير المهام» بتأكيد؛ وألا تتيح الاستيراد قبل «فحص النسخة» لملف ‎.gz أو ‎.json، فتعرض تاريخها وعدد سجلاتها ومجموعاتها مرتّبةً بالعدد ومصدرها وبصمتها، ثم ترفع الملف مرة واحدة بنسبةٍ ظاهرة؛ وأن تطلب تأكيداً في نافذة لكلٍّ من الاستيراد والتصفير والتراجع، ولا تفعّل «تصفير» إلا حين تُكتب عبارة «تصفير النظام» حرفياً؛ وأن تعرض آخر نقطة أمان للتراجع وآخر 6 نقاط بوسم المستهلَك منها، وتقفل كل الأزرار ما دامت مهمة تعمل؛ وأن يوقف ترك الشاشة محرّك المتصفح وحده دون ما حُفظ في الخادم.",
+        "en": "The «Backup» screen shall open for the root administration account only (telling anyone else «this vault is for the root administration account only»); the export button shall resume an unfinished job (queued, running, finalizing or failed) instead of starting another; the browser shall drive the job step by step with 140 ms between steps (180 for import), retry a transport error up to 12 times waiting 350 ms × 2^(n−1) capped at 5 seconds (400 ms base for import), retry a failed step up to 8 times waiting 900 ms × n, and then say that progress is saved and can be resumed; it shall show export progress between 2% and 97% while collecting, 99% while finalizing and 100% when ready, with the record count, stages, size and SHA-256 digest, and the buttons «download the copy» (default name schedule-full-backup.json.gz, with its size in MB), «create a newer copy», «resume from x/y», «start a new export» and «reset the jobs» behind a confirmation; it shall not allow import before «check the copy» on a .gz or .json file, which shows its date, record count, collections ordered by count, source and digest, then uploads the file once with a visible percentage; it shall ask for confirmation in a dialog for import, reset and undo, enable «reset» only when the Arabic phrase for «reset the system» is typed exactly, show the latest restore point for undo and the last 6 points marking consumed ones, and lock every button while a job runs; leaving the screen stops only the browser driver, not what the server saved."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "تصدير متوقف عند 7/40 ثم ضغط الزر ← «استكمال من 7/40» يتابع المهمة نفسها.",
+          "en": "An export stopped at 7/40 then the button pressed ← «resume from 7/40» continues the same job."
+        },
+        {
+          "ar": "عبارة «تصفير النظام » بمسافة زائدة ← زر «تصفير» معطّل.",
+          "en": "The phrase with a trailing space ← the «reset» button stays disabled."
+        },
+        {
+          "ar": "ثلاثة عشر خطأ اتصالٍ متتالياً ← يتوقف المحرّك برسالة «التقدم المحفوظ لم يُفقد».",
+          "en": "Thirteen consecutive transport errors ← the driver stops with «saved progress was not lost»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/AdminUsers.tsx#driveExportJob",
+          "src/components/AdminUsers.tsx#driveImportJob",
+          "src/components/AdminUsers.tsx#exportFullBackup",
+          "src/components/AdminUsers.tsx#importFullBackup",
+          "src/components/AdminUsers.tsx#resetFullSystem",
+          "src/components/AdminUsers.tsx#undoSystemOperation",
+          "src/components/AdminUsers.tsx#uploadBackupJob"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-034",
+      "kind": "functional",
+      "title": {
+        "ar": "ترويسة الطباعة وعناصر الواجهة المشتركة",
+        "en": "Print letterhead and shared interface elements"
+      },
+      "text": {
+        "ar": "يجب أن تحمل كل ورقة مطبوعة من الواجهة ترويسةً بالعنوان والنطاق وشعار الكلية (رسمٌ متجهي بلونيها الأزرق والذهبي) واسم الكلية مع «نظام الجدول الأكاديمي»، أو «الجدول الأكاديمي» مع «SCHEDULE» حين لا يُعطى اسم الكلية، وتذييلاً يتكرر في كل صفحة باسم الكلية أو العنوان ورقم الصفحة وختم التاريخ والوقت (يوم/شهر/سنة · الوقت)؛ وأن يمرّر شريط أقسام لوحة الإدارة القسمَ النشط إلى منتصف الرؤية كلما تغيّر؛ وأن يعرض مؤشر التحميل الصغير role=status بنص «جاري المعالجة…» افتراضياً؛ وأن تُفتح البطاقة القابلة للضغط بـEnter أو المسافة كما بالنقر.",
+        "en": "Every sheet printed from the interface shall carry a letterhead with the title, the scope, the college emblem (a vector mark in its blue and gold) and the college name with «academic schedule system», or «academic schedule» with «SCHEDULE» when no college name is given, and a footer repeated on every page with the college name or title, the page number and a date and time stamp (day/month/year · time); the console section rail shall scroll the active section into the middle of the view whenever it changes; the small loader shall use role=status with «processing…» by default; and a clickable record card shall open with Enter or Space as with a click."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "طباعة تقرير دون اسم كلية ← الترويسة «الجدول الأكاديمي» و«SCHEDULE».",
+          "en": "Printing a report with no college name ← the letterhead reads «academic schedule» and «SCHEDULE»."
+        },
+        {
+          "ar": "بطاقة مقرر مع التركيز عليها ثم المسافة ← تُختار كما بالنقر دون تمرير الصفحة.",
+          "en": "A focused course card and Space ← it is selected as with a click without scrolling the page."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ui.tsx#PrintLetterhead",
+          "src/components/ui.tsx#CollegeEmblem",
+          "src/components/ui.tsx#ConsoleRail",
+          "src/components/ui.tsx#MicroLoader",
+          "src/components/ui.tsx#RecordCard"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-035",
+      "kind": "functional",
+      "title": {
+        "ar": "أدوات المطوّر لالتقاط لقطات الشاشات",
+        "en": "Developer screenshot-capture tools"
+      },
+      "text": {
+        "ar": "يجب أن تلتقط ثماني أدوات للمطوّر لقطات تحقق بصري لميزات بعينها على خادم تجريبي معزول فقط، بعرضين 390 و1440 بكسل (ارتفاع 844 للهاتف و900 لسطح المكتب، بلغة ar-KW)، وتحفظها PNG في مجلد خاص تحت docs/: الأثر (activity-trail-screens.ts → docs/activity-trail)، والشارات الموحّدة (consistent-badges-screens.ts → docs/consistent-badges)، و«لم نصل بعد إلى هذا المستوى» وتبويبا الصحيفة في النشر (course-reach-screens.ts → docs/course-reach)، وتغطية الوسوم وعضوية الصحيفة (course-tags-coverage-screens.ts → docs/course-tags-coverage)، وملاحظات المالك 2026-10-28 (owner-1028-screens.ts → docs/owner-1028 مع سجل ‎_log.txt)، وورقة «لم نصل بعد» قبل إرسال بطاقة الأستاذ (prepublish-reach-screens.ts)، و«نشر ← بطاقة الأستاذ ← أساتذة محددون» (publish-pick-teachers-screens.ts)، والدرجات العلمية والعبء (ranks-load-screens.ts → docs/ranks-load)؛ وأن تُقلع كل أداة خادمها الخاص (DATA_MODE=demo وNODE_ENV=development) على منفذ عشوائي بين 3000 و3899 ما لم يُعطَ SCREENS_PORT لخادم قائم (أداتا ملاحظات المالك والدرجات تُقلعان دائماً على 3461 و3473 افتراضاً، وأداة الوسوم تعمل على خادم قائم فقط بمنفذ افتراضي 3000)، وتنتظره حتى 180 ثانية عبر ‎/api/demo/config، وتدخل بالدخول التجريبي وتنتظر جاهزية البيانات ثم تبدّل الصفة، ويطوي أغلبها جولة التعريف، وتُطفئ مجموعة عمليات الخادم في الختام وعند الخطأ؛ وأن تقرأ PLAYWRIGHT مسار المكتبة، وSCREENS_ONLY لقصر التشغيل على أقسام بعينها، وتقرأ أداة الوسوم أيضاً SCREENS_PREFIX (before أو after، الافتراضي after) وSCREENS_OUT وSCREENS_WIDTHS وSCREENS_DEBUG؛ ولا تكتب إلا في بيانات الصندوق التجريبي (فتح مرحلة التدريب، اعتماد قاعدة صحيفة، إضافة مقاعد…) ولا تمسّ قاعدة حقيقية.",
+        "en": "Eight developer tools shall capture visual verification screenshots of specific features on an isolated demo server only, at two widths 390 and 1440 pixels (height 844 for the phone and 900 for the desktop, locale ar-KW), saving PNG files in a dedicated folder under docs/: the activity trail (activity-trail-screens.ts → docs/activity-trail), consistent badges (consistent-badges-screens.ts → docs/consistent-badges), «we have not reached this level yet» and the two sheet tabs in publishing (course-reach-screens.ts → docs/course-reach), tag coverage and sheet membership (course-tags-coverage-screens.ts → docs/course-tags-coverage), the owner notes of 2026-10-28 (owner-1028-screens.ts → docs/owner-1028 with a _log.txt log), the «not reached yet» sheet before sending the teacher card (prepublish-reach-screens.ts), «publish → teacher card → selected teachers» (publish-pick-teachers-screens.ts) and academic ranks and load (ranks-load-screens.ts → docs/ranks-load); each tool shall start its own server (DATA_MODE=demo, NODE_ENV=development) on a random port between 3000 and 3899 unless SCREENS_PORT names a running server (the owner-notes and ranks tools always start one, on 3461 and 3473 by default, and the tags tool only uses a running server, default port 3000), wait for it up to 180 seconds through /api/demo/config, sign in through the demo entry, wait for the data to be ready, switch the role, most of them dismissing the onboarding tour, and kill the server's process group at the end and on error; they shall read PLAYWRIGHT for the library path and SCREENS_ONLY to limit the run to named parts, the tags tool also reading SCREENS_PREFIX (before or after, default after), SCREENS_OUT, SCREENS_WIDTHS and SCREENS_DEBUG; they write only to the demo sandbox's data (opening the training phase, approving a sheet rule, adding seats…) and never touch a real database."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "تشغيل أداة الأثر دون SCREENS_PORT ← يُقلع خادم تجريبي على منفذ بين 3000 و3899 ويُطفأ في الختام، وتظهر صورتان لكل لقطة (390 و1440).",
+          "en": "Running the trail tool without SCREENS_PORT ← a demo server starts on a port between 3000 and 3899 and is stopped at the end, with two images per shot (390 and 1440)."
+        },
+        {
+          "ar": "SCREENS_ONLY=triage لأداة الوسوم ← تُلتقط بطاقات التخطيط وحدها.",
+          "en": "SCREENS_ONLY=triage for the tags tool ← only the planning cards are captured."
+        },
+        {
+          "ar": "خادم لا يجيب خلال 180 ثانية ← «server did not start» والخروج بالرمز 1.",
+          "en": "A server not answering within 180 seconds ← «server did not start» and exit code 1."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/activity-trail-screens.ts",
+          "scripts/consistent-badges-screens.ts",
+          "scripts/course-reach-screens.ts",
+          "scripts/course-tags-coverage-screens.ts",
+          "scripts/owner-1028-screens.ts",
+          "scripts/prepublish-reach-screens.ts",
+          "scripts/publish-pick-teachers-screens.ts",
+          "scripts/ranks-load-screens.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-036",
+      "kind": "functional",
+      "title": {
+        "ar": "أدوات تقسيم ملف الخادم",
+        "en": "Server-split tooling"
+      },
+      "text": {
+        "ar": "يجب أن تقسم أدوات scripts/split-server ملف server.ts الأحادي إلى وحدات تحت src/server/core وroutes وpages نقلاً بلا تغيير: يقرأ analyze.mjs الملف بمدقق TypeScript وحدات (كل جملة في المستوى الأعلى، والتعريفات المتكررة لدالة واحدة وحدة) مع أسمائها ومراجعها (قيمة أو نوع، كتابة، قراءة ساعة التحميل) ومسارات طرقها؛ ويحدد mapping.mjs وجهة كل وحدة (routes بادئة مسار ← وحدة، place، keep، regions، stmts)؛ ويضع plan.mjs الطرق بحسب مسارها والتعريفات حيث سُمّيت أو مع مستعمليها أو منطقتها، ويُبقي ما يمسّ app في server.ts، وينقل متغير let يُكتب من خارج وحدته إلى core/state.ts، ويقسم دالة التسجيل حين يلتقي طريق مع طريق في وحدة أخرى، ويسجّل المشكلات (قاعدة غائبة لمسار، اسم غير موجود، استعمال اسم باقٍ في server.ts)؛ ويجيب routeOverlap.mjs هل يطابق طلب واحد طبقتين بعينات عناوين تُختبر على تعبيرَي Express نفسيهما؛ وينسخ generate.mjs نص كل جملة بالبايت مع تعليقاتها ولا يغيّر إلا إضافة export وx ← state.x، ويختم كل ملف مولّد بعلامة النقل؛ ويحوّل rewriteTests.mjs قراءات نص server.ts في tests وscripts إلى readServerSource() ويطبع ما يحتاج مراجعة. وأن يكون split.mjs المشغّل: ‎--plan (الافتراضي) تقرير بالأحجام ودوال التسجيل ومتغيرات الحالة والمشكلات ويخرج بالرمز 1 إن وُجدت، و‎--write يكتب ما لم توجد مشكلة، مع ‎--source و‎--phase (pages أو helpers أو routes، الافتراضي routes) و‎--out و‎--verbose و‎--all-patches؛ وأن يرفض ملفاً مقسوماً أصلاً، ولا يمسح مجلدات الوحدات إلا إن حملت كل ملفاتها علامة النقل، ويطبّق الرقع اليدوية من patches/<المرحلة> بـgit apply ويتوقف إن تعذّر تطبيق إحداها. ويحكم اختبار تكافؤ الموجّه بأن التقسيم لم يغيّر جدول الطرق ولا ترتيب الطبقات الملتقية ولا مخرجات الصفحات.",
+        "en": "The scripts/split-server tools shall split the monolithic server.ts into modules under src/server/core, routes and pages as an unchanged move: analyze.mjs reads the file with the TypeScript checker into units (each top-level statement, consecutive overloads of one function being one unit) with their names, references (value or type, write, load-time read) and route paths; mapping.mjs sets each unit's destination (routes path prefix → module, place, keep, regions, stmts); plan.mjs places routes by path and declarations where named, with their users or in their region, keeps what touches app in server.ts, moves a let variable written outside its unit to core/state.ts, splits a registration function when a route overlaps a route in another module, and records problems (no rule for a path, a missing name, use of a name left in server.ts); routeOverlap.mjs answers whether one request can match two layers by testing sample URLs against Express's own two expressions; generate.mjs copies each statement's text byte for byte with its comments, changing only an added export and x → state.x, and stamps every generated file with the move mark; rewriteTests.mjs turns reads of the server.ts text in tests and scripts into readServerSource() and prints what needs review. split.mjs shall be the runner: --plan (default) reports sizes, registration functions, state variables and problems, exiting with 1 if any, and --write writes unless a problem exists, with --source, --phase (pages, helpers or routes, default routes), --out, --verbose and --all-patches; it shall refuse an already split file, clear the module folders only if every file in them carries the move mark, and apply the manual patches from patches/<phase> with git apply, stopping if one fails. The router parity test judges that the split changed neither the route table, the order of overlapping layers nor the page outputs."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "تشغيل split.mjs ‎--write على server.ts المقسوم حالياً ← «server.ts مقسومٌ أصلاً» والخروج بالرمز 1.",
+          "en": "Running split.mjs --write on the current split server.ts ← «server.ts is already split» and exit code 1."
+        },
+        {
+          "ar": "ملف في src/server/routes بلا علامة النقل ← لا يُمسح ويتوقف التشغيل.",
+          "en": "A file in src/server/routes without the move mark ← it is not deleted and the run stops."
+        },
+        {
+          "ar": "طريقان GET ‎/api/x/:id وGET ‎/api/x/list في وحدتين ← يُعدّان ملتقيين ويُحفظ ترتيبهما.",
+          "en": "Two routes GET /api/x/:id and GET /api/x/list in two modules ← treated as overlapping and their order kept."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/split-server/split.mjs",
+          "scripts/split-server/analyze.mjs#analyzeServer",
+          "scripts/split-server/plan.mjs#planSplit",
+          "scripts/split-server/mapping.mjs",
+          "scripts/split-server/generate.mjs#generate",
+          "scripts/split-server/rewriteTests.mjs#rewriteTests",
+          "scripts/split-server/routeOverlap.mjs#layersOverlap",
+          "docs/SERVER_MAP.md"
+        ],
+        "tests": [
+          "tests/server-route-parity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-037",
+      "kind": "functional",
+      "title": {
+        "ar": "رسم أصول العلامة وأيقوناتها وتدقيقها",
+        "en": "Rendering and auditing the brand assets and icons"
+      },
+      "text": {
+        "ar": "يجب أن يرسم scripts/render-brand.mjs كل أصل مستقل للعلامة من مصدر واحد: الأعمدة الخمسة نفسها في src/components/BrandMark.tsx (مضروبة في 8 على شبكة 512) والألوان ‎--brand-jade و‎--brand-brass و‎--brand-ground مقروءةً من src/styles/01-foundation.css، ويتوقف برسالة صريحة إن غاب أحدها؛ فيكتب public/schedule-icon.svg (حافة إلى حافة مع حلقة) وpublic/schedule-maskable.svg (أرضية مربعة بلا حلقة) وscripts/social-card.html (بطاقة المشاركة 1200×630 تُرسم منها بمتصفح صورةُ public/schedule-social-card-v4.png يدوياً لأن النص عربي) وأيقونات PNG بمقاسات 192 و512 و512 للقناع؛ وأن يتحقق بالخيار ‎--check دون كتابة: النصوص بالبايت، والصور بالبكسل عند مركز كل عمود ونقطتين من الأرضية بسماح 6 درجات لكل قناة، ومواضع اسم البرنامج الخمسة في ملفات الأنماط تستعمل ‎--brand-word-track و‎--brand-word-weight و‎--brand-word-family لا قيماً مكتوبة يدوياً؛ ويخرج بالرمز 1 ويقترح إعادة التوليد عند أي فرق؛ ويشغَّل التحقق في كل بناء إنتاجي (audit:brand). وأن يبقى scripts/render-icons.mjs أداةً أقدم ترسم صور PNG الثلاث وحدها بالأعمدة نفسها وبألوان ثابتة مكتوبة فيها.",
+        "en": "scripts/render-brand.mjs shall draw every standalone brand asset from one source: the same five bars as src/components/BrandMark.tsx (multiplied by 8 on a 512 grid) and the colours --brand-jade, --brand-brass and --brand-ground read from src/styles/01-foundation.css, stopping with an explicit message if one is missing; it writes public/schedule-icon.svg (edge to edge with a ring), public/schedule-maskable.svg (square ground without a ring), scripts/social-card.html (the 1200×630 share card from which public/schedule-social-card-v4.png is drawn by hand with a browser because the text is Arabic) and PNG icons at 192, 512 and 512 maskable; with --check it shall verify without writing: text assets byte for byte, images by pixel at the centre of each bar and two ground points with a tolerance of 6 levels per channel, and that the five places of the product name in the stylesheets use --brand-word-track, --brand-word-weight and --brand-word-family rather than hand-written values; it exits with 1 and suggests regenerating on any difference, and the check runs in every production build (audit:brand). scripts/render-icons.mjs shall remain an older tool that draws only the three PNG images with the same bars and colours fixed in it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعديل public/schedule-icon.svg يدوياً ← ‎--check يفشل «يخالف ما يولّده هذا السكربت».",
+          "en": "Editing public/schedule-icon.svg by hand ← --check fails saying it differs from what the script produces."
+        },
+        {
+          "ar": "إعادة رسم PNG على نظام مختلف ببايتات مختلفة وألوان مطابقة ← ‎--check ينجح.",
+          "en": "Re-drawing a PNG on another system with different bytes but matching colours ← --check passes."
+        },
+        {
+          "ar": "موضع للاسم بتباعد حروف مكتوب يدوياً ← فشل يسمّي الملف والمحدِّد.",
+          "en": "A name site with hand-written letter-spacing ← a failure naming the file and selector."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/render-brand.mjs",
+          "scripts/render-icons.mjs",
+          "package.json"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-OPS-038",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "بوابتا تدقيق المرشد في البناء",
+        "en": "The two guide audit gates in the build"
+      },
+      "text": {
+        "ar": "يجب أن يشغّل كل بناء إنتاجي بوابتين للمرشد (وحدة الواجهات والتحليلات تصف المرشد نفسه): scripts/guide-audit.mjs (audit:guide) يقرأ سجل ميزات المرشد وإجراءاته ورحلاته من شجرة الكود ويفشل إن نقصت ميزةً معرّفٌ أو عنوان أو شرح أو تصنيف أو كلمات فهم أو رقم إصدار، أو كان مستوى خطرها خارج read/prepare/write/sensitive، أو أشار هدف أو خطوة إلى عنصر غير موجود، أو حمل data-guide-ignore بلا سبب، أو كان لإجراءٍ ميزة أو صلاحية غير معرّفة أو بلا تحقق أو بلا سياسة تأكيد أو كان write/sensitive بلا تأكيد إلزامي، أو كانت رحلة بلا شروط نجاح وفشل وخطوات ومهلة، أو كانت واجهة في App.tsx بلا تعريف page.<الواجهة>، أو ميزة بلا جواب في بنك المعرفة، أو زرّ جديد بلا معرّف ميزة أو هدف أو تجاهل موثق ولم يكن في خط الأساس scripts/guide-control-baseline.json (يُعاد كتابته بـGUIDE_UPDATE_CONTROL_BASELINE=1)، أو زرّ مؤثر (حذف، نشر، اعتماد، استيراد، تصدير، نقل…) بلا تسجيل، أو غابت آلية أساسية، أو اعتمد المرشد على خدمة خارجية مدفوعة وقت التشغيل، أو لم يستدعِ البناء البوابات الثلاث؛ وscripts/guide-behavior-tests.mjs (test:guide) يحوّل محرك المرشد في مجلد مؤقت ويختبر سلوكه: الإتقان والتعثر والتردد، وخفض إتقان الميزة المتغير إصدارها وحدها، وحجب ميزات الإدارة عن المستخدم العادي، والتراجع بترتيب عكسي، وأن المحاولة لا تُحسب نجاحاً، وثبات هوية العناصر المكتشفة، ثم ينشئ ملف زر تجريبي ويتأكد أن التدقيق يفشل به ويحذفه؛ وكلاهما يخرج بالرمز 1 ويسرد الإخفاقات.",
+        "en": "Every production build shall run two guide gates (the interfaces and analytics module describes the guide itself): scripts/guide-audit.mjs (audit:guide) reads the guide's feature, action and journey registry from the source tree and fails if a feature lacks an id, title, summary, group, keywords or version number, has a risk level outside read/prepare/write/sensitive, a target or step points to a missing element, data-guide-ignore carries no reason, an action has an undefined feature or permission, no verification or no confirmation policy, or is write/sensitive without mandatory confirmation, a journey lacks success and failure conditions, steps or a timeout, a view in App.tsx lacks a page.<view> definition, a feature has no answer in the knowledge bank, a new button lacks a feature id, target or documented ignore and is not in the baseline scripts/guide-control-baseline.json (rewritten with GUIDE_UPDATE_CONTROL_BASELINE=1), an impactful button (delete, publish, approve, import, export, move…) is unregistered, a core mechanism is missing, the guide depends on a paid external runtime service, or the build does not call the three gates; scripts/guide-behavior-tests.mjs (test:guide) compiles the guide engine into a temporary folder and tests its behaviour: mastery, friction and hesitation, lowering only the mastery of the feature whose version changed, hiding administration features from a standard user, undo in reverse order, an attempt never counting as success, and stable identity of discovered controls, then creates a probe button file, checks that the audit fails on it and deletes it; both exit with 1 listing the failures."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "زر جديد «ميزة جديدة» بلا وسم ← التدقيق يفشل «عنصر تفاعلي جديد بلا guideFeatureId/target أو ignore موثق».",
+          "en": "A new unlabelled button ← the audit fails reporting a new interactive control without guide metadata."
+        },
+        {
+          "ar": "إجراء write بـrequiresConfirmation=false ← فشل التدقيق.",
+          "en": "A write action with requiresConfirmation=false ← the audit fails."
+        },
+        {
+          "ar": "نجاح كل الاختبارات ← «نجحت اختبارات قبول المرشد: n اختباراً سلوكياً».",
+          "en": "All tests passing ← «guide acceptance tests passed: n behavioural tests»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/guide-audit.mjs",
+          "scripts/guide-behavior-tests.mjs",
+          "package.json"
+        ],
+        "tests": [
+          "scripts/guide-behavior-tests.mjs"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-039",
+      "kind": "functional",
+      "title": {
+        "ar": "مولّدا ملفات الاختبار والأمثلة الصورية",
+        "en": "Generators of test fixtures and example images"
+      },
+      "text": {
+        "ar": "يجب أن يبني scripts/make-scan-pdf.mjs ‎<المخرج.pdf> ‎<صورة1.jpg>… ملف PDF 1.4 ممسوحاً بلا مكتبة، صفحةً لكل صورة JPEG بعرض 842 نقطة وارتفاع متناسب مع الصورة (ترميز DCTDecode)، ويتوقف بـ«not a JPEG» لغير JPEG، ليُختبر مسار رفع PDF الحقيقي بصور كشوف حقيقية؛ وأن يولّد scripts/make-graduation-sheet-example.mjs صورة public/graduation-sheet-example.jpg (945×640، جودة 88) التي تظهر مثالاً في استبيان الخريجين العام، بخط Plex Arabic، ببيانات وهمية معلنة: «طالب تجريبي» ورقم مدني مخترع صالح التحقق وبرنامج «تربية خاصة — نموذج» و134 وحدة مطلوبة و114 مجتازة، مع علامة مائية «نموذج توضيحي — بيانات وهمية» وسطر تنبيه يطلب رفع الصفحة الرسمية؛ ولا تُستبدل بلقطة من بوابة طالب حقيقية.",
+        "en": "scripts/make-scan-pdf.mjs <output.pdf> <page1.jpg>… shall build a scanned PDF 1.4 without a library, one page per JPEG image at a width of 842 points and a height proportional to the image (DCTDecode encoding), stopping with «not a JPEG» for anything else, so the real PDF upload path can be tested with real report photos; scripts/make-graduation-sheet-example.mjs shall produce public/graduation-sheet-example.jpg (945×640, quality 88) shown as the example in the public graduate survey, in the Plex Arabic font, with declared fictional data: «test student», an invented checksum-valid civil ID, the programme «special education — sample», 134 required and 114 passed units, a watermark «illustrative sample — fictional data» and a notice line asking to upload the official page; it is never replaced by a screenshot of a real student portal."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "صورة النموذج ← JPEG صالح بلا بيانات EXIF ومولّدها يحوي «طالب تجريبي» و«بيانات وهمية».",
+          "en": "The example image ← a valid JPEG without EXIF data whose generator contains the fictional student and the fictional-data notice."
+        },
+        {
+          "ar": "PDF من صورتين ← صفحتان يقرؤهما مسار رفع الكشوف كما يرفعه المستخدم.",
+          "en": "A PDF from two photos ← two pages read by the report upload path as a user would upload them."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/make-scan-pdf.mjs",
+          "scripts/make-graduation-sheet-example.mjs"
+        ],
+        "tests": [
+          "tests/student-journey-audit.ts",
+          "tests/swrs136-real-photos-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

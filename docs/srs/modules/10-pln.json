@@ -113,7 +113,7 @@
       },
       "file": "src/components/SectionGapNote.tsx",
       "note": {
-        "ar": "شارة هادئة في شريط الاعتماد تفتح قائمة «٥ ← ٧».",
+        "ar": "شارة هادئة في شريط الاعتماد تفتح قائمة «5 ← 7».",
         "en": "A quiet badge in the approval bar opening a «5 to 7» list."
       }
     },
@@ -1672,8 +1672,8 @@
         "en": "Reference sheets and their application"
       },
       "text": {
-        "ar": "يجب على النظام أن يحمل الصحيفتين المرجعيتين لقسم تكنولوجيا التعليم (القديمة 130 وحدة، والجديدة 125 وحدة) وأن يطبقهما على الكتالوج بمعاينة افتراضية قبل الكتابة، للحساب الرئيسي وحده.",
-        "en": "The system shall carry the two reference sheets of the educational technology department (old 130 units, new 125 units) and apply them to the catalogue with a default dry run before writing, for the main administrator only."
+        "ar": "يجب على النظام أن يحمل الصحيفتين المرجعيتين لقسمٍ مرجعيٍّ واحد (القديمة 130 وحدة، والجديدة 125 وحدة) وأن يطبقهما على الكتالوج بمعاينة افتراضية قبل الكتابة، للحساب الرئيسي وحده.",
+        "en": "The system shall carry the two reference sheets of one reference department (old 130 units, new 125 units) and apply them to the catalogue with a default dry run before writing, for the main administrator only."
       },
       "priority": "must",
       "status": "implemented",
@@ -1882,8 +1882,8 @@
           "en": "The page shows the department's own courses only, with external requirements as notes rather than cards."
         },
         {
-          "ar": "فهرس /plans/ لا يكرر الجهراء والفحيحيل، وصفحة تكنولوجيا التعليم الثابتة تبقى فيه ما لم يُنشر القسم.",
-          "en": "The /plans/ index does not repeat the sub-sites, and the static educational technology page remains until that department is published."
+          "ar": "فهرس /plans/ لا يكرر الموقعين الفرعيين، وصفحة القسم المرجعي الثابتة تبقى فيه ما لم يُنشر القسم.",
+          "en": "The /plans/ index does not repeat the sub-sites, and the reference department's static page remains until that department is published."
         }
       ],
       "evidence": {
@@ -2696,8 +2696,8 @@
         "en": "Plan review reads and the publishing list"
       },
       "text": {
-        "ar": "يجب على النظام أن يعيد لحالة المراجعة المسوّدات المعلّقة والمعتمدة التي يراها الحساب، وأقسامه بصحائفها غير المؤرشفة (المعلّق أولاً ثم الفعّالة)، ووجهات الرفع بمسارات الأقسام للحساب الرئيسي وحده، وهل يملك الاعتماد (رئيس الجدول أو الإدارة) والاستيراد؛ وأن يعيد الصحائف المرجعية للمقارنة للقراءة فقط ولقسم تكنولوجيا التعليم وحده؛ وأن يعيد عرض الصحيفة وتعديل قاعدة مقرر ومجموعة اختيارية وحذفها لمن يملك التعديل، مع سطر في الأثر لكل تعديل، وأن تسحب المجموعة الجديدة مقرراتها من غيرها؛ وأن يعيد شارات الصحائف وأنواع المتطلبات في نطاق الحساب ويمسح ذاكرتها مع fresh=1؛ وأن يعيد قائمة النشر لكل مسار قسم بصحائفه المعتمدة وهل نُشرت ومتى وهل النسخة المنشورة أقدم من المعتمدة.",
-        "en": "The system shall return for the review status the pending and approved drafts the account can see, its departments with their non-archived sheets (pending first, then active), upload targets by department track for the root account only, and whether it may approve (schedule chair or administration) and import; shall return the reference sheets for comparison read-only and for the educational technology department only; shall return the sheet view and allow editing a course rule and an elective group and deleting it to those who may edit, with an audit line per edit, a new group taking its courses away from other groups; shall return sheet badges and requirement kinds within the account's scope, clearing their cache with fresh=1; and shall return the publishing list per department track with its approved sheets, whether and when each was published, and whether the published copy is older than the approved one."
+        "ar": "يجب على النظام أن يعيد لحالة المراجعة المسوّدات المعلّقة والمعتمدة التي يراها الحساب، وأقسامه بصحائفها غير المؤرشفة (المعلّق أولاً ثم الفعّالة)، ووجهات الرفع بمسارات الأقسام للحساب الرئيسي وحده، وهل يملك الاعتماد (رئيس الجدول أو الإدارة) والاستيراد؛ وأن يعيد الصحائف المرجعية للمقارنة للقراءة فقط وللقسم المرجعي وحده؛ وأن يعيد عرض الصحيفة وتعديل قاعدة مقرر ومجموعة اختيارية وحذفها لمن يملك التعديل، مع سطر في الأثر لكل تعديل، وأن تسحب المجموعة الجديدة مقرراتها من غيرها؛ وأن يعيد شارات الصحائف وأنواع المتطلبات في نطاق الحساب ويمسح ذاكرتها مع fresh=1؛ وأن يعيد قائمة النشر لكل مسار قسم بصحائفه المعتمدة وهل نُشرت ومتى وهل النسخة المنشورة أقدم من المعتمدة.",
+        "en": "The system shall return for the review status the pending and approved drafts the account can see, its departments with their non-archived sheets (pending first, then active), upload targets by department track for the root account only, and whether it may approve (schedule chair or administration) and import; shall return the reference sheets for comparison read-only and for the reference department only; shall return the sheet view and allow editing a course rule and an elective group and deleting it to those who may edit, with an audit line per edit, a new group taking its courses away from other groups; shall return sheet badges and requirement kinds within the account's scope, clearing their cache with fresh=1; and shall return the publishing list per department track with its approved sheets, whether and when each was published, and whether the published copy is older than the approved one."
       },
       "priority": "should",
       "status": "implemented",
@@ -2713,7 +2713,7 @@
           "en": "Editing a rule for a course not in the sheet is refused with 400, a group with no name with 400, and someone without edit rights with 403."
         },
         {
-          "ar": "المرجعية لقسم خارج النطاق تُردّ بـ403، ولغير تكنولوجيا التعليم تعيد قائمة فارغة.",
+          "ar": "المرجعية لقسم خارج النطاق تُردّ بـ403، ولغير القسم المرجعي تعيد قائمة فارغة.",
           "en": "The reference for a department outside scope is refused with 403, and for any other department returns an empty list."
         },
         {
@@ -2782,6 +2782,487 @@
         "tests": [
           "tests/relay-fixes-audit.ts",
           "tests/rehearsal-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-041",
+      "kind": "functional",
+      "title": {
+        "ar": "حفظ تخطيط الشعب وحده وجدوله",
+        "en": "Section-planning autosave and its table"
+      },
+      "text": {
+        "ar": "يجب أن تحفظ شاشة تخطيط الشعب كل تعديلٍ في «الاحتياج» أو «المختار» وحده بعد 900 ملّيثانية من آخر تعديل، وأن ترسل ما بقي معلّقاً عند إغلاق الصفحة أو تبديل النطاق بطلبٍ يبقى حيّاً بعد الإغلاق، وألا تكتب أرقام نطاقٍ في سجلّ نطاقٍ آخر لم يكتمل تحميله، وأن تعرض المقررات مرتّبة برقمها عددياً مع بحثٍ لا يتعثّر بالهمزات والتاء المربوطة والألف المقصورة والتشكيل والأرقام الهندية.",
+        "en": "The section-planning screen shall save every edit to «need» or «chosen» on its own 900 ms after the last edit, send whatever is still pending when the page closes or the scope changes with a request that survives the close, never write one scope's figures into the record of another scope not yet loaded, and list courses ordered numerically by number with a search that ignores hamza forms, ta marbuta, alef maqsura, diacritics and Arabic-Indic digits."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "سطر الحفظ: «يُحفظ…» ثم «حُفظ التاريخ الوقت — الاسم»، أو «تعذّر الحفظ» مع «أعد المحاولة».",
+          "en": "The save line: «saving…» then «saved date time — name», or «could not save» with «retry»."
+        },
+        {
+          "ar": "خانة «المختار» الفارغة تُظهر المقترح وتُحسب به، والاختيار خارج المدى المقترح يُعلَّم «خارج المدى» ونجمةً في التقرير.",
+          "en": "An empty «chosen» cell shows the suggestion and counts with it, and a choice outside the suggested range is marked «outside the range» and with an asterisk in the report."
+        },
+        {
+          "ar": "مقرر مغلق أو مستقبلي يُقترح له صفر، ومقرر محدود لا يتجاوز اقتراحه حدّه الأعلى.",
+          "en": "A closed or future course is suggested zero, and a limited course's suggestion does not exceed its maximum."
+        },
+        {
+          "ar": "كتابة احتياجٍ بلا كشف تسم المصدر «إدخال يدوي» بعمود «لم يجتازوا».",
+          "en": "Typing a need without a report labels the source «manual entry» with the «not passed» column."
+        },
+        {
+          "ar": "«لماذا؟» يعرض الاحتياج وسعة الشعبة (وكم شعبة تكفي = ⌈الاحتياج ÷ السعة⌉) وآخر 3 فصول مماثلة ومنشأ المقرر، وجملة الاقتراح وتراكم الطلبة.",
+          "en": "«why?» shows the need, section capacity (and how many sections suffice = ⌈need ÷ capacity⌉), the last 3 similar terms and the course lineage, the suggestion sentence and the student backlog."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/SectionPlanning.tsx#persist",
+          "src/components/SectionPlanning.tsx#edit",
+          "src/components/SectionPlanning.tsx#fold",
+          "src/components/SectionPlanning.tsx#courseNumber"
+        ],
+        "tests": [
+          "tests/section-planning-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-042",
+      "kind": "functional",
+      "title": {
+        "ar": "مراجعة كشف الاحتياج قبل التعبئة",
+        "en": "Reviewing the need report before filling"
+      },
+      "text": {
+        "ar": "يجب أن تقبل الشاشة حتى 12 ملفاً (PDF أو صور صفحات)، فترسل من صورتين إلى أربع صور معاً في طلب واحد، وتقرأ ما سوى ذلك ملفاً ملفاً حاملةً عناوين الأول ثم تجمع الصفحات، وأن تعرض قبل التعبئة نافذة مراجعة بأعداد المقروء وما يحتاج مراجعة وما بلا شعب وما لم يرد، ولا تعبّئ إلا ما قُرئ بوضوح أو كتبه المستخدم أو أكّده.",
+        "en": "The screen shall accept up to 12 files (PDF or page images), sending two to four images together in one request and reading anything else file by file carrying the first file's headings, then merging the pages; before filling it shall show a review dialog with counts of read, needs-review, no-sections and not-present courses, filling only what was read clearly, typed by the user or confirmed."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "في الكشف المصوَّر أو الممسوح يُؤكَّد كل رقم مقروء بزر «يطابق الورقة» أو يُصحَّح، ولا يُعبَّأ رقمٌ لم يؤكَّد.",
+          "en": "In a photographed or scanned report each read number is confirmed with «matches the paper» or corrected, and no unconfirmed number is filled."
+        },
+        {
+          "ar": "سطرٌ رمزه المقروء يشبه رمز مقرر آخر برقمٍ واحد يُعبَّأ فقط بعد «نعم، هو …»، والخانة غير المقروءة تبقى فارغة ما لم تُكتب بيد.",
+          "en": "A line whose read code differs from another course's by one digit is filled only after «yes, it is …», and an unread cell stays empty unless typed by hand."
+        },
+        {
+          "ar": "أسطرٌ ليست من مقررات القسم تظهر خافتة «لا يُعبَّأ»، والمقررات غير الواردة تُذكر «لا تُمسّ قيمتها ولا تُفرَّغ».",
+          "en": "Lines that are not the department's courses appear muted «not filled», and absent courses are listed «their value is neither touched nor cleared»."
+        },
+        {
+          "ar": "زر التعبئة يقول «تعبئة n مقرر (منها m يدوياً)» أو «لا شيء يُعبَّأ» معطّلاً؛ وفي شاشة الرفع المختصرة يُعبَّأ كشف PDF النصّي مباشرة بلا نافذة.",
+          "en": "The fill button reads «fill n courses (m by hand)» or, disabled, «nothing to fill»; in the short upload screen a text PDF report is filled directly without the dialog."
+        },
+        {
+          "ar": "الرفض يظهر في صندوق أحمر «رُفض الكشف · لم يُستورد شيء» بأيقونة وعنوان قصير وإرشاد، وبمقارنة «في الكشف ≠ المختار» للقسم أو الفرع أو الفصل.",
+          "en": "A refusal appears in a red box «report refused · nothing imported» with an icon, a short title and a hint, and an «in the report ≠ chosen» comparison for department, branch or term."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/SectionPlanning.tsx#readFiles",
+          "src/components/SectionPlanning.tsx#applyImport",
+          "src/components/SectionPlanning.tsx#REJECT_SHORT",
+          "src/utils/remainingReport.ts#planRemainingApply"
+        ],
+        "tests": [
+          "tests/section-planning-audit.ts",
+          "tests/section-planning-import-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-043",
+      "kind": "functional",
+      "title": {
+        "ar": "إزالة الكشف وظهور «نزّل الشعب» والتقرير",
+        "en": "Clearing the report, showing «apply sections», and the report"
+      },
+      "text": {
+        "ar": "يجب أن تتيح الشاشة إزالة الكشف المستورد بعد تأكيدٍ داخل التطبيق فتمسح أرقام «المتبقي» و«المختار» والشاغر والمصدر لهذا الفصل، وأن تُظهر «نزّل الشعب» فقط حين يوجد كشف مستورد بلا رفض وخطة محفوظة فيها شعب، وأن تعرض تقرير تخطيط الشعب وتطبعه.",
+        "en": "The screen shall allow clearing the imported report after an in-app confirmation, wiping «remaining», «chosen», vacant seats and the source for the term; it shall show «apply sections» only when an imported report without refusal and a saved plan with sections exist; and it shall show and print the section-planning report."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "زر الإزالة ظاهرٌ دائماً ومعطّل بنصّ «لا كشف مستورد لإزالته» حين لا شيء محفوظ.",
+          "en": "The clear button is always visible and, when nothing is saved, disabled with the text «no imported report to clear»."
+        },
+        {
+          "ar": "بلا «نزّل الشعب» يُكتب السبب: «عالج رفض الكشف أولاً» أو «تعذّر حفظ الخطة» أو «تظهر بعد استيراد كشف المتبقي وحفظ خطةٍ فيها شعب».",
+          "en": "Without «apply sections» the reason is written: «resolve the report refusal first», «the plan could not be saved» or «appears after importing the remaining report and saving a plan with sections»."
+        },
+        {
+          "ar": "بياناتٌ محفوظة بعمود غير «لم يجتازوا» تظهر «بياناتٌ قديمة — أعد استيراد الكشف» ولا يُبنى عليها الاقتراح.",
+          "en": "Data saved under a column other than «not passed» shows «old data — re-import the report» and no suggestion is built on it."
+        },
+        {
+          "ar": "التقرير: مجموع الشعب المختارة والمعتاد للقسم والمقررات المخطّطة، وجدول رقم المقرر والاسم والاحتياج والمختار والمدى وآخر الفصول، ومقرراتٌ يتراكم عليها الطلبة؛ ويُحفظ المعلّق قبل فتحه.",
+          "en": "The report: total chosen sections, the department's usual total and planned courses, a table of course number, name, need, chosen, range and last terms, and courses with a student backlog; any pending edit is saved before it opens."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/SectionPlanning.tsx#clearImport",
+          "src/components/SectionPlanning.tsx#buildReady",
+          "src/components/SectionPlanning.tsx#openReport",
+          "src/components/SectionPlanning.tsx#print"
+        ],
+        "tests": [
+          "tests/section-planning-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-044",
+      "kind": "functional",
+      "title": {
+        "ar": "خريطة المستويات في مراجعة الصحيفة",
+        "en": "The level map in plan-sheet review"
+      },
+      "text": {
+        "ar": "يجب أن تعرض مراجعة الصحيفة مقررات القسم نفسه وحده في خريطة: عمودٌ لكل مستوى (و«بلا مستوى») بعدد مقرراته ووحداته، وبطاقةٌ لكل مقرر بوحداته واسمه ورمزه، وأسهم المسبقات ملوّنة بلون مصدرها (عشرة ألوان)، وأن يُضيء الضغط على بطاقة ما يسبقها وما يفتحه ويخفت الباقي مع لوحة «يتطلب/يفتح»، وأن تُذكر متطلبات المقررات من أقسام أخرى ملاحظاتٍ تحت الخريطة.",
+        "en": "Plan-sheet review shall show only the department's own courses on a map: one column per level (and «no level») with its course and unit counts, one card per course with units, name and code, prerequisite arrows coloured by their source (ten colours); pressing a card shall light what precedes it and what it opens and dim the rest, with a «requires/opens» panel; requirements owned by other departments shall be listed as notes under the map."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقررات المجموعات الاختيارية تُعرض في شريطها لا في أعمدة المستويات، وتحت كلٍّ منها أسهم متطلباتها.",
+          "en": "Elective-group courses appear in their group strip, not in the level columns, each with its prerequisite arrows beneath."
+        },
+        {
+          "ar": "لقسمٍ له صحيفة مرجعية يظهر مرشّح التصنيف بعدد المقررات والوحدات لكلٍّ منه، والمقررات خارج التصنيف معطّلة.",
+          "en": "For a department with a reference sheet a category filter appears with each category's course and unit counts, and courses outside the category are disabled."
+        },
+        {
+          "ar": "المقررات العامة تُذكر «n مقرراً عامّاً (n وحدة) تُحتسب في وحدات صحيفتك وتبقى لأقسامها، ولا تظهر هنا».",
+          "en": "General courses are stated as «n general courses (n units) counted in your sheet's units, belonging to their departments, not shown here»."
+        },
+        {
+          "ar": "الملاحظة تميّز «يتطلب أيضاً المقرر» و«يتطلب أيضاً أحد المقررات» و«يُسجَّل معه المقرر … في الفصل نفسه (أو سبق اجتيازه)».",
+          "en": "A note distinguishes «also requires the course», «also requires one of the courses» and «is registered with the course … in the same term (or already passed)»."
+        },
+        {
+          "ar": "القسم المرجعي لا يرى منتقي القسم والصحيفة؛ وغيره يرى القسم مع «بانتظار المراجعة» والصحائف مع «قيد المراجعة».",
+          "en": "The reference department does not see the department and sheet pickers; others see the department with «awaiting review» and sheets with «under review»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/PlanReview.tsx#PlanReview",
+          "src/components/PlanMapLines.tsx#planEdges",
+          "src/components/PlanReview.tsx#crossNotes",
+          "src/components/PlanReview.tsx#isTechnologyEducation"
+        ],
+        "tests": [
+          "tests/plan-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-045",
+      "kind": "functional",
+      "title": {
+        "ar": "لوحة الملاحظات وتأكيد اعتماد الصحيفة",
+        "en": "The issue board and the sheet-approval confirmation"
+      },
+      "text": {
+        "ar": "يجب أن تجمع مراجعة الصحيفة ملاحظاتها في لوحة مطويّة تُفتح وحدها حين يوجد مانع، مجموعةً بنوعها (المسبق في مستوىً لاحق، خارج الصحيفة، اختياري بلا مجموعة، دورة متطلبات، ليس في الصحيفة، مقرر غير معروف) والموانع أولاً، وأن يعرض زر «اعتماد الصحيفة» لصاحب حق الاعتماد في صحيفة قيد المراجعة تأكيداً في مكانه يذكر أن الصحيفة تصبح الإصدار التالي وتصل المحرّك وباب الطالب وأن أيقونة المراجعة تختفي وتعود إن عُدّلت.",
+        "en": "Plan-sheet review shall gather its issues on a folded board that opens by itself when a blocker exists, grouped by kind (prerequisite at a later level, outside the sheet, elective without a group, prerequisite cycle, not in the sheet, unknown course) with blockers first; for an approver on a sheet under review the «approve the sheet» button shall show an in-place confirmation stating that the sheet becomes the next version and reaches the engine and the student door, and that the review icon disappears and returns if it is edited."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "زر الاعتماد معطّل ما دام فيه مانع، ويُكتب «n مانع يمنع الاعتماد حتى يُصلَح».",
+          "en": "The approve button is disabled while any blocker remains, with «n blockers prevent approval until fixed»."
+        },
+        {
+          "ar": "الضغط على ملاحظة يحدّد مقررها في الخريطة ويفتحه، وشريط الحال يعرض «معتمدة · الإصدار n» أو «قيد المراجعة» وعدد المقررات والمستويات ومن اعتمد أو آخر من عدّل.",
+          "en": "Pressing an issue selects and opens its course on the map, and the state bar shows «approved · version n» or «under review» with course and level counts and who approved or last edited."
+        },
+        {
+          "ar": "كل تعديل أو اعتماد يبثّ حدث schedule:plan-review-updated فتتحدّث الشارات في الشاشات الأخرى.",
+          "en": "Every edit or approval emits the schedule:plan-review-updated event so badges refresh in other screens."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/PlanReview.tsx#IssueBoard",
+          "src/components/PlanReview.tsx#ISSUE_KIND",
+          "src/components/PlanReview.tsx#confirmApprove",
+          "src/components/PlanReview.tsx#act"
+        ],
+        "tests": [
+          "tests/plan-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-046",
+      "kind": "functional",
+      "title": {
+        "ar": "محرّر قواعد المقرر والمجموعات الاختيارية",
+        "en": "Course-rule editor and elective groups"
+      },
+      "text": {
+        "ar": "يجب أن يفتح محرّر المقرر حواراً يحجز التركيز داخله ويُغلق بـEscape ويعيد التركيز إلى ما فتحه، فيه بيانات المقرر (الوحدات 0–20، الساعات 0–40 بخطوة 0.5، السعة 0–200) تُحفظ فقط حين تتغيّر، والمستوى والنوع والوحدات المجتازة 0–200 والمسبقات «كلها» ومجموعات «يكفي واحدٌ منها» والمقرنات، وأن تكون الحقول للقراءة فقط لمقررٍ يملكه قسمٌ آخر أو لمن لا يملك التعديل؛ وأن تتيح لوحة المجموعات إنشاء مجموعة (افتراضياً مقرر واحد و3 وحدات) وتعديلها وحذفها.",
+        "en": "The course editor shall open a dialog that traps focus, closes with Escape and returns focus to its opener, holding the course data (units 0–20, hours 0–40 in steps of 0.5, capacity 0–200) saved only when changed, the level, kind, passed units 0–200, «all» prerequisites, «one of» groups and corequisites; fields shall be read-only for a course owned by another department or for a user without edit rights; the groups panel shall allow creating a group (default one course and 3 units), editing and deleting it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر قسمٍ آخر يُعرض بقفل وملاحظة «هذا المقرر من … — يعدّل قواعده قسمُه»، والمقرر العام «متطلبٌ عام: … يُحتسب في صحيفتك ويعدّله قسمُه».",
+          "en": "Another department's course shows a lock and the note «this course belongs to … — its department edits its rules», and a general course «a general requirement: … counted in your sheet and edited by its department»."
+        },
+        {
+          "ar": "حفظ المجموعة يتطلب اسماً، وحذف المجموعة ينفَّذ بضغطة واحدة بلا تأكيد.",
+          "en": "Saving a group requires a name, and deleting a group happens with a single press without confirmation."
+        },
+        {
+          "ar": "المستوى الافتراضي في المحرر يُستنتج من رمز المقرر حين لا قاعدة.",
+          "en": "The editor's default level is inferred from the course code when there is no rule."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/PlanReview.tsx#CourseEditor",
+          "src/components/PlanReview.tsx#GroupsPanel",
+          "src/components/PlanReview.tsx#saveCourseDetails",
+          "src/server/planReviewRoutes.ts#/api/plan-review/group/delete"
+        ],
+        "tests": [
+          "tests/plan-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-047",
+      "kind": "functional",
+      "title": {
+        "ar": "ردّ الأستاذ على المقترح في صفحته",
+        "en": "The instructor's response on the proposal page"
+      },
+      "text": {
+        "ar": "يجب أن تتيح صفحة المقترح للأستاذ الرد بإحدى طريقتين بحسب المقترح: ردٌّ لكل مادة («أوافق» أو «أحتاج تعديلاً»، وما يُترك بلا اختيار يبقى بانتظار الرد، مع زر «أوافق على كل المواد»)، أو ردٌّ واحد على «ترتيبٍ واحد متكامل» لا يُوافَق على بعضه دون بعض؛ وأن يظهر عند طلب التعديل نموذج فيه السبب الرئيسي (الوقت، الأيام، النصاب التدريسي، سبب آخر) وملاحظة اختيارية حتى 600 حرف ووقت بداية مقترح اختياري بين 08:00 و19:00 وأيام مقترحة اختيارية، ثم يوقّع الرد برقمه المدني دون أن يُحفظ الرقم.",
+        "en": "The proposal page shall let the instructor respond in one of two ways depending on the proposal: per item («I agree» or «I need a change», items left unchosen staying pending, with an «I agree to all items» button), or a single response to «one integrated arrangement» that cannot be partly approved; requesting a change shall show a form with the main reason (time, days, teaching load, other reason), an optional note up to 600 characters, an optional suggested start time between 08:00 and 19:00 and optional suggested days; the response is then signed with the civil number, which is not stored."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا اختيار يبقى زر الإرسال معطّلاً بنص «اختر ردّك أولاً»، وطلب تعديل بلا سبب ولا ملاحظة ← «اختر سبباً مختصراً أو اكتب ملاحظةً عمّا تحتاج تعديله».",
+          "en": "With no choice the send button stays disabled reading «choose your response first», and a change request with neither reason nor note ← «choose a short reason or write a note about what you need changed»."
+        },
+        {
+          "ar": "بعد التسجيل تعرض الصفحة «تم تسجيل موافقتك · بانتظار تثبيت القسم» أو «سجّلنا طلب التعديل · سيراجعه القسم» وتقول إن الجدول لم يتغيّر، ويمكن «غيّر ردّي» ما دام القسم لم يثبّت، و«تراجع عن التغيير» يعيد المسجّل.",
+          "en": "After recording, the page shows «your approval is recorded · awaiting the department's commit» or «your change request is recorded · the department will review it» and says the schedule has not changed; «change my response» is available until the department commits, and «undo the change» restores what was recorded."
+        },
+        {
+          "ar": "ردّ قديم السبب «place» يُعرض «سبب آخر»، وعدّاد الملاحظة «n / 600».",
+          "en": "An old response with reason «place» is shown as «other reason», and the note counter reads «n / 600»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalPage.ts#respHtml",
+          "src/server/studyProposalPage.ts#send",
+          "src/server/studyProposalPage.ts#payload",
+          "src/server/studyProposalPage.ts#REASONS"
+        ],
+        "tests": [
+          "tests/study-proposal-public-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-048",
+      "kind": "functional",
+      "title": {
+        "ar": "حال المقترح وموعد الرد وأخطاء الإرسال",
+        "en": "Proposal status, reply deadline and sending errors"
+      },
+      "text": {
+        "ar": "يجب أن تعرض صفحة المقترح حاله (بانتظار ردّك، وافقتَ، موافقة جزئية، طلبتَ تعديلاً، سحبه القسم، انتهت مهلة الرد، ثبّته القسم) وسطر «آخر موعد للرد» مع الباقي منه، أو «انتهت المهلة في …»، ورقم النسخة حين يكون بعد الأولى، ووقت الإرسال ومرسله، ورسالة القسم، وأن تعالج رفض الإرسال برسالة واضحة وزر مناسب.",
+        "en": "The proposal page shall show its status (awaiting your response, you approved, partial approval, you requested a change, withdrawn by the department, reply period ended, committed by the department), the «last date to reply» line with the time remaining, or «the period ended on …», the version number after the first, the send time and sender, and the department's message, and shall handle a refused submission with a clear message and a suitable button."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "الباقي يُكتب «بقي n يوم» أو «بقيت n ساعة» أو «بقيت أقل من ساعة»، ويُبرز حين يبقى أقل من 24 ساعة.",
+          "en": "Time remaining reads «n days left», «n hours left» or «less than an hour left», and is highlighted when under 24 hours remain."
+        },
+        {
+          "ar": "409 بنسخة أقدم ← «وصلتك نسخةٌ أحدث من هذا المقترح…» مع «افتح النسخة الأحدث»؛ 409 آخر ← رسالة الخادم مع «حدّث الصفحة»؛ 429 ← «محاولاتٌ كثيرة. انتظر قليلاً ثم أعد المحاولة»؛ انقطاع ← «تعذّر الاتصال. لم يُسجَّل ردّك؛ حاول مجدداً».",
+          "en": "A 409 for an older version ← «a newer version of this proposal has reached you…» with «open the newer version»; another 409 ← the server message with «refresh the page»; 429 ← «too many attempts; wait a little and retry»; no connection ← «could not connect; your response was not recorded; try again»."
+        },
+        {
+          "ar": "باب الرد المغلق يعرض «لا يمكن الرد الآن» وسببه، وحين يعدّل القسم نسخة جديدة «يعدّل القسم المقترح الآن» مع «حدّث الصفحة»؛ وتغيّر بيانات الجدول بعد الإرسال يعرض أن القسم سيراجعه قبل التثبيت.",
+          "en": "A closed reply gate shows «you cannot respond now» with its reason, and while the department edits a new version «the department is editing the proposal» with «refresh the page»; schedule data changed after sending shows that the department will review it before committing."
+        },
+        {
+          "ar": "بعد التثبيت تعرض كل مادة «طُبّقت هذه المادة في جدولك» أو «لم تُطبَّق هذه المادة عند التثبيت».",
+          "en": "After commit each item shows «this item was applied to your schedule» or «this item was not applied at commit»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalPage.ts#statusInfo",
+          "src/server/studyProposalPage.ts#heroHtml",
+          "src/server/studyProposalPage.ts#alertsHtml",
+          "src/server/studyProposalPage.ts#postRespond",
+          "src/server/studyProposalPage.ts#opResultHtml"
+        ],
+        "tests": [
+          "tests/study-proposal-public-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-049",
+      "kind": "functional",
+      "title": {
+        "ar": "أثر المقترح وجدول الأستاذ وسجلّه في صفحته",
+        "en": "Proposal impact, schedule and history on the instructor page"
+      },
+      "text": {
+        "ar": "يجب أن تعرض صفحة المقترح، مطويّةً حتى تُفتح، أثر المقترح بست بطاقات «الآن ← بعد المقترح»: النصاب التدريسي بالساعات المعتمدة مقابل النصاب المسجّل، وعدد الشعب، وأيام الحضور، وساعات الحضور (من أول محاضرة إلى آخرها في كل يوم)، وساعات التدريس، والفراغات مع أطول فراغ؛ والجدول الأسبوعي «جدولي الحالي» أو «بعد المقترح» شبكةً أسبوعية أو عرضاً يومياً مع مفتاح «أظهر ما سيخرج أو يتغيّر» ودليل ألوان؛ وسجلّ «تاريخ المقترح وردودك» برموز التوقيع.",
+        "en": "The proposal page shall show, folded until opened, the proposal impact in six «now ← after the proposal» cards: teaching load in credit hours against the recorded load, number of sections, attendance days, presence hours (from first to last lecture each day), teaching hours, and gaps with the longest gap; the weekly schedule as «my current schedule» or «after the proposal», as a week grid or a day view, with a «show what leaves or changes» toggle and a colour legend; and a «proposal history and your responses» list with signature codes."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "نصابٌ بعد المقترح يتجاوز المسجّل ← تحذير «يتجاوز النصاب التدريسي المسجّل (n) بمقدار …»؛ وقيمة غير معروفة ← «غير متوفر» مع سببها.",
+          "en": "Load after the proposal above the recorded load ← the warning «exceeds the recorded teaching load (n) by …»; an unknown value ← «not available» with its reason."
+        },
+        {
+          "ar": "كل بطاقة تعرض الاتجاه «زيادة/نقص/دون تغيّر»، وعنوان الطيّة يلخّص الفروق مثل «النصاب: 12 ← 15».",
+          "en": "Each card shows the direction «increase/decrease/unchanged», and the fold heading summarises differences such as «load: 12 ← 15»."
+        },
+        {
+          "ar": "ألوان الجدول: موعد قائم، مقترح (جديد)، معدّل، يخرج أو كان قبل التعديل؛ والعرض اليومي هو الافتراضي على شاشة أضيق من 640 بكسل، والضغط على موعد يفتح تفاصيله ويُغلق بـEscape.",
+          "en": "Schedule colours: existing, proposed (new), modified, leaving or as it was before the edit; the day view is the default below 640 pixels, and pressing an appointment opens its details, closed with Escape."
+        },
+        {
+          "ar": "السجل يرتّب زمنياً إرسال كل نسخة (ورسالتها بعد الأولى) وكل ردّ بما وافق عليه وما طلب تعديله وسببه والوقت والأيام المقترحة وملاحظته ورمز التوقيع.",
+          "en": "The history lists chronologically each version's sending (and its message after the first) and each response with what was approved and what changes were requested, the reason, suggested time and days, the note and the signature code."
+        },
+        {
+          "ar": "بعد التثبيت يُعرض «جدولك الآن» وحده وتُخفى بطاقات الأثر.",
+          "en": "After commit only «your schedule now» is shown and the impact cards are hidden."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalPage.ts#impactHtml",
+          "src/server/studyProposalPage.ts#metricCard",
+          "src/server/studyProposalPage.ts#ttHtml",
+          "src/server/studyProposalPage.ts#legendHtml",
+          "src/server/studyProposalPage.ts#historyBlock"
+        ],
+        "tests": [
+          "tests/study-proposal-public-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-050",
+      "kind": "functional",
+      "title": {
+        "ar": "الجدول الأسبوعي في مساحة إعداد المقترح",
+        "en": "The week grid in the proposal workspace"
+      },
+      "text": {
+        "ar": "يجب أن يعرض جدول الأستاذ في مساحة المقترح «الحالي» أو «المقترح» بعدد التغييرات، فيرسم في «المقترح» المضاف والمنقول (مع «كان …») والبديل والخارج والمتعارض وما للمراجعة بحدٍّ ورمزٍ ولونٍ معاً، والتزاماته خارج القسم «التزام خارج القسم» بلا تفاصيل، وأن يتيح إظهار «الأصل» وإظهار الشعب الشاغرة المتوافقة بزرّ «أسند» يضيف الإسناد إلى المسودة وحدها، وإضافة موعد بالسحب على فراغ في الشبكة أو بزر «إضافة · اليوم» في العرض اليومي، ما لم يكن العرض للقراءة فقط.",
+        "en": "The instructor's schedule in the proposal workspace shall show «current» or «proposed» with the change count; in «proposed» it draws added, moved (with «was …»), replaced, leaving, conflicting and to-review appointments with border, symbol and colour together, and commitments outside the department as «commitment outside the department» without details; it shall allow showing «the original», showing compatible vacant sections with an «assign» button that adds the assignment to the draft only, and adding an appointment by dragging on an empty slot in the grid or with an «add · day» button in the day view, unless the view is read-only."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الشبكة تتحوّل إلى يومٍ واحد بخطٍّ زمني حين يضيق عرض المساحة عن 620 بكسل، والسحب يلتقط كل 10 دقائق ونقرةٌ وحدها تعطي 50 دقيقة.",
+          "en": "The grid becomes a single day with a timeline when the workspace is narrower than 620 pixels; dragging snaps to 10 minutes and a single click gives 50 minutes."
+        },
+        {
+          "ar": "في العرض اليومي يُكتب بين المحاضرات فراغٌ يبلغ 30 دقيقة أو أكثر بمدته، ويفتح على أول يومٍ فيه تغيير.",
+          "en": "In the day view a gap of 30 minutes or more between lectures is written with its length, and the view opens on the first day with a change."
+        },
+        {
+          "ar": "تحت اسم كل يوم عدد مواعيده ونقطة للتغيير أو التعارض وأخرى للشاغرة المتوافقة؛ والشواغر المعروضة الجاهزة وما للمراجعة وما يُفحص، ولا «أسند» قبل انتهاء الفحص.",
+          "en": "Under each day's name its appointment count, a dot for a change or conflict and another for a compatible vacancy; vacancies shown are ready, to review and being checked, with no «assign» before checking finishes."
+        },
+        {
+          "ar": "دليل الألوان خلف زر «الألوان» ويُغلق بـEscape أو نقرة خارجه وحده، ولوحة التفاصيل تعرض «قبل ← بعد» بإبراز ما تغيّر (الأيام أو الوقت أو المكان) ونتائج الفحص وإجراءات الموعد.",
+          "en": "The colour legend sits behind a «colours» button and closes alone with Escape or an outside click, and the detail panel shows «before ← after» highlighting what changed (days, time or place), the check findings and the appointment's actions."
+        },
+        {
+          "ar": "وسم الموقع (بنين/بنات/الكلية) يظهر فقط حين تتوزّع مواعيده على أكثر من كلية.",
+          "en": "The site tag (boys/girls/college) appears only when his appointments span more than one college."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/proposal/ProposalWeekGrid.tsx#ProposalWeekGrid",
+          "src/components/proposal/ProposalWeekGrid.tsx#tagFor",
+          "src/components/proposal/ProposalWeekGrid.tsx#DayView",
+          "src/components/proposal/ProposalWeekGrid.tsx#ColorLegend",
+          "src/components/proposal/ProposalWeekGrid.tsx#windowFor"
+        ],
+        "tests": [
+          "tests/study-proposal-studio-audit.ts"
         ]
       }
     }
@@ -2973,7 +3454,7 @@
       "en": "The design of the published sheet and printed reports is not changed; differences are fixed in data, not layout."
     },
     {
-      "ar": "للبنات صحيفة واحدة تُنسخ كما هي إلى الجهراء والفحيحيل، وللبنين صحيفتهم؛ ولكل عائلة كليات صحيفتها المستقلة.",
+      "ar": "للبنات صحيفة واحدة تُنسخ كما هي إلى الموقعين الفرعيين، وللبنين صحيفتهم؛ ولكل عائلة كليات صحيفتها المستقلة.",
       "en": "Female students have one sheet copied as-is to the two sub-sites, male students have their own, and each college family keeps its independent sheet."
     },
     {

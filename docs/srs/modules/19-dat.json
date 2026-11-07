@@ -40,7 +40,17 @@
     "docs/LEGACY_DATA_EXTRACTION_REPORT.json",
     "tests/parity_audit.py",
     "tests/legacy-data-audit.py",
-    "tests/snapshot_loader.py"
+    "tests/snapshot_loader.py",
+    "scripts/lib/firestoreScript.ts",
+    "scripts/audit-tech-education-curricula.ts",
+    "scripts/repair-tech-education-home-section.ts",
+    "scripts/repair-tech-education-all-sections.ts",
+    "scripts/seed-tech-education-pilot.ts",
+    "scripts/fix-tech-courses.ts",
+    "scripts/remove-signature-events.ts",
+    "scripts/clear-term-schedule.ts",
+    "scripts/import-marine-term-schedule.ts",
+    "scripts/migrate-client.mjs"
   ],
   "journeys": [
     {
@@ -1741,6 +1751,270 @@
         "tests": [
           "tests/legacy-data-audit.py"
         ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-DAT-035",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "ضوابط سكربتات البيانات الحية",
+        "en": "Safeguards of live-data scripts"
+      },
+      "text": {
+        "ar": "يجب أن يمرّ كل سكربت يكتب في Firestore من scripts/lib/firestoreScript.ts أو يكرر ضوابطه: الكتابة لا تُفتح إلا بالخيار ‎--apply وبدونه لا تُكتب وثيقة واحدة؛ ويقرأ ‎.env، ويرفض العمل إن كان DATA_MODE مضبوطاً بغير firestore، ويتصل بحساب الخدمة في FIREBASE_SERVICE_ACCOUNT_KEY (JSON) أو بـFIREBASE_PROJECT_ID أو بالاعتماد الافتراضي، وبقاعدة FIREBASE_DATABASE_ID إن ضُبطت؛ ويطبع الهدف (المشروع والقاعدة والوضع: «تطبيق» أو «معاينة فقط — لن يُكتب شيء») قبل أي عمل؛ ويختم بـ«لا شيء يحتاج تغييراً» أو «طُبّق: n» أو «معاينة: n تغيير مقترح. أعد التشغيل مع ‎--apply»؛ وتُقرأ الخيارات بصيغة ‎--name=value، وتُحسب تواريخ اليوم بتوقيت الكويت (YYYY-MM-DD). وأن تشترط سكربتات الإصلاح الأخرى FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID صراحةً فتتوقف بـ«حدّد FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID صراحةً» قبل أي اتصال، ويقرأهما سكربتا التجهيز من firebase-applet-config.json إن غابا.",
+        "en": "Every script that writes to Firestore shall go through scripts/lib/firestoreScript.ts or repeat its safeguards: writing opens only with --apply and without it not a single document is written; it reads .env, refuses to run when DATA_MODE is set to anything other than firestore, connects with the service account in FIREBASE_SERVICE_ACCOUNT_KEY (JSON), FIREBASE_PROJECT_ID or the default credentials, and to the FIREBASE_DATABASE_ID database when set; it prints the target (project, database and mode: «apply» or «preview only — nothing will be written») before doing anything; it ends with «nothing needs changing», «applied: n» or «preview: n proposed changes. Run again with --apply»; options are read as --name=value, and today's dates are computed in Kuwait time (YYYY-MM-DD). The other repair scripts shall require FIREBASE_PROJECT_ID and FIREBASE_DATABASE_ID explicitly, stopping with a message asking to set both before any connection, while the provisioning scripts read them from firebase-applet-config.json when absent."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "DATA_MODE=demo ثم تشغيل سكربت ← خطأ «هذا السكربت لبيانات Firestore فقط» ولا اتصال.",
+          "en": "DATA_MODE=demo and running a script ← the error that it is for Firestore data only, and no connection."
+        },
+        {
+          "ar": "تشغيل دون ‎--apply فيه 3 تغييرات ← «معاينة: 3 تغيير مقترح» ولم تتغير أي وثيقة.",
+          "en": "A run without --apply with 3 changes ← «preview: 3 proposed changes» and no document changed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/lib/firestoreScript.ts#connectFirestore",
+          "scripts/lib/firestoreScript.ts#finish",
+          "scripts/lib/firestoreScript.ts#kuwaitDate",
+          "scripts/lib/firestoreScript.ts#argValue"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DAT-036",
+      "kind": "functional",
+      "title": {
+        "ar": "إصلاحات لمرة واحدة لصحيفتي قسمٍ بعينه",
+        "en": "One-time repairs for one department's two plan sheets"
+      },
+      "text": {
+        "ar": "يجب أن تكون أربع أدوات إصلاحاً لمرة واحدة خاصاً بقسمٍ بعينه (عائلة قسم واحدة) لمطابقة مقرراته وصحائفه مع مرجعي صحيفتيه القديمة 2010 والجديدة 2026، وكلها معاينةٌ افتراضاً بتقرير JSON ولا تعتمد أي قواعد: (1) أداة تدقيق للقراءة وحدها، تعرض لكل قسم من هذه العائلة المقررات الناقصة والمكررة والمخالفة للمرجع في الاسم أو الوحدات أو الساعات، وعضوية الصحيفتين (المتوقع والمربوط والناقص والزائد)، ومسودات القواعد، والسعات المخالفة للقسم الأساس رقم 7، وعلامة complete؛ (2) أداة إصلاح القسم الأساس للقسم 7 وحده، يتوقف إن لم يكن القسم كذلك أو لم تكن له صحيفة قديمة (transition) واحدة وجديدة (active) واحدة أو تكرر رمز مقرر أو اختلف المرجعان في مقرر، ويرفض التنفيذ إن وُجدت مسودة قواعد قائمة؛ ومع ‎--apply يُنشئ المقرر الغائب بسعة 0 ويصحح الاسم والوحدات والساعات مع إبقاء السعة، ويضيف إلى كل صحيفة مقرراتها ويخرج الزائد، ويكتب مسودتي قواعد «قيد المراجعة» بالمسبقات (تُحل داخل الكلية إن طابقت مقرراً واحداً) ومجموعات الاختيار (حدها الأدنى من المقررات ceil(الوحدات/3) وأقله 1)، ثم يتحقق ويكتب سطر تدقيق؛ (3) أداة إصلاح كل الأقسام تتوقف ما لم توجد 4 أقسام بالضبط من هذه العائلة وكان للقسم 7 سعة لكل مقرر مرجعي ومسودتا قواعد، ولكل قسم صحيفتان وحيدتان وروابط متسقة، ومع ‎--apply يعيد قراءة كل قسم قبل تعديله ويطابق المقررات بالاسم والوحدات والساعات والسعة المنسوخة من القسم 7، ويزامن العضويات، وينسخ مسودة القسم 7 للقسم الذي تنقصه مسودة بعد ترجمة أرقام المقررات (ويترك المسودة القائمة)، ثم يتحقق نهائياً؛ (4) أداة تجهيز تُعدّ قسمين تجريبيين في الموقعين الفرعيين (54 و131) بعد التحقق من كليتيهما ورمز قسمهما، ويرفض قسماً له صحائف خارج الهيكل المتوقع، فيُنشئ أو يحدّث المقررات بسعات القسم 7 (والغائبة 0 يملؤها القسم)، ويُنشئ صحيفة البرنامج لعام 2026/2027 (رمزها <البرنامج>-2026) فتصير السابقة انتقالية، ويربط مقررات كل صحيفة ويكتب مسودتي قواعد «قيد المراجعة». وتشترط الأربع FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID صراحةً، وترتبط بوحدة الصحيفة والمسار.",
+        "en": "Four tools shall be a one-time repair specific to one particular department family, aligning its courses and plan sheets with the references of its two plan sheets, the old 2010 and the new 2026, all previewing by default with a JSON report and none approving any rules: (1) an audit tool, read-only, shows for every department of that family the missing, duplicate and mismatching courses (name, units or hours), the membership of the two sheets (expected, linked, missing, extra), the rule drafts, the capacities differing from the home department 7, and a complete flag; (2) a home-department repair for department 7 only, stopping if the department is not that one, lacks exactly one old (transition) and one new (active) sheet, has a duplicate course code or the two references disagree on a course, and refusing to apply when a rule draft already exists; with --apply it creates a missing course with capacity 0, corrects name, units and hours keeping the capacity, adds each sheet's courses and removes extras, writes two «in review» rule drafts with prerequisites (resolved inside the college when they match exactly one course) and elective groups (minimum courses ceil(units/3), at least 1), then verifies and writes an audit line; (3) an all-departments repair stops unless exactly 4 departments of that family exist, department 7 has a capacity for every reference course and both rule drafts, and each department has single old and new sheets with consistent links; with --apply it re-reads each department before editing, aligns courses on name, units, hours and the capacity copied from department 7, synchronises memberships, copies department 7's draft to a department missing one after translating course ids (keeping an existing draft), then verifies; (4) a seeding tool prepares two pilot departments at the two branch sites (54 and 131) after checking their colleges and department code, refusing a department whose sheets are outside the expected structure; it creates or updates the courses with department 7's capacities (missing ones 0 for the department to fill), creates the programme's 2026/2027 sheet (code <programme>-2026) so the previous one becomes transitional, links each sheet's courses and writes two «in review» rule drafts. All four require FIREBASE_PROJECT_ID and FIREBASE_DATABASE_ID explicitly and relate to the plan-sheet and pathway module."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "تشغيل إصلاح القسم 7 مع ‎--apply وللصحيفة مسودة قائمة ← «توجد مسودة قواعد قائمة؛ لم تُجرَ أي كتابة».",
+          "en": "Applying the department 7 repair while a draft exists ← «a rule draft exists; no write was made»."
+        },
+        {
+          "ar": "خمسة أقسام من هذه العائلة ← إصلاح كل الأقسام يتوقف قبل الكتابة.",
+          "en": "Five departments of that family ← the all-departments repair stops before writing."
+        },
+        {
+          "ar": "بعد أي تنفيذ ← المسودات «قيد المراجعة» والصحيفة المعتمدة لم تتغير.",
+          "en": "After any applied run ← the drafts are «in review» and the approved sheet is unchanged."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/audit-tech-education-curricula.ts",
+          "scripts/repair-tech-education-home-section.ts",
+          "scripts/repair-tech-education-all-sections.ts",
+          "scripts/seed-tech-education-pilot.ts",
+          "src/data/technologyEducationCurricula.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DAT-037",
+      "kind": "functional",
+      "title": {
+        "ar": "إصلاح لمرة واحدة: مقررات صحيفة قسمٍ بعينه والمقرر التجريبي",
+        "en": "One-time repair: one department's sheet courses and the test course"
+      },
+      "text": {
+        "ar": "يجب أن تكون أداةٌ إصلاحاً لمرة واحدة لكل قسم يحمل اسم قسمٍ بعينه مثبتاً في الأداة، في كل كلية (أو لقسم واحد بـ‎--section=ID)، يقرأ رقم القسم مخزناً رقماً أو نصاً، ويطبع لكل قسم صحائفه وما سيفعل: ثلاثة مقررات مثبتة في الأداة بأرقامها وأسمائها (199 و198 و213) تُضاف إلى الصحيفة القديمة (transition) وتُخرج من الحالية (active) ويُطبَّع اسمها NFKC إن حُفظ بأشكال العرض؛ والمقرر «test» برقم 1111 يُحذف مع عضوياته وحجوزات رمزه بعد نسخه إلى deletedRecords (courses__<المعرّف>) في دفعة واحدة؛ وأن يُطابق المقرر بالرقم كاملاً أو بآخر الرمز ذي السبع خانات وبالاسم بعد التطبيع معاً، ويترك للمراجعة اليدوية ما طابقه أكثر من مقرر، ويطلب ‎--plan=ID إن لم تكن في القسم صحيفة قديمة واحدة، ويرفض حذف مقرر له موعد في أي جدول؛ معاينةً افتراضاً بضوابط NFR-DAT-035.",
+        "en": "A tool shall be a one-time repair for every department bearing one particular department name fixed in the tool, in every college (or one department with --section=ID), reading the department id stored as a number or as text, and printing per department its sheets and what it will do: three courses fixed in the tool by number and name (199, 198 and 213) are added to the old (transition) sheet and removed from the current (active) one, their name NFKC-normalised when stored in presentation forms; the course «test» numbered 1111 is deleted with its memberships and code claims after being copied to deletedRecords (courses__<id>) in one batch; a course shall match by the full number or the end of the seven-digit code and by name after normalisation together, anything matching more than one course is left for manual review, --plan=ID is required when the department does not have exactly one old sheet, and deleting a course that has an appointment in any schedule is refused; previewing by default under the safeguards of NFR-DAT-035."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "المقرر التجريبي له موعد ← «له مواعيد في الجداول — لا يُحذف. احذف مواعيده أولاً».",
+          "en": "The test course has an appointment ← it is not deleted and the operator is told to delete its appointments first."
+        },
+        {
+          "ar": "مقرر يوافق الرقم 199 ويخالف الاسم ← لا يُمسّ.",
+          "en": "A course matching number 199 but not the name ← untouched."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/fix-tech-courses.ts",
+          "scripts/lib/firestoreScript.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DAT-038",
+      "kind": "functional",
+      "title": {
+        "ar": "إصلاح لمرة واحدة: إزالة حركات توقيع أُثبتت خطأً لقسم واحد",
+        "en": "One-time repair: removing signature events recorded in error for one department"
+      },
+      "text": {
+        "ar": "يجب أن يكون scripts/remove-signature-events.ts إصلاحاً لمرة واحدة لقسم واحد: قسمٌ بعينه في كلية بعينها للفصل الأول 2026/2027، يزيل من الحقل events في وثيقة scheduleApprovals/<كلية>_<قسم>_<فصل> حركتي «توقيع» برمزي تحقق محددين وحركتي «سحب توقيع» لموقِّع واحد بعينه يوم 2026-09-27 بتوقيت الكويت، ويحذف نسختي «توقيع …» في scheduleVersions اللتين يُشتق منهما الرمزان (verificationCode بتجربة كل ميلي ثانية في 10 ثوانٍ بعد لحظة النسخة)، ولا يمسّ سجل التدقيق؛ وأن يُحسم كل من الكلية والقسم والفصل بنتيجة واحدة بالاسم أو بـ‎--college و‎--section و‎--term، وتقبل ‎--date و‎--actor؛ وأن يرفض الكتابة ما لم يجد حركتي توقيع وحركتي سحب بالضبط، أو إن وُجد توقيع قائم أو جولة مرسلة (rounds أو currentRound > 0)؛ وأن يجعل الحالة «قيد الإعداد» drafting، ويحذف الوثيقة كلها إن لم يبق فيها شيء غير افتراضي؛ وأن يكتب داخل معاملة تتحقق من رقم المراجعة revision فتتوقف بـ«تغيّرت الوثيقة أثناء التشغيل — أعد المعاينة».",
+        "en": "scripts/remove-signature-events.ts shall be a one-time repair for one department: one specific department in one specific college for the first term 2026/2027; it removes from the events field of scheduleApprovals/<college>_<department>_<term> two «sign» events with two specific verification codes and two «withdraw signature» events by one specific signer on 2026-09-27 Kuwait time, deletes the two «signature …» snapshots in scheduleVersions from which the codes derive (verificationCode, trying every millisecond in the 10 seconds after the snapshot time), and does not touch the audit log; the college, department and term shall each resolve to exactly one result by name or by --college, --section and --term, and --date and --actor are accepted; it shall refuse to write unless it finds exactly two sign and two withdraw events, or if a current signature or a sent round exists (rounds or currentRound > 0); it shall set the status to «drafting», deleting the whole document when nothing non-default remains; and it shall write inside a transaction that checks the revision number, stopping with «the document changed during the run — preview again»."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "وُجد توقيع واحد فقط ← «المتوقع توقيعان وسحبان… لم يُكتب شيء».",
+          "en": "Only one sign event found ← «two signs and two withdrawals expected… nothing was written»."
+        },
+        {
+          "ar": "الوثيقة فيها طلب تمديد ← تُحدَّث ولا تُحذف وتصير «قيد الإعداد».",
+          "en": "The document holds an extension request ← it is updated, not deleted, and becomes «drafting»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/remove-signature-events.ts",
+          "scripts/lib/firestoreScript.ts#kuwaitDate",
+          "src/utils/approvalWorkflow.ts#verificationCode"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DAT-039",
+      "kind": "functional",
+      "title": {
+        "ar": "مسح جدول فصل لقسم واحد بنسخة احتياطية وإرجاع",
+        "en": "Clearing one department's term schedule with a backup and restore"
+      },
+      "text": {
+        "ar": "يجب أن يمسح scripts/clear-term-schedule.ts صفوف الجدول لنطاق واحد (كلية + قسم + فصل) دون أن يمسّ القسم أو مقرراته أو أساتذته أو فصلاً آخر أو المسودات والاعتمادات والطلبات أو أقسام الفرع الشقيقة (يذكرها فقط)، لأن القاعدة الحية بلا استرجاع زمني ولا حماية حذف؛ وأن يشترط FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID صراحةً، ويحسم النطاق بالأرقام ‎--college-id و‎--section-id و‎--term-id أو بالاسم (افتراضاً: قسمٌ وكلية مثبتان في السكربت · الفصل الثاني 2026/2027) بنتيجة واحدة وإلا يتوقف بالخيارات؛ وأن يتوقف إن قُرئ صف من فصل آخر؛ وأن يعرض في المعاينة عدد الصفوف لكل مقرر ولا يحذف؛ وألا ينفّذ إلا بـ‎--apply مع ‎--expect-rows مساوياً لعدد المعاينة الحالي، فيكتب أولاً نسخة JSON في ‎--backup-dir (الافتراضي schedule-backups) باسم schedule-<كلية>-<قسم>-<فصل>-<الختم>.json ويعيد قراءتها ويتحقق من عددها قبل أي حذف، ثم يحذف ويتحقق أن النطاق فرغ ويكتب سطر تدقيق «مسح جدول فصل»؛ وأن يُرجع ‎--restore <ملف> ‎--apply النسخة إلى النطاق نفسه وحده وهو فارغ (يرفض غير ذلك) بمعرّفات جديدة مع سطر تدقيق «إرجاع جدول فصل».",
+        "en": "scripts/clear-term-schedule.ts shall clear the schedule rows of one scope (college + department + term) without touching the department, its courses, its instructors, another term, drafts, approvals, requests or the sibling branch departments (which it only mentions), because the live database has no point-in-time recovery or delete protection; it shall require FIREBASE_PROJECT_ID and FIREBASE_DATABASE_ID explicitly, resolve the scope by --college-id, --section-id and --term-id or by name (by default: a department and college fixed in the script · second term 2026/2027) to exactly one result or stop listing the options; it shall stop if a row from another term is read; the preview shall show the row count per course and delete nothing; it shall execute only with --apply and --expect-rows equal to the current preview count, first writing a JSON copy in --backup-dir (default schedule-backups) named schedule-<college>-<department>-<term>-<stamp>.json and re-reading it to verify its count before any deletion, then deleting, verifying the scope is empty and writing an audit line for clearing a term schedule; --restore <file> --apply shall restore the copy only into the same scope while it is empty (refusing otherwise) with new ids and an audit line for restoring a term schedule."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "‎--apply دون ‎--expect-rows أو بعدد مختلف ← يتوقف ولا يُحذف شيء.",
+          "en": "--apply without --expect-rows or with a different count ← it stops and nothing is deleted."
+        },
+        {
+          "ar": "إرجاع إلى نطاق فيه صفوف ← «النطاق غير فارغ؛ لا يُرجَع فوق بيانات».",
+          "en": "Restoring into a scope that has rows ← «the scope is not empty; no restore over data»."
+        },
+        {
+          "ar": "ملف نسخة لنطاق آخر ← «الملف لا يخص هذا النطاق».",
+          "en": "A backup file of another scope ← «the file does not belong to this scope»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/clear-term-schedule.ts",
+          "scripts/firestore-backup.md"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DAT-040",
+      "kind": "functional",
+      "title": {
+        "ar": "استيراد استثنائي لمرة واحدة: جدول قسمٍ بعينه",
+        "en": "One-time exceptional import: one specific department's schedule"
+      },
+      "text": {
+        "ar": "يجب أن تكون أداةٌ استيراداً استثنائياً لمرة واحدة مقصوراً على قسمٍ بعينه (برمزه الرسمي، والقسم 227 في الكلية 12) لا يقبل قسماً آخر، لأن الرفع العادي يرفض جدوله كله (رمز الكلية المخزن يخالف المطبوع، وأغلب أساتذته بلا رقم مدني، ومبناه غير مسجل)؛ فيقرأ كشف SWRSCHA بصيغة PDF (وسيط أول) بالقارئ نفسه، ويتوقف إن لم يكن رأسه لرمز ذلك القسم وفرعه والفصل الأول أو لم يكن القسم 227 هو المتوقع أو كان للقسم صفوف في الفصل المستهدف (‎--term=<رقم>، الافتراضي 42: الفصل الأول 2026/2027)؛ ويُنشئ المقرر الغائب باسمه المطبوع بـ3 وحدات و3 ساعات وسعة 24؛ ويطابق الأستاذ بأول كلمتين من اسمه بعد إسقاط الألقاب ثم يضيّق ببقية الكلمات ولا يقبل إلا مرشحاً واحداً، وإلا تبقى الشعبة بلا أستاذ ويُذكر الاسم؛ ويربط القاعة المسجلة (VERIFIED) ويحفظ نص غيرها كما طُبع (LOCATION_REVIEW_REQUIRED)؛ ويعطي مقرر التدريب الميداني للقسم أيام 2 إلى 5 حين يخلو عمود الأيام؛ ويطبع في المعاينة المقررات الجديدة والأساتذة المطابقين وغير المطابقين والمواقع للمراجعة والشعب بلا يوم أو وقت، ولا يكتب إلا بـ‎--apply. ويرتبط بوحدة الاستيراد.",
+        "en": "A tool shall be a one-time exceptional import restricted to one specific department (by its official code, department 227 in college 12), accepting no other department, because the normal upload rejects its whole schedule (the stored college code differs from the printed one, most of its instructors have no civil ID and its building is unregistered); it reads the SWRSCHA PDF report (first argument) with the same reader, stopping if its header is not for that department's code, its branch and the first term, if department 227 is not the expected one, or if the department already has rows in the target term (--term=<id>, default 42: first term 2026/2027); it creates a missing course under its printed name with 3 units, 3 hours and capacity 24; it matches an instructor by the first two words of the name after dropping titles, narrowing with the remaining words and accepting only a single candidate, otherwise leaving the class section without an instructor and listing the name; it links a registered room (VERIFIED) and keeps the printed text of any other (LOCATION_REVIEW_REQUIRED); it gives the department's field-training course days 2 to 5 when the days column is empty; the preview lists new courses, matched and unmatched instructors, locations to review and class sections without day or time, and it writes only with --apply. It relates to the import module."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "كشف لقسم آخر ← «الكشف ليس لهذا القسم في الفصل الأول» والخروج بالرمز 1.",
+          "en": "A report of another department ← it says the report is not for that department in the first term and exits with 1."
+        },
+        {
+          "ar": "للقسم صفوف في الفصل 42 ← «لا يُكتب فوقها».",
+          "en": "The department has rows in term 42 ← «nothing is written over them»."
+        },
+        {
+          "ar": "اسم مطبوع يطابق أستاذين ← الشعبة بلا أستاذ والاسم في «أسماء لم تُطابَق».",
+          "en": "A printed name matching two instructors ← the class section has no instructor and the name is under unmatched names."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/import-marine-term-schedule.ts",
+          "src/utils/documentOcr.ts#ocrDocument",
+          "src/utils/documentOcr.ts#readAuthorityPdfHeader"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DAT-041",
+      "kind": "functional",
+      "title": {
+        "ar": "ترحيل قديم من جهة العميل إلى Firestore",
+        "en": "Legacy client-side migration to Firestore"
+      },
+      "text": {
+        "ar": "يجب أن يكون scripts/migrate-client.mjs ترحيلاً قديماً يتصل بـFirestore بمكتبة العميل وإعداد firebase-applet-config.json (وقاعدته firestoreDatabaseId)، ويقرأ تصدير البيانات الخاص ‎../schedule-private/db.json خارج المستودع، ويكتب إحدى عشرة مجموعة بمعرّفات ثابتة: users (user_<رقم>)، formNames، formSecurity، userScopes، terms، colleges، sections، instructors، courses، schedules، rooms، في دفعات من 400 وثيقة، ثم يكتب ‎_meta/counters بأعلى رقم مستخدم وأعلى رقم موعد؛ وأن يُعلم القارئ بأنه بلا معاينة ولا تأكيد ولا فحص لقاعدة غير فارغة، فيستبدل كل وثيقة بالمعرّف نفسه مباشرة، ولذلك لا يُشغَّل إلا على قاعدة جديدة يتولاها حساب الإدارة الرئيسي؛ والمسار المعتمد للاستيراد هو scripts/import-legacy-json.ts.",
+        "en": "scripts/migrate-client.mjs shall be a legacy migration that connects to Firestore with the client library and the firebase-applet-config.json settings (and its firestoreDatabaseId database), reads the private data export ../schedule-private/db.json outside the repository, and writes eleven collections with fixed ids: users (user_<id>), formNames, formSecurity, userScopes, terms, colleges, sections, instructors, courses, schedules, rooms, in batches of 400 documents, then writes _meta/counters with the highest user id and the highest appointment id; the reader shall know it has no preview, no confirmation and no non-empty-database check, replacing any document with the same id outright, so it is run only on a fresh database by the root administration account; the endorsed import path is scripts/import-legacy-json.ts."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "تشغيله ← سطر «Migrated n rows to <مجموعة>» لكل مجموعة ثم «Migration finished».",
+          "en": "Running it ← a line «Migrated n rows to <collection>» per collection then «Migration finished»."
+        },
+        {
+          "ar": "1000 مستخدم ← ثلاث دفعات (400 و400 و200).",
+          "en": "1000 users ← three batches (400, 400 and 200)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/migrate-client.mjs",
+          "scripts/import-legacy-json.ts"
+        ],
+        "tests": []
       },
       "inferred": true
     }

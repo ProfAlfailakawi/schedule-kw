@@ -25,6 +25,7 @@
     "src/utils/departmentHeadAccounts.ts",
     "src/utils/invitationLink.ts",
     "src/utils/accessCardImage.ts",
+    "src/utils/qrcodeGenerator.js",
     "src/utils/onboardingKey.ts",
     "src/utils/scopeContext.ts",
     "src/utils/scopeShape.ts",
@@ -36,7 +37,14 @@
     "src/components/AdvisingScopePicker.tsx",
     "src/components/Onboarding.tsx",
     "src/components/ScopeContextChip.tsx",
-    "src/components/account-invitation.css"
+    "src/components/account-invitation.css",
+    "scripts/create-department-advisors.ts",
+    "scripts/create-department-heads.ts",
+    "scripts/provision-department-accounts.ts",
+    "scripts/provision-leadership-accounts.ts",
+    "scripts/consolidate-department-advisors.ts",
+    "scripts/lib/defaultPassword.ts",
+    "scripts/role-scope-live-audit.mjs"
   ],
   "screens": [
     { "name": { "ar": "تسجيل الدخول", "en": "Sign-in" }, "file": "src/components/Login.tsx", "note": { "ar": "اسم المستخدم وكلمة السر، ورابط الدعوة في جزء # الذي يملأ الاسم ولا يُرسل إلى الخادم، وزر الدخول التجريبي إن كان مفعّلاً.", "en": "User name and password, the invitation link fragment that pre-fills the name and is never sent to the server, and the demo entry button when enabled." } },
@@ -690,7 +698,8 @@
         { "ar": "GET /api/audit-logs يعيد 250 سجلاً افتراضياً (معامل limit) ولا يصل إليه غير حساب الإدارة، وتطلب الشاشة 500.", "en": "GET /api/audit-logs returns 250 records by default (the limit parameter) and only an administration account can reach it; the screen asks for 500." },
         { "ar": "رفض أُرسل بصفة اطّلاع يُسجَّل «مرفوض (خارج الصلاحية)».", "en": "A refusal of a view-only role is recorded as refused (outside permission)." },
         { "ar": "محاولة دخول باسم غير موجود تُسجَّل بالرقم 0 والاسم المكتوب (أو «مجهول»)، ولا يُحفظ جسم أي طلب؛ ومن الرفض لغير الدخول يُحفظ 403 و409 وحدهما.", "en": "A sign-in attempt with an unknown name is recorded under number 0 with the typed name (or anonymous), no request body is ever stored, and of the non-sign-in refusals only 403 and 409 are kept." },
-        { "ar": "شاشة السجل تُبحث بالمستخدم أو العملية أو ما تغيّر، وتُصفّى بالمستخدم، وتعرض لكل سطر ما تغيّر والطريقة والمسار والعنصر والحالة، ولها زر «تحديث السجل».", "en": "The log screen is searched by user, operation or change, filtered by user, shows for each line what changed, the method, path, entity and status, and has a refresh button." }
+        { "ar": "شاشة السجل تُبحث بالمستخدم أو العملية أو ما تغيّر، وتُصفّى بالمستخدم، وتعرض لكل سطر ما تغيّر والطريقة والمسار والعنصر والحالة، ولها زر «تحديث السجل».", "en": "The log screen is searched by user, operation or change, filtered by user, shows for each line what changed, the method, path, entity and status, and has a refresh button." },
+        { "ar": "شارة كل سطر في شاشة السجل: «حذف» حمراء و«إضافة» خضراء وما سواهما زرقاء، والوقت بالأرقام اللاتينية، ويرى حساب الإدارة الرئيسي فوق السجل بطاقة «وقت إدخال المواعيد».", "en": "Each log line's badge on the log screen is red for delete, green for add and blue otherwise, the time uses Western digits, and the root administration account sees the «appointment entry time» card above the log." }
       ],
       "evidence": { "code": ["server.ts", "src/server/routes/adminRoutes.ts#/api/audit-logs", "src/server/routes/authRoutes.ts", "src/components/AdminUsers.tsx"], "tests": [] },
       "inferred": true
@@ -1041,9 +1050,10 @@
         { "ar": "إعداد البطاقة لا يغيّر كلمة السر؛ والكلمة المكتوبة تُقصّ إلى 128 حرفاً وتُمسح عند تبديل الحساب.", "en": "Preparing the card does not change the password; the typed password is cut to 128 characters and cleared when the account changes." },
         { "ar": "حساب له كرسي تُعرض بطاقته في «الفرق» وتعرض شاشة المستخدمين زر «افتح الفرق» بدلها.", "en": "An account with a seat has its card in Teams, and the Users screen shows an open-Teams button instead." },
         { "ar": "الأزرار الأربعة: انسخ الرسالة، انسخ الرابط، حفظ البطاقة كصورة، حفظ QR؛ وعلى أجهزة اللمس تُفتح ورقة المشاركة وإلا يُنزَّل الملف SCHEDULE-invitation.png وSCHEDULE-invitation-QR.png.", "en": "The four buttons copy the message, copy the link, save the card as an image and save the QR; on touch devices the share sheet opens, otherwise SCHEDULE-invitation.png and SCHEDULE-invitation-QR.png are downloaded." },
-        { "ar": "رمز QR بمستوى تصحيح M؛ والنسخ يرجع إلى بديل قديم حين ترفض الصفحة الحافظة، وفشل الحفظ يقترح الضغط المطوّل على الرمز.", "en": "The QR uses correction level M; copying falls back to an older method when the clipboard is refused, and a failed save suggests a long press on the code." }
+        { "ar": "رمز QR بمستوى تصحيح M؛ والنسخ يرجع إلى بديل قديم حين ترفض الصفحة الحافظة، وفشل الحفظ يقترح الضغط المطوّل على الرمز.", "en": "The QR uses correction level M; copying falls back to an older method when the clipboard is refused, and a failed save suggests a long press on the code." },
+        { "ar": "يُرسم الرمز (ورموز QR الأخرى في النظام) بمكتبة QR مضمّنة في المستودع (src/utils/qrcodeGenerator.js، رخصة MIT) لا تُحمَّل إلا عند فتح البطاقة، فلا يُرسل الرابط إلى أي خدمة خارجية لرسمه.", "en": "The code (and the system's other QR codes) is drawn by a QR library bundled in the repository (src/utils/qrcodeGenerator.js, MIT licence) loaded only when the card opens, so the link is never sent to an external service to draw it." }
       ],
-      "evidence": { "code": ["src/components/AccountInvitation.tsx", "src/components/AccessCard.tsx", "src/utils/accessCardImage.ts", "src/utils/invitationLink.ts#invitationHref"], "tests": ["tests/owner-approved-2026-10-29-audit.ts"] }
+      "evidence": { "code": ["src/components/AccountInvitation.tsx", "src/components/AccessCard.tsx", "src/utils/accessCardImage.ts", "src/utils/accessCardImage.ts#loadQrFactory", "src/utils/qrcodeGenerator.js", "src/utils/invitationLink.ts#invitationHref"], "tests": ["tests/owner-approved-2026-10-29-audit.ts"] }
     },
     {
       "id": "FR-ACC-046",
@@ -1080,6 +1090,103 @@
         { "ar": "العرض الصرف: العميد والعميد المساعد وعميد القبول والتسجيل؛ وcommitteeEligible لا يصدق إلا لصفة مكتوبة فعلاً مرحلتها committee.", "en": "Pure viewer: Dean, Vice dean and Dean of registration; committeeEligible holds only for a role actually written whose stage is committee." }
       ],
       "evidence": { "code": ["src/utils/academicRoles.ts", "src/server/routes/authRoutes.ts#roleDescriptor"], "tests": ["tests/deadlines-panel-audit.ts", "tests/report-approval-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-048",
+      "kind": "functional",
+      "title": { "ar": "نموذج الحساب وقائمة المستخدمين في الشاشة", "en": "The account form and user list on the screen" },
+      "text": {
+        "ar": "يجب أن تطلب شاشة المستخدمين الاسم واسم الدخول (وكلمة السر عند الإنشاء وحده) وتقول عند نقصها «الرجاء إدخال الحقول المطلوبة بالأحمر»، وأن تُبقي كلمة السر الحالية حين تُترك فارغة في التعديل، وأن تعرض الصفات مرتّبةً موسومةً «— للاطّلاع» أو «— يعدّل» مع تلميح الصفة، وتعرض لصفةٍ نطاقها كلية أزرارَ الكليات (تُملأ في التعديل من صفوف «القسم صفر» للحساب وحدها)، ولصفةٍ نطاقها كل الكليات سطراً ثابتاً «كل كليات الجامعة»، وأن تجعل الحساب الجديد فعّالاً افتراضياً، وتعرض ربط لوحة الأستاذ قائمةً «الاسم — الرقم المدني» مع «بدون ربط»؛ وأن تعرض ملخّص أعداد المستخدمين والمديرين واللوحات المربوطة، وفي القائمة حرف الاسم الأول وشارة الصفة (محايدة للاطّلاع، زرقاء للكاتب) وشارة «راجع الصفة» وشارة الحالة (مقفل أحمر، فعّال أخضر، متوقف كهرماني)، وتختار أول حساب تلقائياً؛ وأن تعرض شبكة الصلاحيات بعدد «المحدَّد n من m» وزر «مسح الاختيار»؛ وأن تقول حين يصل ردٌّ ليس JSON «الخادم مشغول حالياً (الحالة). أعد المحاولة بعد قليل.».",
+        "en": "The Users screen shall require the name and login (and the password on creation only), saying «please fill in the required fields in red» when missing, keep the current password when left empty on edit, list roles in order tagged «— view only» or «— edits» with the role hint, show college buttons for a college-scoped role (filled on edit from the account's department-zero rows only) and a fixed «all colleges of the university» line for an all-colleges role, make a new account active by default, and show the instructor-board link as a «name — civil ID» list with «no link»; it shall show summary counts of users, administrators and linked boards, and in the list the name's first letter, a role badge (neutral for view-only, blue for writers), a «review the role» badge and a status badge (locked red, active green, stopped amber), selecting the first account automatically; it shall show the permission grid with «selected n of m» and a «clear selection» button; and when a reply is not JSON it shall say «the server is busy (status). Try again shortly.»."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "تعديل حساب دون كتابة كلمة سر ← لا يُرسَل حقل password وتبقى الحالية.", "en": "Editing an account without typing a password ← no password field is sent and the current one stays." },
+        { "ar": "تحويل رئيس تسجيلٍ (كل الكليات) إلى عميد ← تبدأ أزرار الكليات فارغة ولا تُملأ بكليات الجامعة كلها.", "en": "Turning a University registrar (all colleges) into a Dean ← the college buttons start empty and are not filled with every college." },
+        { "ar": "ردّ بوابة 502 بنص HTML ← «الخادم مشغول حالياً (502)…».", "en": "A gateway 502 reply with an HTML body ← «the server is busy (502)…»." }
+      ],
+      "evidence": { "code": ["src/components/AdminUsers.tsx#saveUser", "src/components/AdminUsers.tsx#editUser", "src/components/AdminUsers.tsx#savePermission", "src/components/AdminUsers.tsx#api"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACC-049",
+      "kind": "functional",
+      "title": { "ar": "سكربتات تجهيز حسابات الأقسام", "en": "Department account provisioning scripts" },
+      "text": {
+        "ar": "يجب أن يتيح النظام لحساب الإدارة الرئيسي ثلاث أدوات طرفية لتجهيز حسابات الأقسام، تعمل كلها معاينةً افتراضاً فلا تكتب شيئاً إلا مع الخيار ‎--apply، وتقرأ ‎.env وتفرض DATA_MODE=firestore وتأخذ FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID من firebase-applet-config.json إن غابا: (1) scripts/create-department-advisors.ts يُنشئ لكل قسم حساب مرشد واحد باسم دخول ‎<بادئة القسم>advisor يغطّي أقسام العائلة نفسها في كل الكليات (scopeAssignments)، ويطبع الصفوف بحالاتها create وexists وreview، ولا يُنشئ حساباً تبدأ بادئته برقم بل ينبّه إلى تحديد اسمه يدوياً؛ (2) scripts/create-department-heads.ts يُنشئ رئيس قسم واحداً لكل عائلة قسم (departmentFamilyKey) باسم دخول مشتق من حساب ‎…dept بإبدال اللاحقة إلى head، أو من جدول ثابت لثلاثة أقسام بلا حساب ‎…dept، ويضع الحالة review إن لم يوجد اسم أو كان الاسم مستعملاً، ويعدّ القسم الذي له حساب ‎…head قائماً؛ وكلا السكربتين يُنشئ الحساب موقوفاً وبلا كلمة سر بصلاحيات قالب الصفة ونطاق كليات القسم، ويتخطى اسم دخول موجوداً؛ (3) scripts/provision-department-accounts.ts يعمل على المواقع الأربعة لكلية واحدة مثبتة في السكربت (بنات، بنين، وموقعان فرعيان، برموز مواقعها الثابتة فيه)، فيُنبّه إلى الكلية غير المسجلة ولا يُنشئها، ويُنشئ القسم الغائب عن إحدى الكليات الأربع برمز واسم أقدم سجل للقسم، ثم يضمن لكل قسم ثلاثة حسابات ‎<بادئة>dept (رئيس لجنة الجدول) و‎<بادئة>head (رئيس القسم) و‎<بادئة>advisor (المرشد) يغطي كلٌّ منها الكليات الأربع؛ فالحساب الغائب يُنشأ مفعّلاً بكلمة السر الافتراضية، والقائم يُوسَّع نطاقه بإضافة الناقص فقط دون حذف نطاق أو تغيير صفته أو كلمته أو اسم دخوله، ولا يُنشأ حساب إن كان حساب آخر بالصفة نفسها يغطي القسم باسم دخول مختلف، ويُعرض الملتبس (بادئة غير معروفة أو غير صالحة أو ملاحظة مراجعة) في قائمة «للمراجعة اليدوية» دون أن يُمسّ. وكلمة السر الافتراضية ثابتة في scripts/lib/defaultPassword.ts ويمكن استبدالها بالمتغير DEFAULT_ACCOUNT_PASSWORD عند التشغيل؛ تُكتب منها بصمة SystemUserPass ونسخة الخزنة SystemUserPassVault مع IsActive=true، ولا تُطبَّق على حساب قائم إلا إن كان موقوفاً وبلا كلمة سر؛ وتطبع رسالة الختام عند التنفيذ هذه الكلمة ليبلّغها المشغّل لأصحاب الحسابات.",
+        "en": "The system shall give the root administration account three terminal tools for provisioning department accounts, all previewing by default and writing nothing without --apply, reading .env, forcing DATA_MODE=firestore and taking FIREBASE_PROJECT_ID and FIREBASE_DATABASE_ID from firebase-applet-config.json when absent: (1) scripts/create-department-advisors.ts creates one advisor account per department with login <department prefix>advisor covering the same department family in every college (scopeAssignments), prints the rows by status create, exists and review, and creates no account whose prefix starts with a digit, warning that its name must be set by hand; (2) scripts/create-department-heads.ts creates one department head per department family (departmentFamilyKey) with a login derived from the …dept account by replacing the suffix with head, or from a fixed table for three departments with no …dept account, puts the family in review when no name exists or the name is taken, and counts a family that already has a …head account as existing; both scripts create the account inactive and passwordless with the role template's permissions and the department's college scopes, skipping a login that already exists; (3) scripts/provision-department-accounts.ts works on the four sites of one college fixed in the script (girls, boys and two branch sites, by their site codes fixed in it), warns about a college that is not registered without creating it, creates a department missing from one of the four colleges with the code and name of the department's oldest record, then ensures each department has three accounts <prefix>dept (schedule committee chair), <prefix>head (department head) and <prefix>advisor (advisor), each covering the four colleges; a missing account is created active with the default password, an existing one has only its missing scopes added without removing a scope or changing its role, password or login, no account is created when another account of the same role already covers the department under a different login, and anything ambiguous (unknown or invalid prefix, a review note) is listed under «manual review» untouched. The default password is fixed in scripts/lib/defaultPassword.ts and can be replaced with the DEFAULT_ACCOUNT_PASSWORD variable at run time; it writes the SystemUserPass hash and the SystemUserPassVault vault copy with IsActive=true, is applied to an existing account only when that account is inactive and passwordless, and the closing message of an applied run prints it so the operator can pass it to the account owners."
+      },
+      "rationale": { "ar": "قرار المالك: حساب واحد لكل صفة في القسم يغطي كلياته، يُسلَّم مفعّلاً ويغيّر صاحبه كلمته عند أول دخول.", "en": "Owner decision: one account per role per department covering its colleges, handed over active, its owner changing the password at first sign-in." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "تشغيل أيٍّ من الثلاثة دون ‎--apply ← يطبع «معاينة فقط — لن يُكتب شيء» ولا يتغير أي مستخدم أو نطاق.", "en": "Running any of the three without --apply ← it prints «preview only — nothing will be written» and no user or scope changes." },
+        { "ar": "قسم له حساب ‎…dept موقوف بلا كلمة سر ونطاقه كليتان ← يُفعَّل بالكلمة الافتراضية ويُضاف إليه نطاق الكليتين الأخريين.", "en": "A department whose …dept account is inactive, passwordless and scoped to two colleges ← it is activated with the default password and the other two colleges are added to its scope." },
+        { "ar": "حساب مرشد قائم له كلمة سر ← لا تُمسّ كلمته ولا اسمه، ويُضاف الناقص من نطاقه فقط.", "en": "An existing advisor account with a password ← its password and login are untouched and only its missing scopes are added." },
+        { "ar": "حساب المرشد الجديد يحمل كل نطاقات القسم في كلياته لا الكلية الأولى وحدها.", "en": "The new advisor account carries every scope of the department across its colleges, not the first college alone." }
+      ],
+      "evidence": { "code": ["scripts/create-department-advisors.ts", "scripts/create-department-heads.ts", "scripts/provision-department-accounts.ts", "scripts/lib/defaultPassword.ts#defaultCredentials", "scripts/lib/defaultPassword.ts#needsDefaultCredentials", "src/utils/departmentHeadAccounts.ts#planAdvisorAccounts"], "tests": ["tests/department-head-accounts-audit.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACC-050",
+      "kind": "functional",
+      "title": { "ar": "سكربت تجهيز حسابات القيادة", "en": "Leadership account provisioning script" },
+      "text": {
+        "ar": "يجب أن يُجهّز scripts/provision-leadership-accounts.ts (معاينةً افتراضاً، والكتابة مع ‎--apply) سبعة حسابات قيادة، على كل الكليات: خمسة بصفات عميد الكلية والعميد المساعد للشؤون الأكاديمية وعميد القبول والتسجيل والمسجّل العام (يُسمّى الحساب «رئيس التسجيل») وموظف التسجيل بنطاق صفٍّ لكل كلية بقسم صفر، وحساب باسم «المسجل العام» بصفة عميد القبول والتسجيل بالنطاق نفسه، وحساب «الإرشاد العام» بصفة مرشد القسم بنطاق صفٍّ لكل قسم في كل كلية (لأن الصف الصفري لا يعني الكلية كلها لصفة المرشد)؛ وأن يُنشئ الحساب الغائب مفعّلاً بكلمة السر الافتراضية (DEFAULT_ACCOUNT_PASSWORD) بصلاحيات قالب صفته، ويفعّل القائم الموقوف بلا كلمة سر بها، ويوسّع نطاق القائم بالناقص وحده ويقول «موجود وكامل النطاق» حين لا ينقصه شيء؛ وأن يحذف الحسابات الثمانية القديمة (عميد وعميد مساعد لكل من الكليات الأربع) التي أنشأها إصداره الأول إن بقيت موقوفة وبلا كلمة سر، ويتركها مع تنبيه «فُعّل أو له كلمة سر — لم يُحذف» إن لم تكن كذلك.",
+        "en": "scripts/provision-leadership-accounts.ts (previewing by default, writing with --apply) shall provision seven leadership accounts, across all colleges: five with the roles College dean, Vice dean for academic affairs, Dean of registration, University registrar (the account named «registration head») and Registration officer, scoped to one department-zero row per college, an account named «general registrar» with the Dean of registration role and the same scope, and a «general advising» account with the Department advisor role scoped to one row per department in every college (because a zero row does not mean the whole college for the advisor role); it shall create a missing account active with the default password (DEFAULT_ACCOUNT_PASSWORD) and its role template's permissions, activate an existing inactive passwordless account with it, add only the missing scopes to an existing account and report «exists with full scope» when nothing is missing; and it shall delete the eight old accounts (a dean and a vice dean for each of the four colleges) created by its first version if they are still inactive and passwordless, leaving them with the notice «activated or has a password — not deleted» otherwise."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "تشغيل ثانٍ بعد التنفيذ ← كل الحسابات السبعة «موجود وكامل النطاق» ولا يُنشأ شيء.", "en": "A second run after applying ← all seven accounts report «exists with full scope» and nothing is created." },
+        { "ar": "حساب عميد قديم لإحدى الكليات له كلمة سر ← لا يُحذف ويُطبع تنبيه.", "en": "An old per-college dean account that has a password ← it is not deleted and a notice is printed." },
+        { "ar": "إضافة كلية جديدة ثم إعادة التشغيل ← يُضاف صف الكلية إلى الحسابات القائمة دون إنشاء حسابات جديدة.", "en": "Adding a new college and running again ← the college's row is added to the existing accounts without creating new ones." }
+      ],
+      "evidence": { "code": ["scripts/provision-leadership-accounts.ts", "scripts/lib/defaultPassword.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACC-051",
+      "kind": "functional",
+      "title": { "ar": "إصلاح لمرة واحدة: توحيد حسابات المرشدين المكررة", "en": "One-time repair: consolidating duplicate advisor accounts" },
+      "text": {
+        "ar": "يجب أن يكون scripts/consolidate-department-advisors.ts إصلاحاً لمرة واحدة لحسابات المرشدين التي أُنشئت لكل كلية قبل قاعدة «حساب واحد لكل قسم»، وأن يرفض العمل ما لم يُحدَّد FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID صراحةً (لا يُقرأ ملف الإعداد بديلاً)، وأن يطبع افتراضاً تقرير JSON للمعاينة (عدد الأقسام المرشحة، والآمن منها، والحسابات الزائدة التي ستُسحب، والحسابات التي ستُعاد تسميتها، وما يحتاج مراجعة يدوية بسببه) ثم يخرج دون كتابة؛ ومع ‎--apply أن يعيد قراءة الحالة قبل كل قسم ويتوقف كلياً إن تغيّرت بعد المعاينة، وألا يمسّ قسماً إلا إذا كانت كل حساباته المكررة بصفة المرشد، غير محذوفة، موقوفة، بلا كلمة سر ولا نسخة خزنة، ونطاقاتها كلها داخل أقسام العائلة نفسها، واسم الدخول المقترح غير مملوك لحساب خارجها؛ فيمنح الحساب الأساسي الاسم واسم الدخول المقترحين وصلاحيات القالب ونطاق القسم كاملاً ويبقيه موقوفاً، ويسحب من كل حساب زائد صلاحياته ونطاقاته ويجعله موقوفاً مقفلاً محذوفاً حذفاً ناعماً بصفة standard فيبقى سجله قابلاً للاسترجاع؛ وأن يعيد تسمية حساب مرشد موقوف قائم اسمه يخالف المقترح بالشروط نفسها؛ وأن يكتب لكل قسم وكل إعادة تسمية سطراً في سجل التدقيق باسم «SCHEDULE migration» وطريقة SCRIPT؛ وأن يطبع في الختام عدد المرشدين الظاهرين والمجموعات التي بقيت للمراجعة.",
+        "en": "scripts/consolidate-department-advisors.ts shall be a one-time repair for advisor accounts created per college before the «one account per department» rule; it shall refuse to run unless FIREBASE_PROJECT_ID and FIREBASE_DATABASE_ID are set explicitly (the config file is not read instead), and by default print a JSON preview (candidate departments, the safe ones, extra accounts to retire, accounts to rename, and those needing manual review with the reason) and exit without writing; with --apply it shall re-read the state before each department and stop entirely if it changed after the preview, and touch a department only if all its duplicate accounts have the advisor role, are not deleted, inactive, with neither password nor vault copy, all their scopes lie within the same department family, and the proposed login is not owned by an account outside them; it then gives the primary account the proposed name and login, the template permissions and the department's full scope while keeping it inactive, and strips each extra account of permissions and scopes, making it inactive, locked and soft-deleted with role standard so its record remains recoverable; it shall rename an existing inactive advisor account whose login differs from the proposed one under the same conditions; it shall write one audit-log line per department and per rename as «SCHEDULE migration» with method SCRIPT; and it shall finish by printing the number of visible advisors and the groups left for review."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "تشغيل دون FIREBASE_DATABASE_ID ← خطأ «حدّد FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID صراحةً» ولا اتصال.", "en": "Running without FIREBASE_DATABASE_ID ← the error asking to set both explicitly, and no connection." },
+        { "ar": "قسم أحد مكرراته مفعّل أو له كلمة سر ← «فحص السلامة أخفق» ويتوقف التنفيذ عند هذا القسم.", "en": "A department where one duplicate is active or has a password ← «the safety check failed» and the run stops at that department." },
+        { "ar": "قسم آمن فيه ثلاثة حسابات ← حساب أساسي واحد بكل النطاقات وحسابان محذوفان حذفاً ناعماً بلا صلاحيات ولا نطاق، وسطر تدقيق «توحيد حسابات المرشدين».", "en": "A safe department with three accounts ← one primary account with all scopes, two soft-deleted accounts with no permissions or scope, and an audit line for consolidating advisor accounts." }
+      ],
+      "evidence": { "code": ["scripts/consolidate-department-advisors.ts", "src/utils/departmentHeadAccounts.ts#planAdvisorAccounts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "NFR-ACC-052",
+      "kind": "nonfunctional",
+      "title": { "ar": "التدقيق الحي لتسرّب النطاق لكل صفة", "en": "Live per-role scope leak audit" },
+      "text": {
+        "ar": "يجب أن يتيح scripts/role-scope-live-audit.mjs للمطوّر فحص تسرّب النطاق على خادم تجريبي معزول (DATA_MODE=demo بلا ‎.env) يُعطى عنوانه وسيطاً أول (الافتراضي http://localhost:3000)، فيفتح جلسة الدخول التجريبي ويقرأ بصفة الإدارة الأقسام والمواعيد والاعتمادات، ثم يبدّل عبر ‎/api/demo/role إلى كل صفة من عشر (الإدارة، العميد، العميد المساعد، عميد القبول والتسجيل، المسجّل العام، موظف التسجيل، رئيس القسم، رئيس اللجنة، المستخدم العادي، ورئيس لجنة متعدد المواقع) ويطرق أكثر من مئة مسار قراءة بنطاق الصفة ونطاق قسم أجنبي ونسخة «الكلية وحدها» بلا قسم، ويقرأ ملفات Excel العائدة نصاً؛ وأن يحكم لكل خانة بـOK أو DENIED (401 أو 403 أو 404) أو ERR مع الرمز أو LEAK حين يرد في الجواب زوج (كلية، قسم) خارج النطاق، أو رقم موعد يعود إلى قسم أجنبي، أو صفّ موعد من قسم غير معتمد لقارئ العميدين، أو رقم مدني كامل من 12 خانة لأستاذ لم يدرّس في نطاق القارئ، أو NAME? حين يظهر اسم قسم أجنبي في النص؛ مستثنياً المقرر الآخر في طلب طالب عن تعارض مقررين المعلَّم للقراءة وحدها؛ وأن يقبل ‎--verbose و‎--only=<صفات> و‎--json، ويطبع جدولاً (مسار × صفة) وعدد خانات التسرب، ويخرج بالرمز 1 إن وُجد تسرّب و2 إن تعطّل.",
+        "en": "scripts/role-scope-live-audit.mjs shall let the developer check scope leaks on an isolated demo server (DATA_MODE=demo, no .env) whose address is the first argument (default http://localhost:3000): it opens the demo sign-in session, reads departments, schedule rows and approvals as administration, then switches through /api/demo/role to each of ten roles (administration, dean, vice dean, dean of registration, university registrar, registration officer, department head, committee chair, standard user and a multi-site committee chair) and calls more than a hundred read routes with the role's scope, a foreign department's scope and a «college only» variant without the department, reading returned Excel files as text; for each cell it shall judge OK, DENIED (401, 403 or 404), ERR with the status, LEAK when the reply holds a (college, department) pair outside the scope, a schedule-row number belonging to a foreign department, a row of a non-accepted department for the two dean readers, or a full 12-digit civil ID of an instructor who never taught in the reader's scope, or NAME? when a foreign department's name appears in the text; excluding the other course in a student's two-course conflict request marked read-only; it shall accept --verbose, --only=<roles> and --json, print a route × role table and the number of leak cells, and exit with 1 on a leak and 2 on a crash."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "رئيس قسم يقرأ قائمة مواعيد تحمل صفاً لقسم آخر ← الخانة LEAK ورمز الخروج 1.", "en": "A department head reading a schedule list holding another department's row ← the cell is LEAK and the exit code 1." },
+        { "ar": "مسار يرد 403 لنطاق أجنبي ← DENIED ولا يُحسب تسرباً.", "en": "A route answering 403 for a foreign scope ← DENIED, not counted as a leak." },
+        { "ar": "‎--only=dean ← تُفحص صفة العميد وحدها.", "en": "--only=dean ← only the dean role is checked." }
+      ],
+      "evidence": { "code": ["scripts/role-scope-live-audit.mjs"], "tests": [] },
+      "inferred": true
     }
   ],
   "edgeCases": [

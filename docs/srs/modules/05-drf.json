@@ -1993,8 +1993,8 @@
         "en": "A file carrying branch sites where one site fails"
       },
       "scenario": {
-        "ar": "مسودة فيها صفوف للمقر والجهراء والفحيحيل، وأحد المواقع مقفل أو صفٌّ فيه بلا موقع معروف.",
-        "en": "A draft with rows for the main site, Jahra and Fahaheel, where one site is locked or a row has no known site."
+        "ar": "مسودة فيها صفوف للمقر والموقعين الفرعيين، وأحد المواقع مقفل أو صفٌّ فيه بلا موقع معروف.",
+        "en": "A draft with rows for the main site and both branch sites, where one site is locked or a row has no known site."
       },
       "behavior": {
         "ar": "تُفحص كل المواقع قبل أول كتابة؛ يُنتج الخادم 409 أو 400 يسمّي الموقع ولا يُنشر أي صف في أي موقع.",

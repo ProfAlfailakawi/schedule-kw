@@ -591,8 +591,8 @@
       "kind": "functional",
       "title": { "ar": "حدود العرض التجريبي", "en": "Demo limits" },
       "text": {
-        "ar": "يجب على الدليل التجريبي أن يصف ما يفتح عليه العرض: كلية واحدة وثلاثة أقسام، النطاق مختار مسبقاً (كلية التربية الأساسية ← تكنولوجيا التعليم ← الفصل الأول 2026/2027)، وصفات يبدّلها المستخدم من الشريط الجانبي، وأن يذكر أن الإدارة الحقيقية (المستخدمون والصلاحيات والنسخ الاحتياطي) لا تُعدَّل من التجربة، وأن لوحة الجمهور والإعلانات غير متاحتين فيها.",
-        "en": "The demo guide shall describe what the demo opens on: one college and three departments, with the scope preselected (College of Basic Education → Educational Technology → first term 2026/2027), roles the user switches from the side bar, and state that real administration (users, permissions, backup) cannot be modified from the demo and that the audience dashboard and ads are unavailable in it."
+        "ar": "يجب على الدليل التجريبي أن يصف ما يفتح عليه العرض: كلية واحدة وثلاثة أقسام، النطاق مختار مسبقاً (الكلية التجريبية ← أحد أقسامها ← الفصل الأول 2026/2027)، وصفات يبدّلها المستخدم من الشريط الجانبي، وأن يذكر أن الإدارة الحقيقية (المستخدمون والصلاحيات والنسخ الاحتياطي) لا تُعدَّل من التجربة، وأن لوحة الجمهور والإعلانات غير متاحتين فيها.",
+        "en": "The demo guide shall describe what the demo opens on: one college and three departments, with the scope preselected (the demo college → one of its departments → first term 2026/2027), roles the user switches from the side bar, and state that real administration (users, permissions, backup) cannot be modified from the demo and that the audience dashboard and ads are unavailable in it."
       },
       "priority": "could",
       "status": "implemented",
@@ -698,6 +698,45 @@
         { "ar": "الفراغات والقاعات المتاحة تُحسب من صفوف الفصل كله لأنها وقت ومكان بلا مقرر ولا قسم، وجدول القاعة والأستاذ والوقت من صفوف نطاق القارئ.", "en": "Gaps and free halls are computed from the whole term's rows because they are time and place with no course or department, while hall, instructor and time readings come from the reader's scoped rows." }
       ],
       "evidence": { "code": ["src/utils/naturalQuery.ts#parseNaturalQuery", "src/server/routes/dashboardRoutes.ts#/api/search/natural"], "tests": ["tests/input-hardening-audit.ts", "tests/standard-arabic-ui-audit.ts", "tests/dean-notify-audit.ts"] }
+    },
+    {
+      "id": "IR-DSH-029",
+      "kind": "interface",
+      "title": { "ar": "مسرح الجولة على أسبوع القسم نفسه", "en": "The tour stage on the department's own week" },
+      "text": {
+        "ar": "يجب أن يبني مسرح جولة الترحيب أسبوعه المصغّر (خمسة أيام × ست ساعات) من أسبوع القارئ الحقيقي حين يملك قراءة الجدول وفيه ثلاثة مواعيد صالحة على الأقل: محاضرةٌ واحدة لكل يوم، مقدّماً المقررات التي لم تظهر بعد، وست ساعات تبدأ من أبكر محاضرة ضمن اليوم الدراسي، ثم «محاضرة مثال» واحدة مصطنعة تحمل أستاذ المحاضرة التي تسقط عليها لتمثيل التعارض وإصلاحه، وإلا يعمل بالعيّنة التوضيحية.",
+        "en": "The welcome-tour stage shall build its miniature week (five days × six hours) from the reader's real week when the reader may read the schedule and it holds at least three usable appointments: one lecture per day, preferring courses not yet shown, and six hours starting from the earliest lecture within the teaching day, then a single invented «example lecture» carrying the instructor of the lecture it lands on to stage the conflict and its repair; otherwise it runs on the illustrative sample."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "admin", "standard"],
+      "acceptance": [
+        { "ar": "زاوية المسرح تقول «أسبوع قسمك — محاضرة مثال واحدة مضافة» أو «مثال توضيحي»، فلا يُفهم المثال تعارضاً حقيقياً.", "en": "The stage corner states «your department's week — one example lecture added» or «illustrative example», so the example is not read as a real conflict." },
+        { "ar": "لون كل محاضرة من دالة لون المقرر نفسها التي يستعملها الجدول، والإصلاح ينقل المثال إلى أدنى خانتين فارغتين في عموده.", "en": "Each lecture's colour comes from the same course-colour function the schedule uses, and the repair moves the example to the lowest two free slots in its column." },
+        { "ar": "زر «تخطّي» يظهر حتى المشهد الأخير، والزر الرئيسي «التالي» ثم «ابدأ العمل»، والتحية تتبع الصفة (مثل «كليتك بين يديك اطّلاعاً» للعميد).", "en": "A «skip» button shows until the last scene, the main button reads «next» then «start working», and the greeting follows the role (such as «your college is in your hands to view» for the dean)." },
+        { "ar": "حسابٌ لا يقرأ الجدول أو يفضّل تقليل الحركة لا يطلب الأسبوع أصلاً.", "en": "An account that cannot read the schedule, or prefers reduced motion, does not request the week at all." }
+      ],
+      "evidence": { "code": ["src/components/Onboarding.tsx#stageFromWorkspace", "src/components/Onboarding.tsx#repairSlot", "src/components/Onboarding.tsx#ROLE_GREETING", "src/components/Onboarding.tsx#Stage"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "IR-DSH-030",
+      "kind": "interface",
+      "title": { "ar": "عناصر العرض المشتركة (عُدّة DNA)", "en": "Shared display primitives (the DNA kit)" },
+      "text": {
+        "ar": "يجب أن تكون عناصر العرض المشتركة — المِرقاة والخط الزمني ورأس الحالة والحلقة والمفتاح المقطّع والخط المصغّر وبطاقة الرقم وشريط الحرارة وخريطة المحور والحالة الفارغة — للعرض وحده تأخذ كل قيمها من الشاشة المضيفة ولا تقرأ بيانات ولا تكتبها، وأن تُقرأ حالاتها لقارئ الشاشة بكلمات: مكتملة، الحالية، لاحقة، مُرجَعة، متوقفة.",
+        "en": "The shared display primitives — stepper, timeline, status header, ring, segmented switch, sparkline, stat tile, heat strip, hub map and empty state — shall be presentation only, taking every value from the host screen and neither reading nor writing data, and their states shall be read to a screen reader in words: complete, current, later, returned, stopped."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "الحلقة بلا قيمة ترسم مساراً متقطّعاً و«—»، وبقيمة تعرض النسبة المئوية مقرّبة ما لم تُعطَ تسمية.", "en": "A ring without a value draws a dashed track and «—», and with a value shows the rounded percentage unless given a label." },
+        { "ar": "الخط المصغّر لا يُرسم بأقل من قيمتين، وشريط الحرارة يقيس كل خانة بأعلاها، وخريطة المحور تصغر عناصرها تحت 520 بكسل عرضاً.", "en": "The sparkline is not drawn with fewer than two values, the heat strip scales each cell to the highest, and the hub map shrinks its elements below 520 pixels wide." },
+        { "ar": "المرحلة المكتملة ذات التوقيع تعرض أحرفه خَتماً، والمرحلة الحالية تحمل aria-current=step، ومقدّمة الرحلة الاختيارية لا تغيّر شيئاً حين لا تُطلب.", "en": "A completed stage with a signature shows its initials as a stamp, the current stage carries aria-current=step, and the optional journey intro changes nothing when not requested." }
+      ],
+      "evidence": { "code": ["src/components/dna/DnaKit.tsx#DnaStepper", "src/components/dna/DnaKit.tsx#DnaRing", "src/components/dna/DnaKit.tsx#DnaSpark", "src/components/dna/DnaKit.tsx#DnaHeat", "src/components/dna/DnaKit.tsx#DnaHubMap"], "tests": ["tests/journey-reveal-audit.ts"] },
+      "inferred": false
     }
   ],
   "edgeCases": [
