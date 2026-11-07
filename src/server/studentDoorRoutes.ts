@@ -32,6 +32,7 @@ import {
   lockState, planProgress, profileLifetime, resetLifetime, sanitizePassed, shouldTouch, unitsOf, RESET_COOLDOWN_DAYS, TYPICAL_TERM_UNITS, DEFAULT_TERM_UNITS, peerCourseCounts,
 } from "../utils/studentProfile";
 import { buildSimulationOfferings, ticketContext } from "./simulationData";
+import { readTravelPolicy } from "./core/travelPolicy";
 import { auditSimOfferings } from "../utils/registrationSim";
 import { verifiedUnresolvableStudentConflicts } from "../utils/studentCaseConflict";
 import { remainingNeed, unmetPrereq } from "../utils/curriculumRules";
@@ -1269,8 +1270,12 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const pool = [...byCourse.entries()].slice(0, 40).map(([courseId, offerings]) => ({ courseId, ...info(courseId), needs: needsOf(courseId), offerings }))
       .sort((a, b) => a.needs.length - b.needs.length || a.code.localeCompare(b.code, "en"));
     const round = term.AdTermStudentPhases?.rounds?.[ticket.window - 1];
+    /* دقائقُ التنقّل بين الحرمين من وثيقة السياسة (الأصلُ عند غيابها)، مفاتيحُ أزواجٍ ودقائقُ فقط: لا مستثنَون ولا أساتذة. */
+    const travelPolicy = await readTravelPolicy();
+    const travel: Record<string, number> = {};
+    for (const [key, rule] of Object.entries(travelPolicy.pairs)) if (rule.minutes > 0) travel[key] = rule.minutes;
     res.json({
-      ready: true, termName: String(term.AdTermName || ""), ranAt: run.ranAt, pool,
+      ready: true, travel, termName: String(term.AdTermName || ""), ranAt: run.ranAt, pool,
       stale: Date.parse(profile.updatedAt) > Date.parse(run.ranAt),
       window: { n: ticket.window, of: run.rounds, name: round?.name || "", start: round?.start || "", end: round?.end || "" },
       remainingUnits: ticket.remainingUnits, defaulted: ticket.defaulted,
