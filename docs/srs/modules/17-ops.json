@@ -1643,8 +1643,8 @@
       ],
       "acceptance": [
         {
-          "ar": "أي أمر domain-mappings في أي ملف yaml أو js أو ts أو sh أو json أو py يُفشل الحارس.",
-          "en": "Any domain-mappings command in any yaml, js, ts, sh, json or py file fails the guard."
+          "ar": "أي أمر يمسّ ربط النطاق (domain mapping) في أي ملف yaml أو js أو ts أو sh أو json أو py يُفشل الحارس.",
+          "en": "Any command touching the domain mapping in any yaml, js, ts, sh, json or py file fails the guard."
         },
         {
           "ar": "إضافة --memory أو --set-env-vars أو --service-account إلى أمر النشر تُفشل الحارس.",
