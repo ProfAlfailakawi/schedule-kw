@@ -37,8 +37,8 @@ These are fixed decisions by the system owner. Do not change them without the ow
 
 The system has a bilingual (Arabic/English) Software Requirements Specification under `docs/srs/`. It is the contract between the owners, the university and the code, so it must never fall behind.
 
-- ⚠️ **Any change that adds, changes or removes a feature updates its requirement in the same pull request.** Requirements live in `docs/srs/modules/*.json` (one file per module; schema and style in `docs/srs/AUTHORING.md`). Each requirement lists the code files that implement it and the tests that prove it.
-- `npm run test:srs-doc` (part of `npm test`, so part of CI) fails the merge when: a source file belongs to no module; a server route was added or removed without `npm run srs:sync`; a referenced file does not exist; a banned wording appears; or the PDFs are older than the written content (`npm run srs:pdf` regenerates them into `docs/srs/pdf/`).
+- ⚠️ **Any change that adds, changes or removes a feature updates its requirement in the same change.** Requirements live in `docs/srs/modules/*.json` (one file per module; schema and style in `docs/srs/AUTHORING.md`). Each requirement lists the code files that implement it and the tests that prove it.
+- `npm run test:srs-doc` (part of `npm test`, so part of the automated checks) fails the merge when: a source file belongs to no module; a server route was added or removed without `npm run srs:sync`; a referenced file does not exist; a banned wording appears; or the PDFs are older than the written content (`npm run srs:pdf` regenerates them into `docs/srs/pdf/`).
 - The interactive page is rebuilt on every deployment by `npm run build` and served at a private, secret URL (`/srs/<key>/`, handled by `src/server/srsDoc.ts`). Only the SHA-256 of the key is stored (`docs/srs/access.sha256`); the key itself is never committed. Rotating the key means replacing that hash.
 - Counts, coverage, endpoint totals and screenshots-free statistics are extracted from the repository on every build — they are never typed by hand.
 

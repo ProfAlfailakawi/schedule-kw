@@ -11,6 +11,7 @@
     $$("[data-lang-btn]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-lang-btn") === l)); });
     var q = $("#q"); if (q) q.placeholder = q.getAttribute("data-ph-" + l) || "";
     $$("[data-pdf]").forEach(function (a) { a.href = a.getAttribute("data-pdf-" + l) || "#"; });
+    $$("[data-live]").forEach(function (a) { a.href = a.getAttribute("data-live-" + l) || "#"; });
     if (!silent) safe(function () { localStorage.setItem("srs-lang", l); });
     updateHash();
   }

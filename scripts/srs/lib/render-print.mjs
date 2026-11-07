@@ -31,7 +31,7 @@ export function outline(m, lang) {
   return items;
 }
 
-export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/" } = {}) {
+export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = false } = {}) {
   const c = ctxFor(lang, { print: true });
   const L = o => o[lang];
   const css = read("scripts/srs/theme/base.css") + read("scripts/srs/theme/print.css");
@@ -61,7 +61,7 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/" } = {}) 
     <div class="stat-row">${[[s.requirements, T2("متطلباً", "Requirements")], [s.modules, T2("وحدة", "Modules")], [`${s.implementedPct}%`, T2("منفّذ", "Implemented")], [`${s.tracedPct}%`, T2("مثبت باختبار", "Test-proven")], [f.endpoints, T2("مسار خادم", "Server routes")], [f.components, T2("شاشة ومكوّن", "Screens and components")], [f.tests, T2("ملف اختبار", "Test files")], [s.acceptance, T2("معيار قبول", "Acceptance criteria")]].map(([n, t]) => `<div><b>${n}</b><span>${L(t)}</span></div>`).join("")}</div>
     <h3>${L(T2("سجل الإصدارات", "Revision history"))}</h3>
     <table class="tbl"><thead><tr><th>${L(T2("الإصدار", "Version"))}</th><th>${L(T2("التاريخ", "Date"))}</th><th>${L(T2("التغييرات", "Changes"))}</th></tr></thead><tbody>${m.revisions.map(r => `<tr><td class="mono">${esc(r.version)}</td><td class="mono">${esc(r.date)}</td><td>${md(L(r.changes))}</td></tr>`).join("")}</tbody></table>
-    <h3>${L(T2("المحتويات", "Contents"))}</h3><nav class="toc-print">${tocRows}</nav></section>`;
+    <h3>${L(T2("المحتويات", "Contents"))}</h3><nav class="toc-print${live ? " toc-live" : ""}">${tocRows}</nav></section>`;
 
   const intro = m.front.intro;
   const part1 = `<section class="part" id="sec-INTRO">${mk("INTRO")}<h2 class="ph"><span class="no">1</span>${icon("book-open", 26)} ${L(T2("المقدمة", "Introduction"))}</h2>
@@ -111,6 +111,12 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/" } = {}) 
   const gl = `<section class="part" id="sec-GLOSS">${mk("GLOSS")}<h2 class="ph"><span class="no">C</span>${icon("book-a", 26)} ${L(T2("المصطلحات", "Glossary"))}</h2>${termsBlock(c, m.glossary)}</section>`;
   const rv = `<section class="part" id="sec-REV">${mk("REV")}<h2 class="ph"><span class="no">D</span>${icon("history", 26)} ${L(T2("سجل الإصدارات", "Revision history"))}</h2><table class="tbl"><thead><tr><th>${L(T2("الإصدار", "Version"))}</th><th>${L(T2("التاريخ", "Date"))}</th><th>${L(T2("التغييرات", "Changes"))}</th></tr></thead><tbody>${m.revisions.map(r => `<tr><td class="mono">${esc(r.version)}</td><td class="mono">${esc(r.date)}</td><td>${md(L(r.changes))}</td></tr>`).join("")}</tbody></table></section>`;
 
-  const body = head(lang, css, fontsUrl, `${control}${part1}${part2}${part3}${tr}${infer}${gl}${rv}`, "print");
+  const sections = `${control}${part1}${part2}${part3}${tr}${infer}${gl}${rv}`;
+  if (live) {
+    const hint = `<div class="live-hint no-print"><span>${L(T2("هذه نسخة حيّة من الوثيقة تُبنى من المصدر نفسه. لحفظها PDF: اطبع واختر «حفظ بصيغة PDF» وألغِ «الرؤوس والتذييلات».", "This is a live copy built from the document source. To save it as PDF: print and choose “Save as PDF”, with “Headers and footers” off."))}</span><button type="button" onclick="window.print()">${L(T2("طباعة / حفظ PDF", "Print / Save as PDF"))}</button></div>`;
+    const auto = `<script>addEventListener("load",function(){if(location.hash==="#print"){(document.fonts&&document.fonts.ready||Promise.resolve()).then(function(){setTimeout(function(){print()},400)})}})</script>`;
+    return { body: head(lang, css, fontsUrl, `${hint}${coverBody}${sections}${auto}`, "print live"), outline: ol };
+  }
+  const body = head(lang, css, fontsUrl, sections, "print");
   return { cover, body, outline: ol };
 }

@@ -10,6 +10,7 @@ import { ROOT, SRS_DIR, forbiddenHits, GEMINI_ALLOWED_MODULES } from "./lib/comm
 import { validateAll } from "./validate.mjs";
 import { buildModel } from "./lib/model.mjs";
 import { renderInteractive } from "./lib/render-interactive.mjs";
+import { renderPrint } from "./lib/render-print.mjs";
 import { missingIcons } from "./lib/icons.mjs";
 
 export const PDF_DIR = path.join(SRS_DIR, "pdf");
@@ -36,8 +37,17 @@ export function buildAll({ strict = true } = {}) {
   /* فحصٌ ثانٍ على الناتج النهائي: لا عبارة ممنوعة تمرّ إلى الصفحة. */
   const visible = html.replace(/<code[\s\S]*?<\/code>/g, "").replace(/<style[\s\S]*?<\/style>/g, "").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<svg class="ic[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, " ");
   const hits = forbiddenHits(visible, { allowGemini: true });
+  if (/git\s?hub/i.test(html) && strict) throw new Error("ذكرٌ لمنصة الاستضافة في الناتج");
   if (hits.length && strict) throw new Error(`عبارة ممنوعة في الناتج: ${[...new Set(hits)].join("، ")}`);
-  return { model, html, warnings };
+  const live = {};
+  for (const l of ["ar", "en"]) {
+    live[l] = renderPrint(model, l, { live: true }).body;
+    if (/git\s?hub/i.test(live[l]) && strict) throw new Error("ذكرٌ لمنصة الاستضافة في النسخة الحيّة");
+    const shown = live[l].replace(/<code[\s\S]*?<\/code>/g, "").replace(/<style[\s\S]*?<\/style>/g, "").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, " ");
+    const bad = forbiddenHits(shown, { allowGemini: true });
+    if (bad.length && strict) throw new Error(`عبارة ممنوعة في النسخة الحيّة: ${[...new Set(bad)].join("، ")}`);
+  }
+  return { model, html, live, warnings };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -51,9 +61,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     outDir = path.join(ROOT, "dist/srs-private", h);
   }
   if (!outDir) { console.error("حدّد --out <مجلد> أو --site"); process.exit(1); }
-  const { model, html, warnings } = buildAll();
+  const { model, html, live, warnings } = buildAll();
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, "index.html"), html);
+  for (const l of ["ar", "en"]) fs.writeFileSync(path.join(outDir, `print-${l}.html`), live[l]);
   for (const name of Object.values(pdfFiles())) fs.copyFileSync(path.join(PDF_DIR, name), path.join(outDir, name));
   console.log(`✓ الصفحة التفاعلية: ${model.stats.modules} وحدة، ${model.stats.requirements} متطلباً، ${(html.length / 1024).toFixed(0)} KB → ${path.relative(ROOT, outDir)}${warnings.length ? ` (${warnings.length} تنبيه)` : ""}`);
 }

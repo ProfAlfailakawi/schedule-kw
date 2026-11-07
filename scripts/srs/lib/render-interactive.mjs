@@ -109,7 +109,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   <div class="tools">
     <button class="btn" data-lang-btn="ar" aria-pressed="true">AR</button><button class="btn" data-lang-btn="en" aria-pressed="false">EN</button>
     <button class="btn" id="theme" type="button" aria-label="theme">${icon("sun-moon", 18)}</button>
-    ${pdfLinks.length ? `<a class="btn primary" data-pdf data-pdf-ar="${pdfs.ar || "#"}" data-pdf-en="${pdfs.en || "#"}" href="${pdfs.ar || pdfs.en}" download>${icon("file-down", 18)}<span class="hide-sm">PDF</span></a>` : `<button class="btn primary" data-print type="button">${icon("printer", 18)}<span class="hide-sm">${c.T(T2("طباعة", "Print"))}</span></button>`}
+    <a class="btn primary" data-live data-live-ar="print-ar.html#print" data-live-en="print-en.html#print" href="print-ar.html#print" target="_blank" rel="noopener" title="PDF">${icon("file-down", 18)}<span class="hide-sm">PDF</span></a>
   </div></div></header>
 ${filterbar}
 <div class="hero" id="top"><div class="hero-in">
@@ -117,6 +117,7 @@ ${filterbar}
   <h1>${c.T(m.meta.system)}</h1>
   <p class="sub">${c.T(T2("ما يجب أن يقدمه النظام، ولمن، وبأي ضمانات. مرتبط بالكود والاختبارات ويتحدث مع كل إصدار.", "What the system must provide, for whom, and under which guarantees. Linked to the code and tests, and refreshed with every release."))}</p>
   <div class="chips"><span class="hchip">${icon("tag", 14)} v${esc(m.meta.version)}</span><span class="hchip">${icon("calendar", 14)} ${esc(m.meta.releaseDate)}</span>${authors.map(a => `<span class="hchip">${icon("user-round", 14)} ${c.T(a)}</span>`).join("")}</div>
+  <p class="chips" style="margin:0 0 1rem"><a class="hchip" data-live data-live-ar="print-ar.html#print" data-live-en="print-en.html#print" href="print-ar.html#print" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">${icon("file-down", 14)} ${c.T(T2("PDF حيّ: يُبنى من المصدر الحالي", "Live PDF: built from the current source"))}</a>${pdfLinks.length ? `<a class="hchip" data-pdf data-pdf-ar="${pdfs.ar || "#"}" data-pdf-en="${pdfs.en || "#"}" href="${pdfs.ar || pdfs.en}" download style="text-decoration:none;color:inherit">${icon("archive", 14)} ${c.T(T2("لقطة الإصدار", "Release snapshot"))}</a>` : ""}</p>
   ${pdfInfo ? `<p class="hchip" style="margin:0 0 1rem">${icon("file-down", 14)} ${c.T(T2(`ملف PDF: لقطة الإصدار ${pdfInfo.version} بتاريخ ${pdfInfo.date}${pdfInfo.stale ? " — الصفحة أحدث منه" : ""}`, `PDF snapshot: release ${pdfInfo.version} dated ${pdfInfo.date}${pdfInfo.stale ? " — this page is newer" : ""}`))}</p>` : ""}
   <div class="statgrid">${stat("list-checks", s.requirements, "متطلباً", "Requirements")}${stat("boxes", s.modules, "وحدة", "Modules")}${stat("circle-check", s.implementedPct, "منفّذ", "Implemented", "%")}${stat("flask-conical", s.tracedPct, "مثبت باختبار", "Test-proven", "%")}${stat("route", f.endpoints, "مسار خادم", "Server routes")}${stat("app-window", f.components, "شاشة ومكوّن", "Screens and components")}${stat("file-check-2", f.tests, "ملف اختبار", "Test files")}${stat("badge-check", s.acceptance, "معيار قبول", "Acceptance criteria")}</div>
 </div></div>

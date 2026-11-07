@@ -31,11 +31,13 @@ export function validateModule(mod, file, ctx) {
   for (const a of mod.actors || []) if (!ctx.actorIds.has(a)) err(`actor غير معروف: ${a}`);
   if (!Array.isArray(mod.sources) || !mod.sources.length) err("sources (الملفات/الأنماط التي تغطيها الوحدة) مطلوبة");
   for (const pat of mod.sources || []) {
+    if (/github/i.test(pat)) err(`sources: مسارٌ يخصّ منصة الاستضافة لا يُذكر في الوثيقة: ${pat}`);
     const re = globToRegExp(pat);
     if (!ctx.files.some(f => re.test(f))) err(`sources: النمط لا يطابق أي ملف: ${pat}`);
   }
   const checkPath = (p, where) => {
     const clean = stripRef(p);
+    if (/github/i.test(clean)) err(`${where}: مسارٌ يخصّ منصة الاستضافة لا يُذكر في الوثيقة: ${p}`);
     if (!ctx.fileSet.has(clean)) err(`${where}: المسار غير موجود في المستودع: ${p}`);
   };
   mod.screens?.forEach((s, i) => {

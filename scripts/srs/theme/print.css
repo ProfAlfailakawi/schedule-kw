@@ -78,3 +78,15 @@ table.tbl tr{break-inside:avoid}
 .cover .chips-row{display:flex;gap:6mm;margin-top:10mm}
 .cover .chips-row div{border:1px solid rgb(255 255 255/.16);background:rgb(255 255 255/.05);border-radius:5mm;padding:3mm 5mm}
 .cover .chips-row b{display:block;font-size:20pt;color:#fff;line-height:1.1}.cover .chips-row span{font-size:8.5pt;color:#b4bfba}
+
+/* النسخة الحيّة (تُطبع من المتصفح مباشرة): الغلاف صفحةٌ مستقلة بلا هوامش، والفهرس بلا أرقام صفحات */
+@page cover{margin:0}
+.cover{page:cover}
+.toc-live .pg,.toc-live .dots{display:none}
+@media screen{
+  body.print{max-width:210mm;margin:0 auto;padding:10mm;background:#fff}
+  body.print .cover{margin:0 -10mm 10mm;width:calc(100% + 20mm)}
+  .live-hint{position:sticky;top:0;z-index:5;background:var(--jade-soft);color:var(--jade-ink);border:1px solid var(--jade);border-radius:12px;padding:.6rem .9rem;margin:0 0 .8rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;font-size:.9rem}
+  .live-hint button{min-height:40px;border-radius:10px;border:0;background:var(--jade);color:#fff;font:inherit;font-weight:600;padding:0 1rem;cursor:pointer}
+}
+@media print{.no-print{display:none!important}}

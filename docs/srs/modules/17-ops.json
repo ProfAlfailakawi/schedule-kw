@@ -54,7 +54,6 @@
     "firestore.rules",
     "firestore.indexes.json",
     "firebase.json",
-    ".github/workflows/*.yml",
     "scripts/run-tests.mjs",
     "scripts/stamp-build.mjs",
     "scripts/stamp-sw.mjs",
@@ -179,8 +178,8 @@
       },
       "steps": [
         {
-          "ar": "يُفتح طلب دمج فيعمل CI السريع (يتخطى الاختبارات الثقيلة السبعة) بعد حارسي الوجهة والنظافة.",
-          "en": "A pull request runs the quick CI (skipping the seven slow tests) after the target and hygiene guards."
+          "ar": "يُفتح طلب تغيير فيعمل CI السريع (يتخطى الاختبارات الثقيلة السبعة) بعد حارسي الوجهة والنظافة.",
+          "en": "A change request runs the quick CI (skipping the seven slow tests) after the target and hygiene guards."
         },
         {
           "ar": "بعد الدمج في main يعمل CI الكامل بكل الاختبارات؛ ولا يُنشر إلا التزام نجح فيه.",
@@ -188,7 +187,7 @@
         },
         {
           "ar": "يرفض سير النشر أي التزام لم ينجح CI الكامل له، ويتحقق من مفتاح الإيقاف ومن المستودع المالك.",
-          "en": "The release workflow refuses any commit the full CI has not passed, and checks the kill switch and the owning repository."
+          "en": "The release pipeline refuses any commit the full CI has not passed, and checks the kill switch and the owning repository."
         },
         {
           "ar": "يُبنى image واحد ثابت ويُدفع، ثم يُغيَّر image الخدمة الرسمية وحده دون إعداداتها.",
@@ -196,7 +195,7 @@
         },
         {
           "ar": "يقارن السير معرّف البناء في sw.js على النطاق الرسمي وعلى عنوان الخدمة، ويفشل إن اختلفا بعد 20 محاولة.",
-          "en": "The workflow compares the build id in sw.js on the official domain and on the service address, failing if they still differ after 20 tries."
+          "en": "The pipeline compares the build id in sw.js on the official domain and on the service address, failing if they still differ after 20 tries."
         },
         {
           "ar": "الصفحات المفتوحة تكتشف الإصدار الجديد عبر /api/version وتعيد تحميل نفسها.",
@@ -355,8 +354,8 @@
         {
           "id": "a",
           "label": {
-            "ar": "طلب دمج",
-            "en": "Pull request"
+            "ar": "طلب تغيير",
+            "en": "Change request"
           },
           "icon": "git-pull-request",
           "kind": "start"
@@ -1588,11 +1587,11 @@
       "kind": "functional",
       "title": {
         "ar": "سير التحقق المستمر (CI)",
-        "en": "Continuous-integration workflow"
+        "en": "Continuous-integration pipeline"
       },
       "text": {
-        "ar": "يجب على سير CI أن يعمل على كل دفع إلى main وكل طلب دمج عليه بمهلة 20 دقيقة وNode 22 وPython 3.12، وبهذا الترتيب: حارس وجهة النشر، حارس نظافة المستودع، تثبيت الاعتماديات، فحص الأنواع (tsc بلا إخراج)، الاختبارات (سريعة في طلبات الدمج وكاملة على main)، البناء الإنتاجي، ثم تشغيل الخادم التجريبي المبني والتحقق من نطاقات مركز التحليلات عبر واجهته؛ وألا يُلغى تشغيل main بتشغيل أحدث.",
-        "en": "The CI workflow shall run on every push to main and every pull request against it with a 20-minute timeout, Node 22 and Python 3.12, in this order: deploy target guard, repository hygiene guard, dependency install, type check (tsc with no emit), tests (quick on pull requests, full on main), production build, then start the built demo server and verify the Analytics Center scopes through its API; a run on main is never cancelled by a newer one."
+        "ar": "يجب على سير CI أن يعمل على كل دفع إلى main وكل طلب تغيير عليه بمهلة 20 دقيقة وNode 22 وPython 3.12، وبهذا الترتيب: حارس وجهة النشر، حارس نظافة المستودع، تثبيت الاعتماديات، فحص الأنواع (tsc بلا إخراج)، الاختبارات (سريعة في طلبات الدمج وكاملة على main)، البناء الإنتاجي، ثم تشغيل الخادم التجريبي المبني والتحقق من نطاقات مركز التحليلات عبر واجهته؛ وألا يُلغى تشغيل main بتشغيل أحدث.",
+        "en": "The CI pipeline shall run on every push to main and every change request against it with a 20-minute timeout, Node 22 and Python 3.12, in this order: deploy target guard, repository hygiene guard, dependency install, type check (tsc with no emit), tests (quick on change requests, full on main), production build, then start the built demo server and verify the Analytics Center scopes through its API; a run on main is never cancelled by a newer one."
       },
       "priority": "must",
       "status": "implemented",
@@ -1601,8 +1600,8 @@
       ],
       "acceptance": [
         {
-          "ar": "طلب الدمج يشغّل npm test -- --quick ويتخطى 7 اختبارات ثقيلة؛ main يشغّلها كلها.",
-          "en": "A pull request runs npm test -- --quick skipping 7 slow tests; main runs them all."
+          "ar": "طلب التغيير يشغّل npm test -- --quick ويتخطى 7 اختبارات ثقيلة؛ main يشغّلها كلها.",
+          "en": "A change request runs npm test -- --quick skipping 7 slow tests; main runs them all."
         },
         {
           "ar": "خادم بقي على المنفذ 3000 من اختبار سابق يُقتل قبل خطوة التحقق الأخيرة.",
@@ -1611,7 +1610,6 @@
       ],
       "evidence": {
         "code": [
-          ".github/workflows/ci.yml",
           "package.json",
           "tsconfig.json"
         ],
@@ -1625,11 +1623,11 @@
       "kind": "functional",
       "title": {
         "ar": "حارس وجهة النشر وسير الإصدار",
-        "en": "Deploy target guard and release workflow"
+        "en": "Deploy target guard and release pipeline"
       },
       "text": {
         "ar": "يجب ألا يُنشر إلا من المستودع المالك ومع المتغيّر PRODUCTION_DEPLOY_ENABLED=true، ولا إلا التزامٌ نجح فيه CI الكامل على main (ينتظر السير حتى 60 فحصاً بفاصل 30 ثانية)، وأن يغيّر النشر image الخدمة الرسمية في المنطقة europe-west1 وحده دون حساب الخدمة أو المتغيّرات أو الأسرار أو الذاكرة، وألا يعود إلى المنطقة المحذوفة europe-west2، وألا يمسّ ربط النطاق؛ ويفشل CI إن خالف السير أياً من ذلك، ثم يتحقق السير بعد النشر من أن النطاق الرسمي وعنوان الخدمة يخدمان معرّف البناء نفسه من /sw.js.",
-        "en": "Deployment shall happen only from the owning repository with PRODUCTION_DEPLOY_ENABLED=true and only for a commit the full CI on main passed (the workflow waits up to 60 checks 30 seconds apart); it shall change only the image of the official service in europe-west1, never the service account, variables, secrets or memory, never return to the retired europe-west2, and never touch the domain mapping; CI fails if the workflow violates any of this, and after release the workflow verifies the official domain and the service address serve the same build identifier from /sw.js."
+        "en": "Deployment shall happen only from the owning repository with PRODUCTION_DEPLOY_ENABLED=true and only for a commit the full CI on main passed (the pipeline waits up to 60 checks 30 seconds apart); it shall change only the image of the official service in europe-west1, never the service account, variables, secrets or memory, never return to the retired europe-west2, and never touch the domain mapping; CI fails if the pipeline violates any of this, and after release the pipeline verifies the official domain and the service address serve the same build identifier from /sw.js."
       },
       "rationale": {
         "ar": "التزام واحد وجّه كل النشر إلى مشروع آخر والـCI أخضر، فلم يتلقَّ الموقع الرسمي إصداراً يوماً كاملاً؛ وإعادة إنشاء ربط النطاق أسقطت HTTPS أثناء إصدار الشهادة.",
@@ -1657,7 +1655,6 @@
       ],
       "evidence": {
         "code": [
-          ".github/workflows/deploy-schedule.yml",
           "tests/deploy-target-guard.mjs",
           "docs/DELIVERY_OPERATIONS.md"
         ],

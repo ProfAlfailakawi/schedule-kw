@@ -84,5 +84,5 @@ node scripts/srs/validate.mjs docs/srs/modules/<ملفك>.json   # يجب أن �
 
 - `sources` تعدّد **كل** ملف تُحكم الوحدة سلوكه: ملفات المسارات، المنطق في `src/server/core` و`src/utils`، الشاشات في `src/components`. يتحقق CI من أن كل ملف في المجلدات المراقبة تدّعيه وحدةٌ ما.
 - كل مسار خادم جديد (`app.get/post/...`) يُحسب تلقائياً على الوحدة التي تدّعي ملفه؛ ولقطته في `docs/srs/endpoints.snapshot.json` (`npm run srs:sync`). إضافة مسار بلا تحديث اللقطة تُفشل CI.
-- عند إضافة ميزة: أضف متطلبها في وحدتها بحالة `implemented` مع الكود والاختبار، في **نفس طلب الدمج**. وعند إزالة ميزة: حوّل متطلبها إلى `planned` أو احذفه مع ذكر ذلك في `docs/srs/revisions.json`.
+- عند إضافة ميزة: أضف متطلبها في وحدتها بحالة `implemented` مع الكود والاختبار، في **التغيير نفسه**. وعند إزالة ميزة: حوّل متطلبها إلى `planned` أو احذفه مع ذكر ذلك في `docs/srs/revisions.json`.
 - تُولَّد الوثيقة بـ`npm run srs:build`، وملفا PDF بـ`npm run srs:pdf`.

@@ -73,7 +73,7 @@ export const FORBIDDEN = [
   /ذكاء\s*اصطناعي/u, /الذكاء\s*الاصطناعي/u, /(?<![\u0600-\u06FF])(?:ال)?ذكاء(?![\u0600-\u06FF])/u, /(?<![\u0600-\u06FF])(?:ال)?ذكي(?:ة|ّة)?(?![\u0600-\u06FF])/u,
   /\bA\.?I\.?\b(?!\w)/, /artificial\s+intelligence/i, /machine\s+learning/i, /\bLLMs?\b/, /\bGPT/i, /chat\s?bot/i,
   /language\s+model/i, /generative/i, /\bintelligen(?:t|ce)\b/i, /\bsmart\b/i, /نموذج\s+لغوي/u, /تعلّ?م\s+الآلة/u,
-  /روبوت\s+محادثة/u, /مولَّد\s+آلياً/u, /auto-?generated\s+by/i,
+  /git\s?hub/i, /روبوت\s+محادثة/u, /مولَّد\s+آلياً/u, /auto-?generated\s+by/i,
 ];
 export const GEMINI_ALLOWED_MODULES = new Set(["IMP", "INT", "EXT", "NFR"]);
 
