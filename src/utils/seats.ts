@@ -141,11 +141,12 @@ export function seatTeamRule(role: unknown): SeatTeamRule | null {
   return TEAM_RULES[roleDefinition(role).id] || null;
 }
 
-/** من أين يُختار الشاغل: أساتذةُ القسم، أو أساتذةُ الكلية، أو كتابةٌ يدوية. */
-export function seatHolderSource(role: unknown): "department" | "college" | "manual" {
+/** من أين يُختار الشاغل: أساتذةُ القسم، أو الكلية، أو كلُّ الكليات (عميد القبول والتسجيل)، أو كتابةٌ يدوية. */
+export function seatHolderSource(role: unknown): "department" | "college" | "all" | "manual" {
   const id = roleDefinition(role).id;
   if (id === "committeeChair" || id === "departmentHead" || id === "advisor") return "department";
   if (id === "dean" || id === "viceDean") return "college";
+  if (id === "registrarDean") return "all";
   return "manual";
 }
 

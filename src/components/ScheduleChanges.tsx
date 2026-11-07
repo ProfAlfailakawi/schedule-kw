@@ -1031,7 +1031,7 @@ function Report({ termId, termName, scope, role, onBack, archive = false, frozen
   const answeredNotes = countAnsweredRegistrarNotes(report.notes);
   const handledNotes = report.notes.filter(note => note.origin === "registrar" && (note.state === "changed" || note.state === "removed")).length;
   const isRegistrar = role.canReview;
-  /* «أبقِها كما هي» ردٌّ من القسم، لمن يوقّع فيه وحده — لا لعميد التسجيل ولا
+  /* «أبقِها كما هي» ردٌّ من القسم، لمن يوقّع فيه وحده — لا لعميد القبول والتسجيل ولا
      للعميد، وهما يقرآن ولا يكتبان. */
   const canRebut = Boolean(role.signatureStage) && !isViewerOnlyRole(role.id) && !isRegistrar;
   /* ── من يعلّق، ومن يقرّر ───────────────────────────────────────────────

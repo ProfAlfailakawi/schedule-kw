@@ -222,7 +222,7 @@
       "kind": "functional",
       "title": { "ar": "نطاق ما تعرضه اللوحة", "en": "Scope of what the dashboard shows" },
       "text": {
-        "ar": "يجب على النظام أن يعرض للإدارة الجامعة كلها، وللحساب المرتبط بعضو هيئة تدريس صفوفه الشخصية، ولغيرهما صفوف أقسامه المسموحة فقط، وأن يقرأ العميدان وعميد التسجيل النسخة المقبولة وحدها، وأن يعيد workspace.mode بإحدى القيم admin أو personal أو scope.",
+        "ar": "يجب على النظام أن يعرض للإدارة الجامعة كلها، وللحساب المرتبط بعضو هيئة تدريس صفوفه الشخصية، ولغيرهما صفوف أقسامه المسموحة فقط، وأن يقرأ العميدان وعميد القبول والتسجيل النسخة المقبولة وحدها، وأن يعيد workspace.mode بإحدى القيم admin أو personal أو scope.",
         "en": "The system shall show the whole university to the administrator, the personal rows to an account linked to a faculty member, and only the permitted department rows to anyone else, deans and the dean of registration reading the accepted version only, and return workspace.mode with one of admin, personal or scope."
       },
       "priority": "must",
@@ -516,7 +516,7 @@
       "kind": "functional",
       "title": { "ar": "الجولة التعريفية بحسب الصفة", "en": "Welcome tour by role" },
       "text": {
-        "ar": "يجب على النظام أن يعرض لكل صفة جولتها: اللجنة والمدير ومن لا صفة له يرون مسرح البناء بفصوله الستة، ورئيس القسم أربع خطوات، وموظف التسجيل ورئيس تسجيل الكلية أربعاً، ورئيس التسجيل خمساً (مع «الموعد»)، والعميد وعميد التسجيل خمساً، والعميد المساعد ستاً، ولا يُعرض في جولة صفة ما لا تفعله، وأن تُحفظ علامة «رأى الجولة» بمعرّف الحساب والصفة.",
+        "ar": "يجب على النظام أن يعرض لكل صفة جولتها: اللجنة والمدير ومن لا صفة له يرون مسرح البناء بفصوله الستة، ورئيس القسم أربع خطوات، وموظف التسجيل ورئيس تسجيل الكلية أربعاً، ورئيس التسجيل خمساً (مع «الموعد»)، والعميد وعميد القبول والتسجيل خمساً، والعميد المساعد ستاً، ولا يُعرض في جولة صفة ما لا تفعله، وأن تُحفظ علامة «رأى الجولة» بمعرّف الحساب والصفة.",
         "en": "The system shall show each role its own tour: committee, administrator and a role-less account see the building stage with its six scenes, the department head four steps, the registration officer and college registrar four, the registrar head five (with the deadline), the dean and dean of registration five, and the vice dean six, and show in a role's tour nothing that role does not do, and store the seen-tour mark by account id and role."
       },
       "priority": "should",

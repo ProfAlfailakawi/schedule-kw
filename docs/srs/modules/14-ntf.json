@@ -881,7 +881,7 @@
         "en": "Notification scope and tones"
       },
       "text": {
-        "ar": "يجب على النظام أن يبني لكل صفة (رئيس لجنة الجدول، رئيس القسم، التسجيل، العميدان، عميد التسجيل) إشعاراتها داخل نطاقها وحده، وأن يرتّبها بالنبرة (تنبيه ثم مطلوب ثم انتظار ثم تمّ) ثم الأحدث وقتاً.",
+        "ar": "يجب على النظام أن يبني لكل صفة (رئيس لجنة الجدول، رئيس القسم، التسجيل، العميدان، عميد القبول والتسجيل) إشعاراتها داخل نطاقها وحده، وأن يرتّبها بالنبرة (تنبيه ثم مطلوب ثم انتظار ثم تمّ) ثم الأحدث وقتاً.",
         "en": "The system shall build each role's notifications (committee chair, department head, registration, deans, dean of registration) inside that role's scope only, and shall order them by tone (alert, action, waiting, done) and then by most recent time."
       },
       "priority": "must",

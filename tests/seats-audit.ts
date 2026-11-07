@@ -64,7 +64,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
     "S2 رئيس تسجيل الكلية: كليته، يمدّد ويراجع، ولا يضع الموعد");
   const audience = inboxAudience("collegeRegistrar");
   check(audience.deadlinesPanel === "read" && audience.extendActions === true, "S2 لوحة المواعيد قراءةً لرئيس تسجيل الكلية، وأزرار التمديد له", audience);
-  check(!canExtendDeadline("registrarStaff") && !canExtendDeadline("registrarDean"), "S2 الموظف وعميد التسجيل لا يمدّدان");
+  check(!canExtendDeadline("registrarStaff") && !canExtendDeadline("registrarDean"), "S2 الموظف وعميد القبول والتسجيل لا يمدّدان");
 }
 
 /* ── S3 ── */

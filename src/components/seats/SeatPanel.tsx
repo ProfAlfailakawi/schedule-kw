@@ -38,7 +38,7 @@ export interface SeatDetail {
   history: Array<{ at: string; kind: SeatEventKind; by: string; detail: string }>;
   canManage: boolean;
   canHandOver: boolean;
-  holderSource: "department" | "college" | "manual";
+  holderSource: "department" | "college" | "all" | "manual";
   candidates?: Candidate[];
   scopeTree?: ScopeTree;
   /** لمدير النظام على كرسيّ «رئيس تسجيل الكلية»: الحرمُ كلُّها، وما عليه منها. */

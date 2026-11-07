@@ -143,6 +143,27 @@ try {
   const deanText = await post(`/api/seats/${deanSeat}/handover`, { name: "د. اسم مكتوب" });
   check(deanText.status === 400, "H4 العميدُ لا يكتب اسماً أيضاً", deanText.body);
 
+  /* عميد القبول والتسجيل: كلُّ الكليات، وبالبحث والاختيار وحدهما */
+  const regSeat = await as("registrarDean");
+  const regBroad = await search(regSeat, "تجريبي");
+  check(regSeat === 12 && regBroad.status === 200 && regBroad.body?.people?.length === HANDOVER_SEARCH_MAX_RESULTS && Object.keys(regBroad.body).join() === "people", "H5 عميد القبول والتسجيل يبحث بالسقف نفسه وبلا عدّاد", regBroad.body);
+  const reachable = new Set<number>();
+  for (const id of [...ids].slice(0, 36)) {
+    const found = await search(regSeat, nameOf.get(id) || "");
+    if ((found.body?.people || []).some((row: any) => Number(row.id) === id)) reachable.add(id);
+  }
+  check([...college].every(id => reachable.has(id)) && reachable.size > college.size && (!farOutside || reachable.has(farOutside)), "H5 نطاقه كلُّ الكليات: يجد كلَّ أستاذٍ حتى من خارج كلية العميد", { reach: reachable.size, college: college.size, farOutside });
+  await as("admin");
+  const regText = await post(`/api/seats/${regSeat}/handover`, { name: "د. اسم مكتوب", mobile: "99887766" });
+  check(regText.status === 400 && /اختر/.test(regText.body?.error || ""), "H5 والاسم المكتوب مرفوضٌ له أيضاً", regText.body);
+  const regGhost = await post(`/api/seats/${regSeat}/handover`, { instructorId: 987654 });
+  check(regGhost.status === 400, "H5 ورقمٌ لا وجود له مرفوض", regGhost.body);
+  const target = farOutside || [...ids].find(id => !scope.has(id));
+  const regDone = await post(`/api/seats/${regSeat}/handover`, { instructorId: target });
+  check(regDone.status === 200 && regDone.body?.holder?.instructorId === target, "H5 يسلّم لأستاذٍ من أي كلية", regDone.body);
+  const stillRefused = await post("/api/seats/15/handover", { instructorId: outside });
+  check(stillRefused.status === 400 && /ليس من أساتذة القسم/.test(stillRefused.body?.error || ""), "H5 وسائرُ الصفات على نطاقها: رئيس القسم يُرفض له ما خارج قسمه", stillRefused.body);
+
   /* لا قائمةَ كاملة في تفاصيل الكرسي */
   const detail = await json("/api/seats/15");
   check(detail.status === 200 && !("holderCandidates" in (detail.body || {})) && detail.body?.canHandOver === true, "H4 تفاصيلُ الكرسي لا تحمل قائمةَ مرشّحين للتسليم", Object.keys(detail.body || {}));

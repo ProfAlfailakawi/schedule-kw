@@ -87,7 +87,7 @@ async function personFrom(body: any): Promise<{ name: string; instructorId?: num
 async function handoverPerson(body: any, seat: any): Promise<{ name: string; instructorId?: number; mobile?: string; civil?: string } | { error: string }> {
   const source = seatHolderSource(seat.Role);
   if (source === "manual") return personFrom(body);
-  const where = source === "college" ? "أساتذة الكلية" : "أساتذة القسم";
+  const where = source === "all" ? "أساتذة الجامعة" : source === "college" ? "أساتذة الكلية" : "أساتذة القسم";
   const instructorId = Number(body?.instructorId || 0);
   if (!instructorId) return { error: `اختر الرئيس الجديد من ${where}.` };
   const row = (await seatPool(seat, source)).find(person => person.id === instructorId);
@@ -99,11 +99,22 @@ async function handoverPerson(body: any, seat: any): Promise<{ name: string; ins
 }
 
 /** أساتذةُ نطاق الكرسي (القسم أو أقسام الكلية) مع قسم كلٍّ منهم: المرجعُ الذي يحرس به الخادمُ كلَّ اختيار. */
-async function seatPool(seat: any, source: "department" | "college" | "manual") {
+async function seatPool(seat: any, source: "department" | "college" | "all" | "manual") {
   if (source === "manual") return [];
   const [assigns, sections, instructors] = await Promise.all([
     Repository.getUserAssigns(Number(seat.SystemUserId)), Repository.getSections(), Repository.getInstructors(),
   ]);
+  /* عميد القبول والتسجيل: كلُّ الكليات؛ كلُّ أستاذٍ قائمٍ في السجلّ (بلا قسمٍ يُعرض). */
+  if (source === "all") {
+    const placeholders = placeholderInstructorIds(instructors as any);
+    return (instructors as any[])
+      .filter(person => !placeholders.has(Number(person.AdInstructorId)) && !person.AdInstructorStatus)
+      .map(person => {
+        const mobile = String(person.AdInstructorMobile || "").trim();
+        return { id: Number(person.AdInstructorId), name: String(person.AdInstructorName || ""), department: "", mobile, hasMobile: Boolean(mobile) };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+  }
   const pairs = new Map<string, { c: number; s: number }>();
   for (const row of assigns) {
     const c = Number(row.AdCollegeId), s = Number(row.AdSectionId);
@@ -134,7 +145,7 @@ async function seatPool(seat: any, source: "department" | "college" | "manual") 
 }
 
 /** أساتذةُ نطاق الكرسي لاختيار الأعضاء: الاسمُ ووجودُ الجوال فقط. */
-async function seatCandidates(seat: any, source: "department" | "college" | "manual") {
+async function seatCandidates(seat: any, source: "department" | "college" | "all" | "manual") {
   return (await seatPool(seat, source)).map(({ id, name, hasMobile }) => ({ id, name, hasMobile }));
 }
 
