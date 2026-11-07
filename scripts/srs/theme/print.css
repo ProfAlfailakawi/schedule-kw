@@ -126,3 +126,4 @@ td a,.toc-row,.req-id{color:inherit}
 .diagram svg.flow.o-col{max-width:62%;max-height:200mm}
 
 .tech{break-inside:avoid}.tech-lead{break-after:avoid}.sub h3{break-after:avoid}
+.ucards{grid-template-columns:repeat(5,1fr);gap:6px}.ucard{padding:7px 9px;border-radius:12px}.ucard b{font-size:13pt}.ucard>span{font-size:7.6pt}.ucard>small{font-size:7pt}

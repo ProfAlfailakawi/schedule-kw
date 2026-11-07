@@ -5,6 +5,7 @@ import { ROOT } from "./common.mjs";
 import { icon, logo, deco } from "./icons.mjs";
 import { LABELS, STATUS_ORDER } from "./model.mjs";
 import { techBlock } from "./tech.mjs";
+import { usageCards, USAGE_PREFIX } from "./usage.mjs";
 import { ctxFor, esc, md, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip, statusBadge, priorityBadge } from "./fragments.mjs";
 
 const read = rel => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -55,7 +56,7 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   const coverBody = `<div class="cover">${deco("cover-deco")}<div><div class="mark">${logo(120)}</div></div>
     <div><div class="kick">${icon("scroll-text", 18)} ${L(m.meta.document)} · ${esc(m.meta.standard)}</div><h1>${L(m.meta.system)}</h1>
     <p class="sub2">${L(T2("ما يجب أن يقدمه النظام، ولمن، وبأي ضمانات.", "What the system must provide, for whom, and under which guarantees."))}</p>
-    <div class="meta"><span>v${esc(m.meta.version)}</span><span>${esc(m.meta.releaseDate)}</span><span>${lang === "ar" ? "العربية" : "English"}</span></div>
+    <div class="meta"><span>${L(T2(`يعمل منذ ${m.usage.since}`, `In service since ${m.usage.since}`))}</span><span>v${esc(m.meta.version)}</span><span>${esc(m.meta.releaseDate)}</span><span>${lang === "ar" ? "العربية" : "English"}</span></div>
     <div class="chips-row"><div><b>${s.requirements}</b><span>${L(T2("متطلباً", "Requirements"))}</span></div><div><b>${s.modules}</b><span>${L(T2("وحدة", "Modules"))}</span></div><div><b>${f.endpoints}</b><span>${L(T2("مسار خادم", "Server routes"))}</span></div><div><b>${f.tests}</b><span>${L(T2("ملف اختبار", "Test files"))}</span></div></div></div>
     <div class="authors"><div><b>${m.meta.authors.map(a => L(a)).join(' <i class="dot">·</i> ')}</b><small>${L(T2("إعداد", "Prepared by"))}</small></div></div></div>`;
   const coverCss = read("scripts/srs/theme/base.css") + read("scripts/srs/theme/print.css") + "@page{margin:0}html,body{margin:0;padding:0}";
@@ -65,7 +66,7 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   const tocRows = ol.filter(i => i.lvl <= 2).map(i => `<a class="toc-row l${i.lvl}" href="#sec-${i.mk}"><span class="n">${i.n}</span><span class="t">${esc(i.title)}</span><span class="dots"></span><span class="pg">${pages[i.mk] ?? "·"}</span></a>`).join("");
 
   const control = `<section class="part" id="sec-CTRL">${mk("CTRL")}<h2 class="ph">${icon("clipboard-list", 26)} ${L(T2("ضبط الوثيقة", "Document control"))}</h2>
-    <div class="ctrl"><b>${L(T2("النظام", "System"))}</b><span>${L(m.meta.system)}</span><b>${L(T2("الوثيقة", "Document"))}</b><span>${L(m.meta.document)}</span><b>${L(T2("المعيار", "Standard"))}</b><span>${esc(m.meta.standard)}</span><b>${L(T2("الإصدار", "Version"))}</b><span>${esc(m.meta.version)}</span><b>${L(T2("التاريخ", "Date"))}</b><span>${esc(m.meta.releaseDate)}</span><b>${L(T2("الإعداد", "Prepared by"))}</b><span>${m.meta.authors.map(a => L(a)).join(" · ")}</span><b>${L(T2("بصمة المحتوى", "Content fingerprint"))}</b><span class="mono">${m.hash}</span></div>
+    <div class="ctrl"><b>${L(T2("النظام", "System"))}</b><span>${L(m.meta.system)}</span><b>${L(T2("الوثيقة", "Document"))}</b><span>${L(m.meta.document)}</span><b>${L(T2("المعيار", "Standard"))}</b><span>${esc(m.meta.standard)}</span><b>${L(T2("بدء التشغيل الفعلي", "In service since"))}</b><span>${m.usage.since}</span><b>${L(T2("الإصدار", "Version"))}</b><span>${esc(m.meta.version)}</span><b>${L(T2("التاريخ", "Date"))}</b><span>${esc(m.meta.releaseDate)}</span><b>${L(T2("الإعداد", "Prepared by"))}</b><span>${m.meta.authors.map(a => L(a)).join(" · ")}</span><b>${L(T2("بصمة المحتوى", "Content fingerprint"))}</b><span class="mono">${m.hash}</span></div>
     <h3 style="margin-top:1.2em">${L(T2("الوثيقة في أرقام", "The document in numbers"))}</h3>
     <div class="stat-row">${[[s.requirements, T2("متطلباً", "Requirements")], [s.modules, T2("وحدة", "Modules")], [`${s.implementedPct}%`, T2("منفّذ", "Implemented")], [`${s.tracedPct}%`, T2("مثبت باختبار", "Test-proven")], [f.endpoints, T2("مسار خادم", "Server routes")], [f.components, T2("شاشة ومكوّن", "Screens and components")], [f.tests, T2("ملف اختبار", "Test files")], [s.acceptance, T2("معيار قبول", "Acceptance criteria")]].map(([n, t]) => `<div><b>${n}</b><span>${L(t)}</span></div>`).join("")}</div>
     <h3>${L(T2("سجل الإصدارات", "Revision history"))}</h3>
@@ -85,11 +86,12 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   const part2 = `<section class="part" id="sec-OVERALL">${mk("OVERALL")}<h2 class="ph"><span class="no">2</span>${icon("layers", 26)} ${L(T2("الوصف العام", "Overall description"))}${up}</h2>
     ${sub("2.1", T2("نظرة موجزة", "Summary"), `<p>${md(m.front.abstract[lang])}</p><div class="pillars">${m.front.pillars.map(p => `<div class="pillar">${icon(p.icon, 20)}<b>${L(p.title)}</b>${L(p.text)}</div>`).join("")}</div>`)}
     ${sub("2.2", T2("منظور المنتج", "Product perspective"), paras(m.front.overall.perspective[lang]))}
-    ${sub("2.3", T2("البنية التقنية والتقنيات المستخدمة", "Architecture and technologies"), techBlock(c, m.tech))}
-    ${sub("2.4", T2("خريطة الوحدات", "Module map"), gTable)}
-    ${sub("2.5", T2("فئات المستخدمين", "User classes"), `<table class="tbl"><thead><tr><th>${L(T2("الدور", "Actor"))}</th><th>${L(T2("متطلبات", "Requirements"))}</th><th>${L(T2("وحدات", "Modules"))}</th></tr></thead><tbody>${m.actors.map(a => { const u = m.actorUse.get(a.id); return `<tr><td>${icon(a.icon, 14)} ${L(a.name)}</td><td class="num">${u.reqs}</td><td class="num">${u.modules.size}</td></tr>`; }).join("")}</tbody></table>`)}
-    ${sub("2.6", T2("القيود التصميمية", "Design constraints"), lis(m.front.overall.constraints[lang]))}
-    ${sub("2.7", T2("الافتراضات والاعتماديات", "Assumptions and dependencies"), lis(m.front.overall.assumptions[lang]))}</section>`;
+    ${sub("2.3", T2("النظام في الاستخدام", "The system in use"), `<p>${L(T2(`يعمل النظام فعلياً منذ ${m.usage.since}. هذه أرقام مجمّعة بلا أسماء، بحسب إدارة النظام حتى ${m.usage.asOf}؛ «حوالي» تقدير، و«أكثر من» حدٌّ أدنى.`, `The system has been in service since ${m.usage.since}. These are aggregated, anonymous figures from the system administration as of ${m.usage.asOf}; “about” is an estimate and “over” is a lower bound.`))}</p><div class="ucards">${usageCards(m.usage).map(u => `<div class="ucard">${icon(u.icon, 16)}<small>${L(USAGE_PREFIX[u.kind])}</small><b>${u.value(lang)}</b><span>${L(u.label)}</span></div>`).join("")}</div>`)}
+    ${sub("2.4", T2("البنية التقنية والتقنيات المستخدمة", "Architecture and technologies"), techBlock(c, m.tech))}
+    ${sub("2.5", T2("خريطة الوحدات", "Module map"), gTable)}
+    ${sub("2.6", T2("فئات المستخدمين", "User classes"), `<table class="tbl"><thead><tr><th>${L(T2("الدور", "Actor"))}</th><th>${L(T2("متطلبات", "Requirements"))}</th><th>${L(T2("وحدات", "Modules"))}</th></tr></thead><tbody>${m.actors.map(a => { const u = m.actorUse.get(a.id); return `<tr><td>${icon(a.icon, 14)} ${L(a.name)}</td><td class="num">${u.reqs}</td><td class="num">${u.modules.size}</td></tr>`; }).join("")}</tbody></table>`)}
+    ${sub("2.7", T2("القيود التصميمية", "Design constraints"), lis(m.front.overall.constraints[lang]))}
+    ${sub("2.8", T2("الافتراضات والاعتماديات", "Assumptions and dependencies"), lis(m.front.overall.assumptions[lang]))}</section>`;
 
   const chapter = x => {
     const builders = {

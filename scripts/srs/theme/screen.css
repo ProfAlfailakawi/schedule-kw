@@ -199,3 +199,4 @@ body[data-view="modules"][data-mod=""] .mod-layout{grid-template-columns:minmax(
 .chip.more{border:1px dashed var(--line-2);background:transparent;cursor:pointer;font:inherit;font-size:.76rem;color:var(--jade-ink);font-weight:700}
 .mod-pick select{text-overflow:ellipsis}
 .mod-pick{margin-bottom:.8rem}
+@media (max-width:640px){.ucards{grid-template-columns:1fr 1fr}.ucard:last-child:nth-child(odd){grid-column:1/-1}}

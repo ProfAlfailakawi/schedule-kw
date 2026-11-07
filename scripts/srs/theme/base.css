@@ -212,3 +212,15 @@ html[lang="ar"] .tt span{direction:rtl}
 .dg-m{display:none}
 @media (max-width:760px){.dg-d{display:none}.dg-m{display:block}}
 .diagram svg.flow.o-col{max-width:520px;margin-inline:auto}
+
+/* ── النظام في الاستخدام ─────────────────────────────────────────── */
+.usage{margin:1.2rem 0}
+.usage h3{display:flex;gap:.5rem;align-items:center;font-size:1.05rem;margin:0 0 .6rem}.usage h3 .ic{color:var(--brass)}
+.ucards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.7rem}
+.ucard{background:linear-gradient(160deg,var(--surface),var(--brass-soft));border:1px solid color-mix(in srgb,var(--brass) 28%,transparent);border-radius:var(--r-lg);padding:.85rem 1rem;display:flex;flex-direction:column;gap:.1rem;break-inside:avoid}
+.ucard .ic{color:var(--brass)}
+.ucard>small{color:var(--ink-3);font-size:.74rem;margin-top:.3rem}
+.ucard b{font-size:1.55rem;line-height:1.15;color:var(--brass-ink);font-variant-numeric:tabular-nums}
+.ucard>span{color:var(--ink-2);font-size:.84rem}
+.unote{color:var(--ink-3);font-size:.8rem;margin:.6rem 0 0}
+.hchip.since{background:rgb(95 191 166/.14);border-color:rgb(95 191 166/.4);color:#c9f0e5}
