@@ -180,9 +180,9 @@ check(Object.values(docs.advisorSeatRequests || {}).some((row: any) => row.statu
   check(Object.values(open).some((entry: any) => entry.reachOpen && codeOf.get(entry.courseId) === "0109343"), "«افتحه للطرح» على 343 في الأول");
   check(!["0109346", "0109453", "0109459", "0109410"].some(code => termsOf(code).has(1)), "السلسلة والتوأم بلا شعبٍ في الأول: يُقرأ قفلُهما في الثاني");
 }
-/* خفيفٌ: الصندوقُ كلُّه بلا البذر الخلفي تحت 300 كيلوبايت (كان 264 قبل هذه القصص، فالزيادة أقلُّ من 14%). */
+/* خفيفٌ: الصندوقُ كلُّه بلا البذر الخلفي تحت 312 كيلوبايت (كان 264 قبل قصص الأدوار، وزاد مشهدُ العرض — خمسةُ مقرراتٍ وسبعُ شعب — نحو 3). */
 const stateBytes = JSON.stringify(state).length;
-check(stateBytes < 300_000, `الصندوقُ التجريبي خفيف: ${Math.round(stateBytes / 1024)} كيلوبايت (< 300)`);
+check(stateBytes < 320_000, `الصندوقُ التجريبي خفيف: ${Math.round(stateBytes / 1024)} كيلوبايت (< 312)`);
 
 console.log(`\n${passed} نجحت · ${failed} أخفقت`);
 if (failed > 0) process.exit(1);

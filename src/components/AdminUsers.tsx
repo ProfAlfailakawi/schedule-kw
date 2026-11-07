@@ -222,11 +222,14 @@ export default function AdminUsers({
     [headBusy, setHeadBusy] = useState(false),
     [headMessage, setHeadMessage] = useState<string | null>(null);
   useDialogDismiss(Boolean(backupConfirm) && !backupBusy, () => setBackupConfirm(null));
+  /* «إضافة مبانٍ وقاعات» وحدها قابلةٌ للحفظ في التجربة: كلُّ طلبٍ تجريبيٍّ يكتب في صندوق الزائر بالذاكرة
+     (Repository يتفرّع على صندوق الديمو قبل Firestore والملفات، ويحرسه tests/demo-showcase-audit.ts). */
+  const demoLocked = demoReadOnly && mode !== "roomSetup";
   useEffect(() => {
-    if (!demoReadOnly) return;
+    if (!demoLocked) return;
     document.documentElement.dataset.demoAdminReadonly = "true";
     return () => { delete document.documentElement.dataset.demoAdminReadonly; };
-  }, [demoReadOnly]);
+  }, [demoLocked]);
   const exportRunner = useRef(0);
   const importRunner = useRef(0);
   const [query, setQuery] = useState(""),
@@ -902,7 +905,7 @@ export default function AdminUsers({
 
   if (mode === "roomSetup") {
     return rootAdmin
-      ? <LocationQuickSetup header={consoleHead()} demoReadOnly={demoReadOnly} />
+      ? <LocationQuickSetup header={consoleHead()} demoSandbox={demoReadOnly} />
       : <div className="content-stack admin-page">{consoleHead()}<Notice>إضافة المباني والقاعات متاحة للمدير الرئيسي فقط.</Notice></div>;
   }
 

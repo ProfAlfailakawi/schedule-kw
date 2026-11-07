@@ -6,7 +6,8 @@
 import { Repository } from "../../db/repository";
 
 const TTL_MS = 30_000;
-const cache = new Map<number, { at: number; value: Promise<number[][]> }>();
+/* المفتاحُ يحمل صندوقَ الديمو: رقمُ القسم 1 في الديمو غيرُه في الجامعة، والذاكرةُ واحدةٌ في العملية. */
+const cache = new Map<string, { at: number; value: Promise<number[][]> }>();
 export function forgetCoreqPairs(): void { cache.clear(); }
 
 async function read(sectionId: number): Promise<number[][]> {
@@ -34,9 +35,10 @@ async function read(sectionId: number): Promise<number[][]> {
 export function coreqPairsOfSection(sectionId: number): Promise<number[][]> {
   const id = Number(sectionId || 0);
   if (!id) return Promise.resolve([]);
-  const hit = cache.get(id);
+  const key = `${Repository.currentDemoSessionId()}|${id}`;
+  const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
   const value = read(id).catch(() => [] as number[][]);
-  cache.set(id, { at: Date.now(), value });
+  cache.set(key, { at: Date.now(), value });
   return value;
 }

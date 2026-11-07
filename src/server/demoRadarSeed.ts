@@ -26,6 +26,7 @@ import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurri
 import { buildReferenceRules } from "../utils/referenceApply";
 import { referenceCodeKey } from "../utils/curriculumReference";
 import { DEMO_REACH_COREQ } from "../db/demoSandbox";
+import { DEMO_SHOWCASE_COURSES, demoShowcaseRules } from "../db/demoShowcase";
 
 /** أسماءٌ محايدة حتميّة (لا أسماء عائلات ولا أسماء واقعية): الوضع التجريبي حسّاس. */
 export const demoStudentName = (index: number): string => `${index % 2 === 0 ? "طالب تجريبي" : "طالبة تجريبية"} ${index + 1}`;
@@ -123,12 +124,14 @@ export async function seedDemoRadar(opts: { sealIdentity: (value: string) => Pro
       { counts: stats.counts, remaining, unregistered: stats.unregistered, vacant: stats.vacant, accepted: stats.accepted, remainingSource: stats.remainingSource as any }, stats.updatedBy);
   }
 
+  /* مقرراتُ مشهد العرض (demoShowcase.ts) أعضاءٌ في الصحيفة الجديدة بقواعدها: فيها التوأمان (`coreq`) اللذان يقرؤهما «موعد». */
+  const showcaseCodes = new Set<string>(DEMO_SHOWCASE_COURSES.map(([code]) => code));
   const plan = await Repository.createCurriculumPlan({ collegeId, sectionId, name: "الصحيفة الجديدة 2026/2027", by: "عرض تجريبي" });
   const legacy = (await Repository.getCurriculumPlans(sectionId)).find(row => row.id !== plan.id);
   const fresh0 = (await Repository.getCoursesBySection(sectionId)) as AdCourse[];
   for (const course of fresh0) {
     const key = referenceCodeKey(String(course.CourseCode));
-    if (newCodes.has(key)) await Repository.addCourseToCurriculumPlan(plan.id, course, "عرض تجريبي");
+    if (newCodes.has(key) || showcaseCodes.has(String(course.CourseCode))) await Repository.addCourseToCurriculumPlan(plan.id, course, "عرض تجريبي");
     if (legacy && !oldCodes.has(key)) await Repository.removeCourseFromCurriculumPlan(legacy.id, Number(course.AdCourseId));
   }
   const approve = async (planId: string, reference: typeof newRef, codes: Set<string>, who: string) => {
@@ -138,6 +141,7 @@ export async function seedDemoRadar(opts: { sealIdentity: (value: string) => Pro
     if (reference === newRef) {
       const [a, b] = DEMO_REACH_COREQ.map(code => idByCode.get(referenceCodeKey(code)) || 0);
       if (a && b) built.rules = built.rules.map(rule => Number(rule.courseId) === a ? { ...rule, coreq: [...new Set([...(rule.coreq || []), b])] } : rule);
+      built.rules = [...built.rules, ...demoShowcaseRules(code => catalogue.find(course => course.CourseCode === code)?.AdCourseId || 0)];
     }
     const now = new Date().toISOString();
     await Repository.updateRuleDraft(planId, () => ({
