@@ -66,6 +66,14 @@
             "en": "Install and offline use"
           },
           "product": "PWA · Service Worker"
+        },
+        {
+          "icon": "palette",
+          "label": {
+            "ar": "الرموز والخط",
+            "en": "Icons and typeface"
+          },
+          "product": "Lucide · IBM Plex Sans Arabic"
         }
       ]
     },
@@ -128,6 +136,14 @@
           "version": {
             "pkg": "firebase-admin"
           }
+        },
+        {
+          "icon": "shield-check",
+          "label": {
+            "ar": "الأمان والأداء",
+            "en": "Security and performance"
+          },
+          "product": "express-rate-limit · compression"
         }
       ]
     },
@@ -185,6 +201,14 @@
             "en": "Continuous integration and delivery"
           },
           "product": "CI/CD"
+        },
+        {
+          "icon": "wrench",
+          "label": {
+            "ar": "أدوات البناء والتشغيل",
+            "en": "Build and run tooling"
+          },
+          "product": "esbuild · tsx"
         }
       ]
     }
@@ -260,6 +284,25 @@
           "en": "Deployment packaging"
         },
         "product": "Docker"
+      },
+      {
+        "icon": "image",
+        "label": {
+          "ar": "معالجة الصور",
+          "en": "Image processing"
+        },
+        "product": "Canvas · HEIC"
+      },
+      {
+        "icon": "flask-conical",
+        "label": {
+          "ar": "وضع العرض والتطوير",
+          "en": "Demo and development mode"
+        },
+        "product": {
+          "ar": "بيانات محلية معزولة",
+          "en": "Isolated local data"
+        }
       }
     ]
   }
