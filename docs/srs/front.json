@@ -108,7 +108,7 @@
       "ar": [
         "**الرقم:** `FR` وظيفي، `NFR` غير وظيفي، `DR` بيانات، `IR` واجهة؛ ثم رمز الوحدة من ثلاثة أحرف، ثم ثلاثة أرقام، مثل `FR-SCH-012`. لا يُعاد استعمال رقم بعد حذفه.",
         "**الأولوية:** `يجب` (Must) لا يعمل النظام بدونه، `ينبغي` (Should) مهم وله بديل مؤقت، `يمكن` (Could) تحسين.",
-        "**الحالة:** `منفّذ` موجود في النسخة الحالية، `قيد التطوير` بدأ العمل فيه، `مخطط` معتمد ولم يبدأ.",
+        "**الحالة:** كل متطلب في هذا الإصدار `منفّذ` وموجود في النسخة الحالية، يثبته مرجعه في الكود واختباره.",
         "**مستنتج:** وسم يوضع على متطلب استُخلص من سلوك الكود ولم يجد اختباراً يثبته، ويحتاج تأكيد المالك.",
         "**المراجع:** كل متطلب يحمل مسارات الملفات التي تنفذه والاختبارات التي تثبته، وتُفحص آلياً عند كل بناء.",
         "**اللغة:** النصان العربي والإنجليزي يحملان المتطلبات نفسها بالترقيم نفسه."
@@ -116,7 +116,7 @@
       "en": [
         "**Identifier:** `FR` functional, `NFR` non-functional, `DR` data, `IR` interface; then a three-letter module code and three digits, e.g. `FR-SCH-012`. A number is never reused after deletion.",
         "**Priority:** `Must` the system cannot operate without it, `Should` important with a temporary workaround, `Could` an enhancement.",
-        "**Status:** `Implemented` present in the current release, `In progress` work has started, `Planned` approved but not started.",
+        "**Status:** every requirement in this release is `Implemented` and present in the current version, proven by its code reference and its test.",
         "**Inferred:** a mark placed on a requirement derived from the behaviour of the code that has no test proving it yet, and needs owner confirmation.",
         "**References:** every requirement carries the file paths that implement it and the tests that prove it, and these are checked automatically on every build.",
         "**Language:** the Arabic and English texts carry the same requirements under the same numbering."

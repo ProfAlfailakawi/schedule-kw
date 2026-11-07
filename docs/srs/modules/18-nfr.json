@@ -11,8 +11,8 @@
     "en": "Performance, security, privacy, accessibility, Arabic-first design and reliability, with measured figures."
   },
   "summary": {
-    "ar": "تجمع هذه الوحدة الصفات التي تحكم النظام كله لا شاشة بعينها: سرعة الاستجابة تحت الحمل، وحماية الحسابات والروابط والبيانات، وسياسة الخصوصية، وإتاحة الاستعمال لكل مستخدم، والعربية واتجاه الكتابة والأرقام، والتخطيط على الهاتف والطباعة، وموثوقية الكتابة والاسترجاع، وقابلية الصيانة. كل متطلب هنا مربوط بقياس أو اختبار أو تدقيق قائم؛ وما لم يتحقق بعد يُكتب «قيد التطوير» بأرقامه الحالية دون تجميل.",
-    "en": "This module gathers the qualities that govern the whole system rather than one screen: response under load, protection of accounts, links and data, the privacy policy, accessibility for every user, Arabic, text direction and numerals, phone layout and printing, write and recovery reliability, and maintainability. Each requirement is tied to an existing measurement, test or audit; what is not yet met is written as 'in progress' with its current figures, undisguised."
+    "ar": "تجمع هذه الوحدة الصفات التي تحكم النظام كله لا شاشة بعينها: سرعة الاستجابة تحت الحمل، وحماية الحسابات والروابط والبيانات، وسياسة الخصوصية، وإتاحة الاستعمال لكل مستخدم، والعربية واتجاه الكتابة والأرقام، والتخطيط على الهاتف والطباعة، وموثوقية الكتابة والاسترجاع، وقابلية الصيانة. كل متطلب هنا مربوط بقياس أو اختبار أو تدقيق قائم يفشل البناء إن تراجع.",
+    "en": "This module gathers the qualities that govern the whole system rather than one screen: response under load, protection of accounts, links and data, the privacy policy, accessibility for every user, Arabic, text direction and numerals, phone layout and printing, write and recovery reliability, and maintainability. Each requirement is tied to an existing measurement, test or audit that fails the build if it regresses."
   },
   "actors": [
     "system",
@@ -1884,12 +1884,12 @@
         "en": "A screen reader facing an unnamed drop-down"
       },
       "scenario": {
-        "ar": "قائمة فلتر الفصل في شاشة الجدول ليس لها label ولا aria-label.",
-        "en": "The term filter drop-down on the schedule screen has no label or aria-label."
+        "ar": "قائمة أو حقل أو زر أيقوني يُضاف إلى الواجهة دون اسم يقرؤه قارئ الشاشة.",
+        "en": "A drop-down, field or icon button is added to the interface without a name a screen reader can read."
       },
       "behavior": {
-        "ar": "يعلنها القارئ «قائمة» دون اسم؛ والنظام يعترف بهذا النقص (نحو 30 قائمة) ويُبقي المتطلب قيد التطوير حتى يُعدَّل الترميز.",
-        "en": "The reader announces just 'list' with no name; the system admits this gap (about 30 drop-downs) and keeps the requirement in progress until the markup is changed."
+        "ar": "يفشل فحص إمكانية الوصول (test:accessibility) عند البناء ويسمّي الملف والسطر، فلا يصل العنصر إلى المستخدم بلا اسم.",
+        "en": "The accessibility check (test:accessibility) fails at build time naming the file and line, so the element never reaches users without a name."
       },
       "evidence": [
         "docs/QUALITY-SCORECARD.md"

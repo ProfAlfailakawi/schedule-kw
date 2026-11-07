@@ -25,7 +25,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   /* ── نظرة عامة ───────────────────────────────────────────── */
   const moduleRows = m.modules.map(x => ({ icon: x.icon, label: T(x.title), seg: x.counts.status, value: x.counts.total }));
   const maxReqs = Math.max(...m.modules.map(x => x.counts.total), 1);
-  const legend = `<div class="legend" style="padding:.2rem 0 .6rem">${STATUS_ORDER.map(st => `<span><i class="seg s-${st}" style="display:inline-block;width:14px;height:14px;border-radius:4px"></i>${T(LABELS.status[st])} <b class="num">${s.status[st]}</b></span>`).join("")}</div>`;
+  const legend = `<div class="legend" style="padding:.2rem 0 .6rem">${STATUS_ORDER.filter(st => s.status[st]).map(st => `<span><i class="seg s-${st}" style="display:inline-block;width:14px;height:14px;border-radius:4px"></i>${T(LABELS.status[st])} <b class="num">${s.status[st]}</b></span>`).join("")}</div>`;
   const prioRows = PRIORITY_ORDER.map(p => `<div class="barrow"><span class="lbl">${T(LABELS.priority[p])}</span><div class="track"><i class="seg s-implemented" style="width:${(s.priority[p] / s.requirements * 100).toFixed(1)}%"></i></div><span class="num">${s.priority[p]}</span></div>`).join("");
   const kindRows = Object.keys(LABELS.kind).filter(k => s.kind[k]).map(k => `<div class="barrow"><span class="lbl">${T(LABELS.kind[k])}</span><div class="track"><i class="seg s-in-progress" style="width:${(s.kind[k] / s.requirements * 100).toFixed(1)}%"></i></div><span class="num">${s.kind[k]}</span></div>`).join("");
   const overview = `<section class="view" id="v-overview">
@@ -80,7 +80,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   };
 
   const rtools = `<div class="rtools" role="search">
-    <div class="fgroup"><span class="lbl">${T(T2("الحالة", "Status"))}</span>${STATUS_ORDER.map(st => `<button class="fchip" type="button" data-fchip="status" data-val="${st}" aria-pressed="false">${T(LABELS.status[st])}</button>`).join("")}</div>
+    <div class="fgroup"><span class="lbl">${T(T2("الحالة", "Status"))}</span>${STATUS_ORDER.filter(st => s.status[st]).map(st => `<button class="fchip" type="button" data-fchip="status" data-val="${st}" aria-pressed="false">${T(LABELS.status[st])}</button>`).join("")}</div>
     <div class="fgroup"><span class="lbl">${T(T2("الأولوية", "Priority"))}</span>${PRIORITY_ORDER.map(p => `<button class="fchip" type="button" data-fchip="priority" data-val="${p}" aria-pressed="false">${T(LABELS.priority[p])}</button>`).join("")}</div>
     <div class="fgroup"><span class="lbl">${T(T2("النوع", "Kind"))}</span>${Object.keys(LABELS.kind).filter(k => s.kind[k]).map(k => `<button class="fchip" type="button" data-fchip="kind" data-val="${k}" aria-pressed="false">${T(LABELS.kind[k])}</button>`).join("")}<button class="fchip" type="button" id="f-inferred" aria-pressed="false">${icon("circle-help", 14)}${T(T2("مستنتج", "Inferred"))}</button></div>
     <div class="fgroup"><label><span class="sr">${T(T2("الوحدة", "Module"))}</span><select class="fsel" id="f-module"><option value="" data-ar="كل الوحدات" data-en="All modules">كل الوحدات</option>${m.modules.map(x => `<option value="${x.id}" data-ar="${x.id} · ${esc(x.title.ar)}" data-en="${x.id} · ${esc(x.title.en)}">${x.id} · ${esc(x.title.ar)}</option>`).join("")}</select></label>

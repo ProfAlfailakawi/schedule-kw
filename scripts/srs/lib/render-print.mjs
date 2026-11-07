@@ -115,7 +115,7 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   };
   const part3 = `<section class="part" id="sec-SPEC">${mk("SPEC")}<h2 class="ph"><span class="no">3</span>${icon("list-checks", 26)} ${L(T2("المتطلبات التفصيلية", "Specific requirements"))}${up}</h2>
     <p>${L(T2(`تضم هذه الأقسام ${s.modules} وحدة. لكل وحدة نظرة عامة ورحلات مستخدمين ومخططات وشاشات ومتطلبات بمعايير قبول ومراجع، ثم الحالات الحدية.`, `This part holds ${s.modules} modules. Each has an overview, user journeys, diagrams, screens, requirements with acceptance criteria and evidence, and edge cases.`))}</p>
-    <div class="legend"><span>${statusBadge(c, "implemented")}</span><span>${statusBadge(c, "in-progress")}</span><span>${statusBadge(c, "planned")}</span></div>
+    <div class="legend">${STATUS_ORDER.filter(st => s.status[st]).map(st => `<span>${statusBadge(c, st)}</span>`).join("")}</div>
     <div class="sub"><h3>${L(T2("الأعمال حسب الوحدة", "Requirements by module"))}</h3>${barRows(c, m.modules.map(x => ({ icon: x.icon, label: L(x.title), seg: x.counts.status, value: x.counts.total })), Math.max(...m.modules.map(x => x.counts.total), 1))}</div></section>
     ${m.modules.map(chapter).join("")}`;
 
