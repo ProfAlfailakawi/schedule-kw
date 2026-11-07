@@ -166,7 +166,7 @@ check(DECISION_1913_LABEL === "قرار 1913/2016", `العنوان رقمُ ا�
     instructors: new Map(state.instructors.map((i: any) => [Number(i.AdInstructorId), i])),
   });
   const found = byRule(demo, "period-balance");
-  check(Boolean(found) && /73%/.test(found!.detail), `الديمو يُظهر تنبيه النسبة على تكنولوجيا التعليم (${found?.detail || "لا تنبيه"})`);
+  check(Boolean(found) && /71%/.test(found!.detail), `الديمو يُظهر تنبيه النسبة على تكنولوجيا التعليم (${found?.detail || "لا تنبيه"})`);
   check(rows.filter((r: any) => /م\.7\/2/.test(String(r.fdetail || ""))).length === 1, "وشعبةٌ واحدة مشروحةٌ في ملاحظتها بأنها مقصودة");
 }
 

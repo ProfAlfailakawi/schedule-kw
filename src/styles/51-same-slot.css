@@ -16,7 +16,10 @@
 @keyframes same-slot-up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.same-slot-layer.is-phone .same-slot-sheet{animation:none}}
 .same-slot-head{display:flex;align-items:center;gap:8px;min-width:0}
-.same-slot-head strong{flex:1;min-width:0;font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
+.same-slot-head strong{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
+.same-slot-time{white-space:nowrap}
+.same-slot-days{display:inline-flex;flex-wrap:wrap;gap:3px}
+.same-slot-days i{padding:0 6px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-style:normal;font-size:11px;font-weight:700;line-height:1.5;color:var(--ink-2);white-space:nowrap}
 .same-slot-mark{width:28px;height:28px;border-radius:10px;background:var(--accent-soft);color:var(--accent-strong);display:grid;place-items:center;flex:none}
 .same-slot-mark svg{width:15px;height:15px}
 .same-slot-close{position:relative;width:32px;height:32px;border:0;border-radius:10px;background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer;flex:none}
@@ -28,7 +31,10 @@
 .same-slot-bar i{flex:1;border-radius:999px}
 .same-slot-legend{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:600;color:var(--muted)}
 .same-slot-legend svg{width:14px;height:14px;color:var(--accent);flex:none}
-.same-slot-body{display:grid;gap:8px}
+.same-slot-legend.is-unlock{color:var(--ink-2)}
+.same-slot-legend.is-unlock b{font-weight:700;color:var(--accent-strong)}
+.same-slot-day .same-slot-legend{margin-block-end:4px}
+.same-slot-body{display:grid;gap:12px}
 .same-slot-day h4{margin:0 0 4px;font-size:12px;font-weight:700;color:var(--muted)}
 .same-slot-day ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .same-slot-day li{display:flex;align-items:center;gap:9px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-inline-start:3px solid hsl(var(--ss-hue) 48% 56%);border-radius:12px;background:var(--surface-2)}
