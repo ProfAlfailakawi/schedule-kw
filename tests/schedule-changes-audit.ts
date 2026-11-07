@@ -181,7 +181,7 @@ check(server.includes("if (!canAnnotateCells(req.user?.Role) && !isPowerUser(req
 check(changes.includes('note.origin === "department" ? <em> · من القسم — <bdi>{note.userName}</bdi></em>'),
   "ومصدرُ الملاحظة يُقال: ملاحظةُ التسجيل تمنع الإرسال، وملاحظةُ القسم لا تمنع");
 
-/* ── ٢) عميد التسجيل يفتح الوارد ولا يقرّر فيه ──────────────────────────── */
+/* ── ٢) عميد القبول والتسجيل يفتح الوارد ولا يقرّر فيه ──────────────────────────── */
 check(roles.includes("export function watchesInbox"), "فتحُ الوارد صفةٌ قائمة بذاتها");
 check(/registrarDean/.test(roles.slice(roles.indexOf("export function watchesInbox"), roles.indexOf("export function watchesInbox") + 400)),
   "وعميدُ التسجيل منها");

@@ -259,7 +259,7 @@ try {
     ["advisor", [19], "المرشد: فريقُه"],
     ["collegeRegistrar", [22], "رئيس تسجيل الكلية: فريقُه"],
     ["registrarHead", [13, 22], "المسجّل العام: نفسُه ورؤساءُ التسجيل وفرقُهم"],
-    ["registrarDean", [13, 22], "عميد التسجيل: المسجّلُ العام ورؤساءُ التسجيل وفرقُهم"],
+    ["registrarDean", [13, 22], "عميد القبول والتسجيل: المسجّلُ العام ورؤساءُ التسجيل وفرقُهم"],
     ["registrarStaff", [14], "موظف التسجيل بحسابه: حركاتُه"],
   ];
   for (const [role, teams, label] of expectations) {
@@ -324,7 +324,7 @@ try {
   /* T9: العضو */
   await as("admin");
   const seatDetail = await json("/api/seats/16");
-  const holderPick = seatDetail.body?.holderCandidates?.[0];
+  const holderPick = seatDetail.body?.candidates?.[0];
   await json("/api/seats/16/holder", { method: "POST", body: JSON.stringify({ instructorId: holderPick?.id }) });
   await as("committeeChair");
   const mine = await json("/api/seats/mine");

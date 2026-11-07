@@ -68,7 +68,7 @@ export async function provisionSectionUsers(Repository: any, college: { AdColleg
   return out;
 }
 
-/** صفات الكلية: العميد والعميد المساعد نطاقهما الكلية. عميد التسجيل ورئيسه نطاقهما كل الكليات بما يُضاف لاحقاً فيشملان الجديدة بلا ربط. */
+/** صفات الكلية: العميد والعميد المساعد نطاقهما الكلية. عميد القبول والتسجيل ورئيسه نطاقهما كل الكليات بما يُضاف لاحقاً فيشملان الجديدة بلا ربط. */
 export const COLLEGE_ACCOUNT_ROLES: Array<{ id: string; suffix: string }> = [
   { id: "dean", suffix: "dean" },
   { id: "viceDean", suffix: "vicedean" },

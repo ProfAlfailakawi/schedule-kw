@@ -236,7 +236,7 @@ async function approvalBadgeForTerm(req: AuthenticatedRequest, termId: number): 
   const approvals = (await Repository.getScheduleApprovalsForTerm(termId))
     .filter(row => req.user?.IsAdminUser || isScopeAllowed(req, Number(row.AdCollegeId), Number(row.AdSectionId)));
 
-  /* من يفتح الوارد يرى عدّاده، ولو لم يقرّر فيه: سؤالُ عميد التسجيل هو
+  /* من يفتح الوارد يرى عدّاده، ولو لم يقرّر فيه: سؤالُ عميد القبول والتسجيل هو
      «كم جدولاً ينتظر؟»، لا «أيّها أقبل؟». */
   if (canReviewSubmissions(req.user?.Role) || watchesInbox(req.user?.Role)) {
     return { count: approvals.filter(row => row.status === "submitted").length, kind: "waiting" };

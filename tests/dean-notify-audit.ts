@@ -55,7 +55,7 @@ const sections = [
 const committee: ScopePredicate = (c, s) => c === 1 && s === 11;
 /** عميد الكلية ١ (صفّ قسمٍ صفر). */
 const dean: ScopePredicate = (c, s) => c === 1 && (s === 0 || s === 11 || s === 12);
-/** عميد التسجيل: كل الكليات. */
+/** عميد القبول والتسجيل: كل الكليات. */
 const everyone: ScopePredicate = () => true;
 /** حسابٌ بلا نطاق. */
 const nobody: ScopePredicate = () => false;

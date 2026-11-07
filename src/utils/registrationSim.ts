@@ -26,7 +26,7 @@ export const SIM_UNITS_DEFAULT = 15;
 export const TIGHT_RATIO = 0.1;
 
 /** `b`: معرّف المبنى الثابت من سجلّ القاعات (في سياق «تذكرتي» وحده)، لتمييز لحظة «بين محاضرتين في المبنى نفسه». */
-export interface SimSlot { day: number; start: number; end: number; b?: string }
+export interface SimSlot { day: number; start: number; end: number; b?: string; /** الحرمُ البعيد («jahra»|«fahaheel»)؛ الغائبُ = الرئيسي. لا يدخل محرّكَ المحاكاة. */ c?: string }
 
 /** شعبةٌ مطروحة: مقررٌ + رمزُ شعبة، وله مواعيدُه وسعتُه. */
 export interface SimOffering {

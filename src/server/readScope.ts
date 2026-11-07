@@ -99,7 +99,7 @@ export function resolveSmartScope(input: SmartScopeInput): SmartScope {
     const colleges = [...new Set(own.map(id => Number(sectionById.get(id)?.AdCollegeId || 0)).filter(Boolean))];
     const whole = colleges.filter(collegeId => coversWholeCollege(sections, allowed, collegeId));
     /* من يغطّي كليةً واحدةً كاملة (العميد) يُقرأ له مستواها. ومن يغطّي أكثر
-       (عميد التسجيل) يختار كليةً بنفسه — لا تُقرأ له الجامعةُ كلها بلا طلب. */
+       (عميد القبول والتسجيل) يختار كليةً بنفسه — لا تُقرأ له الجامعةُ كلها بلا طلب. */
     if (whole.length === 1 && colleges.length === 1) return { collegeId: whole[0], sectionId: 0, allowed: true };
   }
   const pick = pickBusiest(own, input.busiest);

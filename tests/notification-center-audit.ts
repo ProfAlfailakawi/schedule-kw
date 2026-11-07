@@ -36,7 +36,7 @@ items = buildNotifications({ role: "registrarStaff", scopes: [scope({ status: "s
 check(items.some(item => item.tone === "action" && item.title.includes("ينتظر قرارك")), "التسجيل: جدولٌ عنده ينتظر قراره");
 check(items.some(item => item.tone === "alert" && item.title.includes("لم يسلّم")), "التسجيل: الأقسام التي لم تسلّم بعد انقضاء الموعد تنبيهٌ");
 items = buildNotifications({ role: "registrarDean", scopes: [scope({ status: "submitted", rounds: [{ number: 1 }] })] });
-check(items.every(item => item.tone !== "action"), "عميد التسجيل يطّلع ولا يُطلب منه قرار");
+check(items.every(item => item.tone !== "action"), "عميد القبول والتسجيل يطّلع ولا يُطلب منه قرار");
 // العميد
 items = buildNotifications({ role: "dean", scopes: [scope({ status: "accepted", rounds: accepted }), scope()] });
 check(items.some(item => item.title === "اعتُمد جدول واحد من جدولين"), "العميد: كم قسماً اعتُمد من الكل، بالعدّ العربي");

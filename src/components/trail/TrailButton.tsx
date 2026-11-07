@@ -5,7 +5,7 @@ const TrailSheet = lazy(() => import("./TrailSheet"));
 
 /**
  * «👣» صغيرة تفتح ورقة «الأثر». تُوضع في رأس الفريق، وفي بطاقة الحساب لمن يرى فرقاً غيرَ فريقه
- * (العميد، رئيس القسم، المسجّل العام، عميد التسجيل). والخادمُ يقرّر ما يُرى، لا مكانُ الزر.
+ * (العميد، رئيس القسم، المسجّل العام، عميد القبول والتسجيل). والخادمُ يقرّر ما يُرى، لا مكانُ الزر.
  */
 export default function TrailButton({ className = "", label = "الأثر: من فعل ماذا" }: { className?: string; label?: string; "data-guide-ignore"?: string }) {
   const [open, setOpen] = useState(false);
