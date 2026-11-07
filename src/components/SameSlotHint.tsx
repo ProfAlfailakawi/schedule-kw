@@ -332,7 +332,7 @@ function TwinNode({ twin, own, courseOf }: {
           <span className="twin-mark" style={{ ["--at" as any]: `${at}%` }} title={fact}>
             {placement ? <Clock3 aria-hidden="true" /> : <Check aria-hidden="true" />}
             {placement ? <>{sideWord} <strong dir="ltr">{clock}</strong></>
-              : <>{partnerSection ? "مع " : "ب"}شعبة <strong dir="ltr">{partnerSection || ownSection}</strong></>}
+              : <>{partnerSection ? "مع شعبة " : "بشعبة "}<strong dir="ltr">{partnerSection || ownSection}</strong></>}
           </span>
         ) : null}
       </p>
