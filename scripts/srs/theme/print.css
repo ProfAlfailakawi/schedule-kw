@@ -122,3 +122,5 @@ td a,.toc-row,.req-id{color:inherit}
 
 .rm{font-size:7.8pt;flex-wrap:wrap;margin:.2em 0 0}.rm .ra{color:var(--ink-2)}
 .tl-ic{width:28px;height:28px;border-radius:7px}.tl-ic .ic{width:16px;height:16px}
+
+.diagram svg.flow.o-col{max-width:62%;max-height:200mm}

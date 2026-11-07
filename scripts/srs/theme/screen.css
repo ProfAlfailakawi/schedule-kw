@@ -121,11 +121,14 @@ body.none .empty{display:block}
 .foot b{color:#fff}.foot small{display:block;color:#97a39e}
 .foot-brand{display:flex;gap:.9rem;align-items:center}.foot-brand .logo{border-radius:12px;flex:none}
 @media (max-width:760px){
-  :root{--tb:112px}
+  :root{--tb:0px}
+  .topbar{position:static}.tabs{top:0}
+  .hchip.authors{padding:.3rem .85rem;line-height:1.75;border-radius:18px;font-size:.82rem}
+  .hero>div{min-width:0}
+  .hero .deco{opacity:.09;height:110%}
   .hide-sm{display:none}.brand small{display:none}.topbar-in{flex-wrap:wrap}.search{order:3;flex-basis:100%;max-width:none}
   .hero{grid-template-columns:1fr;padding:1.2rem}.hero .logo{width:56px;height:56px}
   .mod-head .mini{margin-inline-start:0;width:100%}.barrow{grid-template-columns:1fr auto}.barrow .track{grid-column:1/-1;order:3}.steps{grid-template-columns:1fr}
-  .diagram{overflow-x:auto}.diagram svg.flow{min-width:640px}
   .fgroup .lbl{min-width:0;width:100%}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
@@ -170,3 +173,7 @@ body.none .empty{display:block}
 :root[data-theme="dark"] .totop{color:#0c1512}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .totop{color:#0c1512}}
 @media (prefers-reduced-motion:reduce){.view,.mod,.panel{animation:none!important}.pillar:hover,.stat:hover{transform:none}}
+
+.nm{white-space:nowrap}
+.hchip.authors .names{min-width:0;text-align:start}
+@media (max-width:440px){.hchip.authors .dot{display:none}}

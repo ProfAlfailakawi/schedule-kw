@@ -1,6 +1,6 @@
 /** مقاطعُ HTML مشتركة بين الصفحة التفاعلية والنسخة المطبوعة. mode: dual | ar | en. */
 import { icon } from "./icons.mjs";
-import { flowSvg } from "./diagram.mjs";
+import { flowSvg, bestFlowSvg } from "./diagram.mjs";
 import { LABELS, STATUS_ORDER } from "./model.mjs";
 
 export const esc = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -28,9 +28,13 @@ export function actorChip(c, m, id) {
 }
 
 export function diagramBlock(c, d) {
-  const svg = c.mode === "dual"
-    ? `<div class="ar">${flowSvg(d, "ar", c.orient)}</div><div class="en">${flowSvg(d, "en", c.orient)}</div>`
-    : flowSvg(d, c.mode, c.orient);
+  /* الطباعة تختار أنظف تخطيطٍ لكل مخطط (رأسي أو عمودي للقصير)؛ الشاشة أفقية، والهاتف عمودي. */
+  const printCandidates = d.nodes.length <= 9 ? ["tb", "col"] : ["tb"];
+  const one = (lang, orient) => (c.print ? bestFlowSvg(d, lang, printCandidates).svg : flowSvg(d, lang, orient));
+  const both = orient => (c.mode === "dual"
+    ? `<div class="ar">${one("ar", orient)}</div><div class="en">${one("en", orient)}</div>`
+    : one(c.mode, orient));
+  const svg = c.mode === "dual" && !c.print ? `<div class="dg-d">${both(c.orient)}</div><div class="dg-m">${both("col")}</div>` : both(c.orient);
   return `<figure class="diagram" id="dg-${esc(d.id)}"><h4>${c.T(d.title)}</h4>${d.caption ? `<p class="cap">${c.T(d.caption)}</p>` : ""}${svg}</figure>`;
 }
 
