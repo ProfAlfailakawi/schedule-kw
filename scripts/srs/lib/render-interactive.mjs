@@ -113,7 +113,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><meta name="color-scheme" content="light dark"><meta name="theme-color" content="#141917">
 <title>SCHEDULE · SRS</title><link rel="icon" type="image/svg+xml" href="${logoDataUri()}"><style>${css}</style></head>
-<body data-view="overview" data-mod="">
+<body data-view="overview">
 <header class="topbar"><div class="topbar-in">
   <a class="brand" href="#/overview"><span class="mark">${logo(34)}</span><span>SCHEDULE<small>${T(m.meta.document)}</small></span></a>
   <div class="search">${icon("search", 18)}<input id="q" type="search" autocomplete="off" aria-label="search" data-ph-ar="ابحث في المتطلبات…" data-ph-en="Search requirements…"></div>
