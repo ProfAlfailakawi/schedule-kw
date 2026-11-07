@@ -1,0 +1,502 @@
+{
+  "items": [
+    {
+      "id": "ALG-SCH-01",
+      "module": "SCH",
+      "icon": "swords",
+      "kind": "deterministic",
+      "name": {"ar": "كشف التعارضات بالفهارس", "en": "Indexed conflict detection"},
+      "question": {"ar": "هل يصطدم هذا الموعد بموعدٍ آخر في الفصل كله، وبأيّ سببٍ أخطر؟", "en": "Does this appointment collide with any other appointment in the whole term, and what is the most serious reason?"},
+      "method": [
+        {"ar": "تُبنى أربعة فهارس من صفوف الفصل في كل الكليات: يوم+أستاذ، يوم+قاعة، يوم+مقرر مقترن بالطلبة، مقرر+شعبة.", "en": "Four indexes are built from the term's rows across all colleges: day+instructor, day+hall, day+student-paired course, and course+section."},
+        {"ar": "يُجمع لكل صفٍّ مفحوص المرشّحون من الفهارس وحدها، ويُمشى عليهم تصاعدياً بترتيب الصفوف الأصلي.", "en": "For each checked row only the rows found in those indexes become candidates, walked in ascending original order."},
+        {"ar": "يتداخل موعدان إذا اشتركا في يوم وبدأ كلٌّ منهما قبل نهاية الآخر؛ و«هيئة تدريسية» لا تُعدّ شخصاً يُحجز مرتين.", "en": "Two rows overlap when they share a day and each starts before the other ends; the faculty placeholder is never treated as a person who can be double-booked."},
+        {"ar": "تُجمع أسباب الزوج (أستاذ، قاعة، مكرّر، شعبة في مكانين، تعارض طلبة، فاصل قصير) ويُسمّى الزوج بأخطرها مرةً واحدة.", "en": "All reasons for the pair (instructor, hall, duplicate, same section in two places, student clash, short turnaround) are collected and the pair is reported once, named after the most serious."},
+        {"ar": "يُصنَّف الناتج: الحجز المزدوج والمكرّر غير المميَّز يمنعان، والشعبة في مكانين والفاصل وتعارض الطلبة ملاحظاتٌ لا تمنع.", "en": "The result is classified: a double booking or an indistinguishable duplicate blocks; same section in two places, short turnaround and student clash are non-blocking notes."}
+      ],
+      "inputs": {"ar": "الصف المرشّح، صفوف الفصل كلها، الفاصل المعلن للقسم، أزواج المقررات من استبيان الطلبة، معرّفات «هيئة تدريسية».", "en": "The candidate row, all rows of the term, the department's declared turnaround, course pairs from the student survey, and the placeholder instructor ids."},
+      "output": {"ar": "قائمة أزواج متعارضة، لكلٍّ نوعٌ ودرجة وسبب مكتوب.", "en": "A list of conflicting pairs, each with a type, severity and written reason."},
+      "guarantee": {"ar": "حتميّ تماماً: المسار المفهرس يعطي النتيجة نفسها حرفياً (الأزواج والأسباب والترتيب والنص) التي يعطيها المسح الشامل المحفوظ مرجعاً، ويُختبر ذلك آلياً.", "en": "Fully deterministic: the indexed path returns exactly the same pairs, reasons, order and wording as the exhaustive reference sweep kept beside it, and this equality is tested automatically."},
+      "numbers": [
+        {"ar": "الفاصل المقرَّر بين محاضرتين في القاعة نفسها 10 دقائق في كل الأيام، ما لم يعلن القسم رقماً من 1 إلى 60.", "en": "Required turnaround in the same hall: 10 minutes on every day unless the department declares 1 to 60."}
+      ],
+      "evidence": {"code": ["src/server/core/scheduleConflicts.ts#scheduleConflicts", "src/utils/scheduleRegulations.ts#requiredGapForDays", "src/utils/locationRegistry.ts#sharePhysicalRoom", "src/utils/scheduleBlockers.ts"], "tests": ["tests/conflict-parity.ts", "tests/client-placeholder-conflicts-audit.ts", "tests/blocker-oracle-audit.ts"]},
+      "requirements": ["FR-SCH-006", "FR-SCH-007", "FR-SCH-008", "FR-SCH-009", "FR-SCH-010", "NFR-SCH-001"]
+    },
+    {
+      "id": "ALG-SCH-02",
+      "module": "SCH",
+      "icon": "ruler",
+      "kind": "deterministic",
+      "name": {"ar": "قواعد اللائحة: الطول وسلّم البدايات والأنماط وسقف الساعات", "en": "Regulation rules: length, start ladder, patterns and hours ceiling"},
+      "question": {"ar": "هل يوافق شكلُ الموعد اللائحةَ ومكتبةَ الأنماط المعتمدة، ولا يتجاوز ساعاتِ الشعبة؟", "en": "Does the appointment's shape comply with the regulation and the approved pattern library without exceeding the section's hours?"},
+      "method": [
+        {"ar": "طول الموعد مقبول إذا ساوى k محاضرات بطول اليوم مع فاصل 10 دقائق بينها، وk لا يتجاوز ساعات المقرر، أو ساوى طول كتلةٍ من المكتبة.", "en": "A length is accepted when it equals k lectures of the day's length with 10-minute gaps, k not exceeding the course hours, or equals a library block length."},
+        {"ar": "البداية تُقارن بسلّم اللائحة: خطوة 60 دقيقة للأحد والثلاثاء والخميس و90 دقيقة للاثنين والأربعاء بدءاً من 08:00؛ والخروج عنه تنبيهٌ لا يمنع.", "en": "The start is compared with the regulation ladder: 60-minute steps on Sun/Tue/Thu and 90-minute steps on Mon/Wed from 08:00; a start off the ladder is a non-blocking note."},
+        {"ar": "أيام الشعبة تُطابق نمطاً في المكتبة لساعات المقرر: تطابقاً تاماً، أو كتلة يومٍ واحد، أو الأطوال نفسها على أيام غير متجاورة.", "en": "The section's days must match a library pattern for the course hours: exactly, as a one-day block, or with the same lengths on non-adjacent days."},
+        {"ar": "تُجمع دقائق الأسبوع للشعبة (الموعد وبقية لقاءاتها المختلفة، دون عدّ النسخة المطابقة مرتين) وتُقارن بالسقف.", "en": "The section's weekly minutes (this row plus its other distinct meetings, never counting an identical copy twice) are summed and compared with the ceiling."}
+      ],
+      "inputs": {"ar": "أيام الموعد ووقته، ساعات المقرر، لقاءات الشعبة الأخرى.", "en": "The appointment's days and times, the course hours, and the section's other meetings."},
+      "output": {"ar": "رسالة رفضٍ للطول أو للسقف، أو جملة تنبيهٍ للسلّم والنمط، أو لا شيء.", "en": "A refusal message for length or ceiling, a note for ladder or pattern, or nothing."},
+      "guarantee": {"ar": "قواعد ثابتة بأرقام اللائحة؛ لا يغيّرها تاريخ القسم ولا تُقدَّم عادةٌ على اللائحة.", "en": "Fixed rules using the regulation's figures; department history never overrides them."},
+      "numbers": [
+        {"ar": "50 دقيقة للأحد والثلاثاء والخميس، و80 دقيقة للاثنين والأربعاء، وفاصل 10 دقائق.", "en": "50 minutes on Sun/Tue/Thu, 80 minutes on Mon/Wed, 10-minute gap."},
+        {"ar": "سقف دقائق الأسبوع = round(الساعات × 50 × 1.1).", "en": "Weekly-minutes ceiling = round(hours × 50 × 1.1)."},
+        {"ar": "كتلة الاثنين والأربعاء المزدوجة تُقبل بفارق 5 دقائق (08:00–10:50).", "en": "The Mon/Wed double block is accepted 5 minutes short (08:00–10:50)."}
+      ],
+      "evidence": {"code": ["src/utils/scheduleRegulations.ts#lectureLengthProblem", "src/utils/scheduleRegulations.ts#startLadderNote", "src/utils/scheduleRegulations.ts#meetingsMatchApprovedPattern", "src/utils/scheduleRegulations.ts#sectionWeeklyHours", "src/server/core/scheduleRules.ts#scheduleLengthIssue"], "tests": ["tests/lecture-length-audit.ts", "tests/approved-patterns-audit.ts", "tests/section-schedule-hours-audit.ts", "tests/pattern-library-audit.ts"]},
+      "requirements": ["FR-SCH-016", "FR-SCH-017", "FR-SCH-018"]
+    },
+    {
+      "id": "ALG-SCH-03",
+      "module": "SCH",
+      "icon": "history",
+      "kind": "statistical",
+      "name": {"ar": "إيقاع القسم وذاكرته من التاريخ", "en": "Department rhythm and memory from history"},
+      "question": {"ar": "ماذا تقول سنوات القسم الماضية عن هذا الوقت وهذه القاعة، وهل يخرج الموعد عن عادته؟", "en": "What do the department's past terms say about this time and hall, and does the appointment break its habit?"},
+      "method": [
+        {"ar": "تُقرأ كل فصول القسم وتُقسم المحاضرات إلى أسرتي أيام (الأحد/الثلاثاء/الخميس، الاثنين/الأربعاء)، ويُستبعد ما يجمع الأسرتين.", "en": "All the department's terms are read and lectures are split into two day families (Sun/Tue/Thu, Mon/Wed); a lecture spanning both is left out."},
+        {"ar": "تُحسب الفواصل بين محاضرتين متتاليتين داخل الفصل الواحد واليوم الواحد، والمنوال ونسبة الاتفاق، وكذلك منوال الطول ونطاقه بين المئين 5 و95.", "en": "Gaps between consecutive lectures are measured within one term and one day; the mode and its agreement share are computed, and likewise the length mode with its 5th–95th percentile range."},
+        {"ar": "سلّم بدايات القسم = البدايات المتكررة مرتين فأكثر، أعلى 12 منها.", "en": "The department's start ladder = starts used at least twice, top 12."},
+        {"ar": "الذاكرة تعدّ لكل يوم وساعة وقاعة عدد الفصول التي استُعملت فيها، وتقول جملة واحدة فقط حين يكون الأمر لافتاً (ساعة لم تُستعمل، نادرة، أو هُجرت).", "en": "The memory counts, per day, hour and hall, how many terms used it, and speaks one sentence only when it is notable (never used, rare, or abandoned)."},
+        {"ar": "عند الحفظ: سلّم اللائحة أولاً؛ ثم بداية تبعد أكثر من صفر وحتى 20 دقيقة عن بداية معتادة (للأيام المختلطة)، ثم طول خارج المكتبة — ملاحظة لينة.", "en": "On save: the regulation ladder first; then a start more than 0 and up to 20 minutes from a habitual start (for mixed-family days), then a length outside the library — as a soft note."}
+      ],
+      "inputs": {"ar": "كل صفوف القسم التاريخية، المقررات والأساتذة، الصف المرشّح.", "en": "All historical rows of the department, courses and instructors, and the candidate row."},
+      "output": {"ar": "قراءة الإيقاع لكل أسرة أيام، وجملة ملاحظة واحدة على الأكثر عن العادة وأخرى عن القاعة.", "en": "A rhythm reading per day family, and at most one note about habit and one about the hall."},
+      "guarantee": {"ar": "إحصاءات وصفية حتمية بلا نماذج مدرّبة؛ تصمت حين تكون العينة قليلة أو الاتفاق ضعيفاً، ولا تمنع حفظاً أبداً، ولا تتقدّم على اللائحة. الفاصل المتعلَّم لا يحدّد قاعدة الفاصل المطبَّقة.", "en": "Deterministic descriptive statistics with no trained model; silent when the sample is small or agreement weak, never blocks a save and never outranks the regulation. The learned gap does not set the enforced turnaround rule."},
+      "numbers": [
+        {"ar": "عادة الفاصل: 6 أزواج على الأقل باتفاق 55% وسقف فاصل 45 دقيقة.", "en": "Gap habit: at least 6 pairs at 55% agreement, gaps capped at 45 minutes."},
+        {"ar": "عادة الطول: 8 محاضرات على الأقل باتفاق 35%.", "en": "Length habit: at least 8 lectures at 35% agreement."},
+        {"ar": "الذاكرة: 3 فصول على الأقل؛ «عادة» عند 70%، «نادر» عند 12% أو أقل.", "en": "Memory: at least 3 terms; a habit at 70%, rare at 12% or less."},
+        {"ar": "القراءة مخزّنة لكل قسم وتُجدَّد في الخلفية بعد 10 دقائق.", "en": "The reading is cached per department and refreshed in the background after 10 minutes."}
+      ],
+      "evidence": {"code": ["src/utils/departmentRhythm.ts#learnRhythm", "src/utils/departmentRhythm.ts#offRhythm", "src/utils/departmentMemory.ts#readDepartmentMemory", "src/server/core/rhythm.ts#departmentStyle"], "tests": ["tests/run-tests.ts", "tests/approved-patterns-audit.ts"]},
+      "requirements": ["FR-SCH-020"]
+    },
+    {
+      "id": "ALG-SCH-04",
+      "module": "SCH",
+      "icon": "route",
+      "kind": "deterministic",
+      "name": {"ar": "زمن التنقّل بين المواقع والمباني", "en": "Travel time between campuses and buildings"},
+      "question": {"ar": "هل يترك الموعد للأستاذ وقتاً كافياً للانتقال من موعده المجاور في موقعٍ آخر؟", "en": "Does the appointment leave the instructor enough time to travel from an adjacent appointment at another campus?"},
+      "method": [
+        {"ar": "يُحدَّد موقع كل كلية (الرئيسي، الجهراء، الفحيحيل) ويُقرأ زمن كل زوج من سياسة التسجيل مع قائمة المستثنَين.", "en": "Each college's campus (main, Jahra, Fahaheel) is identified and the time for each pair is read from the registrar's policy with its exemption list."},
+        {"ar": "لكل يومٍ من أيام الموعد ولكل موعدٍ آخر للأستاذ في موقعٍ مختلف يُحسب الفارق بين النهاية والبداية المتجاورتين، ويُتجاهل التداخل (له حكمه).", "en": "For each day of the appointment and each other appointment of the instructor at a different campus, the gap between the adjacent end and start is measured; overlaps are ignored (they have their own rule)."},
+        {"ar": "إذا قلّ الفارق عن الزمن المضبوط سُجّل نقصٌ؛ وتُزال المكررات باليوم والزوج.", "en": "If the gap is below the configured time a shortfall is recorded; duplicates by day and pair are removed."},
+        {"ar": "داخل الموقع الواحد يُقرأ زمن المشي بين مبنيين من إعداد الكلية.", "en": "Within one campus the walking time between two buildings is read from the college's settings."}
+      ],
+      "inputs": {"ar": "الموعد المرشّح، مواعيد الأستاذ في الفصل كله، سياسة التنقّل، مواقع الكليات.", "en": "The candidate appointment, the instructor's appointments across the term, the travel policy and college campuses."},
+      "output": {"ar": "حتى ثلاثة تنبيهات «انتقال ضيّق» بالدقائق المطلوبة والمتاحة.", "en": "Up to three 'tight transfer' warnings stating the minutes needed and available."},
+      "guarantee": {"ar": "تنبيهٌ لا يمنع في نموذج القسم؛ الصفر يوقف القاعدة لزوجٍ، والمستثنى لا يُفحص.", "en": "A non-blocking warning in the department form; zero disables a pair and exempt instructors are not checked."},
+      "numbers": [
+        {"ar": "60 دقيقة بين الجهراء والفحيحيل، و30 لغيرهما افتراضياً؛ المدى 0–180 وحتى 500 مستثنى.", "en": "60 minutes Jahra–Fahaheel and 30 for other pairs by default; range 0–180 with up to 500 exemptions."},
+        {"ar": "داخل المبنى 3 دقائق، وبين مبنيين غير مضبوطين 5 دقائق، والزوج المضبوط 1–120.", "en": "3 minutes inside a building, 5 between unconfigured buildings, configured pairs 1–120."}
+      ],
+      "evidence": {"code": ["src/utils/campusTravelPolicy.ts#travelShortfalls", "src/utils/campusTravel.ts#interCampusMinutes", "src/server/core/travelPolicy.ts#readTravelPolicy", "src/server/core/scheduleRules.ts#travelMinutesFor"], "tests": ["tests/undo-travel-rule-audit.ts"]},
+      "requirements": ["FR-SCH-019", "FR-LOC-028", "FR-LOC-029"]
+    },
+    {
+      "id": "ALG-SCH-05",
+      "module": "SCH",
+      "icon": "lightbulb",
+      "kind": "search",
+      "name": {"ar": "محرّك اقتراح الوقت والقاعة", "en": "Time and hall suggestion engine"},
+      "question": {"ar": "ما أفضل الأوقات والقاعات المتاحة لهذا الموعد، ولماذا لم يبقَ خيار إن لم يبقَ؟", "en": "Which available times and halls are best for this appointment, and why is there no option when none remains?"},
+      "method": [
+        {"ar": "يُمشى على كل بداية بخطوة 30 دقيقة داخل نافذة القسم × كل قاعة رسمية أو مثبّتة أو مستعارة معتمدة.", "en": "Every start on a 30-minute step within the department window is combined with every official, pinned or approved-barter hall."},
+        {"ar": "يُسقط المرشّح إن كان الأستاذ مشغولاً، أو القاعة محجوزة، أو خارج نافذة الاستعارة، أو لا يكفي وقت التنقّل، أو لا مرفق مرافق متاح؛ ويُعدّ كل سبب رفض.", "en": "A candidate is dropped if the instructor is busy, the hall is taken, it is outside the barter window, travel time is insufficient, or no companion facility is free; each rejection reason is counted."},
+        {"ar": "الدرجة = 100 − فراغ الأستاذ/3 − المشي/2 − تشتّت يوم القسم/6 (لكل يوم) مع تعديل ملاءمة القاعة، محصورة في 0–100.", "en": "Score = 100 − instructor idle/3 − walking/2 − spread of the department day/6 (per day), plus the hall-suitability adjustment, clamped to 0–100."},
+        {"ar": "يُرتَّب تنازلياً بالدرجة ثم بالبداية والقاعة، مع خيار واحد لكل وقت في «وقت وقاعة».", "en": "Candidates are sorted by score, then start and hall, keeping one option per time in 'time and hall' mode."},
+        {"ar": "يُمرَّر المرتَّب على بوابة الحفظ نفسها حتى يكتمل العدد المطلوب.", "en": "The ranked list is passed through the same save gate until the requested count is reached."}
+      ],
+      "inputs": {"ar": "الأيام والمدة، القاعات المؤهلة، صفوف القاعة والأستاذ والقسم، أزمنة التنقّل، نوافذ الاستعارة، الملاءمة والمرفق.", "en": "Days and duration, eligible halls, hall/instructor/department rows, travel times, barter windows, suitability and companion facility."},
+      "output": {"ar": "ثلاثة اقتراحات (ستة لـ«اقترح قاعة») بأسبابها، أو سبب الفراغ بكلمة واحدة.", "en": "Three suggestions (six for 'suggest a hall') with reasons, or the dominant reason for emptiness."},
+      "guarantee": {"ar": "لا يكتب شيئاً؛ كل اقتراح يمرّ ببوابة التعارض نفسها التي تحكم الحفظ؛ الترتيب ثابت عند التساوي.", "en": "Writes nothing; every suggestion passes the same conflict gate that governs saving; ordering is stable on ties."},
+      "numbers": [
+        {"ar": "يوم بلا محاضرات للأستاذ يُحمَّل 90 دقيقة فراغاً؛ وتُفحص حتى 48 خياراً في البوابة.", "en": "A day with no lecture for the instructor costs 90 idle minutes; up to 48 candidates are sent through the gate."}
+      ],
+      "evidence": {"code": ["src/utils/suggestionEngine.ts#rankSuggestionCandidates", "src/utils/suggestionEngine.ts#orderSuggestionCandidates", "src/utils/suggestionEngine.ts#emptySuggestionReason", "src/server/routes/scheduleToolsRoutes.ts#registerScheduleToolsRoutes"], "tests": ["tests/slot-suggestion-recovery-audit.ts", "tests/appointment-forms-audit.ts"]},
+      "requirements": ["FR-SCH-027"]
+    },
+    {
+      "id": "ALG-SCH-06",
+      "module": "SCH",
+      "icon": "wrench",
+      "kind": "search",
+      "name": {"ar": "سلسلة الإصلاح بأقل أثر (الدومينو)", "en": "Least-impact repair chain (domino)"},
+      "question": {"ar": "ما أقصر سلسلة نقلات تُزيل تعارضاً دون أن تخلق غيره؟", "en": "What is the shortest chain of moves that removes a conflict without creating another?"},
+      "method": [
+        {"ar": "لكل صفٍّ تُولَّد مواضع بديلة (يوم × بداية بخطوة 30 دقيقة × قاعة من قاعات القسم) وتُرتَّب بالقبول: إبقاء القاعة، أيام الأستاذ، اليوم نفسه، القرب من محاضراته، الصباح.", "en": "For each row alternative placements are generated (day × 30-minute start × department hall) and ranked by acceptability: keep the hall, the instructor's days, the same day, closeness to his lectures, morning."},
+        {"ar": "بحث بالعمق مع تعميق تدريجي: يُستنفد العمق 1 كاملاً قبل فتح العمق 2، فالسلسلة الأولى هي الأقصر.", "en": "Depth-first search with iterative deepening: depth 1 is exhausted before depth 2 opens, so the first chain found is the shortest."},
+        {"ar": "الموضع الذي يزيح صفّاً واحداً يجعل ذلك الصف البطاقة التالية؛ ولا يُزاح صفٌّ نُقل في السلسلة نفسها، ولا أكثر من صفٍّ في الخطوة.", "en": "A placement that displaces exactly one row makes that row the next card; a row already moved in the chain is never displaced again, and never more than one at a step."},
+        {"ar": "تُقبل السلسلة حين ينقص عدد التعارضات واحداً على الأقل؛ وفي إغلاق قاعة تُمنع القاعة ويُشترط ألا يسوء الجدول.", "en": "A chain is accepted when the conflict count drops by at least one; for a closed hall the hall is forbidden and the board must be no worse."}
+      ],
+      "inputs": {"ar": "الصف المستهدف، صفوف الفصل، القاعات المحظورة، معرّفات «هيئة تدريسية».", "en": "The target row, the term's rows, forbidden halls and placeholder ids."},
+      "output": {"ar": "قائمة نقلات مع عدد التعارضات قبل وبعد وعدد الأساتذة والقاعات المتأثرة، أو لا شيء.", "en": "A list of moves with conflict counts before and after and the number of instructors and halls affected, or nothing."},
+      "guarantee": {"ar": "يقترح ولا يكتب؛ لا يعيد سلسلة تترك تعارضات أكثر مما وجد؛ تُنفَّذ السلسلة كلها عبر النقل الجماعي الذرّي أو لا شيء؛ عند عدم وجود خطة صادقة لا يعطي خطة جزئية.", "en": "Proposes, never writes; never returns a chain that leaves more conflicts than it found; the chain is committed whole through the atomic batch move or not at all; with no honest plan it returns none rather than a partial one."},
+      "numbers": [
+        {"ar": "عمق أقصى 5 نقلات (3 لإغلاق قاعة)، وتفرّع 6 من أفضل 24 موضعاً.", "en": "Maximum depth 5 moves (3 for a hall closure), branching 6 out of the best 24 placements."},
+        {"ar": "أوزان الترتيب: القاعة نفسها +30، يوم يدرّس فيه الأستاذ +24، اليوم نفسه +18، القرب حتى +20، بداية بين 08:00 و14:00 +8.", "en": "Ranking weights: same hall +30, a day the instructor teaches +24, same day +18, proximity up to +20, start 08:00–14:00 +8."}
+      ],
+      "evidence": {"code": ["src/utils/repairChain.ts#findRepairChain", "src/utils/repairChain.ts#planDisruption", "src/components/Schedules.tsx"], "tests": ["tests/run-tests.ts"]},
+      "requirements": ["FR-SCH-022", "FR-DRF-020"]
+    },
+    {
+      "id": "ALG-SCH-07",
+      "module": "SCH",
+      "icon": "user-check",
+      "kind": "search",
+      "name": {"ar": "التحقق من التغطية وترتيب البدلاء", "en": "Cover availability and substitute ranking"},
+      "question": {"ar": "مَن يستطيع تغطية هذه المحاضرة في هذا التاريخ، ومَن الأنسب؟", "en": "Who can cover this lecture on this date, and who fits best?"},
+      "method": [
+        {"ar": "يُعدّ الأستاذ مشغولاً إن تقاطعت محاضرته الأسبوعية مع الساعة في ذلك اليوم، إلا إن كانت ملغاة ذلك التاريخ أو يغطيها غيره.", "en": "An instructor is busy if a weekly lecture overlaps the hour on that day, unless it is cancelled on that date or covered by someone else."},
+        {"ar": "ويُعدّ مشغولاً إن كانت له تغطية أخرى مسجّلة في التاريخ نفسه تتقاطع مع الساعة.", "en": "He is also busy if another cover is recorded for him on the same date overlapping the hour."},
+        {"ar": "يُستبعد صاحب الموعد ومن له حالة، ومن لا يدرّس هذا الفصل ولا تاريخ له مع المقرر.", "en": "The lecture's own instructor, anyone with a non-empty status, and anyone neither teaching this term nor with history on the course are excluded."},
+        {"ar": "الدرجة: درّس المقرر 50 + min(12, 2 × الفصول)، من القسم +20، في المبنى نفسه ذلك اليوم +10 (أو له محاضرة ذلك اليوم +6)، + max(0, 10 − ساعات عبئه).", "en": "Score: taught the course 50 + min(12, 2 × terms), same department +20, same building that day +10 (or lectures that day +6), + max(0, 10 − load hours)."}
+      ],
+      "inputs": {"ar": "الموعد والتاريخ، صفوف الفصل كله، تاريخ الكلية للمقرر، استثناءات الأسبوع.", "en": "The appointment and date, all term rows, the college's history of the course, and week exceptions."},
+      "output": {"ar": "حتى 12 بديلاً مرتّبين بأسبابهم.", "en": "Up to 12 ranked substitutes with reasons."},
+      "guarantee": {"ar": "القاعدة نفسها تحرس تسجيل التغطية والترتيب؛ لا يُرسل شيء آلياً؛ الاستثناء لا يمسّ صف الموعد ولا رقم إصداره.", "en": "The same rule guards recording a cover and the ranking; nothing is sent automatically; an exception never touches the row or its revision."},
+      "evidence": {"code": ["src/utils/coverAvailability.ts#coverConflict", "src/server/routes/schedulesRoutes.ts"], "tests": ["tests/doctor-journey-audit.ts"]},
+      "requirements": ["FR-SCH-029"]
+    },
+    {
+      "id": "ALG-SCH-08",
+      "module": "SCH",
+      "icon": "calendar-search",
+      "kind": "search",
+      "name": {"ar": "إيجاد وقت اجتماع مشترك", "en": "Common meeting time"},
+      "question": {"ar": "متى يكون أعضاء مختارون أحراراً معاً لاجتماعٍ بمدةٍ محددة؟", "en": "When are selected members free together for a meeting of a given length?"},
+      "method": [
+        {"ar": "لكل يوم ولكل بداية بخطوة 30 دقيقة تُحسب مجموعة المشغولين من جدول الفصل كله في كل الكليات.", "en": "For every day and every start on a 30-minute step, the set of busy members is computed from the whole term across colleges."},
+        {"ar": "تُدمج البدايات المتتالية ذات مجموعة المشغولين نفسها في «نافذة» واحدة.", "en": "Consecutive starts with the same busy set are merged into one window."},
+        {"ar": "تُرتَّب النوافذ: الأقل مشغولين، ثم الأطول، ثم الأقرب إلى 10:00.", "en": "Windows are ranked by fewest busy, then longest, then closest to 10:00."},
+        {"ar": "يُعطى على الأكثر نافذتان لكل يوم في القائمة المرتبة.", "en": "At most two windows per day enter the ranked list."}
+      ],
+      "inputs": {"ar": "صفوف الفصل، الأعضاء المختارون، المدة.", "en": "Term rows, selected members and duration."},
+      "output": {"ar": "النوافذ الحرة لكل يوم، والأقرب جزئياً، وقائمة مرتبة حتى 6، وأفضل وقت إن خلا الجميع.", "en": "Free windows per day, near misses, a ranked list of up to 6, and the best time when everyone is free."},
+      "guarantee": {"ar": "حتميّ؛ يستبعد الخادم «هيئة تدريسية» والمنتدبين وذوي الحالة، ولا يكشف سوى حر/مشغول لكل اسم.", "en": "Deterministic; the server drops the placeholder, visiting instructors and anyone with a status, and reveals only free/busy per name."},
+      "numbers": [{"ar": "المدة من 30 إلى 180 دقيقة.", "en": "Duration 30 to 180 minutes."}],
+      "evidence": {"code": ["src/utils/meetingSlots.ts#computeMeetingSlots", "src/server/routes/scheduleToolsRoutes.ts"], "tests": ["tests/meeting-slots-audit.ts"]},
+      "requirements": ["FR-SCH-028"]
+    },
+    {
+      "id": "ALG-LOC-01",
+      "module": "LOC",
+      "icon": "map-pin",
+      "kind": "deterministic",
+      "name": {"ar": "حلّ هوية المبنى والقاعة من السجل الرسمي", "en": "Building and hall resolution against the official registry"},
+      "question": {"ar": "إلى أيّ مبنى وقاعة رسميين يشير هذا النص المكتوب أو المقروء، أم يحتاج مراجعة؟", "en": "Which official building and hall does this typed or scanned text refer to, or does it need review?"},
+      "method": [
+        {"ar": "يُطبَّع الرمز ويُطابق مع الرمز الرسمي والأسماء البديلة ضمن سياق الكلية والقسم؛ مرشّح وحيد يُقبل، وأكثر من واحد يُحال للمراجعة.", "en": "The code is normalised and matched against the official code and aliases within the college/department context; a single candidate is accepted, several go to review."},
+        {"ar": "الرمز المختصر (8 أو B08) يُستعاد فقط إن بقي مبنى مؤكَّد واحد في سياق الكلية.", "en": "A short code (8 or B08) is recovered only when one confirmed building remains in the college context."},
+        {"ar": "القاعة تُبحث داخل المبنى المحسوم وحده: تطابق الاسم، ثم إصلاح التباس القراءة (O/I/L إلى 0/1، و6 إلى G، ورقم زائد) بشرط قاعة مؤكَّدة وحيدة.", "en": "The hall is searched only inside the resolved building: name match, then repair of reading confusions (O/I/L to 0/1, 6 to G, a phantom digit) only when one confirmed hall results."},
+        {"ar": "الرقم المجرد يُقبل إن طابق قاعة واحدة، أو حصرته بصمة القسم في واحدة.", "en": "A bare number is accepted if it matches one hall, or the department's footprint narrows it to one."}
+      ],
+      "inputs": {"ar": "نص المبنى والقاعة، سجل المواقع، الكلية والقسم والفرع.", "en": "Building and hall text, the location registry, college, department and branch."},
+      "output": {"ar": "حالة (مؤكَّد، يحتاج مراجعة، غير صالح) مع الكيان والدليل المكتوب.", "en": "A status (confirmed, review required, invalid) with the entity and written evidence."},
+      "guarantee": {"ar": "لا يخترع قاعة ولا يستعير قاعة من مبنى آخر؛ كل التباس يبقى للمراجعة البشرية.", "en": "Never invents a hall or borrows one from another building; every ambiguity stays for human review."},
+      "evidence": {"code": ["src/utils/locationRegistry.ts#resolveBuilding", "src/utils/locationRegistry.ts#resolveRoom", "src/utils/locationRegistry.ts#resolveBuildingFromUniqueRoom", "src/server/core/locations.ts#canonicalizeHistoricalLocationForRuntime"], "tests": ["tests/pdf-import-regression.ts", "tests/location-registry-audit.py"]},
+      "requirements": ["DR-LOC-003", "FR-LOC-010", "FR-LOC-011", "NFR-LOC-030"]
+    },
+    {
+      "id": "ALG-LOC-02",
+      "module": "LOC",
+      "icon": "arrow-left-right",
+      "kind": "deterministic",
+      "name": {"ar": "نوافذ استعارة القاعات وحراستها", "en": "Hall barter windows and their enforcement"},
+      "question": {"ar": "أين توجد نوافذ قاعات حرّة للاستعارة، وهل يحترم الموعد نافذة الاستعارة المعتمدة؟", "en": "Where are free hall windows to borrow, and does an appointment respect the approved barter window?"},
+      "method": [
+        {"ar": "لوحة الفرص: لكل قاعة ويوم تُمشى الساعات بخطوة 30 دقيقة، وتُدمج الخانات الحرّة (بعد طرح المواعيد والحجوز والنوافذ المعتمدة) في نوافذ.", "en": "Opportunity board: for each hall and day, 30-minute steps are walked and free slots (after subtracting appointments, holds and approved windows) are merged into windows."},
+        {"ar": "عند تجاوز السقف تُختار النوافذ بالتناوب بين الأقسام المالكة حتى لا يختفي قسمٌ كامل، ثم تُعاد إلى ترتيب القراءة.", "en": "Above the cap, windows are chosen round-robin between owning departments so no department disappears, then restored to reading order."},
+        {"ar": "عند الكتابة: المُعير يُمنع من وقتٍ أعاره، والمستعير يُمنع خارج نافذته المعتمدة (يجب أن يحتوي الموعدَ كاملاً في يومه).", "en": "On write: the lender is blocked from a lent window, and the borrower outside its approved window (which must fully contain the appointment on that day)."},
+        {"ar": "الإعارة الملغاة بعد اعتمادها تُحفظ أثراً يمنع كتابةً جارية من استعمالها؛ والمرفق المرافق يُفحص قاعةً مستقلة.", "en": "A loan cancelled after approval leaves a tombstone so an in-flight write cannot reuse it; the companion facility is checked as a separate hall."}
+      ],
+      "inputs": {"ar": "طلبات الاستعارة وحالاتها، صفوف الفصل، القاعة واليوم والوقت.", "en": "Barter requests and their states, term rows, the hall, day and time."},
+      "output": {"ar": "قائمة نوافذ للاستعارة، أو حكم منع/سماح للكتابة.", "en": "A list of windows to borrow, or a block/allow verdict for a write."},
+      "guarantee": {"ar": "حارس الكتابة نفسه لكل تعديل رسمي؛ الاستعارة تُطلب وتُعتمد ولا تُفترض.", "en": "The same write guard for every official mutation; a loan is requested and approved, never assumed."},
+      "numbers": [{"ar": "أقصر نافذة 50 دقيقة، وسقف العرض 400 نافذة.", "en": "Shortest window 50 minutes, display cap 400 windows."}],
+      "evidence": {"code": ["src/utils/hallBarterWindow.ts#scheduleViolatesApprovedBarterWindow", "src/utils/hallBarterWindow.ts#borrowerOutsideApprovedWindow", "src/utils/hallBarterFairness.ts#fairShareByOwner", "src/server/routes/hallBarterRoutes.ts"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/instructor-request-review-regressions.ts", "tests/pdf-import-regression.ts"]},
+      "requirements": ["FR-LOC-013", "FR-LOC-018", "FR-SCH-012"]
+    },
+    {
+      "id": "ALG-LOC-03",
+      "module": "LOC",
+      "icon": "building-2",
+      "kind": "search",
+      "name": {"ar": "ترتيب القاعات المرشّحة لطلب الأستاذ", "en": "Ranking candidate halls for an instructor request"},
+      "question": {"ar": "أيّ القاعات الصالحة أنسب لهذا الموعد المطلوب؟", "en": "Which valid halls best suit this requested appointment?"},
+      "method": [
+        {"ar": "تُسقط القاعة التي سعتها المسجّلة أقل من سعة المقرر (السعة غير المسجّلة لا تُسقط).", "en": "A hall whose recorded capacity is below the course capacity is dropped (an unrecorded capacity does not drop it)."},
+        {"ar": "الدرجة: ملاءمة النوع × 10، قاعة قسم المقرر +400، مبنى قريب من قاعات الأستاذ ذلك اليوم +300، قاعة دُرّس فيها المقرر +200.", "en": "Score: type suitability × 10, hall of the course's department +400, building near the instructor's halls that day +300, a hall where the course was taught +200."},
+        {"ar": "قرب السعة من الحاجة حتى +100، والأقل إشغالاً في الفصل +20، ويُطرح عدد لقاءات القاعة.", "en": "Capacity closeness up to +100, least-used in the term +20, minus the hall's meeting count."},
+        {"ar": "يُرتَّب تنازلياً ويُحسم التساوي بمفتاح القاعة.", "en": "Sorted descending, ties broken by hall key."}
+      ],
+      "inputs": {"ar": "القاعات الخالية الصالحة، قسم المقرر، مباني الأستاذ، القاعات السابقة، سعة المقرر، إشغال القاعات.", "en": "Free valid halls, the course department, the instructor's buildings, previous halls, course capacity and hall usage."},
+      "output": {"ar": "قاعات مرتبة مع رموز أسبابها (قسم، قريب، سابقة، سعة، عادل، مرفق).", "en": "Ranked halls with reason codes (department, near, previous, capacity, fair, facility)."},
+      "guarantee": {"ar": "الشروط الإلزامية (الخلوّ والصلاحية والمرفق) يحكمها محرّك الحكم؛ هنا ترتيبٌ فقط، ثابت بين قراءتين.", "en": "Mandatory conditions (free, eligible, facility) are decided by the verdict engine; this only ranks, stably between two reads."},
+      "evidence": {"code": ["src/utils/requestRoomRanking.ts#rankRequestRooms", "src/utils/roomSuitability.ts"], "tests": ["tests/requests-engine-owner-feedback-audit.ts"]},
+      "requirements": ["FR-LOC-012"]
+    },
+    {
+      "id": "ALG-APR-01",
+      "module": "APR",
+      "icon": "file-pen-line",
+      "kind": "deterministic",
+      "name": {"ar": "آلة حالات الاعتماد وحرّاسها", "en": "Approval state machine and guards"},
+      "question": {"ar": "هل يجوز هذا الفعل (توقيع، سحب، إرسال، إرجاع، قبول) الآن، وما الحالة بعده؟", "en": "Is this action (sign, withdraw, submit, return, accept) allowed now, and what is the state after it?"},
+      "method": [
+        {"ar": "الحالات: قيد الإعداد ← موقّع من اللجنة ← موقّع من رئيس القسم ← مُرسل ← مقبول، أو مُرجَع بملاحظات.", "en": "States: drafting → committee-signed → head-signed → submitted → accepted, or returned with notes."},
+        {"ar": "التوقيع يُرفض لجدول مُرسل أو فارغ، أو فيه تعارض مادي، أو مقرر بلا سعة، أو توقيع مكرر، أو رئيس قبل اللجنة.", "en": "Signing is refused for a submitted or empty schedule, a material conflict, a course without capacity, a repeated signature, or head before committee."},
+        {"ar": "الإرسال يتطلب التوقيعين، وإقرار الشعب المضافة بعد توقيع الرئيس، وصفر تعارض، وصفر ملاحظة مفتوحة، وعدم فوات الموعد في الجولة الأولى.", "en": "Submission requires both signatures, acknowledgement of sections added after the head signed, zero conflicts, zero open notes, and the deadline not passed in the first round."},
+        {"ar": "الإرجاع يتطلب ملاحظة مفتوحة واحدة على الأقل؛ وكل إرسال يفتح جولة جديدة.", "en": "A return requires at least one open note; every submission opens a new round."},
+        {"ar": "كل قرار يحمل الجولة وعدد المواعيد والحالة كما رآها صاحبها، ويُرفض إن تغيّر أيٌّ منها.", "en": "Every decision carries the round, appointment count and status as seen, and is refused if any changed."}
+      ],
+      "inputs": {"ar": "سجل الاعتماد، عدد التعارضات المانعة، الملاحظات المفتوحة، حالة الموعد، ما رآه صاحب القرار.", "en": "The approval record, blocking conflict count, open notes, deadline state, and what the decider saw."},
+      "output": {"ar": "حكم مسموح/مرفوض برمز سبب، والحالة التالية.", "en": "An allowed/refused verdict with a reason code, and the next state."},
+      "guarantee": {"ar": "دوال خالصة يقرؤها الخادم والواجهة معاً؛ القرار يُسلسل على قفل النطاق، فلا يتسابق قراران.", "en": "Pure functions read by both server and interface; decisions are serialised on a scope lock so two cannot race."},
+      "numbers": [
+        {"ar": "قائمة الشعب المضافة تُسمّي حتى 60 وتعدّ ما زاد؛ وسجل الأحداث حتى 200.", "en": "Pending additions list names up to 60 and counts the rest; event log up to 200."}
+      ],
+      "evidence": {"code": ["src/utils/approvalWorkflow.ts#canSign", "src/utils/approvalWorkflow.ts#canSubmit", "src/utils/approvalWorkflow.ts#canWithdraw", "src/utils/approvalWorkflow.ts#canReturn", "src/utils/approvalWorkflow.ts#staleViewRefusal", "src/utils/approvalWorkflow.ts#openRound"], "tests": ["tests/approval-workflow-audit.ts", "tests/relay-fixes-audit.ts"]},
+      "requirements": ["FR-APR-001", "FR-APR-002", "FR-APR-004", "FR-APR-005", "FR-APR-006", "FR-APR-007", "FR-APR-010", "FR-APR-012"]
+    },
+    {
+      "id": "ALG-APR-02",
+      "module": "APR",
+      "icon": "calendar-clock",
+      "kind": "deterministic",
+      "name": {"ar": "الموعد الساري والتغيير الشامل", "en": "Effective deadline and wholesale-change detection"},
+      "question": {"ar": "ما الموعد الذي يُحاسب عليه القسم، وهل هذا الفعل تسليمٌ شامل ممنوع بعد فواته؟", "en": "Which deadline is the department held to, and is this action a wholesale change refused after it passes?"},
+      "method": [
+        {"ar": "الموعد الساري = الأبعد من موعد الفصل وتمديد القسم.", "en": "Effective deadline = the later of the term deadline and the department's extension."},
+        {"ar": "اليوم يُقرأ بتوقيت الكويت، والموعد ينقضي بعد 23:59:59 من يومه؛ والأيام الباقية بالأيام لا بالساعات.", "en": "Today is read in Kuwait time and a deadline passes after 23:59:59 of its day; days left are counted in days, not hours."},
+        {"ar": "النبرة: مضى، أو قريب إن بقي 7 أيام أو أقل، أو سليم.", "en": "Tone: past, near when 7 days or fewer remain, or ok."},
+        {"ar": "الاستيراد ونسخ الفصل تسليمٌ شامل دائماً؛ والحذف الجماعي شامل إن تجاوز 30% من مواعيد القسم.", "en": "Import and term copy are always wholesale; a bulk delete is wholesale when it exceeds 30% of the department's appointments."},
+        {"ar": "طلب التمديد يُتاح حين يبقى 3 أيام أو أقل أو بعد الفوات، ولجدولٍ لم يصل التسجيل ولم يُقبل.", "en": "An extension request is offered at 3 days or fewer, or after the deadline, for a schedule not at the registrar and not accepted."}
+      ],
+      "inputs": {"ar": "موعد الفصل، تمديد القسم، اللحظة الحالية، نوع الفعل وعدد ما يُحذف من الكل.", "en": "Term deadline, department extension, current instant, action kind and how many of the total are deleted."},
+      "output": {"ar": "حالة الموعد (ساري، أيام باقية، نبرة) وحكم منع التسليم الشامل.", "en": "Deadline state (effective, days left, tone) and the wholesale refusal verdict."},
+      "guarantee": {"ar": "قاعدة واحدة للخادم والواجهة؛ التعديلات الجزئية تبقى مفتوحة بعد الموعد؛ فصلٌ بلا موعد لا يُقفل بأثر رجعي.", "en": "One rule for server and interface; partial edits stay open after the deadline; a term without a deadline is never locked retroactively."},
+      "numbers": [
+        {"ar": "نسبة الحذف الشامل 0.3، ونافذة القرب 7 أيام، ونافذة طلب التمديد 3 أيام، وتوقيت UTC+3.", "en": "Wholesale delete ratio 0.3, near window 7 days, extension-request window 3 days, UTC+3."}
+      ],
+      "evidence": {"code": ["src/utils/approvalWorkflow.ts#readDeadline", "src/utils/approvalWorkflow.ts#effectiveSubmissionDate", "src/utils/approvalWorkflow.ts#isWholesaleChange", "src/utils/approvalWorkflow.ts#extensionRequestRefusal"], "tests": ["tests/approval-workflow-audit.ts", "tests/deadlines-panel-audit.ts"]},
+      "requirements": ["FR-APR-017", "FR-APR-019", "NFR-APR-002"]
+    },
+    {
+      "id": "ALG-APR-03",
+      "module": "APR",
+      "icon": "list-ordered",
+      "kind": "deterministic",
+      "name": {"ar": "أولوية صندوق التسجيل وتصعيد الإصرار", "en": "Registrar inbox priority and insistence escalation"},
+      "question": {"ar": "بأيّ قسمٍ يبدأ موظف التسجيل، ومتى تُصعَّد ملاحظة؟", "en": "Which department should the registrar start with, and when is a note escalated?"},
+      "method": [
+        {"ar": "مُرسل في الجولة الأولى = 0، مُرسل بعد إرجاع = 1، فيه موانع = 2، مُرجَع = 3، غير ذلك = 4، مقبول = 5.", "en": "Submitted in round 1 = 0, submitted after a return = 1, has blockers = 2, returned = 3, other = 4, accepted = 5."},
+        {"ar": "تُرتَّب الصفوف تصاعدياً بهذه الأولوية.", "en": "Rows are ordered ascending by this priority."},
+        {"ar": "كل إصرارٍ من التسجيل على ملاحظة يزيد عدّاداً، وتُسجَّل لحظة التصعيد مرةً واحدة عند الإصرار الثالث.", "en": "Each registrar insistence on a note increments a counter, and the escalation instant is recorded once at the third insistence."}
+      ],
+      "inputs": {"ar": "حالة الاعتماد والجولة وعدد التعارضات المانعة وعدّاد الإصرار.", "en": "Approval status, round, blocking conflict count and insistence counter."},
+      "output": {"ar": "رقم أولوية لكل قسم، ووسم تصعيد للملاحظة.", "en": "A priority number per department and an escalation stamp for the note."},
+      "guarantee": {"ar": "قاعدة ثابتة صريحة لا تعتمد على الأبجدية ولا على التوقيت.", "en": "A fixed explicit rule independent of alphabet or timing."},
+      "numbers": [{"ar": "التصعيد بعد 3 إصرارات.", "en": "Escalation after 3 insistences."}],
+      "evidence": {"code": ["src/utils/approvalWorkflow.ts#inboxPriority", "src/utils/approvalWorkflow.ts#insistOutcome", "src/server/routes/approvalsRoutes.ts"], "tests": ["tests/approval-workflow-audit.ts", "tests/relay-fixes-audit.ts"]},
+      "requirements": ["FR-APR-021", "FR-APR-009"]
+    },
+    {
+      "id": "ALG-DRF-01",
+      "module": "DRF",
+      "icon": "git-branch",
+      "kind": "deterministic",
+      "name": {"ar": "طبقة السيناريو: التطبيق والانحراف وخطة الكتابة", "en": "Scenario overlay: apply, drift and write plan"},
+      "question": {"ar": "كيف يبدو الجدول بعد هذه التغييرات، وهل تحرّك الجدول الحي منذ بُني السيناريو؟", "en": "What does the schedule look like after these changes, and has the live schedule moved since the scenario was built?"},
+      "method": [
+        {"ar": "تُطبَّق التغييرات (نقل، إسناد، حذف، إضافة) بالترتيب على نسخة من الجدول دون مسّ الأصل.", "en": "Changes (move, assign, remove, add) are applied in order to a copy of the schedule without touching the original."},
+        {"ar": "يُحفظ رقم إصدار كل صفٍّ حيٍّ يمسّه السيناريو لحظة البناء.", "en": "The revision of every live row the scenario touches is stored at build time."},
+        {"ar": "الانحراف: صفٌّ غاب = «حُذف»، وصفٌّ تغيّر رقمه = «عُدّل».", "en": "Drift: a missing row is 'gone', a row whose revision changed is 'edited'."},
+        {"ar": "خطة الكتابة: تحديث بالحقول المتغيرة فقط مع رقم الإصدار المتوقع، أو حذف، أو إنشاء؛ وتُجرَّب كلها قبل كتابة ذرّية واحدة.", "en": "Write plan: update only changed fields with the expected revision, delete, or create; all are dry-run before one atomic write."}
+      ],
+      "inputs": {"ar": "الجدول الحي، قائمة التغييرات، أرقام الإصدار الأساس.", "en": "The live schedule, the change list, and base revisions."},
+      "output": {"ar": "الجدول بعد التغيير، قائمة الانحراف، عمليات الكتابة.", "en": "The resulting schedule, the drift list and write operations."},
+      "guarantee": {"ar": "دوال خالصة؛ لا يُكتب فوق تعديل زميل؛ التطبيق كله أو لا شيء.", "en": "Pure functions; never writes over a colleague's edit; applies all or nothing."},
+      "evidence": {"code": ["src/utils/timeMachine.ts#applyChanges", "src/utils/timeMachine.ts#driftOf", "src/utils/timeMachine.ts#planOperations", "src/server/timeMachineRoutes.ts"], "tests": ["tests/time-machine-audit.ts"]},
+      "requirements": ["FR-DRF-017"]
+    },
+    {
+      "id": "ALG-DRF-02",
+      "module": "DRF",
+      "icon": "traffic-cone",
+      "kind": "deterministic",
+      "name": {"ar": "مؤشر الأثر الأخضر والأصفر والأحمر", "en": "Green, yellow and red impact indicator"},
+      "question": {"ar": "هل يجعل هذا السيناريو الجدولَ أسوأ أم يغيّر حياة أحد فقط؟", "en": "Does this scenario make the schedule worse, or only change someone's week?"},
+      "method": [
+        {"ar": "يُقاس الجدولان بالمقاييس نفسها: التعارضات المانعة، تجاوز النصاب، الطلبة بلا مقعد، دقائق الفجوات، ملاحظات اللائحة.", "en": "Both boards are measured with the same measures: blocking conflicts, over-load instructors, students without a seat, gap minutes and regulation notes."},
+        {"ar": "يُعدّ الصفوف المتغيرة والأساتذة والقاعات المتأثرة وتغييرات الوقت والقاعة.", "en": "Changed rows, affected instructors and halls, and time and hall changes are counted."},
+        {"ar": "أحمر إن زادت الموانع أو تجاوز النصاب أو الطلبة بلا مقعد.", "en": "Red if blockers, over-load or seatless students increase."},
+        {"ar": "أصفر إن لم يكن أحمر وتغيّر وقت أو أستاذ، أو زادت الفجوات أكثر من 30 دقيقة، أو زادت ملاحظات اللائحة؛ وإلا أخضر.", "en": "Yellow if not red and a time or instructor changed, gaps grew by more than 30 minutes or regulation notes rose; otherwise green."}
+      ],
+      "inputs": {"ar": "الجدول قبل وبعد، المقررات، الأساتذة وحدود نصابهم، بيانات رادار التسجيل إن وُجدت.", "en": "Schedule before and after, courses, instructors and load limits, registration radar data when present."},
+      "output": {"ar": "مستوى (أخضر/أصفر/أحمر) وأسباب مختصرة وأعداد الأثر.", "en": "A level (green/yellow/red), short reasons and impact counts."},
+      "guarantee": {"ar": "عدد الطلبة يأتي من الرادار وحده وإلا يبقى فارغاً؛ لا رقم مخترع.", "en": "Student counts come only from the radar, otherwise left empty; no invented number."},
+      "numbers": [{"ar": "عتبة الفجوات 30 دقيقة.", "en": "Gap threshold 30 minutes."}],
+      "evidence": {"code": ["src/utils/timeMachine.ts#compareBoards", "src/utils/timeMachine.ts#measure"], "tests": ["tests/time-machine-audit.ts"]},
+      "requirements": ["FR-DRF-019", "FR-DRF-021"]
+    },
+    {
+      "id": "ALG-DRF-03",
+      "module": "DRF",
+      "icon": "puzzle",
+      "kind": "search",
+      "name": {"ar": "قراءة المشكلة وثلاثة حلول مرتبة", "en": "Problem reading and three ranked solutions"},
+      "question": {"ar": "ما أفضل ثلاثة حلول مختلفة الفلسفة لمشكلة مكتوبة (قاعة معطلة، أستاذ غائب، طلب زائد، إخلاء يوم، فجوات، قاعات)؟", "en": "What are the three best solutions of different philosophies for a written problem (hall down, instructor absent, demand up, clear a day, gaps, halls)?"},
+      "method": [
+        {"ar": "تُقرأ الجملة بقواعد كلمات ثابتة إلى نوع مشكلة وأطرافها.", "en": "The sentence is read with fixed word rules into a problem kind and its parties."},
+        {"ar": "تُبنى مسوّدات بفلسفات مختلفة: أقل تغيير (سلسلة الدومينو)، الطلبة أولاً، راحة الأستاذ، قاعات أقل، مرونة «هيئة تدريسية».", "en": "Drafts are built under different philosophies: minimal change (domino chain), students first, instructor comfort, fewer halls, placeholder flexibility."},
+        {"ar": "تُسقط المسوّدة المكررة، وأيّ مسوّدة تزيد التعارضات المانعة أو تخرج عن الأنماط أو تُدخل تعارضاً.", "en": "Duplicate drafts are removed, as is any draft that raises blocking conflicts, leaves the patterns or introduces a clash."},
+        {"ar": "الكلفة = 5000 إن لم تحلّ المشكلة + 1000×زيادة الموانع + 400×تجاوز النصاب + 60×الطلبة بلا مقعد + 10×التغييرات + 6×الأساتذة + 5×الأوقات + 2×القاعات + الفجوات/30 + 8×اللائحة.", "en": "Cost = 5000 if unsolved + 1000×added blockers + 400×over-load + 60×seatless students + 10×changes + 6×instructors + 5×time changes + 2×hall changes + gaps/30 + 8×regulation."},
+        {"ar": "تُرتَّب تصاعدياً بالكلفة ويُعاد أفضل ثلاثة، ويُعلَّم الأول.", "en": "Sorted ascending by cost; the best three are returned and the first is marked."}
+      ],
+      "inputs": {"ar": "نص المشكلة، الجدول الحي، المقررات والأساتذة والقاعات، الرادار.", "en": "The problem text, live schedule, courses, instructors, halls and radar."},
+      "output": {"ar": "حتى ثلاثة حلول، لكلٍّ تغييراتها ومؤشر أثرها وكلفتها.", "en": "Up to three solutions, each with its changes, impact indicator and cost."},
+      "guarantee": {"ar": "لا حلّ يرفع موانع الاعتماد؛ يقترح ولا يكتب، والتطبيق يمرّ بمسار السيناريو الذرّي.", "en": "No solution raises approval blockers; proposes without writing, application goes through the atomic scenario path."},
+      "evidence": {"code": ["src/utils/timeMachine.ts#parseProblem", "src/utils/timeMachine.ts#solveProblem", "src/utils/timeMachine.ts#compareScenarios"], "tests": ["tests/time-machine-audit.ts", "tests/review-1105-audit.ts"]},
+      "requirements": ["FR-DRF-020"]
+    },
+    {
+      "id": "ALG-DRF-04",
+      "module": "DRF",
+      "icon": "clock-alert",
+      "kind": "search",
+      "name": {"ar": "إصلاح تصادم الأوقات في مسودة بداية الفصل", "en": "Time-collision repair for a start-of-term draft"},
+      "question": {"ar": "هل يمكن نشر جدول منسوخ من فصل سابق بتحريك الأوقات وحدها؟", "en": "Can a schedule copied from an earlier term be published by moving times only?"},
+      "method": [
+        {"ar": "تُرتَّب الصفوف بالأستاذ ثم بالمعرّف، ويُجرَّب لكل صفٍّ كل بداية بخطوة 30 دقيقة في اليوم الجامعي بمدته نفسها.", "en": "Rows are ordered by instructor then id, and each is tried at every 30-minute start in the university day with its own duration."},
+        {"ar": "يُرفض كل بديل يزيد تعارضات الصف عمّا كانت عليه.", "en": "Any alternative that raises the row's conflicts above their current number is rejected."},
+        {"ar": "الكلفة = 10000×التعارضات + 0.38×البعد عن الوقت الأصلي (−18 للبقاء) + عقوبة ما بعد 16:00 + 0.16×الفجوات مع محاضرات الأستاذ (حتى 180 دقيقة لكل).", "en": "Cost = 10000×conflicts + 0.38×distance from the original time (−18 for staying) + a penalty after 16:00 + 0.16×gaps to the instructor's lectures (capped at 180 minutes each)."},
+        {"ar": "يُكرر حتى 4 مرات أو حتى لا يتغير شيء، ثم يُعاد الفحص ويُذكر عدد الصفوف التي تغيّر وقتها.", "en": "Repeated up to 4 passes or until nothing changes, then re-checked and the number of rows whose time changed is reported."}
+      ],
+      "inputs": {"ar": "صفوف المسودة، بقية صفوف الفصل الجديد.", "en": "Draft rows and the rest of the new term's rows."},
+      "output": {"ar": "صفوف بأوقات معدّلة وعدد المعدّل، أو قائمة الموانع الباقية.", "en": "Rows with adjusted times and the changed count, or the remaining blockers."},
+      "guarantee": {"ar": "جشِع بأمان: لا يغيّر المقرر ولا الأستاذ ولا اليوم ولا القاعة، ولا يقايض صفاً سليماً بتعارض جديد.", "en": "Safety-first greedy: never changes course, instructor, day or hall, and never trades a clean row for a new conflict."},
+      "numbers": [{"ar": "4 تمريرات كحدٍّ أقصى، خطوة 30 دقيقة.", "en": "At most 4 passes, 30-minute step."}],
+      "evidence": {"code": ["src/server/routes/draftsRoutes.ts", "src/server/core/draftChecks.ts#draftAppointmentChecks"], "tests": []},
+      "requirements": ["FR-DRF-008"]
+    },
+    {
+      "id": "ALG-VIW-01",
+      "module": "VIW",
+      "icon": "file-diff",
+      "kind": "deterministic",
+      "name": {"ar": "مقارنة نسختين وبصمة جدول الأستاذ", "en": "Two-snapshot diff and instructor schedule fingerprint"},
+      "question": {"ar": "ما الذي تغيّر منذ آخر مراجعة، وهل تغيّر جدول هذا الأستاذ منذ أُرسل له؟", "en": "What changed since the last review, and has this instructor's schedule changed since it was sent?"},
+      "method": [
+        {"ar": "تُطابق الصفوف بمعرّفها الثابت: غائب في القديم = مضاف، غائب في الجديد = محذوف، وإلا تُقارن ستة حقول (الوقت، الأيام، القاعة، الأستاذ، الشعبة، المقرر).", "en": "Rows are matched by their stable id: absent before = added, absent after = removed, otherwise six fields are compared (time, days, hall, instructor, section, course)."},
+        {"ar": "يُرتَّب التقرير: المحذوف أولاً، ثم المضاف، ثم المعدّل، ثم بالمقرر والشعبة.", "en": "The report is ordered removed first, then added, then changed, then by course and section."},
+        {"ar": "البصمة: سطر لكل صف (المعرّف، المقرر، الشعبة، الأيام، الوقت، القاعة والمرفق)، تُفرز وتُجزّأ بـ FNV-1a ذي 32 بت مع عدد الصفوف.", "en": "Fingerprint: one line per row (id, course, section, days, time, hall and facility), sorted and hashed with 32-bit FNV-1a, prefixed with the row count."},
+        {"ar": "تُحفظ البصمة لحظة الإرسال وتُقارن ببصمة الآن.", "en": "The fingerprint is stored at send time and compared with the current one."}
+      ],
+      "inputs": {"ar": "لقطتان محفوظتان من الجدول، أو صفوف الأستاذ.", "en": "Two saved schedule snapshots, or an instructor's rows."},
+      "output": {"ar": "إدخالات مضاف/محذوف/معدّل مع عدّها، أو بصمة نصية.", "en": "Added/removed/changed entries with counts, or a text fingerprint."},
+      "guarantee": {"ar": "حتميّ ومستقل عن ترتيب الصفوف؛ البصمة لا تحمل شيئاً من الجدول يمكن قراءته.", "en": "Deterministic and independent of row order; the fingerprint carries nothing readable from the schedule."},
+      "evidence": {"code": ["src/utils/scheduleDiff.ts#diffSchedules", "src/utils/scheduleFingerprint.ts#instructorScheduleFingerprint", "src/server/routes/shareRoutes.ts"], "tests": ["tests/schedule-changes-audit.ts", "tests/doctor-journey-audit.ts"]},
+      "requirements": ["FR-VIW-019", "FR-APR-026", "FR-DRF-022"]
+    },
+    {
+      "id": "ALG-ACC-01",
+      "module": "ACC",
+      "icon": "shield-check",
+      "kind": "deterministic",
+      "name": {"ar": "قرار النطاق", "en": "Scope decision"},
+      "question": {"ar": "هل يحق لهذا الحساب أن يرى قسماً بعينه في كلية؟", "en": "May this account see a given department of a college?"},
+      "method": [
+        {"ar": "حساب الإدارة يرى كل شيء، وصفة «كل الكليات» ترى كل شيء ولو بلا صف نطاق.", "en": "An administration account sees everything, and an all-colleges role sees everything even without a scope row."},
+        {"ar": "قسم صفر في السؤال يعني: أيّ قسم في هذه الكلية.", "en": "Department zero in the question means any department of that college."},
+        {"ar": "صف نطاق بقسم صفر يعني الكلية كلها، لصفات الكلية وكل الكليات وحدها.", "en": "A scope row with department zero means the whole college, for college and all-colleges roles only."},
+        {"ar": "ما عدا ذلك تطابق حرفي للكلية والقسم.", "en": "Otherwise a literal match of college and department."}
+      ],
+      "inputs": {"ar": "المستخدم وصفته وصفوف نطاقه، الكلية والقسم المطلوبان.", "en": "The user, role and scope rows, and the requested college and department."},
+      "output": {"ar": "نعم أو لا.", "en": "Yes or no."},
+      "guarantee": {"ar": "مصدر واحد للحكم؛ لا يوسّع صلاحية صفٍّ قديم صادف الشكل نفسه.", "en": "One source of the decision; never widens an old row that merely happens to have the same shape."},
+      "evidence": {"code": ["src/server/core/scope.ts#isScopeAllowed"], "tests": ["tests/role-scope-audit.ts"]},
+      "requirements": ["FR-ACC-020", "FR-ACC-021"]
+    },
+    {
+      "id": "ALG-ACD-01",
+      "module": "ACD",
+      "icon": "spell-check",
+      "kind": "deterministic",
+      "name": {"ar": "كشف المقررات المكررة وتوائم الإملاء", "en": "Duplicate course and spelling-twin detection"},
+      "question": {"ar": "أيّ مقررين في القسم هما مقرر واحد كُتب مرتين، وأيّهما يبقى؟", "en": "Which two courses of a department are one course written twice, and which is kept?"},
+      "method": [
+        {"ar": "هوية المقرر: الرقم القصير يُوسَّع برمز القسم إلى سبعة أرقام (105 ← 0109105)؛ هويتان متطابقتان باسم واحد = مكرر.", "en": "Course identity: a short number is expanded with the department code to seven digits (105 → 0109105); same identity with the same name = duplicate."},
+        {"ar": "الإملاء: يُطبَّع الاسم (الهمزات، التاء المربوطة، الألف المقصورة، «ال»، المسافات) فيكون «نفسه» أو «إملاء» أو «قريب» أو «مختلف»؛ والأولان يجمعان التوأمين.", "en": "Spelling: the name is normalised (hamza forms, ta marbuta, alef maqsura, the article, spaces) yielding same, spelling, related or different; the first two group twins."},
+        {"ar": "الباقي يُختار بدرجة الاستعمال: له جدول 16، طلبة 8، قواعد صحيفة 4، سعة 2، رابط صحيفة 1، ثم الرمز الأقصر ثم المعرّف.", "en": "The keeper is chosen by usage score: schedule 16, students 8, sheet rules 4, capacity 2, sheet link 1, then shorter code, then id."},
+        {"ar": "لا يُعرض للحذف إلا مكررٌ غير مستعمل، ويُعاد الفحص قبل الحذف؛ ودمج الإملاء بتأكيد صريح ولا يُدمج ما تشير إليه بيانات الطلبة.", "en": "Only an unused duplicate is offered for deletion, with a rescan before delete; a spelling merge needs explicit confirmation and a course referenced by student data is not merged."}
+      ],
+      "inputs": {"ar": "مقررات القسم، رموز الكليات والأقسام، الجداول، بيانات الطلبة، قواعد الصحائف وروابطها.", "en": "Department courses, college and department codes, schedules, student data, sheet rules and links."},
+      "output": {"ar": "مجموعات مكررة بباقٍ ومكرَّرات قابلة للحذف أو الدمج مع السبب.", "en": "Duplicate groups with a keeper and removable or mergeable duplicates with reasons."},
+      "guarantee": {"ar": "معاينة أولاً؛ لا حذف ولا دمج صامت؛ الحساب الرئيسي وحده.", "en": "Preview first; no silent delete or merge; root account only."},
+      "evidence": {"code": ["src/utils/courseNameRelation.ts#courseNameRelation", "src/utils/courseSpellingTwins.ts#spellingTwinGroups", "src/server/planReviewRoutes.ts"], "tests": ["tests/course-spelling-merge-audit.ts", "tests/course-name-relation-audit.ts"]},
+      "requirements": ["FR-ACD-015", "FR-ACD-016"]
+    },
+    {
+      "id": "ALG-ACD-02",
+      "module": "ACD",
+      "icon": "id-card",
+      "kind": "deterministic",
+      "name": {"ar": "مطابقة هوية الأستاذ بالاسم", "en": "Instructor name-identity matching"},
+      "question": {"ar": "هل هذا الاسم المكتوب أو المطبوع هو هذا الأستاذ في السجل، بلا التباس؟", "en": "Is this typed or printed name this registry instructor, without ambiguity?"},
+      "method": [
+        {"ar": "يُطوى النص (الهمزات، الألف المقصورة، التاء، التشكيل، الألقاب) ويُقسم رموزاً، وتُلصق الشظايا «عبد/ال/ابو/بو» بما بعدها.", "en": "Text is folded (hamza, alef maqsura, ta marbuta, diacritics, titles) and split into tokens; the fragments 'abd/al/abu/bu' are joined to the next token."},
+        {"ar": "التطابق: الرموز متساوية، أو متساوية بلا مسافات، أو تدوير العائلة إلى الأول (3 أسماء فأكثر)، أو اسم السجل صدرُ المطبوع، أو الأول والعائلة وما بينهما بترتيبه.", "en": "Match: equal tokens, equal without spaces, family rotated to the front (3+ names), the registry name as the prefix of the printed one, or first and family with the middle names in order."},
+        {"ar": "يُقبل الربط فقط إن طابق شخصٌ واحد بالهوية؛ وإلا يُسمّى المرشحون (تام أو جزئي باسمين مشتركين).", "en": "A link is accepted only when exactly one person matches; otherwise candidates are named (exact, or partial sharing two names)."}
+      ],
+      "inputs": {"ar": "الاسم المكتوب، سجل الأساتذة.", "en": "The written name and the instructor registry."},
+      "output": {"ar": "أستاذ واحد، أو «غير مسجّل»، أو «ملتبس» مع المرشحين.", "en": "One instructor, or 'unregistered', or 'ambiguous' with candidates."},
+      "guarantee": {"ar": "لا احتواء في الوسط أو الآخر (الأب ليس الابن)، ولا اختيار بين شخصين؛ الرقم المدني يُطابق كاملاً فقط.", "en": "No containment in the middle or end (a father is not his son) and no choice between two people; a civil number matches only when complete."},
+      "evidence": {"code": ["src/utils/instructorIdentity.ts#instructorIdentityTokens", "src/utils/instructorIdentity.ts#sameInstructorIdentity", "src/utils/instructorIdentity.ts#uniqueExactIdentityMatch", "src/utils/instructorIdentity.ts#registryCandidatesFor"], "tests": ["tests/pdf-import-hardening.ts", "tests/pdf-import-regression.ts"]},
+      "requirements": ["FR-ACD-019", "FR-IMP-013"]
+    },
+    {
+      "id": "ALG-ACD-03",
+      "module": "ACD",
+      "icon": "scale",
+      "kind": "deterministic",
+      "name": {"ar": "حساب العبء التدريسي وتصنيفه", "en": "Teaching-load computation and classification"},
+      "question": {"ar": "كم ساعة يدرّس العضو هذا الفصل، وأين يقع من نصابه؟", "en": "How many hours does a member teach this term, and where does that fall against his load?"},
+      "method": [
+        {"ar": "تُعدّ الشعبة (الكلية، القسم، المقرر، رمز الشعبة) مرةً واحدة لأستاذها بساعات مقررها، مهما تعددت مواعيدها.", "en": "Each section (college, department, course, section code) is counted once for its instructor at its course hours, however many appointments it has."},
+        {"ar": "الحدود: استثناء العضو الساري أولاً، ثم درجته الأكاديمية؛ والسقف = الأعلى + الإضافي.", "en": "Limits: the member's active exception first, then his academic rank; ceiling = maximum + overtime."},
+        {"ar": "التصنيف: فوق السقف = تجاوز، بين الأعلى والسقف = إضافي، دون الأدنى = أقل، وإلا ضمن، وبلا حدود = غير مضبوط.", "en": "Classification: above the ceiling = over, between maximum and ceiling = overtime, below minimum = under, otherwise within, and no limits = unset."},
+        {"ar": "ينتهي الاستثناء حين يكون الفصل المحسوب بعد فصل انتهائه زمنياً.", "en": "An exception expires when the computed term is chronologically after its end term."}
+      ],
+      "inputs": {"ar": "صفوف الفصل، ساعات المقررات، إعداد الدرجات والاستثناءات، قائمة الفصول.", "en": "Term rows, course hours, rank and exception configuration, and the term list."},
+      "output": {"ar": "الساعات والحالة والزيادة والإضافي المستعمل.", "en": "Hours, state, excess and overtime used."},
+      "guarantee": {"ar": "تنبيه للقراءة لا يمنع حفظ موعد؛ لا رقم مخترع حين لا يُضبط نصاب.", "en": "A read-only warning that never blocks saving; no invented figure when no load is set."},
+      "numbers": [{"ar": "حتى 30 درجة، الأعلى حتى 60 ساعة، والإضافي حتى 30.", "en": "Up to 30 ranks, maximum up to 60 hours, overtime up to 30."}],
+      "evidence": {"code": ["src/utils/teachingLoad.ts#teachingHoursByInstructor", "src/utils/teachingLoad.ts#teachingLoadLimits", "src/utils/teachingLoad.ts#evaluateTeachingLoad"], "tests": ["tests/teaching-load-audit.ts"]},
+      "requirements": ["FR-ACD-022", "FR-ACD-023"]
+    },
+    {
+      "id": "ALG-NTF-01",
+      "module": "NTF",
+      "icon": "radio",
+      "kind": "deterministic",
+      "name": {"ar": "تجميع البثّ الحي وكشف كتابة الغير والكتابة القديمة", "en": "Live broadcast coalescing, foreign-write detection and stale-write refusal"},
+      "question": {"ar": "متى تُخبَر الشاشات المفتوحة بتغيير، ومتى تُرفض كتابة لم ترَ آخر تعديل؟", "en": "When are open screens told of a change, and when is a write that did not see the latest edit refused?"},
+      "method": [
+        {"ar": "كل كتابة على الجدول تُجمَّع في نافذة 350 مللي ثانية، فيصل كل مشترك حدث واحد بلا صفوف.", "en": "Every schedule write is coalesced into a 350 ms window so each subscriber receives one row-less event."},
+        {"ar": "وثيقة المنارة تعدّ الكتابات كلها وكتابات كل نسخة؛ وكتابات الغير = (فرق الإجمالي) − (فرق كتابات هذه النسخة).", "en": "The beacon document counts all writes and each instance's writes; foreign writes = (total delta) − (this instance's delta)."},
+        {"ar": "عدّاد يتراجع يُعدّ كتابة غريبة؛ والنسخة لا تعيد كتابة المنارة عند تلقّي تغيير غيرها، فلا صدى.", "en": "A counter going backwards counts as a foreign write; an instance never rewrites the beacon on receiving another's change, so there is no echo."},
+        {"ar": "الكتابة التي تحمل ختم إصدار لا يساوي الحالي تُرفض بـ409 ورمز stale-write ولا يُمسّ شيء؛ والكتابة بلا ختم تمضي.", "en": "A write whose version stamp differs from the current one is refused with 409 and code stale-write, touching nothing; a write without a stamp proceeds."}
+      ],
+      "inputs": {"ar": "أحداث الكتابة، عدّادات المنارة، الختم المرسل والإصدار الحالي.", "en": "Write events, beacon counters, the sent stamp and the current version."},
+      "output": {"ar": "حدث بثّ واحد لكل نافذة، أو رفض الكتابة القديمة.", "en": "One broadcast event per window, or a stale-write refusal."},
+      "guarantee": {"ar": "التغيير يُعلن في كل النسخ مرة واحدة؛ لا يُكتب فوق تعديل زميل لم يُرَ؛ الحدث لا يحمل بيانات.", "en": "A change is announced across all instances once; no write lands over an unseen colleague edit; the event carries no data."},
+      "numbers": [{"ar": "تجميع 350 مللي ثانية، سقف 400 اتصال، نبضة كل 25 ثانية.", "en": "350 ms coalescing, 400-connection cap, 25-second keep-alive."}],
+      "evidence": {"code": ["src/server/core/liveChannel.ts#listenForScheduleChangesAcrossInstances", "src/db/beaconEcho.ts#foreignWrites", "src/utils/staleWrite.ts#expectedRev", "src/server/sectionRequestsRoutes.ts"], "tests": ["tests/live-pulse-audit.ts", "tests/live-pulse-http-audit.ts"]},
+      "requirements": ["FR-NTF-009", "FR-NTF-010", "FR-NTF-016"]
+    }
+  ]
+}

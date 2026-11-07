@@ -90,3 +90,64 @@ table.tbl tr{break-inside:avoid}
   .live-hint button{min-height:40px;border-radius:10px;border:0;background:var(--jade);color:#fff;font:inherit;font-weight:600;padding:0 1rem;cursor:pointer}
 }
 @media print{.no-print{display:none!important}}
+
+/* تنقّل PDF: شريط أقسام الفصل يشبه تبويبات الصفحة، وروابط العودة إلى المحتويات */
+.chap-nav{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;align-items:center}
+.chap-nav a{border:1px solid var(--line-2);border-radius:99px;padding:1px 11px;font-size:8.6pt;color:var(--jade-ink);background:var(--jade-softer);font-weight:600}
+.chap-nav .up,.part>h2.ph .up{margin-inline-start:auto;font-size:8.5pt;font-weight:500;color:var(--ink-3);border:0;background:none;padding:0}
+.part>h2.ph .up{font-family:var(--font-ui)}
+a.tile{display:block;color:inherit}
+td a,.toc-row,.req-id{color:inherit}
+
+/* غلاف: زخرفة الشعار، والمؤلفان في سطر واحد */
+.cover .cover-deco{position:absolute;inset-inline-end:-10mm;inset-block-start:16mm;height:104mm;width:auto;opacity:.13;transform:rotate(-8deg);z-index:0}
+.cover>*:not(.cover-deco){z-index:1}
+.cover .authors{display:block}
+.cover .authors b{font-size:14pt;display:block;line-height:1.5}
+.cover .authors .dot{font-style:normal;color:var(--brass-bright);margin:0 3px}
+.chap-nav.end{margin:14px 0 0;justify-content:flex-end}
+
+/* البنية التقنية في PDF */
+.tcols{gap:6px}
+.tcol{border-radius:12px;box-shadow:none}
+.tcol>header{padding:7px 9px;gap:6px}.tcol>header .no{font-size:15pt}.tcol>header h3{font-size:10pt}.tcol>header .ic{width:20px;height:20px}
+.tcol li{padding:6px 8px;gap:7px}
+.tl{min-width:46px;gap:3px}.tlogo{height:28px;max-width:38px;border-radius:7px;padding:2px}
+.tword{font-size:8pt;padding:5px 5px;border-radius:7px}
+.tt b{font-size:8.2pt}.tt span{font-size:7.6pt}.tt .v{font-size:6.6pt;padding:0 4px}
+.tech-lead{font-size:9.4pt}
+.tsvc{border-radius:12px;padding:8px 10px}.tsvc ul{grid-template-columns:repeat(2,1fr);gap:6px}.tsvc .si{width:30px;height:30px;border-radius:9px}
+.tcols{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.tcol li{flex-wrap:nowrap}
+
+.rm{font-size:7.8pt;flex-wrap:wrap;margin:.2em 0 0}.rm .ra{color:var(--ink-2)}
+.tl-ic{width:28px;height:28px;border-radius:7px}.tl-ic .ic{width:16px;height:16px}
+
+.diagram svg.flow.o-col{max-width:62%;max-height:200mm}
+
+.tech{break-inside:avoid}.tech-lead{break-after:avoid}.sub h3{break-after:avoid}
+.ucards{grid-template-columns:repeat(5,1fr);gap:6px}.ucard{padding:7px 9px;border-radius:12px}.ucard b{font-size:13pt}.ucard>span{font-size:7.6pt}.ucard>small{font-size:7pt}
+
+/* PDF: وسام السنة على الغلاف وفي قسم التاريخ */
+.cover-top{display:flex;justify-content:space-between;align-items:flex-start}
+.cover .cover-medal{min-width:46mm;padding:5mm 7mm;border-radius:8mm}
+.cover .cover-medal b{font-size:44pt}.cover .cover-medal small{font-size:10pt}.cover .cover-medal span{font-size:9.5pt}
+.hist-head{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.doc-medal{background:linear-gradient(160deg,#1c2421,#141917);min-width:34mm;padding:4mm 5mm;border-radius:6mm}
+.doc-medal b{font-size:30pt}.doc-medal small,.doc-medal span{font-size:8pt}
+.htl{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:10px}
+.htl::before{top:36px}
+.hdot{width:26px;height:26px}.htl li.first .hdot{width:30px;height:30px}
+.hwhen{font-size:7pt}.htl li.first .hwhen{font-size:13pt}
+.hbody b{font-size:8.4pt}.hbody p{font-size:7.6pt}
+.hlead{font-size:9.2pt}
+.hcards{grid-template-columns:repeat(3,1fr);gap:6px}.hcard{padding:7px 9px;border-radius:10px;break-inside:avoid}.hcard b{font-size:8.6pt}.hcard span{font-size:7.8pt}
+.hreads h4{font-size:10pt}
+.ustitle{font-size:10.5pt;margin:12px 0 4px}
+.history{break-inside:auto}
+
+/* الخوارزميات في PDF */
+.akinds{grid-template-columns:repeat(4,1fr);gap:6px}.akcard{padding:6px 8px;border-radius:10px}.akcard b{font-size:12pt}.akcard span{font-size:8pt}.akcard small{font-size:7pt}.akcard .ic{width:26px;height:26px;padding:5px}
+.aanswer{padding:10px 12px;border-radius:12px;box-shadow:none}.aq-big{font-size:10.5pt}.aa{font-size:9.2pt;line-height:1.65}
+.algo{box-shadow:none;padding:8px 10px;font-size:9pt}.algo h4{font-size:10pt}.aq{font-size:8.6pt}.asteps{font-size:8.6pt}.aio p,.aguar{font-size:8.4pt}.anums span{font-size:7.4pt}
+.ustitle{break-after:avoid;page-break-after:avoid}
