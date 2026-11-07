@@ -5,7 +5,8 @@ import { AlertCircle, BookOpen, Check, CheckCircle2, Clock3, Copy, GraduationCap
 import { AR, countOf, oblique } from "../utils/arabicCount";
 import { formatScheduleTimeRange, scheduleClockForDisplay, scheduleDayWindowMinutes, type ScheduleDayWindow } from "../utils/scheduleTime";
 import { capSameSlot, sameSlotOf, slotMinutes, SLOT_DAYS, type SameSlotItem, type SameSlotQuery, type SameSlotResult, type SlotDay, type SlotRow } from "../utils/sameSlot";
-import { sameLevelLookup, unlockLookup, type UnlockGroup } from "../utils/planPeers";
+import { sameLevelLookup, unlockLookup } from "../utils/planPeers";
+import { cachedPlanFacts, loadPlanFacts, NO_PLAN_FACTS, type PlanFacts } from "../utils/planFactsCache";
 import { coreqFindings, coreqFreeTime, partnersOfCourse, type CoreqFreeTime } from "../utils/coreqSections";
 
 /**
@@ -40,35 +41,15 @@ export interface SameSlotHintProps<R extends SlotRow & { AdCourseName?: string; 
   className?: string;
 }
 
-/** ما تقوله صحائفُ القسم: جلبةٌ واحدة لكل قسم في الجلسة، وتفشلُ بصمت (الزينة لا تكسر شاشة). */
-interface PlanFacts { pairs: number[][]; levelGroups: number[][]; unlockGroups: UnlockGroup[]; chainPairs: number[][] }
-const NO_FACTS: PlanFacts = { pairs: [], levelGroups: [], unlockGroups: [], chainPairs: [] };
-const pairsCache = new Map<number, PlanFacts>();
-const pairsPending = new Map<number, Promise<void>>();
+/** ما تقوله صحائفُ القسم، من مخبأ المتصفح (src/utils/planFactsCache.ts). */
 function usePlanFacts(collegeId: number | undefined, sectionId: number | undefined): PlanFacts {
-  const [facts, setFacts] = useState<PlanFacts>(() => (sectionId ? pairsCache.get(sectionId) : undefined) || NO_FACTS);
+  const [facts, setFacts] = useState<PlanFacts>(() => cachedPlanFacts(sectionId) || NO_PLAN_FACTS);
   useEffect(() => {
-    if (!sectionId) { setFacts(NO_FACTS); return; }
-    const cached = pairsCache.get(sectionId);
+    if (!sectionId) { setFacts(NO_PLAN_FACTS); return; }
+    const cached = cachedPlanFacts(sectionId);
     if (cached) { setFacts(cached); return; }
     let live = true;
-    let job = pairsPending.get(sectionId);
-    if (!job) {
-      job = fetch(`/api/schedules/coreq-pairs?collegeId=${collegeId || 0}&sectionId=${sectionId}`, { credentials: "include" })
-        .then(response => (response.ok ? response.json() : NO_FACTS))
-        .then(data => {
-          pairsCache.set(sectionId, {
-            pairs: Array.isArray(data?.pairs) ? data.pairs : [],
-            levelGroups: Array.isArray(data?.levelGroups) ? data.levelGroups : [],
-            unlockGroups: Array.isArray(data?.unlockGroups) ? data.unlockGroups : [],
-            chainPairs: Array.isArray(data?.chainPairs) ? data.chainPairs : [],
-          });
-        })
-        .catch(() => { pairsCache.set(sectionId, NO_FACTS); })
-        .finally(() => { pairsPending.delete(sectionId); });
-      pairsPending.set(sectionId, job);
-    }
-    void job.then(() => { if (live) setFacts(pairsCache.get(sectionId) || NO_FACTS); });
+    void loadPlanFacts(collegeId, sectionId).then(next => { if (live) setFacts(next); });
     return () => { live = false; };
   }, [collegeId, sectionId]);
   return facts;
@@ -115,7 +96,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   );
 
   /* المقرن: تداخلٌ (لا تطابقٌ تام) مع مقرر الموعد التوأم، ومعه: هل بقيت شعبةٌ بديلة؟ */
-  const { pairs, levelGroups, unlockGroups, chainPairs } = usePlanFacts(collegeId, sectionId);
+  const { pairs, levelGroups, unlockGroups } = usePlanFacts(collegeId, sectionId);
   const { start: dayStart, end: dayEnd } = scheduleDayWindowMinutes(dayWindow);
   const twins = useMemo(() => {
     if (!courseId || !pairs.length) return [];
@@ -135,8 +116,8 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   /* ما يرويه بطاقةُ المقرن لا يُعاد في قائمة «الوقت نفسه». */
   const twinIds = useMemo(() => twins.flatMap(twin => twin.overlapRowIds).map(String), [twins]);
   /* الصفوف تتجدد حياً؛ الاستعلام وحده يُؤخَّر. */
-  const sameLevel = useMemo(() => sameLevelLookup(levelGroups, chainPairs), [levelGroups, chainPairs]);
-  const unlockOf = useMemo(() => unlockLookup(unlockGroups, chainPairs), [unlockGroups, chainPairs]);
+  const sameLevel = useMemo(() => sameLevelLookup(levelGroups), [levelGroups]);
+  const unlockOf = useMemo(() => unlockLookup(unlockGroups), [unlockGroups]);
   const result: SameSlotResult<R> = useMemo(() => sameSlotOf<R>(rows, { ...query, skipIds: [...(query.skipIds || []), ...twinIds], codeOf: (id) => courseOf(id)?.CourseCode, sameLevel, unlockOf }), [rows, query, twinIds, sameLevel, unlockOf]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -207,7 +188,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   const exactCount = count - partialCount - sectionCount;
   const label = [
     exactCount ? `${countOf(exactCount, AR.course)} في الوقت نفسه` : "",
-    partialCount ? `تداخل مع ${countOf(partialCount, oblique(AR.course))} مما يُؤخذ معه` : "",
+    partialCount ? `تداخل مع ${countOf(partialCount, oblique(AR.course))} من أقرانه في الصحيفة` : "",
     sectionCount ? `${countOf(sectionCount, AR.section)} من المقرر نفسه بوقت قريب` : "",
     twinCount ? "مقرن متداخل" : "",
   ].filter(Boolean).join("، ");
@@ -269,10 +250,10 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
           ))}
         </div>
         <div className="same-slot-body">
-          {groupedRows(capped.items).map(group => {
+          {groupedRows(capped.items).map((group, index) => {
             const unlock = group.items[0].unlock;
             return (
-              <section key={group.key} className="same-slot-day">
+              <section key={`${group.key}|${index}`} className="same-slot-day">
                 {unlock ? (
                   <p className="same-slot-legend is-unlock"><LockOpen aria-hidden="true" />تفتح: <b>{unlock.names[0]}</b>{unlock.names.length > 1 ? <bdi dir="ltr">+{unlock.names.length - 1}</bdi> : null}</p>
                 ) : group.key === "level" ? (

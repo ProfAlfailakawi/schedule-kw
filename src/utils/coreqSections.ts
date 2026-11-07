@@ -171,7 +171,7 @@ export function coreqFreeTime(
     return { spans, ...nearestStarts(spansOn([...section, ...siblings], candidate), start, duration, day) };
   });
   const afterAt = each.reduce<number | undefined>((best, item) => (item.after !== undefined && (best === undefined || item.after < best) ? item.after : best), undefined);
-  const beforeAll = nearestStarts(spansOn([...open.flat(), ...siblings], candidate), start, duration, day).before;
+  const beforeAll = open.length ? nearestStarts(spansOn([...open.flat(), ...siblings], candidate), start, duration, day).before : undefined;
   const beforeAt = beforeAll ?? each.reduce<number | undefined>((best, item) => (item.before !== undefined && (best === undefined || item.before > best) ? item.before : best), undefined);
   const useAfter = afterAt !== undefined && (beforeAt === undefined || afterAt - start <= start - beforeAt);
   const at = useAfter ? afterAt : beforeAt;

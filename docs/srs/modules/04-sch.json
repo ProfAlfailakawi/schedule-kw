@@ -60,6 +60,7 @@
     "src/components/SameSlotHint.tsx",
     "src/utils/sameSlot.ts",
     "src/utils/planPeers.ts",
+    "src/utils/planFactsCache.ts",
     "src/utils/coreqSections.ts",
     "src/server/core/coreqPairs.ts",
     "src/styles/51-same-slot.css",

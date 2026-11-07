@@ -1,16 +1,16 @@
 /**
  * ما تقوله صحائفُ القسم عن اجتماع مقررين، مقروءاً من قواعدها المعتمدة مرةً واحدة:
  *   • المقرنات (`coreq`): أزواجٌ [أ، ب] بالاتجاهين مرةً واحدة، من الصحيفة الفعّالة أولاً؛ فإن لم توجد فالسابقةُ الجارية.
- *   • مجموعاتُ المستوى ومجموعاتُ «تفتح»: من كل صحيفةٍ جارية على حدة، فالسابقةُ ما زال طلابها يسجّلون (src/utils/planPeers.ts).
+ *   • مجموعاتُ المستوى ومجموعاتُ «تفتح»: من كل صحيفةٍ جارية على حدة بموانع سلسلتها، فالسابقةُ ما زال طلابها يسجّلون (src/utils/planPeers.ts).
  * المسوّداتُ والمؤرشفة لا تُقرأ. مخبَّأةٌ ثلاثين ثانية: يقرؤها فحصُ «موعد» ومخطّطُ «في الوقت نفسه» دون ثقلٍ على كل ضغطة.
  */
 import { Repository } from "../../db/repository";
-import { levelGroupsOfPlans, prereqChainPairs, unlockGroupsOfPlans, type UnlockGroup } from "../../utils/planPeers";
+import { levelGroupsOfPlans, unlockGroupsOfPlans, type LevelGroup, type UnlockGroup } from "../../utils/planPeers";
 
 const TTL_MS = 30_000;
 
-export interface SectionPlanFacts { pairs: number[][]; levelGroups: number[][]; unlockGroups: UnlockGroup[]; chainPairs: number[][] }
-const NO_FACTS: SectionPlanFacts = { pairs: [], levelGroups: [], unlockGroups: [], chainPairs: [] };
+export interface SectionPlanFacts { pairs: number[][]; levelGroups: LevelGroup[]; unlockGroups: UnlockGroup[] }
+const NO_FACTS: SectionPlanFacts = { pairs: [], levelGroups: [], unlockGroups: [] };
 
 /* المفتاحُ يحمل صندوقَ الديمو: رقمُ القسم 1 في الديمو غيرُه في الجامعة، والذاكرةُ واحدةٌ في العملية. */
 const cache = new Map<string, { at: number; value: Promise<SectionPlanFacts> }>();
@@ -38,7 +38,13 @@ async function read(sectionId: number): Promise<SectionPlanFacts> {
   const ruleSets = sets.flatMap(({ set }) => (set ? [set] : []));
   const courses = await Repository.getCoursesBySection(sectionId).catch(() => []);
   const names = new Map<number, string>(courses.map(course => [Number(course.AdCourseId), String(course.CourseName || "")] as [number, string]));
-  return { pairs, levelGroups: levelGroupsOfPlans(ruleSets), unlockGroups: unlockGroupsOfPlans(ruleSets, id => names.get(id) || ""), chainPairs: prereqChainPairs(ruleSets) };
+  /* مقررٌ تالٍ يملكه قسمٌ آخر: اسمُه يُجلب بمعرّفه، وإلا سقطت مجموعتُه بصمت. */
+  const nextIds = ruleSets.flatMap(set => set.rules.filter(rule => (rule.prereq?.all?.length || 0) > 1).map(rule => Number(rule.courseId)));
+  await Promise.all([...new Set(nextIds)].filter(id => !names.get(id)).map(async id => {
+    const name = (await Repository.getCourseById(id).catch(() => undefined))?.CourseName;
+    if (name) names.set(id, String(name));
+  }));
+  return { pairs, levelGroups: levelGroupsOfPlans(ruleSets), unlockGroups: unlockGroupsOfPlans(ruleSets, id => names.get(id) || "") };
 }
 
 export function sectionPlanFacts(sectionId: number): Promise<SectionPlanFacts> {
