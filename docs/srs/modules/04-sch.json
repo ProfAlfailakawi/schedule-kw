@@ -1,0 +1,1064 @@
+{
+  "id": "SCH",
+  "order": 4,
+  "icon": "calendar-range",
+  "title": { "ar": "محرّك الجدول الحتمي", "en": "Deterministic scheduling engine" },
+  "tagline": { "ar": "كل موعد يُفحص بقواعد ثابتة قبل أن يُكتب: تعارض، لائحة، دوام، حجز، ونسخة للتراجع.", "en": "Every appointment passes fixed rules before it is written: conflicts, regulation, teaching day, holds and a rollback version." },
+  "summary": {
+    "ar": "تحكم هذه الوحدة المواعيد (صفوف الجدول) من الإنشاء إلى الحذف: التحقق من الحقول، وكشف تعارض الأستاذ والقاعة والشعبة المكررة، وقواعد اللائحة للأيام والأطوال ومكتبة الأنماط وسقف الساعات، ويوم الجامعة ونافذة القسم، وحجوزات الطلبات وحجوزات الزملاء. وتُكتب كل عملية بعد لقطة نسخة قبلها، وتُبثّ للزملاء مباشرة. يستعملها رئيس لجنة الجدول ورئيس القسم يومياً، ويقرأ نتيجتها التسجيل والعميد. والحكم واحد في كل مسار: الحفظ اليدوي واعتماد الاقتراح والنقل الجماعي والمسودة تمرّ من الدوال نفسها.",
+    "en": "This module governs appointments (schedule rows) from creation to deletion: field validation, instructor, hall and duplicate-section conflict detection, regulation rules for days, lengths, the pattern library and the weekly-hours ceiling, the university teaching day and the department window, and request holds and colleague holds. Every write is preceded by a rollback snapshot and is pushed live to colleagues. The schedule committee chair and the department head use it daily; registration and the dean read its results. There is one verdict for every path: manual save, proposal approval, batch move and draft checks all run through the same functions."
+  },
+  "actors": ["committeeChair", "departmentHead", "rootAdmin", "admin", "collegeRegistrar", "registrarStaff", "dean", "system"],
+  "sources": [
+    "src/server/routes/schedulesRoutes.ts",
+    "src/server/routes/scheduleToolsRoutes.ts",
+    "src/server/routes/scheduleLiveRoutes.ts",
+    "src/server/routes/scheduleNotesRoutes.ts",
+    "src/server/routes/scheduleReviewRoutes.ts",
+    "src/server/scheduleHolds.ts",
+    "src/server/scheduleHoldsRoutes.ts",
+    "src/server/teamPresence.ts",
+    "src/server/livePulse.ts",
+    "src/server/core/scheduleConflicts.ts",
+    "src/server/core/scheduleRules.ts",
+    "src/server/core/scheduleWrites.ts",
+    "src/server/core/scheduleReads.ts",
+    "src/server/core/versions.ts",
+    "src/server/core/ordering.ts",
+    "src/server/core/rhythm.ts",
+    "src/server/core/universityDay.ts",
+    "src/server/core/notes.ts",
+    "src/server/core/draftChecks.ts",
+    "src/server/core/liveChannel.ts",
+    "src/server/core/travelPolicy.ts",
+    "src/utils/scheduleIntelligence.ts",
+    "src/utils/scheduleRegulations.ts",
+    "src/utils/scheduleTime.ts",
+    "src/utils/scheduleHolds.ts",
+    "src/utils/scheduleBlockers.ts",
+    "src/utils/scheduleOrder.ts",
+    "src/utils/scheduleViews.ts",
+    "src/utils/scheduleWipePolicy.ts",
+    "src/utils/scheduleVersionList.ts",
+    "src/utils/offlineScheduleQueue.ts",
+    "src/utils/meetingSlots.ts",
+    "src/utils/teacherMiniWeek.ts",
+    "src/utils/lectureStick.ts",
+    "src/utils/placeholderInstructor.ts",
+    "src/utils/placeholderMatch.ts",
+    "src/utils/departmentRhythm.ts",
+    "src/utils/campusTravel.ts",
+    "src/utils/campusTravelPolicy.ts",
+    "src/utils/slotSuggestionScope.ts",
+    "src/utils/slotTimeGroups.ts",
+    "src/utils/weekVisual.ts",
+    "src/utils/teamWork.ts",
+    "src/components/Schedules.tsx",
+    "src/components/MeetingSlots.tsx",
+    "src/components/SectionScheduleHours.tsx",
+    "src/components/TeacherMiniWeek.tsx",
+    "src/components/ScheduleViewsMenu.tsx",
+    "src/components/WipeScheduleButton.tsx",
+    "src/components/LectureStickChips.tsx",
+    "src/components/schedulePresence.ts",
+    "src/components/scheduleWorkspace.ts",
+    "src/components/SchedulePhysics/*"
+  ],
+  "screens": [
+    { "name": { "ar": "الجدول (ورشة الجدول)", "en": "Schedule workshop" }, "file": "src/components/Schedules.tsx", "note": { "ar": "ثلاثة عروض: أسبوعي وقائمة وقاعات؛ والقائمة افتراضية على الهاتف. نموذج الموعد والفحص الحيّ ولوحة الأوامر Ctrl+K والتراجع Ctrl+Z.", "en": "Three views: week, list and rooms; list is the default on phones. Appointment form, live checks, command palette Ctrl+K and undo Ctrl+Z." } },
+    { "name": { "ar": "جدول الأستاذ المصغّر", "en": "Teacher mini-week" }, "file": "src/components/TeacherMiniWeek.tsx", "note": { "ar": "أسبوع الأستاذ في خمسة أعمدة مع الخانات الحرّة، وقبلها/بعدها، وحلقة النصاب، ورسم موعد بالسحب.", "en": "The instructor's week in five columns with free slots, before/after placement, a load ring and drag-to-draw." } },
+    { "name": { "ar": "متى نلتقي؟", "en": "When can we meet?" }, "file": "src/components/MeetingSlots.tsx", "note": { "ar": "أوقات فراغ مشتركة لأساتذة مختارين على مستوى الفصل كله.", "en": "Common free time for chosen instructors across the whole term." } },
+    { "name": { "ar": "أوقات الدوام للأقسام", "en": "Department teaching hours" }, "file": "src/components/SectionScheduleHours.tsx", "note": { "ar": "الدوام الشامل (للمدير الرئيسي) واستثناءات الأقسام الأضيق.", "en": "The university teaching day (root administrator) and narrower department exceptions." } },
+    { "name": { "ar": "مسح الجدول", "en": "Wipe schedule" }, "file": "src/components/WipeScheduleButton.tsx", "note": { "ar": "تأكيد مزدوج: اسم القسم مكتوباً وعدد المواعيد.", "en": "Double confirmation: typed department name and appointment count." } },
+    { "name": { "ar": "العروض المحفوظة", "en": "Saved views" }, "file": "src/components/ScheduleViewsMenu.tsx", "note": { "ar": "قائمة تظهر بعد حفظ أول عرض؛ نقطة تدل على اختلاف الحالة الحالية عن المحفوظ.", "en": "Appears after the first saved view; a dot shows the board differs from the saved state." } },
+    { "name": { "ar": "معاينة السحب (الفيزياء)", "en": "Drag preview" }, "file": "src/components/SchedulePhysics/SchedulePhysicsLayer.tsx", "note": { "ar": "تصنّف أثر النقل قبل الإفلات: ممتاز، جيد، محايد، غير مفضّل، غير متاح.", "en": "Classifies a move before the drop: excellent, good, neutral, suboptimal, impossible." } }
+  ],
+  "journeys": [
+    {
+      "actor": "committeeChair",
+      "title": { "ar": "إضافة موعد جديد دون تعارض", "en": "Adding a new appointment without conflicts" },
+      "steps": [
+        { "ar": "يفتح «موعد جديد» ويختار المقرر والشعبة والأستاذ؛ فيظهر جدول الأستاذ المصغّر بأسبوعه وخاناته الحرّة.", "en": "Opens «New appointment» and chooses course, section and instructor; the teacher mini-week shows the instructor's week and free slots." },
+        { "ar": "يختار يوماً وبداية؛ فتكتمل الأيام والنهاية بالنمط المعتمد للمقرر، ويُرسَل حجزٌ استشاري لزملائه لمدة دقيقتين.", "en": "Picks a day and start; the days and end time complete from the course's approved pattern, and an advisory hold is announced to colleagues for two minutes." },
+        { "ar": "يعمل الفحص الحيّ (POST /api/schedules/check-conflicts) فيعرض الموانع باللون الأحمر والتنبيهات اللينة منفصلة.", "en": "The live check (POST /api/schedules/check-conflicts) lists blockers in red and soft notes separately." },
+        { "ar": "إن ظهر تعارض قاعة يستعمل «اقترح وقتاً وقاعة» فتُعاد حتى ثلاثة خيارات مرّت من البوابة نفسها.", "en": "On a hall conflict he uses «suggest time and hall»; up to three options that passed the same gate are returned." },
+        { "ar": "يحفظ فيُلتقط الجدول قبل الإضافة، ويُكتب الموعد، وتصل النسخة الجديدة لكل شاشة مفتوحة على اللوحة نفسها.", "en": "On save the schedule is snapshotted, the row is written and the change reaches every screen open on the same board." }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": { "ar": "نقل محاضرة بالسحب والتراجع عنها", "en": "Dragging a lecture to a new slot and undoing it" },
+      "steps": [
+        { "ar": "يسحب بطاقة المحاضرة إلى خانة أخرى؛ فتُصنَّف معاينة السحب قبل الإفلات.", "en": "Drags the lecture card to another cell; the drag preview classifies the move before the drop." },
+        { "ar": "عند الإفلات يرسل الطلب إلى النقل الجماعي مع رقم نسخة كل صف، فيُفحص كل صف مقابل الفصل كله.", "en": "On drop the request goes to batch move with each row's revision, and every row is checked against the whole term." },
+        { "ar": "إن رُفض يعود البطاقة إلى مكانها وتظهر أول رسالة مع عدد الموانع الأخرى، ولا يُكتب شيء.", "en": "If refused the card returns, the first message appears with the number of other blockers, and nothing is written." },
+        { "ar": "إن نجح يظهر شريط تراجع خمس عشرة ثانية، ويحتفظ السجل بآخر ستين تغييراً؛ يضغط Ctrl+Z فيعود الموعد.", "en": "If accepted an undo bar shows for fifteen seconds and the log keeps the last sixty changes; Ctrl+Z restores the appointment." }
+      ]
+    },
+    {
+      "actor": "committeeChair",
+      "title": { "ar": "إسناد شعبة «هيئة تدريسية» إلى أستاذ فعلي", "en": "Assigning a faculty-placeholder section to a real instructor" },
+      "steps": [
+        { "ar": "يبحث عن وقت وقاعة لأستاذ فعلي فيظهر في النتائج «قابلة للاستبدال» ما يطابق تماماً من شُعب «هيئة تدريسية».", "en": "Searches a time and hall for a real instructor and the results list placeholder sections that match exactly as «replaceable»." },
+        { "ar": "يختار إجراءً: إسناد أو تبديل قاعة أو استبدال.", "en": "Chooses an action: assign, swap hall, or replace." },
+        { "ar": "يفحص الخادم كل خطوة فحصاً جافّاً على الأسبوع كما سيصير، ثم يكتب الخطوات في معاملة واحدة.", "en": "The server dry-runs every step on the week as it will be, then writes all steps in one transaction." },
+        { "ar": "يعيد الردّ خطوات التراجع بالترتيب ليُزال الجديد أولاً ثم تعود الشعبة كما كانت.", "en": "The reply carries the undo steps in order: the new row is removed first, then the section is restored." }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "sch-save-gate",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "بوابة حفظ الموعد", "en": "Appointment save gate" },
+      "caption": { "ar": "ترتيب الفحوص عند الإنشاء؛ التعديل يبدأ بقراءة الصف القائم وسؤال القفل.", "en": "Order of checks on create; edit starts by reading the existing row and asking the lock." },
+      "nodes": [
+        { "id": "req", "label": { "ar": "طلب حفظ", "en": "Save request" }, "icon": "file-plus", "kind": "start" },
+        { "id": "shape", "label": { "ar": "الحقول والدوام", "en": "Fields and day" }, "icon": "list-checks", "kind": "decision" },
+        { "id": "reg", "label": { "ar": "ساعات ونمط", "en": "Hours and pattern" }, "icon": "ruler", "kind": "decision" },
+        { "id": "scope", "label": { "ar": "نطاق ومكان", "en": "Scope and place" }, "icon": "map-pin", "kind": "decision" },
+        { "id": "conf", "label": { "ar": "تعارض", "en": "Conflicts" }, "icon": "shield-alert", "kind": "decision" },
+        { "id": "lock", "label": { "ar": "قفل الجدول", "en": "Schedule lock" }, "icon": "lock", "kind": "decision" },
+        { "id": "snap", "label": { "ar": "لقطة نسخة", "en": "Snapshot" }, "icon": "history", "kind": "system" },
+        { "id": "write", "label": { "ar": "كتابة وبثّ", "en": "Write and push" }, "icon": "save", "kind": "end" },
+        { "id": "refuse", "label": { "ar": "رفض 400 / 403 / 409", "en": "Refusal 400 / 403 / 409" }, "icon": "circle-x", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "req", "to": "shape" },
+        { "from": "shape", "to": "reg", "label": { "ar": "صالحة", "en": "valid" } },
+        { "from": "shape", "to": "refuse", "label": { "ar": "ناقصة", "en": "invalid" } },
+        { "from": "reg", "to": "scope", "label": { "ar": "ضمن السقف", "en": "within cap" } },
+        { "from": "reg", "to": "refuse", "label": { "ar": "فوق السقف أو نمط غير معتمد", "en": "over cap or unapproved" } },
+        { "from": "scope", "to": "conf", "label": { "ar": "مسموح", "en": "allowed" } },
+        { "from": "scope", "to": "refuse", "label": { "ar": "خارج النطاق", "en": "out of scope" } },
+        { "from": "conf", "to": "lock", "label": { "ar": "لا مانع", "en": "no blocker" } },
+        { "from": "conf", "to": "refuse", "label": { "ar": "مانع غير لين", "en": "hard blocker" } },
+        { "from": "lock", "to": "snap", "label": { "ar": "مفتوح", "en": "open" } },
+        { "from": "lock", "to": "refuse", "label": { "ar": "مقفل", "en": "locked" } },
+        { "from": "snap", "to": "write" }
+      ]
+    },
+    {
+      "id": "sch-conflict-verdict",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "حكم التعارض", "en": "Conflict verdict" },
+      "caption": { "ar": "كل زوج مواعيد يُنتج حكماً واحداً يُسمّى بأخطر سبب فيه.", "en": "Each pair of appointments yields one verdict, named after its most serious reason." },
+      "nodes": [
+        { "id": "pair", "label": { "ar": "زوج مواعيد", "en": "Pair of rows" }, "icon": "git-compare", "kind": "start" },
+        { "id": "overlap", "label": { "ar": "يتقاطعان؟", "en": "Overlap?" }, "icon": "layers", "kind": "decision" },
+        { "id": "who", "label": { "ar": "أستاذ فعلي أو قاعة", "en": "Real instructor or hall" }, "icon": "user-round", "kind": "decision" },
+        { "id": "hard", "label": { "ar": "تعارض يمنع", "en": "Blocking clash" }, "icon": "octagon-x", "kind": "end" },
+        { "id": "twin", "label": { "ar": "الشعبة نفسها؟", "en": "Same section?" }, "icon": "copy", "kind": "decision" },
+        { "id": "dup", "label": { "ar": "مكرّر يمنع", "en": "Duplicate blocks" }, "icon": "ban", "kind": "end" },
+        { "id": "twice", "label": { "ar": "تنبيه لا يمنع", "en": "Warning only" }, "icon": "triangle-alert", "kind": "end" },
+        { "id": "gap", "label": { "ar": "فاصل أقل من 10د", "en": "Gap under 10 min" }, "icon": "timer", "kind": "state" }
+      ],
+      "edges": [
+        { "from": "pair", "to": "overlap" },
+        { "from": "overlap", "to": "who", "label": { "ar": "نعم", "en": "yes" } },
+        { "from": "overlap", "to": "gap", "label": { "ar": "لا، وقاعة واحدة", "en": "no, same hall" } },
+        { "from": "who", "to": "hard", "label": { "ar": "نعم", "en": "yes" } },
+        { "from": "who", "to": "twin", "label": { "ar": "لا", "en": "no" } },
+        { "from": "twin", "to": "dup", "label": { "ar": "لا شيء يميّز الصفّين", "en": "nothing tells them apart" } },
+        { "from": "twin", "to": "twice", "label": { "ar": "قاعتان أو أستاذان مختلفان", "en": "different hall or teacher" } },
+        { "from": "gap", "to": "twice", "label": { "ar": "ملاحظة لينة", "en": "soft note" } }
+      ]
+    },
+    {
+      "id": "sch-proposal-apply",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "اعتماد اقتراح", "en": "Proposal approval" },
+      "caption": { "ar": "نقلٌ أو تبديلٌ أو فتحُ شعبة يُفحص جافّاً ثم يُكتب، ويُردّ ما كُتب إن تعذّرت خطوة.", "en": "A move, swap or section opening is dry-run, then written; written steps are reverted if a step fails." },
+      "nodes": [
+        { "id": "p", "label": { "ar": "اقتراح", "en": "Proposal" }, "icon": "lightbulb", "kind": "start" },
+        { "id": "fresh", "label": { "ar": "ما زال كما بُني؟", "en": "Still as built?" }, "icon": "refresh-cw", "kind": "decision" },
+        { "id": "dry", "label": { "ar": "فحص جافّ لكل خطوة", "en": "Dry run per step" }, "icon": "flask-conical", "kind": "system" },
+        { "id": "ok", "label": { "ar": "كل الخطوات سليمة؟", "en": "All steps pass?" }, "icon": "check", "kind": "decision" },
+        { "id": "apply", "label": { "ar": "كتابة بالتتابع", "en": "Write in order" }, "icon": "save", "kind": "system" },
+        { "id": "undo", "label": { "ar": "رد ما كُتب", "en": "Revert written" }, "icon": "undo-2", "kind": "state" },
+        { "id": "done", "label": { "ar": "تم وسُجّل المصدر", "en": "Done, origin recorded" }, "icon": "badge-check", "kind": "end" },
+        { "id": "stale", "label": { "ar": "ردّ 404 / 409 / 4xx", "en": "Refused 404 / 409 / 4xx" }, "icon": "circle-x", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "p", "to": "fresh" },
+        { "from": "fresh", "to": "dry", "label": { "ar": "نعم", "en": "yes" } },
+        { "from": "fresh", "to": "stale", "label": { "ar": "تغيّر", "en": "changed" } },
+        { "from": "dry", "to": "ok" },
+        { "from": "ok", "to": "apply", "label": { "ar": "نعم", "en": "yes" } },
+        { "from": "ok", "to": "stale", "label": { "ar": "لا", "en": "no" } },
+        { "from": "apply", "to": "done", "label": { "ar": "نجحت", "en": "succeeded" } },
+        { "from": "apply", "to": "undo", "label": { "ar": "فشلت خطوة", "en": "step failed" } },
+        { "from": "undo", "to": "stale" }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": { "ar": "من يفعل ماذا في الجدول", "en": "Who can do what in the schedule" },
+    "cols": [
+      { "ar": "قراءة المواعيد", "en": "Read appointments" },
+      { "ar": "تعديل المواعيد", "en": "Edit appointments" },
+      { "ar": "ملاحظات الخانات", "en": "Cell notes" },
+      { "ar": "مسح الجدول", "en": "Wipe schedule" },
+      { "ar": "الدوام الشامل", "en": "University day" }
+    ],
+    "rows": [
+      { "actor": "rootAdmin", "cells": [2, 2, 2, 2, 2] },
+      { "actor": "committeeChair", "cells": [2, 2, 2, 2, 0] },
+      { "actor": "departmentHead", "cells": [2, 2, 2, 0, 0] },
+      { "actor": "collegeRegistrar", "cells": [2, 0, 2, 0, 0] },
+      { "actor": "registrarStaff", "cells": [2, 0, 2, 0, 0] },
+      { "actor": "dean", "cells": [1, 0, 0, 0, 0] }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "FR-SCH-001",
+      "kind": "functional",
+      "title": { "ar": "إنشاء موعد", "en": "Create an appointment" },
+      "text": {
+        "ar": "يجب على النظام أن يقبل إنشاء موعد بصلاحية الجدول (الشاشة 7) إذا اكتملت الكلية والقسم والفصل والمقرر ورقم الشعبة والأستاذ والبداية والنهاية والمبنى والقاعة (أو «بانتظار تثبيت القاعة»)، وأن يكون رقم الشعبة أرقاماً إنجليزية فقط، وأن يختار يوماً واحداً على الأقل.",
+        "en": "The system shall accept creation of an appointment under the schedule permission (screen 7) when college, department, term, course, section number, instructor, start, end, building and room (or «room pending») are present, the section number is Latin digits only, and at least one day is chosen."
+      },
+      "rationale": { "ar": "حقلٌ ناقص أو رقم شعبة بحروف يُنتج صفوفاً لا تُطابَق في التقارير والاستيراد.", "en": "A missing field or a lettered section number produces rows that cannot be matched in reports or imports." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "طلب بلا مبنى أو بلا قاعة (وليست الحالة «بانتظار تثبيت القاعة») يُردّ 400 برسالة «الرجاء إدخال الحقول المطلوبة بالأحمر» ولا يُكتب شيء.", "en": "A request without building or room (and not in the pending-room state) is refused with 400 «please fill the fields marked red» and nothing is written." },
+        { "ar": "رقم شعبة «5a1» يُردّ 400 برسالة «الرجاء كتابة الأرقام بالانجليزي»؛ و«501» يُقبل.", "en": "Section number «5a1» is refused with 400 «write digits in English»; «501» is accepted." },
+        { "ar": "الموعد المقبول يعود بالرمز 201 ويُخزَّن برقم نسخة 1 وترتيب مصدر لا يقل عن 1,000,000 (يمنع تلوينه كصفّ مستورَد).", "en": "An accepted row returns 201 with revision 1 and a source order of at least 1,000,000 (so it is never coloured as an imported row)." }
+      ],
+      "evidence": { "code": ["src/server/core/scheduleWrites.ts#createScheduleHandler", "src/server/routes/schedulesRoutes.ts"], "tests": ["tests/schedule-apply-proposal-audit.ts", "tests/appointment-forms-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-002",
+      "kind": "functional",
+      "title": { "ar": "تعديل الموعد وحذفه برقم النسخة", "en": "Edit and delete with revision check" },
+      "text": {
+        "ar": "يجب على النظام أن يقارن رقم النسخة (rev) المرسل مع المخزَّن عند تعديل موعد، وأن يردّ 409 ومعه النسخة الحالية ونسخة المستخدم إن اختلفتا، وأن يحذف الموعد بعد لقطة نسخة وفحص النطاق والقفل، مع رفع بنده من طلب الأستاذ إن كان القسم هو من أضافه.",
+        "en": "The system shall compare the submitted revision (rev) with the stored one when editing an appointment, return 409 with both the current row and the user's version when they differ, and delete a row only after a snapshot and the scope and lock checks, removing its entry from the instructor request if the department had added it."
+      },
+      "rationale": { "ar": "حتى لا تمحو حفظةُ زميلٍ عملَ زميلٍ آخر بصمت.", "en": "So one colleague's save never silently erases another's work." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "تعديل بـrev=3 والمخزَّن 4 يُردّ 409 بالجسم {conflict: revision, current, yours} ولا يتغير الصف.", "en": "An edit with rev=3 when the stored value is 4 is refused with 409 and body {conflict: revision, current, yours}; the row is unchanged." },
+        { "ar": "طلب تعديل بلا rev يُكتب دون مقارنة، ويرفع rev بمقدار واحد.", "en": "An edit with no rev is written without comparison and increments rev by one." },
+        { "ar": "حذف موعد في جدول مقفل يُردّ 409 برمز schedule-locked، وحذف موعد خارج نطاق المستخدم يُردّ 403.", "en": "Deleting a row in a locked schedule returns 409 with code schedule-locked; deleting outside the user's scope returns 403." }
+      ],
+      "evidence": { "code": ["src/server/core/scheduleWrites.ts#updateScheduleHandler", "src/server/core/scheduleWrites.ts#deleteScheduleHandler", "src/db/repository.ts#ScheduleRevisionConflict"], "tests": ["tests/proposal-undo-emulator-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-003",
+      "kind": "functional",
+      "title": { "ar": "قفل الجدول بعد الإرسال وبعد انتهاء الفصل", "en": "Schedule lock after submission and term end" },
+      "text": {
+        "ar": "يجب على النظام أن يرفض كل إنشاء أو تعديل أو حذف أو نقل أو استبدال في جدول عند التسجيل ينتظر قراره، أو في فصل أُعلن منتهياً لغير رئيس لجنة الجدول، بالرمز 409 وكود schedule-locked، وأن يسأل عن قفل الصف القائم قبل التحقق من الحقول عند التعديل.",
+        "en": "The system shall refuse every create, edit, delete, move or replace on a schedule that is with registration awaiting a decision, or in a term declared ended for anyone but the schedule committee chair, with 409 and code schedule-locked, and on edit shall ask about the existing row's lock before validating fields."
+      },
+      "rationale": { "ar": "من يعدّل موعداً في فصل مجمَّد كان يُردّ أولاً برسالة حقل ناقص ثم بالسبب الحقيقي.", "en": "Editing in a frozen term used to return a field error first and the real reason only afterwards." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "collegeRegistrar"],
+      "acceptance": [
+        { "ar": "تعديل صف في جدول بحالة «مرسل» دون جولة تعديل مفتوحة يُردّ 409 «الجدول عند التسجيل الآن» قبل أي رسالة عن الحقول.", "en": "Editing a row in a schedule in «submitted» state with no amendment round open returns 409 «the schedule is with registration» before any field message." },
+        { "ar": "فصل علامته AdTermClosed=true يُرفض فيه الكتابة لكل صفة إلا رئيس لجنة الجدول بصفة مكتوبة.", "en": "A term with AdTermClosed=true refuses writes for every role except an explicitly written schedule committee chair." },
+        { "ar": "استثناء الأسبوع (إلغاء/تغطية) لا يتأثر بقفل التسجيل ويتأثر بانتهاء الفصل وحده.", "en": "A week exception (cancel or cover) ignores the registration lock and obeys only term end." }
+      ],
+      "evidence": { "code": ["src/server/core/approvals.ts#scheduleLockRefusal", "src/utils/approvalWorkflow.ts#approvalLockReason", "src/server/core/scheduleWrites.ts"], "tests": ["tests/term-freeze-audit.ts", "tests/approval-integrity-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-004",
+      "kind": "functional",
+      "title": { "ar": "النطاق وسلامة المقرر", "en": "Scope and course integrity" },
+      "text": {
+        "ar": "يجب على النظام أن يقصر الكتابة على أقسام نطاق المستخدم (403 خارجها لغير المدير)، وأن يرفض مقرراً لا يتبع الكلية والقسم المحددين (400) أو مؤرشفاً أكاديمياً (409)، وأن يمنع تبديل مقرر في صف وارد من الجدول المعتمد (ترتيب مصدر أقل من 1,000,000) بكود COURSE_NAME_LOCKED.",
+        "en": "The system shall limit writes to departments within the user's scope (403 outside, except for administrators), reject a course that does not belong to the stated college and department (400) or is academically archived (409), and block swapping the course of an imported approved-schedule row (source order below 1,000,000) with code COURSE_NAME_LOCKED."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "admin"],
+      "acceptance": [
+        { "ar": "إضافة موعد لمقرر مؤرشف تُردّ 409 «هذا المقرر مؤرشف أكاديمياً» ولا يُكتب شيء.", "en": "Adding a row for an archived course is refused with 409 «this course is academically archived» and nothing is written." },
+        { "ar": "تغيير AdCourseId في صف ترتيب مصدره 500,000 يُردّ 409 بكود COURSE_NAME_LOCKED؛ ويُسمح بحذفه ثم إضافة مقرر جديد.", "en": "Changing AdCourseId on a row whose source order is 500,000 returns 409 with COURSE_NAME_LOCKED; deleting it and adding a new course remains allowed." },
+        { "ar": "مستخدم نطاقه قسم آخر يتلقى 403 «خارج صلاحيات الأقسام المسموحة لك» في الإنشاء والتعديل والحذف.", "en": "A user scoped to another department receives 403 «outside your allowed departments» on create, edit and delete." }
+      ],
+      "evidence": { "code": ["src/server/core/scheduleWrites.ts", "src/server/core/scope.ts#isScopeAllowed"], "tests": ["tests/role-scope-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-005",
+      "kind": "functional",
+      "title": { "ar": "تثبيت المكان والمرفق المرافق", "en": "Official place and companion facility" },
+      "text": {
+        "ar": "يجب على النظام أن يحوّل المبنى والقاعة إلى هويتهما الرسمية في السجل قبل الحفظ، وأن يرفض قاعة لا تقبل الحجز المستقل، وأن يشترط للمقرر ذي نوع المرفق المرافق مرفقاً مختاراً من النوع نفسه في الموقع الدراسي نفسه (أول أربعة رموز من رمز المبنى) ويرفضه لمقرر لا يحتاجه.",
+        "en": "The system shall resolve the building and room to their official registry identities before saving, reject a room that does not accept independent booking, require a course with a companion-facility type to carry a facility of that type at the same site (first four characters of the building code), and reject one for a course that needs none."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "مقرر يتطلب «استوديو» وأُرسل بلا مرفق يُردّ 400 «المقرر يتطلب مرفقاً مرافقاً من نوع «استوديو» طوال الموعد».", "en": "A course requiring a «studio» sent without a facility is refused with 400 «the course requires a companion facility of type studio for the whole appointment»." },
+        { "ar": "مرفق في موقع دراسي آخر يُردّ 400 «الاستوديو والقاعة الأساسية يجب أن يكونا في الموقع الدراسي نفسه».", "en": "A facility at another site is refused with 400 «studio and primary hall must be at the same site»." },
+        { "ar": "مقرر بلا نوع مرفق وأُرسل معه مرفق يُردّ 400 «هذا المقرر لا يحتاج مرفقاً مرافقاً».", "en": "A course with no facility type that arrives with one is refused with 400 «this course needs no companion facility»." }
+      ],
+      "evidence": { "code": ["src/server/core/scheduleWrites.ts#companionBookingFor", "src/server/core/locations.ts"], "tests": ["tests/companion-rooms-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-006",
+      "kind": "functional",
+      "title": { "ar": "كشف تعارض الأستاذ والقاعة والشعبة المكررة", "en": "Instructor, hall and duplicate-section conflict detection" },
+      "text": {
+        "ar": "يجب على النظام أن يكشف على مستوى الفصل كله (كل الكليات) تعارض الأستاذ الفعلي والقاعة المادية والموعد المطابق للشعبة نفسها، وأن يعدّ كل زوج مواعيد تعارضاً واحداً يحمل كل أسبابه ويُسمّى بأخطرها، وأن يعدّ تقاطعاً ما اشترك الموعدان في يوم وكانت بداية كل منهما قبل نهاية الآخر.",
+        "en": "The system shall detect, across the whole term (all colleges), real-instructor conflicts, physical-hall conflicts and exact twins of the same section, count each pair of appointments as one conflict carrying all its reasons and named after the most serious, and treat two rows as overlapping when they share a day and each starts before the other ends."
+      },
+      "rationale": { "ar": "ستة وأربعون تعارضاً حقيقياً كانت تُعرض مئة وثمانية وثلاثين بسبب عدّ كل سبب على حدة.", "en": "Forty-six real collisions were once reported as 138 because each reason was counted separately." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "system"],
+      "acceptance": [
+        { "ar": "موعد 08:00–09:00 وآخر 09:00–10:00 لأستاذ واحد في اليوم نفسه لا يتعارضان زمنياً؛ و08:00–09:00 مع 08:30–09:30 يتعارضان.", "en": "08:00–09:00 and 09:00–10:00 for one instructor on one day do not overlap; 08:00–09:00 and 08:30–09:30 do." },
+        { "ar": "شعبتان (1 و2) لمقرر واحد بالأستاذ والقاعة والساعة نفسها تُنتجان تعارضاً واحداً عالي الخطورة بسببَي «أستاذ» و«قاعة» ولا يُسمّى مكرراً.", "en": "Sections 1 and 2 of one course with the same instructor, hall and hour yield one high-severity conflict with reasons «instructor» and «hall» and are not called a duplicate." },
+        { "ar": "كتابة القاعة «G28» و«G/G28» و«G-28» تُحسب قاعة واحدة، فيمنع تعارضها.", "en": "Hall written as «G28», «G/G28» or «G-28» counts as one hall and its clash blocks." },
+        { "ar": "صفّان بالمقرر والشعبة والأيام والوقت نفسها، بلا قاعة تميّزهما ولا أستاذٍ فعلي يميّزهما، يُنتجان «موعدان متطابقان لنفس الشعبة» ويمنعان الحفظ.", "en": "Two rows with the same course, section, days and time and nothing distinguishing them (no hall, no real instructor) yield «identical appointments for the same section» and block the save." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleIntelligence.ts#findConflicts", "src/server/core/scheduleConflicts.ts#scheduleConflicts", "src/utils/locationRegistry.ts"], "tests": ["tests/run-tests.ts", "tests/conflict-parity.ts", "tests/companion-rooms-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-007",
+      "kind": "functional",
+      "title": { "ar": "الشعبة نفسها في مكانين: تنبيه لا يمنع", "en": "Same section in two places: warning, not a block" },
+      "text": {
+        "ar": "يجب على النظام أن يصنّف صفّين بالمقرر والشعبة والأيام والوقت نفسها كتنبيه «sectionTwice» لا يمنع الحفظ والتوقيع والاعتماد إذا اختلف المبنى أو القاعة بعد التطبيع أو اختلف الأستاذان الفعليان، وكمكرّر مانع فيما عدا ذلك.",
+        "en": "The system shall classify two rows with the same course, section, days and time as a non-blocking «sectionTwice» warning for save, signature and approval when the normalised hall or building differs or the two real instructors differ, and as a blocking duplicate otherwise."
+      },
+      "rationale": { "ar": "قاعدة المالك 2026-09-27: التوقيع لا يمنعه إلا تعارض مادّي.", "en": "Owner rule 2026-09-27: only a physical conflict may block signing." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "الصفّان في G28 وG31 بأستاذين مختلفين يُنتجان تنبيهاً متوسطاً soft:true بعبارة «الشعبة نفسها في مكانين في الوقت نفسه» ويُحفظان.", "en": "Rows in G28 and G31 with different instructors yield a medium soft warning «same section in two places at the same time» and both are saved." },
+        { "ar": "صفّ بلا قاعة (أو «بانتظار تثبيت القاعة») لا يميّز نفسه عن توأمه، فيبقى مكرراً مانعاً.", "en": "A row with no hall (or room pending) does not distinguish itself from its twin and stays a blocking duplicate." },
+        { "ar": "شعبة من مقرر تخصص بالوقت نفسه لشعبة أخرى من المقرر نفسه تُنتج تنبيه لائحة منخفضاً «م.7/5» لا يمنع.", "en": "Another section of a specialisation course at the same time yields a low regulation note «Art. 7/5» that does not block." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleIntelligence.ts#twinKind", "src/server/core/scheduleConflicts.ts", "src/utils/scheduleRegulations.ts#sameCourseSectionClash"], "tests": ["tests/blocker-oracle-audit.ts", "tests/run-tests.ts"] }
+    },
+    {
+      "id": "FR-SCH-008",
+      "kind": "functional",
+      "title": { "ar": "«هيئة تدريسية» ليست شخصاً يُحجز مرتين", "en": "A faculty placeholder is not a person who can be double-booked" },
+      "text": {
+        "ar": "يجب على النظام ألا يحسب تعارض أستاذ لسجل أستاذ يبدأ اسمه بكلمة «هيئة» (هيئة تدريسية)، وألا يعدّه شخصاً مميِّزاً بين صفّين توأمين، وأن يطبّق القاعدة نفسها في الخادم وفي فحص المتصفح وفي المحرّك الشامل.",
+        "en": "The system shall not count an instructor conflict for the instructor record that stands for «faculty staff» (the faculty placeholder, identified by the first word of its name), shall not treat it as a person who distinguishes twin rows, and shall apply the same rule on the server, in the browser check and in the exhaustive engine."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "system"],
+      "acceptance": [
+        { "ar": "شعبتان مختلفتان لـ«هيئة تدريسية» في الساعة نفسها وقاعتين مختلفتين لا تُنتجان تعارض أستاذ.", "en": "Two different sections of the placeholder at the same hour in different halls yield no instructor conflict." },
+        { "ar": "الحجز المزدوج للقاعة نفسها يبقى مانعاً حتى لو كان الأستاذ «هيئة تدريسية».", "en": "A hall double-booking still blocks even when the instructor is the placeholder." },
+        { "ar": "الأستاذ الفعلي الذي يُسند إلى شعبة هذا الأستاذ يُفحص كاملاً.", "en": "A real instructor assigned to such a section is checked in full." }
+      ],
+      "evidence": { "code": ["src/utils/instructorIdentity.ts#placeholderInstructorIds", "src/utils/scheduleIntelligence.ts", "src/utils/placeholderInstructor.ts"], "tests": ["tests/client-placeholder-conflicts-audit.ts", "tests/one-blocker-number-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-009",
+      "kind": "functional",
+      "title": { "ar": "الفاصل بين محاضرتين وتعارض الطلاب: ملاحظتان لينتان", "en": "Turnaround gap and student clash: two soft notes" },
+      "text": {
+        "ar": "يجب على النظام أن يقول ولا يمنع حين يقلّ الفاصل بين محاضرتين متتاليتين في القاعة نفسها عن المطلوب (عشر دقائق في كل الأيام ما لم يعلن القسم رقمه بين 1 و60) وحين يتقاطع مقرران يحتاجهما طلبة أجابوا استبياناً، وأن يقيس الفاصل بين نهاية الأول وبداية الثاني فعلاً.",
+        "en": "The system shall state but not block when the gap between consecutive lectures in the same hall is below the requirement (ten minutes on every day unless the department declares its own figure from 1 to 60) and when two courses needed together by surveyed students overlap, and shall measure the gap from the end of the first to the start of the second."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "08:00–09:00 ثم 09:05 في القاعة نفسها يُنتج ملاحظة «الفاصل بين المحاضرتين غير كافٍ» بخطورة منخفضة soft:true، و09:10 لا يُنتج شيئاً.", "en": "08:00–09:00 then 09:05 in the same hall yields low-severity soft «gap between lectures is insufficient»; 09:10 yields nothing." },
+        { "ar": "الاثنين 08:00–09:20 ثم 09:30 في القاعة نفسها لا يُنتج شيئاً.", "en": "Monday 08:00–09:20 then 09:30 in the same hall yields nothing." },
+        { "ar": "قاعتان مختلفتان لا يلزمهما فاصل.", "en": "Two different halls need no gap." },
+        { "ar": "تعارض الطلاب يصدر فقط لمقررين مختلفين متقاطعين ضمن الأزواج المستخرجة من الاستبيان، بخطورة متوسطة soft:true ويذكر عدد الطلبة المشتركين.", "en": "A student clash is raised only for two different overlapping courses within the survey pairs, medium severity soft:true, naming the number of shared students." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleIntelligence.ts", "src/utils/scheduleRegulations.ts#requiredGapForDay", "src/server/core/rhythm.ts#departmentStyle"], "tests": ["tests/run-tests.ts", "tests/room-door-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-010",
+      "kind": "functional",
+      "title": { "ar": "ما يمنع الحفظ وما لا يمنع", "en": "What blocks a save and what does not" },
+      "text": {
+        "ar": "يجب على النظام أن يرفض الحفظ بـ409 ومعه قائمة الموانع إذا بقي أي تعارض غير لين، وأن يمرّر التنبيهات اللينة (soft) إلى الفحص الجاف والرد دون منع، وأن يعدّ مانعاً في المسارات الأخرى ما ليس لينياً وخطورته عالية أو نوعه «مكرّر» وليس من أنواع الذاكرة أو النصيحة أو اللائحة.",
+        "en": "The system shall refuse a save with 409 and the list of blockers when any non-soft conflict remains, pass soft notes through to the dry run and the reply without blocking, and in the other paths treat as blocking what is not soft and has high severity or type «duplicate» and is not a memory, advice or regulation note."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "system"],
+      "acceptance": [
+        { "ar": "رد 409 يحمل error بأول رسالة وissues بكل الموانع؛ والتنبيهات اللينة تظهر في warnings في الفحص الجاف.", "en": "A 409 carries error with the first message and issues with every blocker; soft notes appear under warnings in a dry run." },
+        { "ar": "الفاصل، وتعارض الطلاب، والإيقاع، والسفر، والذاكرة، وشعبة المقرر نفسه: كلها soft ولا تمنع.", "en": "Gap, student clash, rhythm, travel, memory and same-course section are all soft and never block." },
+        { "ar": "عدد الموانع في شريط الاعتماد وفي المراجعة وفي لوحة الفحص يصدر من القائمة نفسها فلا تختلف الأرقام.", "en": "The blocker count in the approval bar, in review and in the check panel is read from one list, so the numbers agree." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleIntelligence.ts#isBlockingConflict", "src/utils/scheduleBlockers.ts", "src/server/core/scheduleWrites.ts"], "tests": ["tests/appointment-entry-parity-audit.ts", "tests/sound-schedule-zero-blockers-audit.ts", "tests/one-blocker-number-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-011",
+      "kind": "functional",
+      "title": { "ar": "ما يُكشف عن موعد قسم آخر", "en": "What is disclosed about another department's appointment" },
+      "text": {
+        "ar": "يجب على النظام أن يذكر عند تعارض مع موعد قسم آخر اسم القسم والكلية واليوم والساعة فقط، وألا يكشف اسم المقرر ولا الشعبة ولا الأستاذ الآخر، وأن يعيد rowId=0 لما خارج نطاق المستخدم، وأن تتيح اللوحة معرفة الصفوف التي تتعارض مع قسم آخر دون تحميل الفصل كله.",
+        "en": "The system shall, on a clash with another department's appointment, name only the department, college, day and hour, never the other course, section or instructor, return rowId=0 for rows outside the user's scope, and let the board learn which rows clash with another department without loading the whole term."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "تفصيل التعارض عبر قسمين يقرأ «قسم اللغة العربية — كلية التربية الأساسية · الأحد والثلاثاء · 11:00 – 11:50» دون اسم مقرر.", "en": "A cross-department clash detail reads «Arabic department — college · Sunday and Tuesday · 11:00 – 11:50» with no course name." },
+        { "ar": "GET /api/schedules/outside-clashes?collegeId&termId يعيد ids وpairs وnotes لصفوف في النطاق تتعارض مع صفوف خارجه فقط، ولا يعدّ زوجاً داخل النطاق نفسه.", "en": "GET /api/schedules/outside-clashes?collegeId&termId returns ids, pairs and notes for in-scope rows clashing with out-of-scope rows only, never a pair inside the same scope." },
+        { "ar": "غياب collegeId أو termId يُردّ 400 «حدد الكلية والفصل»؛ ونطاق غير مسموح 403.", "en": "A missing collegeId or termId returns 400 «specify college and term»; an unauthorised scope returns 403." }
+      ],
+      "evidence": { "code": ["src/server/core/scheduleConflicts.ts", "src/server/routes/scheduleReviewRoutes.ts", "src/utils/scheduleIntelligence.ts#outsideScopeClashes"], "tests": ["tests/schedule-blockers-audit.ts", "tests/blocker-oracle-audit.ts", "tests/run-tests.ts"] }
+    },
+    {
+      "id": "FR-SCH-012",
+      "kind": "functional",
+      "title": { "ar": "قاعات الأقسام الأخرى واستعارة القاعات", "en": "Other departments' halls and hall barter" },
+      "text": {
+        "ar": "يجب على النظام أن يمنع الحفظ في قاعة مسجَّلة في السجل الرسمي لقسم آخر ما لم تغطِّ نوافذ استعارة معتمدة كل أيام الموعد ووقته، وأن يمنع الحفظ فوق نافذة استعارة معتمدة لقسم آخر، وأن يحوّل تنبيه النطاق إلى خبر لا يمنع حين تغطي النوافذ الموعد كاملاً.",
+        "en": "The system shall block a save in a hall registered to another department in the official registry unless approved barter windows cover all of the appointment's days and time, block a save over another department's approved barter window, and downgrade the scope notice to a non-blocking note when windows fully cover the appointment."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "حفظ موعد في قاعة قسم آخر بلا استعارة يُردّ 409 «تنبيه نطاق القاعة» ويذكر صاحبها.", "en": "Saving in another department's hall without barter is refused with 409 «hall scope notice» naming its owner." },
+        { "ar": "الموعد المتجاوز نافذة الاستعارة بدقيقة واحدة يُردّ بـ«الموعد يتجاوز نافذة الاستعارة المعتمدة».", "en": "An appointment one minute beyond the barter window is refused with «appointment exceeds the approved barter window»." },
+        { "ar": "الموعد داخل النافذة المعتمدة بالكامل يحفظ، ويُعرض «قاعة مستعارة بنافذة معتمدة» بخطورة منخفضة soft:true.", "en": "An appointment fully inside the approved window saves and shows «borrowed hall with approved window» at low severity, soft:true." }
+      ],
+      "evidence": { "code": ["src/server/core/scheduleConflicts.ts#scheduleConflicts", "src/server/core/scheduleRules.ts#roomOwnership", "src/utils/hallBarterWindow.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-SCH-013",
+      "kind": "functional",
+      "title": { "ar": "حجز طلب الأستاذ ينتظر قرار القسم", "en": "Instructor-request holds awaiting the department" },
+      "text": {
+        "ar": "يجب على النظام أن يعامل خانة اختارها أستاذ في طلب ينتظر القسم كمحجوزة، فيردّ 409 بكود request-hold ومعه صاحب الحجز وبنده بدل المنع الصامت، وأن يقبل إعادة الإرسال بـ overrideRequestHolds (حتى عشرة طلبات مرئية للمستخدم) فيمضي التعديل متجاوزاً تلك الطلبات وحدها ويُسجَّل في خطها الزمني ويُثبَّت البند.",
+        "en": "The system shall treat a slot chosen by an instructor in a request awaiting the department as held, returning 409 with code request-hold carrying the holder and item instead of a silent block, and accept a resend with overrideRequestHolds (up to ten requests visible to the user) so the change proceeds past those requests only, is logged on their timeline and the item is marked fixed."
+      },
+      "rationale": { "ar": "القسم يبقى صاحب القرار؛ فلا يُحبس منسّق في حجز لا مخرج منه.", "en": "The department stays the decision-maker; a coordinator must not be trapped by a hold with no way out." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "إن كانت كل الموانع حجوزاً يُردّ request-hold؛ وإن اختلط معها مانع حقيقي يُردّ تعارضاً عادياً.", "en": "If every blocker is a hold the answer is request-hold; if a real blocker is mixed in it is an ordinary conflict." },
+        { "ar": "الحجز المؤقت الذي له heldUntil لا يمنع القسم.", "en": "A temporary hold with heldUntil does not block the department." },
+        { "ar": "طلب بحالة superseded أو settled أو خارج نطاق المستخدم لا يُقبل تجاوزه.", "en": "A request in state superseded or settled, or outside the user's scope, cannot be overridden." },
+        { "ar": "حذف الموعد الذي أضافه القسم يرفع بنده من طلب الأستاذ، وحذف موعد ثبّته طلبه يعيد البند مفتوحاً.", "en": "Deleting a department-added row removes its item from the instructor's request; deleting one fixed by his request reopens the item." }
+      ],
+      "evidence": { "code": ["src/server/core/scheduleConflicts.ts#applyRequestHoldOverride", "src/server/core/scheduleConflicts.ts#requestHoldRefusal", "src/server/core/scheduleConflicts.ts#noteRequestHoldOverride"], "tests": ["tests/holds-patterns-r4-audit.ts", "tests/undo-travel-rule-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-014",
+      "kind": "functional",
+      "title": { "ar": "حجز الزملاء الاستشاري لدقيقتين", "en": "Two-minute advisory colleague hold" },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ لكل جالس حجزاً واحداً يعلن ما يبنيه (أيام من الأحد إلى الخميس، بداية ونهاية HH:MM، قاعة، أستاذ، مقرر، شعبة) ويعيش 120 ثانية من آخر تجديد، وأن يعرض لزملائه في نطاقهم حجوزهم الحيّة في الفصل دون أرقام حسابات، دون أن يمنع بها حفظاً.",
+        "en": "The system shall keep one hold per seat announcing what is being built (days Sunday to Thursday, HH:MM start and end, hall, instructor, course, section) that lives 120 seconds from its last renewal, and show colleagues within scope the live holds for the term without account numbers, without ever blocking a save."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "نهاية قبل أو تساوي البداية، أو يوم خارج الأحد–الخميس، أو نص أطول من 40 حرفاً، يُردّ 400.", "en": "An end at or before the start, a day outside Sunday–Thursday, or text longer than 40 characters is refused with 400." },
+        { "ar": "GET /api/schedule-holds?termId= لا يعيد حجز صاحب الطلب ولا حجزاً خارج نطاقه، ويكنس حتى 25 حجزاً منتهياً لكل قراءة.", "en": "GET /api/schedule-holds?termId= excludes the caller's own hold and any outside scope, and sweeps up to 25 expired holds per read." },
+        { "ar": "الواجهة تؤخّر الإعلان 800 مللي ثانية وتجدّده كل 45 ثانية وتستطلع زملاءها كل 20 ثانية.", "en": "The client debounces the announcement by 800 ms, renews every 45 s and polls colleagues every 20 s." }
+      ],
+      "evidence": { "code": ["src/server/scheduleHolds.ts", "src/server/scheduleHoldsRoutes.ts", "src/utils/scheduleHolds.ts"], "tests": ["tests/colleague-guard-measure-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-015",
+      "kind": "functional",
+      "title": { "ar": "الدوام الشامل ونافذة القسم", "en": "University teaching day and department window" },
+      "text": {
+        "ar": "يجب على النظام أن يطبّق يوماً جامعياً واحداً للمتصفح والخادم (الافتراضي 08:00–20:00، بخطوة خمس دقائق، من 00:00 إلى 24:00) يمنع الحفظ خارجه، وأن يعاملَ استثناء القسم الأضيق (المقصور على اليوم الجامعي) تنبيهاً لا يمنع الحفظ في نموذج الموعد، وألا يردّ تعديلاً لم يتغيّر وقته بسبب هذا الحدّ.",
+        "en": "The system shall apply one university day to browser and server (default 08:00–20:00, five-minute step, from 00:00 to 24:00) that blocks saves outside it, treat a narrower department exception (itself clipped to the university day) as a note that does not block in the appointment form, and not refuse an edit whose time is unchanged because of this limit."
+      },
+      "rationale": { "ar": "قرار المالك 2026-11-05: يوم الجامعة يمنع، واستثناء القسم يقول ولا يمنع في «موعد».", "en": "Owner decision 2026-11-05: the university day blocks; the department exception only warns in the appointment form." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin", "committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "إنشاء موعد 07:50–08:40 يُردّ 400 «وقت المحاضرة يجب أن يكون ضمن الدوام الشامل (08:00–20:00)»؛ وبداية 8:00 ونهاية 20:00 مقبولتان.", "en": "Creating 07:50–08:40 is refused with 400 «lecture time must be within the university day (08:00–20:00)»; start 08:00 and end 20:00 are accepted." },
+        { "ar": "ساعة «10:76» أو «25:00» تُردّ 400 «الساعة بين 0 و23 والدقيقة بين 0 و59»؛ ونهاية قبل البداية تُردّ «وقت النهاية يجب أن يكون بعد وقت البداية».", "en": "Time «10:76» or «25:00» is refused with 400 «hour 0–23, minute 0–59»; an end before the start is refused with «end must be after start»." },
+        { "ar": "قيمة مخزّنة فاسدة أو بداية بعد النهاية ترجع إلى 08:00–20:00؛ ونافذة قسم أوسع من اليوم الجامعي تُقصّ عليه.", "en": "A corrupt stored value or start after end falls back to 08:00–20:00; a department window wider than the university day is clipped to it." },
+        { "ar": "تغيير الدوام الشامل للمدير الرئيسي وحده (PUT /api/admin/university-day)، ويُعرض قبل الحفظ عدد المواعيد الخارجة عنه ولا يمنع.", "en": "Only the root administrator changes the university day (PUT /api/admin/university-day); the count of appointments left outside is shown before saving and does not block." },
+        { "ar": "تعديل صف وقته كما هو لا يُردّ بحدّ الدوام (keptTime)؛ وتعديل وقته يُردّ إن خرج.", "en": "Editing a row with an unchanged time is not refused by the day limit (keptTime); changing its time is refused if it falls outside." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleTime.ts#universityDayIssue", "src/utils/scheduleTime.ts#scheduleDayWindowMinutes", "src/server/core/scheduleRules.ts#schedulePayloadIssues", "src/server/core/universityDay.ts", "src/server/routes/referenceRoutes.ts", "src/components/SectionScheduleHours.tsx"], "tests": ["tests/schedule-time-window-audit.ts", "tests/owner-hours-rule-audit.ts", "tests/full-day-setting-audit.ts", "tests/section-schedule-hours-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-016",
+      "kind": "functional",
+      "title": { "ar": "أيام اللائحة وأطوالها وسُلّم البدايات", "en": "Regulation days, lengths and start ladder" },
+      "text": {
+        "ar": "يجب على النظام أن يطبّق قاعدة اللائحة: محاضرة الأحد والثلاثاء والخميس 50 دقيقة وتبدأ على رأس الساعة من 08:00، ومحاضرة الاثنين والأربعاء 80 دقيقة وتبدأ 08:00 ثم كل 90 دقيقة (09:30، 11:00…)، وفاصل 10 دقائق بين المحاضرتين المتتاليتين؛ وأن يكتفي بتنبيه لا يمنع للبداية خارج السُّلّم وللطول المخالف.",
+        "en": "The system shall apply the regulation: Sunday, Tuesday and Thursday lectures are 50 minutes and start on the hour from 08:00; Monday and Wednesday lectures are 80 minutes and start at 08:00 then every 90 minutes (09:30, 11:00…); a 10-minute gap separates consecutive lectures; and shall only warn, without blocking, about a start off the ladder and a non-conforming length."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "08:00–08:40 في أحد/ثلاثاء/خميس لمقرر 3 ساعات تُنتج ملاحظة مدة؛ و08:00–08:50 و08:00–09:50 (50+10+50) تمرّان.", "en": "08:00–08:40 on Sun/Tue/Thu for a 3-hour course yields a length note; 08:00–08:50 and 08:00–09:50 (50+10+50) pass." },
+        { "ar": "الاثنين/الأربعاء 08:00–09:20 يمرّ و08:00–09:00 يُنبَّه؛ والكتلة 08:00–10:50 (فرق خمس دقائق) تُقبل.", "en": "Mon/Wed 08:00–09:20 passes and 08:00–09:00 is noted; the 08:00–10:50 block (five-minute tolerance) is accepted." },
+        { "ar": "بداية 08:55 أحد تُنتج «خارج سُلّم البدايات في اللائحة» بخطورة منخفضة soft:true؛ والأيام المختلطة لا سُلّم لها.", "en": "A Sunday start of 08:55 yields «outside the regulation start ladder» at low severity soft:true; mixed-family days have no ladder." },
+        { "ar": "طول اعتاده المقرر (±5 دقائق) يُقبل ولا تُقال عنه ملاحظة المدة.", "en": "A length the course has used habitually (±5 minutes) is accepted without a length note." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleRegulations.ts#lectureLengthProblem", "src/utils/scheduleRegulations.ts#startLadderNote", "src/utils/scheduleRegulations.ts#requiredGapForDays", "src/server/core/scheduleConflicts.ts"], "tests": ["tests/lecture-length-audit.ts", "tests/approved-patterns-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-017",
+      "kind": "functional",
+      "title": { "ar": "مكتبة الأنماط المعتمدة", "en": "Approved pattern library" },
+      "text": {
+        "ar": "يجب على النظام أن يرفض عند الإنشاء، وعند التعديل إن تغيّر شكل الموعد (الأيام أو الوقت)، توزيعاً لأيام الشعبة (مجتمعةً مع شعبها الأخرى للمقرر نفسه في القسم والفصل) لا يطابق نمطاً من مكتبة الأنماط (17 نمطاً لمقررات من ساعة إلى خمس ساعات)، وأن يعيد في الرسالة الأنماط المعتمدة.",
+        "en": "The system shall refuse on create, and on edit when the row's shape (days or time) changes, a distribution of the section's days (combined with the course's other meetings in the same department and term) that does not match a pattern in the library of 17 patterns for courses of one to five hours, and list the approved patterns in the message."
+      },
+      "rationale": { "ar": "قرار المالك 2026-10-30: النمط لازم يكون معتمداً، والتاريخ اقتراح لا يخالف اللائحة.", "en": "Owner decision 2026-10-30: the pattern must be approved; history is a suggestion that never overrides the regulation." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "مقرر ساعتان: «الأحد + الثلاثاء» و«الثلاثاء + الخميس» و«الاثنين + الأربعاء» و«الثلاثاء 110 دقيقة» مقبولة؛ و«الأحد + الاثنين» تُردّ 400 مع سرد المعتمد.", "en": "A 2-hour course: Sun+Tue, Tue+Thu, Mon+Wed and Tuesday 110 min are accepted; Sun+Mon is refused with 400 listing the approved ones." },
+        { "ar": "الكتل الأحادية معتمدة بأطوالها: 170 لثلاث فترات، و230 لأربع، و290 لخمس.", "en": "Single-day blocks are approved with their lengths: 170 for three periods, 230 for four, 290 for five." },
+        { "ar": "إعادة حفظ موعد قائم لم يتغيّر شكله لا تُردّ بقاعدة النمط، ولا الاستعادة الدقيقة من آلة الزمن.", "en": "Re-saving an existing row whose shape is unchanged is not refused by the pattern rule, nor is an exact restore from the time machine." },
+        { "ar": "مقرر بلا ساعات أو اعتمادات لا يُفحص نمطه.", "en": "A course with no hours or credits is not pattern-checked." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleRegulations.ts#PATTERN_LIBRARY", "src/utils/scheduleRegulations.ts#daysFitLibrary", "src/server/core/scheduleRules.ts#unapprovedPatternIssue"], "tests": ["tests/approved-patterns-audit.ts", "tests/pattern-library-audit.ts", "tests/holds-patterns-r4-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-018",
+      "kind": "functional",
+      "title": { "ar": "سقف الساعات الأسبوعية للشعبة", "en": "Weekly-hours ceiling per section" },
+      "text": {
+        "ar": "يجب على النظام أن يرفض موعداً يرفع مجموع دقائق التدريس الأسبوعية للشعبة (موعده ومواعيدها الأخرى المختلفة) فوق السقف round(الساعات × 50 × 1.1)، وألا يضاعف نسخة مطابقة للموعد نفسه، وأن يسمح بتعديل موعد فوق السقف إن لم يزد المجموع.",
+        "en": "The system shall refuse an appointment that raises the section's weekly teaching minutes (this row plus its other distinct meetings) above the ceiling round(hours × 50 × 1.1), not double-count a copy identical to the same row, and allow editing a row already over the ceiling when the total does not increase."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "مقرر 3 ساعات: السقف 165 دقيقة؛ ست محاضرات 50 دقيقة تُردّ 400 «لا يُحفظ ما يزيد على الساعات المعتمدة».", "en": "A 3-hour course: ceiling 165 minutes; six 50-minute lectures are refused with 400 «what exceeds the approved hours is not saved»." },
+        { "ar": "الكتلة الأربعاء 170 دقيقة لثلاث فترات تُحسب 150 دقيقة تدريس؛ والاثنان+الأربعاء 80/80 تُحسب 160.", "en": "A Wednesday 170-minute block of three periods counts 150 teaching minutes; Mon+Wed 80/80 counts 160." },
+        { "ar": "نسخة مطابقة (الأيام والوقت نفسها) لا تحوّل 150 إلى 300 دقيقة.", "en": "An identical copy (same days and time) does not turn 150 into 300 minutes." },
+        { "ar": "الساعات من CourseHours وإلا من CourseCredit؛ ومقرر بلا أيٍّ منهما لا يُفحص.", "en": "Hours come from CourseHours, else CourseCredit; a course with neither is not checked." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleRegulations.ts#maxWeeklyMinutesFor", "src/utils/scheduleRegulations.ts#sectionWeeklyHours", "src/server/core/scheduleRules.ts#scheduleLengthIssue"], "tests": ["tests/lecture-length-audit.ts", "tests/appointment-forms-r2-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-019",
+      "kind": "functional",
+      "title": { "ar": "التنقّل بين المواقع", "en": "Inter-campus travel time" },
+      "text": {
+        "ar": "يجب على النظام أن يحذّر ولا يمنع حين يترك موعد الأستاذ أقل من مدة التنقّل المضبوطة بينه وبين موعد في موقع آخر (الافتراضي 30 دقيقة بين الرئيسي وأحد الفرعين و60 بين الجهراء والفحيحيل، وللتسجيل ضبطها بين 0 و180 واستثناء حتى 500 أستاذ)، بحدّ أقصى ثلاثة تنبيهات بلا تكرار لزوج المواقع في اليوم نفسه.",
+        "en": "The system shall warn, not block, when an instructor's appointment leaves less than the configured travel time to an appointment at another campus (default 30 minutes between main and a branch and 60 between Jahra and Fahaheel; registration may set 0 to 180 and exempt up to 500 instructors), with at most three warnings and no repeat per campus pair and day."
+      },
+      "rationale": { "ar": "قرار المالك 2026-11-05: المدة إلزام في بطاقة الأستاذ وتنبيه في «موعد».", "en": "Owner decision 2026-11-05: the duration is mandatory in the teacher card and a warning in the appointment form." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "فارق 20 دقيقة بين موعدين في الجهراء والفحيحيل يُنتج تنبيه «انتقال ضيّق» soft:true ويذكر المطلوب والمتاح؛ والفارق 60 لا يُنتج شيئاً.", "en": "A 20-minute gap between Jahra and Fahaheel yields a soft «tight transfer» warning stating need and available; a 60-minute gap yields nothing." },
+        { "ar": "أستاذ مستثنى أو زوج مدته 0 لا يُنتج تنبيهاً.", "en": "An exempt instructor or a pair set to 0 yields no warning." },
+        { "ar": "الموقع يُشتق من اسم الكلية (الجهراء، الفحيحيل، وغيرهما رئيسي).", "en": "Campus is derived from the college name (Jahra, Fahaheel, otherwise main)." }
+      ],
+      "evidence": { "code": ["src/utils/campusTravelPolicy.ts#travelShortfalls", "src/utils/campusTravel.ts", "src/server/core/travelPolicy.ts", "src/server/core/scheduleConflicts.ts"], "tests": ["tests/undo-travel-rule-audit.ts", "tests/admin-rules-r4-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-020",
+      "kind": "functional",
+      "title": { "ar": "إيقاع القسم وذاكرته", "en": "Department rhythm and memory" },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ عادة القسم من تاريخه كله (كل فصوله) فيقول بملاحظة لينة واحدة أن بداية الموعد تبعد عن بداية معتادة للقسم أقل من 20 دقيقة وأكثر من صفر، أو أن طوله خارج المكتبة، وألا تُقدَّم العادة على اللائحة، وأن يخزّن القراءة لكل قسم فيجيب فوراً بقراءة عمرها حتى 10 دقائق ويجدّدها في الخلفية.",
+        "en": "The system shall read the department's habit from its whole history (every term) and state in one soft note that a start is more than zero and under 20 minutes from a habitual start of the department, or that its length is outside the library, never rank habit above the regulation, and cache the reading per department, answering at once from a reading up to 10 minutes old and refreshing it in the background."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "system"],
+      "acceptance": [
+        { "ar": "بداية 08:55 حيث يبدأ القسم عادة 08:50 تُنتج «خارج إيقاع القسم المعتاد» soft:true؛ وبداية بفارق 30 دقيقة قرارٌ ولا تُنبَّه.", "en": "A start of 08:55 where the department habitually starts at 08:50 yields soft «outside the department's usual rhythm»; a start 30 minutes away is a decision and is not noted." },
+        { "ar": "لا تُستخلص عادة الفاصل إلا من 6 أزواج فأكثر باتفاق 55٪، ولا عادة الطول إلا من 8 محاضرات فأكثر باتفاق 35٪.", "en": "A break habit needs at least 6 pairs at 55% agreement, a length habit at least 8 lectures at 35% agreement." },
+        { "ar": "الفاصل المعلن بقيد room_doorway يتقدّم على المتعلَّم ويُقصّ إلى 60 دقيقة.", "en": "A declared room_doorway constraint outranks the learned figure and is capped at 60 minutes." },
+        { "ar": "ملاحظة الذاكرة: جملة واحدة عن الخانة وجملة عن القاعة، ولا تُحسب إلا لحظة الفحص.", "en": "Memory notes: one sentence about the slot and one about the hall, computed only at check time." }
+      ],
+      "evidence": { "code": ["src/server/core/rhythm.ts#departmentStyle", "src/utils/departmentRhythm.ts#offRhythm", "src/utils/departmentRhythm.ts#learnRhythm"], "tests": ["tests/run-tests.ts", "tests/approved-patterns-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-021",
+      "kind": "functional",
+      "title": { "ar": "الفحص الحيّ للموعد قبل الحفظ", "en": "Live appointment check before saving" },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم POST /api/schedules/check-conflicts بقراءة موازية لخطوات الفحص نفسها التي تحكم بها بوابة الحفظ، فيعيد conflicts وvalidationIssues (حقول، مدة، نمط، مكان ومرفق) وملاحظات النمط والمدة والدوام، وأن تستعمل مسودات بداية الفصل الدوال نفسها صفاً بصف.",
+        "en": "The system shall provide POST /api/schedules/check-conflicts running in parallel the same check steps that govern the save gate, returning conflicts, validationIssues (fields, length, pattern, place and companion) and pattern, length and hours notes, and term-start drafts shall use the same functions row by row."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "ما يُحكم بمنعه في الفحص يُمنع في الحفظ بالرسالة نفسها، وموعد محفوظ لم يتغيّر شكله لا يُرفض.", "en": "What the check refuses is refused on save with the same message, and a saved row whose shape is unchanged is not refused." },
+        { "ar": "الرد يضيف patternNotice وlectureNotice وdepartmentHoursNotice حين توجد.", "en": "The reply adds patternNotice, lectureNotice and departmentHoursNotice when present." },
+        { "ar": "صف مسودة لا يمرّ نمطه أو سقفه أو قاعته يظهر في rowIssues، والتنبيه اللين في rowWarnings، وفحصٌ تعذّر يُقرأ مانعاً لا سلامة.", "en": "A draft row failing pattern, ceiling or hall appears in rowIssues, a soft note in rowWarnings, and a check that could not run reads as a blocker, not as clean." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleReviewRoutes.ts", "src/server/core/draftChecks.ts#draftAppointmentChecks"], "tests": ["tests/appointment-entry-parity-audit.ts", "tests/import-term-tools-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-022",
+      "kind": "functional",
+      "title": { "ar": "النقل الجماعي الذرّي", "en": "Atomic batch move" },
+      "text": {
+        "ar": "يجب على النظام أن يقبل في POST /api/schedules/move-batch من موعد إلى ستين موعداً، وأن يغيّر فيها الأيام والوقت والمكان وحدها، وأن يفحص كل صف مقابل الفصل متعاملاً مع المنقولين معاً كأنهم انتقلوا، وأن يفحص تصادم المنقولين بعضهم ببعض في أماكنهم الجديدة، وأن يكتب الكل في دفعة واحدة أو لا يكتب شيئاً.",
+        "en": "The system shall accept one to sixty appointments in POST /api/schedules/move-batch, change only days, time and place on them, check each row against the term treating the travelling rows as already moved, check the moved rows against each other in their new places, and write all in one batch or nothing."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "طلب بلا مواعيد أو بأكثر من 60 يُردّ 400 «حدد من موعد واحد إلى ستين للنقل الواحد».", "en": "A request with none or more than 60 is refused with 400 «select one to sixty appointments per move»." },
+        { "ar": "رفض النقل يعيد 409 «لم يُنقل: <أول رسالة> (+N أخرى)» ومعه conflicts، ولا يُكتب شيء.", "en": "A refused move returns 409 «not moved: <first message> (+N more)» with conflicts and writes nothing." },
+        { "ar": "صفّان ينتقلان معاً إلى القاعة والساعة نفسها يُرفضان بعبارة «بين موعدين منقولين معاً».", "en": "Two rows moved to the same hall and hour together are refused with «between two appointments moved together»." },
+        { "ar": "رقم نسخة قديم لأي صف يُردّ 409 conflict=revision ولا يُنقل شيء؛ والجدول المقفل يُردّ schedule-locked.", "en": "A stale revision on any row returns 409 conflict=revision and nothing moves; a locked schedule returns schedule-locked." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleReviewRoutes.ts", "src/db/repository.ts#moveSchedulesBatch"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-SCH-023",
+      "kind": "functional",
+      "title": { "ar": "اعتماد الاقتراح في الجدول الأصلي", "en": "Approving a proposal into the live schedule" },
+      "text": {
+        "ar": "يجب على النظام أن ينفّذ اقتراحاً (فتح شعبة، نقل موعد، تبديل موعدين) من مصدر معروف (رادار التسجيل، حالة طالب، رغبة أستاذ، مركز التحليلات، تخطيط الشعب) عبر مساري الإنشاء والتعديل نفسيهما، بعد التأكد أنه لم يتقادم، وبفحص جافّ لكل خطوة على الأسبوع كما سيصير، وبردّ ما كُتب إن تعذّرت خطوة لاحقة.",
+        "en": "The system shall execute a proposal (open a section, move a row, swap two rows) from a known source (registration radar, student case, instructor request, Analytics Center, section planning) through the very same create and edit paths, after confirming it is not stale, with a dry run of each step on the week as it will be, and reverting what was written if a later step fails."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "مصدر خارج القائمة المغلقة يُردّ 400 كود bad-origin؛ ونوع غير move/swap/opening يُردّ bad-kind.", "en": "A source outside the closed list is refused with 400 code bad-origin; a kind other than move/swap/opening is refused with bad-kind." },
+        { "ar": "موعد تغيّر يومه أو وقته منذ بُني الاقتراح يُردّ 409 كود stale؛ وموعد محذوف 404 stale.", "en": "A row whose day or time changed since the proposal was built is refused with 409 code stale; a deleted row with 404 stale." },
+        { "ar": "التبديل يُفحص على أسبوع فيه الموعدان منقولان معاً؛ وتعذّر الخطوة الثانية يعيد الأولى ويرد applied=[] وreverted=true.", "en": "A swap is checked on a week with both rows moved; failure of the second step restores the first and returns applied=[] and reverted=true." },
+        { "ar": "فتح شعبة بلا أستاذ خالٍ يُردّ 422 needs-instructor؛ ورقم الشعبة المقترح المستعمل يُستبدل بالأعلى + 1 (أو 501 إن لم توجد شعب).", "en": "Opening a section with no free instructor is refused with 422 needs-instructor; a proposed section number already used is replaced by highest + 1 (or 501 if none exist)." },
+        { "ar": "الصف المكتوب يحمل origin (النوع والمرجع وملاحظة حتى 160 حرفاً)، ويُسجَّل في التدقيق أنه اعتماد اقتراح.", "en": "The written row carries origin (kind, reference, note up to 160 characters) and the audit records it as a proposal approval." }
+      ],
+      "evidence": { "code": ["src/server/core/scheduleWrites.ts#applyProposalCore", "src/server/core/scheduleWrites.ts#runScheduleHandler", "src/server/routes/schedulesRoutes.ts"], "tests": ["tests/schedule-apply-proposal-audit.ts", "tests/proposal-undo-emulator-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-024",
+      "kind": "functional",
+      "title": { "ar": "إسناد شعبة «هيئة تدريسية» وتبديلها واستبدالها", "en": "Assign, swap and replace a faculty-placeholder section" },
+      "text": {
+        "ar": "يجب على النظام أن ينفّذ في POST /api/schedules/placeholder-action إجراء «إسناد» (أستاذ فعلي لشعبة المقرر نفسه) أو «تبديل» (نقل الشعبة إلى قاعة حرّة وإضافة موعد الأستاذ في قاعتها) أو «استبدال» (حذف الشعبة وإضافة الموعد) في معاملة واحدة بعد فحص جافّ لكل خطوة، ويعيد خطوات التراجع.",
+        "en": "The system shall execute in POST /api/schedules/placeholder-action an «assign» (a real instructor to a section of the same course), a «swap» (move the section to a free hall and add the instructor's row in its hall) or a «replace» (delete the section and add the row) in one transaction after a dry run of each step, and return the undo steps."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair"],
+      "acceptance": [
+        { "ar": "الإسناد يغيّر أستاذ الشعبة نفسها ولا يُنشئ صفاً، ويشترط المقرر نفسه (400 خلاف ذلك).", "en": "Assign changes the instructor of the same row, creates no row, and requires the same course (400 otherwise)." },
+        { "ar": "الاستبدال يأخذ يوم الشعبة ووقتها وقاعتها كما هي ويحذفها ويضيف موعداً جديداً في المعاملة نفسها.", "en": "Replace takes the section's days, time and hall as they are, deletes it and adds the new row in the same transaction." },
+        { "ar": "تعارض أستاذ أو رقم نسخة قديم يُردّ 409 وتبقى الشعبة ولا يُنشأ صف؛ وفشل التخزين يُردّ 503.", "en": "An instructor conflict or stale revision returns 409, the section stays and no row is created; a storage failure returns 503." },
+        { "ar": "شعبة لم تعد «هيئة تدريسية» تُردّ 409، وأستاذ هو نفسه «هيئة» يُردّ 400.", "en": "A section no longer assigned to the placeholder is refused with 409, and an instructor who is himself a placeholder with 400." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/placeholderMatch.ts#placeholderMatch", "src/db/repository.ts"], "tests": ["tests/placeholder-action-audit.ts", "tests/appointment-forms-r2-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-025",
+      "kind": "functional",
+      "title": { "ar": "استبدال أستاذ في الفصل كله", "en": "Replace an instructor across a term" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض بمعاينة (preview) أثر تسليم كل مواعيد أستاذ في قسم وفصل إلى بديل أو إلى «بلا أستاذ»، وأن ينفّذه بعد commit=true إن لم يوجد تعارض مع جدول البديل، بعد لقطة نسخة باسم من ← إلى، دون حذف أي تدريس.",
+        "en": "The system shall show in a preview the effect of handing all of an instructor's appointments in a department and term to a replacement or to «no instructor», and execute it on commit=true when no conflict arises with the replacement's schedule, after a snapshot labelled from ← to, without deleting any teaching."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "from يساوي to يُردّ 400 «اختر أستاذاً بديلاً مختلفاً»؛ وتعارض مع البديل يُردّ 409 مع حتى 20 تعارضاً.", "en": "from equal to to is refused with 400 «choose a different replacement»; a clash with the replacement returns 409 with up to 20 conflicts." },
+        { "ar": "المعاينة تعيد affected وcompatible وreasons دون كتابة؛ والتنفيذ يعيد moved وundoVersionId.", "en": "The preview returns affected, compatible and reasons with no write; the commit returns moved and undoVersionId." },
+        { "ar": "GET /api/schedules/replace-instructor/history يعرض حتى 20 نسخة اسمها يبدأ «قبل استبدال الأستاذ».", "en": "GET /api/schedules/replace-instructor/history lists up to 20 snapshots whose label starts «before replacing the instructor»." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-SCH-026",
+      "kind": "functional",
+      "title": { "ar": "تحويل هيئة التدريب TA إلى «هيئة تدريسية»", "en": "Convert TA staff to the faculty placeholder" },
+      "text": {
+        "ar": "يجب على النظام أن يحوّل مواعيد من صُنّفوا صراحةً هيئة تدريب إلى سجل «هيئة تدريسية» الواحد للقسم، بمعاينة تحمل بصمة (previewKey) للصفوف وأرقام نسخها، وبتأكيد صريح في ترويسة x-schedule-confirm، وبحدّ 400 موعد، وفي قسم وفصل واحد، وبدفعة ذرّية وقفل تسلسلي.",
+        "en": "The system shall convert the appointments of explicitly classified TA staff to the department's single «faculty» placeholder record, with a preview carrying a fingerprint (previewKey) of the rows and their revisions, an explicit confirmation in the x-schedule-confirm header, a limit of 400 appointments, within one department and term, in an atomic batch under a serial lock."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair"],
+      "acceptance": [
+        { "ar": "تنفيذ بلا الرمز ta-conversion يُردّ 409 «التحويل يحتاج تأكيداً صريحاً».", "en": "A run without the token ta-conversion is refused with 409 «conversion needs explicit confirmation»." },
+        { "ar": "تغيّر جدول أو تصنيف بعد المعاينة يُردّ 409 «افتح المعاينة من جديد»؛ وأكثر من 400 موعد أو أكثر من سجل «هيئة تدريسية» يمنع.", "en": "A schedule or classification change after the preview is refused with 409 «reopen the preview»; more than 400 appointments or more than one placeholder record blocks." },
+        { "ar": "فصل مجمَّد أو جدول مقفل يمنع التحويل.", "en": "A frozen term or locked schedule blocks the conversion." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/taConversion.ts"], "tests": ["tests/ta-conversion-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-027",
+      "kind": "functional",
+      "title": { "ar": "اقتراح الوقت والقاعة", "en": "Time and hall suggestions" },
+      "text": {
+        "ar": "يجب على النظام أن يقترح في POST /api/schedules/suggest-slots أوقاتاً وقاعات بخطوة 30 دقيقة ضمن نافذة القسم، من قاعات القسم الرسمية والمثبَّتة والمستعارة بنافذة معتمدة، ثم يمرّر كل مرشّح بمرتبته من بوابة التعارض نفسها (حتى 48 مرشحاً) ويعيد ثلاثة (ستة في «اقترح قاعة»)، وألا يكتب شيئاً.",
+        "en": "The system shall suggest in POST /api/schedules/suggest-slots times and halls on a 30-minute step within the department window, from official, pinned and approved-barter halls, pass each ranked candidate through the same conflict gate (up to 48 candidates) and return three (six for «suggest a hall»), and write nothing."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "مدة الطلب تُقصّ بين 30 و300 دقيقة (60 افتراضياً)؛ وبلا أيام يُعاد slots فارغة بسبب days.", "en": "The requested duration is clamped between 30 and 300 minutes (60 by default); with no days an empty slots list is returned with reason days." },
+        { "ar": "ما رُفض من البوابة يُعدّ في rejectedByScheduleGate ولا يُعرض؛ وإن فرغت النتيجة يُعاد سبب مسمّى.", "en": "What the gate rejects is counted in rejectedByScheduleGate and not shown; if nothing remains a named reason is returned." },
+        { "ar": "تُعاد حتى أربع شعب «هيئة تدريسية» مطابقة تماماً باسم replaceable، ومقرر يتطلب مرفقاً لا يُقترح له وقت بلا مرفق خالٍ.", "en": "Up to four exactly matching faculty-placeholder sections are returned as replaceable; a course needing a companion facility gets no slot without a free one." },
+        { "ar": "إن تجاوز الساعات المعتمدة السقف تُعاد النتيجة فارغة بسبب hours.", "en": "If the approved-hours ceiling is exceeded the result is empty with reason hours." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/suggestionEngine.ts", "src/utils/slotSuggestionScope.ts"], "tests": ["tests/slot-suggestion-recovery-audit.ts", "tests/appointment-forms-audit.ts", "tests/placeholder-action-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-028",
+      "kind": "functional",
+      "title": { "ar": "متى نلتقي؟", "en": "Common meeting time" },
+      "text": {
+        "ar": "يجب على النظام أن يحسب أوقات فراغ مشتركة لأستاذين فأكثر (مدة 30 إلى 180 دقيقة) من جدول الفصل كله في كل الكليات بخطوة 30 دقيقة، وأن يستبعد في الخادم «هيئة تدريسية» والمنتدبين ومن حالته غير فارغة، ولا يعيد غير مشغول/فارغ لكل اسم مختار.",
+        "en": "The system shall compute common free time for two or more instructors (duration 30 to 180 minutes) from the whole term's schedule across all colleges on a 30-minute step, drop on the server the faculty placeholder, visiting instructors and anyone with a non-empty status, and return only busy/free per chosen name."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "أقل من أستاذين يُردّ 400 «اختر أستاذين على الأقل».", "en": "Fewer than two instructors is refused with 400 «choose at least two instructors»." },
+        { "ar": "رئيس القسم (صلاحية 14) لا يختار إلا أساتذة قسمه (403 خلاف ذلك).", "en": "A department head (permission 14) may choose only instructors of his own department (403 otherwise)." },
+        { "ar": "الرد يحمل busyScope=allColleges، وأفضل نافذة تُرتَّب بأقل المشغولين ثم أطول مدى ثم الأقرب إلى العاشرة صباحاً.", "en": "The reply carries busyScope=allColleges, and the best window is ordered by fewest busy, then longest run, then nearest to 10:00." },
+        { "ar": "فحص وقت محدد خارج الدوام الشامل يُردّ 400.", "en": "Inspecting a specific time outside the university day is refused with 400." }
+      ],
+      "evidence": { "code": ["src/utils/meetingSlots.ts", "src/server/routes/scheduleToolsRoutes.ts", "src/components/MeetingSlots.tsx"], "tests": ["tests/meeting-slots-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-029",
+      "kind": "functional",
+      "title": { "ar": "إلغاء محاضرة اليوم وتغطيتها وترشيح البديل", "en": "Cancel or cover one date, and rank substitutes" },
+      "text": {
+        "ar": "يجب على النظام أن يسجّل لموعد استثناءً بتاريخ YYYY-MM-DD (إلغاء أو تغطية بأستاذ آخر) لا يمسّ الصف ولا رقم نسخته، وأن يمنع تكرار استثناء لليوم نفسه، وأن يرشّح بدلاء مرتبين (حتى 12) متفرغين في تلك الساعة.",
+        "en": "The system shall record against an appointment a dated exception YYYY-MM-DD (cancel, or cover by another instructor) that never touches the row or its revision, refuse a second exception for the same date, and rank up to 12 substitutes free in that hour."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "تاريخ لا يقع في يوم انعقاد الموعد يُردّ 400 «هذا الموعد لا يُعقد في اليوم المحدد أصلاً»؛ وتكرار التاريخ 409.", "en": "A date on a day the appointment does not meet is refused with 400 «this appointment does not meet on the chosen day»; a repeated date returns 409." },
+        { "ar": "التغطية بالأستاذ نفسه تُردّ 400؛ وبأستاذ مشغول في الساعة نفسها أو مكلف بتغطية أخرى تُردّ 409 (cover-busy أو cover-double-booked).", "en": "Covering with the same instructor is refused with 400; with an instructor busy at that hour or already covering returns 409 (cover-busy or cover-double-booked)." },
+        { "ar": "الملاحظة تُقصّ إلى 240 حرفاً. ويُرتَّب البديل بنقاط: درّس المقرر 50 + min(12، 2×الفصول)، ومن القسم 20، ومبنى اليوم نفسه 10 أو يوم نفسه 6، ناقص عبء الساعات من 10.", "en": "The note is cut to 240 characters. Substitutes score: taught the course 50 + min(12, 2×terms), same department 20, same building that day 10 or same day 6, plus 10 minus load hours." },
+        { "ar": "رقم الجوال يُحجب عمّن خارج حلقة أقسامه ويُقال «تواصل عبر قسمه».", "en": "A mobile number is withheld from anyone outside the circle of departments and the reply says «contact via his department»." }
+      ],
+      "evidence": { "code": ["src/server/routes/schedulesRoutes.ts", "src/server/core/scheduleRules.ts#weekExceptionDayKey", "src/utils/coverAvailability.ts"], "tests": ["tests/doctor-journey-audit.ts", "tests/term-freeze-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-030",
+      "kind": "functional",
+      "title": { "ar": "ملاحظات الخانات وردّ القسم وقرار التسجيل", "en": "Cell notes, department rebuttal and registration verdict" },
+      "text": {
+        "ar": "يجب على النظام أن يسمح للتسجيل والقسم برسم ملاحظة على خانة بعينها (الوقت، الأيام، القاعة، الأستاذ، رقم الشعبة، المقرر، أو الموعد كاملاً)، وأن يحسب حالتها (مفتوحة، تغيّرت، أُجيب عنها، محسومة، محذوفة) من قيمة الخانة الحاضرة لا من علَم، وأن يشترط للردّ سبباً من ثلاثة أحرف فأكثر.",
+        "en": "The system shall let registration and the department attach a note to a specific cell (time, days, hall, instructor, section number, course, or whole row), compute its state (open, changed, answered, resolved, removed) from the cell's present value rather than a flag, and require a rebuttal reason of at least three characters."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["collegeRegistrar", "registrarStaff", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "نص الملاحظة يُقصّ إلى 600 حرف ويُترك اختيارياً فيُكتب «راجِع <الخانة>»؛ والنقرة الثانية على الخانة نفسها تصحّح النص وتمحو الردّ والقرار.", "en": "Note text is cut to 600 characters and optional, defaulting to «review <field>»; a second click on the same cell corrects the text and clears the rebuttal and verdict." },
+        { "ar": "ملاحظة التسجيل تُنسب لجولة الاعتماد الجارية (1 على الأقل)، وكل كاتب من القسم له ملاحظته على الخانة نفسها.", "en": "A registration note belongs to the current approval round (at least 1); each department author keeps their own note on the same cell." },
+        { "ar": "الردّ بنصٍّ أقل من 3 أحرف يُردّ 400؛ والقرار «accepted» يحسم الملاحظة، و«insisted» يعيدها وتُنقل الحجة إلى سجل الردود ويُرفع الخلاف عند الإصرار الثالث.", "en": "A rebuttal under 3 characters is refused with 400; verdict «accepted» resolves the note, «insisted» reopens it and archives the argument, escalating on the third insistence." },
+        { "ar": "الكتابة مرفوضة في فصل منتهٍ؛ والحذف لمن كتبها أو للمدير فقط.", "en": "Writing is refused in an ended term; deletion is limited to the author or the administrator." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleNotesRoutes.ts", "src/server/core/notes.ts#noteState", "src/server/core/notes.ts#noteFieldValue"], "tests": ["tests/schedule-changes-audit.ts", "tests/approval-integrity-audit.ts", "tests/relay-fixes-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-031",
+      "kind": "functional",
+      "title": { "ar": "البثّ الحيّ وحضور الزملاء", "en": "Live push and colleague presence" },
+      "text": {
+        "ar": "يجب على النظام أن يبثّ لكل شاشة مفتوحة كل تغيير في الجدول خلال نحو 350 مللي ثانية (وعبر النسخ كلها)، وأن يعرض حضور زملاء اللوحة نفسها (الخانة تحت المؤشر، والبطاقة المرفوعة، والصف المفتوح) بنطاق لا يكشف أسماء من في كلية غير كليتك، وأن يستبدل الخيط المفتوح بنبضة قصيرة حين يكون المستخدم وحده.",
+        "en": "The system shall push every schedule change to each open screen within about 350 ms (and across all instances), show the presence of colleagues on the same board (cell under pointer, card in the air, row open) scoped so that nobody learns who works in a college outside their own, and replace the open stream with a short pulse when the user is alone."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "system"],
+      "acceptance": [
+        { "ar": "الخيط (GET /api/schedules/events) يُغلق عند 400 اتصال مفتوح، ويُرسل نبضة ping كل 25 ثانية، ويُعيد المحاولة بعد 4000 مللي ثانية.", "en": "The stream (GET /api/schedules/events) closes once 400 connections are open, sends a ping every 25 s and retries after 4000 ms." },
+        { "ar": "علامة الحضور تُعدّ قديمة بعد 45 ثانية، ويسقط المتصل من القائمة بعد 90 ثانية صمتاً.", "en": "A presence mark counts as stale after 45 seconds and a silent connection leaves the roster after 90 seconds." },
+        { "ar": "الخيط لا يقبل لوحة خارج نطاق صاحبه فيسجّل بنطاق فارغ، والنبضة تعيد company وchangedAt وnotifiedAt من الذاكرة بلا قراءة قاعدة.", "en": "A stream cannot claim a board outside its holder's scope and registers with an empty scope; the pulse returns company, changedAt and notifiedAt from memory with no database read." },
+        { "ar": "نبضة من صندوق العرض التجريبي لا توقظ إلا شاشات صندوقها.", "en": "A pulse from a demo sandbox wakes only that sandbox's screens." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleLiveRoutes.ts", "src/server/core/liveChannel.ts", "src/server/livePulse.ts", "src/components/schedulePresence.ts"], "tests": ["tests/live-pulse-audit.ts", "tests/live-pulse-http-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-032",
+      "kind": "functional",
+      "title": { "ar": "لقطة نسخة قبل كل كتابة ورفض المحو الصامت", "en": "Snapshot before every write and no silent overwrite" },
+      "text": {
+        "ar": "يجب على النظام أن يلتقط نسخة من الجدول المخزَّن (لا الذاكرة) قبل كل إضافة وتعديل وحذف ونقل ونسخ ومسح واستبدال، وأن يسجّل أساس ما بعد العملية من صفوفها هي، وألا يسترجع نسخة فوق جدول تغيّر بعد أساسها إلا بتأكيد «overwrite-newer»، مع سرد ما سيُمحى.",
+        "en": "The system shall capture a snapshot of the stored schedule (not the cache) before every add, edit, delete, move, copy, wipe and replace, record the after-state from the operation's own rows, and refuse to restore a version over a schedule that changed after its base unless «overwrite-newer» is confirmed, listing what would be lost."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "system"],
+      "acceptance": [
+        { "ar": "كل نسخة تحمل التسمية بما قبله: «قبل إضافة موعد دراسي» و«قبل تعديل موعد دراسي» و«قبل حذف موعد دراسي».", "en": "Each snapshot is labelled by what precedes it: «before adding an appointment», «before editing an appointment», «before deleting an appointment»." },
+        { "ar": "نقل موعد بين نطاقين يلتقط نسختين: «قبل تعديل…» للمصدر و«قبل نقل موعد إلى هذا الجدول» للوجهة.", "en": "Moving a row between scopes captures two snapshots: «before editing…» for the source and «before moving an appointment into this schedule» for the destination." },
+        { "ar": "الاسترجاع فوق جدول تغيّر يُردّ 409 كود scope-changed-since-base مع حتى 40 تغييراً وإجمالي total.", "en": "A restore over a changed schedule returns 409 code scope-changed-since-base with up to 40 changes and the total." },
+        { "ar": "قائمة النسخ لا تحمل الصفوف في Firestore؛ ومن يحتاج اللقطة يطلبها بمعرّفها.", "en": "In Firestore the version list carries no rows; whoever needs the snapshot fetches it by id." }
+      ],
+      "evidence": { "code": ["src/server/core/versions.ts#captureScopeVersion", "src/server/core/versions.ts#scopeOverwriteRefusal", "src/server/core/versions.ts#hydrateVersionRows"], "tests": ["tests/schedule-versions-list-audit.ts", "tests/schedule-wipe-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-033",
+      "kind": "functional",
+      "title": { "ar": "مسح جدول القسم وإرجاعه", "en": "Wipe and restore a department schedule" },
+      "text": {
+        "ar": "يجب على النظام أن يسمح بمسح جدول قسم في فصل يُعَدّ فقط لمدير النظام ورئيس لجنة الجدول، وبعد تأكيد صريح وكتابة اسم القسم بيد صاحبه ومطابقة عدد المواعيد وبحدّ 450 موعداً ونسخة احتياطية كاملة، وأن يتيح إرجاع آخر مسح إلى جدول فارغ.",
+        "en": "The system shall allow wiping a department's schedule only in a term being prepared, only for the system administrator and the schedule committee chair, after explicit confirmation, a typed department name, a matching appointment count, a limit of 450 appointments and a full backup, and allow restoring the last wipe into an empty schedule."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin", "committeeChair"],
+      "acceptance": [
+        { "ar": "الفصل الجاري أو المنتهي أو غير الذي يُعَدّ يُرفض بسببه؛ وجدول موقَّع لا يمسحه إلا المدير.", "en": "The current, ended or non-planning term is refused with its reason; a signed schedule can be wiped only by the administrator." },
+        { "ar": "اسم القسم غير المطابق يُردّ 409 wipe-name، وعدد متغيّر wipe-count، وجدول فارغ wipe-empty، وأكبر من 450 wipe-too-large.", "en": "A mismatched department name returns 409 wipe-name, a changed count wipe-count, an empty schedule wipe-empty, over 450 wipe-too-large." },
+        { "ar": "عند فشل حفظ النسخة الاحتياطية يُردّ 500 ولا يُمسح شيء؛ وبعد المسح تُغلق رغبات الأستاذ القديمة وتتقدّم دورة الجدول.", "en": "If the backup cannot be saved the answer is 500 and nothing is wiped; after the wipe old instructor requests are closed and the schedule generation advances." },
+        { "ar": "الإرجاع يشترط جدولاً فارغاً (wipe-not-empty) ونسخة كاملة الصفوف ومعرّف النسخة نفسه، ويفحص الصفوف قبل الكتابة.", "en": "Restore requires an empty schedule (wipe-not-empty), a backup with all rows and the same version id, and validates the rows before writing." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleWipePolicy.ts#wipeDecision", "src/server/routes/schedulesRoutes.ts", "src/components/WipeScheduleButton.tsx"], "tests": ["tests/schedule-wipe-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-034",
+      "kind": "functional",
+      "title": { "ar": "نسخ جدول فصل إلى فصل آخر", "en": "Copy a term's schedule into another term" },
+      "text": {
+        "ar": "يجب على النظام أن يسمح بنسخ جدول قسم من فصل إلى آخر للمدير الرئيسي (SystemUserId = 1) وحده، بشرط أن يكون الفصل المستهدف فارغاً وألا تتضمن الصفوف مقررات مؤرشفة وأن تمرّ الصفوف المنسوخة من فحص الاستيراد، وبلقطة نسخة قبله.",
+        "en": "The system shall allow copying a department's schedule from one term to another for the main administrator (SystemUserId = 1) only, provided the target term is empty, the rows hold no archived courses and the copied rows pass the import validation, with a snapshot before it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "غير المدير الرئيسي يُردّ 403؛ وفصل مستهدف فيه مواعيد يُردّ 409 «يوجد جدول بالفعل في الفصل المستهدف».", "en": "Anyone but the main administrator is refused with 403; a target term with appointments is refused with 409 «a schedule already exists in the target term»." },
+        { "ar": "صفوف بمقررات مؤرشفة تُردّ 409 وتُذكر أعدادها؛ وصفوف لا تمرّ الفحص تُردّ 400 مع issues.", "en": "Rows with archived courses are refused with 409 stating their number; rows failing validation are refused with 400 with issues." },
+        { "ar": "المعاينة GET /api/schedules/copy-preview تعيد canCopy فقط إن وُجد مصدر وكان الهدف فارغاً بلا مشكلات.", "en": "The preview GET /api/schedules/copy-preview returns canCopy only when a source exists, the target is empty and there are no issues." }
+      ],
+      "evidence": { "code": ["src/server/routes/schedulesRoutes.ts"], "tests": ["tests/approval-integrity-audit.ts", "tests/term-freeze-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-035",
+      "kind": "functional",
+      "title": { "ar": "حدود القراءة بحسب الصفة والنطاق", "en": "Read boundaries by role and scope" },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ مواعيد القارئ من أقسام نطاقه فقط، وأن يقتصر العميد والعميد المساعد على الجدول النهائي لكل قسم (حيّاً إن كان معتمداً، ومن نسخة آخر قبول إن عاد للتسجيل، ولا شيء إن لم يُقبل قط)، وأن يقرأ بلا فصل صريح أحدث فصل لا الفصول كلها.",
+        "en": "The system shall read an appointment reader's rows only from departments within their scope, restrict the dean and vice dean to each department's final schedule (live if approved, from the last-accepted version if returned to registration, nothing if never accepted), and, with no explicit term, read the newest term rather than all terms."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["dean", "committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "GET /api/schedules بلا termId يقرأ أحدث فصل؛ ويُرشَّح بـ instructorId وbuilding وhall ونافذة start/end وأيام sun..thr بمنطق «أو».", "en": "GET /api/schedules with no termId reads the newest term; it filters by instructorId, building, hall, a start/end window and days sun..thr combined with OR." },
+        { "ar": "رأس الاستجابة X-Schedule-Finality يحمل لكل قسم «accepted» أو «historical» لمن يرى النهائي وحده.", "en": "The X-Schedule-Finality response header carries «accepted» or «historical» per department for those who see the final view only." },
+        { "ar": "GET /api/schedules/workspace يجمع الكليات والأقسام والفصول والمواعيد والأساتذة والمقررات في طلب واحد، ويُقيَّد بنطاق الحساب لغير المدير.", "en": "GET /api/schedules/workspace returns colleges, departments, terms, appointments, instructors and courses in one request, and is confined to the account's scope for non-administrators." }
+      ],
+      "evidence": { "code": ["src/server/core/scheduleReads.ts", "src/server/routes/schedulesRoutes.ts"], "tests": ["tests/role-scope-audit.ts", "tests/dean-notify-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-036",
+      "kind": "functional",
+      "title": { "ar": "الترتيب العربي للفصول والأسماء والمقررات", "en": "Arabic ordering of terms, names and courses" },
+      "text": {
+        "ar": "يجب على النظام أن يرتّب الفصول من الأحدث إلى الأقدم بمفتاح سنة البداية × 10 + ترتيب الفصل (الأول 1 والثاني 2 والصيفي 3) وإلا برقم الفصل، وأن يرتّب القوائم المرجعية أبجدياً عربياً (مقارنة رقمية بلا تمييز للحالة أو علامات الترقيم)، وأن يرتّب المواعيد برمز المقرر ثم رقم الشعبة ثم اسم المقرر ثم المعرّف.",
+        "en": "The system shall order terms newest to oldest by the key start-year × 10 + term order (first 1, second 2, summer 3), falling back to the term id, order reference lists alphabetically in Arabic (numeric comparison, ignoring case and punctuation), and order appointments by course code, then section number, then course name, then id."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "«الفصل الصيفي 2025/2026» يسبق «الفصل الثاني 2025/2026» ويسبق «الفصل الأول 2025/2026» في قائمة الأحدث أولاً.", "en": "«Summer term 2025/2026» precedes «Second term 2025/2026», which precedes «First term 2025/2026» in a newest-first list." },
+        { "ar": "اسم فصل بلا سنتين يُرتَّب برقم AdTermId.", "en": "A term name without two years is ordered by AdTermId." },
+        { "ar": "شعبتان بالمقرر نفسه تُرتّبان برقم الشعبة ثم المعرّف عند التساوي.", "en": "Two sections of one course order by section number, then by id on a tie." }
+      ],
+      "evidence": { "code": ["src/server/core/ordering.ts#termChronologyServer", "src/server/core/ordering.ts#arabicUiCollator", "src/utils/scheduleOrder.ts#compareCourseSection"], "tests": ["tests/dashboard-home-term-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-037",
+      "kind": "functional",
+      "title": { "ar": "جدول الأستاذ المصغّر ونافذة الأسبوع", "en": "Teacher mini-week and week window" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض في نموذج الموعد أسبوع الأستاذ المختار في خمسة أعمدة على محور مضغوط (ست ساعات على الأقل)، وخانات حرّة تتّسع لنمط المقرر بالفاصل المقرَّر، وخيارات «قبلها/بعدها» ملاصقة لحافّتي كل محاضرة بخطوات سُلّم البدايات (0 و30 و60 دقيقة حيث لا سُلّم)، وترويسة نصاب (الآن ← بعد) وأيام الحضور والفراغات.",
+        "en": "The system shall show in the appointment form the chosen instructor's week in five columns on a compact axis (at least six hours), free slots fitting the course pattern with the required gap, «before/after» options adjacent to each lecture's edges on start-ladder steps (0, 30 and 60 minutes where no ladder applies), and a header with load (now → after), attendance days and gaps."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "الخانات الحرّة تقف عند حدّ الفاصل (10 دقائق) من كل محاضرة، وتُسنَّد إلى سُلّم 60 أو 90 دقيقة من 08:00 للأسرة الواحدة.", "en": "Free slots stop at the 10-minute gap from each lecture and snap to a 60- or 90-minute ladder from 08:00 for a single family." },
+        { "ar": "«قبلها/بعدها» تُسقط المرساة التي هي مقرر الموعد وشعبته نفسها، وتعيد قاعة المرساة إن خلت وإلا مبناها.", "en": "«Before/after» skips the anchor that is the appointment's own course and section, and returns the anchor's hall if free, otherwise its building." },
+        { "ar": "رسم موعد بالسحب يبدأ على شبكة خمس دقائق ولا تقل مدته عن نصف ساعة إن لم تُعرف مدة اللائحة؛ والموعد المعدَّل لا يُحسب إضافة إلى النصاب.", "en": "A drawn appointment starts on the five-minute grid and lasts at least half an hour if no regulation length is known; an edited row is not counted as an addition to the load." }
+      ],
+      "evidence": { "code": ["src/utils/teacherMiniWeek.ts", "src/utils/lectureStick.ts", "src/components/TeacherMiniWeek.tsx", "src/components/LectureStickChips.tsx"], "tests": ["tests/teacher-mini-week-audit.ts", "tests/week-window-audit.ts", "tests/lecture-stick-own-audit.ts"] }
+    },
+    {
+      "id": "DR-SCH-001",
+      "kind": "data",
+      "title": { "ar": "بنية الموعد (صف الجدول)", "en": "Appointment (schedule row) data model" },
+      "text": {
+        "ar": "يجب على النظام أن يخزّن الموعد بمعرّف رقمي ورقم نسخة rev يبدأ بـ1، وكلية وقسم وفصل ومقرر ورقم شعبة وأستاذ، وخمسة أعلام أيام (الأحد إلى الخميس)، وبداية ونهاية بصيغة HH:MM موحّدة، ومبنى وقاعة بهويتهما الرسمية، ولقطة اسم المقرر ورمزه، وترميز fdetail القديم للأيام، وترتيب المصدر sourceOrder، ومصدر التغيير origin عند الاعتماد.",
+        "en": "The system shall store an appointment with a numeric id, a revision rev starting at 1, college, department, term, course, section number, instructor, five day flags (Sunday to Thursday), start and end in normalised HH:MM, building and hall with their official identities, a snapshot of the course name and code, the legacy fdetail day encoding, a source order sourceOrder, and a change origin when approved from a proposal."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "«9:00» تُخزَّن «09:00»، وما ليس ساعة صالحة لا يُخزَّن.", "en": "«9:00» is stored as «09:00»; anything that is not a valid clock is not stored." },
+        { "ar": "الصف المضاف يدوياً يحمل sourceOrder ≥ 1,000,000؛ والوارد من الاستيراد أقل منها.", "en": "A manually added row carries sourceOrder ≥ 1,000,000; an imported row is below it." },
+        { "ar": "origin.kind من القائمة المغلقة (رادار التسجيل، حالة طالب، رغبة أستاذ، مركز التحليلات، تخطيط الشعب)، وrefId حتى 64 حرفاً وnote حتى 160.", "en": "origin.kind comes from the closed list (registration radar, student case, instructor request, Analytics Center, section planning), refId up to 64 characters and note up to 160." }
+      ],
+      "evidence": { "code": ["src/types.ts", "src/utils/scheduleTime.ts#normalizeClock", "src/server/core/scheduleWrites.ts"], "tests": ["tests/schedule-time-window-audit.ts"] }
+    },
+    {
+      "id": "NFR-SCH-001",
+      "kind": "nonfunctional",
+      "title": { "ar": "كشف التعارض بالفهرسة بنتائج مطابقة تماماً", "en": "Indexed conflict detection with identical results" },
+      "text": {
+        "ar": "يجب على النظام أن يفحص التعارض بالبحث في فهارس (يوم + أستاذ، يوم + قاعة، يوم + مقرر مقترن، مقرر + شعبة) بدل مقارنة كل موعد بكل موعد، وأن يعطي النتيجة نفسها تماماً — الأزواج والأسباب والخطورة والصياغة والترتيب — التي يعطيها المسح الشامل الأصلي المحفوظ مرجعاً.",
+        "en": "The system shall detect conflicts by lookup in indexes (day + instructor, day + hall, day + paired course, course + section) instead of comparing every appointment with every other, and return exactly the result of the original exhaustive sweep kept as reference — pairs, reasons, severity, wording and order."
+      },
+      "rationale": { "ar": "قراءة واحدة حجزت الخادم 2.5 ثانية في الإنتاج؛ والتعارض الفائت أسوأ من جدول بطيء.", "en": "A single reading held the production server for 2.5 seconds; a missed conflict is worse than a slow schedule." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "اختبار التكافؤ يقارن المسارين على جداول عشوائية لفصول كاملة ويفشل عند أول فرق في زوج أو سبب أو ترتيب.", "en": "The parity test compares both paths on random whole-term schedules and fails on the first difference in pair, reason or order." },
+        { "ar": "قراءة الفصل الحالي واحدة مخبَّأة في المستودع، فلا يُمسح عقد كامل أثناء الاستعمال التفاعلي.", "en": "One cached current-term read is used, so a full decade is never scanned during interactive use." },
+        { "ar": "القراءات الثقيلة مخبَّأة: عادة القسم 10 دقائق، ونافذة القسم 30 ثانية، واليوم الجامعي 30 ثانية مع انتظار أقصاه ثانيتان.", "en": "Heavy reads are cached: department habit 10 minutes, department window 30 seconds, university day 30 seconds with a maximum 2-second wait." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleIntelligence.ts#findConflicts", "src/utils/scheduleIntelligence.ts#findConflictsExhaustive", "src/server/core/rhythm.ts", "src/server/core/universityDay.ts"], "tests": ["tests/conflict-parity.ts"] }
+    },
+    {
+      "id": "IR-SCH-001",
+      "kind": "interface",
+      "title": { "ar": "معاينة السحب قبل الإفلات", "en": "Drag preview before the drop" },
+      "text": {
+        "ar": "يجب على واجهة الجدول أن تصنّف أثر نقل المحاضرة قبل الإفلات في خمس فئات (ممتاز، جيد، محايد، غير مفضّل، غير متاح)، وألا تُحسب الملاحظات اللينة مانعاً يرجع به البطاقة، وأن يكون «غير متاح» لما فيه تعارض يمنع وحده.",
+        "en": "The schedule interface shall classify the effect of moving a lecture before the drop into five classes (excellent, good, neutral, suboptimal, impossible), never count soft notes as a blocker that sends the card home, and reserve «impossible» for a move with a blocking conflict."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "نقل ينتج مانعاً عالي الخطورة يُصنَّف «غير متاح»؛ وإن زادت التعارضات أو الفراغ 90 دقيقة فأكثر أو ضغط اليوم 20٪ فأكثر يُصنَّف «غير مفضّل».", "en": "A move creating a high-severity blocker is «impossible»; one that adds conflicts, 90 or more minutes of gap, or 20% or more day pressure is «suboptimal»." },
+        { "ar": "مدة النقل لموعد بيوم واحد وأقل من 100 دقيقة تأخذ مدة يوم الهدف الجديد (50 أو 80).", "en": "A one-day row shorter than 100 minutes takes the target day's length (50 or 80) when moved." },
+        { "ar": "تُحترم تفضيلات تقليل الحركة، وتُوقف المعاينة الحركية حين يُطلب ذلك.", "en": "The reduced-motion preference is honoured and the animated preview stops when requested." }
+      ],
+      "evidence": { "code": ["src/components/SchedulePhysics/physics.ts#classifyDecision", "src/components/SchedulePhysics/physics.ts#buildMoveCandidate", "src/components/SchedulePhysics/useReducedMotion.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "IR-SCH-002",
+      "kind": "interface",
+      "title": { "ar": "العروض المحفوظة والتراجع والعمل دون اتصال", "en": "Saved views, undo and offline work" },
+      "text": {
+        "ar": "يجب على واجهة الجدول أن تحفظ عروضاً مسمّاة (ثلاثة مفضّلة كحدّ أقصى) تنبّه بنقطة إلى اختلاف الحالة عنها، وأن تتيح التراجع (Ctrl+Z) بسجل من ستين تغييراً وشريط خمس عشرة ثانية، وأن تؤجّل تعديل الصف وحذفه والنقل الجماعي عند انقطاع الاتصال (حتى 120 عملية) وتعرض ما رفضه الخادم لاحقاً للمراجعة بدل إسقاطه.",
+        "en": "The schedule interface shall keep named saved views (at most three favourites) with a dot signalling that the state differs from them, offer undo (Ctrl+Z) with a log of sixty changes and a fifteen-second bar, and defer row edit, delete and batch move when the connection drops (up to 120 operations), showing later server refusals for review instead of discarding them."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "حفظ مفضّلة رابعة يُرفض؛ وقائمة العروض لا تظهر حتى يُحفظ أول عرض.", "en": "Saving a fourth favourite is refused; the views menu does not appear until the first view is saved." },
+        { "ar": "إنشاء موعد جديد دون اتصال لا يُؤجَّل (POST غير النقل الجماعي)؛ وتعديلات PUT المتكررة للصف نفسه تُدمج في آخرها.", "en": "Creating a new appointment offline is not deferred (a POST other than batch move); repeated PUTs of the same row are coalesced into the last one." },
+        { "ar": "ما رفضه الخادم بعد عودة الاتصال يُنقل إلى رفّ المراجعة ويمكن إعادة إرساله أو تركه.", "en": "What the server refuses after reconnecting moves to the review shelf and can be retried or discarded." },
+        { "ar": "العرض الافتراضي على الهاتف «قائمة»، وعلى سطح المكتب ما حُفظ من أسبوع أو قائمة أو قاعات.", "en": "The default view on phones is «list»; on desktop it is the saved choice of week, list or rooms." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleViews.ts", "src/components/ScheduleViewsMenu.tsx", "src/utils/offlineScheduleQueue.ts", "src/components/Schedules.tsx"], "tests": ["tests/run-tests.ts"] },
+      "inferred": true
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": { "ar": "شعبتان مدمجتان بأستاذ وقاعة وساعة واحدة", "en": "Two combined sections with one instructor, hall and hour" },
+      "scenario": { "ar": "شعبة 501 وشعبة 502 للمقرر نفسه عند الدكتور نفسه في القاعة نفسها الساعة 11:00.", "en": "Sections 501 and 502 of one course with the same instructor in the same hall at 11:00." },
+      "behavior": { "ar": "يُعلن تعارضاً واحداً عالي الخطورة بسببَي أستاذ وقاعة ويمنع الحفظ؛ ولا يُعفى بحجة الدمج لأن الحجز المزدوج غير المبلَّغ قرارٌ لم يتخذه أحد.", "en": "One high-severity conflict with instructor and hall reasons is raised and blocks the save; combined delivery is no exemption, because an unreported double booking is a decision nobody made." },
+      "evidence": ["tests/run-tests.ts", "tests/conflict-parity.ts"]
+    },
+    {
+      "title": { "ar": "الشعبة نفسها في قاعتين بأستاذين", "en": "The same section in two halls with two instructors" },
+      "scenario": { "ar": "صفّان بالمقرر والشعبة والأيام والوقت نفسها: أحدهما في G28 والآخر في G31 بأستاذين مختلفين.", "en": "Two rows with the same course, section, days and time: one in G28 and one in G31 with different instructors." },
+      "behavior": { "ar": "تنبيه متوسط «الشعبة نفسها في مكانين» لا يمنع حفظاً ولا توقيعاً ولا اعتماداً؛ وإن غابت القاعة عن أحدهما عاد مكرراً مانعاً.", "en": "A medium «same section in two places» warning blocks no save, signature or approval; if either row has no hall it returns to a blocking duplicate." },
+      "evidence": ["tests/blocker-oracle-audit.ts"]
+    },
+    {
+      "title": { "ar": "تعديلان متزامنان على الموعد نفسه", "en": "Two simultaneous edits of one appointment" },
+      "scenario": { "ar": "زميلان يفتحان الصف برقم نسخة 3؛ يحفظ الأول فيصبح 4، ثم يحفظ الثاني.", "en": "Two colleagues open a row at revision 3; the first saves making it 4, then the second saves." },
+      "behavior": { "ar": "يُردّ الثاني 409 ومعه النسخة الحالية ونسخته هو ليختار، ولا يُكتب شيء؛ وبلا rev يُكتب دون مقارنة.", "en": "The second is refused with 409 carrying the current row and their own version to choose from, and nothing is written; without rev it is written without comparison." },
+      "evidence": ["tests/proposal-undo-emulator-audit.ts"]
+    },
+    {
+      "title": { "ar": "موعد قائم خارج الدوام الشامل بعد تضييقه", "en": "An existing row left outside a narrowed university day" },
+      "scenario": { "ar": "غيّر المدير الدوام الشامل إلى 08:00–18:00 وفي الجدول موعد 18:30–19:20.", "en": "The administrator narrows the day to 08:00–18:00 while the schedule holds a 18:30–19:20 row." },
+      "behavior": { "ar": "يبقى الموعد كما هو ولا يمنع حفظ تعديل لا يمسّ وقته؛ وإن عُدّل وقته أو أُنشئ مثله رُدّ 400. ويُعلَن للمدير عدد المواعيد الخارجة قبل الحفظ.", "en": "The row stays and an edit that does not touch its time is not blocked; changing its time or creating a similar one is refused with 400. The administrator is told how many rows fall outside before saving." },
+      "evidence": ["tests/full-day-setting-audit.ts", "tests/schedule-time-window-audit.ts"]
+    },
+    {
+      "title": { "ar": "خانة يحجزها طلب أستاذ ينتظر القسم", "en": "A slot held by an instructor request awaiting the department" },
+      "scenario": { "ar": "أستاذ اختار الأحد 10:00 في طلبه، ومنسّق يحاول وضع محاضرة أخرى للأستاذ نفسه في الساعة نفسها.", "en": "An instructor chose Sunday 10:00 in his request and a coordinator tries to place another lecture for him at the same hour." },
+      "behavior": { "ar": "يُردّ 409 request-hold ومعه صاحب الحجز وبنده، فيسأل المنسّق ويؤكد أو يلغي؛ والتأكيد يعيد الإرسال بـ overrideRequestHolds ويتجاوز ذلك الطلب وحده، وتبقى حجوز بقية الأساتذة حارسة.", "en": "A 409 request-hold is returned with the holder and item; the coordinator confirms or cancels; confirming resends with overrideRequestHolds and passes only that request while other instructors' holds keep guarding." },
+      "evidence": ["tests/holds-patterns-r4-audit.ts", "tests/undo-travel-rule-audit.ts"]
+    },
+    {
+      "title": { "ar": "فشل الخطوة الثانية في تبديل موعدين", "en": "Second step of a two-row swap fails" },
+      "scenario": { "ar": "اعتماد تبديل موعدين يمرّ فحصه الجاف، ثم يتغيّر أحد الصفين في اللحظة نفسها فتُرفض الكتابة الثانية.", "en": "A swap of two rows passes its dry run, then one row changes at the same instant and the second write is refused." },
+      "behavior": { "ar": "يُرَدّ ما كُتب إلى مصدره ويعود applied=[] وreverted=true؛ وإن تعذّر ردّ الخطوة الأولى تُرسل رسالة تسمّي المقرر لمراجعته يدوياً.", "en": "What was written is restored and applied=[] with reverted=true is returned; if the first step cannot be restored a message names the course for manual review." },
+      "evidence": ["tests/schedule-apply-proposal-audit.ts"]
+    },
+    {
+      "title": { "ar": "تغيّر عدد المواعيد أثناء تأكيد المسح", "en": "Appointment count changes while confirming a wipe" },
+      "scenario": { "ar": "رأى المستخدم تحذير مسح 120 موعداً ثم أضاف زميل موعداً قبل ضغط «امسح».", "en": "A user saw a warning to wipe 120 appointments, then a colleague added one before «wipe» was pressed." },
+      "behavior": { "ar": "يُردّ 409 wipe-count ومعه العدد الجديد، ولا يُمسح شيء؛ وحتى لو تغيّر العدد داخل القفل يرمي المستودع ScopeChangedError فلا يُمسح شيء.", "en": "A 409 wipe-count with the new number is returned and nothing is wiped; even if the count changes inside the lock the repository throws ScopeChangedError and nothing is wiped." },
+      "evidence": ["tests/schedule-wipe-audit.ts"]
+    },
+    {
+      "title": { "ar": "فصل أُعلن منتهياً", "en": "A term declared ended" },
+      "scenario": { "ar": "قسم يحاول تعديل موعد في فصل علامته AdTermClosed.", "en": "A department tries to edit an appointment in a term flagged AdTermClosed." },
+      "behavior": { "ar": "يُردّ 409 schedule-locked قبل أي رسالة عن الحقول، ولا يعمل فيه إلا رئيس لجنة الجدول بصفة مكتوبة؛ ومن أراد فتحه يرفع العلامة من شاشة الفصول.", "en": "409 schedule-locked is returned before any field message, and only the schedule committee chair with an explicitly written role can work in it; to reopen, the flag is lifted in the terms screen." },
+      "evidence": ["tests/term-freeze-audit.ts"]
+    }
+  ],
+  "terms": [
+    { "ar": "موعد", "en": "Appointment", "def": { "ar": "صف واحد في الجدول: شعبة بأيامها ووقتها وقاعتها وأستاذها (FSchedule).", "en": "One schedule row: a class section with its days, time, hall and instructor (FSchedule)." } },
+    { "ar": "الشعبة", "en": "Class section", "def": { "ar": "رقم يميّز عرضاً من المقرر في القسم والفصل؛ قد يملك أكثر من موعد (محاضرة ومختبر).", "en": "A number distinguishing an offering of a course in a department and term; it may have more than one appointment (lecture and lab)." } },
+    { "ar": "الدوام الشامل", "en": "University teaching day", "def": { "ar": "حدٌّ واحد لبداية اليوم الدراسي ونهايته للبرنامج كله (08:00–20:00 افتراضاً).", "en": "A single limit for the start and end of the teaching day for the whole programme (08:00–20:00 by default)." } },
+    { "ar": "نافذة القسم", "en": "Department window", "def": { "ar": "استثناء أضيق من الدوام الشامل لقسم بعينه؛ لا يوسّعه أبداً.", "en": "An exception narrower than the university day for one department; it never widens it." } },
+    { "ar": "مكتبة الأنماط", "en": "Pattern library", "def": { "ar": "التوزيعات المعتمدة لأيام المقرر وأطوالها بحسب ساعاته (17 نمطاً).", "en": "The approved distributions of a course's days and lengths by its hours (17 patterns)." } },
+    { "ar": "سُلّم البدايات", "en": "Start ladder", "def": { "ar": "أوقات البداية النظامية: كل ساعة من 08:00 للأحد والثلاثاء والخميس، وكل 90 دقيقة للاثنين والأربعاء.", "en": "The regulation start times: every hour from 08:00 for Sun/Tue/Thu and every 90 minutes for Mon/Wed." } },
+    { "ar": "هيئة تدريسية", "en": "Faculty placeholder", "def": { "ar": "سجل أستاذ يدل على أن الشعبة بلا مدرّس معيَّن؛ لا يُحجز مرتين ولا يُحسب شخصاً.", "en": "An instructor record meaning the section has no named teacher; it cannot be double-booked and does not count as a person." } },
+    { "ar": "حجز", "en": "Hold", "def": { "ar": "إما حجز طلب أستاذ ينتظر القسم (يمنع ويُسأل عنه)، وإما حجز زميل استشاري لدقيقتين (لا يمنع).", "en": "Either an instructor-request hold awaiting the department (blocks, and is asked about) or an advisory two-minute colleague hold (never blocks)." } },
+    { "ar": "استعارة القاعات", "en": "Hall barter", "def": { "ar": "نافذة يوم ووقت يعير بها قسم قاعته لقسم آخر بموافقة معتمدة.", "en": "A day-and-time window in which one department lends its hall to another with an approved agreement." } },
+    { "ar": "الفاصل", "en": "Turnaround gap", "def": { "ar": "الدقائق بين نهاية محاضرة وبداية التالية في القاعة نفسها (10 دقائق).", "en": "The minutes between the end of one lecture and the start of the next in the same hall (10 minutes)." } },
+    { "ar": "النصاب", "en": "Teaching load", "def": { "ar": "ساعات الأستاذ الأسبوعية المحتسبة من مواعيده عبر عائلة القسم.", "en": "An instructor's weekly hours counted from his appointments across the department family." } },
+    { "ar": "الجدول", "en": "Schedule", "def": { "ar": "مجموع مواعيد قسم في فصل.", "en": "All appointments of a department in a term." } }
+  ],
+  "ownerRules": [
+    { "ar": "التوقيع والاعتماد لا يمنعهما إلا تعارض مادّي: أستاذ فعلي في مكانين أو قاعة محجوزة مرتين أو مكرّر لا يميّزه شيء (قاعدة 2026-09-27).", "en": "Only a physical conflict blocks signing and approval: a real instructor in two places, a hall booked twice, or an indistinguishable duplicate (rule 2026-09-27)." },
+    { "ar": "النمط لازم يكون معتمداً من المكتبة، والتاريخ اقتراح لا يخالف اللائحة، ولا تُعفي عادة القسم من سقف الساعات (2026-10-30).", "en": "The pattern must be approved from the library; history is a suggestion that never overrides the regulation, and department habit does not lift the hours ceiling (2026-10-30)." },
+    { "ar": "الدوام الشامل يمنع في كل مكان، واستثناء القسم الأضيق ينبّه ولا يمنع في «موعد» (2026-11-05).", "en": "The university day blocks everywhere; a narrower department exception warns but does not block in the appointment form (2026-11-05)." },
+    { "ar": "مدة التنقّل بين المواقع إلزام في بطاقة الأستاذ وتنبيه لا يمنع في «موعد» القسم (2026-11-05).", "en": "Inter-campus travel time is mandatory in the teacher card and a non-blocking warning in the department's appointment form (2026-11-05)." },
+    { "ar": "شعبتان لمقرر تخصص بالوقت نفسه: تنبيه لا منع في «موعد»، ومنع في بطاقة الأستاذ لمقررات التخصص فقط (ملاحظة المالك 8).", "en": "Two sections of a specialisation course at the same time: a warning, not a block, in the appointment form, and a block in the teacher card for specialisation courses only (owner note 8)." },
+    { "ar": "رقم المقرر في كل ما يراه القارئ سبع خانات؛ والتقارير المطبوعة تحتفظ بتصميمها.", "en": "Every course number a reader sees is seven digits; printed reports keep their design." }
+  ]
+}

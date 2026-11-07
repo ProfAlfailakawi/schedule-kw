@@ -1,0 +1,1973 @@
+{
+  "id": "NFR",
+  "order": 18,
+  "icon": "shield-check",
+  "title": {
+    "ar": "المتطلبات غير الوظيفية",
+    "en": "Non-functional requirements"
+  },
+  "tagline": {
+    "ar": "الأداء والأمان والخصوصية وإمكانية الوصول والعربية أولاً والموثوقية، بأرقامها المقيسة.",
+    "en": "Performance, security, privacy, accessibility, Arabic-first design and reliability, with measured figures."
+  },
+  "summary": {
+    "ar": "تجمع هذه الوحدة الصفات التي تحكم النظام كله لا شاشة بعينها: سرعة الاستجابة تحت الحمل، وحماية الحسابات والروابط والبيانات، وسياسة الخصوصية، وإتاحة الاستعمال لكل مستخدم، والعربية واتجاه الكتابة والأرقام، والتخطيط على الهاتف والطباعة، وموثوقية الكتابة والاسترجاع، وقابلية الصيانة. كل متطلب هنا مربوط بقياس أو اختبار أو تدقيق قائم؛ وما لم يتحقق بعد يُكتب «قيد التطوير» بأرقامه الحالية دون تجميل.",
+    "en": "This module gathers the qualities that govern the whole system rather than one screen: response under load, protection of accounts, links and data, the privacy policy, accessibility for every user, Arabic, text direction and numerals, phone layout and printing, write and recovery reliability, and maintainability. Each requirement is tied to an existing measurement, test or audit; what is not yet met is written as 'in progress' with its current figures, undisguised."
+  },
+  "actors": [
+    "system",
+    "rootAdmin",
+    "admin",
+    "standard",
+    "instructor",
+    "student",
+    "visitor",
+    "external"
+  ],
+  "sources": [
+    "src/styles/*.css",
+    "src/utils/digits.ts",
+    "src/utils/arabicText.ts",
+    "src/utils/arabicCount.ts",
+    "src/utils/clientTelemetry.ts",
+    "src/utils/printFit.ts",
+    "src/server/core/auth.ts",
+    "src/server/roleGuard.ts",
+    "src/server/calendarSecret.ts",
+    "src/server/core/gemini.ts",
+    "public/privacy-policy.html",
+    "docs/SECURITY_NOTES.md",
+    "SECURITY-TODO.md",
+    "docs/LOAD_TEST.md",
+    "docs/QUALITY-SCORECARD.md",
+    "docs/VISUAL-POLISH-AUDIT.md",
+    "docs/EXHAUSTIVE_UI_AUDIT_2026-08-12.md",
+    "docs/VISUAL_AUDIT_2026-08-12.md",
+    "scripts/mobile-overflow-sweep.ts",
+    "scripts/guide-performance-audit.mjs",
+    "scripts/loadtest/*"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "سياسة الخصوصية",
+        "en": "Privacy policy"
+      },
+      "file": "public/privacy-policy.html",
+      "note": {
+        "ar": "صفحة عامة ثنائية الوضع (نهاري وليلي) بحسب إعداد الجهاز.",
+        "en": "A public page that follows the device's light or dark setting."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "student",
+      "title": {
+        "ar": "طالب يفتح «مساري» في يوم التسجيل من شبكة الجامعة",
+        "en": "A student opens the journey page on registration day from the campus network"
+      },
+      "steps": [
+        {
+          "ar": "يفتح الطالب رابطه من هاتفه على شبكة الجامعة التي تظهر للخادم كعنوان واحد.",
+          "en": "The student opens his link on a phone over the campus network, which the server sees as one address."
+        },
+        {
+          "ar": "لا يُحسب عليه إلا الخطأ، فلا يُحجب وهو يدخل برمزه الصحيح.",
+          "en": "Only failures are counted against the address, so he is not blocked while entering his correct code."
+        },
+        {
+          "ar": "يُنشأ ملفه ويُحفظ رقمه المدني مختوماً بتشفير لا يُقرأ من السجلات.",
+          "en": "His profile is created and his civil number stored sealed with encryption that logs cannot reveal."
+        },
+        {
+          "ar": "تُرسم الصفحة بخط عربي مستضاف ذاتياً واتجاه من اليمين إلى اليسار دون تمرير أفقي.",
+          "en": "The page renders in a self-hosted Arabic typeface, right to left, with no horizontal scroll."
+        },
+        {
+          "ar": "كل خطوة من خطوات الرحلة الإحدى عشرة تنتهي في أقل من ثلث ثانية على الخادم.",
+          "en": "Each of the eleven journey steps completes in under a third of a second on the server."
+        }
+      ]
+    },
+    {
+      "actor": "admin",
+      "title": {
+        "ar": "تدقيق أثر عملية بعد وقوعها",
+        "en": "Auditing an operation after it happened"
+      },
+      "steps": [
+        {
+          "ar": "يفتح مدير النظام سجل العمليات ليعرف من دخل ومن حاول فرُفض.",
+          "en": "The system administrator opens the audit log to learn who signed in and who tried and was refused."
+        },
+        {
+          "ar": "يجد سطراً لكل كتابة ناجحة: المستخدم والطريقة والمسار والكيان والحالة، دون محتوى الطلب.",
+          "en": "He finds a line for every successful write: user, method, path, entity and status, without the request content."
+        },
+        {
+          "ar": "يجد المحاولات المرفوضة بحالة 403 أو 409 مع تسمية «خارج الصلاحية» أو «تعارض».",
+          "en": "He finds refused attempts with status 403 or 409 labelled 'outside permission' or 'conflict'."
+        },
+        {
+          "ar": "يرجع إلى نسخة الجدول التي أُخذت قبل التغيير ويستعيدها إن لم يغيّر أحد غيره بعده.",
+          "en": "He returns to the schedule version taken before the change and restores it if nobody else changed it afterwards."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "nfr-request-defence",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "طبقات حماية الطلب",
+        "en": "Request defence layers"
+      },
+      "caption": {
+        "ar": "ما يمرّ به طلب مجهول أو مصادَق قبل أن يصل معالجه؛ الخادم هو مرجع الصلاحية وحده.",
+        "en": "What an anonymous or signed-in request passes before reaching its handler; the server alone is the authority on permission."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "الطلب",
+            "en": "Request"
+          },
+          "icon": "globe",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "ترويسات الأمان",
+            "en": "Security headers"
+          },
+          "icon": "shield",
+          "kind": "system"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "رفض عبر المواقع",
+            "en": "Cross-site refusal"
+          },
+          "icon": "ban",
+          "kind": "decision"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "حدود المعدّل والحارس المجهول",
+            "en": "Rate limits and anonymous guard"
+          },
+          "icon": "gauge",
+          "kind": "decision"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "الجلسة والهوية",
+            "en": "Session and identity"
+          },
+          "icon": "key-round",
+          "kind": "system"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "حارس الأدوار",
+            "en": "Role guard"
+          },
+          "icon": "user-check",
+          "kind": "decision"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "المعالج والتحقق من المدخلات",
+            "en": "Handler and input validation"
+          },
+          "icon": "check-check",
+          "kind": "system"
+        },
+        {
+          "id": "h",
+          "label": {
+            "ar": "سجل التدقيق",
+            "en": "Audit trail"
+          },
+          "icon": "scroll-text",
+          "kind": "end"
+        },
+        {
+          "id": "i",
+          "label": {
+            "ar": "رفض 403 أو 429",
+            "en": "Refused 403 or 429"
+          },
+          "icon": "octagon-x",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "from": "b",
+          "to": "c"
+        },
+        {
+          "from": "c",
+          "to": "d",
+          "label": {
+            "ar": "مسموح",
+            "en": "Allowed"
+          }
+        },
+        {
+          "from": "c",
+          "to": "i",
+          "label": {
+            "ar": "مرفوض",
+            "en": "Refused"
+          }
+        },
+        {
+          "from": "d",
+          "to": "e",
+          "label": {
+            "ar": "ضمن الحد",
+            "en": "Within limit"
+          }
+        },
+        {
+          "from": "d",
+          "to": "i",
+          "label": {
+            "ar": "تجاوز",
+            "en": "Over limit"
+          }
+        },
+        {
+          "from": "e",
+          "to": "f"
+        },
+        {
+          "from": "f",
+          "to": "g",
+          "label": {
+            "ar": "له صلاحية",
+            "en": "Permitted"
+          }
+        },
+        {
+          "from": "f",
+          "to": "i",
+          "label": {
+            "ar": "قارئ أو بلا صلاحية",
+            "en": "Read-only or none"
+          }
+        },
+        {
+          "from": "g",
+          "to": "h"
+        }
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "NFR-NFR-001",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "إنتاجية رحلة الطالب",
+        "en": "Student journey throughput"
+      },
+      "text": {
+        "ar": "يجب أن يخدم النظام رحلة الزيارة الأولى للطالب (11 طلباً) بمعدل 15 طالباً في الثانية، أي 54 ألفاً في الساعة، دون فشل، وأن تنتهي كل خطوة على الخادم في أقل من ثلث ثانية.",
+        "en": "The system shall serve the student's first-visit journey (11 requests) at 15 students per second, i.e. 54 thousand per hour, without failure, with every step completing on the server in under a third of a second."
+      },
+      "rationale": {
+        "ar": "يوم الرغبات أو التسجيل يجلب عشرين ألف طالب خلال ساعات.",
+        "en": "A wishes or registration day brings twenty thousand students within hours."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "القياس في 2026-10-24 على نسخة تجريبية مبنية للإنتاج: 900 من 900 رحلة نجحت بعناوين مختلفة، وأبطأ خطوة كانت الدخول 148 ملّي ثانية والرئيسية 107.",
+          "en": "Measured on 2026-10-24 on a production-built demo copy: 900 of 900 journeys succeeded from distinct addresses, the slowest step being sign-in at 148 ms and home at 107 ms."
+        },
+        {
+          "ar": "القياس بمعالجات مشتركة مع المحاكي ومولّد الحمل؛ ومحاكي Firestore ليس الخدمة الحقيقية.",
+          "en": "The measurement shared processors with the emulator and the load generator, and the Firestore emulator is not the real service."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/loadtest/student-door.mjs",
+          "src/server/studentDoorRoutes.ts",
+          "docs/LOAD_TEST.md"
+        ],
+        "tests": [
+          "tests/student-door-shared-network-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-002",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "عدالة الحدود على شبكة مشتركة",
+        "en": "Limit fairness on a shared network"
+      },
+      "text": {
+        "ar": "يجب ألا تحجب حدود الحماية طلبةً من عنوان واحد (شبكة الجامعة أو مشغّل جوال خلف NAT): الكتابة 60 في الدقيقة لكل طالب لا لكل عنوان مع سقف 1200 للعنوان، وسؤال الهوية 24000 كل 10 دقائق، وأخطاء الرمز 600 كل 10 دقائق برصيد للنجاح وسقف مطلق 3000.",
+        "en": "Protection limits shall not block students from one address (a campus network or a mobile carrier behind NAT): writes 60 per minute per student rather than per address with a 1200 ceiling per address, identity questions 24000 per 10 minutes, and code errors 600 per 10 minutes with success credit and an absolute ceiling of 3000."
+      },
+      "rationale": {
+        "ar": "قبل الإصلاح أكمل 3.3% فقط (20 من 600) من طلبة عنوان واحد رحلتهم.",
+        "en": "Before the fix only 3.3% (20 of 600) of students behind one address completed their journey."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "600 طالب بمعدل 5 في الثانية من عنوان واحد: 600 من 600 بعد الإصلاح.",
+          "en": "600 students at 5 per second from one address: 600 of 600 after the fix."
+        },
+        {
+          "ar": "طالب واحد يكرر الكتابة يقف عند ستين في الدقيقة بـ 429.",
+          "en": "A single student repeating writes stops at sixty per minute with 429."
+        },
+        {
+          "ar": "السيناريو المصغّر (سقف 60 بدل 600) حجب 199 صاحب رمز صحيح على الكود القديم وصفراً على الجديد.",
+          "en": "The shrunken scenario (ceiling 60 instead of 600) blocked 199 valid-code holders on the old code and none on the new."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/server/publicAttemptLimiter.ts",
+          "docs/LOAD_TEST.md"
+        ],
+        "tests": [
+          "tests/student-door-shared-network-audit.ts",
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-003",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "فتح بطاقة الأستاذ وشاشة القسم",
+        "en": "Opening the teacher card and department screen"
+      },
+      "text": {
+        "ar": "يجب أن تُقرأ بطاقة الأستاذ وشاشة القسم بقراءات متوازية من Firestore (الرابط وطلبه معاً، وسياق فصل واحد لكل فصل وكلية وقسم) لا بسلسلة رحلات متتابعة، وأن تبقى الردود متطابقة قبل التغيير وبعده.",
+        "en": "The teacher card and the department screen shall be read with parallel Firestore reads (the link and its request together, one term context per term, college and department) rather than a chain of sequential trips, with responses identical before and after the change."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "على قاعدة حقيقية بـ 300 أستاذ وقراءة نحو 170 ملّي ثانية: فتح البطاقة من 1.9 ثانية إلى 1.2، وشاشة القسم (نحو 108 طلبات) من 3.5–5.4 ثانية إلى 1.5.",
+          "en": "On a real database with 300 teachers and reads near 170 ms: opening the card from 1.9 s to 1.2 s, and the department screen (about 108 requests) from 3.5–5.4 s to 1.5 s."
+        },
+        {
+          "ar": "كلفة المعالج في الاختبار الكامل (ألف أستاذ) 381 ثانية معالج، أي أقل من 0.4 ثانية للأستاذ.",
+          "en": "Processor cost in the full run (one thousand teachers) was 381 CPU-seconds, under 0.4 s per teacher."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/instructorRequests.ts",
+          "scripts/loadtest/teacher-card.mjs",
+          "docs/LOAD_TEST.md"
+        ],
+        "tests": [
+          "tests/teacher-card-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-004",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "ميزانية أداء المرشد",
+        "en": "Guide performance budget"
+      },
+      "text": {
+        "ar": "يجب ألا يتجاوز فهم سؤال المرشد 8 ملّي ثانية، ولا بناء فهرسه 300 ملّي ثانية، ولا حجم بنك المعرفة 70000 بايت، وأن يبقى المرشد في حزمة تُحمَّل عند الطلب؛ ويفشل البناء الإنتاجي إن تجاوز أياً منها.",
+        "en": "Understanding a guide question shall take no more than 8 ms, building its index no more than 300 ms, and the knowledge bank shall not exceed 70000 bytes, with the guide kept in a lazily loaded bundle; the production build fails if any is exceeded."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "المتوسط على 1000 سؤال بعد 200 تسخين أقل من 8 ملّي ثانية للسؤال.",
+          "en": "The mean over 1000 questions after 200 warm-ups is under 8 ms per question."
+        },
+        {
+          "ar": "إزالة الاستيراد الكسول لـ GuideAssistant من App.tsx يُفشل الفحص.",
+          "en": "Removing the lazy import of GuideAssistant from App.tsx fails the check."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/guide-performance-audit.mjs",
+          "src/guide/bank.ts",
+          "package.json"
+        ],
+        "tests": [
+          "scripts/guide-performance-audit.mjs"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-005",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "اقتصاد القراءة من قاعدة البيانات",
+        "en": "Database read economy"
+      },
+      "text": {
+        "ar": "يجب ألا يُضاف استعلام على مجموعة كبيرة في Firestore (طبعة Enterprise التي لا تفهرس تلقائياً) إلا ويتصدّر حقله فهرس في firestore.indexes.json، وأن تُقرأ ملفات الطلبة لقسمٍ واحد لا لكلية كاملة عند عدّاد الرغبات؛ ويفشل اختبار الفهارس إن لم يتحقق الشرط.",
+        "en": "A query on a large Firestore collection (Enterprise edition, which does not index automatically) shall be added only when its leading field heads an index in firestore.indexes.json, and the wishes counter shall read one department's student files, not a whole college's; the index audit fails when the condition is not met."
+      },
+      "rationale": {
+        "ar": "قبل الفهارس قرأت أثقل خمسين استعلاماً نحو 590 مليون وحدة قراءة في أسبوع، جلّها مسح كامل؛ وعدّاد الرغبات كان يقرأ نحو 300 ألف قراءة لكلية بعشرة آلاف ملف.",
+        "en": "Before indexes the fifty heaviest queries read about 590 million read units in a week, nearly all full scans; the wishes counter read about 300 thousand reads for a college with ten thousand files."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "استعلام جديد على مجموعة معدودة كبيرة (مثل schedules بنحو 16000 صف) بلا فهرس يُفشل tests/firestore-index-audit.ts.",
+          "en": "A new query on a counted large collection (such as schedules at about 16,000 rows) without an index fails tests/firestore-index-audit.ts."
+        },
+        {
+          "ar": "قراءات الكلية في نافذة العدّاد صارت بعدد ملفاتها (نحو عشرة آلاف) أي أقل بنحو 30 ضعفاً.",
+          "en": "College reads per counter window became the number of its files (about ten thousand), roughly 30 times fewer."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "firestore.indexes.json",
+          "docs/LOAD_TEST.md",
+          "docs/DELIVERY_OPERATIONS.md"
+        ],
+        "tests": [
+          "tests/firestore-index-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-006",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "طبقات الذاكرة المؤقتة وخفة التسليم",
+        "en": "Caching layers and delivery weight"
+      },
+      "text": {
+        "ar": "يجب أن يحفظ الخادم هوية الجلسة 120 ثانية (تُسقط فوراً عند الخروج أو تعديل الحساب)، وبيانات المراجع 90 ثانية، وصفوف الجداول 300 ثانية مع إبطال عند أي كتابة؛ وأن تُضغط الاستجابات النصية فوق 1024 بايت، وتُقدَّم الملفات المبصومة بتخزين سنة، وتُفصل حزمتا react والأيقونات وCSS المؤجَّل عن الحزمة الرئيسية، ويُحمَّل خطان عربيان مسبقاً.",
+        "en": "The server shall hold session identity for 120 seconds (dropped at once on sign-out or account edit), reference data for 90 seconds and schedule rows for 300 seconds with invalidation on any write; text responses over 1024 bytes shall be compressed, hashed files cached for a year, the react and icon bundles and deferred CSS split from the main bundle, and two Arabic font weights preloaded."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعديل حساب أو نطاقه يُسقط الإدخال المخزّن فلا يعمل حساب مسحوب الصلاحية من الذاكرة.",
+          "en": "Editing an account or its scope drops the cached entry so a revoked account cannot keep working from memory."
+        },
+        {
+          "ar": "لا يمرّ طلب ثابت (ورقة أنماط أو خط) بفحص هوية؛ فقط /api يمرّ بمصادقة.",
+          "en": "A static request (stylesheet or font) does no identity lookup; only /api is authenticated."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/auth.ts",
+          "src/db/referenceCache.ts",
+          "server.ts",
+          "vite.config.ts",
+          "index.html"
+        ],
+        "tests": [
+          "tests/demo-complete-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-007",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الصلاحية يفرضها الخادم",
+        "en": "Permission enforced on the server"
+      },
+      "text": {
+        "ar": "يجب أن يفرض الخادم الصلاحية في نقطة واحدة على مدخل /api كله: أي طلب غير قراءة من دور قارئ (العميد والعميد المساعد وعميد التسجيل) يُرفض بـ 403 مهما أخفت الواجهة من أزرار، ولا يُفتح للقارئ إلا مسارات دورة الاعتماد بحسب دوره؛ وإخفاء أيقونة في الواجهة ليس صلاحية.",
+        "en": "The server shall enforce permission at a single point at the entrance of all of /api: any non-read request from a read-only role (dean, vice dean, dean of registration) is refused with 403 whatever buttons the interface hides, and only approval-cycle paths are open to a reader according to the role; hiding an icon in the interface is not permission."
+      },
+      "rationale": {
+        "ar": "التحقق في كل مسار على حدة يكفي فيه نسيان واحد ليُفتح باب تعديل لا يعلم به أحد.",
+        "en": "Checking in each route separately lets one omission open a write door nobody knows about."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "كل تركيبة من الطريقة والمسار والصفة تُختبر على القرار، ونص server.ts يثبت أن الحارس مركّب في موضعه.",
+          "en": "Every combination of method, path and role is tested on the verdict, and the text of server.ts proves the guard is mounted in place."
+        },
+        {
+          "ar": "المستخدم العادي الذي لا يملك الشاشة المطلوبة يُرفض على الخادم لا في الواجهة وحدها.",
+          "en": "A standard user without the required screen is refused on the server, not only in the interface."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/server/roleGuard.ts",
+          "src/server/core/auth.ts",
+          "docs/SECURITY_NOTES.md"
+        ],
+        "tests": [
+          "tests/role-guard-audit.ts",
+          "tests/forbidden-fetch-guard-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-008",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "حماية كلمات السر",
+        "en": "Password protection"
+      },
+      "text": {
+        "ar": "يجب أن تُخزَّن كلمات السر مجزّأة بـ scrypt بملح خاص (64 بايتاً مشتقاً) وتُقارن بمقارنة ثابتة الزمن، وأن يُمنع الدخول بتجزئة قديمة غير scrypt حتى تُعاد التهيئة، وأن تكون الكلمة الجديدة من 8 إلى 128 حرفاً، وأن تكون الكلمة المؤقتة 14 حرفاً صالحة 24 ساعة لدخول واحد دون نسخة قابلة للفك، وأن تُلزم الكلمة الأولى (صالحة 7 أيام) بالتغيير قبل أي مسار غير /auth.",
+        "en": "Passwords shall be stored hashed with scrypt and a per-password salt (64 derived bytes) and compared in constant time; sign-in with a legacy non-scrypt hash shall be blocked until reset; a new password shall be 8 to 128 characters; a temporary password shall be 14 characters valid for 24 hours for a single sign-in with no decryptable copy; and a first password (valid 7 days) shall force a change before any path outside /auth."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "standard",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "كلمة من 7 أحرف تُرفض برسالة «8 على الأقل»، ومن 129 تُرفض بأنها أطول من المسموح.",
+          "en": "A 7-character password is refused with an 'at least 8' message and a 129-character one as too long."
+        },
+        {
+          "ar": "حساب عليه تغيير الكلمة لا يصل إلى غير /auth حتى يغيّرها.",
+          "en": "An account that must change its password reaches nothing but /auth until it does."
+        },
+        {
+          "ar": "يحفظ النظام لحسابات الشاشة القديمة نسخة AES-256-GCM قابلة للفك لكلمة السر، يحميها مفتاح منفصل وصلاحية الشاشة 11، ولا يعيدها تسجيل الدخول ولا واجهات الجلسة.",
+          "en": "For the legacy screen the system keeps an AES-256-GCM decryptable copy of the password, protected by a separate key and permission for screen 11, and neither sign-in nor session endpoints return it."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "src/server/accountPassword.ts",
+          "src/server/routes/authRoutes.ts",
+          "src/server/routes/usersRoutes.ts",
+          "docs/SECURITY_NOTES.md"
+        ],
+        "tests": [
+          "tests/password-reset-audit.ts",
+          "tests/first-login-password-audit.tsx"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-009",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الجلسات وكوكياتها",
+        "en": "Sessions and cookies"
+      },
+      "text": {
+        "ar": "يجب أن يكون معرّف الجلسة 32 بايتاً عشوائياً (بادئة sess_ أو demo_)، وكوكيه HttpOnly وSameSite=Lax وSecure في الإنتاج، وأن تنتهي الجلسة بعد 15 دقيقة خمول على الخادم (تُجدَّد كل 120 ثانية على الأكثر)، وأن تُخرَج كل جلسات حساب عند تسليمه أو تعديله، وأن تُنظَّف وثائق الجلسات المهجورة بسياسة TTL في Firestore.",
+        "en": "The session id shall be 32 random bytes (prefix sess_ or demo_), its cookie HttpOnly, SameSite=Lax and Secure in production; a session shall end after 15 idle minutes on the server (renewed at most every 120 seconds), all sessions of an account shall be ended when it is handed over or edited, and abandoned session documents shall be swept by a Firestore TTL policy."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "الكوكي في الإنتاج يحمل Secure وHttpOnly وSameSite=Lax؛ وخارج الإنتاج بلا Secure.",
+          "en": "In production the cookie carries Secure, HttpOnly and SameSite=Lax; outside production without Secure."
+        },
+        {
+          "ar": "معرّف لا يطابق ^(sess|demo)_[0-9a-f]{64}$ لا يُسأل عنه Firestore.",
+          "en": "An id not matching ^(sess|demo)_[0-9a-f]{64}$ is never looked up in Firestore."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/auth.ts",
+          "src/server/routes/authRoutes.ts",
+          "src/db/repository.ts",
+          "src/server/anonymousGuard.ts"
+        ],
+        "tests": [
+          "tests/anonymous-guard-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-010",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "قاعدة Firestore تمنع كل اتصال مباشر",
+        "en": "Firestore rules deny every direct connection"
+      },
+      "text": {
+        "ar": "يجب أن تمنع قواعد Firestore كل قراءة وكتابة من المتصفح أو حزمة العميل (allow read, write: if false)، فلا يصل إلى البيانات إلا خادم التطبيق بصلاحيات حزمة الإدارة التي لا تخضع للقواعد؛ وأي حاجة لاحقة لقراءة مباشرة تأتي بقاعدة ضيقة لمجموعة بعينها وسبب موثّق لا بتوسيع هذه.",
+        "en": "Firestore rules shall deny every read and write from the browser or client SDK (allow read, write: if false), so only the application server, using Admin SDK credentials that are not evaluated against rules, reaches the data; any later need for direct reads shall arrive as a narrow collection-scoped rule with a documented reason, never by widening this one."
+      },
+      "rationale": {
+        "ar": "قاعدة «المصادَق فقط» السابقة كانت تسمح لأي هوية يصدرها المشروع بقراءة المستخدمين والجلسات وروابط المشاركة.",
+        "en": "The earlier 'authenticated only' rule would have let any identity the project mints read users, sessions and share links."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الملف يحوي قاعدة match /{document=**} وحيدة بـ if false.",
+          "en": "The file contains a single match /{document=**} rule with if false."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "firestore.rules",
+          "firebase.json",
+          "docs/SECURITY_NOTES.md"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-011",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "التعامل مع الأسرار",
+        "en": "Secrets handling"
+      },
+      "text": {
+        "ar": "يجب ألا تُحفظ الأسرار ولا مفاتيح الخزنة ولا اللقطات الحقيقية في المستودع ولا في الصورة؛ وأن تأتي مفاتيح الخدمات الخارجية وسرّ الخزنة (PASSWORD_VAULT_KEY) وسرّ التقويم (CALENDAR_SECRET) من مدير أسرار المنصة أو متغيّرات البيئة الخاصة، وإن غاب سرّ التقويم اشتُق بـ HMAC من السرّ المشترك المحفوظ بوسم خاص بدل مفتاح عشوائي لكل إقلاع.",
+        "en": "Secrets, vault keys and real snapshots shall not be kept in the repository or the image; external-service keys, the vault secret (PASSWORD_VAULT_KEY) and the calendar secret (CALENDAR_SECRET) shall come from the platform secret manager or private environment variables, and when the calendar secret is absent it shall be derived by HMAC from the stored shared secret under a dedicated label instead of a random key per boot."
+      },
+      "rationale": {
+        "ar": "المفتاح العشوائي لكل إقلاع كان يقتل كل اشتراك تقويم في هواتف الأساتذة ويعطي نسختين مفتاحين مختلفين.",
+        "en": "A random key per boot killed every calendar subscription on teachers' phones and gave two instances different keys."
+      },
+      "priority": "must",
+      "status": "in-progress",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "اشتراك تقويم قائم يبقى صالحاً بعد إعادة تشغيل الخادم وعلى نسخة ثانية.",
+          "en": "An existing calendar subscription stays valid after a server restart and on a second instance."
+        },
+        {
+          "ar": "مفتوح: كلمة سر مدير قديمة بقيت في تاريخ git (أُزيلت من الشجرة) وتدويرها بيد المالك.",
+          "en": "Open: an old administrator password remains in git history (removed from the tree) and rotating it rests with the owner."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/calendarSecret.ts",
+          "src/server/runtimeEnv.ts",
+          "SECURITY-TODO.md",
+          "docs/SECURITY_NOTES.md"
+        ],
+        "tests": [
+          "tests/credential-audit.ts",
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-012",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "رموز الروابط العامة",
+        "en": "Public link tokens"
+      },
+      "text": {
+        "ar": "يجب أن يكون رمز الرابط العام سلسلة عشوائية طويلة تنتهي بمهلة (150 يوماً احتياطياً لروابط الفصل مع القراءة حتى نهاية الفصل لأنواع بعينها) وتُلغى عند السحب، ولا تكشف رقماً مدنياً ولا هاتفاً ولا حساباً ولا نطاقاً غير نطاقها؛ وأن يحمل اشتراك التقويم مفتاحاً مشتقاً بـ HMAC من الرابط ورقم الأستاذ لا الرقم المدني؛ وألا تحتفظ ذاكرة المحدّدات بالرمز بل ببصمته.",
+        "en": "A public link token shall be a long random string that expires (a 150-day fallback for term links, with reading until term end for certain kinds) and is revoked on withdrawal, and shall expose no civil number, phone, account or scope beyond its own; a calendar subscription shall carry a key derived by HMAC from the link and the instructor number, not the civil number; and limiter memory shall hold the token's fingerprint, never the token."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "student",
+        "visitor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط منتهٍ يُردّ بـ 410 ولا يُحسب تخميناً؛ ورمز لا يطابق شيئاً يردّ 404 ويُحسب.",
+          "en": "An expired link answers 410 and is not counted as a guess; a token matching nothing answers 404 and is counted."
+        },
+        {
+          "ar": "الرابط المحذوف لا يُعيد مفتاح اشتراكه بعد السحب.",
+          "en": "A withdrawn link no longer yields its subscription key."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/shareLinks.ts",
+          "src/utils/shareLinkLifetime.ts",
+          "src/server/calendarSecret.ts",
+          "src/server/anonymousGuard.ts",
+          "src/server/core/rateLimits.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts",
+          "tests/staff-device-key-audit.ts",
+          "tests/anonymous-guard-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-013",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "تهريب النص وسياسة المحتوى للصفحات العامة",
+        "en": "Escaping and content policy for public pages"
+      },
+      "text": {
+        "ar": "يجب أن تُهرَّب كل قيمة تُدرج في الصفحات العامة المبنية في الخادم (تسمية، اسم ممسوح، رسالة زائر)، وأن تحمل كل استجابة منها سياسة CSP بنونس عشوائي لكل استجابة: default-src 'none' وscript-src بالنونس وحده وconnect-src وfont-src وmanifest-src وworker-src على الأصل نفسه وbase-uri 'none' وframe-ancestors 'none' خارج المعاينة، حتى لا يعمل وسم سكربت محقون.",
+        "en": "Every value inserted into server-built public pages (a label, an OCR'd name, a visitor's message) shall be escaped, and every such response shall carry a CSP with a fresh nonce per response: default-src 'none', script-src by nonce alone, connect-src, font-src, manifest-src and worker-src on the same origin, base-uri 'none' and frame-ancestors 'none' outside preview, so an injected script tag does not run."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "كل سكربت في الصفحات العامة يُفحص نحوياً بمحلّل TypeScript؛ وسكربت محقون بلا نونس لا ينفَّذ.",
+          "en": "Every script in the public pages is syntax-checked by the TypeScript parser; an injected script without the nonce does not execute."
+        },
+        {
+          "ar": "style-src يبقى 'unsafe-inline' عمداً لأن الأنماط المضمّنة لا تنفَّذ ولا يغطيها النونس.",
+          "en": "style-src deliberately stays 'unsafe-inline' because inline styles cannot execute and a nonce cannot cover them."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/publicPages.ts",
+          "src/server/publicKit.ts"
+        ],
+        "tests": [
+          "tests/public-pages-syntax-audit.ts",
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-014",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "تحقق المدخلات وحدودها",
+        "en": "Input validation and bounds"
+      },
+      "text": {
+        "ar": "يجب أن تُقبل مدخلات البيانات المرجعية نصاً مقصوصاً غير فارغ لا يتجاوز 120 حرفاً للاسم و40 للرمز، وأعداداً صحيحة ضمن حدودها بعد تحويل الأرقام الهندية والفارسية إلى لاتينية، وأن يُرفض الكائن والمصفوفة والمنطقي وNaN برسالة عربية واحدة تسمّي الحقل؛ وألا تتراجع التعابير النمطية تراجعاً تربيعياً على مدخل عدائي.",
+        "en": "Reference-data inputs shall be accepted as trimmed non-empty text of at most 120 characters for a name and 40 for a code, and as whole numbers within bounds after Arabic-Indic and Persian digits are converted to Latin, with objects, arrays, booleans and NaN refused by one Arabic message naming the field; regular expressions shall not backtrack quadratically on hostile input."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "«٤٥» تُقبل كالعدد 45؛ وسلسلة من 121 حرفاً لاسم تُرفض.",
+          "en": "'٤٥' is accepted as 45; a 121-character name is refused."
+        },
+        {
+          "ar": "مطابقة تعبيرات النقل وحدّ الفراغ على مدخل عدائي تنتهي ضمن حد زمني سخيّ يقيسه الاختبار بالساعة.",
+          "en": "Matching the transfer and whitespace-limit expressions on hostile input finishes within a generous time bound the test measures by the clock."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/input.ts",
+          "src/utils/digits.ts"
+        ],
+        "tests": [
+          "tests/input-hardening-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-015",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "مقاومة الإساءة عبر النسخ",
+        "en": "Abuse resistance across instances"
+      },
+      "text": {
+        "ar": "يجب أن تُكمَّل حدود المعدّل التي تعدّ في ذاكرة كل نسخة (الدخول 5 في الدقيقة، والعام 60، وبطاقة الأستاذ 240 للرابط) بسياسة على حافة الشبكة تراها كلها عدّاداً واحداً، لأن السقف الفعلي يتضاعف بعدد النسخ ويصفَّر كل بدء بارد.",
+        "en": "Rate limits that count in each instance's memory (sign-in 5 per minute, public 60, teacher card 240 per link) shall be complemented by an edge-of-network policy that sees them as one counter, because the effective ceiling multiplies with the number of instances and resets on every cold start."
+      },
+      "priority": "should",
+      "status": "in-progress",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "المنفَّذ اليوم: حدود الذاكرة المذكورة أعلاه تعمل في كل نسخة.",
+          "en": "Implemented today: the in-memory limits above operate in every instance."
+        },
+        {
+          "ar": "غير المنفَّذ: سياسة الحافة (Cloud Armor) أوامرها مكتوبة في SECURITY-TODO.md ولم تُشغَّل، وتبدأ بوضع المعاينة.",
+          "en": "Not implemented: the edge policy (Cloud Armor) has its commands written in SECURITY-TODO.md but not run, and starts in preview mode."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/rateLimits.ts",
+          "src/server/routes/authRoutes.ts",
+          "SECURITY-TODO.md",
+          "docs/LOAD_TEST.md"
+        ],
+        "tests": [
+          "tests/student-door-shared-network-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-016",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "سجل التدقيق بلا محتوى الطلبات",
+        "en": "An audit trail without request content"
+      },
+      "text": {
+        "ar": "يجب أن يسجّل النظام كل كتابة ناجحة عبر /api (المستخدم والطريقة والمسار والفعل والكيان والحالة وما تغيّر إن أمكن) وكل دخول وخروج ومحاولة دخول مرفوضة وكل رفض 403 أو 409، دون حفظ جسم الطلب، وأن يستثني النبض وتحديث «المقروء» وفحص التعارض والقياس عن بعد حتى لا يُدفن السجل.",
+        "en": "The system shall record every successful write through /api (user, method, path, action, entity, status and what changed where possible) and every sign-in, sign-out, refused sign-in attempt and 403 or 409 refusal, without storing the request body, excluding the heartbeat, the 'read' marker, conflict checks and telemetry so the log is not buried."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "كلمة سر مرسلة في طلب كتابة لا تظهر في أي سطر من السجل.",
+          "en": "A password sent in a write request appears in no log line."
+        },
+        {
+          "ar": "محاولة دخول خاطئة تُسجَّل باسم الحساب المقصود وبفعل «محاولة دخول مرفوضة».",
+          "en": "A wrong sign-in is recorded under the targeted account with the action 'refused sign-in attempt'."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/server/routes/adminRoutes.ts",
+          "src/server/routes/authRoutes.ts"
+        ],
+        "tests": [
+          "tests/role-guard-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-017",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "حدّ الخدمة الخارجية",
+        "en": "External-service boundary"
+      },
+      "text": {
+        "ar": "يجب أن تقرأ خدمة Gemini النص وتقترح فقط، وأن يجري التنفيذ دائماً عبر المدققات الحتمية وبتأكيد صريح من المستخدم؛ وأن تُحصر الدوال المسموح باقتراحها في قائمة ثابتة تُنقّى مخرجاتها، وأن يبقى مفتاح الخدمة في الخادم من سر المنصة ولا يصل إلى المتصفح، وأن تُرسل إليها البيانات اللازمة للطلب وحدها، وأن تُجاب أي عطلة منها برسالة موحّدة لا تكشف النموذج ولا المفتاح.",
+        "en": "The Gemini service shall only read text and propose; execution shall always go through the deterministic validators and with explicit confirmation from the user; the functions it may propose shall be limited to a fixed list with sanitised output, its key shall stay on the server from the platform secret and never reach the browser, only the data the request needs shall be sent to it, and any failure shall be answered with one uniform message that reveals neither the model nor the key."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "external",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "نداء دالة غير مدرجة في GEMINI_SCHEDULE_FUNCTION_NAMES يُسقط من المخرجات.",
+          "en": "A call to a function not in GEMINI_SCHEDULE_FUNCTION_NAMES is dropped from the output."
+        },
+        {
+          "ar": "رفض الخدمة أو انتهاء المهلة يُسجَّل في الخادم برمز الحالة ولا يظهر نصه للمستخدم.",
+          "en": "A refusal or timeout is logged on the server with its status code and its text is not shown to the user."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/gemini.ts",
+          "src/utils/geminiScheduleLayer.ts"
+        ],
+        "tests": [
+          "tests/gemini-schedule-layer.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-018",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "سياسة الخصوصية العلنية",
+        "en": "A public privacy policy"
+      },
+      "text": {
+        "ar": "يجب أن تنشر الصفحة العامة /privacy-policy.html سياسة بالعربية مع ملخص إنجليزي تذكر البيانات المعالَجة وغرضها والجهات التي تعالجها نيابة عن المشغّل (Firestore وCloud Run ومزوّد Gemini) والحماية بالتشفير HTTPS وتقييد الوصول بالدور، وأنها لا تُباع ولا تُستعمل للإعلان، وطريقة طلب الاطلاع أو التصحيح أو الحذف بالبريد.",
+        "en": "The public page /privacy-policy.html shall publish a policy in Arabic with an English summary stating the data processed and its purpose, the parties processing it on the operator's behalf (Firestore, Cloud Run and the Gemini provider), protection by HTTPS encryption and role-based access, that data is neither sold nor used for advertising, and how to request access, correction or deletion by email."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "الصفحة تحمل تاريخ آخر تحديث (5 نوفمبر 2026) وتُفتح بلا حساب وتتبع إعداد الجهاز نهارياً أو ليلياً.",
+          "en": "The page carries a last-updated date (5 November 2026), opens without an account and follows the device's light or dark setting."
+        },
+        {
+          "ar": "الصفحة مستثناة من تخزين عامل الخدمة للبيانات الشخصية ولا تحتاج جلسة.",
+          "en": "The page needs no session and caches no personal data."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "public/privacy-policy.html",
+          "public/robots.txt"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-019",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "تقليل البيانات الشخصية",
+        "en": "Personal data minimisation"
+      },
+      "text": {
+        "ar": "يجب أن يُختم الرقم المدني للطالب بتشفير AES-256-GCM بمفتاح مشتق من السر المشترك ولا يُحفظ نصاً في الذاكرة أو السجل أو الرابط، وأن تُحذف ملفات الطلبة تلقائياً حين ينتهي عمرها (التخرج المتوقع مع سنة أو الانقطاع) بفحص كل 6 ساعات، وألا يخزّن عامل الخدمة على الجهاز ردود الحالات الشخصية (/api/schedules/demand و/api/student-registration) ولا /api/auth ولا /api/users، وأن تُمسح ذاكرة الواجهة عند تغيّر الهوية.",
+        "en": "A student's civil number shall be sealed with AES-256-GCM under a key derived from the shared secret and never kept as text in memory, log or URL; student profiles shall be deleted automatically when their lifetime ends (expected graduation plus a year, or inactivity), checked every 6 hours; the service worker shall not store on the device the personal case responses (/api/schedules/demand and /api/student-registration), /api/auth or /api/users, and the API cache shall be cleared when identity changes."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "اشتراك التقويم يحمل مفتاحاً مشتقاً لا الرقم المدني، والرقم لا يظهر في سجل الخادم.",
+          "en": "A calendar subscription carries a derived key rather than the civil number, and the number does not appear in the server log."
+        },
+        {
+          "ar": "تسجيل الخروج يرسل CLEAR_API_CACHE ويحذف ذاكرة الواجهة مباشرة أيضاً.",
+          "en": "Sign-out sends CLEAR_API_CACHE and also deletes the API cache directly."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/studentIdentity.ts",
+          "src/server/studentDoorRoutes.ts",
+          "public/sw.js",
+          "src/App.tsx"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-020",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "أهداف اللمس 44 بكسل",
+        "en": "44-pixel touch targets"
+      },
+      "text": {
+        "ar": "يجب ألا يقل هدف اللمس لأي عنصر تفاعلي على الهاتف واللوح عن 44 بكسل (المؤشر الخشن وعرض 760 بكسل فأقل)، وأن يتسع الزر الأيقوني الصغير بإزاحة منطقة اللمس لا بتغيير رسمه.",
+        "en": "Every interactive element on phone and tablet shall have a touch target of at least 44 pixels (coarse pointer and width up to 760 pixels), with a small icon button enlarged by extending its hit area rather than changing its drawing."
+      },
+      "priority": "should",
+      "status": "in-progress",
+      "actors": [
+        "standard",
+        "admin",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "مُطبَّق على شاشات الإدارة وصفحة التحديث (min-height 44) وأزرار نسخ الرقم التجريبي (44×44).",
+          "en": "Applied to administration screens, the updating page (min-height 44) and the demo number-copy button (44×44)."
+        },
+        {
+          "ar": "المتبقي بحسب مسح الجولة الثالثة: 1598 هدفاً دون 44 بكسل عند 390 و768 و320، و1591 عند 1280، أغلبها في القوائم الكثيفة والشرائح.",
+          "en": "Remaining per the third-round sweep: 1598 targets under 44 pixels at 390, 768 and 320, and 1591 at 1280, mostly in dense lists and chips."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/49-admin-touch.css",
+          "public/updating.html",
+          "docs/QUALITY-SCORECARD.md"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-021",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "تباين الألوان بمعيار AA",
+        "en": "Colour contrast to WCAG AA"
+      },
+      "text": {
+        "ar": "يجب ألا يقل تباين النص العادي عن 4.5:1 بمعيار WCAG AA في كل الشاشات المعايَرة، وأن تُدار ألوان المنصة بمتغيّرات لا بقيم مبعثرة.",
+        "en": "Normal text contrast shall be at least 4.5:1 under WCAG AA on every calibrated screen, with platform colours managed through variables rather than scattered values."
+      },
+      "priority": "should",
+      "status": "in-progress",
+      "actors": [
+        "standard",
+        "student",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "نتيجة مسح الجولة الثالثة: عقد axe للتباين من 22 إلى 8 (عرض 390 و768 و320) ومن 10 إلى 4 (عرض 1280)، وصفوف التباين المحسوب من 27 إلى 19 ومن 12 إلى 9.",
+          "en": "Third-round sweep result: axe contrast nodes from 22 to 8 (widths 390, 768, 320) and from 10 to 4 (width 1280), computed-contrast rows from 27 to 19 and from 12 to 9."
+        },
+        {
+          "ar": "المتبقي معروف: نصوص صغيرة في «مساري» (أدناها 2.34:1) وتسميات بين 4.0 و4.4:1.",
+          "en": "Remaining known: small text in the student journey page (lowest 2.34:1) and labels between 4.0 and 4.4:1."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/30-motion.css",
+          "src/styles/35-visual-polish.css",
+          "docs/QUALITY-SCORECARD.md",
+          "docs/VISUAL-POLISH-AUDIT.md"
+        ],
+        "tests": [
+          "tests/term-student-phases-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-022",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "حقول وأزرار بأسماء مفهومة للقارئ الآلي",
+        "en": "Controls with accessible names"
+      },
+      "text": {
+        "ar": "يجب أن يكون لكل حقل إدخال وقائمة منسدلة وزر أيقوني اسم يقرؤه قارئ الشاشة (label أو aria-label)، وأن يحمل كل زر نسخ أو إغلاق في الصفحات العامة وصفاً صريحاً، وألا يبقى الدرج المغلق في ترتيب Tab.",
+        "en": "Every input, drop-down and icon button shall have a name a screen reader reads (label or aria-label), every copy or close button in public pages shall carry an explicit description, and a closed drawer shall not stay in the tab order."
+      },
+      "priority": "should",
+      "status": "in-progress",
+      "actors": [
+        "standard",
+        "student",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "المنفَّذ: الدرج المغلق visibility:hidden بتأخير 280 ملّي ثانية؛ وزر النسخ التجريبي له aria-label «نسخ الرقم».",
+          "en": "Done: the closed drawer is visibility:hidden delayed 280 ms; the demo copy button has aria-label 'copy the number'."
+        },
+        {
+          "ar": "المتبقي: نحو 30 قائمة منسدلة بلا اسم (فلتر الفصل، فلاتر الاستعلام، كشف التسجيل) وزر أيقوني في مراجعة الصحيفة، مسجّلة في التدقيق ولم تُصلَح لأنها تحتاج تعديل ترميز.",
+          "en": "Remaining: about 30 unnamed drop-downs (term filter, query filters, registration sheet) and an icon button in plan review, recorded by the audit and not fixed because they need markup changes."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/07-responsive.css",
+          "src/server/core/publicPages.ts",
+          "docs/QUALITY-SCORECARD.md"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-023",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "احترام تقليل الحركة",
+        "en": "Reduced-motion respect"
+      },
+      "text": {
+        "ar": "يجب أن تعمل طبقة الحركة كلها تحت prefers-reduced-motion: no-preference، فلا تعمل رسوم متحركة حين يطلب المستخدم تقليلها، وأن تقتصر الحركة على transform وopacity بمدد 120 و180 و260 ملّي ثانية وبلا حلقات لا نهائية في رحلة الطالب.",
+        "en": "The whole motion layer shall run under prefers-reduced-motion: no-preference so no animation runs when the user asks for less, and motion shall be limited to transform and opacity at 120, 180 and 260 ms with no infinite loops in the student journey."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "عدد الرسوم المتحركة العاملة تحت تقليل الحركة صفر في كل الشاشات والعروض الأربعة (320 و390 و768 و1280).",
+          "en": "The number of animations running under reduced motion is zero on every screen at the four widths (320, 390, 768, 1280)."
+        },
+        {
+          "ar": "رحلة الطالب بلا animation-iteration-count: infinite.",
+          "en": "The student journey has no animation-iteration-count: infinite."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/30-motion.css",
+          "docs/QUALITY-SCORECARD.md",
+          "docs/VISUAL-POLISH-AUDIT.md"
+        ],
+        "tests": [
+          "tests/journey-reveal-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-024",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "التكبير ومؤشر التركيز",
+        "en": "Zoom and focus indication"
+      },
+      "text": {
+        "ar": "يجب ألا يعطّل وسم العرض التكبير بالإصبعين (لا maximum-scale ولا user-scalable=no)، وأن يرسم كل عنصر قابل للتركيز حلقة تركيز مرئية (حلقة 2 بكسل) عند التنقّل بلوحة المفاتيح، وأن تُحفظ حلقة حقول النماذج بلون الإطار والظل.",
+        "en": "The viewport tag shall not disable pinch zoom (no maximum-scale and no user-scalable=no), and every focusable element shall draw a visible focus ring (2 pixels) under keyboard navigation, with form fields keeping the ring through border colour and shadow."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "student",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "مسح لوحة مفاتيح فعلي (Tab ×40) على الرئيسية والجدول ومراجعة الصحيفة والاستعلامات عند 390 و1280: كل عنصر يرسم الحلقة عدا حقول النص (لون الإطار) وجسم المستند عند الالتفاف.",
+          "en": "A real keyboard sweep (Tab ×40) on home, schedule, plan review and queries at 390 and 1280: every control draws the ring except text inputs (border colour) and the document body on wrap-around."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "index.html",
+          "src/styles/02-primitives.css",
+          "public/updating.html",
+          "docs/QUALITY-SCORECARD.md"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-025",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "العربية أولاً واتجاه من اليمين إلى اليسار",
+        "en": "Arabic-first, right-to-left"
+      },
+      "text": {
+        "ar": "يجب أن يعلن غلاف التطبيق والصفحات العامة وصفحة التحديث وبيان التطبيق lang=ar وdir=rtl، وأن تُكتب الأنماط بخصائص منطقية (inline-start وinline-end) فلا تنعكس الواجهة بإزاحات مادية، وأن تُعرض الأرقام والرموز اللاتينية داخل النص العربي معزولة (bdi).",
+        "en": "The application shell, public pages, updating page and manifest shall declare lang=ar and dir=rtl, styles shall use logical properties (inline-start and inline-end) so the interface does not break with physical offsets, and Latin numbers and codes inside Arabic text shall be isolated (bdi)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "student",
+        "instructor",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "html في index.html وupdating.html بوسم lang=\"ar\" dir=\"rtl\"، والبيان dir=rtl وlang=ar.",
+          "en": "html in index.html and updating.html carries lang=\"ar\" dir=\"rtl\", and the manifest has dir=rtl and lang=ar."
+        },
+        {
+          "ar": "الرقم المدني التجريبي يُعرض داخل bdi dir=ltr فلا ينقلب ترتيب خاناته.",
+          "en": "The demo civil number is shown inside bdi dir=ltr so its digit order never flips."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "index.html",
+          "public/updating.html",
+          "public/manifest.webmanifest",
+          "src/server/core/publicPages.ts"
+        ],
+        "tests": [
+          "tests/updating-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-026",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "خطوط مستضافة ذاتياً",
+        "en": "Self-hosted typefaces"
+      },
+      "text": {
+        "ar": "يجب أن تُقدَّم الخطوط (IBM Plex Sans Arabic بأوزان 300 و400 و500 و600 و700 وIBM Plex Mono) من الخادم نفسه بصيغة woff2 مع font-display: swap وتقسيم unicode-range للعربية واللاتينية، وألا يطلب أي صفحة خطاً من مضيف خارجي، وأن تبقى صفحة التحديث تعمل بخطها المحلي إن لم يكن محفوظاً.",
+        "en": "Typefaces (IBM Plex Sans Arabic in weights 300, 400, 500, 600 and 700, and IBM Plex Mono) shall be served from the same server as woff2 with font-display: swap and unicode-range splits for Arabic and Latin, no page shall request a font from an external host, and the updating page shall keep working with a local font when none is stored."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملفات public/fonts تحوي الأوزان المذكورة؛ وCSP الصفحات العامة font-src 'self'.",
+          "en": "public/fonts holds the listed weights, and the public-page CSP is font-src 'self'."
+        },
+        {
+          "ar": "صفحة التحديث لا طلب خارجي فيها.",
+          "en": "The updating page makes no external request."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/01-foundation.css",
+          "index.html",
+          "public/updating.html",
+          "public/sw.js"
+        ],
+        "tests": [
+          "tests/updating-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-027",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الأرقام والأعداد بالعربية",
+        "en": "Numerals and Arabic counts"
+      },
+      "text": {
+        "ar": "يجب أن يقبل النظام الأرقام الهندية (٠–٩) والفارسية (۰–۹) واللاتينية في أي حقل، ويحوّلها عند الحافة إلى لاتينية للتخزين والمقارنة، وأن يعرض رقم المقرر سبع خانات دائماً (كلية 2 وقسم 2 ومقرر 3، مثل 0109105)، وأن تُصاغ الأعداد بنحو العربية السليم (مفرد ومثنى وجمع)، وألا تُعرض الخانات الثلاث المخزّنة ولا المعرّف الداخلي للمقرر.",
+        "en": "The system shall accept Arabic-Indic, Persian and Latin digits in any field and convert them at the edge to Latin for storage and comparison, always display the course number as seven digits (college 2, department 2, course 3, e.g. 0109105), form counts in correct Arabic grammar (singular, dual and plural), and never display the stored three digits or the internal course id."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "student",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم مدني مكتوب بأرقام هندية يطابق الكتابة اللاتينية نفسه عند الدخول.",
+          "en": "A civil number typed in Arabic-Indic digits matches the same Latin typing at entry."
+        },
+        {
+          "ar": "كل رقم مقرر يراه قارئ في تقرير مطبوع أو استعلام أو Excel من سبع خانات.",
+          "en": "Every course number a reader sees in a printed report, query or Excel export has seven digits."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/digits.ts",
+          "src/utils/arabicCount.ts",
+          "src/utils/authorityAcademicCodes.ts"
+        ],
+        "tests": [
+          "tests/arabic-count-audit.ts",
+          "tests/course-number-seven-digit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-028",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "عربية فصحى وسلامة الرسم",
+        "en": "Standard Arabic and text integrity"
+      },
+      "text": {
+        "ar": "يجب أن تُكتب نصوص الواجهة بالفصحى دون ألفاظ عامية من قائمة محروسة بفحص آلي، وأن تُعاد أشكال العرض العربية المنسوخة من PDF (مثل ﺍﻟﺘﺼﻮﻳﺮ) إلى حروف عادية بـ NFKC عند الكتابة، وأن تتجاوز مطابقة الأسماء الفروق في الهمزة والتاء المربوطة والياء.",
+        "en": "Interface text shall be written in standard Arabic with no colloquial words from a list guarded by an automated check, Arabic presentation forms copied from PDFs shall be normalised to ordinary letters with NFKC on write, and name matching shall ignore differences in hamza, ta marbuta and ya."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الفحص يفشل عند كلمة عامية كاملة في نصوص الواجهة ويذكر الملف والسطر.",
+          "en": "The check fails on a whole colloquial word in interface text and names the file and line."
+        },
+        {
+          "ar": "«قسم الدراسات الإجتماعية» و«قسم الدراسات الاجتماعية» يعطيان مفتاح مطابقة واحداً.",
+          "en": "The two spellings of 'Department of Social Studies' differing in hamza give one match key."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/arabicText.ts"
+        ],
+        "tests": [
+          "tests/standard-arabic-ui-audit.ts",
+          "tests/arabic-presentation-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-029",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "تخطيط يعمل من عرض 320 بكسل",
+        "en": "Layouts that work from 320 pixels"
+      },
+      "text": {
+        "ar": "يجب ألا يخرج أي محتوى عن عرض الشاشة (لا تمرير أفقي) من 320 بكسل فأعلى: حقول التاريخ والساعة على iOS بإسقاط مظهرها الأصلي، وشبكات بعمود minmax(0,1fr)، وحدّ أدنى لشبكات auto-fit يُكتب minmax(min(Npx,100%),1fr) حين يبلغ 160 بكسل فأكثر، وإعادة تركيب التخطيط لا تصغيره.",
+        "en": "No content shall overflow the screen width (no horizontal scroll) from 320 pixels up: iOS date and time fields by dropping their native appearance, grids with a minmax(0,1fr) column, a minimum for auto-fit grids written minmax(min(Npx,100%),1fr) when it is 160 pixels or more, and layouts recomposed rather than merely shrunk."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "student",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "مسح الجولة الثالثة: لا تجاوز أفقي (H2 = 0) عند 320 و390 و768 و1280.",
+          "en": "Third-round sweep: no horizontal overflow (H2 = 0) at 320, 390, 768 and 1280."
+        },
+        {
+          "ar": "المسح الحي يغطي كل الشاشات والصفات الافتراضية بعرضين (390 و360) ويخرج بالرمز 1 عند مخالفة.",
+          "en": "The live sweep covers every screen and default role at two widths (390 and 360) and exits with 1 on a violation."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/46-mobile-overflow.css",
+          "src/styles/07-responsive.css",
+          "scripts/mobile-overflow-sweep.ts",
+          "docs/QUALITY-SCORECARD.md"
+        ],
+        "tests": [
+          "tests/mobile-overflow-css-audit.ts",
+          "tests/masari-responsive-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-030",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الطباعة على A4 أفقياً بتصميم ثابت",
+        "en": "A4 landscape printing with a fixed design"
+      },
+      "text": {
+        "ar": "يجب أن تُطبع التقارير على ورقة A4 أفقية بهوامش صفر تحكمها قواعد @page، وأن تُقاس كل صفحة بقواعد الطباعة نفسها قبل الأمر وتُكبَّر أو تُصغَّر بين 0.6 و1.8 لتملأ الورقة دون قص، وألا يغيّر أي عمل تصميم التقارير المطبوعة (يُصلَح الخلل في القيم والبيانات).",
+        "en": "Reports shall print on landscape A4 with zero margins governed by @page rules, every page shall be measured with the print rules themselves before the command and scaled between 0.6 and 1.8 to fill the sheet without clipping, and no work shall change the design of printed reports (faults are fixed in values and data)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "تقرير أستاذ بمحاضرتين يملأ الورقة ولا يُطبع في ثلثها، وسبع محاضرات طويلة الأسماء لا تُقصّ في Safari.",
+          "en": "A teacher report with two lectures fills the sheet instead of a third of it, and seven lectures with long names are not clipped in Safari."
+        },
+        {
+          "ar": "كل مسار طباعة يقيس قبل الأمر لا بعده؛ ووسائط @media تُقيَّم بالورقة لا بالنافذة.",
+          "en": "Every print path measures before the command, not after; @media rules are evaluated against the paper, not the window."
+        },
+        {
+          "ar": "أي تغيير تخطيط لا مفر منه يعيد استعمال أصناف الطباعة القائمة ويُفحص على PDF A4 أفقي مطبوع من Chrome قبل الدمج.",
+          "en": "Any unavoidable layout change reuses the existing print classes and is checked on a Chrome-printed landscape A4 PDF before merging."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/printFit.ts",
+          "src/styles/08-print.css",
+          "docs/EXHAUSTIVE_UI_AUDIT_2026-08-12.md"
+        ],
+        "tests": [
+          "tests/print-fit-audit.ts",
+          "tests/print-attestation-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-031",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "محرك قرار حتمي",
+        "en": "A deterministic decision engine"
+      },
+      "text": {
+        "ar": "يجب أن تُحسب أحكام التعارض ومانع الاعتماد بشيفرة حتمية تعطي النتيجة نفسها للمدخل نفسه من كل نقطة دخول (العدّاد والقائمة المفصّلة والتنبيه ومسح اللوحة الحية)، وأن يبقى مسار الفهرسة السريع مطابقاً لمسح كل الأزواج الأصلي: لا تعارض ناقص ولا زائد ولا بسبب أو شدة أو ترتيب مختلف.",
+        "en": "Conflict and approval-blocker verdicts shall be computed by deterministic code that returns the same result for the same input from every entry point (the count, the detailed list, the alert and the live board scan), and the fast indexed path shall stay identical to the original all-pairs sweep: no missing or extra conflict and no different reason, severity or order."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الاختبار يقارن المسارين على جداول بقاعات وأساتذة مشتركة وتسليم مدمج وتكرارات وفصول عشوائية كاملة ويفشل عند أول فرق.",
+          "en": "The test compares both paths over timetables with shared halls and lecturers, combined delivery, duplicates and whole random terms and fails on the first difference."
+        },
+        {
+          "ar": "هوية الأستاذ تُقارن رقماً لا نصاً فلا يفوت تعارض يصل معرّفه كنص.",
+          "en": "Instructor identity is compared as a number, not text, so a conflict whose id arrives as text is not missed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/scheduleConflicts.ts",
+          "src/utils/scheduleIntelligence.ts"
+        ],
+        "tests": [
+          "tests/conflict-parity.ts",
+          "tests/blocker-oracle-audit.ts",
+          "tests/id-type-conflict-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-032",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "حماية الكتابة من البيانات القديمة",
+        "en": "Stale-write protection"
+      },
+      "text": {
+        "ar": "يجب أن يحمل كل موعد دراسي رقم مراجعة (rev) يزيد مع كل كتابة، وأن ترفض الكتابة التي تحمل مراجعة لم تعد الحالية بخطأ ScheduleRevisionConflict فلا تُكتب نصف كتابة، وأن يُثبَّت الاقتراح ذرّياً فيرفض بـ 409 «تغيّر الموعد» دون كتابة شيء إن تغيّر أحد المواعيد منذ بُني.",
+        "en": "Every schedule row shall carry a revision number (rev) that increases with each write, a write carrying a revision that is no longer current shall be refused with ScheduleRevisionConflict so no half-write occurs, and an accepted proposal shall be applied atomically, refused with 409 'the slot changed' and nothing written if any slot has changed since it was built."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعديل بمراجعة قديمة يردّ 409 ولا يغيّر الصف.",
+          "en": "An edit with an old revision answers 409 and leaves the row unchanged."
+        },
+        {
+          "ar": "تثبيت اقتراح يحوي مواعيد تغيّرت يردّ proposal-stale ولا يكتب أياً منها.",
+          "en": "Applying a proposal containing changed slots answers proposal-stale and writes none of them."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "src/server/core/scheduleWrites.ts",
+          "src/server/studyProposalRoutes.ts"
+        ],
+        "tests": [
+          "tests/instructor-apply-atomic-audit.ts",
+          "tests/schedule-apply-proposal-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-033",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "قابلية الرجوع عن التغيير",
+        "en": "Reversibility of change"
+      },
+      "text": {
+        "ar": "يجب أن تُلتقط نسخة من نطاق الجدول (كلية وقسم وفصل) قبل كل تغيير يحميه (تعديل موعد أو نقله أو نشر أو استيراد أو نسخ)، وأن تُسجَّل حالته بعد التغيير من الصفوف التي كتبها الطلب نفسه، فيرفض الاسترجاع الكتابة فوق تعديل زميل وقع بينهما، وأن تُقرأ النسخة من المخزَّن لا من ذاكرة القراءة.",
+        "en": "A snapshot of the schedule scope (college, department, term) shall be captured before each change it protects (editing or moving a slot, publishing, importing, copying), its state after the change shall be recorded from the rows the request itself wrote, so a restore refuses to overwrite a colleague's edit made in between, and the snapshot shall be read from storage, not from the read cache."
+      },
+      "rationale": {
+        "ar": "حادثة: كل لقطة كانت متأخرة خطوة لأن الذاكرة تُقرأ قبل أن تُمسح فتحمل الصفوف المحذوفة.",
+        "en": "Incident: every snapshot lagged a step because the cache was read before being cleared and held the rows about to be deleted."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "نشر ملف ثم التراجع عنه ثم التراجع عن حذف يعيد في كل مرة الحالة التي قبل العملية لا التي قبلها بخطوة.",
+          "en": "Publishing a file, undoing it, then undoing a deletion returns each time the state before that operation, not one a step older."
+        },
+        {
+          "ar": "تتوفر قائمة نسخ النطاق ويُشترط للاسترجاع ألا يكون شيء آخر قد تغيّر.",
+          "en": "A list of scope versions is available and restore requires that nothing else changed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/versions.ts",
+          "src/server/core/scheduleWrites.ts",
+          "src/server/timeMachineRoutes.ts"
+        ],
+        "tests": [
+          "tests/safety-net-restore-audit.ts",
+          "tests/time-machine-audit.ts",
+          "tests/schedule-versions-list-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-034",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "بقاء العملية عند خطأ طلب واحد",
+        "en": "Process survival on a single request failure"
+      },
+      "text": {
+        "ar": "يجب ألا يُسقط خطأ واحد في معالج غير متزامن أو وعد مرفوض العملية: تُلفّ أفعال التوجيه كلها بغلاف يمرّر الرفض إلى معالج الأخطاء، ويُسجَّل أي رفض غير ملتقط أو استثناء في مستوى العملية ويستمر الخادم، بحيث لا تنقطع طلبات الجامعة الجارية ولا بثّ الجدول الحي.",
+        "en": "A single error in an asynchronous handler or a rejected promise shall not bring the process down: all routing verbs are wrapped so a rejection reaches the error handler, any unhandled rejection or process-level exception is logged and the server continues, so in-flight university requests and the live schedule stream are not cut."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "معالج مسار يرفض وعده يردّ 500 برمز مرجع ولا ينهي العملية.",
+          "en": "A route handler whose promise rejects answers 500 with a reference code and does not end the process."
+        },
+        {
+          "ar": "معالج بأربعة وسائط (معالج أخطاء) لا يُلفّ ويبقى كما كُتب.",
+          "en": "A four-argument handler (an error handler) is not wrapped and stays as written."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/http.ts",
+          "server.ts"
+        ],
+        "tests": [
+          "tests/input-hardening-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-035",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "فحص الأنواع وحرّاس التكافؤ",
+        "en": "Type checking and parity guards"
+      },
+      "text": {
+        "ar": "يجب أن يمرّ npm run lint (tsc بلا إخراج) وكل اختبارات tests/suite.txt قبل كل دمج، وأن تحرس اختبارات التكافؤ ما لا يراه فحص الأنواع: جدول المسارات وترتيب وسائط الخادم وبايتات الصفحات المبنية في الخادم مقابل لقطات محفوظة، وتدقيق دليل المرشد والهوية البصرية (render-brand --check) عند كل بناء، وسلامة نحو سكربتات الصفحات العامة.",
+        "en": "npm run lint (tsc with no emit) and every test in tests/suite.txt shall pass before each merge, and parity tests shall guard what type checking cannot see: the route table, server middleware order and bytes of server-built pages against stored snapshots, the guide and brand audit (render-brand --check) on every build, and the syntax of public-page scripts."
+      },
+      "priority": "must",
+      "status": "in-progress",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "إضافة مسار أو تغيير ترتيب وسيط أو بايت في صفحة مبنية يُفشل test:server-parity.",
+          "en": "Adding a route, reordering a middleware or changing a byte in a built page fails test:server-parity."
+        },
+        {
+          "ar": "مفتوح: tsconfig.json لا يفعّل strict ويستثني ملفين (src/pages/Impact.tsx وsrc/components/InterfacePolish.tsx)، فالفحص أخفّ من الصارم.",
+          "en": "Open: tsconfig.json does not enable strict and excludes two files (src/pages/Impact.tsx and src/components/InterfacePolish.tsx), so the check is lighter than strict."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "tsconfig.json",
+          "package.json",
+          "tests/suite.txt",
+          "docs/SERVER_MAP.md"
+        ],
+        "tests": [
+          "tests/server-route-parity-audit.ts",
+          "tests/public-pages-syntax-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-036",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "ثبات المعرّفات بمعاملات",
+        "en": "Transactional identifier allocation"
+      },
+      "text": {
+        "ar": "يجب أن تُحجز المعرّفات الجديدة في Firestore بمعاملة على عدّاد مشترك (_meta/counters) تحجز كتلة من 32 معرّفاً لكل نسخة، فلا يتصادم معرّفان بين نسخ الخادم أو أثناء استيراد، وأن تُقارن المعرّفات عددياً حتى لو وصلت نصاً.",
+        "en": "New identifiers in Firestore shall be reserved by a transaction on a shared counter (_meta/counters) that reserves a block of 32 identifiers per instance, so no two identifiers collide across server instances or during an import, and identifiers shall be compared numerically even when they arrive as text."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "حجز كتلة جديدة يقرأ العدّاد ويكتبه في المعاملة نفسها.",
+          "en": "Reserving a new block reads and writes the counter in the same transaction."
+        },
+        {
+          "ar": "معرّف أستاذ نصي «7» ورقمي 7 يُعاملان هوية واحدة في كشف التعارض.",
+          "en": "A text instructor id '7' and a numeric 7 are treated as one identity in conflict detection."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/id-type-conflict-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NFR-037",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "المتصفحات المدعومة",
+        "en": "Supported browsers"
+      },
+      "text": {
+        "ar": "يجب أن يعمل النظام على المتصفحات الحديثة على سطح المكتب والهاتف (Chromium وSafari على iOS) بمعيار ES2022 وعمال الخدمة، وأن يُعالَج ما يخص Safari خاصة (حقول التاريخ والساعة، تجاهل @page size) بقواعد مخصصة، وأن يبقى مسح تجاوز العرض قابلاً للتشغيل على WebKit، ويُقدَّم واجهة نهارية واحدة (السمة تُثبَّت نهارية).",
+        "en": "The system shall work on modern desktop and phone browsers (Chromium and Safari on iOS) at the ES2022 level with service workers, handle Safari-specific behaviour (date and time fields, ignoring @page size) with dedicated rules, keep the overflow sweep runnable on WebKit, and present a single light interface (the theme is pinned to light)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "student",
+        "instructor",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "المسح يعمل بمحرك webkit بتعيين ENGINE=webkit وبوكيل iPhone.",
+          "en": "The sweep runs on the webkit engine with ENGINE=webkit and an iPhone user agent."
+        },
+        {
+          "ar": "لا قائمة browserslist معلنة؛ الدعم مستنتج من هدف TypeScript ES2022 وإعدادات Vite الافتراضية.",
+          "en": "No browserslist is declared; support is inferred from the TypeScript ES2022 target and Vite defaults."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "tsconfig.json",
+          "vite.config.ts",
+          "scripts/mobile-overflow-sweep.ts",
+          "src/styles/46-mobile-overflow.css",
+          "index.html"
+        ],
+        "tests": [
+          "tests/mobile-overflow-css-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-038",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "قابلية الرصد",
+        "en": "Observability"
+      },
+      "text": {
+        "ar": "يجب أن يربط كل خطأ خادم يراه المستخدم برمز مرجع يظهر في السجل بالطريقة والعنوان ونص الخطأ، وأن يطبع الإقلاع الوجهة الفعلية لقاعدة البيانات، وأن يحتفظ الخادم بآخر 5000 عيّنة أداء (المسار والطريقة والمدة والحالة والمستخدم والنطاق) دون النبض، وأن يستقبل /api/telemetry/client أخطاء الواجهة من الجلسات المصادَقة.",
+        "en": "Every server error a user sees shall be tied to a reference code that appears in the log with method, URL and error text, boot shall print the database target actually used, the server shall keep the last 5000 performance samples (path, method, duration, status, user and scope) excluding the heartbeat, and /api/telemetry/client shall receive interface errors from authenticated sessions."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الخطأ 500 يحمل ref بالشكل E + 8 رموز ويظهر السطر نفسه في السجل.",
+          "en": "A 500 carries a ref of the form E plus 8 characters and the same value appears in the log line."
+        },
+        {
+          "ar": "العيّنة رقم 5001 تزيح الأقدم فلا يتجاوز المخزون 5000.",
+          "en": "Sample number 5001 evicts the oldest so the store never exceeds 5000."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/server/core/http.ts",
+          "src/server/routes/guideRoutes.ts",
+          "src/utils/clientTelemetry.ts",
+          "src/server/runtimeEnv.ts"
+        ],
+        "tests": [
+          "tests/input-hardening-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-NFR-039",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "إصدار قابل للتراجع ومحمي من الخطأ",
+        "en": "A reversible, error-resistant release"
+      },
+      "text": {
+        "ar": "يجب أن يغيّر الإصدار العادي image الخدمة الرسمية وحده فيمكن الرجوع بتوجيه الحركة إلى المراجعة السابقة دون نقل بيانات، وألا يُنشر إلا ما نجح فيه CI الكامل، وأن يتحقق السير بعد النشر من معرّف البناء على النطاق الرسمي، وأن يبقى الإنتاج على النسخة السابقة إن فشلت قاعدة البيانات عند الإقلاع.",
+        "en": "A normal release shall change only the official service's image so it can be reversed by routing traffic back to the previous revision with no data movement, only what the full CI passed shall be released, the pipeline shall verify the build identifier on the official domain after release, and production shall stay on the previous revision if the database fails at boot."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "إجراء الرجوع موثّق بالأمر update-traffic إلى المراجعة السابقة، ولا ينقل أو ينسخ أو يعيد تسمية أي بيانات في أي خطوة.",
+          "en": "The rollback procedure is documented as update-traffic to the previous revision and moves, copies or renames no data at any step."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "docs/DELIVERY_OPERATIONS.md",
+          "tests/deploy-target-guard.mjs"
+        ],
+        "tests": [
+          "tests/deploy-target-guard.mjs"
+        ]
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "شبكة جامعة كاملة يوم التسجيل",
+        "en": "A whole campus network on registration day"
+      },
+      "scenario": {
+        "ar": "آلاف الطلبة يفتحون «مساري» من عنوان IP واحد في الساعة نفسها.",
+        "en": "Thousands of students open their journey page from one IP address in the same hour."
+      },
+      "behavior": {
+        "ar": "الحد على الطالب لا العنوان، ويُحسب الخطأ لا النجاح؛ فتمرّ 600 رحلة من 600 من عنوان واحد، ويقف من يدور على أرقام كثيرة عند سقف العنوان.",
+        "en": "Limits sit on the student, not the address, and failures are counted, not successes; so 600 of 600 journeys pass from one address while someone cycling through many numbers stops at the address ceiling."
+      },
+      "evidence": [
+        "tests/student-door-shared-network-audit.ts",
+        "docs/LOAD_TEST.md"
+      ]
+    },
+    {
+      "title": {
+        "ar": "مستخدم يفتح تبويباً قديماً بعد تسجيل الخروج",
+        "en": "A user returns to an old tab after signing out"
+      },
+      "scenario": {
+        "ar": "يبقى تبويب من حساب سابق على جهاز مشترك وتبقى ردود محفوظة في ذاكرة عامل الخدمة.",
+        "en": "A tab from a previous account stays on a shared device with responses left in the service worker cache."
+      },
+      "behavior": {
+        "ar": "يُمسح مخزن الواجهة عند الخروج وعند الدخول، ولا تُحفظ أصلاً الحالات الشخصية ولا ردود المصادقة؛ فلا يرى الحساب التالي بيانات سابقه.",
+        "en": "The API store is cleared on the way out and the way in, and personal cases and authentication responses are never stored; so the next account never sees its predecessor's data."
+      },
+      "evidence": [
+        "public/sw.js",
+        "src/App.tsx"
+      ]
+    },
+    {
+      "title": {
+        "ar": "قارئ شاشة أمام قائمة بلا اسم",
+        "en": "A screen reader facing an unnamed drop-down"
+      },
+      "scenario": {
+        "ar": "قائمة فلتر الفصل في شاشة الجدول ليس لها label ولا aria-label.",
+        "en": "The term filter drop-down on the schedule screen has no label or aria-label."
+      },
+      "behavior": {
+        "ar": "يعلنها القارئ «قائمة» دون اسم؛ والنظام يعترف بهذا النقص (نحو 30 قائمة) ويُبقي المتطلب قيد التطوير حتى يُعدَّل الترميز.",
+        "en": "The reader announces just 'list' with no name; the system admits this gap (about 30 drop-downs) and keeps the requirement in progress until the markup is changed."
+      },
+      "evidence": [
+        "docs/QUALITY-SCORECARD.md"
+      ]
+    },
+    {
+      "title": {
+        "ar": "طباعة على Safari الذي يتجاهل اتجاه الورقة",
+        "en": "Printing on Safari, which ignores page orientation"
+      },
+      "scenario": {
+        "ar": "يطبع مستخدم تقريراً أفقياً من Safari الذي لا يحترم @page size.",
+        "en": "A user prints a landscape report from Safari, which does not honour @page size."
+      },
+      "behavior": {
+        "ar": "تُقاس الصفحة بقواعد الطباعة نفسها وتُكبَّر أو تُصغَّر بين 0.6 و1.8 لتدخل الورقة، فلا يُقصّ أسفل التقرير ولو بقيت الورقة عمودية.",
+        "en": "The page is measured with the print rules themselves and scaled between 0.6 and 1.8 to fit the sheet, so the report's bottom is not clipped even if the paper stays upright."
+      },
+      "evidence": [
+        "src/utils/printFit.ts",
+        "tests/print-fit-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "كتابة من تبويبين على الموعد نفسه",
+        "en": "Two tabs writing the same slot"
+      },
+      "scenario": {
+        "ar": "يعدّل عضوان في القسم موعداً واحداً، ويحفظ الثاني برقم مراجعة صار قديماً.",
+        "en": "Two department members edit one slot and the second saves with a revision that has become stale."
+      },
+      "behavior": {
+        "ar": "يُرفض الحفظ الثاني بتعارض مراجعة ويُطلب منه التحديث، ولا يُكتب شيء ولا يُمحى تعديل زميله.",
+        "en": "The second save is refused with a revision conflict and he is asked to refresh; nothing is written and his colleague's edit is not erased."
+      },
+      "evidence": [
+        "src/db/repository.ts",
+        "tests/schedule-apply-proposal-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "رقم المراجعة",
+      "en": "Revision number",
+      "def": {
+        "ar": "عدّاد يزيد مع كل كتابة على موعد ليكشف الكتابة المبنية على نسخة قديمة.",
+        "en": "A counter that grows with each write to a slot so a write built on an old copy is detected."
+      }
+    },
+    {
+      "ar": "نونس",
+      "en": "Nonce",
+      "def": {
+        "ar": "قيمة عشوائية تُولَّد لكل استجابة وتُسمح بها سكربتات الصفحة وحدها.",
+        "en": "A random value created per response that only the page's own scripts may carry."
+      }
+    },
+    {
+      "ar": "الحارس المجهول",
+      "en": "Anonymous guard",
+      "def": {
+        "ar": "حدّ يعدّ الأخطاء من العناوين غير المصادَقة ولا يحجب النجاح.",
+        "en": "A limit that counts failures from unauthenticated addresses and never blocks success."
+      }
+    },
+    {
+      "ar": "مسار الإصدار",
+      "en": "Release path",
+      "def": {
+        "ar": "السلسلة من طلب التغيير إلى النشر والتحقق على النطاق الرسمي.",
+        "en": "The chain from change request to release and verification on the official domain."
+      }
+    },
+    {
+      "ar": "هدف اللمس",
+      "en": "Touch target",
+      "def": {
+        "ar": "المساحة القابلة للضغط لعنصر تفاعلي، والحد الأدنى لها 44 بكسل.",
+        "en": "The pressable area of an interactive element, at least 44 pixels."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "رقم المقرر سبع خانات دائماً: كلية 2 ثم قسم 2 ثم مقرر 3، ولا يُعرض الرمز المخزّن ولا المعرّف الداخلي.",
+      "en": "The course number is always seven digits: college 2, department 2, course 3; the stored code and the internal id are never displayed."
+    },
+    {
+      "ar": "التقارير المطبوعة تحتفظ بتصميمها؛ الإصلاح في القيم والبيانات لا في الشكل.",
+      "en": "Printed reports keep their design; fixes go in values and data, not in layout."
+    },
+    {
+      "ar": "لا تُضاف بيانات بديلة معبّأة حين تفشل القاعدة؛ يبقى الإنتاج على نسخته السابقة.",
+      "en": "No substitute populated data is added when the database fails; production stays on its previous revision."
+    }
+  ]
+}

@@ -1,0 +1,1904 @@
+{
+  "id": "RPT",
+  "order": 13,
+  "icon": "file-bar-chart",
+  "title": {
+    "ar": "التقارير والاستعلامات والطباعة والتصدير",
+    "en": "Reports, queries, printing and export"
+  },
+  "tagline": {
+    "ar": "سؤال واحد وعدسات متعددة، وورقة A4 أفقية بتصميمها المعتمد، وملف Excel بأرقام مقررات من سبع خانات.",
+    "en": "One question, many lenses; A4 landscape sheets in their approved design; Excel files with seven-digit course numbers."
+  },
+  "summary": {
+    "ar": "تجمع هذه الوحدة شاشة الاستعلامات والتقارير بعشرة مداخل (بحث وتقرير للأستاذ والقاعة والوقت والقاعة والوقت معاً، والبحث المتقدم، وتقرير القسم) تفتح كلها على مجموعة واحدة من المرشحات وخمس عشرة عدسة للعرض. ومنها تُطبع الأوراق على A4 أفقي دون المساس بتصميمها، ويُصدَّر ملف Excel بالمرشحات نفسها. وتشمل مصادر البيانات الخاصة بالتقارير على الخادم: ميزان الأقسام وإشغال القاعات وسجل المنتدبين وتقرير التغييرات ومقارنة ملف الهيئة، وجسر شارات الصحيفة الذي تشترك فيه الشاشات. وتحكم الوحدة رقم المقرر المعروض: سبع خانات دائماً.",
+    "en": "This module covers the queries-and-reports screen, which has ten entry points (search and report for instructor, room, time and room-and-time, advanced search, and the department report). All of them open on one shared filter set and fifteen display lenses. Sheets print on A4 landscape without any change to their approved design, and Excel export uses the same filters. It also covers the report data sources on the server: department balance, room load, the visiting-instructor roster and history, the schedule-changes report, the Authority file comparison, and the plan-sheet badge bridge shared by several screens. Every course number shown is seven digits."
+  },
+  "actors": [
+    "departmentHead",
+    "committeeChair",
+    "dean",
+    "viceDean",
+    "registrarStaff",
+    "collegeRegistrar",
+    "registrarDean",
+    "registrarHead",
+    "advisor",
+    "admin",
+    "rootAdmin",
+    "system"
+  ],
+  "sources": [
+    "src/server/routes/reportsRoutes.ts",
+    "src/server/planBadgeShared.ts",
+    "src/server/visitingTeachingRead.ts",
+    "src/components/Reports.tsx",
+    "src/components/ReportChoicePanel.tsx",
+    "src/components/AuthorityPdfReport.tsx",
+    "src/components/PrintComprehensiveHead.tsx",
+    "src/components/OccupancyHeatGrid.tsx",
+    "src/styles/08-print.css",
+    "src/styles/48-report-choice.css",
+    "src/utils/printFit.ts",
+    "src/utils/pwaPrintHelp.ts",
+    "src/utils/reportChoices.ts",
+    "src/utils/instructorReportScope.ts",
+    "src/utils/authorityReportOrdering.ts",
+    "src/utils/campusChips.ts",
+    "src/utils/visitingHistory.ts",
+    "src/utils/visitingTeaching.ts",
+    "src/utils/occupancyHeat.ts",
+    "src/utils/decisionBoardScope.ts",
+    "src/utils/planBadges.ts"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "مركز الاستعلامات والتقارير",
+        "en": "Queries and reports center"
+      },
+      "file": "src/components/Reports.tsx",
+      "note": {
+        "ar": "شاشة واحدة بعشرة مداخل (ReportMode) وشريط عدسات ومرشحات موحدة وأزرار الطباعة والتصدير.",
+        "en": "A single screen with ten entry modes (ReportMode), a lens bar, one filter bar, and the print and export buttons."
+      }
+    },
+    {
+      "name": {
+        "ar": "قائمة أوراق التقرير",
+        "en": "Report sheet chooser"
+      },
+      "file": "src/components/ReportChoicePanel.tsx",
+      "note": {
+        "ar": "سطر لكل ورقة، واختيار واحد، وزر طباعة واحد، بتنقل بلوحة المفاتيح.",
+        "en": "One row per sheet, a single selection, one print button, with keyboard navigation."
+      }
+    },
+    {
+      "name": {
+        "ar": "تقرير تغييرات الجدول المطبوع",
+        "en": "Printed schedule-changes report"
+      },
+      "file": "src/components/AuthorityPdfReport.tsx",
+      "note": {
+        "ar": "وثيقة تقارن الجدول الحالي بملف الهيئة المستورد، بالترويسة نفسها المستعملة في التقرير الشامل.",
+        "en": "A document comparing the current schedule with the imported Authority file, using the same head as the comprehensive report."
+      }
+    },
+    {
+      "name": {
+        "ar": "ترويسة الوثيقة الرسمية",
+        "en": "Official document head"
+      },
+      "file": "src/components/PrintComprehensiveHead.tsx",
+      "note": {
+        "ar": "ترويسة مشتركة للتقرير الشامل وتقرير التغييرات.",
+        "en": "A head shared by the comprehensive report and the changes report."
+      }
+    },
+    {
+      "name": {
+        "ar": "شبكة نسبة الإشغال",
+        "en": "Occupancy rate grid"
+      },
+      "file": "src/components/OccupancyHeatGrid.tsx",
+      "note": {
+        "ar": "خريطة حرارة يوم × ساعة بخمس درجات.",
+        "en": "A day-by-hour heat map with five levels."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "departmentHead",
+      "title": {
+        "ar": "طباعة تقرير القسم الشامل",
+        "en": "Printing the comprehensive department report"
+      },
+      "steps": [
+        {
+          "ar": "يفتح «تقرير القسم» من قائمة التقارير، ويختار الكلية والقسم والفصل.",
+          "en": "Opens the department report from the reports menu and picks college, department and term."
+        },
+        {
+          "ar": "يضغط زر طباعة التقرير الشامل فتظهر قائمة الأوراق: هذا الموقع، أو مع ملحق التغييرات، أو كل الفروع إن كان للقسم أكثر من موقع.",
+          "en": "Presses the comprehensive-report print button; the sheet list offers this site, with the changes appendix, or all branches when the department has more than one site."
+        },
+        {
+          "ar": "يختار ورقة بأسهم لوحة المفاتيح أو بالنقر، ويضغط «طباعة» أو Enter.",
+          "en": "Selects a sheet with the arrow keys or a click, then presses Print or Enter."
+        },
+        {
+          "ar": "يفتح النظام نافذة الطباعة على A4 أفقي، وتُقاس كل صفحة وتُكبَّر أو تُصغَّر لتملأ الورقة.",
+          "en": "The system opens the print dialog on A4 landscape; each page is measured and scaled to fill the sheet."
+        },
+        {
+          "ar": "بعد انتهاء الطباعة تُزال سمات الطباعة وتعود الشاشة كما كانت.",
+          "en": "When printing ends the print attributes are removed and the screen returns to normal."
+        }
+      ]
+    },
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "البحث عن قاعة في وقت محدد وتصدير النتيجة",
+        "en": "Finding a room at a given time and exporting the result"
+      },
+      "steps": [
+        {
+          "ar": "يفتح «قاعة ووقت» من الاستعلامات.",
+          "en": "Opens room-and-time from the queries menu."
+        },
+        {
+          "ar": "يحدد المبنى والقاعة والأيام ونافذة الوقت من قائمة بخطوات نصف ساعة.",
+          "en": "Sets building, hall, days and a time window from a list in half-hour steps."
+        },
+        {
+          "ar": "تتحدث النتائج وشرائح المرشحات فوراً من مجموعة واحدة من الشروط.",
+          "en": "Results and filter chips update immediately from a single set of conditions."
+        },
+        {
+          "ar": "يضغط «تصدير Excel» فيُنزَّل ملف بالمرشحات نفسها وأرقام مقررات من سبع خانات.",
+          "en": "Presses Export Excel and receives a file with the same filters and seven-digit course numbers."
+        }
+      ]
+    },
+    {
+      "actor": "dean",
+      "title": {
+        "ar": "قراءة ميزان الأقسام",
+        "en": "Reading the department balance"
+      },
+      "steps": [
+        {
+          "ar": "يفتح العميد شاشة الاستعلامات فتبدأ على عدسة «ميزان الأقسام».",
+          "en": "The dean opens the queries screen and it starts on the department balance lens."
+        },
+        {
+          "ar": "يقرأ سطراً لكل قسم: عدد المواعيد والأساتذة والقاعات ونسبتي الصباح والمساء والعدالة والتعارضات.",
+          "en": "Reads one line per department: appointments, instructors, halls, morning and evening shares, fairness and conflicts."
+        },
+        {
+          "ar": "لا تُحسب إلا الأقسام ذات الجداول المعتمدة، وفي نطاق كليته فقط.",
+          "en": "Only departments with approved schedules count, and only within the dean's college."
+        },
+        {
+          "ar": "يطبع العدسة بزر «طباعة هذا العرض».",
+          "en": "Prints the lens with the Print this view button."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "rpt-print-flow",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "مسار أمر الطباعة",
+        "en": "Print command flow"
+      },
+      "caption": {
+        "ar": "كل خطوة قبل نافذة الطباعة متزامنة في اللمسة نفسها؛ ولا تُرفع سمات الطباعة إلا عند انتهاء الطباعة فعلاً.",
+        "en": "Every step before the print dialog runs synchronously in the same tap; print attributes are lifted only when printing has really ended."
+      },
+      "nodes": [
+        {
+          "id": "tap",
+          "label": {
+            "ar": "ضغط الطباعة",
+            "en": "Print tapped"
+          },
+          "icon": "printer",
+          "kind": "start"
+        },
+        {
+          "id": "ios",
+          "label": {
+            "ar": "تطبيق iOS مثبت؟",
+            "en": "Installed iOS app?"
+          },
+          "icon": "smartphone",
+          "kind": "decision"
+        },
+        {
+          "id": "help",
+          "label": {
+            "ar": "إشعار الاستعمال في Safari",
+            "en": "Use-Safari notice"
+          },
+          "icon": "info",
+          "kind": "end"
+        },
+        {
+          "id": "pause",
+          "label": {
+            "ar": "إيقاف البث الحي",
+            "en": "Pause live stream"
+          },
+          "icon": "pause",
+          "kind": "system"
+        },
+        {
+          "id": "sheet",
+          "label": {
+            "ar": "تثبيت الورقة المطلوبة",
+            "en": "Commit requested sheet"
+          },
+          "icon": "file-text",
+          "kind": "system"
+        },
+        {
+          "id": "engine",
+          "label": {
+            "ar": "سمات المحرك",
+            "en": "Engine attributes"
+          },
+          "icon": "cpu",
+          "kind": "system"
+        },
+        {
+          "id": "fit",
+          "label": {
+            "ar": "قياس الصفحات وملؤها",
+            "en": "Measure and fit pages"
+          },
+          "icon": "scaling",
+          "kind": "system"
+        },
+        {
+          "id": "print",
+          "label": {
+            "ar": "نافذة الطباعة",
+            "en": "Print dialog"
+          },
+          "icon": "printer",
+          "kind": "state"
+        },
+        {
+          "id": "after",
+          "label": {
+            "ar": "انتهاء الطباعة",
+            "en": "Printing ended"
+          },
+          "icon": "check",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "tap",
+          "to": "ios"
+        },
+        {
+          "from": "ios",
+          "to": "help",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "ios",
+          "to": "pause",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "pause",
+          "to": "sheet"
+        },
+        {
+          "from": "sheet",
+          "to": "engine"
+        },
+        {
+          "from": "engine",
+          "to": "fit"
+        },
+        {
+          "from": "fit",
+          "to": "print"
+        },
+        {
+          "from": "print",
+          "to": "after",
+          "label": {
+            "ar": "afterprint",
+            "en": "afterprint"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rpt-lens-open",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "اختيار العدسة الأولى",
+        "en": "Choosing the opening lens"
+      },
+      "caption": {
+        "ar": "عدسة الشاشة المفتوحة تعلو المحفوظة، إلا في تقرير القسم والبحث المتقدم فتتقدم المحفوظة، ويبدأ العميدان بميزان الأقسام.",
+        "en": "The opened screen's lens outranks the saved one, except for the department report and advanced search where the saved one wins, and deans start on the department balance."
+      },
+      "nodes": [
+        {
+          "id": "mode",
+          "label": {
+            "ar": "مدخل الشاشة",
+            "en": "Entry mode"
+          },
+          "icon": "log-in",
+          "kind": "start"
+        },
+        {
+          "id": "generic",
+          "label": {
+            "ar": "تقرير القسم أو متقدم؟",
+            "en": "Department or advanced?"
+          },
+          "icon": "help-circle",
+          "kind": "decision"
+        },
+        {
+          "id": "own",
+          "label": {
+            "ar": "عدسة المدخل إن ملكتها الصفة",
+            "en": "Mode lens if role has it"
+          },
+          "icon": "layout-list",
+          "kind": "state"
+        },
+        {
+          "id": "saved",
+          "label": {
+            "ar": "العدسة المحفوظة إن ملكتها الصفة",
+            "en": "Saved lens if role has it"
+          },
+          "icon": "bookmark",
+          "kind": "state"
+        },
+        {
+          "id": "dean",
+          "label": {
+            "ar": "عميد؟ ميزان الأقسام",
+            "en": "Dean? Department balance"
+          },
+          "icon": "landmark",
+          "kind": "state"
+        },
+        {
+          "id": "first",
+          "label": {
+            "ar": "أول عدسة في قائمة الصفة",
+            "en": "First lens of the role"
+          },
+          "icon": "list-ordered",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "mode",
+          "to": "generic"
+        },
+        {
+          "from": "generic",
+          "to": "own",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "generic",
+          "to": "saved",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "own",
+          "to": "saved",
+          "label": {
+            "ar": "غير متاحة",
+            "en": "Not allowed"
+          }
+        },
+        {
+          "from": "saved",
+          "to": "dean",
+          "label": {
+            "ar": "لا شيء",
+            "en": "None"
+          }
+        },
+        {
+          "from": "dean",
+          "to": "first",
+          "label": {
+            "ar": "غير عميد",
+            "en": "Not a dean"
+          }
+        }
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "FR-RPT-001",
+      "kind": "functional",
+      "title": {
+        "ar": "عشرة مداخل لشاشة واحدة",
+        "en": "Ten entry modes on one screen"
+      },
+      "text": {
+        "ar": "يجب أن يقدّم النظام عشرة مداخل للاستعلامات والتقارير، تفتح كلها على الشاشة نفسها وعلى العدسة المناسبة لسؤال المدخل، ولا يظهر منها إلا ما يملك المستخدم صلاحيته.",
+        "en": "The system shall provide ten entry modes for queries and reports, all opening on the same screen on the lens that fits the mode's question, and shall show only the modes the user holds permission for."
+      },
+      "rationale": {
+        "ar": "كانت لكل مدخل مرشحاته وتخطيطه ومسار طباعته؛ فالتوحيد يبقي الروابط والصلاحيات كما هي.",
+        "en": "Each mode used to carry its own filters, layout and print path; unifying them keeps deep links and permissions unchanged."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "المدخلات هي: searchInstructor وsearchRoom وsearchTime وsearchRoomTime وsearchAdvanced وreportDepartment وreportInstructor وreportRoom وreportTime وreportRoomTime.",
+          "en": "The modes are searchInstructor, searchRoom, searchTime, searchRoomTime, searchAdvanced, reportDepartment, reportInstructor, reportRoom, reportTime and reportRoomTime."
+        },
+        {
+          "ar": "الصلاحيات: الأستاذ 8، والقاعة 9، والوقت 10، والقاعة والوقت 16، والبحث المتقدم 17، وتقرير القسم 14.",
+          "en": "Permissions: instructor 8, room 9, time 10, room-and-time 16, advanced search 17, department report 14."
+        },
+        {
+          "ar": "مدخلا الوقت والقاعة والوقت يفتحان على عدسة «الأوقات» ما لم تفقدها الصفة فتُستبدل بعدسة «القاعات × الأوقات».",
+          "en": "The time and room-and-time modes open on the Times lens unless the role lacks it, in which case the Rooms by times lens is used."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx",
+          "src/App.tsx"
+        ],
+        "tests": [
+          "tests/report-print-menus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-002",
+      "kind": "functional",
+      "title": {
+        "ar": "مجموعة مرشحات واحدة",
+        "en": "One filter set"
+      },
+      "text": {
+        "ar": "يجب أن يطبّق النظام على كل عدسة مجموعة المرشحات نفسها: الكلية والقسم والفصل والأستاذ والرقم المدني واسم الأستاذ والمبنى والقاعة والمقرر ورقم المقرر ونافذة الوقت والأيام.",
+        "en": "The system shall apply the same filter set to every lens: college, department, term, instructor, civil number, instructor name, building, hall, course, course number, time window and days."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff",
+        "advisor"
+      ],
+      "acceptance": [
+        {
+          "ar": "نافذة الوقت تطابق أي موعد يتقاطع معها بدقيقة واحدة على الأقل، ولا يُحسب التماس عند الحافة.",
+          "en": "The time window matches any appointment that overlaps it by at least one minute; touching edges do not count."
+        },
+        {
+          "ar": "اختيار أيام متعددة يُبقي الموعد الذي يقع في أي منها.",
+          "en": "Selecting several days keeps an appointment that falls on any of them."
+        },
+        {
+          "ar": "اسم الأستاذ المكتوب بأرقام هندية أو فارسية يُقرأ كأرقام عادية فيُبحث به في الرقم المدني.",
+          "en": "An instructor query written in Arabic-Indic or Persian digits is read as ordinary digits and searches the civil number."
+        },
+        {
+          "ar": "قوائم المقرر والأستاذ والمبنى والقاعة تتقيّد بالمرشحات الأخرى المختارة.",
+          "en": "The course, instructor, building and hall lists narrow to the other chosen filters."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/course-number-seven-digit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-003",
+      "kind": "functional",
+      "title": {
+        "ar": "خيارات الوقت بنظام 24 ساعة",
+        "en": "24-hour time options"
+      },
+      "text": {
+        "ar": "يجب أن يعرض النظام خيارات بداية الوقت ونهايته في شاشة الاستعلامات بخطوات نصف ساعة، من بداية يوم الجدول إلى نهايته.",
+        "en": "The system shall list the start and end time options of the query screen in half-hour steps, from the start of the schedule day to its end."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "بالنافذة الافتراضية 08:00–20:00 تُعرض 25 قيمة من 08:00 إلى 20:00 بخطوة 30 دقيقة.",
+          "en": "With the default window 08:00-20:00, 25 values are listed from 08:00 to 20:00 in 30-minute steps."
+        },
+        {
+          "ar": "القيمة الفارغة تُعرض «--:--» ولا تفعّل المرشح حتى تُحدد البداية والنهاية معاً.",
+          "en": "The empty value shows as --:-- and the filter stays inactive until both start and end are set."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx",
+          "src/utils/scheduleTime.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-RPT-004",
+      "kind": "functional",
+      "title": {
+        "ar": "عدسات العرض الخمس عشرة",
+        "en": "Fifteen display lenses"
+      },
+      "text": {
+        "ar": "يجب أن يقدّم النظام خمس عشرة عدسة تجيب كلٌّ منها عن سؤال بعينه من نتائج المرشحات نفسها، ولكل عدسة ورقة طباعة بمحتوى.",
+        "en": "The system shall provide fifteen lenses, each answering one specific question from the same filtered results, and every lens shall have a print sheet with content."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "dean",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "العدسات: الكل، الأسبوع، الأساتذة، المواد × المواقع، القاعات، نسبة الإشغال، القاعات والأساتذة، المقررات × القاعات، القاعات × الأوقات، الأوقات، المنتدبون، كل الفصول، عدالة الحمل، ميزان الأقسام، لوحة القرار.",
+          "en": "The lenses are: All, Week, Instructors, Courses by sites, Rooms, Occupancy rate, Rooms and instructors, Courses by rooms, Rooms by times, Times, Visiting instructors, All terms, Load fairness, Department balance, Decision board."
+        },
+        {
+          "ar": "لا تخرج أي عدسة ورقة بيضاء بعنوان «undefined»، وكل نوع طباعة له عنوان في قائمة العناوين.",
+          "en": "No lens prints a blank sheet titled undefined; every print kind has an entry in the title table."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/report-print-menus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-005",
+      "kind": "functional",
+      "title": {
+        "ar": "قائمة العدسات بحسب الصفة",
+        "en": "Role-based lens lists"
+      },
+      "text": {
+        "ar": "يجب أن يقصر النظام قائمة العدسات الظاهرة لصفات العميدين وفريق التسجيل على ما يعني صاحبها، دون أن يمنع الخادم أحداً، وأن يفتح كل منهم على أول عدسة في قائمته.",
+        "en": "The system shall shorten the visible lens list for the deans and registration roles to what concerns them, without the server blocking anyone, and shall open each on the first lens of its list."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "dean",
+        "viceDean",
+        "registrarDean",
+        "registrarHead",
+        "collegeRegistrar",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "العميد 7 عدسات تبدأ بميزان الأقسام، والعميد المساعد 13 عدسة.",
+          "en": "The dean sees 7 lenses starting with the department balance; the vice dean sees 13."
+        },
+        {
+          "ar": "عميد التسجيل والمسجّل العام ورئيس تسجيل الكلية 7 عدسات، وموظف التسجيل 6 (دون القاعات × الأوقات).",
+          "en": "The dean of registration, university registrar and college registrar see 7 lenses; the registration officer sees 6 (no Rooms by times)."
+        },
+        {
+          "ar": "غير هؤلاء يرون كل العدسات عدا «كل الفصول» (وجه ثانٍ للمنتدبين) و«ميزان الأقسام» لغير مدير النظام و«لوحة القرار» لغير أصحابها.",
+          "en": "Everyone else sees all lenses except All terms (a second face of Visiting instructors), Department balance for non-administrators, and Decision board for non-eligible roles."
+        },
+        {
+          "ar": "عدسة محفوظة لا تملكها الصفة تُردّ إلى أول عدسة متاحة.",
+          "en": "A saved lens the role does not hold falls back to the first available lens."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-RPT-006",
+      "kind": "functional",
+      "title": {
+        "ar": "ميزان الأقسام",
+        "en": "Department balance"
+      },
+      "text": {
+        "ar": "يجب أن يعيد الخادم لكل قسم في نطاق القارئ سطراً واحداً بعدد المواعيد والأساتذة والقاعات ونسبتي الصباح والمساء والعدالة والجودة والتعارضات، ولا تدخل أقسام خارج النطاق في الحساب ولا في المجاميع.",
+        "en": "The server shall return one line per department in the reader's scope with appointments, instructors, halls, morning and evening shares, fairness, quality and conflicts, and departments outside the scope shall not enter the calculation or the totals."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "dean",
+        "viceDean",
+        "registrarDean",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "المسار GET /api/reports/department-balance يتطلب الصلاحية 14.",
+          "en": "GET /api/reports/department-balance requires permission 14."
+        },
+        {
+          "ar": "الصباح هو ما يبدأ قبل 14:00 (840 دقيقة) ويُحسب بعدد أيام الموعد، وتُرتّب الأقسام تنازلياً بعدد المواعيد.",
+          "en": "Morning means starting before 14:00 (840 minutes), counted per appointment day; departments are sorted by appointment count, descending."
+        },
+        {
+          "ar": "العميد والعميد المساعد لا تُحسب لهما إلا الجداول النهائية، والقسم بلا جدول نهائي لا يظهر.",
+          "en": "For the dean and vice dean only final schedules count, and a department with none is omitted."
+        },
+        {
+          "ar": "تسمية النطاق في المجاميع «الجامعة» أو «الكلية» أو «النطاق» بحسب القارئ.",
+          "en": "The totals' scope label is the university, the college or the scope, depending on the reader."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts",
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/dean-notify-audit.ts",
+          "tests/role-scope-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-007",
+      "kind": "functional",
+      "title": {
+        "ar": "إشغال القاعات والفراغات",
+        "en": "Room load and free windows"
+      },
+      "text": {
+        "ar": "يجب أن يعيد الخادم إشغال قاعات القارئ من جدول الفصل كله دون أن يكشف مقرراً أو أستاذاً من قسم آخر، وأن يحتسب القاعات الرسمية الموثقة وحدها.",
+        "en": "The server shall return the occupancy of the reader's halls computed from the whole term without revealing any course or instructor of another department, and shall count only verified official halls."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "dean",
+        "viceDean"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرد يحمل لكل قاعة يوماً وبداية ونهاية بالدقائق وعلامة mine، مع بداية اليوم ونهايته.",
+          "en": "Each hall carries day, start and end in minutes and a mine flag, together with the day start and end."
+        },
+        {
+          "ar": "المستخدم غير المدير بلا كلية أو بقسم خارج نطاقه يتلقى 403، ومن يغطي الكلية كلها يقرأ قاعاتها دون اختيار قسم.",
+          "en": "A non-administrator with no college, or a department outside the scope, receives 403; a reader covering the whole college reads its halls without choosing a department."
+        },
+        {
+          "ar": "الصف المعلّق على تثبيت القاعة لا يشغل شيئاً، والحجز النصي بلا ربط يشغل القاعة نفسها.",
+          "en": "A row pending room confirmation occupies nothing, while an unlinked text booking occupies the same hall."
+        },
+        {
+          "ar": "الترتيب بالمبنى ثم القاعة بالرقم: 7/31 قبل 8/22 و9 قبل 10.",
+          "en": "Ordering is by building then hall, numerically: 7/31 before 8/22 and 9 before 10."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts"
+        ],
+        "tests": [
+          "tests/room-occupancy-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-008",
+      "kind": "functional",
+      "title": {
+        "ar": "عدالة الحمل بمعادلة واحدة",
+        "en": "Load fairness from one formula"
+      },
+      "text": {
+        "ar": "يجب أن تحسب عدسة «عدالة الحمل» مؤشرها من محرك العدالة نفسه الذي يحسب منه ميزان الأقسام، وأن تستثني السجلات التي ليست أشخاصاً، وأن تعرض متوسط النصاب بالساعات المعتمدة.",
+        "en": "The load fairness lens shall compute its index from the same fairness engine as the department balance, shall exclude records that are not persons, and shall show the average load in credit hours."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "سجل «هيئة تدريسية» لا يدخل الميزان، وأستاذان بحمل متساوٍ يحققان درجة لا تقل عن 90.",
+          "en": "A faculty-placeholder record does not enter the index, and two instructors with equal load score at least 90."
+        },
+        {
+          "ar": "الوحدة مكتوبة «متوسط النصاب (ساعات معتمدة)».",
+          "en": "The unit is written as average load (credit hours)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx",
+          "src/server/routes/reportsRoutes.ts"
+        ],
+        "tests": [
+          "tests/dean-notify-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-009",
+      "kind": "functional",
+      "title": {
+        "ar": "نسبة الإشغال",
+        "en": "Occupancy rate"
+      },
+      "text": {
+        "ar": "يجب أن تعرض عدسة «نسبة الإشغال» لكل خانة يوم × ساعة عدد المحاضرات والقاعات المشغولة بخمس درجات لونية، ونسبة إشغال القاعات لكل يوم، للموقع أو لعائلة القسم في كل كلياتها.",
+        "en": "The occupancy rate lens shall show, for each day-by-hour cell, the number of lectures and occupied halls in five color levels, plus each day's hall occupancy rate, for the site or for the department family across all its colleges."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "dean",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الدرجة من 1 إلى 5 هي ceil(عدد المحاضرات ÷ أعلى عدد في الشبكة × 5)، والخانة الفارغة درجة 0.",
+          "en": "Level 1 to 5 is ceil(lectures / grid maximum x 5); an empty cell is level 0."
+        },
+        {
+          "ar": "الضغط على خانة يفتح محاضراتها، وللعدسة ورقة طباعة بـ18 قاعة في الصفحة.",
+          "en": "Pressing a cell opens its lectures, and the lens prints 18 halls per page."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/occupancyHeat.ts",
+          "src/components/OccupancyHeatGrid.tsx",
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/occupancy-heat-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-010",
+      "kind": "functional",
+      "title": {
+        "ar": "استعلام المنتدبين عبر كليات القسم",
+        "en": "Visiting-instructor query across department colleges"
+      },
+      "text": {
+        "ar": "يجب أن يقرأ النظام منتدبي القسم العلمي وتدريسهم في كل كلية فيها قسم مناظر يملك القارئ صلاحيتها، وأن يعلّم الإجمالي «غير مكتمل» ويسمّي ما لا يملكه، بدل عرض ناقص كأنه كامل.",
+        "en": "The system shall read the visiting instructors of a scientific department and their teaching across every college holding a matching department the reader may access, and shall mark the total incomplete and name what is not accessible instead of presenting a partial total as complete."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean",
+        "viceDean"
+      ],
+      "acceptance": [
+        {
+          "ar": "المسارات visiting-roster وvisiting-teaching وvisiting-history تقبل الصلاحيات 7 و8 و9 و10 و14 و16 و17.",
+          "en": "The visiting-roster, visiting-teaching and visiting-history routes accept permissions 7, 8, 9, 10, 14, 16 and 17."
+        },
+        {
+          "ar": "visiting-teaching بلا كلية أو قسم أو فصل يردّ 400، وبنطاق غير مسموح يردّ 403.",
+          "en": "visiting-teaching without college, department or term returns 400, and an unauthorised scope returns 403."
+        },
+        {
+          "ar": "الشعبة هي (كلية، قسم، مقرر، رمز الشعبة)، وموعدا محاضرة ومختبر لشعبة واحدة يُعدّان شعبة واحدة وتُجمع ساعاتهما.",
+          "en": "A section is (college, department, course, section code); a lecture and a lab appointment of one section count as one section and their hours add up."
+        },
+        {
+          "ar": "الساعات الأسبوعية = مدة الموعد × عدد أيامه، والصف الواصل من مصدرين لا يُعدّ مرتين.",
+          "en": "Weekly hours = appointment duration x number of days, and a row arriving from two sources is not counted twice."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts",
+          "src/server/visitingTeachingRead.ts",
+          "src/utils/visitingTeaching.ts"
+        ],
+        "tests": [
+          "tests/visiting-teaching-audit.ts",
+          "tests/visiting-family-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-011",
+      "kind": "functional",
+      "title": {
+        "ar": "سجل الانتداب عبر الفصول",
+        "en": "Visiting history across terms"
+      },
+      "text": {
+        "ar": "يجب أن يعرض النظام سجل المنتدبين عبر الفصول بمصفوفة سنوات واحدة للشاشة والورقة، وأن يُبقي من انتُدب في فصل مضى ولو خرج من دليل القسم اليوم مع تعليمه.",
+        "en": "The system shall show the visiting-instructor history across terms as one year matrix shared by screen and sheet, and shall keep anyone delegated in a past term even if they have left the department directory since, with a mark."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "نافذة السنوات المفصلة افتراضياً 6، والخيارات 4 و6 و10 وكل السنوات، ولا يُعرض خيار لا يغيّر شيئاً على أرشيف أقصر منه.",
+          "en": "The detailed year window defaults to 6; choices are 4, 6, 10 and all years, and a choice that changes nothing is not offered for a shorter archive."
+        },
+        {
+          "ar": "الفصل الذي لا منتدب فيه لا يصير عموداً.",
+          "en": "A term with no visiting instructor does not become a column."
+        },
+        {
+          "ar": "المنتدب الذي لم يعد في الدليل يحمل listedNow = false.",
+          "en": "An instructor no longer in the directory carries listedNow = false."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/visitingHistory.ts",
+          "src/server/routes/reportsRoutes.ts",
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/visiting-teaching-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-012",
+      "kind": "functional",
+      "title": {
+        "ar": "المقررات × القاعات",
+        "en": "Courses by rooms"
+      },
+      "text": {
+        "ar": "يجب أن تعرض عدسة «المقررات × القاعات» المواعيد التي لا يطابق نوع قاعتها المسجّل نوع المقرر، مجمّعة بالمقرر.",
+        "en": "The courses-by-rooms lens shall list appointments whose registered room type differs from the course's room type, grouped by course."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "إن غاب النوع في المقرر أو في القاعة فلا مقارنة ولا مخالفة.",
+          "en": "If either the course or the room has no type there is no comparison and no mismatch."
+        },
+        {
+          "ar": "الترتيب بالاسم العربي ثم رمز الشعبة.",
+          "en": "Sorting is by Arabic name then section code."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/course-room-type-sync-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-013",
+      "kind": "functional",
+      "title": {
+        "ar": "لوحة القرار للقراءة فقط",
+        "en": "Read-only decision board"
+      },
+      "text": {
+        "ar": "يجب أن تظهر عدسة «لوحة القرار» لرئيس القسم والعميد والعميد المساعد ومدير النظام الأعلى فقط، للقراءة وحدها وضمن نطاق الصلاحية.",
+        "en": "The decision board lens shall appear only to the department head, dean, vice dean and top administrator, read-only and within their scope."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean",
+        "viceDean",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "رئيس القسم يرى القسم المختار وحده، والعميدان أقسام الكلية التي يغطيها نطاقهما.",
+          "en": "The department head sees the chosen department only; the deans see the college departments their scope covers."
+        },
+        {
+          "ar": "من لا يملك الحق لا يرى العدسة أصلاً، والخادم يفحص كل طلب بنطاقه.",
+          "en": "Anyone else does not see the lens at all, and the server still checks every request by scope."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/decisionBoardScope.ts",
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/decision-surfaces-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-014",
+      "kind": "functional",
+      "title": {
+        "ar": "رقم المقرر سبع خانات",
+        "en": "Seven-digit course number"
+      },
+      "text": {
+        "ar": "يجب أن يعرض النظام رقم المقرر في كل تقرير مطبوع وفي شاشة الاستعلامات وفي ملف Excel بسبع خانات (كلية 2 + قسم 2 + مقرر 3)، مبنياً بالدالتين authorityCourseCode وauthorityDepartmentCode، ولا يعرض الرمز المخزّن ثلاثي الخانات ولا AdCourseId.",
+        "en": "The system shall show the course number in every printed report, on the query screen and in the Excel file as seven digits (college 2 + department 2 + course 3), built with authorityCourseCode and authorityDepartmentCode, and shall never show the stored three-digit code or AdCourseId."
+      },
+      "rationale": {
+        "ar": "قرار المالك: رقم الهيئة الكامل هو ما يعرفه القارئ به.",
+        "en": "Owner decision: the full Authority number is how the reader identifies a course."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرمز 105 مع مفتاح القسم 0109 يُعرض 0109105، والرمز 5 يُعرض 0109005.",
+          "en": "Code 105 with department key 0109 is shown as 0109105, and code 5 as 0109005."
+        },
+        {
+          "ar": "الأرقام العربية تُقرأ أرقاماً، والرمز الذي فيه حروف أو طول شاذ يبقى كما خُزّن ولا يُختلق رقم.",
+          "en": "Arabic digits are read as digits; a code containing letters or of unusual length stays as stored and no number is invented."
+        },
+        {
+          "ar": "شرائح الرمز على الشاشة كلها من courseNumberOf، ويُبحث به في مرشح «رقم المقرر» كما يُبحث بالمخزّن.",
+          "en": "All code chips on screen come from courseNumberOf, and the course-number filter matches both it and the stored code."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx",
+          "src/utils/authorityAcademicCodes.ts",
+          "src/server/routes/reportsRoutes.ts",
+          "src/components/AuthorityPdfReport.tsx"
+        ],
+        "tests": [
+          "tests/course-number-seven-digit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-015",
+      "kind": "functional",
+      "title": {
+        "ar": "تصدير Excel بمرشحات الشاشة",
+        "en": "Excel export with screen filters"
+      },
+      "text": {
+        "ar": "يجب أن يولّد النظام ملف Excel (xlsx) من مسار /api/reports/excel/:type بالمرشحات نفسها التي على الشاشة، وبعمود «رمز المقرر» من سبع خانات.",
+        "en": "The system shall generate an Excel (xlsx) file from /api/reports/excel/:type using the same filters as the screen, with a seven-digit course number column."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "الأنواع: ListofTeacherCourseExcel (الصلاحية 14) وTeacherWithCourseExcel (8) وScheduleExcel (7)، ونوع غير ذلك يردّ 400، وبلا الصلاحية 403.",
+          "en": "Types are ListofTeacherCourseExcel (permission 14), TeacherWithCourseExcel (8) and ScheduleExcel (7); any other type returns 400 and a missing permission returns 403."
+        },
+        {
+          "ar": "الأعمدة 13 بهذا الترتيب: الكلية، القسم العلمي، رمز المقرر، المقرر الدراسي، الشعبة، الوحدات، الساعات، أستاذ المقرر، الرقم المدني، الوقت، الأيام، المبنى، القاعة.",
+          "en": "There are 13 columns in this order: college, department, course number, course name, section, units, hours, instructor, civil number, time, days, building, hall."
+        },
+        {
+          "ar": "الورقة اسمها «الجدول الدراسي»، بمصنف من اليمين لليسار وفلتر تلقائي، ويُرتّب بالمقرر ثم الشعبة ثم وقت البداية.",
+          "en": "The sheet is named the schedule sheet, in a right-to-left workbook with an auto-filter, sorted by course name, section, then start time."
+        },
+        {
+          "ar": "اسم المنتدب يلحقه «· منتدب»، والفصل الافتراضي أحدث فصل.",
+          "en": "A visiting instructor's name carries the visiting suffix, and the default term is the newest."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts",
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/dean-notify-audit.ts",
+          "tests/course-number-seven-digit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-016",
+      "kind": "functional",
+      "title": {
+        "ar": "التصدير بقارئ الطلب",
+        "en": "Export through the request reader"
+      },
+      "text": {
+        "ar": "يجب أن يقرأ مسار التصدير الصفوف بقارئ الطلب نفسه الذي تقرأ به الشاشة، فيُخرج للعميدين الجداول النهائية وحدها، ولا يُخرج الرقم المدني لصفات الاطلاع.",
+        "en": "The export route shall read rows through the same request reader as the screen, so deans receive final schedules only, and the civil number shall not be exported to view-only roles."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "dean",
+        "viceDean",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف العميد لا يحتوي مسوّدات لا تعرضها الشاشة له.",
+          "en": "A dean's file contains no drafts that the screen does not show to the dean."
+        },
+        {
+          "ar": "عمود الرقم المدني يمرّ عبر instructorsForReader فيفرغ لمن لا يحق له.",
+          "en": "The civil-number column passes through instructorsForReader and is empty for readers who are not entitled."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts",
+          "src/server/core/scheduleReads.ts"
+        ],
+        "tests": [
+          "tests/dean-notify-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-017",
+      "kind": "functional",
+      "title": {
+        "ar": "ورقة لكل عدسة بعنوان مميّز",
+        "en": "A titled sheet for every lens"
+      },
+      "text": {
+        "ar": "يجب أن يطبع النظام كل عدسة على ورقة بعنوان للمستند يبدأ بـ «SCHEDULE ·» ثم اسم التقرير، وأن يستعيد العنوان الأصلي بعد الطباعة.",
+        "en": "The system shall print every lens on a sheet whose document title starts with SCHEDULE followed by the report name, and shall restore the original title after printing."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "نوعا الشامل «تقرير الجدول الشامل» و«… — كل الفروع» لهما عنوانان مستقلان.",
+          "en": "The two comprehensive kinds have separate titles: the comprehensive schedule report and the same with all branches."
+        },
+        {
+          "ar": "طباعة وثيقة تفرغ الوثيقة الأخرى (تقرير التغييرات والكتاب) قبل أمر الطباعة.",
+          "en": "Printing one document clears the other documents (changes report and book) before the print command."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/report-print-menus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-018",
+      "kind": "functional",
+      "title": {
+        "ar": "ورقة A4 أفقية في كل المحركات",
+        "en": "A4 landscape on every engine"
+      },
+      "text": {
+        "ar": "يجب أن يطبع النظام كل التقارير على A4 أفقي بهوامش 10 ملم أعلى و8 ملم جانبية و14 ملم أسفل، وأن يرسم الورقة مدوّرة داخل صفحة Safari وChrome على iOS الطولية، ويثبّت هندسة Chromium المكتبي.",
+        "en": "The system shall print every report on A4 landscape with margins of 10 mm top, 8 mm sides and 14 mm bottom, shall paint the sheet rotated inside the portrait page of Safari and Chrome on iOS, and shall pin the geometry on desktop Chromium."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "قاعدة @page تنص على «A4 landscape» صراحة، ويُسمّى الاتجاه ولا يكتفى بالملّيمترات.",
+          "en": "The @page rule states A4 landscape explicitly rather than millimetres alone."
+        },
+        {
+          "ar": "تُوسم الجذر بـ data-print-rotate لـ Safari وChrome iOS، وبـ data-print-chromium لـ Chromium المكتبي.",
+          "en": "The root is stamped data-print-rotate for Safari and iOS Chrome, and data-print-chromium for desktop Chromium."
+        },
+        {
+          "ar": "تُرفع السمات عند afterprint أو عند عودة القارئ إلى الصفحة، لا بمؤقت أثناء المعاينة.",
+          "en": "The attributes are removed on afterprint or when the reader returns to the page, never by a timer during preview."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/08-print.css",
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/print-fit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-019",
+      "kind": "functional",
+      "title": {
+        "ar": "ملء الورقة دون قصّ",
+        "en": "Filling the sheet without clipping"
+      },
+      "text": {
+        "ar": "يجب أن يقيس النظام كل صفحة طباعة بقواعد الطباعة قبل أمر الطباعة، فيكبّرها حتى 1.8 أو يصغّرها حتى 0.6 من حجمها لتدخل ورقة A4 كاملة.",
+        "en": "The system shall measure every print page with the print rules before the print command, enlarging it up to 1.8 or shrinking it down to 0.6 of its size so that it fits a full A4 sheet."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الوسائط تُقيَّم بالورقة لا بالنافذة: قاعدة (max-width:640px) لا تنطبق على ورقة عرضها 297 ملم.",
+          "en": "Media are evaluated against the sheet, not the window: a (max-width:640px) rule does not apply to a 297 mm sheet."
+        },
+        {
+          "ar": "صفحة الشامل المدوّرة في Safari لا تُكبَّر مرة ثانية (السقف 1).",
+          "en": "A comprehensive page rotated in Safari is not enlarged a second time (ceiling 1)."
+        },
+        {
+          "ar": "خطوط الورقة (أوزان 300–700 ونمط Mono 400–600) تُحمَّل عند فتح التقارير قبل أول قياس.",
+          "en": "Sheet fonts (weights 300-700 and Mono 400-600) are preloaded when reports open, before the first measurement."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/printFit.ts"
+        ],
+        "tests": [
+          "tests/print-fit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-020",
+      "kind": "functional",
+      "title": {
+        "ar": "سعة الصفحة المطبوعة بالأسطر",
+        "en": "Printed page row budgets"
+      },
+      "text": {
+        "ar": "يجب أن يوزّع النظام صفوف كل ورقة على صفحات بسعة مقيسة على A4 أفقي بحيث لا تنزلق شريحة إلى ورقة بيضاء، ويبقي صف التقرير الشامل في الصفحة نفسها من ورقة التسجيل.",
+        "en": "The system shall distribute each sheet's rows over pages with a capacity measured on A4 landscape so that no sliver spills onto a blank sheet, and shall keep a comprehensive-report row on the same page as on the registration sheet."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "القائمة 10 صفوف، والأساتذة 7، وإشغال القاعات 18، وفراغاتها 14، ودليل القاعات 17، والأوقات 10، والعدالة 11، وميزان الأقسام 14، والمنتدبون 7، وكل الفصول 11.",
+          "en": "List 10 rows, instructors 7, room occupancy 18, room free windows 14, room directory 17, times 10, fairness 11, department balance 14, visiting 7, all terms 11."
+        },
+        {
+          "ar": "صفحة التقرير الشامل 28 صفاً في الأولى وفي كل ما بعدها.",
+          "en": "A comprehensive page holds 28 rows, on the first page and every following one."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx",
+          "src/utils/printFit.ts"
+        ],
+        "tests": [
+          "tests/print-fit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-021",
+      "kind": "functional",
+      "title": {
+        "ar": "نطاق تقرير الأستاذ",
+        "en": "Instructor report scope"
+      },
+      "text": {
+        "ar": "يجب أن يطبع النظام تقرير الأستاذ للأستاذ المختار، وإن لم يُختر فلأساتذة العرض الحالي كلهم بحملهم الكامل في النطاق المطلوب (الكلية المحددة أو الكل ضمن الصلاحيات)، ويذكر سبب العجز إن لم يوجد أحد.",
+        "en": "The system shall print the instructor report for the chosen instructor, or, when none is chosen, for all instructors in the current view with their full load in the requested scope (the selected college or all colleges within permissions), and shall state the reason when nobody qualifies."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا أستاذ مختار تدخل التقرير صفوف أساتذة العرض، ولا يدخله صف بلا أستاذ.",
+          "en": "With no chosen instructor the view's instructors enter the report and a row with no instructor does not."
+        },
+        {
+          "ar": "البحث بالاسم يطابق عبر الكليات، والبحث بالرقم المدني بلا نتائج في العرض يعطي رسالة لا ورقة فارغة.",
+          "en": "A name query matches across colleges; a civil-number query with no results in view gives a message, not an empty sheet."
+        },
+        {
+          "ar": "العدد المعروض أساتذة فريدون لا صفوف.",
+          "en": "The displayed count is unique instructors, not rows."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/instructorReportScope.ts",
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/report-print-menus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-001",
+      "kind": "interface",
+      "title": {
+        "ar": "قائمة أوراق التقريرين المركّبين",
+        "en": "Sheet chooser for the two composite reports"
+      },
+      "text": {
+        "ar": "يجب أن تعرض واجهة التقرير الشامل وتقرير تغييرات الجدول قائمة واحدة بسطر لكل ورقة واختيار واحد وزر طباعة واحد، دون أن تضيع أي ورقة كانت متاحة قبل التوحيد.",
+        "en": "The interface of the comprehensive report and the schedule-changes report shall show a single list with one row per sheet, one selection and one print button, without losing any sheet that was available before unification."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الشامل: هذا الموقع، ومع ملحق التغييرات، وكل الفروع إن كان للقسم أكثر من موقع.",
+          "en": "Comprehensive: this site, with the changes appendix, and all branches when the department has more than one site."
+        },
+        {
+          "ar": "تقرير التغييرات: هذا الموقع، وكل الفروع، وكل منهما مع الرقم المدني بعد اسم المدرس.",
+          "en": "Changes report: this site and all branches, each also with the civil number after the instructor name."
+        },
+        {
+          "ar": "الأسهم تتنقل (اليسار هو التالي في RTL)، وHome وEnd للأول والأخير، وEnter يطبع، وEscape يغلق ويعيد التركيز.",
+          "en": "Arrows navigate (left is next in RTL), Home and End jump to first and last, Enter prints, Escape closes and restores focus."
+        },
+        {
+          "ar": "الخيار المحفوظ يبقى إن كان متاحاً وإلا يُختار الأول.",
+          "en": "The saved choice stays if still available, otherwise the first is chosen."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ReportChoicePanel.tsx",
+          "src/utils/reportChoices.ts",
+          "src/styles/48-report-choice.css"
+        ],
+        "tests": [
+          "tests/report-choices-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-023",
+      "kind": "functional",
+      "title": {
+        "ar": "مصدر تقرير التغييرات ومقارنة ملف الهيئة",
+        "en": "Changes report and Authority comparison sources"
+      },
+      "text": {
+        "ar": "يجب أن يوفّر الخادم تقرير التغييرات لقسم واحد ومقارنة الجدول الحالي بملف الهيئة المعتمد، ضمن نطاق القارئ، وأن يقصر العميدين على الجدول المعتمد.",
+        "en": "The server shall provide the changes report for one department and a comparison of the current schedule with the approved Authority file, within the reader's scope, and shall limit deans to an approved schedule."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "collegeRegistrar",
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "schedule-changes بلا فصل أو كلية أو قسم يردّ 400، وخارج النطاق 403، وبحد 90 طلباً في الدقيقة.",
+          "en": "schedule-changes without term, college or department returns 400, outside scope returns 403, and is limited to 90 requests per minute."
+        },
+        {
+          "ar": "العميدان لا يقرآن تقرير جدول غير معتمد: 403 برسالة تقول إنه يُعرض بعد اعتماده.",
+          "en": "Deans cannot read the report of an unapproved schedule: 403 with a message saying it is shown after approval."
+        },
+        {
+          "ar": "authority-pdf-diff يردّ 404 إن لم توجد نسخة، وبالمعامل meta=1 يردّ draftId فارغاً بدل 404.",
+          "en": "authority-pdf-diff returns 404 when no copy exists, and with meta=1 returns a null draftId instead of 404."
+        },
+        {
+          "ar": "جدول فارغ حالياً يُقارن فيُصنَّف كل صف أصلي «محذوف» ولا يُخفى التقرير.",
+          "en": "A currently empty table is still compared and every original row is classified deleted, so the report is not suppressed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts",
+          "src/components/AuthorityPdfReport.tsx",
+          "src/utils/authorityReportOrdering.ts"
+        ],
+        "tests": [
+          "tests/schedule-changes-audit.ts",
+          "tests/changes-baseline-audit.ts",
+          "tests/authority-net-diff-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-024",
+      "kind": "functional",
+      "title": {
+        "ar": "ترتيب صفوف تقرير ملف الهيئة",
+        "en": "Authority report row ordering"
+      },
+      "text": {
+        "ar": "يجب أن يرتّب النظام صفوف تقرير ملف الهيئة بترتيب ملف PDF الأصلي، وأن يضع كل الإضافات الحقيقية بعد كل الصفوف الأصلية مع بقاء تسلسل المواقع.",
+        "en": "The system shall order the rows of the Authority file report in the original PDF order, and shall place all true additions after all source rows while keeping the site sequence."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "collegeRegistrar"
+      ],
+      "acceptance": [
+        {
+          "ar": "الصف الأصلي المنقول أو المعاد ترقيمه يبقى في موضعه بحسب sourceOrder الأصلي.",
+          "en": "A moved or renumbered original row stays in position by its original sourceOrder."
+        },
+        {
+          "ar": "قيمة sourceOrder غير الصالحة (سالبة أو ≥ 1,000,000 أو غير رقم) تُعامل كأنها بلا ترتيب وتُرتّب آخراً.",
+          "en": "An invalid sourceOrder (negative, at least 1,000,000 or not a number) is treated as missing and sorted last."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/authorityReportOrdering.ts"
+        ],
+        "tests": [
+          "tests/authority-net-diff-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-025",
+      "kind": "functional",
+      "title": {
+        "ar": "جسر شارات الصحيفة",
+        "en": "Plan-sheet badge bridge"
+      },
+      "text": {
+        "ar": "يجب أن يوفّر النظام جسراً خادمياً واحداً تضع مراجعة الصحف مصدره وتقرؤه الشاشات العامة، فتعرض كل شاشة شارة الصحيفة ونوع المتطلب للمقرر من المصدر نفسه، وعلى الواجهة جلب واحد مشترك.",
+        "en": "The system shall provide a single server-side bridge whose source is set by plan-sheet review and read by the other screens, so every screen shows a course's sheet badge and requirement type from the same source, and the client shall make one shared fetch."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "المسار GET /api/plan-badges يتطلب تسجيل الدخول، ولا يُردّ لحساب إلا ما يقع في نطاقه، مع Cache-Control: no-store.",
+          "en": "GET /api/plan-badges requires sign-in, returns only what falls inside the account's scope, and sets Cache-Control: no-store."
+        },
+        {
+          "ar": "الشارة لا تعبر حدود الأقسام: المفتاح «قسم:مقرر»، وصحيفة القسم المالك لا تُكتب فوقها صحيفة الخدمة.",
+          "en": "A badge does not cross department boundaries: the key is department:course, and the owner department's sheet is not overwritten by a service sheet."
+        },
+        {
+          "ar": "غياب المصدر أو فشله يعطي نتيجة فارغة ولا يكسر الشاشة.",
+          "en": "A missing or failing source yields an empty result and does not break the screen."
+        },
+        {
+          "ar": "تُجلب الشارات من جديد بلا ذاكرة عند حدث schedule:plan-review-updated.",
+          "en": "Badges are refetched without cache on the schedule:plan-review-updated event."
+        },
+        {
+          "ar": "جهة المقرر (جديدة أو قديمة أو مشتركة) تُقرأ لعدة أقسام بقراءة واحدة، وتعيد null لقسم لا ثنائية فيه فيبقى قائمة واحدة.",
+          "en": "A course side (new, old or shared) is read for several departments in one read, and returns null for a department with no new/old pairing so it stays one list."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planBadgeShared.ts",
+          "src/utils/planBadges.ts",
+          "src/server/planReviewRoutes.ts"
+        ],
+        "tests": [
+          "tests/consistent-badges-audit.tsx",
+          "tests/sheet-membership-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-RPT-001",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "تصميم الورقة المطبوعة لا يُمسّ",
+        "en": "Printed sheet design is preserved"
+      },
+      "text": {
+        "ar": "يجب أن يعالج النظام أي خطأ في التقارير المطبوعة بتصحيح القيم والبيانات لا التخطيط، وأن يعيد استعمال أصناف الطباعة القائمة إن لم يمكن تجنب تغيير في التخطيط.",
+        "en": "The system shall fix errors in printed reports by correcting values and data rather than layout, and shall reuse existing print classes when a layout change cannot be avoided."
+      },
+      "rationale": {
+        "ar": "قرار ثابت من المالك؛ وملاحظاته على تقرير الأساتذة (النصاب والساعات وأرقام المقررات) أصلحت البيانات دون المساس بالتصميم.",
+        "en": "A standing owner decision; his feedback on the instructor report (load, hours, course numbers) was resolved in the data, not the design."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "أي تغيير اضطراري يُتحقق منه على ملف PDF مطبوع من Chrome بحجم A4 أفقي قبل الدمج.",
+          "en": "Any unavoidable change is checked on a Chrome-printed A4 landscape PDF before merging."
+        },
+        {
+          "ar": "الترويسة مشتركة بين التقرير الشامل وتقرير التغييرات عبر مكوّن واحد.",
+          "en": "The head is shared by the comprehensive report and the changes report through one component."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/08-print.css",
+          "src/components/PrintComprehensiveHead.tsx"
+        ],
+        "tests": [
+          "tests/print-fit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-RPT-002",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "أمر الطباعة في اللمسة نفسها",
+        "en": "Print command in the same tap"
+      },
+      "text": {
+        "ar": "يجب ألا يفصل النظام بين الضغطة وأمر الطباعة بقراءة شبكية أو مؤقت، فيوقف البث الحي ويثبّت الورقة ويقيس الصفحات متزامناً ثم يطلب الطباعة.",
+        "en": "The system shall not place a network read or timer between the tap and the print command; it shall pause the live stream, commit the sheet and measure pages synchronously, and then request printing."
+      },
+      "rationale": {
+        "ar": "بعض المتصفحات تتجاهل الأمر بصمت إن تأخر عن اللمسة، وSafari لا تطبع مع بث حي مفتوح.",
+        "en": "Some browsers silently ignore the command if it comes later than the tap, and Safari may not print while a live stream is open."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "حال الاعتماد تُقرأ مع النطاق قبل الطباعة لا عندها، وفشل قراءتها يطبع الوثيقة بلا ختم.",
+          "en": "Approval state is read with the scope before printing, not at print time, and a failed read prints the document without a stamp."
+        },
+        {
+          "ar": "الملحق يُجلب وينتظر قبل طلب الطباعة، وفشله يطبع الشامل وحده.",
+          "en": "The appendix is fetched and awaited before printing is requested, and its failure prints the comprehensive report alone."
+        },
+        {
+          "ar": "إن ابتلع المتصفح الأمر يُستأنف البث وتعود العنوان وتُرفع الملاحق دون إزالة سمات الورقة.",
+          "en": "If the browser swallows the command, the stream resumes, the title returns and appendices are lifted without removing the sheet attributes."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/print-fit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-RPT-003",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الطباعة من تطبيق iOS المثبّت",
+        "en": "Printing from the installed iOS app"
+      },
+      "text": {
+        "ar": "يجب أن يكتشف النظام تطبيق iOS المثبّت على الشاشة الرئيسية، فلا يحاول الطباعة، ويعرض إشعاراً لمدة 5 ثوانٍ يطلب فتح الجدول في Safari أو استعمال الكمبيوتر.",
+        "en": "The system shall detect the iOS app installed on the home screen, shall not attempt to print, and shall show a notice for 5 seconds asking the user to open the schedule in Safari or use a computer."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الإشعار له role=status وaria-live=polite، ويُزال الإشعار السابق قبل عرض الجديد.",
+          "en": "The notice has role=status and aria-live=polite, and any previous notice is removed before a new one is shown."
+        },
+        {
+          "ar": "في غير هذا الوضع تُعيد الدالة false وتتابع الطباعة.",
+          "en": "In any other environment the function returns false and printing continues."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/pwaPrintHelp.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-RPT-001",
+      "kind": "data",
+      "title": {
+        "ar": "مصادر بيانات التقارير",
+        "en": "Report data sources"
+      },
+      "text": {
+        "ar": "يجب أن تقرأ شاشة الاستعلامات مواعيدها من /api/schedules الذي يقصرها على صلاحيات الحساب، وأن تقرأ إشغال القاعات وميزان الأقسام والمنتدبين وتقرير التغييرات من مسارات /api/reports/*، فلا تُحسب أي قراءة خارج نطاق القارئ.",
+        "en": "The query screen shall read its appointments from /api/schedules, which restricts them to the account's permissions, and shall read room load, department balance, visiting instructors and the changes report from /api/reports/* routes, so no reading falls outside the reader's scope."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean",
+        "registrarStaff",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "المسارات: visiting-roster وvisiting-teaching وvisiting-history وschedule-changes وauthority-pdf-diff وexcel وdepartment-balance وroom-load.",
+          "en": "The routes are visiting-roster, visiting-teaching, visiting-history, schedule-changes, authority-pdf-diff, excel, department-balance and room-load."
+        },
+        {
+          "ar": "مستوى الكلية: من يغطي الكلية كلها يقرأ منتدبي أقسامها جميعاً بلا اختيار قسم، ومن لا يغطيها يردّ له 403.",
+          "en": "College level: a reader covering the whole college reads the visiting instructors of all its departments without choosing one; a reader who does not cover it receives 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts",
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/role-scope-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-002",
+      "kind": "interface",
+      "title": {
+        "ar": "زر تصدير Excel",
+        "en": "Export Excel button"
+      },
+      "text": {
+        "ar": "يجب أن تعرض شريطة الاستعلامات زر «تصدير Excel» رابط تنزيل مباشراً بمرشحات العرض الحالي لا تُرسل منها القيم الفارغة أو الصفرية أو الكاذبة.",
+        "en": "The queries toolbar shall show an Export Excel button as a direct download link carrying the current view's filters, omitting empty, zero or false values."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرابط يطلب ListofTeacherCourseExcel ويُرسل نافذة الوقت فقط إن حُددت البداية والنهاية معاً.",
+          "en": "The link requests ListofTeacherCourseExcel and sends the time window only when both start and end are set."
+        },
+        {
+          "ar": "الأيام تُرسل بصيغة sun=true وmon=true حتى thr=true.",
+          "en": "Days are sent as sun=true, mon=true through thr=true."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/dean-notify-audit.ts"
+        ]
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "تقرير الأستاذ بلا أستاذ مختار",
+        "en": "Instructor report with no instructor chosen"
+      },
+      "scenario": {
+        "ar": "يفتح المستخدم الشاشة ويضغط طباعة تقرير الأستاذ قبل اختيار أحد.",
+        "en": "The user opens the screen and prints the instructor report before choosing anyone."
+      },
+      "behavior": {
+        "ar": "تُطبع ورقة لأساتذة العرض الحالي كلهم، وإن لم يوجد أحد تظهر رسالة «لا أساتذة في العرض الحالي لطباعة تقريرهم.» ولا تبقى القائمة مفتوحة بصمت.",
+        "en": "A sheet is printed for all instructors in the current view; if there are none a message says there are no instructors in view, and the menu does not stay open silently."
+      },
+      "evidence": [
+        "tests/report-print-menus-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "رمز مقرر مخزّن بحروف أو بمفتاح قسم آخر",
+        "en": "Stored course code with letters or another department key"
+      },
+      "scenario": {
+        "ar": "يحمل الكتالوج رمزاً مثل ENG101 أو 0102102 لمقرر قسم غير القسم المعروض.",
+        "en": "The catalogue holds a code such as ENG101, or 0102102 for a course of a department other than the one shown."
+      },
+      "behavior": {
+        "ar": "الرمز بالحروف يُعرض كما خُزّن، ومقرر القسم الآخر لا يُعاد ربطه بالقسم المعروض، وبلا مفتاح للقسم يبقى الرمز المخزّن ولا يُختلق رقم.",
+        "en": "A code with letters is shown as stored, a course of another department is not rebound to the displayed department, and with no department key the stored code stays and no number is invented."
+      },
+      "evidence": [
+        "tests/course-number-seven-digit-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "عميد يفتح الشاشة قبل اعتماد أي جدول",
+        "en": "Dean opens the screen before any schedule is approved"
+      },
+      "scenario": {
+        "ar": "قائمة العميد محفوظة على «الكل» ولا جدول معتمداً بعد، فتكون النتائج فارغة.",
+        "en": "The dean's saved lens is All and nothing is approved yet, so results are empty."
+      },
+      "behavior": {
+        "ar": "تُفتح عدسة «ميزان الأقسام» مرة واحدة تلقائياً بدل شاشة فارغة، ومن عاد إلى القائمة بنفسه بعدها لا يُردّ.",
+        "en": "The department balance lens opens automatically once instead of an empty screen, and a dean who later returns to the list by choice is not moved again."
+      },
+      "evidence": [
+        "tests/dean-notify-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "قاعة لم يُثبَّت ربطها بالسجل",
+        "en": "Hall not yet linked to the registry"
+      },
+      "scenario": {
+        "ar": "صف مستورد يحمل المبنى والقاعة نصاً فقط، أو صف بانتظار تثبيت القاعة.",
+        "en": "An imported row carries building and hall as text only, or a row is pending room confirmation."
+      },
+      "behavior": {
+        "ar": "النص المطبّع (مسافات وحالة أحرف) يشغل القاعة نفسها، أما الصف المعلّق على التثبيت فلا يشغل شيئاً ولا يضخّم نسب الإشغال.",
+        "en": "Normalised text (spacing, case) occupies the same hall, whereas a pending row occupies nothing and does not inflate occupancy rates."
+      },
+      "evidence": [
+        "tests/room-occupancy-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "قسم منتدبيه في كلية لا يملك القارئ صلاحيتها",
+        "en": "Visiting instructors in a college the reader cannot access"
+      },
+      "scenario": {
+        "ar": "للقسم المناظر مواعيد في كلية أخرى خارج نطاق القارئ.",
+        "en": "The matching department has appointments in another college outside the reader's scope."
+      },
+      "behavior": {
+        "ar": "تُحسب الكليات المسموحة وحدها، ويُسمّى ما لا يملكه القارئ ويُعلَّم الإجمالي «غير مكتمل» (complete = false).",
+        "en": "Only allowed colleges are counted, the inaccessible ones are named, and the total is marked incomplete (complete = false)."
+      },
+      "evidence": [
+        "tests/visiting-teaching-audit.ts",
+        "tests/visiting-family-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "ملف Excel للعميد",
+        "en": "Excel file for a dean"
+      },
+      "scenario": {
+        "ar": "يصدّر العميد جدول قسم له مسوّدة لم تُعتمد.",
+        "en": "A dean exports the schedule of a department that has an unapproved draft."
+      },
+      "behavior": {
+        "ar": "يُخرج الملف الجداول النهائية وحدها كالشاشة، ويفرغ عمود الرقم المدني لمن لا يحق له.",
+        "en": "The file contains final schedules only, like the screen, and the civil-number column is empty for readers who are not entitled."
+      },
+      "evidence": [
+        "tests/dean-notify-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "العدسة",
+      "en": "Lens",
+      "def": {
+        "ar": "طريقة تجميع نتائج المرشحات نفسها لتجيب عن سؤال بعينه.",
+        "en": "A way of grouping the same filtered results to answer one specific question."
+      }
+    },
+    {
+      "ar": "الاستعلامات",
+      "en": "Queries",
+      "def": {
+        "ar": "المداخل التي تبدأ بـ search، وهي للبحث؛ ومقابلها «التقارير» المداخل التي تبدأ بـ report.",
+        "en": "The entry modes starting with search; their counterpart, Reports, are the modes starting with report."
+      }
+    },
+    {
+      "ar": "ميزان الأقسام",
+      "en": "Department balance",
+      "def": {
+        "ar": "قراءة لكل قسم في سطر: المواعيد والأساتذة والقاعات والصباح والمساء والعدالة والتعارضات.",
+        "en": "A one-line reading per department: appointments, instructors, halls, morning and evening, fairness and conflicts."
+      }
+    },
+    {
+      "ar": "عدالة الحمل",
+      "en": "Load fairness",
+      "def": {
+        "ar": "مؤشر تفاوت العبء الأسبوعي بين الأساتذة.",
+        "en": "An index of the spread of weekly teaching load between instructors."
+      }
+    },
+    {
+      "ar": "نسبة الإشغال",
+      "en": "Occupancy rate",
+      "def": {
+        "ar": "نسبة القاعات المشغولة من قاعات النطاق في كل يوم وساعة.",
+        "en": "The share of the scope's halls occupied at each day and hour."
+      }
+    },
+    {
+      "ar": "المنتدب",
+      "en": "Visiting instructor",
+      "def": {
+        "ar": "أستاذ مسجَّل في دليل منتدبي القسم للفصل.",
+        "en": "An instructor listed in the department's visiting-instructor directory for the term."
+      }
+    },
+    {
+      "ar": "لوحة القرار",
+      "en": "Decision board",
+      "def": {
+        "ar": "عدسة تخطيط للقراءة فقط لرئيس القسم والعميد ومن فوقهما.",
+        "en": "A read-only planning lens for the department head, dean and above."
+      }
+    },
+    {
+      "ar": "التقرير الشامل",
+      "en": "Comprehensive report",
+      "def": {
+        "ar": "الوثيقة الرسمية الأم للجدول، تُقرأ بجانب ورقة التسجيل صفحة بصفحة.",
+        "en": "The official main schedule document, read page by page beside the registration sheet."
+      }
+    },
+    {
+      "ar": "شارة الصحيفة",
+      "en": "Plan-sheet badge",
+      "def": {
+        "ar": "وسم يظهر بجانب اسم المقرر يبيّن صحيفته ونوع متطلبه.",
+        "en": "A tag beside the course name showing its plan sheet and requirement type."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "رقم المقرر سبع خانات فقط: الكلية (2) ثم القسم (2) ثم المقرر (3)، مثل 0109105، في كل تقرير مطبوع وشاشة استعلام وملف Excel؛ ولا يُعرض الرمز المخزّن ولا AdCourseId.",
+      "en": "Course numbers are seven digits only: college (2), department (2), course (3), for example 0109105, in every printed report, query screen and Excel file; the stored code and AdCourseId are never shown."
+    },
+    {
+      "ar": "التقارير المطبوعة تحافظ على تصميمها: يُصلح القيم والبيانات لا الشكل، وأي تغيير لا مفرّ منه يعيد استعمال أصناف الطباعة القائمة ويُفحص على PDF من Chrome بحجم A4 أفقي قبل الدمج.",
+      "en": "Printed reports keep their design: fix values and data, not layout; an unavoidable change reuses the existing print classes and is checked on a Chrome-printed A4 landscape PDF before merging."
+    },
+    {
+      "ar": "الرأس يحدد القسم في ملف الهيئة (SWRSCHA): القسم والفرع من ترويسة الصفحة ولو حمل رقم المقرر رمز قسم آخر، ولا يربط الذيل الثلاثي وحده مقرراً.",
+      "en": "The header decides the department in the Authority file (SWRSCHA): department and branch come from the page header even if a course number carries another department's code, and a three-digit tail alone never links a course."
+    }
+  ]
+}

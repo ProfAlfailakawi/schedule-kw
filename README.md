@@ -33,4 +33,13 @@ These are fixed decisions by the system owner. Do not change them without the ow
 - **Header decides the department (SWRSCHA PDF).** The department and branch come from the page header, even when a course number carries another department's code. A missing department or course is created only after one confirmation, under its printed number and name, with the usual permission; a three-digit tail alone never links (0114464 is not 0120464). Scans never create.
 - ⚠️ **Printed reports keep their design.** Fix values and data, not the layout. A layout change that cannot be avoided must reuse the existing print classes and be checked on a Chrome-printed A4 landscape PDF before merging.
 
+## Requirements Document (SRS) — وثيقة المتطلبات
+
+The system has a bilingual (Arabic/English) Software Requirements Specification under `docs/srs/`. It is the contract between the owners, the university and the code, so it must never fall behind.
+
+- ⚠️ **Any change that adds, changes or removes a feature updates its requirement in the same change.** Requirements live in `docs/srs/modules/*.json` (one file per module; schema and style in `docs/srs/AUTHORING.md`). Each requirement lists the code files that implement it and the tests that prove it.
+- `npm run test:srs-doc` (part of `npm test`, so part of the automated checks) fails the merge when: a source file belongs to no module; a server route was added or removed without `npm run srs:sync`; a referenced file does not exist; a banned wording appears; or the PDFs are older than the written content (`npm run srs:pdf` regenerates them into `docs/srs/pdf/`).
+- The interactive page is rebuilt on every deployment by `npm run build` and served at a private, secret URL (`/srs/<key>/`, handled by `src/server/srsDoc.ts`). Only the SHA-256 of the key is stored (`docs/srs/access.sha256`); the key itself is never committed. Rotating the key means replacing that hash.
+- Counts, coverage, endpoint totals and screenshots-free statistics are extracted from the repository on every build — they are never typed by hand.
+
 > ⚠️ **رقم المقرر سبع خانات فقط:** الكلية (2) ثم القسم (2) ثم المقرر (3)، مثل `0109105`. لا تُعرض الخانات الثلاث المخزّنة ولا `AdCourseId`. **وتصميم التقارير المطبوعة لا يُمسّ:** الإصلاح في البيانات لا في الشكل.
