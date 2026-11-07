@@ -337,7 +337,7 @@ check(["الكل", "PENDING_COMMITTEE", "لم توافق اللجنة", "بان�
 
 /* ── الهوية لمن يعمل على الحالة، لا لصفة العرض ─────────────────────────── */
 check(server.includes("const canSeeStudentIdentity = (req: AuthenticatedRequest): boolean => !isViewerOnlyRole(req.user?.Role);"),
-  "من يرى الاسم والرقم المدني: قاعدةٌ واحدة، وصفةُ العرض (العميد، عميد التسجيل) لا تراهما");
+  "من يرى الاسم والرقم المدني: قاعدةٌ واحدة، وصفةُ العرض (العميد، عميد القبول والتسجيل) لا تراهما");
 const registrationList = server.slice(server.indexOf('app.get("/api/student-registration"'), server.indexOf('app.post("/api/student-registration/:id/course-state"'));
 const demandList = server.slice(server.indexOf('app.get("/api/schedules/demand"'), server.indexOf('const sectionOwnsNeed') > 0 ? server.indexOf('const sectionOwnsNeed') : server.indexOf("/** أقسامُ نطاق الحساب"));
 check((registrationList.match(/\.\.\.await studentIdentityFor\(req, need\)/g) || []).length === 2 && !registrationList.includes("openStudentIdentity(")

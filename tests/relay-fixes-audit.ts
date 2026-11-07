@@ -349,7 +349,7 @@ const noDeadline = readDeadline({}, "2026-10-01");
 /* ── R20: من يقرأ لا يقرّر ─────────────────────────────────────────────────── */
 check(changes.includes("const canRebut = Boolean(role.signatureStage) && !isViewerOnlyRole(role.id) && !isRegistrar;")
   && changes.includes('{canRebut && note.origin === "registrar" && note.state === "open" ? ('),
-  "R20 «أبقِها كما هي» لمن يوقّع في القسم وحده — لا لعميد التسجيل");
+  "R20 «أبقِها كما هي» لمن يوقّع في القسم وحده — لا لعميد القبول والتسجيل");
 
 /* ── R21: الورشةُ تعرف القفل قبل أن تفتح المحرّر ─────────────────────────── */
 {

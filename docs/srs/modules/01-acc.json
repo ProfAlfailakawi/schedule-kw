@@ -397,9 +397,9 @@
       "status": "implemented",
       "actors": ["admin", "dean", "viceDean", "registrarDean", "registrarHead", "collegeRegistrar", "registrarStaff", "departmentHead", "advisor", "committeeChair", "standard"],
       "acceptance": [
-        { "ar": "الصفات العشر بترتيبها: عميد الكلية 1، العميد المساعد 2، عميد التسجيل 3، المسجّل العام 4، رئيس تسجيل الكلية 4.5، موظف التسجيل 5، رئيس القسم 6، مرشد القسم 6.5، رئيس لجنة الجدول 7، مستخدم عادي 8.", "en": "The ten roles in order: College dean 1, Vice dean 2, Dean of registration 3, University registrar 4, College registrar 4.5, Registration officer 5, Department head 6, Department advisor 6.5, Schedule committee chair 7, Standard user 8." },
-        { "ar": "أرقام الشاشات: العميد [14]؛ العميد المساعد وعميد التسجيل والمسجّل العام ورئيس تسجيل الكلية [14,8,9,16]؛ موظف التسجيل [14,9]؛ رئيس القسم والمرشد [14]؛ رئيس اللجنة [7,14,8,9,10,16,17,6]؛ المستخدم العادي [7].", "en": "Screen numbers: Dean [14]; Vice dean, Dean of registration, University registrar and College registrar [14,8,9,16]; Registration officer [14,9]; Department head and Advisor [14]; Committee chair [7,14,8,9,10,16,17,6]; Standard user [7]." },
-        { "ar": "وحدها صفتا رئيس لجنة الجدول والمستخدم العادي ليستا للقراءة فقط؛ وأوضاع النطاق: كلية (العميد، المساعد، رئيس تسجيل الكلية)، كل الكليات (عميد التسجيل والمسجّل العام)، قسم (رئيس القسم والمرشد ورئيس اللجنة)، يدوي (موظف التسجيل والمستخدم العادي).", "en": "Only Schedule committee chair and Standard user are not read-only; scope modes are college (Dean, Vice dean, College registrar), all colleges (Dean of registration, University registrar), section (Department head, Advisor, Committee chair) and manual (Registration officer, Standard user)." },
+        { "ar": "الصفات العشر بترتيبها: عميد الكلية 1، العميد المساعد 2، عميد القبول والتسجيل 3، المسجّل العام 4، رئيس تسجيل الكلية 4.5، موظف التسجيل 5، رئيس القسم 6، مرشد القسم 6.5، رئيس لجنة الجدول 7، مستخدم عادي 8.", "en": "The ten roles in order: College dean 1, Vice dean 2, Dean of registration 3, University registrar 4, College registrar 4.5, Registration officer 5, Department head 6, Department advisor 6.5, Schedule committee chair 7, Standard user 8." },
+        { "ar": "أرقام الشاشات: العميد [14]؛ العميد المساعد وعميد القبول والتسجيل والمسجّل العام ورئيس تسجيل الكلية [14,8,9,16]؛ موظف التسجيل [14,9]؛ رئيس القسم والمرشد [14]؛ رئيس اللجنة [7,14,8,9,10,16,17,6]؛ المستخدم العادي [7].", "en": "Screen numbers: Dean [14]; Vice dean, Dean of registration, University registrar and College registrar [14,8,9,16]; Registration officer [14,9]; Department head and Advisor [14]; Committee chair [7,14,8,9,10,16,17,6]; Standard user [7]." },
+        { "ar": "وحدها صفتا رئيس لجنة الجدول والمستخدم العادي ليستا للقراءة فقط؛ وأوضاع النطاق: كلية (العميد، المساعد، رئيس تسجيل الكلية)، كل الكليات (عميد القبول والتسجيل والمسجّل العام)، قسم (رئيس القسم والمرشد ورئيس اللجنة)، يدوي (موظف التسجيل والمستخدم العادي).", "en": "Only Schedule committee chair and Standard user are not read-only; scope modes are college (Dean, Vice dean, College registrar), all colleges (Dean of registration, University registrar), section (Department head, Advisor, Committee chair) and manual (Registration officer, Standard user)." },
         { "ar": "حساب بلا صفة أو بصفة مجهولة يُقرأ «رئيس لجنة الجدول»، والصفة المجهولة المرسلة عند الإنشاء أو التعديل تُرفض 400.", "en": "An account with no role or an unknown role reads as Schedule committee chair, and an unknown role submitted on create or edit is refused with 400." },
         { "ar": "GET /api/roles يعيد الحقول نفسها لأي مستخدم موثَّق.", "en": "GET /api/roles returns the same fields to any signed-in user." }
       ],
@@ -429,7 +429,7 @@
       "kind": "functional",
       "title": { "ar": "الأبواب الضيقة لصفات الاطّلاع", "en": "Narrow doors for read-only roles" },
       "text": {
-        "ar": "يجب على الخادم أن يفتح لصفات الاطّلاع المشاركة في دورة الاعتماد مسارات /approvals و/schedule-notes و/student-registration فقط، وأن يستثني العميدين وعميد التسجيل منها تماماً، وأن يفتح لرئيس القسم والمرشد والمسجّل العام مسارات محددة بأعيانها.",
+        "ar": "يجب على الخادم أن يفتح لصفات الاطّلاع المشاركة في دورة الاعتماد مسارات /approvals و/schedule-notes و/student-registration فقط، وأن يستثني العميدين وعميد القبول والتسجيل منها تماماً، وأن يفتح لرئيس القسم والمرشد والمسجّل العام مسارات محددة بأعيانها.",
         "en": "The server shall open to read-only roles that take part in the approval cycle only the /approvals, /schedule-notes and /student-registration paths, shall exclude the Dean, Vice dean and Dean of registration from them entirely, and shall open named paths to the Department head, Advisor and University registrar."
       },
       "priority": "must",
@@ -573,7 +573,7 @@
       "acceptance": [
         { "ar": "صف بياناته بلا قسم يُطلب له تطابق حرفي بصف قسم صفر، فلا يتسع لكل من له شيء في الكلية.", "en": "A data row lacking a department requires a literal match against a department-0 scope row and does not widen to everyone with anything in the college." },
         { "ar": "عندما لا يُسمّى شيء يُختار قسم من داخل نطاق الحساب وحده، الأكثف مواعيد أولاً؛ ولا تُقرأ الجامعة كلها.", "en": "When nothing is named a department is chosen from inside the account's scope only, busiest first; the whole university is never read." },
-        { "ar": "العميد بكلية واحدة كاملة يُقرأ له مستواها، وعميد التسجيل بعدة كليات يختار كلية بنفسه.", "en": "A Dean with one whole college is read at college level, and a Dean of registration with several colleges must choose one." }
+        { "ar": "العميد بكلية واحدة كاملة يُقرأ له مستواها، وعميد القبول والتسجيل بعدة كليات يختار كلية بنفسه.", "en": "A Dean with one whole college is read at college level, and a Dean of registration with several colleges must choose one." }
       ],
       "evidence": { "code": ["src/server/core/scope.ts", "src/server/readScope.ts"], "tests": ["tests/dean-notify-audit.ts"] }
     },

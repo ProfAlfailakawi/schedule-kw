@@ -1440,7 +1440,7 @@
           "en": "A return with no open note returns 409 with code no-notes, and an unsuitable status returns not-reviewable."
         },
         {
-          "ar": "عميد التسجيل والعميدان لا يملكون الإرجاع (403).",
+          "ar": "عميد القبول والتسجيل والعميدان لا يملكون الإرجاع (403).",
           "en": "The dean of registration and the deans cannot return (403)."
         }
       ],
@@ -1996,7 +1996,7 @@
           "en": "Draft appointments and the 'heaviest instructor' of a department not yet accepted are excluded from the dean's balance."
         },
         {
-          "ar": "الإدارة الرئيسية تقرأ المسودة كما هي، والعميد يرى كليته وعميد التسجيل يرى الجميع.",
+          "ar": "الإدارة الرئيسية تقرأ المسودة كما هي، والعميد يرى كليته وعميد القبول والتسجيل يرى الجميع.",
           "en": "Main administration reads drafts as they are, the dean sees his college and the dean of registration sees all."
         }
       ],

@@ -57,6 +57,7 @@
     "src/utils/registrationSim.ts",
     "src/utils/seatAccessCard.ts",
     "src/utils/seats.ts",
+    "src/utils/handoverPick.ts",
     "src/utils/sectionRequestHandoff.ts",
     "src/utils/sectionRequests.ts",
     "src/utils/studentAdvice.ts",

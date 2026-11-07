@@ -198,7 +198,7 @@ export function classifyTrailRoute(method: string, path: string): TrailRouteRule
  *
  * والترجمة إلى ما في النظام (src/utils/academicRoles.ts وsrc/utils/seats.ts): «الفريق» حسابٌ واحد
  * برئيسه وأعضائه، فرؤيةُ الفريق رؤيةُ كلِّ ما جرى على ذلك الحساب. ورئيسُ الإرشاد هو حسابُ «مرشد القسم»،
- * ورئيسُ التسجيل «رئيس تسجيل الكلية»، وعميدُ القبول والتسجيل «عميد التسجيل».
+ * ورئيسُ التسجيل «رئيس تسجيل الكلية»، وعميدُ القبول والتسجيل «عميد القبول والتسجيل».
  */
 export interface TrailSeat { userId: number; role: AcademicRole; colleges: number[]; sections: string[] }
 export interface TrailViewer {

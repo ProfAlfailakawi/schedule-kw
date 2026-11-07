@@ -3,7 +3,7 @@
   { "id": "admin", "icon": "settings", "name": { "ar": "مدير النظام", "en": "System administrator" } },
   { "id": "dean", "icon": "landmark", "name": { "ar": "عميد الكلية", "en": "College dean" } },
   { "id": "viceDean", "icon": "graduation-cap", "name": { "ar": "العميد المساعد للشؤون الأكاديمية", "en": "Vice dean for academic affairs" } },
-  { "id": "registrarDean", "icon": "clipboard-check", "name": { "ar": "عميد التسجيل", "en": "Dean of registration" } },
+  { "id": "registrarDean", "icon": "clipboard-check", "name": { "ar": "عميد القبول والتسجيل", "en": "Dean of registration" } },
   { "id": "registrarHead", "icon": "stamp", "name": { "ar": "المسجّل العام", "en": "University registrar" } },
   { "id": "collegeRegistrar", "icon": "file-badge", "name": { "ar": "رئيس تسجيل الكلية", "en": "College registrar" } },
   { "id": "registrarStaff", "icon": "id-card", "name": { "ar": "موظف التسجيل", "en": "Registration officer" } },

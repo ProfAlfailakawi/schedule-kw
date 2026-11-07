@@ -202,7 +202,7 @@ interface SessionRole {
   landing: "balance" | "changes" | "schedules" | "dashboard" | "registration";
   canReview: boolean;
   canManageDeadline: boolean;
-  /** يفتح صندوق الوارد — ولو لم يقرّر فيه، كعميد التسجيل. */
+  /** يفتح صندوق الوارد — ولو لم يقرّر فيه، كعميد القبول والتسجيل. */
   watchesInbox: boolean;
   /** يعلّق على الخانات: التسجيل والقسم كلاهما. */
   canAnnotate: boolean;
@@ -2749,7 +2749,7 @@ export default function App() {
             </div>
             <span className="sr-only" role="status">{healthLabel}</span>
             <div className="user-card-tools">
-              {/* «👣 الأثر» لمن يرى فرقاً غيرَ فريقه: العميد ورئيس القسم والمسجّل العام وعميد التسجيل، ومدير النظام. */}
+              {/* «👣 الأثر» لمن يرى فرقاً غيرَ فريقه: العميد ورئيس القسم والمسجّل العام وعميد القبول والتسجيل، ومدير النظام. */}
               {isPowerAdmin || TRAIL_HOME_ROLES.has(sessionRole.id) ? <TrailButton data-guide-ignore="يفتح ورقة «الأثر»: من فعل ماذا في الفرق التي تشرف عليها؛ قراءة فقط" /> : null}
               {!isPowerAdmin && sessionRole.id !== "standard" ? (
                 <button

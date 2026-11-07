@@ -18,7 +18,7 @@
 export type AcademicRole =
   | "dean"            // عميد الكلية
   | "viceDean"        // العميد المساعد للشؤون الأكاديمية
-  | "registrarDean"   // عميد التسجيل
+  | "registrarDean"   // عميد القبول والتسجيل
   | "registrarHead"   // المسجّل العام: كل الكليات، يضع موعد التسليم ويمدّده
   | "collegeRegistrar" // رئيس تسجيل الكلية: كليته وحدها، يمدّد ولا يضع الموعد
   | "registrarStaff"  // موظف التسجيل
@@ -90,7 +90,7 @@ export const ACADEMIC_ROLES: AcademicRoleDefinition[] = [
   },
   {
     id: "registrarDean",
-    label: "عميد التسجيل",
+    label: "عميد القبول والتسجيل",
     hint: "كل الكليات، قراءة فقط: ما يراه رئيس التسجيل من تقارير واستعلامات، وحالة التسليم والوارد، بلا أزرار قرار.",
     readOnly: true,
     formIds: [REPORT_DEPARTMENT, QUERY_INSTRUCTOR, QUERY_ROOM, QUERY_ROOM_TIME],
