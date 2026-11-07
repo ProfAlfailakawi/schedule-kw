@@ -176,7 +176,7 @@ check(sched.includes("excludeId={editId}"), "المحرر يستثني المو�
 check(quick.includes('document.querySelector(".same-slot-sheet")'), "Esc في البطاقة يُهمل ما دامت الورقة مفتوحة");
 check(!/AdRoomCode|AdRoomHall|roomId/.test(hint), "الورقة لا تعرض قاعاتٍ أبداً");
 check(hint.includes('<strong dir="ltr">{time}</strong>') && hint.includes("formatScheduleTimeRange(row.fstarttime, row.fendtime)"), "صفُّ التداخل يعرض وقته هو معزولاً LTR");
-check(/countOf\(partialCount, AR\.course\)/.test(hint) && /countOf\(sectionCount, AR\.section\)/.test(hint), "الوصف المقروء يعدّ بـcountOf");
+check(/countOf\(partialCount, oblique\(AR\.course\)\)/.test(hint) && /countOf\(sectionCount, AR\.section\)/.test(hint), "الوصف المقروء يعدّ بـcountOf");
 const css = read("src/styles/51-same-slot.css");
 check(/const TAKEN_TOGETHER = "تُؤخذ معًا";/.test(hint) && (hint.match(/تُؤخذ معًا/g) || []).length === 1 && !hint.includes("نفس المستوى") && !hint.includes("طلبة مشتركون"), "وسم المجموعة ثابتٌ واحد بلا جملة");
 check(/\.same-slot-time\{white-space:nowrap\}/.test(css), "وقت العنوان لا ينكسر");
