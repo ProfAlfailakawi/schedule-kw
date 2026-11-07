@@ -20,10 +20,10 @@ const KEY_SHAPE = /^[A-Za-z0-9_-]{32,128}$/;
 const FOLDER_SHAPE = /^[0-9a-f]{64}$/;
 const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
+/** يُسجَّل المسار دائماً (ولو بلا بناء فيردّ 404) حتى لا يتغيّر جدولُ المسارات بحسب وجود مجلد البناء. */
 export function registerSrsDocRoutes(app: Express, base = path.resolve(process.cwd(), "dist/srs-private")): number {
   let folders: string[] = [];
   try { folders = fs.readdirSync(base).filter(name => FOLDER_SHAPE.test(name)); } catch { /* لا بناء: لا مسار */ }
-  if (!folders.length) return 0;
   const limiter = createAttemptLimiter({ maxFailures: 10, windowMs: 10 * 60_000, capacity: 5_000 });
   const served = new Map(folders.map(folder => [folder, express.static(path.join(base, folder), { index: "index.html", redirect: false, dotfiles: "ignore", fallthrough: true })]));
   const notFound = (res: Response) => { res.status(404).type("text/plain; charset=utf-8").send("Not found"); };

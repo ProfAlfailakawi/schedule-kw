@@ -17,8 +17,14 @@ fs.mkdirSync(path.join(base, folder));
 fs.writeFileSync(path.join(base, folder, "index.html"), "<!doctype html><title>SRS</title>ok");
 fs.writeFileSync(path.join(base, folder, "SRS-ar.pdf"), "%PDF-1.4 test");
 
+/* بلا بناء: المسار مسجَّلٌ (جدول المسارات ثابت في كل بيئة) لكنه يردّ 404 لكل مفتاح. */
 const empty = express();
-assert.equal(registerSrsDocRoutes(empty, path.join(base, "missing")), 0, "بلا بناء لا يُسجَّل مسار");
+assert.equal(registerSrsDocRoutes(empty, path.join(base, "missing")), 0);
+const emptyServer = empty.listen(0);
+try {
+  const r = await fetch(`http://127.0.0.1:${(emptyServer.address() as { port: number }).port}/srs/${key}/`);
+  assert.equal(r.status, 404, "بلا بناء كل مفتاح 404");
+} finally { emptyServer.close(); }
 
 const app = express();
 assert.equal(registerSrsDocRoutes(app, base), 1);
