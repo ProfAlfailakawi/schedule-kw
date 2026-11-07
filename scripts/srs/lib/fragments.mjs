@@ -49,7 +49,7 @@ export function matrixBlock(c, m, mx) {
 export function reqCard(c, m, r) {
   const ev = r.evidence || {};
   const more = [];
-  if ((r.actors || []).length) more.push(`<div class="dl-title">${c.T({ ar: "الأدوار", en: "Actors" })}</div><div class="req-meta">${r.actors.map(a => actorChip(c, m, a)).join("")}</div>`);
+  if (!c.print && (r.actors || []).length) more.push(`<div class="dl-title">${c.T({ ar: "الأدوار", en: "Actors" })}</div><div class="req-meta">${r.actors.map(a => actorChip(c, m, a)).join("")}</div>`);
   if (r.rationale) more.push(`<div class="dl-title">${c.T({ ar: "المبرر", en: "Rationale" })}</div><p class="req-rat">${c.M(r.rationale)}</p>`);
   more.push(`<div class="dl-title">${c.T({ ar: "معايير القبول", en: "Acceptance criteria" })}</div><ol>${r.acceptance.map(a => `<li>${c.M(a)}</li>`).join("")}</ol>`);
   if ((ev.code || []).length || (ev.tests || []).length) {
@@ -62,7 +62,7 @@ export function reqCard(c, m, r) {
   return `<article class="req" id="${r.id}" data-id="${r.id}" data-module="${r.module}" data-status="${r.status}" data-priority="${r.priority}" data-kind="${r.kind}" data-actors="${(r.actors || []).join(" ")}" data-inferred="${r.inferred ? 1 : 0}" data-q="${esc(q)}">`
     + `<div class="req-head"><a class="req-id" href="#${r.id}">${r.id}</a><h4>${c.T(r.title)}</h4>${r.status !== "implemented" ? statusBadge(c, r.status) : ""}${r.inferred ? badge("b-inferred", c.T({ ar: "مستنتج", en: "Inferred" }), "circle-help", c.print) : ""}</div>`
     + `<p class="req-text">${c.M(r.text)}</p>`
-    + `<div class="rm"><i class="sdot s-${r.status}"></i><span>${c.T(LABELS.status[r.status])}</span><span class="sep">·</span><span>${c.T(LABELS.priority[r.priority])}</span><span class="sep">·</span><span>${c.T(LABELS.kind[r.kind])}</span></div>${body}</article>`;
+    + `<div class="rm"><i class="sdot s-${r.status}"></i><span>${c.T(LABELS.status[r.status])}</span><span class="sep">·</span><span>${c.T(LABELS.priority[r.priority])}</span><span class="sep">·</span><span>${c.T(LABELS.kind[r.kind])}</span>${c.print && (r.actors || []).length ? `<span class="sep">·</span><span class="ra">${r.actors.map(a => c.T(m.actorMap.get(a).name)).join(c.mode === "ar" ? "، " : ", ")}</span>` : ""}</div>${body}</article>`;
 }
 
 export function screensBlock(c, s) {

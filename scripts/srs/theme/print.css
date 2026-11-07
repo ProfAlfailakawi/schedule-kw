@@ -119,3 +119,5 @@ td a,.toc-row,.req-id{color:inherit}
 .tsvc{border-radius:12px;padding:8px 10px}.tsvc ul{grid-template-columns:repeat(2,1fr);gap:6px}.tsvc .si{width:30px;height:30px;border-radius:9px}
 .tcols{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 .tcol li{flex-wrap:nowrap}
+
+.rm{font-size:7.8pt;flex-wrap:wrap;margin:.2em 0 0}.rm .ra{color:var(--ink-2)}
