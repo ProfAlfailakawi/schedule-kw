@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "./common.mjs";
-import { icon } from "./icons.mjs";
+import { icon, logo, logoDataUri } from "./icons.mjs";
 import { LABELS, STATUS_ORDER, PRIORITY_ORDER } from "./model.mjs";
 import { ctxFor, esc, md, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip, statusBadge } from "./fragments.mjs";
 
@@ -101,10 +101,10 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   const html = `<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><meta name="color-scheme" content="light dark"><meta name="theme-color" content="#141917">
-<title>SCHEDULE · SRS</title><style>${css}</style></head>
+<title>SCHEDULE · SRS</title><link rel="icon" type="image/svg+xml" href="${logoDataUri()}"><style>${css}</style></head>
 <body>
 <header class="topbar"><div class="topbar-in">
-  <a class="brand" href="#top"><span class="mark">${icon("calendar-range", 20)}</span><span>SCHEDULE<small>${c.T(m.meta.document)}</small></span></a>
+  <a class="brand" href="#top"><span class="mark">${logo(34)}</span><span>SCHEDULE<small>${c.T(m.meta.document)}</small></span></a>
   <div class="search">${icon("search", 18)}<input id="q" type="search" autocomplete="off" aria-label="search" data-ph-ar="ابحث في المتطلبات…  ( / )" data-ph-en="Search requirements…  ( / )"></div>
   <div class="tools">
     <button class="btn" data-lang-btn="ar" aria-pressed="true">AR</button><button class="btn" data-lang-btn="en" aria-pressed="false">EN</button>
@@ -113,6 +113,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   </div></div></header>
 ${filterbar}
 <div class="hero" id="top"><div class="hero-in">
+  <div class="hero-logo">${logo(76)}</div>
   <span class="kicker">${icon("scroll-text", 16)} ${c.T(m.meta.document)} · ${esc(m.meta.standard)}</span>
   <h1>${c.T(m.meta.system)}</h1>
   <p class="sub">${c.T(T2("ما يجب أن يقدمه النظام، ولمن، وبأي ضمانات. مرتبط بالكود والاختبارات ويتحدث مع كل إصدار.", "What the system must provide, for whom, and under which guarantees. Linked to the code and tests, and refreshed with every release."))}</p>
@@ -129,7 +130,7 @@ ${filterbar}
   ${chapters}
   ${trace}${glossary}${revisions}
 </main></div>
-<footer class="foot"><div class="foot-in"><div><b>${c.T(m.meta.system)}</b><small>${c.T(m.meta.document)} · v${esc(m.meta.version)} · ${esc(m.meta.releaseDate)}</small></div><div>${authors.map(a => `<b>${c.T(a)}</b>`).join(" · ")}<small>${c.T(T2("بُنيت هذه الصفحة من مصدر الوثيقة نفسه، وتتحدث مع كل نشر.", "This page is built from the document source itself and refreshes with every release."))}</small></div></div></footer>
+<footer class="foot"><div class="foot-in"><div class="foot-brand">${logo(44)}<div><b>${c.T(m.meta.system)}</b><small>${c.T(m.meta.document)} · v${esc(m.meta.version)} · ${esc(m.meta.releaseDate)}</small></div></div><div>${authors.map(a => `<b>${c.T(a)}</b>`).join(" · ")}<small>${c.T(T2("بُنيت هذه الصفحة من مصدر الوثيقة نفسه، وتتحدث مع كل نشر.", "This page is built from the document source itself and refreshes with every release."))}</small></div></div></footer>
 <script>${js}</script></body></html>`;
   return html;
 }

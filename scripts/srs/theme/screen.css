@@ -2,7 +2,7 @@
 .topbar{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .topbar-in{display:flex;align-items:center;gap:.8rem;max-width:1480px;margin:0 auto;padding:.55rem 1rem}
 .brand{display:flex;align-items:center;gap:.55rem;font-weight:700;text-decoration:none;color:var(--ink);white-space:nowrap}
-.brand .mark{width:34px;height:34px;border-radius:10px;background:var(--ground);display:grid;place-items:center;color:var(--jade-bright)}
+.brand .mark{width:34px;height:34px;display:grid;place-items:center}.brand .mark .logo{display:block;border-radius:10px}
 .brand small{display:block;font-weight:500;color:var(--ink-3);font-size:.72rem;line-height:1.2}
 .search{flex:1;min-width:140px;position:relative;max-width:560px;margin-inline:auto}
 .search input{width:100%;height:44px;border-radius:99px;border:1px solid var(--line-2);background:var(--surface-2);padding-inline:2.8rem 1rem;font:inherit;color:var(--ink)}
@@ -116,3 +116,7 @@ body.filtering.none .empty{display:block}
 }
 .diagram{overflow-x:auto}
 @media (max-width:760px){.diagram svg.flow{min-width:640px}}
+
+.hero-logo{margin-bottom:1.2rem}.hero-logo .logo{display:block;border-radius:22px;box-shadow:0 14px 40px -14px rgb(0 0 0/.6),0 0 0 1px rgb(255 255 255/.12)}
+.foot-brand{display:flex;gap:.9rem;align-items:center}.foot-brand .logo{border-radius:12px;flex:none}
+@media (max-width:640px){.hero-logo .logo{width:60px;height:60px}}

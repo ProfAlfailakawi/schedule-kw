@@ -13,6 +13,8 @@ import { renderInteractive } from "./lib/render-interactive.mjs";
 import { renderPrint } from "./lib/render-print.mjs";
 import { missingIcons } from "./lib/icons.mjs";
 
+/** حساب المالك على منصة الاستضافة ومعرّفات المشاريع السحابية: لا تظهر في أي ناتج. */
+const PRIVATE = /ProfAlfailakawi|gen-lang-client|schedule-863eb|schedule-deployer/i;
 export const PDF_DIR = path.join(SRS_DIR, "pdf");
 export function pdfFiles() {
   const out = {};
@@ -37,12 +39,12 @@ export function buildAll({ strict = true } = {}) {
   /* فحصٌ ثانٍ على الناتج النهائي: لا عبارة ممنوعة تمرّ إلى الصفحة. */
   const visible = html.replace(/<code[\s\S]*?<\/code>/g, "").replace(/<style[\s\S]*?<\/style>/g, "").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<svg class="ic[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, " ");
   const hits = forbiddenHits(visible, { allowGemini: true });
-  if (/git\s?hub/i.test(html) && strict) throw new Error("ذكرٌ لمنصة الاستضافة في الناتج");
+  if (PRIVATE.test(html) && strict) throw new Error("معرّفٌ خاص (حساب أو مشروع) في الناتج");
   if (hits.length && strict) throw new Error(`عبارة ممنوعة في الناتج: ${[...new Set(hits)].join("، ")}`);
   const live = {};
   for (const l of ["ar", "en"]) {
     live[l] = renderPrint(model, l, { live: true }).body;
-    if (/git\s?hub/i.test(live[l]) && strict) throw new Error("ذكرٌ لمنصة الاستضافة في النسخة الحيّة");
+    if (PRIVATE.test(live[l]) && strict) throw new Error("معرّفٌ خاص (حساب أو مشروع) في النسخة الحيّة");
     const shown = live[l].replace(/<code[\s\S]*?<\/code>/g, "").replace(/<style[\s\S]*?<\/style>/g, "").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, " ");
     const bad = forbiddenHits(shown, { allowGemini: true });
     if (bad.length && strict) throw new Error(`عبارة ممنوعة في النسخة الحيّة: ${[...new Set(bad)].join("، ")}`);

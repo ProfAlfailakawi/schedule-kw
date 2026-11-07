@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "./common.mjs";
-import { icon } from "./icons.mjs";
+import { icon, logo } from "./icons.mjs";
 import { LABELS, STATUS_ORDER } from "./model.mjs";
 import { ctxFor, esc, md, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip, statusBadge, priorityBadge } from "./fragments.mjs";
 
@@ -43,7 +43,7 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   const bold = t => `<b>${t}</b>`;
 
   /* الغلاف */
-  const coverBody = `<div class="cover"><div><div class="mark">${icon("calendar-range", 56)}</div></div>
+  const coverBody = `<div class="cover"><div><div class="mark">${logo(120)}</div></div>
     <div><div class="kick">${icon("scroll-text", 18)} ${L(m.meta.document)} · ${esc(m.meta.standard)}</div><h1>${L(m.meta.system)}</h1>
     <p class="sub2">${L(T2("ما يجب أن يقدمه النظام، ولمن، وبأي ضمانات.", "What the system must provide, for whom, and under which guarantees."))}</p>
     <div class="meta"><span>v${esc(m.meta.version)}</span><span>${esc(m.meta.releaseDate)}</span><span>${lang === "ar" ? "العربية" : "English"}</span></div>

@@ -33,3 +33,17 @@ export function iconInner(name) {
 export function icon(name, size = 20, cls = "") {
   return `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconInner(name)}</svg>`;
 }
+
+/** علامة SCHEDULE الفعلية (public/schedule-icon.svg): الأسبوع الذي حُلّ. */
+let logoCache = null;
+export function logo(size = 40, cls = "") {
+  if (!logoCache) {
+    const raw = fs.readFileSync(path.join(ROOT, "public/schedule-icon.svg"), "utf8");
+    logoCache = raw.replace(/<!--[\s\S]*?-->/g, "").replace(/\s+/g, " ").trim();
+  }
+  return logoCache.replace("<svg ", `<svg class="logo ${cls}" width="${size}" height="${size}" `);
+}
+export function logoDataUri() {
+  const raw = fs.readFileSync(path.join(ROOT, "public/schedule-icon.svg"), "utf8").replace(/<!--[\s\S]*?-->/g, "").replace(/\s+/g, " ").trim();
+  return "data:image/svg+xml," + encodeURIComponent(raw);
+}

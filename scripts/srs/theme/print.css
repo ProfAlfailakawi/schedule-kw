@@ -67,7 +67,7 @@ table.tbl tr{break-inside:avoid}
 .cover{width:210mm;height:297mm;margin:0;padding:0;background:radial-gradient(900px 600px at 80% 0%,rgb(95 191 166/.35),transparent 60%),radial-gradient(700px 500px at 0% 100%,rgb(199 155 95/.28),transparent 60%),#141917;color:#eef2f0;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:26mm 22mm 22mm}
 .cover::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgb(255 255 255/.05) 1px,transparent 1px),linear-gradient(90deg,rgb(255 255 255/.05) 1px,transparent 1px);background-size:11mm 11mm;mask-image:linear-gradient(to bottom,#000,transparent 90%)}
 .cover>*{position:relative}
-.cover .mark{width:22mm;height:22mm;border-radius:6mm;background:rgb(255 255 255/.08);border:1px solid rgb(255 255 255/.18);display:grid;place-items:center;color:var(--jade-bright)}
+.cover .mark{width:30mm;height:30mm;display:block}.cover .mark .logo{width:30mm;height:30mm;border-radius:7.5mm;box-shadow:0 0 0 1px rgb(255 255 255/.14)}
 .cover .kick{color:var(--jade-bright);font-weight:600;letter-spacing:.06em;font-size:11pt;display:flex;gap:8px;align-items:center}
 .cover h1{color:#fff;font-size:38pt;line-height:1.2;margin:8mm 0 4mm}
 .cover .sub2{color:#c4cdc9;font-size:14pt;max-width:140mm}
