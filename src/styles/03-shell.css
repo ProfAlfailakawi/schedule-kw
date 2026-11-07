@@ -1200,7 +1200,7 @@ html[data-schedule-workspace="focus"] .quick-create{z-index:2600}
   .smart-guide-ambient-next{inset-inline-start:65px;inset-block-end:88px;max-width:190px}
 }
 @media (max-width:560px){
-  .smart-guide-fab.icon-only{width:42px;height:42px;min-height:42px;padding:0;border-radius:14px}.smart-guide-fab.icon-only .smart-guide-fab-mark{width:30px;height:30px;border-radius:10px}
+  .smart-guide-fab.icon-only{width:44px;height:44px;min-height:44px;padding:0;border-radius:14px}.smart-guide-fab.icon-only .smart-guide-fab-mark{width:30px;height:30px;border-radius:10px}
   .schedule-practice-strip{padding:5px 8px}.schedule-practice-strip small{display:none}
   .schedule-guide-ghost-diff{top:6px;padding:9px;border-radius:16px}.schedule-guide-ghost-diff footer button{min-height:29px;padding:0 8px}
   .guide-simulation-brief{padding:9px;border-radius:16px}.guide-simulation-brief footer{overflow-x:auto;justify-content:flex-start}.guide-simulation-brief footer button{flex:none}
@@ -1491,7 +1491,7 @@ html[data-schedule-workspace="focus"] .notify-bell,
 html[data-schedule-workspace="presentation"] .notify-bell{display:none}
 @media (prefers-reduced-motion:reduce){.notify-bell[data-fresh="true"] svg,.notify-panel{animation:none}}
 @media screen and (max-width:1119px){
-  .notify-bell{top:calc((var(--topbar-h,64px) - 40px) / 2);inset-inline-end:64px;width:40px;height:40px;box-shadow:none}
+  .notify-bell{top:calc((var(--topbar-h,64px) - 44px) / 2);inset-inline-end:62px;width:44px;height:44px;box-shadow:none}
   .notify-panel{top:calc(var(--topbar-h,64px) + 8px)}
 }
 

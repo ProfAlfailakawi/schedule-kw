@@ -196,9 +196,9 @@
    صار أيقونةً في الشريط العلوي بجوار القائمة: لا يغطّي شيئاً، والزر والتسمية والنقرة كما هي. */
 @media screen and (max-width:1119px){
   html .smart-guide-fab,html .smart-guide-fab:not(.icon-only),html .smart-guide-fab.icon-only{
-    inset-block-start:calc((var(--topbar-h,64px) - 42px) / 2 + env(safe-area-inset-top,0px));inset-block-end:auto;
-    left:auto;right:62px;
-    inline-size:42px;min-inline-size:42px;block-size:42px;min-block-size:42px;padding:0;gap:0;
+    inset-block-start:calc((var(--topbar-h,64px) - 44px) / 2 + env(safe-area-inset-top,0px));inset-block-end:auto;
+    left:auto;right:61px;
+    inline-size:44px;min-inline-size:44px;block-size:44px;min-block-size:44px;padding:0;gap:0;
     justify-content:center;border:0;border-radius:13px;
     background:transparent;box-shadow:none;backdrop-filter:none;opacity:1;
     z-index:51; /* فوق الشريط العلوي (50) وتحت خلفيات النوافذ، فلا يلمع فوق نافذةٍ مفتوحة */

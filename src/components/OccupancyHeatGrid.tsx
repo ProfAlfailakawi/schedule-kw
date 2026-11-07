@@ -33,6 +33,7 @@ export default function OccupancyHeatGrid({ heat, pick, onPick, collegeId, label
     onPick?.(picked(day, hour) ? null : { day, hour, ...(collegeId ? { collegeId } : {}) });
 
   return (
+    <div className="occupancy-heat-scroll">
     <table className={`occupancy-heat${compact ? " is-compact" : ""}`} aria-label={label || "نسبة الإشغال: الأيام × الساعات"}>
       <colgroup>
         <col className="occupancy-heat-day-col" />
@@ -88,5 +89,6 @@ export default function OccupancyHeatGrid({ heat, pick, onPick, collegeId, label
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
