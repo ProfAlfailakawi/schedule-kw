@@ -165,6 +165,7 @@ import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import { isTermClosed, previousYearSameTermName, sameTermName, sortTermsNewest, currentTermId, termIsArchive } from "../utils/termSequence";
 import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
+import SameSlotHint from "./SameSlotHint";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
 import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { TimeCounterPopover } from "./TimeCounter";
@@ -3771,6 +3772,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       : isInstructor ? "تعارض أستاذ"
         : conflict.type === "duplicate" ? "تكرار"
           : conflict.type === "sectionTwice" ? "الشعبة مرتين"
+          : conflict.type === "coreq" ? "المقرن"
           : conflict.type === "travel" ? "انتقال بين المواقع"
             : conflict.type === "doorway" ? "الفاصل بين المحاضرتين"
               : conflict.type === "cohort" ? "تعارض على الطلاب"
@@ -9833,7 +9835,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </Field>
                 <div className="field appt-duration">
                   <span className="appt-duration-label">المدة</span>
-                  <div className="appt-duration-value"><bdi dir="ltr">{studioDuration ? studioDuration : "—"}</bdi>{studioDuration ? <small>د</small> : null}</div>
+                  <div className="appt-duration-value"><bdi dir="ltr">{studioDuration ? studioDuration : "—"}</bdi>{studioDuration ? <small>د</small> : null}
+                  <SameSlotHint rows={rows} courseOf={(id: number) => courseById.get(id)} instructorName={(id: number) => instructorById.get(id)?.AdInstructorName || ""}
+                    days={selectedFormDays.map(d => d.key as any)} start={String(form.fstarttime || "")} end={String(form.fendtime || "")}
+                    excludeId={editId} skipIds={conflicts.flatMap((c: any) => [c?.rowId, c?.otherId]).filter(Boolean)}
+                    courseId={Number(form.AdCourseId) || undefined} sectionId={Number(form.AdSectionId) || filterSection || undefined} termId={Number(form.AdTermId) || filterTerm || undefined}
+                    collegeId={Number(form.AdCollegeId) || filterCollege || undefined} scode={String(form.SCode || "")} />
+                  </div>
                 </div>
                   </div>
                   {editorVerdict.blockers.length?<div className="editor-validation-strip" role="alert">
@@ -13104,6 +13112,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             AdCollegeId: filterCollege, AdSectionId: filterSection, AdTermId: filterTerm,
           }, day)}
           conflictOf={quickConflict}
+          sameSlot={{ rows, courseOf: (id: number) => courseById.get(id), instructorName: (id: number) => instructorById.get(id)?.AdInstructorName || "" }}
           nextSectionCode={(courseId) => nextSectionCode(courseId, Number(filterTerm) || 0)}
           departmentIds={departmentInstructorIds}
           visitingIds={visitingIds}

@@ -186,6 +186,7 @@
   "GET /api/schedules/:id/substitutes",
   "GET /api/schedules/academic-advice",
   "GET /api/schedules/copy-preview",
+  "GET /api/schedules/coreq-pairs",
   "GET /api/schedules/demand",
   "GET /api/schedules/events",
   "GET /api/schedules/export",

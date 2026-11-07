@@ -31,6 +31,7 @@ import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict"
 import { bestRegulationChoice, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { byCourseNumber } from "../utils/sheetMembership";
+import SameSlotHint from "./SameSlotHint";
 
 /**
  * The appointment written where it was drawn.
@@ -132,7 +133,10 @@ export default function QuickCreatePopover({
   onReplaceable,
   replaceBusy = false,
   meter = null,
+  sameSlot,
 }: {
+  /** صفوفُ الفصل المحمّلة في الصفحة لتلميح «في الوقت نفسه»؛ بلا طلبٍ جديد. */
+  sameSlot?: { rows: readonly any[]; courseOf: (courseId: number) => { CourseCode?: string; CourseName?: string } | undefined; instructorName?: (id: number) => string };
   /** عدّادُ «وقت إدخال المواعيد» يملكه الأب (يُرسله بعد الحفظ الناجح وحده)؛ البطاقةُ تُعلِّم عليه الأدوات والموانع. */
   meter?: EntryMeter | null;
   /** 🔄 خانة «هيئة تدريسية» مطابقة تماماً: «خذ موعدها» · «بدّل» · «احذفها وخذ مكانها» — طلبٌ واحد محروس عند الأب. */
@@ -293,7 +297,7 @@ export default function QuickCreatePopover({
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       /* قائمةُ مقررٍ مفتوحة داخل البطاقة تأخذ Escape وحدها (تُغلق هي)، فلا تُهمل المسوّدة. */
-      if (e.key === "Escape") { if (holdOpen.current || ref.current?.querySelector(".ss-pop") || ref.current?.querySelector(".instructor-pop")) return; e.stopPropagation(); onCancel(); }
+      if (e.key === "Escape") { if (holdOpen.current || document.querySelector(".same-slot-sheet") || ref.current?.querySelector(".ss-pop") || ref.current?.querySelector(".instructor-pop")) return; e.stopPropagation(); onCancel(); }
     };
     const away = (e: PointerEvent) => {
       if (!ref.current || ref.current.contains(e.target as Node) || sideRef.current?.contains(e.target as Node)) return;
@@ -594,6 +598,11 @@ export default function QuickCreatePopover({
                 onClick={() => setTimeOpen(open => !open)}>
                 <SlidersHorizontal aria-hidden="true" />{timeOpen ? "تمّ" : "عدّل الوقت"}
               </button>
+              {sameSlot ? (
+                <SameSlotHint rows={sameSlot.rows} courseOf={sameSlot.courseOf} instructorName={sameSlot.instructorName}
+                  days={chosenDays} start={draft.start} end={draft.end} courseId={draft.courseId || undefined}
+                  skipIds={liveCheck.conflicts.flatMap((c: any) => [c?.rowId, c?.otherId]).filter(Boolean)} termId={termId || undefined} sectionId={sectionId || undefined} collegeId={collegeId || undefined} scode={draft.scode} />
+              ) : null}
             </div>
             {timeOpen ? (
               <div className="qc-time-wheels" id="qc-time-wheels">
