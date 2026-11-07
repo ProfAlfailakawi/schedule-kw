@@ -57,6 +57,7 @@
     "test:course-spelling-merge": "tsx tests/course-spelling-merge-audit.ts",
     "test:teacher-mini-week": "tsx tests/teacher-mini-week-audit.ts",
     "test:week-window": "tsx tests/week-window-audit.ts",
+    "test:matrix-continuation": "tsx tests/matrix-continuation-audit.ts",
     "test:appointment-forms-r2": "tsx tests/appointment-forms-r2-audit.ts",
     "test:appointment-forms-r3": "tsx tests/appointment-forms-r3-audit.ts",
     "test:review-1105": "tsx tests/review-1105-audit.ts",

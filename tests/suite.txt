@@ -254,5 +254,6 @@ test:proposal-family-timetable
 test:full-day-setting
 test:report-choices
 test:room-types-by-department
+test:matrix-continuation
 test:srs-doc
 test:srs-route
