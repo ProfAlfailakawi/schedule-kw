@@ -138,13 +138,14 @@ export default function ScheduleViewsMenu({
                   <span>{view.name}</span>
                   <button type="button" onClick={() => onToggleFavorite(view)}
                     title={view.favorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة (3 كحد أقصى)"}
+                    aria-label={`${view.favorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}: ${view.name}`}
                     aria-pressed={Boolean(view.favorite)}>
                     <Star aria-hidden="true" />
                   </button>
-                  <button type="button" onClick={() => onRename(view)} title="إعادة تسمية">
+                  <button type="button" onClick={() => onRename(view)} title="إعادة تسمية" aria-label={`إعادة تسمية: ${view.name}`}>
                     <Pencil aria-hidden="true" />
                   </button>
-                  <button type="button" data-guide-ignore="حذف عرض شخصي محفوظ ولا يغيّر بيانات الجدول" onClick={() => onDelete(view)} title="حذف">
+                  <button type="button" data-guide-ignore="حذف عرض شخصي محفوظ ولا يغيّر بيانات الجدول" onClick={() => onDelete(view)} title="حذف" aria-label={`حذف: ${view.name}`}>
                     <Trash2 aria-hidden="true" />
                   </button>
                 </div>

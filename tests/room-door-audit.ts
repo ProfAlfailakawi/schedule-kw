@@ -169,6 +169,27 @@ const viewAt = (iso: string) => { const d = roomAt(iso); return { d, v: door.doo
     "R1 الدورُ من رمز القاعة، وما لا يُقرأ «مرافق أخرى»");
 }
 
+{
+  /* FR-LOC-025: الكتالوج يحفظ 105 تحت القسم 0109 (كلية 011 + قسم 09)، والبابُ يكتب 0109105. */
+  const short = data.buildDoorTermIndex({
+    termId: 1, exceptions: [],
+    rows: [row(301, 1, 21, "01", { fsunday: true }, "08:00", "09:15", F01), row(302, 1, 21, "02", { fsunday: true }, "08:00", "09:15", F01)] as any,
+    courses: [course(21, 1, "105", "مدخل إلى تكنولوجيا التعليم")] as any,
+    sections: [{ AdSectionId: 1, AdCollegeId: 5, AdSectionCode: "09", AdSectionName: "تكنولوجيا التعليم" }],
+    colleges: [{ AdCollegeId: 5, AdCollegeCode: "011", AdCollegeName: "كلية التربية الأساسية - بنين" }],
+  });
+  check(short.departments?.get(1) === "0109", "R1 مفتاحُ القسم من رمز الكلية ورمز القسم: 011 + 09 => 0109", [...(short.departments || [])]);
+  const d = data.roomDoorData({ room: f01, building, index: short, terms, nowMs: at("2026-11-01T10:20:00+03:00"), build: "test-build", boardHref: "" });
+  const lecture = d.week[0].lectures[0];
+  check(d.week[0].lectures.length === 1 && lecture?.code === "0109105" && lecture.sec === "01 · 02", "R1 FR-LOC-025 المقرر المخزَّن 105 يظهر على الباب 0109105، وشعبتاه محاضرةٌ واحدة", d.week[0].lectures);
+  const json = JSON.stringify(d);
+  check(!/"code":"105"/.test(json) && !/AdCourseId|CourseCode/.test(json), "R1 لا CourseCode كما خُزّن ولا AdCourseId في بيانات الباب", json.slice(0, 300));
+  const board = data.boardDoorData({ building, rooms: [{ room: f01, href: "/d/x" }], index: short, terms, nowMs: at("2026-11-01T10:20:00+03:00"), build: "test-build" });
+  check(board.rooms[0].week[0].lectures[0]?.code === "0109105", "R1 ولوحةُ المبنى تكتب الرقم نفسه بسبع خانات", board.rooms[0].week[0].lectures);
+  check(/Repository\.getSections\(\), Repository\.getColleges\(\)/.test(read("src/server/roomDoorRoutes.ts")) && /authorityCourseCode\(stored, departments/.test(read("src/server/roomDoorData.ts")),
+    "R1 مسارُ الباب يمرّر الأقسام والكليات، والرقمُ من authorityCourseCode");
+}
+
 /* ── R2: نصُّ المتصفّح هو نصُّ الخادم ─────────────────────────────────────────── */
 {
   check(!door.ROOM_DOOR_ENGINE_SCRIPT.includes("__name") && !/\b(const|let)\b|=>|`/.test(door.ROOM_DOOR_ENGINE_SCRIPT), "R2 نصُّ المحرّك بلا أسماءٍ مضافة ولا const/let ولا سهم (شاشاتٌ قديمة)");

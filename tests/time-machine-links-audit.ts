@@ -7,13 +7,14 @@
  *   1) المسار يطابق مسار آلة الزمن في التطبيق، والجملة تذهب وتعود سليمة؛
  *   2) الرمز الطويل يُطابق كاملاً قبل مطابقة آخر أرقامه (كان «0109» من
  *      «0109468» يطابق مقرراً آخر ينتهي بـ0109)، والرمز القصير يبقى كما كان؛
+ *   2ب) الأمثلة والتسميات وبطاقات الشعب بالرقم السباعي (0109468 لا 468)؛
  *   3) الشاشات الثلاث موصولة: الآلة تقرأ الجملة مرّةً، والتنبؤ والتخطيط
  *      يفتحانها على نسخةٍ افتراضية فقط.
  */
 import fs from "fs";
 import path from "path";
 import type { AdCourse } from "../src/types";
-import { parseProblem, type TmContext } from "../src/utils/timeMachine";
+import { describeProblem, parseProblem, removeSectionChange, sectionCards, tmCourseNumber, type TmContext } from "../src/utils/timeMachine";
 import { askFromSearch, demandAsk, TIME_MACHINE_PATH, timeMachineHref } from "../src/utils/timeMachineLink";
 
 let passed = 0, failed = 0;
@@ -52,6 +53,31 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   check(parseProblem("زاد الطلب على 9999999", context) === null, "L9 رمزٌ طويلٌ لا وجود له لا يُطابق آخرَ أرقامه مع مقررٍ آخر");
   const tail = parseProblem("زاد الطلب على 09468", context);
   check(tail?.kind === "demandUp" && tail.courseId === 2, "L9b ذيلُ رمزٍ طويل («09468») يُفهم بطوله كلّه", tail);
+}
+
+/* ── 2ب) NFR-DRF-027: الرقم السباعي في الأمثلة والتسميات وبطاقات الشعب ── */
+{
+  const course = (id: number, code: string, name: string): AdCourse => ({ AdCourseId: id, AdCollegeId: 1, AdSectionId: 1, CourseCode: code, CourseName: name, CourseCredit: 3, CourseHours: 3, MaxStudent: 35 } as AdCourse);
+  const row = { id: 1, AdCollegeId: 1, AdSectionId: 1, AdTermId: 7, AdCourseId: 2, AdCourseName: "إدارة مراكز مصادر التعلم", SCode: "01", AdInstructorId: 0,
+    fsunday: true, fmonday: false, ftuesday: true, fwednesday: false, fthursday: false, fstarttime: "08:00", fendtime: "09:15", AdRoomCode: "", AdRoomHall: "" } as any;
+  const context: TmContext = {
+    scope: { collegeId: 1, sectionId: 1, termId: 7 }, rows: [row], outside: [], instructors: [], halls: [], demand: null, loadLimits: {}, canWrite: false,
+    courses: [course(2, "468", "إدارة مراكز مصادر التعلم")], departmentKeys: { "1": "0109" },
+  };
+  check(tmCourseNumber(context.courses[0], context) === "0109468", "L16 المقرر المخزَّن 468 في القسم 0109 يُعرض 0109468");
+  const read7 = parseProblem(demandAsk(tmCourseNumber(context.courses[0], context)), context);
+  check(read7?.kind === "demandUp" && read7.courseId === 2, "L17 «زاد الطلب على 0109468» تُقرأ ولو خُزّن المقرر بخاناته الثلاث", read7);
+  check(read7 ? describeProblem(read7, context) === "طلبٌ زائد على 0109468 إدارة مراكز مصادر التعلم" : false, "L18 وصفُ المشكلة بالرقم السباعي", read7 && describeProblem(read7, context));
+  const cards = sectionCards([row], context);
+  check(cards[0]?.courseCode === "0109468" && removeSectionChange(cards[0]).label === "حذف 0109468 ش01", "L19 بطاقة الشعبة وتسمية التغيير بالرقم السباعي", cards[0]);
+  check(context.courses[0].CourseCode === "468" && row.AdCourseId === 2, "L20 العرض لا يغيّر المخزَّن");
+  const bare = { ...context, departmentKeys: undefined };
+  check(tmCourseNumber(bare.courses[0], bare) === "468", "L21 بلا مفتاح قسم يبقى الرمز كما خُزّن (لا يُختلق رقم)");
+  const machine = read("src/components/TimeMachine.tsx"), simulator = read("src/components/SectionSimulator.tsx"), routes = read("src/server/timeMachineRoutes.ts");
+  check(/`زاد الطلب على \$\{tmCourseNumber\(course, context\)\}`/.test(machine) && !/زاد الطلب على \$\{course\.CourseCode\}/.test(machine) && /«زاد الطلب على 0109468»/.test(machine),
+    "L22 أمثلة آلة الزمن وتلميحها بالرقم السباعي");
+  check(/tmCourseNumber\(course, context\)\} · \$\{course\.CourseName\}/.test(simulator) && !/\$\{course\.CourseCode\} ·/.test(simulator), "L23 قائمة مقررات محاكي الشعب بالرقم السباعي");
+  check(/departmentKeys,/.test(routes) && /authorityDepartmentKeys\(/.test(routes), "L24 سياق آلة الزمن يحمل مفاتيح الأقسام من الخادم");
 }
 
 /* ── 3) الشاشات موصولة ── */

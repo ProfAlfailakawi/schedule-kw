@@ -64,7 +64,9 @@
     "src/components/SpellingTwinsMerge.tsx",
     "src/components/VisitingBadge.tsx",
     "src/components/VisitingConversionPanel.tsx",
-    "src/components/InstructorPicker.tsx"
+    "src/components/InstructorPicker.tsx",
+    "scripts/lib/programProvision.ts",
+    "scripts/provision-marine-diploma.ts"
   ],
   "screens": [
     {
@@ -648,6 +650,10 @@
         {
           "ar": "حذف فصل له صف واحد على الأقل في الجدول يعيد 409 ولا يحذف شيئاً، وحذف فصل خالٍ ينجح.",
           "en": "Deleting a term with at least one schedule row returns 409 and deletes nothing, and deleting an empty term succeeds."
+        },
+        {
+          "ar": "GET /api/terms يعيد كل الفصول الأحدث أولاً لأي مستخدم مسجّل؛ وكل إنشاء أو تعديل أو حذف يُفرغ ذاكرة «فصول النطاق».",
+          "en": "GET /api/terms returns every term newest first to any signed-in user; every create, update or delete empties the scoped-terms cache."
         }
       ],
       "evidence": {
@@ -655,7 +661,9 @@
           "src/server/routes/referenceRoutes.ts#registerReferenceRoutes",
           "src/db/repository.ts#termCalendarFields",
           "src/components/Terms.tsx",
-          "src/server/routes/referenceRoutes.ts"
+          "src/server/routes/referenceRoutes.ts",
+          "src/server/routes/referenceRoutes.ts#/api/terms",
+          "src/server/routes/referenceRoutes.ts#/api/terms/:id"
         ],
         "tests": [
           "tests/term-calendar-audit.ts"
@@ -774,7 +782,8 @@
       "evidence": {
         "code": [
           "src/utils/scopedTerms.ts#visibleTermIds",
-          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes"
+          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes",
+          "src/server/routes/referenceRoutes.ts#/api/terms/scoped"
         ],
         "tests": [
           "tests/fixed-scope-terms-audit.ts"
@@ -810,12 +819,18 @@
         {
           "ar": "قائمة الكليات لغير المدير تقتصر على كليات نطاقه ومرتبة بالعربية.",
           "en": "The college list for a non-administrator is limited to his scope and sorted in Arabic."
+        },
+        {
+          "ar": "تعديل كلية أو حذفها خارج نطاق غير المدير يردّ 403 «خارج صلاحيات الأقسام المسموحة لك»، وتعديل كلية غير موجودة 404؛ والمدير يرى كل الكليات.",
+          "en": "Editing or deleting a college outside a non-administrator's scope returns 403, editing a missing college returns 404, and an administrator sees every college."
         }
       ],
       "evidence": {
         "code": [
           "src/server/routes/referenceRoutes.ts#registerReferenceRoutes",
-          "src/components/Colleges.tsx"
+          "src/components/Colleges.tsx",
+          "src/server/routes/referenceRoutes.ts#/api/colleges",
+          "src/server/routes/referenceRoutes.ts#/api/colleges/:id"
         ],
         "tests": [
           "tests/role-scope-audit.ts"
@@ -859,13 +874,23 @@
         {
           "ar": "حذف قسم له مقرر واحد على الأقل يعيد 409 ولا يحذف شيئاً.",
           "en": "Deleting a department with at least one course returns 409 and deletes nothing."
+        },
+        {
+          "ar": "GET /api/sections يقبل collegeId ويصفّي بالنطاق ويرتّب بالعربية؛ ونقل القسم يشترط نطاق القسم الحالي والكلية الهدف معاً، وكلية هدف غير موجودة 400.",
+          "en": "GET /api/sections accepts collegeId, filters by scope and sorts in Arabic; moving a department requires scope over both the current department and the target college, and a missing target college returns 400."
+        },
+        {
+          "ar": "تعثّر إنشاء سجل «هيئة تدريسية» لا يُسقط إنشاء القسم، ويُعاد عند أول استيراد.",
+          "en": "A failure to create the faculty-placeholder record does not undo the department creation; it is retried at the first import."
         }
       ],
       "evidence": {
         "code": [
           "src/server/sectionFaculty.ts#ensureSectionFaculty",
           "src/server/routes/referenceRoutes.ts#registerReferenceRoutes",
-          "src/utils/placeholderInstructor.ts"
+          "src/utils/placeholderInstructor.ts",
+          "src/server/routes/referenceRoutes.ts#/api/sections",
+          "src/server/routes/referenceRoutes.ts#/api/sections/:id"
         ],
         "tests": [
           "tests/section-faculty-audit.ts"
@@ -1092,7 +1117,8 @@
       ],
       "evidence": {
         "code": [
-          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes"
+          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes",
+          "src/server/routes/coursesRoutes.ts#/api/courses/:id"
         ]
       },
       "inferred": true
@@ -1127,7 +1153,8 @@
       ],
       "evidence": {
         "code": [
-          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes"
+          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes",
+          "src/server/routes/coursesRoutes.ts#/api/courses/:id"
         ]
       },
       "inferred": true
@@ -1161,6 +1188,14 @@
         {
           "ar": "تُكتب النسخ قبل المقرر المعدَّل ليعيد الحفظ التالي ما فات.",
           "en": "Copies are written before the edited course so that the next save redoes what was missed."
+        },
+        {
+          "ar": "طبيعة التدريس ونوع المرفق المرافق (حتى 60 حرفاً) يسريان على النسخ نفسها بالقيود نفسها؛ وطبيعة «mixed» المخزّنة تُقبل عند إعادة حفظها وإن لم تكن من الأربع.",
+          "en": "The teaching mode and the companion facility type (up to 60 characters) spread to the same copies under the same limits; a stored mixed mode is accepted when re-saved even though it is not one of the four."
+        },
+        {
+          "ar": "ردّ الحفظ يحمل roomTypeSynced وroomTypeAligned وroomTypeSkipped وteachingModeSynced وteachingModeSkipped وcompanionSynced؛ وحفظ نوع غير فارغ يوحّد النسخ ولو لم يتغيّر.",
+          "en": "The save response carries roomTypeSynced, roomTypeAligned, roomTypeSkipped, teachingModeSynced, teachingModeSkipped and companionSynced; saving a non-empty type aligns the copies even when it did not change."
         }
       ],
       "evidence": {
@@ -1375,13 +1410,18 @@
         {
           "ar": "التعديل والحذف يتطلبان صلاحية الأساتذة (3) ولا يكفيها صلاحية الجداول.",
           "en": "Edit and delete require the instructors permission (3); the schedule permission is not enough."
+        },
+        {
+          "ar": "تعديل الأستاذ يقبل الحالة retired أو sabbatical فقط (وغيرهما يعني نشطاً) والنصاب الشخصي بين 1 و40 مقرّباً لعدد صحيح وإلا لا شيء؛ وحذف أستاذ له صف في الجدول يردّ 409.",
+          "en": "Editing an instructor accepts only retired or sabbatical as status (anything else means active) and a personal load from 1 to 40 rounded to a whole number, otherwise none; deleting an instructor with a schedule row returns 409."
         }
       ],
       "evidence": {
         "code": [
           "src/server/routes/instructorsRoutes.ts#registerInstructorsRoutes",
           "src/server/sectionFaculty.ts",
-          "src/utils/placeholderInstructor.ts#isFacultyPlaceholder"
+          "src/utils/placeholderInstructor.ts#isFacultyPlaceholder",
+          "src/server/routes/instructorsRoutes.ts#/api/instructors/:id"
         ],
         "tests": [
           "tests/section-faculty-audit.ts",
@@ -1549,13 +1589,19 @@
         {
           "ar": "الأسبقية: استثناء العضو الساري ثم درجته، وعضو بلا درجة ولا استثناء «غير مضبوط» بلا رقم مخترع.",
           "en": "Precedence is the member's active exception, then his rank; a member with neither is unset, with no invented number."
+        },
+        {
+          "ar": "مسارات الإعداد للحساب الجذر مع الشاشة 7: GET /api/admin/teaching-load يعرض لكل أستاذ ساعاته وحاله في الفصل المختار (أو الحالي)، وPUT يحفظ الإعداد كله ويرفض رقم عضو غير موجود 400، وGET وPUT /api/admin/teaching-load/member/:id لعضو واحد (404 إن لم يوجد، و400 لدرجة غير موجودة).",
+          "en": "The configuration routes are for the root account with screen 7: GET /api/admin/teaching-load shows each instructor's hours and state in the chosen (or current) term, PUT saves the whole configuration and refuses an unknown member number with 400, and GET and PUT /api/admin/teaching-load/member/:id handle one member (404 if missing, 400 for an unknown rank)."
         }
       ],
       "evidence": {
         "code": [
           "src/utils/teachingLoad.ts#teachingLoadProblem",
           "src/utils/teachingLoad.ts#teachingLoadLimits",
-          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes"
+          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes",
+          "src/server/routes/referenceRoutes.ts#/api/admin/teaching-load",
+          "src/server/routes/referenceRoutes.ts#/api/admin/teaching-load/member/:id"
         ],
         "tests": [
           "tests/teaching-load-audit.ts"
@@ -1591,13 +1637,18 @@
         {
           "ar": "الميزة معطلة افتراضياً: بلا تفعيل لا يُحسب شيء ولا يُرسل.",
           "en": "The feature is off by default: until enabled nothing is computed or sent."
+        },
+        {
+          "ar": "GET /api/teaching-load/status لنطاق القسم والفصل يردّ enabled:false حين تكون الميزة معطّلة، وإلا قائمة المتجاوزين مرتّبة بالتجاوز تنازلياً وعدد «الإضافي» وعدد «ضمن الحد».",
+          "en": "GET /api/teaching-load/status for the department and term scope returns enabled:false when the feature is off, otherwise the over-load list sorted by excess descending, the overtime count and the within count."
         }
       ],
       "evidence": {
         "code": [
           "src/utils/teachingLoad.ts#teachingHoursByInstructor",
           "src/utils/teachingLoad.ts#evaluateTeachingLoad",
-          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes"
+          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes",
+          "src/server/routes/referenceRoutes.ts#/api/teaching-load/status"
         ],
         "tests": [
           "tests/teaching-load-audit.ts",
@@ -1642,7 +1693,8 @@
           "src/server/core/visiting.ts#readVisitingStatus",
           "src/utils/liveVisiting.ts#liveVisitingIds",
           "src/utils/visitingLookup.ts#isVisitingIn",
-          "src/components/VisitingBadge.tsx"
+          "src/components/VisitingBadge.tsx",
+          "src/server/routes/instructorsRoutes.ts#/api/visiting-lookup"
         ],
         "tests": [
           "tests/visiting-lookup-audit.ts",
@@ -1685,7 +1737,9 @@
       "evidence": {
         "code": [
           "src/server/routes/instructorsRoutes.ts#registerInstructorsRoutes",
-          "src/server/core/visiting.ts#readLiveVisitingRoster"
+          "src/server/core/visiting.ts#readLiveVisitingRoster",
+          "src/server/routes/instructorsRoutes.ts#/api/visiting-roster/instructor",
+          "src/server/routes/instructorsRoutes.ts#/api/visiting-roster/copy"
         ],
         "tests": [
           "tests/visiting-lookup-audit.ts"
@@ -1732,7 +1786,9 @@
           "src/utils/visitingConversion.ts#planVisitingConversion",
           "src/db/visitingConversion.ts#runVisitingConversion",
           "src/server/routes/instructorsRoutes.ts#registerInstructorsRoutes",
-          "src/components/VisitingConversionPanel.tsx"
+          "src/components/VisitingConversionPanel.tsx",
+          "src/server/routes/instructorsRoutes.ts#/api/instructors/:id/visiting-conversion",
+          "src/server/routes/instructorsRoutes.ts#/api/instructors/:id/visiting-state"
         ],
         "tests": [
           "tests/visiting-conversion-audit.ts"
@@ -1812,6 +1868,10 @@
         {
           "ar": "الحفظ والقراءة لقسم خارج النطاق يعيدان 403.",
           "en": "Save and read for a department outside the scope return 403."
+        },
+        {
+          "ar": "PUT /api/course-offering يحفظ أيضاً طريقة عرض المقرر غير المطروح: hide أو fade؛ وGET يعيد معها المقررات بمستوياتها من صحائف القسم المعتمدة وعدد شعبها، والمقررات المقترحة للمستقبل، ورغبات الأساتذة المستقبلية بأسمائهم.",
+          "en": "PUT /api/course-offering also stores how a non-offered course is displayed: hide or fade; GET returns with it the courses with their levels from the department's approved sheets and section counts, the suggested future courses, and instructors' future interest by name."
         }
       ],
       "evidence": {
@@ -1820,7 +1880,8 @@
           "src/utils/courseOffering.ts#newSectionsAllowed",
           "src/server/routes/offeringRoutes.ts#registerOfferingRoutes",
           "src/server/offeringStates.ts#offeringStatesForTerm",
-          "src/components/CourseOfferingPanel.tsx"
+          "src/components/CourseOfferingPanel.tsx",
+          "src/server/routes/offeringRoutes.ts#/api/course-offering"
         ],
         "tests": [
           "tests/prepublish-reach-audit.tsx",
@@ -1893,7 +1954,7 @@
           "en": "A name sent as an array, a boolean or longer than 120 returns 400."
         },
         {
-          "ar": "«٤٥» تُقرأ 45 في الحقول الصحيحة.",
+          "ar": "العدد 45 مكتوباً بالأرقام الهندية يُقرأ 45 في الحقول الصحيحة.",
           "en": "The Arabic-Indic string for 45 is read as 45 in integer fields."
         },
         {
@@ -1912,6 +1973,822 @@
         ]
       },
       "inferred": true
+    },
+    {
+      "id": "FR-ACD-031",
+      "kind": "functional",
+      "title": {
+        "ar": "حسابات تولد مع الكلية والقسم",
+        "en": "Accounts born with a college or a department"
+      },
+      "text": {
+        "ar": "يجب على النظام حين ينشئ مدير النظام كلية أن ينشئ لها حسابي «عميد الكلية» و«العميد المساعد» فعّالين بنطاق الكلية كلها، وأن يجهّز كرسي «رئيس تسجيل الكلية»، وحين يُنشأ قسم من استيراد صحيفة أن ينشئ له حسابات «رئيس القسم» و«رئيس لجنة الجدول» و«مرشد القسم» بنطاقه؛ لكلٍّ كلمة أولى عشوائية تُعرض للمسؤول مرة واحدة ويُطلب تغييرها عند أول دخول.",
+        "en": "When a system administrator creates a college the system shall create active College dean and Vice dean accounts scoped to the whole college and prepare a College registrar seat, and when a department is created from a sheet import it shall create Department head, Schedule committee chair and Department advisor accounts scoped to it; each gets a random initial password shown to the administrator once and to be changed at first sign-in."
+      },
+      "rationale": {
+        "ar": "لا كلمة موحّدة: أسماء الدخول تُخمَّن من اسم القسم أو رمز الكلية.",
+        "en": "There is no shared password: login names can be guessed from the department name or college code."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "اسم الدخول للكلية: رمزها اللاتيني بأحرف صغيرة ثم dean أو vicedean؛ فإن كان لحساب كلية أخرى أُضيف c ورقم الكلية. وللقسم: البادئة الإنجليزية من اسمه ثم head أو dept أو advisor، ثم رمز الكلية، ثم رقمها عند التصادم.",
+          "en": "A college login is its Latin code in lower case followed by dean or vicedean; if that belongs to another college's account, c and the college number are added. A department login is the English prefix from its name followed by head, dept or advisor, then the college code, then its number on a clash."
+        },
+        {
+          "ar": "الكلمة الأولى 10 أحرف من 54 رمزاً بلا متشابهات، والحساب معلَّم بتغييرها، وتعرض شاشة الكليات الكلمات في نافذة «تظهر مرّة واحدة».",
+          "en": "The initial password is 10 characters from 54 symbols without look-alikes, the account is flagged to change it, and the Colleges screen shows the passwords in a window that appears once."
+        },
+        {
+          "ar": "حساب موجود بالاسم نفسه لا يُمسّ: يُكمل ما نقصه من شاشات أو نطاق فقط (completed) أو يُعدّ موجوداً (exists)، والإعادة لا تكرّر شيئاً.",
+          "en": "An existing account with the same name is not touched: only its missing screens or scope are completed (completed) or it counts as existing (exists), and re-running duplicates nothing."
+        },
+        {
+          "ar": "إنشاء الكلية بغير حساب «مدير» لا ينشئ حسابات ولا كرسياً؛ وفشل تجهيز الكرسي يُكتب في السجل ولا يُسقط الكلية.",
+          "en": "Creating a college from an account without the administrator flag creates no accounts and no seat; a failure preparing the seat is logged and does not undo the college."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/sectionUsers.ts#provisionCollegeUsers",
+          "src/server/sectionUsers.ts#provisionSectionUsers",
+          "src/server/routes/referenceRoutes.ts#/api/colleges",
+          "src/components/Colleges.tsx"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-032",
+      "kind": "functional",
+      "title": {
+        "ar": "زمن التنقّل بين مباني الكلية",
+        "en": "Travel time between a college's buildings"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض عبر GET /api/colleges/:id/mobility مباني الكلية المستعملة تاريخياً مع ملفها، وأن يحفظ عبر PUT /api/colleges/:id/mobility زمن التنقّل الافتراضي وزمن المبنى الواحد وأزمنة أزواج المباني.",
+        "en": "Through GET /api/colleges/:id/mobility the system shall show the college's historically used buildings with its profile, and through PUT /api/colleges/:id/mobility store the default travel time, the same-building time and per-pair building times."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "المباني تُشتق من رموز القاعات في كل صفوف الكلية وتُحفظ 10 دقائق، وتُرتّب برقم المبنى لا بكثافته.",
+          "en": "Buildings are derived from the room codes of all the college's rows, cached for 10 minutes, and ordered by building number rather than usage."
+        },
+        {
+          "ar": "زمن الزوج والافتراضي بين 1 و120 دقيقة (الافتراضي 5)، وزمن المبنى الواحد بين 0 و30 (الافتراضي 3)؛ ويُسقط زوج بلا مبنى أو لمبنى مع نفسه أو مكرر.",
+          "en": "Pair and default times are between 1 and 120 minutes (default 5) and the same-building time between 0 and 30 (default 3); a pair with no building, a building with itself, or a duplicate pair is dropped."
+        },
+        {
+          "ar": "القراءة لأي مستخدم في نطاق الكلية والحفظ لحامل الشاشة 2 فيه؛ وكلية غير صالحة 400 وغير موجودة 404.",
+          "en": "Reading is for any user within the college's scope and saving for a holder of screen 2 within it; an invalid college returns 400 and a missing one 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/referenceRoutes.ts#/api/colleges/:id/mobility",
+          "src/utils/campusTravel.ts",
+          "src/components/Colleges.tsx"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-033",
+      "kind": "functional",
+      "title": {
+        "ar": "أوقات دوام الأقسام",
+        "en": "Department working hours"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للحساب الجذر ضبط بداية الدوام ونهايته لأقسام كلية مختارة عبر GET وPUT /api/admin/section-schedule-windows ضمن الدوام الشامل، وأن يقدّم لحامل الشاشة 7 نافذة قسمه عبر GET /api/schedule-day-window.",
+        "en": "The system shall let the root account set the working-day start and end for chosen departments of a college through GET and PUT /api/admin/section-schedule-windows within the university day, and give a holder of screen 7 his department's window through GET /api/schedule-day-window."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "وقت غير صالح أو نهاية لا تلي البداية 400، ونافذة خارج الدوام الشامل 400، وقسم لا يتبع الكلية 400.",
+          "en": "An invalid time or an end not after the start returns 400, a window outside the university day returns 400, and a department outside the college returns 400."
+        },
+        {
+          "ar": "ردّ الحفظ يذكر عدد المواعيد في الفصل الحالي التي تقع خارج النافذة الجديدة دون أن يمنع الحفظ أو يغيّرها.",
+          "en": "The save response states how many appointments in the current term fall outside the new window without blocking the save or changing them."
+        },
+        {
+          "ar": "نافذة قسم خارج نطاق القارئ 403 لغير الإدارة الرئيسية، وقسم غير موجود 404.",
+          "en": "A department window outside the reader's scope returns 403 for anyone but main administration, and a missing department 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/referenceRoutes.ts#/api/admin/section-schedule-windows",
+          "src/server/routes/referenceRoutes.ts#/api/schedule-day-window",
+          "src/utils/scheduleTime.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-034",
+      "kind": "functional",
+      "title": {
+        "ar": "الدوام الشامل للجامعة",
+        "en": "The university day"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للحساب الجذر تغيير الدوام الشامل (الافتراضي 08:00 إلى 20:00) عبر PUT /api/admin/university-day بعد معاينة أثره عبر GET /api/admin/university-day/impact، وأن يذكر عدد مواعيد الفصل الحالي التي تقع خارجه.",
+        "en": "The system shall let the root account change the university day (default 08:00 to 20:00) through PUT /api/admin/university-day after previewing its effect through GET /api/admin/university-day/impact, stating how many current-term appointments fall outside it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "الوقتان بصيغة HH:MM بين 00:00 و24:00 بخطوة 5 دقائق والبداية قبل النهاية، وإلا 400 بالسبب.",
+          "en": "Both times are HH:MM between 00:00 and 24:00 in 5-minute steps with the start before the end, otherwise 400 with the reason."
+        },
+        {
+          "ar": "الحفظ يُفرغ ذاكرة نوافذ الأقسام ويكتب في السجل القيمة السابقة والجديدة؛ ووثيقة تالفة تُقرأ بالقيمة الافتراضية.",
+          "en": "Saving empties the department-window cache and records the previous and new values in the audit trail; a damaged stored document is read as the default."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/referenceRoutes.ts#/api/admin/university-day",
+          "src/server/routes/referenceRoutes.ts#/api/admin/university-day/impact",
+          "src/utils/scheduleTime.ts#universityDayIssue"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-035",
+      "kind": "functional",
+      "title": {
+        "ar": "سقف وحدات الطالب في «مساري» لكل قسم",
+        "en": "Per-department student unit cap in Masari"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ لكل قسم سقف وحدات الطالب في «مساري» بإحدى ثلاث قيم 15 أو 18 أو 21 (الافتراضي 15) عبر GET وPUT /api/section-student-settings، وأن يسري القرار على القسم في كل كلياته.",
+        "en": "The system shall store for each department the student unit cap in Masari as one of 15, 18 or 21 (default 15) through GET and PUT /api/section-student-settings, and the decision shall apply to the department in all its colleges."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "قيمة غير الثلاث تردّ 400 «اختر 15 أو 18 أو 21.»، وقسم خارج النطاق 403؛ ويلزم الشاشة 7.",
+          "en": "A value other than the three returns 400, a department outside scope 403; screen 7 is required."
+        },
+        {
+          "ar": "الحفظ يكتب الوثيقة sectionStudentSettings لكل أقسام العائلة مع الاسم والوقت ويُسجّل في سجل التدقيق.",
+          "en": "Saving writes the sectionStudentSettings document for every department of the family with the name and time and is recorded in the audit trail."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/referenceRoutes.ts#/api/section-student-settings",
+          "src/utils/studentUnitCap.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-ACD-036",
+      "kind": "interface",
+      "title": {
+        "ar": "مسار سياسة التنقّل بين المواقع",
+        "en": "Campus travel policy route"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم سياسة التنقّل بين المواقع عبر GET وPUT /api/campus-travel-policy لمن هو إدارة رئيسية أو «المسجّل العام» وحدهما، وأن يعيد مع السياسة أسماء الأساتذة المستثنين منها.",
+        "en": "The system shall offer the campus travel policy through GET and PUT /api/campus-travel-policy to main administration or the University registrar only, returning with the policy the names of the instructors exempted from it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "registrarHead",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "غيرهما يردّ 403 «لمن يضع مواعيد التسليم.» قراءةً وكتابة؛ والحفظ يمرّ بالتنقية ويُسجّل «تعديل سياسة التنقّل بين المواقع».",
+          "en": "Anyone else gets 403 for reading and writing; saving goes through the cleaner and is recorded as a travel-policy edit."
+        },
+        {
+          "ar": "مضمون السياسة وأثرها على الجدول في FR-LOC الخاصة بالتنقّل.",
+          "en": "The policy's content and its effect on the schedule are described in the LOC travel requirements."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/referenceRoutes.ts#/api/campus-travel-policy",
+          "src/utils/campusTravelPolicy.ts#cleanTravelPolicy",
+          "src/server/roleGuard.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-037",
+      "kind": "functional",
+      "title": {
+        "ar": "شروط التخرج لكل قسم",
+        "en": "Graduation rules per department"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض عبر GET /api/degree-rules لكل قسم في نطاق القارئ قاعدة التخرج المحفوظة أو اقتراحاً من اسم القسم موسوماً «مقترح» غير معتمد، وأن يحفظ عبر PUT /api/degree-rules/:sectionId وحدات الدرجة ووحدات فتح التدريب الميداني وحدّي الخريج في الفصل العادي والصيفي.",
+        "en": "Through GET /api/degree-rules the system shall show for each department in the reader's scope its saved graduation rule or a suggestion from the department name marked suggested and not reviewed, and through PUT /api/degree-rules/:sectionId store the degree units, the field-training opening units and the graduate thresholds for regular and summer terms."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "الاقتراح 130 وحدة (102/107/109) عموماً، و132 (107/109/111) للفرنسي، و134 (107/111/113) للإنجليزي والتربية الخاصة والتفوق والإعاقة وصعوبات التعلم.",
+          "en": "The suggestion is 130 units (102/107/109) in general, 132 (107/109/111) for French, and 134 (107/111/113) for English, special education, giftedness, disability and learning difficulties."
+        },
+        {
+          "ar": "كل قيمة عدد صحيح بين 0 و999 وإلا 400؛ وحقل التدريب الميداني الغائب يبقى المحفوظ أو المقترح بشرط ألا يتجاوز حدّ الخريج العادي.",
+          "en": "Each value is a whole number from 0 to 999 otherwise 400; a missing field-training value keeps the saved or suggested one capped at the regular graduate threshold."
+        },
+        {
+          "ar": "قسم في مرحلة انتقالية (له صحيفة غير مؤرشفة) يرفض الحفظ 409 بالرمز rules-per-plan، ويعرض GET قواعد كل صحيفة بدلاً منه؛ والحفظ للشاشة 4 داخل النطاق ويُفرغ ذاكرة استبيان الطلبة.",
+          "en": "A department in transition (with a non-archived sheet) refuses the save with 409 and the code rules-per-plan, and GET shows each sheet's rules instead; saving needs screen 4 within scope and empties the student survey cache."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/referenceRoutes.ts#/api/degree-rules",
+          "src/server/routes/referenceRoutes.ts#/api/degree-rules/:sectionId",
+          "src/utils/degreeRules.ts#readDegreeRuleInput",
+          "src/utils/degreeRules.ts#suggestedDegreeRule",
+          "src/components/Sections.tsx"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-038",
+      "kind": "functional",
+      "title": {
+        "ar": "إدارة أنواع القاعات",
+        "en": "Managing room types"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للحساب الجذر مع الشاشة 7 إضافة نوع قاعة وإعادة تسميته وحذفه وتخصيصه بأقسام عبر مسارات /api/admin/location-room-types، وأن يقدّم عبر GET /api/location-room-types قائمة الأنواع التي يراها القسم لحامل الشاشة 6 أو 7.",
+        "en": "The system shall let the root account with screen 7 add, rename, delete and restrict a room type to departments through the /api/admin/location-room-types routes, and give a holder of screen 6 or 7 the types a department sees through GET /api/location-room-types."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "القائمة اتحاد الأنواع المحفوظة (أو تدريسية ومختبر ومختبر حاسوب إن لم يُحفظ شيء) وأنواع القاعات المؤكدة الفعّالة وأنواع المقررات ومرافقها، مرتّبة بالعربية.",
+          "en": "The list is the union of the stored types (or teaching, laboratory and computer laboratory if none is stored), the types of confirmed active rooms and the course and companion types, sorted in Arabic."
+        },
+        {
+          "ar": "الاسم من حرف إلى 60؛ ونوع موجود بلا تمييز لحالة الأحرف 409؛ وإعادة التسمية تحدّث القاعات والمقررات والتخصيص وتعيد عدد ما تغيّر.",
+          "en": "A name has 1 to 60 characters; an existing type ignoring case returns 409; renaming updates rooms, courses and the restriction and returns how many changed."
+        },
+        {
+          "ar": "حذف نوع مرتبط بقاعة أو مقرر 409 بعددهما، وحذف آخر نوع 409 «أبقِ نوعًا واحدًا على الأقل»، ونوع غير موجود 404؛ وتخصيص بقائمة أقسام فارغة يعيده عاماً، وقسم غير موجود 400.",
+          "en": "Deleting a type linked to a room or course returns 409 with their counts, deleting the last type returns 409, and an unknown type 404; restricting with an empty department list makes it general again, and an unknown department 400."
+        },
+        {
+          "ar": "طلب القائمة لقسم خارج النطاق 403 لغير الإدارة الرئيسية؛ والإدارة بلا قسم ترى كل الأنواع مع تخصيصها.",
+          "en": "Requesting the list for a department outside scope returns 403 for anyone but main administration; main administration with no department sees every type with its restriction."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts#/api/location-room-types",
+          "src/server/routes/coursesRoutes.ts#/api/admin/location-room-types",
+          "src/server/routes/coursesRoutes.ts#/api/admin/location-room-types/:type",
+          "src/server/routes/coursesRoutes.ts#/api/admin/location-room-types/:type/scope",
+          "src/utils/roomTypeForSection.ts"
+        ],
+        "tests": [
+          "tests/course-room-type-sync-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-ACD-039",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات الصحائف الأكاديمية وعلاقات الانتقال",
+        "en": "Academic sheet and transition routes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم لحامل الشاشة 6 داخل نطاقه مسارات الصحائف: GET /api/curriculum/sections/:sectionId للنظرة العامة، وPOST /api/curriculum/plans وPUT /api/curriculum/plans/:planId، وPOST /api/curriculum/plans/:planId/courses وDELETE /api/curriculum/plans/:planId/courses/:courseId، وPOST /api/curriculum/transitions وDELETE /api/curriculum/transitions/:id، وGET /api/curriculum/plans/:planId/archive-readiness وPOST /api/curriculum/plans/:planId/archive.",
+        "en": "The system shall give a holder of screen 6 within scope the sheet routes: GET /api/curriculum/sections/:sectionId for the overview, POST /api/curriculum/plans and PUT /api/curriculum/plans/:planId, POST /api/curriculum/plans/:planId/courses and DELETE /api/curriculum/plans/:planId/courses/:courseId, POST /api/curriculum/transitions and DELETE /api/curriculum/transitions/:id, GET /api/curriculum/plans/:planId/archive-readiness and POST /api/curriculum/plans/:planId/archive."
+      },
+      "rationale": {
+        "ar": "القواعد التشغيلية (أنواع الانتقال، رفض الإزالة والأرشفة) موصوفة في FR-PLN-023؛ وهنا ما يخصّ البيانات المرجعية.",
+        "en": "The operating rules (transition kinds, refusing removal and archiving) are in FR-PLN-023; this covers what concerns reference data."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "قسم بلا صحائف يُعرض بصحيفة افتراضية «الصحيفة الحالية» برمز CURRENT تضم كل مقرراته وتأخذ قاعدة القسم المحفوظة.",
+          "en": "A department with no sheets is shown with a virtual sheet named current sheet with code CURRENT holding all its courses and taking the department's saved rule."
+        },
+        {
+          "ar": "اسم صحيفة يكرّر اسم صحيفة فعّالة أخرى في القسم 400؛ ورمز الصحيفة لا يُعدَّل؛ ويمكن حفظ قاعدة تخرج لكل صحيفة بالقيود نفسها (0–999).",
+          "en": "A sheet name repeating another live sheet in the department returns 400; a sheet code cannot be edited; a graduation rule can be saved per sheet with the same bounds (0 to 999)."
+        },
+        {
+          "ar": "إعادة حفظ علاقة للمقرر القديم نفسه بين الصحيفتين نفسيهما تستبدل السابقة ولا تضيف ثانية، والملاحظة حتى 300 حرف.",
+          "en": "Re-saving a relation for the same old course between the same two sheets replaces the previous one instead of adding a second, and the note is up to 300 characters."
+        },
+        {
+          "ar": "جاهزية الأرشفة تعيد عدد شعب المقررات الخاصة بالصحيفة في أحدث فصل وعدد طلبات الطلبة المرتبطة وعدد المقررات الكلي والخاص والمشترك، وready حين يكون العددان الأولان صفراً.",
+          "en": "Archive readiness returns the number of sections of the sheet's own courses in the newest term, the linked student requests, and the total, own and shared course counts, with ready when the first two are zero."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts#/api/curriculum/sections/:sectionId",
+          "src/server/routes/coursesRoutes.ts#/api/curriculum/plans",
+          "src/server/routes/coursesRoutes.ts#/api/curriculum/plans/:planId",
+          "src/server/routes/coursesRoutes.ts#/api/curriculum/plans/:planId/courses",
+          "src/server/routes/coursesRoutes.ts#/api/curriculum/plans/:planId/courses/:courseId",
+          "src/server/routes/coursesRoutes.ts#/api/curriculum/transitions",
+          "src/server/routes/coursesRoutes.ts#/api/curriculum/transitions/:id",
+          "src/server/routes/coursesRoutes.ts#/api/curriculum/plans/:planId/archive-readiness",
+          "src/server/routes/coursesRoutes.ts#/api/curriculum/plans/:planId/archive"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-040",
+      "kind": "functional",
+      "title": {
+        "ar": "نافذة تعديل المقررات لرئيس لجنة الجدول",
+        "en": "Course-editing window for the committee chair"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يسمح لصاحب صفة «رئيس لجنة الجدول» بإضافة مقرر أو تعديله أو حذفه إلا حين تكون إحدى مسوّدات قواعد صحائف قسمه في حالة «مراجعة»، وألا يقيّد بذلك مدير النظام ولا الصفات الأخرى.",
+        "en": "The system shall allow a Schedule committee chair to add, edit or delete a course only while one of his department's sheet rule drafts is in review status, and shall not impose this on a system administrator or other roles."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "خارج المراجعة يردّ 409 «تعديل بيانات القسم متاح أثناء مراجعة مسوّدة الصحيفة فقط؛ أكمل النواقص قبل اعتمادها.»",
+          "en": "Outside review the answer is 409 saying department data can be edited only during the sheet draft review."
+        },
+        {
+          "ar": "عند توحيد نوع القاعة أو طبيعة التدريس تُتخطّى نسخة قسم مقيَّد بسبب «تعديل بيانات هذا القسم مقيَّد الآن».",
+          "en": "When aligning room type or teaching mode, a copy in a restricted department is skipped with the reason that editing that department is restricted now."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts#committeeCatalogEditAllowed",
+          "src/server/routes/coursesRoutes.ts#/api/courses",
+          "src/server/routes/coursesRoutes.ts#/api/courses/:id"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-ACD-041",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات دليل المنتدبين وانتماء الأساتذة",
+        "en": "Visiting directory and instructor affiliation routes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم لحامل الشاشة 7 داخل نطاقه قائمة منتدبي القسم وإضافتهم وتعديلهم وإزالتهم، وقائمة الفصل وحفظها، وأن يقدّم انتماء الأستاذ (أين يدرّس وأين هو منتدب) مقيّداً بنطاق القارئ.",
+        "en": "The system shall give a holder of screen 7 within scope the department's visiting list with adding, editing and removing visitors, and the term roster with saving it, and shall give an instructor's affiliation (where he teaches and where he is visiting) limited to the reader's scope."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "PUT /api/visiting-roster يقبل فقط من في دليل القسم أو في قائمة الفصل أصلاً، وإلا 400 «أضف المنتدب إلى قائمة القسم أولاً»؛ وGET /api/visiting-roster بلا كلية أو قسم أو فصل يعيد قائمة فارغة.",
+          "en": "PUT /api/visiting-roster accepts only people already in the department directory or the term roster, otherwise 400; GET /api/visiting-roster without college, department or term returns an empty list."
+        },
+        {
+          "ar": "POST /api/department-delegates/instructor يتحقق من الرقم المدني واسم 3 أحرف على الأقل (يُقصّ إلى 100) وجوّال ثماني الخانات يبدأ بـ5 أو 6 أو 9 أو دولي كامل، ويكمل جوّال شخص موجود إن كان بلا رقم، ويردّ 409 إن كان في القائمة، ويضيفه لقائمة الفصل إن أُرسل termId.",
+          "en": "POST /api/department-delegates/instructor validates the civil number, a name of at least 3 characters (cut to 100) and an eight-digit mobile starting with 5, 6 or 9 or a full international number, fills an existing person's mobile only if he has none, returns 409 if already listed, and adds him to the term roster when termId is sent."
+        },
+        {
+          "ar": "PUT /api/department-delegates/:instructorId يغيّر الجوّال للقسم، أما الاسم والرقم المدني فلمن يملك الشاشة 3 أو الإدارة الرئيسية وإلا 403؛ ورقم مدني لشخص آخر 409؛ وغياب حقل الجوّال يبقيه والحقل الفارغ يمحوه؛ ولا يمسّ النصاب.",
+          "en": "PUT /api/department-delegates/:instructorId lets the department change the mobile, while name and civil number need screen 3 or main administration, otherwise 403; another person's civil number returns 409; an absent mobile field keeps it and an empty one clears it; the load is untouched."
+        },
+        {
+          "ar": "DELETE /api/department-delegates/:instructorId يزيله من الدليل ومن قائمة الفصل حين يُرسل termId؛ وGET /api/delegates يعيد للإدارة كل منتدبي الجامعة ولغيرها منتدبي عائلات أقسامه.",
+          "en": "DELETE /api/department-delegates/:instructorId removes him from the directory and from the term roster when termId is sent; GET /api/delegates returns every visitor in the university to administration and the visitors of his departments' families to others."
+        },
+        {
+          "ar": "GET /api/instructors/:id/affiliation وGET /api/instructor-affiliations (من أحدث فصل) لحامل الشاشة 3 أو 7 لا يذكران قسماً خارج نطاق القارئ إلا للإدارة.",
+          "en": "GET /api/instructors/:id/affiliation and GET /api/instructor-affiliations (from the newest term) for a holder of screen 3 or 7 name no department outside the reader's scope except for administration."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/instructorsRoutes.ts#/api/visiting-roster",
+          "src/server/routes/instructorsRoutes.ts#/api/department-delegates",
+          "src/server/routes/instructorsRoutes.ts#/api/department-delegates/instructor",
+          "src/server/routes/instructorsRoutes.ts#/api/department-delegates/:instructorId",
+          "src/server/routes/instructorsRoutes.ts#/api/delegates",
+          "src/server/routes/instructorsRoutes.ts#/api/instructors/:id/affiliation",
+          "src/server/routes/instructorsRoutes.ts#/api/instructor-affiliations",
+          "src/utils/reachInstructor.ts#storableMobile"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-042",
+      "kind": "functional",
+      "title": {
+        "ar": "حكم «لم نصل بعد» وقرار «افتحه للطرح»",
+        "en": "Not-yet-reached verdict and the open-for-offering decision"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عبر GET /api/course-reach حكم الوصول المضغوط لكل مقررات القسم في كليته وفصله لأي مستخدم في نطاقه، وأن يحفظ عبر POST /api/course-reach/open قرار القسم بفتح مقرر للطرح أو إعادته للقاعدة في وثيقة حالة الطرح نفسها.",
+        "en": "Through GET /api/course-reach the system shall return the compact reach verdict for every course of the department in its college and term to any user in scope, and through POST /api/course-reach/open store the department's decision to open a course for offering or return it to the rule in the same offering-state document."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الفتح يلزم الشاشة 7 وصفة غير قارئة، وإلا 403 «للعرض فقط.»؛ وبلا مقرر 400؛ وopen:false يزيل القرار.",
+          "en": "Opening needs screen 7 and a non-read-only role, otherwise 403; no course returns 400; open:false removes the decision."
+        },
+        {
+          "ar": "مدخلٌ يعود إلى «مطروح» بلا قرار يُحذف من الوثيقة، وتُفرغ ذاكرة حالة الطرح والوصول، ويُسجّل «افتحه للطرح» أو «أُعيد للقاعدة».",
+          "en": "An entry that returns to offered with no decision is removed from the document, the offering-state and reach caches are emptied, and the audit records opened for offering or returned to the rule."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/offeringRoutes.ts#/api/course-reach",
+          "src/server/routes/offeringRoutes.ts#/api/course-reach/open",
+          "src/server/courseReachShared.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-043",
+      "kind": "functional",
+      "title": {
+        "ar": "مرحلة التدريب للمدرّبين (TA) على موجات",
+        "en": "Training phase for teaching assistants in waves"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للقسم فتح «مرحلة التدريب» حتى موعد إغلاق قادم، فيرسل للمدرّبين المختارين روابط بطاقاتهم بصفة التدريب على موجات متتابعة بفاصل ساعات، ويعرض الشعب الشاغرة (التي كل أساتذتها «هيئة تدريسية»)، ويحدّد لكل مدرّب المقررات المسموحة، ويغلق المرحلة.",
+        "en": "The system shall let a department open a training phase until a future closing time, sending the chosen teaching assistants their card links in training mode in successive waves separated by hours, showing the vacant sections (whose instructors are all the faculty placeholder), restricting the allowed courses per assistant, and closing the phase."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "الفتح يرفض فصلاً مجمّداً، وموعد إغلاق ماضياً أو غير صالح بتوقيت الكويت 400، وموجات بلا مدرّب 400؛ ويُقبل فقط من صُنّف TA، ولا يتكرر مدرّب في موجتين.",
+          "en": "Opening refuses a frozen term, a past or invalid closing time in Kuwait time with 400, and waves without an assistant with 400; only people classified TA are accepted and no assistant repeats across waves."
+        },
+        {
+          "ar": "الفاصل بين الموجات من 0 إلى 336 ساعة، والتذكير من 1 إلى 168 ساعة (الافتراضي 24)؛ والموجات المستحقة تُرسل عند قراءة اللوحة وكل 10 دقائق، وكل موجة سطر في سجل الإرسال وتنبيه جوال.",
+          "en": "The gap between waves is 0 to 336 hours and the reminder 1 to 168 hours (default 24); due waves are sent when the panel is read and every 10 minutes, and each wave is a line in the send log and a push notification."
+        },
+        {
+          "ar": "مدرّب له طلب تدريب برابط فعّال لا يُعاد إرساله؛ وطلبه السابق غير المرسل يُعلَّم superseded ويُنقل منه ما كان «إبقاء»؛ والرابط ينتهي بعد الإغلاق بيوم أو بنهاية الفصل أيهما أبعد.",
+          "en": "An assistant with a training request on a live link is not sent again; his earlier unsent request is marked superseded and its keep items carried over; the link expires one day after closing or at term end, whichever is later."
+        },
+        {
+          "ar": "قائمة المقررات المسموحة الفارغة تعني «الكل»؛ وGET /api/ta-trainees يعيد أرقام من لهم طلب تدريب في عائلة القسم لحامل أي شاشة قراءة.",
+          "en": "An empty allowed-course list means all; GET /api/ta-trainees returns the numbers of those with a training request in the department family to a holder of any read screen."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/offeringRoutes.ts#/api/ta-phase",
+          "src/server/routes/offeringRoutes.ts#/api/ta-phase/open",
+          "src/server/routes/offeringRoutes.ts#/api/ta-phase/allowed",
+          "src/server/routes/offeringRoutes.ts#/api/ta-phase/close",
+          "src/server/routes/offeringRoutes.ts#/api/ta-trainees",
+          "src/utils/taPhase.ts#planWaves",
+          "src/utils/taPhase.ts#vacantSections"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-ACD-044",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات رصيد مقاعد المرشد",
+        "en": "Advisor seat balance routes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم رصيد مقاعد المرشد عبر GET /api/advisor-seats وPOST /api/advisor-seats/add وPOST /api/advisor-seats/exception لحامل الشاشة 7 أو 14 في نطاقه، وضبطه عبر PUT /api/advisor-seats/config لحامل الشاشة 7.",
+        "en": "The system shall offer the advisor seat balance through GET /api/advisor-seats, POST /api/advisor-seats/add and POST /api/advisor-seats/exception to a holder of screen 7 or 14 within scope, and its configuration through PUT /api/advisor-seats/config to a holder of screen 7."
+      },
+      "rationale": {
+        "ar": "قواعد السقف والإضافة الذرّية في FR-STU-024.",
+        "en": "The cap and atomic-add rules are in FR-STU-024."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الشعب تُجمع بالمقرر ورمز الشعبة، وسعة القاعة أصغر سعة بين قاعاتها؛ ويعيد GET آخر 50 طلب استثناء وcanConfigure لغير المرشد وغير القارئ.",
+          "en": "Sections are grouped by course and section code and the room capacity is the smallest of its rooms; GET returns the latest 50 exception requests and canConfigure for non-advisor, non-read-only roles."
+        },
+        {
+          "ar": "حفظ الإعداد بختم نسخة قديم 409 stale-write؛ والإضافة لشعبة ليست في جدول القسم 404، وبلا سعة أساسية 409، وعند الامتلاء تُقترح حتى 3 شعب بديلة.",
+          "en": "Saving the configuration with an old revision stamp returns 409 stale-write; adding to a section not in the department schedule returns 404, with no base capacity 409, and when full up to 3 alternative sections are suggested."
+        },
+        {
+          "ar": "طلب الاستثناء يُحفظ «pending» بعدد 1 إلى 50 وملاحظة حتى 300 حرف، ويُبلَّغ في الجرس ويُكتب في الأثر.",
+          "en": "An exception request is saved pending with a count of 1 to 50 and a note up to 300 characters, announced in the bell and written to the activity trail."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/offeringRoutes.ts#/api/advisor-seats",
+          "src/server/routes/offeringRoutes.ts#/api/advisor-seats/config",
+          "src/server/routes/offeringRoutes.ts#/api/advisor-seats/add",
+          "src/server/routes/offeringRoutes.ts#/api/advisor-seats/exception",
+          "src/utils/advisorSeats.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-045",
+      "kind": "functional",
+      "title": {
+        "ar": "كم منتدباً يحتاج القسم",
+        "en": "How many visiting instructors a department needs"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحسب لكل مقرر الشعب التي تنتظر منتدباً (الشعب الزائدة مع الشعب بلا أستاذ حقيقي)، وأن يحسب عدد المنتدبين اللازمين بحدّ أقصى شعبتين لكل منتدب بعد خصم الأماكن الفارغة لدى المنتدبين الحاليين، دون أن يُخرج اسماً.",
+        "en": "The system shall compute per course the sections awaiting a visiting instructor (the extra sections plus those without a real instructor), and the number of visitors needed at a maximum of two sections each after subtracting the free places of the current visitors, without exposing any name."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "5 شعب منتظرة ومنتدب حالي عنده شعبة واحدة: (5 − 1) ÷ 2 مقرّباً للأعلى = 2.",
+          "en": "Five waiting sections with one current visitor holding one section: (5 − 1) ÷ 2 rounded up = 2."
+        },
+        {
+          "ar": "من درّس المقرر سابقاً وهو على رأس عمله ولا يدرّسه الآن يُعرض عدداً «قابلاً للعودة» ولا يُنقص الحاجة؛ ومن كان منتدباً في ذلك الفصل لا يُعدّ.",
+          "en": "Someone who taught the course before, is still in service and does not teach it now is shown as a returnable count and does not reduce the need; someone who was visiting in that term is not counted."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/visitingNeed.ts#visitingNeed",
+          "src/utils/visitingNeed.ts#staffCourse",
+          "src/utils/visitingNeed.ts#visitorFreeSlots"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-046",
+      "kind": "functional",
+      "title": {
+        "ar": "أساتذة القسم في أدوات البيانات",
+        "en": "Department instructors in the data tools"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض عبر GET /api/section-roster لمن يملك الشاشة 7 أساتذة قسم في نطاقه مرتبين أبجدياً مع ساعاتهم في الفصل المختار ودرجتهم وحدّي نصابهم وإضافيّهم واستثنائهم، بلا رقم مدني ولا هاتف، وأن يتيح عبر PUT /api/section-roster/:id تعديل اسم الأستاذ وحالته وتصنيفه وإسناد نصابه لأعضاء القسم وحدهم، دون حذف السجل ودون المساس برقمه المدني.",
+        "en": "The system shall list through GET /api/section-roster, for holders of screen 7, the instructors of a department within their scope sorted alphabetically with their hours in the chosen term, rank, load bounds, overtime and exception, without civil ID or phone, and shall allow through PUT /api/section-roster/:id editing an instructor's name, status, category and load assignment for department members only, without deleting the record or touching its civil ID."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "العضوية واحدة للقراءة والكتابة: أساتذة القسم المسجلون ومن درّس في عائلة القسم في أي فصل، عدا المنتدب ما لم يكن متقاعداً أو TA، وعدا سجل «هيئة تدريسية»؛ وتعديل من ليس عضواً يُردّ 404 «هذا الأستاذ ليس في قسمك.».",
+          "en": "Membership is the same for read and write: the department's registered faculty and anyone who taught in the department family in any term, excluding a visiting instructor unless retired or TA, and excluding the faculty placeholder; editing a non-member returns 404."
+        },
+        {
+          "ar": "غياب الكلية أو القسم أو الفصل يُردّ 400، وقسم خارج النطاق 403 «هذا القسم خارج نطاقك.»، والقراءة no-store.",
+          "en": "A missing college, department or term returns 400, a department outside scope returns 403, and the read is no-store."
+        },
+        {
+          "ar": "الاسم يُقصّ إلى 120 حرفاً وفارغه 400 «اكتب الاسم.»؛ والحالة retired أو sabbatical أو نشط؛ ودرجة نصاب غير موجودة 400؛ وبلا تجاوز للحدود يُسقط السبب و«حتى الفصل».",
+          "en": "The name is trimmed to 120 characters and an empty one returns 400; status is retired, sabbatical or active; an unknown load rank returns 400; without a bound override the reason and until-term are dropped."
+        },
+        {
+          "ar": "كل حفظ يُسجَّل في سجل التدقيق «تعديل بيانات … من أدوات البيانات» مع ما تغيّر (الاسم، الحالة والتصنيف، النصاب)، وإسناد النصاب يُكتب ذرياً لعضو واحد لا للإعداد كله.",
+          "en": "Each save is written to the audit log as an edit from the data tools listing what changed (name, status and category, load), and the load assignment is written atomically for one member, not the whole configuration."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/instructorsRoutes.ts#/api/section-roster",
+          "src/server/routes/instructorsRoutes.ts#/api/section-roster/:id",
+          "src/server/routes/instructorsRoutes.ts#sectionRosterIds",
+          "src/utils/rosterGroups.ts#rosterMemberIds",
+          "src/components/DepartmentRoster.tsx"
+        ],
+        "tests": [
+          "tests/admin-screens-r4-audit.ts",
+          "tests/roster-delegates-card-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-047",
+      "kind": "functional",
+      "title": {
+        "ar": "إنشاء المقرر في الصحيفة الحالية من شاشة المقررات",
+        "en": "Creating a course in the current sheet from the Courses screen"
+      },
+      "text": {
+        "ar": "يجب على شاشة المقررات حين يُنشأ مقررٌ ويُختار قسمه أن تقرأ صحائف القسم (GET /api/curriculum/sections/:sectionId) وتختار الصحيفة الفعّالة غير الافتراضية وغير الخاصة بمسار، فتقول «الصحيفة المستهدفة: <الاسم>» وأن المقرر يُربط بها لا بالصحيفة الانتقالية، ويصير زر الحفظ «إنشاء في <الصحيفة>»؛ وأن تمنع الحفظ أثناء التحقق، وعند تعذّره (مع زر «إعادة التحقق»)، وحين لا توجد صحيفة فعّالة؛ وأن تشترط حين يكون للقسم صحيفة واحدة فقط اختيار «المقرر من صحيفة القسم الحالية — أضفه إليها» أو بدء الصحيفة الجديدة من الزر نفسه؛ وأن تعرض بعد الحفظ «تمت إضافة <الرقم> — <الاسم> إلى <الصحيفة> بنجاح.»، وتعود إلى لوحة الصحائف إن بدأ الإنشاء منها.",
+        "en": "When a course is being created and its department chosen, the Courses screen shall read the department's sheets (GET /api/curriculum/sections/:sectionId) and pick the active sheet that is neither virtual nor track-specific, saying «target sheet: <name>» and that the course is linked to it rather than to the transition sheet, with the save button reading «create in <sheet>»; it shall block saving while checking, when the check fails (with a «check again» button) and when there is no active sheet; when the department has a single sheet only it shall require ticking «the course belongs to the department's current sheet — add it there» or starting the new sheet from the same button; after saving it shall show «<number> — <name> was added to <sheet> successfully» and return to the sheets panel when creation started there."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "قسم بصحيفة واحدة ولم يُختر المربع ← زر الإنشاء معطّل ورسالة «اختر أولاً: ابدأ الصحيفة الجديدة لهذا القسم، أو أكّد إضافة المقرر إلى صحيفته الحالية الوحيدة.» عند المحاولة.",
+          "en": "A department with a single sheet and the box unticked ← the create button is disabled, and trying gives «choose first: start the new sheet for this department, or confirm adding the course to its only current sheet»."
+        },
+        {
+          "ar": "تعذّر قراءة الصحائف ← الحفظ موقوف حتى «إعادة التحقق» تنجح.",
+          "en": "The sheets cannot be read ← saving stays blocked until «check again» succeeds."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Courses.tsx#submit",
+          "src/components/Courses.tsx"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-048",
+      "kind": "functional",
+      "title": {
+        "ar": "قائمة المقررات وبطاقتها ونموذجها في الشاشة",
+        "en": "The course list, its card and its form on the screen"
+      },
+      "text": {
+        "ar": "يجب على شاشة المقررات أن تبحث بالرقم الأكاديمي أو الاسم أو الكلية أو القسم، وتصفّي بالكلية والقسم (بحسب شكل النطاق) وبالصحيفة (كل الصحائف، الجديدة، السابقة، متطلب كلية) حين يحمل مقررٌ واحدٌ على الأقل وسم صحيفة، ويدخل في الجديدة والسابقة المشتركُ ومتطلب الكلية؛ وأن ترتّب برقم المقرر تصاعدياً وتعرض 160 بطاقة ثم «عرض المزيد · N متبقٍ» بدفعات 160؛ وأن تعرض في البطاقة طبيعة التدريس ونوع القاعة والوحدات والساعات، وفي التفاصيل السعة ونوع القاعة والمرفق المرافق و«متطلب في صحائف: …»؛ وأن يقبل النموذج الأرقام وحدها في الرقم والوحدات والسعة وعدداً عشرياً في الساعات، ويقترح أسماء المقررات القائمة، وينبّه عند مغادرة حقل الرقم إن تكرر في القسم («تم تسجيل الرقم الأكاديمي للمقرر هذا من قبل») ويمنع الحفظ بالرسالة نفسها ما دام مكرراً (والخادم يمنعه أيضاً)، ويعرض أنواع القاعات من GET /api/location-room-types وإلا «تدريسية، مختبر، مختبر حاسوب»، ويعرض بعد التعديل كم موقعاً وُحّد فيه نوع القاعة أو طبيعة التدريس وكم تعذّر؛ وأن تفتح نموذج التعديل أو الإنشاء مملوءاً حين تصلها نيّة تصحيح من شاشة أخرى عبر sessionStorage (schedule-reference-course-action) ثم تمحوها.",
+        "en": "The Courses screen shall search by academic number, name, college or department, filter by college and department (per the scope shape) and by sheet (all, new, previous, college requirement) when at least one course carries a sheet tag, with shared and college-requirement courses included under new and previous; it shall order by course number ascending and show 160 cards then «show more · N remaining» in batches of 160; the card shows the teaching mode, room type, credits and hours, and the details add capacity, room type, companion facility and «required in sheets: …»; the form shall accept digits only for the number, credits and capacity and a decimal for hours, suggest existing course names, warn on leaving the number field when it repeats in the department («this academic number is already registered») and refuse to save with the same message while it repeats (the server refuses it too), list room types from GET /api/location-room-types or else «teaching, laboratory, computer laboratory», and after an edit show in how many sites the room type or teaching mode was aligned and how many failed; it shall open the edit or create form prefilled when a correction intent arrives from another screen through sessionStorage (schedule-reference-course-action) and then clear it."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "400 مقرر مطابق ← تُعرض 160 وزر «عرض المزيد · 240 متبقٍ».",
+          "en": "400 matching courses ← 160 shown and «show more · 240 remaining»."
+        },
+        {
+          "ar": "تصفية «الصحيفة السابقة» ← يظهر المقرر المشترك بين الصحيفتين ومتطلب الكلية أيضاً.",
+          "en": "Filtering «previous sheet» ← courses shared by both sheets and college requirements also appear."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Courses.tsx#planTagOf",
+          "src/components/Courses.tsx#validateCourseCode",
+          "src/components/Courses.tsx"
+        ],
+        "tests": ["tests/handover-fixes-audit.ts"]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-049",
+      "kind": "functional",
+      "title": {
+        "ar": "تجهيز برنامج دراسي لكلية صديقة",
+        "en": "Provisioning a study programme for a partner college"
+      },
+      "text": {
+        "ar": "يجب أن تُجهّز الأداة scripts/lib/programProvision.ts (provisionProgram) برنامجاً دراسياً لكلية جديدة من مرجع صحيفته بمسبقاتها، معاينةً افتراضاً بلا أي كتابة، وأن يكون لها مشغّلٌ خاص يطبّقها على برنامج دبلوم واحد بعينه في كلية بنين واحدة محددة وحدها بخيارات: ‎--apply للتنفيذ، و‎--college=<رقم> لكلية بعينها، و‎--create-college لإنشائها إن لم توجد (اسمها الافتراضي اسم الكلية في المرجع مع «- بنين» ورمزها أول خانتين من رمز أول مقرر، أو ‎--college-name و‎--college-code)، و‎--own-only لقسم البرنامج وحده، و‎--approve لاعتماد القواعد فوراً، و‎--password=<كلمة> لتفعيل الحسابات، و‎--prefix (الافتراضي tsb)، و‎--dept=<رمز>=<اسم> لكل قسم غائب؛ ويخرج بالرمز 1 مع رسالة عند الخطأ. ويجب ألا تُخمَّن الكلية: تُختار بالرقم أو باسم يحوي كل الأجزاء المطلوبة، ويتوقف التشغيل إن التبست أو غابت، ولا تُنشأ إلا بالخيار الصريح ولم يكن رمزها مستعملاً لكلية أخرى؛ وألا يُخمَّن اسم قسم غائب (قسم البرنامج أو أقسام المقررات المساندة) بل يتوقف بقائمة رموزه؛ وأن يُنشئ المقرر الغائب بسعة 0 ولا يعدّل مقرراً قائماً، ويربط بالصحيفة (رمزها ‎<البرنامج>-<السنة>) مقررات قسم البرنامج وحدها، وتُحفظ مقررات الأقسام الأخرى متطلباتٍ خارجية؛ وحين تكون أول صحيفة لقسم بلا مقررات تُؤرشف «السابقة» الفارغة؛ وأن تُكتب القواعد «قيد المراجعة» ما لم تكن قائمة فتبقى كما هي، ومع ‎--approve تُعتمد فقط إن خلت من المانع ولم تكن للصحيفة نسخة معتمدة سابقة عليها تعديل قيد المراجعة؛ ومع ‎--own-only تُهمل مسبقات الأقسام الأخرى وتُذكر، ويُبيَّن عدد الوحدات التي لا تدخل مجموع الخريطة؛ وأن يُنشئ حساباً لكل صفة باسم ‎<البادئة><اللاحقة> (dean، vicedean، registrardean، registrarhead، collegeregistrar، registrarstaff، head، advisor، dept، user) على هذه الكلية وحدها، فصفات رئيس القسم والمرشد ورئيس اللجنة على قسم البرنامج والبقية على الكلية كلها، موقوفاً وبلا كلمة سر ما لم تُعطَ ‎--password؛ والحساب القائم يُكمَّل ناقص صلاحياته أو نطاقه فقط، ولا يُفعَّل إلا إن كان موقوفاً بلا كلمة سر ولا خزنة. وترتبط هذه الأداة بوحدة الصحيفة والمسار في ما تكتبه من صحيفة وقواعد.",
+        "en": "The tool scripts/lib/programProvision.ts (provisionProgram) shall provision a study programme for a new college from its plan-sheet reference with prerequisites, previewing by default with no write at all, and a dedicated runner shall apply it to one specific diploma programme on one specific boys' college only, with options: --apply to execute, --college=<id> for a specific college, --create-college to create it when absent (default name the reference college name with «- Boys» and code the first two digits of the first course code, or --college-name and --college-code), --own-only for the programme department alone, --approve to approve the rules at once, --password=<word> to activate the accounts, --prefix (default tsb) and --dept=<code>=<name> for each missing department; it exits with code 1 and a message on error. The college shall not be guessed: it is chosen by id or by a name containing every required part, the run stops if it is ambiguous or absent, and it is created only with the explicit option when its code is not used by another college; the name of a missing department (the programme's or a supporting course's) shall not be guessed, the run stopping with the list of codes; a missing course is created with capacity 0 and an existing course is not modified, only the programme department's courses are linked to the plan sheet (code <programme>-<year>) and other departments' courses are kept as externals; when this is the first sheet of a department with no courses, the empty «previous» sheet is archived; the rules are written «in review» unless they already exist, in which case they are kept, and with --approve they are approved only if free of blockers and the sheet has no previously approved version with a pending edit; with --own-only other departments' prerequisites are dropped and listed and the number of units missing from the map total is stated; one account is created per role named <prefix><suffix> (dean, vicedean, registrardean, registrarhead, collegeregistrar, registrarstaff, head, advisor, dept, user) on this college only, the department head, advisor and committee chair on the programme department and the rest on the whole college, inactive and passwordless unless --password is given; an existing account only has its missing permissions or scope filled and is activated only if inactive with neither password nor vault copy. This tool relates to the plan-sheet and pathway module for the sheet and rules it writes."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "قسم غائب بلا ‎--dept ← خطأ «لا يُخمَّن اسمُ قسم» ولا كتابة.",
+          "en": "A missing department without --dept ← an error that a department name is not guessed, and no write."
+        },
+        {
+          "ar": "اسم كلية يطابق كليتين (بنين وبنات) ← خطأ «التبس تحديد الكلية» مع الخيارات.",
+          "en": "A college name matching two colleges (boys and girls) ← an «ambiguous college» error with the options."
+        },
+        {
+          "ar": "‎--create-college برمز مستعمل ← يتوقف برسالة أن الرمز مستخدم لكلية أخرى.",
+          "en": "--create-college with a used code ← it stops saying the code belongs to another college."
+        },
+        {
+          "ar": "‎--approve على قواعد فيها مانع ← تبقى «قيد المراجعة» ويُذكر المانع الأول.",
+          "en": "--approve on rules with a blocker ← they stay «in review» and the first blocker is reported."
+        },
+        {
+          "ar": "إعادة التنفيذ ← لا تتكرر الكلية ولا المقررات ويُبلَّغ أن القواعد معتمدة.",
+          "en": "Running again ← neither the college nor the courses repeat and the rules are reported approved."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/lib/programProvision.ts#provisionProgram",
+          "scripts/lib/programProvision.ts#ROLE_LOGIN_SUFFIX",
+          "scripts/provision-marine-diploma.ts"
+        ],
+        "tests": [
+          "tests/program-provision-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

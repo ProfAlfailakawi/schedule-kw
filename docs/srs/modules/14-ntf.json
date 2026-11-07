@@ -1864,7 +1864,7 @@
       ],
       "evidence": {
         "code": [
-          "src/server/activityTrail.ts",
+          "src/server/activityTrail.ts#/api/activity-trail/stamp/:rowId",
           "src/components/trail/TrailStamp.tsx",
           "src/components/trail/TrailButton.tsx"
         ],
@@ -2092,6 +2092,100 @@
         ]
       },
       "inferred": true
+    },
+    {
+      "id": "IR-NTF-031",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات تنبيهات الجوال للحساب وبطاقة الأستاذ",
+        "en": "Mobile alert routes for an account and a faculty card"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم: GET /api/public/push/key بالمفتاح العام دون دخول (no-cache، و503 إن تعذّر)؛ وGET /api/push/status للحساب (هل التنبيهات مهيأة، والمفتاح، وهل للحساب جمهور تنبيهات، ومعرّفات أجهزته، والمربوط منها بجلسته الحالية)؛ وPOST /api/push/subscribe وPOST /api/push/unsubscribe (يحذف اشتراك الحساب نفسه فقط) ويُكتب كلاهما في سجل التدقيق باسم «تنبيهات الجوال» مع نوع الجهاز؛ وPOST /api/push/test بتنبيه تجربة عاجل؛ ولبطاقة الأستاذ برمزها: GET وPOST /api/public/request/:token/push وPOST …/push/off (لاشتراك البطاقة نفسها فقط) وPOST …/push/test؛ وGET /r/:token/manifest.webmanifest بيان «بطاقتي» لتثبيتها على الشاشة الرئيسية.",
+        "en": "The system shall serve: GET /api/public/push/key with the public key without sign-in (no-cache, 503 when unavailable); GET /api/push/status for the account (whether alerts are configured, the key, whether the account has an alert audience, its device ids and those bound to the current session); POST /api/push/subscribe and POST /api/push/unsubscribe (deleting only the account's own subscription), both written to the audit log under «mobile alerts» with the device type; POST /api/push/test with an urgent test alert; and for a faculty card by its token: GET and POST /api/public/request/:token/push, POST …/push/off (only the card's own subscription) and POST …/push/test; and GET /r/:token/manifest.webmanifest, the «my card» manifest for installing it on the home screen."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "test بلا جهازٍ مشترك ← 409 «فعّل التنبيهات على هذا الجهاز أولاً»، وتجربة ثانية فوراً بعد نفاد الحصة ← 429 «جرّبتَ للتو. انتظر دقيقة».",
+          "en": "test with no subscribed device ← 409 «enable alerts on this device first»; a second test right after the allowance runs out ← 429 «you just tried; wait a minute»."
+        },
+        {
+          "ar": "رمز بطاقة لا يطابق النمط أو موقوف ← 404 «الرابط غير موجود أو تم إيقافه»، وبيانٌ برمز غير صالح ← 404 Not found.",
+          "en": "A card token not matching the pattern or stopped ← 404 «the link does not exist or was stopped»; a manifest with an invalid token ← 404 Not found."
+        },
+        {
+          "ar": "unsubscribe لاشتراك حسابٍ آخر ← {ok:true} دون حذف شيء.",
+          "en": "unsubscribe for another account's subscription ← {ok:true} without deleting anything."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/pushRoutes.ts#/api/public/push/key",
+          "src/server/pushRoutes.ts#/api/push/status",
+          "src/server/pushRoutes.ts#/api/push/unsubscribe",
+          "src/server/pushRoutes.ts#/api/push/test",
+          "src/server/pushRoutes.ts#/api/public/request/:token/push",
+          "src/server/pushRoutes.ts#/api/public/request/:token/push/off",
+          "src/server/pushRoutes.ts#/api/public/request/:token/push/test",
+          "src/server/pushRoutes.ts#/r/:token/manifest.webmanifest",
+          "src/server/pushCard.ts"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-NTF-032",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات الجدول العام والتقويم بالرابط",
+        "en": "Public schedule and calendar routes by link"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم GET /api/public/schedule/:token بجدول رابط القسم المشارك بلا تخزين، ويرفض بـ404 وبرسالةٍ تسمّي نوعه رابطَ بطاقة الأستاذ ورابط الاستبيان ورابط جدول الطلبة ورابط طلب الأستاذ؛ وأن يخدم GET /api/public/ics/:token تقويمَ الرابط نفسه ويرفض الأنواع الأربعة بـ404 Not found ويحذف من كل محاضرةٍ التواريخ الملغاة بأعذار الأسبوع ويُبقي المغطّاة؛ وأن يخدم GET /api/public/ics/:token/:key تقويم الأستاذ الذي يطابق مفتاحُه HMAC للرابط ورقمه، وGET /api/public/cal/:token/:key التقويمَ الثابت الذي يتبع الأستاذ؛ ويسجّل كلٌّ منها آخر استعمالٍ للرابط دون أن يؤخر الرد.",
+        "en": "The system shall serve GET /api/public/schedule/:token with the shared department link's schedule without caching, refusing with 404 and a message naming its kind a faculty card link, a survey link, a student schedule link and a faculty request link; shall serve GET /api/public/ics/:token as the same link's calendar, refusing the four kinds with 404 Not found and removing from each lecture the dates cancelled by week exceptions while keeping covered dates; shall serve GET /api/public/ics/:token/:key as the calendar of the instructor whose key matches an HMAC of the link and number, and GET /api/public/cal/:token/:key as the stable calendar that follows the instructor; each records the link's last use without delaying the answer."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "instructor",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط استبيان على /api/public/schedule ← 404 «هذا الرابط استبيان للطلبة».",
+          "en": "A survey link on /api/public/schedule ← 404 «this link is a student survey»."
+        },
+        {
+          "ar": "مفتاح لا يطابق أي أستاذ على ics/:token/:key ← 404 Not found.",
+          "en": "A key matching no instructor on ics/:token/:key ← 404 Not found."
+        },
+        {
+          "ar": "محاضرة أُلغيت في تاريخٍ واحد ← يختفي ذلك التاريخ وحده من التقويم المشترك.",
+          "en": "A lecture cancelled on one date ← that date alone disappears from the subscribed calendar."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/schedule/:token",
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/ics/:token",
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/ics/:token/:key",
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/cal/:token/:key"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts",
+          "tests/section-planning-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

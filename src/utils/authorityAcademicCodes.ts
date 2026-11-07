@@ -210,6 +210,23 @@ export function authorityCourseCode(catalogueCourseCode: unknown, departmentCode
   return course;
 }
 
+/**
+ * مفتاح القسم ذو الخانات الأربع لكل قسم (AdSectionId => 0109)، من رمز كليته ورمزه.
+ * للعرض والتصدير وحدهما: تمرّره الشاشات إلى authorityCourseCode، ولا يُطابَق به.
+ */
+export function authorityDepartmentKeys(
+  sections: ReadonlyArray<{ AdSectionId?: unknown; AdCollegeId?: unknown; AdSectionCode?: unknown }> | null | undefined,
+  colleges: ReadonlyArray<{ AdCollegeId?: unknown; AdCollegeCode?: unknown }> | null | undefined,
+): Map<number, string> {
+  const collegeCode = new Map((colleges || []).map(college => [Number(college.AdCollegeId), college.AdCollegeCode] as const));
+  const keys = new Map<number, string>();
+  for (const section of sections || []) {
+    const key = authorityDepartmentCode(collegeCode.get(Number(section.AdCollegeId)), section.AdSectionCode);
+    if (key) keys.set(Number(section.AdSectionId), key);
+  }
+  return keys;
+}
+
 /** Normalize a section value exactly as printed by SWRSCHA.
  *
  * Section numbering is not globally fixed. Older reports may print 501/502…

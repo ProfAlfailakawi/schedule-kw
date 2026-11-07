@@ -306,7 +306,7 @@
    القائمةَ ثم يربط بينهما بعينه — وهو ربطٌ يُخطئ فيه من يراجع عشرين قسماً.
    فالتغييرُ يُعلَّم في خانته نفسِها، حيث يقرأ القارئُ تلك القيمةَ أصلاً. */
 .changes-moved{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;min-inline-size:0}
-.changes-moved s{color:var(--muted);text-decoration-thickness:1px;opacity:.75;font-weight:500}
+.changes-moved s{color:var(--muted);text-decoration-thickness:1px;font-weight:500}
 .changes-moved svg{inline-size:12px;block-size:12px;opacity:.45;flex:none}
 .changes-moved b{font-weight:700;color:var(--warning)}
 /* والخانةُ المتحرّكةُ تُلمَّح بخلفيةٍ خفيفة: العينُ تجدها قبل أن تقرأ. */
@@ -904,7 +904,7 @@
 .changes-cross small{display:block;margin-block-start:2px;color:var(--muted);font-size:.8rem;line-height:1.65}
 
 /* مصدرُ الملاحظة: ملاحظةُ التسجيل تمنع الإرسال، وملاحظةُ القسم لا تمنع. */
-.changes-note-field em{font-style:normal;font-weight:600;opacity:.8}
+.changes-note-field em{font-style:normal;font-weight:600}
 
 /* خانةٌ اختلف عليها الطرفان ثلاثاً: إعلامٌ لا إجبار، فلا يُصرخ به. */
 .changes-note-stuck{color:var(--warning) !important;font-weight:600}

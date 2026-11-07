@@ -62,7 +62,9 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   const tracked = execSync("git ls-files server.ts src tests scripts public", { cwd: ROOT }).toString().trim().split("\n")
     .filter(file => /\.(ts|tsx|js|mjs|cjs|py|html|json)$/.test(file))
     /* The generated location registry holds 12-digit building/hall keys, not people. */
-    .filter(file => !file.startsWith("src/generated/"));
+    .filter(file => !file.startsWith("src/generated/"))
+    /* ملفٌ حُذف ولم يُثبَّت حذفُه بعد ما زال في الفهرس. */
+    .filter(file => fs.existsSync(path.join(ROOT, file)));
   const leaks: string[] = [];
   for (const file of tracked) {
     const text = fs.readFileSync(path.join(ROOT, file), "utf8");

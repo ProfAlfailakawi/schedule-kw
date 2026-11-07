@@ -33,7 +33,7 @@ import {
 } from "../utils/studentProfile";
 import { buildSimulationOfferings, ticketContext } from "./simulationData";
 import { readTravelPolicy } from "./core/travelPolicy";
-import { auditSimOfferings } from "../utils/registrationSim";
+import { auditSimOfferings, SIM_UNITS_DEFAULT } from "../utils/registrationSim";
 import { verifiedUnresolvableStudentConflicts } from "../utils/studentCaseConflict";
 import { remainingNeed, unmetPrereq } from "../utils/curriculumRules";
 import { adviseStudent } from "../utils/studentAdvice";
@@ -1278,7 +1278,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       ready: true, travel, termName: String(term.AdTermName || ""), ranAt: run.ranAt, pool,
       stale: Date.parse(profile.updatedAt) > Date.parse(run.ranAt),
       window: { n: ticket.window, of: run.rounds, name: round?.name || "", start: round?.start || "", end: round?.end || "" },
-      remainingUnits: ticket.remainingUnits, defaulted: ticket.defaulted,
+      remainingUnits: ticket.remainingUnits, defaulted: ticket.defaulted, defaultUnits: SIM_UNITS_DEFAULT,
       plans: ticket.plans.map(plan => ({
         label: plan.label, units: plan.units,
         items: plan.items.map(item => {

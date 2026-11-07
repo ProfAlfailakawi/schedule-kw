@@ -54,7 +54,8 @@ import {
   TopologyScene,
   WhyResult,
 } from "./LivingScheduleScenes";
-import type { AdCourse, AdInstructor, AdTerm, FSchedule } from "../types";
+import type { AdCollege, AdCourse, AdInstructor, AdSection, AdTerm, FSchedule } from "../types";
+import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import { livingScopeKey, readLiving, recallScores, rememberScores, sharedLiving } from "../utils/livingCache";
 import type { ScheduleExperience } from "./ScheduleExperienceLayer";
 import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES } from "../utils/scheduleTime";
@@ -110,6 +111,9 @@ interface Props {
   courses: AdCourse[];
   instructors: AdInstructor[];
   terms: AdTerm[];
+  /** الكليات والأقسام: منها رقم المقرر ذو الخانات السبع (للعرض وحده). */
+  colleges?: AdCollege[];
+  sections?: AdSection[];
   collegeId: number;
   sectionId: number;
   termId: number;
@@ -128,6 +132,8 @@ export default function LivingScheduleLayer({
   courses,
   instructors,
   terms,
+  colleges,
+  sections,
   collegeId,
   sectionId,
   termId,
@@ -138,7 +144,8 @@ export default function LivingScheduleLayer({
   onPanelOpenChange,
   initialScene = null,
 }: Props) {
-  const power = Boolean(user?.SystemUserId);
+  /* الإدارة الرئيسية كما يحكم الخادم (isPowerUser): مدير نظام أو الحساب الجذر — لا أي مستخدم مسجَّل. */
+  const power = Boolean(user?.IsAdminUser || user?.IsRootAdmin);
   const { isVisiting } = useVisitingLookup(termId);
   const visitingOfRow = (row: FSchedule) => isVisiting(row.AdInstructorId, row.AdCollegeId, row.AdSectionId);
   /* قراءةُ النبض قد تجمع صفوف أقسامٍ عدة: منتدبٌ إن كان منتدباً في قسم أيٍّ من صفوفه. */
@@ -206,6 +213,13 @@ export default function LivingScheduleLayer({
       () => new Map(instructors.map((i) => [i.AdInstructorId, i])),
       [instructors],
     );
+  /* رقم المقرر كما تطبعه الهيئة (0109105) في منتقي الموعد ومعاينة بداية الفصل؛ المخزَّن لا يتغيّر. */
+  const departmentKeys = useMemo(() => authorityDepartmentKeys(sections, colleges), [sections, colleges]);
+  const courseNumber = (courseId: number, stored: unknown, rowSectionId?: number) => {
+    const course = courseById.get(Number(courseId));
+    return authorityCourseCode(course?.CourseCode || stored, departmentKeys.get(Number(course?.AdSectionId || rowSectionId || sectionId)));
+  };
+  const courseNumberOfRow = (row: FSchedule) => courseNumber(row.AdCourseId, row.CourseCodeSnapshot, row.AdSectionId);
   const rooms = useMemo(
     () => [
       ...new Map(
@@ -372,6 +386,7 @@ export default function LivingScheduleLayer({
     setSourceTerm(sourceTerms[0]?.AdTermId || 0);
   }, [termId, sourceTerms, sourceTerm]);
   const open = (next: Scene) => {
+    if ((next === "safety" || next === "memory") && !power) return;
     const uiStarted = performance.now();
     setScene(next);
     setError("");
@@ -411,29 +426,6 @@ export default function LivingScheduleLayer({
         }),
       });
       setWhyResult({ ...d, kind });
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const savePlan = async (plan: any) => {
-    setBusy(true);
-    setError("");
-    try {
-      await json("/api/intelligence/drafts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          collegeId,
-          sectionId,
-          termId,
-          name: `خطة إنقاذ · ${plan.title}`,
-          source: "manual",
-          rows: plan.rows,
-        }),
-      });
-      setMessage("تم حفظ خطة الإنقاذ كمسودة فقط. الجدول الحقيقي لم يتغير.");
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -826,9 +818,17 @@ export default function LivingScheduleLayer({
     { id: "topology", label: "خريطة الضغط", icon: <Network /> },
     { id: "health", label: "الصحة والعدالة", icon: <Gauge /> },
     { id: "brief" as Scene, label: "ملخص الدقيقة", icon: <Zap /> },
+    { id: "why" as Scene, label: "لماذا هذا الحل؟", icon: <CircleHelp /> },
+    { id: "copilot" as Scene, label: "مساعد السياق", icon: <BrainCircuit /> },
+    { id: "meeting" as Scene, label: "محضر القرار", icon: <FileClock /> },
     { id: "genesis" as Scene, label: "بداية الفصل", icon: <Dna /> },
-    { id: "safety" as Scene, label: "شبكة الأمان", icon: <RotateCcw /> },
+    /* شبكة الأمان وذاكرة القرار للإدارة الرئيسية وحدها (power). */
+    ...(power ? [{ id: "safety" as Scene, label: "شبكة الأمان", icon: <RotateCcw /> }] : []),
   ];
+  /* «ذاكرة القرار» تُفتح من «لماذا» وحدها، فلا زرّ لها في الشريط؛ عنوانها من هنا. */
+  const sceneHead = scene === "memory"
+    ? { label: "ذاكرة القرار", icon: <History /> }
+    : sceneItems.find((x) => x.id === scene);
   return (
     <>
       <section className="living-command-deck no-print" aria-label="حالة الجدول ومركز القرار">
@@ -880,12 +880,12 @@ export default function LivingScheduleLayer({
           <aside className={`living-panel scene-${scene}`} role="dialog" aria-modal="true" aria-label="لوحة الذكاء">
             <header className="living-panel-head">
               <span className="living-panel-scene-icon">
-                {sceneItems.find((x) => x.id === scene)?.icon}
+                {sceneHead?.icon}
               </span>
               <div className="living-panel-heading">
                 <span>لوحة الذكاء</span>
                 <div>
-                  <h2>{sceneItems.find((x) => x.id === scene)?.label}</h2>
+                  <h2>{sceneHead?.label}</h2>
                   <p>{living.context?.sectionName} · {living.context?.termName}{living.context?.analysisScope === "department" ? ` · ${countOf(living.context.scopeCount, AR.college)}` : ""}</p>
                 </div>
               </div>
@@ -938,7 +938,7 @@ export default function LivingScheduleLayer({
                   {whyResult ? (
                     <WhyResult
                       data={whyResult}
-                      onRemember={() => open("memory")}
+                      onRemember={power ? () => open("memory") : undefined}
                     />
                   ) : null}
                   <ContextPicker
@@ -947,6 +947,7 @@ export default function LivingScheduleLayer({
                     courseById={courseById}
                     instructorById={instructorById}
                     visitingOf={visitingOfRow}
+                    courseNumberOf={courseNumberOfRow}
                     onChange={setSelectedId}
                   />
                   {selected ? (
@@ -1221,7 +1222,7 @@ export default function LivingScheduleLayer({
                                   return <React.Fragment key={`${row.id}-${row.index}`}>
                                     <tr className={flagged ? "genesis-row-issue" : ""}>
                                       <td>{row.index}</td>
-                                      <td data-choreo-target="course"><strong>{row.courseName}<CourseTags courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode || "—"}</small></td>
+                                      <td data-choreo-target="course"><strong>{row.courseName}<CourseTags courseId={row.courseId} /></strong><small dir="ltr">{courseNumber(row.courseId, row.courseCode) || "—"}</small></td>
                                       <td dir="ltr">{row.section || "—"}</td>
                                       <td data-choreo-target="day">{row.days || "—"}</td>
                                       <td dir="ltr" data-choreo-target="time">{formatScheduleTimeRange(row.start, row.end)}</td>
@@ -1266,7 +1267,7 @@ export default function LivingScheduleLayer({
                   ) : null}
                 </div>
               ) : null}
-              {scene === "memory" ? (
+              {scene === "memory" && power ? (
                 <div className="memory-scene">
                   <ContextPicker
                     selectedId={selected?.id || 0}
@@ -1274,6 +1275,7 @@ export default function LivingScheduleLayer({
                     courseById={courseById}
                     instructorById={instructorById}
                     visitingOf={visitingOfRow}
+                    courseNumberOf={courseNumberOfRow}
                     onChange={(id) => {
                       setSelectedId(id);
                       setTimeout(() => void loadMemory(), 0);
@@ -1335,7 +1337,7 @@ export default function LivingScheduleLayer({
                   </div>
                 </div>
               ) : null}
-              {scene === "safety" ? (
+              {scene === "safety" && power ? (
                 <div className="safety-scene">
                   <div className="safety-intro">
                     <ShieldCheck />
@@ -1398,6 +1400,7 @@ export default function LivingScheduleLayer({
                     courseById={courseById}
                     instructorById={instructorById}
                     visitingOf={visitingOfRow}
+                    courseNumberOf={courseNumberOfRow}
                     onChange={setSelectedId}
                   />
                   <div className="meeting-command">
@@ -1468,6 +1471,7 @@ export default function LivingScheduleLayer({
                     courseById={courseById}
                     instructorById={instructorById}
                     visitingOf={visitingOfRow}
+                    courseNumberOf={courseNumberOfRow}
                     onChange={setSelectedId}
                   />
                   {selected ? (

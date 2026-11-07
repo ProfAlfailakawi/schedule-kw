@@ -440,13 +440,13 @@ details.later>summary{justify-content:center;border:1.5px dashed var(--line-stro
 .wk-col{position:relative;block-size:calc(var(--rows)*var(--h));border-radius:10px;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--h) - 1px),var(--line) calc(var(--h) - 1px),var(--line) var(--h)),var(--card2);overflow:hidden}
 .wk-b{position:absolute;inset-inline:2px;border:0;border-radius:8px;padding:3px 4px;background:var(--c);color:#fff;font-family:inherit;text-align:start;overflow:hidden;cursor:pointer;display:grid;align-content:start;gap:0;line-height:1.3;transition:opacity .15s,box-shadow .15s}
 .wk-b b{font-size:11px;font-weight:700}
-.wk-b span{font-size:11px;font-weight:500;opacity:.92;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.wk-b span{font-size:11px;font-weight:500;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .wk-tr{position:absolute;inset-block-end:2px;inset-inline-end:2px;inline-size:16px;block-size:16px;border-radius:50%;display:grid;place-items:center;background:#fff;color:var(--c);box-shadow:0 0 0 1px rgba(0,0,0,.12)}
 .wk-tr .i{inline-size:11px;block-size:11px}
 .tk small.tk-tr{display:flex;align-items:center;gap:5px;color:var(--muted)}
 .tk small.tk-tr .i{inline-size:13px;block-size:13px;flex:none}
 .wk-b.sel{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c);z-index:2}
-.wk-b.dim{opacity:.42}
+.wk-b.dim{background:color-mix(in srgb,var(--c) 30%,var(--card));color:var(--ink)}
 .wk-b.ghost{background:color-mix(in srgb,var(--c) 12%,var(--card));color:var(--ink);border:1.5px dashed var(--c);z-index:1}
 .wk-b.ghost.bad{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
 .wk-sel{display:grid;gap:8px;padding:12px;border-radius:16px;background:var(--soft);border-inline-start:4px solid var(--c)}
@@ -1023,7 +1023,7 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
   var sel=items.filter(function(x){return Number(x.courseId)===Number(S.tkSel)})[0];if(!sel)S.tkSel=0;
   var h='<section class="card tk"><div class="hd"><span class="win"><b>'+w.n+'</b><small>من '+w.of+'</small></span><div class="tx"><b>جدولي المقترح · دوري '+w.n+'</b><span class="muted">'+esc(when)+'</span></div></div><div class="perf"></div><div class="bd">';
   if(t.stale)h+='<div class="chip warn">'+ic("info")+' عدّلت ملفّك بعد آخر حساب — سيتحدّث جدولك المقترح في التحديث القادم</div>';
-  if(t.defaulted)h+='<div class="chip">'+ic("info")+' بُنيت على افتراضٍ (١٥ وحدة). اكتب رغباتك لتُناسبك</div>';
+  if(t.defaulted)h+='<div class="chip">'+ic("info")+' بُنيت على افتراضٍ'+(Number(t.defaultUnits)>0?' ('+countOf(Number(t.defaultUnits),AR.unit)+')':'')+'. اكتب رغباتك لتُناسبك</div>';
   /* كل خطة تُقيَّم بنسختها المعدّلة حتى لا تتبدّل وحداتها/نقاطها عند الانتقال عنها وإليها. */
   h+=tkPlanCompare(t.plans.map(function(p){return{label:p.label,items:tkItems(p)}}),cur.label);
   if(S.state&&S.state.demo)h+='<div class="demo-plan-guide" role="note"><b>شرح تفاعلي للخطط الثلاث</b><span>أ: الأقرب لرغباتك · ب: شعب ومواعيد بديلة · ج: خطة احتياطية بالحد الأدنى. اختر أي خطة ثم المس مقرراً لعرض شعبته ومواعيده، أو جرّب تبديل شعبة. جميع البيانات تجريبية.</span></div>';
@@ -1085,8 +1085,9 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
     if(!tkSet(cur,courseId,select.value)){var it=tkItems(cur).filter(function(x){return Number(x.courseId)===courseId})[0];select.value=it?it.offeringId:"";document.getElementById("tkerr").textContent=S.tkErr;return}
     paintTicket(host)})})(alternatives[ai])}
 function loadReport(){var host=document.getElementById("report");if(!host)return;
-  homePart("report").then(function(r){if(!r.ok||!r.d.ready||(!r.d.canReport&&!r.d.answers.length)||!r.d.courses.length){host.innerHTML="";return}S.report=r.d;S.rp={};r.d.answers.forEach(function(a){S.rp[a.courseId]={state:a.state,reason:a.reason||"other"}});S.rpHelp=false;paintReport(host)})}
-function paintReport(host){var d=S.report,h='<section class="card rp fade"><h2><span class="b">'+ic("check")+'</span>هل سجّلت؟'+(d.answeredAt?'<span class="chip ok">'+ic("check","")+' أُرسل</span>':'')+'</h2><p class="muted">'+esc(d.line)+' أخبرنا بما حدث — يساعدنا ويساعد قسمك.</p>';
+  homePart("report").then(function(r){if(!r.ok||!r.d.ready||(!r.d.canReport&&!r.d.answers.length)||!r.d.courses.length){host.innerHTML="";return}S.report=r.d;S.rp={};r.d.answers.forEach(function(a){S.rp[a.courseId]={state:a.state,reason:a.reason||"other"}});S.rpHelp=false;S.rpHN="";S.rpHC="";paintReport(host)})}
+function paintReport(host){/* ما كُتب في الاسم والرقم يبقى عند إعادة الرسم بعد كل نقرة */var hnEl=document.getElementById("hn"),hcEl=document.getElementById("hc");if(hnEl)S.rpHN=hnEl.value;if(hcEl)S.rpHC=hcEl.value;
+  var d=S.report,h='<section class="card rp fade"><h2><span class="b">'+ic("check")+'</span>هل سجّلت؟'+(d.answeredAt?'<span class="chip ok">'+ic("check","")+' أُرسل</span>':'')+'</h2><p class="muted">'+esc(d.line)+' أخبرنا بما حدث — يساعدنا ويساعد قسمك.</p>';
   var anyStuck=false;
   d.courses.forEach(function(c){var a=S.rp[c.courseId]||{},stuck=a.state==="stuck";if(stuck)anyStuck=true;
     h+='<div class="ln" data-c="'+c.courseId+'"><div class="top"><b>'+esc(c.name)+'</b><div class="yn"><button type="button" data-v="registered" aria-pressed="'+(a.state==="registered")+'">سجّلت</button><button type="button" data-v="stuck" aria-pressed="'+stuck+'">تعثّرت</button></div></div>'
@@ -1094,7 +1095,7 @@ function paintReport(host){var d=S.report,h='<section class="card rp fade"><h2><
   if(anyStuck&&d.canReport){var known=S.state&&S.state.profile&&S.state.profile.hasIdentity;
     h+='<div class="help"><label class="row" style="gap:10px"><input type="checkbox" id="hp"'+(S.rpHelp?" checked":"")+'><span>أريد أن يساعدني القسم في حالتي</span></label>'
     +(S.rpHelp&&known?'<p class="muted">'+ic("shield","")+' سيصل اسمك المحفوظ مع ملفّك لقسم المقرر وللتسجيل فقط.</p>':'')
-    +(S.rpHelp&&!known?'<div class="field"><label for="hn">الاسم الثلاثي</label><input class="inp" id="hn" autocomplete="name"></div><div class="field"><label for="hc">الرقم المدني</label><input class="inp civil" id="hc" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="off"></div><p class="muted">'+ic("shield","")+' يصل اسمك ورقمك المدني لقسم المقرر وللتسجيل فقط، ولا يُحفظان في ملفّك الدائم.</p>':'')+'</div>'}
+    +(S.rpHelp&&!known?'<div class="field"><label for="hn">الاسم الثلاثي</label><input class="inp" id="hn" autocomplete="name" value="'+esc(S.rpHN||"")+'"></div><div class="field"><label for="hc">الرقم المدني</label><input class="inp civil" id="hc" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="off" value="'+esc(S.rpHC||"")+'"></div><p class="muted">'+ic("shield","")+' يصل اسمك ورقمك المدني لقسم المقرر وللتسجيل فقط، ولا يُحفظان في ملفّك الدائم.</p>':'')+'</div>'}
   h+=errBox("rperr");
   if(d.canReport)h+='<button class="btn" id="rps"'+(Object.keys(S.rp).length?"":" disabled")+'>'+ic("check")+' أرسل</button>';
   h+='<div id="rpdone"></div></section>';host.innerHTML=h;
@@ -1123,13 +1124,7 @@ function wireWhatIf(remaining){var box=document.getElementById("whatif");if(!box
   sw.addEventListener("click",function(){st.s=!st.s;paint()});paint()}
 function whatIfHtml(){var a=[],lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);for(var n=lo;n<=hi;n++)a.push('<button type="button" data-n="'+n+'" aria-pressed="false">'+n+'</button>');
   return '<div class="wi" id="whatif"><span class="lbl">ماذا لو؟ وحداتي في الفصل</span><div class="seg fit" data-wi="units" role="group" aria-label="وحداتي في الفصل">'+a.join("")+'</div><button type="button" class="sw" role="switch" data-wi="summer" aria-checked="false"><span class="t">أضيف فصلاً صيفياً كل سنة<small>نحو '+countOf(SUMMER_UNITS,AR.unit)+' في الصيفي</small></span><span class="tg"></span></button><p class="lead" data-wi="out" role="status" aria-live="polite"></p></div>'}
-/* ── تذكيرٌ في التقويم: ملفُّ ICS يولَّد في الجهاز ولا يُرسل شيئاً؛ تنبيهان: ٩ صباحاً قبل اليوم، و٨ صباحاً فيه. ── */
-function icsEsc(t){return String(t).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n")}
-function icsDay(iso){return String(iso||"").slice(0,10).replace(/-/g,"")}
-function icsNext(iso){var d=new Date(String(iso).slice(0,10)+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10).replace(/-/g,"")}
-function icsText(title,iso,note){var stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
-  return ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SCHEDULE//Masari//AR","CALSCALE:GREGORIAN","BEGIN:VEVENT","UID:masari-"+icsDay(iso)+"-"+Math.random().toString(36).slice(2,10)+"@schedule","DTSTAMP:"+stamp,"DTSTART;VALUE=DATE:"+icsDay(iso),"DTEND;VALUE=DATE:"+icsNext(iso),"SUMMARY:"+icsEsc(title),"DESCRIPTION:"+icsEsc(note||""),
-    "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(title),"TRIGGER:-PT15H","END:VALARM","BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(title),"TRIGGER:PT8H","END:VALARM","END:VEVENT","END:VCALENDAR"].join("\r\n")}
+/* ── تذكيرٌ في التقويم: ملفُّ ICS يُخدَم من الخادم (‎/api/public/ics-reminder‎) بلا اسمٍ ولا رقم. ── */
 function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},1500)}
 /* M3: آيفون لا يفتح Blob‎ ‎.ics‎ من ‎a.download‎ (يحفظه في «الملفات»، ولا شيء في وضع التطبيق المثبّت)؛
    الملفُّ يُخدَم من الخادم ‎text/calendar‎ inline فيفتح نافذة «أضف إلى التقويم» على كل جهاز. */

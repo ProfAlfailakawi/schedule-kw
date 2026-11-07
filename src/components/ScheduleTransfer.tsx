@@ -27,7 +27,7 @@ import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { assignAuthoritySections, authoritySectionCodeLooksPlausible, withoutImportEvidence } from "../utils/authorityAcademicCodes";
 import { daysApprovedForHours, effectiveCourseHours, patternsForHours, type DayKey as RegulationDayKey } from "../utils/scheduleRegulations";
 import { applySmartFills, isPlaceholderValue, proposeSmartFills, type SmartFill } from "../utils/geminiScheduleLayer";
-import { campusOf } from "../utils/campusTravel";
+import { isCampusCollege } from "../utils/collegeTrack";
 import { acceptedPdfSourceLabel, parseTermName, pdfTermAccepted } from "../utils/pdfTermRule";
 import { interruptedImportMessage } from "../utils/importStreamFailure";
 import { pageReviewIssues, pagesAwaitingReview, pagesWithUnreadCells, pagesLabel } from "../utils/importPageReview";
@@ -341,11 +341,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     } catch (e: any) { setError(e?.message || "تعذّر التراجع"); } finally { setBusy(false); }
   };
   const activeImportSectionId = importSectionId || sectionId;
-  /* موقع الفرع (الجهراء/الفحيحيل) لا يستورد لنفسه: الجدول المعتمد يصدر ملفاً
-   * واحداً من كلية الأساس ويوزّعه النظام على المواقع. فإن فُتح تبويب الاستيراد
-   * على فرع، يُوجَّه المستخدم إلى الأساس بدل أن يستورد لموقعٍ واحد. */
-  const branchSite = campusOf(collegeName) !== "main";
-  const baseCollegeName = String(collegeName || "").replace(/\s*[-–]\s*(الجهراء|الفحيحيل)\s*$/, "").trim() || "كلية التربية الأساسية";
+  /* موقع الفرع لا يستورد لنفسه: للبنات صحيفةٌ واحدة تصدر من كلية البنات الأساس
+   * ويوزّعها النظام على موقعَيها الفرعيين (القاعدة نفسها في collegeTrack). فالفرع
+   * هو ما تعدّه تلك القاعدة موقعاً: مسار بنات واسم موقعٍ فرعي، والأساس هو اسمه
+   * بلا مقطع الموقع أينما جاء («… - الجهراء - بنات» ← «… - بنات»). */
+  const branchSite = isCampusCollege(String(collegeName || ""));
+  const baseCollegeName = String(collegeName || "").replace(/\s*[-–]\s*(الجهراء|الفحيحيل)(?=\s*(?:[-–]|$))/g, "").trim() || "كلية التربية الأساسية";
   const named = (id: number) => instructors.find(x => x.AdInstructorId === id)?.AdInstructorName || "";
   /* «منتدب» في أي تبويب: القائمةُ الموحّدة (بقسم النقل وفصله) أو قائمة المنتدبين المحمّلة هنا، أيّهما عرفه. */
   const { isVisiting: lookupVisiting } = useVisitingLookup(termId);
@@ -680,8 +681,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
       if (format === "xlsx") {
         const XLSX = await import("xlsx");
         const headers = ["رمز المقرر", "المقرر الدراسي", "الشعبة", "أستاذ المقرر", "الرقم المدني", "الأيام", "الوقت", "المبنى", "القاعة"];
+        /* رقم المقرر في الملف سبع خانات كما تطبعه الهيئة (courseNumber)، لا الرمز المخزَّن. */
         const rows = (data.rows || []).map((r: any) => [
-          r.courseCode || "",
+          r.courseNumber || r.courseCode || "",
           r.courseName || "",
           r.section || "",
           r.instructorName || "",
@@ -739,16 +741,17 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
        instructor, and the civil id starts with 3 — a century Kuwait has not
        issued — so a sample row left in by accident fails validation instead of
        importing as somebody. */
+    /* رقم المقرر سبع خانات (كلية 2 + قسم 2 + مقرر 3) كما يكتبه التصدير، لا الخانات الثلاث المخزَّنة. */
     const sample = [
-      ["F10", "B9", "08:00-09:20", "الأحد - الثلاثاء", "300123100006", "اسم دكتور 1", "501", "اسم المقرر الأول", "101"],
-      ["F12", "B9", "11:00-12:20", "الاثنين - الأربعاء", "", "اسم دكتور 2", "502", "اسم المقرر الثاني", "102"],
+      ["F10", "B9", "08:00-08:50", "الأحد - الثلاثاء", "300123100006", "اسم دكتور 1", "501", "اسم المقرر الأول", "0109101"],
+      ["F12", "B9", "11:00-12:20", "الاثنين - الأربعاء", "", "اسم دكتور 2", "502", "اسم المقرر الثاني", "0109102"],
     ];
     const sheet = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     (sheet as any)["!cols"] = [{ wch: 9 }, { wch: 9 }, { wch: 13 }, { wch: 22 }, { wch: 15 }, { wch: 22 }, { wch: 8 }, { wch: 30 }, { wch: 12 }];
     const guide = XLSX.utils.aoa_to_sheet([
       ["كيف يفهم الاستيراد ملفك"],
       [""],
-      ["المطابقة", "كل صف يُطابَق برمز المقرر داخل قسمك، والأستاذ بالرقم المدني أو بالاسم كما هو مسجل."],
+      ["المطابقة", "كل صف يُطابَق برقم المقرر (سبع خانات كما في ملف التصدير) داخل قسمك، والأستاذ بالرقم المدني أو بالاسم كما هو مسجل."],
       ["الأيام", "اكتب أسماء الأيام كما تنطقها: الأحد - الثلاثاء - الخميس. أي فاصل يصلح."],
       ["الوقت", "من-إلى بصيغة 24 ساعة: 08:00-09:20."],
       ["الصفوف الناقصة", "صف برمز غير معروف أو أستاذ غير معروف يظهر لك كملاحظة قبل أي حفظ — لا يُكتب شيء خفية."],
@@ -826,7 +829,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     const keptRows=(Array.isArray(xlsxPreview?.rows)?xlsxPreview.rows:[]) as ImportRow[];
     setReadProgress({ pct: 20, message: troubledPages.length
       ? `قراءة أدق للصفحات ${troubledPages.join("، ")}`
-      : "قراءة أدق عبر Smart Import" });
+      : "قراءة أدق للصفحات المتعثرة" });
     try {
       const query=new URLSearchParams({collegeId:String(collegeId),sectionId:String(activeImportSectionId),termId:String(termId),mime:file.type||"application/octet-stream"});
       if(troubledPages.length)query.set("pages",troubledPages.join(","));
@@ -1500,7 +1503,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               <span className="transfer-branch-import-mark"><Building2 aria-hidden="true" /></span>
               <div>
                 <strong>الاستيراد يتم من «{baseCollegeName}»</strong>
-                <p>هذا موقع فرع؛ والجدول المعتمد يصدر ملفاً واحداً من الكلية الأساس ويوزّعه النظام على المواقع تلقائياً (بنات · الجهراء · الفحيحيل). افتح «{baseCollegeName}» في مختار الكلية، واستورد من هناك مرة واحدة.</p>
+                <p>هذا موقع فرع؛ والجدول المعتمد يصدر ملفاً واحداً من الكلية الأساس ويوزّعه النظام على مواقع البنات الثلاثة تلقائياً (الأساس · الجهراء · الفحيحيل). افتح «{baseCollegeName}» في مختار الكلية، واستورد من هناك مرة واحدة.</p>
               </div>
             </div>
           ) : null}
@@ -1528,6 +1531,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                 type="file"
                 accept="application/json,.json,.xlsx,.xls,application/pdf,.pdf"
                 className="transfer-file"
+                aria-label="اختر ملف الجدول"
                 onChange={event => { const file = event.target.files?.[0]; if (file) void readFile(file); event.target.value = ""; }}
               />
               <div className="transfer-import-actions">
@@ -1605,7 +1609,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                       <button
                         type="button"
                         className="import-smart-chip"
-                        data-guide-ignore="إجراء اختياري داخل معاينة الاستيراد لإعادة قراءة الصفحات المتعثرة عبر Smart Import؛ ليس ميزة إرشاد مستقلة"
+                        data-guide-ignore="إجراء اختياري داخل معاينة الاستيراد لإعادة قراءة الصفحات المتعثرة قراءةً أدق؛ ليس ميزة إرشاد مستقلة"
                         disabled={busy}
                         onClick={() => { const f = smartFile; if (f) void readSmart(f, smartPendingPages); }}
                         title={`قراءة أدق للصفحات ${smartPendingPages.join("، ")} فقط — الصفحات التي قُرئت بلا أخطاء تبقى كما هي ولا تُرسل. لا تُرسل الأرقام المدنية.`}
@@ -1885,7 +1889,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               </div>
 
               <div className="roster-copy roster-copy-rich">
-                <TermSelect value={copyFrom || ""} onValueChange={id => void loadCopyRoster(id)}>
+                <TermSelect aria-label="انسخ من فصل" value={copyFrom || ""} onValueChange={id => void loadCopyRoster(id)}>
                   <option value="">انسخ من فصل…</option>
                   {copySourceTerms.filter(term => Number(term.AdTermId) !== termId).map(term => (
                     <option key={term.AdTermId} value={term.AdTermId}>{term.AdTermName}</option>

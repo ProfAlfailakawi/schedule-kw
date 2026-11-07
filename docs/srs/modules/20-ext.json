@@ -1044,7 +1044,8 @@
       "evidence": {
         "code": [
           "src/server/routes/publicCalendarRoutes.ts",
-          "src/utils/icalendar.ts"
+          "src/utils/icalendar.ts",
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/ics/:token"
         ],
         "tests": [
           "tests/calendar-ics-audit.ts"
@@ -1075,12 +1076,17 @@
         {
           "ar": "تدوير CALENDAR_SECRET يُبطل كل الاشتراكات.",
           "en": "Rotating CALENDAR_SECRET invalidates every subscription."
+        },
+        {
+          "ar": "المسار القديم /api/public/ics/:token/:key يبقى للاشتراكات السابقة: مفتاحه 32 خانة HMAC على «الرمز|رقم الأستاذ»، فيموت بموت الرابط، ويردّ 404 حين لا يطابق أحداً.",
+          "en": "The older path /api/public/ics/:token/:key remains for earlier subscriptions: its key is a 32-character HMAC over «token|instructor number», so it dies with the link, and it answers 404 when it matches nobody."
         }
       ],
       "evidence": {
         "code": [
           "src/server/calendarSecret.ts",
-          "src/server/routes/publicCalendarRoutes.ts"
+          "src/server/routes/publicCalendarRoutes.ts",
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/cal/:token/:key"
         ],
         "tests": [
           "tests/calendar-ics-audit.ts"
@@ -1095,8 +1101,8 @@
         "en": "One-day calendar reminder"
       },
       "text": {
-        "ar": "يجب أن يخدم GET /api/public/ics-reminder ملف ICS ليوم واحد من التاريخ d بصيغة YYYY-MM-DD مع العنوان t (120 خانة) والملاحظة n (300 خانة)، بـ no-store، وأن يرفض التاريخ غير الصالح بـ 400، ولا يحمل اسماً ولا رقماً شخصياً.",
-        "en": "GET /api/public/ics-reminder shall serve a one-day ICS file for the date d as YYYY-MM-DD with title t (120 characters) and note n (300 characters), with no-store, shall reject an invalid date with 400, and shall carry no name or personal number."
+        "ar": "يجب أن يخدم GET /api/public/ics-reminder ملف ICS ليوم واحد من التاريخ d بصيغة YYYY-MM-DD مع العنوان t (120 خانة) والملاحظة n (300 خانة)، بـ no-store، وأن يرفض التاريخ غير الصالح بـ 400، ولا يحمل اسماً ولا رقماً شخصياً؛ وهو الطريق الوحيد لتذكير «مساري» بالتقويم (لا يُولَّد الملف في المتصفح).",
+        "en": "GET /api/public/ics-reminder shall serve a one-day ICS file for the date d as YYYY-MM-DD with title t (120 characters) and note n (300 characters), with no-store, shall reject an invalid date with 400, and shall carry no name or personal number; it is the only path for Masari's calendar reminder (no file is generated in the browser)."
       },
       "priority": "could",
       "status": "implemented",
@@ -1118,7 +1124,8 @@
           "src/server/routes/publicCalendarRoutes.ts"
         ],
         "tests": [
-          "tests/calendar-ics-audit.ts"
+          "tests/calendar-ics-audit.ts",
+          "tests/masari-return-audit.ts"
         ]
       }
     },
@@ -1448,6 +1455,10 @@
         {
           "ar": "PUBLIC_RATE_LIMIT_MAX=0 يوقف حدّ الطلبات العامة.",
           "en": "PUBLIC_RATE_LIMIT_MAX=0 turns the public request limit off."
+        },
+        {
+          "ar": "بقية المتغيرات التي يقرؤها الخادم موصوفة في IR-EXT-028 إلى IR-EXT-030، وما يجب أن ينتقل مع القاعدة من أسرار في DR-DAT-031.",
+          "en": "The remaining variables the server reads are described in IR-EXT-028 to IR-EXT-030, and the secrets that must travel with the database in DR-DAT-031."
         }
       ],
       "evidence": {
@@ -1465,34 +1476,331 @@
       "id": "IR-EXT-027",
       "kind": "interface",
       "title": {
-        "ar": "إزالة اسم القاعدة من ملفات المصدر",
-        "en": "Removing the database name from source files"
+        "ar": "وجهة قاعدة البيانات من متغيرات البيئة",
+        "en": "Database target from environment variables"
       },
       "text": {
-        "ar": "يجب أن تنتقل وجهة Firestore لاحقاً إلى المتغيرات وحدها بحذف معرّف القاعدة من ملفات الإعداد المرفقة، بعد التحقق من أن الخدمة الحيّة تحمل المتغيرين وأن إصداراً بلا حركة مرور (FIREBASE_CONFIG_SOURCE=environment) يطبع القاعدة نفسها، مع التراجع بإعادة توجيه الحركة إلى الإصدار السابق.",
-        "en": "The Firestore target shall later move to environment variables alone by dropping the database identifier from the bundled config files, after confirming that the live service carries both variables and that a no-traffic revision with FIREBASE_CONFIG_SOURCE=environment logs the same database, with rollback by routing traffic back to the previous revision."
+        "ar": "يجب أن يقبل الخادم تحديد مشروع Firestore وقاعدته من متغيرات البيئة وحدها (FIREBASE_CONFIG_SOURCE=environment مع FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID)، فتربط جهةُ الاستضافة النظامَ بقاعدتها دون تعديل ملفات المصدر، ويرفض البدء إن نقص متغير أو خالف ملفَ الإعداد بدل أن يختار بصمت.",
+        "en": "The server shall accept the Firestore project and database from environment variables alone (FIREBASE_CONFIG_SOURCE=environment with FIREBASE_PROJECT_ID and FIREBASE_DATABASE_ID), so the hosting party connects the system to its own database without editing source files, and it shall refuse to start when a variable is missing or contradicts the config file instead of choosing silently."
       },
       "priority": "could",
-      "status": "planned",
+      "status": "implemented",
       "actors": [
         "rootAdmin"
       ],
       "acceptance": [
         {
-          "ar": "بعد الانتقال لا يحوي ملف الإعداد معرّف القاعدة ويطبع السجل المصدر «environment».",
-          "en": "After the move the config file holds no database identifier and the log prints the source «environment»."
+          "ar": "بالمتغيرين وFIREBASE_CONFIG_SOURCE=environment يتصل الخادم بالقاعدة المسماة ويطبع المصدر «environment».",
+          "en": "With both variables and FIREBASE_CONFIG_SOURCE=environment the server connects to the named database and logs the source «environment»."
         },
         {
-          "ar": "لا بيانات تُنقل أو تُنسخ في أي خطوة.",
-          "en": "No data is moved or copied at any step."
+          "ar": "نقصُ متغير أو تعارضه مع ملف الإعداد يوقف البدء برسالة صريحة.",
+          "en": "A missing variable, or one contradicting the config file, stops start-up with an explicit message."
         }
       ],
       "evidence": {
         "code": [
-          "docs/DELIVERY_OPERATIONS.md",
-          "src/server/firestoreTarget.ts"
+          "src/server/firestoreTarget.ts",
+          "src/server/runtimeEnv.ts",
+          "docs/DELIVERY_OPERATIONS.md"
+        ],
+        "tests": [
+          "tests/firestore-target-audit.ts"
         ]
+      },
+      "rationale": {
+        "ar": "يتيح للجهة المستلمة ربط النظام بقاعدتها بإعداد التشغيل وحده، دون نقل بيانات ولا تعديل كود.",
+        "en": "It lets the receiving party connect the system to its database through runtime settings alone, with no data moved and no code edited."
       }
+    },
+    {
+      "id": "IR-EXT-028",
+      "kind": "interface",
+      "title": {
+        "ar": "اعتماد Firestore ومتغيرات المنصة",
+        "en": "Firestore credentials and platform variables"
+      },
+      "text": {
+        "ar": "يجب أن يتصل الخادم بـFirestore بهوية المنصة افتراضياً، أو بحساب خدمة يُمرَّر نصّ JSON كاملاً في FIREBASE_SERVICE_ACCOUNT_KEY (والمشروع من FIREBASE_PROJECT_ID وإلا من project_id في المفتاح)، وأن يوقف الإقلاع بـ«Invalid FIREBASE_SERVICE_ACCOUNT_KEY JSON format.» إن لم يكن JSON صالحاً، وأن يذكر في السجل الاتصال بالمحاكي حين يُضبط FIRESTORE_EMULATOR_HOST؛ وأن يعدّ نفسه على Cloud Run متى وُجد K_SERVICE أو K_REVISION أو K_CONFIGURATION ولم يوجد APPLET_ID (بيئة المعاينة المضمّنة التي لا تُرسل فيها X-Frame-Options ولا frame-ancestors)، وأن يجعل المجلد الخاص هناك تحت TMPDIR (وإلا /tmp) باسم schedule-private.",
+        "en": "The server shall connect to Firestore with the platform identity by default, or with a service account passed as a complete JSON text in FIREBASE_SERVICE_ACCOUNT_KEY (the project taken from FIREBASE_PROJECT_ID, otherwise from project_id in the key), stop start-up with «Invalid FIREBASE_SERVICE_ACCOUNT_KEY JSON format.» when it is not valid JSON, and log the connection to the emulator when FIRESTORE_EMULATOR_HOST is set; it shall consider itself on Cloud Run whenever K_SERVICE, K_REVISION or K_CONFIGURATION is present and APPLET_ID is absent (the embedded preview environment, in which X-Frame-Options and frame-ancestors are not sent), and there place the private directory under TMPDIR (otherwise /tmp) named schedule-private."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "external"
+      ],
+      "acceptance": [
+        {
+          "ar": "مفتاح حساب خدمة مقطوع النص يوقف الإقلاع ولا يجرّب هوية أخرى.",
+          "en": "A truncated service-account key stops start-up and tries no other identity."
+        },
+        {
+          "ar": "مع APPLET_ID لا يُجبر NODE_ENV=production ولا DATA_MODE=firestore.",
+          "en": "With APPLET_ID, NODE_ENV=production and DATA_MODE=firestore are not forced."
+        },
+        {
+          "ar": "لا يوجد ملف مفتاح حساب خدمة في المستودع ولا في الصورة.",
+          "en": "No service-account key file exists in the repository or the image."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#initDatabase",
+          "src/server/runtimeEnv.ts#configureRuntimeEnvironment",
+          "src/db/snapshot.ts#isCloudRunRuntime",
+          "server.ts"
+        ],
+        "tests": [
+          "tests/firestore-target-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-029",
+      "kind": "interface",
+      "title": {
+        "ar": "الأسرار المشتقة ومتغيرات تجاوزها",
+        "en": "Derived secrets and their override variables"
+      },
+      "text": {
+        "ar": "يجب أن يشتق الخادم كل مفتاح من السرّ المشترك المحفوظ بوسم خاص به فلا تُستعمل مادة مفتاحية واحدة لغرضين: calendar-feed-key-v1 للتقويم، وstaff-device-key-v1 لتذكّر جهاز الأستاذ، وroom-door-sticker-v1 لملصقات الأبواب، ووسم VAPID لمفتاحي التنبيهات، وstudent-case-identity-v1 لختم هوية الطالب؛ وأن يقدّم المتغير المضبوط على الاشتقاق حين يوجد: CALENDAR_SECRET للتقويم، وSTAFF_DEVICE_SECRET لتذكّر الجهاز (سقفه 180 يوماً ولا يتجاوز انتهاء الرابط)، وVAPID_PUBLIC_KEY مع VAPID_PRIVATE_KEY معاً للتنبيهات، أما ملصقات الأبواب فلا متغير لها؛ وأن تُحلّ المفاتيح مرة لكل نسخة عند أول طلب، وألا تُحفظ القراءة الفاشلة فتُعاد المحاولة.",
+        "en": "The server shall derive every key from the stored shared secret under its own label so one key material never serves two purposes: calendar-feed-key-v1 for the calendar, staff-device-key-v1 for remembering a teacher's device, room-door-sticker-v1 for door stickers, a VAPID label for the two push keys, and student-case-identity-v1 for sealing student identity; it shall prefer the configured variable over derivation where one exists: CALENDAR_SECRET for the calendar, STAFF_DEVICE_SECRET for the remembered device (capped at 180 days and never past the link's expiry), and VAPID_PUBLIC_KEY together with VAPID_PRIVATE_KEY for push, while door stickers have no variable; keys shall be resolved once per instance on the first request, and a failed read shall not be kept so it is retried."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "ضبط CALENDAR_SECRET أو تغييره يُبطل كل اشتراكات التقويم القائمة ولا يمسّ ملصقاً واحداً ولا هوية طالب.",
+          "en": "Setting or changing CALENDAR_SECRET invalidates every existing calendar subscription and touches no door sticker and no student identity."
+        },
+        {
+          "ar": "ضبط STAFF_DEVICE_SECRET أو تغييره يُسقط كل أجهزة «تذكّرني» فيطلب الرقم المدني مرة أخرى.",
+          "en": "Setting or changing STAFF_DEVICE_SECRET drops every remembered device, which asks for the civil number again."
+        },
+        {
+          "ar": "ضبط مفتاحي VAPID بعد العمل بالمشتقين (أو تغيير السرّ المشترك) يغيّر المفتاح العام الذي يعيده /api/public/push/key، فتلزم الأجهزةَ القائمة إعادةُ الاشتراك.",
+          "en": "Setting the VAPID pair after running on the derived pair (or changing the shared secret) changes the public key returned by /api/public/push/key, so existing devices must subscribe again."
+        },
+        {
+          "ar": "نسختان متجاورتان على Cloud Run تعطيان المفاتيح نفسها.",
+          "en": "Two neighbouring instances on Cloud Run yield the same keys."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/calendarSecret.ts#createCalendarSecretResolver",
+          "src/server/staffDeviceKey.ts#createStaffDeviceSecretResolver",
+          "src/server/roomDoorSecret.ts#createRoomDoorKeyResolver",
+          "src/server/webPush.ts#vapidKeysFromEnv",
+          "src/server/core/studentIdentity.ts#studentIdentityKey",
+          "src/server/core/shareLinks.ts",
+          "src/server/routes/publicStaffRoutes.ts"
+        ],
+        "tests": [
+          "tests/doctor-journey-audit.ts",
+          "tests/staff-device-key-audit.ts",
+          "tests/room-door-audit.ts",
+          "tests/web-push-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-030",
+      "kind": "interface",
+      "title": {
+        "ar": "متغيرات تشغيل أخرى ومفاتيح التشخيص",
+        "en": "Other operating variables and diagnostic switches"
+      },
+      "text": {
+        "ar": "يجب أن يقرأ الخادم: ROOT_ADMIN_USER_ID رقم حساب الإدارة الرئيسي صاحب الخزنة (الافتراضي 1 ولا يقل عن 1)، وDEFAULT_ADMIN_PASSWORD كلمة المدير لقاعدة تطوير محلية جديدة فقط، وAD_PUBLIC_ORIGIN أصل الروابط في رسائل البريد الآلية التي تُفحص كل ساعة (الافتراضي https://schedule-kw.com)، وSCHEDULE_DEMO_ENABLED=false لإغلاق دخول التجربة، وSCHEDULE_DEMO_SERVICE=true لخدمة تجريبية مستقلة؛ ومفاتيح تشخيص معطّلة افتراضياً: OCR_PROFILE=1 يطبع زمن كل مرحلة في قراءة الصفحة الممسوحة، وSMART_IMPORT_ROW_STRIPS=1 يرسل شرائط الصفوف المطلوبة بدل الصفحة كاملة في الاستيراد المساعَد، وROOM_DOOR_FAKE_NOW يبدأ ساعة صفحة الباب من لحظة مختارة في وضع demo خارج الإنتاج وحده.",
+        "en": "The server shall read: ROOT_ADMIN_USER_ID, the number of the main administration account that owns the vault (default 1, never below 1); DEFAULT_ADMIN_PASSWORD, the administrator password for a new local development database only; AD_PUBLIC_ORIGIN, the origin of links in the automatic e-mails checked every hour (default https://schedule-kw.com); SCHEDULE_DEMO_ENABLED=false to close demo entry; and SCHEDULE_DEMO_SERVICE=true for a separate demo service; and diagnostic switches that are off by default: OCR_PROFILE=1 prints each stage's time while reading a scanned page, SMART_IMPORT_ROW_STRIPS=1 sends the requested row strips instead of the full page in assisted import, and ROOM_DOOR_FAKE_NOW starts the door page's clock at a chosen moment in demo mode outside production only."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "ROOT_ADMIN_USER_ID=0 أو قيمة غير رقمية تعيد الحساب 1.",
+          "en": "ROOT_ADMIN_USER_ID=0 or a non-numeric value falls back to account 1."
+        },
+        {
+          "ar": "بلا SMART_IMPORT_ROW_STRIPS تُرسل الصفحة كاملة ولو طُلبت صفوف بعينها.",
+          "en": "Without SMART_IMPORT_ROW_STRIPS the full page is sent even when specific rows are requested."
+        },
+        {
+          "ar": "ROOM_DOOR_FAKE_NOW لا أثر له مع NODE_ENV=production أو DATA_MODE=firestore.",
+          "en": "ROOM_DOOR_FAKE_NOW has no effect with NODE_ENV=production or DATA_MODE=firestore."
+        },
+        {
+          "ar": "SCHEDULE_DEMO_ENABLED=false يجعل دخول التجربة 404 ويعيد /api/demo/config بـenabled=false.",
+          "en": "SCHEDULE_DEMO_ENABLED=false makes demo entry answer 404 and /api/demo/config return enabled=false."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/auth.ts",
+          "src/db/repository.ts#initDatabase",
+          "src/server/adsRoutes.ts",
+          "src/server/routes/authRoutes.ts",
+          "src/server/routes/systemRoutes.ts",
+          "src/utils/documentOcr.ts",
+          "src/server/routes/smartImportRoutes.ts",
+          "src/server/roomDoorRoutes.ts",
+          "src/server/runtimeEnv.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-031",
+      "kind": "interface",
+      "title": {
+        "ar": "واجهة HTTP لتنبيهات الجوال",
+        "en": "Push notification HTTP interface"
+      },
+      "text": {
+        "ar": "يجب أن يقدّم الخادم: GET /api/public/push/key بالمفتاح العام (no-cache)؛ ولصاحب الحساب GET /api/push/status (مفعّل؟ والمفتاح ومعرّفات أجهزته وما رُبط منها بجلسته) وPOST /api/push/subscribe وPOST /api/push/unsubscribe وPOST /api/push/test؛ ولبطاقة الأستاذ برمزها GET وPOST /api/public/request/:token/push وPOST /api/public/request/:token/push/off وPOST /api/public/request/:token/push/test؛ وPOST /api/public/push/rotate لنقل اشتراك جدّده المتصفح بإثبات الاشتراك القديم (رابطه وسرّه auth معاً)؛ وGET /r/:token/manifest.webmanifest بتطبيق «بطاقتي» الذي يبدأ ونطاقه /r/<الرمز>؛ ومعرّف الاشتراك بصمة SHA-256 لرابطه.",
+        "en": "The server shall provide: GET /api/public/push/key with the public key (no-cache); for an account holder GET /api/push/status (enabled, the key, the ids of his devices and those bound to his session), POST /api/push/subscribe, POST /api/push/unsubscribe and POST /api/push/test; for a teacher card by its token GET and POST /api/public/request/:token/push, POST /api/public/request/:token/push/off and POST /api/public/request/:token/push/test; POST /api/public/push/rotate to move a subscription the browser renewed on proof of the old subscription (its endpoint and auth secret together); and GET /r/:token/manifest.webmanifest with the My card app whose start and scope are /r/<token>; a subscription id is the SHA-256 digest of its endpoint."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "committeeChair",
+        "departmentHead",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "تجربة بلا اشتراك تردّ 409 «فعّل التنبيهات على هذا الجهاز أولاً.»، وتجربة حُدّت تردّ 429 «جرّبتَ للتو. انتظر دقيقة.».",
+          "en": "A test with no subscription answers 409 «enable notifications on this device first», and a limited test answers 429 «you just tried, wait a minute»."
+        },
+        {
+          "ar": "مفاتيح غير متاحة تردّ 503 «التنبيهات غير متاحة الآن. حاول بعد قليل.».",
+          "en": "Unavailable keys answer 503 «notifications are not available now, try shortly»."
+        },
+        {
+          "ar": "تدوير اشتراك بطاقة موقوفة يحذف السجل ويردّ 410، وإثبات غير مطابق يردّ 404.",
+          "en": "Rotating a stopped card's subscription deletes the record and answers 410, and a non-matching proof answers 404."
+        },
+        {
+          "ar": "رمز بطاقة لا يطابق النمط ‎(demo.)?[A-Za-z0-9_-]{16,64}‎ يردّ 404 على البيان.",
+          "en": "A card token not matching (demo.)?[A-Za-z0-9_-]{16,64} answers 404 for the manifest."
+        },
+        {
+          "ar": "إلغاء الاشتراك يحذف السجل فقط إن كان لصاحب الطلب نفسه.",
+          "en": "Unsubscribing deletes the record only when it belongs to the requester himself."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/pushRoutes.ts#/api/push/subscribe",
+          "src/server/pushRoutes.ts#/api/public/push/rotate",
+          "src/server/pushRoutes.ts#/api/public/request/:token/push",
+          "src/server/pushCard.ts#cardManifest",
+          "src/server/webPush.ts#pushSubscriptionId"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-032",
+      "kind": "interface",
+      "title": {
+        "ar": "قراءة جدول القسم العامة",
+        "en": "Public department timetable read"
+      },
+      "text": {
+        "ar": "يجب أن يجيب GET /api/public/schedule/:token بلا حساب وبلا تخزين بحمولة جدول القسم لرابط من نوع department فقط، ويرفض بـ404 وبرسالة تسمّي نوع الرابط رابطَ بطاقة الأستاذ («هذا الرابط بطاقة أستاذ»)، والاستبيان («هذا الرابط استبيان للطلبة»)، وجدول الطلبة («هذا الرابط جدول الطلبة»)، وطلب الأستاذ («هذا الرابط طلب جدول لأستاذ»)، وأن يزيد عدّاد مشاهدات الرابط دون انتظار.",
+        "en": "GET /api/public/schedule/:token shall answer without an account and without caching with the department timetable payload for a department-kind link only, refuse with 404 and a message naming the link kind a teacher-card link, a survey link, a students timetable link and a teacher request link, and increase the link's view counter without waiting."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "external"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط منتهٍ أو موقوف يردّ بالحالة والرسالة التي يعيدها حلّ الرمز.",
+          "en": "An expired or stopped link answers with the status and message returned by token resolution."
+        },
+        {
+          "ar": "الجواب يحمل Cache-Control: no-store.",
+          "en": "The answer carries Cache-Control: no-store."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/schedule/:token",
+          "src/server/core/shareLinks.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-033",
+      "kind": "interface",
+      "title": {
+        "ar": "لا إرسال لأخطاء المتصفح إلى جهة خارجية",
+        "en": "No browser error reporting to a third party"
+      },
+      "text": {
+        "ar": "يجب ألّا تحمّل الواجهة الرئيسية (index.html) ولا صفحة الهبوط أي سكربتٍ يرسل أخطاء المتصفح أو أثر النقرات إلى خدمةٍ خارج النظام؛ وأن تصل أعطال الواجهة لمن دخل البرنامج إلى خادم النظام نفسه وحده عبر POST /api/telemetry/client (انظر NFR-NFR-040)، وألّا ترسل صفحة الهبوط العامة شيئاً منها؛ وأن تقول صفحة القياس العامة (/measurement) ذلك صراحةً.",
+        "en": "Neither the main interface (index.html) nor the landing page shall load any script that sends browser errors or a click trail to a service outside the system; interface faults of a signed-in user shall reach only the system's own server through POST /api/telemetry/client (see NFR-NFR-040), the public landing page shall send none of them, and the public measurement page (/measurement) shall state this explicitly."
+      },
+      "rationale": {
+        "ar": "ما تعدُ به صفحةُ القياس («لا أدوات تتبّعٍ خارجية») يطابق ما تفعله الصفحات فعلاً، ولا يغادر النظامَ ما يدلّ على مستخدمه.",
+        "en": "What the measurement page promises (no external tracking tools) matches what the pages actually do, and nothing about a user leaves the system."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "لا يحمل index.html ولا public/landing/index.html وسم script لمصدرٍ خارج الموقع يرسل أخطاء.",
+          "en": "Neither index.html nor public/landing/index.html carries a script tag from outside the site that sends errors."
+        },
+        {
+          "ar": "خطأ في الواجهة بعد الدخول ← يُرسل إلى /api/telemetry/client على الموقع نفسه، ولا طلب إلى أي نطاقٍ آخر.",
+          "en": "An interface error after sign-in is sent to /api/telemetry/client on the same site, with no request to any other domain."
+        },
+        {
+          "ar": "صفحة /measurement تذكر أن أعطال الواجهة تُرسل إلى خادم البرنامج وحده وأن صفحة التعريف لا ترسل شيئاً منها.",
+          "en": "The /measurement page states that interface faults go only to the program's own server and that the landing page sends none."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "index.html",
+          "public/landing/index.html",
+          "src/utils/clientTelemetry.ts#flushTelemetry",
+          "src/server/routes/guideRoutes.ts",
+          "src/server/adsPages.ts#measurementPage"
+        ],
+        "tests": [
+          "tests/handover-fixes-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [

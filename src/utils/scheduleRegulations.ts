@@ -29,7 +29,7 @@ export type RegulationSeverity = "high" | "medium" | "low";
 export type RegulationFindingSource = "decision-1912" | "history" | "department" | "readiness";
 export type ApprovalEffect = "note" | "review" | "block";
 
-export const DECISION_1912_LABEL = "قرار 1913/2016";
+export const DECISION_1913_LABEL = "قرار 1913/2016";
 
 export interface RegulationFinding {
   /** Stable identifier, so a department can silence one rule and not the rest. */

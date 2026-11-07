@@ -139,11 +139,12 @@ function SearchBox({
 }) {
   return (
     <label className="master-search">
-      <Search />
+      <Search aria-hidden="true" />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        aria-label={placeholder || "بحث"}
       />
       {value ? (
         <button type="button" data-guide-ignore="مسح حقل البحث فقط" onClick={() => onChange("")} aria-label="مسح" title="مسح">
@@ -187,12 +188,19 @@ const AUDIT_ENTITY_LABEL: Record<string, string> = {
 const auditEntityLabel = (entity: string) => AUDIT_ENTITY_LABEL[entity] || entity;
 
 export default function AdminUsers({
-  mode,
+  mode: requestedMode,
   onNavigate,
   permissions = [],
   rootAdmin = false,
   demoReadOnly = false,
 }: Props) {
+  /* شاشةُ «الصلاحيات» المستقلة أُزيلت (Note 26): الصلاحياتُ تُحرَّر داخل شاشة المستخدمين،
+     فالرابطُ القديم إليها يفتح المستخدمين. */
+  const mode: AdminMode = requestedMode === "permissions" ? "users" : requestedMode;
+  /* «نسخ فصل» شاشتُها خارج هذا المكوّن؛ إن وصل إليه طلبُها حُوِّل إليها بدل أن يسقط في السجل. */
+  useEffect(() => {
+    if (mode === "copyTerm") onNavigate?.("copyTerm");
+  }, [mode]);
   const [page, setPage] = useState<PageMode>("index"),
     [error, setError] = useState<string | null>(null),
     [users, setUsers] = useState<SafeUser[]>([]),
@@ -235,7 +243,6 @@ export default function AdminUsers({
   const [query, setQuery] = useState(""),
     [filterUser, setFilterUser] = useState(0),
     [selectedUserId, setSelectedUserId] = useState<number | null>(null),
-    [selectedPermKey, setSelectedPermKey] = useState<string | null>(null),
     [selectedScopeKey, setSelectedScopeKey] = useState<string | null>(null),
     [selectedLogId, setSelectedLogId] = useState<string | number | null>(null);
   const [editUserId, setEditUserId] = useState<number | null>(null),
@@ -247,9 +254,7 @@ export default function AdminUsers({
     [isLocked, setIsLocked] = useState(false),
     [linkedInstructor, setLinkedInstructor] = useState(0);
   const [permUser, setPermUser] = useState(0),
-    [permForm, setPermForm] = useState(0),
     [permSelections, setPermSelections] = useState<number[]>([]),
-    [oldPerm, setOldPerm] = useState<FormSecurity | null>(null),
     [scopeUser, setScopeUser] = useState(0),
     [scopeCollege, setScopeCollege] = useState(0),
     [scopeSection, setScopeSection] = useState(0);
@@ -547,9 +552,7 @@ export default function AdminUsers({
     finally { setBackupBusy(null); }
   };
 
-  const permKey = (p: FormSecurity) =>
-      String(p.legacyId ?? `${p.SystemUserId}-${p.FormNameId}`),
-    scopeKey = (a: AdCollegeUserAssign, index = 0) =>
+  const scopeKey = (a: AdCollegeUserAssign, index = 0) =>
       String(
         a.legacyId ??
           `${a.SystemUserId}-${a.AdCollegeId}-${a.AdSectionId}-${index}`,
@@ -557,7 +560,7 @@ export default function AdminUsers({
   const load = async () => {
     setError(null);
     try {
-      if (mode === "roomSetup" || mode === "sectionHours" || mode === "teachingLoad" || mode === "seats") return;
+      if (mode === "roomSetup" || mode === "sectionHours" || mode === "teachingLoad" || mode === "seats" || mode === "copyTerm") return;
       if (mode === "backup") {
         if (!rootAdmin) throw new Error("هذه الخزنة مخصصة لحساب الإدارة الرئيسي فقط");
         const status = await api("/api/system-backup/status") as BackupStatus;
@@ -582,7 +585,7 @@ export default function AdminUsers({
         }
       // Note 26: permissions are edited inside the users screen now, so the users
       // mode needs the same forms + grants the standalone screen used to load.
-      if (mode === "permissions" || mode === "users") {
+      if (mode === "users") {
         const d = await Promise.all([
           api("/api/permissions/forms"),
           api("/api/permissions"),
@@ -617,7 +620,6 @@ export default function AdminUsers({
     setFilterUser(0);
     setError(null);
     setSelectedUserId(null);
-    setSelectedPermKey(null);
     setSelectedScopeKey(null);
     setSelectedLogId(null);
     void load();
@@ -633,10 +635,6 @@ export default function AdminUsers({
     setPermUser(selectedUserId);
     setPermSelections(perms.filter((item) => item.SystemUserId === selectedUserId).map((item) => item.FormNameId));
   }, [mode, selectedUserId, perms]);
-  useEffect(() => {
-    if (mode === "permissions" && perms.length && !selectedPermKey)
-      setSelectedPermKey(permKey(perms[0]));
-  }, [mode, perms.length]);
   useEffect(() => {
     if (mode === "scopes" && assigns.length && !selectedScopeKey)
       setSelectedScopeKey(scopeKey(assigns[0], 0));
@@ -679,11 +677,9 @@ export default function AdminUsers({
     setPage("index");
     setError(null);
     resetUser();
-    setOldPerm(null);
     setRole("committeeChair");
     setRoleColleges([]);
     setPermUser(0);
-    setPermForm(0);
     setPermSelections([]);
     setScopeUser(0);
     setScopeCollege(0);
@@ -781,45 +777,15 @@ export default function AdminUsers({
       return;
     }
     try {
-      const current = perms.filter((item) => item.SystemUserId === permUser);
-      const selected = new Set(permSelections);
-      const currentIds = new Set(current.map((item) => item.FormNameId));
-      const removals = current.filter((item) => !selected.has(item.FormNameId));
-      const additions = permSelections.filter((id) => !currentIds.has(id));
-      for (const item of removals) {
-        if (item.legacyId)
-          await api(`/api/permissions/${item.legacyId}`, { method: "DELETE" });
-      }
-      for (const formId of additions)
-        await api("/api/permissions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ SystemUserId: permUser, FormNameId: formId }),
-        });
+      /* حفظٌ واحد يستبدل مجموعةَ صلاحيات الحساب على الخادم دفعةً واحدة (مع سطرٍ في السجل)،
+         فلا يبقى منحٌ نصفيٌّ إن تعثّر، وتُزال الصفوف القديمة ولو بلا معرّف. */
+      await api(`/api/permissions/user/${permUser}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ FormNameIds: [...new Set(permSelections)] }),
+      });
       await load();
       back();
-    } catch (e: any) {
-      setError(e.message);
-    }
-  };
-  const editPermission = (p: FormSecurity) => {
-    setOldPerm(p);
-    setPermUser(p.SystemUserId);
-    setPermForm(p.FormNameId);
-    setPermSelections(
-      perms
-        .filter((item) => item.SystemUserId === p.SystemUserId)
-        .map((item) => item.FormNameId),
-    );
-    setPage("edit");
-  };
-  const deletePermission = async (p: FormSecurity) => {
-    if (!(await visualConfirm({ title: "حذف الصلاحية", message: "سيُزال هذا الربط من المستخدم فورًا.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
-    try {
-      if (!p.legacyId) throw new Error("الصلاحية غير موجودة");
-      await api(`/api/permissions/${p.legacyId}`, { method: "DELETE" });
-      setSelectedPermKey(null);
-      await load();
     } catch (e: any) {
       setError(e.message);
     }
@@ -1089,78 +1055,6 @@ export default function AdminUsers({
               </Field>
             </div>
             <FormActions onBack={back} />
-          </form>
-        </Surface>
-      </CatalogFormDrawer>
-    ) : null;
-  const permissionsFormDrawer = (mode === "permissions" && page !== "index") ? (
-      <CatalogFormDrawer onClose={back} label="صلاحيات المستخدم" wide>
-        <PageTitle
-          eyebrow="إدارة النظام"
-          subtitle="مستخدم واحد · صلاحياته فقط"
-        >
-          صلاحيات المستخدم
-        </PageTitle>
-        {error ? <Notice>{error}</Notice> : null}
-        <Surface className="form-card smart-form permission-picker-card">
-          <div className="form-intro">
-            <span><KeyRound /></span>
-            <div>
-              <strong>اختيار بصري مباشر</strong>
-              <p>مستخدم واحد · كل صلاحياته</p>
-            </div>
-          </div>
-          <form onSubmit={savePermission}>
-            <Field label="المستخدم" required>
-              <select
-                value={permUser || ""}
-                onChange={(e) => {
-                  const id = Number(e.target.value) || 0;
-                  setPermUser(id);
-                  setPermSelections(
-                    perms.filter((item) => item.SystemUserId === id).map((item) => item.FormNameId),
-                  );
-                }}
-                required
-              >
-                <option value="">اختر المستخدم ...</option>
-                {users.map((u) => (
-                  <option key={u.SystemUserId} value={u.SystemUserId}>
-                    {u.Name} · {u.SystemUserLogin}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <div className="permission-choice-grid" aria-label="اختيار الصلاحيات">
-              {forms.map((f) => {
-                const active = permSelections.includes(f.FormNameId);
-                return (
-                  <button
-                    type="button"
-                    key={f.FormNameId}
-                    className={active ? "active" : ""}
-                    onClick={() =>
-                      setPermSelections((current) =>
-                        current.includes(f.FormNameId)
-                          ? current.filter((id) => id !== f.FormNameId)
-                          : [...current, f.FormNameId],
-                      )
-                    }
-                  >
-                    <span className="permission-check" aria-hidden="true">{active ? <Check /> : <KeyRound />}</span>
-                    <strong>{f.FormName}</strong>
-                    <small title="رقم الشاشة في النظام">{f.FormNameId}</small>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="permission-selection-summary">
-              <span>المحدَّد <b>{permSelections.length}</b> من <b>{forms.length}</b> {nounFor(forms.length, AR.permission)}</span>
-              {permSelections.length ? (
-                <button type="button" onClick={() => setPermSelections([])}>مسح الاختيار</button>
-              ) : null}
-            </div>
-            <FormActions onBack={back} submitDisabled={!permUser || !permSelections.length} />
           </form>
         </Surface>
       </CatalogFormDrawer>
@@ -1787,145 +1681,6 @@ export default function AdminUsers({
     );
   }
 
-  if (mode === "permissions") {
-    const filtered = perms.filter(
-      (p) =>
-        (!filterUser || p.SystemUserId === filterUser) &&
-        `${userById.get(p.SystemUserId)?.Name || ""} ${formById.get(p.FormNameId)?.FormName || ""}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
-    );
-    const selected =
-      filtered.find((p) => permKey(p) === selectedPermKey) ||
-      perms.find((p) => permKey(p) === selectedPermKey) ||
-      null;
-    return (
-      <>
-      <div className="content-stack admin-page master-detail-page visual-minimal">
-        {consoleHead(
-          <AddButton
-            onClick={() => {
-              setOldPerm(null);
-              setPermUser(0);
-              setPermForm(0);
-              setPermSelections([]);
-              setPage("create");
-            }}
-          >
-            صلاحية جديدة
-          </AddButton>,
-        )}
-        <div className="master-detail-shell">
-          <section className="master-pane">
-            <header className="master-filter-stack">
-              <SearchBox value={query} onChange={setQuery} placeholder="بحث بالمستخدم أو الوظيفة" />
-              <select
-                aria-label="المستخدم"
-                value={filterUser || ""}
-                onChange={(e) => setFilterUser(Number(e.target.value) || 0)}
-              >
-                <option value="">كل المستخدمين</option>
-                {users.map((u) => (
-                  <option key={u.SystemUserId} value={u.SystemUserId}>
-                    {u.Name}
-                  </option>
-                ))}
-              </select>
-            </header>
-            <div className="master-list permission-master">
-              {filtered.map((p, index) => {
-                /* One heading per run of the same person: the name is said once
-                   with a count, instead of on every identical row. */
-                const startsRun = index === 0 || filtered[index - 1].SystemUserId !== p.SystemUserId;
-                const runLength = startsRun ? (() => { let n = 0; while (filtered[index + n] && filtered[index + n].SystemUserId === p.SystemUserId) n++; return n; })() : 0;
-                const ownerName = userById.get(p.SystemUserId)?.Name || "";
-                return (
-                  <React.Fragment key={permKey(p)}>
-                    {startsRun && ownerName && runLength > 1 ? (
-                      <div className="permission-group-head" role="presentation">
-                        <UserCog aria-hidden="true" />
-                        <span>{ownerName}</span>
-                        <b>{runLength.toLocaleString("ar-KW-u-nu-latn")}</b>
-                      </div>
-                    ) : null}
-                    <button
-                      type="button"
-                      data-guide-ignore="صف اختيار في قائمة الصلاحيات، السلوك نفسه قبل إعادة التنسيق"
-                      className={`${selected && permKey(selected) === permKey(p) ? "active" : ""}${runLength > 1 || !startsRun ? " in-run" : ""}`.trim()}
-                      onClick={() => setSelectedPermKey(permKey(p))}
-                    >
-                      <span className="master-symbol">
-                        <KeyRound />
-                      </span>
-                      <div>
-                        <strong>
-                          {formById.get(p.FormNameId)?.FormName || "صلاحية"}
-                        </strong>
-                        <small>{ownerName}</small>
-                      </div>
-                      <ChevronLeft />
-                    </button>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </section>
-          <aside className="inspector-pane">
-            {selected ? (
-              <>
-                <div className="inspector-hero icon">
-                  <span className="inspector-avatar">
-                    <KeyRound />
-                  </span>
-                  <div>
-                    <small>صلاحية وظيفة</small>
-                    <h2>
-                      {formById.get(selected.FormNameId)?.FormName || "صلاحية"}
-                    </h2>
-                    <p>{userById.get(selected.SystemUserId)?.Name || ""}</p>
-                  </div>
-                </div>
-                <div className="inspector-facts">
-                  <article>
-                    <span>المستخدم</span>
-                    <b>
-                      {userById.get(selected.SystemUserId)?.SystemUserLogin ||
-                        "—"}
-                    </b>
-                  </article>
-                  <article>
-                    <span>رقم الصلاحية</span>
-                    <b>{selected.FormNameId}</b>
-                  </article>
-                  <article>
-                    <span>المعرّف</span>
-                    <b>{selected.legacyId || "—"}</b>
-                  </article>
-                </div>
-                <div className="inspector-actions">
-                  <PrimaryButton onClick={() => editPermission(selected)}>
-                    تعديل
-                  </PrimaryButton>
-                  <SecondaryButton
-                    data-guide-ignore="إجراء حذف حساس داخل شاشة الإدارة ويستخدم تأكيد الشاشة نفسه"
-                    className="danger-action"
-                    onClick={() => deletePermission(selected)}
-                  >
-                    <Trash2 /> حذف
-                  </SecondaryButton>
-                </div>
-              </>
-            ) : (
-              <EmptyInspector icon={<KeyRound />} title="اختر صلاحية" />
-            )}
-          </aside>
-        </div>
-      </div>
-      {permissionsFormDrawer}
-      </>
-    );
-  }
-
   if (mode === "scopes") {
     const filtered = assigns.filter(
       (a) =>
@@ -2075,6 +1830,9 @@ export default function AdminUsers({
       </>
     );
   }
+
+  /* «نسخ فصل» يُحوَّل إلى شاشته (الأثر أعلاه)؛ لا يُعرض السجلُّ مكانها. */
+  if (mode === "copyTerm") return <div className="content-stack admin-page">{consoleHead()}</div>;
 
   /* The change sentence is searchable too, so «القاعة» finds every room move,
      and the user filter matches the sibling permission and scope screens. */

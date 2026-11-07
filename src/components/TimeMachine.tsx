@@ -9,7 +9,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CircleCheck, FlaskConical, Hourglass, Layers, PencilLine, Puzzle, Scale, Siren, Sparkles, Target, X } from "lucide-react";
 import {
-  boardOf, compareScenarios, describeProblem, driftOf, parseProblem, solveProblem,
+  boardOf, compareScenarios, describeProblem, driftOf, parseProblem, solveProblem, tmCourseNumber,
   type TmProblem, type TmScenarioRecord, type TmSolution,
 } from "../utils/timeMachine";
 import ScenarioWorkbench from "./ScenarioWorkbench";
@@ -33,7 +33,7 @@ function examplesOf(context: LoadedContext): string[] {
     && (() => { const read = parseProblem(`${person.AdInstructorName} معتذر الخميس`, context); return read?.kind === "teacherOff" && Number(read.instructorId) === Number(person.AdInstructorId); })())?.AdInstructorName;
   const wanted = context.demand ? Object.entries(context.demand).sort((a, b) => (b[1].wanted - b[1].seated) - (a[1].wanted - a[1].seated))[0]?.[0] : undefined;
   const course = context.courses.find(c => String(c.AdCourseId) === wanted) || context.courses.find(c => context.rows.some(r => r.AdCourseId === c.AdCourseId));
-  return [hall ? `قاعة ${hall} تعطلت الأحد` : "", teacher ? `${teacher} معتذر الخميس` : "", course ? `زاد الطلب على ${course.CourseCode}` : ""].filter(example => example && parseProblem(example, context));
+  return [hall ? `قاعة ${hall} تعطلت الأحد` : "", teacher ? `${teacher} معتذر الخميس` : "", course ? `زاد الطلب على ${tmCourseNumber(course, context)}` : ""].filter(example => example && parseProblem(example, context));
 }
 const GOALS: Array<{ icon: IcoName; label: string; problem: TmProblem }> = [
   { icon: "clearDay", label: "صفّر الخميس", problem: { kind: "clearDay", day: "fthursday" } },
@@ -228,7 +228,7 @@ function TimeMachineBody({ context, reload }: { key?: string; context: LoadedCon
         </div>
       ) : null}
 
-      {unknown && mode !== "lab" && text ? <p className="tm-note" role="status"><Ico n="idea" /> لم أفهم الجملة. جرّب: «قاعة … تعطلت الأحد»، «د. … معتذر الخميس»، «زاد الطلب على 121»</p> : null}
+      {unknown && mode !== "lab" && text ? <p className="tm-note" role="status"><Ico n="idea" /> لم أفهم الجملة. جرّب: «قاعة … تعطلت الأحد»، «د. … معتذر الخميس»، «زاد الطلب على 0109468»</p> : null}
 
       {mode === "lab" ? <SectionSimulatorBody context={context} reload={reload} onBasket={setLabBasket} /> : null}
 

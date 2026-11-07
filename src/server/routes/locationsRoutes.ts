@@ -274,7 +274,7 @@ app.post("/api/admin/location-setup/rooms", requirePermission(7), requireRootAdm
   const sectionIds=locationIdList(req.body?.sectionIds);
   if(!sectionIds.length||sections.some(section=>sectionIds.includes(Number(section.AdSectionId))&&!officialCollegeIds.includes(Number(section.AdCollegeId)))||sectionIds.some(id=>!sections.some(section=>Number(section.AdSectionId)===id))){res.status(400).json({error:"اختر قسمًا واحدًا على الأقل من أقسام الموقع نفسه."});return;}
   const rawCodes=Array.isArray(req.body?.roomCodes)?req.body.roomCodes:[];
-  const codes=[...new Set(rawCodes.map((value:unknown)=>String(value||"").normalize("NFKC").trim().toUpperCase().replace(/\s+/g,"")).filter(Boolean))];
+  const codes:string[]=[...new Set<string>(rawCodes.map((value:unknown)=>String(value||"").normalize("NFKC").trim().toUpperCase().replace(/\s+/g,"")).filter(Boolean))];
   if(!codes.length||codes.length>100||codes.some((code:string)=>code===PENDING_ROOM||isInvalidLocationToken(code)||!/^[A-Z0-9]{1,12}$/.test(code)||!/[0-9]/.test(code))){res.status(400).json({error:"أدخل من 1 إلى 100 رمز قاعة صالح، وكل رمز يتضمن رقمًا."});return;}
   const capacityRaw=req.body?.capacity;const capacity=capacityRaw===undefined||capacityRaw===null||String(capacityRaw).trim()===""?undefined:Number(capacityRaw);if(capacity!==undefined&&(!Number.isInteger(capacity)||capacity<1||capacity>5000)){res.status(400).json({error:"سعة القاعة يجب أن تكون عددًا صحيحًا بين 1 و5000، أو تُترك فارغة."});return;}
   const roomType=String(req.body?.roomType||"").normalize("NFKC").trim();if(roomType.length>60){res.status(400).json({error:"اسم نوع القاعة لا يتجاوز 60 حرفًا."});return;}

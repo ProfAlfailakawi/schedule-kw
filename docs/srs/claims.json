@@ -8,7 +8,7 @@
     "src/utils/sorting.ts", "src/utils/controlLabel.ts", "src/utils/demoSession.ts", "src/utils/demoSeedEvent.ts"
   ],
   "DSH": [
-    "src/components/About.tsx", "src/components/BrandMark.tsx", "src/components/EntranceOverture.tsx", "src/components/InterfacePolish.tsx",
+    "src/components/About.tsx", "src/components/BrandMark.tsx", "src/components/EntranceOverture.tsx",
     "src/components/OutcomeStory.tsx", "src/utils/outcomeStory.ts", "src/components/dna/**", "src/components/AcademicConsole.tsx"
   ],
   "SCH": [

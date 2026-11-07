@@ -8,6 +8,7 @@ import { techBlock } from "./tech.mjs";
 import { usageCards, USAGE_PREFIX } from "./usage.mjs";
 import { sinceMedal, historyBlock } from "./history.mjs";
 import { algoCard, algoAnswer, algoIndex } from "./algorithms.mjs";
+import { identityBlock, keysBlock, configBlock, routesBlock } from "./integration.mjs";
 import { ctxFor, esc, md, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip, statusBadge, priorityBadge } from "./fragments.mjs";
 
 const read = rel => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -38,6 +39,11 @@ export function outline(m, lang) {
     { mk: "INFER", n: "B", title: L(T2("ملحق المتطلبات المستنتجة للتأكيد", "Appendix B: Inferred requirements for confirmation")), lvl: 1 },
     { mk: "GLOSS", n: "C", title: L(T2("ملحق المصطلحات", "Appendix C: Glossary")), lvl: 1 },
     { mk: "REV", n: "D", title: L(T2("ملحق سجل الإصدارات", "Appendix D: Revision history")), lvl: 1 },
+    { mk: "INTEG", n: "E", title: L(T2("ملحق التكامل والتشغيل", "Appendix E: Integration and operation")), lvl: 1 },
+    { mk: "INTEG1", n: "E.1", title: L(m.integration.identity.title), lvl: 2 },
+    { mk: "INTEG2", n: "E.2", title: L(m.integration.keys.title), lvl: 2 },
+    { mk: "INTEG3", n: "E.3", title: L(m.integration.config.title), lvl: 2 },
+    { mk: "INTEG4", n: "E.4", title: L(m.integration.routes.title), lvl: 2 },
   ];
   return items;
 }
@@ -115,7 +121,7 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   };
   const part3 = `<section class="part" id="sec-SPEC">${mk("SPEC")}<h2 class="ph"><span class="no">3</span>${icon("list-checks", 26)} ${L(T2("المتطلبات التفصيلية", "Specific requirements"))}${up}</h2>
     <p>${L(T2(`تضم هذه الأقسام ${s.modules} وحدة. لكل وحدة نظرة عامة ورحلات مستخدمين ومخططات وشاشات ومتطلبات بمعايير قبول ومراجع، ثم الحالات الحدية.`, `This part holds ${s.modules} modules. Each has an overview, user journeys, diagrams, screens, requirements with acceptance criteria and evidence, and edge cases.`))}</p>
-    <div class="legend"><span>${statusBadge(c, "implemented")}</span><span>${statusBadge(c, "in-progress")}</span><span>${statusBadge(c, "planned")}</span></div>
+    <div class="legend">${STATUS_ORDER.filter(st => s.status[st]).map(st => `<span>${statusBadge(c, st)}</span>`).join("")}</div>
     <div class="sub"><h3>${L(T2("الأعمال حسب الوحدة", "Requirements by module"))}</h3>${barRows(c, m.modules.map(x => ({ icon: x.icon, label: L(x.title), seg: x.counts.status, value: x.counts.total })), Math.max(...m.modules.map(x => x.counts.total), 1))}</div></section>
     ${m.modules.map(chapter).join("")}`;
 
@@ -131,7 +137,10 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   const gl = `<section class="part" id="sec-GLOSS">${mk("GLOSS")}<h2 class="ph"><span class="no">C</span>${icon("book-a", 26)} ${L(T2("المصطلحات", "Glossary"))}${up}</h2>${termsBlock(c, m.glossary)}</section>`;
   const rv = `<section class="part" id="sec-REV">${mk("REV")}<h2 class="ph"><span class="no">D</span>${icon("history", 26)} ${L(T2("سجل الإصدارات", "Revision history"))}${up}</h2><table class="tbl"><thead><tr><th>${L(T2("الإصدار", "Version"))}</th><th>${L(T2("التاريخ", "Date"))}</th><th>${L(T2("التغييرات", "Changes"))}</th></tr></thead><tbody>${m.revisions.map(r => `<tr><td class="mono">${esc(r.version)}</td><td class="mono">${esc(r.date)}</td><td>${md(L(r.changes))}</td></tr>`).join("")}</tbody></table></section>`;
 
-  const sections = `${control}${part1}${part2}${part3}${tr}${infer}${gl}${rv}`;
+  const ig = m.integration;
+  const integ = `<section class="part" id="sec-INTEG">${mk("INTEG")}<h2 class="ph"><span class="no">E</span>${icon("plug", 26)} ${L(T2("التكامل والتشغيل", "Integration and operation"))}${up}</h2>
+    ${[[1, ig.identity.title, identityBlock(c, m)], [2, ig.keys.title, keysBlock(c, m)], [3, ig.config.title, configBlock(c, m)], [4, ig.routes.title, routesBlock(c, m)]].map(([n, t, body]) => `<div class="sub" id="sec-INTEG${n}">${mk(`INTEG${n}`)}<h3><span class="no">E.${n}</span>${L(t)}</h3>${body}</div>`).join("")}</section>`;
+  const sections = `${control}${part1}${part2}${part3}${tr}${infer}${gl}${rv}${integ}`;
   if (live) {
     const hint = `<div class="live-hint no-print"><span>${L(T2("هذه نسخة حيّة من الوثيقة تُبنى من المصدر نفسه. لحفظها PDF: اطبع واختر «حفظ بصيغة PDF» وألغِ «الرؤوس والتذييلات».", "This is a live copy built from the document source. To save it as PDF: print and choose “Save as PDF”, with “Headers and footers” off."))}</span><button type="button" onclick="window.print()">${L(T2("طباعة / حفظ PDF", "Print / Save as PDF"))}</button></div>`;
     const auto = `<script>(function(){var L=document.documentElement.lang;function f(n){if(n>=1e6){var v=(n/1e6).toFixed(1).replace(/\\.0$/,"");return L==="ar"?v+" مليون":v+" million"}return Math.round(n).toLocaleString("en-US")}

@@ -7,7 +7,7 @@
  * number, and the existing checks are untouched.
  */
 import {
-  appointmentCoverageScore, DECISION_1912_LABEL, isDecision1912Finding, periodBalanceFinding, reviewSchedule,
+  appointmentCoverageScore, DECISION_1913_LABEL, isDecision1912Finding, periodBalanceFinding, reviewSchedule,
 } from "../src/utils/scheduleRegulations";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import { createDemoSandboxState } from "../src/db/demoSandbox";
@@ -43,7 +43,7 @@ const review = (rows: FSchedule[], courses: AdCourse[]) => reviewSchedule({
 const byRule = (findings: ReturnType<typeof review>, rule: string) => findings.find(f => f.rule === rule);
 
 /* ── رقم القرار واحد ──────────────────────────────────────────────────────── */
-check(DECISION_1912_LABEL === "قرار 1913/2016", `العنوان رقمُ القرار وحده: «${DECISION_1912_LABEL}»`);
+check(DECISION_1913_LABEL === "قرار 1913/2016", `العنوان رقمُ القرار وحده: «${DECISION_1913_LABEL}»`);
 
 /* ── م.7/2: الفترتان الصباحية والمسائية ───────────────────────────────────── */
 {

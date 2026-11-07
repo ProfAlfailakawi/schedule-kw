@@ -6,6 +6,7 @@ import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { isPhoneDevice } from "../utils/workspaceSize";
+import { isReadOnlyRole } from "../utils/academicRoles";
 import RowHistory from "./RowHistory";
 import TrailStamp from "./trail/TrailStamp";
 import { TimeField } from "./TimeField";
@@ -72,6 +73,7 @@ import {
   Magnet,
   ArrowUp,
   ArrowDown,
+  FlaskConical,
 } from "lucide-react";
 import { DnaCount, DnaStatusHeader } from "./dna";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
@@ -192,7 +194,7 @@ import { useTrainees } from "../utils/trainees";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal, onLiveState, setLiveScope, type LiveState } from "../utils/livePulse";
-import { adviseDayPattern, daysApprovedForHours, DECISION_1912_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
+import { adviseDayPattern, daysApprovedForHours, DECISION_1913_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { askRequestHold, type RequestHold } from "./RequestHoldSheet";
 import { rowClashReasons } from "../utils/scheduleBlockers";
@@ -221,7 +223,7 @@ const PRESENCE_HUES = [200, 262, 38, 96, 288, 178];
 const byRoomIdentity = (a: { building?: string; hall?: string; label?: string }, b: { building?: string; hall?: string; label?: string }) =>
   byRoom(a.building || a.label || "", a.hall || "", b.building || b.label || "", b.hall || "") ||
   byRoomLabel(a.label || "", b.label || "");
-import { buildWeekDensityPlan, courseHue, courseTexture as textureFor, dayLoad as computeDayLoad, firstLast, patternForDay, peakConcurrency, pickLive, readableWeekDayWidth, readableWeekStripHourWidth, shouldUseWeekStrips } from "../utils/weekVisual";
+import { buildWeekDensityPlan, courseHue, dayLoad as computeDayLoad, firstLast, patternForDay, peakConcurrency, pickLive, readableWeekDayWidth, readableWeekStripHourWidth, shouldUseWeekStrips } from "../utils/weekVisual";
 import {
   formatScheduleTimeRange,
   scheduleClockForDisplay,
@@ -438,6 +440,10 @@ type DepartmentStartRhythm = HistoricalTimeModel;
  * Storing the undo as the requests that would restore the previous state — and
  * not as a function — is what lets the day's log outlive a page reload.
  */
+/* «وضع تجربة»: كل كتابة لا تُحاكى محلياً تُمنع بهذه العبارة، فلا يكتب شيءٌ في الجدول الحقيقي. */
+export const PRACTICE_WRITE_BLOCKED = "أنت في «وضع تجربة»: هذا الإجراء يكتب في الجدول الحقيقي فلم يُنفَّذ. أنهِ التجربة أولاً ثم أعِده.";
+/* طلبات POST تقرأ ولا تكتب (فحص التعارض وقراءات الشرح)؛ تبقى متاحة أثناء التجربة. */
+export const PRACTICE_READ_POSTS = /^\/api\/(schedules\/check-conflicts|intelligence\/(conflict-solutions|why-not|why|ripple))(\/|\?|$)/;
 export type UndoStep = { method: "POST" | "PUT" | "DELETE"; url: string; body?: any };
 export type UndoEntry = { id: string; label: string; at: number; steps: UndoStep[]; usedAt?: number };
 /** How long the floating bar stays; the log itself lasts until midnight. */
@@ -953,16 +959,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     [hueBy, setHueBy] = useState<"course" | "instructor" | "room">(
       savedPrefs.hueBy === "instructor" ? "instructor" : savedPrefs.hueBy === "room" ? "room" : "course",
     ),
-    /* Colour alone is never the only carrier of meaning. Off by default — when
-       on, every hue also gets a texture, so red/green pairs that look identical
-       to a deuteranopic reader stay tellable apart. */
-    [colorBlind, setColorBlind] = useState<boolean>(Boolean(savedPrefs.colorBlind)),
     /* The legend's current focus: the colour identities lit, everything else
        hushed. A set rather than a single key because the question a coordinator
        actually asks is comparative — «where do these two collide?» — and one
        lit course at a time cannot answer it. Its own state, deliberately
-       separate from the lens and the x-ray so it can never alter what either of
-       them means. */
+       separate from the x-ray so it can never alter what
+       that means. */
     [hueFocus, setHueFocus] = useState<Set<string>>(() => new Set()),
     /* Layers folded away. Distinct from a focus on purpose: hushing asks «where
        are these two?», folding asks «what is left once these are out of the
@@ -1014,10 +1016,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     [pendingOnly, setPendingOnly] = useState(false),
     [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
   const [decisionEditQueue, setDecisionEditQueue] = useState<{ ids: number[]; index: number } | null>(null);
-  /* The timetable stays the main object. Secondary controls disclose only
-     when they are being used, while an active lens keeps its result visible in
-     the toolbar even after its fields are folded away. */
-  const [lensOpen, setLensOpen] = useState(false);
   const [workspaceToolsOpen, setWorkspaceToolsOpen] = useState(false);
   const [mobileViewGate, setMobileViewGate] = useState<"list" | "week" | "rooms" | null>(null);
   const [phoneReadOnly, setPhoneReadOnly] = useState(() => isPhoneDevice());
@@ -1132,6 +1130,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const normalSearchTrackedRef = useRef<{query:string;startedAt:number;completed?:boolean} | null>(null);
   const practiceSnapshotRef = useRef<FSchedule[] | null>(null);
   const [practiceMode, setPracticeMode] = useState(false);
+  /* مرآةٌ متزامنة للوضع: الطلبات غير المتزامنة تقرأ الحال الآن، لا حال لحظة إنشائها. */
+  const practiceModeRef = useRef(false);
+  practiceModeRef.current = practiceMode;
   const [guideGhostDiff, setGuideGhostDiff] = useState<null | { before:FSchedule; after:FSchedule; conflicts:number; summary:string }>(null);
   const emitGuideResult = useCallback((detail: { featureId:string; ok:boolean; signal?:string; final?:boolean; transactionId?:string; rollbackCommand?:GuideCommand; label?:string; retries?:number; stepCount?:number }) => {
     const operation = guideOperationRef.current;
@@ -1140,6 +1141,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (detail.final !== false && operation?.featureId === detail.featureId) guideOperationRef.current = null;
   }, []);
   const isPowerAdmin = Boolean(user?.IsAdminUser || user?.SystemUserId === 1);
+  /* من يعدّل الجدول: الإدارة، أو صاحب الشاشة 7 بصفةٍ غير قرائية داخل نطاقه
+     (الفلاتر لا تعرض له غير نطاقه). الخادم يبقى الحَكَم على كل كتابة. */
+  const canEditSchedule = isPowerAdmin || (permissions.includes(7) && !isReadOnlyRole(user?.Role));
   useEffect(() => () => {
     replayAbortRef.current?.abort();
     replayAbortRef.current = null;
@@ -1249,9 +1253,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    *
    * Moving a whole morning an hour later is one intention, and asking someone to
    * express it as six identical drags is asking them to do the computer's work.
-   * A long press on empty space, or the toolbar button, arms selection; from
-   * then on a tap picks and unpicks, and dragging any picked card carries the
-   * set with the same offset.
+   * The «نقل جماعي» toolbar button (or the palette command) arms selection;
+   * from then on a tap picks and unpicks, and dragging any picked card carries
+   * the set with the same offset.
    */
   const [picking, setPicking] = useState(false);
   const [multiSelect, setMultiSelect] = useState<Set<number>>(new Set());
@@ -1372,12 +1376,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       window.removeEventListener("pointercancel", finish);
     };
   }, []);
+  /** يقول سبب المنع ويعيد true إن كان «وضع تجربة» مفعّلاً؛ لكل مسار كتابة لا يُحاكى محلياً. */
+  const refuseInPractice = () => {
+    if (!practiceModeRef.current) return false;
+    setMessage(null);
+    setError(PRACTICE_WRITE_BLOCKED);
+    return true;
+  };
   const fetchJson = async (url: string, options?: RequestInit) => {
     const method = String(options?.method || "GET").toUpperCase();
     const mutating = method !== "GET" && method !== "HEAD";
     const queueable = mutating && canQueueScheduleMutation(url, method);
     const readRequest = !mutating;
     telemetryBreadcrumb(`${method} ${url.split("?")[0]}`);
+    /* الحاجز الأخير لوضع التجربة: أيّ كتابةٍ فاتت حارسَها تُرفض هنا قبل الشبكة وقبل طابور ما دون الاتصال. */
+    if (mutating && practiceModeRef.current && !PRACTICE_READ_POSTS.test(url)) throw new Error(PRACTICE_WRITE_BLOCKED);
     if (mutating && !navigator.onLine) {
       telemetryOffline("schedule.write.offline");
       if (queueable) {
@@ -1529,32 +1542,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setTerms(t);
     return { colleges: c as AdCollege[], sections: s as AdSection[], terms: t as AdTerm[] };
   };
-  /**
-   * The week lens.
-   *
-   * Filtering a timetable by removing rows destroys the thing you are reading:
-   * the shape of the week. So nothing is removed — what matches keeps its
-   * colour and everything else fades into the background. The week stays whole
-   * while one question is asked of it: this instructor, this building, this
-   * hall, this hour.
-   */
-  const [lens, setLens] = useState<{ instructorId: number; building: string; rooms: string[]; from: string; to: string }>(
-    { instructorId: 0, building: "", rooms: [], from: "", to: "" }
-  );
-  const lensActive = Boolean(lens.instructorId || lens.building || lens.rooms.length || (lens.from && lens.to));
-  const lensMatches = (row: FSchedule) => {
-    if (!lensActive) return true;
-    const room = roomIdentity(row.AdRoomCode, row.AdRoomHall);
-    if (lens.instructorId && Number(row.AdInstructorId) !== lens.instructorId) return false;
-    if (lens.building && room.buildingKey !== normalizeRoomToken(lens.building)) return false;
-    if (lens.rooms.length && !lens.rooms.includes(room.key)) return false;
-    if (lens.from && lens.to) {
-      // Any overlap with the chosen window counts, not only an exact match.
-      if (!(mins(row.fstarttime) < mins(lens.to) && mins(row.fendtime) > mins(lens.from))) return false;
-    }
-    return true;
-  };
-  const lensClass = (row: FSchedule) => (lensActive ? (lensMatches(row) ? "lens-hit" : "lens-miss") : "");
 
   // Room history follows the form's department while editing, otherwise the
   // department currently open on the board. Declared before the room helpers so
@@ -1769,6 +1756,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   );
   const runUndoEntry = async (entry: UndoEntry) => {
     if (showMobileReadOnlyGate()) return;
+    if (refuseInPractice()) return;
     if (entry.usedAt || undoBusy) return;
     // Anything but the newest change may sit under later edits to the same row,
     // so what the reversal will actually do is stated plainly before it runs.
@@ -2561,7 +2549,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         lastSaved: lastSavedRef.current || savedPrefs.lastSaved || null,
         strictNoConflict,
         hueBy,
-        colorBlind,
       }),
     );
     setVisibleLimit(AGENDA_PAGE_SIZE);
@@ -2572,22 +2559,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     viewMode,
     strictNoConflict,
     hueBy,
-    colorBlind,
     form.AdRoomCode,
     form.AdRoomHall,
     mode,
     prefsKey,
   ]);
-  /* Flagged on the root the same way the theme is, because the cards it styles
-     are not all inside one subtree — the fan and the hover card are fixed and
-     mount at the end of the document. Removed on unmount so no other screen
-     inherits a setting that belongs to the schedule. */
-  useEffect(() => {
-    const root = document.documentElement;
-    if (colorBlind) root.setAttribute("data-colorblind", "true");
-    else root.removeAttribute("data-colorblind");
-    return () => root.removeAttribute("data-colorblind");
-  }, [colorBlind]);
   /* قسمٌ أُنهيت صحيفته السابقة: منتقي المقررات للفصل الجاري والقادم يعرض مقررات الجديدة وحدها،
      وفي الفصول السابقة يعرض القديمة والجديدة معاً. */
   const [endedPrevious, setEndedPrevious] = useState<{ sectionId: number; ids: Set<number> } | null>(null);
@@ -3092,6 +3068,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       termId: Number(filterTerm) || 0,
     };
   };
+  /* القفل يمنع التعديل كما يمنع الإضافة: يُقال السبب بالعبارة نفسها بدل محرّرٍ يُفتح ليُرفض عند الحفظ. */
+  const lockRefusesEdit = () => {
+    if (!approvalLock) return false;
+    setMessage(null); setError(approvalLock);
+    return true;
+  };
   const openCreate = (seed?: CreateSeed) => {
       if (showMobileReadOnlyGate()) return;
       /* كلُّ أبواب الإضافة تمرّ من هنا — الزرّ والخانة الفارغة والأوامر —
@@ -3167,7 +3149,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setEditor("create");
     },
     openEdit = (row: FSchedule) => {
-      if (showMobileReadOnlyGate()) return;
+      if (showMobileReadOnlyGate() || lockRefusesEdit()) return;
       /* التعديل يحمّل هذا الموعد وحده، بلا أثرٍ من موعد سابق. */
       clearEditorTransients();
       setMessage(null);
@@ -3441,6 +3423,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     } catch { setBorrowRooms([]); } finally { setBorrowBusy(false); }
   };
   const requestBorrow = async (op: any) => {
+    if (refuseInPractice()) return;
     setBorrowBusy(true);
     try {
       const response = await fetch("/api/hall-barter/requests", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId: form.AdCollegeId, sectionId: form.AdSectionId, termId: form.AdTermId, opportunityId: op.id }) });
@@ -3592,6 +3575,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      خطوات التراجع. هنا: تأكيدٌ بصورة «قبل/بعد»، ثم ضغطة واحدة. */
   /* `source`: الموعد الذي يُبحث له — النموذج الكامل افتراضاً، أو مسوّدة «موعد جديد» السريع. */
   const placeholderAction = async (section: ReplaceableSection, action: "assign" | "swap" | "replace", source?: { appointment: Partial<FSchedule>; done: () => void }) => {
+    if (refuseInPractice()) return;
     const draft: any = source?.appointment || form;
     const target = rows.find(row => Number(row.id) === Number(section.rowId));
     const teacherId = Number(draft.AdInstructorId || 0);
@@ -4310,26 +4294,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       .map(room => [room.buildingKey, room.building] as const)).values()].sort(byRoomPart),
     [filteredRows]
   );
-  /**
-   * The rooms, the way the paper timetable says them.
-   *
-   * The sheet this screen replaces lists rooms as its rows — F10, F11, F12 —
-   * and a scheduler thinks "قاعة" first, building second. So the room filter
-   * offers actual room numbers, written building/hall; with a building already
-   * chosen it narrows to that building's halls, and picking a room sets both
-   * halves of the lens at once.
-   */
-  const weekRooms = useMemo(() => {
-    const seen = new Map<string, { building: string; hall: string; label: string }>();
-    filteredRows.forEach(row => {
-      const room = roomIdentity(row.AdRoomCode, row.AdRoomHall);
-      if (!room.hallKey) return;
-      if (lens.building && room.buildingKey !== normalizeRoomToken(lens.building)) return;
-      if (!seen.has(room.key)) seen.set(room.key, { building: room.building, hall: room.hall, label: room.label || room.hall });
-    });
-    return [...seen.values()].sort((a, b) => byRoom(a.building, a.hall, b.building, b.hall));
-  }, [filteredRows, lens.building]);
-  const weekLensCount = useMemo(() => filteredRows.filter(lensMatches).length, [filteredRows, lens]);
 
   /* «اقترح بديلاً آمناً» في المحرر يسأل محرّك الاقتراح الواحد (askAlternatives)؛
      conflict-solutions يبقى لبطاقة السياق وحدها. */
@@ -4688,6 +4652,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   const addComment = async () => {
     if (!context?.selected?.id || !commentText.trim()) return;
+    if (refuseInPractice()) return;
     try {
       const c = await fetchJson(
         `/api/intelligence/comments/${context.selected.id}`,
@@ -4704,6 +4669,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }
   };
   const resolveComment = async (comment: any) => {
+    if (refuseInPractice()) return;
     try {
       await fetchJson(
         `/api/intelligence/comments/${context.selected.id}/${comment.id}`,
@@ -5271,6 +5237,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    */
   const createQuick = async (draft: QuickDraft) => {
     if (showMobileReadOnlyGate()) return;
+    if (refuseInPractice()) return;
     if (!quick) return;
     setQuickError(null);
     const scope = quickScope();
@@ -5513,6 +5480,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [mode, copyCollege, copySection, copyFromTerm, copyToTerm]);
   const copySchedule = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (refuseInPractice()) return;
     setError(null);
     setMessage(null);
     if (!copyCollege || !copySection || !copyFromTerm || !copyToTerm) {
@@ -5542,6 +5510,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   const undoCopy = async () => {
     if (!copyUndoPoint?.id) return;
+    if (refuseInPractice()) return;
     if (!(await visualConfirm({
       title: "استرجاع ما قبل النسخ",
       message: "سيتم استرجاع جدول الفصل الوجهة إلى حالته قبل آخر عملية نسخ.",
@@ -5577,6 +5546,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       decision?: SchedulePhysicsDecision | null;
     },
   ) => {
+    if (refuseInPractice()) return;
     const selected = days.filter((d) => Boolean(row[d.key]));
     const target = {
       day: targetDay,
@@ -6035,6 +6005,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     warnIfHeldElsewhere([row.id]);
     const dayPatternChanged = days.some(item => Boolean((row as any)[item.key]) !== Boolean((after as any)[item.key]));
     const roomMoveTimingNote = (row.fstarttime !== after.fstarttime || dayPatternChanged) ? historicalTimingNote(after) : null;
+    if (practiceModeRef.current) {
+      // التجربة تنقل في النسخة المؤقتة وحدها، كما يفعل السحب في الأسبوع.
+      setRows(current => current.map(item => (item.id === row.id ? after : item)));
+      markChanged(row.id);
+      leaveMoveTraces([{ before: row, after }]);
+      setPhysicsNotice("وضع تجربة · النقل محلي ومؤقت");
+      setMessage("نجحت التجربة. لم يتغير جدولك الحقيقي.");
+      return;
+    }
     setSaving(true);
     setError(null);
     markPendingWrites([row.id], true);
@@ -6155,6 +6134,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
   const undoPhysicsDecision = async () => {
     if (showMobileReadOnlyGate()) return;
+    if (refuseInPractice()) return;
     if (!isPowerAdmin || !undoPoint) return;
     if (
       !(await visualConfirm({
@@ -6185,37 +6165,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }
   };
   const weekRows = displayRows;
-  /**
-   * Where the chosen room is actually free.
-   *
-   * Filtering by a room answers "what happens in G24" — the dimmed cards say
-   * that already. The question a scheduler actually brings to a room is the
-   * opposite one: "when can I still use it?" So while a building or hall is in
-   * the lens, every half-hour that room is NOT teaching gets a quiet wash, and
-   * the grid becomes a map of availability instead of occupation.
-   *
-   * Computed from the department's full row set, not the search-filtered one:
-   * a room is not free just because its lecture is filtered out of view.
-   */
-  const lensRoomActive = Boolean(lens.building || lens.rooms.length);
-  const lensRoomBusy = useMemo(() => {
-    const busy = new Set<string>();
-    if (!lensRoomActive) return busy;
-    rows.forEach(row => {
-      const room = roomIdentity(row.AdRoomCode, row.AdRoomHall);
-      if (lens.building && room.buildingKey !== normalizeRoomToken(lens.building)) return;
-      if (lens.rooms.length && !lens.rooms.includes(room.key)) return;
-      const from = mins(row.fstarttime), to = mins(row.fendtime);
-      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
-      days.forEach(day => {
-        if (!(row as any)[day.key]) return;
-        for (let m = Math.floor(from / SCHEDULE_SLOT_MINUTES) * SCHEDULE_SLOT_MINUTES; m < to; m += SCHEDULE_SLOT_MINUTES) {
-          busy.add(`${day.key}|${timeFromMins(m)}`);
-        }
-      });
-    });
-    return busy;
-  }, [rows, lens.building, lens.rooms, lensRoomActive]);
   /**
    * The minute the grid believes it is.
    *
@@ -6321,9 +6270,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * and that is answerable without disturbing the order at all: at most two
    * cards out of several hundred carry a mark, and on a weekend, none do.
    */
+  // كخط «الآن» في الأسبوع: الوسمان للفصل الجاري وحده، لا لفصلٍ مضى أو لم يبدأ.
   const liveNow = useMemo(
-    () => pickLive(filteredRows as any, todayKey, nowMinutes),
-    [filteredRows, todayKey, nowMinutes],
+    () => pickLive(filteredRows as any, termIsRunning ? todayKey : null, nowMinutes),
+    [filteredRows, termIsRunning, todayKey, nowMinutes],
   );
   /**
    * How heavily each day is actually taught, as a share of the heaviest day.
@@ -6595,7 +6545,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     display: {
       viewMode: viewMode as any,
       hueBy,
-      colorBlind,
+      // مفتاح «نقش» أُزيل من الواجهة؛ الحقل يبقى في شكل العرض المحفوظ ويُكتب مطفأً.
+      colorBlind: false,
       expandedDay: expandedDay || null,
       matrixDay: String(matrixDay),
     },
@@ -6606,7 +6557,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       matrixBuildings: [...matrixBuildings],
       matrixRooms: [...matrixRooms],
     },
-  }), [filterCollege, filterSection, filterTerm, viewMode, hueBy, colorBlind, expandedDay, matrixDay, quickSearch, hueFocus, hueHidden, matrixBuildings, matrixRooms]);
+  }), [filterCollege, filterSection, filterTerm, viewMode, hueBy, expandedDay, matrixDay, quickSearch, hueFocus, hueHidden, matrixBuildings, matrixRooms]);
 
   const activeView = useMemo(
     () => savedViews.find(view => view.id === activeViewId) || null,
@@ -6614,7 +6565,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   );
   /* The dot's whole meaning: the board no longer matches what was saved. */
   const viewDirty = useMemo(
-    () => Boolean(activeView) && !sameView(captureView(activeView!.name), activeView!),
+    // عرضٌ قديم حُفظ و«نقش» مفعّل لا يُعدّ مختلفاً لأجله وحده.
+    () => Boolean(activeView) && !sameView(captureView(activeView!.name), { ...activeView!, display: { ...activeView!.display, colorBlind: false } }),
     [activeView, captureView],
   );
 
@@ -6631,7 +6583,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (view.scope.termId) setFilterTerm(view.scope.termId);
     startTransition(() => setViewMode(view.display.viewMode));
     setHueBy(view.display.hueBy);
-    setColorBlind(view.display.colorBlind);
     setExpandedDay((view.display.expandedDay as DayKey) || null);
     setMatrixDay((view.display.matrixDay as any) || "week");
     setQuickSearch(view.filters.quickSearch);
@@ -7156,8 +7107,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
            of. */
         data-guide-description="بطاقة موعد داخل الجدول: اضغطها لقراءة الموعد وتحليله، أو اسحبها إلى يوم أو ساعة أو قاعة أخرى لنقلها بعد فحص التعارض."
         data-code-row={classicCodeSecondary ? "secondary" : undefined}
-        className={`week-event ${lensClass(r)} ${xrayClass(r)} ${physicsRelationClass(r)} ${draggingId === r.id ? "ripple-source" : ""} ${physicsActive && physicsOrigin?.id === r.id ? "physics-source-lift" : ""} ${justChangedId === r.id ? "just-changed" : ""} ${reviewFocus.has(r.id) ? "review-flagged" : ""} ${multiSelect.has(r.id) ? "week-picked" : ""} ${liveClash.ids.has(r.id) ? "live-clash" : ""} ${outsideClash.notes[r.id] ? "live-clash-outside" : ""} ${keyMove?.rowId === r.id ? "week-keymove-source" : ""} ${hueFocusClass(r)}`}
-        style={{ ...style, ["--hue" as any]: cardHue, ...textureFor(cardHue) }}
+        className={`week-event ${xrayClass(r)} ${physicsRelationClass(r)} ${draggingId === r.id ? "ripple-source" : ""} ${physicsActive && physicsOrigin?.id === r.id ? "physics-source-lift" : ""} ${justChangedId === r.id ? "just-changed" : ""} ${reviewFocus.has(r.id) ? "review-flagged" : ""} ${multiSelect.has(r.id) ? "week-picked" : ""} ${liveClash.ids.has(r.id) ? "live-clash" : ""} ${outsideClash.notes[r.id] ? "live-clash-outside" : ""} ${keyMove?.rowId === r.id ? "week-keymove-source" : ""} ${hueFocusClass(r)}`}
+        style={{ ...style, ["--hue" as any]: cardHue }}
         onPointerEnter={(e) => { if (!physicsActive) openPeek(r, e.currentTarget); }}
         onPointerLeave={() => closePeek(r.id)}
         onFocus={(e) => openPeek(r, e.currentTarget)}
@@ -7255,8 +7206,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       reviewFocus.has(r.id), multiSelect.has(r.id), liveClash.ids.has(r.id),
       visitingIds.has(r.AdInstructorId), undoId || "",
       undoId ? String(Boolean(undoLog.find(item => item.id === undoId && !item.usedAt))) : "",
-      // the class helpers already encode lens, x-ray, relation and hue focus
-      lensClass(r), xrayClass(r), physicsRelationClass(r), hueFocusClass(r),
+      // the class helpers already encode x-ray, relation and hue focus
+      xrayClass(r), physicsRelationClass(r), hueFocusClass(r),
     ].join("\u0001");
   };
 
@@ -8088,7 +8039,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       reasons.push("يوم جديد للأستاذ — يكلّف انتقالاً");
     }
     const label = days.find(d => d.key === day)?.label || "";
-    const expected = day === "fmonday" || day === "fwednesday" ? 90 : 60;
+    // مصدرٌ واحد مع اللائحة والسحب: 50 دقيقة للأحد/الثلاثاء/الخميس و80 للاثنين/الأربعاء.
+    const expected = expectedMinutesForDay(day as RegDayKey);
     if (span !== expected) { score -= 18; reasons.push(`طول غير معتاد ليوم ${label}`); }
     if (from < 8 * 60 || from >= 14 * 60) { score -= 8; reasons.push("خارج ذروة اليوم الدراسي"); }
     const tier = score >= 88 ? "excellent" : score >= 70 ? "good" : "fair";
@@ -8141,7 +8093,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [keyMoveSay, setKeyMoveSay] = useState("");
 
   const pickUpWithKeyboard = useCallback((row: FSchedule) => {
-    if (!isPowerAdmin || saving) return;
+    if (!canEditSchedule || saving) return;
     if (physics.state.phase !== "idle") return;      // a pointer already holds something
     if (viewMode !== "week") return;
     const day = (days.find(d => Boolean((row as any)[d.key]))?.key || "fsunday") as DayKey;
@@ -8150,7 +8102,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       cell: { day, start: row.fstarttime } });
     const title = row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "الموعد";
     setKeyMoveSay(`تم التقاط ${title}. استخدم الأسهم للتحريك، Enter للتنفيذ، Esc للإلغاء.`);
-  }, [isPowerAdmin, saving, physics.state.phase, viewMode, courseById, presence]);
+  }, [canEditSchedule, saving, physics.state.phase, viewMode, courseById, presence]);
 
   const cancelKeyboardMove = useCallback(() => {
     setKeyMove(null);
@@ -8424,6 +8376,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
   const applyRepair = useCallback(async () => {
     if (!repair) return;
+    if (refuseInPractice()) return;
     setSaving(true);
     setError(null);
     try {
@@ -8489,6 +8442,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         keywords: ["undo", "تراجع"], shortcut: "Ctrl+Z", icon: <Undo2 />,
         enabled: pendingUndo.length > 0,
         execute: () => { const entry = pendingUndo[0]; if (entry) void runUndoEntry(entry); },
+      },
+      {
+        id: "schedule.pick", group: "الجدول", label: picking ? "إنهاء النقل الجماعي" : "نقل جماعي: اختر عدة مواعيد ثم اسحبها معاً",
+        keywords: ["group", "multi", "جماعي", "مجموعة", "تحديد"], icon: <Layers />,
+        enabled: viewMode === "week",
+        execute: () => { setPicking(v => !v); setMultiSelect(new Set()); },
       },
       { id: "schedule.log", group: "الجدول", label: "سجل تغييرات اليوم", keywords: ["history", "سجل"], icon: <History />, enabled: pendingUndo.length > 0, execute: () => setUndoLogOpen(true) },
       {
@@ -8571,14 +8530,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     });
     // Read-only accounts keep every reading command and lose only the writing
     // ones — the palette must never offer a door the account cannot open.
-    const writes = new Set(["schedule.create", "schedule.pick", "schedule.undo", "schedule.clash"]);
+    const writes = new Set(["schedule.create", "schedule.pick", "schedule.undo", "schedule.clash", "schedule.keymove", "schedule.repair"]);
     const phoneWrites = new Set(["schedule.pick", "schedule.keymove", "schedule.repair"]);
     const phoneHiddenViews = new Set(["view.week", "view.rooms", "view.today", "schedule.clash", "schedule.focus", "schedule.present"]);
     return list.map(command => {
       if (phoneReadOnly && (phoneWrites.has(command.id) || phoneHiddenViews.has(command.id))) return { ...command, visible: false };
-      return isPowerAdmin || !writes.has(command.id) ? command : { ...command, visible: false };
+      return canEditSchedule || !writes.has(command.id) ? command : { ...command, visible: false };
     });
-  }, [viewMode, todayKey, picking, pendingUndo, liveClash, focusMode, presentationMode, hueBy, hueHidden, hueFocus, savedViews, activeView, viewDirty, isPowerAdmin, phoneReadOnly, context?.selected?.id, changeView, applyView, captureView, viewsStore, permissions, onNavigate, user?.IsRootAdmin, user?.SystemUserId]);
+  }, [viewMode, todayKey, picking, pendingUndo, liveClash, focusMode, presentationMode, hueBy, hueHidden, hueFocus, savedViews, activeView, viewDirty, isPowerAdmin, canEditSchedule, phoneReadOnly, context?.selected?.id, changeView, applyView, captureView, viewsStore, permissions, onNavigate, user?.IsRootAdmin, user?.SystemUserId]);
 
   /* ── «اكتب الموعد بسطرٍ واحد» ───────────────────────────────────────────────
    *
@@ -8997,7 +8956,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 <button
                   type="button"
                   className="inbox-done"
+                  data-guide-ignore="حسم رسالة أستاذ في صندوق الرسائل فقط؛ لا يغيّر الجدول"
                   onClick={() => {
+                    if (refuseInPractice()) return;
                     setInbox(current => current.filter(item => item.id !== note.id));
                     // The route that already resolves a note from the
                     // appointment panel. A second one would be a second truth.
@@ -9079,7 +9040,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <b>{conflictIds.size}</b>
             </button>
           ) : null}
-          <button type="button" onClick={() => setPresentationMode(false)} title="إنهاء العرض">
+          <button type="button" onClick={() => setPresentationMode(false)} title="إنهاء العرض" aria-label="إنهاء العرض">
             <X />
           </button>
         </div>
@@ -9262,7 +9223,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       <div>
                         <strong>الفصل الوجهة يحتوي جدولاً</strong>
                         <span>
-                          سيُضاف الجديد بجانب الموجود دون حذف أي شيء.
+                          {/* الخادم يرفض النسخ إلى فصلٍ فيه مواعيد، فالقاعدة تُقال كما هي. */}
+                          لا يُنسخ إلى فصلٍ فيه مواعيد؛ اختر فصلاً وجهةً فارغاً، أو أفرِغ هذا الفصل أولاً.
                         </span>
                       </div>
                     </div>
@@ -10249,17 +10211,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 <summary className="decision-accordion-summary">
                   <span className="decision-accordion-title decision-regulation-title">
                     <ClipboardCheck />
-                    <span><strong>موانع اللائحة</strong><small>{DECISION_1912_LABEL}</small></span>
+                    <span><strong>موانع اللائحة</strong><small>{DECISION_1913_LABEL}</small></span>
                   </span>
                   <em className="decision-regulation-count">{countOf(editorRegulation.length, AR.approvalBlocker)}</em>
                 </summary>
                 <div className="decision-accordion-body">
-                  <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISION_1912_LABEL}`}>
+                  <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISION_1913_LABEL}`}>
                     <div className="decision-note-list">
                       {editorRegulationCards.map((finding) => (
                         <article key={finding.rule} className={`decision-note decision-note--${finding.severity} decision-note--feature`}>
                           <div className="decision-feature-topline">
-                            <span className="decision-card-kicker">مانع اعتماد · {DECISION_1912_LABEL}</span>
+                            <span className="decision-card-kicker">مانع اعتماد · {DECISION_1913_LABEL}</span>
                             <em className="decision-card-flag">{finding.article || "معلومة"}</em>
                           </div>
                           <div className="decision-feature-hero">
@@ -10540,7 +10502,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (detail.type === "openTransfer") {
         rememberGuideOperation(declaredFeatureId || "schedule.tool.data", "transfer");
         setWorkspaceToolsOpen(true);
-        if (!showMobileReadOnlyGate()) setTransferOpen(true);
+        if (!showMobileReadOnlyGate() && !refuseInPractice()) setTransferOpen(true);
         else emitGuideResult({ featureId:declaredFeatureId || "schedule.tool.data", ok:false, signal:"schedule.transfer.blocked", transactionId:detail.transactionId });
         return;
       }
@@ -10654,6 +10616,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (detail.type === "practice.start") {
         if (!practiceMode) {
           practiceSnapshotRef.current = rows.map(item => ({ ...item }));
+          practiceModeRef.current = true;
           setPracticeMode(true);
           setMessage("وضع تجربة مفعّل. يمكنك السحب والتعديل والحذف دون تغيير الجدول الحقيقي.");
         }
@@ -10664,6 +10627,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (detail.type === "practice.stop") {
         if (practiceSnapshotRef.current) setRows(practiceSnapshotRef.current.map(item => ({ ...item })));
         practiceSnapshotRef.current = null;
+        practiceModeRef.current = false;
         setPracticeMode(false);
         setGuideGhostDiff(null);
         setMessage("انتهى وضع التجربة. لم يتغير جدولك الحقيقي.");
@@ -10896,6 +10860,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           courses={courses}
           instructors={instructors}
           terms={terms}
+          colleges={colleges}
+          sections={sections}
           collegeId={filterCollege}
           sectionId={filterSection}
           termId={filterTerm}
@@ -10937,7 +10903,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 icon={<ShieldCheck />}
                 tone="mint"
                 title="وضع تجربة"
-                subtitle="كل تغيير مؤقت على هذا الجهاز فقط."
+                subtitle="السحب والتعديل والحذف مؤقتة على هذا الجهاز فقط؛ وما يكتب في الجدول الحقيقي (التراجع والإصلاح وأدوات البيانات) موقوفٌ حتى تُنهي التجربة."
                 actions={<button type="button" onClick={() => window.dispatchEvent(new CustomEvent("schedule-smart-guide-command", { detail:{ scope:"schedule", type:"practice.stop", featureId:"schedule.practice" } }))}>إنهاء</button>}
               />
             </div>
@@ -11177,7 +11143,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 toolbar when the quick search answers the same question by name
                 and the query centre covers the structured cases in full. */}
             <PatternLibraryButton data-guide-ignore="يفتح مكتبة الأنماط للعرض فقط؛ لا يغير بيانات الجدول" />
-            <WipeScheduleButton data-guide-ignore="زر مسح الجدول بالكامل وإرجاعه؛ يفتح تحذيرات ولا يمسح بنفسه" rowCount={rows.length} collegeId={Number(filterCollege)} sectionId={Number(filterSection)} termId={Number(filterTerm)} onChanged={() => { void loadRows(); }} />
+            {/* المسح الكامل يكتب في الجدول الحقيقي، فيغيب أثناء التجربة. */}
+            {practiceMode ? null : <WipeScheduleButton data-guide-ignore="زر مسح الجدول بالكامل وإرجاعه؛ يفتح تحذيرات ولا يمسح بنفسه" rowCount={rows.length} collegeId={Number(filterCollege)} sectionId={Number(filterSection)} termId={Number(filterTerm)} onChanged={() => { void loadRows(); }} />}
             <GhostButton
               type="button"
               className={workspaceToolsOpen ? "schedule-tools-toggle is-close" : "schedule-tools-toggle"}
@@ -11208,6 +11175,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             >
               <Bookmark aria-hidden="true" /> حفظ العرض الحالي
             </GhostButton> : null}
+            {/* باب «تجربة آمنة» الظاهر: المرشد يشير إليه هنا قبل التجربة، وإلى شريطها بعد بدئها. */}
+            {workspaceToolsOpen && !practiceMode && !phoneReadOnly && mode === "schedule" ? <GhostButton
+              type="button"
+              data-guide-target="schedule.practice"
+              onClick={() => window.dispatchEvent(new CustomEvent("schedule-smart-guide-command", { detail: { scope: "schedule", type: "practice.start", featureId: "schedule.practice" } }))}
+              title="جرّب السحب والتعديل والحذف على نسخة مؤقتة؛ لا يتغير الجدول الحقيقي"
+            >
+              <FlaskConical aria-hidden="true" /> تجربة آمنة
+            </GhostButton> : null}
             {workspaceToolsOpen ? <GhostButton data-guide-target="schedule.tool.review" type="button" onClick={() => setReviewOpen(true)} title="فحص الجدول كاملاً قبل الاعتماد">
               <ClipboardCheck /> مراجعة الاعتماد
             </GhostButton> : null}
@@ -11222,7 +11198,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             {workspaceToolsOpen ? <GhostButton
               type="button"
               data-guide-ignore="معاينة تحويل أسماء TA داخل القسم والفصل دون تعديل إلا بعد التأكيد"
-              onClick={() => setTaConversionOpen(true)}
+              onClick={() => { if (!refuseInPractice()) setTaConversionOpen(true); }}
               disabled={!filterCollege || !filterSection || !filterTerm}
               title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية"
             >
@@ -11231,7 +11207,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             {workspaceToolsOpen ? <GhostButton
               type="button"
               data-guide-target="schedule.tool.data"
-              onClick={() => { if (!showMobileReadOnlyGate()) setTransferOpen(true); }}
+              onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) setTransferOpen(true); }}
               title="استيراد وتصدير واستبدال أستاذ والمنتدبون"
             >
               <ArrowLeftRight /> أدوات البيانات
@@ -11240,7 +11216,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 the term is still being taught. On a term marked as finished the
                 whole market is withdrawn rather than left to offer windows in a
                 week nobody will attend. */}
-            {workspaceToolsOpen && mode === "schedule" && workspaceReady && filterCollege && filterSection && filterTerm && !selectedTermClosed ? (
+            {workspaceToolsOpen && !practiceMode && mode === "schedule" && workspaceReady && filterCollege && filterSection && filterTerm && !selectedTermClosed ? (
               <HallBarterBoard
                 collegeId={filterCollege}
                 sectionId={filterSection}
@@ -11263,7 +11239,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           يقف تحت أدوات الجدول وفوقه: أوّل ما تقع عليه العين بعد اختيار
           القسم، وآخرُ ما يُقرأ قبل النظر في المواعيد. ولا يرسم شيئاً حين
           لا ينتظر صاحبه شيء — فالهدوء هو الحال الطبيعية لا الاستثناء. */}
-      {mode === "schedule" && filterCollege && filterSection && filterTerm
+      {/* في التجربة الآمنة لا توقيعَ ولا إرسال ولا ملاحظات: الشريط يكتب في سجل الاعتماد الحقيقي. */}
+      {mode === "schedule" && practiceMode && filterCollege && filterSection && filterTerm ? (
+        <div className="practice-approval-paused" role="status">شريط الاعتماد موقوف أثناء التجربة الآمنة؛ يعود عند الخروج منها.</div>
+      ) : null}
+      {mode === "schedule" && !practiceMode && filterCollege && filterSection && filterTerm
         && !termIsArchive(terms.find(row => Number(row.AdTermId) === Number(filterTerm)), terms) ? (
         <ApprovalBar
           collegeId={filterCollege}
@@ -11365,7 +11345,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <span
                       className={`week-legend-item ${folded ? "is-folded" : ""}`}
                       key={item.key}
-                      style={{ ["--hue" as any]: item.hue, ...textureFor(item.hue) }}
+                      style={{ ["--hue" as any]: item.hue }}
                     >
                       <button
                         type="button"
@@ -11563,7 +11543,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <SecondaryButton
                       type="button"
                       data-guide-ignore="يفتح «بداية الفصل» في الطبقة الحية: مسودة من الفصل السابق لا تغيّر الجدول قبل النشر"
-                      onClick={() => { if (!showMobileReadOnlyGate()) setGenesisFromEmpty(true); }}
+                      onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) setGenesisFromEmpty(true); }}
                     >
                       بداية الفصل من الفصل السابق
                     </SecondaryButton>
@@ -11572,7 +11552,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <GhostButton
                       type="button"
                       data-guide-ignore="يفتح أدوات البيانات (استيراد جدول) من الحالة الفارغة نفسها"
-                      onClick={() => { if (!showMobileReadOnlyGate()) setTransferOpen(true); }}
+                      onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) setTransferOpen(true); }}
                     >
                       <ArrowLeftRight /> استيراد من أدوات البيانات
                     </GhostButton>
@@ -11691,7 +11671,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   key={row.id}
                   data-row-id={row.id}
                   data-guide-description="بطاقة موعد داخل الجدول: اضغطها لقراءة الموعد وتحليله، أو اسحبها إلى يوم أو ساعة أو قاعة أخرى لنقلها بعد فحص التعارض."
-                  className={`rooms-card ${lensClass(row)} ${xrayClass(row)} ${physicsRelationClass(row)} ${draggingId === row.id ? "ripple-source" : ""} ${justChangedId === row.id ? "just-changed" : ""} ${liveClash.ids.has(row.id) ? "live-clash" : ""} ${outsideClash.notes[row.id] ? "live-clash-outside" : ""} ${physicsActive && physicsOrigin?.id === row.id ? "physics-source-lift" : ""} ${keyMove?.rowId === row.id ? "week-keymove-source" : ""} ${rowPending ? "schedule-row-pending" : ""} ${hueFocusClass(row)}`}
+                  className={`rooms-card ${xrayClass(row)} ${physicsRelationClass(row)} ${draggingId === row.id ? "ripple-source" : ""} ${justChangedId === row.id ? "just-changed" : ""} ${liveClash.ids.has(row.id) ? "live-clash" : ""} ${outsideClash.notes[row.id] ? "live-clash-outside" : ""} ${physicsActive && physicsOrigin?.id === row.id ? "physics-source-lift" : ""} ${keyMove?.rowId === row.id ? "week-keymove-source" : ""} ${rowPending ? "schedule-row-pending" : ""} ${hueFocusClass(row)}`}
                   style={cardStyle}
                   draggable={!physics.supported && !rowPending}
                   onDragStart={(e) => {
@@ -11944,7 +11924,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       {legendShown.map(item => {
                         const folded = hueHidden.has(item.key);
                         return (
-                          <span className={`week-legend-item ${folded ? "is-folded" : ""}`} key={item.key} style={{ ["--hue" as any]: item.hue, ...textureFor(item.hue) }}>
+                          <span className={`week-legend-item ${folded ? "is-folded" : ""}`} key={item.key} style={{ ["--hue" as any]: item.hue }}>
                             <button
                               type="button"
                               data-guide-ignore="تصفية بصرية لمفتاح ألوان المباني والقاعات"
@@ -12222,9 +12202,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           >
             {/* One question at a time, asked of the whole week. The controls
                 fold away; their answer remains visible on the toolbar button. */}
-                {/* The schedule lens UI was removed with its toolbar button; the
-                    lens state remains inert (lensActive stays false) so week
-                    cards render without any dimming. */}
             <div
               className={`week-note ${physicsActive ? "gravity-note-active" : ""}`}
             >
@@ -12243,7 +12220,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     ? "النقل الجماعي: اختر المواعيد المطلوبة، ثم اسحب أي واحد منها — تنتقل المجموعة معاً بعد فحص الموانع."
                     : "اسحب لتنقل · اسحب على فراغ لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل"}
               </span>
-              {false ? <button
+              {/* النقل الجماعي: يُسلَّح من هذا الزر (أو من لوحة الأوامر)، ثم الضغط يختار
+                  ويُلغي، وسحبُ أيّ مختار ينقل المجموعة بالإزاحة نفسها في دفعة واحدة. */}
+              {canEditSchedule && !phoneReadOnly ? <button
                 type="button"
                 data-guide-feature-id="schedule.action.move-room"
                 className={`week-pick-toggle ${picking ? "on" : ""}`}
@@ -12262,9 +12241,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 (any drop that creates a conflict auto-reverts and is never saved),
                 so surfacing it only added noise. The enforcement itself is untouched.
               */}
-              {/* The texture switch used to live here, beside the other tools.
-                  It now sits inside the colour key, where the colours it
-                  qualifies are actually being read. */}
               {multiSelect.size ? (
                 <button type="button" className="week-pick-clear" onClick={() => setMultiSelect(new Set())}>
                   <X aria-hidden="true" />إلغاء التحديد
@@ -12278,15 +12254,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               meant — the reader had to hover a card to learn it. The key names
               every colour on screen, weightiest first, and pressing one hushes
               the rest so a course's whole week stands out at once. The focus is
-              its own state: the lens still filters, the x-ray still relates,
+              its own state: the quick search still filters, the x-ray still relates,
               and neither learns anything new from this.
 
               It is no longer folded inside «المزيد». A key that has to be found
               is not a key, and the reader who needs it most — someone who cannot
               separate these hues by eye — is the least likely to go looking,
               because nothing on screen tells them a colour was ever the point.
-              So the key sits with the grid it explains, and carries the texture
-              switch itself.
+              So the key sits with the grid it explains.
             */}
             {hueLegend.length > 1 || scheduledVisitingIds.size ? (
               <div className="week-legend" role="group" aria-label="مفتاح الألوان">
@@ -12341,7 +12316,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       <span
                         className={`week-legend-item ${folded ? "is-folded" : ""}`}
                         key={item.key}
-                        style={{ ["--hue" as any]: item.hue, ...textureFor(item.hue) }}
+                        style={{ ["--hue" as any]: item.hue }}
                       >
                         <button
                           type="button"
@@ -12397,9 +12372,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <X aria-hidden="true" />عرض الكل
                   </button>
                 ) : null}
-                {/* The «نقش» texture toggle was removed at the reader's request;
-                    the machinery stays inert (colorBlind defaults off) so nothing
-                    that reads the flag breaks. */}
               </div>
             ) : null}
             {/*
@@ -12678,7 +12650,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                                   data-physics-day={d.key}
                                   data-physics-start={t}
                                   data-physics-label={d.label}
-                                  className={`week-strip-slot ${ripple?.targetDay === d.key && ripple?.targetStart === t ? "ripple-target" : ""} ${physicsSlotClass(d.key, t)} ${lensRoomActive && !lensRoomBusy.has(`${d.key}|${t}`) ? "room-free" : ""} ${decisionSlot(d.key as DayKey, t) ? `field-${decisionSlot(d.key as DayKey, t)!.tier}` : ""}`}
+                                  className={`week-strip-slot ${ripple?.targetDay === d.key && ripple?.targetStart === t ? "ripple-target" : ""} ${physicsSlotClass(d.key, t)} ${decisionSlot(d.key as DayKey, t) ? `field-${decisionSlot(d.key as DayKey, t)!.tier}` : ""}`}
                                   key={`week-strip-slot-${d.key}-${t}`}
                                   style={{
                                     insetInlineStart: `${weekStripOffset(slotStart)}px`,
@@ -12910,7 +12882,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         data-physics-day={d.key}
                         data-physics-start={t}
                         data-physics-label={d.label}
-                        className={`week-slot ${ripple?.targetDay === d.key && ripple?.targetStart === t ? "ripple-target" : ""} ${physicsSlotClass(d.key, t)} ${lensRoomActive && !lensRoomBusy.has(`${d.key}|${t}`) ? "room-free" : ""} ${decisionSlot(d.key as DayKey, t) ? `field-${decisionSlot(d.key as DayKey, t)!.tier}` : ""}`}
+                        className={`week-slot ${ripple?.targetDay === d.key && ripple?.targetStart === t ? "ripple-target" : ""} ${physicsSlotClass(d.key, t)} ${decisionSlot(d.key as DayKey, t) ? `field-${decisionSlot(d.key as DayKey, t)!.tier}` : ""}`}
                         key={t}
                         onDragOver={(e) => e.preventDefault()}
                         role="button"
@@ -13558,8 +13530,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           termId={filterTerm}
           onClose={() => setReviewOpen(false)}
           onFocusRows={(ids) => {
-            // Bring the flagged appointments to the surface using the lens the
-            // week grid already has, rather than inventing a second highlight.
+            // Bring the flagged appointments to the surface with the review glow
+            // the week grid already has, rather than inventing a second highlight.
             setViewMode("week");
             setQuickSearch("");
             setReviewFocus(new Set(ids));
@@ -13999,7 +13971,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </div>
                 <p>
                   اختيار البديل يفتح نموذج التعديل معبأً فقط؛ لن يُحفظ شيء قبل
-                  ضغط «موافق».
+                  ضغط «احفظ الموعد».
                 </p>
               </div>
             ) : null}

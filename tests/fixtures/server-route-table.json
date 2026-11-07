@@ -7,7 +7,7 @@
    "path": "/",
    "name": "query",
    "call": "7a2ab2ce58b640a2",
-   "site": "server.ts:123",
+   "site": "server.ts:124",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -17,7 +17,7 @@
    "path": "/",
    "name": "expressInit",
    "call": "7a2ab2ce58b640a2",
-   "site": "server.ts:123",
+   "site": "server.ts:124",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -27,7 +27,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "7a2ab2ce58b640a2",
-   "site": "server.ts:123",
+   "site": "server.ts:124",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -37,7 +37,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "befd5937e999ec35",
-   "site": "server.ts:164",
+   "site": "server.ts:165",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -47,7 +47,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "77994aca145e1e91",
-   "site": "server.ts:165",
+   "site": "server.ts:166",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -61,7 +61,7 @@
    ],
    "name": "wrapped",
    "call": "edfda461e9df8a12",
-   "site": "server.ts:179",
+   "site": "server.ts:180",
    "regexp": "/^\\/api\\/system-backup\\/preview\\/?(?=\\/|$)|^\\/api\\/system-backup\\/import\\/?(?=\\/|$)|^\\/api\\/system-backup\\/import-jobs\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -71,8 +71,18 @@
    "path": "/api/intelligence/drafts",
    "name": "wrapped",
    "call": "a093fd8fe1db8604",
-   "site": "server.ts:186",
+   "site": "server.ts:187",
    "regexp": "/^\\/api\\/intelligence\\/drafts\\/?(?=\\/|$)/i",
+   "end": false
+  },
+  {
+   "kind": "middleware",
+   "methods": [],
+   "path": "/api/landing/inquiry",
+   "name": "wrapped",
+   "call": "f920940241b9e1eb",
+   "site": "server.ts:189",
+   "regexp": "/^\\/api\\/landing\\/inquiry\\/?(?=\\/|$)/i",
    "end": false
   },
   {
@@ -81,7 +91,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "5be72f94dfda77ff",
-   "site": "server.ts:187",
+   "site": "server.ts:190",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -91,7 +101,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "2eafa85638bf01df",
-   "site": "server.ts:191",
+   "site": "server.ts:194",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -101,7 +111,7 @@
    "path": "/api/public",
    "name": "wrapped",
    "call": "02968b60a11535c9",
-   "site": "server.ts:215",
+   "site": "server.ts:218",
    "regexp": "/^\\/api\\/public\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -111,7 +121,7 @@
    "path": "/api/public/request/:token",
    "name": "<anonymous>",
    "call": "a856d7507eeb75dc",
-   "site": "server.ts:216",
+   "site": "server.ts:219",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -121,7 +131,7 @@
    "path": "/api/public/request/:token",
    "name": "<anonymous>",
    "call": "a856d7507eeb75dc",
-   "site": "server.ts:216",
+   "site": "server.ts:219",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -131,7 +141,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "7a5ff31cb6663bce",
-   "site": "server.ts:218",
+   "site": "server.ts:221",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -188,8 +198,8 @@
    "methods": [],
    "path": "/api",
    "name": "wrapped",
-   "call": "9cf4315b552ec8f3",
-   "site": "server.ts:221",
+   "call": "a1a0b03ce1bf4e8a",
+   "site": "server.ts:224",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -206,7 +216,7 @@
    ],
    "name": "wrapped",
    "call": "e564cbbe18795929",
-   "site": "server.ts:230",
+   "site": "server.ts:234",
    "regexp": "/^\\/s(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/q(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/r(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/m(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/t(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/k(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -223,7 +233,7 @@
    ],
    "name": "wrapped",
    "call": "461204526a49f82a",
-   "site": "server.ts:231",
+   "site": "server.ts:235",
    "regexp": "/^\\/s(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/q(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/r(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/m(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/t(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/k(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -233,7 +243,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "f6d8dd021d825aef",
-   "site": "server.ts:235",
+   "site": "server.ts:239",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -243,7 +253,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "121abe6541ab5012",
-   "site": "server.ts:250",
+   "site": "server.ts:254",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -253,7 +263,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "e22e25dfe37b51e1",
-   "site": "server.ts:252",
+   "site": "server.ts:256",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -263,7 +273,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "142951d177ac9127",
-   "site": "server.ts:253",
+   "site": "server.ts:257",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -273,7 +283,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "640b2f8a6f85d24b",
-   "site": "server.ts:283",
+   "site": "server.ts:287",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -283,16 +293,6 @@
    "path": "/api",
    "name": "wrapped",
    "call": "e6717e093d05d78f",
-   "site": "server.ts:295",
-   "regexp": "/^\\/api\\/?(?=\\/|$)/i",
-   "end": false
-  },
-  {
-   "kind": "middleware",
-   "methods": [],
-   "path": "/api",
-   "name": "wrapped",
-   "call": "7ed9cf9f7e352fab",
    "site": "server.ts:299",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
@@ -302,8 +302,18 @@
    "methods": [],
    "path": "/api",
    "name": "wrapped",
+   "call": "7ed9cf9f7e352fab",
+   "site": "server.ts:303",
+   "regexp": "/^\\/api\\/?(?=\\/|$)/i",
+   "end": false
+  },
+  {
+   "kind": "middleware",
+   "methods": [],
+   "path": "/api",
+   "name": "wrapped",
    "call": "71897bcc662ab562",
-   "site": "server.ts:319",
+   "site": "server.ts:323",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -313,7 +323,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "98dc25ea0690172d",
-   "site": "server.ts:396",
+   "site": "server.ts:400",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -1355,7 +1365,7 @@
    "path": "/api/approvals",
    "name": "wrapped",
    "call": "af020d076c33a14e",
-   "site": "server.ts:403",
+   "site": "server.ts:407",
    "regexp": "/^\\/api\\/approvals\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -1365,7 +1375,7 @@
    "path": "/api/schedule-notes",
    "name": "wrapped",
    "call": "af020d076c33a14e",
-   "site": "server.ts:403",
+   "site": "server.ts:407",
    "regexp": "/^\\/api\\/schedule-notes\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -1375,7 +1385,7 @@
    "path": "/api/instructor-requests",
    "name": "wrapped",
    "call": "af020d076c33a14e",
-   "site": "server.ts:403",
+   "site": "server.ts:407",
    "regexp": "/^\\/api\\/instructor-requests\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -1385,7 +1395,7 @@
    "path": "/api/student-registration",
    "name": "wrapped",
    "call": "335d805687de3091",
-   "site": "server.ts:409",
+   "site": "server.ts:413",
    "regexp": "/^\\/api\\/student-registration\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -1697,7 +1707,7 @@
    "path": "/api/schedules/import-preflight",
    "name": "bound dispatch",
    "call": "eb99f797ba71a147",
-   "site": "src/server/routes/scheduleImportRoutes.ts:41",
+   "site": "src/server/routes/scheduleImportRoutes.ts:42",
    "regexp": "/^\\/api\\/schedules\\/import-preflight\\/?$/i",
    "end": true
   },
@@ -1708,8 +1718,8 @@
    ],
    "path": "/api/schedules/export",
    "name": "bound dispatch",
-   "call": "b5d2f234c908c7c0",
-   "site": "src/server/routes/scheduleImportRoutes.ts:117",
+   "call": "a29ffcf2d3385147",
+   "site": "src/server/routes/scheduleImportRoutes.ts:118",
    "regexp": "/^\\/api\\/schedules\\/export\\/?$/i",
    "end": true
   },
@@ -1721,7 +1731,7 @@
    "path": "/api/schedules/import",
    "name": "bound dispatch",
    "call": "24b565af6057dab1",
-   "site": "src/server/routes/scheduleImportRoutes.ts:206",
+   "site": "src/server/routes/scheduleImportRoutes.ts:214",
    "regexp": "/^\\/api\\/schedules\\/import\\/?$/i",
    "end": true
   },
@@ -2237,7 +2247,7 @@
    ],
    "path": "/api/admin/location-setup/rooms",
    "name": "bound dispatch",
-   "call": "fe51f1ed26ac45c5",
+   "call": "f811ec5a2d14d501",
    "site": "src/server/routes/locationsRoutes.ts:269",
    "regexp": "/^\\/api\\/admin\\/location-setup\\/rooms\\/?$/i",
    "end": true
@@ -2669,7 +2679,7 @@
    ],
    "path": "/api/intelligence/constraints",
    "name": "bound dispatch",
-   "call": "a38831cbda650b66",
+   "call": "c7b88edc53ef4629",
    "site": "src/server/routes/intelligenceRoutes.ts:381",
    "regexp": "/^\\/api\\/intelligence\\/constraints\\/?$/i",
    "end": true
@@ -2994,7 +3004,7 @@
    "path": "/api/intelligence/smart-import",
    "name": "bound dispatch",
    "call": "8514ed3bf7f23723",
-   "site": "src/server/routes/smartImportRoutes.ts:27",
+   "site": "src/server/routes/smartImportRoutes.ts:28",
    "regexp": "/^\\/api\\/intelligence\\/smart-import\\/?$/i",
    "end": true
   },
@@ -3005,8 +3015,8 @@
    ],
    "path": "/api/intelligence/import-preview",
    "name": "bound dispatch",
-   "call": "3e95bf83b0b65363",
-   "site": "src/server/routes/smartImportRoutes.ts:201",
+   "call": "491d8c43c7867ce1",
+   "site": "src/server/routes/smartImportRoutes.ts:202",
    "regexp": "/^\\/api\\/intelligence\\/import-preview\\/?$/i",
    "end": true
   },
@@ -3305,8 +3315,8 @@
    ],
    "path": "/api/notifications",
    "name": "bound dispatch",
-   "call": "25d61723b3b0b270",
-   "site": "src/server/routes/notificationsRoutes.ts:229",
+   "call": "f33c4485ea4d16f7",
+   "site": "src/server/routes/notificationsRoutes.ts:230",
    "regexp": "/^\\/api\\/notifications\\/?$/i",
    "end": true
   },
@@ -3318,7 +3328,7 @@
    "path": "/api/notifications/seen",
    "name": "bound dispatch",
    "call": "9321d58587d2467a",
-   "site": "src/server/routes/notificationsRoutes.ts:315",
+   "site": "src/server/routes/notificationsRoutes.ts:333",
    "regexp": "/^\\/api\\/notifications\\/seen\\/?$/i",
    "end": true
   },
@@ -3699,10 +3709,22 @@
    "methods": [
     "put"
    ],
+   "path": "/api/permissions/user/:userId",
+   "name": "bound dispatch",
+   "call": "877864df459dae06",
+   "site": "src/server/routes/usersRoutes.ts:507",
+   "regexp": "/^\\/api\\/permissions\\/user(?:\\/([^/]+?))\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "put"
+   ],
    "path": "/api/permissions/:id",
    "name": "bound dispatch",
    "call": "7abeb92678bcf409",
-   "site": "src/server/routes/usersRoutes.ts:505",
+   "site": "src/server/routes/usersRoutes.ts:520",
    "regexp": "/^\\/api\\/permissions(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3714,7 +3736,7 @@
    "path": "/api/permissions/:id",
    "name": "bound dispatch",
    "call": "5e2329c5fe8fe8be",
-   "site": "src/server/routes/usersRoutes.ts:512",
+   "site": "src/server/routes/usersRoutes.ts:527",
    "regexp": "/^\\/api\\/permissions(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3726,7 +3748,7 @@
    "path": "/api/user-scopes",
    "name": "bound dispatch",
    "call": "64f1cfb904a588e4",
-   "site": "src/server/routes/usersRoutes.ts:524",
+   "site": "src/server/routes/usersRoutes.ts:539",
    "regexp": "/^\\/api\\/user-scopes\\/?$/i",
    "end": true
   },
@@ -3738,7 +3760,7 @@
    "path": "/api/user-scopes",
    "name": "bound dispatch",
    "call": "166b2b92d8fada57",
-   "site": "src/server/routes/usersRoutes.ts:528",
+   "site": "src/server/routes/usersRoutes.ts:543",
    "regexp": "/^\\/api\\/user-scopes\\/?$/i",
    "end": true
   },
@@ -3750,7 +3772,7 @@
    "path": "/api/user-scopes/:id",
    "name": "bound dispatch",
    "call": "65aefbbb58d571e5",
-   "site": "src/server/routes/usersRoutes.ts:537",
+   "site": "src/server/routes/usersRoutes.ts:552",
    "regexp": "/^\\/api\\/user-scopes(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3762,7 +3784,7 @@
    "path": "/api/user-scopes/:id",
    "name": "bound dispatch",
    "call": "d2181cba29075ec3",
-   "site": "src/server/routes/usersRoutes.ts:546",
+   "site": "src/server/routes/usersRoutes.ts:561",
    "regexp": "/^\\/api\\/user-scopes(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3774,7 +3796,7 @@
    "path": "/api/seats",
    "name": "bound dispatch",
    "call": "1c747e26b297b981",
-   "site": "src/server/seatsRoutes.ts:383",
+   "site": "src/server/seatsRoutes.ts:394",
    "regexp": "/^\\/api\\/seats\\/?$/i",
    "end": true
   },
@@ -3786,7 +3808,7 @@
    "path": "/api/seats/mine",
    "name": "bound dispatch",
    "call": "9b045fcbb4b724ff",
-   "site": "src/server/seatsRoutes.ts:412",
+   "site": "src/server/seatsRoutes.ts:423",
    "regexp": "/^\\/api\\/seats\\/mine\\/?$/i",
    "end": true
   },
@@ -3798,7 +3820,7 @@
    "path": "/api/seats/switch-options",
    "name": "bound dispatch",
    "call": "dd4c976370ec9ac4",
-   "site": "src/server/seatsRoutes.ts:419",
+   "site": "src/server/seatsRoutes.ts:430",
    "regexp": "/^\\/api\\/seats\\/switch-options\\/?$/i",
    "end": true
   },
@@ -3810,7 +3832,7 @@
    "path": "/api/seats/switch",
    "name": "bound dispatch",
    "call": "6f49c44e5c4cc6a4",
-   "site": "src/server/seatsRoutes.ts:447",
+   "site": "src/server/seatsRoutes.ts:458",
    "regexp": "/^\\/api\\/seats\\/switch\\/?$/i",
    "end": true
   },
@@ -3822,7 +3844,7 @@
    "path": "/api/seats/:id",
    "name": "bound dispatch",
    "call": "fccfa1c121cce0de",
-   "site": "src/server/seatsRoutes.ts:460",
+   "site": "src/server/seatsRoutes.ts:471",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3834,7 +3856,7 @@
    "path": "/api/seats/:id/handover-candidates",
    "name": "bound dispatch",
    "call": "b70a4671181f86f3",
-   "site": "src/server/seatsRoutes.ts:483",
+   "site": "src/server/seatsRoutes.ts:494",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/handover-candidates\\/?$/i",
    "end": true
   },
@@ -3846,7 +3868,7 @@
    "path": "/api/seats/:id/holder",
    "name": "bound dispatch",
    "call": "936f4313607e214a",
-   "site": "src/server/seatsRoutes.ts:498",
+   "site": "src/server/seatsRoutes.ts:509",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/holder\\/?$/i",
    "end": true
   },
@@ -3858,7 +3880,7 @@
    "path": "/api/seats/:id/handover",
    "name": "bound dispatch",
    "call": "391c4b9c4ec199e9",
-   "site": "src/server/seatsRoutes.ts:513",
+   "site": "src/server/seatsRoutes.ts:524",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/handover\\/?$/i",
    "end": true
   },
@@ -3870,7 +3892,7 @@
    "path": "/api/seats/:id/first-password",
    "name": "bound dispatch",
    "call": "cc5c3f4afda3b6a8",
-   "site": "src/server/seatsRoutes.ts:536",
+   "site": "src/server/seatsRoutes.ts:547",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/first-password\\/?$/i",
    "end": true
   },
@@ -3882,7 +3904,7 @@
    "path": "/api/seats/:id/password-reset",
    "name": "bound dispatch",
    "call": "e4f9531f6739c86e",
-   "site": "src/server/seatsRoutes.ts:549",
+   "site": "src/server/seatsRoutes.ts:560",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/password-reset\\/?$/i",
    "end": true
   },
@@ -3894,7 +3916,7 @@
    "path": "/api/seats/:id/members",
    "name": "bound dispatch",
    "call": "f699a584f42d5c58",
-   "site": "src/server/seatsRoutes.ts:566",
+   "site": "src/server/seatsRoutes.ts:577",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members\\/?$/i",
    "end": true
   },
@@ -3906,7 +3928,7 @@
    "path": "/api/seats/:id/members/:mid/link",
    "name": "bound dispatch",
    "call": "6fac5395d9112984",
-   "site": "src/server/seatsRoutes.ts:605",
+   "site": "src/server/seatsRoutes.ts:616",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/link\\/?$/i",
    "end": true
   },
@@ -3918,7 +3940,7 @@
    "path": "/api/seats/:id/members/:mid/reset",
    "name": "bound dispatch",
    "call": "cd63211f9dc86521",
-   "site": "src/server/seatsRoutes.ts:618",
+   "site": "src/server/seatsRoutes.ts:629",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/reset\\/?$/i",
    "end": true
   },
@@ -3930,7 +3952,7 @@
    "path": "/api/seats/:id/members/:mid/status",
    "name": "bound dispatch",
    "call": "c605ee39e9e8aa57",
-   "site": "src/server/seatsRoutes.ts:634",
+   "site": "src/server/seatsRoutes.ts:645",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/status\\/?$/i",
    "end": true
   },
@@ -3942,7 +3964,7 @@
    "path": "/api/seats/:id/members/:mid/scopes",
    "name": "bound dispatch",
    "call": "6d5cb84ba79041b5",
-   "site": "src/server/seatsRoutes.ts:661",
+   "site": "src/server/seatsRoutes.ts:672",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/members(?:\\/([^/]+?))\\/scopes\\/?$/i",
    "end": true
   },
@@ -3954,7 +3976,7 @@
    "path": "/api/seats/:id/deputy",
    "name": "bound dispatch",
    "call": "5f3df9f3dbbda1a9",
-   "site": "src/server/seatsRoutes.ts:683",
+   "site": "src/server/seatsRoutes.ts:694",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/deputy\\/?$/i",
    "end": true
   },
@@ -3966,7 +3988,7 @@
    "path": "/api/seats/:id/deputy/end",
    "name": "bound dispatch",
    "call": "c4ba94e6e0c52044",
-   "site": "src/server/seatsRoutes.ts:703",
+   "site": "src/server/seatsRoutes.ts:714",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/deputy\\/end\\/?$/i",
    "end": true
   },
@@ -3978,7 +4000,7 @@
    "path": "/api/seats/college-registrars/all",
    "name": "bound dispatch",
    "call": "521969b4e69290d7",
-   "site": "src/server/seatsRoutes.ts:725",
+   "site": "src/server/seatsRoutes.ts:736",
    "regexp": "/^\\/api\\/seats\\/college-registrars\\/all\\/?$/i",
    "end": true
   },
@@ -3990,7 +4012,7 @@
    "path": "/api/seats/college-registrar",
    "name": "bound dispatch",
    "call": "3f7faf096f1d921e",
-   "site": "src/server/seatsRoutes.ts:733",
+   "site": "src/server/seatsRoutes.ts:744",
    "regexp": "/^\\/api\\/seats\\/college-registrar\\/?$/i",
    "end": true
   },
@@ -4002,7 +4024,7 @@
    "path": "/api/seats/:id/colleges",
    "name": "bound dispatch",
    "call": "a115c888ca3ddeb9",
-   "site": "src/server/seatsRoutes.ts:770",
+   "site": "src/server/seatsRoutes.ts:781",
    "regexp": "/^\\/api\\/seats(?:\\/([^/]+?))\\/colleges\\/?$/i",
    "end": true
   },
@@ -4014,7 +4036,7 @@
    "path": "/k/:token",
    "name": "bound dispatch",
    "call": "101e9642acd57d86",
-   "site": "src/server/seatsRoutes.ts:807",
+   "site": "src/server/seatsRoutes.ts:818",
    "regexp": "/^\\/k(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -4026,7 +4048,7 @@
    "path": "/api/public/team/:token",
    "name": "bound dispatch",
    "call": "e1aff0dfbe68f0f4",
-   "site": "src/server/seatsRoutes.ts:823",
+   "site": "src/server/seatsRoutes.ts:834",
    "regexp": "/^\\/api\\/public\\/team(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -4857,7 +4879,7 @@
    ],
    "path": "/api/instructor-requests/issue",
    "name": "bound dispatch",
-   "call": "4b6b7370e4bc8ba3",
+   "call": "e0325064c4dac94e",
    "site": "src/server/routes/instructorRequestsRoutes.ts:115",
    "regexp": "/^\\/api\\/instructor-requests\\/issue\\/?$/i",
    "end": true
@@ -4870,7 +4892,7 @@
    "path": "/api/instructor-requests/send-log",
    "name": "bound dispatch",
    "call": "f4e2c379848d07bb",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:361",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:366",
    "regexp": "/^\\/api\\/instructor-requests\\/send-log\\/?$/i",
    "end": true
   },
@@ -4882,7 +4904,7 @@
    "path": "/api/instructor-requests/registrar-noted",
    "name": "bound dispatch",
    "call": "866cc54e3b17ac14",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:392",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:397",
    "regexp": "/^\\/api\\/instructor-requests\\/registrar-noted\\/?$/i",
    "end": true
   },
@@ -4894,7 +4916,7 @@
    "path": "/api/instructor-requests/recipients",
    "name": "bound dispatch",
    "call": "f4dee7d5f8c0821c",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:402",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:407",
    "regexp": "/^\\/api\\/instructor-requests\\/recipients\\/?$/i",
    "end": true
   },
@@ -4906,7 +4928,7 @@
    "path": "/api/instructor-requests/exceptions",
    "name": "bound dispatch",
    "call": "4dfe0e600fb5794d",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:433",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:438",
    "regexp": "/^\\/api\\/instructor-requests\\/exceptions\\/?$/i",
    "end": true
   },
@@ -4918,7 +4940,7 @@
    "path": "/api/instructor-requests/exception/revoke",
    "name": "bound dispatch",
    "call": "9f10a3392a5671f0",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:456",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:461",
    "regexp": "/^\\/api\\/instructor-requests\\/exception\\/revoke\\/?$/i",
    "end": true
   },
@@ -4930,7 +4952,7 @@
    "path": "/api/instructor-requests",
    "name": "bound dispatch",
    "call": "6df03ddb6f0c0901",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:482",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:487",
    "regexp": "/^\\/api\\/instructor-requests\\/?$/i",
    "end": true
   },
@@ -4942,7 +4964,7 @@
    "path": "/api/instructor-requests/:id/decide",
    "name": "bound dispatch",
    "call": "4ec2adef91afab45",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:614",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:619",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/decide\\/?$/i",
    "end": true
   },
@@ -4954,7 +4976,7 @@
    "path": "/api/instructor-requests/:id/cancel-scheduled",
    "name": "bound dispatch",
    "call": "655e79091f83d3ff",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:765",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:770",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/cancel-scheduled\\/?$/i",
    "end": true
   },
@@ -4966,7 +4988,7 @@
    "path": "/api/instructor-requests/:id/reopen-fixed",
    "name": "bound dispatch",
    "call": "e1a554c1da89b229",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:804",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:809",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reopen-fixed\\/?$/i",
    "end": true
   },
@@ -4978,7 +5000,7 @@
    "path": "/api/instructor-requests/:id/apply",
    "name": "bound dispatch",
    "call": "21aa13a456850b36",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:825",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:830",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
   },
@@ -4990,7 +5012,7 @@
    "path": "/api/instructor-requests/:id/reply",
    "name": "bound dispatch",
    "call": "052daaf01a8ee463",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1119",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1124",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
   },
@@ -6385,7 +6407,7 @@
    "path": "/d/:token/now",
    "name": "bound dispatch",
    "call": "74d6040d6cdfdbc7",
-   "site": "src/server/roomDoorRoutes.ts:224",
+   "site": "src/server/roomDoorRoutes.ts:225",
    "regexp": "/^\\/d(?:\\/([^/]+?))\\/now\\/?$/i",
    "end": true
   },
@@ -6397,7 +6419,7 @@
    "path": "/d/:token",
    "name": "bound dispatch",
    "call": "318244da59ac656a",
-   "site": "src/server/roomDoorRoutes.ts:231",
+   "site": "src/server/roomDoorRoutes.ts:232",
    "regexp": "/^\\/d(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -6409,7 +6431,7 @@
    "path": "/b/:token/now",
    "name": "bound dispatch",
    "call": "dc020889cf26cdc9",
-   "site": "src/server/roomDoorRoutes.ts:241",
+   "site": "src/server/roomDoorRoutes.ts:242",
    "regexp": "/^\\/b(?:\\/([^/]+?))\\/now\\/?$/i",
    "end": true
   },
@@ -6421,7 +6443,7 @@
    "path": "/b/:token",
    "name": "bound dispatch",
    "call": "f178cccd4a35a1db",
-   "site": "src/server/roomDoorRoutes.ts:248",
+   "site": "src/server/roomDoorRoutes.ts:249",
    "regexp": "/^\\/b(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -6433,7 +6455,7 @@
    "path": "/api/room-door/links",
    "name": "bound dispatch",
    "call": "e707977dc246810b",
-   "site": "src/server/roomDoorRoutes.ts:261",
+   "site": "src/server/roomDoorRoutes.ts:262",
    "regexp": "/^\\/api\\/room-door\\/links\\/?$/i",
    "end": true
   },
@@ -6553,7 +6575,7 @@
    "path": "/api/time-machine/scopes",
    "name": "bound dispatch",
    "call": "9f83d6747868558c",
-   "site": "src/server/timeMachineRoutes.ts:185",
+   "site": "src/server/timeMachineRoutes.ts:191",
    "regexp": "/^\\/api\\/time-machine\\/scopes\\/?$/i",
    "end": true
   },
@@ -6565,7 +6587,7 @@
    "path": "/api/time-machine/context",
    "name": "bound dispatch",
    "call": "5f4bbf5baf9c7e56",
-   "site": "src/server/timeMachineRoutes.ts:199",
+   "site": "src/server/timeMachineRoutes.ts:205",
    "regexp": "/^\\/api\\/time-machine\\/context\\/?$/i",
    "end": true
   },
@@ -6577,7 +6599,7 @@
    "path": "/api/time-machine/students",
    "name": "bound dispatch",
    "call": "da873933421ee6bb",
-   "site": "src/server/timeMachineRoutes.ts:212",
+   "site": "src/server/timeMachineRoutes.ts:218",
    "regexp": "/^\\/api\\/time-machine\\/students\\/?$/i",
    "end": true
   },
@@ -6589,7 +6611,7 @@
    "path": "/api/time-machine/scenarios",
    "name": "bound dispatch",
    "call": "de425ae21c12a711",
-   "site": "src/server/timeMachineRoutes.ts:241",
+   "site": "src/server/timeMachineRoutes.ts:247",
    "regexp": "/^\\/api\\/time-machine\\/scenarios\\/?$/i",
    "end": true
   },
@@ -6601,7 +6623,7 @@
    "path": "/api/time-machine/scenarios",
    "name": "bound dispatch",
    "call": "dae6f73da0a376e3",
-   "site": "src/server/timeMachineRoutes.ts:259",
+   "site": "src/server/timeMachineRoutes.ts:265",
    "regexp": "/^\\/api\\/time-machine\\/scenarios\\/?$/i",
    "end": true
   },
@@ -6613,7 +6635,7 @@
    "path": "/api/time-machine/scenarios/:id/copy",
    "name": "bound dispatch",
    "call": "36e7f4ac6fe2914b",
-   "site": "src/server/timeMachineRoutes.ts:296",
+   "site": "src/server/timeMachineRoutes.ts:302",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/copy\\/?$/i",
    "end": true
   },
@@ -6625,7 +6647,7 @@
    "path": "/api/time-machine/scenarios/:id/share",
    "name": "bound dispatch",
    "call": "339911a37c9494c5",
-   "site": "src/server/timeMachineRoutes.ts:311",
+   "site": "src/server/timeMachineRoutes.ts:317",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/share\\/?$/i",
    "end": true
   },
@@ -6637,7 +6659,7 @@
    "path": "/api/time-machine/scenarios/:id",
    "name": "bound dispatch",
    "call": "49066282a4f9d0c4",
-   "site": "src/server/timeMachineRoutes.ts:319",
+   "site": "src/server/timeMachineRoutes.ts:325",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -6649,7 +6671,7 @@
    "path": "/api/time-machine/scenarios/:id/apply",
    "name": "bound dispatch",
    "call": "5d60e288cec5a626",
-   "site": "src/server/timeMachineRoutes.ts:437",
+   "site": "src/server/timeMachineRoutes.ts:443",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
   },
@@ -6661,7 +6683,7 @@
    "path": "/api/time-machine/scenarios/:id/restore",
    "name": "bound dispatch",
    "call": "36d27a5fbcd3afd5",
-   "site": "src/server/timeMachineRoutes.ts:445",
+   "site": "src/server/timeMachineRoutes.ts:451",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/restore\\/?$/i",
    "end": true
   },
@@ -7186,8 +7208,8 @@
    ],
    "path": "/api/landing/inquiry",
    "name": "bound dispatch",
-   "call": "eca59993dc97caf3",
-   "site": "server.ts:778",
+   "call": "86a56dd8eb194b8b",
+   "site": "server.ts:782",
    "regexp": "/^\\/api\\/landing\\/inquiry\\/?$/i",
    "end": true
   },
@@ -7233,7 +7255,7 @@
    "path": "/api/*",
    "name": "bound dispatch",
    "call": "c9c21090bf85633a",
-   "site": "server.ts:800",
+   "site": "server.ts:788",
    "regexp": "/^\\/api\\/(.*)\\/?$/i",
    "end": true
   },
@@ -7243,7 +7265,7 @@
    "path": "/",
    "name": "<anonymous>",
    "call": "7221b375400abed2",
-   "site": "server.ts:819",
+   "site": "server.ts:807",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7263,7 +7285,7 @@
    "path": "/landing",
    "name": "wrapped",
    "call": "e268366b7d2b7004",
-   "site": "server.ts:877",
+   "site": "server.ts:865",
    "regexp": "/^\\/landing\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7273,7 +7295,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "77cbff21f8e1d9ce",
-   "site": "server.ts:881",
+   "site": "server.ts:869",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7283,7 +7305,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "0c4d0ea21521f618",
-   "site": "server.ts:912",
+   "site": "server.ts:900",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7295,7 +7317,7 @@
    "path": "*",
    "name": "bound dispatch",
    "call": "76d622ce5c9a6e29",
-   "site": "server.ts:941",
+   "site": "server.ts:929",
    "regexp": "/^(.*)\\/?$/i",
    "end": true
   }

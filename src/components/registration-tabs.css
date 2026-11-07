@@ -8,7 +8,7 @@
 .roster-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-block-end:var(--s2,8px);padding:4px;border-radius:var(--r-md,14px);background:var(--surface-3,#eef0ec)}
 .roster-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-block-size:40px;min-inline-size:0;padding:4px 6px;border:0;border-radius:calc(var(--r-md,14px) - 4px);background:transparent;color:var(--muted,#667085);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
 .roster-tabs button svg{inline-size:15px;block-size:15px;flex:none}
-.roster-tabs button b{font-size:.74rem;font-weight:700;opacity:.8;font-variant-numeric:tabular-nums}
+.roster-tabs button b{font-size:.74rem;font-weight:700;font-variant-numeric:tabular-nums}
 .roster-tabs button.on{background:var(--surface,#fff);color:var(--accent-ink,#1f6b5c);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 @media (max-width:560px){.roster-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
