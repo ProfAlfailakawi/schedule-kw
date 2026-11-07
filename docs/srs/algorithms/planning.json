@@ -1,0 +1,790 @@
+{
+  "items": [
+    {
+      "id": "ALG-PLN-01",
+      "module": "PLN",
+      "icon": "chart-column-increasing",
+      "kind": "statistical",
+      "name": { "ar": "اقتراح عدد الشعب من تاريخ الموسم نفسه", "en": "Section-count suggestion from same-season history" },
+      "question": {
+        "ar": "كم شعبةً يفتح القسم لكل مقرر هذا الفصل، بمدىً يرسيه ما فتحه فعلاً في الفصول المماثلة؟",
+        "en": "How many sections should the department open for each course this term, as a range anchored on what it actually opened in comparable terms?"
+      },
+      "method": [
+        { "ar": "يُجمع التاريخ من الفصول السابقة من الموسم نفسه وحده (الأول مع الأول، والثاني مع الثاني، والصيفي مع الصيفي)، ولا يستعير موسمٌ تاريخ موسمٍ آخر.", "en": "History is gathered only from earlier terms of the same season (first with first, second with second, summer with summer); no season borrows another's history." },
+        { "ar": "المقرر المُعاد ترقيمه أو المستبدَل، إن لم يُفتح هو بعد، يرث شعب أسلافه ومتبقّيهم؛ ويُعثر على الأسلاف بمسحٍ عرضيّ على انتقالات المقررات المسجّلة.", "en": "A renumbered or replaced course that has not itself been opened inherits its predecessors' sections and remaining figures; predecessors are found by a breadth-first walk over the recorded course transitions." },
+        { "ar": "الأساس = المتوسط العادي لشعب المقرر في تلك الفصول (لكل فصلٍ وزنٌ واحد)، مقرّباً، ولا يقل عن شعبة.", "en": "Baseline = plain average of the course's sections in those terms (each term weight 1), rounded, never below one." },
+        { "ar": "الميل: يُقارن «الذين لم يسجلوا» الحالي بمتوسطه في الفصول نفسها، ويُضرب الأساس بالنسبة، ثم يُحصر التغيير في ±1 (±2 إن كان الأساس 4 فأكثر).", "en": "Tilt: the current «not registered» figure is compared with its own historical average, the baseline is scaled by that ratio, and the change is clamped to ±1 (±2 when the baseline is 4 or more)." },
+        { "ar": "الميل صعوداً لا يتجاوز ⌈المتبقي ÷ السعة⌉؛ وإن كفى المتبقي أقلُّ من الأساس نزل طرف المدى الأدنى إليه وذُكر ذلك صراحة.", "en": "An upward tilt never exceeds ⌈remaining ÷ capacity⌉; if that fill is below the baseline, the lower end of the range drops to it and the reason says so." },
+        { "ar": "مقررٌ بلا تاريخ: مدىً من شعبةٍ واحدة إلى min(⌈المتبقي ÷ السعة⌉، 6) ويُبدأ بشعبة؛ ومتبقٍّ صفرٌ أو سالب يُقترح معه المعتاد تاريخياً.", "en": "A course with no history gets a range from 1 to min(⌈remaining ÷ capacity⌉, 6), starting at one section; a zero or negative remaining returns the usual historical count." }
+      ],
+      "inputs": { "ar": "كشف «الذين لم يسجلوا» المستورد لكل مقرر، وسعة المقرر (MaxStudent)، وجداول فصول الموسم نفسه، وانتقالات المقررات بين الصحائف.", "en": "Imported registrar «not registered» figures per course, course capacity (MaxStudent), timetables of same-season terms, and course transitions between plan sheets." },
+      "output": { "ar": "لكل مقرر: قيمة مقترحة ومدىً أدنى وأعلى وأساس الاقتراح (تاريخ، متبقٍّ، لا شيء، فارغ) وسطر سبب، وتنبيه تراكم اختياري؛ وتنبيهٌ للقسم إن تجاوز المجموع أعلى ما شغّله تاريخياً.", "en": "Per course: a suggested value, a min–max range, its basis (history, pool, none, empty), a one-line reason and an optional backlog warning; plus a department warning when the total exceeds the department's historical peak." },
+      "guarantee": { "ar": "حتميّ وقراءةٌ فقط: لا يُكتب شيء في الجدول، ومقررٌ بلا تاريخ ولا سعة مسجّلة لا يُعطى رقماً مخترعاً.", "en": "Deterministic and read-only: nothing is written to the timetable, and a course with neither history nor a recorded capacity gets no invented number." },
+      "numbers": [
+        { "ar": "نطاق الميل ±1، ويتسع إلى ±2 حين يكون الأساس 4 فأكثر", "en": "Tilt band ±1, widened to ±2 when the baseline is 4 or more" },
+        { "ar": "سقف المقرر بلا تاريخ NO_HISTORY_MAX = 6 شعب", "en": "Cap for a course without history: NO_HISTORY_MAX = 6 sections" },
+        { "ar": "فرقٌ أقل من 5٪ عن المعتاد يُوصف «في حدود المعتاد»", "en": "A difference under 5% from the usual is reported as «within the usual»" },
+        { "ar": "تنبيه التراكم حين يزيد المتبقي ثلاثة فصولٍ مماثلة متتالية", "en": "Backlog warning when the remaining figure rises over three consecutive comparable terms" }
+      ],
+      "evidence": {
+        "code": ["src/utils/sectionCountSuggestion.ts#suggestSectionCount", "src/utils/sectionCountSuggestion.ts#historicalBaseline", "src/utils/sectionCountSuggestion.ts#departmentLoadWarning", "src/server/routes/planningRoutes.ts#registerPlanningRoutes"],
+        "tests": ["tests/section-planning-audit.ts"]
+      },
+      "requirements": ["FR-PLN-004", "FR-PLN-005"]
+    },
+    {
+      "id": "ALG-PLN-02",
+      "module": "PLN",
+      "icon": "git-compare-arrows",
+      "kind": "deterministic",
+      "name": { "ar": "فجوة الشعب ومراجعة الزيادة", "en": "Section gap and surplus review" },
+      "question": {
+        "ar": "أيُّ المقررات تنقصها شعبٌ عن الخطة، وأيُّها يزيد عليها، وأين يتعارض تقدير الفتح مع تقدير التخفيض؟",
+        "en": "Which courses lack sections against the plan, which exceed it, and where do the opening and reduction estimates contradict each other?"
+      },
+      "method": [
+        { "ar": "المطلوب لكل مقرر = «المختار» الذي كتبه القسم إن وُجد، وإلا القيمة المقترحة الظاهرة من ALG-PLN-01.", "en": "Target per course = the department's written chosen count when present, otherwise the visible suggestion from ALG-PLN-01." },
+        { "ar": "الموجود = عدد رموز الشعب (SCode) المميّزة للمقرر في جدول الفصل؛ وتُصنَّف الحالة: غير مقرّر، ناقص، زائد، مكتمل.", "en": "Existing = number of distinct section codes (SCode) for the course in the term timetable; the state is unset, missing, over or done." },
+        { "ar": "لا تُعرض الزيادة إلا بدليل: «مختار» مكتوب، أو تاريخٌ مماثل مع متبقٍّ موجب؛ وتُوسم إن زاد المتبقي على المطلوب × السعة.", "en": "A surplus is listed only with evidence: a written choice, or comparable history with a positive remaining figure; it is flagged when remaining exceeds target × capacity." },
+        { "ar": "مقررٌ اجتمع فيه نقصٌ وزيادة يُدمج في بندٍ واحد محايد «تقديران متعارضان» للمراجعة.", "en": "A course with both an opening need and a surplus is merged into one neutral «conflicting estimates» review item." },
+        { "ar": "رغبات الطلبة إشارةٌ مستقلة لا تُخلط بالتخطيط: ⌈الطلبة ÷ السعة⌉ − الموجود.", "en": "Student wishes form a separate signal never mixed with the plan: ⌈students ÷ capacity⌉ − existing." }
+      ],
+      "inputs": { "ar": "المختار والمتبقي وتاريخ الفصول المماثلة، وشعب جدول الفصل، وسعة المقرر، ورغبات الطلبة.", "en": "Chosen counts, remaining figures and comparable-term history, the term's sections, course capacity, and student wishes." },
+      "output": { "ar": "قائمة مرتّبة بالأشد حاجة أولاً لبنود النقص والزيادة والتعارض، مع أساس كل بند ورقم الطلب الذي بُني عليه.", "en": "A list ordered by greatest need of missing, surplus and conflict items, each with its basis and the demand figure behind it." },
+      "guarantee": { "ar": "دالة نقية لا تقرأ ولا تكتب؛ والزيادة بند مراجعة لا يُغلق شعبةً ولا يحذفها أبداً.", "en": "Pure function that reads and writes nothing; a surplus is a review item and never closes or deletes a section." },
+      "numbers": [
+        { "ar": "الترتيب: الفرق الأكبر، ثم الطلب الأكبر، ثم رقم المقرر", "en": "Ordering: largest gap, then largest demand, then course number" }
+      ],
+      "evidence": {
+        "code": ["src/utils/sectionGap.ts#planTargets", "src/utils/sectionGap.ts#planSurpluses", "src/utils/sectionGap.ts#reconcilePlanAdjustments", "src/utils/sectionGap.ts#studentGaps", "src/utils/sectionBuild.ts#gapRows", "src/server/core/planning.ts#sectionGapData"],
+        "tests": ["tests/section-gap-audit.ts", "tests/section-gap-live-audit.ts"]
+      },
+      "requirements": ["FR-PLN-006", "FR-PLN-007"]
+    },
+    {
+      "id": "ALG-PLN-03",
+      "module": "PLN",
+      "icon": "calendar-plus",
+      "kind": "search",
+      "name": { "ar": "البحث عن موضع الشعبة الجديدة", "en": "Placement search for new sections" },
+      "question": {
+        "ar": "أين توضع كل شعبةٍ ناقصة — اليوم ووقت البداية والقاعة والأستاذ — دون أن تصطدم بشيء؟",
+        "en": "Where can each missing section be placed — day, start time, hall and instructor — without colliding with anything?"
+      },
+      "method": [
+        { "ar": "النقص = الطلب − الشعب المفتوحة × السعة، والشعب اللازمة = ⌈النقص ÷ السعة⌉؛ وفي معاينة البناء يُجعل الطلب = المطلوب × السعة فتساوي الشعب اللازمة الفجوة تماماً.", "en": "Shortfall = demand − open sections × capacity, and needed sections = ⌈shortfall ÷ capacity⌉; in the build preview demand is set to target × capacity so the needed count equals the gap exactly." },
+        { "ar": "تُرتّب المقررات الأصعب أولاً: الأوسع زمرةً من المستوى نفسه، ثم الأكثر شعباً باقية.", "en": "Courses are ordered hardest first: the largest same-level cohort, then the most sections remaining." },
+        { "ar": "المرشّحون: كل يوم × سلّم بدايات القسم المتعلَّم × القاعات الموثّقة المؤكّدة التي درّس فيها القسم (الأكثر استعمالاً أولاً، حتى 24 قاعة، وسعتها تكفي إن عُرفت) × أساتذة درّسوا المقرر، عاملين، ضمن نصابهم.", "en": "Candidates: each weekday × the department's learned start ladder × verified, confirmed halls the department has taught in (most used first, up to 24, large enough when capacity is known) × active instructors who taught the course and remain within their load cap." },
+        { "ar": "يُقبل المرشّح إن كان خالياً فعلياً (لا قاعة ولا أستاذ متداخل، بلا أي استثناء) ولم يجد فاحص التعارض شيئاً، بما فيه تداخل مقررات الزمرة نفسها ومدة الانتقال الخاصة بالقسم.", "en": "A candidate is accepted only if physically free (no overlapping hall or instructor, with no exemption) and the conflict checker finds nothing, including overlaps with the same cohort's courses and the department's own turnaround minutes." },
+        { "ar": "يُضاف كل موضعٍ مقبول إلى الأسبوع العامل قبل البحث التالي، فلا تقع شعبتان جديدتان في قاعةٍ وساعةٍ واحدة؛ ويُكمل رقمُ الشعبة ترقيمَ المقرر نفسه بين 501 و999.", "en": "Each accepted placement joins the working week before the next search, so two new sections never share a hall-hour; the section number continues the course's own sequence within 501–999." },
+        { "ar": "طول المحاضرة من الطول الأشيع للشعبة القائمة، وإلا من آخر فصلٍ درّس فيه القسم المقرر، وإلا من إيقاع القسم؛ ولا يُخترع طول.", "en": "Lecture length is the most common length of the existing section, else the last term the course was taught, else the department rhythm; no length is invented." }
+      ],
+      "inputs": { "ar": "أسبوع القسم وأسبوع الفصل كله، والمقررات والأساتذة وأحمالهم، والتاريخ، وقراءة الطلب وأزواج الزمرة، وإيقاع القسم وسجلّ القاعات الموثّقة.", "en": "The department's week and the whole term week, courses, instructors and their loads, history, the demand reading with cohort pairs, the department rhythm and the verified hall registry." },
+      "output": { "ar": "لكل مقرر: مواضع مقترحة بجملةٍ واضحة، وسبب ما لم يوضع حين تقل المواضع عن اللازم، وقائمة المقررات التي لا سعة مسجّلة لها.", "en": "Per course: proposed placements with a plain sentence, the reason for any section not placed, and a list of courses with no recorded capacity." },
+      "guarantee": { "ar": "قراءةٌ فقط: كل موضعٍ اقتراحٌ حتى يفتحه إنسانٌ ويحفظه عبر مسار الموعد المعتاد.", "en": "Read-only: every placement remains a proposal until a person opens and saves it through the normal appointment path." },
+      "numbers": [
+        { "ar": "رموز الشعب من 501 إلى 999، ولا يُعاد رمزٌ استُعمل", "en": "Section codes 501–999; a used code is never reissued" },
+        { "ar": "حتى 24 قاعة مرشّحة لكل مقرر", "en": "Up to 24 candidate halls per course" }
+      ],
+      "evidence": {
+        "code": ["src/utils/sectionOpening.ts#readSectionOpenings", "src/utils/sectionOpening.ts#nextSectionCodes", "src/utils/sectionBuild.ts#hardestFirst", "src/utils/sectionBuild.ts#demandFromTargets"],
+        "tests": ["tests/section-opening-feasibility-audit.ts", "tests/section-build-audit.ts"]
+      },
+      "requirements": ["FR-PLN-012"]
+    },
+    {
+      "id": "ALG-PLN-04",
+      "module": "PLN",
+      "icon": "lock-keyhole-open",
+      "kind": "deterministic",
+      "name": { "ar": "حكم «لم نصل بعد» على المقرر", "en": "Not-yet-reached course verdict" },
+      "question": {
+        "ar": "هل وصل طلبة هذا الفرع في هذه الصحيفة إلى مستوى المقرر، فيصح طرحه هذا الفصل؟",
+        "en": "Has this branch's cohort on this plan sheet reached the course's level, so that offering it this term makes sense?"
+      },
+      "method": [
+        { "ar": "يُقرأ تاريخ الفرع نفسه قبل الفصل الحالي وحده، والصحيفة الجديدة من سنة بدئها؛ فرعٌ بلا تاريخ يجعل كل مقرر «غير معروف» ولا يُقفل شيء.", "en": "Only the branch's own history before the current term is read, and a new sheet from its start year; a branch with no history makes every course «unknown» and locks nothing." },
+        { "ar": "مطروحٌ من قبل ← وصلناه. وإلا فإن كان له مسبقات في الصحيفة: يُفتح إذا طُرحت مسبقاته «الكل» وواحدٌ من كل مجموعة «أحد» في فصلٍ سابق (والصيفي فصل).", "en": "Offered before → reached. Otherwise, with in-sheet prerequisites, it is reached when every «all» prerequisite and at least one of each «any-of» group was offered in an earlier term (summer counts)." },
+        { "ar": "بلا مسبقات: يُفتح إذا كان مستواه ≤ أعلى مستوى طُرح + 100؛ وأول فصلٍ للصحيفة الجديدة يفتح مقررات 100 بلا متطلبات وحدها.", "en": "Without prerequisites, it is reached when its level ≤ highest level offered + 100; a new sheet's first term opens only 100-level courses without prerequisites." },
+        { "ar": "التوأم متبادل: مقررٌ توأمه مقفل يُقفل معه، وينتشر القفل في السلسلة حتى لا يتغير شيء (نقطة ثبات).", "en": "Co-requisites are mutual: a course whose twin is locked is locked too, propagated along the chain until nothing changes (fixed point)." },
+        { "ar": "قرار القسم «افتحه للطرح» يغلب القاعدة؛ وبين عدة صحائف: «وصلناه» يغلب «غير معروف» الذي يغلب «مقفل».", "en": "The department's «open for offering» override wins; across several sheets, reached beats unknown, which beats locked." }
+      ],
+      "inputs": { "ar": "عضوية الصحيفة وقواعدها (المسبقات والتوأم والمستوى)، والمقررات المطروحة في كل فصلٍ سابق للفرع، وقرارات الفتح اليدوي.", "en": "Sheet membership and rules (prerequisites, co-requisites, level), courses offered in each earlier term of the branch, and manual open overrides." },
+      "output": { "ar": "لكل مقرر: وصلناه / مقفل / غير معروف، ورمز السبب، والمسبقات الناقصة، وسلسلةٌ لا تتجاوز أربع حلقات للمقفل.", "en": "Per course: reached / locked / unknown, the reason code, missing prerequisites, and a chain of at most four links when locked." },
+      "guarantee": { "ar": "لا يُقفل مقررٌ بلا دليلٍ كامل، ولا تُستعمل بيانات الرادار؛ والقاعدة نفسها في الكرت وورقة ما قبل النشر.", "en": "No course is locked without complete evidence and no radar data is used; the same rule serves the faculty card and the pre-publish sheet." },
+      "numbers": [
+        { "ar": "هامش المستوى: أعلى مستوى مطروح + 100", "en": "Level margin: highest offered level + 100" },
+        { "ar": "سلسلة المقفل: أربع حلقات على الأكثر", "en": "Locked chain: at most four links" }
+      ],
+      "evidence": {
+        "code": ["src/utils/courseReach.ts#sheetReach", "src/utils/courseReach.ts#combineReach", "src/utils/courseReach.ts#classifySheets", "src/utils/prepublishReach.ts"],
+        "tests": ["tests/course-reach-audit.ts", "tests/prepublish-reach-audit.tsx"]
+      },
+      "requirements": ["FR-PLN-011", "FR-REQ-007", "FR-REQ-008"]
+    },
+    {
+      "id": "ALG-PLN-05",
+      "module": "PLN",
+      "icon": "list-checks",
+      "kind": "deterministic",
+      "name": { "ar": "فحص قواعد الصحيفة ومطابقتها مع ملفها", "en": "Plan-sheet rule check and reconciliation" },
+      "question": {
+        "ar": "هل قواعد الصحيفة صالحة للاعتماد، وكيف تُطابَق مقررات القسم مع ما طُبع في ملف الصحيفة؟",
+        "en": "Are the sheet's rules fit for approval, and how are the department's courses reconciled with what the sheet file prints?"
+      },
+      "method": [
+        { "ar": "تُفحص كل قاعدة: المقرر في الصحيفة، والمراجع معروفة، والمسبق ليس في مستوىً مساوٍ أو لاحق، والاختياري له مجموعة.", "en": "Each rule is checked: the course is on the sheet, its references are known, a prerequisite is not at the same or a later level, and an elective has a group." },
+        { "ar": "تُكشف دورات المتطلبات ببحثٍ عميق أولاً بثلاث علامات على مخطط المسبقات؛ وأي دورة تمنع الاعتماد.", "en": "Prerequisite cycles are detected by depth-first search with three-state marking over the prerequisite graph; any cycle blocks approval." },
+        { "ar": "المجموعات الاختيارية: مقررٌ في مجموعتين، أو حدٌّ أدنى للمقررات أو الوحدات فوق ما تتيحه المجموعة، يمنع؛ والنقص الآتي كله من مقرراتٍ لم تُضف للكتالوج بعد تنبيهٌ فقط.", "en": "Elective groups: a course in two groups, or a minimum of courses or units above what the group offers, blocks; a shortfall caused entirely by courses not yet in the catalogue is only a warning." },
+        { "ar": "المطابقة تجعل الصحيفة هي الأصل: المقرر يتبع القسم الذي يدل عليه رمزه (مع أسماء بديلة ثابتة) ويُنشأ هناك إن غاب، ويُقدَّم السجل الذي درّسه القسم فعلاً، والاسم والوحدات والساعات من الصحيفة؛ والفرق الإملائي وحده لا يغيّر الاسم.", "en": "Reconciliation takes the sheet as the source: a course follows the department its code points to (with fixed aliases) and is created there if absent, the record the department actually taught is preferred, and name, units and hours come from the sheet; a spelling-only difference does not rename." },
+        { "ar": "تعمل المطابقة تجربةً تعدّ الكتابات ولا تنفذها، وما يُرفع من قواعد يبقى مسوّدةً يعتمدها القسم.", "en": "Reconciliation can run as a dry run that counts writes without performing them, and uploaded rules remain a draft for the department to approve." }
+      ],
+      "inputs": { "ar": "قواعد الصحيفة ومجموعاتها، ومقرراتها، والكتالوج ووحداته، وما درّسته الكلية تاريخياً، والصحيفة المقروءة من ملفها.", "en": "Sheet rules and groups, sheet courses, the catalogue and its credits, what the college has taught historically, and the sheet parsed from its file." },
+      "output": { "ar": "ملاحظات مصنّفة «مانع» أو «تنبيه»، وكتالوجٌ وقواعد مطابَقة (مسوّدة أو معتمدة).", "en": "Findings classified as block or warn, and a reconciled catalogue and rule set (draft or approved)." },
+      "guarantee": { "ar": "العضوية والمجموعات والمسبقات كما طُبعت تماماً، لا زيادة ولا نقص؛ ورقمٌ يحمله أكثر من سجل لا يُمسّ.", "en": "Membership, groups and prerequisites exactly as printed, nothing added or removed; a number held by more than one record is left untouched." },
+      "numbers": [
+        { "ar": "مستويات الصحيفة 100 و200 و300 و400", "en": "Sheet levels 100, 200, 300 and 400" }
+      ],
+      "evidence": {
+        "code": ["src/utils/curriculumRules.ts#checkRuleSet", "src/utils/curriculumRules.ts#findPrereqCycle", "src/server/sheetReconcile.ts#createReconciler"],
+        "tests": ["tests/plan-review-audit.ts", "tests/plan-sheet-import-route-audit.ts"]
+      },
+      "requirements": ["FR-PLN-017", "FR-IMP-034"]
+    },
+    {
+      "id": "ALG-PLN-06",
+      "module": "PLN",
+      "icon": "route",
+      "kind": "search",
+      "name": { "ar": "فحص المقترح الدراسي والبدائل وترتيب الشعب الشاغرة", "en": "Study proposal check, alternatives and vacancy ranking" },
+      "question": {
+        "ar": "هل يصلح مقترح الأستاذ كما هو، وما أقرب وقتٍ أو قاعة بديلة لبندٍ متعارض، وأيُّ الشعب الشاغرة تُسند إليه بلا تعارض؟",
+        "en": "Is the instructor's proposal valid as it stands, what is the closest alternative time or hall for a conflicting item, and which vacant sections can be assigned to the instructor without conflict?"
+      },
+      "method": [
+        { "ar": "تُطبَّق عمليات المقترح على نسخةٍ من جدول الفصل في الذاكرة؛ والعملية التي لم تعد لقطتها تطابق الجدول الحي تصير مانعاً.", "en": "The proposal's operations are applied to an in-memory copy of the term timetable; an operation whose snapshot no longer matches the live timetable becomes a blocker." },
+        { "ar": "كل موعدٍ يدخل أسبوع الأستاذ يُسأل عنه فاحصُ الحفظ نفسه في شاشة «إضافة موعد»، وتُصنّف النتائج مانعاً أو ملاحظةً أو معلومة.", "en": "Every appointment entering the instructor's week is judged by the same save gate as the add-appointment screen, and findings are classified blocker, review or info." },
+        { "ar": "بدائل البند المتعارض: بداياتٌ كل 10 دقائق داخل نافذة يوم القسم، وأيامٌ من أسرة النمط نفسه، وقاعاتٌ مؤهلة؛ الرتبة = |إزاحة الدقائق| + 90 لتغيير الأيام + 14 لتغيير القاعة + 35 لنوع قاعة مختلف + 45 لقاعة أصغر من السعة.", "en": "Alternatives for a conflicting item: starts every 10 minutes within the department's day window, day sets from the same pattern family, eligible halls; rank = |shift in minutes| + 90 for a day change + 14 for a hall change + 35 for a different hall type + 45 for an undersized hall." },
+        { "ar": "يُستبعد بالفحص الرخيص أولاً (أستاذ أو قاعة مشغولان)، ثم فحصٌ كامل للمقترح كله؛ ولا يُقبل بديلٌ يجعل بنداً آخر ممنوعاً، ويُرتّب بالملاحظات ثم بتغيّر الفراغات.", "en": "Cheap filters run first (busy instructor or hall), then a full check of the whole proposal; an alternative that blocks any other item is rejected, and survivors are sorted by review notes, then by change in gaps." },
+        { "ar": "الشعب الشاغرة («هيئة تدريسية»): يُستبعد ما يتداخل مع محاضرات الأستاذ، ثم يُفحص فحصاً كاملاً مع إضافة الإسناد، وتُرتّب: جاهزة، ملاحظة، لم تُفحص، ممنوعة، متداخلة، مستعملة.", "en": "Vacant «faculty» sections: those overlapping the instructor's lectures are excluded, the rest get a full check with the assignment added, and are ranked ready, review, unchecked, blocked, clash, used." }
+      ],
+      "inputs": { "ar": "عمليات المقترح، وجدول الفصل كله وسجلات الشخص في كل الكليات، وسجل القاعات وحقوقها، ونطاق القسم ونافذة يومه.", "en": "Proposal operations, the whole term timetable and the person's records in every college, the hall registry and hall rights, and the department's scope and day window." },
+      "output": { "ar": "نتائج الفحص لكل بند وجاهزية الإرسال، وحتى أربعة بدائل بأسبابها، وحكمٌ مرتّب لكل شعبةٍ شاغرة.", "en": "Per-item findings and send readiness, up to four alternatives with reasons, and a ranked verdict per vacant section." },
+      "guarantee": { "ar": "لا فاحص ثانٍ: بوابة الحفظ هي الحَكَم، والبحث يقول صراحةً إن كان جزئياً، ولا يكتب شيئاً.", "en": "No second checker: the save gate decides; the search says plainly when it was partial, and writes nothing." },
+      "numbers": [
+        { "ar": "خطوة البداية 10 دقائق", "en": "Start-time step: 10 minutes" },
+        { "ar": "100 فحصٍ كامل على الأكثر، و4 بدائل على الأكثر", "en": "At most 100 full checks and at most 4 alternatives" },
+        { "ar": "24 شعبةً شاغرة تُفحص فحصاً كاملاً افتراضياً", "en": "24 vacant sections fully checked by default" }
+      ],
+      "evidence": {
+        "code": ["src/server/studyProposalEngine.ts#evaluateProposal", "src/server/studyProposalEngine.ts#suggestAlternatives", "src/server/studyProposalEngine.ts#rankVacancies"],
+        "tests": ["tests/study-proposal-flow-audit.ts", "tests/study-proposal-studio-audit.ts"]
+      },
+      "requirements": ["FR-PLN-026", "FR-PLN-029"]
+    },
+    {
+      "id": "ALG-STU-01",
+      "module": "STU",
+      "icon": "book-check",
+      "kind": "deterministic",
+      "name": { "ar": "إغلاق المنجَز على المسبقات", "en": "Passed-course closure over prerequisites" },
+      "question": {
+        "ar": "أيُّ المقررات التي يعلّمها الطالب منجَزةً تُقبل، إذا كان كل مقررٍ منجَز يتطلب أن تكون مسبقاته منجَزة أيضاً؟",
+        "en": "Which of the courses a student marks as passed can be kept, given that every passed course requires its own prerequisites to be passed as well?"
+      },
+      "method": [
+        { "ar": "يبدأ من المجموعة المعلَنة، وتُحسب الوحدات المجتازة من وحدات المقررات.", "en": "Start from the declared set and compute passed units from course credits." },
+        { "ar": "يُمسح المجموع: أول مقررٍ لم تتحقق فيه مسبقات «الكل» أو واحدٌ من كل مجموعة «أحد» أو حدُّ الوحدات يُسقط، وتُعاد الوحدات.", "en": "Scan the set: the first course whose «all» prerequisites, one of each «any-of» group, or minimum units are not satisfied is dropped, and units are recomputed." },
+        { "ar": "يتكرر المسح حتى لا يُسقط شيء (نقطة ثبات)، فيسقط معه كل ما بُني على المقرر الساقط.", "en": "Repeat until a full pass drops nothing (fixed point), so everything built on a dropped course falls with it." },
+        { "ar": "المقررات التي أعلنها الطالب المحوَّل معادَلةً تُستثنى، وتبقى تفتح ما بعدها.", "en": "Courses a transfer student declared equivalent are exempt and still unlock their dependants." }
+      ],
+      "inputs": { "ar": "المقررات المعلَنة منجَزةً، وقواعد مسبقات الصحيفة، ووحدات المقررات، والمقررات المعادَلة.", "en": "Courses declared passed, the sheet's prerequisite rules, course credits, and declared equivalents." },
+      "output": { "ar": "قائمتان: ما بقي، وما أُسقط.", "en": "Two lists: kept and dropped." },
+      "guarantee": { "ar": "الحساب نفسه في المتصفح والخادم، والخادم لا يثق بما تقوله الصفحة؛ والإعفاء لا يمتد إلى غير المعادَل.", "en": "The same closure runs in the browser and on the server, and the server does not trust the page; an exemption never extends beyond the declared equivalent." },
+      "evidence": {
+        "code": ["src/utils/passedClosure.ts#closePassed", "src/utils/curriculumRules.ts#unmetPrereq", "src/server/studentDoorRoutes.ts"],
+        "tests": ["tests/student-map-audit.ts"]
+      },
+      "requirements": ["FR-STU-004"]
+    },
+    {
+      "id": "ALG-STU-02",
+      "module": "STU",
+      "icon": "graduation-cap",
+      "kind": "deterministic",
+      "name": { "ar": "اختيار صحيفة الخريج وإثبات صحيفة التخرج", "en": "Graduate plan choice and graduation-sheet proof" },
+      "question": {
+        "ar": "على أي صحيفةٍ (قديمة أو جديدة) يُقاس هذا الخريج، وهل تثبت صحيفة تخرّجه المرفوعة أهليته؟",
+        "en": "Which plan (old or new) is this graduate measured against, and does the uploaded graduation sheet prove eligibility?"
+      },
+      "method": [
+        { "ar": "سطر «البرنامج» في الصحيفة يجب أن يطابق اسم القسم المختار؛ وغيابه يرفض الطلب.", "en": "The sheet's «programme» row must match the selected department name; a missing programme row refuses the request." },
+        { "ar": "صحيفةٌ حيّة واحدة ← هي. وإلا فرقم «الوحدات المطلوبة» يجب أن يساوي مجموع صحيفةٍ حيّة واحدة بالضبط: القراءة المباشرة أولاً، ثم الأرقام القريبة بين 60 و300 بعد استبعاد رقم الوحدات المجتازة.", "en": "One live plan → that plan. Otherwise the sheet's «required units» must equal exactly one live plan's degree total: the direct reading first, then nearby figures between 60 and 300, excluding the passed-units figure." },
+        { "ar": "إن لم يُقرأ المجموع وكانت الصحائف كلها بالقاعدة نفسها فالنتيجة واحدة؛ وإلا يُرفض بسببٍ مكتوب: غير مقروء، مجموع غير معروف، ملتبس، قاعدة غير معتمدة.", "en": "If the total is unreadable but every live plan has the same rule, the result is the same; otherwise the request is refused with a written reason: unreadable, unknown total, ambiguous, or rule not approved." },
+        { "ar": "الوحدات المجتازة: القراءة المباشرة، وإلا مرشحون محصورون بين 60 ومجموع الصحيفة بعد استبعاد المجموع نفسه، ويؤخذ أكبر الباقي.", "en": "Passed units: the direct reading, otherwise bounded candidates between 60 and the plan's degree total, excluding the total itself, taking the largest remaining." },
+        { "ar": "تُقارن بحدّ التخرج في قاعدة الصحيفة للفصل العادي أو الصيفي.", "en": "The result is compared with the plan rule's graduation threshold for a regular or summer term." }
+      ],
+      "inputs": { "ar": "حقائق مقروءة من صحيفة التخرج (البرنامج، الوحدات المطلوبة والمجتازة ومرشحوها)، والصحائف الحيّة للقسم وقواعد تخرجها المعتمدة، واسم الفصل.", "en": "Facts read from the graduation sheet (programme, required and passed units and their candidates), the department's live plans and their approved graduation rules, and the term name." },
+      "output": { "ar": "الصحيفة المختارة وقاعدتها ودليل الاختيار، أو رفضٌ برمزٍ وسبب؛ والوحدات المجتازة والأهلية.", "en": "The chosen plan, its rule and the evidence used, or a coded refusal with a reason; the passed units and eligibility." },
+      "guarantee": { "ar": "لا يُقاس طالبٌ على قاعدة صحيفةٍ ليست صحيفته، ولا تحقق بلا قاعدةٍ محفوظة؛ والقاعدة المشتقة من اسم القسم بذرة اقتراح فقط.", "en": "No student is measured against another plan's rule and nothing is verified without a saved rule; a rule derived from the department name is only a seed suggestion." },
+      "numbers": [
+        { "ar": "نطاق أرقام المجموع القريبة: 60 إلى 300", "en": "Range for nearby total figures: 60 to 300" },
+        { "ar": "بذور مقترحة (تُحفظ قبل الاستعمال): 130 وحدة ← 107 عادي و109 صيفي؛ 132 ← 109 و111؛ 134 ← 111 و113", "en": "Seed suggestions (saved before use): 130 units → 107 regular, 109 summer; 132 → 109 and 111; 134 → 111 and 113" }
+      ],
+      "evidence": {
+        "code": ["src/utils/graduationPlan.ts#choosePlanForSheet", "src/utils/graduationPlan.ts#sheetTotalEvidence", "src/utils/degreeRules.ts#suggestedDegreeRule", "src/server/core/studentIdentity.ts#graduationCandidatesForSection"],
+        "tests": ["tests/curriculum-graduation-audit.ts", "tests/student-journey-audit.ts"]
+      },
+      "requirements": ["FR-STU-013", "FR-ENG-004"]
+    },
+    {
+      "id": "ALG-STU-03",
+      "module": "STU",
+      "icon": "shuffle",
+      "kind": "search",
+      "name": { "ar": "محاكاة يوم التسجيل وجاهزية الفصل", "en": "Registration rehearsal and semester readiness" },
+      "question": {
+        "ar": "إذا سجّل الطلبة على الشعب المطروحة، فمن يبلغ 12 وحدة فأكثر، وأي الشعب تمتلئ، وما جاهزية الفصل؟",
+        "en": "If students register on the offered sections, who reaches 12 units or more, which sections fill up, and how ready is the semester?"
+      },
+      "method": [
+        { "ar": "تُدقَّق الشعب أولاً: هوية صحيحة، وسعة صحيحة موجبة، ومواعيد صالحة غير متداخلة، ومعرّف غير مكرر؛ والمعيبة تُستبعد ويُوسم مقررها «غير مؤكد».", "en": "Offerings are audited first: valid identity, a positive integer capacity, valid non-overlapping meetings, a unique id; flawed ones are excluded and their course marked uncertain." },
+        { "ar": "لكل طالب: الباقي من صحيفته المعتمدة، والمرشحون = الإجباري الباقي، وما يلزم من كل مجموعة اختيارية، ثم رغباته؛ الأولوية = (1000 للمطلوب أو 400) − 20 × المستوى + 8 × ما يفتحه + 150 إن رغب فيه.", "en": "Per student: remaining need from the approved plan; candidates = remaining compulsory courses, enough of each unfinished elective group, then wishes; priority = (1000 if required, else 400) − 20 × level + 8 × courses it unlocks + 150 if wished." },
+        { "ar": "الترتيب بالحاجة: من بقي له 36 وحدة أو أقل أولاً (2000 − الباقي)، ثم وحدات الإجباري، وتعادلٌ ببصمةٍ ثابتة؛ ثم يُقسم الطلبة على نوافذ التسجيل بالتساوي.", "en": "Ordering by need: students within 36 units of graduating first (2000 − remaining), then compulsory units, with a stable hash tie-break; students are then split evenly across registration windows." },
+        { "ar": "الخطة (أ): تراجعٌ عميق على حِزم المقررات (المقرر مع توأمه) وشعبها على دفتر مقاعد افتراضي مشترك، لتعظيم الوحدات حتى الهدف؛ وإذا تجاوز البحث 2000 حالة صار الطالب «غير معلوم» بدل التخمين.", "en": "Plan A: depth-first backtracking over course bundles (a course with its co-requisites) and their sections on a shared virtual seat ledger, maximising units up to the target; beyond 2,000 visited states the student becomes «unknown» rather than guessed." },
+        { "ar": "الخطتان (ب) بشعبٍ مختلفة و(ج) حدٌّ آمن 12 وحدة من الإجباري احتياطٌ لا يحجز مقعداً.", "en": "Plans B (different sections) and C (a safe 12-unit minimum of required courses) are fall-backs that reserve no seat." },
+        { "ar": "يُصنَّف كل طالب: 15 فأكثر، 12–14، خريجٌ دون 12، دون 12، غير معلوم؛ والجاهزية = 60٪ × نسبة من يبلغون 12 فأكثر + 40٪ × نسبة الطلب الذي وجد مقعداً.", "en": "Each student falls into a band: 15+, 12–14, graduating below 12, below 12, unknown; readiness = 60% × share reaching 12+ + 40% × share of demand that found a seat." }
+      ],
+      "inputs": { "ar": "ملفات الطلبة (المنجَز والرغبات والقيود)، والشعب المطروحة ومواعيدها وسعاتها، وقواعد الصحائف المعتمدة، ووحدات المقررات، وعدد النوافذ.", "en": "Student profiles (passed courses, wishes, constraints), offered sections with meetings and capacities, approved plan rules, course credits, and the number of windows." },
+      "output": { "ar": "تذكرة لكل طالب بثلاث خطط ونافذته، ودفتر المقاعد، والطلب غير الملبّى بأسبابه، وتوزيع الفئات، ودرجة الجاهزية ومستواها.", "en": "A ticket per student with three plans and a window, the seat ledger, unmet demand by reason, the band distribution, and the readiness score and tier." },
+      "guarantee": { "ar": "بلا قاعدة بيانات ولا ساعة ولا عشوائية: المدخلات نفسها تعطي التذاكر نفسها؛ والمقاعد افتراضية لا حجز فيها.", "en": "No database, clock or randomness: the same inputs give the same tickets; seats are virtual and nothing is reserved." },
+      "numbers": [
+        { "ar": "الوحدات: أدنى 12، افتراضي 15، أقصى 18", "en": "Units: minimum 12, default 15, maximum 18" },
+        { "ar": "مقعدٌ «حرج» إذا بقي أقل من 10٪ من سعته", "en": "A seat is «tight» when less than 10% of capacity remains" },
+        { "ar": "حد البحث 2000 حالة لكل طالب", "en": "Search cap of 2,000 states per student" },
+        { "ar": "الجاهزية: «جاهز» من 85، «يحتاج انتباهاً» من 65، وضعيفة إن زاد «غير المعلوم» على 20٪", "en": "Readiness: «ready» from 85, «needs attention» from 65, and weak when «unknown» exceeds 20%" }
+      ],
+      "evidence": {
+        "code": ["src/utils/registrationSim.ts#simulateRegistration", "src/utils/registrationSim.ts#auditSimOfferings", "src/utils/semesterReadiness.ts#semesterReadiness", "src/server/simulationData.ts"],
+        "tests": ["tests/registration-sim-audit.ts", "tests/registration-causes-audit.ts"]
+      },
+      "requirements": ["FR-STU-027", "FR-DSH-014"]
+    },
+    {
+      "id": "ALG-STU-04",
+      "module": "STU",
+      "icon": "split",
+      "kind": "deterministic",
+      "name": { "ar": "تعليل نقص الوحدات بمقارنة السيناريوهات", "en": "Shortfall cause attribution by scenario comparison" },
+      "question": {
+        "ar": "لماذا لا يبلغ هذا الطالب 12 وحدة: امتلاء الشعب، أم تعارض الأوقات، أم قيوده، أم المتطلب السابق؟",
+        "en": "Why does this student not reach 12 units: full sections, time conflicts, the student's own constraints, or a prerequisite?"
+      },
+      "method": [
+        { "ar": "تُشغَّل محاكاة التسجيل لمن لهم رغبات أساساً، ويُجمع من بقي دون 12 وحدة.", "en": "The registration rehearsal runs for students with wishes as the baseline, collecting those below 12 units." },
+        { "ar": "تُعاد أربع مرات، كل مرةٍ برفع قيدٍ واحد عن الجميع: السعة، أو التعارض، أو قيود الطالب، أو المسبق.", "en": "It is re-run four times, each lifting one constraint for everyone: capacity, conflicts, student constraints, or prerequisites." },
+        { "ar": "لكل طالبٍ ناقص يُسجَّل أيُّ رفعٍ أوصله إلى 12 فأكثر.", "en": "For each short student, record which lifts bring them to 12 units or more." },
+        { "ar": "رفعٌ واحد ← ذلك السبب؛ أكثر من واحد ← «مشترك»؛ لا شيء ← «غير مطروح أو بيانات»؛ والمجاميع تساوي عدد الناقصين.", "en": "Exactly one → that cause; more than one → «shared»; none → «not offered or data»; totals add up to the short count." },
+        { "ar": "تُجمع الأعداد لكل كلية وقسم، وتُذكر الشعب التي رفضها التدقيق بياناتٍ ناقصة مع رابط صفها، وتُحفظ النتيجة 10 دقائق لكل بصمة مصدر.", "en": "Counts are grouped per college and department, offerings rejected by the audit are listed as incomplete data with a link to their row, and the result is cached for 10 minutes per source fingerprint." }
+      ],
+      "inputs": { "ar": "مدخلات محاكاة التسجيل نفسها للفصل ونطاق القارئ.", "en": "The same registration-rehearsal inputs for the term, and the reader's scope." },
+      "output": { "ar": "لكل نطاق: عدد الطلبة والناقصين وتوزيع الأسباب؛ والسبب الأكبر؛ وقائمة الشعب ناقصة البيانات.", "en": "Per scope: students, short students and the cause distribution; the dominant cause; and the list of offerings with incomplete data." },
+      "guarantee": { "ar": "مقارنة سيناريوهات تُعرض «تقديراً» لا ادعاءً سببياً مطلقاً؛ أعدادٌ لا أسماء.", "en": "A scenario comparison shown as an estimate, not an absolute causal claim; counts, never names." },
+      "numbers": [
+        { "ar": "4 سيناريوهات رفع", "en": "4 relaxation scenarios" },
+        { "ar": "مدة حفظ النتيجة 10 دقائق، وحتى 5000 بند جودة في الذاكرة", "en": "Result cached 10 minutes; up to 5,000 data-quality items held" }
+      ],
+      "evidence": {
+        "code": ["src/utils/registrationCauses.ts#explainShortfalls", "src/utils/registrationCauses.ts#dominantCause", "src/server/radarInsight.ts#radarInsightFor"],
+        "tests": ["tests/registration-causes-audit.ts", "tests/radar-insight-audit.ts"]
+      },
+      "requirements": ["FR-STU-029", "FR-INT-020"]
+    },
+    {
+      "id": "ALG-STU-05",
+      "module": "STU",
+      "icon": "armchair",
+      "kind": "deterministic",
+      "name": { "ar": "سقف مقاعد المرشد وتوزيع طلب الشعبة", "en": "Advisor seat cap and section-request capacity" },
+      "question": {
+        "ar": "كم مقعداً إضافياً يحق للمرشدين في كل شعبة، وكيف يُوزَّع عدد طلب الشعبة على شعبه المربوطة؟",
+        "en": "How many extra seats may advisors add in each section, and how is a section request's count spread over its linked sections?"
+      },
+      "method": [
+        { "ar": "الرصيد الإضافي: قيمة الشعبة، وإلا المقرر، وإلا العام (الأخصّ يغلب)، وكلٌّ محصور بين 0 و200.", "en": "Extra balance: the section's value, else the course's, else the global value (most specific wins), each clamped to 0–200." },
+        { "ar": "السقف الصلب = min(السعة الأساسية + الرصيد، سعة القاعة الفعلية إن عُرفت).", "en": "Hard cap = min(base capacity + balance, the physical hall capacity when known)." },
+        { "ar": "إضافة n مقعد (من 1 إلى 50) تُقبل كاملةً أو تُرفض: تُرفض إن قلّ المتبقي عن n، أو تجاوز مجموع المرشد ⌊الإضافي ÷ عدد المرشدين⌋ عند التوزيع العادل؛ وتجري في معاملة قراءة وكتابة ذرّية واحدة.", "en": "Adding n seats (1–50) is all or nothing: refused when remaining < n or, under fair split, when the advisor's total would exceed ⌊extra ÷ advisors⌋; it runs inside a single atomic read-write transaction." },
+        { "ar": "عدد طلب الشعبة يُقسم على الشعب المربوطة كلها ⌈العدد ÷ الشعب⌉ (حتى 200)، ويُعاد عند كل ربطٍ أو فك؛ والسعة التي كتبها المسؤول لا تُمس.", "en": "A section request's count is spread as ⌈count ÷ sections⌉ (up to 200) over all linked sections and recomputed on every link or unlink; a capacity written by an administrator is left untouched." },
+        { "ar": "مرحلة الطلب مشتقة لا مخزنة: أُرسل ← فُتحت الشعبة ← اعتُمد ← قيد التسجيل ← سُجّل، أو مغلق.", "en": "The request stage is derived, never stored: sent → opened → approved → registering → registered, or closed." }
+      ],
+      "inputs": { "ar": "إعداد الرصيد (عام/مقرر/شعبة، التوزيع العادل، عدد المرشدين)، ودفتر الشعبة وإضافاته، وسعة القاعة، والشعب المربوطة بالطلب.", "en": "Balance settings (global/course/section, fair split, advisor count), the section ledger and its adds, hall capacity, and the request's linked sections." },
+      "output": { "ar": "حالة المقعد (السقف، المتبقي، النصيب، لون الحلقة)، ونتيجة الإضافة برسالتها، وسعات الشعب المكتوبة ومرحلة الطلب.", "en": "Seat state (cap, remaining, fair share, ring tone), the add result with its message, written section capacities, and the request stage." },
+      "guarantee": { "ar": "لا يُضاف طالبٌ لا يتسع له كرسي مهما كان الرصيد، ومرشدان معاً لا يتجاوزان السقف؛ والنتيجة لا تتعلق بترتيب الربط.", "en": "No student is added beyond the physical seats whatever the balance, two advisors acting together cannot exceed the cap, and the result does not depend on linking order." },
+      "numbers": [
+        { "ar": "الإضافة الواحدة من 1 إلى 50 مقعداً", "en": "One add: 1 to 50 seats" },
+        { "ar": "الأحمر عند صفر متبقٍّ، والأصفر عند 30٪ أو أقل أو مقعدين أو أقل", "en": "Red at zero remaining; yellow at 30% or less, or 2 seats or fewer" }
+      ],
+      "evidence": {
+        "code": ["src/utils/advisorSeats.ts#seatState", "src/utils/advisorSeats.ts#tryAddSeats", "src/utils/advisorSeats.ts#quotaFor", "src/utils/sectionRequests.ts#planCapacities", "src/utils/sectionRequests.ts#capacityShare", "src/utils/sectionRequests.ts#stageOf"],
+        "tests": ["tests/section-requests-audit.ts"]
+      },
+      "requirements": ["FR-STU-021", "FR-STU-022", "FR-STU-024"]
+    },
+    {
+      "id": "ALG-REQ-01",
+      "module": "REQ",
+      "icon": "user-check",
+      "kind": "deterministic",
+      "name": { "ar": "حكم بند طلب عضو هيئة التدريس وطول اللقاء", "en": "Faculty request item verdict and meeting length" },
+      "question": {
+        "ar": "هل يمضي ما يطلبه الأستاذ في كرته، أم يحتاج استثناءً، أم لا يجوز — وما أقرب الأوقات المتاحة إن لم يجز؟",
+        "en": "Does what the instructor asks for on the card go through, need an exception, or is it not allowed — and what are the nearest free times when it is not?"
+      },
+      "method": [
+        { "ar": "طول اللقاء: طول الموعد نفسه إن بقيت أيامه (أو نُقل يومٌ إلى يوم)، وإلا نمط اللائحة لساعات المقرر، وإلا 50 دقيقة للأحد والثلاثاء والخميس و80 للاثنين والأربعاء؛ وأول يومٍ يُضغط يُكمل نمط اللائحة الذي يحويه.", "en": "Meeting length: the appointment's own length when its days are kept (or one day moves to one day), else the regulation pattern for the course hours, else 50 minutes on Sunday, Tuesday and Thursday and 80 on Monday and Wednesday; the first day pressed completes the regulation pattern containing it." },
+        { "ar": "يُبنى الأسبوع بعد تطبيق الحزمة كلها على صفوف هذا الأستاذ، وتبقى صفوف غيره كما هي.", "en": "The week is built after applying the whole bundle to this instructor's rows; everyone else's rows stay as they are." },
+        { "ar": "النافذة المغلقة تمنع؛ والحذف و«أبقه» والتعديل الذي لم يلمس شيئاً لا تُحاسَب.", "en": "A closed window blocks; delete, keep, and an edit that touches nothing are not judged." },
+        { "ar": "تتوالى الفحوص: صيغة الوقت، حدود الدوام الشامل ودوام القسم، الدقائق الأسبوعية مقابل الساعات، النمط المعتمد، شعبة من المقرر نفسه، سلّم البدايات، اللائحة، تعارض الأستاذ، التنقل، تقاطع الزمرة (إرشاد فقط)، الحمل، القاعة.", "en": "Checks in order: clock format, campus and department day bounds, weekly minutes against course hours, approved pattern, same-course section clash, start ladder, regulation, instructor clash, travel, cohort overlap (advice only), load, and hall availability." },
+        { "ar": "أي سببٍ مانع ← «لا يجوز»؛ أسبابٌ غير مانعة غير الزمرة والتنقل ← «يحتاج استثناءً» بسببٍ يكتبه الأستاذ؛ وإلا «الوقت متاح».", "en": "Any blocking reason → not allowed; non-blocking reasons other than cohort and travel → needs an exception with a written excuse; otherwise clear." },
+        { "ar": "عند المنع: تُجرَّب كل بداية في سلّم القسم ∪ سلّم اللائحة، ويُعاد الحكم على الحزمة المنقولة، وتُعاد أقرب ثلاث بدايات صالحة للإرسال.", "en": "When blocked, each start on the department ladder ∪ the regulation ladder is tried, the moved bundle is re-judged, and the three nearest sendable starts are returned." }
+      ],
+      "inputs": { "ar": "بند الطلب (الإجراء والأيام والبداية)، وجدول الفصل الحي، ومقررات القسم وساعاتها، وسلّم البدايات، ونافذة الطلبات، ونصاب الأستاذ، وأزواج الزمرة.", "en": "The request item (action, days, start), the live term timetable, the department's courses and hours, the start ladder, the request window, the instructor's load allowance, and cohort pairs." },
+      "output": { "ar": "حكمٌ من ثلاثة (يمضي، استثناء، لا يجوز) بأسبابه ومصدر كل سبب، ونهاية محسوبة، وحتى ثلاثة أوقاتٍ بديلة.", "en": "One of three verdicts (clear, exception, not allowed) with reasons and their source, a computed end time, and up to three alternative times." },
+      "guarantee": { "ar": "لا يكتب شيئاً؛ والصف الذي وضعه القسم ولم يمسه الأستاذ لا يُمنع؛ وأي قاعة بعينها لا تُكشف للأستاذ؛ والحكم يُعاد عند كل قراءة وإرسال.", "en": "Writes nothing; a row the department placed and the member did not touch is never blocked; no specific hall is revealed to the instructor; the verdict is recomputed at every read and submit." },
+      "numbers": [
+        { "ar": "50 دقيقة (أحد، ثلاثاء، خميس) و80 دقيقة (اثنين، أربعاء)", "en": "50 minutes (Sunday, Tuesday, Thursday) and 80 minutes (Monday, Wednesday)" },
+        { "ar": "الدوام الشامل الافتراضي 08:00–20:00 (قابل للضبط)", "en": "Default campus day 08:00–20:00 (configurable)" },
+        { "ar": "حتى 3 أوقات بديلة", "en": "Up to 3 alternative times" }
+      ],
+      "evidence": {
+        "code": ["src/utils/instructorRequestVerdict.ts#judgeRequest", "src/utils/requestMeetingLength.ts#meetingMinutes", "src/utils/requestMeetingLength.ts#meetingSlots", "src/server/requestDayAutofillScript.ts#REQUEST_DAY_AUTOFILL_SCRIPT"],
+        "tests": ["tests/instructor-request-availability-audit.ts", "tests/request-day-autofill-audit.ts", "tests/teacher-card-hours-patterns-audit.ts"]
+      },
+      "requirements": ["FR-REQ-014", "FR-REQ-015"]
+    },
+    {
+      "id": "ALG-INT-01",
+      "module": "INT",
+      "icon": "trending-up",
+      "kind": "statistical",
+      "name": { "ar": "توقّع طلب الفصل القادم ودرجة الثقة", "en": "Next-term demand forecast with confidence" },
+      "question": {
+        "ar": "كم شعبةً سيحتاج كل مقرر في الفصل القادم، وبأي ثقة، وهل تكفي الثقة لإجراءٍ بضغطة؟",
+        "en": "How many sections will each course need next term, with what confidence, and is the confidence enough for a one-click action?"
+      },
+      "method": [
+        { "ar": "قيمة الطلب لكل فصلٍ مضى = الشعب المميّزة + ⌈(الذين لم يسجلوا − المقاعد الشاغرة) ÷ السعة⌉.", "en": "Demand value of each past term = distinct sections + ⌈(not registered − vacant seats) ÷ capacity⌉." },
+        { "ar": "تُستعمل فصول الموسم نفسه إن وُجد منها فصلان فأكثر، وإلا التاريخ كله؛ وتبدأ السلسلة من أول ظهورٍ للمقرر.", "en": "Same-season terms are used when there are at least two, otherwise all history; the series starts at the course's first appearance." },
+        { "ar": "متوسطٌ مرجَّح بالحداثة (الأحدث 1 ثم ×0.6 لكل فصلٍ أقدم) مع ميلٍ خطي مخمَّد (من 4 نقاط فأكثر، ×0.5، محصور ±1)؛ والمدى ± ⌈الانحراف المعياري المرجَّح⌉ (±1 دون 3 فصول).", "en": "Recency-weighted mean (newest weight 1, ×0.6 per older term) plus a damped linear slope (only from 4+ points, ×0.5, clamped to ±1); range ± ⌈weighted standard deviation⌉ (±1 with fewer than 3 terms)." },
+        { "ar": "يُمزج برغبات الرادار الحيّة ⌈الراغبون ÷ السعة⌉: وزنها 0.5 مع 3 فصول فأكثر، وإلا 0.6.", "en": "It is blended with live radar wishes ⌈wanted ÷ capacity⌉: weight 0.5 with 3+ terms, otherwise 0.6." },
+        { "ar": "الثقة = متوسطٌ مرجَّح للتغطية (45، الفصول ÷ 4) والثبات (25، 1 − معامل التغير) والاتفاق (20) والجودة (10)؛ ×0.75 بلا فصلٍ من الموسم نفسه؛ سقف 0.34 مع فصلٍ واحد أو أقل؛ وتنقص حتى النصف بخطأ الاختبار الرجعي (التنبؤ بكل فصلٍ مضى مما قبله فقط).", "en": "Confidence = weighted mean of coverage (45, terms ÷ 4), stability (25, 1 − coefficient of variation), agreement (20) and input quality (10); ×0.75 with no same-season term; capped at 0.34 with one term or fewer; reduced by up to half by the back-test error (predicting each past term from earlier terms only)." },
+        { "ar": "الإجراء بضغطة «افتح شعباً» لا يُفعَّل إلا من ثقةٍ متوسطة فأعلى؛ والزيادة بشعبتين فأكثر للمراجعة فقط. وتُضاف بالقاعدة نفسها اختناقات المسبقات والساعات المزدحمة (خانات 60 دقيقة) وتأخر التخرج (حتى 12 فصلاً بحمل 15 وحدة).", "en": "The one-click «open sections» action is enabled only at medium confidence or above; a surplus of two or more is review only. Prerequisite bottlenecks, crowded hours (60-minute slots) and graduation delay (up to 12 future terms at 15 units) are produced alongside with the same confidence rule." }
+      ],
+      "inputs": { "ar": "شعب الفصول السابقة، وإحصاء التسجيل لآخر 6 فصول، ورغبات الرادار الحيّة، وملفات الطلبة وقواعد الصحائف المعتمدة — ضمن نطاق القارئ.", "en": "Past terms' sections, registration statistics for the last 6 terms, live radar wishes, student profiles and approved plan rules — within the reader's scope." },
+      "output": { "ar": "لكل مقرر: قيمة متوقعة ومدى، والمخطط والفرق، والاتجاه، وسطر سبب، والثقة بمستواها وعدد الفصول، وإجراءٌ مفعّل أو معطّل بسببه.", "en": "Per course: expected value and range, planned count and difference, trend, a reason line, confidence with level and terms used, and an action enabled or disabled with its reason." },
+      "guarantee": { "ar": "حتمي بلا عشوائية ولا ساعة، وقراءة فقط، وأعدادٌ لا أسماء؛ ولا رقم بلا فصولٍ سابقة («لا يكفي التاريخ»).", "en": "Deterministic with no randomness or clock, read-only, counts not names; no figure without earlier terms («not enough history»)." },
+      "numbers": [
+        { "ar": "الثقة العالية ≥ 0.70، والمتوسطة ≥ 0.45، وسقف التاريخ الرقيق 0.34", "en": "High confidence ≥ 0.70, medium ≥ 0.45, thin-history cap 0.34" },
+        { "ar": "معامل الحداثة 0.6، وتغطية كاملة بأربعة فصول", "en": "Recency decay 0.6; full coverage at four terms" },
+        { "ar": "خصم الاختبار الرجعي حتى 50٪، ويُذكر الخطأ فوق 25٪", "en": "Back-test penalty up to 50%; errors above 25% are stated" }
+      ],
+      "evidence": {
+        "code": ["src/utils/predictiveIntelligence.ts#predictDemand", "src/utils/predictiveIntelligence.ts#confidenceFrom", "src/utils/predictiveIntelligence.ts#backtestDemand", "src/server/predictiveInsight.ts#predictiveReadingFor"],
+        "tests": ["tests/predictive-backtest-audit.ts", "tests/predictive-intelligence-audit.ts"]
+      },
+      "requirements": ["FR-INT-018", "FR-INT-019"]
+    },
+    {
+      "id": "ALG-INT-02",
+      "module": "INT",
+      "icon": "flask-conical",
+      "kind": "search",
+      "name": { "ar": "مختبر القرار الأكاديمي", "en": "Academic decision lab" },
+      "question": {
+        "ar": "أي نقلٍ لوقت شعبةٍ قائمة يجعل عدداً أكبر من الطلبة قادرين على ترتيب حزمة رغباتهم كاملة؟",
+        "en": "Which time shift of an existing section lets more students arrange their entire wished bundle?"
+      },
+      "method": [
+        { "ar": "المؤهلون: ملفات الكلية والقسم التي لها رغبات للفصل، على صحيفةٍ معتمدة، ولها مقرران مرغوبان مطروحان مؤهلان على الأقل؛ ولا يجري التحليل إلا بين 3 و800 شخص.", "en": "Eligible people: profiles of the college and department with wishes for the term, on an approved sheet, with at least two offered eligible wished courses; the analysis runs only for 3 to 800 people." },
+        { "ar": "الإمكان = هل تُرتَّب حزمة الرغبات كلها: تراجعٌ على الشعب (الأقل خيارات أولاً) مع قيود الصباح والمساء واليوم الحر؛ ويُعدّ غير ممكن إذا تجاوز 20,000 خطوة.", "en": "Feasibility = can the whole wished bundle be arranged: backtracking over sections (fewest options first) with no-morning, no-afternoon and free-day constraints; counted infeasible beyond 20,000 steps." },
+        { "ar": "يُختار أكثر 12 مقرراً طلباً (3 إلى 250 مهتماً)، وحتى 3 شعب لكلٍّ، وتُجرَّب 7 بدايات معيارية (08:00 إلى 17:00) بإزاحة ≤ 300 دقيقة داخل الدوام؛ ويُسقط ما يصطدم بأستاذ أو قاعة.", "en": "The 12 most-wanted courses (3 to 250 interested) are taken, up to 3 sections each, and 7 standard starts (08:00 to 17:00) are tried with a shift of at most 300 minutes inside the day window; shifts colliding with an instructor or room are dropped." },
+        { "ar": "المكسب = الممكن بعد − قبل؛ ولا يُعرض مكسبٌ دون 3، ولا مقارنةٌ عدد «قبل» فيها 1 أو 2 (حد الخصوصية).", "en": "Gain = feasible after − before; a gain below 3 is never shown, nor a comparison whose «before» count is 1 or 2 (privacy floor)." },
+        { "ar": "الدرجة = 10 × المكسب + 3 × أزواج التداخل التي زالت + min(4، المقررات اللاحقة) − ساعات الإزاحة − 3 إن لم تُتحقق الموارد؛ ويبقى الأفضل لكل شعبة، وأعلى 8، مع سلسلةٍ مجمّعة.", "en": "Score = 10 × gain + 3 × removed overlap pairs + min(4, downstream courses) − shift hours − 3 when resources are unverified; the best per section is kept, top 8, plus a combined chain." }
+      ],
+      "inputs": { "ar": "صفوف الفصل في الكلية، وملفات الطلبة ورغباتهم وقيودهم، والصحائف المعتمدة، وأزواج المقررات المشتركة الطلبة.", "en": "The college's term rows, student profiles with wishes and constraints, approved sheets, and course pairs that share students." },
+      "output": { "ar": "حتى 8 سيناريوهات بالقبل والبعد والمكسب والأسباب والتحفظات، وتشخيصٌ يشرح كل مرحلة حين تخلو النتيجة.", "en": "Up to 8 scenarios with before, after, gain, reasons and cautions, and diagnostics that explain each stage when the result is empty." },
+      "guarantee": { "ar": "لا يكتب صفاً؛ ودرجةٌ شفافة لا تدّعي الحل الأمثل؛ والمقاعد وموافقة الأستاذ لا تُحسم هنا.", "en": "Writes no row; a transparent score that claims no global optimum; seats and instructor consent are not decided here." },
+      "numbers": [
+        { "ar": "حد الخصوصية 3 طلبة", "en": "Privacy floor: 3 students" },
+        { "ar": "7 بدايات معيارية: 08:00، 09:30، 11:00، 12:30، 14:00، 15:30، 17:00", "en": "7 standard starts: 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00" },
+        { "ar": "حد التراجع 20,000 خطوة لكل شخص", "en": "Backtracking cap: 20,000 steps per person" }
+      ],
+      "evidence": {
+        "code": ["src/utils/academicDecisionLab.ts#buildAcademicDecisionLab", "src/utils/academicDecisionLab.ts#feasibleAcademicBundle"],
+        "tests": ["tests/academic-advice-audit.ts"]
+      },
+      "requirements": ["FR-INT-013"]
+    },
+    {
+      "id": "ALG-INT-03",
+      "module": "INT",
+      "icon": "message-square-text",
+      "kind": "assisted",
+      "name": { "ar": "طبقة الاستعلام باللغة الطبيعية", "en": "Natural-language query layer" },
+      "question": {
+        "ar": "ماذا يريد المستخدم بجملته في مركز التحليلات، وأي فحصٍ حتميّ يُشغَّل للإجابة؟",
+        "en": "What does the user's sentence in the Analytics Center ask for, and which deterministic check should answer it?"
+      },
+      "method": [
+        { "ar": "تُرسل الجملة إلى خدمة Gemini مع معرّفات النطاق وأسماء خمس دوال قراءة فقط (check_conflicts، find_rooms، check_instructors، check_regulations، simulate_schedule) في وضع استدعاء مقيَّد بها.", "en": "The sentence is sent to the Gemini service with the scope identifiers and five read-only function names (check_conflicts, find_rooms, check_instructors, check_regulations, simulate_schedule) in a calling mode restricted to them." },
+        { "ar": "التعقيم قبل أي تنفيذ: حتى 8 استدعاءات؛ يُسقط الاسم غير المسموح أو الحامل لكلمة كتابة (احفظ، احذف، انشر، طبّق…)؛ حتى 24 وسيطاً، والنص يُقص عند 240 حرفاً، ومفاتيح «commit/confirmed» تُحذف.", "en": "Sanitising before any execution: at most 8 calls; a name that is not allowed or contains a write word (save, delete, publish, apply…) is dropped; at most 24 arguments, strings cut at 240 characters, and commit/confirmed keys removed." },
+        { "ar": "يُنفّذ الخادم كل استدعاءٍ مقبول بمنطقه الحتمي على جدول القسم والفصل المسموحين، ولا تُؤخذ أي نتيجة من الخدمة.", "en": "The server executes each accepted call with its own deterministic logic over the permitted department and term timetable; no result is taken from the service." },
+        { "ar": "بلا مفتاح أو مع رفضٍ أو مهلةٍ منتهية أو ناتجٍ غير صالح: يستخرج محلّلٌ قاعدي النية ورقم المقرر واليوم والوقت وينتج الاستدعاءات نفسها، ويُذكر المصدر في الرد.", "en": "With no key, a refusal, a timeout or invalid output, a rule parser extracts the intent, course number, day and time and produces the same kinds of calls; the response states the source." },
+        { "ar": "طلب النقل يعيد معاينةً قبل وبعد (التعارضات واللائحة والجودة) ويشترط تأكيداً صريحاً منفصلاً عبر مسار النقل المعتاد.", "en": "A move request returns a before/after preview (conflicts, regulations, quality) and requires a separate explicit confirmation through the usual move path." }
+      ],
+      "inputs": { "ar": "جملة المستخدم، ونطاقه (الكلية والقسم والفصل)، ومفتاح الخدمة إن وُجد.", "en": "The user's sentence, the user's scope (college, department, term), and the service key when configured." },
+      "output": { "ar": "قائمة استدعاءاتٍ معقّمة مع مصدرها (الخدمة أو المحلل القاعدي)، ونتائج الفحوص الحتمية، ومعاينة نقلٍ بلا كتابة.", "en": "A sanitised list of calls with their source (service or rule parser), the deterministic check results, and a move preview with no write." },
+      "guarantee": { "ar": "الخدمة تحدد النية فقط: لا تقرر ولا تكتب ولا تؤكد؛ والكتابة لا تتم إلا بتأكيد إنسان في خطوةٍ ثانية.", "en": "The service only identifies intent: it never decides, writes or confirms; any write happens only after a person confirms in a second step." },
+      "numbers": [
+        { "ar": "مهلة استدعاء الدوال 45 ثانية، ودرجة الحرارة 0.1", "en": "Function-call budget 45 seconds; temperature 0.1" },
+        { "ar": "حتى 8 استدعاءات و24 وسيطاً و240 حرفاً للنص", "en": "Up to 8 calls, 24 arguments, 240 characters per string" }
+      ],
+      "evidence": {
+        "code": ["src/utils/geminiScheduleLayer.ts#sanitizeGeminiScheduleCalls", "src/utils/geminiScheduleLayer.ts#deterministicSchedulingCalls", "src/server/core/gemini.ts#requestGeminiScheduleLayer", "src/utils/naturalQuery.ts#parseNaturalQuery"],
+        "tests": ["tests/gemini-schedule-layer.ts"]
+      },
+      "requirements": ["FR-INT-009", "FR-INT-010", "FR-INT-011", "FR-INT-012", "IR-INT-002"]
+    },
+    {
+      "id": "ALG-INT-04",
+      "module": "INT",
+      "icon": "languages",
+      "kind": "deterministic",
+      "name": { "ar": "فهم سؤال المرشد بالمعجم والأوزان", "en": "Guide question understanding by lexicon and weights" },
+      "question": {
+        "ar": "أي ميزةٍ في النظام يسأل عنها المستخدم بالفصحى أو الكويتية أو الإنجليزية، وهل الفهم واثقٌ بما يكفي للإجابة؟",
+        "en": "Which system feature is the user asking about in standard Arabic, Kuwaiti dialect or English, and is the match confident enough to answer?"
+      },
+      "method": [
+        { "ar": "يُطبَّع النص وتُستبدل العبارات اللهجية، وتُرد الكلمات الكويتية والإنجليزية والفصحى إلى مفهومٍ واحد عبر المعجم الداخلي، ويُجذَّر الباقي؛ وتُحذف كلمات التوقف والكلمة المنفية («مو»، «not»).", "en": "Text is normalised, dialect phrases replaced, Kuwaiti, English and standard words mapped to one concept through the internal lexicon, the rest stemmed; stop-words and negated words («مو», «not») are dropped." },
+        { "ar": "يُقسم السؤال المركّب إلى ثلاثة أجزاء على الأكثر عند الترقيم وأدوات الربط.", "en": "A compound question is split into at most three parts at punctuation and connectors." },
+        { "ar": "الكلمة خارج المفردات (5 أحرف فأكثر) تُصحَّح إلى أقرب كلمة بمسافة تحرير 1 (و2 لثمانية أحرف فأكثر)، ووزنها ×0.85.", "en": "An out-of-vocabulary word of 5+ letters is corrected to the nearest vocabulary word within edit distance 1 (2 for 8+ letters), weighted ×0.85." },
+        { "ar": "وزن الكلمة = 1 + ln((N+1) ÷ عدد الميزات التي تذكرها) على بنك المعرفة، فالنادرة أثقل.", "en": "Term weight = 1 + ln((N+1) ÷ number of features mentioning it) over the knowledge bank, so rare words weigh more." },
+        { "ar": "درجة الميزة المسموحة = 0.62 × أفضل تطابق عبارة (Dice) + 0.30 × التغطية + 0.12 × تطابق العنوان، مع ترجيحٍ صغير للشاشة الحالية (+0.025) والمقترح (+0.05) والأخير (+0.012).", "en": "Score of each permitted feature = 0.62 × best phrase overlap (Dice) + 0.30 × coverage + 0.12 × title hits, with small boosts for the current screen (+0.025), suggested (+0.05) and recent (+0.012)." },
+        { "ar": "يُجاب إن بلغت الدرجة 0.34؛ ويُضاف «هل تقصد؟» دون 0.55 أو مع كلمات مجهولة أو منافسٍ ضمن 90٪؛ وإلا «غير متأكد» مع حتى ثلاثة أقرب.", "en": "An answer is given at a score of 0.34 or more; «did you mean?» alternatives are added below 0.55, with unknown words, or when a rival is within 90%; otherwise «unsure» with up to three closest." }
+      ],
+      "inputs": { "ar": "نص السؤال، وبنك المعرفة، والميزات التي يصل إليها دور المستخدم، والشاشة الحالية.", "en": "The question text, the knowledge bank, the features the user's role can reach, and the current screen." },
+      "output": { "ar": "لكل جزء: جواب بميزةٍ وثقتها وبدائلها، أو سؤالٌ حيّ، أو «غير متأكد» مع أقرب الميزات.", "en": "Per part: an answer with a feature, its confidence and alternatives, a live question, or «unsure» with the closest features." },
+      "guarantee": { "ar": "يعمل كله في المتصفح بلا طلب شبكي؛ ولا يُرتَّب إلا ما يصل إليه الدور؛ ولا يُعرض شيءٌ من المعجم، وتُطمس الكلمات المجهولة في السجل المجهول.", "en": "Runs entirely in the browser with no network request; only features the role can reach are ranked; nothing of the lexicon is shown, and unknown words are masked in the anonymous log." },
+      "numbers": [
+        { "ar": "عتبة الإجابة 0.34، وعتبة الفهم الضعيف 0.55", "en": "Answer threshold 0.34; weak-understanding threshold 0.55" },
+        { "ar": "مسافة التحرير 1 (5–7 أحرف) و2 (8 أحرف فأكثر)", "en": "Edit distance 1 (5–7 letters) and 2 (8+ letters)" }
+      ],
+      "evidence": {
+        "code": ["src/guide/brain/engine.ts#understand", "src/guide/brain/engine.ts#rank", "src/guide/brain/engine.ts#maskUnknownWords", "src/guide/brain/normalize.ts", "src/guide/brain/lexicon.ts"],
+        "tests": ["tests/guide-brain-audit.ts"]
+      },
+      "requirements": ["FR-INT-024", "FR-INT-025", "FR-INT-028"]
+    },
+    {
+      "id": "ALG-IMP-01",
+      "module": "IMP",
+      "icon": "file-check",
+      "kind": "deterministic",
+      "name": { "ar": "إثبات الترويسة وقسم الملف وهوية المقرر والشعبة", "en": "Header proof, file department, course and section identity" },
+      "question": {
+        "ar": "لأي فصلٍ وفرعٍ وقسمٍ هذا الملف، وبأي مقررٍ في الكتالوج يرتبط كل صف، وما رقم شعبته؟",
+        "en": "Which term, branch and department does this file belong to, which catalogue course does each row bind to, and what is its section number?"
+      },
+      "method": [
+        { "ar": "يُثبَت الفصل والكلية/الفرع والقسم من ترويسة الصفحة الأولى قبل أي صف؛ والحقل الناقص يُعاد قراءته بدقةٍ عالية لشريط الترويسة فيملأ الناقص وحده؛ وأي حقلٍ غير مثبت يوقف الاستيراد.", "en": "Term, college/branch and department are proven from the page-1 header before any row; a missing field triggers a high-resolution re-read of the header band that fills only missing fields; any unproven field stops the import." },
+        { "ar": "مفتاح القسم = خانتا الكلية + خانتا القسم (01 + 09 ← 0109)، ويجب أن يساوي رمز الترويسة المفتاح المركّب للقسم المختار، وإلا PDF_DEPARTMENT_MISMATCH؛ ولا تقرر أرقام المقررات القسم.", "en": "Department key = 2 college digits + 2 department digits (01 + 09 → 0109), and the header code must equal the selected department's composite key, otherwise PDF_DEPARTMENT_MISMATCH; course numbers never decide the department." },
+        { "ar": "يرتبط الصف المطبوع برقمه وحده: أرقامٌ متساوية، أو المفتاح ذو السبع خانات = مفتاح القسم + خانات المقرر الثلاث (0109105)؛ والمطبوع بست خانات تحت القسم يُكمَّل بصفر؛ ومفتاح قسمٍ آخر لا يرتبط بذيله وحده بل يُعرض للاختيار.", "en": "A printed row binds by its number alone: equal digits, or the seven-digit key = department key + the course's three digits (0109105); a six-digit print under the department is expanded with a zero; another department's key never links by its tail alone and is offered for choice instead." },
+        { "ar": "اسم المقرر من الكتالوج لا من القراءة الضوئية.", "en": "The course name comes from the catalogue, not from optical reading." },
+        { "ar": "رقم الشعبة يُولَّد لكل مقرر 501، 502، … بترتيب ظهور صفوفه؛ والصفان بالرقم المرجعي (CRN) نفسه للمقرر نفسه شعبةٌ واحدة؛ ويُرفض عند الحفظ ما خرج عن 501–999.", "en": "Section numbers are generated per course as 501, 502, … in order of appearance; two rows of the same course with the same reference number (CRN) are one section; save refuses anything outside 501–999." }
+      ],
+      "inputs": { "ar": "نص ترويسة الصفحة الأولى، وصفوف الجدول المقروءة، والكلية والقسم المختاران، وكتالوج مقررات القسم.", "en": "The page-1 header text, the rows read from the table, the selected college and department, and the department's course catalogue." },
+      "output": { "ar": "نطاقٌ مثبت أو رفضٌ برمزٍ وسبب، وصفوفٌ مربوطة بمقرراتها وأرقام شعبٍ مولّدة، وأرقامٌ غير مربوطة تُعرض للاختيار.", "en": "A proven scope or a coded refusal, rows bound to catalogue courses with generated section numbers, and unbound numbers offered for a decision." },
+      "guarantee": { "ar": "لا تُخترع هوية كلية أو قسم أو مقرر؛ والقراءة عالية الدقة لا تنقض حقلاً ثبت قبلها؛ ولا يُستورد صفٌّ من ملف قسمٍ آخر.", "en": "No college, department or course identity is invented; the high-resolution reading never overrides an already proven field; no row is imported from another department's file." },
+      "numbers": [
+        { "ar": "رقم المقرر المعروض دائماً سبع خانات: كلية (2) + قسم (2) + مقرر (3)", "en": "Displayed course number is always seven digits: college (2) + department (2) + course (3)" },
+        { "ar": "مدى رقم الشعبة 501–999", "en": "Section number range 501–999" }
+      ],
+      "evidence": {
+        "code": ["src/server/routes/pdfImportRoutes.ts#registerPdfImportRoutes", "src/utils/authorityAcademicCodes.ts#authorityDepartmentMatches", "src/utils/authorityAcademicCodes.ts#authorityCourseCodeMatches", "src/utils/authorityAcademicCodes.ts#assignAuthoritySections", "src/utils/authorityAcademicCodes.ts#authorityCourseCode"],
+        "tests": ["tests/header-department-rule-audit.ts", "tests/authority-course-prefix-audit.ts", "tests/pdf-import-golden.ts"]
+      },
+      "requirements": ["FR-IMP-003", "FR-IMP-004", "FR-IMP-012", "FR-IMP-020"]
+    },
+    {
+      "id": "ALG-IMP-02",
+      "module": "IMP",
+      "icon": "scan-text",
+      "kind": "deterministic",
+      "name": { "ar": "فحوص وضوح المسح ومعقولية خلاياه", "en": "Scan legibility and cell plausibility checks" },
+      "question": {
+        "ar": "هل يستحق المسح القراءة، وهل الصفحة المقروءة كاملة، وهل كل خليةٍ مقروءة معقولة قبل أن تُعدّ مؤكدة؟",
+        "en": "Is the scan worth reading, is the page reading complete, and is each read cell plausible before it counts as confirmed?"
+      },
+      "method": [
+        { "ar": "قبل القراءة: يُرد الملف إن كانت نصف صفحاته فأكثر صوراً رمادية باهتة (وسيط الرمادي < 185 و55٪ فأكثر من النقاط رمادية متوسطة بين 110 و179).", "en": "Before reading: the file is refused when at least half its pages are pale grey photos (median grey < 185 and 55% or more of pixels mid-grey between 110 and 179)." },
+        { "ar": "بعد القراءة: يُرد إن قلّت الحروف ذات المعنى عن 140 لكل صفحة أو ثقة المحرك عن 42.", "en": "After reading: it is refused when meaningful characters fall below 140 per page or engine confidence below 42." },
+        { "ar": "حكم الصفحة: تُوقف إن زادت الأسطر المفقودة على max(2، ⌈15٪⌉)، أو قلّت الصفوف المقروءة عن 55٪ من حدود الجدول المرئية (3 فأكثر)، أو كان أكثر من نصف الصفوف (وأكثر من صفين) بلا وقتٍ ولا مبنى؛ وما دون ذلك يمر بتنبيه.", "en": "Page verdict: stop when missed printed lines exceed max(2, ⌈15%⌉), when rows read are below 55% of visible table rows (3 or more), or when more than half the rows (and more than two) have neither time nor building; smaller misses pass with a warning." },
+        { "ar": "خلية الوقت تحمل ساعتين بين 07:00 و20:59 بفارق 30 إلى 240 دقيقة؛ وخلية الأيام تسلسلٌ صاعد من 1 إلى 5 بلا تكرار (وتُقبل قراءتها المعكوسة)؛ والأيام × طول المحاضرة = ساعات المقرر × 50 دقيقة بفارق 40 دقيقة أسبوعياً وإلا تُفرَّغ الأيام.", "en": "A time cell must hold two clocks between 07:00 and 20:59, 30 to 240 minutes apart; a days cell must be an ascending 1–5 sequence without repeats (a mirrored reading is accepted); days × lecture length must equal course hours × 50 minutes within 40 minutes a week, otherwise the days are cleared." },
+        { "ar": "الخلية الفارغة لا تُستعاد من التاريخ إلا بحقيقتين مستقلتين فأكثر ودرجة دليل ≥ 9، وحين تتفق كل الصفوف التاريخية المطابقة؛ ولا تُكتب فوق قراءة ضوئية أبداً.", "en": "An empty cell is recovered from history only with two or more independent facts and an evidence score of 9 or more, when all matching historical rows agree; an optical reading is never overwritten." }
+      ],
+      "inputs": { "ar": "نقاط الصفحات الرمادية، والنص المقروء وثقته، وعدد الأسطر المطبوعة والمقروءة، والخلايا الخام، وساعات المقرر، والجدول التاريخي.", "en": "Grey page pixels, the read text and its confidence, printed and read line counts, raw cells, course hours, and the historical timetable." },
+      "output": { "ar": "رفضٌ مبكر بسببه، أو حكم صفحة (موقوفة أو بتنبيه)، وخلايا مفرّغة للمراجعة مع نصها الخام، وخلايا مستعادة موسومة بدليلها.", "en": "An early refusal with its reason, or a page verdict (stopped or warned), cells cleared for review with their raw text, and recovered cells tagged with their evidence." },
+      "guarantee": { "ar": "لا يُسلَّم جدولٌ من خلايا فارغة على أنه قراءة؛ والقيمة المفرّغة تبقى دليلاً يراه المراجع؛ ولا يُختلق موعد من حقيقةٍ ضعيفة واحدة.", "en": "A table of blank cells is never handed over as a reading; a cleared value remains visible evidence for the reviewer; no timetable data is manufactured from one weak fact." },
+      "numbers": [
+        { "ar": "رمادي الخلفية < 185 ونسبة رمادي متوسط ≥ 55٪", "en": "Background grey < 185 and mid-grey share ≥ 55%" },
+        { "ar": "الوضوح: 140 حرفاً لكل صفحة وثقة 42", "en": "Legibility: 140 characters per page and confidence 42" },
+        { "ar": "تسامح الساعات 40 دقيقة أسبوعياً على أساس 50 دقيقة للساعة", "en": "Hours tolerance 40 minutes a week on a 50-minute hour" },
+        { "ar": "الاستعادة: فئتا دليل ودرجة 9 على الأقل", "en": "Recovery: at least two evidence categories and a score of 9" }
+      ],
+      "evidence": {
+        "code": ["src/utils/documentOcr.ts#scanPageTone", "src/utils/documentOcr.ts#greyPhotoVerdict", "src/utils/documentOcr.ts#judgeLegibility", "src/utils/documentOcr.ts#scanPageVerdict", "src/utils/documentOcr.ts#authorityTimeCellLooksPlausible", "src/utils/documentOcr.ts#clearImplausibleScanDays", "src/utils/authorityScanRecovery.ts#recoverAuthorityScanRowsFromHistory", "src/server/routes/pdfImportRoutes.ts#registerPdfImportRoutes"],
+        "tests": ["tests/pdf-import-hardening.ts", "tests/authority-scan-recovery.ts"]
+      },
+      "requirements": ["FR-IMP-008", "FR-IMP-009", "FR-IMP-016"]
+    },
+    {
+      "id": "ALG-IMP-03",
+      "module": "IMP",
+      "icon": "file-diff",
+      "kind": "deterministic",
+      "name": { "ar": "المقارنة مع ملف الهيئة الأصلي", "en": "Comparison with the authority source file" },
+      "question": {
+        "ar": "ما الذي تغيّر فعلاً في الجدول الحي عمّا طُبع في ملف الهيئة: أُضيف، أو حُذف، أو تغيّر، أو بقي كما هو؟",
+        "en": "What has actually changed in the live timetable relative to the authority file: added, deleted, changed or unchanged?"
+      },
+      "method": [
+        { "ar": "تبقى القراءة الأولى خط أساسٍ لا يتغير، وتُولَّد أرقام شعبها، ويُضاف إليها الأستاذ من أول لقطة نشر (لأن الملف كثيراً ما لا يطبعه).", "en": "The first reading stays an unchanging baseline; its section numbers are generated and instructors are overlaid from the first published snapshot (the source often prints none)." },
+        { "ar": "تُطابَق صفوف الأساس بصفوف الجدول الحي على مراحل، ولا يُقبل زوجٌ إلا إذا كان مفتاحه فريداً في الجهتين: الرقم المرجعي (CRN) أولاً، ثم الموضع الأكاديمي كاملاً (المقرر والموقع والمبنى والقاعة والأيام والوقت)، ثم مفاتيح مخففة تُسقط القاعة ثم الوقت ثم اليوم ثم المبنى ثم المبنى والقاعة.", "en": "Baseline rows are matched to live rows in stages, accepting a pair only when its key is unique on both sides: the reference number (CRN) first, then the full academic placement (course, site, building, room, days, time), then relaxed keys dropping room, time, day, building, and building plus room in turn." },
+        { "ar": "تطابق المقرر يشترط تساوي المفتاحين ذوي السبع خانات حين يُعرفان (0109105 ليس 0118105)، ومقرر قسمٍ آخر لا يطابق.", "en": "A course match requires equal seven-digit keys when both are known (0109105 is not 0118105); another department's course never matches." },
+        { "ar": "الأساس غير المطابَق ← محذوف؛ وصف الاستيراد الحي غير المطابَق ← مضاف؛ والمطابَق يُقارن بالمعنى: القاعة الموثّقة نفسها أو الدقيقة نفسها بصيغةٍ أخرى ليست تغييراً.", "en": "Unmatched baseline → deleted; unmatched imported live rows → added; matched rows are compared by meaning: the same verified room or the same minute in another notation is not a change." }
+      ],
+      "inputs": { "ar": "خط الأساس المقروء من الملف، ولقطة النشر الأولى، والجدول الحي للنطاق، ورموز المقررات وأسماء الأساتذة.", "en": "The baseline read from the file, the first published snapshot, the live timetable of the scope, course codes and instructor names." },
+      "output": { "ar": "صفوف التقرير: مضاف، محذوف، متغيّر (بحقوله)، دون تغيير، أو يحتاج مراجعة المصدر.", "en": "Report rows: added, deleted, changed (with fields), unchanged, or needing source review." },
+      "guarantee": { "ar": "فرقٌ صافٍ لا سجل تعديلات؛ لا يُكتب في الأساس ولا في الجدول؛ والزوج الملتبس لا يُخمَّن.", "en": "A net difference, not an edit log; neither the baseline nor the timetable is written; an ambiguous pair is never guessed." },
+      "evidence": {
+        "code": ["src/server/core/authority.ts#buildAuthorityPdfDiff", "src/utils/authorityRowMatching.ts#matchAuthoritySourceRows", "src/utils/authorityNetChange.ts#authorityFieldMatchesOriginal"],
+        "tests": ["tests/authority-net-diff-audit.ts", "tests/authority-identity-reconciliation-audit.ts"]
+      },
+      "requirements": ["FR-IMP-026", "FR-RPT-023"]
+    },
+    {
+      "id": "ALG-IMP-04",
+      "module": "IMP",
+      "icon": "combine",
+      "kind": "assisted",
+      "name": { "ar": "القراءة المعانة بخدمة Gemini مع التحقق المتقاطع", "en": "Gemini-assisted reading with cross-verification" },
+      "question": {
+        "ar": "أيُّ الخلايا الفارغة في صفحةٍ ممسوحة يمكن ملؤها من قراءةٍ ثانية، دون أن تُستبدل قيمةٌ مقروءة؟",
+        "en": "Which empty cells of a scanned page can be filled from a second reading, without replacing any value already read?"
+      },
+      "method": [
+        { "ar": "تُعرض بعد قراءةٍ معتمدة ناجحة فقط، للصفحات التي فيها خلية مقرر أو شعبة أو أيام أو وقت غير مقروءة، ولا تُرسل إلا بضغطةٍ صريحة.", "en": "Offered only after a successful approved reading, only for pages with an unread course, section, days or time cell, and sent only on an explicit click." },
+        { "ar": "يُرسل كتالوجٌ محدود (حتى 260 مقرراً و360 أستاذاً) بعد حذف أي حقل هوية مدنية.", "en": "A bounded catalogue (up to 260 courses and 360 instructors) is sent after removing any civil-identity field." },
+        { "ar": "الصفوف العائدة تُربط بالكتالوج وتمر بالمدققات الحتمية (المقرر، الأستاذ، الموقع، الوقت، التعارض).", "en": "Returned rows are bound to the catalogue and pass the deterministic validators (course, instructor, location, time, conflict)." },
+        { "ar": "التحقق المتقاطع لكل صف: يجب أن تتفق القراءتان على خليتين على الأقل من خلايا الهوية (الشعبة، البداية، النهاية، المبنى، القاعة)؛ وتناقضٌ واحد يُسقط المرشح كله ما لم يتفق الرقم المرجعي والشعبة معاً؛ وتطابق الرقم المرجعي يُحسب مرتين.", "en": "Cross-verification per row: the two readings must agree on at least two identity cells (section, start, end, building, room); one contradiction voids the whole candidate unless reference number and section both agree; a matching reference number counts double." },
+        { "ar": "لا يُقترح إلا ملء الخلايا الفارغة؛ والاختلاف على خليةٍ مقروءة يُبلَّغ (حتى 20) ولا يُطبَّق.", "en": "Only empty cells are proposed for filling; a disagreement on a read cell is reported (up to 20) and never applied." },
+        { "ar": "يرى المراجع كل خليةٍ مقترحة قبل أي تغيير، ولا يُطبَّق إلا ما اعتمده، فتُوسم الخلية «مؤكدة».", "en": "The reviewer sees every proposed cell before anything changes; only the approved fills are applied and marked confirmed." }
+      ],
+      "inputs": { "ar": "صور الصفحات المختارة، والصفوف المقروءة بالمحرك المعتمد، والكتالوج المحدود.", "en": "Images of the selected pages, the rows read by the approved engine, and the bounded catalogue." },
+      "output": { "ar": "قائمة خلايا مقترحة للملء بصفحتها وشعبتها، وقائمة اختلافاتٍ وملاحظات.", "en": "A list of proposed cell fills with page and section, and a list of disagreements and notes." },
+      "guarantee": { "ar": "خدمة Gemini لا تكتب في أي جدول أو مسوّدة؛ والقرار للمدققات الحتمية وتأكيد المراجع الصريح.", "en": "The Gemini service writes to no timetable or draft; the deterministic validators and the reviewer's explicit confirmation decide." },
+      "numbers": [
+        { "ar": "مهلة قراءة المستند 180 ثانية", "en": "Document reading budget 180 seconds" },
+        { "ar": "اتفاقان على الأقل لقبول المرشح", "en": "At least two agreements to accept a candidate" }
+      ],
+      "evidence": {
+        "code": ["src/utils/geminiScheduleLayer.ts", "src/utils/geminiScheduleLayer.ts#bindGeminiRowsToCatalogue", "src/server/core/gemini.ts#requestGeminiScheduleLayer", "src/utils/importPageReview.ts"],
+        "tests": ["tests/gemini-schedule-layer.ts"]
+      },
+      "requirements": ["FR-IMP-027", "FR-IMP-028", "FR-IMP-029", "IR-IMP-030"]
+    },
+    {
+      "id": "ALG-RPT-01",
+      "module": "RPT",
+      "icon": "scale",
+      "kind": "statistical",
+      "name": { "ar": "مؤشر عدالة توزيع الأحمال", "en": "Load fairness index" },
+      "question": {
+        "ar": "هل يتوزع عبء التدريس بعدلٍ بين أساتذة النطاق، ومن يحمل أكثر من المتوسط بوضوح؟",
+        "en": "Is the teaching burden spread fairly among the scope's instructors, and who carries clearly more than average?"
+      },
+      "method": [
+        { "ar": "تُستبعد السجلات التي ليست أشخاصاً («هيئة تدريسية» والصف بلا أستاذ).", "en": "Records that are not persons («faculty» placeholder, rows without an instructor) are excluded." },
+        { "ar": "عبء الأستاذ = 8 × أيام الحضور + 5 × ساعات الفراغ + 2.5 × لقاءات تبدأ قبل 09:00 + 4 × لقاءات تبدأ من 16:00 + 1.2 × ساعات التدريس الأسبوعية.", "en": "Instructor burden = 8 × attendance days + 5 × gap hours + 2.5 × meetings starting before 09:00 + 4 × meetings starting at 16:00 or later + 1.2 × weekly teaching hours." },
+        { "ar": "درجة العدالة = clamp(100 − 72 × معامل اختلاف الأعباء، 0، 100).", "en": "Fairness score = clamp(100 − 72 × coefficient of variation of burdens, 0, 100)." },
+        { "ar": "الوصف: 90 فأكثر عادل جداً، 78 متوازن، 62 يحتاج موازنة، وإلا غير عادل؛ وتنبيهٌ (حتى 5) لمن زاد عبؤه على المتوسط بأكثر من max(8، 28٪ من المتوسط).", "en": "Labels: 90+ very fair, 78+ balanced, 62+ needs balancing, otherwise unfair; a warning (up to 5) for anyone above average by more than max(8, 28% of the average)." },
+        { "ar": "يُعيد توازن الأقسام استعمال المحرك نفسه لكل قسم، مع حصة الصباح (بداية قبل 14:00 لكل يوم لقاء) والتعارضات.", "en": "Department balance reuses the same engine per department, alongside the morning share (start before 14:00, per meeting day) and conflicts." }
+      ],
+      "inputs": { "ar": "مواعيد النطاق وأيامها وأوقاتها، وسجل الأساتذة.", "en": "The scope's appointments with days and times, and the instructor registry." },
+      "output": { "ar": "الدرجة ووصفها، ومتوسط العبء وتشتته، وملفات الأساتذة مرتّبة بفرقها عن المتوسط، والتنبيهات.", "en": "The score and label, average burden and spread, instructor profiles ranked by distance from the average, and warnings." },
+      "guarantee": { "ar": "صيغةٌ واحدة لعدسة العدالة ولتوازن الأقسام؛ والأقسام خارج النطاق لا تدخل الحساب.", "en": "One formula for the fairness lens and for department balance; departments outside the scope do not enter the calculation." },
+      "numbers": [
+        { "ar": "معامل التحويل 72 لمعامل الاختلاف", "en": "Coefficient-of-variation multiplier 72" },
+        { "ar": "حدود الوصف 90 و78 و62", "en": "Label thresholds 90, 78 and 62" },
+        { "ar": "حد الصباح 14:00", "en": "Morning cut-off 14:00" }
+      ],
+      "evidence": {
+        "code": ["src/utils/livingSchedule.ts#buildFairnessEngine", "src/server/routes/reportsRoutes.ts#registerReportsRoutes"],
+        "tests": ["tests/dean-notify-audit.ts"]
+      },
+      "requirements": ["FR-RPT-006", "FR-RPT-008"]
+    },
+    {
+      "id": "ALG-RPT-02",
+      "module": "RPT",
+      "icon": "grid-3x3",
+      "kind": "deterministic",
+      "name": { "ar": "شبكة نسبة الإشغال", "en": "Occupancy rate grid" },
+      "question": {
+        "ar": "كم محاضرةً تقع في كل ساعةٍ من كل يوم، وكم من قاعات النطاق مشغولة؟",
+        "en": "How many lectures fall in each hour of each day, and how many of the scope's halls are occupied?"
+      },
+      "method": [
+        { "ar": "تُؤخذ المحاضرات ذات اليوم والوقت الصالحين؛ ومحور الساعات من بداية الدوام إلى نهايته، ويتسع لأي محاضرةٍ خارجه.", "en": "Lectures with a valid day and time are kept; the hour axis runs from day start to day end, widened for any lecture outside it." },
+        { "ar": "المحاضرة تشغل كل ساعةٍ تتقاطع معها (09:30–10:45 تقع في التاسعة والعاشرة).", "en": "A lecture occupies every hour it intersects (09:30–10:45 falls in both the 9 and 10 o'clock hours)." },
+        { "ar": "الخانة: عدد المحاضرات والقاعات المختلفة؛ والقاعة تُعد مرة في الساعة، والمحاضرة بلا قاعة تُعد محاضرةً ولا تشغل قاعة.", "en": "Cell: number of lectures and distinct halls; a hall counts once per hour, and a lecture without a hall counts as a lecture but occupies none." },
+        { "ar": "نسبة اليوم = ساعات القاعات المشغولة ÷ (قاعات النطاق × ساعات الدوام)، ومثلها للأسبوع.", "en": "Day rate = occupied hall-hours ÷ (halls in scope × hours); the week rate likewise." },
+        { "ar": "درجة اللون = ⌈العدد ÷ أعلى خانة × 5⌉، وصفر للفارغة، وتُذكر الذروة.", "en": "Colour level = ⌈count ÷ grid maximum × 5⌉, zero for an empty cell, and the peak is reported." }
+      ],
+      "inputs": { "ar": "صفوف النطاق (الموقع أو عائلة القسم في كلياتها)، ومفتاح القاعة الذي يميز قاعتين بالرقم نفسه في موقعين.", "en": "Rows of the scope (the site or the department family across its colleges) and a hall key that distinguishes two halls with the same number at two sites." },
+      "output": { "ar": "شبكة يوم × ساعة بالعدد والقاعات والنسبة والدرجة، ونسبة كل يوم والأسبوع، والذروة.", "en": "A day × hour grid with count, halls, rate and level, each day's and the week's rate, and the peak." },
+      "guarantee": { "ar": "دالة نقية؛ لا تُخفى محاضرة قائمة بعد تضييق الدوام.", "en": "Pure function; no existing lecture is hidden after the day window is narrowed." },
+      "numbers": [
+        { "ar": "5 درجات لون وخانة ساعة 60 دقيقة", "en": "5 colour levels and a 60-minute cell" }
+      ],
+      "evidence": {
+        "code": ["src/utils/occupancyHeat.ts#buildOccupancyHeat"],
+        "tests": ["tests/occupancy-heat-audit.ts"]
+      },
+      "requirements": ["FR-RPT-009"]
+    },
+    {
+      "id": "ALG-DSH-01",
+      "module": "DSH",
+      "icon": "siren",
+      "kind": "deterministic",
+      "name": { "ar": "الإنذار المبكر للفصل", "en": "Term early warning" },
+      "question": {
+        "ar": "ما أهم ثلاثة مخاطر في جدول الفصل الآن: نقص شعب، أو أستاذ تجاوز نصابه، أو شعب بلا قاعة؟",
+        "en": "What are the three most important risks in the term timetable right now: missing sections, an instructor over load, or sections without a hall?"
+      },
+      "method": [
+        { "ar": "الطلب = «الذين لم يسجلوا» من الكشف المستورد وحده؛ بلا كشف لا توقّع.", "en": "Demand = «not registered» from the imported report only; with no report there is no forecast." },
+        { "ar": "إن حُفظت المقاعد الشاغرة: المغطّى = min(المتبقي، الشاغر) والنقص = ⌈(المتبقي − الشاغر) ÷ السعة⌉؛ وإلا المطلوب = ⌈المتبقي ÷ السعة⌉ والنقص = المطلوب − الشعب المجدولة.", "en": "When vacant seats are stored: covered = min(remaining, vacant) and shortage = ⌈(remaining − vacant) ÷ capacity⌉; otherwise required = ⌈remaining ÷ capacity⌉ and shortage = required − scheduled sections." },
+        { "ar": "تغطية الطلب ٪ = المقاعد المغطاة ÷ مجموع المتبقي، على المقررات المعروفة السعة؛ والسعة المجهولة تُذكر وحدها ولا تُفترض.", "en": "Demand coverage % = covered seats ÷ total remaining over courses with known capacity; an unknown capacity is reported on its own and never assumed." },
+        { "ar": "تجاوز الأستاذ = ساعاته المعتمدة الأسبوعية فوق نصابه المسجل؛ والشعبة بلا قاعة = صفٌّ واحد على الأقل بلا موقع.", "en": "Instructor overload = weekly credit hours above the recorded load allowance; a section without a hall = at least one row with no location." },
+        { "ar": "الإبراز (حتى 3): الأشد نقصاً، ثم تجاوز الأساتذة، ثم الشعب بلا قاعة، ثم باقي النواقص، ثم السعة المجهولة.", "en": "Highlights (up to 3): the largest shortage, then instructor overload, then sections without a hall, then other shortages, then unknown capacity." }
+      ],
+      "inputs": { "ar": "شعب جدول الفصل، وسعة المقررات، وأنصبة الأساتذة، والمتبقي والشاغر المستوردان.", "en": "The term's sections, course capacities, instructor load allowances, and the imported remaining and vacant figures." },
+      "output": { "ar": "الحالة، ونسبة التغطية والمقاعد، وعدد المقررات الناقصة، وحتى ثلاثة مخاطر بارزة ونبرتها، والباقي في «كل التفاصيل».", "en": "Status, coverage percentage and seats, number of short courses, up to three highlighted risks with tone, and the rest under «all details»." },
+      "guarantee": { "ar": "حساب قواعد ثابتة على بيانات محفوظة؛ ما لا بيانات له يُقال إنه غير معروف ولا يُخمَّن، ولا نسبة بلا مقعد.", "en": "Fixed rules over stored data; anything without data is reported as unknown, never guessed, and no percentage is shown without seats." },
+      "numbers": [
+        { "ar": "حتى 3 مخاطر بارزة", "en": "Up to 3 highlighted risks" }
+      ],
+      "evidence": {
+        "code": ["src/utils/termForecast.ts#computeTermForecast", "src/server/routes/planningRoutes.ts#registerPlanningRoutes"],
+        "tests": ["tests/term-forecast-audit.ts"]
+      },
+      "requirements": ["FR-DSH-008"]
+    },
+    {
+      "id": "ALG-ENG-01",
+      "module": "ENG",
+      "icon": "image",
+      "kind": "deterministic",
+      "name": { "ar": "فحص جودة صورة الإعلان من بكسلاتها", "en": "Ad image quality check from its pixels" },
+      "question": {
+        "ar": "هل الصورة الإعلانية المرفوعة صالحة للعرض: معتمة، غير فارغة، واضحة التباين، وفيها تفاصيل؟",
+        "en": "Is the uploaded ad image fit for display: opaque, not empty, of readable contrast, and with visible detail?"
+      },
+      "method": [
+        { "ar": "تُفك الصورة وتُقرأ نقاطها (RGBA)، وتُرد إن تجاوزت 4,000,000 نقطة.", "en": "The image is decoded into RGBA pixels and refused above 4,000,000 pixels." },
+        { "ar": "الإعتام = نسبة النقاط ذات الشفافية ≥ 250.", "en": "Opacity = share of pixels with alpha ≥ 250." },
+        { "ar": "الفراغ = نسبة أكبر لون بعد تقسيم القنوات إلى 16 مستوى.", "en": "Emptiness = share of the most common colour after quantising each channel to 16 levels." },
+        { "ar": "التباين = (سطوع المئين 95 + 0.05) ÷ (سطوع المئين 5 + 0.05) بالسطوع النسبي WCAG.", "en": "Contrast = (95th-percentile luminance + 0.05) ÷ (5th-percentile luminance + 0.05), using WCAG relative luminance." },
+        { "ar": "التفاصيل = نسبة النقاط التي يزيد فرق سطوعها عن جارها الأفقي أو الرأسي على 32.", "en": "Detail = share of pixels whose brightness differs from the right or lower neighbour by more than 32." }
+      ],
+      "inputs": { "ar": "ملف الصورة المرفوع.", "en": "The uploaded image file." },
+      "output": { "ar": "القياسات الأربعة وأسباب الرفض بالعربية مرتبةً من الأخطر، أو قائمة فارغة إن صلحت.", "en": "The four measurements and Arabic refusal reasons ordered by severity, or an empty list when the image passes." },
+      "guarantee": { "ar": "دالة نقية؛ إن غابت مكتبة فك الصور تُخطّى الفحص ويُقال ذلك ولا يُرفض أحد بسببها؛ وللمسؤول تجاوز التنبيه.", "en": "Pure function; if the decoding library is unavailable the check is skipped and said so, rejecting no one for it; the administrator may override the warning." },
+      "numbers": [
+        { "ar": "الإعتام ≥ 90٪", "en": "Opacity ≥ 90%" },
+        { "ar": "اللون الغالب ≤ 97٪", "en": "Dominant colour ≤ 97%" },
+        { "ar": "التباين ≥ 2", "en": "Contrast ≥ 2" },
+        { "ar": "الحواف ≥ 0.4٪", "en": "Edges ≥ 0.4%" }
+      ],
+      "evidence": {
+        "code": ["src/utils/adQuality.ts#measureQuality", "src/utils/adQuality.ts#qualityProblems", "src/server/adQuality.ts#analyzeCreative"],
+        "tests": ["tests/ads-audit.ts"]
+      },
+      "requirements": ["FR-ENG-014"]
+    },
+    {
+      "id": "ALG-ENG-02",
+      "module": "ENG",
+      "icon": "users",
+      "kind": "statistical",
+      "name": { "ar": "إحصاءات الجمهور المجمّعة المجهولة", "en": "Aggregated anonymous audience statistics" },
+      "question": {
+        "ar": "ما حجم جمهور النظام ونشاطه بأرقامٍ مجمّعة صادقة لا تكشف أحداً؟",
+        "en": "What is the size and activity of the system's audience, in honest aggregate figures that identify no one?"
+      },
+      "method": [
+        { "ar": "الطالب = بصمةٌ فريدة في الاستبيان؛ والزيارة = متصفح واحد مرة في اليوم لكل نوع صفحة؛ ولا يُعد فتح الصفحة.", "en": "A student = a unique survey fingerprint; a visit = one browser once per day per page kind; page opens are not counted." },
+        { "ar": "لكل فصل: الإجابات والطلبة المميزون؛ والقمع: أنشأ ← أكمل الإعداد ← أرسل الرغبات ← عاد بعد 24 ساعة فأكثر؛ والنشطون خلال 7 و30 يوماً.", "en": "Per term: answers and distinct students; funnel: created → setup done → wishes sent → returned after 24 hours or more; active within 7 and 30 days." },
+        { "ar": "الاستمرارية بين فصلين متتاليين لا تُعرض إلا إن كان في الفصل الأول 30 طالباً فأكثر؛ والمقررات المطلوبة لا تظهر إلا بطالبين مختلفين فأكثر، وأعلى 8.", "en": "Continuity between consecutive terms is shown only when the earlier term has 30 or more students; requested courses appear only with two or more distinct students, top 8." },
+        { "ar": "الكليات بلا أسماء: «كلية 1، كلية 2…» بترتيب الحجم.", "en": "Colleges are anonymised as «college 1, college 2…» in order of size." },
+        { "ar": "الأرقام الكبرى = الرصيد الافتتاحي الذي أقرّته الإدارة حتى 2026-10-17 + ما قيس بعده؛ ونسبة فتح الأساتذة = max(90٪، المقيس).", "en": "Headline totals = the administration-approved opening baseline up to 2026-10-17 + what was measured after it; instructor open rate = max(90%, measured)." }
+      ],
+      "inputs": { "ar": "إجابات الاستبيان وملفات الطلبة ببصماتها، وعدادات الزيارات اليومية، وطلبات الأساتذة، والحملات الإعلانية وإحصاءاتها.", "en": "Survey answers and student profiles with fingerprints, daily visit counters, instructor requests, and ad campaigns with their statistics." },
+      "output": { "ar": "لوحة أعداد: الزيارات اليومية لثلاثين يوماً وأوقات الذروة والعائدون والجوال، ونمو الاستبيان، والاستمرارية، والمقررات الأكثر طلباً، وتوزيع الكليات، والأرقام الكبرى.", "en": "A figures board: 30-day daily visits, peak times, returning and mobile shares, survey growth, continuity, most-requested courses, college distribution, and headline totals." },
+      "guarantee": { "ar": "أعداد لا أسماء ولا أرقام مدنية؛ دالة واحدة تغذي اللوحة وملف الشراكة فلا يختلف رقم بين الصفحتين.", "en": "Counts only, no names or civil numbers; one function feeds both the dashboard and the partnership profile, so no figure differs between the two." },
+      "numbers": [
+        { "ar": "حد الخصوصية للمقرر: طالبان", "en": "Per-course privacy floor: 2 students" },
+        { "ar": "حد الاستمرارية: 30 طالباً", "en": "Continuity floor: 30 students" },
+        { "ar": "الرصيد الافتتاحي: نحو 80,000 طالب و5,300,000 زيارة و75,000 فتح بطاقة", "en": "Opening baseline: about 80,000 students, 5,300,000 visits and 75,000 card opens" }
+      ],
+      "evidence": {
+        "code": ["src/utils/audienceStats.ts#buildAudienceStats", "src/utils/audienceStats.ts#headlineTotals", "src/utils/audienceBaseline.ts#AUDIENCE_BASELINE"],
+        "tests": ["tests/ads-audit.ts"]
+      },
+      "requirements": ["FR-ENG-018", "FR-ENG-021", "FR-ENG-024"]
+    },
+    {
+      "id": "ALG-DAT-01",
+      "module": "DAT",
+      "icon": "database-backup",
+      "kind": "deterministic",
+      "name": { "ar": "نقل البيانات القديمة مع تحقق التطابق", "en": "Legacy migration with count parity" },
+      "question": {
+        "ar": "هل نُقلت لقطة النظام القديم كاملةً بمعرّفاتها الأصلية قبل قبول أول دخول؟",
+        "en": "Has the legacy snapshot been moved completely, under its original identifiers, before the first login is accepted?"
+      },
+      "method": [
+        { "ar": "لا يبدأ إلا إذا كانت مجموعة المستخدمين فارغة ولم يُعطَّل الاستيراد التلقائي؛ وعلى الخادم السحابي مع التعطيل وقاعدةٍ فارغة يرفض الخادم البدء ولا يكتب شيئاً.", "en": "It starts only when the users collection is empty and auto-import is not disabled; on the cloud server with auto-import disabled and an empty database, the server refuses to start and writes nothing." },
+        { "ar": "يُكتب كل جدولٍ نشط بمعرّفه الأصلي على دفعاتٍ من 400 سجل.", "en": "Each active table is written under its original identifier in batches of 400 records." },
+        { "ar": "كل جدولٍ غير نشط يُحفظ أرشيفاً صفاً صفاً باسمه الأصلي وعدد صفوفه.", "en": "Every inactive table is archived row by row with its original name and row count." },
+        { "ar": "تُعدّ 11 مجموعة وتُقارن بعدد اللقطة؛ وأي فرقٍ ينهي التشغيل برسالة «فشل التحقق من نقل …» قبل أي دخول.", "en": "Eleven collections are counted and compared with the snapshot; any difference ends startup with «فشل التحقق من نقل …» before any login." }
+      ],
+      "inputs": { "ar": "اللقطة المحلية المستخرجة من النسخة الاحتياطية القديمة، ومتغير الاستيراد التلقائي.", "en": "The local snapshot extracted from the legacy backup, and the auto-import setting." },
+      "output": { "ar": "قاعدة بيانات مطابقة العدد للقطة، وأرشيف تاريخي، أو توقف التشغيل برسالة تحدد المجموعة الناقصة.", "en": "A database whose counts match the snapshot plus a historical archive, or a halted startup naming the short collection." },
+      "guarantee": { "ar": "لا يُقبل دخولٌ على نقلٍ ناقص، ولا يُعاد النقل فوق بياناتٍ قائمة.", "en": "No login is accepted on an incomplete migration, and the migration never runs over existing data." },
+      "numbers": [
+        { "ar": "دفعة الكتابة 400 سجل", "en": "Write batch: 400 records" },
+        { "ar": "11 مجموعة يُتحقق من عددها", "en": "11 collections count-verified" }
+      ],
+      "evidence": {
+        "code": ["src/db/repository.ts#seedFirestoreFromLocalSnapshotIfNeeded", "scripts/import-legacy-json.ts"],
+        "tests": ["tests/parity_audit.py", "tests/legacy-data-audit.py"]
+      },
+      "requirements": ["FR-DAT-021"]
+    }
+  ]
+}
