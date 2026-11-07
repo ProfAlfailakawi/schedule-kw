@@ -168,6 +168,7 @@ import { isTermClosed, previousYearSameTermName, sameTermName, sortTermsNewest, 
 import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
 import SameSlotHint from "./SameSlotHint";
+import { conflictSkipIds } from "../utils/sameSlot";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
 import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { TimeCounterPopover } from "./TimeCounter";
@@ -9800,7 +9801,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <div className="appt-duration-value"><bdi dir="ltr">{studioDuration ? studioDuration : "—"}</bdi>{studioDuration ? <small>د</small> : null}
                   <SameSlotHint rows={rows} courseOf={(id: number) => courseById.get(id)} instructorName={(id: number) => instructorById.get(id)?.AdInstructorName || ""}
                     days={selectedFormDays.map(d => d.key as any)} start={String(form.fstarttime || "")} end={String(form.fendtime || "")}
-                    excludeId={editId} skipIds={conflicts.flatMap((c: any) => [c?.rowId, c?.otherId]).filter(Boolean)}
+                    excludeId={editId} {...conflictSkipIds(conflicts, isBlockingConflict)}
                     courseId={Number(form.AdCourseId) || undefined} sectionId={Number(form.AdSectionId) || filterSection || undefined} termId={Number(form.AdTermId) || filterTerm || undefined}
                     collegeId={Number(form.AdCollegeId) || filterCollege || undefined} scode={String(form.SCode || "")} dayWindow={activeScheduleWindow} />
                   </div>

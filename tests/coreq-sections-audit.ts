@@ -4,7 +4,7 @@
  * ثم ربطُ التنبيه اللين في بوابة «موعد» بلا منع، ونطاقُ القراءة في الخادم.
  */
 import fs from "node:fs";
-import { coreqFindings, coreqForcedClash, coreqFreeTime, partnersOfCourse } from "../src/utils/coreqSections";
+import { coreqFindings, coreqForcedClash, coreqFreeTime, coreqScopeRows, partnersOfCourse } from "../src/utils/coreqSections";
 import { deferCoreqClashes, orderSuggestionCandidates, type SuggestionCandidate } from "../src/utils/suggestionEngine";
 import { isBlockingConflict } from "../src/utils/scheduleIntelligence";
 import { conflictKind } from "../src/utils/appointmentVerdict";
@@ -78,9 +78,62 @@ const note = { type: "coreq", severity: "low", soft: true };
 check(!isBlockingConflict(note) && !isBlockingConflict({ type: "coreq", severity: "low" }) && conflictKind(note) === "section", "تنبيه المقرن لا يمنع ويُصنَّف «الشعبة»");
 const gate = fs.readFileSync("src/server/core/scheduleConflicts.ts", "utf8");
 check(/type: "coreq", severity: "low", soft: true/.test(gate) && gate.includes("if (finding.alternative) continue;") && gate.includes("يتداخل مع مقرنه:"), "البوابة تقول عند انعدام البديل فقط");
-check(gate.includes("Number(item.AdSectionId) === Number(candidate.AdSectionId)"), "تُقرأ مقرنات القسم وشعبه وحدها");
+check(gate.includes("coreqScopeRows(all as any"), "تُقرأ مقرنات القسم وشعبه وحدها");
 const routes = fs.readFileSync("src/server/routes/scheduleToolsRoutes.ts", "utf8");
 check(/coreq-pairs[\s\S]{0,400}isScopeAllowed\(req, collegeId, sectionId\)/.test(routes), "مسار المقرنات يحرس النطاق");
+/* ── ملاحظات المراجعة ── */
+{
+  const day = { start: 480, end: 1200 };
+  const clashing = row(10, B, "1", "st", "10:00", "11:15");
+  /* «01» و«1» شعبةٌ واحدة: صفّاها لا يُقرآن شعبتين فلا تظهر تركيبةٌ وهمية. */
+  let n = coreqFindings(mine("01", "s", "10:00", "11:15"), [row(10, B, "1", "s", "10:30", "11:45"), row(12, B, "01", "t", "13:00", "14:15")], [B]);
+  check(n[0]?.alternative === false, "«01» و«1» من المقرن شعبةٌ واحدة: لا بديل وهمي", n);
+  n = coreqFindings(mine("01", "s", "10:00", "11:15"), [row(10, B, "1", "t", "10:00", "11:15"), row(11, B, "2", "s", "10:30", "11:45"), row(20, A, "1", "t", "10:00", "11:15")], [B]);
+  check(n[0]?.alternative === false, "«1» إخوةُ «01» من مقرره، لا شعبةٌ بديلة", n);
+  const sw = coreqFreeTime(mine("01", "s", "10:00", "11:15"), [clashing, row(11, B, "02", "s", "13:00", "14:15")], B, day);
+  check(sw.partnerSection === "02", "الرقمُ المعروض يبقى كما خُزّن", sw);
+
+  /* لا بديل بصفٍّ بلا وقت أو بلا رقم شعبة. */
+  const noTime = (id: number, course: number, code: string): SlotRow => ({ ...row(id, course, code, "", "", ""), fstarttime: undefined, fendtime: undefined });
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [clashing, noTime(11, B, "2")], [B]);
+  check(n[0]?.alternative === false, "شعبةُ مقرنٍ بلا وقت ليست بديلاً", n);
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [clashing, row(11, B, "2", "", "13:00", "14:15")], [B]);
+  check(n[0]?.alternative === false, "شعبةُ مقرنٍ بوقتٍ بلا يوم ليست بديلاً", n);
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [clashing, row(11, B, "  ", "st", "13:00", "14:15")], [B]);
+  check(n[0]?.alternative === false, "صفُّ مقرنٍ بلا رقم شعبة ليس بديلاً", n);
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [clashing, noTime(20, A, "2")], [B]);
+  check(n[0]?.alternative === false, "شعبةٌ من مقرره بلا وقت ليست بديلاً كذلك", n);
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [row(10, B, "", "st", "10:00", "11:15")], [B]);
+  check(n.length === 1 && n[0].alternative === false, "صفٌّ متداخل بلا رقم شعبة يُقال، ولا بديلَ غيره", n);
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [clashing, row(11, B, "2", "st", "13:00", "14:15"), noTime(12, B, "2")], [B]);
+  check(n[0]?.alternative === true, "شعبةٌ لها وقتٌ حقيقي ومعه صفٌّ بلا وقت: بديلٌ قائم", n);
+  const ft = coreqFreeTime(mine("1", "st", "10:00", "11:15"), [clashing, noTime(11, B, "2")], B, day);
+  check(!ft.partnerSection && !ft.ownSection, "ورقة المقرن لا تسمّي شعبةً بلا وقت", ft);
+
+  /* الحجوز حقيقية: تُعدّ كما يعدّها تعارضُ الشعبتين؛ وصفوفُ التجربة خارج التلميح. */
+  const hold = (id: number, course: number, days: string, start: string, end: string, at: number): SlotRow => row(id, course, `reservation:${at}`, days, start, end);
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [hold(-2_000_000_000, B, "st", "10:30", "11:45", 0)], [B]);
+  check(n.length === 1 && n[0].overlapRowIds[0] === -2_000_000_000, "حجزُ طلبٍ لمقرنه يُعدّ تداخلاً", n);
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [clashing, hold(-1_999_999_990, B, "st", "13:00", "14:15", 1)], [B]);
+  check(n[0]?.alternative === true, "وحجزٌ خالٍ يُعدّ شعبةً قائمة", n);
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [row(-123456, B, "1", "st", "10:30", "11:45")], [B]);
+  check(n.length === 0, "صفُّ التجربة لا يُعدّ تداخلاً", n);
+  n = coreqFindings(mine("1", "st", "10:00", "11:15"), [clashing, row(-123456, B, "2", "st", "13:00", "14:15")], [B]);
+  check(n[0]?.alternative === false, "ولا بديلاً", n);
+
+  /* نطاقٌ واحد للخادم والمتصفح؛ مقرنٌ يدرّسه قسمٌ آخر خارجه. */
+  const scoped = coreqScopeRows([
+    { id: 1, AdSectionId: 7, AdTermId: 1 }, { id: 2, AdSectionId: 8, AdTermId: 1 }, { id: 3, AdSectionId: 7, AdTermId: 2 },
+    { id: 4, AdTermId: 1 }, { id: 5, AdSectionId: 7 },
+  ] as SlotRow[], { sectionId: 7, termId: 1 });
+  check(scoped.map(item => item.id).join() === "1", "نطاقُ المقرن: القسمُ والفصلُ بالضبط، وبلا قسمٍ أو فصلٍ لا يُعدّ", scoped);
+  check(coreqScopeRows([{ id: 1, AdSectionId: 7 }] as SlotRow[], { sectionId: 7 }).length === 1, "بلا فصلٍ في السؤال: القسمُ وحده");
+  check(coreqScopeRows([{ id: 1, AdSectionId: 7 }] as SlotRow[], {}).length === 0, "بلا قسم: لا نطاق");
+  const gate = fs.readFileSync("src/server/core/scheduleConflicts.ts", "utf8"), sheet = fs.readFileSync("src/components/SameSlotHint.tsx", "utf8");
+  check(/coreqScopeRows\(all as any, \{ sectionId: Number\(candidate\.AdSectionId\), termId: Number\(candidate\.AdTermId\) \|\| undefined \}\)/.test(gate) && /coreqScopeRows\(rows, \{ sectionId, termId \}\)/.test(sheet), "ملاحظةُ الخادم وورقةُ المتصفح تقرآن النطاق نفسه");
+  check(/قسمٌ آخر/.test(fs.readFileSync("src/utils/coreqSections.ts", "utf8")), "حدُّ القسم الآخر موثّق");
+}
+
 const pairsSrc = fs.readFileSync("src/server/core/coreqPairs.ts", "utf8");
 check(/status !== "archived"/.test(pairsSrc) && /getRuleSet/.test(pairsSrc) && !/getRuleDraft/.test(pairsSrc), "من الصحيفة المعتمدة لا المسوّدات");
 

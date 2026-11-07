@@ -1,7 +1,8 @@
 /**
  * ما تقوله صحائفُ القسم عن اجتماع مقررين، مقروءاً من قواعدها المعتمدة مرةً واحدة:
- *   • المقرنات (`coreq`): أزواجٌ [أ، ب] بالاتجاهين مرةً واحدة، من الصحيفة الفعّالة أولاً؛ فإن لم توجد فالسابقةُ الجارية.
- *   • مجموعاتُ المستوى ومجموعاتُ «تفتح»: من كل صحيفةٍ جارية على حدة بموانع سلسلتها، فالسابقةُ ما زال طلابها يسجّلون (src/utils/planPeers.ts).
+ *   • المقرنات (`coreq`): أزواجٌ [أ، ب] بالاتجاهين مرةً واحدة، من كل صحيفةٍ جارية بقواعدها.
+ *   • مجموعاتُ المستوى ومجموعاتُ «تفتح»: من كل صحيفةٍ جارية على حدة بموانع سلسلتها (src/utils/planPeers.ts).
+ * والجاريةُ الفعّالةُ والسابقةُ معاً: طلابُ الصحيفة السابقة ما زالوا يسجّلون.
  * المسوّداتُ والمؤرشفة لا تُقرأ. مخبَّأةٌ ثلاثين ثانية: يقرؤها فحصُ «موعد» ومخطّطُ «في الوقت نفسه» دون ثقلٍ على كل ضغطة.
  */
 import { Repository } from "../../db/repository";
@@ -19,11 +20,9 @@ export function forgetCoreqPairs(): void { cache.clear(); }
 async function read(sectionId: number): Promise<SectionPlanFacts> {
   const plans = (await Repository.getCurriculumPlans(sectionId).catch(() => [])).filter(plan => !plan.virtual && plan.status !== "archived");
   const sets = await Promise.all(plans.map(async plan => ({ plan, set: await Repository.getRuleSet(plan.id).catch(() => undefined) })));
-  const hasActive = plans.some(plan => plan.status === "active");
   const seen = new Set<string>();
   const pairs: number[][] = [];
-  for (const { plan, set } of sets) {
-    if (hasActive && plan.status !== "active") continue;
+  for (const { set } of sets) {
     for (const rule of set?.rules || []) {
       for (const twin of rule.coreq || []) {
         const a = Number(rule.courseId), b = Number(twin);

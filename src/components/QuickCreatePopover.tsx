@@ -32,6 +32,7 @@ import { bestRegulationChoice, pickDay, regulationChoiceFor, regulationChoicesFo
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { byCourseNumber } from "../utils/sheetMembership";
 import SameSlotHint from "./SameSlotHint";
+import { conflictSkipIds } from "../utils/sameSlot";
 import type { ScheduleDayWindow } from "../utils/scheduleTime";
 
 /**
@@ -602,7 +603,7 @@ export default function QuickCreatePopover({
               {sameSlot ? (
                 <SameSlotHint rows={sameSlot.rows} courseOf={sameSlot.courseOf} instructorName={sameSlot.instructorName}
                   days={chosenDays} start={draft.start} end={draft.end} courseId={draft.courseId || undefined}
-                  skipIds={liveCheck.conflicts.flatMap((c: any) => [c?.rowId, c?.otherId]).filter(Boolean)} termId={termId || undefined} sectionId={sectionId || undefined} collegeId={collegeId || undefined} scode={draft.scode} dayWindow={sameSlot.dayWindow} />
+                  {...conflictSkipIds(liveCheck.conflicts, isBlockingConflict)} termId={termId || undefined} sectionId={sectionId || undefined} collegeId={collegeId || undefined} scode={draft.scode} dayWindow={sameSlot.dayWindow} />
               ) : null}
             </div>
             {timeOpen ? (

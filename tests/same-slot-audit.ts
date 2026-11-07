@@ -4,8 +4,11 @@
  * الشعبةُ بندٌ واحد؛ السقف والترتيب؛ «تفتح» أولاً؛ وما سمّاه فحصُ التعارض لا يتكرر.
  */
 import fs from "node:fs";
-import { capSameSlot, NEAR_SECTION_MAX_MINUTES, NEAR_SECTION_MIN_MINUTES, nearSectionWindow, SAME_SLOT_VISIBLE_ROWS, sameSlotOf, slotMinutes, type SlotRow } from "../src/utils/sameSlot";
+import { capSameSlot, conflictSkipIds, isPracticeRow, NEAR_SECTION_MAX_MINUTES, NEAR_SECTION_MIN_MINUTES, nearSectionWindow, SAME_SLOT_VISIBLE_ROWS, sameSlotOf, sectionCodeKey, slotMinutes, type SlotRow } from "../src/utils/sameSlot";
 import { sameLevelLookup, unlockLookup } from "../src/utils/planPeers";
+import { sameCourseSectionClash } from "../src/utils/scheduleRegulations";
+import { isBlockingConflict } from "../src/utils/scheduleIntelligence";
+import { reservationRows } from "../src/utils/instructorRequestReservations";
 
 let passed = 0, failed = 0;
 const check = (ok: unknown, label: string, extra?: unknown) => {
@@ -219,6 +222,71 @@ check(hint.includes("key={`${group.key}|${index}`}"), "مفتاحُ مجموعة
 check(!hint.includes("مما يُؤخذ معه") && hint.includes("من أقرانه في الصحيفة"), "الوصف المقروء يصدق على «تفتح» و«تُؤخذ معًا» معاً");
 const app = read("src/App.tsx");
 check(/forgetTrailStamps\(\);\s*forgetWarmStarts\(\);\s*forgetPlanFacts\(\);/.test(app) && !/from "\.\/components\/SameSlotHint"/.test(app), "الخروج يمحو حقائق الصحيفة، بلا سحب الشارة إلى الحزمة الأولى");
+
+/* ── ملاحظات المراجعة ── */
+/* «01» و«1» شعبةٌ واحدة: مفتاحٌ واحد في كل مكان، ولا يُغيّر المخزون ولا المعروض. */
+check(sectionCodeKey("01") === "1" && sectionCodeKey(" 1 ") === "1" && sectionCodeKey("٠١") === "1" && sectionCodeKey("۰۱") === "1", "رقمُ الشعبة: تقليم، أرقامٌ لاتينية، بلا أصفار بادئة", sectionCodeKey("٠١"));
+check(sectionCodeKey("0") === "0" && sectionCodeKey("00") === "0" && sectionCodeKey("") === "" && sectionCodeKey(null) === "", "الصفر يبقى صفراً، والفارغ فارغاً");
+check(sectionCodeKey("01A") === "01A" && sectionCodeKey(" م1 ") === "م1" && sectionCodeKey("reservation:0") === "reservation:0", "الرمزُ غير الرقمي يبقى كما هو");
+{
+  const q = { days: ["fsunday" as const], start: "10:00", end: "11:00", courseId: 2, sectionId: 7, termId: 20261, collegeId: 3, scode: "01" };
+  check(sameSlotOf([row(90, 2, ["s"], "10:00", "11:00", { SCode: "1" })], q).count === 0, "«1» ليست شعبةً أخرى من «01»");
+  check(sameSlotOf([row(90, 2, ["s"], "11:15", "12:15", { SCode: "٠١" })], q).count === 0, "ولا «٠١» قريبةً منها");
+  check(sameSlotOf([row(90, 2, ["s"], "11:15", "12:15", { SCode: "2" })], q).sectionCount === 1, "والشعبةُ الأخرى حقاً تبقى");
+  const twoRows = sameSlotOf([row(91, 3, ["s"], "10:00", "11:00", { SCode: "01" }), row(92, 3, ["t"], "10:00", "11:00", { SCode: "1" })], { ...q, days: ["fsunday", "ftuesday"], courseId: 4, scode: "" });
+  check(twoRows.count === 1 && twoRows.items[0].days.length === 2 && twoRows.items[0].row.SCode === "01", "الصفّان «01» و«1» بندٌ واحد، والرقمُ يبقى كما خُزّن", twoRows.items);
+  const near = sameSlotOf([row(93, 2, ["s"], "11:15", "12:15", { SCode: "02" }), row(94, 2, ["t"], "11:15", "12:15", { SCode: "2" })], { ...q, days: ["fsunday", "ftuesday"] });
+  check(near.count === 1 && near.sectionCount === 1 && near.items[0].kind === "near" && near.items[0].days.length === 2, "الشعبةُ القريبة المدموجة تبقى «near» فيبقى وسمُها", near.items);
+}
+const sheetSource = fs.readFileSync("src/components/SameSlotHint.tsx", "utf8");
+check(sheetSource.includes('near={kind === "near"}') && sheetSource.includes("{near ? <em>قريبة</em> : null}"), "وسمُ «قريبة» مستقلٌّ عن وقت الصف");
+
+/* صفوفُ «وضع تجربة» مؤقتة: خارج التلميح؛ وحجوزُ الطلبات ليست منها. */
+{
+  const q = { days: ["fsunday" as const], start: "10:00", end: "11:00" };
+  check(sameSlotOf([row(-123456, 3, ["s"], "10:00", "11:00")], q).count === 0, "صفُّ التجربة لا يُعدّ في «الوقت نفسه»");
+  check(isPracticeRow({ id: -1 }) && isPracticeRow({ id: -999_999_999 }) && !isPracticeRow({ id: 5 }) && !isPracticeRow({ id: 0 }), "معرّفُ التجربة سالبٌ فوق نطاق الحجوز");
+  const holds = reservationRows([{ requestId: "r", itemId: "i", instructorId: 1, courseId: 2, collegeId: 3, sectionId: 7, slots: [{ day: "fsunday", start: "10:00", end: "11:00" }], offeringRowIds: [] } as any], 20261);
+  check(holds.length === 1 && !isPracticeRow(holds[0]), "صفُّ حجز الطلب ليس صفَّ تجربة", holds);
+  check(fs.readFileSync("src/components/Schedules.tsx", "utf8").includes("-Math.max(1, Date.now() % 1_000_000_000)"), "معرّفُ التجربة في نطاقه المتوقَّع");
+}
+
+/* صفٌّ بلا فصل لا يُعدّ في فصلٍ مسمّى. */
+{
+  const q = { days: ["fsunday" as const], start: "10:00", end: "11:00", termId: 20261 };
+  check(sameSlotOf([row(95, 3, ["s"], "10:00", "11:00", { AdTermId: undefined })], q).count === 0, "صفٌّ بلا فصل لا يُعدّ تطابقاً حين يُسمّى الفصل");
+  check(sameSlotOf([row(95, 3, ["s"], "10:00", "11:00", { AdTermId: undefined })], { ...q, termId: undefined }).count === 1, "وبلا فصلٍ في السؤال يبقى كما كان");
+}
+
+/* ما تسمّيه ملاحظةٌ لينة لا يُسقط «تفتح»، والتعارضُ الصريح يبقى بلا تكرار. */
+{
+  const unlockOf = unlockLookup([{ nextCourseId: 900, nextCourseName: "مشروع", courseIds: [1, 2], blocked: [] }]);
+  const q = { days: ["fsunday" as const], start: "10:00", end: "11:00", courseId: 1, sectionId: 7, termId: 20261, collegeId: 3, unlockOf };
+  const peer = row(96, 2, ["s"], "10:00", "11:00"), plain = row(97, 3, ["s"], "10:00", "11:00");
+  let seen = sameSlotOf([peer, plain], { ...q, softSkipIds: [96, 97] });
+  check(seen.items.map(i => i.row.id).join() === "96" && seen.items[0].unlock, "الملاحظةُ اللينة لا تُخفي قرين «تفتح»، وتُخفي غيرَه كما كانت", seen.items.map(i => i.row.id));
+  seen = sameSlotOf([peer, plain], { ...q, skipIds: [96], softSkipIds: [96] });
+  check(seen.items.map(i => i.row.id).join() === "97", "التعارضُ الصريح يُسقطه ولو سمّته ملاحظةٌ معه", seen.items.map(i => i.row.id));
+  const split = conflictSkipIds([
+    { type: "instructor", severity: "high", rowId: 1, otherId: 2 },
+    { type: "coreq", severity: "low", soft: true, rowId: 3, otherId: 3 },
+    { type: "regulation", severity: "low", otherId: 4 },
+    { type: "rhythm", soft: true, rowId: 0, otherId: 0 },
+  ], isBlockingConflict);
+  check(split.skipIds.join() === "1,2" && split.softSkipIds.join() === "3,3,4", "فصلُ معرّفات التعارض: الصريح وحده يُسقط", split);
+  for (const file of ["src/components/Schedules.tsx", "src/components/QuickCreatePopover.tsx"]) check(/\{\.\.\.conflictSkipIds\(/.test(fs.readFileSync(file, "utf8")), `${file}: يمرّر الفصل لا القائمة المدموجة`);
+  check(/softSkipIds: \[\.\.\.\(query\.softSkipIds \|\| \[\]\), \.\.\.twinIds\]/.test(sheetSource), "ما ترويه بطاقةُ المقرن ملاحظةٌ لينة كذلك");
+}
+
+/* تعارض الشعبتين (م.7/5) يقرأ رقم الشعبة بالمفتاح نفسه. */
+{
+  const own = { id: 1, AdCourseId: 2, AdSectionId: 7, AdCollegeId: 3, SCode: "01", fstarttime: "10:00", fendtime: "11:00", fsunday: true } as any;
+  const course = { AdSectionId: 7 };
+  check(!sameCourseSectionClash(own, [{ ...own, id: 2, SCode: "1" }], course), "«1» ليست شعبةً أخرى من «01» في تعارض الشعبتين");
+  check(!sameCourseSectionClash(own, [{ ...own, id: 2, SCode: "٠١" }], course), "ولا «٠١»");
+  check(Boolean(sameCourseSectionClash(own, [{ ...own, id: 2, SCode: "2" }], course)), "والشعبةُ الأخرى حقاً تُقال");
+  check(Boolean(sameCourseSectionClash(own, [{ ...own, id: -2_000_000_000, SCode: "reservation:0" }], course)), "وحجزُ طلبٍ يُعدّ شعبةً أخرى");
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
