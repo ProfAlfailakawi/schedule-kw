@@ -5,6 +5,8 @@
  * نصُّ كل جملةٍ وترتيبُها كما كانا، إلا `export` على ما تستعمله وحداتٌ أخرى،
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  */
+import { coreqFindings, partnersOfCourse } from "../../utils/coreqSections";
+import { coreqPairsOfSection } from "./coreqPairs";
 import { reservationRows } from "../../utils/instructorRequestReservations";
 import { Repository } from "../../db/repository";
 import { findConflicts, timeToMinutes } from "../../utils/scheduleIntelligence";
@@ -303,7 +305,24 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
   const sectionClash = clashCourse ? sameCourseSectionClash(candidate, all, clashCourse) : undefined;
   const sectionClashNote = sectionClash ? [{ type: "regulation", severity: "low", soft: true, otherId: sectionClash.id,
     message: `شعبة ${sectionClash.SCode || "أخرى"} من المقرر نفسه في الوقت نفسه`, detail: "م.7/5: يُفضَّل توزيع شعب المقرر على أوقات مختلفة." }] : [];
-  return [...withHolds, ...barterNotes, ...roomNotes, ...softTravel, ...rhythmNote, ...memoryNotes, ...sectionClashNote];
+  /* المقرن (التوأم): يتداخل الموعدُ مع مقرنه ولا تركيبةَ شعبٍ خاليةً بينهما → ملاحظةٌ لينة تُقال ولا تمنع.
+     إن وُجدت شعبةٌ بديلة سكتنا (src/utils/coreqSections.ts). */
+  const coreqNotes: any[] = [];
+  try {
+    const partners = partnersOfCourse(await coreqPairsOfSection(Number(candidate.AdSectionId || 0)), Number(candidate.AdCourseId || 0));
+    if (partners.length) {
+      const sameDepartment = all.filter(item => Number(item.AdSectionId) === Number(candidate.AdSectionId) && Number(item.AdTermId) === Number(candidate.AdTermId || item.AdTermId));
+      for (const finding of coreqFindings(candidateCanonical as any, sameDepartment as any, partners, excludeId)) {
+        if (finding.alternative) continue;
+        const partner = await Repository.getCourseById(finding.partnerCourseId);
+        coreqNotes.push({ type: "coreq", severity: "low", soft: true, rowId: Number(finding.overlapRowIds[0]) || 0, otherId: Number(finding.overlapRowIds[0]) || 0,
+          partnerCourseId: finding.partnerCourseId,
+          message: `يتداخل مع مقرنه: ${partner?.CourseName || "مقرر"}`,
+          detail: "المقرنان يُسجَّلان معاً ولا توجد شعبة بديلة بلا تداخل." });
+      }
+    }
+  } catch { /* تنبيهٌ لين: غيابُه لا يكسر الفحص */ }
+  return [...withHolds, ...barterNotes, ...roomNotes, ...softTravel, ...rhythmNote, ...memoryNotes, ...sectionClashNote, ...coreqNotes];
 }
 
 /**
