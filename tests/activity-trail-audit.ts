@@ -324,7 +324,7 @@ try {
   /* T9: العضو */
   await as("admin");
   const seatDetail = await json("/api/seats/16");
-  const holderPick = seatDetail.body?.holderCandidates?.[0];
+  const holderPick = seatDetail.body?.candidates?.[0];
   await json("/api/seats/16/holder", { method: "POST", body: JSON.stringify({ instructorId: holderPick?.id }) });
   await as("committeeChair");
   const mine = await json("/api/seats/mine");

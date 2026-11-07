@@ -3,7 +3,7 @@
  *
  *   مدير النظام:  GET /api/seats · POST /api/seats/:id/holder · POST /api/seats/:id/password-reset · POST /api/seats/college-registrar
  *   من يدير الكرسي (شاغله، أو مدير النظام):
- *                 GET /api/seats/:id · POST /api/seats/:id/handover
+ *                 GET /api/seats/:id · GET /api/seats/:id/handover-candidates?q= · POST /api/seats/:id/handover
  *                 POST /api/seats/:id/members · …/members/:mid/link · …/reset · …/status · …/scopes
  *                 POST /api/seats/:id/deputy · POST /api/seats/:id/deputy/end
  *   كل جالس:      GET /api/seats/mine · GET /api/seats/switch-options · POST /api/seats/switch
@@ -35,6 +35,7 @@ import { isDemoLinkToken } from "../utils/demoLinkToken";
 import { publicPageNonce } from "./core/publicPages";
 import { campusFamilies, campusFamilyName } from "../utils/campusFamily";
 import { AR, countOf } from "../utils/arabicCount";
+import { HANDOVER_SEARCH_MAX_RESULTS, matchHandoverCandidates, resolveHandoverPhone } from "../utils/handoverPick";
 
 const actorOf = (req: AuthenticatedRequest): SeatActor | undefined => (req.user as any)?.SeatActor;
 const byName = (req: AuthenticatedRequest) => String(req.user?.Name || req.user?.SystemUserLogin || "");
@@ -79,8 +80,26 @@ async function personFrom(body: any): Promise<{ name: string; instructorId?: num
   return { name, mobile: clean(body?.mobile, 20) || undefined, civil: clean(body?.civil, 20) || undefined };
 }
 
-/** أساتذةُ نطاق الكرسي لاختيار الأسماء: أساتذةُ القسم، أو أساتذةُ أقسام الكلية. */
-async function seatCandidates(seat: any, source: "department" | "college" | "manual") {
+/**
+ * الرئيسُ الجديد عند التسليم: أستاذٌ قائمٌ في نطاق الكرسي (القسم أو الكلية) لا اسمٌ يُكتب، والخادمُ هو الحارس.
+ * جوالُه من سجلّه؛ فإن لم يكن له جوالٌ كُتب مرةً واحدة. وكراسي مكتب التسجيل (موظفون لا أساتذة) تبقى بالكتابة.
+ */
+async function handoverPerson(body: any, seat: any): Promise<{ name: string; instructorId?: number; mobile?: string; civil?: string } | { error: string }> {
+  const source = seatHolderSource(seat.Role);
+  if (source === "manual") return personFrom(body);
+  const where = source === "college" ? "أساتذة الكلية" : "أساتذة القسم";
+  const instructorId = Number(body?.instructorId || 0);
+  if (!instructorId) return { error: `اختر الرئيس الجديد من ${where}.` };
+  const row = (await seatPool(seat, source)).find(person => person.id === instructorId);
+  if (!row) return { error: `هذا الأستاذ ليس من ${where}.` };
+  const phone = resolveHandoverPhone(row.mobile, body?.mobile);
+  if ("error" in phone) return { error: phone.error };
+  const record = (await Repository.getInstructors()).find(person => Number(person.AdInstructorId) === instructorId);
+  return { name: clean(row.name), instructorId, mobile: phone.mobile, civil: String((record as any)?.AdInstructorCivil || "") };
+}
+
+/** أساتذةُ نطاق الكرسي (القسم أو أقسام الكلية) مع قسم كلٍّ منهم: المرجعُ الذي يحرس به الخادمُ كلَّ اختيار. */
+async function seatPool(seat: any, source: "department" | "college" | "manual") {
   if (source === "manual") return [];
   const [assigns, sections, instructors] = await Promise.all([
     Repository.getUserAssigns(Number(seat.SystemUserId)), Repository.getSections(), Repository.getInstructors(),
@@ -93,20 +112,30 @@ async function seatCandidates(seat: any, source: "department" | "college" | "man
   }
   /* أساتذةُ القسم كما يقرؤهم النظام في مواضعه الأخرى (instructorCircleFor): من درّس فيه في أي فصل،
      ومن ضمّه دليلُ هيئته — بلا المنتدبين إليه من أقسامٍ أخرى. */
-  const ids = new Set<number>();
+  const ids = new Map<number, string>();
+  const sectionName = new Map((sections as any[]).map(row => [`${row.AdCollegeId}:${row.AdSectionId}`, String(row.AdSectionName || "")]));
   for (const { c, s } of pairs.values()) {
     const [taught, faculty, delegates] = await Promise.all([
       Repository.getInstructorsByScope(s, 0), Repository.getDepartmentFaculty(c, s), Repository.getDepartmentDelegates(c, s),
     ]);
     const visiting = new Set((delegates as any[]).map(Number));
-    for (const person of taught as any[]) if (!visiting.has(Number(person.AdInstructorId))) ids.add(Number(person.AdInstructorId));
-    for (const id of faculty) ids.add(Number(id));
+    const dept = sectionName.get(`${c}:${s}`) || "";
+    for (const person of taught as any[]) if (!visiting.has(Number(person.AdInstructorId)) && !ids.has(Number(person.AdInstructorId))) ids.set(Number(person.AdInstructorId), dept);
+    for (const id of faculty) if (!ids.has(Number(id))) ids.set(Number(id), dept);
   }
   const placeholders = placeholderInstructorIds(instructors as any);
   return (instructors as any[])
     .filter(person => ids.has(Number(person.AdInstructorId)) && !placeholders.has(Number(person.AdInstructorId)) && !person.AdInstructorStatus)
-    .map(person => ({ id: Number(person.AdInstructorId), name: String(person.AdInstructorName || ""), hasMobile: Boolean(String(person.AdInstructorMobile || "").trim()) }))
+    .map(person => ({
+      id: Number(person.AdInstructorId), name: String(person.AdInstructorName || ""), department: ids.get(Number(person.AdInstructorId)) || "",
+      mobile: String(person.AdInstructorMobile || "").trim(), hasMobile: Boolean(String(person.AdInstructorMobile || "").trim()),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+}
+
+/** أساتذةُ نطاق الكرسي لاختيار الأعضاء: الاسمُ ووجودُ الجوال فقط. */
+async function seatCandidates(seat: any, source: "department" | "college" | "manual") {
+  return (await seatPool(seat, source)).map(({ id, name, hasMobile }) => ({ id, name, hasMobile }));
 }
 
 /** ما يحمله سجلُّ العضو إلى الشاشة: لا رمزَ رابطٍ إلا لمن يديره. */
@@ -437,8 +466,32 @@ app.get("/api/seats/:id", requireAuth, async (req: AuthenticatedRequest, res: Re
   res.json({
     ...view,
     candidates: view.canManage && rule?.source === "department" ? await seatCandidates(seat, "department") : [],
-    holderCandidates: view.canHandOver ? await seatCandidates(seat, seatHolderSource(seat.Role)) : [],
   });
+});
+
+/** حدٌّ لكل مسؤول: البحثُ يُظهر أسماءً، فلا يُعدَّد النطاقُ بطلباتٍ متتابعة. */
+const handoverSearchLimit = rateLimit({
+  windowMs: 60_000, limit: 40, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: req => `handover-search:${Number((req as AuthenticatedRequest).user?.SystemUserId) || 0}`,
+  message: { error: "بحثٌ كثير. انتظر قليلاً ثم أعد المحاولة." },
+});
+
+/**
+ * بحثُ الرئيس الجديد: لا قائمةَ كاملة ولا عدد. حرفان فأكثر، وثمانيةٌ كحدٍّ أقصى، ومن نطاق الكرسي وحده
+ * (أساتذةُ القسم لرئيس القسم واللجنة والمرشد، وأساتذةُ الكلية للعميد ومساعده). والحقولُ: الرقم والاسم والقسم ووجود الجوال.
+ */
+app.get("/api/seats/:id/handover-candidates", requireAuth, handoverSearchLimit, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const seat = await seatUser(Number(req.params.id));
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!(await handsOverSeat(req, seat))) { res.status(403).json({ error: "يسلّم الرئاسةَ رئيسُ الفريق أو مدير النظام." }); return; }
+  const source = seatHolderSource(seat.Role);
+  const q = clean(req.query.q, 60);
+  if (source === "manual") { res.json({ people: [] }); return; }
+  const current = Number((await readSeatLedger(seat.SystemUserId))?.holder?.instructorId || 0);
+  const pool = (await seatPool(seat, source)).filter(row => row.id !== current);
+  const people = matchHandoverCandidates(pool, q, HANDOVER_SEARCH_MAX_RESULTS).map(({ id, name, department, hasMobile }) => ({ id, name, department, hasPhone: hasMobile }));
+  res.json({ people });
 });
 
 /** يسجّل مديرُ النظام شاغلَ الكرسي الحالي كما هو، بلا كلمةٍ جديدة ولا إخراج: «من يجلس هنا اليوم». */
@@ -464,7 +517,7 @@ app.post("/api/seats/:id/handover", requireAuth, async (req: AuthenticatedReques
   if (Repository.isDemoRequest() && Number(req.user?.SystemUserId) === Number(seat.SystemUserId)) {
     res.status(409).json({ error: "في البيئة التجريبية سلّم الرئاسة من حساب مدير النظام، حتى لا تُغلق جلستك.", code: "demo-self-handover" }); return;
   }
-  const person = await personFrom(req.body);
+  const person = await handoverPerson(req.body, seat);
   if ("error" in person) { res.status(400).json({ error: person.error }); return; }
   const at = new Date().toISOString(), by = byName(req);
   const holder: SeatHolder = { name: person.name, ...(person.instructorId ? { instructorId: person.instructorId } : {}), ...(person.mobile ? { mobile: person.mobile } : {}), since: at, by };

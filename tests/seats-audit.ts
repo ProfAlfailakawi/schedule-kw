@@ -117,8 +117,8 @@ try {
   const committee = all.body?.seats?.find((row: any) => row.role === "committeeChair" && row.id === 16);
   check(all.status === 200 && Boolean(committee) && all.body.seats.some((row: any) => row.role === "collegeRegistrar"), "S4 مدير النظام يرى الكراسي كلها، ومنها رئيس تسجيل الكلية", all.body?.seats?.map((r: any) => r.role));
   const seatDetail = await json("/api/seats/16");
-  const holderPick = seatDetail.body?.holderCandidates?.[0];
-  check(seatDetail.status === 200 && Boolean(holderPick), "S4 أسماءُ الشاغل من أساتذة القسم", seatDetail.body?.holderCandidates?.length);
+  const holderPick = seatDetail.body?.candidates?.[0];
+  check(seatDetail.status === 200 && Boolean(holderPick), "S4 أسماءُ الشاغل من أساتذة القسم", seatDetail.body?.candidates?.length);
   const setHolder = await json("/api/seats/16/holder", { method: "POST", body: JSON.stringify({ instructorId: holderPick?.id }) });
   check(setHolder.status === 200 && setHolder.body?.holder?.name === holderPick?.name, "S4 تسجيل الشاغل الحالي بلا تسليم", setHolder.body);
   await as("committeeChair");
@@ -158,7 +158,7 @@ try {
 
   /* S6 */
   await as("admin");
-  const nextHolder = seatDetail.body.holderCandidates.find((row: any) => row.id !== holderPick?.id && row.id !== memberPick?.id) || seatDetail.body.holderCandidates[1];
+  const nextHolder = seatDetail.body.candidates.find((row: any) => row.id !== holderPick?.id && row.id !== memberPick?.id) || seatDetail.body.candidates[1];
   const handover = await json("/api/seats/16/handover", { method: "POST", body: JSON.stringify({ instructorId: nextHolder?.id }) });
   check(handover.status === 200 && handover.body?.password === "12345678" && handover.body?.holder?.name === nextHolder?.name, "S6 التسليم: شاغلٌ جديد وكلمةٌ أولى تُعرض مرة واحدة", handover.body);
   const after = await json("/api/seats/16");

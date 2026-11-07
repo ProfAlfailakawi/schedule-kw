@@ -367,7 +367,7 @@ try {
   /* H5 الكرسي: الزميلُ يرى الجالسَ لا الكرسي */
   await as("admin");
   const seat = await json("/api/seats/16");
-  const person = seat.body?.holderCandidates?.[0];
+  const person = seat.body?.candidates?.[0];
   const setHolder = person ? await post("/api/seats/16/holder", { instructorId: person.id }) : { status: 0 };
   check(setHolder.status === 200 && Boolean(person?.name), "H5 مديرُ النظام يسجّل شاغلَ كرسيّ اللجنة", setHolder.status);
   await as("committeeChair");

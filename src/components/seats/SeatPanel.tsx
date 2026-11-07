@@ -6,6 +6,7 @@ import {
 import SeatLinkCard, { SeatHolderCard } from "./SeatLinkCard";
 import { invitationHref } from "../../utils/invitationLink";
 import { memberCardModel, seatCaption, temporaryPasswordCardModel } from "../../utils/seatAccessCard";
+import { handoverSearchTokens } from "../../utils/handoverPick";
 import { SEAT_MEMBER_BADGE_LABEL, type SeatEventKind, type SeatMemberBadge } from "../../utils/seats";
 import "../account-invitation.css";
 import "./seats.css";
@@ -25,6 +26,7 @@ type Member = Person & {
   hasLink: boolean; linkToken?: string; linkExpiresAt?: string; firstEnteredAt?: string; lastEnteredAt?: string; addedAt: string;
 };
 type Candidate = { id: number; name: string; hasMobile: boolean };
+type Found = { id: number; name: string; department: string; hasPhone: boolean };
 type ScopeTree = Array<{ collegeId: number; collegeName: string; sections: Array<{ sectionId: number; name: string }> }>;
 export interface SeatDetail {
   seat: { id: number; login: string; name: string; role: string; roleLabel: string; active: boolean; mustChangePassword: boolean; firstPasswordExpiresAt?: string; firstPasswordExpired?: boolean; scopes: string[] };
@@ -38,7 +40,6 @@ export interface SeatDetail {
   canHandOver: boolean;
   holderSource: "department" | "college" | "manual";
   candidates?: Candidate[];
-  holderCandidates?: Candidate[];
   scopeTree?: ScopeTree;
   /** لمدير النظام على كرسيّ «رئيس تسجيل الكلية»: الحرمُ كلُّها، وما عليه منها. */
   campusOptions?: Array<{ familyName: string; colleges: Array<{ collegeId: number; collegeName: string; chip: string; selected: boolean; takenElsewhere: boolean }> }> | null;
@@ -95,6 +96,52 @@ function PersonPicker({ candidates, value, onPick, placeholder }: { candidates: 
   );
 }
 
+/** الرئيس الجديد بالبحث: لا قائمة مقدّمة؛ اكتب حرفين فتظهر المطابقات، والمختار شارةٌ واحدة بزرّ إزالة. */
+function HandoverPicker({ seatId, chosen, onChoose, placeholder }: { seatId: number; chosen: Found | null; onChoose: (row: Found | null) => void; placeholder: string }) {
+  const [query, setQuery] = useState("");
+  const [rows, setRows] = useState<Found[] | null>(null);
+  const [failed, setFailed] = useState("");
+  const ready = handoverSearchTokens(query).length > 0;
+  useEffect(() => {
+    if (!ready || chosen) { setRows(null); setFailed(""); return; }
+    let live = true;
+    const timer = window.setTimeout(() => {
+      call<{ people: Found[] }>(`/api/seats/${seatId}/handover-candidates?q=${encodeURIComponent(query.trim())}`)
+        .then(result => { if (live) { setRows(result.people); setFailed(""); } })
+        .catch((e: any) => { if (live) { setRows(null); setFailed(e.message); } });
+    }, 250);
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [query, ready, chosen, seatId]);
+  if (chosen) {
+    return (
+      <div className="seat-picker">
+        <span className="seat-chosen">
+          <i aria-hidden="true">{initialOf(chosen.name)}</i>
+          <span>{chosen.name}{chosen.department ? <small>{chosen.department}</small> : null}</span>
+          <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" onClick={() => { onChoose(null); setQuery(""); }} aria-label="إزالة الاختيار"><X aria-hidden="true" /></button>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="seat-picker">
+      <label className="seat-search"><Search aria-hidden="true" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder} autoComplete="off" autoFocus /></label>
+      {failed ? <p className="seat-error" role="alert">{failed}</p> : null}
+      {ready && rows ? (
+        rows.length ? (
+          <div className="seat-picker-list" role="listbox" aria-label={placeholder}>
+            {rows.map(row => (
+              <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" key={row.id} role="option" aria-selected={false} onClick={() => onChoose(row)}>
+                <i aria-hidden="true">{initialOf(row.name)}</i><span>{row.name}{row.department ? <small>{row.department}</small> : null}</span>
+              </button>
+            ))}
+          </div>
+        ) : <p className="seat-muted">لا أسماء مطابقة.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function ScopePicker({ tree, value, onChange }: { tree: ScopeTree; value: Set<string>; onChange: (next: Set<string>) => void }) {
   const toggle = (key: string) => { const next = new Set(value); if (next.has(key)) next.delete(key); else next.add(key); onChange(next); };
   return (
@@ -126,8 +173,9 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [pick, setPick] = useState<number | null>(null);
+  const [chosen, setChosen] = useState<Found | null>(null);
+  const [chosenMobile, setChosenMobile] = useState("");
   const [manual, setManual] = useState({ name: "", mobile: "", civil: "" });
-  const [manualMode, setManualMode] = useState(false);
   const [scopes, setScopes] = useState<Set<string>>(new Set());
   const [deputy, setDeputy] = useState({ memberId: "", until: "" });
   const [campuses, setCampuses] = useState<Set<number>>(new Set());
@@ -141,7 +189,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
   useEffect(() => { setDetail(null); void load(); }, [load]);
 
   const id = detail?.seat.id;
-  const closeSheet = () => { setSheet(null); setPick(null); setManualMode(false); setManual({ name: "", mobile: "", civil: "" }); setScopes(new Set()); setDeputy({ memberId: "", until: "" }); };
+  const closeSheet = () => { setSheet(null); setPick(null); setChosen(null); setChosenMobile(""); setManual({ name: "", mobile: "", civil: "" }); setScopes(new Set()); setDeputy({ memberId: "", until: "" }); };
   const run = async (fn: () => Promise<void>) => {
     setBusy(true); setError("");
     try { await fn(); } catch (e: any) { setError(e.message); } finally { setBusy(false); }
@@ -152,7 +200,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
     setSheet({ kind: "link", title: name, subtitle: card.caption, url: card.url, mobile, message: card.message, note: card.note, fileStem: card.fileStem });
   };
 
-  const personBody = (fromList: boolean) => fromList && pick ? { instructorId: pick } : { name: manual.name.trim(), mobile: manual.mobile, civil: manual.civil };
+  const personBody = (fromList: boolean) => fromList && chosen ? { instructorId: chosen.id, ...(chosen.hasPhone ? {} : { mobile: chosenMobile.trim() }) } : { name: manual.name.trim(), mobile: manual.mobile, civil: manual.civil };
 
   const handOver = (fromList: boolean) => run(async () => {
     const result = await call<{ login: string; password: string; holder: Person; seatName: string; selfHandover: boolean }>(`/api/seats/${id}/handover`, { method: "POST", body: JSON.stringify(personBody(fromList)) });
@@ -227,26 +275,27 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
   const ended = team?.members.filter(m => m.status === "ended") || [];
   const frozen = live.filter(m => m.status === "frozen");
   const activeMembers = live.filter(m => m.status === "active");
-  const holderList = detail.holderCandidates || [];
   const manualValid = manual.name.trim().length >= 3;
   const today = new Date().toISOString().slice(0, 10);
 
-  const fromList = holderList.length > 0 && !manualMode;
-  const personReady = fromList ? Boolean(pick) : manualValid;
+  /* أساتذةُ القسم أو الكلية: بالبحث وحده ومن الأساتذة القائمين فقط؛ ومكتبُ التسجيل (موظفون لا أساتذة) يُكتب اسمُه. */
+  const fromList = detail.holderSource !== "manual";
+  const phoneNeeded = fromList && Boolean(chosen) && !chosen!.hasPhone;
+  const personReady = fromList ? Boolean(chosen) && (!phoneNeeded || chosenMobile.replace(/\D/g, "").length >= 8) : manualValid;
   const personForm = () => (
-    <>
-      {fromList ? <PersonPicker candidates={holderList} value={pick} onPick={setPick} placeholder={detail.holderSource === "college" ? "ابحث في أساتذة الكلية" : "ابحث في أساتذة القسم"} /> : (
-        <div className="seat-form-grid">
-          <label><span>الاسم</span><input value={manual.name} onChange={e => setManual({ ...manual, name: e.target.value })} placeholder="الاسم كاملاً" autoComplete="off" /></label>
-          <label><span>الجوال</span><input value={manual.mobile} onChange={e => setManual({ ...manual, mobile: e.target.value })} placeholder="99887766" inputMode="tel" dir="ltr" /></label>
-        </div>
-      )}
-      {holderList.length ? (
-        <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="seat-link-btn" onClick={() => { setPick(null); setManualMode(!manualMode); }}>
-          {manualMode ? "اختر من القائمة" : "ليس في القائمة؟ اكتب اسمه"}
-        </button>
-      ) : null}
-    </>
+    fromList ? (
+      <>
+        <HandoverPicker seatId={detail.seat.id} chosen={chosen} onChoose={row => { setChosen(row); setChosenMobile(""); }} placeholder="ابحث باسم العضو" />
+        {phoneNeeded ? (
+          <label className="seat-phone-need"><span>لا جوال له في السجل. اكتب جواله</span><input value={chosenMobile} onChange={e => setChosenMobile(e.target.value)} placeholder="99887766" inputMode="tel" dir="ltr" autoComplete="off" /></label>
+        ) : null}
+      </>
+    ) : (
+      <div className="seat-form-grid">
+        <label><span>الاسم</span><input value={manual.name} onChange={e => setManual({ ...manual, name: e.target.value })} placeholder="الاسم كاملاً" autoComplete="off" /></label>
+        <label><span>الجوال</span><input value={manual.mobile} onChange={e => setManual({ ...manual, mobile: e.target.value })} placeholder="99887766" inputMode="tel" dir="ltr" /></label>
+      </div>
+    )
   );
 
   return (
