@@ -290,8 +290,10 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
-    /* ملاحظاتُ التسجيل تعيد فتح الطلب المرسَل: بلا نافذةٍ جديدة لا يستطيع صاحبه تصحيح ما مُيّز له. */
-    if (held && (move === "extend" || (onlyNoted && move === "keep"))) {
+    /* ملاحظاتُ التسجيل تعيد فتح الطلب المرسَل: بلا نافذةٍ جديدة لا يستطيع صاحبه تصحيح ما مُيّز له.
+       والاستثناءُ الفردي كذلك: طلبُه المرسَل أو قيدُ المراجعة يُمدَّد هو نفسُه، فلا يصير له طلبان مفتوحان
+       برابطين، ويُسجَّل الاستثناءُ في سجلّ الطلب نفسه. */
+    if (held && (move === "extend" || ((onlyNoted || individualOnly) && move === "keep"))) {
       const heldLink = await Repository.getShareLink(held.linkId);
       const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
       let linkId = held.linkId;
@@ -305,7 +307,10 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
         linkId,
         linkMode: issueMode,
         window: individualOnly ? held.window : { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt },
-        ...(individualOnly ? { individualException: exceptional } : {}),
+        ...(individualOnly ? {
+          individualException: exceptional,
+          timeline: [...(held.timeline || []), { kind: "link-created", at: opensAt, by: "القسم", detail: "استثناء فردي لظرف طارئ" }],
+        } : {}),
       });
       issued.push({ instructorId, linkId, reissued: false, renewed: true });
       continue;

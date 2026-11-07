@@ -1,0 +1,988 @@
+{
+  "identity": {
+    "title": {
+      "ar": "الربط بحسابات الجامعة",
+      "en": "Connecting university accounts"
+    },
+    "lead": {
+      "ar": "يدخل كل مستخدم اليوم بحساب داخلي في النظام. هذا القسم يبيّن بالضبط أين يحدث كل دخول في الكود، وما الذي يبقى كما هو، وما الذي يُستبدل إن أرادت الجامعة أن يدخل الجميع بحساباتها (دخول موحّد عبر OpenID Connect أو SAML أو الدليل). القاعدة: يُستبدل باب الدخول وحده، ويبقى ما بعده؛ فكل صلاحية ونطاق وتوقيع وسجل يُقرأ من الجلسة لا من طريقة الدخول.",
+      "en": "Today every user signs in with an internal account. This section shows exactly where each sign-in happens in the code, what stays as is, and what is replaced if the university wants everyone to sign in with its own accounts (single sign-on through OpenID Connect, SAML or the directory). The rule: only the entrance is replaced and everything after it stays; every permission, scope, signature and audit entry is read from the session, not from how the user signed in."
+    },
+    "pathsTitle": {
+      "ar": "طريقتان: اسم الجامعة وحده، أو كلمة سر الجامعة أيضاً",
+      "en": "Two paths: the university name alone, or the university password too"
+    },
+    "paths": [
+      {
+        "icon": "at-sign",
+        "title": {
+          "ar": "1. اسم المستخدم أو البريد الجامعي كاسم دخول (بلا تعديل في الكود)",
+          "en": "1. The university username or email as the login name (no code change)"
+        },
+        "text": {
+          "ar": "لا يوجد في حساب النظام حقل بريد مستقل؛ اسم الدخول هو الحقل SystemUserLogin، ويقبل أي نص، ومنه البريد الجامعي مثل name@university.edu. يُغيَّر من شاشة المستخدمين لكل حساب (التعديل يفحص ألا يتكرر الاسم)، والمطابقة عند الدخول لا تفرّق بين الحروف الكبيرة والصغيرة. فيدخل كل شخص باسمه أو بريده الجامعي، وتبقى كلمة السر كلمة النظام، وتبقى الصلاحيات والنطاقات كما هي لأنها مربوطة برقم الحساب لا باسمه.",
+          "en": "A system account has no separate email field; the login name is the SystemUserLogin field, which accepts any text, including a university email such as name@university.edu. It is changed per account from the users screen (editing checks the name is not taken), and matching at sign-in ignores letter case. Everyone then signs in with their university name or email, the password stays the system's own, and permissions and scopes stay as they are because they are tied to the account number, not its name."
+        },
+        "evidence": [
+          "src/server/routes/usersRoutes.ts#/api/users/:id",
+          "src/db/repository.ts#getUserByLogin"
+        ]
+      },
+      {
+        "icon": "shield-check",
+        "title": {
+          "ar": "2. الدخول بكلمة سر الجامعة نفسها (دخول موحّد، تطوير محدود)",
+          "en": "2. Signing in with the university password itself (single sign-on, a limited change)"
+        },
+        "text": {
+          "ar": "يُضاف مسار عودة من نظام هوية الجامعة كما في الجدول أدناه، فلا يكتب أحد كلمة سر في النظام. تبقى المطابقة باسم الدخول كما في الطريقة الأولى، فإذا وُحّدت أسماء الدخول بالبريد الجامعي أولاً صار الربط مطابقة مباشرة لما يرسله نظام الجامعة.",
+          "en": "A callback route from the university identity system is added as in the table below, so nobody types a password into the system. Matching stays by login name as in the first path, so if login names are first set to the university email, linking becomes a direct match of what the university system sends."
+        },
+        "evidence": [
+          "src/server/routes/authRoutes.ts#/api/auth/login"
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "icon": "log-in",
+        "who": {
+          "ar": "كل الأدوار الإدارية والأكاديمية",
+          "en": "All administrative and academic roles"
+        },
+        "today": {
+          "ar": "اسم مستخدم وكلمة سر محفوظة ملحّمة؛ عند النجاح تُنشأ جلسة sess_ في القاعدة بمهلة خمول 15 دقيقة، ويُضبط ملف ارتباط session_id بخاصيتي HttpOnly وSameSite=Lax.",
+          "en": "A username and a stored salted password hash; on success a sess_ session is created in the database with a 15-minute idle timeout, and a session_id cookie is set HttpOnly and SameSite=Lax."
+        },
+        "change": {
+          "ar": "يُستبدل معالج الدخول بمسار عودة من مزوّد الهوية: يتحقق من رد المزوّد، ويأخذ منه اسم الدخول أو البريد الجامعي، ويطابقه بحقل SystemUserLogin بالدالة نفسها Repository.getUserByLogin (مطابقة تامة ثم بلا حالة أحرف)، ثم ينشئ الجلسة نفسها بـ Repository.createSession ويضبط ملف الارتباط نفسه. لا يتغير شيء بعدها.",
+          "en": "The sign-in handler is replaced by a callback route from the identity provider: it verifies the provider's response, takes the university login name or email from it, matches it against the SystemUserLogin field with the same Repository.getUserByLogin (exact match, then case-insensitive), then creates the same session with Repository.createSession and sets the same cookie. Nothing after it changes."
+        },
+        "evidence": [
+          "src/server/routes/authRoutes.ts#/api/auth/login",
+          "src/db/repository.ts#createSession",
+          "src/components/Login.tsx"
+        ],
+        "reqs": [
+          "FR-ACC-031",
+          "IR-ACC-032"
+        ]
+      },
+      {
+        "icon": "shield-check",
+        "who": {
+          "ar": "التحقق من كل طلب",
+          "en": "Checking every request"
+        },
+        "today": {
+          "ar": "حارس واحد على مدخل /api يقرأ الجلسة، ثم المستخدم ونطاقاته (UserAssign) وشاشاته (FormSecurity) والكرسي الذي يجلس عليه، ويحفظها دقيقتين.",
+          "en": "One guard at the /api entrance reads the session, then the user, their scopes (UserAssign), screens (FormSecurity) and the seat they occupy, caching them for two minutes."
+        },
+        "change": {
+          "ar": "يبقى كما هو.",
+          "en": "Stays as is."
+        },
+        "evidence": [
+          "src/server/core/auth.ts#authMiddleware",
+          "server.ts#authMiddleware"
+        ],
+        "reqs": [
+          "IR-ACC-032"
+        ]
+      },
+      {
+        "icon": "users-round",
+        "who": {
+          "ar": "الأدوار والنطاقات والصلاحيات",
+          "en": "Roles, scopes and permissions"
+        },
+        "today": {
+          "ar": "الدور في حقل Role من قائمة الأدوار الأكاديمية، والنطاق كلية وقسم أو أكثر، والشاشات بقائمة صلاحيات، ومدير النظام بعلامة IsAdminUser، والمدير الأعلى برقم ROOT_ADMIN_USER_ID.",
+          "en": "The role is the Role field from the academic role list, the scope is one or more colleges and departments, screens come from a permission list, system administrators carry IsAdminUser, and the root administrator is ROOT_ADMIN_USER_ID."
+        },
+        "change": {
+          "ar": "تبقى في النظام وتُدار من شاشة المستخدمين. وإن أرادت الجامعة أن تأتي من مجموعات الدليل، يُضاف عند الدخول جدول يحوّل المجموعة إلى دور ونطاق.",
+          "en": "They stay in the system and are managed from the users screen. If the university wants them to come from directory groups, a table mapping each group to a role and scope is added at sign-in."
+        },
+        "evidence": [
+          "src/utils/academicRoles.ts#ACADEMIC_ROLES",
+          "src/server/core/auth.ts#isPowerUser",
+          "src/server/core/auth.ts#ROOT_ADMIN_USER_ID"
+        ],
+        "reqs": [
+          "FR-ACC-033",
+          "FR-ACC-034",
+          "DR-ACC-047"
+        ]
+      },
+      {
+        "icon": "key-round",
+        "who": {
+          "ar": "دورة كلمة السر",
+          "en": "Password lifecycle"
+        },
+        "today": {
+          "ar": "كلمة أولى تنتهي، وكلمة مؤقتة لدخول واحد، وإلزام بالتغيير قبل أي شاشة، وتغيير بيد صاحبها، ونسخة مشفّرة من كلمات المرور التي تضعها أدوات الترحيل والتهيئة، بمفتاح PASSWORD_VAULT_KEY.",
+          "en": "An expiring first password, a single-use temporary password, a mandatory change before any screen, a self-service change, and an encrypted copy of the passwords set by the migration and provisioning tools, keyed by PASSWORD_VAULT_KEY."
+        },
+        "change": {
+          "ar": "مع الدخول الموحّد تُعطَّل: يُرفع حارس تغيير الكلمة، ويُخفى نموذج الكلمة في شاشة الدخول ويحل محله زر «الدخول بحساب الجامعة»، ولا تلزم النسخة المشفّرة.",
+          "en": "With single sign-on they are switched off: the password-change gate is removed, the password form on the sign-in screen is hidden and replaced by a «sign in with the university account» button, and the encrypted copy is no longer needed."
+        },
+        "evidence": [
+          "src/server/accountPassword.ts#passwordChangeGate",
+          "src/server/routes/authRoutes.ts#/api/auth/change-password",
+          "src/db/repository.ts#passwordVaultKey"
+        ],
+        "reqs": [
+          "FR-ACC-031",
+          "DR-ACC-035"
+        ]
+      },
+      {
+        "icon": "armchair",
+        "who": {
+          "ar": "فرق الكراسي",
+          "en": "Seat teams"
+        },
+        "today": {
+          "ar": "من يعمل بصفة فريق ينتقل إلى جلسة جديدة تحمل رقم العضو، فوق دخوله هو.",
+          "en": "Someone working as a team member switches to a new session carrying the member id, on top of their own sign-in."
+        },
+        "change": {
+          "ar": "يبقى كما هو؛ يعمل فوق أي طريقة دخول.",
+          "en": "Stays as is; it works on top of any sign-in method."
+        },
+        "evidence": [
+          "src/server/seatsRoutes.ts#/api/seats/switch"
+        ],
+        "reqs": [
+          "FR-STU-045",
+          "FR-STU-050"
+        ]
+      },
+      {
+        "icon": "log-out",
+        "who": {
+          "ar": "الخروج",
+          "en": "Sign-out"
+        },
+        "today": {
+          "ar": "يحذف الجلسة من القاعدة ويمسح ملف الارتباط.",
+          "en": "Deletes the session from the database and clears the cookie."
+        },
+        "change": {
+          "ar": "يبقى، ويُضاف إليه إن رغبت الجامعة تحويل إلى صفحة خروج المزوّد.",
+          "en": "Stays, optionally followed by a redirect to the provider's sign-out page if the university wishes."
+        },
+        "evidence": [
+          "src/server/routes/authRoutes.ts#/api/auth/logout"
+        ],
+        "reqs": [
+          "IR-ACC-032"
+        ]
+      },
+      {
+        "icon": "graduation-cap",
+        "who": {
+          "ar": "الطلبة في «مساري»",
+          "en": "Students in «مساري» (My path)"
+        },
+        "today": {
+          "ar": "الرقم المدني ورمز شخصي يختاره الطالب (ملحّم بـ scrypt). مفتاح الملف بصمة HMAC للرقم المدني، والاسم والرقم مختومان AES-GCM، والجلسة ملف ارتباط sh_session موقّع. خمسة أخطاء متتالية تقفل الملف 15 دقيقة، و«نسيت رمزي» يطلب حذف الملف بعد 30 يوماً.",
+          "en": "The civil id and a personal code the student chooses (salted with scrypt). The profile key is an HMAC fingerprint of the civil id, the name and civil id are sealed with AES-GCM, and the session is a signed sh_session cookie. Five consecutive errors lock the profile for 15 minutes, and «forgot my code» requests deletion of the profile after 30 days."
+        },
+        "change": {
+          "ar": "يُستبدل باب الدخول بمسار عودة من مزوّد الهوية يُرجع الرقم المدني للطالب (أو رقمه الجامعي مع جدول يقابله بالرقم المدني)، فتُحسب البصمة نفسها وتُصدر الجلسة نفسها؛ ويُستغنى عن الرمز و«نسيت رمزي». شرطه أن يعطي المزوّد الرقم المدني أو ما يقابله، لأن الملفات القائمة مفهرسة ببصمته.",
+          "en": "The entrance is replaced by a callback from the identity provider that returns the student's civil id (or university id with a table mapping it to the civil id), so the same fingerprint is computed and the same session issued; the code and «forgot my code» are no longer needed. The provider must supply the civil id or its equivalent, because existing profiles are indexed by its fingerprint."
+        },
+        "evidence": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/enter",
+          "src/server/studentDoor.ts#signDoorSession",
+          "src/server/core/studentIdentity.ts#studentIdentityKey"
+        ],
+        "reqs": [
+          "DR-STU-030",
+          "FR-STU-031",
+          "FR-STU-032",
+          "FR-STU-034",
+          "DR-STU-042"
+        ]
+      },
+      {
+        "icon": "id-card",
+        "who": {
+          "ar": "كرت الأستاذ",
+          "en": "Teacher card"
+        },
+        "today": {
+          "ar": "رابط شخصي لكل أستاذ في الفصل، يُفتح بكتابة الرقم المدني مرة، و«تذكّرني» يعطي الجهاز مفتاحاً موقّعاً (sk_dev) بسر STAFF_DEVICE_SECRET مربوطاً برمز الرابط، أقصاه 180 يوماً.",
+          "en": "A personal link per teacher per term, opened by typing the civil id once; «remember me» gives the device a signed key (sk_dev) with STAFF_DEVICE_SECRET bound to the link token, for at most 180 days."
+        },
+        "change": {
+          "ar": "يمكن إبقاؤه كما هو (لا كلمة سر بقصد)، أو أن يُطلب الدخول الموحّد قبل فتح البطاقة بدل كتابة الرقم المدني، مع مطابقة هوية الجامعة برقم الأستاذ المدني AdInstructorCivil.",
+          "en": "It can stay as is (no password by design), or single sign-on can be required before the card opens instead of typing the civil id, matching the university identity to the teacher's civil id AdInstructorCivil."
+        },
+        "evidence": [
+          "src/server/routes/publicStaffRoutes.ts#/api/public/staff/:token",
+          "src/server/staffDeviceKey.ts#deriveStaffDeviceSecret"
+        ],
+        "reqs": [
+          "FR-REQ-031",
+          "DR-REQ-038"
+        ]
+      },
+      {
+        "icon": "link",
+        "who": {
+          "ar": "روابط عامة بلا حساب",
+          "en": "Public links without an account"
+        },
+        "today": {
+          "ar": "الاستبيان والطلب والجدول المنشور وباب القاعة تُفتح برمز رابط لا بحساب.",
+          "en": "The survey, the request, the published schedule and the room door open with a link token, not an account."
+        },
+        "change": {
+          "ar": "تبقى كما هي.",
+          "en": "Stay as they are."
+        },
+        "evidence": [
+          "src/server/core/auth.ts#bindPublicLinkContext"
+        ],
+        "reqs": [
+          "DR-REQ-038"
+        ]
+      }
+    ],
+    "questionsTitle": {
+      "ar": "ما يُطلب من قسم تقنية المعلومات قبل البدء",
+      "en": "What to ask university IT before starting"
+    },
+    "questions": [
+      {
+        "ar": "البروتوكول: OpenID Connect أو SAML أو LDAP، ورابط المزوّد وبيانات تسجيل التطبيق وعناوين العودة.",
+        "en": "The protocol: OpenID Connect, SAML or LDAP, the provider URL, the application registration details and the redirect addresses."
+      },
+      {
+        "ar": "الحقل الذي يحمل اسم الدخول أو البريد للموظفين، والحقل الذي يحمل الرقم المدني أو الرقم الجامعي للطلبة والأساتذة.",
+        "en": "The attribute carrying the login name or email for staff, and the attribute carrying the civil id or university id for students and teachers."
+      },
+      {
+        "ar": "هل تبقى الأدوار والنطاقات تُدار في النظام، أم تأتي من مجموعات الدليل، ومن يعتمد جدول التحويل.",
+        "en": "Whether roles and scopes stay managed in the system or come from directory groups, and who approves the mapping table."
+      },
+      {
+        "ar": "هل يشمل الدخول الموحّد الطلبة والأساتذة أم الموظفين وحدهم.",
+        "en": "Whether single sign-on covers students and teachers or staff only."
+      },
+      {
+        "ar": "التحقق متعدد العوامل، وصفحة الخروج، وبيئة اختبار للتجربة قبل الإنتاج.",
+        "en": "Multi-factor authentication, the sign-out page, and a test tenant to try before production."
+      }
+    ]
+  },
+  "keys": {
+    "title": {
+      "ar": "المفاتيح التي تنتقل مع البيانات",
+      "en": "Keys that must travel with the data"
+    },
+    "lead": {
+      "ar": "بعض البيانات مختومة أو مبصومة بمفاتيح الخادم. من يستلم القاعدة يجب أن يستلم هذه المفاتيح معها بطريق آمن ومنفصل، وإلا صارت البيانات المختومة غير مقروءة دون خطأ ظاهر.",
+      "en": "Some data is sealed or fingerprinted with server keys. Whoever receives the database must receive these keys with it, through a separate secure channel; otherwise the sealed data becomes unreadable without any visible error."
+    },
+    "rows": [
+      {
+        "name": "systemSecrets/student-case-identity-v1",
+        "where": {
+          "ar": "وثيقة في Firestore (وفي الوضع المحلي ملف database/student-case-identity.key)",
+          "en": "A Firestore document (in local mode the file database/student-case-identity.key)"
+        },
+        "protects": {
+          "ar": "ختم أسماء الطلبة وأرقامهم المدنية، وبصمة الرقم المدني التي تُفهرس بها ملفات «مساري» وحالات الطلبة، ومنها يُشتق مفتاح «تذكّرني» لكرت الأستاذ إن لم يُضبط سره.",
+          "en": "Sealing of student names and civil ids, the civil-id fingerprint that indexes «مساري» profiles and student cases, and the source of the teacher card «remember me» key when its own secret is not set."
+        },
+        "if": {
+          "ar": "بدونه: لا يدخل طالب إلى ملفه، ولا تُقرأ الأسماء المختومة، وتتغير رموز ملصقات الأبواب ومفاتيح التقويم وكرت الأستاذ المشتقة منه. ينتقل مع تصدير Firestore الكامل للقاعدة، لكن النسخة الاحتياطية من داخل النظام لا تحمله عمداً؛ فإن نُقلت البيانات بها وجب نقل هذه الوثيقة، أو ضبط STUDENT_CASE_SECRET بالقيمة نفسها قبل أول تشغيل.",
+          "en": "Without it: no student reaches their profile, sealed names cannot be read, and the door sticker tokens, calendar and teacher-card keys derived from it change. It travels with a full Firestore export of the database, but the in-system backup deliberately leaves it out; if data is moved with that backup, this document must be moved too, or STUDENT_CASE_SECRET set to the same value before the first run."
+        },
+        "evidence": [
+          "src/db/repository.ts#STUDENT_CASE_SECRET_DOC",
+          "src/server/studentCaseSecret.ts#chooseStudentCaseSecret"
+        ],
+        "reqs": [
+          "DR-DAT-030",
+          "DR-DAT-031",
+          "DR-STU-042"
+        ]
+      },
+      {
+        "name": "PASSWORD_VAULT_KEY",
+        "where": {
+          "ar": "متغير بيئة (أو ملف المفتاح في المجلد الخاص)",
+          "en": "An environment variable (or the key file in the private folder)"
+        },
+        "protects": {
+          "ar": "النسخة المشفّرة من كلمات المرور التي تكتبها أدوات الترحيل والتهيئة (الحقل SystemUserPassVault).",
+          "en": "The encrypted copy of passwords written by the migration and provisioning tools (the SystemUserPassVault field)."
+        },
+        "if": {
+          "ar": "بدونه لا تُقرأ النسخة المشفّرة، ويبقى الدخول بكلمات المرور الملحّمة يعمل كما هو.",
+          "en": "Without it the encrypted copy cannot be read; sign-in with the salted password hashes keeps working as is."
+        },
+        "evidence": [
+          "src/db/repository.ts#passwordVaultKey"
+        ],
+        "reqs": [
+          "DR-ACC-035"
+        ]
+      },
+      {
+        "name": "CALENDAR_SECRET",
+        "where": {
+          "ar": "متغير بيئة؛ وإن غاب اشتُق من السر المشترك",
+          "en": "An environment variable; derived from the shared secret when absent"
+        },
+        "protects": {
+          "ar": "روابط اشتراك التقويم للأساتذة، وفك ختم الحالات القديمة المختومة به قبل فصل السرّين.",
+          "en": "Teachers' calendar subscription links, and unsealing old cases sealed with it before the two secrets were separated."
+        },
+        "if": {
+          "ar": "تغييره يُبطل كل اشتراك تقويم قائم.",
+          "en": "Changing it invalidates every existing calendar subscription."
+        },
+        "evidence": [
+          "src/server/calendarSecret.ts",
+          "src/server/core/shareLinks.ts#calendarSecret"
+        ],
+        "reqs": [
+          "IR-EXT-029"
+        ]
+      },
+      {
+        "name": "STAFF_DEVICE_SECRET",
+        "where": {
+          "ar": "متغير بيئة اختياري؛ وإن غاب اشتُق من السر المشترك بوسم staff-device-key-v1",
+          "en": "An optional environment variable; derived from the shared secret under the label staff-device-key-v1 when absent"
+        },
+        "protects": {
+          "ar": "مفاتيح «تذكّرني على هذا الجهاز» لكرت الأستاذ.",
+          "en": "The teacher card «remember me on this device» keys."
+        },
+        "if": {
+          "ar": "تغييره يطلب من كل أستاذ كتابة رقمه المدني مرة أخرى، ولا يضيع شيء.",
+          "en": "Changing it asks every teacher to type their civil id once more; nothing is lost."
+        },
+        "evidence": [
+          "src/server/staffDeviceKey.ts#deriveStaffDeviceSecret"
+        ],
+        "reqs": [
+          "FR-REQ-031",
+          "IR-EXT-029"
+        ]
+      },
+      {
+        "name": "VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY",
+        "where": {
+          "ar": "متغيرا بيئة",
+          "en": "Environment variables"
+        },
+        "protects": {
+          "ar": "تنبيهات الجوال (Web Push).",
+          "en": "Mobile notifications (Web Push)."
+        },
+        "if": {
+          "ar": "تغييرهما يُسقط اشتراكات التنبيه القائمة فيعيد كل جهاز الاشتراك.",
+          "en": "Changing them drops existing push subscriptions, so each device subscribes again."
+        },
+        "evidence": [
+          "src/server/pushRoutes.ts"
+        ],
+        "reqs": [
+          "IR-EXT-031"
+        ]
+      }
+    ]
+  },
+  "config": {
+    "title": {
+      "ar": "إعدادات التشغيل (متغيرات البيئة)",
+      "en": "Runtime settings (environment variables)"
+    },
+    "lead": {
+      "ar": "كل متغير بيئة يقرؤه الخادم مذكور هنا بأثره وقيمته الافتراضية. يفشل فحص الوثيقة عند البناء إن قرأ الكود متغيراً غير مذكور، فتبقى القائمة كاملة مع كل تطوير.",
+      "en": "Every environment variable the server reads is listed here with its effect and default. The document check fails at build time if the code reads a variable that is not listed, so the list stays complete with every change."
+    },
+    "groups": [
+      {
+        "id": "data",
+        "title": {
+          "ar": "البيانات والقاعدة",
+          "en": "Data and database"
+        }
+      },
+      {
+        "id": "security",
+        "title": {
+          "ar": "الأمان والمفاتيح",
+          "en": "Security and keys"
+        }
+      },
+      {
+        "id": "services",
+        "title": {
+          "ar": "الخدمات الخارجية",
+          "en": "External services"
+        }
+      },
+      {
+        "id": "limits",
+        "title": {
+          "ar": "الحدود والجدولة",
+          "en": "Limits and schedules"
+        }
+      },
+      {
+        "id": "platform",
+        "title": {
+          "ar": "المنصة والتشغيل",
+          "en": "Platform and runtime"
+        }
+      },
+      {
+        "id": "diagnostics",
+        "title": {
+          "ar": "التشخيص والتطوير",
+          "en": "Diagnostics and development"
+        }
+      }
+    ],
+    "vars": [
+      {
+        "name": "DATA_MODE",
+        "group": "data",
+        "default": "firestore",
+        "effect": {
+          "ar": "مصدر البيانات: firestore للإنتاج، أو demo لبيئة العرض المعزولة.",
+          "en": "The data source: firestore for production, or demo for the isolated showcase."
+        }
+      },
+      {
+        "name": "FIREBASE_PROJECT_ID",
+        "group": "data",
+        "default": "—",
+        "effect": {
+          "ar": "مشروع Firestore؛ مع FIREBASE_CONFIG_SOURCE=environment يكون هو المصدر الوحيد.",
+          "en": "The Firestore project; with FIREBASE_CONFIG_SOURCE=environment it is the only source."
+        }
+      },
+      {
+        "name": "FIREBASE_CONFIG_SOURCE",
+        "group": "data",
+        "default": {
+          "ar": "ملف الإعداد أولاً على المنصة",
+          "en": "the config file first on the platform"
+        },
+        "effect": {
+          "ar": "environment يجعل المتغيرين وحدهما مصدر وجهة القاعدة، ويرفض البدء إن نقص أحدهما أو خالف ملف الإعداد.",
+          "en": "environment makes the two variables the only source of the database target, and refuses to start if one is missing or contradicts the config file."
+        }
+      },
+      {
+        "name": "FIREBASE_DATABASE_ID",
+        "group": "data",
+        "default": "(default)",
+        "effect": {
+          "ar": "قاعدة Firestore داخل المشروع.",
+          "en": "The Firestore database inside the project."
+        }
+      },
+      {
+        "name": "FIREBASE_SERVICE_ACCOUNT_KEY",
+        "group": "data",
+        "default": "—",
+        "effect": {
+          "ar": "مفتاح حساب خدمة بصيغة JSON للتشغيل خارج منصة Google؛ وعلى المنصة تُستعمل هوية الخدمة.",
+          "en": "A service-account key as JSON for running outside the Google platform; on the platform the service identity is used."
+        }
+      },
+      {
+        "name": "FIRESTORE_EMULATOR_HOST",
+        "group": "data",
+        "default": "—",
+        "effect": {
+          "ar": "يوجّه الخادم إلى محاكي Firestore المحلي للاختبار.",
+          "en": "Points the server at the local Firestore emulator for testing."
+        }
+      },
+      {
+        "name": "AUTO_IMPORT_LEGACY_DATA",
+        "group": "data",
+        "default": {
+          "ar": "true محلياً، false على المنصة",
+          "en": "true locally, false on the platform"
+        },
+        "effect": {
+          "ar": "يسمح باستيراد البيانات القديمة تلقائياً عند الإقلاع على قاعدة فارغة.",
+          "en": "Allows automatic import of legacy data at start-up on an empty database."
+        }
+      },
+      {
+        "name": "SCHEDULE_PRIVATE_DIR",
+        "group": "data",
+        "default": {
+          "ar": "مجلد database محلياً، /tmp/schedule-private على المنصة",
+          "en": "the database folder locally, /tmp/schedule-private on the platform"
+        },
+        "effect": {
+          "ar": "المجلد الخاص للملفات المحلية والمفاتيح، بصلاحيات 0700.",
+          "en": "The private folder for local files and keys, with 0700 permissions."
+        }
+      },
+      {
+        "name": "STUDENT_CASE_SECRET",
+        "group": "security",
+        "default": {
+          "ar": "يُولَّد ويُحفظ",
+          "en": "generated and stored"
+        },
+        "effect": {
+          "ar": "يزرع سر هوية الطلبة إن لم يكن محفوظاً؛ المحفوظ هو الحَكَم دائماً، وإن خالفه رُفض بتنبيه صريح.",
+          "en": "Seeds the student identity secret when none is stored; the stored one always wins, and a differing value is refused with a loud warning."
+        }
+      },
+      {
+        "name": "PASSWORD_VAULT_KEY",
+        "group": "security",
+        "default": {
+          "ar": "ملف المفتاح إن وجد",
+          "en": "the key file, if present"
+        },
+        "effect": {
+          "ar": "مفتاح النسخة المشفّرة من كلمات المرور (32 بايتاً بصيغة hex أو base64)؛ وإن غاب قُرئ من ملف legacy-password-vault.key في المجلد الخاص.",
+          "en": "The key of the encrypted password copy (32 bytes as hex or base64); when absent it is read from legacy-password-vault.key in the private folder."
+        }
+      },
+      {
+        "name": "CALENDAR_SECRET",
+        "group": "security",
+        "default": {
+          "ar": "مشتق من السر المشترك",
+          "en": "derived from the shared secret"
+        },
+        "effect": {
+          "ar": "سر روابط التقويم، وفك ختم الحالات القديمة.",
+          "en": "The calendar link secret, and unsealing of old cases."
+        }
+      },
+      {
+        "name": "STAFF_DEVICE_SECRET",
+        "group": "security",
+        "default": {
+          "ar": "مشتق من السر المشترك",
+          "en": "derived from the shared secret"
+        },
+        "effect": {
+          "ar": "سر مفاتيح «تذكّرني» لكرت الأستاذ.",
+          "en": "The secret of the teacher card «remember me» keys."
+        }
+      },
+      {
+        "name": "ROOT_ADMIN_USER_ID",
+        "group": "security",
+        "default": "1",
+        "effect": {
+          "ar": "رقم حساب مدير النظام الأعلى.",
+          "en": "The account id of the root administrator."
+        }
+      },
+      {
+        "name": "DEFAULT_ADMIN_PASSWORD",
+        "group": "security",
+        "default": {
+          "ar": "admin123 للتطوير وحده",
+          "en": "admin123, development only"
+        },
+        "effect": {
+          "ar": "كلمة المدير الأولى حين تُنشأ قاعدة محلية فارغة للتطوير؛ والإنتاج يرفض الإقلاع بقاعدة محلية مفقودة بدل إنشاء حساب معروف.",
+          "en": "The first administrator password when an empty local development database is created; production refuses to start with a missing local database instead of creating a known account."
+        }
+      },
+      {
+        "name": "VAPID_PUBLIC_KEY",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "المفتاح العام لتنبيهات الجوال.",
+          "en": "The public key for mobile notifications."
+        }
+      },
+      {
+        "name": "VAPID_PRIVATE_KEY",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "المفتاح الخاص لتنبيهات الجوال؛ بدون الاثنين تتوقف التنبيهات بهدوء.",
+          "en": "The private key for mobile notifications; without both, notifications quietly stop."
+        }
+      },
+      {
+        "name": "GEMINI_API_KEY",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "مفتاح خدمة Gemini لقراءة الاستيراد والاستعلام النصي؛ بدونه يعمل المحلل الحتمي وحده.",
+          "en": "The Gemini service key for import reading and text queries; without it the deterministic parser works alone."
+        }
+      },
+      {
+        "name": "GOOGLE_GEMINI_API_KEY",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "اسم بديل للمفتاح نفسه.",
+          "en": "An alternative name for the same key."
+        }
+      },
+      {
+        "name": "GEMINI_MODEL",
+        "group": "services",
+        "default": "gemini-3.6-flash",
+        "effect": {
+          "ar": "إصدار خدمة Gemini المستعمل.",
+          "en": "The Gemini service version used."
+        }
+      },
+      {
+        "name": "GEMINI_SCHEDULE_MODEL",
+        "group": "services",
+        "default": "GEMINI_MODEL",
+        "effect": {
+          "ar": "إصدار خاص لقراءة الجداول يتقدم على GEMINI_MODEL.",
+          "en": "A specific version for schedule reading that takes precedence over GEMINI_MODEL."
+        }
+      },
+      {
+        "name": "AD_PUBLIC_ORIGIN",
+        "group": "services",
+        "default": "https://schedule-kw.com",
+        "effect": {
+          "ar": "العنوان العام الذي تُبنى به روابط تقارير الإعلانات المرسلة بالبريد؛ تضبطه جهة الاستضافة على نطاقها.",
+          "en": "The public address used to build ad-report links sent by email; the hosting party sets it to its own domain."
+        }
+      },
+      {
+        "name": "AD_MAIL_API_KEY",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "مفتاح واجهة إرسال البريد لتقارير الإعلانات وتنبيه الطلبات؛ بدونه لا يُرسل بريد ويبقى كل شيء آخر يعمل.",
+          "en": "The mail-sending API key for ad reports and lead alerts; without it no mail is sent and everything else keeps working."
+        }
+      },
+      {
+        "name": "AD_MAIL_FROM",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "عنوان المرسل المعتمد لدى مزوّد البريد.",
+          "en": "The sender address approved by the mail provider."
+        }
+      },
+      {
+        "name": "AD_MAIL_API_URL",
+        "group": "services",
+        "default": "https://api.resend.com/emails",
+        "effect": {
+          "ar": "عنوان واجهة الإرسال (طلب JSON بمفتاح Bearer).",
+          "en": "The sending API address (a JSON request with a Bearer key)."
+        }
+      },
+      {
+        "name": "AD_LEAD_NOTIFY_TO",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "البريد الذي يُنبَّه عند طلب إعلان جديد؛ فارغ أو غير صالح يعني لا بريد.",
+          "en": "The address alerted on a new ad request; empty or invalid means no mail."
+        }
+      },
+      {
+        "name": "PUBLIC_ATTEMPT_MAX_FAILURES",
+        "group": "limits",
+        "default": "10",
+        "effect": {
+          "ar": "عدد الأخطاء المسموح لكل عنوان في الأبواب العامة (التحقق من الهوية) قبل الإيقاف المؤقت.",
+          "en": "Errors allowed per address at the public doors (identity checks) before a temporary block."
+        }
+      },
+      {
+        "name": "PUBLIC_ATTEMPT_WINDOW_MINUTES",
+        "group": "limits",
+        "default": "10",
+        "effect": {
+          "ar": "نافذة عدّ تلك الأخطاء بالدقائق.",
+          "en": "The window in minutes for counting those errors."
+        }
+      },
+      {
+        "name": "STUDENT_DOOR_IDENTITY_MAX",
+        "group": "limits",
+        "default": "24000",
+        "effect": {
+          "ar": "سقف أسئلة الهوية في «مساري» من العنوان الواحد كل 10 دقائق (شبكة الجامعة الواحدة تخدم آلافاً).",
+          "en": "The ceiling of identity questions in «مساري» per address every 10 minutes (one campus network serves thousands)."
+        }
+      },
+      {
+        "name": "STUDENT_DOOR_CODE_MAX_FAILURES",
+        "group": "limits",
+        "default": "600",
+        "effect": {
+          "ar": "سقف أخطاء الرمز الشخصي من العنوان الواحد؛ والملف نفسه يُقفل بعد 5 أخطاء متتالية لمدة 15 دقيقة.",
+          "en": "The ceiling of personal-code errors per address; the profile itself locks after 5 consecutive errors for 15 minutes."
+        }
+      },
+      {
+        "name": "STUDENT_DOOR_WRITES_PER_IP_PER_MINUTE",
+        "group": "limits",
+        "default": "1200",
+        "effect": {
+          "ar": "سقف طلبات الكتابة في «مساري» من الشبكة الواحدة في الدقيقة.",
+          "en": "The ceiling of «مساري» write requests per network per minute."
+        }
+      },
+      {
+        "name": "STUDENT_DOOR_WRITES_PER_MINUTE",
+        "group": "limits",
+        "default": "60",
+        "effect": {
+          "ar": "سقف طلبات الكتابة للطالب الواحد في الدقيقة (بالرقم المدني أو الجلسة).",
+          "en": "The ceiling of write requests per student per minute (by civil id or session)."
+        }
+      },
+      {
+        "name": "STUDENT_DOOR_PROOF_MAX",
+        "group": "limits",
+        "default": "12",
+        "effect": {
+          "ar": "محاولات إثبات الخريج المتوقَّع (رفع الصحيفة) كل 10 دقائق.",
+          "en": "Expected-graduate proof attempts (sheet upload) every 10 minutes."
+        }
+      },
+      {
+        "name": "ROOM_DOOR_PER_IP_PER_MINUTE",
+        "group": "limits",
+        "default": "600",
+        "effect": {
+          "ar": "سقف طلبات صفحات أبواب القاعات من العنوان الواحد في الدقيقة.",
+          "en": "The ceiling of room-door page requests per address per minute."
+        }
+      },
+      {
+        "name": "PUBLIC_RATE_LIMIT_MAX",
+        "group": "limits",
+        "default": "60",
+        "effect": {
+          "ar": "حد طلبات النقاط العامة في النافذة؛ 0 يلغي الحد.",
+          "en": "The public-endpoint request limit per window; 0 disables it."
+        }
+      },
+      {
+        "name": "PUBLIC_RATE_LIMIT_WINDOW_MS",
+        "group": "limits",
+        "default": "60000",
+        "effect": {
+          "ar": "طول نافذة الحد العام بالملّي ثانية (ألف على الأقل).",
+          "en": "The public limit window in milliseconds (at least 1000)."
+        }
+      },
+      {
+        "name": "PUBLIC_REQUEST_PER_IP_PER_MINUTE",
+        "group": "limits",
+        "default": "1500",
+        "effect": {
+          "ar": "سقف طلبات صفحة طلب الأستاذ من العنوان الواحد في الدقيقة.",
+          "en": "The teacher request page ceiling per address per minute."
+        }
+      },
+      {
+        "name": "PUBLIC_REQUEST_PER_LINK_PER_MINUTE",
+        "group": "limits",
+        "default": "240",
+        "effect": {
+          "ar": "سقف طلبات الرابط الشخصي الواحد في الدقيقة.",
+          "en": "The ceiling per personal link per minute."
+        }
+      },
+      {
+        "name": "RADAR_AUTO",
+        "group": "limits",
+        "default": {
+          "ar": "مفعّل",
+          "en": "on"
+        },
+        "effect": {
+          "ar": "تحديث رادار التسجيل تلقائياً؛ false يوقفه.",
+          "en": "Automatic registration-radar refresh; false stops it."
+        }
+      },
+      {
+        "name": "RADAR_AUTO_HOURS",
+        "group": "limits",
+        "default": "24",
+        "effect": {
+          "ar": "كل كم ساعة يُحدَّث الرادار (ساعة على الأقل).",
+          "en": "How many hours between radar refreshes (at least one)."
+        }
+      },
+      {
+        "name": "SCHEDULE_DEMO_ENABLED",
+        "group": "platform",
+        "default": {
+          "ar": "مفعّل",
+          "en": "on"
+        },
+        "effect": {
+          "ar": "false يغلق الدخول التجريبي الفوري.",
+          "en": "false closes the instant demo sign-in."
+        }
+      },
+      {
+        "name": "SCHEDULE_DEMO_SERVICE",
+        "group": "platform",
+        "default": "false",
+        "effect": {
+          "ar": "true يجعل الخدمة كلها خدمة عرض معزولة (DATA_MODE=demo).",
+          "en": "true makes the whole service an isolated showcase (DATA_MODE=demo)."
+        }
+      },
+      {
+        "name": "PORT",
+        "group": "platform",
+        "default": "3000",
+        "effect": {
+          "ar": "المنفذ ثابت 3000؛ ولا يُقرأ PORT إلا في خدمة العرض (DATA_MODE=demo)، فتضبط جهة الاستضافة منصتها على 3000.",
+          "en": "The port is fixed at 3000; PORT is read only by the showcase service (DATA_MODE=demo), so the hosting party points its platform at 3000."
+        }
+      },
+      {
+        "name": "NODE_ENV",
+        "group": "platform",
+        "default": "—",
+        "effect": {
+          "ar": "production يضيف Secure لملفات الارتباط ويقدّم الواجهة المبنية بدل خادم التطوير.",
+          "en": "production adds Secure to cookies and serves the built interface instead of the development server."
+        }
+      },
+      {
+        "name": "K_SERVICE",
+        "group": "platform",
+        "default": {
+          "ar": "تضبطه المنصة",
+          "en": "set by the platform"
+        },
+        "effect": {
+          "ar": "يكشف التشغيل على Cloud Run فتُطبَّق قواعد المنصة.",
+          "en": "Detects running on Cloud Run so platform rules apply."
+        }
+      },
+      {
+        "name": "K_REVISION",
+        "group": "platform",
+        "default": {
+          "ar": "تضبطه المنصة",
+          "en": "set by the platform"
+        },
+        "effect": {
+          "ar": "كالسابق؛ ويُطبع في سجل الإقلاع.",
+          "en": "As above; printed in the start-up log."
+        }
+      },
+      {
+        "name": "K_CONFIGURATION",
+        "group": "platform",
+        "default": {
+          "ar": "تضبطه المنصة",
+          "en": "set by the platform"
+        },
+        "effect": {
+          "ar": "كالسابق.",
+          "en": "As above."
+        }
+      },
+      {
+        "name": "APPLET_ID",
+        "group": "platform",
+        "default": "—",
+        "effect": {
+          "ar": "يدل على التشغيل داخل إطار مستضيف، فيسمح بالتضمين ولا تُطبَّق قواعد Cloud Run.",
+          "en": "Marks running inside a host frame, so embedding is allowed and Cloud Run rules do not apply."
+        }
+      },
+      {
+        "name": "TMPDIR",
+        "group": "platform",
+        "default": "/tmp",
+        "effect": {
+          "ar": "أساس المجلد الخاص على المنصة.",
+          "en": "The base of the private folder on the platform."
+        }
+      },
+      {
+        "name": "OCR_DATA_DIR",
+        "group": "platform",
+        "default": {
+          "ar": "مجلد التشغيل",
+          "en": "the working folder"
+        },
+        "effect": {
+          "ar": "مكان ملفي اللغتين العربية والإنجليزية لقراءة المستندات الممسوحة.",
+          "en": "Where the Arabic and English language files for scanned-document reading are found."
+        }
+      },
+      {
+        "name": "OCR_PROFILE",
+        "group": "diagnostics",
+        "default": {
+          "ar": "معطّل",
+          "en": "off"
+        },
+        "effect": {
+          "ar": "1 يطبع أزمنة مراحل قراءة المستندات الممسوحة.",
+          "en": "1 prints the stage timings of scanned-document reading."
+        }
+      },
+      {
+        "name": "SMART_IMPORT_ROW_STRIPS",
+        "group": "diagnostics",
+        "default": {
+          "ar": "معطّل",
+          "en": "off"
+        },
+        "effect": {
+          "ar": "1 يفعّل قراءة إضافية للصفوف شريطاً شريطاً في استيراد المستندات.",
+          "en": "1 enables an extra row-by-row strip reading in document import."
+        }
+      },
+      {
+        "name": "ROOM_DOOR_FAKE_NOW",
+        "group": "diagnostics",
+        "default": "—",
+        "effect": {
+          "ar": "وقت مفترض لصفحة باب القاعة لتجربتها خارج الدوام؛ للتطوير وحده.",
+          "en": "A pretend time for the room door page to try it outside teaching hours; development only."
+        }
+      }
+    ]
+  },
+  "routes": {
+    "title": {
+      "ar": "فهرس واجهات الخادم",
+      "en": "Server interface index"
+    },
+    "lead": {
+      "ar": "كل مسار يعرضه الخادم، مقروءاً من الكود في كل بناء: الطريقة والمسار ونوع الوصول والوحدة والمتطلبات التي تصفه.",
+      "en": "Every route the server exposes, read from the code at every build: method, path, access type, module and the requirements that describe it."
+    }
+  }
+}

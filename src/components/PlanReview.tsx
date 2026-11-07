@@ -246,6 +246,13 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
     finally { setBusy(false); }
   };
 
+  /* استيرادُ ورقة القواعد يُنشئ مسوّدات: تُقرأ الحالة والصحيفة المفتوحة من جديد فلا تبقى قديمة. */
+  const reloadAfterImport = () => {
+    void loadStatus();
+    if (planId && sectionId) request(`/api/plan-review/plan?planId=${encodeURIComponent(planId)}&sectionId=${sectionId}`).then(setView).catch(() => undefined);
+    window.dispatchEvent(new Event("schedule:plan-review-updated"));
+  };
+
   const openCatalogCorrection = (action: { kind: "edit" | "create"; sectionId: number; collegeId: number; courseId?: number; code: string; name: string; credit: number; hours: number }) => {
     sessionStorage.setItem("schedule-reference-course-action", JSON.stringify(action));
     onNavigate?.("courses");
@@ -333,9 +340,20 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
     <div className="pr-page" dir="rtl">
       <PageTitle eyebrow="مراجعة الصحيفة" subtitle="مستوى كل مقرر ونوعه وما يسبقه، ثم يعتمدها رئيس لجنة الجدول.">قواعد المقررات</PageTitle>
       {error ? <Notice type="error" onDismiss={() => setError("")}>{error}</Notice> : null}
-      {status?.canImport ? <PlanSheetUpload targets={status.uploadTargets || []} sectionId={sectionId} tools={<PreviousPlansPanel />} onDone={(id, plan) => { void loadStatus().then(() => { setSectionId(id); setPlanId(plan); setSelected(0); window.dispatchEvent(new Event("schedule:plan-review-updated")); }); }} /> : null}
+      {status?.canImport ? <PlanSheetUpload targets={status.uploadTargets || []} sectionId={sectionId} tools={<><PreviousPlansPanel /><ImportPanel onDone={reloadAfterImport} /></>} onDone={(id, plan) => { void loadStatus().then(() => { setSectionId(id); setPlanId(plan); setSelected(0); window.dispatchEvent(new Event("schedule:plan-review-updated")); }); }} /> : null}
       {!status?.sections.length ? <EmptyState title="لا صحائف في نطاقك" detail="تظهر هنا صحائف الأقسام التي تملك نطاقها." /> : (
         <>
+          {/* القسم المرجعي: صحيفةُ التخرج تقود الموقعَ والنسخةَ بمنتقيها، ومنها يُفتح تصحيح الكتالوج. */}
+          {isTechSection ? (
+            <CurriculumReferenceReview
+              sectionId={sectionId}
+              canApply={Boolean(status.canImport)}
+              onCatalogAction={onNavigate ? openCatalogCorrection : undefined}
+              onPick={(id, _reference, plan) => { setSectionId(id); setPlanId(plan || ""); setSelected(0); }}
+              others={status.sections.filter(s => !isTechnologyEducation(s.sectionName)).map(s => ({ sectionId: s.sectionId, label: s.sectionName }))}
+              onPickOther={id => { const s = status.sections.find(x => x.sectionId === id); setSectionId(id); setPlanId(s?.plans[0]?.id || ""); setSelected(0); }}
+            />
+          ) : null}
           {!isTechSection ? (
             <div className="pr-pickers">
               {status.sections.length > 1 ? (
@@ -580,6 +598,8 @@ function CourseEditor({ course, rule, view, nameOf, busy, onClose, onSave, onSav
 
 function GroupsPanel({ view, nameOf, busy, series, own, isOff, onOpen, onSave, onDelete }: { view: View; nameOf: (id: number) => string; busy: boolean; series: Map<number, number>; own: ReadonlySet<number>; isOff: (id: number) => boolean; onOpen: (id: number) => void; onSave: (g: ElectiveGroup) => void; onDelete: (id: string) => void }) {
   const [draft, setDraft] = useState<ElectiveGroup | null>(null);
+  /* حذفُ المجموعة يمرّ بتأكيدٍ مضمَّن كاعتماد الصحيفة: ضغطةٌ واحدة لا تمحو مجموعة. */
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const electives = view.courses.filter(c => own.has(c.id)).sort((a, b) => a.code.localeCompare(b.code, "en", { numeric: true, sensitivity: "base" }));
   return (
     <section className="pr-groups">
@@ -593,10 +613,26 @@ function GroupsPanel({ view, nameOf, busy, series, own, isOff, onOpen, onSave, o
             {view.can.edit ? (
                 <div className="pr-group-actions">
                   <SecondaryButton onClick={() => setDraft(g)} data-guide-ignore="تعديلُ مجموعةٍ اختيارية داخل شاشةٍ مسجّلة في المرشد باسم page.planReview">تعديل</SecondaryButton>
-                  <SecondaryButton disabled={busy} onClick={() => onDelete(g.id)} data-guide-ignore="حذفُ مجموعةٍ اختيارية داخل شاشةٍ مسجّلة في المرشد باسم page.planReview"><Trash2 size={14} /></SecondaryButton>
+                  <SecondaryButton disabled={busy} onClick={() => setConfirmDelete(g.id)} aria-expanded={confirmDelete === g.id} aria-label={`حذف مجموعة ${g.name}`} title="حذف المجموعة" data-guide-ignore="حذفُ مجموعةٍ اختيارية داخل شاشةٍ مسجّلة في المرشد باسم page.planReview"><Trash2 size={14} aria-hidden="true" /></SecondaryButton>
                 </div>
               ) : null}
             </header>
+            {confirmDelete === g.id ? (
+              <div className="pr-confirm" role="alertdialog" aria-modal="false" aria-labelledby={`pr-group-del-${g.id}`}>
+                <span className="pr-confirm-ic" aria-hidden="true"><Trash2 /></span>
+                <div>
+                  <b id={`pr-group-del-${g.id}`}>حذف مجموعة «{g.name}»؟</b>
+                  <ul>
+                    <li>تُحذف المجموعة وحدّاها؛ مقرراتها تبقى في الصحيفة.</li>
+                    <li>يعود كل مقرر اختياري فيها «بلا مجموعة» حتى يُضمّ إلى غيرها.</li>
+                  </ul>
+                </div>
+                <div className="pr-confirm-actions">
+                  <PrimaryButton disabled={busy} onClick={() => { setConfirmDelete(null); onDelete(g.id); }} data-guide-ignore="تأكيدُ حذف مجموعةٍ اختيارية داخل شاشة مراجعة الصحيفة">نعم، احذف</PrimaryButton>
+                  <SecondaryButton disabled={busy} onClick={() => setConfirmDelete(null)} data-guide-ignore="تراجعٌ عن حذف المجموعة دون أي تغيير">تراجع</SecondaryButton>
+                </div>
+              </div>
+            ) : null}
             <div className="pr-group-cards">
               {g.courseIds.filter(id => own.has(id)).map(id => {
                 const c = view.courses.find(x => x.id === id);

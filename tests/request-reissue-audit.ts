@@ -65,7 +65,7 @@ check(issue.includes("const already = latestRequestByInstructor(existing);") && 
   "الإصدارُ يقرأ أحدثَ طلبٍ لكل أستاذ");
 check(issue.includes("const move = reissueMove(held);") && issue.includes('if (held && move === "keep" && !individualOnly && !reopening && !onlyNoted)'),
   "ولا يكتفي بوجود الطلب: يقرّر بحالته");
-check(issue.includes('if (held && (move === "extend" || (onlyNoted && move === "keep")))') && issue.includes("window: individualOnly ? held.window : { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt }"),
+check(issue.includes('if (held && (move === "extend" || ((onlyNoted || individualOnly) && move === "keep")))') && issue.includes("window: individualOnly ? held.window : { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt }"),
   "والطلبُ القائم يأخذ الموعدَ الجديد");
 check(issue.includes("requestLinkNeedsReplacing(heldLink, readable,") && issue.includes("await Repository.revokeShareLink(heldLink.id)"),
   "ورابطُه الميت يُستبدل ويُوقف القديم");

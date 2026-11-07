@@ -20,6 +20,7 @@ import { AR, countOf, oblique } from "./src/utils/arabicCount";
 import type { DegreeRule } from "./src/utils/degreeRules";
 import type { PlanRuleCandidate } from "./src/utils/graduationPlan";
 import { adInjection, registerAdsRoutes } from "./src/server/adsRoutes";
+import { createLandingInquiryHandler, INQUIRY_BODY_LIMIT } from "./src/server/landingInquiry";
 import { registerStudentDoorRoutes, scheduleStudentProfilePurge } from "./src/server/studentDoorRoutes";
 import { registerStudentShowcase } from "./src/server/studentShowcase";
 import { registerPlanReviewRoutes } from "./src/server/planReviewRoutes";
@@ -184,6 +185,8 @@ app.use(["/api/system-backup/preview", "/api/system-backup/import", "/api/system
    كبيراً قبل أن يصل إلى المسار. safeDraftRows يقصّ كل حقل ويحدّ الصفوف بـ450،
    والمسار نفسه يرفض ما لا تتسعه وثيقة Firestore (DRAFT_DOCUMENT_MAX_BYTES). */
 app.use("/api/intelligence/drafts", express.json({ limit: "4mb" }));
+/* طلبُ الاستعراض من صفحة الهبوط حقولٌ قصيرة: حدٌّ أضيق من العام. */
+app.use("/api/landing/inquiry", express.json({ limit: INQUIRY_BODY_LIMIT }));
 app.use(express.json({ limit: "1mb" }));
 
 // CSRF hardening without changing the legacy UI: reject cross-site state-changing API requests.
@@ -219,7 +222,8 @@ app.use(adInjection());
 registerSystemRoutes(app);
 
 app.use("/api", (req, res, next) => {
-  if (!state.databaseDown || req.path === "/landing/inquiry") { next(); return; }
+  /* طلبُ الاستعراض لا يُستثنى: ما لا يُحفظ يُجاب بخطأ، لا بـ«تم». */
+  if (!state.databaseDown) { next(); return; }
   res.status(503).type("application/json; charset=utf-8").send(JSON.stringify({
     error: "الخدمة متوقفة: تعذر الاتصال بقاعدة البيانات الحقيقية.",
     ref: state.databaseDownRef,
@@ -774,28 +778,12 @@ async function startServer() {
   if (!databaseFailure) scheduleStudentProfilePurge(message => console.log(message));
   if (!databaseFailure) scheduleRadarAutoRun(message => console.log(message));
 
-  // ── تسجيل طلبات الاستعراض من صفحة الهبوط التسويقية ──────────────────────────
-  app.post("/api/landing/inquiry", express.json(), (req, res) => {
-    try {
-      const { institution, name, email, phone, scale, message } = req.body || {};
-      console.log("[landing-inquiry] New executive demo request:", {
-        institution,
-        name,
-        email,
-        phone,
-        scale,
-        messageLength: message ? String(message).length : 0,
-        receivedAt: new Date().toISOString(),
-      });
-      res.json({
-        success: true,
-        message: "تم استلام طلبكم بنجاح. سيتواصل معكم فريقنا الأكاديمي خلال 24 ساعة.",
-      });
-    } catch (e: any) {
-      console.error("[landing-inquiry] Failed to process inquiry:", e);
-      res.status(500).json({ error: "تعذر تسجيل الطلب مؤقتاً." });
-    }
-  });
+  // ── طلبات الاستعراض من صفحة الهبوط: تُحفظ وتصل الإدارة (FR-ENG-027، src/server/landingInquiry.ts) ──
+  app.post("/api/landing/inquiry", createLandingInquiryHandler({
+    create: entry => Repository.createLandingInquiry(entry),
+    list: () => Repository.listLandingInquiries(),
+    databaseDown: () => Boolean(state.databaseDown),
+  }));
 
   app.all("/api/*", (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.path}` });

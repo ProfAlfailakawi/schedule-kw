@@ -1825,7 +1825,8 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
   white-space:nowrap;
 }
 /* A reading of zero (or still loading) stands back; the ring and its number stay visible. */
-.living-health-strip>span.is-loading,.living-health-strip>span[style*="--reading:0%"]{opacity:.62}
+/* تتراجع الحلقةُ وحدها؛ التسميةُ تبقى بتباينها كاملاً (4.5:1). */
+.living-health-strip>span:is(.is-loading,[style*="--reading:0%"])>:not(small){opacity:.62}
 /* The number lives inside the ring now; the <b> stays for screen readers. */
 
 /* --- Score ring ---------------------------------------------------------------
@@ -5022,7 +5023,7 @@ button.twin-delta{width:100%}
 .query-page,.print-report,.print-wide,.lens-strip,.lens-week,.lens-groups,.lens-tags,.lens-index,
 [class*="section-plan-report"],.vault-export-progress-head{--t-xs:11.5px;--t-micro:11px;--t-eyebrow:11px}
 
-.living-health-strip>span.is-recalled{opacity:.7}
+.living-health-strip>span.is-recalled>:not(small){opacity:.7}
 
 /* الشارة «منتدب» داخل رقائق الجولة والمسرح: اسمُ الأستاذ يحملها كما في الجدول الحقيقي. */
 .ob-chip span .visiting-badge,.choreo-chip .visiting-badge{color:color-mix(in srgb,var(--brass,#a8792a) 88%,var(--ink));font-size:10px;min-height:16px;padding-inline:5px;margin-inline-start:3px}

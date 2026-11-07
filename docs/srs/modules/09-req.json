@@ -22,6 +22,7 @@
     "src/server/requestReplayScript.ts",
     "src/server/requestLengthScript.ts",
     "src/server/requestDayAutofillScript.ts",
+    "src/server/voiceInputScript.ts",
     "src/server/staffCardVisual.ts",
     "src/server/courseReachShared.ts",
     "src/server/teacherCardExtras.ts",
@@ -243,7 +244,7 @@
         { "ar": "لا يُصدر لمعرّف «هيئة تدريسية» ولو ورد في الجدول.", "en": "No link is issued to the placeholder faculty identifier even when it appears in the schedule." }
       ],
       "evidence": {
-        "code": ["src/server/routes/instructorRequestsRoutes.ts#registerInstructorRequestsRoutes", "src/server/core/staffCard.ts#staffFamilyScopes"],
+        "code": ["src/server/routes/instructorRequestsRoutes.ts#registerInstructorRequestsRoutes", "src/server/core/staffCard.ts#staffFamilyScopes", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/issue"],
         "tests": ["tests/instructor-request-server-audit.ts", "tests/instructor-request-cross-college-audit.ts", "tests/publish-requests-audit.ts"]
       }
     },
@@ -307,7 +308,7 @@
         { "ar": "GET send-log يعيد الجمهور all أو picked أو exception أو ta ولا يتجاوز 200 سطر.", "en": "GET send-log returns audience all, picked, exception or ta and never more than 200 lines." }
       ],
       "evidence": {
-        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/components/PublishRecipientPicker.tsx", "src/utils/requestNotedScope.ts"],
+        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/components/PublishRecipientPicker.tsx", "src/utils/requestNotedScope.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/send-log"],
         "tests": ["tests/publish-pick-teachers-audit.ts", "tests/publish-requests-audit.ts"]
       }
     },
@@ -337,8 +338,8 @@
       "kind": "functional",
       "title": { "ar": "الاستثناء الفردي لتعديل بعد الإغلاق", "en": "Individual exception after closing" },
       "text": {
-        "ar": "يجب على النظام أن يتيح للقسم فتح نافذة تعديل استثنائية لأستاذ واحد بسبب مكتوب (حتى 400 حرف) وموعد إغلاق خاص، بشرط وجود بطاقة منشورة فعالة، وأن يتيح سحب الاستثناء فوراً دون إلغاء البطاقة، ولا يمدّد الاستثناء طلباً مُسوّى أو مُستبدَلاً.",
-        "en": "The system shall allow the department to open an exceptional edit window for one member with a written reason (up to 400 characters) and a dedicated closing time, provided an active published card exists, shall allow revoking the exception immediately without cancelling the card, and shall not extend a settled or superseded request."
+        "ar": "يجب على النظام أن يتيح للقسم فتح نافذة تعديل استثنائية لأستاذ واحد بسبب مكتوب (حتى 400 حرف) وموعد إغلاق خاص، بشرط وجود بطاقة منشورة فعالة، وأن يتيح سحب الاستثناء فوراً دون إلغاء البطاقة، ولا يمدّد الاستثناء طلباً مُسوّى أو مُستبدَلاً؛ وأن يحمل الاستثناءُ الطلبَ المفتوح نفسه (أُرسل أو أُرسل ولم يُقرَّر أو قيد المراجعة) بدل إنشاء طلبٍ ثانٍ، فلا يكون للأستاذ طلبان مفتوحان.",
+        "en": "The system shall allow the department to open an exceptional edit window for one member with a written reason (up to 400 characters) and a dedicated closing time, provided an active published card exists, shall allow revoking the exception immediately without cancelling the card, and shall not extend a settled or superseded request; the exception shall be placed on the member's open request itself (sent, submitted or under review) rather than creating a second one, so a member never has two open requests."
       },
       "priority": "should",
       "status": "implemented",
@@ -346,11 +347,13 @@
       "acceptance": [
         { "ar": "إصدار فردي بلا سبب يُردّ بـ400، وبلا بطاقة منشورة يُردّ بـ409.", "en": "An individual issue without a reason is refused with 400, and without a published card with 409." },
         { "ar": "exception/revoke يسجّل revokedAt ويعيد 409 إن لم يكن هناك استثناء نشط، ويعمل ولو كان الفصل مجمداً.", "en": "exception/revoke records revokedAt and returns 409 when no exception is active, and works even when the term is frozen." },
-        { "ar": "requestWindowOpen يعيد true داخل الاستثناء وfalse بعد revokedAt أو لطلب مُسوّى.", "en": "requestWindowOpen returns true inside the exception and false after revokedAt or for a settled request." }
+        { "ar": "requestWindowOpen يعيد true داخل الاستثناء وfalse بعد revokedAt أو لطلب مُسوّى.", "en": "requestWindowOpen returns true inside the exception and false after revokedAt or for a settled request." },
+        { "ar": "exception/revoke بلا كلية أو قسم أو فصل أو أستاذ صحيح ← 400 «حدد القسم والفصل والأستاذ.»، وخارج النطاق ← 403؛ ويُسجَّل revokedBy وسطر في سجل التدقيق «إغلاق استثناء تعديل الجدول للأستاذ … قبل موعده».", "en": "exception/revoke without a college, department, term or a valid member ← 400 «specify the department, term and member.», outside scope ← 403; revokedBy is recorded with an audit line «closing the member's schedule-edit exception before its time»." },
+        { "ar": "إصدار استثناء لأستاذ ليس في جدول العائلة للفصل أو لهوية «هيئة تدريسية» ← 404؛ وتُغلق نافذة الطلب العامة عند موعد بطاقة الأستاذ المنشورة (أو تكون مغلقة) بينما يحمل الاستثناء موعد إغلاقه الخاص.", "en": "Issuing an exception for a member not in the family's schedule for the term, or for the placeholder faculty, ← 404; the request's general window closes at the published card's deadline (or is already closed) while the exception carries its own closing time." }
       ],
       "evidence": {
-        "code": ["src/utils/instructorRequestWindows.ts#individualExceptionOpen", "src/server/routes/instructorRequestsRoutes.ts"],
-        "tests": ["tests/staff-request-windows-audit.ts"]
+        "code": ["src/utils/instructorRequestWindows.ts#individualExceptionOpen", "src/server/routes/instructorRequestsRoutes.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/exception/revoke"],
+        "tests": ["tests/staff-request-windows-audit.ts", "tests/handover-fixes-audit.ts"]
       }
     },
     {
@@ -411,7 +414,7 @@
         { "ar": "فتح رابط /s/ من نوع طلب يُحوَّل إلى بابه ولا يعرض جدول القسم.", "en": "Opening an /s/ link of kind request is redirected to its own door and never shows the department schedule." }
       ],
       "evidence": {
-        "code": ["src/server/core/instructorRequests.ts#resolveRequestLink", "src/server/routes/publicRequestRoutes.ts", "src/server/routes/publicStaffRoutes.ts"],
+        "code": ["src/server/core/instructorRequests.ts#resolveRequestLink", "src/server/routes/publicRequestRoutes.ts", "src/server/routes/publicStaffRoutes.ts", "src/server/routes/publicRequestRoutes.ts#/r/:token", "src/server/routes/publicStaffRoutes.ts#/s/:token"],
         "tests": ["tests/instructor-request-server-audit.ts", "tests/instructor-request-followup-audit.ts"]
       }
     },
@@ -495,7 +498,7 @@
         { "ar": "الملاحظة العامة تُقصّ عند 400 حرف ولا تدخل في الحكم، ومقرر خارج الكتالوج يُردّ بـ400.", "en": "The general note is truncated at 400 characters and does not enter the verdict, and a course outside the catalogue is refused with 400." }
       ],
       "evidence": {
-        "code": ["src/server/routes/publicRequestRoutes.ts#instructorRequestItemsFromPayload", "src/server/routes/publicRequestRoutes.ts", "src/utils/requestNotedScope.ts#notedScopeBreach"],
+        "code": ["src/server/routes/publicRequestRoutes.ts#instructorRequestItemsFromPayload", "src/server/routes/publicRequestRoutes.ts", "src/utils/requestNotedScope.ts#notedScopeBreach", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token"],
         "tests": ["tests/instructor-request-server-audit.ts", "tests/instructor-request-followup-audit.ts", "tests/instructor-request-availability-audit.ts"]
       }
     },
@@ -559,7 +562,7 @@
         { "ar": "تصفّح الخيارات وفحص الأوقات لا يحجزان شيئاً، وتثبيت البند أو رفضه يفكّ الحجز.", "en": "Browsing options and checking times hold nothing, and fixing or rejecting the item releases the hold." }
       ],
       "evidence": {
-        "code": ["src/utils/instructorRequestReservations.ts", "src/server/routes/publicRequestRoutes.ts#REQUEST_HOLD_TTL_MS", "src/components/RequestHoldSheet.tsx"],
+        "code": ["src/utils/instructorRequestReservations.ts", "src/server/routes/publicRequestRoutes.ts#REQUEST_HOLD_TTL_MS", "src/components/RequestHoldSheet.tsx", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/hold"],
         "tests": ["tests/instructor-request-availability-audit.ts", "tests/teacher-card-logic-audit.ts", "tests/teacher-card-flow-audit.ts"]
       }
     },
@@ -580,7 +583,7 @@
         { "ar": "رمز سبب المانع يكون واحداً من instructor وroom وfacility وcohort وload وregulation وtravel.", "en": "The blocking reason code is one of instructor, room, facility, cohort, load, regulation and travel." }
       ],
       "evidence": {
-        "code": ["src/server/routes/publicRequestRoutes.ts", "src/server/core/instructorRequests.ts#buildSharedRequestContext"],
+        "code": ["src/server/routes/publicRequestRoutes.ts", "src/server/core/instructorRequests.ts#buildSharedRequestContext", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/check", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/check-batch", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/check-times"],
         "tests": ["tests/teacher-card-logic-audit.ts", "tests/instructor-request-followup-audit.ts"]
       }
     },
@@ -600,7 +603,7 @@
         { "ar": "الردّ يمرّ بـ stickForTeacher فلا يحمل sameRoom ولا sameBuilding، والأقرب المتاح يوقف فحص ما بعده.", "en": "The reply passes through stickForTeacher so it carries no sameRoom or sameBuilding, and the nearest available candidate stops the check of later ones." }
       ],
       "evidence": {
-        "code": ["src/utils/lectureStick.ts", "src/server/routes/publicRequestRoutes.ts", "src/components/LectureStickChips.tsx"],
+        "code": ["src/utils/lectureStick.ts", "src/server/routes/publicRequestRoutes.ts", "src/components/LectureStickChips.tsx", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/stick"],
         "tests": ["tests/lecture-stick-own-audit.ts", "tests/teacher-card-r4-audit.ts", "tests/appointment-forms-r2-audit.ts"]
       }
     },
@@ -662,7 +665,7 @@
         { "ar": "الإعادة مسودة لا إرسال، وتمر بعدها على الفحص المباشر كأنها كُتبت الآن، والجواب يُحفظ خمس دقائق ولا يحمل ما هو للقسم وحده.", "en": "Replay is a draft not a submission, goes through live checking as if just written, and the reply is cached for five minutes and carries nothing meant for the department alone." }
       ],
       "evidence": {
-        "code": ["src/server/requestReplayScript.ts", "src/utils/previousTermRequest.ts#pickPreviousRequest", "src/server/routes/publicRequestRoutes.ts"],
+        "code": ["src/server/requestReplayScript.ts", "src/utils/previousTermRequest.ts#pickPreviousRequest", "src/server/routes/publicRequestRoutes.ts", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/previous"],
         "tests": ["tests/teacher-card-flow-audit.ts", "tests/request-page-browser-syntax-audit.mjs", "tests/doctor-journey-audit.ts"]
       }
     },
@@ -704,7 +707,7 @@
         { "ar": "قرار القسم يصل بطاقة مفتوحة خلال ثانيتين دون إعادة تحميل.", "en": "A department decision reaches an open card within two seconds without reloading." }
       ],
       "evidence": {
-        "code": ["src/server/routes/publicRequestRoutes.ts#CARD_STREAMS_PER_REQUEST", "src/server/routes/publicRequestRoutes.ts"],
+        "code": ["src/server/routes/publicRequestRoutes.ts#CARD_STREAMS_PER_REQUEST", "src/server/routes/publicRequestRoutes.ts", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/events"],
         "tests": ["tests/teacher-card-flow-audit.ts"]
       }
     },
@@ -725,7 +728,7 @@
         { "ar": "طلب أصدرته كلية أخرى يظهر في هذه الكلية إن كان فيه بند على محاضرة فيها.", "en": "A request issued by another college appears in this college when it carries an item on a lecture in it." }
       ],
       "evidence": {
-        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/server/core/instructorRequests.ts#requestItemScope", "src/utils/inboxAudience.ts"],
+        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/server/core/instructorRequests.ts#requestItemScope", "src/utils/inboxAudience.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests"],
         "tests": ["tests/instructor-request-cross-college-audit.ts", "tests/inbox-campus-audit.ts", "tests/inbox-live-audit.ts"]
       }
     },
@@ -747,7 +750,7 @@
         { "ar": "رفض ببدائل لا يغلق الطلب بل يبقى «قيد المراجعة» حتى يختار الأستاذ.", "en": "A rejection with alternatives does not close the request, which stays in review until the member chooses." }
       ],
       "evidence": {
-        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/utils/instructorRequestVerdict.ts#requestFullySettled", "src/utils/instructorRequestThread.ts#parseOfferedSlots"],
+        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/utils/instructorRequestVerdict.ts#requestFullySettled", "src/utils/instructorRequestThread.ts#parseOfferedSlots", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/decide"],
         "tests": ["tests/masari-approval-integrity-audit.ts", "tests/instructor-request-server-audit.ts", "tests/instructor-request-followup-audit.ts"]
       }
     },
@@ -770,7 +773,7 @@
         { "ar": "preview:true يعيد الخطة والتنبيهات دون كتابة.", "en": "preview true returns the plan and warnings with no write." }
       ],
       "evidence": {
-        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/utils/linkedRequestItems.ts#awaitedItemIndexes", "src/utils/instructorRequestItems.ts"],
+        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/utils/linkedRequestItems.ts#awaitedItemIndexes", "src/utils/instructorRequestItems.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/apply"],
         "tests": ["tests/instructor-request-review-regressions.ts", "tests/instructor-request-availability-audit.ts", "tests/linked-requests-audit.ts"]
       }
     },
@@ -792,7 +795,7 @@
         { "ar": "ردّ القسم على شعبة مختارة ثابتة الموعد بأوقات مقترحة يُردّ بـ400.", "en": "A department reply with proposed times on a chosen section whose time is fixed is refused with 400." }
       ],
       "evidence": {
-        "code": ["src/utils/instructorRequestThread.ts", "src/utils/instructorRequestProposalIdentity.ts", "src/utils/requestAlternatives.ts", "src/server/routes/publicRequestRoutes.ts", "src/server/routes/instructorRequestsRoutes.ts"],
+        "code": ["src/utils/instructorRequestThread.ts", "src/utils/instructorRequestProposalIdentity.ts", "src/utils/requestAlternatives.ts", "src/server/routes/publicRequestRoutes.ts", "src/server/routes/instructorRequestsRoutes.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/reply", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/reply", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/reply-batch"],
         "tests": ["tests/public-kit-audit.ts", "tests/instructor-request-followup-audit.ts", "tests/instructor-request-review-regressions.ts"]
       }
     },
@@ -809,10 +812,12 @@
       "actors": ["committeeChair", "departmentHead"],
       "acceptance": [
         { "ar": "إلغاء بلا سطر يُردّ بـ400، وإلغاء بند ليس موعداً وضعه القسم يُردّ بـ409.", "en": "Cancelling with no line is refused with 400, and cancelling an item that is not a department-placed appointment is refused with 409." },
-        { "ar": "reopen-fixed والصف ما زال على الوقت المطلوب يُردّ بـ409، وطلب مُستبدَل يُردّ بـ409، وتكراره يعيد reopened:0.", "en": "reopen-fixed while the row is still on the requested time is refused with 409, a superseded request with 409, and repeating it returns reopened 0." }
+        { "ar": "reopen-fixed والصف ما زال على الوقت المطلوب يُردّ بـ409، وطلب مُستبدَل يُردّ بـ409، وتكراره يعيد reopened:0.", "en": "reopen-fixed while the row is still on the requested time is refused with 409, a superseded request with 409, and repeating it returns reopened 0." },
+        { "ar": "reopen-fixed لطلب غير موجود ← 404، وعلى فصل مجمّد يُرفض، ولبند خارج نطاق المستخدم ← 403؛ وبلا scheduleId أو بلا بند ثُبّت من ذلك الصف ← ok مع reopened:0 دون كتابة.", "en": "reopen-fixed for an unknown request ← 404, on a frozen term it is refused, and for an item outside the user's scope ← 403; without scheduleId or with no item fixed from that row ← ok with reopened:0 and nothing written." },
+        { "ar": "«ما زال على الوقت المطلوب» يعني أن كل لقاء مطلوب يقع في يوم يحمله الصف الحي وأن بدايته تساوي بداية الصف.", "en": "«Still on the requested time» means every requested slot falls on a day the live row carries and its start equals the row's start." }
       ],
       "evidence": {
-        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/server/core/scheduleConflicts.ts#reopenedRequest"],
+        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/server/core/scheduleConflicts.ts#reopenedRequest", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/cancel-scheduled", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/reopen-fixed"],
         "tests": ["tests/instructor-request-followup-audit.ts", "tests/masari-approval-integrity-audit.ts"]
       },
       "inferred": true
@@ -854,7 +859,7 @@
         { "ar": "من حُذف كل ما يدرّسه بعد أن كان له جدول يُفتح له بطاقة فارغة مع حركته، لا 404.", "en": "A member whose every lecture was removed after having a schedule gets an empty card with the movement, not 404." }
       ],
       "evidence": {
-        "code": ["src/server/routes/publicStaffRoutes.ts", "src/server/core/shareLinks.ts#publicAttempts", "src/server/core/staffCard.ts"],
+        "code": ["src/server/routes/publicStaffRoutes.ts", "src/server/core/shareLinks.ts#publicAttempts", "src/server/core/staffCard.ts", "src/server/routes/publicStaffRoutes.ts#/api/public/staff/:token"],
         "tests": ["tests/staff-card-global-scope-audit.ts", "tests/staff-device-key-audit.ts", "tests/doctor-journey-audit.ts"]
       }
     },
@@ -863,18 +868,20 @@
       "kind": "functional",
       "title": { "ar": "تذكّرني على الجهاز", "en": "Remember this device" },
       "text": {
-        "ar": "يجب على النظام، بعد التحقق بالرقم المدني وبطلب صريح، أن يمنح الجهاز مفتاحاً موقّعاً (HMAC) مربوطاً برمز الرابط والرقم الداخلي للأستاذ في ملف ارتباط HttpOnly وSameSite=Strict لهذا الرابط وحده، ينتهي بنهاية الرابط أو بعد 180 يوماً أيهما أقرب، ولا يحمل رقماً مدنياً.",
-        "en": "After verification by civil ID and on explicit request, the system shall give the device a signed key (HMAC) bound to the link token and the member's internal identifier in an HttpOnly, SameSite=Strict cookie scoped to that link only, expiring at the link's end or after 180 days, whichever is sooner, and carrying no civil ID."
+        "ar": "يجب على النظام، بعد التحقق بالرقم المدني وبطلب صريح، أن يمنح الجهاز مفتاحاً موقّعاً (HMAC) مربوطاً برمز الرابط والرقم الداخلي للأستاذ في ملف ارتباط HttpOnly وSameSite=Strict لهذا الرابط وحده، ينتهي بنهاية الرابط أو بعد 180 يوماً أيهما أقرب، ولا يحمل رقماً مدنياً. والمفتاح بصيغة «v1.الرقم الداخلي.الانتهاء.التوقيع» باسم الملف sk_dev ومساره /api/public/staff/:token، ويُقارَن توقيعه مقارنة ثابتة الزمن، وسرّ توقيعه قيمة المتغير STAFF_DEVICE_SECRET إن ضُبط، وإلا يُشتق بـHMAC-SHA256 من السرّ المشترك المحفوظ للخادم بالوسم staff-device-key-v1 فلا تُستعمل مادة مفتاحية واحدة لغرضين، ويحمل الملف علامة Secure في بيئة الإنتاج وحدها. ويمسح المسار POST /api/public/staff/:token/forget الملف من الجهاز بلا هوية.",
+        "en": "After verification by civil ID and on explicit request, the system shall give the device a signed key (HMAC) bound to the link token and the member's internal identifier in an HttpOnly, SameSite=Strict cookie scoped to that link only, expiring at the link's end or after 180 days, whichever is sooner, and carrying no civil ID. The key has the form 'v1.internal id.expiry.signature' in the cookie sk_dev with path /api/public/staff/:token, its signature is compared in constant time, and its signing secret is the STAFF_DEVICE_SECRET environment variable when set, otherwise derived by HMAC-SHA256 from the server's stored shared secret with the label staff-device-key-v1, so one key material never serves two purposes; the cookie carries the Secure flag in production only. The route POST /api/public/staff/:token/forget clears the cookie from the device without any identity."
       },
       "priority": "should",
       "status": "implemented",
       "actors": ["instructor"],
       "acceptance": [
         { "ar": "المفتاح لا يصلح لرمز رابط آخر، ويسقط بإيقاف الرابط أو تجديده أو بزر «انسَ هذا الجهاز».", "en": "The key is not valid for another link's token and falls when the link is revoked or renewed or by the forget-this-device button." },
-        { "ar": "مفتاح لم يعد صالحاً يُمسح ويُطلب الرقم كالعادة بلا تمييز عن «لا بطاقة».", "en": "A key no longer valid is cleared and the number is asked as usual, indistinguishable from no card." }
+        { "ar": "مفتاح لم يعد صالحاً يُمسح ويُطلب الرقم كالعادة بلا تمييز عن «لا بطاقة».", "en": "A key no longer valid is cleared and the number is asked as usual, indistinguishable from no card." },
+        { "ar": "تغيير الرقم الداخلي أو تمديد الانتهاء أو تعديل التوقيع أو سرّ آخر يُبطل المفتاح، وSTAFF_DEVICE_SECRET إن ضُبط يغلب السرّ المشتق.", "en": "Changing the internal id, extending the expiry, altering the signature or using another secret invalidates the key, and STAFF_DEVICE_SECRET when set overrides the derived secret." },
+        { "ar": "لا يُعطى المفتاح إلا بعد نجاح بوابات البطاقة وبإرسال remember:true مع الرقم المدني، وفي الإنتاج يحمل الملف HttpOnly وSameSite=Strict وSecure.", "en": "The key is issued only after the card gates pass and remember:true is sent with the civil ID, and in production the cookie carries HttpOnly, SameSite=Strict and Secure." }
       ],
       "evidence": {
-        "code": ["src/server/staffDeviceKey.ts", "src/server/routes/publicStaffRoutes.ts"],
+        "code": ["src/server/staffDeviceKey.ts", "src/server/routes/publicStaffRoutes.ts", "src/server/routes/publicStaffRoutes.ts#/api/public/staff/:token/forget", "src/server/staffDeviceKey.ts#deriveStaffDeviceSecret"],
         "tests": ["tests/staff-device-key-audit.ts"]
       }
     },
@@ -894,7 +901,7 @@
         { "ar": "ملاحظة تغيير بلا نص تُردّ بـ400، والاعتذار يُقبل بلا نص، وتاريخ بغير صيغة YYYY-MM-DD يُسقط.", "en": "A change note with no text is refused with 400, an apology is accepted with no text, and a date not in YYYY-MM-DD format is dropped." }
       ],
       "evidence": {
-        "code": ["src/server/routes/publicStaffRoutes.ts#STAFF_NOTES_PER_DAY"],
+        "code": ["src/server/routes/publicStaffRoutes.ts#STAFF_NOTES_PER_DAY", "src/server/routes/publicStaffRoutes.ts#/api/public/staff/:token/note"],
         "tests": ["tests/doctor-journey-audit.ts", "tests/teacher-card-polish-audit.ts"]
       }
     },
@@ -914,7 +921,7 @@
         { "ar": "كل سطر يحمل مصدره (طلب أو جدول) وقراره (ثبّته القسم، رفضه القسم، بانتظار)، والمقرر المحذوف كلياً يبقى ظاهراً في الحركة.", "en": "Each line carries its source (request or schedule) and its decision (fixed, rejected, pending), and a course removed entirely stays visible in movement." }
       ],
       "evidence": {
-        "code": ["src/server/core/staffCard.ts#liveStaffPublication", "src/server/core/staffCard.ts#scheduleMovementEntries", "src/server/routes/publicStaffRoutes.ts", "src/utils/instructorRequestWindows.ts#cardRequestsCloseAt"],
+        "code": ["src/server/core/staffCard.ts#liveStaffPublication", "src/server/core/staffCard.ts#scheduleMovementEntries", "src/server/routes/publicStaffRoutes.ts", "src/utils/instructorRequestWindows.ts#cardRequestsCloseAt", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/movement"],
         "tests": ["tests/staff-card-global-scope-audit.ts", "tests/instructor-request-cross-college-audit.ts"]
       }
     },
@@ -995,10 +1002,357 @@
         { "ar": "الأدوات المسموحة قائمة بيضاء مغلقة تُسقط ما عداها بصمت، والطي ذرّي فقياسان متزامنان يُعدّان اثنين.", "en": "Allowed helpers form a closed whitelist that silently drops anything else, and folding is atomic so two simultaneous measures count as two." }
       ],
       "evidence": {
-        "code": ["src/utils/appointmentMeasure.ts", "src/server/appointmentMetrics.ts", "src/components/AppointmentMeasureCard.tsx"],
+        "code": ["src/utils/appointmentMeasure.ts", "src/server/appointmentMetrics.ts", "src/components/AppointmentMeasureCard.tsx", "src/server/appointmentMetrics.ts#/api/metrics/appointment-entry"],
         "tests": ["tests/appointment-entry-parity-audit.ts"]
       },
       "inferred": true
+    },
+    {
+      "id": "DR-REQ-038",
+      "kind": "data",
+      "title": { "ar": "رمز رابط الطلب الشخصي: توليده وتحققه وتدويره", "en": "Personal request link token: generation, verification and rotation" },
+      "text": {
+        "ar": "يجب على النظام أن يولّد رمز رابط الطلب الشخصي من 24 بايتاً عشوائياً بترميز base64url (يُسبق بـ«demo.» في الصندوق التجريبي وحده)، وأن يجعل الرمز نفسه معرّف وثيقة الرابط في مجموعة scheduleShareLinks بنوع request ومعرّف الأستاذ صاحبه ومفتاح النطاق «كلية:قسم:فصل» وإخفاء أسماء الأساتذة، وأن يتحقق منه بالبحث المباشر عن الوثيقة ثم بحالة الإيقاف ثم بالصلاحية دون أي سرّ أو توقيع إضافي على الرمز. كما يجب عليه أن يدوّر الرابط عند إعادة الإصدار إذا كان موقوفاً أو غير مقروء أو ينتهي قبل موعد الإغلاق الجديد مضافاً إليه يوم، فيُصدر رمزاً جديداً ويوقف القديم، وأن يزيد عدّاد مشاهدات الرابط ووقت آخر مشاهدة عند كل فتح غير صامت.",
+        "en": "The system shall generate the personal request link token from 24 random bytes encoded base64url (prefixed with 'demo.' in the demo sandbox only), shall use the token itself as the link document id in the scheduleShareLinks collection with kind request, the owning member's id, the scope key 'college:section:term' and instructor names hidden, and shall verify it by direct document lookup, then the revoked flag, then readability, with no additional secret or signature on the token. It shall rotate the link on reissue when it is revoked, unreadable or expires before the new closing time plus one day, issuing a new token and revoking the old one, and shall increment the link's view count and last-viewed time on every non-silent open."
+      },
+      "rationale": { "ar": "الرمز وحده هو صلاحية الدخول، فطوله العشوائي (192 بتاً) هو ما يمنع التخمين، والتدوير يمنع رابطاً ميتاً من حمل موعد جديد.", "en": "The token alone is the access permission, so its random length (192 bits) is what prevents guessing, and rotation keeps a dead link from carrying a new deadline." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "instructor", "system"],
+      "acceptance": [
+        { "ar": "رمز الرابط المُصدَر طوله 32 محرفاً من أبجدية base64url، ويبدأ بـ«demo.» داخل الصندوق التجريبي فقط.", "en": "An issued token is 32 characters from the base64url alphabet, and starts with 'demo.' inside the demo sandbox only." },
+        { "ar": "رابط موقوف يعيد 404 قبل أي اعتبار، ورابط انتهت صلاحيته يعيد 410.", "en": "A revoked link returns 404 before anything else, and an expired link returns 410." },
+        { "ar": "إعادة الإصدار لطلب «أُرسل» رابطه ينتهي قبل الموعد الجديد بيوم تنشئ رمزاً جديداً وتضع revoked على القديم، والطلب نفسه يبقى.", "en": "Reissuing for a sent request whose link expires before the new deadline plus a day creates a new token and marks the old one revoked, while the request itself is kept." }
+      ],
+      "evidence": {
+        "code": ["src/db/repository.ts#createShareLink", "src/server/routes/instructorRequestsRoutes.ts#mintRequestLink", "src/utils/requestReissue.ts#requestLinkNeedsReplacing", "src/server/core/instructorRequests.ts#resolveRequestLink", "src/utils/demoLinkToken.ts"],
+        "tests": ["tests/instructor-request-server-audit.ts"]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-REQ-039",
+      "kind": "functional",
+      "title": { "ar": "قائمة المستلمين وما عليه ملاحظات التسجيل", "en": "Recipient list and registrar-noted rows" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد بإذن القسم (الإذن 7) وفي نطاق المستخدم قائمة من يمكن الإرسال إليه: أساتذة جدول عائلة القسم في الفصل بلا «هيئة تدريسية»، لكلٍّ اسمه وجواله وعدد شعبه (الشعبة مرة واحدة بالموقع والمقرر ورقم الشعبة)، بلا رقم مدني ولا رابط، وأن يعيد قائمة المواعيد التي عليها ملاحظة مفتوحة من التسجيل بالمقرر والشعبة والأستاذ ليُعاد الإرسال لأصحابها وحدهم.",
+        "en": "With the department permission (permission 7) and within the user's scope, the system shall return the list of possible recipients: the members in the department family's schedule for the term without the placeholder faculty, each with name, mobile and section count (a section counted once by site, course and section number), with no civil ID and no link, and shall return the appointments carrying an open registrar note by course, section and member so the card can be resent to their owners alone."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "GET recipients بلا كلية أو قسم أو فصل يُردّ بـ400، وخارج النطاق بـ403.", "en": "GET recipients without college, section or term is refused with 400, and outside scope with 403." },
+        { "ar": "أستاذ له موعدان لشعبة واحدة يظهر بعدد شعب 1، و«هيئة تدريسية» لا تظهر.", "en": "A member with two meetings of one section appears with section count 1, and the placeholder faculty does not appear." },
+        { "ar": "GET registrar-noted خارج النطاق يُردّ بـ403، والإرسال «للملاحظات فقط» بلا ملاحظات مفتوحة يُردّ بـ409.", "en": "GET registrar-noted outside scope is refused with 403, and a notes-only send with no open notes is refused with 409." }
+      ],
+      "evidence": {
+        "code": ["src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/recipients", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/registrar-noted", "src/server/routes/instructorRequestsRoutes.ts#registrarNotedRows", "src/components/PublishRecipientPicker.tsx"],
+        "tests": ["tests/publish-pick-teachers-audit.ts", "tests/publish-notes-r4-audit.ts"]
+      }
+    },
+    {
+      "id": "FR-REQ-040",
+      "kind": "functional",
+      "title": { "ar": "قائمة الاستثناءات الفردية", "en": "Individual exception list" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد بإذن القسم لعائلة القسم في الفصل قائمة الاستثناءات الفردية من أحدث طلب لكل أستاذ في الجولة الحالية، لكلٍّ اسم الأستاذ وموعد إغلاق استثنائه ووقت منحه وسببه ووقت إلغائه وهل هو نشط الآن، النشط أولاً، بلا أرقام مدنية ولا روابط شخصية، وأن يسجّل في الأثر عند الإصدار نصاً يسمّي نوع الإرسال (استثناء فردي باسم الأستاذ وسببه، أو أساتذة محددون بأسمائهم، أو إعادة فتح للعائلة) وموعده وصفته.",
+        "en": "With the department permission the system shall return, for the department family in the term, the list of individual exceptions taken from each member's latest current-round request, each with member name, exception closing time, grant time, reason, revocation time and whether it is active now, active first, with no civil IDs and no personal links, and on issuing shall record in the audit trail a line naming the kind of send (an individual exception with the member's name and reason, selected members by name, or a family reopening), its deadline and its mode."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "GET exceptions بلا كلية أو قسم أو فصل، أو خارج النطاق، يُردّ بـ403 «خارج نطاق القسم والفصل».", "en": "GET exceptions without college, section or term, or outside scope, is refused with 403 outside department and term scope." },
+        { "ar": "استثناء أُلغي يظهر بـactive false ووقت revokedAt، ويُرتّب بعد النشطة.", "en": "A revoked exception appears with active false and its revokedAt time, sorted after the active ones." }
+      ],
+      "evidence": {
+        "code": ["src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/exceptions", "src/utils/instructorRequestWindows.ts#individualExceptionOpen"],
+        "tests": ["tests/staff-request-windows-audit.ts", "tests/owner-features-2026-10-28-audit.ts"]
+      }
+    },
+    {
+      "id": "FR-REQ-041",
+      "kind": "functional",
+      "title": { "ar": "تسجيل فتح الرابط وتحديث الطلب غير المرسل", "en": "Recording link opens and refreshing an unsent request" },
+      "text": {
+        "ar": "يجب على النظام عند فتح الأستاذ رابط طلبه أن يسجّل في معاملة واحدة أول فتح (linkOpenedAt مع حدث «فُتح الرابط» في الخط الزمني مرة واحدة) وعدد الفتحات في كل يوم بتوقيت الكويت ووقت آخر فتح، وألا يعدّ إعادة القراءة الصامتة (live=1) فتحاً، وأن يعيد بناء بنود الطلب الذي ما زال بحالة «أُرسل» من جدوله الحي في الفصل كله بكل كلياته قبل عرضه، مع إبقاء البنود التي وضعها القسم بقراره، وعدم المساس بطلب مصدره الفصل السابق ما دام لا جدول له في الفصل.",
+        "en": "When a member opens the request link the system shall record in one transaction the first open (linkOpenedAt with a single link-opened timeline event), the number of opens per Kuwait day and the last open time, shall not count a silent re-read (live=1) as an open, and shall rebuild the items of a request still in status sent from the member's live schedule across the whole term and all colleges before showing it, keeping the items the department placed by its own decision and leaving a previous-term request untouched while the member has no schedule in the term."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["instructor", "system"],
+      "acceptance": [
+        { "ar": "فتحان في يوم واحد يزيدان linkOpenDays لذلك اليوم بـ2 ويبقى حدث «فُتح الرابط» واحداً.", "en": "Two opens on one day add 2 to that day's linkOpenDays while the link-opened event stays single." },
+        { "ar": "GET بالمعامل live=1 لا يغيّر linkOpenedAt ولا linkLastOpenAt ولا linkOpenDays ولا عدّاد مشاهدات الرابط.", "en": "A GET with live=1 changes neither linkOpenedAt, linkLastOpenAt, linkOpenDays nor the link's view count." },
+        { "ar": "نقل القسم محاضرة لأستاذ لم يرسل طلبه بعد يظهر في بنوده عند الفتح التالي بلا إعادة إصدار.", "en": "A lecture the department moved for a member who has not yet sent the request shows in the items at the next open without reissuing." }
+      ],
+      "evidence": {
+        "code": ["src/db/repository.ts#recordInstructorRequestOpen", "src/server/routes/publicRequestRoutes.ts#refreshUnsubmittedInstructorRequest", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token"],
+        "tests": ["tests/teacher-card-flow-audit.ts", "tests/instructor-request-server-audit.ts"]
+      }
+    },
+    {
+      "id": "FR-REQ-042",
+      "kind": "functional",
+      "title": { "ar": "علامة «اهتمام مستقبلي» على مقرر", "en": "Future-interest star on a course" },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للأستاذ في بطاقة «طلب تعديل» وحدها أن يضع أو يرفع نجمة «اهتمام مستقبلي» على مقرر من كتالوج قسمه في الكلية المختارة، وأن يجمع النجوم في وثيقة courseInterest لكل كلية وقسم وفصل مرتبةً بالمقرر وأرقام الأساتذة، وأن يعيد للبطاقة المقررات التي وضع عليها نجمته.",
+        "en": "The system shall let the member, in a request-edit card only, set or clear a future-interest star on a course of the department catalogue in the chosen college, shall gather the stars in a courseInterest document per college, department and term keyed by course with member ids, and shall return to the card the courses the member starred."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["instructor", "admin"],
+      "acceptance": [
+        { "ar": "النجمة من رابط للعرض فقط أو مرحلة التدريب تُردّ بـ403 «هذا الرابط لا يطلب مقررات».", "en": "A star from a view-only or training-phase link is refused with 403 this link does not request courses." },
+        { "ar": "مقرر ليس من كتالوج القسم في الكلية المختارة يُردّ بـ400، وon:false يرفع النجمة.", "en": "A course outside the department catalogue in the chosen college is refused with 400, and on false clears the star." }
+      ],
+      "evidence": {
+        "code": ["src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/interest", "src/server/teacherCardExtras.ts"],
+        "tests": ["tests/ta-phase-flow-audit.ts"]
+      }
+    },
+    {
+      "id": "FR-REQ-043",
+      "kind": "functional",
+      "title": { "ar": "إرشاد أكاديمي غير مانع على بطاقة الطلب", "en": "Non-blocking academic advice on the request card" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد لبطاقة الطلب إرشاداً أكاديمياً مجمّعاً فقط (أزواج المقررات وتفضيلات الأوقات) لنطاقات الرابط وبنوده ومقررات الإضافة المسموحة، حتى 12 نطاقاً، مقصوراً على المقررات التي تخصّ الأستاذ، وأن يعيد قوائم فارغة بعلامة nonBlocking عند تعذّر القراءة فلا يمنع الإرشاد شيئاً.",
+        "en": "The system shall return to the request card aggregate academic advice only (course pairs and time preferences) for the link's scopes, its items' scopes and the allowed add-course scopes, up to 12 scopes, restricted to courses that concern the member, and shall return empty lists flagged nonBlocking when reading fails so the advice never blocks anything."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["instructor"],
+      "acceptance": [
+        { "ar": "زوج لا يحمل مقرراً من بنود الأستاذ أو مقررات إضافته لا يصل، والردّ يحمل nonBlocking:true دائماً.", "en": "A pair carrying no course from the member's items or add courses is not returned, and the reply always carries nonBlocking true." },
+        { "ar": "عطل في قراءة الإرشاد يعيد pairs وtimePreferences فارغتين بحالة 200.", "en": "A failure reading the advice returns empty pairs and timePreferences with status 200." }
+      ],
+      "evidence": {
+        "code": ["src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/academic-advice"],
+        "tests": ["tests/academic-advice-audit.ts"]
+      }
+    },
+    {
+      "id": "FR-REQ-044",
+      "kind": "functional",
+      "title": { "ar": "محتوى بطاقة الأستاذ بعد التحقق", "en": "Faculty card contents after verification" },
+      "text": {
+        "ar": "يجب على النظام أن يبني بطاقة الأستاذ بعد التحقق من جدوله في الكلية التي أصدرت الرابط وسائر كلياته، فيعرض دقائق التدريس الأسبوعية على الساعة ووحدات النصاب بساعات المقرر المعتمدة رقمين منفصلين، والفجوات بين محاضرتين في اليوم إذا بلغت 30 دقيقة وأطولها، وما يقع في الأيام الأربعة عشر القادمة من إلغاء محاضرته أو تغطيتها بزميل أو تغطيته هو لمحاضرة غيره، وحالة اعتماد جدول كل قسم يدرّس فيه، وقائمة فصول لا تضم إلا الفصول التي له فيها جدول مع الفصل المعروض، وعلامة تغيّر جدوله منذ زيارته الأخيرة ببصمة الجدول، ورابط خريطة صحيفة القسم إن كانت منشورة، ورابط اشتراك تقويم ثابت لا يحمل رقماً مدنياً.",
+        "en": "After verification the system shall build the faculty card from the member's schedule in the issuing college and their other colleges, showing weekly teaching minutes on the clock and load units by approved course hours as two separate numbers, gaps between two lectures of a day when they reach 30 minutes and the longest gap, what falls in the next fourteen days among cancellation of their lecture, its cover by a colleague or their own cover of another's lecture, the approval status of each department they teach in, a term list holding only terms where they have a schedule plus the shown term, a changed-since-last-visit flag by schedule fingerprint, a link to the department's plan sheet map when it is published, and a stable calendar subscription link carrying no civil ID."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["instructor"],
+      "acceptance": [
+        { "ar": "فجوة 25 دقيقة بين محاضرتين لا تُعرض، وفجوة 30 دقيقة تُعرض.", "en": "A 25-minute gap between two lectures is not shown, and a 30-minute gap is shown." },
+        { "ar": "إلغاء بعد 15 يوماً لا يظهر، وتغطية زميل لمحاضرته غداً تظهر «يغطّيها … هذا اليوم».", "en": "A cancellation 15 days ahead does not appear, and a colleague covering their lecture tomorrow appears as covered by that colleague for the day." },
+        { "ar": "تُسجَّل الزيارة ببصمة الجدول في فصل الرابط وحده، وتغيّر البصمة يعيد changedSinceLastVisit:true في الزيارة التالية.", "en": "The visit is recorded with the schedule fingerprint for the link's term only, and a changed fingerprint returns changedSinceLastVisit true at the next visit." },
+        { "ar": "planMapUrl فارغ لقسم بلا صحيفة منشورة، والردّ لا يحمل instructorId ولا fingerprint.", "en": "planMapUrl is empty for a department with no published sheet, and the reply carries neither instructorId nor fingerprint." }
+      ],
+      "evidence": {
+        "code": ["src/server/routes/publicStaffRoutes.ts#buildStaffCard", "src/server/routes/publicStaffRoutes.ts#/api/public/staff/:token", "src/server/pages/staffCardPage.ts", "src/server/staffCardVisual.ts"],
+        "tests": ["tests/doctor-journey-audit.ts"]
+      }
+    },
+    {
+      "id": "IR-REQ-045",
+      "kind": "interface",
+      "title": { "ar": "أبواب الصفحات العامة للأستاذ والقسم", "en": "Public doors for the member and the department" },
+      "text": {
+        "ar": "يجب على النظام أن يوجّه الباب /s/:token بحسب نوع الرابط: بطاقة الأستاذ لنوع staff، وتحويل 302 إلى /r/ لرابط الطلب وإلى /q/ للاستبيان وإلى /t/ لرابط الطلبة، وصفحة جدول القسم للقراءة فقط لما سواها بجدول خمسة أعمدة للأيام وصفوف لأوقات البدء وقائمة يومية على الهاتف وأزرار اشتراك التقويم (Apple وGoogle وOutlook) وزر طباعة وتاريخ انتهاء الرابط، مع noindex وبلا تخزين مؤقت. كما يجب عليه أن يقدّم /r/:token/proposal/:pid صفحة المقترح الدراسي بالرابط الشخصي نفسه، وأن يقدّم من ملف المسارات نفسه أبواب الطلبة /t/:token و/api/public/students/:token و/me بقواعد وحدة الطلبة.",
+        "en": "The system shall route the door /s/:token by link kind: the faculty card for kind staff, a 302 redirect to /r/ for a request link, to /q/ for a survey and to /t/ for a students link, and a read-only department schedule page for anything else with a five-column day table and start-time rows, a per-day list on phones, calendar subscription buttons (Apple, Google, Outlook), a print button and the link's expiry date, with noindex and no caching. It shall also serve /r/:token/proposal/:pid as the study proposal page through the same personal link, and shall serve from the same routes file the student doors /t/:token, /api/public/students/:token and /me under the Students module's rules."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["instructor", "visitor", "student"],
+      "acceptance": [
+        { "ar": "فتح رابط طلب على /s/ يعيد 302 إلى /r/ نفسه ولا يعرض جدول القسم.", "en": "Opening a request link on /s/ returns 302 to the same /r/ and never shows the department schedule." },
+        { "ar": "صفحة القسم تحمل meta robots بقيمة noindex,nofollow وترويسة Cache-Control: no-store وتذييل «عرض للقراءة فقط».", "en": "The department page carries meta robots noindex,nofollow, a Cache-Control no-store header and the footer read-only view." },
+        { "ar": "رابط غير موجود على /s/ أو /r/ يعرض صفحة خطأ بالحالة نفسها (404 أو 410).", "en": "A missing link on /s/ or /r/ shows an error page with the same status (404 or 410)." }
+      ],
+      "evidence": {
+        "code": ["src/server/routes/publicStaffRoutes.ts#/s/:token", "src/server/routes/publicStaffRoutes.ts#/t/:token", "src/server/routes/publicStaffRoutes.ts#/me", "src/server/routes/publicStaffRoutes.ts#/api/public/students/:token", "src/server/routes/publicRequestRoutes.ts#/r/:token/proposal/:pid"],
+        "tests": ["tests/student-door-audit.ts", "tests/staff-card-global-scope-audit.ts"]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-REQ-046",
+      "kind": "functional",
+      "title": { "ar": "تنبيه بطاقة الأستاذ بقرار القسم وردّه", "en": "Card notification on department decision and reply" },
+      "text": {
+        "ar": "يجب على النظام بعد كل قرار على بند (تثبيت أو رفض أو إلغاء موعد) وبعد كل تثبيت ذرّي وكل ردّ من القسم أن يرسل تنبيهاً واحداً إلى الأجهزة المشتركة من بطاقة الأستاذ نفسها يستبدل سابقه، يجمع القرارات الأخيرة على الطلب أو الردّ وحده، وألا يرسل تنبيهاً يحمل أثر قاعة، وأن يبثّ إشعاراً حياً بعد ردّ القسم فتتحدّث البطاقة المفتوحة، وأن يسجّل التثبيت في الأثر بنص يسمّي الأستاذ وكل خطوة (حذف أو إضافة أو نقل بأيامها ووقتها) مع أرقام الصفوف.",
+        "en": "After every decision on an item (fix, reject or cancel an appointment), every atomic fix and every department reply, the system shall send a single notification to the devices subscribed from the member's own card, replacing the previous one and gathering the latest decisions on the request or the reply alone, shall not send a notification carrying a room trace, shall broadcast a live notice after a department reply so an open card refreshes, and shall record a fix in the audit trail with a line naming the member and each step (delete, add or move with its days and time) and the row ids."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["instructor", "committeeChair", "departmentHead", "system"],
+      "acceptance": [
+        { "ar": "ردّ القسم على بند يرسل تنبيهاً بنوع reply لهذا البند وحده، وقرار يرسل حصيلة القرارات الحديثة.", "en": "A department reply on an item sends a notification of kind reply for that item alone, and a decision sends the digest of recent decisions." },
+        { "ar": "نص تنبيه يذكر رمز قاعة من بنود الطلب لا يُرسل.", "en": "A notification text naming a room code from the request items is not sent." }
+      ],
+      "evidence": {
+        "code": ["src/server/pushRoutes.ts#noteForCard", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/apply", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/reply"],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-REQ-047",
+      "kind": "functional",
+      "title": { "ar": "جاهزية البند في الوارد والفحص الحيّ قبل «ثبّت»", "en": "Item readiness in the inbox and the live check before «fix»" },
+      "text": {
+        "ar": "يجب على وارد الأساتذة أن يرتّب بنود كل بطاقة بالحكم (متاح ثم استثناء ثم ممنوع) ويُخفي بنود «كما هو»، وأن يسأل الخادمَ قبل عرض «ثبّت» لكل بند تعديلٍ أو إضافةٍ لم يُقرَّر بالسؤال نفسه الذي يسأله نموذج الجدول (POST /api/schedules/check-conflicts) بالقاعة التي سيكتبها التثبيت، وأن يجمع الحكم المحفوظ والفحص الحيّ فيعرض السبب مرة واحدة، ويصف البند بكلمة: «جاهز للتثبيت» أو «يحتاج قرارك» أو «ممنوع» أو «يفحص…» أو «بانتظار قسمٍ آخر» أو «حذفٌ لا يُفحص» أو «تغيّر بعد الإرسال»؛ وألا يعدّ تعارضاً مع صفٍّ ينقله أو يحذفه بندٌ شقيق لم يُقرَّر مانعاً بل يقول إنه يُثبَّت أولاً تلقائياً، وإن كان الشقيق في قسمٍ آخر ينتظر قراره؛ وأن يمنع «ثبّت» لما يمنعه الحفظ أو لموعدٍ لم يعد في الجدول («لم يعد هذا الموعد في الجدول — ربما حُذف أو نُقل بعد الطلب»)، ويعرض لبندٍ تغيّر بعد الإرسال حتى بديلين جاهزين يُقترحان على الأستاذ بضغطة ردّاً في الحوار؛ وأن يعرض لكل بطاقة «موقَّع» برمز التحقق أو «بلا توقيع» لطلبٍ أُرسل قبل التوقيع، وزر «أبلغ الأستاذ» برسالة واتساب جاهزة تعدّ ما ثُبّت وما رُفض مع رابطه (أو «لا رقم جوّال»).",
+        "en": "The instructor inbox shall order each card's items by verdict (clear, then exception, then conflict) and hide «keep» items, and before offering «fix» on an undecided change or addition shall ask the server the same question the schedule form asks (POST /api/schedules/check-conflicts) with the room the fix will write; it shall merge the stored verdict with the live check so each reason is shown once, and describe the item in one word: «ready to fix», «needs your decision», «blocked», «checking…», «waiting for another department», «deletion is not checked» or «changed after sending»; a clash with a row that an undecided sibling item moves or deletes is not a block but is said to be fixed first automatically, and when that sibling belongs to another department the item waits for its decision; «fix» is blocked for what saving would block or for an appointment no longer in the schedule («this appointment is no longer in the schedule — perhaps deleted or moved after the request»), and an item changed after sending shows up to two ready alternatives proposed to the member with one press as a thread reply; each card shows «signed» with its verification code or «unsigned» for a request sent before signing existed, and an «inform the member» button with a ready WhatsApp message counting what was fixed and rejected with his link (or «no mobile number»)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "بند يتعارض مع محاضرة ينقلها بندٌ شقيق في الطلب نفسه ← «يُفرغ هذا الوقتَ من طلبه نفسه … يُثبَّت ذلك أولاً تلقائياً» ولا يُمنع.", "en": "An item clashing with a lecture that a sibling item of the same request moves ← «this request itself frees the time … fixed first automatically» and it is not blocked." },
+        { "ar": "تعذّر الفحص الحيّ ← مانعٌ بنص «تعذّر فحص الموعد. أعد المحاولة قبل الاعتماد.».", "en": "The live check fails ← a block reading «could not check the appointment; try again before approving»." }
+      ],
+      "evidence": { "code": ["src/components/InstructorInbox.tsx#useLiveCheck", "src/components/InstructorInbox.tsx#proposedRow", "src/components/InstructorInbox.tsx#RequestRow", "src/components/InstructorInbox.tsx#RequestCard"], "tests": ["tests/inbox-studio-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-048",
+      "kind": "functional",
+      "title": { "ar": "«ثبّت الجاهز كله» في الوارد", "en": "«Fix everything ready» in the inbox" },
+      "text": {
+        "ar": "يجب على وارد الأساتذة أن يعرض شريط «ثبّت الجاهز كله (n)» ملتصقاً بأسفل الشاشة حين يكون في المعروض بندُ تعديلٍ جاهز بلا موانع ولا تنبيه، بوقتٍ واحد لكل أيامه، لم يتغيّر بعد الإرسال، ولا يعتمد على بندٍ آخر، ولا ينتظر ردّ الأستاذ على مقترحٍ من القسم، وألا يعرضه في فصلٍ مجمّد أو في مرشّحي «لم يشاركوا» و«ثبّتوا جداولهم كما هي»؛ وأن يفتح نافذة تأكيدٍ بالعدد والأسماء وما يتحرّك، ثم يثبّت بنداً بعد بند بمسار «ثبّت» نفسه ومعاينته، منتظراً قبل كل بند الوارد الجديد وفحص صفّه (15 ثانية كحدٍّ أقصى)، ويتوقف عند أول تعذّر ذاكراً البند وسببه، ويعدّ ما ثبّته زميلٌ في الأثناء منجزاً، ويتيح «أوقف بعد الحالي»، ثم يعرض الخلاصة (ما ثُبّت وما بقي)؛ وتُغلق النافذة بـEscape أو بالخلفية إلا أثناء التثبيت.",
+        "en": "The instructor inbox shall show a «fix everything ready (n)» bar stuck to the bottom of the screen when the shown items include a change item that is ready with no block or warning, has one time across its days, did not change after sending, depends on no other item and is not awaiting the member's answer to a department proposal, and shall not show it in a frozen term or under the «did not take part» and «confirmed unchanged» filters; it shall open a confirmation window listing the count, names and what moves, then fix item after item through the same «fix» path and its preview, waiting before each item for the refreshed inbox and its row check (15 seconds at most), stopping at the first failure naming the item and the reason, counting an item a colleague fixed meanwhile as done, offering «stop after the current one», and finally showing the summary (what was fixed and what remains); the window closes with Escape or the backdrop except while fixing."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "بند ثالث رفضه الخادم بعد تثبيت اثنين ← «توقّف عند 3 من n» مع سببه، ولا يُمسّ ما بعده.", "en": "A third item refused by the server after two were fixed ← «stopped at 3 of n» with its reason, and nothing after it is touched." },
+        { "ar": "بند ثبّته زميل بعد فتح النافذة ← يُعدّ منجزاً ولا يُعاد.", "en": "An item a colleague fixed after the window opened ← counted as done and not repeated." }
+      ],
+      "evidence": { "code": ["src/components/InstructorInbox.tsx#BulkSheet", "src/components/InstructorInbox.tsx#runBulk", "src/components/InstructorInbox.tsx#settledEntry"], "tests": ["tests/inbox-studio-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-049",
+      "kind": "functional",
+      "title": { "ar": "مرشّحات الوارد ولمحته والتذكير", "en": "Inbox filters, overview and reminders" },
+      "text": {
+        "ar": "يجب على وارد الأساتذة أن يبدأ بمرشّح الحالة «بانتظار قرارك» مع «ثُبّت» و«رُفض» و«الكل» و«لم يشاركوا»، ومرشّح «ثبّتوا جداولهم كما هي» للمعلومية، و«🎓 تدريب» لطلبات مرحلة التدريب، وتحت «أكثر» مرشّحات النوع (تعديل، إضافة، حذف) والفحص (متاح، استثناء، ممنوع) والقسم (حين يتعدد القسم ولم يُختر قسم)، ومرشّح الموقع، وزر «إعادة»؛ وأن يُخفي كل مرشّحٍ لا عنصر تحته إلا المختار، والمجموعةَ التي لم يبقَ فيها ما يُختار بينه؛ وأن يعرض حلقة «أجاب: x من y» بتفصيل من فتح ولم يُجب ومن لم يفتح ومن انتهى طلبه ومن طلب تغييراً ومن بلا تغيير، وسطر من لم يفتح الرابط مع روابط تذكيرٍ بواتساب لأول 12 منهم، وسطراً مطوياً بمن قال «الجدول كما هو»، وقائمة «لم يشاركوا» بزر «ذكّر»، وتجميع البطاقات بكلية الطلب مع شريط «رغبات عائلة القسم» حين تتعدد الكليات؛ وأن يرتّب الأساتذة أبجدياً ويُخرج «هيئة تدريسية»، ويبحث باسم الأستاذ، ويعيد القراءة بهدوء بعد 900 ملّي ثانية من نبضة إشعار وعند صحوة اللسان، ويعرض لصاحب الصلاحية الكاملة كل الكليات والأقسام ولغيره نطاقه، ويفتح من الإشعار على قسم الطلب.",
+        "en": "The instructor inbox shall start with the state filter «awaiting your decision» alongside «fixed», «rejected», «all» and «did not take part», a «confirmed their schedules unchanged» filter for information, «🎓 training» for training-phase requests, and under «more» the type (change, add, delete), check (clear, exception, blocked) and department filters (when there is more than one department and none is chosen), the location filter and a «reset» button; it shall hide every filter with nothing under it except the chosen one, and any group left with nothing to choose between; it shall show an «answered: x of y» ring broken down into opened-not-answered, not opened, settled, asked for change and unchanged, a line of members who have not opened the link with WhatsApp reminder links for the first 12, a folded line of those who said «schedule as is», a «did not take part» list with a «remind» button, and cards grouped by the request's college with a «department family requests» banner when colleges are several; it shall order members alphabetically, leave out the faculty placeholder, search by member name, re-read quietly 900 ms after a notification pulse and when the tab wakes, show a full-permission holder every college and department and anyone else his scope, and open on the request's department when arriving from a notification."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "مجموعة «النوع» كل عناصرها تعديل ← لا تُعرض المجموعة.", "en": "A «type» group whose items are all changes ← the group is not shown." },
+        { "ar": "20 أستاذاً لم يفتحوا الرابط ← تظهر روابط تذكير لأول 12 منهم.", "en": "20 members who have not opened the link ← reminder links are shown for the first 12." }
+      ],
+      "evidence": { "code": ["src/components/InstructorInbox.tsx#visibleFilterOptions", "src/components/InstructorInbox.tsx#FilterGroup", "src/components/InstructorInbox.tsx#InstructorInbox"], "tests": ["tests/inbox-studio-audit.ts", "tests/inbox-campus-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-050",
+      "kind": "functional",
+      "title": { "ar": "أوراق الرفض والحوار والإلغاء وتأكيد التثبيت في الوارد", "en": "Reject, reply and cancel sheets and fix confirmation in the inbox" },
+      "text": {
+        "ar": "يجب على وارد الأساتذة أن يفتح ورقة الرفض بقائمة الأسباب السبعة إلزامياً، والبدائل المقترحة من أقرب الأوقات غير مختارةٍ ابتداءً ليختار منها المنسّق ما يعرضه عن قصد، وسطرٍ اختياري للأستاذ؛ وورقة الحوار بأوقاتٍ يقترحها (يبقى آخر 3 مختارة) ونصٍّ حتى 400 حرف، ولا تُرسَل بلا نصٍّ ولا وقت؛ وورقة «إلغاء الموعد» لبندٍ وضعه القسم بسطرٍ إلزامي حتى 160 حرفاً؛ وأن ينبّه تحت كل نصٍّ يصل الأستاذ إن بدا فيه رمز قاعة أو مبنى («هذه الملاحظة تصل الأستاذ — لا تذكر القاعة ولا المبنى») دون منع الإرسال؛ وأن يطلب قبل التثبيت معاينةً من الخادم فيمضي مباشرة إن كانت خطوة واحدة بلا تنبيه، وإلا يعرض ما سيُكتب (نقل/إضافة/حذف بأيامه ووقته) ليؤكده المنسّق، ويقول بعد التثبيت إن الموعد كُتب في أكثر من صفٍّ لاختلاف أوقاته ويعرض التنبيهات غير المانعة؛ وأن يفتح للإضافة بطاقةً سريعة في مكانها بالمقرر والأيام والوقت من الطلب وبأول قاعةٍ ثبت خلوّها مملوءةً سلفاً، ويرفض فيها مقرراً غير المطلوب، ويرفض فتحها في المحرّر الكامل حين تختلف الأوقات بين الأيام؛ وأن يترجم رسائل الحفظ إلى معنى البند (موعد بلا مبنى أو قاعة معتمدة، جدول مقفل عند التسجيل).",
+        "en": "The instructor inbox shall open the reject sheet with the seven reasons (required), the alternatives proposed from the nearest times, none preselected, for the coordinator to choose deliberately, and an optional line to the member; the reply sheet with proposed times (the last 3 chosen are kept) and text up to 400 characters, not sent with neither text nor time; and the «cancel appointment» sheet for a department-placed item with a required line of up to 160 characters; under every text that reaches the member it shall warn when it seems to name a room or building code («this note reaches the member — do not mention the room or building») without blocking sending; before fixing it shall ask the server for a preview and proceed directly when it is a single step with no warning, otherwise show what will be written (move/add/delete with days and time) for the coordinator to confirm, and after fixing say when the appointment was written as several rows because its times differ and show non-blocking warnings; for an addition it shall open a quick card in place with the course, days and time from the request and the first room proven free prefilled, refuse a different course there, and refuse expanding into the full editor when times differ between days; and it shall translate save messages into the item's meaning (an appointment without an approved building or room, a schedule locked at registration)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "سطر رفض «القاعة 901A01/L01 محجوزة» ← يظهر التنبيه ويبقى الإرسال ممكناً؛ و«الوقت 14:00/15:00 يتقاطع» ← لا تنبيه.", "en": "A rejection line «room 901A01/L01 is booked» ← the warning shows and sending stays possible; «time 14:00/15:00 overlaps» ← no warning." },
+        { "ar": "معاينة بخطوتين ← نافذة تأكيد «سيُكتب في الجدول الدراسي: …»؛ والإلغاء فيها لا يكتب شيئاً.", "en": "A two-step preview ← a confirmation «will be written to the schedule: …»; cancelling it writes nothing." }
+      ],
+      "evidence": { "code": ["src/components/InstructorInbox.tsx#RejectSheet", "src/components/InstructorInbox.tsx#RequestThread", "src/components/InstructorInbox.tsx#CancelScheduledSheet", "src/components/InstructorInbox.tsx#mentionsPlace", "src/components/InstructorInbox.tsx#previewAndConfirm", "src/components/InstructorInbox.tsx#announceApplied", "src/components/InstructorInbox.tsx#inboxMessage"], "tests": ["tests/inbox-studio-audit.ts", "tests/handover-fixes-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-051",
+      "kind": "functional",
+      "title": { "ar": "مسودة الطلب في المتصفح وعدّاد المهلة وأفضل ثلاثة مواعيد", "en": "The request draft in the browser, the deadline counter and the best three times" },
+      "text": {
+        "ar": "يجب على صفحة طلب الأستاذ أن تحفظ ما كتبه ولم يُرسله في المتصفح بمفتاح req-draft:<الرابط>:<اللسان> (ولكل لسانٍ معرّف في sessionStorage) وتستعيده عند فتح الصفحة والنافذة مفتوحة خلال 14 يوماً مع شريط «استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد» وزر «ابدأ من جديد» الذي يمحو كل مسودات الرابط، وأن تمحو بلا شريطٍ مسودةً تطابق ما في الخادم، وتعيد فحص البنود المستعادة؛ وأن تعرض والنافذة مفتوحة «باقٍ N يوم على إغلاق الطلبات» أو «يُغلق استقبال الطلبات اليوم» بلونٍ كهرماني في آخر يومين وتُخفيه بعد الإغلاق؛ وأن تعرض «أفضل ثلاثة مواعيد لك» من الأوقات التي حكم الخادم بأنها متاحة وحدها، مرتّبةً بقربها من محاضراته الأخرى، ولا تعرضها إن لم تتوفر ثلاثة؛ وأن تحمل شارة «مسودة · غير معتمدة · لا تُعتبر تكليفاً» قبل الإرسال و«مرسَل · غير معتمد بعد» بعده.",
+        "en": "The member's request page shall keep what he wrote and did not send in the browser under req-draft:<link>:<tab> (each tab with an id in sessionStorage) and restore it when the page opens while the window is open within 14 days, with the banner «we restored what you wrote on your previous visit and did not send» and a «start again» button that clears every draft of the link; a draft matching what the server holds is cleared without a banner, and restored items are re-checked; while the window is open it shall show «N days left before requests close» or «requests close today», amber in the last two days and hidden after closing; it shall show «your best three times» only from times the server judged available, ordered by closeness to his other lectures, and not at all when fewer than three exist; and it shall carry the badge «draft · not approved · not an assignment» before sending and «sent · not yet approved» after."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["instructor"],
+      "acceptance": [
+        { "ar": "مسودة عمرها 15 يوماً ← لا تُستعاد.", "en": "A 15-day-old draft ← not restored." },
+        { "ar": "وقتان متاحان فقط ← لا يظهر «أفضل ثلاثة مواعيد».", "en": "Only two available times ← «best three times» is not shown." },
+        { "ar": "بقي يومان على الإغلاق ← السطر كهرماني (data-urgent = 1).", "en": "Two days before closing ← the line is amber (data-urgent = 1)." }
+      ],
+      "evidence": { "code": ["src/server/pages/instructorRequestPage.ts#readDraft", "src/server/pages/instructorRequestPage.ts#saveDraft", "src/server/pages/instructorRequestPage.ts#clearAllDrafts", "src/server/pages/instructorRequestPage.ts#deadlineHtml", "src/server/pages/instructorRequestPage.ts#bestTimes"], "tests": ["tests/teacher-card-polish-2-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-052",
+      "kind": "functional",
+      "title": { "ar": "الإملاء الصوتي في حقول الطلب", "en": "Voice dictation in request fields" },
+      "text": {
+        "ar": "يجب أن تعرض صفحة طلب الأستاذ زرّ إملاءٍ صوتي بجانب حقل الملاحظة وحقل الرد وحقول سبب الاستثناء حين يدعم المتصفح التعرّف على الكلام وحده، يطلب الإذن عند أول ضغطة، ويكتب الكلام العربي في الحقل نصّاً يراجعه الأستاذ ولا يُرسل تلقائياً، ويتوقف وحده بعد 30 ثانية مع حلقةٍ وعدّ تنازلي ويُكمل بعد صمتٍ قصير حتى 3 مرات، ويحوّل الأرقام العربية والفارسية إلى لاتينية والوقت المنطوق المكتوب بالأرقام الهندية (9:30) إلى 09:30، ويقصّ النص عند 400 حرف مع عدّاد، ويعرض أخطاء الميكروفون جملةً قصيرة (إذن مرفوض، لا صوت، لا ميكروفون، انقطاع الخدمة، لغة غير مدعومة) ويبقى الحقل للكتابة، ويتوقف إذا اختفت الصفحة؛ ولا يُسجَّل صوتٌ ولا يُرسل إلى الخادم.",
+        "en": "The member's request page shall show a voice dictation button beside the note field, the reply field and the exception-reason fields only when the browser supports speech recognition; it asks for permission on the first press, writes the Arabic speech into the field as text the member reviews and never sends automatically, stops by itself after 30 seconds with a ring and countdown and continues after a short silence up to 3 times, turns Arabic-Indic and Persian digits into Western digits and a spoken time written in Arabic-Indic digits as 9:30 into 09:30, cuts the text at 400 characters with a counter, shows microphone errors as a short sentence (permission refused, no speech, no microphone, service unreachable, language not supported) leaving the field for typing, and stops when the page is hidden; no audio is recorded or sent to the server."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["instructor"],
+      "acceptance": [
+        { "ar": "متصفح بلا SpeechRecognition ← لا زرّ إملاء أصلاً.", "en": "A browser without SpeechRecognition ← no dictation button at all." },
+        { "ar": "نص قائم بـ395 حرفاً ثم إملاء جملة طويلة ← يُقصّ المجموع عند 400.", "en": "An existing 395-character text then a long dictated sentence ← the total is cut at 400." }
+      ],
+      "evidence": { "code": ["src/server/voiceInputScript.ts#viNormalize", "src/server/voiceInputScript.ts#viJoin", "src/server/voiceInputScript.ts#VOICE_INPUT_LIMIT", "src/server/voiceInputScript.ts#VOICE_INPUT_SECONDS", "src/server/pages/instructorRequestPage.ts"], "tests": ["tests/voice-input-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-053",
+      "kind": "functional",
+      "title": { "ar": "بطاقة الأستاذ في المتصفح: الدخول والتقويم والتبويبات", "en": "The faculty card in the browser: entry, calendar and tabs" },
+      "text": {
+        "ar": "يجب على بطاقة الأستاذ (/s/) أن تحوّل الأرقام الهندية والفارسية في حقل الرقم المدني وتطلب 8 أرقام على الأقل قبل الإرسال كقاعدة الخادم («اكتب رقمك المدني كاملاً (8 أرقامٍ على الأقل).»)، وأن تجعل «تذكّرني» مختاراً افتراضياً على أجهزة اللمس وحدها، ولا تحفظ الرقم المدني في أي تخزينٍ للمتصفح (يبقى في ذاكرة الصفحة لتبديل الفصل فقط، وتُمحى نسخة sk-civil:<الرابط> القديمة من sessionStorage عند الفتح)، فمن لم يختر «تذكّرني» يكتبه ثانيةً بعد العودة، وتفتح البطاقة مباشرة على جهازٍ متذكَّر بعلامة sk-dev:<الرابط> وتمحو العلامة إن لم يصلح المفتاح، وتعرض «انسَ هذا الجهاز» حين يكون متذكَّراً؛ وأن تتيح تبديل الفصل حين يوجد فصلان فأكثر، وتعرض حالة اعتماد كل قسم، وما يقع خلال الأسبوعين القادمين، والأرقام (ساعات المقررات، النصاب، المحاضرات، الأيام، القاعات)، وتنبيه «تغيّر جدولك منذ زيارتك الأخيرة» و«فصل سابق — للاطلاع فقط» و«فصل قادم»؛ وأن يفتح تبويب «طلب تعديل الجدول» النموذجَ مباشرة حين تكون نافذة واحدة مفتوحة ويعرض القائمة حين تتعدد ويختفي حين لا نافذة؛ وأن تفتح ورقة «جدولك في تقويمك» (Apple وGoogle وOutlook ونسخ الرابط، وتنبيه قبل المحاضرة بربع ساعة يضيف alarm=15، والفصل القادم يضيف term=) لغير الفصل السابق، وتُغلق بـEscape أو بالخلفية؛ وأن تعرض آخر موعد للرغبات، وتذييل الطباعة، و«قراءة الجدول متاحة حتى نهاية الفصل (التاريخ)».",
+        "en": "The faculty card (/s/) shall convert Arabic-Indic and Persian digits in the civil ID field and require at least 8 digits before sending, matching the server rule («enter your full civil ID (at least 8 digits)»), make «remember me» checked by default on touch devices only, keep the civil ID in no browser storage (it stays in page memory for term switching only, and the old sk-civil:<link> copy is removed from sessionStorage on opening), so a member who did not choose «remember me» types it again after returning, open the card directly on a remembered device marked sk-dev:<link> and clear the mark when the key no longer works, and show «forget this device» when remembered; it shall allow switching the term when there are two or more, and show each department's approval status, what falls in the next two weeks, the figures (course hours, load, lectures, days, rooms), and the notes «your schedule changed since your last visit», «previous term — read only» and «upcoming term»; the «request a schedule change» tab shall open the form directly when one window is open, list the windows when there are several, and hide when there is none; the «your schedule in your calendar» sheet (Apple, Google, Outlook, copy link, a quarter-hour reminder adding alarm=15, and term= for an upcoming term) shall be offered except for a previous term and close with Escape or the backdrop; and it shall show the wishes deadline, the print footer and «the schedule can be read until the end of the term (date)»."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["instructor"],
+      "acceptance": [
+        { "ar": "رقم من 7 أرقام ← «اكتب رقمك المدني كاملاً (8 أرقامٍ على الأقل).» ولا يُرسَل شيء؛ ولا يظهر الرقم في sessionStorage ولا localStorage بعد العرض.", "en": "A 7-digit number ← «enter your full civil ID (at least 8 digits)» and nothing is sent; the number appears in neither sessionStorage nor localStorage after the card is shown." },
+        { "ar": "اختيار التنبيه قبل المحاضرة ← روابط الاشتراك الثلاثة تحمل ?alarm=15.", "en": "Ticking the reminder ← the three subscription links carry ?alarm=15." },
+        { "ar": "نافذة طلبات واحدة مفتوحة ← ضغط التبويب ينقل إلى /r/<الرابط> مباشرة.", "en": "One open request window ← pressing the tab goes straight to /r/<link>." }
+      ],
+      "evidence": { "code": ["src/server/pages/staffCardPage.ts#staffCardPage", "src/server/pages/staffCardPage.ts"], "tests": ["tests/staff-device-key-audit.ts", "tests/handover-fixes-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-054",
+      "kind": "functional",
+      "title": { "ar": "إعادة النشر لما عليه ملاحظات التسجيل فقط", "en": "Resending only for what carries registrar notes" },
+      "text": {
+        "ar": "يجب أن يتيح مسار الإصدار (POST /api/instructor-requests/issue) إرسالاً «لما عليه ملاحظات فقط» يحسب الخادم مستلميه بنفسه: أصحاب المواعيد التي عليها ملاحظة مفتوحة كتبها التسجيل في جدول القسم للفصل، وبطلب تعديل فقط؛ وأن يعيد فتح طلب كل منهم بالموعد الجديد ولو كان قد قدّمه أو كان قيد المراجعة؛ وأن يقيّد كل بطاقة بمواعيد صاحبها الملحوظة وحدها فلا يقبل منه تعديلاً جديداً على غيرها ولا إضافة مقرر؛ وأن يرفع هذا القيدَ أيُّ إصدار عادي لاحق لصاحب البطاقة. ولا يصل نص الملاحظة إلى الأستاذ لأنه قد يذكر قاعة.",
+        "en": "The issue route (POST /api/instructor-requests/issue) shall offer a «notes only» send whose recipients the server computes itself: the owners of appointments in the department's schedule for the term that carry an open note written by registration, in edit mode only; it shall reopen each recipient's request with the new deadline even when it was submitted or is under review; it shall restrict each card to its owner's noted appointments alone, accepting no new change on other appointments and no added course; and any later ordinary issue to that member shall lift the restriction. The note text never reaches the member because it may name a room."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "instructor"],
+      "acceptance": [
+        { "ar": "لا ملاحظة مفتوحة من التسجيل ← 409 «لا ملاحظات مفتوحة من التسجيل على هذا الجدول.»؛ وصفة غير التعديل ← 400 «إعادة النشر للملاحظات تكون بطلب تعديل.»", "en": "No open registrar note ← 409 «no open registration notes on this schedule.»; a mode other than edit ← 400 «resending for notes is an edit request.»" },
+        { "ar": "على البطاقة: تعديل موعد غير ملحوظ أو إضافة جديدة ← 403 «التعديل متاح فيما عليه ملاحظات التسجيل فقط.» مع رقم البند؛ وبند «إبقاء» أو بند أُعيد إرساله كما خُزّن يمرّ.", "en": "On the card, changing an un-noted appointment or adding a new one ← 403 «editing is available only for what carries registration notes.» with the item index; a «keep» item, or an item resent exactly as stored, passes." },
+        { "ar": "ملاحظة محسومة أو كتبها غير التسجيل لا تُحسب؛ والشاشة تقول «أُعيد النشر لـN أستاذاً فيما عليه ملاحظات فقط.» بعدد total في الرد.", "en": "A resolved note, or one not written by registration, does not count; the screen says «resent to N instructors for noted items only.» using total from the reply." }
+      ],
+      "evidence": { "code": ["src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/issue", "src/server/routes/instructorRequestsRoutes.ts#registrarNotedRows", "src/utils/requestNotedScope.ts#notedRowsOf", "src/utils/requestNotedScope.ts#notedScopeBreach", "src/server/routes/publicRequestRoutes.ts", "src/components/SchedulePublish.tsx#sendNoted"], "tests": ["tests/publish-notes-r4-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-055",
+      "kind": "functional",
+      "title": { "ar": "ما يفعله الإرسال بطلب كل أستاذ", "en": "What a send does to each member's request" },
+      "text": {
+        "ar": "يجب أن يقرر مسار الإصدار لكل أستاذ في جدول عائلة القسم مصيرَ طلبه في الفصل: طلبٌ تحكمه مرحلة التدريب لا يمسّه الإرسال (عدا إرسال الملاحظات)؛ وطلبٌ قدّمه الأستاذ أو قيد المراجعة يبقى كما هو في الإرسال الجماعي والمحدد ولا تُكتب عليه إلا صفة الإرسال الجديدة إن اختلفت؛ وطلبٌ أُرسل ولم يُقدَّم يأخذ الموعد الجديد ويُستبدل رابطه إن مات أو كان ينتهي قبل الموعد؛ وما سوى ذلك يُنشأ له رابط وطلب جديد بحالة «أُرسل» يحمل كل مواعيده في الفصل المصدر (جدول هذا الفصل، أو جدول الفصل السابق حين يُرسل قبل النسخ). وأن ينقل الإرسالُ للعائلة كلها (لا المحدد ولا الاستثناء) موعدَ الإغلاق العام لكل بطاقة أستاذ منشورة فعالة في العائلة، وأن يحفظ سطراً في سجل الإرسال باسم المرسل من الجلسة.",
+        "en": "The issue route shall decide, for each member in the department family's schedule, the fate of their request in the term: a request governed by the training phase is not touched by a send (except a notes send); a request the member submitted or that is under review stays as it is in a family or selected send, and only the new send mode is written on it when it differs; a request sent but not submitted takes the new deadline and has its link replaced when the link is dead or expires before the deadline; anything else gets a new link and a new request in status sent holding all the member's appointments in the source term (this term's schedule, or the previous term's schedule when sent before copying). A send to the whole family (not a selected send and not an exception) shall move the general closing time of every active published faculty card in the family, and every send shall store a send-log line with the sender's name taken from the session."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "الرد يحمل issued (لكلٍّ reissued أو renewed) وtotal وfresh (الجديد وحده)، وpicked:true للإرسال المحدد.", "en": "The reply carries issued (each with reissued or renewed), total and fresh (new ones only), and picked:true for a selected send." },
+        { "ar": "source=previous-term مع previousTermId ← بنود الطلب من مواعيد الأستاذ في ذلك الفصل؛ وبلا previousTermId ← من الفصل المختار.", "en": "source=previous-term with previousTermId takes the request items from the member's appointments in that term; without previousTermId, from the selected term." },
+        { "ar": "استثناء فردي لأستاذ ينتظر طلبُه الأخير قراراً (أُرسل أو قيد المراجعة) ← يحمل الطلبُ نفسه الاستثناء برابطه (ويُستبدل الرابط إن مات) ويُضاف إلى سجله سطر «استثناء فردي لظرف طارئ»، فلا يصير للأستاذ طلبان مفتوحان.", "en": "An individual exception for a member whose latest request awaits a decision (submitted or under review) puts the exception on that same request and link (replacing the link when it is dead) and adds an «individual exception for an emergency» line to its timeline, so the member never has two open requests." }
+      ],
+      "evidence": { "code": ["src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/issue", "src/utils/requestReissue.ts#reissueMove", "src/server/core/staffCard.ts#staffFamilyScopes", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/send-log"], "tests": ["tests/request-reissue-audit.ts", "tests/publish-requests-audit.ts", "tests/handover-fixes-audit.ts"] }
     }
   ],
   "edgeCases": [

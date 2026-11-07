@@ -44,6 +44,14 @@ gcloud firestore databases restore \
   --snapshot-time='2026-08-14T09:00:00Z'
 ```
 
+حماية القاعدة من الحذف (بلا تكلفة): لا تُحذف القاعدة كلها بأمرٍ خاطئ حتى تُرفع
+الحماية صراحةً.
+
+```bash
+gcloud firestore databases update \
+  --project="$DATA_PROJECT_ID" --database="$DATABASE_ID" --delete-protection
+```
+
 ## ٢. تصدير يومي إلى Cloud Storage — أرشيف طويل الأمد
 
 PITR يغطي أسبوعاً؛ التصدير يغطي ما بعده.

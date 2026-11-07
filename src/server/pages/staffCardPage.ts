@@ -251,7 +251,7 @@ ${STAFF_CARD_VISUAL_CSS}
     <h1>بطاقتي</h1>
     <p>${label}<br>اكتب رقمك المدني لعرض جدولك.</p>${demoHint}
     <form class="field" id="form">
-      <input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12 رقمًا" aria-label="الرقم المدني">
+      <input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="رقمك المدني" aria-label="الرقم المدني">
       <button type="submit" id="go">عرض</button>
     </form>
     <label class="remember" for="remember"><input type="checkbox" id="remember"><span>تذكّرني على هذا الجهاز</span></label>
@@ -305,7 +305,7 @@ ${STAFF_CARD_VISUAL_CSS}
         <a class="opt primary" id="subNow" href="#"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5c-1 .1-2.2.8-2.8 1.6-.6.7-1.1 1.8-.9 2.8 1.1 0 2.2-.7 2.8-1.5.6-.8 1-1.8.9-2.9z"/><path d="M12 8.5c-1-.1-2.3-.9-3.5-.9C6.6 7.6 5 9.2 5 12.2c0 3.3 2.3 8.3 4.2 8.3 1 0 1.6-.7 2.8-.7s1.7.7 2.8.7c1.5 0 2.8-2.7 3.3-4.1-1.7-.8-2.4-2.4-2.4-3.9 0-1.3.7-2.5 1.8-3.2-.8-1.1-2-1.6-3.1-1.6-1 0-1.6.8-2.4.8z"/></svg></span><span class="t">Apple · آيفون وماك<small>يفتح «اشتراك» في تطبيق التقويم</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
         <a class="opt" id="subGoogle" href="#" target="_blank" rel="noopener"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12.2c0-.6-.1-1.2-.2-1.7H12v3.3h4.5a3.9 3.9 0 0 1-1.7 2.5"/><path d="M12 20a8 8 0 1 1 5.4-13.9"/></svg></span><span class="t">Google Calendar<small>يفتح صفحة الإضافة في جوجل</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
         <a class="opt" id="subOutlook" href="#" target="_blank" rel="noopener"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="12" height="14" rx="2"/><circle cx="9" cy="12" r="2.6"/><path d="M15 8h6v8h-6"/></svg></span><span class="t">Outlook<small>حساب شخصي أو حساب الجامعة</small></span><svg class="ico go" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
-        <button type="button" class="opt" id="subCopy"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/></svg></span><span class="t">نسخ رابط الاشتراك<small id="subNote">لأي تطبيق تقويم آخر: «إضافة تقويم ← من رابط».</small></span></button>
+        <button type="button" class="opt" id="subCopy" aria-label="نسخ رابط الاشتراك في التقويم" aria-describedby="subNote"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/></svg></span><span class="t">نسخ رابط الاشتراك<small id="subNote">لأي تطبيق تقويم آخر: «إضافة تقويم ← من رابط».</small></span></button>
         <label class="opt subalarm"><span class="oi"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/></svg></span><span class="t">تنبيه قبل المحاضرة بربع ساعة</span><input type="checkbox" id="subAlarm"><span class="switch"></span></label>
       </div>
     </div>
@@ -341,14 +341,15 @@ ${CALENDAR_LINKS_CLIENT_JS}
   document.getElementById("form").addEventListener("submit",function(event){
     event.preventDefault();
     var value=ascii(civil.value).replace(/[^0-9]/g,"");
-    if(value.length!==12){note.textContent="الرقم المدني 12 رقمًا.";return}
+    /* القاعدةُ نفسها في الخادم: ثمانية أرقامٍ فأكثر (buildStaffCard). */
+    if(value.length<8){note.textContent="اكتب رقمك المدني كاملاً (8 أرقامٍ على الأقل).";return}
     note.textContent="";go.disabled=true;go.textContent="…";document.getElementById("gateSkel").hidden=false;
     fetch("/api/public/staff/"+encodeURIComponent(TOKEN),{
       method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({civil:value,remember:Boolean(rememberBox&&rememberBox.checked)})
     }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
       .then(function(res){
         go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;
-        if(!res.ok){try{sessionStorage.removeItem("sk-civil:"+TOKEN)}catch(e){}note.textContent=res.data&&res.data.error?res.data.error:"تعذر العرض";return}
+        if(!res.ok){note.textContent=res.data&&res.data.error?res.data.error:"تعذر العرض";return}
         render(res.data,value);
       })
       .catch(function(){go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;note.textContent="تعذر الاتصال. تحقق من الإنترنت."});
@@ -438,8 +439,8 @@ ${CALENDAR_LINKS_CLIENT_JS}
   var visitSince=null,visitChanged=false;
   function render(d,value){
     if(visitSince===null){visitSince=d.lastSeenAt||"";visitChanged=Boolean(d.changedSinceLastVisit);}
+    /* الرقمُ يبقى في ذاكرة الصفحة لتبديل الفصل فقط؛ لا يُكتب في أي تخزينٍ للمتصفح. */
     currentCivil=value;
-    if(value){try{sessionStorage.setItem("sk-civil:"+TOKEN,value)}catch(e){}}
     var forget=document.getElementById("forget");if(forget)forget.hidden=!d.remembered;
     try{if(d.remembered)localStorage.setItem("sk-dev:"+TOKEN,"1");else localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
     var currentTerm = { termId: Number(d.termId || 0) };
@@ -571,13 +572,13 @@ ${CALENDAR_LINKS_CLIENT_JS}
   var forgetBtn=document.getElementById("forget");
   if(forgetBtn)forgetBtn.addEventListener("click",function(){
     forgetBtn.disabled=true;
-    try{sessionStorage.removeItem("sk-civil:"+TOKEN);localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
+    try{localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
     fetch("/api/public/staff/"+encodeURIComponent(TOKEN)+"/forget",{method:"POST"}).then(function(){location.reload()},function(){location.reload()});
   });
-  /* العودةُ من صفحة الطلب لا تطلب الرقم ثانيةً: يُحفظ في هذه الجلسة وحدها (يزول بإغلاق التبويب). */
+  /* الرقمُ المدني لا يُحفظ في المتصفح: من أراد ألّا يكتبه ثانيةً يختار «تذكّرني» (مفتاحٌ موقّع لا يحمل الرقم).
+     ويُمحى ما قد بقي من نسخةٍ قديمة كانت تحفظه في الجلسة. */
   var resumed=false;
-  try{var saved=sessionStorage.getItem("sk-civil:"+TOKEN);
-    if(saved&&/^[0-9]{12}$/.test(saved)){resumed=true;civil.value=saved;var fm=document.getElementById("form");if(fm.requestSubmit)fm.requestSubmit();else go.click()}}catch(e){}
+  try{sessionStorage.removeItem("sk-civil:"+TOKEN)}catch(e){}
   /* جهازٌ متذكَّر: يفتح البطاقة مباشرة بمفتاحه (كوكي لا تقرؤه الصفحة). إن لم يصلح بقي سؤال الرقم بلا رسالة. */
   var hinted=false;try{hinted=localStorage.getItem("sk-dev:"+TOKEN)==="1"}catch(e){}
   if(!resumed&&hinted){

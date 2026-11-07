@@ -2081,6 +2081,18 @@ export interface AdLead {
   partnerLinkId?: string;
   partnerCompany?: string;
 }
+/** طلبُ استعراضٍ من صفحة الهبوط (FR-ENG-027): بياناتُ تواصلٍ للإدارة وحدها، لا تظهر في صفحةٍ عامة. */
+export interface LandingInquiry {
+  id: string;
+  createdAt: string;
+  institution: string;
+  name: string;
+  email: string;
+  phone?: string;
+  scale?: string;
+  notes?: string;
+  status: "new" | "contacted";
+}
 /** رابط «ملف الشراكة» الخاص بشركة: رمزٌ عشوائيّ يُسجَّل فتحُه، ويُوقَف وحده أو ينتهي بموعد. */
 export interface PartnerLink {
   id: string;

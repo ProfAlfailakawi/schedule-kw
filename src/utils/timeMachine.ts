@@ -34,6 +34,7 @@ import { nextCourseSectionCode } from "./nextCourseSectionCode";
 import { placeholderInstructorIds } from "./instructorIdentity";
 import { formatScheduleTimeRange, SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
 import { AR, countOf } from "./arabicCount";
+import { authorityCourseCode, academicDigits } from "./authorityAcademicCodes";
 
 /* ── الأشكال ───────────────────────────────────────────────────────────────── */
 
@@ -90,6 +91,8 @@ export interface TmContext {
   /** النصاب المسجّل بالساعات لكل أستاذ (سجلّه أو إعداد النصاب). */
   loadLimits: Record<string, number>;
   canWrite: boolean;
+  /** مفتاح القسم (0109) لكل AdSectionId: للعرض بسبع خانات وحده، لا للمطابقة. */
+  departmentKeys?: Record<string, string>;
 }
 
 export type TmChange =
@@ -266,6 +269,12 @@ export function driftOf(live: FSchedule[], base: Record<string, number>): Array<
 }
 
 /* ── القياس ───────────────────────────────────────────────────────────────── */
+
+/** رقم المقرر كما تطبعه الهيئة (0109468) في الأمثلة والتسميات والبطاقات؛ المخزَّن لا يتغيّر. */
+export function tmCourseNumber(course: Pick<AdCourse, "CourseCode" | "AdSectionId"> | undefined, context: Pick<TmContext, "scope" | "departmentKeys">, stored?: unknown): string {
+  const code = course?.CourseCode || stored || "";
+  return authorityCourseCode(code, context.departmentKeys?.[String(Number(course?.AdSectionId) || Number(context.scope.sectionId))]);
+}
 
 const courseMapOf = (context: Pick<TmContext, "courses">) => new Map(context.courses.map(course => [Number(course.AdCourseId), course] as const));
 const scopeOf = (context: Pick<TmContext, "scope">) => (row: FSchedule) =>
@@ -454,7 +463,7 @@ export function sectionCards(board: FSchedule[], context: TmContext): TmSectionC
     cards.push({
       key,
       courseId: Number(first.AdCourseId),
-      courseCode: String(course?.CourseCode || first.CourseCodeSnapshot || ""),
+      courseCode: tmCourseNumber(course, context, first.CourseCodeSnapshot),
       courseName: String(course?.CourseName || first.AdCourseName || ""),
       code: String(first.SCode || ""),
       instructorId: teacherId,
@@ -761,7 +770,7 @@ export function removeSectionChange(card: TmSectionCard): TmChange {
 export function addSectionChange(board: FSchedule[], courseId: number, placement: TmPlacement, context: TmContext, label?: string): TmChange {
   const rows = draftSectionRows(board, courseId, placement, context);
   const course = courseMapOf(context).get(courseId);
-  return { id: changeId("a"), op: "add", rows, label: label || `إضافة ${course?.CourseCode || ""} ش${rows[0].SCode}` };
+  return { id: changeId("a"), op: "add", rows, label: label || `إضافة ${course ? tmCourseNumber(course, context) : ""} ش${rows[0].SCode}` };
 }
 
 /** دمج شعبة في أخرى: تُلغى الأولى وتستقبل الثانية طلبتها (إن اتّسعت). */
@@ -795,7 +804,7 @@ export function describeProblem(problem: TmProblem, context: TmContext): string 
   const people = new Map(context.instructors.map(person => [Number(person.AdInstructorId), person.AdInstructorName] as const));
   if (problem.kind === "roomDown") return `قاعة ${hallLabel(problem.hall)} خارج الخدمة${problem.day ? ` · ${dayLabel(problem.day)}` : ""}`;
   if (problem.kind === "teacherOff") return `${people.get(problem.instructorId) || "أستاذ"} غير متاح${problem.day ? ` · ${dayLabel(problem.day)}` : ""}`;
-  if (problem.kind === "demandUp") { const c = courses.get(problem.courseId); return `طلبٌ زائد على ${c?.CourseCode || ""} ${c?.CourseName || ""}`.trim(); }
+  if (problem.kind === "demandUp") { const c = courses.get(problem.courseId); return `طلبٌ زائد على ${c ? tmCourseNumber(c, context) : ""} ${c?.CourseName || ""}`.trim(); }
   if (problem.kind === "clearDay") return `تفريغ ${dayLabel(problem.day)}`;
   if (problem.kind === "reduceGaps") return "تقليل فجوات الأساتذة";
   return `توفير ${countOf(problem.count, AR.room)}`;
@@ -872,9 +881,12 @@ export function parseProblem(input: string, context: TmContext): TmProblem | nul
     /* الرمزُ كاملاً أولاً (0109468)، ثم آخرُ أرقامه كما يُقال شفاهةً (121): كان
        التقطيعُ إلى أربعةٍ أربعةٍ يُطابق «0109» من رمزٍ طويلٍ مع مقررٍ آخر.
        والرقمُ يُؤخذ بطوله كلّه، فلا يكون ذيلاً لرمزٍ أقصر منه. */
-    const runs = text.match(/\d{2,}/g) || [];
+    const runs: string[] = text.match(/\d{2,}/g) || [];
     const digitsOf = (course: AdCourse) => String(course.CourseCode || "").replace(/\D/g, "");
+    /* والرقم السباعي المعروض (0109468) يُقرأ كذلك، ولو خُزّن المقرر بخاناته الثلاث. */
+    const printedOf = (course: AdCourse) => academicDigits(tmCourseNumber(course, context));
     const byCode = context.courses.find(course => runs.some(run => digitsOf(course) === run))
+      || context.courses.find(course => runs.some((run: string) => run.length === 7 && printedOf(course) === run))
       || context.courses.find(course => runs.some(run => digitsOf(course).endsWith(run)));
     if (byCode) return { kind: "demandUp", courseId: Number(byCode.AdCourseId) };
     const byName = context.courses.find(course => norm(course.CourseName).length > 3 && text.includes(norm(course.CourseName)));

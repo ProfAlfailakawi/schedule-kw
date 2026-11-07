@@ -654,6 +654,10 @@
         {
           "ar": "التصدير بالكلية بلا قسم من حساب قسم لا يحمل مقررات أقسام الكلية الأخرى.",
           "en": "An export by college with no department from a department account does not carry the courses of the college's other departments."
+        },
+        {
+          "ar": "في تبويب «تصدير» زرّان: «تصدير إلى ملف Excel (.xlsx)» و«تنزيل ملف JSON» باسم schedule-<رقم الفصل>.json، ومعطّلان حتى تُختار الكلية والقسم والفصل؛ وخطأ الخادم يُعرض بنصّه وإلا «تعذر تصدير بيانات الجدول».",
+          "en": "The «export» tab has two buttons, «export to an Excel file (.xlsx)» and «download a JSON file» named schedule-<term id>.json, both disabled until college, department and term are chosen; a server error is shown as given, otherwise «could not export the schedule data»."
         }
       ],
       "evidence": {
@@ -736,6 +740,14 @@
         {
           "ar": "سجل الاستبدالات يعرض آخر 20 قراراً من آخر 80 نسخة، ويُتراجع عنها بالاسترجاع.",
           "en": "The replacement log shows the last 20 decisions drawn from the last 80 versions, and they are reversed through restore."
+        },
+        {
+          "ar": "في تبويب «استبدال»: «من» أساتذة القسم في الفصل، و«إلى» الأساتذة القابلون للإسناد (لا متقاعد ولا متفرّغ) أو «اتركها بلا أستاذ»؛ واختيار «من» يطلب المعاينة تلقائياً بعد 220 مللي ثانية فيقول «نفحص المواعيد…» ثم «متوافق مع جميع المواعيد» أو «يوجد تعارض» مع حتى أربعة أسباب وعدد المواعيد التي ستتأثر؛ و«نفّذ الاستبدال» لا يظهر إلا حين يتأثر موعد واحد على الأقل ويُعطَّل عند التعارض.",
+          "en": "In the «replace» tab, «from» lists the department's instructors in the term and «to» the assignable instructors (no retired or sabbatical member) or «leave without an instructor»; choosing «from» requests the preview automatically after 220 ms, showing «checking appointments…», then «compatible with all appointments» or «there is a conflict» with up to four reasons and the number of appointments affected; «run the replacement» appears only when at least one appointment is affected and is disabled on a conflict."
+        },
+        {
+          "ar": "سجل الاستبدالات على الشاشة يعرض حتى 8 قرارات بالاسم والوقت والمنفّذ وشارة «منتدب»، و«تراجع» يسترجع النسخة السابقة عبر سؤال الكتابة فوق الأحدث.",
+          "en": "The on-screen replacement log shows up to 8 decisions with names, time, actor and the «visiting» mark, and «undo» restores the earlier version through the overwrite-newer question."
         }
       ],
       "evidence": {
@@ -1073,6 +1085,14 @@
         {
           "ar": "غرفة فارغة (empty) تعرض رسالتها كإرشاد.",
           "en": "An empty room shows its message as guidance."
+        },
+        {
+          "ar": "اللوحة تعرض «المشكلة التي تستحق القرار» (المقرر والشعبة وعدد المواضع والأستاذ والقاعة) أو «الجدول مستقر»، ثم الخلاصة وحتى ثلاثة بدائل لكلٍّ منها درجة جودة وعدد الموانع ومتوسط الفراغ وثبات القاعة وأثره على فراغ الأستاذ؛ وهي قراءةٌ لا تحفظ ولا تنفّذ.",
+          "en": "The panel shows «the problem worth deciding» (course, section, number of positions, instructor and hall) or «the schedule is stable», then the verdict and up to three options, each with a quality score, blocker count, average gap, whether the hall changes and its effect on the instructor's gaps; it is a reading that neither saves nor executes."
+        },
+        {
+          "ar": "«افتح الموعد الأصلي» يفتح المحرر على الموعد، ومعه بالتتابع كل موعدٍ في يومه يتداخل معه ويشاركه الأستاذ أو القاعة أو الهوية، فيقول الحفظ «تم الحفظ · التالي n من m» ثم «تمت معالجة جميع المواعيد المرتبطة بهذه المشكلة.».",
+          "en": "«open the original appointment» opens the editor on it followed, in sequence, by every appointment on its day that overlaps it and shares its instructor, hall or identity, so each save says «saved · next n of m» and finally that all appointments linked to the problem were handled."
         }
       ],
       "evidence": {
@@ -1152,12 +1172,22 @@
         {
           "ar": "إخفاء أسماء الأساتذة يُحفظ في showInstructors (يبقى مفعّلاً ما لم يُرسَل false).",
           "en": "Hiding instructor names is stored in showInstructors (on unless false is sent)."
+        },
+        {
+          "ar": "الإصدار والقراءة والإيقاف تشترط الإذن 7، ورمز كل رابط 24 بايتاً عشوائياً بترميز base64url (32 محرفاً) هو معرّف وثيقته في scheduleShareLinks، ويُحفظ معه مفتاح النطاق «كلية:قسم:فصل».",
+          "en": "Issuing, listing and stopping require permission 7, and every link token is 24 random bytes encoded base64url (32 characters) used as its document id in scheduleShareLinks, stored with the scope key 'college:section:term'."
+        },
+        {
+          "ar": "لوحة النشر لم تعد تُصدر رابط الاستبيان: نوع «مساري» فيها يعرض رمز «مساري» (بوابة الطالب) وحده بلا زرّ إنشاء؛ ورابط استبيانٍ قديم يُعرض في القائمة «رابط قديم · يفتح مساري» على المسار /q/ بلا رابط تقويم.",
+          "en": "The publish panel no longer issues survey links: its «Masari» kind shows only the «Masari» (student portal) code with no create button, and an old survey link is listed as «old link · opens Masari» on the /q/ path with no calendar link."
         }
       ],
       "evidence": {
         "code": [
           "src/server/routes/shareRoutes.ts",
-          "src/server/core/shareLinks.ts"
+          "src/server/core/shareLinks.ts",
+          "src/db/repository.ts#createShareLink",
+          "src/server/routes/shareRoutes.ts#/api/share"
         ],
         "tests": [
           "tests/teacher-card-flow-audit.ts",
@@ -1199,7 +1229,8 @@
       "evidence": {
         "code": [
           "src/server/routes/shareRoutes.ts",
-          "src/server/core/staffCard.ts"
+          "src/server/core/staffCard.ts",
+          "src/server/routes/shareRoutes.ts#/api/share"
         ],
         "tests": [
           "tests/teacher-card-flow-audit.ts",
@@ -1326,7 +1357,8 @@
       ],
       "evidence": {
         "code": [
-          "src/server/routes/shareRoutes.ts"
+          "src/server/routes/shareRoutes.ts",
+          "src/server/routes/shareRoutes.ts#/api/share/:id"
         ],
         "tests": [
           "tests/teacher-card-flow-audit.ts"
@@ -1364,13 +1396,21 @@
           "en": "GET /api/share-personal returns, for each link, changedSinceSent true when the schedule fingerprint differs from the fingerprint at sending."
         },
         {
+          "ar": "GET /api/share-personal يتطلب الشاشة 7 والكلية والقسم والفصل (وإلا 400) وقسماً في النطاق (وإلا 403)، ويرجع لكل رابط شخصي في عائلة القسم اسم الأستاذ وانتهاء الرابط وإيقافه وعدد مشاهداته ووقت آخر إرسال وآخر مشاهدة.",
+          "en": "GET /api/share-personal requires screen 7, the college, department and term (otherwise 400) and a department within scope (otherwise 403), and returns for each personal link in the department family the instructor's name, the link's expiry, revocation, view count, last sent time and last seen time."
+        },
+        {
           "ar": "قائمة التسليم تُرجع المعرّف والاسم والجوال فقط، لا الرقم المدني.",
           "en": "The delivery list returns only the identifier, name and mobile, never the civil number."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/routes/shareRoutes.ts"
+          "src/server/routes/shareRoutes.ts",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/personal",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/sent",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/faculty",
+          "src/server/routes/shareRoutes.ts#/api/share-personal"
         ],
         "tests": [
           "tests/doctor-journey-audit.ts",
@@ -1555,7 +1595,7 @@
         "en": "The department schedule, the start-of-term preview, the appointment picker in the scenes and the export file shall show the course number in seven digits (college, department, course), not the code stored in the catalogue."
       },
       "priority": "must",
-      "status": "planned",
+      "status": "implemented",
       "actors": [
         "committeeChair",
         "departmentHead"
@@ -1568,20 +1608,327 @@
         {
           "ar": "عمود «رمز المقرر» في ملف Excel المُصدَّر وسطر المعاينة في بداية الفصل يعرضان الرقم نفسه.",
           "en": "The «رمز المقرر» column of the exported Excel file and the preview line in start of term show the same number."
+        },
+        {
+          "ar": "ملف Excel المصدَّر يُعاد استيراده كما هو: الرقم السباعي يطابق المقرر دون أن يحل محل الرمز المخزّن.",
+          "en": "The exported Excel file re-imports as is: the seven-digit number matches the course without replacing the stored code."
         }
       ],
       "evidence": {
         "code": [
           "src/components/DepartmentSchedule.tsx",
-          "src/components/LivingScheduleScenes.tsx",
           "src/components/LivingScheduleLayer.tsx",
-          "src/components/ScheduleTransfer.tsx"
+          "src/components/LivingScheduleScenes.tsx#ContextPicker",
+          "src/components/ScheduleTransfer.tsx",
+          "src/server/routes/scheduleImportRoutes.ts",
+          "src/server/routes/smartImportRoutes.ts"
+        ],
+        "tests": [
+          "tests/course-number-seven-digit-audit.ts"
         ]
       },
       "rationale": {
-        "ar": "الكود يعرض اليوم CourseCode أو CourseCodeSnapshot كما هو في هذه المواضع.",
-        "en": "Today the code shows CourseCode or CourseCodeSnapshot as stored in these places."
+        "ar": "الرقم الرسمي سبع خانات في كل ما يقرؤه المستخدم أو يصدّره؛ والمخزّن يبقى كما هو.",
+        "en": "The official number has seven digits in everything the user reads or exports; the stored value stays as is."
       }
+    },
+    {
+      "id": "IR-VIW-025",
+      "kind": "interface",
+      "title": {
+        "ar": "تبويبات نافذة نقل الجدول",
+        "en": "Schedule transfer dialog tabs"
+      },
+      "text": {
+        "ar": "يجب أن تعرض نافذة نقل الجدول عشرة تبويبات: تصدير، استيراد، نشر، استبدال، المنتدبون، الأساتذة (النصاب والدرجة والحالة)، تخطيط الشعب، كل المقررات، محاكي الشعب، فرصة للتحسين؛ وأن تُبقي للفصل المنتهي تبويبي التصدير والنشر وحدهما، وأن تُخفي التبويبات كلها ما دامت حصيلة النشر معروضة حتى تُغلق.",
+        "en": "The schedule transfer dialog shall show ten tabs: export, import, publish, replace, visiting instructors, instructors (load, rank and status), section planning, all courses, section simulator and improvement opportunity; for an ended term it shall keep only the export and publish tabs, and it shall hide all tabs while a publish receipt is shown until it is closed."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "فصل منتهٍ يعرض «تصدير» و«نشر» فقط، وأي تبويب آخر مفتوح يعود إلى التصدير.",
+          "en": "An ended term shows only export and publish, and any other open tab returns to export."
+        },
+        {
+          "ar": "تبويبات المقررات والأساتذة والمحاكي تُحمَّل عند فتحها فقط، والإرشاد الأكاديمي يُعرض في «فرصة للتحسين».",
+          "en": "The courses, instructors and simulator tabs load only when opened, and academic advice is shown under improvement opportunity."
+        },
+        {
+          "ar": "عنوان النافذة «أدوات الجدول»، ولفصلٍ منتهٍ «تصدير · نشر»؛ وبلا كلية وقسم وفصل يقال «اختر الكلية والقسم والفصل أولاً.»، وتبويبات التخطيط والمقررات والأساتذة والمحاكي والتحسين تقول «اختر القسم والفصل أولاً.».",
+          "en": "The dialog title is «schedule tools», or «export · publish» for an ended term; without college, department and term it says «choose college, department and term first.», and the planning, courses, instructors, simulator and improvement tabs say «choose department and term first.»."
+        },
+        {
+          "ar": "حصيلة النشر تحلّ محلّ النافذة: «نُشر الجدول» وعدد المواعيد، وتوزيعها على المواقع حين تكون أكثر من موقع، والمقررات التي أُضيفت إلى كتالوج موقعٍ نقلاً عن المقر (حتى 8)، أو «نُزّلت الشعب» بعدد المضاف والحالي والمحذوف لنشرٍ من تخطيط الشعب؛ و«تم» يغلقها.",
+          "en": "The publish receipt replaces the dialog: «the schedule was published» with the appointment count, its split over sites when more than one, the courses added to a site's catalogue from the main campus (up to 8), or «sections were placed» with added, existing and removed counts for a publish from section planning; «done» closes it."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#Tab"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-VIW-026",
+      "kind": "functional",
+      "title": {
+        "ar": "تبويب المنتدبين: قائمة الفصل ودليل القسم",
+        "en": "Visiting tab: term roster and department directory"
+      },
+      "text": {
+        "ar": "يجب أن يتيح تبويب «المنتدبون» تحديد منتدبي الفصل من دليل منتدبي القسم، وإضافة منتدب جديد باسمه ورقم مدني صحيح وجوال اختياري فيُضاف إلى الدليل وإلى الفصل المفتوح معاً (ويُربط بالشخص نفسه إن كان رقمه المدني مسجلاً في قسم آخر)، وتعديل اسمه (ثلاثة أحرف على الأقل) ورقمه وجواله، وحذفه من دليل القسم بعد تأكيد دون حذفه من النظام ولا تغيير الفصول السابقة، ونسخ منتدبي فصل آخر بعد اختيار من يُنسخ منهم فيدخلون الدليل أيضاً، وأن يعيد القائمة السابقة إن فشل الحفظ.",
+        "en": "The visiting tab shall let the user set the term's visiting instructors from the department's delegate directory, add a new delegate with a name, a valid civil ID and an optional mobile so they join both the directory and the open term (linked to the same person if the civil ID already exists in another department), edit the name (at least three characters), civil ID and mobile, remove a delegate from the department directory after confirmation without deleting them from the system or changing earlier terms, and copy another term's visiting instructors after choosing whom to copy, who then also join the directory, restoring the previous list when saving fails."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "إضافة بلا اسم أو رقم مدني تعرض «اكتب اسم المنتدب ورقمه المدني.»، ورقم مدني غير صالح يعرض رسالة المدقق ولا يُرسل شيء.",
+          "en": "Adding without a name or civil ID shows «اكتب اسم المنتدب ورقمه المدني.», and an invalid civil ID shows the validator's message with nothing sent."
+        },
+        {
+          "ar": "الحذف يسأل «حذف المنتدب من قائمة منتدبي هذا القسم؟ لن يُحذف من النظام، ولن تتغير سجلات الفصول السابقة.» قبل التنفيذ.",
+          "en": "Removal asks «حذف المنتدب من قائمة منتدبي هذا القسم؟ لن يُحذف من النظام، ولن تتغير سجلات الفصول السابقة.» before acting."
+        },
+        {
+          "ar": "النسخ يحدد كل منتدبي الفصل المصدر افتراضياً، ولا يُرسل حين لا يكون أحد محدداً.",
+          "en": "Copying selects all of the source term's visiting instructors by default and sends nothing when no one is selected."
+        },
+        {
+          "ar": "الرقم المدني 12 خانة (أرقامٌ فقط، يُفحص عند مغادرة الحقل) والجوال حتى 15 رقماً؛ ومنتدبٌ بلا جوال يحمل «بلا جوّال — لن تصله بطاقته»؛ والبحث يطابق الاسم مع طيّ التشكيل والهمزات أو الرقم المدني؛ وزرّ كل منتدب «يدرّس هذا الفصل» أو «أضفه لهذا الفصل».",
+          "en": "The civil number is 12 digits (digits only, checked on leaving the field) and the mobile up to 15 digits; a delegate with no mobile carries «no mobile — will not receive their card»; the search matches the name ignoring diacritics and hamza forms, or the civil number; each delegate's button reads «teaches this term» or «add to this term»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#addNewDelegate",
+          "src/components/ScheduleTransfer.tsx#copyRoster",
+          "src/components/ScheduleTransfer.tsx#saveRoster",
+          "src/server/routes/instructorsRoutes.ts"
+        ],
+        "tests": [
+          "tests/visiting-family-audit.ts",
+          "tests/review-audit-2026-10-28.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-027",
+      "kind": "functional",
+      "title": {
+        "ar": "أدوات التسليم في لوحة النشر",
+        "en": "Delivery tools in the publish panel"
+      },
+      "text": {
+        "ar": "يجب أن تتيح لوحة النشر لكل رابط نسخ عنوانه (مع بديل حين يتعذر الوصول إلى الحافظة)، وعرض رمز QR للعنوان نفسه بمولّد يُحمَّل عند الطلب فقط، ورابط اشتراك التقويم /api/public/ics/:id. ولبطاقة القسم «تسليم» يقرأ قائمة أساتذة العائلة (GET /api/share/:id/faculty) ويسكّ لهم روابطهم الشخصية (POST /api/share/:id/personal)، ثم يفتح لكل من له رقم جوال صالح محادثة واتساب برسالة مكتوبة مسبقاً تحمل رابطه الشخصي، فالإرسال بيد المنسق والنظام لا يرسل شيئاً، ويسجّل كل فتح محادثة إرسالاً مع بصمة جدول الأستاذ (POST /api/share/:id/sent)، ويعرض قائمة «أبلغ من تغيّر جدولهم» برسالة «طرأ تعديل على جدولك»، ومن ليس له رقم صالح (أول ستة أسماء)، وسجل الإرسال للقراءة فقط.",
+        "en": "The publish panel shall offer for every link copying its address (with a fallback when the clipboard is unavailable), a QR code of the same address from a generator loaded only on demand, and the calendar subscription link /api/public/ics/:id. For the department card it shall offer delivery that reads the family's member list (GET /api/share/:id/faculty) and mints their personal links (POST /api/share/:id/personal), then opens for each member with a valid mobile a WhatsApp conversation with a prewritten message carrying their personal link, so sending is done by the coordinator and the system sends nothing, records each opened conversation as a send with the member's schedule fingerprint (POST /api/share/:id/sent), and shows a list to notify those whose schedule changed with the message 'your schedule has changed', the members with no valid number (first six names), and the read-only send log."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم جوال من 8 خانات يبدأ بـ5 أو 6 أو 9 يُرسل إليه بإضافة 965، ورقم لا يصلح يظهر في قائمة «بلا رقم جوّال صالح» بلا زر.",
+          "en": "An 8-digit mobile starting with 5, 6 or 9 is addressed with 965 prefixed, and an unusable number appears in the no-valid-mobile list with no button."
+        },
+        {
+          "ar": "فشل توليد الرمز يعرض «تعذّر توليد رمز QR.»، والضغط على الرمز المفتوح يغلقه.",
+          "en": "A failure generating the code shows «تعذّر توليد رمز QR.», and pressing the open code closes it."
+        },
+        {
+          "ar": "POST /api/share/:id/sent على رابط ليس شخصياً يعيد 404، وخارج العائلة 403، وتسليم بطاقة موقوفة يعيد 404.",
+          "en": "POST /api/share/:id/sent on a link that is not personal returns 404, outside the family 403, and delivery for a stopped card returns 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/SchedulePublish.tsx",
+          "src/components/PublishSendLog.tsx",
+          "src/utils/reachInstructor.ts#whatsappNumber",
+          "src/utils/reachInstructor.ts#reachAboutCard",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/faculty",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/personal",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/sent"
+        ],
+        "tests": [
+          "tests/doctor-journey-audit.ts",
+          "tests/publish-pick-teachers-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-VIW-028",
+      "kind": "interface",
+      "title": {
+        "ar": "لوحة النشر: الخطوات الثلاث وقائمة الروابط",
+        "en": "The publish panel: three steps and the link list"
+      },
+      "text": {
+        "ar": "يجب أن تعرض لوحة «نشر الجدول» ثلاث خطوات («نوع الرابط» ثم «الصلاحية» ثم «الروابط») يُنتقل بينها بالضغط، وأن تعرض في خطوة الروابط الحيّةَ أولاً بنوعها وحالها وانتهائها وعدد فتحاتها وأفعالها، والموقوفةَ والمنتهية مطويةً تحت «السابقة (N)»، وأن تترجم أخطاء الخادم إلى جمل عربية بحسب رمز الحالة.",
+        "en": "The «publish the schedule» panel shall show three steps («link type», then «validity», then «links») navigable by pressing, shall list on the links step the live links first with their kind, state, expiry, open count and actions, the stopped and expired ones folded under «earlier (N)», and shall translate server errors into Arabic sentences by status code."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "زرّ الفتح «نشر الجدول» يحمل «N فعّال» ومعطّلٌ بلا كلية وقسم وفصل؛ ولرابط جدول القسم مدة 7 أو 30 (افتراضاً) أو 90 أو 180 يوماً وخيار «إظهار أسماء الأساتذة» وملخّص بالنوع والصلاحية والأساتذة.",
+          "en": "The opening button «publish the schedule» carries «N active» and is disabled without college, department and term; a department-schedule link takes 7, 30 (default), 90 or 180 days, a «show instructor names» option and a summary of kind, validity and instructors."
+        },
+        {
+          "ar": "429 أو نصّ «Rate exceeded» يقول «طلبات كثيرة في وقت قصير. انتظر لحظة ثم أعد المحاولة.»، و401 «انتهت الجلسة. سجّل الدخول مرة أخرى.»، و403 «هذا الإجراء خارج صلاحياتك.»، و404 «العنصر المطلوب غير موجود.»، و500 فما فوق «الخدمة متوقفة مؤقتاً. حاول بعد قليل.».",
+          "en": "429 or a «Rate exceeded» body says too many requests in a short time, 401 says the session ended, 403 says the action is outside your permissions, 404 says the item does not exist, and 500 or above says the service is temporarily down — each as an Arabic sentence."
+        },
+        {
+          "ar": "حال الرابط «فعال» أو «منتهٍ» أو «ملغي»؛ وبطاقة الأستاذ تقول «آخر موعد لإرسال الرغبات: …» (و«— انتهى استقبال الرغبات» بعده) و«متاح لقراءة الجدول حتى نهاية الفصل: …»، وغيرها «ينتهي …» بتوقيت الكويت؛ وروابط الطلب والروابط الشخصية لا تُعرض في هذه القائمة.",
+          "en": "A link's state is «active», «expired» or «revoked»; a faculty card says «last date to send wishes: …» (with «— wishes closed» after it) and «readable until the end of the term: …», others say «ends …» in Kuwait time; request links and personal links are not listed here."
+        },
+        {
+          "ar": "أفعال الرابط الحيّ: رمز QR، ونسخ، ولبطاقة الأستاذ «فتح طلبات التعديل أو إعادة المحاولة» (يُردّ إن لم يكن لها موعد محفوظ) و«تسليم البطاقة للأساتذة»، ولجدول القسم «إضافة إلى التقويم»، ثم «إيقاف الرابط»؛ وإيقاف بطاقة القسم يعيد قراءة القائمة من الخادم.",
+          "en": "A live link's actions: QR code, copy, for a faculty card «open edit requests or retry» (refused if it has no stored deadline) and «deliver the card to instructors», for a department schedule «add to calendar», then «stop the link»; stopping a department card re-reads the list from the server."
+        },
+        {
+          "ar": "إنشاء بطاقةٍ جديدة يقول «تم إنشاء الرابط وأصبح جاهزاً للنسخ.» و«وحلّ محلّ البطاقة السابقة/البطاقات السابقة» ويعرض البطاقات القديمة موقوفة دون إعادة تحميل؛ وإغلاق اللوحة أو تغيّر النطاق أو النوع يمحو أخبار الإصدار السابقة.",
+          "en": "Creating a new card says the link was created and is ready to copy, and that it replaced the earlier card(s), showing the old cards as stopped without reloading; closing the panel or changing scope or kind clears earlier issue notices."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/SchedulePublish.tsx#readReply",
+          "src/components/SchedulePublish.tsx#PUBLISH_STEPS",
+          "src/components/SchedulePublish.tsx#DAY_CHOICES",
+          "src/components/SchedulePublish.tsx#create",
+          "src/components/SchedulePublish.tsx#revoke",
+          "src/server/routes/shareRoutes.ts#/api/share"
+        ],
+        "tests": [
+          "tests/publish-requests-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-029",
+      "kind": "functional",
+      "title": {
+        "ar": "خيارات بطاقة الأستاذ في لوحة النشر",
+        "en": "Faculty-card options in the publish panel"
+      },
+      "text": {
+        "ar": "يجب أن تتيح لوحة النشر لبطاقة الأستاذ صفةَ الإرسال (تعديل، أو عرض فقط، أو مرحلة التدريب) والجمهور (الجميع أو أساتذة محددون) وآخر موعدٍ لطلبات التعديل بتاريخ وساعة بتوقيت الكويت، وأن تفحص قبل الإرسال مقرراتٍ «لم نصل بعد» إليها، وأن تتيح بعد النشر إدارة نافذة التعديل: إعادة الفتح للجميع، واستثناء أستاذ بعينه بسبب، وإلغاء الاستثناء، ومتابعة الروابط الشخصية.",
+        "en": "The publish panel shall offer for the faculty card a send mode (edit, view only or training phase), an audience (everyone or chosen instructors) and a last date for edit requests as a date and hour in Kuwait time, shall check before sending for courses «not reached yet», and after publishing shall manage the edit window: reopening for everyone, an exception for one instructor with a reason, revoking the exception, and following personal links."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "صفة «تعديل» تطلب التاريخ (والساعة افتراضاً 23:59) وإلا «اكتب آخر موعدٍ لاستقبال طلبات التعديل.»؛ و«عرض فقط» لا تسأل عن موعد ويُرسل لها موعدٌ تقني في اليوم التالي 23:59؛ وإخفاق فتح الطلبات بعد إنشاء البطاقة يقول «أُنشئت البطاقة، لكن طلبات التعديل لم تُفتح: …» ويُبقي البطاقة.",
+          "en": "«edit» mode requires the date (hour 23:59 by default) or says to write the last date for edit requests; «view only» asks no date and sends a technical deadline of the next day at 23:59; a failure to open requests after creating the card says the card was created but edit requests were not opened, and keeps the card."
+        },
+        {
+          "ar": "«أساتذة محددون» يرسل للمختارين وحدهم (ويُنشئ بطاقة إن لم تكن) ويسكّ لكلٍّ رابطه الشخصي فيعرض «أُرسلت إلى … وحده/فقط» بنسخٍ وواتساب؛ والزر «اختر الأساتذة أولاً» حتى يُختار أحد.",
+          "en": "«chosen instructors» sends to those chosen only (creating a card if none exists) and mints each a personal link, showing «sent to … only» with copy and WhatsApp; the button reads «choose instructors first» until someone is chosen."
+        },
+        {
+          "ar": "خبر الإصدار يفصل: فُتحت الطلبات لـN (أو أُرسل جدول العرض لـN)، وجُدّد الموعد لـN، وN طلباتهم عند القسم؛ وجدولٌ فارغ أو بلا أساتذة مُسنَدين يقول إنه لم تُفتح طلبات لأحد ولماذا.",
+          "en": "The issue notice separates: requests opened for N (or the view schedule sent to N), deadline renewed for N, and N whose requests are with the department; an empty schedule or one with no assigned instructors says no requests were opened and why."
+        },
+        {
+          "ar": "مقرراتٌ عليها ملاحظات من التسجيل تُعدَّد (حتى 12) مع «إعادة النشر لما عليه ملاحظات فقط»، فتُرسل لأصحابها وحدهم؛ وقبل إرسال «تعديل» أو «مرحلة التدريب» تُفحص المقررات المقفلة («لم نصل بعد») فتُعرض ورقة «أرسل كما هو» أو «راجع المقررات» أو فتح المقرر للطرح، وتعذّر الفحص يرسل كما كان.",
+          "en": "Courses carrying registrar notes are listed (up to 12) with «republish only what carries notes», sent to their owners only; before an «edit» or «training phase» send, locked courses («not reached yet») are checked and a sheet offers «send as is», «review the courses» or opening the course for offering, while a failed check sends as before."
+        },
+        {
+          "ar": "«إدارة التعديل» تعرض الموعد العام وحاله (مفتوح/مغلق)، و«فتح للجميع» يعيد الفتح دون تبديل الروابط، و«استثناء لأستاذ» يتطلب الأستاذ وسبباً (حتى 400 حرف) وتاريخاً وساعة، وتُعدّ «استثناءات نشطة (N)» كلٌّ بموعده وسببه و«إلغاء الاستثناء» الذي يُبقي البطاقة للقراءة.",
+          "en": "«edit management» shows the general deadline and its state (open/closed); «open for everyone» reopens without replacing links; «exception for an instructor» needs the instructor, a reason (up to 400 characters), a date and an hour; «active exceptions (N)» list each with its deadline and reason and «cancel the exception», which keeps the card readable."
+        },
+        {
+          "ar": "قائمة «الروابط الشخصية» تقول لكل أستاذ «أُرسل …/لم يُرسل بعد» و«فتحه …/لم يفتحه بعد» و«تغيّر جدوله بعد الإرسال»، أو «موقوف»/«منتهٍ»، مع إيقاف رابطه وحده.",
+          "en": "The «personal links» list says per instructor «sent …/not sent yet», «opened …/not opened yet» and «schedule changed after sending», or «stopped»/«expired», with stopping that link alone."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/SchedulePublish.tsx#issueRequests",
+          "src/components/SchedulePublish.tsx#sendPicked",
+          "src/components/SchedulePublish.tsx#sendNoted",
+          "src/components/SchedulePublish.tsx#guardSend",
+          "src/components/SchedulePublish.tsx#applyManagement",
+          "src/components/SchedulePublish.tsx#revokeException",
+          "src/components/SendModePicker.tsx",
+          "src/components/PublishRecipientPicker.tsx",
+          "src/components/PrepublishReachSheet.tsx",
+          "src/utils/prepublishReach.ts#gatePublish"
+        ],
+        "tests": [
+          "tests/publish-pick-teachers-audit.ts",
+          "tests/publish-requests-audit.ts",
+          "tests/publish-notes-r4-audit.ts",
+          "tests/prepublish-reach-audit.tsx"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-030",
+      "kind": "functional",
+      "title": {
+        "ar": "لوحة «بصمة القسم»",
+        "en": "The «department fingerprint» panel"
+      },
+      "text": {
+        "ar": "يجب أن تعرض لوحة «بصمة القسم» (تُفتح من طبقة الجدول الحية) قرب الفصل الحالي من بصمة القسم المتراكمة عبر الفصول السابقة بدرجةٍ من 100، وإيقاع الأيام، ونافذة الذروة، والقاعات المحورية، والأستاذ الأكثر تقييداً، والانحراف التاريخي الأبرز، وقائمة الفصول السابقة، مع مبدّل نطاق التحليل (الكلية أو القسم)، قراءةً لا تغيّر شيئاً.",
+        "en": "The «department fingerprint» panel (opened from the living schedule layer) shall show how close the current term is to the department's fingerprint accumulated over previous terms as a score out of 100, the day rhythm, the peak window, the pivotal halls, the most constrained instructor, the main historical deviation and the list of earlier terms, with the analysis-scope switch (college or department), as a reading that changes nothing."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا بصمة متاحة تقول «سيبدأ النظام ببناء بصمة القسم من هذا الفصل…» وتعرض «—»؛ وأعمدة الأيام تُقاس إلى أكثف يوم لا إلى 100٪.",
+          "en": "With no fingerprint available it says the department fingerprint will start being built from this term and shows «—»; the day bars are scaled to the busiest day, not to 100%."
+        },
+        {
+          "ar": "الأستاذ الأكثر تقييداً يُرتّب بعدد قيوده المفعّلة ثم بعدد لقاءاته الأسبوعية، ويحمل شارة «منتدب» إن كان كذلك؛ والقاعات المحورية أول ثلاث، ونافذة الذروة أول ثلاث خلايا تكراراً.",
+          "en": "The most constrained instructor is ranked by number of enabled constraints, then by weekly meetings, and carries the «visiting» badge when applicable; the pivotal halls are the top three and the peak window the three most repeated cells."
+        },
+        {
+          "ar": "تُغلق بـ Esc أو بالضغط خارجها، وتذييلها «البصمة قراءة تاريخية فقط؛ لا تغيّر جدولًا ولا قاعدة بيانات.».",
+          "en": "It closes with Esc or a press outside it, and its footer says the fingerprint is a historical reading only that changes no schedule and no database."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleExperienceLayer.tsx#ScheduleExperienceLayer",
+          "src/components/ScheduleExperienceLayer.tsx#useScheduleExperience",
+          "src/components/LivingScheduleLayer.tsx",
+          "src/components/IntelligenceScopeSwitch.tsx"
+        ],
+        "tests": []
+      },
+      "inferred": true
     }
   ],
   "edgeCases": [

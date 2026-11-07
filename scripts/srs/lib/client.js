@@ -11,6 +11,7 @@
     root.lang = l; root.dir = l === "ar" ? "rtl" : "ltr";
     $$("[data-lang-btn]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-lang-btn") === l)); });
     var q = $("#q"); if (q) q.placeholder = q.getAttribute("data-ph-" + l) || "";
+    $$("input.ph-i18n").forEach(function (i) { i.placeholder = i.getAttribute("data-ph-" + l) || ""; });
     $$("[data-pdf]").forEach(function (a) { a.href = a.getAttribute("data-pdf-" + l) || "#"; });
     $$("[data-live]").forEach(function (a) { a.href = a.getAttribute("data-live-" + l) || "#"; });
     $$("option[data-ar]").forEach(function (o) { o.textContent = o.getAttribute("data-" + l); });
@@ -124,7 +125,7 @@
   tabs.forEach(function (t) { t.addEventListener("click", function () { show(t.dataset.view, "", ""); }); });
   $$("[data-mod]").forEach(function (b) { if (b === document.body) return; b.addEventListener("click", function () { show("modules", b.dataset.mod, ""); }); });
   $$("[data-go]").forEach(function (b) { b.addEventListener("click", function () { show(b.dataset.go, "", ""); }); });
-  $$(".subtab").forEach(function (b) { b.addEventListener("click", function () { var m = b.closest(".mod").dataset.module; show("modules", m, b.dataset.p, { keepScroll: true }); }); });
+  $$(".subtab:not(.isub)").forEach(function (b) { b.addEventListener("click", function () { var m = b.closest(".mod").dataset.module; show("modules", m, b.dataset.p, { keepScroll: true }); }); });
   var pick = $("#modpick"); if (pick) pick.addEventListener("change", function () { show("modules", pick.value, ""); });
   $$("[data-more]").forEach(function (b) { b.addEventListener("click", function () { b.parentNode.classList.add("open"); b.remove(); }); });
   $$(".back-map").forEach(function (b) { b.addEventListener("click", function () { show("modules", "", ""); }); });
@@ -198,6 +199,28 @@
   liveUsage();
   setInterval(function () { if (!document.hidden) liveUsage(); }, 60 * 60 * 1000);
   document.addEventListener("visibilitychange", function () { if (!document.hidden) liveUsage(); });
+
+  /* ── تبويب التكامل: أقسامه، وتصفية فهرس المسارات ──────────────── */
+  $$(".isub").forEach(function (b) { b.addEventListener("click", function () {
+    $$(".isub").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
+    $$("#v-integ .ipanel").forEach(function (p) { p.hidden = p.dataset.ip !== b.dataset.ip; });
+  }); });
+  var racc = "";
+  function routeFilter() {
+    var q = (($("#rt-q") || {}).value || "").trim().toLowerCase(), mod = ($("#rt-mod") || {}).value || "", n = 0;
+    $$("#v-integ table.routes tbody tr").forEach(function (tr) {
+      var ok = (!racc || tr.dataset.acc === racc) && (!mod || tr.dataset.mod === mod) && (!q || tr.dataset.q.indexOf(q) >= 0);
+      tr.hidden = !ok; if (ok) n++;
+    });
+    var c = $("#rt-n"); if (c) c.textContent = n;
+  }
+  $$(".acc-chip").forEach(function (b) { b.addEventListener("click", function () {
+    racc = racc === b.dataset.acc ? "" : b.dataset.acc;
+    $$(".acc-chip").forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.acc === racc)); });
+    routeFilter();
+  }); });
+  var rq = $("#rt-q"); if (rq) rq.addEventListener("input", routeFilter);
+  var rm = $("#rt-mod"); if (rm) rm.addEventListener("change", routeFilter);
 
   /* ── تبويب الخوارزميات: تصفية بالنوع ───────────────────────────── */
   var akind = "";

@@ -27,7 +27,7 @@ ok('02 grid parsing is page-local before merge', 'for(let pageIndex=0;pageIndex<
 ok('03 server preserves sourcePage through draft sanitization', 'sourcePage: Number.isFinite(Number(raw?.sourcePage))' in server)
 ok('04 server returns explicit page summaries', 'const pageSummaries=Array.from({length:recognized.pageCount}' in server and 'verificationSummary,pageSummaries' in server)
 ok('05 transfer preview is page-scoped', '<PagedImportPreview' in transfer and 'pageDiagnostics=' in transfer and 'pageSummaries=' in transfer)
-ok('06 intelligence preview is page-scoped', '<PagedImportPreview' in intel and 'pageDiagnostics=' in intel and 'pageSummaries=' in intel)
+ok('06 the analytics centre has no second import preview (the transfer screen owns it)', '<PagedImportPreview' not in intel and 'pageDiagnostics=' not in intel)
 ok('07 page editor merges edits by immutable sourceOrder', 'sourceOrder' in paged and 'mergePageRows' in paged and 'sourcePage: activePage' in paged)
 ok('08 no all-pages table is rendered when source has multiple pages', 'if (totalPages <= 1)' in paged and 'currentRows.length ?' in paged)
 ok('09 report remains field-level', 'authority-pdf-cell-changed' in report and 'fieldChanged(entry, "AdRoomHall")' in report and 'fieldChanged(entry, "fstarttime", "fendtime")' in report and 'fieldChanged(entry, "AdInstructorId")' in report)

@@ -502,6 +502,21 @@ app.post("/api/permissions", requirePermission(12), async (req: Request, res: Re
   res.status(201).json(row);
 });
 
+/* حفظُ صلاحيات حسابٍ دفعةً واحدة: المجموعةُ المرسلة تحلّ محلّ ما لديه في كتابةٍ واحدة،
+   فلا يبقى منحٌ نصفيٌّ إن تعثّر الحفظ، وتُزال معها الصفوفُ القديمة بلا معرّف. */
+app.put("/api/permissions/user/:userId", requirePermission(12), async (req: Request, res: Response) => {
+  const userId = Number(req.params.userId);
+  const raw = req.body?.FormNameIds;
+  if (!userId || !Array.isArray(raw)) { res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" }); return; }
+  if (!(await Repository.getUserById(userId))) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
+  const known = new Set((await Repository.getFormNames()).map(form => Number(form.FormNameId)));
+  const formIds = [...new Set(raw.map(Number))];
+  if (formIds.some(id => !known.has(id))) { res.status(400).json({ error: "صلاحيةٌ غير معروفة" }); return; }
+  const { added, removed } = await Repository.saveSecurityByUser(userId, formIds);
+  res.locals.auditChanges = `صلاحيات الحساب ${userId}: أُضيف [${added.join("، ") || "—"}]، وأُزيل [${removed.join("، ") || "—"}]`;
+  res.json({ success: true, added, removed, permissions: await Repository.getSecurityByUser(userId) });
+});
+
 app.put("/api/permissions/:id", requirePermission(12), async (req: Request, res: Response) => {
   const legacyId = Number(req.params.id), userId = Number(req.body.SystemUserId), formId = Number(req.body.FormNameId);
   if (!legacyId || !userId || !formId) { res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" }); return; }

@@ -28,7 +28,8 @@
 .srq-card[data-stage="opened"]{border-inline-start-color:var(--info)}
 .srq-card[data-stage="approved"],.srq-card[data-stage="registering"]{border-inline-start-color:var(--accent)}
 .srq-card[data-stage="registered"]{border-inline-start-color:var(--success)}
-.srq-card[data-stage="withdrawn"],.srq-card[data-stage="declined"]{opacity:.78;border-inline-start-color:var(--muted-2,var(--line-strong))}
+/* المنتهية تُخفَّض بالخلفية لا بالشفافية: الشفافيةُ كانت تُنزل نصّها دون 4.5:1. */
+.srq-card[data-stage="withdrawn"],.srq-card[data-stage="declined"]{background:var(--surface-2);box-shadow:none;border-inline-start-color:var(--muted-2,var(--line-strong))}
 .srq-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .srq-course{display:grid;gap:2px;min-inline-size:0}
 .srq-course b{font-size:var(--ix-card);line-height:1.45}

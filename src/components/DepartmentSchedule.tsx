@@ -6,6 +6,7 @@ import { ArrowRight, CalendarDays, Printer } from "lucide-react";
 import { EmptyState, MicroLoader, Notice, PageTitle, SecondaryButton } from "./ui";
 import { currentTermId } from "../utils/termSequence";
 import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeContext";
+import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 
 type Row = {
   id: number; courseId: number; courseName: string; courseCode: string; section: string;
@@ -32,10 +33,13 @@ export default function DepartmentSchedule({ scopes, onBack }: { scopes: ScopeAs
     if (!sectionId) { setError("هذا الحساب لا يملك نطاق قسم واحد لعرض جدوله."); setRows([]); return; }
     (async () => {
       try {
-        const [terms, courses, instructors, schedules, sections] = await Promise.all([
+        const [terms, courses, instructors, schedules, sections, colleges] = await Promise.all([
           read("/api/terms"), read(`/api/courses?sectionId=${sectionId}`),
           read(`/api/instructors?sectionId=${sectionId}`), read(`/api/schedules?sectionId=${sectionId}`), read("/api/sections"),
+          read("/api/colleges").catch(() => []),
         ]);
+        /* رقم المقرر سبع خانات (0109105) للعرض وحده؛ المخزَّن لا يتغيّر. */
+        const departmentKeys = authorityDepartmentKeys(Array.isArray(sections) ? sections : [], Array.isArray(colleges) ? colleges : []);
         const list = Array.isArray(terms) ? terms : terms.terms || [];
         const termId = currentTermId(list) || Number(list[0]?.AdTermId || 0);
         const term = list.find((item: any) => Number(item.AdTermId) === termId) || list[0];
@@ -48,7 +52,7 @@ export default function DepartmentSchedule({ scopes, onBack }: { scopes: ScopeAs
           const instructor: any = instructorMap.get(Number(item.AdInstructorId));
           return {
             id: Number(item.id), courseId: Number(item.AdCourseId), courseName: course?.CourseName || item.AdCourseName || "مقرر غير معرّف",
-            courseCode: course?.CourseCode || item.CourseCodeSnapshot || "—", section: item.SCode || "—",
+            courseCode: authorityCourseCode(course?.CourseCode || item.CourseCodeSnapshot, departmentKeys.get(Number(course?.AdSectionId || item.AdSectionId || sectionId))) || "—", section: item.SCode || "—",
             instructor: instructor?.AdInstructorName || "—", instructorId: Number(item.AdInstructorId) || 0,
             collegeId: Number(item.AdCollegeId) || 0, sectionId: Number(item.AdSectionId) || sectionId, days: DAYS.filter(([key]) => Boolean(item[key])).map(([, label]) => label).join("، ") || "—",
             time: [item.fstarttime, item.fendtime].filter(Boolean).join(" – ") || "—",

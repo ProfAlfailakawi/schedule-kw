@@ -756,7 +756,8 @@
         "code": [
           "src/server/routes/pdfImportRoutes.ts",
           "src/utils/documentOcr.ts",
-          "src/server/core/http.ts"
+          "src/server/core/http.ts",
+          "src/server/routes/pdfImportRoutes.ts#/api/intelligence/pdf-import"
         ],
         "tests": [
           "tests/pdf-import-hardening.ts",
@@ -885,8 +886,8 @@
         "en": "Branch match by code"
       },
       "text": {
-        "ar": "يجب على النظام أن يطابق فرع الملف بالرمز ذي الخانات الثلاث (مثل 012) لا بالاسم، وألا يعدّ اختلاف حرف الموقع داخل الفرع الواحد (012B و012J و012F) عدم تطابق، وأن يرفض الملف بالرمز PDF_BRANCH_MISMATCH إذا اختلف رمز الفرع.",
-        "en": "The system shall match the file's branch by its three-digit code (for example 012) and not by name, shall not treat a different site letter inside one branch (012B, 012J, 012F) as a mismatch, and shall refuse the file with PDF_BRANCH_MISMATCH when the branch code differs."
+        "ar": "يجب على النظام أن يطابق فرع الملف بالرمز ذي الخانات الثلاث (مثل 012) لا بالاسم، وألا يعدّ اختلاف حرف الموقع داخل الفرع الواحد (012A و012C و012D) عدم تطابق، وأن يرفض الملف بالرمز PDF_BRANCH_MISMATCH إذا اختلف رمز الفرع.",
+        "en": "The system shall match the file's branch by its three-digit code (for example 012) and not by name, shall not treat a different site letter inside one branch (012A, 012C, 012D) as a mismatch, and shall refuse the file with PDF_BRANCH_MISMATCH when the branch code differs."
       },
       "priority": "must",
       "status": "implemented",
@@ -900,8 +901,8 @@
           "en": "A branch 011 file into a college of branch 012 returns 409 PDF_BRANCH_MISMATCH."
         },
         {
-          "ar": "صفوف مبانيها 012J داخل ملف الفرع 012 ← تبقى صفوفاً مشروعة مع وسم الموقع.",
-          "en": "Rows with 012J buildings inside a branch 012 file stay legitimate and carry a site badge."
+          "ar": "صفوف مبانيها 012C داخل ملف الفرع 012 ← تبقى صفوفاً مشروعة مع وسم الموقع.",
+          "en": "Rows with 012C buildings inside a branch 012 file stay legitimate and carry a site badge."
         }
       ],
       "evidence": {
@@ -1249,8 +1250,8 @@
           "en": "Room F10 in an unconfirmed building leaves the room cell empty and keeps the raw text for review."
         },
         {
-          "ar": "مبنى 011B18 في استيراد فرع 012 ← CROSS_BRANCH وتنبيه يمنع النشر حتى المراجعة.",
-          "en": "Building 011B18 in a branch 012 import is CROSS_BRANCH with a notice blocking publishing until reviewed."
+          "ar": "مبنى 011A18 في استيراد فرع 012 ← CROSS_BRANCH وتنبيه يمنع النشر حتى المراجعة.",
+          "en": "Building 011A18 in a branch 012 import is CROSS_BRANCH with a notice blocking publishing until reviewed."
         }
       ],
       "evidence": {
@@ -1285,12 +1286,12 @@
       ],
       "acceptance": [
         {
-          "ar": "الرمز 012F15 في وثيقة الفرع 012 ← يُسجَّل المبنى بمصدر AUTHORITY_DOCUMENT وتُحذف الحاجة إلى اختياره يدوياً.",
-          "en": "Code 012F15 in a branch 012 document registers the building with source AUTHORITY_DOCUMENT, so no manual choice is needed."
+          "ar": "الرمز 012D15 في وثيقة الفرع 012 ← يُسجَّل المبنى بمصدر AUTHORITY_DOCUMENT وتُحذف الحاجة إلى اختياره يدوياً.",
+          "en": "Code 012D15 in a branch 012 document registers the building with source AUTHORITY_DOCUMENT, so no manual choice is needed."
         },
         {
-          "ar": "رمز 011B09 في وثيقة الفرع 012 ← لا يُسجَّل.",
-          "en": "Code 011B09 in a branch 012 document is not registered."
+          "ar": "رمز 011A09 في وثيقة الفرع 012 ← لا يُسجَّل.",
+          "en": "Code 011A09 in a branch 012 document is not registered."
         }
       ],
       "evidence": {
@@ -1416,7 +1417,8 @@
       "evidence": {
         "code": [
           "src/server/routes/pdfImportRoutes.ts",
-          "src/utils/authorityAcademicCodes.ts"
+          "src/utils/authorityAcademicCodes.ts",
+          "src/server/routes/pdfImportRoutes.ts#/api/intelligence/pdf-import/bootstrap-section"
         ],
         "tests": [
           "tests/header-department-rule-audit.ts"
@@ -1462,7 +1464,8 @@
         "code": [
           "src/server/routes/pdfImportRoutes.ts",
           "src/utils/importCatalogueGaps.ts",
-          "src/components/ImportCatalogueGaps.tsx"
+          "src/components/ImportCatalogueGaps.tsx",
+          "src/server/routes/pdfImportRoutes.ts#/api/intelligence/pdf-import/create-courses"
         ],
         "tests": [
           "tests/header-department-rule-audit.ts"
@@ -1786,7 +1789,8 @@
           "src/server/routes/smartImportRoutes.ts",
           "src/server/core/gemini.ts",
           "src/utils/importPageReview.ts",
-          "src/components/IntelligenceWorkspace.tsx"
+          "src/components/IntelligenceWorkspace.tsx",
+          "src/server/routes/smartImportRoutes.ts#/api/intelligence/smart-import"
         ],
         "tests": [
           "tests/gemini-schedule-layer.ts"
@@ -1943,16 +1947,26 @@
         {
           "ar": "مقرر وشعبة مكرران ← ملاحظة «مقرر/شعبة مكرر».",
           "en": "A repeated course and section gives a duplicate note."
+        },
+        {
+          "ar": "«تحميل النموذج الافتراضي» يبني في المتصفح ملف «نموذج-استيراد-الجدول.xlsx»: ورقة «الجدول» بأعمدة من اليمين (القاعة، المبنى، الوقت، الأيام، الرقم المدني، أستاذ المقرر، الشعبة، المقرر الدراسي، رمز المقرر) وصفّين بأسماء بديلة («اسم دكتور 1» و«اسم دكتور 2») ورقم مقرر من سبع خانات كما يكتبه التصدير ورقم مدني يبدأ بـ3 فيفشل التحقق إن تُرك، وورقة «طريقة الاستخدام» تشرح المطابقة والأيام والوقت بصيغة 24 ساعة والصفوف الناقصة وما يحدث بعد الرفع.",
+          "en": "«download the default template» builds in the browser «schedule-import-template.xlsx»: a «schedule» sheet with columns from the right (hall, building, time, days, civil number, course instructor, section, course, course code) and two rows with stand-in names («doctor name 1» and «doctor name 2»), a seven-digit course number as the export writes it, and a civil number starting with 3 that fails validation if left in, and a «how to use» sheet explaining matching, days, 24-hour time, incomplete rows and what happens after upload."
+        },
+        {
+          "ar": "على الشاشة يُمنع صف من ورقة Excel شعبته ليست ثلاث خانات من 501 فصاعداً، أو أستاذه ليس من القسم ولا من منتدبي الفصل ما لم يُختر باليد.",
+          "en": "On screen a spreadsheet row is blocked when its section is not three digits from 501 upward, or its instructor is neither in the department nor among the term's visiting staff unless chosen by hand."
         }
       ],
       "evidence": {
         "code": [
           "src/server/routes/smartImportRoutes.ts",
           "src/components/ScheduleTransfer.tsx",
-          "src/server/core/smartImport.ts"
+          "src/server/core/smartImport.ts",
+          "src/server/routes/smartImportRoutes.ts#/api/intelligence/import-preview"
         ],
         "tests": [
-          "tests/import-term-tools-audit.ts"
+          "tests/import-term-tools-audit.ts",
+          "tests/schedule-board-fixes-audit.ts"
         ]
       }
     },
@@ -1990,7 +2004,9 @@
       "evidence": {
         "code": [
           "src/server/routes/scheduleImportRoutes.ts",
-          "src/components/ScheduleTransfer.tsx"
+          "src/components/ScheduleTransfer.tsx",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/export",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/import"
         ],
         "tests": []
       },
@@ -2074,6 +2090,486 @@
         "tests": [
           "tests/plan-sheet-import-route-audit.ts",
           "tests/sheet-membership-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-IMP-035",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "متغيرات البيئة وسرّ إيصالات الاستيراد",
+        "en": "Import environment variables and receipt secret"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ مفتاح خدمة Gemini من GEMINI_API_KEY ثم GOOGLE_GEMINI_API_KEY ولا يستدعي الخدمة إن غابا، واسم النموذج من GEMINI_SCHEDULE_MODEL ثم GEMINI_MODEL وإلا gemini-3.6-flash، وأن يرسل الصفحات كاملة للقراءة المساعَدة ولا يقصّ شرائط الصفوف إلا إذا كانت قيمة SMART_IMPORT_ROW_STRIPS هي 1، وأن يبحث عن ملفي لغة التعرّف (ara وeng) في OCR_DATA_DIR ثم مجلد التشغيل ثم مجلد البرنامج ثم أبيه ولا يمرّر مساراً إلا إذا وُجد الملفان معاً، وأن يطبع أزمنة مراحل القراءة الممسوحة حين تكون OCR_PROFILE هي 1. كما يجب عليه أن يوقّع إيصال فحص الترويسة وإيصال نواقص المقررات بـHMAC-SHA256 بالسرّ المشترك المحفوظ للخادم مع وسمين مختلفين (pdf-import وpdf-gaps)، وأن يقارن التوقيع مقارنة ثابتة الزمن.",
+        "en": "The system shall read the Gemini service key from GEMINI_API_KEY then GOOGLE_GEMINI_API_KEY and make no call when both are absent, the model name from GEMINI_SCHEDULE_MODEL then GEMINI_MODEL else gemini-3.6-flash, shall send whole pages to the assisted reading and crop row strips only when SMART_IMPORT_ROW_STRIPS is 1, shall look for the recognition language files (ara and eng) in OCR_DATA_DIR, then the working directory, then the program directory, then its parent, passing a path only when both files exist there, and shall print the scanned-reading stage timings when OCR_PROFILE is 1. It shall also sign the header-check receipt and the course-gaps receipt with HMAC-SHA256 using the server's stored shared secret under two distinct labels (pdf-import and pdf-gaps), and shall compare signatures in constant time."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا GEMINI_API_KEY ولا GOOGLE_GEMINI_API_KEY تعيد طبقة الاستدعاء null دون أي طلب شبكي.",
+          "en": "With neither GEMINI_API_KEY nor GOOGLE_GEMINI_API_KEY the call layer returns null without any network request."
+        },
+        {
+          "ar": "إيصال نواقص عمره أكثر من 6 ساعات أو توقيعه معدّل أو بنسخة غير 1 يُرفض.",
+          "en": "A gaps receipt older than 6 hours, with an altered signature or a version other than 1 is rejected."
+        },
+        {
+          "ar": "مجلد فيه ara.traineddata وحده لا يُمرَّر للمتعرّف ويبقى المسار الافتراضي.",
+          "en": "A directory holding only ara.traineddata is not passed to the recogniser, which keeps its default path."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/gemini.ts#requestGeminiScheduleLayer",
+          "src/server/routes/smartImportRoutes.ts",
+          "src/utils/documentOcr.ts#ocrLanguageDataDir",
+          "src/server/routes/pdfImportRoutes.ts#signPdfImportReceipt",
+          "src/server/routes/pdfImportRoutes.ts#verifyGapsReceipt"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-IMP-036",
+      "kind": "functional",
+      "title": {
+        "ar": "استخراج النسخة الاحتياطية للنظام القديم",
+        "en": "Extracting the legacy system backup"
+      },
+      "text": {
+        "ar": "يجب أن تقرأ أداة الاستخراج النسخة الاحتياطية لقاعدة SQL Server القديمة للقراءة فقط دون تعديل المصدر، وأن تعيد بناء الكتالوج وتصدّر كل جدول مستخدم غير فارغ، وأن تتوقف إن اختلف عدد الصفوف المفكوكة عن عدد الكتالوج لأي جدول أو فشل فحص سلامة البيانات الفعالة، وأن تكتب ملف البيانات بالشكل الذي يتوقعه التطبيق مع تقرير يحمل بصمة SHA-256 للنسخة ولكل جدول، وأن تحوّل كلمات السر إلى بصمات scrypt مملّحة وتحفظ قيمة التوافق مشفّرة AES-256-GCM بمفتاح خزنة منفصل، دون أي كلمة سر صريحة في الملف.",
+        "en": "The extraction tool shall read the legacy SQL Server backup read-only without modifying the source, rebuild the catalogue and export every non-empty user table, stop when the decoded row count of any table differs from the catalogue count or the active-data integrity check fails, write the data file in the shape the application expects together with a report carrying the SHA-256 of the backup and of every table, and convert passwords to salted scrypt hashes while keeping the compatibility value encrypted with AES-256-GCM under a separate vault key, with no plaintext password in the file."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "جدول يختلف عدد صفوفه عن sysrowsets يوقف الأداة بخطأ يسمّي الجدول ولا يُكتب ملف.",
+          "en": "A table whose row count differs from sysrowsets stops the tool with an error naming the table and no file is written."
+        },
+        {
+          "ar": "مفتاح الخزنة يُقرأ من --vault-key أو يُنشأ بجوار ملف الإخراج باسم legacy-password-vault.key.",
+          "en": "The vault key is read from --vault-key or created next to the output file as legacy-password-vault.key."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/extract-legacy-bak.py",
+          "docs/DATA_MIGRATION.md",
+          "docs/FIRESTORE_IMPORT.md"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-IMP-037",
+      "kind": "functional",
+      "title": {
+        "ar": "الاستيراد من موقع فرع يُوجَّه إلى الكلية الأساس",
+        "en": "Import from a branch site is redirected to the base college"
+      },
+      "text": {
+        "ar": "يجب ألا تعرض نافذة أدوات الجدول أدوات الاستيراد حين تكون الكلية المفتوحة موقعاً فرعياً للبنات بالقاعدة التي توزّع بها صحيفة البنات على مواقعها (اسمها يحمل علامة مسار البنات واسم أحد الموقعين الفرعيين)، وأن تعرض بدلها ملاحظة بأن الاستيراد يتم من الكلية الأساس، لأن الجدول المعتمد ملف واحد يصدر من الكلية الأساس ويوزّعه النظام على المواقع، مع اسم الكلية الأساس (اسم الكلية بعد حذف مقطع الموقع أينما جاء فيه، فيبقى اسم كلية البنات الأساس، أو اسماً افتراضياً ثابتاً إن خلا) ودون شريط حالة الاستيراد.",
+        "en": "The schedule tools dialog shall not show the import controls when the open college is a girls' branch site by the very rule that distributes the girls' sheet to its sites (its name carries the girls' track mark and one of the two branch-site names), and shall instead show a note that import is done from the base college, because the approved schedule is one file issued by the base college and distributed to the sites by the system, naming the base college (the college name with the site segment removed wherever it appears, leaving the girls' base college, or a fixed default name when empty) and without the import status bar."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "فتح تبويب «استيراد» على كلية اسمها «<الكلية> - <اسم موقع فرعي> - بنات» ← تظهر «الاستيراد يتم من «<الكلية> - بنات»» ولا يظهر زر النموذج ولا زر الرفع.",
+          "en": "Opening «import» on a college named «<college> - <branch-site name> - girls» shows «import is done from «<college> - girls»» with no template button and no upload button."
+        },
+        {
+          "ar": "كلية البنات الأساس وكلية البنين، وكل كلية لا يجتمع في اسمها مسار البنات واسم موقع فرعي، تُعامل أساساً وتظهر فيها أدوات الاستيراد.",
+          "en": "The girls' base college, the boys' college and any college whose name does not combine the girls' track with a branch-site name are treated as the base and show the import controls."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#branchSite",
+          "src/components/ScheduleTransfer.tsx#baseCollegeName",
+          "src/utils/collegeTrack.ts#isCampusCollege"
+        ],
+        "tests": [
+          "tests/location-registry-audit.py",
+          "tests/schedule-board-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-IMP-038",
+      "kind": "functional",
+      "title": {
+        "ar": "فصل ملف Excel أو JSON: يُقرأ أو يُسأل عنه ثم يُحكم",
+        "en": "Term of a spreadsheet or JSON file: read or asked, then judged"
+      },
+      "text": {
+        "ar": "يجب أن يطبّق النظام على ملف Excel أو JSON، قبل قراءة صفوفه، قاعدة الفصل المقبول نفسها المطبّقة على ملف PDF: يُؤخذ فصل الملف من scope.term في JSON، ومن خانة «الفصل» في ورقة «معلومات الملف» في Excel ثم من اسم الملف؛ فإن لم يُعرف فصله سُئل المستخدم «من أي فصلٍ أُخذ هذا الملف؟» بقائمة الفصول كلها الأحدث أولاً، وإن لم يكن فصله مقبولاً للفصل المختار عُرضت بطاقة «فصل غير مقبول» ولم يُقرأ أي صف. ولا يُطبَّق الشرط حين يتعذر فهم اسم الفصل المختار نفسه.",
+        "en": "Before reading the rows of a spreadsheet or JSON file, the system shall apply the same accepted-term rule applied to a PDF: the file's term is taken from scope.term in JSON, and in a spreadsheet from the «term» cell of the «file information» sheet and then from the file name; when the term is unknown the user is asked «which term was this file taken from?» with all terms newest first, and when it is not accepted for the selected term a «term not accepted» card is shown and no row is read. The rule is not applied when the selected term's own name cannot be understood."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف Excel صدّره النظام يحمل فصله في «معلومات الملف» فيُقرأ دون سؤال.",
+          "en": "A spreadsheet exported by the system carries its term in «file information» and is read without asking."
+        },
+        {
+          "ar": "ملف JSON بلا scope.term ← بطاقة السؤال، ويبقى «متابعة» معطّلاً حتى يُختار فصل.",
+          "en": "A JSON file without scope.term shows the question card, and «continue» stays disabled until a term is chosen."
+        },
+        {
+          "ar": "فصل غير مقبول ← بطاقة تعرض فصل الملف والفصل المقبول والفصل المختار مع «لم يُستورد أي صف»؛ والبطاقة نفسها تعرض رفض PDF برمز PDF_TERM_MISMATCH حين يحمل الفصل المقبول.",
+          "en": "A term not accepted shows a card with the file's term, the accepted term and the selected term and «no row was imported»; the same card shows a PDF refused with PDF_TERM_MISMATCH when it carries the accepted term."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#declaredTermOf",
+          "src/components/ScheduleTransfer.tsx#readFile",
+          "src/components/ScheduleTransfer.tsx#termMismatch",
+          "src/utils/pdfTermRule.ts#acceptedPdfSourceLabel",
+          "src/utils/pdfTermRule.ts#pdfTermAccepted"
+        ],
+        "tests": [
+          "tests/pdf-term-rule-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-IMP-039",
+      "kind": "functional",
+      "title": {
+        "ar": "بطاقات الإصلاح بعد رفض ملف PDF",
+        "en": "Recovery cards after a refused PDF"
+      },
+      "text": {
+        "ar": "يجب أن تحوّل شاشة الاستيراد رفض PDF_DEPARTMENT_MISMATCH القابل للإصلاح إلى بطاقة «الملف يخص «القسم»» بزر واحد: «فتح القسم الصحيح وإعادة الاستيراد» إن كان القسم مسجلاً في الكلية، أو «إضافة القسم وإعادة الاستيراد» إن لم يكن، فيُرسل الملف نفسه إلى مسار bootstrap-section ثم يُنقل مختار القسم إلى القسم الناتج ويُعاد قراءة الملف نفسه مع تحميل كتالوج المقررات من جديد؛ وأن تعرض رسالة الصفحات العمودية بطاقة «دوّر صفحات الجدول للوضع الأفقي ثم أعد الرفع»؛ وأن تنفّذ قرار ملخص النواقص بإنشاء المقررات المختارة بإيصال النواقص ثم إعادة قراءة الملف نفسه مع الإبقاء على ربط الرموز الذي اختاره المستخدم لهذا الملف.",
+        "en": "The import screen shall turn a recoverable PDF_DEPARTMENT_MISMATCH refusal into a «the file belongs to «department»» card with one button: «open the right department and re-import» when the department is registered in the college, or «add the department and re-import» when it is not, sending the same file to the bootstrap-section route, switching the department selector to the resulting department and re-reading the same file with the course catalogue reloaded; shall show the portrait-pages message as a «rotate the timetable pages to landscape and upload again» card; and shall carry out the gaps-summary decision by creating the chosen courses with the gaps receipt and re-reading the same file while keeping the code links the user chose for that file."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "ردّ ناجح بلا رقم قسم ← «تمت معالجة القسم لكن لم يصل رقم القسم الجديد.» ولا يُعاد قراءة الملف.",
+          "en": "A successful reply without a department number shows «the department was processed but the new department number did not arrive.» and the file is not re-read."
+        },
+        {
+          "ar": "رمز رُبط بمقرر في ملخص النواقص ← يبقى ربطه بعد إعادة القراءة ويصير برهان مقرر الصف يدوياً، وتُحذف ملاحظات الخادم القديمة عن صفوفه، ويخرج الرمز من قائمة النواقص؛ ورفع ملف آخر يُسقط الروابط المحفوظة.",
+          "en": "A code linked to a course in the gaps summary keeps its link after the re-read, the row's course evidence becomes manual, the old server notes on its rows are removed and the code leaves the gaps list; uploading another file drops the held links."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#resolvePdfDepartment",
+          "src/components/ScheduleTransfer.tsx#confirmCatalogueGaps",
+          "src/components/ScheduleTransfer.tsx#rotatedPdfGuidance",
+          "src/utils/importCatalogueGaps.ts#withoutLinkedRowIssues",
+          "src/server/routes/pdfImportRoutes.ts#/api/intelligence/pdf-import/bootstrap-section"
+        ],
+        "tests": [
+          "tests/header-department-rule-audit.ts",
+          "tests/location-registry-audit.py"
+        ]
+      }
+    },
+    {
+      "id": "FR-IMP-040",
+      "kind": "functional",
+      "title": {
+        "ar": "«تجربة بلا حفظ» على الشاشة: الفرق والتطبيق والتراجع",
+        "en": "The trial run on screen: difference, apply and undo"
+      },
+      "text": {
+        "ar": "يجب أن تقول شاشة الاستيراد قبل الرفع، حين يكون في الفصل جدول، إن الاستيراد هنا «تجربة بلا حفظ» مع عدد مواعيده؛ وأن تقرأ ملف PDF بوضع التجربة تلقائياً حين يكون للفصل جدول والقسم المستهدف هو القسم المفتوح، وتعرض «جرّب بلا حفظ» إن رُفض الملف لأن الفصل مشغول؛ وأن تقرأ ورقة Excel على فصل فيه جدول تجربةً كذلك عدا مراجعة «نزّل الشعب»؛ وأن ترسم بطاقة الفرق بين الملف والجدول الحالي شعبةً بشعبة (المقرر ورقم الشعبة) بمربعات: يُضاف، يُحذف، يتغيّر، كما هو، تعارض، وشريط نسبي وقوائم مطوية؛ وأن يكون «طبّق» خطوتين بتأكيد يذكر عدد شعب الجدول وعدد شعب الملف ويَعِد بنسخة للتراجع، ثم «تراجع» يسترجع النسخ المحفوظة.",
+        "en": "When the term has a schedule, the import screen shall say before upload that import here is a «trial run without saving» with its appointment count; shall read a PDF in trial mode automatically when the term has a schedule and the target department is the open one, and offer «try without saving» when the file is refused because the term is occupied; shall read a spreadsheet on a filled term as a trial as well, except a «place sections» review; shall draw the difference between the file and the current schedule section by section (course and section number) as tiles: added, removed, changed, unchanged, conflicts, with a proportional bar and folded lists; and shall make «apply» two steps with a confirmation naming the schedule's and the file's section counts and promising a copy for undo, followed by «undo» restoring the saved versions."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعذّرت قراءة الجدول الحالي ← «تعذّرت قراءة جدول الفصل الحالي.» مع «أعد المحاولة»، ولا يُعرض «طبّق» بلا أساس المقارنة.",
+          "en": "A failed read of the current schedule shows «the current term schedule could not be read.» with «retry», and «apply» is not offered without the comparison baseline."
+        },
+        {
+          "ar": "تبديل وقتي لقاءين في يومين لشعبة واحدة ← «يتغيّر · الوقت» لا «كما هو»؛ وأستاذ أو قاعة لم يُحسما في الملف لا يُعدّان تغييراً.",
+          "en": "Swapping the times of two meetings on two days of one section counts as «changed · time», not «unchanged»; an instructor or room left unresolved in the file does not count as a change."
+        },
+        {
+          "ar": "مربع التعارض يعرض «…» و«يفحص» حتى ينتهي فحص الفصل، وقائمة «يتغيّر» تُفتح وحدها حين تكون 6 أو أقل.",
+          "en": "The conflict tile shows «…» and «checking» until the term check finishes, and the «changed» list opens by itself when it holds 6 entries or fewer."
+        },
+        {
+          "ar": "«طبّق» ينشر بترويسة التأكيد publish,replace-filled، فتصير شارة البطاقة «طُبّق» ويقول الشريط «طُبّق: N موعداً في الجدول.»؛ و«تراجع» يسترجع كل نسخة محفوظة بمسار الاسترجاع مع تأكيد الكتابة فوق ما تغيّر بعده، ثم يقول «عاد الجدول كما كان قبل التطبيق.»",
+          "en": "«apply» publishes with the confirmation header publish,replace-filled, the card badge turns «applied» and the bar says «applied: N appointments in the schedule.»; «undo» restores each saved version through the restore path with its overwrite confirmation, then says «the schedule is back as it was before applying.»"
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ImportDryRun.tsx",
+          "src/utils/importDiff.ts#importDiff",
+          "src/utils/importDiff.ts#meetingChanges",
+          "src/components/ScheduleTransfer.tsx#undoDryApply",
+          "src/components/ScheduleTransfer.tsx#loadTermRows",
+          "src/components/ScheduleTransfer.tsx#readPdf"
+        ],
+        "tests": [
+          "tests/import-term-tools-audit.ts",
+          "tests/sections-proposal-import-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-IMP-041",
+      "kind": "functional",
+      "title": {
+        "ar": "قراءة أدق واحدة لكل ملف واعتماد خلاياها",
+        "en": "One sharper reading per file and approving its cells"
+      },
+      "text": {
+        "ar": "يجب أن تعرض معاينة ملف PDF المعتمد زر «قراءة أدق · الصفحات» ما دامت فيه صفحات بخانات لم تُقرأ (لا خانات تركها القسم فارغة عمداً) ولم تُستعمل القراءة الأدق لهذا الملف، وأن ترسل تلك الصفحات كلها في طلب واحد إلى الخادم الذي يمرّرها إلى خدمة Gemini، وأن تُستهلك الفرصة لحظة الضغط فلا تعود ولو لم تضف القراءة شيئاً، وأن تجمّد الجدول أثناءها فلا يُقبل تعديل، وأن تعرض المقترح خلايا فارغة فقط مجمّعة بالصفحة وكلها محددة ابتداءً، مع «تحديد الكل» و«إلغاء التحديد» و«تطبيق N خلية» و«إلغاء»، وأن تربط المقترح بالملف المعروض (الاسم والحجم وتاريخ التعديل) فلا تُطبَّق خلايا ملف سابق.",
+        "en": "The preview of an authority PDF shall offer a «sharper reading · pages» button only while it has pages with cells that could not be read (not cells the department left empty on purpose) and the sharper reading has not been used for that file, shall send all those pages in one request to the server, which passes them to the Gemini service, shall spend the offer the moment it is pressed so it does not return even when the reading adds nothing, shall freeze the table meanwhile so no edit is accepted, shall show the proposal as empty cells only grouped by page and all ticked at first, with «select all», «clear selection», «apply N cells» and «cancel», and shall bind the proposal to the file on screen (name, size and modification time) so cells of an earlier file are never applied."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "كل صفحة تعرض 40 خلية مقترحة على الأكثر مع «المحدد/الكل» لها؛ وقيمة الأستاذ أو المقرر تُعرض باسمها، وقيمة تسمّي «هيئة تدريسية» تُسقط من المقترح.",
+          "en": "Each page lists at most 40 proposed cells with «picked/total» for the page; an instructor or course value is shown by name, and a value naming the placeholder faculty is dropped from the proposal."
+        },
+        {
+          "ar": "الخلايا المطبّقة تملأ الصفوف نفسها في خط الأساس (بترتيب المصدر)، فيبقى تقرير التغييرات حاملاً ما حذفه المراجع أو عدّله قبلها، وتضيف بطاقة المراجعة «عُبّئت N بالقراءة الأدق».",
+          "en": "Applied cells also fill the same rows of the baseline (by source order), so the change report keeps the reviewer's earlier deletions and edits, and the review card adds «N filled by the sharper reading»."
+        },
+        {
+          "ar": "قراءة لم تضف جديداً ← «القراءة الأدق لم تضف جديداً هذه المرة — ما تبقّى من خانات يحتاج تعبئة يدوية. جدولك لم يتغيّر.»؛ و«إلغاء» يترك الجدول كما هو ولا يعيد العرض؛ ورفع ملف جديد يبدأ فرصة جديدة.",
+          "en": "A reading that adds nothing says «the sharper reading added nothing new this time — the remaining cells need filling by hand. Your table did not change.»; «cancel» leaves the table unchanged and the offer does not return; a new upload starts a new offer."
+        },
+        { "ar": "نصّ التقدّم أثناء القراءة الأدق عربيٌّ خالص: «قراءة أدق للصفحات …» أو «قراءة أدق للصفحات المتعثرة»، بلا اسم الخدمة.", "en": "The progress text during the sharper reading is plain Arabic («sharper reading of pages …» or «sharper reading of the troubled pages»), without the service's name." }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#readSmart",
+          "src/components/ScheduleTransfer.tsx#applySmartProposal",
+          "src/components/ScheduleTransfer.tsx#dismissSmartProposal",
+          "src/components/ScheduleTransfer.tsx#smartToken",
+          "src/utils/geminiScheduleLayer.ts#proposeSmartFills",
+          "src/utils/importPageReview.ts#pagesWithUnreadCells"
+        ],
+        "tests": [
+          "tests/gemini-schedule-layer.ts",
+          "tests/pdf-import-hardening.ts",
+          "tests/schedule-board-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-IMP-042",
+      "kind": "functional",
+      "title": {
+        "ar": "فحوص المعاينة الحية على الشاشة",
+        "en": "Live checks on the preview"
+      },
+      "text": {
+        "ar": "يجب أن تفحص الشاشة صفوف معاينة PDF فيما بينها بدالة التعارض نفسها التي يرفض بها الخادم، دون عدّ «هيئة تدريسية» حجزاً مزدوجاً، وتضع الملاحظة على الصفين معاً «… مع الصف N»؛ وأن تمنع نشر صف غيّر المراجع أيامه أو وقته بيده ما لم تكن أيامه نمطاً معتمداً لساعات المقرر في مكتبة الأنماط، بملاحظة على خانة الأيام تسمّي الأنماط المعتمدة؛ وأن تنقل ملاحظات الخادم «السطر N:» ورفض النشر بمعرّفات الصفوف إلى خلايا صفوفها؛ وأن تمحو ملاحظات الخادم القديمة مع أي تعديل أو حذف أو تعبئة أسماء؛ وألا تكتب تحت الجدول إلا ما لا صف له (أول 4).",
+        "en": "The screen shall check the PDF preview rows against each other with the same conflict function the server refuses with, without counting the placeholder faculty as a double booking, and put the note on both rows «… with row N»; shall block publishing a row whose days or time the reviewer changed by hand unless its days are an approved pattern for the course hours in the pattern library, with a note on the days cell naming the approved patterns; shall move server notes «line N:» and publish refusals by row id onto their rows' cells; shall clear old server notes on any edit, deletion or name fill; and shall write under the table only what has no row (the first 4)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "صفان يحجزان الأستاذ نفسه في الوقت نفسه ← الصفان أحمران ولا يظهر زر النشر.",
+          "en": "Two rows booking the same instructor at the same time are both red and the publish button does not appear."
+        },
+        {
+          "ar": "صف قُرئ من الوثيقة كما طُبع يُنشر بأيامه ولو لم تكن نمطاً؛ ولا يُفحص النمط إلا لأيام أو وقت مصدرهما MANUAL.",
+          "en": "A row read from the document as printed is published with its days even if they are not a pattern; the pattern is checked only for days or time whose source is MANUAL."
+        },
+        {
+          "ar": "معاينة ورقة Excel غير قابلة للتحرير تسرد ملاحظاتها المانعة: أول 8 ثم «و N غيرها…».",
+          "en": "A non-editable spreadsheet preview lists its blocking notes: the first 8, then «and N more…»."
+        },
+        {
+          "ar": "البطاقات: عدد الصفوف، وعدد الصفحات، و«جاهز للنشر» (تعرض «…» و«يفحص» حتى تكتمل الفحوص)، و«مقرراً للمراجعة» مع «ناقص: N خانة»؛ ومفتاح الألوان: أخضر مكتمل، ذهبي يحتاج مراجعة، أحمر ناقص.",
+          "en": "The cards: row count, page count, «ready to publish» (showing «…» and «checking» until the checks settle), and «courses to review» with «missing: N cells»; the colour key: green complete, gold needs review, red missing."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#previewConflicts",
+          "src/components/ScheduleTransfer.tsx#manualPatternIssues",
+          "src/components/ScheduleTransfer.tsx#serverRowIssues",
+          "src/components/ScheduleTransfer.tsx#commitPreviewRows",
+          "src/components/ScheduleTransfer.tsx#pdfReadinessSummary",
+          "src/utils/scheduleBlockers.ts#blockingConflicts"
+        ],
+        "tests": [
+          "tests/import-review-rows-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-IMP-043",
+      "kind": "functional",
+      "title": {
+        "ar": "ملف Excel المصدَّر يحمل فصله",
+        "en": "The exported spreadsheet carries its term"
+      },
+      "text": {
+        "ar": "يجب أن يصدّر تبويب «تصدير» ملف Excel بورقة «الجدول الدراسي» بأعمدة: رقم المقرر بسبع خانات كما تطبعه الهيئة، واسم المقرر، والشعبة، والأستاذ، والرقم المدني، والأيام مفصولة بـ« - »، والوقت، والمبنى، والقاعة، وبورقة ثانية «معلومات الملف» تحمل الفصل فيُقرأ فصله تلقائياً حين يُعاد رفعه؛ وأن يسمّي الملف «جدول_القسم_الفصل.xlsx» بعد استبدال المحارف غير المسموحة في أسماء الملفات بـ«_»، وأن ينزّل ملف JSON باسم schedule-رقم الفصل.json.",
+        "en": "The «export» tab shall export a spreadsheet with a «study schedule» sheet holding the columns: the seven-digit course number as the authority prints it, course name, section, instructor, civil number, days joined by « - », time, building and room, and a second sheet «file information» holding the term so its term is read automatically when the file is uploaded again; it shall name the file «schedule_department_term.xlsx» after replacing characters not allowed in file names with «_», and shall download JSON as schedule-<term number>.json."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر رقمه 0109105 يُصدَّر 0109105 لا برمزه المخزَّن.",
+          "en": "Course 0109105 is exported as 0109105, not by its stored code."
+        },
+        {
+          "ar": "إعادة رفع الملف المصدَّر إلى الفصل نفسه لا تسأل عن فصله.",
+          "en": "Uploading the exported file again to the same term does not ask for its term."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#exportTerm",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/export"
+        ],
+        "tests": [
+          "tests/pdf-term-rule-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-IMP-044",
+      "kind": "functional",
+      "title": {
+        "ar": "مراجعة «نزّل الشعب» القادمة من تخطيط الشعب",
+        "en": "The «place sections» review coming from section planning"
+      },
+      "text": {
+        "ar": "يجب أن يفتح «نزّل الشعب» من تخطيط الشعب مراجعةً في تبويب الاستيراد مستقلة عن استيراد الملفات، تحمل مواعيد القسم الحالية والشعب المقترحة قابلة للتعديل السريع والحذف؛ وأن تُبقي الموعد الحالي الذي له مبنى بلا قاعة «بانتظار تثبيت القاعة» ولا تجعل الشعبة المقترحة معلّقة تلقائياً؛ وأن تحسب العدادات من الصفوف الباقية على الشاشة (الحالية والمقترحة والمحذوفة من الحالية والمقترحة بلا قاعة)؛ وأن يستبدل النزولُ جدول القسم بما يراه المستخدم بمسار الاستيراد نفسه (مسودة باسم «نزّل الشعب (من تخطيط الشعب)» ثم نشرها)؛ وأن تُمحى المراجعة إذا غادر المستخدم إلى تبويب آخر.",
+        "en": "«Place sections» from section planning shall open a review in the import tab, separate from file imports, holding the department's current appointments and the proposed sections, editable by quick edit and deletion; it shall keep a current appointment that has a building but no hall as «pending hall» and never make a proposed section pending by itself; it shall compute its counters from the rows still on screen (current, proposed, current ones deleted, proposed without a hall); placing shall replace the department's schedule with what the user sees through the same import path (a draft named «place sections (from section planning)» then published); and the review shall be cleared when the user leaves for another tab."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الشريط يقول «N موعداً حالياً + M شعبة مقترحة»، وبعد حذف مواعيد حالية «حذفتَ N حالياً، وستُزال من الجدول.»",
+          "en": "The banner says «N current appointments + M proposed sections», and after deleting current ones «you deleted N current ones, and they will be removed from the schedule.»"
+        },
+        {
+          "ar": "الشعب التي لم تجد قاعة خالية من قاعات القسم تُسرد بالمقرر والشعبة (أول 4 ثم «+N») ولا تنزل حتى تُختار قاعتها أو «بانتظار تثبيت القاعة» صراحة.",
+          "en": "Sections that found no free department hall are listed by course and section (the first 4, then «+N») and are not placed until their hall or an explicit «pending hall» is chosen."
+        },
+        {
+          "ar": "الزر «نزّل N شعبة في الجدول» (أو «نزّل التعديلات في الجدول» بلا شعبة جديدة)، والملاحظات المانعة «تمنع النزول»، والحصيلة بعنوان «نُزّلت الشعب» تذكر الشعب الجديدة والمواعيد الباقية والمزالة والمجموع.",
+          "en": "The button reads «place N sections in the schedule» (or «place the edits in the schedule» with no new section), blocking notes are worded «prevent placing», and the receipt titled «sections placed» names the new sections, the kept and removed appointments and the total."
+        },
+        {
+          "ar": "مراجعة التخطيط لا تُقرأ «تجربة بلا حفظ» ولو كان في الفصل جدول.",
+          "en": "A planning review is never run as a trial run even when the term has a schedule."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#previewWorksheetRows",
+          "src/components/ScheduleTransfer.tsx#planningMeta",
+          "src/components/ScheduleTransfer.tsx#goTab",
+          "src/components/SectionPlanning.tsx"
+        ],
+        "tests": [
+          "tests/section-build-live-audit.ts",
+          "tests/section-planning-import-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-IMP-045",
+      "kind": "functional",
+      "title": {
+        "ar": "النشر من مراجعة الاستيراد وحصيلته",
+        "en": "Publishing from the import review and its receipt"
+      },
+      "text": {
+        "ar": "يجب ألا تتيح مراجعة الاستيراد «حفظ كمسودة فقط»، بل طريقاً واحداً: حفظ مسودة باسم «نسخة PDF المعتمدة — اسم الملف» أو «استيراد النموذج — اسم الملف» ثم نشرها فوراً؛ وأن تبقى المراجعة وأزرارها على الشاشة إن رُفض النشر مع نقل أسماء الصفوف المرفوضة إلى خلاياها؛ وأن تحلّ محلّ النافذة عند النجاح حصيلةٌ تخفي التبويبات: عدد المواعيد المنشورة، وتوزيعها على المواقع حين تكون أكثر من موقع، والمقررات التي نُسخت إلى كتالوج قسم في موقع آخر (أول 8)، والإشارة إلى تقرير التغييرات في مركز الاستعلامات والتقارير، وزر «تم» يغلقها.",
+        "en": "The import review shall not offer «save as draft only» but a single road: save a draft named «approved PDF copy — file name» or «template import — file name» and publish it at once; it shall keep the review and its buttons on screen when publishing is refused, moving the refused rows' names onto their cells; and on success a receipt shall replace the dialog and hide the tabs: the number of appointments published, their split by site when there is more than one site, the courses copied into a department catalogue at another site (the first 8), a pointer to the change report in the reports center, and a «done» button that closes it."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "لا يُرسل الحفظ قبل أن يجيب الفحص المسبق؛ والضغط المبكر لا يكتب شيئاً.",
+          "en": "Saving is not sent before the pre-check answers; an early press writes nothing."
+        },
+        {
+          "ar": "معاينة PDF حُذفت صفوفها كلها ← «اعتماد حذف جميع مواعيد PDF ونشره»، ويبقى خط الأساس حاملاً صفوف المصدر كلها موسومة محذوفة للتقرير.",
+          "en": "A PDF preview with every row deleted offers «approve deleting all PDF appointments and publish», while the baseline keeps all source rows marked deleted for the report."
+        },
+        {
+          "ar": "ملف وُزّع على ثلاثة مواقع ← الحصيلة تسرد اسم كل موقع وعدد مواعيده.",
+          "en": "A file distributed over three sites lists each site's name and appointment count in the receipt."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#saveExcelDraft",
+          "src/components/ScheduleTransfer.tsx#publishImportedDraft",
+          "src/components/ScheduleTransfer.tsx#publishReceipt",
+          "src/components/ScheduleTransfer.tsx#plantedCourses"
+        ],
+        "tests": [
+          "tests/location-registry-audit.py"
         ]
       }
     }

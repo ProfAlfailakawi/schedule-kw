@@ -8,6 +8,7 @@ import { techBlock } from "./tech.mjs";
 import { usageCards, USAGE_PREFIX } from "./usage.mjs";
 import { sinceMedal, historyBlock } from "./history.mjs";
 import { algoCard, algoAnswer } from "./algorithms.mjs";
+import { identityBlock, keysBlock, configBlock, routesBlock } from "./integration.mjs";
 import { ctxFor, esc, md, actorChips, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip } from "./fragments.mjs";
 
 const read = rel => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -25,7 +26,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   /* ── نظرة عامة ───────────────────────────────────────────── */
   const moduleRows = m.modules.map(x => ({ icon: x.icon, label: T(x.title), seg: x.counts.status, value: x.counts.total }));
   const maxReqs = Math.max(...m.modules.map(x => x.counts.total), 1);
-  const legend = `<div class="legend" style="padding:.2rem 0 .6rem">${STATUS_ORDER.map(st => `<span><i class="seg s-${st}" style="display:inline-block;width:14px;height:14px;border-radius:4px"></i>${T(LABELS.status[st])} <b class="num">${s.status[st]}</b></span>`).join("")}</div>`;
+  const legend = `<div class="legend" style="padding:.2rem 0 .6rem">${STATUS_ORDER.filter(st => s.status[st]).map(st => `<span><i class="seg s-${st}" style="display:inline-block;width:14px;height:14px;border-radius:4px"></i>${T(LABELS.status[st])} <b class="num">${s.status[st]}</b></span>`).join("")}</div>`;
   const prioRows = PRIORITY_ORDER.map(p => `<div class="barrow"><span class="lbl">${T(LABELS.priority[p])}</span><div class="track"><i class="seg s-implemented" style="width:${(s.priority[p] / s.requirements * 100).toFixed(1)}%"></i></div><span class="num">${s.priority[p]}</span></div>`).join("");
   const kindRows = Object.keys(LABELS.kind).filter(k => s.kind[k]).map(k => `<div class="barrow"><span class="lbl">${T(LABELS.kind[k])}</span><div class="track"><i class="seg s-in-progress" style="width:${(s.kind[k] / s.requirements * 100).toFixed(1)}%"></i></div><span class="num">${s.kind[k]}</span></div>`).join("");
   const overview = `<section class="view" id="v-overview">
@@ -80,7 +81,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   };
 
   const rtools = `<div class="rtools" role="search">
-    <div class="fgroup"><span class="lbl">${T(T2("الحالة", "Status"))}</span>${STATUS_ORDER.map(st => `<button class="fchip" type="button" data-fchip="status" data-val="${st}" aria-pressed="false">${T(LABELS.status[st])}</button>`).join("")}</div>
+    <div class="fgroup"><span class="lbl">${T(T2("الحالة", "Status"))}</span>${STATUS_ORDER.filter(st => s.status[st]).map(st => `<button class="fchip" type="button" data-fchip="status" data-val="${st}" aria-pressed="false">${T(LABELS.status[st])}</button>`).join("")}</div>
     <div class="fgroup"><span class="lbl">${T(T2("الأولوية", "Priority"))}</span>${PRIORITY_ORDER.map(p => `<button class="fchip" type="button" data-fchip="priority" data-val="${p}" aria-pressed="false">${T(LABELS.priority[p])}</button>`).join("")}</div>
     <div class="fgroup"><span class="lbl">${T(T2("النوع", "Kind"))}</span>${Object.keys(LABELS.kind).filter(k => s.kind[k]).map(k => `<button class="fchip" type="button" data-fchip="kind" data-val="${k}" aria-pressed="false">${T(LABELS.kind[k])}</button>`).join("")}<button class="fchip" type="button" id="f-inferred" aria-pressed="false">${icon("circle-help", 14)}${T(T2("مستنتج", "Inferred"))}</button></div>
     <div class="fgroup"><label><span class="sr">${T(T2("الوحدة", "Module"))}</span><select class="fsel" id="f-module"><option value="" data-ar="كل الوحدات" data-en="All modules">كل الوحدات</option>${m.modules.map(x => `<option value="${x.id}" data-ar="${x.id} · ${esc(x.title.ar)}" data-en="${x.id} · ${esc(x.title.en)}">${x.id} · ${esc(x.title.ar)}</option>`).join("")}</select></label>
@@ -104,10 +105,15 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
     <p class="lead" style="margin-top:.8rem">${T(T2(`يغطي المستودع ${f.watchedFiles} ملفاً برمجياً (${f.loc.toLocaleString("en")} سطراً)، و${f.components} شاشة ومكوّن، و${f.endpoints} مسار خادم مرصود، و${f.tests} ملف اختبار.`, `The repository covers ${f.watchedFiles} source files (${f.loc.toLocaleString("en")} lines), ${f.components} screens and components, ${f.endpoints} detected server routes and ${f.tests} test files.`))}</p></section>`;
   const algosView = m.algorithms.length ? `<section class="view" id="v-algos" hidden><h2 class="vh">${icon("cpu", 22)}${T(m.front.algorithms.title)}</h2>${algoAnswer(c, m)}
     ${m.modules.filter(x => x.algos.length).map(x => `<section class="agroup" data-module="${x.id}"><h3>${icon(x.icon, 18)}${T(x.title)} <span class="n">${x.algos.length}</span></h3><div class="algos">${x.algos.map(a => algoCard(c, m, a).replace(` id="${a.id}"`, ` id="v-${a.id}"`)).join("")}</div></section>`).join("")}</section>` : "";
+  const ig = m.integration;
+  const integParts = [["identity", "log-in", ig.identity.title, identityBlock(c, m)], ["keys", "key-round", ig.keys.title, keysBlock(c, m)], ["config", "sliders-horizontal", ig.config.title, configBlock(c, m)], ["routes", "route", ig.routes.title, routesBlock(c, m, { interactive: true })]];
+  const integView = `<section class="view" id="v-integ" hidden><h2 class="vh">${icon("plug", 22)}${T(T2("التكامل والتشغيل", "Integration and operation"))}</h2>
+    <div class="subtabs isubs" role="tablist">${integParts.map(([k, ic, t], i) => `<button class="subtab isub" type="button" role="tab" data-ip="${k}" aria-selected="${i === 0}">${icon(ic, 16)}${T(t)}${k === "routes" ? ` <span class="n">${ig.routeRows.length}</span>` : k === "config" ? ` <span class="n">${ig.config.vars.length}</span>` : ""}</button>`).join("")}</div>
+    ${integParts.map(([k, , t, body], i) => `<div class="ipanel" data-ip="${k}"${i ? " hidden" : ""}><h3 class="ih">${T(t)}</h3>${body}</div>`).join("")}</section>`;
   const glossary = `<section class="view" id="v-glossary" hidden><h2 class="vh">${icon("book-a", 22)}${T(T2("المصطلحات", "Glossary"))}</h2>${termsBlock(c, m.glossary)}</section>`;
   const revisions = `<section class="view" id="v-revisions" hidden><h2 class="vh">${icon("history", 22)}${T(T2("سجل الإصدارات", "Revision history"))}</h2><div class="card" style="padding:0;overflow:auto"><table class="tbl"><thead><tr><th>${T(T2("الإصدار", "Version"))}</th><th>${T(T2("التاريخ", "Date"))}</th><th>${T(T2("التغييرات", "Changes"))}</th></tr></thead><tbody>${m.revisions.map(r => `<tr><td class="mono">${esc(r.version)}</td><td class="mono">${esc(r.date)}</td><td>${c.M(r.changes)}</td></tr>`).join("")}</tbody></table></div></section>`;
 
-  const tabDefs = [["overview", "layout-dashboard", T2("نظرة عامة", "Overview"), ""], ["modules", "boxes", T2("الوحدات", "Modules"), s.modules], ["requirements", "list-checks", T2("المتطلبات", "Requirements"), s.requirements], ["actors", "users", T2("الأدوار", "Actors"), ""], ["tech", "layers", T2("التقنية", "Technology"), ""], ...(m.algorithms.length ? [["algos", "cpu", T2("الخوارزميات", "Algorithms"), m.algorithms.length]] : []), ["trace", "git-compare-arrows", T2("التتبّع", "Traceability"), ""], ["glossary", "book-a", T2("المصطلحات", "Glossary"), ""], ["revisions", "history", T2("الإصدارات", "Revisions"), ""]];
+  const tabDefs = [["overview", "layout-dashboard", T2("نظرة عامة", "Overview"), ""], ["modules", "boxes", T2("الوحدات", "Modules"), s.modules], ["requirements", "list-checks", T2("المتطلبات", "Requirements"), s.requirements], ["actors", "users", T2("الأدوار", "Actors"), ""], ["tech", "layers", T2("التقنية", "Technology"), ""], ...(m.algorithms.length ? [["algos", "cpu", T2("الخوارزميات", "Algorithms"), m.algorithms.length]] : []), ["integ", "plug", T2("التكامل", "Integration"), ""], ["trace", "git-compare-arrows", T2("التتبّع", "Traceability"), ""], ["glossary", "book-a", T2("المصطلحات", "Glossary"), ""], ["revisions", "history", T2("الإصدارات", "Revisions"), ""]];
   const authors = m.meta.authors;
   return `<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -124,7 +130,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   </div></div></header>
 <nav class="tabs" aria-label="sections"><div class="tabs-in" role="tablist">${tabDefs.map(([id, ic, t, n]) => `<button class="tab" type="button" role="tab" data-view="${id}" aria-selected="${id === "overview"}">${icon(ic, 17)}${T(t)}${n !== "" ? `<span class="n">${n}</span>` : ""}</button>`).join("")}</div></nav>
 <main class="wrap">
-  ${overview}${actors}${techView}${algosView}${stage}${trace}${glossary}${revisions}
+  ${overview}${actors}${techView}${algosView}${integView}${stage}${trace}${glossary}${revisions}
 </main>
 <button class="totop" id="totop" type="button" aria-label="${esc(T2("العودة إلى الأعلى", "Back to top").ar)} / ${esc(T2("العودة إلى الأعلى", "Back to top").en)}" title="↑">${icon("arrow-up", 22)}</button>
 <footer class="foot"><div class="foot-in"><div class="foot-brand">${logo(44)}<div><b>${T(m.meta.system)}</b><small>${T(m.meta.document)} · v${esc(m.meta.version)} · ${esc(m.meta.releaseDate)}</small></div></div><div><b class="authors-line">${authors.map(a => `<span class="nm">${T(a)}</span>`).join(' <i class="dot">·</i> ')}</b><small>${T(T2("بُنيت هذه الصفحة من مصدر الوثيقة نفسه، وتتحدث مع كل نشر.", "This page is built from the document source itself and refreshes with every release."))}</small></div></div></footer>

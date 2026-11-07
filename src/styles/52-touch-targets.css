@@ -1,0 +1,53 @@
+/* ==========================================================================
+   أهدافُ اللمس ≥ 44px على الهاتف واللوح — طبقةٌ عامة لا قائمةُ أصناف.
+   1) الأزرارُ ذات النص والقوائم والحقول والألسنة وروابطُ الأزرار: ارتفاعٌ أدنى
+      44 (وعرضٌ أدنى 44)، فيكبر المقاسُ الملموس والشكلُ نفسه.
+   2) الأزرارُ الأيقونية (اسمها في aria-label ورسمُها أيقونةٌ وحدها): يبقى رسمُها
+      كما هو، وتتّسع منطقةُ اللمس بطبقةٍ شفافة حتى 44 من كل جهة.
+   ما له توسعةٌ خاصة قبل هذا الملف (07-responsive و49 و50) يبقى على حاله.
+   ========================================================================== */
+@media (pointer:coarse),(max-width:760px){
+  :is(
+    button:not([aria-label]:has(> svg:only-child)):not([aria-label]:empty),
+    [role=button]:not(button),[role=tab]:not(button),
+    summary,select,a.btn,a[class*="-chip"],a[class*="-btn"],a.request-remind,
+    input:not([type=checkbox],[type=radio],[type=range],[type=hidden],[type=file],[type=color]),
+    label:has(> input:is([type=checkbox],[type=radio]))
+  ){min-block-size:var(--ix-tap)!important}
+  :is(
+    button:not([aria-label]:has(> svg:only-child)):not([aria-label]:empty),
+    [role=button]:not(button),[role=tab]:not(button),summary,a.btn,a[class*="-chip"],a[class*="-btn"]
+  ){min-inline-size:var(--ix-tap)!important}
+
+  /* أيقونةٌ وحدها: طبقةٌ شفافة تمدّ اللمس إلى 44 دون تغيير الرسم. */
+  :where(button[aria-label]:is(:has(> svg:only-child),:empty):not(.install-trigger)){position:relative}
+  :where(button[aria-label]:is(:has(> svg:only-child),:empty):not(.install-trigger))::after{
+    content:"";position:absolute;
+    inset-block:min(0px,calc((100% - var(--ix-tap)) / 2));
+    inset-inline:min(0px,calc((100% - var(--ix-tap)) / 2));
+  }
+
+  /* توسعاتٌ خاصة سابقة لم تبلغ 44 (حدودُ الزرّ تأكل من الطبقة): تُحسب الآن من المقاس نفسه. */
+  .apb-icon-btn::after,.sd-icon::after{
+    inset-block:min(0px,calc((100% - var(--ix-tap)) / 2));
+    inset-inline:min(0px,calc((100% - var(--ix-tap)) / 2));
+  }
+  /* العينُ والسهمُ ملاصقان لشريحة الفلتر: يكفيهما ما يبلغ 44 أفقياً لا أكثر. */
+  .week-legend-eye::after,.week-legend-arrow::after{
+    inset-inline:min(-2px,calc((100% - var(--ix-tap)) / 2));
+    inset-block:min(-8px,calc((100% - var(--ix-tap)) / 2));
+  }
+  /* شريطُ الجدول العائم يتّسع مع محتواه: فجوةٌ 12 بين أزراره تسمح لكلٍّ منها أن يبلغ 44
+     أفقياً دون أن تتداخل طبقتا جارين (34 + 5 + 5، والفجوة 12). */
+  .schedule-dock,.schedule-dock .dock-views{gap:12px}
+  .schedule-dock button::after{inset-inline:min(-2px,calc((100% - var(--ix-tap)) / 2))}
+  .query-print-icon{position:relative}
+  .query-print-icon::after{content:"";position:absolute;inset:min(0px,calc((100% - var(--ix-tap)) / 2))}
+  /* زرُّ التثبيت يحمل نقطةَ تنبيه في ::after، فتتّسع منطقتُه بـ ::before. */
+  .install-trigger{position:relative}
+  .install-trigger::before{content:"";position:absolute;inset:min(0px,calc((100% - var(--ix-tap)) / 2))}
+  /* خلايا خريطة الإشغال متلاصقة فلا تنفعها الطبقةُ الشفافة: الخليةُ نفسها 44×44،
+     والشبكةُ تُمرَّر أفقياً كما كانت. */
+  .occupancy-grid{--cell:var(--ix-tap)}
+  .occupancy-row>button[data-level]{min-block-size:var(--ix-tap)}
+}

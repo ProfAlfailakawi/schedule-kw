@@ -8,6 +8,7 @@ import path from "node:path";
 import { runInNewContext } from "node:vm";
 import { PEER_COURSE_MIN, peerCourseCounts } from "../src/utils/studentProfile";
 import { STUDENT_HOME_SCRIPT, studentHomePage } from "../src/server/studentHomePage";
+import { buildReminder } from "../src/utils/icalendar";
 import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0;
@@ -41,8 +42,7 @@ const ctx: Record<string, any> = {
 runInNewContext([
   "var SUMMER_UNITS=6;",
   fn("whatIf", "function whatIfLine("), fn("whatIfLine", "function wireWhatIf("),
-  fn("icsEsc", "function icsDay("), fn("icsDay", "function icsNext("), fn("icsNext", "function icsText("), fn("icsText", "function downloadBlob("),
-  "this.whatIf=whatIf;this.whatIfLine=whatIfLine;this.icsText=icsText;this.icsNext=icsNext;this.icsDay=icsDay;",
+  "this.whatIf=whatIf;this.whatIfLine=whatIfLine;",
 ].join("\n"), ctx);
 
 const a = ctx.whatIf(90, 15, false), b = ctx.whatIf(90, 12, false), c = ctx.whatIf(90, 15, true);
@@ -56,14 +56,37 @@ check(ctx.whatIf(10000, 12, true).total <= 60, "سقفٌ للحلقة");
 check(/ستة|6 فصل/.test(ctx.whatIfLine(a, 15, false)) || ctx.whatIfLine(a, 15, false).includes("6 فصل"), "السطر يقول عدد الفصول", ctx.whatIfLine(a, 15, false));
 check(ctx.whatIfLine(ctx.whatIf(0, 15, false), 15, false) === "أكملت وحدات الصحيفة.", "من أكمل صحيفته يُقال له ذلك");
 
-const ics = String(ctx.icsText("تذكير؛ مهم, جداً", "2026-11-15", "سطر1\nسطر2"));
-check(ics.startsWith("BEGIN:VCALENDAR\r\n") && ics.endsWith("END:VCALENDAR") && ics.includes("DTSTART;VALUE=DATE:20261115") && ics.includes("DTEND;VALUE=DATE:20261116"), "ملف التقويم يوماً كاملاً: يبدأ في ١٥ وينتهي قبل ١٦");
-check(ics.includes("SUMMARY:تذكير\\؛ مهم") === false && ics.includes("SUMMARY:تذكير\;") === false && ics.includes("SUMMARY:تذكير؛ مهم\\, جداً"), "الفاصلة تُهرَّب والفاصلةُ العربية تبقى كما هي", ics.split("\r\n").find(l => l.startsWith("SUMMARY")));
-const asciiSemi = String(ctx.icsText("دور 1; الفصل الأول, ملاحظة", "2026-11-15", "أ;ب\\ج"));
-check(asciiSemi.includes("SUMMARY:دور 1\\; الفصل الأول\\, ملاحظة") && asciiSemi.includes("DESCRIPTION:أ\\;ب\\\\ج"), "الفاصلة المنقوطة اللاتينية والفاصلة والشرطة المائلة تُهرَّب بشرطةٍ حقيقية (RFC 5545)", asciiSemi.split("\r\n").filter(l => /^(SUMMARY|DESCRIPTION)/.test(l)));
-check(ics.includes("DESCRIPTION:سطر1\\nسطر2") && (ics.match(/BEGIN:VALARM/g) || []).length === 2 && ics.includes("TRIGGER:-PT15H") && ics.includes("TRIGGER:PT8H"), "تنبيهان: ٩ صباحاً قبل اليوم، و٨ صباحاً فيه، والأسطر تُهرَّب");
-check(ctx.icsNext("2026-12-31") === "20270101" && ctx.icsNext("2028-02-28") === "20280229", "اليومُ التالي يعبر الشهر والسنة والكبيس");
+/* التذكير: الطريقُ الفعلي — addToCalendar يفتح ‎/api/public/ics-reminder‎ والخادمُ يبني الملفّ (buildReminder). */
+check(!/function ics(Text|Day|Next|Esc)\(/.test(STUDENT_HOME_SCRIPT), "لا مولّدَ ICS ميتاً في الصفحة: الملفُّ يُخدَم من الخادم");
+const cal: Record<string, any> = { location: { href: "" }, toasts: [] as string[] };
+runInNewContext("function toast(m){toasts.push(m)}\n" + fn("addToCalendar", "/* ── شارك جدولك") + "\nthis.addToCalendar=addToCalendar;", cal);
+cal.addToCalendar("موعد تسجيلي — دور 1 من 3", "2026-11-15T08:00:00Z", "من مساري: جدولي");
+const reminderUrl = new URL(cal.location.href, "https://x.test");
+check(reminderUrl.pathname === "/api/public/ics-reminder" && reminderUrl.searchParams.get("d") === "2026-11-15" && reminderUrl.searchParams.get("t") === "موعد تسجيلي — دور 1 من 3", "زرّ التذكير يفتح رابطَ الخادم باليوم والعنوان", cal.location.href);
+cal.location.href = ""; cal.addToCalendar("x", "", "");
+check(cal.location.href === "", "بلا تاريخٍ لا يُفتح شيء");
+const ics = buildReminder({ title: "تذكير؛ مهم, جداً", date: "2026-11-15", note: "سطر1\nسطر2" });
+check(ics.startsWith("BEGIN:VCALENDAR\r\n") && ics.includes("DTSTART;VALUE=DATE:20261115") && ics.includes("DTEND;VALUE=DATE:20261116"), "ملف التقويم يوماً كاملاً: يبدأ في ١٥ وينتهي قبل ١٦");
+check(ics.includes("SUMMARY:تذكير؛ مهم\\, جداً"), "الفاصلة تُهرَّب والفاصلةُ العربية تبقى كما هي");
+check(ics.includes("DESCRIPTION:سطر1\\nسطر2") && (ics.match(/BEGIN:VALARM/g) || []).length === 2, "تنبيهان، والأسطر تُهرَّب");
+check(buildReminder({ title: "t", date: "2026-12-31" }).includes("DTEND;VALUE=DATE:20270101"), "اليومُ التالي يعبر السنة");
 check(!/civil|الرقم المدني|\d{12}/.test(ics), "لا هويةَ في ملف التقويم");
+
+/* «هل سجّلت؟»: ما كُتب في الاسم والرقم المدني يبقى بعد كل نقرة (كان يُمحى عند إعادة الرسم). */
+const paint = fn("paintReport", "/* ── ماذا لو");
+check(/S\.rpHN=hnEl\.value/.test(paint) && /S\.rpHC=hcEl\.value/.test(paint) && /id="hn"[^>]*value="'\+esc\(S\.rpHN/.test(paint) && /id="hc"[^>]*value="'\+esc\(S\.rpHC/.test(paint), "حقلا الاسم والرقم يحتفظان بما كُتب عند إعادة الرسم");
+{
+  const els: Record<string, any> = { hn: { value: "سارة أحمد علي" }, hc: { value: "29801011234" } };
+  const host: any = { innerHTML: "", querySelectorAll: () => [] };
+  const S: any = { report: { line: "", canReport: true, answers: [], courses: [{ courseId: 7, name: "م" }] }, rp: { 7: { state: "stuck", reason: "full" } }, rpHelp: true, state: { profile: { hasIdentity: false } } };
+  const vm: Record<string, any> = { S, host, document: { getElementById: (id: string) => els[id] || null }, ic: () => "", errBox: () => "", esc: (v: unknown) => String(v ?? "").replace(/"/g, "&quot;") };
+  runInNewContext(paint + "\npaintReport(host);", vm);
+  check(host.innerHTML.includes('value="سارة أحمد علي"') && host.innerHTML.includes('value="29801011234"'), "بعد نقرةٍ على «تعثّرت» يبقى الاسمُ والرقم في الحقلين");
+}
+
+/* الشريحةُ «بُنيت على افتراض» تأخذ العددَ من الخادم بأرقامٍ لاتينية */
+check(!STUDENT_HOME_SCRIPT.includes("(١٥ وحدة)") && /t\.defaultUnits/.test(STUDENT_HOME_SCRIPT), "لا «١٥» مكتوبةً بأرقامٍ هندية: العددُ من الافتراض الحقيقي");
+check(/defaultUnits: SIM_UNITS_DEFAULT/.test(routes), "الخادم يرسل عددَ الوحدات الافتراضي مع التذكرة");
 
 /* ٣. المصدر */
 check(/function tkShareImage\(cur\)/.test(STUDENT_HOME_SCRIPT) && /navigator\.canShare/.test(STUDENT_HOME_SCRIPT) && /toBlob\(/.test(STUDENT_HOME_SCRIPT), "مشاركة الجدول صورةً: canvas ثم مشاركة النظام أو تنزيل");

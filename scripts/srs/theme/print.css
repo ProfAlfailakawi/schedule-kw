@@ -151,3 +151,11 @@ td a,.toc-row,.req-id{color:inherit}
 .aanswer{padding:10px 12px;border-radius:12px;box-shadow:none}.aq-big{font-size:10.5pt}.aa{font-size:9.2pt;line-height:1.65}
 .algo{box-shadow:none;padding:8px 10px;font-size:9pt}.algo h4{font-size:10pt}.aq{font-size:8.6pt}.asteps{font-size:8.6pt}.aio p,.aguar{font-size:8.4pt}.anums span{font-size:7.4pt}
 .ustitle{break-after:avoid;page-break-after:avoid}
+/* الملحق (هـ) في PDF */
+.idrow,.keyrow{box-shadow:none;padding:7px 9px;border-radius:9px}
+.idcols{gap:7px}.idcols p,.keyrow dl{font-size:8.4pt;line-height:1.55}.idrow>header b{font-size:9.4pt}
+.idq ol,.integ .ilead{font-size:8.8pt}
+.keyrows{grid-template-columns:1fr 1fr;gap:6px}
+.tbl.cfg,.tbl.routes{font-size:7.6pt}.tbl.routes td code{font-size:7.2pt}.acc{font-size:6.8pt}
+.tbl.routes tr,.tbl.cfg tr{break-inside:avoid}
+.ptext{font-size:8.6pt;line-height:1.6}

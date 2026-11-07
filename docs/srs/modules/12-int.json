@@ -39,7 +39,6 @@
     "src/components/LivingScheduleLayer.tsx",
     "src/components/LivingScheduleScenes.tsx",
     "src/components/CourseImpact.tsx",
-    "src/pages/Impact.tsx",
     "src/styles/06-intelligence.css",
     "src/styles/27-intelligence-type.css",
     "docs/PREDICTIVE_INTELLIGENCE.md",
@@ -51,11 +50,10 @@
     { "name": { "ar": "مفتاح نطاق التحليل", "en": "Analysis scope switch" }, "file": "src/components/IntelligenceScopeSwitch.tsx", "note": { "ar": "«هذه الكلية» أو «كل كليات القسم».", "en": "This college only, or every college of the department." } },
     { "name": { "ar": "تنبؤ الفصل القادم", "en": "Next-term forecast" }, "file": "src/components/PredictiveInsightPanel.tsx", "note": { "ar": "كل رقم يحمل ثقته وعدد الفصول التي بُني عليها.", "en": "Every figure carries its confidence and the number of terms behind it." } },
     { "name": { "ar": "مختبر القرار الأكاديمي", "en": "Academic decision lab" }, "file": "src/components/AcademicDecisionLabPanel.tsx", "note": { "ar": "ست قراءات للقراءة فقط: التوأم الأكاديمي وقبل/بعد والدومينو وإنقاذ المسار والتوازن والثقة.", "en": "Six read-only views: academic twin, before/after, domino, path rescue, balance and trust." } },
-    { "name": { "ar": "الطبقة الحية للجدول", "en": "Live schedule layer" }, "file": "src/components/LivingScheduleLayer.tsx", "note": { "ar": "ست مشاهد: نظرة عامة وخريطة الضغط والصحة والعدالة وملخص الدقيقة وبداية الفصل وشبكة الأمان.", "en": "Six scenes: overview, pressure map, health and fairness, one-minute brief, start of term and safety net." } },
+    { "name": { "ar": "الطبقة الحية للجدول", "en": "Live schedule layer" }, "file": "src/components/LivingScheduleLayer.tsx", "note": { "ar": "تسعة مشاهد في شريطها: نظرة عامة وخريطة الضغط والصحة والعدالة وملخص الدقيقة ولماذا هذا الحل ومساعد السياق ومحضر القرار وبداية الفصل وشبكة الأمان (الأخيرة للإدارة الرئيسية وحدها)، وذاكرة القرار تُفتح من «لماذا».", "en": "Nine scenes in its bar: overview, pressure map, health and fairness, one-minute brief, why this solution, context assistant, decision minutes, start of term and safety net (the last for the main administration only), plus decision memory opened from why." } },
     { "name": { "ar": "المرشد", "en": "Guide" }, "file": "src/components/guide/GuideAssistant.tsx", "note": { "ar": "شاشات: اسأل، المزيد، الكل، الجديد، وأسئلة بلا جواب لمدير النظام الأعلى.", "en": "Screens: ask, more, all, what is new, and unanswered questions for the root administrator." } },
     { "name": { "ar": "جولة المرشد", "en": "Guide tour" }, "file": "src/components/guide/GuideTour.tsx", "note": { "ar": "بطاقة تضيء العنصر المقصود وتنتظر فعل المستخدم عند الحاجة.", "en": "A card that highlights the target element and waits for the user's action when needed." } },
-    { "name": { "ar": "أثر المقرر", "en": "Course impact" }, "file": "src/components/CourseImpact.tsx", "note": { "ar": "ما يسبق المقرر وما يفتحه وصحائفه والطلب عليه.", "en": "What precedes the course, what it opens, its plan sheets and the demand on it." } },
-    { "name": { "ar": "سجل الأثر الموثق", "en": "Verified impact record" }, "file": "src/pages/Impact.tsx", "note": { "ar": "صفحة عامة تعرض مسارات أثر موثقة؛ غير موصولة بالمسارات حالياً.", "en": "A public page listing verified impact chains; not currently wired to any route." } }
+    { "name": { "ar": "أثر المقرر", "en": "Course impact" }, "file": "src/components/CourseImpact.tsx", "note": { "ar": "ما يسبق المقرر وما يفتحه وصحائفه والطلب عليه.", "en": "What precedes the course, what it opens, its plan sheets and the demand on it." } }
   ],
   "journeys": [
     {
@@ -292,7 +290,10 @@
         { "ar": "موعد غير موجود ردّ 404، وخارج النطاق ردّ 403.", "en": "A missing appointment returns 404 and one outside the scope returns 403." },
         { "ar": "تعارض مع حجز قسم آخر يعود بمعرّف الطرف الآخر صفراً بدل كشفه.", "en": "A conflict with another department's booking returns the other party's identifier as zero instead of revealing it." },
         { "ar": "فشل حساب أسباب «لماذا؟» لا يُسقط الاستجابة؛ تعود بقائمة أسباب فارغة.", "en": "A failure computing the why-reasons does not fail the response; it returns an empty reasons list." },
-        { "ar": "الخط الزمني يقرأ حتى 16 نسخة و20 مسودة و30 سجل تدقيق للموعد.", "en": "The timeline reads up to 16 versions, 20 drafts and 30 audit entries for the appointment." }
+        { "ar": "الخط الزمني يقرأ حتى 16 نسخة و20 مسودة و30 سجل تدقيق للموعد.", "en": "The timeline reads up to 16 versions, 20 drafts and 30 audit entries for the appointment." },
+        { "ar": "لوحة سياق الموعد تعرض من …/context: «ضمن النمط» أو «خارج المعتاد» و«بدون مانع» أو «يحتاج تحقق» من whyHere، وحياة المقرر (الفصول ونسبة الثبات)، وحياة الشعبة (النسخ والتغييرات أو «أول ظهور»)، وتكلفة التغيير من 100 حين تُحسب فقط، وأعداد مواعيد الأستاذ والمقرر والقاعة الظاهرة (لا يُرسم ما عدده صفر)، وأول 6 من مواعيد الأستاذ، وذاكرة القسم مع تمييز اللافت، وحتى ثلاثة «أفضل البدائل الآن» من conflict-solutions حين يوجد تعارض.", "en": "The appointment context panel shows from …/context: «within pattern» or «outside the usual» and «no blocker» or «needs checking» from whyHere, the course life (terms and stability %), the offering life (versions and changes, or «first appearance»), the change cost out of 100 only when computed, the counts of the instructor's, course's and room's visible appointments (a zero count is not drawn), the first 6 of the instructor's appointments, the department memory with surprising lines marked, and up to three «best alternatives now» from conflict-solutions when a conflict exists." },
+        { "ar": "يُقرأ …/replay في الخلفية بعد ثانيتين من الخمول، فتعرض اللوحة سطراً واحداً «انتقل … · السبب» من آخر انتقال له سبب، ويعرض «تشريح القرار» كل حدث بعنوانه وتفصيله وسببه ومصدره («مُستنتَج من نسخة ذلك اليوم») وتاريخه وفاعله؛ ولا يُعطى سبب لانتقال إلا حين يتعارض الموضع القديم مع نسخة ذلك اليوم.", "en": "…/replay is read in the background after 2 seconds idle; the panel shows one line «moved … · reason» from the latest move that has a reason, and the «decision anatomy» lists each event with its title, detail, reason with its source («inferred from that day's version»), date and actor; a move gets a reason only when the old placement clashes with that day's version." },
+        { "ar": "أحداث …/replay: أقدم أثر، والانتقالات (الوقت والقاعة والأستاذ والأيام)، وظهور تعارض أو زواله، والمسودات (منشورة أو تجربة)، والملاحظات، والاعتماد، وحتى 30 قيداً مباشراً من سجل التدقيق، مرتبة زمنياً مع ملاحظة تغطية تقول إنها لا تخترع أحداثاً أقدم.", "en": "…/replay events: the earliest trace, moves (time, room, instructor, days), a conflict appearing or clearing, drafts (published or trial), comments, the publication and up to 30 direct audit entries, ordered in time with a coverage note saying no older events are invented." }
       ],
       "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/context/:id", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/replay/:id", "src/utils/advancedIntelligence.ts"] },
       "inferred": true
@@ -331,7 +332,9 @@
       "acceptance": [
         { "ar": "يوم خارج الأحد–الخميس أو وقت بغير صيغة HH:MM ردّ 400 «موضع السحب غير صالح».", "en": "A day outside Sunday–Thursday or a time not in HH:MM returns 400 «invalid drag position»." },
         { "ar": "وقت يُخرج الموعد عن ساعات اليوم المعتمدة ردّ 400 بذكر حدّي اليوم.", "en": "A time that pushes the appointment outside the configured day hours returns 400 naming the day bounds." },
-        { "ar": "تحمل الاستجابة درجة الحركة المكانية قبل وبعد والفرق.", "en": "The response carries the movement score before and after and the difference." }
+        { "ar": "تحمل الاستجابة درجة الحركة المكانية قبل وبعد والفرق.", "en": "The response carries the movement score before and after and the difference." },
+        { "ar": "أثناء السحب يطلب شريط «توقع الأثر · المستقبل قبل الإفلات» …/ripple بعد 170 مللي ثانية من استقرار المؤشر على خانة جديدة، ويعرض العنوان واليوم والوقت والقاعة المرشحة ورقائق الأثر؛ والفشل يعرض «تعذر حساب الأثر اللحظي لهذه الخانة».", "en": "During a drag the «effect forecast · the future before the drop» strip asks …/ripple 170 ms after the pointer settles on a new square, and shows the headline, the candidate day, time and room and the effect chips; a failure shows «the instant effect of this square could not be computed»." },
+        { "ar": "موعد بيوم واحد ينتقل إلى اليوم المستهدف، وموعد بأكثر من يوم يحفظ أيامه ويتغير وقته وحده؛ ويضيف الرد درجة الإجهاد المكاني قبل وبعد وحتى 3 مخاطر تمسّ الموعد.", "en": "A one-day appointment moves to the target day, while a multi-day one keeps its days and only its time moves; the reply adds the spatial strain score before and after and up to 3 risks touching the appointment." }
       ],
       "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/ripple/:id", "src/utils/scheduleInnovation.ts#forecastScheduleMove"] },
       "inferred": true
@@ -484,9 +487,10 @@
         { "ar": "الأنواع: آخر وقت للأستاذ، يوم راحة للأستاذ، يوم راحة للقسم، قاعة لمقرر، أقصى فراغ للأستاذ، ممر القاعات؛ ونوع آخر ردّ 400.", "en": "Types: instructor latest end, instructor day off, department day off, course room, max instructor gap, room doorway; any other type returns 400." },
         { "ar": "أقصى فراغ يُقيَّد بين 30 و480 دقيقة (افتراضي 120)، وممر القاعات بين 1 و60 دقيقة.", "en": "Max gap is clamped between 30 and 480 minutes (default 120), and a doorway between 1 and 60 minutes." },
         { "ar": "لا تُنشأ قاعدة جديدة لأستاذ متقاعد أو متفرغ، وقاعة المقرر يجب أن تكون من السجل الرسمي.", "en": "No new rule is created for a retired or released instructor, and a course room must come from the official registry." },
-        { "ar": "مستخدم بلا صلاحية القوة يُرفض في الإنشاء والتعديل والحذف.", "en": "A user without power rights is refused on create, edit and delete." }
+        { "ar": "مستخدم بلا صلاحية القوة يُرفض في الإنشاء والتعديل والحذف.", "en": "A user without power rights is refused on create, edit and delete." },
+        { "ar": "الشاشة تطابق الخادم: نموذج الإضافة وزرّا التفعيل والحذف لمدير النظام أو الحساب الرئيسي وحدهما، ويرى غيرهما القواعد وحالتها مع ملاحظة «للقراءة فقط».", "en": "The screen matches the server: the add form and the toggle and delete buttons are for a system administrator or the root account only, and anyone else sees the rules and their state with a «read only» note." }
       ],
-      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/constraints", "src/utils/scheduleInnovation.ts#evaluateScheduleConstraints"] },
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/constraints", "src/utils/scheduleInnovation.ts#evaluateScheduleConstraints", "src/components/IntelligenceWorkspace.tsx#canEditRules"], "tests": ["tests/analytics-reports-review-audit.ts"] },
       "inferred": true
     },
     {
@@ -589,8 +593,8 @@
       "kind": "functional",
       "title": { "ar": "الطبقة الحية للجدول", "en": "Live schedule layer" },
       "text": {
-        "ar": "يجب على النظام أن يقدّم للجدول طبقة حية من ستة مشاهد: نظرة عامة وخريطة الضغط والصحة والعدالة وملخص الدقيقة وبداية الفصل وشبكة الأمان، من قراءة واحدة تضم النبض والصحة والعدالة وهشاشة الجدول ومرونة القاعات وطوبولوجيا التعارض وذاكرة القرارات.",
-        "en": "The system shall give the schedule a live layer of six scenes: overview, pressure map, health and fairness, one-minute brief, start of term and safety net, from one reading that carries pulse, health, fairness, fragility, room resilience, conflict topology and decision memory."
+        "ar": "يجب على النظام أن يقدّم للجدول طبقة حية مشاهدها نظرة عامة وخريطة الضغط والصحة والعدالة وملخص الدقيقة ولماذا هذا الحل ومساعد السياق ومحضر القرار وبداية الفصل وشبكة الأمان، من قراءة واحدة تضم النبض والصحة والعدالة وهشاشة الجدول ومرونة القاعات وطوبولوجيا التعارض وذاكرة القرارات.",
+        "en": "The system shall give the schedule a live layer whose scenes are overview, pressure map, health and fairness, one-minute brief, why this solution, context assistant, decision minutes, start of term and safety net, from one reading that carries pulse, health, fairness, fragility, room resilience, conflict topology and decision memory."
       },
       "priority": "should",
       "status": "implemented",
@@ -853,22 +857,626 @@
       "inferred": true
     },
     {
-      "id": "IR-INT-003",
-      "kind": "interface",
-      "title": { "ar": "صفحة سجل الأثر الموثق", "en": "Verified impact record page" },
-      "text": {
-        "ar": "يجب أن تعرض صفحة سجل الأثر الموثق مسارات قابلة للتحقق تتبع انتقال فكرة بين المقال والبحث والكتاب والحوار العام، مع مرشحات للورقي والإعلامي والأرشيف، وأن تفصل بين الأثر الموثق والامتداد في الأرشيف.",
-        "en": "The verified impact record page shall display verifiable chains that trace an idea across article, research, book and public discussion, with filters for paper, media and archive, and separate documented impact from archive extension."
-      },
-      "rationale": { "ar": "الملف موجود في المستودع لكنه غير موصول بمسار في التطبيق ويستورد وحدات غير موجودة، فالحالة قيد التطوير.", "en": "The file exists in the repository but is wired to no route in the application and imports modules that do not exist, so the status is in progress." },
-      "priority": "could",
-      "status": "in-progress",
-      "actors": ["visitor"],
+      "id": "FR-INT-031",
+      "kind": "functional",
+      "title": { "ar": "«لماذا؟» و«لماذا لا؟» لموعد", "en": "«Why?» and «why not?» for an appointment" },
+      "text": { "ar": "يجب على النظام أن يفسّر عبر POST …/why قرار موعدٍ قائم، وعبر POST …/why-not أثر بديلٍ مقترح له، بعد فحص البديل بمدققات الموعد نفسها، فيعيد التحذيرات والمقايضات وفرق الجودة وجواباً من سطر («ممكن، لكن…» أو «ممكن، وهذا البديل أفضل…»)، وذاكرة قرارات القسم لهذا المقرر لصاحب الصلاحية الكاملة وحده (حتى 120 قيداً)، ولا يحفظ شيئاً.", "en": "The system shall explain through POST …/why the decision behind an existing appointment, and through POST …/why-not the effect of a proposed alternative for it, after checking the alternative with the appointment validators themselves, returning warnings, trade-offs, the quality difference and a one-line answer («possible, but…» or «possible, and this alternative is better…»), with the department's decision memory for that course for power users only (up to 120 entries), saving nothing." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "admin"],
       "acceptance": [
-        { "ar": "المرشحات: الكل، ورقي، إعلامي وخارجي، أرشيف (مقال وكتاب).", "en": "Filters: all, paper, media and external, archive (article and book)." },
-        { "ar": "كل عقدة تعرض وسماً «أثر موثّق» أو «امتداد في الأرشيف» بحسب درجة الثقة.", "en": "Each node shows a «documented impact» or «archive extension» tag according to its confidence grade." }
+        { "ar": "موعد غير موجود ← 404؛ وموعد خارج النطاق ← 403.", "en": "A missing appointment ← 404; an appointment outside scope ← 403." },
+        { "ar": "بديل وقته خارج اليوم الدراسي ← 400 بأول مشكلة وقائمة issues.", "en": "An alternative timed outside the teaching day ← 400 with the first issue and the issues list." },
+        { "ar": "السؤال المرسل يُقصّ إلى 240 حرفاً، والرد يحمل نصاً يقول إن الشاشة تفسّر ولا تطبّق.", "en": "The sent question is cut to 240 characters, and the response carries text saying the screen explains and does not apply." },
+        { "ar": "حكم الخانة أثناء السحب يرسل …/why بالموعد المرشح مع …/ripple وفحص التعارض معاً، ولا يسأل …/why-not («لماذا هذا الموضع أقل تفضيلاً؟») إلا حين يكون الحكم أقل تفضيلاً أو مستحيلاً.", "en": "The square verdict during a drag sends …/why with the candidate together with …/ripple and the conflict check, and asks …/why-not («why is this position less preferred?») only when the verdict is less preferred or impossible." }
       ],
-      "evidence": { "code": ["src/pages/Impact.tsx"] },
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/why", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/why-not"], "tests": ["tests/one-blocker-number-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-032",
+      "kind": "functional",
+      "title": { "ar": "ذاكرة قرارات القسم", "en": "Department decision memory" },
+      "text": { "ar": "يجب على النظام أن يحفظ عبر POST …/decision-memory قيداً بسبب القرار (من 3 إلى 700 حرف) ونوعه (خيارٌ مرفوض، أو ملاحظة مقبولة، أو قرار اجتماع؛ والافتراضي خيار مرفوض) مربوطاً اختيارياً بموعدٍ من القسم نفسه وبمقرره وشعبته، باسم كاتبه، وأن يعرض عبر GET …/decision-memory حتى 250 قيداً للقسم ملخّصةً ومرشّحةً بالمقرر عند طلبه.", "en": "The system shall save through POST …/decision-memory an entry with the decision's reason (3 to 700 characters) and kind (rejected option, accepted note or meeting decision; default rejected option), optionally linked to an appointment of the same department with its course and section, under the writer's name, and show through GET …/decision-memory up to 250 entries of the department summarised and filtered by course when asked." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "سببٌ من حرفين ← 400 «اكتب سبباً واضحاً بين 3 و700 حرف».", "en": "A two-character reason ← 400 «write a clear reason between 3 and 700 characters»." },
+        { "ar": "موعدٌ من قسمٍ آخر ← 403 «الموعد خارج نطاق هذا القسم»؛ والحفظ الناجح ← 201.", "en": "An appointment from another department ← 403 «the appointment is outside this department»; a successful save ← 201." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/decision-memory"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-033",
+      "kind": "functional",
+      "title": { "ar": "مساعد القرار السياقي وخطط الطوارئ", "en": "Contextual decision assistant and emergency plans" },
+      "text": { "ar": "يجب على النظام أن يجيب POST …/context-copilot لسياقٍ من أربعة: موعد (حتى 3 خيارات من حلول التعارض)، أو قاعة (مرونتها)، أو أستاذ (عدالة توزيعه)، أو يوم (أفضل خطة طوارئ لليوم)، ويرفض سياقاً غير معروف أو يوماً غير صالح بـ400؛ وأن يبني عبر POST …/emergency لصاحب الصلاحية الكاملة وحده ثلاث خطط بديلة لتعطّل قاعة أو يوم أو أستاذ كسيناريوهات فقط لا تُنشر، ويرفض حالةً لا تمسّ أي موعد؛ وخطط الطوارئ لا شاشة لها بعد فلا تُعلن متاحة.", "en": "The system shall answer POST …/context-copilot for one of four contexts: an appointment (up to 3 options from conflict solutions), a room (its resilience), an instructor (load fairness) or a day (the best emergency plan for the day), refusing an unknown context or an invalid day with 400; and shall build through POST …/emergency, for power users only, three alternative plans for a disrupted room, day or instructor as scenarios only that are not published, refusing a case that touches no appointment; emergency plans have no screen yet and are not advertised as available." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "قسمٌ بلا مواعيد في الفصل ← 400 «لا يوجد جدول في هذا النطاق».", "en": "A department with no appointments in the term ← 400 «there is no schedule in this scope»." },
+        { "ar": "emergency بلا عنصرٍ محدد ← 400 «حدد العنصر المتأثر بالطوارئ»؛ ومن غير صاحب الصلاحية الكاملة ← مرفوض.", "en": "emergency without a specified item ← 400 «specify the item affected by the emergency»; from anyone but a power user ← refused." },
+        { "ar": "قراءة الطبقة الحية تحمل capabilities.emergency = false.", "en": "The living-layer reading carries capabilities.emergency = false." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/context-copilot", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/emergency"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-034",
+      "kind": "functional",
+      "title": { "ar": "إيقاع أوقات القسم من تاريخه", "en": "The department's time rhythm from its history" },
+      "text": { "ar": "يجب على النظام أن يبني عبر GET …/department-start-rhythm نموذج أوقات القسم من آخر 10 فصول من تاريخه المسموح للقارئ، طبقاتٍ للقسم ولنمط الأيام الفعال ولكل مقرر، بوزنٍ أكبر للفصول الحديثة، يختار منها العميل أضيق طبقة موثوقة؛ وأن يحفظ الجواب 5 دقائق بمفتاحٍ يحمل القارئ حين لا يُحدَّد قسم، ويُبطَل عند أي تغيير في الجدول، وتُفرَّغ الذاكرة إذا تجاوزت 180 مفتاحاً.", "en": "The system shall build through GET …/department-start-rhythm the department's time model from the last 10 terms of its history the reader may see, with layers for the department, the active day pattern and each course, weighting recent terms more, from which the client picks the narrowest reliable layer; the answer is kept for 5 minutes under a key that carries the reader when no department is given, is invalidated by any schedule change, and the memory is cleared beyond 180 keys." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "كلية خارج النطاق أو بلا collegeId ← 403.", "en": "A college outside scope or no collegeId ← 403." },
+        { "ar": "قارئان بلا قسم في الكلية نفسها ← مفتاحان مختلفان فلا يرى أحدهما أقسام الآخر.", "en": "Two readers without a department in the same college ← two different keys so neither sees the other's departments." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/department-start-rhythm"], "tests": ["tests/role-scope-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-035",
+      "kind": "functional",
+      "title": { "ar": "مراقبة ما تغيّر تحت الفصل المعتمد", "en": "Watching what changed under the settled term" },
+      "text": { "ar": "يجب على النظام أن يفحص عبر GET …/settled-drift الفصلَ المعتمد (الفصل الذي صار له تالٍ) وحده: يقرأ مواعيد القسم مقابل كل مواعيد الفصل في الجامعة ويعيد حتى 40 ملاحظة بنوعها ورسالتها ويومها ووقتها وقاعتها، بهامش انتقال القاعة من قاعدة room_doorway محصوراً بين 0 و60 دقيقة، مع جملة «عادة القسم» غير المكتوبة، ونصّ حدٍّ يقول إنه يقرأ ما في النظام وحده؛ وألا يدّعي «لا مشكلات» حين لا يوجد فصل معتمد، وأن يحيل إلى الفصل المعتمد حين يعرض القارئ فصلاً غيره.", "en": "The system shall check through GET …/settled-drift the settled term (the term that has a successor) only: it reads the department's appointments against all of the university's appointments in that term and returns up to 40 findings with type, message, day, time and room, with a room doorway margin from the room_doorway rule clamped between 0 and 60 minutes, the department's unwritten «habit» sentence, and a limit statement saying it reads only what is in the system; it shall not claim «no problems» when no settled term exists, and shall point to the settled term when the reader is viewing another term." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "لا فصل معتمد ← watching:false مع سبب «لا يوجد فصل معتمد بعد».", "en": "No settled term ← watching:false with the reason «there is no settled term yet»." },
+        { "ar": "termId يخالف الفصل المعتمد ← watching:false «الفحص يخصّ الفصل المعتمد».", "en": "A termId different from the settled term ← watching:false «the check concerns the settled term»." },
+        { "ar": "عادة «الكلية كلها» لا تُعرض لغير مدير النظام بلا قسم.", "en": "The «whole college» habit is not shown to a non-administrator without a department." },
+        { "ar": "لوحة الجدول تسأل …/settled-drift عند الخمول ثم كلما أبلغت القناة الحية عن كتابة، ولا تعرض شارة باسم الفصل المعتمد إلا حين watching صحيح وفيه نتائج؛ وورقتها تسرد لكل نتيجة المقرر والوقت والقاعة والتفصيل، والمصدر («المصدر: …» أو «المصدر خارج نطاق عرضك») لما يخص قسماً آخر، وجملة الحدّ في الذيل.", "en": "The schedule board asks …/settled-drift when idle and again whenever the live channel reports a write, and shows a chip named after the settled term only when watching is true with findings; its sheet lists each finding's course, time, room and detail, the source («source: …» or «source outside your view») for findings involving another department, and the limit sentence as the footer." },
+        { "ar": "يُحفظ الرد لكل نطاق وفصل معروض وقارئ حتى تغيّر كتابةٌ في الجداول رقمَ التسلسل، ويُفرَّغ الحفظ إذا تجاوز 200 مدخلاً.", "en": "The reply is cached per scope, viewed term and reader until a schedule write changes the serial, and the cache is cleared beyond 200 entries." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/settled-drift"], "tests": ["tests/role-scope-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-036",
+      "kind": "functional",
+      "title": { "ar": "قراءة نقل الفصل وإنشاء مسودة بداية الفصل", "en": "Term rollover reading and the beginning-of-term draft" },
+      "text": { "ar": "يجب على النظام أن يقرأ عبر GET …/rollover صلاحيةَ نسخ فصلٍ سابق للقسم دون إنشاء شيء: ما يُنقل كما هو وما يحتاج مراجعة (حتى 40) وأسلوب القسم (حتى 6 ملاحظات)، والقاعة تُعدّ قائمةً إن ظهرت في أي موعدٍ في النظام اليوم؛ وأن ينشئ عبر POST …/genesis مسودةً للفصل الهدف من مواعيد الفصل المصدر لمقررات القسم غير المؤرشفة، يعيد ترقيم شعب كل مقرر 501 و502 وهكذا، ويكمل الأستاذ والقاعة من شعب المقرر الأخرى عند غيابهما، ثم يحرّك الأوقات وحدها في 4 دورات على الأكثر لتفادي تعارضات الفصل الهدف، ويفحص كل صف بمدققات الموعد، ويعيد المسودة (201) بتحليلها وتغطيتها؛ ولا يكتب في الجدول.", "en": "The system shall read through GET …/rollover whether a department's previous term can be copied, creating nothing: what carries over as is, what needs review (up to 40) and the department's style (up to 6 notes), a room counting as live when it appears in any appointment in the system today; and shall create through POST …/genesis a draft for the target term from the source term's appointments of the department's non-archived courses, renumbering each course's sections 501, 502 and so on, filling a missing instructor and room from the course's other sections, then shifting times only in at most 4 passes to avoid target-term conflicts, checking every row with the appointment validators, and returning the draft (201) with its analysis and coverage; it writes nothing to the schedule." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "فصل مصدر بلا مواعيد قابلة للنسخ ← 400 «لم أجد مواعيد قابلة للنسخ».", "en": "A source term with no copyable appointments ← 400 «no copyable appointments found»." },
+        { "ar": "مقرر بثلاث شعب 1 و10 و11 في المصدر ← 501 و502 و503 في المسودة.", "en": "A course with sections 1, 10 and 11 in the source ← 501, 502 and 503 in the draft." },
+        { "ar": "رد rollover يحمل «قراءة فقط. لم يُنشأ شيء ولم يتغيّر شيء».", "en": "The rollover answer carries «read only; nothing was created or changed»." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/rollover", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/genesis"], "tests": ["tests/blockers-stream-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-037",
+      "kind": "functional",
+      "title": { "ar": "موجز الدقيقة ومحضر القرار", "en": "One-minute brief and decision minutes" },
+      "text": { "ar": "يجب على النظام أن يعيد عبر GET …/brief موجزاً من دقيقة لجدول القسم وما تغيّر فيه منذ آخر مرة، وأن يبني عبر POST …/meeting-minutes محضر قرار: المشكلة (أول موعدٍ يحتاج تحققاً)، والبدائل بدرجاتها وموانعها وعدد ما يتغيّر، والبديل المختار (أو الأول)، والأثر المتوقع (الجودة وموانع الحفظ قبل وبعد)، وحتى 8 تعليقات على الموعد، وحتى 5 قيود من ذاكرة القرارات، واسم المعتمِد حتى 120 حرفاً، وتاريخ الإنشاء؛ ولا يحفظ المحضر.", "en": "The system shall return through GET …/brief a one-minute brief of the department schedule and what changed in it since last time, and shall build through POST …/meeting-minutes decision minutes: the problem (the first appointment needing verification), the alternatives with their scores, blockers and number of changes, the chosen alternative (or the first), the expected impact (quality and save blockers before and after), up to 8 comments on the appointment, up to 5 decision-memory entries, the approver's name up to 120 characters and the generation time; the minutes are not saved." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "محضر لقسمٍ بلا مواعيد ← 400 «لا يوجد جدول لبناء محضر قرار».", "en": "Minutes for a department with no appointments ← 400 «there is no schedule to build minutes from»." },
+        { "ar": "optionId غير موجود ← يُختار البديل الأول.", "en": "An unknown optionId ← the first alternative is chosen." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/brief", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/meeting-minutes"], "tests": ["tests/blockers-stream-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-038",
+      "kind": "functional",
+      "title": { "ar": "شبكة الأمان والتراجع عن قرار", "en": "Safety net and undoing a decision" },
+      "text": { "ar": "يجب على النظام أن يعرض عبر GET …/safety-net آخر 18 نقطة أمان لجدول القسم والفصل، لكلٍّ نوعها وعنوانها وكاتبها وعدد صفوفها وأثر استرجاعها على الجدول كما هو الآن مقروءاً حياً؛ وأن يسترجع عبر POST …/safety-net/:id/undo نقطةً فقط بتأكيدٍ صريح decision-undo، بعد فحص النطاق وقفل الجدول والكتابة فوق عمل الآخرين ومهلة الاستبدال الكلي وصلاحية الأوقات، فيلتقط قبلها نقطة «قبل التراجع عن القرار» ويستبدل جدول القسم ويسجّل النشر.", "en": "The system shall show through GET …/safety-net the last 18 safety points of the department schedule and term, each with its kind, title, writer, row count and the live effect of restoring it on the schedule as it is now; and shall restore a point through POST …/safety-net/:id/undo only with the explicit confirmation decision-undo, after checking scope, the schedule lock, overwriting others' work, the wholesale-replacement deadline and the validity of times, capturing beforehand a «before undoing the decision» point, replacing the department schedule and recording the publication." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "admin"],
+      "acceptance": [
+        { "ar": "undo بلا تأكيد ← 409 «يتطلب التراجع عن القرار تأكيداً صريحاً».", "en": "undo without confirmation ← 409 «undoing the decision requires explicit confirmation»." },
+        { "ar": "جدول مقفل ← 409 schedule-locked؛ وبعد مهلة الاستبدال الكلي ← 409 deadline-wholesale.", "en": "A locked schedule ← 409 schedule-locked; after the wholesale deadline ← 409 deadline-wholesale." },
+        { "ar": "نسخة فيها أوقات غير صالحة ← 400 ولا تغيير.", "en": "A version with invalid times ← 400 and no change." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/safety-net", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/safety-net/:id/undo"], "tests": ["tests/safety-net-restore-audit.ts", "tests/blockers-stream-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-039",
+      "kind": "functional",
+      "title": { "ar": "تحديث القرارات المفتوحة ومراجعة التشغيل", "en": "Updating open decisions and the operations review" },
+      "text": { "ar": "يجب على النظام أن يقصر القرار المفتوح على عنوانٍ من 3 إلى 140 حرفاً وتفصيلٍ حتى 500 ومسؤولٍ حتى 100 وتاريخٍ حتى 30 حرفاً، وأولويةٍ منخفضة أو متوسطة (الافتراضي) أو عالية، وأن يغيّر عبر PATCH …/open-decisions/:id حالته (مفتوح أو منجز) وأولويته ومسؤوله وتاريخه فقط لقرارٍ في النطاق نفسه، ويستنتج حتى 5 قرارات من تنبيهات الجدول وحتى 4 من الشذوذ غير المنخفض؛ وأن يعيد عبر GET …/operations-review دقة الجدول من حتى 24 نسخة، والشذوذ المنطقي، والقواعد غير المكتوبة المكتشفة من تاريخ القسم، وحجم التاريخ بالصفوف والفصول.", "en": "The system shall limit an open decision to a title of 3 to 140 characters, a detail up to 500, an owner up to 100 and a date up to 30 characters, with a low, medium (default) or high priority, and shall change through PATCH …/open-decisions/:id only its status (open or done), priority, owner and date, for a decision in the same scope, inferring up to 5 decisions from schedule alerts and up to 4 from non-low anomalies; and shall return through GET …/operations-review the schedule accuracy from up to 24 versions, logical anomalies, unwritten rules discovered from the department history, and the history size in rows and terms." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "PATCH لقرارٍ من قسمٍ آخر ← 404 «القرار غير موجود في هذا النطاق».", "en": "PATCH for a decision from another department ← 404 «the decision is not in this scope»." },
+        { "ar": "عنوان من حرفين ← 400 «اكتب عنوان القرار المفتوح».", "en": "A two-character title ← 400 «write the open decision's title»." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/open-decisions/:id", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/operations-review"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-040",
+      "kind": "functional",
+      "title": { "ar": "حلول التعارض والبدائل المكانية وتقييم السيناريو", "en": "Conflict solutions, spatial alternatives and scenario evaluation" },
+      "text": { "ar": "يجب على النظام أن يقترح عبر POST …/conflict-solutions حتى 5 أوقات بديلة لموعدٍ مقترح بعد فحصه، مقابل كل مواعيد الفصل؛ وأن يعيد عبر GET …/spatial-burnout مقترحات تبديل القاعات للانتقال بين المباني من ملف حركة الحرم؛ وأن يقيّم عبر POST …/evaluate مسودةً مرسلة مقابل الجدول الحالي (الجودة والقواعد قبل وبعد) دون فحص التعارض في المسودة نفسها؛ وأن يعيد عبر GET …/genome بصمة جدول القسم عبر فصوله في نطاق القراءة، وعبر GET …/lookups مقررات وأساتذة أقسام القارئ فقط (والكل لمدير النظام).", "en": "The system shall propose through POST …/conflict-solutions up to 5 alternative times for a proposed appointment after checking it, against all appointments of the term; shall return through GET …/spatial-burnout room-swap proposals for movement between buildings from the campus mobility profile; shall evaluate through POST …/evaluate a sent draft against the current schedule (quality and rules before and after) without checking conflicts within the draft itself; and shall return through GET …/genome the department schedule's profile across its terms within the reading scope, and through GET …/lookups the courses and instructors of the reader's departments only (all of them for the system administrator)." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "admin"],
+      "acceptance": [
+        { "ar": "موعد ناقص البيانات في conflict-solutions ← 400 «بيانات الموعد غير مكتملة».", "en": "An appointment with incomplete data in conflict-solutions ← 400 «the appointment data is incomplete»." },
+        { "ar": "مسودة فيها صفوف غير صالحة في evaluate ← 400 «المسودة تحتوي بيانات تحتاج مراجعة» مع issues.", "en": "A draft with invalid rows in evaluate ← 400 «the draft contains data needing review» with issues." },
+        { "ar": "lookups لرئيس قسم ← مقررات قسمه وأساتذته فقط.", "en": "lookups for a department head ← only the department's courses and instructors." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/conflict-solutions", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/spatial-burnout", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/evaluate", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/genome", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/lookups"], "tests": ["tests/appointment-forms-audit.ts", "tests/role-scope-audit.ts", "tests/decision-surfaces-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-041",
+      "kind": "functional",
+      "title": { "ar": "حدود قواعد الجدولة وتعديلها وحذفها", "en": "Scheduling rule limits, toggling and deletion" },
+      "text": { "ar": "يجب على النظام أن يحصر حدّ الدقائق في قاعدة room_doorway بين 1 و60، وفي قاعدة أطول فراغ للأستاذ بين 30 و480 (الافتراضي 120)، وأن يرفض قاعدةً جديدة لأستاذٍ متقاعد أو متفرغ، وآخر وقتٍ خارج اليوم الدراسي، وقاعة مقرر غير معتمدة في سجل المباني والقاعات الرسمي؛ وأن يتيح لصاحب الصلاحية الكاملة عبر PUT …/constraints/:id تفعيل القاعدة أو تعطيلها فقط، وعبر DELETE …/constraints/:id حذفها، لقاعدةٍ في نطاق القسم والفصل نفسه.", "en": "The system shall clamp the minute limit of a room_doorway rule between 1 and 60 and of a maximum instructor gap rule between 30 and 480 (default 120), and shall refuse a new rule for a retired or full-time-released instructor, a latest-end time outside the teaching day, and a course room not approved in the official buildings and rooms registry; and shall let a power user enable or disable a rule only through PUT …/constraints/:id, and delete it through DELETE …/constraints/:id, for a rule in the same department and term scope." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "room_doorway بـ90 دقيقة ← تُحفظ 60.", "en": "room_doorway with 90 minutes ← saved as 60." },
+        { "ar": "PUT أو DELETE لقاعدة من فصلٍ آخر ← 404 «القاعدة غير موجودة في هذا النطاق».", "en": "PUT or DELETE for a rule from another term ← 404 «the rule is not in this scope»." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/constraints", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/constraints/:id"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-042",
+      "kind": "functional",
+      "title": { "ar": "تعليقات الموعد وحماية ملاحظة التسجيل", "en": "Appointment comments and protecting the registration note" },
+      "text": { "ar": "يجب على النظام أن يعرض تعليقات موعدٍ في النطاق (GET …/comments/:scheduleId) ويضيف تعليقاً من 2 إلى 600 حرف باسم كاتبه (POST)، وأن يغيّر حالة «مُعالَج» لتعليقٍ عبر PUT …/comments/:scheduleId/:commentId فقط إن كان لهذا الموعد نفسه، وألا يغلق من هنا ملاحظةً كتبها التسجيل، لأنها تمنع الإرسال حتى تُعالَج في مسار ملاحظات الاعتماد.", "en": "The system shall show the comments of an appointment in scope (GET …/comments/:scheduleId) and add a comment of 2 to 600 characters under its writer's name (POST), shall change a comment's «resolved» state through PUT …/comments/:scheduleId/:commentId only when it belongs to that same appointment, and shall never close from here a note written by registration, because it blocks submission until handled in the approval-notes path." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "registrarStaff"],
+      "acceptance": [
+        { "ar": "إغلاق ملاحظة origin=registrar ← 403 registrar-note.", "en": "Closing a note with origin=registrar ← 403 registrar-note." },
+        { "ar": "commentId لموعدٍ آخر ← 404 «التعليق غير موجود على هذا الموعد».", "en": "A commentId of another appointment ← 404 «the comment is not on this appointment»." },
+        { "ar": "تعليق من 601 حرف ← 400؛ وتعليق صالح ← 201.", "en": "A 601-character comment ← 400; a valid one ← 201." },
+        { "ar": "لوحة سياق الموعد لا تعرض ملاحظات الفريق اليوم (TEAM_NOTES_ENABLED = false)؛ ويستعمل زر «عولجت» في صينية رسائل الأساتذة مسار PUT نفسه بقيمة resolved:true.", "en": "The appointment context panel does not show team notes today (TEAM_NOTES_ENABLED = false); the «handled» button in the instructors' message tray uses the same PUT route with resolved:true." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/comments/:scheduleId", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/comments/:scheduleId/:commentId"], "tests": ["tests/publish-notes-r4-audit.ts", "tests/blockers-stream-audit.ts"] }
+    },
+    {
+      "id": "IR-INT-043",
+      "kind": "interface",
+      "title": { "ar": "مسارا أثر المقرر وتاريخ الموعد", "en": "The course impact and appointment history routes" },
+      "text": { "ar": "يجب على النظام أن يعيد GET /api/impact/course?courseId للمقرر في نطاق القارئ: الصحائف الحية التي تحمله، ومسبقاته ومقرناته، والمقررات المعتمدة عليه بصحائفها، والطلب عليه من آخر تشغيلٍ للرادار لفصل الباب (مطلوب، مُجلَس، شعب، سعة، مأخوذ، غير ملبّى)؛ وأن يعيد GET /api/schedules/:id/history أصل الموعد المكتوب فيه وآخر 12 حدثاً ناجحاً من آخر 1500 قيدٍ في سجل التدقيق تخصّه، مع علامة truncated إن زادت؛ كلاهما بلا تخزين مؤقت.", "en": "The system shall return GET /api/impact/course?courseId for a course in the reader's scope: the live plans that carry it, its prerequisites and corequisites, the courses depending on it with their plans, and its demand from the latest radar run of the door term (wanted, seated, sections, capacity, taken, unmet); and shall return GET /api/schedules/:id/history the origin written in the appointment and the latest 12 successful events about it from the last 1500 audit-log entries, with a truncated flag when there are more; both without caching." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "admin"],
+      "acceptance": [
+        { "ar": "مقرر غير موجود ← 404 «المقرر غير موجود»؛ وخارج النطاق ← 403.", "en": "A missing course ← 404 «the course does not exist»; outside scope ← 403." },
+        { "ar": "موعد له 15 حدثاً ← events بطول 12 وtruncated = true.", "en": "An appointment with 15 events ← 12 events and truncated = true." }
+      ],
+      "evidence": { "code": ["src/server/insightRoutes.ts#/api/impact/course", "src/server/insightRoutes.ts#/api/schedules/:id/history"], "tests": ["tests/radar-insight-audit.ts", "tests/activity-trail-audit.ts"] }
+    },
+    {
+      "id": "IR-INT-044",
+      "kind": "interface",
+      "title": { "ar": "استقبال قياسات الواجهة", "en": "Interface telemetry intake" },
+      "text": { "ar": "يجب على النظام أن يقبل عبر POST /api/telemetry/client من المستخدم الداخل حتى 20 قيداً في الدفعة من أنواع api وerror وoffline وsync وguide (وغيرها يُعدّ error)، يسقط منها ما يخص قسماً خارج نطاقه، ويحفظ قيود guide بلا معرّف مستخدمٍ ولا اسم، ويستبدل الأرقام بـ# في الأسئلة التي لم تُجب، ويقصّ الاسم إلى 140 حرفاً والرسالة إلى 320، ويحصر المدة بين 0 و120000 مللي ثانية، ويحفظ آخر 12 خطوة من أثر الاستعمال، ويعيد عدد المقبول.", "en": "The system shall accept through POST /api/telemetry/client from the signed-in user up to 20 entries per batch of kinds api, error, offline, sync and guide (any other counts as error), dropping those about a department outside the user's scope, storing guide entries with no user id or name, replacing digits with # in unanswered questions, cutting the name to 140 characters and the message to 320, clamping the duration between 0 and 120000 milliseconds, keeping the last 12 breadcrumb steps, and returning the accepted count." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "دفعة من 25 قيداً ← يُنظر في أول 20 فقط.", "en": "A batch of 25 entries ← only the first 20 are considered." },
+        { "ar": "قيد guide باسم unanswered|غرفة 204 ← يُحفظ «unanswered|غرفة #» وSystemUserId = 0.", "en": "A guide entry named unanswered|room 204 ← stored as «unanswered|room #» with SystemUserId = 0." }
+      ],
+      "evidence": { "code": ["src/server/routes/guideRoutes.ts#/api/telemetry/client"], "tests": ["tests/activity-trail-audit.ts"] }
+    },
+    {
+      "id": "NFR-INT-045",
+      "kind": "nonfunctional",
+      "title": { "ar": "متغيرات تشغيل خدمة Gemini", "en": "Gemini service configuration variables" },
+      "text": { "ar": "يجب على النظام أن يقرأ مفتاح خدمة Gemini من GEMINI_API_KEY ثم GOOGLE_GEMINI_API_KEY، واسم النموذج من GEMINI_SCHEDULE_MODEL ثم GEMINI_MODEL وإلا gemini-3.6-flash، وأن يعمل بلا مفتاح بالمحلل الحتمي وحده، وأن يسجّل في سجل الخادم سبب الرفض (رمز HTTP وأول 300 حرف من الرسالة) أو تجاوز المهلة، ويعيده إلى الشاشة.", "en": "The system shall read the Gemini service key from GEMINI_API_KEY, then GOOGLE_GEMINI_API_KEY, and the model name from GEMINI_SCHEDULE_MODEL, then GEMINI_MODEL, otherwise gemini-3.6-flash; it shall work without a key using the deterministic parser alone, and shall log on the server the refusal reason (HTTP status and the first 300 characters of the message) or the timeout, returning it to the screen." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["system", "external"],
+      "acceptance": [
+        { "ar": "بلا أي من المتغيرين للمفتاح ← لا طلب إلى الخدمة، ويعمل الاستعلام بالمحلل الحتمي.", "en": "With neither key variable ← no request to the service, and the query runs on the deterministic parser." },
+        { "ar": "رد HTTP 403 من الخدمة ← {failed:true, status:403, reason} ورسالة في سجل الخادم.", "en": "An HTTP 403 from the service ← {failed:true, status:403, reason} and a server log line." }
+      ],
+      "evidence": { "code": ["src/server/core/gemini.ts#requestGeminiScheduleLayer"] },
+      "inferred": true
+    },
+    {
+      "id": "IR-INT-046",
+      "kind": "interface",
+      "title": { "ar": "بطاقات القراءة في «قراءة القرار»", "en": "Reading cards in «decision reading»" },
+      "text": { "ar": "يجب أن تعرض شاشة مركز التحليلات في «قراءة القرار» لوحة بطاقات، لكل بطاقة اسمها ووصفها ورقمها، تفتح كلٌّ منها قراءتها صفحةً مستقلة فوق اللوحة مع زر «العودة إلى مركز القراءات»، وأن تُظهر بطاقة «صحة البيانات» لصاحب الصلاحية الكاملة وحده، و«الحركة المكانية» حين توجد قراءة حركة، و«طلبات الطلاب» حين توجد قراءة طلب، و«بصمة القسم» حين توجد بصمة، و«الصحيفة» لرئيس لجنة الجدول وصاحب الصلاحية الكاملة دائماً.", "en": "The Analytics Center screen shall show in «decision reading» a board of cards, each with its name, description and figure, each opening its reading as a separate page over the board with a «back to the readings» button; it shall show the «data health» card to the full administrator only, «campus movement» when a movement reading exists, «student requests» when a demand reading exists, «department fingerprint» when a fingerprint exists, and «plan sheet» always to the schedule committee chair and the full administrator." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "بطاقة الجودة رقمها «الدرجة/100» ووصفها حال الجاهزية: جاهز للاعتماد، جاهز بعد مراجعة، يوجد ما يمنع الاعتماد، يحتاج تحسين؛ وبطاقة «قبل الاعتماد» تعرض عدد الموانع أو «لا موانع».", "en": "The quality card shows «score/100» and the readiness as its description: ready for approval, ready after review, something blocks approval, needs improvement; the «before approval» card shows the blocker count or «no blockers»." },
+        { "ar": "لا يُكتب الرقم صفر على أي بطاقة، والقيمة النصية الطويلة (أكثر من 7 أحرف) تُصغَّر.", "en": "Zero is never printed on a card, and a long text value (more than 7 characters) is drawn smaller." },
+        { "ar": "بطاقة الصحيفة تعرض «المنشور/الكل» من /api/plan-sheets، و«—» مع «تظهر بعد اعتماد الصحيفة» حين لا صحيفة؛ وبطاقة التنبؤ تعرض «تاريخ غير كافٍ» أو عدد الإجراءات أو «لا مقترح» من /api/simulation/predictive-summary.", "en": "The plan-sheet card shows «published/total» from /api/plan-sheets, and «—» with «appears after the sheet is approved» when there is none; the forecast card shows «history not sufficient», the number of actions or «no proposal» from /api/simulation/predictive-summary." },
+        { "ar": "الأسهم وHome وEnd تنقل بين البطاقات وتفتحها، وEscape يغلق نافذة الشرح أولاً ثم القراءة المفتوحة، والقراءة تُفتح من أعلى الصفحة.", "en": "Arrows, Home and End move between cards and open them; Escape closes the explanation sheet first and then the open reading, and a reading opens at the top of the page." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#insightScenes", "src/components/IntelligenceWorkspace.tsx#moveInsightFocus", "src/components/IntelligenceWorkspace.tsx#metricBadge", "src/components/IntelligenceWorkspace.tsx#liftToTop"], "tests": ["tests/plan-sheet-audit.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-047",
+      "kind": "functional",
+      "title": { "ar": "نافذة «لماذا هذا الرقم؟» خلف المؤشرات", "en": "The «why this figure» sheet behind indicators" },
+      "text": { "ar": "يجب أن يفتح الضغط على مؤشرات «قبل الاعتماد» وعلى كل تنبيه نافذةَ شرح للقراءة فقط تسرد العناصر التي كوّنت الرقم: موانع الاعتماد عالية الخطورة، والأساتذة الذين تجاوز فراغهم 180 دقيقة، والمواعيد التي تبدأ من 16:00، والسجلات الناقصة (أستاذ أو مقرر أو قاعة أو وقت أو أيام)، وتوزيع الحمل بين الأيام، بحدٍّ أقصى 12 عنصراً لكل قائمة، وأن تُخفى بطاقات المؤشرات التي قيمتها صفر.", "en": "Pressing the «before approval» indicators and any alert shall open a read-only explanation sheet listing the items that make up the figure: high-severity approval blockers, instructors whose gap exceeds 180 minutes, appointments starting at 16:00 or later, incomplete records (instructor, course, room, time or days) and the load split between days, at most 12 items per list; indicator cards whose value is zero shall be hidden." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "يُختار نوع الشرح من عنوان التنبيه: «تعارض/حجز/مزدوج/مانع اعتماد» ← الموانع، «فراغ» ← الفراغات، «متأخر/وقت» ← المواعيد المتأخرة، «بيانات/سجل» ← السجلات الناقصة، «توزيع/أيام» ← الأيام.", "en": "The explanation kind follows the alert title: conflict/booking/double/approval blocker ← blockers, gap ← gaps, late/time ← late appointments, data/record ← incomplete records, distribution/days ← days." },
+        { "ar": "يعرض التنبيه الثلاثة الأولى، والباقي تحت «عرض الباقي (n)».", "en": "The attention reading shows the first three alerts and the rest under «show the rest (n)»." },
+        { "ar": "تُغلق النافذة بالضغط خارجها أو بـ✕ أو «تم» أو Escape، وتذيّلها «شرح فقط · لا يغيّر الجدول».", "en": "The sheet closes by clicking outside, ✕, «done» or Escape, and its footer reads «explanation only · does not change the schedule»." },
+        { "ar": "في قراءة القسم عبر كلياته يُقصر شرح التنبيه على صفوف الكلية التي صدر عنها.", "en": "In the department-wide reading an alert's explanation is limited to the rows of the college it came from." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#reasonForSmartAlert", "src/components/IntelligenceWorkspace.tsx#conflictReasonItems", "src/components/IntelligenceWorkspace.tsx#longGapReasonItems", "src/components/IntelligenceWorkspace.tsx#lateReasonItems", "src/components/IntelligenceWorkspace.tsx#invalidReasonItems"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-048",
+      "kind": "functional",
+      "title": { "ar": "قراءات الجودة وقبل الاعتماد والكثافة والحركة", "en": "Quality, before-approval, density and movement readings" },
+      "text": { "ar": "يجب أن تعرض قراءة الجودة الدرجة من 100 مع تفصيل «كيف تكوّنت الدرجة؟» بشريطٍ لكل عامل يقول «سليم» لما لم يخصم شيئاً، وزرَّي التحسين التلقائي وسؤال المساعد؛ وأن تعرض قراءة «قبل الاعتماد» حالتي الاعتماد والنشر مع تاريخ آخر نشر، وفي قراءة القسم عبر كلياته زرّاً لكل كلية بموانعها وحال نشرها ينقل إليها؛ وأن تعرض خريطة الكثافة ساعات التدريس وحدها، وتعرض الحركة المكانية الانتقالات المرهقة وتبديلات القاعات الآمنة.", "en": "The quality reading shall show the score out of 100 with a «how was the score formed?» breakdown, one bar per factor saying «clean» when it cost nothing, and the auto-improve and ask-the-assistant buttons; the «before approval» reading shall show the approval and publication states with the last publication time, and in the department-wide reading a button per college with its blockers and publication state that moves to it; the density map shall show teaching hours only, and campus movement shall show strenuous transfers and safe room swaps." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "صفوف الكثافة تبدأ قبل أول ساعة مشغولة بساعة وتنتهي بعد آخرها بساعة، وشدة اللون = مواعيد الخانة ÷ أعلى خانة؛ ومفتاح «القسم/الجامعة» يظهر لصاحب الصلاحية الكاملة وحده.", "en": "Density rows start one hour before the first busy hour and end one after the last, and colour strength = the slot's appointments ÷ the busiest slot; the «department/university» switch is shown to the full administrator only." },
+        { "ar": "الحركة المكانية تعرض أول 5 انتقالات بالفراغ المتاح والدقائق المطلوبة، وأول 3 تبديلات قاعة تُفتح في النسخة التجريبية، وتبديلٌ يمسّ موعداً خارج الكلية يُرفض بـ«الاقتراح يتضمن موعداً خارج هذه الكلية».", "en": "Campus movement shows the first 5 transfers with the available gap and the required minutes, and the first 3 room swaps, which open in the trial copy; a swap touching an appointment outside the college is refused with «the proposal includes an appointment outside this college»." },
+        { "ar": "مؤشرات الحركة التي قيمتها صفر لا تُعرض، وفي قراءة القسم تُعرض درجة الكلية الأشد ضغطاً.", "en": "Movement indicators equal to zero are not shown, and the department-wide reading shows the score of the most pressured college." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#heatTimes", "src/components/IntelligenceWorkspace.tsx#openSpatialProposal", "src/components/IntelligenceWorkspace.tsx#readinessLabel"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-049",
+      "kind": "functional",
+      "title": { "ar": "قراءتا القاعات والأساتذة ولوحتاهما الجانبيتان", "en": "Rooms and instructors readings and their side panels" },
+      "text": { "ar": "يجب أن تعرض قراءة القاعات أكثر 8 قاعات استخداماً بعدد مواعيدها واستخدامها التقديري (ساعات الإشغال ÷ ساعات اليوم الرسمية)، وقراءة الأساتذة كل الأساتذة مرتّبين أبجدياً بساعاتهم الأسبوعية وأيامهم وأطول فراغ، وأن يفتح الضغط على أيٍّ منهما لوحة جانبية: للقاعة عدد مواعيدها في الفصل ونوافذها المتاحة وأكثر الجهات استخداماً لها، وللأستاذ ساعاته وأيامه والتزاماته خارج نطاق القارئ وشكل أسبوعه ومواعيده الظاهرة ضمن صلاحيات القارئ.", "en": "The rooms reading shall show the 8 most used rooms with their appointment counts and estimated use (occupied hours ÷ official day hours), and the instructors reading all instructors alphabetically with weekly hours, days and longest gap; pressing either shall open a side panel: for a room its appointments in the term, its free windows and the departments using it most; for an instructor his hours, days, commitments outside the reader's scope, the shape of his week and his appointments visible within the reader's permissions." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "أستاذٌ أطول فراغٍ لديه 180 دقيقة أو أكثر يُعلَّم تحذيراً، ومن لا فراغ طويل لديه يُكتب «بلا فراغ طويل».", "en": "An instructor whose longest gap is 180 minutes or more is flagged, and one without a long gap reads «no long gap»." },
+        { "ar": "لوحة القاعة تعرض أول 6 جهات وأول 14 نافذة مجمّعة باليوم، وتقول إن الحجوزات الأخرى محسوبة مع إخفاء تفاصيلها.", "en": "The room panel shows the first 6 departments and the first 14 windows grouped by day, and states that other bookings are counted while their details stay hidden." },
+        { "ar": "شكل أسبوع الأستاذ يرسم لكل يوم محاضراته وانتظاراته، ويعلّم الانتظار الذي يبلغ 60 دقيقة أو أكثر ويكتب مدته حين يتّسع.", "en": "The instructor's week shape draws each day's lectures and waits, marking a wait of 60 minutes or more and writing its length when it fits." },
+        { "ar": "اللوحة تُغلق بـEscape أو بالضغط خارجها أو بـ✕، ويعود التركيز إلى ما فتحها.", "en": "The panel closes with Escape, a click outside or ✕, and focus returns to what opened it." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#loadRoom", "src/components/IntelligenceWorkspace.tsx#loadProfessor", "src/components/IntelligenceWorkspace.tsx#professorWeekShape", "src/components/IntelligenceWorkspace.tsx#WAIT_THRESHOLD"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-050",
+      "kind": "functional",
+      "title": { "ar": "قراءة صحة البيانات لصاحب الصلاحية الكاملة", "en": "Data health reading for the full administrator" },
+      "text": { "ar": "يجب أن تعرض قراءة صحة البيانات، لصاحب الصلاحية الكاملة وحده، حكماً («سليمة» أو «تحتاج مراجعة») وثلاثة أعداد: الصفوف الناقصة والتكرارات والمقررات بلا موعد، ثم الشذوذ المنطقي ودرجة تجربة القسم وزمن الاستجابة عند المئين 95 وأخطاء الواجهة في آخر 14 يوماً، دون أن تحذف أو تصحّح شيئاً.", "en": "The data health reading shall show, to the full administrator only, a verdict («clean» or «needs review») and three counts: incomplete rows, duplicates and courses without an appointment, then logical anomalies, the department experience score, the 95th-percentile response time and interface errors in the last 14 days, without deleting or correcting anything." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "درجة تجربة دون 75 تُبرز، وكل عدّاد قيمته أكبر من صفر يُبرز.", "en": "An experience score below 75 is highlighted, as is every counter above zero." },
+        { "ar": "يُعرض أول 6 شذوذات، وأول 4 أعطال بآخر 6 خطوات قبل كلٍّ منها، وأبطأ مسارات الخادم بمتوسطها.", "en": "The first 6 anomalies are shown, the first 4 failures with the last 6 steps before each, and the slowest server routes with their average." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#insightScenes", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/experience-health"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-051",
+      "kind": "functional",
+      "title": { "ar": "قراءة طلبات الطلاب ورابط الاستبيان", "en": "Student requests reading and the survey link" },
+      "text": { "ar": "يجب أن تعرض قراءة «طلبات الطلاب» باب الطلاب لقسمٍ واحد: إصدار رابط استبيان بمدة 7 أو 30 أو 90 أو 180 يوماً (الافتراضي 30) ونسخه وعرض رمز QR وطباعته وإيقافه بتأكيد، ثم أعداد المجيبين والمقررات المطلوبة والأزواج التي لا يجوز تقاطعها والنقلات الجاهزة، وسجلّ الحالات، واقتراحات فتح الشعب بحسابها الظاهر (الطلب ÷ سعة الشعبة − المفتوح = بلا مقعد)، ونقلات إزالة التقاطع، وأكثر 8 مقررات طلباً؛ وأن تُعيد قراءة الطلب كل 10 ثوانٍ ما دامت الصفحة ظاهرة ومستعملة.", "en": "The «student requests» reading shall show the students' door for one department: issuing a survey link valid 7, 30, 90 or 180 days (default 30), copying it, showing and printing its QR code and stopping it with a confirmation; then the counts of respondents, requested courses, pairs that must not overlap and ready moves, the case register, section-opening proposals with their visible arithmetic (demand ÷ section capacity − open = without a seat), overlap-removing moves and the 8 most requested courses; and shall re-read the demand every 10 seconds while the page is visible and in use." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "باب الطلاب لا يظهر لفصلٍ من الأرشيف؛ وإيقاف الرابط يقول إن الحالات المرسلة تبقى ويتابع أصحابها «حالة طلبي» حتى 30 يوماً بعد نهاية الفصل.", "en": "The students' door is not shown for an archived term; stopping a link states that submitted cases remain and their owners can follow «my request status» until 30 days after the term ends." },
+        { "ar": "فصلٌ بلا إجابات يعرض توقّعاً موسوماً من الفصل السابق (أول 8 مقررات وأول 5 أزواج) يسقط عند أول إجابة.", "en": "A term with no answers shows a forecast labelled as such from the previous term (first 8 courses and first 5 pairs) that disappears with the first answer." },
+        { "ar": "مكان الشعبة المقترحة يُفتح في النسخة التجريبية، ويُطبَّق في الجدول عبر معاينة ثم تأكيد فقط حين يكون له أستاذ؛ وبلا أستاذ يُكتب «يلزم أستاذٌ».", "en": "A proposed section placement opens in the trial copy, and is applied to the schedule through a preview then confirmation only when it has an instructor; without one it reads «an instructor is required»." },
+        { "ar": "يُصدَّر السجلّ ملف Excel باسم طلبات_الطلبة.xlsx ويُطبع، ويُصفّى بمحطات رحلة الطلب محلياً.", "en": "The register exports to an Excel file named طلبات_الطلبة.xlsx, prints, and is filtered locally by the request-journey stations." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#issueSurvey", "src/components/IntelligenceWorkspace.tsx#stopSurvey", "src/components/IntelligenceWorkspace.tsx#SURVEY_DAY_CHOICES", "src/components/IntelligenceWorkspace.tsx#openSectionDraft", "src/components/IntelligenceWorkspace.tsx#openRepair"], "tests": ["tests/student-journey-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-052",
+      "kind": "functional",
+      "title": { "ar": "قراءة بصمة القسم وقواعده غير المكتوبة", "en": "Department fingerprint reading and its unwritten rules" },
+      "text": { "ar": "يجب أن تعرض قراءة بصمة القسم نسبة مطابقة النمط وعدد الفصول التي بُنيت منها البصمة، وتوزّع الأيام، وأكثر 5 قاعات معتادة، وتحت «تفاصيل القراءة» أكثر 4 ساعات بدء و3 أماكن اختناق وانحرافين، ومتوسط الفراغ التاريخي بوصفه قراءة نمطية لا قاعدة إلزامية؛ وأن تتيح إضافة أيٍّ من أول 6 قواعد مكتشفة من التاريخ إلى دفتر القرارات المفتوحة.", "en": "The fingerprint reading shall show the pattern match percentage and how many terms built it, the day distribution, the 5 usual rooms, and under «reading details» the top 4 start hours, 3 bottlenecks and 2 deviations, and the historical average gap as a pattern reading, not a binding rule; it shall allow adding any of the first 6 rules discovered from history to the open-decisions book." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "القاعدة المضافة عنوانها «قاعدة مقترحة: » وأول 110 أحرف، وتفصيلها الثقة وأول 220 حرفاً، وأولويتها «عالية» حين تبلغ ثقتها 90 فأكثر وإلا «متوسطة».", "en": "An added rule is titled «proposed rule: » plus its first 110 characters, its detail carries the confidence and the first 220 characters, and its priority is high at a confidence of 90 or more, otherwise medium." },
+        { "ar": "بلا تاريخ سابق تُكتب «البصمة تبدأ من هذا الفصل» والنسبة «—».", "en": "Without earlier history it reads «the fingerprint starts from this term» and the percentage is «—»." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#proposeUnwrittenRule", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/genome"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-053",
+      "kind": "functional",
+      "title": { "ar": "شاشة «اسأل الجدول» وطباعة نتائجها", "en": "The «ask the schedule» screen and printing its results" },
+      "text": { "ar": "يجب أن تعرض شاشة «اسأل الجدول» أربعة أسئلة جاهزة تُرسل بنقرة، وأربعة أوامر تكتب نصها في الخانة، وتعرض الجواب أرقاماً أو أشرطة أو تحوّلاً «قبل ← بعد» قبل النص، ونطاق الجواب وعدد مواعيده، وأن تحوّل أمر نقلٍ («انقل 101 إلى 11:00») إلى معاينة بالموانع لا تُطبَّق إلا بزر «طبّق النقل»، وأن تطبع الأسئلة وأجوبتها أربعةً في كل صفحة.", "en": "The «ask the schedule» screen shall offer four ready questions sent with one click and four commands that write their text into the box, show the answer as figures, bars or a «before ← after» shift ahead of the text, with the answer's scope and appointment count, turn a move command («move 101 to 11:00») into a preview with its conflicts that applies only through the «apply the move» button, and print the questions and answers four per page." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "أمر النقل في قراءة القسم عبر كلياته لا يُرسل: تعود القراءة إلى الكلية ويُطلب «اختر كلية الموعد ثم أرسل أمر النقل»، ويبقى السؤال في الخانة.", "en": "A move command in the department-wide reading is not sent: the reading returns to the college and asks «choose the appointment's college, then send the move command», keeping the question in the box." },
+        { "ar": "تطبيق النقل يمرّ عبر /api/schedules/move-batch بالموانع نفسها، وتُعرض أول 4 تعارضات، أو سبب المنع، أو «تم النقل بنجاح».", "en": "Applying the move goes through /api/schedules/move-batch with the same blockers, showing the first 4 conflicts, the blocking reason, or «moved successfully»." },
+        { "ar": "زر الإرسال معطّل والخانة فارغة، والجواب الجديد يُمرَّر إليه داخل المحادثة وحدها ويأخذ التركيز.", "en": "The send button is disabled while the box is empty, and a new answer is scrolled into view within the thread only and takes focus." },
+        { "ar": "لوحة جانبية تعرض حدود المعرفة ودفتر القرارات: أول 5 قرارات مفتوحة ومستنتجة، وإضافة قرار من 3 إلى 140 حرفاً، والضغط على قرارٍ مكتوب يغلقه.", "en": "A side panel shows the knowledge limits and the decision book: the first 5 open and inferred decisions, adding a decision of 3 to 140 characters, and pressing a written decision closes it." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#sendCopilot", "src/components/IntelligenceWorkspace.tsx#applyMove", "src/components/IntelligenceWorkspace.tsx#addOpenDecision", "src/components/IntelligenceWorkspace.tsx#closeOpenDecision"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-054",
+      "kind": "functional",
+      "title": { "ar": "النسخة التجريبية في مشهد «جرّب»", "en": "The trial copy in the «try» scene" },
+      "text": { "ar": "يجب أن يعرض مشهد «جرّب» بطاقات: النسخة التجريبية ومختبر القرار، ثم لوحة التجربة وسجل التغييرات حين توجد نسخة، وأن تُنسخ النسخة من الجدول أو من الاقتراح التلقائي، وتُحرَّك مواعيدها بالسحب إلى خانات نصف ساعة بين 08:00 و18:00 مع إبقاء أيامها، أو تُعدَّل في المحرر (البداية والنهاية والقاعة والأيام)، ويُعاد تقييمها تلقائياً بعد 650 ملّيثانية من آخر تغيير، دون أن يتغيّر الجدول الحقيقي إلا بحفظها مسودةً ثم نشرها.", "en": "The «try» scene shall show cards: the trial copy and the decision lab, then the trial board and the change ledger once a copy exists; the copy shall be taken from the schedule or from the auto proposal, its appointments moved by dragging onto half-hour slots between 08:00 and 18:00 keeping their days, or edited in the editor (start, end, room and days), and re-evaluated automatically 650 ms after the last change, while the real schedule changes only by saving it as a draft and then publishing it." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "لوحة التجربة تعرض درجة الجدول الحالي وفرق الجودة (والضغط عليه يعيد الحساب) ومخالفات القيود.", "en": "The trial board shows the current schedule's score, the quality difference (pressing it recalculates) and the rule violations." },
+        { "ar": "«احفظ كمسودة» معطّل بلا تغيير، والحفظ يحدّث المسودة المفتوحة إن كانت مسودة وإلا ينشئ واحدة، ثم ينقل إلى شاشة الجدول برسالة أن المسودة لم تُنشر.", "en": "«save as draft» is disabled with no change; saving updates the open draft if it is a draft, otherwise creates one, then moves to the schedule screen with a message that the draft is not published." },
+        { "ar": "سجل التغييرات يعرض حتى 30 موعداً متغيراً بوقتها قبل وبعد وقاعتها إن تغيّرت، و«مطابقة للجدول الحقيقي» حين لا تغيير.", "en": "The change ledger shows up to 30 changed appointments with their time before and after and their room if it changed, and «identical to the real schedule» when nothing changed." },
+        { "ar": "اسم المسودة الافتراضي «سيناريو» أو «اقتراح تلقائي» متبوعاً بالتاريخ والوقت.", "en": "The default draft name is «scenario» or «auto proposal» followed by the date and time." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#startTwin", "src/components/IntelligenceWorkspace.tsx#moveTwinTime", "src/components/IntelligenceWorkspace.tsx#saveDraft", "src/components/IntelligenceWorkspace.tsx#twinSlots", "src/components/IntelligenceWorkspace.tsx#CardDeck"], "tests": ["tests/intelligence-reading-scope-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-055",
+      "kind": "functional",
+      "title": { "ar": "أدوات مختبر القرار على الشاشة", "en": "Decision-lab tools on screen" },
+      "text": { "ar": "يجب أن يعرض مختبر القرار أربع أدوات: لوحة القيود (ستة أنواع كما يقبلها الخادم: آخر وقت للأستاذ، يوم محجوز للأستاذ، يوم بحث للقسم، قاعة إلزامية للمقرر، حد أقصى للفراغ، فاصل بين محاضرتين في القاعة)، وغرفة القرار (مشكلة من أول 12 تعارضاً أو أكبر مشكلة، وثلاثة خيارات مقارنة)، والتحسين الآلي (هدف مكتوب إلزامي)، ومختبر السياسات (يوم بلا محاضرات، إغلاق مبنى، لا محاضرات بعد وقت، نمو الطلب 1–100٪)، وأن يتحوّل أي خيار إلى مسودة فقط.", "en": "The decision lab shall show four tools: the rules board (six kinds as the server accepts them: instructor latest end, instructor day off, department research day, mandatory course room, maximum gap, and a break between two lectures in the same room), the decision room (a problem from the first 12 conflicts or the biggest problem, and three compared options), the automatic optimiser (a required written goal) and the policy lab (a day without lectures, closing a building, no lectures after a time, demand growth 1–100%), and any option shall become a draft only." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "القيمة الافتراضية للقاعدة: آخر وقت 14:00، يوم الأربعاء، حد الفراغ 120 دقيقة بين 30 و480 بخطوة 30؛ وحذف القاعدة يمرّ بتأكيد، وقائمة الأساتذة تضم القابلين للإسناد وحدهم.", "en": "Rule defaults: latest end 14:00, Wednesday, gap limit 120 minutes between 30 and 480 in steps of 30; deleting a rule passes a confirmation, and the instructor list holds assignable instructors only." },
+        { "ar": "نطاق السياسة «هذه الكلية»، و«كل كليات القسم» حين للقسم أكثر من كلية، و«الجامعة» لصاحب الصلاحية الكاملة؛ و«اختبر» معطّل لإغلاق مبنى بلا مبنى.", "en": "The policy scope is «this college», «all the department's colleges» when the department has more than one college, and «university» for the full administrator; «test» is disabled for closing a building with no building chosen." },
+        { "ar": "خيار غرفة القرار يُحفظ مسودةً باسم «خيار اللجنة n»، وخطة التحسين الآلي باسم «خطة تلقائية n»، وجوابٌ فارغ لقسمٍ بلا مواعيد يُعرض رسالةً لا خطأ.", "en": "A decision-room option is saved as a draft named «committee option n» and an optimiser plan as «auto plan n», and an empty answer for a department without appointments is shown as a message, not an error." },
+        { "ar": "قاعدة الفاصل في القاعة تطلب دقائق بين 1 و60 (الافتراضي 10 عند اختيار النوع)، ونموذج الإضافة وزرّا التفعيل والحذف لمدير النظام أو الحساب الرئيسي وحدهما ويرى غيرهما ملاحظة «للقراءة فقط».", "en": "The room-break rule asks for minutes between 1 and 60 (default 10 when the kind is chosen), and the add form and the toggle and delete buttons are for a system administrator or the root account only, while anyone else sees a «read only» note." },
+        { "ar": "نصوص الأدوات بالعربية: زر الخيار «افتح في النسخة التجريبية»، وحارس التحسين الآلي يقول إنه «لا يملك صلاحية النشر».", "en": "Tool wording is Arabic: the option button reads «open in the trial copy», and the optimiser guard says it «has no publishing right»." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#createConstraint", "src/components/IntelligenceWorkspace.tsx#deleteConstraint", "src/components/IntelligenceWorkspace.tsx#runWarRoom", "src/components/IntelligenceWorkspace.tsx#runAutopilot", "src/components/IntelligenceWorkspace.tsx#runPolicy", "src/components/IntelligenceWorkspace.tsx#saveOptionAsDraft"], "tests": ["tests/intelligence-reading-scope-audit.ts", "tests/analytics-reports-review-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-056",
+      "kind": "functional",
+      "title": { "ar": "مشهد «اعتمد»: مقارنة الفصول والمسودات والنسخ", "en": "The «approve» scene: term comparison, drafts and versions" },
+      "text": { "ar": "يجب أن يعرض مشهد «اعتمد» بطاقة مقارنة الفصول حين يوجد فصلان على الأقل فيهما بيانات للنطاق، وبطاقة المسودات بعددها، وبطاقة سجل النسخ؛ تقارن الأولى عدد المواعيد والجودة والإضافات والحذوف والقاعات بين فصلين مختلفين مع أعمدة «أُضيف/انتقل/اختفى»، وتتيح الثانية فتح المسودة ونشرها، وتتيح الثالثة مقارنة نسختين من الكلية نفسها بصرياً واسترجاع أي نسخة.", "en": "The «approve» scene shall show a term-comparison card when at least two terms have data for the scope, a drafts card with its count and a version-history card; the first compares appointment counts, quality, additions, removals and rooms between two different terms with «added/moved/disappeared» columns, the second opens and publishes a draft, and the third compares two versions of the same college visually and restores any version." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "كل عمود مقارنة يعرض حتى 24 صفاً ثم «و n غيرها»، ومقارنة فصلٍ بنفسه لا تُرسل.", "en": "Each comparison column shows up to 24 rows then «and n others», and comparing a term with itself is not sent." },
+        { "ar": "النشر والاسترجاع معطّلان أثناء انقطاع الاتصال، ويسألان قبل محو تعديلات لاحقة، ويحفظان نسخة قبل التغيير.", "en": "Publishing and restoring are disabled while offline, ask before erasing later edits, and save a version before the change." },
+        { "ar": "نسختان من كليتين مختلفتين ← «اختر نسختين من الكلية نفسها»، ونسخة واحدة مرتين ← «اختر نسختين مختلفتين للمقارنة».", "en": "Two versions of different colleges ← «choose two versions of the same college», and the same version twice ← «choose two different versions to compare»." },
+        { "ar": "شريط الزمن يقارن كل نسخة بالتي قبلها بعد 220 ملّيثانية من التوقف، ومنزلق المقارنة يقبل 0 و50 و100٪ أو السحب، وتُعرض دقة الجدول وحرارة التعديلات بين 07:00 و22:00.", "en": "The timeline compares each version with the previous one 220 ms after it stops, the comparison slider accepts 0, 50 and 100% or dragging, and the schedule accuracy and the edit heat between 07:00 and 22:00 are shown." },
+        { "ar": "شارة مصدر النسخة في السجل بالعربية: حفظ يدوي، مسودة، نشر، تراجع، نسخ، استيراد، وما سواها «تعديل»؛ لا يظهر الرمز المخزّن.", "en": "The version's source badge in the timeline is Arabic: manual save, draft, publish, undo, copy, import, and anything else «edit»; the stored code is never shown." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#compareTerms", "src/components/IntelligenceWorkspace.tsx#publishDraft", "src/components/IntelligenceWorkspace.tsx#restoreVersion", "src/components/IntelligenceWorkspace.tsx#compareVersionPair", "src/components/IntelligenceWorkspace.tsx#versionActivityHeatmap", "src/components/IntelligenceWorkspace.tsx#versionSourceLabel"], "tests": ["tests/analytics-reports-review-audit.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "NFR-INT-057",
+      "kind": "nonfunctional",
+      "title": { "ar": "متانة شاشة مركز التحليلات", "en": "Robustness of the Analytics Center screen" },
+      "text": { "ar": "يجب أن ترسم الشاشة لوحتها وجودتها أولاً ثم تملأ ثماني قراءات ثانوية كلٌّ وحدها، فما فشل منها يُسمّى في تنبيه قابل لإعادة المحاولة دون إسقاط الباقي، وألا يرسم إلا آخر طلبٍ أُرسل، وأن ترفض أي كتابة أثناء انقطاع الاتصال برسالة، وأن تعرض نطاقاً ناقصاً حالة خمول بلا خطأ قديم.", "en": "The screen shall paint its board and quality first, then fill eight secondary readings each on its own, naming any that failed in a retryable notice without dropping the rest; only the newest request may paint; any write shall be refused while offline with a message; and an incomplete scope shall show an idle state without a stale error." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "القراءات الثانوية: المسودات، النسخ، بصمة القسم، القيود، طلبات الطلاب، مراجعة التشغيل، القرارات المفتوحة، صحة التجربة؛ والتفاصيل التقنية للخطأ لصاحب الصلاحية الكاملة وحده.", "en": "The secondary readings: drafts, versions, department fingerprint, rules, student requests, operations review, open decisions, experience health; the technical details of an error are for the full administrator only." },
+        { "ar": "رد يحمل ترويسة X-Reading-Partial يُعرض بشارة «قراءة جزئية» وزر إعادة قراءة بدل خطأ كامل.", "en": "A response carrying the X-Reading-Partial header shows a «partial reading» chip with a re-read button instead of a full error." },
+        { "ar": "طلب غير GET دون اتصال ← «أنت الآن دون اتصال. القراءة متاحة، لكن الحفظ والنشر ينتظر عودة الاتصال.».", "en": "A non-GET request while offline ← «you are offline; reading is available, but saving and publishing wait for the connection»." },
+        { "ar": "إجراءٌ على عنصر من كلية أخرى ينقل القارئ إليها أولاً، ثم يُنفَّذ بعد اكتمال قراءتها فقط إن بقي الفصل نفسه.", "en": "An action on an item from another college first moves the reader there, then runs only after that reading completes and only if the term is unchanged." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#reload", "src/components/IntelligenceWorkspace.tsx#fetchJson", "src/components/IntelligenceWorkspace.tsx#enterSourceScope"], "tests": ["tests/decision-surfaces-audit.ts", "tests/intelligence-reading-scope-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-058",
+      "kind": "functional",
+      "title": { "ar": "محاكاة طلب المرشد في النسخة التجريبية", "en": "Guide simulation in the trial copy" },
+      "text": { "ar": "يجب أن يحوّل مركز التحليلات طلب محاكاة من المرشد عمره أقل من 10 دقائق إلى نسخة تجريبية فيها التغيير المطلوب (اليوم أو الوقت مع مدة المحاضرة نفسها أو القاعة أو قاعة بديلة خالية أو الأستاذ)، ويعرض «قبل/بعد» مع ثلاثة أزرار: «جرّب بديلًا» و«معاينة على الجدول» و«اعتماد كمسودة»، دون أن يتغيّر الجدول الحقيقي.", "en": "The Analytics Center shall turn a Guide simulation request younger than 10 minutes into a trial copy carrying the requested change (the day, the time keeping the same lecture length, the room, a free alternative room or the instructor), and show «before/after» with three buttons: «try an alternative», «preview on the schedule» and «keep as draft», without changing the real schedule." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "القاعة البديلة تُختار من قاعات موثّقة غير مشغولة في الأيام والوقت نفسها، مقدّماً قاعات المبنى نفسه ثم بترتيب القاعة.", "en": "The alternative room is chosen among verified rooms free on the same days and time, preferring rooms of the same building, then by room order." },
+        { "ar": "«جرّب بديلًا» يؤخر البداية 30 دقيقة بحدٍّ أقصى 22:00، و«اعتماد كمسودة» يحفظ مسودة باسم «محاكاة المرشد» ولا ينشر.", "en": "«try an alternative» delays the start by 30 minutes up to 22:00, and «keep as draft» saves a draft named «Guide simulation» and publishes nothing." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#guideSimulationMeta", "src/components/IntelligenceWorkspace.tsx#openScheduleWorkspace"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "IR-INT-059",
+      "kind": "interface",
+      "title": { "ar": "شريط الطبقة الحية ولوحة مركز القرار", "en": "The live-layer strip and the decision-center panel" },
+      "text": { "ar": "يجب أن تعرض الطبقة الحية فوق الجدول شريطاً بنبض الجدول وأول ملاحظة وثلاث حلقات (الجودة والمرونة والعدالة) وزر «مركز القرار» الذي يفتح لوحة حوار بشريط مشاهد (نظرة عامة، خريطة الضغط، الصحة والعدالة، ملخص الدقيقة، لماذا هذا الحل؟، مساعد السياق، محضر القرار، بداية الفصل، وشبكة الأمان للإدارة الرئيسية وحدها) ومشهد «ذاكرة القرار» الذي يُفتح من «لماذا» للإدارة الرئيسية، وأن تؤجّل قراءة الطبقة إلى لحظة هدوء بحدٍّ أقصى 5 ثوانٍ وتلغيها إن تغيّر النطاق قبلها، وتعرض في أثناء الانتظار آخر درجات محفوظة لهذا الحساب والنطاق.", "en": "The live layer shall show above the schedule a strip with the schedule pulse, its first note and three rings (quality, resilience, fairness) and a «decision center» button opening a dialog panel with a scene bar (overview, pressure map, health and fairness, one-minute brief, why this solution?, context assistant, decision minutes, start of term, and the safety net for the main administration only) and a «decision memory» scene opened from «why» for the main administration; it shall defer the layer read to an idle moment, at most 5 seconds, cancelling it if the scope changes before, and show meanwhile the last scores remembered for this account and scope." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "اللوحة تُغلق بالضغط خارجها أو بـ✕، وفيها مفتاح نطاق التحليل للمشاهد الأربعة الأولى، واختصارا «القرار الأهم الآن» و«بصمة القسم» معطّلان حين لا مواعيد.", "en": "The panel closes by clicking outside or ✕, carries the analysis scope switch for the first four scenes, and the «most important decision now» and «department fingerprint» shortcuts are disabled when there are no appointments." },
+        { "ar": "قراءة الطبقة تُشارك مع طبقة التجربة فلا تُطلب مرتين للنطاق نفسه.", "en": "The layer read is shared with the experience layer so it is not requested twice for the same scope." },
+        { "ar": "نقطة الأمان تُعرض بأيقونة نوعها وعنوانها ووقتها وكاتبها وعدد مواعيدها وأثر استرجاعها، و«استرجع هذا القرار» معطّل حين لا يغيّر الاسترجاع شيئاً.", "en": "A safety point shows its kind icon, title, time, author, appointment count and restore effect, and «restore this decision» is disabled when restoring would change nothing." },
+        { "ar": "«الإدارة الرئيسية» بقاعدة الخادم نفسها: مدير نظام أو الحساب الجذر؛ ولغيرهما لا تظهر شبكة الأمان في الشريط ولا تُفتح ذاكرة القرار ولا تُقرآن، ويُقرأ تحذير الذاكرة في جواب «لماذا» بلا زر.", "en": "«Main administration» follows the server's own rule: a system administrator or the root account; for anyone else the safety net is not in the bar, decision memory does not open, neither is read, and the memory warning in a «why» answer is shown without a button." }
+      ],
+      "evidence": { "code": ["src/components/LivingScheduleLayer.tsx#loadLiving", "src/components/LivingScheduleLayer.tsx#sceneItems", "src/components/LivingScheduleLayer.tsx#undoDecision", "src/components/LivingScheduleLayer.tsx#power", "src/utils/livingCache.ts"], "tests": ["tests/blockers-stream-audit.ts", "tests/analytics-reports-review-audit.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-060",
+      "kind": "functional",
+      "title": { "ar": "مراجعة مسودة بداية الفصل ونشرها في الطبقة الحية", "en": "Reviewing and publishing the start-of-term draft in the live layer" },
+      "text": { "ar": "يجب أن يعرض مشهد «بداية الفصل» الفصول السابقة التي فيها بيانات للقسم وحدها مصدراً، وقراءة الانتقال قبل الإنشاء، ثم جدول المسودة المنشأة بموانع كل صف وتنبيهاته، مع تعديل الصف (الأستاذ والوقت والقاعة والأيام) وفحصه، أو حذفه، أو «تعديل للجميع» صفاً بعد صف، أو «حذف للجميع» بتأكيد في مكانه، ثم «انشر الآن» المعطّل ما بقيت ملاحظة، و«تراجع عن النشر» بعده.", "en": "The «start of term» scene shall offer as source only earlier terms with data for the department, the rollover reading before creation, then the created draft's table with each row's blockers and warnings, allowing a row to be edited (instructor, time, room and days) and checked, deleted, «edit all» row after row, or «delete all» with an in-place confirmation, then «publish now», disabled while any note remains, and «undo the publication» after it." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "حذف الكل يرسل x-schedule-confirm: delete-all-draft-rows ولا يمسّ الجدول الرسمي.", "en": "Delete-all sends x-schedule-confirm: delete-all-draft-rows and does not touch the official schedule." },
+        { "ar": "بعد الإنشاء تُمرَّر الصفحة إلى أول صف فيه مانع، وقائمة الأستاذ تعرض الأستاذ السابق غير القابل للإسناد خياراً معطّلاً.", "en": "After creation the page scrolls to the first row with a blocker, and the instructor list shows a former, non-assignable instructor as a disabled option." },
+        { "ar": "مع تفضيل تقليل الحركة يُستبدل العرض المتحرك بعبارة «يُبنى الجدول الآن…».", "en": "With reduced motion preferred the animation is replaced by the line «the schedule is being built…»." },
+        { "ar": "رسالة النشر تذكر عدد المواعيد وعدد ما ضُبط وقته بأمان قبل النشر.", "en": "The publication message states the number of appointments and how many had their time safely adjusted before publication." }
+      ],
+      "evidence": { "code": ["src/components/LivingScheduleLayer.tsx#runGenesis", "src/components/LivingScheduleLayer.tsx#saveGenesisRow", "src/components/LivingScheduleLayer.tsx#deleteGenesisRow", "src/components/LivingScheduleLayer.tsx#deleteAllGenesisRows", "src/components/LivingScheduleLayer.tsx#publishGenesisDraft", "src/components/LivingScheduleLayer.tsx#undoGenesisPublish"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "IR-INT-061",
+      "kind": "interface",
+      "title": { "ar": "محتوى مشاهد الطبقة الحية", "en": "Content of the live-layer scenes" },
+      "text": { "ar": "يجب أن تعرض النظرة العامة بنود النبض مرتّبة بما يستحق القرار وكلٌّ يفتح مشهده، وخريطة الضغط أول 8 مواضع (أستاذ أو مقرر أو شعبة أو قاعة أو وقت) بعدد إشاراتها مميّزةً الموانع من التنبيهات للعلم، والصحة والعدالة ثلاث حلقات وأثقل 6 أحمال وأخطر 5 نقاط انهيار و5 قاعات بلا بديل، وملخص الدقيقة الدرجات وأول 3 قضايا وما تغيّر ونقطة البداية وأكبر مخاطرة.", "en": "The overview shall list the pulse items ordered by what deserves a decision, each opening its scene; the pressure map the first 8 hotspots (instructor, course, section, room or time) with their signal counts, separating blockers from advisory notes; health and fairness three dials, the 6 heaviest loads, the 5 riskiest failure points and 5 rooms without a substitute; and the one-minute brief the scores, the first 3 issues, what changed, where to start and the largest risk." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "لون الحلقة: 85 فأكثر جيد، 70 فأكثر تحذير، وما دونه سيئ.", "en": "Dial colour: 85 or more good, 70 or more warning, below that bad." },
+        { "ar": "حساب بلا قراءة طوبولوجيا يرى «لا تتوفر خريطة الضغط لهذا الحساب»، وجدول بلا موانع يرى «لا يوجد مانع في الجدول».", "en": "An account without a topology reading sees «the pressure map is not available for this account», and a schedule without blockers sees «there is no blocker in the schedule»." },
+        { "ar": "جواب «لماذا؟/لماذا لا؟» يعرض أربعة مؤشرات قبل ← بعد بوسم تحسّن أو تراجع أو بلا تغيير (الجودة أعلى أفضل؛ الموانع وفراغ الأستاذ ومخالفات القواعد أقل أفضل)، والمكاسب والأثمان، وتحذير الذاكرة مع «افتح الذاكرة» للإدارة الرئيسية وحدها.", "en": "A «why?/why not?» answer shows four before ← after indicators marked improved, worse or unchanged (higher quality is better; fewer blockers, instructor gap and rule violations are better), the gains and costs, and the memory warning with «open the memory» for the main administration only." },
+        { "ar": "منتقي الموعد يجمع الخيارات بالمقرر، ويكتب كل خيار: الاسم — الشعبة · الأستاذ · الأيام · الوقت [رقم المقرر بسبع خانات].", "en": "The appointment picker groups options by course and writes each as: name — section · instructor · days · time [seven-digit course number]." }
+      ],
+      "evidence": { "code": ["src/components/LivingScheduleScenes.tsx#PulseScene", "src/components/LivingScheduleScenes.tsx#TopologyScene", "src/components/LivingScheduleScenes.tsx#HealthScene", "src/components/LivingScheduleScenes.tsx#BriefScene", "src/components/LivingScheduleScenes.tsx#WhyResult", "src/components/LivingScheduleScenes.tsx#ContextPicker"], "tests": ["tests/course-number-seven-digit-audit.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "DR-INT-062",
+      "kind": "data",
+      "title": { "ar": "مفاتيح الجلسة في المتصفح لمركز التحليلات", "en": "Browser session keys of the Analytics Center" },
+      "text": { "ar": "يجب أن يقرأ مركز التحليلات من تخزين الجلسة في المتصفح مفاتيح تُستهلك مرة واحدة: مفتاح التبويب المطلوب (المنتهي بـ-tab، ولا يُقبل إلا command وcopilot وtwin وhistory) ومفتاح القراءة المطلوب فتحها (المنتهي بـ-insight) وschedule-guide-simulation (طلب محاكاة المرشد، صالح 10 دقائق ويتقدّم على النطاق المشترك مؤقتاً دون الكتابة فوقه)، وأن يكتب schedule-guide-ghost-preview وschedule-return-note وschedule-command عند الانتقال إلى شاشة الجدول.", "en": "The Analytics Center shall read one-shot keys from browser session storage: the requested-tab key (ending in -tab, accepting only command, copilot, twin and history), the requested-reading key (ending in -insight) and schedule-guide-simulation (a Guide simulation request, valid 10 minutes, temporarily taking precedence over the shared scope without overwriting it), and shall write schedule-guide-ghost-preview, schedule-return-note and schedule-command when moving to the schedule screen." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "المفتاح يُحذف فور قراءته، فلا يُعاد فتح القراءة نفسها عند العودة لاحقاً.", "en": "The key is removed as soon as it is read, so the same reading is not reopened on a later visit." },
+        { "ar": "تبويب «import» محفوظ من جلسة قديمة يُستبدل بـcommand.", "en": "An «import» tab saved by an older session is replaced by command." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx#IntelligenceWorkspace", "src/components/IntelligenceWorkspace.tsx#openScheduleWorkspace"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-063",
+      "kind": "functional",
+      "title": { "ar": "شاشات لوحة المرشد وأدواتها", "en": "The Guide panel screens and tools" },
+      "text": {
+        "ar": "يجب أن تعرض لوحة المرشد شاشة «اسأل» بحقل سؤال يجيب ببطاقة خطوات فيها «أرني» (أو «أكمل من الخطوة N» لجولة متروكة) و«جرّب دون حفظ» للميزة التي لها محاكاة؛ وأن تجيب سؤال «أين توقفت/ماذا الآن» ببطاقة الموقف أو الجولة المتروكة أو أقرب اقتراح، وسؤال البيانات الحية بأنها لا تقرأ بيانات الجدول مع «أرني أين»؛ وأن تعرض تحت «المزيد»: «أشّر لي» و«الجديد» و«الكل» و«جرّب دون حفظ» ومفتاح «تلميحات أثناء العمل»، وتحت «الكل» مجموعات الميزات المسموحة للمستخدم، ولمدير النظام الأعلى وحده «أسئلة بلا جواب» لقسم النطاق المفتوح.",
+        "en": "The Guide panel shall show an «ask» screen whose question field answers with a steps card holding «show me» (or «continue from step N» for a tour left unfinished) and «try without saving» for a feature that has a simulation; it shall answer a «where was I / what now» question with the situation card, the unfinished tour or the closest suggestion, and a question about live data by saying it does not read schedule data, with «show me where»; under «more» it shall offer «point for me», «what is new», «all», «try without saving» and a «hints while working» switch, under «all» the groups of features the user may reach, and for the root administrator alone «unanswered questions» for the open scope's department."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair", "rootAdmin"],
+      "acceptance": [
+        { "ar": "«أشّر لي»: الضغطة التالية على أي عنصر تُلتقط ولا تُنفَّذ؛ الميزة المعروفة تفتح جوابها، وإلا يصير نص العنصر (حتى 72 حرفاً) سؤالاً؛ ولا تُلتقط عناصر المرشد ولا العناصر الموسومة بالتجاهل، و«إلغاء» يخرج من الوضع.", "en": "«point for me»: the next press on any control is captured and not executed; a known feature opens its answer, otherwise the control's label (up to 72 characters) becomes the question; the Guide's own elements and elements marked to be ignored are not captured, and «cancel» leaves the mode." },
+        { "ar": "«الجديد» يسرد 12 ميزة على الأكثر لم يطّلع عليها المستخدم مرتبة بالأولوية مع «تعليم الكل كمقروء»، ونقطة على «المزيد» تدل على جديد غير مقروء.", "en": "«what is new» lists at most 12 features the user has not seen, ranked by priority, with «mark all as read», and a dot on «more» signals unread items." },
+        { "ar": "السؤال الذي يبقى «غير متأكد» يُسجَّل مطموساً 5 مرات على الأكثر في جلسة اللوحة ولا يُسجَّل النص نفسه مرتين؛ وEscape يغلق اللوحة ويعود التركيز إلى العنصر الذي فتحها.", "en": "A question that stays «unsure» is logged masked at most 5 times per panel session and the same text is never logged twice; Escape closes the panel and focus returns to the element that opened it." },
+        { "ar": "خطة جولة تحمل ملاحظة الهاتف تعرض «تتم من الحاسوب» بدل الخطوات؛ و«جرّب دون حفظ» يحفظ طلب المحاكاة في تخزين الجلسة وينتقل إلى مشهد «جرّب» في مركز التحليلات بعد 500 مللي ثانية.", "en": "A tour plan carrying the phone note shows «done from a computer» instead of steps; «try without saving» stores the simulation request in the session store and moves to the Analytics Center «try» scene after 500 ms." }
+      ],
+      "evidence": { "code": ["src/components/guide/GuideAssistant.tsx#GuideAssistant", "src/components/guide/GuideAssistant.tsx#NOW_QUESTION", "src/guide/smartGuide.ts#markAllGuideProductUpdatesSeen", "src/guide/smartGuide.ts#setHintMode", "src/guide/awareness.ts#situationAnswer"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-064",
+      "kind": "functional",
+      "title": { "ar": "بطاقة الجولة وأزرارها", "en": "The tour card and its controls" },
+      "text": {
+        "ar": "يجب أن تحجب بطاقة الجولة الشاشة كلها عدا العنصر المضاء (بهامش 6 بكسل) وتتبع مكانه إطاراً بإطار، وأن تتيح «التالي» و«السابق» و«إنهاء» بالأزرار وبالسهمين وEscape، وأن تترك الشاشة كلها متاحة أثناء انتظار اختيار المستخدم مع «أنتظر اختيارك» و«تخطَّ»، وأن تقول عند غياب العنصر «لم أجد هذا العنصر في حالتك الآن» مع شرط ظهوره من بنك المعرفة و«أعد المحاولة» و«تخطَّ الخطوة»، وألا تضغط زر الخطوة الأخيرة بنفسها إلا لميزة قراءة فقط («افتحها»)، وإلا تطلب «اضغط الزر المضاء».",
+        "en": "The tour card shall block the whole screen except the lit element (with a 6-pixel margin) and follow its position frame by frame, shall offer «next», «back» and «end» as buttons and through the arrow keys and Escape, shall leave the whole screen usable while waiting for the user's choice with «waiting for your choice» and «skip», shall say when the element is absent «I did not find this element in your current state» with its appearance condition from the knowledge bank, «retry» and «skip the step», and shall press the last step's button itself only for a read-only feature («open it»), otherwise asking «press the lit button»."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "البطاقة بعرض 340 بكسل تحت العنصر أو فوقه إن لم يتسع؛ وعلى شاشة أضيق من 640 بكسل تلتصق بالحافة العليا أو السفلى المقابلة لموضع العنصر.", "en": "The card is 340 px wide, below the element or above it when there is no room; on a screen narrower than 640 px it sticks to the top or bottom edge opposite the element." },
+        { "ar": "ضغط العنصر المضاء نفسه يكمل الخطوة؛ وعنصر اختفى بعد ظهوره يُبحث عنه من جديد.", "en": "Pressing the lit element itself completes the step; an element that disappears after showing is searched for again." },
+        { "ar": "الشريط الجانبي المطوي يُفتح ما دامت خطوة القائمة ظاهرة ثم يُطوى، ودرج «المزيد» على الهاتف يُفتح ويُغلق بالجولة.", "en": "A collapsed side rail is held open while a sidebar step shows and folded again after, and the phone «more» drawer is opened and closed by the tour." },
+        { "ar": "كل انتقال خطوة يحفظ تقدم الجولة ويضبط مهمة المرشد الحالية «إرشاد: …»، وانتهاؤها يسجّل «ساعد» أو «تُرك».", "en": "Every step change saves the tour progress and sets the Guide's current task «guidance: …», and finishing records «helped» or «abandoned»." }
+      ],
+      "evidence": { "code": ["src/components/guide/GuideTour.tsx", "src/components/guide/GuideAssistant.tsx#holdRail", "src/components/guide/GuideAssistant.tsx#revealSidebar", "src/guide/tour/runner.ts#TourRunner"], "tests": ["tests/guide-tours-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-065",
+      "kind": "functional",
+      "title": { "ar": "أوامر المرشد في شاشة الجدول", "en": "Guide commands on the schedule screen" },
+      "text": {
+        "ar": "يجب أن تستقبل شاشة الجدول أوامر المرشد الآمنة وتنفذها دون حفظ شيء: تبديل العرض (قائمة أو أسبوع أو قاعات)، وفتح المراجعة، وفتح أدوات البيانات، وإبراز موعد بعينه، وفتح المحرر على حقل الوقت أو المقرر أو الأستاذ لموعد محدد بعد إبرازه بعلامة «هنا»، والبحث عن بدائل لموعد دون تعارض جديد، وتجهيز نقل موعد في عرض القاعات؛ وأن ترد على كل أمر بنتيجة (نجح أو فشل مع إشارة) يقرؤها المرشد، وأن تُبلغ المرشد بسياقها: النطاق والعرض والموعد المحدد وتعارضه والمهمة الحالية ومستوى إتقان المستخدم للعرض.",
+        "en": "The schedule screen shall receive the Guide's safe commands and carry them out without saving anything: switching the view (list, week or rooms), opening the review, opening the data tools, highlighting a given appointment, opening the editor on the time, course or instructor field of a selected appointment after marking it with «here», looking for alternatives for an appointment without a new conflict, and preparing an appointment move in the rooms view; it shall answer each command with a result (success or failure with a signal) the Guide reads, and shall report its context to the Guide: scope, view, selected appointment and its conflict, current task and the user's mastery of the view."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "أمر يحتاج موعداً محدداً ولا تحديد ← «حدد مقررًا أولًا، ثم أعد طلب المساعدة.» وفشل بإشارة schedule.editor.no-selection؛ وتجهيز النقل يفتح عرض القاعات ويقول إنه لم تبدأ أي معاملة.", "en": "A command needing a selected appointment with none selected writes «select a course first, then ask for help again.» and fails with signal schedule.editor.no-selection; the move preparation opens the rooms view and says no transaction has started." },
+        { "ar": "لا يُفتح المحرر إلا بعد العثور على البطاقة في عرض الأسبوع (حتى 30 إطاراً) وتعليمها 760 مللي ثانية؛ وفتح أدوات البيانات على هاتف في عرض غير القائمة يُرفض بإشارة schedule.transfer.blocked.", "en": "The editor opens only after the card is found on the week view (up to 30 frames) and marked for 760 ms; opening the data tools on a phone outside the list view is refused with signal schedule.transfer.blocked." },
+        { "ar": "لوحة الأوامر تعرض تحت «المرشد» كل إجراء مرشد مسموح لشاشة الجدول غير حساس وغير موجود فيها أصلاً (وتعطّل الوقت والمقرر والأستاذ والبحث عن قاعة بلا تحديد)، وتحت «وجهات المرشد» صفحات الشاشات الأخرى.", "en": "The command palette lists under «Guide» every allowed, non-sensitive Guide action of the schedule screen not already in it (time, course, instructor and find-room disabled without a selection), and under «Guide destinations» the pages of other screens." },
+        { "ar": "يُعدّ المستخدم خبيراً بالعرض عند إتقان 0.72 فأكثر؛ وأمر التراجع من المرشد لا ينفّذ إلا قيد تراجع لم يُستعمل بعد.", "en": "The user counts as expert in a view at mastery 0.72 or more; an undo asked by the Guide runs only an undo entry not yet used." }
+      ],
+      "evidence": { "code": ["src/components/Schedules.tsx#onGuideCommand", "src/components/Schedules.tsx#emitGuideResult", "src/components/Schedules.tsx#paletteCovered", "src/guide/smartGuide.ts#GUIDE_ACTIONS", "src/guide/smartGuide.ts#canRunGuideAction"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-066",
+      "kind": "functional",
+      "title": { "ar": "وضع التجربة في الجدول بأمر المرشد", "en": "Practice mode on the schedule through the Guide" },
+      "text": {
+        "ar": "يجب أن يتيح أمر المرشد «تجربة آمنة» وضع تجربة في شاشة الجدول يحفظ نسخة من المواعيد المعروضة، فتُطبَّق الإضافة والتعديل من المحرر والحذف والنقل بالسحب على المواعيد المعروضة وحدها دون أي طلب إلى الخادم، وتمنع كل كتابةٍ أخرى إلى الخادم بعبارةٍ واضحة، مع شريط «وضع تجربة» يقول إن السحب والتعديل والحذف مؤقتة على هذا الجهاز وإن ما يكتب في الجدول الحقيقي موقوف، وزر «إنهاء» يعيد المواعيد من النسخة المحفوظة ويقول «انتهى وضع التجربة. لم يتغير جدولك الحقيقي.»",
+        "en": "The Guide's «safe practice» command shall offer a practice mode on the schedule screen that keeps a copy of the appointments on screen, so adding and editing from the editor, deleting and moving by drag apply to the appointments on screen only with no request to the server, while every other write to the server is refused with a clear message, with a «practice mode» strip saying that drags, edits and deletes are temporary on this device and that whatever writes to the real schedule is paused, and an «end» button that restores the appointments from the kept copy and says «practice mode ended. Your real schedule did not change.»"
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "شريط الاعتماد (التوقيع والإرسال والملاحظات) موقوفٌ أثناء التجربة، ويظهر مكانه سطرٌ يقول إنه يعود عند الخروج منها.", "en": "The approval bar (signing, sending and notes) is paused during practice, replaced by a line saying it returns when practice ends." },
+        { "ar": "الحذف في التجربة يسأل «حذف من النسخة التجريبية» بزر «حذف تجريبي»؛ والموعد الجديد يأخذ معرّفاً سالباً مؤقتاً والتعديل يُبقي معرّف الصف.", "en": "Deleting in practice asks «delete from the practice copy» with a «practice delete» button; a new appointment gets a temporary negative id and an edit keeps the row id." },
+        { "ar": "يبدأ الوضع بأمر المرشد، ومن زرّ «تجربة آمنة» تحت «المزيد» في شريط الجدول، ومن بنده في لوحة الأوامر؛ وجولة «أرني» للميزة تفتح «المزيد» وتشير إلى ذلك الزر قبل التجربة، وإلى شريطها بعد بدئها.", "en": "The mode starts by the Guide command, from a «safe practice» button under «more» on the schedule toolbar, and from its command-palette entry; the feature's «show me» tour opens «more» and points at that button before practice, and at the strip once it has started." },
+        { "ar": "يُحوَّل إلى النسخة الحفظ من المحرر والحذف والنقل بالسحب في الأسبوع وفي لوحة القاعات؛ وما سواها (التراجع، وسلسلة الإصلاح، والنسخ واسترجاعه، ونقطة الأمان، وأفعال الخانة المؤقتة، والاستعارة، والتعليقات، والإضافة السريعة، وأدوات البيانات، وبداية الفصل، وتحويل هيئة التدريب) يُمنع بعبارة «أنت في «وضع تجربة»: هذا الإجراء يكتب في الجدول الحقيقي فلم يُنفَّذ.»، ويغيب مسح الجدول وسوق الاستعارة؛ وكل طلب كتابة يمرّ بحاجزٍ أخير قبل الشبكة وطابور ما دون الاتصال لا يُفلت منه إلا فحص التعارض وقراءات الشرح.", "en": "Saving from the editor, deleting and moving by drag in the week and on the halls board are diverted to the copy; everything else (undo, the repair chain, copying and its undo, the safety-net point, placeholder actions, hall borrowing, comments, quick add, the data tools, start of term and trainee conversion) is refused with a message that practice mode is on and the action writes to the real schedule, and the wipe button and the hall market are hidden; every write request also passes a last barrier before the network and the offline queue that lets only the conflict check and the explanation reads through." }
+      ],
+      "evidence": { "code": ["src/components/Schedules.tsx#practiceMode", "src/components/Schedules.tsx#practiceSnapshotRef", "src/components/Schedules.tsx#refuseInPractice", "src/components/Schedules.tsx#PRACTICE_READ_POSTS", "src/guide/smartGuide.ts#GUIDE_ACTIONS", "src/guide/bank.ts"], "tests": ["tests/schedule-board-fixes-audit.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-067",
+      "kind": "functional",
+      "title": { "ar": "معاينة تغيير يقترحه المرشد على الجدول", "en": "Previewing a change proposed by the Guide on the schedule" },
+      "text": {
+        "ar": "يجب أن تعرض شاشة الجدول معاينة «قبل/بعد» لتغيير يقترحه المرشد على موعد (اليوم، أو الوقت مع حفظ مدة المحاضرة بحد أدنى 30 دقيقة، أو القاعة، أو الأستاذ) سواء وصل أمراً مباشراً أو تسليماً من «جرّب» في مركز التحليلات عبر تخزين الجلسة خلال 10 دقائق، مع عدد التعارضات مع بقية المواعيد، وأن تفتح «اعتماد يدوي» المحرر على الموعد دون حفظ، و«إلغاء» يغلقها.",
+        "en": "The schedule screen shall show a «before/after» preview of a change the Guide proposes for an appointment (the day, the time keeping the lecture length with a 30-minute minimum, the room, or the instructor), whether it arrives as a direct command or as a handoff from «try» in the Analytics Center through the session store within 10 minutes, with the number of conflicts with the other appointments; «approve by hand» opens the editor on the appointment without saving, and «cancel» closes it."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "تسليم أقدم من 10 دقائق يُهمَل، والتسليم المقروء يُحذف فلا يُفتح مرتين، ويُفتح عرض الأسبوع مع إبراز الموعد.", "en": "A handoff older than 10 minutes is ignored, a handoff read is deleted so it opens once, and the week view opens with the appointment highlighted." },
+        { "ar": "الخلاصة «ستظهر في هذه المعاينة N تعارضاً.» أو «لا يظهر تعارض مانع في هذه المعاينة.» دون عدّ «هيئة تدريسية»؛ وبلا موعد محدد ← «حدد مقررًا أولًا لمعاينة التغيير.»", "en": "The summary is «this preview will show N conflicts.» or «no blocking conflict appears in this preview.» without counting the placeholder faculty; with no selected appointment ← «select a course first to preview the change.»" }
+      ],
+      "evidence": { "code": ["src/components/Schedules.tsx#guideGhostDiff", "src/components/Schedules.tsx#onGuideCommand", "src/components/IntelligenceWorkspace.tsx#openScheduleWorkspace"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "DR-INT-068",
+      "kind": "data",
+      "title": { "ar": "ملف المرشد في المتصفح", "en": "The Guide profile in the browser" },
+      "text": {
+        "ar": "يجب أن يحفظ المرشد ملف كل مستخدم في التخزين المحلي للمتصفح بمفتاح يحمل رقم المخطط (12) ورقم المستخدم، فيه إتقان كل ميزة (المحاولات والنجاحات والإخفاقات والمساعدات وآخر 21 عينة للمدة والخطوات والمحاولات)، والانتقالات بين الشاشات، والتلميحات المتجاهلة ووضع التلميحات، والمهمة الحالية والسابقة، والرحلات، وآخر 8 معاملات، وما رآه من الجديد؛ وأن يرحّل ملفاً بإصدار أقدم إلى الإصدار الحالي، وألا يرسل هذا الملف إلى الخادم.",
+        "en": "The Guide shall keep each user's profile in the browser's local storage under a key carrying the schema number (12) and the user number, holding each feature's mastery (attempts, successes, failures, helps and the last 21 samples of duration, steps and retries), moves between screens, ignored hints and the hint mode, the current and previous task, journeys, the last 8 transactions and which updates were seen; it shall migrate a profile of an older version to the current one and shall not send this profile to the server."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "الإتقان = (الدليل × 0.74 + الموثوقية × 0.26) × e^(−عمر الاستعمال بالأيام/240)، والدليل = min(1, (1.65 × الإكمال − 1.55 × الإخفاق − 0.65 × الترك − 0.15 × المساعدة)/10)؛ وميزة إصدارها أحدث مما رآه المستخدم تُضرب في 0.45، والميزة غير المستعملة عمرها 365 يوماً.", "en": "Mastery = (evidence × 0.74 + reliability × 0.26) × e^(−days since use/240), where evidence = min(1, (1.65 × completed − 1.55 × failures − 0.65 × abandoned − 0.15 × helps)/10); a feature newer than the version the user saw is multiplied by 0.45, and an unused feature counts as 365 days old." },
+        { "ar": "العناصر المكتشفة الأقدم من 60 يوماً لا تُعرض جديدة؛ وتعذّر قراءة التخزين يعيد ملفاً فارغاً بوضع التلميحات «تلقائي».", "en": "Discovered controls older than 60 days are not shown as new; a failure to read the store returns a blank profile with hint mode «auto»." }
+      ],
+      "evidence": { "code": ["src/guide/smartGuide.ts#loadGuideProfile", "src/guide/smartGuide.ts#masteryScore", "src/guide/smartGuide.ts#profileKey", "src/guide/smartGuide.ts#discoveredNew"], "tests": [] },
       "inferred": true
     }
   ],
@@ -929,7 +1537,7 @@
     { "ar": "الحركة المكانية", "en": "Campus movement", "def": { "ar": "انتقال الأستاذ بين مبنيين بين محاضرتين، ويُقاس هامشها بالدقائق مقابل زمن الانتقال.", "en": "An instructor's move between two buildings between lectures, measured as a margin in minutes against the travel time." } },
     { "ar": "الثقة", "en": "Confidence", "def": { "ar": "درجة صريحة من أربعة مستويات تلازم كل رقم متنبأ به وتحكم تفعيل الإجراء.", "en": "An explicit four-level grade attached to every forecast figure that governs whether the action is enabled." } },
     { "ar": "مختبر القرار الأكاديمي", "en": "Academic decision lab", "def": { "ar": "حسابات «ماذا لو» محدودة للقراءة فقط على الصحائف المعتمدة ورغبات الطلبة.", "en": "Bounded read-only what-if calculations over approved plan sheets and student wishes." } },
-    { "ar": "الطبقة الحية", "en": "Live schedule layer", "def": { "ar": "ست مشاهد حيّة عن حال الجدول: نظرة عامة وضغط وصحة وملخص وبداية فصل وشبكة أمان.", "en": "Six live scenes about the schedule's state: overview, pressure, health, brief, start of term and safety net." } },
+    { "ar": "الطبقة الحية", "en": "Live schedule layer", "def": { "ar": "مشاهد حيّة عن حال الجدول: نظرة عامة وضغط وصحة وملخص، ولماذا ومساعد السياق ومحضر القرار، وبداية فصل وشبكة أمان.", "en": "Live scenes about the schedule's state: overview, pressure, health, brief, why, context assistant and decision minutes, start of term and safety net." } },
     { "ar": "نقطة أمان", "en": "Safety point", "def": { "ar": "نسخة محفوظة من الجدول قبل تغيير كبير يمكن الرجوع إليها مع بيان أثر الرجوع.", "en": "A saved copy of the schedule before a major change that can be restored, with the restore effect stated." } },
     { "ar": "رادار التسجيل", "en": "Registration radar", "def": { "ar": "قراءة رغبات الطلبة مقابل الشعب المطروحة لتقدير النقص قبل التسجيل.", "en": "A reading of student wishes against the offered sections to estimate shortfalls before registration." } },
     { "ar": "الاستعلام بلغة طبيعية", "en": "Natural-language query", "def": { "ar": "جملة يكتبها المستخدم تُحوَّل إلى استدعاءات مسموحة تُنفَّذ حتمياً وتنتهي بمعاينة لا بكتابة.", "en": "A sentence the user writes that is turned into allowed calls executed deterministically and ending in a preview, not a write." } }

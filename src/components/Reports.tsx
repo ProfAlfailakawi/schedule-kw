@@ -1489,7 +1489,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       ? summarizeVisitingTeaching(familyTeaching.rows, familyTeaching.instructorIds)
       : summarizeVisitingTeaching(results, visitingIds);
     const people = new Map<number, AdInstructor>(familyTeaching ? familyTeaching.instructors.map(person => [Number(person.AdInstructorId), person]) : []);
-    return source.map((summary: VisitingTeachingSummary<FSchedule>) => {
+    return source.map(summary => {
       const person = instructorById.get(summary.instructorId) || people.get(summary.instructorId);
       return {
         ...summary,
@@ -1509,13 +1509,11 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
 
   const visitingHistoryRows = useMemo(() => {
     const people = visitingHistory?.people || [];
-    // Historical roster rows are evidence, not a licence to resurrect a person
-    // who no longer exists in the live directory. For fairness we also count
-    // only terms that carried a real teaching section: a name placed on a
-    // roster but never given a section is not workload and must not inflate the
-    // comparison years later.
+    /* من انتُدب في فصلٍ مضى يبقى في السجل ولو خرج من دليل القسم أو من قائمة
+       الأساتذة المحمّلة (FR-RPT-011): اسمه من السجل نفسه، وعلامة «لم يعد في دليل
+       القسم» من الخادم (listedNow). ولا يُحتسب إلا فصلٌ حمل شعبة تدريس فعلية:
+       اسمٌ في الكشف بلا شعبة ليس عبئاً ولا يضخّم المقارنة بعد سنوات. */
     return people
-      .filter(person => instructorById.has(Number(person.instructorId)))
       .map(person => {
         const live = instructorById.get(Number(person.instructorId));
         const activeTerms = (person.terms || [])
@@ -5105,6 +5103,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                       <td className="print-history-person-cell">
                         <strong>{withVisitingSuffix(person.name, true)}</strong>
                         {person.civil ? <small className="print-ltr">{person.civil}</small> : null}
+                        {person.listedNow === false ? <small className="visiting-history-left">لم يعد في دليل القسم</small> : null}
                       </td>
                       <td className="print-history-total-cell"><strong>{person.times}</strong><small>{nounFor(person.times, AR.term)}</small></td>
                       <td className="print-history-total-cell is-sections"><strong>{person.sections}</strong><small>{nounFor(person.sections, AR.section)}</small></td>
@@ -5149,10 +5148,9 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
   }
 
   if (kind === "fairness") {
-    /* Keep the portrait fairness sheet deliberately airy. Ten rows per logical
-       page fits the letterhead, score block and page meta as one indivisible
-       unit in WebKit/Chromium, while 39 instructors still need only four pages
-       (10/10/10/9) instead of producing a stranded footer/blank sheet. */
+    /* ورقة العدالة عمودية: أحد عشر صفاً في الصفحة (PAGE_ROWS.fairnessRows) تتسع
+       مع الترويسة وكتلة المؤشر وتذييل الصفحة وحدةً لا تنقسم؛ فـ39 أستاذاً أربع
+       صفحات (11/11/11/6) بلا تذييل يتيم ولا ورقة فارغة. */
     const pages = fairness?.rows?.length ? paginateItems(fairness.rows, PAGE_ROWS.fairnessRows) : [];
     return (
       <div className="print-report print-wide print-query-report print-fairness-new">

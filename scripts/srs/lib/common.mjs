@@ -74,6 +74,10 @@ export const FORBIDDEN = [
   /\bA\.?I\.?\b(?!\w)/, /artificial\s+intelligence/i, /machine\s+learning/i, /\bLLMs?\b/, /\bGPT/i, /chat\s?bot/i,
   /language\s+model/i, /generative/i, /\bintelligen(?:t|ce)\b/i, /\bsmart\b/i, /نموذج\s+لغوي/u, /تعلّ?م\s+الآلة/u,
   /ProfAlfailakawi/i, /gen-lang-client/i, /schedule-863eb/i, /روبوت\s+محادثة/u, /مولَّد\s+آلياً/u, /auto-?generated\s+by/i,
+  /* الوثيقة مواصفةٌ عامة تُسلَّم للجامعة: لا اسمَ لجهةٍ أو كليةٍ أو قسمٍ أو موقعٍ منها، ولا بريدَ شخصي. */
+  /التربية\s+الأساسية/u, /Basic\s+Education/i, /تكنولوجيا\s+التعليم/u, /Technology\s+Education/i, /الدراسات\s+الاجتماعية/u, /Social\s+Studies/i,
+  /الهندسة\s+الميكانيكية\s+البحرية/u, /Marine\s+(?:Mechanical|Engineering)/i, /\bJahra\b/i, /الجهراء/u, /Fahaheel/i, /الفحيحيل/u,
+  /\bPAAET\b/i, /الهيئة\s+العامة\s+للتعليم/u, /Public\s+Authority\s+for\s+Applied/i, /@(?:hotmail|gmail|outlook|yahoo)\.com/i,
 ];
 export const GEMINI_ALLOWED_MODULES = new Set(["IMP", "INT", "EXT", "NFR"]);
 

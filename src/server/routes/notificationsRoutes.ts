@@ -19,6 +19,7 @@ import { buildNotifications } from "../../utils/notificationCenter";
 import { awaitedItemIndexes } from "../../utils/linkedRequestItems";
 import { isAcademicRole, roleDefinition } from "../../utils/academicRoles";
 import { adNotifications } from "../adsRoutes";
+import { canSeeLandingInquiries, landingInquiryNotifications } from "../landingInquiry";
 import { pendingPlanReviews } from "../planReviewRoutes";
 import { buildFeatureNotifications, buildMasariGapNotifications } from "../../utils/featureNotifications";
 import { studentGaps } from "../../utils/sectionGap";
@@ -303,6 +304,23 @@ app.get("/api/notifications", requireAuth, async (req: AuthenticatedRequest, res
     }
   } catch (error) {
     console.error("[notifications] ads:", error instanceof Error ? error.message : error);
+  }
+  /* ── طلباتُ الاستعراض من صفحة الهبوط (FR-ENG-027): لإدارة النظام وحدها، فيها بياناتُ تواصل ── */
+  try {
+    if (canSeeLandingInquiries({
+      isRootAdmin: Number(req.user?.SystemUserId) === ROOT_ADMIN_USER_ID,
+      isAdminUser: Boolean(req.user?.IsAdminUser),
+      academicRole: isAcademicRole(req.user?.Role),
+      demoRequest: Repository.isDemoRequest(),
+    })) {
+      const inquiries = landingInquiryNotifications(await Repository.listLandingInquiries());
+      if (inquiries.length) {
+        const rank: Record<string, number> = { alert: 0, action: 1, waiting: 2, done: 3 };
+        items = [...items, ...inquiries.map(item => ({ ...item, termId, termName }))].sort((a, b) => rank[a.tone] - rank[b.tone] || String(b.at || "").localeCompare(String(a.at || "")));
+      }
+    }
+  } catch (error) {
+    console.error("[notifications] landing inquiries:", error instanceof Error ? error.message : error);
   }
   /* «المقروء» محفوظٌ للمستخدم على الخادم فيتطابق الجرس على أجهزته كلها؛ يُرسل
      منه ما يخصّ القائمة الحاضرة وحده. تعذّرُ قراءته لا يُسقط الجرس. */
