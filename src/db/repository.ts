@@ -3067,16 +3067,47 @@ export const Repository = {
     db.formSecurity = db.formSecurity.filter(row => row.legacyId !== legacyId); saveDatabase();
   },
 
-  // Compatibility helper used by tests/admin internals. It preserves rows that remain and assigns
-  // a fresh legacy ID only to newly-added permissions.
-  saveSecurityByUser: async (userId: number, formIds: number[]): Promise<void> => {
+  // يستبدل مجموعةَ صلاحيات الحساب في كتابةٍ واحدة: يبقى ما بقي بمعرّفه، ويُحذف ما لم يُختر
+  // (ومعه الصفوفُ بلا legacyId والمكرّرة)، ويأخذ الجديدُ معرّفاً جديداً. لا حالةَ نصفية عند الفشل.
+  saveSecurityByUser: async (userId: number, formIds: number[]): Promise<{ added: number[]; removed: number[] }> => {
     announceIdentityChange();
     invalidateReference(REFERENCE_KEYS.formNames);
-    const existing = await Repository.getSecurityByUser(userId);
-    const wanted = new Set(formIds);
-    for (const row of existing) if (!wanted.has(row.FormNameId) && row.legacyId != null) await Repository.deleteSecurity(row.legacyId);
-    const existingIds = new Set(existing.map(row => row.FormNameId));
-    for (const formId of formIds) if (!existingIds.has(formId)) await Repository.createSecurity(userId, formId);
+    const wanted = new Set(formIds.map(Number).filter(id => Number.isInteger(id) && id > 0));
+    const plan = <T extends { row: FormSecurity }>(items: T[]) => {
+      const kept = new Set<number>(), drop: T[] = [];
+      for (const item of items) {
+        if (wanted.has(item.row.FormNameId) && !kept.has(item.row.FormNameId)) kept.add(item.row.FormNameId);
+        else drop.push(item);
+      }
+      const add = [...wanted].filter(id => !kept.has(id));
+      const removed = [...new Set(drop.map(item => item.row.FormNameId).filter(id => !wanted.has(id)))];
+      return { drop, add, removed };
+    };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("formSecurity").where("SystemUserId", "==", userId).get();
+      const items = snap.docs.map(doc => ({ ref: doc.ref, row: doc.data() as FormSecurity }))
+        .sort((a, b) => (a.row.legacyId ?? Number.MAX_SAFE_INTEGER) - (b.row.legacyId ?? Number.MAX_SAFE_INTEGER));
+      const { drop, add, removed } = plan(items);
+      if (!drop.length && !add.length) return { added: [], removed: [] };
+      const first = add.length ? await reserveFirestoreIds("formSecurity", add.length) : 0;
+      const batch = firestoreDb.batch();
+      for (const item of drop) batch.delete(item.ref);
+      add.forEach((formId, i) => {
+        const legacyId = first + i;
+        batch.set(firestoreDb!.collection("formSecurity").doc(`permission_${legacyId}`), { legacyId, SystemUserId: userId, FormNameId: formId } as FormSecurity);
+      });
+      await batch.commit();
+      return { added: add, removed };
+    }
+    const items = db.formSecurity.filter(row => row.SystemUserId === userId).map(row => ({ row }))
+      .sort((a, b) => (a.row.legacyId ?? Number.MAX_SAFE_INTEGER) - (b.row.legacyId ?? Number.MAX_SAFE_INTEGER));
+    const { drop, add, removed } = plan(items);
+    if (!drop.length && !add.length) return { added: [], removed: [] };
+    const dropped = new Set(drop.map(item => item.row));
+    let next = maxId(db.formSecurity, row => row.legacyId ?? 0);
+    db.formSecurity = [...db.formSecurity.filter(row => !dropped.has(row)), ...add.map(formId => ({ legacyId: ++next, SystemUserId: userId, FormNameId: formId }))];
+    saveDatabase();
+    return { added: add, removed };
   },
 
   // FormNames

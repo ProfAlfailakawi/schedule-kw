@@ -1710,16 +1710,16 @@
               </div>
             </div>
 
-            <!-- Interactive Live Dashboard Mode (Simulated Real DOM Engine - 100% Crisp Fonts) -->
+            <!-- لوحة توضيحية بأرقام تجريبية ثابتة، لا قراءة حيّة -->
             <div id="hero-live-mode" style="display:block; padding:clamp(16px,2.4vw,28px); background:#0c1310; color:#fff;">
               <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:14px; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
                 <div>
-                  <div style="font-size:1.15rem; font-weight:700; color:#fff;">لوحة المتابعة المباشرة · الفصل الحالي</div>
-                  <div style="font-size:0.8rem; color:var(--muted);">كلية التربية الأساسية (بنات) · 47 محاضرة اليوم · 0 تعارضات حرجة</div>
+                  <div style="font-size:1.15rem; font-weight:700; color:#fff;">لوحة المتابعة · مثالٌ توضيحي</div>
+                  <div style="font-size:0.8rem; color:var(--muted);">أرقامٌ توضيحية من بيانات تجريبية · 47 محاضرة في يومٍ مثالي · 0 تعارضات حرجة</div>
                 </div>
                 <div style="display:flex; gap:8px;">
                   <span class="chip chip-jade" style="font-size:0.75rem;">جاهزية الجدول 94%</span>
-                  <span class="chip chip-brass" style="font-size:0.75rem;">جلسة آمنة ومحدثة</span>
+                  <span class="chip chip-brass" style="font-size:0.75rem;">مثال توضيحي، لا بيانات حيّة</span>
                 </div>
               </div>
 
@@ -2371,13 +2371,13 @@
       </div>
     </section>
 
-    <!-- ── Section 6: Live Telemetry & Health (Slide 18 & 19) ────────────── -->
+    <!-- ── Section 6: نبض الأسبوع — مثال توضيحي بأرقام تجريبية ثابتة ────────────── -->
     <section id="telemetry" class="section darker">
       <div class="container">
         <div class="head">
-          <p class="eyebrow"><svg class="ic"><use href="#i-cal"/></svg>نبض اليوم وقراءة حيّة</p>
-          <h2>77 محاضرة الآن. والجدول يعرف شكل أسبوعه.</h2>
-          <p class="sub">صحة الجدول ومؤشرات الإشغال والذروة تُحسب تلقائياً — اضغط أي يوم للمعاينة:</p>
+          <p class="eyebrow"><svg class="ic"><use href="#i-cal"/></svg>مثالٌ توضيحي لنبض الأسبوع</p>
+          <h2>الجدول يعرف شكل أسبوعه — مثالٌ من بيانات تجريبية.</h2>
+          <p class="sub" id="telemetry-note">الأرقام هنا توضيحية ثابتة لا قراءة حيّة؛ في النظام تُحسب صحة الجدول والإشغال والذروة من جدولكم الفعلي — اضغط أي يوم للمعاينة:</p>
         </div>
 
         <div class="duo-grid">
@@ -2417,11 +2417,11 @@
             <div id="day-bar-tip" style="margin-top:14px; font-size:0.84rem; color:var(--brass-bright); min-height:20px;"></div>
           </div>
 
-          <!-- Schedule Health Indicators (Updated to Authentic Metrics) -->
+          <!-- مؤشرات صحة الجدول: قيم توضيحية -->
           <div class="chart">
             <div class="chart__h">
               <h3>صحة الجدول الأكاديمي</h3>
-              <span>أربعة مؤشرات دقيقة من 100 محسوبة لحظياً</span>
+              <span>أربعة مؤشرات من 100 · قيمٌ توضيحية</span>
             </div>
             <div class="meters" id="health-meters">
               <div class="meter" onclick="inspectMeter('جودة', 94, 'مؤشر الجودة مرتفع جداً: 0 تعارضات أستاذ، 0 تعارضات قاعة، وتطابق تام مع الخطط الدراسية')" style="cursor:pointer;">
@@ -2434,7 +2434,7 @@
                 <span class="meter__t"><i class="meter__f" style="--v:46%; background:var(--brass);"></i></span>
                 <span class="meter__v" style="color:var(--brass-bright); font-weight:700;">46%</span>
               </div>
-              <div class="meter" onclick="inspectMeter('عدالة', 73, 'توزيع أنصبة أعضاء هيئة التدريس والأوقات المفضلة بنسبة عدالة تفوق 73% مقارنة بالسنوات الماضية')" style="cursor:pointer;">
+              <div class="meter" onclick="inspectMeter('عدالة', 73, 'توزيع أنصبة أعضاء هيئة التدريس والأوقات المفضلة بنسبة عدالة 73% في هذا المثال')" style="cursor:pointer;">
                 <span class="meter__l">عدالة</span>
                 <span class="meter__t"><i class="meter__f" style="--v:73%"></i></span>
                 <span class="meter__v">73%</span>
@@ -2580,13 +2580,10 @@
                 <svg class="ic" style="width:18px; height:18px;"><use href="#i-whatsapp"/></svg>
                 <span style="font-size:0.9rem;">مشاركة عبر واتساب</span>
               </a>
-              <a href="mailto:Ah.Alfailakawi@paaet.edu.kw?subject=%D8%B7%D9%84%D8%A8%20%D8%A7%D8%B3%D8%AA%D8%B9%D8%B1%D8%A7%D8%B6%20%D8%AA%D9%86%D9%81%D9%8A%D8%B0%D9%8A%20%D9%84%D9%86%D8%B8%D8%A7%D9%85%20SCHEDULE" class="btn btn-brass" style="padding:10px 18px; display:inline-flex; align-items:center; gap:8px;" title="مراسلة فورية عبر البريد" aria-label="مراسلة فورية عبر البريد">
+              <a href="#inquiry-form" class="btn btn-brass" style="padding:10px 18px; display:inline-flex; align-items:center; gap:8px;" title="أرسل طلبكم عبر النموذج" aria-label="أرسل طلبكم عبر النموذج">
                 <svg class="ic" style="width:20px; height:20px;"><use href="#i-mail"/></svg>
-                <span style="font-size:0.9rem;">مراسلة فورية</span>
+                <span style="font-size:0.9rem;">راسلونا عبر النموذج</span>
               </a>
-              <button type="button" class="btn btn-glass" onclick="copyOfficialEmail(this)" style="padding:10px 14px; display:inline-flex; align-items:center; gap:6px;" title="نسخ البريد" aria-label="نسخ البريد">
-                <span id="copy-btn-text"><svg class="lx" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></span>
-              </button>
             </div>
           </div>
 
@@ -2635,7 +2632,7 @@
           <a href="https://api.whatsapp.com/send?text=%D9%86%D8%B8%D8%A7%D9%85%20%D8%A7%D9%84%D9%82%D8%B1%D8%A7%D8%B1%20%D8%A7%D9%84%D8%A3%D9%83%D8%A7%D8%AF%D9%8A%D9%85%D9%8A%20SCHEDULE%0A%D8%A7%D8%A8%D9%86%D9%90%20%D8%A7%D9%84%D8%AC%D8%AF%D9%88%D9%84.%20%D8%B1%D8%A7%D8%AC%D8%B9%D9%87.%20%D8%A7%D8%AA%D8%AE%D8%B0%20%D8%A7%D9%84%D9%82%D8%B1%D8%A7%D8%B1.%0Ahttps://schedule-kw.com/landing" target="_blank" rel="noopener noreferrer" class="btn btn-glass" style="padding:8px 12px; display:inline-flex; align-items:center; color:#25D366;" title="مشاركة عبر واتساب" aria-label="مشاركة عبر واتساب">
             <svg class="ic" style="width:18px; height:18px;"><use href="#i-whatsapp"/></svg>
           </a>
-          <a href="mailto:Ah.Alfailakawi@paaet.edu.kw" class="btn btn-glass" style="padding:8px 12px; display:inline-flex; align-items:center;" title="البريد الإلكتروني" aria-label="البريد الإلكتروني">
+          <a href="#inquiry-form" class="btn btn-glass" style="padding:8px 12px; display:inline-flex; align-items:center;" title="راسلونا عبر النموذج" aria-label="راسلونا عبر النموذج">
             <svg class="ic" style="width:18px; height:18px;"><use href="#i-mail"/></svg>
           </a>
           <a href="/" style="color:var(--ink-dim);">دخول النظام</a>
@@ -2952,22 +2949,6 @@
       }
     }
 
-    // ── Copy Official Academic Email ───────────────────────────────────
-    function copyOfficialEmail(btn) {
-      const email = 'Ah.Alfailakawi@paaet.edu.kw';
-      navigator.clipboard.writeText(email).then(() => {
-        const span = document.getElementById('copy-btn-text');
-        if (span) { span.textContent = 'تم نسخ الإيميل!'; span.insertAdjacentHTML('afterbegin', LX.check + ' '); }
-        btn.classList.add('btn-brass');
-        setTimeout(() => {
-          if (span) { span.textContent = 'نسخ البريد'; span.insertAdjacentHTML('afterbegin', LX.clipboard + ' '); }
-          btn.classList.remove('btn-brass');
-        }, 2200);
-      }).catch(() => {
-        alert('البريد الأكاديمي: Ah.Alfailakawi@paaet.edu.kw');
-      });
-    }
-
     // ── Lightbox Logic ───────────────────────────────────────────────────
     function openLightbox(src, caption) {
       const modal = document.getElementById('lightbox');
@@ -3029,7 +3010,7 @@
 
       // النجاحُ لا يُعلن إلا بجوابٍ صحيح من الخادم؛ وما عداه فشلٌ صريح.
       const FAIL_TEXT = 'لم يُرسل طلبكم.';
-      const CONTACT_TEXT = 'حاولوا لاحقاً أو راسلونا مباشرة على Ah.Alfailakawi@paaet.edu.kw';
+      const CONTACT_TEXT = 'حاولوا الإرسال مرةً أخرى بعد قليل؛ النموذجُ يحفظ الطلب ويُبلغ مدير النظام.';
       box.classList.remove('is-error');
       try {
         const res = await fetch('/api/landing/inquiry', {
@@ -3144,6 +3125,5 @@
       setupInfographicObserver();
     }
   </script>
-<script src="/orbit-sensor.js" async></script>
 </body>
 </html>

@@ -176,11 +176,11 @@ function RejectSheet({ item, onClose, onSubmit, busy }: {
   busy: boolean;
 }) {
   const [reason, setReason] = useState<InstructorRequestRejectReason | "">("");
-  /* البدائلُ يقترحها النظام سلفاً من أقرب الأوقات المتاحة، والمنسّقُ يوافق أو
-     يحذف — لا يكتبها. وهو الفرقُ بين رفضٍ يُغلق الباب ورفضٍ يفتح آخر. */
+  /* البدائلُ يقترحها النظام من أقرب الأوقات المتاحة، والمنسّقُ يختار منها ما يعرضه —
+     لا يكتبها. تبدأ كلها غير مختارة: لا يُعرض على الأستاذ وقتٌ لم يقصده المنسّق. */
   const slotKey = (slot: { day: string; days?: string[]; start: string; end: string }) =>
     `${(slot.days?.length ? slot.days : [slot.day]).join(",")}|${slot.start}|${slot.end}`;
-  const [offered, setOffered] = useState<string[]>((item.nearestTimes || []).map(slotKey));
+  const [offered, setOffered] = useState<string[]>([]);
   const [note, setNote] = useState("");
 
   const toggle = (key: string) =>

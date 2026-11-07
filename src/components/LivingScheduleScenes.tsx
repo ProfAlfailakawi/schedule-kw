@@ -317,7 +317,8 @@ export function WhyResult({
   onRemember,
 }: {
   data: any;
-  onRemember: () => void;
+  /** غائبٌ لمن لا يملك ذاكرة القرار (ليس من الإدارة الرئيسية): التحذير يُقرأ بلا زرّ. */
+  onRemember?: () => void;
 }) {
   const metrics: Array<{ label: string; before: number; after: number; lowerIsBetter: boolean; unit?: string }> = [
     { label: "جودة الجدول", before: data.before.score, after: data.after.score, lowerIsBetter: false },
@@ -381,7 +382,7 @@ export function WhyResult({
             <strong>ذاكرة القرار</strong>
             <p>{data.memory.warning}</p>
           </div>
-          <button onClick={onRemember}>افتح الذاكرة</button>
+          {onRemember ? <button onClick={onRemember}>افتح الذاكرة</button> : null}
         </div>
       ) : null}
     </div>

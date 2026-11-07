@@ -543,7 +543,10 @@ check("the server refuses a scanned draft whose waiting pages were not confirmed
   assert.match(draftRoute,/هذه النافذة من إصدار سابق للنظام\. أغلقها ثم أعد رفع الملف؛ لم يُحفظ شيء\./);
   assert.doesNotMatch(draftRoute,/حدّث الصفحة/);
   assert.ok(draftRoute.indexOf("PDF_PAGE_REVIEW_REQUIRED")<draftRoute.indexOf("createScheduleDraft"),"the refusal comes before anything is saved");
-  for(const file of ["ScheduleTransfer.tsx","IntelligenceWorkspace.tsx"]){
+  /* مركز الذكاء لم يعد يستورد: نقل الجدول هو الطريق الوحيد لإيصال مسودة ممسوحة. */
+  const intelSource=readFileSync(new URL("../src/components/IntelligenceWorkspace.tsx",import.meta.url),"utf8");
+  assert.ok(!/importReceipt|reviewedImportPages/.test(intelSource),"IntelligenceWorkspace.tsx sends no scanned-draft receipt of its own");
+  for(const file of ["ScheduleTransfer.tsx"]){
     const source=readFileSync(new URL(`../src/components/${file}`,import.meta.url),"utf8");
     const receipts=source.match(/importReceipt\s*:\s*[^,\n]*importReceipt/g)||[];
     const confirmations=source.match(/reviewedPages\s*:\s*[^,\n]*reviewedImportPages/g)||[];

@@ -1860,8 +1860,8 @@
         "en": "Interface fault telemetry without content"
       },
       "text": {
-        "ar": "يجب أن تجمع الواجهة لكل حساب طابوراً محلياً (schedule-client-telemetry-v1:<رقم الحساب>) لا يتجاوز 60 عنصراً من: أخطاء النافذة والوعود المرفوضة، وطلبات الخادم الفاشلة أو التي استغرقت 1800 مللي ثانية فأكثر، وانقطاع الاتصال وعودته، ومعالم زمن الشاشات؛ وأن ترفق بالأعطال وحدها آخر 12 فعلاً (اسم الزر أو الرابط الذي ضُغط حتى 56 حرفاً، ولا نص مدخل أبداً)، وأن تقصّ الرسالة إلى 320 حرفاً، وأن ترسل بعد 5 ثوانٍ من إضافة عنصر دفعة من 20 إلى /api/telemetry/client حين يكون الجهاز متصلاً، وتُبقي ما لم يُقبل محلياً لمحاولة لاحقة.",
-        "en": "The interface shall keep per account a local queue (schedule-client-telemetry-v1:<account number>) of at most 60 entries holding: window errors and rejected promises, server requests that failed or took 1800 ms or more, loss and return of the connection, and screen timing milestones; it shall attach to faults only the last 12 actions (the label of the button or link pressed, up to 56 characters, never typed text), cut each message to 320 characters, and send, 5 seconds after an entry is queued, a batch of 20 to /api/telemetry/client when the device is online, keeping locally whatever was not accepted for a later attempt."
+        "ar": "يجب أن تجمع الواجهة لكل حساب طابوراً محلياً (schedule-client-telemetry-v1:<رقم الحساب>) لا يتجاوز 60 عنصراً من: أخطاء النافذة والوعود المرفوضة، وطلبات الخادم الفاشلة أو التي استغرقت 1800 مللي ثانية فأكثر، وانقطاع الاتصال وعودته، ومعالم زمن الشاشات؛ وأن ترفق بالأعطال وحدها آخر 12 فعلاً (اسم الزر أو الرابط الذي ضُغط حتى 56 حرفاً، ولا نص مدخل أبداً)، وأن تقصّ الرسالة إلى 320 حرفاً، وأن ترسل بعد 5 ثوانٍ من إضافة عنصر دفعة من 20 إلى /api/telemetry/client حين يكون الجهاز متصلاً، وتُبقي ما لم يُقبل محلياً لمحاولة لاحقة؛ وهذا هو الطريق الوحيد لتقارير أعطال الواجهة، فلا يرسل أيُّ سكربتٍ في المتصفح أعطالاً أو أثرَ نقراتٍ إلى جهةٍ خارجية.",
+        "en": "The interface shall keep per account a local queue (schedule-client-telemetry-v1:<account number>) of at most 60 entries holding: window errors and rejected promises, server requests that failed or took 1800 ms or more, loss and return of the connection, and screen timing milestones; it shall attach to faults only the last 12 actions (the label of the button or link pressed, up to 56 characters, never typed text), cut each message to 320 characters, and send, 5 seconds after an entry is queued, a batch of 20 to /api/telemetry/client when the device is online, keeping locally whatever was not accepted for a later attempt; this is the only path for interface fault reports, and no browser script sends faults or a click trail to a third party."
       },
       "priority": "should",
       "status": "implemented",
@@ -1889,7 +1889,9 @@
           "src/utils/clientTelemetry.ts#flushTelemetry",
           "src/server/routes/guideRoutes.ts"
         ],
-        "tests": []
+        "tests": [
+          "tests/handover-fixes-audit.ts"
+        ]
       },
       "inferred": true
     },

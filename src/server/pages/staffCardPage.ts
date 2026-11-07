@@ -251,7 +251,7 @@ ${STAFF_CARD_VISUAL_CSS}
     <h1>بطاقتي</h1>
     <p>${label}<br>اكتب رقمك المدني لعرض جدولك.</p>${demoHint}
     <form class="field" id="form">
-      <input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12 رقمًا" aria-label="الرقم المدني">
+      <input id="civil" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="رقمك المدني" aria-label="الرقم المدني">
       <button type="submit" id="go">عرض</button>
     </form>
     <label class="remember" for="remember"><input type="checkbox" id="remember"><span>تذكّرني على هذا الجهاز</span></label>
@@ -341,14 +341,15 @@ ${CALENDAR_LINKS_CLIENT_JS}
   document.getElementById("form").addEventListener("submit",function(event){
     event.preventDefault();
     var value=ascii(civil.value).replace(/[^0-9]/g,"");
-    if(value.length!==12){note.textContent="الرقم المدني 12 رقمًا.";return}
+    /* القاعدةُ نفسها في الخادم: ثمانية أرقامٍ فأكثر (buildStaffCard). */
+    if(value.length<8){note.textContent="اكتب رقمك المدني كاملاً (8 أرقامٍ على الأقل).";return}
     note.textContent="";go.disabled=true;go.textContent="…";document.getElementById("gateSkel").hidden=false;
     fetch("/api/public/staff/"+encodeURIComponent(TOKEN),{
       method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({civil:value,remember:Boolean(rememberBox&&rememberBox.checked)})
     }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
       .then(function(res){
         go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;
-        if(!res.ok){try{sessionStorage.removeItem("sk-civil:"+TOKEN)}catch(e){}note.textContent=res.data&&res.data.error?res.data.error:"تعذر العرض";return}
+        if(!res.ok){note.textContent=res.data&&res.data.error?res.data.error:"تعذر العرض";return}
         render(res.data,value);
       })
       .catch(function(){go.disabled=false;go.textContent="عرض";document.getElementById("gateSkel").hidden=true;note.textContent="تعذر الاتصال. تحقق من الإنترنت."});
@@ -438,8 +439,8 @@ ${CALENDAR_LINKS_CLIENT_JS}
   var visitSince=null,visitChanged=false;
   function render(d,value){
     if(visitSince===null){visitSince=d.lastSeenAt||"";visitChanged=Boolean(d.changedSinceLastVisit);}
+    /* الرقمُ يبقى في ذاكرة الصفحة لتبديل الفصل فقط؛ لا يُكتب في أي تخزينٍ للمتصفح. */
     currentCivil=value;
-    if(value){try{sessionStorage.setItem("sk-civil:"+TOKEN,value)}catch(e){}}
     var forget=document.getElementById("forget");if(forget)forget.hidden=!d.remembered;
     try{if(d.remembered)localStorage.setItem("sk-dev:"+TOKEN,"1");else localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
     var currentTerm = { termId: Number(d.termId || 0) };
@@ -571,13 +572,13 @@ ${CALENDAR_LINKS_CLIENT_JS}
   var forgetBtn=document.getElementById("forget");
   if(forgetBtn)forgetBtn.addEventListener("click",function(){
     forgetBtn.disabled=true;
-    try{sessionStorage.removeItem("sk-civil:"+TOKEN);localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
+    try{localStorage.removeItem("sk-dev:"+TOKEN)}catch(e){}
     fetch("/api/public/staff/"+encodeURIComponent(TOKEN)+"/forget",{method:"POST"}).then(function(){location.reload()},function(){location.reload()});
   });
-  /* العودةُ من صفحة الطلب لا تطلب الرقم ثانيةً: يُحفظ في هذه الجلسة وحدها (يزول بإغلاق التبويب). */
+  /* الرقمُ المدني لا يُحفظ في المتصفح: من أراد ألّا يكتبه ثانيةً يختار «تذكّرني» (مفتاحٌ موقّع لا يحمل الرقم).
+     ويُمحى ما قد بقي من نسخةٍ قديمة كانت تحفظه في الجلسة. */
   var resumed=false;
-  try{var saved=sessionStorage.getItem("sk-civil:"+TOKEN);
-    if(saved&&/^[0-9]{12}$/.test(saved)){resumed=true;civil.value=saved;var fm=document.getElementById("form");if(fm.requestSubmit)fm.requestSubmit();else go.click()}}catch(e){}
+  try{sessionStorage.removeItem("sk-civil:"+TOKEN)}catch(e){}
   /* جهازٌ متذكَّر: يفتح البطاقة مباشرة بمفتاحه (كوكي لا تقرؤه الصفحة). إن لم يصلح بقي سؤال الرقم بلا رسالة. */
   var hinted=false;try{hinted=localStorage.getItem("sk-dev:"+TOKEN)==="1"}catch(e){}
   if(!resumed&&hinted){

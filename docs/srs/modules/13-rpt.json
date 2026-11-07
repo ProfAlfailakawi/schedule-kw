@@ -912,6 +912,10 @@
         {
           "ar": "المنتدب الذي لم يعد في الدليل يحمل listedNow = false.",
           "en": "An instructor no longer in the directory carries listedNow = false."
+        },
+        {
+          "ar": "لا يُسقَط من المصفوفة من غاب عن قائمة الأساتذة المحمّلة في الشاشة: يبقى باسمه المحفوظ في السجل، ويُوسم «لم يعد في دليل القسم» على الشاشة والورقة معاً؛ ولا يُحذف إلا من لم يحمل شعبة في أي فصل.",
+          "en": "Nobody missing from the instructor list loaded on screen is dropped from the matrix: they stay under the name kept in the history and are marked «no longer in the department directory» on both screen and sheet; only someone who carried no section in any term is left out."
         }
       ],
       "evidence": {
@@ -921,7 +925,8 @@
           "src/components/Reports.tsx"
         ],
         "tests": [
-          "tests/visiting-teaching-audit.ts"
+          "tests/visiting-teaching-audit.ts",
+          "tests/analytics-reports-review-audit.ts"
         ]
       }
     },

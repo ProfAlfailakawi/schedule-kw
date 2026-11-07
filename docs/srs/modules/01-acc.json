@@ -529,9 +529,9 @@
       "acceptance": [
         { "ar": "صف الصلاحية يتطلب SystemUserId وFormNameId غير صفريين وإلا 400.", "en": "A permission row requires non-zero SystemUserId and FormNameId or the answer is 400." },
         { "ar": "إضافة نطاق بقسم لا يتبع الكلية تردّ 400 «القسم العلمي المختار لا يتبع الكلية المختارة»، وقسم صفر يُرفض من هذه الشاشة.", "en": "Adding a scope with a department not in the college returns 400, and department 0 is rejected from this screen." },
-        { "ar": "لا تُزال التكرارات تلقائياً لأن قاعدة البيانات القديمة تحوي صفوفاً مكررة.", "en": "Duplicates are not removed automatically because the legacy database contains duplicated rows." }
+        { "ar": "لا تُزال التكرارات تلقائياً عند القراءة لأن قاعدة البيانات القديمة تحوي صفوفاً مكررة؛ وحفظُ صلاحيات حسابٍ من شبكته يُبقي له صفاً واحداً لكل شاشة.", "en": "Duplicates are not removed automatically on read because the legacy database contains duplicated rows; saving an account's permissions from its grid keeps one row per screen for it." }
       ],
-      "evidence": { "code": ["src/server/routes/usersRoutes.ts", "src/components/AdminUsers.tsx"], "tests": ["tests/demo-roles-audit.ts"] },
+      "evidence": { "code": ["src/server/routes/usersRoutes.ts", "src/components/AdminUsers.tsx"], "tests": ["tests/demo-roles-audit.ts", "tests/handover-fixes-audit.ts"] },
       "inferred": true
     },
     {
@@ -925,8 +925,8 @@
       "kind": "functional",
       "title": { "ar": "تعديل صفوف الصلاحيات والنطاقات وحذفها", "en": "Editing and deleting permission and scope rows" },
       "text": {
-        "ar": "يجب على النظام أن يقدّم لحامل الشاشة 12 قائمة الشاشات عبر GET /api/permissions/forms وتعديل صف صلاحية وحذفه عبر PUT وDELETE /api/permissions/:id، ولحامل الشاشة 15 تعديل صف نطاق وحذفه عبر PUT وDELETE /api/user-scopes/:id، وأن تُحرَّر صلاحيات المستخدم في شاشة المستخدمين نفسها بشبكة اختيار تُحفظ بالفرق.",
-        "en": "The system shall give a holder of screen 12 the screen list through GET /api/permissions/forms and editing and deletion of a permission row through PUT and DELETE /api/permissions/:id, give a holder of screen 15 editing and deletion of a scope row through PUT and DELETE /api/user-scopes/:id, and edit a user's permissions on the Users screen itself with a selection grid saved as a difference."
+        "ar": "يجب على النظام أن يقدّم لحامل الشاشة 12 قائمة الشاشات عبر GET /api/permissions/forms وتعديل صف صلاحية وحذفه عبر PUT وDELETE /api/permissions/:id، ولحامل الشاشة 15 تعديل صف نطاق وحذفه عبر PUT وDELETE /api/user-scopes/:id، وأن تُحرَّر صلاحيات المستخدم في شاشة المستخدمين نفسها بشبكة اختيار تُحفظ بطلبٍ واحد PUT /api/permissions/user/:userId يستبدل مجموعة صلاحيات الحساب في كتابةٍ واحدة ويكتب سطراً في سجل التدقيق.",
+        "en": "The system shall give a holder of screen 12 the screen list through GET /api/permissions/forms and editing and deletion of a permission row through PUT and DELETE /api/permissions/:id, give a holder of screen 15 editing and deletion of a scope row through PUT and DELETE /api/user-scopes/:id, and edit a user's permissions on the Users screen itself with a selection grid saved by a single PUT /api/permissions/user/:userId that replaces the account's permission set in one write and adds an audit-log line."
       },
       "priority": "should",
       "status": "implemented",
@@ -934,10 +934,10 @@
       "acceptance": [
         { "ar": "تعديل بلا رقم صف أو حساب أو شاشة يردّ 400، وصف غير موجود 404 «الصلاحية غير موجودة»؛ وحذف بلا رقم صالح 400.", "en": "An edit without a row, account or screen number returns 400, a missing row returns 404, and a delete without a valid number returns 400." },
         { "ar": "تعديل صف نطاق بقسم لا يتبع الكلية يردّ 400 «القسم العلمي المختار لا يتبع الكلية المختارة».", "en": "Editing a scope row with a department outside its college returns 400." },
-        { "ar": "حفظ الشبكة يحذف الصفوف التي أُلغي اختيارها ثم يضيف الجديدة؛ ومسح الاختيار كله ثم الحفظ يسحب كل شاشات الحساب.", "en": "Saving the grid deletes the rows that were unticked and then adds the new ones; clearing every tick and saving withdraws all the account's screens." },
+        { "ar": "حفظ الشبكة طلبٌ واحد: تبقى الصفوف المختارة بمعرّفاتها، وتُزال غير المختارة (ومعها الصفوف القديمة بلا معرّف والمكرّرة)، وتُضاف الجديدة في كتابةٍ واحدة؛ وشاشةٌ غير معروفة تُرفض بـ400 دون تغيير شيء؛ ومسح الاختيار كله ثم الحفظ يسحب كل شاشات الحساب؛ وسطر السجل «صلاحيات الحساب N: أُضيف […]، وأُزيل […]».", "en": "Saving the grid is one request: ticked rows keep their ids, unticked rows (including legacy rows without an id and duplicates) are removed and new ones added in a single write; an unknown screen is refused with 400 and nothing changes; clearing every tick and saving withdraws all the account's screens; the audit line reads «permissions of account N: added […], removed […]»." },
         { "ar": "نموذج إنشاء النطاق يعرض «مسند حالياً إلى: …» أو «لا أقسام مسندة لهذا المستخدم بعد».", "en": "The scope creation form shows the departments the user is currently assigned to, or that none is assigned yet." }
       ],
-      "evidence": { "code": ["src/server/routes/usersRoutes.ts#/api/permissions/forms", "src/server/routes/usersRoutes.ts#/api/permissions/:id", "src/server/routes/usersRoutes.ts#/api/user-scopes/:id", "src/components/AdminUsers.tsx"], "tests": [] },
+      "evidence": { "code": ["src/server/routes/usersRoutes.ts#/api/permissions/forms", "src/server/routes/usersRoutes.ts#/api/permissions/:id", "src/server/routes/usersRoutes.ts#/api/user-scopes/:id", "src/components/AdminUsers.tsx"], "tests": ["tests/handover-fixes-audit.ts"] },
       "inferred": true
     },
     {
@@ -970,13 +970,13 @@
       "status": "implemented",
       "actors": ["admin", "rootAdmin"],
       "acceptance": [
-        { "ar": "لا قسم مستقل للصلاحيات: تُحرَّر داخل بطاقة المستخدم.", "en": "There is no separate Permissions section: permissions are edited inside the user card." },
+        { "ar": "لا قسم مستقل للصلاحيات: تُحرَّر داخل بطاقة المستخدم، ورابط «الصلاحيات» القديم يفتح شاشة المستخدمين؛ و«نسخ فصل» يُحوَّل إلى شاشة نسخ الجدول ولا يعرض السجل مكانها.", "en": "There is no separate Permissions section: permissions are edited inside the user card, and the old Permissions link opens the Users screen; Copy term redirects to the schedule-copy screen and never shows the log in its place." },
         { "ar": "تبويبا «السجل» و«أوقات دوام الأقسام» يظهران لكل من يصل الشاشة، لكن بياناتهما من مسارات للإدارة الرئيسية (السجل) وللحساب الجذر (أوقات الدوام).", "en": "The Log and Department working hours tabs appear to anyone reaching the screen, but their data comes from routes for main administration (log) and the root account (working hours)." },
         { "ar": "تبديل القسم يُفرغ البحث والتصفية والاختيار ويوقف متابعة التصدير في المتصفح دون إلغاء تقدّمه المحفوظ في الخادم.", "en": "Switching section clears the search, filter and selection and stops the browser-side export driver without discarding its progress saved on the server." },
         { "ar": "قائمة المستخدمين تُبحث بالاسم أو اسم الدخول وتعرض لكل حساب صفته وشارة «راجع الصفة» وحالته (مقفل، فعّال، متوقف)، وبطاقته «كلمة السر: محفوظة ومشفّرة» أو «غير مضبوطة».", "en": "The user list is searched by name or login and shows each account's role, a review-role badge and its status (locked, active, stopped), and its card shows the password as saved and encrypted or not set." },
         { "ar": "في البيئة التجريبية ترفض الواجهة أي كتابة إدارية برسالة «الإدارة للعرض فقط في البيئة التجريبية».", "en": "In the demo the interface refuses any administrative write with a display-only message." }
       ],
-      "evidence": { "code": ["src/components/AdminUsers.tsx"], "tests": [] },
+      "evidence": { "code": ["src/components/AdminUsers.tsx"], "tests": ["tests/handover-fixes-audit.ts"] },
       "inferred": true
     },
     {

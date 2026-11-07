@@ -1949,8 +1949,8 @@
           "en": "A repeated course and section gives a duplicate note."
         },
         {
-          "ar": "«تحميل النموذج الافتراضي» يبني في المتصفح ملف «نموذج-استيراد-الجدول.xlsx»: ورقة «الجدول» بأعمدة من اليمين (القاعة، المبنى، الوقت، الأيام، الرقم المدني، أستاذ المقرر، الشعبة، المقرر الدراسي، رمز المقرر) وصفّين بأسماء بديلة («اسم دكتور 1» و«اسم دكتور 2») ورقم مدني يبدأ بـ3 فيفشل التحقق إن تُرك، وورقة «طريقة الاستخدام» تشرح المطابقة والأيام والوقت بصيغة 24 ساعة والصفوف الناقصة وما يحدث بعد الرفع.",
-          "en": "«download the default template» builds in the browser «schedule-import-template.xlsx»: a «schedule» sheet with columns from the right (hall, building, time, days, civil number, course instructor, section, course, course code) and two rows with stand-in names («doctor name 1» and «doctor name 2») and a civil number starting with 3 that fails validation if left in, and a «how to use» sheet explaining matching, days, 24-hour time, incomplete rows and what happens after upload."
+          "ar": "«تحميل النموذج الافتراضي» يبني في المتصفح ملف «نموذج-استيراد-الجدول.xlsx»: ورقة «الجدول» بأعمدة من اليمين (القاعة، المبنى، الوقت، الأيام، الرقم المدني، أستاذ المقرر، الشعبة، المقرر الدراسي، رمز المقرر) وصفّين بأسماء بديلة («اسم دكتور 1» و«اسم دكتور 2») ورقم مقرر من سبع خانات كما يكتبه التصدير ورقم مدني يبدأ بـ3 فيفشل التحقق إن تُرك، وورقة «طريقة الاستخدام» تشرح المطابقة والأيام والوقت بصيغة 24 ساعة والصفوف الناقصة وما يحدث بعد الرفع.",
+          "en": "«download the default template» builds in the browser «schedule-import-template.xlsx»: a «schedule» sheet with columns from the right (hall, building, time, days, civil number, course instructor, section, course, course code) and two rows with stand-in names («doctor name 1» and «doctor name 2»), a seven-digit course number as the export writes it, and a civil number starting with 3 that fails validation if left in, and a «how to use» sheet explaining matching, days, 24-hour time, incomplete rows and what happens after upload."
         },
         {
           "ar": "على الشاشة يُمنع صف من ورقة Excel شعبته ليست ثلاث خانات من 501 فصاعداً، أو أستاذه ليس من القسم ولا من منتدبي الفصل ما لم يُختر باليد.",
@@ -1965,7 +1965,8 @@
           "src/server/routes/smartImportRoutes.ts#/api/intelligence/import-preview"
         ],
         "tests": [
-          "tests/import-term-tools-audit.ts"
+          "tests/import-term-tools-audit.ts",
+          "tests/schedule-board-fixes-audit.ts"
         ]
       }
     },
@@ -2180,8 +2181,8 @@
         "en": "Import from a branch site is redirected to the base college"
       },
       "text": {
-        "ar": "يجب ألا تعرض نافذة أدوات الجدول أدوات الاستيراد حين تكون الكلية المفتوحة موقع فرع (يحمل اسمها اسم أحد الموقعين الفرعيين)، وأن تعرض بدلها ملاحظة بأن الاستيراد يتم من الكلية الأساس، لأن الجدول المعتمد ملف واحد يصدر من الكلية الأساس ويوزّعه النظام على المواقع، مع اسم الكلية الأساس (اسم الكلية بعد حذف لاحقة الموقع، أو اسماً افتراضياً ثابتاً للكلية الأساس إن خلا) ودون شريط حالة الاستيراد.",
-        "en": "The schedule tools dialog shall not show the import controls when the open college is a branch site (its name contains one of the two branch-site names), and shall instead show a note that import is done from the base college, because the approved schedule is one file issued by the base college and distributed to the sites by the system, naming the base college (the college name without the site suffix, or a fixed default base-college name when empty) and without the import status bar."
+        "ar": "يجب ألا تعرض نافذة أدوات الجدول أدوات الاستيراد حين تكون الكلية المفتوحة موقعاً فرعياً للبنات بالقاعدة التي توزّع بها صحيفة البنات على مواقعها (اسمها يحمل علامة مسار البنات واسم أحد الموقعين الفرعيين)، وأن تعرض بدلها ملاحظة بأن الاستيراد يتم من الكلية الأساس، لأن الجدول المعتمد ملف واحد يصدر من الكلية الأساس ويوزّعه النظام على المواقع، مع اسم الكلية الأساس (اسم الكلية بعد حذف مقطع الموقع أينما جاء فيه، فيبقى اسم كلية البنات الأساس، أو اسماً افتراضياً ثابتاً إن خلا) ودون شريط حالة الاستيراد.",
+        "en": "The schedule tools dialog shall not show the import controls when the open college is a girls' branch site by the very rule that distributes the girls' sheet to its sites (its name carries the girls' track mark and one of the two branch-site names), and shall instead show a note that import is done from the base college, because the approved schedule is one file issued by the base college and distributed to the sites by the system, naming the base college (the college name with the site segment removed wherever it appears, leaving the girls' base college, or a fixed default name when empty) and without the import status bar."
       },
       "priority": "should",
       "status": "implemented",
@@ -2191,22 +2192,23 @@
       ],
       "acceptance": [
         {
-          "ar": "فتح تبويب «استيراد» على كلية اسمها ينتهي بـ«- <اسم موقع فرعي>» ← تظهر «الاستيراد يتم من «…»» ولا يظهر زر النموذج ولا زر الرفع.",
-          "en": "Opening «import» on a college whose name ends with «- <branch-site name>» shows «import is done from «…»» with no template button and no upload button."
+          "ar": "فتح تبويب «استيراد» على كلية اسمها «<الكلية> - <اسم موقع فرعي> - بنات» ← تظهر «الاستيراد يتم من «<الكلية> - بنات»» ولا يظهر زر النموذج ولا زر الرفع.",
+          "en": "Opening «import» on a college named «<college> - <branch-site name> - girls» shows «import is done from «<college> - girls»» with no template button and no upload button."
         },
         {
-          "ar": "كلية لا يحمل اسمها أياً من الكلمتين، ومنها كلية البنات، تُعامل أساساً وتظهر فيها أدوات الاستيراد.",
-          "en": "A college whose name carries neither word, including the girls' college, is treated as the base and shows the import controls."
+          "ar": "كلية البنات الأساس وكلية البنين، وكل كلية لا يجتمع في اسمها مسار البنات واسم موقع فرعي، تُعامل أساساً وتظهر فيها أدوات الاستيراد.",
+          "en": "The girls' base college, the boys' college and any college whose name does not combine the girls' track with a branch-site name are treated as the base and show the import controls."
         }
       ],
       "evidence": {
         "code": [
           "src/components/ScheduleTransfer.tsx#branchSite",
           "src/components/ScheduleTransfer.tsx#baseCollegeName",
-          "src/utils/campusTravel.ts#campusOf"
+          "src/utils/collegeTrack.ts#isCampusCollege"
         ],
         "tests": [
-          "tests/location-registry-audit.py"
+          "tests/location-registry-audit.py",
+          "tests/schedule-board-fixes-audit.ts"
         ]
       }
     },
@@ -2375,7 +2377,8 @@
         {
           "ar": "قراءة لم تضف جديداً ← «القراءة الأدق لم تضف جديداً هذه المرة — ما تبقّى من خانات يحتاج تعبئة يدوية. جدولك لم يتغيّر.»؛ و«إلغاء» يترك الجدول كما هو ولا يعيد العرض؛ ورفع ملف جديد يبدأ فرصة جديدة.",
           "en": "A reading that adds nothing says «the sharper reading added nothing new this time — the remaining cells need filling by hand. Your table did not change.»; «cancel» leaves the table unchanged and the offer does not return; a new upload starts a new offer."
-        }
+        },
+        { "ar": "نصّ التقدّم أثناء القراءة الأدق عربيٌّ خالص: «قراءة أدق للصفحات …» أو «قراءة أدق للصفحات المتعثرة»، بلا اسم الخدمة.", "en": "The progress text during the sharper reading is plain Arabic («sharper reading of pages …» or «sharper reading of the troubled pages»), without the service's name." }
       ],
       "evidence": {
         "code": [
@@ -2388,7 +2391,8 @@
         ],
         "tests": [
           "tests/gemini-schedule-layer.ts",
-          "tests/pdf-import-hardening.ts"
+          "tests/pdf-import-hardening.ts",
+          "tests/schedule-board-fixes-audit.ts"
         ]
       }
     },

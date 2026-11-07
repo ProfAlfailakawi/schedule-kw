@@ -118,7 +118,7 @@ ok('36 hidden decision editor uses registry picker', '<LocationPicker' in living
 ok('37 room report filters use canonical ids', 'String(row.roomId) === matrixHall' in reports and 'placeholder="F10 مثلاً"' not in reports)
 ok('38 smart room proposals carry canonical ids', '{ ...row, ...change, locationStatus: change.locationStatus || "VERIFIED" }' in intel)
 ok('39 operational buildings require an actually usable room', 'eligibleBuildingIds' in server and '!sectionId||eligibleBuildingIds.has(building.id)' in server and 'stale\n  // building.sectionIds relationship' in server)
-ok('40 import blocker guides user to preview', 'أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.' in intel and 'scrollIntoView({ behavior: "smooth", block: "center" })' in intel and 'أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.' in server)
+ok('40 import blocker guides user to preview (server), and the analytics centre has no second import screen', 'أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.' in server and 'importErrorModal' not in intel and 'tab === "import"' not in intel)
 admin=(ROOT/'src/components/LocationRegistryAdmin.tsx').read_text()
 ok('41 shared room is derived, never manually checked', 'shared=sectionIds.length>1' in server and 'checked={Boolean(editEntity.shared)}' not in admin and 'checked={newRoom.shared}' not in admin and 'تُصنّف تلقائيًا كمشتركة' in admin)
 registry_src=(ROOT/'src/utils/locationRegistry.ts').read_text(encoding='utf-8')
@@ -149,7 +149,7 @@ ok('52d pinned directory rooms are selectable and save with the same scope rule'
 ok('52e historical use owned elsewhere stays visible but cannot bypass barter', 'historyNeedsBorrowing' in server and 'استخدام تاريخي يحتاج استعارة' in picker and 'disabled>{r.canonicalCode} · تحتاج استعارة معتمدة' in picker)
 ok('53 section selectors are Arabic-natural sorted', 'sortByName(data.sections.filter' in admin and 'sortByName(availableSections' in (ROOT/'src/components/IntelligenceContextBar.tsx').read_text())
 
-ok('54 import publish is disabled while any issue remains', 'importReady = Boolean(importPreview?.valid && importBlockingIssues.length === 0 &&' in intel and 'disabled={!importReady || busy}' in intel)
+ok('54 import publish lives in the transfer screen alone (no ungated second publish in the analytics centre)', 'approveAndPublishPdf' not in intel and 'importPreview' not in intel)
 ok('55 empty query hides all print/report actions, including Authority change report', 'authorityReportAvailable && all.length > 0' in reports and '{results.length ? <>' in reports and 'تقرير تغييرات الجدول' in reports)
 ok('56 query facets cascade through the actual intersected dataset', 'rowLocation = useCallback' in reports and 'rowsForFacet = useCallback' in reports and 'rowsForFacet("course")' in reports and 'rowsForFacet("instructor")' in reports and 'rowsForFacet("building")' in reports and 'rowsForFacet("room")' in reports)
 ok('57 late alert shows thin course name under course code', 'subtitle: courseName || undefined' in intel and 'intel-reason-course-name' in intel)
@@ -266,7 +266,7 @@ ok('85 unmatched instructor source text is never displayed as a canonical profes
 ok('86 document department rejects local-only code when college composite is known', 'if (college && composite) return source === composite' in auth)
 ok('87 authority source section normalization is re-applied server-side after preview, edit, delete and publish', server.count('assignAuthoritySections(safeDraftRows') >= 5)
 transfer=(ROOT/'src/components/ScheduleTransfer.tsx').read_text()
-ok('88 authority source section normalization is re-applied in both import UIs', 'assignAuthoritySections(next)' in transfer and 'assignAuthoritySections(rows)' in intel)
+ok('88 authority source section normalization is re-applied in the import UI (the only one)', 'assignAuthoritySections(next)' in transfer and 'assignAuthoritySections' not in intel)
 ok('89 canonical header receipt uses system department label after numeric proof', 'canonical system label in the receipt/preview' in server and 'name:canonicalName' in server)
 ok('90 fallback parser never confuses full course key with CRN', 'value!==sourceCourseCode' in doc and 'sourceCourseCode=sourceCourseRuns.find' in doc)
 
@@ -589,7 +589,7 @@ ok('204 the barter board keeps a term-wide log of every movement — folded by d
    and 'html[data-print-kind="barter-log"] #app-print-root>.hall-barter-log-print-host{display:block!important' in print_css)
 
 ok('205 a branch site (الجهراء/الفحيحيل) does not import for itself — the import tab points to the base college instead, and only there',
-   'const branchSite = campusOf(collegeName) !== "main"' in transfer_src
+   'const branchSite = isCampusCollege(String(collegeName || ""));' in transfer_src
    and 'tab === "import" && branchSite ?' in transfer_src
    and 'tab === "import" && !branchSite ?' in transfer_src
    and 'الاستيراد يتم من' in transfer_src

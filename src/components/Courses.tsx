@@ -35,6 +35,7 @@ import {
 
 type Mode = "index" | "create" | "edit";
 type PlanFilter = "all" | "new" | "old" | "service";
+const DUPLICATE_COURSE_CODE = "تم تسجيل الرقم الأكاديمي للمقرر هذا من قبل";
 const TEACHING_MODE_LABEL: Record<string, string> = {
   theoretical: "نظري", applied: "تطبيقي", practical: "عملي",
   field_training: "التدريب الميداني",
@@ -301,19 +302,20 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setter(decimalText(v));
       setError(null);
     },
-    validateCourseCode = () => {
-      if (
+    /* الرمزُ نفسه في القسم نفسه: يُنبَّه عند مغادرة الحقل ويُمنع الحفظ به (والخادم يمنعه أيضاً). */
+    duplicateCourseCode = () =>
+      Boolean(
         code &&
-        sectionId &&
-        items.some(
-          (x) =>
-            x.AdSectionId === Number(sectionId) &&
-            String(x.CourseCode || "") === code &&
-            x.AdCourseId !== editId,
-        )
-      ) {
-        setError("تم تسجيل الرقم الأكاديمي للمقرر هذا من قبل");
-      }
+          sectionId &&
+          items.some(
+            (x) =>
+              x.AdSectionId === Number(sectionId) &&
+              String(x.CourseCode || "") === code &&
+              x.AdCourseId !== editId,
+          ),
+      ),
+    validateCourseCode = () => {
+      if (duplicateCourseCode()) setError(DUPLICATE_COURSE_CODE);
     };
 
   const submit = async (e: React.FormEvent) => {
@@ -322,6 +324,10 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     setError(null);
     if (!collegeId || !sectionId || !code || !name.trim() || !credit || !hours) {
       setError("الرجاء إدخال الحقول المطلوبة بالأحمر");
+      return;
+    }
+    if (duplicateCourseCode()) {
+      setError(DUPLICATE_COURSE_CODE);
       return;
     }
     if (mode === "create") {

@@ -1692,6 +1692,10 @@
         {
           "ar": "القواعد المنشأة مسودة لا تُعتمد، وإعادة التطبيق على كتالوج مطابق لا تغيّر شيئاً.",
           "en": "The created rules are a draft never approved, and re-applying to a matching catalogue changes nothing."
+        },
+        {
+          "ar": "في مراجعة الصحيفة يرى القسم المرجعي «صحيفة التخرج» مكان منتقي القسم والصحيفة، فيقود اختيار موقعها ونسختها الصفحة كلها، وتفتح أزرار «تعديل الوحدات والساعات والسعة» و«أضف المقرر إلى القسم» شاشة المقررات بالتصحيح مُعدّاً لمن يملكها؛ ولوحة التطبيق للحساب الرئيسي وحده.",
+          "en": "In plan review the reference department sees «graduation sheet» in place of the department and sheet pickers, so choosing its site and version drives the whole page, and the «edit units, hours and capacity» and «add the course to the department» buttons open the courses screen with the correction prepared for whoever may use it; the apply panel is for the root account only."
         }
       ],
       "evidence": {
@@ -1702,12 +1706,14 @@
           "src/utils/referenceApply.ts",
           "src/server/planReviewRoutes.ts",
           "src/components/CurriculumReferenceReview.tsx",
+          "src/components/PlanReview.tsx#openCatalogCorrection",
           "src/server/planReviewRoutes.ts#/api/plan-review/reference/apply"
         ],
         "tests": [
           "tests/reference-apply-audit.ts",
           "tests/curriculum-reference-pdf-audit.ts",
-          "tests/curriculum-reference-audit.ts"
+          "tests/curriculum-reference-audit.ts",
+          "tests/analytics-reports-review-audit.ts"
         ]
       }
     },
@@ -2674,17 +2680,23 @@
         {
           "ar": "استيراد بلا أسطر يُردّ بـ400، وغير الحساب الرئيسي بـ403.",
           "en": "Importing with no lines is refused with 400, and any non-root account with 403."
+        },
+        {
+          "ar": "في مراجعة الصحيفة يجد الحساب الرئيسي وحده (canImport) ضمن «أدوات الصيانة» لوحة «استيراد قواعد الصحائف»: نموذجاً فارغاً وملف Excel أو CSV (CSV يُقرأ نصاً UTF-8)، ثم عدد المسوّدات المنشأة وما تُرك قيد المراجعة وأول 8 ملاحظات بأسطرها، وتُقرأ الحالة والصحيفة المفتوحة من جديد بعد الاستيراد.",
+          "en": "In plan review only the root account (canImport) finds, among «maintenance tools», the «import sheet rules» panel: an empty template and an Excel or CSV file (CSV read as UTF-8 text), then the number of drafts created, what was left under review and the first 8 notes with their lines, and the status and open sheet are re-read after the import."
         }
       ],
       "evidence": {
         "code": [
           "src/server/planReviewRoutes.ts#/api/plan-review/approve-all",
           "src/server/planReviewRoutes.ts#/api/plan-review/import",
-          "src/utils/curriculumRulesImport.ts"
+          "src/utils/curriculumRulesImport.ts",
+          "src/components/PlanReview.tsx#ImportPanel"
         ],
         "tests": [
           "tests/plan-sheet-import-route-audit.ts",
-          "tests/plan-review-audit.ts"
+          "tests/plan-review-audit.ts",
+          "tests/analytics-reports-review-audit.ts"
         ]
       }
     },
@@ -3054,8 +3066,8 @@
           "en": "Another department's course shows a lock and the note «this course belongs to … — its department edits its rules», and a general course «a general requirement: … counted in your sheet and edited by its department»."
         },
         {
-          "ar": "حفظ المجموعة يتطلب اسماً، وحذف المجموعة ينفَّذ بضغطة واحدة بلا تأكيد.",
-          "en": "Saving a group requires a name, and deleting a group happens with a single press without confirmation."
+          "ar": "حفظ المجموعة يتطلب اسماً، وحذف المجموعة يفتح تأكيداً مضمَّناً بنمط تأكيد الاعتماد («نعم، احذف» و«تراجع») يذكر أن مقرراتها تبقى في الصحيفة وتصير «بلا مجموعة»، ولا يُرسل الحذف إلا بعد التأكيد.",
+          "en": "Saving a group requires a name, and deleting a group opens an inline confirmation in the approval-confirmation style («yes, delete» and «back») stating that its courses stay in the sheet and become «without a group»; the delete is sent only after confirming."
         },
         {
           "ar": "المستوى الافتراضي في المحرر يُستنتج من رمز المقرر حين لا قاعدة.",
@@ -3070,7 +3082,8 @@
           "src/server/planReviewRoutes.ts#/api/plan-review/group/delete"
         ],
         "tests": [
-          "tests/plan-review-audit.ts"
+          "tests/plan-review-audit.ts",
+          "tests/analytics-reports-review-audit.ts"
         ]
       }
     },

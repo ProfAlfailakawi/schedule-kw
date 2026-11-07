@@ -1634,3 +1634,4 @@ html[data-schedule-workspace="presentation"] .scope-context{display:none}
   .notify-panel>header button{position:relative}
   .notify-panel>header button::after{content:"";position:absolute;inset:-5px}
 }
+.practice-approval-paused{margin:6px 0;padding:8px 12px;border:1px dashed var(--line-2,#c9c2b4);border-radius:12px;color:var(--muted,#5f6964);font-size:.86rem;background:var(--surface,#fff)}

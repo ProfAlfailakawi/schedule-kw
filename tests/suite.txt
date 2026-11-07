@@ -139,6 +139,7 @@ test:public-kit
 test:intelligence-scope
 test:journey-reveal
 test:landing-inquiry
+test:handover-fixes
 test:student-needs-scale
 test:term-student-phases
 test:student-door
@@ -146,6 +147,7 @@ test:student-door-network
 test:student-advice
 test:inbox-heat
 test:plan-review
+test:analytics-reports-review
 test:plan-sheet
 test:program-provision
 test:student-map
@@ -194,6 +196,7 @@ test:course-room-type-sync
 test:decision-1913
 test:approval-review
 test:decision-surfaces
+test:schedule-board-fixes
 test:schedule-versions-list
 test:time-machine-scope-escape
 test:visiting-badge-changes

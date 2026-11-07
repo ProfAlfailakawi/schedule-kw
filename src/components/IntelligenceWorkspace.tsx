@@ -37,7 +37,6 @@ import {
   FileClock,
   FileText,
   FileSpreadsheet,
-  Download,
   Gauge,
   History,
   Lightbulb,
@@ -69,15 +68,12 @@ import {
   Badge,
   Field,
   GhostButton,
-  MetaPill,
   Notice,
   Num,
   PageTitle,
   PrimaryButton,
   PrintLetterhead,
   PrintPortal,
-  RecordCard,
-  RecordDeck,
   SecondaryButton,
   Segmented,
   StatCard,
@@ -95,25 +91,17 @@ import type {
 import IntelligenceContextBar from "./IntelligenceContextBar";
 import { useScopedTerms } from "./useScopedTerms";
 import { AR, countOf, nounFor, oblique, studentNounsFor } from "../utils/arabicCount";
-import { proposeSmartFills, applySmartFills } from "../utils/geminiScheduleLayer";
 import { resolveScopeSelection, singleDepartmentOf } from "../utils/scopeContext";
 import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
 import { sortByName, byRoom, byArabic } from "../utils/sorting";
 import { sortTermsNewest, termIsArchive } from "../utils/termSequence";
-import { importRowKey, type ImportRow } from "./ImportPreviewTable";
-import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
 import { isAssignableInstructor } from "../utils/instructorStatus";
 import StudentCasesTable from "./StudentCasesTable";
 import { RegistrationJourney, journeyFromViews, viewStatuses, type StatusFilter as CaseStatusFilter } from "./StudentCaseStatus";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
-import PagedImportPreview, { PageReviewWait, scrollToFirstImportIssue } from "./PagedImportPreview";
-import ImportStatusBar from "./ImportStatusBar";
-import { useImportPreflight } from "../hooks/useImportPreflight";
-import { importGateSettled, importGateState } from "../utils/importGate";
 import LocationPicker, { BuildingPicker } from "./LocationPicker";
 import { roomIdentityKey } from "../utils/locationRegistry";
-import { assignAuthoritySections, authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
 import { parseNaturalQuery } from "../utils/naturalQuery";
 import {
   IntelligenceVersionCanvas as VersionCanvas,
@@ -124,8 +112,6 @@ import {
 import { formatCompactDurationArabic, formatMinuteMetricArabic, formatUnitMetricArabic, formatScheduleTimeRange, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES, scheduleClockForDisplay } from "../utils/scheduleTime";
 
 import { setTelemetryScope, telemetryApi, telemetryBreadcrumb, telemetryError, telemetryTiming } from "../utils/clientTelemetry";
-import { interruptedImportMessage } from "../utils/importStreamFailure";
-import { pageReviewIssues, pagesAwaitingReview, scanLeftCellUnread, pagesWithUnreadCells, pagesLabel } from "../utils/importPageReview";
 import MiniRing, { ringFromScoreText } from "./MiniRing";
 import ApplyProposal, { postScheduleProposal, postWhatIf } from "./ApplyProposal";
 import ActionableErrorNotice from "./ActionableErrorNotice";
@@ -182,7 +168,7 @@ function professorWeekShape(rows: any[]) {
   return { from, to, days, hours };
 }
 
-type Tab = "command" | "copilot" | "twin" | "history" | "import";
+type Tab = "command" | "copilot" | "twin" | "history";
 
 function PdfDifferenceBody({report,courses,instructors,isVisiting}:{report:any;courses:AdCourse[];instructors:AdInstructor[];isVisiting:(instructorId:unknown,collegeId:unknown,sectionId:unknown)=>boolean}){
   return <>
@@ -404,42 +390,17 @@ const smartMessage = (value: any) => {
   return issues.length ? `${text}: ${issues.join(" · ")}` : text;
 };
 
-const importClockMinutes = (value: unknown) => {
-  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
-  return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
+/** مصدر النسخة كما يُخزَّن رمزاً إنجليزياً، مقروءاً بالعربية في سجل النسخ. */
+const VERSION_SOURCE_LABELS: Record<string, string> = {
+  manual: "حفظ يدوي",
+  draft: "مسودة",
+  publish: "نشر",
+  undo: "تراجع",
+  copy: "نسخ",
+  import: "استيراد",
 };
-const importRowsShareDay = (a: ImportRow, b: ImportRow) =>
-  ["fsunday","fmonday","ftuesday","fwednesday","fthursday"].some(key => Boolean((a as any)[key]) && Boolean((b as any)[key]));
-const importRowsOverlap = (a: ImportRow, b: ImportRow) => {
-  const a0=importClockMinutes(a.fstarttime),a1=importClockMinutes(a.fendtime),b0=importClockMinutes(b.fstarttime),b1=importClockMinutes(b.fendtime);
-  return a0>=0&&a1>a0&&b0>=0&&b1>b0&&a0<b1&&b0<a1;
-};
-/** Authority-PDF section identity comes from the printed section cell.
- * Preserve the exact source value (including leading zeroes and legitimate gaps). */
-const normalizeImportSectionSeries = (rows: ImportRow[]) => assignAuthoritySections(rows);
-const validateImportRowsLocally = (rows: ImportRow[]) => {
-  const issues:string[] = [];
-  rows.forEach((row, index) => {
-    const label = `الصف ${(index + 1).toLocaleString("ar-KW-u-nu-latn")}`;
-    if (!Number(row.AdCourseId)) issues.push(`${label}: المقرر غير محدد`);
-    if (!authoritySectionCodeLooksPlausible(row.SCode)) issues.push(`${label}: رقم الشعبة غير صالح أو لم يُقرأ من ملف PDF`);
-    if (![row.fsunday,row.fmonday,row.ftuesday,row.fwednesday,row.fthursday].some(Boolean)) issues.push(`${label}: الأيام غير محددة`);
-    const start=importClockMinutes(row.fstarttime),end=importClockMinutes(row.fendtime);
-    if (start < 0 || end < 0 || end <= start) issues.push(`${label}: الوقت غير مكتمل أو غير منطقي`);
-    if (!row.buildingId) issues.push(`${label}: المبنى الرسمي غير محدد`);
-    if (!row.roomId && row.locationStatus !== "PENDING_ROOM") issues.push(`${label}: القاعة غير محددة`);
-    if (!Number(row.AdInstructorId)) issues.push(`${label}: أستاذ المقرر غير محدد`);
-  });
-  rows.forEach((row,index)=>rows.slice(index+1).forEach((other,offset)=>{
-    if(!importRowsShareDay(row,other)||!importRowsOverlap(row,other))return;
-    const otherIndex=index+offset+1;
-    if(Number(row.AdInstructorId)&&Number(row.AdInstructorId)===Number(other.AdInstructorId))
-      issues.push(`الصفان ${index+1} و${otherIndex+1}: أستاذ المقرر متعارض في الوقت نفسه`);
-    if(roomIdentityKey(row)&&roomIdentityKey(row)===roomIdentityKey(other))
-      issues.push(`الصفان ${index+1} و${otherIndex+1}: القاعة متعارضة في الوقت نفسه`);
-  }));
-  return [...new Set(issues)];
-};
+const versionSourceLabel = (source: unknown) =>
+  VERSION_SOURCE_LABELS[String(source || "")] || "تعديل";
 
 /** رقمُ بطاقة القراءة، أو لا شيء حين يكون صفراً أو فارغاً (قاعدة إخفاء الفارغ). */
 function metricBadge(metric: unknown) {
@@ -454,6 +415,8 @@ function metricBadge(metric: unknown) {
 
 export default function IntelligenceWorkspace({ user, scopes }: Props) {
   const isPowerAdmin = Boolean(user?.IsAdminUser || user?.SystemUserId === 1);
+  /* لوحة القواعد: الخادم (requirePowerAdmin) يقصر الكتابة على الإدارة الرئيسية. */
+  const canEditRules = isPowerAdmin;
   /* نشرُ الصحائف للعامة: رئيس لجنة الجدول وإدارة النظام وحدهما (والخادمُ يتحقق ثانيةً). */
   const canPublishSheets = isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair";
   const [sheetSummary, setSheetSummary] = useState<{ published: number; total: number } | null>(null);
@@ -479,8 +442,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         "schedule-intelligence-tab",
       ) as Tab | null;
       sessionStorage.removeItem("schedule-intelligence-tab");
-      /* "import" no longer has an entry point here — a tab restored from an
-         older session would strand the reader on a screen with no way back. */
+      /* الاستيراد يعيش في «نقل الجدول» وحده؛ قيمةٌ قديمة محفوظة («import») تعود إلى القراءة. */
       return v &&
         ["command", "copilot", "twin", "history"].includes(v)
         ? v
@@ -615,20 +577,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     [versionTo, setVersionTo] = useState(""),
     [versionCompare, setVersionCompare] = useState<any>(null),
     [timeTravel, setTimeTravel] = useState(50);
-  const [importProgress, setImportProgress] = useState<{ phase: string; page: number; pages: number; message: string; notice?: string } | null>(null);
-  /* Scanned pages whose missing printed lines the reviewer confirmed (importPageReview). */
-  const [reviewedImportPages, setReviewedImportPages] = useState<number[]>([]);
-  const [importPreview, setImportPreview] = useState<any>(null),
-    [importFile, setImportFile] = useState(""),
-    [importInstructorIds, setImportInstructorIds] = useState<number[]>([]),
-    [importVisitingIds, setImportVisitingIds] = useState<Set<number>>(new Set()),
-    [importDepartmentRooms, setImportDepartmentRooms] = useState<Array<{ building:string; hall:string }>>([]),
-    [importErrorModal, setImportErrorModal] = useState<string | null>(null),
-    // A failed Authority-PDF read never routes to Gemini on its own. We stash the
-    // file so the person can consciously choose Smart Import — nothing leaves the
-    // server to Google without that deliberate click.
-    [smartRetry, setSmartRetry] = useState<{ file: File; reason: string } | null>(null),
-    [online, setOnline] = useState(navigator.onLine);
+  const [online, setOnline] = useState(navigator.onLine);
   // Help never opens on its own; one deliberate question mark owns it.
   const [decisionCompose, setDecisionCompose] = useState(false);
   const [decisionTitle, setDecisionTitle] = useState("");
@@ -829,21 +778,15 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
   },[collegeId,sectionId,termId]);
 
   /**
-   * Import uses the exact same instructor vocabulary as Add/Edit Schedule.
+   * The same instructor vocabulary as Add/Edit Schedule.
    *
-   * The old preview inherited `lookups.instructors`, which is power-admin only.
-   * Coordinators therefore opened the PDF preview with an empty catalogue and
-   * the only names that later leaked in were visiting/delegate records. Load
+   * `lookups.instructors` is power-admin only, so a coordinator's constraint
+   * and placement pickers would open empty. Load
    * this department's historical staff plus this term's delegates explicitly;
    * InstructorPicker can still widen to the whole university when someone types.
    */
   useEffect(() => {
-    if (!collegeId || !sectionId || !termId) {
-      setImportInstructorIds([]);
-      setImportVisitingIds(new Set());
-      setImportDepartmentRooms([]);
-      return;
-    }
+    if (!collegeId || !sectionId || !termId) return;
     let alive = true;
     const paramsBase = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId) });
     const paramsTerm = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
@@ -852,8 +795,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       fetchJson(`/api/instructors?${paramsTerm.toString()}`).catch(() => []),
       fetchJson(`/api/visiting-roster?${paramsTerm.toString()}`).catch(() => ({ instructorIds: [], instructors: [] })),
       fetchJson(`/api/courses?sectionId=${sectionId}`).catch(() => []),
-      fetchJson(`/api/department-rooms?${paramsBase.toString()}`).catch(() => ({ rooms: [] })),
-    ]).then(([historyPeople, termPeople, roster, sectionCourses, roomData]) => {
+    ]).then(([historyPeople, termPeople, roster, sectionCourses]) => {
       if (!alive) return;
       const localPeople = [...new Map(
         [...(Array.isArray(historyPeople) ? historyPeople : []),
@@ -861,10 +803,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
          ...(Array.isArray(roster?.instructors) ? roster.instructors : [])]
           .map((person:any) => [Number(person.AdInstructorId), person] as const),
       ).values()].filter((person:any) => Number(person.AdInstructorId));
-      const ids = localPeople.map((person:any) => Number(person.AdInstructorId));
-      setImportInstructorIds(ids);
-      setImportVisitingIds(new Set((Array.isArray(roster?.instructorIds) ? roster.instructorIds : []).map(Number).filter(Boolean)));
-      setImportDepartmentRooms(Array.isArray(roomData?.rooms) ? roomData.rooms : []);
       if (localPeople.length) {
         setInstructors(current => sortByName(
           [...new Map([...current, ...localPeople].map((person:any) => [Number(person.AdInstructorId), person] as const)).values()],
@@ -1493,7 +1431,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
   const saveDraft = async (
     source = "what-if",
     draftRows = scenario,
-    importLayout?: "authority-pdf" | "worksheet",
     customName = "",
   ) => {
     if (!draftRows) return;
@@ -1521,17 +1458,8 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                 source,
                 name:
                   customName ||
-                  `${source === "auto" ? "اقتراح تلقائي" : source === "import" ? (importLayout === "authority-pdf" ? "نسخة PDF المعتمدة" : "استيراد النموذج") : "سيناريو"} — ${new Date().toLocaleString("ar-KW-u-nu-latn")}`,
+                  `${source === "auto" ? "اقتراح تلقائي" : "سيناريو"} — ${new Date().toLocaleString("ar-KW-u-nu-latn")}`,
                 rows: draftRows,
-                ...(importLayout ? { importLayout } : {}),
-                ...(importLayout === "authority-pdf" ? {
-                  importReceipt: importPreview?.importReceipt,
-                  reviewedPages: reviewedImportPages,
-                  sourceFileName: importPreview?.fileName,
-                  sourceBranchCode: importPreview?.headerBranch?.code,
-                  sourceBranchName: importPreview?.headerBranch?.name,
-                  previewIssues: validateImportRowsLocally(draftRows as ImportRow[]),
-                } : {}),
               }),
             });
       setActiveDraftId(String(d.id));
@@ -1543,9 +1471,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       await reload();
       return d;
     } catch (e: any) {
-      const text=smartMessage(e);
-      if(source==="import"&&/جدول المعاينة|الحقول المطلوبة|الملاحظات/.test(text)){setError(null);setImportErrorModal("راجع الملاحظات والحقول المطلوبة قبل حفظ المسودة.");}
-      else setError(text);
+      setError(smartMessage(e));
       return null;
     } finally {
       setBusy(false);
@@ -1740,337 +1666,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       setBusy(false);
     }
   };
-  /** The same blank workbook Data Tools offers, so the two importers hand a
-   *  professor one identical template rather than two subtly different ones. */
-  const downloadImportTemplate = async () => {
-    const XLSX = await import("xlsx");
-    /* Reversed on purpose: with Arabic headers the sheet is read right to left,
-       so the hall must be the FIRST column for the row to arrive in the order a
-       person fills it in — course last is how the printed timetable reads too.
-       The importer matches by header name, so order is presentation only. */
-    const headers = ["القاعة", "المبنى", "الوقت", "الأيام", "الرقم المدني", "أستاذ المقرر", "الشعبة", "المقرر الدراسي", "رمز المقرر"];
-    /* Placeholders, not people. Numbered names cannot be mistaken for a real
-       instructor, and the civil id starts with 3 — a century Kuwait has not
-       issued — so a sample row left in by accident fails validation instead of
-       importing as somebody. */
-    const sample = [
-      ["F10", "B9", "08:00-09:20", "الأحد - الثلاثاء", "300123100006", "اسم دكتور 1", "501", "اسم المقرر الأول", "101"],
-      ["F12", "B9", "11:00-12:20", "الاثنين - الأربعاء", "", "اسم دكتور 2", "502", "اسم المقرر الثاني", "102"],
-    ];
-    const sheet = XLSX.utils.aoa_to_sheet([headers, ...sample]);
-    (sheet as any)["!cols"] = [{ wch: 9 }, { wch: 9 }, { wch: 13 }, { wch: 22 }, { wch: 15 }, { wch: 22 }, { wch: 8 }, { wch: 30 }, { wch: 12 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, sheet, "الجدول");
-    XLSX.writeFile(wb, "نموذج-استيراد-الجدول.xlsx");
-  };
-
-  /** A PDF is the Authority's scanned timetable and takes the same reviewed
-   *  route as the one in Data Tools: read to a preview, published only after a
-   *  person approves, and only into an empty term. */
-  const importSmartFile = async (file: File, fallbackReason = "") => {
-    setImportFile(file.name);
-    setImportPreview(null);
-    setSmartRetry(null);
-    setBusy(true);
-    setError(null);
-    setImportProgress({ phase: "read", page: 0, pages: 0, message: "يفهم الملف عبر Smart Import" });
-    try {
-      const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId), mime: file.type || "application/octet-stream" });
-      const data = await fetchJson(`/api/intelligence/smart-import?${query}`, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream", "x-file-name": encodeURIComponent(file.name) },
-        body: await file.arrayBuffer(),
-      });
-      const normalizedRows=normalizeImportSectionSeries((Array.isArray(data.rows)?data.rows:[]) as ImportRow[]);
-      const localIssues=validateImportRowsLocally(normalizedRows);
-      const issues=[...(Array.isArray(data.issues)?data.issues:[]),...localIssues];
-      setImportPreview({ ...data, rows:normalizedRows, preview:normalizedRows, count:normalizedRows.length, issues, valid:normalizedRows.length>0&&issues.length===0, importLayout:"worksheet", smartFallbackReason:fallbackReason });
-    } catch (e: any) {
-      fail(e);
-    } finally {
-      setBusy(false);
-      setImportProgress(null);
-    }
-  };
-
-  /* القراءة الأدق بعد قراءةٍ معتمدة ناجحة: تُرسل الصفحات التي بقيت فيها خانة
-     غير مقروءة وحدها (pages=)، ولا تُكتب إلا الخانة الفارغة (proposeSmartFills)
-     — لا صفَّ يُستبدل ولا صفحةٌ قُرئت نظيفةً تغادر إلى Google. القاعدة نفسها
-     التي تعمل بها شاشة نقل الجدول. */
-  const smartUnreadPages = useMemo(() => pagesWithUnreadCells((importPreview?.rows || []) as any), [importPreview?.rows]);
-  const fillUnreadCellsSmart = async (file: File, pages: number[]) => {
-    if (!pages.length) return;
-    const keptRows = (Array.isArray(importPreview?.rows) ? importPreview!.rows : []) as ImportRow[];
-    setBusy(true);
-    setError(null);
-    setImportProgress({ phase: "read", page: 0, pages: pages.length, message: `قراءة أدق · ${pagesLabel(pages)}` });
-    try {
-      const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId), mime: file.type || "application/octet-stream", pages: pages.join(",") });
-      const data = await fetchJson(`/api/intelligence/smart-import?${query}`, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream", "x-file-name": encodeURIComponent(file.name) },
-        body: await file.arrayBuffer(),
-      });
-      const fresh = (Array.isArray(data.rows) ? data.rows : []) as ImportRow[];
-      const readPages = (Array.isArray(data.pagesRead) ? data.pagesRead : []).map((page: any) => Number(page)).filter(Boolean);
-      const proposal = proposeSmartFills(keptRows, fresh, readPages.length ? readPages : pages);
-      if (!proposal.fills.length) {
-        setMessage("القراءة الأدق لم تضف جديداً — ما تبقّى من خانات يحتاج تعبئة يدوية. جدولك لم يتغيّر.");
-        return;
-      }
-      const rows = normalizeImportSectionSeries(applySmartFills(keptRows, proposal.fills) as ImportRow[]);
-      const localIssues = validateImportRowsLocally(rows);
-      setImportPreview((prev: any) => prev ? { ...prev, rows, preview: rows, count: rows.length, issues: [...(prev.issues || []).filter((issue: string) => !/^السطر/.test(String(issue))), ...localIssues], smartRead: true } : prev);
-      setMessage(`القراءة الأدق ملأت ${countOf(proposal.fills.length, AR.cell)} في ${pagesLabel(pages)}؛ راجعها في الجدول قبل الاعتماد.`);
-    } catch (e: any) {
-      fail(e);
-    } finally {
-      setBusy(false);
-      setImportProgress(null);
-    }
-  };
-
-  const importPdf = async (file: File) => {
-    setImportFile(file.name);
-    setImportPreview(null);
-    setSmartRetry(null);
-    setBusy(true);
-    setError(null);
-    setImportProgress({ phase: "render", page: 0, pages: 0, message: "يجهّز الملف للقراءة" });
-    setReviewedImportPages([]);
-    try {
-      const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
-      const payload = await file.arrayBuffer();
-      /* A request that never reached the server, or a stream that broke before
-         its result, is named for what it was (see importStreamFailure). */
-      const response = await fetch(`/api/intelligence/pdf-import?${query}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/octet-stream", "Accept": "application/x-ndjson", "x-file-name": encodeURIComponent(file.name) },
-        body: payload,
-      }).catch(() => { throw new Error(interruptedImportMessage(0)); });
-      /* The server streams NDJSON: one progress object per line while it reads,
-         a final line carrying the result. Reading the body as it arrives is what
-         lets the bar advance page by page instead of freezing on one spinner. */
-      if (!response.ok && !response.body) throw new Error(interruptedImportMessage(response.status));
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "", data: any = null, failure = "";
-      if (reader) {
-        for (;;) {
-          const { value, done } = await reader.read().catch(() => ({ value: undefined, done: true }));
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          let cut = buffer.indexOf("\n");
-          while (cut >= 0) {
-            const line = buffer.slice(0, cut).trim();
-            buffer = buffer.slice(cut + 1);
-            cut = buffer.indexOf("\n");
-            if (!line) continue;
-            let event: any; try { event = JSON.parse(line); } catch { continue; }
-            if (event.type === "progress") setImportProgress({ phase: event.phase, page: event.page, pages: event.pages, message: event.message, notice: event.notice ? String(event.notice) : undefined });
-            else if (event.type === "done") data = event.result;
-            else if (event.type === "error") failure = event.error;
-          }
-        }
-      }
-      if (failure) throw new Error(failure);
-      if (!data) { const rest = buffer.trim(); if (rest) { try { const tail = JSON.parse(rest); data = tail.result || tail; } catch { /* no trailing json */ } } }
-      if (data && (data as any).error && !(data as any).rows) throw new Error((data as any).error);
-      if (!data) throw new Error(interruptedImportMessage(response.status));
-      {
-        const normalizedRows=normalizeImportSectionSeries((Array.isArray(data.rows)?data.rows:[]) as ImportRow[]);
-        const localIssues=validateImportRowsLocally(normalizedRows);
-        const globalIssues=(Array.isArray(data.issues)?data.issues:[]).filter((issue:string)=>/^تحذير:/.test(String(issue)));
-        const issues=[...globalIssues,...localIssues];
-        setImportPreview({ ...data, rows:normalizedRows, count: normalizedRows.length, preview: normalizedRows, valid: normalizedRows.length>0&&issues.length===0, issues, importLayout: "authority-pdf" });
-        /* A successful read is not always the best read — but a sharper reading
-           costs money, so it is offered only when this one left a cell unread
-           (scanLeftCellUnread). A file read clean on the first pass shows no
-           offer; nothing reaches Gemini without a click either way. */
-        setSmartRetry(normalizedRows.some(scanLeftCellUnread) ? { file, reason: "" } : null);
-      }
-    } catch (e: any) {
-      // The Authority PDF stays local. We surface the failure and offer Smart
-      // Import as a deliberate, opt-in retry — never an automatic hop to Google.
-      fail(e);
-      setSmartRetry({ file, reason: smartMessage(e) });
-    } finally {
-      setBusy(false);
-      setImportProgress(null);
-    }
-  };
-
-  const importAnyFile = async (file: File) => {
-    const name = String(file.name || "").trim();
-    const mime = String(file.type || "").toLowerCase();
-    let isPdf = /\.pdf$/i.test(name) || mime.includes("pdf");
-    /* Safari/iOS and some scanned-file share sheets hand us an empty or generic
-       MIME type. The PDF signature is authoritative and costs only five bytes. */
-    if (!isPdf) {
-      try {
-        const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
-        isPdf = String.fromCharCode(...head) === "%PDF-";
-      } catch { /* Fall through to spreadsheet parsing. */ }
-    }
-    const isImage = /^image\//i.test(mime) || /\.(png|jpe?g|webp|heic|heif)$/i.test(name);
-    if (isImage) return void importSmartFile(file);
-    if (isPdf) return void importPdf(file);
-    return void importExcel(file);
-  };
-
-  const importExcel = async (file: File) => {
-    setImportFile(file.name);
-    setImportPreview(null);
-    setSmartRetry(null);
-    setBusy(true);
-    setError(null);
-    try {
-      // The spreadsheet parser is ~400KB. It loads the first time someone
-      // actually imports a file, not on every page view.
-      const XLSX = await import("xlsx");
-      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws, { defval: "" });
-      const d = await fetchJson("/api/intelligence/import-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collegeId, sectionId, termId, rows: data }),
-      });
-      if (Array.isArray(d?.rows)) {
-        const normalizedRows=normalizeImportSectionSeries(d.rows as ImportRow[]);
-        const issues=validateImportRowsLocally(normalizedRows);
-        setImportPreview({ ...d, rows:normalizedRows, preview:normalizedRows, count:normalizedRows.length, issues, valid:normalizedRows.length>0&&issues.length===0 });
-      } else setImportPreview(d);
-    } catch (e: any) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-  /**
-   * The authority PDF is copied into an EMPTY term in one confirmed step:
-   * approve, and the whole schedule drops in. It saves the draft (which keeps
-   * the immutable baseline the colour report reads) and publishes it straight
-   * away, so the professor is not left hunting for a second screen.
-   */
-  const approveAndPublishPdf = async () => {
-    if (!importPreview?.valid || importBlockingIssues.length) {
-      setImportErrorModal("أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.");
-      return;
-    }
-    /* The publish endpoint checks every conflict in one server-side pass. Do not
-       make one network request per imported row before sending the same table. */
-    const preflight=validateImportRowsLocally(importPreview.rows as ImportRow[]);
-    if(preflight.length){
-      setImportPreview((prev:any)=>prev?{...prev,issues:[...new Set([...(prev.issues||[]),...preflight])],valid:false}:prev);
-      setError(null);
-      setImportErrorModal(`يوجد ${countOf(preflight.length, AR.note)} بحاجة إلى معالجة قبل تعبئة الجدول.`);
-      return;
-    }
-    const ok = await visualConfirm({
-      title: "اعتماد الجدول المعتمد",
-      message: `سيُنشر ${countOf(Number(importPreview.count || 0), AR.appointment)} في هذا الفصل الفارغ دفعة واحدة. تبقى الأرقام المرجعية محفوظة للتقرير دون أن تظهر في الجدول. هل تعتمد؟`,
-      confirmLabel: "اعتمد وانشر",
-      tone: "warning",
-    });
-    if (!ok) return;
-    setBusy(true); setError(null);
-    try {
-      const draft = await fetchJson("/api/intelligence/drafts", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collegeId, sectionId, termId, source: "import", importLayout: "authority-pdf",
-          name: `نسخة PDF المعتمدة — ${importPreview.fileName || ""}`.trim(),
-          sourceFileName: importPreview.fileName, rows: importPreview.rows,importReceipt:importPreview.importReceipt,reviewedPages:reviewedImportPages,
-          previewIssues:importBlockingIssues,sourceBranchCode:importPreview.headerBranch?.code,sourceBranchName:importPreview.headerBranch?.name }),
-      });
-      await fetchJson(`/api/intelligence/drafts/${draft.id}/publish`, {
-        method: "POST", headers: { "x-schedule-confirm": "publish" },
-      });
-      setImportPreview(null); setImportFile("");
-      setMessage("اكتمل تعبئة الجدول ونشره. الأرقام المرجعية محفوظة وتظهر في تقرير المقارنة فقط.");
-      await reload();
-      setTab("command");
-    } catch (e: any) {
-      const text=smartMessage(e);
-      if(/جدول المعاينة|الحقول المطلوبة|الملاحظات/.test(text)){setError(null);setImportErrorModal("راجع الملاحظات والحقول المطلوبة قبل تعبئة الجدول.");}
-      else setError(text);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const createImportDraft = async () => {
-    if (!importPreview?.valid || importBlockingIssues.length) {
-      setImportErrorModal("أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.");
-      return;
-    }
-    const d = await saveDraft("import", importPreview.rows, importPreview.importLayout);
-    if (d) {
-      setImportPreview(null);
-      setTab("history");
-    }
-  };
-
-  /* الملاحظة عن الصف تُصبغ خليته، لا سطراً تحت الجدول. هذه الشاشة كانت تحسب
-     التعارض في قائمة الملاحظات ولا تمرّر شيئاً إلى الجدول، فتبقى كل الخلايا
-     خضراء بينما القائمة تقول إن هناك حجزاً مزدوجاً. */
-  const importRowIssues = useMemo(() => {
-    const rows = Array.isArray(importPreview?.rows) ? importPreview.rows as ImportRow[] : [];
-    const byRow: Record<string, string[]> = {};
-    if (rows.length < 2) return byRow;
-    const staged = rows.map((row, index) => ({ ...row, id: index + 1, AdTermId: termId })) as any[];
-    blockingConflicts(staged, staged, { placeholderInstructorIds: placeholderInstructorIds(instructors) })
-      .forEach(item => {
-        const pair: Array<[number, number]> = [[Number(item.rowId), Number(item.otherId)], [Number(item.otherId), Number(item.rowId)]];
-        pair.forEach(([at, partner]) => {
-          const row = rows[at - 1];
-          if (!row) return;
-          const key = importRowKey(row);
-          const text = `${item.message} مع الصف ${partner.toLocaleString("ar-KW-u-nu-latn")}`;
-          byRow[key] = [...new Set([...(byRow[key] || []), text])];
-        });
-      });
-    return byRow;
-  }, [importPreview?.rows, termId, instructors]);
-
-  /* الفحص نفسه الذي في شاشة نقل الجدول: يرى بقية الأقسام، فلا يقول «جاهز» ما سترفضه البوابة. */
-  const importPreflightRows = useMemo(() => (Array.isArray(importPreview?.rows) ? importPreview.rows as ImportRow[] : []), [importPreview?.rows]);
-  const importPreflight = useImportPreflight({
-    enabled: importPreview?.importLayout === "authority-pdf", collegeId, sectionId, termId, rows: importPreflightRows, importLayout: "authority-pdf",
-  });
-  const importCellIssues = useMemo(() => {
-    const merged: Record<string, string[]> = { ...importRowIssues };
-    Object.keys(importPreflight.notes).forEach(key => { merged[key] = [...new Set([...(merged[key] || []), ...importPreflight.notes[key]])]; });
-    return merged;
-  }, [importRowIssues, importPreflight.notes]);
-  const [importIssueJump, setImportIssueJump] = useState(0);
-
-  const importBlockingIssues = useMemo(() => {
-    if (!importPreview) return [] as string[];
-    const rows = Array.isArray(importPreview.rows) ? importPreview.rows as ImportRow[] : [];
-    /* ما يُصبغ بالأحمر يجب أن يمنع النشر. فحص الأزواج هنا يعرف تعارض الأستاذ
-       والقاعة فقط، بينما يرفض الخادم كذلك الموعدين المتطابقين لنفس المقرر
-       والشعبة. فكان الجدول يحمرّ والزر يبقى مفعّلاً حتى يرفضه الخادم. */
-    return [...new Set([
-      ...(Array.isArray(importPreview.issues) ? importPreview.issues : []),
-      ...validateImportRowsLocally(rows),
-      ...Object.values(importRowIssues).flat(),
-      ...importPreflight.issues,
-      ...importPreflight.rowChecks.map(check => check.text),
-      /* صفحة قُبلت بأسطر مطبوعة بلا صف تنتظر «راجعت الصفحة» قبل النشر. */
-      ...(importPreview.importLayout === "authority-pdf" ? pageReviewIssues(importPreview.pageDiagnostics, reviewedImportPages) : []),
-    ])];
-  }, [importPreview, importRowIssues, importPreflight.issues, importPreflight.rowChecks, reviewedImportPages]);
-  const importReady = Boolean(importPreview?.valid && importBlockingIssues.length === 0 && importPreflight.state !== "pending");
-  const importGate = importGateState({
-    preflight: importPreflight.state, issues: importBlockingIssues,
-    hasContent: Boolean(importPreview?.rows?.length),
-  });
-  const importSettled = importPreview?.importLayout !== "authority-pdf" || importGateSettled(importGate);
-  /* Scanned pages still waiting for «راجعت الصفحة» — named beside save and publish. */
-  const importPagesPendingReview = importPreview?.importLayout === "authority-pdf" ? pagesAwaitingReview(importPreview.pageDiagnostics, reviewedImportPages) : [];
-  const confirmImportPage = (page: number) => setReviewedImportPages(prev => prev.includes(page) ? prev : [...prev, page]);
-
   const scopedCourses = useMemo(
     () => sortByName(
       courses.filter((c) => c.AdCollegeId === collegeId && c.AdSectionId === sectionId),
@@ -2192,7 +1787,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     const d = await saveDraft(
       "auto",
       option.rows,
-      undefined,
       `${label} — ${new Date().toLocaleString("ar-KW-u-nu-latn")}`,
     );
     if (d)
@@ -2749,7 +2343,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
               const duration=Math.max(30,toMinutes(before.fendtime)-toMinutes(before.fstarttime)); const nextStart=fromMinutes(Math.min(22*60,toMinutes(before.fstarttime)+30)); after.fstarttime=nextStart; after.fendtime=fromMinutes(toMinutes(nextStart)+duration); copy[index]=after; setScenario(copy); setGuideSimulationMeta(current=>current?{...current,after}:current); await evaluateScenario(copy);
             }}>جرّب بديلًا</button>
             <button type="button" onClick={() => { try { sessionStorage.setItem("schedule-guide-ghost-preview", JSON.stringify({ id:guideSimulationMeta.before.id, before:guideSimulationMeta.before, after:guideSimulationMeta.after, createdAt:Date.now() })); } catch {} openScheduleWorkspace("هذه معاينة من مساحة «جرّب». راجعها على الجدول ثم اعتمدها يدويًا إذا رغبت."); }}>معاينة على الجدول</button>
-            <button type="button" data-guide-ignore="يحفظ المحاكاة كمسودة تجريبية فقط ولا ينشر أي تغيير حقيقي" className="primary" onClick={async () => { if(!scenario)return; const draft=await saveDraft("guide-simulation",scenario,undefined,"محاكاة المرشد"); if(draft)setMessage("حُفظ الحل كمسودة فقط. راجعه في «اعتمد» قبل أي نشر."); }}>اعتماد كمسودة</button>
+            <button type="button" data-guide-ignore="يحفظ المحاكاة كمسودة تجريبية فقط ولا ينشر أي تغيير حقيقي" className="primary" onClick={async () => { if(!scenario)return; const draft=await saveDraft("guide-simulation",scenario,"محاكاة المرشد"); if(draft)setMessage("حُفظ الحل كمسودة فقط. راجعه في «اعتمد» قبل أي نشر."); }}>اعتماد كمسودة</button>
           </footer>
         </section>
       ) : null}
@@ -2849,7 +2443,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
           <button type="button" onClick={() => void reload()} aria-label="أعد قراءة النسخ" data-guide-ignore="يعيد قراءة مركز الذكاء فقط؛ لا يكتب شيئاً"><RefreshCw aria-hidden="true" /></button>
         </p>
       ) : null}
-      {error && collegeId && sectionId && termId && errorDetail?.message === error && !smartRetry ? (
+      {error && collegeId && sectionId && termId && errorDetail?.message === error ? (
         <ActionableErrorNotice
           error={errorDetail.info}
           showTechnical={isPowerAdmin}
@@ -2860,13 +2454,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
       ) : error && collegeId && sectionId && termId ? (
         <Notice onDismiss={() => setError(null)}>
           {error}
-          {smartRetry ? (
-            <div style={{ marginTop: 8 }}>
-              <button type="button" className="nl-move-apply" data-guide-ignore="زر تعافٍ سياقي يظهر فقط بعد فشل قراءة PDF المعتمد؛ إجراء اختياري لإعادة المحاولة عبر Smart Import، ليس ميزة إرشاد مستقلة" disabled={busy} onClick={() => { const f = smartRetry.file; setSmartRetry(null); void importSmartFile(f, smartRetry.reason); }}>
-                جرّب Smart Import (يقرأ الملف عبر Gemini — بدون الأرقام المدنية)
-              </button>
-            </div>
-          ) : null}
         </Notice>
       ) : null}
       {message ? <Notice type="success">{message}</Notice> : null}
@@ -4412,11 +3999,13 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                     <div>
                       <strong>حوّل قواعد القسم البشرية إلى قيود مفهومة</strong>
                       <span>
-                        لا محاضرات بعد وقت محدد، يوم بحث، قاعة إلزامية، أو حد
-                        أقصى للفراغ.
+                        لا محاضرات بعد وقت محدد، يوم بحث، قاعة إلزامية، حد
+                        أقصى للفراغ، أو فاصل بين محاضرتين في القاعة.
                       </span>
                     </div>
                   </div>
+                  {/* الخادم يقبل إنشاء القاعدة وتبديلها وحذفها من الإدارة الرئيسية وحدها؛ الباقون يقرؤونها. */}
+                  {canEditRules ? (
                   <div className="constraint-form">
                     <Field label="نوع القاعدة">
                       <select
@@ -4425,6 +4014,8 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                           setConstraintDraft((p: any) => ({
                             ...p,
                             type: e.target.value,
+                            /* فاصل الباب دقائق قليلة (١–٦٠)، وحد الفراغ يبدأ من ٣٠. */
+                            maxMinutes: e.target.value === "room_doorway" ? 10 : e.target.value === "max_instructor_gap" ? 120 : p.maxMinutes,
                           }))
                         }
                       >
@@ -4440,6 +4031,9 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                         <option value="course_room">مقرر · قاعة إلزامية</option>
                         <option value="max_instructor_gap">
                           حد أقصى للفراغ
+                        </option>
+                        <option value="room_doorway">
+                          القاعة · فاصل بين محاضرتين
                         </option>
                       </select>
                     </Field>
@@ -4465,6 +4059,15 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                           <strong>قاعدة على القسم كله</strong>
                           <small>
                             كل موعد في هذا اليوم = مخالفة.
+                          </small>
+                        </span>
+                      </div>
+                    ) : constraintDraft.type === "room_doorway" ? (
+                      <div className="constraint-rule-note">
+                        <span>
+                          <strong>قاعدة على قاعات القسم كلها</strong>
+                          <small>
+                            محاضرتان متتاليتان في القاعة نفسها بفاصل أقصر = تعارض.
                           </small>
                         </span>
                       </div>
@@ -4570,10 +4173,37 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                         />
                       </Field>
                     ) : null}
+                    {constraintDraft.type === "room_doorway" ? (
+                      <Field label="الفاصل بالدقائق">
+                        <input
+                          type="number"
+                          min="1"
+                          max="60"
+                          step="1"
+                          value={constraintDraft.maxMinutes}
+                          onChange={(e) =>
+                            setConstraintDraft((p: any) => ({
+                              ...p,
+                              maxMinutes: Math.max(1, Math.min(60, Number(e.target.value) || 10)),
+                            }))
+                          }
+                        />
+                      </Field>
+                    ) : null}
                     <PrimaryButton onClick={createConstraint} disabled={busy}>
                       أضف القاعدة
                     </PrimaryButton>
                   </div>
+                  ) : (
+                    <div className="constraint-rule-note" role="note">
+                      <span>
+                        <strong>للقراءة فقط</strong>
+                        <small>
+                          إضافة القواعد وإيقافها وحذفها لإدارة النظام الرئيسية وحدها؛ تُقرأ هنا وتُحتسب في التقييم.
+                        </small>
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="constraint-list">
                   <div className="constraint-list-head">
@@ -4598,6 +4228,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                         className={c.enabled ? "enabled" : "disabled"}
                         key={c.id}
                       >
+                        {canEditRules ? (
                         <button
                           className="constraint-toggle"
                           onClick={() => toggleConstraint(c)}
@@ -4605,6 +4236,12 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                           <i />
                           {c.enabled ? "فعالة" : "متوقفة"}
                         </button>
+                        ) : (
+                          <span className="constraint-toggle" aria-label={c.enabled ? "قاعدة فعالة" : "قاعدة متوقفة"}>
+                            <i />
+                            {c.enabled ? "فعالة" : "متوقفة"}
+                          </span>
+                        )}
                         <div>
                           <strong>{c.label}</strong>
                           <small>
@@ -4612,6 +4249,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                             {new Date(c.createdAt).toLocaleDateString("ar-KW-u-nu-latn")}
                           </small>
                         </div>
+                        {canEditRules ? (
                         <button
                           data-guide-ignore="حذف قاعدة محلية داخل النسخة التجريبية وله تأكيده الخاص"
                           className="constraint-delete"
@@ -4620,12 +4258,14 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                         >
                           حذف
                         </button>
+                        ) : null}
                       </article>
                     ))
                   ) : (
                     <div className="innovation-empty">
-                      لا توجد قواعد بعد. أضف أول قاعدة بشرية وستبدأ النسخة التجريبية
-                      بمحاسبة السيناريوهات عليها.
+                      {canEditRules
+                        ? "لا توجد قواعد بعد. أضف أول قاعدة بشرية وستبدأ النسخة التجريبية بمحاسبة السيناريوهات عليها."
+                        : "لا توجد قواعد بعد لهذا الفصل."}
                     </div>
                   )}
                 </div>
@@ -4740,9 +4380,10 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                           </div>
                           <div className="war-actions">
                             <SecondaryButton
+                              data-guide-ignore="يفتح خيار اللجنة داخل النسخة التجريبية فقط؛ لا يكتب شيئاً"
                               onClick={() => openScenarioOption(o)}
                             >
-                              افتح في Twin
+                              افتح في النسخة التجريبية
                             </SecondaryButton>
                             <PrimaryButton
                               data-guide-ignore="يحفظ خيار اللجنة كمسودة تجريبية فقط"
@@ -4815,7 +4456,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                   <div className="autopilot-guard">
                     <span>
                       لا يغيّر الأيام ولا القاعات في هذا الإصدار الآمن، ولا يملك
-                      endpoint للنشر.
+                      صلاحية النشر.
                     </span>
                     <PrimaryButton
                       onClick={runAutopilot}
@@ -5518,7 +5159,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
                             : "neutral"
                       }
                     >
-                      {v.source}
+                      {versionSourceLabel(v.source)}
                     </Badge>
                     <GhostButton
                       onClick={() => restoreVersion(v)}
@@ -5545,178 +5186,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         </div>
       ) : null}
 
-      {tab === "import" ? (
-        <div className="import-layout">
-          <Surface className="import-drop">
-            <div className="import-icon">
-              <Upload />
-            </div>
-            <span className="surface-kicker">استيراد الجدول</span>
-            <h2>ارفع الجدول وراجعه قبل الحفظ</h2>
-            <p>نزّل النموذج ثم ارفعه، أو انسخ جدول PDF المعتمد إلى فصل فارغ.</p>
-            <div className="import-entry-actions">
-              <SecondaryButton type="button" data-guide-ignore="تنزيل نموذج محلي لا يغيّر الجدول" onClick={() => void downloadImportTemplate()} disabled={busy}>
-                <Download /> تحميل النموذج
-              </SecondaryButton>
-              <label className="file-button">
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,application/pdf,.pdf"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) importAnyFile(f);
-                    e.currentTarget.value = "";
-                  }}
-                />
-                <FileSpreadsheet />
-                {importFile || "رفع جدول بيانات أو PDF"}
-              </label>
-            </div>
-            <small>
-              <ShieldCheck /> معاينة أولاً · الملف يُقرأ ولا يُحفظ
-            </small>
-            {importProgress ? (() => {
-              const total = Math.max(importProgress.pages || 0, 1);
-              const doneCount = importProgress.phase === "match" ? total : Math.max(0, importProgress.page);
-              const pct = importProgress.phase === "render" && !importProgress.page ? 6 : Math.min(97, Math.round((doneCount / total) * 100));
-              return (
-                <div className="import-progress" role="status" aria-live="polite">
-                  <div className="import-progress-track"><i style={{ width: `${pct}%` }} /></div>
-                  <span>{importProgress.message}{importProgress.pages ? ` · ${(importProgress.page || 0).toLocaleString("ar-KW-u-nu-latn")}/${importProgress.pages.toLocaleString("ar-KW-u-nu-latn")}` : ""}</span>
-                  {importProgress.notice ? <p className="import-progress-notice"><AlertTriangle aria-hidden="true" />{importProgress.notice}</p> : null}
-                </div>
-              );
-            })() : null}
-          </Surface>
-          {importPreview ? (
-            <Surface className="import-preview">
-              <div className="surface-head">
-                <div>
-                  <span className="surface-kicker">معاينة</span>
-                  <h2>قُرئ {countOf(importPreview.count, AR.row)}</h2>
-                </div>
-                <Badge tone={!importSettled ? "neutral" : importPreview.valid ? "success" : "danger"}>
-                  {!importSettled
-                    ? "يفحص"
-                    : importPreview.valid
-                    ? "جاهز كمسودة"
-                    : countOf(importPreview.issues.length, AR.note)}
-                </Badge>
-              </div>
-              {importPreview.legibility && importPreview.legibility.confidence < 55 ? (
-                <Notice>
-                  جودة الصورة منخفضة ({Number(importPreview.legibility.confidence).toLocaleString("ar-KW-u-nu-latn")}٪).
-                  قرأتُ ما استطعت، لكن نسخة أوضح ستقلّل الملاحظات كثيراً.
-                </Notice>
-              ) : null}
-              {/* The deterministic reader ran first and its result stands above.
-                  A second, sharper reading is available on request — never
-                  automatic, so no file reaches Gemini without this click. */}
-              {smartRetry && importPreview.importLayout === "authority-pdf" && smartUnreadPages.length ? (
-                <Notice>
-                  هذه قراءة المحرك المعتمد. بقيت خانات لم يقرأها المسح في {pagesLabel(smartUnreadPages)} — القراءة الأدق تُرسل هذه الصفحات وحدها وتملأ الخانات الفارغة فقط؛ ما قُرئ يبقى كما هو.
-                  <div style={{ marginTop: 8 }}>
-                    <button
-                      type="button"
-                      className="nl-move-apply"
-                      data-guide-ignore="إجراء اختياري داخل معاينة الاستيراد لإعادة القراءة عبر Smart Import؛ ليس ميزة إرشاد مستقلة"
-                      disabled={busy}
-                      onClick={() => { const f = smartRetry.file; setSmartRetry(null); void fillUnreadCellsSmart(f, smartUnreadPages); }}
-                    >
-                      قراءة أدق · {pagesLabel(smartUnreadPages)} (بدون الأرقام المدنية)
-                    </button>
-                  </div>
-                </Notice>
-              ) : null}
-              {importPreview.importLayout !== "authority-pdf" ? (importPreview.issues.length ? (
-                <div className="import-issues">
-                  {importPreview.issues
-                    .slice(0, 12)
-                    .map((x: string, i: number) => (
-                      <span key={i}>
-                        <AlertTriangle />
-                        {x}
-                      </span>
-                    ))}
-                </div>
-              ) : (
-                <Notice type="success">
-                  لا أخطاء ظاهرة.
-                </Notice>
-              )) : null}
-              {/* بلا شرط «فيه صفوف»: حذفُ آخر صف كان يطوي الجدول ومعه «تراجع». */}
-              {importPreview.importLayout === "authority-pdf" ? (
-                <PagedImportPreview
-                  key={String(importPreview.importReceipt || importPreview.fileName || "")}
-                  rows={importPreview.rows as ImportRow[]}
-                  pageCount={Number(importPreview.pages||0)}
-                  pageDiagnostics={Array.isArray(importPreview.pageDiagnostics)?importPreview.pageDiagnostics:[]}
-                  pageSummaries={Array.isArray(importPreview.pageSummaries)?importPreview.pageSummaries:[]}
-                  reviewedPages={reviewedImportPages}
-                  onReviewPage={confirmImportPage}
-                  courses={courses as any}
-                  instructors={instructors as any}
-                  departmentIds={importInstructorIds}
-                  visitingIds={importVisitingIds}
-                  rowIssues={importCellIssues}
-                  checking={!importSettled}
-                  jumpToIssue={importIssueJump}
-                  departmentRooms={importDepartmentRooms}
-                  collegeId={collegeId}
-                  sectionId={sectionId}
-                  termId={termId}
-                  onRows={next => setImportPreview((prev: any) => {
-                    if (!prev) return prev;
-                    const normalized=normalizeImportSectionSeries(next);
-                    const globalIssues = (Array.isArray(prev.issues) ? prev.issues : [])
-                      .filter((issue:string) => /^تحذير:/.test(String(issue)));
-                    const issues = [...globalIssues, ...validateImportRowsLocally(normalized)];
-                    return { ...prev, rows: normalized, preview: normalized, count: normalized.length, issues, valid: normalized.length > 0 && issues.length === 0 };
-                  })}
-                />
-              ) : (
-              <RecordDeck className="import-records">
-                {importPreview.preview.slice(0, 12).map((r: any) => (
-                  <RecordCard
-                    key={r.id}
-                    icon={<FileSpreadsheet />}
-                    title={r.AdCourseName || "مقرر"}
-                    subtitle={`شعبة ${r.SCode || "—"}`}
-                    meta={
-                      <>
-                        <MetaPill
-                          label="الوقت"
-                          value={formatScheduleTimeRange(r.fstarttime, r.fendtime)}
-                          dir="ltr"
-                        />
-                        <MetaPill
-                          label="المكان"
-                          value={`${r.AdRoomCode || "—"}/${r.AdRoomHall || "—"}`}
-                        />
-                      </>
-                    }
-                  />
-                ))}
-              </RecordDeck>
-              )}
-              {/* ملاحظات صفحات PDF لا تُسرد فوق الجدول؛ فالصفحة التي تنتظر «راجعت الصفحة»
-                  تُسمّى هنا بجوار الحفظ والنشر، كما في شاشة نقل الجدول. */}
-              <PageReviewWait pages={importPagesPendingReview} onReviewPage={confirmImportPage} withButtons={!importPreview.rows?.length} />
-              <ImportStatusBar
-                inline
-                state={importGate.kind === "ready" && !importReady ? { kind: "blocked", count: 0, first: "أكمل المعاينة أولاً." } : importGate}
-                busy={busy}
-                applyLabel={importPreview.importLayout === "authority-pdf" ? <><CheckCircle2 /> اعتمد وانزّل الجدول كاملاً</> : <><Save /> تحويل إلى مسودة</>}
-                onApply={importPreview.importLayout === "authority-pdf" ? approveAndPublishPdf : createImportDraft}
-                extra={importPreview.importLayout === "authority-pdf" ? <SecondaryButton data-guide-ignore="حفظ نسخة PDF كمسودة قابلة للتعديل قبل الاعتماد" onClick={createImportDraft} disabled={!importReady || busy}><Save /> حفظ كمسودة للتعديل</SecondaryButton> : null}
-                onJump={() => { setImportIssueJump(value => value + 1); scrollToFirstImportIssue(); }}
-                onRetry={importPreflight.retry}
-                onClose={() => { setImportPreview(null); setImportFile(""); }}
-              />
-            </Surface>
-          ) : null}
-        </div>
-      ) : null}
 
       {tab === "copilot" && chat.length ? (() => {
         /* Same explicit-page structure as every other landscape report. */
@@ -5898,20 +5367,6 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         </div>
       ) : null}
 
-      {importErrorModal ? (
-        <div className="intel-drawer-backdrop" role="dialog" aria-modal="true" onMouseDown={(e) => { if (e.target === e.currentTarget) setImportErrorModal(null); }}>
-          <div style={{ background: "var(--surface)", padding: "32px", borderRadius: "18px", maxWidth: "480px", width: "90%", margin: "auto", boxShadow: "0 20px 40px rgba(0,0,0,0.18)", border: "1px solid var(--line)", direction: "rtl", textAlign: "right" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-              <span style={{ color: "var(--warn)", display: "inline-flex" }}><AlertTriangle size={28} /></span>
-              <h3 style={{ margin: 0, fontSize: "18px", color: "var(--foreground)" }}>أكمل الملاحظات أولاً</h3>
-            </div>
-            <p style={{ color: "var(--muted)", lineHeight: "1.7", fontSize: "14px", marginBottom: "24px" }}>{importErrorModal}</p>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <PrimaryButton type="button" data-guide-ignore="الانتقال إلى ملاحظات الاستيراد" onClick={() => { setImportErrorModal(null); window.setTimeout(() => (document.querySelector(".import-preview [data-import-issue='true']")||document.querySelector(".import-preview"))?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }}>اذهب إلى الملاحظات</PrimaryButton>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

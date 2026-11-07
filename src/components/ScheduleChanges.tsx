@@ -38,7 +38,7 @@ import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import VisitingBadge from "./VisitingBadge";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 import { DIFF_FIELD_LABEL, type DiffFieldKey } from "../utils/scheduleDiff";
-import { appointmentCoverageScore, DECISION_1912_LABEL, type PeriodBalanceData } from "../utils/scheduleRegulations";
+import { appointmentCoverageScore, DECISION_1913_LABEL, type PeriodBalanceData } from "../utils/scheduleRegulations";
 import { currentTermId, termIsArchive } from "../utils/termSequence";
 import type { AdTerm, ScheduleApprovalStatus } from "../types";
 import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeContext";
@@ -715,14 +715,14 @@ function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeRe
       </button>
       {open ? <div className="changes-review-panel">
       <header className={`review-head tone-${tone}`}>
-        <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
+        <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1913_LABEL} ${score} من 100`}>
           <circle className="ring-track" cx="32" cy="32" r="26" />
           <circle className="ring-value" cx="32" cy="32" r="26" strokeDasharray={`${(score / 100) * ringLength} ${ringLength}`} />
           <text x="32" y="34" className="ring-number">{score.toLocaleString("ar-KW-u-nu-latn")}</text>
           <text x="32" y="45" className="ring-unit">/ 100</text>
         </svg>
         <div className="review-title">
-          <span className="surface-kicker">مراجعة الاعتماد · {DECISION_1912_LABEL}</span>
+          <span className="surface-kicker">مراجعة الاعتماد · {DECISION_1913_LABEL}</span>
           <h2>{blockedCount ? "يوجد ما يمنع الاعتماد" : notices.length ? "جاهز مع تنبيهات" : "مطابق للتنبيهات المعتمدة"}</h2>
           <p>{scopeLine}</p>
         </div>

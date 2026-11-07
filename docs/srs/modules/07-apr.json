@@ -2854,8 +2854,8 @@
           "en": "When the department is read across its colleges it says the score and blockers are for this college alone while the shared instructor load is read with N other colleges of the department; a failed server read says decision 1913/2016 was reviewed locally but conflicting bookings outside the department could not be confirmed now."
         },
         {
-          "ar": "حالات البند: «مانع اعتماد»، «يحتاج معالجة»، «مراجعة لائحية»، «ملاحظة لائحية»، «سياق تاريخي»، «سياسة القسم»؛ وتحذيرات «الشعبة نفسها مسجّلة مرتين» تصل من الخادم لكنها لا تُعرض بنوداً في النافذة اليوم؛ ومقرراتٌ بثلاث أو أربع ساعات بلا طبيعة تدريس تُعدّ «لم يُفحص نمط المادة 7/8 لها».",
-          "en": "Finding statuses: «approval blocker», «needs treatment», «regulation review», «regulation note», «historical context», «department policy»; «same section recorded twice» warnings arrive from the server but are not shown as items in the sheet today; courses of three or four hours without a teaching mode are counted as «article 7/8 pattern not checked»."
+          "ar": "حالات البند: «مانع اعتماد»، «يحتاج معالجة»، «مراجعة لائحية»، «ملاحظة لائحية»، «سياق تاريخي»، «سياسة القسم»؛ وتحذيرات «الشعبة نفسها مسجّلة مرتين» تُعرض بطاقاتٍ «مراجعة» بجانب الموانع بمادة «لا يمنع الاعتماد»، وتُطبع معها، ولا تدخل الموانع ولا الدرجة؛ ومقرراتٌ بثلاث أو أربع ساعات بلا طبيعة تدريس تُعدّ «لم يُفحص نمط المادة 7/8 لها».",
+          "en": "Finding statuses: «approval blocker», «needs treatment», «regulation review», «regulation note», «historical context», «department policy»; «same section recorded twice» warnings are shown as «review» cards beside the blockers under «does not block approval» and printed with them, entering neither the blockers nor the score; courses of three or four hours without a teaching mode are counted as «article 7/8 pattern not checked»."
         },
         {
           "ar": "«عالج» يُبرز مواعيد البند على لوحة الأسبوع (توهّجٌ 20 ثانية) ويغلق النافذة؛ والأساتذة في البند صفحاتٌ من 8 ببحث، والحالات صفحاتٌ من 6.",
@@ -2880,7 +2880,8 @@
         ],
         "tests": [
           "tests/approval-review-audit.ts",
-          "tests/review-1105-audit.ts"
+          "tests/review-1105-audit.ts",
+          "tests/schedule-board-fixes-audit.ts"
         ]
       }
     },

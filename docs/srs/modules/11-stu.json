@@ -2824,8 +2824,8 @@
         "en": "My ticket: times after signature, alternatives and sharing"
       },
       "text": {
-        "ar": "يجب على النظام أن يعرض تذكرة الطالب من آخر تشغيلٍ للرادار فقط إن طابق runId الملخص، فيُظهر رمز الشعبة ومواعيدها وبدائلها فقط لشعبةٍ وُقّع جدول قسمها وغير مقفلة، ويعرض «مخزن تبديل» حتى 40 مقرراً متبقياً بحتى 8 شعبٍ موقّعة لكلٍّ مرتّبة بالأقل نقصاً في المسبقات، ودقائق التنقل بين الحرمين من سياسة التنقل، وعلامة stale إن عدّل ملفه بعد التشغيل؛ وأن يتيح في المتصفح دون كتابة على الخادم تجربة شعبة بديلة أو حذف مقرر أو استبداله، وحفظ التذكرة المعدّلة رغباتٍ (حتى 12 مقرراً)، ومشاركتها صورةً تُرسم على الجهاز بلا اسمٍ ولا رقم مدني، وتذكيراً بموعد دوره في التقويم.",
-        "en": "The system shall show the student's ticket from the latest radar run only when its runId matches the summary, showing a section code, times and alternatives only for a section whose department schedule is signed and that is not locked, offering a «swap pool» of up to 40 remaining courses with up to 8 signed sections each ordered by fewest missing prerequisites, campus travel minutes from the travel policy, and a stale flag when the profile changed after the run; and shall let the student in the browser, without writing to the server, try an alternative section or drop or swap a course, save the edited ticket as wishes (up to 12 courses), share it as an image drawn on the device with no name or civil ID, and add a reminder of the round date to the calendar."
+        "ar": "يجب على النظام أن يعرض تذكرة الطالب من آخر تشغيلٍ للرادار فقط إن طابق runId الملخص، فيُظهر رمز الشعبة ومواعيدها وبدائلها فقط لشعبةٍ وُقّع جدول قسمها وغير مقفلة، ويعرض «مخزن تبديل» حتى 40 مقرراً متبقياً بحتى 8 شعبٍ موقّعة لكلٍّ مرتّبة بالأقل نقصاً في المسبقات، ودقائق التنقل بين الحرمين من سياسة التنقل، وعلامة stale إن عدّل ملفه بعد التشغيل؛ وأن يتيح في المتصفح دون كتابة على الخادم تجربة شعبة بديلة أو حذف مقرر أو استبداله، وحفظ التذكرة المعدّلة رغباتٍ (حتى 12 مقرراً)، ومشاركتها صورةً تُرسم على الجهاز بلا اسمٍ ولا رقم مدني، وتذكيراً بموعد دوره في التقويم يفتح ملفاً يخدمه الخادم (/api/public/ics-reminder)؛ وأن تقول شريحة «بُنيت على افتراض» عدد الوحدات الافتراضي الذي يرسله الخادم (defaultUnits) بأرقام لاتينية كبقية الصفحة.",
+        "en": "The system shall show the student's ticket from the latest radar run only when its runId matches the summary, showing a section code, times and alternatives only for a section whose department schedule is signed and that is not locked, offering a «swap pool» of up to 40 remaining courses with up to 8 signed sections each ordered by fewest missing prerequisites, campus travel minutes from the travel policy, and a stale flag when the profile changed after the run; and shall let the student in the browser, without writing to the server, try an alternative section or drop or swap a course, save the edited ticket as wishes (up to 12 courses), share it as an image drawn on the device with no name or civil ID, and add a reminder of the round date to the calendar through a file served by the server (/api/public/ics-reminder); the «built on an assumption» chip shall state the default unit count the server sends (defaultUnits) in Western digits like the rest of the page."
       },
       "priority": "should",
       "status": "implemented",
@@ -3759,8 +3759,8 @@
         "en": "The «did you register?» card on the page"
       },
       "text": {
-        "ar": "يجب على صفحة «مساري» أن تعرض بطاقة «هل سجّلت؟» حين يجهز السؤال وفيه مقررات، بزرين لكل مقرر «سجّلت / تعثّرت» وأسباب التعثر (امتلأت الشعب، المسبق لا يسمح، تعارض، آخر) ويُرسَل «آخر» حين لا يُختار سبب؛ وأن تعرض مربع «أريد أن يساعدني القسم في حالتي» حين يتعثر مقرر والسؤال مفتوح، فتستعمل الهوية المحفوظة إن كانت في الملف وإلا تطلب الاسم الثلاثي والرقم المدني ولا تحفظهما في الملف الدائم؛ وأن تعرض الأجوبة للقراءة حين يُغلق السؤال وقد أُجيب، وأرقام الحالات بعد الإرسال.",
-        "en": "The Masari page shall show the «did you register?» card when the question is ready and has courses, with «registered / stuck» buttons per course and stuck reasons (sections full, prerequisite does not allow, clash, other), sending «other» when no reason is chosen; it shall show the «I want my department to help with my case» box when a course is stuck and reporting is open, using the saved identity when the profile holds one and otherwise asking for the full name and civil ID without saving them in the permanent profile; it shall show the answers read-only once reporting is closed after an answer, and the case numbers after sending."
+        "ar": "يجب على صفحة «مساري» أن تعرض بطاقة «هل سجّلت؟» حين يجهز السؤال وفيه مقررات، بزرين لكل مقرر «سجّلت / تعثّرت» وأسباب التعثر (امتلأت الشعب، المسبق لا يسمح، تعارض، آخر) ويُرسَل «آخر» حين لا يُختار سبب؛ وأن تعرض مربع «أريد أن يساعدني القسم في حالتي» حين يتعثر مقرر والسؤال مفتوح، فتستعمل الهوية المحفوظة إن كانت في الملف وإلا تطلب الاسم الثلاثي والرقم المدني ولا تحفظهما في الملف الدائم، ويبقى ما كُتب فيهما عند إعادة رسم البطاقة بعد كل نقرة على جواب أو سبب؛ وأن تعرض الأجوبة للقراءة حين يُغلق السؤال وقد أُجيب، وأرقام الحالات بعد الإرسال.",
+        "en": "The Masari page shall show the «did you register?» card when the question is ready and has courses, with «registered / stuck» buttons per course and stuck reasons (sections full, prerequisite does not allow, clash, other), sending «other» when no reason is chosen; it shall show the «I want my department to help with my case» box when a course is stuck and reporting is open, using the saved identity when the profile holds one and otherwise asking for the full name and civil ID without saving them in the permanent profile, keeping what was typed in them when the card is redrawn after each answer or reason click; it shall show the answers read-only once reporting is closed after an answer, and the case numbers after sending."
       },
       "priority": "should",
       "status": "implemented",
@@ -3783,7 +3783,8 @@
           "src/server/studentHomePage.ts#paintReport"
         ],
         "tests": [
-          "tests/masari-ease-audit.ts"
+          "tests/masari-ease-audit.ts",
+          "tests/masari-return-audit.ts"
         ]
       }
     },

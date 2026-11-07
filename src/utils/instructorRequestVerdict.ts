@@ -36,7 +36,7 @@ import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { negotiationClosed, type ThreadItem } from "./instructorRequestThread";
 import { AR, countOf } from "./arabicCount";
 import { sameCourseSectionClash,
-  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, daysApprovedForHours, expectedMinutesForDay, isDecision1912Finding, startLadderNote,
+  DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, daysApprovedForHours, expectedMinutesForDay, isDecision1912Finding, startLadderNote,
   LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES, patternsForHours, requiredGapForDays, reviewSchedule, toMinutes,
   weeklyLectureMinutes, maxWeeklyMinutesFor, effectiveCourseHours, type DayKey, type RegulationFinding,
 } from "./scheduleRegulations";
@@ -688,7 +688,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     reasons.push(short && long ? {
       source: "shape",
       code: "pattern",
-      article: DECISION_1912_LABEL,
+      article: DECISION_1913_LABEL,
       text: "لا يُخلط بين أيام الـ50 والـ80 دقيقة إلا بنمطٍ معتمد في مكتبة الأنماط.",
       blocking: true,
     } : {

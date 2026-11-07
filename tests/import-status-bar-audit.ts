@@ -64,7 +64,7 @@ check(!/onApply|onUndo|onCancel/.test(dry), "4.3 البطاقة تقول الف�
 check(/if \(!publishGateSatisfied\) return;/.test(transfer), "4.4 لا كتابة أثناء الفحص ولو وصل الضغط");
 check(/checking \? <Loader2[\s\S]{0,60}<CheckCircle2/.test(paged) && /if \(checking\) return/.test(paged), "4.5 لا علامة صح على صفحة أثناء الفحص");
 check(/importSettled[\s\S]{0,40}\?<span className="ready">/.test(transfer), "4.6 بطاقة «جاهز للنشر» بعد النتيجة وحدها");
-check(/useImportPreflight/.test(intel) && /<ImportStatusBar/.test(intel) && /importPreflight\.state !== "pending"/.test(intel), "4.7 مركز الذكاء يقرأ الفحص نفسه والشريط نفسه");
+check(!/useImportPreflight|<ImportStatusBar|<PagedImportPreview|tab === "import"/.test(intel), "4.7 مركز الذكاء بلا استيراد ثانٍ: الاستيراد في «نقل الجدول» وحده");
 check(!/اعتمد وانزّل الجدول كاملاً<\/PrimaryButton>/.test(intel), "4.8 لا زر اعتماد ثانٍ هناك");
 check(/answeredRef\.current \? IMPORT_EDIT_DEBOUNCE_MS : 0/.test(hook), "4.9 الملف الجديد يُفحص بلا مهلة");
 check(/\[enabled, collegeId, sectionId, termId, signature, importLayout, attempt\]/.test(hook) && !/xlsxPreview/.test(hook), "4.10 إعادة الفحص بالتوقيع، لا بهوية المصفوفة");

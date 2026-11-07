@@ -7,7 +7,7 @@ import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBa
 import PagedFindingList from "./PagedFindingList";
 import { packPrintFindings, type PrintFindingPiece } from "../utils/printFindingPages";
 import {
-  DAY_KEYS, DAY_NAMES, DECISION_1912_LABEL, isDecision1912Finding, periodBalanceSnapshot, PERIOD_BALANCE_MIN_SECTIONS, reviewSchedule,
+  DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, isDecision1912Finding, periodBalanceSnapshot, PERIOD_BALANCE_MIN_SECTIONS, reviewSchedule,
   type DayKey, type RegulationFinding
 } from "../utils/scheduleRegulations";
 import type { CourseNature } from "../utils/courseNature";
@@ -73,6 +73,27 @@ const findingBaseTitle = (title: string) =>
 
 const groupFindingKey = (finding: RegulationFinding) =>
   [finding.approvalEffect, finding.source, finding.article, findingBaseTitle(finding.title)].join("::");
+
+/** يجمع البنود المتشابهة (الأثر والمصدر والمادة والعنوان) في بطاقةٍ واحدة. */
+function groupReviewFindings(list: RegulationFinding[]): ReviewFindingGroup[] {
+  const buckets = new Map<string, { base: RegulationFinding; items: RegulationFinding[]; rowIds: Set<number> }>();
+  for (const finding of list) {
+    const key = groupFindingKey(finding);
+    const bucket = buckets.get(key) || { base: finding, items: [], rowIds: new Set<number>() };
+    bucket.items.push(finding);
+    finding.rowIds.forEach(id => bucket.rowIds.add(id));
+    buckets.set(key, bucket);
+  }
+  return [...buckets.entries()].map(([groupKey, bucket]) => ({
+    ...bucket.base,
+    title: findingBaseTitle(bucket.base.title) || bucket.base.title,
+    groupKey,
+    rowIds: [...bucket.rowIds],
+    groupedItems: bucket.items,
+    groupedCount: bucket.items.length,
+    detail: bucket.items.length > 1 ? `جُمع هنا ${countOf(bucket.items.length, AR.conflict)} ${nounFor(bucket.items.length, AR.similarAdj)} في بند واحد.` : bucket.base.detail,
+  }));
+}
 
 /**
  * A material blocker is what canSign refuses: a teacher or a room in two places
@@ -321,7 +342,6 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     .map(item => ({ ...item, rowIds: (Array.isArray(item.rowIds) ? item.rowIds : []).map(Number).filter(id => scopeIds.has(id)) }))
     .filter(item => item.rowIds.length > 0), [serverRead, serverBlockers, localBlockers, scopeIds]);
   const activeWarnings = serverRead ? serverWarnings : localWarnings;
-  void activeWarnings;
   /* The headline is the ApprovalBar's: blocking conflicts (pairs), then the
      appointments they touch — read from the same scoped list as the cards. */
   const blockerSummary = useMemo(() => {
@@ -385,25 +405,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     const hours = Number(course?.CourseHours || course?.CourseCredit || 0);
     return (hours === 3 || hours === 4) && !course?.CourseTeachingMode;
   }).map(row => Number(row.AdCourseId))).size, [scopeRows, courses]);
-  const groupedFindings = useMemo<ReviewFindingGroup[]>(() => {
-    const buckets = new Map<string, { base: RegulationFinding; items: RegulationFinding[]; rowIds: Set<number> }>();
-    for (const finding of findings) {
-      const key = groupFindingKey(finding);
-      const bucket = buckets.get(key) || { base: finding, items: [], rowIds: new Set<number>() };
-      bucket.items.push(finding);
-      finding.rowIds.forEach(id => bucket.rowIds.add(id));
-      buckets.set(key, bucket);
-    }
-    return [...buckets.entries()].map(([groupKey, bucket]) => ({
-      ...bucket.base,
-      title: findingBaseTitle(bucket.base.title) || bucket.base.title,
-      groupKey,
-      rowIds: [...bucket.rowIds],
-      groupedItems: bucket.items,
-      groupedCount: bucket.items.length,
-      detail: bucket.items.length > 1 ? `جُمع هنا ${countOf(bucket.items.length, AR.conflict)} ${nounFor(bucket.items.length, AR.similarAdj)} في بند واحد.` : bucket.base.detail,
-    }));
-  }, [findings]);
+  const groupedFindings = useMemo<ReviewFindingGroup[]>(() => groupReviewFindings(findings), [findings]);
+  /* التنبيهات تُعرض بجانب الموانع بطاقاتٍ «لا يمنع الاعتماد»، ولا تدخل الدرجة ولا الموانع. */
+  const warningGroups = useMemo<ReviewFindingGroup[]>(
+    () => groupReviewFindings(warningFindings.map(inScope).filter(Boolean) as RegulationFinding[]),
+    [warningFindings, inScope],
+  );
   /* سُلّمُ البدايات وأطوالُ المكتبة (المالك 2026-10-30): تنبيهٌ لائحيّ لا يمنع الاعتماد ولا يُنقص الدرجة. يُرى في سطر
      الملاحظات مع غيره، فيعرف القسمُ مواعيدَه القائمة خارج السُّلّم وإن كان الحفظُ يمرّ بها تنبيهاً. */
   const ladderNotes = useMemo<ReviewFindingGroup[]>(() => {
@@ -598,7 +605,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
 
   /* الورقةُ تطبع كلَّ موعد: تُرصّ الملاحظاتُ بطولها، وما زاد عن صفحةٍ يُكمَل
      بعنوان «تتمة» في التي تليها (printFindingPages). */
-  const printPages = packPrintFindings<ReviewFindingGroup>(groupedFindings, finding => finding.rowIds);
+  const printPages = packPrintFindings<ReviewFindingGroup>([...groupedFindings, ...warningGroups], finding => finding.rowIds);
   const firstPrintPage = printPages[0] || [];
   const printFollowupPages = printPages.slice(1);
   const renderPrintFinding = ({ finding, rowIds, part, parts }: PrintFindingPiece<ReviewFindingGroup>) => (
@@ -797,7 +804,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     <div className="review-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="review-sheet no-print visual-minimal" role="dialog" aria-modal="true" aria-label="مراجعة الاعتماد">
         <header className={`review-head tone-${tone}`}>
-          <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
+          <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1913_LABEL} ${score} من 100`}>
             <title>{breakdown.formula}</title>
             <circle className="ring-track" cx="32" cy="32" r="26" />
             {/* One slice per category, starting at twelve o'clock: green is the score. */}
@@ -816,8 +823,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             <text x="32" y="45" className="ring-unit">/ 100</text>
           </svg>
           <div className="review-title">
-            <span className="surface-kicker">مراجعة الاعتماد · {DECISION_1912_LABEL}</span>
-            <h2 data-resolved={readinessChecked && sawChecking.current ? "" : undefined}>{!readinessChecked ? "أتحقق من الموانع…" : blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : regulationGroups.length ? "لا مانع للتوقيع · بنود للمعالجة" : unclassifiedCourses ? "يلزم استكمال بيانات التدريس" : "لا توجد موانع ظاهرة"}</h2>
+            <span className="surface-kicker">مراجعة الاعتماد · {DECISION_1913_LABEL}</span>
+            <h2 data-resolved={readinessChecked && sawChecking.current ? "" : undefined}>{!readinessChecked ? "أتحقق من الموانع…" : blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : regulationGroups.length || warningGroups.length ? "لا مانع للتوقيع · بنود للمعالجة" : unclassifiedCourses ? "يلزم استكمال بيانات التدريس" : "لا توجد موانع ظاهرة"}</h2>
             <p>{scopeLabel}</p>
             {familyNote ? <small className="review-scope-note" data-review-scope="college"><Building2 aria-hidden="true" /> {familyNote}</small> : null}
             {readinessChecked && unclassifiedCourses ? <small className="review-data-gap"><Info aria-hidden="true" /> {countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ لم يُفحص نمط المادة 7/8 لها.</small> : null}
@@ -873,9 +880,11 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
           {/* «لم نصل بعد»: ملاحظةٌ على شعب المقررات التي لم يصلها الفرع — لا تمنع ولا تدخل الدرجة. */}
           <ReachReviewNotes rows={scopeRows} termId={termId}
             courseLabel={id => ({ code: shortCourseCode(courses.get(id)?.CourseCode), name: String(courses.get(id)?.CourseName || "") })} />
-          {groupedFindings.length ? (
+          {groupedFindings.length || warningGroups.length ? (
             <>
               {pressingFindings.map(renderFinding)}
+              {/* «لا يمنع الاعتماد»: بجانب الموانع، بلا أثرٍ على الدرجة ولا على التوقيع. */}
+              {warningGroups.map(renderFinding)}
                   {!quietFindings.length ? null : quietFindings.length < 3 ? quietFindings.map(renderFinding) : (
                 <section className={`review-quiet ${quietOpen ? "open" : ""}`}>
                   <button
@@ -926,15 +935,15 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
         <div className="print-sheet-modal">
           <div className="print-report print-wide print-query-report print-review-report">
             <section className="print-explicit-page print-review-page">
-              <PrintLetterhead title={`مراجعة الاعتماد · ${DECISION_1912_LABEL}`} scope={scopeLabel} />
+              <PrintLetterhead title={`مراجعة الاعتماد · ${DECISION_1913_LABEL}`} scope={scopeLabel} />
               <section className={`print-review-hero tone-${tone}`}>
-                <svg className={`print-review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" aria-label={`مطابقة ${DECISION_1912_LABEL} ${score} من 100`}>
+                <svg className={`print-review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" aria-label={`مطابقة ${DECISION_1913_LABEL} ${score} من 100`}>
                   <circle className="ring-track" cx="32" cy="32" r="26" />
                   <circle className="ring-value" cx="32" cy="32" r="26" strokeDasharray={`${(score / 100) * ringLength} ${ringLength}`} />
                   <text x="32" y="34" className="ring-number">{score.toLocaleString("ar-KW-u-nu-latn")}</text>
                   <text x="32" y="45" className="ring-unit">/ 100</text>
                 </svg>
-                <div><small>مراجعة الاعتماد · {DECISION_1912_LABEL}</small><strong>{blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : unclassifiedCourses ? "يلزم استكمال بيانات التدريس" : "لا توجد موانع ظاهرة"}</strong><span>{scopeLabel}</span>{unclassifiedCourses ? <small>{countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ نمط 7/8 غير مفحوص.</small> : null}</div>
+                <div><small>مراجعة الاعتماد · {DECISION_1913_LABEL}</small><strong>{blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : unclassifiedCourses ? "يلزم استكمال بيانات التدريس" : "لا توجد موانع ظاهرة"}</strong><span>{scopeLabel}</span>{unclassifiedCourses ? <small>{countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ نمط 7/8 غير مفحوص.</small> : null}</div>
               </section>
               <div className="print-review-spread" role="img" aria-label="توزيع المواعيد حسب نتيجة المراجعة">
                 <div className="print-spread-bar">
