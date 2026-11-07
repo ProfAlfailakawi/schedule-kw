@@ -1,15 +1,16 @@
 import CourseTags from "./CourseTags";
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, BookOpen, Check, CheckCircle2, Clock3, Copy, GraduationCap, Layers, Link2, UserRound, X } from "lucide-react";
+import { AlertCircle, BookOpen, Check, CheckCircle2, Clock3, Copy, GraduationCap, Layers, Link2, LockOpen, UserRound, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { formatScheduleTimeRange, scheduleClockForDisplay, scheduleDayWindowMinutes, type ScheduleDayWindow } from "../utils/scheduleTime";
-import { capSameSlot, sameSlotOf, slotMinutes, SLOT_DAYS, type SameSlotQuery, type SameSlotResult, type SlotDay, type SlotRow } from "../utils/sameSlot";
+import { capSameSlot, sameSlotOf, slotMinutes, SLOT_DAYS, type SameSlotItem, type SameSlotQuery, type SameSlotResult, type SlotDay, type SlotRow } from "../utils/sameSlot";
+import { sameLevelLookup, unlockLookup, type UnlockGroup } from "../utils/planPeers";
 import { coreqFindings, coreqFreeTime, partnersOfCourse, type CoreqFreeTime } from "../utils/coreqSections";
 
 /**
- * «في الوقت نفسه» — شارةٌ صغيرة تظهر فقط حين يوجد موعدٌ آخر في اليوم والساعة ذاتهما، أو مقررٌ
- * من مستواه يتداخل وقته، أو شعبةٌ من المقرر نفسه متداخلة أو قريبة، وبلمسها تُفتح ورقةٌ مضغوطة بمقرراتها. تنبيهٌ هادئ لا يمنع الحفظ ولا يُفتح وحده.
+ * «في الوقت نفسه» — شارةٌ صغيرة تظهر فقط حين يوجد موعدٌ آخر في اليوم والساعة ذاتهما، أو قرينٌ
+ * من صحيفته يتداخل وقته، أو شعبةٌ من المقرر نفسه متداخلة أو قريبة، وبلمسها تُفتح ورقةٌ مضغوطة بمقرراتها. تنبيهٌ هادئ لا يمنع الحفظ ولا يُفتح وحده.
  *
  * تقرأ الصفوفَ التي تحمّلها صفحةُ الجدول أصلاً (بلا طلبٍ جديد)، ولا تعرض القاعات أبداً،
  * وتُظهر اسمَ الأستاذ فقط إن مُرّرت دالةُ الأسماء (الشاشةُ نفسها تُظهرها لهذه الصفة).
@@ -39,30 +40,56 @@ export interface SameSlotHintProps<R extends SlotRow & { AdCourseName?: string; 
   className?: string;
 }
 
-/** مقرناتُ القسم من صحيفته: جلبةٌ واحدة لكل قسم في الجلسة، وتفشلُ بصمت (الزينة لا تكسر شاشة). */
-const pairsCache = new Map<number, number[][]>();
+/** ما تقوله صحائفُ القسم: جلبةٌ واحدة لكل قسم في الجلسة، وتفشلُ بصمت (الزينة لا تكسر شاشة). */
+interface PlanFacts { pairs: number[][]; levelGroups: number[][]; unlockGroups: UnlockGroup[] }
+const NO_FACTS: PlanFacts = { pairs: [], levelGroups: [], unlockGroups: [] };
+const pairsCache = new Map<number, PlanFacts>();
 const pairsPending = new Map<number, Promise<void>>();
-function useCoreqPairs(collegeId: number | undefined, sectionId: number | undefined): number[][] {
-  const [pairs, setPairs] = useState<number[][]>(() => (sectionId ? pairsCache.get(sectionId) : undefined) || []);
+function usePlanFacts(collegeId: number | undefined, sectionId: number | undefined): PlanFacts {
+  const [facts, setFacts] = useState<PlanFacts>(() => (sectionId ? pairsCache.get(sectionId) : undefined) || NO_FACTS);
   useEffect(() => {
-    if (!sectionId) { setPairs([]); return; }
+    if (!sectionId) { setFacts(NO_FACTS); return; }
     const cached = pairsCache.get(sectionId);
-    if (cached) { setPairs(cached); return; }
+    if (cached) { setFacts(cached); return; }
     let live = true;
     let job = pairsPending.get(sectionId);
     if (!job) {
       job = fetch(`/api/schedules/coreq-pairs?collegeId=${collegeId || 0}&sectionId=${sectionId}`, { credentials: "include" })
-        .then(response => (response.ok ? response.json() : { pairs: [] }))
-        .then(data => { pairsCache.set(sectionId, Array.isArray(data?.pairs) ? data.pairs : []); })
-        .catch(() => { pairsCache.set(sectionId, []); })
+        .then(response => (response.ok ? response.json() : NO_FACTS))
+        .then(data => {
+          pairsCache.set(sectionId, {
+            pairs: Array.isArray(data?.pairs) ? data.pairs : [],
+            levelGroups: Array.isArray(data?.levelGroups) ? data.levelGroups : [],
+            unlockGroups: Array.isArray(data?.unlockGroups) ? data.unlockGroups : [],
+          });
+        })
+        .catch(() => { pairsCache.set(sectionId, NO_FACTS); })
         .finally(() => { pairsPending.delete(sectionId); });
       pairsPending.set(sectionId, job);
     }
-    void job.then(() => { if (live) setPairs(pairsCache.get(sectionId) || []); });
+    void job.then(() => { if (live) setFacts(pairsCache.get(sectionId) || NO_FACTS); });
     return () => { live = false; };
   }, [collegeId, sectionId]);
-  return pairs;
+  return facts;
 }
+
+/** وسمُ المقررات التي تُؤخذ في فصلٍ واحد: سطرُ مجموعتها ووصفُها. كلمةٌ واحدة هنا تغيّرها كلَّها. */
+const TAKEN_TOGETHER = "تُؤخذ معًا";
+
+/** بنودُ الورقة متجاورةً تحت سطر مجموعتها: «تفتح» أو TAKEN_TOGETHER أو بلا سطر. */
+function groupedRows<R>(items: readonly SameSlotItem<R>[]) {
+  const groups: Array<{ key: string; items: SameSlotItem<R>[] }> = [];
+  for (const item of items) {
+    const key = item.unlock ? `unlock|${item.unlock.names.join("|")}` : item.sameLevel ? "level" : "plain";
+    const last = groups[groups.length - 1];
+    if (last?.key === key) last.items.push(item);
+    else groups.push({ key, items: [item] });
+  }
+  return groups;
+}
+
+/** ما يقف فوق ورقة الموعد على الحاسوب: شريط الجوال وترويسة الصفحة، ما دام ظاهراً فوق الشارة. */
+const SHEET_CEILING = ".mobile-topbar, .page-heading";
 
 /** تأخيرٌ قصير: لا حسابَ عند كل ضغطة مفتاح. */
 function useSettled<T>(value: T, key: string, ms = 180): T {
@@ -87,7 +114,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   );
 
   /* المقرن: تداخلٌ (لا تطابقٌ تام) مع مقرر الموعد التوأم، ومعه: هل بقيت شعبةٌ بديلة؟ */
-  const pairs = useCoreqPairs(collegeId, sectionId);
+  const { pairs, levelGroups, unlockGroups } = usePlanFacts(collegeId, sectionId);
   const { start: dayStart, end: dayEnd } = scheduleDayWindowMinutes(dayWindow);
   const twins = useMemo(() => {
     if (!courseId || !pairs.length) return [];
@@ -107,13 +134,15 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   /* ما يرويه بطاقةُ المقرن لا يُعاد في قائمة «الوقت نفسه». */
   const twinIds = useMemo(() => twins.flatMap(twin => twin.overlapRowIds).map(String), [twins]);
   /* الصفوف تتجدد حياً؛ الاستعلام وحده يُؤخَّر. */
-  const result: SameSlotResult<R> = useMemo(() => sameSlotOf<R>(rows, { ...query, skipIds: [...(query.skipIds || []), ...twinIds], codeOf: (id) => courseOf(id)?.CourseCode }), [rows, query, twinIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sameLevel = useMemo(() => sameLevelLookup(levelGroups), [levelGroups]);
+  const unlockOf = useMemo(() => unlockLookup(unlockGroups), [unlockGroups]);
+  const result: SameSlotResult<R> = useMemo(() => sameSlotOf<R>(rows, { ...query, skipIds: [...(query.skipIds || []), ...twinIds], codeOf: (id) => courseOf(id)?.CourseCode, sameLevel, unlockOf }), [rows, query, twinIds, sameLevel, unlockOf]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const [phone, setPhone] = useState(false);
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
 
   const count = result.count;
   const { partialCount, sectionCount } = result;
@@ -129,18 +158,24 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
       const anchor = button.current?.getBoundingClientRect();
       if (isPhone || !anchor) { setPos(null); return; }
       const width = Math.min(330, window.innerWidth - 16);
-      const height = sheet.current?.offsetHeight || 260;
+      const height = sheet.current?.scrollHeight || 260;
       let left = anchor.right - width;
       left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
-      let top = anchor.bottom + 8;
-      if (top + height > window.innerHeight - 8) top = Math.max(8, anchor.top - height - 8);
-      setPos({ left, top });
+      /* لا تغطي الورقةُ الترويسة: تبقى تحتها وتُمرَّر من داخلها إن ضاق المكان. */
+      const ceiling = [...document.querySelectorAll(SHEET_CEILING)].reduce((lowest, element) => {
+        const box = element.getBoundingClientRect();
+        return box.height && box.bottom > 0 && box.bottom <= anchor.top ? Math.max(lowest, box.bottom) : lowest;
+      }, 0) + 8;
+      const below = window.innerHeight - 8 - (anchor.bottom + 8), above = anchor.top - 8 - ceiling;
+      const under = height <= below || below >= above;
+      const maxHeight = Math.max(160, Math.min(height, under ? below : above));
+      setPos({ left, maxHeight, top: under ? anchor.bottom + 8 : Math.max(ceiling, anchor.top - 8 - maxHeight) });
     };
     place();
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
     return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
-  }, [open, count, twinCount]);
+  }, [open, result, twinCount]);
 
   useEffect(() => {
     if (!open) return;
@@ -165,24 +200,44 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
 
   if (!count && !twinCount) return null;
 
-  const capped = capSameSlot(result.days, 6);
-  const anyLevel = result.days.some(day => day.items.some(item => item.sameLevel));
-  const several = result.days.length > 1;
-  const chosenLabels = SLOT_DAYS.filter(day => days.includes(day.key)).map(day => day.label);
-  const dayWords = result.days.length && (days.length === 1 || !several)
-    ? result.days[0].label
-    : (several ? result.days : chosenLabels.map(label => ({ label }))).map(day => day.label).join(" · ");
+  const capped = capSameSlot(result.items);
+  const chosen = SLOT_DAYS.filter(day => days.includes(day.key));
+  const several = chosen.length > 1;
   const exactCount = count - partialCount - sectionCount;
   const label = [
     exactCount ? `${countOf(exactCount, AR.course)} في الوقت نفسه` : "",
-    partialCount ? `${countOf(partialCount, AR.course)} من مستواه بتداخل جزئي` : "",
+    partialCount ? `${countOf(partialCount, AR.course)} ${TAKEN_TOGETHER} بتداخل جزئي` : "",
     sectionCount ? `${countOf(sectionCount, AR.section)} من المقرر نفسه بوقت قريب` : "",
     twinCount ? "مقرن متداخل" : "",
   ].filter(Boolean).join("، ");
   const timeText = formatScheduleTimeRange(start, end);
   const ownName = courseOf(Number(courseId))?.CourseName || "هذا المقرر";
-  const segments = capped.days.flatMap(day => day.items)
-    .filter((item, index, list) => list.findIndex(other => String(other.row.id) === String(item.row.id)) === index).slice(0, 6);
+
+  const rowNode = ({ row, days: rowDays, sameLevel: level, sameCourse, unlock, kind }: SameSlotItem<R>, index: number) => {
+    const course = courseOf(Number(row.AdCourseId));
+    const name = row.AdCourseName || course?.CourseName || "موعد آخر";
+    const who = instructorName && row.AdInstructorId ? instructorName(Number(row.AdInstructorId)) : "";
+    const hue = hueOf(Number(row.AdCourseId) || index);
+    return (
+      <li key={row.id} className={[level || unlock ? "is-level" : "", kind === "exact" ? "" : "is-partial"].filter(Boolean).join(" ") || undefined} style={{ ["--ss-hue" as any]: hue }}>
+        <span className="same-slot-icon" aria-hidden="true"><BookOpen /></span>
+        <span className="same-slot-main">
+          <b>{name}</b>
+          <small>
+            {course?.CourseCode ? <bdi dir="ltr">{course.CourseCode}</bdi> : null}
+            <CourseTags courseId={row.AdCourseId} />
+            {who ? <span className="same-slot-who"><UserRound aria-hidden="true" />{who}</span> : null}
+            {several ? <span className="same-slot-days">{SLOT_DAYS.filter(day => rowDays.includes(day.key)).map(day => <i key={day.key}>{day.short}</i>)}</span> : null}
+          </small>
+        </span>
+        {row.SCode ? <span className="same-slot-chip">شعبة <bdi dir="ltr">{row.SCode}</bdi></span> : null}
+        {unlock ? <span className="same-slot-level" title="يفتحان معاً مقرراً تالياً" role="img" aria-label="يفتحان معاً مقرراً تالياً"><LockOpen /></span> : null}
+        {level ? <span className="same-slot-level" title={TAKEN_TOGETHER} role="img" aria-label={TAKEN_TOGETHER}><GraduationCap /></span> : null}
+        {sameCourse ? <span className="same-slot-level" title="المقرر نفسه" role="img" aria-label="المقرر نفسه"><Copy /></span> : null}
+        {kind === "exact" ? null : <OverlapSpan own={{ start: query.start, end: query.end }} row={row} near={kind === "near"} />}
+      </li>
+    );
+  };
 
   const sheetNode = (
     <div className={`same-slot-layer${phone ? " is-phone" : ""}`}>
@@ -194,53 +249,38 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
         aria-modal="false"
         aria-labelledby={titleId}
         tabIndex={-1}
-        style={!phone && pos ? { left: pos.left, top: pos.top } : undefined}
+        style={!phone && pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxHeight } : undefined}
       >
         <header className="same-slot-head">
           <span className="same-slot-mark" aria-hidden="true"><Layers /></span>
-          <strong id={titleId}>{dayWords} · <bdi dir="ltr">{timeText}</bdi></strong>
+          <strong id={titleId}>
+            <span className="same-slot-days">{chosen.map(day => <i key={day.key}>{several ? day.short : day.label}</i>)}</span>
+            <bdi className="same-slot-time" dir="ltr">{timeText}</bdi>
+          </strong>
           <button type="button" className="same-slot-close" aria-label="إغلاق" data-guide-ignore="يطوي الورقة؛ لا يحفظ شيئاً" onClick={() => { setOpen(false); button.current?.focus({ preventScroll: true }); }}>
             <X aria-hidden="true" />
           </button>
         </header>
         {count ? <>
         <div className="same-slot-bar" aria-hidden="true">
-          {segments.map((item, index) => (
-            <i key={`${item.row.id}-${index}`} style={{ background: `hsl(${hueOf(Number(item.row.AdCourseId) || index)} 48% 56%)` }} />
+          {capped.items.map((item, index) => (
+            <i key={String(item.row.id)} style={{ background: `hsl(${hueOf(Number(item.row.AdCourseId) || index)} 48% 56%)` }} />
           ))}
         </div>
-        {anyLevel ? <p className="same-slot-legend"><GraduationCap aria-hidden="true" />نفس المستوى — الطلاب أنفسهم غالباً</p> : null}
         <div className="same-slot-body">
-          {capped.days.map(day => (
-            <section key={day.day} className="same-slot-day" aria-label={day.label}>
-              {several ? <h4>{day.label}</h4> : null}
-              <ul>
-                {day.items.map(({ row, sameLevel, sameCourse, kind }, index) => {
-                  const course = courseOf(Number(row.AdCourseId));
-                  const name = row.AdCourseName || course?.CourseName || "موعد آخر";
-                  const who = instructorName && row.AdInstructorId ? instructorName(Number(row.AdInstructorId)) : "";
-                  const hue = hueOf(Number(row.AdCourseId) || index);
-                  return (
-                    <li key={`${row.id}-${day.day}`} className={[sameLevel ? "is-level" : "", kind === "exact" ? "" : "is-partial"].filter(Boolean).join(" ") || undefined} style={{ ["--ss-hue" as any]: hue }}>
-                      <span className="same-slot-icon" aria-hidden="true"><BookOpen /></span>
-                      <span className="same-slot-main">
-                        <b>{name}</b>
-                        <small>
-                          {course?.CourseCode ? <bdi dir="ltr">{course.CourseCode}</bdi> : null}
-                          <CourseTags courseId={row.AdCourseId} />
-                          {who ? <span className="same-slot-who"><UserRound aria-hidden="true" />{who}</span> : null}
-                        </small>
-                      </span>
-                      {row.SCode ? <span className="same-slot-chip">شعبة <bdi dir="ltr">{row.SCode}</bdi></span> : null}
-                      {sameLevel ? <span className="same-slot-level" title="نفس المستوى" role="img" aria-label="نفس المستوى"><GraduationCap /></span> : null}
-                      {sameCourse ? <span className="same-slot-level" title="المقرر نفسه" role="img" aria-label="المقرر نفسه"><Copy /></span> : null}
-                      {kind === "exact" ? null : <OverlapSpan own={{ start: query.start, end: query.end }} row={row} near={kind === "near"} />}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
+          {groupedRows(capped.items).map(group => {
+            const unlock = group.items[0].unlock;
+            return (
+              <section key={group.key} className="same-slot-day">
+                {unlock ? (
+                  <p className="same-slot-legend is-unlock"><LockOpen aria-hidden="true" />تفتح: <b>{unlock.names[0]}</b>{unlock.names.length > 1 ? <bdi dir="ltr">+{unlock.names.length - 1}</bdi> : null}</p>
+                ) : group.key === "level" ? (
+                  <p className="same-slot-legend"><GraduationCap aria-hidden="true" />{TAKEN_TOGETHER}</p>
+                ) : null}
+                <ul>{group.items.map(rowNode)}</ul>
+              </section>
+            );
+          })}
           {capped.hidden ? <p className="same-slot-more"><bdi dir="ltr">+{capped.hidden}</bdi></p> : null}
         </div>
         </> : null}

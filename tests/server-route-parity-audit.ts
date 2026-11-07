@@ -233,7 +233,11 @@ const updatedLocationEdit = (r:Row) => r.kind==="route" && r.methods.length===1 
 /* One intentional suggestion edit: the co-requisite defers times where every section combination clashes.
    Its behaviour is pinned by tests/coreq-sections-audit.ts instead of call-text parity. */
 const updatedCoreqSuggest = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post" && r.path==="/api/schedules/suggest-slots";
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : r.call || "-"} ${r.name}`;
+/* One intentional payload extension: the co-requisite pairs read also carries the plan peers
+   (levelGroups, unlockGroups) from the same cached plan read. Same path, permission and scope guard;
+   its behaviour is pinned by tests/plan-peers-audit.ts and tests/coreq-sections-audit.ts. */
+const updatedPlanFacts = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="get" && r.path==="/api/schedules/coreq-pairs";
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();

@@ -68,6 +68,7 @@
     "test:holds-patterns-r4": "tsx tests/holds-patterns-r4-audit.ts",
     "test:one-line-appointment": "tsx tests/one-line-appointment-audit.ts",
     "test:same-slot": "tsx tests/same-slot-audit.ts",
+    "test:plan-peers": "tsx tests/plan-peers-audit.ts",
     "test:coreq-sections": "tsx tests/coreq-sections-audit.ts",
     "test:rooms-one-screen": "tsx tests/rooms-one-screen-audit.ts",
     "test:admin-screens-r4": "tsx tests/admin-screens-r4-audit.ts",

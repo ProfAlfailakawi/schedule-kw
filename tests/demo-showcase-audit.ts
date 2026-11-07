@@ -36,7 +36,8 @@ const { DEMO_SHOWCASE_COREQ, DEMO_SHOWCASE_TOP_CODE, DEMO_TRAVEL_MINUTES, demoTr
 const { compareCourseSection } = await import("../src/utils/scheduleOrder");
 const { sameSlotOf } = await import("../src/utils/sameSlot");
 const { coreqFindings, partnersOfCourse } = await import("../src/utils/coreqSections");
-const { coreqPairsOfSection } = await import("../src/server/core/coreqPairs");
+const { coreqPairsOfSection, sectionPlanFacts } = await import("../src/server/core/coreqPairs");
+const { sameLevelLookup, unlockLookup } = await import("../src/utils/planPeers");
 const { seedDemoRadar } = await import("../src/server/demoRadarSeed");
 const { cleanTravelPolicy, travelShortfalls, TRAVEL_PAIRS } = await import("../src/utils/campusTravelPolicy");
 const { travelHints } = await import("../src/utils/campusTravelHint");
@@ -59,9 +60,8 @@ const termRows: any[] = state.schedules.filter((r: any) => Number(r.AdTermId) ==
   const q = { days: ["fthursday"] as any, start: top.fstarttime, end: top.fendtime, excludeId: top.id, courseId: top.AdCourseId, sectionId: 1, termId: 1, codeOf: codeOfId };
   const found = sameSlotOf(termRows, q);
   /* المشهد عن التطابق التام؛ وما تداخل من مستواه يظهر بعده موسوماً بوقته (tests/same-slot-audit.ts). */
-  const items = (found.days[0]?.items || []).filter((item: any) => item.kind === "exact");
-  check(found.count - found.partialCount - found.sectionCount === 2 && found.days.length === 1 && Boolean(top.fthursday) && !top.fsunday, "D1 «في الوقت نفسه»: مقرران آخران بالضبط في اليوم نفسه والبداية والنهاية نفسيهما", found.count);
-  check(items.length === 2 && items[0].sameLevel === true && items[1].sameLevel === false && codeOfId(items[0].row.AdCourseId) === "0109102" && codeOfId(items[1].row.AdCourseId) === "0109201", "D1 «نفس المستوى» أولاً ثم مقررٌ بمستوى مختلف", items.map((i: any) => [codeOfId(i.row.AdCourseId), i.sameLevel]));
+  const items = found.items.filter((item: any) => item.kind === "exact");
+  check(found.count - found.partialCount - found.sectionCount === 2 && Boolean(top.fthursday) && !top.fsunday, "D1 «في الوقت نفسه»: مقرران آخران بالضبط في اليوم نفسه والبداية والنهاية نفسيهما", found.count);
   const withOwn = sameSlotOf(termRows, { ...q, excludeId: null });
   check(withOwn.count - withOwn.partialCount - withOwn.sectionCount === 3, "D1 وبحسابِ المقرر نفسه الموعدُ يضم ثلاثة مقررات");
   check(Number(termRows.filter((r: any) => r.fthursday && r.fstarttime === top.fstarttime && r.fendtime === top.fendtime).length) === 3, "D1 لا مقرر رابع في الساعة نفسها");
@@ -71,9 +71,11 @@ const termRows: any[] = state.schedules.filter((r: any) => Number(r.AdTermId) ==
 const sandboxId = "demo_showcase_audit";
 Repository.createDemoSandbox(sandboxId, 10 * 60_000);
 let pairs: number[][] = [];
+let facts: any;
 await Repository.withDemoSandbox(sandboxId, async () => {
   await seedDemoRadar({ sealIdentity: async (value: string) => `sealed:${value}`, today: new Date().toISOString().slice(0, 10) });
   pairs = await coreqPairsOfSection(1);
+  facts = await sectionPlanFacts(1);
 });
 {
   const pairKey = (a: string, b: string) => `${Math.min(idOfCode(a), idOfCode(b))}|${Math.max(idOfCode(a), idOfCode(b))}`;
@@ -91,11 +93,31 @@ await Repository.withDemoSandbox(sandboxId, async () => {
   check(backward.length === 1 && backward[0].alternative === false, "D2 والاتجاه الآخر (من المقرن) يقرأ الحكمَ نفسه", backward);
 }
 
+/* ── D2b: الأقران من الصحيفة المبذورة، بالدالة التي يقرؤها المتصفح ── */
+{
+  const sameLevel = sameLevelLookup(facts.levelGroups), unlockOf = unlockLookup(facts.unlockGroups);
+  const top = termRows.find(r => codeOfId(r.AdCourseId) === DEMO_SHOWCASE_TOP_CODE)!;
+  const q = { days: ["fthursday"] as any, start: top.fstarttime, end: top.fendtime, excludeId: top.id, courseId: top.AdCourseId, sectionId: 1, termId: 1, codeOf: codeOfId, sameLevel, unlockOf };
+  const exact = sameSlotOf(termRows, q).items.filter((item: any) => item.kind === "exact");
+  check(exact.length === 2 && exact[0].sameLevel && !exact[1].sameLevel && codeOfId(exact[0].row.AdCourseId) === "0109102" && codeOfId(exact[1].row.AdCourseId) === "0109201", "D2b «تُؤخذ معًا» أولاً ثم مقررٌ غير قرين", exact.map((i: any) => [codeOfId(i.row.AdCourseId), i.sameLevel]));
+  const [paper, boards, sound, workshop] = ["0109237", "0109258", "0109247", "0109215"].map(idOfCode);
+  check(sameLevel(paper, boards) && sameLevel(paper, sound), "D2b الشفافيات واللوحات والصوت من مستوى واحد في صحيفة واحدة");
+  check(unlockOf(paper, boards)?.names[0] === "المجسمات والعرائس", "D2b الشفافيات واللوحات تفتحان المجسمات والعرائس", unlockOf(paper, boards));
+  check(Boolean(workshop) && !sameLevel(workshop, paper) && !unlockOf(workshop, paper), "D2b الورشة العامة خارج الصحائف: لا قرين لها");
+  const owner = { days: ["fthursday"] as any, start: "11:00", end: "15:00", courseId: paper, sectionId: 1, termId: 1, collegeId: Number(top.AdCollegeId), scode: "501", codeOf: codeOfId, sameLevel, unlockOf };
+  const seen = sameSlotOf(termRows, owner).items;
+  check(codeOfId(seen[0].row.AdCourseId) === "0109258" && seen[0].unlock?.names[0] === "المجسمات والعرائس", "D2b مثال المالك: اللوحات أولاً بوسم «تفتح»", seen.map((i: any) => codeOfId(i.row.AdCourseId)));
+  check(!seen.some((i: any) => Number(i.row.AdCourseId) === workshop), "D2b والورشة المتداخلة لا تظهر");
+  const same = sameSlotOf(termRows, { ...owner, start: "14:00", end: "15:15" }).items.find((i: any) => Number(i.row.AdCourseId) === workshop);
+  check(Boolean(same) && !same!.sameLevel && !same!.unlock, "D2b وبالتطابق التام تظهر صفّاً عادياً");
+}
+
 /* ── D3 ── */
 {
   const real = (r: any) => !String(r.fdetail || "").includes("حالة تجريبية مقصودة");
-  const showcase = new Set(DEMO_SHOWCASE_COREQ.flat().concat([DEMO_SHOWCASE_TOP_CODE, "0109201"]));
-  const mine = termRows.filter(r => showcase.has(codeOfId(r.AdCourseId)));
+  const showcase = new Set(DEMO_SHOWCASE_COREQ.flat().concat([DEMO_SHOWCASE_TOP_CODE, "0109201", "0109215"]));
+  /* من «اللوحات» شعبةُ المشهد وحدها: شعبتها الأخرى في مخالفةٍ مقصودة. */
+  const mine = termRows.filter(r => showcase.has(codeOfId(r.AdCourseId)) || (codeOfId(r.AdCourseId) === "0109258" && r.SCode === "02"));
   const all = state.schedules.filter((r: any) => Number(r.AdTermId) === 1);
   const clash = findConflicts(mine.map((r: any) => ({ ...r })), all.filter(real) as any);
   const bad = (clash as any[]).filter(c => ["room", "instructor", "teacher"].includes(String(c.type)) || /قاعة|أستاذ/.test(String(c.message || "")));
