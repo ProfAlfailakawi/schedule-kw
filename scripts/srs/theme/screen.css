@@ -123,7 +123,6 @@ body.none .empty{display:block}
 @media (max-width:760px){
   :root{--tb:0px}
   .topbar{position:static}.tabs{top:0}
-  .hchip.authors{padding:.3rem .85rem;line-height:1.75;border-radius:18px;font-size:.82rem}
   .hero>div{min-width:0}
   .hero .deco{opacity:.09;height:110%}
   .hide-sm{display:none}.brand small{display:none}.topbar-in{flex-wrap:wrap}.search{order:3;flex-basis:100%;max-width:none}
@@ -145,7 +144,6 @@ body.none .empty{display:block}
 .hchip.authors .ic{color:var(--brass-bright)}
 .dot{font-style:normal;color:var(--brass-bright);margin-inline:.15rem}
 .authors-line{white-space:nowrap}
-@media (max-width:640px){.authors-line{white-space:normal}}
 .view:not([hidden]),.mod.on{animation:rise .38s var(--ease) both}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .panel:not([hidden]){animation:fade .28s var(--ease) both}
@@ -176,4 +174,15 @@ body.none .empty{display:block}
 
 .nm{white-space:nowrap}
 .hchip.authors .names{min-width:0;text-align:start}
-@media (max-width:440px){.hchip.authors .dot{display:none}}
+
+/* اسما المؤلفَين في سطر واحد دائماً: الخط يتقلّص تلقائياً بقدر ما يلزم (client.js: fitOneLine) */
+.hchip.authors{white-space:nowrap;max-width:100%;overflow:hidden}
+.hchip.authors .names,.nm{white-space:nowrap}
+.foot .authors-line{display:block;white-space:nowrap;max-width:100%;overflow:hidden}
+
+/* هاتف: الشارة تأخذ العرض كله (بلا أيقونة وبحشو أضيق) ليكبر خط الاسمين في سطرهما الواحد */
+@media (max-width:480px){
+  .hchip.authors .ic{display:none}
+  .hchip.authors{padding:.22rem .45rem;margin-inline:-.55rem;max-width:calc(100% + 1.1rem);justify-content:center}
+  .hchip.authors .dot{margin-inline:.05rem}
+}

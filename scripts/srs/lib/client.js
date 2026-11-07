@@ -137,6 +137,22 @@
   var openAll = $("#openall"); if (openAll) openAll.addEventListener("click", function () { var o = openAll.getAttribute("aria-pressed") !== "true"; openAll.setAttribute("aria-pressed", String(o)); $$(".req details").forEach(function (d) { d.open = o; }); });
   $$(".req-id").forEach(function (a) { a.addEventListener("click", function () { var u = location.origin + location.pathname + "#" + a.getAttribute("href").slice(1); safe(function () { navigator.clipboard.writeText(u); }); }); });
 
+  /* ── اسما المؤلفَين في سطر واحد دائماً: يتقلّص الخط حتى يتسع السطر ──────── */
+  function fitOneLine() {
+    $$(".hchip.authors, .foot .authors-line").forEach(function (el) {
+      el.style.fontSize = "";
+      if (!el.clientWidth) return;
+      var fs = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollWidth > el.clientWidth + 1 && fs > 6.5) { fs -= 0.5; el.style.fontSize = fs + "px"; }
+    });
+  }
+  var fitQueued = false, fitSoon = function () { if (fitQueued) return; fitQueued = true; requestAnimationFrame(function () { fitQueued = false; fitOneLine(); }); };
+  window.addEventListener("resize", fitSoon);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSoon);
+  $$("[data-lang-btn]").forEach(function (b) { b.addEventListener("click", fitSoon); });
+  tabs.forEach(function (t) { t.addEventListener("click", fitSoon); });
+  fitSoon();
+
   /* ── سهم العودة إلى الأعلى: يظهر بعد النزول، ويصعد بنعومة ───────── */
   var top = $("#totop");
   if (top) {
