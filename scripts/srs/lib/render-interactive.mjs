@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "./common.mjs";
-import { icon, logo, logoDataUri } from "./icons.mjs";
+import { icon, logo, logoDataUri, deco } from "./icons.mjs";
 import { LABELS, STATUS_ORDER, PRIORITY_ORDER } from "./model.mjs";
 import { ctxFor, esc, md, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip } from "./fragments.mjs";
 
@@ -25,8 +25,8 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   const prioRows = PRIORITY_ORDER.map(p => `<div class="barrow"><span class="lbl">${T(LABELS.priority[p])}</span><div class="track"><i class="seg s-implemented" style="width:${(s.priority[p] / s.requirements * 100).toFixed(1)}%"></i></div><span class="num">${s.priority[p]}</span></div>`).join("");
   const kindRows = Object.keys(LABELS.kind).filter(k => s.kind[k]).map(k => `<div class="barrow"><span class="lbl">${T(LABELS.kind[k])}</span><div class="track"><i class="seg s-in-progress" style="width:${(s.kind[k] / s.requirements * 100).toFixed(1)}%"></i></div><span class="num">${s.kind[k]}</span></div>`).join("");
   const overview = `<section class="view" id="v-overview">
-    <div class="hero">${logo(84)}<div><h1>${T(m.meta.system)}</h1><p class="sub">${T(T2("ما يجب أن يقدمه النظام، ولمن، وبأي ضمانات. مرتبط بالكود والاختبارات ويتحدث مع كل إصدار.", "What the system must provide, for whom, and under which guarantees. Linked to the code and tests, and refreshed with every release."))}</p>
-      <div class="chips"><span class="hchip">${icon("scroll-text", 14)} ${T(m.meta.document)} · ${esc(m.meta.standard)}</span><span class="hchip">${icon("tag", 14)} v${esc(m.meta.version)}</span><span class="hchip">${icon("calendar", 14)} ${esc(m.meta.releaseDate)}</span>${m.meta.authors.map(a => `<span class="hchip">${icon("user-round", 14)} ${T(a)}</span>`).join("")}</div></div>
+    <div class="hero">${deco()}${logo(84)}<div><h1>${T(m.meta.system)}</h1><p class="sub">${T(T2("ما يجب أن يقدمه النظام، ولمن، وبأي ضمانات. مرتبط بالكود والاختبارات ويتحدث مع كل إصدار.", "What the system must provide, for whom, and under which guarantees. Linked to the code and tests, and refreshed with every release."))}</p>
+      <div class="chips"><span class="hchip">${icon("scroll-text", 14)} ${T(m.meta.document)} · ${esc(m.meta.standard)}</span><span class="hchip">${icon("tag", 14)} v${esc(m.meta.version)}</span><span class="hchip">${icon("calendar", 14)} ${esc(m.meta.releaseDate)}</span><span class="hchip authors">${icon("users", 14)} ${m.meta.authors.map(a => T(a)).join(' <i class="dot">·</i> ')}</span></div></div>
       <div class="hero-actions"><button class="btn primary" type="button" data-go="modules">${icon("boxes", 18)}${T(T2("تصفّح الوحدات", "Browse modules"))}</button><button class="btn" type="button" data-go="requirements">${icon("list-checks", 18)}${T(T2("كل المتطلبات", "All requirements"))}</button>
       <a class="btn" data-live data-live-ar="print-ar.html#print" data-live-en="print-en.html#print" href="print-ar.html#print" target="_blank" rel="noopener">${icon("file-down", 18)}${T(T2("PDF حيّ", "Live PDF"))}</a>${pdfLinks.length ? `<a class="btn" data-pdf data-pdf-ar="${pdfs.ar || "#"}" data-pdf-en="${pdfs.en || "#"}" href="${pdfs.ar || pdfs.en}" download>${icon("archive", 18)}${T(T2("لقطة الإصدار", "Release snapshot"))}</a>` : ""}</div></div>
     ${pdfInfo ? `<p class="lead" style="margin:.6rem 0 0;font-size:.85rem">${icon("info", 14)} ${T(T2(`لقطة PDF: الإصدار ${pdfInfo.version} بتاريخ ${pdfInfo.date}${pdfInfo.stale ? ". الصفحة والـPDF الحيّ أحدث منها." : "."}`, `PDF snapshot: release ${pdfInfo.version} dated ${pdfInfo.date}${pdfInfo.stale ? ". This page and the live PDF are newer." : "."}`))}</p>` : ""}
@@ -113,6 +113,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
 <main class="wrap">
   ${overview}${actors}${stage}${trace}${glossary}${revisions}
 </main>
-<footer class="foot"><div class="foot-in"><div class="foot-brand">${logo(44)}<div><b>${T(m.meta.system)}</b><small>${T(m.meta.document)} · v${esc(m.meta.version)} · ${esc(m.meta.releaseDate)}</small></div></div><div>${authors.map(a => `<b>${T(a)}</b>`).join(" · ")}<small>${T(T2("بُنيت هذه الصفحة من مصدر الوثيقة نفسه، وتتحدث مع كل نشر.", "This page is built from the document source itself and refreshes with every release."))}</small></div></div></footer>
+<button class="totop" id="totop" type="button" aria-label="${esc(T2("العودة إلى الأعلى", "Back to top").ar)} / ${esc(T2("العودة إلى الأعلى", "Back to top").en)}" title="↑">${icon("arrow-up", 22)}</button>
+<footer class="foot"><div class="foot-in"><div class="foot-brand">${logo(44)}<div><b>${T(m.meta.system)}</b><small>${T(m.meta.document)} · v${esc(m.meta.version)} · ${esc(m.meta.releaseDate)}</small></div></div><div><b class="authors-line">${authors.map(a => T(a)).join(' <i class="dot">·</i> ')}</b><small>${T(T2("بُنيت هذه الصفحة من مصدر الوثيقة نفسه، وتتحدث مع كل نشر.", "This page is built from the document source itself and refreshes with every release."))}</small></div></div></footer>
 <script>${js}</script></body></html>`;
 }

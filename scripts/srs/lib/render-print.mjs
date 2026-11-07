@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "./common.mjs";
-import { icon, logo } from "./icons.mjs";
+import { icon, logo, deco } from "./icons.mjs";
 import { LABELS, STATUS_ORDER } from "./model.mjs";
 import { ctxFor, esc, md, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip, statusBadge, priorityBadge } from "./fragments.mjs";
 
@@ -51,12 +51,12 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   const bold = t => `<b>${t}</b>`;
 
   /* الغلاف */
-  const coverBody = `<div class="cover"><div><div class="mark">${logo(120)}</div></div>
+  const coverBody = `<div class="cover">${deco("cover-deco")}<div><div class="mark">${logo(120)}</div></div>
     <div><div class="kick">${icon("scroll-text", 18)} ${L(m.meta.document)} · ${esc(m.meta.standard)}</div><h1>${L(m.meta.system)}</h1>
     <p class="sub2">${L(T2("ما يجب أن يقدمه النظام، ولمن، وبأي ضمانات.", "What the system must provide, for whom, and under which guarantees."))}</p>
     <div class="meta"><span>v${esc(m.meta.version)}</span><span>${esc(m.meta.releaseDate)}</span><span>${lang === "ar" ? "العربية" : "English"}</span></div>
     <div class="chips-row"><div><b>${s.requirements}</b><span>${L(T2("متطلباً", "Requirements"))}</span></div><div><b>${s.modules}</b><span>${L(T2("وحدة", "Modules"))}</span></div><div><b>${f.endpoints}</b><span>${L(T2("مسار خادم", "Server routes"))}</span></div><div><b>${f.tests}</b><span>${L(T2("ملف اختبار", "Test files"))}</span></div></div></div>
-    <div class="authors">${m.meta.authors.map(a => `<div><b>${L(a)}</b><small>${L(T2("إعداد", "Prepared by"))}</small></div>`).join("")}</div></div>`;
+    <div class="authors"><div><b>${m.meta.authors.map(a => L(a)).join(' <i class="dot">·</i> ')}</b><small>${L(T2("إعداد", "Prepared by"))}</small></div></div></div>`;
   const coverCss = read("scripts/srs/theme/base.css") + read("scripts/srs/theme/print.css") + "@page{margin:0}html,body{margin:0;padding:0}";
   const cover = `<!doctype html><html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><style>${coverCss.replaceAll("{{FONTS}}", fontsUrl)}</style></head><body>${coverBody}</body></html>`;
 
@@ -103,7 +103,7 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
     const nav = `<nav class="chap-nav">${parts.map((k, i) => `<a href="#sub-${x.id}-${i + 1}">${i + 1}. ${L(PART_TITLES[k])}</a>`).join("")}${up}</nav>`;
     const body = parts.map((k, i) => `<div class="sub" id="sub-${x.id}-${i + 1}">${mk(`S${x.id}${i + 1}`)}<h3><span class="no">3.${x.index}.${i + 1}</span>${L(PART_TITLES[k])}</h3>${builders[k]()}</div>`).join("");
     return `<section class="part" id="sec-M${x.id}">${mk("M" + x.id)}<div class="chapter-open"><div class="big">${icon(x.icon, 30)}</div><div><small>3.${x.index} · ${x.id}</small><h2>${L(x.title)}</h2><p>${L(x.tagline)}</p></div></div>
-      <div class="mini-stats"><div><b>${x.counts.total}</b><span>${L(T2("متطلب", "reqs"))}</span></div><div><b>${x.counts.total ? Math.round(x.counts.status.implemented / x.counts.total * 100) : 0}%</b><span>${L(T2("منفّذ", "done"))}</span></div><div><b>${x.facts.endpoints}</b><span>${L(T2("مسار", "routes"))}</span></div><div><b>${x.facts.files}</b><span>${L(T2("ملف", "files"))}</span></div></div>${nav}${body}</section>`;
+      <div class="mini-stats"><div><b>${x.counts.total}</b><span>${L(T2("متطلب", "reqs"))}</span></div><div><b>${x.counts.total ? Math.round(x.counts.status.implemented / x.counts.total * 100) : 0}%</b><span>${L(T2("منفّذ", "done"))}</span></div><div><b>${x.facts.endpoints}</b><span>${L(T2("مسار", "routes"))}</span></div><div><b>${x.facts.files}</b><span>${L(T2("ملف", "files"))}</span></div></div>${nav}${body}<nav class="chap-nav end">${up}</nav></section>`;
   };
   const part3 = `<section class="part" id="sec-SPEC">${mk("SPEC")}<h2 class="ph"><span class="no">3</span>${icon("list-checks", 26)} ${L(T2("المتطلبات التفصيلية", "Specific requirements"))}${up}</h2>
     <p>${L(T2(`تضم هذه الأقسام ${s.modules} وحدة. لكل وحدة نظرة عامة ورحلات مستخدمين ومخططات وشاشات ومتطلبات بمعايير قبول ومراجع، ثم الحالات الحدية.`, `This part holds ${s.modules} modules. Each has an overview, user journeys, diagrams, screens, requirements with acceptance criteria and evidence, and edge cases.`))}</p>

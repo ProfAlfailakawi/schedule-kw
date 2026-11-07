@@ -47,3 +47,11 @@ export function logoDataUri() {
   const raw = fs.readFileSync(path.join(ROOT, "public/schedule-icon.svg"), "utf8").replace(/<!--[\s\S]*?-->/g, "").replace(/\s+/g, " ").trim();
   return "data:image/svg+xml," + encodeURIComponent(raw);
 }
+
+/** أعمدة الأسبوع الذي حُلّ (هندسة الشعار نفسها بلا أرضية): زخرفةٌ هادئة للغلاف والواجهة. */
+export function deco(cls = "") {
+  return `<svg class="deco ${cls}" viewBox="84 120 344 270" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">`
+    + `<rect x="371.2" y="156" width="44.8" height="120" rx="22.4" fill="#5fbfa6"/><rect x="302.4" y="220" width="44.8" height="96" rx="22.4" fill="#5fbfa6"/>`
+    + `<rect x="233.6" y="132" width="44.8" height="152" rx="22.4" fill="#5fbfa6"/><rect x="164.8" y="260" width="44.8" height="112" rx="22.4" fill="#c79b5f"/>`
+    + `<rect x="96" y="188" width="44.8" height="128" rx="22.4" fill="#5fbfa6"/></svg>`;
+}

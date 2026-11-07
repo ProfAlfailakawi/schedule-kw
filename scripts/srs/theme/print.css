@@ -98,3 +98,11 @@ table.tbl tr{break-inside:avoid}
 .part>h2.ph .up{font-family:var(--font-ui)}
 a.tile{display:block;color:inherit}
 td a,.toc-row,.req-id{color:inherit}
+
+/* غلاف: زخرفة الشعار، والمؤلفان في سطر واحد */
+.cover .cover-deco{position:absolute;inset-inline-end:-10mm;inset-block-start:16mm;height:104mm;width:auto;opacity:.13;transform:rotate(-8deg);z-index:0}
+.cover>*:not(.cover-deco){z-index:1}
+.cover .authors{display:block}
+.cover .authors b{font-size:14pt;display:block;line-height:1.5}
+.cover .authors .dot{font-style:normal;color:var(--brass-bright);margin:0 3px}
+.chap-nav.end{margin:14px 0 0;justify-content:flex-end}

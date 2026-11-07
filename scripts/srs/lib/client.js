@@ -137,5 +137,13 @@
   var openAll = $("#openall"); if (openAll) openAll.addEventListener("click", function () { var o = openAll.getAttribute("aria-pressed") !== "true"; openAll.setAttribute("aria-pressed", String(o)); $$(".req details").forEach(function (d) { d.open = o; }); });
   $$(".req-id").forEach(function (a) { a.addEventListener("click", function () { var u = location.origin + location.pathname + "#" + a.getAttribute("href").slice(1); safe(function () { navigator.clipboard.writeText(u); }); }); });
 
+  /* ── سهم العودة إلى الأعلى: يظهر بعد النزول، ويصعد بنعومة ───────── */
+  var top = $("#totop");
+  if (top) {
+    var onScroll = function () { top.classList.toggle("show", window.scrollY > 520); };
+    window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
+    top.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" }); });
+  }
+
   route();
 })();
