@@ -2,7 +2,7 @@ import CourseTags from "./CourseTags";
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, BookOpen, Check, CheckCircle2, Clock3, Copy, GraduationCap, Layers, Link2, LockOpen, UserRound, X } from "lucide-react";
-import { AR, countOf } from "../utils/arabicCount";
+import { AR, countOf, oblique } from "../utils/arabicCount";
 import { formatScheduleTimeRange, scheduleClockForDisplay, scheduleDayWindowMinutes, type ScheduleDayWindow } from "../utils/scheduleTime";
 import { capSameSlot, sameSlotOf, slotMinutes, SLOT_DAYS, type SameSlotItem, type SameSlotQuery, type SameSlotResult, type SlotDay, type SlotRow } from "../utils/sameSlot";
 import { sameLevelLookup, unlockLookup, type UnlockGroup } from "../utils/planPeers";
@@ -206,7 +206,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   const exactCount = count - partialCount - sectionCount;
   const label = [
     exactCount ? `${countOf(exactCount, AR.course)} في الوقت نفسه` : "",
-    partialCount ? `${countOf(partialCount, AR.course)} ${TAKEN_TOGETHER} بتداخل جزئي` : "",
+    partialCount ? `تداخل مع ${countOf(partialCount, oblique(AR.course))} مما يُؤخذ معه` : "",
     sectionCount ? `${countOf(sectionCount, AR.section)} من المقرر نفسه بوقت قريب` : "",
     twinCount ? "مقرن متداخل" : "",
   ].filter(Boolean).join("، ");
