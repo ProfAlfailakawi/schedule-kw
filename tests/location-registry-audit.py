@@ -493,7 +493,7 @@ ok('189 a room with no registered department cannot be borrowed, and no departme
    'if(!ownerSectionId||ownerIds.includes(sectionId))continue;' in server
    and 'if(!requesterGender||hallCampusGender(ownerCollege.AdCollegeName)!==requesterGender)continue;' in server)
 ok('190 the barter board hides itself when there is nothing to borrow and nothing pending, and filters what it does show',
-   'if (!hasAnything && !loading && !error) return null;' in barter_board
+   'if (!hasAnything && !error && !open) return null;' in barter_board
    and 'hall-barter-selects' in barter_board
    and 'hall-barter-search' in barter_board
    and 'ثبات الفراغ' not in barter_board

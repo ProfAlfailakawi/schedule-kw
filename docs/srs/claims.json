@@ -1,0 +1,45 @@
+{
+  "OPS": [
+    "src/main.tsx", "src/App.tsx", "src/server/srsDoc.ts",
+    "src/components/ActionableErrorNotice.tsx", "src/components/LoadException.tsx", "src/components/InstallApp.tsx", "src/components/PagedFindingList.tsx",
+    "src/components/SearchableSelect.tsx", "src/components/TimeField.tsx", "src/components/TimeCounter.tsx", "src/components/ui.tsx", "src/components/AlertShort.tsx",
+    "src/utils/actionableError.ts", "src/utils/dialogLayer.ts", "src/utils/safeStorage.ts", "src/utils/clientTelemetry.ts", "src/utils/warmStart.ts",
+    "src/utils/workspaceSize.ts", "src/utils/visualTransition.ts", "src/utils/digits.ts", "src/utils/arabicText.ts", "src/utils/arabicCount.ts",
+    "src/utils/sorting.ts", "src/utils/controlLabel.ts", "src/utils/demoSession.ts", "src/utils/demoSeedEvent.ts"
+  ],
+  "DSH": [
+    "src/components/About.tsx", "src/components/BrandMark.tsx", "src/components/EntranceOverture.tsx", "src/components/InterfacePolish.tsx",
+    "src/components/OutcomeStory.tsx", "src/utils/outcomeStory.ts", "src/components/dna/**", "src/components/AcademicConsole.tsx"
+  ],
+  "SCH": [
+    "src/components/DaySubstitute.tsx", "src/components/QuickCreatePopover.tsx", "src/components/OneLinePreview.tsx", "src/components/PatternLibraryButton.tsx",
+    "src/components/RegulationPatternChips.tsx", "src/components/WeekHeat.tsx", "src/server/voiceInputScript.ts",
+    "src/utils/patternLibraryInput.ts", "src/utils/patternLibraryView.ts", "src/utils/scheduleDiff.ts", "src/utils/scheduleFingerprint.ts", "src/utils/rowReasons.ts",
+    "src/utils/repairChain.ts", "src/utils/settledDrift.ts", "src/utils/instructorMovementWindow.ts", "src/utils/movementAttribution.ts", "src/utils/changesBaseline.ts",
+    "src/utils/suggestionEngine.ts", "src/utils/suggestionClient.ts", "src/utils/universityDayClient.ts", "src/utils/coverAvailability.ts", "src/utils/demandRepair.ts"
+  ],
+  "DRF": ["src/utils/safetyNet.ts"],
+  "LOC": [
+    "src/components/CampusChip.tsx", "src/components/RoomSuggestionCards.tsx", "src/utils/campus.ts", "src/utils/campusChip.ts", "src/utils/campusFamily.ts",
+    "src/utils/campusFlow.ts", "src/utils/cleanRoom.ts", "src/utils/branchScope.ts"
+  ],
+  "ACD": [
+    "src/components/AllCourses.tsx", "src/components/DepartmentRoster.tsx", "src/components/ServiceCoursesPanel.tsx", "src/components/TeachingLoadNotice.tsx",
+    "src/components/TeachingLoadSettings.tsx", "src/components/TAConversionPanel.tsx", "src/components/TAPhasePanel.tsx", "src/components/TermSelect.tsx",
+    "src/components/PersonChips.tsx", "src/components/useScopedTerms.ts", "src/hooks/useVisitingLookup.ts", "src/utils/courseLabel.ts", "src/utils/courseNameCorrection.ts",
+    "src/utils/courseNature.ts", "src/utils/courseSuccession.ts", "src/utils/englishPrefix.ts", "src/utils/instructorCourseLoad.ts", "src/utils/rosterGroups.ts",
+    "src/utils/trainees.ts", "src/utils/taPhase.ts", "src/utils/teacherPlaceScrub.ts", "src/utils/departmentMemory.ts"
+  ],
+  "PLN": [
+    "src/components/TermForecast.tsx", "src/components/ReferenceApplyPanel.tsx", "src/utils/termForecast.ts", "src/utils/graduationPlan.ts", "src/utils/degreeRules.ts",
+    "src/utils/proposalCourseChoices.ts", "src/utils/readinessFix.ts", "src/utils/scheduleDataReadiness.ts", "src/utils/passedClosure.ts"
+  ],
+  "INT": [
+    "src/components/IntelligenceVersionCanvas.tsx", "src/components/DecisionBoard.tsx", "src/components/RadarSchedule.tsx", "src/components/CommandPalette.tsx",
+    "src/components/ScopeAskBar.tsx", "src/utils/courseWhatIf.ts"
+  ],
+  "ACC": ["src/utils/sharedScope.ts"],
+  "APR": ["src/components/ScheduleSignature.tsx", "src/utils/printFindingPages.ts", "src/components/ScopeOverwriteBody.tsx", "src/utils/scopeOverwriteGroups.ts"],
+  "VIW": ["src/components/SendModePicker.tsx"],
+  "NTF": ["src/hooks/useTeamWork.ts", "src/utils/calendarLinks.ts", "src/utils/linkOpens.ts"]
+}

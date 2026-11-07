@@ -1,0 +1,1764 @@
+{
+  "id": "VIW",
+  "order": 6,
+  "icon": "calendar-days",
+  "title": {
+    "ar": "عرض الجداول ومشاركتها ونسخها ونقلها",
+    "en": "Viewing, sharing, copying and transferring schedules"
+  },
+  "tagline": {
+    "ar": "جدول القسم للقراءة، ورابط لمن يحتاجه، ونسخ من فصل إلى فصل، وتصدير يحفظ الصورة كاملة.",
+    "en": "The department schedule to read, a link for whoever needs it, copying from term to term, and an export that keeps the whole picture."
+  },
+  "summary": {
+    "ar": "تحمل هذه الوحدة كل ما يخص النظر إلى الجدول وتمريره: شاشة جدول القسم للقراءة، والعروض المحفوظة، وطبقة الجدول الحيّ بمشاهدها الستة ومنها بداية الفصل ونسخ الفصل السابق، وظلّ الفصل السابق ولوحة القرار، ونافذة النقل (تصدير، استبدال أستاذ، نشر)، وروابط المشاركة وبطاقات الأساتذة والروابط الشخصية وعمرها، وشاشة الرحلة. تخدم رئيس لجنة الجدول ورئيس القسم والأساتذة والطلبة والزائر. الأعداد التي تصل غير المسجَّلين مجمّعة بلا أسماء، والرابط وحده هو الصلاحية.",
+    "en": "This module covers everything about looking at a schedule and handing it on: the read-only department schedule screen, saved views, the living-schedule layer with its six scenes including start of term and copying from the previous term, the previous-term ghost and the decision panel, the transfer dialog (export, instructor replacement, publish), share links with faculty cards, personal links and their lifetimes, and the journey screen. It serves the schedule committee chair, department head, instructors, students and the public visitor. What reaches people who are not signed in is aggregate and without names, and the link alone is the permission."
+  },
+  "actors": [
+    "committeeChair",
+    "departmentHead",
+    "dean",
+    "instructor",
+    "student",
+    "visitor",
+    "system"
+  ],
+  "sources": [
+    "src/components/DepartmentSchedule.tsx",
+    "src/components/ScheduleTransfer.tsx",
+    "src/components/ScheduleJourney.tsx",
+    "src/components/LivingScheduleScenes.tsx",
+    "src/components/LivingScheduleLayer.tsx",
+    "src/components/ScheduleExperienceLayer.tsx",
+    "src/components/ScheduleViewsMenu.tsx",
+    "src/components/GenesisChoreography.tsx",
+    "src/components/SchedulePublish.tsx",
+    "src/components/PublishRecipientPicker.tsx",
+    "src/components/PublishSendLog.tsx",
+    "src/server/routes/shareRoutes.ts",
+    "src/server/core/shareLinks.ts",
+    "src/utils/shareLinkLifetime.ts",
+    "src/utils/scheduleViews.ts",
+    "src/utils/livingCache.ts",
+    "src/utils/termRollover.ts",
+    "src/styles/10-journey.css"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "جدول القسم",
+        "en": "Department schedule"
+      },
+      "file": "src/components/DepartmentSchedule.tsx",
+      "note": {
+        "ar": "للقراءة فقط: جدول وبطاقات، وطباعة، وشارة المنتدَب.",
+        "en": "Read only: table and cards, print, and the visiting-instructor mark."
+      }
+    },
+    {
+      "name": {
+        "ar": "أدوات البيانات (نقل الجدول)",
+        "en": "Data tools (schedule transfer)"
+      },
+      "file": "src/components/ScheduleTransfer.tsx",
+      "note": {
+        "ar": "تبويبات التصدير والنشر والاستبدال مما تغطيه هذه الوحدة؛ والاستيراد في وحدته.",
+        "en": "The export, publish and replacement tabs are covered here; import belongs to its own module."
+      }
+    },
+    {
+      "name": {
+        "ar": "نشر الجدول",
+        "en": "Publish the schedule"
+      },
+      "file": "src/components/SchedulePublish.tsx",
+      "note": {
+        "ar": "جدول القسم لمن يحمل الرابط، أو بطاقة لكل أستاذ برابط شخصي، وسجل الإرسال.",
+        "en": "The department schedule for whoever holds the link, or a card for every instructor with a personal link, and the send log."
+      }
+    },
+    {
+      "name": {
+        "ar": "الجدول الحيّ",
+        "en": "Living schedule"
+      },
+      "file": "src/components/LivingScheduleLayer.tsx",
+      "note": {
+        "ar": "نظرة عامة، خريطة الضغط، الصحة والعدالة، ملخص الدقيقة، بداية الفصل، شبكة الأمان.",
+        "en": "Overview, pressure map, health and fairness, one-minute brief, start of term, safety net."
+      }
+    },
+    {
+      "name": {
+        "ar": "ظلّ الفصل السابق ولوحة القرار",
+        "en": "Previous-term ghost and decision panel"
+      },
+      "file": "src/components/ScheduleExperienceLayer.tsx",
+      "note": {
+        "ar": "مقارنة بالفصل السابق فوق الجدول، ولوحة قرار الآن.",
+        "en": "A comparison with the previous term over the schedule, and the decision-now panel."
+      }
+    },
+    {
+      "name": {
+        "ar": "العروض المحفوظة",
+        "en": "Saved views"
+      },
+      "file": "src/components/ScheduleViewsMenu.tsx",
+      "note": {
+        "ar": "قائمة تظهر بعد أول عرض محفوظ، وحوار تسمية من حقل واحد.",
+        "en": "A menu that appears after the first saved view, and a naming dialog with one field."
+      }
+    },
+    {
+      "name": {
+        "ar": "رحلة SCHEDULE",
+        "en": "The SCHEDULE journey"
+      },
+      "file": "src/components/ScheduleJourney.tsx",
+      "note": {
+        "ar": "أربعة فصول سردية على لوحة داكنة ثابتة اللوحة اللونية.",
+        "en": "Four narrative acts on a dark canvas with a fixed palette."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "نشر بطاقات الأساتذة ثم إبلاغ من تغيّر جدوله",
+        "en": "Publishing faculty cards, then notifying whoever's schedule changed"
+      },
+      "steps": [
+        {
+          "ar": "يفتح «أدوات البيانات» ← «نشر» ويُصدر بطاقة الأساتذة للقسم مع آخر موعد للطلبات.",
+          "en": "Opens «data tools» → «publish» and issues the department's faculty card with a last date for requests."
+        },
+        {
+          "ar": "يختار الأساتذة فيُسكّ لكل منهم رابط شخصي ويُفتح له واتساب برسالة جاهزة.",
+          "en": "Picks the instructors, a personal link is minted for each and WhatsApp opens with a ready message."
+        },
+        {
+          "ar": "يُسجَّل لكل رابط وقت الإرسال وبصمة جدول صاحبه.",
+          "en": "Each link records the send time and the fingerprint of its owner's schedule."
+        },
+        {
+          "ar": "يُعدَّل الجدول لاحقاً فتظهر في اللوحة علامة «تغيّر منذ أُرسل» عند من مسّه التعديل.",
+          "en": "The schedule is later edited and the panel marks «changed since sent» next to whoever the edit touched."
+        },
+        {
+          "ar": "يعيد الإرسال لهم وحدهم، وإن أصدر بطاقة قسم جديدة حلّت محل القديمة وبقيت الروابط الشخصية حيّة.",
+          "en": "Resends to them alone, and if a new department card is issued it replaces the old one while personal links stay alive."
+        }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": {
+        "ar": "قراءة جدول القسم وطباعته",
+        "en": "Reading and printing the department schedule"
+      },
+      "steps": [
+        {
+          "ar": "يفتح «جدول القسم» من حسابه المحصور بقسم واحد.",
+          "en": "Opens «department schedule» from an account bound to one department."
+        },
+        {
+          "ar": "يرى مواعيد الفصل الجاري مرتّبة بالأيام ثم الوقت مع شارة المنتدَب.",
+          "en": "Sees the current term's appointments sorted by days then time, with the visiting-instructor mark."
+        },
+        {
+          "ar": "يقرأ التنبيه بأن الجدول قد يكون مسودة، فيراجع حالة الاعتماد من «تغييرات الجدول».",
+          "en": "Reads the notice that the schedule may be a draft and checks approval status in «schedule changes»."
+        },
+        {
+          "ar": "يطبع الصفحة بزر الطباعة.",
+          "en": "Prints the page with the print button."
+        }
+      ]
+    },
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "إحالة أستاذ تقاعد مع كل مواعيده",
+        "en": "Retiring an instructor with all their appointments"
+      },
+      "steps": [
+        {
+          "ar": "يفتح «استبدال» ويختار الأستاذ ثم بديلاً أو «اتركها بلا أستاذ».",
+          "en": "Opens «replacement» and chooses the instructor, then a replacement or «leave without an instructor»."
+        },
+        {
+          "ar": "يرى عدد المواعيد وحكم التوافق قبل أي تغيير.",
+          "en": "Sees the number of appointments and the compatibility verdict before any change."
+        },
+        {
+          "ar": "إن وُجد تعارض يقرأ أسبابه ويختار بديلاً آخر.",
+          "en": "If there is a conflict, reads its reasons and chooses another replacement."
+        },
+        {
+          "ar": "ينفّذ، فتُلتقط نسخة «قبل استبدال الأستاذ» ويظهر القرار في سجل الاستبدالات.",
+          "en": "Executes; a version «قبل استبدال الأستاذ» is captured and the decision appears in the replacement log."
+        },
+        {
+          "ar": "إن أخطأ يتراجع من السجل.",
+          "en": "If it was a mistake, undoes it from the log."
+        }
+      ]
+    },
+    {
+      "actor": "visitor",
+      "title": {
+        "ar": "زائر يفتح رحلة SCHEDULE قبل الدخول",
+        "en": "A visitor opens the SCHEDULE journey before login"
+      },
+      "steps": [
+        {
+          "ar": "يضغط زر الرحلة في صفحة الدخول.",
+          "en": "Presses the journey button on the login page."
+        },
+        {
+          "ar": "تفتح ورقة كاملة الشاشة وتُقرأ الذاكرة من الخادم بأعداد مجمّعة بلا أسماء.",
+          "en": "A full-screen sheet opens and the memory is read from the server as aggregate counts without names."
+        },
+        {
+          "ar": "يتصفح الأثر والمقياس والمسار والفلسفة، وتتحرك الأرقام مرة واحدة أو تظهر فوراً عند تفضيل الحركة المخفّضة.",
+          "en": "Browses the impact, the scale, the path and the philosophy; numbers move once, or show at once when reduced motion is preferred."
+        },
+        {
+          "ar": "يغلقها بـEscape فيعود التركيز إلى الزر.",
+          "en": "Closes it with Escape and focus returns to the button."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "viw-link-life",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "حياة رابط النشر",
+        "en": "Life of a share link"
+      },
+      "caption": {
+        "ar": "القراءة تتبع نوع الرابط؛ والموعد المكتوب للطلبات يحكم الكتابة فقط.",
+        "en": "Reading follows the link's kind; the written requests deadline governs writing only."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "إصدار الرابط",
+            "en": "Link issued"
+          },
+          "icon": "link",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "حيّ ومقروء",
+            "en": "Live and readable"
+          },
+          "icon": "eye",
+          "kind": "state"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "مضى expiresAt؟",
+            "en": "expiresAt passed?"
+          },
+          "icon": "clock",
+          "kind": "decision"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "بطاقة أو طلب؟",
+            "en": "Card or request?"
+          },
+          "icon": "id-card",
+          "kind": "decision"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "الفصل لم ينتهِ؟",
+            "en": "Term not over?"
+          },
+          "icon": "calendar-clock",
+          "kind": "decision"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "موقوف (404)",
+            "en": "Stopped (404)"
+          },
+          "icon": "ban",
+          "kind": "end"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "منتهٍ (410)",
+            "en": "Expired (410)"
+          },
+          "icon": "timer-off",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "from": "b",
+          "to": "f",
+          "label": {
+            "ar": "إيقاف يدوي",
+            "en": "Manual stop"
+          }
+        },
+        {
+          "from": "b",
+          "to": "c",
+          "label": {
+            "ar": "عند كل فتح",
+            "en": "On every open"
+          }
+        },
+        {
+          "from": "c",
+          "to": "b",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "c",
+          "to": "d",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "d",
+          "to": "g",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "d",
+          "to": "e",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "e",
+          "to": "b",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "e",
+          "to": "g",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ]
+    },
+    {
+      "id": "viw-term-copy",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "نسخ الفصل السابق",
+        "en": "Copying the previous term"
+      },
+      "caption": {
+        "ar": "القراءة والمسودة لا تمسان الجدول الحيّ؛ النشر وحده يكتب، وله نقطة تراجع.",
+        "en": "The reading and the draft never touch the live schedule; only publishing writes, and it has an undo point."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "اختيار فصل مصدر",
+            "en": "Pick a source term"
+          },
+          "icon": "history",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "قراءة ما ينتقل",
+            "en": "Read what carries"
+          },
+          "icon": "scan-search",
+          "kind": "system"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "بناء مسودة",
+            "en": "Build draft"
+          },
+          "icon": "file-plus",
+          "kind": "system"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "ملاحظات؟",
+            "en": "Issues left?"
+          },
+          "icon": "list-checks",
+          "kind": "decision"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "تعديل أو حذف صف",
+            "en": "Edit or delete a row"
+          },
+          "icon": "pencil",
+          "kind": "state"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "نشر بتأكيد",
+            "en": "Publish, confirmed"
+          },
+          "icon": "send",
+          "kind": "system"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "منشور",
+            "en": "Published"
+          },
+          "icon": "check-circle",
+          "kind": "end"
+        },
+        {
+          "id": "h",
+          "label": {
+            "ar": "تراجع",
+            "en": "Undo"
+          },
+          "icon": "undo-2",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "from": "b",
+          "to": "c"
+        },
+        {
+          "from": "c",
+          "to": "d"
+        },
+        {
+          "from": "d",
+          "to": "e",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "e",
+          "to": "d",
+          "label": {
+            "ar": "إعادة فحص",
+            "en": "Re-check"
+          }
+        },
+        {
+          "from": "d",
+          "to": "f",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "f",
+          "to": "g"
+        },
+        {
+          "from": "g",
+          "to": "h",
+          "label": {
+            "ar": "نقطة الأمان",
+            "en": "Safety point"
+          }
+        }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": {
+      "ar": "من يصل إلى ماذا",
+      "en": "Who reaches what"
+    },
+    "cols": [
+      {
+        "ar": "جدول القسم",
+        "en": "Department schedule"
+      },
+      {
+        "ar": "إصدار الروابط",
+        "en": "Issue links"
+      },
+      {
+        "ar": "التصدير والاستبدال",
+        "en": "Export and replace"
+      },
+      {
+        "ar": "بطاقتي برابط شخصي",
+        "en": "Own card by personal link"
+      }
+    ],
+    "rows": [
+      {
+        "actor": "committeeChair",
+        "cells": [
+          2,
+          2,
+          2,
+          0
+        ]
+      },
+      {
+        "actor": "departmentHead",
+        "cells": [
+          1,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "actor": "instructor",
+        "cells": [
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "FR-VIW-001",
+      "kind": "functional",
+      "title": {
+        "ar": "جدول القسم للقراءة فقط",
+        "en": "Read-only department schedule"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لحساب قسم واحد جدول قسمه في الفصل الجاري للقراءة فقط، جدولاً على الشاشات الواسعة وبطاقات على الهاتف، مرتّباً بالأيام ثم الوقت، مع شارة المنتدَب ووسوم المقرر، وزر طباعة، وتنبيه بأن الجدول قد يكون مسودة.",
+        "en": "The system shall show an account bound to a single department that department's schedule for the current term, read only, as a table on wide screens and cards on phones, sorted by days then time, with the visiting-instructor mark and course tags, a print button, and a notice that the schedule may be a draft."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "حساب بلا نطاق قسم واحد يرى «هذا الحساب لا يملك نطاق قسم واحد لعرض جدوله.» ولا صفوف.",
+          "en": "An account without a single-department scope sees «هذا الحساب لا يملك نطاق قسم واحد لعرض جدوله.» and no rows."
+        },
+        {
+          "ar": "الفصل المعروض هو الفصل الجاري، وإن لم يُعرف فأول فصل في القائمة.",
+          "en": "The displayed term is the current term, or the first term in the list when it cannot be determined."
+        },
+        {
+          "ar": "الأعمدة: المقرر والشعبة والأستاذ والأيام والوقت والقاعة، وكل موعد يظهر في الجدول وفي البطاقة معاً.",
+          "en": "Columns: course, section, instructor, days, time and room, and every appointment appears both in the table and in the card."
+        },
+        {
+          "ar": "لا زر تعديل في الشاشة، وغياب الشعب يعرض «لا توجد شعب لهذا الفصل».",
+          "en": "The screen has no edit button, and an empty term shows «لا توجد شعب لهذا الفصل»."
+        },
+        {
+          "ar": "المنتدَب يحمل الشارة بحسب كلية الصف وقسمه.",
+          "en": "A visiting instructor carries the mark according to the row's own college and department."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/DepartmentSchedule.tsx"
+        ],
+        "tests": [
+          "tests/visiting-badge-group2-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-002",
+      "kind": "functional",
+      "title": {
+        "ar": "تصدير الفصل إلى ملف",
+        "en": "Export the term to a file"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يصدّر جدول القسم في فصل محدد إلى ملف Excel أو JSON يحمل المواعيد والمقررات والأساتذة والقاعات وقائمة المنتدَبين للفصل، ويرفض التصدير خارج صلاحيات المستخدم.",
+        "en": "The system shall export a department's schedule for a given term to an Excel or JSON file carrying the appointments, courses, staff, halls and the term's visiting roster, and refuse the export outside the user's scope."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب بلا كلية أو فصل يُنتج 400 «حدد الكلية والفصل قبل التصدير.»، ونطاق غير مسموح يُنتج 403.",
+          "en": "A request without college or term yields 400 «حدد الكلية والفصل قبل التصدير.», and a scope that is not allowed yields 403."
+        },
+        {
+          "ar": "ملف Excel فيه ورقة «الجدول الدراسي» بتسعة أعمدة (رمز المقرر، المقرر، الشعبة، الأستاذ، الرقم المدني، الأيام، الوقت، المبنى، القاعة) وورقة «معلومات الملف» تحمل اسم الفصل.",
+          "en": "The Excel file has a sheet «الجدول الدراسي» with nine columns (course code, course, section, instructor, civil number, days, time, building, hall) and a sheet «معلومات الملف» carrying the term name."
+        },
+        {
+          "ar": "اسم الملف «جدول_القسم_الفصل.xlsx» بعد استبدال الرموز المحظورة بشرطة سفلية.",
+          "en": "The file name is «جدول_<department>_<term>.xlsx» with forbidden characters replaced by an underscore."
+        },
+        {
+          "ar": "التصدير بالكلية بلا قسم من حساب قسم لا يحمل مقررات أقسام الكلية الأخرى.",
+          "en": "An export by college with no department from a department account does not carry the courses of the college's other departments."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx",
+          "src/server/routes/scheduleImportRoutes.ts"
+        ],
+        "tests": [
+          "tests/role-scope-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-003",
+      "kind": "functional",
+      "title": {
+        "ar": "الفصل المنتهي للقراءة والتصدير فقط",
+        "en": "An ended term is read and export only"
+      },
+      "text": {
+        "ar": "يجب على نافذة نقل الجدول أن تحصر عمل الفصل المنتهي في تبويبي «تصدير» و«نشر» فقط، وتُخفي الاستيراد وتخطيط الشعب والاستبدال والمنتدَبين، وتعيد أي تبويب آخر مفتوح إلى «تصدير»، كي لا يُكتب في أرشيف.",
+        "en": "The schedule-transfer dialog shall limit an ended term to the export and publish tabs only, hiding import, section planning, replacement and visiting instructors, and shall return any other open tab to export, so nothing is written into an archive."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "فتح فصل منتهٍ على تبويب غير التصدير والنشر يعيده إلى «تصدير».",
+          "en": "Opening an ended term on a tab other than export or publish returns it to export."
+        },
+        {
+          "ar": "زر النشر لا يُصدر رابطاً لفصل مؤرشف.",
+          "en": "The publish control does not issue a link for an archived term."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx",
+          "src/utils/termSequence.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-VIW-004",
+      "kind": "functional",
+      "title": {
+        "ar": "استبدال أستاذ في فصل بخطوتين",
+        "en": "Replace an instructor in a term in two steps"
+      },
+      "text": {
+        "ar": "يجب على النظام أن ينقل كل مواعيد أستاذ في فصل إلى بديل مسمّى أو يتركها بلا أستاذ، على خطوتين: معاينة تُظهر عدد المواعيد وتوافق البديل، ثم تنفيذ بطلب commit صريح، ولا يحذف أي موعد أبداً.",
+        "en": "The system shall hand all of an instructor's appointments in a term to a named replacement or leave them without an instructor, in two steps: a preview showing the number of appointments and the replacement's compatibility, then execution with an explicit commit request, and shall never delete any appointment."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "المعاينة ترجع preview=true وaffected وcompatible وreasons ولا تكتب شيئاً.",
+          "en": "The preview returns preview=true, affected, compatible and reasons and writes nothing."
+        },
+        {
+          "ar": "بديل يتعارض مع مواعيده يُنتج عند التنفيذ 409 مع الأسباب (حتى 20 تعارضاً) ولا يتغيّر شيء.",
+          "en": "A replacement whose own appointments conflict yields 409 at execution with the reasons (up to 20 conflicts) and nothing changes."
+        },
+        {
+          "ar": "البديل نفسه الأستاذ المنقول منه يُنتج 400، والتنفيذ على جدول مقفل يُنتج 409 برمز schedule-locked.",
+          "en": "A replacement equal to the instructor handed from yields 400, and execution on a locked schedule yields 409 with code schedule-locked."
+        },
+        {
+          "ar": "قبل التنفيذ تُلتقط نسخة «قبل استبدال الأستاذ: أ ← ب» ويُرجع undoVersionId، ويُبلَّغ سجل الاعتماد تعديلاً.",
+          "en": "Before executing a version «قبل استبدال الأستاذ: A ← B» is captured and undoVersionId is returned, and the approval log is notified of an edit."
+        },
+        {
+          "ar": "سجل الاستبدالات يعرض آخر 20 قراراً من آخر 80 نسخة، ويُتراجع عنها بالاسترجاع.",
+          "en": "The replacement log shows the last 20 decisions drawn from the last 80 versions, and they are reversed through restore."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/scheduleToolsRoutes.ts",
+          "src/components/ScheduleTransfer.tsx"
+        ],
+        "tests": [
+          "tests/term-freeze-audit.ts",
+          "tests/approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-005",
+      "kind": "functional",
+      "title": {
+        "ar": "قراءة ما سينتقل قبل نسخ الفصل",
+        "en": "Read what will carry over before copying a term"
+      },
+      "text": {
+        "ar": "يجب على النظام قبل بناء مسودة بداية الفصل أن يقرأ الفصل المصدر قراءة فقط ويقول ما ينتقل بثقة وما يحمل قراراً: مقرر لم يعد في الكتالوج، مقرر تغيّرت ساعاته أو وحداته، أستاذ غير متاح، قاعة لم تعد مستعملة، ويعرض حتى 40 موعداً مهماً وحتى 6 ملاحظات عن نمط القسم.",
+        "en": "The system shall, before a start-of-term draft is built, read the source term read-only and say what carries over with confidence and what carries a decision: a course no longer in the catalogue, a course whose hours or credits changed, an unavailable instructor, a room no longer used, listing up to 40 concerning appointments and up to 6 notes on the department's pattern."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرد يحمل sentence وconcerns (حتى 40) وconcernCount وstyle وguardrail «قراءة فقط. لم يُنشأ شيء ولم يتغيّر شيء.»",
+          "en": "The reply carries sentence, concerns (up to 40), concernCount, style and guardrail «قراءة فقط. لم يُنشأ شيء ولم يتغيّر شيء.»"
+        },
+        {
+          "ar": "كل ملاحظة تحمل واحداً أو أكثر من الأعلام: course-gone وcourse-changed وinstructor-away وroom-retired.",
+          "en": "Each concern carries one or more flags: course-gone, course-changed, instructor-away and room-retired."
+        },
+        {
+          "ar": "فصل مصدر فارغ يقول «لا جدول» صراحة.",
+          "en": "An empty source term says so plainly («لا جدول»)."
+        },
+        {
+          "ar": "غياب القسم أو الفصل المصدر أو نطاق غير مسموح يُنتج 403.",
+          "en": "A missing department or source term, or a scope not allowed, yields 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/intelligenceInsightRoutes.ts",
+          "src/utils/termRollover.ts"
+        ],
+        "tests": [
+          "tests/run-tests.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-006",
+      "kind": "functional",
+      "title": {
+        "ar": "شاشة بداية الفصل: بناء ومراجعة ونشر وتراجع",
+        "en": "Start-of-term screen: build, review, publish and undo"
+      },
+      "text": {
+        "ar": "يجب على الشاشة أن تبني مسودة بداية الفصل من الفصل السابق المختار، وتعرض صفوفها بملاحظات كل صف وتنبيهاته، وتتيح تعديل صف أو حذفه أو حذف الكل بتأكيد، وتنشر بتأكيد صريح يسأل قبل محو ما تغيّر، ثم تتيح التراجع عن النشر.",
+        "en": "The screen shall build a start-of-term draft from the chosen previous term, show its rows with each row's issues and warnings, allow editing a row, deleting it or deleting all with confirmation, publish with explicit confirmation that asks before erasing anything that changed, and then allow undoing the publish."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الصفوف ذات الملاحظات تُعلَّم ويُمرَّر إليها تلقائياً، وبعد كل تعديل أو حذف تُعاد الملاحظات ويظهر «بقيت N ملاحظة» أو «المسودة جاهزة للنشر».",
+          "en": "Rows with issues are marked and scrolled to automatically, and after every edit or delete the issues are refreshed and the screen says «بقيت N ملاحظة» or «المسودة جاهزة للنشر»."
+        },
+        {
+          "ar": "«حذف جميع المواعيد» يسأل أولاً ويرسل x-schedule-confirm: delete-all-draft-rows، ورسالته «لم يُنشر أي تغيير على الجدول الرسمي».",
+          "en": "«حذف جميع المواعيد» asks first and sends x-schedule-confirm: delete-all-draft-rows, and its message is «لم يُنشر أي تغيير على الجدول الرسمي»."
+        },
+        {
+          "ar": "النشر يمرّ بسؤال المحو (publish ثم overwrite-newer)، وبعد النجاح يظهر عدد المواعيد وعدد ما ضُبط وقته.",
+          "en": "Publishing goes through the overwrite question (publish then overwrite-newer), and after success the number of appointments and the number whose time was adjusted are shown."
+        },
+        {
+          "ar": "التراجع يمرّ عبر نقطة الأمان بالرمز decision-undo ويلتقط نسخة من الحالة الراهنة قبل الاستعادة.",
+          "en": "Undo goes through the safety point with the token decision-undo and captures a version of the current state before restoring."
+        },
+        {
+          "ar": "حين تُفضَّل الحركة المخفّضة تُترك الرقصة البصرية وتبقى النتيجة المجرّدة.",
+          "en": "When reduced motion is preferred the visual choreography is skipped and only the plain result remains."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/LivingScheduleLayer.tsx",
+          "src/components/GenesisChoreography.tsx"
+        ],
+        "tests": [
+          "tests/safety-net-restore-audit.ts",
+          "tests/blockers-stream-audit.ts",
+          "tests/import-term-tools-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-007",
+      "kind": "functional",
+      "title": {
+        "ar": "مشاهد الجدول الحيّ الستة",
+        "en": "The six living-schedule scenes"
+      },
+      "text": {
+        "ar": "يجب على الطبقة الحيّة أن تعرض ست مشاهد: نظرة عامة، وخريطة الضغط، والصحة والعدالة، وملخص الدقيقة، وبداية الفصل، وشبكة الأمان، من قراءة واحدة تحمل نبض الجدول ومؤشرات الجودة والمرونة والعدالة والهشاشة والقاعات والتوبولوجيا والملخص، بحدود نطاق القارئ.",
+        "en": "The living layer shall present six scenes: overview, pressure map, health and fairness, one-minute brief, start of term and safety net, from a single reading carrying the schedule pulse and the quality, resilience, fairness, fragility, rooms, topology and brief figures, within the reader's scope."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "القراءة ترجع pulse وhealth وfairness وfragility وroomIntelligence وtopology وbrief وmemory وconstraints.count وcapabilities.",
+          "en": "The reading returns pulse, health, fairness, fragility, roomIntelligence, topology, brief, memory, constraints.count and capabilities."
+        },
+        {
+          "ar": "قسم أو فصل غير موجود يُنتج 400، ونطاق غير مسموح يُنتج 403.",
+          "en": "A missing department or term yields 400, and a scope that is not allowed yields 403."
+        },
+        {
+          "ar": "analysisScope=department يحصر التحليل بالقسم، وغيره بالكلية.",
+          "en": "analysisScope=department restricts the analysis to the department, otherwise it covers the college."
+        },
+        {
+          "ar": "كل مشهد يحمل شارة المنتدَب عند ذكر الأستاذ.",
+          "en": "Every scene carries the visiting-instructor mark wherever an instructor is named."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/LivingScheduleLayer.tsx",
+          "src/components/LivingScheduleScenes.tsx",
+          "src/server/routes/intelligenceInsightRoutes.ts"
+        ],
+        "tests": [
+          "tests/blockers-stream-audit.ts",
+          "tests/visiting-badge-group3-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-008",
+      "kind": "functional",
+      "title": {
+        "ar": "رقم موانع الاعتماد واحد في كل مكان",
+        "en": "One approval-blocker number everywhere"
+      },
+      "text": {
+        "ar": "يجب أن تحسب قراءة الجدول الحيّ عدد موانع الاعتماد بخيارات شريط الاعتماد نفسها (استثناء الأسماء البديلة وهوية القاعة نفسها)، كي لا يختلف الرقم بين الشاشتين.",
+        "en": "The living-schedule reading shall count approval blockers with the approval bar's own options (placeholder exemption and the same room identity), so the number never differs between the two screens."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "المسار الحيّ يستدعي approvalBlockerOptions مرة واحدة ويمرّر الكائن نفسه لكل القراءات المحفوظة.",
+          "en": "The living route calls approvalBlockerOptions once and passes the same object to every memoised reading."
+        },
+        {
+          "ar": "«حالة الجدول — N مانع اعتماد» تساوي رقم شريط الاعتماد.",
+          "en": "«حالة الجدول — N مانع اعتماد» equals the approval bar's number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/intelligenceInsightRoutes.ts"
+        ],
+        "tests": [
+          "tests/one-blocker-number-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-VIW-009",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "قراءة الجدول الحيّ تُحسب مرة لا مرة لكل سائل",
+        "en": "The living reading is computed once, not once per asker"
+      },
+      "text": {
+        "ar": "يجب أن يخزّن الخادم ردّ القراءة الحيّة لكل نطاق 120 ثانية ويمسحه عند أي كتابة في الجدول، وأن تشارك الواجهة الطلب الجاري بين المكوّنات في نافذة 8 ثوانٍ وبحد أقصى 8 نطاقات، دون أن يلغي طلبُ أحدها طلبَ الآخر.",
+        "en": "The server shall cache the living-reading reply per scope for 120 seconds and clear it on any schedule write, and the interface shall share the in-flight request between components within an 8-second window and at most 8 scopes, without one component's abort cancelling another's request."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلبان متتاليان لنطاق واحد خلال 120 ثانية يُخدمان من الذاكرة، وجلسات العرض التجريبي لا تُخزَّن إطلاقاً.",
+          "en": "Two consecutive requests for one scope within 120 seconds are served from memory, and demo sessions are never cached."
+        },
+        {
+          "ar": "في الواجهة تُحذف أقدم قراءة حين تتجاوز الذاكرة 8 نطاقات.",
+          "en": "In the interface the oldest reading is dropped when more than 8 scopes are held."
+        },
+        {
+          "ar": "تبديل النطاق لا يلغي قراءة جارية؛ تُهمل نتيجتها فقط.",
+          "en": "Changing scope does not cancel a reading in flight; its result is only discarded."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/livingCache.ts",
+          "src/server/routes/intelligenceInsightRoutes.ts",
+          "src/components/ScheduleExperienceLayer.tsx"
+        ]
+      },
+      "inferred": true,
+      "rationale": {
+        "ar": "قُيس على الإنتاج أن قراءة باردة تكلّف الخادم الوحيد الخيط حتى 27 ثانية.",
+        "en": "A cold reading was measured on production at up to 27 seconds on the single-threaded server."
+      }
+    },
+    {
+      "id": "FR-VIW-010",
+      "kind": "functional",
+      "title": {
+        "ar": "آخر قراءة للمؤشرات الثلاثة",
+        "en": "Last reading of the three indicators"
+      },
+      "text": {
+        "ar": "يجب أن تحفظ الواجهة في المتصفح آخر قيم الجودة والمرونة والعدالة لكل نطاق وتعرضها خافتة موسومة بأنها آخر قراءة فور فتح الطبقة، إلى أن تصل القراءة الحقيقية فتحلّ محلها.",
+        "en": "The interface shall keep in the browser the last quality, resilience and fairness values per scope and show them dimmed and labelled as the last reading as soon as the layer opens, until the real reading arrives and replaces them."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "المفتاح schedule.lastScores.v1 في تخزين المتصفح.",
+          "en": "The key schedule.lastScores.v1 in browser storage."
+        },
+        {
+          "ar": "تخزين محجوب أو قيمة قديمة يجعل الحلقات تنتظر كما كانت، ولا يتخذ قراراً.",
+          "en": "Blocked storage or an old value makes the rings wait as before, and decides nothing."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/livingCache.ts",
+          "src/components/LivingScheduleLayer.tsx"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-VIW-011",
+      "kind": "functional",
+      "title": {
+        "ar": "ظلّ الفصل السابق فوق الجدول",
+        "en": "Previous-term ghost over the schedule"
+      },
+      "text": {
+        "ar": "يجب أن تتيح الواجهة تشغيل ظلّ الفصل السابق فوق الجدول الحالي لقسم أو لكل الأقسام، فيُعلَّم كل موعد سابق «بلا تغيير» أو «تغيّر» أو «أُلغي»، ويُلخَّص عدد ما لم يتغيّر وما تغيّر أستاذه أو قاعته أو يومه وما غاب.",
+        "en": "The interface shall let a user turn on a previous-term ghost over the current schedule for one department or for all, marking each earlier appointment as unchanged, changed or removed, and summarising how many are unchanged, how many changed instructor, room or day, and how many are missing."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "الفصل السابق هو أول فصل في تاريخ الجينوم، وإلا الفصل التالي زمنياً بعد الحالي من الأحدث إلى الأقدم.",
+          "en": "The previous term is the first term in the genome history, otherwise the term next after the current one from newest to oldest."
+        },
+        {
+          "ar": "غياب فصل سابق يعرض «لا يوجد فصل سابق محفوظ لهذا القسم بعد.» ولا يطلب شيئاً.",
+          "en": "With no previous term the screen shows «لا يوجد فصل سابق محفوظ لهذا القسم بعد.» and requests nothing."
+        },
+        {
+          "ar": "الموعد يُقارن بهويته (المقرر والشعبة) وبموضعه (الأيام والوقت والأستاذ والقاعة).",
+          "en": "An appointment is compared by identity (course and section) and by placement (days, time, instructor and room)."
+        },
+        {
+          "ar": "تشغيل الظلّ لا يتطلب كلية ولا قسماً: بلا اختيار يُقرأ الفصل كله، وتبديل النطاق يطفئ الظلّ.",
+          "en": "Turning the ghost on needs no college or department: with none chosen the whole term is read, and changing scope switches the ghost off."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleExperienceLayer.tsx"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-VIW-012",
+      "kind": "functional",
+      "title": {
+        "ar": "لوحة «قرار الآن»",
+        "en": "The «decision now» panel"
+      },
+      "text": {
+        "ar": "يجب على الواجهة أن تفتح لوحة قرار تطلب من الخادم غرفة القرار لنطاق القسم والفصل، وأن تنتهي كل قراءة بسقف 35 ثانية وبسبب عربي واضح لأي فشل، وأن تعرض الفصل الفارغ إرشاداً لا لوحة.",
+        "en": "The interface shall open a decision panel that asks the server for the decision room of the department and term scope, shall end every reading within a 35-second ceiling with a clear Arabic reason for any failure, and shall show an empty term as guidance, not as a panel."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "لا ردّ خلال 35 ثانية يعطي «استغرقت القراءة وقتاً أطول من المتوقع. حاول مرة أخرى.»",
+          "en": "No reply within 35 seconds gives «استغرقت القراءة وقتاً أطول من المتوقع. حاول مرة أخرى.»"
+        },
+        {
+          "ar": "الرموز 429 و401 و403 و500 فما فوق تعطي كل منها رسالة عربية خاصة، ولا يظهر نص إنجليزي من الخادم.",
+          "en": "The statuses 429, 401, 403 and 500 and above each give a specific Arabic message, and no English server text reaches the screen."
+        },
+        {
+          "ar": "غرفة فارغة (empty) تعرض رسالتها كإرشاد.",
+          "en": "An empty room shows its message as guidance."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleExperienceLayer.tsx",
+          "src/server/routes/intelligenceRoutes.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "NFR-VIW-013",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "قراءات التحليل مؤجَّلة وصامتة عند الفشل",
+        "en": "Analysis reads are deferred and quiet on failure"
+      },
+      "text": {
+        "ar": "يجب أن تُؤجَّل قراءات الجينوم والقيود والجدول الحيّ في طبقة التجربة إلى وقت خمول المتصفح (بحد أقصى 6 ثوانٍ)، وأن يُهمَل الفشل الناعم (مهلة أو انقطاع) دون لافتة خطأ ويُبقى آخر ما قُرئ، لأن الجدول يعمل كاملاً بدونها.",
+        "en": "Reads of genome, constraints and the living reading in the experience layer shall be deferred to browser idle time (at most 6 seconds), and a soft failure (timeout or interruption) shall be ignored without an error banner while the last reading is kept, because the schedule works fully without them."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "لا يُطلب شيء على كل نقرة في الجدول بل مرة بعد خمول.",
+          "en": "Nothing is requested on every click in the schedule, only once after idle time."
+        },
+        {
+          "ar": "خطأ يحمل soft لا يرفع لافتة؛ وغير الناعم يُعرض نصّه العربي.",
+          "en": "An error marked soft raises no banner, and a non-soft one shows its Arabic text."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleExperienceLayer.tsx"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-VIW-014",
+      "kind": "functional",
+      "title": {
+        "ar": "إصدار رابط نشر",
+        "en": "Issue a share link"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يصدر رابط نشر لقسم وفصل بأربعة أنواع (جدول القسم، بطاقات الأساتذة، استبيان المقررات، جدول الطلبة)، بعمر يُحسب في الخادم، ويحصر الإصدار بمن يملك القسم.",
+        "en": "The system shall issue a share link for a department and term of four kinds (department schedule, faculty cards, course survey, students' schedule), with a lifetime computed on the server, and restrict issuing to those who own the department."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا كلية أو قسم أو فصل يُنتج 400، ونطاق غير مسموح يُنتج 403.",
+          "en": "Without college, department or term the result is 400, and a scope that is not allowed yields 403."
+        },
+        {
+          "ar": "عمر رابط جدول القسم والاستبيان من 1 إلى 180 يوماً (30 افتراضياً)، وعمر رابط الطلبة 365 يوماً.",
+          "en": "The lifetime of a department or survey link is 1 to 180 days (30 by default), and a students' link lasts 365 days."
+        },
+        {
+          "ar": "رابط الطلبة الحيّ يُعاد ولا يُصدَر ثانٍ كي لا يتغيّر الملصق المطبوع بالرمز QR.",
+          "en": "A live students' link is returned and no second one is issued, so the printed QR sticker does not change."
+        },
+        {
+          "ar": "استبيان لفصل منتهٍ يُنتج 409 برمز term-ended.",
+          "en": "A survey for an ended term yields 409 with code term-ended."
+        },
+        {
+          "ar": "إخفاء أسماء الأساتذة يُحفظ في showInstructors (يبقى مفعّلاً ما لم يُرسَل false).",
+          "en": "Hiding instructor names is stored in showInstructors (on unless false is sent)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/shareRoutes.ts",
+          "src/server/core/shareLinks.ts"
+        ],
+        "tests": [
+          "tests/teacher-card-flow-audit.ts",
+          "tests/publish-pick-teachers-audit.ts",
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-015",
+      "kind": "functional",
+      "title": {
+        "ar": "بطاقة قسم حيّة واحدة في الفصل",
+        "en": "One live department card per term"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يجعل بطاقة الأساتذة الجديدة لقسم (وعائلة مواقعه) تحلّ محلّ السابقة: توقَف بطاقات القسم القديمة، وتبقى الروابط الشخصية حيّة وتأخذ موعد الطلبات الجديد، ويُحمى الإصدار بقفل تسلسلي.",
+        "en": "The system shall make a new faculty card for a department (and its family of sites) replace the earlier one: old department cards are stopped, personal links stay alive and take the new requests deadline, and issuing is protected by a serial lock."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "رد الإصدار يحمل replaced = عدد البطاقات القديمة الموقوفة.",
+          "en": "The issue reply carries replaced = the number of old cards stopped."
+        },
+        {
+          "ar": "قائمة الروابط تعرض أحدث بطاقة حيّة واحدة للعائلة فقط.",
+          "en": "The link list shows only the single newest live card of the family."
+        },
+        {
+          "ar": "موعد الطلبات requestsCloseAt يُحفظ منفصلاً ويُحمل إلى الروابط الشخصية.",
+          "en": "The requests deadline requestsCloseAt is stored separately and carried to personal links."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/shareRoutes.ts",
+          "src/server/core/staffCard.ts"
+        ],
+        "tests": [
+          "tests/teacher-card-flow-audit.ts",
+          "tests/publish-pick-teachers-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-016",
+      "kind": "functional",
+      "title": {
+        "ar": "عمر الرابط: القراءة حتى نهاية الفصل",
+        "en": "Link lifetime: reading until the end of the term"
+      },
+      "text": {
+        "ar": "يجب أن تبقى بطاقات الأساتذة (رابط القسم والرابط الشخصي) ورابط الطلب مقروءة حتى نهاية فصلها لا حتى موعد استقبال الطلبات، وأن تُحسب نهاية العمر من تاريخ الفصل، فإن جُهل فمن اسمه، فإن جُهل فبعد 150 يوماً؛ وموعد الطلبات يحكم الكتابة وحدها.",
+        "en": "Faculty cards (department link and personal link) and the request link shall stay readable until the end of their term, not until the requests deadline, with the end of life computed from the term's dates, else from its name, else after 150 days; the requests deadline governs writing only."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط لفصل ينتهي 31 ديسمبر ينتهي بنهاية الفصل المعلن، ورابط لفصل مضى لا يولد منتهياً.",
+          "en": "A link for a term ending on 31 December ends with the declared end of the term, and a link for a past term is not born expired."
+        },
+        {
+          "ar": "فصل مجهول التاريخ يعطي +150 يوماً (TERM_LINK_FALLBACK_DAYS).",
+          "en": "A term of unknown date gives +150 days (TERM_LINK_FALLBACK_DAYS)."
+        },
+        {
+          "ar": "رابط جدول القسم أو الاستبيان يُقرأ حتى expiresAt وحده.",
+          "en": "A department-schedule or survey link is readable only until expiresAt."
+        },
+        {
+          "ar": "آخر موعد للطلبات يُكتب بنهاية يوم الكويت (23:59:59+03:00) وهو اللحظة نفسها لموعد الاعتماد.",
+          "en": "The requests deadline is written at the end of the Kuwait day (23:59:59+03:00), the same instant as the approval deadline."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/shareLinkLifetime.ts",
+          "src/server/core/shareLinks.ts"
+        ],
+        "tests": [
+          "tests/doctor-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-017",
+      "kind": "functional",
+      "title": {
+        "ar": "فتح الرابط وإيقافه",
+        "en": "Opening and stopping a link"
+      },
+      "text": {
+        "ar": "يجب على النظام عند فتح رمز رابط أن يردّ 404 إن لم يوجد أو أُوقف، و410 إن انتهت صلاحيته، وأن يبني الحمولة العامة بلا رقم مدني ولا هاتف ولا حساب، مرتّبة بوقت البداية، وبلا أسماء الأساتذة حين تُخفى.",
+        "en": "The system shall, when a link token is opened, answer 404 if it is missing or stopped and 410 if it expired, and build the public payload without civil number, phone or account, sorted by start time, and without instructor names when they are hidden."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "student",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رمز موقوف: «الرابط غير موجود أو تم إيقافه» (404)، ومنتهٍ: «انتهت صلاحية هذا الرابط» (410).",
+          "en": "A stopped token: «الرابط غير موجود أو تم إيقافه» (404); an expired one: «انتهت صلاحية هذا الرابط» (410)."
+        },
+        {
+          "ar": "الصف العام يحمل الرمز والاسم والشعبة والبداية والنهاية والأيام والقاعة والإصدار rev والأستاذ وعلم visiting.",
+          "en": "The public row carries code, name, section, start, end, days, room, the revision rev, instructor and the visiting flag."
+        },
+        {
+          "ar": "showInstructors=false يفرغ اسم الأستاذ ويُسقط شارة المنتدَب.",
+          "en": "showInstructors=false empties the instructor name and drops the visiting mark."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/shareLinks.ts"
+        ],
+        "tests": [
+          "tests/doctor-journey-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-VIW-018",
+      "kind": "functional",
+      "title": {
+        "ar": "إيقاف رابط",
+        "en": "Revoke a link"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يوقف الرابط بطلب حذف، وأن يوقف بطاقة القسم عائلة القسم كلها مع روابط الطلب غير المرسلة، ويبقي ما أُرسل أو وُقّع من الطلبات وروابط قراءتها بلا مساس.",
+        "en": "The system shall stop a link on a delete request, and stopping a department card shall stop the whole department family together with unsent request links, leaving sent or signed requests and their reading links untouched."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "إيقاف بطاقة القسم من مستخدم لا يملك أي موقع من العائلة يُنتج 403.",
+          "en": "Stopping a department card by a user who owns none of the family's sites yields 403."
+        },
+        {
+          "ar": "إيقاف رابط شخصي متاح لمن يملك القسم من أي من مواقعه.",
+          "en": "Stopping a personal link is allowed to anyone who owns the department at any of its sites."
+        },
+        {
+          "ar": "رابط غير موجود يُنتج 404.",
+          "en": "A missing link yields 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/shareRoutes.ts"
+        ],
+        "tests": [
+          "tests/teacher-card-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-019",
+      "kind": "functional",
+      "title": {
+        "ar": "الروابط الشخصية للأساتذة وتتبّع الإرسال",
+        "en": "Personal instructor links and send tracking"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يسكّ رابطاً شخصياً لكل أستاذ مؤهل من بطاقة القسم (حتى 300 في الطلب)، يُعاد استعماله إن وُجد حيّاً، ويعيش حتى نهاية الفصل بلا أسماء، وأن يسجّل لكل رابط وقت الإرسال وبصمة جدول الأستاذ، فيعرف لاحقاً من تغيّر جدوله منذ أُبلغ.",
+        "en": "The system shall mint a personal link for every eligible instructor from the department card (up to 300 per request), reused when a live one exists, living until the end of the term and without names, and shall record for each link the send time and the fingerprint of the instructor's schedule, so it later knows whose schedule changed since they were notified."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "المؤهل من يدرّس في عائلة القسم هذا الفصل أو منتدَب أو من هيئة القسم؛ غيره يُتخطّى بصمت.",
+          "en": "Eligible are those who teach in the department family this term, delegates or faculty of the department; others are skipped silently."
+        },
+        {
+          "ar": "الرد links يحمل instructorId وid وexpiresAt وreused.",
+          "en": "The reply links carries instructorId, id, expiresAt and reused."
+        },
+        {
+          "ar": "GET /api/share-personal يرجع لكل رابط changedSinceSent صحيحة حين تختلف بصمة الجدول عن بصمة الإرسال.",
+          "en": "GET /api/share-personal returns, for each link, changedSinceSent true when the schedule fingerprint differs from the fingerprint at sending."
+        },
+        {
+          "ar": "قائمة التسليم تُرجع المعرّف والاسم والجوال فقط، لا الرقم المدني.",
+          "en": "The delivery list returns only the identifier, name and mobile, never the civil number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/shareRoutes.ts"
+        ],
+        "tests": [
+          "tests/doctor-journey-audit.ts",
+          "tests/publish-requests-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-020",
+      "kind": "functional",
+      "title": {
+        "ar": "بقاء اشتراك التقويم ببقاء بطاقة حيّة",
+        "en": "The calendar subscription lives while a card link lives"
+      },
+      "text": {
+        "ar": "يجب أن يبقى اشتراك التقويم الثابت لأستاذ يعرض محاضراته ما دام بيده رابط بطاقة حيّ واحد على الأقل (شخصي، أو رابط طلبه، أو بطاقة قسم يدرّس فيه) مقروء الآن بقاعدة العمر نفسها، فإن لم يبقَ شيء أجاب تقويماً صالحاً فارغاً.",
+        "en": "A fixed calendar subscription of an instructor shall keep showing their lectures as long as they hold at least one live card link (personal, their request link, or a department card of a department they teach in) readable now by the same lifetime rule, and when none is left it shall answer a valid empty calendar."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط موقوف أو منتهٍ بعد انقضاء فصله لا يُبقي التقويم حيّاً.",
+          "en": "A stopped link, or an expired one whose term has ended, does not keep the calendar alive."
+        },
+        {
+          "ar": "جدول القسم والاستبيان وجدول الطلبة لا تُحسب روابط بطاقة.",
+          "en": "Department-schedule, survey and students' links do not count as card links."
+        },
+        {
+          "ar": "أستاذ بلا معرّف (0) لا ينتج له اشتراك.",
+          "en": "An instructor with no identifier (0) gets no subscription."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/shareLinkLifetime.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-021",
+      "kind": "functional",
+      "title": {
+        "ar": "العروض المحفوظة",
+        "en": "Saved views"
+      },
+      "text": {
+        "ar": "يجب أن تتيح شاشة الجدول حفظ طريقة النظر إلى الجدول (القسم والفصل ونمط العرض وما يعنيه اللون وإخفاءات الدليل وبحث سريع ومصفوفة القاعات) باسم حتى 40 حرفاً، وحتى 3 مفضّلة، في متصفح المستخدم نفسه، ولا يغيّر فتح عرض شيئاً في الجدول.",
+        "en": "The schedule screen shall let a user save a way of looking at the schedule (department and term, view mode, what colour means, legend folds, quick search and the rooms matrix) under a name of up to 40 characters, with up to 3 favourites, in the user's own browser, and opening a view changes nothing in the schedule."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "مفتاح التخزين schedule-views-<رقم المستخدم>، وسجل تالف أو قديم يُتجاهل ولا يُسقط الشاشة.",
+          "en": "The storage key is schedule-views-<user id>, and a corrupted or old record is ignored and does not take the screen down."
+        },
+        {
+          "ar": "مفضّلة رابعة تصل غير مفضّلة، والتبديل إلى رابعة لا يُنفَّذ.",
+          "en": "A fourth favourite arrives unfavourited, and toggling a fourth is not carried out."
+        },
+        {
+          "ar": "القائمة لا تظهر في الشريط قبل حفظ أول عرض؛ والحفظ الأول من أمر «حفظ العرض الحالي».",
+          "en": "The menu is not in the toolbar before a first view is saved; the first save comes from the «حفظ العرض الحالي» command."
+        },
+        {
+          "ar": "نقطة بعد الاسم تعني أن اللوح لم يعد يطابق المحفوظ، مع «تحديث العرض الحالي» و«العودة إلى المحفوظ».",
+          "en": "A dot after the name means the board no longer matches what was saved, with «تحديث العرض الحالي» and «العودة إلى المحفوظ»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/scheduleViews.ts",
+          "src/components/ScheduleViewsMenu.tsx"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-VIW-022",
+      "kind": "functional",
+      "title": {
+        "ar": "تحذير عرض محفوظ فقد نطاقه",
+        "en": "Warn when a saved view lost its scope"
+      },
+      "text": {
+        "ar": "يجب أن تقول الواجهة عند فتح عرض محفوظ يسمّي كلية أو قسماً أو فصلاً لم يعد متاحاً أيّها فُقد، وتفتح ما أمكن منه بدل لوح فارغ بلا تفسير.",
+        "en": "The interface shall, when opening a saved view that names a college, department or term that is no longer available, say which one was lost and open what is possible instead of an empty board with no explanation."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "العرض الذي يسمّي قسماً مدمجاً يُظهر «القسم في هذا العرض لم تعد متاحة — فُتح ما أمكن منه.»",
+          "en": "A view naming a merged department shows «القسم في هذا العرض لم تعد متاحة — فُتح ما أمكن منه.»"
+        },
+        {
+          "ar": "عرض سليم النطاق لا يُظهر أي رسالة.",
+          "en": "A view with an intact scope shows no message."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/scheduleViews.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-VIW-023",
+      "kind": "functional",
+      "title": {
+        "ar": "شاشة الرحلة",
+        "en": "The journey screen"
+      },
+      "text": {
+        "ar": "يجب أن تعرض شاشة «رحلة SCHEDULE» قراءة حيّة بأعداد مجمّعة لا أسماء (عدد المواعيد رقماً رئيسياً، ثم المقررات والأساتذة والأقسام والكليات والفصول)، في أربعة فصول سردية، لكل من يفتحها قبل الدخول وبعده.",
+        "en": "The SCHEDULE journey screen shall show a live reading of aggregate counts, not names (the number of appointments as the headline figure, then courses, instructors, departments, colleges and terms), in four narrative acts, to anyone who opens it before or after login."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "standard",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "المسار /api/journey عام عمداً ويرجع scoped=false وأعداداً بلا أسماء ولا أرقام مدنية.",
+          "en": "The route /api/journey is public on purpose and returns scoped=false and counts without names or civil numbers."
+        },
+        {
+          "ar": "فصل صفر يعرض «الرحلة تبدأ من هنا.»، وفشل القراءة يعرض «تعذّرت قراءة الذاكرة الآن».",
+          "en": "Zero terms shows «الرحلة تبدأ من هنا.», and a failed reading shows «تعذّرت قراءة الذاكرة الآن»."
+        },
+        {
+          "ar": "Escape يغلق الورقة، والتبويب محصور داخلها، والتركيز يعود إلى الزر الذي فتحها.",
+          "en": "Escape closes the sheet, tabbing is trapped inside it, and focus returns to the button that opened it."
+        },
+        {
+          "ar": "الورقة تُرسم في body فلا يعلوها شيء من الشريط الجانبي، وحين تُفضَّل الحركة المخفّضة يظهر المحتوى فوراً.",
+          "en": "The sheet is rendered into body so nothing in the sidebar paints over it, and when reduced motion is preferred the content shows at once."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleJourney.tsx",
+          "src/server/routes/dashboardRoutes.ts",
+          "src/styles/10-journey.css"
+        ],
+        "tests": [
+          "tests/role-scope-audit.ts",
+          "tests/presentation-coverage-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-VIW-024",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "رقم المقرر سبع خانات في شاشات العرض والنقل",
+        "en": "Seven-digit course number on viewing and transfer screens"
+      },
+      "text": {
+        "ar": "يجب أن تعرض شاشات جدول القسم ومعاينة بداية الفصل ومحدّد الموعد في المشاهد وملف التصدير رقم المقرر بسبع خانات (الكلية والقسم والمقرر)، لا الرمز المخزّن في الكتالوج.",
+        "en": "The department schedule, the start-of-term preview, the appointment picker in the scenes and the export file shall show the course number in seven digits (college, department, course), not the code stored in the catalogue."
+      },
+      "priority": "must",
+      "status": "planned",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "عمود المقرر في جدول القسم يعرض رقماً من سبع خانات مبنياً بـauthorityCourseCode.",
+          "en": "The course column of the department schedule shows a seven-digit number built with authorityCourseCode."
+        },
+        {
+          "ar": "عمود «رمز المقرر» في ملف Excel المُصدَّر وسطر المعاينة في بداية الفصل يعرضان الرقم نفسه.",
+          "en": "The «رمز المقرر» column of the exported Excel file and the preview line in start of term show the same number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/DepartmentSchedule.tsx",
+          "src/components/LivingScheduleScenes.tsx",
+          "src/components/LivingScheduleLayer.tsx",
+          "src/components/ScheduleTransfer.tsx"
+        ]
+      },
+      "rationale": {
+        "ar": "الكود يعرض اليوم CourseCode أو CourseCodeSnapshot كما هو في هذه المواضع.",
+        "en": "Today the code shows CourseCode or CourseCodeSnapshot as stored in these places."
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "بطاقة الأستاذ بعد موعد استقبال الطلبات",
+        "en": "An faculty card after the requests deadline"
+      },
+      "scenario": {
+        "ar": "أغلق القسم باب الطلبات بتاريخ، ثم فتح أستاذ بطاقته بعد ذلك التاريخ.",
+        "en": "The department closed the request window on a date, and an instructor opens their card after that date."
+      },
+      "behavior": {
+        "ar": "تبقى البطاقة مقروءة حتى نهاية الفصل (جدول وتقويم)، ويُغلق باب الطلب وحده بموعد الطلبات؛ ولا تقول البطاقة «اشتراك دائم».",
+        "en": "The card stays readable until the end of the term (schedule and calendar) and only the request door closes at the requests deadline; the card does not say «permanent subscription»."
+      },
+      "evidence": [
+        "tests/doctor-journey-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "استبيان لفصل منتهٍ",
+        "en": "A survey for an ended term"
+      },
+      "scenario": {
+        "ar": "يطلب المنسّق رابط استبيان لفصل انتهى أو أُغلق.",
+        "en": "The coordinator asks for a survey link for a term that ended or closed."
+      },
+      "behavior": {
+        "ar": "يرفض الخادم برمز 409 term-ended ويقول «اختر الفصل القادم»؛ لأن إجابات لا يستطيع أحد العمل بها لا فائدة منها. باقي أنواع الروابط لا تتأثر.",
+        "en": "The server refuses with 409 term-ended and says to choose the next term, because answers nobody can act on are of no use. Other link kinds are unaffected."
+      },
+      "evidence": [
+        "src/server/routes/shareRoutes.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "بديل أستاذ متعارض",
+        "en": "A conflicting replacement instructor"
+      },
+      "scenario": {
+        "ar": "يختار المنسّق بديلاً لأستاذ متقاعد وله موعد يتداخل مع أحد المواعيد المنقولة.",
+        "en": "The coordinator picks a replacement for a retired instructor who has an appointment overlapping one of the moved appointments."
+      },
+      "behavior": {
+        "ar": "المعاينة تقول «يوجد تعارض» وتذكر السبب، والتنفيذ يُنتج 409 ولا يتغيّر أي موعد؛ والبديل «بلا أستاذ» لا يُفحص لأن لا بديل.",
+        "en": "The preview says «يوجد تعارض» and names the reason, execution yields 409 and no appointment changes; the «no instructor» option is not checked because there is no replacement."
+      },
+      "evidence": [
+        "tests/approval-integrity-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "ظلّ الفصل السابق على «الكل»",
+        "en": "The previous-term ghost on «All»"
+      },
+      "scenario": {
+        "ar": "القارئ اختار «الكل» فلا كلية ولا قسم محدداً ويضغط ظلّ الفصل السابق.",
+        "en": "The reader chose «All», so no college or department is set, and presses the previous-term ghost."
+      },
+      "behavior": {
+        "ar": "تُقرأ الفصل السابق كله بلا قيد النطاق ويظهر الظلّ؛ كان الضغط يعود صامتاً بلا أي أثر ولا رسالة، وأُصلح بأن الشرط هو الفصل وحده.",
+        "en": "The whole previous term is read without scope restriction and the ghost appears; the press used to return silently with no effect or message, and was fixed so the only condition is the term."
+      },
+      "evidence": []
+    },
+    {
+      "title": {
+        "ar": "عرض محفوظ لقسم دُمج",
+        "en": "A saved view for a merged department"
+      },
+      "scenario": {
+        "ar": "عرض حُفظ قبل سنة يسمّي قسماً دُمج أو فصلاً أُرشف.",
+        "en": "A view saved a year ago names a department that was merged or a term that was archived."
+      },
+      "behavior": {
+        "ar": "يُفتح ما أمكن منه وتظهر رسالة «القسم في هذا العرض لم تعد متاحة — فُتح ما أمكن منه.» بدل لوح فارغ بلا تفسير.",
+        "en": "What can be opened is opened and the message «القسم في هذا العرض لم تعد متاحة — فُتح ما أمكن منه.» appears, instead of an empty board with no explanation."
+      },
+      "evidence": [
+        "src/utils/scheduleViews.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "رابط نشر",
+      "en": "Share link",
+      "def": {
+        "ar": "رمز عشوائي طويل بنوع (قسم، بطاقات أساتذة، استبيان، طلبة) يفتح قراءة محدودة بلا حساب.",
+        "en": "A long random token of a kind (department, faculty cards, survey, students) that opens a limited reading without an account."
+      }
+    },
+    {
+      "ar": "بطاقة الأستاذ",
+      "en": "Faculty card",
+      "def": {
+        "ar": "صفحة عامة لأستاذ يفتح بها جدوله ويطلب تعديله، برابط القسم أو برابط شخصي.",
+        "en": "A public page where an instructor opens their schedule and asks for a change, through the department link or a personal link."
+      }
+    },
+    {
+      "ar": "رابط شخصي",
+      "en": "Personal link",
+      "def": {
+        "ar": "بطاقة لا تُفتح إلا لأستاذ واحد، تعيش حتى نهاية الفصل.",
+        "en": "A card opened only for one instructor, living until the end of the term."
+      }
+    },
+    {
+      "ar": "الطبقة الحيّة",
+      "en": "Living layer",
+      "def": {
+        "ar": "نافذة الجدول الحيّ بمشاهدها الستة.",
+        "en": "The living-schedule window with its six scenes."
+      }
+    },
+    {
+      "ar": "نبض الجدول",
+      "en": "Schedule pulse",
+      "def": {
+        "ar": "جملة ورتبة بنود تستحق قرار المنسّق.",
+        "en": "A sentence and a ranking of items worth the coordinator's decision."
+      }
+    },
+    {
+      "ar": "شبكة الأمان",
+      "en": "Safety net",
+      "def": {
+        "ar": "النقاط التي تُلتقط قبل كل تغيير كبير ويُتراجع بها.",
+        "en": "The points captured before every large change and used to go back."
+      }
+    },
+    {
+      "ar": "عرض محفوظ",
+      "en": "Saved view",
+      "def": {
+        "ar": "طريقة نظر شخصية إلى الجدول محفوظة باسم، لا نسخة منه.",
+        "en": "A personal way of looking at the schedule saved under a name, not a copy of it."
+      }
+    },
+    {
+      "ar": "الرحلة",
+      "en": "Journey",
+      "def": {
+        "ar": "شاشة سردية بأعداد مجمّعة عن ذاكرة النظام.",
+        "en": "A narrative screen of aggregate counts about the system's memory."
+      }
+    },
+    {
+      "ar": "الفصل المنتهي",
+      "en": "Ended term",
+      "def": {
+        "ar": "فصل أرشيفي لا يُكتب فيه ويُقرأ ويُصدَّر فقط.",
+        "en": "An archive term that is not written to and is only read and exported."
+      }
+    },
+    {
+      "ar": "استبدال أستاذ",
+      "en": "Instructor replacement",
+      "def": {
+        "ar": "نقل كل مواعيد أستاذ في فصل إلى بديل أو تركها بلا أستاذ.",
+        "en": "Handing all of an instructor's appointments in a term to a replacement or leaving them without an instructor."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "رقم المقرر سبع خانات دائماً (الكلية 2 + القسم 2 + المقرر 3، مثل 0109105)، ولا يُعرض الرمز المخزّن ولا AdCourseId.",
+      "en": "A course number is always seven digits (college 2 + department 2 + course 3, such as 0109105); the stored code and AdCourseId are never displayed."
+    },
+    {
+      "ar": "التقارير المطبوعة تحافظ على تصميمها؛ الإصلاح في القيم والبيانات لا في الشكل، وما لا مفرّ منه يعيد استعمال أصناف الطباعة القائمة ويُفحص على A4 أفقي.",
+      "en": "Printed reports keep their design; fix values and data, not layout, and any unavoidable change reuses the existing print classes and is checked on A4 landscape."
+    }
+  ]
+}

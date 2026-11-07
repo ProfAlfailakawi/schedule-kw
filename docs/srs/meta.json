@@ -1,0 +1,11 @@
+{
+  "system": { "ar": "SCHEDULE · نظام القرار الأكاديمي", "en": "SCHEDULE · Academic Decision System" },
+  "document": { "ar": "وثيقة متطلبات البرمجيات", "en": "Software Requirements Specification" },
+  "standard": "ISO/IEC/IEEE 29148",
+  "version": "1.0",
+  "releaseDate": "2026-11-07",
+  "authors": [
+    { "ar": "د. أحمد حسين الفيلكاوي", "en": "Dr. Ahmad Hussain Alfailakawi" },
+    { "ar": "د. عبدالعزيز دخيل العنزي", "en": "Dr. Abdulaziz Dakhil Alenezi" }
+  ]
+}

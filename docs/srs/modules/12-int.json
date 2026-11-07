@@ -1,0 +1,942 @@
+{
+  "id": "INT",
+  "order": 12,
+  "icon": "brain-circuit",
+  "title": { "ar": "مركز التحليلات والمرشد", "en": "Analytics Center and Guide" },
+  "tagline": { "ar": "قراءات حتمية للجدول والتنبؤ بالفصل القادم، واستعلام بلغة طبيعية لا ينفّذ شيئاً، ومرشد داخل التطبيق يعمل في المتصفح.", "en": "Deterministic schedule readings, next-term forecasts, a natural-language query layer that never executes, and an in-app Guide that runs in the browser." },
+  "summary": {
+    "ar": "مركز التحليلات هو الشاشة التي يقرأ منها رئيس القسم ورئيس لجنة الجدول والعميد حالة الجدول: جودته وموانع اعتماده وضغط القاعات وأحمال الأساتذة والحركة المكانية، ثم يجرّبون الأثر قبل أي قرار. يضم الوحدة أيضاً التنبؤ بحاجة الفصل القادم ومختبر القرار الأكاديمي والطبقة الحية للجدول. في طبقة الاستعلام بلغة طبيعية تقرأ خدمة Gemini الجملة وتقترح استدعاءات من خمس دوال مسموحة فقط، ثم تُنقّى هذه الاستدعاءات وتُنفَّذ في الخادم بمنطق حتمي ضمن نطاق المستخدم، والتنفيذ دائماً عبر المدققات الحتمية وبتأكيد صريح منه. المرشد دليل داخل التطبيق يفهم أسئلة المستخدم بالفصحى واللهجة الكويتية، ويعرض الخطوات ويمشي مع المستخدم في جولة على الشاشة، ولا يرسل شيئاً خارج المتصفح.",
+    "en": "The Analytics Center is the screen where the department head, the schedule committee chair and the dean read the state of the schedule: its quality, approval blockers, room pressure, instructor loads and campus movement, and then try the effect before deciding. The module also holds the next-term forecast, the academic decision lab and the live schedule layer. In the natural-language query layer the Gemini service reads the sentence and proposes calls from five allowed functions only; the calls are then sanitised and executed on the server with deterministic logic inside the user's scope, so execution always passes through the deterministic validators and an explicit confirmation by the user. The Guide is an in-app assistant that understands questions in standard Arabic and the Kuwaiti dialect, shows the steps and walks the user through a tour on screen, and sends nothing out of the browser."
+  },
+  "actors": ["departmentHead", "committeeChair", "dean", "viceDean", "admin", "rootAdmin", "standard", "visitor", "system", "external"],
+  "sources": [
+    "src/server/routes/intelligenceRoutes.ts",
+    "src/server/routes/intelligenceInsightRoutes.ts",
+    "src/server/routes/guideRoutes.ts",
+    "src/server/insightRoutes.ts",
+    "src/server/predictiveInsight.ts",
+    "src/server/radarInsight.ts",
+    "src/server/core/gemini.ts",
+    "src/utils/geminiScheduleLayer.ts",
+    "src/utils/naturalQuery.ts",
+    "src/utils/predictiveIntelligence.ts",
+    "src/utils/predictiveScope.ts",
+    "src/utils/registrationCauses.ts",
+    "src/utils/academicDecisionLab.ts",
+    "src/utils/advancedIntelligence.ts",
+    "src/utils/intelligenceReadingScope.ts",
+    "src/utils/livingSchedule.ts",
+    "src/utils/scheduleInnovation.ts",
+    "src/utils/scheduleIntelligence.ts",
+    "src/guide/**",
+    "src/components/guide/*",
+    "src/components/IntelligenceWorkspace.tsx",
+    "src/components/IntelligenceContextBar.tsx",
+    "src/components/IntelligenceScopeSwitch.tsx",
+    "src/components/PredictiveInsightPanel.tsx",
+    "src/components/AcademicDecisionLabPanel.tsx",
+    "src/components/academic-decision-lab.css",
+    "src/components/LivingScheduleLayer.tsx",
+    "src/components/LivingScheduleScenes.tsx",
+    "src/components/CourseImpact.tsx",
+    "src/pages/Impact.tsx",
+    "src/styles/06-intelligence.css",
+    "src/styles/27-intelligence-type.css",
+    "docs/PREDICTIVE_INTELLIGENCE.md",
+    "docs/intelligence-planning-tm/*"
+  ],
+  "screens": [
+    { "name": { "ar": "مركز التحليلات", "en": "Analytics Center" }, "file": "src/components/IntelligenceWorkspace.tsx", "note": { "ar": "ثلاثة مشاهد: افهم وجرّب واعتمد؛ وتبويبات الجودة والقاعات والأساتذة وصحة البيانات والتنبؤ.", "en": "Three scenes: understand, try and approve; tabs for quality, rooms, instructors, data health and forecast." } },
+    { "name": { "ar": "نطاق القرار", "en": "Decision scope bar" }, "file": "src/components/IntelligenceContextBar.tsx", "note": { "ar": "اختيار الكلية والقسم والفصل؛ ويظهر «قراءة فقط» عند انقطاع الاتصال.", "en": "Choose college, department and term; shows a read-only pill when offline." } },
+    { "name": { "ar": "مفتاح نطاق التحليل", "en": "Analysis scope switch" }, "file": "src/components/IntelligenceScopeSwitch.tsx", "note": { "ar": "«هذه الكلية» أو «كل كليات القسم».", "en": "This college only, or every college of the department." } },
+    { "name": { "ar": "تنبؤ الفصل القادم", "en": "Next-term forecast" }, "file": "src/components/PredictiveInsightPanel.tsx", "note": { "ar": "كل رقم يحمل ثقته وعدد الفصول التي بُني عليها.", "en": "Every figure carries its confidence and the number of terms behind it." } },
+    { "name": { "ar": "مختبر القرار الأكاديمي", "en": "Academic decision lab" }, "file": "src/components/AcademicDecisionLabPanel.tsx", "note": { "ar": "ست قراءات للقراءة فقط: التوأم الأكاديمي وقبل/بعد والدومينو وإنقاذ المسار والتوازن والثقة.", "en": "Six read-only views: academic twin, before/after, domino, path rescue, balance and trust." } },
+    { "name": { "ar": "الطبقة الحية للجدول", "en": "Live schedule layer" }, "file": "src/components/LivingScheduleLayer.tsx", "note": { "ar": "ست مشاهد: نظرة عامة وخريطة الضغط والصحة والعدالة وملخص الدقيقة وبداية الفصل وشبكة الأمان.", "en": "Six scenes: overview, pressure map, health and fairness, one-minute brief, start of term and safety net." } },
+    { "name": { "ar": "المرشد", "en": "Guide" }, "file": "src/components/guide/GuideAssistant.tsx", "note": { "ar": "شاشات: اسأل، المزيد، الكل، الجديد، وأسئلة بلا جواب لمدير النظام الأعلى.", "en": "Screens: ask, more, all, what is new, and unanswered questions for the root administrator." } },
+    { "name": { "ar": "جولة المرشد", "en": "Guide tour" }, "file": "src/components/guide/GuideTour.tsx", "note": { "ar": "بطاقة تضيء العنصر المقصود وتنتظر فعل المستخدم عند الحاجة.", "en": "A card that highlights the target element and waits for the user's action when needed." } },
+    { "name": { "ar": "أثر المقرر", "en": "Course impact" }, "file": "src/components/CourseImpact.tsx", "note": { "ar": "ما يسبق المقرر وما يفتحه وصحائفه والطلب عليه.", "en": "What precedes the course, what it opens, its plan sheets and the demand on it." } },
+    { "name": { "ar": "سجل الأثر الموثق", "en": "Verified impact record" }, "file": "src/pages/Impact.tsx", "note": { "ar": "صفحة عامة تعرض مسارات أثر موثقة؛ غير موصولة بالمسارات حالياً.", "en": "A public page listing verified impact chains; not currently wired to any route." } }
+  ],
+  "journeys": [
+    {
+      "actor": "committeeChair",
+      "title": { "ar": "من الاستعلام بجملة إلى نقل موعد مؤكد", "en": "From a sentence to a confirmed move" },
+      "steps": [
+        { "ar": "يكتب رئيس لجنة الجدول في مربع الاستعلام: «انقل 101 إلى الأربعاء 11:00».", "en": "The committee chair types in the query box: move 101 to Wednesday 11:00." },
+        { "ar": "يرسل الخادم إلى خدمة Gemini النص والنطاق وأسماء الدوال الخمس المسموحة فقط.", "en": "The server sends Gemini only the text, the scope and the names of the five allowed functions." },
+        { "ar": "تُنقّى الاستدعاءات المقترحة؛ وإن لم تعد الخدمة شيئاً صالحاً يحلل الخادم الجملة بقواعده.", "en": "The proposed calls are sanitised; if the service returns nothing valid the server parses the sentence with its own rules." },
+        { "ar": "ينفّذ الخادم المحاكاة وفحص التعارضات واللوائح على الجدول الفعلي بلا كتابة.", "en": "The server runs the simulation, conflict check and regulations check against the real schedule without writing." },
+        { "ar": "تعرض الشاشة معاينة قبل/بعد وجودة الجدول وسبب المنع إن وُجد مانع حفظ.", "en": "The screen shows a before/after preview, the schedule quality and the reason for refusal if a save blocker exists." },
+        { "ar": "إن كانت المعاينة قابلة للتطبيق يؤكد المستخدم صراحة، فيمر النقل عبر مسار النقل المعتاد ومدققاته.", "en": "If the preview can be applied the user confirms explicitly, and the move goes through the usual move path and its validators." }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": { "ar": "قراءة الجدول وتجربة تحسين الحركة المكانية", "en": "Reading the schedule and trying a movement fix" },
+      "steps": [
+        { "ar": "يفتح رئيس القسم مركز التحليلات ويختار القسم والفصل.", "en": "The department head opens the Analytics Center and picks the department and term." },
+        { "ar": "يقرأ جودة الجدول من 100 وعدد الموانع وأكبر فراغ وتوزيع الأيام وخريطة الازدحام.", "en": "They read the quality out of 100, the blocker count, the largest gap, the day balance and the crowding map." },
+        { "ar": "يفتح قراءة الحركة المكانية فيجد أستاذاً ينتقل بين مبنيين في وقت أقل من اللازم.", "en": "They open the movement reading and find an instructor moving between two buildings in less time than needed." },
+        { "ar": "يعرض النظام اقتراح تقريب القاعة أو تبديل قاعتين، ولا يعرض إلا ما لا يزيد خطر الحركة على أي أستاذ آخر.", "en": "The system offers a room move or a room swap, and shows only what does not raise movement risk for any other instructor." },
+        { "ar": "يحوّل الاقتراح إلى مسودة للمراجعة، ولا يتغير الجدول المنشور قبل الاعتماد.", "en": "They turn the proposal into a draft for review; the published schedule does not change before approval." }
+      ]
+    },
+    {
+      "actor": "standard",
+      "title": { "ar": "السؤال عن مهمة ثم جولة على الشاشة", "en": "Asking about a task, then an on-screen tour" },
+      "steps": [
+        { "ar": "يكتب المستخدم في المرشد: «شلون انقل محاضرة لقاعة ثانية».", "en": "The user types in the Guide a Kuwaiti-dialect question about moving a lecture to another room." },
+        { "ar": "يطبّع المرشد النص ويطابقه مع بنك المعرفة داخل المتصفح بلا أي طلب شبكي.", "en": "The Guide normalises the text and matches it against the knowledge bank inside the browser with no network request." },
+        { "ar": "يعرض خطوات قصيرة بالفصحى لا تتجاوز أربعاً، ولا يعرض إلا ما يصل إليه دور المستخدم.", "en": "It shows short standard-Arabic steps, four at most, and only what the user's role can reach." },
+        { "ar": "يضغط المستخدم «أرني على الشاشة» فتنتقل الجولة إلى الشاشة وتضيء العنصر.", "en": "The user presses the show-me action and the tour moves to the screen and highlights the element." },
+        { "ar": "إن لم يظهر العنصر تقول الجولة ذلك وتبقى حية، ولا تُغلق إلا بيد المستخدم.", "en": "If the element does not appear the tour says so and stays alive; it closes only by the user's hand." }
+      ]
+    },
+    {
+      "actor": "rootAdmin",
+      "title": { "ar": "مراجعة مواضع تعثر المستخدمين", "en": "Reviewing where users struggle" },
+      "steps": [
+        { "ar": "يفتح مدير النظام الأعلى «أسئلة بلا جواب» في المرشد لرؤية الصيغ التي لم يفهمها.", "en": "The root administrator opens unanswered questions in the Guide to see the phrasings it did not understand." },
+        { "ar": "يقرأ مواضع التعثر مرتبة بنسبة الفشل والمساعدة خلال آخر 30 يوماً مقارنة بالثلاثين قبلها.", "en": "They read the struggle points ranked by failure and help rate over the last 30 days against the previous 30." },
+        { "ar": "إن ارتفع التعثر بعد إصدار جديد يعدّل الواجهة نفسها لا الشرح.", "en": "If struggle rises after a new release they change the interface itself rather than the explanation." }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "int-nl-flow",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "من الجملة إلى معاينة آمنة", "en": "From sentence to safe preview" },
+      "caption": { "ar": "خدمة Gemini تقرأ الجملة وتقترح فقط؛ والتنفيذ حتمي ومحصور بنطاق المستخدم.", "en": "Gemini reads the sentence and only proposes; execution is deterministic and bound to the user's scope." },
+      "nodes": [
+        { "id": "q", "label": { "ar": "جملة المستخدم", "en": "User sentence" }, "icon": "message-square", "kind": "start" },
+        { "id": "g", "label": { "ar": "قراءة Gemini", "en": "Gemini reading" }, "icon": "plug", "kind": "system" },
+        { "id": "s", "label": { "ar": "تنقية الاستدعاءات", "en": "Sanitise calls" }, "icon": "filter", "kind": "system" },
+        { "id": "d", "label": { "ar": "استدعاء صالح؟", "en": "Valid call?" }, "icon": "git-branch", "kind": "decision" },
+        { "id": "p", "label": { "ar": "محلل القواعد", "en": "Rule parser" }, "icon": "list-checks", "kind": "system" },
+        { "id": "x", "label": { "ar": "تنفيذ حتمي بالنطاق", "en": "Scoped execution" }, "icon": "shield-check", "kind": "system" },
+        { "id": "v", "label": { "ar": "معاينة بلا كتابة", "en": "Preview, no write" }, "icon": "eye", "kind": "state" },
+        { "id": "c", "label": { "ar": "تأكيد المستخدم", "en": "User confirms" }, "icon": "check-check", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "q", "to": "g" },
+        { "from": "g", "to": "s", "label": { "ar": "اقتراح", "en": "proposal" } },
+        { "from": "s", "to": "d" },
+        { "from": "d", "to": "x", "label": { "ar": "نعم", "en": "yes" } },
+        { "from": "d", "to": "p", "label": { "ar": "لا", "en": "no" } },
+        { "from": "p", "to": "x" },
+        { "from": "x", "to": "v" },
+        { "from": "v", "to": "c", "label": { "ar": "إن لم يوجد مانع", "en": "if no blocker" } }
+      ]
+    },
+    {
+      "id": "int-guide-flow",
+      "type": "flow",
+      "layout": "tb",
+      "title": { "ar": "كيف يفهم المرشد السؤال", "en": "How the Guide understands a question" },
+      "caption": { "ar": "كل مرحلة داخل المتصفح؛ والصلاحيات تُطبّق قبل الترتيب.", "en": "Every stage runs in the browser; permissions apply before ranking." },
+      "nodes": [
+        { "id": "a", "label": { "ar": "السؤال", "en": "Question" }, "icon": "message-circle-question", "kind": "start" },
+        { "id": "b", "label": { "ar": "تقسيم حتى ثلاثة أجزاء", "en": "Split to three parts" }, "icon": "split", "kind": "system" },
+        { "id": "c", "label": { "ar": "سؤال عن بيانات حية؟", "en": "Live-data question?" }, "icon": "git-branch", "kind": "decision" },
+        { "id": "d", "label": { "ar": "يدل على الشاشة", "en": "Point to screen" }, "icon": "map-pin", "kind": "end" },
+        { "id": "e", "label": { "ar": "تطبيع ومعجم وترتيب", "en": "Normalise, lexicon, rank" }, "icon": "arrow-down-wide-narrow", "kind": "system" },
+        { "id": "f", "label": { "ar": "الثقة 0.34 فأكثر؟", "en": "Confidence at least 0.34?" }, "icon": "git-branch", "kind": "decision" },
+        { "id": "g", "label": { "ar": "جواب مع بدائل عند الغموض", "en": "Answer, alternatives if vague" }, "icon": "list", "kind": "end" },
+        { "id": "h", "label": { "ar": "غير متأكد مع أقرب ثلاثة", "en": "Unsure with closest three" }, "icon": "help-circle", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "a", "to": "b" },
+        { "from": "b", "to": "c" },
+        { "from": "c", "to": "d", "label": { "ar": "نعم", "en": "yes" } },
+        { "from": "c", "to": "e", "label": { "ar": "لا", "en": "no" } },
+        { "from": "e", "to": "f" },
+        { "from": "f", "to": "g", "label": { "ar": "نعم", "en": "yes" } },
+        { "from": "f", "to": "h", "label": { "ar": "لا", "en": "no" } }
+      ]
+    },
+    {
+      "id": "int-tour-states",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "حالات جولة المرشد", "en": "Guide tour states" },
+      "caption": { "ar": "لا تختفي الجولة صامتة: عنصر ظاهر أو انتظار فعل أو إعلان صريح بالفقد.", "en": "A tour never disappears silently: element shown, waiting for an action, or an explicit not-found." },
+      "nodes": [
+        { "id": "seek", "label": { "ar": "يبحث", "en": "Seeking" }, "icon": "search", "kind": "start" },
+        { "id": "show", "label": { "ar": "يعرض", "en": "Showing" }, "icon": "eye", "kind": "state" },
+        { "id": "wait", "label": { "ar": "ينتظر فعلاً", "en": "Waiting" }, "icon": "hourglass", "kind": "state" },
+        { "id": "miss", "label": { "ar": "لم يجده", "en": "Missing" }, "icon": "circle-alert", "kind": "state" },
+        { "id": "skip", "label": { "ar": "خطوة اختيارية", "en": "Optional step" }, "icon": "skip-forward", "kind": "decision" },
+        { "id": "done", "label": { "ar": "انتهت", "en": "Done" }, "icon": "flag", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "seek", "to": "show", "label": { "ar": "ظهر العنصر", "en": "found" } },
+        { "from": "seek", "to": "wait", "label": { "ar": "خطوة تحتاج اختياراً", "en": "needs selection" } },
+        { "from": "seek", "to": "skip", "label": { "ar": "انقضت المهلة", "en": "budget spent" } },
+        { "from": "skip", "to": "miss", "label": { "ar": "لا", "en": "no" } },
+        { "from": "skip", "to": "seek", "label": { "ar": "نعم: الخطوة التالية", "en": "yes: next step" } },
+        { "from": "show", "to": "done", "label": { "ar": "آخر خطوة", "en": "last step" } },
+        { "from": "wait", "to": "show", "label": { "ar": "اختار المستخدم", "en": "user selected" } }
+      ]
+    },
+    {
+      "id": "int-forecast-gate",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "بوابة ثقة التنبؤ", "en": "Forecast confidence gate" },
+      "caption": { "ar": "لا إجراء بضغطة واحدة إلا من ثقة متوسطة فأعلى.", "en": "No one-click action unless confidence is medium or higher." },
+      "nodes": [
+        { "id": "h", "label": { "ar": "تاريخ الفصول والرغبات", "en": "Term history and wishes" }, "icon": "history", "kind": "start" },
+        { "id": "m", "label": { "ar": "متوسط مرجّح بالحداثة", "en": "Recency-weighted mean" }, "icon": "calculator", "kind": "system" },
+        { "id": "k", "label": { "ar": "حساب الثقة", "en": "Confidence score" }, "icon": "gauge", "kind": "system" },
+        { "id": "g", "label": { "ar": "متوسطة فأعلى؟", "en": "Medium or higher?" }, "icon": "git-branch", "kind": "decision" },
+        { "id": "o", "label": { "ar": "إجراء بضغطة بعد معاينة", "en": "One-click after preview" }, "icon": "mouse-pointer-click", "kind": "end" },
+        { "id": "n", "label": { "ar": "معطّل مع ذكر السبب", "en": "Disabled with reason" }, "icon": "lock", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "h", "to": "m" },
+        { "from": "m", "to": "k" },
+        { "from": "k", "to": "g" },
+        { "from": "g", "to": "o", "label": { "ar": "نعم", "en": "yes" } },
+        { "from": "g", "to": "n", "label": { "ar": "لا", "en": "no" } }
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "FR-INT-001",
+      "kind": "functional",
+      "title": { "ar": "النظرة التحليلية العامة للجدول", "en": "Analytical overview of the schedule" },
+      "text": {
+        "ar": "يجب على النظام أن يحسب لقسم وفصل محددين جودة الجدول من 100 وجاهزيته وموانع الاعتماد وفراغات الأساتذة وتوزيع الأيام وخريطة ازدحام بفواصل 30 دقيقة داخل ساعات اليوم المعتمدة، وأن يعيدها في قراءة واحدة.",
+        "en": "The system shall compute, for a given department and term, the schedule quality out of 100, its readiness, approval blockers, instructor gaps, day balance and a crowding map in 30-minute slots within the configured day hours, and return them in one reading."
+      },
+      "rationale": { "ar": "يحتاج متخذ القرار صورة واحدة تقول أين المشكلة قبل أن يفتح أي أداة.", "en": "A decision maker needs one picture of where the problem is before opening any tool." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "dean"],
+      "acceptance": [
+        { "ar": "الجودة = 100 ناقصاً عقوبات: سلامة الحجز حتى 58، الفراغات حتى 16، الأوقات بعد 16:00 حتى 10، توازن الأيام حتى 10، صحة البيانات حتى 18؛ وتُقيَّد النتيجة بين 0 و100.", "en": "Quality = 100 minus penalties: booking safety up to 58, gaps up to 16, slots after 16:00 up to 10, day balance up to 10, data health up to 18; the result is clamped to 0–100." },
+        { "ar": "الجاهزية «محجوب» إن وُجد مانع اعتماد أو موعد ناقص؛ وإلا فجاهز عند 85 فأكثر، ومراجعة عند 70 فأكثر، وإلا يحتاج عملاً.", "en": "Readiness is blocked when an approval blocker or an incomplete appointment exists; otherwise ready at 85 or more, review at 70 or more, else needs work." },
+        { "ar": "استدعاء بقسم أو فصل غير محدد يردّ 400، وبقسم خارج صلاحيات المستخدم يردّ 403.", "en": "A call with no department or term returns 400, and one for a department outside the user's permissions returns 403." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/overview", "src/utils/scheduleIntelligence.ts#analyzeSchedule"], "tests": ["tests/intelligence-scope-api.mjs"] }
+    },
+    {
+      "id": "FR-INT-002",
+      "kind": "functional",
+      "title": { "ar": "نطاق القراءة: كلية أو كل كليات القسم", "en": "Reading scope: one college or all colleges of a department" },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ بنطاق «هذه الكلية» افتراضياً، وأن يوسّع القراءة عند طلب «كل كليات القسم» إلى الأقسام المتماثلة في الكليات الأخرى التي يملك المستخدم صلاحيتها فقط، وأن يعامل أي قيمة نطاق غير معروفة كنطاق الكلية الواحدة.",
+        "en": "The system shall read with the «this college» scope by default, widen the reading on a «all colleges of the department» request to the matching departments in other colleges that the user is permitted to read, and treat any unknown scope value as the single-college scope."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "dean"],
+      "acceptance": [
+        { "ar": "قسم الرياضيات في كليتين يُقرأ معاً عند طلب نطاق القسم، ولا يُضم قسم آخر مختلف الاسم.", "en": "A mathematics department in two colleges is read together on a department-scope request, and a department with a different name is not added." },
+        { "ar": "قيمة نطاق مثل «invalid» تعيد قراءة الكلية الواحدة بلا خطأ.", "en": "A scope value such as «invalid» returns the single-college reading without error." },
+        { "ar": "مقارنة الفصول والتجميع يحتفظان بمصدر كل صف، فلا يُخلط مقرر وشعبة متماثلان في كليتين.", "en": "Term comparison and aggregation keep each row's source, so an identical course and section in two colleges are never merged." }
+      ],
+      "evidence": { "code": ["src/server/core/scope.ts#intelligenceReadScopes", "src/utils/intelligenceReadingScope.ts", "src/components/IntelligenceScopeSwitch.tsx"], "tests": ["tests/intelligence-reading-scope-audit.ts", "tests/intelligence-scope-api.mjs"] }
+    },
+    {
+      "id": "FR-INT-003",
+      "kind": "functional",
+      "title": { "ar": "قراءة القاعة", "en": "Room insight" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لقاعة معتمدة في سجل المباني والقاعات وفصل محدد حجوزاتها الأسبوعية والفترات الحرة التي لا تقل عن 30 دقيقة وتوزيع استعمالها على الأقسام، مع إخفاء اسم القسم صاحب أي حجز خارج صلاحيات المستخدم.",
+        "en": "The system shall show, for a room confirmed in the buildings and rooms registry and a given term, its weekly bookings, the free windows of at least 30 minutes and its usage split by department, hiding the department name of any booking outside the user's permissions."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "طلب بلا فصل أو بلا قاعة معرّفة ردّ 400، وقاعة غير معتمدة أو غير نشطة ردّ 400.", "en": "A request with no term or no identified room returns 400, as does an unconfirmed or inactive room." },
+        { "ar": "حجز قسم آخر لمستخدم غير مدير يظهر بعبارة «حجز من قسم آخر» مع وقته، ويُجمع استعماله تحت «أقسام أخرى».", "en": "Another department's booking shows to a non-administrator as «booking from another department» with its time, and its usage is grouped under «other departments»." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/room"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-004",
+      "kind": "functional",
+      "title": { "ar": "قراءة الأستاذ", "en": "Instructor insight" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لأستاذ وفصل محددين حمله الأسبوعي وفراغاته ومواعيده الظاهرة للمستخدم وعدد التزاماته خارج نطاق صلاحياته، وألا يعرض أستاذاً لا يظهر في أي قسم مسموح للمستخدم غير المدير.",
+        "en": "The system shall show, for a given instructor and term, the weekly load, gaps, the appointments visible to the user and the count of commitments outside the user's permissions, and shall not show an instructor who appears in no department the non-administrator user may read."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "طلب بلا أستاذ أو فصل ردّ 400، وأستاذ بلا مواعيد ظاهرة لغير المدير ردّ 403.", "en": "A request with no instructor or term returns 400, and an instructor with no visible appointments returns 403 for a non-administrator." },
+        { "ar": "المواعيد في الأقسام الأخرى تُحسب في externalCommitments ولا تُعرض صفوفها.", "en": "Appointments in other departments are counted in externalCommitments and their rows are not shown." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/professor/:id"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-005",
+      "kind": "functional",
+      "title": { "ar": "قصة الموعد وسياقه", "en": "Appointment story and context" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لموعد محدد سياقه: مواعيد الأستاذ والمقرر والقاعة الظاهرة للمستخدم، والتعارضات مع حجوزات خارج نطاقه بلا كشف تفاصيلها، وذاكرة القسم التاريخية، وحياة المقرر، وكلفة التغيير، وأسباب اختيار القاعة والأستاذ، وخطاً زمنياً لتغيّر الموعد بين النسخ والمسودات والتعليقات والتدقيق.",
+        "en": "The system shall show, for a given appointment, its context: the instructor, course and room appointments visible to the user, conflicts with bookings outside the user's scope without revealing their details, the department's historical memory, the course life, the cost of a change, the reasons behind the room and instructor choice, and a timeline of how the appointment changed across versions, drafts, comments and the audit trail."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "موعد غير موجود ردّ 404، وخارج النطاق ردّ 403.", "en": "A missing appointment returns 404 and one outside the scope returns 403." },
+        { "ar": "تعارض مع حجز قسم آخر يعود بمعرّف الطرف الآخر صفراً بدل كشفه.", "en": "A conflict with another department's booking returns the other party's identifier as zero instead of revealing it." },
+        { "ar": "فشل حساب أسباب «لماذا؟» لا يُسقط الاستجابة؛ تعود بقائمة أسباب فارغة.", "en": "A failure computing the why-reasons does not fail the response; it returns an empty reasons list." },
+        { "ar": "الخط الزمني يقرأ حتى 16 نسخة و20 مسودة و30 سجل تدقيق للموعد.", "en": "The timeline reads up to 16 versions, 20 drafts and 30 audit entries for the appointment." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/context/:id", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/replay/:id", "src/utils/advancedIntelligence.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-006",
+      "kind": "functional",
+      "title": { "ar": "الحركة المكانية وتبديل القاعات الآمن", "en": "Campus movement and safe room swaps" },
+      "text": {
+        "ar": "يجب على النظام أن يكشف انتقال الأستاذ بين مبنيين في فاصل أقل من المطلوب بحسب ملف حركة الحرم، وأن يقترح تقريب القاعة أو تبديل قاعتين دون تغيير الوقت أو الأستاذ أو الأيام، ولا يعرض اقتراحاً إلا إذا لم يزد خطر الحركة على أي أستاذ في الفصل.",
+        "en": "The system shall detect an instructor moving between two buildings with a gap shorter than the campus movement profile requires, and propose moving the room or swapping two rooms without changing the time, instructor or days, and shall show a proposal only if it does not raise movement risk for any instructor in the term."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "الهامش = الفاصل − زمن الانتقال؛ أقل من 0 خطر عالٍ، من 0 إلى 10 دقائق انتقال ضيق، وما فوقه لا يُعرض.", "en": "Margin = gap − travel time; below 0 is high risk, 0 to 10 minutes is a tight transfer, anything above is not listed." },
+        { "ar": "الدرجة = 100 − 18 لكل خطر عالٍ − 6 لكل ضيق، وتبقى فوق 0.", "en": "Score = 100 − 18 per high risk − 6 per tight transfer, floored at 0." },
+        { "ar": "يُفحص أخطر 12 خطراً عالياً، ويُعاد 8 اقتراحات كحد أقصى، ولا يُقبل اقتراح إلا إذا لم ترتفع المخاطر العالية في الفصل كله ولم تنخفض درجته العامة.", "en": "The 12 worst high risks are examined, at most 8 proposals are returned, and a proposal is accepted only if term-wide high risks do not rise and the overall score does not fall." },
+        { "ar": "يُعرض حتى 40 خطراً في القراءة.", "en": "Up to 40 risks are listed in the reading." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#spatialBurnoutAnalysis", "src/server/routes/intelligenceRoutes.ts#roomCastlingProposals"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-007",
+      "kind": "functional",
+      "title": { "ar": "توقع أثر السحب قبل الإفلات", "en": "Ripple forecast before a drop" },
+      "text": {
+        "ar": "يجب على النظام أن يتوقع أثر نقل موعد إلى يوم ووقت مقترحين، من تعارضات وأثر على الأستاذ والحركة المكانية، قبل أن يفلته المستخدم، وألا يكتب شيئاً.",
+        "en": "The system shall forecast the effect of moving an appointment to a proposed day and time, including conflicts, instructor effect and campus movement, before the user drops it, and shall write nothing."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "يوم خارج الأحد–الخميس أو وقت بغير صيغة HH:MM ردّ 400 «موضع السحب غير صالح».", "en": "A day outside Sunday–Thursday or a time not in HH:MM returns 400 «invalid drag position»." },
+        { "ar": "وقت يُخرج الموعد عن ساعات اليوم المعتمدة ردّ 400 بذكر حدّي اليوم.", "en": "A time that pushes the appointment outside the configured day hours returns 400 naming the day bounds." },
+        { "ar": "تحمل الاستجابة درجة الحركة المكانية قبل وبعد والفرق.", "en": "The response carries the movement score before and after and the difference." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/ripple/:id", "src/utils/scheduleInnovation.ts#forecastScheduleMove"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-008",
+      "kind": "functional",
+      "title": { "ar": "المساعد التحليلي بقواعد صريحة", "en": "Rule-based analytical assistant" },
+      "text": {
+        "ar": "يجب على النظام أن يجيب أسئلة المساعد التحليلي عن الجدول بقواعد صريحة على بيانات القسم المسموح به فقط، وأن يعيد مع النص أرقاماً ورسوماً وقبل/بعد حين يلزم، ولا يكتب أي تغيير على الجدول.",
+        "en": "The system shall answer analytical-assistant questions about the schedule with explicit rules over the permitted department's data only, and return figures, bars and a before/after pair alongside the text when relevant, writing no change to the schedule."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "dean"],
+      "acceptance": [
+        { "ar": "سؤال أقصر من حرفين ردّ 400.", "en": "A question shorter than two characters returns 400." },
+        { "ar": "يميّز المساعد: أكبر مشكلة، الفراغات (بعتبة افتراضية 3 ساعات تُغيَّر بـ«N ساعة»)، تحقيق ازدحام يوم، «إذا نقلت…»، أفضل توزيع، القاعات، ثم قراءة عامة عند عدم التطابق.", "en": "The assistant distinguishes: biggest problem, gaps (default threshold 3 hours, changed by «N hours»), a day-crowding investigation, «if I move…», best distribution, rooms, and a general reading when nothing matches." },
+        { "ar": "سؤال جمعي مثل «منو/كم/الجميع» لا يُقرأ على أنه اسم أستاذ، وأستاذ مذكور لا موعد له في القسم يُجاب بأنه بلا بيانات هنا دون خلط بقسم آخر.", "en": "An aggregate question such as who/how many/everyone is never read as an instructor name, and a named instructor with no appointment in the department is answered as having no data here, without mixing in another department." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/copilot"], "tests": ["tests/intelligence-scope-api.mjs"] }
+    },
+    {
+      "id": "FR-INT-009",
+      "kind": "functional",
+      "title": { "ar": "تحديد النية بخدمة Gemini ضمن دوال مسموحة", "en": "Intent identification by Gemini within allowed functions" },
+      "text": {
+        "ar": "يجب على النظام أن يرسل جملة الاستعلام بلغة طبيعية إلى خدمة Gemini مع معرّفات النطاق وأسماء خمس دوال مسموحة فقط، وأن ينقّي الاستدعاءات المقترحة فلا يقبل منها إلا الدوال المسموحة بوسائط مقيّدة، وألا يُنفَّذ أي استدعاء قبل التنقية.",
+        "en": "The system shall send the natural-language query to the Gemini service together with the scope identifiers and the names of five allowed functions only, and sanitise the proposed calls so that only allowed functions with bounded arguments are accepted, and no call is executed before sanitising."
+      },
+      "rationale": { "ar": "خدمة Gemini تقرأ النص وتقترح؛ والتنفيذ دائماً عبر المدققات الحتمية وبتأكيد صريح من المستخدم.", "en": "The Gemini service reads the text and proposes; execution is always through the deterministic validators and an explicit confirmation by the user." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "الدوال المسموحة: check_conflicts وfind_rooms وcheck_instructors وcheck_regulations وsimulate_schedule؛ واسم آخر مثل updateSchedule يُسقط.", "en": "Allowed functions: check_conflicts, find_rooms, check_instructors, check_regulations, simulate_schedule; any other name such as updateSchedule is dropped." },
+        { "ar": "يُقبل حتى 8 استدعاءات، وحتى 24 وسيطاً لكل استدعاء، والنص حتى 240 حرفاً، والمصفوفة حتى 20 عنصراً، والكائن حتى 2000 حرف.", "en": "Up to 8 calls are accepted, with up to 24 arguments each, strings up to 240 characters, arrays up to 20 items and objects up to 2000 characters." },
+        { "ar": "وسيط اسمه يحوي فعل كتابة (حفظ، نشر، تطبيق، حذف…) أو commit أو confirmed يُحذف؛ فمعاملة {commit:true} لا تصل إلى التنفيذ.", "en": "An argument whose name contains a write verb (save, publish, apply, delete…) or is commit or confirmed is removed, so {commit:true} never reaches execution." },
+        { "ar": "نص الاستعلام يُقصّ إلى 800 حرف، وأقل من حرفين ردّ 400.", "en": "The query text is cut to 800 characters, and fewer than two characters returns 400." }
+      ],
+      "evidence": { "code": ["src/utils/geminiScheduleLayer.ts#sanitizeGeminiScheduleCalls", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/nl-schedule", "src/server/core/gemini.ts"], "tests": ["tests/gemini-schedule-layer.ts"] }
+    },
+    {
+      "id": "FR-INT-010",
+      "kind": "functional",
+      "title": { "ar": "تنفيذ الاستدعاءات بمنطق حتمي ضمن النطاق", "en": "Deterministic scoped execution of calls" },
+      "text": {
+        "ar": "يجب على النظام أن ينفّذ كل استدعاء مقبول في الخادم بمنطقه الحتمي على جدول القسم والفصل المسموحين، دون أن يتلقى نتيجة التنفيذ من خدمة Gemini.",
+        "en": "The system shall execute each accepted call on the server with its own deterministic logic over the permitted department and term schedule, without taking any execution result from the Gemini service."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "simulate_schedule يعيد معاينة النقل؛ check_conflicts يعيد عدد الموانع الحرجة وأول 6 تنبيهات؛ check_regulations يقيّم قواعد القسم.", "en": "simulate_schedule returns the move preview; check_conflicts returns the critical blocker count and the first 6 alerts; check_regulations evaluates the department rules." },
+        { "ar": "find_rooms يفحص حتى 80 قاعة نشطة معتمدة للقسم ويعيد حتى 12 خالية في نافذة 30 دقيقة.", "en": "find_rooms examines up to 80 active confirmed rooms of the department and returns up to 12 that are free in a 30-minute window." },
+        { "ar": "check_instructors يطابق الاسم ويعيد حتى 12 أستاذاً بعدد مواعيدهم.", "en": "check_instructors matches the name and returns up to 12 instructors with their appointment counts." },
+        { "ar": "نطاق غير مسموح ردّ 403 قبل أي استدعاء لخدمة Gemini.", "en": "A scope that is not permitted returns 403 before any call to the Gemini service." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#executeGeminiScheduleCalls"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-011",
+      "kind": "functional",
+      "title": { "ar": "الرجوع إلى محلل القواعد عند غياب الخدمة", "en": "Fallback to the rule parser" },
+      "text": {
+        "ar": "يجب على النظام، حين لا تعيد خدمة Gemini استدعاءً صالحاً (لا مفتاح، أو رفض، أو انتهاء المهلة، أو ناتج غير صالح)، أن يحلل الجملة بمحلل قواعد حتمي ويخرج الاستدعاءات نفسها، وأن يذكر مصدرها في الاستجابة.",
+        "en": "When the Gemini service returns no valid call (no key, a refusal, a timeout or an invalid result), the system shall parse the sentence with a deterministic rule parser and produce the same kind of calls, and state their source in the response."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "«انقل مقرر 101 إلى الأربعاء 11:00» يعطي بالترتيب simulate_schedule ثم check_conflicts ثم check_regulations، مع اليوم 3 والوقت 11:00.", "en": "«Move course 101 to Wednesday 11:00» yields simulate_schedule, check_conflicts, check_regulations in order, with day index 3 and time 11:00." },
+        { "ar": "حقل source يكون gemini-function-calls أو deterministic-parser بحسب المصدر.", "en": "The source field is gemini-function-calls or deterministic-parser according to the origin." },
+        { "ar": "جملة لا يستخرج منها شيء تعيد ok:false وتلميحاً يطلب ذكر المقرر أو اليوم أو الوقت أو القاعة.", "en": "A sentence from which nothing is extracted returns ok:false and a hint asking for the course, day, time or room." }
+      ],
+      "evidence": { "code": ["src/utils/geminiScheduleLayer.ts#deterministicSchedulingCalls", "src/utils/naturalQuery.ts#parseNaturalQuery", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/nl-schedule"], "tests": ["tests/gemini-schedule-layer.ts"] }
+    },
+    {
+      "id": "FR-INT-012",
+      "kind": "functional",
+      "title": { "ar": "معاينة النقل بلا كتابة وتأكيد منفصل", "en": "Move preview without writing, separate confirmation" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد لطلب النقل بلغة طبيعية معاينة قبل/بعد مع التعارضات واللوائح وجودة الجدول، وأن يعلن أن التأكيد مطلوب، وألا يكتب على الجدول؛ ويتم التطبيق بخطوة ثانية صريحة عبر مسار النقل المعتاد.",
+        "en": "The system shall return, for a natural-language move request, a before/after preview with conflicts, regulations and schedule quality, declare that confirmation is required, and write nothing to the schedule; applying is a second explicit step through the usual move path."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "تحمل الاستجابة commitRequired:true وcanApply وblockedReason حين يوجد مانع حفظ.", "en": "The response carries commitRequired:true, canApply, and blockedReason when a save blocker exists." },
+        { "ar": "مقرر برمز يطابق أكثر من موعد ولا يحدد اليوم ردّ ambiguous مع حتى 6 خيارات (الشعبة والأيام والوقت).", "en": "A course code matching more than one appointment with no day given returns ambiguous with up to 6 options (section, days, time)." },
+        { "ar": "رمز لا يطابق مقرراً في القسم والفصل يعود برسالة لا خطأ HTTP، ومدة المحاضرة تُحفظ عند تغيير وقت البدء.", "en": "A code matching no course in the department and term returns a message rather than an HTTP error, and the lecture duration is preserved when the start time changes." },
+        { "ar": "نص الاستجابة يقول إن المسار معاينة فقط وإن التنفيذ يبقى بعد تأكيد المستخدم.", "en": "The response text states that the path is preview only and execution remains after the user's confirmation." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#previewNaturalLanguageMove", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/nl-move"], "tests": ["tests/gemini-schedule-layer.ts"] }
+    },
+    {
+      "id": "FR-INT-013",
+      "kind": "functional",
+      "title": { "ar": "مختبر القرار الأكاديمي", "en": "Academic decision lab" },
+      "text": {
+        "ar": "يجب على النظام أن يجرّب في مختبر القرار الأكاديمي تحريك وقت شعبة قائمة إلى أوقات بديلة، وأن يعدّ عدد الطلبة المؤهلين الذين يصبح جدولهم المرغوب كاملاً ممكناً قبل وبعد، دون كتابة أي صف، ولا يعرض نتيجة لعدد من الطلبة أقل من حد الخصوصية.",
+        "en": "The system shall try, in the academic decision lab, moving the time of an existing section to alternative times and count the eligible students whose full wished bundle becomes arrangeable before and after, writing no row, and shall not show a result for fewer students than the privacy floor."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "dean", "viceDean"],
+      "acceptance": [
+        { "ar": "حد الخصوصية 3 طلبة؛ أقل من 3 أو أكثر من 800 مؤهل لا يُنتج سيناريوهات.", "en": "The privacy floor is 3 students; fewer than 3 or more than 800 eligible students produces no scenarios." },
+        { "ar": "يُحلَّل حتى 12 مقرراً بمجموعات من 3 إلى 250 طالباً، وحتى 3 شعب لكل مقرر، وأوقات البدء 08:00 و09:30 و11:00 و12:30 و14:00 و15:30 و17:00 بإزاحة لا تتجاوز 300 دقيقة.", "en": "Up to 12 courses with groups of 3 to 250 students are analysed, up to 3 sections per course, start times 08:00, 09:30, 11:00, 12:30, 14:00, 15:30 and 17:00 with a shift of at most 300 minutes." },
+        { "ar": "حركة تتعارض مع أستاذ أو قاعة تُسقط، وأخرى فائدتها أقل من 3 تُحتسب «دون الحد» ولا تُعرض.", "en": "A move that collides with an instructor or a room is dropped, and one that helps fewer than 3 is counted as below the floor and not shown." },
+        { "ar": "تحمل كل نتيجة تنبيهاً بأنها غير مطبقة ولا تحسم السعة ولا موافقة الأستاذ ولا اللائحة، ولوحة التشخيص تعدّ مراحل القمع حتى تفسّر الفراغ.", "en": "Every result carries a caution that it is not applied and settles neither capacity, instructor consent nor regulations, and the diagnostics panel counts the funnel stages so an empty result explains itself." }
+      ],
+      "evidence": { "code": ["src/utils/academicDecisionLab.ts#buildAcademicDecisionLab", "src/server/academicAdvisoryData.ts", "src/components/AcademicDecisionLabPanel.tsx"], "tests": ["tests/academic-advice-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-014",
+      "kind": "functional",
+      "title": { "ar": "غرفة القرار والتحسين الآلي والمقترح التلقائي", "en": "Decision room, automatic optimiser and auto proposal" },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم بدائل لجدول القسم من غرفة القرار والتحسين الآلي والمقترح التلقائي كسيناريوهات تُراجع ولا تُطبَّق، وألا يقترح تغييراً إلا إذا لم يزد موانع الحفظ ولم تنقص جودة الجدول.",
+        "en": "The system shall offer alternatives for a department schedule through the decision room, the automatic optimiser and the auto proposal as scenarios to review, not apply, and shall propose a change only if it does not increase save blockers and does not lower schedule quality."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "التحسين الآلي يستكشف 240 محاولة بمولد عشوائي مثبّت البذرة فيعيد النتيجة نفسها لمدخل نفسه، ويعيد حتى 3 خيارات، ويعلن أنه لا ينشر ولا يغيّر الأيام ولا القاعات وأن البوابة بشرية.", "en": "The optimiser explores 240 attempts with a fixed-seed generator so the same input gives the same result, returns up to 3 options, and declares it does not publish, change days or rooms, and that the gate is human." },
+        { "ar": "المقترح التلقائي يغيّر الأوقات فقط ويُبقي المقرر والأستاذ والأيام والقاعة؛ وإن لم يكن التحسين آمناً أعاد الجدول كما هو بصفر تغييرات.", "en": "The auto proposal changes times only and keeps course, instructor, days and room; if the improvement is not safe it returns the schedule unchanged with zero changes." },
+        { "ar": "قسم بلا مواعيد في الفصل يتلقى ردّ 200 بتوجيه إلى «بداية الفصل من الفصل السابق» أو الاستيراد، لا خطأ 400.", "en": "A department with no appointments in the term receives a 200 response pointing to «start of term from the previous term» or import, not a 400 error." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/autopilot", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/auto-schedule", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/war-room", "src/utils/scheduleInnovation.ts#runScheduleAutopilot"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-015",
+      "kind": "functional",
+      "title": { "ar": "قواعد الجدولة المخصصة", "en": "Custom scheduling rules" },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لمدير النظام ذي الصلاحية العليا إنشاء قاعدة جدولة لقسم وفصل من ستة أنواع وتفعيلها وتعطيلها وحذفها، وأن يقيّم الجدول وسيناريوهاته مقابل القواعد المفعّلة.",
+        "en": "The system shall let a power administrator create a scheduling rule for a department and term from six types, enable, disable and delete it, and evaluate the schedule and its scenarios against the enabled rules."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "الأنواع: آخر وقت للأستاذ، يوم راحة للأستاذ، يوم راحة للقسم، قاعة لمقرر، أقصى فراغ للأستاذ، ممر القاعات؛ ونوع آخر ردّ 400.", "en": "Types: instructor latest end, instructor day off, department day off, course room, max instructor gap, room doorway; any other type returns 400." },
+        { "ar": "أقصى فراغ يُقيَّد بين 30 و480 دقيقة (افتراضي 120)، وممر القاعات بين 1 و60 دقيقة.", "en": "Max gap is clamped between 30 and 480 minutes (default 120), and a doorway between 1 and 60 minutes." },
+        { "ar": "لا تُنشأ قاعدة جديدة لأستاذ متقاعد أو متفرغ، وقاعة المقرر يجب أن تكون من السجل الرسمي.", "en": "No new rule is created for a retired or released instructor, and a course room must come from the official registry." },
+        { "ar": "مستخدم بلا صلاحية القوة يُرفض في الإنشاء والتعديل والحذف.", "en": "A user without power rights is refused on create, edit and delete." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/constraints", "src/utils/scheduleInnovation.ts#evaluateScheduleConstraints"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-016",
+      "kind": "functional",
+      "title": { "ar": "محاكاة السياسات", "en": "Policy simulation" },
+      "text": {
+        "ar": "يجب على النظام أن يحاكي أثر سياسة من أربعة أنواع على مواعيد الفصل مقابل تاريخ آخر عشر سنوات أكاديمية، وأن يعيد حجم الأثر على الأقسام والأساتذة والقاعات دون تغيير أي موعد أو قاعدة.",
+        "en": "The system shall simulate the effect of a policy of four types on the term's appointments against the last ten academic years of history, and return the size of the effect on departments, instructors and rooms without changing any appointment or rule."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["departmentHead", "dean", "admin"],
+      "acceptance": [
+        { "ar": "الأنواع: يوم راحة، إغلاق مبنى، لا محاضرات بعد وقت، نمو بنسبة (افتراضي 10)؛ ونوع آخر ردّ 400.", "en": "Types: a day off, close a building, no classes after a time, growth by a percentage (default 10); any other type returns 400." },
+        { "ar": "نطاق «الجامعة» لا يُقبل إلا من مدير النظام، وغيره يُحصر بنطاقه.", "en": "The university scope is accepted only from an administrator; others are held to their own scope." },
+        { "ar": "تحمل الاستجابة guardrail يعلن أنها محاكاة فقط.", "en": "The response carries a guardrail stating it is a simulation only." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/policy-simulate", "src/utils/advancedIntelligence.ts#simulatePolicy"], "tests": ["tests/intelligence-scope-api.mjs"] }
+    },
+    {
+      "id": "FR-INT-017",
+      "kind": "functional",
+      "title": { "ar": "القرارات المفتوحة", "en": "Open decisions" },
+      "text": {
+        "ar": "يجب على النظام أن يحتفظ بقائمة قرارات مفتوحة لكل قسم وفصل يضيف إليها المستخدم قراراً بعنوان وأولوية ومسؤول وموعد، ويضم إليها قرارات مستنتجة من تنبيهات الجدول والشذوذ المنطقي، ويغلق المسجَّل منها بتحديث حالته.",
+        "en": "The system shall keep an open-decisions list per department and term to which the user adds a decision with a title, priority, owner and due date, merge into it decisions inferred from schedule alerts and logical anomalies, and close recorded ones by updating their status."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "عنوان أقل من 3 أحرف ردّ 400؛ ويُقصّ العنوان عند 140 حرفاً والتفصيل عند 500 والمسؤول عند 100.", "en": "A title under 3 characters returns 400; the title is cut at 140 characters, the detail at 500 and the owner at 100." },
+        { "ar": "الأولوية low أو medium أو high (الافتراضي medium)، والحالة open أو done.", "en": "Priority is low, medium or high (default medium), and status is open or done." },
+        { "ar": "المستنتج حتى 5 تنبيهات و4 حالات شذوذ غير منخفضة، ويدخل في «المفتوح».", "en": "Inferred items are up to 5 alerts and 4 non-low anomalies, and count towards the open total." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/open-decisions"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-018",
+      "kind": "functional",
+      "title": { "ar": "التنبؤ بحاجة الفصل القادم", "en": "Next-term demand forecast" },
+      "text": {
+        "ar": "يجب على النظام أن يتنبأ لكل مقرر بعدد الشعب المتوقع للفصل القادم بقيمة ومدى من شعب الفصول السابقة وإحصاء التسجيل لآخر 6 فصول ورغبات الرادار الحيّة، وبما يحجز دفعة من المسبقات والساعات المزدحمة وتأخر التخرج، بحدود نطاق القارئ ودون كتابة.",
+        "en": "The system shall forecast, for each course, the expected number of sections for the next term as a value and a range from previous terms' sections, registration statistics for the last 6 terms and live radar wishes, together with prerequisite bottlenecks, crowded hours and graduation delay, within the reader's scope and without writing."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "dean", "viceDean"],
+      "acceptance": [
+        { "ar": "يُرجَّح كل فصل أقدم بوزن ×0.6، وتُفضَّل فصول الموسم نفسه، والنتيجة حتمية بلا عشوائية ولا ساعة.", "en": "Each older term is weighted ×0.6, terms of the same season are preferred, and the result is deterministic with no randomness or clock." },
+        { "ar": "يُطبَّق نطاق القارئ قبل الحساب لا بعده، ولا يتأثر قسم بأرقام قسم آخر.", "en": "The reader's scope is applied before computing, not after, and a department is not affected by another department's figures." },
+        { "ar": "لا تخرج من الخادم قائمة طلبة ولا معرّف طالب؛ التوزيع والأسباب أعداد فقط، وتخرّج محاكاة التأخر حتى 12 فصلاً.", "en": "No student list or student identifier leaves the server; the distribution and reasons are counts only, and the graduation simulation runs up to 12 terms." },
+        { "ar": "الاختبار الرجعي يحجب الفصل المقاس وما بعده فلا يتسرب المستقبل، ويُقاس خطأ كل مقرر بأنه Σ|المتوقع − الفعلي| ÷ Σ الفعلي.", "en": "The backtest hides the measured term and later ones so the future does not leak, and each course's error is Σ|expected − actual| ÷ Σ actual." }
+      ],
+      "evidence": { "code": ["src/server/predictiveInsight.ts", "src/utils/predictiveIntelligence.ts", "src/server/simulationRoutes.ts#/api/simulation/predictive", "src/components/PredictiveInsightPanel.tsx"], "tests": ["tests/predictive-intelligence-audit.ts", "tests/predictive-backtest-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-019",
+      "kind": "functional",
+      "title": { "ar": "ثقة التنبؤ وبوابة الإجراء", "en": "Forecast confidence and action gate" },
+      "text": {
+        "ar": "يجب على النظام أن يربط كل رقم متنبأ به بدرجة ثقة صريحة من أربعة مستويات، وألا يفعّل إجراء الفتح بضغطة واحدة إلا من ثقة متوسطة فأعلى، وأن يعرض سبب التعطيل حين تضعف الثقة.",
+        "en": "The system shall attach to every forecast figure an explicit confidence of four levels, enable the one-click open action only from medium confidence or higher, and show the reason for disabling it when confidence is weak."
+      },
+      "rationale": { "ar": "حتى لا يُقدَّم تخمين كأنه حقيقة.", "en": "So that a guess is not presented as a fact." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "dean"],
+      "acceptance": [
+        { "ar": "الدرجة متوسط مرجّح: عدد الفصول ÷ 4 بوزن 45، ثبات الأرقام بوزن 25، اتفاق التاريخ مع الرغبات بوزن 20، جودة المدخلات بوزن 10.", "en": "The score is a weighted mean: number of terms ÷ 4 with weight 45, stability of the figures weight 25, agreement of history with wishes weight 20, input quality weight 10." },
+        { "ar": "المستويات: عالية عند 0.70 فأكثر، متوسطة عند 0.45 فأكثر، وإلا منخفضة؛ وصفر فصول بلا إشارة حية «لا يكفي التاريخ».", "en": "Levels: high at 0.70 or more, medium at 0.45 or more, else low; zero terms with no live signal is «history not enough»." },
+        { "ar": "فصل واحد أو أقل يسقّف الدرجة عند 0.34، وغياب فصل من الموسم نفسه يضرب الدرجة في 0.75، وخطأ الاختبار الرجعي يخفضها بما لا يزيد على النصف.", "en": "One term or fewer caps the score at 0.34, no previous term of the same season multiplies it by 0.75, and the backtest error lowers it by at most half." },
+        { "ar": "إجراء «مراجعة الفائض» لا يُفعَّل إلا عند فائض 2 فأكثر وبثقة كافية، ولا يغلق شيئاً تلقائياً.", "en": "The surplus review action is enabled only for a surplus of 2 or more with enough confidence, and never closes anything automatically." }
+      ],
+      "evidence": { "code": ["src/utils/predictiveIntelligence.ts#confidenceFrom", "src/utils/predictiveIntelligence.ts#isActionable", "src/components/PredictiveInsightPanel.tsx"], "tests": ["tests/predictive-intelligence-audit.ts", "tests/predictive-backtest-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-020",
+      "kind": "functional",
+      "title": { "ar": "بصيرة الرادار: أسباب النقص وجودة الشعب", "en": "Radar insight: shortfall causes and offering quality" },
+      "text": {
+        "ar": "يجب على النظام أن يشرح للطلبة الذين لم يبلغوا الحد المطلوب من الساعات سبب النقص بتصنيف يجمع إلى عددهم، وأن يعرض الشعب التي بياناتها ناقصة مع إمكان فتح صفها، بحدود نطاق القارئ.",
+        "en": "The system shall explain, for students who did not reach the required hours, the shortfall cause in a classification that sums to their count, and list the offerings with incomplete data with a way to open their row, within the reader's scope."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "dean", "viceDean"],
+      "acceptance": [
+        { "ar": "مجموع الأسباب = عدد من لم يبلغ 12 ساعة.", "en": "The sum of causes equals the number of students who did not reach 12 hours." },
+        { "ar": "الحساب ثقيل فيُجرى عند الطلب مرة لكل بصمة مصدر ويُحفظ 10 دقائق، وطلبان متزامنان يشتركان في حساب واحد.", "en": "The computation is heavy, so it runs on request once per source fingerprint, is held for 10 minutes, and two simultaneous requests share one computation." },
+        { "ar": "يُجمع حتى 5000 بند جودة في الذاكرة ويُعرض 300 بعد تطبيق نطاق القارئ مع علم الاقتطاع.", "en": "Up to 5000 quality items are kept in memory and 300 are shown after the reader's scope is applied, with a truncation flag." },
+        { "ar": "طلب بلا دخول مرفوض (401 أو 403).", "en": "A request without sign-in is refused (401 or 403)." }
+      ],
+      "evidence": { "code": ["src/server/radarInsight.ts", "src/server/simulationRoutes.ts#/api/simulation/insight", "src/utils/registrationCauses.ts"], "tests": ["tests/radar-insight-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-021",
+      "kind": "functional",
+      "title": { "ar": "الطبقة الحية للجدول", "en": "Live schedule layer" },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم للجدول طبقة حية من ستة مشاهد: نظرة عامة وخريطة الضغط والصحة والعدالة وملخص الدقيقة وبداية الفصل وشبكة الأمان، من قراءة واحدة تضم النبض والصحة والعدالة وهشاشة الجدول ومرونة القاعات وطوبولوجيا التعارض وذاكرة القرارات.",
+        "en": "The system shall give the schedule a live layer of six scenes: overview, pressure map, health and fairness, one-minute brief, start of term and safety net, from one reading that carries pulse, health, fairness, fragility, room resilience, conflict topology and decision memory."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "dean"],
+      "acceptance": [
+        { "ar": "رقم «مانع اعتماد» في الطبقة هو رقم شريط الاعتماد نفسه (الاستثناء نفسه للأساتذة الوهميين وهوية القاعة نفسها).", "en": "The approval-blocker number in the layer is the approval bar's own number (same exemption for placeholder instructors and the same room identity)." },
+        { "ar": "تُحفظ الاستجابة 120 ثانية لكل نطاق (إلا في وضع التجربة) فيعيدها طلب لاحق دون إعادة حساب.", "en": "The response is held for 120 seconds per scope (except in demo mode), so a later request returns it without recomputation." },
+        { "ar": "يُفسح الخادم بين القراءات الست للحلقة الرئيسية حتى لا تتجمد بقية الطلبات أثناء الحساب.", "en": "The server yields to the main loop between the six readings so other requests are not frozen during computation." },
+        { "ar": "يعلن الرد أن قدرة الطوارئ بلا شاشة بعد (emergency:false) وأن ملخص الدقيقة يقول ما تغير منذ آخر نقطة أمان.", "en": "The response states that the emergency capability has no screen yet (emergency:false) and that the one-minute brief says what changed since the last safety point." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/living", "src/utils/livingSchedule.ts", "src/components/LivingScheduleLayer.tsx", "src/components/LivingScheduleScenes.tsx"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-022",
+      "kind": "functional",
+      "title": { "ar": "أثر المقرر وذاكرة الموعد", "en": "Course impact and appointment memory" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لمقرر ما يسبقه وما يفتحه والصحائف الفعالة التي تحمله والطلب عليه والمقاعد، وأن يعرض لموعد مصدره وأحدث 12 حدثاً مسجلاً عليه، ولا يخزن شيئاً جديداً.",
+        "en": "The system shall show, for a course, what precedes it, what it opens, the live plan sheets that carry it, the demand on it and its seats, and show for an appointment its origin and the latest 12 recorded events, storing nothing new."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "dean"],
+      "acceptance": [
+        { "ar": "مقرر غير موجود أو موعد غير موجود ردّ 404، وخارج الصلاحيات ردّ 403، وبلا دخول 401 أو أعلى.", "en": "A missing course or appointment returns 404, outside permissions returns 403, and without sign-in 401 or higher." },
+        { "ar": "الصحائف المعروضة غير الافتراضية وغير المؤرشفة، وتُدرج المسبقات والمتطلبات المصاحبة من قواعد الصحيفة.", "en": "The plan sheets shown exclude virtual and archived ones, and prerequisites and corequisites come from the sheet's rules." },
+        { "ar": "تحمل ذاكرة الموعد علم truncated حين تزيد الأحداث على 12.", "en": "The appointment memory carries a truncated flag when events exceed 12." }
+      ],
+      "evidence": { "code": ["src/server/insightRoutes.ts", "src/components/CourseImpact.tsx"], "tests": ["tests/radar-insight-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-023",
+      "kind": "functional",
+      "title": { "ar": "بنك معرفة المرشد", "en": "Guide knowledge bank" },
+      "text": {
+        "ar": "يجب على النظام أن يحتفظ في المستودع ببنك معرفة مؤلَّف يغطي كل ميزة معرّفة في المرشد، لكل ميزة من خطوة إلى أربع خطوات قصيرة بالفصحى وصيغتا سؤال على الأقل بالفصحى واللهجة الكويتية والإنجليزية، ولا يولَّد منه شيء وقت التشغيل.",
+        "en": "The system shall keep in the repository an authored knowledge bank covering every feature defined in the Guide, each feature having one to four short standard-Arabic steps and at least two question phrasings in standard Arabic, Kuwaiti dialect and English, with nothing generated at run time."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "كل ميزة في السجل لها مدخل في البنك، وخطواتها بين 1 و4، وصيغ السؤال لا تقل عن 2.", "en": "Every feature in the registry has a bank entry, its steps number 1 to 4, and the question phrasings are at least 2." },
+        { "ar": "نص الخطوات فصيح لا يحوي كلمات اللهجة، وتسمية «فريق» لا «كرسي».", "en": "Step text is standard Arabic with no dialect words, and the team is called «فريق» not the legacy term." },
+        { "ar": "صيغ السؤال للفهم فقط ولا تظهر للمستخدم.", "en": "Question phrasings are for understanding only and are never shown to the user." }
+      ],
+      "evidence": { "code": ["src/guide/bank.ts", "src/guide/smartGuide.ts#GUIDE_FEATURES"], "tests": ["tests/guide-brain-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-024",
+      "kind": "functional",
+      "title": { "ar": "فهم المرشد للسؤال ضمن صلاحيات الدور", "en": "Guide question understanding within role permissions" },
+      "text": {
+        "ar": "يجب على المرشد أن يفهم السؤال داخل المتصفح بلا طلب شبكي، بتقسيمه إلى ما لا يزيد على ثلاثة أجزاء وترتيب الميزات بالوزن، وألا يرشّح لمستخدم ميزة لا يصل إليها دوره ولو كانت الأقرب.",
+        "en": "The Guide shall understand a question inside the browser with no network request, by splitting it into at most three parts and ranking features by weight, and shall not suggest to a user a feature that the user's role cannot reach, even if it is the closest."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair", "admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "الوزن = 0.62 للتطابق مع صيغة السؤال + 0.30 للتغطية + 0.12 للعنوان، والشاشة الحالية تزيد 0.025 عند التقارب فقط.", "en": "Weight = 0.62 for matching a phrasing + 0.30 coverage + 0.12 title, and the current screen adds 0.025 only when scores are close." },
+        { "ar": "الثقة 0.34 فأكثر جواب، ودونها «غير متأكد» مع أقرب ثلاثة؛ وثقة أقل من 0.55 أو كلمات مجهولة أو منافس بنسبة 0.9 من الأول تضيف «هل تقصد؟».", "en": "Confidence of 0.34 or more is an answer, below it is «unsure» with the closest three; confidence under 0.55, unknown words or a rival within 0.9 of the first adds a «did you mean» list." },
+        { "ar": "سؤال «كيف أنقل مقرراً وكيف أطبع التقرير» يُقسم إلى جزأين، و«تقرير الأساتذة والأقسام» يبقى سؤالاً واحداً.", "en": "A question asking how to move a course and how to print the report is split into two parts, and a report of instructors and departments stays one question." },
+        { "ar": "مستخدم بصلاحية 7 فقط لا يُجاب بميزة النسخ الاحتياطي.", "en": "A user with permission 7 only is not answered with the backup feature." },
+        { "ar": "الأداء على 160 سؤالاً كتبها طرفان لم يريا البنك لا يقل عن 90٪.", "en": "Accuracy on 160 questions written by two parties who had not seen the bank is at least 90%." }
+      ],
+      "evidence": { "code": ["src/guide/brain/engine.ts", "src/guide/smartGuide.ts#canAccessGuideFeature"], "tests": ["tests/guide-brain-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-025",
+      "kind": "functional",
+      "title": { "ar": "فهم اللهجة الكويتية والتصحيح الإملائي", "en": "Kuwaiti-dialect understanding and spelling correction" },
+      "text": {
+        "ar": "يجب على المرشد أن يطبّع نص السؤال ويرجع الكلمات الكويتية والإنجليزية إلى مفهوم واحد بمعجم داخلي، وأن يصحح الأخطاء الإملائية بمسافة تحرير متناسبة مع طول الكلمة، وألا يعرض شيئاً من المعجم للمستخدم.",
+        "en": "The Guide shall normalise the question text and map Kuwaiti and English words to a single concept through an internal lexicon, correct spelling mistakes with an edit distance proportional to the word length, and show nothing of the lexicon to the user."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "التطبيع يوحد الهمزات والتاء المربوطة والألف المقصورة والتمديد والحركات والأرقام الهندية، فيصير «أَلقاعـــة الإدارية ١٢» «القاعه الاداريه 12».", "en": "Normalisation unifies hamza forms, ta marbuta, alef maksura, elongation, diacritics and Arabic-Indic digits, so a decorated spelling of «the administrative hall 12» becomes its plain form." },
+        { "ar": "الكلمة المصححة تقبل مسافة تحرير 1 لما دون 8 أحرف و2 لما بلغها، ولا تُصحَّح كلمة أقل من 5 أحرف؛ و«تعارظ» تقابل «تعارض».", "en": "Correction allows an edit distance of 1 below 8 letters and 2 from 8 letters, and a word under 5 letters is not corrected; a misspelled «clash» maps to its right word." },
+        { "ar": "المنفي بعد «مو/مب/مش/not» لا يُحتسب مطلوباً.", "en": "A word after the negators «mo/mob/mish/not» is not counted as requested." },
+        { "ar": "سؤال خارج عالم البرنامج (طقس، رواتب، مطاعم…) يُجاب بأنه خارج ما يعرفه المرشد.", "en": "A question outside the program's world (weather, salaries, restaurants…) is answered as outside what the Guide knows." }
+      ],
+      "evidence": { "code": ["src/guide/brain/normalize.ts", "src/guide/brain/lexicon.ts", "src/guide/brain/engine.ts#correct"], "tests": ["tests/guide-brain-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-026",
+      "kind": "functional",
+      "title": { "ar": "جولات المرشد على الشاشة", "en": "Guide on-screen tours" },
+      "text": {
+        "ar": "يجب على المرشد أن يبني جولة لكل ميزة من تعريفها نفسه ويمشي بها على الشاشة بمحرك حالات لا يختفي صامتاً: يظهر العنصر، أو ينتظر فعل المستخدم، أو يعلن بوضوح أنه لم يجده.",
+        "en": "The Guide shall build a tour for each feature from its own definition and walk it on screen with a state machine that never disappears silently: the element appears, it waits for the user's action, or it states plainly that it did not find it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "يبحث المحرك عن العنصر بنبضة كل 120 مللي ثانية لمدة 7000 مللي ثانية، وللخطوة الاختيارية 1200، ثم يعلن «لم يجده» ويواصل النظر كل 800 مللي ثانية دون سحب البطاقة.", "en": "The engine looks for the element every 120 ms for 7000 ms, for an optional step 1200 ms, then reports «missing» and keeps looking every 800 ms without taking the card away." },
+        { "ar": "الأمر الآمن للشاشة يُعاد أثناء البحث كل 8 نبضات، وخطوة اختيارية غائبة تُتجاوز بلا إزعاج.", "en": "The screen's safe command is resent every 8 polls during the search, and an absent optional step is skipped quietly." },
+        { "ar": "جولة من شاشة أخرى تفتح القائمة وتنتقل ثم تُظهر خطوة فعلية؛ والخطوة التي تنتظر الاختيار لا تتقدم وحدها.", "en": "A tour from another screen opens the menu, navigates and then shows a real step; a step waiting for a selection does not advance by itself." },
+        { "ar": "يُحفظ تقدم الجولة (الميزة ورقم الخطوة) في المتصفح، فتُستكمل جولة تُركت خلال يوم، ويُذكر المنجَز سبعة أيام، ويُبقى 40 سجلاً.", "en": "Tour progress (feature and step number) is stored in the browser, so a tour left within a day resumes, a finished one is remembered for seven days, and 40 records are kept." },
+        { "ar": "كل هدف جولة ومحدد موجود فعلاً في الشيفرة.", "en": "Every tour target and selector exists in the code." }
+      ],
+      "evidence": { "code": ["src/guide/tour/runner.ts", "src/guide/tour/tours.ts", "src/guide/awareness.ts#saveTourProgress", "src/components/guide/GuideTour.tsx"], "tests": ["tests/guide-tours-audit.ts", "tests/guide-targets-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-027",
+      "kind": "functional",
+      "title": { "ar": "وعي المرشد بالموقف وتلميحاته الهادئة", "en": "Guide situational awareness and quiet hints" },
+      "text": {
+        "ar": "يجب على المرشد أن يقرأ موقف المستخدم من الشاشة والنافذة المفتوحة والمحاضرة المحددة وحالة الاستيراد وآخر أفعاله، ويقترح ثلاثة اقتراحات على الأكثر، وألا يُظهر تلميحاً استباقياً إلا ضمن مهل تهدئة.",
+        "en": "The Guide shall read the user's situation from the screen, the open dialog, the selected lecture, the import state and recent actions, offer at most three suggestions, and show a proactive hint only within cooldown limits."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "مانع الاعتماد يرفع «مراجعة الاعتماد» أولاً حتى لو أُنهيت جولتها من قبل.", "en": "An approval blocker puts «approval review» first even if its tour was finished before." },
+        { "ar": "الموقف يصنع جواباً قبل الاقتراحات العادية: استيراد متوقف عند ملاحظات، تعذر قراءة الجدول الحالي، تعذر الفحص المسبق، اكتمال الفحص، محاضرة محددة فيها تعارض.", "en": "The situation produces an answer before ordinary suggestions: import stopped at notes, current schedule unreadable, pre-check failed, check complete, selected lecture in conflict." },
+        { "ar": "فترة التهدئة بين التلميحات 90 ثانية للثقة العالية و6 دقائق للمتوسطة و12 دقيقة للمنخفضة، ولا يتكرر تلميح تجاهله المستخدم قبل 24 ساعة، وبصيغة «صامت» لا تلميحات.", "en": "The cooldown between hints is 90 seconds for high confidence, 6 minutes for medium and 12 minutes for low, a hint the user ignored does not recur within 24 hours, and in quiet mode only high-confidence hints appear." },
+        { "ar": "الخطوة التالية المتوقعة تحتاج 5 مرات استعمال و3 نجاحات ونسبة نجاح 0.6 على الأقل.", "en": "The predicted next step needs at least 5 uses, 3 successes and a 0.6 success rate." },
+        { "ar": "أثر الجلسة 8 أفعال كحد أقصى في الذاكرة فقط، معرّفات ثابتة بلا أسماء ولا قاعات، ويموت بإغلاق الصفحة.", "en": "The session trail holds at most 8 actions in memory only, fixed identifiers with no names or rooms, and dies when the page closes." }
+      ],
+      "evidence": { "code": ["src/guide/awareness.ts", "src/guide/sessionTrail.ts", "src/guide/smartGuide.ts#canProactivelyHint", "src/guide/smartGuide.ts#predictedNextFeature"], "tests": ["tests/guide-tours-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-028",
+      "kind": "functional",
+      "title": { "ar": "استقبال قياسات الواجهة وسجل أسئلة المرشد المجهّل", "en": "Interface telemetry intake and anonymous Guide question log" },
+      "text": {
+        "ar": "يجب على النظام أن يستقبل من المستخدم المسجَّل دفعات قياس الواجهة، وأن يسجّل أحداث المرشد بلا هوية المستخدم، وأن يخفي أرقام الأسئلة غير المجابة وأسماءها قبل أن تصل إلى الخادم أو تُخزَّن.",
+        "en": "The system shall accept interface telemetry batches from the signed-in user and record Guide events without the user's identity, and mask the digits and names in unanswered questions before they reach the server or are stored."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair", "system"],
+      "acceptance": [
+        { "ar": "الدفعة حتى 20 مدخلاً؛ ومدخل بكلية وقسم خارج النطاق يُسقط.", "en": "A batch holds up to 20 entries; an entry with a college and department outside the scope is dropped." },
+        { "ar": "النوع واحد من api وerror وoffline وsync وguide وإلا يُعدّ error؛ والاسم حتى 140 حرفاً والرسالة حتى 320 والمدة بين 0 و120000 مللي ثانية وفتات المسار آخر 12 خطوة.", "en": "Kind is one of api, error, offline, sync, guide, otherwise error; name up to 140 characters, message up to 320, duration 0 to 120000 ms and breadcrumbs the last 12 steps." },
+        { "ar": "سجل المرشد يحمل معرّف المستخدم 0 واسماً فارغاً.", "en": "A Guide record carries user id 0 and an empty name." },
+        { "ar": "السؤال غير المجاب يُنظَّف في المتصفح بحذف الاسم بعد اللقب والأرقام والبريد وبحد 90 حرفاً، وتُستبدل الأرقام في الخادم أيضاً.", "en": "An unanswered question is cleaned in the browser by removing the name after a title, digits and emails with a 90-character limit, and digits are replaced on the server as well." }
+      ],
+      "evidence": { "code": ["src/server/routes/guideRoutes.ts", "src/guide/awareness.ts#anonymizeQuestion", "src/guide/brain/engine.ts#maskUnknownWords"], "tests": ["tests/guide-brain-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-029",
+      "kind": "functional",
+      "title": { "ar": "مواضع تعثر المرشد لمدير النظام الأعلى", "en": "Guide friction points for the root administrator" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لمدير النظام الأعلى وحده مواضع تعثر مجهّلة خلال آخر 30 يوماً مقارنة بالثلاثين قبلها، مرتبة بنسبة الفشل والمساعدة، مع الأسئلة غير المجابة.",
+        "en": "The system shall show the root administrator alone anonymous friction points over the last 30 days against the previous 30, ranked by failure and help rate, together with unanswered questions."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "مستخدم غير مدير النظام الأعلى يتلقى 403 «مخصصة لإدارة النظام الرئيسية».", "en": "A user other than the root administrator receives 403 «reserved for the main system administration»." },
+        { "ar": "الترتيب بنسبة (الفشل + التخلي) مضافاً إليها 0.35 من نسبة طلب المساعدة؛ وتُعرض 12 موضعاً و8 عناصر و30 سؤالاً غير مجاب كحد أقصى.", "en": "Ranking is by (failed + abandoned) rate plus 0.35 of the help rate; at most 12 points, 8 items and 30 unanswered questions are shown." },
+        { "ar": "التغير مقابل الفترة السابقة = فرق نسبة الفشل، والرد يعلن anonymous:true وwindowDays:30.", "en": "Change versus the previous period is the difference in failure rate, and the response declares anonymous:true and windowDays:30." },
+        { "ar": "التفسير المرافق: ارتفاع التعثر بعد إصدار جديد قد يعني أن الواجهة تحتاج إعادة تصميم لا شرحاً أكثر.", "en": "The accompanying interpretation: rising friction after a new release may mean the interface needs redesign, not more explanation." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/guide-friction", "src/utils/clientTelemetry.ts#telemetryGuideJourney", "src/guide/smartGuide.ts#evaluateGuideFriction"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-030",
+      "kind": "functional",
+      "title": { "ar": "صحة تجربة الاستعمال", "en": "Experience health" },
+      "text": {
+        "ar": "يجب على النظام أن يحسب لنطاق القراءة درجة صحة التجربة من أزمنة الاستجابة والأخطاء والانقطاع في آخر 14 يوماً، وأن يعرض أبطأ المسارات وإعادات تشغيل الأخطاء.",
+        "en": "The system shall compute for the reading scope an experience-health score from response times, errors and offline events in the last 14 days, and show the slowest paths and error replays."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["departmentHead", "admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "الدرجة = 100 − 55 × نسبة الإخفاق − 35 × نسبة البطء (≥ 1800 مللي ثانية) − حتى 10 للانقطاع، بين 0 و100.", "en": "Score = 100 − 55 × failure share − 35 × slow share (≥ 1800 ms) − up to 10 for offline events, between 0 and 100." },
+        { "ar": "التسمية: ممتازة عند 90، جيدة عند 75، تحتاج متابعة عند 55، وإلا تحتاج تدخلاً.", "en": "Label: excellent at 90, good at 75, needs follow-up at 55, otherwise needs intervention." },
+        { "ar": "تُحسب p50 وp95 من عينات آخر ساعتين مع قياسات العميل، وتُعرض أبطأ 5 مسارات وحتى 6 إعادات تشغيل.", "en": "p50 and p95 are computed from the last two hours' samples together with client measurements, showing the slowest 5 paths and up to 6 replays." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/experience-health"] },
+      "inferred": true
+    },
+    {
+      "id": "NFR-INT-001",
+      "kind": "nonfunctional",
+      "title": { "ar": "قراءة فقط: لا تكتب مسارات التحليل شيئاً على الجدول", "en": "Read-only: analytics routes write nothing to the schedule" },
+      "text": {
+        "ar": "يجب ألا تكتب مسارات المحاكاة والتوقع والتحسين والاستعلام بلغة طبيعية والمساعد التحليلي أي تغيير على مواعيد الجدول أو قواعده؛ وكل تطبيق يمر بمسار الكتابة المعتاد بمدققاته وتأكيد صريح.",
+        "en": "The simulation, forecast, optimiser, natural-language query and analytical-assistant routes shall not write any change to schedule appointments or rules; every application goes through the usual write path with its validators and an explicit confirmation."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "كل رد من مسارات المحاكاة والمساعد والاستعلام يحمل نصاً يعلن أنه معاينة أو محاكاة فقط.", "en": "Every response from the simulation, assistant and query routes carries text declaring it a preview or simulation only." },
+        { "ar": "سؤال «ماذا لو؟» لا يغيّر أي صف في الجدول (بصمة الصفوف قبل وبعد متطابقة).", "en": "A what-if request changes no schedule row (the row fingerprint before and after is identical)." },
+        { "ar": "الاستعلام بلغة طبيعية لا يقبل وسيط commit ولا confirmed ولا اسماً يوحي بكتابة.", "en": "The natural-language query accepts neither a commit nor a confirmed argument nor a name implying a write." }
+      ],
+      "evidence": { "code": ["src/utils/geminiScheduleLayer.ts#sanitizeGeminiScheduleCalls", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/policy-simulate"], "tests": ["tests/gemini-schedule-layer.ts", "tests/radar-insight-audit.ts"] }
+    },
+    {
+      "id": "NFR-INT-002",
+      "kind": "nonfunctional",
+      "title": { "ar": "الخصوصية: لا هوية مدنية ولا قائمة طلبة تخرج", "en": "Privacy: no civil identity or student list leaves" },
+      "text": {
+        "ar": "يجب ألا يُرسل إلى خدمة Gemini رقم مدني أو معرّف وطني، وألا تخرج من الخادم قائمة طلبة أو معرّف طالب في قراءات التنبؤ والرادار، وألا يحفظ المرشد اسماً أو قاعة، وأن تبقى مفاتيح الخدمة في الخادم.",
+        "en": "No civil number or national identifier shall be sent to the Gemini service, no student list or student identifier shall leave the server in forecast and radar readings, the Guide shall store no name or room, and the service keys shall stay on the server."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system", "external"],
+      "acceptance": [
+        { "ar": "فهرس المقررات والأساتذة المرسل للخدمة يضم المعرّف والاسم فقط، ويُحذف أي مفتاح يشبه الرقم المدني أو الوطني.", "en": "The course and instructor catalogue sent to the service has the identifier and name only, and any key resembling a civil or national number is removed." },
+        { "ar": "قراءة التنبؤ تُحذف منها قائمة الطلبة قبل الإرسال إلى العميل.", "en": "The student list is removed from the forecast reading before it is sent to the client." },
+        { "ar": "مفتاح الخدمة يُقرأ من متغير بيئة في الخادم ولا يصل إلى العميل.", "en": "The service key is read from a server environment variable and never reaches the client." },
+        { "ar": "تقدم الجولات وملف المرشد يُحفظان في المتصفح بمعرّفات فقط.", "en": "Tour progress and the Guide profile are kept in the browser with identifiers only." }
+      ],
+      "evidence": { "code": ["src/utils/geminiScheduleLayer.ts#buildSmartImportCatalogue", "src/server/predictiveInsight.ts", "src/server/core/gemini.ts", "src/guide/sessionTrail.ts"], "tests": ["tests/gemini-schedule-layer.ts", "tests/predictive-intelligence-audit.ts"] }
+    },
+    {
+      "id": "IR-INT-001",
+      "kind": "interface",
+      "title": { "ar": "شاشة مركز التحليلات: المشاهد والنطاق", "en": "Analytics Center screen: scenes and scope" },
+      "text": {
+        "ar": "يجب أن تعرض شاشة مركز التحليلات شريط نطاق القرار (الكلية والقسم والفصل) ومفتاح نطاق التحليل، وثلاثة مشاهد «افهم» و«جرّب» و«اعتمد»، وتبويبات تشمل الجودة والجاهزية وقبل الاعتماد والانتباه والكثافة والحركة المكانية والقاعات والأساتذة وصحة البيانات وطلبات الطلاب وبصمة القسم والصحيفة وفرصة تحسين الجدول وتنبؤ الفصل القادم.",
+        "en": "The Analytics Center screen shall show the decision scope bar (college, department, term) and the analysis scope switch, three scenes «understand», «try» and «approve», and tabs covering quality and readiness, before approval, attention, density, campus movement, rooms, instructors, data health, student requests, department fingerprint, plan sheet, schedule improvement opportunity and next-term forecast."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "dean"],
+      "acceptance": [
+        { "ar": "عند انقطاع الاتصال تظهر «قراءة فقط» في شريط النطاق.", "en": "When offline, «read only» appears in the scope bar." },
+        { "ar": "إغلاق إشعار الخطأ يمسحه من الحالة، وتحوي أدوات مختبر القرار لوحة القيود وغرفة القرار والتحسين الآلي ومختبر السياسات.", "en": "Dismissing the error notice clears it from the state, and the decision-lab tools include the rules board, decision room, automatic optimiser and policy lab." },
+        { "ar": "قراءة الإجراء ترجع إلى مصدرها وتمنع الأجوبة القديمة عند تغيير الفصل أو النطاق.", "en": "An action's reading returns to its source and blocks stale answers when the term or scope changes." }
+      ],
+      "evidence": { "code": ["src/components/IntelligenceWorkspace.tsx", "src/components/IntelligenceContextBar.tsx", "src/components/IntelligenceScopeSwitch.tsx"], "tests": ["tests/intelligence-reading-scope-audit.ts"] }
+    },
+    {
+      "id": "IR-INT-002",
+      "kind": "interface",
+      "title": { "ar": "واجهة خدمة Gemini: قيود الطلب والمهلة", "en": "Gemini service interface: request constraints and timeout" },
+      "text": {
+        "ar": "يجب أن يستدعي النظام خدمة Gemini من الخادم فقط بتعليمة تحصرها في فهم الطلب وتمنعها من طلب الحفظ أو النشر أو التطبيق أو الحذف، وبوضع استدعاء الدوال المقيّد بالأسماء المسموحة، وأن يعيد سبب الفشل إلى الشاشة بدل الصمت.",
+        "en": "The system shall call the Gemini service from the server only, with an instruction that confines it to understanding the request and forbids it from asking to save, publish, apply or delete, with function-calling mode restricted to the allowed names, and shall return the failure reason to the screen instead of staying silent."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system", "external"],
+      "acceptance": [
+        { "ar": "بلا مفتاح تُعاد قيمة فارغة ويعمل الرجوع إلى المحلل الحتمي.", "en": "With no key an empty value is returned and the deterministic fallback applies." },
+        { "ar": "مهلة استدعاء الدوال 45 ثانية، ومهلة قراءة المستندات 180 ثانية، ودرجة الحرارة 0.1 ومستوى التفكير منخفض.", "en": "The function-call timeout is 45 seconds, the document-reading timeout 180 seconds, temperature 0.1 and a low reasoning level." },
+        { "ar": "رفض الخدمة (رمز HTTP) أو انتهاء المهلة يعود بحقل failed وسبب مقتطع إلى 300 حرف، ويُسجَّل في سجل الخادم.", "en": "A service refusal (HTTP code) or a timeout returns a failed field and a reason cut to 300 characters, and is logged on the server." },
+        { "ar": "الخدمة تقرأ وتقترح؛ والتنفيذ دائماً عبر المدققات الحتمية وبتأكيد صريح من المستخدم.", "en": "The service reads and proposes; execution is always through the deterministic validators and an explicit confirmation by the user." }
+      ],
+      "evidence": { "code": ["src/server/core/gemini.ts#requestGeminiScheduleLayer"] },
+      "inferred": true
+    },
+    {
+      "id": "IR-INT-003",
+      "kind": "interface",
+      "title": { "ar": "صفحة سجل الأثر الموثق", "en": "Verified impact record page" },
+      "text": {
+        "ar": "يجب أن تعرض صفحة سجل الأثر الموثق مسارات قابلة للتحقق تتبع انتقال فكرة بين المقال والبحث والكتاب والحوار العام، مع مرشحات للورقي والإعلامي والأرشيف، وأن تفصل بين الأثر الموثق والامتداد في الأرشيف.",
+        "en": "The verified impact record page shall display verifiable chains that trace an idea across article, research, book and public discussion, with filters for paper, media and archive, and separate documented impact from archive extension."
+      },
+      "rationale": { "ar": "الملف موجود في المستودع لكنه غير موصول بمسار في التطبيق ويستورد وحدات غير موجودة، فالحالة قيد التطوير.", "en": "The file exists in the repository but is wired to no route in the application and imports modules that do not exist, so the status is in progress." },
+      "priority": "could",
+      "status": "in-progress",
+      "actors": ["visitor"],
+      "acceptance": [
+        { "ar": "المرشحات: الكل، ورقي، إعلامي وخارجي، أرشيف (مقال وكتاب).", "en": "Filters: all, paper, media and external, archive (article and book)." },
+        { "ar": "كل عقدة تعرض وسماً «أثر موثّق» أو «امتداد في الأرشيف» بحسب درجة الثقة.", "en": "Each node shows a «documented impact» or «archive extension» tag according to its confidence grade." }
+      ],
+      "evidence": { "code": ["src/pages/Impact.tsx"] },
+      "inferred": true
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": { "ar": "غياب خدمة Gemini أو فشلها", "en": "Gemini service absent or failing" },
+      "scenario": { "ar": "لا مفتاح مضبوط، أو رفضت الخدمة الطلب، أو انتهت مهلة 45 ثانية أثناء استعلام بلغة طبيعية.", "en": "No key is configured, the service refused the request, or the 45-second timeout elapsed during a natural-language query." },
+      "behavior": { "ar": "يحلل الخادم الجملة بمحلل القواعد ويكمل المعاينة نفسها، ويعلن مصدرها deterministic-parser؛ وإن لم يستخرج شيئاً أعاد تلميحاً لا خطأً.", "en": "The server parses the sentence with the rule parser and completes the same preview, declaring its source deterministic-parser; if nothing is extracted it returns a hint, not an error." },
+      "evidence": ["tests/gemini-schedule-layer.ts"]
+    },
+    {
+      "title": { "ar": "اقتراح يطلب الكتابة", "en": "A proposal that asks to write" },
+      "scenario": { "ar": "تعيد الخدمة استدعاء باسم updateSchedule، أو استدعاء مسموحاً بوسيط commit:true أو save:true.", "en": "The service returns a call named updateSchedule, or an allowed call with a commit:true or save:true argument." },
+      "behavior": { "ar": "يُسقط الاستدعاء غير المسموح كلياً، ويُحذف وسيط الكتابة من المسموح ويبقى الباقي؛ ولا يصل شيء إلى الكتابة.", "en": "The disallowed call is dropped entirely, the write argument is removed from the allowed one and the rest stays; nothing reaches a write." },
+      "evidence": ["tests/gemini-schedule-layer.ts"]
+    },
+    {
+      "title": { "ar": "رمز مقرر بأكثر من موعد", "en": "A course code with several appointments" },
+      "scenario": { "ar": "يكتب المستخدم «انقل 101 إلى 11:00» والقسم يعرض للمقرر ثلاث شعب.", "en": "The user types «move 101 to 11:00» and the department has three sections of that course." },
+      "behavior": { "ar": "لا يختار الخادم شعبة؛ يعيد ambiguous مع حتى 6 خيارات (الشعبة والأيام والوقت) ليحدد المستخدم الشعبة أو اليوم.", "en": "The server picks no section; it returns ambiguous with up to 6 options (section, days, time) so the user chooses the section or day." },
+      "evidence": ["tests/gemini-schedule-layer.ts"]
+    },
+    {
+      "title": { "ar": "قسم بلا مواعيد في الفصل", "en": "A department with no appointments in the term" },
+      "scenario": { "ar": "يفتح رئيس القسم غرفة القرار أو التحسين الآلي أو المقترح التلقائي لفصل لم يُبنَ جدوله.", "en": "The department head opens the decision room, the optimiser or the auto proposal for a term whose schedule is not yet built." },
+      "behavior": { "ar": "يعود ردّ 200 فيه empty:true ورسالة توجّه إلى «بداية الفصل من الفصل السابق» (مسودة لا تغيّر شيئاً قبل النشر) أو إلى استيراد الجدول، ولا يعود خطأ.", "en": "A 200 response returns with empty:true and a message pointing to «start of term from the previous term» (a draft that changes nothing before publishing) or to schedule import, not an error." },
+      "evidence": ["src/server/routes/intelligenceRoutes.ts"]
+    },
+    {
+      "title": { "ar": "تاريخ قصير للتنبؤ", "en": "Short history for the forecast" },
+      "scenario": { "ar": "لمقرر فصل واحد فقط في التاريخ، أو لا فصل ولا رغبات حية.", "en": "A course with only one term in history, or no term and no live wishes." },
+      "behavior": { "ar": "تُسقَّف ثقة الفصل الواحد عند 0.34 فلا يُفعَّل إجراء الضغطة الواحدة ويظهر سببه؛ وصفر فصول بلا إشارة حية يجمع المقرر تحت «بيانات غير كافية» بلا رقم متوقع.", "en": "A one-term confidence is capped at 0.34 so the one-click action stays disabled with its reason shown; zero terms with no live signal groups the course under «insufficient data» with no expected figure." },
+      "evidence": ["tests/predictive-intelligence-audit.ts"]
+    },
+    {
+      "title": { "ar": "سؤال المرشد عن بيانات حية أو خارج عالمه", "en": "A Guide question about live data or outside its world" },
+      "scenario": { "ar": "يسأل المستخدم «كم طالب مسجل الحين» أو «كيف الجو اليوم» أو يذكر اسماً بعد لقب.", "en": "The user asks how many students are registered now, asks about today's weather, or names a person after a title." },
+      "behavior": { "ar": "المرشد لا يقرأ البيانات فيدل على الشاشة التي تحتوي الجواب؛ والسؤال الخارج عن عالمه يُجاب بصدق أنه خارج ما يعرفه؛ والاسم بعد اللقب يُحذف قبل التسجيل.", "en": "The Guide does not read data and points to the screen that holds the answer; an out-of-world question is answered honestly as outside what it knows; the name after a title is removed before logging." },
+      "evidence": ["tests/guide-brain-audit.ts"]
+    },
+    {
+      "title": { "ar": "عنصر الجولة لا يظهر", "en": "A tour element does not appear" },
+      "scenario": { "ar": "تنتقل الجولة إلى شاشة ولا يظهر العنصر المطلوب خلال 7 ثوان.", "en": "The tour navigates to a screen and the required element does not appear within 7 seconds." },
+      "behavior": { "ar": "تعلن الجولة «لم يجده» وتعرض ما يمكن فعله (إعادة المحاولة أو تخطي الخطوة) وتواصل النظر بهدوء؛ ولا تُغلق إلا بيد المستخدم.", "en": "The tour reports «missing» and offers what can be done (retry or skip the step) while it keeps looking quietly; it closes only by the user's hand." },
+      "evidence": ["tests/guide-tours-audit.ts"]
+    },
+    {
+      "title": { "ar": "أستاذ مذكور خارج نطاق القسم", "en": "A named instructor outside the department scope" },
+      "scenario": { "ar": "يسأل المستخدم المساعد عن فراغات أستاذ موجود في دليل الجامعة وله مواعيد في قسم آخر فقط.", "en": "The user asks the assistant about the gaps of an instructor who is in the university directory but has appointments only in another department." },
+      "behavior": { "ar": "يردّ بأن الأستاذ بلا بيانات في هذا القسم والفصل، ولا يخلط جدول قسم آخر بالإجابة.", "en": "It answers that the instructor has no data in this department and term, and does not mix another department's schedule into the answer." },
+      "evidence": ["tests/intelligence-scope-api.mjs"]
+    }
+  ],
+  "terms": [
+    { "ar": "مركز التحليلات", "en": "Analytics Center", "def": { "ar": "الشاشة التي تجمع قراءات الجدول والتنبؤ ومختبر القرار والطبقة الحية.", "en": "The screen that gathers schedule readings, forecast, decision lab and live layer." } },
+    { "ar": "المرشد", "en": "Guide", "def": { "ar": "دليل داخل التطبيق يجيب عن أسئلة الاستعمال ويمشي بالمستخدم في جولة على الشاشة، ويعمل كله في المتصفح.", "en": "An in-app guide that answers usage questions and walks the user through a tour on screen, running entirely in the browser." } },
+    { "ar": "مانع اعتماد", "en": "Approval blocker", "def": { "ar": "حالة في الجدول تمنع اعتماده، مثل حجز مزدوج لقاعة أو أستاذ.", "en": "A condition in the schedule that prevents approval, such as a double booking of a room or instructor." } },
+    { "ar": "الحركة المكانية", "en": "Campus movement", "def": { "ar": "انتقال الأستاذ بين مبنيين بين محاضرتين، ويُقاس هامشها بالدقائق مقابل زمن الانتقال.", "en": "An instructor's move between two buildings between lectures, measured as a margin in minutes against the travel time." } },
+    { "ar": "الثقة", "en": "Confidence", "def": { "ar": "درجة صريحة من أربعة مستويات تلازم كل رقم متنبأ به وتحكم تفعيل الإجراء.", "en": "An explicit four-level grade attached to every forecast figure that governs whether the action is enabled." } },
+    { "ar": "مختبر القرار الأكاديمي", "en": "Academic decision lab", "def": { "ar": "حسابات «ماذا لو» محدودة للقراءة فقط على الصحائف المعتمدة ورغبات الطلبة.", "en": "Bounded read-only what-if calculations over approved plan sheets and student wishes." } },
+    { "ar": "الطبقة الحية", "en": "Live schedule layer", "def": { "ar": "ست مشاهد حيّة عن حال الجدول: نظرة عامة وضغط وصحة وملخص وبداية فصل وشبكة أمان.", "en": "Six live scenes about the schedule's state: overview, pressure, health, brief, start of term and safety net." } },
+    { "ar": "نقطة أمان", "en": "Safety point", "def": { "ar": "نسخة محفوظة من الجدول قبل تغيير كبير يمكن الرجوع إليها مع بيان أثر الرجوع.", "en": "A saved copy of the schedule before a major change that can be restored, with the restore effect stated." } },
+    { "ar": "رادار التسجيل", "en": "Registration radar", "def": { "ar": "قراءة رغبات الطلبة مقابل الشعب المطروحة لتقدير النقص قبل التسجيل.", "en": "A reading of student wishes against the offered sections to estimate shortfalls before registration." } },
+    { "ar": "الاستعلام بلغة طبيعية", "en": "Natural-language query", "def": { "ar": "جملة يكتبها المستخدم تُحوَّل إلى استدعاءات مسموحة تُنفَّذ حتمياً وتنتهي بمعاينة لا بكتابة.", "en": "A sentence the user writes that is turned into allowed calls executed deterministically and ending in a preview, not a write." } }
+  ],
+  "ownerRules": [
+    { "ar": "رقم المقرر سبع خانات فقط: الكلية (2) ثم القسم (2) ثم المقرر (3)، مثل 0109105؛ ولا يُعرض المخزَّن بثلاث خانات ولا AdCourseId في أي شاشة من هذه الوحدة.", "en": "Course numbers are 7 digits only: college (2) + department (2) + course (3), for example 0109105; the stored three-digit tail and AdCourseId are never shown on any screen of this module." },
+    { "ar": "خدمة Gemini تقرأ النص وتقترح؛ والتنفيذ دائماً عبر المدققات الحتمية وبتأكيد صريح من المستخدم.", "en": "The Gemini service reads the text and proposes; execution is always through the deterministic validators and an explicit confirmation by the user." },
+    { "ar": "التقارير المطبوعة تحافظ على تصميمها: الإصلاح في القيم والبيانات لا في الشكل.", "en": "Printed reports keep their design: fixes go in values and data, not layout." }
+  ]
+}

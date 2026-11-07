@@ -11233,17 +11233,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 whole market is withdrawn rather than left to offer windows in a
                 week nobody will attend. */}
             {workspaceToolsOpen && mode === "schedule" && workspaceReady && filterCollege && filterSection && filterTerm && !selectedTermClosed ? (
-              <div className="schedule-control-barter schedule-control-barter--inside-more">
-                <HallBarterBoard
-                  collegeId={filterCollege}
-                  sectionId={filterSection}
-                  termId={filterTerm}
-                  liveSerial={liveFeedSerial}
-                  openSignal={barterOpenSignal}
-                  onReservationsChange={setHallBarterReservations}
-                  onPendingChange={setBarterInbox}
-                />
-              </div>
+              <HallBarterBoard
+                collegeId={filterCollege}
+                sectionId={filterSection}
+                termId={filterTerm}
+                liveSerial={liveFeedSerial}
+                openSignal={barterOpenSignal}
+                onReservationsChange={setHallBarterReservations}
+                onPendingChange={setBarterInbox}
+              />
             ) : null}
           </div>
         </div>

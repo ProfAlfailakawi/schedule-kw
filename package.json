@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/stamp-build.mjs --ensure && tsx server.ts",
-    "build": "npm run verify:pwa && npm run audit:brand && npm run audit:guide && npm run test:guide && npm run test:guide:perf && node scripts/stamp-build.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && node scripts/stamp-sw.mjs",
+    "build": "npm run verify:pwa && npm run audit:brand && npm run audit:guide && npm run test:guide && npm run test:guide:perf && node scripts/stamp-build.mjs && vite build && (node scripts/srs/build.mjs --site || echo \"تنبيه: لم تُبنَ صفحة الوثيقة\") && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && node scripts/stamp-sw.mjs",
     "start": "NODE_ENV=production node dist/server.cjs",
     "test": "node scripts/run-tests.mjs",
     "test:visiting-badge-g1": "tsx tests/visiting-badge-group1-audit.ts",
@@ -279,7 +279,13 @@
     "test:masari-desktop": "tsx tests/masari-desktop-audit.ts",
     "test:masari-travel-hint": "tsx tests/masari-travel-hint-audit.ts",
     "test:instructor-availability": "tsx tests/instructor-request-availability-audit.ts",
-    "test:instructor-offering-flow": "tsx tests/instructor-offering-flow-audit.ts"
+    "test:instructor-offering-flow": "tsx tests/instructor-offering-flow-audit.ts",
+    "srs:build": "node scripts/srs/build.mjs --out dist/srs-preview",
+    "srs:pdf": "node scripts/srs/pdf.mjs",
+    "srs:sync": "node scripts/srs/sync.mjs",
+    "srs:validate": "node scripts/srs/validate.mjs",
+    "test:srs-doc": "node scripts/srs/check.mjs",
+    "test:srs-route": "tsx tests/srs-route-audit.ts"
   },
   "dependencies": {
     "@google-cloud/firestore": "^8.7.1",
