@@ -58,10 +58,12 @@ const termRows: any[] = state.schedules.filter((r: any) => Number(r.AdTermId) ==
   check(String(codeOfId(top.AdCourseId)).length === 7, "D1 رمزه سبعةُ أرقام كبقية المقررات");
   const q = { days: ["fthursday"] as any, start: top.fstarttime, end: top.fendtime, excludeId: top.id, courseId: top.AdCourseId, sectionId: 1, termId: 1, codeOf: codeOfId };
   const found = sameSlotOf(termRows, q);
-  const items = found.days[0]?.items || [];
-  check(found.count === 2 && found.days.length === 1 && Boolean(top.fthursday) && !top.fsunday, "D1 «في الوقت نفسه»: مقرران آخران بالضبط في اليوم نفسه والبداية والنهاية نفسيهما", found.count);
+  /* المشهد عن التطابق التام؛ وما تداخل من مستواه يظهر بعده موسوماً بوقته (tests/same-slot-audit.ts). */
+  const items = (found.days[0]?.items || []).filter((item: any) => item.kind === "exact");
+  check(found.count - found.partialCount - found.sectionCount === 2 && found.days.length === 1 && Boolean(top.fthursday) && !top.fsunday, "D1 «في الوقت نفسه»: مقرران آخران بالضبط في اليوم نفسه والبداية والنهاية نفسيهما", found.count);
   check(items.length === 2 && items[0].sameLevel === true && items[1].sameLevel === false && codeOfId(items[0].row.AdCourseId) === "0109102" && codeOfId(items[1].row.AdCourseId) === "0109201", "D1 «نفس المستوى» أولاً ثم مقررٌ بمستوى مختلف", items.map((i: any) => [codeOfId(i.row.AdCourseId), i.sameLevel]));
-  check(sameSlotOf(termRows, { ...q, excludeId: null }).count === 3, "D1 وبحسابِ المقرر نفسه الموعدُ يضم ثلاثة مقررات");
+  const withOwn = sameSlotOf(termRows, { ...q, excludeId: null });
+  check(withOwn.count - withOwn.partialCount - withOwn.sectionCount === 3, "D1 وبحسابِ المقرر نفسه الموعدُ يضم ثلاثة مقررات");
   check(Number(termRows.filter((r: any) => r.fthursday && r.fstarttime === top.fstarttime && r.fendtime === top.fendtime).length) === 3, "D1 لا مقرر رابع في الساعة نفسها");
 }
 
