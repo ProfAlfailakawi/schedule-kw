@@ -242,7 +242,7 @@
     {
       "id": "ALG-APR-01",
       "module": "APR",
-      "icon": "file-signature",
+      "icon": "file-pen-line",
       "kind": "deterministic",
       "name": {"ar": "آلة حالات الاعتماد وحرّاسها", "en": "Approval state machine and guards"},
       "question": {"ar": "هل يجوز هذا الفعل (توقيع، سحب، إرسال، إرجاع، قبول) الآن، وما الحالة بعده؟", "en": "Is this action (sign, withdraw, submit, return, accept) allowed now, and what is the state after it?"},
