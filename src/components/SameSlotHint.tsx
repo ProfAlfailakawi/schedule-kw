@@ -1,3 +1,4 @@
+import CourseTags from "./CourseTags";
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, BookOpen, CheckCircle2, GraduationCap, Layers, Link2, UserRound, X } from "lucide-react";
@@ -215,6 +216,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
                         <b>{name}</b>
                         <small>
                           {course?.CourseCode ? <bdi dir="ltr">{course.CourseCode}</bdi> : null}
+                          <CourseTags courseId={row.AdCourseId} />
                           {who ? <span className="same-slot-who"><UserRound aria-hidden="true" />{who}</span> : null}
                         </small>
                       </span>
