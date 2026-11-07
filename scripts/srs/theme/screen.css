@@ -200,3 +200,8 @@ body[data-view="modules"][data-mod=""] .mod-layout{grid-template-columns:minmax(
 .mod-pick select{text-overflow:ellipsis}
 .mod-pick{margin-bottom:.8rem}
 @media (max-width:640px){.ucards{grid-template-columns:1fr 1fr}.ucard:last-child:nth-child(odd){grid-column:1/-1}}
+
+/* وسام 2016 في الواجهة: عمودٌ ثالث على الحاسوب، وتحت العنوان على الهاتف */
+.hero{grid-template-columns:auto 1fr auto}
+.hero .hero-medal{grid-row:1;grid-column:3}
+@media (max-width:760px){.hero{grid-template-columns:1fr}.hero .hero-medal{grid-row:auto;grid-column:auto;justify-self:start;flex-direction:row;gap:.7rem;padding:.5rem 1rem;min-width:0}.hero .hero-medal b{font-size:2.4rem}}

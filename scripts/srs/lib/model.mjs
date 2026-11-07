@@ -6,6 +6,7 @@ import { ROOT, SRS_DIR, loadMeta, loadActors, loadModules, readJson } from "./co
 import { computeFacts } from "./facts.mjs";
 import { techModel, techFingerprintFiles } from "./tech.mjs";
 import { readUsage, USAGE_SOURCE } from "./usage.mjs";
+import { loadAlgorithms, algorithmFiles } from "./algorithms.mjs";
 
 export const STATUS_ORDER = ["implemented", "in-progress", "planned"];
 export const PRIORITY_ORDER = ["must", "should", "could"];
@@ -20,7 +21,7 @@ export const LABELS = {
 export function contentHash() {
   const h = crypto.createHash("sha256");
   const add = file => h.update(file + "\0").update(fs.readFileSync(path.join(ROOT, file)));
-  for (const f of ["docs/srs/meta.json", "docs/srs/actors.json", "docs/srs/front.json", "docs/srs/revisions.json", ...techFingerprintFiles(), USAGE_SOURCE]) add(f);
+  for (const f of ["docs/srs/meta.json", "docs/srs/actors.json", "docs/srs/front.json", "docs/srs/revisions.json", ...techFingerprintFiles(), USAGE_SOURCE, ...algorithmFiles()]) add(f);
   for (const { file } of loadModules()) add(file);
   const libs = fs.readdirSync(path.join(ROOT, "scripts/srs/lib")).filter(f => f.endsWith(".mjs")).sort().map(f => `scripts/srs/lib/${f}`);
   const themes = fs.readdirSync(path.join(ROOT, "scripts/srs/theme")).sort().map(f => `scripts/srs/theme/${f}`);
@@ -46,6 +47,8 @@ export function buildModel() {
     };
   });
   const reqs = modules.flatMap(m => m.reqs);
+  const algorithms = loadAlgorithms(modules);
+  for (const x of modules) x.algos = algorithms.filter(a => a.module === x.id);
   const implemented = reqs.filter(r => r.status === "implemented");
   const withTests = implemented.filter(r => (r.evidence?.tests || []).length);
   const codeFiles = new Set(reqs.flatMap(r => r.evidence?.code || []).map(p => p.replace(/[#:].*$/, "")));
@@ -79,7 +82,7 @@ export function buildModel() {
   const ungrouped = modules.filter(m => !grouped.has(m.id));
   if (ungrouped.length) groups.push({ id: "other", icon: "boxes", title: { ar: "أخرى", en: "Other" }, mods: ungrouped });
   return {
-    meta, actors, actorMap, actorUse, front, revisions, tech, usage, facts, modules, reqs, stats, groups,
+    meta, actors, actorMap, actorUse, front, revisions, tech, usage, algorithms, facts, modules, reqs, stats, groups,
     glossary: [...glossary.values()].sort((a, b) => a.en.localeCompare(b.en)), glossaryConflicts: conflicts,
     hash: contentHash(),
   };

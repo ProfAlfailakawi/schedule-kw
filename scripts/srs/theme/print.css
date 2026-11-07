@@ -127,3 +127,26 @@ td a,.toc-row,.req-id{color:inherit}
 
 .tech{break-inside:avoid}.tech-lead{break-after:avoid}.sub h3{break-after:avoid}
 .ucards{grid-template-columns:repeat(5,1fr);gap:6px}.ucard{padding:7px 9px;border-radius:12px}.ucard b{font-size:13pt}.ucard>span{font-size:7.6pt}.ucard>small{font-size:7pt}
+
+/* PDF: وسام السنة على الغلاف وفي قسم التاريخ */
+.cover-top{display:flex;justify-content:space-between;align-items:flex-start}
+.cover .cover-medal{min-width:46mm;padding:5mm 7mm;border-radius:8mm}
+.cover .cover-medal b{font-size:44pt}.cover .cover-medal small{font-size:10pt}.cover .cover-medal span{font-size:9.5pt}
+.hist-head{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.doc-medal{background:linear-gradient(160deg,#1c2421,#141917);min-width:34mm;padding:4mm 5mm;border-radius:6mm}
+.doc-medal b{font-size:30pt}.doc-medal small,.doc-medal span{font-size:8pt}
+.htl{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:10px}
+.htl::before{top:36px}
+.hdot{width:26px;height:26px}.htl li.first .hdot{width:30px;height:30px}
+.hwhen{font-size:7pt}.htl li.first .hwhen{font-size:13pt}
+.hbody b{font-size:8.4pt}.hbody p{font-size:7.6pt}
+.hlead{font-size:9.2pt}
+.hcards{grid-template-columns:repeat(3,1fr);gap:6px}.hcard{padding:7px 9px;border-radius:10px;break-inside:avoid}.hcard b{font-size:8.6pt}.hcard span{font-size:7.8pt}
+.hreads h4{font-size:10pt}
+.ustitle{font-size:10.5pt;margin:12px 0 4px}
+.history{break-inside:auto}
+
+/* الخوارزميات في PDF */
+.akinds{grid-template-columns:repeat(4,1fr);gap:6px}.akcard{padding:6px 8px;border-radius:10px}.akcard b{font-size:12pt}.akcard span{font-size:8pt}.akcard small{font-size:7pt}.akcard .ic{width:26px;height:26px;padding:5px}
+.aanswer{padding:10px 12px;border-radius:12px;box-shadow:none}.aq-big{font-size:10.5pt}.aa{font-size:9.2pt;line-height:1.65}
+.algo{box-shadow:none;padding:8px 10px;font-size:9pt}.algo h4{font-size:10pt}.aq{font-size:8.6pt}.asteps{font-size:8.6pt}.aio p,.aguar{font-size:8.4pt}.anums span{font-size:7.4pt}

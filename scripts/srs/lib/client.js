@@ -108,6 +108,7 @@
     if ((m = /^#\/modules(?:\/([A-Z]{3})(?:\/([a-z]+))?)?$/.exec(h))) { show("modules", m[1] || "", m[2] || "", { silent: true }); return; }
     if ((m = /^#\/([a-z]+)$/.exec(h)) && (m[1] === "requirements" || $("#v-" + m[1]))) { show(m[1], "", "", { silent: true }); return; }
     if ((m = /^#((?:FR|NFR|DR|IR)-[A-Z]{3}-\d{3})$/.exec(h))) { openReq(m[1]); return; }
+    if ((m = /^#(ALG-([A-Z]{3})-\d{2})$/.exec(h))) { panelOf[m[2]] = "algos"; show("modules", m[2], "algos", { silent: true, keepScroll: true }); var el = document.getElementById(m[1]); if (el) el.scrollIntoView({ block: "center" }); return; }
     show("overview", "", "", { silent: true, keepScroll: true });
   }
   function openReq(id) {
@@ -173,20 +174,39 @@
     var t0 = performance.now();
     (function tick(t) { var p = Math.min(1, (t - t0) / 1400), v = from + (target - from) * (1 - Math.pow(1 - p, 3)); paint(el, p < 1 && target < 1e6 ? Math.round(v) : (p < 1 ? v : target)); if (p < 1) requestAnimationFrame(tick); })(t0);
   }
+  var DAY = 24 * 60 * 60 * 1000;
+  function applyUsage(d) {
+    if (!d || typeof d.students !== "number") return;
+    $$("[data-usage]").forEach(function (el) { var k = el.getAttribute("data-usage"); if (typeof d[k] === "number") animateTo(el, k, d[k]); });
+    var base = $("#unote-base"), live = $("#unote-live"), dot = $(".live-dot"), tm = $("#unote-time");
+    if (base) base.hidden = true; if (live) live.hidden = false; if (dot) dot.hidden = false;
+    if (tm && d.computedAt) { tm.dateTime = d.computedAt; tm.textContent = new Date(d.computedAt).toLocaleDateString(root.lang === "ar" ? "ar-KW-u-nu-latn" : "en-GB", { dateStyle: "medium" }); }
+  }
+  /* طلبٌ واحد في اليوم على الأكثر لكل متصفح، والخادم نفسه يحسبها مرةً في اليوم: بلا كلفة. */
   function liveUsage() {
+    var cached = safe(function () { return JSON.parse(localStorage.getItem("srs-usage") || "null"); });
+    if (cached && cached.d) applyUsage(cached.d);
+    if (cached && Date.now() - cached.at < DAY) return;
     if (!window.fetch) return;
-    fetch("/api/public/audience-headline", { credentials: "omit", cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    fetch("/api/public/audience-headline", { credentials: "omit" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
       if (!d || typeof d.students !== "number") return;
-      $$("[data-usage]").forEach(function (el) { var k = el.getAttribute("data-usage"); if (typeof d[k] === "number") animateTo(el, k, d[k]); });
-      var base = $("#unote-base"), live = $("#unote-live"), dot = $(".live-dot"), tm = $("#unote-time");
-      if (base) base.hidden = true; if (live) live.hidden = false; if (dot) dot.hidden = false;
-      if (tm && d.computedAt) { tm.dateTime = d.computedAt; tm.textContent = new Date(d.computedAt).toLocaleString(root.lang === "ar" ? "ar-KW-u-nu-latn" : "en-GB", { dateStyle: "medium", timeStyle: "short" }); }
+      safe(function () { localStorage.setItem("srs-usage", JSON.stringify({ at: Date.now(), d: d })); });
+      applyUsage(d);
     }).catch(function () { /* بلا اتصال: يبقى الرصيد المعتمد مع تاريخه */ });
   }
   $$("[data-usage]").forEach(function (el) { var t = (el.querySelector(".en") || el).textContent; var m = /([\d.,]+)\s*(million)?/.exec(t); if (m) shown[el.getAttribute("data-usage")] = parseFloat(m[1].replace(/,/g, "")) * (m[2] ? 1e6 : 1); });
   liveUsage();
-  setInterval(function () { if (!document.hidden) liveUsage(); }, 5 * 60 * 1000);
+  setInterval(function () { if (!document.hidden) liveUsage(); }, 60 * 60 * 1000);
   document.addEventListener("visibilitychange", function () { if (!document.hidden) liveUsage(); });
+
+  /* ── تبويب الخوارزميات: تصفية بالنوع ───────────────────────────── */
+  var akind = "";
+  $$("[data-akind]").forEach(function (b) { b.addEventListener("click", function () {
+    akind = akind === b.dataset.akind ? "" : b.dataset.akind;
+    $$("[data-akind]").forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.akind === akind)); });
+    $$("#v-algos .algo").forEach(function (a) { a.hidden = !!akind && a.dataset.kind !== akind; });
+    $$("#v-algos .agroup").forEach(function (g) { g.hidden = !$$(".algo", g).some(function (a) { return !a.hidden; }); });
+  }); });
 
   /* ── سهم العودة إلى الأعلى: يظهر بعد النزول، ويصعد بنعومة ───────── */
   var top = $("#totop");

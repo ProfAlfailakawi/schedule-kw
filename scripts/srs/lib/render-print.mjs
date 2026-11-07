@@ -6,6 +6,8 @@ import { icon, logo, deco } from "./icons.mjs";
 import { LABELS, STATUS_ORDER } from "./model.mjs";
 import { techBlock } from "./tech.mjs";
 import { usageCards, USAGE_PREFIX } from "./usage.mjs";
+import { sinceMedal, historyBlock } from "./history.mjs";
+import { algoCard, algoAnswer, algoIndex } from "./algorithms.mjs";
 import { ctxFor, esc, md, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip, statusBadge, priorityBadge } from "./fragments.mjs";
 
 const read = rel => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -14,9 +16,9 @@ const T2 = (ar, en) => ({ ar, en });
 /** أقسام الفصل بالترتيب: نفسُها في الفهرس وشريط التنقل والمتن. */
 const PART_TITLES = {
   overview: T2("نظرة عامة", "Overview"), journeys: T2("رحلات المستخدمين", "User journeys"), diagrams: T2("المخططات", "Diagrams"),
-  screens: T2("الشاشات", "Screens"), reqs: T2("المتطلبات", "Requirements"), edges: T2("الحالات الحدية", "Edge cases"), rules: T2("قرارات المالك الثابتة", "Standing owner decisions"),
+  screens: T2("الشاشات", "Screens"), reqs: T2("المتطلبات", "Requirements"), algos: T2("الخوارزميات", "Algorithms"), edges: T2("الحالات الحدية", "Edge cases"), rules: T2("قرارات المالك الثابتة", "Standing owner decisions"),
 };
-const presentParts = x => ["overview", x.journeys?.length && "journeys", (x.diagrams?.length || x.matrix) && "diagrams", x.screens?.length && "screens", "reqs", x.edgeCases?.length && "edges", x.ownerRules?.length && "rules"].filter(Boolean);
+const presentParts = x => ["overview", x.journeys?.length && "journeys", (x.diagrams?.length || x.matrix) && "diagrams", x.screens?.length && "screens", "reqs", x.algos?.length && "algos", x.edgeCases?.length && "edges", x.ownerRules?.length && "rules"].filter(Boolean);
 
 function head(lang, css, fontsUrl, body, cls = "") {
   return `<!doctype html><html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>SCHEDULE · SRS</title><style>${css.replaceAll("{{FONTS}}", fontsUrl)}</style></head><body class="${cls}">${body}</body></html>`;
@@ -53,10 +55,10 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   const bold = t => `<b>${t}</b>`;
 
   /* الغلاف */
-  const coverBody = `<div class="cover">${deco("cover-deco")}<div><div class="mark">${logo(120)}</div></div>
+  const coverBody = `<div class="cover">${deco("cover-deco")}<div class="cover-top"><div class="mark">${logo(120)}</div>${sinceMedal(c, m, "cover-medal")}</div>
     <div><div class="kick">${icon("scroll-text", 18)} ${L(m.meta.document)} · ${esc(m.meta.standard)}</div><h1>${L(m.meta.system)}</h1>
     <p class="sub2">${L(T2("ما يجب أن يقدمه النظام، ولمن، وبأي ضمانات.", "What the system must provide, for whom, and under which guarantees."))}</p>
-    <div class="meta"><span>${L(T2(`يعمل منذ ${m.usage.since}`, `In service since ${m.usage.since}`))}</span><span>v${esc(m.meta.version)}</span><span>${esc(m.meta.releaseDate)}</span><span>${lang === "ar" ? "العربية" : "English"}</span></div>
+    <div class="meta"><span>v${esc(m.meta.version)}</span><span>${esc(m.meta.releaseDate)}</span><span>${lang === "ar" ? "العربية" : "English"}</span></div>
     <div class="chips-row"><div><b>${s.requirements}</b><span>${L(T2("متطلباً", "Requirements"))}</span></div><div><b>${s.modules}</b><span>${L(T2("وحدة", "Modules"))}</span></div><div><b>${f.endpoints}</b><span>${L(T2("مسار خادم", "Server routes"))}</span></div><div><b>${f.tests}</b><span>${L(T2("ملف اختبار", "Test files"))}</span></div></div></div>
     <div class="authors"><div><b>${m.meta.authors.map(a => L(a)).join(' <i class="dot">·</i> ')}</b><small>${L(T2("إعداد", "Prepared by"))}</small></div></div></div>`;
   const coverCss = read("scripts/srs/theme/base.css") + read("scripts/srs/theme/print.css") + "@page{margin:0}html,body{margin:0;padding:0}";
@@ -86,12 +88,13 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   const part2 = `<section class="part" id="sec-OVERALL">${mk("OVERALL")}<h2 class="ph"><span class="no">2</span>${icon("layers", 26)} ${L(T2("الوصف العام", "Overall description"))}${up}</h2>
     ${sub("2.1", T2("نظرة موجزة", "Summary"), `<p>${md(m.front.abstract[lang])}</p><div class="pillars">${m.front.pillars.map(p => `<div class="pillar">${icon(p.icon, 20)}<b>${L(p.title)}</b>${L(p.text)}</div>`).join("")}</div>`)}
     ${sub("2.2", T2("منظور المنتج", "Product perspective"), paras(m.front.overall.perspective[lang]))}
-    ${sub("2.3", T2("النظام في الاستخدام", "The system in use"), `<p>${L(T2(`يعمل النظام فعلياً منذ ${m.usage.since}. هذه أرقام مجمّعة بلا أسماء، بحسب إدارة النظام حتى ${m.usage.asOf}؛ «حوالي» تقدير، و«أكثر من» حدٌّ أدنى.`, `The system has been in service since ${m.usage.since}. These are aggregated, anonymous figures from the system administration as of ${m.usage.asOf}; “about” is an estimate and “over” is a lower bound.`))}</p><div class="ucards">${usageCards(m.usage).map(u => `<div class="ucard">${icon(u.icon, 16)}<small>${L(USAGE_PREFIX[u.kind])}</small><b${u.key ? ` data-usage="${u.key}"` : ""}>${u.value(lang)}</b><span>${L(u.label)}</span></div>`).join("")}</div>`)}
+    ${sub("2.3", T2("تاريخ النظام واستخدامه", "History and use"), `<div class="hist-head">${sinceMedal(c, m, "doc-medal")}${historyBlock(c, m)}</div><h4 class="ustitle">${L(T2("الاستخدام بالأرقام", "Use in figures"))}</h4><p>${L(T2(`أرقام مجمّعة بلا أسماء، بحسب إدارة النظام حتى ${m.usage.asOf}؛ «حوالي» تقدير، و«أكثر من» حدٌّ أدنى. الصفحة التفاعلية تعرضها حيّةً من النظام.`, `Aggregated, anonymous figures from the system administration as of ${m.usage.asOf}; “about” is an estimate and “over” is a lower bound. The interactive page shows them live from the system.`))}</p><div class="ucards">${usageCards(m.usage).map(u => `<div class="ucard">${icon(u.icon, 16)}<small>${L(USAGE_PREFIX[u.kind])}</small><b${u.key ? ` data-usage="${u.key}"` : ""}>${u.value(lang)}</b><span>${L(u.label)}</span></div>`).join("")}</div>`)}
     ${sub("2.4", T2("البنية التقنية والتقنيات المستخدمة", "Architecture and technologies"), techBlock(c, m.tech))}
-    ${sub("2.5", T2("خريطة الوحدات", "Module map"), gTable)}
-    ${sub("2.6", T2("فئات المستخدمين", "User classes"), `<table class="tbl"><thead><tr><th>${L(T2("الدور", "Actor"))}</th><th>${L(T2("متطلبات", "Requirements"))}</th><th>${L(T2("وحدات", "Modules"))}</th></tr></thead><tbody>${m.actors.map(a => { const u = m.actorUse.get(a.id); return `<tr><td>${icon(a.icon, 14)} ${L(a.name)}</td><td class="num">${u.reqs}</td><td class="num">${u.modules.size}</td></tr>`; }).join("")}</tbody></table>`)}
-    ${sub("2.7", T2("القيود التصميمية", "Design constraints"), lis(m.front.overall.constraints[lang]))}
-    ${sub("2.8", T2("الافتراضات والاعتماديات", "Assumptions and dependencies"), lis(m.front.overall.assumptions[lang]))}</section>`;
+    ${m.algorithms.length ? sub("2.5", T2("كيف يحسب النظام قراراته", "How the system computes its decisions"), `${algoAnswer(c, m)}<h4 class="ustitle">${L(T2("فهرس الخوارزميات", "Algorithm index"))}</h4>${algoIndex(c, m)}`) : ""}
+    ${sub("2.6", T2("خريطة الوحدات", "Module map"), gTable)}
+    ${sub("2.7", T2("فئات المستخدمين", "User classes"), `<table class="tbl"><thead><tr><th>${L(T2("الدور", "Actor"))}</th><th>${L(T2("متطلبات", "Requirements"))}</th><th>${L(T2("وحدات", "Modules"))}</th></tr></thead><tbody>${m.actors.map(a => { const u = m.actorUse.get(a.id); return `<tr><td>${icon(a.icon, 14)} ${L(a.name)}</td><td class="num">${u.reqs}</td><td class="num">${u.modules.size}</td></tr>`; }).join("")}</tbody></table>`)}
+    ${sub("2.8", T2("القيود التصميمية", "Design constraints"), lis(m.front.overall.constraints[lang]))}
+    ${sub("2.9", T2("الافتراضات والاعتماديات", "Assumptions and dependencies"), lis(m.front.overall.assumptions[lang]))}</section>`;
 
   const chapter = x => {
     const builders = {
@@ -100,6 +103,7 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
       diagrams: () => `${(x.diagrams || []).map(d => diagramBlock(c, d)).join("")}${x.matrix ? matrixBlock(c, m, x.matrix) : ""}`,
       screens: () => screensBlock(c, x.screens),
       reqs: () => x.reqs.map(r => reqCard(c, m, r)).join(""),
+      algos: () => x.algos.map(a => algoCard(c, m, a)).join(""),
       edges: () => x.edgeCases.map(e => edgeBlock(c, e)).join(""),
       rules: () => lis(x.ownerRules.map(o => L(o))),
     };

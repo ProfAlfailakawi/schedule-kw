@@ -4,56 +4,414 @@
     "en": "SCHEDULE is an operational web platform for building, reviewing, approving and publishing academic timetables inside the university. It is driven by a deterministic scheduling engine that detects a conflict at the moment it occurs and refuses to approve a timetable that contains a material one. This document states what the system must provide, for whom, and under which guarantees, using stable numbering that can be traced to code and tests."
   },
   "pillars": [
-    { "icon": "cog", "title": { "ar": "محرك حتمي", "en": "Deterministic engine" }, "text": { "ar": "قواعد الجدولة والتعارض مكتوبة ومختبرة؛ المدخل نفسه يعطي النتيجة نفسها دائماً.", "en": "Scheduling and conflict rules are explicit and tested; the same input always yields the same result." } },
-    { "icon": "stamp", "title": { "ar": "اعتماد محكوم", "en": "Governed approval" }, "text": { "ar": "دورة تقديم ومراجعة وإرجاع وقبول وتجميد، لكل خطوة صلاحيتها وأثرها المسجل.", "en": "A cycle of submission, review, return, acceptance and freeze, each step with its own permission and recorded trail." } },
-    { "icon": "file-check-2", "title": { "ar": "استيراد آمن", "en": "Safe import" }, "text": { "ar": "القراءة تقترح، والمدققات الحتمية تحكم، ولا شيء يُكتب بلا تأكيد صريح.", "en": "Reading proposes, deterministic validators decide, and nothing is written without explicit confirmation." } },
-    { "icon": "shield-check", "title": { "ar": "نطاق وصلاحيات", "en": "Scope and permissions" }, "text": { "ar": "كل دور يرى كليته أو قسمه فقط، والحراسة على الخادم لا على الواجهة.", "en": "Every role sees only its own college or department, and the guard lives on the server, not in the interface." } },
-    { "icon": "link", "title": { "ar": "روابط عامة بأسرار", "en": "Secret public links" }, "text": { "ar": "الأستاذ والطالب يصلان إلى بطاقتهما برابط سري محدود التخمين.", "en": "Faculty and students reach their card through a secret link with guess-limited access." } },
-    { "icon": "languages", "title": { "ar": "عربي أولاً", "en": "Arabic first" }, "text": { "ar": "واجهة من اليمين إلى اليسار، تتكيف مع الهاتف، وتطبع تقاريرها على A4 بتصميم ثابت.", "en": "A right-to-left interface that adapts to the phone and prints its reports on A4 with a fixed design." } }
+    {
+      "icon": "cog",
+      "title": {
+        "ar": "محرك حتمي",
+        "en": "Deterministic engine"
+      },
+      "text": {
+        "ar": "قواعد الجدولة والتعارض مكتوبة ومختبرة؛ المدخل نفسه يعطي النتيجة نفسها دائماً.",
+        "en": "Scheduling and conflict rules are explicit and tested; the same input always yields the same result."
+      }
+    },
+    {
+      "icon": "stamp",
+      "title": {
+        "ar": "اعتماد محكوم",
+        "en": "Governed approval"
+      },
+      "text": {
+        "ar": "دورة تقديم ومراجعة وإرجاع وقبول وتجميد، لكل خطوة صلاحيتها وأثرها المسجل.",
+        "en": "A cycle of submission, review, return, acceptance and freeze, each step with its own permission and recorded trail."
+      }
+    },
+    {
+      "icon": "file-check-2",
+      "title": {
+        "ar": "استيراد آمن",
+        "en": "Safe import"
+      },
+      "text": {
+        "ar": "القراءة تقترح، والمدققات الحتمية تحكم، ولا شيء يُكتب بلا تأكيد صريح.",
+        "en": "Reading proposes, deterministic validators decide, and nothing is written without explicit confirmation."
+      }
+    },
+    {
+      "icon": "shield-check",
+      "title": {
+        "ar": "نطاق وصلاحيات",
+        "en": "Scope and permissions"
+      },
+      "text": {
+        "ar": "كل دور يرى كليته أو قسمه فقط، والحراسة على الخادم لا على الواجهة.",
+        "en": "Every role sees only its own college or department, and the guard lives on the server, not in the interface."
+      }
+    },
+    {
+      "icon": "link",
+      "title": {
+        "ar": "روابط عامة بأسرار",
+        "en": "Secret public links"
+      },
+      "text": {
+        "ar": "الأستاذ والطالب يصلان إلى بطاقتهما برابط سري محدود التخمين.",
+        "en": "Faculty and students reach their card through a secret link with guess-limited access."
+      }
+    },
+    {
+      "icon": "languages",
+      "title": {
+        "ar": "عربي أولاً",
+        "en": "Arabic first"
+      },
+      "text": {
+        "ar": "واجهة من اليمين إلى اليسار، تتكيف مع الهاتف، وتطبع تقاريرها على A4 بتصميم ثابت.",
+        "en": "A right-to-left interface that adapts to the phone and prints its reports on A4 with a fixed design."
+      }
+    }
   ],
   "intro": {
     "purpose": {
-      "ar": ["تحدد هذه الوثيقة المتطلبات الوظيفية وغير الوظيفية لنظام SCHEDULE، وتصلح مرجعاً مشتركاً بين الإدارة الأكاديمية وفريق التطوير والمختبرين في التصميم والتنفيذ والقبول.", "كُتبت وفق هيكل المعيار ISO/IEC/IEEE 29148، وكل متطلب فيها قابل للاختبار ومربوط بمرجعه في الكود وبالاختبار الذي يثبته حيث وُجد."],
-      "en": ["This document specifies the functional and non-functional requirements of the SCHEDULE system. It is a shared reference for academic administration, the development team and testers during design, implementation and acceptance.", "It follows the structure of ISO/IEC/IEEE 29148. Every requirement is testable and linked to its place in the code and, where one exists, to the test that proves it."]
+      "ar": [
+        "تحدد هذه الوثيقة المتطلبات الوظيفية وغير الوظيفية لنظام SCHEDULE، وتصلح مرجعاً مشتركاً بين الإدارة الأكاديمية وفريق التطوير والمختبرين في التصميم والتنفيذ والقبول.",
+        "كُتبت وفق هيكل المعيار ISO/IEC/IEEE 29148، وكل متطلب فيها قابل للاختبار ومربوط بمرجعه في الكود وبالاختبار الذي يثبته حيث وُجد."
+      ],
+      "en": [
+        "This document specifies the functional and non-functional requirements of the SCHEDULE system. It is a shared reference for academic administration, the development team and testers during design, implementation and acceptance.",
+        "It follows the structure of ISO/IEC/IEEE 29148. Every requirement is testable and linked to its place in the code and, where one exists, to the test that proves it."
+      ]
     },
     "scope": {
-      "ar": ["يشمل النطاق بناء جداول الأقسام والكليات من الفصول والمقررات والأساتذة والقاعات، وكشف التعارض، ومسودات الجداول وسيناريوهاتها، ودورة الاعتماد والتجميد، واستيراد ملفات الجهة الرسمية، وطلبات أعضاء هيئة التدريس، وتخطيط الشعب والخطط الدراسية، وخدمات الطالب والإرشاد والمقاعد، والتحليلات والتقارير والإشعارات.", "لا يشمل النطاق نظام التسجيل الرسمي ولا الدرجات ولا الرسوم؛ فملف الجهة الرسمية هو مرجع الأرقام والأقسام، والنظام يقارن به ولا يحل محله."],
-      "en": ["The scope covers building department and college timetables from terms, courses, instructors and halls; conflict detection; schedule drafts and scenarios; the approval and freeze cycle; import of the official authority file; faculty requests; section planning and study plans; student, advising and seat services; and analytics, reports and notifications.", "The scope excludes the official registration system, grades and fees. The authority file is the reference for course numbers and departments; the system compares against it and does not replace it."]
+      "ar": [
+        "يشمل النطاق بناء جداول الأقسام والكليات من الفصول والمقررات والأساتذة والقاعات، وكشف التعارض، ومسودات الجداول وسيناريوهاتها، ودورة الاعتماد والتجميد، واستيراد ملفات الجهة الرسمية، وطلبات أعضاء هيئة التدريس، وتخطيط الشعب والخطط الدراسية، وخدمات الطالب والإرشاد والمقاعد، والتحليلات والتقارير والإشعارات.",
+        "لا يشمل النطاق نظام التسجيل الرسمي ولا الدرجات ولا الرسوم؛ فملف الجهة الرسمية هو مرجع الأرقام والأقسام، والنظام يقارن به ولا يحل محله."
+      ],
+      "en": [
+        "The scope covers building department and college timetables from terms, courses, instructors and halls; conflict detection; schedule drafts and scenarios; the approval and freeze cycle; import of the official authority file; faculty requests; section planning and study plans; student, advising and seat services; and analytics, reports and notifications.",
+        "The scope excludes the official registration system, grades and fees. The authority file is the reference for course numbers and departments; the system compares against it and does not replace it."
+      ]
     },
     "audience": {
-      "ar": ["الإدارة الأكاديمية ولجان الجداول: للتحقق من أن النظام يغطي سياسات الجامعة.", "فريق التطوير والاختبار: لتحويل المتطلب إلى عمل وحالة اختبار.", "الجهات المراجعة: لفهم الضمانات والصلاحيات ونطاق الوثيقة."],
-      "en": ["Academic administration and schedule committees, to confirm the system covers university policy.", "Development and test teams, to turn a requirement into work and a test case.", "Reviewing bodies, to understand the guarantees, permissions and scope."]
+      "ar": [
+        "الإدارة الأكاديمية ولجان الجداول: للتحقق من أن النظام يغطي سياسات الجامعة.",
+        "فريق التطوير والاختبار: لتحويل المتطلب إلى عمل وحالة اختبار.",
+        "الجهات المراجعة: لفهم الضمانات والصلاحيات ونطاق الوثيقة."
+      ],
+      "en": [
+        "Academic administration and schedule committees, to confirm the system covers university policy.",
+        "Development and test teams, to turn a requirement into work and a test case.",
+        "Reviewing bodies, to understand the guarantees, permissions and scope."
+      ]
     },
     "conventions": {
-      "ar": ["**الرقم:** `FR` وظيفي، `NFR` غير وظيفي، `DR` بيانات، `IR` واجهة؛ ثم رمز الوحدة من ثلاثة أحرف، ثم ثلاثة أرقام، مثل `FR-SCH-012`. لا يُعاد استعمال رقم بعد حذفه.", "**الأولوية:** `يجب` (Must) لا يعمل النظام بدونه، `ينبغي` (Should) مهم وله بديل مؤقت، `يمكن` (Could) تحسين.", "**الحالة:** `منفّذ` موجود في النسخة الحالية، `قيد التطوير` بدأ العمل فيه، `مخطط` معتمد ولم يبدأ.", "**مستنتج:** وسم يوضع على متطلب استُخلص من سلوك الكود ولم يجد اختباراً يثبته، ويحتاج تأكيد المالك.", "**المراجع:** كل متطلب يحمل مسارات الملفات التي تنفذه والاختبارات التي تثبته، وتُفحص آلياً عند كل بناء.", "**اللغة:** النصان العربي والإنجليزي يحملان المتطلبات نفسها بالترقيم نفسه."],
-      "en": ["**Identifier:** `FR` functional, `NFR` non-functional, `DR` data, `IR` interface; then a three-letter module code and three digits, e.g. `FR-SCH-012`. A number is never reused after deletion.", "**Priority:** `Must` the system cannot operate without it, `Should` important with a temporary workaround, `Could` an enhancement.", "**Status:** `Implemented` present in the current release, `In progress` work has started, `Planned` approved but not started.", "**Inferred:** a mark placed on a requirement derived from the behaviour of the code that has no test proving it yet, and needs owner confirmation.", "**References:** every requirement carries the file paths that implement it and the tests that prove it, and these are checked automatically on every build.", "**Language:** the Arabic and English texts carry the same requirements under the same numbering."]
+      "ar": [
+        "**الرقم:** `FR` وظيفي، `NFR` غير وظيفي، `DR` بيانات، `IR` واجهة؛ ثم رمز الوحدة من ثلاثة أحرف، ثم ثلاثة أرقام، مثل `FR-SCH-012`. لا يُعاد استعمال رقم بعد حذفه.",
+        "**الأولوية:** `يجب` (Must) لا يعمل النظام بدونه، `ينبغي` (Should) مهم وله بديل مؤقت، `يمكن` (Could) تحسين.",
+        "**الحالة:** `منفّذ` موجود في النسخة الحالية، `قيد التطوير` بدأ العمل فيه، `مخطط` معتمد ولم يبدأ.",
+        "**مستنتج:** وسم يوضع على متطلب استُخلص من سلوك الكود ولم يجد اختباراً يثبته، ويحتاج تأكيد المالك.",
+        "**المراجع:** كل متطلب يحمل مسارات الملفات التي تنفذه والاختبارات التي تثبته، وتُفحص آلياً عند كل بناء.",
+        "**اللغة:** النصان العربي والإنجليزي يحملان المتطلبات نفسها بالترقيم نفسه."
+      ],
+      "en": [
+        "**Identifier:** `FR` functional, `NFR` non-functional, `DR` data, `IR` interface; then a three-letter module code and three digits, e.g. `FR-SCH-012`. A number is never reused after deletion.",
+        "**Priority:** `Must` the system cannot operate without it, `Should` important with a temporary workaround, `Could` an enhancement.",
+        "**Status:** `Implemented` present in the current release, `In progress` work has started, `Planned` approved but not started.",
+        "**Inferred:** a mark placed on a requirement derived from the behaviour of the code that has no test proving it yet, and needs owner confirmation.",
+        "**References:** every requirement carries the file paths that implement it and the tests that prove it, and these are checked automatically on every build.",
+        "**Language:** the Arabic and English texts carry the same requirements under the same numbering."
+      ]
     },
     "references": [
-      { "ar": "ISO/IEC/IEEE 29148:2018، هندسة النظم والبرمجيات: عمليات دورة حياة المتطلبات.", "en": "ISO/IEC/IEEE 29148:2018, Systems and software engineering: Life cycle processes: Requirements engineering." },
-      { "ar": "W3C، إرشادات الوصول إلى محتوى الويب WCAG 2.1، المستوى AA.", "en": "W3C, Web Content Accessibility Guidelines (WCAG) 2.1, level AA." },
-      { "ar": "RFC 5545، صيغة iCalendar.", "en": "RFC 5545, Internet Calendaring and Scheduling Core Object Specification (iCalendar)." },
-      { "ar": "RFC 8030، إرسال الأحداث عبر HTTP Push.", "en": "RFC 8030, Generic Event Delivery Using HTTP Push." }
+      {
+        "ar": "ISO/IEC/IEEE 29148:2018، هندسة النظم والبرمجيات: عمليات دورة حياة المتطلبات.",
+        "en": "ISO/IEC/IEEE 29148:2018, Systems and software engineering: Life cycle processes: Requirements engineering."
+      },
+      {
+        "ar": "W3C، إرشادات الوصول إلى محتوى الويب WCAG 2.1، المستوى AA.",
+        "en": "W3C, Web Content Accessibility Guidelines (WCAG) 2.1, level AA."
+      },
+      {
+        "ar": "RFC 5545، صيغة iCalendar.",
+        "en": "RFC 5545, Internet Calendaring and Scheduling Core Object Specification (iCalendar)."
+      },
+      {
+        "ar": "RFC 8030، إرسال الأحداث عبر HTTP Push.",
+        "en": "RFC 8030, Generic Event Delivery Using HTTP Push."
+      }
     ]
   },
   "overall": {
     "perspective": {
-      "ar": ["النظام تطبيق ويب تقدمي (PWA) بواجهة React وخادم Node.js يعمل على Google Cloud Run، وقاعدة بياناته Firestore يصل إليها الخادم وحده بصلاحيات الإدارة، فلا باب مباشراً من المتصفح.", "إلى جانب التطبيق صفحات عامة يبنيها الخادم لكل رابط سري: بطاقة الأستاذ، بطاقة القسم، باب القاعة، لوحة المبنى، صفحات الشركاء، وصفحة التحقق من التوقيع."],
-      "en": ["The system is a progressive web application (PWA) with a React interface and a Node.js server running on Google Cloud Run. Its database is Firestore, reached by the server alone with administrative credentials, so there is no direct door from the browser.", "Beside the application there are public pages built by the server for each secret link: the faculty card, the department card, the room door, the building board, partner pages and the signature verification page."]
+      "ar": [
+        "النظام تطبيق ويب تقدمي (PWA) بواجهة React وخادم Node.js يعمل على Google Cloud Run، وقاعدة بياناته Firestore يصل إليها الخادم وحده بصلاحيات الإدارة، فلا باب مباشراً من المتصفح.",
+        "إلى جانب التطبيق صفحات عامة يبنيها الخادم لكل رابط سري: بطاقة الأستاذ، بطاقة القسم، باب القاعة، لوحة المبنى، صفحات الشركاء، وصفحة التحقق من التوقيع."
+      ],
+      "en": [
+        "The system is a progressive web application (PWA) with a React interface and a Node.js server running on Google Cloud Run. Its database is Firestore, reached by the server alone with administrative credentials, so there is no direct door from the browser.",
+        "Beside the application there are public pages built by the server for each secret link: the faculty card, the department card, the room door, the building board, partner pages and the signature verification page."
+      ]
     },
     "constraints": {
-      "ar": ["**المحرك حتمي:** لا يتغير جدول بلا قاعدة صريحة، والمدققات الحتمية هي الحكم النهائي قبل أي كتابة.", "**القراءة المساعدة لا تكتب:** أي استيراد أو استعلام نصي يمر بالمدققات ثم بتأكيد المستخدم.", "**رقم المقرر سبع خانات:** الكلية (2) + القسم (2) + المقرر (3)، مثل `0109105`، في كل شاشة وتقرير وتصدير.", "**الترويسة تحدد القسم** في ملف الجهة الرسمية، حتى لو حمل رقم المقرر رمز قسم آخر.", "**التقارير المطبوعة تحافظ على تصميمها:** يُصلح المحتوى والبيانات لا الشكل.", "**الخادم هو الحارس:** إخفاء الشاشات في الواجهة احترام لوقت المستخدم لا حماية."],
-      "en": ["**The engine is deterministic:** no schedule changes without an explicit rule, and the deterministic validators are the final judge before any write.", "**Assisted reading never writes:** every import or text query passes the validators and then the user's confirmation.", "**Course numbers are seven digits:** college (2) + department (2) + course (3), e.g. `0109105`, on every screen, report and export.", "**The header decides the department** in the authority file, even if a course number carries another department's code.", "**Printed reports keep their design:** content and data are fixed, not layout.", "**The server is the guard:** hiding screens in the interface is courtesy to the user's time, not protection."]
+      "ar": [
+        "**المحرك حتمي:** لا يتغير جدول بلا قاعدة صريحة، والمدققات الحتمية هي الحكم النهائي قبل أي كتابة.",
+        "**القراءة المساعدة لا تكتب:** أي استيراد أو استعلام نصي يمر بالمدققات ثم بتأكيد المستخدم.",
+        "**رقم المقرر سبع خانات:** الكلية (2) + القسم (2) + المقرر (3)، مثل `0109105`، في كل شاشة وتقرير وتصدير.",
+        "**الترويسة تحدد القسم** في ملف الجهة الرسمية، حتى لو حمل رقم المقرر رمز قسم آخر.",
+        "**التقارير المطبوعة تحافظ على تصميمها:** يُصلح المحتوى والبيانات لا الشكل.",
+        "**الخادم هو الحارس:** إخفاء الشاشات في الواجهة احترام لوقت المستخدم لا حماية."
+      ],
+      "en": [
+        "**The engine is deterministic:** no schedule changes without an explicit rule, and the deterministic validators are the final judge before any write.",
+        "**Assisted reading never writes:** every import or text query passes the validators and then the user's confirmation.",
+        "**Course numbers are seven digits:** college (2) + department (2) + course (3), e.g. `0109105`, on every screen, report and export.",
+        "**The header decides the department** in the authority file, even if a course number carries another department's code.",
+        "**Printed reports keep their design:** content and data are fixed, not layout.",
+        "**The server is the guard:** hiding screens in the interface is courtesy to the user's time, not protection."
+      ]
     },
     "assumptions": {
-      "ar": ["المستخدمون يصلون بمتصفح حديث، على حاسوب أو هاتف بعرض 320 بكسل فأكثر.", "ملف الجهة الرسمية (SWRSCHA) هو المصدر المعتمد لأرقام المقررات والأقسام.", "خدمات Google Cloud وFirestore متاحة، ويعمل النظام بوضع تجريبي معزول حين تكون قاعدة البيانات غير متاحة أو عند العرض.", "كل حساب يتبع كلية أو قسماً أو أكثر ضمن نطاق يحدده المدير."],
-      "en": ["Users reach the system with a modern browser on a computer or a phone at least 320 pixels wide.", "The official authority file (SWRSCHA) is the approved source of course numbers and departments.", "Google Cloud and Firestore are available, and the system runs in an isolated demonstration mode when the database is unavailable or for showcasing.", "Every account belongs to one or more colleges or departments within a scope set by the administrator."]
+      "ar": [
+        "المستخدمون يصلون بمتصفح حديث، على حاسوب أو هاتف بعرض 320 بكسل فأكثر.",
+        "ملف الجهة الرسمية (SWRSCHA) هو المصدر المعتمد لأرقام المقررات والأقسام.",
+        "خدمات Google Cloud وFirestore متاحة، ويعمل النظام بوضع تجريبي معزول حين تكون قاعدة البيانات غير متاحة أو عند العرض.",
+        "كل حساب يتبع كلية أو قسماً أو أكثر ضمن نطاق يحدده المدير."
+      ],
+      "en": [
+        "Users reach the system with a modern browser on a computer or a phone at least 320 pixels wide.",
+        "The official authority file (SWRSCHA) is the approved source of course numbers and departments.",
+        "Google Cloud and Firestore are available, and the system runs in an isolated demonstration mode when the database is unavailable or for showcasing.",
+        "Every account belongs to one or more colleges or departments within a scope set by the administrator."
+      ]
     }
   },
   "groups": [
-    { "id": "foundation", "icon": "layers", "title": { "ar": "الأساس", "en": "Foundation" }, "modules": ["ACC", "ACD", "LOC", "DAT"] },
-    { "id": "core", "icon": "calendar-range", "title": { "ar": "قلب الجدولة", "en": "Scheduling core" }, "modules": ["SCH", "DRF", "VIW", "APR", "IMP"] },
-    { "id": "people", "icon": "users", "title": { "ar": "المشاركة والخدمات", "en": "Collaboration and services" }, "modules": ["REQ", "PLN", "STU", "NTF"] },
-    { "id": "insight", "icon": "chart-no-axes-combined", "title": { "ar": "الرؤية والتقارير", "en": "Insight and reporting" }, "modules": ["INT", "RPT", "DSH", "ENG"] },
-    { "id": "platform", "icon": "server-cog", "title": { "ar": "المنصة", "en": "Platform" }, "modules": ["OPS", "NFR", "EXT"] }
-  ]
+    {
+      "id": "foundation",
+      "icon": "layers",
+      "title": {
+        "ar": "الأساس",
+        "en": "Foundation"
+      },
+      "modules": [
+        "ACC",
+        "ACD",
+        "LOC",
+        "DAT"
+      ]
+    },
+    {
+      "id": "core",
+      "icon": "calendar-range",
+      "title": {
+        "ar": "قلب الجدولة",
+        "en": "Scheduling core"
+      },
+      "modules": [
+        "SCH",
+        "DRF",
+        "VIW",
+        "APR",
+        "IMP"
+      ]
+    },
+    {
+      "id": "people",
+      "icon": "users",
+      "title": {
+        "ar": "المشاركة والخدمات",
+        "en": "Collaboration and services"
+      },
+      "modules": [
+        "REQ",
+        "PLN",
+        "STU",
+        "NTF"
+      ]
+    },
+    {
+      "id": "insight",
+      "icon": "chart-no-axes-combined",
+      "title": {
+        "ar": "الرؤية والتقارير",
+        "en": "Insight and reporting"
+      },
+      "modules": [
+        "INT",
+        "RPT",
+        "DSH",
+        "ENG"
+      ]
+    },
+    {
+      "id": "platform",
+      "icon": "server-cog",
+      "title": {
+        "ar": "المنصة",
+        "en": "Platform"
+      },
+      "modules": [
+        "OPS",
+        "NFR",
+        "EXT"
+      ]
+    }
+  ],
+  "history": {
+    "title": {
+      "ar": "تاريخ النظام",
+      "en": "The system’s history"
+    },
+    "lead": {
+      "ar": "النظام ليس جديداً: يعمل منذ {since}، وكل فصلٍ مضى محفوظ يقرأ منه النظام ويحلّل. هذا التاريخ هو ما يجعل مقارناته وتوقعاته مبنيةً على وقائع لا على افتراضات.",
+      "en": "The system is not new: it has been in service since {since}, and every past term is kept for the system to read and analyse. This history is what makes its comparisons and forecasts rest on facts rather than assumptions."
+    },
+    "milestones": [
+      {
+        "when": "{since}",
+        "icon": "flag",
+        "title": {
+          "ar": "بدء التشغيل الفعلي",
+          "en": "Go-live"
+        },
+        "text": {
+          "ar": "انطلق النظام بدراسة تجريبية واسعة (Pilot study)، وبدأ يحفظ الفصول الدراسية فصلاً بعد فصل.",
+          "en": "The system went live with a large pilot study and began keeping academic terms one after another."
+        }
+      },
+      {
+        "when": "{since} – {year}",
+        "icon": "archive",
+        "title": {
+          "ar": "عقدٌ من الفصول المحفوظة",
+          "en": "A decade of kept terms"
+        },
+        "text": {
+          "ar": "كل فصلٍ مضى يُجمَّد للعرض فقط ويبقى مرجعاً تقرأ منه المقارنات والتوقعات.",
+          "en": "Every past term is frozen read-only and stays a reference for comparisons and forecasts."
+        },
+        "req": "FR-APR-016"
+      },
+      {
+        "when": {
+          "ar": "الانتقال",
+          "en": "Migration"
+        },
+        "icon": "database-backup",
+        "title": {
+          "ar": "البيانات القديمة بمعرّفاتها",
+          "en": "Legacy data under its ids"
+        },
+        "text": {
+          "ar": "نُقلت بيانات النظام القديم بمعرّفاتها الأصلية، وبقيت جداوله التاريخية أرشيفاً كما هي.",
+          "en": "The legacy data moved under its original ids, and its historical tables stay archived as they were."
+        },
+        "req": "FR-DAT-021"
+      },
+      {
+        "when": "{asOf}",
+        "icon": "activity",
+        "title": {
+          "ar": "القياس الحي للجمهور",
+          "en": "Live audience measurement"
+        },
+        "text": {
+          "ar": "من هذا التاريخ يُضاف المقيس إلى الرصيد المعتمد، فتتحدث أرقام الاستخدام وحدها.",
+          "en": "From this date measured figures add to the approved baseline, so usage figures refresh on their own."
+        }
+      },
+      {
+        "when": "{release}",
+        "icon": "scroll-text",
+        "title": {
+          "ar": "وثيقة المتطلبات {version}",
+          "en": "Requirements document {version}"
+        },
+        "text": {
+          "ar": "وثيقة مرتبطة بالكود والاختبارات، تتحدث مع كل نشر.",
+          "en": "A document tied to the code and tests that refreshes with every release."
+        }
+      }
+    ],
+    "readsTitle": {
+      "ar": "ما يقرؤه النظام من تاريخه",
+      "en": "What the system reads from its history"
+    },
+    "reads": [
+      {
+        "req": "FR-SCH-020",
+        "icon": "audio-waveform",
+        "title": {
+          "ar": "إيقاع كل قسم",
+          "en": "Each department’s rhythm"
+        },
+        "text": {
+          "ar": "يتعلّم عادة القسم في البدايات والأطوال من كل فصوله، وينبّه بلطف إلى ما يخرج عنها.",
+          "en": "Learns a department’s habitual starts and lengths from all its terms and gently notes what departs from them."
+        }
+      },
+      {
+        "req": "FR-PLN-005",
+        "icon": "git-fork",
+        "title": {
+          "ar": "تاريخ الموسم وتسلسل المقرر",
+          "en": "Season history and course lineage"
+        },
+        "text": {
+          "ar": "يجمع تاريخ كل مقرر من الفصول المماثلة السابقة، ويورّث المقرر المعاد ترقيمه تاريخ سلفه.",
+          "en": "Gathers each course’s history from earlier terms of the same season and lets a renumbered course inherit its predecessor’s."
+        }
+      },
+      {
+        "req": "FR-INT-018",
+        "icon": "trending-up",
+        "title": {
+          "ar": "توقع الفصل القادم",
+          "en": "Next-term forecast"
+        },
+        "text": {
+          "ar": "يتوقع عدد الشعب لكل مقرر قيمةً ونطاقاً من شعب الفصول السابقة.",
+          "en": "Forecasts each course’s sections as a value and a range from previous terms."
+        }
+      },
+      {
+        "req": "FR-RPT-011",
+        "icon": "calendar-range",
+        "title": {
+          "ar": "سجل الانتداب عبر السنين",
+          "en": "Visiting history across years"
+        },
+        "text": {
+          "ar": "مصفوفة سنوية واحدة للمنتدبين، تحفظ من انتُدب ولو غادر الدليل.",
+          "en": "One yearly matrix of visiting instructors that keeps anyone delegated even after leaving the directory."
+        }
+      },
+      {
+        "req": "FR-DRF-012",
+        "icon": "history",
+        "title": {
+          "ar": "العودة إلى نسخة سابقة",
+          "en": "Back to a previous version"
+        },
+        "text": {
+          "ar": "كل نسخة من الجدول محفوظة، ويُسترجع منها بتأكيد صريح وفحص كامل.",
+          "en": "Every version of a schedule is kept and can be restored with explicit confirmation and full checks."
+        }
+      }
+    ]
+  },
+  "algorithms": {
+    "title": {
+      "ar": "الخوارزميات",
+      "en": "Algorithms"
+    },
+    "question": {
+      "ar": "هل يعتمد النظام على الخوارزميات أم على الحساب المباشر؟",
+      "en": "Does the system rely on algorithms or on plain calculation?"
+    },
+    "answer": {
+      "ar": "على الخوارزميات. كل قرارٍ في النظام تنتجه خوارزمية صريحة مكتوبة ومختبرة: {n} خوارزمية في {m} وحدة، لكلٍّ منها خطواتها وعتباتها ومراجعها في الكود. معظمها حتمي: المدخل نفسه يعطي النتيجة نفسها دائماً، وكل نتيجة تُتتبَّع إلى قاعدتها. وبعضها يبحث بين البدائل الممكنة ويرتّبها، وبعضها إحصاءٌ وصفي من الفصول المحفوظة منذ {since}. لا يدخل القرارَ نموذجٌ مدرَّب ولا نتيجةٌ احتمالية، وحيث تُستعمل خدمة Gemini (قراءة الاستيراد والاستعلام النصي) فهي تقرأ وتقترح فقط، والحكم للمدققات الحتمية ولتأكيد المستخدم.",
+      "en": "Algorithms. Every decision in the system is produced by an explicit, written and tested algorithm: {n} algorithms across {m} modules, each with its steps, thresholds and code references. Most are deterministic: the same input always yields the same result, and every result traces back to its rule. Some search the possible options and rank them, and some are descriptive statistics over the terms kept since {since}. No trained model or probabilistic output enters a decision; where the Gemini service is used (import reading and text queries) it only reads and proposes, while deterministic validators and the user’s confirmation decide."
+    }
+  }
 }
