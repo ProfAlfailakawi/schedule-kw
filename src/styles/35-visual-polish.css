@@ -217,13 +217,6 @@
 .schedule-tool-actions:has(> .schedule-tools-toggle.is-close)>:not(.schedule-tools-toggle.is-close ~ *){inline-size:auto!important;flex:0 0 auto}
 .schedule-tool-actions>.schedule-tools-toggle.is-close{margin-inline-start:auto}
 
-/* ── استعارة القاعات: فقرةُ الشروط الطويلة صارت شرائحَ قواعد بأيقونات (لا محاضرة وهمية، لا يتغيّر مقرر…). */
-.hall-barter-rules{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
-.hall-barter-rules li{display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 9px;border-radius:999px;
-  background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));
-  color:var(--ink-2);font-size:12px;font-weight:650;line-height:1.3}
-.hall-barter-rules svg{inline-size:14px;block-size:14px;flex:none;color:var(--accent)}
-
 /* ── «متى نلتقي؟»: سطرٌ واحد للشرح، وملاحظة النطاق شريحةٌ بأيقونة الكرة الأرضية. */
 .meeting-slots-head p.meeting-slots-scope-note{display:inline-flex;align-items:center;gap:6px;margin-top:6px!important;padding:4px 10px;border-radius:999px;
   background:color-mix(in srgb,var(--accent) 8%,var(--surface));color:var(--accent-ink,var(--accent))!important;font-weight:650}

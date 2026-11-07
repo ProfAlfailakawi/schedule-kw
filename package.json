@@ -64,6 +64,7 @@
     "test:full-day-setting": "tsx tests/full-day-setting-audit.ts",
     "test:holds-patterns-r4": "tsx tests/holds-patterns-r4-audit.ts",
     "test:one-line-appointment": "tsx tests/one-line-appointment-audit.ts",
+    "test:rooms-one-screen": "tsx tests/rooms-one-screen-audit.ts",
     "test:admin-screens-r4": "tsx tests/admin-screens-r4-audit.ts",
     "test:roster-delegates-card": "tsx tests/roster-delegates-card-audit.ts",
     "test:admin-rules-r4": "tsx tests/admin-rules-r4-audit.ts",

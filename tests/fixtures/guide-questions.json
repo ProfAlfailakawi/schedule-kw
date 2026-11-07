@@ -170,8 +170,7 @@
 "q": "كيف أضيف مبنى جديداً وقاعاته وأخصصها لقسم؟",
 "kind": "fusha",
 "expected": [
-"page.roomSetup",
-"page.locations"
+"page.roomSetup"
 ]
 },
 {
@@ -756,8 +755,7 @@
 "q": "كيف أضيف قاعة جديدة وأخصصها لأكثر من قسم؟",
 "kind": "fusha",
 "expected": [
-"page.roomSetup",
-"page.locations"
+"page.roomSetup"
 ]
 },
 {
@@ -1004,8 +1002,7 @@
 "q": "شلون أسوي مبنى جديد وأوزع قاعاته على الأقسام؟",
 "kind": "kuwaiti",
 "expected": [
-"page.roomSetup",
-"page.locations"
+"page.roomSetup"
 ]
 },
 {
