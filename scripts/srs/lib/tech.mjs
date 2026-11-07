@@ -49,7 +49,7 @@ export function techFingerprintFiles() {
 export function techBlock(c, tech, { withTitle = false } = {}) {
   const T = o => (typeof o === "string" ? esc(o) : c.T(o));
   const prod = it => `${T(it.product)}${it.v ? ` <em class="v">v${esc(it.v)}</em>` : ""}`;
-  const logos = it => `<div class="tl">${(it.logos || []).map(n => `<img class="tlogo" src="${logoUri(n)}" alt="">`).join("")}${it.wordmark ? `<span class="tword">${esc(it.wordmark)}</span>` : ""}</div>`;
+  const logos = it => `<div class="tl">${it.icon ? `<span class="tl-ic">${icon(it.icon, 22)}</span>` : ""}${(it.logos || []).map(n => `<img class="tlogo" src="${logoUri(n)}" alt="">`).join("")}${it.wordmark ? `<span class="tword">${esc(it.wordmark)}</span>` : ""}</div>`;
   const item = it => `<li>${logos(it)}<div class="tt"><b>${T(it.label)}</b><span>${it.n != null ? `<strong class="tn">${it.n}</strong> ` : ""}${prod(it)}</span></div></li>`;
   const col = k => `<section class="tcol tone-${k.tone}"><header><span class="no">${esc(k.no)}</span><h3>${T(k.title)}</h3>${icon(k.icon, 28)}</header><ul>${k.items.map(item).join("")}</ul></section>`;
   const svc = it => `<li><span class="si">${icon(it.icon, 20)}</span><div class="tt"><b>${T(it.label)}</b><span>${prod(it)}</span></div></li>`;
