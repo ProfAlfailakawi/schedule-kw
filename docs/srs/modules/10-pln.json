@@ -1,0 +1,2455 @@
+{
+  "id": "PLN",
+  "order": 10,
+  "icon": "layout-list",
+  "title": {
+    "ar": "تخطيط الشعب والخطط الدراسية",
+    "en": "Section planning and curricula"
+  },
+  "tagline": {
+    "ar": "من كشف المتبقي والصحيفة إلى شعب الفصل والمقترح الدراسي",
+    "en": "From the remaining report and plan sheet to the term's sections and the study proposal"
+  },
+  "summary": {
+    "ar": "تبني الوحدة شعب الفصل من الصحائف الدراسية: يرفع القسم كشف المتبقي، فيقترح النظام عدد الشعب من تاريخ الفصول المماثلة، ثم يُنزَّل الناقص في الجدول بمحرك واحد وتأكيد صريح وتراجع. وتدير الوحدة قواعد الصحيفة (المستويات والمسبقات والاختياري) من المسودة إلى الاعتماد والنشر العام، وحالات طرح المقررات، والمقترح الدراسي الذي يعده القسم لأستاذ ويثبّته بعد موافقته. تخدم رئيس القسم ورئيس لجنة الجدول وإدارة النظام، وتقرأ الطالب والزائر الصحائف المنشورة.",
+    "en": "The module builds the term's class sections from the study plans. The department uploads the remaining report, the system suggests section counts from comparable past terms, and the missing sections are applied to the schedule through one engine with explicit confirmation and undo. It also manages plan sheet rules (levels, prerequisites, electives) from draft to approval and public publishing, course offering states, and the study proposal the department prepares for an instructor and commits after approval. It serves department heads, the schedule committee chair and system administration, while students and visitors read the published sheets."
+  },
+  "actors": [
+    "departmentHead",
+    "committeeChair",
+    "rootAdmin",
+    "advisor",
+    "standard",
+    "instructor",
+    "visitor",
+    "student",
+    "system"
+  ],
+  "sources": [
+    "src/server/routes/planningRoutes.ts",
+    "src/server/routes/offeringRoutes.ts",
+    "src/server/planReviewRoutes.ts",
+    "src/server/planSheetRoutes.ts",
+    "src/server/planSheetPage.ts",
+    "src/server/planSheetReferenceLayout.ts",
+    "src/server/planBadgeShared.ts",
+    "src/server/planPdfExtract.ts",
+    "src/server/sheetReconcile.ts",
+    "src/server/studyProposal*.ts",
+    "src/server/courseReachShared.ts",
+    "src/server/offeringStates.ts",
+    "src/server/core/planning.ts",
+    "src/data/technologyEducationCurricula.ts",
+    "src/data/marineMechanicalDiploma.ts",
+    "src/utils/courseOffering.ts",
+    "src/utils/courseReach.ts",
+    "src/utils/curriculum*.ts",
+    "src/utils/planBadges.ts",
+    "src/utils/planPdfParser.ts",
+    "src/utils/planSheetImport.ts",
+    "src/utils/planTriage.ts",
+    "src/utils/referenceApply.ts",
+    "src/utils/remainingReport.ts",
+    "src/utils/section*.ts",
+    "src/utils/sheetMembership.ts",
+    "src/utils/sheetTag.ts",
+    "src/utils/studyProposal.ts",
+    "src/utils/proposalVacancyScope.ts",
+    "src/utils/proposalTeacherView.ts",
+    "src/utils/nextCourseSectionCode.ts",
+    "src/utils/collegeTrack.ts",
+    "src/components/SectionPlanning.tsx",
+    "src/components/SectionBuild.tsx",
+    "src/components/SectionGapNote.tsx",
+    "src/components/CourseOfferingPanel.tsx",
+    "src/components/CourseReach.tsx",
+    "src/components/PrepublishReachSheet.tsx",
+    "src/components/CurriculumPlans.tsx",
+    "src/components/CurriculumReferenceReview.tsx",
+    "src/components/PlanMapLines.tsx",
+    "src/components/PlanReview.tsx",
+    "src/components/PlanSheetPublisher.tsx",
+    "src/components/PlanSheetUpload.tsx",
+    "src/components/PlanTriageView.tsx",
+    "src/components/PreviousPlansPanel.tsx",
+    "src/components/QuickPlanSheet.tsx",
+    "src/components/proposal/*",
+    "src/components/useCourseSheets.ts",
+    "src/styles/14-proposal.css",
+    "src/styles/21-plan-general.css",
+    "src/styles/23-section-build.css",
+    "src/styles/24-section-plan-polish.css",
+    "src/styles/32-section-surplus.css",
+    "src/styles/40-course-reach.css",
+    "public/plans/**"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "تخطيط الشعب",
+        "en": "Section planning"
+      },
+      "file": "src/components/SectionPlanning.tsx",
+      "note": {
+        "ar": "رفع كشف المتبقي، المدى المقترح، المختار، التقرير المطبوع.",
+        "en": "Remaining-report upload, suggested range, chosen count, printed report."
+      }
+    },
+    {
+      "name": {
+        "ar": "نزّل الشعب",
+        "en": "Apply sections"
+      },
+      "file": "src/components/SectionBuild.tsx",
+      "note": {
+        "ar": "الفجوة والمعاينة الأسبوعية والتنزيل والتراجع.",
+        "en": "Gap, weekly preview, apply and undo."
+      }
+    },
+    {
+      "name": {
+        "ar": "شعب يُفضَّل زيادتها",
+        "en": "Sections to add"
+      },
+      "file": "src/components/SectionGapNote.tsx",
+      "note": {
+        "ar": "شارة هادئة في شريط الاعتماد تفتح قائمة «٥ ← ٧».",
+        "en": "A quiet badge in the approval bar opening a «5 to 7» list."
+      }
+    },
+    {
+      "name": {
+        "ar": "فرز بنود التخطيط",
+        "en": "Planning triage"
+      },
+      "file": "src/components/PlanTriageView.tsx",
+      "note": {
+        "ar": "عاجل ومهم وفرصة مع قرارات تم وتجاهل.",
+        "en": "Urgent, important and opportunity with done and ignored decisions."
+      }
+    },
+    {
+      "name": {
+        "ar": "حالة طرح المقررات",
+        "en": "Course offering status"
+      },
+      "file": "src/components/CourseOfferingPanel.tsx",
+      "note": {
+        "ar": "أربع حالات وتبويبا الصحيفة الجديدة والقديمة وحكم الوصول.",
+        "en": "Four states, new and old sheet tabs and the reach verdict."
+      }
+    },
+    {
+      "name": {
+        "ar": "الصحائف الدراسية",
+        "en": "Curriculum plans"
+      },
+      "file": "src/components/CurriculumPlans.tsx",
+      "note": {
+        "ar": "إنشاء الصحيفة وربط المقررات والانتقال والأرشفة.",
+        "en": "Plan creation, course linking, transitions and archiving."
+      }
+    },
+    {
+      "name": {
+        "ar": "مراجعة الصحيفة",
+        "en": "Plan review"
+      },
+      "file": "src/components/PlanReview.tsx",
+      "note": {
+        "ar": "خريطة المستويات وقواعد المقررات والاعتماد.",
+        "en": "Level map, course rules and approval."
+      }
+    },
+    {
+      "name": {
+        "ar": "الصحيفة المرجعية",
+        "en": "Reference sheet"
+      },
+      "file": "src/components/CurriculumReferenceReview.tsx",
+      "note": {
+        "ar": "مقارنة الصحيفتين المرجعيتين بالكتالوج وتطبيقهما.",
+        "en": "Comparison of the two reference sheets with the catalogue and their application."
+      }
+    },
+    {
+      "name": {
+        "ar": "رفع الخطة الدراسية",
+        "en": "Study plan upload"
+      },
+      "file": "src/components/PlanSheetUpload.tsx",
+      "note": {
+        "ar": "رفع PDF من عمادة القبول والتسجيل.",
+        "en": "Upload of the registration office's PDF."
+      }
+    },
+    {
+      "name": {
+        "ar": "نشر الصحيفة",
+        "en": "Sheet publishing"
+      },
+      "file": "src/components/PlanSheetPublisher.tsx",
+      "note": {
+        "ar": "رابط وQR وPDF لكل صحيفة معتمدة.",
+        "en": "Link, QR and PDF for every approved sheet."
+      }
+    },
+    {
+      "name": {
+        "ar": "المقترح الدراسي",
+        "en": "Study proposal"
+      },
+      "file": "src/components/proposal/StudyProposalWorkspace.tsx",
+      "note": {
+        "ar": "جدول بالفرق المرئي وتبويبات التغييرات والشواغر والفحص.",
+        "en": "A schedule with visible differences and tabs for changes, vacancies and checks."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "departmentHead",
+      "title": {
+        "ar": "من كشف المتبقي إلى الشعب في الجدول",
+        "en": "From the remaining report to sections in the schedule"
+      },
+      "steps": [
+        {
+          "ar": "يرفع كشف «المتبقي» PDF أو صوراً من «تخطيط الشعب» ويراجع المعاينة.",
+          "en": "Uploads the remaining report as PDF or images from section planning and reviews the preview."
+        },
+        {
+          "ar": "يقرأ لكل مقرر المدى المقترح وسببه، ويكتب «المختار» حيث يخالفه.",
+          "en": "Reads each course's suggested range and reason, and writes a «chosen» count where he disagrees."
+        },
+        {
+          "ar": "يفتح «نزّل الشعب» فيرى المطلوب والموجود والباقي لكل مقرر.",
+          "en": "Opens «apply sections» and sees required, existing and remaining per course."
+        },
+        {
+          "ar": "يعاين أسبوعاً مبنياً بقاعات وأساتذة وأوقات بلا تعارض، وأسباب ما لم يُبنَ.",
+          "en": "Previews a week built with halls, instructors and conflict-free times, plus reasons for what could not be built."
+        },
+        {
+          "ar": "يؤكد التنزيل فتُكتب الشعب كلها أو لا شيء، ثم يتراجع بضغطة إن شاء.",
+          "en": "Confirms the apply, writing all sections or none, and may undo with one click."
+        }
+      ]
+    },
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "من مسودة الصحيفة إلى الصفحة العامة",
+        "en": "From plan sheet draft to the public page"
+      },
+      "steps": [
+        {
+          "ar": "يستورد الحساب الرئيسي الصحائف فتنشأ مسودات «قيد المراجعة».",
+          "en": "The main administrator imports the sheets, creating «under review» drafts."
+        },
+        {
+          "ar": "يصحح القسم مستويات مقرراته ومسبقاتها ومجموعاتها الاختيارية.",
+          "en": "The department corrects its courses' levels, prerequisites and elective groups."
+        },
+        {
+          "ar": "يراجع رئيس اللجنة الموانع ويعتمد على النسخة التي رآها.",
+          "en": "The chair reviews the blockers and approves the version he saw."
+        },
+        {
+          "ar": "ينشر الصحيفة المعتمدة من «نشر الصحيفة» فيحصل على رابط وQR وPDF.",
+          "en": "Publishes the approved sheet from «sheet publishing» and obtains a link, QR and PDF."
+        },
+        {
+          "ar": "يقرأ الطلبة الصفحة على /plans/ بلا حساب، وتتحدث اللقطة عند كل اعتماد لاحق.",
+          "en": "Students read the page at /plans/ without an account, and the snapshot refreshes on each later approval."
+        }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": {
+        "ar": "مقترح دراسي لأستاذ",
+        "en": "A study proposal for an instructor"
+      },
+      "steps": [
+        {
+          "ar": "يبدأ المقترح من بطاقة طلب الأستاذ في الوارد ويضيف مواد (إسناد أو شعبة جديدة أو تعديل أو استبدال).",
+          "en": "Starts the proposal from the instructor's request card in the inbox and adds items (assign, new section, edit or replace)."
+        },
+        {
+          "ar": "يرى الفرق مباشرة على الجدول ونتيجة الفحص: مانع أو ملاحظة أو معلومة.",
+          "en": "Sees the difference on the schedule and the check result at once: blocker, note or information."
+        },
+        {
+          "ar": "يرسل النسخة فيصل الأستاذ رابط شخصي، ولا يُحجز شيء.",
+          "en": "Sends the version and the instructor receives a personal link, with nothing reserved."
+        },
+        {
+          "ar": "يوقع الأستاذ بالرقم المدني بالموافقة أو يطلب تعديلاً.",
+          "en": "The instructor signs with the civil number to approve or requests a change."
+        },
+        {
+          "ar": "يراجع القسم ويثبّت في معاملة واحدة، ويستطيع التراجع إن لم يتغير موعد.",
+          "en": "The department reviews and commits in one transaction, and may undo if no appointment changed."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "pln-build-flow",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "مسار نزّل الشعب",
+        "en": "Section-build workflow"
+      },
+      "caption": {
+        "ar": "القرار في التخطيط، والبناء في الخادم، والكتابة بمسار الجدول المشترك.",
+        "en": "The decision in planning, the build on the server, and the write through the shared schedule path."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "كشف المتبقي",
+            "en": "Remaining report"
+          },
+          "icon": "file-up",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "المختار لكل مقرر",
+            "en": "Chosen count"
+          },
+          "icon": "list-checks",
+          "kind": "state"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "فجوة الشعب",
+            "en": "Section gap"
+          },
+          "icon": "scale",
+          "kind": "system"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "معاينة البناء",
+            "en": "Build preview"
+          },
+          "icon": "calendar-search",
+          "kind": "system"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "مكتمل الشروط؟",
+            "en": "Fully placeable?"
+          },
+          "icon": "git-fork",
+          "kind": "decision"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "مراجعة وتعديل",
+            "en": "Review and edit"
+          },
+          "icon": "pencil-line",
+          "kind": "state"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "بصمة الأسبوع مطابقة؟",
+            "en": "Fingerprint matches?"
+          },
+          "icon": "fingerprint",
+          "kind": "decision"
+        },
+        {
+          "id": "h",
+          "label": {
+            "ar": "كتابة كلها أو لا شيء",
+            "en": "Write all or none"
+          },
+          "icon": "database",
+          "kind": "system"
+        },
+        {
+          "id": "i",
+          "label": {
+            "ar": "تراجع الدفعة",
+            "en": "Batch undo"
+          },
+          "icon": "undo-2",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "from": "b",
+          "to": "c"
+        },
+        {
+          "from": "c",
+          "to": "d",
+          "label": {
+            "ar": "ناقص > 0",
+            "en": "missing > 0"
+          }
+        },
+        {
+          "from": "d",
+          "to": "e"
+        },
+        {
+          "from": "e",
+          "to": "f",
+          "label": {
+            "ar": "معلقة",
+            "en": "pending"
+          }
+        },
+        {
+          "from": "e",
+          "to": "g",
+          "label": {
+            "ar": "نعم",
+            "en": "yes"
+          }
+        },
+        {
+          "from": "g",
+          "to": "h",
+          "label": {
+            "ar": "نعم",
+            "en": "yes"
+          }
+        },
+        {
+          "from": "g",
+          "to": "d",
+          "label": {
+            "ar": "409 stale",
+            "en": "409 stale"
+          }
+        },
+        {
+          "from": "h",
+          "to": "i"
+        }
+      ]
+    },
+    {
+      "id": "pln-sheet-states",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "دورة الصحيفة",
+        "en": "Plan sheet lifecycle"
+      },
+      "caption": {
+        "ar": "المعتمد لا يتغير حتى يُعتمد التعديل التالي، واللقطة العامة مستقلة.",
+        "en": "The approved version stays until the next edit is approved, and the public snapshot is independent."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "استيراد",
+            "en": "Import"
+          },
+          "icon": "file-up",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "قيد المراجعة",
+            "en": "Under review"
+          },
+          "icon": "clipboard-pen",
+          "kind": "state"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "بلا موانع؟",
+            "en": "No blockers?"
+          },
+          "icon": "shield-check",
+          "kind": "decision"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "معتمدة بإصدار",
+            "en": "Approved version"
+          },
+          "icon": "badge-check",
+          "kind": "state"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "منشورة للعامة",
+            "en": "Published"
+          },
+          "icon": "globe",
+          "kind": "state"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "إيقاف النشر",
+            "en": "Unpublished"
+          },
+          "icon": "eye-off",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "from": "b",
+          "to": "c",
+          "label": {
+            "ar": "اعتماد",
+            "en": "approve"
+          }
+        },
+        {
+          "from": "c",
+          "to": "b",
+          "label": {
+            "ar": "409",
+            "en": "409"
+          }
+        },
+        {
+          "from": "c",
+          "to": "d",
+          "label": {
+            "ar": "نعم",
+            "en": "yes"
+          }
+        },
+        {
+          "from": "d",
+          "to": "b",
+          "label": {
+            "ar": "تعديل",
+            "en": "edit"
+          }
+        },
+        {
+          "from": "d",
+          "to": "e",
+          "label": {
+            "ar": "نشر",
+            "en": "publish"
+          }
+        },
+        {
+          "from": "e",
+          "to": "f"
+        }
+      ]
+    },
+    {
+      "id": "pln-proposal-states",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "حالات المقترح",
+        "en": "Proposal states"
+      },
+      "caption": {
+        "ar": "النسخة المرسلة وحدها تقبل الرد، والتثبيت وحده يكتب في الجدول.",
+        "en": "Only the sent version accepts a response, and only the commit writes to the schedule."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "مسودة",
+            "en": "Draft"
+          },
+          "icon": "file-pen",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "بانتظار الرد",
+            "en": "Awaiting reply"
+          },
+          "icon": "send",
+          "kind": "state"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "رد الأستاذ",
+            "en": "Instructor reply"
+          },
+          "icon": "message-square",
+          "kind": "decision"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "موافقة",
+            "en": "Approved"
+          },
+          "icon": "check",
+          "kind": "state"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "طلب تعديل",
+            "en": "Changes requested"
+          },
+          "icon": "pencil",
+          "kind": "state"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "مثبّت",
+            "en": "Committed"
+          },
+          "icon": "calendar-check",
+          "kind": "end"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "مسحوب أو منتهٍ",
+            "en": "Withdrawn or expired"
+          },
+          "icon": "ban",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b",
+          "label": {
+            "ar": "إرسال",
+            "en": "send"
+          }
+        },
+        {
+          "from": "b",
+          "to": "c"
+        },
+        {
+          "from": "c",
+          "to": "d",
+          "label": {
+            "ar": "موافقة",
+            "en": "approve"
+          }
+        },
+        {
+          "from": "c",
+          "to": "e",
+          "label": {
+            "ar": "تعديل",
+            "en": "changes"
+          }
+        },
+        {
+          "from": "e",
+          "to": "a",
+          "label": {
+            "ar": "نسخة جديدة",
+            "en": "new version"
+          }
+        },
+        {
+          "from": "d",
+          "to": "f",
+          "label": {
+            "ar": "تثبيت",
+            "en": "commit"
+          }
+        },
+        {
+          "from": "b",
+          "to": "g"
+        },
+        {
+          "from": "f",
+          "to": "d",
+          "label": {
+            "ar": "تراجع",
+            "en": "undo"
+          }
+        }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": {
+      "ar": "من يفعل ماذا",
+      "en": "Who can do what"
+    },
+    "cols": [
+      {
+        "ar": "تخطيط الشعب",
+        "en": "Section planning"
+      },
+      {
+        "ar": "نزّل الشعب",
+        "en": "Apply sections"
+      },
+      {
+        "ar": "تعديل قواعد الصحيفة",
+        "en": "Edit sheet rules"
+      },
+      {
+        "ar": "اعتماد الصحيفة",
+        "en": "Approve sheet"
+      },
+      {
+        "ar": "نشر الصحيفة",
+        "en": "Publish sheet"
+      },
+      {
+        "ar": "رفع الخطة وتطبيق المرجع",
+        "en": "Plan upload and reference"
+      }
+    ],
+    "rows": [
+      {
+        "actor": "rootAdmin",
+        "cells": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ]
+      },
+      {
+        "actor": "committeeChair",
+        "cells": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          0
+        ]
+      },
+      {
+        "actor": "departmentHead",
+        "cells": [
+          2,
+          2,
+          2,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "actor": "advisor",
+        "cells": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "actor": "standard",
+        "cells": [
+          2,
+          2,
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "FR-PLN-001",
+      "kind": "functional",
+      "title": {
+        "ar": "استيراد كشف المتبقي",
+        "en": "Remaining-report import"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ كشف «المتبقي» الصادر عن عمادة التسجيل، ملف PDF أو حتى أربع صور صفحات، ويعرض القراءة معاينةً قبل الحفظ دون أن يحتفظ بالملف.",
+        "en": "The system shall read the registrar's remaining-students report, as a PDF or up to four page images, and show the reading as a preview before saving, without retaining the uploaded file."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "رفع ملف أكبر من 24 ميجابايت يُرفض، وصورٌ مجموعها لا يطابق أحجام الصفحات المعلنة أو أكثر من أربع صور تُرفض بحالة 400.",
+          "en": "A file above 24 MB is refused, and images whose total does not match the declared page sizes, or more than four images, are refused with status 400."
+        },
+        {
+          "ar": "صورة طولية تُرفض بحالة 422 ورمز orientation قبل أي قراءة.",
+          "en": "A portrait-oriented image is refused with status 422 and code orientation before any reading."
+        },
+        {
+          "ar": "يُسمح بعشرين طلب قراءة في الدقيقة للمستخدم الواحد.",
+          "en": "At most twenty document-reading requests per minute are accepted."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts",
+          "src/utils/remainingReport.ts",
+          "src/components/SectionPlanning.tsx"
+        ],
+        "tests": [
+          "tests/section-planning-import-audit.ts",
+          "tests/section-planning-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-002",
+      "kind": "functional",
+      "title": {
+        "ar": "رفض الكشف غير المطابق",
+        "en": "Mismatched report refusal"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض كشفاً يخص قسماً أو فرعاً أو فصلاً غير المختار، وألا يستورد منه شيئاً، مع ذكر نوع الرفض والفرق بين المقروء والمختار.",
+        "en": "The system shall refuse a report that belongs to a different department, branch or term than the one selected, import nothing from it, and state the refusal kind and the difference between what was read and what was chosen."
+      },
+      "rationale": {
+        "ar": "أرقام فصل آخر تفسد الخطة.",
+        "en": "Figures from another term would corrupt the plan."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "أنواع الرفض المعروفة: mismatch وwrongTerm وnoCode وbranchUnread وdepartmentUnread وnoCourses وnoColumn وunread، والرد بحالة 422.",
+          "en": "The known refusal kinds are mismatch, wrongTerm, noCode, branchUnread, departmentUnread, noCourses, noColumn and unread, answered with status 422."
+        },
+        {
+          "ar": "كشف فصل غير مرتبط بالفصل المختار يُرفض كله برمز wrongTerm، ولا يكتفى بالتنبيه.",
+          "en": "A report for a term unrelated to the chosen term is refused entirely with kind wrongTerm, not merely warned about."
+        },
+        {
+          "ar": "الاستيراد يعتمد عمود «الذين لم يسجلوا» وحده (notPassed) مدخلاً للتخطيط.",
+          "en": "Planning uses only the «not passed» column (notPassed) as its input."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts",
+          "src/utils/remainingReport.ts"
+        ],
+        "tests": [
+          "tests/section-planning-import-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-003",
+      "kind": "functional",
+      "title": {
+        "ar": "حفظ إحصاءات التسجيل",
+        "en": "Registration statistics save"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ المختار والمتبقي وغير المسجلين والشاغر لكل قسم وفصل بعد تنقية القيم، باسم المستخدم ووقت الحفظ.",
+        "en": "The system shall store, per department and term, the chosen section counts, the remaining, unregistered and vacant figures after sanitising the values, with the user's name and the save time."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "لا يُقبل أكثر من 2000 مقرر في الخريطة الواحدة، والمتبقي بين 0 و100000 (السالب يُحفظ صفراً).",
+          "en": "No more than 2000 courses are accepted per map, and the remaining is clamped between 0 and 100000 with negatives stored as zero."
+        },
+        {
+          "ar": "الشاغر يقبل سالباً حتى -100000، والمختار حتى 500 شعبة.",
+          "en": "Vacant seats accept negatives down to -100000, and the chosen count accepts up to 500 sections."
+        },
+        {
+          "ar": "طلب خارج نطاق الأقسام المسموحة يُرد بحالة 403.",
+          "en": "A request outside the allowed departments is answered with status 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts",
+          "src/db/repository.ts#saveRegistrationStats"
+        ],
+        "tests": [
+          "tests/section-planning-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-PLN-004",
+      "kind": "functional",
+      "title": {
+        "ar": "اقتراح عدد الشعب",
+        "en": "Section count suggestion"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقترح لكل مقرر مدىً من عدد الشعب يرسيه متوسط الشعب المفتوحة في الفصول المماثلة (الموسم نفسه)، ويضيق الميل بالمتبقي والسعة.",
+        "en": "The system shall suggest for each course a range of section counts anchored on the average sections opened in comparable terms (same season), tilted by the remaining figure and bounded by capacity."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الميل بين الأساس زائد أو ناقص 1، ويتسع إلى 2 حين يكون الأساس 4 فأكثر.",
+          "en": "The tilt stays within the baseline plus or minus 1, widening to 2 when the baseline is 4 or more."
+        },
+        {
+          "ar": "مقرر لم يُفتح من قبل يبدأ بشعبة واحدة وسقفه 6 (NO_HISTORY_MAX) ولو زاد حاصل المتبقي على السعة.",
+          "en": "A course never opened before starts at one section and is capped at 6 (NO_HISTORY_MAX) even if remaining divided by capacity is larger."
+        },
+        {
+          "ar": "متبقٍّ صفر أو سالب يُقترح معه المعتاد من التاريخ، لا «لا شعب» ولا زيادة.",
+          "en": "A zero or negative remaining suggests the usual historical count, neither «no sections» nor an increase."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/sectionCountSuggestion.ts",
+          "src/server/routes/planningRoutes.ts"
+        ],
+        "tests": [
+          "tests/section-planning-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-005",
+      "kind": "functional",
+      "title": {
+        "ar": "تاريخ الموسم المماثل وسلف المقرر",
+        "en": "Same-season history and course lineage"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يجمع تاريخ كل مقرر من الفصول السابقة للموسم نفسه فقط، وأن يورث المقرر المعاد ترقيمه أو المستبدل شعب سلفه ومتبقيه إن لم يُفتح هو.",
+        "en": "The system shall gather each course's history only from earlier terms of the same season, and let a renumbered or replaced course inherit its predecessor's sections and remaining figures when it was not itself opened."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الفصل الأول لا يستعير تاريخ الثاني ولا العكس.",
+          "en": "A first term does not borrow history from a second term, nor the reverse."
+        },
+        {
+          "ar": "علاقة انتقال من نوع removed لا تورث شيئاً.",
+          "en": "A transition of kind removed inherits nothing."
+        },
+        {
+          "ar": "متبقي فصل سابق محفوظ بعمود آخر غير «الذين لم يسجلوا» لا يدخل المقارنة.",
+          "en": "A past remaining figure saved under a column other than «not passed» is excluded from comparison."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts",
+          "src/utils/sectionCountSuggestion.ts"
+        ],
+        "tests": [
+          "tests/section-planning-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-PLN-006",
+      "kind": "functional",
+      "title": {
+        "ar": "كشف فجوة الشعب",
+        "en": "Section gap report"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقارن المختار في التخطيط (وإلا المقترح الظاهر) بعدد الشعب المميزة (SCode) الموجودة في جدول الفصل لكل مقرر، وأن يصنف الصف: مكتمل أو ناقص أو زائد أو لم يُقرَّر.",
+        "en": "The system shall compare the chosen count in planning (otherwise the visible suggestion) with the number of distinct sections (SCode) in the term schedule for each course, and classify the row as done, missing, over or unset."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "المطلوب 6 والموجود 5 يعطي باقياً 1 وحالة ناقص.",
+          "en": "Required 6 with 5 existing gives remaining 1 and state missing."
+        },
+        {
+          "ar": "مقرر بلا مختار ولا متبقٍّ مستورد لا يظهر له هدف ويبقى «لم يُقرَّر».",
+          "en": "A course with no chosen figure and no imported remaining has no target and stays unset."
+        },
+        {
+          "ar": "الكشف قراءة فقط ولا يكتب في الجدول.",
+          "en": "The report is read-only and writes nothing to the schedule."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/sectionGap.ts",
+          "src/utils/sectionBuild.ts",
+          "src/server/core/planning.ts",
+          "src/server/routes/planningRoutes.ts",
+          "src/components/SectionGapNote.tsx"
+        ],
+        "tests": [
+          "tests/section-gap-audit.ts",
+          "tests/section-gap-live-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-007",
+      "kind": "functional",
+      "title": {
+        "ar": "مراجعة الفائض والتعارض",
+        "en": "Surplus and conflict review"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض زيادة الشعب عن المطلوب مراجعةً فقط لا إغلاقاً، وأن يدمج تقديرَي الزيادة والنقص المتعارضين لمقرر واحد في بند «تقديران متعارضان».",
+        "en": "The system shall present sections above the requirement as a review item, never a closure, and merge opposing opening and reduction estimates for one course into a single «conflicting estimates» item."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "فائض بلا مختار صريح ولا تاريخ مماثل ولا متبقٍّ موجب لا يظهر.",
+          "en": "A surplus with no explicit choice, no comparable history and no positive remaining is not shown."
+        },
+        {
+          "ar": "إن زاد المتبقي على المطلوب × السعة رُفع تنبيه سعة مع بند الفائض.",
+          "en": "When the remaining exceeds required times capacity a capacity warning accompanies the surplus item."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/sectionGap.ts"
+        ],
+        "tests": [
+          "tests/section-gap-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-008",
+      "kind": "functional",
+      "title": {
+        "ar": "فرز بنود التخطيط وقراراتها",
+        "en": "Planning triage and decisions"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يوزع بنود التخطيط على ثلاثة رفوف (عاجل، مهم، فرصة) وأن يحفظ قرار «تم» أو «تجاهل» لكل مقرر في النطاق باسم صاحبه، ويسقط القرار إذا تغيرت أرقام البند.",
+        "en": "The system shall sort planning items onto three shelves (urgent, important, opportunity) and store a «done» or «ignored» decision per course in the scope under the decider's name, lapsing the decision when the item's figures change."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر بلا شعبة مطروحة، أو ينقصه شعبتان فأكثر، يقع في «عاجل»؛ ونقص شعبة واحدة «مهم»؛ والفائض «فرصة».",
+          "en": "A course with no section, or two or more missing, is urgent; one missing is important; a surplus is an opportunity."
+        },
+        {
+          "ar": "قرار «تجاهل» بلا سبب يُرد بحالة 400، والسبب يقص عند 140 حرفاً.",
+          "en": "An «ignored» decision without a reason is refused with status 400, and the reason is truncated at 140 characters."
+        },
+        {
+          "ar": "القراءة للإذنين 7 و14 والكتابة للإذن 7 وحده.",
+          "en": "Reading requires permission 7 or 14 and writing requires permission 7 only."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/planTriage.ts",
+          "src/server/routes/planningRoutes.ts",
+          "src/components/PlanTriageView.tsx"
+        ],
+        "tests": [
+          "tests/decision-surfaces-audit.ts",
+          "tests/section-gap-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-009",
+      "kind": "functional",
+      "title": {
+        "ar": "حالات طرح المقرر",
+        "en": "Course offering states"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للقسم تحديد حالة طرح كل مقرر في الفصل: مطروح (الافتراضي)، غير مطروح، صحيفة جديدة لم نصل مستواها، أو شعب محدودة بعدد أقصى.",
+        "en": "The system shall let the department set each course's offering state for the term: offered (default), closed, future sheet not yet reached, or limited sections with a maximum count."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر بلا قيد يُعدّ مطروحاً، واقتراح غير مؤكد (suggested) لا يغيّر شيئاً.",
+          "en": "A course with no entry is offered, and an unconfirmed suggestion changes nothing."
+        },
+        {
+          "ar": "الحد الأقصى للشعب المحدودة بين 0 و99.",
+          "en": "The maximum for limited sections lies between 0 and 99."
+        },
+        {
+          "ar": "المحدود يعرض «متبقٍّ» = الأقصى ناقص القائم، وعند الصفر يصير غير قابل للاختيار.",
+          "en": "A limited course shows «remaining» = maximum minus existing, and becomes unselectable at zero."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/courseOffering.ts",
+          "src/server/routes/offeringRoutes.ts",
+          "src/components/CourseOfferingPanel.tsx"
+        ],
+        "tests": [
+          "tests/owner-features-2026-10-28-audit.ts",
+          "tests/instructor-offering-flow-audit.ts",
+          "tests/prepublish-reach-audit.tsx"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-010",
+      "kind": "functional",
+      "title": {
+        "ar": "أثر الطرح على الاقتراحات",
+        "en": "Offering effect on suggestions"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يقترح شعباً جديدة لمقرر غير مطروح أو من صحيفة لم تبلغ دفعتها مستواه، وأن يقص المحدود على المتبقي من سقفه.",
+        "en": "The system shall not suggest new sections for a closed course or one from a sheet whose cohort has not reached its level, and shall trim a limited course to what remains of its ceiling."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "حالتا closed وfuture تعطيان صفر شعب جديدة.",
+          "en": "States closed and future yield zero new sections."
+        },
+        {
+          "ar": "محدود بسقف 3 وقائم 2 يسمح بشعبة جديدة واحدة.",
+          "en": "A limited course with ceiling 3 and 2 existing allows one new section."
+        },
+        {
+          "ar": "حالة الطرح تُقرأ بذاكرة قصيرة مدتها 20 ثانية وتُمسح عند كل حفظ.",
+          "en": "Offering states are read through a 20-second cache that is cleared on every save."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/courseOffering.ts",
+          "src/server/offeringStates.ts",
+          "src/server/routes/planningRoutes.ts"
+        ],
+        "tests": [
+          "tests/instructor-offering-flow-audit.ts",
+          "tests/section-build-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-011",
+      "kind": "functional",
+      "title": {
+        "ar": "حكم «لم نصل بعد»",
+        "en": "Not-yet-reached verdict"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحكم لكل مقرر وفرع وصحيفة هل وصلت دفعة الطلبة إلى مستواه، من قواعد الصحيفة وتاريخ الفرع وحده، وألا يقفل مقرراً بلا دليل.",
+        "en": "The system shall judge for each course, branch and sheet whether the student cohort has reached its level, from the sheet's rules and the branch's own history only, and shall not lock a course without evidence."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر بلا مسبقات يُفتح إذا كان مستواه لا يتجاوز أعلى مستوى طُرح من الصحيفة في الفرع بأكثر من مستوى واحد.",
+          "en": "A course with no prerequisites opens when its level exceeds the highest level offered from the sheet in the branch by at most one level."
+        },
+        {
+          "ar": "فرع بلا تاريخ، أو مقرر بلا مستوى ولا مسبقات، يبقى «غير معروف» ويُعرض بلا وسم.",
+          "en": "A branch without history, or a course with neither level nor prerequisites, stays «unknown» and shows without a tag."
+        },
+        {
+          "ar": "قرار «افتحه للطرح» يفتح المقرر مهما قالت القاعدة.",
+          "en": "An «open for offering» decision opens the course whatever the rule says."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/courseReach.ts",
+          "src/server/courseReachShared.ts",
+          "src/components/CourseReach.tsx",
+          "src/components/PrepublishReachSheet.tsx"
+        ],
+        "tests": [
+          "tests/course-reach-audit.ts",
+          "tests/prepublish-reach-audit.tsx"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-012",
+      "kind": "functional",
+      "title": {
+        "ar": "معاينة نزّل الشعب",
+        "en": "Section-build preview"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يبني معاينة الشعب الناقصة بمحرك الافتتاح نفسه: وقت لا يتعارض، قاعة موثقة بسعة تكفي، وأستاذ درّس المقرر وله نصاب متاح، مع تقديم الأصعب أولاً، وأن يذكر سبب كل شعبة لم تُبنَ.",
+        "en": "The system shall build a preview of the missing sections with the same opening engine: a conflict-free time, a documented hall of sufficient capacity, and an instructor who taught the course and has available load, hardest courses first, stating the reason for every section not built."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقررات المستوى الواحد لا تتقاطع في الدفعة.",
+          "en": "Courses of one level do not overlap within the batch."
+        },
+        {
+          "ar": "الأسباب المعتمدة: لا قاعة موثقة تتسع، لا أستاذ درّسه، أحمال ممتلئة أو بلا نصاب، لا وقت خالياً من التعارض.",
+          "en": "The recorded reasons are: no documented hall large enough, no instructor who taught it, loads full or no recorded allowance, no conflict-free time."
+        },
+        {
+          "ar": "قسم بلا أي موعد في الفصل يُعد «لم يبدأ» ولا يُخترع له جدول.",
+          "en": "A department with no appointment in the term counts as «not started» and no schedule is invented."
+        },
+        {
+          "ar": "المختار يُقبل بين 0 و40 للمقرر الواحد في البناء.",
+          "en": "The chosen count is accepted between 0 and 40 per course in the build."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/sectionBuild.ts",
+          "src/utils/sectionOpening.ts",
+          "src/server/routes/planningRoutes.ts",
+          "src/components/SectionBuild.tsx"
+        ],
+        "tests": [
+          "tests/section-build-audit.ts",
+          "tests/section-opening-feasibility-audit.ts",
+          "tests/section-build-live-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-013",
+      "kind": "functional",
+      "title": {
+        "ar": "شعب بوقت من التاريخ وقاعة بانتظار التثبيت",
+        "en": "Pending-room sections from history"
+      },
+      "text": {
+        "ar": "يجب على النظام، حين لا تتوفر قاعة وأستاذ، أن يضع الشعبة بوقت من الفصل المماثل (الأول مع الأول) وقاعة «بانتظار التثبيت» وأستاذ «هيئة تدريسية»، دون أن يتوقف البناء.",
+        "en": "The system shall, when no hall and instructor are available, place the section at a time taken from the comparable term (first with first), with a «pending room» hall and the «faculty» placeholder instructor, without stopping the build."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "شعبتان معلقتان لمقرر واحد لا تقعان في الوقت نفسه.",
+          "en": "Two pending sections of one course never fall at the same time."
+        },
+        {
+          "ar": "القاعة المقترحة تؤخذ من قاعات القسم الموثقة الأكثر استعمالاً أولاً.",
+          "en": "The proposed hall comes from the department's documented halls, most used first."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/sectionPending.ts",
+          "src/server/routes/planningRoutes.ts"
+        ],
+        "tests": [
+          "tests/section-build-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-014",
+      "kind": "functional",
+      "title": {
+        "ar": "تنزيل الشعب المؤكد",
+        "en": "Confirmed section apply"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد حساب البناء في الخادم عند التنزيل فلا يقبل موعداً من المتصفح، وأن يكتب كل الشعب المختارة أو لا شيء عبر مسار الجدول المشترك.",
+        "en": "The system shall recompute the build on the server at apply time so that no time is accepted from the browser, and write all picked sections or none through the shared schedule path."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "يرسل المتصفح مفاتيح «مقرر:شعبة» فقط، حتى 200 مفتاح.",
+          "en": "The browser sends only «course:section» keys, up to 200 keys."
+        },
+        {
+          "ar": "بصمة الأسبوع المختلفة تعطي 409 ورمز stale ولا يُكتب شيء.",
+          "en": "A differing week fingerprint yields 409 with code stale and nothing is written."
+        },
+        {
+          "ar": "اختيار شعبة معلقة يعطي 409 ورمز needs-review.",
+          "en": "Picking a pending section yields 409 with code needs-review."
+        },
+        {
+          "ar": "فشل إحدى الشعب يرد ما كُتب قبلها، وتُسجل الدفعة بمعرّف يبدأ بـ plan: ومصدر «تخطيط الشعب».",
+          "en": "A failure of one section reverts those written before it, and the batch is recorded with an id beginning plan: and origin «section planning»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts",
+          "src/utils/sectionBuild.ts"
+        ],
+        "tests": [
+          "tests/section-build-live-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-015",
+      "kind": "functional",
+      "title": {
+        "ar": "التراجع عن تنزيل",
+        "en": "Apply undo"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح التراجع عن دفعة تنزيل واحدة بحذف صفوفها وحدها، وأن يمتنع إن تغير أحد الصفوف بعد تنزيله.",
+        "en": "The system shall allow undoing one apply batch by deleting only its rows, and refuse if any row changed after it was applied."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "معرّف دفعة لا يبدأ بـ plan: يُرد بحالة 400.",
+          "en": "A batch id not starting with plan: is refused with status 400."
+        },
+        {
+          "ar": "صف تجاوز إصداره 1 يعطي 409 ورمز changed ولا يُحذف شيء.",
+          "en": "A row whose revision exceeds 1 yields 409 with code changed and nothing is deleted."
+        },
+        {
+          "ar": "دفعة بلا صفوف في الجدول تعطي 404.",
+          "en": "A batch with no rows in the schedule yields 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts"
+        ],
+        "tests": [
+          "tests/section-build-live-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-016",
+      "kind": "functional",
+      "title": {
+        "ar": "قواعد المقررات في الصحيفة",
+        "en": "Plan sheet course rules"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخزن لكل مقرر في الصحيفة مستواه (100 إلى 400) ونوعه (إجباري، متطلب كلية، متطلب جامعة، اختياري) ومسبقاته ومقرنه، وللمجموعات الاختيارية حداً أدنى للمقررات والوحدات.",
+        "en": "The system shall store, for each course in a plan sheet, its level (100 to 400), kind (compulsory, college, university, elective), prerequisites and corequisites, and for elective groups a minimum number of courses and units."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "المستوى 1 إلى 4 القديم يُحوَّل إلى 100 إلى 400.",
+          "en": "The legacy level values 1 to 4 are converted to 100 to 400."
+        },
+        {
+          "ar": "المسبق يقبل «الكل» و«أحد البدائل» و«حد أدنى من الوحدات» حتى 200، والمجموعة حتى 20 مقرراً و60 وحدة.",
+          "en": "A prerequisite accepts «all», «any of» and «minimum units» up to 200, and a group up to 20 courses and 60 units."
+        },
+        {
+          "ar": "مقرر في مجموعتين يبقى في الأولى عند التنظيف.",
+          "en": "A course in two groups stays in the first when sanitised."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/curriculumRules.ts",
+          "src/utils/curriculumRulesImport.ts"
+        ],
+        "tests": [
+          "tests/plan-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-017",
+      "kind": "functional",
+      "title": {
+        "ar": "فحص قواعد الصحيفة",
+        "en": "Plan sheet rule checks"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يفحص قواعد الصحيفة ويصنف الملاحظات إلى مانعة للاعتماد وتحذيرية.",
+        "en": "The system shall check the plan sheet rules and classify findings as approval-blocking or warnings."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الموانع: دورة في المتطلبات، مرجع مجهول، مقرر ليس في الصحيفة، مجموعة لا تتسع لحدها بالمقررات أو الوحدات، ومقرر في مجموعتين.",
+          "en": "Blockers: a prerequisite cycle, an unknown reference, a course not in the sheet, a group that cannot meet its minimum courses or units, and a course in two groups."
+        },
+        {
+          "ar": "التحذيرات: مسبق في مستوى لاحق، اختياري بلا مجموعة، مجموعة فارغة أو بلا حد أدنى.",
+          "en": "Warnings: a prerequisite at a later level, an elective without a group, an empty group or one without a minimum."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/curriculumRules.ts"
+        ],
+        "tests": [
+          "tests/plan-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-018",
+      "kind": "functional",
+      "title": {
+        "ar": "تعديل المسودة بحارس القسم",
+        "en": "Draft editing with department guard"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للقسم تعديل قواعد مقرراته وحدها في مسودة الصحيفة، وأن يرفض في الخادم تعديل مقرر قسم آخر.",
+        "en": "The system shall let a department edit only its own courses' rules in the plan sheet draft, and refuse on the server any edit of another department's course."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعديل مقرر قسم آخر يعطي 403 ورمز foreign-course.",
+          "en": "Editing another department's course yields 403 with code foreign-course."
+        },
+        {
+          "ar": "محرر التفاصيل يقبل الوحدات 0 إلى 20 صحيحة، والساعات 0 إلى 40 بنصف ساعة، والسعة 0 إلى 200، ويرفض أي حقل آخر.",
+          "en": "The details editor accepts integer units 0 to 20, hours 0 to 40 in half-hour steps and capacity 0 to 200, and rejects any other field."
+        },
+        {
+          "ar": "كل تعديل يعيد المسودة إلى «قيد المراجعة» على أساس الإصدار المعتمد.",
+          "en": "Every edit returns the draft to «under review» based on the approved version."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planReviewRoutes.ts",
+          "src/components/PlanReview.tsx"
+        ],
+        "tests": [
+          "tests/plan-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-019",
+      "kind": "functional",
+      "title": {
+        "ar": "اعتماد الصحيفة",
+        "en": "Plan sheet approval"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لرئيس لجنة الجدول (ولإدارة النظام) اعتماد المسودة على النسخة التي رآها فقط، وأن ينقلها إلى المعتمد بإصدار جديد في معاملة واحدة.",
+        "en": "The system shall let the schedule committee chair (and system administration) approve a draft only on the version they saw, and move it to the approved store with a new version in one transaction."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "تغير المسودة بعد رؤيتها يعطي 409 ورمز stale.",
+          "en": "A draft changed after viewing yields 409 with code stale."
+        },
+        {
+          "ar": "وجود مانع يعطي 409 ورمز blockers مع قائمة الموانع.",
+          "en": "A blocker yields 409 with code blockers and the list of blockers."
+        },
+        {
+          "ar": "غير الرئيس يعطي 403 ورمز not-approver.",
+          "en": "A non-chair yields 403 with code not-approver."
+        },
+        {
+          "ar": "إن كانت الصحيفة منشورة تُحدَّث لقطتها العامة عند الاعتماد.",
+          "en": "When the sheet is published its public snapshot is refreshed on approval."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planReviewRoutes.ts"
+        ],
+        "tests": [
+          "tests/plan-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-020",
+      "kind": "functional",
+      "title": {
+        "ar": "رفع الخطة الدراسية PDF",
+        "en": "Study plan PDF upload"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ ملف «الخطة الدراسية» PDF الصادر عن عمادة القبول والتسجيل، وأن يطبق مقررات قسمه وحده برقمها، ويصحح الاسم والوحدات والساعات دون المساس بالسعة، للحساب الرئيسي وحده.",
+        "en": "The system shall read the admissions and registration office's study-plan PDF, apply only the owning department's courses by number, correct name, units and hours without touching capacity, for the main administrator only."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "الحد الأقصى للملف 2 ميجابايت، وملف غير PDF يُرفض بحالة 422.",
+          "en": "The file limit is 2 MiB, and a non-PDF is refused with status 422."
+        },
+        {
+          "ar": "الصحيفة التي تجمع عدة مسارات تُرفض برمز combined، وصحيفة لقسم آخر تُرفض قبل أي كتابة.",
+          "en": "A sheet combining several tracks is refused with kind combined, and a sheet of another department is refused before any write."
+        },
+        {
+          "ar": "إعادة رفع الملف نفسه لا تغيّر شيئاً.",
+          "en": "Re-uploading the same file changes nothing."
+        },
+        {
+          "ar": "مفتاح المقرر سبع خانات: «105 09 01» يصير 0109105.",
+          "en": "The course key is seven digits: «105 09 01» becomes 0109105."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planReviewRoutes.ts",
+          "src/utils/planPdfParser.ts",
+          "src/server/planPdfExtract.ts",
+          "src/utils/planSheetImport.ts",
+          "src/server/sheetReconcile.ts",
+          "src/components/PlanSheetUpload.tsx"
+        ],
+        "tests": [
+          "tests/plan-sheet-import-route-audit.ts",
+          "tests/plan-pdf-audit.ts",
+          "tests/plan-sheet-import-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-021",
+      "kind": "functional",
+      "title": {
+        "ar": "الصحيفتان المرجعيتان وتطبيقهما",
+        "en": "Reference sheets and their application"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحمل الصحيفتين المرجعيتين لقسم تكنولوجيا التعليم (القديمة 130 وحدة، والجديدة 125 وحدة) وأن يطبقهما على الكتالوج بمعاينة افتراضية قبل الكتابة، للحساب الرئيسي وحده.",
+        "en": "The system shall carry the two reference sheets of the educational technology department (old 130 units, new 125 units) and apply them to the catalogue with a default dry run before writing, for the main administrator only."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب بلا dryRun=false يعاين ولا يكتب.",
+          "en": "A request without dryRun=false previews and writes nothing."
+        },
+        {
+          "ar": "الاسم المجمد في الصحائف الانتقالية لا يتغير إلا بتأكيد confirmIdentity، والوحدات والساعات تُصحح دائماً.",
+          "en": "A frozen name in transitional sheets changes only with confirmIdentity, while units and hours are always corrected."
+        },
+        {
+          "ar": "القواعد المنشأة مسودة لا تُعتمد، وإعادة التطبيق على كتالوج مطابق لا تغيّر شيئاً.",
+          "en": "The created rules are a draft never approved, and re-applying to a matching catalogue changes nothing."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/data/technologyEducationCurricula.ts",
+          "src/data/marineMechanicalDiploma.ts",
+          "src/utils/curriculumReference.ts",
+          "src/utils/referenceApply.ts",
+          "src/server/planReviewRoutes.ts",
+          "src/components/CurriculumReferenceReview.tsx"
+        ],
+        "tests": [
+          "tests/reference-apply-audit.ts",
+          "tests/curriculum-reference-pdf-audit.ts",
+          "tests/curriculum-reference-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-022",
+      "kind": "functional",
+      "title": {
+        "ar": "عضوية الصحيفة والشارات",
+        "en": "Sheet membership and badges"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يشتق وسم «صحيفة السنة» وتبويبي الجديدة والقديمة لكل مقرر من مصدر عضوية واحد، فلا يختلف الوسم عن التبويب في أي شاشة.",
+        "en": "The system shall derive each course's «sheet year» tag and its new and old tabs from one membership source, so tag and tab never disagree on any screen."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الوسم يظهر للمقرر الذي في الجديدة وحدها، ولا ثنائية إلا لقسم له الصحيفتان معاً.",
+          "en": "The tag appears only for a course in the new sheet alone, and the pair exists only for a department holding both sheets."
+        },
+        {
+          "ar": "عند «انتهوا» تختفي الشارات كلها وتعود إن جاءت صحيفة أحدث.",
+          "en": "After «ended» all badges disappear and return when a newer sheet arrives."
+        },
+        {
+          "ar": "الشارات خاضعة لنطاق الحساب فلا شارة لمقرر خارج ما يراه.",
+          "en": "Badges respect the account's scope, so no badge is returned for a course it cannot see."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/sheetMembership.ts",
+          "src/utils/sheetTag.ts",
+          "src/utils/planBadges.ts",
+          "src/server/planBadgeShared.ts",
+          "src/server/planReviewRoutes.ts",
+          "src/utils/courseTags.ts"
+        ],
+        "tests": [
+          "tests/sheet-membership-audit.ts",
+          "tests/consistent-badges-audit.tsx"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-023",
+      "kind": "functional",
+      "title": {
+        "ar": "صحائف القسم والانتقال بينها",
+        "en": "Department plans and transitions"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح إنشاء صحيفة للقسم وإعادة تسميتها وربط مقرراته بها، وتسجيل علاقات الانتقال بين الصحيفتين، وفحص جاهزية الأرشفة قبل الأرشفة.",
+        "en": "The system shall allow creating a department plan, renaming it, linking its courses, recording transition relations between two plans, and checking archive readiness before archiving."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "أنواع الانتقال: renumbered وrenamed وrenumbered-renamed وreplaced وremoved، وما عدا removed يتطلب مقرراً مقابلاً.",
+          "en": "Transition kinds are renumbered, renamed, renumbered-renamed, replaced and removed, and all except removed require a counterpart course."
+        },
+        {
+          "ar": "إزالة مقرر من آخر صحيفة فعالة له وهو مطروح في أحدث فصل يُرد بحالة 409.",
+          "en": "Removing a course from its last live plan while offered in the newest term is refused with status 409."
+        },
+        {
+          "ar": "أرشفة صحيفة ما زالت مستخدمة في أحدث فصل تُرد بحالة 409 ما لم يُرسل force=1.",
+          "en": "Archiving a plan still used in the newest term is refused with status 409 unless force=1 is sent."
+        },
+        {
+          "ar": "إضافة المقررات تُقبل حتى 300 مقرر في الطلب، كلها من قسم الصحيفة.",
+          "en": "Adding courses accepts up to 300 courses per request, all from the plan's department."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts",
+          "src/components/CurriculumPlans.tsx"
+        ],
+        "tests": [
+          "tests/curriculum-transition-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-024",
+      "kind": "functional",
+      "title": {
+        "ar": "نشر الصحيفة للعامة",
+        "en": "Public sheet publishing"
+      },
+      "text": {
+        "ar": "يجب على النظام أن ينشر الصحيفة المعتمدة لرئيس لجنة الجدول (ولإدارة النظام) ضمن نطاقه لقطةً مستقلة، وأن ينسخ ما نشر للبنات إلى مواقعه الفرعية، وأن يتيح إيقاف النشر.",
+        "en": "The system shall publish an approved sheet, for the schedule committee chair (and system administration) within their scope, as an independent snapshot, copy what is published for female students to its sub-sites, and allow unpublishing."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "نشر صحيفة غير معتمدة يعطي 409، وغير الرئيس يعطي 403.",
+          "en": "Publishing an unapproved sheet yields 409, and a non-chair yields 403."
+        },
+        {
+          "ar": "مسح الخطة بعد الاعتماد لا يُسقط الصفحة المنشورة، وإيقاف النشر يُسقطها ويُسقط نسخها.",
+          "en": "Clearing the plan after approval does not remove the published page, while unpublishing removes it and its copies."
+        },
+        {
+          "ar": "النسخة تحمل mirrorOf، والموقع الذي لا صحيفة مطابقة له يُذكر ولا يُخمَّن.",
+          "en": "A copy carries mirrorOf, and a site with no matching sheet is reported and not guessed."
+        },
+        {
+          "ar": "حد النشر 30 عملية في الدقيقة.",
+          "en": "Publishing is limited to 30 operations per minute."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planSheetRoutes.ts",
+          "src/components/PlanSheetPublisher.tsx",
+          "src/utils/collegeTrack.ts"
+        ],
+        "tests": [
+          "tests/plan-sheet-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-PLN-001",
+      "kind": "interface",
+      "title": {
+        "ar": "صفحات الخطط العامة",
+        "en": "Public plan pages"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم الصحائف المنشورة بلا حساب على /plans/ وكل قسم على /plans/s<قسم>/ وكل صحيفة على /plans/s<قسم>/<صحيفة>/، مع رمز QR يحمل الدومين الرسمي دائماً وتحميل PDF.",
+        "en": "The system shall serve published sheets without sign-in at /plans/, each department at /plans/s<department>/ and each sheet at /plans/s<department>/<sheet>/, with a QR code that always carries the official domain and a PDF download."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "الصفحات تُرسل X-Robots-Tag: noindex، والحد 120 طلباً في الدقيقة.",
+          "en": "Pages send X-Robots-Tag: noindex and are limited to 120 requests per minute."
+        },
+        {
+          "ar": "قسم له صحيفة واحدة يحوّل 302 إلى صحيفته، وغير المنشور يعطي 404.",
+          "en": "A department with one sheet redirects with 302 to it, and an unpublished sheet yields 404."
+        },
+        {
+          "ar": "الصفحة تعرض مقررات القسم وحدها، والمتطلبات الخارجية ملاحظات لا بطاقات.",
+          "en": "The page shows the department's own courses only, with external requirements as notes rather than cards."
+        },
+        {
+          "ar": "فهرس /plans/ لا يكرر الجهراء والفحيحيل، وصفحة تكنولوجيا التعليم الثابتة تبقى فيه ما لم يُنشر القسم.",
+          "en": "The /plans/ index does not repeat the sub-sites, and the static educational technology page remains until that department is published."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planSheetRoutes.ts",
+          "src/server/planSheetPage.ts",
+          "src/server/planSheetReferenceLayout.ts",
+          "public/plans/_template/sheet.html"
+        ],
+        "tests": [
+          "tests/plan-sheet-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-025",
+      "kind": "functional",
+      "title": {
+        "ar": "إعداد المقترح الدراسي",
+        "en": "Study proposal drafting"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للقسم إعداد مقترح من عدة مواد لأستاذ له طلب في الوارد، بأربع عمليات: إسناد شعبة، شعبة جديدة، تعديل موعد، واستبدال، ويبقى مسودة مستقلة عن الجدول الفعلي.",
+        "en": "The system shall let the department prepare a proposal of several items for an instructor who has a request in the inbox, with four operations: assign a section, new section, edit an appointment and replace, kept as a draft independent of the live schedule."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الحد الأقصى 12 مادة في المقترح، و60 مقترحاً لكل أستاذ، والرسالة 1200 حرف، وملاحظة الرد 600 حرف.",
+          "en": "At most 12 items per proposal, 60 proposals per instructor, a 1200-character message and a 600-character reply note."
+        },
+        {
+          "ar": "الفصل المجمد أو الجدول المقفل يعطي 409 برمز term-frozen أو schedule-locked.",
+          "en": "A frozen term or locked schedule yields 409 with code term-frozen or schedule-locked."
+        },
+        {
+          "ar": "الموعد المرجعي لا يُستعمل في مادتين، والشعبة الجديدة المكررة داخل المقترح تُرفض.",
+          "en": "A reference appointment cannot be used in two items, and a duplicated new section inside the proposal is rejected."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalRoutes.ts",
+          "src/utils/studyProposal.ts",
+          "src/components/proposal/StudyProposalWorkspace.tsx"
+        ],
+        "tests": [
+          "tests/study-proposal-audit.ts",
+          "tests/study-proposal-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-026",
+      "kind": "functional",
+      "title": {
+        "ar": "فحص المقترح بفاحص الجدول",
+        "en": "Proposal check with the schedule checker"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يفحص المقترح بتطبيق عملياته على نسخة من جدول الفصل في الذاكرة ثم سؤال فاحص التعارضات نفسه الذي يحكم عند حفظ موعد، وأن يصنف النتائج إلى مانعة وملاحظات ومعلومات.",
+        "en": "The system shall check a proposal by applying its operations to an in-memory copy of the term schedule and asking the same conflict checker that governs saving an appointment, classifying results as blockers, review notes and information."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الإرسال يُرد بـ409 ورمز not-ready ما دام readiness.canSend غير متحقق.",
+          "en": "Sending is refused with 409 and code not-ready while readiness.canSend is false."
+        },
+        {
+          "ar": "موعد أستاذ في قسم خارج نطاق المستخدم يظهر إشغالاً فقط بلا مقرر ولا شعبة.",
+          "en": "An instructor appointment in a department outside the user's scope appears as occupancy only, with no course or section."
+        },
+        {
+          "ar": "الإرسال لا يحجز شعبة ولا قاعة.",
+          "en": "Sending reserves no section and no hall."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalEngine.ts",
+          "src/utils/studyProposal.ts",
+          "src/server/studyProposalRoutes.ts"
+        ],
+        "tests": [
+          "tests/study-proposal-flow-audit.ts",
+          "tests/study-proposal-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-027",
+      "kind": "functional",
+      "title": {
+        "ar": "نسخ المقترح وردّ الأستاذ",
+        "en": "Proposal versions and instructor response"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرقّم نسخ المقترح، وأن يقبل رد الأستاذ (موافقة أو طلب تعديل، مستقلاً لكل مادة أو مترابطاً) على النسخة المرسلة الحالية وحدها، موقعاً بالرقم المدني دون تخزينه.",
+        "en": "The system shall number proposal versions and accept the instructor's response (approval or change request, independent per item or linked) on the current sent version only, signed with the civil number without storing it."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "كل تعديل جوهري لما أُرسل يرفع النسخة ويعيد الحالة مسودة.",
+          "en": "Every material change to what was sent raises the version and returns the status to draft."
+        },
+        {
+          "ar": "رد على نسخة أقدم يعطي 409 ورمز stale-version، وبعد انتهاء المهلة 409 ورمز closed.",
+          "en": "A response to an older version yields 409 with code stale-version, and after expiry 409 with code closed."
+        },
+        {
+          "ar": "مدة الصلاحية الافتراضية 7 أيام بين 1 و30.",
+          "en": "The default validity is 7 days, between 1 and 30."
+        },
+        {
+          "ar": "طلب التعديل يحتاج سبباً مختصراً أو ملاحظة.",
+          "en": "A change request needs a short reason or a note."
+        },
+        {
+          "ar": "الرد المكرر بالمضمون نفسه لا يُسجل مرتين.",
+          "en": "A duplicate response with identical content is not recorded twice."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalRoutes.ts",
+          "src/utils/studyProposal.ts",
+          "src/server/studyProposalPage.ts"
+        ],
+        "tests": [
+          "tests/study-proposal-audit.ts",
+          "tests/study-proposal-flow-audit.ts",
+          "tests/study-proposal-public-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-028",
+      "kind": "functional",
+      "title": {
+        "ar": "تثبيت المقترح والتراجع",
+        "en": "Proposal commit and undo"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يثبّت المقترح في الجدول في معاملة ذرية واحدة بعد موافقة الأستاذ وإعادة الفحص، وأن يتيح تراجعاً واحداً كاملاً ما لم يتغير موعد بعد التثبيت.",
+        "en": "The system shall commit a proposal to the schedule in one atomic transaction after the instructor's approval and re-check, and allow one complete undo unless an appointment changed after the commit."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب بلا confirm=true تشغيل تجريبي يقول ما سيحدث دون كتابة.",
+          "en": "A request without confirm=true is a dry run that states what would happen without writing."
+        },
+        {
+          "ar": "الترتيب المترابط لا يُثبَّت إلا بموافقة على المجموعة كلها.",
+          "en": "The linked mode commits only with approval of the whole group."
+        },
+        {
+          "ar": "تغير موعد بعد التثبيت يعطي 409 ورمز proposal-stale عند التراجع ولا يُكتب شيء.",
+          "en": "A change to an appointment after commit yields 409 with code proposal-stale on undo and nothing is written."
+        },
+        {
+          "ar": "إعادة التثبيت لمقترح مثبّت تعيد alreadyCommitted ولا تكرر الكتابة.",
+          "en": "Re-committing a committed proposal returns alreadyCommitted and does not write twice."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalRoutes.ts",
+          "src/utils/studyProposal.ts"
+        ],
+        "tests": [
+          "tests/study-proposal-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-029",
+      "kind": "functional",
+      "title": {
+        "ar": "الشواغر المقترحة للأستاذ",
+        "en": "Vacancy ranking for the instructor"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرتب الشعب الشاغرة («هيئة تدريسية») من مقررات القسم وحدها بحكم لكل شعبة، باستبعاد ما يتداخل مع محاضرات الأستاذ ثم بالفحص الكامل للمقترح مضافاً إليه إسنادها.",
+        "en": "The system shall rank vacant sections (the «faculty» placeholder) of the department's own courses with a verdict per section, excluding those overlapping the instructor's lectures and then running the full proposal check with the assignment added."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الأحكام: ready وreview وblocked وclash وused وunchecked.",
+          "en": "Verdicts: ready, review, blocked, clash, used and unchecked."
+        },
+        {
+          "ar": "الفحص الكامل يقتصر على أقرب 24 شعبة في المرة والباقي «لم تُفحص».",
+          "en": "The full check covers the nearest 24 sections per call and the rest are «unchecked»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalEngine.ts",
+          "src/utils/proposalVacancyScope.ts",
+          "src/components/proposal/ProposalVacancies.tsx"
+        ],
+        "tests": [
+          "tests/study-proposal-studio-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-PLN-002",
+      "kind": "interface",
+      "title": {
+        "ar": "صفحة المقترح وتنبيهه للأستاذ",
+        "en": "Instructor proposal page and alert"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض للأستاذ برابطه الشخصي صفحة المقترح (الجدول الحالي والمقترح) وأن يحقن تنبيه «لديك مقترح دراسي» في صفحة الطلب وبطاقته، دون أن تدّعي الصفحة تغير الجدول قبل تثبيت القسم.",
+        "en": "The system shall show the instructor, through the personal link, the proposal page (current and proposed schedule) and inject a «you have a study proposal» alert in the request page and card, without the page ever claiming the schedule changed before the department commits."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "التنبيه يقرأ حتى 8 روابط ويُخفي ما أُغلق بابه أو ثُبّت.",
+          "en": "The alert reads up to 8 links and hides proposals whose gate is closed or that are committed."
+        },
+        {
+          "ar": "فشل جلب التنبيه صامت ولا يعطل الصفحة المضيفة.",
+          "en": "A failure fetching the alert is silent and does not break the host page."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalPage.ts",
+          "src/server/studyProposalAlert.ts",
+          "src/server/routes/publicRequestRoutes.ts#L1571"
+        ],
+        "tests": [
+          "tests/study-proposal-public-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-PLN-001",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "نطاق القسم والصلاحية",
+        "en": "Department scope and permission"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقيد كل مسار تخطيط بنطاق الكلية والقسم المسموحين للمستخدم وبالإذن المناسب، وأن يمنع القراءة فقط من الكتابة.",
+        "en": "The system shall restrict every planning route to the college and department scope allowed to the user and to the proper permission, and prevent read-only roles from writing."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "advisor",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "الاستعلام خارج النطاق يعطي 403 «خارج صلاحيات الأقسام المسموحة لك».",
+          "en": "A query outside the scope yields 403 «outside your allowed departments»."
+        },
+        {
+          "ar": "الكتابة في التخطيط والبناء تتطلب الإذن 7، والقراءة تقبل 7 أو 14.",
+          "en": "Writing in planning and build requires permission 7, while reading accepts 7 or 14."
+        },
+        {
+          "ar": "مراجعة الصحيفة يراها رئيس القسم ورئيس اللجنة والمستخدم العادي ضمن نطاقهم، وإدارة النظام دائماً.",
+          "en": "The plan review is visible to the department head, committee chair and standard user within their scope, and always to system administration."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts",
+          "src/server/planReviewRoutes.ts",
+          "src/server/planSheetRoutes.ts",
+          "src/server/routes/offeringRoutes.ts"
+        ],
+        "tests": [
+          "tests/plan-review-audit.ts",
+          "tests/section-build-live-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-PLN-002",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "رقم المقرر سبع خانات وتصميم المطبوع",
+        "en": "Seven-digit course numbers and printed design"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض رقم المقرر في صفحات الصحيفة والتخطيط سبع خانات (كلية 2 وقسم 2 ومقرر 3)، وأن يصلح القيم لا شكل التقارير المطبوعة.",
+        "en": "The system shall show course numbers in sheet and planning pages as seven digits (college 2, department 2, course 3) and correct values rather than the layout of printed reports."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرمز القصير يُوسَّع برمز القسم المالك عند المطابقة بالصحيفة المرجعية، فيصير 0109105 لا 105.",
+          "en": "A short code is expanded with the owning department code when matched to the reference sheet, becoming 0109105 not 105."
+        },
+        {
+          "ar": "رقم بخانتين (99) يُحفظ بالصيغتين 013099 و0130099 في قراءة الصحيفة.",
+          "en": "A two-digit number (99) is kept in both forms 013099 and 0130099 when reading the sheet."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/curriculumReference.ts",
+          "src/utils/planPdfParser.ts",
+          "src/server/planSheetRoutes.ts"
+        ],
+        "tests": [
+          "tests/curriculum-reference-pdf-audit.ts",
+          "tests/plan-pdf-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-PLN-001",
+      "kind": "data",
+      "title": {
+        "ar": "مخازن بيانات التخطيط",
+        "en": "Planning data stores"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ بيانات التخطيط في مخازن مستقلة: إحصاءات التسجيل لكل (كلية، قسم، فصل)، وحالات الطرح، وقرارات الفرز، ومسودات القواعد والقواعد المعتمدة بإصدار، والصحائف المنشورة، والمقترحات الدراسية بمراجعة رقمية.",
+        "en": "The system shall persist planning data in separate stores: registration statistics per (college, department, term), offering states, triage decisions, rule drafts and versioned approved rules, published sheets, and study proposals with a numeric revision."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "مفتاح إحصاءات التسجيل «كلية:قسم:فصل» ومفتاح وثيقة الطرح بالصيغة نفسها.",
+          "en": "The registration statistics key and the offering document key both take the form «college:department:term»."
+        },
+        {
+          "ar": "الكتابة المتزامنة على مقترح بمراجعة قديمة تعطي 409.",
+          "en": "A concurrent write to a proposal with a stale revision yields 409."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "src/utils/courseOffering.ts",
+          "src/types.ts"
+        ],
+        "tests": [
+          "tests/study-proposal-flow-audit.ts"
+        ]
+      },
+      "inferred": true
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "الجدول تغيّر بين المعاينة والتنزيل",
+        "en": "Schedule changed between preview and apply"
+      },
+      "scenario": {
+        "ar": "يعاين القسم الشعب ثم يضيف زميلٌ موعداً قبل ضغط «نزّل».",
+        "en": "The department previews sections and a colleague adds an appointment before clicking apply."
+      },
+      "behavior": {
+        "ar": "بصمة الأسبوع تختلف فيُرد الطلب بحالة 409 ورمز stale ولا يُكتب شيء، وتُعاد المعاينة.",
+        "en": "The week fingerprint differs, so the request is refused with 409 and code stale, nothing is written, and the preview is rerun."
+      },
+      "evidence": [
+        "tests/section-build-live-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "شعبة بلا قاعة أو أستاذ مؤكدين",
+        "en": "Section without a confirmed hall or instructor"
+      },
+      "scenario": {
+        "ar": "لا قاعة موثقة بسعة كافية ولا أستاذ بنصاب لمقرر ناقص.",
+        "en": "No documented hall of sufficient capacity and no instructor with allowance for a missing course."
+      },
+      "behavior": {
+        "ar": "يضع النظام وقتاً من الفصل المماثل وقاعة «بانتظار التثبيت»؛ والتنزيل المباشر يرفضها بـ409 ورمز needs-review ويُفتح ما يخصها في «راجع وعدّل».",
+        "en": "The system places a time from the comparable term with a «pending room»; direct apply refuses it with 409 and code needs-review and it is opened in «review and edit»."
+      },
+      "evidence": [
+        "tests/section-build-audit.ts",
+        "tests/section-build-live-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "متبقٍّ سالب في الكشف",
+        "en": "Negative remaining in the report"
+      },
+      "scenario": {
+        "ar": "الكشف يطبع «الذين لم يسجلوا» سالباً لأن المسجلين أكثر ممن لم يجتازوا.",
+        "en": "The report prints «not passed» as negative because enrolled students exceed those who have not passed."
+      },
+      "behavior": {
+        "ar": "يُحفظ المتبقي صفراً، ولا يعني «لا شعب»: يُقترح المعتاد من التاريخ، فإن لم يوجد تاريخ يُقترح صفر مع تفسير.",
+        "en": "The remaining is stored as zero and does not mean «no sections»: the usual historical count is suggested, or zero with an explanation when no history exists."
+      },
+      "evidence": [
+        "tests/section-planning-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "تعديل صحيفة بعد اعتمادها وهي منشورة",
+        "en": "Editing an approved sheet that is published"
+      },
+      "scenario": {
+        "ar": "يعدّل القسم مقرراً في صحيفة معتمدة منشورة.",
+        "en": "A department edits a course in an approved, published sheet."
+      },
+      "behavior": {
+        "ar": "تعود المسودة «قيد المراجعة» والمعتمد لا يتغير؛ والصفحة العامة تبقى على لقطتها حتى يُعتمد التعديل فتُحدَّث.",
+        "en": "The draft returns to «under review» while the approved version stays; the public page keeps its snapshot until the edit is approved, then refreshes."
+      },
+      "evidence": [
+        "tests/plan-review-audit.ts",
+        "tests/plan-sheet-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "مقرر في مجموعتين اختياريتين",
+        "en": "A course in two elective groups"
+      },
+      "scenario": {
+        "ar": "يضع المستخدم المقرر نفسه في مجموعتين.",
+        "en": "A user places the same course in two groups."
+      },
+      "behavior": {
+        "ar": "الاعتماد الفردي يُمنع بـ409 ورمز blockers؛ واعتماد الكل يبقيه في الأولى ويُبلغ بأنه أُصلح.",
+        "en": "Single approval is blocked with 409 and code blockers, while approve-all keeps it in the first group and flags it as repaired."
+      },
+      "evidence": [
+        "tests/plan-review-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "موافقة على نسخة قديمة من المقترح",
+        "en": "Approval of an outdated proposal version"
+      },
+      "scenario": {
+        "ar": "يعدّل القسم ما أُرسل بينما الأستاذ يفتح النسخة السابقة ويوافق.",
+        "en": "The department edits what was sent while the instructor opens the previous version and approves."
+      },
+      "behavior": {
+        "ar": "الرد يُرفض بـ409 ورمز stale-version ولا يُنسب إلى النسخة الأحدث، والصفحة تدل الأستاذ على إعادة التحميل.",
+        "en": "The reply is refused with 409 and code stale-version and is not credited to the newer version, and the page tells the instructor to reload."
+      },
+      "evidence": [
+        "tests/study-proposal-flow-audit.ts",
+        "tests/study-proposal-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "شعبة",
+      "en": "Class section",
+      "def": {
+        "ar": "مجموعة طلبة بموعد وقاعة وأستاذ لمقرر في فصل؛ تُعدّ في الجدول بحسب رمز الشعبة المميز (SCode).",
+        "en": "A group of students with a time, hall and instructor for a course in a term; counted in the schedule by its distinct section code (SCode)."
+      }
+    },
+    {
+      "ar": "الصحيفة",
+      "en": "Plan sheet",
+      "def": {
+        "ar": "الخطة الدراسية لقسم بمقرراتها ومستوياتها ومسبقاتها ومجموعاتها الاختيارية، وقد تكون جديدة أو سابقة.",
+        "en": "A department's study plan with its courses, levels, prerequisites and elective groups, which may be new or previous."
+      }
+    },
+    {
+      "ar": "المتبقي",
+      "en": "Remaining",
+      "def": {
+        "ar": "عدد الطلبة الذين لم يسجلوا المقرر بعد، من عمود «الذين لم يسجلوا» في كشف عمادة التسجيل.",
+        "en": "The number of students who have not yet registered the course, from the «not passed» column of the registration report."
+      }
+    },
+    {
+      "ar": "المختار",
+      "en": "Chosen count",
+      "def": {
+        "ar": "عدد الشعب الذي يقرره القسم لمقرر في التخطيط، ويتقدم على المقترح.",
+        "en": "The section count a department decides for a course in planning, taking precedence over the suggestion."
+      }
+    },
+    {
+      "ar": "حالة الطرح",
+      "en": "Offering state",
+      "def": {
+        "ar": "مطروح أو غير مطروح أو صحيفة جديدة لم نصل مستواها أو شعب محدودة.",
+        "en": "Offered, closed, new sheet not yet reached, or limited sections."
+      }
+    },
+    {
+      "ar": "المسودة",
+      "en": "Draft",
+      "def": {
+        "ar": "نسخة قواعد الصحيفة قيد المراجعة قبل الاعتماد.",
+        "en": "The plan sheet rule set under review before approval."
+      }
+    },
+    {
+      "ar": "الاعتماد",
+      "en": "Approval",
+      "def": {
+        "ar": "نقل المسودة إلى القواعد المعتمدة بإصدار جديد على يد رئيس لجنة الجدول.",
+        "en": "Moving the draft into the approved rules with a new version by the schedule committee chair."
+      }
+    },
+    {
+      "ar": "المقترح الدراسي",
+      "en": "Study proposal",
+      "def": {
+        "ar": "مسودة يعدها القسم لأستاذ، منفصلة عن الجدول الفعلي حتى يوافق الأستاذ ويثبّت القسم.",
+        "en": "A draft a department prepares for an instructor, separate from the live schedule until the instructor approves and the department commits."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "القسم يرى مقرراته فقط في خريطة الصحيفة وعداداتها؛ ومقرر قسم آخر ملاحظة لا بطاقة، ولا يُعدَّل من غير قسمه.",
+      "en": "A department sees only its own courses in the sheet map and counters; another department's course is a note, not a card, and is not editable by other departments."
+    },
+    {
+      "ar": "رقم المقرر سبع خانات دائماً: الكلية 2 والقسم 2 والمقرر 3، مثل 0109105.",
+      "en": "A course number is always seven digits: college 2, department 2, course 3, such as 0109105."
+    },
+    {
+      "ar": "تصميم الصحيفة المنشورة والتقارير المطبوعة لا يُمسّ؛ يُصلح الفرق في البيانات لا في الشكل.",
+      "en": "The design of the published sheet and printed reports is not changed; differences are fixed in data, not layout."
+    },
+    {
+      "ar": "للبنات صحيفة واحدة تُنسخ كما هي إلى الجهراء والفحيحيل، وللبنين صحيفتهم؛ ولكل عائلة كليات صحيفتها المستقلة.",
+      "en": "Female students have one sheet copied as-is to the two sub-sites, male students have their own, and each college family keeps its independent sheet."
+    },
+    {
+      "ar": "لا يُنشر للعامة إلا ما اعتُمد، ورمز QR يحمل الدومين الرسمي دائماً.",
+      "en": "Only what is approved is published, and the QR code always carries the official domain."
+    }
+  ]
+}

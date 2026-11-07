@@ -1,0 +1,1663 @@
+{
+  "id": "EXT",
+  "order": 20,
+  "icon": "plug",
+  "title": {
+    "ar": "الواجهات الخارجية",
+    "en": "External interfaces"
+  },
+  "tagline": {
+    "ar": "كل ما يتصل به النظام من خارجه، وبأي عقد",
+    "en": "Everything the system connects to from outside, and under what contract"
+  },
+  "summary": {
+    "ar": "تحدد هذه الوحدة العقود بين النظام وما حوله: قاعدة Firestore التي يصل إليها الخادم وحده، واستضافة Google Cloud Run والنطاق، وخدمة Gemini التي تقرأ وتقترح فقط خلف المدققات الحتمية وبتأكيد المستخدم، وحزمتا لغة القراءة الضوئية العربية والإنجليزية، وتنبيهات الجوال (Web Push) والبريد الصادر للشركات، واشتراك التقويم (ICS) وتصدير Excel، وملف جدول هيئة التسجيل (SWRSCHA) كمدخل، وعقد المتصفح (تطبيق PWA وعامل الخدمة) ومخطط الروابط العامة ورموزها. كل رقم فيها مأخوذ من الكود الفعلي.",
+    "en": "This module fixes the contracts between the system and its surroundings: the Firestore database reached by the server alone, Google Cloud Run hosting and the domain, the Gemini service that only reads and proposes behind deterministic validators and explicit user confirmation, the Arabic and English OCR language packs, mobile notifications (Web Push) and outbound company e-mail, calendar subscription (ICS) and Excel export, the registration authority's timetable file (SWRSCHA) as an input, the browser contract (PWA and service worker), and the public link scheme with its token rules. Every number comes from the actual code."
+  },
+  "actors": [
+    "external",
+    "system",
+    "rootAdmin",
+    "committeeChair",
+    "departmentHead",
+    "instructor",
+    "student",
+    "visitor",
+    "partner"
+  ],
+  "sources": [
+    "server.ts",
+    "src/server/runtimeEnv.ts",
+    "src/server/firestoreTarget.ts",
+    "src/server/core/gemini.ts",
+    "src/server/adMailer.ts",
+    "src/server/pushRoutes.ts",
+    "src/server/webPush.ts",
+    "src/server/pushMessages.ts",
+    "src/server/pushCard.ts",
+    "src/server/routes/publicCalendarRoutes.ts",
+    "src/server/calendarSecret.ts",
+    "src/utils/icalendar.ts",
+    "src/utils/pushClient.ts",
+    "src/utils/demoLinkToken.ts",
+    "src/utils/geminiScheduleLayer.ts",
+    "src/server/anonymousGuard.ts",
+    "src/server/publicAttemptLimiter.ts",
+    "src/server/core/rateLimits.ts",
+    "public/sw.js",
+    "public/push-sw.js",
+    "public/manifest.webmanifest",
+    "public/me.webmanifest",
+    "public/updating.html",
+    "Dockerfile",
+    "cloudbuild.yaml",
+    "firebase.json",
+    "ara.traineddata",
+    "eng.traineddata",
+    "docs/DELIVERY_OPERATIONS.md",
+    "scripts/stamp-sw.mjs",
+    "scripts/verify-pwa.mjs",
+    ".github/workflows/deploy-schedule.yml"
+  ],
+  "journeys": [
+    {
+      "actor": "instructor",
+      "title": {
+        "ar": "الاشتراك بجدولي في تقويم الهاتف",
+        "en": "Subscribing to my timetable in the phone calendar"
+      },
+      "steps": [
+        {
+          "ar": "يفتح الأستاذ بطاقته عبر رابطه الشخصي (/r/<رمز>) ويضغط «أضف إلى التقويم».",
+          "en": "The instructor opens his card through his personal link (/r/<token>) and presses «add to calendar»."
+        },
+        {
+          "ar": "يعطيه الخادم رابط اشتراك ثابتاً من الشكل /api/public/cal/<رمز>/p<رقم>-<مفتاح>.ics.",
+          "en": "The server gives him a stable subscription link of the form /api/public/cal/<token>/p<number>-<key>.ics."
+        },
+        {
+          "ar": "يقرأ تطبيق التقويم الملف ويُعيد قراءته كل 6 ساعات، والخادم يجيب 304 إن لم يتغير شيء.",
+          "en": "The calendar app reads the file and re-reads it every 6 hours; the server answers 304 when nothing changed."
+        },
+        {
+          "ar": "محاضرة أُلغيت في تاريخ بعينه تختفي من ذلك التاريخ وحده في كل هاتف مشترك.",
+          "en": "A lecture cancelled on one date disappears from that date alone in every subscribed phone."
+        },
+        {
+          "ar": "إن لم تبقَ للأستاذ بطاقة سارية يجيب الاشتراك بتقويم فارغ يشرح التوقف، ويعود الاشتراك وحده بعد صدور بطاقة جديدة.",
+          "en": "If the instructor has no live card left the subscription answers with an empty calendar explaining the pause, and returns on its own once a new card is issued."
+        }
+      ]
+    },
+    {
+      "actor": "instructor",
+      "title": {
+        "ar": "تفعيل تنبيهات الجوال لبطاقتي",
+        "en": "Enabling mobile notifications for my card"
+      },
+      "steps": [
+        {
+          "ar": "يضغط الأستاذ «فعّل التنبيهات» في بطاقته، فيسجّل المتصفح عامل التنبيهات /push-sw.js بنطاق البطاقة.",
+          "en": "The instructor presses «enable notifications» in his card and the browser registers the push worker /push-sw.js scoped to the card."
+        },
+        {
+          "ar": "يجلب المتصفح مفتاح VAPID العام من /api/public/push/key ويشترك لدى خدمة الدفع.",
+          "en": "The browser fetches the public VAPID key from /api/public/push/key and subscribes with the push service."
+        },
+        {
+          "ar": "يتحقق الخادم أن عنوان الاشتراك https إلى خدمة دفع معروفة ثم يحفظ السجل مربوطاً برمز البطاقة.",
+          "en": "The server checks that the endpoint is https to a known push service and stores the record bound to the card token."
+        },
+        {
+          "ar": "عند تثبيت طلبه يُرسل الخادم رسالة مشفّرة بـ aes128gcm بمهلة 24 ساعة ووسم يستبدل ما سبقه.",
+          "en": "When his request is settled the server sends an aes128gcm-encrypted message with a 24-hour TTL and a topic that replaces earlier ones."
+        },
+        {
+          "ar": "إن ردّت خدمة الدفع 404 أو 410 يُحذف الاشتراك.",
+          "en": "If the push service answers 404 or 410 the subscription is deleted."
+        }
+      ]
+    },
+    {
+      "actor": "rootAdmin",
+      "title": {
+        "ar": "نشر إصدار والتحقق منه",
+        "en": "Releasing a version and verifying it"
+      },
+      "steps": [
+        {
+          "ar": "يدمج المشرف التغيير في الفرع الرئيسي وتنجح كل الاختبارات فيه.",
+          "en": "The maintainer merges the change into the main branch and the full test run passes."
+        },
+        {
+          "ar": "يبني سير «Deploy SCHEDULE» الصورة ويستبدل صورة خدمة schedule الرسمية وحدها، دون مساس بالنطاق أو الأسرار.",
+          "en": "The «Deploy SCHEDULE» workflow builds the image and replaces the image of the official schedule service only, leaving the domain and secrets untouched."
+        },
+        {
+          "ar": "يختم scripts/stamp-sw.mjs معرّف البناء في sw.js فيرى كل متصفح مفتوح تحديثاً حقيقياً.",
+          "en": "scripts/stamp-sw.mjs stamps the build identifier into sw.js so every open browser sees a real update."
+        },
+        {
+          "ar": "يتحقق المشرف أن النطاق وعنوان الخدمة الافتراضي يعيدان معرّف البناء نفسه من /sw.js.",
+          "en": "The maintainer verifies that the domain and the platform's default service address return the same build identifier from /sw.js."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "ext-context",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "سياق النظام والجهات الخارجية",
+        "en": "System context and external parties"
+      },
+      "caption": {
+        "ar": "النظام في الوسط؛ يصله المستخدمون من المتصفح، ويصل هو إلى خدمات خارجية بعقود محددة.",
+        "en": "The system sits in the middle; people reach it from the browser, and it reaches external services under defined contracts."
+      },
+      "nodes": [
+        {
+          "id": "browser",
+          "label": {
+            "ar": "المتصفح وتطبيق PWA",
+            "en": "Browser and PWA"
+          },
+          "icon": "globe",
+          "kind": "start"
+        },
+        {
+          "id": "phone",
+          "label": {
+            "ar": "هاتف الأستاذ والطالب",
+            "en": "Instructor and student phone"
+          },
+          "icon": "smartphone",
+          "kind": "start"
+        },
+        {
+          "id": "system",
+          "label": {
+            "ar": "خادم SCHEDULE على Cloud Run",
+            "en": "SCHEDULE server on Cloud Run"
+          },
+          "icon": "server",
+          "kind": "system"
+        },
+        {
+          "id": "fs",
+          "label": {
+            "ar": "Firestore (الخادم وحده)",
+            "en": "Firestore (server only)"
+          },
+          "icon": "database",
+          "kind": "state"
+        },
+        {
+          "id": "gem",
+          "label": {
+            "ar": "Gemini (قراءة واقتراح)",
+            "en": "Gemini (read and propose)"
+          },
+          "icon": "sparkles",
+          "kind": "state"
+        },
+        {
+          "id": "ocr",
+          "label": {
+            "ar": "حزمتا لغة OCR",
+            "en": "OCR language packs"
+          },
+          "icon": "file-scan",
+          "kind": "state"
+        },
+        {
+          "id": "push",
+          "label": {
+            "ar": "خدمات دفع المتصفحات",
+            "en": "Browser push services"
+          },
+          "icon": "bell",
+          "kind": "state"
+        },
+        {
+          "id": "mail",
+          "label": {
+            "ar": "مزوّد البريد الصادر",
+            "en": "Outbound mail provider"
+          },
+          "icon": "mail",
+          "kind": "state"
+        },
+        {
+          "id": "cal",
+          "label": {
+            "ar": "تطبيقات التقويم (ICS)",
+            "en": "Calendar apps (ICS)"
+          },
+          "icon": "calendar-days",
+          "kind": "state"
+        },
+        {
+          "id": "xls",
+          "label": {
+            "ar": "ملف Excel",
+            "en": "Excel file"
+          },
+          "icon": "file-spreadsheet",
+          "kind": "end"
+        },
+        {
+          "id": "pdf",
+          "label": {
+            "ar": "ملف SWRSCHA (PDF)",
+            "en": "SWRSCHA file (PDF)"
+          },
+          "icon": "file-text",
+          "kind": "start"
+        }
+      ],
+      "edges": [
+        {
+          "from": "browser",
+          "to": "system",
+          "label": {
+            "ar": "HTTPS والروابط العامة",
+            "en": "HTTPS and public links"
+          }
+        },
+        {
+          "from": "phone",
+          "to": "system",
+          "label": {
+            "ar": "بطاقة /r و/me",
+            "en": "card /r and /me"
+          }
+        },
+        {
+          "from": "pdf",
+          "to": "system",
+          "label": {
+            "ar": "رفع ≤ 24 MB",
+            "en": "upload ≤ 24 MB"
+          }
+        },
+        {
+          "from": "system",
+          "to": "fs",
+          "label": {
+            "ar": "حزمة الإدارة",
+            "en": "Admin SDK"
+          }
+        },
+        {
+          "from": "system",
+          "to": "gem",
+          "label": {
+            "ar": "نص وصور، مهلة محدودة",
+            "en": "text and images, bounded time"
+          }
+        },
+        {
+          "from": "system",
+          "to": "ocr",
+          "label": {
+            "ar": "محلي بلا شبكة",
+            "en": "local, no network"
+          }
+        },
+        {
+          "from": "system",
+          "to": "push",
+          "label": {
+            "ar": "Web Push مشفّر",
+            "en": "encrypted Web Push"
+          }
+        },
+        {
+          "from": "system",
+          "to": "mail",
+          "label": {
+            "ar": "نص بسيط",
+            "en": "plain text"
+          }
+        },
+        {
+          "from": "cal",
+          "to": "system",
+          "label": {
+            "ar": "اشتراك دوري",
+            "en": "periodic subscription"
+          }
+        },
+        {
+          "from": "system",
+          "to": "xls",
+          "label": {
+            "ar": "تنزيل",
+            "en": "download"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ext-link-flow",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "فتح رابط عام برمز",
+        "en": "Opening a public link by token"
+      },
+      "caption": {
+        "ar": "الخطأ هو المحسوب لا النجاح: من يخمّن رمزاً يُوقَف بعد 40 إخفاقاً، وشبكة الجامعة التي تفتح ألف رابط صحيح لا تُحجب.",
+        "en": "Failure is counted, not success: someone guessing tokens is stopped after 40 misses, and a campus network opening a thousand valid links is never blocked."
+      },
+      "nodes": [
+        {
+          "id": "req",
+          "label": {
+            "ar": "طلب /s أو /r أو /q …",
+            "en": "Request /s /r /q …"
+          },
+          "icon": "link",
+          "kind": "start"
+        },
+        {
+          "id": "guard",
+          "label": {
+            "ar": "حارس الإخفاق",
+            "en": "Miss guard"
+          },
+          "icon": "shield-check",
+          "kind": "decision"
+        },
+        {
+          "id": "wait",
+          "label": {
+            "ar": "429 وانتظار",
+            "en": "429 and wait"
+          },
+          "icon": "clock",
+          "kind": "end"
+        },
+        {
+          "id": "bind",
+          "label": {
+            "ar": "ربط الصندوق التجريبي",
+            "en": "Bind demo sandbox"
+          },
+          "icon": "layers",
+          "kind": "system"
+        },
+        {
+          "id": "find",
+          "label": {
+            "ar": "البحث عن الرمز",
+            "en": "Look up token"
+          },
+          "icon": "search",
+          "kind": "system"
+        },
+        {
+          "id": "valid",
+          "label": {
+            "ar": "موجود وغير موقوف؟",
+            "en": "Exists, not revoked?"
+          },
+          "icon": "help-circle",
+          "kind": "decision"
+        },
+        {
+          "id": "gone",
+          "label": {
+            "ar": "404 أو 410",
+            "en": "404 or 410"
+          },
+          "icon": "x-circle",
+          "kind": "end"
+        },
+        {
+          "id": "kind",
+          "label": {
+            "ar": "النوع يطابق الباب؟",
+            "en": "Kind matches door?"
+          },
+          "icon": "git-branch",
+          "kind": "decision"
+        },
+        {
+          "id": "page",
+          "label": {
+            "ar": "الصفحة، دون تخزين",
+            "en": "Page, never cached"
+          },
+          "icon": "check-circle",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "req",
+          "to": "guard"
+        },
+        {
+          "from": "guard",
+          "to": "wait",
+          "label": {
+            "ar": "تجاوز الحد",
+            "en": "over limit"
+          }
+        },
+        {
+          "from": "guard",
+          "to": "bind",
+          "label": {
+            "ar": "ضمن الحد",
+            "en": "within limit"
+          }
+        },
+        {
+          "from": "bind",
+          "to": "find"
+        },
+        {
+          "from": "find",
+          "to": "valid"
+        },
+        {
+          "from": "valid",
+          "to": "gone",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "valid",
+          "to": "kind",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "kind",
+          "to": "gone",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "kind",
+          "to": "page",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        }
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "IR-EXT-001",
+      "kind": "interface",
+      "title": {
+        "ar": "Firestore بالخادم وحده",
+        "en": "Firestore through the server only"
+      },
+      "text": {
+        "ar": "يجب أن يصل النظام إلى Firestore من الخادم وحده بحزمة الإدارة وبهوية التطبيق على المنصة أو ملف اعتماد خارج المستودع، وأن يجري عند الإقلاع قراءة فعلية للتحقق من الوجهة، وألا يُشغَّل على بيانات بديلة إن فشلت: يبقى الخادم قائماً ويجيب /api بـ 503 مع رقم مرجعي قصير، ويُحفظ نص الخطأ الكامل في السجل لا في المتصفح.",
+        "en": "The system shall reach Firestore through the server alone, using the Admin SDK and the platform's application identity or a credential file kept outside the repository; it shall perform one real read at startup to verify the target and shall never run on substitute data if that fails: the server stays up and answers /api with 503 and a short reference number, while the full error text goes to the log, not the browser."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "وجهة خاطئة أو اعتماد منتهٍ يُنتج 503 على كل /api ما عدا /api/landing/inquiry، والواجهة تُحمَّل.",
+          "en": "A wrong target or expired credential yields 503 on every /api route except /api/landing/inquiry, while the interface still loads."
+        },
+        {
+          "ar": "ملف الاعتماد غير موجود في المستودع ولا في صورة الحاوية.",
+          "en": "No credential file exists in the repository or in the container image."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "src/server/core/state.ts",
+          "server.ts",
+          "firestore.rules"
+        ],
+        "tests": [
+          "tests/firestore-target-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-002",
+      "kind": "interface",
+      "title": {
+        "ar": "اختيار مشروع Firestore وقاعدته",
+        "en": "Firestore project and database selection"
+      },
+      "text": {
+        "ar": "يجب أن يحدّد الخادم مشروع Firestore وقاعدته بقاعدة واحدة: على Cloud Run يتقدّم ملف إعداد التطبيق على المتغيرات ويُحذَّر من التعارض، وخارجه تتقدّم المتغيرات؛ ومع FIREBASE_CONFIG_SOURCE=environment تُصبح المتغيرات المصدر الوحيد ويُرفض الإقلاع إن ناقضها الملف؛ ولا يُقلع على Cloud Run بقاعدة غير مسمّاة أو «(default)».",
+        "en": "The server shall select the Firestore project and database by one rule: on Cloud Run the application config file takes precedence over environment variables and a conflict is logged; elsewhere the variables win; with FIREBASE_CONFIG_SOURCE=environment the variables become the only source and startup is refused if the file contradicts them; and on Cloud Run it shall not start with a missing or «(default)» database."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "على Cloud Run قيمة FIREBASE_DATABASE_ID تخالف الملف تُتجاهل مع تحذير [firestore-target].",
+          "en": "On Cloud Run a FIREBASE_DATABASE_ID that differs from the file is ignored with an [firestore-target] warning."
+        },
+        {
+          "ar": "القاعدة الفارغة أو «(default)» ترمي «Refusing to start on Cloud Run».",
+          "en": "An empty or «(default)» database throws «Refusing to start on Cloud Run»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/firestoreTarget.ts",
+          "src/server/runtimeEnv.ts"
+        ],
+        "tests": [
+          "tests/firestore-target-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-003",
+      "kind": "interface",
+      "title": {
+        "ar": "الاستضافة على Cloud Run",
+        "en": "Hosting on Cloud Run"
+      },
+      "text": {
+        "ar": "يجب أن يُنشر النظام حاوية واحدة (Node 22، المنفذ 3000، MALLOC_ARENA_MAX=2) على Cloud Run، فيها الحزمة وبناء الواجهة والحزم المطلوبة وملف الإعداد وحزمتا اللغة وحدها دون المصدر والاختبارات، وأن يفرض وقت التشغيل على Cloud Run الوضع الإنتاجي وقاعدة Firestore وتعطيل الاستيراد التلقائي، إلا خدمة تجريبية مخصصة تُفعَّل صراحة وتعمل بالذاكرة.",
+        "en": "The system shall be deployed as a single container (Node 22, port 3000, MALLOC_ARENA_MAX=2) on Cloud Run holding only the bundle, the interface build, the required packages, the config file and the two language packs, without sources or tests; on Cloud Run the runtime shall force production mode, the Firestore data mode and disabled auto-import, except for a dedicated demo service that is enabled explicitly and runs in memory."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "NODE_ENV يصير production وDATA_MODE=firestore وAUTO_IMPORT_LEGACY_DATA=false عند وجود K_SERVICE.",
+          "en": "NODE_ENV becomes production, DATA_MODE=firestore and AUTO_IMPORT_LEGACY_DATA=false whenever K_SERVICE is present."
+        },
+        {
+          "ar": "SCHEDULE_PRIVATE_DIR داخل مجلد الإصدار في الإنتاج يوقف الإقلاع.",
+          "en": "SCHEDULE_PRIVATE_DIR inside the release folder in production stops startup."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "Dockerfile",
+          "src/server/runtimeEnv.ts",
+          "src/db/snapshot.ts"
+        ],
+        "tests": [
+          "tests/firestore-target-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-004",
+      "kind": "interface",
+      "title": {
+        "ar": "النطاق والنشر الرسمي",
+        "en": "Domain and official deployment"
+      },
+      "text": {
+        "ar": "يجب أن ينشر سير «Deploy SCHEDULE» صورة الحاوية وحدها إلى خدمة schedule الرسمية في منطقة واحدة، وألا يغيّر ربط النطاق schedule-kw.com ولا حساب الخدمة ولا الأسرار ولا الذاكرة، وأن يُتحقَّق بعد النشر أن النطاق وعنوان الخدمة الافتراضي يخدمان معرّف البناء نفسه من /sw.js؛ وملف cloudbuild.yaml ليس مسار النشر.",
+        "en": "The «Deploy SCHEDULE» workflow shall publish only the container image to the official schedule service in one region and shall not change the schedule-kw.com domain mapping, the service account, the secrets or the memory; after release the domain and the platform's default service address shall be verified to serve the same build identifier from /sw.js; cloudbuild.yaml is not the deploy path."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حارس وجهة النشر يفشل إن أشار سير النشر إلى مشروع أو منطقة غير الرسمية أو إلى منطقة متقاعدة.",
+          "en": "The deploy-target guard fails if the workflow points to a project or region other than the official one or to a retired region."
+        },
+        {
+          "ar": "sw.js المنشور يحمل معرّف بناء لا النص __BUILD__.",
+          "en": "The published sw.js carries a build identifier rather than the __BUILD__ placeholder."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "docs/DELIVERY_OPERATIONS.md",
+          ".github/workflows/deploy-schedule.yml",
+          "scripts/stamp-sw.mjs"
+        ],
+        "tests": [
+          "tests/deploy-target-guard.mjs"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-005",
+      "kind": "interface",
+      "title": {
+        "ar": "نقطة الصحة",
+        "en": "Health endpoint"
+      },
+      "text": {
+        "ar": "يجب أن تجيب GET /api/health من الذاكرة دون قراءة Firestore بـ JSON فيه ok وdatabase («up» أو «down») ورقم مرجعي عند العطل، ليُستعمل في إبقاء الخدمة دافئة في ساعات العمل.",
+        "en": "GET /api/health shall answer from memory without reading Firestore with JSON holding ok, database («up» or «down») and a reference number on failure, so that it can keep the service warm during working hours."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "external"
+      ],
+      "acceptance": [
+        {
+          "ar": "قاعدة سليمة تعيد ok:true وdatabase:up.",
+          "en": "A healthy database returns ok:true and database:up."
+        },
+        {
+          "ar": "مجدول التسخين يسأل كل 5 دقائق من الأحد إلى الخميس بين 08:00 و15:55 بتوقيت الكويت.",
+          "en": "The warm-up scheduler asks every 5 minutes from Sunday to Thursday between 08:00 and 15:55 Kuwait time."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/systemRoutes.ts",
+          "docs/DELIVERY_OPERATIONS.md"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-006",
+      "kind": "interface",
+      "title": {
+        "ar": "عقد الاتصال بخدمة Gemini",
+        "en": "Gemini call contract"
+      },
+      "text": {
+        "ar": "يجب أن تكلّم الخدمةُ Gemini عبر طلب HTTPS واحد لكل قراءة، بمفتاح من GEMINI_API_KEY أو GOOGLE_GEMINI_API_KEY (ولا شيء يحدث إن غاب)، ونموذج من GEMINI_SCHEDULE_MODEL أو GEMINI_MODEL، بحرارة 0.1 وتفكير منخفض، وبمهلة 45 ثانية لنداءات الدوال و180 ثانية لقراءة ملف؛ وتقرأ الخدمة النص والصور وتقترح بدائل أو استدعاءات دوال محددة، ولا تقرّر ولا تكتب.",
+        "en": "The Gemini service shall be called with one HTTPS request per read, using a key from GEMINI_API_KEY or GOOGLE_GEMINI_API_KEY (nothing happens when absent) and a model from GEMINI_SCHEDULE_MODEL or GEMINI_MODEL, at temperature 0.1 and low thinking, with a 45-second budget for function calls and 180 seconds for a document read; it reads text and images and proposes alternatives or specific function calls, and never decides or writes."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "external",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا مفتاح تعيد الدالة null ويعمل المحلّل الحتمي.",
+          "en": "Without a key the function returns null and the deterministic parser takes over."
+        },
+        {
+          "ar": "تجاوز المهلة يُرجع failed مع سبب «تجاوز المهلة» ولا يعلّق الطلب.",
+          "en": "Exceeding the budget returns failed with a «timeout» reason and does not hang the request."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/gemini.ts",
+          "src/utils/geminiScheduleLayer.ts"
+        ],
+        "tests": [
+          "tests/gemini-schedule-layer.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-007",
+      "kind": "interface",
+      "title": {
+        "ar": "مخرجات Gemini خلف المدققات والتأكيد",
+        "en": "Gemini output behind validators and confirmation"
+      },
+      "text": {
+        "ar": "يجب ألا يُخزَّن أو يُنشر أو يُطبَّق شيء مما تقترحه خدمة Gemini إلا بعد مروره بالمدققات الحتمية للخادم وبتأكيد صريح من المستخدم: تُقبل خمس دوال فقط (check_conflicts وfind_rooms وcheck_instructors وcheck_regulations وsimulate_schedule)، وتُسقط أي استدعاءات أو حقول فيها كلمات كتابة أو حذف أو نشر أو اعتماد.",
+        "en": "Nothing the Gemini service proposes shall be stored, published or applied unless it passes the server's deterministic validators and an explicit user confirmation: only five functions are accepted (check_conflicts, find_rooms, check_instructors, check_regulations and simulate_schedule), and any call or field carrying write, delete, publish or approve words is dropped."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "external"
+      ],
+      "acceptance": [
+        {
+          "ar": "مسار nl-schedule يعيد معاينة فقط مع commitRequired:true ولا يكتب شيئاً.",
+          "en": "The nl-schedule route returns a preview only with commitRequired:true and writes nothing."
+        },
+        {
+          "ar": "استدعاء باسم delete_schedule يُسقط ولا يصل إلى المنفّذ.",
+          "en": "A call named delete_schedule is dropped and never reaches the executor."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/geminiScheduleLayer.ts",
+          "src/server/routes/intelligenceInsightRoutes.ts"
+        ],
+        "tests": [
+          "tests/gemini-schedule-layer.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-008",
+      "kind": "interface",
+      "title": {
+        "ar": "عند تعذّر Gemini",
+        "en": "When Gemini is unavailable"
+      },
+      "text": {
+        "ar": "يجب أن يعيد استيراد الجدول المساعَد عند تعذّر خدمة Gemini (غياب الإعداد أو ازدحام أو مهلة أو رفض) الرمز 503 برمز GEMINI_SMART_IMPORT_UNAVAILABLE ورسالة هادئة تنتهي بـ «جدولك لم يتغيّر»، وألا يعرض نص خطأ المزوّد الإنجليزي للمستخدم بل يسجّله، وأن يرجع فهم الطلب النصي إلى المحلّل الحتمي.",
+        "en": "When the Gemini service is unavailable (not configured, busy, timed out or refused), assisted timetable import shall return 503 with code GEMINI_SMART_IMPORT_UNAVAILABLE and a calm message stating that the timetable did not change, shall log rather than show the provider's English error text, and understanding of a text request shall fall back to the deterministic parser."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "ردّ 429 من المزوّد يظهر للمستخدم «خوادم القراءة الأدق مزدحمة» لا نص المزوّد.",
+          "en": "A 429 from the provider shows the user «the reading servers are busy», not the provider's text."
+        },
+        {
+          "ar": "بعد أي فشل يبقى عدد صفوف الجدول كما كان.",
+          "en": "After any failure the schedule row count is unchanged."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/smartImportRoutes.ts",
+          "src/server/routes/intelligenceInsightRoutes.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-009",
+      "kind": "interface",
+      "title": {
+        "ar": "حزمتا لغة القراءة الضوئية",
+        "en": "OCR language packs"
+      },
+      "text": {
+        "ar": "يجب أن تُقرأ الصفحات الممسوحة بـ Tesseract محلياً بحزمتي ara.traineddata وeng.traineddata الموجودتين في جذر الإصدار، وأن يُبحث عنهما في OCR_DATA_DIR ثم مجلد العمل ثم مجلد الحزمة، فلا تُطلبان من الشبكة، وأن تقرأ الصفحة بمجمّع عمال يخدم قراءة واحدة في كل مرة.",
+        "en": "Scanned pages shall be read locally by Tesseract using the ara.traineddata and eng.traineddata packs located in the release root, searched in OCR_DATA_DIR, then the working directory, then the bundle folder, so they are never requested from the network, and a pool of workers shall serve one reading at a time."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "يعمل الإقلاع من جذر المستودع بلا اتصال بالشبكة.",
+          "en": "Startup from the repository root works with no network connection."
+        },
+        {
+          "ar": "صورة الحاوية تنسخ الملفين إلى جذر التطبيق.",
+          "en": "The container image copies both files to the application root."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/documentOcr.ts",
+          "Dockerfile"
+        ],
+        "tests": [
+          "tests/pdf-import-hardening.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-010",
+      "kind": "interface",
+      "title": {
+        "ar": "ملف جدول هيئة التسجيل SWRSCHA كمدخل",
+        "en": "The authority's SWRSCHA file as an input"
+      },
+      "text": {
+        "ar": "يجب أن يقبل النظام ملف PDF لجدول هيئة التسجيل (SWRSCHA) حتى 24 MB و12 صفحة، فيقرأ النص المضمّن بإحداثياته إن وُجد وإلا الصفحة الممسوحة (أفقية فقط)، ويأخذ الفصل والفرع والقسم من ترويسة كل صفحة، ويرفض الملف كله لا بعضه إن زاد عن 12 صفحة، ولا تنشئ المسوح قسماً أو مقرراً أبداً.",
+        "en": "The system shall accept an authority timetable PDF (SWRSCHA) of up to 24 MB and 12 pages, reading the embedded text by its coordinates when present and otherwise the scanned page (landscape only), taking term, branch and department from each page header, and shall reject the whole file rather than part of it above 12 pages; scans never create a department or course."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف من 14 صفحة يُرفض برسالة تذكر الحدّ 12 ولا يُستورد أي صف.",
+          "en": "A 14-page file is rejected with a message stating the limit of 12 and no row is imported."
+        },
+        {
+          "ar": "القسم يؤخذ من الترويسة ولو حمل رقم المقرر رمز قسم آخر؛ ولا يكفي ذيل ثلاث خانات للربط.",
+          "en": "The department comes from the header even when the course number carries another department's code, and a three-digit tail alone never links."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/documentOcr.ts",
+          "src/server/routes/pdfImportRoutes.ts",
+          "src/utils/authorityAcademicCodes.ts"
+        ],
+        "tests": [
+          "tests/header-department-rule-audit.ts",
+          "tests/authority-course-prefix-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-011",
+      "kind": "interface",
+      "title": {
+        "ar": "بروتوكول Web Push",
+        "en": "Web Push protocol"
+      },
+      "text": {
+        "ar": "يجب أن يُرسل الخادم تنبيهات الجوال وفق RFC 8030 وRFC 8291 وRFC 8292: الحمولة مشفّرة aes128gcm لمفتاح المتصفح (سجل واحد)، والتوقيع VAPID بـ ES256 صالح 12 ساعة بهوية https://schedule-kw.com، ورأس TTL = 86400 ثانية، وUrgency، وTopic من 32 خانة base64url يستبدل ما لم يُسلَّم بعد؛ ومفتاحا VAPID من VAPID_PUBLIC_KEY وVAPID_PRIVATE_KEY معاً وإلا مشتقان من السرّ المشترك.",
+        "en": "The server shall send mobile notifications per RFC 8030, RFC 8291 and RFC 8292: the payload is aes128gcm-encrypted to the browser's key (single record), the VAPID signature is ES256 valid for 12 hours with the subject https://schedule-kw.com, the TTL header is 86400 seconds, with an Urgency header and a 32-character base64url Topic that replaces a message not yet delivered; the VAPID keys come from VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY together, otherwise they are derived from the shared secret."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "external"
+      ],
+      "acceptance": [
+        {
+          "ar": "ضبط أحد المفتاحين دون الآخر أو مفتاحان غير متطابقين يرمي خطأ.",
+          "en": "Setting one key without the other, or two mismatched keys, throws an error."
+        },
+        {
+          "ar": "حمولة أكبر من الحدّ تُرفض قبل الإرسال.",
+          "en": "A payload above the size limit is refused before sending."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/webPush.ts"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-012",
+      "kind": "interface",
+      "title": {
+        "ar": "وجهات الدفع المسموحة وحذف المنتهية",
+        "en": "Allowed push destinations and pruning"
+      },
+      "text": {
+        "ar": "يجب ألا يُرسل الخادم إلا إلى عناوين https بالمنفذ 443 بلا اسم مستخدم عند خدمات الدفع المعروفة (FCM، وروابط FCM القديمة، وMozilla، وApple، وWindows) منعاً لطلبات داخلية، وبمهلة 10 ثوانٍ، وأن يحذف الاشتراك عند ردّ 404 أو 410، وأن يرفض اشتراكاً مرتبطاً ببطاقة أُوقفت أو انتهت.",
+        "en": "The server shall send only to https addresses on port 443 without credentials at known push services (FCM, legacy FCM links, Mozilla, Apple and Windows) to prevent internal requests, with a 10-second timeout, shall delete a subscription on a 404 or 410 answer, and shall refuse a subscription tied to a card that was stopped or expired."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "عنوان http أو مضيف داخلي يُرفض ولا يصدر أي طلب.",
+          "en": "An http address or an internal host is refused and no request is issued."
+        },
+        {
+          "ar": "ردّ 410 يترك السجل محذوفاً في الاستجابة نفسها.",
+          "en": "A 410 answer leaves the record deleted in the same response."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/webPush.ts#isAllowedPushEndpoint",
+          "src/server/pushRoutes.ts"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-013",
+      "kind": "interface",
+      "title": {
+        "ar": "حدّ التنبيهات لكل جهاز",
+        "en": "Per-device notification limit"
+      },
+      "text": {
+        "ar": "يجب أن يُحدّ كل اشتراك بدلو من خمسة تنبيهات متتالية ثم تنبيه واحد كل دقيقة، وأن تُهدَّأ تنبيهات وارد الطلبات لكل قسم ثلاث دقائق محفوظة في قاعدة البيانات، وأن يجيب زر «جرّب» بـ 429 إذا لم يُرسَل شيء بسبب الحد.",
+        "en": "Each subscription shall be limited by a bucket of five consecutive notifications and then one per minute, request-inbox notifications shall be cooled down for three minutes per department with the cooldown kept in the database, and the «try» button shall answer 429 when nothing was sent because of the limit."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "السادس في دقيقة واحدة لا يُرسَل ويُحسب limited في التقرير.",
+          "en": "The sixth within one minute is not sent and is counted as limited in the report."
+        },
+        {
+          "ar": "بعد دقيقة يعود دلو واحد.",
+          "en": "After one minute one token returns to the bucket."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/webPush.ts#createPushRateLimiter",
+          "src/server/pushRoutes.ts"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-014",
+      "kind": "interface",
+      "title": {
+        "ar": "البريد الصادر للشركات",
+        "en": "Outbound company e-mail"
+      },
+      "text": {
+        "ar": "يجب أن يبقى البريد الصادر معطّلاً ما لم يُضبط AD_MAIL_API_KEY وAD_MAIL_FROM، فإذا ضُبطا أُرسلت رسالة نص بسيط بطلب POST JSON وAuthorization: Bearer إلى AD_MAIL_API_URL (الافتراضي واجهة متوافقة مع Resend) بمهلة 10 ثوانٍ، إلى بريد الشركة المخزّن في حملتها أو بريد المالك AD_LEAD_NOTIFY_TO، دون أرقام شخصية ولا تتبّع، وبمفتاح أسبوع (أوله الأحد) يمنع الملخص الأسبوعي مرتين.",
+        "en": "Outbound e-mail shall stay disabled unless AD_MAIL_API_KEY and AD_MAIL_FROM are set; once set, a plain-text message is sent by a JSON POST with Authorization: Bearer to AD_MAIL_API_URL (default a Resend-compatible API) with a 10-second timeout, to the company address stored in its campaign or to the owner's AD_LEAD_NOTIFY_TO, with no personal numbers and no tracking, and a week key (starting Sunday) prevents sending the weekly summary twice."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "partner",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا إعدادات لا يخرج أي بريد ولا يتغير شيء في الإنتاج.",
+          "en": "Without configuration no mail leaves and nothing changes in production."
+        },
+        {
+          "ar": "عنوان بريد غير صالح أو أطول من 120 خانة يُعامل كأنه غير موجود.",
+          "en": "An invalid address or one longer than 120 characters is treated as absent."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/adMailer.ts"
+        ],
+        "tests": [
+          "tests/ads-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-015",
+      "kind": "interface",
+      "title": {
+        "ar": "ملف تقويم ICS لجدول القسم",
+        "en": "ICS calendar file for a department timetable"
+      },
+      "text": {
+        "ar": "يجب أن يخدم GET /api/public/ics/:token تقويماً بصيغة RFC 5545 (نهايات CRLF، طيّ الأسطر عند 75 بايتاً، VTIMEZONE لـ Asia/Kuwait، RRULE أسبوعي وEXDATE للتواريخ الملغاة) للجداول العامة فقط، بتنبيه اختياري من 0 إلى 120 دقيقة، وإعادة قراءة كل 6 ساعات، وETag ضعيف يجيب 304 عند عدم التغيّر، ومدة الفصل 16 أسبوعاً إن لم تُسجَّل تواريخه مع وسم «تقديرية» في اسم التقويم.",
+        "en": "GET /api/public/ics/:token shall serve an RFC 5545 calendar (CRLF endings, line folding at 75 bytes, a VTIMEZONE for Asia/Kuwait, weekly RRULE and EXDATE for cancelled dates) for public department timetables only, with an optional 0–120 minute alarm, a 6-hour refresh interval and a weak ETag answering 304 when unchanged, and a 16-week term length when its dates are not recorded, with an «estimated» label in the calendar name."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "student",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط بطاقة أستاذ أو استبيان أو طلبة أو طلب يجيب 404 على هذا المسار.",
+          "en": "A staff-card, survey, students or request link answers 404 on this path."
+        },
+        {
+          "ar": "فصل بلا تواريخ يظهر في الاسم «(تواريخ الفصل غير مسجّلة)».",
+          "en": "A term without dates shows «(تواريخ الفصل غير مسجّلة)» in the name."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/publicCalendarRoutes.ts",
+          "src/utils/icalendar.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-016",
+      "kind": "interface",
+      "title": {
+        "ar": "اشتراك التقويم الثابت للأستاذ",
+        "en": "The instructor's stable calendar subscription"
+      },
+      "text": {
+        "ar": "يجب أن يكون مفتاح اشتراك الأستاذ من الشكل p<رقم>-<32 خانة HMAC> مشتقاً من CALENDAR_SECRET أو من السرّ المشترك، ثابتاً لا يتبع رمز الرابط، فلا يموت بإعادة نشر البطاقة؛ فإذا لم تبقَ له بطاقة سارية أجاب 200 بتقويم فارغ صالح بالاسم نفسه ووصف يذكر التوقف، وإن لم يطابق المفتاح أحداً أجاب 404.",
+        "en": "The instructor's subscription key shall be of the form p<number>-<32-character HMAC> derived from CALENDAR_SECRET or from the shared secret and stable, not following the link token, so it does not die when the card is republished; when no live card remains it shall answer 200 with a valid empty calendar of the same name and a description stating the pause, and when the key matches nobody it shall answer 404."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رمزان مختلفان لبطاقتين لا يغيّران مفتاح الأستاذ نفسه.",
+          "en": "Two different tokens for two cards do not change the same instructor's key."
+        },
+        {
+          "ar": "تدوير CALENDAR_SECRET يُبطل كل الاشتراكات.",
+          "en": "Rotating CALENDAR_SECRET invalidates every subscription."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/calendarSecret.ts",
+          "src/server/routes/publicCalendarRoutes.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-017",
+      "kind": "interface",
+      "title": {
+        "ar": "تنبيه تقويم ليوم واحد",
+        "en": "One-day calendar reminder"
+      },
+      "text": {
+        "ar": "يجب أن يخدم GET /api/public/ics-reminder ملف ICS ليوم واحد من التاريخ d بصيغة YYYY-MM-DD مع العنوان t (120 خانة) والملاحظة n (300 خانة)، بـ no-store، وأن يرفض التاريخ غير الصالح بـ 400، ولا يحمل اسماً ولا رقماً شخصياً.",
+        "en": "GET /api/public/ics-reminder shall serve a one-day ICS file for the date d as YYYY-MM-DD with title t (120 characters) and note n (300 characters), with no-store, shall reject an invalid date with 400, and shall carry no name or personal number."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "d=2026-13-40 يعيد 400 «bad date».",
+          "en": "d=2026-13-40 returns 400 «bad date»."
+        },
+        {
+          "ar": "عنوان من 200 خانة يُقصّ إلى 120.",
+          "en": "A 200-character title is cut to 120."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/publicCalendarRoutes.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-018",
+      "kind": "interface",
+      "title": {
+        "ar": "تصدير Excel",
+        "en": "Excel export"
+      },
+      "text": {
+        "ar": "يجب أن يخدم GET /api/reports/excel/:type ملف xlsx بنوع من ثلاثة (ListofTeacherCourseExcel بصلاحية 14، وTeacherWithCourseExcel بـ 8، وScheduleExcel بـ 7)، بورقة «الجدول الدراسي» من اليمين إلى اليسار و13 عموداً ومرشّح تلقائي، يحمل مرشحات الشاشة الأحد عشر كلها، ورقم المقرر بسبع خانات، وشارة «منتدب» لاسم المنتدب، باسم ملف schedule_report_<النوع>.xlsx.",
+        "en": "GET /api/reports/excel/:type shall serve an xlsx file for one of three types (ListofTeacherCourseExcel requiring permission 14, TeacherWithCourseExcel 8, ScheduleExcel 7), with a right-to-left sheet titled in Arabic «Schedule», 13 columns and an auto-filter, carrying all eleven screen filters, the seven-digit course number and the «visiting» suffix on a visiting instructor's name, under the file name schedule_report_<type>.xlsx."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "نوع غير معروف يعيد 400؛ ومستخدم بلا الصلاحية يعيد 403.",
+          "en": "An unknown type returns 400; a user without the permission returns 403."
+        },
+        {
+          "ar": "التصفية على الأحد والمقرر 321 قبل الظهر تُنتج الصفوف نفسها التي تعرضها الشاشة.",
+          "en": "Filtering by Sunday, course 321 and before noon produces the same rows as the screen."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts",
+          "src/utils/authorityAcademicCodes.ts"
+        ],
+        "tests": [
+          "tests/course-number-seven-digit-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-019",
+      "kind": "interface",
+      "title": {
+        "ar": "عامل الخدمة وعقد PWA",
+        "en": "Service worker and PWA contract"
+      },
+      "text": {
+        "ar": "يجب أن يختم sw.js كل بناء بمعرّف جديد ويخزّن هيكل التطبيق والأصول المجزّأة (cache-first) وقائمة محددة من واجهات القراءة عند نجاحها فقط، وألا يخزّن أبداً /api/auth وقائمة المستخدمين وحالات الطلبة (/api/schedules/demand و/api/student-registration)، وأن يترك صفحات /r و/s و/q و/m و/t و/me و/d و/b و/plans و/partners و/verify للشبكة دون تخزين، وأن يقدّم صفحة «نُحدّث البرنامج» (503) عند 500 أو 502 أو 503 أو 504 أو انقطاع التنقّل.",
+        "en": "sw.js shall be stamped with a fresh identifier on every build, cache the application shell and hashed assets (cache-first) and a fixed list of read APIs only when they succeed, never cache /api/auth, the user list and student cases (/api/schedules/demand and /api/student-registration), leave the /r, /s, /q, /m, /t, /me, /d, /b, /plans, /partners and /verify pages to the network without caching, and serve the «updating» page (503) on 500, 502, 503, 504 or a dropped navigation."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "تنقّل يعود 502 يعرض /updating.html مع Retry-After: 5 ولا يُخزَّن الجواب الخاطئ.",
+          "en": "A navigation that returns 502 shows /updating.html with Retry-After: 5 and the failed answer is not cached."
+        },
+        {
+          "ar": "قراءة API بلا اتصال تعيد النسخة المحفوظة أو 503 بنص عربي.",
+          "en": "An API read while offline returns the stored copy or a 503 with Arabic text."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "public/sw.js",
+          "public/updating.html",
+          "scripts/stamp-sw.mjs"
+        ],
+        "tests": [
+          "tests/updating-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-020",
+      "kind": "interface",
+      "title": {
+        "ar": "عامل التنبيهات وبياناننا الوصفية",
+        "en": "Push worker and manifests"
+      },
+      "text": {
+        "ar": "يجب أن يكون عامل التنبيهات /push-sw.js مستقلاً عن sw.js، ثابتاً بين الإصدارات بلا ختم بناء، لا يخزّن صفحة ولا يجيب من ذاكرة، بنطاق /push/ في التطبيق وبنطاق /r/<رمز> في بطاقة الأستاذ؛ وللتطبيق بيان manifest.webmanifest (نطاق /) ولـ«مساري» بيان me.webmanifest (نطاق /me).",
+        "en": "The push worker /push-sw.js shall be independent of sw.js, stable between releases with no build stamp, shall cache no page and answer from no cache, scoped to /push/ in the application and to /r/<token> in the faculty card; the application has the manifest manifest.webmanifest (scope /) and Masari has me.webmanifest (scope /me)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "استعادة الإصدار القديم تُسقط sw.js وتُبقي عامل التنبيهات.",
+          "en": "Restoring the old version unregisters sw.js and keeps the push worker."
+        },
+        {
+          "ar": "start_url للتطبيق «/?source=pwa» وللبيان الطلابي «/me?source=pwa».",
+          "en": "The application's start_url is «/?source=pwa» and the student manifest's is «/me?source=pwa»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "public/push-sw.js",
+          "public/manifest.webmanifest",
+          "public/me.webmanifest",
+          "src/utils/pushClient.ts"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-021",
+      "kind": "interface",
+      "title": {
+        "ar": "مخطط الروابط العامة",
+        "en": "Public link scheme"
+      },
+      "text": {
+        "ar": "يجب أن يخدم الخادم الصفحات العامة بالمسارات: /r/<رمز> بطاقة الأستاذ، /s/<رمز> بطاقة أو جدول القسم، /q/<رمز> الاستبيان القديم (يُحوَّل إلى /me)، /m/<رمز> حالة طلبي، /t/<رمز> جدول الطلبة المعتمد، /k/<رمز> دخول عضو فريق الكرسي، /d/<رمز> باب القاعة، /b/<رمز> لوحة المبنى، /me «مساري»، /verify/<رمز> التحقق من التوقيع أو الكوبون، /partners/<رمز> ملف الشراكة، /plans/<قسم>/<صحيفة>/ الصحائف المنشورة، /landing الصفحة التعريفية؛ وتُرسَل كلها بـ no-store.",
+        "en": "The server shall serve public pages at: /r/<token> faculty card, /s/<token> department or staff card, /q/<token> legacy survey (redirected to /me), /m/<token> my-request status, /t/<token> approved students timetable, /k/<token> chair team-member entry, /d/<token> room door, /b/<token> building board, /me «Masari», /verify/<token> signature or coupon verification, /partners/<token> partnership profile, /plans/<department>/<sheet>/ published plan sheets, and /landing the landing page; all are sent with no-store."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "instructor",
+        "student",
+        "partner"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط /s لنوع request يحوَّل إلى بابه ولا يفتح جدول القسم.",
+          "en": "An /s link of kind request is redirected to its own door and never opens the department timetable."
+        },
+        {
+          "ar": "/plans/ و/landing و/me بلا رمز.",
+          "en": "/plans/, /landing and /me carry no token."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/demoLinkToken.ts",
+          "src/server/routes/publicStaffRoutes.ts",
+          "src/server/routes/surveyRoutes.ts",
+          "src/server/routes/publicRequestRoutes.ts",
+          "src/server/routes/verifyRoutes.ts",
+          "src/server/pushCard.ts"
+        ],
+        "tests": [
+          "tests/public-pages-syntax-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-022",
+      "kind": "interface",
+      "title": {
+        "ar": "قواعد الرموز",
+        "en": "Token rules"
+      },
+      "text": {
+        "ar": "يجب أن تكون رموز /s و/q و/m و/t و/r (روابط المشاركة) عشوائية من 24 بايتاً base64url (32 خانة) وبادئتها «demo.» في الصندوق التجريبي، وتقبل صفحة /r الشكل [A-Za-z0-9_-]{16,64}؛ ورمز /d و/b سادس عشر خانة base64url مشتقة بـ HMAC من معرّف القاعدة أو المبنى الثابت وتبقى حيّة بنشر جديد؛ ومعرّف /verify للكوبون 32 خانة ست عشرية صغيرة وللتوقيع رمز من ست خانات؛ ولا يحمل أي رمز رقماً مدنياً.",
+        "en": "The tokens of /s, /q, /m, /t and /r (share links) shall be random 24-byte base64url strings (32 characters), prefixed «demo.» in the demo sandbox, and the /r page accepts the form [A-Za-z0-9_-]{16,64}; the /d and /b token is a 16-character base64url string derived by HMAC from the stable room or building identifier and stays valid across releases; the /verify identifier is 32 lowercase hex characters for a coupon and a six-character code for a signature; no token carries a civil number."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رمز غير مطابق للشكل يعيد صفحة «الرابط غير موجود» ويُحسب إخفاقاً.",
+          "en": "A token not matching the form returns the «link not found» page and is counted as a miss."
+        },
+        {
+          "ar": "نقل قاعدة بين مبنيين أو تصحيح رمزها المطبوع لا يغيّر رمز ملصق بابها.",
+          "en": "Moving a room between buildings or correcting its printed code does not change its door sticker token."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/roomDoorSecret.ts",
+          "src/server/pushCard.ts",
+          "src/utils/demoLinkToken.ts",
+          "src/db/repository.ts#createShareLink"
+        ],
+        "tests": [
+          "tests/room-door-audit.ts",
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-023",
+      "kind": "interface",
+      "title": {
+        "ar": "حماية الأبواب المجهولة",
+        "en": "Anonymous door protection"
+      },
+      "text": {
+        "ar": "يجب أن يحسب الخادم الإخفاق لا النجاح على الأبواب المجهولة: رمز رابط لا يطابق شيئاً يُحتسب على العنوان (حدّ 40 إخفاقاً في 10 دقائق وسقف صلب 400)، وجلسة لا وجود لها تُحتسب (حدّ 120)، ويُنسب للعنوان كل نجاح، ولا يُحدّ نجاح؛ ويحدّ /api/public بـ 60 طلباً في الدقيقة للعنوان (قابل للضبط) باستثناء «مساري» وبطاقة الأستاذ ولهما حدّاهما.",
+        "en": "The server shall count failure, not success, on anonymous doors: a link token matching nothing is counted against the address (limit 40 misses in 10 minutes, hard ceiling 400), a non-existent session is counted (limit 120), every success is credited to the address, and no success is ever limited; /api/public is limited to 60 requests per minute per address (configurable) except «Masari» and the faculty card, which have their own limits."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "حرم جامعي بعنوان واحد يفتح ألف رابط صحيح دون أن يُحجب.",
+          "en": "A campus on one address opens a thousand valid links without being blocked."
+        },
+        {
+          "ar": "الإخفاق الحادي والأربعون في عشر دقائق يردّ برأس Retry-After.",
+          "en": "The forty-first miss within ten minutes answers with a Retry-After header."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/anonymousGuard.ts",
+          "src/server/core/rateLimits.ts",
+          "src/server/publicAttemptLimiter.ts"
+        ],
+        "tests": [
+          "tests/anonymous-guard-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-024",
+      "kind": "interface",
+      "title": {
+        "ar": "عقد المتصفح: الأمان والرؤوس",
+        "en": "Browser contract: security and headers"
+      },
+      "text": {
+        "ar": "يجب أن يرسل الخادم على كل ردّ nosniff وReferrer-Policy: same-origin وPermissions-Policy بمنع الكاميرا والميكروفون والموقع، وCSP جزئية (object-src 'none' وbase-uri 'self' وform-action 'self' وframe-ancestors 'none')، وHSTS لسنة في الإنتاج؛ وأن يرفض طلبات POST وPUT وPATCH وDELETE إلى /api القادمة من موقع آخر (Sec-Fetch-Site أو Origin مخالف) بـ 403.",
+        "en": "The server shall send on every response nosniff, Referrer-Policy: same-origin, a Permissions-Policy denying camera, microphone and location, a partial CSP (object-src 'none', base-uri 'self', form-action 'self', frame-ancestors 'none') and a one-year HSTS in production; it shall refuse POST, PUT, PATCH and DELETE requests to /api that come from another site (a foreign Sec-Fetch-Site or Origin) with 403."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب POST بـ Origin مختلف المضيف يعيد 403 «الطلب غير مسموح».",
+          "en": "A POST with an Origin of a different host returns 403 «الطلب غير مسموح»."
+        },
+        {
+          "ar": "HSTS لا يُرسل خارج الإنتاج.",
+          "en": "HSTS is not sent outside production."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-025",
+      "kind": "interface",
+      "title": {
+        "ar": "حدود الأجسام والتخزين المؤقت للأصول",
+        "en": "Body limits and asset caching"
+      },
+      "text": {
+        "ar": "يجب أن تُقبل أجسام JSON حتى 1 MB (و4 MB لمسودات الجدول)، وملفات PDF حتى 24 MB، ونسخ النظام الاحتياطية حتى 30 MB؛ وأن تُخدم الأصول المجزّأة بـ public, max-age=31536000, immutable، وindex.html وsw.js بـ no-store، وأن يجيب ملف ناقص أو مسار تحت /assets/ بـ 404 لا بهيكل التطبيق.",
+        "en": "JSON bodies shall be accepted up to 1 MB (4 MB for timetable drafts), PDF files up to 24 MB and system backups up to 30 MB; hashed assets shall be served with public, max-age=31536000, immutable, index.html and sw.js with no-store, and a missing file or a path under /assets/ shall answer 404 rather than the application shell."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب /assets/old-chunk-abc12345.js غير موجود يعيد 404 لا HTML.",
+          "en": "A request for a missing /assets/old-chunk-abc12345.js returns 404, not HTML."
+        },
+        {
+          "ar": "جسم JSON بحجم 2 MB على مسار عادي يُرفض.",
+          "en": "A 2 MB JSON body on an ordinary route is refused."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/server/routes/pdfImportRoutes.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-EXT-026",
+      "kind": "interface",
+      "title": {
+        "ar": "متغيرات البيئة والأسرار",
+        "en": "Environment variables and secrets"
+      },
+      "text": {
+        "ar": "يجب أن تُمرَّر الإعدادات والأسرار عبر البيئة وحدها بأسماء محددة: DATA_MODE وFIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID وFIREBASE_CONFIG_SOURCE وGEMINI_API_KEY وGEMINI_SCHEDULE_MODEL وVAPID_PUBLIC_KEY وVAPID_PRIVATE_KEY وCALENDAR_SECRET وAD_MAIL_API_KEY وAD_MAIL_FROM وAD_MAIL_API_URL وAD_LEAD_NOTIFY_TO وPASSWORD_VAULT_KEY وSCHEDULE_PRIVATE_DIR وOCR_DATA_DIR وPUBLIC_RATE_LIMIT_MAX؛ وألا تُكتب أسرار في المستودع أو الوثائق أو أرشيفات التسليم.",
+        "en": "Settings and secrets shall pass through the environment alone under fixed names: DATA_MODE, FIREBASE_PROJECT_ID, FIREBASE_DATABASE_ID, FIREBASE_CONFIG_SOURCE, GEMINI_API_KEY, GEMINI_SCHEDULE_MODEL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, CALENDAR_SECRET, AD_MAIL_API_KEY, AD_MAIL_FROM, AD_MAIL_API_URL, AD_LEAD_NOTIFY_TO, PASSWORD_VAULT_KEY, SCHEDULE_PRIVATE_DIR, OCR_DATA_DIR and PUBLIC_RATE_LIMIT_MAX; no secret shall be written in the repository, documents or delivery archives."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "غياب CALENDAR_SECRET لا يولّد سراً جديداً في كل إقلاع بل يُشتق من السرّ المشترك المحفوظ.",
+          "en": "A missing CALENDAR_SECRET does not generate a new secret at each start but derives one from the stored shared secret."
+        },
+        {
+          "ar": "PUBLIC_RATE_LIMIT_MAX=0 يوقف حدّ الطلبات العامة.",
+          "en": "PUBLIC_RATE_LIMIT_MAX=0 turns the public request limit off."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/runtimeEnv.ts",
+          "src/server/calendarSecret.ts",
+          "src/server/core/rateLimits.ts"
+        ],
+        "tests": [
+          "tests/firestore-target-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-EXT-027",
+      "kind": "interface",
+      "title": {
+        "ar": "إزالة اسم القاعدة من ملفات المصدر",
+        "en": "Removing the database name from source files"
+      },
+      "text": {
+        "ar": "يجب أن تنتقل وجهة Firestore لاحقاً إلى المتغيرات وحدها بحذف معرّف القاعدة من ملفات الإعداد المرفقة، بعد التحقق من أن الخدمة الحيّة تحمل المتغيرين وأن إصداراً بلا حركة مرور (FIREBASE_CONFIG_SOURCE=environment) يطبع القاعدة نفسها، مع التراجع بإعادة توجيه الحركة إلى الإصدار السابق.",
+        "en": "The Firestore target shall later move to environment variables alone by dropping the database identifier from the bundled config files, after confirming that the live service carries both variables and that a no-traffic revision with FIREBASE_CONFIG_SOURCE=environment logs the same database, with rollback by routing traffic back to the previous revision."
+      },
+      "priority": "could",
+      "status": "planned",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "بعد الانتقال لا يحوي ملف الإعداد معرّف القاعدة ويطبع السجل المصدر «environment».",
+          "en": "After the move the config file holds no database identifier and the log prints the source «environment»."
+        },
+        {
+          "ar": "لا بيانات تُنقل أو تُنسخ في أي خطوة.",
+          "en": "No data is moved or copied at any step."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "docs/DELIVERY_OPERATIONS.md",
+          "src/server/firestoreTarget.ts"
+        ]
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "تعذّر Gemini أثناء استيراد ملف",
+        "en": "Gemini unavailable during a file import"
+      },
+      "scenario": {
+        "ar": "يرفع المنسق ملفاً ممسوحاً والمزوّد مزدحم أو انتهت مهلته.",
+        "en": "A coordinator uploads a scanned file while the provider is busy or timed out."
+      },
+      "behavior": {
+        "ar": "يعيد الخادم 503 برسالة هادئة تنتهي بـ «جدولك لم يتغيّر»؛ لا يُكتب صف، ويُسجَّل نص المزوّد للمشغّل فقط.",
+        "en": "The server returns 503 with a calm message ending «جدولك لم يتغيّر»; no row is written and the provider text is logged for the operator only."
+      },
+      "evidence": [
+        "tests/gemini-schedule-layer.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "عنوان دفع يختاره طرف آخر",
+        "en": "A push address chosen by someone else"
+      },
+      "scenario": {
+        "ar": "يرسل عميل اشتراكاً بعنوان http أو بمضيف داخلي.",
+        "en": "A client submits a subscription with an http address or an internal host."
+      },
+      "behavior": {
+        "ar": "يُرفض الاشتراك قبل الحفظ، ولو وصل سجل كهذا إلى الإرسال لا يصدر طلب ويُعدّ منتهياً.",
+        "en": "The subscription is refused before storing, and if such a record reached sending, no request is issued and it is treated as gone."
+      },
+      "evidence": [
+        "tests/web-push-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "اشتراك تقويم بعد انتهاء البطاقة",
+        "en": "Calendar subscription after the card ends"
+      },
+      "scenario": {
+        "ar": "انتهت بطاقة الأستاذ ولم تصدر له بطاقة جديدة، والهاتف ما زال يقرأ الاشتراك.",
+        "en": "The instructor's card ended without a new card and the phone still reads the subscription."
+      },
+      "behavior": {
+        "ar": "يجيب الخادم 200 بتقويم صالح فارغ يشرح التوقف فتُمسح المحاضرات بهدوء، ويعود الاشتراك وحده عند صدور بطاقة جديدة.",
+        "en": "The server answers 200 with a valid empty calendar explaining the pause so lectures are cleared quietly, and the subscription returns on its own when a new card is issued."
+      },
+      "evidence": [
+        "tests/calendar-ics-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "ملف SWRSCHA من أربع عشرة صفحة",
+        "en": "A fourteen-page SWRSCHA file"
+      },
+      "scenario": {
+        "ar": "يُرفع ملف أكبر من حدّ 12 صفحة.",
+        "en": "A file above the 12-page limit is uploaded."
+      },
+      "behavior": {
+        "ar": "يُرفض الملف كله برسالة تذكر الحدّ ولا يُقرأ منه شيء، لأن جدولاً ناقصاً أخطر من الرفض.",
+        "en": "The whole file is rejected with a message stating the limit and nothing is read from it, because an incomplete timetable is more dangerous than a refusal."
+      },
+      "evidence": [
+        "src/utils/documentOcr.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "متصفح يحمل نسخة قديمة أثناء النشر",
+        "en": "A browser holding an old build during a release"
+      },
+      "scenario": {
+        "ar": "يطلب تبويب مفتوح ملفاً مجزّأً لم يعد موجوداً أو يعود التنقّل بـ 502 أثناء تبديل الخادم.",
+        "en": "An open tab requests a hashed file that no longer exists, or a navigation returns 502 while the server is swapped."
+      },
+      "behavior": {
+        "ar": "الملف الناقص يعيد 404 لا HTML فيسقط حارس الإقلاع النسخة القديمة ويعيد التحميل؛ والتنقّل يعرض صفحة «نُحدّث البرنامج» التي تعيد فتح العنوان حين يعود الخادم.",
+        "en": "The missing file returns 404 rather than HTML so the boot guard clears the stale copy and reloads; the navigation shows the «updating» page which reopens the address when the server returns."
+      },
+      "evidence": [
+        "tests/updating-page-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "رمز",
+      "en": "Token",
+      "def": {
+        "ar": "نص عشوائي في الرابط يمثل الصلاحية نفسها؛ لا يحمل بيانات شخصية.",
+        "en": "A random string in the link that is the permission itself; it carries no personal data."
+      }
+    },
+    {
+      "ar": "بطاقة الأستاذ",
+      "en": "Faculty card",
+      "def": {
+        "ar": "صفحة /r/<رمز> الخاصة بأستاذ واحد، يرى فيها جدوله ويرسل طلبه.",
+        "en": "The /r/<token> page of one instructor, where he sees his timetable and sends his request."
+      }
+    },
+    {
+      "ar": "رابط مشاركة",
+      "en": "Share link",
+      "def": {
+        "ar": "سجل برمز ونطاق ونوع وتاريخ انتهاء يفتح قراءة محددة دون حساب.",
+        "en": "A record with a token, scope, kind and expiry that opens a defined read without an account."
+      }
+    },
+    {
+      "ar": "تنبيهات الجوال",
+      "en": "Web Push",
+      "def": {
+        "ar": "رسائل مشفّرة تصل إلى المتصفح عبر خدمة الدفع حتى والصفحة مغلقة.",
+        "en": "Encrypted messages reaching the browser through the push service even when the page is closed."
+      }
+    },
+    {
+      "ar": "اشتراك التقويم",
+      "en": "Calendar subscription",
+      "def": {
+        "ar": "ملف ICS على رابط تعيد تطبيقات التقويم قراءته دورياً.",
+        "en": "An ICS file at a link that calendar apps re-read periodically."
+      }
+    },
+    {
+      "ar": "SWRSCHA",
+      "en": "SWRSCHA",
+      "def": {
+        "ar": "رمز تقرير جدول هيئة التسجيل الذي يُستورد منه الجدول.",
+        "en": "The code of the registration authority's timetable report that the timetable is imported from."
+      }
+    },
+    {
+      "ar": "عامل الخدمة",
+      "en": "Service worker",
+      "def": {
+        "ar": "برنامج المتصفح الذي يخزّن هيكل التطبيق ويتحكم في الاتصال.",
+        "en": "The browser program that caches the application shell and governs connectivity."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "رأس الملف يحدّد القسم في ملف SWRSCHA ولو حمل رقم المقرر رمز قسم آخر؛ ولا يُنشأ قسم أو مقرر ناقص إلا بعد تأكيد واحد، ولا تنشئ المسوح شيئاً.",
+      "en": "In a SWRSCHA file the header decides the department even when a course number carries another department's code; a missing department or course is created only after one confirmation, and scans never create anything."
+    },
+    {
+      "ar": "رقم المقرر في كل ملف مصدَّر سبع خانات (مثل 0109105).",
+      "en": "The course number in every exported file is seven digits (e.g. 0109105)."
+    },
+    {
+      "ar": "لا يُغيَّر ربط النطاق ولا الخدمة الرسمية ولا أسرارها عند النشر؛ التغيير صورة الحاوية وحدها.",
+      "en": "A release never changes the domain mapping, the official service or its secrets; only the container image changes."
+    },
+    {
+      "ar": "خدمة Gemini تقرأ وتقترح فقط؛ والتنفيذ دائماً عبر المدققات الحتمية وبتأكيد صريح من المستخدم.",
+      "en": "The Gemini service only reads and proposes; execution always goes through the deterministic validators and an explicit user confirmation."
+    }
+  ]
+}

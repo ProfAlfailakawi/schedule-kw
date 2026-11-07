@@ -1,0 +1,2141 @@
+{
+  "id": "ACD",
+  "order": 2,
+  "icon": "graduation-cap",
+  "title": {
+    "ar": "الهيكل الأكاديمي والبيانات المرجعية",
+    "en": "Academic structure and reference data"
+  },
+  "tagline": {
+    "ar": "الفصول والكليات والأقسام والمقررات وأعضاء هيئة التدريس والمنتدبون: المرجع الذي تقوم عليه كل الجداول.",
+    "en": "Terms, colleges, departments, courses, faculty and visiting instructors: the reference every schedule is built on."
+  },
+  "summary": {
+    "ar": "تحفظ هذه الوحدة البيانات المرجعية التي لا يعمل أي جدول بدونها: الفصل الدراسي بتقويمه، والكلية، والقسم العلمي، والمقرر برقمه الرسمي ذي السبع خانات، وعضو هيئة التدريس بهويته ودرجته ونصابه، وحالة طرح المقرر في الفصل. وتضبط حدود الإدخال والحذف حتى لا يُترك سجل تاريخي بلا مرجع. كما تدير المنتدبين ودليل منتدبي القسم وتحويل الأستاذ بين «منتدب» و«معيّن»، وتكشف المقررات المكررة وتوائم الإملاء وتدمجها بتأكيد صريح. يعمل بها مدير النظام ورئيس لجنة الجدول، ويقرؤها بقية الأدوار في حدود نطاقها.",
+    "en": "This module holds the reference data without which no schedule can work: the term and its calendar, the college, the department, the course with its seven-digit official number, the faculty member with identity, rank and teaching load, and the offering state of a course in a term. It enforces input limits and delete guards so that no historical record is left without its reference. It also manages visiting instructors, the department visiting directory and the conversion of an instructor between visiting and appointed, and it detects duplicate courses and spelling twins and merges them only after explicit confirmation. System administrators and schedule committee chairs maintain the data; the other roles read it within their scope."
+  },
+  "actors": [
+    "rootAdmin",
+    "admin",
+    "committeeChair",
+    "departmentHead",
+    "dean",
+    "registrarStaff",
+    "system"
+  ],
+  "sources": [
+    "src/server/routes/referenceRoutes.ts",
+    "src/server/routes/coursesRoutes.ts",
+    "src/server/routes/instructorsRoutes.ts",
+    "src/server/routes/offeringRoutes.ts",
+    "src/server/offeringStates.ts",
+    "src/server/sectionFaculty.ts",
+    "src/server/sectionUsers.ts",
+    "src/server/autoTerms.ts",
+    "src/server/core/visiting.ts",
+    "src/server/visitingTeachingRead.ts",
+    "src/db/visitingConversion.ts",
+    "src/utils/authorityAcademicCodes.ts",
+    "src/utils/instructorIdentity.ts",
+    "src/utils/instructorPickerChoices.ts",
+    "src/utils/instructorStatus.ts",
+    "src/utils/placeholderInstructor.ts",
+    "src/utils/civilId.ts",
+    "src/utils/teachingLoad.ts",
+    "src/utils/termSequence.ts",
+    "src/utils/scopedTerms.ts",
+    "src/utils/courseOffering.ts",
+    "src/utils/courseTags.ts",
+    "src/utils/courseSpellingTwins.ts",
+    "src/utils/courseNameRelation.ts",
+    "src/utils/courseRoomTypeSync.ts",
+    "src/utils/taConversion.ts",
+    "src/utils/visiting*.ts",
+    "src/utils/liveVisiting.ts",
+    "src/components/Terms.tsx",
+    "src/components/Colleges.tsx",
+    "src/components/Sections.tsx",
+    "src/components/Instructors.tsx",
+    "src/components/Courses.tsx",
+    "src/components/CourseTags.tsx",
+    "src/components/CourseImpact.tsx",
+    "src/components/CourseOfferingPanel.tsx",
+    "src/components/DuplicateCoursesPanel.tsx",
+    "src/components/SpellingTwinsMerge.tsx",
+    "src/components/VisitingBadge.tsx",
+    "src/components/VisitingConversionPanel.tsx",
+    "src/components/InstructorPicker.tsx"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "الفصول",
+        "en": "Terms"
+      },
+      "file": "src/components/Terms.tsx",
+      "note": {
+        "ar": "إنشاء الفصل وتعديله بتاريخ البداية وعدد الأسابيع وعلامة «منتهٍ»، مع اقتراح اسم الفصل التالي.",
+        "en": "Create and edit a term with start date, number of weeks and the ended flag, with a suggested name for the next term."
+      }
+    },
+    {
+      "name": {
+        "ar": "الكليات",
+        "en": "Colleges"
+      },
+      "file": "src/components/Colleges.tsx",
+      "note": {
+        "ar": "الكلية ورمزها، وجدول أزمنة التنقل بين مباني الكلية.",
+        "en": "College and its code, and the travel-time matrix between the college's buildings."
+      }
+    },
+    {
+      "name": {
+        "ar": "الأقسام العلمية",
+        "en": "Departments"
+      },
+      "file": "src/components/Sections.tsx",
+      "note": {
+        "ar": "القسم ورمزه وكليته، وقاعدة الدرجة العلمية للقسم.",
+        "en": "Department, its code and college, and the department's degree rule."
+      }
+    },
+    {
+      "name": {
+        "ar": "المقررات",
+        "en": "Courses"
+      },
+      "file": "src/components/Courses.tsx",
+      "note": {
+        "ar": "كتالوج المقررات بالوحدات والساعات والسعة ونوع القاعة وطبيعة التدريس.",
+        "en": "Course catalogue with credits, hours, capacity, room type and teaching mode."
+      }
+    },
+    {
+      "name": {
+        "ar": "أعضاء هيئة التدريس",
+        "en": "Faculty members"
+      },
+      "file": "src/components/Instructors.tsx",
+      "note": {
+        "ar": "الأعضاء في أربع مجموعات: هيئة، TA، متفرغون، متقاعدون؛ مع الحالة والنصاب وتحويل المنتدب.",
+        "en": "Members in four groups: faculty, TA, on sabbatical, retired; with status, load and visiting conversion."
+      }
+    },
+    {
+      "name": {
+        "ar": "تحويل منتدب ⇄ معيّن",
+        "en": "Visiting / appointed conversion"
+      },
+      "file": "src/components/VisitingConversionPanel.tsx",
+      "note": {
+        "ar": "معاينة التعديلات ثم التنفيذ من بطاقة الأستاذ.",
+        "en": "Preview of the changes, then execution, from the faculty card."
+      }
+    },
+    {
+      "name": {
+        "ar": "حالة طرح المقررات",
+        "en": "Course offering state"
+      },
+      "file": "src/components/CourseOfferingPanel.tsx",
+      "note": {
+        "ar": "مطروح أو غير مطروح أو مستقبلي أو شعب محدودة لكل مقرر في فصل وقسم.",
+        "en": "Offered, closed, future or limited sections for each course in a term and department."
+      }
+    },
+    {
+      "name": {
+        "ar": "المقررات المكررة وتوائم الإملاء",
+        "en": "Duplicate courses and spelling twins"
+      },
+      "file": "src/components/SpellingTwinsMerge.tsx",
+      "note": {
+        "ar": "فحص ثم دمج أو حذف مؤرشف بتأكيد المسؤول.",
+        "en": "Scan, then merge or archived delete after administrator confirmation."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "admin",
+      "title": {
+        "ar": "إضافة قسم علمي جديد إلى كلية",
+        "en": "Adding a new department to a college"
+      },
+      "steps": [
+        {
+          "ar": "يفتح مدير النظام شاشة الأقسام ويختار الكلية.",
+          "en": "The administrator opens the Departments screen and picks the college."
+        },
+        {
+          "ar": "يدخل رمز القسم واسمه؛ الرمز حتى 40 حرفاً والاسم حتى 120 حرفاً.",
+          "en": "He enters the department code and name; the code is up to 40 characters and the name up to 120."
+        },
+        {
+          "ar": "إن كان الرمز مسجلاً في الكلية نفسها يُرفض الطلب برسالة واضحة.",
+          "en": "If the code is already registered in the same college the request is refused with a clear message."
+        },
+        {
+          "ar": "عند النجاح يُنشأ القسم ويُنشأ معه سجل «هيئة تدريسية» الخاص به بلا تكرار.",
+          "en": "On success the department is created together with its own faculty-placeholder record, without duplicates."
+        },
+        {
+          "ar": "يضيف المسؤول مقررات القسم، ولا يُحذف القسم بعدها ما دامت له مقررات.",
+          "en": "The administrator adds the department's courses; the department can no longer be deleted while it has courses."
+        }
+      ]
+    },
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "تحويل أستاذ منتدب إلى معيّن",
+        "en": "Converting a visiting instructor to appointed"
+      },
+      "steps": [
+        {
+          "ar": "يفتح رئيس لجنة الجدول بطاقة الأستاذ ويقرأ حالة الانتداب الحالية.",
+          "en": "The schedule committee chair opens the faculty card and reads the current visiting state."
+        },
+        {
+          "ar": "يختار اتجاه «معيّن» والأقسام التي يُرفع منها الانتداب.",
+          "en": "He chooses the appointed direction and the departments from which the secondment is lifted."
+        },
+        {
+          "ar": "تعرض المعاينة (dryRun) كل تعديل: رفع من دليل المنتدبين ورفع من روستر الفصول الجارية والقادمة.",
+          "en": "The dry-run preview lists every change: removal from the visiting directory and from the rosters of the current and future terms."
+        },
+        {
+          "ar": "عند التأكيد تُنفَّذ التعديلات على هذه السجلات وحدها؛ لا يُمَسّ جدول ولا روستر فصل مضى.",
+          "en": "On confirmation the changes are applied to these records only; no schedule and no past-term roster is touched."
+        }
+      ]
+    },
+    {
+      "actor": "rootAdmin",
+      "title": {
+        "ar": "دمج مقررين بإملاءين لمقرر واحد",
+        "en": "Merging two spellings of one course"
+      },
+      "steps": [
+        {
+          "ar": "يشغّل مدير النظام الحساب الرئيسي فحص «توائم الإملاء» فتظهر المجموعات لكل قسم.",
+          "en": "The root administrator runs the spelling-twin scan and the groups appear per department."
+        },
+        {
+          "ar": "يرى لكل نسخة عدد المواعيد وروابط الصحائف، ويرى سبب منع الدمج إن وُجد (بيانات طلبة أو قواعد صحيفة).",
+          "en": "For each copy he sees the appointment and sheet-link counts and the reason a merge is blocked, if any (student data or sheet rules)."
+        },
+        {
+          "ar": "يختار المقرر الباقي والمكرر والاسم المعتمد من إملاءات المقرر نفسه.",
+          "en": "He picks the keeper, the duplicate and the canonical name from the course's own spellings."
+        },
+        {
+          "ar": "يعاد الفحص لحظة الدمج، وبعد تأكيد صريح تنتقل المواعيد والروابط إلى الباقي ويُؤرشف المكرر.",
+          "en": "The scan is repeated at merge time and, after explicit confirmation, appointments and links move to the keeper and the duplicate is archived."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "acd-visiting-conversion",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "تحويل منتدب ⇄ معيّن",
+        "en": "Visiting / appointed conversion"
+      },
+      "caption": {
+        "ar": "الخطة دالة نقية تُستعمل للمعاينة وللتنفيذ؛ والتنفيذ لا يكتب إلا دليل المنتدبين وروستر الفصل الجاري والقادمة.",
+        "en": "The plan is a pure function used for both preview and execution; execution writes only the visiting directory and the rosters of the current and future terms."
+      },
+      "nodes": [
+        {
+          "id": "req",
+          "label": {
+            "ar": "طلب التحويل",
+            "en": "Conversion request"
+          },
+          "icon": "arrow-left-right",
+          "kind": "start"
+        },
+        {
+          "id": "dir",
+          "label": {
+            "ar": "اتجاه معروف؟",
+            "en": "Known direction?"
+          },
+          "icon": "git-branch",
+          "kind": "decision"
+        },
+        {
+          "id": "tov",
+          "label": {
+            "ar": "إلى منتدب: قسم واحد وفصل غير ماضٍ",
+            "en": "To visiting: one department, non-past term"
+          },
+          "icon": "user-plus",
+          "kind": "state"
+        },
+        {
+          "id": "toa",
+          "label": {
+            "ar": "إلى معيّن: رفع من الدليل والروستر",
+            "en": "To appointed: remove from directory and rosters"
+          },
+          "icon": "user-minus",
+          "kind": "state"
+        },
+        {
+          "id": "err",
+          "label": {
+            "ar": "أخطاء: لا تعديل",
+            "en": "Errors: no change"
+          },
+          "icon": "x-circle",
+          "kind": "end"
+        },
+        {
+          "id": "dry",
+          "label": {
+            "ar": "معاينة فقط؟",
+            "en": "Preview only?"
+          },
+          "icon": "eye",
+          "kind": "decision"
+        },
+        {
+          "id": "prev",
+          "label": {
+            "ar": "قائمة التعديلات بلا كتابة",
+            "en": "Change list, nothing written"
+          },
+          "icon": "list-checks",
+          "kind": "end"
+        },
+        {
+          "id": "apply",
+          "label": {
+            "ar": "كتابة الدليل والروستر",
+            "en": "Write directory and rosters"
+          },
+          "icon": "database",
+          "kind": "system"
+        }
+      ],
+      "edges": [
+        {
+          "from": "req",
+          "to": "dir"
+        },
+        {
+          "from": "dir",
+          "to": "tov",
+          "label": {
+            "ar": "toVisiting",
+            "en": "toVisiting"
+          }
+        },
+        {
+          "from": "dir",
+          "to": "toa",
+          "label": {
+            "ar": "toAppointed",
+            "en": "toAppointed"
+          }
+        },
+        {
+          "from": "dir",
+          "to": "err",
+          "label": {
+            "ar": "غير ذلك",
+            "en": "otherwise"
+          }
+        },
+        {
+          "from": "tov",
+          "to": "dry"
+        },
+        {
+          "from": "toa",
+          "to": "dry"
+        },
+        {
+          "from": "tov",
+          "to": "err",
+          "label": {
+            "ar": "فصل ماضٍ أو أكثر من قسم",
+            "en": "past term or several departments"
+          }
+        },
+        {
+          "from": "dry",
+          "to": "prev",
+          "label": {
+            "ar": "نعم",
+            "en": "yes"
+          }
+        },
+        {
+          "from": "dry",
+          "to": "apply",
+          "label": {
+            "ar": "لا",
+            "en": "no"
+          }
+        }
+      ]
+    },
+    {
+      "id": "acd-offering-states",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "حالات طرح المقرر",
+        "en": "Course offering states"
+      },
+      "caption": {
+        "ar": "المقرر بلا قيد مطروح؛ والقيد المؤكد وحده يغيّر ما يراه الأستاذ ومحركات الاقتراح.",
+        "en": "A course with no entry is offered; only a confirmed entry changes what the instructor and the proposal engines see."
+      },
+      "nodes": [
+        {
+          "id": "none",
+          "label": {
+            "ar": "بلا قيد: مطروح",
+            "en": "No entry: offered"
+          },
+          "icon": "circle-check",
+          "kind": "start"
+        },
+        {
+          "id": "suggest",
+          "label": {
+            "ar": "اقتراح من الصحيفة",
+            "en": "Suggested from the sheet"
+          },
+          "icon": "lightbulb",
+          "kind": "system"
+        },
+        {
+          "id": "confirm",
+          "label": {
+            "ar": "تأكيد المسؤول",
+            "en": "Administrator confirms"
+          },
+          "icon": "check",
+          "kind": "decision"
+        },
+        {
+          "id": "closed",
+          "label": {
+            "ar": "غير مطروح",
+            "en": "Closed"
+          },
+          "icon": "lock",
+          "kind": "state"
+        },
+        {
+          "id": "future",
+          "label": {
+            "ar": "مستقبلي حتى المستوى",
+            "en": "Future until level"
+          },
+          "icon": "sprout",
+          "kind": "state"
+        },
+        {
+          "id": "limited",
+          "label": {
+            "ar": "شعب محدودة (0 إلى 99)",
+            "en": "Limited sections (0 to 99)"
+          },
+          "icon": "target",
+          "kind": "state"
+        },
+        {
+          "id": "block",
+          "label": {
+            "ar": "لا شعبة جديدة",
+            "en": "No new section"
+          },
+          "icon": "ban",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "suggest",
+          "to": "confirm"
+        },
+        {
+          "from": "confirm",
+          "to": "future",
+          "label": {
+            "ar": "يؤكد",
+            "en": "confirmed"
+          }
+        },
+        {
+          "from": "confirm",
+          "to": "none",
+          "label": {
+            "ar": "يتجاهل",
+            "en": "ignored"
+          }
+        },
+        {
+          "from": "none",
+          "to": "closed",
+          "label": {
+            "ar": "يضعه المسؤول",
+            "en": "set by administrator"
+          }
+        },
+        {
+          "from": "none",
+          "to": "limited",
+          "label": {
+            "ar": "يضعه المسؤول",
+            "en": "set by administrator"
+          }
+        },
+        {
+          "from": "closed",
+          "to": "block"
+        },
+        {
+          "from": "future",
+          "to": "block"
+        },
+        {
+          "from": "limited",
+          "to": "block",
+          "label": {
+            "ar": "اكتمل العدد",
+            "en": "quota reached"
+          }
+        }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": {
+      "ar": "من يقرأ ومن يكتب في البيانات المرجعية",
+      "en": "Who reads and who writes reference data"
+    },
+    "cols": [
+      {
+        "ar": "الفصول",
+        "en": "Terms"
+      },
+      {
+        "ar": "الكليات والأقسام",
+        "en": "Colleges and departments"
+      },
+      {
+        "ar": "المقررات",
+        "en": "Courses"
+      },
+      {
+        "ar": "أعضاء هيئة التدريس",
+        "en": "Faculty members"
+      },
+      {
+        "ar": "المنتدبون وحالة الطرح",
+        "en": "Visiting and offering state"
+      }
+    ],
+    "rows": [
+      {
+        "actor": "rootAdmin",
+        "cells": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ]
+      },
+      {
+        "actor": "admin",
+        "cells": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ]
+      },
+      {
+        "actor": "committeeChair",
+        "cells": [
+          1,
+          1,
+          2,
+          2,
+          2
+        ]
+      },
+      {
+        "actor": "departmentHead",
+        "cells": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "actor": "dean",
+        "cells": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "actor": "registrarStaff",
+        "cells": [
+          1,
+          1,
+          1,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "FR-ACD-001",
+      "kind": "functional",
+      "title": {
+        "ar": "إنشاء الفصل وتعديله وحذفه",
+        "en": "Term create, update and delete"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لصاحب صلاحية الفصول إنشاء الفصل وتعديله باسم لا يتجاوز 120 حرفاً، مع تاريخ بداية بصيغة YYYY-MM-DD وعدد أسابيع صحيح من 1 إلى 30 وعلامة «منتهٍ» اختيارية.",
+        "en": "The system shall let a holder of the terms permission create and edit a term with a name of at most 120 characters, a start date in YYYY-MM-DD form, a whole number of weeks from 1 to 30 and an optional ended flag."
+      },
+      "rationale": {
+        "ar": "التقويم المشترك يعتمد على تاريخ البداية وعدد الأسابيع؛ وتُخزَّن علامة «منتهٍ» قيمةً منطقية فقط كي لا تتحول عبارة «غير مذكور» إلى «مفتوح».",
+        "en": "The shared calendar depends on the start date and week count; the ended flag is stored only as a real boolean so that \"not stated\" never turns into \"open\"."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب بلا اسم أو باسم أطول من 120 حرفاً يُرفض برمز 400.",
+          "en": "A request with no name or a name longer than 120 characters is refused with status 400."
+        },
+        {
+          "ar": "قيمة أسابيع خارج 1 إلى 30 أو تاريخ بغير الصيغة لا يُخزَّن، ويُحفظ الفصل بباقي الحقول.",
+          "en": "A week value outside 1 to 30 or a date in another format is not stored and the term is saved with the remaining fields."
+        },
+        {
+          "ar": "تعديل فصل غير موجود يعيد 404.",
+          "en": "Updating a missing term returns 404."
+        },
+        {
+          "ar": "حذف فصل له صف واحد على الأقل في الجدول يعيد 409 ولا يحذف شيئاً، وحذف فصل خالٍ ينجح.",
+          "en": "Deleting a term with at least one schedule row returns 409 and deletes nothing, and deleting an empty term succeeds."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes",
+          "src/db/repository.ts#termCalendarFields",
+          "src/components/Terms.tsx",
+          "src/server/routes/referenceRoutes.ts"
+        ],
+        "tests": [
+          "tests/term-calendar-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-002",
+      "kind": "functional",
+      "title": {
+        "ar": "الإنشاء التلقائي للفصل التالي",
+        "en": "Automatic creation of the next term"
+      },
+      "text": {
+        "ar": "يجب على النظام أن ينشئ الفصل التالي وحده كل يوم عند الإقلاع وبعده: من 1 أكتوبر الفصل الثاني Y/Y+1، ومن 1 يناير الفصل الصيفي (Y-1)/Y، ومن 1 أبريل الفصل الأول Y/Y+1، ويتخطى فصلاً بالاسم نفسه موجوداً ولا يعمل في وضع العرض.",
+        "en": "The system shall create the next term by itself at start-up and every 24 hours: from 1 October the second term Y/Y+1, from 1 January the summer term (Y-1)/Y, from 1 April the first term Y/Y+1; it shall skip a term of the same name that already exists and shall not run in demo mode."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "في 15 نوفمبر 2026 يُنشأ «الفصل الثاني 2026/2027» بتاريخ بداية يوم أحد وعدد أسابيع 14.",
+          "en": "On 15 November 2026 the term named second term 2026/2027 is created with a Sunday start date and 14 weeks."
+        },
+        {
+          "ar": "الفصل الصيفي مدته 7 أسابيع، والأول والثاني 14 أسبوعاً، وتبدأ المراسي في 13 سبتمبر و31 يناير و13 يونيو بأقرب أحد.",
+          "en": "The summer term lasts 7 weeks and the first and second 14 weeks, anchored at 13 September, 31 January and 13 June to the nearest Sunday."
+        },
+        {
+          "ar": "إعادة تشغيل المهمة بعد الإنشاء لا تكرر الفصل.",
+          "en": "Re-running the job after creation does not duplicate the term."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/autoTerms.ts#runAutoTermJob",
+          "src/utils/termSequence.ts#autoTermDue",
+          "src/utils/termSequence.ts#TERM_CALENDAR"
+        ],
+        "tests": [
+          "tests/term-calendar-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-003",
+      "kind": "functional",
+      "title": {
+        "ar": "إغلاق الفصل المنتهي تلقائياً",
+        "en": "Automatic closing of an ended term"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعلن الفصل الذي انقضى تاريخ نهايته «منتهياً» (AdTermClosed=true) وحده، إلا إذا أُعيد فتحه فعلياً بعد نهايته.",
+        "en": "The system shall mark a term whose end date has passed as ended (AdTermClosed=true) by itself, unless it was genuinely re-opened after its end."
+      },
+      "rationale": {
+        "ar": "قرار المالك بتاريخ 2026/10/1: القيمة false المخزّنة وحدها لا تحمي لأن نموذج التعديل يكتبها مع كل حفظ.",
+        "en": "Owner decision of 2026-10-01: a stored false alone does not protect, because the edit form writes it on every save."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "فصل غير مغلق انتهى تاريخه يُغلق في أول دورة، ويُسجَّل ذلك.",
+          "en": "An unclosed term past its end date is closed on the first run and the event is logged."
+        },
+        {
+          "ar": "فصل أُعيد فتحه (AdTermReopenedAt) في وقت لاحق لنهايته أو يساويها لا يُغلق ثانية.",
+          "en": "A term re-opened (AdTermReopenedAt) at or after its end is not closed again."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/autoTerms.ts#closeEndedTerms",
+          "src/utils/termSequence.ts#termHasEnded"
+        ],
+        "tests": [
+          "tests/term-calendar-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-004",
+      "kind": "functional",
+      "title": {
+        "ar": "قائمة الفصول بحسب النطاق",
+        "en": "Scope-aware term list"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض للقارئ الفصول التي لها صفوف في نطاقه فقط، مع إبقاء أحدث فصل أُنشئ دائماً ولو كان فارغاً، وأن يحتفظ بالنتيجة مدة 60 ثانية لكل نطاق.",
+        "en": "The system shall show a reader only the terms that have rows in his scope, always keeping the newest created term even when empty, and shall cache the result for 60 seconds per scope."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "فصل سابق بلا صفوف في نطاق القارئ لا يظهر في قائمته.",
+          "en": "A past term with no rows in the reader's scope does not appear in his list."
+        },
+        {
+          "ar": "الفصل الأحدث يظهر ولو لم يملك صفوفاً، ويعاد معه معرّف الفصل الجاري والأحدث.",
+          "en": "The newest term appears even with no rows, and the current and newest term ids are returned with it."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/scopedTerms.ts#visibleTermIds",
+          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes"
+        ],
+        "tests": [
+          "tests/fixed-scope-terms-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-005",
+      "kind": "functional",
+      "title": {
+        "ar": "الكلية وحدود حذفها",
+        "en": "College CRUD and delete guard"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح إنشاء الكلية وتعديلها برمز حتى 40 حرفاً واسم حتى 120 حرفاً، وأن يرفض حذف كلية لها أقسام علمية برمز 409، وأن يقيّد غير المدير بكليات نطاقه.",
+        "en": "The system shall allow creating and editing a college with a code of at most 40 characters and a name of at most 120, shall refuse with status 409 to delete a college that has departments, and shall restrict a non-administrator to the colleges in his scope."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "إنشاء كلية بلا رمز أو بلا اسم يعيد 400.",
+          "en": "Creating a college without a code or without a name returns 400."
+        },
+        {
+          "ar": "حذف كلية فيها قسم واحد على الأقل يعيد 409.",
+          "en": "Deleting a college with at least one department returns 409."
+        },
+        {
+          "ar": "قائمة الكليات لغير المدير تقتصر على كليات نطاقه ومرتبة بالعربية.",
+          "en": "The college list for a non-administrator is limited to his scope and sorted in Arabic."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes",
+          "src/components/Colleges.tsx"
+        ],
+        "tests": [
+          "tests/role-scope-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-006",
+      "kind": "functional",
+      "title": {
+        "ar": "القسم العلمي وسجل هيئة التدريس وحدود حذفه",
+        "en": "Department, faculty placeholder and delete guard"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح إنشاء القسم وتعديله ونقله بين الكليات ضمن النطاق، وألا يسجل رمز قسم مكرراً في الكلية نفسها، وأن ينشئ لكل قسم جديد سجل «هيئة تدريسية» واحداً برقم مدني اصطناعي من 12 خانة يبدأ بـ 29999.",
+        "en": "The system shall allow creating, editing and moving a department between colleges within the user's scope, shall not register a duplicate department code in the same college, and shall create for each new department exactly one faculty-placeholder record with a synthetic 12-digit civil number starting with 29999."
+      },
+      "rationale": {
+        "ar": "السجل الاصطناعي تُسنَد إليه الشعب التي لا مدرّس لها ويتحول إليه المنتدب في الجدول المستورد؛ ولا يلتبس رقمه برقم شخص لأن خانتي الشهر فيه 99.",
+        "en": "The placeholder receives sections that have no instructor yet and receives the visiting instructor in an imported schedule; its number cannot be confused with a person's because its month digits are 99."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "إنشاء قسم برمز موجود في الكلية يعيد 400 برسالة «رمز القسم مسجل في هذه الكلية».",
+          "en": "Creating a department with a code that exists in the college returns 400 with a registered-code message."
+        },
+        {
+          "ar": "الرقم المدني الاصطناعي للقسم = 29999 + معرّف الكلية بثلاث خانات + معرّف القسم بأربع خانات.",
+          "en": "The department's synthetic civil number is 29999 plus the college id in three digits plus the department id in four digits."
+        },
+        {
+          "ar": "إعادة استدعاء التهيئة لقسم له سجله لا تنشئ سجلاً ثانياً.",
+          "en": "Calling the provisioning again for a department that already has its record creates no second record."
+        },
+        {
+          "ar": "حذف قسم له مقرر واحد على الأقل يعيد 409 ولا يحذف شيئاً.",
+          "en": "Deleting a department with at least one course returns 409 and deletes nothing."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/sectionFaculty.ts#ensureSectionFaculty",
+          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes",
+          "src/utils/placeholderInstructor.ts"
+        ],
+        "tests": [
+          "tests/section-faculty-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-ACD-007",
+      "kind": "data",
+      "title": {
+        "ar": "رقم المقرر المعتمد بسبع خانات",
+        "en": "Seven-digit authority course number"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يبني كل رقم مقرر يراه القارئ (تقرير مطبوع أو استعلام أو Excel) بسبع خانات: الكلية (2) ثم القسم (2) ثم المقرر (3) مثل 0109105، عبر authorityCourseCode، وألا يعرض CourseCode المخزّن ولا CourseCodeSnapshot ولا AdCourseId.",
+        "en": "The system shall build every course number a reader sees (printed report, query or Excel) in seven digits: college (2), department (2), course (3), such as 0109105, through authorityCourseCode, and shall never display the stored CourseCode, CourseCodeSnapshot or AdCourseId."
+      },
+      "rationale": {
+        "ar": "قاعدة ثابتة من مالك النظام: الكتالوج يحفظ غالباً الخانات الثلاث الأخيرة وحدها، والرقم الداخلي لا يعني القارئ شيئاً.",
+        "en": "A fixed owner rule: the catalogue usually stores only the last three digits, and the internal id means nothing to the reader."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "authorityCourseCode(\"105\", \"0109\") تعيد 0109105، و(\"5\", \"0109\") تعيد 0109005، والأرقام العربية تُقرأ أرقاماً.",
+          "en": "authorityCourseCode(\"105\", \"0109\") returns 0109105, (\"5\", \"0109\") returns 0109005, and Arabic-Indic digits are read as digits."
+        },
+        {
+          "ar": "رمز فيه حروف (ENG101) أو بلا مفتاح قسم يُعاد كما خُزّن ولا يُختلق رقم.",
+          "en": "A code containing letters (ENG101), or given no department key, is returned as stored and no number is invented."
+        },
+        {
+          "ar": "مقرر قسم آخر بسبع خانات (0102102 تحت 0101) لا يُعاد ربطه.",
+          "en": "A seven-digit course of another department (0102102 under 0101) is not re-linked."
+        },
+        {
+          "ar": "الأمر npm run test:course-number-seven-digit يمر بلا إخفاق.",
+          "en": "npm run test:course-number-seven-digit passes with no failure."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/authorityAcademicCodes.ts#authorityCourseCode",
+          "src/utils/authorityAcademicCodes.ts#authorityDepartmentCode"
+        ],
+        "tests": [
+          "tests/course-number-seven-digit-audit.ts",
+          "tests/authority-course-prefix-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-ACD-008",
+      "kind": "data",
+      "title": {
+        "ar": "مفتاح القسم من رمز الكلية والقسم",
+        "en": "Department key from college and department codes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يشتق مفتاح القسم ذا الأربع خانات من أول رقمين من رمز الكلية مع رمز القسم المحلي بخانتين، بحيث يحمل فرعا بنين وبنات المفتاح نفسه، ولا يطابق مفتاحاً بمفتاح قسم آخر.",
+        "en": "The system shall derive the four-digit department key from the first two digits of the college code plus the two-digit local department code, so that the boys' and girls' branches share the same key, and shall never match a key against another department's key."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "authorityDepartmentCode(\"011\", \"09\") و(\"012\", \"09\") تعيدان 0109.",
+          "en": "authorityDepartmentCode(\"011\", \"09\") and (\"012\", \"09\") both return 0109."
+        },
+        {
+          "ar": "قسم برمز مكتوب بأربع خانات يبدأ برمز كلية أخرى يُعاد ربطه بكلية التقرير: 0101 تحت الكلية 02 يصير 0201.",
+          "en": "A department code of four digits that starts with another college's code is re-linked to the report's college: 0101 under college 02 becomes 0201."
+        },
+        {
+          "ar": "0201 لا يطابق 0202.",
+          "en": "0201 does not match 0202."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/authorityAcademicCodes.ts#authorityDepartmentCode",
+          "src/utils/authorityAcademicCodes.ts#authorityDepartmentMatches"
+        ],
+        "tests": [
+          "tests/course-number-seven-digit-audit.ts",
+          "tests/authority-course-prefix-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-009",
+      "kind": "functional",
+      "title": {
+        "ar": "ربط المقرر بالرقم المطبوع",
+        "en": "Linking a course to its printed number"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يربط مقرراً بالكتالوج بالذيل ذي الخانات الثلاث وحده، وأن يشترط تطابق مفتاح القسم أو الاسم المطبوع مع المقرر، فيبقى 0114464 مقرراً مختلفاً عن 0120464، ويُحفظ الصف المربوط برقمه المطبوع.",
+        "en": "The system shall not link a course to the catalogue by the three-digit tail alone, and shall require the department key or the printed name to agree, so that 0114464 remains a different course from 0120464, and a linked row is kept under its printed number."
+      },
+      "rationale": {
+        "ar": "قرار المالك الدائم بتاريخ 2026-11-05: رأس الصفحة يقرر القسم، والرمز المطبوع لا يغيّر هوية المقرر.",
+        "en": "Standing owner decision of 2026-11-05: the page header decides the department and the printed code does not change a course's identity."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم مطبوع 0114101 يطابق صف الكتالوج «101» لقسم 0120 فقط إذا وافق الاسم المطبوع، ولا يطابق صف 0120101 الكامل.",
+          "en": "A printed number 0114101 matches the catalogue row \"101\" of department 0120 only if the printed name agrees, and does not match the full row 0120101."
+        },
+        {
+          "ar": "رقم من ست خانات يبدأ بمفتاح القسم (013099 تحت 0130) يُقرأ 0130099.",
+          "en": "A six-digit number starting with the department key (013099 under 0130) is read as 0130099."
+        },
+        {
+          "ar": "لقطة الصف تحفظ الرقم المطبوع بسبع خانات حين يطابق الذيل صف الكتالوج.",
+          "en": "The row snapshot keeps the seven-digit printed number when its tail matches the catalogue row."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/authorityAcademicCodes.ts#authorityInheritedCourseMatches",
+          "src/utils/authorityAcademicCodes.ts#authorityCourseCodeMatches",
+          "src/utils/authorityAcademicCodes.ts#authorityCourseSnapshot"
+        ],
+        "tests": [
+          "tests/authority-course-prefix-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-010",
+      "kind": "functional",
+      "title": {
+        "ar": "إنشاء المقرر وحدود أرقامه",
+        "en": "Course creation and numeric limits"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقبل إنشاء المقرر برمز واسم غير فارغين وكلية وقسم يتبعها، وبوحدات صحيحة من 0 إلى 20 وساعات من 0 إلى 40 (يجوز الكسر) وسعة صحيحة من 0 إلى 200، وأن يرفض غير ذلك برسالة تسمي الحقل.",
+        "en": "The system shall accept course creation with a non-empty code and name and a college and department that belong together, with whole credits from 0 to 20, hours from 0 to 40 (fractions allowed) and a whole capacity from 0 to 200, and shall refuse anything else with a message naming the field."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "سعة 201 أو وحدات 21 أو ساعات 41 تعيد 400 برسالة تسمي الحقل ونطاقه.",
+          "en": "Capacity 201, credits 21 or hours 41 returns 400 with a message naming the field and its range."
+        },
+        {
+          "ar": "قسم لا يتبع الكلية المختارة يعيد 400.",
+          "en": "A department that does not belong to the chosen college returns 400."
+        },
+        {
+          "ar": "رمز المقرر الواحد لا يتكرر داخل القسم، والمحاولة المكررة تعيد 400.",
+          "en": "A course code is not repeated within a department and a repeated attempt returns 400."
+        },
+        {
+          "ar": "نوع القاعة أطول من 60 حرفاً أو طبيعة تدريس غير theoretical أو applied أو practical أو field_training تُرفض.",
+          "en": "A room type longer than 60 characters, or a teaching mode other than theoretical, applied, practical or field_training, is refused."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes",
+          "src/server/core/input.ts",
+          "src/components/Courses.tsx"
+        ],
+        "tests": [
+          "tests/department-course-catalog-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-011",
+      "kind": "functional",
+      "title": {
+        "ar": "تجميد هوية المقرر التاريخي",
+        "en": "Freezing the identity of a course with history"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض بـ 409 تغيير رمز المقرر أو اسمه إذا كان له سجل في الجدول أو كان عضواً في صحيفة غير فعالة، وأن يسمح بتصحيح الوحدات والساعات والسعة، وأن يمنع نقله إلى قسم آخر ما دام مرتبطاً بصحيفة.",
+        "en": "The system shall refuse with 409 to change a course's code or name when it has schedule history or belongs to a non-active sheet, shall still allow correcting credits, hours and capacity, and shall prevent moving it to another department while it is linked to a sheet."
+      },
+      "rationale": {
+        "ar": "الرمز والاسم يحميان الروابط والسجل التدريسي التاريخي؛ والاسم يقارن بعد تطبيع حروف العرض فلا يُعدّ تغييراً.",
+        "en": "Code and name protect links and the teaching history; the name is compared after normalising presentation forms, so that is not counted as a change."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعديل اسم مقرر له موعد واحد في أي فصل يعيد 409 ولا يحفظ.",
+          "en": "Editing the name of a course that has one appointment in any term returns 409 and saves nothing."
+        },
+        {
+          "ar": "تغيير السعة وحدها لمقرر في صحيفة انتقالية ينجح.",
+          "en": "Changing only the capacity of a course in a transition sheet succeeds."
+        },
+        {
+          "ar": "نقل مقرر مرتبط بصحيفة إلى قسم آخر يعيد 409.",
+          "en": "Moving a course linked to a sheet to another department returns 409."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-012",
+      "kind": "functional",
+      "title": {
+        "ar": "منع حذف مقرر مرتبط",
+        "en": "Block deleting a linked course"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض حذف المقرر برمز 409 إذا كان مرتبطاً بصحيفة أكاديمية أو بصف في الجدول الدراسي.",
+        "en": "The system shall refuse with status 409 to delete a course that is linked to an academic sheet or to a schedule row."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف مقرر عضو في صحيفة يعيد 409 برسالة توجه إلى إخراجه من الصحيفة.",
+          "en": "Deleting a course that is a member of a sheet returns 409 with a message directing to remove it from the sheet."
+        },
+        {
+          "ar": "حذف مقرر له صف جدول يعيد 409.",
+          "en": "Deleting a course with a schedule row returns 409."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-013",
+      "kind": "functional",
+      "title": {
+        "ar": "مزامنة نوع القاعة وطبيعة التدريس على نسخ المقرر",
+        "en": "Room type and teaching mode sync across copies"
+      },
+      "text": {
+        "ar": "يجب على النظام، عند حفظ نوع قاعة أو طبيعة تدريس غير فارغة لمقرر، أن يطبّقها على نسخه الشقيقة بالرمز نفسه في أقسام العائلة نفسها وكليات العائلة نفسها، ضمن نطاق المستخدم، ويبلّغ بما تخطاه وسببه.",
+        "en": "The system shall, when a non-empty room type or teaching mode is saved on a course, apply it to its sibling copies with the same code in the same department family and college family, within the user's scope, and report what it skipped and why."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "نسخة المقرر في حرم آخر من العائلة نفسها تتغير، ومقرر قسم آخر بالرمز نفسه لا يتغير ولا يُذكر.",
+          "en": "The course copy at another campus of the same family changes; a course of another department with the same code does not change and is not mentioned."
+        },
+        {
+          "ar": "نسخة خارج صلاحيات المستخدم تُتخطى وتُذكر بسبب «خارج صلاحياتك»، وتُعاد 8 تخطيات كحد أقصى.",
+          "en": "A copy outside the user's scope is skipped and reported as outside his permissions; at most 8 skips are returned."
+        },
+        {
+          "ar": "تُكتب النسخ قبل المقرر المعدَّل ليعيد الحفظ التالي ما فات.",
+          "en": "Copies are written before the edited course so that the next save redoes what was missed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/courseRoomTypeSync.ts#roomTypeSiblingIds",
+          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes"
+        ],
+        "tests": [
+          "tests/course-room-type-sync-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-014",
+      "kind": "functional",
+      "title": {
+        "ar": "وسوم المقرر بترتيب ثابت",
+        "en": "Course tags in a fixed order"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض كل وسوم المقرر المنطبقة بترتيب واحد في كل الشاشات: الصحيفة، ثم نوع المتطلب (متطلب كلية أو متطلب جامعة أو متطلب قسم أو اختياري)، ثم «لم نصل بعد»، وألا يعرض وسماً للمقرر الإجباري.",
+        "en": "The system shall show every applicable course tag in one order on all screens: the sheet, then the requirement type (college, university, department or elective), then not reached yet, and shall show no tag for a mandatory course."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر في صحيفة 2026 ومتطلب كلية يظهر بوسمين بالترتيب: الصحيفة ثم المتطلب.",
+          "en": "A course in the 2026 sheet that is a college requirement appears with two tags in that order: sheet, then requirement."
+        },
+        {
+          "ar": "الوسم الأخير «لم نصل بعد» لا يظهر في الطباعة، ووسم نوع المتطلب يُطبع لمقررات الخدمة فقط.",
+          "en": "The last tag, not reached yet, does not print, and the requirement tag prints only for service courses."
+        },
+        {
+          "ar": "حارس التغطية يفشل إن رُسم اسم مقرر على الشاشة بلا وسوم ولا استثناء معلّل.",
+          "en": "The coverage guard fails if a course name is drawn on screen without tags and without a justified exception."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/courseTags.ts#courseTagsOf",
+          "src/components/CourseTags.tsx"
+        ],
+        "tests": [
+          "tests/course-tags-coverage-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-015",
+      "kind": "functional",
+      "title": {
+        "ar": "كشف المقررات المكررة وحذفها المؤرشف",
+        "en": "Duplicate course detection and archived delete"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يكشف المقررات المكررة في القسم الواحد بالرقم المطبوع نفسه، وأن يحدد الباقي بأولوية الاستعمال (جدول، ثم طلبة، ثم قواعد صحيفة، ثم سعة، ثم ربط بصحيفة)، ولا يعرض للحذف إلا المكرر غير المستعمل، ويعيد الفحص قبل أن يحذف حذفاً مؤرشفاً.",
+        "en": "The system shall detect duplicate courses within one department by the same printed number, shall pick the keeper by usage priority (schedule, then students, then sheet rules, then capacity, then sheet link), shall offer for deletion only an unused duplicate, and shall rescan before an archived delete."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "الأوزان 16 للجدول و8 للطلبة و4 للقواعد و2 للسعة و1 للربط، ومن يملك الأعلى يبقى.",
+          "en": "Weights are 16 for schedule, 8 for students, 4 for rules, 2 for capacity and 1 for link, and the highest score is kept."
+        },
+        {
+          "ar": "مكرر له جدول يُعرض بسبب «له جدول» وغير قابل للحذف.",
+          "en": "A duplicate with a schedule is shown with the reason has a schedule and is not removable."
+        },
+        {
+          "ar": "الحذف يُخبر بعدد المحذوف ثم يعيد الفحص.",
+          "en": "Deletion reports the number deleted and then rescans."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planReviewRoutes.ts",
+          "src/components/DuplicateCoursesPanel.tsx"
+        ],
+        "tests": [
+          "tests/department-course-catalog-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-016",
+      "kind": "functional",
+      "title": {
+        "ar": "دمج توائم الإملاء بتأكيد",
+        "en": "Spelling-twin merge with confirmation"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للحساب الرئيسي وحده معاينة المقررات المتطابقة إملاءً ثم دمجها بتأكيد صريح، فتنتقل المواعيد وروابط الصحائف إلى المقرر الباقي ويؤخذ الاسم المعتمد ويُؤرشف المكرر، ويرفض الدمج الآلي لما تشير إليه بيانات الطلبة أو قواعد الصحيفة.",
+        "en": "The system shall let only the root account preview courses whose names are spelling twins and then merge them with explicit confirmation, so that appointments and sheet links move to the keeper, the canonical name is applied and the duplicate is archived, and shall refuse automatic merging of a course referenced by student data or sheet rules."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب الدمج بلا confirm=true يعيد 428، وبلا حساب رئيسي يعيد 403.",
+          "en": "A merge request without confirm=true returns 428 and without the root account returns 403."
+        },
+        {
+          "ar": "يعاد الفحص لحظة الدمج: مجموعة تغيّرت تعيد 409، واسم معتمد من خارج إملاءات المقرر يعيد 400.",
+          "en": "The scan is repeated at merge time: a group that changed returns 409 and a canonical name from outside the course's spellings returns 400."
+        },
+        {
+          "ar": "مقرر يستعمله طلبة يعيد 409 بسبب «بيانات طلبة»، ومقرر في قواعد يعيد 409 بسبب «قواعد صحيفة».",
+          "en": "A course used by students returns 409 with reason student data, and a course used in rules returns 409 with reason sheet rules."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/courseSpellingTwins.ts#spellingTwinGroups",
+          "src/utils/courseNameRelation.ts#courseNameRelation",
+          "src/server/planReviewRoutes.ts",
+          "src/components/SpellingTwinsMerge.tsx"
+        ],
+        "tests": [
+          "tests/course-spelling-merge-audit.ts",
+          "tests/course-name-relation-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-ACD-017",
+      "kind": "data",
+      "title": {
+        "ar": "هوية عضو هيئة التدريس: الرقم المدني",
+        "en": "Faculty identity: civil number"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخزّن الرقم المدني بصيغة واحدة (أرقام لاتينية فقط بعد حذف كل ما ليس رقماً)، وأن يقبل رقماً من 12 خانة يطابق مجموع التحقق، وألا يسجل رقماً مكرراً لعضو آخر.",
+        "en": "The system shall store the civil number in one form (Latin digits only, with every non-digit removed), shall accept a 12-digit number that satisfies the check digit, and shall not register a number already held by another member."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم بأرقام عربية أو بمسافات يُخزَّن لاتينياً نظيفاً.",
+          "en": "A number typed with Arabic digits or spaces is stored as clean Latin digits."
+        },
+        {
+          "ar": "رقم بطول غير 12 يعيد «12 رقمًا بالضبط»، ورقم برقم تحقق خاطئ يُرفض.",
+          "en": "A number whose length is not 12 returns the exactly-12-digits message, and one with a wrong check digit is refused."
+        },
+        {
+          "ar": "التعديل برقم عضو آخر يعيد 400.",
+          "en": "Editing with another member's number returns 400."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/civilId.ts#validateCivilId",
+          "src/utils/civilId.ts#normalizeCivilId",
+          "src/server/routes/instructorsRoutes.ts#registerInstructorsRoutes"
+        ],
+        "tests": [
+          "tests/role-scope-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACD-018",
+      "kind": "functional",
+      "title": {
+        "ar": "الإضافة السريعة للأستاذ وضمّه إلى القسم",
+        "en": "Quick instructor add and department enrolment"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح إنشاء عضو هيئة تدريس لصاحب صلاحية الأساتذة أو الجداول، وأن يضمّه إلى دليل هيئة القسم عند الإنشاء من سياق قسم داخل نطاقه، وأن يضمّ صاحب الرقم المسجل سابقاً بدل رفض الطلب، وألا يقبل اسم «هيئة تدريسية» أستاذاً جديداً.",
+        "en": "The system shall allow creating a faculty member by a holder of the instructors or schedule permission, shall enrol him in the department faculty directory when created from a department context within his scope, shall enrol an existing holder of a registered number instead of refusing, and shall not accept the faculty-placeholder name as a new instructor."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم مسجل مع قسم داخل النطاق يعيد السجل القائم existing=true ويضمه إلى القسم.",
+          "en": "A registered number with an in-scope department returns the existing record with existing=true and enrols it in the department."
+        },
+        {
+          "ar": "رقم مسجل بلا سياق قسم يعيد 400 باسم صاحبه ليبحث عنه.",
+          "en": "A registered number with no department context returns 400 naming its holder so he can be searched."
+        },
+        {
+          "ar": "الاسم «هيئة تدريسية» يعيد 400.",
+          "en": "The name faculty placeholder returns 400."
+        },
+        {
+          "ar": "التعديل والحذف يتطلبان صلاحية الأساتذة (3) ولا يكفيها صلاحية الجداول.",
+          "en": "Edit and delete require the instructors permission (3); the schedule permission is not enough."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/instructorsRoutes.ts#registerInstructorsRoutes",
+          "src/server/sectionFaculty.ts",
+          "src/utils/placeholderInstructor.ts#isFacultyPlaceholder"
+        ],
+        "tests": [
+          "tests/section-faculty-audit.ts",
+          "tests/instructor-apply-atomic-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-019",
+      "kind": "functional",
+      "title": {
+        "ar": "البحث عن الأستاذ بهوية الاسم",
+        "en": "Instructor search by name identity"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يطابق اسم الأستاذ بالقانون الواحد لهوية الاسم الذي يطوي الهمزات وألف المقصورة والتاء المربوطة والتشكيل والألقاب والمسافات، وأن يجد بالبحث كل من تجده مطابقة الاستيراد، وألا يطابق الرقم المدني إلا كاملاً (12 خانة).",
+        "en": "The system shall match instructor names with the single name-identity rule that folds hamza forms, alef maqsura, ta marbuta, diacritics, titles and spaces, shall find in search everyone the import matching finds, and shall match a civil number only when complete (12 digits)."
+      },
+      "rationale": {
+        "ar": "لو طابق البحث جزءاً من الرقم المدني عبر الجامعة لصار وسيلة لاستكماله لأي موظف.",
+        "en": "Partial civil-number matching across the university would let anyone complete the number of any employee."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "البحث عن «اقبال» يجد «إقبال»، و«عبدالعزيز» يجد «عبد العزيز».",
+          "en": "Searching for one spelling of a name finds the other, and the joined and split forms of a compound name find each other."
+        },
+        {
+          "ar": "ستة أرقام من الرقم المدني لا تعيد أحداً، و12 رقماً كاملة تعيد صاحبها.",
+          "en": "Six digits of a civil number return nobody and the full 12 digits return its holder."
+        },
+        {
+          "ar": "سجل «هيئة تدريسية» لا يظهر في بحث الجامعة، والحد الأقصى للنتائج 60 (الافتراضي 40).",
+          "en": "The faculty placeholder does not appear in the university search, and results are capped at 60 (default 40)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/instructorIdentity.ts#foldInstructorText",
+          "src/utils/instructorIdentity.ts#instructorIdentityKey",
+          "src/utils/instructorPickerChoices.ts",
+          "src/server/routes/instructorsRoutes.ts#registerInstructorsRoutes"
+        ],
+        "tests": [
+          "tests/inbox-proposal-pickers-r2-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-ACD-020",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "حجب الرقم المدني والهاتف عن غير أهل القسم",
+        "en": "Civil number and phone hidden from non-members"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يكشف الرقم المدني الكامل ولا الهاتف إلا لحلقة القسم (من درّس في نطاق القارئ أو ضمّه دليل قسمه أو قائمة منتدبيه) ولإدارة النظام ولصاحب شاشة الأساتذة، وأن يعرض لغيرهم الاسم وآخر أربعة أرقام فقط بلا هاتف.",
+        "en": "The system shall not reveal the full civil number or the phone except to the department circle (those who taught in the reader's scope or are in his department directory or visiting list), to system administration and to the holder of the instructors screen, and shall show others the name and last four digits only, with no phone."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "dean",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "أستاذ من كلية أخرى لم يدرّس في نطاق القارئ يظهر رقمه «••••••••1234» بلا هاتف.",
+          "en": "An instructor of another college who never taught in the reader's scope appears as a masked number ending in 1234 with no phone."
+        },
+        {
+          "ar": "الصفات القرائية (عميد وغيره) لا ترى الرقم المدني أصلاً، ورقم مدني كامل مطابق للبحث يُكشف لصاحبه.",
+          "en": "Read-only roles never see the civil number, and a full civil number that exactly matches the search is revealed to the searcher."
+        },
+        {
+          "ar": "سجل «هيئة تدريسية» لا يُعرض رقمه الاصطناعي أبداً.",
+          "en": "The faculty placeholder's synthetic number is never shown."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/instructorsRoutes.ts#instructorCircleFor",
+          "src/utils/placeholderInstructor.ts#withoutFacultyPlaceholderCivil"
+        ],
+        "tests": [
+          "tests/role-scope-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-021",
+      "kind": "functional",
+      "title": {
+        "ar": "حالة الأستاذ وتصنيفه",
+        "en": "Instructor status and category"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح وسم الأستاذ «متقاعد» أو «متفرغ» أو تصنيفه «TA»، وألا يسند إلى متقاعد أو متفرغ عملاً جديداً، وأن يكون تحويل TA إلى أستاذ باتجاه واحد فلا يتحول الأستاذ إلى TA من أدوات القسم.",
+        "en": "The system shall allow marking an instructor retired or on sabbatical or classifying him as TA, shall not assign new work to a retired or sabbatical instructor, and shall make the TA-to-instructor conversion one-directional so an instructor cannot become a TA from the department tools."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "isAssignableInstructor تعيد false لمن حالته retired أو sabbatical وtrue لغيرهم.",
+          "en": "isAssignableInstructor returns false for retired or sabbatical and true otherwise."
+        },
+        {
+          "ar": "PUT /api/section-roster/:id بتصنيف ta لأستاذ غير TA يعيد 400 «لا يتحوّل الأستاذ إلى TA».",
+          "en": "A section-roster update with category ta for a non-TA instructor returns 400."
+        },
+        {
+          "ar": "خطة تحويل TA تعدّ صفوف الموسومين صراحة فقط ولا تستنتج التصنيف من رقم مقرر.",
+          "en": "The TA conversion plan counts the rows of explicitly tagged people only and never infers the category from a course number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/instructorStatus.ts#isAssignableInstructor",
+          "src/utils/taConversion.ts#planTaConversion",
+          "src/server/routes/instructorsRoutes.ts#registerInstructorsRoutes"
+        ],
+        "tests": [
+          "tests/instructor-status-audit.ts",
+          "tests/ta-conversion-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-022",
+      "kind": "functional",
+      "title": {
+        "ar": "درجات النصاب وحدوده",
+        "en": "Rank and teaching load limits"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للحساب الرئيسي تعريف حتى 30 درجة علمية، لكلٍّ اسم حتى 60 حرفاً، وحد أدنى وأعلى حتى 60 ساعة، وإضافي حتى 30 ساعة، كلها ساعات صحيحة بلا كسور، وأن يتيح استثناء لعضو بسبب (منصب إداري، مهمة، تفرغ، أخرى) وفصل انتهاء اختياري.",
+        "en": "The system shall let the root account define up to 30 academic ranks, each with a name of at most 60 characters, minimum and maximum up to 60 hours and overtime up to 30 hours, all whole hours without fractions, and shall allow a per-member exception with a reason (administrative post, task, sabbatical, other) and an optional end term."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "درجة بحد أدنى أكبر من الأعلى أو بكسر أو بتكرار اسم تُرفض برسالة عربية واحدة.",
+          "en": "A rank whose minimum exceeds its maximum, or has a fraction, or repeats a name is refused with one Arabic message."
+        },
+        {
+          "ar": "الحد الأعلى للأعضاء في الاستثناء 60 والإضافي 30، وسبب غير معروف يُرفض.",
+          "en": "A member exception is capped at 60 hours with overtime 30, and an unknown reason is refused."
+        },
+        {
+          "ar": "الأسبقية: استثناء العضو الساري ثم درجته، وعضو بلا درجة ولا استثناء «غير مضبوط» بلا رقم مخترع.",
+          "en": "Precedence is the member's active exception, then his rank; a member with neither is unset, with no invented number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/teachingLoad.ts#teachingLoadProblem",
+          "src/utils/teachingLoad.ts#teachingLoadLimits",
+          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes"
+        ],
+        "tests": [
+          "tests/teaching-load-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-023",
+      "kind": "functional",
+      "title": {
+        "ar": "حساب عبء الأستاذ وتنبيه التجاوز",
+        "en": "Load computation and over-load warning"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحسب عبء الأستاذ في الفصل مجموع ساعات مقرراته مرة واحدة لكل شعبة (كلية، قسم، مقرر، رمز شعبة) مهما تعددت مواعيدها، وأن يصنفه غير مضبوط أو أقل أو ضمن أو إضافي أو متجاوز، وأن يكون التنبيه قراءة فقط لا يمنع حفظ موعد.",
+        "en": "The system shall compute an instructor's term load as the sum of his courses' hours counted once per section (college, department, course, section code) however many appointments it has, shall classify it as unset, under, within, overtime or over, and shall keep the warning read-only so that it never blocks saving an appointment."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "عبء أعلى من الحد الأعلى وحتى السقف (الأعلى + الإضافي) حالة «إضافي» وليس تجاوزاً.",
+          "en": "A load above the maximum up to the ceiling (maximum plus overtime) is overtime, not an overrun."
+        },
+        {
+          "ar": "ما زاد على السقف حالة «متجاوز» ويُحسب excess بالفرق مقرباً لمنزلتين.",
+          "en": "Anything above the ceiling is over, with excess computed as the difference rounded to two decimals."
+        },
+        {
+          "ar": "الميزة معطلة افتراضياً: بلا تفعيل لا يُحسب شيء ولا يُرسل.",
+          "en": "The feature is off by default: until enabled nothing is computed or sent."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/teachingLoad.ts#teachingHoursByInstructor",
+          "src/utils/teachingLoad.ts#evaluateTeachingLoad",
+          "src/server/routes/referenceRoutes.ts#registerReferenceRoutes"
+        ],
+        "tests": [
+          "tests/teaching-load-audit.ts",
+          "tests/instructor-course-load-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-024",
+      "kind": "functional",
+      "title": {
+        "ar": "المنتدب صفة دائمة بدليل القسم وروستر الفصل",
+        "en": "Visiting status through directory and term roster"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعدّ الأستاذ منتدباً لقسم إذا كان في دليل منتدبي القسم (عائلته عبر كلياته) وله سجل في الأساتذة، وأن يحدد روستر الفصل من يدرّس فيه، وأن يعرض شارة «منتدب» بحسب القسم لا بحسب الشخص، ويعطي الشاشات كلها قائمة واحدة تُحفظ دقيقة.",
+        "en": "The system shall treat an instructor as visiting for a department when he is in the department's visiting directory (its family across colleges) and has an instructor record, shall let the term roster decide who teaches in that term, shall show the visiting badge per department and not per person, and shall give all screens one lookup cached for one minute."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "اسم في الروستر وليس في الدليل لا يظهر منتدباً، ومعرّف دليل بلا سجل أستاذ يُهمل.",
+          "en": "A name in the roster but not in the directory does not appear as visiting, and a directory id with no instructor record is ignored."
+        },
+        {
+          "ar": "منتدب في قسم ليس منتدباً في قسم آخر يدرّس فيه عضواً.",
+          "en": "An instructor visiting in one department is not visiting in another department where he teaches as a member."
+        },
+        {
+          "ar": "GET /api/visiting-lookup بلا termId يعيد scopes فارغاً، ويُقيَّد القارئ بأقسام نطاقه.",
+          "en": "GET /api/visiting-lookup without termId returns empty scopes and the reader is limited to his departments."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/visiting.ts#readVisitingStatus",
+          "src/utils/liveVisiting.ts#liveVisitingIds",
+          "src/utils/visitingLookup.ts#isVisitingIn",
+          "src/components/VisitingBadge.tsx"
+        ],
+        "tests": [
+          "tests/visiting-lookup-audit.ts",
+          "tests/visiting-status-permanent-audit.ts",
+          "tests/visiting-badge-group1-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-025",
+      "kind": "functional",
+      "title": {
+        "ar": "روستر المنتدبين ونسخه بين الفصول",
+        "en": "Visiting roster and copy between terms"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لصاحب صلاحية الجداول إضافة منتدب جديد (برقم مدني صحيح واسم لا يقل عن 3 أحرف وحتى 100) إلى دليل القسم وروستر الفصل، ونسخ منتدبي فصل إلى فصل آخر مع ضمهم إلى الدليل، ضمن نطاقه.",
+        "en": "The system shall let a holder of the schedule permission add a new visiting instructor (valid civil number and a name of 3 to 100 characters) to the department directory and the term roster, and copy the visitors of one term into another while adding them to the directory, within his scope."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "نسخ بلا معرّفات يأخذ كل منتدبي الفصل المصدر، ومعرّف ليس في المصدر يُتجاهل.",
+          "en": "A copy with no ids takes all visitors of the source term, and an id not in the source is ignored."
+        },
+        {
+          "ar": "النسخ إلى فصل فيه منتدبون يدمج بلا تكرار.",
+          "en": "Copying into a term that already has visitors merges without duplicates."
+        },
+        {
+          "ar": "قسم خارج النطاق يعيد 403.",
+          "en": "A department outside the scope returns 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/instructorsRoutes.ts#registerInstructorsRoutes",
+          "src/server/core/visiting.ts#readLiveVisitingRoster"
+        ],
+        "tests": [
+          "tests/visiting-lookup-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-026",
+      "kind": "functional",
+      "title": {
+        "ar": "تحويل أستاذ بين منتدب ومعيّن",
+        "en": "Converting an instructor between visiting and appointed"
+      },
+      "text": {
+        "ar": "يجب على النظام أن ينفّذ تحويل الأستاذ إلى «منتدب» لقسم واحد في فصل جارٍ أو قادم، وإلى «معيّن» برفعه من دليل الأقسام المختارة وروستر الفصل الجاري والقادمة، مع معاينة بلا كتابة، وألا يمسّ جدولاً ولا روستر فصل مضى.",
+        "en": "The system shall convert an instructor to visiting for one department in a current or future term, and to appointed by removing him from the directory of the chosen departments and from the rosters of the current and future terms, with a preview that writes nothing, and shall never touch a schedule or a past-term roster."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "التحويل إلى منتدب بأكثر من قسم يعيد خطأ «قسم واحد في كل مرة»، وبفصل ماضٍ يعيد خطأ «لا يُكتب روستر فصل مضى».",
+          "en": "Converting to visiting with more than one department returns the one-department-at-a-time error, and with a past term returns the past-roster error."
+        },
+        {
+          "ar": "الطلب بأكثر من 50 قسماً يقتطع إلى 50، واتجاه غير toAppointed وtoVisiting يعيد 400.",
+          "en": "A request with more than 50 departments is cut to 50, and a direction other than toAppointed or toVisiting returns 400."
+        },
+        {
+          "ar": "رفع الانتداب من قسم ليس الأستاذ في دليله يعيد خطأ، وإضافة منتدب قائم أصلاً تعيد «منتدب بالفعل».",
+          "en": "Lifting from a department whose directory does not contain him returns an error, and adding an already-visiting instructor returns already-visiting."
+        },
+        {
+          "ar": "كل قسم في الطلب يُفحص بنطاق القارئ وإلا 403.",
+          "en": "Every department in the request is checked against the reader's scope, otherwise 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/visitingConversion.ts#planVisitingConversion",
+          "src/db/visitingConversion.ts#runVisitingConversion",
+          "src/server/routes/instructorsRoutes.ts#registerInstructorsRoutes",
+          "src/components/VisitingConversionPanel.tsx"
+        ],
+        "tests": [
+          "tests/visiting-conversion-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-027",
+      "kind": "functional",
+      "title": {
+        "ar": "المنتدب في جدول مستورد يصير هيئة تدريسية",
+        "en": "Visiting instructor becomes faculty placeholder on import"
+      },
+      "text": {
+        "ar": "يجب على النظام، عند استيراد جدول، أن يسند كل صف أستاذه منتدب إلى سجل «هيئة تدريسية» الخاص بالقسم دون مسّ وضع المنتدب، وأن يعيد إلى المتقاعد والمتفرغ صفهما بالاسم المطبوع كاملاً إذا طابق سجلاً واحداً ولا يشاركه أستاذ فعّال، وأن يترك الصفوف كما هي إن لم يوجد للقسم سجل «هيئة تدريسية».",
+        "en": "The system shall, on schedule import, reassign every row whose instructor is visiting to the department's faculty-placeholder record without touching the visiting status, shall restore to a retired or sabbatical instructor his row by the full printed name when it matches exactly one record and no active instructor shares it, and shall leave rows unchanged when the department has no placeholder record."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "صف أستاذه ضمن المنتدبين يتحول إلى معرّف الهيئة ويحمل replacedVisitingInstructorId.",
+          "en": "A row whose instructor is among the visiting set is switched to the placeholder id and carries replacedVisitingInstructorId."
+        },
+        {
+          "ar": "placeholderId يساوي صفراً أو لا منتدبين: لا يتغير أي صف ويعاد صفر.",
+          "en": "With placeholderId equal to zero or no visitors no row changes and zero is returned."
+        },
+        {
+          "ar": "استعادة اسم متقاعد تتطلب رمزين فأكثر وتطابقاً تاماً، ولا تتم إن شاركه أستاذ فعّال الاسم.",
+          "en": "Recovering a retired instructor's name requires two or more tokens and an exact match, and is skipped when an active instructor shares the name."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/visitingToFaculty.ts#applyVisitingToFaculty",
+          "src/utils/instructorIdentity.ts#recoverRetiredFromPrintedName"
+        ],
+        "tests": [
+          "tests/visiting-to-faculty-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-028",
+      "kind": "functional",
+      "title": {
+        "ar": "حالة طرح المقرر في الفصل",
+        "en": "Course offering state per term"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ لكل مقرر في فصل وقسم حالة طرح من أربع: مطروح (الافتراضي بلا قيد) أو غير مطروح أو مستقبلي بمستوى 100 إلى 400 أو شعب محدودة بحد أقصى 0 إلى 99، وألا يحفظ قيد «مطروح» بلا شيء آخر، ويسري على محركات الاقتراح والكرت والوارد.",
+        "en": "The system shall store for each course in a term and department one of four offering states: offered (the default with no entry), closed, future with a level of 100 to 400, or limited sections with a maximum of 0 to 99, shall not store a bare offered entry, and shall apply it to the proposal engines, the card and the inbox."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "مستوى مكتوب 3 يُحفظ 300، والمحدود بحد 5 مع 3 شعب قائمة يبقى له 2.",
+          "en": "A level written as 3 is stored as 300, and a limited course capped at 5 with 3 existing sections has 2 remaining."
+        },
+        {
+          "ar": "مقرر غير مطروح أو مستقبلي لا تُقترح له شعبة جديدة (العدد المسموح صفر).",
+          "en": "A closed or future course gets no proposed new section (allowed count zero)."
+        },
+        {
+          "ar": "الاقتراح غير المؤكد (suggested) لا يغيّر شيئاً، وقرار «افتحه للطرح» يبقى ما لم يُرسل صراحة.",
+          "en": "An unconfirmed suggestion changes nothing, and the open-for-offering decision persists unless explicitly sent."
+        },
+        {
+          "ar": "الحفظ والقراءة لقسم خارج النطاق يعيدان 403.",
+          "en": "Save and read for a department outside the scope return 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/courseOffering.ts#normalizeOfferingEntry",
+          "src/utils/courseOffering.ts#newSectionsAllowed",
+          "src/server/routes/offeringRoutes.ts#registerOfferingRoutes",
+          "src/server/offeringStates.ts#offeringStatesForTerm",
+          "src/components/CourseOfferingPanel.tsx"
+        ],
+        "tests": [
+          "tests/prepublish-reach-audit.tsx",
+          "tests/owner-features-2026-10-28-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-ACD-029",
+      "kind": "interface",
+      "title": {
+        "ar": "قراءة المقررات بالنطاق وبالصحائف",
+        "en": "Scoped course reads with sheet tags"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد GET /api/courses مرتباً بالعربية ومقيداً بنطاق القارئ، وأن يقبل sectionId لقسم واحد وoperational=1 للمقررات التشغيلية وplans=1 لإضافة وسم الصحيفة وجهة الصحيفة والأقسام التي تحتاج مقرر الخدمة.",
+        "en": "The system shall return GET /api/courses sorted in Arabic and limited to the reader's scope, and shall accept sectionId for one department, operational=1 for operational courses and plans=1 to add the sheet tag, the sheet side and the departments that need a service course."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الاستجابة لقسم واحد تحمل مقررات ذلك القسم فقط (جزء من نحو 1400 مقرر في الجامعة).",
+          "en": "A response for one department holds only that department's courses (a fraction of about 1,400 courses university-wide)."
+        },
+        {
+          "ar": "مع plans=1 يحمل المقرر curriculum وsheetSide وserviceFor حين ينطبق.",
+          "en": "With plans=1 the course carries curriculum, sheetSide and serviceFor where they apply."
+        },
+        {
+          "ar": "الصلاحيات المقبولة هي 6 و7 و8 و9 و10 و14 و16 و17.",
+          "en": "The accepted permissions are 6, 7, 8, 9, 10, 14, 16 and 17."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes",
+          "src/server/planBadgeShared.ts"
+        ],
+        "tests": [
+          "tests/sheet-membership-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-ACD-030",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "تحقق مدخلات البيانات المرجعية",
+        "en": "Reference-data input validation"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتحقق من كل مدخل نصي أو رقمي للبيانات المرجعية بحد صريح (النص حتى 120 حرفاً والرمز حتى 40، والأرقام صحيحة ضمن مدى) وأن يطبّع الأرقام العربية، وألا يخزّن NaN أو كائناً أو مصفوفة مكان اسم، وأن يردّ برسالة عربية واحدة تسمي الحقل.",
+        "en": "The system shall validate every textual or numeric reference-data input with an explicit bound (text up to 120 characters, code up to 40, numbers whole within a range), shall normalise Arabic-Indic digits, shall never store NaN, an object or an array in place of a name, and shall answer with one Arabic message naming the field."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الاسم المرسل مصفوفة أو منطقياً أو أطول من 120 يعيد 400.",
+          "en": "A name sent as an array, a boolean or longer than 120 returns 400."
+        },
+        {
+          "ar": "«٤٥» تُقرأ 45 في الحقول الصحيحة.",
+          "en": "The Arabic-Indic string for 45 is read as 45 in integer fields."
+        },
+        {
+          "ar": "فارغ في حقل السعة يعني غير مذكور فيأخذ القيمة الافتراضية 0.",
+          "en": "An empty capacity field means not stated and takes the default 0."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/input.ts#cleanText",
+          "src/server/core/input.ts#boundedInt",
+          "src/server/routes/coursesRoutes.ts#registerCoursesRoutes"
+        ],
+        "tests": [
+          "tests/comprehensive-verification.ts"
+        ]
+      },
+      "inferred": true
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "رقم مقرر بثلاث خانات في كتالوج أقسام متشابهة",
+        "en": "Three-digit course tail across similar departments"
+      },
+      "scenario": {
+        "ar": "يطبع تقرير الهيئة 0114464 ويحمل كتالوج قسم آخر المقرر «464» برمز القسم 0120.",
+        "en": "The authority report prints 0114464 while another department's catalogue holds course 464 under department code 0120."
+      },
+      "behavior": {
+        "ar": "لا يُربط بالذيل وحده: يشترط النظام موافقة الاسم المطبوع ولا يطبع الملف رقم القسم نفسه بالذيل ذاته، فيبقى 0114464 غير 0120464، وإن لم يثبت الربط يُنشأ المقرر بعد تأكيد واحد بالرقم المطبوع.",
+        "en": "It is not linked by the tail alone: the printed name must agree and the file must not print the department's own number with the same tail, so 0114464 stays different from 0120464, and when no link is proven the course is created, after a single confirmation, under its printed number."
+      },
+      "evidence": [
+        "tests/authority-course-prefix-audit.ts",
+        "tests/course-number-seven-digit-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "تعديل اسم مقرر له تاريخ",
+        "en": "Editing the name of a course with history"
+      },
+      "scenario": {
+        "ar": "يصحح مسؤول إملاء اسم مقرر له مواعيد في فصول سابقة.",
+        "en": "An administrator corrects the spelling of a course name that has appointments in past terms."
+      },
+      "behavior": {
+        "ar": "يُرفض بـ 409 إذا تغيّر الرمز أو الاسم بعد تطبيع حروف العرض، ويُوجَّه المسؤول إلى إنشاء المقرر الجديد وربطه من شاشة الصحائف؛ أما توأم الإملاء فيُعالج بالدمج المؤكد لا بالتعديل.",
+        "en": "It is refused with 409 if the code or name changes after presentation-form normalisation, and the administrator is directed to create the new course and link it from the sheets screen; a spelling twin is handled by the confirmed merge, not by editing."
+      },
+      "evidence": [
+        "tests/course-spelling-merge-audit.ts",
+        "tests/course-name-relation-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "منتدب في قسم وعضو في قسم آخر",
+        "en": "Visiting in one department, member in another"
+      },
+      "scenario": {
+        "ar": "أستاذ منتدب لقسم الدراسات الإسلامية في كلية ويدرّس عضواً في قسم آخر.",
+        "en": "An instructor is seconded to a department in one college and teaches as a member in a different department."
+      },
+      "behavior": {
+        "ar": "تظهر شارة «منتدب» بجانب اسمه في صفوف القسم الأول وحدها، لأن المنتدب يُعرف بقسمه وفصله؛ والقسم عائلة عبر كلياته فيُقرأ دليل أخته في الكلية الأخرى.",
+        "en": "The visiting badge appears beside his name only in the first department's rows, because a visitor is known by department and term; the department is a family across colleges, so its sister's directory in the other college is read."
+      },
+      "evidence": [
+        "tests/visiting-lookup-audit.ts",
+        "tests/visiting-teaching-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "المنتدب المحذوف من الدليل وبقاؤه في روستر قديم",
+        "en": "Visitor removed from the directory but left in an old roster"
+      },
+      "scenario": {
+        "ar": "حُذف اسم من دليل منتدبي القسم وبقي في روستر فصل مضى.",
+        "en": "A name is removed from the department visiting directory but remains in a past term's roster."
+      },
+      "behavior": {
+        "ar": "يبقى الروستر القديم شاهد تاريخ لا يُعاد كتابته، لكنه لا يُبقي شارة «منتدب» حية في الجدول الحالي لأن الدليل هو سلطة العضوية الحية.",
+        "en": "The old roster stays as historical evidence and is never rewritten, but it does not keep a live visiting badge in today's schedule because the directory is the authority for live membership."
+      },
+      "evidence": [
+        "tests/visiting-lookup-audit.ts",
+        "tests/visiting-conversion-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "قسم جديد لا سجل هيئة تدريسية له",
+        "en": "New department without a faculty-placeholder record"
+      },
+      "scenario": {
+        "ar": "قسم أُنشئ حديثاً بلا تاريخ ويفتح منسق قائمة أساتذته.",
+        "en": "A newly created department with no history, and a coordinator opens its instructor list."
+      },
+      "behavior": {
+        "ar": "يُنشأ سجله عند إنشاء القسم؛ فإن تعثر الإنشاء لا يسقط القسم ويُعاد عند أول استيراد. وما دام لا سجل له تُعرض له سجلات الأقسام الأخرى لتُختار، سجل كليته أولاً ثم الجامعة، مرة واحدة فقط.",
+        "en": "Its record is created when the department is created; if that fails the department is not lost and the record is retried at first import. While it has none, other departments' records are offered for selection, its own college's first and then the university's, and only once."
+      },
+      "evidence": [
+        "tests/section-faculty-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "عضو بنصاب صفري صريح",
+        "en": "Member with an explicit zero load"
+      },
+      "scenario": {
+        "ar": "عضو بإعفاء كامل: أعلى 0 وإضافي 0.",
+        "en": "A member with full exemption: maximum 0 and overtime 0."
+      },
+      "behavior": {
+        "ar": "الصفر الصريح قيد حقيقي سقفه 0 لا «لا قيد»، فأي ساعة تدريس له حالة «متجاوز»؛ أما غياب الدرجة والاستثناء فيعني «غير مضبوط» بلا تنبيه.",
+        "en": "An explicit zero is a real limit with ceiling 0, not no limit, so any teaching hour for him is over; the absence of both rank and exception means unset with no warning."
+      },
+      "evidence": [
+        "tests/teaching-load-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "الفصل",
+      "en": "Term",
+      "def": {
+        "ar": "فصل دراسي له اسم مثل «الفصل الأول 2026/2027» وتاريخ بداية وعدد أسابيع وعلامة انتهاء.",
+        "en": "An academic term with a name such as first term 2026/2027, a start date, a week count and an ended flag."
+      }
+    },
+    {
+      "ar": "الكلية",
+      "en": "College",
+      "def": {
+        "ar": "وحدة أكاديمية عليا لها رمز واسم؛ قد يخزن الرمز رمز الفرع فتؤخذ منه الخانتان الأوليان لهوية الكلية الرسمية.",
+        "en": "A top academic unit with a code and a name; the code may hold the branch code, so its first two digits give the official college identity."
+      }
+    },
+    {
+      "ar": "القسم",
+      "en": "Department",
+      "def": {
+        "ar": "القسم العلمي (في الكود sectionId) الذي تتبعه المقررات؛ لا يعني الشعبة.",
+        "en": "The scientific department (sectionId in code) to which courses belong; it does not mean a class section."
+      }
+    },
+    {
+      "ar": "المقرر",
+      "en": "Course",
+      "def": {
+        "ar": "مادة دراسية بوحدات وساعات وسعة؛ رقمه الرسمي سبع خانات: كلية (2) وقسم (2) ومقرر (3).",
+        "en": "A subject with credits, hours and capacity; its official number has seven digits: college (2), department (2), course (3)."
+      }
+    },
+    {
+      "ar": "الشعبة",
+      "en": "Class section",
+      "def": {
+        "ar": "فصل دراسي لمقرر في فصل معين، يُعرَّف برمز الشعبة (501 وما بعدها في جداول الهيئة).",
+        "en": "A class of a course in a given term, identified by its section code (501 onward in authority schedules)."
+      }
+    },
+    {
+      "ar": "عضو هيئة التدريس",
+      "en": "Faculty member",
+      "def": {
+        "ar": "الأستاذ في سجل الأساتذة بهويته (الرقم المدني والاسم) وحالته (نشط أو متقاعد أو متفرغ) وتصنيفه (أستاذ أو TA).",
+        "en": "The instructor in the instructor register with identity (civil number and name), status (active, retired or on sabbatical) and category (instructor or TA)."
+      }
+    },
+    {
+      "ar": "هيئة تدريسية",
+      "en": "Faculty placeholder",
+      "def": {
+        "ar": "سجل يملكه كل قسم ليس شخصاً: تُسنَد إليه الشعب بلا مدرّس ثابت ولا يقاس عليه الحجز المزدوج ولا ميزان العدالة.",
+        "en": "A record each department owns that is not a person: it receives sections with no fixed instructor and is excluded from double-booking and fairness checks."
+      }
+    },
+    {
+      "ar": "منتدب",
+      "en": "Visiting instructor",
+      "def": {
+        "ar": "أستاذ مسمّى في دليل منتدبي قسم وفي روستر فصل؛ الصفة للقسم لا للشخص.",
+        "en": "An instructor named in a department's visiting directory and in a term roster; the status belongs to the department, not to the person."
+      }
+    },
+    {
+      "ar": "معيّن",
+      "en": "Appointed instructor",
+      "def": {
+        "ar": "الأستاذ الذي ليس منتدباً لقسم؛ التحويل إليه برفعه من الدليل والروستر.",
+        "en": "An instructor who is not visiting a department; conversion to it removes him from the directory and rosters."
+      }
+    },
+    {
+      "ar": "النصاب",
+      "en": "Teaching load",
+      "def": {
+        "ar": "الحد الأعلى لساعات الأستاذ في الفصل بحسب درجته أو استثنائه؛ يضاف إليه الإضافي ليكون السقف.",
+        "en": "An instructor's maximum term hours by rank or exception; overtime is added to form the ceiling."
+      }
+    },
+    {
+      "ar": "حالة الطرح",
+      "en": "Offering state",
+      "def": {
+        "ar": "قيد لكل مقرر في فصل وقسم: مطروح أو غير مطروح أو مستقبلي أو شعب محدودة.",
+        "en": "A per-course entry in a term and department: offered, closed, future or limited sections."
+      }
+    },
+    {
+      "ar": "توأم الإملاء",
+      "en": "Spelling twin",
+      "def": {
+        "ar": "مقرران في قسم واحد باسم واحد كُتب بإملاءين مختلفين (همزة أو تاء مربوطة أو مسافة).",
+        "en": "Two courses in one department with the same name written with different spellings (hamza, ta marbuta or spacing)."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "رقم المقرر سبع خانات فقط: الكلية (2) ثم القسم (2) ثم المقرر (3) مثل 0109105؛ لا يُعرض الرمز المخزّن ولا AdCourseId، ويُبنى بـ authorityCourseCode ويحرسه الأمر test:course-number-seven-digit.",
+      "en": "Course numbers are seven digits only: college (2), department (2), course (3), such as 0109105; the stored code and AdCourseId are never shown, the number is built with authorityCourseCode and guarded by test:course-number-seven-digit."
+    },
+    {
+      "ar": "رأس الصفحة يحدد القسم في تقرير الهيئة (SWRSCHA)، ولو حمل رقم المقرر رمز قسم آخر؛ ولا يُنشأ قسم أو مقرر ناقص إلا بعد تأكيد واحد برقمه واسمه المطبوعين وبالصلاحية المعتادة، والذيل ذو الخانات الثلاث وحده لا يربط، والمسح لا ينشئ.",
+      "en": "The page header decides the department in the authority report (SWRSCHA) even when a course number carries another department's code; a missing department or course is created only after one confirmation under its printed number and name with the usual permission, a three-digit tail alone never links, and scans never create."
+    },
+    {
+      "ar": "التقارير المطبوعة تحافظ على تصميمها: يُصلَح القيم والبيانات لا الشكل، وأي تغيير لا مفر منه يعيد استعمال أصناف الطباعة القائمة ويُفحص على ملف A4 أفقي مطبوع بمتصفح Chrome قبل الدمج.",
+      "en": "Printed reports keep their design: values and data are fixed, not the layout, and any unavoidable layout change reuses the existing print classes and is checked on a Chrome-printed A4 landscape PDF before merging."
+    },
+    {
+      "ar": "الفصل المنتهي تاريخه يُعلن «منتهياً» تلقائياً (قرار 2026/10/1)، ولا يحمي منه إلا إعادة فتح حقيقية بعد نهايته.",
+      "en": "A term whose end date has passed is declared ended automatically (decision of 2026-10-01), and only a genuine re-opening after its end protects it."
+    }
+  ]
+}

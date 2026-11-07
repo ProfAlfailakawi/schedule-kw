@@ -1,0 +1,2317 @@
+{
+  "id": "NTF",
+  "order": 14,
+  "icon": "bell-ring",
+  "title": {
+    "ar": "الإشعارات والأثر والقناة الحيّة",
+    "en": "Notifications, activity and live channel"
+  },
+  "tagline": {
+    "ar": "جرس يُشتقّ من الحال، وقناة حيّة تُعلن التغيير، وأثر لا يُمحى، وتقويم يُشترك فيه.",
+    "en": "A bell derived from state, a live channel that announces change, an immutable trail, and a calendar you subscribe to."
+  },
+  "summary": {
+    "ar": "تجمع الوحدة كل ما يُعلم المستخدم بما جرى دون أن يطلب: مركز الإشعارات والجرس، وتنبيهات الجوال (Web Push) لمنسّقي الأقسام ولبطاقة الأستاذ، والقناة الحيّة التي تبثّ تغيير الجدول بين الشاشات والنسخ، والحضور وزملاء الفريق، وحماية الكتابة القديمة بـ«حدّث ثم أعد»، وسجلّ «الأثر» الذي لا يُعدَّل، وذاكرة الموعد، واشتراكات التقويم العامة (ICS). يعتمد كل ذلك على أن يبقى الخادم هو الحَكَم في النطاق والصلاحية، وعلى أن يكون الإعلام خفيفاً: خبر بلا صفوف، ونبضة قصيرة بدل مجرى مفتوح طوال اليوم.",
+    "en": "The module gathers everything that tells a user what happened without being asked: the notification center and bell, push notifications (Web Push) for department coordinators and faculty cards, the live channel that broadcasts schedule changes across screens and instances, presence and team colleagues, stale-write protection through Refresh-and-retry, the immutable activity trail, row memory, and public subscription calendars (ICS). All of it relies on the server remaining the arbiter of scope and permission and on notification staying light: news without rows, and a short pulse instead of a stream held open all day."
+  },
+  "actors": [
+    "committeeChair",
+    "departmentHead",
+    "dean",
+    "viceDean",
+    "registrarHead",
+    "collegeRegistrar",
+    "registrarStaff",
+    "advisor",
+    "instructor",
+    "student",
+    "visitor",
+    "standard",
+    "admin",
+    "system"
+  ],
+  "sources": [
+    "src/server/routes/notificationsRoutes.ts",
+    "src/server/routes/publicCalendarRoutes.ts",
+    "src/server/routes/scheduleLiveRoutes.ts",
+    "src/server/core/notifications.ts",
+    "src/server/core/liveChannel.ts",
+    "src/server/notificationCache.ts",
+    "src/server/pushRoutes.ts",
+    "src/server/pushCard.ts",
+    "src/server/pushMessages.ts",
+    "src/server/webPush.ts",
+    "src/server/activityTrail.ts",
+    "src/server/livePulse.ts",
+    "src/server/calendarSecret.ts",
+    "src/server/teamPresence.ts",
+    "public/push-sw.js",
+    "src/utils/activityTrail.ts",
+    "src/utils/notificationCenter.ts",
+    "src/utils/notificationSeen.ts",
+    "src/utils/featureNotifications.ts",
+    "src/utils/icalendar.ts",
+    "src/utils/livePulse.ts",
+    "src/utils/pushClient.ts",
+    "src/utils/notifyFocus.ts",
+    "src/utils/staleWrite.ts",
+    "src/utils/teamWork.ts",
+    "src/utils/colleagueFace.ts",
+    "src/utils/pageAwake.ts",
+    "src/components/NotificationCenter.tsx",
+    "src/components/PushCard.tsx",
+    "src/components/RowHistory.tsx",
+    "src/components/StaleWriteToast.tsx",
+    "src/components/ColleagueFaces.tsx",
+    "src/components/ColleagueHoldNotice.tsx",
+    "src/components/schedulePresence.ts",
+    "src/components/trail/*",
+    "src/db/beaconEcho.ts",
+    "src/db/demoActivityTrail.ts"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "مركز الإشعارات (الجرس)",
+        "en": "Notification center (bell)"
+      },
+      "file": "src/components/NotificationCenter.tsx",
+      "note": {
+        "ar": "جرس وشارة ولوحة بثلاث مجموعات وإشعار عائم، وفيها بطاقة «فعّل التنبيهات على جوالك».",
+        "en": "A bell, badge, three-group panel and floating notice, holding the \"enable alerts on your phone\" card."
+      }
+    },
+    {
+      "name": {
+        "ar": "بطاقة تنبيهات الجوال",
+        "en": "Phone alerts card"
+      },
+      "file": "src/components/PushCard.tsx",
+      "note": {
+        "ar": "تفعيل الاشتراك وتجربته وإيقافه، وإرشاد iPhone بثلاث خطوات.",
+        "en": "Enable, test and stop the subscription, plus a three-step iPhone guide."
+      }
+    },
+    {
+      "name": {
+        "ar": "الأثر (ورقة جانبية)",
+        "en": "Activity trail (side sheet)"
+      },
+      "file": "src/components/trail/TrailSheet.tsx",
+      "note": {
+        "ar": "وجوه من عمل وشريط زمني وتصفية بالشخص والنوع، للقراءة فقط.",
+        "en": "Faces of who worked, a timeline, and person and kind filters; read-only."
+      }
+    },
+    {
+      "name": {
+        "ar": "بصمة آخر تعديل",
+        "en": "Last-edit stamp"
+      },
+      "file": "src/components/trail/TrailStamp.tsx",
+      "note": {
+        "ar": "«آخر تعديل: فلان · أمس 10:20» عند المرور على الموعد.",
+        "en": "\"Last edit: person · yesterday 10:20\" on hovering a row."
+      }
+    },
+    {
+      "name": {
+        "ar": "«لماذا؟» على الموعد",
+        "en": "Row \"Why?\""
+      },
+      "file": "src/components/RowHistory.tsx",
+      "note": {
+        "ar": "مصدر الموعد وسجلّ ما جرى عليه وحقائقه.",
+        "en": "The row's origin, its change history and its facts."
+      }
+    },
+    {
+      "name": {
+        "ar": "شارة الزملاء",
+        "en": "Colleague faces"
+      },
+      "file": "src/components/ColleagueFaces.tsx",
+      "note": {
+        "ar": "حتى 5 وجوه و«+N» وقائمة الحاضرين.",
+        "en": "Up to 5 faces, \"+N\", and the list of those present."
+      }
+    },
+    {
+      "name": {
+        "ar": "شريط «حدّث ثم أعد»",
+        "en": "Refresh-and-retry bar"
+      },
+      "file": "src/components/StaleWriteToast.tsx",
+      "note": {
+        "ar": "شريط كهرماني هادئ بزر «حدّث».",
+        "en": "A calm amber bar with a Refresh button."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "طلب أستاذ يصل الجرس في لحظته",
+        "en": "An instructor request reaches the bell at once"
+      },
+      "steps": [
+        {
+          "ar": "يرسل الأستاذ طلبه من بطاقته فيصدر الخادم نبضة notify.",
+          "en": "The instructor sends a request from the card and the server emits a notify pulse."
+        },
+        {
+          "ar": "شاشة رئيس اللجنة المفتوحة تسأل النبضة بعد ثوانٍ فتكتشف أن notifiedAt تقدّم.",
+          "en": "The chair's open screen asks the pulse within seconds and finds notifiedAt has advanced."
+        },
+        {
+          "ar": "يقرأ الجرس /api/notifications بعد 700 مللي ثانية ويطفو سطر «وصل الآن» 9 ثوانٍ.",
+          "en": "The bell reads /api/notifications after 700 ms and a \"just arrived\" line floats for 9 seconds."
+        },
+        {
+          "ar": "إن فُعّلت تنبيهات الجوال على الجهاز يصل التنبيه هناك بدل إشعار سطح المكتب.",
+          "en": "If phone alerts are active on the device the notice arrives there instead of a desktop notification."
+        },
+        {
+          "ar": "يضغط الإشعار فيُعلَّم مقروءاً ويفتح الورشة على القسم.",
+          "en": "Pressing the notice marks it read and opens the workspace on the department."
+        }
+      ]
+    },
+    {
+      "actor": "instructor",
+      "title": {
+        "ar": "قرار القسم يصل هاتف الأستاذ",
+        "en": "The department's decision reaches the instructor's phone"
+      },
+      "steps": [
+        {
+          "ar": "يفتح الأستاذ بطاقته ويضغط 🔔 فيمنح المتصفح الإذن ويُحفظ اشتراكه ببطاقته.",
+          "en": "The instructor opens the card and presses the bell, grants permission, and the subscription is saved under the card."
+        },
+        {
+          "ar": "ثبّت القسم ثلاثة بنود من طلبه خلال 10 دقائق.",
+          "en": "The department fixes three items of the request within 10 minutes."
+        },
+        {
+          "ar": "يتحقق الخادم أن النص لا يحمل أثر قاعة فيرسل تنبيهاً واحداً «ثُبّت 3 مواعيد».",
+          "en": "The server checks the text carries no room trace and sends one notice \"3 appointments fixed\"."
+        },
+        {
+          "ar": "يلمس الأستاذ التنبيه فيفتح عامل التنبيهات بطاقته نفسها.",
+          "en": "The instructor taps the notice and the worker opens the same card."
+        }
+      ]
+    },
+    {
+      "actor": "advisor",
+      "title": {
+        "ar": "زميل سبقك إلى الطلب نفسه",
+        "en": "A colleague got to the same request first"
+      },
+      "steps": [
+        {
+          "ar": "يفتح المرشد طلب شعبة فيرى زميلاً في الشارة وعلامة «يعمل على هذا».",
+          "en": "The advisor opens a section request and sees a colleague in the chip with a working-on-this mark."
+        },
+        {
+          "ar": "يحفظ الزميل قراره فيزيد رقم إصدار الطلب.",
+          "en": "The colleague saves a decision and the request's version number rises."
+        },
+        {
+          "ar": "يحفظ المرشد بالختم القديم فيردّ الخادم 409 ورمز stale-write ولا يُمسّ الطلب.",
+          "en": "The advisor saves with the old stamp and the server answers 409 stale-write, touching nothing."
+        },
+        {
+          "ar": "يظهر شريط «عدّل زميلُك هذا قبلك» فيضغط «حدّث» ويرى قرار الزميل ثم يعيد.",
+          "en": "The bar \"your colleague edited this before you\" appears; the advisor presses Refresh, sees the decision and retries."
+        }
+      ]
+    },
+    {
+      "actor": "instructor",
+      "title": {
+        "ar": "اشتراك تقويم لا ينقطع",
+        "en": "A calendar subscription that does not break"
+      },
+      "steps": [
+        {
+          "ar": "يضيف الأستاذ رابط /api/public/cal/… من بطاقته إلى تقويم هاتفه.",
+          "en": "The instructor adds the /api/public/cal/… link from the card to the phone's calendar."
+        },
+        {
+          "ar": "يعيد الهاتف قراءة الملف كل 6 ساعات فيردّ الخادم 304 حين لا يتغيّر شيء.",
+          "en": "The phone re-reads the file every 6 hours and the server answers 304 when nothing changed."
+        },
+        {
+          "ar": "ينشر القسم بطاقة جديدة فيبقى الرابط نفسه صالحاً لأن مفتاحه يتبع الأستاذ.",
+          "en": "The department publishes a new card and the same link stays valid because its key follows the instructor."
+        },
+        {
+          "ar": "إذا لم يبقَ له رابط بطاقة حيّ يصل تقويم فارغ بوصف «توقّف» فتُمسح المحاضرات بهدوء.",
+          "en": "If no live card link remains an empty calendar with a stopped description arrives and lectures clear quietly."
+        }
+      ]
+    },
+    {
+      "actor": "dean",
+      "title": {
+        "ar": "العميد يطّلع على الأثر",
+        "en": "The dean reads the trail"
+      },
+      "steps": [
+        {
+          "ar": "يفتح العميد ورقة «الأثر» فيحدّد الخادم جمهوره: العميد المساعد ورؤساء الأقسام في كليته.",
+          "en": "The dean opens the trail sheet and the server fixes the audience: the vice dean and department heads of the college."
+        },
+        {
+          "ar": "تظهر وجوههم بحلقة تقيس حركات آخر 7 أيام وشريط زمني للفصلين.",
+          "en": "Their faces appear with a ring measuring the last 7 days and a timeline for the two terms."
+        },
+        {
+          "ar": "يصفّي بالشخص أو بالنوع فيعيد الخادم الحكم على كل سطر.",
+          "en": "Filtering by person or kind makes the server re-apply the verdict on each line."
+        },
+        {
+          "ar": "يفتح سطراً فيرى «قبل ← بعد» بلا أي زر تعديل.",
+          "en": "Opening a line shows \"before ← after\" with no edit button."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "ntf-live",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "مسار خبر تغيير الجدول",
+        "en": "Path of a schedule-change announcement"
+      },
+      "caption": {
+        "ar": "الخبر لا يحمل صفوفاً؛ كل شاشة تعيد قراءة نطاقها بالطريق المقيَّد.",
+        "en": "The news carries no rows; each screen re-reads its own scope through the scoped road."
+      },
+      "nodes": [
+        {
+          "id": "w",
+          "label": {
+            "ar": "كتابة على الجدول",
+            "en": "Schedule write"
+          },
+          "icon": "pencil",
+          "kind": "start"
+        },
+        {
+          "id": "inv",
+          "label": {
+            "ar": "مسح الذاكرة المؤقتة",
+            "en": "Cache cleared"
+          },
+          "icon": "eraser",
+          "kind": "system"
+        },
+        {
+          "id": "deb",
+          "label": {
+            "ar": "تجميع 350 م.ث",
+            "en": "350 ms debounce"
+          },
+          "icon": "timer",
+          "kind": "state"
+        },
+        {
+          "id": "sse",
+          "label": {
+            "ar": "بث schedules للمجارى المحلية",
+            "en": "Broadcast schedules to local streams"
+          },
+          "icon": "radio",
+          "kind": "system"
+        },
+        {
+          "id": "bea",
+          "label": {
+            "ar": "كتابة المنارة",
+            "en": "Write beacon"
+          },
+          "icon": "flag",
+          "kind": "system"
+        },
+        {
+          "id": "oth",
+          "label": {
+            "ar": "نسخة أخرى تراقب المنارة",
+            "en": "Other instance watching beacon"
+          },
+          "icon": "server",
+          "kind": "system"
+        },
+        {
+          "id": "q",
+          "label": {
+            "ar": "مسح هادئ دون كتابة المنارة",
+            "en": "Quiet clear, no beacon write"
+          },
+          "icon": "shield-off",
+          "kind": "decision"
+        },
+        {
+          "id": "scr",
+          "label": {
+            "ar": "الشاشة تعيد قراءة نطاقها",
+            "en": "Screen re-reads its scope"
+          },
+          "icon": "refresh-cw",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "w",
+          "to": "inv"
+        },
+        {
+          "from": "inv",
+          "to": "deb"
+        },
+        {
+          "from": "deb",
+          "to": "sse"
+        },
+        {
+          "from": "deb",
+          "to": "bea",
+          "label": {
+            "ar": "تغيير حقيقي",
+            "en": "Real change"
+          }
+        },
+        {
+          "from": "bea",
+          "to": "oth"
+        },
+        {
+          "from": "oth",
+          "to": "q"
+        },
+        {
+          "from": "q",
+          "to": "sse",
+          "label": {
+            "ar": "ثم بث محلي",
+            "en": "Then local broadcast"
+          }
+        },
+        {
+          "from": "sse",
+          "to": "scr"
+        }
+      ]
+    },
+    {
+      "id": "ntf-pulse",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "النبضة أم المجرى؟",
+        "en": "Pulse or stream?"
+      },
+      "caption": {
+        "ar": "اللسان الوحيد على لوحه لا يُبقي خيطاً مفتوحاً.",
+        "en": "A tab alone on its board holds no open stream."
+      },
+      "nodes": [
+        {
+          "id": "att",
+          "label": {
+            "ar": "اللسان منتبه؟",
+            "en": "Tab attentive?"
+          },
+          "icon": "eye",
+          "kind": "decision"
+        },
+        {
+          "id": "none",
+          "label": {
+            "ar": "لا سؤال",
+            "en": "No question"
+          },
+          "icon": "moon",
+          "kind": "end"
+        },
+        {
+          "id": "ask",
+          "label": {
+            "ar": "سؤال النبضة",
+            "en": "Ask the pulse"
+          },
+          "icon": "activity",
+          "kind": "system"
+        },
+        {
+          "id": "co",
+          "label": {
+            "ar": "معي أحد؟",
+            "en": "Anyone with me?"
+          },
+          "icon": "users",
+          "kind": "decision"
+        },
+        {
+          "id": "poll",
+          "label": {
+            "ar": "نبضة كل 15 ث ومقارنة الأوقات",
+            "en": "Pulse every 15 s, compare times"
+          },
+          "icon": "clock",
+          "kind": "state"
+        },
+        {
+          "id": "str",
+          "label": {
+            "ar": "فتح المجرى الكامل والحضور",
+            "en": "Open full stream and presence"
+          },
+          "icon": "radio",
+          "kind": "state"
+        },
+        {
+          "id": "sig",
+          "label": {
+            "ar": "إشارة schedules أو notify",
+            "en": "schedules or notify signal"
+          },
+          "icon": "bell",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "att",
+          "to": "none",
+          "label": {
+            "ar": "نائم",
+            "en": "Asleep"
+          }
+        },
+        {
+          "from": "att",
+          "to": "ask",
+          "label": {
+            "ar": "منتبه أو نعسان",
+            "en": "Awake or drowsy"
+          }
+        },
+        {
+          "from": "ask",
+          "to": "co"
+        },
+        {
+          "from": "co",
+          "to": "poll",
+          "label": {
+            "ar": "وحدي",
+            "en": "Alone"
+          }
+        },
+        {
+          "from": "co",
+          "to": "str",
+          "label": {
+            "ar": "زميل",
+            "en": "Colleague"
+          }
+        },
+        {
+          "from": "poll",
+          "to": "sig"
+        },
+        {
+          "from": "str",
+          "to": "sig"
+        }
+      ]
+    },
+    {
+      "id": "ntf-push",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "حياة تنبيه جوال",
+        "en": "Life of a phone notice"
+      },
+      "caption": {
+        "ar": "التنبيه ينتظر صاحبه هو، ولا يحمل أثر قاعة.",
+        "en": "A notice waits only for its own owner and never carries a room trace."
+      },
+      "nodes": [
+        {
+          "id": "ev",
+          "label": {
+            "ar": "حدث (طلب أو قرار)",
+            "en": "Event (request or decision)"
+          },
+          "icon": "zap",
+          "kind": "start"
+        },
+        {
+          "id": "aud",
+          "label": {
+            "ar": "من يستحق؟ النطاق والصلاحية 7",
+            "en": "Who qualifies? scope and form 7"
+          },
+          "icon": "filter",
+          "kind": "decision"
+        },
+        {
+          "id": "cool",
+          "label": {
+            "ar": "تهدئة 3 دقائق",
+            "en": "3-minute cooldown"
+          },
+          "icon": "hourglass",
+          "kind": "decision"
+        },
+        {
+          "id": "room",
+          "label": {
+            "ar": "حارس القاعات",
+            "en": "Room guard"
+          },
+          "icon": "door-open",
+          "kind": "decision"
+        },
+        {
+          "id": "lim",
+          "label": {
+            "ar": "دلو الاشتراك 5 ثم 1/دقيقة",
+            "en": "Bucket 5 then 1/min"
+          },
+          "icon": "gauge",
+          "kind": "state"
+        },
+        {
+          "id": "send",
+          "label": {
+            "ar": "تشفير وتوقيع وإرسال",
+            "en": "Encrypt, sign, send"
+          },
+          "icon": "send",
+          "kind": "system"
+        },
+        {
+          "id": "gone",
+          "label": {
+            "ar": "404/410 يمحو الاشتراك",
+            "en": "404/410 deletes subscription"
+          },
+          "icon": "trash-2",
+          "kind": "end"
+        },
+        {
+          "id": "sw",
+          "label": {
+            "ar": "عامل التنبيهات يعرض ويفتح",
+            "en": "Worker shows and opens"
+          },
+          "icon": "smartphone",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "ev",
+          "to": "aud"
+        },
+        {
+          "from": "aud",
+          "to": "cool",
+          "label": {
+            "ar": "منسّق",
+            "en": "Coordinator"
+          }
+        },
+        {
+          "from": "aud",
+          "to": "room",
+          "label": {
+            "ar": "بطاقة أستاذ",
+            "en": "Faculty card"
+          }
+        },
+        {
+          "from": "cool",
+          "to": "lim"
+        },
+        {
+          "from": "room",
+          "to": "lim",
+          "label": {
+            "ar": "نظيف",
+            "en": "Clean"
+          }
+        },
+        {
+          "from": "lim",
+          "to": "send"
+        },
+        {
+          "from": "send",
+          "to": "gone",
+          "label": {
+            "ar": "منتهٍ",
+            "en": "Expired"
+          }
+        },
+        {
+          "from": "send",
+          "to": "sw",
+          "label": {
+            "ar": "مقبول",
+            "en": "Accepted"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ntf-feed",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "اشتراك التقويم الثابت",
+        "en": "Stable calendar subscription"
+      },
+      "caption": {
+        "ar": "المفتاح للأستاذ لا للرابط؛ وغياب البطاقة الحيّة يوقف ولا يكسر.",
+        "en": "The key belongs to the instructor, not the link; no live card pauses without breaking."
+      },
+      "nodes": [
+        {
+          "id": "req",
+          "label": {
+            "ar": "طلب الهاتف للملف",
+            "en": "Phone requests the file"
+          },
+          "icon": "smartphone",
+          "kind": "start"
+        },
+        {
+          "id": "key",
+          "label": {
+            "ar": "المفتاح يطابق HMAC؟",
+            "en": "Key matches HMAC?"
+          },
+          "icon": "key-round",
+          "kind": "decision"
+        },
+        {
+          "id": "nf",
+          "label": {
+            "ar": "404",
+            "en": "404"
+          },
+          "icon": "x",
+          "kind": "end"
+        },
+        {
+          "id": "live",
+          "label": {
+            "ar": "بطاقة حيّة بيده؟",
+            "en": "Holds a live card?"
+          },
+          "icon": "id-card",
+          "kind": "decision"
+        },
+        {
+          "id": "pause",
+          "label": {
+            "ar": "200 تقويم فارغ بوصف «توقّف»",
+            "en": "200 empty calendar, \"stopped\" description"
+          },
+          "icon": "pause",
+          "kind": "state"
+        },
+        {
+          "id": "build",
+          "label": {
+            "ar": "بناء المحاضرات والاستثناءات والتغطية",
+            "en": "Build lectures, exceptions, coverage"
+          },
+          "icon": "calendar-days",
+          "kind": "system"
+        },
+        {
+          "id": "etag",
+          "label": {
+            "ar": "ETag يطابق؟",
+            "en": "ETag matches?"
+          },
+          "icon": "equal",
+          "kind": "decision"
+        },
+        {
+          "id": "n304",
+          "label": {
+            "ar": "304",
+            "en": "304"
+          },
+          "icon": "check",
+          "kind": "end"
+        },
+        {
+          "id": "ok",
+          "label": {
+            "ar": "200 ملف ICS",
+            "en": "200 ICS file"
+          },
+          "icon": "file-down",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "req",
+          "to": "key"
+        },
+        {
+          "from": "key",
+          "to": "nf",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "key",
+          "to": "live",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "live",
+          "to": "pause",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "live",
+          "to": "build",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "pause",
+          "to": "etag"
+        },
+        {
+          "from": "build",
+          "to": "etag"
+        },
+        {
+          "from": "etag",
+          "to": "n304",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "etag",
+          "to": "ok",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        }
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "FR-NTF-001",
+      "kind": "functional",
+      "title": {
+        "ar": "الجرس يُشتقّ من الحال",
+        "en": "Bell derived from current state"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يشتقّ إشعارات الجرس من حال الجداول والطلبات لحظة السؤال عبر GET /api/notifications، وألا يخزّن أي إشعار، فلا يبقى إشعار بعد زوال سببه.",
+        "en": "The system shall derive bell notifications from the live state of schedules and requests at the moment GET /api/notifications is called, and shall not store any notification, so that no notice survives the removal of its cause."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "collegeRegistrar",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "عند اعتماد جدول قسم ثم السؤال من جديد، يختفي إشعار «بانتظار الاعتماد» ويظهر إشعار «اعتُمد» بنبرة «تمّ».",
+          "en": "After a department schedule is accepted and the bell is queried again, the pending-approval notice is gone and an accepted notice with the done tone appears."
+        },
+        {
+          "ar": "طلب بلا فصل جارٍ ولا فصل مطلوب يردّ { termId: 0, items: [] }.",
+          "en": "A request with no current term and no explicit term returns { termId: 0, items: [] }."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/notificationsRoutes.ts",
+          "src/utils/notificationCenter.ts"
+        ],
+        "tests": [
+          "tests/notification-center-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-002",
+      "kind": "functional",
+      "title": {
+        "ar": "نطاق الإشعارات ونبراتها",
+        "en": "Notification scope and tones"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يبني لكل صفة (رئيس لجنة الجدول، رئيس القسم، التسجيل، العميدان، عميد التسجيل) إشعاراتها داخل نطاقها وحده، وأن يرتّبها بالنبرة (تنبيه ثم مطلوب ثم انتظار ثم تمّ) ثم الأحدث وقتاً.",
+        "en": "The system shall build each role's notifications (committee chair, department head, registration, deans, dean of registration) inside that role's scope only, and shall order them by tone (alert, action, waiting, done) and then by most recent time."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "مستخدم نطاقه قسم واحد لا يتلقى أي إشعار عن قسم آخر.",
+          "en": "A user scoped to one department receives no notice about another department."
+        },
+        {
+          "ar": "إشعار بنبرة «تنبيه» يسبق إشعاراً بنبرة «مطلوب» ولو كان أقدم.",
+          "en": "An alert-tone notice precedes an action-tone notice even if it is older."
+        },
+        {
+          "ar": "جدول مُرجَع بقي أكثر من 3 أيام بلا إعادة إرسال يُنبَّه به العميد أو العميد المساعد بنبرة «تنبيه».",
+          "en": "A returned schedule idle for more than 3 days raises an alert-tone notice for the dean or vice dean."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/notificationCenter.ts",
+          "src/server/routes/notificationsRoutes.ts"
+        ],
+        "tests": [
+          "tests/notification-center-audit.ts",
+          "tests/dean-notify-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-003",
+      "kind": "functional",
+      "title": {
+        "ar": "الجرس لفصلين",
+        "en": "Two-term bell"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ الجرس للفصل الجاري ولفصل التخطيط (أحدث فصل لم ينتهِ وفيه نشاط) معاً، وأن يسبق معرّف بند فصل التخطيط بالبادئة term-<رقم>: ويحمل اسم فصله، وأن يُجاب عن فصل بعينه وحده حين يُمرَّر termId.",
+        "en": "The system shall read the bell for both the current term and the planning term (the newest unfinished term with activity), shall prefix planning-term item ids with term-<number>: and carry the term name, and shall answer for one explicit term alone when termId is passed."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "حين يختلف فصل التخطيط عن الجاري يحمل تفصيل بنده اسم الفصل أمام النص.",
+          "en": "When the planning term differs from the current one, its item detail is prefixed with the term name."
+        },
+        {
+          "ar": "مع termId صريح لا يُقرأ فصل تخطيط ولا يظهر بند بالبادئة term-.",
+          "en": "With an explicit termId no planning term is read and no item carries the term- prefix."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/notifications.ts",
+          "src/server/routes/notificationsRoutes.ts"
+        ],
+        "tests": [
+          "tests/notification-center-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-004",
+      "kind": "functional",
+      "title": {
+        "ar": "إشعارات المزايا وعزل الأعطال",
+        "en": "Feature notices and fault isolation"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يُلحق بالجرس إشعارات الصحائف قيد المراجعة (حتى 4 مجموعات ثم بند «أيضاً»)، ورادار التسجيل، وتعثّر الطلبة، وحاجة طلبة «مساري» للشعب (حتى 4 أقسام من أول 30)، وطلبات الشعب، وحملات الإعلانات لحساب الإدارة الرئيسي خارج التجريبي، وألا يُسقط تعذّر أيٍّ منها الجرس.",
+        "en": "The system shall append to the bell notices for plan sheets under review (up to 4 groups, then a single \"more\" item), the registration radar, students who got stuck, Masari students' section needs (up to 4 departments out of the first 30), section requests, and advertising campaigns for the root administrator account outside the demo sandbox, and a failure in any one of them shall not drop the bell."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "قسم فيه صحيفتان لهما اسم واحد يُعدّ إشعاراً واحداً لا اثنين.",
+          "en": "A department with two sheets of the same kind yields one notice, not two."
+        },
+        {
+          "ar": "عند فشل قراءة الرادار يُكتب الخطأ في السجل ويردّ الجرس ببقية البنود.",
+          "en": "When the radar read fails the error is logged and the bell still returns the remaining items."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/featureNotifications.ts",
+          "src/server/routes/notificationsRoutes.ts"
+        ],
+        "tests": [
+          "tests/feature-notifications-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-NTF-005",
+      "kind": "data",
+      "title": {
+        "ar": "المقروء على الخادم",
+        "en": "Server-side read marks"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ علامات «مقروء» لكل مستخدم على الخادم عبر POST /api/notifications/seen بمفتاح الفصل (seenKey)، بسقف 1000 معرّف يبقى الأحدث منها وبطول أقصاه 200 حرف للمعرّف، وأن يُجيز كتابتها لأي صفة حتى القراءة فقط.",
+        "en": "The system shall store read marks per user on the server through POST /api/notifications/seen, keyed by term (seenKey), capped at 1000 ids with the newest kept and at most 200 characters per id, and shall permit the write for every role, read-only roles included."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "committeeChair",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "إرسال 1050 معرّفاً يُبقي آخر 1000 ويُسقط الأقدم.",
+          "en": "Sending 1050 ids keeps the last 1000 and drops the oldest."
+        },
+        {
+          "ar": "إشعار الفصل الماضي بمعرّف مطابق لا يُخفي «جديد» عن إشعار الفصل الحالي.",
+          "en": "A previous-term notice with the same id does not hide the new badge of the current term's notice."
+        },
+        {
+          "ar": "إعادة إرسال ما هو محفوظ لا تكتب شيئاً.",
+          "en": "Re-sending what is already stored writes nothing."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/notificationSeen.ts",
+          "src/server/routes/notificationsRoutes.ts",
+          "src/server/roleGuard.ts"
+        ],
+        "tests": [
+          "tests/notification-center-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-NTF-006",
+      "kind": "interface",
+      "title": {
+        "ar": "واجهة الجرس",
+        "en": "Bell interface"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض جرساً واحداً بشارة تعدّ «المطلوب منك» غير المقروء (وتُقصّ عند 99+) ولوحة بثلاث مجموعات («مطلوبٌ منك» و«بانتظار غيرك» و«تمّ»)، وأن يطفو إشعار عاجل جديد 9 ثوانٍ، وأن يحمل عنوان النافذة العدد.",
+        "en": "The system shall present one bell with a badge counting unread items that are required of the user (capped at 99+) and a panel with three groups (\"Required of you\", \"Waiting on others\", \"Done\"), shall float a newly arrived urgent notice for 9 seconds, and shall carry the count in the window title."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "ثلاثة إشعارات مطلوبة غير مقروءة تُظهر الرقم 3 على الجرس؛ وبعد «تعليم الكل كمقروء» تختفي الشارة.",
+          "en": "Three unread required items show 3 on the bell; after \"mark all as read\" the badge disappears."
+        },
+        {
+          "ar": "عنوان الصفحة يصير «(3) …» ويعود إلى أصله حين لا يبقى غير مقروء.",
+          "en": "The page title becomes \"(3) …\" and returns to its original when nothing unread remains."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/NotificationCenter.tsx"
+        ],
+        "tests": [
+          "tests/notify-bell-yield-audit.ts",
+          "tests/notification-center-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-NTF-007",
+      "kind": "functional",
+      "title": {
+        "ar": "فتح الإشعار على قسمه",
+        "en": "Opening a notice on its department"
+      },
+      "text": {
+        "ar": "يجب على النظام عند الضغط على إشعار أن يعلّمه مقروءاً وأن ينتقل إلى الشاشة التي يخصّها مع حمل نطاقه (كلية وقسم) لتفتح الشاشة عليه، وألا يوجّه إلى شاشة لا تملكها الصفة.",
+        "en": "When a notice is pressed the system shall mark it read and navigate to the screen it belongs to, carrying its college and department so the screen opens on it, and shall not route a role to a screen it does not hold."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "إشعار رئيس القسم عن ملاحظات التسجيل يفتح «تغييرات الجدول» لا ورشة الجدول.",
+          "en": "A department head's notice about registrar notes opens Schedule Changes, not the schedule workspace."
+        },
+        {
+          "ar": "طلبات الأساتذة لا يُعرض بندها لمن لا يملك شاشة الجدول (الصلاحية 7).",
+          "en": "Instructor-request items are not shown to a role without the schedule screen (form 7)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/notificationCenter.ts",
+          "src/utils/notifyFocus.ts",
+          "src/components/NotificationCenter.tsx"
+        ],
+        "tests": [
+          "tests/dean-notify-audit.ts",
+          "tests/notification-center-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NTF-008",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "كلفة الجرس",
+        "en": "Bell cost"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ مجموع كشف الطلبة وعدّ موانع القسم المعتمد دقيقة (60 000 مللي ثانية) وأن يمحوهما عند تغيّر الجدول أو كتابة الكشف، وأن يجمّع نبضات «notify» الصادرة عن قرارات كشف التسجيل في نبضة واحدة كل 3 ثوانٍ.",
+        "en": "The system shall memoise the student-queue aggregate and the blocking-conflict count for an accepted department for one minute (60,000 ms), shall clear them when a schedule changes or the queue is written, and shall coalesce notify pulses caused by registration-queue decisions into one pulse every 3 seconds."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "20 قراراً متتالية على الكشف تصدر نبضة notify واحدة لا عشرين.",
+          "en": "Twenty consecutive queue decisions emit one notify pulse, not twenty."
+        },
+        {
+          "ar": "قراءة فاشلة لا تُحفظ في الذاكرة المؤقتة، وقراءة بدأت قبل المحو لا تُحفظ بعده.",
+          "en": "A failed read is not cached, and a read begun before invalidation is not kept after it."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/notificationCache.ts",
+          "src/server/core/notifications.ts",
+          "src/server/core/liveChannel.ts"
+        ],
+        "tests": [
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-009",
+      "kind": "functional",
+      "title": {
+        "ar": "القناة الحيّة للجدول",
+        "en": "Live schedule channel"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يبثّ لكل شاشة مفتوحة حدثاً خفيفاً (schedules ثم changedAt) عبر GET /api/schedules/events بعد أي كتابة على الجدول بتأخير تجميع 350 مللي ثانية، دون حمل أي صف، وأن يقصر المسار على الصلاحيات 7 و8 و9 و10 و14 و16 و17، وبسقف 400 اتصال، ونبضة حياة كل 25 ثانية، وإعادة اتصال بعد 4000 مللي ثانية.",
+        "en": "The system shall broadcast a light event (schedules, with changedAt) to every open screen through GET /api/schedules/events after any schedule write with a 350 ms coalescing delay, carrying no rows, shall restrict the route to forms 7, 8, 9, 10, 14, 16 and 17, with a cap of 400 connections, a keep-alive ping every 25 seconds and a 4000 ms retry."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "advisor"
+      ],
+      "acceptance": [
+        {
+          "ar": "حفظ ست بطاقات في سحبة واحدة يصل كل مشترك برسالة schedules واحدة.",
+          "en": "Saving six cards in one drag reaches each subscriber as one schedules message."
+        },
+        {
+          "ar": "الاتصال الأربعمئة وواحد يُغلق فوراً وتعود شاشته إلى القراءة عند الطلب.",
+          "en": "The 401st connection is closed at once and its screen falls back to reading on demand."
+        },
+        {
+          "ar": "حمولة الحدث لا تحتوي صفوفاً: كل شاشة تعيد قراءة نطاقها بالطريق المقيَّد المعتاد.",
+          "en": "The event payload contains no rows: each screen re-reads its own scope through the normal scoped road."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/scheduleLiveRoutes.ts",
+          "src/server/core/liveChannel.ts",
+          "src/components/Schedules.tsx"
+        ],
+        "tests": [
+          "tests/live-pulse-http-audit.ts",
+          "tests/live-pulse-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-010",
+      "kind": "functional",
+      "title": {
+        "ar": "بث التغييرات عبر النسخ",
+        "en": "Cross-instance change broadcast"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يكتب وثيقة منارة (beacon) عند كل تغيير حقيقي وأن يراقبها في كل نسخة خادم، فإذا جاء تغيير من نسخة أخرى مسح الذاكرة المؤقتة للجداول والكشف والجرس وأعاد البثّ محلياً دون أن يعيد كتابة المنارة، منعاً لتردّد لا ينتهي.",
+        "en": "The system shall write a beacon document on every real change and watch it in every server instance; when a change arrives from another instance it shall clear the schedule, queue and bell caches and rebroadcast locally without rewriting the beacon, to prevent an endless echo."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "كتابة على نسخة ثانية تصل شاشة مفتوحة على النسخة الأولى برسالة schedules.",
+          "en": "A write on a second instance reaches a screen held on the first instance as a schedules message."
+        },
+        {
+          "ar": "النسخة التي كتبت لا تتلقى كتابتها من المنارة مرة ثانية.",
+          "en": "The instance that wrote does not receive its own write back from the beacon."
+        },
+        {
+          "ar": "تغيير من صندوق تجريبي لا يكتب المنارة.",
+          "en": "A change made inside a demo sandbox does not write the beacon."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/liveChannel.ts",
+          "src/db/beaconEcho.ts"
+        ],
+        "tests": [
+          "tests/live-pulse-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-011",
+      "kind": "functional",
+      "title": {
+        "ar": "الحضور على اللوح",
+        "en": "Board presence"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ في الذاكرة وحدها موضع كل مستخدم على لوح (الخلية تحت المؤشر، والبطاقة في اليد، والموعد المفتوح) وأن يبثّ قائمة الحاضرين لأصحاب اللوح نفسه فقط، بأسماء وحقول مسمّاة بلا كلمة سر ولا اسم دخول، وتُعدّ العلامة قديمة بعد 45 ثانية ويُسقط الاتصال الصامت بعد 90 ثانية.",
+        "en": "The system shall keep each user's position on a board (cell under the pointer, card in hand, row open in the editor) in memory only and shall broadcast the roster to members of that same board only, as named fields with no password hash or login name; a mark is stale after 45 seconds and a silent connection is dropped after 90 seconds."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "advisor",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "مستخدم من كلية أخرى، ولو كان مدير نظام، لا يرى أسماء حاضري لوح لا ينتمي إليه.",
+          "en": "A user from another college, an administrator included, does not see the names of those present on a board they are not scoped to."
+        },
+        {
+          "ar": "تجمّد لسان لأكثر من 45 ثانية يُفرغ علامته ويبقى اسمه حتى 90 ثانية.",
+          "en": "A tab frozen for more than 45 seconds has its mark emptied and stays listed until 90 seconds."
+        },
+        {
+          "ar": "POST /api/auth/presence لا يعدّل إلا مجرى المستخدم نفسه.",
+          "en": "POST /api/auth/presence only alters the calling user's own stream."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/liveChannel.ts",
+          "src/server/routes/scheduleLiveRoutes.ts",
+          "src/server/routes/authRoutes.ts",
+          "src/components/schedulePresence.ts"
+        ],
+        "tests": [
+          "tests/live-pulse-http-audit.ts",
+          "tests/colleague-guard-measure-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-NTF-012",
+      "kind": "functional",
+      "title": {
+        "ar": "نبضة الحضور والتغيير",
+        "en": "Presence and change pulse"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يجيب GET /api/schedules/pulse من الذاكرة دون قراءة قاعدة البيانات بـ { company, changedAt, notifiedAt } وترويسة no-store، وأن يعدّ company الأشخاص الآخرين الحاضرين أمام شاشاتهم على اللوح نفسه (لا الألسنة)، وأن يردّ 403 لحساب بلا صلاحية فيتوقف اللسان عن السؤال.",
+        "en": "The system shall answer GET /api/schedules/pulse from memory with no database read, returning { company, changedAt, notifiedAt } and a no-store header, shall count in company the other people at their screens on the same board (not tabs), and shall return 403 to an account without permission so that the tab stops asking."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "advisor"
+      ],
+      "acceptance": [
+        {
+          "ar": "زميل بثلاثة ألسنة يُحسب واحداً، ولساني الثاني لا يُحسب.",
+          "en": "A colleague with three tabs counts as one, and my own second tab counts as nobody."
+        },
+        {
+          "ar": "لسان لم يُلمس منذ مدة (active=0) أو مضى على نبضته أكثر من 90 ثانية لا يُحسب رفقة.",
+          "en": "A tab untouched for a while (active=0) or whose last pulse is older than 90 seconds is not company."
+        },
+        {
+          "ar": "نبضة بلا conn أو بنطاق غير مسموح تُجاب بـ company = 0.",
+          "en": "A pulse without conn, or for a scope not allowed, is answered with company = 0."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/scheduleLiveRoutes.ts",
+          "src/server/livePulse.ts"
+        ],
+        "tests": [
+          "tests/live-pulse-audit.ts",
+          "tests/live-pulse-http-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NTF-013",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "إيقاع النبضة في المتصفح",
+        "en": "Browser pulse cadence"
+      },
+      "text": {
+        "ar": "يجب على المتصفح أن يسأل النبضة كل 15 ثانية وهو منتبه، وكل 8 ثوانٍ للفريق الذي معه زميل، وكل 60 ثانية وهو نعسان، وألا يسأل أبداً وهو نائم، وأن يفتح المجرى الكامل عند وجود رفقة فقط، وأن يُبلغ الخادم بالمغادرة بـ sendBeacon.",
+        "en": "The browser shall ask the pulse every 15 seconds while awake, every 8 seconds for a team that has company, every 60 seconds while drowsy, and never while asleep, shall open the full stream only when company exists, and shall tell the server it is leaving with sendBeacon."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "advisor"
+      ],
+      "acceptance": [
+        {
+          "ar": "لسان نائم لا يرسل أي نبضة، وأول نظرة بعد عودته تسأل فوراً.",
+          "en": "A sleeping tab sends no pulse, and the first look back asks at once."
+        },
+        {
+          "ar": "جواب أقدم من آخر ما رآه اللسان لا يُظهر الخبر جديداً (يُؤخذ الأكبر).",
+          "en": "An answer older than the latest the tab has seen does not make old news look new (the largest value is kept)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/livePulse.ts",
+          "src/utils/pageAwake.ts"
+        ],
+        "tests": [
+          "tests/live-pulse-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-014",
+      "kind": "functional",
+      "title": {
+        "ar": "حضور فرق الإرشاد والتسجيل",
+        "en": "Advising and registration team presence"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخبر أعضاء الفريق نفسه ونطاقه (فريق + كلية + قسم + فصل) من يعمل الآن وعلى ماذا (طلب شعبة أو مقاعد مرشد أو حالة طالب)، بحجز «أعمل على هذا» ينتهي بعد 120 ثانية من آخر لمسة، وبأقصى 40 زميلاً في الجواب، والشخص مرة واحدة مهما تعدّدت ألسنته.",
+        "en": "The system shall tell members of the same team and scope (team + college + department + term) who is working now and on what (a section request, advisor seats, or a student case), with a \"working on this\" hold that expires 120 seconds after the last touch, at most 40 colleagues per answer, and each person listed once however many tabs they hold."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "collegeRegistrar",
+        "registrarStaff",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "المرشد لا يرى فريق التسجيل ولا العكس.",
+          "en": "An advisor does not see the registration team and vice versa."
+        },
+        {
+          "ar": "التقاء زميلين على طلب الشعبة نفسه ينبّه ولا يمنع الحفظ.",
+          "en": "Two colleagues meeting on the same section request raises a notice and does not block saving."
+        },
+        {
+          "ar": "الجواب لا يحمل رقم حساب ولا معرّف اتصال: معرّف الزميل مشتق لا يُعكس.",
+          "en": "The answer carries no account number or connection id: the peer id is derived and irreversible."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/teamPresence.ts",
+          "src/utils/teamWork.ts",
+          "src/server/routes/scheduleLiveRoutes.ts"
+        ],
+        "tests": [
+          "tests/colleagues-advising-registration-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-NTF-015",
+      "kind": "interface",
+      "title": {
+        "ar": "شارة وجوه الزملاء",
+        "en": "Colleague faces chip"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض الحضور بشارة واحدة لكل الفرق: حتى 5 وجوه بحرف الاسم ولونه ثم «+N»، ولمسة تفتح قائمة الحاضرين الأحدث نشاطاً أولاً وبجانب كل منهم ما يعمل عليه، ويُغلقها Esc أو لمسة خارجها.",
+        "en": "The system shall present presence as one chip for all teams: up to 5 faces with the name's initial and colour followed by \"+N\", where one tap opens the list of those present, most recently active first, with what each is working on, closed by Esc or a tap outside."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "advisor",
+        "collegeRegistrar"
+      ],
+      "acceptance": [
+        {
+          "ar": "سبعة زملاء يظهرون بخمسة وجوه و«+2».",
+          "en": "Seven colleagues appear as five faces and \"+2\"."
+        },
+        {
+          "ar": "زميل في لسان خلفي يظهر «بعيداً» ويُرتَّب بعد الحاضرين أمام شاشاتهم.",
+          "en": "A colleague in a background tab is shown as away and ordered after those at their screens."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ColleagueFaces.tsx",
+          "src/components/ColleagueHoldNotice.tsx",
+          "src/utils/colleagueFace.ts"
+        ],
+        "tests": [
+          "tests/colleagues-advising-registration-audit.ts",
+          "tests/colleague-guard-measure-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-NTF-016",
+      "kind": "functional",
+      "title": {
+        "ar": "حماية الكتابة القديمة",
+        "en": "Stale-write protection"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يردّ بـ 409 ورمز stale-write ونص «عدّل زميلُك هذا قبلك. حدّث ثم أعد.» على كل كتابة في طلبات الشعب ومقاعد المرشد وقرارات كشف التسجيل تحمل ختم إصدار أقدم من الحالي دون أن يُمسّ شيء، وأن تعرض الشاشة شريطاً هادئاً بزر «حدّث» يقرأ من جديد، وأن تمضي الكتابة بلا ختم كما كانت.",
+        "en": "The system shall answer 409 with the code stale-write and the message \"A colleague edited this before you. Refresh and retry.\" to any write on section requests, advisor seats or registration-queue decisions that carries a version stamp older than the current one, touching nothing, and the screen shall show a calm bar with a \"Refresh\" button that re-reads; a write without a stamp proceeds as before."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "collegeRegistrar",
+        "registrarStaff",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "قرار على طلب شعبة بختم rev + 7 يردّ 409 ورمز stale-write ويبقى الطلب كما هو.",
+          "en": "A decision on a section request with rev + 7 returns 409 with stale-write and leaves the request unchanged."
+        },
+        {
+          "ar": "ختم نصي فارغ \"\" صالح ويعني «لم يُقرَّر شيء بعد»؛ وختم 1.5 أو \"1e3\" أو سالب يُعدّ غير مرسَل.",
+          "en": "An empty text stamp \"\" is valid and means nothing decided yet; 1.5, \"1e3\" or a negative number counts as not sent."
+        },
+        {
+          "ar": "زر «حدّث» يعطَّل أثناء القراءة ثم يطوي الشريط.",
+          "en": "The Refresh button is disabled while reading and then folds the bar."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/staleWrite.ts",
+          "src/components/StaleWriteToast.tsx",
+          "src/server/sectionRequestsRoutes.ts"
+        ],
+        "tests": [
+          "tests/colleagues-advising-registration-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-017",
+      "kind": "functional",
+      "title": {
+        "ar": "اشتراك تنبيهات الجوال",
+        "en": "Push subscription"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقبل اشتراك Web Push لحساب (POST /api/push/subscribe) أو لبطاقة أستاذ برمزها، بعد التحقق من أن الرابط https على المنفذ 443 بلا بيانات دخول وبطول لا يتجاوز 2048 وأن مفتاح p256dh نقطة P-256 غير مضغوطة، وأن يربط الجهاز بجلسة الدخول، وألا يحذف اشتراكاً إلا صاحبه.",
+        "en": "The system shall accept a Web Push subscription for an account (POST /api/push/subscribe) or for a faculty card by its token, after verifying that the endpoint is https on port 443 with no credentials and at most 2048 characters and that the p256dh key is an uncompressed P-256 point, shall bind the device to the login session, and shall delete a subscription only for its owner."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "committeeChair",
+        "departmentHead",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط http أو بمنفذ 8443 أو بمستخدم وكلمة سر يُرفض بـ 400.",
+          "en": "An http endpoint, one on port 8443, or one with user and password is rejected with 400."
+        },
+        {
+          "ar": "الجهاز الواحد سجل واحد: اشتراك الرابط نفسه مرتين يحدّث ولا يكرّر.",
+          "en": "One device is one record: subscribing the same endpoint twice updates rather than duplicates."
+        },
+        {
+          "ar": "بطاقة موقوفة أو منتهية تردّ 404 ولا تقبل اشتراكاً.",
+          "en": "A stopped or expired card answers 404 and accepts no subscription."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/pushRoutes.ts",
+          "src/server/webPush.ts",
+          "src/utils/pushClient.ts",
+          "src/components/PushCard.tsx"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-018",
+      "kind": "functional",
+      "title": {
+        "ar": "تنبيهات منسّق القسم",
+        "en": "Department coordinator push"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يدفع إلى أجهزة من يملك واردة الطلبات (الصلاحية 7 أو إدارة النظام) ضمن نطاق البند تنبيهاً عند إرسال طلب أو ردّ أستاذ، بالعدد الحاضر لحظة الإرسال، يستبدل سابقه بوسم القسم، وبتهدئة 3 دقائق لكل قسم ولكل نوع محفوظة في قاعدة البيانات لا في ذاكرة نسخة.",
+        "en": "The system shall push to the devices of users who hold the request inbox (form 7 or system administration) within the item's scope a notice when an instructor sends a request or reply, carrying the count present at send time, replacing the previous one by a department tag, with a 3-minute cooldown per department and kind stored in the database rather than in one instance's memory."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "ثلاثة طلبات خلال 3 دقائق لقسم واحد تنتج تنبيهاً واحداً.",
+          "en": "Three requests within 3 minutes for one department produce one notice."
+        },
+        {
+          "ar": "مستخدم موقوف أو مقفل أو بلا الصلاحية 7 لا يصله تنبيه.",
+          "en": "An inactive, locked or form-7-less user receives no notice."
+        },
+        {
+          "ar": "نسختان للخادم تشتركان في التهدئة نفسها.",
+          "en": "Two server instances share the same cooldown."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/pushRoutes.ts",
+          "src/server/pushMessages.ts"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-019",
+      "kind": "functional",
+      "title": {
+        "ar": "تنبيهات بطاقة الأستاذ",
+        "en": "Faculty card push"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يدفع إلى بطاقة الأستاذ تنبيهاً واحداً يستبدل سابقه (ثُبّت، تعذّر، بدائل، ردّ القسم، فتح باب التدريب) يجمع قرارات القسم في آخر 10 دقائق ويعدّها («ثُبّت 3 مواعيد»)، وألا يُرسل أي تنبيه يحمل أثر قاعة في عنوانه أو نصّه، وألا يدفع إلى بطاقة موقوفة بل يمحو اشتراكاتها.",
+        "en": "The system shall push to a faculty card a single notice that replaces the previous one (fixed, rejected, alternatives, department reply, training window opened) which gathers department decisions of the last 10 minutes and counts them (\"3 appointments fixed\"), shall not send any notice carrying a room trace in its title or body, and shall not push to a stopped card but erase its subscriptions."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "ثلاثة بنود ثُبّتت معاً تصل بعنوان «ثُبّت 3 مواعيد» وبوسم card-decisions.",
+          "en": "Three items fixed together arrive titled \"3 appointments fixed\" with the card-decisions tag."
+        },
+        {
+          "ar": "طلب يذكر قاعة B-204 في أي حقل لا يُرسل تنبيهه ويُكتب سبب ذلك في السجل.",
+          "en": "A request naming room B-204 in any field sends no notice and the reason is logged."
+        },
+        {
+          "ar": "حدث مختلط النوع يُلخَّص بأيقونات وأعدادها.",
+          "en": "A mixed-kind batch is summarised as icons with counts."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/pushRoutes.ts",
+          "src/server/pushMessages.ts",
+          "src/server/pushCard.ts"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NTF-020",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "حدود التسليم",
+        "en": "Delivery limits"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحدّ التسليم بدلو لكل اشتراك (5 تنبيهات متتالية ثم واحد كل دقيقة)، وبأقصى 50 جهازاً في التسليمة، ومهلة 10 ثوانٍ للنداء، وصلاحية 24 ساعة (TTL)، وأن يشفّر الحمولة (RFC 8291) بحدّ أقصى 3993 بايتاً من النص الصريح ويوقّعها بـ VAPID، وأن ينتظر المسارُ الخطافَ حتى 2500 مللي ثانية دون أن يرمي.",
+        "en": "The system shall limit delivery with a bucket per subscription (5 consecutive notices, then one per minute), at most 50 devices per delivery, a 10-second call timeout and a 24-hour TTL, shall encrypt the payload (RFC 8291) to at most 3,993 plaintext bytes and sign it with VAPID, and the route shall wait for the hook at most 2,500 ms without throwing."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الضغط على «جرّب» ست مرات متتالية يُرسل 5 ويردّ 429 «انتظر دقيقة».",
+          "en": "Pressing Test six times in a row sends 5 and answers 429 \"wait a minute\"."
+        },
+        {
+          "ar": "ردّ 404 أو 410 من خدمة الدفع يمحو الاشتراك، وردّ 429 فشل عابر لا يمحو.",
+          "en": "A 404 or 410 from the push service deletes the subscription, while a 429 is a transient failure that does not."
+        },
+        {
+          "ar": "خدمة دفع بطيئة لا تؤخّر ردّ المسار أكثر من 2.5 ثانية.",
+          "en": "A slow push service delays the route's reply by no more than 2.5 seconds."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/webPush.ts",
+          "src/server/pushRoutes.ts"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-021",
+      "kind": "functional",
+      "title": {
+        "ar": "تجديد الاشتراك والخروج",
+        "en": "Subscription rotation and sign-out"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقبل تجديد اشتراك المتصفح (POST /api/public/push/rotate) بإثبات الملكية بالرابط القديم وسرّه بمقارنة ثابتة الزمن فينتقل السجل إلى الجديد بصاحبه، وأن يسقط اشتراكات الأجهزة المرتبطة بجلسة عند تسجيل الخروج الصريح لا عند انتهائها بالخمول.",
+        "en": "The system shall accept a browser's subscription rotation (POST /api/public/push/rotate) by proof of ownership with the old endpoint and its secret in a constant-time comparison, moving the record to the new one under the same owner, and shall drop device subscriptions bound to a session on explicit sign-out but not on idle expiry."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "تجديد بسرّ قديم خاطئ يردّ 404 ولا يغيّر شيئاً.",
+          "en": "A rotation with a wrong old secret answers 404 and changes nothing."
+        },
+        {
+          "ar": "تجديد لبطاقة أُوقفت يردّ 410 ويمحو الاشتراك.",
+          "en": "A rotation for a card that was stopped answers 410 and deletes the subscription."
+        },
+        {
+          "ar": "خروج صريح يمحو أجهزة تلك الجلسة وحدها.",
+          "en": "An explicit sign-out removes only that session's devices."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/pushRoutes.ts",
+          "public/push-sw.js"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-NTF-022",
+      "kind": "interface",
+      "title": {
+        "ar": "عامل التنبيهات",
+        "en": "Push service worker"
+      },
+      "text": {
+        "ar": "يجب أن يعمل عامل التنبيهات (/push-sw.js) بنطاق /push/ في التطبيق وبنطاق /r/<الرمز> في بطاقة الأستاذ، وأن يقصّ العنوان إلى 120 حرفاً والنص إلى 240 والوسم إلى 64، وأن يفتح رابطاً من الموقع نفسه فقط، وأن يستدعي اللسان المفتوح بدل فتح نافذة جديدة، وألا يخزّن صفحة ولا يجيب من ذاكرة إلا صفحة «نُحدّث البرنامج» عند 500 أو 502 أو 503 أو 504 أو انقطاع الشبكة.",
+        "en": "The push service worker (/push-sw.js) shall run with scope /push/ in the app and /r/<token> on a faculty card, shall clip the title to 120 characters, the body to 240 and the tag to 64, shall open only a same-origin link, shall focus an open tab instead of opening a new window, and shall cache no page nor answer from memory except the \"updating\" page on 500, 502, 503, 504 or a network failure."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "تنبيه برابط من أصل آخر يفتح بداية نطاق العامل لا ذلك الرابط.",
+          "en": "A notice with a cross-origin link opens the worker's scope start, not that link."
+        },
+        {
+          "ar": "إلغاء تسجيل أعمال التطبيق في الاستعادة يُبقي عامل التنبيهات.",
+          "en": "Unregistering app workers during recovery keeps the push worker."
+        },
+        {
+          "ar": "ردّ 503 على تنقّل البطاقة يُستبدل بصفحة التحديث ذات الحالة 503 وترويسة Retry-After: 5.",
+          "en": "A 503 on a card navigation is replaced with the updating page, status 503 and header Retry-After: 5."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "public/push-sw.js",
+          "src/utils/pushClient.ts",
+          "src/server/pushCard.ts"
+        ],
+        "tests": [
+          "tests/web-push-audit.ts",
+          "tests/updating-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-023",
+      "kind": "functional",
+      "title": {
+        "ar": "تسجيل الأثر",
+        "en": "Activity trail recording"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يكتب بعد كل طلب كتابة ناجح (حالة أقل من 300 وليس dryRun) على مسار من قائمة مغلقة سطراً واحداً في الأثر: من، وأي فريق، وأي نطاق، وما فعل، وعلى ماذا، وقبل ← بعد، بأطوال قصوى: الهدف 90 والتفصيل 220 وجانب «قبل/بعد» 90 والاسم 80 والمقعد 120، وألا يُسجَّل فتح ولا اطّلاع ولا حساب بلا كتابة.",
+        "en": "The system shall write one trail line after every successful write request (status below 300 and not a dry run) on a route in a closed list: who, which team, which scope, what, on what, and before ← after, with maximum lengths of 90 for target, 220 for detail, 90 for each of before/after, 80 for name and 120 for seat, and shall record no opens, views or calculate-only calls."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "POST فحص التعارض أو المعاينة لا يكتب سطراً؛ PUT /schedules/<رقم> يكتب سطر «تعديل» برقم الصف.",
+          "en": "A conflict-check or preview POST writes no line; PUT /schedules/<id> writes an edit line carrying the row id."
+        },
+        {
+          "ar": "طلب مردود بحالة 409 لا يسجّل شيئاً.",
+          "en": "A request refused with 409 records nothing."
+        },
+        {
+          "ar": "إعادة حفظ بلا فرق (skip) لا تُكتب.",
+          "en": "A re-save with no difference (skip) is not written."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/activityTrail.ts",
+          "src/utils/activityTrail.ts",
+          "src/db/demoActivityTrail.ts"
+        ],
+        "tests": [
+          "tests/activity-trail-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-024",
+      "kind": "functional",
+      "title": {
+        "ar": "من يرى الأثر",
+        "en": "Who sees the trail"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ الأثر للفصل الجاري والذي قبله فقط وأن يطبّق قرار المالك على الجمهور: العميد يرى العميد المساعد ورؤساء الأقسام، والعميد المساعد لا شيء، ورئيس القسم يرى قسمه وفرقه، ورئيس اللجنة أو الإرشاد أو تسجيل الكلية فريقه، والمسجّل العام رؤساء التسجيل وفرقهم، والعضو حركاته وحده، ومدير النظام الكل، وأن يعيد الحكم على كل سطر قبل إرساله.",
+        "en": "The system shall read the trail for the current and previous terms only and apply the owner's decision to the audience: the dean sees the vice dean and department heads, the vice dean nothing, a department head sees the department and its teams, a committee chair, advising head or college registrar sees their own team, the university registrar sees registration heads and their teams, a member sees only their own actions, and a system administrator sees all, with the verdict re-applied to each line before it is sent."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "dean",
+        "viceDean",
+        "departmentHead",
+        "committeeChair",
+        "registrarHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "العميد المساعد يتلقى audience = none وقائمة فارغة.",
+          "en": "A vice dean receives audience = none and an empty list."
+        },
+        {
+          "ar": "النائب يرى الفريق ولا يرى حركات الرئيس نفسه.",
+          "en": "A deputy sees the team but not the head's own actions."
+        },
+        {
+          "ar": "الاستجابة لا تتجاوز 160 سطراً (truncated = true بعدها) وميزانية قراءة 240 موزعة على المفاتيح، ومرشّح الشخص يقرأ حتى 200 سطر لمفتاحه.",
+          "en": "A response carries at most 160 lines (truncated = true beyond), a read budget of 240 spread over keys, and a person filter reads up to 200 lines for that key."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/activityTrail.ts",
+          "src/server/activityTrail.ts",
+          "src/components/trail/TrailSheet.tsx"
+        ],
+        "tests": [
+          "tests/activity-trail-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-025",
+      "kind": "functional",
+      "title": {
+        "ar": "الأثر للقراءة فقط وبصمة آخر تعديل",
+        "en": "Read-only trail and last-edit stamp"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يردّ بـ 405 مع Allow: GET على أي طريقة غير GET تحت /api/activity-trail ولو من مدير النظام، وأن يقدّم GET /api/activity-trail/stamp/<موعد> بصمة «آخر تعديل» لمن يقع الموعد في نطاقه، بالاسم لمن يحقّ له رؤية صاحبه وإلا باسم الفريق.",
+        "en": "The system shall answer 405 with Allow: GET to any non-GET method under /api/activity-trail, a system administrator included, and shall serve GET /api/activity-trail/stamp/<row> as a last-edit stamp to anyone whose scope contains the row, naming the person for those entitled to see them and otherwise the team."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "dean",
+        "departmentHead",
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "DELETE أو PUT على سطر من الأثر يردّ 405 ويبقى عدد الأسطر كما هو.",
+          "en": "A DELETE or PUT on a trail line answers 405 and the line count is unchanged."
+        },
+        {
+          "ar": "بصمة موعد خارج النطاق تردّ 403، وموعد غير موجود 404.",
+          "en": "A stamp for a row outside scope returns 403, and for a missing row 404."
+        },
+        {
+          "ar": "العميد يرى في البصمة اسم الفريق لا اسم عضو لا يحقّ له رؤيته.",
+          "en": "A dean sees the team name in the stamp, not a member's name they are not entitled to see."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/activityTrail.ts",
+          "src/components/trail/TrailStamp.tsx",
+          "src/components/trail/TrailButton.tsx"
+        ],
+        "tests": [
+          "tests/activity-trail-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-026",
+      "kind": "functional",
+      "title": {
+        "ar": "ذاكرة الموعد: لماذا هو هنا؟",
+        "en": "Row memory: why is it here"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض على كل موعد زراً «لماذا؟» يقرأ عند الفتح GET /api/schedules/<رقم>/history (حتى 12 حدثاً من سجلّ التدقيق مع علامة truncated)، وشارة مصدر الموعد إن كتبه باب اعتماد، ورقائق حقائق محسوبة، وألا يظهر شيء حين لا يوجد ما يُقال، وأن يرفض 403 موعداً خارج النطاق.",
+        "en": "The system shall show on each row a \"Why?\" button that reads GET /api/schedules/<id>/history on open (up to 12 events from the audit log with a truncated flag), the row's origin badge if an approval door wrote it, and computed fact chips, shall show nothing when there is nothing to say, and shall refuse with 403 a row outside scope."
+      },
+      "rationale": {
+        "ar": "لا تخزين جديد: يُقرأ ما كُتب أصلاً.",
+        "en": "No new storage: it reads what was already written."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "موعد بلا سجلّ ولا مصدر ولا حقائق لا يرسم أي عنصر.",
+          "en": "A row with no history, origin or facts renders nothing."
+        },
+        {
+          "ar": "موعد جاء من رادار التسجيل يحمل شارة «رادار التسجيل» واسم من نفّذ ووقته.",
+          "en": "A row that came from the registration radar carries the Registration Radar badge with who applied it and when."
+        },
+        {
+          "ar": "أكثر من 12 حدثاً تُظهر «وأقدم من ذلك…».",
+          "en": "More than 12 events show \"and older than that…\"."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/RowHistory.tsx",
+          "src/server/insightRoutes.ts"
+        ],
+        "tests": [
+          "tests/row-reasons-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-027",
+      "kind": "functional",
+      "title": {
+        "ar": "تقويم الاشتراك العام (ICS)",
+        "en": "Public subscription calendar (ICS)"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم رابط الجدول العام ملف تقويم (GET /api/public/ics/<رمز>) بـ text/calendar وinline وETag ضعيف يُحسب بلا DTSTAMP وCache-Control: no-cache فيردّ 304 حين لا يتغيّر المحتوى، بتكرار أسبوعي من حدّي الفصل المعلنين (وإلا 16 أسبوعاً مع وسم «تقديرية» في الاسم)، ومنبّه اختياري من 0 إلى 120 دقيقة، وتحديث مقترح كل 6 ساعات، ويحذف محاضرة أُلغيت في تاريخ بعينه من ذلك التاريخ وحده.",
+        "en": "The system shall serve a public schedule link as a calendar file (GET /api/public/ics/<token>) as text/calendar, inline, with a weak ETag computed without DTSTAMP and Cache-Control: no-cache so that unchanged content returns 304, as a weekly recurrence between the declared term bounds (otherwise 16 weeks with an \"estimated\" tag in the name), an optional reminder of 0 to 120 minutes, a suggested refresh every 6 hours, and shall remove a lecture cancelled on a specific date from that date only."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "student",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب ثانٍ بـ If-None-Match لملف لم يتغيّر يردّ 304 بلا جسم.",
+          "en": "A second request with If-None-Match for an unchanged file returns 304 with no body."
+        },
+        {
+          "ar": "?alarm=500 يُقصّ إلى 120 دقيقة و?alarm=-5 إلى 0.",
+          "en": "?alarm=500 is clamped to 120 minutes and ?alarm=-5 to 0."
+        },
+        {
+          "ar": "رابط بطاقة أستاذ أو استبيان أو جدول طلبة أو طلب يردّ 404 ولا يخدم تقويماً.",
+          "en": "A staff-card, survey, students or request link returns 404 and serves no calendar."
+        },
+        {
+          "ar": "لا فصل جارٍ لاشتراك الأستاذ يردّ 409.",
+          "en": "With no current term an instructor feed answers 409."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/publicCalendarRoutes.ts",
+          "src/utils/icalendar.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts",
+          "tests/term-calendar-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-028",
+      "kind": "functional",
+      "title": {
+        "ar": "الاشتراك الثابت للأستاذ وإيقافه الهادئ",
+        "en": "Stable instructor feed and quiet pause"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم GET /api/public/cal/<رمز>/p<رقم>-<مفتاح>.ics بمفتاح يتبع الأستاذ (HMAC بطول 32 خانة سداسية عشرية) فلا ينقطع بإعادة نشر البطاقة، ويضع المفقود من حضوره (إلغاء أو تسليم لزميل) خارج تقويمه ويُدخل تغطيته يوماً مفرداً، وحين لا يبقى بيده رابط بطاقة حيّ يردّ 200 بتقويم صالح فارغ بالاسم نفسه ووصف «توقّف هذا الاشتراك…» ويعود وحده بعد صدور بطاقة جديدة.",
+        "en": "The system shall serve GET /api/public/cal/<token>/p<id>-<key>.ics with a key that follows the instructor (a 32-hex-character HMAC) so that republishing the card does not break it, shall drop dates the instructor is absent from (cancelled or handed to a colleague) and add dates they cover as single days, and when no live card link remains shall answer 200 with a valid empty calendar of the same name and a description saying the subscription stopped, resuming by itself when a new card is issued."
+      },
+      "rationale": {
+        "ar": "قرار المالك 2026-10-29.",
+        "en": "Owner decision of 2026-10-29."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "مفتاح بلاحقة .ics أو بدونها يُقبل، ومفتاح عُبث بحرف منه يردّ 404.",
+          "en": "A key with or without the .ics suffix is accepted, and a key altered by one character returns 404."
+        },
+        {
+          "ar": "بعد سحب آخر رابط حيّ: 200 وخالٍ من VEVENT مع REFRESH-INTERVAL قائم.",
+          "en": "After the last live link is revoked: 200 with no VEVENT and the REFRESH-INTERVAL kept."
+        },
+        {
+          "ar": "المفتاح لا يكشف رقماً مدنياً ولا يُخمَّن بلا السرّ.",
+          "en": "The key reveals no civil ID and cannot be guessed without the secret."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/publicCalendarRoutes.ts",
+          "src/server/calendarSecret.ts",
+          "src/server/core/shareLinks.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-NTF-029",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "سرّ مفتاح التقويم",
+        "en": "Calendar key secret"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يشتقّ مفتاح التقويم من CALENDAR_SECRET إن ضبطه المشغّل وإلا من السرّ المشترك المحفوظ بوسم خاص بالتقويم، كسولاً ومرة واحدة لكل نسخة، وألا يحفظ قراءة فاشلة، حتى لا يولّد كل إقلاع بارد سرّاً جديداً فتموت اشتراكات الهواتف.",
+        "en": "The system shall derive the calendar key from CALENDAR_SECRET when the operator sets it and otherwise from the stored shared secret under a calendar-specific label, lazily and once per instance, and shall not keep a failed read, so that no cold start generates a new secret and kills subscriptions on phones."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "مع ضبط CALENDAR_SECRET تبقى الاشتراكات القائمة كما هي حرفاً بحرف.",
+          "en": "With CALENDAR_SECRET set, existing subscriptions stay exactly as they are."
+        },
+        {
+          "ar": "نسختان تقرآن السرّ المشترك نفسه تردّان المفتاح نفسه للبطاقة نفسها.",
+          "en": "Two instances reading the same shared secret return the same key for the same card."
+        },
+        {
+          "ar": "تدوير CALENDAR_SECRET يُبطل كل المفاتيح.",
+          "en": "Rotating CALENDAR_SECRET invalidates every key."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/calendarSecret.ts",
+          "src/server/core/shareLinks.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-030",
+      "kind": "functional",
+      "title": {
+        "ar": "منبّه اليوم الواحد",
+        "en": "One-day reminder file"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم GET /api/public/ics-reminder بملف text/calendar inline يفتح نافذة «أضف إلى التقويم»، بتاريخ d بصيغة YYYY-MM-DD صحيح (وإلا 400)، وعنوان t حتى 120 حرفاً وملاحظة n حتى 300، وUID ثابت من التاريخ والعنوان، وتنبيهين (قبل 3 ساعات وبعد 8)، وCache-Control: no-store، دون اسم ولا رقم في الرابط.",
+        "en": "The system shall serve GET /api/public/ics-reminder as an inline text/calendar file that opens an \"add to calendar\" dialog, with a valid YYYY-MM-DD date d (otherwise 400), a title t of at most 120 characters and a note n of at most 300, a UID stable from date and title, two alarms (3 hours before and 8 hours after), and Cache-Control: no-store, with no name or number in the link."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "d=2026-13-40 يردّ 400 «bad date».",
+          "en": "d=2026-13-40 answers 400 \"bad date\"."
+        },
+        {
+          "ar": "إعادة إضافة المنبّه نفسه تحدّث الموعد ولا تكرّره (UID ثابت).",
+          "en": "Re-adding the same reminder updates the entry rather than duplicating it (stable UID)."
+        },
+        {
+          "ar": "?dl=1 يغيّر Content-Disposition إلى attachment.",
+          "en": "?dl=1 changes Content-Disposition to attachment."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/publicCalendarRoutes.ts",
+          "src/utils/icalendar.ts"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts"
+        ]
+      },
+      "inferred": true
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "سقف المجارى ممتلئ",
+        "en": "Stream cap reached"
+      },
+      "scenario": {
+        "ar": "اتصال 401 بالقناة الحيّة يصل والنسخة تحمل 400 مجرى.",
+        "en": "A 401st live-channel connection arrives while the instance holds 400 streams."
+      },
+      "behavior": {
+        "ar": "يُغلق الاتصال فوراً دون أن يُسجَّل، فتعود شاشته إلى القراءة عند الطلب وإلى سؤال النبضة، ولا يظهر خطأ.",
+        "en": "The connection is closed at once without being registered; its screen falls back to reading on demand and to asking the pulse, and no error is shown."
+      },
+      "evidence": [
+        "src/server/routes/scheduleLiveRoutes.ts",
+        "tests/live-pulse-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "صدى المنارة",
+        "en": "Beacon echo"
+      },
+      "scenario": {
+        "ar": "نسختان للخادم تراقبان المنارة نفسها وتكتب إحداهما تغييراً.",
+        "en": "Two server instances watch the same beacon and one writes a change."
+      },
+      "behavior": {
+        "ar": "النسخة الكاتبة لا تتلقى كتابتها، والأخرى تمسح ذاكرتها بهدوء وتبثّ محلياً دون كتابة المنارة، فلا يتردّد الخبر بين النسختين بلا نهاية.",
+        "en": "The writing instance does not receive its own write and the other clears its caches quietly and broadcasts locally without writing the beacon, so the news does not bounce between instances forever."
+      },
+      "evidence": [
+        "src/server/core/liveChannel.ts",
+        "src/db/beaconEcho.ts",
+        "tests/live-pulse-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "تقويم بلا بطاقة حيّة",
+        "en": "Calendar with no live card"
+      },
+      "scenario": {
+        "ar": "لم يبقَ للأستاذ رابط بطاقة سارٍ (أُوقف أو انتهى) وهاتفه ما زال مشتركاً.",
+        "en": "The instructor has no live card link left (stopped or expired) while the phone is still subscribed."
+      },
+      "behavior": {
+        "ar": "يردّ الخادم 200 بتقويم صالح فارغ بالاسم نفسه ووصف «توقّف هذا الاشتراك…»، فتُمسح المحاضرات بهدوء بدل خطأ يُبقيها، ويعود الاشتراك وحده حين تصدر بطاقة جديدة.",
+        "en": "The server answers 200 with a valid empty calendar of the same name and a description that the subscription stopped, so lectures clear quietly instead of a failure keeping them, and it resumes alone when a new card is issued."
+      },
+      "evidence": [
+        "src/server/routes/publicCalendarRoutes.ts",
+        "tests/calendar-ics-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "اسم قاعة في نص التنبيه",
+        "en": "Room name in notice text"
+      },
+      "scenario": {
+        "ar": "بند طلب أستاذ يذكر قاعة (مثل B-204) في اسم المقرر أو البدائل.",
+        "en": "An instructor-request item mentions a room (such as B-204) in the course name or alternatives."
+      },
+      "behavior": {
+        "ar": "تُمسح رموز القاعات من اسم المقرر، وإن بقي أثر لقاعة في النص النهائي لا يُرسل التنبيه ويُكتب السبب في السجل، فالقاعدة لا تُترك للنص وحده.",
+        "en": "Room tokens are scrubbed from the course name and, if any trace remains in the final text, the notice is not sent and the reason is logged: the rule is never left to the text alone."
+      },
+      "evidence": [
+        "src/server/pushMessages.ts",
+        "src/server/pushRoutes.ts",
+        "tests/web-push-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "ختم الكتابة غير صالح أو غائب",
+        "en": "Stamp invalid or absent"
+      },
+      "scenario": {
+        "ar": "لسان قديم أو أداة داخلية ترسل كتابة بلا ختم، أو بختم مثل 1.5 أو \"1e3\".",
+        "en": "An old tab or internal tool sends a write with no stamp, or a stamp like 1.5 or \"1e3\"."
+      },
+      "behavior": {
+        "ar": "الختم غير الصالح يُعامل كغير مرسَل فتمضي الكتابة كما كانت، أما الختم الصالح الأقدم فيُردّ بـ 409 ورمز stale-write دون أي تعديل.",
+        "en": "An invalid stamp is treated as not sent so the write proceeds as before, whereas a valid but older stamp is refused with 409 stale-write and no change."
+      },
+      "evidence": [
+        "src/utils/staleWrite.ts",
+        "tests/colleagues-advising-registration-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "النائب والأثر",
+        "en": "Deputy and the trail"
+      },
+      "scenario": {
+        "ar": "نائب رئيس فريق يفتح ورقة الأثر.",
+        "en": "A team head's deputy opens the trail sheet."
+      },
+      "behavior": {
+        "ar": "يرى حركات الفريق وحركاته هو ولا يرى حركات الرئيس نفسه (hideHolder)، ويُحجب عنه اسم المُرسِل في سجل الإرسال، والقرار في الخادم لا في الواجهة.",
+        "en": "The deputy sees the team's actions and their own but not the head's own actions (hideHolder), the sender's name is withheld in the send log, and the decision is made on the server, not in the interface."
+      },
+      "evidence": [
+        "src/utils/activityTrail.ts",
+        "tests/activity-trail-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "الجرس",
+      "en": "Bell",
+      "def": {
+        "ar": "أيقونة مركز الإشعارات وعليها رقم «المطلوب منك» غير المقروء.",
+        "en": "The notification center icon carrying the number of unread items required of the user."
+      }
+    },
+    {
+      "ar": "مركز الإشعارات",
+      "en": "Notification center",
+      "def": {
+        "ar": "لوحة تعرض ما بقي لصاحب الصفة، مشتقّاً من الحال لا مخزَّناً.",
+        "en": "A panel showing what remains for a role holder, derived from state and not stored."
+      }
+    },
+    {
+      "ar": "القناة الحيّة",
+      "en": "Live channel",
+      "def": {
+        "ar": "بثّ خفيف من الخادم للشاشات المفتوحة يعلن أن شيئاً تغيّر دون حمل بيانات.",
+        "en": "A light server-to-screen broadcast announcing that something changed without carrying data."
+      }
+    },
+    {
+      "ar": "النبضة",
+      "en": "Pulse",
+      "def": {
+        "ar": "سؤال قصير يجيبه الخادم من الذاكرة: من معي، وهل تغيّر شيء، وهل في الجرس خبر.",
+        "en": "A short question answered from memory: who is with me, did anything change, does the bell have news."
+      }
+    },
+    {
+      "ar": "الحضور",
+      "en": "Presence",
+      "def": {
+        "ar": "موضع الزميل الحالي على اللوح أو الشاشة؛ عمره ثوانٍ ولا يُخزَّن.",
+        "en": "A colleague's current position on a board or screen; it lives seconds and is never stored."
+      }
+    },
+    {
+      "ar": "حدّث ثم أعد",
+      "en": "Refresh and retry",
+      "def": {
+        "ar": "ردّ كتابة بختم أقدم لأن زميلاً حفظ قبلها.",
+        "en": "The refusal of a write with an older stamp because a colleague saved first."
+      }
+    },
+    {
+      "ar": "تنبيهات الجوال",
+      "en": "Push notifications",
+      "def": {
+        "ar": "تنبيهات Web Push المشفّرة إلى جهاز اشترك بحسابه أو ببطاقته.",
+        "en": "Encrypted Web Push notices to a device subscribed by account or by card."
+      }
+    },
+    {
+      "ar": "بطاقة الأستاذ",
+      "en": "Faculty card",
+      "def": {
+        "ar": "رابط الأستاذ الشخصي لطلبه وجدوله، ويقوم عليه اشتراك التقويم والتنبيه.",
+        "en": "The instructor's personal link for their request and schedule, on which calendar subscription and push rest."
+      }
+    },
+    {
+      "ar": "الأثر",
+      "en": "Activity trail",
+      "def": {
+        "ar": "سجلّ للقراءة فقط بكل ما غيّر شيئاً: من فعل ماذا وعلى ماذا.",
+        "en": "A read-only record of everything that changed something: who did what, and to what."
+      }
+    },
+    {
+      "ar": "اشتراك التقويم",
+      "en": "Calendar subscription",
+      "def": {
+        "ar": "ملف ICS يُشترك فيه فيتحدّث من نفسه.",
+        "en": "An ICS file one subscribes to so that it updates itself."
+      }
+    },
+    {
+      "ar": "الفريق",
+      "en": "Team",
+      "def": {
+        "ar": "حساب واحد برئيسه وأعضائه ونائبه، وهو وحدة الرؤية في الأثر والحضور.",
+        "en": "One account with its head, members and deputy; the unit of visibility in the trail and presence."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "الأثر للقراءة فقط: لا يُعدَّل سطر ولا يُحذف، ولا لمدير النظام، ومن يراه تحدّده صفته ونطاقه بقرار المالك.",
+      "en": "The trail is read-only: no line is edited or deleted, not even by a system administrator, and who sees it is decided by role and scope under the owner's decision."
+    },
+    {
+      "ar": "الاشتراك الثابت يتوقّف هادئاً (200 بتقويم فارغ) حين لا تبقى بطاقة حيّة ويعود وحده (قرار المالك 2026-10-29).",
+      "en": "The stable subscription pauses quietly (200 with an empty calendar) when no live card remains and resumes alone (owner decision of 2026-10-29)."
+    },
+    {
+      "ar": "لا يُدفع إلى هاتف إلا ما ينتظر صاحبه هو، ولا يحمل تنبيه الأستاذ أثر قاعة.",
+      "en": "Nothing is pushed to a phone except what awaits its own owner, and a faculty notice never carries a room trace."
+    },
+    {
+      "ar": "رقم المقرر في كل ما يراه القارئ سبع خانات (الكلية 2 + القسم 2 + المقرر 3، مثل 0109105)، وتصميم التقارير المطبوعة لا يُمسّ.",
+      "en": "Every course number a reader sees has seven digits (college 2 + department 2 + course 3, such as 0109105), and the printed reports keep their design."
+    }
+  ]
+}

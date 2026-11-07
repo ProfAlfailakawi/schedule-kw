@@ -1,0 +1,716 @@
+{
+  "id": "LOC",
+  "order": 3,
+  "icon": "building-2",
+  "title": { "ar": "المباني والقاعات", "en": "Locations" },
+  "tagline": { "ar": "سجل رسمي واحد للمباني والقاعات، واستعارة القاعات بين الأقسام، وصفحات الأبواب والإشغال", "en": "One official registry of buildings and halls, hall barter between departments, door pages and occupancy" },
+  "summary": {
+    "ar": "تحفظ الوحدة السجل الرسمي للمباني والقاعات الذي تُبنى عليه كل مواعيد الجداول، وتحكم من يستطيع حجز أي قاعة. وتتيح للقسم أن يستعير نافذة فارغة من قاعة قسم آخر في الحرم نفسه بموافقة القسم المضيف ولفصل واحد فقط. وتنشر لكل قاعة صفحة باب عامة بحالتها الآن (فارغة أو مشغولة أو تبدأ بعد دقائق) ولكل مبنى لوحة ممر، ويُطبع لها ملصق برمز QR. وتضم نسبة الإشغال والمرفق المرافق للقاعة وسياسة التنقل بين المواقع.",
+    "en": "The module keeps the official registry of buildings and halls on which every schedule appointment is built, and decides who may book which hall. It lets a department borrow a free window of another department's hall on the same campus, with the host's approval and for one term only. It publishes a public door page for each hall showing its state now (free, busy or starting soon) and a corridor board for each building, with a printable QR sticker. It also covers occupancy figures, the companion facility of a hall and the travel policy between campuses."
+  },
+  "actors": ["rootAdmin", "admin", "departmentHead", "committeeChair", "registrarHead", "visitor", "student", "instructor", "system"],
+  "sources": [
+    "src/server/routes/locationsRoutes.ts",
+    "src/server/routes/hallBarterRoutes.ts",
+    "src/server/core/locations.ts",
+    "src/server/core/hallBarter.ts",
+    "src/server/core/travelPolicy.ts",
+    "src/server/locationRegistryEngine.ts",
+    "src/server/roomDoorData.ts",
+    "src/server/roomDoorPage.ts",
+    "src/server/roomDoorRoutes.ts",
+    "src/server/roomDoorSecret.ts",
+    "src/generated/locationRegistrySeed.ts",
+    "src/utils/locationRegistry.ts",
+    "src/utils/locationCollegePrefixes.ts",
+    "src/utils/locationAliasHistory.ts",
+    "src/utils/hallBarterWindow.ts",
+    "src/utils/hallBarterFairness.ts",
+    "src/utils/roomSuitability.ts",
+    "src/utils/roomTypeForSection.ts",
+    "src/utils/roomDoor.ts",
+    "src/utils/roomDoorStickers.ts",
+    "src/utils/occupancyHeat.ts",
+    "src/utils/occupancySlot.ts",
+    "src/utils/companionRoomDisplay.ts",
+    "src/utils/campusTravel.ts",
+    "src/utils/campusTravelPolicy.ts",
+    "src/components/LocationQuickSetup.tsx",
+    "src/components/LocationRegistryAdmin.tsx",
+    "src/components/LocationPicker.tsx",
+    "src/components/LocationRoomTypeManager.tsx",
+    "src/components/HallBarterBoard.tsx",
+    "src/components/RoomLoanStrip.tsx",
+    "src/components/RoomDoorTools.tsx",
+    "src/components/OccupancyHeatGrid.tsx",
+    "src/components/OccupancySlotPanel.tsx",
+    "src/components/CompanionFacilityPicker.tsx",
+    "src/components/CompanionFacilityBadge.tsx",
+    "src/components/CourseRoomTypeBadge.tsx",
+    "src/components/CampusTravelPolicyCard.tsx",
+    "src/components/room-door.css"
+  ],
+  "screens": [
+    { "name": { "ar": "إضافة مبانٍ وقاعات", "en": "Add buildings and halls" }, "file": "src/components/LocationQuickSetup.tsx", "note": { "ar": "الشاشة الموحدة للمباني والقاعات لمدير النظام الرئيسي؛ يفتح الرابط القديم «المباني والقاعات» عليها، وفيها روابط الأبواب والملصقات.", "en": "The single registry screen of the root administrator; the old Buildings and halls link opens it. It also carries the door links and stickers." } },
+    { "name": { "ar": "اختيار الموقع", "en": "Location picker" }, "file": "src/components/LocationPicker.tsx", "note": { "ar": "اختيار المبنى والقاعة في نموذج الموعد، مع ذكر القاعة المشتركة وصاحب القاعة المستعارة.", "en": "Building and hall choice in the appointment form, naming the sharing departments and the owner of a borrowed hall." } },
+    { "name": { "ar": "استعارة القاعات", "en": "Hall barter" }, "file": "src/components/HallBarterBoard.tsx", "note": { "ar": "لوحة النوافذ الفارغة وطلبات القسم الصادرة والواردة، وتتحدث تلقائياً كل دقيقة.", "en": "Board of free windows and the department's outgoing and incoming requests, refreshed automatically every minute." } },
+    { "name": { "ar": "ساعات الإعارة والاستعارة", "en": "Loan hours strip" }, "file": "src/components/RoomLoanStrip.tsx", "note": { "ar": "رسم أسبوعي واحد يجمع المعار والمستعار للقسم.", "en": "One weekly drawing of what the department lent and borrowed." } },
+    { "name": { "ar": "أنواع القاعات", "en": "Hall types" }, "file": "src/components/LocationRoomTypeManager.tsx", "note": { "ar": "إدارة أنواع القاعات وتخصيص نوع بأقسامه.", "en": "Manage hall types and assign a type to departments." } },
+    { "name": { "ar": "أدوات الأبواب", "en": "Door tools" }, "file": "src/components/RoomDoorTools.tsx", "note": { "ar": "ملصقات الأبواب وشاشة الممر ورمز QR لكل قاعة.", "en": "Door stickers, the corridor screen and a QR code for each hall." } },
+    { "name": { "ar": "نسبة الإشغال", "en": "Occupancy" }, "file": "src/components/OccupancyHeatGrid.tsx", "note": { "ar": "شبكة يوم × ساعة بعدد المحاضرات ونسبة إشغال القاعات؛ الضغط على خانة يفتح لوحتها.", "en": "Day by hour grid with lecture counts and hall occupancy; selecting a cell opens its panel." } },
+    { "name": { "ar": "المرفق المرافق", "en": "Companion facility" }, "file": "src/components/CompanionFacilityPicker.tsx", "note": { "ar": "اختيار استوديو أو مختبر يُحجز مع القاعة الأساسية ويظهر توافره في وقت الموعد.", "en": "Pick a studio or lab booked alongside the main hall, with availability for the appointment time." } },
+    { "name": { "ar": "التنقل بين المواقع", "en": "Travel between campuses" }, "file": "src/components/CampusTravelPolicyCard.tsx", "note": { "ar": "بطاقة المسجّل العام ضمن مواعيد التسليم.", "en": "Registrar card inside the submission deadlines." } }
+  ],
+  "journeys": [
+    {
+      "actor": "committeeChair",
+      "title": { "ar": "استعارة نافذة قاعة من قسم آخر", "en": "Borrowing a hall window from another department" },
+      "steps": [
+        { "ar": "تفتح رئيسة اللجنة «استعارة القاعات» لقسمها وفصلها، فتظهر النوافذ الفارغة في قاعات كليتها لكل يوم.", "en": "The committee chair opens Hall barter for the department and term; free windows in the college halls are listed per day." },
+        { "ar": "تضيّق القائمة بقسم مضيف أو يوم أو مبنى، وتقرأ تنبيه الملاءمة إن كانت القاعة متخصصة أو سعتها أقل من طلبة القسم.", "en": "She narrows the list by host department, day or building and reads the fit warning if the hall is specialised or smaller than the department's students." },
+        { "ar": "تختار نافذة وتضغط الطلب، فيُرسل رقمياً إلى القسم المضيف دون أن يتغير أي موعد.", "en": "She picks a window and requests it; the request goes digitally to the host department and no appointment changes." },
+        { "ar": "يوافق القسم المضيف، فتصبح النافذة محجوزة رقمياً للقسم الطالب ويراها الطرفان.", "en": "The host department approves and the window becomes digitally reserved for the requesting department, visible to both." },
+        { "ar": "تضيف المحاضرة من شاشة المواعيد في داخل النافذة المعتمدة فقط؛ ما خرج عنها يُرفض برسالة تسمّي نوافذها.", "en": "She adds the lecture from the appointments screen inside the approved window only; anything outside is refused with a message naming her windows." }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": { "ar": "الرد على طلب استعارة واسترداد القاعة", "en": "Answering a barter request and taking the hall back" },
+      "steps": [
+        { "ar": "يرى رئيس القسم المضيف في الشريط الجانبي عدد الطلبات المنتظرة وعمر أقدمها.", "en": "The host department head sees the number of waiting requests and the age of the oldest in the side bar." },
+        { "ar": "يفتح الطلبات الواردة ويوافق أو يرفض؛ تُعاد قراءة تشغيل القاعة داخل القفل قبل الاعتماد.", "en": "He opens incoming requests and approves or rejects; hall usage is re-read inside the lock before approval." },
+        { "ar": "يستخدم قاعته بحرية خارج النافذة المعارة، أما داخلها فلا يستطيع قبل إنهاء الإعارة.", "en": "He uses his hall freely outside the lent window, but not inside it until the loan is ended." },
+        { "ar": "يضغط «إنهاء الإعارة» فتعود النافذة إلى قسمه، إلا إن كان القسم المستعير يدرّس فيها فيُرفض الإنهاء حتى ينقل موعده.", "en": "He ends the loan and the window returns to his department, unless the borrower teaches in it, in which case ending is refused until that appointment is moved." }
+      ]
+    },
+    {
+      "actor": "rootAdmin",
+      "title": { "ar": "إضافة مبنى وقاعاته وطباعة ملصقات أبوابه", "en": "Adding a building and its halls and printing its door stickers" },
+      "steps": [
+        { "ar": "يختار مدير النظام الرئيسي الحرم ويدخل رقم المبنى، فيتكوّن الكود الرسمي من رمز الموقع ورقمين (مثل 012B07).", "en": "The root administrator picks the campus and enters the building number; the official code is the site prefix plus two digits (for example 012B07)." },
+        { "ar": "يضيف قاعات المبنى برموزها مرة واحدة ويربطها بقسم أو أكثر؛ ما ارتبط بأكثر من قسم يُعدّ مشتركاً.", "en": "He adds the building's halls by code in one go and links them to one or more departments; a hall linked to several departments is shared." },
+        { "ar": "يفتح روابط المبنى، فيحصل على لوحة المبنى وشاشة الممر ورابط كل قاعة.", "en": "He opens the building links and gets the building board, the corridor screen and a link for each hall." },
+        { "ar": "يطبع ورقة A4 فيها أربعة ملصقات برمز QR، ويلصق الملصق على باب كل قاعة.", "en": "He prints an A4 sheet with four QR stickers and fixes each sticker on its hall door." }
+      ]
+    },
+    {
+      "actor": "visitor",
+      "title": { "ar": "مسح ملصق باب القاعة", "en": "Scanning a hall door sticker" },
+      "steps": [
+        { "ar": "يمسح الطالب أو الزائر رمز QR على باب القاعة بين محاضرتين.", "en": "A student or visitor scans the QR code on a hall door between lectures." },
+        { "ar": "تفتح صفحة القاعة بلا تسجيل دخول وتقول فارغة حتى متى، أو مشغولة وتنتهي متى، أو تبدأ بعد دقائق.", "en": "The hall page opens without sign-in and says free until when, busy until when, or starting in a few minutes." },
+        { "ar": "يضغط رابط المبنى فيرى لوحة قاعاته الأخرى ليجد قاعة فارغة بجوارها.", "en": "He follows the building link to see the board of the other halls and finds a free one nearby." }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "loc-barter-flow",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "دورة طلب الاستعارة", "en": "Barter request lifecycle" },
+      "caption": { "ar": "حالات الطلب كما يحفظها النظام، وشروط كل انتقال.", "en": "Request states as stored, and the guard on each transition." },
+      "nodes": [
+        { "id": "win", "label": { "ar": "نافذة فارغة", "en": "Free window" }, "icon": "clock", "kind": "start" },
+        { "id": "pending", "label": { "ar": "طلب معلّق", "en": "Pending" }, "icon": "hourglass", "kind": "state" },
+        { "id": "check", "label": { "ar": "فحوص الاعتماد", "en": "Approval checks" }, "icon": "shield-check", "kind": "decision" },
+        { "id": "approved", "label": { "ar": "معتمد", "en": "Approved" }, "icon": "check", "kind": "state" },
+        { "id": "rejected", "label": { "ar": "مرفوض", "en": "Rejected" }, "icon": "x", "kind": "end" },
+        { "id": "cancelled", "label": { "ar": "ملغي", "en": "Cancelled" }, "icon": "ban", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "win", "to": "pending", "label": { "ar": "طلب", "en": "Request" } },
+        { "from": "pending", "to": "check", "label": { "ar": "ردّ المضيف", "en": "Host decides" } },
+        { "from": "check", "to": "approved", "label": { "ar": "موافقة والقاعة حرة", "en": "Approve, hall free" } },
+        { "from": "check", "to": "rejected", "label": { "ar": "رفض", "en": "Reject" } },
+        { "from": "pending", "to": "cancelled", "label": { "ar": "إلغاء أو مرور 7 أيام", "en": "Cancel or 7 days pass" } },
+        { "from": "approved", "to": "cancelled", "label": { "ar": "إلغاء الطالب أو إنهاء المضيف", "en": "Requester cancels or host ends" } }
+      ]
+    },
+    {
+      "id": "loc-door-status",
+      "type": "flow",
+      "layout": "tb",
+      "title": { "ar": "حال القاعة على الباب", "en": "Hall state on the door" },
+      "caption": { "ar": "ما تعرضه صفحة الباب عند لحظة معينة بتوقيت الكويت.", "en": "What the door page shows at a given instant in Kuwait time." },
+      "nodes": [
+        { "id": "now", "label": { "ar": "الآن (الكويت)", "en": "Now (Kuwait)" }, "icon": "clock", "kind": "start" },
+        { "id": "term", "label": { "ar": "داخل الفصل؟", "en": "In term?" }, "icon": "calendar", "kind": "decision" },
+        { "id": "outside", "label": { "ar": "خارج الفصل", "en": "Outside term" }, "icon": "calendar-x", "kind": "end" },
+        { "id": "weekend", "label": { "ar": "عطلة نهاية الأسبوع", "en": "Weekend" }, "icon": "moon", "kind": "end" },
+        { "id": "lecture", "label": { "ar": "محاضرة جارية؟", "en": "Lecture running?" }, "icon": "presentation", "kind": "decision" },
+        { "id": "busy", "label": { "ar": "مشغولة", "en": "Busy" }, "icon": "door-closed", "kind": "state" },
+        { "id": "soon", "label": { "ar": "تبدأ بعد دقائق", "en": "Starting soon" }, "icon": "hourglass", "kind": "state" },
+        { "id": "free", "label": { "ar": "فارغة", "en": "Free" }, "icon": "door-open", "kind": "state" }
+      ],
+      "edges": [
+        { "from": "now", "to": "term" },
+        { "from": "term", "to": "outside", "label": { "ar": "لا", "en": "No" } },
+        { "from": "term", "to": "weekend", "label": { "ar": "جمعة أو سبت", "en": "Friday or Saturday" } },
+        { "from": "term", "to": "lecture", "label": { "ar": "أحد إلى خميس", "en": "Sunday to Thursday" } },
+        { "from": "lecture", "to": "busy", "label": { "ar": "نعم", "en": "Yes" } },
+        { "from": "lecture", "to": "soon", "label": { "ar": "التالية خلال 15 د", "en": "Next within 15 min" } },
+        { "from": "lecture", "to": "free", "label": { "ar": "غير ذلك", "en": "Otherwise" } }
+      ]
+    },
+    {
+      "id": "loc-write-check",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "فحص الموقع عند الحفظ", "en": "Location check on save" },
+      "caption": { "ar": "ما يمرّ به موعد قبل أن يُحفظ بقاعة.", "en": "What an appointment passes before it is saved with a hall." },
+      "nodes": [
+        { "id": "row", "label": { "ar": "موعد بمبنى وقاعة", "en": "Appointment with hall" }, "icon": "calendar-plus", "kind": "start" },
+        { "id": "reg", "label": { "ar": "السجل الرسمي", "en": "Official registry" }, "icon": "building-2", "kind": "system" },
+        { "id": "scope", "label": { "ar": "القاعة ضمن نطاق القسم؟", "en": "Hall in department scope?" }, "icon": "shield-check", "kind": "decision" },
+        { "id": "loan", "label": { "ar": "نافذة استعارة معتمدة؟", "en": "Approved loan window?" }, "icon": "arrow-left-right", "kind": "decision" },
+        { "id": "ok", "label": { "ar": "يُحفظ بهوية القاعة", "en": "Saved with hall identity" }, "icon": "check", "kind": "end" },
+        { "id": "no", "label": { "ar": "يُرفض بسبب واضح", "en": "Refused with reason" }, "icon": "x", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "row", "to": "reg" },
+        { "from": "reg", "to": "scope", "label": { "ar": "مؤكد وفعال", "en": "Confirmed, active" } },
+        { "from": "reg", "to": "no", "label": { "ar": "مجهول أو معطل", "en": "Unknown or inactive" } },
+        { "from": "scope", "to": "ok", "label": { "ar": "نعم", "en": "Yes" } },
+        { "from": "scope", "to": "loan", "label": { "ar": "لا", "en": "No" } },
+        { "from": "loan", "to": "ok", "label": { "ar": "كل الأيام داخلها", "en": "Every day inside" } },
+        { "from": "loan", "to": "no", "label": { "ar": "لا", "en": "No" } }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": { "ar": "الصلاحيات في وحدة المباني والقاعات", "en": "Permissions in Locations" },
+    "cols": [
+      { "ar": "قراءة السجل", "en": "Read registry" },
+      { "ar": "تعديل القاعات والمباني", "en": "Edit halls and buildings" },
+      { "ar": "إضافة وإيقاف (الرئيسي فقط)", "en": "Add and deactivate (root only)" },
+      { "ar": "طلب استعارة", "en": "Request barter" },
+      { "ar": "ردّ المضيف وإنهاء الإعارة", "en": "Host response and ending" },
+      { "ar": "روابط الأبواب والملصقات", "en": "Door links and stickers" },
+      { "ar": "صفحات الأبواب", "en": "Door pages" },
+      { "ar": "سياسة التنقل", "en": "Travel policy" }
+    ],
+    "rows": [
+      { "actor": "rootAdmin", "cells": [2, 2, 2, 2, 2, 2, 1, 2] },
+      { "actor": "admin", "cells": [2, 2, 0, 2, 2, 2, 1, 2] },
+      { "actor": "registrarHead", "cells": [1, 0, 0, 0, 0, 0, 1, 2] },
+      { "actor": "departmentHead", "cells": [1, 0, 0, 2, 2, 0, 1, 0] },
+      { "actor": "committeeChair", "cells": [1, 0, 0, 2, 2, 0, 1, 0] },
+      { "actor": "instructor", "cells": [1, 0, 0, 0, 0, 0, 1, 0] },
+      { "actor": "student", "cells": [0, 0, 0, 0, 0, 0, 1, 0] },
+      { "actor": "visitor", "cells": [0, 0, 0, 0, 0, 0, 1, 0] }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "DR-LOC-001",
+      "kind": "data",
+      "title": { "ar": "هوية المبنى الرسمية", "en": "Official building identity" },
+      "text": { "ar": "يجب أن يحمل كل مبنى كوداً رسمياً يتكوّن من رمز الموقع (أربع خانات) ثم رقم المبنى بخانتين، وأن يُشتق رمز الموقع من اسم الكلية بجدول رسمي ثابت لاثني عشر موقعاً.", "en": "Every building shall carry an official code made of the four-character site prefix followed by a two-digit building number, and the prefix shall be derived from the college name through a fixed official table of twelve sites." },
+      "rationale": { "ar": "الكود الرسمي هو ما تتطابق عليه الجداول المستوردة والأعوام السابقة، فلا يُخمَّن ولا يُعاد تأسيسه.", "en": "The official code is what imported schedules and past terms match on, so it is never guessed or re-based." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "كلية التربية الأساسية - بنات ورقم المبنى 7 ينتجان 012B07، ورقم المبنى 0 أو أكثر من ثلاث خانات يُرفض.", "en": "The girls' Basic Education college with building number 7 yields 012B07, and number 0 or more than three digits is rejected." },
+        { "ar": "كلية بلا رمز موقع رسمي لا يُنشأ لها مبنى ويُقال إن الكود المرجعي مفقود.", "en": "A college with no official site prefix cannot receive a building and the reply says the reference code is missing." }
+      ],
+      "evidence": { "code": ["src/utils/locationCollegePrefixes.ts", "src/server/routes/locationsRoutes.ts"], "tests": ["tests/location-registry-audit.py"] }
+    },
+    {
+      "id": "DR-LOC-002",
+      "kind": "data",
+      "title": { "ar": "سجل القاعة", "en": "Hall record" },
+      "text": { "ar": "يجب أن يحدد رمز القاعة (من 1 إلى 12 حرفاً أو رقماً لاتينياً على أن يتضمن رقماً، ولا يكون PENDING_ROOM ولا قيمة بديلة) هويتها داخل المبنى بلا تكرار، وأن تحمل اختيارياً سعة صحيحة بين 1 و5000 ونوعاً حتى 60 حرفاً وسياسة حجز من ثلاث: عادي أو مرفق مرافق فقط أو غير متاح.", "en": "A hall code (1 to 12 Latin letters or digits including at least one digit, never PENDING_ROOM or a placeholder) shall identify the hall inside its building without duplicates, and the hall may carry an integer capacity from 1 to 5000, a type up to 60 characters and one of three booking policies: normal, companion only or blocked." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin", "admin"],
+      "acceptance": [
+        { "ar": "رمز مثل ZX901 يُقبل، ورمز بلا رقم أو بأكثر من 12 خانة أو برمز بديل مثل TBA يُرفض.", "en": "A code such as ZX901 is accepted; a code with no digit, over 12 characters or a placeholder such as TBA is rejected." },
+        { "ar": "سعة 0 أو 5001 أو كسرية تُرفض بعبارة «بين 1 و5000»، وسياسة غير الثلاث تُرفض.", "en": "A capacity of 0, 5001 or a fraction is rejected with the range message, and a policy outside the three is rejected." },
+        { "ar": "رمز موجود في المبنى يرجع 409.", "en": "A code already in the building returns 409." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/utils/locationRegistry.ts"], "tests": ["tests/rooms-one-screen-audit.ts", "tests/companion-rooms-audit.ts"] }
+    },
+    {
+      "id": "DR-LOC-003",
+      "kind": "data",
+      "title": { "ar": "ثقة السجل وبذرته", "en": "Registry confidence and seed" },
+      "text": { "ar": "يجب ألا يظهر في أي قائمة اختيار إلا المبنى والقاعة الفعّالان المؤكدان، وأن تُدمج بذرة السجل المدمجة في البرنامج مع المخزّن فتضيف الصفوف الناقصة ولا تستبدل المخزّن، ولا تُدمج في الصندوق التجريبي.", "en": "Only active and confirmed buildings and halls shall appear in any picker, and the registry seed bundled with the software shall be merged with the stored registry by adding missing rows only, never replacing stored ones, and not merged into the demo sandbox." },
+      "rationale": { "ar": "البذرة مأخوذة من تاريخ الجامعة الحقيقي وتضم 31 مبنى (28 مؤكداً و3 محتملة) و355 قاعة (265 مؤكدة و90 محتملة) و444 حالة مراجعة؛ والمحتمل معطّل حتى يؤكده شخص.", "en": "The seed comes from the real university history and holds 31 buildings (28 confirmed, 3 probable), 355 halls (265 confirmed, 90 probable) and 444 review cases; a probable row stays inactive until a person confirms it." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system", "rootAdmin"],
+      "acceptance": [
+        { "ar": "كل مبنى وقاعة بثقة «محتمل» في البذرة غير فعّال.", "en": "Every building and hall with probable confidence in the seed is inactive." },
+        { "ar": "الطلب التجريبي يقرأ سجل صندوقه وحده بلا صفوف البذرة، وذاكرة السجل تنتهي بعد 60 ثانية وتُمسح عند أي تعديل.", "en": "A demo request reads its own sandbox registry without seed rows; the registry cache expires after 60 seconds and is cleared on every edit." }
+      ],
+      "evidence": { "code": ["src/server/locationRegistryEngine.ts", "src/server/core/locations.ts", "src/generated/locationRegistrySeed.ts"], "tests": ["tests/location-registry-audit.py"] }
+    },
+    {
+      "id": "FR-LOC-004",
+      "kind": "functional",
+      "title": { "ar": "إضافة مبنى", "en": "Add a building" },
+      "text": { "ar": "يجب أن يتيح النظام لمدير النظام الرئيسي وحده إضافة مبنى باختيار الموقع ورقم المبنى وقسم اختياري، وأن يرفض الكود المكرر أو الذي لا يتبع رمز الموقع.", "en": "The system shall let only the root administrator add a building by choosing the site, the building number and an optional department, and shall reject a duplicate code or one that does not follow the site prefix." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "إضافة مبنى موجود ترجع 409 «هذا المبنى موجود بالفعل».", "en": "Adding an existing building returns 409 stating the building already exists." },
+        { "ar": "قسم لا يتبع الموقع المحدد يرجع 400.", "en": "A department that does not belong to the chosen site returns 400." },
+        { "ar": "مستخدم غير الحساب الرئيسي يرجع 403.", "en": "A user other than the root account gets 403." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationQuickSetup.tsx"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-005",
+      "kind": "functional",
+      "title": { "ar": "إضافة قاعات دفعة واحدة", "en": "Add halls in bulk" },
+      "text": { "ar": "يجب أن يتيح النظام لمدير النظام الرئيسي إضافة من 1 إلى 100 قاعة لمبنى فعّال دفعة واحدة، بتطبيع الرموز (NFKC وأحرف كبيرة بلا مسافات) وربطها بقسم واحد على الأقل من أقسام الموقع نفسه.", "en": "The system shall let the root administrator add 1 to 100 halls to an active building in one request, normalising codes (NFKC, upper case, no spaces) and linking them to at least one department of the same site." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "ثلاثة رموز مع قسم تنتج 201 وعدّاد created يساوي 3.", "en": "Three codes with a department return 201 and created equals 3." },
+        { "ar": "قاعة تربط بأكثر من قسم تُحفظ مشتركة؛ وأي رمز موجود في المبنى يُفشل الطلب كله بـ409.", "en": "A hall linked to more than one department is saved as shared, and any code already in the building fails the whole request with 409." },
+        { "ar": "أكثر من 100 رمز أو قسم من موقع آخر يُرفض بـ400.", "en": "More than 100 codes or a department from another site is rejected with 400." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-006",
+      "kind": "functional",
+      "title": { "ar": "تعديل المبنى", "en": "Edit a building" },
+      "text": { "ar": "يجب أن يتيح النظام تعديل اسم الموقع والفرع والوصف وحالة «فعّال» وأقسام المبنى من نموذج واحد، على ألا يغيّر الحقل المحذوف من الطلب قيمته، وألا تُربط أقسام لا تتبع الموقع الرسمي للمبنى.", "en": "The system shall allow editing a building's site name, branch name, description, active state and departments from one form, an omitted field leaving its value unchanged, and departments outside the building's official site shall not be linked." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin", "admin"],
+      "acceptance": [
+        { "ar": "حفظ بـ active=false وقسم واحد يعيد المبنى معطّلاً بقسم واحد، وحفظ لاحق بالوصف وحده يُبقيه معطّلاً.", "en": "Saving active=false with one department returns the building inactive with one department; a later save of the description alone keeps it inactive." },
+        { "ar": "تفريغ الأقسام يعني كل الأقسام.", "en": "Emptying the departments means all departments." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationQuickSetup.tsx"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-007",
+      "kind": "functional",
+      "title": { "ar": "الحذف إيقاف لا إزالة", "en": "Deletion is deactivation" },
+      "text": { "ar": "يجب ألا يزيل النظام مبنى أو قاعة من السجل أبداً: حذف القاعة يجعلها غير فعّالة، وحذف المبنى يؤرشفه ويوقف كل قاعاته الفعّالة، مع تسجيل الحدث في سجل تدقيق الصف وبقاء المواعيد القديمة مشيرة إليهما.", "en": "The system shall never remove a building or hall from the registry: deleting a hall marks it inactive, deleting a building archives it and deactivates every active hall in it, with an entry in the row's audit history and past appointments still pointing at them." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "حذف قاعة يرجع active=false ويبقى صفها بصيغها التاريخية.", "en": "Deleting a hall returns active=false and the row stays with its historical forms." },
+        { "ar": "حذف مبنى يرجع عدد القاعات الموقوفة ويبقى صف المبنى.", "en": "Deleting a building returns the count of deactivated halls and the building row remains." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-008",
+      "kind": "functional",
+      "title": { "ar": "إعادة تسمية القاعة ونقلها", "en": "Rename and move a hall" },
+      "text": { "ar": "يجب أن يتيح النظام لمدير النظام تغيير رمز القاعة أو نقلها إلى مبنى آخر، فيسجّل الرمز القديم صيغةً تاريخية صامتة مرة واحدة بلا تعارض مع قاعة أخرى، ويحدّث مواعيد القاعة (للفصل الجاري والقادمة عند إعادة التسمية، ولكل الفصول عند النقل)، ويتراجع عن القاعة والمواعيد معاً إن فشلت الكتابة.", "en": "The system shall let the administrator change a hall's code or move it to another building, silently recording the old code once as a historical form with no clash with another hall, updating the hall's appointments (current and future terms on rename, all terms on move), and reverting both hall and appointments if the write fails." },
+      "rationale": { "ar": "كانت نسخة كاملة للنظام تسبق النقل فتتجاوز مهلة الطلب ولا يتحرك شيء؛ فصار التراجع صفاً بصف من القيم المقروءة قبل الكتابة.", "en": "A full system backup used to precede the move and exceeded the request timeout so nothing moved; the undo is now row by row from the values read before the write." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "تغيير ZX901 إلى ZX911 يُسجّل ZX901 صيغة مؤكدة، وحفظ ثانٍ بلا تغيير رمز لا يكرّرها.", "en": "Changing ZX901 to ZX911 records ZX901 as a confirmed form and a second save without a code change does not duplicate it." },
+        { "ar": "العودة إلى الرمز الأصلي تُسقطه من الصيغ، ورمز تملكه قاعة أخرى في المبنى لا يُسجَّل صيغة.", "en": "Returning to the original code drops it from the forms, and a code owned by another hall in the building is not recorded as a form." },
+        { "ar": "يعيد الرد عدد المواعيد المحدّثة updatedScheduleCount.", "en": "The reply returns updatedScheduleCount." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/utils/locationAliasHistory.ts"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-009",
+      "kind": "functional",
+      "title": { "ar": "القائمة هي الإذن", "en": "The list is the permission" },
+      "text": { "ar": "يجب أن يعرض النظام لكل قسم في قوائم الاختيار القاعات المسجلة له أو المشتركة معه أو المستعارة المعتمدة هذا الفصل أو المثبتة في دليل القسم أو التي لا قسم لها في مواقع فرعه، وألا يسمح بكتابة قاعة يدوياً، وأن يسمّي مع القاعة المشتركة الأقسام الشريكة ومع المستعارة صاحبها.", "en": "The system shall list for each department only halls registered to it, shared with it, borrowed under an approved window this term, pinned in its directory, or ownerless in its branch sites, shall not allow typing a hall by hand, and shall name the sharing departments on a shared hall and the owner on a borrowed one." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "قاعة مسجلة لقسم آخر لا تظهر لقسمي إلا بعد اعتماد استعارة، ثم يظهر حقل borrowedFrom باسم صاحبها.", "en": "A hall registered to another department does not appear for mine until a loan is approved, then borrowedFrom shows its owner." },
+        { "ar": "إن لم يبق للقسم أي مبنى تُفتح مباني كليته ليختار منها ثم «بانتظار تثبيت القاعة».", "en": "If the department is left with no building at all, its college's buildings open so it can choose one and then Pending hall confirmation." },
+        { "ar": "المدير بلا قسم يقرأ السجل كما هو مع نطاقات الأنواع.", "en": "An administrator without a department reads the raw registry with the type scopes." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationPicker.tsx", "src/utils/locationRegistry.ts"], "tests": ["tests/room-types-by-department-audit.ts", "tests/instructor-request-room-universe-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-010",
+      "kind": "functional",
+      "title": { "ar": "فحص الموقع عند كل حفظ", "en": "Location check on every save" },
+      "text": { "ar": "يجب أن يفحص النظام عند حفظ أي موعد أن المبنى والقاعة معروفان وفعّالان ومؤكدان، وأن القاعة تتبع المبنى، وأن المبنى ضمن نطاق كلية الموعد أو فرعها (جذر الكود ثلاث خانات)، وأن القاعة ضمن نطاق القسم إلا إذا كانت مشتركة أو داخل نافذة استعارة معتمدة، وأن يقبل «بانتظار تثبيت القاعة» مع تحذير.", "en": "On saving any appointment the system shall check that the building and hall are known, active and confirmed, that the hall belongs to the building, that the building is within the appointment's college or its branch (three-digit code root), and that the hall is within the department's scope unless shared or inside an approved loan window, and shall accept Pending hall confirmation with a warning." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "system"],
+      "acceptance": [
+        { "ar": "قاعة جهراء مع موعد فُتح من الرئيسي لا تُرفض لاختلاف الكلية، أما فرع آخر (بنين مقابل بنات) فيُرفض.", "en": "A Jahra hall on an appointment opened from the main campus is not rejected for a different college, whereas another branch (boys versus girls) is rejected." },
+        { "ar": "موعد الثلاثاء خارج نافذة استعارة الأحد يُرفض برسالة تسمّي نوافذ القسم المعتمدة حتى أربع منها بأيامها وأوقاتها.", "en": "A Tuesday appointment outside a Sunday loan window is refused with a message naming the department's approved windows, up to four, with days and times." },
+        { "ar": "الموعد بقاعة بانتظار التثبيت يُحفظ ومعه تحذير pending_room.", "en": "An appointment with a pending hall is saved with a pending_room warning." }
+      ],
+      "evidence": { "code": ["src/server/locationRegistryEngine.ts", "src/server/core/locations.ts"], "tests": ["tests/location-registry-audit.py", "tests/instructor-request-availability-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-011",
+      "kind": "functional",
+      "title": { "ar": "تهيئة السجل والمهاجرة التاريخية وصحته", "en": "Registry initialisation, migration and health" },
+      "text": { "ar": "يجب أن يتيح النظام للمدير معاينة تحويل مواعيد التاريخ إلى هوية القاعات ثم تنفيذه بتأكيد صريح، مع سجل رجوع لكل صف وتراجع تلقائي عند الفشل وتراجع يدوي لاحق، وأن يعرض أرقام صحة السجل وحالات المراجعة المفتوحة.", "en": "The system shall let the administrator preview the conversion of historical appointments to hall identities and then apply it with explicit confirmation, with a per-row journal, automatic rollback on failure and a later manual rollback, and shall show registry health counts and open review cases." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "التنفيذ بلا ترويسة التأكيد initialize-location-registry يرجع 409، والتراجع بلا rollback-location-registry يرجع 409.", "en": "Applying without the initialize-location-registry confirmation header returns 409, and rolling back without rollback-location-registry returns 409." },
+        { "ar": "إن وُجد تشغيل مكتمل لهذا الإصدار رجع alreadyInitialized بلا تكرار.", "en": "If a completed run exists for this version the reply is alreadyInitialized with no repetition." },
+        { "ar": "قاعة محتملة لا ترتقي إلى «موثّق» بالاستخدام وحده بل تُرسل للمراجعة.", "en": "A probable hall is never promoted to verified by usage alone and goes to review." },
+        { "ar": "إغلاق حالة مراجعة بـ«محلولة» بلا نص قرار يُرفض.", "en": "Closing a review case as resolved with no resolution text is rejected." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/server/locationRegistryEngine.ts", "src/components/LocationRegistryAdmin.tsx"], "tests": ["tests/location-registry-audit.py"] }
+    },
+    {
+      "id": "FR-LOC-012",
+      "kind": "functional",
+      "title": { "ar": "نوع القاعة يختلف باختلاف القسم", "en": "Hall type differs by department" },
+      "text": { "ar": "يجب أن يحفظ النظام للقاعة نوعاً عاماً ونوعاً مخالفاً لكل قسم عند الحاجة، وأن يقصر نوعاً على أقسام معينة فتقرأه الأقسام الأخرى «قاعة عامة»، وأن تُحسب ملاءمة القاعة للمقرر ترتيباً وتنبيهاً لا منعاً.", "en": "The system shall keep for each hall a general type and, where needed, a different type per department, shall restrict a type to chosen departments so that others read it as General hall, and shall treat hall suitability for a course as ranking and warning, never as a ban." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin", "departmentHead"],
+      "acceptance": [
+        { "ar": "قاعة نوعها العام «استوديو صوت» مقصور على قسم تقنية تظهر لقسم آخر «قاعة عامة».", "en": "A hall whose general type is a sound studio restricted to a technology department reads as General hall for another department." },
+        { "ar": "سعة القاعة أقل من سعة المقرر تخفض الترتيب 24 نقطة ولا تمنع الحفظ؛ ونوع مطابق يرفعه 12.", "en": "A hall smaller than the course lowers the rank by 24 points without blocking the save; a matching type raises it by 12." },
+        { "ar": "إعادة تسمية نوع تحدّث القاعات والمقررات المرتبطة به.", "en": "Renaming a type updates the linked halls and courses." }
+      ],
+      "evidence": { "code": ["src/utils/roomTypeForSection.ts", "src/utils/roomSuitability.ts", "src/components/LocationRoomTypeManager.tsx", "src/server/routes/coursesRoutes.ts"], "tests": ["tests/room-types-by-department-audit.ts", "tests/course-room-type-sync-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-013",
+      "kind": "functional",
+      "title": { "ar": "لوحة النوافذ الفارغة للاستعارة", "en": "Free-window board for barter" },
+      "text": { "ar": "يجب أن يحسب النظام للقسم الطالب نوافذ القاعات الفارغة في كليته لهذا الفصل بخطوة 30 دقيقة داخل نافذة الدوام، بعد طرح مواعيد الفصل وحجوز رغبات الأساتذة والنوافذ المعتمدة، وألا يعرض نافذة أقصر من 50 دقيقة، وأن يقصر العرض على 400 نافذة بحصص متساوية بين الأقسام المضيفة.", "en": "The system shall compute for the requesting department the free hall windows in its college for this term in 30-minute steps within the working-day window, after subtracting the term's appointments, instructors' request holds and approved windows, shall not show a window shorter than 50 minutes, and shall cap the display at 400 windows shared equally among host departments." },
+      "rationale": { "ar": "كان القص الأعمى بعد 400 نافذة يحذف أقساماً بأكملها من المرشح، فصار الاختيار بالتناوب بينها.", "en": "A blind cut at 400 windows used to remove whole departments from the filter, so selection now alternates between them." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "قاعة فارغة من 08:00 إلى 10:00 تعطي نافذة واحدة بمدة 120 دقيقة، وفراغ 40 دقيقة لا يظهر.", "en": "A hall free from 08:00 to 10:00 gives one window of 120 minutes and a 40-minute gap is not shown." },
+        { "ar": "لا تظهر قاعة غير فعّالة أو غير مؤكدة أو سياستها غير «عادي» أو قاعة قسم الطالب نفسه.", "en": "No inactive, unconfirmed or non-normal-policy hall appears, and neither does a hall of the requesting department." },
+        { "ar": "حين تزيد النوافذ على 400 يُرجع total الكلي وtruncated=true وقائمة المرشحات كاملة.", "en": "When windows exceed 400 the reply returns the full total, truncated=true and the complete filter lists." },
+        { "ar": "مالك القاعة هو قسمها المسجل، وإلا الأكثر حجزاً لها هذا الفصل ثم في تاريخ الكلية.", "en": "The owner is the registered department, otherwise the one booking it most this term and then in college history." }
+      ],
+      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/utils/hallBarterFairness.ts", "src/utils/scheduleTime.ts"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/pdf-import-regression.ts"] }
+    },
+    {
+      "id": "FR-LOC-014",
+      "kind": "functional",
+      "title": { "ar": "حرم البنين وحرم البنات منفصلان", "en": "Boys and girls campuses stay separate" },
+      "text": { "ar": "يجب ألا يعرض النظام ولا يعتمد استعارة بين كلية بنين وكلية بنات، وأن يُغلق السوق عند عدم القدرة على تحديد حرم الكلية من اسمها.", "en": "The system shall neither list nor approve a barter between a boys' college and a girls' college, and shall fail closed when a college's campus cannot be told from its name." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "اعتماد طلب بين الحرمين يرجع 409 بعبارة أن القاعات منفصلة بالكامل.", "en": "Approving a request across the two campuses returns 409 stating the halls are fully separate." },
+        { "ar": "كلية باسم لا يدل على الحرم لا تقترض ولا تُقترض منها.", "en": "A college whose name does not indicate its campus neither borrows nor lends." }
+      ],
+      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-LOC-015",
+      "kind": "functional",
+      "title": { "ar": "طلب الاستعارة واعتماده", "en": "Requesting and approving a barter" },
+      "text": { "ar": "يجب أن يُنشئ النظام طلب استعارة من نافذة معروضة دون تغيير أي موعد دراسي، وأن يعتمده أو يرفضه القسم المضيف فقط، وأن يُسلسل الاعتماد لكل فصل ويعيد قراءة الإشغال داخل القفل فلا يعتمد طلبين متداخلين.", "en": "The system shall create a barter request from an offered window without changing any teaching appointment, shall let only the host department approve or reject, and shall serialise approvals per term and re-read occupancy inside the lock so two overlapping requests are never both approved." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "طلب نافذة لم تعد متاحة يرجع 409 ويُطلب تحديث القائمة؛ وطلب القسم من نفسه يرجع 409.", "en": "Requesting a window no longer offered returns 409 asking for a refresh, and a department requesting from itself returns 409." },
+        { "ar": "الاعتماد والقاعة مشغولة في النافذة أو معتمدة لغيره يرجع 409 دون تغيير الحالة.", "en": "Approving while the hall is busy in the window or approved to another returns 409 with the state unchanged." },
+        { "ar": "طلب ردّ عليه من قسم غير مضيف يرجع 403، وطلب أُجيب عليه يرجع 409 «تمت معالجته».", "en": "A response from a non-host department returns 403 and an already answered request returns 409." }
+      ],
+      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/server/core/hallBarter.ts"], "tests": ["tests/instructor-request-availability-audit.ts", "tests/first-password-room-loans-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-016",
+      "kind": "functional",
+      "title": { "ar": "إلغاء الاستعارة وإنهاؤها", "en": "Cancelling and ending a barter" },
+      "text": { "ar": "يجب أن يتيح النظام للقسم الطالب إلغاء طلبه المعلق أو المعتمد، وللقسم المضيف إنهاء إعارة سارية متى شاء، وأن يمنع الإلغاء أو الإنهاء ما دام جدول القسم المستعير يستخدم القاعة في تلك النافذة.", "en": "The system shall let the requesting department cancel its pending or approved request and the host department end a running loan whenever it chooses, and shall refuse either while the borrowing department's schedule uses the hall in that window." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "إنهاء إعارة عليها محاضرة للمستعير يرجع 409 «يُنقل الموعد أولاً».", "en": "Ending a loan carrying a borrower lecture returns 409 asking to move the appointment first." },
+        { "ar": "إلغاء معتمد يستخدمه جدول الطالب يرجع 409؛ وحالة الطلب بعدها «ملغي» وتُحرَّر النافذة.", "en": "Cancelling an approved request that the requester's schedule uses returns 409; afterwards the request is cancelled and the window is released." },
+        { "ar": "الإنهاء يسجّل في التدقيق «إنهاء إعارة» برمز المبنى والقاعة.", "en": "Ending writes an audit line naming the building and hall." }
+      ],
+      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/instructor-request-availability-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-017",
+      "kind": "functional",
+      "title": { "ar": "مهلة الطلب وعدّاد الوارد", "en": "Request expiry and inbox counter" },
+      "text": { "ar": "يجب أن يلغي النظام تلقائياً كل طلب معلق مرّ عليه سبعة أيام بسبب «انتهت المهلة (أسبوع دون رد)»، وأن يعرض في الشريط الجانبي عدد الطلبات المنتظرة لأقسام المستخدم وعمر أقدمها، دون احتساب طلب أرسله هو أو مدير بلا قسم.", "en": "The system shall automatically cancel any pending request older than seven days with the reason that the one-week limit passed without a reply, and shall show in the side bar the count of requests waiting for the user's departments and the age of the oldest, excluding a request the user sent and excluding an administrator with no department." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "system"],
+      "acceptance": [
+        { "ar": "طلب عمره 8 أيام يظهر ملغياً بسببه عند بناء اللوحة أو قراءة العدّاد.", "en": "An 8-day-old request shows cancelled with its reason when the board is built or the counter is read." },
+        { "ar": "العدّاد يرجع pending وoldestDays ولا يحسب طلب المستخدم نفسه.", "en": "The counter returns pending and oldestDays and does not count the user's own request." }
+      ],
+      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/components/HallBarterBoard.tsx"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-LOC-018",
+      "kind": "functional",
+      "title": { "ar": "فرض نوافذ الإعارة عند الحفظ", "en": "Enforcing loan windows on save" },
+      "text": { "ar": "يجب أن يمنع النظام عند كتابة أي موعد رسمي أن يستعمل المستعير القاعة خارج نوافذه المعتمدة، وأن يستعمل المعير نافذة معارة، وأن يُبقي أثراً لإعارة أُلغيت بعد اعتمادها حتى لا تُستعمل كتابة بدأت قبل الإلغاء، وأن يفحص المرفق المرافق كقاعة مستقلة.", "en": "When writing any official appointment the system shall prevent the borrower from using the hall outside its approved windows, prevent the lender from using a lent window, keep a tombstone of a loan cancelled after approval so an in-flight write cannot reuse it, and check the companion facility as a separate hall." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "system"],
+      "acceptance": [
+        { "ar": "المعير داخل الإعارة ممنوع، وخارجها مسموح، وبعد إنهائها مسموح.", "en": "The lender inside the loan is blocked, outside it allowed, and after it ends allowed." },
+        { "ar": "موعد قائم يشغل نافذة مطلوبة يظهر تعارضاً للطرفين على الطلب.", "en": "An existing appointment occupying a requested window shows as a clash for both sides on the request." },
+        { "ar": "لا تُفتح نافذة لقاعة بوقت يشغله موعد أو رغبة أستاذ محجوزة.", "en": "No window is offered for a time occupied by an appointment or a held instructor request." }
+      ],
+      "evidence": { "code": ["src/utils/hallBarterWindow.ts", "src/server/core/hallBarter.ts", "src/server/routes/hallBarterRoutes.ts"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/instructor-request-availability-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-019",
+      "kind": "functional",
+      "title": { "ar": "ساعات الإعارة والاستعارة", "en": "Loan hours drawing" },
+      "text": { "ar": "يجب أن يرسم النظام لكل قسم شريطاً أسبوعياً من الأحد إلى الخميس يجمع نوافذه المعتمدة فقط، معارةً منه أو مستعارةً له، مع مجموع دقائق كل نوع.", "en": "The system shall draw for each department a Sunday-to-Thursday weekly strip of its approved windows only, lent by it or borrowed by it, with the minute total of each kind." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "نافذة معارة 60 دقيقة ومستعارة 90 دقيقة تعطيان lentMinutes=60 وborrowedMinutes=90 ولخمسة أيام شريط.", "en": "A 60-minute lent and a 90-minute borrowed window give lentMinutes=60, borrowedMinutes=90 and five day strips." },
+        { "ar": "قسم لا صلة له بالنافذة يرى صفراً.", "en": "A department unrelated to the window sees zero." }
+      ],
+      "evidence": { "code": ["src/utils/hallBarterWindow.ts", "src/components/RoomLoanStrip.tsx"], "tests": ["tests/first-password-room-loans-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-020",
+      "kind": "functional",
+      "title": { "ar": "صفحة باب القاعة", "en": "Hall door page" },
+      "text": { "ar": "يجب أن يعرض النظام لكل قاعة فعّالة مؤكدة صفحة عامة للقراءة وحدها على /d/ ورمزها تقول بتوقيت الكويت (UTC+3) إن كانت فارغة حتى متى، أو مشغولة وتنتهي متى، أو تبدأ بعد دقائق، مع أسبوعها من الأحد إلى الخميس.", "en": "The system shall show for each active confirmed hall a public read-only page at /d/ with its token that states in Kuwait time (UTC+3) whether it is free until when, busy until when, or starting in a few minutes, with its Sunday-to-Thursday week." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["visitor", "student", "instructor"],
+      "acceptance": [
+        { "ar": "الأحد 10:20 والمحاضرة تنتهي 10:45 تُقال «مشغولة — تنتهي 10:45»، والأحد 09:20 والتالية 09:30 «تبدأ بعد 10 د».", "en": "Sunday 10:20 with a lecture ending 10:45 reads busy and ends 10:45; Sunday 09:20 with the next at 09:30 reads starting in 10 minutes." },
+        { "ar": "العتبة 15 دقيقة (DOOR_SOON_MINUTES)، والجمعة والسبت «عطلة نهاية الأسبوع»، وخارج حدّي الفصل «خارج الفصل الدراسي» مع بداية الفصل القادم.", "en": "The threshold is 15 minutes, Friday and Saturday read weekend, and outside the term it reads outside term with the next term's start date." },
+        { "ar": "شعبتان من المقرر نفسه في الوقت نفسه تظهران محاضرة واحدة «01 · 02»، ومحاضرة أُلغيت اليوم لا تشغل القاعة وتُرى بوسمها.", "en": "Two sections of the same course at the same time show one lecture 01 · 02, and a lecture cancelled today does not occupy the hall and is shown with its mark." },
+        { "ar": "الصفحة تقرأ الفصل الجاري تشغيلياً لا فصل التسجيل القادم.", "en": "The page reads the operationally current term, not the upcoming registration term." }
+      ],
+      "evidence": { "code": ["src/utils/roomDoor.ts", "src/server/roomDoorData.ts", "src/server/roomDoorPage.ts", "src/server/roomDoorRoutes.ts"], "tests": ["tests/room-door-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-021",
+      "kind": "functional",
+      "title": { "ar": "لوحة المبنى وشاشة الممر", "en": "Building board and corridor screen" },
+      "text": { "ar": "يجب أن يعرض النظام لكل مبنى فعّال لوحة عامة على /b/ بلاطةً لكل قاعة مرتبة بالدور ثم الرقم، ووضع شاشة (?screen=1) يملأ تلفاز الممر بلا تمرير، وأن تتحدث الصفحات كل دقيقة تقريباً (60 ثانية مع تشتيت حتى 7 ثوانٍ) وتعيد تحميل نفسها عند تغيّر إصدار النظام.", "en": "The system shall show for each active building a public board at /b/ with one tile per hall ordered by floor then number, and a screen mode (?screen=1) that fills a corridor TV without scrolling; pages shall refresh about every minute (60 seconds plus up to 7 seconds of jitter) and reload when the system build changes." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["visitor", "student", "instructor"],
+      "acceptance": [
+        { "ar": "ترتيب G01 وG02 وF01 وF10 وS01 وL01 هو الأرضي ثم الأول ثم الثاني ثم الأخرى.", "en": "G01, G02, F01, F10, S01, L01 are ordered ground, first, second then other floors." },
+        { "ar": "تفقد الصفحة الاتصال فتقول «غير متصل · آخر تحديث» بعد محاولتين فاشلتين وتعود تلقائياً.", "en": "After two failed pulls the page says not connected with the last update time and recovers automatically." },
+        { "ar": "لوحة المبنى تحمل الوقت والرمز وحدهما لكل محاضرة.", "en": "The board carries only time and code for each lecture." }
+      ],
+      "evidence": { "code": ["src/server/roomDoorRoutes.ts", "src/server/roomDoorPage.ts", "src/server/roomDoorData.ts", "src/components/room-door.css"], "tests": ["tests/room-door-audit.ts"] }
+    },
+    {
+      "id": "NFR-LOC-022",
+      "kind": "nonfunctional",
+      "title": { "ar": "رمز الملصق دائم ولا يُخمَّن", "en": "Sticker token is permanent and unguessable" },
+      "text": { "ar": "يجب أن يكون رمز ملصق القاعة ستة عشر حرفاً من base64url (96 بت) ناتجاً عن HMAC على معرّف القاعة الثابت بمفتاح مشتق من السر المشترك المحفوظ بوسم خاص بالأبواب، وألا يتغير بنشر جديد ولا بتدوير سر التقويم، وأن يختلف رمز المبنى عن رمز القاعة.", "en": "A hall sticker token shall be sixteen base64url characters (96 bits) produced by an HMAC over the hall's permanent registry id with a key derived from the stored shared secret under a door-specific label; it shall not change with a new deployment or with rotation of the calendar secret, and a building token shall differ from a hall token." },
+      "rationale": { "ar": "الملصق يُلصق سنين على الباب، فلا يجوز أن يموت رمزه. والرمز على معرّف السجل لا على رمز القاعة المطبوع فيبقى حياً عند نقل القاعة أو تصحيح رمزها.", "en": "A sticker stays on a door for years so its token cannot die. The token rests on the registry id, not the printed hall code, so it survives a move or a code correction." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "الرمز يطابق ^[A-Za-z0-9_-]{16}$ وهو نفسه بعد إقلاع جديد وبعد تدوير CALENDAR_SECRET.", "en": "The token matches ^[A-Za-z0-9_-]{16}$ and is identical after a restart and after rotating CALENDAR_SECRET." },
+        { "ar": "رمز قاعة لا يفتح مبنى ولا قاعة أخرى؛ ورمز التجريب يحمل وسم صندوق من عشر خانات ويفتح صندوق صاحبه وحده.", "en": "A hall token opens no building or other hall; a demo token carries a ten-character sandbox tag and opens only its owner's sandbox." }
+      ],
+      "evidence": { "code": ["src/server/roomDoorSecret.ts"], "tests": ["tests/room-door-audit.ts"] }
+    },
+    {
+      "id": "NFR-LOC-023",
+      "kind": "nonfunctional",
+      "title": { "ar": "خصوصية الصفحات العامة وحدّها", "en": "Public page privacy and limits" },
+      "text": { "ar": "يجب ألا تُخرج صفحات الأبواب إلا رمز المقرر واسمه وشعبته ووقته، وألا يُفهرسها محرك بحث ولا يخزّنها متصفح، وأن تحمل سكربتاتها رقماً خاصاً للصفحة (CSP nonce)، وأن تُقيَّد بحد افتراضي 600 طلب في الدقيقة لكل عنوان (ROOM_DOOR_PER_IP_PER_MINUTE)، وأن يرجع الرمز الخاطئ أو القاعة المعطلة 404 بصفحة هادئة.", "en": "Door pages shall expose only the course code, name, section and time, shall be neither indexed by search engines nor cached by browsers, shall give their scripts a per-page nonce (CSP nonce), shall be rate limited to 600 requests per minute per address by default (ROOM_DOOR_PER_IP_PER_MINUTE), and shall answer a wrong token or an inactive hall with 404 and a quiet page." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["visitor", "system"],
+      "acceptance": [
+        { "ar": "لا اسم أستاذ ولا عدد طلبة ولا معرّف صف أو مقرر في البيانات ولا في الصفحة.", "en": "No instructor name, student count or row or course id appears in the data or the page." },
+        { "ar": "الرد يحمل X-Robots-Tag: noindex وCache-Control: no-store، والطلب بعد الحد يرجع 429.", "en": "The reply carries X-Robots-Tag noindex and Cache-Control no-store, and a request over the limit returns 429." },
+        { "ar": "بيانات كل قاعة ومبنى تُحفظ في ذاكرة 60 ثانية للعالم الحقيقي وحده، وعامل الخدمة لا يحفظ صفحات /d/ و/b/.", "en": "Each hall's and building's data is cached for 60 seconds in the real world only, and the service worker never stores /d/ or /b/ pages." }
+      ],
+      "evidence": { "code": ["src/server/roomDoorRoutes.ts", "src/server/roomDoorData.ts", "src/server/roomDoorPage.ts"], "tests": ["tests/room-door-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-024",
+      "kind": "functional",
+      "title": { "ar": "روابط الأبواب وملصقاتها", "en": "Door links and stickers" },
+      "text": { "ar": "يجب أن يعطي النظام مديري السجل وحدهم روابط لوحة المبنى وشاشته وكل قاعة، وأن يطبع ورقة A4 طولية بأربعة ملصقات برمز QR يُرسم في المتصفح بمولّد محلي بلا خدمة خارجية، ولا يدخل الورقة نص أو SVG غير مأمون.", "en": "The system shall give only registry administrators the links of the building board, its screen and every hall, and shall print an A4 portrait sheet with four QR stickers drawn in the browser by a local generator with no external service, admitting no unsafe text or SVG into the sheet." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin", "admin"],
+      "acceptance": [
+        { "ar": "طلب /api/room-door/links بلا دخول يرجع 401، ومبنى معطّل أو غير موجود يرجع 404.", "en": "Requesting /api/room-door/links without sign-in returns 401 and an inactive or unknown building returns 404." },
+        { "ar": "كل ملصق يقول «امسح لتعرف القاعة الآن» وتُوزَّع الملصقات أربعة في الورقة، ورابطه القصير يعطي مربع QR لا يزيد على 29 وحدة.", "en": "Each sticker says scan to know the hall now, stickers are laid four to a sheet, and the short link gives a QR of at most 29 modules per side." },
+        { "ar": "في التجريب تحمل الروابط وسم صندوق الزائر وتُنسى بعد ساعتين.", "en": "In the demo the links carry the visitor's sandbox tag and are forgotten after two hours." }
+      ],
+      "evidence": { "code": ["src/server/roomDoorRoutes.ts", "src/utils/roomDoorStickers.ts", "src/components/RoomDoorTools.tsx"], "tests": ["tests/room-door-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-025",
+      "kind": "functional",
+      "title": { "ar": "رمز المقرر على الباب بسبع خانات", "en": "Seven-digit course number on the door" },
+      "text": { "ar": "يجب أن يعرض الباب رمز كل مقرر بسبع خانات (الكلية 2 والقسم 2 والمقرر 3) عبر authorityCourseCode، لا الرمز كما خُزّن في الفهرس.", "en": "The door shall show each course number in seven digits (college 2, department 2, course 3) through authorityCourseCode, not as stored in the catalogue." },
+      "rationale": { "ar": "قرار المالك الثابت. وقد وُجد أن الكود الحالي يقرأ CourseCode من الفهرس مباشرة، وهو ثلاث خانات في أغلب الفهرس، ولا يمرّ باختبار الباب إلا لأن بياناته الاختبارية مخزّنة بسبع خانات.", "en": "A standing owner decision. The current code reads CourseCode from the catalogue directly, which is usually three digits, and the door test passes only because its fixtures store seven digits." },
+      "priority": "must",
+      "status": "in-progress",
+      "actors": ["visitor", "student"],
+      "acceptance": [
+        { "ar": "مقرر مخزّن 105 في القسم 0109 يظهر على الباب 0109105.", "en": "A course stored as 105 in department 0109 appears on the door as 0109105." },
+        { "ar": "لا يُعرض CourseCode ولا AdCourseId كما هما.", "en": "Neither CourseCode nor AdCourseId is shown raw." }
+      ],
+      "evidence": { "code": ["src/server/roomDoorData.ts", "src/utils/authorityAcademicCodes.ts"], "tests": ["tests/room-door-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-026",
+      "kind": "functional",
+      "title": { "ar": "نسبة الإشغال", "en": "Occupancy rate" },
+      "text": { "ar": "يجب أن يحسب النظام لكل يوم وساعة عدد المحاضرات التي تشغلها وعدد القاعات المشغولة ونسبتها من قاعات النطاق، ونسبة اليوم والأسبوع، وأن يعد القاعة مرة واحدة في الساعة، وأن تفتح الخانة لوحة محاضراتها مجموعةً تحت مواقعها بأسماء قصيرة مع بحث يظهر من تسعة صفوف.", "en": "The system shall compute for each day and hour the number of lectures occupying it, the number of busy halls and their share of the scope's halls, plus the day and week rates, count a hall once per hour, and let a cell open a panel of its lectures grouped under their campuses with short names and a search appearing from nine rows." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "registrarHead"],
+      "acceptance": [
+        { "ar": "محاضرة من 9:30 إلى 10:45 تقع في ساعتي التاسعة والعاشرة معاً، ومحاضرتان في القاعة نفسها تعدّان قاعة واحدة.", "en": "A lecture from 9:30 to 10:45 falls in both the nine and ten o'clock hours and two lectures in one hall count as one hall." },
+        { "ar": "درجة اللون من 1 إلى 5 للخانات غير الفارغة، والمحاضرة بلا قاعة تُعدّ محاضرة ولا تشغل قاعة.", "en": "The colour level runs 1 to 5 for non-empty cells and a lecture with no hall counts as a lecture and occupies no hall." },
+        { "ar": "اسم الكلية لا يتكرر في كل صف، ولا يُقصّ اسم المقرر أو الأستاذ بنقاط.", "en": "The college name is not repeated on every row and course and instructor names are never cut with ellipses." }
+      ],
+      "evidence": { "code": ["src/utils/occupancyHeat.ts", "src/utils/occupancySlot.ts", "src/components/OccupancyHeatGrid.tsx", "src/components/OccupancySlotPanel.tsx"], "tests": ["tests/occupancy-heat-audit.ts", "tests/occupancy-slot-panel-audit.ts", "tests/room-occupancy-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-027",
+      "kind": "functional",
+      "title": { "ar": "المرفق المرافق للقاعة", "en": "Companion facility of a hall" },
+      "text": { "ar": "يجب أن يعرض النظام للمقرر ذي نوع المرفق المرافق المرافقَ المسجلة بسياسة «مرفق مرافق فقط» من النوع نفسه في الموقع نفسه (أول أربع خانات من كود المبنى) مع توافرها في وقت الموعد، وأن يربط أول متاح تلقائياً، وأن يشغل المرفق والقاعة الأساسية معاً طوال الموعد.", "en": "The system shall list for a course that requires a companion facility the facilities registered with the companion-only policy of the same type on the same site (first four characters of the building code) with their availability for the appointment time, link the first available one automatically, and occupy both the facility and the main hall for the whole appointment." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "المرفق المحجوز لموعد آخر يظهر available=false، والموعد المعدَّل لا يحسب نفسه (excludeId).", "en": "A facility booked by another appointment returns available=false and the edited appointment does not count itself (excludeId)." },
+        { "ar": "الاستخدام الأساسي والمرافق للاستوديو نفسه يتصادمان.", "en": "Main and companion use of the same studio clash." },
+        { "ar": "الشارة تعرض النوع المسجل للمرفق المحجوز فعلاً ولا تُنشأ لموعد بلا حجز.", "en": "The badge shows the registered type of the actually booked facility and none is shown for an appointment without a booking." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/CompanionFacilityPicker.tsx", "src/components/CompanionFacilityBadge.tsx", "src/utils/companionRoomDisplay.ts", "src/utils/locationRegistry.ts"], "tests": ["tests/companion-rooms-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-028",
+      "kind": "functional",
+      "title": { "ar": "سياسة التنقل بين المواقع", "en": "Travel policy between campuses" },
+      "text": { "ar": "يجب أن يضبط المسجّل العام أو مدير النظام مدة التنقل لكل زوج من الجهراء والفحيحيل والرئيسي من 0 إلى 180 دقيقة (الصفر يوقفها) مع قائمة أساتذة مستثنين حتى 500، وأن تكون القيم الافتراضية 60 دقيقة بين الجهراء والفحيحيل و30 لغيرهما، وأن تُطبق المدة تنبيهاً في «موعد» القسم وإلزاماً في بطاقة الأستاذ.", "en": "The registrar general or an administrator shall set the travel time for each pair among Jahra, Fahaheel and the main campus from 0 to 180 minutes (zero disables it) with an exemption list of up to 500 instructors; defaults are 60 minutes between Jahra and Fahaheel and 30 for the others; the time applies as a warning in the department appointment and as an obligation in the faculty card." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["registrarHead", "admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "زوج محفوظ بـ90 دقيقة يرجع نقصاً need=90 لفارق 60، ويمرّ فارق 105.", "en": "A pair saved at 90 minutes returns a shortfall with need=90 for a 60-minute gap and a 105-minute gap passes." },
+        { "ar": "الأستاذ المستثنى والصفر يوقفان الحكم، وحقل required القديم يُحفظ ولا يقرؤه أي حكم.", "en": "An exempt instructor and zero stop the rule, and the legacy required field is stored but read by no rule." },
+        { "ar": "غير المخوّل يرجع 403، وتُحفظ ذاكرة السياسة 30 ثانية.", "en": "An unauthorised user gets 403 and the policy is cached for 30 seconds." }
+      ],
+      "evidence": { "code": ["src/utils/campusTravelPolicy.ts", "src/utils/campusTravel.ts", "src/server/core/travelPolicy.ts", "src/server/routes/referenceRoutes.ts", "src/server/core/scheduleConflicts.ts", "src/components/CampusTravelPolicyCard.tsx"], "tests": ["tests/undo-travel-rule-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-029",
+      "kind": "functional",
+      "title": { "ar": "زمن التنقل بين مبنيين في الحرم", "en": "Walking time between buildings on a campus" },
+      "text": { "ar": "يجب أن يحتفظ النظام لكل كلية بزمن افتراضي بين مبنيين غير مضبوطين (5 دقائق) وزمن داخل المبنى الواحد (3 دقائق) وأزواج مضبوطة بين مبانٍ بعينها بين 1 و120 دقيقة، ويقتصر ضبطها على من يملك صلاحية الكليات ضمن نطاقه.", "en": "The system shall keep for each college a default time between two unconfigured buildings (5 minutes), a time inside one building (3 minutes) and configured pairs between specific buildings of 1 to 120 minutes, editable only by a user with the colleges permission within their scope." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "قيمة زوج 0 أو 500 تُضبط إلى 1 أو 120، وزمن داخل المبنى يُحصر بين 0 و30.", "en": "A pair value of 0 or 500 is clamped to 1 or 120 and the same-building time is limited to 0 to 30." },
+        { "ar": "زوج من مبنى إلى نفسه يُهمل.", "en": "A pair from a building to itself is ignored." }
+      ],
+      "evidence": { "code": ["src/utils/campusTravel.ts", "src/server/routes/referenceRoutes.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "NFR-LOC-030",
+      "kind": "nonfunctional",
+      "title": { "ar": "هوية موحدة للقاعة", "en": "One identity for a hall" },
+      "text": { "ar": "يجب أن تُعرَّف القاعة في كل مقارنة (الإشغال والاستعارة وباب القاعة والاقتراح) بمفتاح واحد: معرّفها في السجل، وإلا رمز المبنى والقاعة بعد التطبيع (NFKC وأرقام لاتينية وأحرف كبيرة بلا مسافات)، حتى لا تُرى قاعة فارغة في موضع وهي محجوزة في آخر.", "en": "A hall shall be identified in every comparison (occupancy, barter, door page, suggestion) by one key: its registry id, otherwise the normalised building and hall text (NFKC, Latin digits, upper case, no spaces), so that no hall looks free in one place and booked in another." },
+      "rationale": { "ar": "كان مفتاح الاستعارة يكتب الأحرف صغيرة والسجل يكبّرها، فلا يطابق حجزٌ أي قاعة تاريخية أبداً وتعطّل تحذير «محجوزة رقمياً».", "en": "The barter key used lower case while the registry uses upper case, so a reservation never matched any legacy hall and the reserved-digitally warning never fired." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "الصف الذي يحمل المبنى والقاعة نصاً يشغل القاعة كالمربوط بمعرّفها.", "en": "A row carrying the building and hall as text occupies the hall just like one linked by id." },
+        { "ar": "legacy:012B08|G20 يطابق legacy:012b08|g20 بعد التطبيع.", "en": "legacy:012B08|G20 matches legacy:012b08|g20 after normalisation." }
+      ],
+      "evidence": { "code": ["src/utils/locationRegistry.ts", "src/server/core/hallBarter.ts", "src/server/roomDoorData.ts"], "tests": ["tests/room-occupancy-audit.ts", "tests/companion-rooms-audit.ts"] }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": { "ar": "حجز استعارة على قاعة تاريخية بالنص", "en": "Barter reservation on a legacy hall held as text" },
+      "scenario": { "ar": "قاعة لا معرّف لها في السجل تحمل المبنى والقاعة نصاً بأحرف مختلفة الحالة بين الطلب والموعد.", "en": "A hall with no registry id holds building and hall as text in different letter case between the request and the appointment." },
+      "behavior": { "ar": "يُطبَّع الطرفان بقاعدة السجل نفسها فيطابقان، وتعمل رسالة «محجوزة رقمياً» وتحذير «يتجاوز نافذة الاستعارة».", "en": "Both sides are normalised by the registry's own rule so they match, and the reserved-digitally message and the window-exceeded warning both fire." },
+      "evidence": ["tests/room-occupancy-audit.ts", "src/server/core/hallBarter.ts"]
+    },
+    {
+      "title": { "ar": "إنهاء إعارة يدرّس فيها المستعير", "en": "Ending a loan the borrower teaches in" },
+      "scenario": { "ar": "يضغط القسم المضيف «إنهاء الإعارة» ولدى القسم المستعير محاضرة في النافذة.", "en": "The host department presses End loan while the borrowing department has a lecture in the window." },
+      "behavior": { "ar": "يُرفض الإنهاء بـ409 ويُطلب نقل الموعد أولاً، ويحرس المستودع الأمر نفسه عند سباق كتابتين.", "en": "Ending is refused with 409 asking to move the appointment first, and the repository guards the same rule when two writes race." },
+      "evidence": ["tests/first-password-room-loans-audit.ts", "tests/instructor-request-availability-audit.ts"]
+    },
+    {
+      "title": { "ar": "إعادة تسمية قاعة ثم العودة إلى رمزها", "en": "Renaming a hall then returning to its code" },
+      "scenario": { "ar": "يُغيَّر رمز قاعة من ZX901 إلى ZX911 ثم إلى ZX912 ثم يعود إلى ZX901.", "en": "A hall code changes from ZX901 to ZX911, then ZX912, then back to ZX901." },
+      "behavior": { "ar": "كل رمز قديم يُسجَّل صيغة مرة واحدة، وعند العودة يسقط ZX901 من الصيغ ويبقى ZX912 وZX911، ولا يُسجَّل رمز تملكه قاعة أخرى.", "en": "Each old code is recorded once as a form; on returning, ZX901 drops from the forms while ZX912 and ZX911 remain, and no code owned by another hall is recorded." },
+      "evidence": ["tests/rooms-one-screen-audit.ts", "src/utils/locationAliasHistory.ts"]
+    },
+    {
+      "title": { "ar": "محاضرة أُلغيت اليوم على صفحة الباب", "en": "A lecture cancelled today on the door page" },
+      "scenario": { "ar": "تُلغى محاضرة الخميس لتاريخ اليوم وحده في وقتها الجاري.", "en": "A Thursday lecture is cancelled for today's date only, at its current time." },
+      "behavior": { "ar": "تظهر القاعة فارغة بسببها ولا تُعد التالية، ويعود الخميس التالي مشغولاً؛ ولا تُلغى المحاضرة المدموجة إلا إذا أُلغيت كل شعبها.", "en": "The hall shows free because of it and it is not counted as next; the following Thursday is busy again, and a merged lecture is cancelled only if all its sections are cancelled." },
+      "evidence": ["tests/room-door-audit.ts"]
+    },
+    {
+      "title": { "ar": "قاعة عُطّلت وعليها ملصق", "en": "A deactivated hall with a sticker on its door" },
+      "scenario": { "ar": "تُوقف قاعة في السجل بينما ملصقها ما زال على الباب.", "en": "A hall is deactivated in the registry while its sticker is still on the door." },
+      "behavior": { "ar": "يرجع الرمز 404 بصفحة هادئة لا تكشف تفاصيل؛ وتفعيلها من جديد يعيد الملصق نفسه إلى العمل لأن الرمز على معرّف السجل.", "en": "The token returns 404 with a quiet page revealing nothing; reactivating the hall brings the same sticker back because the token rests on the registry id." },
+      "evidence": ["tests/room-door-audit.ts", "src/server/roomDoorRoutes.ts"]
+    },
+    {
+      "title": { "ar": "طلبان متداخلان يُعتمدان معاً", "en": "Two overlapping requests approved at once" },
+      "scenario": { "ar": "يوافق مضيفان في اللحظة نفسها على طلبين مختلفين لنافذتين متداخلتين في القاعة نفسها.", "en": "Two hosts approve, at the same moment, two different requests for overlapping windows of one hall." },
+      "behavior": { "ar": "قفل لكل فصل يسلسل القرارين ويعيد قراءة الاستعارات المعتمدة داخله، فيمرّ الأول ويرجع الثاني 409 «تم اعتماد استعارة أخرى متداخلة».", "en": "A per-term lock serialises the two decisions and re-reads approved loans inside it, so the first passes and the second returns 409 saying another overlapping loan is approved." },
+      "evidence": ["tests/instructor-request-availability-audit.ts", "src/server/routes/hallBarterRoutes.ts"]
+    }
+  ],
+  "terms": [
+    { "ar": "المبنى", "en": "Building", "def": { "ar": "وحدة في السجل الرسمي بكود من رمز الموقع ورقمين.", "en": "A unit of the official registry with a code made of the site prefix and two digits." } },
+    { "ar": "القاعة", "en": "Hall", "def": { "ar": "غرفة تدريس أو مختبر داخل مبنى، معرّفة برمزها فيه.", "en": "A teaching room or lab inside a building, identified by its code there." } },
+    { "ar": "القاعة المشتركة", "en": "Shared hall", "def": { "ar": "قاعة مرتبطة بأكثر من قسم واحد.", "en": "A hall linked to more than one department." } },
+    { "ar": "استعارة القاعات", "en": "Hall barter", "def": { "ar": "حجز رقمي لنافذة فارغة من قاعة قسم آخر لفصل واحد، بموافقة المضيف.", "en": "A digital reservation of a free window in another department's hall for one term, with the host's approval." } },
+    { "ar": "المُعير / المستعير", "en": "Lender / Borrower", "def": { "ar": "القسم المضيف صاحب القاعة، والقسم الطالب للنافذة.", "en": "The host department owning the hall, and the department requesting the window." } },
+    { "ar": "بانتظار تثبيت القاعة", "en": "Pending hall confirmation", "def": { "ar": "حالة موعد حُفظ قبل اختيار قاعة رسمية (PENDING_ROOM).", "en": "The state of an appointment saved before an official hall is chosen (PENDING_ROOM)." } },
+    { "ar": "المرفق المرافق", "en": "Companion facility", "def": { "ar": "استوديو أو مختبر يُحجز مع القاعة الأساسية للموعد نفسه.", "en": "A studio or lab booked together with the main hall for the same appointment." } },
+    { "ar": "باب القاعة", "en": "Hall door page", "def": { "ar": "صفحة عامة برمز QR تقول حال القاعة الآن.", "en": "A public page reached by QR code stating the hall's state now." } },
+    { "ar": "لوحة المبنى / شاشة الممر", "en": "Building board / Corridor screen", "def": { "ar": "صفحة بلاطة لكل قاعة في المبنى، ووضعها الكامل للتلفاز.", "en": "A page with a tile per hall of the building, and its full-screen mode for a TV." } },
+    { "ar": "الصيغة التاريخية", "en": "Historical form", "def": { "ar": "رمز قديم للقاعة أو المبنى يبقى معروفاً بعد تغيير رمزه.", "en": "An old hall or building code that stays recognised after its code changes." } }
+  ],
+  "ownerRules": [
+    { "ar": "رقم المقرر سبع خانات فقط في كل ما يراه القارئ، ومنه صفحة الباب ولوحة المبنى.", "en": "Course numbers are seven digits only in everything a reader sees, including the door page and building board." },
+    { "ar": "حرم البنين وحرم البنات منفصلان بالكامل، فلا استعارة قاعات بينهما.", "en": "The boys' and girls' campuses are fully separate, so there is no hall barter between them." },
+    { "ar": "الإعارة تحجز نافذة القاعة فقط ولفصل واحد: لا محاضرة وهمية ولا تغيير مقرر، والمعير حرّ خارج النافذة ومحجوب داخلها حتى يُنهيها.", "en": "A loan reserves the hall window only and for one term: no fake lecture and no course change; the lender is free outside the window and barred inside it until the loan is ended." },
+    { "ar": "مدة التنقل بين المواقع إلزام في بطاقة الأستاذ وتنبيه لا يمنع في «موعد» القسم (قرار 2026-11-05).", "en": "Travel time between campuses is an obligation in the faculty card and a warning that does not block in the department appointment (decision of 2026-11-05)." },
+    { "ar": "لا كتابة يدوية للقاعة: ما لا يظهر في القائمة لا يُحجز، والحذف إيقاف يحفظ السجل التاريخي.", "en": "No typing a hall by hand: what is not in the list cannot be booked, and deleting only deactivates so history is kept." },
+    { "ar": "التقارير المطبوعة تحافظ على تصميمها؛ وتُصلح قيم القاعات وبياناتها لا الشكل.", "en": "Printed reports keep their design; hall values and data are fixed, not the layout." }
+  ]
+}
