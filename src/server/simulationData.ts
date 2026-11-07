@@ -13,6 +13,7 @@ import type { AdCourse, AdTerm, RegistrationRun, RegistrationTicket } from "../t
 import type { DemandRepair } from "../utils/demandRepair";
 import type { SectionProposal } from "../utils/sectionOpening";
 import { remainingNeed } from "../utils/curriculumRules";
+import { campusOf } from "../utils/campusTravel";
 import { auditSimOfferings, parseClock, simulateRegistration, type SimInput, type SimOffering, type SimPlanRules, type SimResult, type SimSlot, type SimStudent } from "../utils/registrationSim";
 
 const DAYS: Array<[keyof import("../types").FSchedule, number]> = [["fsunday", 0], ["fmonday", 1], ["ftuesday", 2], ["fwednesday", 3], ["fthursday", 4]];
@@ -415,7 +416,10 @@ export function ticketContext(termId: number): Promise<TicketContext> {
   /* صندوقُ التجربة لا يدخل الذاكرة المشتركة (أرقامُ فصله تتصادم مع الحقيقي). */
   const memo = Repository.isDemoRequest() ? { get: (_key: string, load: () => Promise<TicketContext>) => load() } : contextMemo;
   return memo.get(String(termId), async () => {
-    const [schedules, approvals] = await Promise.all([Repository.getSchedulesByScope({ termId }), Repository.getScheduleApprovalsForTerm(termId)]);
+    const [schedules, approvals, colleges] = await Promise.all([Repository.getSchedulesByScope({ termId }), Repository.getScheduleApprovalsForTerm(termId), Repository.getColleges()]);
+    /* الحرمُ مفتاحٌ فقط («jahra»/«fahaheel»؛ الرئيسيُّ غائب) من اسم الكلية: لا هويةَ ولا قاعة تصل الطالب. */
+    const remoteCampus = new Map<number, "jahra" | "fahaheel">();
+    for (const college of colleges) { const campus = campusOf(college.AdCollegeName); if (campus !== "main") remoteCampus.set(Number(college.AdCollegeId), campus); }
     const offerings: TicketContext["offerings"] = new Map();
     const legacyKeys = new Map<string, string[]>();
     for (const row of schedules) {
@@ -427,7 +431,7 @@ export function ticketContext(termId: number): Promise<TicketContext> {
       const start = parseClock(row.fstarttime), end = parseClock(row.fendtime);
       if (start === null || end === null || end <= start) continue;
       for (const [field, day] of DAYS) if ((row as any)[field]) {
-        if (!offering.slots.some(slot => slot.day === day && slot.start === start && slot.end === end)) offering.slots.push({ day, start, end, ...(row.buildingId ? { b: String(row.buildingId) } : {}) });
+        if (!offering.slots.some(slot => slot.day === day && slot.start === start && slot.end === end)) offering.slots.push({ day, start, end, ...(row.buildingId ? { b: String(row.buildingId) } : {}), ...(remoteCampus.has(offering.collegeId) ? { c: remoteCampus.get(offering.collegeId)! } : {}) });
       }
     }
     for (const [legacy, keys] of legacyKeys) if (new Set(keys).size === 1) {

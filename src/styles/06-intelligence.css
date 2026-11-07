@@ -1769,6 +1769,9 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
   display:block;padding:2px 0;
   border-inline-start:2px solid var(--accent);padding-inline-start:var(--s2);
 }
+/* تتمّة المحاضرة: الخانة نفسها بلا نص، وتُخفى الحدود الفاصلة بينها وبين أختها فتبدو شريطاً واحداً. */
+.matrix-table td.is-continued{border-inline-start-style:hidden}
+.matrix-slot.is-continued{border-inline-start-color:transparent;min-height:1px}
 .matrix-slot + .matrix-slot{margin-top:var(--s2);border-top:1px dashed var(--line);padding-top:var(--s2)}
 .matrix-slot b{display:block;font-size:12px;font-weight:600;line-height:1.3;color:var(--ink)}
 .matrix-slot em{display:block;font-style:normal;color:var(--muted);font-size:12px;line-height:1.35}

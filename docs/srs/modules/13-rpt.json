@@ -37,6 +37,7 @@
     "src/components/AuthorityPdfReport.tsx",
     "src/components/PrintComprehensiveHead.tsx",
     "src/components/OccupancyHeatGrid.tsx",
+    "src/utils/matrixRuns.ts",
     "src/styles/08-print.css",
     "src/styles/48-report-choice.css",
     "src/utils/printFit.ts",

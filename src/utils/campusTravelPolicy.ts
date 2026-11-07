@@ -1,4 +1,5 @@
 import { interCampusMinutes, type Campus } from "./campusTravel";
+import { shortTravelGap } from "./campusTravelHint";
 
 /**
  * ── سياسةُ التنقّل بين المواقع (ملاحظة المالك 13) ───────────────────────────
@@ -71,8 +72,8 @@ export function travelShortfalls(policy: CampusTravelPolicy, instructorId: numbe
       if (!rule) continue;
       const otherStart = clockMinutes(other.fstarttime), otherEnd = clockMinutes(other.fendtime);
       /* التداخلُ تعارضٌ له حكمُه؛ هنا الفارقُ بين موعدين لا يتداخلان. */
-      const gap = start >= otherEnd ? start - otherEnd : otherStart >= end ? otherStart - end : -1;
-      if (gap >= 0 && gap < rule.minutes) found.push({ day: slot.day, need: rule.minutes, gap, from, to });
+      const gap = shortTravelGap(rule.minutes, start, end, otherStart, otherEnd);
+      if (gap >= 0) found.push({ day: slot.day, need: rule.minutes, gap, from, to });
     }
   }
   return found;

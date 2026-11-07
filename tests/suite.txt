@@ -152,6 +152,7 @@ test:masari-ease
 test:masari-visual
 test:masari-return
 test:masari-desktop
+test:masari-travel-hint
 test:registration-sim
 test:academic-advice
 test:registration-flow
@@ -255,5 +256,6 @@ test:proposal-family-timetable
 test:full-day-setting
 test:report-choices
 test:room-types-by-department
+test:matrix-continuation
 test:srs-doc
 test:srs-route
