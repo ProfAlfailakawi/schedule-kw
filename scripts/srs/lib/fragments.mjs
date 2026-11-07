@@ -22,6 +22,13 @@ export const statusBadge = (c, s) => badge(`b-${s}`, c.T(LABELS.status[s]), STAT
 export const priorityBadge = (c, p) => badge(`b-${p}`, c.T(LABELS.priority[p]));
 export const kindBadge = (c, k) => badge("b-kind", c.T(LABELS.kind[k]));
 
+/** صفّ شارات الأدوار: ستٌّ ظاهرة والباقي خلف «+N» (على الشاشة فقط). */
+export function actorChips(c, m, ids) {
+  const chips = ids.map(a => actorChip(c, m, a)).join("");
+  if (c.print || ids.length <= 6) return `<div class="req-meta" style="margin:.4rem 0">${chips}</div>`;
+  return `<div class="req-meta cap" style="margin:.4rem 0">${chips}<button class="chip more" type="button" data-more>+${ids.length - 6}</button></div>`;
+}
+
 export function actorChip(c, m, id) {
   const a = m.actorMap.get(id);
   return a ? `<span class="chip">${c.print ? "" : icon(a.icon, 13)}${c.T(a.name)}</span>` : "";
@@ -30,7 +37,11 @@ export function actorChip(c, m, id) {
 export function diagramBlock(c, d) {
   /* الطباعة تختار أنظف تخطيطٍ لكل مخطط (رأسي أو عمودي للقصير)؛ الشاشة أفقية، والهاتف عمودي. */
   const printCandidates = d.nodes.length <= 9 ? ["tb", "col"] : ["tb"];
-  const one = (lang, orient) => (c.print ? bestFlowSvg(d, lang, printCandidates).svg : flowSvg(d, lang, orient));
+  const one = (lang, orient) => {
+    if (c.print) return bestFlowSvg(d, lang, printCandidates).svg;
+    if (orient === "lr") return bestFlowSvg(d, lang, ["lr", "tb"], { pageW: 1000, colW: 420, pageH: 560 }).svg;
+    return flowSvg(d, lang, orient);
+  };
   const both = orient => (c.mode === "dual"
     ? `<div class="ar">${one("ar", orient)}</div><div class="en">${one("en", orient)}</div>`
     : one(c.mode, orient));

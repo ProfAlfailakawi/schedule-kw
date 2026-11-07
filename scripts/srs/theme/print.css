@@ -124,3 +124,5 @@ td a,.toc-row,.req-id{color:inherit}
 .tl-ic{width:28px;height:28px;border-radius:7px}.tl-ic .ic{width:16px;height:16px}
 
 .diagram svg.flow.o-col{max-width:62%;max-height:200mm}
+
+.tech{break-inside:avoid}.tech-lead{break-after:avoid}.sub h3{break-after:avoid}

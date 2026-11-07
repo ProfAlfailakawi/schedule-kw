@@ -228,13 +228,13 @@ export function flowSvg(diagram, lang, orient = "lr") {
 }
 
 /** يجرّب التخطيطات المرشَّحة ويعيد أنظفها: أقلُّ عبوراً للعقد وتراكباً للتسميات (وعند التعادل الأول في القائمة). */
-export function bestFlowSvg(diagram, lang, candidates) {
+export function bestFlowSvg(diagram, lang, candidates, dims = { pageW: 628, colW: 389, pageH: 756 }) {
   let best = null;
   for (const orient of candidates) {
     lastMetrics.crossings = 0; lastMetrics.badLabels = 0;
     const svg = flowSvg(diagram, lang, orient);
     const vb = /viewBox="(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"/.exec(svg);
-    const vw = +vb[3], vh = +vb[4], pageW = orient === "col" ? 389 : 628, pageH = 756;
+    const vw = +vb[3], vh = +vb[4], pageW = orient === "col" ? dims.colW : dims.pageW, pageH = dims.pageH;
     const scale = Math.min(pageW / vw, pageH / vh, 1.1);
     const score = lastMetrics.crossings * 4 + lastMetrics.badLabels * 6 + Math.max(0, 0.9 - scale) * 40;
     if (!best || score < best.score) best = { score, svg, orient };

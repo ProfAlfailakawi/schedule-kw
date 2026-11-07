@@ -13,6 +13,8 @@
     var q = $("#q"); if (q) q.placeholder = q.getAttribute("data-ph-" + l) || "";
     $$("[data-pdf]").forEach(function (a) { a.href = a.getAttribute("data-pdf-" + l) || "#"; });
     $$("[data-live]").forEach(function (a) { a.href = a.getAttribute("data-live-" + l) || "#"; });
+    $$("option[data-ar]").forEach(function (o) { o.textContent = o.getAttribute("data-" + l); });
+    $$("optgroup[data-ar]").forEach(function (g) { g.label = g.getAttribute("data-" + l); });
     if (!silent) safe(function () { localStorage.setItem("srs-lang", l); });
   }
   var initial = safe(function () { return localStorage.getItem("srs-lang"); }) || (/^en/i.test(navigator.language || "") ? "en" : "ar");
@@ -86,7 +88,7 @@
     cur.view = view; cur.mod = view === "modules" ? (mod || "") : cur.mod;
     if (view === "modules" && mod && panel) panelOf[mod] = panel;
     cur.panel = (view === "modules" && cur.mod) ? (panelOf[cur.mod] || "about") : "";
-    body.dataset.view = view;
+    body.dataset.view = view; body.dataset.mod = view === "modules" ? cur.mod : "";
     $$(".view").forEach(function (v) { v.hidden = v.id !== "v-" + view; });
     var onStage = view === "modules" || view === "requirements";
     if (stage) stage.hidden = !onStage;
@@ -123,6 +125,7 @@
   $$("[data-go]").forEach(function (b) { b.addEventListener("click", function () { show(b.dataset.go, "", ""); }); });
   $$(".subtab").forEach(function (b) { b.addEventListener("click", function () { var m = b.closest(".mod").dataset.module; show("modules", m, b.dataset.p, { keepScroll: true }); }); });
   var pick = $("#modpick"); if (pick) pick.addEventListener("change", function () { show("modules", pick.value, ""); });
+  $$("[data-more]").forEach(function (b) { b.addEventListener("click", function () { b.parentNode.classList.add("open"); b.remove(); }); });
   $$(".back-map").forEach(function (b) { b.addEventListener("click", function () { show("modules", "", ""); }); });
 
   /* ── البحث والمرشحات ───────────────────────────────────────── */

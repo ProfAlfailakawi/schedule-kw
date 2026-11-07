@@ -186,3 +186,16 @@ body.none .empty{display:block}
   .hchip.authors{padding:.22rem .45rem;margin-inline:-.55rem;max-width:calc(100% + 1.1rem);justify-content:center}
   .hchip.authors .dot{margin-inline:.05rem}
 }
+
+/* الوحدات بلا اختيار: البطاقات وحدها بعرض كامل (القائمة الجانبية تكرارٌ لها) */
+body[data-view="modules"][data-mod=""] .mod-list,body[data-view="modules"][data-mod=""] .mod-pick{display:none!important}
+body[data-view="modules"][data-mod=""] .mod-layout{grid-template-columns:minmax(0,1fr)}
+@media (max-width:979px){body[data-view="modules"][data-mod=""] .mod-pick{display:block!important}}
+/* روابط هادئة في جدول التتبّع */
+.lnk{display:inline-flex;gap:.45rem;align-items:center;border:0;background:none;color:var(--jade-ink);font:inherit;font-weight:600;cursor:pointer;text-align:start;padding:.1rem 0}
+.lnk:hover span{text-decoration:underline}.lnk .ic{color:var(--jade);flex:none}
+/* أدوار الوحدة: ست ظاهرة والباقي خلف +N */
+.req-meta.cap:not(.open) .chip:not(.more):nth-child(n+7){display:none}
+.chip.more{border:1px dashed var(--line-2);background:transparent;cursor:pointer;font:inherit;font-size:.76rem;color:var(--jade-ink);font-weight:700}
+.mod-pick select{text-overflow:ellipsis}
+.mod-pick{margin-bottom:.8rem}
