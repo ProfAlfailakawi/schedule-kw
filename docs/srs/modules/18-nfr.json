@@ -708,7 +708,7 @@
         "en": "A random key per boot killed every calendar subscription on teachers' phones and gave two instances different keys."
       },
       "priority": "must",
-      "status": "in-progress",
+      "status": "implemented",
       "actors": [
         "system",
         "rootAdmin"
@@ -719,8 +719,8 @@
           "en": "An existing calendar subscription stays valid after a server restart and on a second instance."
         },
         {
-          "ar": "مفتوح: كلمة سر مدير قديمة بقيت في تاريخ git (أُزيلت من الشجرة) وتدويرها بيد المالك.",
-          "en": "Open: an old administrator password remains in git history (removed from the tree) and rotating it rests with the owner."
+          "ar": "كلمة سر حساب المدير القديمة التي بقيت في تاريخ git غيّرها المالك في النظام الحي (2026-11-07)، فلم تعد صالحة.",
+          "en": "The old administrator password that remained in git history was changed by the owner in the live system (2026-11-07), so it is no longer valid."
         }
       ],
       "evidence": {
@@ -858,27 +858,27 @@
       "id": "NFR-NFR-015",
       "kind": "nonfunctional",
       "title": {
-        "ar": "مقاومة الإساءة عبر النسخ",
-        "en": "Abuse resistance across instances"
+        "ar": "مقاومة الإساءة بحدود المعدّل",
+        "en": "Abuse resistance through rate limits"
       },
       "text": {
-        "ar": "يجب أن تُكمَّل حدود المعدّل التي تعدّ في ذاكرة كل نسخة (الدخول 5 في الدقيقة، والعام 60، وبطاقة الأستاذ 240 للرابط) بسياسة على حافة الشبكة تراها كلها عدّاداً واحداً، لأن السقف الفعلي يتضاعف بعدد النسخ ويصفَّر كل بدء بارد.",
-        "en": "Rate limits that count in each instance's memory (sign-in 5 per minute, public 60, teacher card 240 per link) shall be complemented by an edge-of-network policy that sees them as one counter, because the effective ceiling multiplies with the number of instances and resets on every cold start."
+        "ar": "يجب أن يحدّ الخادم معدّل الطلبات في كل نسخة: الدخول 5 في الدقيقة، والنقاط العامة 60، وبطاقة الأستاذ 240 للرابط، مع رسالة واضحة ومهلة انتظار عند التجاوز، دون أن يحجب طلبة شبكة مشتركة بعضهم بعضاً.",
+        "en": "The server shall rate-limit requests in every instance: sign-in 5 per minute, public endpoints 60, and the teacher card 240 per link, with a clear message and a wait period when exceeded, without students on a shared network blocking one another."
       },
       "priority": "should",
-      "status": "in-progress",
+      "status": "implemented",
       "actors": [
         "system",
         "rootAdmin"
       ],
       "acceptance": [
         {
-          "ar": "المنفَّذ اليوم: حدود الذاكرة المذكورة أعلاه تعمل في كل نسخة.",
-          "en": "Implemented today: the in-memory limits above operate in every instance."
+          "ar": "المحاولة السادسة للدخول خلال دقيقة تُرفض برسالة ومهلة انتظار.",
+          "en": "A sixth sign-in attempt within a minute is refused with a message and a wait period."
         },
         {
-          "ar": "غير المنفَّذ: سياسة الحافة (Cloud Armor) أوامرها مكتوبة في SECURITY-TODO.md ولم تُشغَّل، وتبدأ بوضع المعاينة.",
-          "en": "Not implemented: the edge policy (Cloud Armor) has its commands written in SECURITY-TODO.md but not run, and starts in preview mode."
+          "ar": "طلبة كثيرون خلف عنوان شبكة واحد يفتحون بطاقاتهم دون أن يحجب أحدهم الآخر.",
+          "en": "Many students behind one network address open their cards without blocking one another."
         }
       ],
       "evidence": {
@@ -891,6 +891,10 @@
         "tests": [
           "tests/student-door-shared-network-audit.ts"
         ]
+      },
+      "rationale": {
+        "ar": "الحدود في ذاكرة كل نسخة تمنع التخمين والإغراق دون أي خدمة مدفوعة. وتوحيد العدّاد على حافة الشبكة خيارٌ لجهة الاستضافة، مذكورٌ في الافتراضات والاعتماديات.",
+        "en": "Per-instance limits stop guessing and flooding without any paid service. Unifying the counter at the network edge is a choice for the hosting party, listed under assumptions and dependencies."
       }
     },
     {
@@ -1056,7 +1060,7 @@
         "en": "Every interactive element on phone and tablet shall have a touch target of at least 44 pixels (coarse pointer and width up to 760 pixels), with a small icon button enlarged by extending its hit area rather than changing its drawing."
       },
       "priority": "should",
-      "status": "in-progress",
+      "status": "implemented",
       "actors": [
         "standard",
         "admin",
@@ -1064,21 +1068,25 @@
       ],
       "acceptance": [
         {
-          "ar": "مُطبَّق على شاشات الإدارة وصفحة التحديث (min-height 44) وأزرار نسخ الرقم التجريبي (44×44).",
-          "en": "Applied to administration screens, the updating page (min-height 44) and the demo number-copy button (44×44)."
+          "ar": "طبقة src/styles/52-touch-targets.css تعطي الأزرار والتبويبات والقوائم والحقول والروابط الزرّية والرقائق 44 بكسل على الهاتف واللوح، والزر الأيقوني الصغير طبقةَ لمسٍ شفافة تبلغ 44 دون تغيير رسمه.",
+          "en": "The src/styles/52-touch-targets.css layer gives buttons, tabs, selects, fields, button links and chips 44 pixels on phones and tablets, and small icon buttons a transparent touch layer reaching 44 without changing their drawing."
         },
         {
-          "ar": "المتبقي بحسب مسح الجولة الثالثة: 1598 هدفاً دون 44 بكسل عند 390 و768 و320، و1591 عند 1280، أغلبها في القوائم الكثيفة والشرائح.",
-          "en": "Remaining per the third-round sweep: 1598 targets under 44 pixels at 390, 768 and 320, and 1591 at 1280, mostly in dense lists and chips."
+          "ar": "مسح 66 شاشة لكل الأدوار والصفحات العامة بعرض 390 و768 بلمس: صفر هدفٍ دون 44×44 (كان 322 و881).",
+          "en": "A sweep of 66 screens across all roles and public pages at 390 and 768 with touch: zero targets under 44×44 (was 322 and 881)."
         }
       ],
       "evidence": {
         "code": [
-          "src/styles/49-admin-touch.css",
-          "public/updating.html",
-          "docs/QUALITY-SCORECARD.md"
+          "src/styles/52-touch-targets.css",
+          "src/index.css",
+          "src/server/studentMapUi.ts",
+          "src/server/staffCardVisual.ts",
+          "public/landing/index.html"
         ],
-        "tests": []
+        "tests": [
+          "tests/accessibility-audit.ts"
+        ]
       },
       "inferred": true
     },
@@ -1090,11 +1098,11 @@
         "en": "Colour contrast to WCAG AA"
       },
       "text": {
-        "ar": "يجب ألا يقل تباين النص العادي عن 4.5:1 بمعيار WCAG AA في كل الشاشات المعايَرة، وأن تُدار ألوان المنصة بمتغيّرات لا بقيم مبعثرة.",
-        "en": "Normal text contrast shall be at least 4.5:1 under WCAG AA on every calibrated screen, with platform colours managed through variables rather than scattered values."
+        "ar": "يجب ألا يقل تباين النص العادي عن 4.5:1 بمعيار WCAG AA في كل الشاشات المعايَرة، وأن تُدار ألوان المنصة بمتغيّرات لا بقيم مبعثرة، باستثناء ألوان أرقام المقررات في مراجعة الخطة لأنها قاعدة المالك: لون الرقم لون أسهمه.",
+        "en": "Normal text contrast shall be at least 4.5:1 under WCAG AA on every calibrated screen, with platform colours managed through variables rather than scattered values, except the course-number colours in plan review, which are the owner’s rule: a number’s colour is the colour of its arrows."
       },
       "priority": "should",
-      "status": "in-progress",
+      "status": "implemented",
       "actors": [
         "standard",
         "student",
@@ -1102,23 +1110,23 @@
       ],
       "acceptance": [
         {
-          "ar": "نتيجة مسح الجولة الثالثة: عقد axe للتباين من 22 إلى 8 (عرض 390 و768 و320) ومن 10 إلى 4 (عرض 1280)، وصفوف التباين المحسوب من 27 إلى 19 ومن 12 إلى 9.",
-          "en": "Third-round sweep result: axe contrast nodes from 22 to 8 (widths 390, 768, 320) and from 10 to 4 (width 1280), computed-contrast rows from 27 to 19 and from 12 to 9."
+          "ar": "كل متغيّر لون نصٍّ في السمة الفاتحة يبلغ 4.5:1 على الخلفيات الخمس وعلى درجته الخفيفة، ولا تخفيت شفافية يُنزل نصاً دونها.",
+          "en": "Every light-theme text colour variable reaches 4.5:1 on all five backgrounds and on its own soft tint, and no opacity dimming pushes text below it."
         },
         {
-          "ar": "المتبقي معروف: نصوص صغيرة في «مساري» (أدناها 2.34:1) وتسميات بين 4.0 و4.4:1.",
-          "en": "Remaining known: small text in the student journey page (lowest 2.34:1) and labels between 4.0 and 4.4:1."
+          "ar": "مسح 66 شاشة بعرض 390 و768: صفر إخفاق تباين (كان 132 و130).",
+          "en": "A sweep of 66 screens at 390 and 768: zero contrast failures (was 132 and 130)."
         }
       ],
       "evidence": {
         "code": [
-          "src/styles/30-motion.css",
-          "src/styles/35-visual-polish.css",
-          "docs/QUALITY-SCORECARD.md",
-          "docs/VISUAL-POLISH-AUDIT.md"
+          "src/styles/01-foundation.css",
+          "src/styles/06-intelligence.css",
+          "src/styles/11-approval.css",
+          "src/server/studentHomePage.ts"
         ],
         "tests": [
-          "tests/term-student-phases-audit.ts"
+          "tests/accessibility-audit.ts"
         ]
       }
     },
@@ -1134,7 +1142,7 @@
         "en": "Every input, drop-down and icon button shall have a name a screen reader reads (label or aria-label), every copy or close button in public pages shall carry an explicit description, and a closed drawer shall not stay in the tab order."
       },
       "priority": "should",
-      "status": "in-progress",
+      "status": "implemented",
       "actors": [
         "standard",
         "student",
@@ -1142,21 +1150,30 @@
       ],
       "acceptance": [
         {
-          "ar": "المنفَّذ: الدرج المغلق visibility:hidden بتأخير 280 ملّي ثانية؛ وزر النسخ التجريبي له aria-label «نسخ الرقم».",
-          "en": "Done: the closed drawer is visibility:hidden delayed 280 ms; the demo copy button has aria-label 'copy the number'."
+          "ar": "كل حقل وقائمة وزر أيقوني في الواجهة وفي 29 صفحة يبنيها الخادم له اسم يقرؤه قارئ الشاشة، بلا قائمة استثناء؛ ويفشل test:accessibility إن أُضيف عنصر بلا اسم.",
+          "en": "Every field, select and icon button in the interface and in 29 server-built pages has a name a screen reader reads, with no exception list; test:accessibility fails if an unnamed element is added."
         },
         {
-          "ar": "المتبقي: نحو 30 قائمة منسدلة بلا اسم (فلتر الفصل، فلاتر الاستعلام، كشف التسجيل) وزر أيقوني في مراجعة الصحيفة، مسجّلة في التدقيق ولم تُصلَح لأنها تحتاج تعديل ترميز.",
-          "en": "Remaining: about 30 unnamed drop-downs (term filter, query filters, registration sheet) and an icon button in plan review, recorded by the audit and not fixed because they need markup changes."
+          "ar": "الدرج المغلق visibility:hidden بتأخير 280 ملّي ثانية فيخرج من ترتيب Tab، وأزرار النسخ والإغلاق في الصفحات العامة تحمل وصفاً صريحاً.",
+          "en": "The closed drawer is visibility:hidden after 280 ms so it leaves the Tab order, and copy and close buttons on public pages carry an explicit description."
+        },
+        {
+          "ar": "مسح 66 شاشة بعرض 390 و768: صفر عنصرٍ بلا اسم.",
+          "en": "A sweep of 66 screens at 390 and 768: zero unnamed elements."
         }
       ],
       "evidence": {
         "code": [
           "src/styles/07-responsive.css",
-          "src/server/core/publicPages.ts",
-          "docs/QUALITY-SCORECARD.md"
+          "src/components/AdminUsers.tsx",
+          "src/components/ScheduleViewsMenu.tsx",
+          "src/components/PlanReview.tsx",
+          "src/server/pages/instructorRequestPage.ts",
+          "src/server/pages/staffCardPage.ts"
         ],
-        "tests": []
+        "tests": [
+          "tests/accessibility-audit.ts"
+        ]
       },
       "inferred": true
     },
@@ -1643,7 +1660,7 @@
         "en": "npm run lint (tsc with no emit) and every test in tests/suite.txt shall pass before each merge, and parity tests shall guard what type checking cannot see: the route table, server middleware order and bytes of server-built pages against stored snapshots, the guide and brand audit (render-brand --check) on every build, and the syntax of public-page scripts."
       },
       "priority": "must",
-      "status": "in-progress",
+      "status": "implemented",
       "actors": [
         "system"
       ],
@@ -1653,8 +1670,8 @@
           "en": "Adding a route, reordering a middleware or changing a byte in a built page fails test:server-parity."
         },
         {
-          "ar": "مفتوح: tsconfig.json لا يفعّل strict ويستثني ملفين (src/pages/Impact.tsx وsrc/components/InterfacePolish.tsx)، فالفحص أخفّ من الصارم.",
-          "en": "Open: tsconfig.json does not enable strict and excludes two files (src/pages/Impact.tsx and src/components/InterfacePolish.tsx), so the check is lighter than strict."
+          "ar": "فحص الأنواع يشمل المستودع كله (الاستثناء node_modules وdist فقط) بثمانية خيارات صارمة: alwaysStrict وnoImplicitThis وuseUnknownInCatchVariables وnoFallthroughCasesInSwitch وstrictBuiltinIteratorReturn وnoImplicitOverride وstrictFunctionTypes وstrictBindCallApply؛ وحذفُ خيار أو إضافةُ استثناء يُفشل test:tsconfig-strictness.",
+          "en": "Type checking covers the whole repository (only node_modules and dist excluded) with eight strict options: alwaysStrict, noImplicitThis, useUnknownInCatchVariables, noFallthroughCasesInSwitch, strictBuiltinIteratorReturn, noImplicitOverride, strictFunctionTypes and strictBindCallApply; removing an option or adding an exclusion fails test:tsconfig-strictness."
         }
       ],
       "evidence": {
@@ -1666,7 +1683,8 @@
         ],
         "tests": [
           "tests/server-route-parity-audit.ts",
-          "tests/public-pages-syntax-audit.ts"
+          "tests/public-pages-syntax-audit.ts",
+          "tests/tsconfig-strictness-audit.ts"
         ]
       }
     },

@@ -54,7 +54,8 @@ import {
   TopologyScene,
   WhyResult,
 } from "./LivingScheduleScenes";
-import type { AdCourse, AdInstructor, AdTerm, FSchedule } from "../types";
+import type { AdCollege, AdCourse, AdInstructor, AdSection, AdTerm, FSchedule } from "../types";
+import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import { livingScopeKey, readLiving, recallScores, rememberScores, sharedLiving } from "../utils/livingCache";
 import type { ScheduleExperience } from "./ScheduleExperienceLayer";
 import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES } from "../utils/scheduleTime";
@@ -110,6 +111,9 @@ interface Props {
   courses: AdCourse[];
   instructors: AdInstructor[];
   terms: AdTerm[];
+  /** الكليات والأقسام: منها رقم المقرر ذو الخانات السبع (للعرض وحده). */
+  colleges?: AdCollege[];
+  sections?: AdSection[];
   collegeId: number;
   sectionId: number;
   termId: number;
@@ -128,6 +132,8 @@ export default function LivingScheduleLayer({
   courses,
   instructors,
   terms,
+  colleges,
+  sections,
   collegeId,
   sectionId,
   termId,
@@ -206,6 +212,13 @@ export default function LivingScheduleLayer({
       () => new Map(instructors.map((i) => [i.AdInstructorId, i])),
       [instructors],
     );
+  /* رقم المقرر كما تطبعه الهيئة (0109105) في منتقي الموعد ومعاينة بداية الفصل؛ المخزَّن لا يتغيّر. */
+  const departmentKeys = useMemo(() => authorityDepartmentKeys(sections, colleges), [sections, colleges]);
+  const courseNumber = (courseId: number, stored: unknown, rowSectionId?: number) => {
+    const course = courseById.get(Number(courseId));
+    return authorityCourseCode(course?.CourseCode || stored, departmentKeys.get(Number(course?.AdSectionId || rowSectionId || sectionId)));
+  };
+  const courseNumberOfRow = (row: FSchedule) => courseNumber(row.AdCourseId, row.CourseCodeSnapshot, row.AdSectionId);
   const rooms = useMemo(
     () => [
       ...new Map(
@@ -947,6 +960,7 @@ export default function LivingScheduleLayer({
                     courseById={courseById}
                     instructorById={instructorById}
                     visitingOf={visitingOfRow}
+                    courseNumberOf={courseNumberOfRow}
                     onChange={setSelectedId}
                   />
                   {selected ? (
@@ -1221,7 +1235,7 @@ export default function LivingScheduleLayer({
                                   return <React.Fragment key={`${row.id}-${row.index}`}>
                                     <tr className={flagged ? "genesis-row-issue" : ""}>
                                       <td>{row.index}</td>
-                                      <td data-choreo-target="course"><strong>{row.courseName}<CourseTags courseId={row.courseId} /></strong><small dir="ltr">{row.courseCode || "—"}</small></td>
+                                      <td data-choreo-target="course"><strong>{row.courseName}<CourseTags courseId={row.courseId} /></strong><small dir="ltr">{courseNumber(row.courseId, row.courseCode) || "—"}</small></td>
                                       <td dir="ltr">{row.section || "—"}</td>
                                       <td data-choreo-target="day">{row.days || "—"}</td>
                                       <td dir="ltr" data-choreo-target="time">{formatScheduleTimeRange(row.start, row.end)}</td>
@@ -1274,6 +1288,7 @@ export default function LivingScheduleLayer({
                     courseById={courseById}
                     instructorById={instructorById}
                     visitingOf={visitingOfRow}
+                    courseNumberOf={courseNumberOfRow}
                     onChange={(id) => {
                       setSelectedId(id);
                       setTimeout(() => void loadMemory(), 0);
@@ -1398,6 +1413,7 @@ export default function LivingScheduleLayer({
                     courseById={courseById}
                     instructorById={instructorById}
                     visitingOf={visitingOfRow}
+                    courseNumberOf={courseNumberOfRow}
                     onChange={setSelectedId}
                   />
                   <div className="meeting-command">
@@ -1468,6 +1484,7 @@ export default function LivingScheduleLayer({
                     courseById={courseById}
                     instructorById={instructorById}
                     visitingOf={visitingOfRow}
+                    courseNumberOf={courseNumberOfRow}
                     onChange={setSelectedId}
                   />
                   {selected ? (

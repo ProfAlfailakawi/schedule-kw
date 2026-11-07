@@ -900,7 +900,7 @@
     @media screen{
       .flow.flow-armed .farrow{color:var(--line-strong)}
       .flow.flow-armed .farrow::after{transform:scaleX(0)}
-      .flow.flow-armed .fstep{opacity:.55;border-color:var(--line-strong)}
+      .flow.flow-armed .fstep{opacity:.9;border-color:var(--line-strong)}
       .flow.flow-armed .fstep .tile__ic{background:var(--surface-card);color:var(--muted);border-color:var(--line-strong)}
     }
     .flow.flow-intro .fstep{
@@ -1539,6 +1539,7 @@
       margin-top: 18px;
     }
     .feedback-box.active { display: block; }
+    .feedback-box.is-error { background: var(--danger-soft); border-color: var(--danger); }
 
     /* ── Footer ─────────────────────────────────────────────────────────── */
     .footer {
@@ -1570,6 +1571,17 @@
   /* The hero badges are static claims, not live readings: they stay still. */
   .hotspot-chip{animation:none !important}
   .hotspot-chip .chip-dot::after{animation:none !important}
+  /* Touch (phone and tablet): every control reaches 44px. Pills keep their drawing; a
+     transparent layer grows the hit area. Plain footer links pad out and pull back. */
+  @media (pointer:coarse),(max-width:760px){
+    .gallery-filter-btn{min-height:44px}
+    button.chip{position:relative}
+    button.chip::after{content:"";position:absolute;inset-inline:0;inset-block:min(0px,calc((100% - 44px) / 2))}
+    .frame-topbar{padding-block:16px}
+    #btn-view-live::after{inset:-16px 0 -8px}
+    #btn-view-screen::after{inset:-8px 0 -16px}
+    .footer-inner > div:last-child > a:not(.btn){display:inline-block;padding-block:11px;margin-block:-11px}
+  }
   </style>
 </head>
 <body>
@@ -2599,12 +2611,12 @@
               <div class="form-field full">
                 <button type="submit" id="submit-btn" class="btn btn-brass" style="width:100%; min-height:50px; font-size:1rem; display:inline-flex; align-items:center; justify-content:center; gap:8px;">
                   <svg class="ic" style="width:18px; height:18px;"><use href="#i-mail"/></svg>
-                  <span>إرسال طلب الاستعراض عبر البريد الأكاديمي</span>
+                  <span>إرسال طلب الاستعراض</span>
                 </button>
               </div>
             </div>
 
-            <div id="feedback" class="feedback-box"></div>
+            <div id="feedback" class="feedback-box" role="status" aria-live="polite"></div>
           </form>
         </div>
       </div>
@@ -3004,7 +3016,7 @@
       const form = document.getElementById('inquiry-form');
 
       btn.disabled = true;
-      btn.textContent = 'جاري الإرسال عبر البريد الأكاديمي...';
+      btn.textContent = 'جاري إرسال الطلب...';
       box.classList.remove('active');
 
       const payload = {
@@ -3015,22 +3027,32 @@
         notes: form.notes.value.trim()
       };
 
+      // النجاحُ لا يُعلن إلا بجوابٍ صحيح من الخادم؛ وما عداه فشلٌ صريح.
+      const FAIL_TEXT = 'لم يُرسل طلبكم.';
+      const CONTACT_TEXT = 'حاولوا لاحقاً أو راسلونا مباشرة على Ah.Alfailakawi@paaet.edu.kw';
+      box.classList.remove('is-error');
       try {
         const res = await fetch('/api/landing/inquiry', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
-        box.textContent = data.message || 'تم إرسال طلبكم بنجاح إلى البريد الأكاديمي المعتمد Ah.Alfailakawi@paaet.edu.kw. سنتواصل معكم قريباً.';
+        let data = null;
+        try { data = await res.json(); } catch (_) { data = null; }
+        if (!res.ok || !data || data.success !== true) {
+          box.textContent = FAIL_TEXT + ' ' + (data && data.error ? data.error : 'تعذّر حفظه الآن.') + ' ' + CONTACT_TEXT;
+          box.classList.add('is-error', 'active');
+          return;
+        }
+        box.textContent = data.message || 'وصل طلبكم وحُفظ، وسنتواصل معكم على بريدكم.';
         box.classList.add('active');
         form.reset();
       } catch (err) {
-        box.textContent = 'تم إرسال الطلب. يُمكنكم أيضاً مراسلتنا مباشرة على: Ah.Alfailakawi@paaet.edu.kw';
-        box.classList.add('active');
+        box.textContent = FAIL_TEXT + ' تعذّر الاتصال بالخادم. ' + CONTACT_TEXT;
+        box.classList.add('is-error', 'active');
       } finally {
         btn.disabled = false;
-        btn.textContent = 'إرسال طلب الاستعراض عبر البريد الأكاديمي ';
+        btn.textContent = 'إرسال طلب الاستعراض ';
         btn.insertAdjacentHTML('beforeend', LX.mail);
       }
     }

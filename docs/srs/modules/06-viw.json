@@ -1555,7 +1555,7 @@
         "en": "The department schedule, the start-of-term preview, the appointment picker in the scenes and the export file shall show the course number in seven digits (college, department, course), not the code stored in the catalogue."
       },
       "priority": "must",
-      "status": "planned",
+      "status": "implemented",
       "actors": [
         "committeeChair",
         "departmentHead"
@@ -1568,19 +1568,28 @@
         {
           "ar": "عمود «رمز المقرر» في ملف Excel المُصدَّر وسطر المعاينة في بداية الفصل يعرضان الرقم نفسه.",
           "en": "The «رمز المقرر» column of the exported Excel file and the preview line in start of term show the same number."
+        },
+        {
+          "ar": "ملف Excel المصدَّر يُعاد استيراده كما هو: الرقم السباعي يطابق المقرر دون أن يحل محل الرمز المخزّن.",
+          "en": "The exported Excel file re-imports as is: the seven-digit number matches the course without replacing the stored code."
         }
       ],
       "evidence": {
         "code": [
           "src/components/DepartmentSchedule.tsx",
-          "src/components/LivingScheduleScenes.tsx",
           "src/components/LivingScheduleLayer.tsx",
-          "src/components/ScheduleTransfer.tsx"
+          "src/components/LivingScheduleScenes.tsx#ContextPicker",
+          "src/components/ScheduleTransfer.tsx",
+          "src/server/routes/scheduleImportRoutes.ts",
+          "src/server/routes/smartImportRoutes.ts"
+        ],
+        "tests": [
+          "tests/course-number-seven-digit-audit.ts"
         ]
       },
       "rationale": {
-        "ar": "الكود يعرض اليوم CourseCode أو CourseCodeSnapshot كما هو في هذه المواضع.",
-        "en": "Today the code shows CourseCode or CourseCodeSnapshot as stored in these places."
+        "ar": "الرقم الرسمي سبع خانات في كل ما يقرؤه المستخدم أو يصدّره؛ والمخزّن يبقى كما هو.",
+        "en": "The official number has seven digits in everything the user reads or exports; the stored value stays as is."
       }
     }
   ],

@@ -9079,7 +9079,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <b>{conflictIds.size}</b>
             </button>
           ) : null}
-          <button type="button" onClick={() => setPresentationMode(false)} title="إنهاء العرض">
+          <button type="button" onClick={() => setPresentationMode(false)} title="إنهاء العرض" aria-label="إنهاء العرض">
             <X />
           </button>
         </div>
@@ -10896,6 +10896,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           courses={courses}
           instructors={instructors}
           terms={terms}
+          colleges={colleges}
+          sections={sections}
           collegeId={filterCollege}
           sectionId={filterSection}
           termId={filterTerm}

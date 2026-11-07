@@ -9,7 +9,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { authorityCourseCode, authorityDepartmentCode } from "../src/utils/authorityAcademicCodes";
+import { authorityCourseCode, authorityDepartmentCode, authorityDepartmentKeys } from "../src/utils/authorityAcademicCodes";
 import { readServerSource } from "./helpers/serverSource.mjs";
 
 let passed = 0, failed = 0;
@@ -47,6 +47,36 @@ check(!/\{\s*pickedCourse\?\.CourseCode/.test(reports), "بطاقة الموعد
 check(/authorityCourseCode\(course\?\.CourseCode \|\| row\.CourseCodeSnapshot/.test(authority), "تقرير تغييرات الجدول يكتب رقم المقرر بسبع خانات");
 check(/"رمز المقرر": courseNumberOf\(s\)/.test(server), "ملف Excel يكتب رقم المقرر بسبع خانات");
 check(/0109105/.test(read("README.md")) && /authorityCourseCode/.test(read("README.md")), "والقاعدة مكتوبة في README لمن يعمل على المشروع بعدنا");
+
+/* ── مفاتيح الأقسام لكل AdSectionId (authorityDepartmentKeys) ─────────────── */
+const keys = authorityDepartmentKeys(
+  [{ AdSectionId: 1, AdCollegeId: 5, AdSectionCode: "09" }, { AdSectionId: 2, AdCollegeId: 6, AdSectionCode: "01" }, { AdSectionId: 3, AdCollegeId: 9, AdSectionCode: "" }],
+  [{ AdCollegeId: 5, AdCollegeCode: "011" }, { AdCollegeId: 6, AdCollegeCode: "022" }],
+);
+check(keys.get(1) === "0109" && keys.get(2) === "0201" && !keys.has(3), "مفاتيح الأقسام: 011+09 => 0109، 022+01 => 0201، وقسمٌ بلا رمز لا مفتاح له");
+check(authorityCourseCode("105", keys.get(1)) === "0109105" && authorityCourseCode("105", keys.get(3)) === "105", "105 تحت 0109 => 0109105، وبلا مفتاح يبقى المخزَّن");
+check(authorityDepartmentKeys(undefined, undefined).size === 0, "بلا أقسام لا مفاتيح");
+
+/* ── NFR-VIW-024: جدول القسم، ومعاينة بداية الفصل، ومنتقي الموعد، وملف Excel ── */
+const department = read("src/components/DepartmentSchedule.tsx");
+check(/courseCode: authorityCourseCode\(course\?\.CourseCode \|\| item\.CourseCodeSnapshot, departmentKeys\.get\(/.test(department) && /read\("\/api\/colleges"\)/.test(department),
+  "جدول القسم يكتب رقم المقرر بسبع خانات من رمز الكلية والقسم");
+check(!/courseCode: course\?\.CourseCode \|\| item\.CourseCodeSnapshot/.test(department), "جدول القسم لا يعرض الرمز المخزَّن مباشرة");
+const layer = read("src/components/LivingScheduleLayer.tsx");
+check(/\{courseNumber\(row\.courseId, row\.courseCode\) \|\| "—"\}/.test(layer) && !/\{row\.courseCode \|\| "—"\}/.test(layer), "معاينة بداية الفصل بالرقم السباعي");
+check((layer.match(/courseNumberOf=\{courseNumberOfRow\}/g) || []).length === 4 && /authorityCourseCode\(course\?\.CourseCode \|\| stored, departmentKeys\.get\(/.test(layer), "كل منتقيات الموعد في المشاهد تأخذ الرقم السباعي");
+const scenes = read("src/components/LivingScheduleScenes.tsx");
+check(/const code = number \? ` \[\$\{number\}\]` : ""/.test(scenes) && !/\[\$\{course\.CourseCode\}\]/.test(scenes), "منتقي الموعد يكتب [0109105] لا [105]");
+check(/colleges=\{colleges\}\s*sections=\{sections\}/.test(read("src/components/Schedules.tsx")), "شاشة الجدول تمرّر الكليات والأقسام إلى طبقة المشاهد");
+const transfer = read("src/components/ScheduleTransfer.tsx");
+check(/r\.courseNumber \|\| r\.courseCode \|\| ""/.test(transfer), "ملف Excel المصدَّر يكتب courseNumber (سبع خانات) في عمود «رمز المقرر»");
+const exportRoute = read("src/server/routes/scheduleImportRoutes.ts");
+check(/courseNumber: courseNumberOf\(row\)/.test(exportRoute) && /courseCode: courseById\.get\(row\.AdCourseId\)\?\.CourseCode \|\| ""/.test(exportRoute),
+  "مسار التصدير يضيف courseNumber من authorityCourseCode ويُبقي courseCode المخزَّن لاستيراد JSON");
+const importRoute = read("src/server/routes/smartImportRoutes.ts");
+check(/if\(printed&&!byCode\.has\(printed\)\)byCode\.set\(printed,c\)/.test(importRoute), "ملف Excel المصدَّر يُعاد استيراده: الرقم السباعي بديلٌ لا يحلّ محلّ الرمز المخزَّن");
+const allCourses = read("src/components/AllCourses.tsx");
+check(/code=\{tmCourseNumber\(course, context\)\}/.test(allCourses) && !/code=\{String\(course\.CourseCode/.test(allCourses), "تبويب كل المقررات في آلة الزمن يعرض الرقم السباعي");
 
 console.log(`\ncourse number audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

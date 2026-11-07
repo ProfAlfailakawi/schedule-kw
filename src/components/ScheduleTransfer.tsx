@@ -680,8 +680,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
       if (format === "xlsx") {
         const XLSX = await import("xlsx");
         const headers = ["رمز المقرر", "المقرر الدراسي", "الشعبة", "أستاذ المقرر", "الرقم المدني", "الأيام", "الوقت", "المبنى", "القاعة"];
+        /* رقم المقرر في الملف سبع خانات كما تطبعه الهيئة (courseNumber)، لا الرمز المخزَّن. */
         const rows = (data.rows || []).map((r: any) => [
-          r.courseCode || "",
+          r.courseNumber || r.courseCode || "",
           r.courseName || "",
           r.section || "",
           r.instructorName || "",
@@ -1528,6 +1529,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                 type="file"
                 accept="application/json,.json,.xlsx,.xls,application/pdf,.pdf"
                 className="transfer-file"
+                aria-label="اختر ملف الجدول"
                 onChange={event => { const file = event.target.files?.[0]; if (file) void readFile(file); event.target.value = ""; }}
               />
               <div className="transfer-import-actions">
@@ -1885,7 +1887,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               </div>
 
               <div className="roster-copy roster-copy-rich">
-                <TermSelect value={copyFrom || ""} onValueChange={id => void loadCopyRoster(id)}>
+                <TermSelect aria-label="انسخ من فصل" value={copyFrom || ""} onValueChange={id => void loadCopyRoster(id)}>
                   <option value="">انسخ من فصل…</option>
                   {copySourceTerms.filter(term => Number(term.AdTermId) !== termId).map(term => (
                     <option key={term.AdTermId} value={term.AdTermId}>{term.AdTermName}</option>

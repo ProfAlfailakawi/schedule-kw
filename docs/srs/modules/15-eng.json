@@ -45,7 +45,8 @@
     "public/ad-previews/*",
     "public/launch/*",
     "scripts/capture-ad-previews.ts",
-    "docs/ADS_AND_AUDIENCE.md"
+    "docs/ADS_AND_AUDIENCE.md",
+    "src/server/landingInquiry.ts"
   ],
   "screens": [
     { "name": { "ar": "الإعلانات", "en": "Ads manager" }, "file": "src/components/AdsManager.tsx", "note": { "ar": "أربعة تبويبات: الحملات، الطلبات، المواقع والمواسم، ملف الشراكة؛ للإدارة الرئيسية وحدها وليست متاحة في التجربة.", "en": "Four tabs: campaigns, requests, placements and seasons, partnership profile. Main administrator only and not available in the demo." } },
@@ -695,18 +696,17 @@
       "id": "FR-ENG-027",
       "kind": "functional",
       "title": { "ar": "وصول استفسار صفحة الهبوط", "en": "Delivery of a landing-page inquiry" },
-      "text": {
-        "ar": "يجب على النظام أن يوصل استفسار «طلب الاستعراض» من صفحة الهبوط إلى جهة تتابعه بحيث لا يضيع، وأن يعرض للزائر نتيجة صادقة. الحالي: تستلم /api/landing/inquiry الطلب وتسجّله في سجل الخادم فقط وترد بنجاح، دون تخزين ولا إرسال، ويقرأ الخادم حقل message بينما ترسل الصفحة notes.",
-        "en": "The system shall deliver a demo-request inquiry from the landing page to someone who follows it up so that it is not lost, and show the visitor an honest outcome. Current state: /api/landing/inquiry receives the request, writes it to the server log only and replies with success, with no storage and no mailing, and the server reads a field named message while the page sends notes."
-      },
+      "text": { "ar": "يجب على النظام أن يوصل استفسار «طلب الاستعراض» من صفحة الهبوط إلى إدارة النظام بحيث لا يضيع: يُفحص ويُحدّ حجمه ومعدّله، ويُحفظ في مجموعة landingInquiries، ويظهر في جرس الإشعارات لمدير النظام وحده؛ وأن يعرض للزائر نتيجة صادقة، فلا يقول «أُرسل» إلا بعد حفظٍ فعلي.", "en": "The system shall deliver a «request a walkthrough» inquiry from the landing page to the system administration so it is never lost: it is validated, size- and rate-limited, stored in the landingInquiries collection, and shown in the notification bell to the system administrator only; and it shall show the visitor an honest result, saying «sent» only after an actual save." },
       "priority": "should",
-      "status": "planned",
+      "status": "implemented",
       "actors": ["visitor", "system"],
       "acceptance": [
-        { "ar": "استفسار مُرسل يبقى مخزناً أو مرسلاً إلى بريد مضبوط ويظهر للإدارة.", "en": "A submitted inquiry stays stored or is mailed to a configured address and is visible to the administration." },
-        { "ar": "رسالة الصفحة عند فشل الطلب لا تدّعي الإرسال.", "en": "The page's message on a failed request does not claim it was sent." }
+        { "ar": "استفسار صالح يُحفظ (201) ويظهر في جرس مدير النظام بالجهة والاسم والبريد، ولا يراه دورٌ أكاديمي.", "en": "A valid inquiry is stored (201) and appears in the system administrator’s bell with institution, name and email, and no academic role sees it." },
+        { "ar": "إن تعذّر الحفظ أو كانت القاعدة متوقفة يرد الخادم 503 وتقول الصفحة «لم يُرسل طلبكم» مع البريد المباشر وتبقي النموذج.", "en": "If saving fails or the database is down the server answers 503 and the page says «your request was not sent» with the direct email, keeping the form." },
+        { "ar": "الحقل الزائد يُرفض (400)، والجسم الكبير (413)، والسادس خلال عشر دقائق من العنوان نفسه (429)، والمكرر خلال ساعة لا ينشئ سجلاً ثانياً.", "en": "An over-long field is refused (400), an oversized body (413), the sixth within ten minutes from one address (429), and a duplicate within an hour creates no second record." }
       ],
-      "evidence": { "code": ["server.ts", "public/landing/index.html"] }
+      "evidence": { "code": ["src/server/landingInquiry.ts", "server.ts#/api/landing/inquiry", "src/db/repository.ts#createLandingInquiry", "src/server/routes/notificationsRoutes.ts", "public/landing/index.html"], "tests": ["tests/landing-inquiry-audit.ts"] },
+      "rationale": { "ar": "كان الطلب يُسجَّل في سجل الخادم فقط ويُرد بنجاح، فيضيع ويُقال للزائر إنه أُرسل.", "en": "The request used to be written to the server log only and answered with success, so it was lost while the visitor was told it was sent." }
     }
   ],
   "edgeCases": [

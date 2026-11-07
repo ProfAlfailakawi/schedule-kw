@@ -570,15 +570,16 @@
       "kind": "functional",
       "title": { "ar": "رمز المقرر على الباب بسبع خانات", "en": "Seven-digit course number on the door" },
       "text": { "ar": "يجب أن يعرض الباب رمز كل مقرر بسبع خانات (الكلية 2 والقسم 2 والمقرر 3) عبر authorityCourseCode، لا الرمز كما خُزّن في الفهرس.", "en": "The door shall show each course number in seven digits (college 2, department 2, course 3) through authorityCourseCode, not as stored in the catalogue." },
-      "rationale": { "ar": "قرار المالك الثابت. وقد وُجد أن الكود الحالي يقرأ CourseCode من الفهرس مباشرة، وهو ثلاث خانات في أغلب الفهرس، ولا يمرّ باختبار الباب إلا لأن بياناته الاختبارية مخزّنة بسبع خانات.", "en": "A standing owner decision. The current code reads CourseCode from the catalogue directly, which is usually three digits, and the door test passes only because its fixtures store seven digits." },
+      "rationale": { "ar": "قرار المالك الثابت: الرقم الرسمي سبع خانات. والفهرس يخزّن أغلب المقررات بثلاث، فيُبنى الرقم المعروض من رمز القسم والمقرر عند العرض وحده، دون تغيير المخزّن.", "en": "The owner’s standing decision: the official number has seven digits. The catalogue stores most courses with three, so the displayed number is built from the department and course codes at display time only, without changing what is stored." },
       "priority": "must",
-      "status": "in-progress",
+      "status": "implemented",
       "actors": ["visitor", "student"],
       "acceptance": [
         { "ar": "مقرر مخزّن 105 في القسم 0109 يظهر على الباب 0109105.", "en": "A course stored as 105 in department 0109 appears on the door as 0109105." },
-        { "ar": "لا يُعرض CourseCode ولا AdCourseId كما هما.", "en": "Neither CourseCode nor AdCourseId is shown raw." }
+        { "ar": "لا يُعرض CourseCode ولا AdCourseId كما هما.", "en": "Neither CourseCode nor AdCourseId is shown raw." },
+        { "ar": "لوحة المبنى تعرض الرقم السباعي نفسه، وتُدمج شعب المقرر الواحد بالرمز المخزّن كما كانت.", "en": "The building board shows the same seven-digit number, and sections of one course are still merged by the stored code." }
       ],
-      "evidence": { "code": ["src/server/roomDoorData.ts", "src/utils/authorityAcademicCodes.ts"], "tests": ["tests/room-door-audit.ts"] }
+      "evidence": { "code": ["src/server/roomDoorData.ts#doorWeek", "src/server/roomDoorRoutes.ts", "src/utils/authorityAcademicCodes.ts#authorityDepartmentKeys"], "tests": ["tests/room-door-audit.ts", "tests/course-number-seven-digit-audit.ts"] }
     },
     {
       "id": "FR-LOC-026",

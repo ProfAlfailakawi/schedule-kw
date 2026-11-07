@@ -5164,6 +5164,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             </div>
             <div className="compare-controls">
               <TermSelect
+                aria-label="قارن من فصل"
                 value={compareFrom || ""}
                 onValueChange={(id) => setCompareFrom(id)}
               >
@@ -5175,6 +5176,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
               </TermSelect>
               <ArrowLeftRight />
               <TermSelect
+                aria-label="إلى فصل"
                 value={compareTo || ""}
                 onValueChange={(id) => setCompareTo(id)}
               >

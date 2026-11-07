@@ -1465,33 +1465,41 @@
       "id": "IR-EXT-027",
       "kind": "interface",
       "title": {
-        "ar": "إزالة اسم القاعدة من ملفات المصدر",
-        "en": "Removing the database name from source files"
+        "ar": "وجهة قاعدة البيانات من متغيرات البيئة",
+        "en": "Database target from environment variables"
       },
       "text": {
-        "ar": "يجب أن تنتقل وجهة Firestore لاحقاً إلى المتغيرات وحدها بحذف معرّف القاعدة من ملفات الإعداد المرفقة، بعد التحقق من أن الخدمة الحيّة تحمل المتغيرين وأن إصداراً بلا حركة مرور (FIREBASE_CONFIG_SOURCE=environment) يطبع القاعدة نفسها، مع التراجع بإعادة توجيه الحركة إلى الإصدار السابق.",
-        "en": "The Firestore target shall later move to environment variables alone by dropping the database identifier from the bundled config files, after confirming that the live service carries both variables and that a no-traffic revision with FIREBASE_CONFIG_SOURCE=environment logs the same database, with rollback by routing traffic back to the previous revision."
+        "ar": "يجب أن يقبل الخادم تحديد مشروع Firestore وقاعدته من متغيرات البيئة وحدها (FIREBASE_CONFIG_SOURCE=environment مع FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID)، فتربط جهةُ الاستضافة النظامَ بقاعدتها دون تعديل ملفات المصدر، ويرفض البدء إن نقص متغير أو خالف ملفَ الإعداد بدل أن يختار بصمت.",
+        "en": "The server shall accept the Firestore project and database from environment variables alone (FIREBASE_CONFIG_SOURCE=environment with FIREBASE_PROJECT_ID and FIREBASE_DATABASE_ID), so the hosting party connects the system to its own database without editing source files, and it shall refuse to start when a variable is missing or contradicts the config file instead of choosing silently."
       },
       "priority": "could",
-      "status": "planned",
+      "status": "implemented",
       "actors": [
         "rootAdmin"
       ],
       "acceptance": [
         {
-          "ar": "بعد الانتقال لا يحوي ملف الإعداد معرّف القاعدة ويطبع السجل المصدر «environment».",
-          "en": "After the move the config file holds no database identifier and the log prints the source «environment»."
+          "ar": "بالمتغيرين وFIREBASE_CONFIG_SOURCE=environment يتصل الخادم بالقاعدة المسماة ويطبع المصدر «environment».",
+          "en": "With both variables and FIREBASE_CONFIG_SOURCE=environment the server connects to the named database and logs the source «environment»."
         },
         {
-          "ar": "لا بيانات تُنقل أو تُنسخ في أي خطوة.",
-          "en": "No data is moved or copied at any step."
+          "ar": "نقصُ متغير أو تعارضه مع ملف الإعداد يوقف البدء برسالة صريحة.",
+          "en": "A missing variable, or one contradicting the config file, stops start-up with an explicit message."
         }
       ],
       "evidence": {
         "code": [
-          "docs/DELIVERY_OPERATIONS.md",
-          "src/server/firestoreTarget.ts"
+          "src/server/firestoreTarget.ts",
+          "src/server/runtimeEnv.ts",
+          "docs/DELIVERY_OPERATIONS.md"
+        ],
+        "tests": [
+          "tests/firestore-target-audit.ts"
         ]
+      },
+      "rationale": {
+        "ar": "يتيح للجهة المستلمة ربط النظام بقاعدتها بإعداد التشغيل وحده، دون نقل بيانات ولا تعديل كود.",
+        "en": "It lets the receiving party connect the system to its database through runtime settings alone, with no data moved and no code edited."
       }
     }
   ],

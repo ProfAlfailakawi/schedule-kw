@@ -24,6 +24,7 @@ import { evaluateScheduleChange, loadSimulationInput } from "./simulationData";
 import { pickDoorTerm } from "../utils/termStudentPhases";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { AR, countOf } from "../utils/arabicCount";
+import { authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 
 interface InnerResult { status: number; body: any; headers: Record<string, string> }
 
@@ -148,7 +149,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
 
   /** كل ما يحتاجه المحاكي لفصلٍ ونطاق، بلا أسماءٍ من خارج النطاق. */
   async function buildContext(req: Request, collegeId: number, sectionId: number, termId: number): Promise<TmContext & { live: FSchedule[] }> {
-    const [rows, termRows, courses, instructors, halls, run, terms, sections, stats] = await Promise.all([
+    const [rows, termRows, courses, instructors, halls, run, terms, sections, stats, colleges] = await Promise.all([
       deps.readScopeRows(req, collegeId, sectionId, termId),
       Repository.getSchedulesByScope({ termId }),
       deps.coursesFor(sectionId),
@@ -158,6 +159,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
       Repository.getTerms(),
       Repository.getSections(),
       Repository.getRegistrationStats(collegeId, sectionId, termId).catch(() => null),
+      Repository.getColleges(),
     ]);
     const scopeIds = new Set(rows.map(row => Number(row.id)));
     const teacherIds = new Set(rows.map(row => Number(row.AdInstructorId)));
@@ -170,6 +172,9 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
       : null;
     const term = terms.find(item => Number(item.AdTermId) === termId);
     const section = sections.find(item => Number(item.AdSectionId) === sectionId);
+    /* مفاتيح أقسام مقررات النطاق وحدها: رقم المقرر يُعرض بسبع خانات (0109468). */
+    const ownSections = new Set([sectionId, ...courses.map(course => Number(course.AdSectionId))]);
+    const departmentKeys = Object.fromEntries([...authorityDepartmentKeys(sections.filter(item => ownSections.has(Number(item.AdSectionId))), colleges)].map(([id, key]) => [String(id), key]));
     return {
       scope: { collegeId, sectionId, termId, sectionName: String(section?.AdSectionName || ""), termName: String((term as any)?.AdTermName || "") },
       rows, outside: maskOutside(outsideRaw, teacherIds), courses, instructors, halls,
@@ -177,6 +182,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
       registration: registrationOf(stats, courseIds),
       loadLimits: await deps.loadLimits(instructors, termId),
       canWrite: await deps.canWrite(req),
+      departmentKeys,
       live: termRows,
     };
   }

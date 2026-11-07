@@ -4,6 +4,7 @@
 test:repo-hygiene
 test:server-parity
 test:firestore-target
+test:firestore-backup-procedure
 test:firestore-indexes
 test:anonymous-guard
 test:schedule-time-window
@@ -25,6 +26,7 @@ test:owner-features-1028
 test:course-reach
 test:prepublish-reach
 test:mobile-overflow-css
+test:accessibility
 test:ta-phase-flow
 test:publish-pick-teachers
 test:staff-global
@@ -136,6 +138,7 @@ test:approval-dossier
 test:public-kit
 test:intelligence-scope
 test:journey-reveal
+test:landing-inquiry
 test:student-needs-scale
 test:term-student-phases
 test:student-door
@@ -260,3 +263,4 @@ test:room-types-by-department
 test:matrix-continuation
 test:srs-doc
 test:srs-route
+test:tsconfig-strictness

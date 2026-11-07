@@ -175,13 +175,15 @@
         "المستخدمون يصلون بمتصفح حديث، على حاسوب أو هاتف بعرض 320 بكسل فأكثر.",
         "ملف الجهة الرسمية (SWRSCHA) هو المصدر المعتمد لأرقام المقررات والأقسام.",
         "خدمات Google Cloud وFirestore متاحة، ويعمل النظام بوضع تجريبي معزول حين تكون قاعدة البيانات غير متاحة أو عند العرض.",
-        "كل حساب يتبع كلية أو قسماً أو أكثر ضمن نطاق يحدده المدير."
+        "كل حساب يتبع كلية أو قسماً أو أكثر ضمن نطاق يحدده المدير.",
+        "تفعيل الاسترجاع الزمني وحماية الحذف والنسخ المجدولة لقاعدة الإنتاج، وتوحيد حدود المعدّل على حافة الشبكة، قرارات لجهة الاستضافة على مشروعها؛ والإجراء الموثق جاهز للتنفيذ."
       ],
       "en": [
         "Users reach the system with a modern browser on a computer or a phone at least 320 pixels wide.",
         "The official authority file (SWRSCHA) is the approved source of course numbers and departments.",
         "Google Cloud and Firestore are available, and the system runs in an isolated demonstration mode when the database is unavailable or for showcasing.",
-        "Every account belongs to one or more colleges or departments within a scope set by the administrator."
+        "Every account belongs to one or more colleges or departments within a scope set by the administrator.",
+        "Enabling point-in-time recovery, delete protection and scheduled exports for the production database, and unifying rate limits at the network edge, are decisions for the hosting party on its own project; the documented procedure is ready to run."
       ]
     }
   },

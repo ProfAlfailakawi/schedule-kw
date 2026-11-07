@@ -94,7 +94,7 @@ export const STUDENT_MAP_CSS = `
 .kc small{font-size:12px;color:var(--muted);line-height:1.5}
 .kc .u{inline-size:24px;block-size:24px;border-radius:50%;background:var(--h);color:#fff;display:grid;place-items:center;font-size:12.5px;font-weight:700}
 .kc-add{inline-size:34px;block-size:34px;border-radius:50%;border:2px solid var(--h);background:var(--card);color:var(--h);display:grid;place-items:center;cursor:pointer;padding:0;transition:background .15s,color .15s,transform .15s var(--ease)}
-.kc-add{position:relative}.kc-add::after{content:"";position:absolute;inset:-5px}
+.kc-add{position:relative}.kc-add::after{content:"";position:absolute;inset:-7px}
 .kc-add .i{inline-size:18px;block-size:18px;stroke-width:2.4}
 .kc-add:hover{transform:scale(1.08)}
 .kc-add[aria-pressed="true"]{background:var(--h);color:#fff;animation:kpop .3s var(--ease)}
@@ -270,7 +270,7 @@ body.km-lock{overflow:hidden}
 .jrn,.kc-add,.chp,.link,.kl-h{position:relative}
 .jrn::after,.kc-add::after,.chp::after,.link::after,.kl-h::after{content:"";position:absolute}
 .jrn::after{inset:-6px}
-.kc-add::after{inset:-5px;border-radius:50%}
+.kc-add::after{inset:-7px;border-radius:50%}
 .chp::after,.link::after{inset-block:-4px;inset-inline:0}
 .kl-h::after{inset-block:-6px;inset-inline:0}
 .km-f,.seg.sm2 button{min-block-size:40px}

@@ -109,7 +109,7 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
       {kind === "assign" ? (
         <div className="sp-quick-assign">
           <label className="sp-search"><Search aria-hidden="true" />
-            <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="ابحث باسم المقرر أو رمزه أو الشعبة" /></label>
+            <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="ابحث باسم المقرر أو رمزه أو الشعبة" aria-label="ابحث باسم المقرر أو رمزه أو الشعبة" /></label>
           {!ctx?.faculty.length ? <p className="sp-hint">لا توجد شعب «هيئة تدريسية» متاحة ضمن نطاقك.</p> : null}
           <ul role="radiogroup" aria-label="الشعب المتاحة للإسناد">
             {facultyList.map(({ entry, used, clash: overlap }) => {

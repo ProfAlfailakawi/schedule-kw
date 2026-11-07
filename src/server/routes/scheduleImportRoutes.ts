@@ -19,6 +19,7 @@ import { type AuthenticatedRequest, requirePermission } from "../core/auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { locateRowsBySite, splitRowsByBranch, unplacedSiteIssue } from "../../utils/branchScope";
 import { AR, countOf } from "../../utils/arabicCount";
+import { authorityCourseCode, authorityDepartmentKeys } from "../../utils/authorityAcademicCodes";
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { approvalBlockerOptions, blockingImportConflicts, branchOwnScopes, placeholderInstructorIds, safeDraftRows, validateSmartRows, visitingToFacultyPlan } from "../core/smartImport";
@@ -127,6 +128,12 @@ app.get("/api/schedules/export", requirePermission(7), async (req: Authenticated
   ]);
   const courseById = new Map(courses.map(row => [row.AdCourseId, row]));
   const instructorById = new Map(instructors.map(row => [row.AdInstructorId, row]));
+  /* رقم المقرر في ملف Excel سبع خانات (courseNumber)؛ courseCode يبقى المخزَّن ليُعاد استيراد JSON به. */
+  const departmentKeys = authorityDepartmentKeys(sections, colleges);
+  const courseNumberOf = (row: { AdCourseId: number; AdSectionId: number; CourseCodeSnapshot?: string }) => {
+    const course = courseById.get(row.AdCourseId);
+    return authorityCourseCode(course?.CourseCode || row.CourseCodeSnapshot, departmentKeys.get(Number(course?.AdSectionId || row.AdSectionId)));
+  };
 
   /**
    * Everything the scope contains, not only its timetable.
@@ -189,6 +196,7 @@ app.get("/api/schedules/export", requirePermission(7), async (req: Authenticated
     visiting,
     rows: rows.map(row => ({
       courseCode: courseById.get(row.AdCourseId)?.CourseCode || "",
+      courseNumber: courseNumberOf(row),
       courseName: row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "",
       section: row.SCode,
       instructorCivil: instructorById.get(row.AdInstructorId)?.AdInstructorCivil || "",

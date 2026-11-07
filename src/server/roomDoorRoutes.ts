@@ -133,10 +133,11 @@ export function registerRoomDoorRoutes(app: Express, deps: RoomDoorDeps): void {
     return directoryMemo.get("directory", async () => buildDirectory(registry, key));
   };
   const termIndex = (termId: number, registry: Registry) => indexMemo.get(`term:${termId}`, async () => {
-    const [rows, courses, exceptions] = await Promise.all([
+    const [rows, courses, exceptions, sections, colleges] = await Promise.all([
       Repository.getSchedulesByScope({ termId }), Repository.getCourses(), Repository.getScheduleWeekExceptions(termId),
+      Repository.getSections(), Repository.getColleges(),
     ]);
-    return buildDoorTermIndex({ termId, rows, courses, exceptions, normalize: row => deps.normalizeLocation(row, registry) });
+    return buildDoorTermIndex({ termId, rows, courses, exceptions, sections, colleges, normalize: row => deps.normalizeLocation(row, registry) });
   });
   const indexFor = async (registry: Registry, nowMs: number): Promise<DoorTermIndex | null> => {
     const terms = await Repository.getTerms();

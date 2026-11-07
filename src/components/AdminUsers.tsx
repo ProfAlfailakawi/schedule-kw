@@ -139,11 +139,12 @@ function SearchBox({
 }) {
   return (
     <label className="master-search">
-      <Search />
+      <Search aria-hidden="true" />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        aria-label={placeholder || "بحث"}
       />
       {value ? (
         <button type="button" data-guide-ignore="مسح حقل البحث فقط" onClick={() => onChange("")} aria-label="مسح" title="مسح">

@@ -52,6 +52,7 @@ import {
   AuditLogEntry,
   AdCampaign,
   AdLead,
+  LandingInquiry,
   PartnerLink,
   AdCreative,
   AdStatsDay,
@@ -254,6 +255,8 @@ interface DBState {
   clientTelemetry?: ClientTelemetryEntry[];
   adCampaigns?: AdCampaign[];
   adLeads?: AdLead[];
+  /** طلباتُ الاستعراض من صفحة الهبوط (FR-ENG-027). */
+  landingInquiries?: LandingInquiry[];
   adCreatives?: AdCreative[];
   adStats?: AdStatsDay[];
   audienceDaily?: AudienceDay[];
@@ -4904,6 +4907,21 @@ export const Repository = {
     saveDatabase();
     return row;
   },
+  /* طلباتُ الاستعراض من صفحة الهبوط: تُكتب وتُقرأ خارج صندوق العرض التجريبي دائماً،
+     فطلبُ زائرٍ يحمل جلسةً تجريبية لا يضيع في صندوقه، ولا يرى صندوقٌ تجريبيٌّ بياناتِ أحد. */
+  listLandingInquiries: async (limit = 100): Promise<LandingInquiry[]> => demoSandboxContext.exit(async () => {
+    const rows = firestoreDb
+      ? (await firestoreDb.collection("landingInquiries").orderBy("createdAt", "desc").limit(limit).get()).docs.map(doc => doc.data() as LandingInquiry)
+      : [...(db.landingInquiries || [])];
+    return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, limit);
+  }),
+  createLandingInquiry: async (entry: Omit<LandingInquiry, "id" | "createdAt" | "status">): Promise<LandingInquiry> => demoSandboxContext.exit(async () => {
+    const row: LandingInquiry = { ...entry, id: randomUUID(), createdAt: new Date().toISOString(), status: "new" };
+    if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("landingInquiries").doc(row.id).set(row); return row; }
+    db.landingInquiries = [row, ...(db.landingInquiries || [])].slice(0, 2000);
+    saveDatabase();
+    return row;
+  }),
   /** يضع الطلب «تم التواصل» بتحديث حقلين وحدهما. false إن لم يوجد. */
   markAdLeadContacted: async (id: string, at: string): Promise<boolean> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {

@@ -221,7 +221,7 @@ function day(a,b){dayMin=a;dayMax=b}
 function norm(v,min,max){min=min||dayMin;max=max||dayMax;var d=digits(v);if(d.length===3)d="0"+d;if(d.length!==4)return "";
  var h=+d.slice(0,2),m=+d.slice(2);if(h>23||m>59)return "";
  var t=("0"+h).slice(-2)+":"+("0"+m).slice(-2);if(t<min||t>max)return "";return t}
-function tf(attrs,value,min,max){return '<input class="sk-tf" type="text" inputmode="numeric" dir="ltr" maxlength="5" autocomplete="off" placeholder="09:30" data-min="'+esc(min||dayMin)+'" data-max="'+esc(max||dayMax)+'" '+(attrs||"")+' value="'+esc(value||"")+'">'}
+function tf(attrs,value,min,max){return '<input class="sk-tf" type="text" inputmode="numeric" dir="ltr" maxlength="5" autocomplete="off" placeholder="09:30" '+(/aria-label=/.test(attrs||"")?'':'aria-label="الوقت" ')+'data-min="'+esc(min||dayMin)+'" data-max="'+esc(max||dayMax)+'" '+(attrs||"")+' value="'+esc(value||"")+'">'}
 var tfHandlers=[];
 function onTime(fn){tfHandlers.push(fn)}
 document.addEventListener("input",function(e){var el=e.target;if(!el||!el.classList||!el.classList.contains("sk-tf"))return;

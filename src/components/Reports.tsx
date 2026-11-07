@@ -1489,7 +1489,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       ? summarizeVisitingTeaching(familyTeaching.rows, familyTeaching.instructorIds)
       : summarizeVisitingTeaching(results, visitingIds);
     const people = new Map<number, AdInstructor>(familyTeaching ? familyTeaching.instructors.map(person => [Number(person.AdInstructorId), person]) : []);
-    return source.map((summary: VisitingTeachingSummary<FSchedule>) => {
+    return source.map(summary => {
       const person = instructorById.get(summary.instructorId) || people.get(summary.instructorId);
       return {
         ...summary,

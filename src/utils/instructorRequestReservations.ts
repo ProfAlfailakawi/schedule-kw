@@ -39,7 +39,7 @@ export class RequestReservationConflict extends Error {
  * بوضوح، فإن أكّد مضى التعديلُ على ذلك الطلب وحده — ويبقى حجزُ الزملاء حارساً.
  */
 export class RequestHoldConflict extends RequestReservationConflict {
-  readonly code = "request-hold";
+  override readonly code = "request-hold";
   readonly holdRequestId: string;
   readonly holdItemId: string;
   readonly holdInstructorId: number;

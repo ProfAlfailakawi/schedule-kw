@@ -54,6 +54,7 @@ export function ContextPicker({
   courseById,
   instructorById,
   visitingOf,
+  courseNumberOf,
   onChange,
 }: {
   selectedId: number;
@@ -62,6 +63,8 @@ export function ContextPicker({
   instructorById?: Map<number, { AdInstructorName?: string }>;
   /** منتدبٌ في قسم هذا الصفّ؟ (القسم والفصل من الصفّ نفسه.) */
   visitingOf?: (row: FSchedule) => boolean;
+  /** رقم المقرر بسبع خانات (0109105) للعرض؛ بدونه يُعرض المخزَّن. */
+  courseNumberOf?: (row: FSchedule) => string;
   onChange: (id: number) => void;
 }) {
   const DAY_SHORT: Array<[keyof FSchedule, string]> = [
@@ -70,17 +73,18 @@ export function ContextPicker({
   ];
   const describe = (row: FSchedule) => {
     const course = courseById.get(row.AdCourseId);
-    const name = row.AdCourseName || course?.CourseName || course?.CourseCode || "مقرر";
+    const number = courseNumberOf ? courseNumberOf(row) : course?.CourseCode || "";
+    const name = row.AdCourseName || course?.CourseName || number || "مقرر";
     const days = DAY_SHORT.filter(([key]) => Boolean(row[key])).map(([, label]) => label).join("·");
     const who = instructorById?.get(row.AdInstructorId)?.AdInstructorName || "";
-    const code = course?.CourseCode ? ` [${course.CourseCode}]` : "";
+    const code = number ? ` [${number}]` : "";
     return `${name} — شعبة ${row.SCode}${who ? ` · ${withVisitingSuffix(who, Boolean(visitingOf?.(row)))}` : ""}${days ? ` · ${days}` : ""} · ${scheduleClockForDisplay(row.fstarttime)}${code}`;
   };
 
   const groups = new Map<string, FSchedule[]>();
   for (const row of rows) {
     const course = courseById.get(row.AdCourseId);
-    const key = row.AdCourseName || course?.CourseName || course?.CourseCode || "مقرر";
+    const key = row.AdCourseName || course?.CourseName || (courseNumberOf ? courseNumberOf(row) : course?.CourseCode) || "مقرر";
     groups.set(key, [...(groups.get(key) || []), row]);
   }
 

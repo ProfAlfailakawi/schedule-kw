@@ -10,7 +10,7 @@
  */
 import React, { useMemo, useState } from "react";
 import { FileSpreadsheet, FileUp, Minus, Plus, Radar, Search, Undo2, UserRoundCheck, UserX, X } from "lucide-react";
-import { applyChanges, boardOf, type TmChange, type TmScenarioRecord } from "../utils/timeMachine";
+import { applyChanges, boardOf, tmCourseNumber, type TmChange, type TmScenarioRecord } from "../utils/timeMachine";
 import { addOneSection, courseSeatStats, DEMAND_WORD, netSectionDelta, removeOneSection, type CourseImpact, type CourseSeatStat } from "../utils/courseWhatIf";
 import { inNewSheet, inOldSheet, type SheetTag } from "../utils/sheetTag";
 import { byCourseNumber } from "../utils/sheetMembership";
@@ -59,7 +59,7 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
   const shown = catalogue.filter(({ course, tag }) => {
     if (activeSheet === "new" && !inNewSheet(tag)) return false;
     if (activeSheet === "old" && !inOldSheet(tag)) return false;
-    if (text && !`${course.CourseCode} ${course.CourseName}`.toLowerCase().includes(text)) return false;
+    if (text && !`${course.CourseCode} ${tmCourseNumber(course, context)} ${course.CourseName}`.toLowerCase().includes(text)) return false;
     const stat = statsAfter.get(Number(course.AdCourseId));
     if (show === "offered") return Boolean(stat?.sections);
     if (show === "missing") return !stat?.sections;
@@ -155,7 +155,7 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
           const now = statsNow.get(id)!, after = statsAfter.get(id)!;
           const delta = netSectionDelta(base, board, context, id);
           const impact = impacts[id];
-          return <CourseCard key={id} courseId={id} code={String(course.CourseCode || "")} name={String(course.CourseName || "")} tag={tag} now={now} after={after} delta={delta}
+          return <CourseCard key={id} courseId={id} code={tmCourseNumber(course, context)} name={String(course.CourseName || "")} tag={tag} now={now} after={after} delta={delta}
             impact={impact && "change" in impact ? impact : null} none={impact && "none" in impact ? impact.none : null}
             reach={reach.data?.courses?.[id] || null} reachBusy={reach.busy === id} onReach={open => void reach.setOpen(id, open)}
             onAdd={() => act(id, "add")} onRemove={() => act(id, "remove")} onUndo={change => undo(change)} />;

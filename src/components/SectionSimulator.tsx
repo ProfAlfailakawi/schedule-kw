@@ -8,7 +8,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, GitMerge, Plus, Scissors, Search, Trash2, X } from "lucide-react";
 import {
   MODE_LABEL, PERIOD_LABEL, TM_DAYS, addSectionChange, applyChanges, boardOf, capacityLabel, dayLabel, hallLabel, mergeSectionsChange,
-  removeImpact, removeSectionChange, sectionCards, splitSectionChange, suggestPlacements,
+  removeImpact, removeSectionChange, sectionCards, splitSectionChange, suggestPlacements, tmCourseNumber,
   type TmChange, type TmPeriod, type TmScenarioRecord, type TmSectionCard,
 } from "../utils/timeMachine";
 import type { DayKey } from "../utils/scheduleIntelligence";
@@ -75,7 +75,7 @@ export function SectionSimulatorBody({ context, reload, onBasket }: { context: L
   const suggestions = adding ? suggestPlacements(board, adding, context, { max: 3 }) : [];
   const people = new Map(context.instructors.map(person => [Number(person.AdInstructorId), person.AdInstructorName] as const));
   const courseOptions = [...new Map(context.courses.map(course => [course.AdCourseId, course])).values()]
-    .sort(byCourseNumber(course => course.CourseCode, course => course.CourseName));
+    .sort(byCourseNumber(course => tmCourseNumber(course, context), course => course.CourseName));
   /* مقرراتُ الصحيفة الجديدة تُرى بوسمٍ ظاهر، وتُجمع في القائمة تحت عنوانها. */
   const sheets = useCourseSheets(Number(context.scope.sectionId));
   const tagOf = (courseId: number): SheetTag => sheets.tags.get(Number(courseId)) ?? null;
@@ -83,7 +83,7 @@ export function SectionSimulatorBody({ context, reload, onBasket }: { context: L
   const otherOptions = courseOptions.filter(course => !inNewSheet(tagOf(course.AdCourseId)));
   const optionText = (course: typeof courseOptions[number]) => {
     const tag = tagOf(course.AdCourseId);
-    return `${course.CourseCode} · ${course.CourseName}${tag === "new" ? " · 🆕 صحيفة جديدة" : ""}`;
+    return `${tmCourseNumber(course, context)} · ${course.CourseName}${tag === "new" ? " · 🆕 صحيفة جديدة" : ""}`;
   };
 
   return (
@@ -121,7 +121,7 @@ export function SectionSimulatorBody({ context, reload, onBasket }: { context: L
             <optgroup label="📘 الصحيفة القديمة والمقررات الأخرى">{otherOptions.map(course => <option key={course.AdCourseId} value={course.AdCourseId}>{optionText(course)}</option>)}</optgroup>
           </> : courseOptions.map(course => <option key={course.AdCourseId} value={course.AdCourseId}>{optionText(course)}</option>)}
         </select>
-        {mergeFrom ? <span className="tm-hint"><GitMerge aria-hidden="true" />اختر الشعبة التي تستقبل الطلبة <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => setMergeFrom(null)}><X aria-label="إلغاء" /></button></span> : null}
+        {mergeFrom ? <span className="tm-hint"><GitMerge aria-hidden="true" />اختر الشعبة التي تستقبل الطلبة <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" onClick={() => setMergeFrom(null)} aria-label="إلغاء الدمج"><X aria-hidden="true" /></button></span> : null}
       </div>
 
       {adding ? (

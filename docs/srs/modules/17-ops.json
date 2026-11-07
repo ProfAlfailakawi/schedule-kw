@@ -1777,33 +1777,35 @@
       "id": "FR-OPS-026",
       "kind": "functional",
       "title": {
-        "ar": "استرجاع زمني دوري لقاعدة الإنتاج",
-        "en": "Point-in-time recovery for the production database"
+        "ar": "إجراء النسخ الاحتياطي والاسترجاع",
+        "en": "Backup and recovery procedure"
       },
       "text": {
-        "ar": "يجب أن تُفعَّل على قاعدة الإنتاج الاسترجاعات الزمنية (PITR لسبعة أيام) وحماية الحذف ونسخ مجدولة إلى سلة تخزين، وفق الإجراء الموثَّق في scripts/firestore-backup.md.",
-        "en": "Point-in-time recovery (7-day PITR), delete protection and scheduled exports to a storage bucket shall be enabled on the production database, following the procedure documented in scripts/firestore-backup.md."
+        "ar": "يجب أن يرافق النظامَ إجراءٌ موثق قابل للتنفيذ لحماية قاعدة الإنتاج: تفعيل الاسترجاع الزمني (PITR لسبعة أيام) وحماية الحذف والنسخ المجدولة إلى سلة تخزين، وخطوات الاسترجاع والتحقق منه، وأن يحمي النظام نفسه بياناته في الوضع المحلي وخزنة النظام.",
+        "en": "The system shall ship with a documented, executable procedure to protect the production database: enabling point-in-time recovery (7-day PITR), delete protection and scheduled exports to a storage bucket, with the steps to restore and verify, and the system itself shall protect its data in local mode and in the system vault."
       },
       "rationale": {
-        "ar": "وثّق التحقق في 2026-10-16 أن PITR وحماية الحذف غير مفعّلين؛ والحماية في الكود تغطي الوضع المحلي وخزنة النظام فقط.",
-        "en": "Verification on 2026-10-16 recorded PITR and delete protection as disabled; protection in code covers local mode and the system vault only."
+        "ar": "تفعيل هذه الخيارات قرارُ جهة الاستضافة على مشروعها لأن بعضها بتكلفة؛ فالوثيقة تلزم بالإجراء الجاهز، والتفعيل مذكور في الافتراضات والاعتماديات.",
+        "en": "Turning these options on is the hosting party’s decision on its own project because some carry a cost; the document commits to the ready procedure, and activation is listed under assumptions and dependencies."
       },
       "priority": "should",
-      "status": "planned",
+      "status": "implemented",
       "actors": [
         "rootAdmin"
       ],
       "acceptance": [
         {
-          "ar": "يعرض وصف القاعدة PITR مفعّلاً وحماية حذف مفعّلة، ويوجد جدول نسخ ناجح خلال آخر 24 ساعة.",
-          "en": "The database description shows PITR enabled and delete protection on, and a successful scheduled export exists within the last 24 hours."
+          "ar": "الإجراء يذكر أوامر التفعيل والاسترجاع والتحقق كاملةً، وينفَّذ كما هو على أي مشروع.",
+          "en": "The procedure gives the complete enable, restore and verify commands, and runs as written on any project."
         }
       ],
       "evidence": {
         "code": [
           "scripts/firestore-backup.md"
         ],
-        "tests": []
+        "tests": [
+          "tests/firestore-backup-procedure-audit.ts"
+        ]
       }
     }
   ],

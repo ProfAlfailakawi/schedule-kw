@@ -1711,11 +1711,11 @@
         "en": "Seven-digit course number on time-machine screens"
       },
       "text": {
-        "ar": "يجب أن تعرض شاشات آلة الزمن ومحاكي الشعب رقم المقرر بسبع خانات (الكلية والقسم والمقرر) في الأمثلة والتسميات وبطاقات الشعب، لا الخانات الثلاث المخزّنة في الكتالوج.",
+        "ar": "يجب أن تعرض شاشات آلة الزمن ومحاكي الشعب وتبويب كل المقررات رقم المقرر بسبع خانات (الكلية والقسم والمقرر) في الأمثلة والتسميات وبطاقات الشعب، لا الخانات الثلاث المخزّنة في الكتالوج.",
         "en": "The time-machine and section-simulator screens shall display the course number in seven digits (college, department, course) in examples, labels and section cards, not the three digits stored in the catalogue."
       },
       "priority": "must",
-      "status": "planned",
+      "status": "implemented",
       "actors": [
         "committeeChair"
       ],
@@ -1727,21 +1727,28 @@
         {
           "ar": "بطاقة الشعبة وتسمية الإضافة وخيار المقرر في محاكي الشعب تعرض الرقم المبني بـauthorityCourseCode.",
           "en": "The section card, the add label and the course option in the section simulator show the number built with authorityCourseCode."
+        },
+        {
+          "ar": "كتابة «زاد الطلب على 0109468» تُفهم كالمقرر المخزّن 468، والرمز المخزّن نفسه يبقى مقبولاً.",
+          "en": "Typing «demand rose for 0109468» resolves to the stored course 468, and the stored code itself is still accepted."
         }
       ],
       "evidence": {
         "code": [
+          "src/utils/timeMachine.ts#tmCourseNumber",
           "src/components/TimeMachine.tsx",
-          "src/utils/timeMachine.ts",
-          "src/components/SectionSimulator.tsx"
+          "src/components/SectionSimulator.tsx",
+          "src/components/AllCourses.tsx",
+          "src/server/timeMachineRoutes.ts"
         ],
         "tests": [
-          "tests/time-machine-links-audit.ts"
+          "tests/time-machine-links-audit.ts",
+          "tests/course-number-seven-digit-audit.ts"
         ]
       },
       "rationale": {
-        "ar": "الكود يعرض اليوم CourseCode كما هو في هذه المواضع؛ والمحلّل يقبل الرمز الطويل والقصير.",
-        "en": "Today the code renders CourseCode as stored in these places; the parser accepts both the long and the short number."
+        "ar": "الرقم الرسمي سبع خانات في كل ما يقرؤه المستخدم؛ والمخزّن يبقى كما هو، والمحلّل يقبل الطويل والقصير.",
+        "en": "The official number has seven digits wherever the user reads it; the stored value stays as is, and the parser accepts both the long and the short form."
       }
     }
   ],

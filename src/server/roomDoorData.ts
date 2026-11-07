@@ -13,7 +13,8 @@
  * القاعدةُ نفسها التي يقرأ بها مقترحُ القاعات الإشغال، فلا تُرى قاعةٌ فاضيةً هنا
  * وهي محجوزةٌ هناك.
  */
-import type { AdCourse, AdTerm, FSchedule, MasterBuilding, MasterRoom, ScheduleWeekException } from "../types";
+import type { AdCollege, AdCourse, AdSection, AdTerm, FSchedule, MasterBuilding, MasterRoom, ScheduleWeekException } from "../types";
+import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import { roomIdentityKeys, roomKeyOf } from "../utils/locationRegistry";
 import { buildingNumberLabel, officialSiteLabel } from "../utils/locationCollegePrefixes";
 import { currentTermId } from "../utils/termSequence";
@@ -30,6 +31,8 @@ export interface DoorTermIndex {
   byRoom: Map<string, FSchedule[]>;
   courses: Map<number, AdCourse>;
   cancels: Map<number, Set<string>>;
+  /** مفتاح القسم (0109) لكل AdSectionId: رقم المقرر على الباب سبع خانات. */
+  departments?: Map<number, string>;
 }
 
 export function buildDoorTermIndex(input: {
@@ -37,6 +40,9 @@ export function buildDoorTermIndex(input: {
   rows: readonly FSchedule[];
   courses: readonly AdCourse[];
   exceptions: readonly ScheduleWeekException[];
+  /** الأقسام والكليات: منها يُبنى رقم المقرر ذو الخانات السبع (للعرض وحده). */
+  sections?: readonly AdSection[];
+  colleges?: readonly AdCollege[];
   /** يحوّل الصفَّ القديم (رمزٌ نصّي أو صيغةٌ تاريخية) إلى هويته في السجل، بنطاق كليته. */
   normalize?: (row: FSchedule) => FSchedule;
 }): DoorTermIndex {
@@ -57,7 +63,10 @@ export function buildDoorTermIndex(input: {
     dates.add(String(entry.date).slice(0, 10));
     cancels.set(id, dates);
   }
-  return { termId: input.termId, byRoom, courses: new Map(input.courses.map(course => [Number(course.AdCourseId), course])), cancels };
+  return {
+    termId: input.termId, byRoom, courses: new Map(input.courses.map(course => [Number(course.AdCourseId), course])), cancels,
+    departments: authorityDepartmentKeys(input.sections, input.colleges),
+  };
 }
 
 /** المفتاحان اللذان تُعرف بهما القاعة: معرّفُها، ونصُّ مبناها وقاعتها (للصفوف القديمة). */
@@ -80,7 +89,7 @@ export function doorRowsForRoom(index: DoorTermIndex, room: Pick<MasterRoom, "id
  * نفسه في الوقت نفسه محاضرةٌ واحدة («01 · 02»)، ولا تُعدّ ملغاةً إلا إذا أُلغيت
  * كلُّ شعبها في ذلك التاريخ.
  */
-export function doorWeek(rows: readonly FSchedule[], courses: ReadonlyMap<number, AdCourse>, cancels: ReadonlyMap<number, ReadonlySet<string>>, weekDates: readonly string[]): DoorDay[] {
+export function doorWeek(rows: readonly FSchedule[], courses: ReadonlyMap<number, AdCourse>, cancels: ReadonlyMap<number, ReadonlySet<string>>, weekDates: readonly string[], departments?: ReadonlyMap<number, string>): DoorDay[] {
   return DAY_FLAGS.map((flag, wd) => {
     const date = weekDates[wd] || "";
     const merged = new Map<string, DoorLecture & { sections: Set<string>; all: number; off: number }>();
@@ -89,9 +98,11 @@ export function doorWeek(rows: readonly FSchedule[], courses: ReadonlyMap<number
       const s = toDoorMinute(row.fstarttime), e = toDoorMinute(row.fendtime);
       if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) continue;
       const course = courses.get(Number(row.AdCourseId));
-      const code = String(course?.CourseCode || row.CourseCodeSnapshot || "").trim();
+      const stored = String(course?.CourseCode || row.CourseCodeSnapshot || "").trim();
+      /* على الباب رقم الهيئة السباعي (0109105)، لا الرمز المخزَّن؛ والدمج بالمخزَّن كما كان. */
+      const code = authorityCourseCode(stored, departments?.get(Number(course?.AdSectionId || row.AdSectionId)));
       const title = String(row.AdCourseName || course?.CourseName || row.CourseNameSnapshot || "").trim();
-      const key = `${code || title}|${s}|${e}`;
+      const key = `${stored || title}|${s}|${e}`;
       const cancelled = Boolean(date && cancels.get(Number(row.id))?.has(date));
       const entry = merged.get(key) || { s, e, start: String(row.fstarttime).slice(0, 5), end: String(row.fendtime).slice(0, 5), code, title, sec: "", sections: new Set<string>(), all: 0, off: 0 };
       const section = String(row.SCode || "").trim();
@@ -182,7 +193,7 @@ export function roomDoorData(input: {
   const term = currentDoorTerm(input.terms, input.nowMs);
   const clock = doorClockAt(input.nowMs);
   const week = term.inSession && input.index
-    ? doorWeek(doorRowsForRoom(input.index, input.room, input.building), input.index.courses, input.index.cancels, doorWeekDates(clock.date, clock.weekday))
+    ? doorWeek(doorRowsForRoom(input.index, input.room, input.building), input.index.courses, input.index.cancels, doorWeekDates(clock.date, clock.weekday), input.index.departments)
     : [];
   return {
     kind: "room", at: input.nowMs, build: input.build, soon: DOOR_SOON_MINUTES,
@@ -207,7 +218,7 @@ export function boardDoorData(input: {
       .map(({ room, href }) => {
         const floor = roomFloor(room.canonicalCode);
         const week = term.inSession && input.index
-          ? boardWeek(doorWeek(doorRowsForRoom(input.index, room, input.building), input.index.courses, input.index.cancels, dates))
+          ? boardWeek(doorWeek(doorRowsForRoom(input.index, room, input.building), input.index.courses, input.index.cancels, dates, input.index.departments))
           : [];
         return { code: room.canonicalCode, floor: floor.label, rank: floor.rank, href, week };
       }),

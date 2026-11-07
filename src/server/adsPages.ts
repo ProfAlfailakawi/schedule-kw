@@ -241,7 +241,7 @@ ${msg}
 <p style="margin:0 0 10px"><img src="/partner-badge/${badgeId(c.reportToken)}.svg" alt="شريك SCHEDULE" width="320" height="92" style="max-width:100%;height:auto;border-radius:16px"></p>
 <p class="btnrow"><a class="btn" href="/partner-badge/${badgeId(c.reportToken)}.svg?dl=1">تنزيل الشارة</a></p>
 <p class="note" style="margin:6px 0 4px">أو انسخوا هذا الكود:</p>
-<textarea readonly rows="2" style="inline-size:100%;box-sizing:border-box;font:12px/1.5 ui-monospace,monospace;border:1px solid var(--line);border-radius:10px;padding:8px;direction:ltr">${esc(`<img src="${origin}/partner-badge/${badgeId(c.reportToken)}.svg" alt="شريك SCHEDULE" width="320">`)}</textarea></div>`;
+<textarea readonly rows="2" aria-label="كود الشارة للنسخ" style="inline-size:100%;box-sizing:border-box;font:12px/1.5 ui-monospace,monospace;border:1px solid var(--line);border-radius:10px;padding:8px;direction:ltr">${esc(`<img src="${origin}/partner-badge/${badgeId(c.reportToken)}.svg" alt="شريك SCHEDULE" width="320">`)}</textarea></div>`;
   const calendarCard = phase === "ended" || c.endDay < today ? "" : `
 <h2>تنبيهاتٌ تصلك بلا حساب</h2>
 <div class="card"><p>لا حاجة لإنشاء حساب: اشترك بهذا الرابط في تقويم جوالك فيذكّرك بنفسه قبل انتهاء الحملة بأسبوع وفي يوم انتهائها، وكل أحدٍ بتقريرك الأسبوعي. وإن تغيّرت تواريخ الحملة يتحدّث وحده.</p>

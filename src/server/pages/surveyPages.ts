@@ -226,7 +226,7 @@ ${ARABIC_COUNT_SCRIPT}
       '<div class="cohort-badge"><i></i><span>الفئة: <b>'+esc(cohort)+'</b></span></div>'+
       '<p class="gender-note">الفئة محددة من رابط القسم نفسه حتى لا تختلط إجابات البنات والبنين.</p>'+
       '<div class="step"><b>1</b> أي المقررات تحتاجها؟</div>'+
-      '<div class="seek"><input id="seek" type="search" inputmode="search" '+
+      '<div class="seek"><input id="seek" type="search" inputmode="search" aria-label="ابحث عن المقرر" '+
         'placeholder="ابحث باسم المقرر أو رمزه…" autocomplete="off" enterkeyhint="search">'+
         '<span id="seekcount"></span></div>'+
       '<div id="chosen" class="chosen" hidden></div>'+

@@ -39,7 +39,6 @@
     "src/components/LivingScheduleLayer.tsx",
     "src/components/LivingScheduleScenes.tsx",
     "src/components/CourseImpact.tsx",
-    "src/pages/Impact.tsx",
     "src/styles/06-intelligence.css",
     "src/styles/27-intelligence-type.css",
     "docs/PREDICTIVE_INTELLIGENCE.md",
@@ -54,8 +53,7 @@
     { "name": { "ar": "الطبقة الحية للجدول", "en": "Live schedule layer" }, "file": "src/components/LivingScheduleLayer.tsx", "note": { "ar": "ست مشاهد: نظرة عامة وخريطة الضغط والصحة والعدالة وملخص الدقيقة وبداية الفصل وشبكة الأمان.", "en": "Six scenes: overview, pressure map, health and fairness, one-minute brief, start of term and safety net." } },
     { "name": { "ar": "المرشد", "en": "Guide" }, "file": "src/components/guide/GuideAssistant.tsx", "note": { "ar": "شاشات: اسأل، المزيد، الكل، الجديد، وأسئلة بلا جواب لمدير النظام الأعلى.", "en": "Screens: ask, more, all, what is new, and unanswered questions for the root administrator." } },
     { "name": { "ar": "جولة المرشد", "en": "Guide tour" }, "file": "src/components/guide/GuideTour.tsx", "note": { "ar": "بطاقة تضيء العنصر المقصود وتنتظر فعل المستخدم عند الحاجة.", "en": "A card that highlights the target element and waits for the user's action when needed." } },
-    { "name": { "ar": "أثر المقرر", "en": "Course impact" }, "file": "src/components/CourseImpact.tsx", "note": { "ar": "ما يسبق المقرر وما يفتحه وصحائفه والطلب عليه.", "en": "What precedes the course, what it opens, its plan sheets and the demand on it." } },
-    { "name": { "ar": "سجل الأثر الموثق", "en": "Verified impact record" }, "file": "src/pages/Impact.tsx", "note": { "ar": "صفحة عامة تعرض مسارات أثر موثقة؛ غير موصولة بالمسارات حالياً.", "en": "A public page listing verified impact chains; not currently wired to any route." } }
+    { "name": { "ar": "أثر المقرر", "en": "Course impact" }, "file": "src/components/CourseImpact.tsx", "note": { "ar": "ما يسبق المقرر وما يفتحه وصحائفه والطلب عليه.", "en": "What precedes the course, what it opens, its plan sheets and the demand on it." } }
   ],
   "journeys": [
     {
@@ -850,25 +848,6 @@
         { "ar": "الخدمة تقرأ وتقترح؛ والتنفيذ دائماً عبر المدققات الحتمية وبتأكيد صريح من المستخدم.", "en": "The service reads and proposes; execution is always through the deterministic validators and an explicit confirmation by the user." }
       ],
       "evidence": { "code": ["src/server/core/gemini.ts#requestGeminiScheduleLayer"] },
-      "inferred": true
-    },
-    {
-      "id": "IR-INT-003",
-      "kind": "interface",
-      "title": { "ar": "صفحة سجل الأثر الموثق", "en": "Verified impact record page" },
-      "text": {
-        "ar": "يجب أن تعرض صفحة سجل الأثر الموثق مسارات قابلة للتحقق تتبع انتقال فكرة بين المقال والبحث والكتاب والحوار العام، مع مرشحات للورقي والإعلامي والأرشيف، وأن تفصل بين الأثر الموثق والامتداد في الأرشيف.",
-        "en": "The verified impact record page shall display verifiable chains that trace an idea across article, research, book and public discussion, with filters for paper, media and archive, and separate documented impact from archive extension."
-      },
-      "rationale": { "ar": "الملف موجود في المستودع لكنه غير موصول بمسار في التطبيق ويستورد وحدات غير موجودة، فالحالة قيد التطوير.", "en": "The file exists in the repository but is wired to no route in the application and imports modules that do not exist, so the status is in progress." },
-      "priority": "could",
-      "status": "in-progress",
-      "actors": ["visitor"],
-      "acceptance": [
-        { "ar": "المرشحات: الكل، ورقي، إعلامي وخارجي، أرشيف (مقال وكتاب).", "en": "Filters: all, paper, media and external, archive (article and book)." },
-        { "ar": "كل عقدة تعرض وسماً «أثر موثّق» أو «امتداد في الأرشيف» بحسب درجة الثقة.", "en": "Each node shows a «documented impact» or «archive extension» tag according to its confidence grade." }
-      ],
-      "evidence": { "code": ["src/pages/Impact.tsx"] },
       "inferred": true
     }
   ],

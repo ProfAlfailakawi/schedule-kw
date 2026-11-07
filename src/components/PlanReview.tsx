@@ -593,7 +593,7 @@ function GroupsPanel({ view, nameOf, busy, series, own, isOff, onOpen, onSave, o
             {view.can.edit ? (
                 <div className="pr-group-actions">
                   <SecondaryButton onClick={() => setDraft(g)} data-guide-ignore="تعديلُ مجموعةٍ اختيارية داخل شاشةٍ مسجّلة في المرشد باسم page.planReview">تعديل</SecondaryButton>
-                  <SecondaryButton disabled={busy} onClick={() => onDelete(g.id)} data-guide-ignore="حذفُ مجموعةٍ اختيارية داخل شاشةٍ مسجّلة في المرشد باسم page.planReview"><Trash2 size={14} /></SecondaryButton>
+                  <SecondaryButton disabled={busy} onClick={() => onDelete(g.id)} aria-label={`حذف مجموعة ${g.name}`} title="حذف المجموعة" data-guide-ignore="حذفُ مجموعةٍ اختيارية داخل شاشةٍ مسجّلة في المرشد باسم page.planReview"><Trash2 size={14} aria-hidden="true" /></SecondaryButton>
                 </div>
               ) : null}
             </header>

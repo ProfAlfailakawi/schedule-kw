@@ -21,12 +21,18 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "alwaysStrict": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "noFallthroughCasesInSwitch": true,
+    "strictBuiltinIteratorReturn": true,
+    "noImplicitOverride": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true
   },
   "exclude": [
     "node_modules",
-    "dist",
-    "src/pages/Impact.tsx",
-    "src/components/InterfacePolish.tsx"
+    "dist"
   ]
 }

@@ -69,8 +69,10 @@
      `--canvas` at all, where it read 4.36. Both are below the floor for normal
      text, and this token carries the quietest text there is, which is exactly
      the text that can least afford it.
-     Now: canvas 4.74 / surface 5.28 / surface-2 4.91 / surface-3 4.56. */
-  --muted-2:#646e69;
+     Then: canvas 4.74 / surface 5.28 / surface-2 4.91 / surface-3 4.56 — and
+     4.44 on `--canvas-2`.
+     Now: canvas 5.10 / canvas-2 4.78 / surface 5.69 / surface-2 5.29 / surface-3 4.91. */
+  --muted-2:#5f6964;
   --line:#e3e6e0;
   --line-strong:#ccd2cb;
 
@@ -103,7 +105,8 @@
   --info-soft:#e2edf3;
   --success:#25684a;
   --success-soft:#dfeee6;
-  --warning:#8d6413;
+  /* داكنٌ كفايةً ليبقى ≥ 4.5:1 فوق صبغته الخفيفة (شارةٌ داخل شريحةٍ تحذيرية)، وهو لونُ الطباعة نفسه. */
+  --warning:#7a5610;
   --warning-soft:#f8eed6;
   --danger:#973c38;
   --danger-soft:#f8e4e2;
