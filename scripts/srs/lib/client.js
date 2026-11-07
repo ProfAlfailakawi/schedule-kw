@@ -122,7 +122,7 @@
   window.addEventListener("hashchange", route);
 
   tabs.forEach(function (t) { t.addEventListener("click", function () { show(t.dataset.view, "", ""); }); });
-  $$("[data-mod]").forEach(function (b) { b.addEventListener("click", function () { show("modules", b.dataset.mod, ""); }); });
+  $$("[data-mod]").forEach(function (b) { if (b === document.body) return; b.addEventListener("click", function () { show("modules", b.dataset.mod, ""); }); });
   $$("[data-go]").forEach(function (b) { b.addEventListener("click", function () { show(b.dataset.go, "", ""); }); });
   $$(".subtab").forEach(function (b) { b.addEventListener("click", function () { var m = b.closest(".mod").dataset.module; show("modules", m, b.dataset.p, { keepScroll: true }); }); });
   var pick = $("#modpick"); if (pick) pick.addEventListener("change", function () { show("modules", pick.value, ""); });
