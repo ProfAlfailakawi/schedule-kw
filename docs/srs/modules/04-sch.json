@@ -727,9 +727,10 @@
         { "ar": "مدة الطلب تُقصّ بين 30 و300 دقيقة (60 افتراضياً)؛ وبلا أيام يُعاد slots فارغة بسبب days.", "en": "The requested duration is clamped between 30 and 300 minutes (60 by default); with no days an empty slots list is returned with reason days." },
         { "ar": "ما رُفض من البوابة يُعدّ في rejectedByScheduleGate ولا يُعرض؛ وإن فرغت النتيجة يُعاد سبب مسمّى.", "en": "What the gate rejects is counted in rejectedByScheduleGate and not shown; if nothing remains a named reason is returned." },
         { "ar": "تُعاد حتى أربع شعب «هيئة تدريسية» مطابقة تماماً باسم replaceable، ومقرر يتطلب مرفقاً لا يُقترح له وقت بلا مرفق خالٍ.", "en": "Up to four exactly matching faculty-placeholder sections are returned as replaceable; a course needing a companion facility gets no slot without a free one." },
-        { "ar": "إن تجاوز الساعات المعتمدة السقف تُعاد النتيجة فارغة بسبب hours.", "en": "If the approved-hours ceiling is exceeded the result is empty with reason hours." }
+        { "ar": "إن تجاوز الساعات المعتمدة السقف تُعاد النتيجة فارغة بسبب hours.", "en": "If the approved-hours ceiling is exceeded the result is empty with reason hours." },
+        { "ar": "الوقت الذي تتداخل فيه كلُّ تركيبات الشعب مع مقرنٍ للمقرر يتأخر عن كل وقتٍ سواه، ويُعرض منه واحدٌ على الأكثر؛ ولا يتغير شيءٌ لمقررٍ بلا مقرن.", "en": "A time where every section combination clashes with a co-requisite ranks after all other times and at most one is shown; a course with no co-requisite is unaffected." }
       ],
-      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/suggestionEngine.ts", "src/utils/slotSuggestionScope.ts"], "tests": ["tests/slot-suggestion-recovery-audit.ts", "tests/appointment-forms-audit.ts", "tests/placeholder-action-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/suggestionEngine.ts", "src/utils/slotSuggestionScope.ts", "src/utils/coreqSections.ts"], "tests": ["tests/slot-suggestion-recovery-audit.ts", "tests/appointment-forms-audit.ts", "tests/placeholder-action-audit.ts", "tests/coreq-sections-audit.ts"] }
     },
     {
       "id": "FR-SCH-028",

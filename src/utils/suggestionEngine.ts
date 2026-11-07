@@ -175,6 +175,15 @@ export function orderSuggestionCandidates(candidates: SuggestionCandidate[], roo
     .filter(slot => { if (roomOnly) return true; if (seen.has(slot.start)) return false; seen.add(slot.start); return true; });
 }
 
+/**
+ * المقرن: الأوقاتُ التي تُجبر الطلبة على التداخل تتأخر عن كل وقتٍ سواها، مع حفظ ترتيب كل فريق.
+ * والبوابة لا تُبقي منها إلا واحداً (يُقترح حين لا يوجد غيره، ولا يمنع شيئاً).
+ */
+export function deferCoreqClashes(ranked: SuggestionCandidate[], forced: (slot: SuggestionCandidate) => boolean): { ranked: SuggestionCandidate[]; deferred: Set<SuggestionCandidate> } {
+  const deferred = new Set(ranked.filter(forced));
+  return { ranked: [...ranked.filter(slot => !deferred.has(slot)), ...deferred], deferred };
+}
+
 /** السبب الأوضح حين لا يبقى خيار. */
 export function emptySuggestionReason(stats: RankStats & { gate?: number }): SuggestionEmptyReason {
   if (!stats.considered) return "rooms";

@@ -1,11 +1,11 @@
 import CourseTags from "./CourseTags";
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, BookOpen, CheckCircle2, GraduationCap, Layers, Link2, UserRound, X } from "lucide-react";
+import { AlertCircle, BookOpen, Check, CheckCircle2, Clock3, GraduationCap, Layers, Link2, UserRound, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { formatScheduleTimeRange } from "../utils/scheduleTime";
+import { formatScheduleTimeRange, scheduleClockForDisplay, scheduleDayWindowMinutes, type ScheduleDayWindow } from "../utils/scheduleTime";
 import { capSameSlot, sameSlotOf, slotMinutes, SLOT_DAYS, type SameSlotQuery, type SameSlotResult, type SlotDay, type SlotRow } from "../utils/sameSlot";
-import { coreqFindings, partnersOfCourse } from "../utils/coreqSections";
+import { coreqFindings, coreqFreeTime, partnersOfCourse, type CoreqFreeTime } from "../utils/coreqSections";
 
 /**
  * «في الوقت نفسه» — شارةٌ صغيرة تظهر فقط حين يوجد موعدٌ آخر في اليوم والساعة ذاتهما،
@@ -34,6 +34,8 @@ export interface SameSlotHintProps<R extends SlotRow & { AdCourseName?: string; 
   collegeId?: number;
   /** رقمُ الشعبة الجاري إدخالُها (لحساب «شعبة بديلة»). */
   scode?: string;
+  /** يومُ القسم كما يقرؤه محرر الموعد (لحساب أقرب وقتٍ خالٍ من المقرن). */
+  dayWindow?: ScheduleDayWindow | null;
   className?: string;
 }
 
@@ -76,7 +78,7 @@ function useSettled<T>(value: T, key: string, ms = 180): T {
 const hueOf = (seed: number) => (Math.abs(Math.round(seed)) * 47) % 360;
 
 export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string; AdInstructorId?: number }>(props: SameSlotHintProps<R>) {
-  const { rows, courseOf, instructorName, days, start, end, excludeId, skipIds, courseId, sectionId, termId, collegeId, scode, className } = props;
+  const { rows, courseOf, instructorName, days, start, end, excludeId, skipIds, courseId, sectionId, termId, collegeId, scode, dayWindow, className } = props;
   const skipKey = [...(skipIds || [])].join(",");
   const queryKey = `${days.join("+")}|${start}|${end}|${excludeId ?? ""}|${skipKey}|${courseId ?? ""}|${sectionId ?? ""}|${termId ?? ""}`;
   const query = useSettled<SameSlotQuery>(
@@ -86,6 +88,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
 
   /* المقرن: تداخلٌ (لا تطابقٌ تام) مع مقرر الموعد التوأم، ومعه: هل بقيت شعبةٌ بديلة؟ */
   const pairs = useCoreqPairs(collegeId, sectionId);
+  const { start: dayStart, end: dayEnd } = scheduleDayWindowMinutes(dayWindow);
   const twins = useMemo(() => {
     if (!courseId || !pairs.length) return [];
     const partners = partnersOfCourse(pairs, courseId);
@@ -97,8 +100,9 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
     return coreqFindings(candidate, scoped, partners, excludeId).map(finding => ({
       ...finding,
       row: scoped.find(row => String(row.id) === String(finding.overlapRowIds[0])) as (R | undefined),
+      free: coreqFreeTime(candidate, scoped, finding.partnerCourseId, { start: dayStart, end: dayEnd }, excludeId),
     }));
-  }, [pairs, courseId, sectionId, scode, termId, rows, query, excludeId]);
+  }, [pairs, courseId, sectionId, scode, termId, rows, query, excludeId, dayStart, dayEnd]);
 
   /* ما يرويه بطاقةُ المقرن لا يُعاد في قائمة «الوقت نفسه». */
   const twinIds = useMemo(() => twins.flatMap(twin => twin.overlapRowIds).map(String), [twins]);
@@ -257,31 +261,48 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   );
 }
 
+/** الوقتُ بدقائقه كما يُعرض في الجدول. */
+const clockOf = (minutes: number) => scheduleClockForDisplay(`${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`);
+
 /**
  * التوأم: عقدتان (هذا المقرر ومقرنه) يصل بينهما رابط، وشريطان رفيعان بمحور واحد:
- * الأخضر الهادئ وقتٌ خالٍ والعنبريُّ تداخل. سطرٌ واحد يقول: مقرنه — وهل بقيت شعبةٌ بديلة.
- * النصُّ البديلُ كاملٌ لقارئ الشاشة، فلا يقوم المعنى على اللون وحده.
+ * الأخضر الهادئ وقتٌ والعنبريُّ تداخل، والمحاطُ بالأخضر هو المكان الخالي، ووسمُه تحته مباشرة:
+ * الوقتُ نفسه، أو الشعبةُ الخالية. لا سطرَ زائد ولا لوحة: الرسم يقول الخبر والكلمات أقلّ ما يمكن.
+ * النصُّ الكامل لقارئ الشاشة، فلا يقوم المعنى على اللون وحده.
  */
 function TwinNode({ twin, own, courseOf }: {
-  twin: { partnerCourseId: number; alternative: boolean; row?: SlotRow & { AdCourseName?: string } };
+  twin: { partnerCourseId: number; alternative: boolean; free: CoreqFreeTime; row?: SlotRow & { AdCourseName?: string } };
   own: { name: string; start: string; end: string };
   courseOf: (courseId: number) => CourseLite | undefined;
 }) {
   const partnerName = twin.row?.AdCourseName || courseOf(twin.partnerCourseId)?.CourseName || "مقرنه";
+  const { placement, partnerSection, ownSection, sectionSpans } = twin.free;
   const a0 = slotMinutes(own.start), a1 = slotMinutes(own.end);
   const b0 = slotMinutes(twin.row?.fstarttime), b1 = slotMinutes(twin.row?.fendtime);
   const ok = [a0, a1, b0, b1].every(Number.isFinite);
-  const lo = ok ? Math.min(a0, b0) : 0, hi = ok ? Math.max(a1, b1) : 1, span = Math.max(1, hi - lo);
+  /* يُرسم للمقرن ما يخصّ الخبر: الشعبةُ التي يخلو منها الوقت المقترح، وإلا الموعدُ المتداخل. */
+  const partnerSpans: Array<readonly [number, number]> = placement && sectionSpans.length ? sectionSpans : [[b0, b1]];
+  const clean = partnerSection ? sectionSpans : [];
+  const freeWindow = placement ? [[placement.start, placement.end] as const] : [];
+  const edges = ok ? [a0, a1, ...[...partnerSpans, ...clean, ...freeWindow].flat()] : [0, 1];
+  const lo = Math.min(...edges), hi = Math.max(...edges), span = Math.max(1, hi - lo);
   const pct = (value: number) => ((value - lo) / span) * 100;
-  const o0 = ok ? Math.max(a0, b0) : 0, o1 = ok ? Math.min(a1, b1) : 0;
-  const bar = (from: number, to: number) => (
-    <div className="twin-track" aria-hidden="true">
-      <i className="is-free" style={{ insetInlineStart: `${pct(from)}%`, width: `${Math.max(2, pct(to) - pct(from))}%` }} />
-      {o1 > o0 ? <i className="is-overlap" style={{ insetInlineStart: `${pct(o0)}%`, width: `${Math.max(2, pct(o1) - pct(o0))}%` }} /> : null}
-    </div>
+  const segment = (kind: string, from: number, to: number) => (
+    <i key={`${kind}-${from}`} className={kind} style={{ insetInlineStart: `${pct(from)}%`, width: `${Math.max(2, pct(to) - pct(from))}%` }} />
   );
-  const verdict = twin.alternative ? "توجد شعبة بديلة" : "لا بديل";
-  const spoken = `مقرنه ${partnerName} يتداخل في الوقت. ${verdict}.`;
+  const cuts = partnerSpans.map(([from, to]) => [Math.max(a0, from), Math.min(a1, to)] as const).filter(([from, to]) => to > from);
+  const verdict = twin.alternative ? "" : "لا بديل";
+  const sideWord = placement?.side === "after" ? "بعد" : "قبل";
+  const clock = placement ? clockOf(placement.side === "after" ? placement.start : placement.end) : "";
+  const fact = placement ? `يخلو ${sideWord} ${clock}`
+    : partnerSection ? `يخلو مع شعبة ${partnerSection} من مقرنه`
+    : ownSection ? `يخلو بشعبة ${ownSection} من هذا المقرر`
+    : "";
+  const spoken = `مقرنه ${partnerName} يتداخل في الوقت. ${[verdict, fact].filter(Boolean).join(". ") || "توجد شعبة بديلة"}.`;
+  /* الوسمُ تحت مكانه على الشريط؛ والكلمتان الثابتتان تنتقلان إلى الجهة الأخرى فلا يتزاحمان. */
+  const spot = freeWindow[0] || clean[0];
+  const at = spot ? pct((spot[0] + spot[1]) / 2) : 100;
+  const hasMark = Boolean(fact);
   return (
     <section className={`twin-card${twin.alternative ? " has-alt" : " no-alt"}`} role="group" aria-label={spoken}>
       <div className="twin-nodes" aria-hidden="true">
@@ -291,13 +312,29 @@ function TwinNode({ twin, own, courseOf }: {
       </div>
       {ok ? (
         <div className="twin-bars" aria-hidden="true">
-          {bar(a0, a1)}
-          {bar(b0, b1)}
+          <div className="twin-track">
+            {segment("is-free", a0, a1)}
+            {cuts.map(([from, to]) => segment("is-overlap", from, to))}
+            {freeWindow.map(([from, to]) => segment("is-window", from, to))}
+          </div>
+          <div className="twin-track">
+            {partnerSpans.map(([from, to]) => segment("is-free", from, to))}
+            {cuts.map(([from, to]) => segment("is-overlap", from, to))}
+            {clean.map(([from, to]) => segment("is-window", from, to))}
+          </div>
         </div>
       ) : null}
-      <p className="twin-line">
+      <p className={`twin-line${hasMark && at < 50 ? " is-flip" : ""}`}>
         {twin.alternative ? <CheckCircle2 aria-hidden="true" /> : <AlertCircle aria-hidden="true" />}
-        <span>مقرنه</span><em>·</em><strong>{verdict}</strong>
+        <span>مقرنه</span>
+        {verdict ? <><em>·</em><strong>{verdict}</strong></> : !hasMark ? <><em>·</em><strong>توجد شعبة بديلة</strong></> : null}
+        {hasMark ? (
+          <span className="twin-mark" style={{ ["--at" as any]: `${at}%` }} title={fact}>
+            {placement ? <Clock3 aria-hidden="true" /> : <Check aria-hidden="true" />}
+            {placement ? <>{sideWord} <strong dir="ltr">{clock}</strong></>
+              : <>{partnerSection ? "مع " : "ب"}شعبة <strong dir="ltr">{partnerSection || ownSection}</strong></>}
+          </span>
+        ) : null}
       </p>
     </section>
   );

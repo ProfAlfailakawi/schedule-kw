@@ -230,7 +230,10 @@ const updatedAuthorityReport = (r:Row) => r.kind==="route" && r.methods.length==
    Their behaviour is pinned by tests/rooms-one-screen-audit.ts instead of call-text parity. */
 const updatedLocationEdit = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="put"
   && (r.path==="/api/admin/location-setup/buildings/:id" || r.path==="/api/admin/location-registry/rooms/:id");
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : r.call || "-"} ${r.name}`;
+/* One intentional suggestion edit: the co-requisite defers times where every section combination clashes.
+   Its behaviour is pinned by tests/coreq-sections-audit.ts instead of call-text parity. */
+const updatedCoreqSuggest = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post" && r.path==="/api/schedules/suggest-slots";
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();

@@ -32,6 +32,7 @@ import { bestRegulationChoice, pickDay, regulationChoiceFor, regulationChoicesFo
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { byCourseNumber } from "../utils/sheetMembership";
 import SameSlotHint from "./SameSlotHint";
+import type { ScheduleDayWindow } from "../utils/scheduleTime";
 
 /**
  * The appointment written where it was drawn.
@@ -136,7 +137,7 @@ export default function QuickCreatePopover({
   sameSlot,
 }: {
   /** صفوفُ الفصل المحمّلة في الصفحة لتلميح «في الوقت نفسه»؛ بلا طلبٍ جديد. */
-  sameSlot?: { rows: readonly any[]; courseOf: (courseId: number) => { CourseCode?: string; CourseName?: string } | undefined; instructorName?: (id: number) => string };
+  sameSlot?: { rows: readonly any[]; courseOf: (courseId: number) => { CourseCode?: string; CourseName?: string } | undefined; instructorName?: (id: number) => string; dayWindow?: ScheduleDayWindow | null };
   /** عدّادُ «وقت إدخال المواعيد» يملكه الأب (يُرسله بعد الحفظ الناجح وحده)؛ البطاقةُ تُعلِّم عليه الأدوات والموانع. */
   meter?: EntryMeter | null;
   /** 🔄 خانة «هيئة تدريسية» مطابقة تماماً: «خذ موعدها» · «بدّل» · «احذفها وخذ مكانها» — طلبٌ واحد محروس عند الأب. */
@@ -601,7 +602,7 @@ export default function QuickCreatePopover({
               {sameSlot ? (
                 <SameSlotHint rows={sameSlot.rows} courseOf={sameSlot.courseOf} instructorName={sameSlot.instructorName}
                   days={chosenDays} start={draft.start} end={draft.end} courseId={draft.courseId || undefined}
-                  skipIds={liveCheck.conflicts.flatMap((c: any) => [c?.rowId, c?.otherId]).filter(Boolean)} termId={termId || undefined} sectionId={sectionId || undefined} collegeId={collegeId || undefined} scode={draft.scode} />
+                  skipIds={liveCheck.conflicts.flatMap((c: any) => [c?.rowId, c?.otherId]).filter(Boolean)} termId={termId || undefined} sectionId={sectionId || undefined} collegeId={collegeId || undefined} scode={draft.scode} dayWindow={sameSlot.dayWindow} />
               ) : null}
             </div>
             {timeOpen ? (
