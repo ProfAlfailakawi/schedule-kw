@@ -219,6 +219,8 @@ test:appointment-forms-r3
 test:review-1105
 test:holds-patterns-r4
 test:one-line-appointment
+test:same-slot
+test:coreq-sections
 test:schedule-wipe
 test:instructor-availability
 test:instructor-offering-flow

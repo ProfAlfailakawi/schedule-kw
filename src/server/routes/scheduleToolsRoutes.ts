@@ -36,6 +36,7 @@ import { applyRequestHoldOverride, noteRequestHoldOverride, requestHoldRefusal, 
 import { meetingExcludedIds, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIssue, sectionScheduleWindow, travelMinutesFor } from "../core/scheduleRules";
 import { createScheduleHandler, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed } from "../core/scope";
+import { coreqPairsOfSection } from "../core/coreqPairs";
 import { approvalBlockerOptions, placeholderInstructorIds } from "../core/smartImport";
 import { captureScopeVersion, confirmTokens, recordVersionAfter } from "../core/versions";
 
@@ -97,6 +98,14 @@ async function meetingDepartmentPeople(req: AuthenticatedRequest, sectionId: num
 }
 
 export function registerScheduleToolsRoutes(app: Express): void {
+/* مقرناتُ القسم من صحيفته المعتمدة، لورقة «في الوقت نفسه» في «موعد جديد» (قراءةٌ فقط، مخبَّأة). */
+app.get("/api/schedules/coreq-pairs", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0);
+  if (!sectionId) { res.status(400).json({ error: "حدد القسم." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  res.json({ pairs: await coreqPairsOfSection(sectionId) });
+});
+
 app.get("/api/schedules/ta-conversion", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }

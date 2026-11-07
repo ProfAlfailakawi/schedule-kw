@@ -99,7 +99,7 @@ export function conflictKind(conflict: any): CheckKind {
     case "instructor": return "teacher";
     case "room": case "hallBarter": case "hallBarterWindow": case "doorway": return "room";
     case "roomScope": case "travel": return "college";
-    case "duplicate": case "sectionTwice": case "cohort": return "section";
+    case "duplicate": case "sectionTwice": case "cohort": case "coreq": return "section";
     default: return "time";
   }
 }
