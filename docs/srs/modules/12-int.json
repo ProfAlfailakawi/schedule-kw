@@ -849,6 +849,228 @@
       ],
       "evidence": { "code": ["src/server/core/gemini.ts#requestGeminiScheduleLayer"] },
       "inferred": true
+    },
+    {
+      "id": "FR-INT-031",
+      "kind": "functional",
+      "title": { "ar": "«لماذا؟» و«لماذا لا؟» لموعد", "en": "«Why?» and «why not?» for an appointment" },
+      "text": { "ar": "يجب على النظام أن يفسّر عبر POST …/why قرار موعدٍ قائم، وعبر POST …/why-not أثر بديلٍ مقترح له، بعد فحص البديل بمدققات الموعد نفسها، فيعيد التحذيرات والمقايضات وفرق الجودة وجواباً من سطر («ممكن، لكن…» أو «ممكن، وهذا البديل أفضل…»)، وذاكرة قرارات القسم لهذا المقرر لصاحب الصلاحية الكاملة وحده (حتى 120 قيداً)، ولا يحفظ شيئاً.", "en": "The system shall explain through POST …/why the decision behind an existing appointment, and through POST …/why-not the effect of a proposed alternative for it, after checking the alternative with the appointment validators themselves, returning warnings, trade-offs, the quality difference and a one-line answer («possible, but…» or «possible, and this alternative is better…»), with the department's decision memory for that course for power users only (up to 120 entries), saving nothing." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "admin"],
+      "acceptance": [
+        { "ar": "موعد غير موجود ← 404؛ وموعد خارج النطاق ← 403.", "en": "A missing appointment ← 404; an appointment outside scope ← 403." },
+        { "ar": "بديل وقته خارج اليوم الدراسي ← 400 بأول مشكلة وقائمة issues.", "en": "An alternative timed outside the teaching day ← 400 with the first issue and the issues list." },
+        { "ar": "السؤال المرسل يُقصّ إلى 240 حرفاً، والرد يحمل نصاً يقول إن الشاشة تفسّر ولا تطبّق.", "en": "The sent question is cut to 240 characters, and the response carries text saying the screen explains and does not apply." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/why", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/why-not"], "tests": ["tests/one-blocker-number-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-032",
+      "kind": "functional",
+      "title": { "ar": "ذاكرة قرارات القسم", "en": "Department decision memory" },
+      "text": { "ar": "يجب على النظام أن يحفظ عبر POST …/decision-memory قيداً بسبب القرار (من 3 إلى 700 حرف) ونوعه (خيارٌ مرفوض، أو ملاحظة مقبولة، أو قرار اجتماع؛ والافتراضي خيار مرفوض) مربوطاً اختيارياً بموعدٍ من القسم نفسه وبمقرره وشعبته، باسم كاتبه، وأن يعرض عبر GET …/decision-memory حتى 250 قيداً للقسم ملخّصةً ومرشّحةً بالمقرر عند طلبه.", "en": "The system shall save through POST …/decision-memory an entry with the decision's reason (3 to 700 characters) and kind (rejected option, accepted note or meeting decision; default rejected option), optionally linked to an appointment of the same department with its course and section, under the writer's name, and show through GET …/decision-memory up to 250 entries of the department summarised and filtered by course when asked." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "سببٌ من حرفين ← 400 «اكتب سبباً واضحاً بين 3 و700 حرف».", "en": "A two-character reason ← 400 «write a clear reason between 3 and 700 characters»." },
+        { "ar": "موعدٌ من قسمٍ آخر ← 403 «الموعد خارج نطاق هذا القسم»؛ والحفظ الناجح ← 201.", "en": "An appointment from another department ← 403 «the appointment is outside this department»; a successful save ← 201." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/decision-memory"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-033",
+      "kind": "functional",
+      "title": { "ar": "مساعد القرار السياقي وخطط الطوارئ", "en": "Contextual decision assistant and emergency plans" },
+      "text": { "ar": "يجب على النظام أن يجيب POST …/context-copilot لسياقٍ من أربعة: موعد (حتى 3 خيارات من حلول التعارض)، أو قاعة (مرونتها)، أو أستاذ (عدالة توزيعه)، أو يوم (أفضل خطة طوارئ لليوم)، ويرفض سياقاً غير معروف أو يوماً غير صالح بـ400؛ وأن يبني عبر POST …/emergency لصاحب الصلاحية الكاملة وحده ثلاث خطط بديلة لتعطّل قاعة أو يوم أو أستاذ كسيناريوهات فقط لا تُنشر، ويرفض حالةً لا تمسّ أي موعد؛ وخطط الطوارئ لا شاشة لها بعد فلا تُعلن متاحة.", "en": "The system shall answer POST …/context-copilot for one of four contexts: an appointment (up to 3 options from conflict solutions), a room (its resilience), an instructor (load fairness) or a day (the best emergency plan for the day), refusing an unknown context or an invalid day with 400; and shall build through POST …/emergency, for power users only, three alternative plans for a disrupted room, day or instructor as scenarios only that are not published, refusing a case that touches no appointment; emergency plans have no screen yet and are not advertised as available." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "قسمٌ بلا مواعيد في الفصل ← 400 «لا يوجد جدول في هذا النطاق».", "en": "A department with no appointments in the term ← 400 «there is no schedule in this scope»." },
+        { "ar": "emergency بلا عنصرٍ محدد ← 400 «حدد العنصر المتأثر بالطوارئ»؛ ومن غير صاحب الصلاحية الكاملة ← مرفوض.", "en": "emergency without a specified item ← 400 «specify the item affected by the emergency»; from anyone but a power user ← refused." },
+        { "ar": "قراءة الطبقة الحية تحمل capabilities.emergency = false.", "en": "The living-layer reading carries capabilities.emergency = false." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/context-copilot", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/emergency"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-034",
+      "kind": "functional",
+      "title": { "ar": "إيقاع أوقات القسم من تاريخه", "en": "The department's time rhythm from its history" },
+      "text": { "ar": "يجب على النظام أن يبني عبر GET …/department-start-rhythm نموذج أوقات القسم من آخر 10 فصول من تاريخه المسموح للقارئ، طبقاتٍ للقسم ولنمط الأيام الفعال ولكل مقرر، بوزنٍ أكبر للفصول الحديثة، يختار منها العميل أضيق طبقة موثوقة؛ وأن يحفظ الجواب 5 دقائق بمفتاحٍ يحمل القارئ حين لا يُحدَّد قسم، ويُبطَل عند أي تغيير في الجدول، وتُفرَّغ الذاكرة إذا تجاوزت 180 مفتاحاً.", "en": "The system shall build through GET …/department-start-rhythm the department's time model from the last 10 terms of its history the reader may see, with layers for the department, the active day pattern and each course, weighting recent terms more, from which the client picks the narrowest reliable layer; the answer is kept for 5 minutes under a key that carries the reader when no department is given, is invalidated by any schedule change, and the memory is cleared beyond 180 keys." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "كلية خارج النطاق أو بلا collegeId ← 403.", "en": "A college outside scope or no collegeId ← 403." },
+        { "ar": "قارئان بلا قسم في الكلية نفسها ← مفتاحان مختلفان فلا يرى أحدهما أقسام الآخر.", "en": "Two readers without a department in the same college ← two different keys so neither sees the other's departments." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/department-start-rhythm"], "tests": ["tests/role-scope-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-035",
+      "kind": "functional",
+      "title": { "ar": "مراقبة ما تغيّر تحت الفصل المعتمد", "en": "Watching what changed under the settled term" },
+      "text": { "ar": "يجب على النظام أن يفحص عبر GET …/settled-drift الفصلَ المعتمد (الفصل الذي صار له تالٍ) وحده: يقرأ مواعيد القسم مقابل كل مواعيد الفصل في الجامعة ويعيد حتى 40 ملاحظة بنوعها ورسالتها ويومها ووقتها وقاعتها، بهامش انتقال القاعة من قاعدة room_doorway محصوراً بين 0 و60 دقيقة، مع جملة «عادة القسم» غير المكتوبة، ونصّ حدٍّ يقول إنه يقرأ ما في النظام وحده؛ وألا يدّعي «لا مشكلات» حين لا يوجد فصل معتمد، وأن يحيل إلى الفصل المعتمد حين يعرض القارئ فصلاً غيره.", "en": "The system shall check through GET …/settled-drift the settled term (the term that has a successor) only: it reads the department's appointments against all of the university's appointments in that term and returns up to 40 findings with type, message, day, time and room, with a room doorway margin from the room_doorway rule clamped between 0 and 60 minutes, the department's unwritten «habit» sentence, and a limit statement saying it reads only what is in the system; it shall not claim «no problems» when no settled term exists, and shall point to the settled term when the reader is viewing another term." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "لا فصل معتمد ← watching:false مع سبب «لا يوجد فصل معتمد بعد».", "en": "No settled term ← watching:false with the reason «there is no settled term yet»." },
+        { "ar": "termId يخالف الفصل المعتمد ← watching:false «الفحص يخصّ الفصل المعتمد».", "en": "A termId different from the settled term ← watching:false «the check concerns the settled term»." },
+        { "ar": "عادة «الكلية كلها» لا تُعرض لغير مدير النظام بلا قسم.", "en": "The «whole college» habit is not shown to a non-administrator without a department." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/settled-drift"], "tests": ["tests/role-scope-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-036",
+      "kind": "functional",
+      "title": { "ar": "قراءة نقل الفصل وإنشاء مسودة بداية الفصل", "en": "Term rollover reading and the beginning-of-term draft" },
+      "text": { "ar": "يجب على النظام أن يقرأ عبر GET …/rollover صلاحيةَ نسخ فصلٍ سابق للقسم دون إنشاء شيء: ما يُنقل كما هو وما يحتاج مراجعة (حتى 40) وأسلوب القسم (حتى 6 ملاحظات)، والقاعة تُعدّ قائمةً إن ظهرت في أي موعدٍ في النظام اليوم؛ وأن ينشئ عبر POST …/genesis مسودةً للفصل الهدف من مواعيد الفصل المصدر لمقررات القسم غير المؤرشفة، يعيد ترقيم شعب كل مقرر 501 و502 وهكذا، ويكمل الأستاذ والقاعة من شعب المقرر الأخرى عند غيابهما، ثم يحرّك الأوقات وحدها في 4 دورات على الأكثر لتفادي تعارضات الفصل الهدف، ويفحص كل صف بمدققات الموعد، ويعيد المسودة (201) بتحليلها وتغطيتها؛ ولا يكتب في الجدول.", "en": "The system shall read through GET …/rollover whether a department's previous term can be copied, creating nothing: what carries over as is, what needs review (up to 40) and the department's style (up to 6 notes), a room counting as live when it appears in any appointment in the system today; and shall create through POST …/genesis a draft for the target term from the source term's appointments of the department's non-archived courses, renumbering each course's sections 501, 502 and so on, filling a missing instructor and room from the course's other sections, then shifting times only in at most 4 passes to avoid target-term conflicts, checking every row with the appointment validators, and returning the draft (201) with its analysis and coverage; it writes nothing to the schedule." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "فصل مصدر بلا مواعيد قابلة للنسخ ← 400 «لم أجد مواعيد قابلة للنسخ».", "en": "A source term with no copyable appointments ← 400 «no copyable appointments found»." },
+        { "ar": "مقرر بثلاث شعب 1 و10 و11 في المصدر ← 501 و502 و503 في المسودة.", "en": "A course with sections 1, 10 and 11 in the source ← 501, 502 and 503 in the draft." },
+        { "ar": "رد rollover يحمل «قراءة فقط. لم يُنشأ شيء ولم يتغيّر شيء».", "en": "The rollover answer carries «read only; nothing was created or changed»." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/rollover", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/genesis"], "tests": ["tests/blockers-stream-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-037",
+      "kind": "functional",
+      "title": { "ar": "موجز الدقيقة ومحضر القرار", "en": "One-minute brief and decision minutes" },
+      "text": { "ar": "يجب على النظام أن يعيد عبر GET …/brief موجزاً من دقيقة لجدول القسم وما تغيّر فيه منذ آخر مرة، وأن يبني عبر POST …/meeting-minutes محضر قرار: المشكلة (أول موعدٍ يحتاج تحققاً)، والبدائل بدرجاتها وموانعها وعدد ما يتغيّر، والبديل المختار (أو الأول)، والأثر المتوقع (الجودة وموانع الحفظ قبل وبعد)، وحتى 8 تعليقات على الموعد، وحتى 5 قيود من ذاكرة القرارات، واسم المعتمِد حتى 120 حرفاً، وتاريخ الإنشاء؛ ولا يحفظ المحضر.", "en": "The system shall return through GET …/brief a one-minute brief of the department schedule and what changed in it since last time, and shall build through POST …/meeting-minutes decision minutes: the problem (the first appointment needing verification), the alternatives with their scores, blockers and number of changes, the chosen alternative (or the first), the expected impact (quality and save blockers before and after), up to 8 comments on the appointment, up to 5 decision-memory entries, the approver's name up to 120 characters and the generation time; the minutes are not saved." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "محضر لقسمٍ بلا مواعيد ← 400 «لا يوجد جدول لبناء محضر قرار».", "en": "Minutes for a department with no appointments ← 400 «there is no schedule to build minutes from»." },
+        { "ar": "optionId غير موجود ← يُختار البديل الأول.", "en": "An unknown optionId ← the first alternative is chosen." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/brief", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/meeting-minutes"], "tests": ["tests/blockers-stream-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-038",
+      "kind": "functional",
+      "title": { "ar": "شبكة الأمان والتراجع عن قرار", "en": "Safety net and undoing a decision" },
+      "text": { "ar": "يجب على النظام أن يعرض عبر GET …/safety-net آخر 18 نقطة أمان لجدول القسم والفصل، لكلٍّ نوعها وعنوانها وكاتبها وعدد صفوفها وأثر استرجاعها على الجدول كما هو الآن مقروءاً حياً؛ وأن يسترجع عبر POST …/safety-net/:id/undo نقطةً فقط بتأكيدٍ صريح decision-undo، بعد فحص النطاق وقفل الجدول والكتابة فوق عمل الآخرين ومهلة الاستبدال الكلي وصلاحية الأوقات، فيلتقط قبلها نقطة «قبل التراجع عن القرار» ويستبدل جدول القسم ويسجّل النشر.", "en": "The system shall show through GET …/safety-net the last 18 safety points of the department schedule and term, each with its kind, title, writer, row count and the live effect of restoring it on the schedule as it is now; and shall restore a point through POST …/safety-net/:id/undo only with the explicit confirmation decision-undo, after checking scope, the schedule lock, overwriting others' work, the wholesale-replacement deadline and the validity of times, capturing beforehand a «before undoing the decision» point, replacing the department schedule and recording the publication." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "admin"],
+      "acceptance": [
+        { "ar": "undo بلا تأكيد ← 409 «يتطلب التراجع عن القرار تأكيداً صريحاً».", "en": "undo without confirmation ← 409 «undoing the decision requires explicit confirmation»." },
+        { "ar": "جدول مقفل ← 409 schedule-locked؛ وبعد مهلة الاستبدال الكلي ← 409 deadline-wholesale.", "en": "A locked schedule ← 409 schedule-locked; after the wholesale deadline ← 409 deadline-wholesale." },
+        { "ar": "نسخة فيها أوقات غير صالحة ← 400 ولا تغيير.", "en": "A version with invalid times ← 400 and no change." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/safety-net", "src/server/routes/intelligenceInsightRoutes.ts#/api/intelligence/safety-net/:id/undo"], "tests": ["tests/safety-net-restore-audit.ts", "tests/blockers-stream-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-039",
+      "kind": "functional",
+      "title": { "ar": "تحديث القرارات المفتوحة ومراجعة التشغيل", "en": "Updating open decisions and the operations review" },
+      "text": { "ar": "يجب على النظام أن يقصر القرار المفتوح على عنوانٍ من 3 إلى 140 حرفاً وتفصيلٍ حتى 500 ومسؤولٍ حتى 100 وتاريخٍ حتى 30 حرفاً، وأولويةٍ منخفضة أو متوسطة (الافتراضي) أو عالية، وأن يغيّر عبر PATCH …/open-decisions/:id حالته (مفتوح أو منجز) وأولويته ومسؤوله وتاريخه فقط لقرارٍ في النطاق نفسه، ويستنتج حتى 5 قرارات من تنبيهات الجدول وحتى 4 من الشذوذ غير المنخفض؛ وأن يعيد عبر GET …/operations-review دقة الجدول من حتى 24 نسخة، والشذوذ المنطقي، والقواعد غير المكتوبة المكتشفة من تاريخ القسم، وحجم التاريخ بالصفوف والفصول.", "en": "The system shall limit an open decision to a title of 3 to 140 characters, a detail up to 500, an owner up to 100 and a date up to 30 characters, with a low, medium (default) or high priority, and shall change through PATCH …/open-decisions/:id only its status (open or done), priority, owner and date, for a decision in the same scope, inferring up to 5 decisions from schedule alerts and up to 4 from non-low anomalies; and shall return through GET …/operations-review the schedule accuracy from up to 24 versions, logical anomalies, unwritten rules discovered from the department history, and the history size in rows and terms." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "PATCH لقرارٍ من قسمٍ آخر ← 404 «القرار غير موجود في هذا النطاق».", "en": "PATCH for a decision from another department ← 404 «the decision is not in this scope»." },
+        { "ar": "عنوان من حرفين ← 400 «اكتب عنوان القرار المفتوح».", "en": "A two-character title ← 400 «write the open decision's title»." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/open-decisions/:id", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/operations-review"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-040",
+      "kind": "functional",
+      "title": { "ar": "حلول التعارض والبدائل المكانية وتقييم السيناريو", "en": "Conflict solutions, spatial alternatives and scenario evaluation" },
+      "text": { "ar": "يجب على النظام أن يقترح عبر POST …/conflict-solutions حتى 5 أوقات بديلة لموعدٍ مقترح بعد فحصه، مقابل كل مواعيد الفصل؛ وأن يعيد عبر GET …/spatial-burnout مقترحات تبديل القاعات للانتقال بين المباني من ملف حركة الحرم؛ وأن يقيّم عبر POST …/evaluate مسودةً مرسلة مقابل الجدول الحالي (الجودة والقواعد قبل وبعد) دون فحص التعارض في المسودة نفسها؛ وأن يعيد عبر GET …/genome بصمة جدول القسم عبر فصوله في نطاق القراءة، وعبر GET …/lookups مقررات وأساتذة أقسام القارئ فقط (والكل لمدير النظام).", "en": "The system shall propose through POST …/conflict-solutions up to 5 alternative times for a proposed appointment after checking it, against all appointments of the term; shall return through GET …/spatial-burnout room-swap proposals for movement between buildings from the campus mobility profile; shall evaluate through POST …/evaluate a sent draft against the current schedule (quality and rules before and after) without checking conflicts within the draft itself; and shall return through GET …/genome the department schedule's profile across its terms within the reading scope, and through GET …/lookups the courses and instructors of the reader's departments only (all of them for the system administrator)." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "admin"],
+      "acceptance": [
+        { "ar": "موعد ناقص البيانات في conflict-solutions ← 400 «بيانات الموعد غير مكتملة».", "en": "An appointment with incomplete data in conflict-solutions ← 400 «the appointment data is incomplete»." },
+        { "ar": "مسودة فيها صفوف غير صالحة في evaluate ← 400 «المسودة تحتوي بيانات تحتاج مراجعة» مع issues.", "en": "A draft with invalid rows in evaluate ← 400 «the draft contains data needing review» with issues." },
+        { "ar": "lookups لرئيس قسم ← مقررات قسمه وأساتذته فقط.", "en": "lookups for a department head ← only the department's courses and instructors." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/conflict-solutions", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/spatial-burnout", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/evaluate", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/genome", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/lookups"], "tests": ["tests/appointment-forms-audit.ts", "tests/role-scope-audit.ts", "tests/decision-surfaces-audit.ts"] }
+    },
+    {
+      "id": "FR-INT-041",
+      "kind": "functional",
+      "title": { "ar": "حدود قواعد الجدولة وتعديلها وحذفها", "en": "Scheduling rule limits, toggling and deletion" },
+      "text": { "ar": "يجب على النظام أن يحصر حدّ الدقائق في قاعدة room_doorway بين 1 و60، وفي قاعدة أطول فراغ للأستاذ بين 30 و480 (الافتراضي 120)، وأن يرفض قاعدةً جديدة لأستاذٍ متقاعد أو متفرغ، وآخر وقتٍ خارج اليوم الدراسي، وقاعة مقرر غير معتمدة في سجل المباني والقاعات الرسمي؛ وأن يتيح لصاحب الصلاحية الكاملة عبر PUT …/constraints/:id تفعيل القاعدة أو تعطيلها فقط، وعبر DELETE …/constraints/:id حذفها، لقاعدةٍ في نطاق القسم والفصل نفسه.", "en": "The system shall clamp the minute limit of a room_doorway rule between 1 and 60 and of a maximum instructor gap rule between 30 and 480 (default 120), and shall refuse a new rule for a retired or full-time-released instructor, a latest-end time outside the teaching day, and a course room not approved in the official buildings and rooms registry; and shall let a power user enable or disable a rule only through PUT …/constraints/:id, and delete it through DELETE …/constraints/:id, for a rule in the same department and term scope." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "room_doorway بـ90 دقيقة ← تُحفظ 60.", "en": "room_doorway with 90 minutes ← saved as 60." },
+        { "ar": "PUT أو DELETE لقاعدة من فصلٍ آخر ← 404 «القاعدة غير موجودة في هذا النطاق».", "en": "PUT or DELETE for a rule from another term ← 404 «the rule is not in this scope»." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/constraints", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/constraints/:id"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-INT-042",
+      "kind": "functional",
+      "title": { "ar": "تعليقات الموعد وحماية ملاحظة التسجيل", "en": "Appointment comments and protecting the registration note" },
+      "text": { "ar": "يجب على النظام أن يعرض تعليقات موعدٍ في النطاق (GET …/comments/:scheduleId) ويضيف تعليقاً من 2 إلى 600 حرف باسم كاتبه (POST)، وأن يغيّر حالة «مُعالَج» لتعليقٍ عبر PUT …/comments/:scheduleId/:commentId فقط إن كان لهذا الموعد نفسه، وألا يغلق من هنا ملاحظةً كتبها التسجيل، لأنها تمنع الإرسال حتى تُعالَج في مسار ملاحظات الاعتماد.", "en": "The system shall show the comments of an appointment in scope (GET …/comments/:scheduleId) and add a comment of 2 to 600 characters under its writer's name (POST), shall change a comment's «resolved» state through PUT …/comments/:scheduleId/:commentId only when it belongs to that same appointment, and shall never close from here a note written by registration, because it blocks submission until handled in the approval-notes path." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "registrarStaff"],
+      "acceptance": [
+        { "ar": "إغلاق ملاحظة origin=registrar ← 403 registrar-note.", "en": "Closing a note with origin=registrar ← 403 registrar-note." },
+        { "ar": "commentId لموعدٍ آخر ← 404 «التعليق غير موجود على هذا الموعد».", "en": "A commentId of another appointment ← 404 «the comment is not on this appointment»." },
+        { "ar": "تعليق من 601 حرف ← 400؛ وتعليق صالح ← 201.", "en": "A 601-character comment ← 400; a valid one ← 201." }
+      ],
+      "evidence": { "code": ["src/server/routes/intelligenceRoutes.ts#/api/intelligence/comments/:scheduleId", "src/server/routes/intelligenceRoutes.ts#/api/intelligence/comments/:scheduleId/:commentId"], "tests": ["tests/publish-notes-r4-audit.ts", "tests/blockers-stream-audit.ts"] }
+    },
+    {
+      "id": "IR-INT-043",
+      "kind": "interface",
+      "title": { "ar": "مسارا أثر المقرر وتاريخ الموعد", "en": "The course impact and appointment history routes" },
+      "text": { "ar": "يجب على النظام أن يعيد GET /api/impact/course?courseId للمقرر في نطاق القارئ: الصحائف الحية التي تحمله، ومسبقاته ومقرناته، والمقررات المعتمدة عليه بصحائفها، والطلب عليه من آخر تشغيلٍ للرادار لفصل الباب (مطلوب، مُجلَس، شعب، سعة، مأخوذ، غير ملبّى)؛ وأن يعيد GET /api/schedules/:id/history أصل الموعد المكتوب فيه وآخر 12 حدثاً ناجحاً من آخر 1500 قيدٍ في سجل التدقيق تخصّه، مع علامة truncated إن زادت؛ كلاهما بلا تخزين مؤقت.", "en": "The system shall return GET /api/impact/course?courseId for a course in the reader's scope: the live plans that carry it, its prerequisites and corequisites, the courses depending on it with their plans, and its demand from the latest radar run of the door term (wanted, seated, sections, capacity, taken, unmet); and shall return GET /api/schedules/:id/history the origin written in the appointment and the latest 12 successful events about it from the last 1500 audit-log entries, with a truncated flag when there are more; both without caching." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "admin"],
+      "acceptance": [
+        { "ar": "مقرر غير موجود ← 404 «المقرر غير موجود»؛ وخارج النطاق ← 403.", "en": "A missing course ← 404 «the course does not exist»; outside scope ← 403." },
+        { "ar": "موعد له 15 حدثاً ← events بطول 12 وtruncated = true.", "en": "An appointment with 15 events ← 12 events and truncated = true." }
+      ],
+      "evidence": { "code": ["src/server/insightRoutes.ts#/api/impact/course", "src/server/insightRoutes.ts#/api/schedules/:id/history"], "tests": ["tests/radar-insight-audit.ts", "tests/activity-trail-audit.ts"] }
+    },
+    {
+      "id": "IR-INT-044",
+      "kind": "interface",
+      "title": { "ar": "استقبال قياسات الواجهة", "en": "Interface telemetry intake" },
+      "text": { "ar": "يجب على النظام أن يقبل عبر POST /api/telemetry/client من المستخدم الداخل حتى 20 قيداً في الدفعة من أنواع api وerror وoffline وsync وguide (وغيرها يُعدّ error)، يسقط منها ما يخص قسماً خارج نطاقه، ويحفظ قيود guide بلا معرّف مستخدمٍ ولا اسم، ويستبدل الأرقام بـ# في الأسئلة التي لم تُجب، ويقصّ الاسم إلى 140 حرفاً والرسالة إلى 320، ويحصر المدة بين 0 و120000 مللي ثانية، ويحفظ آخر 12 خطوة من أثر الاستعمال، ويعيد عدد المقبول.", "en": "The system shall accept through POST /api/telemetry/client from the signed-in user up to 20 entries per batch of kinds api, error, offline, sync and guide (any other counts as error), dropping those about a department outside the user's scope, storing guide entries with no user id or name, replacing digits with # in unanswered questions, cutting the name to 140 characters and the message to 320, clamping the duration between 0 and 120000 milliseconds, keeping the last 12 breadcrumb steps, and returning the accepted count." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "دفعة من 25 قيداً ← يُنظر في أول 20 فقط.", "en": "A batch of 25 entries ← only the first 20 are considered." },
+        { "ar": "قيد guide باسم unanswered|غرفة 204 ← يُحفظ «unanswered|غرفة #» وSystemUserId = 0.", "en": "A guide entry named unanswered|room 204 ← stored as «unanswered|room #» with SystemUserId = 0." }
+      ],
+      "evidence": { "code": ["src/server/routes/guideRoutes.ts#/api/telemetry/client"], "tests": ["tests/activity-trail-audit.ts"] }
+    },
+    {
+      "id": "NFR-INT-045",
+      "kind": "nonfunctional",
+      "title": { "ar": "متغيرات تشغيل خدمة Gemini", "en": "Gemini service configuration variables" },
+      "text": { "ar": "يجب على النظام أن يقرأ مفتاح خدمة Gemini من GEMINI_API_KEY ثم GOOGLE_GEMINI_API_KEY، واسم النموذج من GEMINI_SCHEDULE_MODEL ثم GEMINI_MODEL وإلا gemini-3.6-flash، وأن يعمل بلا مفتاح بالمحلل الحتمي وحده، وأن يسجّل في سجل الخادم سبب الرفض (رمز HTTP وأول 300 حرف من الرسالة) أو تجاوز المهلة، ويعيده إلى الشاشة.", "en": "The system shall read the Gemini service key from GEMINI_API_KEY, then GOOGLE_GEMINI_API_KEY, and the model name from GEMINI_SCHEDULE_MODEL, then GEMINI_MODEL, otherwise gemini-3.6-flash; it shall work without a key using the deterministic parser alone, and shall log on the server the refusal reason (HTTP status and the first 300 characters of the message) or the timeout, returning it to the screen." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["system", "external"],
+      "acceptance": [
+        { "ar": "بلا أي من المتغيرين للمفتاح ← لا طلب إلى الخدمة، ويعمل الاستعلام بالمحلل الحتمي.", "en": "With neither key variable ← no request to the service, and the query runs on the deterministic parser." },
+        { "ar": "رد HTTP 403 من الخدمة ← {failed:true, status:403, reason} ورسالة في سجل الخادم.", "en": "An HTTP 403 from the service ← {failed:true, status:403, reason} and a server log line." }
+      ],
+      "evidence": { "code": ["src/server/core/gemini.ts#requestGeminiScheduleLayer"] },
+      "inferred": true
     }
   ],
   "edgeCases": [

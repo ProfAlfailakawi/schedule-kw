@@ -608,7 +608,8 @@
       ],
       "evidence": {
         "code": [
-          "src/server/routes/draftsRoutes.ts"
+          "src/server/routes/draftsRoutes.ts",
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/drafts"
         ],
         "tests": [
           "tests/role-guard-audit.ts",
@@ -694,7 +695,9 @@
       ],
       "evidence": {
         "code": [
-          "src/server/routes/draftsRoutes.ts"
+          "src/server/routes/draftsRoutes.ts",
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/drafts/:id/rows/:rowId",
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/drafts/:id/rows"
         ],
         "tests": [
           "tests/import-term-tools-audit.ts"
@@ -830,7 +833,8 @@
       "evidence": {
         "code": [
           "src/server/routes/draftsRoutes.ts",
-          "src/server/core/versions.ts"
+          "src/server/core/versions.ts",
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/drafts/:id/publish"
         ],
         "tests": [
           "tests/approval-integrity-audit.ts",
@@ -1038,7 +1042,9 @@
       "evidence": {
         "code": [
           "src/server/routes/draftsRoutes.ts",
-          "src/utils/scheduleVersionList.ts"
+          "src/utils/scheduleVersionList.ts",
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/versions",
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/versions/compare"
         ],
         "tests": [
           "tests/intelligence-scope-api.mjs"
@@ -1083,7 +1089,8 @@
       "evidence": {
         "code": [
           "src/server/routes/draftsRoutes.ts",
-          "src/server/core/versions.ts"
+          "src/server/core/versions.ts",
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/versions/:id/restore"
         ],
         "tests": [
           "tests/blockers-stream-audit.ts"
@@ -1129,7 +1136,8 @@
       "evidence": {
         "code": [
           "src/server/routes/draftsRoutes.ts",
-          "src/utils/previousTermRequest.ts"
+          "src/utils/previousTermRequest.ts",
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/compare-terms"
         ],
         "tests": [
           "tests/intelligence-scope-api.mjs",
@@ -1174,7 +1182,8 @@
       "evidence": {
         "code": [
           "src/server/timeMachineRoutes.ts",
-          "src/utils/timeMachine.ts"
+          "src/utils/timeMachine.ts",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/scenarios"
         ],
         "tests": [
           "tests/time-machine-audit.ts"
@@ -1211,11 +1220,27 @@
         {
           "ar": "قراءة الفصل المجمَّد تُعيد frozen وcanWrite=false.",
           "en": "Reading a frozen term returns frozen and canWrite=false."
+        },
+        {
+          "ar": "GET /api/time-machine/scopes يعيد كليات القارئ وأقسامه بأسمائها من نطاقه وحده؛ وGET /api/time-machine/context بلا قسم أو فصل 400 بالرمز scope.",
+          "en": "GET /api/time-machine/scopes returns the reader's colleges and departments by name from his scope alone; GET /api/time-machine/context without a department or term returns 400 with the code scope."
+        },
+        {
+          "ar": "POST /api/time-machine/scenarios/:id/share يشارك السيناريو للعرض أو يوقف المشاركة (shared:false) ويُكتب في تاريخه؛ وحفظ سيناريو باسم معرّف لنطاق آخر 409.",
+          "en": "POST /api/time-machine/scenarios/:id/share shares the scenario for viewing or stops sharing (shared:false) and records it in its history; saving with the identifier of another scope's scenario returns 409."
+        },
+        {
+          "ar": "المشاركة لسيناريو غير موجود 404، ولسيناريو خارج النطاق أو من غير كاتب الجدول 403؛ وأي جسم لا يحمل shared:false يُعدّ مشاركة، ويُحفظ في التاريخ بند «للعرض» أو «إيقاف» مع الإبقاء على آخر 40 بنداً.",
+          "en": "Sharing a missing scenario returns 404, and one outside scope or by a non-writer returns 403; any body not carrying shared:false counts as sharing, and the history gains a «for viewing» or «stop» entry, keeping the last 40 entries."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/timeMachineRoutes.ts"
+          "src/server/timeMachineRoutes.ts",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/scopes",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/context",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/scenarios",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/scenarios/:id/share"
         ],
         "tests": [
           "tests/time-machine-audit.ts"
@@ -1297,7 +1322,8 @@
       ],
       "evidence": {
         "code": [
-          "src/server/timeMachineRoutes.ts"
+          "src/server/timeMachineRoutes.ts",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/scenarios/:id/apply"
         ],
         "tests": [
           "tests/time-machine-audit.ts"
@@ -1336,11 +1362,18 @@
         {
           "ar": "سيناريو معتمد لا يُحذف (409)، ونسخه يبني أساسه على الجدول الحيّ الآن ويُنتج مسودة غير مشاركة.",
           "en": "An applied scenario cannot be deleted (409), and copying it builds its base on the live schedule now and yields an unshared draft."
+        },
+        {
+          "ar": "النسخة تُسمّى «<الاسم> (نسخة)» مقصوصة إلى 80 حرفاً، وحذف سيناريو غير معتمد يعيد ok:true، وسيناريو غير موجود 404.",
+          "en": "A copy is named «<name> (copy)» cut to 80 characters, deleting a non-applied scenario returns ok:true, and an unknown scenario 404."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/timeMachineRoutes.ts"
+          "src/server/timeMachineRoutes.ts",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/scenarios/:id/restore",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/scenarios/:id/copy",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/scenarios/:id"
         ],
         "tests": [
           "tests/time-machine-audit.ts"
@@ -1471,7 +1504,8 @@
       "evidence": {
         "code": [
           "src/server/timeMachineRoutes.ts",
-          "src/server/simulationData.ts"
+          "src/server/simulationData.ts",
+          "src/server/timeMachineRoutes.ts#/api/time-machine/students"
         ],
         "tests": [
           "tests/time-machine-audit.ts"
@@ -1562,7 +1596,8 @@
       "evidence": {
         "code": [
           "src/server/simulationRoutes.ts",
-          "src/server/simulationData.ts"
+          "src/server/simulationData.ts",
+          "src/server/simulationRoutes.ts#/api/schedules/what-if"
         ],
         "tests": [
           "tests/radar-insight-audit.ts"
@@ -1604,12 +1639,18 @@
         {
           "ar": "الفصل السابق المجمَّد يُقرأ للاطّلاع ولا يُعاد حسابه، وتشغيله باسمه يُنتج 409 برمز term-frozen.",
           "en": "A frozen earlier term is readable for reference and not recalculated, and running it by name yields 409 with code term-frozen."
+        },
+        {
+          "ar": "GET /api/simulation/summary يعيد لمن هو إدارة رئيسية بلا تضييق الأرقام الإجمالية، ولغيره مجموع أقسام نطاقه وحدها (scoped:true)؛ وفصل بلا تشغيل يعيد run:null وcanRun للإدارة الرئيسية.",
+          "en": "GET /api/simulation/summary returns the overall figures to main administration without narrowing, and to others only the sum of their scope's departments (scoped:true); a term with no run returns run:null with canRun for main administration."
         }
       ],
       "evidence": {
         "code": [
           "src/server/simulationRoutes.ts",
-          "src/server/simulationData.ts"
+          "src/server/simulationData.ts",
+          "src/server/simulationRoutes.ts#/api/simulation/summary",
+          "src/server/simulationRoutes.ts#/api/simulation/run"
         ],
         "tests": [
           "tests/registration-flow-audit.ts",
@@ -1750,6 +1791,131 @@
         "ar": "الرقم الرسمي سبع خانات في كل ما يقرؤه المستخدم؛ والمخزّن يبقى كما هو، والمحلّل يقبل الطويل والقصير.",
         "en": "The official number has seven digits wherever the user reads it; the stored value stays as is, and the parser accepts both the long and the short form."
       }
+    },
+    {
+      "id": "FR-DRF-028",
+      "kind": "functional",
+      "title": {
+        "ar": "قائمة المسودات وتعديل المسودة كاملة",
+        "en": "Draft list and editing a whole draft"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عبر مسار قائمة المسودات (GET) مسودات القسم والفصل لحامل الشاشة 7 في نطاقه، وأن يقصر تعديل المسودة كاملة (الاسم والصفوف) عبر مسار المسودة الواحدة (PUT) على الإدارة الرئيسية مع إعادة فحص الصفوف.",
+        "en": "Through the draft-list route (GET) the system shall return the department and term drafts to a holder of screen 7 within scope, and restrict editing a whole draft (name and rows) through the single-draft route (PUT) to main administration, re-validating the rows."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب بلا كلية أو قسم أو فصل أو خارج النطاق 403؛ ومسودة غير موجودة 404.",
+          "en": "A request without college, department or term, or outside scope, returns 403; an unknown draft returns 404."
+        },
+        {
+          "ar": "الاسم يُقصّ إلى 100 حرف، والصفوف الناقصة تُرفض 400 بقائمة الملاحظات.",
+          "en": "The name is cut to 100 characters, and incomplete rows are refused with 400 and the list of issues."
+        },
+        {
+          "ar": "في مسودة منسوخة من PDF معتمد لا يُبدَّل اسم المقرر أو رقمه في صف عن صفّه الأصلي: 409 بالرمز COURSE_NAME_LOCKED؛ ويجوز حذف الصف كله.",
+          "en": "In a draft copied from an approved PDF a row's course name or number cannot be changed from its original row: 409 with the code COURSE_NAME_LOCKED; the whole row may still be deleted."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/drafts",
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/drafts/:id"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-DRF-029",
+      "kind": "interface",
+      "title": {
+        "ar": "تقرير الفرق بين PDF المعتمد والجدول الحي",
+        "en": "Difference report between the approved PDF and the live schedule"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عبر مسار تقرير الاستيراد للمسودة (GET import-report) لمسودة منسوخة من PDF معتمد مقارنة القراءة الأصلية المحفوظة بالجدول الحي الآن، مع اسم الملف والفرع، لحامل الشاشة 7 في نطاق المسودة.",
+        "en": "Through the draft import-report route (GET import-report) the system shall return, for a draft copied from an approved PDF, the comparison of the stored original reading with the live schedule now, with the file and branch names, to a holder of screen 7 within the draft's scope."
+      },
+      "rationale": {
+        "ar": "قواعد الاستيراد نفسها في وحدة الاستيراد (FR-IMP-007 وDR-IMP-021).",
+        "en": "The import rules themselves are in the import module (FR-IMP-007 and DR-IMP-021)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "مسودة ليست من PDF معتمد أو بلا قراءة أصلية 400 «هذه المسودة ليست نسخة من جدول PDF معتمد»؛ وغير موجودة 404؛ وخارج النطاق 403.",
+          "en": "A draft that is not from an approved PDF or has no original reading returns 400; a missing one 404; outside scope 403."
+        },
+        {
+          "ar": "اسم الملف الغائب يُعرض «الجدول المعتمد.pdf»، وتُعرض أرقام المقررات وأسماء الأساتذة لا معرّفاتها.",
+          "en": "A missing file name is shown as the approved schedule PDF, and course numbers and instructor names are shown rather than identifiers."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts#/api/intelligence/drafts/:id/import-report"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-DRF-030",
+      "kind": "interface",
+      "title": {
+        "ar": "قراءات الرادار الإضافية بحدود النطاق",
+        "en": "Additional radar readings within scope"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم لأي مستخدم مسجّل قراءات الرادار التالية بحدود نطاقه وبلا ذاكرة متصفح: GET /api/simulation/insight لأسباب النقص وجودة الطرح، وGET /api/simulation/predictive وGET /api/simulation/predictive-summary لاحتياج الفصل القادم، وGET /api/simulation/outcome لما قاله الطلبة بعد التسجيل؛ ومضمونها موصوف في FR-INT-018 وFR-INT-020.",
+        "en": "The system shall offer any signed-in user the following radar readings within his scope and without browser caching: GET /api/simulation/insight for shortfall causes and offering quality, GET /api/simulation/predictive and GET /api/simulation/predictive-summary for next-term need, and GET /api/simulation/outcome for what students said after registration; their content is described in FR-INT-018 and FR-INT-020."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "registrarHead",
+        "advisor"
+      ],
+      "acceptance": [
+        {
+          "ar": "مفتاح «الكلية / القسم» يضيّق النطاق ولا يوسّعه، والإدارة الرئيسية بلا تضييق تقرأ الإجمالي؛ وفصل بلا تشغيل يعيد ready:false.",
+          "en": "The college and department selector narrows the scope and never widens it, and main administration without narrowing reads the totals; a term with no run returns ready:false."
+        },
+        {
+          "ar": "الأسباب تعيد حتى 300 بند جودة مع qualityTruncated، وقراءة الاحتياج تُحفظ 5 دقائق بمفتاح يشمل صاحب الطلب ونطاقه فلا يشارك قارئ ذاكرة آخر.",
+          "en": "Insight returns up to 300 quality items with qualityTruncated, and the need reading is kept for 5 minutes under a key that includes the requester and his scope so no reader shares another's memory."
+        },
+        {
+          "ar": "النتائج بعد التسجيل مرتّبة بالمتعثّرين تنازلياً؛ وعدد المجيبين الكلي لا يُعطى إلا للإدارة الرئيسية بلا تضييق (null لغيرها) ويُعطى غيرها عدد الأجوبة عن مقرراته.",
+          "en": "Post-registration outcomes are ordered by stuck students descending; the overall respondent count is given only to main administration without narrowing (null for others), who get the count of answers about their own courses."
+        },
+        {
+          "ar": "تعذّر الحساب يعيد 500 برسالة عربية تطلب إعادة المحاولة بعد قليل.",
+          "en": "A computation failure returns 500 with an Arabic message asking to retry shortly."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/simulationRoutes.ts#/api/simulation/insight",
+          "src/server/simulationRoutes.ts#/api/simulation/predictive",
+          "src/server/simulationRoutes.ts#/api/simulation/predictive-summary",
+          "src/server/simulationRoutes.ts#/api/simulation/outcome"
+        ],
+        "tests": []
+      },
+      "inferred": true
     }
   ],
   "edgeCases": [

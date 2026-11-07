@@ -1482,6 +1482,10 @@
         {
           "ar": "المسارات /api/system-backup/* ترفض كل من ليس مديراً أعلى.",
           "en": "The /api/system-backup/* routes refuse anyone who is not a root administrator."
+        },
+        {
+          "ar": "الاستيراد والتصفير لا يمسّان systemSecrets ولا sessions ولا clientTelemetry في القاعدة الهدف، فتبقى للقاعدة الهدف أسرارها هي لا أسرار القاعدة المصدر.",
+          "en": "Import and reset never touch systemSecrets, sessions or clientTelemetry in the target database, so the target keeps its own secrets, not the source's."
         }
       ],
       "evidence": {
@@ -1523,6 +1527,219 @@
         "code": [
           "src/types.ts#StudentNeed",
           "src/types.ts#StudentProfile"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-DAT-030",
+      "kind": "data",
+      "title": {
+        "ar": "السرّ المشترك للخادم: حفظه واختياره",
+        "en": "The shared server secret: storage and selection"
+      },
+      "text": {
+        "ar": "يجب أن يُحفظ للخادم سرّ مشترك واحد ثابت لكل النسخ: في Firestore في الوثيقة systemSecrets/student-case-identity-v1 (الحقول secret وcreatedAt وpurpose وsource بقيمة env أو generated)، وفي الوضع المحلي في الملف student-case-identity.key بجوار db.json بصلاحية 600؛ يُنشأ مرة واحدة داخل معاملة عند أول حاجة إليه، والمحفوظ هو الحَكَم متى وُجد؛ ويُقبل STUDENT_CASE_SECRET فقط ليزرع السرّ حين لا يوجد محفوظ أو إذا ساوى المحفوظ، فإن خالفه يُتجاهل ويُسجَّل خطأ صريح، وإلا يُولَّد سرّ عشوائي من 32 بايتاً (64 خانة ست عشرية)، ولا يُقرأ CALENDAR_SECRET في هذا الاختيار أبداً، ويُقرأ السرّ الحقيقي دائماً خارج صندوق العرض.",
+        "en": "The server shall keep one stable shared secret for all instances: in Firestore in the document systemSecrets/student-case-identity-v1 (fields secret, createdAt, purpose and source set to env or generated), and in local mode in the file student-case-identity.key beside db.json with mode 600; it is created once inside a transaction on first need and the stored value always wins when present; STUDENT_CASE_SECRET is accepted only to seed the secret when nothing is stored or when it equals the stored value, and when it differs it is ignored and a loud error is logged; otherwise a random 32-byte secret (64 hex characters) is generated; CALENDAR_SECRET is never read for this choice, and the real secret is always read outside the demo sandbox."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "مخزَّن S وSTUDENT_CASE_SECRET=ENV: يُستعمل S ويُسجَّل «STUDENT_CASE_SECRET differs from the stored student-case secret… IGNORED».",
+          "en": "Stored S with STUDENT_CASE_SECRET=ENV: S is used and «STUDENT_CASE_SECRET differs from the stored student-case secret… IGNORED» is logged."
+        },
+        {
+          "ar": "لا محفوظ وSTUDENT_CASE_SECRET=ENV: يُحفظ ENV بمصدر env ويُثبَّت.",
+          "en": "Nothing stored and STUDENT_CASE_SECRET=ENV: ENV is stored with source env and pinned."
+        },
+        {
+          "ar": "نسختان تبدآن معاً على قاعدة فارغة تنتهيان بالسرّ نفسه لأن الكتابة معاملة (أو ملف يُنشأ بعلم wx).",
+          "en": "Two instances starting together on an empty database end with the same secret because the write is a transaction (or a file created with the wx flag)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentCaseSecret.ts#chooseStudentCaseSecret",
+          "src/db/repository.ts#getOrCreateStudentCaseSecret",
+          "src/server/core/studentIdentity.ts"
+        ],
+        "tests": [
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DAT-031",
+      "kind": "data",
+      "title": {
+        "ar": "ما يجب أن ينتقل مع القاعدة لتبقى البيانات المختومة مقروءة",
+        "en": "What must travel with the database for sealed data to stay readable"
+      },
+      "text": {
+        "ar": "يجب أن يُعامل السرّ المشترك جزءاً من البيانات عند نقلها أو تسليمها، لأنه مستثنى من النسخة الاحتياطية للنظام (systemSecrets) ولأن ما يلي مشتق منه: مفتاح ختم اسم الطالب ورقمه المدني (AES-256-GCM بمفتاح HMAC بوسم student-case-identity-v1)، وبصمة الرقم المدني (HMAC على need|الرقم) التي هي معرّف ملف الطالب في studentProfiles ومفتاح التكرار، ورموز ملصقات أبواب القاعات ولوحات المباني دائماً، ومفتاح اشتراك التقويم إن لم يُضبط CALENDAR_SECRET، ومفتاح «تذكّرني» لبطاقة الأستاذ إن لم يُضبط STAFF_DEVICE_SECRET، ومفتاح جهاز عضو فريق الكرسي، ومفتاحا VAPID للتنبيهات إن لم يُضبطا في البيئة؛ وكذلك CALENDAR_SECRET إن كان مضبوطاً، لأنه يفتح حالات الطلبة المختومة قبل وجود السرّ المشترك.",
+        "en": "The shared secret shall be treated as part of the data when the data is moved or handed over, because it is excluded from the system backup (systemSecrets) and the following are derived from it: the key sealing a student's name and civil number (AES-256-GCM under an HMAC key labelled student-case-identity-v1), the civil-number fingerprint (HMAC over need|number) that is the student file id in studentProfiles and the duplicate key, the room-door and building-board sticker tokens always, the calendar subscription key when CALENDAR_SECRET is not set, the teacher-card remember-me key when STAFF_DEVICE_SECRET is not set, the chair team-member device key, and the two VAPID push keys when they are not set in the environment; likewise CALENDAR_SECRET when set, because it opens student cases sealed before the shared secret existed."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "نسخة احتياطية تُستورد في قاعدة جديدة بلا نقل الوثيقة systemSecrets/student-case-identity-v1 (أو ضبط STUDENT_CASE_SECRET بالقيمة نفسها قبل أول استعمال): تُعرض أسماء الطلبة وأرقامهم فارغة بلا خطأ ظاهر، ولا يجد الطالب ملفه برقمه المدني.",
+          "en": "A backup imported into a new database without moving systemSecrets/student-case-identity-v1 (or setting STUDENT_CASE_SECRET to the same value before first use): student names and numbers show empty with no visible error, and a student cannot find his file by civil number."
+        },
+        {
+          "ar": "بعد تغيير السرّ لا تطابق ملصقاتُ الأبواب المطبوعة ولا اشتراكاتُ التقويم المشتقة شيئاً، ويتغيّر مفتاح التنبيهات العام المشتق فتلزم الأجهزةَ إعادةُ الاشتراك.",
+          "en": "After the secret changes, printed door stickers and derived calendar subscriptions no longer match anything, and the derived push public key changes so devices must subscribe again."
+        },
+        {
+          "ar": "في الوضع المحلي ينتقل الملفان student-case-identity.key وlegacy-password-vault.key مع db.json من المجلد الخاص.",
+          "en": "In local mode the files student-case-identity.key and legacy-password-vault.key travel with db.json from the private directory."
+        },
+        {
+          "ar": "كلمات مرور الحسابات (scrypt بملح) لا تعتمد على أي سرّ، فيبقى الدخول صالحاً بعد النقل.",
+          "en": "Account passwords (salted scrypt) depend on no secret, so sign-in keeps working after the move."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#getOrCreateStudentCaseSecret",
+          "src/db/repository.ts",
+          "src/server/core/studentIdentity.ts#openStudentIdentity",
+          "src/server/roomDoorSecret.ts#deriveRoomDoorKey",
+          "src/server/calendarSecret.ts#deriveCalendarSecret",
+          "src/server/staffDeviceKey.ts#deriveStaffDeviceSecret",
+          "src/server/seats.ts",
+          "src/server/webPush.ts#deriveVapidKeys"
+        ],
+        "tests": [
+          "tests/student-journey-audit.ts",
+          "tests/room-door-audit.ts",
+          "tests/doctor-journey-audit.ts",
+          "tests/web-push-audit.ts",
+          "tests/staff-device-key-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-DAT-032",
+      "kind": "data",
+      "title": {
+        "ar": "مفتاح خزنة كلمات المرور القديمة",
+        "en": "The legacy password vault key"
+      },
+      "text": {
+        "ar": "يجب أن تُختم قيمة التوافق SystemUserPassVault بـAES-256-GCM مع بيانات مصاحبة SCHEDULE-SystemUserPass-v1 بالصيغة aesgcm$<iv>$<نص مختوم>$<وسم>، بمفتاح من 32 بايتاً يُقرأ من PASSWORD_VAULT_KEY (64 خانة ست عشرية أو base64) وإلا من الملف legacy-password-vault.key في المجلد الخاص (يُنسخ إليه مرة واحدة من database/)، وأن تُحفظ القيمة فارغة حين لا يوجد مفتاح صالح، وأن تكون كلمة المرور المؤقتة بلا قيمة في الخزنة؛ ولا تفتح أي شاشة هذه الخزنة اليوم، فغياب المفتاح بعد النقل لا يمنع الدخول.",
+        "en": "The compatibility value SystemUserPassVault shall be sealed with AES-256-GCM and the associated data SCHEDULE-SystemUserPass-v1 in the form aesgcm$<iv>$<ciphertext>$<tag>, under a 32-byte key read from PASSWORD_VAULT_KEY (64 hex characters or base64) or else from the file legacy-password-vault.key in the private directory (copied there once from database/); the value shall be stored empty when no valid key exists, and a temporary password shall have no vault value; no screen opens this vault today, so a missing key after a move does not prevent sign-in."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "مفتاح بطول غير 32 بايتاً يُعامل كأنه غائب.",
+          "en": "A key whose length is not 32 bytes is treated as absent."
+        },
+        {
+          "ar": "لقراءة القيم القديمة بعد النقل يجب نقل PASSWORD_VAULT_KEY أو ملف المفتاح نفسه.",
+          "en": "Reading the old values after a move requires moving PASSWORD_VAULT_KEY or the key file itself."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#passwordVaultKey",
+          "src/server/accountPassword.ts",
+          "scripts/extract-legacy-bak.py"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DAT-033",
+      "kind": "functional",
+      "title": {
+        "ar": "سكربت ترحيل اللقطة القديمة إلى Firestore",
+        "en": "Legacy snapshot migration script"
+      },
+      "text": {
+        "ar": "يجب أن يرحّل npm run migrate:firestore (scripts/import-legacy-json.ts) ملف JSON أو JSON مضغوطاً إلى المشروع والقاعدة في FIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID، وأن يرفض الكتابة في أي مجموعة غير فارغة إلا بـMIGRATION_ALLOW_NONEMPTY=true، وأن يحذف مع --replace أو MIGRATION_REPLACE=true المجموعات الإحدى عشرة وlegacyArchive و_meta/counters قبل الاستيراد، وأن يحوّل كل كلمة مرور ليست scrypt إلى scrypt بملح 16 بايتاً، ويكتب على دفعات من 400 تحت المعرّفات الأصلية، ثم يتحقق من كل مجموعة بالعدد وبصمة SHA-256 القانونية، ويضبط _meta/counters على أكبر معرّف، ويكتب تقرير <الملف>.firestore-verification.json.",
+        "en": "npm run migrate:firestore (scripts/import-legacy-json.ts) shall migrate a JSON or gzipped JSON file into the project and database in FIREBASE_PROJECT_ID and FIREBASE_DATABASE_ID, refuse to write into any non-empty collection unless MIGRATION_ALLOW_NONEMPTY=true, delete with --replace or MIGRATION_REPLACE=true the eleven collections, legacyArchive and _meta/counters before importing, convert every password that is not scrypt to scrypt with a 16-byte salt, write in batches of 400 under the original ids, then verify each collection by count and canonical SHA-256 digest, set _meta/counters to the largest id, and write the report <file>.firestore-verification.json."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "قاعدة فيها مستخدم واحد بلا أي متغير: يتوقف بـ«Firestore collection 'users' is not empty».",
+          "en": "A database holding one user with neither variable set: it stops with «Firestore collection 'users' is not empty»."
+        },
+        {
+          "ar": "اختلاف العدد أو البصمة في مجموعة يوقفه بـ«Migration verification failed for <المجموعة>».",
+          "en": "A count or digest mismatch in a collection stops it with «Migration verification failed for <collection>»."
+        },
+        {
+          "ar": "جداول legacyArchive تُكتب صفاً صفاً row_000000001 فصاعداً ويُتحقق منها بالطريقة نفسها.",
+          "en": "legacyArchive tables are written row by row from row_000000001 and verified the same way."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/import-legacy-json.ts",
+          "package.json"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DAT-034",
+      "kind": "functional",
+      "title": {
+        "ar": "استخراج البيانات من النظام القديم",
+        "en": "Extraction from the legacy system"
+      },
+      "text": {
+        "ar": "يجب أن يستخرج scripts/extract-legacy-bak.py بيانات النظام القديم من نسخة SQL Server الاحتياطية (أو أرشيف ZIP يضمّها) قراءةً فقط دون تعديل المصدر، فيكتب ملف التطبيق وتقريراً، ويحوّل كلمات المرور إلى scrypt (n=16384، r=8، p=1، 64 بايتاً) ويختم نسخة التوافق بمفتاح الخزنة (--vault-key، وإلا legacy-password-vault.key بجوار الملف الناتج، يُولَّد 32 بايتاً إن غاب)، ويستثني كلمة المرور الصريحة من الأرشيف؛ وأن يتيح scripts/export-legacy-sql.ps1 بديلاً يقرأ الجداول الإحدى عشرة من نسخة مستعادة للقراءة فقط.",
+        "en": "scripts/extract-legacy-bak.py shall extract the legacy data from the SQL Server backup (or a ZIP archive holding it) read-only without modifying the source, writing the application file and a report, converting passwords to scrypt (n=16384, r=8, p=1, 64 bytes), sealing the compatibility copy with the vault key (--vault-key, otherwise legacy-password-vault.key beside the output, generated as 32 bytes when absent) and excluding the plaintext password from the archive; scripts/export-legacy-sql.ps1 shall offer an alternative that reads the eleven tables from a restored read-only copy."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "مفتاح خزنة موجود بطول غير 64 خانة ست عشرية يوقف الاستخراج بخطأ.",
+          "en": "An existing vault key that is not 64 hex characters stops the extraction with an error."
+        },
+        {
+          "ar": "مفتاح الخزنة المولَّد يجب أن يرافق البيانات إلى المجلد الخاص (DR-DAT-032).",
+          "en": "The generated vault key must accompany the data to the private directory (DR-DAT-032)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/extract-legacy-bak.py",
+          "scripts/export-legacy-sql.ps1",
+          "package.json"
+        ],
+        "tests": [
+          "tests/legacy-data-audit.py"
         ]
       },
       "inferred": true

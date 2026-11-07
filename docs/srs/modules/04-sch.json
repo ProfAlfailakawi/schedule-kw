@@ -253,9 +253,10 @@
       "acceptance": [
         { "ar": "تعديل بـrev=3 والمخزَّن 4 يُردّ 409 بالجسم {conflict: revision, current, yours} ولا يتغير الصف.", "en": "An edit with rev=3 when the stored value is 4 is refused with 409 and body {conflict: revision, current, yours}; the row is unchanged." },
         { "ar": "طلب تعديل بلا rev يُكتب دون مقارنة، ويرفع rev بمقدار واحد.", "en": "An edit with no rev is written without comparison and increments rev by one." },
-        { "ar": "حذف موعد في جدول مقفل يُردّ 409 برمز schedule-locked، وحذف موعد خارج نطاق المستخدم يُردّ 403.", "en": "Deleting a row in a locked schedule returns 409 with code schedule-locked; deleting outside the user's scope returns 403." }
+        { "ar": "حذف موعد في جدول مقفل يُردّ 409 برمز schedule-locked، وحذف موعد خارج نطاق المستخدم يُردّ 403.", "en": "Deleting a row in a locked schedule returns 409 with code schedule-locked; deleting outside the user's scope returns 403." },
+        { "ar": "المساران PUT /api/schedules/:id وDELETE /api/schedules/:id يلزمان الشاشة 7.", "en": "PUT /api/schedules/:id and DELETE /api/schedules/:id require screen 7." }
       ],
-      "evidence": { "code": ["src/server/core/scheduleWrites.ts#updateScheduleHandler", "src/server/core/scheduleWrites.ts#deleteScheduleHandler", "src/db/repository.ts#ScheduleRevisionConflict"], "tests": ["tests/proposal-undo-emulator-audit.ts"] }
+      "evidence": { "code": ["src/server/core/scheduleWrites.ts#updateScheduleHandler", "src/server/core/scheduleWrites.ts#deleteScheduleHandler", "src/db/repository.ts#ScheduleRevisionConflict", "src/server/routes/schedulesRoutes.ts#/api/schedules/:id"], "tests": ["tests/proposal-undo-emulator-audit.ts"] }
     },
     {
       "id": "FR-SCH-003",
@@ -477,9 +478,10 @@
       "acceptance": [
         { "ar": "نهاية قبل أو تساوي البداية، أو يوم خارج الأحد–الخميس، أو نص أطول من 40 حرفاً، يُردّ 400.", "en": "An end at or before the start, a day outside Sunday–Thursday, or text longer than 40 characters is refused with 400." },
         { "ar": "GET /api/schedule-holds?termId= لا يعيد حجز صاحب الطلب ولا حجزاً خارج نطاقه، ويكنس حتى 25 حجزاً منتهياً لكل قراءة.", "en": "GET /api/schedule-holds?termId= excludes the caller's own hold and any outside scope, and sweeps up to 25 expired holds per read." },
-        { "ar": "الواجهة تؤخّر الإعلان 800 مللي ثانية وتجدّده كل 45 ثانية وتستطلع زملاءها كل 20 ثانية.", "en": "The client debounces the announcement by 800 ms, renews every 45 s and polls colleagues every 20 s." }
+        { "ar": "الواجهة تؤخّر الإعلان 800 مللي ثانية وتجدّده كل 45 ثانية وتستطلع زملاءها كل 20 ثانية.", "en": "The client debounces the announcement by 800 ms, renews every 45 s and polls colleagues every 20 s." },
+        { "ar": "POST /api/schedule-holds يتطلب الشاشة 7 وقسماً في نطاق الكاتب (وإلا 403 «خارج صلاحيات الأقسام المسموحة لك») ويردّ {ok, expiresAt}؛ وDELETE /api/schedule-holds يكفيه الدخول فيرفع حجز صاحبه ولو فقد صلاحيته؛ وGET بلا termId رقمي يُردّ 400 «حدّد الفصل.»؛ وكل الردود no-store.", "en": "POST /api/schedule-holds needs screen 7 and a department within the writer's scope (otherwise 403) and answers {ok, expiresAt}; DELETE /api/schedule-holds needs only sign-in and releases the caller's hold even after losing the permission; GET without a numeric termId is refused with 400; all replies are no-store." }
       ],
-      "evidence": { "code": ["src/server/scheduleHolds.ts", "src/server/scheduleHoldsRoutes.ts", "src/utils/scheduleHolds.ts"], "tests": ["tests/colleague-guard-measure-audit.ts"] }
+      "evidence": { "code": ["src/server/scheduleHolds.ts", "src/server/scheduleHoldsRoutes.ts#/api/schedule-holds", "src/utils/scheduleHolds.ts"], "tests": ["tests/colleague-guard-measure-audit.ts"] }
     },
     {
       "id": "FR-SCH-015",
@@ -654,7 +656,7 @@
         { "ar": "فتح شعبة بلا أستاذ خالٍ يُردّ 422 needs-instructor؛ ورقم الشعبة المقترح المستعمل يُستبدل بالأعلى + 1 (أو 501 إن لم توجد شعب).", "en": "Opening a section with no free instructor is refused with 422 needs-instructor; a proposed section number already used is replaced by highest + 1 (or 501 if none exist)." },
         { "ar": "الصف المكتوب يحمل origin (النوع والمرجع وملاحظة حتى 160 حرفاً)، ويُسجَّل في التدقيق أنه اعتماد اقتراح.", "en": "The written row carries origin (kind, reference, note up to 160 characters) and the audit records it as a proposal approval." }
       ],
-      "evidence": { "code": ["src/server/core/scheduleWrites.ts#applyProposalCore", "src/server/core/scheduleWrites.ts#runScheduleHandler", "src/server/routes/schedulesRoutes.ts"], "tests": ["tests/schedule-apply-proposal-audit.ts", "tests/proposal-undo-emulator-audit.ts"] }
+      "evidence": { "code": ["src/server/core/scheduleWrites.ts#applyProposalCore", "src/server/core/scheduleWrites.ts#runScheduleHandler", "src/server/routes/schedulesRoutes.ts", "src/server/routes/schedulesRoutes.ts#/api/schedules/apply-proposal"], "tests": ["tests/schedule-apply-proposal-audit.ts", "tests/proposal-undo-emulator-audit.ts"] }
     },
     {
       "id": "FR-SCH-024",
@@ -689,9 +691,10 @@
       "acceptance": [
         { "ar": "from يساوي to يُردّ 400 «اختر أستاذاً بديلاً مختلفاً»؛ وتعارض مع البديل يُردّ 409 مع حتى 20 تعارضاً.", "en": "from equal to to is refused with 400 «choose a different replacement»; a clash with the replacement returns 409 with up to 20 conflicts." },
         { "ar": "المعاينة تعيد affected وcompatible وreasons دون كتابة؛ والتنفيذ يعيد moved وundoVersionId.", "en": "The preview returns affected, compatible and reasons with no write; the commit returns moved and undoVersionId." },
-        { "ar": "GET /api/schedules/replace-instructor/history يعرض حتى 20 نسخة اسمها يبدأ «قبل استبدال الأستاذ».", "en": "GET /api/schedules/replace-instructor/history lists up to 20 snapshots whose label starts «before replacing the instructor»." }
+        { "ar": "GET /api/schedules/replace-instructor/history يعرض حتى 20 نسخة اسمها يبدأ «قبل استبدال الأستاذ».", "en": "GET /api/schedules/replace-instructor/history lists up to 20 snapshots whose label starts «before replacing the instructor»." },
+        { "ar": "كلا المسارين يتطلبان الشاشة 7 وقسماً في نطاق المستخدم (وإلا 403)؛ وغياب الأستاذ أو الكلية أو القسم أو الفصل في POST /api/schedules/replace-instructor يُردّ 400 «حدد الأستاذ والفصل.»، والتنفيذ في جدول مقفل يُردّ 409 schedule-locked، والمعاينة لا تسأل عن القفل.", "en": "Both routes require screen 7 and a department within the user's scope (otherwise 403); a missing instructor, college, department or term in POST /api/schedules/replace-instructor is refused with 400, a commit on a locked schedule returns 409 schedule-locked, and the preview does not check the lock." }
       ],
-      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts"], "tests": [] },
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts#/api/schedules/replace-instructor", "src/server/routes/scheduleToolsRoutes.ts#/api/schedules/replace-instructor/history"], "tests": [] },
       "inferred": true
     },
     {
@@ -708,9 +711,10 @@
       "acceptance": [
         { "ar": "تنفيذ بلا الرمز ta-conversion يُردّ 409 «التحويل يحتاج تأكيداً صريحاً».", "en": "A run without the token ta-conversion is refused with 409 «conversion needs explicit confirmation»." },
         { "ar": "تغيّر جدول أو تصنيف بعد المعاينة يُردّ 409 «افتح المعاينة من جديد»؛ وأكثر من 400 موعد أو أكثر من سجل «هيئة تدريسية» يمنع.", "en": "A schedule or classification change after the preview is refused with 409 «reopen the preview»; more than 400 appointments or more than one placeholder record blocks." },
-        { "ar": "فصل مجمَّد أو جدول مقفل يمنع التحويل.", "en": "A frozen term or locked schedule blocks the conversion." }
+        { "ar": "فصل مجمَّد أو جدول مقفل يمنع التحويل.", "en": "A frozen term or locked schedule blocks the conversion." },
+        { "ar": "GET /api/schedules/ta-conversion يعيد المعاينة (الأشخاص، عدد المواعيد المتأثرة، الشعب، previewKey، هل يُسمح ولماذا، اسم الفصل والقسم) بلا ذاكرة؛ وبلا كلية أو قسم أو فصل 400 وخارج النطاق 403.", "en": "GET /api/schedules/ta-conversion returns the preview (people, affected appointment count, sections, previewKey, whether it is allowed and why, term and department names) uncached; without college, department or term it returns 400 and outside scope 403." }
       ],
-      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/taConversion.ts"], "tests": ["tests/ta-conversion-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/taConversion.ts", "src/server/routes/scheduleToolsRoutes.ts#/api/schedules/ta-conversion"], "tests": ["tests/ta-conversion-audit.ts"] }
     },
     {
       "id": "FR-SCH-027",
@@ -746,9 +750,11 @@
         { "ar": "أقل من أستاذين يُردّ 400 «اختر أستاذين على الأقل».", "en": "Fewer than two instructors is refused with 400 «choose at least two instructors»." },
         { "ar": "رئيس القسم (صلاحية 14) لا يختار إلا أساتذة قسمه (403 خلاف ذلك).", "en": "A department head (permission 14) may choose only instructors of his own department (403 otherwise)." },
         { "ar": "الرد يحمل busyScope=allColleges، وأفضل نافذة تُرتَّب بأقل المشغولين ثم أطول مدى ثم الأقرب إلى العاشرة صباحاً.", "en": "The reply carries busyScope=allColleges, and the best window is ordered by fewest busy, then longest run, then nearest to 10:00." },
-        { "ar": "فحص وقت محدد خارج الدوام الشامل يُردّ 400.", "en": "Inspecting a specific time outside the university day is refused with 400." }
+        { "ar": "فحص وقت محدد خارج الدوام الشامل يُردّ 400.", "en": "Inspecting a specific time outside the university day is refused with 400." },
+        { "ar": "GET /api/schedules/meeting-participants يعيد أرقام المستبعدين (هيئة تدريسية ومنتدبون) ومع sectionId أساتذة القسم من كل كلياته بالاسم والرقم وحدهما؛ ورئيس القسم بلا sectionId يردّ 403 «حدد قسمك»، وبلا فصل 400.", "en": "GET /api/schedules/meeting-participants returns the excluded numbers (faculty placeholder and visitors) and, with sectionId, the department's instructors from all its colleges by name and number only; a department head without sectionId gets 403 and a missing term 400." },
+        { "ar": "إن بقي بعد الاستبعاد أقل من أستاذين يردّ 400 «اختر أستاذين على الأقل من غير المنتدبين».", "en": "If fewer than two instructors remain after the exclusions the answer is 400 asking for at least two non-visiting instructors." }
       ],
-      "evidence": { "code": ["src/utils/meetingSlots.ts", "src/server/routes/scheduleToolsRoutes.ts", "src/components/MeetingSlots.tsx"], "tests": ["tests/meeting-slots-audit.ts"] }
+      "evidence": { "code": ["src/utils/meetingSlots.ts", "src/server/routes/scheduleToolsRoutes.ts", "src/components/MeetingSlots.tsx", "src/server/routes/scheduleToolsRoutes.ts#/api/schedules/meeting-slots", "src/server/routes/scheduleToolsRoutes.ts#/api/schedules/meeting-participants"], "tests": ["tests/meeting-slots-audit.ts"] }
     },
     {
       "id": "FR-SCH-029",
@@ -765,9 +771,10 @@
         { "ar": "تاريخ لا يقع في يوم انعقاد الموعد يُردّ 400 «هذا الموعد لا يُعقد في اليوم المحدد أصلاً»؛ وتكرار التاريخ 409.", "en": "A date on a day the appointment does not meet is refused with 400 «this appointment does not meet on the chosen day»; a repeated date returns 409." },
         { "ar": "التغطية بالأستاذ نفسه تُردّ 400؛ وبأستاذ مشغول في الساعة نفسها أو مكلف بتغطية أخرى تُردّ 409 (cover-busy أو cover-double-booked).", "en": "Covering with the same instructor is refused with 400; with an instructor busy at that hour or already covering returns 409 (cover-busy or cover-double-booked)." },
         { "ar": "الملاحظة تُقصّ إلى 240 حرفاً. ويُرتَّب البديل بنقاط: درّس المقرر 50 + min(12، 2×الفصول)، ومن القسم 20، ومبنى اليوم نفسه 10 أو يوم نفسه 6، ناقص عبء الساعات من 10.", "en": "The note is cut to 240 characters. Substitutes score: taught the course 50 + min(12, 2×terms), same department 20, same building that day 10 or same day 6, plus 10 minus load hours." },
-        { "ar": "رقم الجوال يُحجب عمّن خارج حلقة أقسامه ويُقال «تواصل عبر قسمه».", "en": "A mobile number is withheld from anyone outside the circle of departments and the reply says «contact via his department»." }
+        { "ar": "رقم الجوال يُحجب عمّن خارج حلقة أقسامه ويُقال «تواصل عبر قسمه».", "en": "A mobile number is withheld from anyone outside the circle of departments and the reply says «contact via his department»." },
+        { "ar": "استثناء التاريخ يُحرس بحكم الفصل المنتهي لا بقفل التسجيل، فإلغاء محاضرة الغد أو تغطيتها لا ينتظر قرار التسجيل؛ وGET يعيد استثناءات الموعد، وDELETE يزيل واحداً.", "en": "A dated exception is guarded by the ended-term rule and not by the registration lock, so cancelling or covering tomorrow's lecture does not wait for a registration decision; GET returns the appointment's exceptions and DELETE removes one." }
       ],
-      "evidence": { "code": ["src/server/routes/schedulesRoutes.ts", "src/server/core/scheduleRules.ts#weekExceptionDayKey", "src/utils/coverAvailability.ts"], "tests": ["tests/doctor-journey-audit.ts", "tests/term-freeze-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/schedulesRoutes.ts", "src/server/core/scheduleRules.ts#weekExceptionDayKey", "src/utils/coverAvailability.ts", "src/server/routes/schedulesRoutes.ts#/api/schedules/:id/exceptions", "src/server/routes/schedulesRoutes.ts#/api/schedules/:id/exceptions/:exceptionId", "src/server/routes/schedulesRoutes.ts#/api/schedules/:id/substitutes"], "tests": ["tests/doctor-journey-audit.ts", "tests/term-freeze-audit.ts"] }
     },
     {
       "id": "FR-SCH-030",
@@ -786,7 +793,7 @@
         { "ar": "الردّ بنصٍّ أقل من 3 أحرف يُردّ 400؛ والقرار «accepted» يحسم الملاحظة، و«insisted» يعيدها وتُنقل الحجة إلى سجل الردود ويُرفع الخلاف عند الإصرار الثالث.", "en": "A rebuttal under 3 characters is refused with 400; verdict «accepted» resolves the note, «insisted» reopens it and archives the argument, escalating on the third insistence." },
         { "ar": "الكتابة مرفوضة في فصل منتهٍ؛ والحذف لمن كتبها أو للمدير فقط.", "en": "Writing is refused in an ended term; deletion is limited to the author or the administrator." }
       ],
-      "evidence": { "code": ["src/server/routes/scheduleNotesRoutes.ts", "src/server/core/notes.ts#noteState", "src/server/core/notes.ts#noteFieldValue"], "tests": ["tests/schedule-changes-audit.ts", "tests/approval-integrity-audit.ts", "tests/relay-fixes-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/scheduleNotesRoutes.ts", "src/server/core/notes.ts#noteState", "src/server/core/notes.ts#noteFieldValue", "src/server/routes/scheduleNotesRoutes.ts#/api/schedule-notes", "src/server/routes/scheduleNotesRoutes.ts#/api/schedule-notes/:id/rebut", "src/server/routes/scheduleNotesRoutes.ts#/api/schedule-notes/:id/verdict", "src/server/routes/scheduleNotesRoutes.ts#/api/schedule-notes/:id"], "tests": ["tests/schedule-changes-audit.ts", "tests/approval-integrity-audit.ts", "tests/relay-fixes-audit.ts"] }
     },
     {
       "id": "FR-SCH-031",
@@ -803,9 +810,10 @@
         { "ar": "الخيط (GET /api/schedules/events) يُغلق عند 400 اتصال مفتوح، ويُرسل نبضة ping كل 25 ثانية، ويُعيد المحاولة بعد 4000 مللي ثانية.", "en": "The stream (GET /api/schedules/events) closes once 400 connections are open, sends a ping every 25 s and retries after 4000 ms." },
         { "ar": "علامة الحضور تُعدّ قديمة بعد 45 ثانية، ويسقط المتصل من القائمة بعد 90 ثانية صمتاً.", "en": "A presence mark counts as stale after 45 seconds and a silent connection leaves the roster after 90 seconds." },
         { "ar": "الخيط لا يقبل لوحة خارج نطاق صاحبه فيسجّل بنطاق فارغ، والنبضة تعيد company وchangedAt وnotifiedAt من الذاكرة بلا قراءة قاعدة.", "en": "A stream cannot claim a board outside its holder's scope and registers with an empty scope; the pulse returns company, changedAt and notifiedAt from memory with no database read." },
-        { "ar": "نبضة من صندوق العرض التجريبي لا توقظ إلا شاشات صندوقها.", "en": "A pulse from a demo sandbox wakes only that sandbox's screens." }
+        { "ar": "نبضة من صندوق العرض التجريبي لا توقظ إلا شاشات صندوقها.", "en": "A pulse from a demo sandbox wakes only that sandbox's screens." },
+        { "ar": "GET /api/schedules/pulse بالمعامل team=1 يعيد لفريق الإرشاد أو التسجيل زملاءه الحاضرين على العمل نفسه (الشاشة وما يعمل عليه) داخل النطاق؛ وPOST /api/schedules/pulse يُخرج التبويب المغلق فوراً بـ204، ولا يُخرج إلا تبويب الحساب نفسه.", "en": "GET /api/schedules/pulse with team=1 returns to an advising or registration team its colleagues present on the same work (screen and item) within scope; POST /api/schedules/pulse retires a closed tab at once with 204, and only the same account's tab." }
       ],
-      "evidence": { "code": ["src/server/routes/scheduleLiveRoutes.ts", "src/server/core/liveChannel.ts", "src/server/livePulse.ts", "src/components/schedulePresence.ts"], "tests": ["tests/live-pulse-audit.ts", "tests/live-pulse-http-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/scheduleLiveRoutes.ts", "src/server/core/liveChannel.ts", "src/server/livePulse.ts", "src/components/schedulePresence.ts", "src/server/routes/scheduleLiveRoutes.ts#/api/schedules/pulse"], "tests": ["tests/live-pulse-audit.ts", "tests/live-pulse-http-audit.ts"] }
     },
     {
       "id": "FR-SCH-032",
@@ -841,9 +849,10 @@
         { "ar": "الفصل الجاري أو المنتهي أو غير الذي يُعَدّ يُرفض بسببه؛ وجدول موقَّع لا يمسحه إلا المدير.", "en": "The current, ended or non-planning term is refused with its reason; a signed schedule can be wiped only by the administrator." },
         { "ar": "اسم القسم غير المطابق يُردّ 409 wipe-name، وعدد متغيّر wipe-count، وجدول فارغ wipe-empty، وأكبر من 450 wipe-too-large.", "en": "A mismatched department name returns 409 wipe-name, a changed count wipe-count, an empty schedule wipe-empty, over 450 wipe-too-large." },
         { "ar": "عند فشل حفظ النسخة الاحتياطية يُردّ 500 ولا يُمسح شيء؛ وبعد المسح تُغلق رغبات الأستاذ القديمة وتتقدّم دورة الجدول.", "en": "If the backup cannot be saved the answer is 500 and nothing is wiped; after the wipe old instructor requests are closed and the schedule generation advances." },
-        { "ar": "الإرجاع يشترط جدولاً فارغاً (wipe-not-empty) ونسخة كاملة الصفوف ومعرّف النسخة نفسه، ويفحص الصفوف قبل الكتابة.", "en": "Restore requires an empty schedule (wipe-not-empty), a backup with all rows and the same version id, and validates the rows before writing." }
+        { "ar": "الإرجاع يشترط جدولاً فارغاً (wipe-not-empty) ونسخة كاملة الصفوف ومعرّف النسخة نفسه، ويفحص الصفوف قبل الكتابة.", "en": "Restore requires an empty schedule (wipe-not-empty), a backup with all rows and the same version id, and validates the rows before writing." },
+        { "ar": "GET /api/schedules/wipe-scope يعيد قبل الطلب: هل يُسمح بالمسح ولماذا، وعدد المواعيد، واسم القسم والفصل، وآخر مسح، وهل يمكن الاسترجاع (مسموح ويوجد مسح سابق والجدول فارغ)؛ وPOST …/wipe-scope وPOST …/wipe-scope/restore يلزمان الشاشة 7.", "en": "GET /api/schedules/wipe-scope returns before the request whether wiping is allowed and why, the appointment count, the department and term names, the last wipe, and whether restoring is possible (allowed, a previous wipe exists and the schedule is empty); POST …/wipe-scope and POST …/wipe-scope/restore require screen 7." }
       ],
-      "evidence": { "code": ["src/utils/scheduleWipePolicy.ts#wipeDecision", "src/server/routes/schedulesRoutes.ts", "src/components/WipeScheduleButton.tsx"], "tests": ["tests/schedule-wipe-audit.ts"] }
+      "evidence": { "code": ["src/utils/scheduleWipePolicy.ts#wipeDecision", "src/server/routes/schedulesRoutes.ts", "src/components/WipeScheduleButton.tsx", "src/server/routes/schedulesRoutes.ts#/api/schedules/wipe-scope", "src/server/routes/schedulesRoutes.ts#/api/schedules/wipe-scope/restore"], "tests": ["tests/schedule-wipe-audit.ts"] }
     },
     {
       "id": "FR-SCH-034",
@@ -859,9 +868,10 @@
       "acceptance": [
         { "ar": "غير المدير الرئيسي يُردّ 403؛ وفصل مستهدف فيه مواعيد يُردّ 409 «يوجد جدول بالفعل في الفصل المستهدف».", "en": "Anyone but the main administrator is refused with 403; a target term with appointments is refused with 409 «a schedule already exists in the target term»." },
         { "ar": "صفوف بمقررات مؤرشفة تُردّ 409 وتُذكر أعدادها؛ وصفوف لا تمرّ الفحص تُردّ 400 مع issues.", "en": "Rows with archived courses are refused with 409 stating their number; rows failing validation are refused with 400 with issues." },
-        { "ar": "المعاينة GET /api/schedules/copy-preview تعيد canCopy فقط إن وُجد مصدر وكان الهدف فارغاً بلا مشكلات.", "en": "The preview GET /api/schedules/copy-preview returns canCopy only when a source exists, the target is empty and there are no issues." }
+        { "ar": "المعاينة GET /api/schedules/copy-preview تعيد canCopy فقط إن وُجد مصدر وكان الهدف فارغاً بلا مشكلات.", "en": "The preview GET /api/schedules/copy-preview returns canCopy only when a source exists, the target is empty and there are no issues." },
+        { "ar": "المعاينة تعيد عدد صفوف المصدر والهدف ومشكلات أوقات المصدر وأول 12 صفاً منه؛ والتنفيذ POST /api/schedules/copy يردّ 409 schedule-locked إن كان الفصل المستهدف بين يدي التسجيل، و409 deadline-wholesale خارج موعد الاستبدال الشامل، ولقطته باسم «قبل نسخ الفصل الدراسي»، ويعيد count وundoVersion.", "en": "The preview returns the source and target row counts, the source's time issues and its first 12 rows; the commit POST /api/schedules/copy answers 409 schedule-locked when the target term is with registration and 409 deadline-wholesale outside the wholesale-replacement deadline, labels its snapshot «before copying the term», and returns count and undoVersion." }
       ],
-      "evidence": { "code": ["src/server/routes/schedulesRoutes.ts"], "tests": ["tests/approval-integrity-audit.ts", "tests/term-freeze-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/schedulesRoutes.ts#/api/schedules/copy", "src/server/routes/schedulesRoutes.ts#/api/schedules/copy-preview"], "tests": ["tests/approval-integrity-audit.ts", "tests/term-freeze-audit.ts"] }
     },
     {
       "id": "FR-SCH-035",
@@ -877,9 +887,10 @@
       "acceptance": [
         { "ar": "GET /api/schedules بلا termId يقرأ أحدث فصل؛ ويُرشَّح بـ instructorId وbuilding وhall ونافذة start/end وأيام sun..thr بمنطق «أو».", "en": "GET /api/schedules with no termId reads the newest term; it filters by instructorId, building, hall, a start/end window and days sun..thr combined with OR." },
         { "ar": "رأس الاستجابة X-Schedule-Finality يحمل لكل قسم «accepted» أو «historical» لمن يرى النهائي وحده.", "en": "The X-Schedule-Finality response header carries «accepted» or «historical» per department for those who see the final view only." },
-        { "ar": "GET /api/schedules/workspace يجمع الكليات والأقسام والفصول والمواعيد والأساتذة والمقررات في طلب واحد، ويُقيَّد بنطاق الحساب لغير المدير.", "en": "GET /api/schedules/workspace returns colleges, departments, terms, appointments, instructors and courses in one request, and is confined to the account's scope for non-administrators." }
+        { "ar": "GET /api/schedules/workspace يجمع الكليات والأقسام والفصول والمواعيد والأساتذة والمقررات في طلب واحد، ويُقيَّد بنطاق الحساب لغير المدير.", "en": "GET /api/schedules/workspace returns colleges, departments, terms, appointments, instructors and courses in one request, and is confined to the account's scope for non-administrators." },
+        { "ar": "مساحة العمل تتطلب الشاشة 7؛ وفصل غير موجود يُستبدل بأحدث فصل؛ ويُردّ قسم غير المدير إلى أقسام نطاقه أياً كان المطلوب؛ وللمدير مع resolve=1 تُفتح أول كلية وأول قسم بدل «الكل»؛ والأساتذة اتحاد أساتذة القسم في الفصل وفي تاريخه والمنتدبين الأحياء مرتبين أبجدياً، ومعهم visitingInstructorIds وvisitingStatusIds.", "en": "The workspace requires screen 7; an unknown term is replaced by the newest one; a non-administrator's department is coerced into their own scope whatever was asked; for the administrator resolve=1 opens the first college and department instead of «all»; instructors are the union of the department's instructors in the term, in its history and the live visiting roster, sorted alphabetically, returned with visitingInstructorIds and visitingStatusIds." }
       ],
-      "evidence": { "code": ["src/server/core/scheduleReads.ts", "src/server/routes/schedulesRoutes.ts"], "tests": ["tests/role-scope-audit.ts", "tests/dean-notify-audit.ts"] }
+      "evidence": { "code": ["src/server/core/scheduleReads.ts", "src/server/routes/schedulesRoutes.ts", "src/server/routes/schedulesRoutes.ts#/api/schedules/workspace"], "tests": ["tests/role-scope-audit.ts", "tests/dean-notify-audit.ts"] }
     },
     {
       "id": "FR-SCH-036",
@@ -992,6 +1003,78 @@
       ],
       "evidence": { "code": ["src/utils/scheduleViews.ts", "src/components/ScheduleViewsMenu.tsx", "src/utils/offlineScheduleQueue.ts", "src/components/Schedules.tsx"], "tests": ["tests/run-tests.ts"] },
       "inferred": true
+    },
+    {
+      "id": "FR-SCH-038",
+      "kind": "functional",
+      "title": { "ar": "تقرير جاهزية المراجعة", "en": "Review readiness report" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عبر GET /api/schedules/review-readiness قائمة واحدة بما يمنع الاعتماد في جدول القسم: الحجز المزدوج للأستاذ أو للقاعة، والموعد المطابق للمقرر والشعبة نفسيهما، والقاعة المحجوزة لقسم آخر باستعارة، والموعد الذي يتجاوز نافذة استعارته، وبجانبها تنبيهات لا تدخل العدد.",
+        "en": "Through GET /api/schedules/review-readiness the system shall return one list of what blocks approval in a department schedule: instructor or room double booking, an identical appointment for the same course and section, a hall booked by another department through barter, and an appointment beyond its barter window, together with warnings that are not counted."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "الموعد الآخر خارج نطاق القارئ يظهر «موعد خارج نطاق العرض الحالي» بلا مقرره ولا وقته؛ وزوجا التعارض داخل القسم يُحسبان كلاهما.", "en": "The other appointment outside the reader's scope is shown as outside the current view without its course or time; both members of a pair inside the department are counted." },
+        { "ar": "family=1 يجمع صفوف كل أعضاء عائلة القسم المسموحة للقارئ ويضيف صفوف الفصل السابق وطبيعة المقررات المتعلَّمة، فيخرج التقرير نفسه أيّاً كان العضو المفتوح.", "en": "family=1 gathers the rows of every member of the department family the reader may see and adds the previous term's rows and the learned course nature, so the report is the same whichever member is opened." },
+        { "ar": "الشعبة المسجّلة مرتين في قاعتين أو بأستاذين تصل «للمراجعة» تنبيهاً ولا تدخل عدد الموانع؛ وبلا كلية أو قسم أو فصل 400، وخارج النطاق 403.", "en": "A section recorded twice in two halls or with two instructors arrives as a review warning outside the blocker count; without college, department or term it returns 400, outside scope 403." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleReviewRoutes.ts#/api/schedules/review-readiness", "src/utils/scheduleBlockers.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-SCH-039",
+      "kind": "functional",
+      "title": { "ar": "أسبوع الأستاذ عبر كليات القسم", "en": "Instructor's week across the department's colleges" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عبر GET /api/schedules/teacher-family-week مواعيد الأستاذ في الفصل في كل كليات عائلة القسم مع ساعات مقرراتها ووحداتها وعدد المواقع، وأن يحجب القاعة والمبنى والمرفق عن موعد يقع خارج نطاق القارئ.",
+        "en": "Through GET /api/schedules/teacher-family-week the system shall return the instructor's term appointments in every college of the department family with their courses' hours and credits and the number of sites, hiding the hall, building and companion facility of any appointment outside the reader's scope."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair"],
+      "acceptance": [
+        { "ar": "الفصل والأستاذ والكلية والقسم أعداد صحيحة موجبة وإلا 400 «اختر الفصل والقسم والأستاذ.»؛ وخارج النطاق 403؛ والردّ بلا ذاكرة.", "en": "Term, instructor, college and department are positive integers otherwise 400; outside scope 403; the reply is uncached." }
+      ],
+      "evidence": { "code": ["src/server/routes/schedulesRoutes.ts#/api/schedules/teacher-family-week", "src/components/TeacherMiniWeek.tsx"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-SCH-040",
+      "kind": "functional",
+      "title": { "ar": "طبيعة المقرر من تاريخه ومالك القاعة", "en": "Course nature from history and hall owner" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عبر GET /api/courses/nature ما تعلّمه من تاريخ مقررات القسم التشغيلية (طريقة تدريس كل مقرر) مع عدد الفصول والمشاهدات، وعبر GET /api/rooms/owner القسم المالك لقاعة من رمزها وحده بلا يوم ولا وقت.",
+        "en": "Through GET /api/courses/nature the system shall return what it learned from the history of the department's operational courses (how each course is taught) with the number of terms and observations, and through GET /api/rooms/owner the department owning a hall from its code alone, with no day or time."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair"],
+      "acceptance": [
+        { "ar": "طبيعة المقررات بلا sectionId تعيد كائناً فارغاً، وقسم خارج النطاق 403 فلا تُقرأ عادات قسم آخر بتغيير رقم.", "en": "Course nature without sectionId returns an empty object, and a department outside scope returns 403 so another department's habits cannot be read by changing a number." },
+        { "ar": "سؤال مالك القاعة من كلية وقسم خارج النطاق 403.", "en": "Asking a hall's owner from a college and department outside scope returns 403." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts#/api/courses/nature", "src/server/routes/scheduleToolsRoutes.ts#/api/rooms/owner", "src/server/core/scheduleRules.ts#roomOwnership"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-SCH-041",
+      "kind": "functional",
+      "title": { "ar": "المقرنان و«في الوقت نفسه»", "en": "Co-requisites and «at the same time»" },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ أزواج المقرنات من قواعد الصحيفة المعتمدة للقسم (أو السابقة الجارية إن لم توجد) ويعيدها عبر GET /api/schedules/coreq-pairs، وأن يضيف في فحص الموعد ملاحظة لينة «يتداخل مع مقرنه» حين تتداخل كل تركيبات شعب المقررين، وأن يُري في نموذج الموعد المواعيد الأخرى بالبداية والنهاية نفسيهما تماماً.",
+        "en": "The system shall read co-requisite pairs from the department's active sheet rules (or the running previous sheet if none) and return them through GET /api/schedules/coreq-pairs, add a soft note «overlaps its co-requisite» to the appointment check when every combination of the two courses' sections overlaps, and show in the appointment form the other appointments with exactly the same start and end."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair"],
+      "acceptance": [
+        { "ar": "إن وُجدت تركيبة شعب واحدة بلا تداخل فلا ملاحظة؛ والملاحظة منخفضة ولا تمنع الحفظ، وتعثّر قراءتها لا يكسر الفحص.", "en": "If one section combination has no overlap there is no note; the note is low and never blocks the save, and failing to read it does not break the check." },
+        { "ar": "«في الوقت نفسه» تطابق تام فقط (لا تداخل جزئي ولا تلاصق)، مرتّب بالمستوى نفسه أولاً ثم رقم المقرر ثم الشعبة، ويُعرض حتى 6 صفوف ثم «+n».", "en": "«At the same time» is an exact match only (no partial overlap or touching), ordered with the same level first, then course number, then section, and shows up to 6 rows then «+n»." },
+        { "ar": "الأزواج مخبّأة 30 ثانية لكل قسم، والمسودات والمؤرشفة لا تُقرأ؛ وبلا قسم 400 وخارج النطاق 403.", "en": "Pairs are cached 30 seconds per department, drafts and archived sheets are not read; without a department 400, outside scope 403." }
+      ],
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts#/api/schedules/coreq-pairs", "src/server/core/coreqPairs.ts#coreqPairsOfSection", "src/utils/coreqSections.ts#coreqFindings", "src/utils/sameSlot.ts#sameSlotOf", "src/server/core/scheduleConflicts.ts", "src/components/SameSlotHint.tsx"], "tests": ["tests/same-slot-audit.ts"] }
     }
   ],
   "edgeCases": [

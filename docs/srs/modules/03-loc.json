@@ -261,7 +261,7 @@
         { "ar": "قسم لا يتبع الموقع المحدد يرجع 400.", "en": "A department that does not belong to the chosen site returns 400." },
         { "ar": "مستخدم غير الحساب الرئيسي يرجع 403.", "en": "A user other than the root account gets 403." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationQuickSetup.tsx"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationQuickSetup.tsx", "src/server/routes/locationsRoutes.ts#/api/admin/location-setup/buildings", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings"], "tests": ["tests/rooms-one-screen-audit.ts"] }
     },
     {
       "id": "FR-LOC-005",
@@ -276,7 +276,7 @@
         { "ar": "قاعة تربط بأكثر من قسم تُحفظ مشتركة؛ وأي رمز موجود في المبنى يُفشل الطلب كله بـ409.", "en": "A hall linked to more than one department is saved as shared, and any code already in the building fails the whole request with 409." },
         { "ar": "أكثر من 100 رمز أو قسم من موقع آخر يُرفض بـ400.", "en": "More than 100 codes or a department from another site is rejected with 400." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/server/routes/locationsRoutes.ts#/api/admin/location-setup/rooms", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms"], "tests": ["tests/rooms-one-screen-audit.ts"] }
     },
     {
       "id": "FR-LOC-006",
@@ -290,7 +290,7 @@
         { "ar": "حفظ بـ active=false وقسم واحد يعيد المبنى معطّلاً بقسم واحد، وحفظ لاحق بالوصف وحده يُبقيه معطّلاً.", "en": "Saving active=false with one department returns the building inactive with one department; a later save of the description alone keeps it inactive." },
         { "ar": "تفريغ الأقسام يعني كل الأقسام.", "en": "Emptying the departments means all departments." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationQuickSetup.tsx"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationQuickSetup.tsx", "src/server/routes/locationsRoutes.ts#/api/admin/location-setup/buildings/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings/:id"], "tests": ["tests/rooms-one-screen-audit.ts"] }
     },
     {
       "id": "FR-LOC-007",
@@ -304,7 +304,7 @@
         { "ar": "حذف قاعة يرجع active=false ويبقى صفها بصيغها التاريخية.", "en": "Deleting a hall returns active=false and the row stays with its historical forms." },
         { "ar": "حذف مبنى يرجع عدد القاعات الموقوفة ويبقى صف المبنى.", "en": "Deleting a building returns the count of deactivated halls and the building row remains." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/server/routes/locationsRoutes.ts#/api/admin/location-setup/buildings/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-setup/rooms/:id"], "tests": ["tests/rooms-one-screen-audit.ts"] }
     },
     {
       "id": "FR-LOC-008",
@@ -320,7 +320,7 @@
         { "ar": "العودة إلى الرمز الأصلي تُسقطه من الصيغ، ورمز تملكه قاعة أخرى في المبنى لا يُسجَّل صيغة.", "en": "Returning to the original code drops it from the forms, and a code owned by another hall in the building is not recorded as a form." },
         { "ar": "يعيد الرد عدد المواعيد المحدّثة updatedScheduleCount.", "en": "The reply returns updatedScheduleCount." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/utils/locationAliasHistory.ts"], "tests": ["tests/rooms-one-screen-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/utils/locationAliasHistory.ts", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms/:id"], "tests": ["tests/rooms-one-screen-audit.ts"] }
     },
     {
       "id": "FR-LOC-009",
@@ -335,7 +335,7 @@
         { "ar": "إن لم يبق للقسم أي مبنى تُفتح مباني كليته ليختار منها ثم «بانتظار تثبيت القاعة».", "en": "If the department is left with no building at all, its college's buildings open so it can choose one and then Pending hall confirmation." },
         { "ar": "المدير بلا قسم يقرأ السجل كما هو مع نطاقات الأنواع.", "en": "An administrator without a department reads the raw registry with the type scopes." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationPicker.tsx", "src/utils/locationRegistry.ts"], "tests": ["tests/room-types-by-department-audit.ts", "tests/instructor-request-room-universe-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationPicker.tsx", "src/utils/locationRegistry.ts", "src/server/routes/locationsRoutes.ts#/api/location-registry"], "tests": ["tests/room-types-by-department-audit.ts", "tests/instructor-request-room-universe-audit.ts"] }
     },
     {
       "id": "FR-LOC-010",
@@ -364,9 +364,11 @@
         { "ar": "التنفيذ بلا ترويسة التأكيد initialize-location-registry يرجع 409، والتراجع بلا rollback-location-registry يرجع 409.", "en": "Applying without the initialize-location-registry confirmation header returns 409, and rolling back without rollback-location-registry returns 409." },
         { "ar": "إن وُجد تشغيل مكتمل لهذا الإصدار رجع alreadyInitialized بلا تكرار.", "en": "If a completed run exists for this version the reply is alreadyInitialized with no repetition." },
         { "ar": "قاعة محتملة لا ترتقي إلى «موثّق» بالاستخدام وحده بل تُرسل للمراجعة.", "en": "A probable hall is never promoted to verified by usage alone and goes to review." },
-        { "ar": "إغلاق حالة مراجعة بـ«محلولة» بلا نص قرار يُرفض.", "en": "Closing a review case as resolved with no resolution text is rejected." }
+        { "ar": "إغلاق حالة مراجعة بـ«محلولة» بلا نص قرار يُرفض.", "en": "Closing a review case as resolved with no resolution text is rejected." },
+        { "ar": "المسارات: GET /api/admin/location-registry (السجل مع حالات المراجعة والتشغيلات والصحة والمواعيد المعلّقة)، وPUT /api/admin/location-registry/review/:id بالحالات open أو resolved أو ignored، وGET …/migration/preview، وPOST …/migration/apply، وPOST …/migration/:id/rollback؛ كلها للشاشة 7 مع الإدارة الرئيسية.", "en": "The routes are GET /api/admin/location-registry (registry with review cases, runs, health and pending appointments), PUT /api/admin/location-registry/review/:id with status open, resolved or ignored, GET …/migration/preview, POST …/migration/apply and POST …/migration/:id/rollback; all need screen 7 with main administration." },
+        { "ar": "التهيئة تدمج أولاً بذرة السجل ثم تبني الخطة؛ وتشغيل تراجع سابقاً يردّ alreadyRolledBack، وتشغيل غير موجود 404.", "en": "Initialisation first merges the registry seed and then builds the plan; a run already rolled back answers alreadyRolledBack, and an unknown run 404." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/server/locationRegistryEngine.ts", "src/components/LocationRegistryAdmin.tsx"], "tests": ["tests/location-registry-audit.py"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/server/locationRegistryEngine.ts", "src/components/LocationRegistryAdmin.tsx", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/review/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/preview", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/apply", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/:id/rollback"], "tests": ["tests/location-registry-audit.py"] }
     },
     {
       "id": "FR-LOC-012",
@@ -398,7 +400,7 @@
         { "ar": "حين تزيد النوافذ على 400 يُرجع total الكلي وtruncated=true وقائمة المرشحات كاملة.", "en": "When windows exceed 400 the reply returns the full total, truncated=true and the complete filter lists." },
         { "ar": "مالك القاعة هو قسمها المسجل، وإلا الأكثر حجزاً لها هذا الفصل ثم في تاريخ الكلية.", "en": "The owner is the registered department, otherwise the one booking it most this term and then in college history." }
       ],
-      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/utils/hallBarterFairness.ts", "src/utils/scheduleTime.ts"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/pdf-import-regression.ts"] }
+      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/utils/hallBarterFairness.ts", "src/utils/scheduleTime.ts", "src/server/routes/hallBarterRoutes.ts#/api/hall-barter"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/pdf-import-regression.ts"] }
     },
     {
       "id": "FR-LOC-014",
@@ -426,9 +428,10 @@
       "acceptance": [
         { "ar": "طلب نافذة لم تعد متاحة يرجع 409 ويُطلب تحديث القائمة؛ وطلب القسم من نفسه يرجع 409.", "en": "Requesting a window no longer offered returns 409 asking for a refresh, and a department requesting from itself returns 409." },
         { "ar": "الاعتماد والقاعة مشغولة في النافذة أو معتمدة لغيره يرجع 409 دون تغيير الحالة.", "en": "Approving while the hall is busy in the window or approved to another returns 409 with the state unchanged." },
-        { "ar": "طلب ردّ عليه من قسم غير مضيف يرجع 403، وطلب أُجيب عليه يرجع 409 «تمت معالجته».", "en": "A response from a non-host department returns 403 and an already answered request returns 409." }
+        { "ar": "طلب ردّ عليه من قسم غير مضيف يرجع 403، وطلب أُجيب عليه يرجع 409 «تمت معالجته».", "en": "A response from a non-host department returns 403 and an already answered request returns 409." },
+        { "ar": "طلب ناقص (كلية أو قسم أو فصل أو نافذة) 400، وقرار غير approve أو reject 400، وطلب غير موجود 404؛ وكل إنشاء أو قرار يبثّ تغيّر الجدول ويُفرغ ذاكرة اللوحة.", "en": "An incomplete request (college, department, term or window) returns 400, a decision other than approve or reject 400, and an unknown request 404; every creation or decision broadcasts a schedule change and empties the board cache." }
       ],
-      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/server/core/hallBarter.ts"], "tests": ["tests/instructor-request-availability-audit.ts", "tests/first-password-room-loans-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/server/core/hallBarter.ts", "src/server/routes/hallBarterRoutes.ts#/api/hall-barter/requests", "src/server/routes/hallBarterRoutes.ts#/api/hall-barter/requests/:id/respond"], "tests": ["tests/instructor-request-availability-audit.ts", "tests/first-password-room-loans-audit.ts"] }
     },
     {
       "id": "FR-LOC-016",
@@ -443,7 +446,7 @@
         { "ar": "إلغاء معتمد يستخدمه جدول الطالب يرجع 409؛ وحالة الطلب بعدها «ملغي» وتُحرَّر النافذة.", "en": "Cancelling an approved request that the requester's schedule uses returns 409; afterwards the request is cancelled and the window is released." },
         { "ar": "الإنهاء يسجّل في التدقيق «إنهاء إعارة» برمز المبنى والقاعة.", "en": "Ending writes an audit line naming the building and hall." }
       ],
-      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/instructor-request-availability-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/server/routes/hallBarterRoutes.ts#/api/hall-barter/requests/:id/cancel", "src/server/routes/hallBarterRoutes.ts#/api/hall-barter/requests/:id/end"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/instructor-request-availability-audit.ts"] }
     },
     {
       "id": "FR-LOC-017",
@@ -457,7 +460,7 @@
         { "ar": "طلب عمره 8 أيام يظهر ملغياً بسببه عند بناء اللوحة أو قراءة العدّاد.", "en": "An 8-day-old request shows cancelled with its reason when the board is built or the counter is read." },
         { "ar": "العدّاد يرجع pending وoldestDays ولا يحسب طلب المستخدم نفسه.", "en": "The counter returns pending and oldestDays and does not count the user's own request." }
       ],
-      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/components/HallBarterBoard.tsx"], "tests": [] },
+      "evidence": { "code": ["src/server/routes/hallBarterRoutes.ts", "src/components/HallBarterBoard.tsx", "src/server/routes/hallBarterRoutes.ts#/api/hall-barter/inbox"], "tests": [] },
       "inferred": true
     },
     {
@@ -501,9 +504,11 @@
         { "ar": "الأحد 10:20 والمحاضرة تنتهي 10:45 تُقال «مشغولة — تنتهي 10:45»، والأحد 09:20 والتالية 09:30 «تبدأ بعد 10 د».", "en": "Sunday 10:20 with a lecture ending 10:45 reads busy and ends 10:45; Sunday 09:20 with the next at 09:30 reads starting in 10 minutes." },
         { "ar": "العتبة 15 دقيقة (DOOR_SOON_MINUTES)، والجمعة والسبت «عطلة نهاية الأسبوع»، وخارج حدّي الفصل «خارج الفصل الدراسي» مع بداية الفصل القادم.", "en": "The threshold is 15 minutes, Friday and Saturday read weekend, and outside the term it reads outside term with the next term's start date." },
         { "ar": "شعبتان من المقرر نفسه في الوقت نفسه تظهران محاضرة واحدة «01 · 02»، ومحاضرة أُلغيت اليوم لا تشغل القاعة وتُرى بوسمها.", "en": "Two sections of the same course at the same time show one lecture 01 · 02, and a lecture cancelled today does not occupy the hall and is shown with its mark." },
-        { "ar": "الصفحة تقرأ الفصل الجاري تشغيلياً لا فصل التسجيل القادم.", "en": "The page reads the operationally current term, not the upcoming registration term." }
+        { "ar": "الصفحة تقرأ الفصل الجاري تشغيلياً لا فصل التسجيل القادم.", "en": "The page reads the operationally current term, not the upcoming registration term." },
+        { "ar": "GET /d/:token/now يعيد بيانات الصفحة JSON لتحديثها دون إعادة تحميل، وscreen=1 يعمل للقاعة كما للمبنى؛ وخطأ داخلي يعيد 500 برسالة «تعذّر تحميل حال القاعة الآن».", "en": "GET /d/:token/now returns the page data as JSON to refresh it without reloading, screen=1 works for a hall as for a building; an internal error returns 500 saying the hall state could not be loaded." },
+        { "ar": "ساعة الصفحة تبدأ من ROOM_DOOR_FAKE_NOW ثم تمضي فقط حين يكون DATA_MODE=demo وخارج الإنتاج (NODE_ENV غير production)، لتصوير الشاشة؛ ولا أثر لها في أي نشر حقيقي.", "en": "The page clock starts from ROOM_DOOR_FAKE_NOW and then runs on only when DATA_MODE=demo outside production (NODE_ENV not production), for screenshots; it has no effect on any real deployment." }
       ],
-      "evidence": { "code": ["src/utils/roomDoor.ts", "src/server/roomDoorData.ts", "src/server/roomDoorPage.ts", "src/server/roomDoorRoutes.ts"], "tests": ["tests/room-door-audit.ts"] }
+      "evidence": { "code": ["src/utils/roomDoor.ts", "src/server/roomDoorData.ts", "src/server/roomDoorPage.ts", "src/server/roomDoorRoutes.ts", "src/server/roomDoorRoutes.ts#/d/:token", "src/server/roomDoorRoutes.ts#/d/:token/now"], "tests": ["tests/room-door-audit.ts"] }
     },
     {
       "id": "FR-LOC-021",
@@ -516,9 +521,10 @@
       "acceptance": [
         { "ar": "ترتيب G01 وG02 وF01 وF10 وS01 وL01 هو الأرضي ثم الأول ثم الثاني ثم الأخرى.", "en": "G01, G02, F01, F10, S01, L01 are ordered ground, first, second then other floors." },
         { "ar": "تفقد الصفحة الاتصال فتقول «غير متصل · آخر تحديث» بعد محاولتين فاشلتين وتعود تلقائياً.", "en": "After two failed pulls the page says not connected with the last update time and recovers automatically." },
-        { "ar": "لوحة المبنى تحمل الوقت والرمز وحدهما لكل محاضرة.", "en": "The board carries only time and code for each lecture." }
+        { "ar": "لوحة المبنى تحمل الوقت والرمز وحدهما لكل محاضرة.", "en": "The board carries only time and code for each lecture." },
+        { "ar": "GET /b/:token/now يعيد بيانات اللوحة JSON بالطريقة نفسها، ورمز لا يشير إلى مبنى الآن يعيد صفحة هادئة بالرسالة.", "en": "GET /b/:token/now returns the board data as JSON in the same way, and a token that points to no building now returns the quiet page with the message." }
       ],
-      "evidence": { "code": ["src/server/roomDoorRoutes.ts", "src/server/roomDoorPage.ts", "src/server/roomDoorData.ts", "src/components/room-door.css"], "tests": ["tests/room-door-audit.ts"] }
+      "evidence": { "code": ["src/server/roomDoorRoutes.ts", "src/server/roomDoorPage.ts", "src/server/roomDoorData.ts", "src/components/room-door.css", "src/server/roomDoorRoutes.ts#/b/:token", "src/server/roomDoorRoutes.ts#/b/:token/now"], "tests": ["tests/room-door-audit.ts"] }
     },
     {
       "id": "NFR-LOC-022",
@@ -563,7 +569,7 @@
         { "ar": "كل ملصق يقول «امسح لتعرف القاعة الآن» وتُوزَّع الملصقات أربعة في الورقة، ورابطه القصير يعطي مربع QR لا يزيد على 29 وحدة.", "en": "Each sticker says scan to know the hall now, stickers are laid four to a sheet, and the short link gives a QR of at most 29 modules per side." },
         { "ar": "في التجريب تحمل الروابط وسم صندوق الزائر وتُنسى بعد ساعتين.", "en": "In the demo the links carry the visitor's sandbox tag and are forgotten after two hours." }
       ],
-      "evidence": { "code": ["src/server/roomDoorRoutes.ts", "src/utils/roomDoorStickers.ts", "src/components/RoomDoorTools.tsx"], "tests": ["tests/room-door-audit.ts"] }
+      "evidence": { "code": ["src/server/roomDoorRoutes.ts#/api/room-door/links", "src/utils/roomDoorStickers.ts", "src/components/RoomDoorTools.tsx"], "tests": ["tests/room-door-audit.ts"] }
     },
     {
       "id": "FR-LOC-025",
@@ -609,7 +615,7 @@
         { "ar": "الاستخدام الأساسي والمرافق للاستوديو نفسه يتصادمان.", "en": "Main and companion use of the same studio clash." },
         { "ar": "الشارة تعرض النوع المسجل للمرفق المحجوز فعلاً ولا تُنشأ لموعد بلا حجز.", "en": "The badge shows the registered type of the actually booked facility and none is shown for an appointment without a booking." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/CompanionFacilityPicker.tsx", "src/components/CompanionFacilityBadge.tsx", "src/utils/companionRoomDisplay.ts", "src/utils/locationRegistry.ts"], "tests": ["tests/companion-rooms-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/CompanionFacilityPicker.tsx", "src/components/CompanionFacilityBadge.tsx", "src/utils/companionRoomDisplay.ts", "src/utils/locationRegistry.ts", "src/server/routes/locationsRoutes.ts#/api/companion-rooms"], "tests": ["tests/companion-rooms-audit.ts"] }
     },
     {
       "id": "FR-LOC-028",
@@ -655,6 +661,61 @@
         { "ar": "legacy:012B08|G20 يطابق legacy:012b08|g20 بعد التطبيع.", "en": "legacy:012B08|G20 matches legacy:012b08|g20 after normalisation." }
       ],
       "evidence": { "code": ["src/utils/locationRegistry.ts", "src/server/core/hallBarter.ts", "src/server/roomDoorData.ts"], "tests": ["tests/room-occupancy-audit.ts", "tests/companion-rooms-audit.ts"] }
+    },
+    {
+      "id": "FR-LOC-031",
+      "kind": "functional",
+      "title": { "ar": "سجل قاعات القسم التاريخي للقراءة فقط", "en": "Read-only historical room list of a department" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عبر GET /api/department-rooms كل القاعات التي استعملها القسم تاريخياً مرتّبة بالمبنى ثم القاعة ترتيباً رقمياً لحامل الشاشة 7 في نطاقه، وأن يرفض كل إضافة عبر POST /api/department-rooms.",
+        "en": "Through GET /api/department-rooms the system shall return every room the department used historically, ordered by building then room numerically, to a holder of screen 7 within scope, and shall refuse every addition through POST /api/department-rooms."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair"],
+      "acceptance": [
+        { "ar": "بلا كلية أو قسم أو خارج النطاق 403.", "en": "Without college or department, or outside scope, the answer is 403." },
+        { "ar": "POST يردّ دائماً 403 «إضافة القاعات محصورة بمدير النظام من سجل المباني والقاعات الرسمي.»", "en": "POST always returns 403 saying adding rooms is reserved to the system administrator through the official building and room registry." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts#/api/department-rooms"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-LOC-032",
+      "kind": "functional",
+      "title": { "ar": "قائمة المواعيد بانتظار تثبيت القاعة", "en": "List of appointments awaiting room confirmation" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عبر GET /api/location-registry/pending مواعيد الفصل التي حالتها «بانتظار تثبيت القاعة» مع عددها؛ كلها للإدارة الرئيسية، ولغيرها مواعيد الأستاذ المربوط بحسابه وحده داخل نطاقه.",
+        "en": "Through GET /api/location-registry/pending the system shall return the term's appointments whose state is awaiting room confirmation with their count; all of them to main administration, and to others only those of the instructor linked to their account within scope."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "admin"],
+      "acceptance": [
+        { "ar": "بلا فصل 400 «حدد الفصل الدراسي».", "en": "Without a term the answer is 400 asking for the term." },
+        { "ar": "حساب غير مربوط بأستاذ (AdInstructorId صفر) لا يرى شيئاً ما لم يكن إدارة رئيسية.", "en": "An account not linked to an instructor (AdInstructorId zero) sees nothing unless it is main administration." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts#/api/location-registry/pending"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-LOC-033",
+      "kind": "functional",
+      "title": { "ar": "من يكتب في سجل المباني والقاعات: الشاشة البسيطة والسجل الكامل", "en": "Who writes to the building and room registry: simple screen and full console" },
+      "text": {
+        "ar": "يجب على النظام أن يقصر شاشة الإدخال البسيطة (/api/admin/location-setup وما تحتها) وإنشاء مبنى في السجل الكامل على الحساب الجذر، وأن يتيح لكل إدارة رئيسية في السجل الكامل تعديل المباني وإضافة القاعات وتعديلها ونقلها، مع ربط القاعة دائماً بكليات كود مبناها الرسمي.",
+        "en": "The system shall reserve the simple entry screen (/api/admin/location-setup and below) and creating a building in the full console to the root account, and let any main administration edit buildings and add, edit and move rooms in the full console, always tying a room to the colleges of its building's official code."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin", "admin"],
+      "acceptance": [
+        { "ar": "GET /api/admin/location-setup يعيد المباني والقاعات والكليات والأقسام فقط، بلا مواعيد ولا مراجعات ولا تاريخ تهيئة.", "en": "GET /api/admin/location-setup returns only buildings, rooms, colleges and departments, with no appointments, reviews or initialisation history." },
+        { "ar": "إنشاء مبنى في السجل الكامل يتطلب كلية واحدة بالضبط (وإلا 400) لها رمز موقع رسمي (وإلا 409)، ويقبل الكود الرسمي كاملاً مثل 022T01 أو رقم المبنى وحده لصفحة قديمة، ويرفض كوداً من موقع آخر 400.", "en": "Creating a building in the full console requires exactly one college (otherwise 400) with an official site prefix (otherwise 409), accepts the full official code such as 022T01 or the building number alone from an older page, and refuses a code from another site with 400." },
+        { "ar": "ربط مبنى بكلية رمز موقعها يخالف كوده 409، وربط قاعة بكلية لا يتبعها كود المبنى 409؛ وكل تعديل يعلّم الصف CONFIRMED وadminVerified ويضيف سطراً إلى تاريخه.", "en": "Linking a building to a college whose site prefix differs from its code returns 409, and linking a room to a college its building code does not belong to returns 409; every edit marks the row CONFIRMED and adminVerified and appends a line to its history." },
+        { "ar": "الصيغ التاريخية المحرَّرة يدوياً حتى 250 صيغة، لكل منها حتى 12 دليلاً، ويُسقط منها الرمز البديل؛ والأقسام الرئيسية للقاعة جزء من أقسامها.", "en": "Manually edited historical forms are capped at 250, each with up to 12 evidence lines, placeholders are dropped, and a room's primary departments are a subset of its departments." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts#/api/admin/location-setup", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms/:id", "src/components/LocationQuickSetup.tsx", "src/components/LocationRegistryAdmin.tsx"], "tests": ["tests/location-registry-audit.py"] }
     }
   ],
   "edgeCases": [

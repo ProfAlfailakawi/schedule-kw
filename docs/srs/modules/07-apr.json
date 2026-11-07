@@ -1042,7 +1042,8 @@
           "src/utils/approvalWorkflow.ts#canSign",
           "src/server/routes/approvalsRoutes.ts",
           "src/utils/academicRoles.ts#signatureStage",
-          "src/utils/seats.ts#actorMaySign"
+          "src/utils/seats.ts#actorMaySign",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/sign"
         ],
         "tests": [
           "tests/approval-workflow-audit.ts",
@@ -1189,7 +1190,8 @@
       "evidence": {
         "code": [
           "src/server/routes/approvalsRoutes.ts#submitToRegistrar",
-          "src/utils/approvalWorkflow.ts#canSubmit"
+          "src/utils/approvalWorkflow.ts#canSubmit",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/submit"
         ],
         "tests": [
           "tests/relay-fixes-audit.ts",
@@ -1275,7 +1277,9 @@
           "src/utils/approvalWorkflow.ts#canWithdraw",
           "src/utils/approvalWorkflow.ts#withRemainingSignatures",
           "src/utils/approvalWorkflow.ts#canHeadReturn",
-          "src/server/routes/approvalsRoutes.ts"
+          "src/server/routes/approvalsRoutes.ts",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/withdraw",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/head-return"
         ],
         "tests": [
           "tests/relay-fixes-audit.ts"
@@ -1314,7 +1318,8 @@
           "src/utils/approvalWorkflow.ts#mergePendingAdditions",
           "src/utils/approvalWorkflow.ts#acknowledgeAdditions",
           "src/server/core/approvals.ts#noteScheduleMutation",
-          "src/server/routes/approvalsRoutes.ts"
+          "src/server/routes/approvalsRoutes.ts",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/acknowledge-additions"
         ],
         "tests": [
           "tests/relay-fixes-audit.ts",
@@ -1366,7 +1371,8 @@
           "src/server/routes/scheduleNotesRoutes.ts",
           "src/server/core/notes.ts#noteFieldValue",
           "src/server/core/notes.ts#noteState",
-          "src/utils/approvalWorkflow.ts#countOpenRegistrarNotes"
+          "src/utils/approvalWorkflow.ts#countOpenRegistrarNotes",
+          "src/server/routes/scheduleNotesRoutes.ts#/api/schedule-notes"
         ],
         "tests": [
           "tests/schedule-changes-audit.ts",
@@ -1408,7 +1414,9 @@
       "evidence": {
         "code": [
           "src/server/routes/scheduleNotesRoutes.ts",
-          "src/utils/approvalWorkflow.ts#insistOutcome"
+          "src/utils/approvalWorkflow.ts#insistOutcome",
+          "src/server/routes/scheduleNotesRoutes.ts#/api/schedule-notes/:id/rebut",
+          "src/server/routes/scheduleNotesRoutes.ts#/api/schedule-notes/:id/verdict"
         ],
         "tests": [
           "tests/relay-fixes-audit.ts",
@@ -1447,7 +1455,8 @@
       "evidence": {
         "code": [
           "src/utils/approvalWorkflow.ts#canReturn",
-          "src/server/routes/approvalsRoutes.ts"
+          "src/server/routes/approvalsRoutes.ts",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/return"
         ],
         "tests": [
           "tests/relay-fixes-audit.ts",
@@ -1486,7 +1495,8 @@
       "evidence": {
         "code": [
           "src/server/routes/approvalsRoutes.ts",
-          "src/utils/approvalWorkflow.ts#CLOSED_BY_ACCEPTANCE_LABEL"
+          "src/utils/approvalWorkflow.ts#CLOSED_BY_ACCEPTANCE_LABEL",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/accept"
         ],
         "tests": [
           "tests/relay-fixes-audit.ts",
@@ -1754,7 +1764,8 @@
           "src/utils/approvalWorkflow.ts#isWholesaleChange",
           "src/server/core/approvals.ts#wholesaleRefusal",
           "src/server/routes/scheduleImportRoutes.ts",
-          "src/server/routes/schedulesRoutes.ts"
+          "src/server/routes/schedulesRoutes.ts",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/deadline"
         ],
         "tests": [
           "tests/approval-workflow-audit.ts",
@@ -1793,7 +1804,8 @@
         "code": [
           "src/server/routes/approvalsRoutes.ts",
           "src/utils/submissionDeadlines.ts#decideException",
-          "src/utils/submissionDeadlines.ts#resolveExceptionTargets"
+          "src/utils/submissionDeadlines.ts#resolveExceptionTargets",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/extensions"
         ],
         "tests": [
           "tests/deadlines-panel-audit.ts"
@@ -1830,7 +1842,8 @@
       "evidence": {
         "code": [
           "src/utils/approvalWorkflow.ts#extensionRequestRefusal",
-          "src/server/routes/approvalsRoutes.ts"
+          "src/server/routes/approvalsRoutes.ts",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/extension-request"
         ],
         "tests": [
           "tests/relay-fixes-audit.ts",
@@ -1869,7 +1882,8 @@
         "code": [
           "src/server/routes/approvalsRoutes.ts",
           "src/utils/termStudentPhases.ts#checkStudentPhases",
-          "src/components/StudentPhasesBlock.tsx"
+          "src/components/StudentPhasesBlock.tsx",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/student-phases"
         ],
         "tests": [
           "tests/term-student-phases-audit.ts"
@@ -1921,7 +1935,8 @@
           "src/server/routes/approvalsRoutes.ts",
           "src/utils/approvalWorkflow.ts#inboxPriority",
           "src/utils/lateness.ts#isLate",
-          "src/server/routes/approvalsRoutes.ts#approvalBadgeForTerm"
+          "src/server/routes/approvalsRoutes.ts#approvalBadgeForTerm",
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/inbox"
         ],
         "tests": [
           "tests/approval-workflow-audit.ts",
@@ -2222,7 +2237,8 @@
       "evidence": {
         "code": [
           "src/server/routes/verifyRoutes.ts",
-          "src/server/signatureVerifyPage.ts#signatureVerifyPage"
+          "src/server/signatureVerifyPage.ts#signatureVerifyPage",
+          "src/server/routes/verifyRoutes.ts#/api/public/verify"
         ],
         "tests": [
           "tests/request-signature-audit.ts"
@@ -2429,6 +2445,177 @@
         ],
         "tests": [
           "tests/deadlines-panel-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-029",
+      "kind": "functional",
+      "title": {
+        "ar": "تمديد تسليم قسم واحد أو رفعه",
+        "en": "Granting or lifting one department's submission exception"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لرئيس التسجيل ورئيس تسجيل الكلية (أو المستخدم ذي الصلاحية العليا) منح قسم واحد استثناءً من موعد التسليم بتاريخ YYYY-MM-DD وسبب حتى 240 حرفاً، أو رفعه بإرسال تاريخ فارغ فيعود القسم إلى موعد الفصل، وأن يرفض تاريخاً يسبق موعد الفصل أو فصلاً منتهياً، وأن يكتب ذلك في طابور الاعتماد نفسه بحدث «تمديد» وسطر في الأثر يسمّي القسم والتاريخ والسبب.",
+        "en": "The system shall let the head of registration and the college registrar (or a power user) grant a single department an exception to the submission deadline with a date YYYY-MM-DD and a reason of up to 240 characters, or lift it by sending an empty date so the department returns to the term deadline, shall refuse a date earlier than the term deadline or an ended term, and shall write it on the same approval queue with an extension event and an audit line naming the department, the date and the reason."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "registrarHead",
+        "collegeRegistrar"
+      ],
+      "acceptance": [
+        {
+          "ar": "حساب ليس رئيس تسجيل ولا رئيس تسجيل كلية يتلقى 403، وتاريخ بغير الصيغة يتلقى 400 «التاريخ يُكتب هكذا: 2026-10-22».",
+          "en": "An account that is neither head of registration nor college registrar receives 403, and a malformed date receives 400 with the date-format message."
+        },
+        {
+          "ar": "تاريخ قبل موعد الفصل يُردّ بـ400 ورمز extension-before-deadline، وفصل منتهٍ بـ409 term-closed.",
+          "en": "A date before the term deadline is refused with 400 and code extension-before-deadline, and an ended term with 409 term-closed."
+        },
+        {
+          "ar": "إرسال until فارغاً يرفع الاستثناء ويسجّل حدث «إلغاء التمديد».",
+          "en": "Sending an empty until lifts the exception and records an event 'extension cancelled'."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts#/api/approvals/extension",
+          "src/utils/approvalWorkflow.ts#extensionRefusal",
+          "src/utils/academicRoles.ts#canExtendDeadline"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-030",
+      "kind": "functional",
+      "title": {
+        "ar": "قراءة الملاحظات بحالتها وحذف ملاحظة",
+        "en": "Reading notes with their state and deleting a note"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد ملاحظات القسم في الفصل بحالتها المحسوبة مع عدد المفتوحة والمتغيّرة والتي رُدّ عليها لكل من له النطاق، وأن يقصر كتابة الملاحظة على صفات التسجيل والقسم التي تسمح بها دالة الشاشة نفسها، والردّ على الملاحظة على ملاحظات التسجيل وعلى صفات التوقيع في القسم، والقرار على الردّ على التسجيل، وأن يتيح حذف الملاحظة لكاتبها وحده (أو للمستخدم ذي الصلاحية العليا) تراجعاً عن نقرة، مع سطر في الأثر لكل كتابة وردّ وقرار وحذف.",
+        "en": "The system shall return the department's notes for the term with their computed state and the counts of open, changed and answered notes to anyone with the scope, shall restrict writing a note to the registrar and department roles allowed by the same function the screen uses, replying to registrar notes and to the department's signing roles, and the verdict on a reply to the registrar, and shall allow deleting a note only to its author (or a power user) as an undo of a click, with an audit line for every write, reply, verdict and deletion."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead",
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف ملاحظة من غير كاتبها يُردّ بـ403 «تُحذف الملاحظة ممّن كتبها.»، وملاحظة غير موجودة بـ404.",
+          "en": "Deleting a note by someone other than its author is refused with 403 'the note is deleted by its author', and a missing note with 404."
+        },
+        {
+          "ar": "خانة غير معروفة تُردّ بـ400، وردّ على ملاحظة من القسم يُردّ بـ409، وقرار بلا ردّ سابق يُردّ بـ409.",
+          "en": "An unknown cell is refused with 400, a reply on a department note with 409, and a verdict with no prior reply with 409."
+        },
+        {
+          "ar": "GET بلا كلية أو قسم أو فصل يُردّ بـ400، والردّ يحمل notes وopen وchanged وanswered.",
+          "en": "GET without college, section or term is refused with 400, and the reply carries notes, open, changed and answered."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/scheduleNotesRoutes.ts#/api/schedule-notes",
+          "src/server/routes/scheduleNotesRoutes.ts#/api/schedule-notes/:id",
+          "src/server/core/notes.ts"
+        ],
+        "tests": [
+          "tests/schedule-changes-audit.ts",
+          "tests/relay-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-APR-031",
+      "kind": "interface",
+      "title": {
+        "ar": "قراءة اعتماد القسم الواحدة",
+        "en": "Single department approval read"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد من GET /api/approvals لقسم وفصل في نطاق القارئ سجل الاعتماد (بعد فتح جولة التعديل المعلّقة إن وُجدت) والموعد الفعلي، وعدد التعارضات المادية والمواعيد التي تمسها والمكرّر منها، وعدد المقررات بلا سعة مسجّلة، وعدد تنبيهات اللائحة، وملاحظات التسجيل المفتوحة والخلافات المرفوعة، وعدد المواعيد، وسبب منع التعديل لهذا القارئ، وجاهزية البيانات، وهل يجوز طلب التمديد، ووصف الحالة، وآخر نسخة رآها التسجيل، وأن يحجب ملاءمة القاعات من الجاهزية عمن لا يملك الإذن 7.",
+        "en": "From GET /api/approvals for a department and term in the reader's scope the system shall return the approval record (after opening a pending amendment round if any), the effective deadline, the number of material conflicts with the appointments they touch and how many are duplicates, the number of courses with no registered capacity, the regulation-notice count, open registrar notes and escalated disputes, the appointment count, the edit-lock reason for this reader, data readiness, whether an extension request is allowed, the status label and the last version the registrar reviewed, and shall withhold room fit from readiness for anyone without permission 7."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "قارئ بلا الإذن 7 يتلقى dataReadiness بلا roomFit، وقارئ خارج النطاق يتلقى 403.",
+          "en": "A reader without permission 7 receives dataReadiness without roomFit, and a reader outside the scope receives 403."
+        },
+        {
+          "ar": "canRequestExtension يساوي حكم قاعدة طلب التمديد نفسها، وrowCount صفر لا يُظهر زر توقيع.",
+          "en": "canRequestExtension equals the verdict of the extension-request rule itself, and a rowCount of zero shows no sign button."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts#/api/approvals",
+          "src/components/ApprovalBar.tsx"
+        ],
+        "tests": [
+          "tests/data-gaps-nonblocking-audit.ts",
+          "tests/approval-workflow-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "IR-APR-032",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات المراجعة المشتركة مع محرر الجدول",
+        "en": "Review routes shared with the schedule editor"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم من ملف مسارات المراجعة، بالإذن 7 وفي نطاق المستخدم، ثلاثة مسارات يقرؤها الاعتماد والمحرر معاً بقواعد وحدة الجدول: POST /api/schedules/check-conflicts فحصاً لموعد واحد بخطوات بوابة الحفظ نفسها متوازية، وGET /api/schedules/outside-clashes لمواعيد النطاق التي تتعارض مع ما هو خارج الشاشة بجملة تذكر القسم واليوم والساعة دون المقرر الآخر أو شعبته أو أستاذه، وPOST /api/schedules/move-batch لنقل من موعد إلى ستين معاً أو لا شيء، يُعدّ بعده جدول مقبول تعديلاً يفتح جولة جديدة.",
+        "en": "From the review routes file, with permission 7 and within the user's scope, the system shall provide three routes read by approval and the editor alike under the Schedule module's rules: POST /api/schedules/check-conflicts checking one appointment with the save gate's own steps in parallel, GET /api/schedules/outside-clashes for in-scope appointments clashing with something off screen, with a sentence naming the department, day and hour but never the other course, its section or its lecturer, and POST /api/schedules/move-batch moving one to sixty appointments together or none, after which an accepted schedule counts as edited and opens a new round."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "move-batch بلا مواعيد أو بأكثر من ستين يُردّ بـ400، وتغيّر أحدها أثناء العمل يُردّ بـ409 conflict:revision ولا يُنقل شيء.",
+          "en": "move-batch with no appointments or more than sixty is refused with 400, and one of them changing meanwhile is refused with 409 conflict revision with nothing moved."
+        },
+        {
+          "ar": "outside-clashes بلا كلية أو فصل يُردّ بـ400، ولا يعدّ تعارضاً بين صفّين داخل النطاق نفسه.",
+          "en": "outside-clashes without college or term is refused with 400, and does not count a clash between two rows of the same scope."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/scheduleReviewRoutes.ts#/api/schedules/check-conflicts",
+          "src/server/routes/scheduleReviewRoutes.ts#/api/schedules/outside-clashes",
+          "src/server/routes/scheduleReviewRoutes.ts#/api/schedules/move-batch"
+        ],
+        "tests": [
+          "tests/blockers-stream-audit.ts",
+          "tests/approval-integrity-audit.ts",
+          "tests/term-freeze-audit.ts"
         ]
       }
     }

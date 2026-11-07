@@ -197,7 +197,7 @@
         { "ar": "فصل محفوظ زال يرجع إلى الافتراض ويكون explicit=false.", "en": "A saved term that no longer exists falls back to the default with explicit=false." },
         { "ar": "لا شيء للقارئ في أي فصل: يبقى الجاري.", "en": "Nothing for the reader in any term: the current term stays." }
       ],
-      "evidence": { "code": ["src/utils/homeTerm.ts", "src/server/routes/dashboardRoutes.ts", "src/server/core/scheduleReads.ts"], "tests": ["tests/dashboard-home-term-audit.ts"] }
+      "evidence": { "code": ["src/utils/homeTerm.ts", "src/server/routes/dashboardRoutes.ts#/api/dashboard", "src/server/core/scheduleReads.ts"], "tests": ["tests/dashboard-home-term-audit.ts"] }
     },
     {
       "id": "FR-DSH-002",
@@ -563,7 +563,8 @@
         { "ar": "الغطاء الهادئ مشروط بأن المحاولات لم تُستنفد.", "en": "The quiet cover applies only while attempts are not exhausted." },
         { "ar": "الحالة العالقة تحمل role=alert ونص «بياناتك محفوظة ولم تتأثر».", "en": "The stuck state carries role=alert and the text that the data is saved and unaffected." },
         { "ar": "زر الإعادة يصفّر العدّاد، ولا window.location.reload ولا assign.", "en": "The retry button resets the counter, and no window.location.reload or assign is used." },
-        { "ar": "الأحداث ui.render.recovery وui.render.unrecovered وui.render.manual-retry.", "en": "The events are ui.render.recovery, ui.render.unrecovered and ui.render.manual-retry." }
+        { "ar": "الأحداث ui.render.recovery وui.render.unrecovered وui.render.manual-retry.", "en": "The events are ui.render.recovery, ui.render.unrecovered and ui.render.manual-retry." },
+        { "ar": "إذا صمد الجزء بعد استرداده 1500 مللي ثانية بلا عطل جديد يُنسى عدد المحاولات، فيستحق عطلٌ لاحق ثلاث محاولات صامتة كاملة.", "en": "If the part survives 1500 ms after recovery with no new fault the attempt count is forgotten, so a later fault again gets the full three silent attempts." }
       ],
       "evidence": { "code": ["src/components/ErrorBoundary.tsx"], "tests": ["tests/run-tests.ts"] }
     },
@@ -602,6 +603,101 @@
       ],
       "evidence": { "code": ["docs/DEMO_GUIDE.md", "src/server/core/auth.ts", "src/App.tsx"], "tests": ["tests/demo-complete-audit.ts"] },
       "inferred": true
+    },
+    {
+      "id": "FR-DSH-024",
+      "kind": "functional",
+      "title": { "ar": "قائمة اليوم والمجموع الموروث وجدول الأستاذ الشخصي", "en": "Day list, legacy total and the instructor's personal day" },
+      "text": {
+        "ar": "يجب على النظام في /api/dashboard أن يعيد قائمة محاضرات اليوم من الفصل المعروض كاملةً للمدير، ومقصورةً لغيره على أقسام نطاقه (وعلى النسخة النهائية للعميدين)، وأن يحسب dashboardTotal على القاعدة الموروثة (للمدير عدد صفوف اليوم، ولغيره عدد صفوف نطاقه في الفصل كله)، وأن يعيد metrics.courses عدد المقررات المسجّلة على أقسام النطاق لغير المدير، وأن يعيد لحساب مربوط بعضو هيئة تدريس قائمة personalToday بمحاضراته اليوم مرتبة بوقت البدء مع أيامها وقاعتها واسم القسم والكلية واسمه في linkedInstructorName، وعدد نطاقات الحساب في scopeCount.",
+        "en": "The system shall, at /api/dashboard, return today's lectures of the shown term in full for the administrator and limited for anyone else to the departments of their scope (and to the final version for the two deans), compute dashboardTotal by the legacy rule (the administrator: the count of today's rows; others: the count of their scope's rows in the whole term), return metrics.courses as the number of courses registered to the scope's departments for non-administrators, and, for an account linked to a faculty member, return personalToday with that member's lectures today sorted by start time with their days, hall, department and college name, the member's name in linkedInstructorName, and the account's scope count in scopeCount."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin", "departmentHead", "dean", "instructor"],
+      "acceptance": [
+        { "ar": "المدير يرى محاضرات اليوم من كل الأقسام، ورئيس القسم يرى محاضرات أقسامه فقط من القائمة نفسها.", "en": "The administrator sees today's lectures from every department, and a department head sees only his departments' lectures from the same list." },
+        { "ar": "metrics.terms هو عدد الفصول كلها للجميع، وmetrics.schedules للمدير هو العدّ الكلي من الخادم ولغيره صفوف نطاقه في الفصل المعروض.", "en": "metrics.terms is the total number of terms for everyone; metrics.schedules is the server-side total for the administrator and the scope's rows in the shown term for others." },
+        { "ar": "حساب غير مربوط بعضو هيئة تدريس يتلقى personalToday فارغة وlinkedInstructorName نصاً فارغاً.", "en": "An account not linked to a faculty member receives an empty personalToday and an empty linkedInstructorName." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts#/api/dashboard"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-DSH-025",
+      "kind": "functional",
+      "title": { "ar": "رأس اللوحة وشارة الفصل", "en": "Dashboard header and term badge" },
+      "text": {
+        "ar": "يجب أن يعرض رأس لوحة البداية تحية بحسب الساعة («صباح الخير» قبل الثانية عشرة ظهراً و«مساء الخير» بعدها) واسم المستخدم وتاريخ اليوم (اسم اليوم واليوم والشهر بأرقام لاتينية) واسم الفصل المعروض، وشارة واحدة فقط: «العودة إلى <الفصل الافتراضي>» إذا كان الفصل المعروض غير الافتراضي، وإلا «الفصل القادم قيد الإعداد — افتحه» إذا وُجد فصل قادم، وأن يكون الضغط على الشارة تبديلاً للفصل المعروض في النطاق المشترك فقط دون أي كتابة على البيانات.",
+        "en": "The home dashboard header shall show a greeting by the hour (good morning before 12 noon and good evening after), the user's name, today's date (weekday, day and month in Latin digits) and the shown term's name, and exactly one badge: Return to <default term> when the shown term is not the default, otherwise Upcoming term in preparation — open it when an upcoming term exists, and pressing the badge shall only switch the shown term in the shared scope with no write to the data."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean", "admin"],
+      "acceptance": [
+        { "ar": "قارئ اختار فصلاً غير الافتراضي يرى شارة العودة وحدها ولو وُجد فصل قادم.", "en": "A reader who chose a non-default term sees only the return badge even when an upcoming term exists." },
+        { "ar": "الفصل المختار يُحفظ في النطاق المشترك فتفتح عليه الشاشات الأخرى أيضاً.", "en": "The chosen term is kept in the shared scope so the other screens open on it too." },
+        { "ar": "مؤشر «البيانات محدّثة» يحمل role=status.", "en": "The data-updated indicator carries role=status." }
+      ],
+      "evidence": { "code": ["src/components/Dashboard.tsx", "src/utils/sharedScope.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-DSH-026",
+      "kind": "functional",
+      "title": { "ar": "أرقام النطاق ولوحات المدير الرئيسي", "en": "Scope figures and main-administrator panels" },
+      "text": {
+        "ar": "يجب أن تعرض اللوحة أرقام النطاق (المقررات والمواعيد والأساتذة والقاعات) وتخفي كل رقم قيمته صفر وتخفي الصف كله إن خلا، مع خط اتجاه تحت المواعيد والأساتذة والقاعات وتعليق يسمّي أول فصل وآخره في الخط وعدد الفصول (أو «المقارنة مع <الفصل السابق>» عند نقطة واحدة سابقة)، ورسم «حمل الأسبوع» بعلامة حرف واحد لكل يوم (ح ن ث ر خ)، وأن تقصر لوحتي «ذروة الأوقات» و«أكثر القاعات استخداماً» وقسم «تفاصيل» (النطاق، المواعيد الفعّالة، الأساتذة، ذروة الإشغال س / ص) على المدير الرئيسي (حساب مدير أو الحساب رقم 1).",
+        "en": "The dashboard shall show the scope figures (courses, appointments, instructors, halls), hiding each figure whose value is zero and the whole row when all are empty, with a trend line under appointments, instructors and halls and a caption naming the first and last term of the line and the number of terms (or Compared with <previous term> when there is a single earlier point), draw the Week load chart with a one-letter mark per day, and restrict the Peak hours and Most used halls panels and the Details section (scope, active appointments, instructors, occupancy peak x / y) to the main administrator (an administrator account or account number 1)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin", "committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "رئيس قسم لا يرى لوحتي ذروة الأوقات وأكثر القاعات استخداماً ولا قسم التفاصيل.", "en": "A department head does not see the Peak hours and Most used halls panels or the Details section." },
+        { "ar": "مؤشرات شريط الصحة: أقل من 30 «سيئ» (والإشغال تحت 30 «هادئ»)، و85 فأكثر «جيد»، وما بينهما «متوسط».", "en": "Health ribbon tones: below 30 bad (occupancy below 30 calm), 85 or above good, otherwise middle." },
+        { "ar": "زر «عرض الكل · N» في قائمة الانتباه يفتح مركز التحليلات لمن يدير الجدول وشاشة الجداول لغيره، وكل عمود ساعة في شريط اليوم يفتح شاشة الجداول.", "en": "The View all · N button in the attention list opens the Analytics Center for those who manage the schedule and the schedules screen for others, and each hour column of the day strip opens the schedules screen." }
+      ],
+      "evidence": { "code": ["src/components/Dashboard.tsx"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-DSH-027",
+      "kind": "functional",
+      "title": { "ar": "فئات نتائج البحث العام بحسب الشاشات المسموحة", "en": "Global search result categories by permitted screens" },
+      "text": {
+        "ar": "يجب على /api/search أن يطابق النص كجزء من القيمة دون اعتبار حالة الأحرف وأن يعيد: المواعيد لمن يملك الشاشة 7 أو 10 أو 17 (واسم الأستاذ في سطرها مع لاحقة «منتدب» لمن يملك 7 أو 8 أو 17، والقاعة لمن يملك 7 أو 9 أو 16 أو 17، ثم مدى الوقت)، والأساتذة لمن يملك 7 أو 8 أو 17 مقصورين على من يدرّس في الصفوف المرئية ومطابقين بالاسم أو الرقم المدني المرئي للقارئ ومرتبين أبجدياً، والمقررات لمن يملك 7 أو 17 مما يظهر في الصفوف المرئية بالاسم أو الرمز، والقاعات لمن يملك 7 أو 9 أو 16 أو 17 من القاعات الموثّقة وحدها بعنوان «مبنى س — قاعة ص» وعدد مواعيدها.",
+        "en": "/api/search shall match the text as a case-insensitive substring and return: appointments to holders of screen 7, 10 or 17 (the instructor's name in their line, with the visiting suffix, for holders of 7, 8 or 17; the hall for holders of 7, 9, 16 or 17; then the time range), instructors to holders of 7, 8 or 17, limited to those teaching in the visible rows, matched by name or by the civil ID visible to the reader and sorted alphabetically, courses to holders of 7 or 17 among those appearing in the visible rows by name or code, and halls to holders of 7, 9, 16 or 17 among verified halls only, titled Building x — Hall y with their appointment count."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean", "registrarStaff"],
+      "acceptance": [
+        { "ar": "حامل الشاشة 9 وحدها يتلقى القاعات فقط وقوائم المواعيد والأساتذة والمقررات فارغة.", "en": "A holder of screen 9 alone receives halls only, with empty appointment, instructor and course lists." },
+        { "ar": "موعد بلا قاعة موثّقة لا يُنشئ نتيجة قاعة.", "en": "An appointment without a verified hall creates no hall result." },
+        { "ar": "حامل الشاشة 10 يرى المواعيد بلا اسم الأستاذ ولا القاعة في سطرها.", "en": "A holder of screen 10 sees appointments without the instructor's name or the hall in their line." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts#/api/search", "src/server/core/scope.ts"], "tests": ["tests/dean-notify-audit.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-DSH-028",
+      "kind": "functional",
+      "title": { "ar": "قواعد فهم جملة البحث", "en": "Sentence search parsing rules" },
+      "text": {
+        "ar": "يجب على /api/search/natural أن يقرأ الجملة بقواعد ثابتة: يحوّل الأرقام العربية الهندية والفارسية إلى لاتينية ويحذف التشكيل والتطويل، ويعرف أيام الأحد إلى الخميس بأل وبدونها، ويقرأ الوقت «س:دد» أو ساعة مفردة من 1 إلى 23، فالساعة من 1 إلى 6 بلا «ص» تُعدّ بعد الظهر و«م/مساءً/عصراً» تضيف 12 لما دون الثانية عشرة، ثم يختار القصد بالترتيب: نقل (فعل نقل ورقم من 2 إلى 4 خانات ووقت أو يوم)، فقاعات متاحة، ففراغات، فرمز قاعة (1 إلى 3 أحرف وشرطة و1 إلى 4 أرقام)، فجدول أستاذ (جدول، مواعيد، محاضرات، حصة، نصاب)، فوقت أو يوم، وإلا unknown؛ وأن يحسم الكلية والقسم والفصل من سياق الطلب، ويعيد صفوفاً فارغة إن لم يوجد فصل، ولا ينفّذ النقل بل يجيبه قراءة مواعيد في الوقت المطلوب.",
+        "en": "/api/search/natural shall read the sentence by fixed rules: convert Arabic-Indic and Persian digits to Latin and drop diacritics and tatweel, recognise Sunday to Thursday with or without the article, read the time as h:mm or a single hour from 1 to 23, an hour from 1 to 6 without the morning marker counting as afternoon and the evening or afternoon markers adding 12 below noon, then choose the intent in order: move (a move verb, a 2-to-4-digit number and a time or day), free halls, gaps, a hall code (1 to 3 letters, a dash and 1 to 4 digits), an instructor's schedule (schedule, appointments, lectures, period, load), a time or day, otherwise unknown; it shall resolve college, department and term from the request context, return empty rows when there is no term, and not execute a move but answer it as a reading of appointments at the requested time."
+      },
+      "rationale": { "ar": "الجملة نفسها تعطي الجواب نفسه دائماً ودون أن تغادر البيانات الخادم.", "en": "The same sentence always gives the same answer, and no data leaves the server." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "registrarStaff"],
+      "acceptance": [
+        { "ar": "«قاعات فاضية الأحد 2» و«2:00 م» تُقرآن 14:00، و«9:30 ص» تبقى 09:30، و«3:30» بلا علامة تُقرأ 15:30.", "en": "«free halls Sunday 2» and «2:00 pm» read as 14:00, «9:30 am» stays 09:30, and «3:30» without a marker reads as 15:30." },
+        { "ar": "سلسلة طويلة من المسافات لا تُبطئ القراءة (لا تراجع تربيعي).", "en": "A long run of spaces does not slow parsing (no quadratic backtracking)." },
+        { "ar": "الفراغات والقاعات المتاحة تُحسب من صفوف الفصل كله لأنها وقت ومكان بلا مقرر ولا قسم، وجدول القاعة والأستاذ والوقت من صفوف نطاق القارئ.", "en": "Gaps and free halls are computed from the whole term's rows because they are time and place with no course or department, while hall, instructor and time readings come from the reader's scoped rows." }
+      ],
+      "evidence": { "code": ["src/utils/naturalQuery.ts#parseNaturalQuery", "src/server/routes/dashboardRoutes.ts#/api/search/natural"], "tests": ["tests/input-hardening-audit.ts", "tests/standard-arabic-ui-audit.ts", "tests/dean-notify-audit.ts"] }
     }
   ],
   "edgeCases": [

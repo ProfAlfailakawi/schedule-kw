@@ -721,6 +721,10 @@
         {
           "ar": "كلمة سر حساب المدير القديمة التي بقيت في تاريخ git غيّرها المالك في النظام الحي (2026-11-07)، فلم تعد صالحة.",
           "en": "The old administrator password that remained in git history was changed by the owner in the live system (2026-11-07), so it is no longer valid."
+        },
+        {
+          "ar": "STUDENT_CASE_SECRET يزرع السرّ المشترك مرة ولا يغيّره بعدها، وSTAFF_DEVICE_SECRET يتقدّم على اشتقاق مفتاح تذكّر الجهاز، والسرّ المشترك لا يدخل النسخة الاحتياطية (DR-DAT-030 وDR-DAT-031).",
+          "en": "STUDENT_CASE_SECRET seeds the shared secret once and never changes it afterwards, STAFF_DEVICE_SECRET overrides derivation of the remembered-device key, and the shared secret is not part of the backup (DR-DAT-030 and DR-DAT-031)."
         }
       ],
       "evidence": {
@@ -1394,6 +1398,14 @@
         {
           "ar": "«قسم الدراسات الإجتماعية» و«قسم الدراسات الاجتماعية» يعطيان مفتاح مطابقة واحداً.",
           "en": "The two spellings of 'Department of Social Studies' differing in hamza give one match key."
+        },
+        {
+          "ar": "الترتيب الأبجدي يقارن مفتاح المطابقة بقواعد العربية مع الأرقام بقيمتها، فتقع «أصول» و«اصول» و«إدارة» حيث يتوقعها القارئ.",
+          "en": "Alphabetical sorting compares the match key under Arabic collation with numbers by value, so «أصول», «اصول» and «إدارة» fall where the reader expects them."
+        },
+        {
+          "ar": "علامات الاتجاه غير المرئية (U+200B–U+200F وU+202A–U+202E وU+2066–U+2069 وU+FEFF) تُحذف قبل الحفظ.",
+          "en": "Invisible direction marks (U+200B–U+200F, U+202A–U+202E, U+2066–U+2069 and U+FEFF) are removed before storage."
         }
       ],
       "evidence": {
@@ -1839,6 +1851,47 @@
           "tests/deploy-target-guard.mjs"
         ]
       }
+    },
+    {
+      "id": "NFR-NFR-040",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "قياس أعطال الواجهة دون محتوى",
+        "en": "Interface fault telemetry without content"
+      },
+      "text": {
+        "ar": "يجب أن تجمع الواجهة لكل حساب طابوراً محلياً (schedule-client-telemetry-v1:<رقم الحساب>) لا يتجاوز 60 عنصراً من: أخطاء النافذة والوعود المرفوضة، وطلبات الخادم الفاشلة أو التي استغرقت 1800 مللي ثانية فأكثر، وانقطاع الاتصال وعودته، ومعالم زمن الشاشات؛ وأن ترفق بالأعطال وحدها آخر 12 فعلاً (اسم الزر أو الرابط الذي ضُغط حتى 56 حرفاً، ولا نص مدخل أبداً)، وأن تقصّ الرسالة إلى 320 حرفاً، وأن ترسل بعد 5 ثوانٍ من إضافة عنصر دفعة من 20 إلى /api/telemetry/client حين يكون الجهاز متصلاً، وتُبقي ما لم يُقبل محلياً لمحاولة لاحقة.",
+        "en": "The interface shall keep per account a local queue (schedule-client-telemetry-v1:<account number>) of at most 60 entries holding: window errors and rejected promises, server requests that failed or took 1800 ms or more, loss and return of the connection, and screen timing milestones; it shall attach to faults only the last 12 actions (the label of the button or link pressed, up to 56 characters, never typed text), cut each message to 320 characters, and send, 5 seconds after an entry is queued, a batch of 20 to /api/telemetry/client when the device is online, keeping locally whatever was not accepted for a later attempt."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب ناجح استغرق 900 مللي ثانية لا يُسجَّل، وآخر استغرق 2000 يُسجَّل «slow».",
+          "en": "A successful request that took 900 ms is not recorded, and one that took 2000 ms is recorded as slow."
+        },
+        {
+          "ar": "تبديل الحساب يحفظ طابور السابق تحت رقمه ويبدأ مسار أفعال جديداً.",
+          "en": "Switching account saves the previous queue under its number and starts a fresh action trail."
+        },
+        {
+          "ar": "قيمة حقل كتبها المستخدم لا تظهر في أي عنصر مرسل.",
+          "en": "A field value the user typed appears in no sent entry."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/clientTelemetry.ts#installClientTelemetry",
+          "src/utils/clientTelemetry.ts#flushTelemetry",
+          "src/server/routes/guideRoutes.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
     }
   ],
   "edgeCases": [

@@ -825,13 +825,19 @@
         {
           "ar": "يُسمح بعشرين طلب قراءة في الدقيقة للمستخدم الواحد.",
           "en": "At most twenty document-reading requests per minute are accepted."
+        },
+        {
+          "ar": "مسار الخلايا المقروءة في المتصفح (remaining-cells) يقبل حتى 60 صفحة و4000 خلية للصفحة ونص الخلية حتى 120 حرفاً، وبلا صفحات يُردّ بـ400، ويقرأ عمود «لم يجتز» وحده.",
+          "en": "The browser-read cells route (remaining-cells) accepts up to 60 pages, 4000 cells per page and 120 characters per cell text, refuses no pages with 400, and reads the not-passed column only."
         }
       ],
       "evidence": {
         "code": [
           "src/server/routes/planningRoutes.ts",
           "src/utils/remainingReport.ts",
-          "src/components/SectionPlanning.tsx"
+          "src/components/SectionPlanning.tsx",
+          "src/server/routes/planningRoutes.ts#/api/registration-stats/remaining-pdf",
+          "src/server/routes/planningRoutes.ts#/api/registration-stats/remaining-cells"
         ],
         "tests": [
           "tests/section-planning-import-audit.ts",
@@ -918,7 +924,8 @@
       "evidence": {
         "code": [
           "src/server/routes/planningRoutes.ts",
-          "src/db/repository.ts#saveRegistrationStats"
+          "src/db/repository.ts#saveRegistrationStats",
+          "src/server/routes/planningRoutes.ts#/api/registration-stats"
         ],
         "tests": [
           "tests/section-planning-audit.ts"
@@ -1046,7 +1053,8 @@
           "src/utils/sectionBuild.ts",
           "src/server/core/planning.ts",
           "src/server/routes/planningRoutes.ts",
-          "src/components/SectionGapNote.tsx"
+          "src/components/SectionGapNote.tsx",
+          "src/server/routes/planningRoutes.ts#/api/schedules/section-gap"
         ],
         "tests": [
           "tests/section-gap-audit.ts",
@@ -1125,7 +1133,8 @@
         "code": [
           "src/utils/planTriage.ts",
           "src/server/routes/planningRoutes.ts",
-          "src/components/PlanTriageView.tsx"
+          "src/components/PlanTriageView.tsx",
+          "src/server/routes/planningRoutes.ts#/api/schedules/section-gap/decisions"
         ],
         "tests": [
           "tests/decision-surfaces-audit.ts",
@@ -1168,7 +1177,8 @@
         "code": [
           "src/utils/courseOffering.ts",
           "src/server/routes/offeringRoutes.ts",
-          "src/components/CourseOfferingPanel.tsx"
+          "src/components/CourseOfferingPanel.tsx",
+          "src/server/routes/offeringRoutes.ts#/api/course-offering"
         ],
         "tests": [
           "tests/owner-features-2026-10-28-audit.ts",
@@ -1255,7 +1265,8 @@
           "src/utils/courseReach.ts",
           "src/server/courseReachShared.ts",
           "src/components/CourseReach.tsx",
-          "src/components/PrepublishReachSheet.tsx"
+          "src/components/PrepublishReachSheet.tsx",
+          "src/server/routes/offeringRoutes.ts#/api/course-reach"
         ],
         "tests": [
           "tests/course-reach-audit.ts",
@@ -1303,7 +1314,8 @@
           "src/utils/sectionBuild.ts",
           "src/utils/sectionOpening.ts",
           "src/server/routes/planningRoutes.ts",
-          "src/components/SectionBuild.tsx"
+          "src/components/SectionBuild.tsx",
+          "src/server/routes/planningRoutes.ts#/api/section-build/preview"
         ],
         "tests": [
           "tests/section-build-audit.ts",
@@ -1387,7 +1399,8 @@
       "evidence": {
         "code": [
           "src/server/routes/planningRoutes.ts",
-          "src/utils/sectionBuild.ts"
+          "src/utils/sectionBuild.ts",
+          "src/server/routes/planningRoutes.ts#/api/section-build/apply"
         ],
         "tests": [
           "tests/section-build-live-audit.ts"
@@ -1427,7 +1440,8 @@
       ],
       "evidence": {
         "code": [
-          "src/server/routes/planningRoutes.ts"
+          "src/server/routes/planningRoutes.ts",
+          "src/server/routes/planningRoutes.ts#/api/section-build/undo"
         ],
         "tests": [
           "tests/section-build-live-audit.ts"
@@ -1545,7 +1559,9 @@
       "evidence": {
         "code": [
           "src/server/planReviewRoutes.ts",
-          "src/components/PlanReview.tsx"
+          "src/components/PlanReview.tsx",
+          "src/server/planReviewRoutes.ts#/api/plan-review/course-details",
+          "src/server/planReviewRoutes.ts#/api/plan-review/rule"
         ],
         "tests": [
           "tests/plan-review-audit.ts"
@@ -1589,7 +1605,8 @@
       ],
       "evidence": {
         "code": [
-          "src/server/planReviewRoutes.ts"
+          "src/server/planReviewRoutes.ts",
+          "src/server/planReviewRoutes.ts#/api/plan-review/approve"
         ],
         "tests": [
           "tests/plan-review-audit.ts"
@@ -1637,7 +1654,8 @@
           "src/server/planPdfExtract.ts",
           "src/utils/planSheetImport.ts",
           "src/server/sheetReconcile.ts",
-          "src/components/PlanSheetUpload.tsx"
+          "src/components/PlanSheetUpload.tsx",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/import"
         ],
         "tests": [
           "tests/plan-sheet-import-route-audit.ts",
@@ -1683,7 +1701,8 @@
           "src/utils/curriculumReference.ts",
           "src/utils/referenceApply.ts",
           "src/server/planReviewRoutes.ts",
-          "src/components/CurriculumReferenceReview.tsx"
+          "src/components/CurriculumReferenceReview.tsx",
+          "src/server/planReviewRoutes.ts#/api/plan-review/reference/apply"
         ],
         "tests": [
           "tests/reference-apply-audit.ts",
@@ -1730,7 +1749,8 @@
           "src/utils/planBadges.ts",
           "src/server/planBadgeShared.ts",
           "src/server/planReviewRoutes.ts",
-          "src/utils/courseTags.ts"
+          "src/utils/courseTags.ts",
+          "src/server/planReviewRoutes.ts#/api/plan-badges"
         ],
         "tests": [
           "tests/sheet-membership-audit.ts",
@@ -1822,7 +1842,9 @@
         "code": [
           "src/server/planSheetRoutes.ts",
           "src/components/PlanSheetPublisher.tsx",
-          "src/utils/collegeTrack.ts"
+          "src/utils/collegeTrack.ts",
+          "src/server/planSheetRoutes.ts#/api/plan-sheets/publish",
+          "src/server/planSheetRoutes.ts#/api/plan-sheets/unpublish"
         ],
         "tests": [
           "tests/plan-sheet-audit.ts"
@@ -1869,7 +1891,10 @@
           "src/server/planSheetRoutes.ts",
           "src/server/planSheetPage.ts",
           "src/server/planSheetReferenceLayout.ts",
-          "public/plans/_template/sheet.html"
+          "public/plans/_template/sheet.html",
+          "src/server/planSheetRoutes.ts#/plans/",
+          "src/server/planSheetRoutes.ts#/plans/:dept/",
+          "src/server/planSheetRoutes.ts#/plans/:dept/:plan/"
         ],
         "tests": [
           "tests/plan-sheet-audit.ts"
@@ -1911,7 +1936,9 @@
         "code": [
           "src/server/studyProposalRoutes.ts",
           "src/utils/studyProposal.ts",
-          "src/components/proposal/StudyProposalWorkspace.tsx"
+          "src/components/proposal/StudyProposalWorkspace.tsx",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/:id"
         ],
         "tests": [
           "tests/study-proposal-audit.ts",
@@ -1954,7 +1981,8 @@
         "code": [
           "src/server/studyProposalEngine.ts",
           "src/utils/studyProposal.ts",
-          "src/server/studyProposalRoutes.ts"
+          "src/server/studyProposalRoutes.ts",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/evaluate"
         ],
         "tests": [
           "tests/study-proposal-flow-audit.ts",
@@ -2005,7 +2033,9 @@
         "code": [
           "src/server/studyProposalRoutes.ts",
           "src/utils/studyProposal.ts",
-          "src/server/studyProposalPage.ts"
+          "src/server/studyProposalPage.ts",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/:id/send",
+          "src/server/studyProposalRoutes.ts#/api/public/request/:token/proposals/:pid/respond"
         ],
         "tests": [
           "tests/study-proposal-audit.ts",
@@ -2052,7 +2082,9 @@
       "evidence": {
         "code": [
           "src/server/studyProposalRoutes.ts",
-          "src/utils/studyProposal.ts"
+          "src/utils/studyProposal.ts",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/:id/commit",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/:id/undo-commit"
         ],
         "tests": [
           "tests/study-proposal-flow-audit.ts"
@@ -2090,7 +2122,8 @@
         "code": [
           "src/server/studyProposalEngine.ts",
           "src/utils/proposalVacancyScope.ts",
-          "src/components/proposal/ProposalVacancies.tsx"
+          "src/components/proposal/ProposalVacancies.tsx",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/vacancies"
         ],
         "tests": [
           "tests/study-proposal-studio-audit.ts"
@@ -2127,7 +2160,9 @@
         "code": [
           "src/server/studyProposalPage.ts",
           "src/server/studyProposalAlert.ts",
-          "src/server/routes/publicRequestRoutes.ts#L1571"
+          "src/server/routes/publicRequestRoutes.ts#L1571",
+          "src/server/studyProposalRoutes.ts#/api/public/request/:token/proposals",
+          "src/server/routes/publicRequestRoutes.ts#/r/:token/proposal/:pid"
         ],
         "tests": [
           "tests/study-proposal-public-page-audit.ts"
@@ -2255,6 +2290,500 @@
         ]
       },
       "inferred": true
+    },
+    {
+      "id": "FR-PLN-030",
+      "kind": "functional",
+      "title": {
+        "ar": "مرحلة التدريب: موجات ومقررات مسموحة",
+        "en": "Training phase: waves and allowed courses"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للقسم (الإذن 7 وفي نطاقه) فتح مرحلة التدريب بموعد إغلاق قادم بتوقيت الكويت، لمدرّبين من فئة مساعد التدريب وحدهم موزّعين على موجات أولوية تفصل بينها ساعات من 0 إلى 336، لا يتكرر فيها مدرّب في موجتين، مع تذكير قبل الإغلاق بساعات من 1 إلى 168 (24 افتراضياً) ومقررات مسموحة لكل مدرّب تُضبط قبل الفتح أو أثناءه (بلا قائمة = بلا قيد). ويجب أن يرسل كل موجة حلّ موعدها عند قراءة اللوحة وكل عشر دقائق، مرة واحدة بتعليمها قبل الإرسال، فيصدر لكل مدرّب رابط طلب بصفة «مرحلة التدريب» صالحاً حتى أبعد موعدَي (الإغلاق + يوم) ونهاية الفصل، ويستبدل طلبه غير المرسل محتفظاً ببنود «أبقِه» وحدها، ويضيف سطراً في سجل الإرسال وتنبيهاً إلى كرت المدرّب، وأن يتيح إغلاق المرحلة يدوياً.",
+        "en": "The system shall let the department (permission 7, within scope) open the training phase with a future closing time in Kuwait time, for training-assistant members only, grouped in priority waves separated by 0 to 336 hours with no member in two waves, with a reminder 1 to 168 hours before closing (24 by default) and allowed courses per trainee set before or during the phase (no list means no restriction). It shall send every due wave on reading the panel and every ten minutes, once, marking it sent before sending, issuing each trainee a request link in training-phase mode valid until the later of closing plus one day and the end of the term, superseding their unsubmitted request while keeping only its keep items, adding a send-log line and a notification to the trainee's card, and shall allow closing the phase manually."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "موعد إغلاق ماضٍ أو غير صالح يُردّ بـ400، وموجات بلا مدرّب من فئة مساعد التدريب تُردّ بـ400 «اختر مدرّباً واحداً على الأقل.»، وفصل مجمّد بـ409.",
+          "en": "A past or invalid closing time is refused with 400, waves with no training assistant are refused with 400, and a frozen term with 409."
+        },
+        {
+          "ar": "GET ta-phase يعيد الشعب الشاغرة وملخصها والمدرّبين بنصابهم وعدد ما اختاروه وهل فُتح الرابط وأُرسل، وحالة مرحلة الأعضاء (موعد إغلاقها وهل أُغلقت).",
+          "en": "GET ta-phase returns the vacant sections and their summary, the trainees with their load, how many they chose and whether the link was opened and sent, and the faculty phase state (its closing time and whether it closed)."
+        },
+        {
+          "ar": "GET ta-trainees يعيد معرّفات المدرّبين فقط لوسم «تدريب»، لمن يحمل أحد الأذونات 3 أو 7 أو 8 أو 9 أو 10 أو 14 أو 16 أو 17 في نطاقه.",
+          "en": "GET ta-trainees returns only trainee ids for the training tag, to holders of any of permissions 3, 7, 8, 9, 10, 14, 16 or 17 within scope."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/offeringRoutes.ts#/api/ta-phase",
+          "src/server/routes/offeringRoutes.ts#/api/ta-phase/open",
+          "src/server/routes/offeringRoutes.ts#/api/ta-phase/close",
+          "src/server/routes/offeringRoutes.ts#/api/ta-phase/allowed",
+          "src/server/routes/offeringRoutes.ts#/api/ta-trainees",
+          "src/server/routes/offeringRoutes.ts#dispatchTaWaves",
+          "src/utils/taPhase.ts#planWaves"
+        ],
+        "tests": [
+          "tests/ta-phase-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-031",
+      "kind": "functional",
+      "title": {
+        "ar": "رصيد مقاعد المرشد",
+        "en": "Advisor seat ledger"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ لكل قسم وفصل إعداد رصيد مقاعد المرشد: رصيداً إضافياً عاماً ولكل مقرر ولكل شعبة (الشعبة ثم المقرر ثم العام، من 0 إلى 200)، وسعة أساسية افتراضية ولكل شعبة، وتوزيعاً عادلاً بعدد المرشدين، بختم إصدار يرفض الحفظ فوق تعديل أحدث بـ409. ويجب أن يحسب لكل شعبة سقفاً = أصغر قيمتي (السعة الأساسية + الرصيد) وأصغر سعة قاعاتها، وأن يقبل إضافة المرشد من 1 إلى 50 مقعداً كاملةً أو لا شيء في معاملة واحدة، ويرفضها إن لم تكفِ المقاعد أو تجاوزت نصيبه العادل مع اقتراح حتى ثلاث شعب بديلة للمقرر نفسه الأكثر فراغاً أولاً، وأن يقبل طلب استثناء (1 إلى 50 مقعداً وملاحظة حتى 300 حرف) معلّقاً عند المسؤول.",
+        "en": "The system shall keep per department and term the advisor seat configuration: an extra quota globally, per course and per section (section, then course, then global, 0 to 200), a default and per-section base capacity, and a fair split by advisor count, with a revision stamp refusing a save over a newer edit with 409. It shall compute for each section a cap equal to the smaller of (base capacity + quota) and the smallest capacity of its rooms, shall accept an advisor adding 1 to 50 seats wholly or not at all in one transaction, refusing when seats are insufficient or the advisor's fair share would be exceeded and suggesting up to three alternative sections of the same course, emptiest first, and shall accept an exception request (1 to 50 seats and a note up to 300 characters) left pending with the administrator."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "إضافة لشعبة بلا سعة أساسية تُردّ بـ409 «لم تُحدَّد السعة الأساسية لهذه الشعبة بعد.»، ولشعبة ليست في جدول القسم بـ404.",
+          "en": "Adding to a section with no base capacity is refused with 409, and to a section not in the department's schedule with 404."
+        },
+        {
+          "ar": "ختم إصدار قديم (عدد الإضافات التي رآها المرشد) يُردّ بـ409 ولا يُكتب شيء، ومرشدان معاً لا يتجاوزان السقف.",
+          "en": "A stale stamp (the number of additions the advisor saw) is refused with 409 with nothing written, and two advisors together never exceed the cap."
+        },
+        {
+          "ar": "اللون أحمر عند نفاد المتبقي، وأصفر عند 30% أو أقل من الرصيد أو مقعدين أو أقل، والقراءة تعيد آخر 50 طلب استثناء والشعب غير الخضراء مع ما أضافه كل مرشد.",
+          "en": "The tone is red when nothing remains and yellow at 30% of the extra or less or two seats or fewer, and the read returns the latest 50 exception requests and the non-green sections with each advisor's additions."
+        },
+        {
+          "ar": "ضبط الإعداد يتطلب الإذن 7، والإضافة والاستثناء والقراءة تقبل الإذن 7 أو 14، وcanConfigure خطأ للمرشد وللصفات للعرض فقط.",
+          "en": "Configuring requires permission 7, adding, exceptions and reading accept permission 7 or 14, and canConfigure is false for the advisor and read-only roles."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/offeringRoutes.ts#/api/advisor-seats",
+          "src/server/routes/offeringRoutes.ts#/api/advisor-seats/config",
+          "src/server/routes/offeringRoutes.ts#/api/advisor-seats/add",
+          "src/server/routes/offeringRoutes.ts#/api/advisor-seats/exception",
+          "src/utils/advisorSeats.ts#seatState",
+          "src/utils/advisorSeats.ts#tryAddSeats"
+        ],
+        "tests": [
+          "tests/colleagues-advising-registration-audit.ts",
+          "tests/owner-features-2026-10-28-audit.ts",
+          "tests/demo-every-role-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-032",
+      "kind": "functional",
+      "title": {
+        "ar": "لوحة حالة الطرح وقرار «افتحه للطرح»",
+        "en": "Offering panel and the open-for-offering decision"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد للوحة حالة الطرح (الإذن 7 وفي النطاق) وثيقة الحالات، وحكم «لم نصل بعد»، وتبويبي الصحيفة الجديدة والقديمة، ومقررات القسم في الكلية مرتبة برقم المقرر بمستواها وعدد شعبها في الفصل، ومقررات مقترحة للمستقبل من الصحيفة الجديدة، وأسماء الأساتذة الذين وضعوا نجمة «اهتمام مستقبلي» لكل مقرر. ويجب أن يحفظ الحالات مع خيار عرض المقرر غير المتاح (إخفاء أو تعتيم)، فيحذف المدخل الافتراضي، ويبقي قرار «افتحه للطرح» ما لم يُرسل صراحة، ويمسح ذاكرتي الحالات والوصول، ويكتب سطراً في الأثر. كما يجب أن يقرأ حكم الوصول لأي مستخدم في النطاق، وأن يقصر «افتحه للطرح» وإعادته للقاعدة على غير صفات العرض فقط.",
+        "en": "The system shall return to the offering panel (permission 7, within scope) the states document, the not-yet-reached verdict, the new and old sheet tabs, the department's courses in the college sorted by course number with their level and section count in the term, suggested future courses from the new sheet, and the names of members who starred each course for future interest. It shall save the states with a display choice for unavailable courses (hide or fade), dropping default entries, keeping an open-for-offering decision unless explicitly sent, clearing the states and reach caches and writing an audit line. It shall also let any user in scope read the reach verdict, and restrict open-for-offering and returning to the rule to roles that are not read-only."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "course-reach/open من صفة للعرض فقط يُردّ بـ403 «للعرض فقط.»، وبلا مقرر بـ400.",
+          "en": "course-reach/open from a read-only role is refused with 403, and with no course with 400."
+        },
+        {
+          "ar": "حفظ حالة بلا حقل reachOpen لمقرر مفتوح للطرح يبقيه مفتوحاً، وopen:false يعيده للقاعدة.",
+          "en": "Saving a state without a reachOpen field for a course opened for offering keeps it open, and open false returns it to the rule."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/offeringRoutes.ts#/api/course-offering",
+          "src/server/routes/offeringRoutes.ts#/api/course-reach",
+          "src/server/routes/offeringRoutes.ts#/api/course-reach/open",
+          "src/components/CourseOfferingPanel.tsx"
+        ],
+        "tests": [
+          "tests/ta-phase-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-033",
+      "kind": "functional",
+      "title": {
+        "ar": "من يدرّس كل مقرر: أعداد لا أسماء",
+        "en": "Who teaches each course: counts, not names"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عند فتح لوحة الفجوة (لا مع كل شاشة) لكل مقرر في القسم أعداد من يدرّسه في الفصل ومن درّسه في فصول أسبق بالتسلسل الزمني من أساتذة القسم، مستبعداً المنتدبين و«هيئة تدريسية» ومن تغيّرت حالته (متقاعد أو متفرّغ)، ومعه ما بقي من سعة شعب المنتدبين العاملين في القسم هذا الفصل بحسب عدد شعبهم في الفصل كله.",
+        "en": "When the gap panel opens (not with every screen) the system shall return for each department course the counts of who teaches it this term and who taught it in chronologically earlier terms among the department's own members, excluding visiting instructors, the placeholder faculty and those whose status changed (retired or on leave), together with the remaining section allowance of the visiting instructors working in the department this term, by their section count across the whole term."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "فصل قادم لا يُحسب «درّسه سابقاً»، والردّ لا يحمل أسماء أساتذة.",
+          "en": "A future term does not count as taught before, and the reply carries no member names."
+        },
+        {
+          "ar": "المسار يتطلب الإذن 7 والنطاق، وخارجه 403.",
+          "en": "The route requires permission 7 and scope, and outside it 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts#/api/schedules/section-gap/staffing",
+          "src/server/routes/planningRoutes.ts#sectionGapStaffing"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-PLN-034",
+      "kind": "functional",
+      "title": {
+        "ar": "قراءات التخطيط للقراءة فقط",
+        "en": "Read-only planning readings"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم بالإذن 7 وفي النطاق قراءات لا تكتب شيئاً: إنذار الفصل المبكر لقسم وفصل (الأحدث إن لم يُحدَّد) من جدوله ومقرراته وأساتذته والمتبقي والشاغر المحفوظين من الكشف وحده؛ ومعاينة فتح من 1 إلى 8 شعب لمقرر من القسم بمحرك الفتح نفسه (قاعة وأستاذ بنصابه ووقت بلا تعارض) بعد أثر حالة الطرح؛ والإرشاد الأكاديمي للقسم الذي لا تستعمله بوابات الحفظ والتوقيع والاعتماد؛ وقراءة الطلب من إجابات الاستبيان مع توقّع من الفصل السابق حين لا إجابات، وإصلاحات مرتبة بمحاكاة التسجيل، واقتراحات فتح الشعب، وروابط الاستبيان الحية، وحالات الطلبة، وعبارة «مبنيّ على من أجاب الاستبيان فقط — ليس بيانات التسجيل.»؛ وصندوق ملاحظات الأساتذة لأقسام القارئ وحدها بالمقرر والوقت واليوم والقاعة.",
+        "en": "With permission 7 and within scope the system shall provide readings that write nothing: the early term warning for a department and term (the newest when none is given) from its schedule, courses, members and the remaining and vacant figures saved from the report only; a preview of opening 1 to 8 sections of a department course with the same opening engine (a hall, a member with available load and a conflict-free time) after the offering states apply; the department's academic advice, never used by save, sign or approval gates; the demand reading from survey answers with a prediction from the previous term when there are no answers, repairs ranked by registration simulation, section opening proposals, live survey links, student cases and the statement that it is built only on those who answered the survey and is not registration data; and the members' notes tray for the reader's own departments with course, time, day and room."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "openings-preview لمقرر ليس في القسم يُردّ بـ404، وcount خارج 1 إلى 8 يُقصّ إلى الحد.",
+          "en": "openings-preview for a course outside the department returns 404, and a count outside 1 to 8 is clamped."
+        },
+        {
+          "ar": "تعذّر الإرشاد الأكاديمي يعيد 503 «التوصيات غير متاحة الآن؛ لا يؤثر ذلك على الجدول.».",
+          "en": "An academic-advice failure returns 503 saying recommendations are unavailable and the schedule is unaffected."
+        },
+        {
+          "ar": "forecast/term بلا كلية أو قسم يُردّ بـ400، والردّ يحمل scopeKey ليرمي المتصفح القراءة البائتة.",
+          "en": "forecast/term without college or department is refused with 400, and the reply carries scopeKey so the browser discards stale readings."
+        },
+        {
+          "ar": "التوقّع من الفصل السابق لا يُحسب إذا وُجدت إجابة واحدة في الفصل نفسه.",
+          "en": "The previous-term prediction is not computed when the term itself has a single answer."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts#/api/forecast/term",
+          "src/server/routes/planningRoutes.ts#/api/schedules/openings-preview",
+          "src/server/routes/planningRoutes.ts#/api/schedules/academic-advice",
+          "src/server/routes/planningRoutes.ts#/api/schedules/demand",
+          "src/server/routes/planningRoutes.ts#/api/schedules/staff-inbox"
+        ],
+        "tests": [
+          "tests/term-forecast-audit.ts",
+          "tests/demo-fill-audit.ts",
+          "tests/student-registration-audit.ts",
+          "tests/role-scope-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-035",
+      "kind": "functional",
+      "title": {
+        "ar": "صفوف مراجعة البناء بصيغة الاستيراد",
+        "en": "Build review rows in import form"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد للمراجعة قبل التنزيل مواعيد القسم الحالية والشعب المبنية المختارة (مفاتيح مقرر:شعبة، وبلا اختيار كلها) صفوفاً بأعمدة الاستيراد نفسها (القاعة، المبنى، الوقت، الأيام، الرقم المدني، أستاذ المقرر، الشعبة، المقرر، رمز المقرر) مع البداية والنهاية صريحتين، وعدد الحالية والمضافة، ومفتاح كل موعد حالي، وعدد الشعب المعلّقة القاعة والتي بلا قاعة، دون كتابة.",
+        "en": "Before applying, the system shall return for review the department's current appointments and the chosen built sections ('course:section' keys, all when none is chosen) as rows with the same import columns (room, building, time, days, civil ID, course instructor, section, course, course code) with explicit start and end, the counts of current and added rows, a key for each current appointment, and the counts of pending-room and roomless sections, writing nothing."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "الشعبة المضافة تحمل الرقم المدني فارغاً، والوقت يُرسل fstarttime وfendtime فلا ينقلب بترتيب العرض العربي.",
+          "en": "An added section carries an empty civil ID, and the time is sent as fstarttime and fendtime so Arabic display order cannot reverse it."
+        },
+        {
+          "ar": "count = existing + added، وpending وroomless يعدّان من المضافة وحدها.",
+          "en": "count equals existing plus added, and pending and roomless count added rows only."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/planningRoutes.ts#/api/section-build/review-rows"
+        ],
+        "tests": [
+          "tests/section-build-live-audit.ts",
+          "tests/paged-findings-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-036",
+      "kind": "functional",
+      "title": {
+        "ar": "أدوات تنظيف الكتالوج للحساب الرئيسي",
+        "en": "Catalogue clean-up tools for the root account"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقصر على الحساب الرئيسي أدوات تعرض معاينة قبل أي كتابة وتعيد الفحص لحظة التنفيذ: المقررات الدخيلة (مقرر خارج كل صحيفة لقسمه ولا جدول له وله نسخة برقمه واسمه في قسم آخر داخل صحيفته) تُحذف ما اختير منها؛ والمقررات المكررة في القسم الواحد (رمز قصير وكامل للهوية نفسها) يُبقى أولاها بالبقاء ويُحذف ما لم يُستعمل؛ وإملاءا المقرر الواحد يُدمجان بتأكيد صريح على اسم معتمد من إملاءاته ما لم يُستعمل عند الطلبة أو القواعد؛ ومقررات الأقسام الخدمية بلا صحائف تُضاف بمعاينة افتراضية وسعة صفر دون مسّ الموجود؛ وحسابات الأقسام الناقصة (رئيس قسم، رئيس جدول، مرشد) تُنشأ لما يُختار وتُعرض كلمتها الأولى مرة واحدة دون أن تُكتب في الأثر؛ وتصحيح مقررات الأقسام الأخرى من الصحائف معطَّل.",
+        "en": "The system shall restrict to the root account tools that show a preview before any write and re-check at execution: foreign courses (outside every sheet of their department, unscheduled, and with a copy of the same number and name in another department within its sheet) are deleted as chosen; duplicate courses within one department (a short and a full code of the same identity) keep the one most entitled to stay and delete the unused; two spellings of one course are merged with explicit confirmation to a canonical name taken from its spellings unless used by students or rules; service-department courses without sheets are added with a default dry run and zero capacity, leaving existing ones untouched; missing department accounts (department head, schedule chair, advisor) are created for those chosen, showing their first password once without writing it to the audit trail; and correcting other departments' courses from the sheets is disabled."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "غير الحساب الرئيسي يتلقى 403 «للحساب الرئيسي وحده.»، والحذف بلا معرّفات يُردّ بـ400.",
+          "en": "Any account other than the root receives 403, and deletion without ids is refused with 400."
+        },
+        {
+          "ar": "الدمج بلا confirm:true يُردّ بـ428، وبمقررات لم تعد إملاءً واحداً بـ409، واسم ليس من إملاءاته بـ400.",
+          "en": "Merging without confirm true is refused with 428, with courses that are no longer one spelling with 409, and a name not among its spellings with 400."
+        },
+        {
+          "ar": "إضافة مقررات خدمية لقسم له صحيفة تُردّ بـ422، وsheet/reconcile يعيد 409 بأن التصحيح معطَّل حتى تُؤكَّد رموز الأقسام.",
+          "en": "Adding service courses to a department that has a sheet is refused with 422, and sheet/reconcile returns 409 saying the correction is disabled until department codes are confirmed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/foreign",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/foreign/delete",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/duplicates",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/duplicates/delete",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/spelling-twins",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/spelling-twins/merge",
+          "src/server/planReviewRoutes.ts#/api/plan-review/service-courses/groups",
+          "src/server/planReviewRoutes.ts#/api/plan-review/service-courses/apply",
+          "src/server/planReviewRoutes.ts#/api/plan-review/section-accounts",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/reconcile"
+        ],
+        "tests": [
+          "tests/plan-sheet-import-route-audit.ts",
+          "tests/course-spelling-merge-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-037",
+      "kind": "functional",
+      "title": {
+        "ar": "دفعة رفع الصحائف والصحيفة السابقة",
+        "en": "Sheet upload batch and the previous sheet"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للحساب الرئيسي بحدّ 150 ملفاً في الدقيقة: قراءة ترويسة الصحيفة بلا كتابة (البرنامج والسنة والقسم وهل هي جديدة ومقروءة) لتصفية الدفعة؛ ومقارنة صحيفة بمقررات قسم مختار (تُعدّ متشابهة إن طابق 40% أو أكثر رقماً واسماً أو اسماً)؛ ولقطة حال النظام لكل قسم بمقرراته وصحائفه؛ وتوجيه الصحيفة بلا قسم مختار إلى القسم المطابق اسمه أو رمزه، وإنشاء قسم ناقص في كلية يختارها المسؤول صراحة مع حساباته؛ وإنهاء الصحيفة السابقة لأقسام يختارها (حتى 400) فقط حين يكون لمسارها جديدة فعّالة فيها مقررات، أو إعادتها. ويجب أن يعيد لأي مستخدم هل أُنهيت السابقة لقسم ومقرراته التشغيلية.",
+        "en": "The system shall let the root account, limited to 150 files per minute: read a sheet's header without writing (programme, year, department, whether new and readable) to filter the batch; compare a sheet with a chosen department's courses (similar when 40% or more match by number and name or by name); take a snapshot of every department's courses and sheets; route a sheet with no chosen department to the department matching its name or code, creating a missing department in a college the administrator explicitly picks, together with its accounts; and end the previous sheet for chosen departments (up to 400) only where their track has an active new sheet with courses, or restore it. It shall return to any user whether a department's previous sheet has ended and its operational courses."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف لا يبدأ بـ%PDF- يُردّ بـ422 في القراءة والمقارنة، والمقارنة بلا قسم بـ422.",
+          "en": "A file not starting with %PDF- is refused with 422 in scanning and comparing, and comparing with no department with 422."
+        },
+        {
+          "ar": "إنهاء السابقة لقسم بلا جديدة فعّالة فيها مقررات يتركه ويعيده في skipped.",
+          "en": "Ending the previous sheet for a department with no active new sheet holding courses leaves it and returns it in skipped."
+        },
+        {
+          "ar": "previous-ended بلا قسم يعيد ended:false وقائمة فارغة.",
+          "en": "previous-ended with no department returns ended false and an empty list."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/scan",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/compare",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/audit",
+          "src/server/planReviewRoutes.ts#/api/plan-review/sheet/import",
+          "src/server/planReviewRoutes.ts#/api/plan-review/previous-plans",
+          "src/server/planReviewRoutes.ts#/api/plan-review/previous-ended",
+          "src/components/PlanSheetUpload.tsx",
+          "src/components/PreviousPlansPanel.tsx"
+        ],
+        "tests": [
+          "tests/plan-sheet-import-route-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-038",
+      "kind": "functional",
+      "title": {
+        "ar": "اعتماد كل الصحائف واستيراد قواعدها",
+        "en": "Approving all sheets and importing their rules"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للحساب الرئيسي معاينة اعتماد كل مسوّدات الصحائف (الجاهزة والمحجوبة بحواجز) ثم اعتماد ما عاينه وحده بإصداراته، فتُعدّ المسوّدة التي تغيّرت بعد المعاينة «تغيّرت» ولا تُعتمد، وتُصلح المجموعات المكررة قبل الاعتماد، ويُعاد نشر الصحيفة المنشورة. كما يجب أن يتيح له استيراد قواعد الصحائف من أسطر (حتى 20000) إلى مسوّدات قيد المراجعة لا تُعتمد، متخطياً الخطة التي لها مسوّدة قيد المراجعة ما لم يُطلب الاستبدال، ومعيداً حتى 300 تشخيص مع عددها الكلي.",
+        "en": "The system shall let the root account preview approving all sheet drafts (ready and blocked) and then approve only what was previewed with its versions, counting a draft changed after the preview as stale and not approving it, repairing duplicate groups before approval and republishing a published sheet. It shall also let it import sheet rules from lines (up to 20000) into review drafts that are never approved, skipping a plan that already has a draft under review unless replacement is requested, and returning up to 300 diagnostics with their total."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "approve-all بلا عناصر معاينة يُردّ بـ400 «عاين الصحائف أولاً.»، والردّ يحمل approved وstale وblocked.",
+          "en": "approve-all without previewed items is refused with 400, and the reply carries approved, stale and blocked."
+        },
+        {
+          "ar": "استيراد بلا أسطر يُردّ بـ400، وغير الحساب الرئيسي بـ403.",
+          "en": "Importing with no lines is refused with 400, and any non-root account with 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planReviewRoutes.ts#/api/plan-review/approve-all",
+          "src/server/planReviewRoutes.ts#/api/plan-review/import",
+          "src/utils/curriculumRulesImport.ts"
+        ],
+        "tests": [
+          "tests/plan-sheet-import-route-audit.ts",
+          "tests/plan-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-PLN-039",
+      "kind": "interface",
+      "title": {
+        "ar": "قراءات مراجعة الصحائف وقائمة النشر",
+        "en": "Plan review reads and the publishing list"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد لحالة المراجعة المسوّدات المعلّقة والمعتمدة التي يراها الحساب، وأقسامه بصحائفها غير المؤرشفة (المعلّق أولاً ثم الفعّالة)، ووجهات الرفع بمسارات الأقسام للحساب الرئيسي وحده، وهل يملك الاعتماد (رئيس الجدول أو الإدارة) والاستيراد؛ وأن يعيد الصحائف المرجعية للمقارنة للقراءة فقط ولقسم تكنولوجيا التعليم وحده؛ وأن يعيد عرض الصحيفة وتعديل قاعدة مقرر ومجموعة اختيارية وحذفها لمن يملك التعديل، مع سطر في الأثر لكل تعديل، وأن تسحب المجموعة الجديدة مقرراتها من غيرها؛ وأن يعيد شارات الصحائف وأنواع المتطلبات في نطاق الحساب ويمسح ذاكرتها مع fresh=1؛ وأن يعيد قائمة النشر لكل مسار قسم بصحائفه المعتمدة وهل نُشرت ومتى وهل النسخة المنشورة أقدم من المعتمدة.",
+        "en": "The system shall return for the review status the pending and approved drafts the account can see, its departments with their non-archived sheets (pending first, then active), upload targets by department track for the root account only, and whether it may approve (schedule chair or administration) and import; shall return the reference sheets for comparison read-only and for the educational technology department only; shall return the sheet view and allow editing a course rule and an elective group and deleting it to those who may edit, with an audit line per edit, a new group taking its courses away from other groups; shall return sheet badges and requirement kinds within the account's scope, clearing their cache with fresh=1; and shall return the publishing list per department track with its approved sheets, whether and when each was published, and whether the published copy is older than the approved one."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "standard",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعديل قاعدة مقرر ليس في الصحيفة يُردّ بـ400، ومجموعة بلا اسم بـ400، ومن لا يملك التعديل بـ403.",
+          "en": "Editing a rule for a course not in the sheet is refused with 400, a group with no name with 400, and someone without edit rights with 403."
+        },
+        {
+          "ar": "المرجعية لقسم خارج النطاق تُردّ بـ403، ولغير تكنولوجيا التعليم تعيد قائمة فارغة.",
+          "en": "The reference for a department outside scope is refused with 403, and for any other department returns an empty list."
+        },
+        {
+          "ar": "stale صحيح حين يختلف إصدار القواعد المنشور عن المعتمد.",
+          "en": "stale is true when the published rule version differs from the approved one."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/planReviewRoutes.ts#/api/plan-review/status",
+          "src/server/planReviewRoutes.ts#/api/plan-review/reference",
+          "src/server/planReviewRoutes.ts#/api/plan-review/plan",
+          "src/server/planReviewRoutes.ts#/api/plan-review/rule",
+          "src/server/planReviewRoutes.ts#/api/plan-review/group",
+          "src/server/planReviewRoutes.ts#/api/plan-review/group/delete",
+          "src/server/planReviewRoutes.ts#/api/plan-badges",
+          "src/server/planSheetRoutes.ts#/api/plan-sheets"
+        ],
+        "tests": [
+          "tests/plan-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-PLN-040",
+      "kind": "functional",
+      "title": {
+        "ar": "مسارات مساحة عمل المقترح وسحبه",
+        "en": "Proposal workspace routes and withdrawal"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم للقسم (الإذن 7، بحد 120 طلباً في الدقيقة) قائمة المقترحات في الفصل ونطاق القارئ مع تسجيل انتهاء الصلاحية عند أول قراءة بعده، وتاريخ نزول المقرر في الفصول السابقة لاقتراح أوضاعه المعتادة، وسياق مساحة العمل (الأستاذ وجدوله ومقررات القسم التشغيلية بوسم الصحيفة وحكم الوصول في كل موقع يملك الكتابة فيه)، وأوقاتاً بديلة لبند واحد مفحوصة على المقترح كله، وأن يتيح سحب المقترح بختم إصداره ما لم يُثبَّت، مع ملاحظة على طلب الأستاذ إن كان قد أُرسل. كما يجب أن يعيد للأستاذ برابطه الشخصي (بحد 120 في الدقيقة) قائمة مقترحاته المرسلة وتفصيل كل منها، بجواب 404 واحد لمقترح غيره أو غير موجود أو غير مرسل.",
+        "en": "The system shall provide the department (permission 7, limited to 120 requests per minute) the list of proposals in the term and the reader's scope, recording expiry at the first read after it, the course's layouts in earlier terms to suggest its usual placements, the workspace context (the member, their schedule, the department's operational courses with sheet tag and reach verdict at every site the user may write in), alternative times for one item checked against the whole proposal, and withdrawal of a proposal with its revision stamp unless committed, with a note on the member's request when it was sent. It shall also return to the member through their personal link (limited to 120 per minute) the list of their sent proposals and each one's detail, with one 404 answer for another member's, a missing or an unsent proposal."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "القائمة بلا فصل تُردّ بـ400، وتاريخ المقرر بلا مقرر أو قسم بـ400 وخارج النطاق بـ403.",
+          "en": "The list without a term is refused with 400, and course history without a course or department with 400 and outside scope with 403."
+        },
+        {
+          "ar": "سحب مقترح مثبّت يُردّ بـ409، وبختم قديم بـ409، وسحب المسحوب يعيده كما هو.",
+          "en": "Withdrawing a committed proposal is refused with 409, with a stale stamp with 409, and withdrawing a withdrawn one returns it unchanged."
+        },
+        {
+          "ar": "بديل لبند ليس في المقترح يُردّ بـ400 «المادة غير موجودة في المقترح.».",
+          "en": "Alternatives for an item not in the proposal are refused with 400."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studyProposalRoutes.ts#/api/study-proposals",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/course-history",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/context",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/alternatives",
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/:id/withdraw",
+          "src/server/studyProposalRoutes.ts#/api/public/request/:token/proposals",
+          "src/server/studyProposalRoutes.ts#/api/public/request/:token/proposals/:pid"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts",
+          "tests/rehearsal-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

@@ -696,11 +696,15 @@
         {
           "ar": "تسمية النطاق في المجاميع «الجامعة» أو «الكلية» أو «النطاق» بحسب القارئ.",
           "en": "The totals' scope label is the university, the college or the scope, depending on the reader."
+        },
+        {
+          "ar": "بلا termId يُحسب الميزان لأحدث فصل؛ وتُعدّ القاعات كل قاعة يدرّس فيها القسم فعلاً بعد ردّ التهجئة القديمة إلى قاعتها المسجلة وإسقاط الفراغ و«---»، ويُعاد بجانبها عدد المتحقق منها في السجل (verifiedRooms) واسم أثقل أستاذ وعدد المواعيد المتأخرة.",
+          "en": "Without termId the balance is computed for the newest term; halls count every hall the department actually teaches in after folding legacy spellings onto the registered hall and dropping blanks and «---», returned beside the number verified in the registry (verifiedRooms), the heaviest instructor's name and the count of late appointments."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/routes/reportsRoutes.ts",
+          "src/server/routes/reportsRoutes.ts#/api/reports/department-balance",
           "src/components/Reports.tsx"
         ],
         "tests": [
@@ -1702,6 +1706,168 @@
       "evidence": {
         "code": [
           "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/dean-notify-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-026",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات استعلام المنتدبين",
+        "en": "Visiting-instructor query routes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم لحامل أحد أذونات التقارير (7 أو 8 أو 9 أو 10 أو 14 أو 16 أو 17) ثلاثة مسارات: GET /api/reports/visiting-roster يعيد منتدبي القسم في الفصل (أو منتدبي كل أقسام الكلية لمن يغطيها كلها) ويعيد قائمة فارغة بلا كلية أو فصل؛ وGET /api/reports/visiting-teaching يقرأ تدريس منتدبي القسم العلمي في كل كليةٍ فيها قسمٌ مناظر يملك القارئ صلاحيتها ويشترط الكلية والقسم والفصل؛ وGET /api/reports/visiting-history يعيد مصفوفة الفصول الأحدث أولاً وكل منتدبٍ بحضوره في كل فصل وعلامة «ما زال في دليل القسم»، والعائلة بأقسامها المسموحة وغيرها، وcomplete = false إن نقص منها قسم؛ ويُخفى الرقم المدني عمن لا يحق له في المسارات الثلاثة.",
+        "en": "The system shall serve to holders of one of the report permissions (7, 8, 9, 10, 14, 16 or 17) three routes: GET /api/reports/visiting-roster returns the department's visiting instructors in the term (or those of every department of the college for someone covering it all) and an empty list without a college or term; GET /api/reports/visiting-teaching reads the teaching of the scientific department's visiting instructors in every college holding a matching department the reader may access, requiring college, department and term; and GET /api/reports/visiting-history returns the term matrix newest first with each visiting instructor's presence per term and a «still in the department directory» flag, the family with its allowed and other departments, and complete = false when a department is missing; the civil ID is hidden from those not entitled in all three routes."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean",
+        "viceDean",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "visiting-teaching بلا قسم ← 400 «حدد الكلية والقسم والفصل»؛ وقسم خارج النطاق ← 403.",
+          "en": "visiting-teaching without a department ← 400 «specify college, department and term»; a department outside scope ← 403."
+        },
+        {
+          "ar": "visiting-history بلا كلية ← 400 «حدد الكلية»؛ ومنتدبٌ خرج من الدليل يبقى في فصوله السابقة مع listedNow = false.",
+          "en": "visiting-history without a college ← 400 «specify the college»; an instructor who left the directory stays in past terms with listedNow = false."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts#/api/reports/visiting-roster",
+          "src/server/routes/reportsRoutes.ts#/api/reports/visiting-teaching",
+          "src/server/routes/reportsRoutes.ts#/api/reports/visiting-history",
+          "src/server/visitingTeachingRead.ts",
+          "src/utils/visitingHistory.ts"
+        ],
+        "tests": [
+          "tests/dean-notify-audit.ts",
+          "tests/role-guard-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-027",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارا تقرير التغييرات ومقارنة ملف الهيئة",
+        "en": "The changes report and Authority-file comparison routes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم GET /api/reports/schedule-changes لقسمٍ وفصلٍ في النطاق بحدّ 90 طلباً في الدقيقة، وأن يقبل رقم جولة (round) لا يتجاوز الجولة الجارية وإلا قرأ الجارية، وأساساً (baseline) هو ملف الهيئة متى طُلب صراحةً أو لم تُطلب جولة وإلا لقطة الجولة، وأن يقرأ الجولة الماضية بين أساسها ونهايتها لا مقابل الجدول الحي، ويرفض للعميدين جدولاً لم يُعتمد؛ وأن يخدم GET /api/reports/authority-pdf-diff مقارنة الجدول الحي بأساس ملف الهيئة المحفوظ (فجدولٌ حي فارغ يعني أن كل صف محذوف)، ويجيب سؤال التهيئة meta=1 بـdraftId = null بدل 404 حين لا يوجد ملف.",
+        "en": "The system shall serve GET /api/reports/schedule-changes for a department and term in scope, limited to 90 requests a minute, accepting a round number not beyond the current round (otherwise the current one is read) and a baseline that is the Authority file when asked explicitly or when no round is requested, otherwise the round snapshot, reading a past round between its baseline and its end rather than against the live schedule, and refusing an unapproved schedule to the two deans; and shall serve GET /api/reports/authority-pdf-diff comparing the live schedule with the saved Authority-file baseline (an empty live schedule means every row was deleted), answering the meta=1 setup question with draftId = null instead of 404 when no file exists."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "registrarStaff",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "round = 9 وجولة جارية 2 ← يُقرأ round = 2 بلا خطأ.",
+          "en": "round = 9 with current round 2 ← round = 2 is read without an error."
+        },
+        {
+          "ar": "authority-pdf-diff بلا ملف محفوظ ← 404، ومع meta=1 ← {draftId:null}.",
+          "en": "authority-pdf-diff with no saved file ← 404; with meta=1 ← {draftId:null}."
+        },
+        {
+          "ar": "الطلب الحادي والتسعون في الدقيقة على schedule-changes ← 429.",
+          "en": "The ninety-first request in a minute to schedule-changes ← 429."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts#/api/reports/schedule-changes",
+          "src/server/routes/reportsRoutes.ts#/api/reports/authority-pdf-diff"
+        ],
+        "tests": [
+          "tests/role-scope-audit.ts",
+          "tests/relay-fixes-audit.ts",
+          "tests/server-route-parity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-028",
+      "kind": "interface",
+      "title": {
+        "ar": "مسار تسجيل ختم الورقة المطبوعة",
+        "en": "The printed-sheet stamp registration route"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يسجّل ختم الورقة المطبوعة عبر POST /api/report-stamps بعد أمر الطباعة، للمستخدم الداخل وبحدّ 60 طلباً في الدقيقة، بنوعٍ معروف وفصلٍ وحتى 12 موقعاً كلها في نطاقه وحتى 12 نسخة هيئة وحتى 3000 صف ببصماتها، ويعيد حساب الرمز فيرفض ما لا يطابق، ويقرأ قيم الصفوف من الجدول نفسه، ويعدّ طباعةً جديدة لختمٍ قائم؛ والصفحة العامة /v/:code وقواعد الختم كاملةً موصوفة في وحدة الاعتماد (FR-APR-027).",
+        "en": "The system shall register a printed sheet's stamp through POST /api/report-stamps after the print command, for a signed-in user limited to 60 requests a minute, with a known kind, a term, up to 12 sites all within scope, up to 12 Authority drafts and up to 3000 rows with their fingerprints, recomputing the code and refusing a mismatch, reading row values from the schedule itself, and counting a new print for an existing stamp; the public page /v/:code and the full stamp rules are described in the approval module (FR-APR-027)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "ختمٌ بلا صفوف أو بأكثر من 3000 صف ← 400 «ختمٌ ناقص»؛ وموقع خارج النطاق ← 403.",
+          "en": "A stamp with no rows or more than 3000 rows ← 400 «incomplete stamp»; a site outside scope ← 403."
+        },
+        {
+          "ar": "رمزٌ لا يطابق صفوفه ← 409؛ وختمٌ جديد ← 201 مع staleRows.",
+          "en": "A code not matching its rows ← 409; a new stamp ← 201 with staleRows."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts#/api/report-stamps",
+          "src/utils/reportStamp.ts"
+        ],
+        "tests": [
+          "tests/report-stamp-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-029",
+      "kind": "interface",
+      "title": {
+        "ar": "مسار حِمل القاعات",
+        "en": "The room-load route"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم GET /api/reports/room-load لحامل أحد أذونات التقارير: القاعات الرسمية المعتمدة التي يستعملها القارئ وأوقات انشغالها في الفصل كله (ما له وما لغيره، بلا مقررٍ ولا أستاذ لغيره)، مع بداية اليوم الدراسي ونهايته؛ وأن يقبل الكلية بلا قسم لمن يغطي الكلية كلها، ويقرأ أحدث فصلٍ إن لم يُحدَّد، ويقرأ للعميدين من الجداول النهائية وحدها، ويرتّب القاعات بالمبنى ثم القاعة رقمياً.",
+        "en": "The system shall serve GET /api/reports/room-load to holders of a report permission: the approved official halls the reader uses and their busy times across the whole term (theirs and others', with no course or instructor of others), with the start and end of the teaching day; it shall accept a college without a department for someone covering the whole college, read the newest term when none is given, read final schedules only for the two deans, and order halls by building then hall numerically."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean",
+        "viceDean",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "مبنى 7 قاعة 31 ومبنى 8 قاعة 22 ← يُعرض 7/31 قبل 8/22، و9 قبل 10.",
+          "en": "Building 7 hall 31 and building 8 hall 22 ← 7/31 before 8/22, and 9 before 10."
+        },
+        {
+          "ar": "رئيس قسم بلا sectionId ← 403 «خارج نطاق القسم المسموح لك».",
+          "en": "A department head without sectionId ← 403 «outside your permitted department»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts#/api/reports/room-load"
         ],
         "tests": [
           "tests/dean-notify-audit.ts"

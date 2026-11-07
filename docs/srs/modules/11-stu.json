@@ -929,8 +929,8 @@
         "en": "Masari entry by civil ID and personal code"
       },
       "text": {
-        "ar": "يجب على النظام أن يتيح للطالب فتح ملف «مساري» أو إنشاءه من الرابط الدائم /me بالرقم المدني (١٢ رقماً صحيح المجموع الاختباري) ورمزٍ شخصي من ٦ أرقام يختاره بنفسه، ولا يُنشأ الملف إلا بعد موافقته الصريحة على حفظه، ويُرفض الرمز المؤلف من رقمٍ مكرر أو أرقامٍ متتالية.",
-        "en": "The system shall let a student open or create a Masari profile from the permanent link /me using a 12-digit civil ID that passes the checksum and a 6-digit personal code the student chooses, shall create the profile only after explicit consent to store it, and shall reject a code made of one repeated digit or a run of consecutive digits."
+        "ar": "يجب على النظام أن يتيح للطالب فتح ملف «مساري» أو إنشاءه من الرابط الدائم /me بالرقم المدني (12 رقماً صحيح المجموع الاختباري) ورمزٍ شخصي من 6 أرقام يختاره بنفسه، ولا يُنشأ الملف إلا بعد موافقته الصريحة على حفظه ومع اسمه الثلاثي (6 إلى 80 حرفاً بلا أرقام ولا الرموز < > { } \\)، ويُرفض الرمز المؤلف من رقمٍ مكرر أو أرقامٍ متتالية صعوداً أو نزولاً، وتُحوَّل الأرقام العربية إلى غربية قبل الفحص.",
+        "en": "The system shall let a student open or create a Masari profile from the permanent link /me using a 12-digit civil ID that passes the checksum and a 6-digit personal code the student chooses, shall create the profile only after explicit consent to store it and together with the student's full name (6 to 80 characters with no digits and none of < > { } \\), shall reject a code made of one repeated digit or a run of consecutive digits ascending or descending, and shall convert Arabic-Indic digits to Western digits before checking."
       },
       "priority": "must",
       "status": "implemented",
@@ -949,6 +949,10 @@
         {
           "ar": "إنشاء ملفٍّ موجود ← ٤٠٩ exists؛ وملف جديد ← ٢٠١ مع كوكي جلسة.",
           "en": "Creating an existing profile yields 409 exists; a new profile yields 201 with a session cookie."
+        },
+        {
+          "ar": "إنشاء باسمٍ من 5 أحرف أو فيه رقم ← 400 bad-name، ولا يُنشأ ملف.",
+          "en": "Creating with a 5-character name or a name containing a digit yields 400 bad-name and no profile is created."
         }
       ],
       "evidence": {
@@ -1092,8 +1096,8 @@
         "en": "Student profile lifetime and deletion"
       },
       "text": {
-        "ar": "يجب على النظام أن يحسب لكل ملفٍّ تاريخ حذفٍ هو الأقرب بين التخرج المتوقع + ٣٦٥ يوماً وآخر دخول + ٧٣٠ يوماً (والإنشاء + ٦ سنوات إن لم تُحدَّد صحيفة)، وأن يحذف الملفات المنتهية عند الإقلاع ثم كل ٦ ساعات بدفعةٍ لا تتجاوز ٤٠٠، وأن يجعل «نسيت رمزي» طلبَ حذفٍ يُنفَّذ بعد ٣٠ يوماً ويُلغيه دخولُ صاحب الملف بالرمز.",
-        "en": "The system shall compute for every profile a deletion date equal to the earlier of expected graduation + 365 days and last sign-in + 730 days (creation + 6 years when no plan is set), shall purge expired profiles at start-up and every 6 hours in batches of at most 400, and shall treat «forgot my code» as a deletion request executed after 30 days that the owner cancels by entering with the code."
+        "ar": "يجب على النظام أن يحسب لكل ملفٍّ تاريخ حذفٍ هو الأقرب بين التخرج المتوقع + ٣٦٥ يوماً وآخر دخول + ٧٣٠ يوماً (والإنشاء + ٦ سنوات إن لم تُحدَّد صحيفة)، وأن يحذف الملفات المنتهية بعد دقيقة من الإقلاع ثم كل 6 ساعات بدفعةٍ لا تتجاوز 400 (ولا تُجدول المهمة إن تعذّر الاتصال بقاعدة البيانات عند الإقلاع)، وأن يجعل «نسيت رمزي» طلبَ حذفٍ يُنفَّذ بعد 30 يوماً ويُلغيه دخولُ صاحب الملف بالرمز. والتخرج المتوقع يُقدَّر عند كل حفظٍ للملف: الوحدات المتبقية ÷ 13.5 مقرّباً للأعلى × 6 أشهر.",
+        "en": "The system shall compute for every profile a deletion date equal to the earlier of expected graduation + 365 days and last sign-in + 730 days (creation + 6 years when no plan is set), shall purge expired profiles one minute after start-up and every 6 hours in batches of at most 400 (the job is not scheduled when the database failed at start-up), and shall treat «forgot my code» as a deletion request executed after 30 days that the owner cancels by entering with the code. Expected graduation is re-estimated on every profile save as remaining units ÷ 13.5 rounded up × 6 months."
       },
       "priority": "must",
       "status": "implemented",
@@ -1157,7 +1161,7 @@
       ],
       "evidence": {
         "code": [
-          "src/server/studentDoorRoutes.ts",
+          "src/server/studentDoorRoutes.ts#/api/public/me/profile",
           "src/utils/studentProfile.ts",
           "src/utils/studentMap.ts"
         ],
@@ -1366,7 +1370,7 @@
         "code": [
           "src/utils/studentAdvice.ts",
           "src/utils/studentProfile.ts",
-          "src/server/studentDoorRoutes.ts"
+          "src/server/studentDoorRoutes.ts#/api/public/me/wishes-count"
         ],
         "tests": [
           "tests/student-advice-audit.ts",
@@ -1403,7 +1407,7 @@
       "evidence": {
         "code": [
           "src/server/masariDisclaimer.ts",
-          "src/server/studentDoorRoutes.ts"
+          "src/server/studentDoorRoutes.ts#/api/public/me/ack"
         ],
         "tests": [
           "tests/student-journey-audit.ts",
@@ -1521,11 +1525,15 @@
         {
           "ar": "مقررات متعثرة لقسمين ← حالتان، لكل قسمٍ حالة.",
           "en": "Stuck courses of two departments create two cases, one per department."
+        },
+        {
+          "ar": "طالب له طلب فتح مقرر قائم عند القسم نفسه في الفصل ← تُضمّ المقررات المتعثرة إلى ذلك الطلب ويُلحق نصها بتفاصيله «بعد التسجيل: …» (حتى 900 حرف) بدل إنشاء حالة ثانية؛ والرد {ok, registered, stuck, cases}.",
+          "en": "A student with an open course request at the same department in the term has the stuck courses merged into that request with «after registration: …» appended to its details (up to 900 characters) instead of a second case; the reply is {ok, registered, stuck, cases}."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/studentDoorRoutes.ts",
+          "src/server/studentDoorRoutes.ts#/api/public/me/report",
           "src/utils/studentNotices.ts",
           "src/utils/registrationCauses.ts"
         ],
@@ -2429,6 +2437,948 @@
           "tests/rehearsal-audit.ts"
         ]
       }
+    },
+    {
+      "id": "DR-STU-030",
+      "kind": "data",
+      "title": {
+        "ar": "سرّ هوية الطلبة والمفاتيح المشتقة منه",
+        "en": "Student identity secret and the keys derived from it"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يشتق كل ما يحرس هوية الطالب من سرٍّ مشترك واحد بين نسخ الخادم: يُقرأ من الوثيقة systemSecrets/student-case-identity-v1 في Firestore (أو من الملف student-case-identity.key بصلاحية 0600 بجانب قاعدة البيانات المحلية)، ويُزرع من STUDENT_CASE_SECRET مرةً واحدة إن لم يكن محفوظاً، وإلا يُولَّد عشوائياً (32 بايتاً) ويُحفظ في معاملة؛ والمحفوظ هو الحَكَم دائماً، فإن خالفه المتغير سُجّل خطأ صريح واستُعمل المحفوظ؛ ولا يُقرأ CALENDAR_SECRET هنا؛ ويُقرأ السرّ خارج صندوق التجربة دائماً ويُحفظ في ذاكرة العملية. ومنه: بصمة الرقم المدني = أول 32 خانة من HMAC-SHA256 للنص «need|» + الرقم، ومفتاح الهوية = HMAC-SHA256 للنص «student-case-identity-v1»، يُختم به الاسم والرقم المدني بـAES-256-GCM (متجه 12 بايتاً + وسم 16 + النص، base64url)، وتُوقَّع به جلسة الباب (HMAC على «door|» + الجسم) ورمز إثبات صحيفة التخرج.",
+        "en": "The system shall derive everything that guards a student's identity from one secret shared by all server instances: it is read from the Firestore document systemSecrets/student-case-identity-v1 (or from the file student-case-identity.key with mode 0600 beside the local database), seeded once from STUDENT_CASE_SECRET when nothing is stored, otherwise generated at random (32 bytes) and saved in a transaction; the stored value always wins, so a differing environment value is logged as an explicit error and ignored; CALENDAR_SECRET is never read here; the secret is always read outside the demonstration sandbox and cached in the process. From it: the civil ID fingerprint = the first 32 hex characters of HMAC-SHA256 over «need|» + the ID; the identity key = HMAC-SHA256 over «student-case-identity-v1», which seals the name and civil ID with AES-256-GCM (12-byte IV + 16-byte tag + ciphertext, base64url) and signs the door session (HMAC over «door|» + body) and the graduation-sheet proof token."
+      },
+      "rationale": {
+        "ar": "خادمان يخدمان طلبين متتاليين: سرٌّ لكل نسخة يجعل ما ختمته نسخةٌ غير مقروءٍ للأخرى، وتغيير السرّ يُعمي كل حالة مختومة قبله بلا خطأ ظاهر.",
+        "en": "Two instances may serve consecutive requests: a per-instance secret makes what one sealed unreadable to the other, and changing the secret silently blinds every case sealed before it."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "سرٌّ محفوظ وSTUDENT_CASE_SECRET مختلف ← يُستعمل المحفوظ ويُطبع الخطأ [student-case-secret]، ولا يُكتب شيء.",
+          "en": "A stored secret and a different STUDENT_CASE_SECRET ← the stored one is used, the [student-case-secret] error is printed, and nothing is written."
+        },
+        {
+          "ar": "لا محفوظ ولا متغير ← يُولَّد سرٌّ ويُحفظ مع source=generated، وتقرؤه كل النسخ بعدها.",
+          "en": "Nothing stored and no variable ← a secret is generated and saved with source=generated, and every instance reads it afterwards."
+        },
+        {
+          "ar": "نصٌّ مختوم لا يُفتح بالمفتاح الحالي ← يُجرَّب مفتاحٌ مشتق من CALENDAR_SECRET للسجلات القديمة، وإلا يعود فارغاً بلا خطأ.",
+          "en": "A sealed value that does not open with the current key ← a key derived from CALENDAR_SECRET is tried for old records, otherwise an empty string is returned without an error."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentCaseSecret.ts",
+          "src/db/repository.ts#getOrCreateStudentCaseSecret",
+          "src/server/core/studentIdentity.ts#surveyFingerprint",
+          "src/server/core/studentIdentity.ts#studentIdentityKey",
+          "src/server/core/studentIdentity.ts#openStudentIdentity",
+          "src/server/studentDoor.ts#signDoorSession"
+        ],
+        "tests": [
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-031",
+      "kind": "functional",
+      "title": {
+        "ar": "سؤال الهوية ونتائج الدخول",
+        "en": "Identity question and entry outcomes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يجيب POST /api/public/me/identity بثلاثة أشياء فقط عن الرقم المدني: هل له ملف، وهل عليه طلب حذف، وموعد الحذف، دون اسمٍ ولا أي بيان آخر، وأن يحسب كل سؤال على حدّ الهوية للعنوان؛ وأن يردّ POST /api/public/me/enter لرقمٍ بلا ملف بـ404 no-profile محسوباً على حدّ الهوية لا على حدّ الرمز، وللملف المقفول بـ423 مع retryInSeconds، وللرمز الخطأ بـ401 bad-code مع attemptsLeft، ولخطأ غير متوقع بـ500 «تعذّر الدخول الآن»؛ وأن يمسح POST /api/public/me/exit كوكي الجلسة وحده.",
+        "en": "The system shall answer POST /api/public/me/identity with three facts only about the civil ID: whether a profile exists, whether a deletion request is pending, and the deletion date, with no name or other data, counting every question against the address identity limit; shall answer POST /api/public/me/enter for an ID with no profile with 404 no-profile counted against the identity limit rather than the code limit, for a locked profile with 423 and retryInSeconds, for a wrong code with 401 bad-code and attemptsLeft, and for an unexpected failure with 500 «cannot enter now»; and POST /api/public/me/exit shall clear the session cookie only."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقمٌ له ملف ← {exists:true, resetPending:false, resetAt:\"\"}، ورقمٌ صحيح بلا ملف ← exists:false.",
+          "en": "An ID with a profile ← {exists:true, resetPending:false, resetAt:\"\"}; a valid ID with no profile ← exists:false."
+        },
+        {
+          "ar": "الخطأ الثالث في الرمز ← 401 مع attemptsLeft = 2، والخامس ← 401 locked مع attemptsLeft = 0.",
+          "en": "The third wrong code ← 401 with attemptsLeft = 2; the fifth ← 401 locked with attemptsLeft = 0."
+        },
+        {
+          "ar": "تجاوز حدّ الهوية أو حدّ الرمز للعنوان ← 429 برمز rate.",
+          "en": "Exceeding the address identity or code limit ← 429 with code rate."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/identity",
+          "src/server/studentDoorRoutes.ts#/api/public/me/enter",
+          "src/server/studentDoorRoutes.ts#/api/public/me/exit"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/student-door-shared-network-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-032",
+      "kind": "functional",
+      "title": {
+        "ar": "فحص الجلسة في كل طلب وتسجيل الحضور",
+        "en": "Session check on every request and presence touch"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتحقق في كل طلبٍ من مسارات /api/public/me المحمية من توقيع كوكي sh_session وانتهائه، ثم يقرأ الملف ببصمته ويرفض الجلسة إن اختلفت نسخة الرمز (أول 8 خانات من تجزئة الرمز) أو زال الملف، فيردّ 401 signed-out؛ وأن يكتب آخر حضورٍ لصاحب الجلسة مرةً في اليوم على الأكثر (كل 24 ساعة) ويعيد حساب موعد الحذف معه، وأن يُلغي أيُّ دخولٍ بجلسةٍ صالحة طلبَ حذفٍ معلّقاً.",
+        "en": "The system shall verify on every request to the protected /api/public/me routes the signature and expiry of the sh_session cookie, then read the profile by its fingerprint and refuse the session when the code version (the first 8 characters of the code hash) differs or the profile is gone, answering 401 signed-out; shall write the session owner's last presence at most once a day (every 24 hours) and recompute the deletion date with it; and any visit with a valid session shall cancel a pending deletion request."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "زيارتان في اليوم نفسه ← كتابةٌ واحدة لـlastSeenAt؛ وزيارة بعد 25 ساعة ← كتابة ثانية وdeleteAt جديد.",
+          "en": "Two visits on the same day ← one write of lastSeenAt; a visit after 25 hours ← a second write and a new deleteAt."
+        },
+        {
+          "ar": "ملف عليه resetRequestedAt وجلسة صالحة ← يُمحى الطلب في أول طلب.",
+          "en": "A profile with resetRequestedAt and a valid session ← the request is cleared on the first call."
+        },
+        {
+          "ar": "حذف الملف من جهازٍ آخر ← الجلسة القائمة تردّ 401 signed-out.",
+          "en": "Deleting the profile from another device ← the open session answers 401 signed-out."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/server/studentDoor.ts#readDoorSession",
+          "src/utils/studentProfile.ts#shouldTouch"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-033",
+      "kind": "functional",
+      "title": {
+        "ar": "تغيير الرمز وتصحيح الاسم وحذف الملف",
+        "en": "Code change, name correction and profile deletion"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يغيّر الرمز عبر POST /api/public/me/code فقط بالرمز الحالي (خطؤه يُحسب على حدّ الرمز للعنوان)، بفحص الرمز الجديد نفسه، وبملحٍ جديد يمحو عدّاد الأخطاء ويُصدر جلسةً جديدة ويُنهي الجلسات الأخرى؛ وأن يصحّح الاسم عبر PUT /api/public/me/name بالشروط نفسها ويختمه من جديد، بينما لا يتغيّر الرقم المدني لأنه المفتاح؛ وأن يحذف الملف نهائياً وفوراً عبر POST /api/public/me/forget بعد تأكيد الرمز ويمسح الكوكي، وتبقى طلبات الحالات المرسلة قبله في سجلات الأقسام.",
+        "en": "The system shall change the code through POST /api/public/me/code only with the current code (a wrong one counts against the address code limit), checking the new code by the same rule, with a new salt that clears the failure counter, issues a new session and ends the other sessions; shall correct the name through PUT /api/public/me/name under the same rules and seal it again, while the civil ID never changes because it is the key; and shall delete the profile permanently and at once through POST /api/public/me/forget after confirming the code, clearing the cookie, while case requests sent before remain in the departments' records."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "رمزٌ حالي خطأ ← 401 bad-code بلا تغيير؛ ورمزٌ جديد 123456 ← 400 weak-code.",
+          "en": "A wrong current code ← 401 bad-code with no change; a new code 123456 ← 400 weak-code."
+        },
+        {
+          "ar": "اسمٌ فيه رقم ← 400 bad-name؛ واسم صالح ← يعود الملخص بالاسم الجديد والرقم مقنّعاً.",
+          "en": "A name containing a digit ← 400 bad-name; a valid name ← the summary returns with the new name and the masked ID."
+        },
+        {
+          "ar": "forget برمزٍ صحيح ← يُحذف الملف، والسؤال التالي عن الرقم ← exists:false.",
+          "en": "forget with a correct code ← the profile is deleted, and the next question about the ID ← exists:false."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/code",
+          "src/server/studentDoorRoutes.ts#/api/public/me/name",
+          "src/server/studentDoorRoutes.ts#/api/public/me/forget",
+          "src/server/studentHomePage.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/registration-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-034",
+      "kind": "functional",
+      "title": {
+        "ar": "«نسيت رمزي» بلا استرجاع",
+        "en": "«Forgot my code» without recovery"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يسترجع الرمز ولا يعيد تعيينه بأي وسيلة، وأن يقبل عبر POST /api/public/me/reset طلب حذفٍ بالرقم المدني وحده (محسوباً على حدّ الهوية وحدّ الكتابة)، يحفظ أول وقتٍ طُلب فيه ويجعل موعد الحذف الأقرب بين موعده القائم واليوم + 30 يوماً بسبب «reset»، وأن تعرض صفحة الدخول على صاحب الرقم تنبيهاً بتاريخ الحذف وأن دخوله بالرمز الصحيح يلغيه، وأن ينشئ بعد الحذف ملفاً جديداً بالرقم نفسه.",
+        "en": "The system shall never recover or reset the code by any means, and shall accept through POST /api/public/me/reset a deletion request with the civil ID alone (counted against the identity limit and the write limit), keeping the first time it was requested and setting the deletion date to the nearer of the existing date and today + 30 days with reason «reset»; the entry page shall show the ID's owner a notice with the deletion date stating that entering with the correct code cancels it; after deletion a new profile can be created with the same ID."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقمٌ بلا ملف ← 404 no-profile؛ ورقم له ملف ← {ok:true, deleteAt, days:30}.",
+          "en": "An ID with no profile ← 404 no-profile; an ID with a profile ← {ok:true, deleteAt, days:30}."
+        },
+        {
+          "ar": "ملفٌّ موعد حذفه بعد 10 أيام ← يبقى الموعد بعد 10 أيام وسببه reset.",
+          "en": "A profile due for deletion in 10 days ← the date stays in 10 days with reason reset."
+        },
+        {
+          "ar": "طلبٌ ثانٍ قبل الحذف ← resetRequestedAt يبقى وقت الطلب الأول.",
+          "en": "A second request before deletion ← resetRequestedAt keeps the first request's time."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/reset",
+          "src/utils/studentProfile.ts#resetLifetime",
+          "src/server/studentHomePage.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/student-door-shared-network-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-STU-035",
+      "kind": "interface",
+      "title": {
+        "ar": "حالة الباب وقائمة التخصصات وصحائف القسم",
+        "en": "Door state, specialisation list and department plans"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد GET /api/public/me/state بلا جلسة: علامة التجربة، وفصل الباب، والمرحلة (المفتاح والنمط والسطر وإمكان تعديل الرغبات والإبلاغ والموعد التالي واسم الجولة)، ومسار الفصل، وهل الزائر داخل وملخص ملفه، والحدود (طول الرمز 6، والوحدات من 12 إلى سقف القسم، و13.5 وحدة للفصل المعتاد، و365 يوماً بعد التخرج)؛ وأن يعيد GET /api/public/me/catalog?track=boys|girls تخصصات كليات التربية الأساسية للمسار بلا تكرار بالاسم مفضّلاً المقر الرئيسي ثم الجهراء ثم الفحيحيل، ولا شيء بلا مسار، بتخزينٍ عام 300 ثانية؛ وأن يعيد GET /api/public/me/plan?sectionId صحائف القسم غير المؤرشفة وغير الفارغة بمقرراتها ومسبقات كلٍّ منها، أو مقررات القسم التشغيلية إن لم تكن له صحائف.",
+        "en": "The system shall return GET /api/public/me/state without a session: the demonstration flag, the door term, the phase (key, mode, line, whether wishes can be edited and reports made, next date, round name), the term timeline, whether the visitor is signed in with the profile summary, and the limits (code length 6, units from 12 to the department cap, 13.5 units for a typical term, 365 days after graduation); shall return GET /api/public/me/catalog?track=boys|girls the specialisations of the track's Basic Education colleges without duplicate names, preferring the main campus, then Jahra, then Fahaheel, nothing without a track, with public caching for 300 seconds; and shall return GET /api/public/me/plan?sectionId the department's non-archived, non-empty plans with their courses and each course's prerequisites, or the department's operational courses when it has no plans."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "catalog بلا track ← specializations فارغة وtracks = [boys, girls].",
+          "en": "catalog without track ← empty specializations and tracks = [boys, girls]."
+        },
+        {
+          "ar": "plan بقسمٍ غير موجود ← 400 bad-section؛ وقسم بلا صحائف ← source=catalog.",
+          "en": "plan with an unknown department ← 400 bad-section; a department with no plans ← source=catalog."
+        },
+        {
+          "ar": "صحيفة جديدة بلا مقرر بعد ← لا تظهر في القائمة.",
+          "en": "A new plan with no course yet ← does not appear in the list."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/state",
+          "src/server/studentDoorRoutes.ts#/api/public/me/catalog",
+          "src/server/studentDoorRoutes.ts#/api/public/me/plan"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/student-showcase-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-036",
+      "kind": "functional",
+      "title": {
+        "ar": "خريطتي وما تغيّر منذ آخر زيارة",
+        "en": "My map and what changed since the last visit"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يبني خريطة الطالب (GET /api/public/me/map) من صحيفته كاملةً: مقررات قسمه ومقررات الأقسام الأخرى والعامة، بقواعدها والمطروح منها هذا الفصل، دون أي بيانٍ عن الطالب في النموذج؛ وأن يحفظ مرةً في اليوم لكل فصل لقطةً بما اجتازه وما يُطرح وما صار متاحاً له، ويعيد الفرق عن اللقطة السابقة للفصل نفسه (ما اجتيز وما طُرح وما أُتيح حديثاً) دون أن يؤخر العرضَ على كتابتها؛ وأن يخدم GET /api/public/me/map-page صحيفته المطبوعة ملوّنةً بما اجتازه برمز QR يعيد إلى باب «مساري» العام لا إلى جلسته، مع noindex وno-store.",
+        "en": "The system shall build the student's map (GET /api/public/me/map) from the whole plan: the department's courses, other departments' courses and general requirements, with their rules and what is offered this term, with no data about the student in the model; shall save once a day per term a snapshot of what was passed, what is offered and what became available, returning the difference from the previous snapshot of the same term (newly passed, newly offered, newly available) without delaying the display on writing it; and shall serve GET /api/public/me/map-page as the printed plan sheet coloured by what was passed, with a QR code leading back to the public Masari door rather than the session, with noindex and no-store."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف بلا قسم ← {ready:false, reason:\"no-setup\"}، وقسم بلا صحيفة ولا مقررات ← reason \"no-plan\".",
+          "en": "A profile without a department ← {ready:false, reason:\"no-setup\"}; a department with neither plan nor courses ← reason \"no-plan\"."
+        },
+        {
+          "ar": "أول زيارة في الفصل ← changes = null؛ وزيارة في يومٍ لاحق بعد طرح مقرر جديد ← يظهر في changes.offered.",
+          "en": "The first visit in a term ← changes = null; a visit on a later day after a new course is offered ← it appears in changes.offered."
+        },
+        {
+          "ar": "map-page لصحيفةٍ لم تُعتمد قواعدها ← 404 «لم تُعتمد قواعد صحيفتك بعد»، وبلا قالب الصحيفة ← 503.",
+          "en": "map-page for a plan whose rules are not approved ← 404 «your plan's rules are not approved yet»; without the sheet template ← 503."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/map-page",
+          "src/utils/studentMap.ts",
+          "src/server/studentMapUi.ts"
+        ],
+        "tests": [
+          "tests/student-map-audit.ts",
+          "tests/student-showcase-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-037",
+      "kind": "functional",
+      "title": {
+        "ar": "المطروح لي وحالاتي",
+        "en": "Offered to me and my cases"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض للطالب متبقّي صحيفته وعدد شعب كل مقرر في فصل الباب من المسودة أو المعتمد (أعداداً لا مواعيد)، مستبعداً المقرر المقفل أو المؤجّل في حالة الطرح، مع ما ينقصه من مسبقات، مرتّباً بالأكثر شعباً؛ وأن يعرض في «حالاتي» حتى 100 من أحدث طلباته في كل الفصول ببصمته، بحالةٍ عامة لكل طلب ولكل مقرر (قيد المراجعة، وافقت اللجنة، لم توافق، اكتمل، رُدّ، أزلته بعد القرار) دون ملاحظات اللجنة الداخلية ولا ما كتبه الطالب.",
+        "en": "The system shall show the student the remainder of the plan and the number of sections of each course in the door term from the draft or the approved schedule (counts, not times), excluding a course locked or deferred in its offering state, with the missing prerequisites, ordered by most sections; and shall show in «my cases» up to 100 of the student's latest requests across all terms by fingerprint, with a general status per request and per course (under review, committee approved, not approved, completed, rejected, removed by you after the decision) without the committee's internal notes or what the student wrote."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر متبقٍّ له شعبتان في المسودة ← sections = 2؛ ومقرر حالته مقفلة ← لا يُعدّ مطروحاً.",
+          "en": "A remaining course with two sections in the draft ← sections = 2; a course in a locked state ← not counted as offered."
+        },
+        {
+          "ar": "طلب كل مقرراته «سُجّل» ← statusCode = registered؛ وفيه مقرر «لم توافق اللجنة» ← committee-rejected.",
+          "en": "A request whose courses are all «registered» ← statusCode = registered; one with a course «committee not approved» ← committee-rejected."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/${name}",
+          "src/server/studentDoorRoutes.ts#/api/public/me/offered",
+          "src/server/studentDoorRoutes.ts#/api/public/me/cases",
+          "src/server/offeringStates.ts"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/registration-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-038",
+      "kind": "functional",
+      "title": {
+        "ar": "إشعارات الطالب «ما الجديد؟»",
+        "en": "Student notices «what's new?»"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يشتق إشعارات الطالب لحظة فتح الصفحة دون تخزين: أكمل ملفك، واكتب رغباتك (بموعد إغلاقها)، وعدّلت ملفك بعد آخر حساب، وجدولك المقترح جاهز بدورك ونافذته، وهل سجّلت، ومقترحك الشخصي، وشعبةٌ جديدة فُتحت لمقررٍ أراده أو تعثّر فيه (من أصل صفٍّ في الجدول أنشأه الرادار أو مركز التحليلات خلال 21 يوماً، حتى 4)، وقرار القسم أو التسجيل في كل مقرر من طلبه مع سبب الرفض أو ملاحظته؛ مرتّبةً: ما يُطلب منه، ثم ما رُدّ، ثم ما جدّ، ثم ما تمّ، ومُسقطاً ما أزاله الطالب بعد القرار.",
+        "en": "The system shall derive the student's notices at the moment the page opens, storing nothing: complete your profile, write your wishes (with their closing date), you edited your profile after the last calculation, your suggested schedule is ready with your round and window, did you register, your personal suggestion, a new section opened for a course you wanted or were stuck in (from a schedule row whose origin is the radar or the Analytics Center within 21 days, up to 4), and the department's or registration's decision on each course of a request with the rejection reason or note; ordered: what is asked of the student, then what was rejected, then what is new, then what is done, dropping what the student removed after the decision."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر «رُدّ» بسبب prerequisite بلا ملاحظة ← إشعار تنبيه نصّه «متطلّبٌ سابق لم يُستوفَ».",
+          "en": "A course «rejected» for prerequisite with no note ← an alert notice reading «a prerequisite was not met»."
+        },
+        {
+          "ar": "شعبة فُتحت قبل 22 يوماً ← لا تظهر في «فُتحت شعبة جديدة».",
+          "en": "A section opened 22 days ago ← does not appear in «a new section opened»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/studentNotices.ts",
+          "src/server/studentDoorRoutes.ts"
+        ],
+        "tests": [
+          "tests/feature-notifications-audit.ts",
+          "tests/registration-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-039",
+      "kind": "functional",
+      "title": {
+        "ar": "تذكرتي: المواعيد بعد التوقيع والبدائل والمشاركة",
+        "en": "My ticket: times after signature, alternatives and sharing"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض تذكرة الطالب من آخر تشغيلٍ للرادار فقط إن طابق runId الملخص، فيُظهر رمز الشعبة ومواعيدها وبدائلها فقط لشعبةٍ وُقّع جدول قسمها وغير مقفلة، ويعرض «مخزن تبديل» حتى 40 مقرراً متبقياً بحتى 8 شعبٍ موقّعة لكلٍّ مرتّبة بالأقل نقصاً في المسبقات، ودقائق التنقل بين الحرمين من سياسة التنقل، وعلامة stale إن عدّل ملفه بعد التشغيل؛ وأن يتيح في المتصفح دون كتابة على الخادم تجربة شعبة بديلة أو حذف مقرر أو استبداله، وحفظ التذكرة المعدّلة رغباتٍ (حتى 12 مقرراً)، ومشاركتها صورةً تُرسم على الجهاز بلا اسمٍ ولا رقم مدني، وتذكيراً بموعد دوره في التقويم.",
+        "en": "The system shall show the student's ticket from the latest radar run only when its runId matches the summary, showing a section code, times and alternatives only for a section whose department schedule is signed and that is not locked, offering a «swap pool» of up to 40 remaining courses with up to 8 signed sections each ordered by fewest missing prerequisites, campus travel minutes from the travel policy, and a stale flag when the profile changed after the run; and shall let the student in the browser, without writing to the server, try an alternative section or drop or swap a course, save the edited ticket as wishes (up to 12 courses), share it as an image drawn on the device with no name or civil ID, and add a reminder of the round date to the calendar."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "شعبةٌ قسمها لم يوقّع ← timesVisible = false وsection وslots فارغان.",
+          "en": "A section whose department has not signed ← timesVisible = false with empty section and slots."
+        },
+        {
+          "ar": "تذكرة runId لا يطابق الملخص ← {ready:false, reason:\"no-run\"}.",
+          "en": "A ticket whose runId does not match the summary ← {ready:false, reason:\"no-run\"}."
+        },
+        {
+          "ar": "مشاركة بلا أي موعدٍ معتمد ← رسالة «لا مواعيد معتمدة لتُشارَك بعد» ولا صورة.",
+          "en": "Sharing with no approved time ← the message «no approved times to share yet» and no image."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/server/studentHomePage.ts#tkShareImage",
+          "src/server/core/travelPolicy.ts"
+        ],
+        "tests": [
+          "tests/masari-travel-hint-audit.ts",
+          "tests/registration-flow-audit.ts",
+          "tests/masari-return-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-040",
+      "kind": "functional",
+      "title": {
+        "ar": "بوابات التحقق من صحيفة التخرج",
+        "en": "Graduation-sheet verification gates"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتحقق من صحيفة التخرج المرفوعة (جسم application/octet-stream ونوعه من الترويسة x-file-type) بالترتيب: القسم يتبع كلية الطالب، وقاعدة تخرج محفوظة قبل قراءة الملف، ثم الصحيفة رسمية، والرقم المدني المحفوظ في الملف ظاهرٌ فيها رمزاً واحداً أو مجموعاتٍ على سطرٍ واحد دون إصلاح أي رقم، وسطر «البرنامج» يطابق القسم، والصحيفة المطابقة لوحداتها المطلوبة، والوحدات المجتازة (من 60 إلى وحدات الدرجة) لا تقل عن عتبة الفصل (الصيفي أو العادي)؛ والاسم المكتوب ليس شرطاً؛ وأن يُحسب على الطالب من 12 محاولةً في 10 دقائق (STUDENT_DOOR_PROOF_MAX) الفاشلُ وحده؛ وأن يُعاد عند الإرسال فحص الرمز وصاحبه وقسمه والعتبة من القاعدة الحالية لا من الرمز، ويُرفض طلب فتح مقرر إن كانت للطالب حالة تخرج موثّقة في الفصل.",
+        "en": "The system shall verify an uploaded graduation sheet (an application/octet-stream body with its type in the x-file-type header) in order: the department belongs to the student's college, a saved graduation rule exists before the file is read, then the sheet is official, the civil ID stored in the profile appears on it as one token or as digit groups on one line with no digit repaired, the «programme» line matches the department, the plan matching its required units, and the passed units (from 60 up to the degree units) are not below the term threshold (summer or regular); the typed name is not a condition; of the 12 attempts per 10 minutes (STUDENT_DOOR_PROOF_MAX) only failures count; on submission the token, its owner, its department and the threshold from the current rule rather than the token are re-checked, and a new-course request is refused when the student has a verified graduate case in the term."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "صحيفة بلا سطر «البرنامج» مقروء ← 422 programme-unreadable.",
+          "en": "A sheet with no readable «programme» line ← 422 programme-unreadable."
+        },
+        {
+          "ar": "إرسال بعد 20 دقيقة من التحقق ← 400 proof-expired مع بقاء الملاحظات والنوع في الصفحة.",
+          "en": "Submitting 20 minutes after verification ← 400 proof-expired, keeping the notes and kind on the page."
+        },
+        {
+          "ar": "ملف بلا اسمٍ ورقمٍ مختومين ← 409 identity-needed قبل الرفع؛ وطلب فتح مقرر مع حالة تخرج eligible ← 409 verified-graduate-case.",
+          "en": "A profile without sealed name and ID ← 409 identity-needed before upload; a new-course request with an eligible graduate case ← 409 verified-graduate-case."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/studentIdentity.ts#graduateProofCore",
+          "src/server/core/studentIdentity.ts#graduateSubmitCheck",
+          "src/server/studentDoorRoutes.ts#/api/public/me/graduate/proof",
+          "src/server/studentDoorRoutes.ts#/api/public/me/request"
+        ],
+        "tests": [
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-STU-041",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "ذاكرة القراءة في «مساري»",
+        "en": "Read caches in Masari"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ ما يتكرر لكل طالب من ذاكرةٍ مؤقتة لا من قاعدة البيانات في كل زيارة: كتالوج القسم وصحائفه وقائمة الأقسام 10 دقائق، وفهرس الشعب المطروحة 5 دقائق، والقواعد المعتمدة 5 دقائق، وعدد من أرسلوا رغباتهم 10 دقائق، والشعب المفتوحة حديثاً دقيقتين؛ وألا تدخل طلبات صندوق التجربة هذه الذاكرة ولا تقرأ منها.",
+        "en": "The system shall read what repeats for every student from a temporary memory rather than the database on every visit: the department catalogue, plans and department list for 10 minutes, the offered-section index for 5 minutes, approved rules for 5 minutes, the count of students who sent wishes for 10 minutes, and recently opened sections for two minutes; requests from the demonstration sandbox shall neither enter nor read this memory."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "شعبةٌ تُضاف في المسودة ← تظهر في «المطروح لي» خلال 5 دقائق على الأكثر.",
+          "en": "A section added to the draft ← appears in «offered to me» within 5 minutes at most."
+        },
+        {
+          "ar": "طلبٌ يحمل كوكي sh_demo_stu ← يُحمَّل من صندوقه في كل مرة ولا يُترك أثرٌ في الذاكرة المشتركة.",
+          "en": "A request carrying the sh_demo_stu cookie ← is loaded from its sandbox every time and leaves no trace in the shared memory."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/server/notificationCache.ts#createTtlMemo"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "DR-STU-042",
+      "kind": "data",
+      "title": {
+        "ar": "بصمة الرقم المدني مفتاحُ الربط لكل ما يخص الطالب",
+        "en": "The civil ID fingerprint as the join key for everything about a student"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يربط بالبصمة نفسها (لا بالرقم المدني ولا بحساب): وثيقة الملف في studentProfiles (معرّفها هو البصمة)، وطلبات الحالات في studentNeeds (حقل fingerprint، ومنه «حالاتي» وقراءة الحالة برقمها في /m وإعادة استعمال الاستبيان القديم)، وتذاكر الرادار لكل (فصل، بصمة)، وأجوبة «هل سجّلت؟»، ودمج قوائم طلبة طلبات الشعب (وبلا رقم مدني تُستعمل بصمة «name:» + الاسم)؛ وأن يتحقق في «هل سجّلت؟» من أن الرقم المدني المكتوب يعطي بصمة الملف نفسها؛ ومفتاح الهوية نفسه يحرس كوكي الجلسة ورمز الإثبات، وبصماتُ توقيع أعضاء هيئة التدريس على طلباتهم مشتقةٌ من السرّ نفسه.",
+        "en": "The system shall link by the same fingerprint (not by the civil ID and not by an account): the profile document in studentProfiles (whose id is the fingerprint), case requests in studentNeeds (field fingerprint, which feeds «my cases», reading a case by number at /m and reuse in the old survey), radar tickets per (term, fingerprint), «did you register?» answers, and the merging of student lists in section requests (without a civil ID a fingerprint of «name:» + the name is used); in «did you register?» it shall check that the typed civil ID yields the profile's own fingerprint; the same identity key guards the session cookie and the proof token, and faculty signature fingerprints on their requests are derived from the same secret."
+      },
+      "rationale": {
+        "ar": "من يستبدل دخول الطالب بحسابات الجامعة يجب أن يُبقي البصمة نفسها أو يرحّل كل هذه المجموعات معاً، وإلا انفصل الطالب عن ملفه وحالاته وتذكرته.",
+        "en": "Whoever replaces student sign-in with university accounts must keep the same fingerprint or migrate all these collections together, otherwise a student is cut off from the profile, cases and ticket."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "طالب أرسل طلباً من الاستبيان القديم ثم أنشأ ملف «مساري» بالرقم نفسه ← يظهر الطلب في «حالاتي» دون ربطٍ يدوي.",
+          "en": "A student who sent a request from the old survey and then created a Masari profile with the same ID ← the request appears in «my cases» with no manual link."
+        },
+        {
+          "ar": "رقمٌ مدني صحيح لغير صاحب الملف في طلب المساعدة ← 403 civil-mismatch.",
+          "en": "A valid civil ID that is not the profile's in the help request ← 403 civil-mismatch."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts",
+          "src/server/core/studentIdentity.ts#surveyFingerprint",
+          "src/server/sectionRequestsRoutes.ts",
+          "src/server/routes/publicRequestRoutes.ts",
+          "src/db/repository.ts#getStudentNeedHistoryByFingerprint"
+        ],
+        "tests": [
+          "tests/student-door-audit.ts",
+          "tests/student-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-STU-043",
+      "kind": "interface",
+      "title": {
+        "ar": "واجهة طلبات الشعب",
+        "en": "Section request interface"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم طلبات الشعب لحامل إذن كشف التسجيل بهذه المسارات: GET /api/section-requests?termId (الطلبات المقروءة للقارئ في الفصل، الأحدث أولاً، بصلاحيات كلٍّ منها)، وGET /api/section-requests/compose (مقررات الحرم ولكلٍّ عدد طلبة «مساري» الذين طلبوه، للإرشاد وحده)، وGET /api/section-requests/candidates (طلبة «مساري» لمقررٍ بالاسم وآخر 4 أرقام من الرقم المدني فقط)، وPOST /api/section-requests للإرسال، وPOST /api/section-requests/:id/link وunlink وdecline وwithdraw وapprove وregister للانتقالات، وكلها بلا تخزين مؤقت.",
+        "en": "The system shall serve section requests to holders of the registration-sheet permission through these routes: GET /api/section-requests?termId (the requests the reader may read in the term, newest first, each with its powers), GET /api/section-requests/compose (the campus courses with the number of Masari students who asked for each, for advising only), GET /api/section-requests/candidates (Masari students for a course with the name and only the last 4 digits of the civil ID), POST /api/section-requests to send, and POST /api/section-requests/:id/link, unlink, decline, withdraw, approve and register for the transitions, all without caching."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "GET /api/section-requests بلا termId ← 400 «حدّد الفصل».",
+          "en": "GET /api/section-requests without termId ← 400 «specify the term»."
+        },
+        {
+          "ar": "compose أو candidates من غير الإرشاد في نطاق القسم ← 403.",
+          "en": "compose or candidates from anyone other than advising in the department scope ← 403."
+        },
+        {
+          "ar": "candidates يعيد civilTail من 4 أرقام ولا يعيد الرقم كاملاً.",
+          "en": "candidates returns a 4-digit civilTail and never the full number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/sectionRequestsRoutes.ts#/api/section-requests",
+          "src/server/sectionRequestsRoutes.ts#/api/section-requests/compose",
+          "src/server/sectionRequestsRoutes.ts#/api/section-requests/candidates",
+          "src/server/sectionRequestsRoutes.ts#/api/section-requests/:id/link",
+          "src/server/sectionRequestsRoutes.ts#/api/section-requests/:id/unlink",
+          "src/server/sectionRequestsRoutes.ts#/api/section-requests/:id/decline",
+          "src/server/sectionRequestsRoutes.ts#/api/section-requests/:id/withdraw",
+          "src/server/sectionRequestsRoutes.ts#/api/section-requests/:id/approve",
+          "src/server/sectionRequestsRoutes.ts#/api/section-requests/:id/register"
+        ],
+        "tests": [
+          "tests/section-requests-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-STU-044",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارا قرار كشف التسجيل",
+        "en": "The registration sheet decision routes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يكتب قرار المقرر عبر POST /api/student-registration/:id/course-state وقرار الحالة كلها (طلب الخريج) عبر POST /api/student-registration/:id/case-state، بحراسة النطاق مرتين (عند القراءة وعند الكتابة في السجل بعينه)، ويقبل ملاحظةً حتى 300 حرف، ويسجّل كل قرار في سجل النشاط بتسميته (وافقت اللجنة، لم توافق اللجنة، سُجّل، رُدّ)؛ وتصل ملاحظة الرفض أو سببه إلى إشعارات الطالب.",
+        "en": "The system shall write a course decision through POST /api/student-registration/:id/course-state and a whole-case decision (graduate request) through POST /api/student-registration/:id/case-state, guarding scope twice (on reading and on writing the specific record), accepting a note of up to 300 characters, and logging every decision in the activity trail with its label (committee approved, committee did not approve, registered, rejected); the rejection note or reason reaches the student's notices."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff",
+        "collegeRegistrar"
+      ],
+      "acceptance": [
+        {
+          "ar": "صفة عرضٍ صرف تكتب ← 403 «هذا الكشف للقراءة بصفتك».",
+          "en": "A view-only role writing ← 403 «this sheet is read-only for your role»."
+        },
+        {
+          "ar": "case-state على طلبٍ يُقرَّر مقرراً مقرراً ← 400؛ وبلا side ← 400 «حدّد الجهة».",
+          "en": "case-state on a request decided course by course ← 400; without side ← 400 «specify the side»."
+        },
+        {
+          "ar": "مقرر ليس في طلب الطالب ← 400 «هذا المقرّر ليس ضمن طلب الطالب».",
+          "en": "A course not in the student's request ← 400 «this course is not in the student's request»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/studentRegistrationRoutes.ts#/api/student-registration/:id/course-state",
+          "src/server/routes/studentRegistrationRoutes.ts#/api/student-registration/:id/case-state"
+        ],
+        "tests": [
+          "tests/student-registration-audit.ts",
+          "tests/registration-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-045",
+      "kind": "functional",
+      "title": {
+        "ar": "دليل الكراسي والتنقل بينها",
+        "en": "Seat directory and switching between seats"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لمدير النظام وحده (GET /api/seats) كل كرسيٍّ بصفته وشاغله ونائبه وأعداد فريقه (عامل، معلّق، مجمّد، منتهٍ) وآخر حدث، والحرمَ الناقصة رئيسَ تسجيلٍ مجموعةً بكليتها؛ وأن يعرض لكل جالس كرسيه (GET /api/seats/mine)؛ وأن يتيح لمن يجلس على أكثر من كرسيٍّ بالرقم الوظيفي نفسه (GET /api/seats/switch-options وPOST /api/seats/switch) أن ينتقل بلا خروج إلى كرسيٍّ هو شاغله (من جلسة شاغل، ولكرسيٍّ لا ينتظر تغيير كلمته) أو فريقٍ هو عضوٌ عاملٌ فيه، بجلسةٍ جديدة تُلغي السابقة ويُكتب الانتقال في السجل؛ ولا انتقال في البيئة التجريبية.",
+        "en": "The system shall show the system administrator alone (GET /api/seats) every seat with its role, holder, deputy, team counts (active, pending, frozen, ended) and last event, and the campuses missing a college registrar grouped by college; shall show every seated user their seat (GET /api/seats/mine); and shall let someone sitting on more than one seat with the same instructor number (GET /api/seats/switch-options and POST /api/seats/switch) move without signing out to a seat they hold (from a holder session, and to a seat not awaiting a password change) or to a team where they are an active member, with a new session that deletes the previous one and the move written to the audit log; there is no switching in the demonstration environment."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "departmentHead",
+        "committeeChair",
+        "registrarHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "switch إلى كرسيٍّ ليس في الخيارات ← 403 «لست رئيس هذا الفريق ولا عضواً فيه».",
+          "en": "switch to a seat not among the options ← 403 «you are neither the head nor a member of this team»."
+        },
+        {
+          "ar": "GET /api/seats من غير مدير النظام ← مرفوض؛ وحساب «مستخدم عادي» لا يظهر كرسياً.",
+          "en": "GET /api/seats by anyone but the system administrator ← refused; a «standard user» account does not appear as a seat."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/seatsRoutes.ts#/api/seats",
+          "src/server/seatsRoutes.ts#/api/seats/mine",
+          "src/server/seatsRoutes.ts#/api/seats/switch-options",
+          "src/server/seatsRoutes.ts#/api/seats/switch",
+          "src/server/seatsRoutes.ts#/api/seats/:id"
+        ],
+        "tests": [
+          "tests/seats-audit.ts",
+          "tests/activity-trail-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-046",
+      "kind": "functional",
+      "title": {
+        "ar": "كلمات سرّ الكرسي: تسجيل الشاغل والكلمة الأولى وإعادة التعيين",
+        "en": "Seat passwords: recording the holder, first password and reset"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لمدير النظام تسجيل شاغل الكرسي الحالي كما هو (POST /api/seats/:id/holder) بلا كلمةٍ جديدة ولا إخراج، وإعادة إصدار الكلمة الأولى (POST /api/seats/:id/first-password) فقط لكرسيٍّ لم يختر شاغله كلمته بعد، وإعادة تعيين كلمة الشاغل (POST /api/seats/:id/password-reset) بكلمةٍ عشوائية من 14 حرفاً تظهر مرةً واحدة ولا تُحفظ إلا بصمتها، تعمل 24 ساعة ويُطلب تغييرها عند الدخول، فتخرج جلسات الشاغل ويبقى الأعضاء بروابطهم، بحدّ 12 عملية في 10 دقائق لكل مسؤول، وبلا تطبيقٍ فعلي في البيئة التجريبية؛ والكلمة الأولى تنتهي بعد 7 أيام من إصدارها.",
+        "en": "The system shall let the system administrator record a seat's current holder as is (POST /api/seats/:id/holder) without a new password or sign-out, reissue the first password (POST /api/seats/:id/first-password) only for a seat whose holder has not yet chosen a password, and reset the holder's password (POST /api/seats/:id/password-reset) to a random 14-character password shown once and stored only as its hash, valid for 24 hours and to be changed on sign-in, ending the holder's sessions while members keep their links, limited to 12 operations per 10 minutes per administrator, and not actually applied in the demonstration environment; the first password expires 7 days after issue."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "first-password لكرسيٍّ اختار شاغله كلمته ← 409 «سلّم الرئاسة إن أردت كلمة أولى جديدة».",
+          "en": "first-password for a seat whose holder chose a password ← 409 «hand over the seat if you want a new first password»."
+        },
+        {
+          "ar": "العملية الثالثة عشرة لإعادة التعيين في 10 دقائق ← 429.",
+          "en": "The thirteenth reset within 10 minutes ← 429."
+        },
+        {
+          "ar": "بعد password-reset ← سجل الكرسي يحمل حدث password-reset «كلمةٌ مؤقتة لأربعٍ وعشرين ساعة».",
+          "en": "After password-reset ← the seat ledger carries a password-reset event «a temporary password for twenty-four hours»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/seatsRoutes.ts#/api/seats/:id/holder",
+          "src/server/seatsRoutes.ts#/api/seats/:id/first-password",
+          "src/server/seatsRoutes.ts#/api/seats/:id/password-reset",
+          "src/server/accountPassword.ts",
+          "src/utils/seatAccessCard.ts"
+        ],
+        "tests": [
+          "tests/password-reset-audit.ts",
+          "tests/first-password-room-loans-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-047",
+      "kind": "functional",
+      "title": {
+        "ar": "إدارة أعضاء الفريق والنائب وحدود العضو",
+        "en": "Team member management, deputy and member limits"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لشاغل الكرسي (من جلسته بكلمته لا عضواً ولا نائباً) أو لمدير النظام: إضافة عضو (POST /api/seats/:id/members) لجنة الجدول من أساتذة القسم وموظفي التسجيل كتابةً بنطاقٍ داخل نطاق الفريق، دون تكرار الاسم أو الرقم ولا الشاغل نفسه؛ وإصدار رابطٍ جديد يُبطل السابق (…/members/:mid/link)؛ وإعادة تعيين الدخول برابطٍ لـ24 ساعة يُخرج أجهزة العضو (…/reset، للعامل وحده)؛ و«مستمر» أو «انتهت عضويته» (…/status) فيُبطل الانتهاءُ الرابط ويُخرج الأجهزة ويُسقط النيابة؛ وتعديل نطاق موظف التسجيل (…/scopes)؛ وتكليف نائبٍ من الأعضاء العاملين حتى تاريخ (POST /api/seats/:id/deputy) وإنهاءه (…/deputy/end)؛ وأن يمنع العضوَ من التوقيع وسحبه وإعادة الجدول وتغيير كلمة السر وإدارة الكراسي والمستخدمين برمز seat-member، إلا النائب فيوقّع.",
+        "en": "The system shall let the seat holder (from their own password session, not as a member or deputy) or the system administrator: add a member (POST /api/seats/:id/members) — schedule committee members from department faculty and registration staff by typing with a scope inside the team's scope — without repeating a name or number or adding the holder; issue a new link that invalidates the previous one (…/members/:mid/link); reset access with a 24-hour link that signs the member's devices out (…/reset, active members only); mark «continuing» or «ended» (…/status), where ending invalidates the link, signs devices out and drops a deputyship; change a registration officer's scope (…/scopes); appoint a deputy from active members until a date (POST /api/seats/:id/deputy) and end it (…/deputy/end); and shall stop a member from signing, withdrawing, returning a schedule, changing the password and managing seats and users with code seat-member, except the deputy, who signs."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "registrarHead",
+        "collegeRegistrar",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "نطاقٌ لموظف أوسع من نطاق الفريق ← 400 «لا يُعطى الموظف نطاقاً أوسع من نطاق فريقك».",
+          "en": "A scope for an officer wider than the team's ← 400 «an officer cannot be given a wider scope than your team»."
+        },
+        {
+          "ar": "عضوٌ (غير نائب) يرسل POST /api/approvals/sign ← 403 seat-member؛ ونائبٌ ← يمرّ.",
+          "en": "A member (not a deputy) sending POST /api/approvals/sign ← 403 seat-member; a deputy ← passes."
+        },
+        {
+          "ar": "reset لعضوٍ مجمّد ← 409 «عضويته بانتظار تأكيدك»؛ والعملية الثالثة عشرة في 10 دقائق ← 429.",
+          "en": "reset for a frozen member ← 409 «membership awaits your confirmation»; the thirteenth operation within 10 minutes ← 429."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/seatsRoutes.ts#/api/seats/:id/members",
+          "src/server/seatsRoutes.ts#/api/seats/:id/members/:mid/link",
+          "src/server/seatsRoutes.ts#/api/seats/:id/members/:mid/reset",
+          "src/server/seatsRoutes.ts#/api/seats/:id/members/:mid/status",
+          "src/server/seatsRoutes.ts#/api/seats/:id/members/:mid/scopes",
+          "src/server/seatsRoutes.ts#/api/seats/:id/deputy",
+          "src/server/seatsRoutes.ts#/api/seats/:id/deputy/end",
+          "src/server/seatsRoutes.ts#seatMemberGuard"
+        ],
+        "tests": [
+          "tests/seats-audit.ts",
+          "tests/password-reset-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-048",
+      "kind": "functional",
+      "title": {
+        "ar": "كراسي رئيس تسجيل الكلية",
+        "en": "College registrar seats"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لمدير النظام إنشاء كرسي «رئيس تسجيل الكلية» لحرمٍ أو أكثر (POST /api/seats/college-registrar) باسمٍ مكتوب للشاغل، وإنشاء الناقص لكل الكليات دفعةً (POST /api/seats/college-registrars/all) فيُضاف الحرم الناقص إلى كرسي كليته إن وُجد وإلا يُنشأ كرسيٌّ واحد للكلية، وتعديل حرم الكرسي (POST /api/seats/:id/colleges)؛ ويكون اسم الدخول رمز الكلية + registrar (ثم 2 و3 عند التكرار) بالكلمة الأولى وتغييرها عند أول دخول، ولا يُغطّى حرمٌ بكرسيين، ويُسمّى الكرسي المسمّى آلياً باسم كليته حين يلحق به حرمٌ آخر دون مسّ اسمٍ كتبه المدير.",
+        "en": "The system shall let the system administrator create a «college registrar» seat for one or more campuses (POST /api/seats/college-registrar) with a typed holder name, create the missing ones for all colleges at once (POST /api/seats/college-registrars/all), adding a missing campus to its college's seat when one exists and otherwise creating one seat for the college, and change a seat's campuses (POST /api/seats/:id/colleges); the login is the college code + registrar (then 2, 3 on repetition) with the first password changed at first sign-in, no campus is covered by two seats, and an automatically named seat is renamed after its college when another campus joins, without touching a name the administrator wrote."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حرمٌ له فريق تسجيل من قبل ← 409 «له فريق تسجيل من قبل».",
+          "en": "A campus that already has a registration team ← 409 «already has a registration team»."
+        },
+        {
+          "ar": "colleges بقائمةٍ فارغة ← 400 «يبقى للفريق حرمٌ واحد على الأقل»؛ وكرسيٌّ ليس رئيس تسجيل كلية ← 404.",
+          "en": "colleges with an empty list ← 400 «the team keeps at least one campus»; a seat that is not a college registrar ← 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/seatsRoutes.ts#/api/seats/college-registrar",
+          "src/server/seatsRoutes.ts#/api/seats/college-registrars/all",
+          "src/server/seatsRoutes.ts#/api/seats/:id/colleges",
+          "src/server/seatsRoutes.ts#ensureCollegeRegistrars"
+        ],
+        "tests": [
+          "tests/seats-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-049",
+      "kind": "functional",
+      "title": {
+        "ar": "اختيار الرئيس الجديد عند التسليم",
+        "en": "Choosing the new holder at handover"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يختار الرئيس الجديد (GET /api/seats/:id/handover-candidates?q) بالبحث لا بقائمةٍ كاملة: حرفان فأكثر، و8 نتائج على الأكثر، و40 بحثاً في الدقيقة لكل مستخدم، من نطاق الكرسي وحده (أساتذة القسم لرئيس القسم ولجنة الجدول والمرشد، وأساتذة الكلية للعميد ومساعده، وكل أساتذة الجامعة لعميد القبول والتسجيل، وكتابةً لكراسي التسجيل) دون المنتدبين ودون الشاغل الحالي، بالحقول: الرقم والاسم والقسم ووجود الجوال؛ وأن يطلب الجوال مرةً إن لم يكن في سجل الأستاذ؛ وأن يتيح للمسجّل العام تسليم كرسي رئيس تسجيل كليةٍ في نطاقه؛ وأن يرفض في البيئة التجريبية أن يسلّم الشاغل كرسيه من جلسته.",
+        "en": "The system shall choose the new holder (GET /api/seats/:id/handover-candidates?q) by search rather than a full list: two characters or more, at most 8 results, 40 searches per minute per user, from the seat's scope only (department faculty for the department head, schedule committee and advisor; college faculty for the dean and vice dean; all university faculty for the dean of registration; typing for registration seats), excluding seconded staff and the current holder, with the fields number, name, department and whether a mobile exists; shall ask for the mobile once when the instructor record has none; shall let the university registrar hand over a college registrar seat within scope; and shall refuse in the demonstration environment a holder handing over their own seat from their session."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean",
+        "registrarHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "أستاذٌ من قسمٍ آخر لكرسي قسم ← 400 «هذا الأستاذ ليس من أساتذة القسم».",
+          "en": "An instructor from another department for a department seat ← 400 «this instructor is not department faculty»."
+        },
+        {
+          "ar": "بحثٌ بحرفٍ واحد ← لا نتائج؛ والبحث الحادي والأربعون في الدقيقة ← 429.",
+          "en": "A one-character search ← no results; the forty-first search in a minute ← 429."
+        },
+        {
+          "ar": "تسليمٌ ذاتي في التجربة ← 409 demo-self-handover.",
+          "en": "A self-handover in the demonstration ← 409 demo-self-handover."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/seatsRoutes.ts#/api/seats/:id/handover-candidates",
+          "src/server/seatsRoutes.ts#/api/seats/:id/handover",
+          "src/utils/handoverPick.ts",
+          "src/utils/seats.ts#seatHolderSource"
+        ],
+        "tests": [
+          "tests/handover-pick-audit.ts",
+          "tests/seats-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-050",
+      "kind": "functional",
+      "title": {
+        "ar": "صفحة دخول العضو بالرابط و«تذكّرني على هذا الجهاز»",
+        "en": "Member link entry page and «remember this device»"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم GET /k/:token صفحة دخول العضو بلا تخزين وبلا مُحيل، ويردّ 410 بسببٍ واضح للرابط الملغى أو المجمّد (بانتظار تأكيد الرئيس الجديد) أو المنتهي أو المنقضي المدة، وأن يُدخل POST /api/public/team/:token العضو بجلسةٍ باسمه على الكرسي بعد مطابقة آخر 4 أرقام من رقمه المدني إن كانت مسجّلة، ويمسح عدّاد الأخطاء ويسجّل أول دخولٍ وآخره ويُسقط مهلة رابط إعادة التعيين؛ وأن يصدر عند «تذكّرني» كوكي seat_dev موقّعاً بالسرّ المشترك مربوطاً بالرابط والعضو لـ30 يوماً فلا تُسأل الأرقام الأربعة عليه، ويسقطه أي رابطٍ جديد؛ وفي البيئة التجريبية يصير الزائر العضوَ في صندوقه نفسه.",
+        "en": "The system shall serve GET /k/:token as the member entry page with no caching and no referrer, answering 410 with a clear reason for a revoked link, a frozen one (awaiting the new head's confirmation), an ended one or an expired one; POST /api/public/team/:token shall sign the member in with a session under their own name on the seat after matching the last 4 digits of the civil ID when recorded, clearing the failure counter, recording first and last entry and dropping the reset-link expiry; on «remember me» it shall issue a seat_dev cookie signed with the shared secret, bound to the link and the member for 30 days so the four digits are not asked on that device, which any new link invalidates; in the demonstration the visitor becomes the member in their own sandbox."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط إعادة تعيين بعد 24 ساعة ← 410 «انتهت مدة هذا الرابط».",
+          "en": "A reset link after 24 hours ← 410 «this link has expired»."
+        },
+        {
+          "ar": "أرقام أربعة خاطئة ← 400؛ والخامسة ← 423 وإلغاء الرابط.",
+          "en": "Four wrong digits ← 400; the fifth attempt ← 423 and the link is revoked."
+        },
+        {
+          "ar": "كوكي seat_dev صالح للرابط نفسه ← لا يُطلب إدخال الأرقام الأربعة.",
+          "en": "A valid seat_dev cookie for the same link ← the four digits are not requested."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/seatsRoutes.ts#/k/:token",
+          "src/server/seatsRoutes.ts#/api/public/team/:token",
+          "src/server/seats.ts#issueSeatDeviceKey",
+          "src/server/seatTeamPage.ts"
+        ],
+        "tests": [
+          "tests/seats-audit.ts",
+          "tests/password-reset-audit.ts",
+          "tests/seat-access-card-audit.tsx"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-051",
+      "kind": "functional",
+      "title": {
+        "ar": "توجيه طلبات «مساري» إلى صندوق التجربة والخروج منه",
+        "en": "Routing Masari requests to the demonstration sandbox and leaving it"
+      },
+      "text": {
+        "ar": "يجب على النظام أن ينفّذ كل طلبٍ إلى /api/public/me يحمل كوكي sh_demo_stu يبدأ بـdemo_stu_ داخل صندوقه، وإن زال الصندوق يمسح الكوكيين ويكمل الطلب على الحقيقي؛ وأن يُسقط عند فتح صندوقٍ جديد الصناديقَ المنتهية والأقدمَ إن بلغ العدد 150؛ وأن يُسقط POST /api/public/me/exit مع كوكي التجربة الصندوقَ نفسه ويمسح الكوكيين معاً؛ وأن يختم للطالبة الافتراضية اسماً ورقماً مدنياً من أصفار فلا يُستعمل رقمٌ حقيقي، ويردّ عند الفشل 500 بنصٍّ عربي.",
+        "en": "The system shall run every request to /api/public/me carrying an sh_demo_stu cookie beginning with demo_stu_ inside its sandbox, and when the sandbox is gone shall clear both cookies and continue the request against real data; shall drop expired sandboxes, and the oldest once the count reaches 150, when opening a new one; POST /api/public/me/exit with the demonstration cookie shall drop that sandbox and clear both cookies together; the fictional student's name and an all-zero civil ID are sealed so no real number is used, and a failure answers 500 with an Arabic text."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "خروجٌ من التجربة ← Set-Cookie يمسح sh_demo_stu وsh_session، والصندوق يُحذف.",
+          "en": "Leaving the demonstration ← Set-Cookie clears sh_demo_stu and sh_session, and the sandbox is deleted."
+        },
+        {
+          "ar": "كوكي sh_demo_stu لا يبدأ بـdemo_stu_ ← يُتجاهل ويُنفَّذ الطلب عادياً.",
+          "en": "An sh_demo_stu cookie not beginning with demo_stu_ ← ignored and the request runs normally."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentShowcase.ts#/api/public/me/exit",
+          "src/server/studentShowcase.ts#registerStudentShowcase"
+        ],
+        "tests": [
+          "tests/student-showcase-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [
@@ -2535,6 +3485,23 @@
       },
       "evidence": [
         "tests/student-registration-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "ضبط STUDENT_CASE_SECRET بقيمةٍ جديدة بعد التشغيل",
+        "en": "Setting STUDENT_CASE_SECRET to a new value after go-live"
+      },
+      "scenario": {
+        "ar": "يضبط المشغّل STUDENT_CASE_SECRET بقيمةٍ تخالف السرّ المحفوظ في systemSecrets/student-case-identity-v1، ظناً أنه يدوّر المفتاح.",
+        "en": "The operator sets STUDENT_CASE_SECRET to a value differing from the secret stored in systemSecrets/student-case-identity-v1, thinking it rotates the key."
+      },
+      "behavior": {
+        "ar": "يُتجاهل المتغير ويبقى المحفوظ ويُطبع خطأ [student-case-secret]؛ فتبقى البصمات والأختام والجلسات صالحة. ولو حُذف المحفوظ لتغيّرت كل بصمة، فلا يجد أي طالبٍ ملفه ولا حالاته، وتنتهي كل جلسة، وتصير الأسماء والأرقام المختومة غير مقروءة.",
+        "en": "The variable is ignored, the stored one stays and the [student-case-secret] error is printed, so fingerprints, seals and sessions stay valid. Were the stored secret deleted, every fingerprint would change: no student would find their profile or cases, every session would end, and sealed names and IDs would become unreadable."
+      },
+      "evidence": [
+        "tests/student-journey-audit.ts"
       ]
     }
   ],

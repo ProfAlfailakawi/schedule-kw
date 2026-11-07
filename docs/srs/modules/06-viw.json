@@ -1152,12 +1152,18 @@
         {
           "ar": "إخفاء أسماء الأساتذة يُحفظ في showInstructors (يبقى مفعّلاً ما لم يُرسَل false).",
           "en": "Hiding instructor names is stored in showInstructors (on unless false is sent)."
+        },
+        {
+          "ar": "الإصدار والقراءة والإيقاف تشترط الإذن 7، ورمز كل رابط 24 بايتاً عشوائياً بترميز base64url (32 محرفاً) هو معرّف وثيقته في scheduleShareLinks، ويُحفظ معه مفتاح النطاق «كلية:قسم:فصل».",
+          "en": "Issuing, listing and stopping require permission 7, and every link token is 24 random bytes encoded base64url (32 characters) used as its document id in scheduleShareLinks, stored with the scope key 'college:section:term'."
         }
       ],
       "evidence": {
         "code": [
           "src/server/routes/shareRoutes.ts",
-          "src/server/core/shareLinks.ts"
+          "src/server/core/shareLinks.ts",
+          "src/db/repository.ts#createShareLink",
+          "src/server/routes/shareRoutes.ts#/api/share"
         ],
         "tests": [
           "tests/teacher-card-flow-audit.ts",
@@ -1199,7 +1205,8 @@
       "evidence": {
         "code": [
           "src/server/routes/shareRoutes.ts",
-          "src/server/core/staffCard.ts"
+          "src/server/core/staffCard.ts",
+          "src/server/routes/shareRoutes.ts#/api/share"
         ],
         "tests": [
           "tests/teacher-card-flow-audit.ts",
@@ -1326,7 +1333,8 @@
       ],
       "evidence": {
         "code": [
-          "src/server/routes/shareRoutes.ts"
+          "src/server/routes/shareRoutes.ts",
+          "src/server/routes/shareRoutes.ts#/api/share/:id"
         ],
         "tests": [
           "tests/teacher-card-flow-audit.ts"
@@ -1364,13 +1372,21 @@
           "en": "GET /api/share-personal returns, for each link, changedSinceSent true when the schedule fingerprint differs from the fingerprint at sending."
         },
         {
+          "ar": "GET /api/share-personal يتطلب الشاشة 7 والكلية والقسم والفصل (وإلا 400) وقسماً في النطاق (وإلا 403)، ويرجع لكل رابط شخصي في عائلة القسم اسم الأستاذ وانتهاء الرابط وإيقافه وعدد مشاهداته ووقت آخر إرسال وآخر مشاهدة.",
+          "en": "GET /api/share-personal requires screen 7, the college, department and term (otherwise 400) and a department within scope (otherwise 403), and returns for each personal link in the department family the instructor's name, the link's expiry, revocation, view count, last sent time and last seen time."
+        },
+        {
           "ar": "قائمة التسليم تُرجع المعرّف والاسم والجوال فقط، لا الرقم المدني.",
           "en": "The delivery list returns only the identifier, name and mobile, never the civil number."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/routes/shareRoutes.ts"
+          "src/server/routes/shareRoutes.ts",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/personal",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/sent",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/faculty",
+          "src/server/routes/shareRoutes.ts#/api/share-personal"
         ],
         "tests": [
           "tests/doctor-journey-audit.ts",
@@ -1590,6 +1606,133 @@
       "rationale": {
         "ar": "الرقم الرسمي سبع خانات في كل ما يقرؤه المستخدم أو يصدّره؛ والمخزّن يبقى كما هو.",
         "en": "The official number has seven digits in everything the user reads or exports; the stored value stays as is."
+      }
+    },
+    {
+      "id": "IR-VIW-025",
+      "kind": "interface",
+      "title": {
+        "ar": "تبويبات نافذة نقل الجدول",
+        "en": "Schedule transfer dialog tabs"
+      },
+      "text": {
+        "ar": "يجب أن تعرض نافذة نقل الجدول عشرة تبويبات: تصدير، استيراد، نشر، استبدال، المنتدبون، الأساتذة (النصاب والدرجة والحالة)، تخطيط الشعب، كل المقررات، محاكي الشعب، فرصة للتحسين؛ وأن تُبقي للفصل المنتهي تبويبي التصدير والنشر وحدهما، وأن تُخفي التبويبات كلها ما دامت حصيلة النشر معروضة حتى تُغلق.",
+        "en": "The schedule transfer dialog shall show ten tabs: export, import, publish, replace, visiting instructors, instructors (load, rank and status), section planning, all courses, section simulator and improvement opportunity; for an ended term it shall keep only the export and publish tabs, and it shall hide all tabs while a publish receipt is shown until it is closed."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "فصل منتهٍ يعرض «تصدير» و«نشر» فقط، وأي تبويب آخر مفتوح يعود إلى التصدير.",
+          "en": "An ended term shows only export and publish, and any other open tab returns to export."
+        },
+        {
+          "ar": "تبويبات المقررات والأساتذة والمحاكي تُحمَّل عند فتحها فقط، والإرشاد الأكاديمي يُعرض في «فرصة للتحسين».",
+          "en": "The courses, instructors and simulator tabs load only when opened, and academic advice is shown under improvement opportunity."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#Tab"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-VIW-026",
+      "kind": "functional",
+      "title": {
+        "ar": "تبويب المنتدبين: قائمة الفصل ودليل القسم",
+        "en": "Visiting tab: term roster and department directory"
+      },
+      "text": {
+        "ar": "يجب أن يتيح تبويب «المنتدبون» تحديد منتدبي الفصل من دليل منتدبي القسم، وإضافة منتدب جديد باسمه ورقم مدني صحيح وجوال اختياري فيُضاف إلى الدليل وإلى الفصل المفتوح معاً (ويُربط بالشخص نفسه إن كان رقمه المدني مسجلاً في قسم آخر)، وتعديل اسمه (ثلاثة أحرف على الأقل) ورقمه وجواله، وحذفه من دليل القسم بعد تأكيد دون حذفه من النظام ولا تغيير الفصول السابقة، ونسخ منتدبي فصل آخر بعد اختيار من يُنسخ منهم فيدخلون الدليل أيضاً، وأن يعيد القائمة السابقة إن فشل الحفظ.",
+        "en": "The visiting tab shall let the user set the term's visiting instructors from the department's delegate directory, add a new delegate with a name, a valid civil ID and an optional mobile so they join both the directory and the open term (linked to the same person if the civil ID already exists in another department), edit the name (at least three characters), civil ID and mobile, remove a delegate from the department directory after confirmation without deleting them from the system or changing earlier terms, and copy another term's visiting instructors after choosing whom to copy, who then also join the directory, restoring the previous list when saving fails."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "إضافة بلا اسم أو رقم مدني تعرض «اكتب اسم المنتدب ورقمه المدني.»، ورقم مدني غير صالح يعرض رسالة المدقق ولا يُرسل شيء.",
+          "en": "Adding without a name or civil ID shows «اكتب اسم المنتدب ورقمه المدني.», and an invalid civil ID shows the validator's message with nothing sent."
+        },
+        {
+          "ar": "الحذف يسأل «حذف المنتدب من قائمة منتدبي هذا القسم؟ لن يُحذف من النظام، ولن تتغير سجلات الفصول السابقة.» قبل التنفيذ.",
+          "en": "Removal asks «حذف المنتدب من قائمة منتدبي هذا القسم؟ لن يُحذف من النظام، ولن تتغير سجلات الفصول السابقة.» before acting."
+        },
+        {
+          "ar": "النسخ يحدد كل منتدبي الفصل المصدر افتراضياً، ولا يُرسل حين لا يكون أحد محدداً.",
+          "en": "Copying selects all of the source term's visiting instructors by default and sends nothing when no one is selected."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx#addNewDelegate",
+          "src/components/ScheduleTransfer.tsx#copyRoster",
+          "src/components/ScheduleTransfer.tsx#saveRoster",
+          "src/server/routes/instructorsRoutes.ts"
+        ],
+        "tests": [
+          "tests/visiting-family-audit.ts",
+          "tests/review-audit-2026-10-28.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-VIW-027",
+      "kind": "functional",
+      "title": {
+        "ar": "أدوات التسليم في لوحة النشر",
+        "en": "Delivery tools in the publish panel"
+      },
+      "text": {
+        "ar": "يجب أن تتيح لوحة النشر لكل رابط نسخ عنوانه (مع بديل حين يتعذر الوصول إلى الحافظة)، وعرض رمز QR للعنوان نفسه بمولّد يُحمَّل عند الطلب فقط، ورابط اشتراك التقويم /api/public/ics/:id. ولبطاقة القسم «تسليم» يقرأ قائمة أساتذة العائلة (GET /api/share/:id/faculty) ويسكّ لهم روابطهم الشخصية (POST /api/share/:id/personal)، ثم يفتح لكل من له رقم جوال صالح محادثة واتساب برسالة مكتوبة مسبقاً تحمل رابطه الشخصي، فالإرسال بيد المنسق والنظام لا يرسل شيئاً، ويسجّل كل فتح محادثة إرسالاً مع بصمة جدول الأستاذ (POST /api/share/:id/sent)، ويعرض قائمة «أبلغ من تغيّر جدولهم» برسالة «طرأ تعديل على جدولك»، ومن ليس له رقم صالح (أول ستة أسماء)، وسجل الإرسال للقراءة فقط.",
+        "en": "The publish panel shall offer for every link copying its address (with a fallback when the clipboard is unavailable), a QR code of the same address from a generator loaded only on demand, and the calendar subscription link /api/public/ics/:id. For the department card it shall offer delivery that reads the family's member list (GET /api/share/:id/faculty) and mints their personal links (POST /api/share/:id/personal), then opens for each member with a valid mobile a WhatsApp conversation with a prewritten message carrying their personal link, so sending is done by the coordinator and the system sends nothing, records each opened conversation as a send with the member's schedule fingerprint (POST /api/share/:id/sent), and shows a list to notify those whose schedule changed with the message 'your schedule has changed', the members with no valid number (first six names), and the read-only send log."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم جوال من 8 خانات يبدأ بـ5 أو 6 أو 9 يُرسل إليه بإضافة 965، ورقم لا يصلح يظهر في قائمة «بلا رقم جوّال صالح» بلا زر.",
+          "en": "An 8-digit mobile starting with 5, 6 or 9 is addressed with 965 prefixed, and an unusable number appears in the no-valid-mobile list with no button."
+        },
+        {
+          "ar": "فشل توليد الرمز يعرض «تعذّر توليد رمز QR.»، والضغط على الرمز المفتوح يغلقه.",
+          "en": "A failure generating the code shows «تعذّر توليد رمز QR.», and pressing the open code closes it."
+        },
+        {
+          "ar": "POST /api/share/:id/sent على رابط ليس شخصياً يعيد 404، وخارج العائلة 403، وتسليم بطاقة موقوفة يعيد 404.",
+          "en": "POST /api/share/:id/sent on a link that is not personal returns 404, outside the family 403, and delivery for a stopped card returns 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/SchedulePublish.tsx",
+          "src/components/PublishSendLog.tsx",
+          "src/utils/reachInstructor.ts#whatsappNumber",
+          "src/utils/reachInstructor.ts#reachAboutCard",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/faculty",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/personal",
+          "src/server/routes/shareRoutes.ts#/api/share/:id/sent"
+        ],
+        "tests": [
+          "tests/doctor-journey-audit.ts",
+          "tests/publish-pick-teachers-audit.ts"
+        ]
       }
     }
   ],

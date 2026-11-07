@@ -499,10 +499,10 @@
       "acceptance": [
         { "ar": "بعد 60 ظهوراً في اليوم لا يُطلب إعلان حتى الغد (مفتاح adx:t:التاريخ).", "en": "After 60 impressions in a day no ad is requested until the next day (key adx:t:date)." },
         { "ar": "الظهور يُعدّ مرة واحدة لكل صورة في تحميل الصفحة، وتُرسل الأحداث دفعات حتى 20.", "en": "An impression counts once per image per page load, and events are sent in batches of up to 20." },
-        { "ar": "أسفل كل إعلان رابط «كيف نقيس؟» إلى /measurement.", "en": "Under every ad a link How we measure leads to /measurement." },
+        { "ar": "أسفل كل إعلان رابط «كيف نقيس؟» إلى /measurement، وهي صفحة عامة ثابتة تشرح ما يُقاس وما لا يُقاس، تُخزَّن 600 ثانية وتحمل X-Robots-Tag: noindex, nofollow.", "en": "Under every ad a link How we measure leads to /measurement, a static public page explaining what is and is not measured, cached for 600 seconds and sent with X-Robots-Tag: noindex, nofollow." },
         { "ar": "تُخفى الإعلانات عند الطباعة.", "en": "Ads are hidden when printing." }
       ],
-      "evidence": { "code": ["src/server/adClientScript.ts", "src/components/AdSlot.tsx"], "tests": ["tests/ads-audit.ts"] }
+      "evidence": { "code": ["src/server/adClientScript.ts", "src/components/AdSlot.tsx", "src/server/adsRoutes.ts#/measurement", "src/server/adsPages.ts#measurementPage"], "tests": ["tests/ads-audit.ts"] }
     },
     {
       "id": "FR-ENG-017",
@@ -537,9 +537,11 @@
         { "ar": "نوع غير معروف في /_pulse لا يُسجَّل.", "en": "An unknown kind posted to /_pulse is not recorded." },
         { "ar": "نبض نوع staff لا يزيد العائدين ولا الجوال ولا الساعات.", "en": "A staff pulse does not add to returning, mobile or hours." },
         { "ar": "فشل الكتابة يُدمج مع النبضات الجديدة ولا يُسقط.", "en": "A failed write is merged with new pulses and not dropped." },
-        { "ar": "مفاتيح حدّ الطلبات (فيها العنوان) تُمسح كل 30 ثانية بعد انتهاء نافذتها.", "en": "Rate-limit keys (which contain the address) are swept every 30 seconds after their window ends." }
+        { "ar": "مفاتيح حدّ الطلبات (فيها العنوان) تُمسح كل 30 ثانية بعد انتهاء نافذتها.", "en": "Rate-limit keys (which contain the address) are swept every 30 seconds after their window ends." },
+        { "ar": "المسار POST /_pulse خارج /api بلا جلسة، يقبل جسماً حتى 1kb ويردّ دائماً 204 بلا محتوى؛ ويتجاهل الوكلاء الآليين وما زاد على 3000 نبضة في الدقيقة من العنوان الواحد.", "en": "POST /_pulse sits outside /api without a session, accepts a body up to 1kb and always answers 204 with no content; it ignores automated agents and anything above 3000 pulses per minute from one address." },
+        { "ar": "نبض نوع schedule يحمل رمز رابط يُنسب إلى نوع الرابط الحقيقي: رابط أستاذ أو طلب يُحسب staff، ورابط استبيان يُحسب survey.", "en": "A schedule pulse carrying a link token is attributed to the link's real kind: a staff or request link counts as staff, a survey link as survey." }
       ],
-      "evidence": { "code": ["src/server/adsRoutes.ts", "src/utils/audienceStats.ts"], "tests": ["tests/ads-audit.ts"] }
+      "evidence": { "code": ["src/server/adsRoutes.ts#/_pulse", "src/server/adsRoutes.ts", "src/utils/audienceStats.ts"], "tests": ["tests/ads-audit.ts"] }
     },
     {
       "id": "FR-ENG-019",
@@ -707,6 +709,93 @@
       ],
       "evidence": { "code": ["src/server/landingInquiry.ts", "server.ts#/api/landing/inquiry", "src/db/repository.ts#createLandingInquiry", "src/server/routes/notificationsRoutes.ts", "public/landing/index.html"], "tests": ["tests/landing-inquiry-audit.ts"] },
       "rationale": { "ar": "كان الطلب يُسجَّل في سجل الخادم فقط ويُرد بنجاح، فيضيع ويُقال للزائر إنه أُرسل.", "en": "The request used to be written to the server log only and answered with success, so it was lost while the visitor was told it was sent." }
+    },
+    {
+      "id": "IR-ENG-028",
+      "kind": "interface",
+      "title": { "ar": "مسارات الاستبيان القديم وحالة الطلب", "en": "Legacy survey and request-status routes" },
+      "text": { "ar": "يجب على النظام أن يخدم رابط الاستبيان (من نوع survey وحده، وإلا 404 «هذا الرابط ليس استبياناً») بهذه المسارات: GET /api/public/survey/:token بأقسام كلية الرابط ومقررات كلٍّ منها مرتبةً بآخر تدريس، ومعها قاعدة التخرج محفوظةً أو لا وعتبتها إن كانت واحدة؛ وPOST /api/public/survey/:token/identity-status بعد رقمٍ مدني كامل صحيح فقط؛ وPOST …/proof-status لإعادة استعمال إثباتٍ سابق (يشترط الرقم والقسم)؛ وPOST …/proof برفع الصحيفة مع الاسم والرقم والقسم في الترويسات x-student-name وx-student-civil وx-student-section؛ وPOST /api/public/survey/:token للإرسال؛ وPOST …/my-case لقراءة الحالة؛ وGET /m/:token صفحة «حالة طلبي»؛ وGET /q/:token الرابط المطبوع القديم.", "en": "The system shall serve a survey link (of kind survey only, otherwise 404 «this link is not a survey») through these routes: GET /api/public/survey/:token with the link college's departments and each one's courses ordered by last taught, with whether a graduation rule is saved and its threshold when there is a single one; POST /api/public/survey/:token/identity-status only after a complete valid civil ID; POST …/proof-status to reuse an earlier proof (requiring the ID and department); POST …/proof uploading the sheet with the name, ID and department in the x-student-name, x-student-civil and x-student-section headers; POST /api/public/survey/:token to submit; POST …/my-case to read the case; GET /m/:token, the «my request status» page; and GET /q/:token, the old printed link." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["student"],
+      "acceptance": [
+        { "ar": "proof بعد نهاية فصل الرابط ← 409 term-ended؛ وباسمٍ من حرفين ← 400.", "en": "proof after the link's term has ended ← 409 term-ended; with a two-character name ← 400." },
+        { "ar": "proof-status بلا قسم ← 400 «أكمل الرقم المدني والقسم العلمي أولاً».", "en": "proof-status without a department ← 400 «complete the civil ID and department first»." },
+        { "ar": "رابط من نوع students على GET /api/public/survey ← 404.", "en": "A link of kind students on GET /api/public/survey ← 404." }
+      ],
+      "evidence": { "code": ["src/server/routes/surveyRoutes.ts#/api/public/survey/:token", "src/server/routes/surveyRoutes.ts#/api/public/survey/:token/identity-status", "src/server/routes/surveyRoutes.ts#/api/public/survey/:token/proof-status", "src/server/routes/surveyRoutes.ts#/api/public/survey/:token/proof", "src/server/routes/surveyRoutes.ts#/api/public/survey/:token/my-case", "src/server/routes/surveyRoutes.ts#/m/:token", "src/server/routes/surveyRoutes.ts#/q/:token"], "tests": ["tests/student-journey-audit.ts", "tests/student-case-status-audit.ts"] }
+    },
+    {
+      "id": "IR-ENG-029",
+      "kind": "interface",
+      "title": { "ar": "مسارات عرض الإعلان وعدّه", "en": "Ad serving and counting routes" },
+      "text": { "ar": "يجب على النظام أن يخدم بلا حساب: GET /_ads/ad.js سكربت العرض بتخزين عام ساعة؛ وGET /_ads/serve?slot لموقعٍ معروف غير موقع راعي الموسم (بلا تخزين، ودوران 9000 مللي ثانية، وصورة عشوائية من صور كل حملة)، ويقبل رقم كلية مجرّداً (c من 1 إلى 99999) فقط بلا رمز رابط ولموقعٍ يشمل الجامعة كلها؛ وGET /_ads/img/:id صورةً لحملةٍ ليست مسودة؛ وGET /_ads/c/:cid/:crid للنقرة بلا مُحيل وnoindex، يعيد إلى «/» إن لم تكن الحملة حية أو الصورة لها، ويُعدّ ما بعد 120 نقرة من العنوان مرشّحاً؛ وPOST /_ads/e يقبل حتى 20 حدث مشاهدة في جسمٍ حتى 8 كيلوبايت ويردّ 204، ويعدّ لحملةٍ حية ولصورها فقط، ويتجاهل الوكلاء الآليين وما فوق 2400 حدث من العنوان.", "en": "The system shall serve without an account: GET /_ads/ad.js, the rendering script, publicly cached for an hour; GET /_ads/serve?slot for a known slot other than the season sponsor (no caching, a 9000 ms rotation and a random image of each campaign's images), accepting a bare college number (c from 1 to 99999) only without a link token and for a slot covering the whole university; GET /_ads/img/:id, an image of a campaign that is not a draft; GET /_ads/c/:cid/:crid for the click with no referrer and noindex, redirecting to «/» when the campaign is not live or the image is not its own, and counting clicks beyond 120 from one address as filtered; and POST /_ads/e accepting up to 20 view events in a body of up to 8 KB and answering 204, counting only for a live campaign and its images, ignoring automated agents and anything beyond 2400 events from one address." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["visitor", "student", "system"],
+      "acceptance": [
+        { "ar": "serve?slot=sponsor ← {items:[], sponsor:null, rotateMs:9000}.", "en": "serve?slot=sponsor ← {items:[], sponsor:null, rotateMs:9000}." },
+        { "ar": "صورة حملةٍ مسودة على /_ads/img ← 404.", "en": "An image of a draft campaign on /_ads/img ← 404." },
+        { "ar": "حدثٌ لصورةٍ ليست من الحملة ← لا يُعدّ، والرد 204.", "en": "An event for an image not belonging to the campaign ← not counted, and the answer is 204." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts#/_ads/ad.js", "src/server/adsRoutes.ts#/_ads/serve", "src/server/adsRoutes.ts#/_ads/img/:id", "src/server/adsRoutes.ts#/_ads/c/:cid/:crid", "src/server/adsRoutes.ts#/_ads/e"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "IR-ENG-030",
+      "kind": "interface",
+      "title": { "ar": "مسارات الكوبون الفريد وصفحة التحقق وشارة الشريك", "en": "Unique coupon, verification page and partner badge routes" },
+      "text": { "ar": "يجب على النظام أن يصدر الكوبون عبر GET /_ads/coupon (و404 {error:\"no\"} لحملةٍ ليست حيةً أو لا تفعّل الكوبون الفريد) ورمز QR له عبر GET /_ads/coupon.svg يفتح صفحة تحقق المتجر بالكوبون مملوءاً، بحدّ 600 طلب من العنوان؛ وأن تقبل صفحة التحقق GET وPOST /verify/:vid معرّفاً من 32 خانة سداسية مشتقاً من رمز التقرير لا يفتح التقرير، بحدّ 60 من العنوان، وتعرض إحدى الحالات: فارغ، غير صالح، مستعمل، تم الآن، صالح، وتعيد بعد التسجيل بـ303؛ وأن تخدم GET /partner-badge/:id.svg شارة «شريك» بمعرّفٍ مشتقٍّ لا يكشف الرمز، لا تصدر لمسودة أو لحملةٍ لم تبدأ، وتُنزَّل ملفاً مع dl.", "en": "The system shall issue the coupon through GET /_ads/coupon (and 404 {error:\"no\"} for a campaign that is not live or does not enable unique coupons) and its QR code through GET /_ads/coupon.svg, which opens the store verification page with the coupon filled in, limited to 600 requests per address; the verification page GET and POST /verify/:vid shall accept a 32-hex-character id derived from the report token that does not open the report, limited to 60 per address, showing one of the states empty, invalid, used, done now and valid, redirecting with 303 after recording; and GET /partner-badge/:id.svg shall serve a «partner» badge with a derived id that does not reveal the token, not issued for a draft or a campaign not yet started, downloaded as a file with dl." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["partner", "student"],
+      "acceptance": [
+        { "ar": "معرّف تحقق ليس 32 خانة سداسية ← صفحة «الرابط غير صالح» 404.", "en": "A verification id that is not 32 hex characters ← the «invalid link» page 404." },
+        { "ar": "الكوبون نفسه مرتين ← الأولى done والثانية used.", "en": "The same coupon twice ← the first done and the second used." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts#/_ads/coupon", "src/server/adsRoutes.ts#/_ads/coupon.svg", "src/server/adsRoutes.ts#/verify/:vid", "src/server/adsRoutes.ts#/partner-badge/:id.svg", "src/utils/adCoupons.ts", "src/utils/adBadge.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "IR-ENG-031",
+      "kind": "interface",
+      "title": { "ar": "مسارات تقرير الحملة للشركة", "en": "Campaign report routes for the company" },
+      "text": { "ar": "يجب على النظام أن يقبل رمز التقرير من 20 حرفاً فأكثر، وأن يخدم GET /ad-report/:token صفحة التقرير بعد تفريغ العدّادات، مع المقارنة الأسبوعية ومتوسط نسبة النقر لموقعها وعدد الحملات الحية فيه والمقررات المرعية وأيام الكوبونات الموثّقة؛ وGET /ad-report/:token/calendar.ics تقويم الحملة (تخزين خاص 600 ثانية، وتنزيل مع dl)؛ وPOST /ad-report/:token/redemptions لتبليغ الشركة عن استعمال الكود في يومٍ داخل مدة الحملة وليس بعد اليوم وبعددٍ من 0 إلى 100000، يُعرض «مُبلَّغاً» غير موثَّق، بحدّ 60 من العنوان، وإعادة بـ303 إلى ?red=ok أو bad.", "en": "The system shall accept a report token of 20 characters or more, and serve GET /ad-report/:token as the report page after flushing counters, with the weekly comparison, the slot's average click-through rate, the number of live campaigns in it, the sponsored courses and the days of verified coupons; GET /ad-report/:token/calendar.ics as the campaign calendar (private caching 600 seconds, downloaded with dl); and POST /ad-report/:token/redemptions for the company to report code use on a day within the campaign and not after today with a count from 0 to 100000, shown as «reported», unverified, limited to 60 per address, redirecting with 303 to ?red=ok or bad." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["partner"],
+      "acceptance": [
+        { "ar": "تبليغ ليومٍ بعد اليوم أو بعدد 100001 ← 303 إلى ?red=bad دون حفظ.", "en": "A report for a day after today or with a count of 100001 ← 303 to ?red=bad without saving." },
+        { "ar": "بعد تجديد رمز التقرير ← الرابط القديم يعيد صفحة «الرابط غير صالح» 404.", "en": "After rotating the report token ← the old link returns the «invalid link» page 404." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts#/ad-report/:token", "src/server/adsRoutes.ts#/ad-report/:token/calendar.ics", "src/server/adsRoutes.ts#/ad-report/:token/redemptions", "src/utils/adCalendar.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "IR-ENG-032",
+      "kind": "interface",
+      "title": { "ar": "مسارا ملف الشراكة وطلب الحملة", "en": "Partnership profile and campaign request routes" },
+      "text": { "ar": "يجب على النظام أن يخدم GET /partners/:token ملف الشراكة، ويسجّل فتحه للشركة إلا لوكيلٍ آلي أو معاينة الإدارة (preview=1) أو تكرارٍ من المتصفح نفسه خلال 30 ثانية، ويحسب «ماذا ستحصل؟» لموقعٍ وموسمٍ وعددِ أسابيع معروفة (الافتراضي أسبوعان) من سجل الموقع؛ وأن يقبل POST /partners/:token/lead نموذجاً بلا سكربت حتى 4 كيلوبايت، بحدّ 5 طلبات في الساعة من العنوان، ولا ينشئ طلباً ثانياً للشركة والجوال نفسيهما خلال يوم، ولا يحفظ جديداً إن بلغت الطلبات الجديدة 200، ويرسل بريداً للمالك دون انتظاره إن ضُبط البريد.", "en": "The system shall serve GET /partners/:token as the partnership profile, recording its opening for the company except for an automated agent, an administration preview (preview=1) or a repeat from the same browser within 30 seconds, and computing «what will you get?» for a known slot, season and number of weeks (default two weeks) from the site's record; and shall accept POST /partners/:token/lead as a script-free form of up to 4 KB, limited to 5 requests an hour per address, creating no second request for the same company and mobile within a day, storing nothing new when new requests reach 200, and emailing the owner without waiting when mail is configured." },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["partner", "rootAdmin"],
+      "acceptance": [
+        { "ar": "الطلب السادس في الساعة من العنوان نفسه ← 303 إلى ?lead=rate.", "en": "The sixth request in an hour from the same address ← 303 to ?lead=rate." },
+        { "ar": "فتح الإدارة بـpreview=1 ← لا يُسجَّل فتح.", "en": "An administration open with preview=1 ← no open is recorded." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts#/partners/:token", "src/server/adsRoutes.ts#/partners/:token/lead", "src/utils/adLeads.ts", "src/utils/adForecast.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "IR-ENG-033",
+      "kind": "interface",
+      "title": { "ar": "واجهة إدارة الإعلانات والجمهور", "en": "Ads and audience administration interface" },
+      "text": { "ar": "يجب على النظام أن يقصر على مدير النظام الأعلى (دخول + صلاحية الجذر) مسارات: GET /api/admin/audience-stats (بعد تفريغ العدّادات، باختيار فصل)، وGET /api/admin/ads/demand (المقررات الأكثر طلباً فوق حدّ الخصوصية)، وPOST /api/admin/ads/leads/:id/contacted، وPOST /api/admin/ads/campaigns (إنشاء أو تعديل؛ وتغيير الموقع أو الفئة أو التواريخ أو المواسم أو الكليات يعيد المعتمدة مسودة، وتغيير الموقع بعد رفع صور 409)، وPOST …/campaigns/:id/send-report (503 بلا بريد مفعّل، و400 بلا بريد للحملة، و502 عند الفشل)، وPOST …/campaigns/:id/creatives (صورتان على الأكثر، وتجاوز تحذير الجودة بالترويسة x-quality-override: 1، والتسمية من x-label حتى 40 حرفاً)، وGET /api/admin/ads/creatives/:id/img لمعاينة صور المسودة، وDELETE …/creatives/:crid (يُرفض حذف الصورة الوحيدة لحملةٍ معتمدة)، وPOST …/status، وDELETE /api/admin/ads/campaigns/:id (يُرفض للحية)، وPOST …/rotate-report، وPOST /api/admin/ads/partner-links و…/:id/revoke؛ وكل كتابةٍ تُكتب في سجل التدقيق بكيان ads ووصفٍ عربي حتى 400 حرف.", "en": "The system shall restrict to the root administrator (sign-in + root permission) the routes: GET /api/admin/audience-stats (after flushing counters, with a term choice), GET /api/admin/ads/demand (most requested courses above the privacy floor), POST /api/admin/ads/leads/:id/contacted, POST /api/admin/ads/campaigns (create or edit; changing slot, category, dates, seasons or colleges returns an approved campaign to draft, and changing the slot after images were uploaded is 409), POST …/campaigns/:id/send-report (503 without mail enabled, 400 without an email for the campaign, 502 on failure), POST …/campaigns/:id/creatives (two images at most, the quality warning overridden with the header x-quality-override: 1, the label from x-label up to 40 characters), GET /api/admin/ads/creatives/:id/img to preview draft images, DELETE …/creatives/:crid (deleting the only image of an approved campaign is refused), POST …/status, DELETE /api/admin/ads/campaigns/:id (refused for a live one), POST …/rotate-report, and POST /api/admin/ads/partner-links and …/:id/revoke; every write is logged in the audit trail with entity ads and an Arabic description of up to 400 characters." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "رفع صورة ثالثة ← 409 «الحد الأقصى 2 صورتين للمقارنة».", "en": "Uploading a third image ← 409 «the maximum is 2 images for comparison»." },
+        { "ar": "حذف حملةٍ حية ← 409 «الحملة تعمل الآن؛ أوقفها أولاً».", "en": "Deleting a live campaign ← 409 «the campaign is running now; pause it first»." },
+        { "ar": "إجراء حالة غير معروف ← 400؛ ورابط شراكة باسم شركة من حرف واحد ← 400.", "en": "An unknown status action ← 400; a partner link with a one-character company name ← 400." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts#/api/admin/audience-stats", "src/server/adsRoutes.ts#/api/admin/ads/demand", "src/server/adsRoutes.ts#/api/admin/ads/leads/:id/contacted", "src/server/adsRoutes.ts#/api/admin/ads/campaigns", "src/server/adsRoutes.ts#/api/admin/ads/campaigns/:id/send-report", "src/server/adsRoutes.ts#/api/admin/ads/campaigns/:id/creatives", "src/server/adsRoutes.ts#/api/admin/ads/creatives/:id/img", "src/server/adsRoutes.ts#/api/admin/ads/campaigns/:id/creatives/:crid", "src/server/adsRoutes.ts#/api/admin/ads/campaigns/:id/status", "src/server/adsRoutes.ts#/api/admin/ads/campaigns/:id", "src/server/adsRoutes.ts#/api/admin/ads/campaigns/:id/rotate-report", "src/server/adsRoutes.ts#/api/admin/ads/partner-links", "src/server/adsRoutes.ts#/api/admin/ads/partner-links/:id/revoke", "src/components/AdsManager.tsx"], "tests": ["tests/ads-audit.ts"] }
     }
   ],
   "edgeCases": [

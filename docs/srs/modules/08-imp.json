@@ -756,7 +756,8 @@
         "code": [
           "src/server/routes/pdfImportRoutes.ts",
           "src/utils/documentOcr.ts",
-          "src/server/core/http.ts"
+          "src/server/core/http.ts",
+          "src/server/routes/pdfImportRoutes.ts#/api/intelligence/pdf-import"
         ],
         "tests": [
           "tests/pdf-import-hardening.ts",
@@ -1416,7 +1417,8 @@
       "evidence": {
         "code": [
           "src/server/routes/pdfImportRoutes.ts",
-          "src/utils/authorityAcademicCodes.ts"
+          "src/utils/authorityAcademicCodes.ts",
+          "src/server/routes/pdfImportRoutes.ts#/api/intelligence/pdf-import/bootstrap-section"
         ],
         "tests": [
           "tests/header-department-rule-audit.ts"
@@ -1462,7 +1464,8 @@
         "code": [
           "src/server/routes/pdfImportRoutes.ts",
           "src/utils/importCatalogueGaps.ts",
-          "src/components/ImportCatalogueGaps.tsx"
+          "src/components/ImportCatalogueGaps.tsx",
+          "src/server/routes/pdfImportRoutes.ts#/api/intelligence/pdf-import/create-courses"
         ],
         "tests": [
           "tests/header-department-rule-audit.ts"
@@ -1786,7 +1789,8 @@
           "src/server/routes/smartImportRoutes.ts",
           "src/server/core/gemini.ts",
           "src/utils/importPageReview.ts",
-          "src/components/IntelligenceWorkspace.tsx"
+          "src/components/IntelligenceWorkspace.tsx",
+          "src/server/routes/smartImportRoutes.ts#/api/intelligence/smart-import"
         ],
         "tests": [
           "tests/gemini-schedule-layer.ts"
@@ -1949,7 +1953,8 @@
         "code": [
           "src/server/routes/smartImportRoutes.ts",
           "src/components/ScheduleTransfer.tsx",
-          "src/server/core/smartImport.ts"
+          "src/server/core/smartImport.ts",
+          "src/server/routes/smartImportRoutes.ts#/api/intelligence/import-preview"
         ],
         "tests": [
           "tests/import-term-tools-audit.ts"
@@ -1990,7 +1995,9 @@
       "evidence": {
         "code": [
           "src/server/routes/scheduleImportRoutes.ts",
-          "src/components/ScheduleTransfer.tsx"
+          "src/components/ScheduleTransfer.tsx",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/export",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/import"
         ],
         "tests": []
       },
@@ -2076,6 +2083,86 @@
           "tests/sheet-membership-audit.ts"
         ]
       }
+    },
+    {
+      "id": "NFR-IMP-035",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "متغيرات البيئة وسرّ إيصالات الاستيراد",
+        "en": "Import environment variables and receipt secret"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ مفتاح خدمة Gemini من GEMINI_API_KEY ثم GOOGLE_GEMINI_API_KEY ولا يستدعي الخدمة إن غابا، واسم النموذج من GEMINI_SCHEDULE_MODEL ثم GEMINI_MODEL وإلا gemini-3.6-flash، وأن يرسل الصفحات كاملة للقراءة المساعَدة ولا يقصّ شرائط الصفوف إلا إذا كانت قيمة SMART_IMPORT_ROW_STRIPS هي 1، وأن يبحث عن ملفي لغة التعرّف (ara وeng) في OCR_DATA_DIR ثم مجلد التشغيل ثم مجلد البرنامج ثم أبيه ولا يمرّر مساراً إلا إذا وُجد الملفان معاً، وأن يطبع أزمنة مراحل القراءة الممسوحة حين تكون OCR_PROFILE هي 1. كما يجب عليه أن يوقّع إيصال فحص الترويسة وإيصال نواقص المقررات بـHMAC-SHA256 بالسرّ المشترك المحفوظ للخادم مع وسمين مختلفين (pdf-import وpdf-gaps)، وأن يقارن التوقيع مقارنة ثابتة الزمن.",
+        "en": "The system shall read the Gemini service key from GEMINI_API_KEY then GOOGLE_GEMINI_API_KEY and make no call when both are absent, the model name from GEMINI_SCHEDULE_MODEL then GEMINI_MODEL else gemini-3.6-flash, shall send whole pages to the assisted reading and crop row strips only when SMART_IMPORT_ROW_STRIPS is 1, shall look for the recognition language files (ara and eng) in OCR_DATA_DIR, then the working directory, then the program directory, then its parent, passing a path only when both files exist there, and shall print the scanned-reading stage timings when OCR_PROFILE is 1. It shall also sign the header-check receipt and the course-gaps receipt with HMAC-SHA256 using the server's stored shared secret under two distinct labels (pdf-import and pdf-gaps), and shall compare signatures in constant time."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا GEMINI_API_KEY ولا GOOGLE_GEMINI_API_KEY تعيد طبقة الاستدعاء null دون أي طلب شبكي.",
+          "en": "With neither GEMINI_API_KEY nor GOOGLE_GEMINI_API_KEY the call layer returns null without any network request."
+        },
+        {
+          "ar": "إيصال نواقص عمره أكثر من 6 ساعات أو توقيعه معدّل أو بنسخة غير 1 يُرفض.",
+          "en": "A gaps receipt older than 6 hours, with an altered signature or a version other than 1 is rejected."
+        },
+        {
+          "ar": "مجلد فيه ara.traineddata وحده لا يُمرَّر للمتعرّف ويبقى المسار الافتراضي.",
+          "en": "A directory holding only ara.traineddata is not passed to the recogniser, which keeps its default path."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/gemini.ts#requestGeminiScheduleLayer",
+          "src/server/routes/smartImportRoutes.ts",
+          "src/utils/documentOcr.ts#ocrLanguageDataDir",
+          "src/server/routes/pdfImportRoutes.ts#signPdfImportReceipt",
+          "src/server/routes/pdfImportRoutes.ts#verifyGapsReceipt"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-IMP-036",
+      "kind": "functional",
+      "title": {
+        "ar": "استخراج النسخة الاحتياطية للنظام القديم",
+        "en": "Extracting the legacy system backup"
+      },
+      "text": {
+        "ar": "يجب أن تقرأ أداة الاستخراج النسخة الاحتياطية لقاعدة SQL Server القديمة للقراءة فقط دون تعديل المصدر، وأن تعيد بناء الكتالوج وتصدّر كل جدول مستخدم غير فارغ، وأن تتوقف إن اختلف عدد الصفوف المفكوكة عن عدد الكتالوج لأي جدول أو فشل فحص سلامة البيانات الفعالة، وأن تكتب ملف البيانات بالشكل الذي يتوقعه التطبيق مع تقرير يحمل بصمة SHA-256 للنسخة ولكل جدول، وأن تحوّل كلمات السر إلى بصمات scrypt مملّحة وتحفظ قيمة التوافق مشفّرة AES-256-GCM بمفتاح خزنة منفصل، دون أي كلمة سر صريحة في الملف.",
+        "en": "The extraction tool shall read the legacy SQL Server backup read-only without modifying the source, rebuild the catalogue and export every non-empty user table, stop when the decoded row count of any table differs from the catalogue count or the active-data integrity check fails, write the data file in the shape the application expects together with a report carrying the SHA-256 of the backup and of every table, and convert passwords to salted scrypt hashes while keeping the compatibility value encrypted with AES-256-GCM under a separate vault key, with no plaintext password in the file."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "جدول يختلف عدد صفوفه عن sysrowsets يوقف الأداة بخطأ يسمّي الجدول ولا يُكتب ملف.",
+          "en": "A table whose row count differs from sysrowsets stops the tool with an error naming the table and no file is written."
+        },
+        {
+          "ar": "مفتاح الخزنة يُقرأ من --vault-key أو يُنشأ بجوار ملف الإخراج باسم legacy-password-vault.key.",
+          "en": "The vault key is read from --vault-key or created next to the output file as legacy-password-vault.key."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/extract-legacy-bak.py",
+          "docs/DATA_MIGRATION.md",
+          "docs/FIRESTORE_IMPORT.md"
+        ],
+        "tests": []
+      },
+      "inferred": true
     }
   ],
   "edgeCases": [

@@ -1181,12 +1181,21 @@
         {
           "ar": "ملف باسم يطابق -[A-Za-z0-9_-]{8,}.js يردّ بـ public, max-age=31536000, immutable.",
           "en": "A file whose name matches -[A-Za-z0-9_-]{8,}.js is returned with public, max-age=31536000, immutable."
+        },
+        {
+          "ar": "المسار الجامع GET * في الإنتاج يعيد index.html بلا تخزين لكل مسار تنقّل، ويُسجَّل بعد كل مسارات /api وصفحة الهبوط ووثيقة المتطلبات فلا يبتلعها.",
+          "en": "The catch-all GET * route in production returns index.html uncached for every navigation path and is registered after every /api route, the landing page and the requirements page so it never swallows them."
+        },
+        {
+          "ar": "خارج الإنتاج تُخدم الواجهة من خادم Vite في وضع الوسيط بدل مجلد dist.",
+          "en": "Outside production the interface is served by the Vite server in middleware mode instead of the dist folder."
         }
       ],
       "evidence": {
         "code": [
           "server.ts",
-          "vite.config.ts"
+          "vite.config.ts",
+          "server.ts#GET *"
         ],
         "tests": [
           "tests/updating-page-audit.ts"
@@ -1568,6 +1577,10 @@
         {
           "ar": "فشل verify:pwa يوقف npm run build قبل البناء.",
           "en": "A verify:pwa failure stops npm run build before building."
+        },
+        {
+          "ar": "يفشل verify:pwa إذا كانت أيقونة apple-touch-icon شفافة عند حوافها، أو كان ملفٌّ واحد معلَناً any وmaskable معاً، أو كان عنصر شاشة البدء داخل #root (إلا بضبط PWA_GUARD_SPLASH_IN_ROOT=ok).",
+          "en": "verify:pwa fails when the apple-touch-icon is transparent at its edges, when one file is declared both any and maskable, or when a splash element sits inside #root (unless PWA_GUARD_SPLASH_IN_ROOT=ok is set)."
         }
       ],
       "evidence": {
@@ -1807,6 +1820,250 @@
           "tests/firestore-backup-procedure-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-OPS-027",
+      "kind": "functional",
+      "title": {
+        "ar": "الدوام الشامل يُقرأ قبل كل طلب",
+        "en": "University working day read before every request"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يجيب GET /api/university-day بلا حساب وبرأس Cache-Control: no-store بوقتي بداية الدوام ونهايته (الافتراضي 08:00 و20:00)، وأن يمرّ كل طلب قبل أي بوابة بقراءة الإعداد المحفوظ في الوثيقة universityDay/global إذا مضى على آخر قراءة 30 ثانية، بانتظار لا يتجاوز ثانيتين يمضي بعدهما الطلب بآخر قيمة، وأن تُبقي القراءة الفاشلة آخر قيمة معروفة لا الافتراضية.",
+        "en": "The system shall answer GET /api/university-day without an account and with Cache-Control: no-store with the working day's start and end times (default 08:00 and 20:00), and every request shall, before any gate, pass a read of the setting stored in universityDay/global when 30 seconds have passed since the last read, waiting at most 2 seconds after which the request proceeds with the last value, and a failed read shall keep the last known value rather than the default."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "standard",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "الجواب يحمل startTime وendTime فقط ولا بيانات أخرى.",
+          "en": "The answer carries only startTime and endTime and no other data."
+        },
+        {
+          "ar": "قاعدة بيانات معلّقة لا تؤخر أي طلب أكثر من ثانيتين.",
+          "en": "A hanging database does not delay any request by more than 2 seconds."
+        },
+        {
+          "ar": "القراءة تتم خارج صندوق العرض التجريبي فيرى الزائر الدوام الحقيقي نفسه.",
+          "en": "The read happens outside the demo sandbox so a visitor sees the same real working day."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/systemRoutes.ts#/api/university-day",
+          "src/server/core/universityDay.ts#universityDayFresh",
+          "src/utils/scheduleTime.ts",
+          "server.ts"
+        ],
+        "tests": [
+          "tests/role-scope-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-028",
+      "kind": "functional",
+      "title": {
+        "ar": "وضع البيانات والمنفذ وعنوان العميل",
+        "en": "Data mode, port and client address"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقبل DATA_MODE بإحدى قيمتين فقط: firestore (الافتراضي حين يغيب) وdemo، وأن يرفض أي قيمة أخرى عند الإقلاع برسالة «DATA_MODE غير مدعوم» تذكر القيمتين المقبولتين، وأن يطبع في السجل عند demo إطاراً يقول إنها بيانات تجريبية ليست بيانات الجامعة، وأن يستمع على المنفذ 3000 دائماً إلا في وضع demo حيث يقبل PORT موجباً، وأن يثق بوكيل واحد أمامه (trust proxy = 1) فيكون عنوان العميل الحقيقي هو مفتاح حدود المعدّل.",
+        "en": "The system shall accept DATA_MODE with only two values: firestore (the default when absent) and demo, refuse any other value at start-up with a «DATA_MODE not supported» message naming the two accepted values, print a banner in the log in demo mode stating the data is synthetic and not the university's, always listen on port 3000 except in demo mode where a positive PORT is honoured, and trust exactly one proxy in front of it (trust proxy = 1) so the real client address is the rate-limit key."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "DATA_MODE=local لا يفتح أي بيانات: في الإنتاج يخرج الخادم بالرمز 1، وفي التطوير تردّ كل طلبات /api بـ503 مع رقم مرجع.",
+          "en": "DATA_MODE=local opens no data: in production the server exits with code 1, and in development every /api request answers 503 with a reference number."
+        },
+        {
+          "ar": "PORT=4000 مع DATA_MODE=firestore يبقي الخادم على 3000.",
+          "en": "PORT=4000 with DATA_MODE=firestore keeps the server on 3000."
+        },
+        {
+          "ar": "طلبان من عنوانين مختلفين خلف منصة الاستضافة يُعدّان في دلوين منفصلين.",
+          "en": "Two requests from two different addresses behind the hosting platform are counted in two separate buckets."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#initDatabase",
+          "server.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-029",
+      "kind": "functional",
+      "title": {
+        "ar": "ملفات البيانات المحلية في وضع التجربة والتطوير",
+        "en": "Local data files in demo and development mode"
+      },
+      "text": {
+        "ar": "يجب على النظام حين لا يعمل على Firestore أن يحفظ بياناته في db.json داخل المجلد الخاص (SCHEDULE_PRIVATE_DIR)، فينسخ اللقطة المضمّنة (database/db.json أو db.json.gz) إليه مرة واحدة دون استبدال، ويستعيد db.json من db.json.backup إذا فُقد، ويكتب كل حفظ في ملف مؤقت ثم يستبدله ذرّياً بعد نقل النسخة السابقة إلى db.json.backup، ويوقف الإقلاع إن تعذّرت قراءة الملف؛ وإذا غاب الملف تماماً يرفض البدء في الإنتاج، وفي التطوير وحده ينشئ حساب «مدير النظام» (admin) بكلمة DEFAULT_ADMIN_PASSWORD أو admin123 إن غابت مع تحذير في السجل بتغييرها.",
+        "en": "The system shall, when not running on Firestore, keep its data in db.json inside the private directory (SCHEDULE_PRIVATE_DIR), copying the packaged snapshot (database/db.json or db.json.gz) there once without overwriting, restoring db.json from db.json.backup when it is missing, writing every save to a temporary file and replacing it atomically after moving the previous copy to db.json.backup, and stopping start-up when the file cannot be read; when the file is absent altogether it shall refuse to start in production, and in development only it shall create the system administrator account (admin) with DEFAULT_ADMIN_PASSWORD, or admin123 when that is unset, with a log warning to change it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف db.json تالف يوقف الإقلاع برسالة «تعذر قراءة ملف البيانات المحلية؛ تم إيقاف التشغيل لحماية البيانات».",
+          "en": "A corrupt db.json stops start-up with the message that the local data file could not be read and start-up was stopped to protect the data."
+        },
+        {
+          "ar": "في الإنتاج لا يُنشأ أبداً حساب admin/admin123.",
+          "en": "In production an admin/admin123 account is never created."
+        },
+        {
+          "ar": "الملفات تُكتب بصلاحية 600 والمجلد بصلاحية 700.",
+          "en": "Files are written with mode 600 and the directory with mode 700."
+        },
+        {
+          "ar": "طلبات صندوق العرض لا تكتب الملف أبداً.",
+          "en": "Demo sandbox requests never write the file."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts#initDatabase",
+          "src/db/repository.ts#saveDatabase",
+          "src/db/snapshot.ts#materializePackagedSnapshotOnce"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-030",
+      "kind": "functional",
+      "title": {
+        "ar": "سكربت حماية الحالة الخاصة",
+        "en": "Private-state protection script"
+      },
+      "text": {
+        "ar": "يجب أن ينقل npm run protect:data الحالة الخاصة إلى المجلد الخاص خارج مجلد الإصدار: ينسخ لقطة البيانات (أو يفكّ db.json.gz) ومفتاح الخزنة legacy-password-vault.key وملف .env مرة واحدة دون استبدال ما هو موجود (ويذكر إن اختلف)، وينشئ db.json.backup، ونسخة ثابتة مؤرّخة في backups/db-<الوقت>.json، وملف protection-manifest.json فيه بصمتا SHA-256 للقاعدة والنسخة، ثم يطلب ضبط SCHEDULE_PRIVATE_DIR قبل الرفع التالي.",
+        "en": "npm run protect:data shall move the private state into the private directory outside the release folder: copy the data snapshot (or unpack db.json.gz), the vault key legacy-password-vault.key and the .env file once without overwriting what exists (reporting when it differs), create db.json.backup, an immutable timestamped copy in backups/db-<time>.json, and a protection-manifest.json holding the SHA-256 digests of the database and the copy, then ask for SCHEDULE_PRIVATE_DIR to be set before the next upload."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "تشغيله مرتين لا يستبدل db.json المحفوظ ويضيف نسخة مؤرّخة جديدة فقط.",
+          "en": "Running it twice does not replace the stored db.json and only adds a new timestamped copy."
+        },
+        {
+          "ar": "غياب اللقطة بصيغتيها يوقفه بخطأ «Required source snapshot is missing».",
+          "en": "A snapshot missing in both forms stops it with «Required source snapshot is missing»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/protect-private-state.mjs",
+          "package.json"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-031",
+      "kind": "functional",
+      "title": {
+        "ar": "حدّ الأخطاء المشترك للأبواب العامة",
+        "en": "Shared failure limit for public doors"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحدّ التخمين على الأبواب العامة (بحث بطاقة الأستاذ بالرقم المدني، وتوقيع طلب الأستاذ، والتحقق من التوقيع، واستبيان الطلبة) بعدّاد واحد مفتاحه «الرابط|العنوان»: 10 أخطاء في 10 دقائق افتراضياً، يُضبطان بـPUBLIC_ATTEMPT_MAX_FAILURES (عدد صحيح من 1) وPUBLIC_ATTEMPT_WINDOW_MINUTES، بسعة 5000 مفتاح في الذاكرة، وأن تُحجز المحاولة قبل أول انتظار فتُحسب خطأً ولا يعيدها إلا النجاح، فلا تتجاوز الطلبات المتوازية الحد؛ أما الاستبيان فيعدّ كل طلب.",
+        "en": "The system shall limit guessing on public doors (the teacher-card civil-ID lookup, signing a teacher request, signature verification and the student survey) with one counter keyed by «link|address»: 10 failures in 10 minutes by default, tunable with PUBLIC_ATTEMPT_MAX_FAILURES (an integer from 1) and PUBLIC_ATTEMPT_WINDOW_MINUTES, holding at most 5000 keys in memory; an attempt shall be reserved before the first wait so it counts as a failure and only success returns it, so parallel requests cannot exceed the limit; the survey counts every request."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "external",
+        "instructor",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "PUBLIC_ATTEMPT_MAX_FAILURES=25 وPUBLIC_ATTEMPT_WINDOW_MINUTES=5 تعطيان 25 خطأً في 300000 مللي ثانية.",
+          "en": "PUBLIC_ATTEMPT_MAX_FAILURES=25 and PUBLIC_ATTEMPT_WINDOW_MINUTES=5 give 25 failures in 300000 ms."
+        },
+        {
+          "ar": "قيمة غير رقمية أو أقل من 1 تعيد الافتراضي 10.",
+          "en": "A non-numeric value or one below 1 falls back to 10."
+        },
+        {
+          "ar": "أستاذ يفتح بطاقته مرات عدة بالرقم الصحيح لا يُحجب.",
+          "en": "A teacher opening his card many times with the right number is never blocked."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/publicAttemptLimiter.ts#limiterOptionsFromEnv",
+          "src/server/core/shareLinks.ts",
+          "src/server/routes/publicStaffRoutes.ts",
+          "src/server/routes/verifyRoutes.ts",
+          "src/server/routes/surveyRoutes.ts"
+        ],
+        "tests": [
+          "tests/doctor-journey-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-032",
+      "kind": "functional",
+      "title": {
+        "ar": "تدقيق حزمة الرفع",
+        "en": "Upload package audit"
+      },
+      "text": {
+        "ar": "يجب أن يفحص npm run audit:deploy حزمة الرفع قبل النشر من المصدر ويفشل إذا غاب database/db.json.gz أو لم يحمل 15430 صفاً في schedules، أو اختلف محتواه عن database/db.json حين يوجد الاثنان، أو وُجد node_modules في الحزمة، أو خلا ‎.gcloudignore‎ من database/db.json وdist/، وأن يطبع تقريراً بصيغة JSON بالأحجام والتحذيرات والأخطاء.",
+        "en": "npm run audit:deploy shall check the upload package before a source deployment and fail when database/db.json.gz is missing or does not hold 15430 rows in schedules, when its content differs from database/db.json where both exist, when node_modules is inside the package, or when .gcloudignore lacks database/db.json and dist/, and it shall print a JSON report with the sizes, warnings and errors."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "لقطة مضغوطة بعدد صفوف مختلف تُنهي الفحص بالرمز 1.",
+          "en": "A compressed snapshot with a different row count ends the audit with code 1."
+        },
+        {
+          "ar": "غياب db.json وحده تحذير لا خطأ.",
+          "en": "A missing db.json alone is a warning, not an error."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/deployment-audit.mjs",
+          "package.json"
+        ],
+        "tests": []
+      },
+      "inferred": true
     }
   ],
   "edgeCases": [
