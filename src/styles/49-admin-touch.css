@@ -28,8 +28,10 @@
   .location-type-scope::after{content:"";position:absolute;inset:-8px -2px}
   .location-type-edit::after,
   .location-type-delete::after{content:"";position:absolute;inset:-4px}
+  /* تعديل/حذف المبنى والقاعة في «إضافة مبانٍ وقاعات»: ارتفاعها 36px، فتتّسع منطقة اللمس رأسياً فقط. */
+  .location-quick-item-actions>button{position:relative}
+  .location-quick-item-actions>button::after{content:"";position:absolute;inset:-4px 0}
 }
-
 /* اسمُ المقرر في بطاقة القائمة: كان سطراً واحداً مقصوصاً بنقاط، فيُخفي وسمَ
    «صحيفة 2026» بجانبه (يُقصّ طرفه الأيسر). يلتفّ الاسمُ ووسومُه بدل القصّ. */
 .record-card-copy>strong:has(.course-room-type-line){
