@@ -1,0 +1,1988 @@
+{
+  "id": "OPS",
+  "order": 17,
+  "icon": "server-cog",
+  "title": {
+    "ar": "العمليات والتشغيل",
+    "en": "Operations"
+  },
+  "tagline": {
+    "ar": "من إقلاع الخادم إلى النشر: بيئة التشغيل، النسخ الاحتياطي، البيئة التجريبية، والتطبيق المثبَّت.",
+    "en": "From server boot to release: runtime, backups, the demo sandbox and the installable app."
+  },
+  "summary": {
+    "ar": "تصف هذه الوحدة كيف يُركَّب الخادم ويُقلع ويحمي نفسه، وكيف تُختار قاعدة البيانات وتُرفض الوجهة الخاطئة، وكيف يُصدَّر النظام كاملاً ويُستعاد بخطوات قابلة للاستئناف لحساب الإدارة الرئيسي وحده. وتشمل البيئة التجريبية المعزولة لكل زائر، والتطبيق المثبَّت وصفحة «نُحدّث البرنامج» عند التبديل، وخط البناء والفحص والنشر وحرّاسه. تعتمد عليها كل الوحدات الأخرى لأن أي خلل هنا يظهر لكل مستخدم.",
+    "en": "This module describes how the server is composed, booted and protected; how the database target is chosen and a wrong target refused; and how the whole system is exported and restored in resumable steps by the root administrator alone. It also covers the per-visitor demo sandbox, the installable app with its 'we are updating' page during a switch-over, and the build, check and release pipeline with its guards. Every other module depends on it, because a fault here is seen by every user."
+  },
+  "actors": [
+    "rootAdmin",
+    "admin",
+    "system",
+    "visitor"
+  ],
+  "sources": [
+    "server.ts",
+    "src/server/core/boot.ts",
+    "src/server/core/state.ts",
+    "src/server/core/http.ts",
+    "src/server/core/rateLimits.ts",
+    "src/server/core/input.ts",
+    "src/server/core/demo.ts",
+    "src/server/routes/systemRoutes.ts",
+    "src/server/runtimeEnv.ts",
+    "src/server/firestoreTarget.ts",
+    "src/server/dataContextCache.ts",
+    "src/server/anonymousGuard.ts",
+    "src/server/publicAttemptLimiter.ts",
+    "src/server/demoRadarSeed.ts",
+    "src/server/demoPreviousTermSeed.ts",
+    "src/server/demoSectionRequestsSeed.ts",
+    "src/db/demoSandbox.ts",
+    "src/db/demoActivityTrail.ts",
+    "src/utils/updatingNotice.ts",
+    "public/sw.js",
+    "public/manifest.webmanifest",
+    "public/updating.html",
+    "public/robots.txt",
+    "index.html",
+    "vite.config.ts",
+    "tsconfig.json",
+    "package.json",
+    "Dockerfile",
+    "cloudbuild.yaml",
+    "Procfile",
+    "firestore.rules",
+    "firestore.indexes.json",
+    "firebase.json",
+    "scripts/run-tests.mjs",
+    "scripts/stamp-build.mjs",
+    "scripts/stamp-sw.mjs",
+    "scripts/verify-pwa.mjs",
+    "scripts/runtime-deps.mjs",
+    "scripts/deployment-audit.mjs",
+    "scripts/protect-private-state.mjs",
+    "scripts/firestore-backup.md",
+    "tests/deploy-target-guard.mjs",
+    "tests/repo-hygiene-guard.mjs",
+    "tests/suite.txt",
+    "tests/slow.txt",
+    "tests/known-failures.txt",
+    "docs/DELIVERY_OPERATIONS.md",
+    "docs/SAFE_DEPLOYMENT.md",
+    "docs/SERVER_MAP.md",
+    "docs/DEMO_GUIDE.md"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "خزنة النظام",
+        "en": "System vault"
+      },
+      "file": "src/server/routes/adminRoutes.ts",
+      "note": {
+        "ar": "تصدير كامل واستيراد وتصفير وتراجع، لحساب الإدارة الرئيسي وحده.",
+        "en": "Full export, import, reset and undo, for the root account only."
+      }
+    },
+    {
+      "name": {
+        "ar": "صفحة «نُحدّث البرنامج»",
+        "en": "'We are updating' page"
+      },
+      "file": "public/updating.html",
+      "note": {
+        "ar": "صفحة مستقلة بلا طلب خارجي تحلّ محل خطأ المنصة أثناء النشر.",
+        "en": "A standalone page with no external request that replaces the platform's error during a release."
+      }
+    },
+    {
+      "name": {
+        "ar": "شريط الدخول التجريبي",
+        "en": "Demo entry and role bar"
+      },
+      "file": "src/server/routes/authRoutes.ts",
+      "note": {
+        "ar": "بدء صندوق الزائر وتبديل الصفة وإعادة الضبط.",
+        "en": "Starts the visitor sandbox, switches role and resets it."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "rootAdmin",
+      "title": {
+        "ar": "تصدير نسخة كاملة ثم استعادتها",
+        "en": "Export a full backup, then restore it"
+      },
+      "steps": [
+        {
+          "ar": "يفتح حساب الإدارة الرئيسي خزنة النظام ويبدأ مهمة تصدير؛ يردّ الخادم 202 ومعها المهمة.",
+          "en": "The root account opens the system vault and starts an export job; the server answers 202 with the job."
+        },
+        {
+          "ar": "تتقدم المهمة بخطوات قصيرة (حدّ كل خطوة 6500 ملّي ثانية) وتُحفظ أجزاؤها في Firestore، فإغلاق المتصفح لا يضيّع شيئاً.",
+          "en": "The job advances in short steps (6500 ms budget each) and its chunks are staged in Firestore, so closing the browser loses nothing."
+        },
+        {
+          "ar": "عند اكتمالها يُنزَّل ملف gzip يحمل بصمة SHA-256 وعدد المستندات في ترويسة الردّ.",
+          "en": "When ready, a gzip file is downloaded with its SHA-256 and document count in the response headers."
+        },
+        {
+          "ar": "لاحقاً يعرض المدير الملف على «المعاينة» فيتحقق الخادم من الصيغة والبصمة ويعيد أعداد المجموعات دون أن يكتب شيئاً.",
+          "en": "Later the administrator previews the file; the server checks format and digest and returns per-collection counts without writing anything."
+        },
+        {
+          "ar": "يبدأ الاستيراد بترويسة تأكيد صريحة؛ يُجري الخادم تصديراً احتياطياً أولاً ثم يستبدل البيانات على نقاط استئناف.",
+          "en": "Import starts with an explicit confirmation header; the server takes a safety export first, then replaces data at resumable checkpoints."
+        },
+        {
+          "ar": "إن لم تكن النتيجة المرجوّة يعود المدير بخطوة «تراجع» إلى نقطة الأمان.",
+          "en": "If the result is not what was wanted, the administrator returns to the safety restore point with 'undo'."
+        }
+      ]
+    },
+    {
+      "actor": "visitor",
+      "title": {
+        "ar": "تجربة النظام في صندوق معزول",
+        "en": "Trying the system in an isolated sandbox"
+      },
+      "steps": [
+        {
+          "ar": "يضغط الزائر «تجربة النظام»؛ يُنشأ صندوق في ذاكرة الخادم ويُرسل له كوكي جلسة يبدأ بـ demo_.",
+          "en": "The visitor presses 'try the system'; a sandbox is created in server memory and a session cookie starting with demo_ is set."
+        },
+        {
+          "ar": "يفتح الدخول فوراً على القسم والفصل المحدَّدين، وتُبذر القصص الأكبر (64 ملف طالب وغيرها) في الخلفية وتظهر حالتها «قيد التحضير».",
+          "en": "Sign-in opens at once on the preset department and term while the larger stories (64 student profiles and more) are seeded in the background, shown as 'preparing'."
+        },
+        {
+          "ar": "يبدّل الصفة من الشريط (حدّ 30 تبديلاً في الدقيقة) فيرى الشاشات بنطاق تلك الصفة وصلاحياتها الحقيقية.",
+          "en": "He switches role from the bar (30 switches per minute) and sees the screens with that role's real scope and permissions."
+        },
+        {
+          "ar": "إن حاول تعديل شاشة إدارية (المستخدمون، الصلاحيات، خزنة النظام) رُفض بـ 403 وبيان أنها شاشة عرض.",
+          "en": "Trying to edit an administrative screen (users, permissions, system vault) is refused with 403 and a note that it is display-only."
+        },
+        {
+          "ar": "يعيد الضبط بزر «إعادة» فيُستبدل الصندوق بنسخة جديدة وتتجدد مهلة الساعة.",
+          "en": "He resets with the reset button; the sandbox is replaced by a fresh one and the one-hour lifetime renews."
+        }
+      ]
+    },
+    {
+      "actor": "system",
+      "title": {
+        "ar": "إصدار نسخة جديدة إلى الموقع الرسمي",
+        "en": "Releasing a new build to the official site"
+      },
+      "steps": [
+        {
+          "ar": "يُفتح طلب تغيير فيعمل CI السريع (يتخطى الاختبارات الثقيلة السبعة) بعد حارسي الوجهة والنظافة.",
+          "en": "A change request runs the quick CI (skipping the seven slow tests) after the target and hygiene guards."
+        },
+        {
+          "ar": "بعد الدمج في main يعمل CI الكامل بكل الاختبارات؛ ولا يُنشر إلا التزام نجح فيه.",
+          "en": "After the merge into main the full CI runs every test; only a commit that passed it can be released."
+        },
+        {
+          "ar": "يرفض سير النشر أي التزام لم ينجح CI الكامل له، ويتحقق من مفتاح الإيقاف ومن المستودع المالك.",
+          "en": "The release pipeline refuses any commit the full CI has not passed, and checks the kill switch and the owning repository."
+        },
+        {
+          "ar": "يُبنى image واحد ثابت ويُدفع، ثم يُغيَّر image الخدمة الرسمية وحده دون إعداداتها.",
+          "en": "One immutable image is built and pushed, then only the official service's image is changed, never its settings."
+        },
+        {
+          "ar": "يقارن السير معرّف البناء في sw.js على النطاق الرسمي وعلى عنوان الخدمة، ويفشل إن اختلفا بعد 20 محاولة.",
+          "en": "The pipeline compares the build id in sw.js on the official domain and on the service address, failing if they still differ after 20 tries."
+        },
+        {
+          "ar": "الصفحات المفتوحة تكتشف الإصدار الجديد عبر /api/version وتعيد تحميل نفسها.",
+          "en": "Open pages notice the new build through /api/version and reload themselves."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "ops-boot",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "إقلاع الخادم",
+        "en": "Server boot"
+      },
+      "caption": {
+        "ar": "ترتيب ثابت: البيئة أولاً ثم قاعدة البيانات؛ وفي الإنتاج لا يُستمع على منفذ دون قاعدة.",
+        "en": "A fixed order: environment first, then the database; in production the port is never opened without one."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "بدء العملية",
+            "en": "Process start"
+          },
+          "icon": "power",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "ضبط البيئة",
+            "en": "Configure environment"
+          },
+          "icon": "settings",
+          "kind": "system"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "اختيار وجهة Firestore",
+            "en": "Resolve database target"
+          },
+          "icon": "database",
+          "kind": "system"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "هل تهيّأت القاعدة؟",
+            "en": "Database up?"
+          },
+          "icon": "circle-help",
+          "kind": "decision"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "خروج بالرمز 1",
+            "en": "Exit with code 1"
+          },
+          "icon": "octagon-x",
+          "kind": "end"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "وضع التطوير: 503 على /api",
+            "en": "Development: 503 on /api"
+          },
+          "icon": "triangle-alert",
+          "kind": "state"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "مصالحة الحسابات والمهام الدورية",
+            "en": "Reconcile accounts, start jobs"
+          },
+          "icon": "refresh-cw",
+          "kind": "system"
+        },
+        {
+          "id": "h",
+          "label": {
+            "ar": "الاستماع على المنفذ 3000",
+            "en": "Listen on port 3000"
+          },
+          "icon": "radio",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "from": "b",
+          "to": "c"
+        },
+        {
+          "from": "c",
+          "to": "d"
+        },
+        {
+          "from": "d",
+          "to": "g",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "d",
+          "to": "e",
+          "label": {
+            "ar": "لا، إنتاج",
+            "en": "No, production"
+          }
+        },
+        {
+          "from": "d",
+          "to": "f",
+          "label": {
+            "ar": "لا، تطوير",
+            "en": "No, development"
+          }
+        },
+        {
+          "from": "g",
+          "to": "h"
+        },
+        {
+          "from": "f",
+          "to": "h"
+        }
+      ]
+    },
+    {
+      "id": "ops-release",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "مسار الإصدار",
+        "en": "Release path"
+      },
+      "caption": {
+        "ar": "لا يصل إلى الموقع الرسمي إلا التزامٌ نجح فيه CI الكامل على main، ولا تُمسّ إعدادات الخدمة.",
+        "en": "Only a commit that passed the full CI on main reaches the official site, and service settings are never touched."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "طلب تغيير",
+            "en": "Change request"
+          },
+          "icon": "git-pull-request",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "CI سريع",
+            "en": "Quick CI"
+          },
+          "icon": "zap",
+          "kind": "system"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "دمج في main",
+            "en": "Merge to main"
+          },
+          "icon": "git-merge",
+          "kind": "state"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "CI كامل",
+            "en": "Full CI"
+          },
+          "icon": "list-checks",
+          "kind": "system"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "هل نجح؟",
+            "en": "Passed?"
+          },
+          "icon": "circle-help",
+          "kind": "decision"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "بناء image ونشره",
+            "en": "Build and deploy image"
+          },
+          "icon": "package",
+          "kind": "system"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "هل يخدم النطاق البناء نفسه؟",
+            "en": "Domain serves same build?"
+          },
+          "icon": "circle-help",
+          "kind": "decision"
+        },
+        {
+          "id": "h",
+          "label": {
+            "ar": "اكتمل الإصدار",
+            "en": "Release complete"
+          },
+          "icon": "badge-check",
+          "kind": "end"
+        },
+        {
+          "id": "i",
+          "label": {
+            "ar": "رفض أو فشل",
+            "en": "Refused or failed"
+          },
+          "icon": "octagon-x",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "from": "b",
+          "to": "c"
+        },
+        {
+          "from": "c",
+          "to": "d"
+        },
+        {
+          "from": "d",
+          "to": "e"
+        },
+        {
+          "from": "e",
+          "to": "f",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "e",
+          "to": "i",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "f",
+          "to": "g"
+        },
+        {
+          "from": "g",
+          "to": "h",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "g",
+          "to": "i",
+          "label": {
+            "ar": "لا بعد 20 محاولة",
+            "en": "No after 20 tries"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ops-import",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "استيراد نسخة كاملة",
+        "en": "Full backup import"
+      },
+      "caption": {
+        "ar": "كل خطوة نقطة استئناف دائمة؛ والتصدير الاحتياطي يسبق أي استبدال.",
+        "en": "Each step is a durable checkpoint; the safety export precedes any replacement."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "رفع الملف",
+            "en": "Upload file"
+          },
+          "icon": "upload",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "فحص الصيغة والبصمة",
+            "en": "Check format and digest"
+          },
+          "icon": "shield-check",
+          "kind": "decision"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "رفض",
+            "en": "Refused"
+          },
+          "icon": "octagon-x",
+          "kind": "end"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "تجهيز المصدر",
+            "en": "Stage source"
+          },
+          "icon": "layers",
+          "kind": "state"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "تصدير احتياطي",
+            "en": "Safety export"
+          },
+          "icon": "archive",
+          "kind": "state"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "استبدال المجموعات",
+            "en": "Replace collections"
+          },
+          "icon": "replace",
+          "kind": "state"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "جاهز مع نقطة تراجع",
+            "en": "Ready with restore point"
+          },
+          "icon": "check-circle",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "from": "b",
+          "to": "c",
+          "label": {
+            "ar": "غير صالح",
+            "en": "Invalid"
+          }
+        },
+        {
+          "from": "b",
+          "to": "d",
+          "label": {
+            "ar": "صالح",
+            "en": "Valid"
+          }
+        },
+        {
+          "from": "d",
+          "to": "e"
+        },
+        {
+          "from": "e",
+          "to": "f"
+        },
+        {
+          "from": "f",
+          "to": "g"
+        }
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "FR-OPS-001",
+      "kind": "functional",
+      "title": {
+        "ar": "ترتيب الإقلاع والمجلد الخاص وملف البيئة",
+        "en": "Boot order, private directory and environment file"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يضبط بيئة التشغيل قبل أن تُحمَّل أي وحدة من وحدات الخادم (يبقى الاستيراد الأول في server.ts هو وحدة الإقلاع)، وأن يقرأ ملف البيئة من مجلد خاص خارج مجلد الإصدار (افتراضياً schedule-private بجوار التطبيق، وعلى Cloud Run تحت /tmp)، وأن ينسخ ملف .env المحلي إليه مرة واحدة بصلاحية 600 دون استبدال، وأن يرفض في الإنتاج مجلداً خاصاً داخل مجلد الإصدار.",
+        "en": "The system shall configure the runtime environment before any server module is loaded (the boot module remaining the first import in server.ts), read the environment file from a private directory outside the release folder (by default a schedule-private sibling, and under /tmp on Cloud Run), copy a local .env into it once with mode 600 without overwriting, and in production refuse a private directory inside the release folder."
+      },
+      "rationale": {
+        "ar": "وحدات كثيرة تقرأ المتغيّرات لحظة تحميلها؛ تقديمها على الضبط يعطي إعداداً مختلفاً صامتاً.",
+        "en": "Many modules read variables at load time; loading them before configuration yields a silently different setup."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "السطر الأول في server.ts هو استيراد core/boot، وفيه استدعاء configureRuntimeEnvironment() بعد استيراد الوحدات الأصلية وقبل أي وحدة من core أو routes.",
+          "en": "The first line of server.ts imports core/boot, which calls configureRuntimeEnvironment() after the original modules and before any core or routes module."
+        },
+        {
+          "ar": "جدول المسارات ووسائطها بعد التقسيم مطابق للقطة المحفوظة قبل التقسيم (تكافؤ الخادم).",
+          "en": "The route table and middleware order after the split equal the snapshot taken before the split (server parity)."
+        },
+        {
+          "ar": "على Cloud Run مع SCHEDULE_PRIVATE_DIR مضبوط على مجلد مؤقت يُقرأ الملف منه ولا يُكتب في مجلد التطبيق.",
+          "en": "On Cloud Run with SCHEDULE_PRIVATE_DIR set to a temporary folder, the file is read from there and nothing is written into the application folder."
+        },
+        {
+          "ar": "في الإنتاج يرفع المستودع الخطأ «SCHEDULE_PRIVATE_DIR must be outside the application release directory in production» إن وقع داخل الإصدار.",
+          "en": "In production the repository throws 'SCHEDULE_PRIVATE_DIR must be outside the application release directory in production' when it lies inside the release."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/server/core/boot.ts",
+          "src/server/runtimeEnv.ts",
+          "src/db/repository.ts",
+          "scripts/protect-private-state.mjs",
+          "docs/SAFE_DEPLOYMENT.md"
+        ],
+        "tests": [
+          "tests/server-route-parity-audit.ts",
+          "tests/firestore-target-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-002",
+      "kind": "functional",
+      "title": {
+        "ar": "وضع Cloud Run الإنتاجي",
+        "en": "Cloud Run production mode"
+      },
+      "text": {
+        "ar": "يجب على النظام، متى اكتشف أنه يعمل على Cloud Run (K_SERVICE أو K_REVISION أو K_CONFIGURATION) خارج بيئة المعاينة، أن يفرض NODE_ENV=production وDATA_MODE=firestore وAUTO_IMPORT_LEGACY_DATA=false، ولا يستثني إلا خدمة مخصصة للتجربة تعلن SCHEDULE_DEMO_SERVICE=true فتعمل بالبيانات التجريبية في الذاكرة.",
+        "en": "When the system detects it runs on Cloud Run (K_SERVICE, K_REVISION or K_CONFIGURATION) outside the preview environment, it shall force NODE_ENV=production, DATA_MODE=firestore and AUTO_IMPORT_LEGACY_DATA=false, with the sole exception of a dedicated demo service declaring SCHEDULE_DEMO_SERVICE=true, which runs on in-memory demo data."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "مع K_SERVICE=schedule يصبح DATA_MODE مساوياً firestore حتى لو كانت قيمته في الملف مختلفة.",
+          "en": "With K_SERVICE=schedule, DATA_MODE becomes firestore even when the file says otherwise."
+        },
+        {
+          "ar": "مع SCHEDULE_DEMO_SERVICE=true يصبح DATA_MODE مساوياً demo ولا تفتح الخدمة مخزن العمل.",
+          "en": "With SCHEDULE_DEMO_SERVICE=true, DATA_MODE becomes demo and the service never opens the business store."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/runtimeEnv.ts"
+        ],
+        "tests": [
+          "tests/firestore-target-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-003",
+      "kind": "functional",
+      "title": {
+        "ar": "اختيار وجهة Firestore ورفض الضمنية",
+        "en": "Firestore target selection and refusal of an implicit target"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحسم مشروع Firestore وقاعدته بقاعدة أسبقية ثابتة: على Cloud Run يغلب ملف إعداد التطبيق ويكمل المتغيّر الناقص، وفي غيرها يغلب المتغيّر ويكمله الملف؛ وأن يحذّر عند تعارض قيمة المتغيّر مع الملف ويطبع الوجهة الفعلية عند الإقلاع، وأن يرفض الإقلاع على Cloud Run إذا غاب معرّف المشروع أو معرّف القاعدة أو كان «(default)»، حتى لا يتصل بقاعدة غير التي تحمل سجلات الجامعة.",
+        "en": "The system shall resolve the Firestore project and database by a fixed precedence: on Cloud Run the application config file wins and the environment fills gaps, elsewhere the environment wins and the file fills gaps; it shall warn when an environment value contradicts the file and log the target actually used at boot, and shall refuse to start on Cloud Run when the project id or database id is missing or is '(default)', so it never connects to a database other than the one holding the university's records."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "على Cloud Run يعطي تعارض FIREBASE_DATABASE_ID مع الملف قيمة الملف وتحذيراً واحداً، وتوافقهما لا يعطي تحذيراً.",
+          "en": "On Cloud Run a FIREBASE_DATABASE_ID that contradicts the file yields the file's value and exactly one warning; agreement yields none."
+        },
+        {
+          "ar": "مع FIREBASE_CONFIG_SOURCE=environment على Cloud Run يلزم تحديد المعرّفين معاً، ويُرفض الإقلاع إن خالفهما الملف.",
+          "en": "With FIREBASE_CONFIG_SOURCE=environment on Cloud Run both ids are required, and boot is refused if the file contradicts them."
+        },
+        {
+          "ar": "معرّف قاعدة فارغ أو (default) بأي حالة أحرف يرفع الخطأ «Refusing to start on Cloud Run».",
+          "en": "An empty database id or '(default)' in any letter case throws 'Refusing to start on Cloud Run'."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/firestoreTarget.ts",
+          "src/server/runtimeEnv.ts",
+          "docs/DELIVERY_OPERATIONS.md",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/firestore-target-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-004",
+      "kind": "functional",
+      "title": {
+        "ar": "لا خدمة دون قاعدة بيانات",
+        "en": "No service without a database"
+      },
+      "text": {
+        "ar": "يجب على النظام، إذا تعذّرت تهيئة قاعدة البيانات، أن ينهي العملية بالرمز 1 في الإنتاج فتبقى النسخة السابقة تخدم؛ وفي التطوير أن يبقى الخادم قائماً فيجيب كل طلبات /api بـ 503 ومعرّف مرجع من 8 خانات ست عشرية دون نص خطأ المشغّل، وألا يعود أبداً إلى بيانات بديلة معبّأة.",
+        "en": "When database initialisation fails, the system shall exit with code 1 in production so the previous revision keeps serving; in development it shall stay up and answer every /api request with 503 and an 8-hex-character reference without the driver's error text, and never fall back to packaged substitute data."
+      },
+      "rationale": {
+        "ar": "موقع يُجيب ويعرض جدولاً غير جدول الجامعة أخطر من موقع واقف.",
+        "en": "A site that answers while showing a schedule that is not the university's is more dangerous than a site that is down."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "مع state.databaseDown يردّ أي مسار تحت /api (عدا /api/landing/inquiry وما سُجّل قبل الحارس كالصحة والإصدار) بـ 503 JSON فيه ref.",
+          "en": "With state.databaseDown set, any /api path (except /api/landing/inquiry and those registered ahead of the guard such as health and version) answers 503 JSON containing ref."
+        },
+        {
+          "ar": "الجسم لا يحوي أسماء مضيفين ولا مسارات اعتماد؛ نصه الكامل في سجل الخادم تحت المرجع نفسه.",
+          "en": "The body contains no hostnames or credential paths; the full text is in the server log under the same reference."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/server/core/state.ts"
+        ],
+        "tests": [
+          "tests/run-tests.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-005",
+      "kind": "functional",
+      "title": {
+        "ar": "مصالحة الحسابات والمهام الدورية عند الإقلاع",
+        "en": "Account reconciliation and scheduled jobs at boot"
+      },
+      "text": {
+        "ar": "يجب على النظام، بعد نجاح القاعدة، أن يرحّل الحسابات بلا صفة إلى صفة رئيس لجنة الجدول (ما عدا حساب الإدارة الرئيسي)، وأن يزيل شاشة الورشة (7) عن حسابات رؤساء الأقسام، وأن يشغّل مهمة إنشاء الفصل التالي تلقائياً ومهمة حذف ملفات الطلبة المنتهية (مرة كل 6 ساعات بعد دقيقة من الإقلاع) ومهمة الرادار التلقائية؛ وكل ذلك محايد بالتكرار ولا يمنع فشله الإقلاع.",
+        "en": "After the database comes up the system shall migrate accounts without a role to the schedule committee chair role (except the root account), remove the workshop screen (7) from department-head accounts, and start the automatic next-term job, the expired-student-profile purge (every 6 hours, first run one minute after boot) and the automatic radar job; all are idempotent and a failure never blocks boot."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "إعادة تشغيل الخادم لا تغيّر صفة حساب له صفة، ولا تعيد كتابة شيء حين لا يوجد ما يُرحَّل.",
+          "en": "Restarting the server does not change an account that already has a role and writes nothing when there is nothing to migrate."
+        },
+        {
+          "ar": "فشل الترحيل يُسجَّل في الخادم ويستمر الإقلاع.",
+          "en": "A migration failure is logged and boot continues."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts"
+        ],
+        "tests": [
+          "tests/role-guard-audit.ts",
+          "tests/term-calendar-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-OPS-001",
+      "kind": "interface",
+      "title": {
+        "ar": "واجهة الصحة",
+        "en": "Health interface"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يوفّر GET /api/health بلا مصادقة وبلا ذاكرة جلسة، يردّ JSON فيه ok وdatabase (up أو down) وref عند التوقف، ويبقى يجيب حتى حين تردّ بقية /api بـ 503.",
+        "en": "The system shall provide an unauthenticated GET /api/health that needs no session lookup and returns JSON with ok, database (up or down) and, when down, a ref, and keeps answering even while the rest of /api answers 503."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "مع قاعدة سليمة: ok=true وdatabase=up وبلا ref.",
+          "en": "With a healthy database: ok=true, database=up, no ref."
+        },
+        {
+          "ar": "مع state.databaseDown: ok=false وdatabase=down وref من state.databaseDownRef.",
+          "en": "With state.databaseDown: ok=false, database=down and ref taken from state.databaseDownRef."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/systemRoutes.ts",
+          "src/server/core/state.ts"
+        ],
+        "tests": [
+          "tests/updating-page-audit.ts",
+          "tests/instructor-offering-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-OPS-002",
+      "kind": "interface",
+      "title": {
+        "ar": "معرّف البناء وواجهة الإصدار",
+        "en": "Build identity and version interface"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يختم كل بناء بمعرّف واحد (طابع زمني وجزء عشوائي) يحمله ملف الواجهة وحزمة الخادم وعامل الخدمة، وأن يعرضه GET /api/version بترويسة no-store، وأن تعيد الصفحة المفتوحة تحميل نفسها كل مرة يخالف فيها معرّف الخادم معرّفها.",
+        "en": "The system shall stamp every build with one identifier (timestamp plus random part) carried by the client bundle, the server bundle and the service worker, expose it through GET /api/version with a no-store header, and have an open page reload itself whenever the server's identifier differs from its own."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "بعد stamp-sw يخلو dist/sw.js من النص __BUILD__ ويحوي معرّف البناء نفسه الذي في الحزمة.",
+          "en": "After stamp-sw, dist/sw.js no longer contains the text __BUILD__ and holds the same identifier as the bundle."
+        },
+        {
+          "ar": "إن رُدّ على /api/version بصفحة خطأ (غير ناجح) لا تتخذ الصفحة قراراً وتعاود السؤال لاحقاً.",
+          "en": "If /api/version is answered by an error page (not ok), the page takes no decision and asks again later."
+        },
+        {
+          "ar": "تبويب أعاد التحميل لإصدار ما وبقي على الشيفرة القديمة يمسح كل الذاكرات ويُسقط عمّال الخدمة (عدا عامل التنبيهات) ثم يعيد التحميل.",
+          "en": "A tab that already reloaded for a build and still runs old code clears every cache and drops service workers (except the push worker), then reloads."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/systemRoutes.ts",
+          "scripts/stamp-build.mjs",
+          "scripts/stamp-sw.mjs",
+          "src/main.tsx"
+        ],
+        "tests": [
+          "tests/updating-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-006",
+      "kind": "functional",
+      "title": {
+        "ar": "ترويسات الأمان على كل استجابة",
+        "en": "Security headers on every response"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يضيف إلى كل استجابة: X-Content-Type-Options=nosniff، وReferrer-Policy=same-origin، وPermissions-Policy يمنع الكاميرا والميكروفون والموقع، وسياسة CSP تمنع الإضافات (object-src 'none') وتقيّد base-uri وform-action بالأصل نفسه، وX-Frame-Options=DENY مع frame-ancestors 'none' خارج بيئة المعاينة المضمَّنة، وStrict-Transport-Security لمدة 31536000 ثانية في الإنتاج وحده؛ وأن يعطّل ترويسة X-Powered-By.",
+        "en": "The system shall add to every response: X-Content-Type-Options=nosniff, Referrer-Policy=same-origin, a Permissions-Policy denying camera, microphone and geolocation, a CSP forbidding plugins (object-src 'none') and restricting base-uri and form-action to the same origin, X-Frame-Options=DENY with frame-ancestors 'none' outside the embedded preview environment, and Strict-Transport-Security for 31536000 seconds in production only; it shall disable the X-Powered-By header."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب إلى أي مسار يردّ بالترويسات أعلاه، ولا يظهر HSTS إلا حين NODE_ENV=production.",
+          "en": "A request to any path returns the headers above, and HSTS appears only when NODE_ENV=production."
+        },
+        {
+          "ar": "لا تُفرض سياسة CSP كاملة على غلاف التطبيق عمداً؛ الصفحات العامة المبنية في الخادم تحمل سياسة صارمة بنونس (انظر NFR-NFR).",
+          "en": "A full CSP is deliberately not imposed on the application shell; the server-built public pages carry a strict nonce policy (see NFR-NFR)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts"
+        ],
+        "tests": [
+          "tests/ads-audit.ts",
+          "tests/room-door-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-007",
+      "kind": "functional",
+      "title": {
+        "ar": "الضغط وحدود أحجام الطلبات",
+        "en": "Compression and request size limits"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يضغط الاستجابات النصية التي تتجاوز 1024 بايت (بلا بثّ SSE ولا NDJSON)، وأن يقبل JSON حتى 1 MB عموماً و4 MB لمسار المسودات وحده، وأن يقبل جسماً خاماً حتى 30 MB لمسارات معاينة النسخ الاحتياطي واستيرادها فقط.",
+        "en": "The system shall compress text responses over 1024 bytes (never SSE or NDJSON streams), accept JSON up to 1 MB in general and 4 MB for the drafts path only, and accept a raw body up to 30 MB for the backup preview and import paths only."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب JSON بحجم أكبر من 1 MB إلى مسار عادي يُرفض بـ 413 والرمز PAYLOAD_TOO_LARGE.",
+          "en": "A JSON request over 1 MB to an ordinary path is refused with 413 and code PAYLOAD_TOO_LARGE."
+        },
+        {
+          "ar": "ردّ بنوع text/event-stream أو x-ndjson يخرج دون ضغط.",
+          "en": "A text/event-stream or x-ndjson response leaves uncompressed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts"
+        ],
+        "tests": [
+          "tests/student-journey-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-008",
+      "kind": "functional",
+      "title": {
+        "ar": "رفض الطلبات الكتابية عبر المواقع",
+        "en": "Refuse cross-site write requests"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض بـ 403 كل طلب POST أو PUT أو PATCH أو DELETE إلى /api تحمل ترويسة Sec-Fetch-Site خارج {same-origin, same-site, none} أو ترويسة Origin لا يطابق مضيفها مضيف الطلب أو لا تُحلَّل؛ ولا يفعّل CORS لأي أصل آخر.",
+        "en": "The system shall refuse with 403 any POST, PUT, PATCH or DELETE to /api whose Sec-Fetch-Site is outside {same-origin, same-site, none} or whose Origin host differs from the request host or cannot be parsed; it enables CORS for no other origin."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب POST بـ Origin: https://other.example إلى مضيف مختلف يُرفض بـ 403 ورسالة «الطلب غير مسموح».",
+          "en": "A POST with Origin: https://other.example to a different host is refused with 403 and 'الطلب غير مسموح'."
+        },
+        {
+          "ar": "طلبات GET والطلبات بلا Origin ولا Sec-Fetch-Site (أدوات الخادم) لا تُرفض بهذه القاعدة.",
+          "en": "GET requests and requests with neither Origin nor Sec-Fetch-Site (server tools) are not refused by this rule."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-009",
+      "kind": "functional",
+      "title": {
+        "ar": "حدود معدّل السطح العام وبطاقة الأستاذ",
+        "en": "Public-surface and teacher-card rate limits"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحدّ طلبات /api/public بـ 60 طلباً في النافذة (60000 ملّي ثانية) لكل عنوان، قابلة للضبط بـ PUBLIC_RATE_LIMIT_MAX وPUBLIC_RATE_LIMIT_WINDOW_MS (القيمة 0 تعطّله)، وأن يردّ عند التجاوز بـ 429 وRetry-After بالثواني؛ وأن يحدّ مسار بطاقة الأستاذ /api/public/request/:token بـ 240 طلباً في الدقيقة لكل رابط (بصمة sha256 مقتطعة لا الرمز نفسه) وسقف 1500 لكل عنوان، قابلين للضبط بـ PUBLIC_REQUEST_PER_LINK_PER_MINUTE وPUBLIC_REQUEST_PER_IP_PER_MINUTE، ويستثني مسار «مساري» (/api/public/me) لأن له حدوده.",
+        "en": "The system shall limit /api/public requests to 60 per window (60000 ms) per address, tunable by PUBLIC_RATE_LIMIT_MAX and PUBLIC_RATE_LIMIT_WINDOW_MS (0 disables it), answering 429 with a Retry-After in seconds when exceeded; and limit the teacher card path /api/public/request/:token to 240 requests per minute per link (keyed by a truncated sha256 fingerprint, never the token) with a ceiling of 1500 per address, tunable by PUBLIC_REQUEST_PER_LINK_PER_MINUTE and PUBLIC_REQUEST_PER_IP_PER_MINUTE, exempting the student journey path (/api/public/me), which has its own limits."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "الطلب رقم 61 من العنوان نفسه في النافذة يردّ 429 وRetry-After بين 1 وطول النافذة.",
+          "en": "The 61st request from one address inside the window returns 429 with a Retry-After between 1 and the window length."
+        },
+        {
+          "ar": "النوافذ المنتهية تُكنس مرة في كل نافذة فلا تتراكم صفوف العناوين.",
+          "en": "Expired windows are swept once per window so address rows do not accumulate."
+        },
+        {
+          "ar": "130 طلباً موزعة على أربعة روابط من عنوان واحد تمرّ كلها.",
+          "en": "130 requests spread over four links from one address all pass."
+        },
+        {
+          "ar": "رابط واحد يكرّر بلا توقف يقف عند حدّه الشخصي بـ 429.",
+          "en": "A single link repeating without pause stops at its own limit with 429."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/rateLimits.ts",
+          "server.ts"
+        ],
+        "tests": [
+          "tests/run-tests.ts",
+          "tests/student-door-shared-network-audit.ts",
+          "tests/teacher-card-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-010",
+      "kind": "functional",
+      "title": {
+        "ar": "حارس الأبواب المجهولة",
+        "en": "Anonymous-door guard"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يبحث عن جلسة إلا لمعرّف بصيغة sess_ أو demo_ تتبعه 64 خانة ست عشرية؛ وأن يتذكر المعرّفات الميتة 30 دقيقة (سعة 20000)؛ وأن يحدّ أخطاء البحث لكل عنوان بـ 120 في 10 دقائق (سقف مطلق 1200)؛ وأن يحدّ الرموز غير المطابقة في صفحات الروابط (/s /q /r /m /t) بـ 40 في 10 دقائق (سقف مطلق 400) فيردّ 429 وRetry-After=600؛ وأن يُحتسب الخطأ لا النجاح، ويرصد لكل نجاح رصيداً.",
+        "en": "The system shall look up a session only for an id shaped sess_ or demo_ followed by 64 hex characters; remember dead ids for 30 minutes (capacity 20000); limit failed lookups per address to 120 per 10 minutes (hard ceiling 1200); and limit unmatched tokens on link pages (/s /q /r /m /t) to 40 per 10 minutes (hard ceiling 400), answering 429 with Retry-After=600; failures are counted, never successes, and each success earns credit."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "مئات الروابط الصحيحة مع خطأ عارض من عنوان واحد لا تُحجب أبداً.",
+          "en": "Hundreds of valid links with the odd mistake from one address are never blocked."
+        },
+        {
+          "ar": "عنوان لا يأتي إلا بأخطاء يتوقف عند حدّه ويُقرأ كمن لا جلسة له دون سؤال Firestore.",
+          "en": "An address that only fails stops at its limit and is read as signed out without asking Firestore."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/anonymousGuard.ts",
+          "src/server/publicAttemptLimiter.ts",
+          "server.ts"
+        ],
+        "tests": [
+          "tests/anonymous-guard-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-011",
+      "kind": "functional",
+      "title": {
+        "ar": "حدّ محاولات الدخول",
+        "en": "Sign-in attempt limit"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يردّ بـ 429 ورسالة «محاولات تسجيل دخول كثيرة جداً» حين يبلغ عنوان واحد خمس محاولات في الدقيقة على نقاط الدخول وتغيير كلمة السر والدخول التجريبي ورابط /i/:username.",
+        "en": "The system shall answer 429 with 'too many sign-in attempts' when one address reaches five attempts within a minute on sign-in, password change, demo entry and the /i/:username link."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "المحاولة السادسة خلال 60 ثانية من العنوان نفسه تُرفض، وتُفتح النافذة من جديد بعد انقضاء الدقيقة.",
+          "en": "The sixth attempt within 60 seconds from the same address is refused, and the window reopens after the minute passes."
+        },
+        {
+          "ar": "المعدّ يعدّ كل محاولة بما فيها الناجحة والدخول التجريبي، ويحفظ عدّاده في ذاكرة النسخة.",
+          "en": "The counter counts every attempt including successful ones and demo entry, and lives in instance memory."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/authRoutes.ts"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-012",
+      "kind": "functional",
+      "title": {
+        "ar": "بوابة قراءة المستندات",
+        "en": "Document reading gate"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يسمح بقراءتين متزامنتين لمستند ممسوح (PDF أو صورة) وأن يُقيم ما زاد في طابور سعته 8، وأن يردّ بـ 503 عند امتلائه، وأن يُفرج عن الخانة عند انتهاء الطلب أو إغلاقه.",
+        "en": "The system shall allow two concurrent scanned-document reads (PDF or image), queue further ones in a queue of 8, answer 503 when it is full, and release the slot when the request finishes or the client closes."
+      },
+      "rationale": {
+        "ar": "كل صفحة تُرسم في ذاكرة العملية؛ أربع قراءات معاً أوقفت الخادم لنفاد الذاكرة.",
+        "en": "Each page is rendered in process memory; four reads together took the server down for lack of memory."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "القراءة الثالثة تنتظر، والحادية عشرة (بعد اثنتين نشطتين وثمانٍ منتظرة) تُردّ بـ 503.",
+          "en": "The third read waits, and the eleventh (two active, eight waiting) is refused with 503."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/http.ts",
+          "src/server/routes/pdfImportRoutes.ts"
+        ],
+        "tests": [
+          "tests/section-planning-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-013",
+      "kind": "functional",
+      "title": {
+        "ar": "تقديم الملفات الثابتة وسياسة التخزين المؤقت",
+        "en": "Static serving and cache policy"
+      },
+      "text": {
+        "ar": "يجب على النظام في الإنتاج أن يخدم مجلد dist بحيث يكون index.html وsw.js بلا تخزين، والملفات المسمّاة ببصمة محتواها (js وcss) immutable لسنة، وغيرها من js وcss مع إعادة تحقق دائمة، والخطوط والصور سنة؛ وأن يردّ بـ 404 نصي لأي مسار تحت /assets/ أو ينتهي بامتداد ملف، وألا يردّ بغلاف التطبيق إلا لمسارات التنقّل.",
+        "en": "In production the system shall serve the dist folder with index.html and sw.js uncached, content-hashed js and css immutable for a year, other js and css always revalidated, and fonts and images cached for a year; it shall answer a plain 404 for any path under /assets/ or ending in a file extension and return the application shell only for navigation paths."
+      },
+      "rationale": {
+        "ar": "قطعة ناقصة تُجاب بصفحة HTML تعني شاشة بيضاء بلا أثر في سجل الشبكة.",
+        "en": "A missing chunk answered with HTML means a blank page with nothing wrong in the network log."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب /assets/غير-موجود.js يردّ 404 بـ Cache-Control: no-store.",
+          "en": "A request for a non-existent /assets file returns 404 with Cache-Control: no-store."
+        },
+        {
+          "ar": "ملف باسم يطابق -[A-Za-z0-9_-]{8,}.js يردّ بـ public, max-age=31536000, immutable.",
+          "en": "A file whose name matches -[A-Za-z0-9_-]{8,}.js is returned with public, max-age=31536000, immutable."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "vite.config.ts"
+        ],
+        "tests": [
+          "tests/updating-page-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-014",
+      "kind": "functional",
+      "title": {
+        "ar": "عقد الأخطاء",
+        "en": "Error contract"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يلتقط كل خطأ مسار في معالج واحد يسجّل مرجعاً من الشكل E + 8 رموز مع الطريقة والعنوان (وسيطاً لا نصّ تنسيق)، ويردّ 413 ورمز PAYLOAD_TOO_LARGE للحجم الزائد، و400 ورمز BAD_JSON لجسم JSON غير صالح، و409 لتعارض حجز الطلب، وإلا 500 ورمز INTERNAL والمرجع بلا نص داخلي؛ وأن يردّ 404 JSON لأي /api لا يطابق مساراً.",
+        "en": "The system shall catch every route error in one handler that logs a reference of the form E plus 8 characters with the method and URL (as an argument, never as a format string), answering 413 with PAYLOAD_TOO_LARGE for oversize bodies, 400 with BAD_JSON for invalid JSON, 409 for a request-reservation conflict, and otherwise 500 with INTERNAL and the reference without internal text; any unmatched /api path answers a JSON 404."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "عنوان طلب يحوي %s لا يبتلع نص الخطأ في السجل.",
+          "en": "A request URL containing %s does not swallow the error text in the log."
+        },
+        {
+          "ar": "الردّ 500 يحمل code=INTERNAL وref ولا يحمل اسم مجموعة ولا مسار مستند.",
+          "en": "The 500 body carries code=INTERNAL and ref and no collection name or document path."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/server/core/http.ts"
+        ],
+        "tests": [
+          "tests/input-hardening-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-015",
+      "kind": "functional",
+      "title": {
+        "ar": "تصدير النظام كاملاً بمهام قابلة للاستئناف",
+        "en": "Resumable full-system export"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لحساب الإدارة الرئيسي وحده تصدير كل المستندات الدائمة بمهمة تتقدم بخطوات لا تتجاوز الواحدة منها 6500 ملّي ثانية وبصفحات من 250 مستنداً، وتُخزَّن أجزاؤها المضغوطة (gzip) في Firestore، وأن يستثني الجلسات والقياس عن بُعد والأسرار ونقاط التراجع ومهام التصدير والاستيراد، وأن يُنزَّل الناتج بترويسة X-Backup-SHA256 وX-Backup-Documents بلا مرور على القاعدة.",
+        "en": "The system shall let the root account alone export all durable documents through a job that advances in steps of at most 6500 ms over pages of 250 documents, with its gzip chunks staged in Firestore, excluding sessions, client telemetry, secrets, restore points and export/import jobs, and the output downloaded with X-Backup-SHA256 and X-Backup-Documents headers without walking the database."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حساب غير الجذر يردّ عليه 403 «هذه الخزنة مخصصة لحساب الإدارة الرئيسي فقط».",
+          "en": "Any account other than the root receives 403 'this vault is for the root administration account only'."
+        },
+        {
+          "ar": "إغلاق المتصفح أثناء المهمة ثم فتح الخزنة يستأنف المهمة نفسها من آخر مؤشر.",
+          "en": "Closing the browser mid-job and reopening the vault resumes the same job from its last cursor."
+        },
+        {
+          "ar": "التنزيل يحمل Cache-Control: private, no-store، والمسار القديم GET /api/system-backup/export يردّ 409.",
+          "en": "The download carries Cache-Control: private, no-store, and the old GET /api/system-backup/export answers 409."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/adminRoutes.ts",
+          "src/db/repository.ts",
+          "src/server/core/auth.ts"
+        ],
+        "tests": [
+          "tests/role-guard-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-016",
+      "kind": "functional",
+      "title": {
+        "ar": "معاينة النسخة واستيرادها وتصفير النظام والتراجع",
+        "en": "Backup preview, import, system reset and undo"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعاين النسخة الاحتياطية قبل أي كتابة بفحص الصيغة (schedule-system-backup/1) وبصمة SHA-256، وأن يفكّ gzip بحدّ 80 MB أثناء الفك لا بعده، وأن يشترط للاستيراد الترويسة x-schedule-confirm=FULL-SYSTEM-IMPORT ويجري تصديراً احتياطياً قبل الاستبدال بنقاط استئناف دائمة؛ وألا يصفّر بيانات العمل إلا بترويسة FULL-SYSTEM-RESET وعبارة «تصفير النظام» (مع إبقاء حساب الإدارة الرئيسي ونقطة تراجع)، وألا يرجع إلى نقطة الأمان إلا بترويسة FULL-SYSTEM-UNDO.",
+        "en": "The system shall preview a backup before any write by checking its format (schedule-system-backup/1) and SHA-256 digest, decompress gzip with an 80 MB cap enforced during expansion rather than after, require the header x-schedule-confirm=FULL-SYSTEM-IMPORT for import and take a safety export before replacing data at durable checkpoints; reset business data only with the header FULL-SYSTEM-RESET and the Arabic confirmation phrase for 'reset the system' (keeping the root account and creating a restore point); and return to the safety point only with the header FULL-SYSTEM-UNDO."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف تغيّر بايت منه يُرفض بالرسالة «فشل فحص سلامة النسخة الاحتياطية (SHA-256)» ولا يُكتب شيء.",
+          "en": "A file with one altered byte is refused with 'backup integrity check failed (SHA-256)' and nothing is written."
+        },
+        {
+          "ar": "طلب استيراد بلا الترويسة يردّ 409 «الاستيراد الكامل يحتاج تأكيداً صريحاً».",
+          "en": "An import request without the header answers 409 'full import needs explicit confirmation'."
+        },
+        {
+          "ar": "المسار القديم POST /api/system-backup/import يردّ 409 ويوجّه إلى الاستيراد المتدرج.",
+          "en": "The old POST /api/system-backup/import answers 409 and points to the stepped import."
+        },
+        {
+          "ar": "طلب تصفير بترويسة صحيحة وعبارة خاطئة يردّ 409 «اكتب «تصفير النظام» للتأكيد».",
+          "en": "A reset with the right header and the wrong phrase answers 409 'type the reset phrase to confirm'."
+        },
+        {
+          "ar": "بعد التراجع تحمل الاستجابة restored وredoPoint.",
+          "en": "After undo the response carries restored and redoPoint."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/adminRoutes.ts",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/role-guard-audit.ts",
+          "tests/safety-net-restore-audit.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-017",
+      "kind": "functional",
+      "title": {
+        "ar": "صندوق تجريبي معزول لكل زائر",
+        "en": "An isolated demo sandbox per visitor"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يربط كل طلب يحمل كوكي جلسة تجريبية (demo_ + 64 خانة ست عشرية) بنسخة بيانات خاصة في ذاكرة الخادم مدتها 60 دقيقة، وأن يكنس المنتهية مرة في الدقيقة على الأكثر، وألا يقرأ طلبٌ تجريبي ولا يكتب في Firestore ولا في ذواكر العملية المشتركة، وأن يبني مفتاح كل ذاكرة بمقدمة real أو demo:<الجلسة>، وأن يردّ 404 على الدخول التجريبي إذا كان SCHEDULE_DEMO_ENABLED=false.",
+        "en": "The system shall bind every request carrying a demo session cookie (demo_ + 64 hex characters) to a private in-memory data copy lasting 60 minutes, sweep expired ones at most once a minute, never let a demo request read or write Firestore or process-wide caches, build every cache key with a real or demo:<session> prefix, and answer 404 on demo entry when SCHEDULE_DEMO_ENABLED=false."
+      },
+      "rationale": {
+        "ar": "كان تعليم رادار التسجيل «قديماً» يصل Firestore من تعديل تجريبي، فغيّر نتائج حقيقية.",
+        "en": "Marking the registration radar stale reached Firestore from a demo edit and changed real results."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعديل موعد داخل الصندوق لا يظهر لأي زائر آخر ولا للنظام الحقيقي.",
+          "en": "Editing a slot inside a sandbox is invisible to every other visitor and to the real system."
+        },
+        {
+          "ar": "كل فرع في المستودع يكتب في Firestore يتحقق من غياب سياق الصندوق (firestoreDb && !demoSandboxContext).",
+          "en": "Every repository branch that writes to Firestore checks for the absence of a sandbox context (firestoreDb && !demoSandboxContext)."
+        },
+        {
+          "ar": "انتهاء المهلة أو إعادة تشغيل الخادم تُظهر رسالة «انتهت الجلسة التجريبية» لا «سجّل الدخول».",
+          "en": "Lifetime expiry or a server restart shows 'the demo session has ended' rather than 'sign in'."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "src/server/dataContextCache.ts",
+          "src/server/routes/authRoutes.ts",
+          "src/server/core/auth.ts",
+          "server.ts"
+        ],
+        "tests": [
+          "tests/demo-firestore-isolation-audit.ts",
+          "tests/demo-complete-audit.ts",
+          "tests/review-audit-2026-10-28.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-018",
+      "kind": "functional",
+      "title": {
+        "ar": "حدود الصندوق التجريبي وإدارته",
+        "en": "Demo sandbox limits and management"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض في الصندوق التجريبي كل كتابة على المستخدمين والصلاحيات والنطاقات وخزنة النظام وحمل التدريس ويوم الجامعة بـ 403، وأن يتيح GET /api/demo/config (مفعّل، 60 دقيقة، معزول، الإدارة للقراءة فقط)، وأن يتيح تبديل الصفة بحدّ 30 تبديلاً في الدقيقة وإعادة الضبط.",
+        "en": "The system shall refuse with 403 every write inside the demo sandbox to users, permissions, scopes, the system vault, teaching load and university day, expose GET /api/demo/config (enabled, 60 minutes, isolated, administration read-only), and allow role switching limited to 30 per minute and reset."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "POST إلى /api/system-backup/reset داخل الصندوق يردّ 403 وبيان أنه شاشة عرض.",
+          "en": "A POST to /api/system-backup/reset inside the sandbox answers 403 with a display-only notice."
+        },
+        {
+          "ar": "التبديل رقم 31 في الدقيقة يردّ بـ 429.",
+          "en": "The 31st switch within a minute answers 429."
+        },
+        {
+          "ar": "الدخول (heartbeat، logout، reset، role) مستثنى من حارس الكتابة.",
+          "en": "Logout, heartbeat, reset and role are exempt from the write guard."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/server/core/auth.ts",
+          "src/server/routes/authRoutes.ts",
+          "src/server/routes/systemRoutes.ts"
+        ],
+        "tests": [
+          "tests/demo-roles-audit.ts",
+          "tests/demo-screens-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-019",
+      "kind": "functional",
+      "title": {
+        "ar": "بذر البيانات التجريبية وقصص الصفات",
+        "en": "Demo seeding and role stories"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يُجهّز الصندوق الأساسي عند الدخول وأن يبذر القصص الأكبر في الخلفية بالتتابع لكل جلسة (قصص الصفات، بقية الأقسام، 64 ملف طالب للرادار، طلب «مساري»، طلبات الشعب، أثر النشاط)، وأن يعرض حالة التحضير (preparing أو ready أو failed)، وألا يفتح أي صفة على شاشة صفرية، وأن تكون كل الأسماء والأرقام المدنية والأرقام وهمية.",
+        "en": "The system shall prepare the core sandbox at sign-in and seed the larger stories in the background, serialised per session (role stories, other departments, 64 radar student profiles, student-journey demand, section requests, activity trail), expose the preparation state (preparing, ready or failed), never open a role on an empty screen, and keep every name, civil number and figure synthetic."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الدخول لا ينتظر البذر الكبير، ويعيد /api/demo/seed-status الحالة الراهنة.",
+          "en": "Sign-in does not wait for the large seeding, and /api/demo/seed-status returns the current state."
+        },
+        {
+          "ar": "إعادة الضبط أثناء بذر قديم لا تترك الصندوق الجديد نصف معبّأ لأن المهام متسلسلة.",
+          "en": "A reset during an older seed does not leave the new sandbox half-populated because jobs are serialised."
+        },
+        {
+          "ar": "بعد التحضير لكل صفة في مبدّل الصفات قائمة غير فارغة في الشاشات الأساسية.",
+          "en": "After preparation, every role in the switcher has non-empty lists on its main screens."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/authRoutes.ts",
+          "src/server/demoRadarSeed.ts",
+          "src/server/demoPreviousTermSeed.ts",
+          "src/server/demoSectionRequestsSeed.ts",
+          "src/server/core/demo.ts",
+          "src/db/demoSandbox.ts"
+        ],
+        "tests": [
+          "tests/demo-every-role-audit.ts",
+          "tests/demo-cases-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-020",
+      "kind": "functional",
+      "title": {
+        "ar": "عامل الخدمة والعمل دون اتصال",
+        "en": "Service worker and offline behaviour"
+      },
+      "text": {
+        "ar": "يجب على عامل الخدمة أن يحفظ عند التثبيت 10 ملفات للهيكل مع هيكل الصفحة وصفحة التحديث، وأن يخدم التنقّل من الشبكة أولاً ويرجع إلى الهيكل المحفوظ عند الانقطاع، وأن يخزّن ردود GET لخمسة عشر بادئة /api محددة فقط ويعيدها عند الانقطاع، وألا يخزّن أبداً /api/auth و/api/users والمسارين الشخصيين /api/schedules/demand و/api/student-registration، وأن يخدم الملفات ذات البصمة من الذاكرة دون الشبكة، وأن يترك صفحات الروابط العامة وباب القاعة والإعلانات للشبكة وحدها.",
+        "en": "The service worker shall, at install, store 10 shell files plus the shell page and the updating page; serve navigation network-first and fall back to the stored shell when offline; cache GET responses for exactly fifteen named /api prefixes and replay them when offline; never cache /api/auth, /api/users or the two personal paths /api/schedules/demand and /api/student-registration; serve content-hashed files from cache without the network; and leave public link pages, the room door and advertisements to the network alone."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب بيانات مخزّنة دون اتصال يردّ آخر نسخة ناجحة؛ وإن لم توجد يردّ 503 JSON بترويسة X-Schedule-Offline.",
+          "en": "A cached read while offline returns the last successful copy; if none exists it returns 503 JSON with the X-Schedule-Offline header."
+        },
+        {
+          "ar": "عند التفعيل تُحذف كل الذاكرات غير الثلاث الحالية، وتُمسح ذاكرة الواجهة عند تغيّر هوية المستخدم.",
+          "en": "On activation every cache other than the current three is deleted, and the API cache is cleared when the user identity changes."
+        },
+        {
+          "ar": "أول إقلاع بلا اتصال بعد التثبيت يفتح الهيكل المحفوظ، وإلا صفحة «لا يوجد اتصال بالإنترنت حالياً».",
+          "en": "The first offline launch after install opens the stored shell, otherwise a 'no internet connection' page."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "public/sw.js",
+          "src/App.tsx",
+          "src/main.tsx"
+        ],
+        "tests": [
+          "tests/updating-page-audit.ts",
+          "scripts/verify-pwa.mjs"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-021",
+      "kind": "functional",
+      "title": {
+        "ar": "صفحة «نُحدّث البرنامج»",
+        "en": "The 'we are updating' page"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم /updating.html بدل أي ردّ 500 أو 502 أو 503 أو 504 أو انقطاع على تنقّل GET (لا على /api ولا على غير GET ولا على جواب ناجح) بحالة 503 وRetry-After=5، وأن تسأل الصفحة /api/health أول 3 ثوانٍ وتتباطأ حتى 15 ثانية، فإذا أجاب أعادت فتح الرابط المطلوب، وإذا تعثّرت ثلاث مرات في دقيقتين تباطأت إلى مرة كل 30 ثانية ولا تدور في حلقة.",
+        "en": "The system shall serve /updating.html in place of any 500, 502, 503, 504 or dropped connection on a GET navigation (not /api, not non-GET, not a successful answer) with status 503 and Retry-After=5; the page asks /api/health every 3 seconds, slowing to 15, reopens the requested link when it answers, and after three stalls in two minutes slows to once every 30 seconds without looping."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "لا يُحفظ جواب 5xx في أي ذاكرة، ولا تُجاب /api ولا طلبات POST بالصفحة.",
+          "en": "No 5xx answer is stored in any cache, and neither /api nor POST requests are answered with the page."
+        },
+        {
+          "ar": "الصفحة بلا طلب خارجي، RTL، وفصحى، وتقول «لا اتصال بالإنترنت الآن» حين navigator.onLine=false.",
+          "en": "The page makes no external request, is RTL and in standard Arabic, and says there is no connection when navigator.onLine is false."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "public/updating.html",
+          "public/sw.js",
+          "src/utils/updatingNotice.ts"
+        ],
+        "tests": [
+          "tests/updating-page-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-OPS-003",
+      "kind": "interface",
+      "title": {
+        "ar": "بيان التطبيق المثبَّت",
+        "en": "Installable-app manifest"
+      },
+      "text": {
+        "ar": "يجب أن يعلن البيان (manifest) تطبيقاً مستقلاً (display=standalone) بنطاق / ولغة ar واتجاه rtl ورابط بدء /?source=pwa، وبأيقونات 192 و512 وsvg ومقنَّعة 192 و512، وأن يحمي فحص verify:pwa هذه المواصفات في كل بناء.",
+        "en": "The manifest shall declare a standalone app (display=standalone) with scope /, language ar, direction rtl and start URL /?source=pwa, with 192 and 512 icons, an svg icon and maskable 192 and 512 icons, and the verify:pwa check shall guard these on every build."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "الأيقونات المذكورة موجودة بأبعادها الصحيحة (يقرأ الفحص رأس PNG).",
+          "en": "The listed icons exist with the right dimensions (the check reads the PNG header)."
+        },
+        {
+          "ar": "فشل verify:pwa يوقف npm run build قبل البناء.",
+          "en": "A verify:pwa failure stops npm run build before building."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "public/manifest.webmanifest",
+          "scripts/verify-pwa.mjs",
+          "index.html",
+          "package.json"
+        ],
+        "tests": [
+          "scripts/verify-pwa.mjs"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-022",
+      "kind": "functional",
+      "title": {
+        "ar": "سير التحقق المستمر (CI)",
+        "en": "Continuous-integration pipeline"
+      },
+      "text": {
+        "ar": "يجب على سير CI أن يعمل على كل دفع إلى main وكل طلب تغيير عليه بمهلة 20 دقيقة وNode 22 وPython 3.12، وبهذا الترتيب: حارس وجهة النشر، حارس نظافة المستودع، تثبيت الاعتماديات، فحص الأنواع (tsc بلا إخراج)، الاختبارات (سريعة في طلبات الدمج وكاملة على main)، البناء الإنتاجي، ثم تشغيل الخادم التجريبي المبني والتحقق من نطاقات مركز التحليلات عبر واجهته؛ وألا يُلغى تشغيل main بتشغيل أحدث.",
+        "en": "The CI pipeline shall run on every push to main and every change request against it with a 20-minute timeout, Node 22 and Python 3.12, in this order: deploy target guard, repository hygiene guard, dependency install, type check (tsc with no emit), tests (quick on change requests, full on main), production build, then start the built demo server and verify the Analytics Center scopes through its API; a run on main is never cancelled by a newer one."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب التغيير يشغّل npm test -- --quick ويتخطى 7 اختبارات ثقيلة؛ main يشغّلها كلها.",
+          "en": "A change request runs npm test -- --quick skipping 7 slow tests; main runs them all."
+        },
+        {
+          "ar": "خادم بقي على المنفذ 3000 من اختبار سابق يُقتل قبل خطوة التحقق الأخيرة.",
+          "en": "A server left on port 3000 by an earlier test is killed before the final verification step."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "package.json",
+          "tsconfig.json"
+        ],
+        "tests": [
+          "tests/repo-hygiene-guard.mjs"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-023",
+      "kind": "functional",
+      "title": {
+        "ar": "حارس وجهة النشر وسير الإصدار",
+        "en": "Deploy target guard and release pipeline"
+      },
+      "text": {
+        "ar": "يجب ألا يُنشر إلا من المستودع المالك ومع المتغيّر PRODUCTION_DEPLOY_ENABLED=true، ولا إلا التزامٌ نجح فيه CI الكامل على main (ينتظر السير حتى 60 فحصاً بفاصل 30 ثانية)، وأن يغيّر النشر image الخدمة الرسمية في المنطقة europe-west1 وحده دون حساب الخدمة أو المتغيّرات أو الأسرار أو الذاكرة، وألا يعود إلى المنطقة المحذوفة europe-west2، وألا يمسّ ربط النطاق؛ ويفشل CI إن خالف السير أياً من ذلك، ثم يتحقق السير بعد النشر من أن النطاق الرسمي وعنوان الخدمة يخدمان معرّف البناء نفسه من /sw.js.",
+        "en": "Deployment shall happen only from the owning repository with PRODUCTION_DEPLOY_ENABLED=true and only for a commit the full CI on main passed (the pipeline waits up to 60 checks 30 seconds apart); it shall change only the image of the official service in europe-west1, never the service account, variables, secrets or memory, never return to the retired europe-west2, and never touch the domain mapping; CI fails if the pipeline violates any of this, and after release the pipeline verifies the official domain and the service address serve the same build identifier from /sw.js."
+      },
+      "rationale": {
+        "ar": "التزام واحد وجّه كل النشر إلى مشروع آخر والـCI أخضر، فلم يتلقَّ الموقع الرسمي إصداراً يوماً كاملاً؛ وإعادة إنشاء ربط النطاق أسقطت HTTPS أثناء إصدار الشهادة.",
+        "en": "One commit pointed every deploy at another project while CI stayed green, so the official site missed releases for a day; recreating the domain mapping took HTTPS down while a certificate was issued."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system",
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "أي أمر يمسّ ربط النطاق (domain mapping) في أي ملف yaml أو js أو ts أو sh أو json أو py يُفشل الحارس.",
+          "en": "Any command touching the domain mapping in any yaml, js, ts, sh, json or py file fails the guard."
+        },
+        {
+          "ar": "إضافة --memory أو --set-env-vars أو --service-account إلى أمر النشر تُفشل الحارس.",
+          "en": "Adding --memory, --set-env-vars or --service-account to the deploy command fails the guard."
+        },
+        {
+          "ar": "فشل التحقق بعد 20 محاولة (30 ثانية بينها) يُفشل الإصدار برسالة تنهى عن مسّ ربط النطاق.",
+          "en": "Verification failing after 20 tries 30 seconds apart fails the release with a message forbidding any change to the domain mapping."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "tests/deploy-target-guard.mjs",
+          "docs/DELIVERY_OPERATIONS.md"
+        ],
+        "tests": [
+          "tests/deploy-target-guard.mjs"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-024",
+      "kind": "functional",
+      "title": {
+        "ar": "حارس نظافة المستودع",
+        "en": "Repository hygiene guard"
+      },
+      "text": {
+        "ar": "يجب على الحارس أن يمسح الملفات النصية وأسماء المسارات في المستودع ويفشل إن وجد إشارة إلى أداة تطوير محظورة أو ملف تعليمات أو أمر موجَّه أو مخلّفات تدقيق مؤقتة، دون أن يتجاوز المجلدات المستثناة (.git وnode_modules وdist وcoverage وbuild وdatabase).",
+        "en": "The guard shall scan text files and path names in the repository and fail on a reference to a banned development tool, an instruction or prompt file, or leftover scratch audit files, skipping the excluded folders (.git, node_modules, dist, coverage, build, database)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "يخرج الحارس بالرمز 1 ويسرد المسار المخالف، وبالرمز 0 مع رسالة النجاح حين لا مخالفة.",
+          "en": "The guard exits with code 1 listing the offending path, and with code 0 and a success message when there is none."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "tests/repo-hygiene-guard.mjs"
+        ],
+        "tests": [
+          "tests/repo-hygiene-guard.mjs"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-025",
+      "kind": "functional",
+      "title": {
+        "ar": "سياسة مشغّل الاختبارات",
+        "en": "Test runner policy"
+      },
+      "text": {
+        "ar": "يجب على npm test أن يشغّل كل سكربت مسرود في tests/suite.txt (252 سكربتاً) ولو فشل بعضها، وأن يحسب فاشلاً كل اختبار خرج بغير صفر أو تخطّى جزأه الحيّ لأن المنفذ مشغول أو ترك خادماً يستمع بعده (ويقتل ذلك الخادم)، وأن يتخطى tests/slow.txt عند --quick، وأن يرفض سكربتاً غير موجود أو مكرراً أو ثقيلاً خارج القائمة، وأن يعاقب الفاشل المعروف الذي نجح بطلب حذفه من known-failures.txt.",
+        "en": "npm test shall run every script listed in tests/suite.txt (252 scripts) even when some fail, count as failed any test that exits non-zero, skipped its live part because the port was busy, or left a server listening (killing that server), skip tests/slow.txt under --quick, reject a script that does not exist, is duplicated or is slow but unlisted, and fail a known failure that now passes until it is removed from known-failures.txt."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "منفذ 3000 مشغول قبل البدء يوقف التشغيل برسالة تطلب إغلاق ما عليه.",
+          "en": "Port 3000 busy before the start stops the run with a message to close whatever holds it."
+        },
+        {
+          "ar": "لا فاشل معروف فعّال اليوم في known-failures.txt (كلها تعليقات).",
+          "en": "No active known failure exists today in known-failures.txt (comments only)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/run-tests.mjs",
+          "tests/suite.txt",
+          "tests/slow.txt",
+          "tests/known-failures.txt"
+        ],
+        "tests": [
+          "scripts/run-tests.mjs"
+        ]
+      }
+    },
+    {
+      "id": "NFR-OPS-001",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "صورة تشغيل خفيفة وآمنة",
+        "en": "A small, fail-early runtime image"
+      },
+      "text": {
+        "ar": "يجب أن تُبنى الصورة على مرحلتين من node:22-bookworm-slim، فتحمل مرحلة التشغيل الحزمة وdist والاعتماديات التي تسمّيها حزمة الخادم وحدها وملف وجهة Firestore وملفّي لغة القراءة الضوئية، وأن يفشل البناء على المشغّل (لا الموقع) إن نقصت حزمة (تحميل ذاتي --smoke)، وأن تضبط MALLOC_ARENA_MAX=2، وأن تعمل بـ node dist/server.cjs على المنفذ 3000.",
+        "en": "The image shall be built in two stages from node:22-bookworm-slim so the runtime stage carries the package file, dist, only the dependencies the server bundle names, the Firestore target file and the two OCR language files; the build shall fail on the runner (never on the live site) if a package is missing (--smoke load check); it shall set MALLOC_ARENA_MAX=2 and run node dist/server.cjs on port 3000."
+      },
+      "rationale": {
+        "ar": "قراءة المسح تشغّل نحو 11 عاملاً ولكل خيط ساحة ذاكرة؛ على خادم 4 GiB أُوقف الخادم لنفاد الذاكرة.",
+        "en": "Scan reading starts about 11 workers each with its own memory arena; on a 4 GiB server it was killed for lack of memory."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "حزمة يطلبها dist/server.cjs وناقصة تُفشل خطوة npm prune --omit=dev && node scripts/runtime-deps.mjs --prune --smoke.",
+          "en": "A package required by dist/server.cjs and missing fails the npm prune --omit=dev && node scripts/runtime-deps.mjs --prune --smoke step."
+        },
+        {
+          "ar": "Procfile وCMD يشغّلان node dist/server.cjs نفسه.",
+          "en": "Procfile and CMD both run the same node dist/server.cjs."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "Dockerfile",
+          "Procfile",
+          "scripts/runtime-deps.mjs",
+          "cloudbuild.yaml"
+        ],
+        "tests": []
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-OPS-026",
+      "kind": "functional",
+      "title": {
+        "ar": "استرجاع زمني دوري لقاعدة الإنتاج",
+        "en": "Point-in-time recovery for the production database"
+      },
+      "text": {
+        "ar": "يجب أن تُفعَّل على قاعدة الإنتاج الاسترجاعات الزمنية (PITR لسبعة أيام) وحماية الحذف ونسخ مجدولة إلى سلة تخزين، وفق الإجراء الموثَّق في scripts/firestore-backup.md.",
+        "en": "Point-in-time recovery (7-day PITR), delete protection and scheduled exports to a storage bucket shall be enabled on the production database, following the procedure documented in scripts/firestore-backup.md."
+      },
+      "rationale": {
+        "ar": "وثّق التحقق في 2026-10-16 أن PITR وحماية الحذف غير مفعّلين؛ والحماية في الكود تغطي الوضع المحلي وخزنة النظام فقط.",
+        "en": "Verification on 2026-10-16 recorded PITR and delete protection as disabled; protection in code covers local mode and the system vault only."
+      },
+      "priority": "should",
+      "status": "planned",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "يعرض وصف القاعدة PITR مفعّلاً وحماية حذف مفعّلة، ويوجد جدول نسخ ناجح خلال آخر 24 ساعة.",
+          "en": "The database description shows PITR enabled and delete protection on, and a successful scheduled export exists within the last 24 hours."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/firestore-backup.md"
+        ],
+        "tests": []
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "قاعدة البيانات غير متاحة عند الإقلاع",
+        "en": "Database unreachable at boot"
+      },
+      "scenario": {
+        "ar": "يبدأ إصدار جديد على Cloud Run وتفشل تهيئة Firestore (وجهة خاطئة أو انقطاع).",
+        "en": "A new revision starts on Cloud Run and Firestore initialisation fails (wrong target or outage)."
+      },
+      "behavior": {
+        "ar": "تخرج العملية بالرمز 1 فتبقى النسخة السابقة تخدم؛ ولا يعود النظام إلى لقطة معبّأة أبداً. في التطوير يعمل الغلاف وتردّ /api بـ 503 ومرجع.",
+        "en": "The process exits with code 1 so the previous revision keeps serving; the system never falls back to a packaged snapshot. In development the shell runs and /api answers 503 with a reference."
+      },
+      "evidence": [
+        "server.ts",
+        "src/server/firestoreTarget.ts",
+        "tests/run-tests.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "نشر أثناء استخدام الناس للنظام",
+        "en": "A release while people are using the system"
+      },
+      "scenario": {
+        "ar": "تبدّل المنصة الخادم فتعيد واجهتها الأمامية صفحة خطأ إنجليزية أو ينقطع الطلب.",
+        "en": "The platform switches servers and its front end returns an English error page or the request drops."
+      },
+      "behavior": {
+        "ar": "يقدّم عامل الخدمة صفحة «نُحدّث البرنامج» ويعيد فتح الرابط حين تجيب /api/health؛ داخل التطبيق يظهر شريط هادئ بدل لافتة خطأ، ولا يُحفظ 5xx في أي ذاكرة.",
+        "en": "The service worker serves the 'we are updating' page and reopens the link when /api/health answers; inside the app a calm banner replaces an error banner, and no 5xx is stored in any cache."
+      },
+      "evidence": [
+        "public/sw.js",
+        "public/updating.html",
+        "tests/updating-page-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "تبويب قديم يطلب قطعة حُذفت",
+        "en": "A stale tab requests a removed chunk"
+      },
+      "scenario": {
+        "ar": "تبويب مفتوح من الإصدار السابق يطلب ملفاً مبصوماً لم يعد موجوداً.",
+        "en": "A tab left open from the previous release requests a hashed file that no longer exists."
+      },
+      "behavior": {
+        "ar": "يردّ الخادم 404 نصياً بلا تخزين بدل غلاف HTML بحالة 200، فيستعيد حارس الإقلاع الصفحة بمسح الذاكرة وإعادة التحميل.",
+        "en": "The server answers a plain uncached 404 instead of an HTML shell with status 200, so the boot guard recovers the page by clearing caches and reloading."
+      },
+      "evidence": [
+        "server.ts",
+        "src/main.tsx"
+      ]
+    },
+    {
+      "title": {
+        "ar": "شبكة جامعة كاملة خلف عنوان واحد",
+        "en": "A whole campus behind one address"
+      },
+      "scenario": {
+        "ar": "مئات الطلبة والأساتذة يفتحون روابطهم الصحيحة من عنوان IP واحد في الدقيقة نفسها.",
+        "en": "Hundreds of students and teachers open their valid links from one IP address in the same minute."
+      },
+      "behavior": {
+        "ar": "تُحسب الأخطاء لا النجاحات، ويُمنح العنوان رصيداً لكل نجاح، وحدود بطاقة الأستاذ على الرابط لا العنوان؛ فلا يُحجب صاحب رابط صحيح، ويقف من يخمّن عند سقفه المطلق.",
+        "en": "Failures are counted, not successes, each success earns credit, and teacher-card limits are per link rather than per address; so no valid-link holder is blocked, while a guesser stops at the hard ceiling."
+      },
+      "evidence": [
+        "src/server/anonymousGuard.ts",
+        "src/server/core/rateLimits.ts",
+        "tests/anonymous-guard-audit.ts",
+        "tests/student-door-shared-network-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "نسخة احتياطية ملغومة الحجم",
+        "en": "A size-bomb backup"
+      },
+      "scenario": {
+        "ar": "يرفع حساب مخترق ملف gzip صغيراً يتمدد إلى عدة غيغابايت.",
+        "en": "A compromised account uploads a small gzip file that expands to several gigabytes."
+      },
+      "behavior": {
+        "ar": "يُقاس الحجم أثناء الفك فيتوقف عند 80 MB ويُرفض الملف قبل أن يملأ الذاكرة أو يحجب حلقة الأحداث؛ ويقتصر المسار أصلاً على حساب الإدارة الرئيسي.",
+        "en": "Size is measured during expansion and stops at 80 MB, refusing the file before it fills memory or blocks the event loop; the path is in any case limited to the root account."
+      },
+      "evidence": [
+        "src/server/routes/adminRoutes.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "انتهاء الجلسة التجريبية أو إعادة تشغيل الخادم",
+        "en": "Demo session expiry or server restart"
+      },
+      "scenario": {
+        "ar": "ينتهي صندوق الزائر بعد ساعة أو يُنشر إصدار جديد فتُمحى ذاكرة الخادم.",
+        "en": "The visitor's sandbox expires after an hour or a new release wipes server memory."
+      },
+      "behavior": {
+        "ar": "يُقال له إن الجلسة التجريبية انتهت وأن بياناتها مُحيت ويُطلب منه بدء تجربة جديدة، لا «سجّل الدخول» لمن لا حساب له.",
+        "en": "He is told the demo session ended and its data was erased and is asked to start a new trial, not 'sign in' to someone with no account."
+      },
+      "evidence": [
+        "src/server/core/auth.ts",
+        "src/db/repository.ts",
+        "tests/demo-complete-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "البيئة التجريبية",
+      "en": "Demo sandbox",
+      "def": {
+        "ar": "نسخة بيانات في ذاكرة الخادم لكل زائر، مدتها ساعة، لا تلمس البيانات الحقيقية.",
+        "en": "A per-visitor in-memory data copy lasting one hour that never touches real data."
+      }
+    },
+    {
+      "ar": "خزنة النظام",
+      "en": "System vault",
+      "def": {
+        "ar": "شاشة الإدارة الرئيسية للتصدير والاستيراد والتصفير والتراجع الكاملة.",
+        "en": "The root administration screen for full export, import, reset and undo."
+      }
+    },
+    {
+      "ar": "نقطة التراجع",
+      "en": "Restore point",
+      "def": {
+        "ar": "لقطة يأخذها الخادم قبل عملية نظامية كبيرة ليعود إليها المدير.",
+        "en": "A snapshot the server takes before a large system operation so the administrator can return to it."
+      }
+    },
+    {
+      "ar": "معرّف البناء",
+      "en": "Build identifier",
+      "def": {
+        "ar": "الختم الذي يحمله الإصدار في الواجهة والخادم وعامل الخدمة ليُعرف أي نسخة تعمل.",
+        "en": "The stamp a release carries in the client, server and service worker to tell which version is running."
+      }
+    },
+    {
+      "ar": "عامل الخدمة",
+      "en": "Service worker",
+      "def": {
+        "ar": "السكربت الذي يشغّل العمل دون اتصال ويخدم صفحة التحديث (public/sw.js).",
+        "en": "The script that provides offline operation and serves the updating page (public/sw.js)."
+      }
+    },
+    {
+      "ar": "الوجهة الرسمية",
+      "en": "Official target",
+      "def": {
+        "ar": "خدمة Cloud Run وقاعدة Firestore اللتان تخدمان نطاق schedule-kw.com وحدهما.",
+        "en": "The Cloud Run service and Firestore database that serve schedule-kw.com and nothing else."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "ربط النطاق الرسمي لا يُحذف ولا يُنشأ ولا يُنقل؛ فإصدار الشهادة يقطع الخدمة.",
+      "en": "The official domain mapping is never deleted, recreated or moved; certificate issuance interrupts the service."
+    },
+    {
+      "ar": "الإصدار العادي يغيّر image الخدمة فقط، ولا خدمة ثانية ولا منطقة ثانية دون قرار المالك.",
+      "en": "A normal release changes the service image only; no second service or region without the owner's decision."
+    },
+    {
+      "ar": "التقارير المطبوعة تحتفظ بتصميمها؛ لا يمسّها العمل التشغيلي ويُصلَح الخلل في القيم والبيانات.",
+      "en": "Printed reports keep their design; operational work never touches it and faults are fixed in values and data."
+    }
+  ]
+}

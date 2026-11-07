@@ -12,6 +12,7 @@ import { readOnlyRefusal, roleWriteDecision } from "./src/server/roleGuard";
 import { registerStudyProposalRoutes } from "./src/server/studyProposalRoutes";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "./src/utils/termSequence";
 import { createLinkMissGuard } from "./src/server/anonymousGuard";
+import { registerSrsDocRoutes } from "./src/server/srsDoc";
 import { PUBLIC_LINK_PAGE_PREFIXES } from "./src/utils/demoLinkToken";
 import { verificationCode } from "./src/utils/approvalWorkflow";
 import { DEFAULT_MIGRATION_ROLE, isAcademicRole, isReadOnlyRole, roleLabel } from "./src/utils/academicRoles";
@@ -851,6 +852,9 @@ async function startServer() {
     const cleanPath = req.path.toLowerCase();
     return host.startsWith("home.") || cleanPath === "/landing" || cleanPath === "/landing/" || cleanPath.startsWith("/landing/");
   };
+
+  /* وثيقة المتطلبات: صفحةٌ برابطٍ سري تُبنى مع كل نشر (src/server/srsDoc.ts). تسبق هيكلَ التطبيق وإلا ابتلعها. */
+  registerSrsDocRoutes(app);
 
   // Resolve the landing directory and read its index once, at startup — no
   // per-request filesystem access happens inside the route handlers below, which

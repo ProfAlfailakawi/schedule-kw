@@ -1,0 +1,761 @@
+{
+  "id": "ENG",
+  "order": 15,
+  "icon": "megaphone",
+  "title": { "ar": "المشاركة والحضور العام", "en": "Engagement and public presence" },
+  "tagline": { "ar": "استبيان الطلبة، إعلانات الشركاء، لوحة الجمهور، والصفحات العامة.", "en": "Student survey, partner advertising, audience dashboard and the public pages." },
+  "summary": {
+    "ar": "تغطي الوحدة كل ما يواجه من لا يملك حساباً في النظام: استبيان الطلبة وصفحة «حالة طلبي»، والإعلانات في الصفحات العامة، وملفات الشراكة وتقارير الحملات للشركات، وعدّة الصفحات العامة (الألوان، الخطوط، سياسة الأمان، صفحة الرابط غير الصالح)، وصفحة الهبوط والعرض التقديمي. وتغطي من جهة الإدارة الرئيسية شاشتي «الإعلانات» و«لوحة الجمهور» وعرض القصة. القياس مجهول بالتصميم: لا اسم ولا رقم مدني ولا عنوان اتصال يُحفظ، والأرقام المنشورة للشركات مجمّعة. والإعلان لا يظهر في أي صفحة تطلب هوية.",
+    "en": "This module covers everything that faces people who have no account: the student survey and the case-status page, advertising on public pages, partnership profiles and campaign reports for companies, the shared kit of public pages (colours, fonts, security policy, invalid-link page), the landing page and the presentation deck. For the main administrator it covers the Ads and Audience dashboard screens and the story mode. Measurement is anonymous by design: no name, civil ID or network address is stored, and the figures shown to companies are aggregated. No advertisement is ever shown on a page that asks for an identity."
+  },
+  "actors": ["student", "visitor", "partner", "rootAdmin", "system"],
+  "sources": [
+    "src/server/routes/surveyRoutes.ts",
+    "src/server/pages/surveyPages.ts",
+    "src/server/pages/publicInvalidLinkPage.ts",
+    "src/server/core/publicPages.ts",
+    "src/server/adsRoutes.ts",
+    "src/server/adsPages.ts",
+    "src/server/adMailer.ts",
+    "src/server/adQuality.ts",
+    "src/server/adClientScript.ts",
+    "src/server/publicTheme.ts",
+    "src/server/publicKit.ts",
+    "src/utils/adBadge.ts",
+    "src/utils/adCalendar.ts",
+    "src/utils/adCoupons.ts",
+    "src/utils/adForecast.ts",
+    "src/utils/adInsights.ts",
+    "src/utils/adLeads.ts",
+    "src/utils/adQuality.ts",
+    "src/utils/adSeasons.ts",
+    "src/utils/adsEngine.ts",
+    "src/utils/partnerLinks.ts",
+    "src/utils/audienceBaseline.ts",
+    "src/utils/audienceStats.ts",
+    "src/utils/audienceStory.ts",
+    "src/components/AdsManager.tsx",
+    "src/components/AdSlot.tsx",
+    "src/components/AudienceDashboard.tsx",
+    "src/components/AudienceStory.tsx",
+    "src/components/ads/*.tsx",
+    "src/styles/25-partners.css",
+    "public/landing/*",
+    "public/schedule-presentation.html",
+    "public/ad-previews/*",
+    "public/launch/*",
+    "scripts/capture-ad-previews.ts",
+    "docs/ADS_AND_AUDIENCE.md"
+  ],
+  "screens": [
+    { "name": { "ar": "الإعلانات", "en": "Ads manager" }, "file": "src/components/AdsManager.tsx", "note": { "ar": "أربعة تبويبات: الحملات، الطلبات، المواقع والمواسم، ملف الشراكة؛ للإدارة الرئيسية وحدها وليست متاحة في التجربة.", "en": "Four tabs: campaigns, requests, placements and seasons, partnership profile. Main administrator only and not available in the demo." } },
+    { "name": { "ar": "معالج الحملة", "en": "Campaign wizard" }, "file": "src/components/ads/CampaignWizard.tsx", "note": { "ar": "أربع خطوات: الشركة والموقع، الجمهور، الصورة، المراجعة والاعتماد.", "en": "Four steps: company and slot, audience, image, review and approval." } },
+    { "name": { "ar": "لوحة الجمهور", "en": "Audience dashboard" }, "file": "src/components/AudienceDashboard.tsx", "note": { "ar": "أرقام مجمّعة ومجهولة تتجدد كل دقيقة، مع ملف طباعة للشركات.", "en": "Aggregated anonymous figures refreshed every minute, with a print profile for companies." } },
+    { "name": { "ar": "عرض الجمهور (القصة)", "en": "Audience story mode" }, "file": "src/components/AudienceStory.tsx", "note": { "ar": "خمس شرائح بملء الشاشة لاجتماع الشركة.", "en": "Five full-screen slides for a company meeting." } },
+    { "name": { "ar": "موقع إعلاني في لوحة الكادر", "en": "Staff dashboard ad slot" }, "file": "src/components/AdSlot.tsx", "note": { "ar": "عنصر مخفي يظهر عند وصول حملة؛ لا يُركَّب في التجربة.", "en": "A hidden element that appears only when a campaign arrives; not mounted in the demo." } },
+    { "name": { "ar": "استبيان الطلبة", "en": "Student survey page" }, "file": "src/server/pages/surveyPages.ts", "note": { "ar": "صفحة عامة بالرقم المدني؛ في الإنتاج يفتح الرابط القديم «مساري».", "en": "Public page keyed by civil ID; in production the old link opens the student portal instead." } },
+    { "name": { "ar": "صفحة الرابط غير الصالح", "en": "Invalid-link page" }, "file": "src/server/pages/publicInvalidLinkPage.ts", "note": { "ar": "هوية واحدة لكل الروابط العامة: علامة SCHEDULE والرسالة فقط.", "en": "One look for every public link: the SCHEDULE mark and the message only." } },
+    { "name": { "ar": "صفحة الهبوط", "en": "Landing page" }, "file": "public/landing/index.html", "note": { "ar": "تُخدم على /landing وعلى النطاق الفرعي home.", "en": "Served at /landing and on the home sub-domain." } },
+    { "name": { "ar": "العرض التقديمي", "en": "Presentation deck" }, "file": "public/schedule-presentation.html", "note": { "ar": "شرائح بملء الشاشة بأرقام حيّة من واجهتين عامتين.", "en": "Full-screen slides with live numbers from two public endpoints." } }
+  ],
+  "journeys": [
+    {
+      "actor": "student",
+      "title": { "ar": "طالب يرسل طلب مقرر ثم يتابع حالته", "en": "A student submits a course request and follows its status" },
+      "steps": [
+        { "ar": "يفتح رابط القسم ويُدخل رقمه المدني (12 رقماً)؛ تُقبل الأرقام العربية والفارسية.", "en": "Opens the department link and enters the 12-digit civil ID; Arabic-Indic and Persian digits are accepted." },
+        { "ar": "إن كان له طلب سابق في هذا الاستبيان يُطلب منه رقم الحالة، ولا يرى قبله إلا الحرف الأول من اسمه.", "en": "If a request already exists in this survey, the case number is requested; before it only the first letter of the name is revealed." },
+        { "ar": "يختار نوع الطلب (مقرر جديد، تعارض مقررين، أو خريج) ثم المقررات من القائمة التي درّسها القسم فعلاً.", "en": "Chooses the request type (new course, conflict between two courses, or graduate) and then the courses from the list the department has actually taught." },
+        { "ar": "يرسل فيصله رقم حالة مشتق من سجل الطلب نفسه.", "en": "Submits and receives a case number derived from the stored request itself." },
+        { "ar": "يفتح /m مع الرابط نفسه، ويُدخل الرقم المدني ورقم الحالة، فيرى ما وصل وتاريخه وقرار اللجنة والتسجيل إن وُجد.", "en": "Opens /m on the same link, enters the civil ID and the case number, and sees what arrived, when, and the committee and registration decisions if any." }
+      ]
+    },
+    {
+      "actor": "rootAdmin",
+      "title": { "ar": "إنشاء حملة إعلانية واعتمادها", "en": "Creating and approving an advertising campaign" },
+      "steps": [
+        { "ar": "يفتح «الإعلانات» ويضغط «حملة جديدة» فيفتح المعالج على خطوته الأولى.", "en": "Opens Ads and presses New campaign; the wizard opens on its first step." },
+        { "ar": "يحدد الشركة والفئة والموقع والتواريخ والرابط (https عام).", "en": "Sets company, category, slot, dates and the destination link (public https)." },
+        { "ar": "يحدد المواسم والكليات أو المقررات المستهدفة، فتُحفظ الحملة مسودة.", "en": "Sets the target seasons, colleges or courses; the campaign is saved as a draft." },
+        { "ar": "يرفع صورة بمقاس الموقع تماماً؛ إن رُفضت لضعف الجودة يقرر صراحة هل يتجاوز التحذير.", "en": "Uploads an image of the exact slot size; if rejected for quality he decides explicitly whether to override the warning." },
+        { "ar": "يُقرّ بشروط الإعلان ويعتمد؛ فإن تعارضت السعة أو الفئة يُرفض الاعتماد بسبب مكتوب.", "en": "Accepts the advertising rules and approves; if capacity or category conflicts, approval is refused with a written reason." },
+        { "ar": "يرسل رابط التقرير للشركة، أو يجدده فيبطل الرابط القديم.", "en": "Sends the report link to the company, or rotates it so that the old link stops working." }
+      ]
+    },
+    {
+      "actor": "partner",
+      "title": { "ar": "شركة تفتح ملف الشراكة وتطلب حملة", "en": "A company opens the partnership profile and asks for a campaign" },
+      "steps": [
+        { "ar": "تفتح الرابط الخاص بها؛ يُسجَّل فتحها الأول للإدارة بلا تعقب لشخص.", "en": "Opens its private link; the first open is recorded for the administration without tracking any person." },
+        { "ar": "تقرأ أرقام الجمهور المجمّعة ومواقع الإعلان وسعتها وتقويم المواسم.", "en": "Reads the aggregated audience figures, the ad slots with their capacity and the season calendar." },
+        { "ar": "تختار موقعاً وموسماً وعدد أسابيع في حاسبة «ماذا ستحصل؟» فتظهر تقديرات من سجل الموقع.", "en": "Picks a slot, season and number of weeks in the What will you get calculator and sees estimates drawn from the site record." },
+        { "ar": "تضغط «حملة جديدة» وتملأ الاسم والجوال والبريد الاختياري.", "en": "Presses New campaign and fills in name, mobile number and an optional email." },
+        { "ar": "تعود بتأكيد النجاح؛ ويصل الإدارة إشعار في الجرس حتى يُسجَّل التواصل.", "en": "Returns with a success notice; the administration receives a bell notification until contact is recorded." }
+      ]
+    },
+    {
+      "actor": "rootAdmin",
+      "title": { "ar": "عرض الجمهور في اجتماع مع شركة", "en": "Presenting the audience in a company meeting" },
+      "steps": [
+        { "ar": "يفتح «لوحة الجمهور» ويراجع الأرقام الكبرى وأوقات الذروة وما يطلبه الطلبة.", "en": "Opens the Audience dashboard and reviews the headline numbers, peak times and what students request." },
+        { "ar": "يفتح وضع القصة فيدخل ملء الشاشة بخمس شرائح تتقدم كل 8 ثوانٍ.", "en": "Starts story mode; it enters full screen with five slides advancing every 8 seconds." },
+        { "ar": "يوقف التقدم التلقائي بالمسافة أو يتنقل بالأسهم أو بالسحب.", "en": "Pauses the autoplay with the space bar, or navigates with arrows or swipes." },
+        { "ar": "ينتهي عند «خطوتك التالية» (تجربة 7 أيام مجاناً) ويغلق بـ Esc.", "en": "Ends on Your next step (a free 7-day trial) and closes with Esc." }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "eng-campaign-lifecycle",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "دورة حياة الحملة", "en": "Campaign lifecycle" },
+      "caption": { "ar": "الحملة لا تُعرض إلا في حالة «معتمدة» وضمن تواريخها؛ وتعديل موقعها أو فئتها أو تواريخها أو مواسمها أو كلياتها بعد الاعتماد يعيدها مسودة.", "en": "A campaign is shown only when approved and within its dates; changing its slot, category, dates, seasons or colleges after approval returns it to draft." },
+      "nodes": [
+        { "id": "draft", "label": { "ar": "مسودة", "en": "Draft" }, "icon": "file-pen", "kind": "start" },
+        { "id": "check", "label": { "ar": "فحص الاعتماد", "en": "Approval checks" }, "icon": "shield-check", "kind": "decision" },
+        { "id": "approved", "label": { "ar": "معتمدة", "en": "Approved" }, "icon": "circle-check", "kind": "state" },
+        { "id": "live", "label": { "ar": "تُعرض الآن", "en": "Live" }, "icon": "eye", "kind": "system" },
+        { "id": "paused", "label": { "ar": "موقوفة", "en": "Paused" }, "icon": "circle-pause", "kind": "state" },
+        { "id": "ended", "label": { "ar": "منتهية", "en": "Ended" }, "icon": "calendar-x", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "draft", "to": "check", "label": { "ar": "اعتماد بإقرار الشروط", "en": "Approve with rules accepted" } },
+        { "from": "check", "to": "draft", "label": { "ar": "تعارض أو نقص", "en": "Conflict or gap" } },
+        { "from": "check", "to": "approved", "label": { "ar": "سليمة", "en": "Valid" } },
+        { "from": "approved", "to": "live", "label": { "ar": "ضمن التواريخ", "en": "Within dates" } },
+        { "from": "live", "to": "paused", "label": { "ar": "إيقاف فوري", "en": "Pause" } },
+        { "from": "paused", "to": "approved", "label": { "ar": "استئناف بإقرار", "en": "Resume with rules accepted" } },
+        { "from": "approved", "to": "draft", "label": { "ar": "تغيير الموقع أو التواريخ", "en": "Slot or dates changed" } },
+        { "from": "live", "to": "ended", "label": { "ar": "بعد تاريخ النهاية", "en": "After end day" } }
+      ]
+    },
+    {
+      "id": "eng-ad-serving",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "عرض الإعلان وقياسه", "en": "Serving and measuring an ad" },
+      "caption": { "ar": "الصفحة العامة تحمل سكربتاً واحداً؛ الخادم يرسل الحملات المؤهلة وتُفصل شروط الاستهداف الشخصية في متصفح الطالب.", "en": "The public page carries one script; the server sends eligible campaigns and personal targeting conditions are evaluated in the student's browser." },
+      "nodes": [
+        { "id": "page", "label": { "ar": "صفحة عامة", "en": "Public page" }, "icon": "globe", "kind": "start" },
+        { "id": "kind", "label": { "ar": "نوع الرابط", "en": "Link type" }, "icon": "link", "kind": "decision" },
+        { "id": "none", "label": { "ar": "نبض فقط", "en": "Pulse only" }, "icon": "activity", "kind": "end" },
+        { "id": "serve", "label": { "ar": "طلب الحملات", "en": "Request campaigns" }, "icon": "send", "kind": "system" },
+        { "id": "filter", "label": { "ar": "تصفية الاستهداف", "en": "Local targeting" }, "icon": "filter", "kind": "state" },
+        { "id": "view", "label": { "ar": "ثانية رؤية", "en": "One second visible" }, "icon": "eye", "kind": "decision" },
+        { "id": "count", "label": { "ar": "ظهور مُحتسب", "en": "Impression counted" }, "icon": "chart-column", "kind": "system" },
+        { "id": "click", "label": { "ar": "نقرة وتحويل", "en": "Click and redirect" }, "icon": "mouse-pointer-click", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "page", "to": "kind" },
+        { "from": "kind", "to": "none", "label": { "ar": "هوية أو استبيان أو تجريبي", "en": "Identity, survey or demo" } },
+        { "from": "kind", "to": "serve", "label": { "ar": "جدول للعرض أو مساري", "en": "Display schedule or portal" } },
+        { "from": "serve", "to": "filter" },
+        { "from": "filter", "to": "view" },
+        { "from": "view", "to": "count", "label": { "ar": "50% ظاهر", "en": "50% visible" } },
+        { "from": "count", "to": "click" }
+      ]
+    },
+    {
+      "id": "eng-survey-submit",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "إرسال الاستبيان", "en": "Survey submission" },
+      "caption": { "ar": "الرقم المدني وحده لا يفتح طلباً قائماً: الاستبدال يحتاج رقم الحالة أيضاً.", "en": "The civil ID alone never opens an existing request: replacing it also needs the case number." },
+      "nodes": [
+        { "id": "open", "label": { "ar": "فتح الرابط", "en": "Open link" }, "icon": "link", "kind": "start" },
+        { "id": "term", "label": { "ar": "الفصل جارٍ؟", "en": "Term still open?" }, "icon": "calendar-clock", "kind": "decision" },
+        { "id": "closed", "label": { "ar": "لا استقبال", "en": "Closed" }, "icon": "ban", "kind": "end" },
+        { "id": "civil", "label": { "ar": "فحص الرقم المدني", "en": "Civil ID check" }, "icon": "id-card", "kind": "decision" },
+        { "id": "prior", "label": { "ar": "طلب سابق؟", "en": "Prior request?" }, "icon": "history", "kind": "decision" },
+        { "id": "ref", "label": { "ar": "رقم الحالة", "en": "Case number" }, "icon": "key-round", "kind": "state" },
+        { "id": "valid", "label": { "ar": "التحقق من الطلب", "en": "Validate request" }, "icon": "list-checks", "kind": "system" },
+        { "id": "saved", "label": { "ar": "حفظ وإصدار رقم", "en": "Saved, number issued" }, "icon": "circle-check", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "open", "to": "term" },
+        { "from": "term", "to": "closed", "label": { "ar": "انتهى (409)", "en": "Ended (409)" } },
+        { "from": "term", "to": "civil", "label": { "ar": "جارٍ", "en": "Open" } },
+        { "from": "civil", "to": "prior", "label": { "ar": "صحيح", "en": "Valid" } },
+        { "from": "prior", "to": "ref", "label": { "ar": "نعم", "en": "Yes" } },
+        { "from": "prior", "to": "valid", "label": { "ar": "لا", "en": "No" } },
+        { "from": "ref", "to": "valid", "label": { "ar": "مطابق", "en": "Matches" } },
+        { "from": "valid", "to": "saved" }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": { "ar": "من يصل إلى ماذا", "en": "Who reaches what" },
+    "cols": [
+      { "ar": "الاستبيان وحالة الطلب", "en": "Survey and case status" },
+      { "ar": "عرض الإعلان", "en": "Ad display" },
+      { "ar": "إدارة الحملات", "en": "Campaign management" },
+      { "ar": "لوحة الجمهور", "en": "Audience dashboard" },
+      { "ar": "ملف الشراكة وتقرير الحملة", "en": "Partnership profile and report" }
+    ],
+    "rows": [
+      { "actor": "student", "cells": [2, 1, 0, 0, 0] },
+      { "actor": "visitor", "cells": [0, 1, 0, 0, 0] },
+      { "actor": "partner", "cells": [0, 0, 0, 0, 2] },
+      { "actor": "rootAdmin", "cells": [0, 0, 2, 1, 2] }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "FR-ENG-001",
+      "kind": "functional",
+      "title": { "ar": "حمولة الاستبيان", "en": "Survey payload" },
+      "text": {
+        "ar": "يجب على النظام أن يخدم رابط استبيان من نوع «استبيان» وحده، وأن يعيد للصفحة قسم الرابط وكليته وفصله والمقررات التي درّسها القسم فعلاً وكانت قابلة للطرح، وأن يرد «انتهى الفصل» بدل الحمولة إذا انتهى فصل الرابط. وتُخزَّن الحمولة مؤقتاً 10 دقائق، ويُفحص انتهاء الفصل عند كل فتح خارج هذا التخزين.",
+        "en": "The system shall serve a survey link of kind survey only, and return to the page the link's department, college, term and the courses the department has actually taught and that are still operational, answering term-ended instead of the payload once the link's term has ended. The payload is cached for 10 minutes while term end is checked on every open outside that cache."
+      },
+      "rationale": { "ar": "مقرر لم يُدرَّس منذ سنوات لا يُسأل عنه طالب.", "en": "A course nobody has taught for years is not something to ask a student about." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["student", "system"],
+      "acceptance": [
+        { "ar": "رابط من نوع آخر يعيد 404 برسالة «هذا الرابط ليس استبياناً».", "en": "A link of another kind returns 404 with the message that the link is not a survey." },
+        { "ar": "رابط انتهى فصله يعيد termEnded=true ورابط /m ويُرسل Cache-Control: no-store.", "en": "A link whose term has ended returns termEnded=true with the /m link and is sent with Cache-Control: no-store." },
+        { "ar": "تنقضي الحمولة المخزنة بعد 600000 مللي ثانية ويُمحى التخزين حين يتجاوز 200 مدخلاً.", "en": "The cached payload expires after 600000 ms and the cache is cleared when it exceeds 200 entries." }
+      ],
+      "evidence": { "code": ["src/server/routes/surveyRoutes.ts"], "tests": ["tests/student-case-status-audit.ts", "tests/student-journey-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-002",
+      "kind": "functional",
+      "title": { "ar": "التحقق من الطلب عند الإرسال", "en": "Request validation on submit" },
+      "text": {
+        "ar": "يجب على النظام عند إرسال الاستبيان أن يقبل رقماً مدنياً صحيح المجموع الاختباري من 12 رقماً واسماً من 3 أحرف فأكثر (حتى 60)، وأن يفرض بحسب نوع الطلب: مقرر واحد على الأقل للمقرر الجديد، ومقرران بالضبط للتعارض، وسبباً معتمداً وملاحظات من 3 إلى 600 حرف للخريج، وألا يتجاوز العدد المحفوظ 12 مقرراً.",
+        "en": "On survey submission the system shall accept a 12-digit civil ID with a valid checksum and a name of at least 3 characters (up to 60), and enforce by request type: at least one course for a new course, exactly two courses for a conflict, an approved reason and notes of 3 to 600 characters for a graduate, with no more than 12 courses stored."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["student"],
+      "acceptance": [
+        { "ar": "رقم مدني لا يجتاز الفحص يعيد 400 «الرقم المدني غير صحيح».", "en": "A civil ID failing the checksum returns 400 with the invalid-civil-ID message." },
+        { "ar": "نوع تعارض بمقرر واحد يعيد 400 «اختر مقررين متعارضين بالضبط».", "en": "A conflict request with one course returns 400 asking for exactly two conflicting courses." },
+        { "ar": "نوع خريج بملاحظات أقصر من 3 أحرف يعيد 400؛ والملاحظات الأطول تُقصّ عند 600 حرف.", "en": "A graduate request with notes shorter than 3 characters returns 400; longer notes are cut at 600 characters." },
+        { "ar": "النجاح يعيد 201 مع الاسم والعدد والنوع ورقم الحالة.", "en": "Success returns 201 with name, count, type and case number." }
+      ],
+      "evidence": { "code": ["src/server/routes/surveyRoutes.ts"], "tests": ["tests/student-journey-audit.ts", "tests/student-needs-scale-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-003",
+      "kind": "functional",
+      "title": { "ar": "رقم الحالة مفتاح ثانٍ وتثبيت الهوية", "en": "Case number as second key and identity lock" },
+      "text": {
+        "ar": "يجب على النظام ألا يقرأ طلباً قائماً أو يعدّله أو يستبدله إلا بالرقم المدني مع رقم الحالة (يُطبَّع إلى 16 خانة حرفية رقمية كحد أقصى)، وألا يكشف قبل ذلك سوى وجود الطلب وأول حرف من الاسم، وألا يسمح بتغيير الاسم أو القسم العلمي المتحقَّق منهما سابقاً.",
+        "en": "The system shall read, edit or replace an existing request only with the civil ID together with the case number (normalised to at most 16 alphanumeric characters), reveal before that only that a request exists and the first letter of the name, and refuse changes to a previously verified name or home department."
+      },
+      "rationale": { "ar": "الرقم المدني يعرفه الزميل والقريب؛ فلا يصلح وحده مفتاحاً.", "en": "A civil ID is known to colleagues and relatives, so it cannot be the only key." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["student"],
+      "acceptance": [
+        { "ar": "إرسال لرقم مدني له طلب سابق بلا رقم حالة يعيد 409 برمز case-ref-required.", "en": "Submitting for a civil ID with a prior request and no case number returns 409 with code case-ref-required." },
+        { "ar": "نقطة identity-status بلا رقم حالة تعيد exists وinitial فقط، وبرقم خاطئ تعيد 403 برمز case-ref-mismatch.", "en": "The identity-status endpoint without a case number returns only exists and initial; with a wrong number it returns 403 with code case-ref-mismatch." },
+        { "ar": "اسم أو قسم مختلف عن المتحقَّق منه يعيد 409.", "en": "A name or department different from the verified one returns 409." }
+      ],
+      "evidence": { "code": ["src/server/routes/surveyRoutes.ts"], "tests": ["tests/student-journey-audit.ts", "tests/student-case-status-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-004",
+      "kind": "functional",
+      "title": { "ar": "إثبات صحيفة التخرج", "en": "Graduation-sheet proof" },
+      "text": {
+        "ar": "يجب على النظام أن يقبل رفع صحيفة التخرج لطلب الخريج حتى 14 ميغابايت، وأن يرد 413 برمز file-too-large عند التجاوز، وأن يعيد استعمال إثبات سابق للطالب نفسه والقسم والفصل مع إعادة تطبيق القاعدة الأكاديمية الحالية في كل مرة، وألا يستقبل رفعاً بعد انتهاء الفصل.",
+        "en": "The system shall accept a graduation-sheet upload for a graduate request up to 14 MB, answer 413 with code file-too-large beyond it, reuse an earlier proof for the same student, department and term while re-applying the current academic rule every time, and accept no upload after the term has ended."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["student"],
+      "acceptance": [
+        { "ar": "ملف أكبر من 14×1024×1024 بايت يرد 413 برسالة تذكر الحجم.", "en": "A file larger than 14×1024×1024 bytes is answered 413 with a message naming the size." },
+        { "ar": "الإثبات السابق لا يُعاد استعماله إلا لحامل رقم الحالة، ولا إذا تغيّر مجموع وحدات الدرجة في القاعدة أو انخفض المجتاز عن الحد المطلوب.", "en": "A prior proof is reused only for the holder of the case number, and not when the degree units in the rule changed or the passed units fall below the required threshold." },
+        { "ar": "رفع بعد انتهاء الفصل يرد 409 برمز term-ended.", "en": "An upload after the term has ended is answered 409 with code term-ended." }
+      ],
+      "evidence": { "code": ["src/server/routes/surveyRoutes.ts"], "tests": ["tests/student-case-status-audit.ts", "tests/student-journey-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-005",
+      "kind": "functional",
+      "title": { "ar": "حالة طلبي", "en": "My request status" },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للطالب قراءة حالة طلبه من الرابط نفسه (/m) بالرقم المدني ورقم الحالة، وأن يبقي القراءة مفتوحة حتى 30 يوماً بعد الأحدث من انتهاء صلاحية الرابط ونهاية الفصل، وأن يجيب من لا طلب له أو أخطأ في أحد الرقمين بجواب واحد، وألا يدّعي تسجيلاً أو مقعداً.",
+        "en": "The system shall let a student read the status of his request from the same link (/m) with the civil ID and case number, keep reading open for 30 days after the later of link expiry and term end, answer someone with no request or a wrong number with one identical answer, and never claim a registration or a seat."
+      },
+      "rationale": { "ar": "الفرق بين «لا طلب» و«رقم خاطئ» يكشف لمن يجرّب من عبّأ الاستبيان.", "en": "A difference between no request and wrong number would reveal to someone guessing who filled the survey." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["student"],
+      "acceptance": [
+        { "ar": "رقم مدني بطول غير 12 أو مجموع خاطئ يعيد 400.", "en": "A civil ID of a length other than 12 or with a wrong checksum returns 400." },
+        { "ar": "غياب الطلب أو خطأ رقم الحالة يعيد found=false مع اسم الفصل فقط.", "en": "A missing request or wrong case number returns found=false with only the term name." },
+        { "ar": "بعد انقضاء مهلة 30 يوماً يرد 410 «انتهت مدة متابعة الطلبات لهذا الفصل».", "en": "After the 30-day grace the answer is 410 saying the follow-up period for the term has ended." },
+        { "ar": "قرار اللجنة بالموافقة وجدول القسم غير مكتمل التوقيع يظهر «بانتظار اكتمال التواقيع» لا «بانتظار التسجيل».", "en": "A committee approval while the department schedule is not fully signed appears as awaiting signatures, not as awaiting registration." },
+        { "ar": "لا يُعاد اسم ولا بصمة في الحمولة.", "en": "No name and no fingerprint appear in the payload." }
+      ],
+      "evidence": { "code": ["src/server/routes/surveyRoutes.ts"], "tests": ["tests/student-case-status-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-006",
+      "kind": "functional",
+      "title": { "ar": "الرابط القديم للاستبيان", "en": "Legacy survey link" },
+      "text": {
+        "ar": "يجب على النظام أن يحوّل رابط /q المطبوع سابقاً إلى «مساري» (/me) بتحويل 302 للرموز الحقيقية، وأن يُبقي صفحة الاستبيان المستقلة للرموز التجريبية وحدها، وأن يرد 404 لرمز ليس استبياناً.",
+        "en": "The system shall redirect the previously printed /q link to the student portal (/me) with a 302 for real tokens, keep the standalone survey page for demo tokens only, and answer 404 for a token that is not a survey."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["student", "visitor"],
+      "acceptance": [
+        { "ar": "رمز حقيقي من نوع استبيان يرد 302 إلى /me.", "en": "A real token of kind survey answers 302 to /me." },
+        { "ar": "رمز تجريبي يعرض صفحة الاستبيان مع تلميح الرقم الوهمي.", "en": "A demo token shows the survey page with the fictitious-number hint." }
+      ],
+      "evidence": { "code": ["src/server/routes/surveyRoutes.ts", "src/server/core/publicPages.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "NFR-ENG-007",
+      "kind": "nonfunctional",
+      "title": { "ar": "حدّ المحاولات على أبواب الاستبيان", "en": "Attempt limit on survey endpoints" },
+      "text": {
+        "ar": "يجب على النظام أن يحدّ طلبات أبواب الاستبيان (الإرسال، حالة الهوية، حالة الإثبات، رفع الصحيفة، حالة طلبي) بمفتاح من الرابط وعنوان الاتصال، وأن يرد 429 عند التجاوز؛ والحد الافتراضي 10 محاولات في نافذة 10 دقائق ويقبل الضبط من إعدادات البيئة.",
+        "en": "The system shall limit requests to the survey endpoints (submit, identity status, proof status, sheet upload, my request status) by a key made of the link and the network address, answering 429 when exceeded; the default is 10 attempts in a 10-minute window and is adjustable through environment settings."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["student", "system"],
+      "acceptance": [
+        { "ar": "المحاولة الحادية عشرة خلال النافذة تعيد 429 برسالة انتظار.", "en": "The eleventh attempt within the window returns 429 with a wait message." },
+        { "ar": "المفتاح يضم رمز الرابط وعنوان الاتصال معاً.", "en": "The key combines the link token and the network address." }
+      ],
+      "evidence": { "code": ["src/server/routes/surveyRoutes.ts", "src/server/core/shareLinks.ts"], "tests": ["tests/student-case-status-audit.ts"] }
+    },
+    {
+      "id": "NFR-ENG-008",
+      "kind": "nonfunctional",
+      "title": { "ar": "سياسة أمان الصفحات العامة", "en": "Public page security policy" },
+      "text": {
+        "ar": "يجب على النظام أن يرسل مع كل صفحة عامة سياسة أمان محتوى صارمة بنونس جديد لكل رد: default-src 'none' وscript-src بالنونس وحده وconnect-src 'self' وbase-uri 'none'، ومنع التضمين في إطار (frame-ancestors 'none') ما لم يكن التشغيل داخل بيئة تطبيقية خارجية، وأن تُهرَّب كل نصوص الزائر المعروضة.",
+        "en": "The system shall send with every public page a strict content security policy with a fresh nonce per response: default-src 'none', script-src by nonce only, connect-src 'self' and base-uri 'none', and forbid framing (frame-ancestors 'none') unless running inside an external applet host, and every visitor-supplied text displayed shall be escaped."
+      },
+      "rationale": { "ar": "هذه الصفحات هي السطح الوحيد الذي يصله غريب بلا دخول وتعرض نصاً لم يكتبه النظام.", "en": "These pages are the only surface an unauthenticated stranger reaches, and they display text the system did not author." }
+      ,
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["visitor", "student", "partner"],
+      "acceptance": [
+        { "ar": "الترويسة تحوي nonce مختلفاً في كل رد وscript-src لا يتضمن unsafe-inline.", "en": "The header contains a different nonce in each response and script-src does not include unsafe-inline." },
+        { "ar": "سكربت بلا النونس لا يُنفَّذ.", "en": "A script without the nonce does not run." },
+        { "ar": "صفحة حالة الطلب تحمل meta robots بقيمة noindex,nofollow.", "en": "The status page carries a robots meta tag with noindex,nofollow." }
+      ],
+      "evidence": { "code": ["src/server/core/publicPages.ts"], "tests": ["tests/public-pages-syntax-audit.ts", "tests/student-case-status-audit.ts"] }
+    },
+    {
+      "id": "IR-ENG-009",
+      "kind": "interface",
+      "title": { "ar": "عدّة الصفحات العامة ورابط غير صالح", "en": "Public page kit and invalid link" },
+      "text": {
+        "ar": "يجب على الصفحات العامة أن تستعمل ألواناً مشتقة من رموز التطبيق نفسها (فاتحة افتراضياً مع لوحة داكنة بالأسماء ذاتها)، وخط Plex بوجهيه العربي واللاتيني، وحقل وقت نصياً بأرقام إنجليزية يقبل 930 ويكتب 09:30 ويقبل الأرقام العربية والفارسية ويرفض ما خارج 08:00 إلى 20:00 افتراضياً، وصفحة موحدة للرابط غير الصالح تعرض الرسالة وحدها.",
+        "en": "Public pages shall use colours derived from the application's own tokens (light by default with a dark palette under the same names), the Plex font in both Arabic and Latin faces, a text time field with English digits that accepts 930 and writes 09:30, accepts Arabic-Indic and Persian digits and rejects times outside 08:00 to 20:00 by default, and one shared invalid-link page that shows only the message."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["visitor", "student"],
+      "acceptance": [
+        { "ar": "الدالة norm تحوّل \"930\" و\"١٥٣٠\" إلى 09:30 و15:30 وترفض \"0700\" و\"2560\".", "en": "The norm function turns \"930\" and \"١٥٣٠\" into 09:30 and 15:30 and rejects \"0700\" and \"2560\"." },
+        { "ar": "حقل الوقت من النوع text باتجاه ltr ولا يوجد input من النوع time في صفحة عامة.", "en": "The time field is of type text with ltr direction and no input of type time exists in a public page." },
+        { "ar": "صفحة الرابط غير الصالح تحمل علامة SCHEDULE والرسالة بلا زر أو قائمة.", "en": "The invalid-link page carries the SCHEDULE mark and the message with no button or menu." }
+      ],
+      "evidence": { "code": ["src/server/publicKit.ts", "src/server/publicTheme.ts", "src/server/pages/publicInvalidLinkPage.ts"], "tests": ["tests/public-kit-audit.ts", "tests/public-pages-syntax-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-010",
+      "kind": "functional",
+      "title": { "ar": "أين يُحقن السكربت والإعلان", "en": "Where the script and ad are injected" },
+      "text": {
+        "ar": "يجب على النظام أن يحقن سكربت القياس في ردود HTML الناجحة للصفحات العامة قبل </body> بنونس الصفحة، مع موقع إعلاني للجدول العام (/s و/t) وحدهما؛ ونبضاً بلا إعلان لـ/me و/m و/q و/r؛ ولا شيء للرموز التجريبية ولا لغير GET ولا لرد غير 200.",
+        "en": "The system shall inject the measurement script into successful HTML responses of public pages before </body> with the page's nonce, with an ad slot only for the public schedule (/s and /t), a pulse without an ad for /me, /m, /q and /r, and nothing for demo tokens, non-GET requests or non-200 responses."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system", "student"],
+      "acceptance": [
+        { "ar": "injectPlanFor(\"/t/abc\") يعيد pulse=schedule وslot=schedule؛ و\"/m/abc\" يعيد pulse=status وslot فارغاً.", "en": "injectPlanFor(\"/t/abc\") returns pulse=schedule and slot=schedule; \"/m/abc\" returns pulse=status and an empty slot." },
+        { "ar": "\"/s/demo.abc\" و\"/\" و\"/api/...\" لا تُحقن.", "en": "\"/s/demo.abc\", \"/\" and \"/api/...\" are not injected." },
+        { "ar": "فشل الحقن لا يمنع إرسال الصفحة الأصلية.", "en": "An injection failure does not prevent the original page from being sent." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "DR-ENG-011",
+      "kind": "data",
+      "title": { "ar": "مواقع الإعلان وشروط الصورة", "en": "Ad slots and image rules" },
+      "text": {
+        "ar": "يجب على النظام أن يعرّف ثمانية مواقع فاعلة بمقاساتها وسعتها: شريك الفصل 640×80 (حصري، 1)، مساري 640×200 (5)، الجدول العام 640×160 (3)، وقت الفراغ وبعد آخر محاضرة وبين محاضرتين 480×160 (3 لكل منها)، راعي مقرر 480×80 (8)، وأعضاء هيئة التدريس والإداريين 480×160 (3)، وموقع «حالة الطلب» متوقفاً؛ وأن يقبل صورة PNG أو JPEG أو WebP بالمقاس تماماً وبوزن حتى 300 كيلوبايت، حتى صورتين للحملة.",
+        "en": "The system shall define eight active slots with sizes and capacity: season sponsor 640×80 (exclusive, 1), student portal 640×200 (5), public schedule 640×160 (3), free time, after last lecture and between two lectures 480×160 (3 each), course sponsor 480×80 (8), and faculty and administrators 480×160 (3), with the order-status slot retired; and accept a PNG, JPEG or WebP image of exactly the slot size and at most 300 KB, up to two images per campaign."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "صورة 640×200 لموقع الجدول العام تُرفض برسالة المقاس المطلوب 640×160.", "en": "A 640×200 image for the public schedule slot is refused with a message naming the required 640×160." },
+        { "ar": "GIF أو نص يُرفض كملف غير مدعوم، وملف أكبر من 300 كيلوبايت يُرفض.", "en": "A GIF or text file is refused as unsupported and a file over 300 KB is refused." },
+        { "ar": "إضافة صورة ثالثة تعيد 409 والحد الأقصى صورتان.", "en": "Adding a third image returns 409 with a maximum of two." },
+        { "ar": "حملة جديدة على موقع «حالة الطلب» تُرفض لأنه متوقف.", "en": "A new campaign on the order-status slot is refused because it is retired." }
+      ],
+      "evidence": { "code": ["src/utils/adsEngine.ts", "src/server/adsRoutes.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-012",
+      "kind": "functional",
+      "title": { "ar": "التحقق من الحملة وتعارض الموقع عند الاعتماد", "en": "Campaign validation and placement conflicts at approval" },
+      "text": {
+        "ar": "يجب على النظام أن يتحقق عند الحفظ من الشركة والفئة وتاريخي البداية والنهاية (بتوقيت الكويت، النهاية شاملة، بحد أقصى سنة)، ورابط https عام حتى 600 حرف، وتجربة مجانية لا تتجاوز 7 أيام مرة لكل شركة؛ وأن يفحص عند الاعتماد يوماً بيوم: السعة لكل مشاهد ممكن (موسم، كلية)، وحصرية شريك الفصل، ومنافساً من الفئة نفسها في الموقع نفسه، وراعياً آخر للمقرر نفسه.",
+        "en": "The system shall validate on save the company, category, start and end days (Kuwait time, end inclusive, one year at most), a public https link of up to 600 characters, and a free trial of at most 7 days once per company; and check at approval day by day: capacity per possible viewer (season, college), exclusivity of the season sponsor, a competitor of the same category in the same slot, and another sponsor of the same course."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "30 فبراير ونهاية قبل البداية وفترة أكثر من سنة تُرفض.", "en": "30 February, an end before the start and a period over one year are refused." },
+        { "ar": "رابط http أو localhost أو IP أو يحمل بيانات دخول يُرفض.", "en": "A link using http, localhost, an IP address or embedded credentials is refused." },
+        { "ar": "الشركة السادسة في «مساري» (سعة 5) في الفترة نفسها تُرفض 409 «ممتلئ».", "en": "A sixth company in the student portal slot (capacity 5) in the same period is refused with 409 full." },
+        { "ar": "الفئة نفسها في موقع آخر مسموحة، وفي الموقع نفسه بمواسم أو كليات متقاطعة مرفوضة.", "en": "The same category in another slot is allowed, and in the same slot with overlapping seasons or colleges is refused." },
+        { "ar": "حملة راعي مقرر بلا مقرر، أو موجهة بقرب التخرج، تُرفض.", "en": "A course-sponsor campaign without a course, or targeted by near-graduation, is refused." }
+      ],
+      "evidence": { "code": ["src/utils/adsEngine.ts", "src/server/adsRoutes.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-013",
+      "kind": "functional",
+      "title": { "ar": "إدارة حالة الحملة وسجل التدقيق", "en": "Campaign state management and audit" },
+      "text": {
+        "ar": "يجب على النظام أن يسمح للإدارة الرئيسية بوحدها باعتماد الحملة أو استئنافها بشرط إقرار الشروط ووجود صورة وخلو التعارض، وإيقافها فوراً وإعادتها مسودة وحذفها إن لم تكن تعمل الآن؛ وأن يعيد الحملة المعتمدة مسودة إذا تغيّر موقعها أو فئتها أو تواريخها أو مواسمها أو كلياتها؛ وأن يسجّل كل عملية في سجل التدقيق بكيان «ads» دون اسم شخص أو رقم.",
+        "en": "The system shall allow only the main administrator to approve or resume a campaign on condition that the rules are accepted, an image exists and no conflict remains, to pause it immediately, return it to draft, and delete it unless it is live now; to return an approved campaign to draft when its slot, category, dates, seasons or colleges change; and to record every operation in the audit trail under entity ads with no person name or number."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "اعتماد بلا rulesAccepted يعيد 400، وبلا صورة يعيد 409.", "en": "Approval without rulesAccepted returns 400 and without an image returns 409." },
+        { "ar": "حذف حملة تعمل الآن يعيد 409 «أوقفها أولاً».", "en": "Deleting a live campaign returns 409 asking to pause it first." },
+        { "ar": "تغيير موقع حملة بعد رفع صور يعيد 409؛ وحذف الصورة الوحيدة لحملة معتمدة يعيد 409.", "en": "Changing the slot after images were uploaded returns 409; deleting the only image of an approved campaign returns 409." },
+        { "ar": "تجديد رمز التقرير يُبطل الرابط القديم.", "en": "Rotating the report token invalidates the old link." },
+        { "ar": "مستخدم غير الإدارة الرئيسية لا يصل إلى مسارات /api/admin/ads.", "en": "A user other than the main administrator cannot reach /api/admin/ads routes." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts", "src/components/AdsManager.tsx"], "tests": ["tests/ads-audit.ts", "tests/ads-preview-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-014",
+      "kind": "functional",
+      "title": { "ar": "فحص جودة الصورة", "en": "Image quality check" },
+      "text": {
+        "ar": "يجب على النظام أن يقيس الصورة المرفوعة من بكسلاتها ويرفضها بـ422 وأسباب مكتوبة إذا كان المعتم أقل من 90% أو لون واحد يغطي أكثر من 97% أو تباين WCAG بين المئين 5 و95 أقل من 2 أو الحواف الواضحة أقل من 0.4%؛ وللإدارة تجاوز التحذير بترويسة صريحة يُوسَم بها الشعار ويُسجَّل في التدقيق؛ ويُتخطى الفحص إن غابت مكتبة فك الصور.",
+        "en": "The system shall measure an uploaded image from its pixels and refuse it with 422 and written reasons if opacity is below 90%, one colour covers more than 97%, the WCAG contrast between the 5th and 95th percentiles is below 2, or clear edges are under 0.4%; the administrator may override the warning with an explicit header that marks the creative and is logged in the audit, and the check is skipped when the image-decoding library is absent."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "صورة بلون واحد تعيد «شبه فارغة» وصورة شفافة تعيد «شفافة».", "en": "A single-colour image returns the nearly-empty reason and a transparent image returns the transparent reason." },
+        { "ar": "الرفع مع X-Quality-Override: 1 يُقبل ويحمل qualityOverride=true.", "en": "An upload with X-Quality-Override: 1 is accepted and carries qualityOverride=true." },
+        { "ar": "صورة تتجاوز 4,000,000 بكسل تُرفض بأن أبعادها غير صالحة.", "en": "An image over 4,000,000 pixels is refused as having invalid dimensions." }
+      ],
+      "evidence": { "code": ["src/utils/adQuality.ts", "src/server/adQuality.ts", "src/server/adsRoutes.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-015",
+      "kind": "functional",
+      "title": { "ar": "اختيار الإعلانات للعرض", "en": "Choosing ads to serve" },
+      "text": {
+        "ar": "يجب على النظام أن يرسل لكل طلب عرض الحملات المعتمدة الجارية فقط وفق الموسم الفاعل وكلية الصفحة، وألا يرسل إعلاناً لرابط غير معروف أو من نوع يطلب هوية، وأن يرتّبها عشوائياً في كل طلب مع مهلة تناوب 9000 مللي ثانية، وأن يرسل شروط الاستهداف بالمقرر وقرب التخرج (30 وحدة أو أقل) لتُفصل في المتصفح، وألا يخدم صور المسودات للعامة.",
+        "en": "The system shall send for each serve request only approved, running campaigns matching the active season and the page's college, send no ad for an unknown link or a kind that asks for identity, shuffle them in every request with a rotation of 9000 ms, send the course and near-graduation targeting conditions (30 units or fewer) to be evaluated in the browser, and not serve draft images to the public."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system", "student"],
+      "acceptance": [
+        { "ar": "رمز استبيان أو بطاقة أستاذ أو طلب جدول يعيد items فارغة.", "en": "A survey, staff-card or schedule-request token returns empty items." },
+        { "ar": "حملة مستهدفة بكلية لا تظهر في «مساري» لمن لم يُرسل رقم كليته، ويُقبل الرقم بين 1 و99999 فقط.", "en": "A campaign targeted by college does not appear in the student portal for a visitor who did not send a college number, and only numbers from 1 to 99999 are accepted." },
+        { "ar": "صورة حملة مسودة تعيد 404 من /_ads/img.", "en": "A draft campaign's image returns 404 from /_ads/img." },
+        { "ar": "تُخزَّن الحملات 15 ثانية فيسري الإيقاف خلالها.", "en": "Campaigns are cached for 15 seconds so a pause takes effect within them." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts", "src/utils/adsEngine.ts", "src/utils/adSeasons.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "IR-ENG-016",
+      "kind": "interface",
+      "title": { "ar": "عرض الإعلان في المتصفح واحتساب الظهور", "en": "Browser rendering and impression counting" },
+      "text": {
+        "ar": "يجب على سكربت الإعلان أن يعرض الصور بوسم «إعلان» ثابت وروابط rel=sponsored، وألا يستعمل innerHTML لنص قادم من الخادم، وأن يحتسب الظهور بعد ثانية واحدة من رؤية نصف الإعلان على الأقل والصفحة ظاهرة، وأن يوقف التناوب التلقائي لمن يفضّل قلّة الحركة ويوفر زر إيقاف، ويضع سقفاً يومياً 60 ظهوراً للمتصفح عبر كل الحملات و10 للحملة الواحدة، وألا يكرر شريط الراعي في محطات «تذكرتي».",
+        "en": "The ad script shall render images with a fixed Ad label and rel=sponsored links, never use innerHTML for server text, count an impression after one second with at least half of the ad visible while the page is shown, stop automatic rotation for users who prefer reduced motion and provide a pause button, cap impressions at 60 per day per browser across all campaigns and 10 per campaign, and not repeat the sponsor bar in the ticket stations."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["student", "visitor"],
+      "acceptance": [
+        { "ar": "بعد 60 ظهوراً في اليوم لا يُطلب إعلان حتى الغد (مفتاح adx:t:التاريخ).", "en": "After 60 impressions in a day no ad is requested until the next day (key adx:t:date)." },
+        { "ar": "الظهور يُعدّ مرة واحدة لكل صورة في تحميل الصفحة، وتُرسل الأحداث دفعات حتى 20.", "en": "An impression counts once per image per page load, and events are sent in batches of up to 20." },
+        { "ar": "أسفل كل إعلان رابط «كيف نقيس؟» إلى /measurement.", "en": "Under every ad a link How we measure leads to /measurement." },
+        { "ar": "تُخفى الإعلانات عند الطباعة.", "en": "Ads are hidden when printing." }
+      ],
+      "evidence": { "code": ["src/server/adClientScript.ts", "src/components/AdSlot.tsx"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-017",
+      "kind": "functional",
+      "title": { "ar": "النقرات وتصفية الآلي والمكرر", "en": "Clicks and filtering of automated and repeated" },
+      "text": {
+        "ar": "يجب على النظام أن يوجّه نقرة الإعلان إلى وجهة الشركة بتحويل 302 مع وسوم utm_source=schedule وutm_medium=banner وutm_campaign وutm_content ما لم يحمل رابطها utm_* أصلاً، وأن يحسب النقرة «مصفّاة» لا «صحيحة» إذا جاءت من وكيل آلي أو تكررت للحملة نفسها من العنوان والوكيل نفسيهما خلال 4 ثوانٍ أو تجاوزت 120 نقرة في الدقيقة للعنوان.",
+        "en": "The system shall redirect an ad click to the company's destination with 302 and the utm_source=schedule, utm_medium=banner, utm_campaign and utm_content tags unless its link already carries any utm_*, and count the click as filtered rather than valid when it comes from an automated agent, repeats for the same campaign from the same address and agent within 4 seconds, or exceeds 120 clicks per minute per address."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["student", "system"],
+      "acceptance": [
+        { "ar": "رابط https://a.example.com/x?y=1 يصبح بوسوم utm مع بقاء y=1.", "en": "A link https://a.example.com/x?y=1 gains utm tags while keeping y=1." },
+        { "ar": "رابط فيه UTM_source للشركة يبقى كما هو.", "en": "A link already containing the company's UTM_source stays unchanged." },
+        { "ar": "حملة منتهية أو غير معتمدة تحوّل إلى / ولا تُحسب.", "en": "An ended or unapproved campaign redirects to / and is not counted." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts", "src/utils/adsEngine.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-018",
+      "kind": "functional",
+      "title": { "ar": "نبض الجمهور المجهول", "en": "Anonymous audience pulse" },
+      "text": {
+        "ar": "يجب على النظام أن يسجّل زيارة مجهولة واحدة في اليوم لكل نوع صفحة (مساري، جدول، حالة طلب، استبيان، بطاقة أستاذ، تطبيق، تثبيت) من كل متصفح، وأن يحتسب العائد والجوال وساعة الذروة للطلبة وحدهم، وأن يجمّع العدّادات في الذاكرة ويكتبها كل 30 ثانية وعند قراءة الإدارة وعند الإنهاء، وألا يحفظ اسماً أو رقماً مدنياً أو عنوان اتصال.",
+        "en": "The system shall record one anonymous visit per day per page kind (student portal, schedule, order status, survey, staff card, app, install) per browser, count returning, mobile and peak hour for students only, accumulate counters in memory and write them every 30 seconds, on an administrator read and on shutdown, and store no name, civil ID or network address."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system", "student"],
+      "acceptance": [
+        { "ar": "نوع غير معروف في /_pulse لا يُسجَّل.", "en": "An unknown kind posted to /_pulse is not recorded." },
+        { "ar": "نبض نوع staff لا يزيد العائدين ولا الجوال ولا الساعات.", "en": "A staff pulse does not add to returning, mobile or hours." },
+        { "ar": "فشل الكتابة يُدمج مع النبضات الجديدة ولا يُسقط.", "en": "A failed write is merged with new pulses and not dropped." },
+        { "ar": "مفاتيح حدّ الطلبات (فيها العنوان) تُمسح كل 30 ثانية بعد انتهاء نافذتها.", "en": "Rate-limit keys (which contain the address) are swept every 30 seconds after their window ends." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts", "src/utils/audienceStats.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-019",
+      "kind": "functional",
+      "title": { "ar": "الكوبون الفريد وصفحة تحقق المتجر", "en": "Unique coupon and store verification page" },
+      "text": {
+        "ar": "يجب على النظام أن يصدر لكل جهاز كوبوناً فريداً لحملة فعّلت ذلك (مفتاح جهاز من 8 رموز يولّده المتصفح مع توقيع من 6 رموز يحسبه الخادم) دون هوية، وأن تتحقق صفحة المتجر /verify/<معرّف> من التوقيع وتسجّل أول استعمال ذرّياً، وأن يكون المعرّف مشتقاً من رمز التقرير بحيث لا يفتحه.",
+        "en": "The system shall issue each device a unique coupon for a campaign that enabled it (an 8-character device key generated by the browser with a 6-character signature computed by the server) without any identity, the store page /verify/<id> shall check the signature and record the first use atomically, and the id shall be derived from the report token so that it does not open it."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["student", "partner", "system"],
+      "acceptance": [
+        { "ar": "الكوبون نفسه يصدر للجهاز نفسه كل مرة، وتغيير حرف منه يجعله غير صالح.", "en": "The same device always receives the same coupon, and altering one character makes it invalid." },
+        { "ar": "الاستعمال الأول يظهر «تم»، والثاني «سبق استعماله».", "en": "The first use shows done and the second shows already used." },
+        { "ar": "حدّ التحقق 60 طلباً في الدقيقة للعنوان وإصدار الكوبون 600.", "en": "Verification is limited to 60 requests a minute per address and issuing to 600." }
+      ],
+      "evidence": { "code": ["src/utils/adCoupons.ts", "src/server/adsRoutes.ts", "src/server/adsPages.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-020",
+      "kind": "functional",
+      "title": { "ar": "تقرير الحملة للشركة", "en": "Campaign report for the company" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض عند /ad-report/<رمز> بلا حساب تقرير حملة واحدة بالظهور والنقرات ونسبة النقر والأداء اليومي ومقارنة الأسبوع بالماضي ومقارنة الصورتين وتوصية A/B (حد أدنى 500 ظهور لكل صورة بنسبتين z عند 1.96) وخلاصة الحملة المنتهية، وأن يتيح تبليغ استعمال الكود يومياً (غير موثّق ولا يدخل أي مجموع تسويقي) واشتراك تقويم وشارة SVG بلا سكربت لحملة بدأت.",
+        "en": "The system shall show at /ad-report/<token>, with no account, a single campaign's impressions, clicks, click-through rate, daily performance, week-over-week comparison, comparison of the two images, an A/B recommendation (at least 500 impressions per image, two-proportion z at 1.96) and a wrap-up of an ended campaign, allow daily reporting of code usage (unverified and excluded from any marketing total), a calendar subscription, and a script-free SVG badge for a campaign that has started."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["partner", "rootAdmin"],
+      "acceptance": [
+        { "ar": "رمز أقصر من 20 حرفاً أو غير موجود يعيد صفحة 404 غير مفهرسة.", "en": "A token shorter than 20 characters or unknown returns a non-indexed 404 page." },
+        { "ar": "التبليغ بتاريخ خارج الحملة أو في المستقبل أو عدد فوق 100,000 يعاد بـ?red=bad.", "en": "A report dated outside the campaign, in the future, or with a count above 100,000 returns ?red=bad." },
+        { "ar": "الفرق دون العتبة المعنوية يُعرض «لا فرق معنوي» ولا يُطبَّق شيء تلقائياً.", "en": "A difference under the significance threshold is shown as no significant difference and nothing is applied automatically." },
+        { "ar": "الشارة لا تُصدر لمسودة ولا لحملة لم تبدأ، ومعرّفها لا يكشف رمز التقرير.", "en": "The badge is not issued for a draft or a campaign that has not started, and its id does not reveal the report token." },
+        { "ar": "لا يظهر اسم مؤلف في الصفحة.", "en": "No author name appears on the page." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts", "src/server/adsPages.ts", "src/utils/adInsights.ts", "src/utils/adBadge.ts", "src/utils/adCalendar.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-021",
+      "kind": "functional",
+      "title": { "ar": "ملف الشراكة وروابطه", "en": "Partnership profile and its links" },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للإدارة الرئيسية إنشاء رابط ملف شراكة برمز عشوائي ومدة صلاحية اختيارية من 1 إلى 365 يوماً وإيقافه، وأن يعرض /partners/<رمز> أرقام الجمهور المجمّعة ومواقع الإعلان وسعتها وتقويم المواسم وحاسبة التقدير، وأن يقارن الرمز بزمن ثابت، وأن يسجّل الفتح الأول دون روبوتات أو معاينة الإدارة (?preview=1) أو تكرار خلال 30 ثانية للمتصفح نفسه.",
+        "en": "The system shall let the main administrator create a partnership-profile link with a random token and an optional validity of 1 to 365 days and revoke it, and /partners/<token> shall show aggregated audience figures, ad slots with their capacity, the season calendar and an estimate calculator, compare the token in constant time, and record the first open excluding bots, administrator preview (?preview=1) and repeats within 30 seconds from the same browser."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin", "partner"],
+      "acceptance": [
+        { "ar": "رمز مدته منتهية أو موقوف أو أقصر من 20 حرفاً يعيد 404.", "en": "An expired, revoked or shorter-than-20-character token returns 404." },
+        { "ar": "قيمة غير معروفة للموقع أو الموسم أو الأسابيع في الحاسبة تُهمل؛ والأسابيع المقبولة 1 و2 و4.", "en": "An unknown slot, season or weeks value in the calculator is ignored; accepted weeks are 1, 2 and 4." },
+        { "ar": "الجرس ينبّه الإدارة بأول فتح لمدة أسبوع.", "en": "The bell alerts the administration of a first open for one week." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts", "src/server/adsPages.ts", "src/utils/partnerLinks.ts", "src/utils/adForecast.ts", "src/components/ads/PartnerLinks.tsx"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-022",
+      "kind": "functional",
+      "title": { "ar": "طلب حملة من ملف الشراكة", "en": "Campaign request from the profile" },
+      "text": {
+        "ar": "يجب على النظام أن يستقبل نموذج «حملة جديدة» من الشركة بنموذج عادي بلا سكربت ويحوّل بـ303 إلى ?lead=ok أو bad أو rate، وأن يخزّنه للإدارة وحدها بعد تنظيف الحقول (الشركة حتى 80 حرفاً، الاسم 60، جوال من 8 إلى 15 رقماً، ملاحظة 300)، وأن يتجاهل الحقل الفخ website، ويحدّ 5 طلبات في الساعة للعنوان، ولا ينشئ طلباً ثانياً لنفس الجوال والشركة خلال 24 ساعة، وبسقف 200 طلب جديد.",
+        "en": "The system shall receive the New campaign form from a company as a plain script-free form and redirect with 303 to ?lead=ok, bad or rate, store it for the administration only after cleaning the fields (company up to 80 characters, name 60, mobile 8 to 15 digits, note 300), ignore the trap field website, limit to 5 requests per hour per address, create no second request for the same mobile and company within 24 hours, and cap new requests at 200."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["partner", "rootAdmin"],
+      "acceptance": [
+        { "ar": "ملء الحقل website يعيد ?lead=ok دون تخزين.", "en": "Filling the website field returns ?lead=ok without storing." },
+        { "ar": "الطلب السادس في الساعة يعيد ?lead=rate.", "en": "The sixth request in an hour returns ?lead=rate." },
+        { "ar": "الأرقام الهندية في الجوال تُحوَّل إلى لاتينية والرموز تُحذف.", "en": "Indian digits in the mobile number are converted to Latin and symbols are removed." },
+        { "ar": "زر «تم التواصل» يزيل الإشعار من الجرس.", "en": "The Contacted button removes the notification from the bell." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts", "src/utils/adLeads.ts", "src/components/ads/LeadsPanel.tsx"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-023",
+      "kind": "functional",
+      "title": { "ar": "البريد الاختياري وتنبيهات الإدارة", "en": "Optional email and administrator alerts" },
+      "text": {
+        "ar": "يجب على النظام ألا يرسل بريداً ما لم تُضبط AD_MAIL_API_KEY وAD_MAIL_FROM، وعند ضبطهما يرسل تقريراً أسبوعياً صباح الأحد بعد التاسعة بتوقيت الكويت وتذكير تجديد مرة واحدة في آخر أسبوع (يغني عن الأسبوعي ذاك الأحد) مع حجز ذرّي قبل الإرسال لمنع التكرار، وأن يرسل لحساب الإدارة الرئيسي إشعار الجرس بحملة تنتهي خلال 7 أيام أو انتهت قبل 3 أيام فأقل.",
+        "en": "The system shall send no email unless AD_MAIL_API_KEY and AD_MAIL_FROM are set; once set it sends a weekly report on Sunday after 09:00 Kuwait time and a renewal reminder once in the last week (replacing the weekly one that Sunday) with an atomic claim before sending to prevent duplicates, and shall raise a bell notification for the main administrator for a campaign ending within 7 days or ended 3 days ago or less."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["system", "rootAdmin", "external"],
+      "acceptance": [
+        { "ar": "mailConfig بلا مفتاح أو مرسل يعيد null، والبريد غير الصالح يُرفض.", "en": "mailConfig without a key or sender returns null and an invalid email is rejected." },
+        { "ar": "مفتاح الأسبوع يبدأ الأحد (2026-11-11 ← 2026-11-08).", "en": "The week key starts on Sunday (2026-11-11 gives 2026-11-08)." },
+        { "ar": "الإرسال اليدوي يتجاوز الحجز السابق، وانتهاء مهلة مزوّد البريد 10 ثوانٍ.", "en": "A manual send bypasses an earlier claim, and the mail provider timeout is 10 seconds." },
+        { "ar": "بريد الشركة لا يظهر في صفحة عامة ولا في سجل التدقيق.", "en": "The company email appears in no public page and not in the audit trail." }
+      ],
+      "evidence": { "code": ["src/server/adMailer.ts", "src/server/adsRoutes.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-024",
+      "kind": "functional",
+      "title": { "ar": "لوحة الجمهور", "en": "Audience dashboard" },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم للإدارة الرئيسية وحدها أرقام الجمهور المجمّعة (الزيارات اليومية وأوقات الذروة والعائدون والجوال ونمو الاستبيان واستمرارية الطلبة والمقررات الأكثر طلباً والتوزيع على الكليات بأسماء مجهولة بحسب الحجم)، مع ملف طباعة وتحديث كل دقيقة، وأن يضيف الرصيد الذي أقرّته الإدارة (حوالي 80,000 طالب، 5.3 مليون دخول، 786 عضواً، 75 ألف دخول) إلى المقيس بعد 2026-10-17، وألا يظهر مقرر يطلبه أقل من طالبين.",
+        "en": "The system shall present to the main administrator only aggregated audience figures (daily visits, peak times, returning and mobile, survey growth, student continuity, most requested courses and the distribution over colleges under anonymous names by size), with a print profile and a refresh every minute, and add the administration-approved baseline (about 80,000 students, 5.3 million visits, 786 faculty members, 75 thousand opens) to what was measured after 2026-10-17, and show no course requested by fewer than two students."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "شعبة فيها طالبان تظهر في الطلب؛ ما دونها يُحصى في hidden ولا يظهر.", "en": "A section with two students appears in demand; fewer is counted in hidden and not shown." },
+        { "ar": "الرصيد يُعرض مرة واحدة بوسم «حوالي»، وعدد الأعضاء ثابت لا يزيد بالقياس.", "en": "The baseline is shown once with the about label, and the faculty count is fixed and does not grow by measurement." },
+        { "ar": "الفصل المعروض هو المطلوب وإلا الجاري تشغيلياً لا آخر فصل فيه إجابات.", "en": "The term shown is the requested one, otherwise the operational current term, not the last term with answers." },
+        { "ar": "الشاشة غير متاحة في التجربة ولغير الإدارة الرئيسية.", "en": "The screen is unavailable in the demo and to anyone but the main administrator." }
+      ],
+      "evidence": { "code": ["src/utils/audienceStats.ts", "src/utils/audienceBaseline.ts", "src/components/AudienceDashboard.tsx", "src/server/adsRoutes.ts"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-025",
+      "kind": "functional",
+      "title": { "ar": "وضع قصة الجمهور", "en": "Audience story mode" },
+      "text": {
+        "ar": "يجب على النظام أن يوفّر وضع قصة بملء الشاشة من خمس شرائح (الحجم، الذروة، ما يطلبه الطلبة، المواقع، الخطوة التالية) تتقدم كل 8000 مللي ثانية بلا التفاف، بالأرقام نفسها التي في اللوحة، ويقبل الإيقاف بالمسافة والتنقل بالأسهم وPageUp/PageDown وHome/End والسحب الأفقي (48 بكسلاً فأكثر)، ويبدأ موقوفاً لمن يفضّل قلّة الحركة.",
+        "en": "The system shall provide a full-screen story mode of five slides (size, peak, what students request, slots, next step) advancing every 8000 ms without wrap-around, using the same figures as the dashboard, supporting pause with the space bar, navigation with arrows, PageUp/PageDown, Home/End and horizontal swipe (48 pixels or more), and starting paused for users who prefer reduced motion."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "التقدم من الشريحة الأخيرة والرجوع من الأولى لا يلتفّان.", "en": "Advancing from the last slide and going back from the first do not wrap." },
+        { "ar": "التقدم التلقائي يتوقف عند الشريحة الأخيرة وعند الإيقاف.", "en": "Autoplay stops at the last slide and when paused." },
+        { "ar": "السحب نحو اليمين يتقدّم في الصفحة العربية، والسهم الأيسر هو التالي.", "en": "Swiping right advances in the Arabic page, and the left arrow is next." },
+        { "ar": "الخروج من ملء الشاشة يغلق العرض، وEsc يغلقه.", "en": "Leaving full screen closes the mode, and Esc closes it." }
+      ],
+      "evidence": { "code": ["src/utils/audienceStory.ts", "src/components/AudienceStory.tsx"], "tests": ["tests/ads-audit.ts"] }
+    },
+    {
+      "id": "FR-ENG-026",
+      "kind": "functional",
+      "title": { "ar": "صفحة الهبوط والعرض التقديمي", "en": "Landing page and presentation deck" },
+      "text": {
+        "ar": "يجب على النظام أن يخدم صفحة الهبوط من الذاكرة عند /landing وعلى النطاق الفرعي home دون مساس بمسارات النظام، وأن يخدم العرض التقديمي بأرقام حيّة من /api/public/audience-headline و/api/journey تبقى الأرقام المطبوعة إن تعذّرت القراءة أو عادت صفراً، وأن يجيب الواجهة العامة للأرقام بتخزين 10 دقائق وبـ503 إن تعذّر الحساب.",
+        "en": "The system shall serve the landing page from memory at /landing and on the home sub-domain without touching system routes, and serve the presentation deck with live figures from /api/public/audience-headline and /api/journey, keeping the printed numbers when a read fails or returns zero, and the public figures endpoint shall be cached for 10 minutes and answer 503 if the computation fails."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["visitor", "system"],
+      "acceptance": [
+        { "ar": "/landing وأي مسار تحته غير أصل ثابت يعيد صفحة الهبوط، وأصول الصفحة تُخدم دون فهرس.", "en": "/landing and any path under it that is not a static asset returns the landing page, and the page's assets are served without an index." },
+        { "ar": "الواجهة العامة تعيد since وasOf وstudents وvisits وinstructors وinstructorOpens فقط.", "en": "The public endpoint returns only since, asOf, students, visits, instructors and instructorOpens." },
+        { "ar": "العرض بملء الشاشة: السهم الأيسر ومسافة PageDown للتالي، والمفتاح f لملء الشاشة وn للملاحظات وr للقراءة.", "en": "The deck's full screen: left arrow, space and PageDown for next, key f for full screen, n for notes and r for reading mode." }
+      ],
+      "evidence": { "code": ["src/server/adsRoutes.ts", "public/landing/index.html", "public/schedule-presentation.html", "server.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-ENG-027",
+      "kind": "functional",
+      "title": { "ar": "وصول استفسار صفحة الهبوط", "en": "Delivery of a landing-page inquiry" },
+      "text": {
+        "ar": "يجب على النظام أن يوصل استفسار «طلب الاستعراض» من صفحة الهبوط إلى جهة تتابعه بحيث لا يضيع، وأن يعرض للزائر نتيجة صادقة. الحالي: تستلم /api/landing/inquiry الطلب وتسجّله في سجل الخادم فقط وترد بنجاح، دون تخزين ولا إرسال، ويقرأ الخادم حقل message بينما ترسل الصفحة notes.",
+        "en": "The system shall deliver a demo-request inquiry from the landing page to someone who follows it up so that it is not lost, and show the visitor an honest outcome. Current state: /api/landing/inquiry receives the request, writes it to the server log only and replies with success, with no storage and no mailing, and the server reads a field named message while the page sends notes."
+      },
+      "priority": "should",
+      "status": "planned",
+      "actors": ["visitor", "system"],
+      "acceptance": [
+        { "ar": "استفسار مُرسل يبقى مخزناً أو مرسلاً إلى بريد مضبوط ويظهر للإدارة.", "en": "A submitted inquiry stays stored or is mailed to a configured address and is visible to the administration." },
+        { "ar": "رسالة الصفحة عند فشل الطلب لا تدّعي الإرسال.", "en": "The page's message on a failed request does not claim it was sent." }
+      ],
+      "evidence": { "code": ["server.ts", "public/landing/index.html"] }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": { "ar": "رقم مدني معروف لغير صاحبه", "en": "A civil ID known to someone else" },
+      "scenario": { "ar": "زميل يعرف الرقم المدني لطالب أرسل طلباً ويحاول فتح الاستبيان بذلك الرقم.", "en": "A colleague who knows the civil ID of a student with a submitted request tries to open the survey with it." },
+      "behavior": { "ar": "لا يُكشف إلا أن للرقم طلباً وأول حرف من الاسم؛ والإرسال يرد 409 case-ref-required، ورقم الحالة الخاطئ يرد 403؛ وعشر محاولات في نافذة 10 دقائق تُوقف المجرّب بـ429.", "en": "Only the existence of a request and the first letter of the name are revealed; submission returns 409 case-ref-required and a wrong case number returns 403; ten attempts in a 10-minute window stop the guesser with 429." },
+      "evidence": ["tests/student-journey-audit.ts", "tests/student-case-status-audit.ts"]
+    },
+    {
+      "title": { "ar": "انتهاء الفصل والرابط ما زال متداولاً", "en": "Term ended while the link still circulates" },
+      "scenario": { "ar": "ينتهي فصل رابط الاستبيان أو يُوقَف الرابط بعد أسبوع السحب والإضافة قبل أن يقرر التسجيل.", "en": "A survey link's term ends or the link is revoked after the drop-and-add week, before registration decides." },
+      "behavior": { "ar": "الإرسال والرفع يردان 409 term-ended، أما قراءة «حالة طلبي» فتبقى مفتوحة حتى 30 يوماً بعد الأحدث من انتهاء الرابط ونهاية الفصل ثم تردّ 410.", "en": "Submission and upload answer 409 term-ended, while reading My request status stays open for 30 days after the later of link end and term end and then answers 410." },
+      "evidence": ["tests/student-case-status-audit.ts"]
+    },
+    {
+      "title": { "ar": "حملتان متنافستان في موقع واحد", "en": "Two competing campaigns in one slot" },
+      "scenario": { "ar": "تُعتمد حملة من فئة «مطاعم وكافيهات» في «مساري» ثم تُعتمد أخرى من الفئة نفسها بتواريخ متقاطعة.", "en": "A Restaurants and cafés campaign is approved in the student portal and then another of the same category with overlapping dates is approved." },
+      "behavior": { "ar": "الاعتماد الثاني يُرفض 409 بذكر الشركة المنافسة وتواريخها؛ أما الفئة نفسها في الجدول العام فمسموحة، وكذا في الموقع نفسه إن كان موسما الحملتين أو كلياتهما لا يتقاطعان.", "en": "The second approval is refused with 409 naming the rival company and its dates; the same category in the public schedule is allowed, and also in the same slot when the two campaigns' seasons or colleges do not overlap." },
+      "evidence": ["tests/ads-audit.ts"]
+    },
+    {
+      "title": { "ar": "تعديل حملة معتمدة وهي تعمل", "en": "Editing an approved campaign that is live" },
+      "scenario": { "ar": "تُغيَّر تواريخ حملة معتمدة أو موقعها أو فئتها أو مواسمها أو كلياتها.", "en": "The dates, slot, category, seasons or colleges of an approved campaign are changed." },
+      "behavior": { "ar": "تعود الحملة مسودة فتتوقف عن العرض حتى اعتماد جديد يُفحص فيه التعارض ويُقرّ فيه بالشروط؛ وتغيير الموقع بعد رفع صور يُرفض أصلاً لأن المقاس مرتبط به.", "en": "The campaign returns to draft and stops serving until a new approval that re-checks conflicts and re-accepts the rules; changing the slot after images were uploaded is refused outright because the image size is tied to it." },
+      "evidence": ["tests/ads-audit.ts"]
+    },
+    {
+      "title": { "ar": "نقرتان متطابقتان من شبكة الجامعة", "en": "Two identical clicks from the university network" },
+      "scenario": { "ar": "طالبان خلف عنوان اتصال واحد ووكيل متصفح متطابق ينقران إعلاناً خلال 4 ثوانٍ.", "en": "Two students behind one network address with an identical browser agent click an ad within 4 seconds." },
+      "behavior": { "ar": "تُحسب الثانية نقرة مصفّاة لا صحيحة؛ وهو تحفّظ مقصود لأن الشبكة عنوان واحد لآلاف الطلبة.", "en": "The second is counted as a filtered click, not a valid one; this is a deliberate conservatism because the network is one address for thousands of students." },
+      "evidence": ["tests/ads-audit.ts"]
+    }
+  ],
+  "terms": [
+    { "ar": "الاستبيان", "en": "Student survey", "def": { "ar": "نموذج عام بلا حساب يعبّئه الطالب بالرقم المدني ليطلب مقرراً أو يبلّغ عن تعارض أو يقدّم طلب خريج.", "en": "An account-free public form completed with the civil ID to request a course, report a conflict or submit a graduate request." } },
+    { "ar": "رقم الحالة", "en": "Case number", "def": { "ar": "رقم يُعطى للطالب عند الإرسال ويُشتق من سجل الطلب، وهو المفتاح الثاني مع الرقم المدني.", "en": "A number given to the student at submission, derived from the stored request, and the second key together with the civil ID." } },
+    { "ar": "الحملة", "en": "Campaign", "def": { "ar": "إعلان لشركة في موقع واحد بتواريخ وصورة أو صورتين، وتكون مسودة أو معتمدة أو موقوفة.", "en": "A company's advertisement in one slot with dates and one or two images; it is a draft, approved or paused." } },
+    { "ar": "الموقع الإعلاني", "en": "Ad slot", "def": { "ar": "مكان محدد المقاس والسعة في صفحة، مثل «مساري» أو الجدول العام.", "en": "A place of fixed size and capacity in a page, such as the student portal or the public schedule." } },
+    { "ar": "النبض", "en": "Pulse", "def": { "ar": "إشارة مجهولة تحسب زيارة واحدة في اليوم لكل نوع صفحة من كل متصفح.", "en": "An anonymous signal counting one visit per day per page kind per browser." } },
+    { "ar": "ملف الشراكة", "en": "Partnership profile", "def": { "ar": "صفحة عامة برمز خاص تعرض لشركة مرتقبة أرقام الجمهور والمواقع والشروط.", "en": "A public page with a private token that shows a prospective company the audience figures, slots and terms." } },
+    { "ar": "الظهور المرئي", "en": "Viewable impression", "def": { "ar": "ظهور يُحتسب بعد أن يبقى نصف الإعلان ظاهراً ثانية كاملة والصفحة مفتوحة.", "en": "An impression counted after half of the ad stayed visible for a full second while the page was open." } },
+    { "ar": "الرصيد", "en": "Baseline", "def": { "ar": "أرقام الجمهور منذ 2016 التي أقرّتها إدارة النظام ويُضاف إليها المقيس بعد 2026-10-17.", "en": "The audience figures since 2016 approved by the system administration, to which what is measured after 2026-10-17 is added." } }
+  ],
+  "ownerRules": [
+    { "ar": "لا إعلان في صفحة تطلب هوية (الاستبيان، بطاقة الأستاذ، طلب الجدول، حالة الطلب) ولا في صفحات الاعتماد والطباعة والتقويم.", "en": "No advertisement on a page that asks for an identity (survey, staff card, schedule request, order status), nor on approval, print and calendar pages." },
+    { "ar": "القياس مجهول: لا اسم ولا رقم مدني ولا عنوان اتصال في أي رقم، والكليات تُعرض «كلية 1، 2…» بحسب الحجم.", "en": "Measurement is anonymous: no name, civil ID or network address in any figure, and colleges are shown as College 1, 2… by size." },
+    { "ar": "رقم المقرر سبع خانات دائماً (كلية 2 + قسم 2 + مقرر 3)، ولا يُعرض الرقم الثلاثي المخزّن ولا معرّف AdCourseId.", "en": "A course number is always seven digits (college 2 + department 2 + course 3); the stored three-digit tail and the AdCourseId are never shown." },
+    { "ar": "التقارير المطبوعة تحافظ على تصميمها؛ يُصلح ملف الجمهور وبيانه بالقيم لا بتغيير الشكل.", "en": "Printed reports keep their design; the audience print profile is corrected through values, not by changing its layout." },
+    { "ar": "الأرقام التي أقرتها إدارة النظام (الرصيد) لا تُعدَّل ولا تُضاف إليها أرقام لم تُقرّ.", "en": "The numbers approved by the system administration (the baseline) are not modified and no unapproved numbers are added to them." }
+  ]
+}
