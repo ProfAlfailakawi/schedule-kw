@@ -4700,105 +4700,6 @@ html.schedule-physics-active .rooms-slot.physics-origin::before{
   .week-hall-barter>span{display:none}
 }
 
-/* The barter market is useful but secondary. Closed, it is now a compact
-   utility capsule instead of a full-width hero; opening it still reveals the
-   complete operational surface. */
-.hall-barter-board:not(.is-open){
-  width:max-content;max-width:100%;margin-inline-start:auto;
-  border-radius:999px;box-shadow:none;background:var(--surface);
-}
-.hall-barter-board:not(.is-open) .hall-barter-summary{
-  width:auto;min-height:44px;grid-template-columns:34px auto auto;gap:8px;
-  padding:5px 9px 5px 7px;
-}
-.hall-barter-board:not(.is-open) .hall-barter-mark{
-  width:32px;height:32px;border-radius:10px;
-}
-.hall-barter-board:not(.is-open) .hall-barter-mark>svg:first-child{width:17px;height:17px}
-.hall-barter-board:not(.is-open) .hall-barter-mark>svg:last-child{
-  inset-inline-end:-4px;inset-block-end:-4px;width:17px;height:17px;padding:3px;border-width:1.5px;border-radius:999px;
-}
-.hall-barter-board:not(.is-open) .hall-barter-summary-copy{display:flex;align-items:center;gap:7px;white-space:nowrap}
-.hall-barter-board:not(.is-open) .hall-barter-summary-copy small,
-.hall-barter-board:not(.is-open) .hall-barter-summary-copy em{display:none}
-.hall-barter-board:not(.is-open) .hall-barter-summary-copy strong{font-size:12px;line-height:1.2;font-weight:700}
-.hall-barter-board:not(.is-open) .hall-barter-summary-stats{gap:4px;flex-wrap:nowrap}
-.hall-barter-board:not(.is-open) .hall-barter-summary-stats>b{
-  min-height:26px;padding:0 7px;font-size:12px;border-radius:999px;
-}
-.hall-barter-board:not(.is-open) .hall-barter-summary-stats>b:not(:first-child){display:none}
-.hall-barter-board:not(.is-open) .hall-barter-summary-stats i{font-size:12px}
-.hall-barter-board:not(.is-open) .hall-barter-chevron{width:15px;height:15px}
-@media(max-width:680px){
-  .hall-barter-board:not(.is-open){width:100%;border-radius:14px}
-  .hall-barter-board:not(.is-open) .hall-barter-summary{width:100%;grid-template-columns:32px minmax(0,1fr) auto auto;padding:6px 8px}
-  .hall-barter-board:not(.is-open) .hall-barter-summary-stats{grid-column:auto;padding:0}
-}
-
-/* Field note: the barter market is secondary. When closed it should read as a
-   tiny utility, not as another hero card. Keep the full board unchanged once
-   opened. */
-.hall-barter-board:not(.is-open){
-  width:max-content !important;max-width:100% !important;margin-inline-start:auto !important;
-  border-radius:999px !important;
-}
-.hall-barter-board:not(.is-open) .hall-barter-summary{
-  width:auto !important;min-height:30px !important;
-  grid-template-columns:22px auto auto 12px !important;
-  gap:5px !important;padding:3px 6px 3px 4px !important;
-}
-.hall-barter-board:not(.is-open) .hall-barter-mark{
-  width:22px !important;height:22px !important;border-radius:7px !important;
-}
-.hall-barter-board:not(.is-open) .hall-barter-mark>svg:first-child{width:12px !important;height:12px !important}
-.hall-barter-board:not(.is-open) .hall-barter-mark>svg:last-child{
-  inset-inline-end:-3px !important;inset-block-end:-3px !important;
-  width:12px !important;height:12px !important;padding:2px !important;border-width:1px !important;
-}
-.hall-barter-board:not(.is-open) .hall-barter-summary-copy strong{font-size:12px !important}
-.hall-barter-board:not(.is-open) .hall-barter-summary-stats>b{
-  min-height:20px !important;padding:0 5px !important;font-size:12px !important;
-}
-.hall-barter-board:not(.is-open) .hall-barter-summary-stats i{font-size:12px !important}
-.hall-barter-board:not(.is-open) .hall-barter-chevron{width:11px !important;height:11px !important}
-@media(max-width:680px){
-  .hall-barter-board:not(.is-open){width:max-content !important;max-width:calc(100vw - 28px) !important;border-radius:999px !important}
-  .hall-barter-board:not(.is-open) .hall-barter-summary{width:auto !important;grid-template-columns:22px auto auto 12px !important;padding:3px 6px 3px 4px !important}
-  .hall-barter-board:not(.is-open) .hall-barter-summary-stats{grid-column:auto !important;padding:0 !important}
-}
-
-/* The hall market is secondary navigation, so when closed it lives as a tiny
-   chip inside the schedule controls. Opening it restores the full operational
-   surface. */
-.schedule-control-barter{display:flex;align-items:center;justify-content:flex-start;margin-top:2px;min-width:0}
-.schedule-control-barter .hall-barter-board:not(.is-open){
-  width:max-content !important;max-width:100% !important;margin:0 !important;
-  border-radius:999px !important;box-shadow:none !important;background:var(--surface) !important;
-}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary{
-  width:auto !important;min-height:30px !important;display:grid !important;
-  grid-template-columns:20px auto !important;gap:6px !important;padding:3px 9px 3px 5px !important;
-}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-mark{
-  width:20px !important;height:20px !important;border:0 !important;border-radius:6px !important;
-  background:transparent !important;
-}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-mark>svg:first-child{width:15px !important;height:15px !important}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-mark>svg:last-child{display:none !important}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary-copy{display:block !important}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary-copy small,
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary-copy em,
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary-stats,
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-chevron{display:none !important}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary-copy strong{
-  display:block !important;font-size:11px !important;line-height:1 !important;font-weight:700 !important;white-space:nowrap !important;
-}
-.schedule-control-barter .hall-barter-board.is-open{width:100% !important;margin:6px 0 0 !important}
-@media(max-width:760px){
-  .schedule-control-barter{justify-content:flex-start}
-  .schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary{min-height:28px !important;padding:2px 8px 2px 4px !important}
-}
-
 /* ── Phone control order ────────────────────────────────────────────────────
    Publishing used to disappear on phones entirely while the tiny hall-market
    chip remained, which made the latter look as if it had covered the former.
@@ -4813,11 +4714,6 @@ html.schedule-physics-active .rooms-slot.physics-origin::before{
     border-color:color-mix(in srgb,var(--accent) 30%,var(--line));
     background:var(--accent-softer);color:var(--accent-ink);font-weight:700;
   }
-  .schedule-control-barter{
-    position:static !important;z-index:auto !important;width:100%;justify-content:flex-end !important;
-    margin-top:0;padding-top:9px;border-top:1px solid var(--line);
-  }
-  .schedule-control-barter .hall-barter-board:not(.is-open){max-width:100% !important;margin:0 !important}
 }
 
 /* ── Compact publishing on phones ──────────────────────────────────────────
@@ -4839,21 +4735,6 @@ html.schedule-physics-active .rooms-slot.physics-origin::before{
   background:var(--surface) !important;
   color:var(--ink-2) !important;
   font-weight:600 !important;
-}
-.schedule-phone .schedule-control-barter{
-  position:static !important;
-  z-index:auto !important;
-  width:100% !important;
-  margin-top:2px !important;
-  padding-top:10px !important;
-  border-top:1px solid var(--line) !important;
-  justify-content:flex-start !important;
-  clear:both;
-}
-.schedule-phone .schedule-control-barter .hall-barter-board:not(.is-open){
-  width:max-content !important;
-  max-width:100% !important;
-  margin:0 !important;
 }
 
 /* ── Quiet discovery + operational safety ─────────────────────────────────
@@ -7661,7 +7542,7 @@ body:has(.schedule-physics-float.physics-view-rooms) .schedule-drag-time-guide>s
 
 /* V16 — Hall Barter remains a true full-screen destination, but its content
    returns to the calm, centred proportions of the original board. */
-.schedule-control-barter .hall-barter-board.is-open,.hall-barter-board.is-open{
+.hall-barter-board.is-open{
   position:fixed!important;inset:0!important;z-index:2700!important;
   width:auto!important;max-width:none!important;height:100dvh!important;max-height:100dvh!important;
   margin:0!important;padding:clamp(18px,2.4vw,34px)!important;display:block!important;
@@ -7711,7 +7592,7 @@ body:has(.schedule-physics-float.physics-view-rooms) .schedule-drag-time-guide>s
 }
 .hall-barter-screen-close:hover{background:var(--surface-2);color:var(--ink)}.hall-barter-screen-close svg{width:20px;height:20px}
 @media(max-width:680px){
-  .schedule-control-barter .hall-barter-board.is-open,.hall-barter-board.is-open{padding:12px!important}
+  .hall-barter-board.is-open{padding:12px!important}
   .hall-barter-board.is-open .hall-barter-summary,.hall-barter-board.is-open .hall-barter-body{width:100%!important;border-radius:22px!important}
   .hall-barter-board.is-open .hall-barter-summary{padding:18px 14px 18px 56px!important}
   .hall-barter-board.is-open .hall-barter-body{padding:16px 12px calc(26px + env(safe-area-inset-bottom))!important;margin-top:10px!important}
@@ -7740,47 +7621,6 @@ body:has(.schedule-physics-float.physics-view-rooms) .schedule-drag-time-guide>s
 .rooms-main-scroll{
   scrollbar-gutter:auto !important;
   scroll-behavior:auto !important;
-}
-
-/* === بورصة sits in the tools row, so it dresses like the tools row ========
-   Closed, the market is one more control beside «أدوات البيانات» and «مراجعة
-   الاعتماد» — but it was rendering as a bordered white pill among flat ghost
-   buttons, which made it read as a different kind of thing and drew the eye
-   first. These values are the ghost button's own, measured from its peers:
-   38px tall, 12.5px/600 label, 8px gap, 11px radius, no border, no fill. */
-.schedule-control-barter .hall-barter-board:not(.is-open){
-  border:0!important;
-  border-radius:11px!important;
-  background:transparent!important;
-  box-shadow:none!important;
-}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary{
-  min-height:38px!important;
-  grid-template-columns:auto auto!important;
-  gap:8px!important;
-  padding:0 12px!important;
-  border-radius:11px!important;
-  align-items:center!important;
-}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary:hover{
-  background:var(--surface-2)!important;
-}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-mark{
-  width:16px!important;height:16px!important;
-}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-mark>svg:first-child{
-  width:16px!important;height:16px!important;
-}
-.schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary-copy strong{
-  font-size:12.5px!important;
-  font-weight:600!important;
-  line-height:1!important;
-  color:var(--ink)!important;
-}
-@media(max-width:760px){
-  .schedule-control-barter .hall-barter-board:not(.is-open) .hall-barter-summary{
-    min-height:38px!important;padding:0 12px!important;
-  }
 }
 
 /* ── لماذا انتقل هذا الموعد ──────────────────────────────────────────────────

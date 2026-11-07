@@ -330,7 +330,7 @@ export default function HallBarterBoard({
      لوحةٌ عنوانها «٠ فرصة» تشغل مكاناً وتعِد بشيء لا تملكه. فمتى لم تكن هناك
      نافذة تُطلب ولا طلبٌ قائم ولا استعارة سارية، لا تظهر أصلاً. */
   const hasAnything = board.opportunities.length > 0 || incomingPending.length > 0 || outgoingPending.length > 0 || approved.length > 0;
-  if (!hasAnything && !loading && !error) return null;
+  if (!hasAnything && !error && !open) return null;
 
   /* مفتوحةً تملك الشاشةَ كلَّها، فهي حوارٌ يُعلن ذلك: قارئُ الشاشة يعرف أن ما خلفها
      معطَّل، والجرسُ يتنحّى عن زاويتها — وكان يجلس على زرّ إغلاقها تماماً. */
@@ -542,9 +542,28 @@ export default function HallBarterBoard({
       </PrintPortal>
     </section>
   );
-  /* مفتوحةً تُرسم تحت <body> لا داخل صفحة الجدول: `position:fixed` يقيس من أقرب أبٍ
+  /* مغلقةً تكون بلاطةً سادسةً بين أدوات «المزيد»: زرٌّ واحد بلا غلاف، فيرثها الصفّ
+     من القواعد نفسها التي ترسم أخواتها (`btn btn-ghost` داخل `.schedule-tool-actions`).
+     ومفتوحةً تُرسم تحت <body> لا داخل صفحة الجدول: `position:fixed` يقيس من أقرب أبٍ
      له تحويل أو قصّ، وفي سفاري بقي أحد آباء الصفحة (صفحة الجدول المتحرّكة عند الدخول)
      حاوياً لها فخرجت من مساحة المحتوى وظهر الشريط الجانبي وقُصّ الطرف الأيمن. تحت
      <body> لا أبَ يحبسها، فتملك الشاشة كلّها أياً كان المتصفح. */
-  return open && typeof document !== "undefined" ? createPortal(boardNode, document.body) : boardNode;
+  if (!open || typeof document === "undefined") {
+    const waiting = incomingPending.length;
+    return (
+      <GhostButton
+        type="button"
+        className="hall-barter-tile"
+        data-guide-ignore="يفتح لوح استعارة القاعات بين الأقسام؛ لا يغيّر بيانات"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-label={waiting ? `استعارة قاعة، ${countOf(waiting, AR.request)} بانتظارك` : "استعارة قاعة"}
+        title="استعارة قاعة فارغة من قسم آخر داخل الكلية"
+      >
+        <Building2 aria-hidden="true" /> استعارة قاعة
+        {waiting ? <i className="hall-barter-tile-badge" aria-hidden="true">{waiting}</i> : null}
+      </GhostButton>
+    );
+  }
+  return createPortal(boardNode, document.body);
 }
