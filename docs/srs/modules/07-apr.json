@@ -1,0 +1,2672 @@
+{
+  "id": "APR",
+  "order": 7,
+  "icon": "clipboard-check",
+  "title": {
+    "ar": "دورة الاعتماد",
+    "en": "Approval cycle"
+  },
+  "tagline": {
+    "ar": "من توقيع اللجنة إلى قبول التسجيل: جولات وملاحظات ومواعيد وتجميد وأختام قابلة للتحقق.",
+    "en": "From committee signature to registrar acceptance: rounds, notes, deadlines, term freeze and verifiable stamps."
+  },
+  "summary": {
+    "ar": "تنظّم الوحدة مرور جدول كل قسم في فصل بعينه عبر ست حالات: قيد الإعداد، توقيع اللجنة، توقيع رئيس القسم، عند التسجيل، مُرجَع بملاحظات، ثم معتمد. يوقّع رئيس لجنة الجدول ثم رئيس القسم، فيصل الجدول إلى التسجيل بجولة جديدة، ويكتب التسجيل ملاحظاته على الخانات ويُرجع أو يقبل، ولا يُقبل جدولٌ فيه تعارض مادّي. وبعد القبول يفتح كل تعديل جولة تعديل تلقائياً. وتشمل الوحدة موعد تسليم الفصل واستثناءاته وطلبات التمديد، وتجميد الفصول السابقة، وصندوق وارد التسجيل، وميزان الأقسام ونشرة المجلس للعميد، وملف الاعتماد، وأختام التقارير المطبوعة وصفحات التحقق العامة.",
+    "en": "The module governs how each department's schedule for a given term moves through six statuses: in preparation, signed by the committee, signed by the department head, with the registrar, returned with notes, and accepted. The schedule committee chair signs, then the department head, and the schedule reaches the registrar as a new round; the registrar writes notes on cells and either returns or accepts, and no schedule with a material conflict can be accepted. After acceptance every edit opens an amendment round automatically. The module also covers the term submission deadline, department exceptions and extension requests, freezing of past terms, the registrar inbox, the department balance and the council bulletin for the dean, the approval dossier, and printed-report stamps with public verification pages."
+  },
+  "actors": [
+    "committeeChair",
+    "departmentHead",
+    "registrarHead",
+    "collegeRegistrar",
+    "registrarStaff",
+    "registrarDean",
+    "dean",
+    "viceDean",
+    "admin",
+    "visitor",
+    "instructor",
+    "system"
+  ],
+  "sources": [
+    "src/server/routes/approvalsRoutes.ts",
+    "src/server/routes/scheduleReviewRoutes.ts",
+    "src/server/routes/scheduleNotesRoutes.ts",
+    "src/server/routes/verifyRoutes.ts",
+    "src/server/core/approvals.ts",
+    "src/server/core/notes.ts",
+    "src/server/approvalAttempts.ts",
+    "src/server/reportStampPage.ts",
+    "src/server/signatureVerifyPage.ts",
+    "src/utils/approvalWorkflow.ts",
+    "src/utils/approvalDossier.ts",
+    "src/utils/approvalScope.ts",
+    "src/utils/approvalScore.ts",
+    "src/utils/approvalBarPresence.ts",
+    "src/utils/scheduleBlockers.ts",
+    "src/utils/submissionDeadlines.ts",
+    "src/utils/lateness.ts",
+    "src/utils/finality.ts",
+    "src/utils/inboxAudience.ts",
+    "src/utils/reportStamp.ts",
+    "src/utils/reportStampClient.ts",
+    "src/utils/termSequence.ts",
+    "src/utils/termStudentPhases.ts",
+    "src/components/ApprovalBar.tsx",
+    "src/components/ApprovalDossier.tsx",
+    "src/components/SubmissionDeadlines.tsx",
+    "src/components/StudentPhasesBlock.tsx",
+    "src/components/TermFrozenRibbon.tsx",
+    "src/components/PrintStamp.tsx",
+    "src/components/ScheduleChanges.tsx",
+    "src/components/ScheduleReview.tsx",
+    "src/components/PeriodBalanceInfographic.tsx",
+    "src/styles/11-approval.css",
+    "src/styles/12-deadlines.css",
+    "src/styles/25-term-freeze.css",
+    "src/styles/31-approval-atlas.css",
+    "src/styles/33-approval-score.css"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "شريط الاعتماد",
+        "en": "Approval bar"
+      },
+      "file": "src/components/ApprovalBar.tsx",
+      "note": {
+        "ar": "يقف فوق جدول القسم ويعرض ما ينتظر صاحبه الآن فقط: التوقيع، الإرسال، إقرار الشعب المضافة، الإرجاع للجنة، طلب التمديد.",
+        "en": "Sits above the department schedule and shows only what the viewer must do now: sign, send, acknowledge added sections, return to the committee, request an extension."
+      }
+    },
+    {
+      "name": {
+        "ar": "تغييرات الجدول (وارد التسجيل)",
+        "en": "Schedule changes (registrar inbox)"
+      },
+      "file": "src/components/ScheduleChanges.tsx",
+      "note": {
+        "ar": "مكان عمل التسجيل: صف لكل قسم، ملاحظات على الخانات، إرجاع وقبول؛ ويرى القسم ملاحظات التسجيل في مواضعها.",
+        "en": "The registrar's workplace: one row per department, cell notes, return and accept; the department sees the registrar's notes in place."
+      }
+    },
+    {
+      "name": {
+        "ar": "مواعيد التسليم",
+        "en": "Submission deadlines"
+      },
+      "file": "src/components/SubmissionDeadlines.tsx",
+      "note": {
+        "ar": "لوحة موعد الفصل والاستثناءات وطلبات الأقسام وميزان التسليم.",
+        "en": "Panel for the term deadline, exceptions, department requests and the submission progress bar."
+      }
+    },
+    {
+      "name": {
+        "ar": "ملف الاعتماد",
+        "en": "Approval dossier"
+      },
+      "file": "src/components/ApprovalDossier.tsx",
+      "note": {
+        "ar": "ورقة معاينة وطباعة A4: ما تغيّر، الموانع، التواقيع، حال القسم.",
+        "en": "A preview-and-print A4 sheet: what changed, blockers, signatures and department status."
+      }
+    },
+    {
+      "name": {
+        "ar": "مراجعة الاعتماد",
+        "en": "Approval review"
+      },
+      "file": "src/components/ScheduleReview.tsx",
+      "note": {
+        "ar": "قراءة أخيرة قبل الاعتماد: الموانع والتنبيهات اللائحية ودرجة الاعتماد.",
+        "en": "The last reading before approval: blockers, regulation findings and the approval score."
+      }
+    },
+    {
+      "name": {
+        "ar": "شريط «فصل سابق · للعرض فقط»",
+        "en": "Past term, read-only ribbon"
+      },
+      "file": "src/components/TermFrozenRibbon.tsx",
+      "note": {
+        "ar": "يعلن تجميد الفصل ويعطّل أزرار الكتابة في الشاشات الثلاث.",
+        "en": "Announces a frozen term and disables write buttons on the three screens that use it."
+      }
+    },
+    {
+      "name": {
+        "ar": "ميزان الأقسام ونشرة المجلس",
+        "en": "Department balance and council bulletin"
+      },
+      "file": "src/components/Reports.tsx",
+      "note": {
+        "ar": "جدول بصف لكل قسم مع عمود الاعتماد والموعد، ويُطبع نشرةً للمجلس.",
+        "en": "A table with one row per department including approval status and deadline; printable as a council bulletin."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "من التوقيع إلى القبول",
+        "en": "From signature to acceptance"
+      },
+      "steps": [
+        {
+          "ar": "رئيس لجنة الجدول يفتح شريط الاعتماد ويوقّع بعد خلو الجدول من التعارض المادّي واكتمال سعة المقررات.",
+          "en": "The committee chair opens the approval bar and signs once the schedule has no material conflict and every course has a registered capacity."
+        },
+        {
+          "ar": "يوقّع رئيس القسم بعده، فيُرسل الجدول إلى التسجيل تلقائياً في الجولة الأولى.",
+          "en": "The department head signs next, and the schedule is sent to the registrar automatically as round 1."
+        },
+        {
+          "ar": "موظف التسجيل ينقر على القاعة أو الوقت المخالف فتُكتب ملاحظة على الخانة، ثم يُرجع الجدول.",
+          "en": "A registration officer clicks the offending room or time to write a cell note, then returns the schedule."
+        },
+        {
+          "ar": "اللجنة تعدّل الخانة المشار إليها، فتتحول حالة الملاحظة إلى «تغيّرت»، أو تردّ بسبب الإبقاء.",
+          "en": "The committee edits the flagged cell so the note becomes 'changed', or replies with a reason for keeping it."
+        },
+        {
+          "ar": "يُعاد الإرسال فتُفتح جولة جديدة دون توقيع جديد، ثم يقبل التسجيل ويُغلق ما بقي من ملاحظات.",
+          "en": "The schedule is resent, opening a new round without a new signature; the registrar then accepts and any remaining notes are closed."
+        }
+      ]
+    },
+    {
+      "actor": "registrarHead",
+      "title": {
+        "ar": "ضبط موعد التسليم ومنح تمديد",
+        "en": "Setting the deadline and granting an extension"
+      },
+      "steps": [
+        {
+          "ar": "المسجّل العام يضع آخر موعد لتسليم جداول الفصل من لوحة «مواعيد التسليم».",
+          "en": "The university registrar sets the term's last submission date in the Submission deadlines panel."
+        },
+        {
+          "ar": "قسم يقترب موعده يرسل طلب تمديد بسبب وعدد أيام من شريط الاعتماد.",
+          "en": "A department nearing its deadline sends an extension request with a reason and a number of days from its approval bar."
+        },
+        {
+          "ar": "يصل الطلب إلى الوارد مع تاريخ مقترح، فيمنحه المسجّل أو يرفضه بسبب يراه القسم.",
+          "en": "The request reaches the inbox with a suggested date; the registrar grants it or rejects it with a reason the department can read."
+        },
+        {
+          "ar": "يبقى الاستثناء خاصاً بالقسم ويُحسب موعده الجديد من الأبعد بين موعد الفصل واستثنائه.",
+          "en": "The exception stays specific to that department and its new date is counted from the later of the term deadline and its exception."
+        }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": {
+        "ar": "تعديل جدول معتمد",
+        "en": "Amending an accepted schedule"
+      },
+      "steps": [
+        {
+          "ar": "اللجنة تكتشف خطأً في قاعة بعد قبول التسجيل وتعدّل الموعد مباشرة.",
+          "en": "The committee finds a room error after acceptance and edits the appointment directly."
+        },
+        {
+          "ar": "يعود الجدول تلقائياً إلى «عند التسجيل» في جولة تعديل أساسها آخر نسخة مقبولة.",
+          "en": "The schedule returns automatically to 'with the registrar' in an amendment round whose baseline is the last accepted version."
+        },
+        {
+          "ar": "تتجمّع التعديلات التالية في الجولة نفسها ما دام التسجيل لم يكتب فيها ملاحظة.",
+          "en": "Further edits accumulate in the same round as long as the registrar has not written a note in it."
+        },
+        {
+          "ar": "إن أُضيفت شعبة بعد توقيع رئيس القسم ولم يسبق قبولٌ، ينتظر الإرسال إقراره بضغطة واحدة.",
+          "en": "If a section is added after the department head signed and nothing was ever accepted, sending waits for his one-click acknowledgement."
+        }
+      ]
+    },
+    {
+      "actor": "visitor",
+      "title": {
+        "ar": "التحقق من ورقة مطبوعة",
+        "en": "Verifying a printed sheet"
+      },
+      "steps": [
+        {
+          "ar": "من يمسك ورقة الشامل أو تقرير التغييرات يمسح رمز QR في ذيلها أو يكتب رمز الثمانية محارف.",
+          "en": "Someone holding a comprehensive or change report scans the QR code in its footer or types the eight-character code."
+        },
+        {
+          "ar": "تقارن الصفحة صفوف الورقة بالجدول الحي حقلاً حقلاً بلا دخول.",
+          "en": "The page compares the sheet's rows with the live schedule field by field, without sign-in."
+        },
+        {
+          "ar": "تقول إما «الورقة مطابقة للجدول الآن» أو «تغيّر الجدول بعد طباعة هذه الورقة» مع أسطر المقررات المتغيرة.",
+          "en": "It states either 'the sheet matches the schedule now' or 'the schedule changed after this sheet was printed', listing the affected course lines."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "apr-state",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "حالات الاعتماد",
+        "en": "Approval states"
+      },
+      "caption": {
+        "ar": "الحالات الست كما في APPROVAL_STATUS_LABEL، والانتقالات التي تفرضها الخوادم.",
+        "en": "The six statuses of APPROVAL_STATUS_LABEL and the transitions the server enforces."
+      },
+      "nodes": [
+        {
+          "id": "drafting",
+          "label": {
+            "ar": "قيد الإعداد",
+            "en": "In preparation"
+          },
+          "icon": "file-pen-line",
+          "kind": "start"
+        },
+        {
+          "id": "committee",
+          "label": {
+            "ar": "موقّع من اللجنة",
+            "en": "Committee signed"
+          },
+          "icon": "pen-line",
+          "kind": "state"
+        },
+        {
+          "id": "head",
+          "label": {
+            "ar": "موقّع من رئيس القسم",
+            "en": "Head signed"
+          },
+          "icon": "badge-check",
+          "kind": "state"
+        },
+        {
+          "id": "submitted",
+          "label": {
+            "ar": "عند التسجيل",
+            "en": "With registrar"
+          },
+          "icon": "hourglass",
+          "kind": "state"
+        },
+        {
+          "id": "blocked",
+          "label": {
+            "ar": "تعارض مادّي؟",
+            "en": "Material conflict?"
+          },
+          "icon": "triangle-alert",
+          "kind": "decision"
+        },
+        {
+          "id": "returned",
+          "label": {
+            "ar": "مُرجَع بملاحظات",
+            "en": "Returned with notes"
+          },
+          "icon": "undo-2",
+          "kind": "state"
+        },
+        {
+          "id": "accepted",
+          "label": {
+            "ar": "معتمد",
+            "en": "Accepted"
+          },
+          "icon": "circle-check",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "drafting",
+          "to": "committee",
+          "label": {
+            "ar": "توقيع اللجنة",
+            "en": "Committee signs"
+          }
+        },
+        {
+          "from": "committee",
+          "to": "head",
+          "label": {
+            "ar": "توقيع رئيس القسم",
+            "en": "Head signs"
+          }
+        },
+        {
+          "from": "committee",
+          "to": "drafting",
+          "label": {
+            "ar": "سحب أو إرجاع للجنة",
+            "en": "Withdraw or return to committee"
+          }
+        },
+        {
+          "from": "head",
+          "to": "submitted",
+          "label": {
+            "ar": "إرسال (جولة جديدة)",
+            "en": "Send (new round)"
+          }
+        },
+        {
+          "from": "submitted",
+          "to": "returned",
+          "label": {
+            "ar": "إرجاع بملاحظة على الأقل",
+            "en": "Return with at least one note"
+          }
+        },
+        {
+          "from": "returned",
+          "to": "submitted",
+          "label": {
+            "ar": "إعادة الإرسال",
+            "en": "Resend"
+          }
+        },
+        {
+          "from": "submitted",
+          "to": "blocked",
+          "label": {
+            "ar": "قرار القبول",
+            "en": "Accept decision"
+          }
+        },
+        {
+          "from": "blocked",
+          "to": "accepted",
+          "label": {
+            "ar": "لا تعارض",
+            "en": "No conflict"
+          }
+        },
+        {
+          "from": "accepted",
+          "to": "submitted",
+          "label": {
+            "ar": "أي تعديل: جولة تعديل",
+            "en": "Any edit: amendment round"
+          }
+        },
+        {
+          "from": "accepted",
+          "to": "returned",
+          "label": {
+            "ar": "إرجاع المعتمد بملاحظة",
+            "en": "Return an accepted schedule"
+          }
+        }
+      ]
+    },
+    {
+      "id": "apr-note-cycle",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "دورة الملاحظة على الخانة",
+        "en": "Cell note lifecycle"
+      },
+      "caption": {
+        "ar": "حالة الملاحظة تُحسب من قيمة الخانة الحاضرة ولا تُخزَّن.",
+        "en": "A note's state is computed from the cell's current value, never stored."
+      },
+      "nodes": [
+        {
+          "id": "note",
+          "label": {
+            "ar": "ملاحظة التسجيل",
+            "en": "Registrar note"
+          },
+          "icon": "message-square-text",
+          "kind": "start"
+        },
+        {
+          "id": "open",
+          "label": {
+            "ar": "تنتظر",
+            "en": "Open"
+          },
+          "icon": "hourglass",
+          "kind": "state"
+        },
+        {
+          "id": "changed",
+          "label": {
+            "ar": "تغيّرت الخانة",
+            "en": "Cell changed"
+          },
+          "icon": "git-compare",
+          "kind": "state"
+        },
+        {
+          "id": "answered",
+          "label": {
+            "ar": "ردّ القسم",
+            "en": "Department reply"
+          },
+          "icon": "undo-2",
+          "kind": "state"
+        },
+        {
+          "id": "verdict",
+          "label": {
+            "ar": "قرار التسجيل",
+            "en": "Registrar verdict"
+          },
+          "icon": "scale",
+          "kind": "decision"
+        },
+        {
+          "id": "resolved",
+          "label": {
+            "ar": "محسومة",
+            "en": "Resolved"
+          },
+          "icon": "circle-check",
+          "kind": "end"
+        },
+        {
+          "id": "escalated",
+          "label": {
+            "ar": "رُفعت لرئيس القسم",
+            "en": "Escalated to head"
+          },
+          "icon": "flag",
+          "kind": "system"
+        }
+      ],
+      "edges": [
+        {
+          "from": "note",
+          "to": "open"
+        },
+        {
+          "from": "open",
+          "to": "changed",
+          "label": {
+            "ar": "القيمة تغيّرت",
+            "en": "Value changed"
+          }
+        },
+        {
+          "from": "open",
+          "to": "answered",
+          "label": {
+            "ar": "ردّ بسبب (3 أحرف فأكثر)",
+            "en": "Reply with reason (3+ characters)"
+          }
+        },
+        {
+          "from": "answered",
+          "to": "verdict"
+        },
+        {
+          "from": "verdict",
+          "to": "resolved",
+          "label": {
+            "ar": "قبول التبرير",
+            "en": "Justification accepted"
+          }
+        },
+        {
+          "from": "verdict",
+          "to": "open",
+          "label": {
+            "ar": "إصرار",
+            "en": "Insisted"
+          }
+        },
+        {
+          "from": "verdict",
+          "to": "escalated",
+          "label": {
+            "ar": "الإصرار الثالث",
+            "en": "Third insist"
+          }
+        },
+        {
+          "from": "open",
+          "to": "resolved",
+          "label": {
+            "ar": "قبول الجدول",
+            "en": "Schedule accepted"
+          }
+        }
+      ]
+    },
+    {
+      "id": "apr-deadline",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "حساب موعد التسليم وأثره",
+        "en": "Deadline calculation and effect"
+      },
+      "caption": {
+        "ar": "التاريخ يومٌ كاملٌ بتوقيت الكويت، والتمديد لا يُقصّر موعداً.",
+        "en": "The date is a full day in Kuwait time, and an exception never shortens a deadline."
+      },
+      "nodes": [
+        {
+          "id": "term",
+          "label": {
+            "ar": "موعد الفصل",
+            "en": "Term deadline"
+          },
+          "icon": "calendar-clock",
+          "kind": "start"
+        },
+        {
+          "id": "ext",
+          "label": {
+            "ar": "استثناء القسم",
+            "en": "Department exception"
+          },
+          "icon": "calendar-plus",
+          "kind": "state"
+        },
+        {
+          "id": "effective",
+          "label": {
+            "ar": "الأبعد منهما",
+            "en": "The later of the two"
+          },
+          "icon": "scale",
+          "kind": "system"
+        },
+        {
+          "id": "passed",
+          "label": {
+            "ar": "انقضى بعد 23:59:59؟",
+            "en": "Passed after 23:59:59?"
+          },
+          "icon": "hourglass",
+          "kind": "decision"
+        },
+        {
+          "id": "first",
+          "label": {
+            "ar": "أول إرسال مرفوض",
+            "en": "First submission refused"
+          },
+          "icon": "lock",
+          "kind": "state"
+        },
+        {
+          "id": "wholesale",
+          "label": {
+            "ar": "استيراد ونسخ وحذف جماعي مرفوض",
+            "en": "Import, copy and bulk delete refused"
+          },
+          "icon": "lock",
+          "kind": "state"
+        },
+        {
+          "id": "partial",
+          "label": {
+            "ar": "التعديل الجزئي والجولات مفتوحة",
+            "en": "Partial edits and rounds stay open"
+          },
+          "icon": "circle-check",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "term",
+          "to": "effective"
+        },
+        {
+          "from": "ext",
+          "to": "effective"
+        },
+        {
+          "from": "effective",
+          "to": "passed"
+        },
+        {
+          "from": "passed",
+          "to": "first",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "passed",
+          "to": "wholesale",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "passed",
+          "to": "partial",
+          "label": {
+            "ar": "لا، أو نعم لما سوى ذلك",
+            "en": "No, or yes for anything else"
+          }
+        }
+      ]
+    },
+    {
+      "id": "apr-stamp",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "ختم الورقة المطبوعة",
+        "en": "Printed sheet stamp"
+      },
+      "caption": {
+        "ar": "الرمز يُحسب من صفوف الورقة، ويُسجَّل بعد أمر الطباعة، ويُقارن بالجدول الحي عند المسح.",
+        "en": "The code is derived from the sheet's rows, registered after the print command, and compared with the live schedule when scanned."
+      },
+      "nodes": [
+        {
+          "id": "print",
+          "label": {
+            "ar": "أمر الطباعة",
+            "en": "Print command"
+          },
+          "icon": "printer",
+          "kind": "start"
+        },
+        {
+          "id": "code",
+          "label": {
+            "ar": "حساب الرمز في المتصفح",
+            "en": "Code computed in browser"
+          },
+          "icon": "qr-code",
+          "kind": "state"
+        },
+        {
+          "id": "claim",
+          "label": {
+            "ar": "تسجيل الصفوف بعد الطباعة",
+            "en": "Rows registered after printing"
+          },
+          "icon": "send",
+          "kind": "system"
+        },
+        {
+          "id": "recheck",
+          "label": {
+            "ar": "الخادم يعيد حساب الرمز",
+            "en": "Server recomputes the code"
+          },
+          "icon": "shield-check",
+          "kind": "decision"
+        },
+        {
+          "id": "scan",
+          "label": {
+            "ar": "مسح الختم",
+            "en": "Stamp scanned"
+          },
+          "icon": "scan-line",
+          "kind": "state"
+        },
+        {
+          "id": "current",
+          "label": {
+            "ar": "مطابقة للجدول",
+            "en": "Matches schedule"
+          },
+          "icon": "circle-check",
+          "kind": "end"
+        },
+        {
+          "id": "outdated",
+          "label": {
+            "ar": "تغيّر الجدول",
+            "en": "Schedule changed"
+          },
+          "icon": "triangle-alert",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "print",
+          "to": "code"
+        },
+        {
+          "from": "code",
+          "to": "claim"
+        },
+        {
+          "from": "claim",
+          "to": "recheck"
+        },
+        {
+          "from": "recheck",
+          "to": "scan",
+          "label": {
+            "ar": "مطابق: يُحفظ",
+            "en": "Matches: stored"
+          }
+        },
+        {
+          "from": "scan",
+          "to": "current",
+          "label": {
+            "ar": "لا فرق",
+            "en": "No difference"
+          }
+        },
+        {
+          "from": "scan",
+          "to": "outdated",
+          "label": {
+            "ar": "فرق في صف",
+            "en": "A row differs"
+          }
+        }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": {
+      "ar": "من يفعل ماذا في دورة الاعتماد",
+      "en": "Who can do what in the approval cycle"
+    },
+    "cols": [
+      {
+        "ar": "التوقيع والإرسال",
+        "en": "Sign and send"
+      },
+      {
+        "ar": "ملاحظات على الخانات",
+        "en": "Cell notes"
+      },
+      {
+        "ar": "الإرجاع والقبول",
+        "en": "Return and accept"
+      },
+      {
+        "ar": "طلب التمديد",
+        "en": "Request extension"
+      },
+      {
+        "ar": "منح التمديد",
+        "en": "Grant extension"
+      },
+      {
+        "ar": "وضع موعد الفصل",
+        "en": "Set term deadline"
+      },
+      {
+        "ar": "ميزان الأقسام والوارد",
+        "en": "Balance and inbox"
+      }
+    ],
+    "rows": [
+      {
+        "actor": "committeeChair",
+        "cells": [
+          2,
+          2,
+          0,
+          2,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "actor": "departmentHead",
+        "cells": [
+          2,
+          2,
+          0,
+          2,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "actor": "registrarStaff",
+        "cells": [
+          0,
+          2,
+          2,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "actor": "collegeRegistrar",
+        "cells": [
+          0,
+          2,
+          2,
+          0,
+          2,
+          0,
+          1
+        ]
+      },
+      {
+        "actor": "registrarHead",
+        "cells": [
+          0,
+          2,
+          2,
+          0,
+          2,
+          2,
+          1
+        ]
+      },
+      {
+        "actor": "registrarDean",
+        "cells": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "actor": "dean",
+        "cells": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "actor": "viceDean",
+        "cells": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "DR-APR-001",
+      "kind": "data",
+      "title": {
+        "ar": "سجل الاعتماد وسجل أحداثه",
+        "en": "Approval record and its event log"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحتفظ بسجل اعتماد واحد لكل مجموعة كلية وقسم وفصل بمفتاح «كلية:قسم:فصل»، بإحدى ست حالات (قيد الإعداد، موقّع من اللجنة، موقّع من رئيس القسم، عند التسجيل، مُرجَع بملاحظات، معتمد)، وألا يكتب السجل قبل وقوع أول فعل. كما يجب عليه أن يسجّل في وثيقة الاعتماد كل فعل (توقيع، سحب، إرسال، إرجاع، قبول، تمديد، طلب تمديد، فتح جولة تعديل) بحدث يحمل الفاعل وصفته والجولة والوقت، وأن يقتصر على آخر 200 حدث.",
+        "en": "The system shall keep exactly one approval record per college, department and term combination, keyed 'college:section:term', in one of six statuses (in preparation, committee signed, head signed, with the registrar, returned with notes, accepted), and shall not write the record before the first action occurs. It shall also record every action (sign, withdraw, send, return, accept, extension, extension request, amendment round opened) in the approval document as an event carrying actor, role, round and time, keeping only the latest 200 events."
+      },
+      "rationale": {
+        "ar": "قسم لم يبدأ الدورة يُعرض بسجل فارغ مبني عند القراءة، فلا تمتلئ القاعدة بسجلات «لم يبدأ».",
+        "en": "A department that has not started is shown with an empty record built at read time, so storage is not filled with 'not started' records."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "قراءة نطاق بلا سجل ترجع الحالة «قيد الإعداد» وجولة 0 وبلا توقيعات.",
+          "en": "Reading a scope with no record returns status 'in preparation', round 0 and no signatures."
+        },
+        {
+          "ar": "مفتاح السجل للنطاق (1، 5، 20) هو «1:5:20»، وعدد الحالات المسمّاة ست بلا سابعة.",
+          "en": "The record key for scope (1, 5, 20) is '1:5:20', and exactly six named statuses exist."
+        },
+        {
+          "ar": "إضافة 250 حدثاً تُبقي 200 فقط هي الأحدث.",
+          "en": "Appending 250 events leaves only the 200 most recent."
+        },
+        {
+          "ar": "كل حدث يحمل اسم الفاعل وصفته ورقم الجولة.",
+          "en": "Each event carries the actor's name, role and the round number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#emptyApproval",
+          "src/server/core/approvals.ts#readApproval",
+          "src/utils/approvalWorkflow.ts#appendApprovalEvent",
+          "src/server/core/approvals.ts#withEvent"
+        ],
+        "tests": [
+          "tests/approval-workflow-audit.ts",
+          "tests/relay-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-APR-002",
+      "kind": "data",
+      "title": {
+        "ar": "التوقيع والنسخة الملتقطة",
+        "en": "Signature and captured version"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يلتقط نسخة من جدول النطاق عند كل توقيع، وأن يخزّن في التوقيع المرحلة وصفة الموقّع وعدد المواعيد وعدد الملاحظات اللائحية ومعرّف النسخة ورمز تحقق من ستة محارف كبيرة مشتق من معرّف النسخة والموقّع ولحظة التوقيع.",
+        "en": "The system shall capture a version of the scope's schedule at each signature and store on the signature its stage, the signer's role label, the appointment count, the regulation-notice count, the version id and a six-character uppercase verification code derived from the version id, the signer and the signing instant."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرمز يطابق التعبير [0-9A-Z]{6} ويثبت لنفس النسخة والموقّع واللحظة ويختلف بتغيّر أيٍّ منها.",
+          "en": "The code matches [0-9A-Z]{6}, is stable for the same version, signer and instant, and differs when any of them changes."
+        },
+        {
+          "ar": "رمز التحقق مدخل فارغ يبقى بطول 6.",
+          "en": "A code computed from empty input is still 6 characters long."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#verificationCode",
+          "src/server/routes/approvalsRoutes.ts"
+        ],
+        "tests": [
+          "tests/approval-workflow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-001",
+      "kind": "functional",
+      "title": {
+        "ar": "ترتيب التوقيع ومن يوقّع",
+        "en": "Signing order and who may sign"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يسمح لرئيس لجنة الجدول بالتوقيع أولاً ثم لرئيس القسم، وأن يرفض التوقيع على جدول فارغ أو عند التسجيل أو موقَّع من الموقّع نفسه، وأن يرفض توقيع رئيس القسم قبل اللجنة. كما يجب عليه أن يقصر التوقيع والسحب على حسابات رئيس لجنة الجدول (مرحلة اللجنة) ورئيس القسم العلمي (مرحلة رئيس القسم) ممن ليسوا أعضاء فريق مقعد، وأن يرفض برمز same-person-both-stages توقيع الشخص نفسه (بمعرّف الأستاذ على المقعد) للمرحلتين على الجدول نفسه.",
+        "en": "The system shall let the schedule committee chair sign first and the department head second, and shall refuse signing on an empty schedule, on a schedule with the registrar, or when the same stage is already signed, and shall refuse the head's signature before the committee's. It shall also restrict signing and withdrawing to accounts of the schedule committee chair (committee stage) and the department head (head stage) that are not seat team members, and shall refuse with code same-person-both-stages when the same person, identified by the instructor id on the seat, signs both stages of the same schedule."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "توقيع رئيس القسم قبل اللجنة يرجع برمز wrong-order، وتوقيع مكرر يرجع already-signed.",
+          "en": "A head signature before the committee returns code wrong-order, and a repeated signature returns already-signed."
+        },
+        {
+          "ar": "جدول بلا مواعيد يرجع empty، وجدول حالته «عند التسجيل» يرجع locked.",
+          "en": "A schedule with no appointments returns empty, and one with status 'with the registrar' returns locked."
+        },
+        {
+          "ar": "حساب مدير أو تسجيل يحاول التوقيع يتلقى 403.",
+          "en": "An administrator or registrar account attempting to sign receives 403."
+        },
+        {
+          "ar": "شخص جلس على المقعدين ووقّع الثاني يتلقى 409 مع صفته في التوقيع الأول.",
+          "en": "A person occupying both seats who signs the second stage receives 409 naming the capacity of the first signature."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#canSign",
+          "src/server/routes/approvalsRoutes.ts",
+          "src/utils/academicRoles.ts#signatureStage",
+          "src/utils/seats.ts#actorMaySign"
+        ],
+        "tests": [
+          "tests/approval-workflow-audit.ts",
+          "tests/role-scope-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-APR-002",
+      "kind": "functional",
+      "title": {
+        "ar": "التعارض المادّي يمنع التوقيع والإرسال والقبول",
+        "en": "Material conflict blocks signing, sending and acceptance"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض التوقيع والإرسال والقبول ما دام في جدول النطاق تعارض مادّي، أي حجز مزدوج لأستاذ أو قاعة في موعدين متداخلين أو موعد مكرر لا يميّزه شيء، محسوباً أمام الفصل كله ومرة واحدة لكل زوج، وألا يمنعها تنبيه الشعبة المسجّلة مرتين.",
+        "en": "The system shall refuse signing, sending and acceptance while the scope's schedule contains a material conflict, meaning an instructor or room double booking in overlapping appointments or an indistinguishable duplicate entry, evaluated against the whole term and counted once per pair, and shall not let the 'same section recorded twice' warning block them."
+      },
+      "rationale": {
+        "ar": "قاعدة المالك 2026-09-27: التوقيع لا يمنعه إلا تعارض مادّي؛ ورقم واحد للموانع في كل الشاشات.",
+        "en": "Owner rule 2026-09-27: only a material conflict prevents signing; and one blocker number is used on every screen."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarHead",
+        "collegeRegistrar",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "قبول جدول فيه تعارض مادّي يرجع 409 برمز blocking-conflicts وتُقال الجملة «أرجِعه للقسم لمعالجته».",
+          "en": "Accepting a schedule with a material conflict returns 409 with code blocking-conflicts and tells the registrar to return it to the department."
+        },
+        {
+          "ar": "التعارض مع موعد في قسم آخر يُحسب في القسمين ويُوصف عاماً بلا اسم قسم أو أستاذ منه.",
+          "en": "A clash with another department's appointment counts in both departments and is described generically, without naming that department or instructor."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/scheduleBlockers.ts#readScopeConflicts",
+          "src/server/routes/approvalsRoutes.ts#blockingSummaryFor"
+        ],
+        "tests": [
+          "tests/blocker-oracle-audit.ts",
+          "tests/one-blocker-number-audit.ts",
+          "tests/approval-workflow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-003",
+      "kind": "functional",
+      "title": {
+        "ar": "موانع التوقيع الأخرى: السعة والمتطلبات واللائحة",
+        "en": "Other signing gates: capacity, requirements, regulation"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض التوقيع إذا كان في الجدول مقرر بلا سعة مسجّلة (رمز missing-capacity)، أو مقرر بلا نوع قاعة مناسب أو طبيعة تدريس (رمز course-requirements-missing)، وأن يسمّي المقررات الناقصة في الرسالة. كما يجب عليه أن يرفض التوقيع والإرسال برمز regulation-blockers متى أظهرت مراجعة اللائحة بنداً من القرار 1912/2016 أثره على الاعتماد «يمنع» داخل صفوف النطاق (نمط المقرر النظري م.7/8، ثبات وقت الشعبة م.7/9، حدود التدريس المتتالي)، وألا يُشترط ذلك عند قبول التسجيل.",
+        "en": "The system shall refuse signing if the schedule contains a course with no registered capacity (code missing-capacity) or a course lacking its suitable room type or teaching nature (code course-requirements-missing), and shall name the incomplete courses in the message. It shall also refuse signing and sending with code regulation-blockers whenever the regulation review reports a decision 1912/2016 finding whose approval effect is 'block' within the scope's rows (theoretical-course pattern art. 7/8, fixed section time art. 7/9, consecutive teaching limits), and shall not require this check when the registrar accepts."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر بلا سعة يمنع التوقيع برسالة «سجّل السعة ثم وقّع».",
+          "en": "A course with no capacity blocks signing with a message to register the capacity first."
+        },
+        {
+          "ar": "نواقص البيانات الأخرى تُعرض إشعاراً ولا تمنع التوقيع.",
+          "en": "Other data gaps are shown as notices and do not block signing."
+        },
+        {
+          "ar": "جدول فيه شعبة تبدأ لقاءاتها في وقتين مختلفين يُرفض توقيعه بجملة «عالجها قبل التوقيع».",
+          "en": "A schedule containing a section whose meetings start at two different times is refused signing with a 'resolve before signing' message."
+        },
+        {
+          "ar": "ملاحظات اللائحة ذات الأثر «ملاحظة» أو «مراجعة» لا تمنع.",
+          "en": "Regulation findings with effect 'note' or 'review' do not block."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#canSign",
+          "src/server/routes/approvalsRoutes.ts",
+          "src/utils/scheduleDataReadiness.ts",
+          "src/server/core/approvals.ts#regulationNoticesForScope",
+          "src/utils/scheduleRegulations.ts"
+        ],
+        "tests": [
+          "tests/approval-workflow-audit.ts",
+          "tests/decision-1913-audit.ts"
+        ]
+      },
+      "rationale": {
+        "ar": "هذا السلوك أضيق من عبارة «اللائحة تُعرض ولا تمنع» في تعليقات الكود، وقد وُثّق كما هو في الكود.",
+        "en": "This behaviour is narrower than the code comments' statement that the regulation is displayed and does not block; it is documented as implemented."
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-APR-004",
+      "kind": "functional",
+      "title": {
+        "ar": "توقيع رئيس القسم والإرسال وشروطه",
+        "en": "Head signature, sending and its conditions"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرسل الجدول إلى التسجيل تلقائياً في الحفظ نفسه الذي يثبّت توقيع رئيس القسم، فإن منع الإرسال مانع (موعد منقضٍ، ملاحظة معلّقة، تعارض) بقي التوقيع وأعاد الرد submitted=false مع سبب المنع. كما يجب عليه أن يرفض الإرسال ما لم يكتمل توقيعا اللجنة ورئيس القسم، وما دامت هناك شعب مضافة بعد توقيع رئيس القسم تنتظر إقراره، أو تعارض مادّي، أو ملاحظة تسجيل مفتوحة، وأن يرفض أول إرسال بعد انقضاء الموعد (رمز deadline) مع السماح بالجولات اللاحقة، وأن يرفض إرسال جدول مُرسَل أو معتمد لم يتغيّر.",
+        "en": "The system shall send the schedule to the registrar automatically in the same save that records the department head's signature, and if a blocker prevents sending (passed deadline, pending note, conflict) the signature shall stay and the response shall carry submitted=false with the blocking reason. It shall also refuse sending unless both the committee and department head signatures exist, and while sections added after the head's signature await his acknowledgement, a material conflict exists or a registrar note is open, shall refuse the first submission after the deadline has passed (code deadline) while allowing later rounds, and shall refuse sending a schedule that is already sent or accepted and unchanged."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "توقيع ناجح يرجع submitted=true ورقم الجولة، وتصير الحالة «عند التسجيل».",
+          "en": "A successful signature returns submitted=true and the round number, and the status becomes 'with the registrar'."
+        },
+        {
+          "ar": "توقيع مع ملاحظة تسجيل مفتوحة يحفظ التوقيع ويرجع submitBlocked بنص السبب.",
+          "en": "A signature with an open registrar note keeps the signature and returns submitBlocked with the reason."
+        },
+        {
+          "ar": "توقيع واحد يرجع not-signed، وإرسال مكرر يرجع already-submitted، وجدول معتمد غير متغيّر يرجع already-accepted.",
+          "en": "A single signature returns not-signed, a repeated send returns already-submitted, and an unchanged accepted schedule returns already-accepted."
+        },
+        {
+          "ar": "الإرسال الأول بعد الموعد مرفوض، وجولة ثانية بعده تمرّ.",
+          "en": "The first submission after the deadline is refused while a second-round submission after it passes."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts#submitToRegistrar",
+          "src/utils/approvalWorkflow.ts#canSubmit"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts",
+          "tests/approval-workflow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-005",
+      "kind": "functional",
+      "title": {
+        "ar": "فتح جولة عند كل إرسال",
+        "en": "A new round for every send"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يفتح عند كل إرسال جولة مرقّمة بترتيب متسلسل تحمل لحظة الإرسال ومن أرسل ومعرّف النسخة الملتقطة، وأن يكتب على الجولة المنتهية عدد الصفوف التي تحرّكت فعلاً منذ رآها التسجيل، وأن يمسح أي طلب تمديد معلّق عند الإرسال.",
+        "en": "The system shall open a sequentially numbered round at every send carrying the send time, the sender and the captured version id, shall write on the closing round the number of rows that actually moved since the registrar last saw it, and shall clear any pending extension request on sending."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الجولة الجارية هي المرقّمة بالرقم الحالي، وأساس المقارنة هو آخر نسخة رآها التسجيل.",
+          "en": "The current round is the one numbered with the current number, and the comparison baseline is the last version the registrar saw."
+        },
+        {
+          "ar": "أول مراجعة بلا أساس سابق: كل الجدول يُعدّ جديداً.",
+          "en": "The first review has no earlier baseline: the whole schedule counts as new."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#openRound",
+          "src/utils/approvalWorkflow.ts#roundBaselineVersionId",
+          "src/server/routes/approvalsRoutes.ts#submitToRegistrar"
+        ],
+        "tests": [
+          "tests/approval-workflow-audit.ts",
+          "tests/relay-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-006",
+      "kind": "functional",
+      "title": {
+        "ar": "سحب التوقيع وإرجاع رئيس القسم للجنة",
+        "en": "Signature withdrawal and head return to committee"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يسمح لصاحب التوقيع وحده بسحبه، وأن يُسقط سحبُ توقيع اللجنة توقيعَ رئيس القسم معه وما عُلّق عليه من إضافات، وأن يرفض السحب من جدول عند التسجيل (locked) أو معتمد (accepted) أو لا توقيع لصاحبه (not-signed)، وأن يبقى الجدول المُرجَع «مُرجَعاً» بعد السحب. كما يجب عليه أن يتيح لرئيس القسم إرجاع جدول وقّعته اللجنة ولم يوقّعه هو، بسبب مكتوب من ثلاثة أحرف فأكثر (حتى 400)، فتسقط التواقيع وتعود الحالة «قيد الإعداد» ويُحفظ السبب في headReturn، ويُطوى السبب متى وقّعت اللجنة من جديد.",
+        "en": "The system shall let only the signer withdraw a signature, shall drop the department head's signature and its pending additions when the committee's signature is withdrawn, shall refuse withdrawal from a schedule with the registrar (locked), accepted (accepted) or with no signature by the requester (not-signed), and shall keep a returned schedule 'returned' after a withdrawal. It shall also let the department head return a schedule the committee signed and he has not signed, with a written reason of at least three characters (up to 400), dropping signatures, returning status to 'in preparation' and storing the reason in headReturn, which is cleared when the committee signs again."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "سحب اللجنة توقيعها يترك الجدول بلا توقيعات وحالته «قيد الإعداد».",
+          "en": "The committee withdrawing its signature leaves the schedule with no signatures and status 'in preparation'."
+        },
+        {
+          "ar": "رئيس القسم لا يسحب توقيع اللجنة.",
+          "en": "The department head cannot withdraw the committee's signature."
+        },
+        {
+          "ar": "سبب أقصر من ثلاثة أحرف يرجع 400، وإرجاع بعد توقيع رئيس القسم يرجع 409 wrong-status.",
+          "en": "A reason shorter than three characters returns 400, and a return after the head has signed returns 409 wrong-status."
+        },
+        {
+          "ar": "يُقرأ السبب في شريط اللجنة حتى توقّع من جديد.",
+          "en": "The reason is shown in the committee's bar until it signs again."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#canWithdraw",
+          "src/utils/approvalWorkflow.ts#withRemainingSignatures",
+          "src/utils/approvalWorkflow.ts#canHeadReturn",
+          "src/server/routes/approvalsRoutes.ts"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-007",
+      "kind": "functional",
+      "title": {
+        "ar": "الشعب المضافة بعد توقيع رئيس القسم",
+        "en": "Sections added after the head's signature"
+      },
+      "text": {
+        "ar": "يجب على النظام، ما لم يسبق قبولٌ من التسجيل، أن يسجّل الشعبة المضافة (أو المبدَّل مقررها أو رقمها) بعد توقيع رئيس القسم في قائمة انتظار إقراره بحد أقصى 60 اسماً مع عدّ الزائد، وأن يمنع الإرسال حتى يقرّها رئيس القسم بضغطة واحدة تقتصر على المعرّفات التي عُرضت عليه.",
+        "en": "Unless the registrar has already accepted once, the system shall record a section added (or whose course or section number was swapped) after the department head signed in a queue awaiting his acknowledgement, naming at most 60 and counting the overflow, and shall block sending until the head acknowledges with one click limited to the ids shown to him."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "استيراد 300 صف بعد التوقيع يسمّي 60 ويعدّ 240 زائداً ويمنع الإرسال كله.",
+          "en": "Importing 300 rows after signing names 60, counts 240 overflow and blocks the whole send."
+        },
+        {
+          "ar": "ما أُضيف بين فتح الشاشة وضغط «موافق» يبقى ينتظر الإقرار.",
+          "en": "Whatever was added between opening the screen and clicking approve stays awaiting acknowledgement."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#mergePendingAdditions",
+          "src/utils/approvalWorkflow.ts#acknowledgeAdditions",
+          "src/server/core/approvals.ts#noteScheduleMutation",
+          "src/server/routes/approvalsRoutes.ts"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts",
+          "tests/approval-workflow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-008",
+      "kind": "functional",
+      "title": {
+        "ar": "الملاحظة على الخانة وحالتها المحسوبة",
+        "en": "Cell notes and their computed state"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للتسجيل والقسم كتابة ملاحظة بنقرة على إحدى الخانات السبع (الوقت، الأيام، القاعة، الأستاذ، رقم الشعبة، المقرر، الموعد كاملاً) بنص اختياري حتى 600 حرف، وأن ينسب المصدر من صفة الكاتب (تسجيل أو قسم)، وأن تحمل الملاحظة الجولة الجارية وقيمة الخانة لحظة الكتابة، وأن تستبدل النقرة الثانية على الخانة نفسها الملاحظة الأولى وتمحو ما عليها من ردّ وقرار. كما يجب عليه أن يشتق حالة الملاحظة من قيمة الخانة الحاضرة: «محسومة» إن أُغلقت أو قبل التسجيل تبريرها، «أُجيب عنها» إن وُجد ردّ، «تغيّرت» إن اختلفت القيمة عمّا لحظة الكتابة، «زال الموعد» إن حُذف الصف، وإلا «تنتظر»، وألا يُعدّ ملاحظة مفتوحة إلا ما كان من التسجيل وحالته «تنتظر» في أي جولة.",
+        "en": "The system shall let the registrar and the department write a note with one click on any of seven cells (time, days, room, instructor, section number, course, whole appointment) with optional text up to 600 characters, shall derive the origin from the author's role (registrar or department), shall tag the note with the current round and the cell value at writing time, and shall make a second click on the same cell replace the first note and clear its reply and verdict. It shall also derive a note's state from the cell's current value: 'resolved' if closed or its justification was accepted, 'answered' if a reply exists, 'changed' if the value differs from writing time, 'removed' if the row was deleted, otherwise 'open', and shall count as open only registrar notes whose state is 'open' in any round."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead",
+        "departmentHead",
+        "committeeChair",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "نص فارغ يُكتب «راجِع الوقت» (أو اسم الخانة) تلقائياً.",
+          "en": "An empty text defaults to a 'review the time' style message naming the cell."
+        },
+        {
+          "ar": "رئيس القسم ورئيس اللجنة يكتبان على الخانة نفسها ملاحظتين مستقلتين، أما التسجيل فصوت واحد.",
+          "en": "The department head and the committee chair write two independent notes on the same cell while the registrar speaks with one voice."
+        },
+        {
+          "ar": "ملاحظة من جولة سابقة أصرّ عليها التسجيل تُحسب وتُرجع الجدول.",
+          "en": "A note from an earlier round that the registrar insisted on is counted and the schedule is returned with it."
+        },
+        {
+          "ar": "ملاحظة رئيس القسم الداخلية لا تُضخّم عدّاد التسجيل ولا تمنع الإرسال.",
+          "en": "The department head's internal note does not inflate the registrar counter and does not block sending."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/scheduleNotesRoutes.ts",
+          "src/server/core/notes.ts#noteFieldValue",
+          "src/server/core/notes.ts#noteState",
+          "src/utils/approvalWorkflow.ts#countOpenRegistrarNotes"
+        ],
+        "tests": [
+          "tests/schedule-changes-audit.ts",
+          "tests/approval-integrity-audit.ts",
+          "tests/relay-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-009",
+      "kind": "functional",
+      "title": {
+        "ar": "ردّ القسم وقرار التسجيل والرفع لرئيس القسم",
+        "en": "Department reply, registrar verdict and escalation"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للقسم الردّ على ملاحظة تسجيل بسبب إبقاء من ثلاثة أحرف فأكثر (حتى 600)، وللتسجيل أن يقرّ التبرير فتنتهي الملاحظة أو يُصرّ فتعود تنتظر ويُنقل الردّ إلى سجل الردود، وأن يُسجّل عند الإصرار الثالث لحظة رفع الخلاف إلى رئيس القسم ليراه في شريطه.",
+        "en": "The system shall let the department reply to a registrar note with a reason of at least three characters (up to 600), shall let the registrar either accept the justification, ending the note, or insist, returning it to 'open' and moving the reply to the reply history, and shall record at the third insist the moment the dispute is escalated so the department head sees it in his bar."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "ردّ بنص أقصر من ثلاثة أحرف يرجع 400.",
+          "en": "A reply shorter than three characters returns 400."
+        },
+        {
+          "ar": "الإصرار الثالث يملأ escalatedAt مرة واحدة ويعدّ في escalatedNotes في شريط القسم.",
+          "en": "The third insist sets escalatedAt once and is counted in escalatedNotes in the department bar."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/scheduleNotesRoutes.ts",
+          "src/utils/approvalWorkflow.ts#insistOutcome"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts",
+          "tests/approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-010",
+      "kind": "functional",
+      "title": {
+        "ar": "إرجاع الجدول بملاحظات",
+        "en": "Returning a schedule with notes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لموظف التسجيل ورئيس تسجيل الكلية والمسجّل العام إرجاع جدول «عند التسجيل» أو «معتمد» إلى القسم شرط وجود ملاحظة تسجيل مفتوحة واحدة على الأقل، وأن يسجّل على الجولة وقت الإرجاع ومن أرجع وعدد الملاحظات، وأن يُبقي التوقيعين قائمين، وأن يفتح للمعتمد المُرجَع جولة جديدة أساسها ما رآه التسجيل الآن.",
+        "en": "The system shall let a registration officer, college registrar or university registrar return a schedule that is 'with the registrar' or 'accepted' to the department provided at least one registrar note is open, shall record on the round the return time, the returner and the note count, shall keep both signatures in place, and shall open a new round for a returned accepted schedule based on what the registrar sees now."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "إرجاع بلا ملاحظة مفتوحة يرجع 409 برمز no-notes، وحالة غير مناسبة ترجع not-reviewable.",
+          "en": "A return with no open note returns 409 with code no-notes, and an unsuitable status returns not-reviewable."
+        },
+        {
+          "ar": "عميد التسجيل والعميدان لا يملكون الإرجاع (403).",
+          "en": "The dean of registration and the deans cannot return (403)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#canReturn",
+          "src/server/routes/approvalsRoutes.ts"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts",
+          "tests/term-freeze-readonly-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-011",
+      "kind": "functional",
+      "title": {
+        "ar": "قبول التسجيل النهائي",
+        "en": "Final acceptance by the registrar"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للتسجيل قبول جدول حالته «عند التسجيل» فقط وخلا من التعارض المادّي، فيلتقط نسخة مقبولة ويكتب acceptedAt وacceptedBy وacceptedVersionId على الجولة الجارية ويفرّغ قائمة الإضافات، ثم يغلق بعد نجاح الحفظ ما بقي من ملاحظات التسجيل المفتوحة والمُجاب عنها بقرار «أُغلقت بالقبول» مع بقاء نصها.",
+        "en": "The system shall let the registrar accept only a schedule whose status is 'with the registrar' and which has no material conflict, capturing an accepted version, writing acceptedAt, acceptedBy and acceptedVersionId on the current round, emptying the additions queue, and, after the save succeeds, closing remaining open and answered registrar notes as 'closed by acceptance' while keeping their text."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "قبول جدول ليس عند التسجيل يرجع 409، وقبول بحدث يخسر سباق المراجعة لا يغلق أي ملاحظة.",
+          "en": "Accepting a schedule that is not with the registrar returns 409, and an acceptance that loses a revision race closes no note."
+        },
+        {
+          "ar": "حدث القبول في السجل يذكر عدد الملاحظات المغلقة «أُغلقت بالقبول».",
+          "en": "The log's accept event states the number of notes closed 'closed by acceptance'."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts",
+          "src/utils/approvalWorkflow.ts#CLOSED_BY_ACCEPTANCE_LABEL"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts",
+          "tests/approval-workflow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-012",
+      "kind": "functional",
+      "title": {
+        "ar": "تسلسل القرارات وشدّها إلى ما رآه صاحبها",
+        "en": "Decision serialisation and binding to what was seen"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقبل من الواجهة الجولة وعدد المواعيد والحالة كما رآها صاحب القرار، وأن يرفض القرار برمز stale-view و409 إن تغيّر أحدها، وألا يفحص ما لم تُرسله الواجهة. كما يجب عليه أن ينفّذ كل قرار يكتب وثيقة الاعتماد على طابور قفل للنطاق «اعتماد:كلية:قسم:فصل» وبرقم مراجعة، وأن يعيد القرار مرة واحدة إن سبقه قرار آخر على الوثيقة، فإن تكرر التعارض ردّ بـ409 برمز approval-revision، وألا يعيد ما لا يُعاد (الْتقاط النسخة يمرّ مرة واحدة عبر المحاولتين)، وألا يكتب أي أثر جانبي إلا بعد نجاح الحفظ.",
+        "en": "The system shall accept from the client the round, appointment count and status as the decider saw them, shall refuse the decision with code stale-view and 409 if any changed, and shall not check what the client did not send. It shall also run every decision that writes the approval document on a scope lock queue 'approval:college:section:term' with a revision number, shall retry the decision once if another decision reached the document first, and if the conflict repeats shall answer 409 with code approval-revision, shall not repeat what must not repeat (version capture runs once across both attempts), and shall write no side effect before the save succeeds."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "توقيع وقد زاد عدد المواعيد بعد فتح الشاشة يُرفض بجملة «تغيّر الجدول منذ فتحت الشاشة — حدّث».",
+          "en": "A signature after the appointment count rose since the screen was opened is refused with the 'the schedule changed since you opened the screen — refresh' message."
+        },
+        {
+          "ar": "طلب بلا حقول expected* يمرّ دون فحص توافقاً مع الواجهات القديمة.",
+          "en": "A request without expected* fields passes unchecked for backward compatibility."
+        },
+        {
+          "ar": "محاولتان كحد أقصى افتراضياً، وفشلهما معاً يرجع «conflict» لا «done».",
+          "en": "Two attempts by default, and both failing returns 'conflict', not 'done'."
+        },
+        {
+          "ar": "الاستثناء الجماعي يكتب كل قسم على طابوره دون ردّ واحد لكل الأقسام.",
+          "en": "Bulk exceptions write each department on its own queue without a single response for all."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#staleViewRefusal",
+          "src/server/routes/approvalsRoutes.ts#refuseIfStale",
+          "src/server/approvalAttempts.ts#runApprovalAttempts",
+          "src/server/routes/approvalsRoutes.ts#approvalTransaction"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-013",
+      "kind": "functional",
+      "title": {
+        "ar": "جولة تعديل بعد القبول",
+        "en": "Amendment round after acceptance"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يفتح عند أول تعديل (إضافة أو تعديل أو حذف) على جدول معتمد جولة تعديل أساسها آخر نسخة مقبولة ويُعيد الحالة «عند التسجيل»، وأن يبقي التعديل مفتوحاً في الجولة نفسها ما لم يكتب التسجيل فيها ملاحظة، وأن يُعلّم الوثيقة بـ amendmentPending ويرسل الترويسة X-Approval-Amendment عند تعذّر كتابتها، فتُفتح الجولة عند أول قراءة أو قرار لاحق.",
+        "en": "The system shall, on the first edit (add, edit or delete) to an accepted schedule, open an amendment round based on the last accepted version and return the status to 'with the registrar', shall keep editing open in that round unless the registrar writes a note in it, and shall mark the document amendmentPending and send the X-Approval-Amendment header when the record cannot be written, so the round opens on the next read or decision."
+      },
+      "rationale": {
+        "ar": "بدل أن يطلب القسم فتحاً يدوياً كل مرة، فيصلح الأخطاء خارج النظام.",
+        "en": "So a department does not have to ask for manual unlocking each time and end up fixing errors outside the system."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "التعديلان المتتابعان بعد القبول يقعان في جولة واحدة، ثم يُقفل الجدول عند أول ملاحظة تسجيل.",
+          "en": "Two consecutive edits after acceptance fall in one round, then the schedule locks at the first registrar note."
+        },
+        {
+          "ar": "الإضافة من أي باب كتابة (إدخال، استيراد، نسخ فصل، نقل جماعي، مقترح دراسي) تمرّ بالدالة نفسها.",
+          "en": "An addition through any write door (entry, import, term copy, batch move, study proposal) passes through the same function."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/approvals.ts#noteScheduleMutation",
+          "src/server/core/approvals.ts#amendmentAfterEdit",
+          "src/utils/approvalWorkflow.ts#amendmentStillOpen"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts",
+          "tests/approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-014",
+      "kind": "functional",
+      "title": {
+        "ar": "قفل الجدول بعد الإرسال",
+        "en": "Schedule lock after sending"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرفض من كل باب كتابة على الجدول (إضافة، تعديل، حذف، استيراد، نسخ فصل، نقل جماعي، مقترح دراسي) تعديلَ جدول حالته «عند التسجيل» ما لم تكن جولة تعديل مفتوحة، وأن يستثني من قفل التسجيل استثناء الأسبوع وقرار طلب الأستاذ وإصدار روابطه ويُبقي عليها حكم الفصل المنتهي وحده.",
+        "en": "The system shall refuse, at every schedule write door (add, edit, delete, import, term copy, batch move, study proposal), edits to a schedule whose status is 'with the registrar' unless an amendment round is open, and shall exempt week exceptions, instructor-request decisions and issuing their links from the registrar lock, leaving only the ended-term rule on them."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "محاولة تعديل موعد في جدول عند التسجيل ترجع 409 برسالة «الجدول عند التسجيل الآن وينتظر قراره».",
+          "en": "Trying to edit an appointment in a schedule with the registrar returns 409 with the 'the schedule is with the registrar and awaits his decision' message."
+        },
+        {
+          "ar": "الرسالة نفسها تظهر في الشاشة قبل أن يمدّ المستخدم يده عبر lockReason.",
+          "en": "The same message appears on screen before the user acts, through lockReason."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/approvals.ts#scheduleLockRefusal",
+          "src/utils/approvalWorkflow.ts#approvalLockReason"
+        ],
+        "tests": [
+          "tests/approval-workflow-audit.ts",
+          "tests/term-freeze-audit.ts",
+          "tests/approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-015",
+      "kind": "functional",
+      "title": {
+        "ar": "الفصل المنتهي: الدورة مغلقة",
+        "en": "Ended term: the cycle is closed"
+      },
+      "text": {
+        "ar": "يجب على النظام، متى كان للفصل علامة «منتهٍ» صريحة، أن يرفض التوقيع والسحب والإرسال والإرجاع والقبول والملاحظات والتمديد برمز term-closed و409، وألا يسمح بتعديل جدوله إلا لحساب مكتوب الصفة «رئيس لجنة الجدول»، وأن يسجّل تعديل اللجنة على جدول معتمد حدثاً closed-term-edit بلا فتح جولة.",
+        "en": "The system shall, when a term carries an explicit 'ended' flag, refuse signing, withdrawing, sending, returning, accepting, notes and extensions with code term-closed and 409, shall allow its schedule to be edited only by an account whose written role is schedule committee chair, and shall record a committee edit of an accepted schedule as a closed-term-edit event without opening a round."
+      },
+      "rationale": {
+        "ar": "يُقرأ العلم الصريح وحده لا المشتق من ترتيب الفصول، حتى لا تُجمَّد عشر سنوات دفعة واحدة.",
+        "en": "Only the explicit flag is read, not one derived from term order, so ten years of terms are not frozen at once."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حساب بلا صفة مكتوبة (مثل الإدارة الجذر) لا يتخطى القفل.",
+          "en": "An account without a written role (such as the root administrator) does not bypass the lock."
+        },
+        {
+          "ar": "رفع علامة «منتهٍ» من شاشة الفصول هو الباب الظاهر الوحيد لإعادة الفتح.",
+          "en": "Clearing the 'ended' flag on the terms screen is the only visible way to reopen."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/approvals.ts#scheduleLockRefusal",
+          "src/server/core/approvals.ts#refuseIfTermClosed",
+          "src/utils/approvalWorkflow.ts#TERM_CLOSED_APPROVAL_MESSAGE"
+        ],
+        "tests": [
+          "tests/term-freeze-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-016",
+      "kind": "functional",
+      "title": {
+        "ar": "تجميد الفصل السابق للعرض فقط",
+        "en": "Past terms frozen read-only"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعدّ الفصل مجمَّداً إذا أُغلق صراحةً أو انقضت نافذته وليس الجاري أو كان أقدم زمنياً من الجاري، وألا يُجمَّد الفصل القادم ولا فصل مجهول، وأن يرفض بالرمز term-frozen وجملة «فصلٌ سابق: يُعرض للاطّلاع فقط» كل باب كتابة في كشف التسجيل ورغبات الأساتذة وطلبات الأقسام وتغييرات الجدول والمقترحات، وأن تُظهر الشاشة شريط «فصل سابق · للعرض فقط» وتعطّل أزرار الكتابة.",
+        "en": "The system shall treat a term as frozen if it was explicitly closed, or its window has passed and it is not the current term, or it is chronologically older than the current term, shall not freeze the next term or an unknown term, shall refuse with code term-frozen and the 'past term: view only' message every write door in registration status, instructor wishes, section requests, schedule changes and proposals, and the screen shall show the 'Past term · view only' ribbon and disable write buttons."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "committeeChair",
+        "departmentHead",
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "مع الجاري 12 والقادم 13: الفصل 11 مجمَّد و12 و13 مفتوحان، ومعرّف 0 أو غير موجود غير مجمَّد.",
+          "en": "With current term 12 and next term 13: term 11 is frozen, 12 and 13 are open, and id 0 or an unknown id is not frozen."
+        },
+        {
+          "ar": "بابا الخادم والواجهة يقرآن الدالة نفسها termIsFrozen.",
+          "en": "The server door and the client read the same termIsFrozen function."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/termSequence.ts#termIsFrozen",
+          "src/server/core/approvals.ts#refuseIfTermFrozen",
+          "src/components/TermFrozenRibbon.tsx"
+        ],
+        "tests": [
+          "tests/term-freeze-readonly-audit.ts",
+          "tests/term-freeze-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-017",
+      "kind": "functional",
+      "title": {
+        "ar": "موعد تسليم الفصل وأثره بعد انقضائه",
+        "en": "Term deadline and its effect after it passes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للمسجّل العام وحده وضع موعد تسليم الجداول بصيغة YYYY-MM-DD أو رفعه بقيمة فارغة، وأن يرفض وضع موعد لفصل منتهٍ، وأن يعدّ الموعد منقضياً بعد 23:59:59 من يومه بتوقيت الكويت (UTC+3)، وأن يحسب الموعد الفاعل للقسم بالأبعد بين موعد الفصل واستثنائه، وأن يعدّه «قريباً» حين يبقى سبعة أيام أو أقل. كما يجب عليه أن ، بعد انقضاء الموعد الفاعل للقسم، أن يرفض استيراد جدول من ملف ونسخ الجدول من فصل آخر والحذف الجماعي الذي تتجاوز نسبته 30% من مواعيد النطاق، وأن يبقي مفتوحاً التعديل الجزئي (إضافة شعبة وتغيير قاعة أو أستاذ أو وقت) والجولات التالية للجولة الأولى.",
+        "en": "The system shall let only the university registrar set the schedule submission date as YYYY-MM-DD or clear it with an empty value, shall refuse setting a date for an ended term, shall treat a deadline as passed after 23:59:59 of its day in Kuwait time (UTC+3), shall compute a department's effective deadline as the later of the term deadline and its exception, and shall call it 'near' when seven days or fewer remain. It shall also The system shall, after the department's effective deadline has passed, refuse importing a schedule from a file, copying a schedule from another term, and bulk deletion exceeding 30% of the scope's appointments, while keeping partial edits (adding a section, changing a room, instructor or time) and rounds after the first open."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarHead",
+        "admin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "تاريخ بصيغة خاطئة يرجع 400، ومنتهٍ يرجع 409 term-closed.",
+          "en": "A malformed date returns 400 and an ended term returns 409 term-closed."
+        },
+        {
+          "ar": "موعد الفصل قبل 4 أيام: انقضى وdaysLeft = -4؛ وبعد 4 أيام: tone = near.",
+          "en": "A deadline 4 days ago has passed with daysLeft = -4; one in 4 days has tone = near."
+        },
+        {
+          "ar": "حذف 40 من 100 تسليم شامل، وحذف 30 من 100 والحد نفسه ليسا تجاوزاً، وجدول فارغ لا نسبة له.",
+          "en": "Deleting 40 of 100 is wholesale, deleting 30 of 100 is exactly the limit and is not, and an empty schedule has no ratio."
+        },
+        {
+          "ar": "الرفض يذكر الموعد المنقضي ويقول إن التمديد من المسجّل العام هو الحل.",
+          "en": "The refusal names the passed date and says an extension from the university registrar is the remedy."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts",
+          "src/utils/approvalWorkflow.ts#readDeadline",
+          "src/utils/approvalWorkflow.ts#effectiveSubmissionDate",
+          "src/utils/approvalWorkflow.ts#isWholesaleChange",
+          "src/server/core/approvals.ts#wholesaleRefusal",
+          "src/server/routes/scheduleImportRoutes.ts",
+          "src/server/routes/schedulesRoutes.ts"
+        ],
+        "tests": [
+          "tests/approval-workflow-audit.ts",
+          "tests/deadlines-panel-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-018",
+      "kind": "functional",
+      "title": {
+        "ar": "منح الاستثناءات بالجملة",
+        "en": "Bulk exception grants"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للمسجّل العام ورئيس تسجيل الكلية منح استثناء تسليم أو رفعه أو رفض طلب تمديد لكل الأقسام أو كلية أو أقسام بأعيانها (حتى 500 قسم) ضمن نطاقهما، بأيام من 1 إلى 60 أو بتاريخ صريح، بسبب من ثلاثة أحرف فأكثر (240 كحد أقصى)، ولا يسبق موعد الفصل ولا يُمنح في فصل بلا موعد أو منتهٍ، وأن تُحسب الأيام من الأبعد بين موعد الفصل واستثناء القسم القائم، وأن يُكتب كل قسم على طابوره ومراجعته ويُقال لكل قسم ما جرى له.",
+        "en": "The system shall let the university registrar and the college registrar grant or lift a submission exception, or reject an extension request, for all departments, one college or named departments (up to 500) within their scope, using 1 to 60 days or an explicit date, with a reason of at least three characters (240 maximum), never before the term deadline and never in a term with no deadline or an ended term, shall count days from the later of the term deadline and the department's existing exception, and shall write each department on its own queue and revision and report to each what happened to it."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarHead",
+        "collegeRegistrar"
+      ],
+      "acceptance": [
+        {
+          "ar": "موظف التسجيل يتلقى 403 على المسار؛ وقسم خارج نطاق المانح يُقال له «خارج صلاحيات الأقسام المسموحة لك».",
+          "en": "A registration officer receives 403 on the route; a department outside the grantor's scope is reported as outside the allowed departments."
+        },
+        {
+          "ar": "رفع الاستثناء يعيد القسم إلى موعد الفصل، ومنح الاستثناء يطوي طلب القسم، ورفض الطلب يحتاج سبباً ويراه القسم.",
+          "en": "Lifting an exception returns the department to the term deadline, granting folds away the department's request, and rejecting a request needs a reason the department sees."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts",
+          "src/utils/submissionDeadlines.ts#decideException",
+          "src/utils/submissionDeadlines.ts#resolveExceptionTargets"
+        ],
+        "tests": [
+          "tests/deadlines-panel-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-019",
+      "kind": "functional",
+      "title": {
+        "ar": "طلب التمديد من القسم",
+        "en": "Extension request from a department"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للجنة الجدول أو رئيس القسم طلب تمديد بسبب من ثلاثة أحرف فأكثر (240 كحد أقصى) وعدد أيام من 1 إلى 60 (الافتراضي 7)، وألا يقبله إلا لجدول لم يصل التسجيل ولم يُعتمد (قيد الإعداد أو موقَّع أو مُرجَع)، ومع موعد فاعل قائم يبقى عليه ثلاثة أيام أو أقل أو انقضى، ولا طلب سابقاً معلّقاً، وأن تحكم القاعدة نفسها زر الطلب في الشريط.",
+        "en": "The system shall let the schedule committee or department head request an extension with a reason of at least three characters (240 maximum) and a number of days from 1 to 60 (default 7), shall accept it only for a schedule that has not reached the registrar and is not accepted (in preparation, signed or returned), with an existing effective deadline that is three days or fewer away or has passed, and with no earlier request pending, and the same rule shall govern the request button in the bar."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب لجدول معتمد أو عند التسجيل يرجع 409 برمز extension-request-refused وسببه.",
+          "en": "A request for an accepted schedule or one with the registrar returns 409 with code extension-request-refused and its reason."
+        },
+        {
+          "ar": "يصل الطلب إلى الوارد مع تاريخ مقترح هو الأبعد بين الموعد الفاعل واليوم مضافاً إليه الأيام.",
+          "en": "The request reaches the inbox with a suggested date equal to the later of the effective deadline and today plus the days."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#extensionRequestRefusal",
+          "src/server/routes/approvalsRoutes.ts"
+        ],
+        "tests": [
+          "tests/relay-fixes-audit.ts",
+          "tests/deadlines-panel-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-020",
+      "kind": "functional",
+      "title": {
+        "ar": "مواعيد الطلبة للفصل",
+        "en": "Term student dates"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للمسجّل العام وحده حفظ تواريخ رحلة الطلبة للفصل (الرغبات وجولات التسجيل بحد أقصى 8 جولات وإغلاق الطلبات) بعد فحصها بالقاعدة نفسها التي تعرضها الواجهة، وأن يرفض الترتيب غير المتسق أو فصلاً منتهياً، وأن يرفع التواريخ كلها عند إرسال قيمة فارغة.",
+        "en": "The system shall let only the university registrar save the term's student-journey dates (wishes, registration rounds with a maximum of 8 rounds, and request closing) after validating them with the same rule the client shows, shall refuse inconsistent ordering or an ended term, and shall clear all dates when an empty value is sent."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "registrarHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "رغبات تبدأ قبل نهاية موعد تسليم الجداول تُرفض بـ400 مع رسالة لكل مشكلة.",
+          "en": "Wishes that start before the schedule submission deadline are refused with 400 and a message per issue."
+        },
+        {
+          "ar": "تاريخ فارغ يمسح مواعيد الطلبة ويرجع phases = null.",
+          "en": "An empty value clears the student dates and returns phases = null."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts",
+          "src/utils/termStudentPhases.ts#checkStudentPhases",
+          "src/components/StudentPhasesBlock.tsx"
+        ],
+        "tests": [
+          "tests/term-student-phases-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-021",
+      "kind": "functional",
+      "title": {
+        "ar": "وارد التسجيل والتأخر والعدّاد",
+        "en": "Registrar inbox, lateness and counter"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لكل قسم في نطاق القارئ صفاً واحداً بالحالة والجولة وعدد المواعيد والتعارضات والملاحظات المفتوحة والمُجاب عنها والشعب المنتظرة والموعد والتأخر وطلب التمديد، وأن يرتّب الصفوف بأولوية: وارد جديد (0)، عائد بعد إرجاع (1)، ما فيه موانع (2)، مُرجَع (3)، غير ذلك (4)، معتمد (5)، ثم بعدد الموانع فالاسم، وأن يضمّ الأقسام التي لم تبدأ. كما يجب عليه أن يعدّ القسم متأخراً إذا انقضى موعده الفاعل بتوقيت الكويت ولم يرسل جولة قط ولم تكن حالته عند التسجيل أو مُرجَعة أو معتمدة، وأن يحسب تأخره عند القراءة لا يخزنه، وأن يعرض عدّاد /api/approvals/badge للتسجيل عدد الجداول «عند التسجيل»، ولرئيس القسم ما ينتظر توقيعه وإقرار الإضافات وملاحظات التسجيل المفتوحة، وللجنة ملاحظات التسجيل المفتوحة، مجموعاً للفصل الجاري وفصل التخطيط.",
+        "en": "The system shall show, for each department in the reader's scope, one row with status, round, appointment count, conflicts, open and answered notes, pending sections, deadline, lateness and extension request, shall order rows by priority: new arrival (0), returned after a return (1), has blockers (2), returned (3), other (4), accepted (5), then by blocker count and name, and shall include departments that have not started. It shall also treat a department as late if its effective deadline has passed in Kuwait time and it never sent a round and is not with the registrar, returned or accepted, shall compute lateness at read time without storing it, and shall make /api/approvals/badge show the registrar the number of schedules 'with the registrar', the department head what awaits his signature, additions acknowledgement and open registrar notes, and the committee the open registrar notes, summed over the current term and the planning term."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead",
+        "registrarDean",
+        "departmentHead",
+        "committeeChair",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الجديد قبل العائد، والمُرجَع قبل المعتمد، والمعتمد في الأسفل.",
+          "en": "New before returning, returned before accepted, and accepted at the bottom."
+        },
+        {
+          "ar": "الفصل كله يُقرأ بثلاث قراءات ثابتة (المواعيد والملاحظات والخيارات) مهما كثرت الأقسام.",
+          "en": "The whole term is read with three fixed reads (appointments, notes, options) however many departments exist."
+        },
+        {
+          "ar": "قسم مُرسَل أو مُرجَع أو معتمد لا يُعدّ متأخراً ولو انقضى الموعد.",
+          "en": "A sent, returned or accepted department is not late even if the deadline passed."
+        },
+        {
+          "ar": "ملاحظات جدول عند التسجيل لا تُعدّ في عدّاد القسم لأنه لا يملك فيها فعلاً.",
+          "en": "Notes of a schedule with the registrar are not counted in the department's counter because it cannot act on them."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts",
+          "src/utils/approvalWorkflow.ts#inboxPriority",
+          "src/utils/lateness.ts#isLate",
+          "src/server/routes/approvalsRoutes.ts#approvalBadgeForTerm"
+        ],
+        "tests": [
+          "tests/approval-workflow-audit.ts",
+          "tests/approval-integrity-audit.ts",
+          "tests/deadlines-panel-audit.ts",
+          "tests/dean-notify-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-022",
+      "kind": "functional",
+      "title": {
+        "ar": "حالات الفصل كله وميزان الأقسام",
+        "en": "Term-wide status and department balance"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد من /api/approvals/term حالة كل قسم في الفصل ضمن نطاق القارئ ومعها الأقسام التي لم تبدأ، ويميّز قسماً له مواعيد بلا سجل («قيد الإعداد») عن قسم بلا مواعيد («لم يبدأ»)، وأن يعرض ميزان الأقسام صفاً لكل قسم بعمود اعتماد مرتّب بالأولوية: متأخر، لم يبدأ، قيد الإعداد، موقّع من اللجنة، موقّع من رئيس القسم، مُرجَع، عند التسجيل، معتمد.",
+        "en": "The system shall return from /api/approvals/term each department's status in the term within the reader's scope together with departments that have not started, shall distinguish a department with appointments but no record ('in preparation') from one with no appointments ('not started'), and the department balance shall show one row per department with an approval column ordered by priority: late, not started, in preparation, committee signed, head signed, returned, with the registrar, accepted."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "dean",
+        "viceDean",
+        "registrarDean",
+        "registrarHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "قسم كتب ستة مواعيد ولم يوقّع يظهر «قيد الإعداد» لا «لم يبدأ».",
+          "en": "A department that wrote six appointments and did not sign appears as 'in preparation', not 'not started'."
+        },
+        {
+          "ar": "قسم من نطاق القارئ بلا بيانات يظهر بأصفار صريحة لا بغياب صامت.",
+          "en": "A department in the reader's scope with no data appears with explicit zeros rather than a silent absence."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts",
+          "src/server/routes/reportsRoutes.ts",
+          "src/components/Reports.tsx#BalancePanel",
+          "src/utils/submissionDeadlines.ts#progressSegment"
+        ],
+        "tests": [
+          "tests/deadlines-panel-audit.ts",
+          "tests/role-scope-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-023",
+      "kind": "functional",
+      "title": {
+        "ar": "العميد يرى الجدول النهائي وحده ونشرة المجلس",
+        "en": "Dean sees the final schedule only; council bulletin"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ للعميد والعميد المساعد كل قسم كما قبِله التسجيل آخر مرة (حياً إن كان معتمداً، ومن نسخة آخر قبول إن عاد للتسجيل، ولا يظهر ما لم يُقبل قط إلا في فصل منتهٍ)، وأن يتيح طباعة «نشرة المجلس — ميزان الأقسام» في أي وقت ولو قبل أول اعتماد، بصفحات من 14 قسماً، بعمودَي الاعتماد والموعد، وبتصميم التقارير المطبوعة المعتمد.",
+        "en": "The system shall read for the dean and vice dean each department as the registrar last accepted it (live if accepted, from the last accepted version if it returned to the registrar, and never shown if never accepted except in an ended term), and shall allow printing the 'Council bulletin — department balance' at any time even before the first acceptance, in pages of 14 departments, with approval and deadline columns, in the approved printed-report design."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "dean",
+        "viceDean"
+      ],
+      "acceptance": [
+        {
+          "ar": "مواعيد المسودة و«أثقل أستاذ» في قسم لم يُعتمد لا تدخل ميزان العميد.",
+          "en": "Draft appointments and the 'heaviest instructor' of a department not yet accepted are excluded from the dean's balance."
+        },
+        {
+          "ar": "الإدارة الرئيسية تقرأ المسودة كما هي، والعميد يرى كليته وعميد التسجيل يرى الجميع.",
+          "en": "Main administration reads drafts as they are, the dean sees his college and the dean of registration sees all."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/scheduleReads.ts#readsFinalSchedulesOnly",
+          "src/utils/finality.ts#finalSourceFor",
+          "src/server/routes/reportsRoutes.ts",
+          "src/components/Reports.tsx"
+        ],
+        "tests": [
+          "tests/dean-notify-audit.ts",
+          "tests/role-scope-audit.ts",
+          "tests/report-approval-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-024",
+      "kind": "functional",
+      "title": {
+        "ar": "جاهزية المراجعة والموانع بتفاصيلها",
+        "en": "Review readiness and detailed blockers"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد من /api/schedules/review-readiness الموانع بتفاصيل مواعيد القسم والتنبيهات (الشعبة المسجّلة مرتين في قاعتين أو بأستاذين) منفصلة عن العدد، ورقمي الموانع والمواعيد التي تمسّها، وأن يجمع بوضع family=1 صفوف عائلة القسم المسموحة للقارئ، وأن يصف التعارض مع قسم آخر وصفاً عاماً بلا أسماء، وأن يضيف موانع استعارة القاعات المعتمدة.",
+        "en": "The system shall return from /api/schedules/review-readiness the blockers with the department's appointment details and the warnings (the same section recorded twice in two halls or with two instructors) separate from the count, the two numbers for blockers and the appointments they touch, shall gather in family=1 mode the rows of the department family allowed to the reader, shall describe a clash with another department generically without names, and shall add blockers from approved hall barter windows."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "طول قائمة الموانع يساوي blockingConflicts، وblockingRows عدد المواعيد المختلفة في أزواجها.",
+          "en": "The blockers list length equals blockingConflicts, and blockingRows is the number of distinct appointments in its pairs."
+        },
+        {
+          "ar": "الموعد المقابل خارج نطاق القارئ يُوصف «موعد خارج نطاق العرض الحالي».",
+          "en": "A counterpart appointment outside the reader's scope is described as an appointment outside the current view."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/scheduleReviewRoutes.ts",
+          "src/utils/scheduleBlockers.ts#approvalBlockers",
+          "src/utils/scheduleBlockers.ts#approvalWarnings"
+        ],
+        "tests": [
+          "tests/one-blocker-number-audit.ts",
+          "tests/blockers-stream-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-025",
+      "kind": "functional",
+      "title": {
+        "ar": "درجة الاعتماد معادلة صريحة",
+        "en": "Approval score as an explicit formula"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحسب درجة الاعتماد = المواعيد السليمة ÷ كل مواعيد النطاق × 100 مقرّبة لأقرب عدد صحيح، وأن يعدّ كل موعد مرة واحدة عند أول بند يمسّه بترتيب الخطورة (موانع ثم لائحة)، وأن يعرض لكل بند الدرجة المتوقعة إذا عولج وحده، وأن يعرض الصيغة جملةً يتحقق منها القارئ بيده.",
+        "en": "The system shall compute the approval score = sound appointments ÷ all scope appointments × 100 rounded to a whole number, shall count each appointment once at the first category touching it in severity order (blockers, then regulation), shall show per category the projected score if it alone is fixed, and shall display the formula as a sentence the reader can check by hand."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "مجموع شرائح الحلقة والسليم يساوي كل المواعيد، ونطاق بلا مواعيد يعرض «لا مواعيد في النطاق» ودرجة 100.",
+          "en": "The ring's slices plus the sound appointments equal all appointments, and a scope with no appointments shows 'no appointments in scope' and a score of 100."
+        },
+        {
+          "ar": "«لو عالجت هذا ← N» تحسب المواعيد التي لا يمسّها إلا هذا البند.",
+          "en": "'If you fix this → N' counts the appointments touched only by that category."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalScore.ts#approvalScoreBreakdown",
+          "src/components/ScheduleReview.tsx"
+        ],
+        "tests": [
+          "tests/approval-review-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-026",
+      "kind": "functional",
+      "title": {
+        "ar": "ملف الاعتماد",
+        "en": "Approval dossier"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يبني ملف اعتماد من سجل الاعتماد وتقرير التغييرات وجاهزية المراجعة، يعرض أعداد المضاف والمعدَّل والمحذوف بنسب مجموعها 100 والمقررات المتغيرة (حتى 12 سطراً ثم «و N أخرى») والموانع (حتى 4) والخط الزمني للجولات والتواقيع بأرمازها، وأن يسقط كل ما وصل لنطاق آخر، وألا يعرض قيمة غير متوفرة (يكتب «غير متوفر»)، وأن يُطبع A4 كما يُعاين.",
+        "en": "The system shall build an approval dossier from the approval record, the change report and the review readiness, showing counts of added, modified and removed appointments as percentages summing to 100, the changed courses (up to 12 lines then 'and N more'), blockers (up to 4), and the timeline of rounds and signatures with their codes, shall drop anything received for another scope, shall not present an unavailable value (it says 'not available'), and shall print on A4 as previewed."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "collegeRegistrar",
+        "registrarHead",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "سجل اعتماد لقسم شقيق لا يُعرض ولو جاء تحت مفتاح هذا النطاق (scopeMismatch).",
+          "en": "A sibling department's approval record is not shown even if it arrives under this scope's key (scopeMismatch)."
+        },
+        {
+          "ar": "لا أسباب للتغيير تُعرض: السجل يحمل «ما تغيّر» فقط لا «لماذا».",
+          "en": "No reasons for changes are shown: the record carries what changed, not why."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalDossier.ts#buildApprovalDossier",
+          "src/components/ApprovalDossier.tsx",
+          "src/utils/approvalScope.ts"
+        ],
+        "tests": [
+          "tests/approval-dossier-audit.ts",
+          "tests/approval-scope-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-027",
+      "kind": "functional",
+      "title": {
+        "ar": "ختم الورقة المطبوعة وصفحة التحقق منه",
+        "en": "Printed sheet stamp and its verification page"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرسم في ذيل تقرير القسم الشامل (بنوعيه) وتقرير التغييرات رمز QR ورمزاً من ثمانية محارف (أبجدية Crockford) يُشتق من نوع الورقة والفصل والمواقع وبصمات صفوفها (حتى 3000 صف و12 موقعاً)، وأن يُسجَّل بعد أمر الطباعة لا قبله، وأن يعيد الخادم حساب الرمز من الصفوف المرسلة فيرفض بـ409 ما لا يطابق، ويعدّ طباعة جديدة لختم موجود، ويعلّم الصفوف التي اختلفت عمّا في النظام (شاشة لم تُحدَّث). كما يجب عليه أن يتيح صفحة عامة بلا دخول وبلا سكربت على /v/:code تقبل الرمز صغيراً أو بشرطة (وO مكان 0 وI أو L مكان 1) وتحوّله إلى رابطه الواحد، وتقارن صفوف الورقة بالجدول الحي صفاً صفاً فتقول «مطابقة للجدول الآن» أو «تغيّر الجدول بعد طباعة هذه الورقة» مع المتغيّر والمحذوف والمضاف (حتى 60 سطراً لكل قائمة)، وحال الاعتماد لورقة قسم واحد، دون أي اسم أو رقم مدني.",
+        "en": "The system shall draw in the footer of the comprehensive department report (both kinds) and the change report a QR code and an eight-character code (Crockford alphabet) derived from the sheet kind, term, sites and its rows' fingerprints (up to 3000 rows and 12 sites), shall register it after the print command rather than before, and the server shall recompute the code from the sent rows and refuse with 409 any that does not match, count a new print for an existing stamp, and flag rows that differ from the system (a stale screen). It shall also provide a public page with no sign-in and no script at /v/:code that accepts the code in lower case or with a dash (and O for 0, I or L for 1) and redirects it to its single canonical link, compares the sheet's rows with the live schedule row by row and states 'matches the schedule now' or 'the schedule changed after this sheet was printed' with the changed, removed and added rows (up to 60 lines per list), and the approval status for a single-department sheet, without any name or civil id."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "registrarStaff",
+        "departmentHead",
+        "committeeChair",
+        "system",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "الصفوف نفسها تعطي الرمز نفسه، وأي تعديل قبل الطباعة يعطي رمزاً آخر.",
+          "en": "The same rows give the same code and any edit before printing gives a different code."
+        },
+        {
+          "ar": "تسجيل تعثّر لانقطاع شبكة يُحفظ ويُعاد عند فتح الاستعلامات (حتى 12 في الطابور).",
+          "en": "A registration that failed on a network drop is queued and retried when the query screens open (up to 12 queued)."
+        },
+        {
+          "ar": "رمز غير معروف يرجع 404 بحالة «unknown»، وبصيغة خاطئة 404 بحالة «invalid»، وخطأ قراءة 503.",
+          "en": "An unknown code returns 404 with state 'unknown', a malformed one 404 with state 'invalid', and a read failure 503."
+        },
+        {
+          "ar": "الصفحة محدودة بـ40 طلباً في الدقيقة للعنوان، ولا تُفهرس (noindex).",
+          "en": "The page is limited to 40 requests per minute per address and is not indexed (noindex)."
+        },
+        {
+          "ar": "أرقام المقررات المعروضة بسبع خانات.",
+          "en": "Course numbers shown are seven digits."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/reportStamp.ts#reportStampCode",
+          "src/utils/reportStampClient.ts",
+          "src/components/PrintStamp.tsx",
+          "src/server/routes/reportsRoutes.ts",
+          "src/server/reportStampPage.ts#reportStampPage",
+          "src/utils/reportStamp.ts#compareReportStamp"
+        ],
+        "tests": [
+          "tests/report-stamp-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-APR-028",
+      "kind": "functional",
+      "title": {
+        "ar": "التحقق من توقيع طلب الأستاذ بالرقم المدني",
+        "en": "Instructor request signature check by civil id"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح على /verify و/verify/:code صفحة عامة يكتب فيها الأستاذ رقمه المدني (12 رقماً صحيحة) وبصورة اختيارية رمز التوقيع (6 محارف)، فيعرض توقيعاته (حتى 20 طلباً) وما وُقّع عليه لحظتها، دون حفظ الرقم، ويجيب بجواب واحد لرقم لا توقيع له ولرمز لا يطابق، ويقيّد الطلبات بـ30 في الدقيقة وبحصة محاولات للعنوان.",
+        "en": "The system shall provide at /verify and /verify/:code a public page where an instructor enters his civil id (12 valid digits) and optionally the signature code (6 characters) and sees his signatures (up to 20 requests) and what was signed at the time, without storing the number, answering identically for a number with no signature and a code that does not match, and limiting requests to 30 per minute plus a per-address attempt quota."
+      },
+      "rationale": {
+        "ar": "هذا التحقق خاص بتوقيعات طلبات الأساتذة؛ أمّا رموز توقيعي اللجنة ورئيس القسم فتظهر في ملف الاعتماد ولا صفحة عامة لها.",
+        "en": "This check is specific to instructor request signatures; the codes of the committee and head signatures appear in the approval dossier and have no public page."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رقم مدني خاطئ الصيغة يرجع 400 ولا يُحسب محاولة، ورقم بلا توقيع يرجع 404 بنص واحد.",
+          "en": "A malformed civil id returns 400 and is not counted as an attempt, and a number with no signature returns 404 with one message."
+        },
+        {
+          "ar": "رمز كُتب ولم يطابق لا يُسقط الباب: تُعرض توقيعاته ويُقال إنه لا يطابق.",
+          "en": "A code that was typed and did not match does not close the door: the signatures are shown and the mismatch is stated."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/verifyRoutes.ts",
+          "src/server/signatureVerifyPage.ts#signatureVerifyPage"
+        ],
+        "tests": [
+          "tests/request-signature-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-APR-001",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "النطاق في كل مسار وأداء الوارد",
+        "en": "Scope on every route and inbox performance"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتحقق في كل مسار اعتماد من أن الكلية والقسم المطلوبين ضمن نطاق المستخدم (403 «خارج صلاحيات الأقسام المسموحة لك»)، وأن يطبّق النطاق نفسه على صفوف الوارد والعدّاد والميزان، وأن يطلب الكلية والقسم والفصل جميعها (400 بجملة عربية واحدة). كما يجب عليه أن يبني وارد الفصل بعدد ثابت من القراءات (مواعيد الفصل، ملاحظات الفصل، خيارات الموانع) يُوزَّع على الأقسام في الذاكرة، وألا يقرأ جدول الفصل لكل قسم على حدة، وأن يقيس حالة الملاحظة بصفوف القسم نفسه لا بصفوف الفصل.",
+        "en": "The system shall verify on every approval route that the requested college and department are within the user's scope (403 'outside the departments allowed to you'), shall apply the same scope to inbox rows, the counter and the balance, and shall require college, department and term together (400 with one Arabic sentence). It shall also build the term inbox with a fixed number of reads (term appointments, term notes, blocker options) distributed to departments in memory, shall not read the term schedule once per department, and shall measure a note's state against the department's own rows rather than the term's rows."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب لقسم خارج نطاق المستخدم يرجع 403 ولا يُقرأ منه شيء.",
+          "en": "A request for a department outside the user's scope returns 403 and nothing is read from it."
+        },
+        {
+          "ar": "طلب بلا فصل أو قسم يرجع 400 «اختر الفصل والكلية والقسم أولاً».",
+          "en": "A request without a term or department returns 400 asking to choose the term, college and department first."
+        },
+        {
+          "ar": "الكود لا يحتوي قراءة لكل قسم على حدة داخل مسار الوارد.",
+          "en": "The inbox route contains no per-department read loop."
+        },
+        {
+          "ar": "صف انتقل بين الأقسام لا يجعل ملاحظته تظهر «تنتظر» في قسمه الجديد.",
+          "en": "A row that moved between departments does not make its note appear 'open' in the new department."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/approvalsRoutes.ts#approvalScopeFromBody",
+          "src/server/routes/scheduleReviewRoutes.ts",
+          "src/server/routes/approvalsRoutes.ts",
+          "src/server/core/approvals.ts#countBlockingConflicts"
+        ],
+        "tests": [
+          "tests/role-scope-audit.ts",
+          "tests/approval-scope-audit.ts",
+          "tests/approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-APR-002",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "تاريخ الموعد بتوقيت الكويت وبقاعدة واحدة",
+        "en": "Kuwait-time dates with a single rule"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ «اليوم» في كل حساب موعد وتمديد وتأخر بتوقيت الكويت (UTC+3) لا بالساعة العالمية، وأن تقرأ الواجهة والخادم الدوال نفسها (readDeadline، kuwaitDateISO، isLate)، وأن تُحسب الأيام بالتقويم لا بالساعات.",
+        "en": "The system shall read 'today' in every deadline, extension and lateness calculation in Kuwait time (UTC+3) rather than universal time, shall have the client and server use the same functions (readDeadline, kuwaitDateISO, isLate), and shall count days by calendar rather than hours."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "بين منتصف الليل والثالثة فجراً بتوقيت الكويت يُعدّ يوم الموعد منقضياً لا قائماً.",
+          "en": "Between midnight and 03:00 Kuwait time a deadline's day counts as passed, not still running."
+        },
+        {
+          "ar": "الفرق بين 2024-02-28 و2024-03-01 يومان (سنة كبيسة).",
+          "en": "The difference between 2024-02-28 and 2024-03-01 is two days (leap year)."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalWorkflow.ts#kuwaitDateISO",
+          "src/utils/approvalWorkflow.ts#deadlineEndsAt",
+          "src/utils/lateness.ts"
+        ],
+        "tests": [
+          "tests/approval-workflow-audit.ts",
+          "tests/relay-fixes-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-APR-003",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الخصوصية وتقييد المحاولات في الصفحات العامة",
+        "en": "Privacy and attempt limits on public pages"
+      },
+      "text": {
+        "ar": "يجب على صفحات التحقق العامة ألا تحفظ رقماً مدنياً ولا تعرض اسماً أو رقماً مدنياً في صفحة الختم، وأن تُرسل Cache-Control: no-store ووسم noindex، وأن تقيّد الطلبات (الختم 40 في الدقيقة، التوقيع 30 في الدقيقة، تسجيل الختم 60 في الدقيقة)، وألا تفرّق في الجواب بين رقم بلا توقيع ورقم لا يخصّ أحداً.",
+        "en": "The public verification pages shall not store a civil id nor show a name or civil id on the stamp page, shall send Cache-Control: no-store and a noindex marker, shall limit requests (stamp page 40 per minute, signature check 30 per minute, stamp registration 60 per minute), and shall not distinguish in the answer between a number with no signature and a number that belongs to no one."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرقم المدني يُرسل مرة للمطابقة ويُمحى من الحقل ولا يُحفظ في المتصفح.",
+          "en": "The civil id is sent once for matching, cleared from the field and not kept in the browser."
+        },
+        {
+          "ar": "الصفحتان ترسلان no-store وتحتويان robots noindex.",
+          "en": "Both pages send no-store and contain robots noindex."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/verifyRoutes.ts",
+          "src/server/reportStampPage.ts",
+          "src/server/signatureVerifyPage.ts"
+        ],
+        "tests": [
+          "tests/request-signature-audit.ts",
+          "tests/report-stamp-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-APR-001",
+      "kind": "interface",
+      "title": {
+        "ar": "شريط الاعتماد يقول ما ينتظر صاحبه فقط",
+        "en": "Approval bar shows only what awaits the viewer"
+      },
+      "text": {
+        "ar": "يجب على شريط الاعتماد أن يرتّب ما يعرضه بترتيب الفعل: مُرجَع بملاحظات، ثم شعب تنتظر إقرار رئيس القسم، ثم التوقيع، ثم الإرسال، ثم «عند التسجيل» خبراً هادئاً، وألا يظهر لمن لا ينتظره شيء، وأن يقول جملة التعارض بصيغة الجمع العربية الصحيحة (تعارض مادّي، تعارضان مادّيان، تعارضات مادّية، تعارضاً مادّياً) مع عدد المواعيد التي تمسّها.",
+        "en": "The approval bar shall order what it shows in the order of action: returned with notes, then sections awaiting the head's acknowledgement, then signing, then sending, then 'with the registrar' as quiet news, shall show nothing to someone with nothing waiting, and shall phrase the conflict sentence in correct Arabic number forms (one, dual, few, many) together with the number of appointments it touches."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "قسم في أول الإعداد لا شيء ينتظره لا يرى شريطاً.",
+          "en": "A department at the start of preparation with nothing waiting sees no bar."
+        },
+        {
+          "ar": "العبارة للعددين 1 و2 و5 و11 تتبع المعدود: مادّي واحد، مادّيان، مادّية، مادّياً.",
+          "en": "The phrase for 1, 2, 5 and 11 follows the counted noun: singular, dual, plural for few, accusative for many."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ApprovalBar.tsx",
+          "src/utils/approvalBarPresence.ts",
+          "src/utils/approvalWorkflow.ts#blockingConflictPhrase"
+        ],
+        "tests": [
+          "tests/approval-bar-visual-audit.ts",
+          "tests/approval-workflow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-APR-002",
+      "kind": "interface",
+      "title": {
+        "ar": "لوحة مواعيد التسليم",
+        "en": "Submission deadlines panel"
+      },
+      "text": {
+        "ar": "يجب على الواجهة أن تعرض في رأس «تغييرات الجدول» لوحة واحدة هي مكان كتابة موعد الفصل واستثناءاته: الموعد بيومه وما بقي عليه، وثلاثة مواعيد جاهزة (بعد أسبوع وأسبوعين وثلاثة) لفصل بلا موعد، وشرائح أيام 1 و2 و3 و5 و7، ومعاينة «سيصبح موعد N أقسام: …» قبل التطبيق، وميزان تسليم الفصل، وطلبات الأقسام بزرّي منح ورفض، ويُطوى شريطاً متى وُضع الموعد ولم ينتظر شيء.",
+        "en": "The interface shall show in the header of 'Schedule changes' one panel that is the only place the term deadline and its exceptions are written: the date with the days left, three ready dates (in one, two and three weeks) for a term with no deadline, day chips of 1, 2, 3, 5 and 7, a preview 'N departments will become: …' before applying, the term submission progress bar, and department requests with grant and reject buttons, collapsing to a strip once the deadline is set and nothing waits."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "registrarHead",
+        "collegeRegistrar",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "المسجّل العام يرى حقل الموعد والتمديد، ورئيس تسجيل الكلية يرى الموعد قراءةً وأزرار التمديد، وموظف التسجيل يرى اللوحة قراءةً.",
+          "en": "The university registrar sees the deadline field and extension actions, the college registrar sees the deadline read-only plus extension actions, and a registration officer sees the panel read-only."
+        },
+        {
+          "ar": "«متأخّر» في اللوحة هو «متأخّر» القاعدة الواحدة isLate لا حساب ثانٍ.",
+          "en": "'Late' in the panel is the single isLate rule, not a second calculation."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/SubmissionDeadlines.tsx",
+          "src/utils/inboxAudience.ts",
+          "src/utils/submissionDeadlines.ts"
+        ],
+        "tests": [
+          "tests/deadlines-panel-audit.ts"
+        ]
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "توقيع رئيس القسم مع مانع إرسال",
+        "en": "Head signature with a sending blocker"
+      },
+      "scenario": {
+        "ar": "يوقّع رئيس القسم وفي الجدول ملاحظة تسجيل مفتوحة أو انقضى الموعد قبل أول إرسال.",
+        "en": "The department head signs while a registrar note is open or the deadline passed before the first send."
+      },
+      "behavior": {
+        "ar": "يُحفظ التوقيع كما هو ولا يُرسل الجدول، ويرجع الرد submitted=false مع submitBlocked بسبب المنع؛ وتبقى الحالة «موقّع من رئيس القسم» حتى يعالج صاحبه السبب ويرسل.",
+        "en": "The signature is kept and the schedule is not sent; the response carries submitted=false with submitBlocked giving the reason, and the status remains 'head signed' until the cause is resolved and the schedule is sent."
+      },
+      "evidence": [
+        "tests/relay-fixes-audit.ts",
+        "src/server/routes/approvalsRoutes.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "تعذّر كتابة سجل الاعتماد بعد تعديل معتمد",
+        "en": "Approval record write fails after an accepted edit"
+      },
+      "scenario": {
+        "ar": "يُحفظ تعديل موعد في جدول معتمد ثم تفشل كتابة جولة التعديل.",
+        "en": "An appointment edit is saved on an accepted schedule and then writing the amendment round fails."
+      },
+      "behavior": {
+        "ar": "لا يُبطَل حفظ الموعد؛ تُكتب علامة amendmentPending فوق آخر مراجعة ويُرسل X-Approval-Amendment: pending، ويفتح أول قارئ أو قرار لاحق الجولة بالفاعل الأصلي في السجل، فلا يبقى معتمد معدَّل بلا جولة.",
+        "en": "The appointment save is not undone; an amendmentPending marker is written over the last revision and X-Approval-Amendment: pending is sent, and the first later reader or decision opens the round attributed to the original actor, so no amended schedule stays accepted without a round."
+      },
+      "evidence": [
+        "tests/relay-fixes-audit.ts",
+        "src/server/core/approvals.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "تأخير موعد الفصل بعد منح استثناء",
+        "en": "Term deadline moved after an exception was granted"
+      },
+      "scenario": {
+        "ar": "مُنح قسم استثناءً حتى يوم، ثم أُخّر موعد الفصل ليصير بعد ذلك اليوم.",
+        "en": "A department was granted an exception until a day, then the term deadline was moved later than that day."
+      },
+      "behavior": {
+        "ar": "يُحاسَب القسم على الأبعد منهما، فلا يُعاقَب بمنحة سبقت؛ ويعدّ الاستثناء الجديد أيامه من الأبعد أيضاً.",
+        "en": "The department is held to the later of the two so it is not penalised by an earlier grant, and a new exception counts its days from the later date as well."
+      },
+      "evidence": [
+        "tests/approval-workflow-audit.ts",
+        "tests/deadlines-panel-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "قراران متزامنان على الجدول نفسه",
+        "en": "Two simultaneous decisions on one schedule"
+      },
+      "scenario": {
+        "ar": "يضغط رئيس القسم «موافق» على شعب مضافة بينما يستورد غيره أو يقبل التسجيل في اللحظة نفسها.",
+        "en": "The head clicks approve on added sections while someone else imports or the registrar accepts at the same moment."
+      },
+      "behavior": {
+        "ar": "يُعاد القرار الخاسر مرة واحدة على ما صارت إليه الوثيقة؛ فإن خسر ثانية رُدّ 409 approval-revision ويُطلب تحديث الشاشة، ولا يُغلق شيء من ملاحظات قبول لم يُحفظ.",
+        "en": "The losing decision is retried once on the document's new state; if it loses again it is refused 409 approval-revision with a request to refresh, and no notes are closed for an acceptance that was not saved."
+      },
+      "evidence": [
+        "tests/relay-fixes-audit.ts",
+        "src/server/approvalAttempts.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "قبول جدول فيه ملاحظات معلّقة",
+        "en": "Accepting a schedule with outstanding notes"
+      },
+      "scenario": {
+        "ar": "يقبل التسجيل جدولاً وفيه ملاحظات من التسجيل لا تزال تنتظر أو أُجيب عنها.",
+        "en": "The registrar accepts a schedule that still has registrar notes open or answered."
+      },
+      "behavior": {
+        "ar": "بعد نجاح حفظ القبول تُغلق تلك الملاحظات بقرار «أُغلقت بالقبول» ويبقى نصّها، فلا تمنع أول إعادة إرسال لاحقة؛ وتعذّر إغلاق ملاحظة يُسجَّل في السجلّ ولا يبطل القبول.",
+        "en": "After the acceptance save succeeds those notes are closed as 'closed by acceptance' and their text stays, so they do not block the first later resend; a failure to close a note is logged and does not undo the acceptance."
+      },
+      "evidence": [
+        "tests/relay-fixes-audit.ts",
+        "src/server/routes/approvalsRoutes.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "تبديل المقرر أو رقم الشعبة بعد التوقيع",
+        "en": "Swapping the course or section number after signing"
+      },
+      "scenario": {
+        "ar": "تعدّل اللجنة صفاً بعد توقيع رئيس القسم فتغيّر مقرره أو رقم شعبته، أو تنقله إلى قسم آخر.",
+        "en": "The committee edits a row after the head signed, changing its course or section number, or moving it to another department."
+      },
+      "behavior": {
+        "ar": "يُعدّ التبديل إضافة لا تعديلاً فتدخل قائمة الإقرار، بخلاف تغيير القاعة أو الوقت؛ وصف يُحذف قبل إقراره يُسقط من القائمة.",
+        "en": "The swap is treated as an addition rather than an edit and enters the acknowledgement queue, unlike a change of room or time; a row deleted before being acknowledged is removed from the queue."
+      },
+      "evidence": [
+        "tests/relay-fixes-audit.ts",
+        "src/server/core/scheduleWrites.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "تعديل جدول معتمد في فصل منتهٍ",
+        "en": "Editing an accepted schedule in an ended term"
+      },
+      "scenario": {
+        "ar": "ترحّل لجنة الجدول تصحيحاً على جدول معتمد في فصل أُغلق صراحةً.",
+        "en": "The schedule committee applies a correction to an accepted schedule in an explicitly closed term."
+      },
+      "behavior": {
+        "ar": "يمرّ التعديل لأن اللجنة وحدها تعمل في الفصل المنتهي، ويُسجَّل حدث closed-term-edit (إضافة أو تعديل أو حذف) بدل فتح جولة ترسل الجدول إلى وارد لا ينتظره.",
+        "en": "The edit passes because only the committee works in an ended term, and a closed-term-edit event (add, edit or delete) is recorded instead of opening a round that would send the schedule to an inbox that is not expecting it."
+      },
+      "evidence": [
+        "tests/term-freeze-audit.ts",
+        "src/server/core/approvals.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "الاعتماد",
+      "en": "Approval",
+      "def": {
+        "ar": "دورة مراجعة جدول القسم في فصل ومسارها من التوقيع إلى قبول التسجيل.",
+        "en": "The review cycle of a department's schedule in a term, from signature to registrar acceptance."
+      }
+    },
+    {
+      "ar": "الجولة",
+      "en": "Round",
+      "def": {
+        "ar": "مرحلة مرقّمة تبدأ عند كل إرسال إلى التسجيل أو عند أول تعديل بعد القبول (جولة تعديل).",
+        "en": "A numbered stage that starts at each send to the registrar or at the first edit after acceptance (amendment round)."
+      }
+    },
+    {
+      "ar": "التجميد",
+      "en": "Term freeze",
+      "def": {
+        "ar": "جعل الفصل السابق للعرض فقط: يُقرأ ولا يُكتب فيه، وتعلنه الواجهة بشريط «فصل سابق · للعرض فقط».",
+        "en": "Making a past term read-only: it can be read and not written, announced by the 'Past term · view only' ribbon."
+      }
+    },
+    {
+      "ar": "الفصل المنتهي",
+      "en": "Ended term",
+      "def": {
+        "ar": "فصل رفع المنسّق عليه علامة «منتهٍ» صراحةً؛ تُغلق دورة اعتماده وتبقى اللجنة وحدها تعدّل جدوله.",
+        "en": "A term the coordinator explicitly marked 'ended'; its approval cycle closes and only the committee edits its schedule."
+      }
+    },
+    {
+      "ar": "التعارض المادّي",
+      "en": "Material conflict",
+      "def": {
+        "ar": "حجز مزدوج لأستاذ أو قاعة في موعدين متداخلين، أو موعد مكرر لا يميّزه شيء؛ وهو المانع الوحيد للتوقيع والقبول بحسب القواعد العامة.",
+        "en": "An instructor or room double booking in overlapping appointments, or an indistinguishable duplicate; the general rule's only blocker for signing and acceptance."
+      }
+    },
+    {
+      "ar": "ملاحظة التسجيل",
+      "en": "Registrar note",
+      "def": {
+        "ar": "ملاحظة بنقرة على خانة في صف، تحمل الصف والحقل والقيمة لحظة الكتابة والجولة.",
+        "en": "A one-click note on a cell of a row, carrying the row, field, value at writing time and the round."
+      }
+    },
+    {
+      "ar": "الاستثناء",
+      "en": "Deadline exception",
+      "def": {
+        "ar": "موعد تسليم خاص بقسم يتقدّم على موعد الفصل متى كان أبعد منه، ويُمنح بسبب مكتوب.",
+        "en": "A department-specific submission date that takes precedence over the term deadline when later, granted with a written reason."
+      }
+    },
+    {
+      "ar": "ميزان الأقسام",
+      "en": "Department balance",
+      "def": {
+        "ar": "جدول بصف لكل قسم في الفصل: المواعيد والأساتذة والقاعات والعدالة والجودة والموانع وحال الاعتماد.",
+        "en": "A table with one row per department in the term: appointments, instructors, rooms, fairness, quality, blockers and approval status."
+      }
+    },
+    {
+      "ar": "ملف الاعتماد",
+      "en": "Approval dossier",
+      "def": {
+        "ar": "ورقة A4 تجمع ما تغيّر والموانع والتواقيع وحال القسم.",
+        "en": "An A4 sheet gathering what changed, blockers, signatures and department status."
+      }
+    },
+    {
+      "ar": "ختم الورقة",
+      "en": "Sheet stamp",
+      "def": {
+        "ar": "رمز QR ورمز من ثمانية محارف في ذيل التقرير المطبوع يُطابَق به الجدول الحي.",
+        "en": "A QR code and eight-character code in the printed report footer used to compare against the live schedule."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "قاعدة المالك (2026-09-27): التوقيع لا يمنعه إلا تعارض مادّي؛ والشعبة المسجّلة مرتين بالوقت نفسه تُقال ولا تُعدّ مانعاً.",
+      "en": "Owner rule (2026-09-27): only a material conflict prevents signing; the same section recorded twice at the same time is stated and is not counted as a blocker."
+    },
+    {
+      "ar": "ما بعد الموعد يمنع التسليم الشامل (استيراد، نسخ فصل، حذف يفوق 30%) ولا يمنع التعديل الجزئي.",
+      "en": "After the deadline wholesale hand-over (import, term copy, deletion above 30%) is refused while partial edits remain open."
+    },
+    {
+      "ar": "قاعدة صاحب النظام: فصل منتهٍ لا يُوقَّع ولا يُرسَل ولا يُستطلع فيه، وتعديل الجدول شأن لجنة الجدول وحدها.",
+      "en": "System owner's rule: an ended term has no signing, sending or surveys, and editing the schedule is the schedule committee's matter alone."
+    },
+    {
+      "ar": "الفصل السابق للعرض فقط: القراءة مفتوحة والكتابة مغلقة، بنصَّي «فصل سابق · للعرض فقط» و«هذا فصلٌ سابق: يُعرض للاطّلاع فقط ولا يُعدَّل».",
+      "en": "A past term is view-only: reading stays open and writing is closed, with the owner's two texts 'Past term · view only' and 'This is a past term: shown for reference only and not edited'."
+    },
+    {
+      "ar": "النمط غير المعتمد يمنع (قرار المالك 2026-10-30): التاريخ لا يُعفي شكلاً غير قياسي من نمط الساعات.",
+      "en": "An unapproved pattern blocks (owner decision 2026-10-30): history does not exempt a non-standard shape from the hour pattern."
+    },
+    {
+      "ar": "التقارير المطبوعة (الشامل وتقرير التغييرات ونشرة المجلس) تحتفظ بتصميمها المعتمد، وأرقام المقررات فيها وفي صفحة التحقق من سبع خانات.",
+      "en": "Printed reports (comprehensive, change report and council bulletin) keep their approved design, and course numbers in them and on the verification page are seven digits."
+    }
+  ]
+}

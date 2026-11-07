@@ -83,6 +83,8 @@ self.addEventListener("fetch",event=>{
      it under APP_SHELL_KEY and an offline launch of the app would show the plan
      instead of the app. They go straight to the network, untouched. */
   if(url.pathname.startsWith("/plans/"))return leaveToNetwork();
+  /* وثيقةُ المتطلبات (/srs/<مفتاح>/) صفحةٌ خاصة مستقلة: شبكةٌ مباشرة، ولا تحلّ محلّ هيكل التطبيق دون اتصال. */
+  if(url.pathname.startsWith("/srs/"))return leaveToNetwork();
   /* صفحتا باب القاعة ولوحة المبنى (/d/ و/b/) مستقلتان كذلك، وتُسألان كل دقيقة: شبكةٌ مباشرة. */
   if(url.pathname.startsWith("/d/")||url.pathname.startsWith("/b/"))return leaveToNetwork();
   /* الإعلانات والنبض: شبكةٌ مباشرة دائماً؛ نسخةٌ قديمة تعني إعلاناً منتهياً أو عدّاداً لا يُحتسب. */

@@ -1,0 +1,654 @@
+{
+  "id": "DSH",
+  "order": 16,
+  "icon": "layout-dashboard",
+  "title": { "ar": "اللوحات والوعي بالفصل", "en": "Dashboards and term awareness" },
+  "tagline": { "ar": "لوحة البداية، قصة الفصل، جاهزية الفصل، والجولة التعريفية.", "en": "The home dashboard, term story, semester readiness and the welcome tour." },
+  "summary": {
+    "ar": "تجمع الوحدة ما يراه المستخدم أول ما يدخل: لوحة البداية بنطاقها وفصلها المعروض وأرقامها وقراءة يومها وأسبوعها، وبطاقة «قصة الفصل» لدورة الاعتماد، ولوحة «جاهزية الفصل» في الرادار، ورسم نسبة الفترتين، والحلقات الصغيرة وبقية الرسوم المساعدة، ومسار «الرحلة» العام، والبحث العام والبحث بالجملة، والجولة التعريفية بحسب الصفة، وشبكة الأمان التي تعيد رسم الشاشة عند عطل العرض. كل رقم يُقرأ من البيانات لحظة الطلب، والنطاق والفصل يُحسمان في الخادم لا في الشاشة.",
+    "en": "This module gathers what a user sees first on entering: the home dashboard with its scope, displayed term, figures and day-and-week reading; the Term story card of the approval cycle; the Semester readiness panel of the rehearsal radar; the period-balance drawing; the mini rings and other helper drawings; the public Journey reading; the global search and sentence search; the welcome tour by role; and the safety net that redraws a screen after a rendering fault. Every number is read from the data at request time, and scope and term are decided on the server, not in the screen."
+  },
+  "actors": ["committeeChair", "departmentHead", "dean", "viceDean", "registrarHead", "collegeRegistrar", "registrarStaff", "registrarDean", "admin", "rootAdmin", "standard", "instructor", "visitor"],
+  "sources": [
+    "src/server/routes/dashboardRoutes.ts",
+    "src/components/Dashboard.tsx",
+    "src/components/TermStory.tsx",
+    "src/components/SemesterReadiness.tsx",
+    "src/components/PeriodBalanceInfographic.tsx",
+    "src/components/MiniRing.tsx",
+    "src/components/VisualBits.tsx",
+    "src/components/Onboarding.tsx",
+    "src/components/ErrorBoundary.tsx",
+    "src/utils/homeTerm.ts",
+    "src/utils/semesterReadiness.ts",
+    "src/utils/onboardingKey.ts",
+    "src/utils/naturalQuery.ts",
+    "src/styles/28-dashboard-canvas.css",
+    "docs/DEMO_GUIDE.md",
+    "docs/dashboard-term/*"
+  ],
+  "screens": [
+    { "name": { "ar": "لوحة البداية", "en": "Home dashboard" }, "file": "src/components/Dashboard.tsx", "note": { "ar": "شريط الحساب والنطاق، بطاقة القرار، مؤشرات الجاهزية، مسار محاضرات اليوم، أرقام النطاق، وقراءة حمل الأسبوع.", "en": "Account and scope bar, decision card, readiness signals, today's lecture track, scope figures and the week-load reading." } },
+    { "name": { "ar": "قصة الفصل", "en": "Term story" }, "file": "src/components/TermStory.tsx", "note": { "ar": "بطاقة في شاشة تغييرات الجدول: المواعيد وما تحرّك والجولات والملاحظات والموانع، مع نسخ جملة للعميد.", "en": "A card in the schedule-changes screen: appointments, what moved, rounds, notes and blockers, with a copy-as-sentence button for the dean." } },
+    { "name": { "ar": "جاهزية الفصل", "en": "Semester readiness" }, "file": "src/components/SemesterReadiness.tsx", "note": { "ar": "حلقة ورقم في أعلى رادار التسجيل وثلاثة أرقام وشريط أسباب النقص.", "en": "A ring and number at the top of the registration radar, three explanatory figures and a shortfall-cause bar." } },
+    { "name": { "ar": "نسبة الفترتين", "en": "Period balance" }, "file": "src/components/PeriodBalanceInfographic.tsx", "note": { "ar": "شريط قطع بحسب المادة 7/2 ومقياسان للصباح والمساء.", "en": "A strip of cells per rule 7/2 with a gauge for morning and one for evening." } },
+    { "name": { "ar": "الحلقة الصغيرة", "en": "Mini ring" }, "file": "src/components/MiniRing.tsx", "note": { "ar": "حلقة لرقم من 100 بنبرة لونية.", "en": "A ring for a figure out of 100 with a colour tone." } },
+    { "name": { "ar": "الرسوم المساعدة", "en": "Visual bits" }, "file": "src/components/VisualBits.tsx", "note": { "ar": "خريطة تنقل المباني، وشرائح معادلة، ومصفوفة حرارية للتنقل.", "en": "Building travel map, equation chips and a travel heat matrix." } },
+    { "name": { "ar": "الجولة التعريفية", "en": "Welcome tour" }, "file": "src/components/Onboarding.tsx", "note": { "ar": "مسرح لمن يبني الجدول وقائمة خطوات لبقية الصفات.", "en": "A stage for those who build the schedule and a step list for other roles." } },
+    { "name": { "ar": "استرداد العرض", "en": "Render recovery" }, "file": "src/components/ErrorBoundary.tsx", "note": { "ar": "يعيد تركيب الجزء المعطّل في مكانه ثم يعرض سطراً وزر «إعادة المحاولة».", "en": "Remounts the failed part in place, then shows one line and a Retry button." } }
+  ],
+  "journeys": [
+    {
+      "actor": "committeeChair",
+      "title": { "ar": "قراءة اللوحة صباحاً", "en": "Reading the dashboard in the morning" },
+      "steps": [
+        { "ar": "يفتح لوحة البداية فتظهر ثلاثة طلبات تنطلق معاً: اللوحة وقراءتان للتحليلات.", "en": "Opens the home dashboard; three requests start together: the dashboard and two analytics readings." },
+        { "ar": "يرى الفصل الجاري تشغيلياً، وشارة تسمّي الفصل القادم قيد الإعداد إن وُجد.", "en": "Sees the operationally current term and a badge naming the upcoming term in preparation, if any." },
+        { "ar": "تقول بطاقة القرار أهم ما يحتاج انتباهه (حتى ثلاثة بنود) أو «الجدول سليم».", "en": "The decision card states what needs his attention most (up to three items) or that the schedule is sound." },
+        { "ar": "يقرأ مسار محاضرات اليوم والمحاضرة الجارية أو التالية، ثم حمل الأيام والساعات والقاعات.", "en": "Reads today's lecture track and the current or next lecture, then the load by day, hour and hall." },
+        { "ar": "يضغط على بند ليذهب إلى شاشة الجدول لمعالجته.", "en": "Presses an item to go to the schedule screen and handle it." }
+      ]
+    },
+    {
+      "actor": "dean",
+      "title": { "ar": "عميد يفتح اللوحة وفصل جديد قيد الإعداد", "en": "A dean opens the dashboard while a new term is in preparation" },
+      "steps": [
+        { "ar": "يفتح اللوحة؛ الفصل الجاري هو المعروض لا الأحدث في القائمة.", "en": "Opens the dashboard; the current term is shown, not the newest in the list." },
+        { "ar": "يرى أرقام كليته من النسخة المقبولة وحدها.", "en": "Sees his college's figures from the accepted version only." },
+        { "ar": "تظهر شارة باسم الفصل القادم؛ يضغطها فتُفتح اللوحة عليه.", "en": "A badge appears with the upcoming term's name; he presses it and the dashboard opens on it." },
+        { "ar": "إن لم يُعتمد شيء فيه تقول اللوحة «لم يُعتمد جدولُ هذا الفصل بعد» لا «الجدول سليم».", "en": "If nothing is approved in it the dashboard says the term's schedule has not been approved yet, not that the schedule is sound." },
+        { "ar": "يعود بشارة «الافتراضي» إلى الفصل الأصلي.", "en": "Returns to the original term through the default badge." }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": { "ar": "أول دخول وجولة الصفة", "en": "First login and the role tour" },
+      "steps": [
+        { "ar": "بعد الدخول لا توجد علامة «رأى الجولة» لهذه الصفة فتبدأ الجولة.", "en": "After login there is no seen-tour mark for this role, so the tour starts." },
+        { "ar": "يرى خطوات عمله هو (تغييرات الجدول، الملاحظات، التوقيع، الإضافات) قائمةً لا مسرح بناء.", "en": "Sees the steps of his own work (schedule changes, notes, signing, additions) as a list, not a building stage." },
+        { "ar": "يتنقل بالتبويبات أو بالزر «التالي»، ويغلق بـ Esc في أي لحظة.", "en": "Moves with the tabs or the Next button and closes with Esc at any moment." },
+        { "ar": "عند «ابدأ العمل» تُحفظ العلامة بصفته فلا تتكرر الجولة.", "en": "On Start work the mark is saved for his role so the tour does not repeat." },
+        { "ar": "يعيد الجولة متى شاء من القائمة، فتُمحى العلامة وتبدأ من جديد.", "en": "Replays the tour whenever he wants from the menu; the mark is removed and it starts again." }
+      ]
+    },
+    {
+      "actor": "registrarHead",
+      "title": { "ar": "قراءة جاهزية الفصل في الرادار", "en": "Reading semester readiness in the radar" },
+      "steps": [
+        { "ar": "يفتح رادار التسجيل فتظهر حلقة الجاهزية ورقمها وفئتها.", "en": "Opens the registration radar; the readiness ring, number and tier appear." },
+        { "ar": "يقرأ نسبة من يبلغون 12 وحدة ونسبة الطلب الذي وجد مقعداً وعدد المقررات الممتلئة وغير المطروحة.", "en": "Reads the share reaching 12 units, the share of demand that found a seat and the count of full and not-offered courses." },
+        { "ar": "يطالع سبب النقص الأكبر في الشريط المكدّس.", "en": "Reads the biggest shortfall cause in the stacked bar." },
+        { "ar": "إن كان غير المعلوم فوق 20% يقرأ تحذير التقدير الضعيف قبل أن يبني قراراً على الرقم.", "en": "If unknown exceeds 20% he reads the weak-estimate warning before basing a decision on the number." }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "dsh-home-term",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "اختيار فصل اللوحة", "en": "Choosing the dashboard term" },
+      "caption": { "ar": "القرار في الخادم: اختيار القارئ الصريح أولاً، ثم الجاري تشغيلياً، ثم أحدث فصل له فيه ما يُرى، ثم الجاري ولو كان فارغاً.", "en": "The decision is on the server: the reader's explicit choice first, then the operationally current term, then the newest term with something visible, then the current term even if empty." },
+      "nodes": [
+        { "id": "ask", "label": { "ar": "طلب اللوحة", "en": "Dashboard request" }, "icon": "layout-dashboard", "kind": "start" },
+        { "id": "explicit", "label": { "ar": "فصل مختار؟", "en": "Term chosen?" }, "icon": "mouse-pointer-click", "kind": "decision" },
+        { "id": "chosen", "label": { "ar": "المختار", "en": "Chosen term" }, "icon": "calendar-check", "kind": "state" },
+        { "id": "visible", "label": { "ar": "يُرى فيه شيء؟", "en": "Anything visible?" }, "icon": "eye", "kind": "decision" },
+        { "id": "default", "label": { "ar": "أول فصل فيه صفوف", "en": "First term with rows" }, "icon": "calendar-days", "kind": "state" },
+        { "id": "current", "label": { "ar": "الجاري ولو فارغ", "en": "Current, even empty" }, "icon": "calendar-x", "kind": "state" },
+        { "id": "flags", "label": { "ar": "أعلام الفصل", "en": "Term flags" }, "icon": "flag", "kind": "system" }
+      ],
+      "edges": [
+        { "from": "ask", "to": "explicit" },
+        { "from": "explicit", "to": "chosen", "label": { "ar": "موجود", "en": "Exists" } },
+        { "from": "explicit", "to": "visible", "label": { "ar": "لا", "en": "No" } },
+        { "from": "visible", "to": "default", "label": { "ar": "الجاري ثم الأحدث", "en": "Current then newest" } },
+        { "from": "visible", "to": "current", "label": { "ar": "لا شيء في أي فصل", "en": "Nothing anywhere" } },
+        { "from": "chosen", "to": "flags" },
+        { "from": "default", "to": "flags" },
+        { "from": "current", "to": "flags" }
+      ]
+    },
+    {
+      "id": "dsh-readiness",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "حساب جاهزية الفصل", "en": "Computing semester readiness" },
+      "caption": { "ar": "الدرجة = 60% نسبة من يبلغون 12 وحدة + 40% نسبة الطلب الذي وجد مقعداً؛ و«غير المعلوم» لا يدخل المقام بل يُقال إن زاد.", "en": "Score = 60% share reaching 12 units + 40% share of demand that found a seat; unknown is left out of the denominator and only reported when large." },
+      "nodes": [
+        { "id": "bands", "label": { "ar": "فئات الطلبة", "en": "Student bands" }, "icon": "users", "kind": "start" },
+        { "id": "judged", "label": { "ar": "من يمكن الحكم عليهم", "en": "Judgeable students" }, "icon": "filter", "kind": "decision" },
+        { "id": "none", "label": { "ar": "لا رقم", "en": "No number" }, "icon": "ban", "kind": "end" },
+        { "id": "score", "label": { "ar": "الدرجة 0–100", "en": "Score 0–100" }, "icon": "gauge", "kind": "system" },
+        { "id": "tier", "label": { "ar": "الفئة", "en": "Tier" }, "icon": "layers", "kind": "decision" },
+        { "id": "ready", "label": { "ar": "جاهز 85+", "en": "Ready 85+" }, "icon": "circle-check", "kind": "end" },
+        { "id": "watch", "label": { "ar": "انتباه 65–84", "en": "Watch 65–84" }, "icon": "triangle-alert", "kind": "end" },
+        { "id": "risk", "label": { "ar": "خطر دون 65", "en": "Risk under 65" }, "icon": "octagon-alert", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "bands", "to": "judged" },
+        { "from": "judged", "to": "none", "label": { "ar": "صفر", "en": "Zero" } },
+        { "from": "judged", "to": "score", "label": { "ar": "أكثر من صفر", "en": "Above zero" } },
+        { "from": "score", "to": "tier" },
+        { "from": "tier", "to": "ready" },
+        { "from": "tier", "to": "watch" },
+        { "from": "tier", "to": "risk" }
+      ]
+    },
+    {
+      "id": "dsh-tour",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "الجولة التعريفية", "en": "Welcome tour flow" },
+      "caption": { "ar": "العلامة تحمل المعرّف والصفة؛ ومن أنهى الجولة العامة القديمة لا تُعاد عليه إلا إن صارت لصفته جولة خاصة.", "en": "The mark carries the user id and the role; whoever finished the old general tour is not shown it again unless his role now has its own tour." },
+      "nodes": [
+        { "id": "login", "label": { "ar": "دخول", "en": "Sign in" }, "icon": "log-in", "kind": "start" },
+        { "id": "seen", "label": { "ar": "رأى جولة صفته؟", "en": "Seen role tour?" }, "icon": "history", "kind": "decision" },
+        { "id": "skip", "label": { "ar": "لا جولة", "en": "No tour" }, "icon": "ban", "kind": "end" },
+        { "id": "role", "label": { "ar": "اختيار جولة الصفة", "en": "Pick role tour" }, "icon": "users", "kind": "system" },
+        { "id": "stage", "label": { "ar": "مسرح (يبني الجدول)", "en": "Stage (builders)" }, "icon": "clapperboard", "kind": "state" },
+        { "id": "list", "label": { "ar": "قائمة خطوات", "en": "Step list" }, "icon": "list", "kind": "state" },
+        { "id": "done", "label": { "ar": "حفظ العلامة", "en": "Save mark" }, "icon": "circle-check", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "login", "to": "seen" },
+        { "from": "seen", "to": "skip", "label": { "ar": "نعم", "en": "Yes" } },
+        { "from": "seen", "to": "role", "label": { "ar": "لا", "en": "No" } },
+        { "from": "role", "to": "stage", "label": { "ar": "لجنة أو مدير", "en": "Committee or admin" } },
+        { "from": "role", "to": "list", "label": { "ar": "بقية الصفات أو قلة الحركة", "en": "Other roles or reduced motion" } },
+        { "from": "stage", "to": "done" },
+        { "from": "list", "to": "done" }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": { "ar": "ما يقرؤه كل دور في اللوحة", "en": "What each role reads on the dashboard" },
+    "cols": [
+      { "ar": "أرقام النطاق", "en": "Scope figures" },
+      { "ar": "الأرقام الشخصية", "en": "Personal figures" },
+      { "ar": "تحليلات الجاهزية", "en": "Readiness analytics" },
+      { "ar": "الرحلة العامة", "en": "Public journey" }
+    ],
+    "rows": [
+      { "actor": "rootAdmin", "cells": [1, 0, 1, 1] },
+      { "actor": "committeeChair", "cells": [1, 0, 1, 1] },
+      { "actor": "departmentHead", "cells": [1, 0, 0, 1] },
+      { "actor": "dean", "cells": [1, 0, 0, 1] },
+      { "actor": "instructor", "cells": [0, 1, 0, 1] },
+      { "actor": "visitor", "cells": [0, 0, 0, 1] }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "FR-DSH-001",
+      "kind": "functional",
+      "title": { "ar": "الفصل المعروض في اللوحة", "en": "Term shown on the dashboard" },
+      "text": {
+        "ar": "يجب على النظام أن يحسم في الخادم الفصل الذي تفتح عليه لوحة البداية: اختيار القارئ الصريح ما دام الفصل موجوداً، وإلا الفصل الجاري تشغيلياً إن كان للقارئ فيه ما يُرى، وإلا أحدث فصل له فيه ما يُرى ضمن 6 فصول سابقة، وإلا الجاري ولو كان فارغاً، وأن يعيد معه الأعلام explicit وfallback وcurrentTermId وdefaultTermId.",
+        "en": "The system shall decide on the server the term the home dashboard opens on: the reader's explicit choice as long as the term exists, otherwise the operationally current term if the reader has something visible in it, otherwise the newest term with something visible within 6 earlier terms, otherwise the current term even if empty, and return the flags explicit, fallback, currentTermId and defaultTermId with it."
+      },
+      "rationale": { "ar": "فصل يُعدّ للتوّ كان يفتح للعميد بيتاً من صفر.", "en": "A term just being prepared used to open an empty home for a dean." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean", "registrarHead"],
+      "acceptance": [
+        { "ar": "الجاري تشغيلياً يُجرَّب أولاً ولو وُجد فصل أحدث منه في القائمة.", "en": "The operationally current term is tried first even when a newer term exists in the list." },
+        { "ar": "اختيار صريح لفصل فارغ يُحترم ويبقى الافتراضي محفوظاً للعودة.", "en": "An explicit choice of an empty term is respected and the default is kept to return to." },
+        { "ar": "فصل محفوظ زال يرجع إلى الافتراض ويكون explicit=false.", "en": "A saved term that no longer exists falls back to the default with explicit=false." },
+        { "ar": "لا شيء للقارئ في أي فصل: يبقى الجاري.", "en": "Nothing for the reader in any term: the current term stays." }
+      ],
+      "evidence": { "code": ["src/utils/homeTerm.ts", "src/server/routes/dashboardRoutes.ts", "src/server/core/scheduleReads.ts"], "tests": ["tests/dashboard-home-term-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-002",
+      "kind": "functional",
+      "title": { "ar": "حالة الفصل الفارغ والفصل القادم", "en": "Empty term state and upcoming term" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد مع اللوحة الأعلام empty وawaitingApproval وupcoming، وأن تعرض الشاشة لفصل بلا صف يُرى بطاقة «لا مواعيد في هذا الفصل بعد» أو «لم يُعتمد جدولُ هذا الفصل بعد» بدل «الجدول سليم» وبلا أرقام يوم وأسبوع من صفر، وشارة تفتح أقرب فصل قادم قيد الإعداد، وشارة للعودة إلى الافتراض.",
+        "en": "The system shall return with the dashboard the flags empty, awaitingApproval and upcoming, and for a term with no visible row the screen shall show a card saying there are no appointments yet or the term's schedule is not yet approved instead of the schedule being sound, with no day or week figures built from zero, a badge opening the nearest upcoming term in preparation, and a badge to return to the default."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["dean", "viceDean", "committeeChair"],
+      "acceptance": [
+        { "ar": "empty=true حين لا صف مرئياً؛ وawaitingApproval=true حين يقرأ القارئ المعتمد وحده ويوجد صف غير معتمد.", "en": "empty=true when no row is visible; awaitingApproval=true when the reader sees approved rows only and an unapproved row exists." },
+        { "ar": "upcoming يسمّي فصلاً أحدث من المعروض وغير المعروض نفسه، أو null.", "en": "upcoming names a term later than the one shown and not the shown term itself, or null." },
+        { "ar": "بطاقة القرار وقائمة الانتباه تُفرَّغان في الفصل الفارغ.", "en": "The decision card and attention list are emptied for an empty term." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts", "src/components/Dashboard.tsx", "src/utils/homeTerm.ts"], "tests": ["tests/dashboard-home-term-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-003",
+      "kind": "functional",
+      "title": { "ar": "نطاق ما تعرضه اللوحة", "en": "Scope of what the dashboard shows" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض للإدارة الجامعة كلها، وللحساب المرتبط بعضو هيئة تدريس صفوفه الشخصية، ولغيرهما صفوف أقسامه المسموحة فقط، وأن يقرأ العميدان وعميد التسجيل النسخة المقبولة وحدها، وأن يعيد workspace.mode بإحدى القيم admin أو personal أو scope.",
+        "en": "The system shall show the whole university to the administrator, the personal rows to an account linked to a faculty member, and only the permitted department rows to anyone else, deans and the dean of registration reading the accepted version only, and return workspace.mode with one of admin, personal or scope."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin", "instructor", "dean", "committeeChair"],
+      "acceptance": [
+        { "ar": "حساب الإدارة يرى عدد المحاضرات الجارية من كل الجامعة لا قائمة فارغة بجانب رقم كبير.", "en": "The administrator account sees the day's lectures from the whole university, not an empty list beside a large figure." },
+        { "ar": "العميد لا يرى فصلاً ثانياً أو صيفياً قبل قبوله.", "en": "A dean does not see a second or summer term before it is accepted." },
+        { "ar": "مدير الجامعة يعاد له metrics بإجمالي الجدول والفصول والأساتذة، وغيره بأرقام نطاقه.", "en": "The administrator receives metrics with the total of schedules, terms and instructors, and others receive figures for their scope." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts", "src/server/core/scheduleReads.ts", "src/server/core/scope.ts"], "tests": ["tests/dashboard-home-term-audit.ts", "tests/role-scope-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-004",
+      "kind": "functional",
+      "title": { "ar": "محاضرات اليوم والعطلة", "en": "Today's lectures and the weekend" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد محاضرات اليوم مرتبةً بوقت البدء لأيام الأحد إلى الخميس، وألا يعرض في الجمعة والسبت محاضرات يوم آخر بل يعيد weekend=true وقائمة فارغة، وأن تقول الشاشة «الجمعة والسبت عطلة — لا توجد محاضرات اليوم».",
+        "en": "The system shall return today's lectures sorted by start time for Sunday to Thursday, and on Friday and Saturday not show another day's lectures but return weekend=true and an empty list, and the screen shall say that Friday and Saturday are a holiday with no lectures today."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "rootAdmin"],
+      "acceptance": [
+        { "ar": "يوم الجمعة أو السبت: today فارغة وweekend=true وdayName=\"الجمعة\" أو \"السبت\".", "en": "On Friday or Saturday: today is empty and weekend=true with dayName Friday or Saturday." },
+        { "ar": "كل صف يحمل اسم الأستاذ والمقرر ووقتي البدء والنهاية والقاعة.", "en": "Each row carries the instructor, course, start and end times and the hall." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts", "src/components/Dashboard.tsx"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-DSH-005",
+      "kind": "functional",
+      "title": { "ar": "قراءة حمل النطاق", "en": "Scope load reading" },
+      "text": {
+        "ar": "يجب على النظام أن يحسب لصفوف النطاق في الفصل المعروض: عدد المواعيد لكل يوم من الأحد إلى الخميس، وأكثر 5 ساعات بدءاً، وأكثر 5 قاعات استعمالاً، وعدد القاعات الفريدة، وذروة إشغال القاعات كنسبة مئوية من أكثر القاعات المشغولة في فترة نصف ساعة إلى مجموع القاعات.",
+        "en": "The system shall compute for the scope's rows in the shown term: appointments per day from Sunday to Thursday, the 5 busiest start hours, the 5 most used halls, the unique hall count, and the room-occupancy peak as the percentage of the most halls occupied in any half-hour slot over all halls."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "rootAdmin", "departmentHead"],
+      "acceptance": [
+        { "ar": "weekdayLoad خمسة عناصر مفاتيحها fsunday إلى fthursday.", "en": "weekdayLoad has five items keyed fsunday to fthursday." },
+        { "ar": "busiestHours وbusiestRooms كل منهما 5 كحدٍّ أقصى مرتبة تنازلياً بالعدد.", "en": "busiestHours and busiestRooms are each at most 5, sorted by count descending." },
+        { "ar": "صفوف بلا قاعة موثّقة لا تدخل في إشغال القاعات.", "en": "Rows without a verified hall are excluded from hall occupancy." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts"], "tests": ["tests/dashboard-home-term-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-006",
+      "kind": "functional",
+      "title": { "ar": "اتجاه آخر فصول", "en": "Trend over the last terms" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد خط اتجاه من حتى 4 نقاط بالترتيب الزمني للفصول (مواعيد وقاعات وأساتذة) تنتهي بالفصل المعروض، يفحص حتى 8 فصول للخلف، ويتخطى فصلاً لم يكن للقارئ فيه شيء، ويعيد previous (النقطة السابقة)؛ وأن تعرض الشاشة فرق الرقم عن الفصل الماضي بسهم ولا تعرض علامة حين لا تغيير.",
+        "en": "The system shall return a trend line of up to 4 points in chronological term order (appointments, halls, instructors) ending with the shown term, examining up to 8 terms back, skipping a term in which the reader had nothing, and return previous (the preceding point); the screen shall show the figure's difference from the previous term with an arrow and show no mark when nothing changed."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean"],
+      "acceptance": [
+        { "ar": "الترتيب زمني لا بالمعرّف: فصل أرشيفي بمعرّف أكبر لا يسقط من الخط.", "en": "The order is chronological, not by id: an archive term with a larger id does not drop out of the line." },
+        { "ar": "نقطة بصفر مواعيد تُستبعد إلا إن كانت الفصل المعروض.", "en": "A point with zero appointments is dropped unless it is the shown term." },
+        { "ar": "الخط والفرق لا يُرسمان لأقل من نقطتين.", "en": "The line and the difference are not drawn for fewer than two points." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts", "src/components/Dashboard.tsx"], "tests": ["tests/dashboard-home-term-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-007",
+      "kind": "functional",
+      "title": { "ar": "تحميل اللوحة وإثراؤها", "en": "Dashboard loading and enrichment" },
+      "text": {
+        "ar": "يجب على الشاشة أن تطلق اللوحة وقراءتي التحليلات معاً لمن يدير الجدول، وألا يُفرّغ فشلُ قراءة اختيارية اللوحة، وأن تمسح بيانات الفصل السابق عند تبديل الفصل قبل أن تصل الإجابة، وأن تحجز مكان البنود المنتظرة بعلامة «—» لا بصفر ولا بفراغ يدفع الصفحة لاحقاً.",
+        "en": "The screen shall start the dashboard and the two analytics readings together for those who manage the schedule, an optional reading's failure shall not empty the dashboard, the previous term's data shall be cleared on a term switch before the answer arrives, and awaited items shall hold their space with a dash rather than a zero or a gap that pushes the page later."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "rootAdmin"],
+      "acceptance": [
+        { "ar": "فشل قراءة نظرة التحليلات العامة لا يمنع عرض الأرقام والمحاضرات.", "en": "A failure of the analytics overview reading does not prevent the figures and lectures from showing." },
+        { "ar": "القراءتان الاختياريتان تحملان home=1 فتُحلَّل بالفصل نفسه.", "en": "The two optional readings carry home=1 so they resolve the same term." },
+        { "ar": "مؤشر قيد القراءة يعرض aria-valuetext=\"قيد القراءة\" لا قيمة صفرية.", "en": "A pending indicator exposes aria-valuetext as reading in progress, not a zero value." }
+      ],
+      "evidence": { "code": ["src/components/Dashboard.tsx"], "tests": ["tests/dashboard-home-term-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-008",
+      "kind": "functional",
+      "title": { "ar": "بطاقة القرار والمؤشرات", "en": "Decision card and signals" },
+      "text": {
+        "ar": "يجب على اللوحة أن تعرض بطاقة قرار بأهم بند من التنبيهات (حتى 3 بنود، بنبرة حرج أو تحذير أو معلومة)، وقائمة «يحتاج انتباهك» لما زاد، وشريط مؤشرات: محاضرات اليوم، وتعارضات حرجة (لا تظهر عند الصفر)، وقاعات مشغولة، ومتوسط الفراغ، والجاهزية بحلقة، وشريط صحة بجودة ومرونة وعدالة وإشغال؛ ولا تعرض مؤشرات التحليلات لمن لا يدير الجدول.",
+        "en": "The dashboard shall show a decision card with the most important alert (up to 3 items, in critical, warning or info tone), an attention list for the rest, and a signal strip: today's lectures, critical conflicts (hidden at zero), occupied halls, average gap, readiness as a ring, and a health ribbon with quality, resilience, fairness and occupancy; analytics signals are not shown to those who do not manage the schedule."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "rootAdmin"],
+      "acceptance": [
+        { "ar": "البند حرج حين تكون الشدة critical أو danger أو error أو high أو blocker.", "en": "An item is critical when its severity is critical, danger, error, high or blocker." },
+        { "ar": "حلقة الجاهزية تعرض الجودة بالنسبة المئوية وتتلوّن من 85 وما فوق بالجيد.", "en": "The readiness ring shows quality as a percentage and turns good from 85 upward." },
+        { "ar": "زر المعالجة على البند ينقل إلى شاشة الجدول.", "en": "The handle button on an item navigates to the schedule screen." }
+      ],
+      "evidence": { "code": ["src/components/Dashboard.tsx"] },
+      "inferred": true
+    },
+    {
+      "id": "IR-DSH-009",
+      "kind": "interface",
+      "title": { "ar": "مسار محاضرات اليوم", "en": "Today's lecture track" },
+      "text": {
+        "ar": "يجب على اللوحة أن ترسم محاضرات اليوم على محور ساعات الدوام مع تمييز المحاضرة الجارية أو التالية بوقتها، وأن تعطي كل عمود ساعة وصفاً مقروءاً (عدد المحاضرات أو «لا محاضرات»)، وأن تعدّ أرقامها بالأرقام اللاتينية المنسّقة بالعربية الكويتية (ar-KW-u-nu-latn).",
+        "en": "The dashboard shall draw today's lectures over the working-hours axis, mark the current or next lecture with its time, give each hour column a readable description (lecture count or no lectures), and format its numbers as Latin digits in Kuwaiti Arabic locale (ar-KW-u-nu-latn)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "instructor"],
+      "acceptance": [
+        { "ar": "المحاضرة الجارية هي ما بدأ ولم ينته عند الدقيقة الحالية؛ وإلا أول محاضرة لاحقة.", "en": "The current lecture is the one started and not ended at the current minute; otherwise the first later lecture." },
+        { "ar": "وصف المسار يقول ضغط اليوم على ساعاته.", "en": "The track's description states the day's pressure over its hours." }
+      ],
+      "evidence": { "code": ["src/components/Dashboard.tsx", "src/utils/scheduleTime.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-DSH-010",
+      "kind": "functional",
+      "title": { "ar": "الرحلة العامة", "en": "Public journey reading" },
+      "text": {
+        "ar": "يجب على النظام أن يعيد عند /api/journey أرقاماً مجمّعة محسوبة عند الطلب بلا هوية: عدد الفصول والمواعيد (عدّ على الخادم) والمقررات والأساتذة والأقسام والكليات وأول سنة أكاديمية في السجل، وأرقام الفصل الأحدث الفريدة، دون مصادقة، وبلا ورثة صندوق التجربة في نشر حقيقي.",
+        "en": "The system shall return at /api/journey aggregated figures computed at request time with no identity: counts of terms, appointments (counted on the server), courses, instructors, departments and colleges, the first academic year on record, and the newest term's unique figures, without authentication, and without inheriting a demo sandbox in a real deployment."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["visitor", "committeeChair", "rootAdmin"],
+      "acceptance": [
+        { "ar": "الحمولة تعيد scoped=false وlifetime وcurrent ولا تحمل اسماً ولا رقماً مدنياً.", "en": "The payload returns scoped=false, lifetime and current and carries no name or civil ID." },
+        { "ar": "إضافة فصل ترفع terms بواحد في الطلب التالي بلا تعديل كود.", "en": "Adding a term raises terms by one on the next request without a code change." },
+        { "ar": "since أقدم سنة بداية بين أسماء الفصول.", "en": "since is the earliest start year among the term names." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts", "src/components/ScheduleJourney.tsx", "server.ts"], "tests": ["tests/journey-reveal-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-011",
+      "kind": "functional",
+      "title": { "ar": "البحث العام", "en": "Global search" },
+      "text": {
+        "ar": "يجب على النظام أن يجيب /api/search بحد أدنى حرفين عن المواعيد (12) والأساتذة (8) والمقررات (8) والقاعات (8) في أحدث فصل، لمن يملك إحدى الشاشات 7 أو 8 أو 9 أو 10 أو 16 أو 17، وأن يقصر كل فئة على صلاحيتها والنطاق والنسخة المعتمدة للعميد، وألا يعرض بيانات أستاذ لا يجيزها نطاق القارئ.",
+        "en": "The system shall answer /api/search with a minimum of two characters about appointments (12), instructors (8), courses (8) and halls (8) in the newest term, for those holding any of screens 7, 8, 9, 10, 16 or 17, limit each category to its permission, scope and the dean's accepted version, and not expose instructor data the reader's scope does not allow."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean", "rootAdmin"],
+      "acceptance": [
+        { "ar": "استعلام بحرف واحد يعيد قوائم فارغة.", "en": "A one-character query returns empty lists." },
+        { "ar": "البحث يقرأ بالنطاق ويعطي العميد النهائي وحده.", "en": "Search reads by scope and gives a dean the final version only." },
+        { "ar": "نتائج الأساتذة تمر بعرض يناسب القارئ (إخفاء الرقم المدني لمن لا يجيزه).", "en": "Instructor results pass through a reader-appropriate view (civil ID hidden from those not permitted)." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts", "src/server/core/scope.ts"], "tests": ["tests/dean-notify-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-012",
+      "kind": "functional",
+      "title": { "ar": "البحث بالجملة", "en": "Sentence search" },
+      "text": {
+        "ar": "يجب على النظام أن يفسّر الجملة العربية بقواعد ثابتة بلا خدمة خارجية، فيجيب عن قاعات متاحة (حتى 60)، ومواعيد قاعة، وفراغات أستاذ بين محاضراته (30 دقيقة فأكثر، حتى 30)، ومواعيد أستاذ أو وقت (حتى 40 صفاً)، وأن يرفض بـ403 كلية أو قسماً خارج نطاق القارئ، وأن يعيد intent=\"unknown\" بلا صفوف لجملة لا تُفهم.",
+        "en": "The system shall interpret an Arabic sentence by fixed rules with no external service, answering free halls (up to 60), a hall's appointments, an instructor's gaps between lectures (30 minutes or more, up to 30), and an instructor's or a time's appointments (up to 40 rows), refuse with 403 a college or department outside the reader's scope, and return intent unknown with no rows for a sentence it cannot parse."
+      },
+      "rationale": { "ar": "الجملة نفسها تعطي الصفوف نفسها دائماً وبلا اتصال.", "en": "The same sentence always resolves to the same rows, offline." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean"],
+      "acceptance": [
+        { "ar": "القاعة المتاحة هي التي لا يشغلها صف في الفصل كله في اليوم والوقت المذكورين.", "en": "A free hall is one that no row occupies in the whole term at the stated day and time." },
+        { "ar": "الصفوف تُقرأ بقارئ الطلب نفسه (نطاق ونهائي للعميد) لا خاماً.", "en": "Rows are read with the request's own reader (scope and final version for a dean), not raw." },
+        { "ar": "الفراغ الأقل من 30 دقيقة لا يُحسب.", "en": "A gap under 30 minutes is not counted." }
+      ],
+      "evidence": { "code": ["src/server/routes/dashboardRoutes.ts", "src/utils/naturalQuery.ts"], "tests": ["tests/dean-notify-audit.ts", "tests/input-hardening-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-013",
+      "kind": "functional",
+      "title": { "ar": "قصة الفصل", "en": "Term story" },
+      "text": {
+        "ar": "يجب على بطاقة «قصة الفصل» أن تلخص دورة اعتماد القسم في خمسة أرقام (المواعيد، ما تحرّك أو «أول مراجعة»، الجولات، الملاحظات المعالجة من الكل، الموانع) مع شريط جولات بخطواتها (أُرسلت، أُرجعت بعدد ملاحظاتها، قُبلت)، وجملة واحدة جاهزة تُنسخ للعميد بزر، وأن تسمّي أساس المقارنة: نسخة الهيئة المعتمدة أو آخر مراجعة للتسجيل أو آخر لقطة.",
+        "en": "The Term story card shall summarise a department's approval cycle in five figures (appointments, what moved or first review, rounds, notes handled out of the total, blockers) with a rounds strip showing its steps (sent, returned with its note count, accepted), and one ready sentence copyable for the dean with a button, and shall name the comparison basis: the approved authority version, the last registration review, or the last snapshot."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "dean"],
+      "acceptance": [
+        { "ar": "أول مراجعة تعرض «—» و«أول مراجعة» لا «تحرّك 0».", "en": "A first review shows a dash and first review rather than moved 0." },
+        { "ar": "الأساس authority يقول «يطابق نسخة الهيئة المعتمدة» أو «يختلف N عن نسخة الهيئة».", "en": "The authority basis says it matches the approved authority version or that N differ from it." },
+        { "ar": "الجولات لا تقل عن واحدة في الحساب، والموانع صفر تعرض «بلا موانع».", "en": "Rounds count at least one, and zero blockers show no blockers." },
+        { "ar": "بعد النسخ يتغير الزر إلى «نُسخت» 2.2 ثانية.", "en": "After copying the button reads Copied for 2.2 seconds." }
+      ],
+      "evidence": { "code": ["src/components/TermStory.tsx", "src/components/ScheduleChanges.tsx"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-DSH-014",
+      "kind": "functional",
+      "title": { "ar": "درجة جاهزية الفصل", "en": "Semester readiness score" },
+      "text": {
+        "ar": "يجب على النظام أن يحسب جاهزية الفصل = 60% × نسبة من يبلغون 12 وحدة فأكثر (بلوغ 15، أو 12 إلى 14، أو خريج دون 12) من الذين يمكن الحكم عليهم + 40% × نسبة الطلب الذي وجد مقعداً، وأن يصنّفها جاهزاً من 85 وفوق، ويحتاج انتباهاً من 65، وفي خطر دون ذلك، وألا يخترع رقماً حين لا طلبة يُقاس عليهم (score=null).",
+        "en": "The system shall compute semester readiness = 60% × the share reaching 12 units or more (reaching 15, 12 to 14, or a graduate below 12) of those who can be judged + 40% × the share of demand that found a seat, classify it ready from 85, needs attention from 65, at risk below that, and invent no number when there are no students to measure (score=null)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["registrarHead", "collegeRegistrar", "committeeChair"],
+      "acceptance": [
+        { "ar": "80/10/10 وطلب 100 ومقاعد 95: الدرجة 92 والفئة جاهز.", "en": "80/10/10 with demand 100 and seats 95: score 92, tier ready." },
+        { "ar": "10/10/80 وطلب 100 ومقاعد 50: الدرجة 32 والفئة خطر.", "en": "10/10/80 with demand 100 and seats 50: score 32, tier risk." },
+        { "ar": "غير المعلوم فوق 20% يضع weak=true.", "en": "Unknown above 20% sets weak=true." },
+        { "ar": "بلا رادار أو بلا طلبة: لا درجة ولا فئة.", "en": "No radar or no students: no score and no tier." }
+      ],
+      "evidence": { "code": ["src/utils/semesterReadiness.ts"], "tests": ["tests/registration-causes-audit.ts"] }
+    },
+    {
+      "id": "IR-DSH-015",
+      "kind": "interface",
+      "title": { "ar": "لوحة جاهزية الفصل", "en": "Semester readiness panel" },
+      "text": {
+        "ar": "يجب على اللوحة أن تعرض حلقة الجاهزية بوصف مقروء («جاهزية الفصل N من 100: الفئة») وأرقام: نسبة بلوغ 12، ونسبة الطلب الذي وجد مقعداً، وعدد المقررات الممتلئة وغير المطروحة، وشريطاً مكدساً لأسباب نقص من لا يبلغون 12 مع أكبرها، وتحذيراً حين تضعف الدقة، وزراً ينقل إلى قائمة المقررات المحتاجة قراراً، وألا تُرسم عند غياب الدرجة.",
+        "en": "The panel shall show the readiness ring with a readable description (semester readiness N out of 100: tier) and figures: the share reaching 12, the share of demand that found a seat, the counts of full and not-offered courses, a stacked bar of shortfall causes for those not reaching 12 with the largest named, a warning when precision is weak, a button leading to the list of courses needing a decision, and shall not draw when there is no score."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["registrarHead", "collegeRegistrar", "committeeChair"],
+      "acceptance": [
+        { "ar": "الشريط يعرض أسباب النقص الستة بنسب أعدادها ويكتب «تقدير لا إثبات لسبب واحد».", "en": "The bar shows the six shortfall causes in proportion to their counts and states it is an estimate, not proof of one cause." },
+        { "ar": "حين تفوق نسبة غير المعلوم 20% يظهر سطر «الرقم تقدير ضعيف».", "en": "When the unknown share exceeds 20% a weak-estimate line appears." },
+        { "ar": "تُعرض هيكلية انتظار أثناء جلب التحليل ولا تظهر عند فشله.", "en": "A waiting skeleton shows while the analysis loads and not when it fails." }
+      ],
+      "evidence": { "code": ["src/components/SemesterReadiness.tsx", "src/components/RegistrationRehearsal.tsx", "src/utils/semesterReadiness.ts"], "tests": ["tests/radar-insight-audit.ts"] }
+    },
+    {
+      "id": "IR-DSH-016",
+      "kind": "interface",
+      "title": { "ar": "رسم نسبة الفترتين", "en": "Period-balance drawing" },
+      "text": {
+        "ar": "يجب على الرسم أن يمثّل كل موعد قطعة في شريط واحد (الصباحية من 8 إلى 2 والمسائية من 2 إلى 8)، وأن يعرض مقياسين لحدّي المادة 7/2: الصباحية من 50% إلى 70% والمسائية من 30% إلى 50%، وأن يحسب الحدّ بالأعداد الصحيحة (الأعلى = أرضية 70% والأدنى = سقف 50%)، ويلوّن القطع الزائدة ويكتب كم شعبة تُنقل وإلى أي جهة.",
+        "en": "The drawing shall represent each appointment as a cell in one strip (morning 8 to 2 and evening 2 to 8), show two gauges for the limits of rule 7/2: morning 50% to 70% and evening 30% to 50%, compute the limit with whole numbers (upper = floor of 70%, lower = ceiling of 50%), colour the excess cells and write how many sections move and to which side."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "registrarStaff"],
+      "acceptance": [
+        { "ar": "90 موعداً كلها صباحية: تُنقل 27 لا 28 (الحدّ 63).", "en": "90 appointments all in the morning: 27 move, not 28 (limit 63)." },
+        { "ar": "35 بـ26 صباحية: 2؛ و20 بثمانٍ صباحية: 2؛ و10 بست صباحية: 0 (ضمن المطلوب).", "en": "35 with 26 in the morning: 2; 20 with eight: 2; 10 with six: 0 (within range)." },
+        { "ar": "يُضيّق الشريط حين تتجاوز المواعيد 60.", "en": "The strip is tightened when appointments exceed 60." },
+        { "ar": "الرسم بوصف role=img يذكر النسبتين وعدد النقل.", "en": "The drawing has a role=img description stating both percentages and the move count." }
+      ],
+      "evidence": { "code": ["src/components/PeriodBalanceInfographic.tsx", "src/components/ScheduleReview.tsx", "src/components/ScheduleChanges.tsx"], "tests": ["tests/decision-1913-audit.ts", "tests/lecture-length-audit.ts"] }
+    },
+    {
+      "id": "IR-DSH-017",
+      "kind": "interface",
+      "title": { "ar": "الحلقة الصغيرة", "en": "Mini ring" },
+      "text": {
+        "ar": "يجب على الحلقة الصغيرة أن ترسم رقماً من 100 مقتطعاً بين 0 و100، بنبرة جيدة من 85، وتحذير من 70، وسيئة دونها، ومحايدة (فارغة) حين تغيب القيمة، وأن تُقرأ لقارئ الشاشة «اسمها N من 100» ما لم تكن زخرفية بجوار رقم مقروء، وأن تحوّل النص بصيغة «NN/100» إلى حلقة وغيره إلى لا شيء.",
+        "en": "The mini ring shall draw a figure out of 100 clamped between 0 and 100, with a good tone from 85, warning from 70, bad below, and neutral (empty) when the value is absent, be read to a screen reader as its name and N out of 100 unless decorative beside an already-read number, and turn text of the form NN/100 into a ring and anything else into nothing."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "rootAdmin"],
+      "acceptance": [
+        { "ar": "miniRingTone(85) جيدة، و(70) تحذير، و(69) سيئة، وnull محايدة.", "en": "miniRingTone(85) is good, (70) warning, (69) bad and null neutral." },
+        { "ar": "ringFromScoreText(\"80/100\") يعيد حلقة، و\"عشرة\" يعيد null.", "en": "ringFromScoreText(\"80/100\") returns a ring and a non-matching text returns null." }
+      ],
+      "evidence": { "code": ["src/components/MiniRing.tsx", "src/components/Dashboard.tsx"] },
+      "inferred": true
+    },
+    {
+      "id": "IR-DSH-018",
+      "kind": "interface",
+      "title": { "ar": "الرسوم المساعدة", "en": "Helper drawings" },
+      "text": {
+        "ar": "يجب على الرسوم المساعدة (خريطة تنقل المباني، وشرائح المعادلة «أ − ب = ج»، ومصفوفة التنقل الحرارية) أن ترسم أرقاماً تحملها الشاشة أصلاً دون جلب أو حفظ أو حساب جديد، وأن تجعل سماكة خط التنقل بحسب دقائق المشي وتلوّن القفزات المرهقة بلون الخطر.",
+        "en": "The helper drawings (building travel map, equation chips a − b = c, travel heat matrix) shall draw figures the screen already holds, with no fetching, saving or new computation, make the travel line's thickness follow walking minutes and colour tiring hops in the danger colour."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "dean", "rootAdmin"],
+      "acceptance": [
+        { "ar": "الخريطة تضع المباني على قطع ناقص وتزيد سماكة الخط من 2 بنسبة الدقائق إلى أكبرها.", "en": "The map places buildings on an ellipse and the line thickness grows from 2 in proportion to minutes against the largest." },
+        { "ar": "المصفوفة للقراءة فقط وحقول الإدخال تبقى مكانها.", "en": "The matrix is read-only and the input fields stay where they are." }
+      ],
+      "evidence": { "code": ["src/components/VisualBits.tsx", "src/components/Colleges.tsx", "src/components/IntelligenceWorkspace.tsx"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-DSH-019",
+      "kind": "functional",
+      "title": { "ar": "الجولة التعريفية بحسب الصفة", "en": "Welcome tour by role" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لكل صفة جولتها: اللجنة والمدير ومن لا صفة له يرون مسرح البناء بفصوله الستة، ورئيس القسم أربع خطوات، وموظف التسجيل ورئيس تسجيل الكلية أربعاً، ورئيس التسجيل خمساً (مع «الموعد»)، والعميد وعميد التسجيل خمساً، والعميد المساعد ستاً، ولا يُعرض في جولة صفة ما لا تفعله، وأن تُحفظ علامة «رأى الجولة» بمعرّف الحساب والصفة.",
+        "en": "The system shall show each role its own tour: committee, administrator and a role-less account see the building stage with its six scenes, the department head four steps, the registration officer and college registrar four, the registrar head five (with the deadline), the dean and dean of registration five, and the vice dean six, and show in a role's tour nothing that role does not do, and store the seen-tour mark by account id and role."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "registrarHead", "registrarStaff", "collegeRegistrar", "dean", "registrarDean", "viceDean"],
+      "acceptance": [
+        { "ar": "المفتاح schedule-onboarding-v5-<المعرّف>-<الصفة>: عميد برقم 7 ← schedule-onboarding-v5-7-dean.", "en": "The key is schedule-onboarding-v5-<id>-<role>: dean number 7 gives schedule-onboarding-v5-7-dean." },
+        { "ar": "من أنهى الجولة القديمة v4 لا تُعاد عليه إلا إن كانت لصفته جولة خاصة.", "en": "Whoever finished the old v4 tour is not shown it again unless his role has its own tour." },
+        { "ar": "«الموعد والتمديد» في جولة رئيس التسجيل وحده.", "en": "The deadline and extension step is in the registrar head's tour only." },
+        { "ar": "إعادة الجولة من القائمة تمحو العلامتين الجديدة والقديمة وتبدأ من الأول.", "en": "Replaying from the menu removes both the new and the old mark and starts from the first scene." }
+      ],
+      "evidence": { "code": ["src/components/Onboarding.tsx", "src/utils/onboardingKey.ts", "src/App.tsx"], "tests": ["tests/dean-notify-audit.ts"] }
+    },
+    {
+      "id": "IR-DSH-020",
+      "kind": "interface",
+      "title": { "ar": "تشغيل الجولة وإتاحتها", "en": "Tour playback and accessibility" },
+      "text": {
+        "ar": "يجب على الجولة المسرحية أن تتقدم وحدها حتى الفصل الثالث فقط بمهلة لكل فصل بحسب طول نصه بين 3200 و5000 مللي ثانية، ثم تترك الإيقاع للقارئ، وأن تُعرض الفصول قائمة بلا حركة لمن يفضّل قلّة الحركة ولكل صفة لا تبني الجدول، وأن يغلقها Esc في أي لحظة، وأن يعلن السرد نفسه بأدب بينما المسرح زخرفي لقارئ الشاشة.",
+        "en": "The staged tour shall autoplay only through the third scene with a per-scene hold that depends on its text length between 3200 and 5000 ms, then leave the pace to the reader, scenes shall be shown as a motionless list for users who prefer reduced motion and for every role that does not build the schedule, Esc shall close it at any moment, and the narration shall announce itself politely while the stage is decorative to a screen reader."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean", "registrarHead"],
+      "acceptance": [
+        { "ar": "المهلة = حدٌّ بين 3200 و5000 للمقدار 900 + (عدد الكلمات ÷ 4) × 1000.", "en": "The hold is clamped between 3200 and 5000 for 900 + (word count ÷ 4) × 1000." },
+        { "ar": "الضغط اليدوي على فصل يوقف التشغيل التلقائي.", "en": "A manual press on a scene stops the autoplay." },
+        { "ar": "قراءة أسبوع القارئ الحقيقي (/api/schedules/workspace) تفشل بصمت فيبقى المثال.", "en": "Reading the reader's real week (/api/schedules/workspace) fails silently and the sample remains." }
+      ],
+      "evidence": { "code": ["src/components/Onboarding.tsx"], "tests": ["tests/dean-notify-audit.ts"] }
+    },
+    {
+      "id": "FR-DSH-021",
+      "kind": "functional",
+      "title": { "ar": "استرداد العرض من الأعطال", "en": "Render fault recovery" },
+      "text": {
+        "ar": "يجب على النظام عند عطل في عرض جزء من الشاشة أن يعيد تركيب الجزء في مكانه صامتاً حتى 3 محاولات (الأولى فوراً والباقيتان بعد 120 مللي ثانية)، دون تنقل ولا إعادة تحميل ولا مسح ذاكرة، وإن فشلت كلها يعرض سطراً واحداً «تعذّر عرض هذا الجزء» مع زر «إعادة المحاولة» يعيد دورة المحاولات كاملة، ويبلّغ كل مرحلة للقياس دون أن يظهر شيء للقارئ.",
+        "en": "When part of a screen fails to render the system shall remount that part in place silently for up to 3 attempts (the first at once and the others after 120 ms), with no navigation, reload or cache clearing, and if all fail shall show one line saying this part could not be shown with a Retry button that restarts the full cycle, and report each stage to telemetry without showing the reader anything."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean", "standard"],
+      "acceptance": [
+        { "ar": "الغطاء الهادئ مشروط بأن المحاولات لم تُستنفد.", "en": "The quiet cover applies only while attempts are not exhausted." },
+        { "ar": "الحالة العالقة تحمل role=alert ونص «بياناتك محفوظة ولم تتأثر».", "en": "The stuck state carries role=alert and the text that the data is saved and unaffected." },
+        { "ar": "زر الإعادة يصفّر العدّاد، ولا window.location.reload ولا assign.", "en": "The retry button resets the counter, and no window.location.reload or assign is used." },
+        { "ar": "الأحداث ui.render.recovery وui.render.unrecovered وui.render.manual-retry.", "en": "The events are ui.render.recovery, ui.render.unrecovered and ui.render.manual-retry." }
+      ],
+      "evidence": { "code": ["src/components/ErrorBoundary.tsx"], "tests": ["tests/run-tests.ts"] }
+    },
+    {
+      "id": "IR-DSH-022",
+      "kind": "interface",
+      "title": { "ar": "قيود عرض اللوحة العامة", "en": "General dashboard presentation constraints" },
+      "text": {
+        "ar": "يجب على شاشات هذه الوحدة أن تعرض الأرقام بالأرقام اللاتينية بصيغة ar-KW، وأن تحمل الرسوم التي تحمل معنى وصفاً مقروءاً (role=img مع aria-label) وتعدّ ما هو زخرفي مخفياً عن قارئ الشاشة، وأن تُعلن الحالات الحية (قيد التحميل، البيانات محدّثة) بأدوار status، وألا تعرض رقم مقرر ثلاثي الخانات.",
+        "en": "The screens of this module shall present numbers as Latin digits in ar-KW format, give drawings that carry meaning a readable description (role=img with aria-label) and treat decoration as hidden from screen readers, announce live states (loading, data updated) with status roles, and never display a three-digit course number."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean", "registrarHead"],
+      "acceptance": [
+        { "ar": "التحميل يعرض role=status مع نص «جاري تحميل لوحة القيادة».", "en": "Loading shows role=status with the text that the command dashboard is loading." },
+        { "ar": "أي رقم مقرر معروض في القوائم الجانبية يمر عبر دالة الرقم السباعي.", "en": "Any course number shown in side lists passes through the seven-digit function." }
+      ],
+      "evidence": { "code": ["src/components/Dashboard.tsx", "src/components/SemesterReadiness.tsx", "src/components/MiniRing.tsx"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-DSH-023",
+      "kind": "functional",
+      "title": { "ar": "حدود العرض التجريبي", "en": "Demo limits" },
+      "text": {
+        "ar": "يجب على الدليل التجريبي أن يصف ما يفتح عليه العرض: كلية واحدة وثلاثة أقسام، النطاق مختار مسبقاً (كلية التربية الأساسية ← تكنولوجيا التعليم ← الفصل الأول 2026/2027)، وصفات يبدّلها المستخدم من الشريط الجانبي، وأن يذكر أن الإدارة الحقيقية (المستخدمون والصلاحيات والنسخ الاحتياطي) لا تُعدَّل من التجربة، وأن لوحة الجمهور والإعلانات غير متاحتين فيها.",
+        "en": "The demo guide shall describe what the demo opens on: one college and three departments, with the scope preselected (College of Basic Education → Educational Technology → first term 2026/2027), roles the user switches from the side bar, and state that real administration (users, permissions, backup) cannot be modified from the demo and that the audience dashboard and ads are unavailable in it."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["visitor", "admin"],
+      "acceptance": [
+        { "ar": "الإدارة (users وpermissions وuser-scopes وsystem-backup) ترد 403 للكتابة في التجربة.", "en": "Administration (users, permissions, user-scopes, system-backup) answers 403 to writes in the demo." },
+        { "ar": "شاشتا الجمهور والإعلانات تعيدان «غير مخوّل» لحساب التجربة.", "en": "The audience and ads screens return unauthorised for a demo account." }
+      ],
+      "evidence": { "code": ["docs/DEMO_GUIDE.md", "src/server/core/auth.ts", "src/App.tsx"], "tests": ["tests/demo-complete-audit.ts"] },
+      "inferred": true
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": { "ar": "عميد يفتح اللوحة وفصل جديد لم يُعتمد فيه شيء", "en": "A dean opens the dashboard when a new term has nothing approved" },
+      "scenario": { "ar": "أُنشئ فصل جديد قيد الإعداد ولم يقبله التسجيل بعد؛ والعميد لا يرى إلا المعتمد.", "en": "A new term in preparation has been created and registration has not accepted it; the dean sees approved rows only." },
+      "behavior": { "ar": "تفتح اللوحة على الفصل الجاري بأسبوعه وأرقامه، وتسمّي الفصل الجديد في شارة؛ وإن فتحه العميد قالت «لم يُعتمد جدولُ هذا الفصل بعد» ولا تقول «الجدول سليم».", "en": "The dashboard opens on the current term with its week and figures and names the new term in a badge; if the dean opens it, it says its schedule is not yet approved and never that the schedule is sound." },
+      "evidence": ["tests/dashboard-home-term-audit.ts"]
+    },
+    {
+      "title": { "ar": "الجمعة والسبت", "en": "Friday and Saturday" },
+      "scenario": { "ar": "يفتح مستخدم اللوحة يوم عطلة.", "en": "A user opens the dashboard on a holiday." },
+      "behavior": { "ar": "قائمة اليوم فارغة وweekend=true وتكتب الشاشة أن الجمعة والسبت عطلة، فلا تُنسب محاضرات الأحد إلى تاريخ يوم آخر.", "en": "Today's list is empty with weekend=true and the screen writes that Friday and Saturday are a holiday, so Sunday's lectures are not stamped with another day's date." },
+      "evidence": ["src/server/routes/dashboardRoutes.ts"]
+    },
+    {
+      "title": { "ar": "فشل قراءة التحليلات الاختيارية", "en": "Optional analytics read fails" },
+      "scenario": { "ar": "تنقطع إحدى قراءتي التحليلات المرافقتين بينما تنجح /api/dashboard.", "en": "One of the two companion analytics readings fails while /api/dashboard succeeds." },
+      "behavior": { "ar": "تبقى اللوحة بأرقامها ومحاضراتها، وتسقط المؤشرات المنتظرة (الفراغ والجاهزية والصحة) بعد انتهاء الانتظار بدل أن تُفرَّغ الشاشة برسالة خطأ.", "en": "The dashboard keeps its figures and lectures, and the awaited signals (gap, readiness, health) drop out once waiting ends instead of the screen being emptied by an error banner." },
+      "evidence": ["tests/dashboard-home-term-audit.ts"]
+    },
+    {
+      "title": { "ar": "رقم جاهزية بلا طلبة يمكن الحكم عليهم", "en": "Readiness with no judgeable students" },
+      "scenario": { "ar": "كل ملفات الطلبة «غير معلوم» أو لا طلبة في الرادار.", "en": "All student files are unknown or there are no students in the radar." },
+      "behavior": { "ar": "لا يُعرض رقم ولا حلقة (score=null)؛ وإن وُجد حكم قليل مع غير معلوم فوق 20% يُعرض الرقم مع تحذير التقدير الضعيف.", "en": "No number and no ring is shown (score=null); if a little is judged with unknown above 20% the number is shown with the weak-estimate warning." },
+      "evidence": ["tests/registration-causes-audit.ts"]
+    },
+    {
+      "title": { "ar": "عطل عرض لا يتعافى", "en": "A render fault that does not heal" },
+      "scenario": { "ar": "يفشل جزء من الشاشة في المحاولات الثلاث التلقائية.", "en": "A part of the screen fails all three automatic attempts." },
+      "behavior": { "ar": "لا غطاء أعمى فوق شاشة فارغة: يظهر سطر واحد وزر «إعادة المحاولة» بإعلان وصولي، ولا يُنقل المستخدم ولا يُعاد تحميل التطبيق.", "en": "No invisible cover over a blank screen: one line and a Retry button appear with an accessible announcement, and the user is not navigated away and the application is not reloaded." },
+      "evidence": ["tests/run-tests.ts"]
+    }
+  ],
+  "terms": [
+    { "ar": "لوحة البداية", "en": "Home dashboard", "def": { "ar": "الشاشة الأولى بعد الدخول: النطاق والفصل وأرقامه وقراءة اليوم والأسبوع.", "en": "The first screen after sign-in: scope, term, its figures and the reading of the day and week." } },
+    { "ar": "الفصل الجاري تشغيلياً", "en": "Operationally current term", "def": { "ar": "الفصل الذي تعمل فيه المؤسسة الآن، وهو الحَكَم نفسه لبطاقة الأستاذ والجدول.", "en": "The term in which the institution is working now, the same arbiter used by the staff card and the schedule." } },
+    { "ar": "قصة الفصل", "en": "Term story", "def": { "ar": "بطاقة تلخص دورة اعتماد جدول قسم في أرقام وجولات وجملة قابلة للنسخ.", "en": "A card summarising a department schedule's approval cycle in figures, rounds and a copyable sentence." } },
+    { "ar": "جاهزية الفصل", "en": "Semester readiness", "def": { "ar": "درجة من 100 تجمع بلوغ الطلبة 12 وحدة ووجود مقعد للطلب؛ تقدير لا ضمان.", "en": "A score out of 100 combining students reaching 12 units and demand finding a seat; an estimate, not a guarantee." } },
+    { "ar": "الرحلة", "en": "Journey", "def": { "ar": "قراءة عامة مجمّعة لما حمله النظام عبر السنوات تُحسب عند الطلب.", "en": "A public aggregated reading of what the system has carried through the years, computed on request." } },
+    { "ar": "الجولة التعريفية", "en": "Welcome tour", "def": { "ar": "عرض ترحيبي بحسب الصفة يظهر مرة لكل حساب وصفة.", "en": "A role-specific welcome shown once per account and role." } }
+  ],
+  "ownerRules": [
+    { "ar": "الفصل المعروض يحسمه الخادم: الجاري تشغيلياً ما لم يختر القارئ غيره.", "en": "The displayed term is decided by the server: the operationally current term unless the reader chooses another." },
+    { "ar": "العميدان يقرآن النسخة المقبولة وحدها في كل شاشة.", "en": "Deans read the accepted version only on every screen." },
+    { "ar": "رقم المقرر سبع خانات دائماً (كلية 2 + قسم 2 + مقرر 3).", "en": "A course number is always seven digits (college 2 + department 2 + course 3)." },
+    { "ar": "التقارير المطبوعة تحافظ على تصميمها؛ والإصلاح في القيم لا في الشكل.", "en": "Printed reports keep their design; fixes are in values, not layout." },
+    { "ar": "كل جولة تعريفية تعرض ميزة مفعّلة فقط؛ جولة تعرض ما لا يجده صاحبها أسوأ من لا جولة.", "en": "Every tour shows only features that are switched on; a tour showing what its owner cannot find is worse than none." }
+  ]
+}

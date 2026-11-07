@@ -1,0 +1,1927 @@
+{
+  "id": "DRF",
+  "order": 5,
+  "icon": "git-branch",
+  "title": {
+    "ar": "المسودات والسيناريوهات وآلة الزمن",
+    "en": "Drafts, scenarios and the time machine"
+  },
+  "tagline": {
+    "ar": "جرّب على نسخة، وقارن الأثر، ثم اعتمد دفعة واحدة وتراجع بنقرة.",
+    "en": "Try on a copy, compare the effect, apply in one piece and go back with one click."
+  },
+  "summary": {
+    "ar": "تحمل هذه الوحدة كل ما يُجرَّب قبل أن يمسّ الجدول الحيّ: مسودات الجدول وبداية الفصل ونشرها بنقطة أمان، وسجل النسخ والاسترجاع ومقارنة الفصول، وآلة الزمن بسيناريوهاتها وحلولها واعتمادها الذرّي ونقطة استعادتها، ومحاكاة «ماذا لو؟» على رادار التسجيل، وإنهاء الصحيفة السابقة. تخدم رئيس لجنة الجدول الذي يكتب، ورئيس القسم والعميد اللذين يقرآن ويحاكيان. لا يُكتب شيء في الجدول الحيّ قبل تأكيد صريح، ولا يُمحى ما تغيّر بعد أساس المسودة دون أن يُسمّى.",
+    "en": "This module holds everything that is tried before the live schedule is touched: schedule drafts and start-of-term drafts with publishing behind a safety point, the version log with restore and term comparison, the time machine with its scenarios, solutions, atomic apply and restore point, what-if simulation on the registration radar, and ending the previous plan sheet. It serves the schedule committee chair who writes, and the department head and dean who read and simulate. Nothing is written to the live schedule without explicit confirmation, and nothing changed after a draft's base is erased without being named."
+  },
+  "actors": [
+    "committeeChair",
+    "departmentHead",
+    "dean",
+    "admin",
+    "rootAdmin",
+    "system"
+  ],
+  "sources": [
+    "src/server/routes/draftsRoutes.ts",
+    "src/server/core/draftChecks.ts",
+    "src/server/core/versions.ts",
+    "src/utils/scheduleVersionList.ts",
+    "src/utils/scopeFingerprint.ts",
+    "src/utils/scopeOverwrite.ts",
+    "src/utils/previousTermRequest.ts",
+    "src/server/timeMachineRoutes.ts",
+    "src/utils/timeMachine.ts",
+    "src/utils/timeMachineLink.ts",
+    "src/utils/timeMachineScope.ts",
+    "src/server/simulationRoutes.ts",
+    "src/server/simulationData.ts",
+    "src/server/demoPreviousTermSeed.ts",
+    "src/components/TimeMachine.tsx",
+    "src/components/ScenarioWorkbench.tsx",
+    "src/components/timeMachineShared.tsx",
+    "src/components/SectionSimulator.tsx",
+    "src/components/PreviousPlansPanel.tsx",
+    "src/components/SchedulePhysics/ScheduleDecisionPreview.tsx",
+    "src/styles/33-time-machine.css"
+  ],
+  "screens": [
+    {
+      "name": {
+        "ar": "آلة الزمن",
+        "en": "Time machine"
+      },
+      "file": "src/components/TimeMachine.tsx",
+      "note": {
+        "ar": "ثلاثة أوضاع: طوارئ (جملة ← ثلاثة حلول)، مختبر (تعديل حر)، هدف؛ وخطوات: اكتب، قارن، اعتمد؛ ومنتقيا الكلية والقسم في الرأس.",
+        "en": "Three modes: emergency (sentence → three solutions), lab (free editing), goal; steps: write, compare, apply; college and department pickers in the header."
+      }
+    },
+    {
+      "name": {
+        "ar": "منضدة السيناريو",
+        "en": "Scenario workbench"
+      },
+      "file": "src/components/ScenarioWorkbench.tsx",
+      "note": {
+        "ar": "مؤشر الأثر، قبل/بعد، المنزلقة الزمنية، الدومينو، أثر الطلبة، الحفظ والمشاركة والنسخ والاعتماد والاستعادة، وبطاقات إبلاغ الأساتذة.",
+        "en": "Impact indicator, before/after, time slider, domino chain, student impact, save, share, copy, apply, restore and instructor notice cards."
+      }
+    },
+    {
+      "name": {
+        "ar": "محاكي الشعب",
+        "en": "Section simulator"
+      },
+      "file": "src/components/SectionSimulator.tsx",
+      "note": {
+        "ar": "بطاقات الشعب مع حذف وإضافة ودمج وتقسيم في سلة تُقاس معاً.",
+        "en": "Section cards with remove, add, merge and split in a basket measured together."
+      }
+    },
+    {
+      "name": {
+        "ar": "معاينة قرار نقل الموعد",
+        "en": "Move decision preview"
+      },
+      "file": "src/components/SchedulePhysics/ScheduleDecisionPreview.tsx",
+      "note": {
+        "ar": "«لم يُحفظ شيء بعد»: من وإلى، وأثر الموانع والفراغ والجودة والضغط، ثم تأكيد أو إلغاء.",
+        "en": "«لم يُحفظ شيء بعد»: from and to, effect on blockers, gap, quality and pressure, then confirm or cancel."
+      }
+    },
+    {
+      "name": {
+        "ar": "إنهاء الصحيفة السابقة",
+        "en": "End the previous plan sheet"
+      },
+      "file": "src/components/PreviousPlansPanel.tsx",
+      "note": {
+        "ar": "للحساب الرئيسي: اختيار أقسام وضغط «انتهوا» أو «أعد السابقة».",
+        "en": "For the main account: pick departments and press end or restore."
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "بداية فصل جديد من الفصل السابق",
+        "en": "Starting a new term from the previous one"
+      },
+      "steps": [
+        {
+          "ar": "يفتح الطبقة الحيّة ويختار الفصل السابق مصدراً للقسم.",
+          "en": "Opens the living layer and picks the previous term as the source for the department."
+        },
+        {
+          "ar": "يقرأ ملخص ما سيُنسخ (قراءة فقط) ثم يبني مسودة «بداية الفصل».",
+          "en": "Reads the summary of what will be copied (read only), then builds the «بداية الفصل» draft."
+        },
+        {
+          "ar": "تظهر الشعب مرقّمة من 501 وتحت كل صف ملاحظاته وتنبيهاته اللطيفة.",
+          "en": "Sections appear numbered from 501 with each row's issues and soft warnings beneath it."
+        },
+        {
+          "ar": "يعدّل الأستاذ أو الوقت أو القاعة لصفٍّ ذي ملاحظة فيعاد الفحص ويُعرض بقاء N ملاحظة.",
+          "en": "Edits the instructor, time or room of a flagged row and the check reruns, showing N issues remaining."
+        },
+        {
+          "ar": "حين تصير المسودة جاهزة ينشر بتأكيد صريح، فيرى عدد المواعيد وما ضُبط وقته.",
+          "en": "When the draft is ready, publishes with explicit confirmation and sees the number of appointments and how many had their time adjusted."
+        },
+        {
+          "ar": "إن أخطأ يضغط «تراجع» فتعود النسخة الملتقطة قبل النشر.",
+          "en": "If it was a mistake, presses undo and the version captured before publishing comes back."
+        }
+      ]
+    },
+    {
+      "actor": "committeeChair",
+      "title": {
+        "ar": "طارئ: قاعة تعطلت يوم الأحد",
+        "en": "Emergency: a room is down on Sunday"
+      },
+      "steps": [
+        {
+          "ar": "يفتح آلة الزمن ويكتب «قاعة G23 تعطلت الأحد» أو يختار مثالاً مأخوذاً من جدوله.",
+          "en": "Opens the time machine and writes «قاعة G23 تعطلت الأحد», or picks an example taken from the department's own schedule."
+        },
+        {
+          "ar": "يرى حتى ثلاثة حلول بفلسفات مختلفة، وأفضلها بعلامة، وجدول مقارنة بينها.",
+          "en": "Sees up to three solutions of different philosophies, the best one marked, and a comparison table."
+        },
+        {
+          "ar": "يفحص أثر الحل المختار على الأساتذة والقاعات والطلبة (من الرادار) ومؤشره.",
+          "en": "Checks the chosen solution's effect on instructors, rooms and students (from the radar) and its indicator."
+        },
+        {
+          "ar": "يحفظ السيناريو باسم، ويضغط «اعتمد الكل»، فتعرض الورقة ما يتغيّر ومن يُبلَّغ.",
+          "en": "Saves the scenario under a name and presses «اعتمد الكل»; the sheet shows what changes and who is notified."
+        },
+        {
+          "ar": "بعد الاعتماد ترسل بطاقات الأساتذة المتأثرين بواتساب بنفسه.",
+          "en": "After applying, sends the affected instructors their cards by WhatsApp himself."
+        },
+        {
+          "ar": "إن ظهر خطأ يضغط «استعد» فيعود الجدول كما كان ما لم يُعدَّل بعده.",
+          "en": "If something is wrong, presses restore and the schedule goes back as it was, unless it was edited after."
+        }
+      ]
+    },
+    {
+      "actor": "dean",
+      "title": {
+        "ar": "العميد يطّلع على سيناريو مشارك",
+        "en": "The dean reviews a shared scenario"
+      },
+      "steps": [
+        {
+          "ar": "يفتح آلة الزمن لقسم داخل كليته ويختاره من المنتقي.",
+          "en": "Opens the time machine for a department in the college and picks it from the selector."
+        },
+        {
+          "ar": "لا يرى إلا السيناريوهات التي شاركها المنسّق للعرض.",
+          "en": "Sees only the scenarios the coordinator shared for viewing."
+        },
+        {
+          "ar": "يحاكي ويقرأ الأثر قبل/بعد، وتظهر له عبارة «عرض ومحاكاة — الاعتماد لمن يكتب الجدول».",
+          "en": "Simulates and reads the before/after effect, and sees «عرض ومحاكاة — الاعتماد لمن يكتب الجدول»."
+        },
+        {
+          "ar": "أي محاولة حفظ أو اعتماد ترفضها الخدمة برمز 403.",
+          "en": "Any attempt to save or apply is refused by the server with 403."
+        }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "drf-publish",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "نشر مسودة",
+        "en": "Publishing a draft"
+      },
+      "caption": {
+        "ar": "كل البوابات تُفحص قبل أول كتابة؛ النشر يقع كله أو لا يقع.",
+        "en": "Every gate is checked before the first write; the publish happens entirely or not at all."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "مسودة جاهزة",
+            "en": "Draft ready"
+          },
+          "icon": "file-text",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "تأكيد publish؟",
+            "en": "publish confirmed?"
+          },
+          "icon": "shield-question",
+          "kind": "decision"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "قفل وموعد",
+            "en": "Lock and deadline"
+          },
+          "icon": "lock",
+          "kind": "decision"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "تغيّر الجدول؟",
+            "en": "Schedule changed?"
+          },
+          "icon": "diff",
+          "kind": "decision"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "إصلاح الوقت",
+            "en": "Time repair"
+          },
+          "icon": "wrench",
+          "kind": "system"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "فحص كل موقع",
+            "en": "Check each site"
+          },
+          "icon": "list-checks",
+          "kind": "system"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "نقطة أمان",
+            "en": "Safety point"
+          },
+          "icon": "save",
+          "kind": "system"
+        },
+        {
+          "id": "h",
+          "label": {
+            "ar": "منشورة",
+            "en": "Published"
+          },
+          "icon": "check-circle",
+          "kind": "end"
+        },
+        {
+          "id": "i",
+          "label": {
+            "ar": "رفض بلا كتابة",
+            "en": "Refused, nothing written"
+          },
+          "icon": "ban",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b"
+        },
+        {
+          "from": "b",
+          "to": "i",
+          "label": {
+            "ar": "لا (409)",
+            "en": "No (409)"
+          }
+        },
+        {
+          "from": "b",
+          "to": "c",
+          "label": {
+            "ar": "نعم",
+            "en": "Yes"
+          }
+        },
+        {
+          "from": "c",
+          "to": "i",
+          "label": {
+            "ar": "مقفل أو خارج الموعد",
+            "en": "Locked or late"
+          }
+        },
+        {
+          "from": "c",
+          "to": "d",
+          "label": {
+            "ar": "مفتوح",
+            "en": "Open"
+          }
+        },
+        {
+          "from": "d",
+          "to": "i",
+          "label": {
+            "ar": "نعم، دون موافقة المحو",
+            "en": "Yes, no overwrite approval"
+          }
+        },
+        {
+          "from": "d",
+          "to": "e",
+          "label": {
+            "ar": "لا، أو بموافقة",
+            "en": "No, or approved"
+          }
+        },
+        {
+          "from": "e",
+          "to": "f"
+        },
+        {
+          "from": "f",
+          "to": "i",
+          "label": {
+            "ar": "ملاحظة",
+            "en": "An issue"
+          }
+        },
+        {
+          "from": "f",
+          "to": "g",
+          "label": {
+            "ar": "سليم",
+            "en": "Clean"
+          }
+        },
+        {
+          "from": "g",
+          "to": "h"
+        }
+      ]
+    },
+    {
+      "id": "drf-scenario",
+      "type": "flow",
+      "layout": "lr",
+      "title": {
+        "ar": "دورة حياة السيناريو",
+        "en": "Scenario lifecycle"
+      },
+      "caption": {
+        "ar": "الاعتماد معاملة واحدة ونقطة الاستعادة تُكتب فيها نفسها.",
+        "en": "Applying is one transaction and the restore point is written in it."
+      },
+      "nodes": [
+        {
+          "id": "a",
+          "label": {
+            "ar": "مسودة",
+            "en": "Draft"
+          },
+          "icon": "file-pen",
+          "kind": "start"
+        },
+        {
+          "id": "b",
+          "label": {
+            "ar": "محفوظ بأساس",
+            "en": "Saved with base"
+          },
+          "icon": "save",
+          "kind": "state"
+        },
+        {
+          "id": "c",
+          "label": {
+            "ar": "انحراف؟",
+            "en": "Drift?"
+          },
+          "icon": "git-compare",
+          "kind": "decision"
+        },
+        {
+          "id": "d",
+          "label": {
+            "ar": "فحص جافّ لكل خطوة",
+            "en": "Dry run each step"
+          },
+          "icon": "flask-conical",
+          "kind": "system"
+        },
+        {
+          "id": "e",
+          "label": {
+            "ar": "معاملة واحدة",
+            "en": "One transaction"
+          },
+          "icon": "database",
+          "kind": "system"
+        },
+        {
+          "id": "f",
+          "label": {
+            "ar": "معتمد",
+            "en": "Applied"
+          },
+          "icon": "check-circle",
+          "kind": "state"
+        },
+        {
+          "id": "g",
+          "label": {
+            "ar": "مُستعاد",
+            "en": "Restored"
+          },
+          "icon": "undo-2",
+          "kind": "end"
+        },
+        {
+          "id": "h",
+          "label": {
+            "ar": "مرفوض",
+            "en": "Refused"
+          },
+          "icon": "ban",
+          "kind": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b",
+          "label": {
+            "ar": "حفظ",
+            "en": "Save"
+          }
+        },
+        {
+          "from": "b",
+          "to": "c",
+          "label": {
+            "ar": "اعتمد الكل",
+            "en": "Apply all"
+          }
+        },
+        {
+          "from": "c",
+          "to": "h",
+          "label": {
+            "ar": "نعم (409)",
+            "en": "Yes (409)"
+          }
+        },
+        {
+          "from": "c",
+          "to": "d",
+          "label": {
+            "ar": "لا",
+            "en": "No"
+          }
+        },
+        {
+          "from": "d",
+          "to": "h",
+          "label": {
+            "ar": "خطوة فاسدة",
+            "en": "A faulty step"
+          }
+        },
+        {
+          "from": "d",
+          "to": "e"
+        },
+        {
+          "from": "e",
+          "to": "f"
+        },
+        {
+          "from": "f",
+          "to": "g",
+          "label": {
+            "ar": "استعادة",
+            "en": "Restore"
+          }
+        },
+        {
+          "from": "f",
+          "to": "h",
+          "label": {
+            "ar": "عُدّل بعده (409)",
+            "en": "Edited since (409)"
+          }
+        }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": {
+      "ar": "من يفعل ماذا في آلة الزمن",
+      "en": "Who can do what in the time machine"
+    },
+    "cols": [
+      {
+        "ar": "قراءة ومحاكاة",
+        "en": "Read and simulate"
+      },
+      {
+        "ar": "حفظ ومشاركة",
+        "en": "Save and share"
+      },
+      {
+        "ar": "اعتماد واستعادة",
+        "en": "Apply and restore"
+      }
+    ],
+    "rows": [
+      {
+        "actor": "committeeChair",
+        "cells": [
+          2,
+          2,
+          2
+        ]
+      },
+      {
+        "actor": "departmentHead",
+        "cells": [
+          1,
+          0,
+          0
+        ]
+      },
+      {
+        "actor": "dean",
+        "cells": [
+          1,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "FR-DRF-001",
+      "kind": "functional",
+      "title": {
+        "ar": "إنشاء مسودة جدول",
+        "en": "Create a schedule draft"
+      },
+      "text": {
+        "ar": "يجب على النظام إنشاء مسودة جدول لقسم وفصل محددين من صفوف يرسلها المستخدم، وحفظ أساسها (بصمة الجدول الحيّ لحظة الإنشاء) دون أن يتغيّر الجدول الحيّ.",
+        "en": "The system shall create a schedule draft for a given department and term from rows supplied by the user, and store its base (the fingerprint of the live schedule at creation time) without changing the live schedule."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب إنشاء لقسم خارج صلاحيات المستخدم يُردّ برمز 403 ولا تُنشأ مسودة.",
+          "en": "A create request for a department outside the user's scope is refused with 403 and no draft is created."
+        },
+        {
+          "ar": "اسم فارغ يُحفظ «سيناريو جديد»، واسم أطول من 100 حرف يُقصّ إلى 100.",
+          "en": "An empty name is stored as «سيناريو جديد», and a name longer than 100 characters is cut to 100."
+        },
+        {
+          "ar": "مصدر المسودة خارج القائمة (what-if، auto، import، manual) يُحفظ what-if.",
+          "en": "A draft source outside the list (what-if, auto, import, manual) is stored as what-if."
+        },
+        {
+          "ar": "بعد الإنشاء الناجح (رمز 201) لا يتغيّر أي موعد في الجدول الحيّ.",
+          "en": "After a successful create (201) no appointment of the live schedule has changed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts"
+        ],
+        "tests": [
+          "tests/role-guard-audit.ts",
+          "tests/intelligence-scope-api.mjs",
+          "tests/blockers-stream-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-002",
+      "kind": "functional",
+      "title": {
+        "ar": "فحص المسودة قبل الحفظ وحدّ حجمها",
+        "en": "Validate a draft before saving and cap its size"
+      },
+      "text": {
+        "ar": "يجب على النظام رفض حفظ المسودة إذا بقيت ملاحظات معاينة، أو حقول مطلوبة ناقصة، أو إذا زاد حجم صفوفها المخزّنة على 960,000 بايت، وأن يقول السبب قبل أي كتابة.",
+        "en": "The system shall refuse to save a draft while preview issues remain, required fields are missing, or the stored size of its rows exceeds 960,000 bytes, and shall state the reason before any write."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "قائمة ملاحظات معاينة غير فارغة (تُقصّ عند 80 ملاحظة مختلفة) تُنتج 400 ولا تُحفظ مسودة.",
+          "en": "A non-empty preview-issue list (cut at 80 distinct items) yields 400 and no draft is saved."
+        },
+        {
+          "ar": "صف ناقص الحقول المطلوبة يُنتج 400 مع قائمة الملاحظات.",
+          "en": "A row missing required fields yields 400 with the list of issues."
+        },
+        {
+          "ar": "صفوف تتجاوز 960,000 بايت من JSON تُنتج 413 برمز DRAFT_TOO_LARGE ولا يُكتب شيء.",
+          "en": "Rows exceeding 960,000 bytes of JSON yield 413 with code DRAFT_TOO_LARGE and nothing is written."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts"
+        ]
+      },
+      "inferred": true,
+      "rationale": {
+        "ar": "وثيقة المسودة واحدة في قاعدة البيانات وحدّها 1 ميبيبايت؛ تُقال الحالة بعددها قبل الكتابة بدل خطأ عام.",
+        "en": "A draft is a single database document limited to 1 MiB; the case is reported with the row count before writing instead of a generic failure."
+      }
+    },
+    {
+      "id": "FR-DRF-003",
+      "kind": "functional",
+      "title": {
+        "ar": "تعديل صف المسودة وحذفه",
+        "en": "Edit and delete draft rows"
+      },
+      "text": {
+        "ar": "يجب على النظام السماح بتعديل حقول محددة فقط من صف المسودة (الأستاذ والوقت والأيام والمكان)، وحذف صف أو كل الصفوف، وإعادة فحص المسودة بعد كل تغيير وإرجاع الملاحظات لكل صف.",
+        "en": "The system shall allow editing only specific fields of a draft row (instructor, time, days, location), deleting one row or all rows, and shall re-check the draft after each change and return issues per row."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "تعديل مقرر الصف أو رقم شعبته عبر مسار التعديل لا يغيّر شيئاً (الحقول المسموحة 15 حقلاً فقط).",
+          "en": "Editing a row's course or section number through the edit route changes nothing (only 15 fields are allowed)."
+        },
+        {
+          "ar": "الرد يحمل issues وissueRowIds وrowIssues وrowWarnings وready، وready صحيحة فقط حين لا ملاحظات.",
+          "en": "The reply carries issues, issueRowIds, rowIssues, rowWarnings and ready, and ready is true only when there are no issues."
+        },
+        {
+          "ar": "حذف كل الصفوف بلا ترويسة x-schedule-confirm: delete-all-draft-rows يُنتج 409.",
+          "en": "Deleting all rows without the header x-schedule-confirm: delete-all-draft-rows yields 409."
+        },
+        {
+          "ar": "صف غير موجود داخل المسودة يُنتج 404.",
+          "en": "A row that is not in the draft yields 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts"
+        ],
+        "tests": [
+          "tests/import-term-tools-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-004",
+      "kind": "functional",
+      "title": {
+        "ar": "مسودة «بداية الفصل» من الفصل السابق",
+        "en": "Start-of-term draft from the previous term"
+      },
+      "text": {
+        "ar": "يجب على النظام بناء مسودة لقسم في فصل جديد من جدول فصل سابق مختلف، دون كتابة أي موعد حيّ، وترقيم شعب كل مقرر من 501 تصاعدياً، وتخطّي مواعيد المقررات المؤرشفة وتسمية عددها.",
+        "en": "The system shall build a draft for a department in a new term from the schedule of a different, earlier term, without writing any live appointment, renumbering the sections of each course from 501 upwards and skipping appointments of archived courses while stating their number."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "فصل مصدر يساوي الفصل الهدف يُنتج 400، ومصدر بلا جدول لهذا القسم يُنتج 400.",
+          "en": "A source term equal to the target term yields 400, and a source with no schedule for this department yields 400."
+        },
+        {
+          "ar": "شعب مقرر منسوخ من 1 و10 و11 تصير 501 و502 و503.",
+          "en": "Sections of a copied course numbered 1, 10 and 11 become 501, 502 and 503."
+        },
+        {
+          "ar": "أستاذ غير موجود يُستبدل بأستاذ شعبة شقيقة للمقرر نفسه إن وُجد، وقاعة فارغة تؤخذ من شعبة شقيقة.",
+          "en": "A missing instructor is replaced by the instructor of a sibling section of the same course when one exists, and an empty room is taken from a sibling section."
+        },
+        {
+          "ar": "يعود الرد برمز 201 مع coverage (sourceRows وarchivedSkipped وcopiedRows وskippedRows وadjustedRows) وعدد ما يحتاج مراجعة.",
+          "en": "The reply is 201 with coverage (sourceRows, archivedSkipped, copiedRows, skippedRows, adjustedRows) and the count of items needing review."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/intelligenceInsightRoutes.ts"
+        ],
+        "tests": [
+          "tests/import-term-tools-audit.ts",
+          "tests/blockers-stream-audit.ts"
+        ]
+      },
+      "rationale": {
+        "ar": "ينتج عنها مسودة تُراجع وتُعدَّل قبل النشر؛ والجدول الحيّ لا يتغيّر.",
+        "en": "The result is a draft that is reviewed and edited before publishing; the live schedule does not change."
+      }
+    },
+    {
+      "id": "FR-DRF-005",
+      "kind": "functional",
+      "title": {
+        "ar": "بوابة الموعد لمسودة بداية الفصل",
+        "en": "Appointment gate for start-of-term drafts"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يسأل كل صف في مسودة «بداية الفصل» الأسئلة نفسها التي يُسألها موعد جديد (الحقول والمكان، الساعات المعتمدة، النمط المعتمد، التعارض) على «الفصل كما سيصير»، وألا يمنع التنبيه اللطيف.",
+        "en": "The system shall ask every row of a start-of-term draft the same questions a new appointment is asked (fields and location, approved hours, approved pattern, conflicts) against the term as it will become, and a soft warning shall not block."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الفحص يستدعي schedulePayloadIssues وscheduleLengthIssue وunapprovedPatternIssue وscheduleConflicts لكل صف.",
+          "en": "The check calls schedulePayloadIssues, scheduleLengthIssue, unapprovedPatternIssue and scheduleConflicts for every row."
+        },
+        {
+          "ar": "تعارض لطيف (soft) يظهر في rowWarnings ولا يظهر في issues ولا يمنع النشر.",
+          "en": "A soft conflict appears in rowWarnings, not in issues, and does not block publishing."
+        },
+        {
+          "ar": "فحصٌ يفشل داخلياً يضيف «تعذّر فحص هذا الموعد. أعد المحاولة قبل النشر.» ويُحسب مشكلة.",
+          "en": "A check that fails internally adds «تعذّر فحص هذا الموعد. أعد المحاولة قبل النشر.» and counts as an issue."
+        },
+        {
+          "ar": "الفحص يجري عند الإنشاء والتعديل والحذف والنشر، وتُفحص الصفوف على دفعات من 8.",
+          "en": "The check runs on create, edit, delete and publish, and rows are checked in batches of 8."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/draftChecks.ts",
+          "src/server/routes/draftsRoutes.ts"
+        ],
+        "tests": [
+          "tests/import-term-tools-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-006",
+      "kind": "functional",
+      "title": {
+        "ar": "نشر المسودة بتأكيد صريح وبوابات القفل والموعد",
+        "en": "Publish a draft with explicit confirmation, lock and deadline gates"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا ينشر مسودة إلا بتأكيد صريح في الترويسة، وأن يرفض النشر إذا كان جدول الموقع مقفلاً، أو إذا كان الاستبدال الشامل خارج موعده المسموح، ويُقاس الموعد لحظة النشر لا لحظة الحفظ.",
+        "en": "The system shall publish a draft only with explicit confirmation in the header, and shall refuse to publish when the site schedule is locked or a wholesale replacement falls outside its allowed deadline, the deadline being measured at publish time and not at save time."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "طلب نشر بلا الرمز publish في x-schedule-confirm يُنتج 409.",
+          "en": "A publish request without the token publish in x-schedule-confirm yields 409."
+        },
+        {
+          "ar": "جدول مقفل يُنتج 409 برمز schedule-locked ولا يُكتب شيء.",
+          "en": "A locked schedule yields 409 with code schedule-locked and nothing is written."
+        },
+        {
+          "ar": "مسودة مستوردة أو من نوع «بداية الفصل» خارج موعد الاستبدال الشامل تُنتج 409 برمز deadline-wholesale.",
+          "en": "An imported or start-of-term draft outside the wholesale-replacement deadline yields 409 with code deadline-wholesale."
+        },
+        {
+          "ar": "مسودة خارج صلاحيات المستخدم تُنتج 403، ومسودة غير موجودة تُنتج 404.",
+          "en": "A draft outside the user's scope yields 403, and a missing draft yields 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts",
+          "src/server/core/versions.ts"
+        ],
+        "tests": [
+          "tests/approval-integrity-audit.ts",
+          "tests/blockers-stream-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-007",
+      "kind": "functional",
+      "title": {
+        "ar": "عدم محو ما تغيّر بعد أساس المسودة",
+        "en": "Never erase changes made after the draft's base"
+      },
+      "text": {
+        "ar": "يجب على النظام، عند نشر مسودة لم تُنشر بعد، أن يقارن الجدول الحيّ بأساسها وأن يرفض مرة واحدة مع قائمة بما سيُمحى إن تغيّر الجدول، ولا يتابع إلا بموافقة overwrite-newer.",
+        "en": "The system shall, when publishing a draft that has not been published yet, compare the live schedule with its base and refuse once with a list of what would be erased if the schedule changed, proceeding only with the overwrite-newer approval."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "مسودة حُفظت الأحد ونُشرت الثلاثاء بعد تعديل زميل يوم الاثنين تُنتج 409 برمز scope-changed-since-base.",
+          "en": "A draft saved on Sunday and published on Tuesday after a colleague's Monday edit yields 409 with code scope-changed-since-base."
+        },
+        {
+          "ar": "القائمة تُقصّ عند 40 سطراً ويُرسل العدد الكامل في total.",
+          "en": "The list is cut at 40 lines and the full count is sent in total."
+        },
+        {
+          "ar": "إعادة الطلب بالترويسة «publish, overwrite-newer» تنشر بعد موافقة المستخدم.",
+          "en": "Repeating the request with the header «publish, overwrite-newer» publishes after the user agrees."
+        },
+        {
+          "ar": "اختلاف معرّفات المواعيد نفسها فقط دون ما يُمحى لا يُنتج رفضاً.",
+          "en": "A difference only in identifiers of the very same appointments, with nothing erased, does not cause a refusal."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/versions.ts",
+          "src/utils/scopeFingerprint.ts",
+          "src/utils/scopeOverwrite.ts",
+          "src/server/routes/draftsRoutes.ts"
+        ],
+        "tests": [
+          "tests/blockers-stream-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-008",
+      "kind": "functional",
+      "title": {
+        "ar": "إصلاح تصادم الأوقات عند نشر بداية الفصل",
+        "en": "Repair time collisions when publishing a start-of-term draft"
+      },
+      "text": {
+        "ar": "يجب على النظام، حين يمنع تصادم الأوقات في الفصل الجديد نشر مسودة «بداية الفصل»، أن يشغّل المحسّن حتى 4 مرات يحرّك الوقت وحده (لا المقرر ولا الأستاذ ولا اليوم ولا القاعة)، ثم يعيد الفحص ويُبلغ عدد الصفوف التي تغيّر وقتها.",
+        "en": "The system shall, when time collisions in the new term block a start-of-term draft, run the optimiser up to 4 passes moving time only (never course, instructor, day or room), then re-check and report how many rows had their time changed."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرد الناجح يحمل adjusted = عدد الصفوف التي اختلف وقتها عن المحفوظ.",
+          "en": "A successful reply carries adjusted = the number of rows whose time differs from the stored one."
+        },
+        {
+          "ar": "بقاء ملاحظات بعد الإصلاح يُنتج 400 مع issues وissueRowIds وrowIssues ولا يُكتب شيء.",
+          "en": "Issues remaining after repair yield 400 with issues, issueRowIds and rowIssues and nothing is written."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts",
+          "src/server/routes/intelligenceInsightRoutes.ts"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DRF-009",
+      "kind": "functional",
+      "title": {
+        "ar": "نشر كل المواقع أو لا شيء",
+        "en": "Publish every site or nothing"
+      },
+      "text": {
+        "ar": "يجب على النظام عند نشر مسودة تحمل مواقع الفرع أن يضع كل صف في قسم موقعه بحسب مبناه، وأن يفحص الصلاحية والقفل والموعد والتحقق لكل موقع قبل أول كتابة، فإما ينجح النشر في كل المواقع أو لا يُكتب شيء.",
+        "en": "The system shall, when publishing a draft that carries branch sites, place every row in the department of its site according to its building, and check permission, lock, deadline and validation for every site before the first write, so that the publish either succeeds on all sites or writes nothing."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "صف لا يُعرف موقعه يُنتج 400 برمز BRANCH_SCOPE_UNRESOLVED ولا يُنشر أي صف.",
+          "en": "A row whose site cannot be resolved yields 400 with code BRANCH_SCOPE_UNRESOLVED and no row is published."
+        },
+        {
+          "ar": "موقع خارج صلاحيات المستخدم يُنتج 403 برمز BRANCH_SCOPE_FORBIDDEN.",
+          "en": "A site outside the user's scope yields 403 with code BRANCH_SCOPE_FORBIDDEN."
+        },
+        {
+          "ar": "مقرر بلا نظير في قسم الموقع الآخر يُنسخ من كتالوج القسم الأصل بالرمز نفسه، ويظهر في plantedCourses؛ ومقرر غير معروف يُنتج 400 برمز BRANCH_COURSE_MISSING.",
+          "en": "A course with no twin in the other site's department is copied from the home catalogue with the same code and listed in plantedCourses; an unknown course yields 400 with code BRANCH_COURSE_MISSING."
+        },
+        {
+          "ar": "قفل موقع شقيق أو موعده يُنتج 409 يسمّي الموقع ولا يُنشر أي صف.",
+          "en": "A sibling site's lock or deadline yields 409 naming the site and no row is published."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts"
+        ],
+        "tests": [
+          "tests/approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-010",
+      "kind": "functional",
+      "title": {
+        "ar": "نقطة أمان قبل النشر وإبلاغ دورة الاعتماد",
+        "en": "Safety point before publish and approval-cycle notice"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يلتقط نسخة من كل موقع قبل استبداله، وأن يسجّل المسودة منشورة بوقتها، ويُبلغ دورة الاعتماد بكل موقع على حدة، ويُرجع معرّفات النسخ ليُتراجع بها.",
+        "en": "The system shall capture a version of every site before replacing it, mark the draft as published with its time, notify the approval cycle for each site separately, and return the version identifiers so the publish can be undone."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "النسخة تحمل التسمية «قبل نشر: اسم المسودة» ومصدرها publish.",
+          "en": "The version is labelled «قبل نشر: <draft name>» with source publish."
+        },
+        {
+          "ar": "الرد يحمل count وscopes (siteLabel وcount) وundoVersions وadjusted وplantedCourses.",
+          "en": "The reply carries count, scopes (siteLabel and count), undoVersions, adjusted and plantedCourses."
+        },
+        {
+          "ar": "جدول مقبول يُستبدل يعود جولة اعتماد جديدة في موقعه هو لا في موقع المسودة.",
+          "en": "An accepted schedule that is replaced returns to a new approval round at its own site, not at the draft's site."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts",
+          "src/server/core/versions.ts"
+        ],
+        "tests": [
+          "tests/blockers-stream-audit.ts",
+          "tests/approval-integrity-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-011",
+      "kind": "functional",
+      "title": {
+        "ar": "قائمة النسخ ومقارنة نسختين",
+        "en": "Version list and two-version comparison"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض أحدث 80 نسخة لنطاق القسم والفصل بلا لقطات الصفوف، وأن يقارن نسختين من النطاق نفسه فيعدّ ما أُضيف وما حُذف وما بقي.",
+        "en": "The system shall list the latest 80 versions of a department and term scope without row snapshots, and compare two versions of the same scope, counting what was added, removed and unchanged."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "فشل قراءة السجل يُرجع قائمة فارغة مع الترويسة X-Reading-Partial: versions بدل خطأ 500.",
+          "en": "A failure reading the log returns an empty list with the header X-Reading-Partial: versions instead of a 500 error."
+        },
+        {
+          "ar": "نسختان من نطاقين مختلفين تُنتج 403، ونسخة غير موجودة تُنتج 404.",
+          "en": "Two versions from different scopes yield 403, and a missing version yields 404."
+        },
+        {
+          "ar": "مفتاح المقارنة هو المقرر والشعبة والأستاذ والأيام والبداية والنهاية والقاعة.",
+          "en": "The comparison key is course, section, instructor, days, start, end and room."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts",
+          "src/utils/scheduleVersionList.ts"
+        ],
+        "tests": [
+          "tests/intelligence-scope-api.mjs"
+        ]
+      },
+      "inferred": true
+    },
+    {
+      "id": "FR-DRF-012",
+      "kind": "functional",
+      "title": {
+        "ar": "استرجاع نسخة سابقة",
+        "en": "Restore a previous version"
+      },
+      "text": {
+        "ar": "يجب على النظام ألا يسترجع نسخة إلا بتأكيد صريح، وبعد فحص القفل والموعد والمحو والتحقق، وأن يلتقط نسخة من الحالة الراهنة قبل الاستبدال ليكون الاسترجاع نفسه قابلاً للتراجع.",
+        "en": "The system shall restore a version only with explicit confirmation, after checking lock, deadline, overwrite and validation, and shall capture a version of the current state before replacing so the restore can itself be undone."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا الرمز restore في x-schedule-confirm يُنتج 409.",
+          "en": "Without the token restore in x-schedule-confirm the result is 409."
+        },
+        {
+          "ar": "نسخة تحمل أوقاتاً أو تعارضات غير صالحة تُنتج 400 مع issues (يُسمح بالتاريخي عبر resolveHistorical).",
+          "en": "A version holding invalid times or conflicts yields 400 with issues (historical values are tolerated through resolveHistorical)."
+        },
+        {
+          "ar": "تغيّر الجدول بعد أساس النسخة يُنتج 409 برمز scope-changed-since-base قبل أي كتابة.",
+          "en": "A change to the schedule after the version's base yields 409 with code scope-changed-since-base before any write."
+        },
+        {
+          "ar": "النسخة الملتقطة قبل الاسترجاع تُسمّى «قبل استرجاع: اسم النسخة».",
+          "en": "The version captured before restoring is labelled «قبل استرجاع: <version label>»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts",
+          "src/server/core/versions.ts"
+        ],
+        "tests": [
+          "tests/blockers-stream-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-013",
+      "kind": "functional",
+      "title": {
+        "ar": "مقارنة فصلين لقسم",
+        "en": "Compare two terms of a department"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقارن جدول القسم في فصلين فيعرض المواعيد الظاهرة والمختفية والمنقولة (حتى 80 لكل فئة) مع درجة كل فصل وشارة المنتدَب بحسب فصل كل جانب.",
+        "en": "The system shall compare a department's schedule in two terms, listing appeared, disappeared and moved appointments (up to 80 per group) with each term's score and the visiting-instructor mark according to each side's own term."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرد يحمل appeared وdisappeared وmoved وfromTermName وtoTermName وfromScore وtoScore.",
+          "en": "The reply carries appeared, disappeared, moved, fromTermName, toTermName, fromScore and toScore."
+        },
+        {
+          "ar": "كل صف منقول يحمل fields وbefore وafter؛ والقاعة تُعرض بشرطة مائلة لا بخط عمودي.",
+          "en": "Each moved row carries fields, before and after; rooms are shown with a slash, not a pipe."
+        },
+        {
+          "ar": "غياب أحد المعرّفات الأربعة أو نطاق غير مسموح يُنتج 403.",
+          "en": "A missing one of the four identifiers or a scope that is not allowed yields 403."
+        },
+        {
+          "ar": "مقارنة الفصل بنفسه بنطاق القسم تقرأ كلية واحدة في perCollege.",
+          "en": "Comparing a term with itself at department scope reads a single college in perCollege."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/draftsRoutes.ts",
+          "src/utils/previousTermRequest.ts"
+        ],
+        "tests": [
+          "tests/intelligence-scope-api.mjs",
+          "tests/visiting-badge-group3-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "DR-DRF-014",
+      "kind": "data",
+      "title": {
+        "ar": "سجل السيناريو",
+        "en": "Scenario record"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ السيناريو سجلاً واحداً يحمل الاسم (حتى 80 حرفاً) والوضع (طوارئ، مختبر، هدف، شعب) والمشكلة (حتى 200 حرف) وقائمة التغييرات (حتى 80) وإصدار كل صف يمسّه والحالة (مسودة، معتمد، مُستعاد) وعلم المشاركة ورقم المراجعة وآخر 40 حدثاً.",
+        "en": "The system shall store a scenario as one record holding its name (up to 80 characters), mode (emergency, lab, goal, sections), problem (up to 200 characters), list of changes (up to 80), the revision of every row it touches, status (draft, applied, restored), share flag, revision number and the last 40 history entries."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "الحفظ يختم إصدار كل صف يمسّه التغيير (base[rowId] = rev الصف).",
+          "en": "Saving stamps the revision of every row a change touches (base[rowId] = the row's rev)."
+        },
+        {
+          "ar": "حفظ برقم مراجعة قديم يُنتج 409 برمز revision، وحفظ سيناريو معتمد يُنتج 409 برمز applied.",
+          "en": "Saving with a stale revision number yields 409 with code revision, and saving an applied scenario yields 409 with code applied."
+        },
+        {
+          "ar": "تغيير يشير إلى موعد خارج النطاق أو لم يعد موجوداً يُنتج 409 برمز stale.",
+          "en": "A change pointing to an appointment outside the scope or no longer present yields 409 with code stale."
+        },
+        {
+          "ar": "أنواع التغيير أربعة: نقل وإسناد وحذف وإضافة؛ يُقصّ الحذف والإسناد عند 12 صفاً والإضافة عند 4 صفوف، والوضع المجهول يصير lab.",
+          "en": "There are four change types: move, assign, remove and add; remove and assign are cut at 12 rows, add at 4 rows, and an unknown mode becomes lab."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/timeMachineRoutes.ts",
+          "src/utils/timeMachine.ts"
+        ],
+        "tests": [
+          "tests/time-machine-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-015",
+      "kind": "functional",
+      "title": {
+        "ar": "من يقرأ ويحاكي ومن يحفظ ويعتمد",
+        "en": "Who may read and simulate, and who may save and apply"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح قراءة سياق آلة الزمن ومحاكاته لكل من يقرأ الجدول ضمن نطاقه، وأن يحصر الحفظ والمشاركة والنسخ والاعتماد والاستعادة والحذف بمن يكتب الجدول (الإذن 7 ودور غير للقراءة)، وأن يُظهر لغير الكاتب ما شورك معه فقط.",
+        "en": "The system shall let everyone who reads the schedule within their scope read and simulate the time-machine context, restrict save, share, copy, apply, restore and delete to those who write the schedule (permission 7 and a non-read-only role), and show a non-writer only what has been shared with them."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "العميد يقرأ السياق (canWrite=false) ويرى السيناريو المشارك.",
+          "en": "The dean reads the context (canWrite=false) and sees the shared scenario."
+        },
+        {
+          "ar": "حفظ أو اعتماد من العميد أو رئيس القسم يُنتج 403 من الخادم لا من إخفاء الزر.",
+          "en": "A save or apply by the dean or department head yields 403 from the server, not from hiding the button."
+        },
+        {
+          "ar": "قراءة الفصل المجمَّد تُعيد frozen وcanWrite=false.",
+          "en": "Reading a frozen term returns frozen and canWrite=false."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/timeMachineRoutes.ts"
+        ],
+        "tests": [
+          "tests/time-machine-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-016",
+      "kind": "functional",
+      "title": {
+        "ar": "قناع بقية الفصل خارج النطاق",
+        "en": "Mask the rest of the term outside the scope"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يرسل مواعيد الأقسام الأخرى إلى المحاكي مقنّعة: وقت وقاعة بلا اسم مقرر ولا قسم، ويُبقي الأستاذ فقط إن كان من أساتذة النطاق، كي يكفي ذلك لكشف الحجز المزدوج دون كشف بيانات قسم آخر.",
+        "en": "The system shall send the appointments of other departments to the simulator masked: time and room without course or department name, keeping the instructor only when they belong to the scope's instructors, so double booking can be detected without revealing another department's data."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "كل صف خارج النطاق يحمل اسم المقرر «موعد قسمٍ آخر» ورقم القسم 0 والكلية 0 ورمز شعبة x1 فما بعده.",
+          "en": "Every row outside the scope carries the course name «موعد قسمٍ آخر», department 0, college 0 and a section code x1 onwards."
+        },
+        {
+          "ar": "أستاذ من خارج أساتذة النطاق يُستبدل برقم سالب.",
+          "en": "An instructor from outside the scope's instructors is replaced by a negative number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/timeMachineRoutes.ts"
+        ],
+        "tests": [
+          "tests/time-machine-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-017",
+      "kind": "functional",
+      "title": {
+        "ar": "اعتماد السيناريو ذرّياً",
+        "en": "Apply a scenario atomically"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعتمد السيناريو دفعة واحدة أو لا يعتمد شيئاً: يرفض الفصل المجمَّد، ويأخذ قفل الفصل، ويرفض إذا انحرف الجدول الحيّ عن أساس السيناريو، ويفحص كل خطوة فحصاً جافّاً بمعالجَي الحفظ نفسيهما على الأسبوع النهائي، ثم يكتب الصفوف ووثيقة السيناريو في معاملة واحدة.",
+        "en": "The system shall apply a scenario in one piece or not at all: refuse a frozen term, take the term lock, refuse if the live schedule has drifted from the scenario's base, dry-run every step through the same two save handlers against the final week, then write the rows and the scenario record in one transaction."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "فصل مجمَّد يُنتج 409 برمز term-frozen، واعتماد متزامن في الفصل نفسه يُنتج 409 برمز apply-busy.",
+          "en": "A frozen term yields 409 with code term-frozen, and a concurrent apply in the same term yields 409 with code apply-busy."
+        },
+        {
+          "ar": "صف عُدّل أو حُذف بعد بناء السيناريو يُنتج 409 برمز drift مع قائمة الصفوف.",
+          "en": "A row edited or deleted after the scenario was built yields 409 with code drift and the list of rows."
+        },
+        {
+          "ar": "خطوة فاسدة واحدة تُبطل الكل: الرد يحمل applied=[] وreverted=true ولا يتغيّر أي صف ولا رقم إصدار.",
+          "en": "One faulty step voids everything: the reply carries applied=[] and reverted=true and no row or revision number changes."
+        },
+        {
+          "ar": "سيناريو معتمد لا يُعتمد مرتين (409).",
+          "en": "An applied scenario cannot be applied twice (409)."
+        },
+        {
+          "ar": "لا يُحذف صف في موقع مقفول؛ يُنتج 409 برمز schedule-locked مع رقم الخطوة.",
+          "en": "A row at a locked site is not deleted; the result is 409 with code schedule-locked and the step number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/timeMachineRoutes.ts"
+        ],
+        "tests": [
+          "tests/time-machine-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-018",
+      "kind": "functional",
+      "title": {
+        "ar": "نقطة الاستعادة بنقرة",
+        "en": "One-click restore point"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يحفظ عند الاعتماد نقطة استعادة (صور الصفوف قبل التغيير وأرقام الصفوف المنشأة وإصدارات ما بعد الاعتماد) في المعاملة نفسها، وأن يعيد الجدول كما كان بنقرة واحدة، ويرفض الاستعادة إذا عُدّل أي صف بعد الاعتماد.",
+        "en": "The system shall store at apply time a restore point (images of the rows before the change, ids of created rows and post-apply revisions) in the same transaction, put the schedule back with one click, and refuse the restore if any row was edited after applying."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "استعادة سيناريو غير معتمد تُنتج 409 برمز not-applied.",
+          "en": "Restoring a scenario that is not applied yields 409 with code not-applied."
+        },
+        {
+          "ar": "تعديل يدوي لصف بعد الاعتماد يجعل الاستعادة تُنتج 409 برمز revision ولا يُكتب شيء.",
+          "en": "A manual edit of a row after applying makes the restore yield 409 with code revision and nothing is written."
+        },
+        {
+          "ar": "الاستعادة الناجحة تجعل الحالة restored وتمحو نقطة الاستعادة، وتحذف الصفوف التي أنشأها الاعتماد.",
+          "en": "A successful restore sets the status to restored, clears the restore point and deletes the rows the apply created."
+        },
+        {
+          "ar": "سيناريو معتمد لا يُحذف (409)، ونسخه يبني أساسه على الجدول الحيّ الآن ويُنتج مسودة غير مشاركة.",
+          "en": "An applied scenario cannot be deleted (409), and copying it builds its base on the live schedule now and yields an unshared draft."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/timeMachineRoutes.ts"
+        ],
+        "tests": [
+          "tests/time-machine-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-019",
+      "kind": "functional",
+      "title": {
+        "ar": "مؤشر الأثر الأخضر والأصفر والأحمر",
+        "en": "Green, yellow and red impact indicator"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقارن الجدول قبل السيناريو وبعده بمقاييس الجدول نفسها ويعطي مؤشراً: أحمر إذا زادت موانع الاعتماد أو زاد عدد الأساتذة فوق نصابهم أو زاد عدد الطلبة بلا مقعد، وأصفر إذا لم يكن أحمر وتغيّر وقت أو أستاذ أو زادت الفجوات أكثر من 30 دقيقة أو زادت الملاحظات اللائحية، وإلا أخضر.",
+        "en": "The system shall compare the schedule before and after a scenario using the schedule's own measures and give an indicator: red if approval blockers rise, instructors over their load rise or students without a seat rise; yellow if not red and a time or instructor changed, gaps grew by more than 30 minutes or regulation notes rose; otherwise green."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "تغيير صفين لأستاذ ما يعطي مؤشراً غير أخضر ويذكر الأستاذ المتأثر.",
+          "en": "Changing two rows of an instructor gives a non-green indicator and names the affected instructor."
+        },
+        {
+          "ar": "الأساتذة المتأثرون لا يشملون «هيئة تدريسية» (الأسماء البديلة).",
+          "en": "Affected instructors do not include placeholder names such as «هيئة تدريسية»."
+        },
+        {
+          "ar": "زر «اعتمد الكل» معطّل حين لا تغييرات، أو حين يكون المؤشر أحمر وزادت الموانع.",
+          "en": "The «اعتمد الكل» button is disabled when there are no changes, or when the indicator is red and blockers increased."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/timeMachine.ts",
+          "src/components/ScenarioWorkbench.tsx"
+        ],
+        "tests": [
+          "tests/time-machine-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-020",
+      "kind": "functional",
+      "title": {
+        "ar": "قراءة المشكلة وثلاثة حلول مرتّبة",
+        "en": "Problem reading and three ranked solutions"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ جملة المشكلة المكتوبة (قاعة تعطلت، أستاذ معتذر، زاد الطلب على مقرر، صفّر يوماً، قلّل الفجوات، وفّر قاعات)، وأن يقترح حتى 3 حلول من فلسفات مختلفة (أقل تغيير، الطلبة أولاً، راحة الأساتذة، قاعات أقل، مرونة «هيئة تدريسية») لا يزيد أي منها موانع الاعتماد، مع علامة للأفضل.",
+        "en": "The system shall read a written problem sentence (room down, instructor unavailable, demand up on a course, clear a day, reduce gaps, free rooms) and propose up to 3 solutions of different philosophies (minimal change, students first, instructor comfort, fewer rooms, placeholder-instructor flexibility), none of which raises approval blockers, with the best one marked."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "جملة غير مفهومة تُرجع لا شيء، لا حلاً مخترعاً.",
+          "en": "A sentence that is not understood returns nothing, not an invented solution."
+        },
+        {
+          "ar": "كل حل في أي وضع تكون موانعه بعد التطبيق أقل من أو تساوي قبله.",
+          "en": "Every solution in every mode has approval blockers after applying that are less than or equal to those before."
+        },
+        {
+          "ar": "لكل حل في الإجابة فلسفة مختلفة، وحل واحد فقط بعلامة best.",
+          "en": "Every solution in the answer has a different philosophy, and only one carries the best mark."
+        },
+        {
+          "ar": "جملة الرابط تُقصّ عند 200 حرف وتُنفَّذ مرة واحدة ثم تُمحى من العنوان؛ ورمز مقرر طويل يُطابق بكامله لا بآخر أرقامه.",
+          "en": "A link sentence is cut at 200 characters, run once and then removed from the address; a long course number is matched in full, not by its last digits."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/timeMachine.ts",
+          "src/utils/timeMachineLink.ts"
+        ],
+        "tests": [
+          "tests/time-machine-audit.ts",
+          "tests/time-machine-links-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-021",
+      "kind": "functional",
+      "title": {
+        "ar": "أثر السيناريو على الطلبة من الرادار وحده",
+        "en": "Student impact of a scenario from the radar only"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقيس أثر السيناريو على الطلبة بأعداد لا أسماء، من رادار التسجيل وحده، لفصل الرادار فقط، وأن يترك الرقم فارغاً حين لا رادار بدل أن يخترع صفراً.",
+        "en": "The system shall measure a scenario's impact on students as counts, not names, from the registration radar alone and for the radar term only, and shall leave the figure empty when there is no radar instead of inventing zero."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "فصل غير فصل الرادار يُرجع available=false مع السبب، والخطأ الداخلي يُرجع available=false أيضاً.",
+          "en": "A term other than the radar term returns available=false with the reason, and an internal error returns available=false too."
+        },
+        {
+          "ar": "تغييرات تشير إلى صفوف خارج نطاق السيناريو تُسقط قبل القياس.",
+          "en": "Changes pointing to rows outside the scenario's scope are dropped before measuring."
+        },
+        {
+          "ar": "بلا رادار: shortfall وstudentsMoved قيمتهما null لا 0.",
+          "en": "With no radar: shortfall and studentsMoved are null, not 0."
+        },
+        {
+          "ar": "حكم الأثر apply أو caution أو avoid أو neutral: ضرر لأي طالب يجعله avoid ما لم يزد من تحسّنوا على من تضرروا فيكون caution.",
+          "en": "The impact verdict is apply, caution, avoid or neutral: harm to any student makes it avoid unless those helped outnumber those harmed, in which case it is caution."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/timeMachineRoutes.ts",
+          "src/server/simulationData.ts"
+        ],
+        "tests": [
+          "tests/time-machine-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-022",
+      "kind": "functional",
+      "title": {
+        "ar": "إبلاغ الأساتذة المتأثرين وحدهم",
+        "en": "Notify only the affected instructors"
+      },
+      "text": {
+        "ar": "يجب على النظام بعد الاعتماد أن يعرض لكل أستاذ تغيّر جدوله بطاقة قبل ← بعد برابطه الشخصي (يُعاد استعمال الرابط القائم) ورسالة واتساب جاهزة لا تُرسل إلا بضغط المنسّق.",
+        "en": "The system shall, after applying, show every instructor whose schedule changed a before → after card with their personal link (an existing link is reused) and a ready WhatsApp message that is sent only when the coordinator presses the button."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "البطاقات تخص الأساتذة المتأثرين وحدهم، ولكل بطاقة سطر قبل أو بعد على الأقل.",
+          "en": "Cards cover the affected instructors only, and each card has at least one before or after line."
+        },
+        {
+          "ar": "رسالة الأستاذ لا تذكر اسم القاعة.",
+          "en": "The instructor's message does not mention the room name."
+        },
+        {
+          "ar": "غياب بطاقة الأساتذة المنشورة يُظهر «انشر بطاقات الأساتذة أولاً من أداة النشر».",
+          "en": "When no staff card is published the screen shows «انشر بطاقات الأساتذة أولاً من أداة النشر»."
+        },
+        {
+          "ar": "لا إرسال تلقائي من الخادم.",
+          "en": "The server sends nothing automatically."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScenarioWorkbench.tsx",
+          "src/server/routes/shareRoutes.ts"
+        ],
+        "tests": [
+          "tests/time-machine-audit.ts",
+          "tests/import-term-tools-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-023",
+      "kind": "functional",
+      "title": {
+        "ar": "«ماذا لو؟» على أثر اقتراح قبل اعتماده",
+        "en": "What-if on a proposal's impact before approval"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقيس أثر نقل موعد أو تبديل موعدين أو فتح شعبة أو دفعة شعب على طلبة فصل الرادار دون كتابة أي شيء، وأن يرفض الفصل غير فصل الرادار.",
+        "en": "The system shall measure the effect of moving an appointment, swapping two appointments, opening a section or a batch of sections on the radar term's students without writing anything, and shall refuse any term other than the radar term."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "kind يقبل move وswap وopening وopenings؛ swap يلزمه موعدان تماماً، والدفعة حتى 60 عنصراً، والنقل حتى موعدين.",
+          "en": "kind accepts move, swap, opening and openings; swap needs exactly two moves, a batch holds up to 60 items, and a move holds up to two appointments."
+        },
+        {
+          "ar": "فصل مجمَّد يُنتج 409 برمز term-frozen، وفصل غير فصل الرادار يُنتج 409 برمز other-term.",
+          "en": "A frozen term yields 409 with code term-frozen, and a term other than the radar term yields 409 with code other-term."
+        },
+        {
+          "ar": "موعد لم يعد موجوداً يُنتج 409 برمز stale، وموعد خارج النطاق لغير مدير النظام يُنتج 403.",
+          "en": "An appointment no longer present yields 409 with code stale, and one outside the scope for a non-administrator yields 403."
+        },
+        {
+          "ar": "الرد يحمل impact وbasis وstale ولا يكتب في الجدول.",
+          "en": "The reply carries impact, basis and stale and does not write to the schedule."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/simulationRoutes.ts",
+          "src/server/simulationData.ts"
+        ],
+        "tests": [
+          "tests/radar-insight-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-024",
+      "kind": "functional",
+      "title": {
+        "ar": "تحديث رادار التسجيل وقراءته بحدود النطاق",
+        "en": "Refresh and read the registration radar within scope"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح قراءة ملخص الرادار بحدود نطاق القارئ، وأن يحصر التشغيل بمدير النظام وبتشغيل واحد في كل وقت، وأن يحدّثه آلياً مرة كل 24 ساعة ما دامت رغبات الطلبة مفتوحة، وبعد الإغلاق مرة أخيرة.",
+        "en": "The system shall let the radar summary be read within the reader's scope, restrict running to the system administrator with one run at a time, and refresh it automatically once every 24 hours while student wishes are open and once more after they close."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "rootAdmin",
+        "system",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "تشغيل من غير مدير النظام يُنتج 403، وتشغيل ثانٍ أثناء تشغيل قائم يُنتج 409 برمز busy.",
+          "en": "A run by a non-administrator yields 403, and a second run while one is running yields 409 with code busy."
+        },
+        {
+          "ar": "RADAR_AUTO_HOURS قيمة 1 فأكثر وإلا 24، وRADAR_AUTO=false يوقف التحديث الآلي.",
+          "en": "RADAR_AUTO_HOURS is 1 or more, otherwise 24, and RADAR_AUTO=false stops the automatic refresh."
+        },
+        {
+          "ar": "بعد تعديل الجدول يُحدَّث الرادار بعد هدوء 120 ثانية على الأقل وبفاصل 10 دقائق بين تشغيلين.",
+          "en": "After a schedule change the radar refreshes after at least 120 seconds of quiet and at least 10 minutes between two runs."
+        },
+        {
+          "ar": "الفصل السابق المجمَّد يُقرأ للاطّلاع ولا يُعاد حسابه، وتشغيله باسمه يُنتج 409 برمز term-frozen.",
+          "en": "A frozen earlier term is readable for reference and not recalculated, and running it by name yields 409 with code term-frozen."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/simulationRoutes.ts",
+          "src/server/simulationData.ts"
+        ],
+        "tests": [
+          "tests/registration-flow-audit.ts",
+          "tests/radar-insight-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-025",
+      "kind": "functional",
+      "title": {
+        "ar": "إنهاء الصحيفة السابقة لأقسام",
+        "en": "End the previous plan sheet for departments"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للحساب الرئيسي وحده أن يُنهي الصحيفة السابقة لأقسام مختارة (حتى 400) فلا يظهر لها في الجدول إلا مقررات الصحيفة الجديدة، وأن يعيدها بأمر مقابل.",
+        "en": "The system shall let the main account alone end the previous plan sheet for chosen departments (up to 400) so only the new sheet's courses appear in the schedule, and bring it back with a counter command."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "قراءة القائمة أو التنفيذ من غير الحساب الرئيسي يُنتج 403.",
+          "en": "Reading the list or executing as anyone but the main account yields 403."
+        },
+        {
+          "ar": "الإنهاء يُؤرشف صحائف الانتقال فقط إذا كان لمسارها صحيفة جديدة فعّالة فيها مقررات، وإلا يُتخطّى القسم ويظهر في skipped.",
+          "en": "Ending archives transition sheets only when their track has an active new sheet containing courses, otherwise the department is skipped and appears in skipped."
+        },
+        {
+          "ar": "الإعادة تسترجع ما أرشفه هذا الإجراء وحده.",
+          "en": "Restoring brings back only what this action archived."
+        },
+        {
+          "ar": "الواجهة تعرض لكل قسم الحالة: جارية، انتهت، أو بلا جديدة بعد.",
+          "en": "The screen shows each department's state: running, ended, or no new sheet yet."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/PreviousPlansPanel.tsx",
+          "src/server/planReviewRoutes.ts"
+        ],
+        "tests": [
+          "tests/plan-sheet-import-route-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-DRF-026",
+      "kind": "interface",
+      "title": {
+        "ar": "ورقة «قبل الاعتماد»",
+        "en": "The «before apply» sheet"
+      },
+      "text": {
+        "ar": "يجب على الواجهة ألا تكتب عند «اعتمد الكل» مباشرة، بل تفتح ورقة تعرض عدد المواعيد والأساتذة والطلبة المتأثرين، وأول 6 تغييرات بأسمائها، ومن يُبلَّغ، وكيف يُتراجع، ولا تكتب إلا بـ«اعتمد الآن».",
+        "en": "The interface shall not write when «Apply all» is pressed, but open a sheet showing the number of affected appointments, instructors and students, the first 6 changes by name, who is notified and how to go back, and write only on «Apply now»."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "زر الرجوع وEscape يغلقان الورقة دون كتابة، وفي حوار «أدوات البيانات» يُغلق Escape الورقة العليا وحدها.",
+          "en": "The back button and Escape close the sheet without writing, and inside the «data tools» dialog Escape closes only the topmost sheet."
+        },
+        {
+          "ar": "أكثر من 6 تغييرات يظهر منها 6 ويُقال «و N أخرى».",
+          "en": "More than 6 changes show 6 and say «و N أخرى»."
+        },
+        {
+          "ar": "بعد تبديل الكلية أو القسم لا يظهر سياق القسم السابق ولا يُفعَّل «اعتمد» عليه.",
+          "en": "After switching college or department the previous department's context is not shown and «اعتمد» is not active on it."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScenarioWorkbench.tsx",
+          "src/components/TimeMachine.tsx",
+          "src/components/timeMachineShared.tsx",
+          "src/utils/timeMachineScope.ts"
+        ],
+        "tests": [
+          "tests/time-machine-scope-escape-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-DRF-027",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "رقم المقرر سبع خانات في شاشات آلة الزمن",
+        "en": "Seven-digit course number on time-machine screens"
+      },
+      "text": {
+        "ar": "يجب أن تعرض شاشات آلة الزمن ومحاكي الشعب رقم المقرر بسبع خانات (الكلية والقسم والمقرر) في الأمثلة والتسميات وبطاقات الشعب، لا الخانات الثلاث المخزّنة في الكتالوج.",
+        "en": "The time-machine and section-simulator screens shall display the course number in seven digits (college, department, course) in examples, labels and section cards, not the three digits stored in the catalogue."
+      },
+      "priority": "must",
+      "status": "planned",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "مثال الطلب الزائد يُكتب «زاد الطلب على 0109468» لا «زاد الطلب على 468».",
+          "en": "The demand example reads «زاد الطلب على 0109468», not «زاد الطلب على 468»."
+        },
+        {
+          "ar": "بطاقة الشعبة وتسمية الإضافة وخيار المقرر في محاكي الشعب تعرض الرقم المبني بـauthorityCourseCode.",
+          "en": "The section card, the add label and the course option in the section simulator show the number built with authorityCourseCode."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/TimeMachine.tsx",
+          "src/utils/timeMachine.ts",
+          "src/components/SectionSimulator.tsx"
+        ],
+        "tests": [
+          "tests/time-machine-links-audit.ts"
+        ]
+      },
+      "rationale": {
+        "ar": "الكود يعرض اليوم CourseCode كما هو في هذه المواضع؛ والمحلّل يقبل الرمز الطويل والقصير.",
+        "en": "Today the code renders CourseCode as stored in these places; the parser accepts both the long and the short number."
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": {
+        "ar": "مسودة قديمة نُشرت بعد تعديل زميل",
+        "en": "An old draft published after a colleague's edit"
+      },
+      "scenario": {
+        "ar": "حُفظت مسودة يوم الأحد، وعدّل زميل الجدول الحيّ يوم الاثنين، ثم ضُغط «نشر» يوم الثلاثاء.",
+        "en": "A draft was saved on Sunday, a colleague edited the live schedule on Monday, then «publish» was pressed on Tuesday."
+      },
+      "behavior": {
+        "ar": "يرفض الخادم مرة برمز 409 scope-changed-since-base ويسمّي ما سيُمحى (حتى 40 سطراً والعدد الكامل)؛ فإن وافق المستخدم أُعيد الطلب بـ«publish, overwrite-newer». ومسودة سبق نشرها تتخطى هذه المقارنة.",
+        "en": "The server refuses once with 409 scope-changed-since-base and names what would be erased (up to 40 lines plus the full count); if the user agrees the request is repeated with «publish, overwrite-newer». A draft that was already published skips this comparison."
+      },
+      "evidence": [
+        "tests/blockers-stream-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "مسودة بداية الفصل تصطدم بأقسام أخرى",
+        "en": "A start-of-term draft collides with other departments"
+      },
+      "scenario": {
+        "ar": "المواعيد المنسوخة تتعارض في القاعة أو الأستاذ مع جداول أقسام أخرى في الفصل الجديد.",
+        "en": "Copied appointments clash on room or instructor with other departments' schedules in the new term."
+      },
+      "behavior": {
+        "ar": "يحرّك المحسّن الوقت وحده حتى 4 مرات عند الإنشاء وعند النشر، فإن بقيت ملاحظات أُرجعت لكل صف ولم يُكتب شيء. والتنبيه اللطيف يُعرض تحت الصف ولا يمنع.",
+        "en": "The optimiser moves time only, up to 4 passes at creation and at publish; if issues remain they are returned per row and nothing is written. A soft warning is shown under the row and does not block."
+      },
+      "evidence": [
+        "tests/import-term-tools-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "الجدول الحيّ تحرّك بعد بناء السيناريو",
+        "en": "The live schedule moved after the scenario was built"
+      },
+      "scenario": {
+        "ar": "عدّل زميل موعداً يمسّه السيناريو قبل أن يُضغط «اعتمد الكل».",
+        "en": "A colleague edited an appointment the scenario touches before «اعتمد الكل» was pressed."
+      },
+      "behavior": {
+        "ar": "يرفض الاعتماد برمز 409 drift ويسمّي الصف المتغيّر (محذوف أو معدَّل)، وتعرض المنضدة تنبيه «تغيّر الجدول الحيّ». لا يُكتب أي صف.",
+        "en": "The apply is refused with 409 drift naming the changed row (gone or edited), and the workbench shows the notice that the live schedule changed. No row is written."
+      },
+      "evidence": [
+        "tests/time-machine-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "استعادة بعد تعديل يدوي",
+        "en": "Restore after a manual edit"
+      },
+      "scenario": {
+        "ar": "اعتُمد سيناريو ثم عدّل أحدهم يدوياً صفاً غيّره السيناريو، ثم طُلبت الاستعادة.",
+        "en": "A scenario was applied, someone then edited by hand a row it changed, and a restore was requested."
+      },
+      "behavior": {
+        "ar": "تُرفض الاستعادة برمز 409 revision لأنها ستكتب فوق التعديل؛ لا يُكتب شيء، ويبقى السيناريو معتمداً.",
+        "en": "The restore is refused with 409 revision because it would overwrite the edit; nothing is written and the scenario stays applied."
+      },
+      "evidence": [
+        "tests/time-machine-audit.ts"
+      ]
+    },
+    {
+      "title": {
+        "ar": "ملف يحمل مواقع الفرع ويفشل أحدها",
+        "en": "A file carrying branch sites where one site fails"
+      },
+      "scenario": {
+        "ar": "مسودة فيها صفوف للمقر والجهراء والفحيحيل، وأحد المواقع مقفل أو صفٌّ فيه بلا موقع معروف.",
+        "en": "A draft with rows for the main site, Jahra and Fahaheel, where one site is locked or a row has no known site."
+      },
+      "behavior": {
+        "ar": "تُفحص كل المواقع قبل أول كتابة؛ يُنتج الخادم 409 أو 400 يسمّي الموقع ولا يُنشر أي صف في أي موقع.",
+        "en": "Every site is checked before the first write; the server returns 409 or 400 naming the site and no row is published at any site."
+      },
+      "evidence": [
+        "tests/approval-integrity-audit.ts"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "ar": "مسودة",
+      "en": "Draft",
+      "def": {
+        "ar": "جدول مقترح لقسم وفصل يُراجَع ويُعدَّل ولا يغيّر الجدول الحيّ حتى يُنشر.",
+        "en": "A proposed schedule for a department and term that is reviewed and edited and does not change the live schedule until published."
+      }
+    },
+    {
+      "ar": "بداية الفصل",
+      "en": "Start of term",
+      "def": {
+        "ar": "مسودة تُبنى من جدول الفصل السابق لقسم، اسمها يبدأ بـ«بداية الفصل».",
+        "en": "A draft built from a department's previous-term schedule, whose name begins with «بداية الفصل»."
+      }
+    },
+    {
+      "ar": "سيناريو",
+      "en": "Scenario",
+      "def": {
+        "ar": "طبقة مرتبة من تغييرات (نقل، إسناد، حذف، إضافة) فوق الجدول الحيّ لا تُكتب فيه قبل الاعتماد.",
+        "en": "An ordered layer of changes (move, assign, remove, add) over the live schedule that is not written into it before approval."
+      }
+    },
+    {
+      "ar": "آلة الزمن",
+      "en": "Time machine",
+      "def": {
+        "ar": "شاشة السيناريوهات: طوارئ ومختبر وهدف.",
+        "en": "The scenarios screen: emergency, lab and goal."
+      }
+    },
+    {
+      "ar": "نقطة استعادة",
+      "en": "Restore point",
+      "def": {
+        "ar": "صور الصفوف قبل الاعتماد وإصداراتها بعده، تُكتب مع الاعتماد وتُستعمل في الاستعادة.",
+        "en": "Row images before applying and their revisions after, written with the apply and used for the restore."
+      }
+    },
+    {
+      "ar": "انحراف",
+      "en": "Drift",
+      "def": {
+        "ar": "صف يمسّه السيناريو حُذف أو تغيّر إصداره بعد بناء السيناريو.",
+        "en": "A row the scenario touches that was deleted or whose revision changed after the scenario was built."
+      }
+    },
+    {
+      "ar": "مانع اعتماد",
+      "en": "Approval blocker",
+      "def": {
+        "ar": "تعارض مادي يمنع اعتماد الجدول.",
+        "en": "A physical conflict that prevents approving the schedule."
+      }
+    },
+    {
+      "ar": "محاكي الشعب",
+      "en": "Section simulator",
+      "def": {
+        "ar": "تبويب يجرّب حذف شعبة أو إضافتها أو دمجها أو تقسيمها بأثر فوري.",
+        "en": "A tab that tries removing, adding, merging or splitting a section with an immediate effect."
+      }
+    },
+    {
+      "ar": "رادار التسجيل",
+      "en": "Registration radar",
+      "def": {
+        "ar": "محاكاة تسجيل الطلبة على الشعب المطروحة بأعداد لا أسماء، تحمل كل رقم أساسه.",
+        "en": "A simulation of student registration over the offered sections, with counts not names, each figure carrying its basis."
+      }
+    },
+    {
+      "ar": "الفصل السابق",
+      "en": "Previous term",
+      "def": {
+        "ar": "الأقدم زمنياً من الفصل الحالي بتسلسل الفصول الزمني لا بترتيب المعرّفات.",
+        "en": "The one earlier in time than the current term by term chronology, not by identifier order."
+      }
+    }
+  ],
+  "ownerRules": [
+    {
+      "ar": "رقم المقرر سبع خانات دائماً (الكلية 2 + القسم 2 + المقرر 3، مثل 0109105)، ولا يُعرض الرمز المخزّن ثلاثي الخانات.",
+      "en": "A course number is always seven digits (college 2 + department 2 + course 3, such as 0109105); the stored three-digit code is never displayed."
+    },
+    {
+      "ar": "التقارير المطبوعة تحافظ على تصميمها؛ الإصلاح في القيم والبيانات لا في الشكل.",
+      "en": "Printed reports keep their design; fixes go in values and data, not layout."
+    }
+  ]
+}

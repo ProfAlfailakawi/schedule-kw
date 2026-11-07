@@ -1,0 +1,20 @@
+[
+  { "id": "rootAdmin", "icon": "shield-check", "name": { "ar": "مدير النظام الأعلى", "en": "Root administrator" } },
+  { "id": "admin", "icon": "settings", "name": { "ar": "مدير النظام", "en": "System administrator" } },
+  { "id": "dean", "icon": "landmark", "name": { "ar": "عميد الكلية", "en": "College dean" } },
+  { "id": "viceDean", "icon": "graduation-cap", "name": { "ar": "العميد المساعد للشؤون الأكاديمية", "en": "Vice dean for academic affairs" } },
+  { "id": "registrarDean", "icon": "clipboard-check", "name": { "ar": "عميد التسجيل", "en": "Dean of registration" } },
+  { "id": "registrarHead", "icon": "stamp", "name": { "ar": "المسجّل العام", "en": "University registrar" } },
+  { "id": "collegeRegistrar", "icon": "file-badge", "name": { "ar": "رئيس تسجيل الكلية", "en": "College registrar" } },
+  { "id": "registrarStaff", "icon": "id-card", "name": { "ar": "موظف التسجيل", "en": "Registration officer" } },
+  { "id": "departmentHead", "icon": "users", "name": { "ar": "رئيس القسم العلمي", "en": "Department head" } },
+  { "id": "advisor", "icon": "compass", "name": { "ar": "مرشد القسم", "en": "Department advisor" } },
+  { "id": "committeeChair", "icon": "calendar-cog", "name": { "ar": "رئيس لجنة الجدول", "en": "Schedule committee chair" } },
+  { "id": "standard", "icon": "user", "name": { "ar": "مستخدم عادي", "en": "Standard user" } },
+  { "id": "instructor", "icon": "presentation", "name": { "ar": "عضو هيئة التدريس", "en": "Faculty member" } },
+  { "id": "student", "icon": "book-open", "name": { "ar": "الطالب", "en": "Student" } },
+  { "id": "visitor", "icon": "globe", "name": { "ar": "زائر عام", "en": "Public visitor" } },
+  { "id": "partner", "icon": "handshake", "name": { "ar": "جهة شريكة", "en": "Partner organisation" } },
+  { "id": "system", "icon": "cpu", "name": { "ar": "النظام (تلقائياً)", "en": "The system (automatic)" } },
+  { "id": "external", "icon": "plug", "name": { "ar": "خدمة خارجية", "en": "External service" } }
+]

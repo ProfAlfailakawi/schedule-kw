@@ -1,0 +1,808 @@
+{
+  "id": "ACC",
+  "order": 1,
+  "icon": "shield-check",
+  "title": { "ar": "الهوية والحسابات والصفات ونطاق الوصول", "en": "Identity, accounts, roles and access scope" },
+  "tagline": { "ar": "من يدخل، وبأي صفة، وماذا يقرأ أو يكتب، وفي أي قسم.", "en": "Who signs in, in which role, what they may read or write, and in which department." },
+  "summary": {
+    "ar": "تصف هذه الوحدة تسجيل الدخول والجلسة وكلمات السر، وإدارة الحسابات من شاشة المستخدمين. وتصف الصفات العشر التي تحدد القراءة أو الكتابة والشاشات والنطاق، وحارس الخادم الذي يفرضها على كل طلب كتابة. كما تصف نطاق الوصول بالكلية والقسم وكيف تُصفّى به البيانات، وحدود المعدّل على الأبواب المجهولة، والبيئة التجريبية، وسجل التدقيق. الخادم هو الحَكَم دائماً، وإخفاء الأزرار في الواجهة تيسيرٌ بصري فقط.",
+    "en": "This module describes sign-in, sessions and passwords, and account administration from the Users screen. It defines the ten roles that decide read or write access, screens and scope, and the server guard that enforces them on every write request. It also covers college and department scope and how data is filtered by it, rate limits on anonymous doors, the demo environment and the audit trail. The server is always the authority; hiding buttons in the interface is only a visual convenience."
+  },
+  "actors": ["rootAdmin", "admin", "dean", "viceDean", "registrarDean", "registrarHead", "collegeRegistrar", "registrarStaff", "departmentHead", "advisor", "committeeChair", "standard", "visitor", "system"],
+  "sources": [
+    "src/server/routes/authRoutes.ts",
+    "src/server/routes/usersRoutes.ts",
+    "src/server/routes/adminRoutes.ts",
+    "src/server/core/auth.ts",
+    "src/server/core/scope.ts",
+    "src/server/core/rateLimits.ts",
+    "src/server/roleGuard.ts",
+    "src/server/accountPassword.ts",
+    "src/server/anonymousGuard.ts",
+    "src/server/staffDeviceKey.ts",
+    "src/server/readScope.ts",
+    "src/utils/academicRoles.ts",
+    "src/utils/departmentHeadAccounts.ts",
+    "src/utils/invitationLink.ts",
+    "src/utils/accessCardImage.ts",
+    "src/utils/onboardingKey.ts",
+    "src/utils/scopeContext.ts",
+    "src/utils/scopeShape.ts",
+    "src/components/Login.tsx",
+    "src/components/ChangePassword.tsx",
+    "src/components/AccountInvitation.tsx",
+    "src/components/AdminUsers.tsx",
+    "src/components/AccessCard.tsx",
+    "src/components/AdvisingScopePicker.tsx",
+    "src/components/Onboarding.tsx",
+    "src/components/ScopeContextChip.tsx",
+    "src/components/account-invitation.css"
+  ],
+  "screens": [
+    { "name": { "ar": "تسجيل الدخول", "en": "Sign-in" }, "file": "src/components/Login.tsx", "note": { "ar": "اسم المستخدم وكلمة السر، ورابط الدعوة في جزء # الذي يملأ الاسم ولا يُرسل إلى الخادم، وزر الدخول التجريبي إن كان مفعّلاً.", "en": "User name and password, the invitation link fragment that pre-fills the name and is never sent to the server, and the demo entry button when enabled." } },
+    { "name": { "ar": "اختر كلمة السر", "en": "Choose your password" }, "file": "src/components/ChangePassword.tsx", "note": { "ar": "تحجب مساحة العمل حتى يختار صاحب الحساب كلمته؛ لا يظهر حقل الكلمة الحالية لمن دخل للتوّ بالكلمة الأولى.", "en": "Blocks the workspace until the account owner picks a password; the current-password field is hidden for someone who has just signed in with the initial password." } },
+    { "name": { "ar": "المستخدمون والصلاحيات والنطاقات وسجل التدقيق", "en": "Users, permissions, scopes and audit log" }, "file": "src/components/AdminUsers.tsx", "note": { "ar": "شاشة الإدارة بأوضاعها: المستخدمون (الصفة والقالب والكلمة)، الصلاحيات، النطاقات، سجل التدقيق، والنسخ الاحتياطي لحساب الإدارة الرئيسي وحده.", "en": "The administration screen in its modes: users (role, template, password), permissions, scopes, audit log, and backup for the root account only." } },
+    { "name": { "ar": "بطاقة الدخول", "en": "Access card" }, "file": "src/components/AccessCard.tsx", "note": { "ar": "رأس SCHEDULE والاسم والصفة ورمز QR للرابط الشخصي، مع نسخ الرسالة والرابط وحفظ البطاقة والرمز صورة.", "en": "SCHEDULE header, name, role caption and a QR code for the personal link, with copy-message, copy-link and save-card/save-code-as-image actions." } },
+    { "name": { "ar": "منتقي الكلية والقسم للإرشاد", "en": "Advising college and department picker" }, "file": "src/components/AdvisingScopePicker.tsx", "note": { "ar": "يعرض ما يسمح به نطاق القارئ وحده، ويثبّت الخيار الوحيد وسماً بلا قائمة.", "en": "Lists only what the reader's scope allows and pins a sole option as a fixed label instead of a list." } },
+    { "name": { "ar": "الجولة التعريفية", "en": "Welcome tour" }, "file": "src/components/Onboarding.tsx", "note": { "ar": "جولة تظهر مرة لكل حساب وصفة، ولسبع صفات جولتها الخاصة.", "en": "A tour shown once per account and role, with its own variant for seven roles." } }
+  ],
+  "journeys": [
+    {
+      "actor": "admin",
+      "title": { "ar": "إنشاء حساب عميد بقراءة فقط", "en": "Creating a read-only dean account" },
+      "steps": [
+        { "ar": "يفتح مدير النظام «المستخدمون» ويضغط إضافة حساب.", "en": "The system administrator opens Users and chooses to add an account." },
+        { "ar": "يكتب الاسم واسم الدخول وكلمة السر، ويختار الصفة «عميد الكلية» فتظهر قائمة الكليات.", "en": "They enter the name, login and password, and pick the role College dean, which reveals the college list." },
+        { "ar": "يختار الكلية ويحفظ؛ فيكتب النظام الشاشة 14 وصفاً واحداً بقسم صفر لتلك الكلية.", "en": "They select the college and save; the system writes screen 14 and a single scope row with department 0 for that college." },
+        { "ar": "يعلَّم الحساب بتغيير كلمة السر عند أول دخول، ويصدر له بطاقة دخول يرسلها المدير لصاحبه.", "en": "The account is flagged to change its password at first sign-in, and an access card is issued for the administrator to send to its owner." },
+        { "ar": "يدخل العميد فيرى كل أقسام كليته، بما يُنشأ منها لاحقاً، دون أي زر تعديل.", "en": "The dean signs in and sees every department of that college, including ones created later, with no editing controls." }
+      ]
+    },
+    {
+      "actor": "departmentHead",
+      "title": { "ar": "أول دخول بالكلمة الأولى", "en": "First sign-in with the initial password" },
+      "steps": [
+        { "ar": "يصل رئيس القسم رابط دعوة يحمل اسم الدخول، وكلمة أولى من مدير النظام.", "en": "The department head receives an invitation link carrying the login name and an initial password from the administrator." },
+        { "ar": "يفتح الرابط فيُملأ اسم الدخول ويُمسح الجزء # من عنوان المتصفح.", "en": "Opening the link fills in the login name and the # fragment is removed from the browser address." },
+        { "ar": "يدخل بالكلمة الأولى؛ فيفتح له الخادم جلسة، لكنه لا يقرأ ولا يكتب شيئاً غير مسارات الدخول.", "en": "Signing in with the initial password opens a session, but the server allows nothing beyond the sign-in paths." },
+        { "ar": "تظهر شاشة «اختر كلمة السر» بلا حقل الكلمة الحالية، فيكتب كلمة جديدة من 8 أحرف على الأقل ويؤكدها.", "en": "The Choose your password screen appears without a current-password field; they type a new password of at least 8 characters and confirm it." },
+        { "ar": "تُحفظ الكلمة، وتُغلق جلسات الحساب الأخرى، وتُرفع العلامة فتفتح مساحة العمل بصلاحيات رئيس القسم.", "en": "The password is saved, the account's other sessions are closed, the flag is cleared and the workspace opens with department-head permissions." }
+      ]
+    },
+    {
+      "actor": "dean",
+      "title": { "ar": "محاولة كتابة من حساب اطّلاع", "en": "A write attempt from a view-only account" },
+      "steps": [
+        { "ar": "يفتح العميد تقرير القسم لكليته ويقرأ دون عائق.", "en": "The dean opens the department report for their college and reads without obstruction." },
+        { "ar": "يُرسل طلب تعديل مباشرةً إلى الخادم، متجاوزاً الواجهة.", "en": "A modifying request is sent straight to the server, bypassing the interface." },
+        { "ar": "يحكم الحارس بأن الصفة قراءة فقط ولا مسار استثنائي لها، فيردّ 403.", "en": "The guard decides the role is read-only with no exception path and answers 403." },
+        { "ar": "تحمل الرسالة اسم الصفة «عميد الكلية» والوسم readOnly لتعرضها الواجهة بوضوح.", "en": "The message names the role and carries a readOnly marker so the interface can show it clearly." },
+        { "ar": "يُسجَّل الرفض في سجل التدقيق «مرفوض (خارج الصلاحية)».", "en": "The refusal is recorded in the audit log as refused (outside permission)." }
+      ]
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "acc-sign-in",
+      "type": "flow",
+      "layout": "lr",
+      "title": { "ar": "مسار تسجيل الدخول", "en": "Sign-in flow" },
+      "caption": { "ar": "ترتيب الفحوص في POST /api/auth/login؛ الرفض بعد التحقق من الكلمة لا يكشف شيئاً لمن لا يعرفها.", "en": "Order of checks in POST /api/auth/login; refusals after the password check reveal nothing to someone who does not know it." },
+      "nodes": [
+        { "id": "start", "label": { "ar": "اسم وكلمة", "en": "Name and password" }, "icon": "log-in", "kind": "start" },
+        { "id": "limit", "label": { "ar": "حد المعدّل؟", "en": "Rate limit?" }, "icon": "gauge", "kind": "decision" },
+        { "id": "verify", "label": { "ar": "الكلمة صحيحة؟", "en": "Password valid?" }, "icon": "key-round", "kind": "decision" },
+        { "id": "state", "label": { "ar": "فعّال وغير مقفل؟", "en": "Active, unlocked?" }, "icon": "user-check", "kind": "decision" },
+        { "id": "expiry", "label": { "ar": "الكلمة الأولى سارية؟", "en": "Initial password valid?" }, "icon": "timer", "kind": "decision" },
+        { "id": "session", "label": { "ar": "فتح جلسة", "en": "Open session" }, "icon": "badge-check", "kind": "system" },
+        { "id": "change", "label": { "ar": "اختيار الكلمة", "en": "Choose password" }, "icon": "key-round", "kind": "state" },
+        { "id": "work", "label": { "ar": "مساحة العمل", "en": "Workspace" }, "icon": "layout-dashboard", "kind": "end" },
+        { "id": "deny", "label": { "ar": "رفض", "en": "Refused" }, "icon": "ban", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "start", "to": "limit" },
+        { "from": "limit", "to": "deny", "label": { "ar": "أكثر من 5 في الدقيقة", "en": "More than 5 per minute" } },
+        { "from": "limit", "to": "verify", "label": { "ar": "ضمن الحد", "en": "Within limit" } },
+        { "from": "verify", "to": "deny", "label": { "ar": "لا", "en": "No" } },
+        { "from": "verify", "to": "state", "label": { "ar": "نعم", "en": "Yes" } },
+        { "from": "state", "to": "deny", "label": { "ar": "موقوف أو مقفل", "en": "Inactive or locked" } },
+        { "from": "state", "to": "expiry" },
+        { "from": "expiry", "to": "deny", "label": { "ar": "منتهية أو مستعملة", "en": "Expired or used" } },
+        { "from": "expiry", "to": "session", "label": { "ar": "سارية", "en": "Valid" } },
+        { "from": "session", "to": "change", "label": { "ar": "عليه تغييرها", "en": "Must change" } },
+        { "from": "session", "to": "work", "label": { "ar": "لا", "en": "No" } },
+        { "from": "change", "to": "work" }
+      ]
+    },
+    {
+      "id": "acc-write-guard",
+      "type": "flow",
+      "layout": "tb",
+      "title": { "ar": "حارس الأدوار للكتابة", "en": "Role write guard" },
+      "caption": { "ar": "قرار roleWriteDecision بترتيبه؛ كل سطر يسبق ما بعده لسبب.", "en": "The roleWriteDecision order; each step precedes the next for a reason." },
+      "nodes": [
+        { "id": "req", "label": { "ar": "طلب إلى /api", "en": "Request to /api" }, "icon": "send", "kind": "start" },
+        { "id": "read", "label": { "ar": "قراءة؟", "en": "Read method?" }, "icon": "eye", "kind": "decision" },
+        { "id": "anon", "label": { "ar": "موثَّق؟ عام؟ جلسة؟", "en": "Signed in? Public? Session path?" }, "icon": "user", "kind": "decision" },
+        { "id": "power", "label": { "ar": "حساب إدارة؟", "en": "Power account?" }, "icon": "shield-check", "kind": "decision" },
+        { "id": "writer", "label": { "ar": "صفة تكتب؟", "en": "Writing role?" }, "icon": "pencil", "kind": "decision" },
+        { "id": "door", "label": { "ar": "مسار استثنائي؟", "en": "Narrow-door path?" }, "icon": "door-open", "kind": "decision" },
+        { "id": "allow", "label": { "ar": "يمرّ", "en": "Allowed" }, "icon": "check", "kind": "end" },
+        { "id": "refuse", "label": { "ar": "403 للاطّلاع فقط", "en": "403 view only" }, "icon": "ban", "kind": "end" }
+      ],
+      "edges": [
+        { "from": "req", "to": "read" },
+        { "from": "read", "to": "allow", "label": { "ar": "GET HEAD OPTIONS", "en": "GET HEAD OPTIONS" } },
+        { "from": "read", "to": "anon", "label": { "ar": "كتابة", "en": "Write" } },
+        { "from": "anon", "to": "allow", "label": { "ar": "نعم", "en": "Yes" } },
+        { "from": "anon", "to": "power", "label": { "ar": "لا", "en": "No" } },
+        { "from": "power", "to": "allow", "label": { "ar": "نعم", "en": "Yes" } },
+        { "from": "power", "to": "writer", "label": { "ar": "لا", "en": "No" } },
+        { "from": "writer", "to": "allow", "label": { "ar": "نعم", "en": "Yes" } },
+        { "from": "writer", "to": "door", "label": { "ar": "قراءة فقط", "en": "Read-only" } },
+        { "from": "door", "to": "allow", "label": { "ar": "نعم وبصفة تشارك", "en": "Yes, and role takes part" } },
+        { "from": "door", "to": "refuse", "label": { "ar": "لا", "en": "No" } }
+      ]
+    }
+  ],
+  "matrix": {
+    "title": { "ar": "مصفوفة الصلاحيات: الصفات × القدرات", "en": "Permission matrix: roles × capabilities" },
+    "cols": [
+      { "ar": "ورشة الجدول (الشاشة 7)", "en": "Schedule workspace (screen 7)" },
+      { "ar": "التقارير والاستعلامات", "en": "Reports and queries" },
+      { "ar": "ملاحظات على الخانات", "en": "Cell comments" },
+      { "ar": "توقيع الجدول", "en": "Schedule signature" },
+      { "ar": "الوارد: قبول وإرجاع", "en": "Inbox: accept and return" },
+      { "ar": "موعد التسليم وتمديده", "en": "Delivery deadline and extension" },
+      { "ar": "المستخدمون والصلاحيات والنطاقات", "en": "Users, permissions, scopes" },
+      { "ar": "سجل التدقيق", "en": "Audit log" },
+      { "ar": "النسخ الاحتياطي", "en": "System backup" },
+      { "ar": "الرقم المدني والجوال للأستاذ بلا إخفاء", "en": "Instructor civil ID and mobile unmasked" }
+    ],
+    "rows": [
+      { "actor": "rootAdmin", "cells": [2, 1, 0, 0, 0, 0, 2, 1, 2, 1] },
+      { "actor": "admin", "cells": [2, 1, 0, 0, 0, 0, 2, 1, 0, 1] },
+      { "actor": "dean", "cells": [0, 1, 0, 0, 0, 0, 0, 0, 0, 0] },
+      { "actor": "viceDean", "cells": [0, 1, 0, 0, 0, 0, 0, 0, 0, 0] },
+      { "actor": "registrarDean", "cells": [0, 1, 0, 0, 1, 0, 0, 0, 0, 0] },
+      { "actor": "registrarHead", "cells": [0, 1, 2, 0, 2, 2, 0, 0, 0, 0] },
+      { "actor": "collegeRegistrar", "cells": [0, 1, 2, 0, 2, 2, 0, 0, 0, 0] },
+      { "actor": "registrarStaff", "cells": [0, 1, 2, 0, 2, 0, 0, 0, 0, 0] },
+      { "actor": "departmentHead", "cells": [0, 1, 2, 2, 0, 0, 0, 0, 0, 0] },
+      { "actor": "advisor", "cells": [0, 1, 0, 0, 0, 0, 0, 0, 0, 0] },
+      { "actor": "committeeChair", "cells": [2, 1, 2, 2, 0, 0, 0, 0, 0, 1] },
+      { "actor": "standard", "cells": [2, 0, 0, 0, 0, 0, 0, 0, 0, 1] }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "FR-ACC-001",
+      "kind": "functional",
+      "title": { "ar": "تسجيل الدخول باسم المستخدم وكلمة السر", "en": "Sign-in with user name and password" },
+      "text": {
+        "ar": "يجب على النظام أن يتحقق من اسم المستخدم وكلمة السر، وأن يفتح جلسة بمعرّف عشوائي في كوكي HttpOnly بـSameSite=Lax (وSecure في الإنتاج)، وأن يردّ برسالة واحدة موحّدة لاسم مجهول أو كلمة خاطئة أو حساب محذوف.",
+        "en": "The system shall verify the user name and password and open a session whose random identifier is held in an HttpOnly cookie with SameSite=Lax (and Secure in production), and shall answer unknown name, wrong password and deleted account with one identical message."
+      },
+      "rationale": { "ar": "الرسالة الموحّدة لا تكشف وجود الحساب لمن يخمّن الأسماء.", "en": "A single message does not reveal whether an account exists to someone guessing names." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["standard", "committeeChair", "departmentHead", "dean"],
+      "acceptance": [
+        { "ar": "طلب بلا اسم أو بلا كلمة يردّ 400؛ وكلمة خاطئة لاسم موجود تردّ 400 بالرسالة نفسها لاسم غير موجود.", "en": "A request without a name or password returns 400; a wrong password for an existing name returns 400 with the same message as an unknown name." },
+        { "ar": "حساب غير فعّال يردّ 403 «هذا الحساب غير فعال»، وحساب مقفل 403 «هذا الحساب مقفل»، وكلاهما بعد التحقق من الكلمة.", "en": "An inactive account returns 403, and a locked one returns 403, both only after the password has been verified." },
+        { "ar": "معرّف الجلسة بصيغة sess_ ثم 64 خانة سداسية عشرية، ولا يُعاد في جسم الاستجابة.", "en": "The session identifier has the form sess_ followed by 64 hexadecimal characters and is not echoed in the response body." }
+      ],
+      "evidence": { "code": ["src/server/routes/authRoutes.ts", "src/components/Login.tsx"], "tests": ["tests/owner-approved-2026-10-29-audit.ts", "tests/password-reset-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-002",
+      "kind": "functional",
+      "title": { "ar": "تقييد معدّل الطلبات المجهولة", "en": "Rate limiting of anonymous requests" },
+      "text": {
+        "ar": "يجب على النظام أن يحدّ محاولات تسجيل الدخول بخمس محاولات لكل عنوان في الدقيقة، وأن يحدّ السطح العام /api/public بـ60 طلباً لكل عنوان في الدقيقة افتراضياً، وأن يردّ 429 حين يُتجاوز الحد.",
+        "en": "The system shall limit sign-in attempts to five per address per minute, shall limit the public surface under /api/public to 60 requests per address per minute by default, and shall answer 429 when a limit is exceeded."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["visitor", "system"],
+      "acceptance": [
+        { "ar": "السادس خلال 60 ثانية من /api/auth/login يردّ 429 برسالة «محاولات تسجيل دخول كثيرة جداً»، ويُصفَّر العدّاد بنجاح الدخول.", "en": "A sixth request to the sign-in route within 60 seconds returns 429, and a successful sign-in clears the counter for that address." },
+        { "ar": "يقاسم العدّاد نفسه مسارات تغيير كلمة السر والدخول التجريبي ورابط الدعوة القصير.", "en": "The same counter is shared by the change-password, demo sign-in and short invitation-link routes." },
+        { "ar": "رفض السطح العام يحمل ترويسة Retry-After؛ ويُضبط الحد بـPUBLIC_RATE_LIMIT_MAX والنافذة بـPUBLIC_RATE_LIMIT_WINDOW_MS، والقيمة 0 تعطّله.", "en": "A public-surface refusal carries a Retry-After header; the limit is set by PUBLIC_RATE_LIMIT_MAX, the window by PUBLIC_RATE_LIMIT_WINDOW_MS, and 0 disables it." },
+        { "ar": "بطاقة الأستاذ لها حدّان آخران: 240 طلباً لكل رابط و1500 لكل عنوان في الدقيقة.", "en": "The faculty card has two further limits: 240 requests per link and 1500 per address per minute." }
+      ],
+      "evidence": { "code": ["src/server/routes/authRoutes.ts", "src/server/core/rateLimits.ts"], "tests": ["tests/run-tests.ts"] }
+    },
+    {
+      "id": "FR-ACC-003",
+      "kind": "functional",
+      "title": { "ar": "انقضاء الجلسة بالخمول وتجديدها بالحضور", "en": "Idle expiry and presence-based renewal" },
+      "text": {
+        "ar": "يجب على النظام أن ينهي الجلسة بعد 15 دقيقة من الخمول، وأن يجدّدها بنشاط المستخدم لا بالكتابة في كل طلب، وأن ينذر الواجهة قبل الانتهاء بدقيقة.",
+        "en": "The system shall end a session after 15 minutes of inactivity, renew it from user presence rather than a write on every request, and warn in the interface one minute before it ends."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["standard", "committeeChair", "departmentHead", "dean"],
+      "acceptance": [
+        { "ar": "يُجدَّد سجل الجلسة مرة واحدة كل دقيقتين على الأكثر مهما كثرت الطلبات.", "en": "The session record is renewed at most once every two minutes however many requests arrive." },
+        { "ar": "تُرسل الواجهة نبضاً إلى /api/auth/heartbeat كل 4 دقائق عند وجود نشاط، ويجدّد الخادم الجلسة فوراً متجاوزاً التقييد.", "en": "The interface sends a beat to /api/auth/heartbeat every 4 minutes while active, and the server renews the session immediately, bypassing the throttle." },
+        { "ar": "تظهر نافذة التنبيه قبل 60 ثانية من الانتهاء، ويخرج المستخدم آلياً عند بلوغ 15 دقيقة.", "en": "A warning appears 60 seconds before the end and the user is signed out automatically at 15 minutes." },
+        { "ar": "مهلة الجلسة التجريبية 60 دقيقة.", "en": "A demo session lasts 60 minutes." }
+      ],
+      "evidence": { "code": ["src/server/core/auth.ts", "src/server/routes/authRoutes.ts", "src/App.tsx"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACC-004",
+      "kind": "functional",
+      "title": { "ar": "تسجيل الخروج وإبطال الجلسة", "en": "Sign-out and session invalidation" },
+      "text": {
+        "ar": "يجب على النظام عند الخروج أن ينسى الهوية المخبّأة قبل حذف سجل الجلسة، وأن يمحو الكوكي، وأن يبقى الخروج متاحاً لكل صفة مهما كانت للاطّلاع فقط.",
+        "en": "On sign-out the system shall drop the cached identity before deleting the session record, clear the cookie, and keep sign-out available to every role including view-only ones."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["standard", "dean", "registrarDean", "advisor"],
+      "acceptance": [
+        { "ar": "لا يُخدم أي طلب بعد الخروج من الذاكرة المخبّأة لتلك الجلسة.", "en": "No request after sign-out is served from the cached identity of that session." },
+        { "ar": "يُرسل الخادم Set-Cookie بـMax-Age=0 لـsession_id.", "en": "The server sends Set-Cookie with Max-Age=0 for session_id." },
+        { "ar": "حارس الأدوار يسمح بـPOST /auth/logout لكل صفة بما فيها «عميد الكلية».", "en": "The role guard allows POST /auth/logout for every role including College dean." }
+      ],
+      "evidence": { "code": ["src/server/routes/authRoutes.ts", "src/server/roleGuard.ts"], "tests": ["tests/role-guard-audit.ts"] }
+    },
+    {
+      "id": "NFR-ACC-005",
+      "kind": "nonfunctional",
+      "title": { "ar": "حدود الأبواب المجهولة: يُحسب الخطأ ولا يُحجب النجاح", "en": "Anonymous-door limits: count failures, never block success" },
+      "text": {
+        "ar": "يجب على النظام ألا يسأل قاعدة البيانات عن معرّف جلسة لم يصنعه، وأن يتذكر الجلسات الغائبة، وأن يحدّ البحث عن جلسات أو روابط غير موجودة لكل عنوان دون تقييد الناجح منها.",
+        "en": "The system shall not query the database for a session identifier it did not mint, shall remember sessions that no longer exist, and shall limit lookups of nonexistent sessions or links per address without limiting the successful ones."
+      },
+      "rationale": { "ar": "شبكة الجامعة عنوان واحد لآلاف الأشخاص، فلا يصحّ أن يُحجب الناجح منهم.", "en": "A university network is one address for thousands of people, so legitimate users must never meet a wall." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["visitor", "system"],
+      "acceptance": [
+        { "ar": "لا يُقبل معرّف إلا بصيغة sess_ أو demo_ ثم 64 خانة سداسية عشرية بأحرف صغيرة.", "en": "An identifier is accepted only as sess_ or demo_ followed by 64 lowercase hexadecimal characters." },
+        { "ar": "تُحفظ الجلسة الغائبة 30 دقيقة بسعة 20000 معرّف، ويُزاح الأقدم عند الامتلاء.", "en": "A gone session is remembered for 30 minutes with a capacity of 20000 identifiers, evicting the oldest when full." },
+        { "ar": "عنوان يخترع معرّفات يُسأل عن 120 منها خلال 10 دقائق ثم تُقرأ البقية مجهولةً، وسقفه المطلق 1200.", "en": "An address inventing identifiers is looked up for 120 of them in 10 minutes and the rest are read as signed out, with an absolute ceiling of 1200." },
+        { "ar": "صفحات الروابط العامة تُحصي الرموز التي لا تطابق شيئاً: 40 ثم 429 مع Retry-After، وسقف مطلق 400 في 10 دقائق.", "en": "Public link pages count tokens matching nothing: 40, then 429 with Retry-After, and an absolute ceiling of 400 in 10 minutes." },
+        { "ar": "ألفا جلسة من عنوان واحد فيها مئتا جلسة منتهية لا يُرفض منها أحد.", "en": "Two thousand sessions from one address, two hundred of them expired, produce no refusals." }
+      ],
+      "evidence": { "code": ["src/server/anonymousGuard.ts", "src/server/core/auth.ts"], "tests": ["tests/anonymous-guard-audit.ts"] }
+    },
+    {
+      "id": "DR-ACC-006",
+      "kind": "data",
+      "title": { "ar": "تخزين كلمة السر وعدم إعادتها", "en": "Password storage and non-disclosure" },
+      "text": {
+        "ar": "يجب على النظام أن يخزّن كلمة السر بصمةً مملّحة بخوارزمية scrypt، وألا يُعيد البصمة ولا النسخة المشفّرة في أي استجابة، وأن يُظهر لمدير النظام وجود الكلمة فقط عبر الحقل HasPassword.",
+        "en": "The system shall store a password as a salted scrypt hash, shall never return the hash or the encrypted copy in any response, and shall show an administrator only whether a password exists through the HasPassword field."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "تبدأ البصمة المخزّنة بـscrypt$ وهي نتيجة ملح 16 بايت ومشتق بطول 64.", "en": "A stored hash begins with scrypt$ and is derived from a salt with a 64-byte derived key." },
+        { "ar": "GET /api/users وGET /api/auth/me وردّ الدخول لا تحوي SystemUserPass ولا SystemUserPassVault.", "en": "GET /api/users, GET /api/auth/me and the sign-in response contain neither SystemUserPass nor SystemUserPassVault." },
+        { "ar": "الكلمة المؤقتة لإعادة التعيين تُحفظ بصمةً وحدها، وحقل النسخة المشفّرة فارغ.", "en": "A temporary reset password is stored as a hash only, with the encrypted-copy field empty." }
+      ],
+      "evidence": { "code": ["src/db/repository.ts#hashPassword", "src/server/core/scope.ts#safeSystemUser", "src/server/routes/usersRoutes.ts"], "tests": ["tests/password-reset-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-007",
+      "kind": "functional",
+      "title": { "ar": "بوابة اختيار كلمة السر", "en": "Password-change gate" },
+      "text": {
+        "ar": "يجب على النظام أن يمنع كل حساب معلَّم بتغيير كلمته من أي مسار في /api عدا مسارات /auth/ و/public/ والصحة والنسخة وإعداد التجربة، حتى يغيّرها.",
+        "en": "The system shall deny an account flagged for a password change every /api path except /auth/, /public/, health, version and demo configuration, until the password is changed."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "GET /api/schedules من حساب معلَّم يردّ 403 بالرمز password-change-required.", "en": "GET /api/schedules from a flagged account returns 403 with the code password-change-required." },
+        { "ar": "تبقى مفتوحة له /auth/change-password و/auth/me و/auth/logout و/auth/login و/health.", "en": "/auth/change-password, /auth/me, /auth/logout, /auth/login and /health remain open to it." },
+        { "ar": "تُركَّب البوابة بعد التعرّف على الهوية وقبل أي مسار بيانات.", "en": "The gate is mounted after identity resolution and before any data route." }
+      ],
+      "evidence": { "code": ["src/server/accountPassword.ts", "server.ts"], "tests": ["tests/owner-approved-2026-10-29-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-008",
+      "kind": "functional",
+      "title": { "ar": "قواعد الكلمة الجديدة وتغييرها", "en": "New-password rules and change" },
+      "text": {
+        "ar": "يجب على النظام عند تغيير صاحب الحساب كلمته أن يشترط طولاً بين 8 و128 حرفاً، وأن يرفض الكلمة الموحّدة القديمة والكلمة الحالية نفسها، وأن يطلب الكلمة الحالية إلا في الحالة المعفاة.",
+        "en": "When an account owner changes their password the system shall require a length of 8 to 128 characters, reject the old shared password and the current password itself, and require the current password except in the waived case."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["standard", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "كلمة من 7 أحرف أو 129 حرفاً تُرفض بـ400 برسالة السبب.", "en": "A password of 7 or 129 characters is refused with 400 and a reason message." },
+        { "ar": "كلمة المرور الأولى المشتركة القديمة وكلمة مطابقة للحالية تُرفضان.", "en": "The legacy shared first password and a value equal to the current password are both refused." },
+        { "ar": "نجاح التغيير يحفظ البصمة، ويرفع علامة التغيير الإلزامي، ويمسح موعد الكلمة الأولى، ويغلق جلسات الحساب الأخرى دون الجلسة الحالية.", "en": "A successful change saves the hash, clears the mandatory-change flag and the initial-password deadline, and closes the account's other sessions but not the current one." },
+        { "ar": "الخدمة غير متاحة في البيئة التجريبية وتردّ 403.", "en": "The service is unavailable in the demo environment and returns 403." }
+      ],
+      "evidence": { "code": ["src/server/accountPassword.ts", "src/server/routes/authRoutes.ts", "src/components/ChangePassword.tsx"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/owner-approved-2026-10-29-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-009",
+      "kind": "functional",
+      "title": { "ar": "إعفاء الكلمة الحالية عند أول دخول", "en": "Current-password waiver at first sign-in" },
+      "text": {
+        "ar": "يجب على النظام ألا يطلب الكلمة الحالية لمن دخل للتوّ بالكلمة الأولى، بشرط اجتماع ثلاثة أمور: الحساب معلَّم بالتغيير، والجلسة فُتحت بتلك الكلمة نفسها، وانقضى أقل من 15 دقيقة على فتحها.",
+        "en": "The system shall not ask for the current password from someone who has just signed in with the initial password, provided three conditions hold together: the account is flagged for change, the session was opened with that same password, and less than 15 minutes have passed since it opened."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        { "ar": "يحمل سجل الجلسة أثراً مشتقاً من بصمة الكلمة المحفوظة، لا الكلمة ولا بصمتها، ولا يُعاد إلى المتصفح.", "en": "The session record carries a mark derived from the stored password hash, neither the password nor its hash, and it is not returned to the browser." },
+        { "ar": "تغيير مسؤول للكلمة بعد فتح الجلسة، أو مرور أكثر من 900 ثانية، يُسقط الإعفاء فيردّ الطلب بلا حالية 400 بالرمز current-password-required.", "en": "An administrator changing the password after the session opened, or more than 900 seconds passing, drops the waiver and a request without a current password returns 400 with the code current-password-required." },
+        { "ar": "جلسة عضو الفريق (بمعرّف عضو) لا تُعفى أبداً.", "en": "A team-member session (carrying a member identifier) is never waived." },
+        { "ar": "يظهر حقل الكلمة الحالية في الشاشة إذا قال /api/auth/me إنها مطلوبة.", "en": "The screen shows the current-password field when /api/auth/me says it is required." }
+      ],
+      "evidence": { "code": ["src/server/accountPassword.ts", "src/components/ChangePassword.tsx"], "tests": ["tests/first-login-password-audit.tsx"] }
+    },
+    {
+      "id": "FR-ACC-010",
+      "kind": "functional",
+      "title": { "ar": "الكلمة الأولى وتعليم الحساب ومدتها", "en": "Initial password, flagging and lifetime" },
+      "text": {
+        "ar": "يجب على النظام أن يعلّم بتغيير الكلمة كل حساب يعيّن مسؤولٌ كلمته لغيره، وأن يُسقط الكلمة الأولى الافتراضية بعد 7 أيام من الإصدار، وأن يعلّم من يدخل بالكلمة الموحّدة القديمة ويعطيه موعداً ولا يقفله.",
+        "en": "The system shall flag for a password change every account whose password an administrator sets for someone else, shall expire the default initial password 7 days after issue, and shall flag, give a deadline to, but not lock out, an account that signs in with the old shared password."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin", "departmentHead"],
+      "acceptance": [
+        { "ar": "إنشاء حساب من «المستخدمون» يضبط MustChangePassword؛ ويملك موعداً (InitialPasswordExpiresAt) إذا كانت الكلمة هي الافتراضية فقط.", "en": "Creating an account from Users sets MustChangePassword and sets a deadline only when the password is the default one." },
+        { "ar": "الدخول بعد 7 أيام بالضبط من الإصدار يردّ 403 بالرمز initial-password-expired، وقبل لحظة منه ينجح.", "en": "Signing in exactly 7 days after issue returns 403 with the code initial-password-expired, and one moment earlier succeeds." },
+        { "ar": "حساب قائم يدخل بالكلمة الموحّدة بلا موعد يأخذ موعداً من هذا الدخول، ولا تُقبل الكلمة الموحّدة كلمةً جديدة.", "en": "An existing account signing in with the shared password and no deadline receives one from that sign-in, and the shared password is refused as a new password." },
+        { "ar": "الكلمة التي يغيّرها صاحبها بنفسه من «المستخدمون» تسقط عنها مدة الكلمة الأولى فقط.", "en": "A password an owner changes for themselves from Users loses only the initial-password deadline." }
+      ],
+      "evidence": { "code": ["src/server/accountPassword.ts", "src/server/routes/authRoutes.ts", "src/server/routes/usersRoutes.ts"], "tests": ["tests/first-password-room-loans-audit.ts", "tests/password-reset-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-011",
+      "kind": "functional",
+      "title": { "ar": "الكلمة المؤقتة لإعادة التعيين", "en": "Temporary password for reset" },
+      "text": {
+        "ar": "يجب على النظام أن يصدر لرئيس الفريق عند إعادة التعيين كلمة مؤقتة عشوائية من 14 حرفاً تعمل 24 ساعة ولدخول واحد، وأن يُخرج جلساته، وأن يحدّ مدير النظام بـ12 عملية في 10 دقائق.",
+        "en": "On reset the system shall issue the team head a random temporary password of 14 characters valid for 24 hours and a single sign-in, shall sign out their sessions, and shall limit an administrator to 12 resets in 10 minutes."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "تُختار الأحرف من 54 رمزاً بلا ما يتشابه عند الإملاء (0 O 1 l I)، وتُعرض الكلمة مرة واحدة ولا يحفظ إلا أثرها.", "en": "Characters are drawn from 54 symbols excluding look-alikes (0 O 1 l I); the password is shown once and only its trace is stored." },
+        { "ar": "دخول ثانٍ بالكلمة نفسها من جهاز آخر يردّ 403 بالرمز temporary-password-used، وبعد 24 ساعة بالرمز initial-password-expired.", "en": "A second sign-in with the same password from another device returns 403 with the code temporary-password-used, and after 24 hours with the code initial-password-expired." },
+        { "ar": "الكلمة الأولى العشوائية لحساب جديد 10 أحرف.", "en": "A random initial password for a new account is 10 characters." },
+        { "ar": "أي تغيير للكلمة بعد الإصدار يُسقط سجل إعادة التعيين، ولا يرد سرّ في سجل التدقيق.", "en": "Any change of password after issue invalidates the reset record, and no secret appears in the audit trail." }
+      ],
+      "evidence": { "code": ["src/server/accountPassword.ts", "src/server/seatsRoutes.ts", "src/server/routes/authRoutes.ts"], "tests": ["tests/password-reset-audit.ts"] }
+    },
+    {
+      "id": "DR-ACC-012",
+      "kind": "data",
+      "title": { "ar": "كتالوج الصفات العشر", "en": "Catalogue of the ten roles" },
+      "text": {
+        "ar": "يجب أن يعرّف النظام عشر صفات من مصدر واحد للخادم والواجهة، لكل منها: معرّف، واسم، وسطر شرح، وقراءة فقط أم لا، وأرقام الشاشات الممنوحة، ووضع النطاق، والشاشة الأولى، وترتيب العرض.",
+        "en": "The system shall define ten roles from a single source shared by server and interface, each with an identifier, label, one-line hint, read-only flag, granted screen numbers, scope mode, landing screen and display order."
+      },
+      "rationale": { "ar": "حارس الخادم هو الحماية الحقيقية، فلا يجوز أن يفترق تعريف الصفة عمّا تعرضه الواجهة.", "en": "The server guard is the real protection, so the definition of a role must not diverge from what the interface shows." },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "dean", "viceDean", "registrarDean", "registrarHead", "collegeRegistrar", "registrarStaff", "departmentHead", "advisor", "committeeChair", "standard"],
+      "acceptance": [
+        { "ar": "الصفات العشر بترتيبها: عميد الكلية 1، العميد المساعد 2، عميد التسجيل 3، المسجّل العام 4، رئيس تسجيل الكلية 4.5، موظف التسجيل 5، رئيس القسم 6، مرشد القسم 6.5، رئيس لجنة الجدول 7، مستخدم عادي 8.", "en": "The ten roles in order: College dean 1, Vice dean 2, Dean of registration 3, University registrar 4, College registrar 4.5, Registration officer 5, Department head 6, Department advisor 6.5, Schedule committee chair 7, Standard user 8." },
+        { "ar": "أرقام الشاشات: العميد [14]؛ العميد المساعد وعميد التسجيل والمسجّل العام ورئيس تسجيل الكلية [14,8,9,16]؛ موظف التسجيل [14,9]؛ رئيس القسم والمرشد [14]؛ رئيس اللجنة [7,14,8,9,10,16,17,6]؛ المستخدم العادي [7].", "en": "Screen numbers: Dean [14]; Vice dean, Dean of registration, University registrar and College registrar [14,8,9,16]; Registration officer [14,9]; Department head and Advisor [14]; Committee chair [7,14,8,9,10,16,17,6]; Standard user [7]." },
+        { "ar": "وحدها صفتا رئيس لجنة الجدول والمستخدم العادي ليستا للقراءة فقط؛ وأوضاع النطاق: كلية (العميد، المساعد، رئيس تسجيل الكلية)، كل الكليات (عميد التسجيل والمسجّل العام)، قسم (رئيس القسم والمرشد ورئيس اللجنة)، يدوي (موظف التسجيل والمستخدم العادي).", "en": "Only Schedule committee chair and Standard user are not read-only; scope modes are college (Dean, Vice dean, College registrar), all colleges (Dean of registration, University registrar), section (Department head, Advisor, Committee chair) and manual (Registration officer, Standard user)." },
+        { "ar": "حساب بلا صفة أو بصفة مجهولة يُقرأ «رئيس لجنة الجدول»، والصفة المجهولة المرسلة عند الإنشاء أو التعديل تُرفض 400.", "en": "An account with no role or an unknown role reads as Schedule committee chair, and an unknown role submitted on create or edit is refused with 400." },
+        { "ar": "GET /api/roles يعيد الحقول نفسها لأي مستخدم موثَّق.", "en": "GET /api/roles returns the same fields to any signed-in user." }
+      ],
+      "evidence": { "code": ["src/utils/academicRoles.ts", "src/server/routes/usersRoutes.ts"], "tests": ["tests/role-guard-audit.ts", "tests/demo-roles-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-013",
+      "kind": "functional",
+      "title": { "ar": "حارس الخادم لكتابة صفات الاطّلاع", "en": "Server guard for read-only roles" },
+      "text": {
+        "ar": "يجب على الخادم أن يرفض بـ403 كل طلب كتابة من صفة للقراءة فقط مهما كانت شاشاتها ومهما فُعل بالواجهة، وأن يحكم بترتيب ثابت: قراءة، فغير موثَّق، فعام، فجلسة، فحساب إدارة، فصفة تكتب، فالمسارات الاستثنائية.",
+        "en": "The server shall refuse with 403 every write request from a read-only role regardless of its screens or interface tampering, deciding in a fixed order: read, unauthenticated, public, session, power account, writing role, then the exception paths."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["dean", "viceDean", "registrarDean", "registrarHead", "collegeRegistrar", "registrarStaff", "departmentHead", "advisor"],
+      "acceptance": [
+        { "ar": "كل صفة اطّلاع تُمنع من كل تركيبة اختُبرت من طرق الكتابة والمسارات، وصفتا اللجنة والمستخدم العادي تكتبان.", "en": "Every read-only role is refused on every tested combination of write method and path, while the committee chair and standard user write." },
+        { "ar": "الحساب الرئيسي والإدارة فوق الصفات، ومسارات الجلسة (الدخول والخروج والنبض والحضور وإشارات الجوال) مفتوحة لكل صفة.", "en": "Power accounts are above roles, and session paths (sign-in, sign-out, heartbeat, presence, mobile notification registration) are open to every role." },
+        { "ar": "الرفض يحمل رسالة «حسابك بصفة «…» للاطّلاع فقط» والمعرّف role والوسم readOnly:true.", "en": "The refusal carries a message naming the role, the role identifier and readOnly:true." },
+        { "ar": "الحارس مركّب بعد التعرّف على الهوية وقبل أول مسار كتابة، والمسارات تحت /public/ تُحكم برمز الرابط لا بالصفة.", "en": "The guard is mounted after identity resolution and before the first write route, and paths under /public/ are governed by the link token rather than the role." }
+      ],
+      "evidence": { "code": ["src/server/roleGuard.ts", "server.ts"], "tests": ["tests/role-guard-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-014",
+      "kind": "functional",
+      "title": { "ar": "الأبواب الضيقة لصفات الاطّلاع", "en": "Narrow doors for read-only roles" },
+      "text": {
+        "ar": "يجب على الخادم أن يفتح لصفات الاطّلاع المشاركة في دورة الاعتماد مسارات /approvals و/schedule-notes و/student-registration فقط، وأن يستثني العميدين وعميد التسجيل منها تماماً، وأن يفتح لرئيس القسم والمرشد والمسجّل العام مسارات محددة بأعيانها.",
+        "en": "The server shall open to read-only roles that take part in the approval cycle only the /approvals, /schedule-notes and /student-registration paths, shall exclude the Dean, Vice dean and Dean of registration from them entirely, and shall open named paths to the Department head, Advisor and University registrar."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "advisor", "registrarHead", "registrarStaff", "collegeRegistrar", "dean"],
+      "acceptance": [
+        { "ar": "رئيس القسم يكتب في أربعة مسارات فقط من plan-review (rule وgroup وgroup/delete وcourse-details) ويحسب أوقات الاجتماع بـPOST /schedules/meeting-slots، ولا يكتب في /courses.", "en": "The Department head writes to only four plan-review paths (rule, group, group/delete, course-details) and computes meeting times with POST /schedules/meeting-slots, but cannot write to /courses." },
+        { "ar": "المرشد يمرّ إلى /advisor-seats/add و/advisor-seats/exception فقط، ولا يمرّ من مسارات دورة الاعتماد.", "en": "The Advisor passes only to /advisor-seats/add and /advisor-seats/exception and does not pass through the approval-cycle paths." },
+        { "ar": "المسجّل العام وحده يكتب PUT /campus-travel-policy؛ والجميع عدا صفات العرض الصرف يكتبون /section-requests.", "en": "Only the University registrar writes PUT /campus-travel-policy; everyone except view-only roles writes /section-requests." },
+        { "ar": "POST /report-stamps مفتوح لصفات الاطّلاع، والمسار نفسه يتحقق من الدخول والنطاق.", "en": "POST /report-stamps is open to read-only roles, and the route itself checks sign-in and scope." },
+        { "ar": "بادئة مشابهة مثل /approvals-export لا تُفتح.", "en": "A similar prefix such as /approvals-export is not opened." }
+      ],
+      "evidence": { "code": ["src/server/roleGuard.ts", "src/utils/academicRoles.ts"], "tests": ["tests/role-guard-audit.ts", "tests/demo-roles-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-015",
+      "kind": "functional",
+      "title": { "ar": "قالب الصفة: الشاشات والنطاق في عملية واحدة", "en": "Role template: screens and scope in one operation" },
+      "text": {
+        "ar": "يجب على النظام عند إنشاء حساب بصفة مختارة أو تغيير صفته أن يكتب شاشات الصفة ونطاقها معاً، وألا يعيد كتابة القالب عند حفظ لا تتغير فيه الصفة، وأن يمحو صفوف «الكلية كلها» حين يتبدل نوع الاشتقاق.",
+        "en": "When creating an account with a chosen role or changing its role the system shall write the role's screens and scope together, shall not rewrite the template on a save that leaves the role unchanged, and shall remove whole-college rows when the derivation type changes."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "وضع «كل الكليات» يكتب صفاً لكل كلية محفوظة بقسم صفر ويُعاد كتابته عند كل حفظ؛ ووضع «كلية» يكتب صفاً لكل كلية مرسلة بقسم صفر.", "en": "The all-colleges mode writes one row per stored college with department 0 and rewrites it on every save; the college mode writes one row per submitted college with department 0." },
+        { "ar": "قائمة كليات فارغة مرسلة صراحةً تسحب النطاق، وغياب الحقل يتركه كما هو.", "en": "An empty college list sent explicitly withdraws the scope, while omitting the field leaves it as it is." },
+        { "ar": "الانتقال من رئيس تسجيل (كل الكليات) إلى عميد (كلية) يمحو صفوف الجامعة قبل كتابة القالب الجديد.", "en": "Moving from University registrar (all colleges) to Dean (college) deletes the university-wide rows before the new template is written." },
+        { "ar": "حفظ حساب بصفته الحالية، ولو بلا صفة مخزّنة فيُقرأ رئيس لجنة، لا يمحو شاشاته الممنوحة يدوياً.", "en": "Saving an account with its current role, even one with no stored role that reads as committee chair, does not erase manually granted screens." },
+        { "ar": "الإنشاء بلا ذكر صفة يمنح الشاشة 7 وحدها؛ وعند الإقلاع تُرحَّل الحسابات بلا صفة إلى «رئيس لجنة الجدول» وتُسحب الشاشة 7 من كل «رئيس قسم».", "en": "Creating without naming a role grants screen 7 only; at start-up accounts with no role are migrated to Schedule committee chair and screen 7 is removed from every Department head." }
+      ],
+      "evidence": { "code": ["src/server/routes/usersRoutes.ts", "server.ts"], "tests": ["tests/approval-integrity-audit.ts", "tests/role-guard-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-016",
+      "kind": "functional",
+      "title": { "ar": "إدارة المستخدمين", "en": "User administration" },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لحامل الشاشة 11 قائمة الحسابات وإنشاءها وتعديلها وحذفها، وأن يرفض اسم دخول مكرراً وحقولاً ناقصة، وأن يُنبّه المدير حين لا تطابق الصفة الاسم، وأن يُغلق جلسات من عُيّنت له كلمة بيد غيره.",
+        "en": "The system shall let a holder of screen 11 list, create, edit and delete accounts, shall reject a duplicate login and missing fields, shall warn the administrator when a role does not match the name, and shall close the sessions of anyone whose password another person sets."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "إنشاء بلا اسم أو اسم دخول أو كلمة يردّ 400؛ واسم دخول مسجّل مسبقاً يردّ 400 «اسم المستخدم مسجل مسبقاً» في الإنشاء والتعديل.", "en": "Creating without a name, login or password returns 400; an already registered login returns 400 on both create and edit." },
+        { "ar": "تعيين كلمة لحساب آخر من PUT /api/users/:id يحذف كل جلساته ويفرغ الذاكرة المخبّأة للهويات.", "en": "Setting a password for another account through PUT /api/users/:id deletes all of its sessions and empties the identity cache." },
+        { "ar": "يظهر وسم «راجع الصفة» لاسم فيه «تسجيل» بصفة ليست من صفات التسجيل الأربع، أو يبدأ بـ«عميد» بصفة ليست من صفات العمداء الثلاث؛ تنبيه لا تغيير.", "en": "A review-role badge appears for a name containing the registration word with a non-registration role, or beginning with the dean word with a non-dean role; a warning, not a change." },
+        { "ar": "الشاشة 11 محجوزة لإدارة النظام الرئيسية فلا يصل إليها رئيس لجنة حتى لو حمل صفها القديم.", "en": "Screen 11 is reserved for main system administration, so a committee chair cannot reach it even with a stale grant row." }
+      ],
+      "evidence": { "code": ["src/server/routes/usersRoutes.ts", "src/utils/academicRoles.ts", "src/components/AdminUsers.tsx"], "tests": ["tests/approval-integrity-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-017",
+      "kind": "functional",
+      "title": { "ar": "شاشات الإدارة الرئيسية وحساب الجذر", "en": "Main-administration screens and the root account" },
+      "text": {
+        "ar": "يجب على النظام أن يحجز الشاشات 2 و3 و4 و5 و11 و12 و15 لحساب الإدارة الرئيسي (IsAdminUser أو معرّف الجذر، وافتراضه 1)، وأن يطلب لبقية الشاشات صفاً في FormSecurity حتى لمدير النظام، وأن يقصر الخزنة على حساب الجذر.",
+        "en": "The system shall reserve screens 2, 3, 4, 5, 11, 12 and 15 for the main administration account (IsAdminUser or the root identifier, default 1), shall require a FormSecurity row for the other screens even from an administrator, and shall restrict the vault to the root account."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin", "admin", "committeeChair"],
+      "acceptance": [
+        { "ar": "غير الإدارة تردّ عليه الشاشات المحجوزة 403 «هذه الشاشة مخصصة لإدارة النظام الرئيسية» ولو وُجد صفّ صلاحية قديم.", "en": "A non-administrator receives 403 on a reserved screen even if a legacy permission row exists." },
+        { "ar": "نقص الصف لشاشة غير محجوزة يردّ 403 «ليس لديك صلاحية للوصول إلى هذا القسم»، وطلب بلا جلسة يردّ 401.", "en": "A missing row for an unreserved screen returns 403, and a request with no session returns 401." },
+        { "ar": "مسارات النسخ الاحتياطي وتوحيد حسابات المرشدين تردّ 403 لغير حساب الجذر.", "en": "The backup routes and the advisor-account consolidation return 403 for anyone but the root account." },
+        { "ar": "توحيد حسابات المرشدين يمسّ حساباً غير نشط بلا كلمة سر فقط.", "en": "Advisor-account consolidation touches only an inactive account that has no password." }
+      ],
+      "evidence": { "code": ["src/server/core/auth.ts", "src/server/routes/usersRoutes.ts", "src/server/routes/adminRoutes.ts"], "tests": ["tests/colleague-guard-measure-audit.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACC-018",
+      "kind": "functional",
+      "title": { "ar": "إدارة الصلاحيات والنطاقات", "en": "Permission and scope administration" },
+      "text": {
+        "ar": "يجب على النظام أن يتيح للشاشة 12 إضافة صفوف الصلاحية وتعديلها وحذفها، وللشاشة 15 كتابة صفوف النطاق، وأن يتيح قراءة النطاقات لحامل 11 أو 15، وأن يرفض نطاقاً يكون قسمه غير تابع لكليته.",
+        "en": "The system shall let screen 12 add, edit and delete permission rows, let screen 15 write scope rows, let a holder of 11 or 15 read scopes, and refuse a scope whose department does not belong to its college."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "صف الصلاحية يتطلب SystemUserId وFormNameId غير صفريين وإلا 400.", "en": "A permission row requires non-zero SystemUserId and FormNameId or the answer is 400." },
+        { "ar": "إضافة نطاق بقسم لا يتبع الكلية تردّ 400 «القسم العلمي المختار لا يتبع الكلية المختارة»، وقسم صفر يُرفض من هذه الشاشة.", "en": "Adding a scope with a department not in the college returns 400, and department 0 is rejected from this screen." },
+        { "ar": "لا تُزال التكرارات تلقائياً لأن قاعدة البيانات القديمة تحوي صفوفاً مكررة.", "en": "Duplicates are not removed automatically because the legacy database contains duplicated rows." }
+      ],
+      "evidence": { "code": ["src/server/routes/usersRoutes.ts", "src/components/AdminUsers.tsx"], "tests": ["tests/demo-roles-audit.ts"] },
+      "inferred": true
+    },
+    {
+      "id": "DR-ACC-019",
+      "kind": "data",
+      "title": { "ar": "سجلات الشاشة والنطاق", "en": "Screen and scope records" },
+      "text": {
+        "ar": "يجب أن يحفظ النظام صلاحية الشاشة صفاً (معرّف قديم، حساب، رقم شاشة من 1 إلى 17) وأن يحفظ النطاق صفاً (معرّف قديم، حساب، كلية، قسم) يعني قسمه الصفري «الكلية كلها» لصفات الكلية وكل الكليات وحدها.",
+        "en": "The system shall hold a screen permission as a row (legacy id, account, screen number from 1 to 17) and a scope as a row (legacy id, account, college, department) whose zero department means the whole college for the college and all-colleges roles only."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "الشاشات 17: الرئيسية، الكليات، الأساتذة، الأقسام، الفصول، المقررات، الجداول ومركز التحليلات، استعلام الأساتذة، استعلام القاعات، استعلام الأوقات، المستخدمون، الصلاحيات، لوحة المؤشرات، تقرير القسم، النطاقات، القاعات والأوقات، البحث المتقدم.", "en": "The 17 screens are: Home, Colleges, Instructors, Departments, Terms, Courses, Schedules and Analytics Center, Instructor query, Room query, Time query, Users, Permissions, Indicators board, Department report, Scopes, Rooms and times, Advanced search." },
+        { "ar": "الصف لا يتطلب فرادة (حساب، شاشة)، وحفظ الصفات يُسقط ما زاد ويضيف ما نقص بحسب العدد.", "en": "A row does not require uniqueness of (account, screen), and saving reconciles surplus and missing rows by count." },
+        { "ar": "حسابات البيئة التجريبية تُبذر بصلاحيات ونطاق مشتقَّين من تعريف الصفة نفسه.", "en": "Demo-environment accounts are seeded with permissions and scope derived from the role definition itself." }
+      ],
+      "evidence": { "code": ["src/db/repository.ts", "src/utils/academicRoles.ts", "src/server/routes/usersRoutes.ts"], "tests": ["tests/demo-roles-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-020",
+      "kind": "functional",
+      "title": { "ar": "قرار نطاق القراءة isScopeAllowed", "en": "The scope decision isScopeAllowed" },
+      "text": {
+        "ar": "يجب على النظام أن يجيب عن «أيرى هذا الحساب هذا القسم؟» من موضع واحد: حساب الإدارة يرى الكل، وصفة «كل الكليات» ترى الكل ولو لم يوجد لها صف، والصف بقسم صفر يعني «الكلية كلها» لصفات الكلية وكل الكليات وحدها، وغير ذلك تطابق حرفي.",
+        "en": "The system shall answer whether an account may see a department from one place: an administration account sees everything, an all-colleges role sees everything even without a row, a row with department 0 means the whole college for college and all-colleges roles only, and anything else matches literally."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["dean", "viceDean", "registrarDean", "registrarHead", "collegeRegistrar", "committeeChair"],
+      "acceptance": [
+        { "ar": "كلية أُنشئت بعد حفظ الحساب يقرؤها المسجّل العام بلا إضافة صف.", "en": "A college created after the account was saved is readable by the University registrar without adding a row." },
+        { "ar": "سؤال بقسم صفر يُجاب «نعم» إن كان للحساب أي صف في تلك الكلية.", "en": "A query with department 0 is answered yes if the account has any row in that college." },
+        { "ar": "رئيس لجنة بصف قسم صفر قديم لا يتّسع نطاقه إلى الكلية؛ العميد وحده يتّسع.", "en": "A committee chair with a stale department-0 row is not widened to the college; only a Dean is." },
+        { "ar": "حساب بلا نطاق وغير إداري لا يرى شيئاً.", "en": "A non-administrator with no scope sees nothing." }
+      ],
+      "evidence": { "code": ["src/server/core/scope.ts"], "tests": ["tests/dean-notify-audit.ts", "tests/role-scope-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-021",
+      "kind": "functional",
+      "title": { "ar": "تصفية البيانات والقراءة الموجّهة بالنطاق", "en": "Scope filtering and directed reads" },
+      "text": {
+        "ar": "يجب على النظام أن يصفّي القوائم بالحَكَم نفسه، وألا يصدّق الطلب على نطاقه: قسم مسمّى يُسأل عنه الحَكَم، وكلية مع قسم من أخرى تُرفض، وقراءة كلية كاملة لا تُجاز إلا لمن يغطي كل أقسامها.",
+        "en": "The system shall filter lists with the same decision function and shall not trust a request's stated scope: a named department is checked, a college paired with another college's department is refused, and a whole-college read is allowed only to someone covering all its departments."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["dean", "registrarDean", "committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "صف بياناته بلا قسم يُطلب له تطابق حرفي بصف قسم صفر، فلا يتسع لكل من له شيء في الكلية.", "en": "A data row lacking a department requires a literal match against a department-0 scope row and does not widen to everyone with anything in the college." },
+        { "ar": "عندما لا يُسمّى شيء يُختار قسم من داخل نطاق الحساب وحده، الأكثف مواعيد أولاً؛ ولا تُقرأ الجامعة كلها.", "en": "When nothing is named a department is chosen from inside the account's scope only, busiest first; the whole university is never read." },
+        { "ar": "العميد بكلية واحدة كاملة يُقرأ له مستواها، وعميد التسجيل بعدة كليات يختار كلية بنفسه.", "en": "A Dean with one whole college is read at college level, and a Dean of registration with several colleges must choose one." }
+      ],
+      "evidence": { "code": ["src/server/core/scope.ts", "src/server/readScope.ts"], "tests": ["tests/dean-notify-audit.ts"] }
+    },
+    {
+      "id": "IR-ACC-022",
+      "kind": "interface",
+      "title": { "ar": "حمولة الهوية المرسلة للواجهة", "en": "Identity payload sent to the interface" },
+      "text": {
+        "ar": "يجب على النظام أن يرسل للواجهة عند الدخول وفي GET /api/auth/me المستخدم بلا أسرار، ووصف الصفة، والشاشات المحلولة للجلسة، والنطاق مبسوطاً بأسماء الكلية والقسم، وحالة اختيار الكلمة، ووضع البيانات.",
+        "en": "On sign-in and in GET /api/auth/me the system shall send the interface the user without secrets, the role descriptor, the permissions resolved for the session, scope expanded with college and department names, the password-change state and the data mode."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["standard", "dean", "advisor", "committeeChair"],
+      "acceptance": [
+        { "ar": "وصف الصفة يحمل: id وlabel وreadOnly وlanding وcanReview وcanManageDeadline وcanExtendDeadline وwatchesInbox وcanAnnotate وsignatureStage وcanSign.", "en": "The role descriptor carries id, label, readOnly, landing, canReview, canManageDeadline, canExtendDeadline, watchesInbox, canAnnotate, signatureStage and canSign." },
+        { "ar": "صف النطاق بقسم صفر يُبسط إلى صف لكل قسم في الكلية بوسم AdCollegeWide، للعرض فقط، والإذن يقرأ الصفر الخام.", "en": "A scope row with department 0 is expanded to one row per department in the college with an AdCollegeWide marker, for display only; authorization reads the raw zero." },
+        { "ar": "من نطاقه قسم واحد في كلية واحدة لا يُسأل عن الكلية ولا القسم، ومن قسمه في عدة مواقع يُسأل عن الموقع، وغيرهما يرى منتقيات الكلية والقسم والفصل.", "en": "An account with one department in one college is not asked for college or department, one with a department at several sites is asked for the site, and others see college, department and term pickers." },
+        { "ar": "حساب بلا صفة مكتوبة يصف نفسه «رئيس لجنة الجدول» لكن الخادم يشترط الصفة المكتوبة حيث يُبنى منع أو إذن.", "en": "An account with no written role describes itself as Schedule committee chair, but the server requires a written role wherever a prohibition or permission is built on it." }
+      ],
+      "evidence": { "code": ["src/server/routes/authRoutes.ts", "src/utils/scopeShape.ts", "src/utils/scopeContext.ts", "src/components/AdvisingScopePicker.tsx"], "tests": ["tests/role-scope-audit.ts", "tests/single-department-scope-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-023",
+      "kind": "functional",
+      "title": { "ar": "إخفاء البيانات الشخصية للأستاذ عن صفات الاطّلاع", "en": "Hiding instructors' personal data from read-only roles" },
+      "text": {
+        "ar": "يجب على النظام أن يفرّغ حقلي الرقم المدني والجوال من كل سجل أستاذ يصل إلى صفة للقراءة فقط، في كل مسار يعيد دليل الأساتذة.",
+        "en": "The system shall blank the civil ID and mobile fields of every instructor record delivered to a read-only role, in every route that returns the instructor directory."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["dean", "viceDean", "registrarDean", "departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "AdInstructorCivil وAdInstructorMobile يصلان فارغين إلى العميد ورئيس القسم والتسجيل، ويصلان كاملين إلى رئيس اللجنة وإدارة النظام.", "en": "AdInstructorCivil and AdInstructorMobile reach the Dean, Department head and registration roles empty, and reach the Committee chair and system administration complete." },
+        { "ar": "لا يُحذف الحقلان من الشكل؛ يبقيان بقيمة فارغة.", "en": "The fields are not removed from the shape; they remain with an empty value." }
+      ],
+      "evidence": { "code": ["src/server/core/scope.ts#instructorsForReader"], "tests": ["tests/approval-integrity-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-024",
+      "kind": "functional",
+      "title": { "ar": "إنشاء حسابات رؤساء الأقسام والمرشدين بخطة تُعرض أولاً", "en": "Provisioning department-head and advisor accounts from a previewed plan" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض لمدير النظام خطة حسابات رؤساء الأقسام والمرشدين قبل كتابتها، وأن ينشئ ما وُسم create وحده، موقوفاً وبلا كلمة سر، باسم دخول مشتق من بادئة حساب القسم، دون أن ينشئ شيئاً مرتين.",
+        "en": "The system shall show the administrator a plan of department-head and advisor accounts before writing, create only rows marked create, inactive and without a password, with a login derived from the department account prefix, and never create anything twice."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "حساب القسم Techdept يقترح Techhead وTechadvisor؛ وتتكرر البادئة في كلية أخرى فيُلحق رمز الكلية (TechheadBB).", "en": "The department account Techdept proposes Techhead and Techadvisor; when the prefix repeats in another college the college code is appended." },
+        { "ar": "بادئة 01 تُحذف من الاسم، والتشغيل الثاني يعطي exists لكل صف ولا يُنشئ شيئاً.", "en": "A leading 01 prefix is removed from the login, and a second run yields exists for every row and creates nothing." },
+        { "ar": "حساب مرشد واحد للقسم يغطي نطاق كليتي البنين والبنات، وحساب بلا نطاق بادئته مشتركة يُصنَّف review لا create.", "en": "One advisor account per department covers the boys' and girls' colleges, and an account with no scope whose prefix is shared is classed review, not create." },
+        { "ar": "المعاينة والإنشاء لمدير النظام الرئيسي وحده.", "en": "Preview and creation are for the main administrator only." }
+      ],
+      "evidence": { "code": ["src/utils/departmentHeadAccounts.ts", "src/server/routes/usersRoutes.ts"], "tests": ["tests/department-head-accounts-audit.ts"] }
+    },
+    {
+      "id": "NFR-ACC-025",
+      "kind": "nonfunctional",
+      "title": { "ar": "تعرّف واحد على الهوية لكل طلب مع ذاكرة قصيرة", "en": "One identity resolution per request with a short cache" },
+      "text": {
+        "ar": "يجب على النظام أن يحلّ الجلسة والمستخدم والنطاق والشاشات مرة واحدة ويحتفظ بها دقيقتين لكل جلسة، وأن يمسحها فوراً عند الخروج أو أي تعديل لحساب أو نطاق أو صلاحية، وأن يقرأ المقفل والموقوف والمحذوف مجهولاً ويحذف جلسته.",
+        "en": "The system shall resolve session, user, scope and screens once and hold them for two minutes per session, clear them at once on sign-out or any change to an account, scope or permission, and read a locked, inactive or deleted account as anonymous and delete its session."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "مدة الذاكرة 120 ثانية، وتُفرَّغ بإعلان تغيير الهوية.", "en": "The cache lasts 120 seconds and is emptied by an identity-change announcement." },
+        { "ar": "تُجرى قراءات الجلسة والمستخدم والشاشات والنطاق مرة لكل جلسة لا لكل طلب.", "en": "Session, user, permission and scope reads happen once per session, not per request." },
+        { "ar": "جلسة تجريبية بلا صندوقها تُقرأ مجهولة ولا تأخذ هوية مدير حقيقي.", "en": "A demo session without its sandbox is read as anonymous and never takes a real administrator identity." }
+      ],
+      "evidence": { "code": ["src/server/core/auth.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACC-026",
+      "kind": "functional",
+      "title": { "ar": "البيئة التجريبية وتبديل الصفة", "en": "Demo environment and role switching" },
+      "text": {
+        "ar": "يجب على النظام أن يفتح بيئة تجريبية معزولة بجلسة demo_ من POST /api/auth/demo، وأن يتيح تبديل الصفة بين حسابات وهمية بصلاحياتها الحقيقية، وأن يبقي شاشات الإدارة للعرض فقط.",
+        "en": "The system shall open an isolated demo environment with a demo_ session from POST /api/auth/demo, allow switching role among fictitious accounts carrying their real permissions, and keep administration screens read-only."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["visitor", "rootAdmin"],
+      "acceptance": [
+        { "ar": "SCHEDULE_DEMO_ENABLED=false يجعل المسار يردّ 404.", "en": "SCHEDULE_DEMO_ENABLED=false makes the route answer 404." },
+        { "ar": "الكتابة إلى /users و/permissions و/user-scopes و/system-backup و/admin/teaching-load و/admin/university-day تردّ 403 في التجربة.", "en": "Writing to /users, /permissions, /user-scopes, /system-backup, /admin/teaching-load and /admin/university-day returns 403 in the demo." },
+        { "ar": "POST /api/demo/role لغير طلب تجريبي يردّ 404، وصفة غير معروفة 400، والحارس نفسه يطبّق على الصفة المبدَّلة.", "en": "POST /api/demo/role outside a demo request returns 404, an unknown role 400, and the same guard applies to the switched role." },
+        { "ar": "الدخول بحساب وكلمة في خدمة تجريبية معزولة يُرفض 403، وتبديل الصفة محدود بـ30 طلباً في الدقيقة.", "en": "Signing in with a name and password on an isolated demo service is refused with 403, and role switching is limited to 30 requests per minute." }
+      ],
+      "evidence": { "code": ["src/server/routes/authRoutes.ts", "src/server/core/auth.ts"], "tests": ["tests/demo-roles-audit.ts", "tests/demo-every-role-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-027",
+      "kind": "functional",
+      "title": { "ar": "سجل التدقيق للدخول والرفض", "en": "Audit trail for sign-in and refusals" },
+      "text": {
+        "ar": "يجب على النظام أن يسجّل كل كتابة ناجحة، والدخول والخروج ومحاولة الدخول المرفوضة، ورفض الصلاحية 403 والتعارض 409، دون النبض والحضور، وأن يتيح قراءة السجل لمدير النظام.",
+        "en": "The system shall record every successful write, sign-in, sign-out, refused sign-in attempt, permission refusal 403 and conflict 409, excluding heartbeat and presence, and let the administrator read the log."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "دخول مرفوض يُسجَّل باسم الحساب المحاوَل «محاولة دخول مرفوضة»، وكلمة السر لا تُسجَّل.", "en": "A refused sign-in is recorded under the account tried as a refused sign-in attempt, and the password is never recorded." },
+        { "ar": "GET /api/audit-logs يعيد 250 سجلاً افتراضياً (معامل limit) ولا يصل إليه غير حساب الإدارة، وتطلب الشاشة 500.", "en": "GET /api/audit-logs returns 250 records by default (the limit parameter) and only an administration account can reach it; the screen asks for 500." },
+        { "ar": "رفض أُرسل بصفة اطّلاع يُسجَّل «مرفوض (خارج الصلاحية)».", "en": "A refusal of a view-only role is recorded as refused (outside permission)." }
+      ],
+      "evidence": { "code": ["server.ts", "src/server/routes/adminRoutes.ts", "src/server/routes/authRoutes.ts", "src/components/AdminUsers.tsx"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACC-028",
+      "kind": "functional",
+      "title": { "ar": "خزنة النسخ الاحتياطي لحساب الجذر", "en": "Backup vault for the root account" },
+      "text": {
+        "ar": "يجب على النظام أن يقصر النسخ الاحتياطي الكامل واستيراده وإعادة الضبط والتراجع عنها على حساب الجذر، وأن يفكّ ضغط النسخة المرفوعة تدريجياً بسقف 80 ميغابايت بعد الفك.",
+        "en": "The system shall restrict full backup, its import, reset and undo to the root account, and decompress an uploaded archive as a stream with a ceiling of 80 megabytes after decompression."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "كل مسارات /api/system-backup تردّ 403 «هذه الخزنة مخصصة لحساب الإدارة الرئيسي فقط» لغير الجذر.", "en": "Every /api/system-backup route returns 403 for anyone but the root account." },
+        { "ar": "ملف مضغوط يتجاوز 80 ميغابايت بعد الفك يُهجَر عند تجاوز السقف برسالة «أكبر من الحد الآمن» دون حجب باقي الطلبات.", "en": "An archive exceeding 80 megabytes after decompression is abandoned when the ceiling is crossed with a refusal message, without blocking other requests." },
+        { "ar": "رموز الجلسات الحية والنسخ الاحتياطية الداخلية لا تُصدَّر.", "en": "Live session tokens and the server's own rollback copies are not exported." }
+      ],
+      "evidence": { "code": ["src/server/routes/adminRoutes.ts", "src/server/core/auth.ts"], "tests": [] },
+      "inferred": true
+    },
+    {
+      "id": "FR-ACC-029",
+      "kind": "functional",
+      "title": { "ar": "رابط الدعوة وبطاقة الدخول بلا إرسال الكلمة للخادم", "en": "Invitation link and access card without sending the password to the server" },
+      "text": {
+        "ar": "يجب على النظام أن يحمل اسم الدخول وكلمته الأولى في جزء # من الرابط الذي لا يرسله المتصفح للخادم، وأن يكتفي الرابط القصير /i/ باسم الدخول وحده، وأن يمسح الواجهة الجزء من العنوان بعد قراءته.",
+        "en": "The system shall carry the login name and initial password in the # fragment of the link, which the browser never sends to the server, shall limit the short /i/ link to the login name alone, and the interface shall clear the fragment from the address after reading it."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "departmentHead", "standard"],
+      "acceptance": [
+        { "ar": "GET /i/:username يعيد 302 إلى /#invite= بترويسة Cache-Control: no-store وReferrer-Policy: no-referrer.", "en": "GET /i/:username answers 302 to /#invite= with Cache-Control: no-store and Referrer-Policy: no-referrer." },
+        { "ar": "اسم فارغ أو أطول من 200 حرف يردّ 400؛ وتُقتطع كلمة الرابط عند 128 حرفاً.", "en": "An empty name or one longer than 200 characters returns 400, and a link password is truncated at 128 characters." },
+        { "ar": "تُقرأ الصيغتان #invite= و#invite& لروابط واتساب القديمة.", "en": "Both #invite= and #invite& forms are read for older messaging links." },
+        { "ar": "الرابط القصير لا يُكمَل بالكلمة الموحّدة فلا يصير كل اسم مخمَّن دعوة جاهزة.", "en": "The short link is not completed with the shared password, so no guessed name becomes a ready invitation." }
+      ],
+      "evidence": { "code": ["src/utils/invitationLink.ts", "src/server/routes/authRoutes.ts", "src/components/Login.tsx", "src/components/AccessCard.tsx"], "tests": ["tests/scope-controls-audit.tsx", "tests/password-reset-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-030",
+      "kind": "functional",
+      "title": { "ar": "مفتاح «تذكّرني على هذا الجهاز» لبطاقة الأستاذ", "en": "Remember-this-device key for the faculty card" },
+      "text": {
+        "ar": "يجب على النظام أن يصدر لجهاز الأستاذ مفتاحاً موقّعاً بـHMAC مربوطاً برمز الرابط ورقم الأستاذ الداخلي وتاريخ الانتهاء، في كوكي HttpOnly وSameSite=Strict لمسار الرابط وحده، وألا يحمل رقماً مدنياً.",
+        "en": "The system shall issue the instructor's device a key signed with HMAC and bound to the link token, internal instructor number and expiry, in an HttpOnly, SameSite=Strict cookie scoped to that link path alone, and carrying no civil ID."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["visitor", "system"],
+      "acceptance": [
+        { "ar": "المفتاح لا يصلح لرابط آخر ولا بعد انتهائه ولا بعد تغيير حرف من توقيعه.", "en": "The key is not valid for another link, after its expiry, or with a single character of its signature changed." },
+        { "ar": "ينتهي عند أقرب الاثنين: نهاية الرابط أو 180 يوماً.", "en": "It expires at the earlier of the link end or 180 days." },
+        { "ar": "اسم الكوكي sk_dev ومساره /api/public/staff/<رمز الرابط>، ويُمسح بزر «انسَ هذا الجهاز».", "en": "The cookie is named sk_dev with path /api/public/staff/<link token> and is cleared by the forget-this-device action." },
+        { "ar": "السرّ مشتق من السرّ المشترك بوسم staff-device-key-v1 فلا يُستعمل مفتاح واحد لغرضين.", "en": "The secret is derived from the shared secret with the label staff-device-key-v1 so one key is never used for two purposes." }
+      ],
+      "evidence": { "code": ["src/server/staffDeviceKey.ts"], "tests": ["tests/staff-device-key-audit.ts"] }
+    }
+  ],
+  "edgeCases": [
+    {
+      "title": { "ar": "كلية تُنشأ بعد حفظ حساب العميد", "en": "A college created after the dean's account was saved" },
+      "scenario": { "ar": "حساب عميد نطاقه صف واحد بقسم صفر، ثم يُضاف قسم جديد إلى كليته.", "en": "A dean's account has one scope row with department 0, then a new department is added to the college." },
+      "behavior": { "ar": "يقرؤه العميد فوراً بلا صف جديد، لأن الصف الصفري يعني الكلية كلها لصفات الكلية؛ أما صف صفري عند رئيس لجنة فلا يُوسّع نطاقه.", "en": "The dean reads it immediately with no new row, because the zero row means the whole college for college roles; a zero row on a committee chair does not widen scope." },
+      "evidence": ["src/server/core/scope.ts", "tests/dean-notify-audit.ts"]
+    },
+    {
+      "title": { "ar": "النزول من صفة كل الكليات إلى صفة كلية واحدة", "en": "Moving from an all-colleges role to a one-college role" },
+      "scenario": { "ar": "يُنزَّل المسجّل العام (صف لكل كلية) إلى عميد لكلية واحدة من شاشة المستخدمين.", "en": "A University registrar (one row per college) is changed to a Dean of one college from the Users screen." },
+      "behavior": { "ar": "تُمحى صفوف «الكلية كلها» المشتقة قبل كتابة القالب الجديد، فلا يبقى للعميد باب على مستوى الجامعة.", "en": "The derived whole-college rows are deleted before the new template is written, so the dean keeps no university-wide door." },
+      "evidence": ["src/server/routes/usersRoutes.ts", "tests/approval-integrity-audit.ts"]
+    },
+    {
+      "title": { "ar": "حفظ حساب لا تتغير صفته", "en": "Saving an account whose role has not changed" },
+      "scenario": { "ar": "يوقف المدير حساباً أو يغيّر كلمته، والواجهة ترسل الصفة نفسها مع كل حفظ.", "en": "The administrator suspends an account or changes its password, and the interface sends the same role with every save." },
+      "behavior": { "ar": "يقارن الخادم الصفة المحلولة لا الخام، فلا يُعاد كتابة القالب ولا تُمحى شاشات مُنحت يدوياً.", "en": "The server compares the resolved role, not the raw value, so the template is not rewritten and manually granted screens are not erased." },
+      "evidence": ["src/server/routes/usersRoutes.ts", "tests/approval-integrity-audit.ts"]
+    },
+    {
+      "title": { "ar": "جلسة الكلمة الأولى القديمة", "en": "A stale initial-password session" },
+      "scenario": { "ar": "يدخل صاحب حساب بالكلمة الأولى ثم يترك الشاشة 20 دقيقة قبل أن يختار كلمته، أو يغيّر المسؤول كلمته أثناء ذلك.", "en": "An owner signs in with the initial password then leaves the screen for 20 minutes before choosing a password, or the administrator changes it meanwhile." },
+      "behavior": { "ar": "يسقط إعفاء الكلمة الحالية، فيردّ الخادم 400 بالرمز current-password-required وتُظهر الشاشة حقلها.", "en": "The current-password waiver lapses, the server returns 400 with the code current-password-required and the screen shows the field." },
+      "evidence": ["src/server/accountPassword.ts", "tests/first-login-password-audit.tsx"]
+    },
+    {
+      "title": { "ar": "الكلمة المؤقتة من جهازين معاً", "en": "A temporary password used from two devices at once" },
+      "scenario": { "ar": "يكتب جهازان الكلمة المؤقتة نفسها في اللحظة ذاتها.", "en": "Two devices type the same temporary password at the same moment." },
+      "behavior": { "ar": "يُحسب الدخول ضمن كتابة ذرّية، فينجح أحدهما ويردّ الآخر 403 بالرمز temporary-password-used.", "en": "The sign-in is counted inside an atomic write, so one succeeds and the other receives 403 with the code temporary-password-used." },
+      "evidence": ["src/server/accountPassword.ts", "tests/password-reset-audit.ts"]
+    },
+    {
+      "title": { "ar": "شبكة جامعة خلف عنوان واحد", "en": "A university network behind one address" },
+      "scenario": { "ar": "ألفا جلسة حقيقية، منها مئتان منتهية، تصل من عنوان واحد، وعنوان آخر يخترع معرّفات.", "en": "Two thousand real sessions, two hundred of them expired, arrive from one address, while another address invents identifiers." },
+      "behavior": { "ar": "لا يُرفض أحد من الشبكة لأن الناجح يردّ رصيده، ويقف المخترع بعد 120 بحثاً فاشلاً في 10 دقائق.", "en": "Nobody from the network is refused because each success pays its lookup back, and the inventor stops after 120 failed lookups in 10 minutes." },
+      "evidence": ["src/server/anonymousGuard.ts", "tests/anonymous-guard-audit.ts"]
+    }
+  ],
+  "terms": [
+    { "ar": "الصفة", "en": "Role", "def": { "ar": "تحدد من هو صاحب الحساب في الكلية، ومنها يُشتق القراءة أو الكتابة والشاشات والنطاق.", "en": "States who the account holder is in the college and determines read or write access, screens and scope." } },
+    { "ar": "الاطّلاع (قراءة فقط)", "en": "View-only (read-only)", "def": { "ar": "صفة يرفض الخادم كل طلب كتابة منها إلا الأبواب الضيقة لدورة الاعتماد.", "en": "A role from which the server refuses every write except the narrow approval-cycle doors." } },
+    { "ar": "الشاشة (الصلاحية)", "en": "Screen (permission)", "def": { "ar": "رقم من 1 إلى 17 في FormSecurity يمنح حامله ما في الشاشة.", "en": "A number from 1 to 17 in FormSecurity that grants its holder what the screen contains." } },
+    { "ar": "النطاق", "en": "Access scope", "def": { "ar": "الكليات والأقسام التي يرى الحساب بياناتها؛ الصف بقسم صفر يعني الكلية كلها لصفات الكلية وكل الكليات.", "en": "The colleges and departments whose data an account may see; a row with department 0 means the whole college for college and all-colleges roles." } },
+    { "ar": "القالب", "en": "Role template", "def": { "ar": "الشاشات والنطاق الذين تكتبهما الصفة تلقائياً عند اختيارها.", "en": "The screens and scope a role writes automatically when it is chosen." } },
+    { "ar": "الكلمة الأولى", "en": "Initial password", "def": { "ar": "كلمة يكتبها المسؤول لصاحب الحساب فيغيّرها عند أول دخول؛ الافتراضية منها تسقط بعد 7 أيام.", "en": "A password an administrator sets for the account owner, changed at first sign-in; the default one lapses after 7 days." } },
+    { "ar": "الكلمة المؤقتة", "en": "Temporary password", "def": { "ar": "كلمة عشوائية من 14 حرفاً لإعادة التعيين، تعمل 24 ساعة ولدخول واحد.", "en": "A random 14-character reset password valid for 24 hours and one sign-in." } },
+    { "ar": "حساب الإدارة الرئيسي", "en": "Main administration account", "def": { "ar": "حساب IsAdminUser أو معرّف الجذر؛ هو الذي يوزّع الصفات وفوقها.", "en": "An IsAdminUser account or the root identifier; it assigns roles and sits above them." } },
+    { "ar": "الجلسة", "en": "Session", "def": { "ar": "سجل مربوط بكوكي session_id يحدد الهوية، وينتهي بخمول 15 دقيقة.", "en": "A record bound to the session_id cookie that establishes identity and ends after 15 minutes of inactivity." } },
+    { "ar": "بطاقة الدخول", "en": "Access card", "def": { "ar": "بطاقة برمز QR ورابط شخصي تُرسل لمن يُدعى إلى النظام.", "en": "A card with a QR code and personal link sent to someone invited to the system." } }
+  ],
+  "ownerRules": [
+    { "ar": "الكلمة الأولى الافتراضية تُغيَّر عند أول دخول ويسقط عملها بعد سبعة أيام (قرار المالك 2026-11-05).", "en": "The default initial password must be changed at first sign-in and lapses after seven days (owner decision 2026-11-05)." },
+    { "ar": "إعادة التعيين بكلمة مؤقتة عشوائية تعمل 24 ساعة ولدخول واحد، ولا تُستعمل أرقام الرقم المدني كلمة سر (قرار المالك 2026-11-06).", "en": "Reset uses a random temporary password valid for 24 hours and one sign-in, and civil ID digits are never used as a password (owner decision 2026-11-06)." },
+    { "ar": "من دخل بالكلمة الأولى لا يُسأل عنها ثانية عند اختيار كلمته (قرار المالك 2026-10-30).", "en": "Someone who has just signed in with the initial password is not asked for it again when choosing their own (owner decision 2026-10-30)." },
+    { "ar": "الحسابات كراسٍ لا أشخاص: يتبدل الشاغل ويبقى الكرسي ونطاقه (قرار المالك 2026-10-29، docs/SEATS.md).", "en": "Accounts are seats, not people: the holder changes while the seat and its scope remain (owner decision 2026-10-29, docs/SEATS.md)." },
+    { "ar": "رئيس القسم يقرأ ويعلّق ويوقّع ولا يعدّل جدولاً، واللجنة هي من تبني.", "en": "The Department head reads, comments and signs but does not edit a schedule; the committee builds." },
+    { "ar": "التقارير المطبوعة تحتفظ بتصميمها؛ والصلاحيات تغيّر ما يُعرض فيها من بيانات لا شكلها.", "en": "Printed reports keep their design; permissions change the data they show, never their layout." }
+  ]
+}
