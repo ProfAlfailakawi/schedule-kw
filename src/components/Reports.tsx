@@ -2,6 +2,7 @@ import TermSelect from "./TermSelect";
 import SearchableSelect from "./SearchableSelect";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildingNumberLabel } from "../utils/locationCollegePrefixes";
+import { continuationIds } from "../utils/matrixRuns";
 import { flushSync } from "react-dom";
 import { isNarrowWorkspace } from "../utils/workspaceSize";
 import {
@@ -2860,17 +2861,28 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                           <small>{line.room.building}</small>
                         </th>
                         <td className="matrix-daygroup">{line.group.label}</td>
-                        {line.cells.map(cell => (
-                          <td key={cell.point} className={cell.rows.length ? "taken" : ""}>
-                            {cell.rows.map(row => (
-                              <span key={row.id} className="matrix-slot">
-                                <b>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<CourseTags courseId={row.AdCourseId} /></b>
-                                <em className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "—"}{personChips(row.AdInstructorId)}</em>
-                                <i dir="ltr">{courseNumberOf(row) || "—"} · {row.SCode}</i>
-                              </span>
-                            ))}
-                          </td>
-                        ))}
+                        {(() => {
+                          const continued = continuationIds(line.cells);
+                          return line.cells.map((cell, cellIndex) => {
+                            const more = continued[cellIndex];
+                            const onlyContinued = cell.rows.length > 0 && cell.rows.every(row => more.has(String(row.id)));
+                            return (
+                              <td key={cell.point} className={`${cell.rows.length ? "taken" : ""}${onlyContinued ? " is-continued" : ""}`}>
+                                {cell.rows.map(row => more.has(String(row.id)) ? (
+                                  <span key={row.id} className="matrix-slot is-continued">
+                                    <span className="sr-only">{`تتمة: ${row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"} · ${instructorById.get(row.AdInstructorId)?.AdInstructorName || "—"}`}</span>
+                                  </span>
+                                ) : (
+                                  <span key={row.id} className="matrix-slot">
+                                    <b>{row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "—"}<CourseTags courseId={row.AdCourseId} /></b>
+                                    <em className="report-instructor-with-badge">{instructorById.get(row.AdInstructorId)?.AdInstructorName || "—"}{personChips(row.AdInstructorId)}</em>
+                                    <i dir="ltr">{courseNumberOf(row) || "—"} · {row.SCode}</i>
+                                  </span>
+                                ))}
+                              </td>
+                            );
+                          });
+                        })()}
                       </tr>
                     ))}
                   </tbody>
