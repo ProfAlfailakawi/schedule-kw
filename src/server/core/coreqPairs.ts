@@ -5,12 +5,12 @@
  * المسوّداتُ والمؤرشفة لا تُقرأ. مخبَّأةٌ ثلاثين ثانية: يقرؤها فحصُ «موعد» ومخطّطُ «في الوقت نفسه» دون ثقلٍ على كل ضغطة.
  */
 import { Repository } from "../../db/repository";
-import { levelGroupsOfPlans, unlockGroupsOfPlans, type UnlockGroup } from "../../utils/planPeers";
+import { levelGroupsOfPlans, prereqChainPairs, unlockGroupsOfPlans, type UnlockGroup } from "../../utils/planPeers";
 
 const TTL_MS = 30_000;
 
-export interface SectionPlanFacts { pairs: number[][]; levelGroups: number[][]; unlockGroups: UnlockGroup[] }
-const NO_FACTS: SectionPlanFacts = { pairs: [], levelGroups: [], unlockGroups: [] };
+export interface SectionPlanFacts { pairs: number[][]; levelGroups: number[][]; unlockGroups: UnlockGroup[]; chainPairs: number[][] }
+const NO_FACTS: SectionPlanFacts = { pairs: [], levelGroups: [], unlockGroups: [], chainPairs: [] };
 
 /* المفتاحُ يحمل صندوقَ الديمو: رقمُ القسم 1 في الديمو غيرُه في الجامعة، والذاكرةُ واحدةٌ في العملية. */
 const cache = new Map<string, { at: number; value: Promise<SectionPlanFacts> }>();
@@ -38,7 +38,7 @@ async function read(sectionId: number): Promise<SectionPlanFacts> {
   const ruleSets = sets.flatMap(({ set }) => (set ? [set] : []));
   const courses = await Repository.getCoursesBySection(sectionId).catch(() => []);
   const names = new Map<number, string>(courses.map(course => [Number(course.AdCourseId), String(course.CourseName || "")] as [number, string]));
-  return { pairs, levelGroups: levelGroupsOfPlans(ruleSets), unlockGroups: unlockGroupsOfPlans(ruleSets, id => names.get(id) || "") };
+  return { pairs, levelGroups: levelGroupsOfPlans(ruleSets), unlockGroups: unlockGroupsOfPlans(ruleSets, id => names.get(id) || ""), chainPairs: prereqChainPairs(ruleSets) };
 }
 
 export function sectionPlanFacts(sectionId: number): Promise<SectionPlanFacts> {
