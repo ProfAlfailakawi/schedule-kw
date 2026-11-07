@@ -1,4 +1,5 @@
 import { ARABIC_COUNT_SCRIPT } from "../utils/arabicCount";
+import { TRAVEL_HINT_SCRIPT } from "../utils/campusTravelHint";
 import { MASARI_ACK_CSS, MASARI_ACK_JS } from "./masariDisclaimer";
 import { PUBLIC_FONT_FACES } from "./publicKit";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
@@ -440,6 +441,10 @@ details.later>summary{justify-content:center;border:1.5px dashed var(--line-stro
 .wk-b{position:absolute;inset-inline:2px;border:0;border-radius:8px;padding:3px 4px;background:var(--c);color:#fff;font-family:inherit;text-align:start;overflow:hidden;cursor:pointer;display:grid;align-content:start;gap:0;line-height:1.3;transition:opacity .15s,box-shadow .15s}
 .wk-b b{font-size:11px;font-weight:700}
 .wk-b span{font-size:11px;font-weight:500;opacity:.92;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.wk-tr{position:absolute;inset-block-end:2px;inset-inline-end:2px;inline-size:16px;block-size:16px;border-radius:50%;display:grid;place-items:center;background:#fff;color:var(--c);box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.wk-tr .i{inline-size:11px;block-size:11px}
+.tk small.tk-tr{display:flex;align-items:center;gap:5px;color:var(--muted)}
+.tk small.tk-tr .i{inline-size:13px;block-size:13px;flex:none}
 .wk-b.sel{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c);z-index:2}
 .wk-b.dim{opacity:.42}
 .wk-b.ghost{background:color-mix(in srgb,var(--c) 12%,var(--card));color:var(--ink);border:1.5px dashed var(--c);z-index:1}
@@ -525,6 +530,7 @@ function ic(n,c){return '<svg class="i'+(c?" "+c:"")+'" aria-hidden="true"><use 
 function fmtDate(iso){if(!iso)return"";var d=new Date(iso);if(isNaN(d.getTime()))return"";return d.toLocaleDateString("ar-KW-u-nu-latn",{day:"numeric",month:"long",year:"numeric"})}
 function fmtShort(iso){if(!iso)return"";var d=new Date(iso+"T00:00:00Z");if(isNaN(d.getTime()))return"";return d.toLocaleDateString("ar-KW-u-nu-latn",{day:"numeric",month:"short",timeZone:"UTC"})}
 ${ARABIC_COUNT_SCRIPT}
+${TRAVEL_HINT_SCRIPT}
 
 var API_TIMEOUT_MS=15000,API_WRITE_DEADLINE_MS=30000;
 /* القراءةُ تُلغى بعد مهلتها. الكتابةُ لا تُلغى (إلغاؤها في المتصفح لا يوقف معالجَها في الخادم): بعد ٣٠ ثانيةً تُعاد الشاشةُ للطالب بنتيجةٍ «غير معروفة»
@@ -925,6 +931,12 @@ function tkSet(cur,courseId,offeringId){
 function tkDrop(cur,courseId){var key=cur.label+":"+courseId,base=cur.items.filter(function(i){return Number(i.courseId)===Number(courseId)})[0];
   if(base){S.tkRemoved[key]=true;delete S.tkOverrides[key]}else S.tkAdded[cur.label]=(S.tkAdded[cur.label]||[]).filter(function(a){return Number(a.courseId)!==Number(courseId)})}
 function tkEdited(cur){var any=false;Object.keys(S.tkRemoved).forEach(function(k){if(k.indexOf(cur.label+":")===0)any=true});return any||(S.tkAdded[cur.label]||[]).length>0}
+/* تلميحُ التنقّل بين الحرمين: هادئٌ لا يمنع. المدةُ من سياسة التسجيل (t.travel) والقاعدةُ مشتركة مع الخادم. */
+function tkTravel(items){var t=S.ticket,flat=[],map={};if(!t||!t.travel)return map;
+  items.forEach(function(i){if(!i.timesVisible)return;(i.slots||[]).forEach(function(s){flat.push({id:String(i.courseId),day:s.day,start:s.start,end:s.end,c:s.c})})});
+  travelHints(t.travel,flat).forEach(function(x){map[x.id+"|"+x.day]=x.need});return map}
+function tkTravelNeed(map,courseId){var best=0;Object.keys(map).forEach(function(k){if(k.indexOf(courseId+"|")===0&&map[k]>best)best=map[k]});return best}
+function tkTravelText(need){return "انتقال بين الحرمين: يلزم "+countOf(need,AR.minute)}
 function tkClock(m){var h=Math.floor(m/60),mm=m%60;return h+':'+(mm<10?'0':'')+mm}
 function tkLongestGap(items){var by={},best=null;
   items.forEach(function(i){if(!i.timesVisible)return;(i.slots||[]).forEach(function(s){(by[s.day]=by[s.day]||[]).push(s)})});
@@ -949,7 +961,7 @@ function tkPlanCompare(plans,current){/* لا تعِد ترتيب البطاقا
     best=fits.reduce(function(a,b){return !a||b.score>a.score||(b.score===a.score&&b.units<a.units)?b:a},null),labels={A:'الخطة أ',B:'الخطة ب',C:'الخطة ج'},hasTimes=fits.every(function(f){return f.allTimes});
   return '<div class="tk-compare"><div class="tk-compare-title">'+ic('spark','')+' أفضل جدول بالنسبة لك</div><div class="tk-plans" role="group" aria-label="قارن خطط التسجيل">'+fits.map(function(f){var selected=f.label===current?'true':'false',dayText=f.allTimes?countOf(f.days,AR.day)+' حضور':'مواعيد غير معتمدة',gapText=f.allTimes?(f.gap?('فراغات '+countOf(Math.round(f.gap/6)/10,AR.hour)):'فراغات أقل'):'',bestText=f.label===best.label?'<span class="tk-best">'+(f.allTimes?'الأنسب لك':'الأقرب لهدفك')+'</span>':'';
     return '<button type="button" class="tk-plan" data-l="'+f.label+'" aria-pressed="'+selected+'" style="--score:'+f.score+'%"><span class="tk-score"><b>'+f.score+'<small>٪</small></b></span><strong>'+labels[f.label]+' · '+countOf(f.units,AR.unit)+'</strong><small>'+dayText+(gapText?' · '+gapText:'')+(selected==='true'?'<span class="tk-why">'+f.why+(f.tight?' · '+countOf(f.tight,AR.section)+' قليلة المقاعد':'')+'</span>':'')+'</small>'+bestText+'</button>'}).join('')+'</div><p class="tk-compare-note">'+(hasTimes?'المؤشر يوازن هدف الوحدات وقيودك وأيام الحضور والفراغات.':'المواعيد لم تعتمد بعد؛ المؤشر يقارن الوحدات بهدفك فقط.')+'</p></div>'}
-function tkGrid(items,sel,ghosts){
+function tkGrid(items,sel,ghosts){var trav=tkTravel(items);
   var lo=1440,hi=0;
   items.forEach(function(it){if(it.timesVisible)(it.slots||[]).forEach(function(s){lo=Math.min(lo,s.start);hi=Math.max(hi,s.end)})});
   ghosts.forEach(function(g){g.slots.forEach(function(s){lo=Math.min(lo,s.start);hi=Math.max(hi,s.end)})});
@@ -960,7 +972,7 @@ function tkGrid(items,sel,ghosts){
   h+='</div>';
   for(var d=0;d<5;d++){h+='<div class="wk-col">';
     items.forEach(function(it){if(!it.timesVisible)return;(it.slots||[]).forEach(function(s){if(s.day!==d)return;
-      h+='<button type="button" class="wk-b'+(sel&&Number(sel)===Number(it.courseId)?' sel':(sel?' dim':''))+'" data-c="'+it.courseId+'" style="--c:'+tkColor(it.courseId)+';inset-block-start:'+((s.start-lo)/60*H)+'px;block-size:'+((s.end-s.start)/60*H-2)+'px"><b>'+esc(it.code)+'</b><span>'+esc(it.name)+'</span></button>'})});
+      h+='<button type="button" class="wk-b'+(sel&&Number(sel)===Number(it.courseId)?' sel':(sel?' dim':''))+'" data-c="'+it.courseId+'" style="--c:'+tkColor(it.courseId)+';inset-block-start:'+((s.start-lo)/60*H)+'px;block-size:'+((s.end-s.start)/60*H-2)+'px"><b>'+esc(it.code)+'</b><span>'+esc(it.name)+'</span>'+(trav[it.courseId+"|"+d]?'<i class="wk-tr" title="'+esc(tkTravelText(trav[it.courseId+"|"+d]))+'">'+ic("swap","")+'</i><em class="sr">'+esc(tkTravelText(trav[it.courseId+"|"+d]))+'</em>':'')+'</button>'})});
     ghosts.forEach(function(g){g.slots.forEach(function(s){if(s.day!==d)return;
       h+='<button type="button" class="wk-b ghost'+(g.bad?' bad':'')+'" data-o="'+esc(g.offeringId)+'" style="--c:'+tkColor(g.courseId)+';inset-block-start:'+((s.start-lo)/60*H)+'px;block-size:'+((s.end-s.start)/60*H-2)+'px"><b>ش '+esc(g.section)+'</b></button>'})});
     h+='</div>'}
@@ -1025,13 +1037,13 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
   if(view==="grid"){
     h+=tkGrid(items,S.tkSel,ghosts);
     if(sel){var opts=tkOptions(sel);
-      h+='<div class="wk-sel" style="--c:'+tkColor(sel.courseId)+'"><div class="row between"><b>'+esc(sel.name)+'</b><span class="code">'+esc(sel.code)+'</span></div><small class="muted">'+(sel.timesVisible?esc((sel.section?"شعبة "+sel.section+" · ":""))+slotsText(sel.slots):"")+'</small>';
+      h+='<div class="wk-sel" style="--c:'+tkColor(sel.courseId)+'"><div class="row between"><b>'+esc(sel.name)+'</b><span class="code">'+esc(sel.code)+'</span></div><small class="muted">'+(sel.timesVisible?esc((sel.section?"شعبة "+sel.section+" · ":""))+slotsText(sel.slots):"")+'</small>'+(tkTravelNeed(tkTravel(items),sel.courseId)?'<small class="tk-tr">'+ic("swap","")+esc(tkTravelText(tkTravelNeed(tkTravel(items),sel.courseId)))+'</small>':'');
       if(opts.length>1)h+='<div class="chps" role="group" aria-label="شعب بديلة">'+opts.map(function(o){var bad=items.some(function(x){return x!==sel&&clash(x.slots,o.slots)});return '<button type="button" class="chp'+(o.offeringId===sel.offeringId?' on':'')+(bad?' bad':'')+'" data-o="'+esc(o.offeringId)+'">شعبة '+esc(o.section)+(bad?' · تتعارض':(o.tight?' · مقاعد قليلة':''))+'</button>'}).join("")+'</div>';
       h+='<div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn alt small" data-act="swap" style="inline-size:auto">'+ic("layers")+'بدّله بمقرر آخر</button><button type="button" class="btn alt small" data-act="drop" style="inline-size:auto">'+ic("x")+'لا أريده</button></div></div>'}
     else if(items.length)h+='<p class="hint">المس مقرراً لتجرّب شعبةً بديلة أو تبدّله.</p>'}
-  else{
+  else{var travL=tkTravel(items);
     items.forEach(function(chosen){var i=chosen.base||chosen,alternatives=(chosen.added?[]:(i.alternatives||[]));
-      h+='<div class="ln"><span class="ic">'+ic("book")+'</span><span class="tx"><b>'+esc(chosen.name)+'</b><small>'+(chosen.timesVisible?esc(chosen.section?"شعبة "+chosen.section+" · ":"")+slotsText(chosen.slots):ic("lock","")+" الموعد يظهر عند اعتماد جدول القسم")+'</small></span>'+(chosen.tight?'<span class="chip warn">مقاعد قليلة</span>':'')+'<span class="code">'+esc(chosen.code)+'</span></div>';
+      h+='<div class="ln"><span class="ic">'+ic("book")+'</span><span class="tx"><b>'+esc(chosen.name)+'</b><small>'+(chosen.timesVisible?esc(chosen.section?"شعبة "+chosen.section+" · ":"")+slotsText(chosen.slots):ic("lock","")+" الموعد يظهر عند اعتماد جدول القسم")+'</small>'+(tkTravelNeed(travL,chosen.courseId)?'<small class="tk-tr">'+ic("swap","")+esc(tkTravelText(tkTravelNeed(travL,chosen.courseId)))+'</small>':'')+'</span>'+(chosen.tight?'<span class="chip warn">مقاعد قليلة</span>':'')+'<span class="code">'+esc(chosen.code)+'</span></div>';
       if(chosen.timesVisible&&alternatives.length){h+='<div class="ticket-alt"><label for="ta'+chosen.courseId+'">جرّب شعبة بديلة · معاينة شخصية</label><select class="inp ticket-alt-select" id="ta'+chosen.courseId+'" data-course="'+chosen.courseId+'"><option value="'+esc(i.offeringId)+'">الشعبة المقترحة · '+esc(i.section)+'</option>'+alternatives.map(function(a){return '<option value="'+esc(a.offeringId)+'"'+(chosen.offeringId===a.offeringId?' selected':'')+'>شعبة '+esc(a.section)+(a.tight?' · مقاعد قليلة':'')+'</option>'}).join("")+'</select></div>'}})}
   var removed=cur.items.filter(function(i){return S.tkRemoved[cur.label+":"+i.courseId]});
   if(removed.length)h+='<div class="chps"><small class="muted">أزلتَ:</small>'+removed.map(function(i){return '<button type="button" class="chp" data-undo="'+i.courseId+'">'+ic("plus","")+esc(i.name)+'</button>'}).join("")+'</div>';

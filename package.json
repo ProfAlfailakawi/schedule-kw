@@ -278,6 +278,7 @@
     "test:masari-visual": "tsx tests/masari-visual-audit.ts",
     "test:masari-return": "tsx tests/masari-return-audit.ts",
     "test:masari-desktop": "tsx tests/masari-desktop-audit.ts",
+    "test:masari-travel-hint": "tsx tests/masari-travel-hint-audit.ts",
     "test:instructor-availability": "tsx tests/instructor-request-availability-audit.ts",
     "test:instructor-offering-flow": "tsx tests/instructor-offering-flow-audit.ts",
     "srs:build": "node scripts/srs/build.mjs --out dist/srs-preview",

@@ -35,6 +35,7 @@
     "src/utils/companionRoomDisplay.ts",
     "src/utils/campusTravel.ts",
     "src/utils/campusTravelPolicy.ts",
+    "src/utils/campusTravelHint.ts",
     "src/components/LocationQuickSetup.tsx",
     "src/components/LocationRegistryAdmin.tsx",
     "src/components/LocationPicker.tsx",
