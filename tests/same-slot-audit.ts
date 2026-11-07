@@ -60,12 +60,13 @@ r = sameSlotOf(threeDays, { ...base, days: ["fsunday", "ftuesday", "fthursday"] 
 check(r.count === 2 && r.items[0].days.length === 3 && r.items[1].days.join() === "ftuesday", "شعبةٌ في ثلاثة صفوف بندٌ واحد، والشعبة الأخرى بندها", r.count);
 
 /* نفس المستوى من الصحيفة وحدها: الرمز لا يقرّر شيئاً. */
-const peers = sameLevelLookup([[1, 2, 5]]);
+const levels = (...groups: number[][]) => groups.map(courseIds => ({ courseIds, blocked: [] }));
+const peers = sameLevelLookup(levels([1, 2, 5]));
 r = sameSlotOf(rows, { ...base, courseId: 2, sectionId: 7, codeOf, sameLevel: peers });
 check(idsOf(r).join() === "11,10,12" && r.items.filter(i => i.sameLevel).length === 1, "قرينه أولاً ثم الباقي برقم المقرر", idsOf(r));
 r = sameSlotOf(rows, { ...base, courseId: 4, sectionId: 7, codeOf });
 check(r.items.every(i => !i.sameLevel), "بلا بيانات صحيفة: لا «نفس المستوى» ولو تشابهت الرموز");
-r = sameSlotOf(rows, { ...base, courseId: 3, sectionId: 7, codeOf, sameLevel: sameLevelLookup([[3, 1, 12]]) });
+r = sameSlotOf(rows, { ...base, courseId: 3, sectionId: 7, codeOf, sameLevel: sameLevelLookup(levels([3, 1, 12])) });
 check(idsOf(r).join() === "10,11,12" && r.items[0].sameCourse && !r.items[0].sameLevel, "شعبتُه نفسها بالتطابق: ليست «نفس المستوى»", idsOf(r));
 r = sameSlotOf(rows, { ...base, courseId: 2, sectionId: 99, codeOf, sameLevel: peers });
 check(r.items.every(i => !i.sameLevel), "قسمٌ آخر: ليس «نفس المستوى»");
@@ -84,7 +85,7 @@ check(c.hidden === 0 && c.items.length === 3, "تحت السقف: لا «+»");
 /* تداخلٌ جزئي: حالة المالك بأرقامها. 0109237 و0109258 و40 في مجموعة مستوى؛ والمقرر 39 خارجها، وكذلك 41 برقمٍ من المئة نفسها. */
 const ownerCodes: Record<number, string> = { 37: "0109237", 58: "0109258", 39: "0109359", 40: "109240", 41: "0109215" };
 const ownerCodeOf = (id: number) => ownerCodes[id];
-const owner = { days: ["fsunday" as const], start: "11:00", end: "15:00", courseId: 37, sectionId: 7, termId: 20261, collegeId: 3, scode: "1", codeOf: ownerCodeOf, sameLevel: sameLevelLookup([[37, 58, 40]]) };
+const owner = { days: ["fsunday" as const], start: "11:00", end: "15:00", courseId: 37, sectionId: 7, termId: 20261, collegeId: 3, scode: "1", codeOf: ownerCodeOf, sameLevel: sameLevelLookup(levels([37, 58, 40])) };
 const partnerRow = row(58, 58, ["s"], "12:00", "16:00");
 
 r = sameSlotOf([partnerRow], owner);
@@ -157,8 +158,8 @@ r = sameSlotOf([row(74, 58, ["s"], "11:00", "11:30"), row(75, 40, ["s"], "12:00"
 check(idsOf(r).join() === "75,74", "الأطول تداخلاً أولاً: لا يخفيه سقف الستة", idsOf(r));
 
 /* «تفتح»: 37 و58 يفتحان 90، و37 و47 يفتحان 91؛ والمستوى يجمع 37 و48. */
-const unlockGroups = [{ nextCourseId: 90, nextCourseName: "تصميم وإنتاج المجسمات والعرائس", courseIds: [37, 58] }, { nextCourseId: 91, nextCourseName: "التلفزيون التعليمي (1)", courseIds: [37, 47, 58] }];
-const opens = { ...owner, sameLevel: sameLevelLookup([[37, 58, 48]]), unlockOf: unlockLookup(unlockGroups) };
+const unlockGroups = [{ nextCourseId: 90, nextCourseName: "تصميم وإنتاج المجسمات والعرائس", courseIds: [37, 58], blocked: [] }, { nextCourseId: 91, nextCourseName: "التلفزيون التعليمي (1)", courseIds: [37, 47, 58], blocked: [] }];
+const opens = { ...owner, sameLevel: sameLevelLookup(levels([37, 58, 48])), unlockOf: unlockLookup(unlockGroups) };
 r = sameSlotOf([row(80, 48, ["s"], "12:00", "16:00"), row(81, 47, ["s"], "14:00", "16:00"), partnerRow], opens);
 check(idsOf(r).join() === "58,81,80", "«تفتح» أولاً وأقربها، قبل المستوى", idsOf(r));
 check(r.items[0].unlock?.names.join("|") === "المجسمات والعرائس|التلفزيون التعليمي (1)" && !r.items[0].sameLevel, "صفٌّ بالعلاقتين: «تفتح» وحدها", r.items[0]);
@@ -167,6 +168,35 @@ check(sameSlotOf([row(81, 47, ["s"], "15:00", "16:00")], opens).count === 0, "ق
 check(sameSlotOf([row(81, 47, ["s"], "14:00", "16:00")], { ...opens, sameLevel: undefined }).partialCount === 1, "«تفتح» وحدها تكفي للتداخل بلا مستوى");
 check(sameSlotOf([row(81, 47, ["s"], "15:30", "16:30")], opens).count === 0, "قرينان بفاصل قصير: لا يُعدّان");
 check(sameSlotOf([row(81, 47, ["s"], "14:00", "16:00", { AdCollegeId: 4 })], opens).count === 0, "كليةٌ أخرى: لا يُعدّ");
+
+/* نطاقُ الموعد يحكم كلَّ الفروع، والتطابقُ التام أيضاً. */
+const exactOf = (extra: Partial<SlotRow>, query: object = {}) => sameSlotOf([row(90, 99, ["s"], "11:00", "15:00", extra)], { ...owner, ...query });
+check(exactOf({ AdSectionId: 8 }).count === 0, "تطابقٌ تام من قسمٍ آخر: لا يُعدّ");
+check(exactOf({ AdCollegeId: 4 }).count === 0, "تطابقٌ تام من كليةٍ أخرى: لا يُعدّ");
+check(sameSlotOf([row(90, 37, ["s"], "11:00", "15:00", { AdSectionId: 8 })], owner).count === 0, "شعبةٌ من المقرر نفسه في قسمٍ آخر بالوقت نفسه: لا تُعدّ");
+check(exactOf({ AdSectionId: undefined }).count === 1 && exactOf({ AdCollegeId: undefined }).count === 1, "صفٌّ بلا قسم أو بلا كلية بالتطابق التام: يبقى كما كان");
+check(exactOf({ AdSectionId: 8 }, { sectionId: undefined }).count === 1 && exactOf({ AdCollegeId: 4 }, { collegeId: undefined }).count === 1, "موعدٌ لم يُعرف قسمه أو كليته بعد: لا يُسكَت عن شيء");
+check(exactOf({ AdSectionId: "7", AdCollegeId: "3" } as any).count === 1, "الأرقام نصوصاً تُقارن أرقاماً");
+
+/* إخوةُ الشعبة الجارية ليسوا شعبةً أخرى، ولو طابقوا الوقت (المحرر يعدّل صفاً من ثلاثة). */
+const siblings = [row(95, 37, ["s"], "11:00", "15:00", { SCode: "1" }), row(96, 37, ["t"], "11:00", "15:00", { SCode: " 1 " }), row(97, 37, ["h"], "11:00", "15:00", { SCode: "1" })];
+r = sameSlotOf(siblings, { ...owner, days: ["fsunday", "ftuesday", "fthursday"], excludeId: 95 });
+check(r.count === 0, "نمطُ الأيام الثلاثة: إخوةُ الصف المعدَّل لا يظهرون شعبةً أخرى", idsOf(r));
+r = sameSlotOf([row(98, 37, ["s"], "11:00", "15:00", { SCode: "2" })], owner);
+check(r.count === 1 && r.items[0].sameCourse, "وشعبةٌ أخرى حقاً بالوقت نفسه تبقى");
+check(sameSlotOf(siblings, { ...owner, scode: "", days: ["fsunday"] }).count === 1, "رقمُ الشعبة لم يُكتب بعد: لا يُسكَت عن شيء");
+
+/* صفٌّ بلا قسم لا يُوصف بعلاقةٍ لا يُعرف نطاقها. */
+r = sameSlotOf([row(99, 58, ["s"], "11:00", "15:00", { AdSectionId: undefined })], opens);
+check(r.count === 1 && !r.items[0].sameLevel && !r.items[0].unlock, "صفٌّ بلا قسم بالتطابق التام: يُعرض بلا وسم", r.items[0]);
+r = sameSlotOf([row(99, 58, ["s"], "11:00", "15:00")], { ...opens, sectionId: undefined });
+check(r.count === 1 && !r.items[0].sameLevel && !r.items[0].unlock, "موعدٌ بلا قسم: لا وسم");
+
+/* صفّان بلا مقرر لا يندمجان ولو تساوى رقم الشعبة. */
+r = sameSlotOf([row(101, 0, ["s"], "11:00", "15:00", { AdCourseId: undefined, SCode: "1" }), row(102, 0, ["t"], "11:00", "15:00", { AdCourseId: undefined, SCode: "1" })], { ...owner, days: ["fsunday", "ftuesday"] });
+check(r.count === 2, "صفّان بلا مقرر بندان منفصلان", idsOf(r));
+r = sameSlotOf([row(101, 58, ["s"], "11:00", "15:00", { SCode: "1" }), row(102, 58, ["t"], "11:00", "15:00", { SCode: "1" })], { ...owner, scode: "9", days: ["fsunday", "ftuesday"] });
+check(r.count === 1 && r.items[0].days.length === 2, "وصفّا الشعبة الواحدة يبقيان بنداً واحداً");
 
 /* الربط في الواجهة. */
 const read = (file: string) => fs.readFileSync(file, "utf8");
@@ -184,7 +214,11 @@ check(hint.includes("تفتح: <b>") && hint.includes("LockOpen"), "سطر «ت�
 check(hint.includes("SHEET_CEILING") && hint.includes("maxHeight: pos.maxHeight"), "الورقة لا تغطي الترويسة وتُمرَّر من داخلها");
 check(hint.includes("<em>قريبة</em>") && hint.includes("near ? null"), "القريبة بوسمٍ مميز وبلا لون تداخل");
 check(/role="dialog"/.test(hint) && /aria-labelledby/.test(hint) && /aria-label=\{label\}/.test(hint), "حوارٌ معنوَن وزرٌّ بوصفٍ مقروء");
-check((hint.match(/fetch\(/g) || []).length === 1 && hint.includes("/api/schedules/coreq-pairs") && hint.includes("pairsCache"), "طلبٌ واحد مخبَّأ لكل قسم (المقرنات) وما سواه من الصفوف المحمّلة");
+check(!/fetch\(/.test(hint) && hint.includes("loadPlanFacts(collegeId, sectionId)") && read("src/utils/planFactsCache.ts").includes("/api/schedules/coreq-pairs"), "طلبٌ واحد مخبَّأ لكل قسم (المقرنات) وما سواه من الصفوف المحمّلة");
+check(hint.includes("key={`${group.key}|${index}`}"), "مفتاحُ مجموعة الورقة فريد: «بلا سطر» قد تتكرر");
+check(!hint.includes("مما يُؤخذ معه") && hint.includes("من أقرانه في الصحيفة"), "الوصف المقروء يصدق على «تفتح» و«تُؤخذ معًا» معاً");
+const app = read("src/App.tsx");
+check(/forgetTrailStamps\(\);\s*forgetWarmStarts\(\);\s*forgetPlanFacts\(\);/.test(app) && !/from "\.\/components\/SameSlotHint"/.test(app), "الخروج يمحو حقائق الصحيفة، بلا سحب الشارة إلى الحزمة الأولى");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

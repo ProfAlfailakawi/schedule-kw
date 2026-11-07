@@ -13,6 +13,7 @@
  * شعبُ المقرر نفسه: يكفي التداخل أو فاصلٌ داخل نافذة القرب (nearSectionWindow)،
  * لأن من يفتح شعبتين متقاربتين قد ينسى؛ فالطالب يختار إحداهما والتقارب يضيّق خياره.
  * والتلاصقُ (تنتهي إحداهما حين تبدأ الأخرى) ليس تداخلاً: يسكت بين مقررين ويُعدّ قرباً بين شعبتين.
+ * وصفٌّ من قسمٍ آخر أو كليةٍ أخرى لا يُعدّ في أي فرع؛ وصفوفُ الشعبة الجارية نفسها ليست شعبةً أخرى.
  * ملفٌّ خالص بلا React ولا شبكة؛ يُختبر في tests/same-slot-audit.ts.
  */
 
@@ -122,7 +123,7 @@ export function sameSlotOf<R extends SlotRow>(rows: readonly R[], query: SameSlo
   if (query.excludeId != null && query.excludeId !== "" && Number(query.excludeId) !== 0) skip.add(String(query.excludeId));
   const wanted = SLOT_DAYS.filter(day => query.days.includes(day.key));
   const own = Number(query.courseId) || 0;
-  const sameSection = (row: R) => !query.sectionId || !row.AdSectionId || Number(row.AdSectionId) === Number(query.sectionId);
+  const sameSection = (row: R) => Boolean(query.sectionId) && Number(row.AdSectionId) === Number(query.sectionId);
   const unlockAs = (row: R) => (own && sameSection(row) ? query.unlockOf?.(own, Number(row.AdCourseId)) : undefined);
   const sameLevelAs = (row: R) => Boolean(own && sameSection(row) && query.sameLevel?.(own, Number(row.AdCourseId)));
 
@@ -148,11 +149,13 @@ export function sameSlotOf<R extends SlotRow>(rows: readonly R[], query: SameSlo
   const found = rows.flatMap(row => {
     if (skip.has(String(row.id))) return [];
     if (query.termId && row.AdTermId && Number(row.AdTermId) !== Number(query.termId)) return [];
+    if (query.sectionId && row.AdSectionId && Number(row.AdSectionId) !== Number(query.sectionId)) return [];
+    if (query.collegeId && row.AdCollegeId && Number(row.AdCollegeId) !== Number(query.collegeId)) return [];
+    if (ownCode && ownSection(row) && String(row.SCode ?? "").trim() === ownCode) return [];
     if (isExact(row)) return [{ row, ...describe(row, "exact") }];
     const gap = gapOf(row);
     if (!inScope(row) || !Number.isFinite(gap)) return [];
     if (ownSection(row)) {
-      if (String(row.SCode ?? "").trim() === ownCode) return [];
       const rowLength = slotMinutes(row.fendtime) - slotMinutes(row.fstarttime);
       if (gap > nearSectionWindow(to - from, rowLength)) return [];
       return [{ row, ...describe(row, gap < 0 ? "partial" : "near") }];
@@ -166,7 +169,8 @@ export function sameSlotOf<R extends SlotRow>(rows: readonly R[], query: SameSlo
   for (const { row, ...facts } of found) {
     const days = wanted.filter(day => Boolean(row[day.key])).map(day => day.key);
     if (!days.length) continue;
-    const key = `${Number(row.AdCourseId)}|${String(row.SCode ?? "").trim() || `#${row.id}`}|${slotMinutes(row.fstarttime)}|${slotMinutes(row.fendtime)}`;
+    /* صفٌّ بلا مقرر لا شعبةَ له يُجمع إليها: بندٌ بمعرّفه. */
+    const key = `${Number(row.AdCourseId) || `#${row.id}`}|${String(row.SCode ?? "").trim() || `#${row.id}`}|${slotMinutes(row.fstarttime)}|${slotMinutes(row.fendtime)}`;
     const held = merged.get(key);
     if (held) held.days = wanted.filter(day => held.days.includes(day.key) || days.includes(day.key)).map(day => day.key);
     else merged.set(key, { row, days, ...facts });

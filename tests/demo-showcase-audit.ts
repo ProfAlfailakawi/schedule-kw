@@ -36,7 +36,8 @@ const { DEMO_SHOWCASE_COREQ, DEMO_SHOWCASE_TOP_CODE, DEMO_TRAVEL_MINUTES, demoTr
 const { compareCourseSection } = await import("../src/utils/scheduleOrder");
 const { sameSlotOf } = await import("../src/utils/sameSlot");
 const { coreqFindings, partnersOfCourse } = await import("../src/utils/coreqSections");
-const { coreqPairsOfSection, sectionPlanFacts } = await import("../src/server/core/coreqPairs");
+const { coreqPairsOfSection, forgetCoreqPairs, sectionPlanFacts } = await import("../src/server/core/coreqPairs");
+const { forgetPlanFacts, loadPlanFacts } = await import("../src/utils/planFactsCache");
 const { sameLevelLookup, unlockLookup } = await import("../src/utils/planPeers");
 const { seedDemoRadar } = await import("../src/server/demoRadarSeed");
 const { cleanTravelPolicy, travelShortfalls, TRAVEL_PAIRS } = await import("../src/utils/campusTravelPolicy");
@@ -110,6 +111,46 @@ await Repository.withDemoSandbox(sandboxId, async () => {
   check(!seen.some((i: any) => Number(i.row.AdCourseId) === workshop), "D2b والورشة المتداخلة لا تظهر");
   const same = sameSlotOf(termRows, { ...owner, start: "14:00", end: "15:15" }).items.find((i: any) => Number(i.row.AdCourseId) === workshop);
   check(Boolean(same) && !same!.sameLevel && !same!.unlock, "D2b وبالتطابق التام تظهر صفّاً عادياً");
+}
+
+/* ── D2c: مسار الشارة كله بالشكل الجديد: حمولةُ المسار ← مخبأ المتصفح ← القراءة ← الورقة ── */
+{
+  const realFetch = globalThis.fetch;
+  let asked = "";
+  globalThis.fetch = (async (url: string) => { asked = String(url); return new Response(JSON.stringify(facts), { status: 200 }); }) as typeof fetch;
+  const wired = await loadPlanFacts(9, 1);
+  globalThis.fetch = realFetch;
+  forgetPlanFacts();
+  check(asked.includes("/api/schedules/coreq-pairs") && asked.includes("sectionId=1"), "D2c الشارة تقرأ مسار الحقائق نفسه", asked);
+  check(!("chainPairs" in facts) && !("chainPairs" in wired), "D2c لا سلسلة مدموجة في الحمولة", Object.keys(facts));
+  check(wired.levelGroups.length > 0 && wired.levelGroups.every((g: any) => Array.isArray(g.courseIds) && Array.isArray(g.blocked)) && wired.unlockGroups.every((g: any) => Array.isArray(g.blocked)), "D2c كل مجموعة تحمل موانع صحيفتها");
+  const sameLevel = sameLevelLookup(wired.levelGroups), unlockOf = unlockLookup(wired.unlockGroups);
+  const [drawing, paper, boards] = ["0109217", "0109237", "0109258"].map(idOfCode);
+  const college = Number(termRows[0].AdCollegeId);
+  check(!sameLevel(drawing, paper) && !unlockOf(drawing, paper), "D2c «الرسوم» مسبقٌ لـ«الشفافيات»: ليسا قرينين");
+  check(sameLevel(paper, boards), "D2c والشقيقان بعد مسبقٍ واحد قرينان");
+  const owner = { days: ["fthursday"] as any, start: "11:00", end: "15:00", courseId: paper, sectionId: 1, termId: 1, collegeId: college, scode: "501", codeOf: codeOfId, sameLevel, unlockOf };
+  const seen = sameSlotOf(termRows, owner).items;
+  check(seen[0]?.unlock?.names[0] === "المجسمات والعرائس" && Number(seen[0].row.AdCourseId) === boards && seen[0].kind === "partial", "D2c مثال المالك يبقى: «الشفافيات» 11–15 مع «اللوحات» 12–16 «تفتح»", seen.map((i: any) => [codeOfId(i.row.AdCourseId), i.kind]));
+  check(!seen.some((i: any) => Number(i.row.AdCourseId) === drawing && (i.sameLevel || i.unlock)), "D2c و«الرسوم» لا تُوسم قرينةً");
+}
+
+/* ── D2d: المقرر التالي يملكه قسمٌ آخر: اسمُه يُجلب ولا تسقط «تفتح» ── */
+{
+  const saved = { getCurriculumPlans: Repository.getCurriculumPlans, getRuleSet: Repository.getRuleSet, getCoursesBySection: Repository.getCoursesBySection, getCourseById: Repository.getCourseById };
+  const askedIds: number[] = [];
+  Object.assign(Repository, {
+    getCurriculumPlans: async () => [{ id: "p", status: "active" }],
+    getRuleSet: async () => ({ rules: [{ courseId: 1, kind: "compulsory", level: 200 }, { courseId: 2, kind: "compulsory", level: 200 }, { courseId: 900, kind: "compulsory", level: 300, prereq: { all: [1, 2] } }, { courseId: 901, kind: "compulsory", level: 300, prereq: { all: [1, 2] } }] }),
+    getCoursesBySection: async () => [{ AdCourseId: 1, CourseName: "أ" }, { AdCourseId: 2, CourseName: "ب" }],
+    getCourseById: async (id: number) => { askedIds.push(id); return id === 900 ? { AdCourseId: 900, CourseName: "تصميم وإنتاج مقرر خارجي" } : undefined; },
+  });
+  forgetCoreqPairs();
+  const far = await sectionPlanFacts(77);
+  Object.assign(Repository, saved);
+  forgetCoreqPairs();
+  check(far.unlockGroups.map((g: any) => g.nextCourseName).join() === "تصميم وإنتاج مقرر خارجي", "D2d اسمُ المقرر التالي من قسمٍ آخر يُجلب، والمجهولُ صمت", far.unlockGroups);
+  check(askedIds.sort().join() === "900,901", "D2d ولا يُسأل إلا عن الأسماء الناقصة", askedIds);
 }
 
 /* ── D3 ── */
