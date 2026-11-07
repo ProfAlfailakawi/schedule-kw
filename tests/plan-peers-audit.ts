@@ -4,7 +4,7 @@
  * و354 مسبقاته خمسة؛ و215 (متطلب كلية) خارج أي قاعدة مطابقة. لا مقارنة بين صحيفتين، ولا تخمين من الرقم.
  */
 import fs from "node:fs";
-import { levelGroupsOfPlans, MAX_UNLOCK_PREREQS, sameLevelLookup, shortCourseName, unlockGroupsOfPlans, unlockLookup } from "../src/utils/planPeers";
+import { levelGroupsOfPlans, MAX_UNLOCK_PREREQS, prereqChainPairs, sameLevelLookup, shortCourseName, unlockGroupsOfPlans, unlockLookup } from "../src/utils/planPeers";
 
 let passed = 0, failed = 0;
 const check = (ok: unknown, label: string, extra?: unknown) => {
@@ -37,6 +37,22 @@ check(!level(304, 237), "مستوى غير محدد: لا قرين");
 check(!level(220, 237) && !level(247, 220), "صحيفتان لا تُقارَنان");
 check(level(219, 220), "وفي الصحيفة الأخرى مجموعتها");
 check(!level(237, 237), "المقرر ليس قرين نفسه");
+{
+  /* الرسوم 217 مسبقٌ للشفافيات 237: مستوى واحد ولا يُؤخذان معاً. والسلسلة 217 ← 237 ← 334 كذلك. */
+  const plan = { rules: [
+    { courseId: 217, level: 200, kind: "compulsory" }, { courseId: 237, level: 200, kind: "compulsory", prereq: { all: [217] } },
+    { courseId: 258, level: 200, kind: "compulsory", prereq: { all: [217] } }, { courseId: 334, level: 200, kind: "compulsory", prereq: { all: [237, 258] } },
+    { courseId: 400, level: 200, kind: "compulsory", prereq: { anyOf: [[217], [999]] } },
+  ] };
+  const chain = prereqChainPairs([plan]), peers = sameLevelLookup(levelGroupsOfPlans([plan]), chain);
+  check(!peers(217, 237) && !peers(237, 217), "المسبق المباشر لا يُؤخذ مع لاحقه", chain);
+  check(!peers(217, 334), "المسبق عبر سلسلة كذلك", chain);
+  check(!peers(217, 400), "البديل مسبقٌ أيضاً", chain);
+  check(peers(237, 258), "الشقيقان بعد مسبقٍ واحد يبقيان أقراناً", chain);
+  const unlocks = unlockLookup([{ nextCourseId: 9, nextCourseName: "س", courseIds: [217, 237, 258] }], chain);
+  check(!unlocks(217, 237) && Boolean(unlocks(237, 258)), "«تفتح» لا يجمع مسبقاً ولاحقه", chain);
+  check(prereqChainPairs([{ rules: [{ courseId: 1, prereq: { all: [2] } }, { courseId: 2, prereq: { all: [1] } }] }]).length === 1, "حلقةٌ في البيانات لا تعلّق الحساب");
+}
 check(!sameLevelLookup([])(237, 258) && levelGroupsOfPlans([{}]).length === 0, "نقص البيانات صمت");
 
 const groups = unlockGroupsOfPlans([previous, current], nameOf);

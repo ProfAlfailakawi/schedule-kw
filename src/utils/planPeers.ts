@@ -6,6 +6,7 @@
  *   • «تفتح»: مسبقان معاً لمقررٍ تالٍ (`prereq.all`)، فمن يأخذهما معاً يفتحه.
  *     البدائلُ (`anyOf`) ليست أقراناً، والبوّاباتُ الجماعية (مشروع التخرج والتدريب الميداني) تُهمل.
  * نقصُ البيانات صمت: مقررٌ بلا قاعدة أو بلا مستوى لا قرينَ له.
+ * ومقررٌ مسبقٌ لآخر، مباشرةً أو عبر سلسلة، لا يُقارن به: الطالبُ لا يأخذهما معاً أبداً.
  *
  * ملفٌّ خالص بلا React ولا شبكة؛ يكتبه الخادم ويقرؤه المتصفح. يُختبر في tests/plan-peers-audit.ts.
  */
@@ -36,6 +37,35 @@ export interface UnlockLink {
 }
 
 const idOf = (value: unknown) => Number(value) || 0;
+
+/** كلُّ زوجٍ [أصغر، أكبر] أحدُهما مسبقٌ للآخر في صحيفةٍ واحدة، مباشرةً أو عبر سلسلة. البدائلُ مسبقاتٌ أيضاً. */
+export function prereqChainPairs(plans: readonly PlanRulesLite[]): number[][] {
+  const seen = new Map<string, number[]>();
+  for (const plan of plans) {
+    const direct = new Map<number, number[]>();
+    for (const rule of plan.rules || []) {
+      const before = [...(rule.prereq?.all || []), ...(rule.prereq?.anyOf || []).flat()].map(idOf).filter(Boolean);
+      if (idOf(rule.courseId) && before.length) direct.set(idOf(rule.courseId), before);
+    }
+    for (const course of direct.keys()) {
+      const visited = new Set<number>([course]), stack = [...(direct.get(course) || [])];
+      while (stack.length) {
+        const id = stack.pop() as number;
+        if (visited.has(id)) continue;
+        visited.add(id);
+        stack.push(...(direct.get(id) || []));
+        const pair = [Math.min(course, id), Math.max(course, id)];
+        seen.set(pair.join("|"), pair);
+      }
+    }
+  }
+  return [...seen.values()];
+}
+
+const chainTest = (chain: ReadonlyArray<readonly number[]>) => {
+  const keys = new Set(chain.map(pair => `${pair[0]}|${pair[1]}`));
+  return (a: number, b: number) => keys.has(`${Math.min(a, b)}|${Math.max(a, b)}`);
+};
 
 /** مقرراتُ كل مستوى في كل صحيفة: مجموعةٌ لكل (صحيفة، مستوى) فيها مقرران إجباريان على الأقل. */
 export function levelGroupsOfPlans(plans: readonly PlanRulesLite[]): number[][] {
@@ -76,9 +106,9 @@ export function unlockGroupsOfPlans(plans: readonly PlanRulesLite[], nameOf: (co
 }
 
 /** هل جمعتهما صحيفةٌ واحدة في مجموعة مستوى؟ المقررُ ليس قرينَ نفسه. */
-export function sameLevelLookup(groups: ReadonlyArray<readonly number[]>): (a: number, b: number) => boolean {
-  const sets = groups.map(group => new Set(group));
-  return (a, b) => a !== b && sets.some(set => set.has(a) && set.has(b));
+export function sameLevelLookup(groups: ReadonlyArray<readonly number[]>, chain: ReadonlyArray<readonly number[]> = []): (a: number, b: number) => boolean {
+  const sets = groups.map(group => new Set(group)), chained = chainTest(chain);
+  return (a, b) => a !== b && !chained(a, b) && sets.some(set => set.has(a) && set.has(b));
 }
 
 /** الاسمُ المختصر للمقرر التالي: «تصميم وإنتاج المجسمات والعرائس» ← «المجسمات والعرائس». */
@@ -87,10 +117,10 @@ export function shortCourseName(name: string): string {
 }
 
 /** ما يفتحه المقرران معاً، الأقربُ أولاً. */
-export function unlockLookup(groups: readonly UnlockGroup[]): (a: number, b: number) => UnlockLink | undefined {
-  const sets = groups.map(group => new Set(group.courseIds));
+export function unlockLookup(groups: readonly UnlockGroup[], chain: ReadonlyArray<readonly number[]> = []): (a: number, b: number) => UnlockLink | undefined {
+  const sets = groups.map(group => new Set(group.courseIds)), chained = chainTest(chain);
   return (a, b) => {
-    if (a === b) return undefined;
+    if (a === b || chained(a, b)) return undefined;
     const hits = groups.flatMap((group, rank) => (sets[rank].has(a) && sets[rank].has(b) ? [{ rank, id: group.nextCourseId, name: shortCourseName(group.nextCourseName) }] : []));
     const names = [...new Map(hits.map(hit => [hit.id, hit.name])).values()];
     return hits.length ? { names, rank: hits[0].rank } : undefined;

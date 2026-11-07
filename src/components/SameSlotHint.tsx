@@ -41,8 +41,8 @@ export interface SameSlotHintProps<R extends SlotRow & { AdCourseName?: string; 
 }
 
 /** ما تقوله صحائفُ القسم: جلبةٌ واحدة لكل قسم في الجلسة، وتفشلُ بصمت (الزينة لا تكسر شاشة). */
-interface PlanFacts { pairs: number[][]; levelGroups: number[][]; unlockGroups: UnlockGroup[] }
-const NO_FACTS: PlanFacts = { pairs: [], levelGroups: [], unlockGroups: [] };
+interface PlanFacts { pairs: number[][]; levelGroups: number[][]; unlockGroups: UnlockGroup[]; chainPairs: number[][] }
+const NO_FACTS: PlanFacts = { pairs: [], levelGroups: [], unlockGroups: [], chainPairs: [] };
 const pairsCache = new Map<number, PlanFacts>();
 const pairsPending = new Map<number, Promise<void>>();
 function usePlanFacts(collegeId: number | undefined, sectionId: number | undefined): PlanFacts {
@@ -61,6 +61,7 @@ function usePlanFacts(collegeId: number | undefined, sectionId: number | undefin
             pairs: Array.isArray(data?.pairs) ? data.pairs : [],
             levelGroups: Array.isArray(data?.levelGroups) ? data.levelGroups : [],
             unlockGroups: Array.isArray(data?.unlockGroups) ? data.unlockGroups : [],
+            chainPairs: Array.isArray(data?.chainPairs) ? data.chainPairs : [],
           });
         })
         .catch(() => { pairsCache.set(sectionId, NO_FACTS); })
@@ -114,7 +115,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   );
 
   /* المقرن: تداخلٌ (لا تطابقٌ تام) مع مقرر الموعد التوأم، ومعه: هل بقيت شعبةٌ بديلة؟ */
-  const { pairs, levelGroups, unlockGroups } = usePlanFacts(collegeId, sectionId);
+  const { pairs, levelGroups, unlockGroups, chainPairs } = usePlanFacts(collegeId, sectionId);
   const { start: dayStart, end: dayEnd } = scheduleDayWindowMinutes(dayWindow);
   const twins = useMemo(() => {
     if (!courseId || !pairs.length) return [];
@@ -134,8 +135,8 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   /* ما يرويه بطاقةُ المقرن لا يُعاد في قائمة «الوقت نفسه». */
   const twinIds = useMemo(() => twins.flatMap(twin => twin.overlapRowIds).map(String), [twins]);
   /* الصفوف تتجدد حياً؛ الاستعلام وحده يُؤخَّر. */
-  const sameLevel = useMemo(() => sameLevelLookup(levelGroups), [levelGroups]);
-  const unlockOf = useMemo(() => unlockLookup(unlockGroups), [unlockGroups]);
+  const sameLevel = useMemo(() => sameLevelLookup(levelGroups, chainPairs), [levelGroups, chainPairs]);
+  const unlockOf = useMemo(() => unlockLookup(unlockGroups, chainPairs), [unlockGroups, chainPairs]);
   const result: SameSlotResult<R> = useMemo(() => sameSlotOf<R>(rows, { ...query, skipIds: [...(query.skipIds || []), ...twinIds], codeOf: (id) => courseOf(id)?.CourseCode, sameLevel, unlockOf }), [rows, query, twinIds, sameLevel, unlockOf]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
