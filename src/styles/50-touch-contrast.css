@@ -1,0 +1,62 @@
+/* ==========================================================================
+   أهدافُ لمس ≥ 44px وتباينُ نصٍّ ≥ 4.5:1 وأسماءٌ لا يُقصّها حرفٌ مقطوع.
+   الشكلُ المرسوم كما هو؛ يتغيّر المقاسُ الملموس فقط. لا شيء هنا يمسّ الطباعة.
+   ========================================================================== */
+
+/* ── نسبة الإشغال: الشبكةُ تُمرَّر أفقياً على الهاتف بدل أن تنحشر الخانةُ في 15px ── */
+.occupancy-heat-scroll{max-inline-size:100%}
+@media (max-width:760px){
+  .occupancy-heat-scroll{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+  .occupancy-heat,.occupancy-heat.is-compact{width:auto;min-width:100%;inline-size:700px;border-spacing:2px}
+  .occupancy-heat .occupancy-heat-day-col,.occupancy-heat.is-compact .occupancy-heat-day-col{width:64px}
+  .occupancy-heat .occupancy-heat-rate-col,.occupancy-heat.is-compact .occupancy-heat-rate-col{width:52px}
+  .occupancy-heat .occupancy-heat-cell,.occupancy-heat.is-compact .occupancy-heat-cell{block-size:44px;border-radius:8px;font-size:12px}
+  .occupancy-heat .occupancy-heat-day,.occupancy-heat.is-compact .occupancy-heat-day{min-block-size:44px;display:flex;align-items:center;padding:4px;font-size:12px}
+  /* بعد أن اتسع العمودُ صار في الترويسة مكانٌ لكل ساعة، لا لكل ساعةٍ ثانية. */
+  .occupancy-heat thead th.is-odd,.occupancy-heat.is-compact thead th.is-odd{color:var(--muted)}
+  /* اليومُ يلازم الحافة أثناء التمرير فلا تضيع هويةُ الصف. */
+  .occupancy-heat tbody th{position:sticky;inset-inline-start:0;z-index:2;background:color-mix(in srgb,var(--accent) 3%,var(--surface))}
+  .occupancy-heat-card.is-site .occupancy-heat tbody th{background:var(--surface)}
+}
+
+/* ── أهدافُ اللمس على الهاتف واللوح: نموٌّ حقيقيٌّ أو شفافٌ بلا تغيير في الرسم ── */
+@media (pointer:coarse) and (max-width:1024px){
+  .apb-icon-btn{position:relative}
+  .apb-icon-btn::after{content:"";position:absolute;inset:-4px}
+  /* مفاتيحُ مطويّة بسطرٍ واحد: النموُّ الشفاف يبلغ 44px. */
+  .course-load-person-toggle::after,.sm-how>summary::after,.sm-provenance>summary::after{inset-block:-11px}
+  .of-chip{position:relative}
+  .of-chip::after{content:"";position:absolute;inset-block:-8px;inset-inline:0}
+}
+/* لوحٌ بلا مؤشرٍ خشن في المقاسات نفسها: الألسنةُ والزرُّ الثانويّ 44px أيضاً. */
+@media (max-width:1024px){
+  .lens-strip button[id^="query-lens-tab-"],[id^="query-lens-tab-"],.btn-secondary{min-height:44px}
+}
+
+/* ── اسمُ القاعة وكليةُ المرشد وقسمُه: سطران بدل سطرٍ يُقصّ ── */
+.occupancy-name{
+  white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  line-height:1.35;overflow-wrap:anywhere;
+}
+.adv-scope-pick.is-fixed span{
+  white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  line-height:1.3;overflow-wrap:anywhere;
+}
+.adv-scope-pick.is-fixed{padding-block:4px}
+
+/* ── تباينُ الشارات الملوّنة (أبيض على لون المستوى) في الوضع الفاتح ── */
+@media screen{
+:root:not([data-theme="dark"]) .pr-card .pr-credit,
+  :root:not([data-theme="dark"]) .pr-ib-course>i,
+  :root:not([data-theme="dark"]) .pr-col>.pr-level-head{
+    background:color-mix(in srgb,var(--lvl,var(--accent)) 85%,#000);
+  }
+}
+
+/* ── اسمُ المقرر/الصحيفة في صفوف الاستعلام: سطران على الهاتف بدل قصٍّ بنقاط ── */
+@media (max-width:760px){
+  .lens-main strong{
+    white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+    overflow-wrap:anywhere;line-height:1.35;
+  }
+}

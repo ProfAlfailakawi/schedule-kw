@@ -256,7 +256,7 @@ export default function LocationRegistryAdmin({header,demoReadOnly=false}:{heade
     </nav>
 
     {workspaceTab==="registry"?<Surface className="location-admin-toolbar">
-      <label className="location-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="ابحث بكود المبنى أو القاعة أو صيغة تاريخية"/></label>
+      <label className="location-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="ابحث بكود المبنى أو القاعة أو صيغة تاريخية" aria-label="ابحث بكود المبنى أو القاعة أو صيغة تاريخية"/></label>
       <select aria-label="حالة المبنى" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="all">كل الحالات</option><option value="active">الفعالة فقط</option><option value="inactive">غير الفعالة فقط</option></select>
       <select aria-label="الكلية" value={collegeFilter} onChange={e=>{setCollegeFilter(e.target.value);setSectionFilter(0);}}><option value="all">كل الكليات</option>{collegeGroups.map(group=><option key={group.key} value={group.key}>{group.label}</option>)}</select>
       <select aria-label="القسم" value={sectionFilter} onChange={e=>setSectionFilter(Number(e.target.value))}><option value={0}>كل الأقسام</option>{sortByName(sectionFilterOptions,(section:AdSection)=>sectionFilterLabel.get(section.AdSectionId)||section.AdSectionName).map(section=><option key={section.AdSectionId} value={section.AdSectionId}>{sectionFilterLabel.get(section.AdSectionId)||section.AdSectionName}</option>)}</select>

@@ -1,0 +1,38 @@
+/* ==========================================================================
+   أهدافُ اللمس في شاشات الإدارة: لا أقلّ من 44px على الهاتف واللوح.
+   القياسُ الحيّ كشف حقولَ البحث (42px) وأزرارَ المجموعات (40px) وأزرارَ
+   الصفحة (42px) دون الحدّ. القواعدُ هنا بالشرط نفسه الذي تعتمده بقيةُ القواعد
+   (لمسٌ وعرضٌ ضيّق)، فلا يتغيّر شيءٌ على سطح المكتب.
+   ========================================================================== */
+@media (pointer:coarse) and (max-width:760px){
+  .list-search,
+  .list-toolbar-side>*,
+  .master-search,
+  .campus-mobility-head,
+  .location-admin-toolbar .btn,
+  .seats-list .seat-search{min-block-size:44px}
+  /* index.css يضبط هذا الزرَّ بقاعدةٍ متأخرة، فنغلبها هنا. */
+  .location-admin-page .location-admin-toolbar>button{min-height:44px!important}
+  .tm-scope-pick select,
+  .tm-examples button{min-height:44px}
+  .catalog-form-drawer button[aria-label="إغلاق"]{min-height:44px;min-width:44px}
+  .roster-tabs button,
+  .seats-groups button{min-block-size:44px}
+  .query-canvas-actions>.query-report-action>.query-print-icon{width:44px;height:44px;min-height:44px}
+  /* أزرارٌ أيقونية صغيرة: يبقى رسمُها كما هو وتتّسع منطقةُ اللمس إلى 44 (الإزاحةُ من حافة الحشوة). */
+  .tm-step-close button,
+  .location-type-scope,
+  .location-type-edit,
+  .location-type-delete{position:relative}
+  .tm-step-close button::after{content:"";position:absolute;inset:-9px}
+  .location-type-scope::after{content:"";position:absolute;inset:-8px -2px}
+  .location-type-edit::after,
+  .location-type-delete::after{content:"";position:absolute;inset:-4px}
+}
+
+/* اسمُ المقرر في بطاقة القائمة: كان سطراً واحداً مقصوصاً بنقاط، فيُخفي وسمَ
+   «صحيفة 2026» بجانبه (يُقصّ طرفه الأيسر). يلتفّ الاسمُ ووسومُه بدل القصّ. */
+.record-card-copy>strong:has(.course-room-type-line){
+  white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;
+}
+.course-room-type-line>span{min-inline-size:0;max-inline-size:100%}
