@@ -170,3 +170,34 @@ table.tbl thead th{background:var(--surface-3);font-weight:700;position:sticky;t
 .donut::after{content:attr(data-v);display:grid;place-items:center;width:70px;height:70px;border-radius:50%;background:var(--surface);font-weight:700;font-size:1.05rem}
 .ev code,.screen code,.req-id,.term small{overflow-wrap:anywhere;word-break:break-all;white-space:normal;max-width:100%}
 .req,.journey,.edge-card,.screen,.term{min-width:0}
+
+/* ── البنية التقنية: ثلاثة أعمدة مرقّمة بأسلوب الإنفوجرافيك المعتمد ───────── */
+.tech-title{font-size:1.2rem;margin:0 0 .3rem}
+.tech-lead{color:var(--ink-2);max-width:86ch;margin:0 0 1rem}
+.tcols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.9rem}
+@media (max-width:900px){.tcols{grid-template-columns:minmax(0,1fr)}}
+.tcol{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;box-shadow:var(--shadow-sm);break-inside:avoid}
+.tcol>header{display:flex;align-items:center;gap:.7rem;padding:.9rem 1.1rem;border-bottom:3px solid var(--tc,var(--jade));background:var(--tb,var(--jade-softer))}
+.tcol>header .no{font-family:var(--font-mono);font-size:1.5rem;font-weight:300;color:var(--brass);line-height:1}
+.tcol>header h3{flex:1;font-size:1.08rem;margin:0}
+.tcol>header .ic{color:var(--tc,var(--jade))}
+.tone-jade{--tc:var(--jade);--tb:var(--jade-softer)}
+.tone-brass{--tc:var(--brass);--tb:var(--brass-soft)}
+.tone-slate{--tc:var(--slate);--tb:var(--slate-soft)}
+.tcol ul,.tsvc ul{list-style:none;margin:0;padding:0}
+.tcol li{display:flex;align-items:center;gap:.9rem;padding:.8rem 1.1rem;border-bottom:1px solid var(--line)}
+.tcol li:last-child{border-bottom:0}
+.tl{display:flex;gap:.4rem;align-items:center;justify-content:center;min-width:70px;flex:none}
+.tlogo{height:42px;width:auto;max-width:56px;object-fit:contain;background:#fff;border-radius:11px;padding:3px;box-shadow:0 0 0 1px rgb(0 0 0/.06)}
+.tword{background:#fff;color:#1b1b1b;font-family:var(--font-ui);font-weight:500;font-size:.95rem;letter-spacing:-.02em;border-radius:11px;padding:.5rem .55rem;box-shadow:0 0 0 1px rgb(0 0 0/.06);line-height:1}
+.tt{display:flex;flex-direction:column;min-width:0;line-height:1.45}
+.tt b{font-size:.93rem}
+.tt span{color:var(--ink-2);font-size:.86rem;direction:ltr;unicode-bidi:plaintext}
+html[lang="ar"] .tt span{direction:rtl}
+.tt .v{font-style:normal;font-family:var(--font-mono);font-size:.74rem;color:var(--jade-ink);background:var(--jade-soft);border-radius:99px;padding:0 .5rem;margin-inline-start:.3rem;direction:ltr;display:inline-block}
+.tt .tn{color:var(--jade-ink);font-variant-numeric:tabular-nums}
+.tsvc{margin-top:1rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:.9rem 1.1rem}
+.tsvc h4{font-size:.9rem;color:var(--ink-3);margin:0 0 .6rem}
+.tsvc ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.7rem}
+.tsvc li{display:flex;gap:.7rem;align-items:center}
+.tsvc .si{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--jade-soft),var(--jade-softer));color:var(--jade-ink);flex:none}

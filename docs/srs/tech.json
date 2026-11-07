@@ -1,0 +1,47 @@
+{
+  "title": { "ar": "البنية التقنية والتقنيات المستخدمة", "en": "Architecture and technologies" },
+  "lead": {
+    "ar": "ثلاث طبقات تعمل معاً: واجهة تُبنى مرة وتعمل على الحاسوب والهاتف، وخادم يحرس القواعد والبيانات، وتشغيل سحابي بفحوص آلية قبل كل نشر. أرقام الإصدارات تُقرأ من ملفات المشروع نفسها في كل بناء.",
+    "en": "Three layers work together: a front end built once for computer and phone, a server that guards the rules and the data, and a cloud operation with automatic checks before every release. Version numbers are read from the project files themselves on every build."
+  },
+  "columns": [
+    {
+      "id": "front", "no": "01", "icon": "monitor", "tone": "jade",
+      "title": { "ar": "الواجهة الأمامية", "en": "Front end" },
+      "items": [
+        { "logos": ["js", "ts"], "label": { "ar": "لغات البرمجة", "en": "Programming languages" }, "product": "JavaScript · TypeScript", "version": { "pkg": "typescript", "minor": true } },
+        { "logos": ["react"], "label": { "ar": "مكتبة الواجهة", "en": "UI library" }, "product": "React", "version": { "pkg": "react" } },
+        { "logos": ["vite"], "label": { "ar": "أداة البناء والتطوير", "en": "Build and development tool" }, "product": "Vite", "version": { "pkg": "vite" } }
+      ]
+    },
+    {
+      "id": "server", "no": "02", "icon": "server", "tone": "brass",
+      "title": { "ar": "الخادم والبيانات", "en": "Server and data" },
+      "items": [
+        { "logos": ["node"], "label": { "ar": "بيئة الخادم", "en": "Server runtime" }, "product": "Node.js", "version": { "docker": "node" } },
+        { "wordmark": "express", "label": { "ar": "إطار الخادم", "en": "Server framework" }, "product": "Express", "version": { "pkg": "express" } },
+        { "logos": ["firestore"], "label": { "ar": "قاعدة البيانات", "en": "Database" }, "product": "Google Cloud Firestore", "version": { "pkg": "@google-cloud/firestore" } },
+        { "logos": ["firebase-admin"], "label": { "ar": "ربط الخادم بالبيانات", "en": "Server-to-data access" }, "product": "Firebase Admin SDK", "version": { "pkg": "firebase-admin" } }
+      ]
+    },
+    {
+      "id": "ops", "no": "03", "icon": "cloud", "tone": "slate",
+      "title": { "ar": "التشغيل والجودة", "en": "Operations and quality" },
+      "items": [
+        { "logos": ["cloudrun"], "label": { "ar": "الاستضافة والتشغيل السحابي", "en": "Hosting and cloud runtime" }, "product": "Google Cloud Run" },
+        { "logos": ["git", "github"], "label": { "ar": "إدارة الإصدارات والمشروع", "en": "Version and project management" }, "product": "Git · GitHub" },
+        { "logos": ["shield"], "label": { "ar": "اختبارات آلية وفحوص جودة وتعارضات", "en": "Automated tests, quality and conflict checks" }, "product": { "ar": "ملف اختبار", "en": "test files" }, "stat": "tests" },
+        { "logos": ["cicd"], "label": { "ar": "التكامل والنشر المستمر", "en": "Continuous integration and delivery" }, "product": "CI/CD" }
+      ]
+    }
+  ],
+  "services": {
+    "title": { "ar": "خدمات مساندة", "en": "Supporting services" },
+    "items": [
+      { "icon": "scan-text", "label": { "ar": "قراءة المستندات الممسوحة", "en": "Scanned document reading" }, "product": "Tesseract OCR", "version": { "pkg": "tesseract.js" } },
+      { "icon": "file-input", "label": { "ar": "قراءة الاستيراد المساعدة", "en": "Assisted import reading" }, "product": "Gemini" },
+      { "icon": "bell-ring", "label": { "ar": "تنبيهات الجوال", "en": "Mobile push notifications" }, "product": "Web Push" },
+      { "icon": "calendar-sync", "label": { "ar": "تقويم الأستاذ", "en": "Faculty calendar feed" }, "product": "iCalendar (ICS)" }
+    ]
+  }
+}

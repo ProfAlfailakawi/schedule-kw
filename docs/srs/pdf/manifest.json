@@ -1,17 +1,17 @@
 {
-  "hash": "d0fcaac4d98a781a",
+  "hash": "88919a8770e60cf6",
   "version": "1.0",
   "date": "2026-11-07",
   "files": {
     "SRS-ar.pdf": {
-      "sha256": "6aba0c7f8facae569137cabeb36f8748e03116df2bc5c51cee980f463e9f152b",
-      "pages": 389,
-      "bytes": 16285858
+      "sha256": "a909ab80825301ada10e015f4c46308ac52b5d289b72498236e2929fd2ad675d",
+      "pages": 390,
+      "bytes": 16583885
     },
     "SRS-en.pdf": {
-      "sha256": "c4344e3ba771cd4180483303d8c688c3a592e3f224c0864d345b0c526d4d52ad",
+      "sha256": "e2771805b7fb1de7e701b2b8e24962adea0ad9e2107ebf43d6b1a8311824b06f",
       "pages": 419,
-      "bytes": 14394988
+      "bytes": 14682945
     }
   }
 }

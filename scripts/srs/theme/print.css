@@ -106,3 +106,16 @@ td a,.toc-row,.req-id{color:inherit}
 .cover .authors b{font-size:14pt;display:block;line-height:1.5}
 .cover .authors .dot{font-style:normal;color:var(--brass-bright);margin:0 3px}
 .chap-nav.end{margin:14px 0 0;justify-content:flex-end}
+
+/* البنية التقنية في PDF */
+.tcols{gap:6px}
+.tcol{border-radius:12px;box-shadow:none}
+.tcol>header{padding:7px 9px;gap:6px}.tcol>header .no{font-size:15pt}.tcol>header h3{font-size:10pt}.tcol>header .ic{width:20px;height:20px}
+.tcol li{padding:6px 8px;gap:7px}
+.tl{min-width:46px;gap:3px}.tlogo{height:28px;max-width:38px;border-radius:7px;padding:2px}
+.tword{font-size:8pt;padding:5px 5px;border-radius:7px}
+.tt b{font-size:8.2pt}.tt span{font-size:7.6pt}.tt .v{font-size:6.6pt;padding:0 4px}
+.tech-lead{font-size:9.4pt}
+.tsvc{border-radius:12px;padding:8px 10px}.tsvc ul{grid-template-columns:repeat(2,1fr);gap:6px}.tsvc .si{width:30px;height:30px;border-radius:9px}
+.tcols{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.tcol li{flex-wrap:nowrap}

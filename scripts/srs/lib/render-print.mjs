@@ -4,6 +4,7 @@ import path from "node:path";
 import { ROOT } from "./common.mjs";
 import { icon, logo, deco } from "./icons.mjs";
 import { LABELS, STATUS_ORDER } from "./model.mjs";
+import { techBlock } from "./tech.mjs";
 import { ctxFor, esc, md, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip, statusBadge, priorityBadge } from "./fragments.mjs";
 
 const read = rel => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -84,10 +85,11 @@ export function renderPrint(m, lang, { pages = {}, fontsUrl = "/fonts/", live = 
   const part2 = `<section class="part" id="sec-OVERALL">${mk("OVERALL")}<h2 class="ph"><span class="no">2</span>${icon("layers", 26)} ${L(T2("الوصف العام", "Overall description"))}${up}</h2>
     ${sub("2.1", T2("نظرة موجزة", "Summary"), `<p>${md(m.front.abstract[lang])}</p><div class="pillars">${m.front.pillars.map(p => `<div class="pillar">${icon(p.icon, 20)}<b>${L(p.title)}</b>${L(p.text)}</div>`).join("")}</div>`)}
     ${sub("2.2", T2("منظور المنتج", "Product perspective"), paras(m.front.overall.perspective[lang]))}
-    ${sub("2.3", T2("خريطة الوحدات", "Module map"), gTable)}
-    ${sub("2.4", T2("فئات المستخدمين", "User classes"), `<table class="tbl"><thead><tr><th>${L(T2("الدور", "Actor"))}</th><th>${L(T2("متطلبات", "Requirements"))}</th><th>${L(T2("وحدات", "Modules"))}</th></tr></thead><tbody>${m.actors.map(a => { const u = m.actorUse.get(a.id); return `<tr><td>${icon(a.icon, 14)} ${L(a.name)}</td><td class="num">${u.reqs}</td><td class="num">${u.modules.size}</td></tr>`; }).join("")}</tbody></table>`)}
-    ${sub("2.5", T2("القيود التصميمية", "Design constraints"), lis(m.front.overall.constraints[lang]))}
-    ${sub("2.6", T2("الافتراضات والاعتماديات", "Assumptions and dependencies"), lis(m.front.overall.assumptions[lang]))}</section>`;
+    ${sub("2.3", T2("البنية التقنية والتقنيات المستخدمة", "Architecture and technologies"), techBlock(c, m.tech))}
+    ${sub("2.4", T2("خريطة الوحدات", "Module map"), gTable)}
+    ${sub("2.5", T2("فئات المستخدمين", "User classes"), `<table class="tbl"><thead><tr><th>${L(T2("الدور", "Actor"))}</th><th>${L(T2("متطلبات", "Requirements"))}</th><th>${L(T2("وحدات", "Modules"))}</th></tr></thead><tbody>${m.actors.map(a => { const u = m.actorUse.get(a.id); return `<tr><td>${icon(a.icon, 14)} ${L(a.name)}</td><td class="num">${u.reqs}</td><td class="num">${u.modules.size}</td></tr>`; }).join("")}</tbody></table>`)}
+    ${sub("2.6", T2("القيود التصميمية", "Design constraints"), lis(m.front.overall.constraints[lang]))}
+    ${sub("2.7", T2("الافتراضات والاعتماديات", "Assumptions and dependencies"), lis(m.front.overall.assumptions[lang]))}</section>`;
 
   const chapter = x => {
     const builders = {

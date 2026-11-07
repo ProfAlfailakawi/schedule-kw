@@ -4,6 +4,7 @@ import path from "node:path";
 import { ROOT } from "./common.mjs";
 import { icon, logo, logoDataUri, deco } from "./icons.mjs";
 import { LABELS, STATUS_ORDER, PRIORITY_ORDER } from "./model.mjs";
+import { techBlock } from "./tech.mjs";
 import { ctxFor, esc, md, reqCard, diagramBlock, journeyBlock, matrixBlock, screensBlock, edgeBlock, termsBlock, barRows, actorChip } from "./fragments.mjs";
 
 const read = rel => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -84,6 +85,8 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
     <div class="mod-layout"><aside class="mod-list" aria-label="modules">${sidebar}</aside>
       <div class="mod-main">${picker}${tiles}${m.modules.map(moduleSection).join("")}</div></div></div>`;
 
+  const techView = `<section class="view" id="v-tech" hidden><h2 class="vh">${icon("layers", 22)}${T(m.tech.title)}</h2>${techBlock(c, m.tech)}</section>`;
+
   /* ── ملاحق ───────────────────────────────────────────────── */
   const trace = `<section class="view" id="v-trace" hidden><h2 class="vh">${icon("git-compare-arrows", 22)}${T(T2("مصفوفة التتبّع", "Traceability matrix"))}</h2>
     <p class="lead">${T(T2("كل وحدة مقابل ما يثبتها من كود واختبارات. الأرقام تُستخرج من المستودع في كل بناء.", "Each module against the code and tests that back it. Figures are extracted from the repository on every build."))}</p>
@@ -94,7 +97,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   const glossary = `<section class="view" id="v-glossary" hidden><h2 class="vh">${icon("book-a", 22)}${T(T2("المصطلحات", "Glossary"))}</h2>${termsBlock(c, m.glossary)}</section>`;
   const revisions = `<section class="view" id="v-revisions" hidden><h2 class="vh">${icon("history", 22)}${T(T2("سجل الإصدارات", "Revision history"))}</h2><div class="card" style="padding:0;overflow:auto"><table class="tbl"><thead><tr><th>${T(T2("الإصدار", "Version"))}</th><th>${T(T2("التاريخ", "Date"))}</th><th>${T(T2("التغييرات", "Changes"))}</th></tr></thead><tbody>${m.revisions.map(r => `<tr><td class="mono">${esc(r.version)}</td><td class="mono">${esc(r.date)}</td><td>${c.M(r.changes)}</td></tr>`).join("")}</tbody></table></div></section>`;
 
-  const tabDefs = [["overview", "layout-dashboard", T2("نظرة عامة", "Overview"), ""], ["modules", "boxes", T2("الوحدات", "Modules"), s.modules], ["requirements", "list-checks", T2("المتطلبات", "Requirements"), s.requirements], ["actors", "users", T2("الأدوار", "Actors"), m.actors.length], ["trace", "git-compare-arrows", T2("التتبّع", "Traceability"), ""], ["glossary", "book-a", T2("المصطلحات", "Glossary"), m.glossary.length], ["revisions", "history", T2("الإصدارات", "Revisions"), ""]];
+  const tabDefs = [["overview", "layout-dashboard", T2("نظرة عامة", "Overview"), ""], ["modules", "boxes", T2("الوحدات", "Modules"), s.modules], ["requirements", "list-checks", T2("المتطلبات", "Requirements"), s.requirements], ["actors", "users", T2("الأدوار", "Actors"), m.actors.length], ["tech", "layers", T2("التقنية", "Technology"), ""], ["trace", "git-compare-arrows", T2("التتبّع", "Traceability"), ""], ["glossary", "book-a", T2("المصطلحات", "Glossary"), m.glossary.length], ["revisions", "history", T2("الإصدارات", "Revisions"), ""]];
   const authors = m.meta.authors;
   return `<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -111,7 +114,7 @@ export function renderInteractive(m, { pdfs = {}, pdfInfo = null } = {}) {
   </div></div></header>
 <nav class="tabs" aria-label="sections"><div class="tabs-in" role="tablist">${tabDefs.map(([id, ic, t, n]) => `<button class="tab" type="button" role="tab" data-view="${id}" aria-selected="${id === "overview"}">${icon(ic, 17)}${T(t)}${n !== "" ? `<span class="n">${n}</span>` : ""}</button>`).join("")}</div></nav>
 <main class="wrap">
-  ${overview}${actors}${stage}${trace}${glossary}${revisions}
+  ${overview}${actors}${techView}${stage}${trace}${glossary}${revisions}
 </main>
 <button class="totop" id="totop" type="button" aria-label="${esc(T2("العودة إلى الأعلى", "Back to top").ar)} / ${esc(T2("العودة إلى الأعلى", "Back to top").en)}" title="↑">${icon("arrow-up", 22)}</button>
 <footer class="foot"><div class="foot-in"><div class="foot-brand">${logo(44)}<div><b>${T(m.meta.system)}</b><small>${T(m.meta.document)} · v${esc(m.meta.version)} · ${esc(m.meta.releaseDate)}</small></div></div><div><b class="authors-line">${authors.map(a => T(a)).join(' <i class="dot">·</i> ')}</b><small>${T(T2("بُنيت هذه الصفحة من مصدر الوثيقة نفسه، وتتحدث مع كل نشر.", "This page is built from the document source itself and refreshes with every release."))}</small></div></div></footer>
