@@ -261,7 +261,7 @@ const reportViews: ReportMode[] = [
   "reportTime",
   "reportRoomTime",
 ];
-const adminViews: AdminMode[] = ["users", "seats", "permissions", "scopes", "audit", "locations", "roomSetup", "sectionHours", "teachingLoad", "backup"];
+const adminViews: AdminMode[] = ["users", "seats", "permissions", "scopes", "audit", "roomSetup", "sectionHours", "teachingLoad", "backup"];
 const academicViews: AcademicTab[] = ["terms", "colleges", "sections", "instructors", "courses"];
 /** Permission id that unlocks each academic catalogue. */
 const ACADEMIC_PERM: Record<AcademicTab, number> = {
@@ -325,7 +325,6 @@ const pathByView: Record<View, string> = {
   permissions: "/FormSecurity/Index",
   scopes: "/AdCollegeUserAssign/Index",
   audit: "/System/AuditLog",
-  locations: "/System/Locations",
   roomSetup: "/System/LocationSetup",
   sectionHours: "/System/SectionHours",
   teachingLoad: "/System/TeachingLoad",
@@ -351,6 +350,8 @@ const viewByPath = new Map(
     view as View,
   ]),
 );
+/* رابط «المباني والقاعات» القديم يفتح الشاشة الموحّدة «إضافة مبانٍ وقاعات». */
+viewByPath.set("/system/locations", "roomSetup");
 
 /** The pointer reaches a destination before the click. Use that small lead to
  * fetch its code chunk; dynamic imports are cached, so this never downloads a
@@ -2116,10 +2117,6 @@ export default function App() {
         ) : (
           unauthorized()
         );
-      case "locations":
-        return isPowerAdmin && allowed.admin ? (
-          <AdminUsers mode="locations" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} demoReadOnly={Boolean(user.IsDemo)} />
-        ) : unauthorized();
       case "roomSetup":
         return user.IsRootAdmin && allowed.admin ? (
           <AdminUsers mode="roomSetup" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />

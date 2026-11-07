@@ -2,20 +2,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import {
   ArrowLeftRight,
-  BookLock,
   Building2,
-  CalendarClock,
   CalendarX,
   Check,
   ChevronDown,
   Clock3,
-  RefreshCw,
   Printer,
-  ScanSearch,
   ScrollText,
   Search,
-  ShieldCheck,
-  Split,
   X,
   AlertTriangle,
 } from "lucide-react";
@@ -143,14 +137,14 @@ export default function HallBarterBoard({
   const [dayFilter, setDayFilter] = useState("");
   const [buildingFilter, setBuildingFilter] = useState("");
 
-  const load = useCallback(async (quiet = false) => {
+  const load = useCallback(async (quiet = false, auto = false) => {
     if (!collegeId || !sectionId || !termId) { setBoard(emptyBoard); return; }
     if (!quiet) {
       setLoading(true);
       setBoard(emptyBoard);
       onReservationsChange?.([]);
     }
-    setError("");
+    if (!auto) setError("");
     try {
       const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
       /* التضييق يُسأل عنه الخادم: القسم المختار يريد نوافذه كلها، لا حصته من
@@ -179,7 +173,7 @@ export default function HallBarterBoard({
         onReservationsChange([...new Map(active.map((row: HallBarterReservationView) => [row.id, row])).values()] as HallBarterReservationView[]);
       }
     } catch (e: any) {
-      setError(String(e?.message || e));
+      if (!auto) setError(String(e?.message || e));
     } finally {
       if (!quiet) setLoading(false);
     }
@@ -198,6 +192,16 @@ export default function HallBarterBoard({
     if (!liveSerial) return;
     void load(true);
   }, [liveSerial, load]);
+  /* التحديث تلقائيٌّ وصامت: عند العودة إلى النافذة، ثم كل دقيقة والصفحة ظاهرة.
+     لا زرّ ولا مؤشّر؛ الشاشة الأولى وحدها تعرض حالة التحميل. */
+  useEffect(() => {
+    if (!collegeId || !sectionId || !termId) return;
+    const refresh = () => { if (document.visibilityState === "visible") void load(true, true); };
+    const timer = window.setInterval(refresh, 60000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); window.removeEventListener("focus", refresh); };
+  }, [collegeId, sectionId, termId, load]);
 
   /* Open, this board is a full-screen destination. Say so on the document so the
      floating dock and the guide step aside, exactly as they do for the journey —
@@ -350,18 +354,7 @@ export default function HallBarterBoard({
 
       {open ? (
         <div className="hall-barter-body">
-          <div className="hall-barter-guard">
-            <ShieldCheck aria-hidden="true" />
-            <div><strong>الاستعارة تحجز نافذة القاعة فقط، ولهذا الفصل وحده</strong><ul className="hall-barter-rules" aria-label="حدود الاستعارة">
-              <li><CalendarX aria-hidden="true" />لا محاضرة وهمية</li>
-              <li><BookLock aria-hidden="true" />لا يتغيّر مقرر</li>
-              <li><CalendarClock aria-hidden="true" />لهذا الفصل فقط</li>
-              <li><Split aria-hidden="true" />البنون والبنات منفصلان</li>
-              <li><ArrowLeftRight aria-hidden="true" />المُعير يستخدم قاعته خارج الإعارة، أو بعد إنهائها</li>
-              <li><ScanSearch aria-hidden="true" />الموعد عبر المحرر بفحص التضارب</li>
-            </ul></div>
-            <GhostButton type="button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? "spin" : ""} />تحديث</GhostButton>
-          </div>
+          <p className="hall-barter-guard">الاستعارة تحجز نافذة القاعة فقط، ولهذا الفصل وحده.</p>
           {message ? <div className="hall-barter-message ok">{message}</div> : null}
           {error ? <div className="hall-barter-message error">{error}</div> : null}
 

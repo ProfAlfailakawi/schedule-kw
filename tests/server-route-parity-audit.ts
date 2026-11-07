@@ -226,7 +226,11 @@ const multiset = (list: Row[]) => { const m = new Map<string, number>(); for (co
    instead protected by dedicated Authority diff and role/scope tests. */
 const updatedAuthorityReport = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="get"
   && (r.path==="/api/reports/schedule-changes" || r.path==="/api/reports/authority-pdf-diff");
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : r.call || "-"} ${r.name}`;
+/* Two intentional location-registry edits (silent historical aliases; building active flag).
+   Their behaviour is pinned by tests/rooms-one-screen-audit.ts instead of call-text parity. */
+const updatedLocationEdit = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="put"
+  && (r.path==="/api/admin/location-setup/buildings/:id" || r.path==="/api/admin/location-registry/rooms/:id");
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();

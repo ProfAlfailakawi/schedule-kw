@@ -13,6 +13,7 @@ import { Repository } from "../../db/repository";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import { currentTermId } from "../../utils/termSequence";
 import type { FSchedule, MasterBuilding, MasterRoom, LocationReviewCase } from "../../types";
+import { withHistoricalAlias } from "../../utils/locationAliasHistory";
 import { PENDING_ROOM, isInvalidLocationToken, isSharedRoom, rowOccupiesRoom } from "../../utils/locationRegistry";
 import { officialBuildingCode, officialCollegeSitePrefix, parseOfficialBuildingCode } from "../../utils/locationCollegePrefixes";
 import { collegeSitePrefix, siblingBranchScopes } from "../../utils/branchScope";
@@ -252,8 +253,8 @@ app.put("/api/admin/location-setup/buildings/:id", requirePermission(7), require
   const validCollegeIds=officialBuildingCollegeIds(current,colleges);
   if(sections.some(section=>sectionIds.includes(Number(section.AdSectionId))&&!validCollegeIds.includes(Number(section.AdCollegeId)))||sectionIds.some(id=>!sections.some(section=>Number(section.AdSectionId)===id))){res.status(400).json({error:"الأقسام المختارة لا تتبع موقع المبنى الرسمي."});return;}
   const now=new Date().toISOString();
-  const next={siteName:String(req.body?.siteName??current.siteName??"").trim(),branchName:String(req.body?.branchName??current.branchName??"").trim(),description:String(req.body?.description??current.description??"").trim(),sectionIds};
-  const row:MasterBuilding={...current,...next,updatedAt:now,lastVerifiedAt:now,auditHistory:[...(current.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:"UPDATE",before:{siteName:current.siteName,branchName:current.branchName,description:current.description,sectionIds:current.sectionIds},after:next}]};
+  const next={siteName:String(req.body?.siteName??current.siteName??"").trim(),branchName:String(req.body?.branchName??current.branchName??"").trim(),description:String(req.body?.description??current.description??"").trim(),sectionIds,active:typeof req.body?.active==="boolean"?req.body.active:current.active};
+  const row:MasterBuilding={...current,...next,updatedAt:now,lastVerifiedAt:now,auditHistory:[...(current.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:"UPDATE",before:{siteName:current.siteName,branchName:current.branchName,description:current.description,sectionIds:current.sectionIds,active:current.active},after:next}]};
   await Repository.upsertLocationBuildings([row]);invalidateLocationRegistry();res.json(row);
 });
 app.delete("/api/admin/location-setup/buildings/:id", requirePermission(7), requireRootAdmin, async (req:AuthenticatedRequest,res:Response)=>{
@@ -351,7 +352,7 @@ app.put("/api/admin/location-registry/rooms/:id", requirePermission(7), requireP
   const requestedCode=String(req.body?.canonicalCode??current.canonicalCode).normalize("NFKC").trim().toUpperCase().replace(/\s+/g,"");
   if(!requestedCode||requestedCode===PENDING_ROOM||isInvalidLocationToken(requestedCode)||!/^[A-Z0-9]{1,12}$/.test(requestedCode)||!/[0-9]/.test(requestedCode)){res.status(400).json({error:"رقم القاعة غير صالح. استخدم 1 إلى 12 حرفًا أو رقمًا، على أن يتضمن رقمًا."});return;}
   const roomCodeChanged=requestedCode!==current.canonicalCode;
-  const capacityRaw=req.body?.capacity;const roomCapacity=capacityRaw===undefined?current.capacity:capacityRaw===null||String(capacityRaw).trim()===""?undefined:Number(capacityRaw);if(roomCapacity!==undefined&&(!Number.isInteger(roomCapacity)||roomCapacity<1||roomCapacity>5000)){res.status(400).json({error:"سعة القاعة يجب أن تكون عددًا صحيحًا بين 1 و5000، أو تُترك فارغة."});return;}
+  const capacityRaw=req.body?.capacity;const roomCapacity=capacityRaw===undefined?(current.capacity??undefined):capacityRaw===null||String(capacityRaw).trim()===""?undefined:Number(capacityRaw);if(roomCapacity!==undefined&&(!Number.isInteger(roomCapacity)||roomCapacity<1||roomCapacity>5000)){res.status(400).json({error:"سعة القاعة يجب أن تكون عددًا صحيحًا بين 1 و5000، أو تُترك فارغة."});return;}
   const roomType=String(req.body?.roomType===undefined?current.roomType||"":req.body?.roomType||"").normalize("NFKC").trim();if(roomType.length>60){res.status(400).json({error:"اسم نوع القاعة لا يتجاوز 60 حرفًا."});return;}
   const bookingPolicy=String(req.body?.bookingPolicy??current.bookingPolicy??"normal");if(!["normal","companion_only","blocked"].includes(bookingPolicy)){res.status(400).json({error:"سياسة حجز القاعة غير صالحة."});return;}
   if(registry.rooms.some(x=>x.id!==current.id&&x.buildingId===targetBuildingId&&x.canonicalCode===requestedCode)){res.status(409).json({error:"يوجد رقم القاعة نفسه في هذا المبنى."});return;}
@@ -365,10 +366,11 @@ app.put("/api/admin/location-registry/rooms/:id", requirePermission(7), requireP
   if(requestedRoomCollegeIds.some(id=>officialCollegeIds.length&&!officialCollegeIds.includes(id))){res.status(409).json({error:"لا يمكن نقل/ربط القاعة بكلية لا يتبع لها كود المبنى الهدف."});return;}
   const roomCollegeIds=officialCollegeIds.length?[...officialCollegeIds]:requestedRoomCollegeIds;
   const now=new Date().toISOString();const shared=sectionIds.length>1;
-  const aliases=locationAliases(req.body?.aliases===undefined?[
-    ...(current.aliases||[]),
-    ...(roomCodeChanged?[{value:current.canonicalCode,evidence:[`رمز القاعة السابق قبل تغييره إلى ${requestedCode}.`]}]:[]),
-  ]:req.body.aliases);
+  /* الرمز القديم يُسجَّل صيغةً تاريخيةً بصمت (مرةً واحدة، وبلا تعارض مع قاعة أخرى في المبنى). */
+  const ownedByOtherRooms=registry.rooms.filter(x=>x.id!==current.id&&x.buildingId===targetBuildingId).flatMap(x=>[x.canonicalCode,...(x.aliases||[]).map(a=>a.value)]);
+  const aliases=req.body?.aliases===undefined
+    ?withHistoricalAlias(roomCodeChanged?locationAliases([...(current.aliases||[])]):current.aliases,roomCodeChanged?current.canonicalCode:"",requestedCode,ownedByOtherRooms,`رمز القاعة السابق قبل تغييره إلى ${requestedCode}.`)
+    :locationAliases(req.body.aliases);
   const next={active:typeof req.body?.active==="boolean"?req.body.active:current.active,shared,collegeIds:roomCollegeIds,sectionIds,primarySectionIds,aliases,buildingId:targetBuilding.id,buildingCode:targetBuilding.officialCode,canonicalCode:requestedCode,capacity:roomCapacity??null,roomType:roomType,sectionRoomTypes:cleanSectionRoomTypes(req.body?.sectionRoomTypes===undefined?current.sectionRoomTypes:req.body.sectionRoomTypes,sectionIds,roomType),bookingPolicy:bookingPolicy as MasterRoom["bookingPolicy"]};
   const row:MasterRoom={...current,...next,id:current.id,confidence:"CONFIRMED",sharedConfidence:"CONFIRMED",adminVerified:true,updatedAt:now,lastVerifiedAt:now,auditHistory:[...(current.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:targetBuildingId!==current.buildingId?"MOVE_BUILDING":roomCodeChanged?"RENAME_ROOM":"UPDATE",before:{buildingId:current.buildingId,buildingCode:current.buildingCode,canonicalCode:current.canonicalCode,active:current.active,shared:current.shared,collegeIds:current.collegeIds,sectionIds:current.sectionIds,primarySectionIds:current.primarySectionIds},after:next}]};
   /* ── لا نسخة كاملة للنظام قبل نقل قاعة ──────────────────────────────────
