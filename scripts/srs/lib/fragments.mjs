@@ -58,7 +58,7 @@ export function reqCard(c, m, r) {
     ? `<div class="req-more">${more.join("")}</div>`
     : `<details><summary>${c.T({ ar: "معايير القبول والمراجع", en: "Acceptance and evidence" })}</summary>${more.join("")}</details>`;
   const q = norm([r.id, r.title.ar, r.title.en, r.text.ar, r.text.en, ...r.acceptance.map(a => a.ar + " " + a.en)].join(" "));
-  return `<article class="req" id="${r.id}" data-id="${r.id}" data-module="${m.id}" data-status="${r.status}" data-priority="${r.priority}" data-kind="${r.kind}" data-actors="${(r.actors || []).join(" ")}" data-inferred="${r.inferred ? 1 : 0}" data-q="${esc(q)}">`
+  return `<article class="req" id="${r.id}" data-id="${r.id}" data-module="${r.module}" data-status="${r.status}" data-priority="${r.priority}" data-kind="${r.kind}" data-actors="${(r.actors || []).join(" ")}" data-inferred="${r.inferred ? 1 : 0}" data-q="${esc(q)}">`
     + `<div class="req-head"><a class="req-id" href="#${r.id}">${r.id}</a><h4>${c.T(r.title)}</h4>${statusBadge(c, r.status)}${priorityBadge(c, r.priority)}${r.inferred ? badge("b-inferred", c.T({ ar: "مستنتج", en: "Inferred" }), "circle-help", c.print) : ""}</div>`
     + `<p class="req-text">${c.M(r.text)}</p>`
     + `<div class="req-meta">${kindBadge(c, r.kind)}${(r.actors || []).map(a => actorChip(c, m, a)).join("")}</div>${body}</article>`;

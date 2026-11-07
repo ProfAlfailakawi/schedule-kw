@@ -90,3 +90,11 @@ table.tbl tr{break-inside:avoid}
   .live-hint button{min-height:40px;border-radius:10px;border:0;background:var(--jade);color:#fff;font:inherit;font-weight:600;padding:0 1rem;cursor:pointer}
 }
 @media print{.no-print{display:none!important}}
+
+/* تنقّل PDF: شريط أقسام الفصل يشبه تبويبات الصفحة، وروابط العودة إلى المحتويات */
+.chap-nav{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;align-items:center}
+.chap-nav a{border:1px solid var(--line-2);border-radius:99px;padding:1px 11px;font-size:8.6pt;color:var(--jade-ink);background:var(--jade-softer);font-weight:600}
+.chap-nav .up,.part>h2.ph .up{margin-inline-start:auto;font-size:8.5pt;font-weight:500;color:var(--ink-3);border:0;background:none;padding:0}
+.part>h2.ph .up{font-family:var(--font-ui)}
+a.tile{display:block;color:inherit}
+td a,.toc-row,.req-id{color:inherit}

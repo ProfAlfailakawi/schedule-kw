@@ -20,11 +20,15 @@ const fontsUrl = `file://${ROOT}/public/fonts/`;
 const langs = process.argv.slice(2).filter(a => a === "ar" || a === "en");
 const todo = langs.length ? langs : ["ar", "en"];
 
-function pageMarkers(pdf, total) {
-  const found = {};
-  for (let p = 1; p <= total; p++) {
-    const r = spawnSync("pdftotext", ["-f", String(p), "-l", String(p), pdf, "-"], { encoding: "utf8", maxBuffer: 1 << 26 });
-    for (const m of (r.stdout || "").matchAll(/§([A-Z0-9]+)§/g)) if (!(m[1] in found)) found[m[1]] = p;
+/** أرقام الصفحات من وجهات الروابط داخل الملف نفسه: دقيقةٌ في العربية والإنجليزية، ولا نصَّ مخفياً في الملف. */
+function pageDests(pdf) {
+  const code = "import sys,json,pypdf\nr=pypdf.PdfReader(sys.argv[1])\nidx={p.indirect_reference.idnum:i+1 for i,p in enumerate(r.pages)}\nout={}\nfor k,v in r.named_destinations.items():\n  try: out[str(k).lstrip('/')]=idx[v.page.idnum]\n  except Exception: pass\nprint(json.dumps(out))";
+  const r = spawnSync("python3", ["-c", code, pdf], { encoding: "utf8", maxBuffer: 1 << 26 });
+  const dests = JSON.parse(r.stdout || "{}"), found = {};
+  for (const [k, p] of Object.entries(dests)) {
+    let m;
+    if ((m = /^sec-(.+)$/.exec(k))) found[m[1]] = p;
+    else if ((m = /^sub-([A-Z]{3})-(\d+)$/.exec(k))) found[`S${m[1]}${m[2]}`] = p;
   }
   return found;
 }
@@ -62,7 +66,7 @@ for (const lang of todo) {
   let r = renderPrint(model, lang, { pages, fontsUrl });
   for (let pass = 0; pass < 3; pass++) {
     await render(browser, r.body, bodyPdf, { footer: { version: model.meta.version, date: model.meta.releaseDate } });
-    const total = pageCount(bodyPdf), found = pageMarkers(bodyPdf, total);
+    const found = pageDests(bodyPdf);
     const same = JSON.stringify(found) === JSON.stringify(pages);
     pages = found;
     if (same) break;
@@ -74,22 +78,47 @@ for (const lang of todo) {
   const meta = { Title: `${model.meta.system[lang]} — ${model.meta.document[lang]}`, Author: model.meta.authors.map(a => a[lang]).join(", "), Subject: `${model.meta.document[lang]} v${model.meta.version}`, Keywords: "SRS, ISO/IEC/IEEE 29148, SCHEDULE" };
   const py = `
 import sys, json, pypdf
+from pypdf.generic import ArrayObject, NameObject, FloatObject, NullObject
 cover, body, out, meta, outline = sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4]), json.loads(sys.argv[5])
+bodyr = pypdf.PdfReader(body)
 w = pypdf.PdfWriter()
 for p in pypdf.PdfReader(cover).pages: w.add_page(p)
 off = len(w.pages)
-for p in pypdf.PdfReader(body).pages: w.add_page(p)
-parent = None
+idx = {}
+for i, p in enumerate(bodyr.pages):
+    idx[p.indirect_reference.idnum] = i
+    w.add_page(p)
+nd = {}
+for k, v in bodyr.named_destinations.items():
+    nd[str(k).lstrip("/")] = v
+fixed = broken = 0
+for page in list(w.pages)[off:]:
+    for a in page.get("/Annots") or []:
+        a = a.get_object()
+        if a.get("/Subtype") != "/Link" or "/Dest" not in a: continue
+        name = str(a["/Dest"]).lstrip("/")
+        d = nd.get(name)
+        if d is None or d.page is None or d.page.idnum not in idx: broken += 1; continue
+        target = w.pages[off + idx[d.page.idnum]]
+        left = FloatObject(d.left if d.left is not None else 0)
+        top = FloatObject(d.top if d.top is not None else float(target.mediabox.top))
+        a[NameObject("/Dest")] = ArrayObject([target.indirect_reference, NameObject("/XYZ"), left, top, NullObject()])
+        fixed += 1
 w.add_outline_item(meta["Title"], 0)
+last = {}
 for it in outline:
-    item = w.add_outline_item(it["title"], off + it["page"] - 1, parent=parent if it["lvl"] == 2 else None)
-    if it["lvl"] == 1 and it["title"].strip().startswith("3") and not it["title"].strip().startswith("3."): parent = item
+    lvl = it["lvl"]
+    parent = last.get(lvl - 1) if lvl > 1 else None
+    item = w.add_outline_item(it["title"], off + it["page"] - 1, parent=parent)
+    last[lvl] = item
 w.add_metadata({"/Title": meta["Title"], "/Author": meta["Author"], "/Subject": meta["Subject"], "/Keywords": meta["Keywords"], "/Creator": "", "/Producer": ""})
 w.page_mode = "/UseOutlines"
 with open(out, "wb") as f: w.write(f)
+print("links", fixed, "unresolved", broken)
 `;
   const res = spawnSync("python3", ["-c", py, coverPdf, bodyPdf, out, JSON.stringify(meta), JSON.stringify(outline)], { encoding: "utf8" });
   if (res.status !== 0) throw new Error(res.stderr);
+  console.log(`  روابط داخلية: ${res.stdout.trim()}`);
   const bytes = fs.readFileSync(out);
   manifest.files[`SRS-${lang}.pdf`] = { sha256: crypto.createHash("sha256").update(bytes).digest("hex"), pages: pageCount(out), bytes: bytes.length };
   console.log(`✓ SRS-${lang}.pdf: ${manifest.files[`SRS-${lang}.pdf`].pages} صفحة، ${(bytes.length / 1048576).toFixed(1)} MB`);
