@@ -1,0 +1,420 @@
+{
+  "title": { "ar": "تطبيق اللائحة", "en": "Applying the regulation" },
+  "tab": { "ar": "اللائحة", "en": "Regulation" },
+  "decision": { "ar": "قرار 1913/2016", "en": "Decision 1913/2016" },
+  "lead": {
+    "ar": "يحمل النظام قواعد الجدول الدراسي في اللائحة مكتوبةً في الكود، ويطبّقها في كل باب يُكتب منه موعد: محرّر الجدول، ومراجعة الاعتماد والتوقيع، وكرت الأستاذ، ومعاينة الاستيراد، والمقترح الدراسي. ويظهر اسم القرار في الشاشات «قرار 1913/2016»، وكل تنبيه يذكر المادة التي جاء منها. الأرقام في هذا القسم تُقرأ من الكود في كل مزامنة، فلا تتأخر الوثيقة عن النظام.",
+    "en": "The system carries the timetable rules of the regulation as code and applies them at every door an appointment is written through: the schedule editor, the approval review and signing, the faculty card, the import preview and the study proposal. Screens show the decision as «Decision 1913/2016», and every notice names the article it comes from. The figures in this section are read from the code at every sync, so the document never lags behind the system."
+  },
+  "principles": [
+    {
+      "icon": "scale",
+      "title": { "ar": "اللائحة معيار، والقسم صاحب القرار", "en": "The regulation is the standard; the department decides" },
+      "text": { "ar": "أغلب القواعد تنبيه يقول «انظر هنا» ولا يقول «ممنوع». المنع محصور فيما يستحيل أو يُخلّ بساعات المقرر وشكله.", "en": "Most rules are notices that say «look here», not «forbidden». Blocking is reserved for what is impossible or breaks a course's hours and shape." }
+    },
+    {
+      "icon": "history",
+      "title": { "ar": "التاريخ لا يُعفي", "en": "History grants no exemption" },
+      "text": { "ar": "عادة القسم وتاريخ المقرر اقتراح يُعرض، ولا يجيز نمطاً خارج المكتبة ولا ساعات فوق السقف.", "en": "The department's habit and the course's history are suggestions; they never allow a pattern outside the library or hours above the ceiling." }
+    },
+    {
+      "icon": "git-merge",
+      "title": { "ar": "حكم واحد في كل مكان", "en": "One verdict everywhere" },
+      "text": { "ar": "الدوال نفسها تحكم الحفظ والفحص الحي والمراجعة وكرت الأستاذ والاستيراد، فلا تقول شاشة «سليم» ويرفضه الاعتماد.", "en": "The same functions judge the save, the live check, the review, the faculty card and the import, so no screen says «sound» while approval refuses it." }
+    }
+  ],
+  "evidence": ["src/utils/scheduleRegulations.ts#DECISION_1913_LABEL", "src/utils/scheduleRegulations.ts#reviewSchedule", "scripts/srs/regulation-snapshot.ts", "tests/srs-regulation-sync-audit.ts"],
+  "places": [
+    { "id": "save", "icon": "pencil-ruler", "title": { "ar": "المحرّر والحفظ", "en": "Editor and save" } },
+    { "id": "approval", "icon": "stamp", "title": { "ar": "المراجعة والتوقيع", "en": "Review and signing" } },
+    { "id": "card", "icon": "presentation", "title": { "ar": "كرت الأستاذ", "en": "Faculty card" } },
+    { "id": "import", "icon": "file-up", "title": { "ar": "الاستيراد", "en": "Import" } }
+  ],
+  "rules": {
+    "title": { "ar": "القواعد", "en": "Rules" },
+    "lead": {
+      "ar": "القواعد التي يطبّقها النظام. لكل قاعدة أثرها في كل باب: «يمنع» يرفض الحفظ أو التوقيع أو الإرسال، و«ينبّه» يقول ولا يمنع، و«للمراجعة» يظهر في مراجعة الاعتماد ولا يمنع التوقيع، و«ملاحظة» تُقرأ ولا تُحسب مانعاً، و«تلقائي» يطبّقه النظام بنفسه.",
+      "en": "The rules the system applies. Each has its effect at each door: «blocks» refuses the save, signature or send; «warns» says it without blocking; «review» shows in the approval review without blocking the signature; «note» is read and never counted as a blocker; «automatic» is applied by the system itself."
+    },
+    "items": [
+      {
+        "id": "day", "icon": "sun", "figure": "day",
+        "title": { "ar": "اليوم الجامعي", "en": "The university day" },
+        "text": { "ar": "كل موعد بين 08:00 و20:00 (قابل للتعديل من حساب المدير الأعلى). الموعد خارجه يُرفض بالحفظ، ولا يُرفض تعديل لم يتغيّر وقته. ودوام القسم الأضيق تنبيه في نموذج الموعد ويمنع طلب الأستاذ.", "en": "Every appointment lies between 08:00 and 20:00 (changeable by the root account). One outside it is refused on save; an edit whose time is unchanged is not. A narrower department window is a notice in the appointment form and blocks a faculty request." },
+        "effects": { "save": "block", "approval": "none", "card": "block", "import": "none" },
+        "reqs": ["FR-SCH-015", "FR-ACD-034"],
+        "evidence": ["src/server/core/scheduleRules.ts#schedulePayloadIssues", "src/utils/scheduleTime.ts#DEFAULT_SCHEDULE_DAY_END_TIME"]
+      },
+      {
+        "id": "length", "icon": "ruler", "figure": "lengths",
+        "title": { "ar": "طول المحاضرة باليوم", "en": "Lecture length by day" },
+        "text": { "ar": "الأحد والثلاثاء والخميس 50 دقيقة، والاثنين والأربعاء 80 دقيقة. الموعد الأطول عدد صحيح من محاضرات اليوم بينها فاصل 10 دقائق، ولا يزيد عددها على ساعات المقرر، أو طول كتلة من المكتبة. وتُقبل كتلة الاثنين والأربعاء المزدوجة أقصر بخمس دقائق (08:00–10:50).", "en": "Sunday, Tuesday and Thursday lectures are 50 minutes; Monday and Wednesday lectures are 80. A longer appointment is a whole number of the day's lectures with 10-minute gaps, no more than the course hours, or a library block length. The Monday/Wednesday double block is accepted five minutes short (08:00–10:50)." },
+        "effects": { "save": "warn", "approval": "note", "card": "auto", "import": "none" },
+        "reqs": ["FR-SCH-016", "FR-SCH-055", "FR-REQ-015"],
+        "algos": ["ALG-SCH-02"],
+        "evidence": ["src/utils/scheduleRegulations.ts#expectedMinutesForDay", "src/utils/scheduleRegulations.ts#lectureLengthProblem", "src/server/routes/scheduleReviewRoutes.ts#scheduleLengthNotice"]
+      },
+      {
+        "id": "gap", "icon": "between-horizontal-start", "figure": "gap",
+        "title": { "ar": "الفاصل بين محاضرتين", "en": "Gap between two lectures" },
+        "text": { "ar": "عشر دقائق بين محاضرتين متتاليتين في القاعة نفسها، في الأسرتين كلتيهما. فاصل أقصر ملاحظة لينة لا تمنع، ويحلّ محلها رقم يعلنه القسم (1–60 دقيقة) إن أعلنه.", "en": "Ten minutes between consecutive lectures in the same hall, in both day families. A shorter gap is a soft note that never blocks, and a figure the department declares (1–60 minutes) replaces it." },
+        "effects": { "save": "warn", "approval": "none", "card": "auto", "import": "none" },
+        "reqs": ["FR-SCH-009", "FR-SCH-016", "FR-REQ-018"],
+        "evidence": ["src/utils/scheduleRegulations.ts#requiredGapForDay", "src/utils/scheduleIntelligence.ts#requiredGapForDays"]
+      },
+      {
+        "id": "ladder", "icon": "chart-no-axes-gantt", "figure": "ladder",
+        "title": { "ar": "سُلّم البدايات", "en": "Start ladder" },
+        "text": { "ar": "محاضرات الأحد والثلاثاء والخميس تبدأ على رأس الساعة من 08:00، ومحاضرات الاثنين والأربعاء تبدأ 08:00 ثم كل ساعة ونصف. البداية خارج السُّلّم تنبيه في شاشات القسم، وتمنع ما يختاره الأستاذ بنفسه في كرته. والأيام المختلطة لا سُلّم واحداً لها: حكمها حكم النمط.", "en": "Sunday, Tuesday and Thursday lectures start on the hour from 08:00; Monday and Wednesday lectures start at 08:00 and then every hour and a half. A start off the ladder is a notice on department screens and blocks what a faculty member picks himself on his card. Mixed days have no single ladder: the pattern rule governs them." },
+        "effects": { "save": "warn", "approval": "note", "card": "block", "import": "none" },
+        "reqs": ["FR-SCH-016", "FR-REQ-014", "FR-REQ-018"],
+        "algos": ["ALG-SCH-02"],
+        "evidence": ["src/utils/scheduleRegulations.ts#startLadderNote", "src/utils/scheduleRegulations.ts#ladderStepForDays", "src/server/core/scheduleConflicts.ts#rhythmNote", "src/utils/instructorRequestVerdict.ts#ladderBlocks"]
+      },
+      {
+        "id": "pattern", "icon": "library", "figure": "library",
+        "title": { "ar": "مكتبة الأنماط", "en": "Pattern library" },
+        "text": { "ar": "أيام الشعبة كلها، مع لقاءاتها الأخرى في القسم والفصل، نمطٌ معتمد لساعات المقرر في المكتبة. يُرفض النمط غير المعتمد عند الإنشاء وعند تعديل يغيّر الأيام أو الوقت، وتسمّي الرسالة الأنماط المعتمدة. ويقبل الصف بيوم واحد أن يكون جزءاً من نمط، وكتلة اليوم الواحد تصلح لأي يوم.", "en": "All of a section's days, together with its other meetings in the department and term, form an approved pattern for the course hours. An unapproved pattern is refused on create and on an edit that changes days or time, and the message lists the approved patterns. A one-day row may be part of a pattern, and a one-day block fits any day." },
+        "effects": { "save": "block", "approval": "block", "card": "block", "import": "block" },
+        "reqs": ["FR-SCH-017", "FR-SCH-055", "FR-IMP-042", "FR-REQ-014", "FR-REQ-015"],
+        "algos": ["ALG-SCH-02"],
+        "evidence": ["src/utils/scheduleRegulations.ts#daysFitLibrary", "src/server/core/scheduleRules.ts#unapprovedPatternIssue", "src/components/ScheduleTransfer.tsx#manualPatternIssues"]
+      },
+      {
+        "id": "hours", "icon": "gauge", "figure": "cap",
+        "title": { "ar": "سقف ساعات الشعبة", "en": "Section hours ceiling" },
+        "text": { "ar": "دقائق التدريس الأسبوعية للشعبة (الموعد ولقاءاتها الأخرى المختلفة، بلا عدّ النسخة المطابقة مرتين) لا تتجاوز ساعات المقرر × 50 بهامش 10٪ لفرق الخمسين والثمانين. وتُحسب كتلة المختبر بدقائقها التدريسية لا الزمنية. والشعبة القائمة فوق السقف تُنقل ما لم يزد مجموعها.", "en": "A section's weekly teaching minutes (this row and its other distinct meetings, never counting an identical copy twice) stay within course hours × 50 with a 10% margin for the 50/80 difference. A laboratory block counts its teaching minutes, not its elapsed time. An existing section already over the ceiling may move as long as its total does not grow." },
+        "effects": { "save": "block", "approval": "none", "card": "block", "import": "none" },
+        "reqs": ["FR-SCH-018", "FR-REQ-014"],
+        "algos": ["ALG-SCH-02"],
+        "evidence": ["src/utils/scheduleRegulations.ts#maxWeeklyMinutesFor", "src/utils/scheduleRegulations.ts#sectionWeeklyHours", "src/server/core/scheduleRules.ts#scheduleLengthIssue"]
+      },
+      {
+        "id": "fixed", "icon": "clock-4", "figure": "fixed",
+        "title": { "ar": "وقت ثابت للشعبة", "en": "One start time per section" },
+        "text": { "ar": "لقاءات الشعبة الواحدة تبدأ في الوقت نفسه في كل أيامها. والشعبة هويتها كليتها ورقمها معاً، فشعبة 501 في كليتين شعبتان.", "en": "The meetings of one section start at the same time on all of its days. A section is identified by its college and number together, so section 501 in two colleges is two sections." },
+        "article": { "ar": "م.7/9", "en": "Art. 7/9" },
+        "effects": { "save": "none", "approval": "block", "card": "block", "import": "none" },
+        "reqs": ["FR-APR-003", "FR-REQ-014"],
+        "evidence": ["src/utils/scheduleRegulations.ts#reviewSchedule", "src/server/core/approvals.ts#regulationNoticesForScope"]
+      },
+      {
+        "id": "consecutive", "icon": "rows-3", "figure": "consecutive",
+        "title": { "ar": "حدود التدريس المتتالي", "en": "Consecutive teaching limits" },
+        "text": { "ar": "لا يدرّس الأستاذ في اليوم أكثر من شعبتين متتاليتين محاضرتهما فوق الساعة، ولا أكثر من ثلاث متتالية محاضرتها ساعة. والمتتالي ما يبدأ خلال ربع ساعة من نهاية ما قبله؛ والتداخل ليس تتابعاً. ولا يُحسب «هيئة تدريسية» شخصاً.", "en": "A faculty member teaches no more than two consecutive sections a day whose lectures exceed an hour, and no more than three consecutive one-hour sections. Consecutive means starting within a quarter of an hour of the previous end; an overlap is not a sequence. The faculty placeholder is not counted as a person." },
+        "article": { "ar": "م.6/2، م.6/3", "en": "Art. 6/2, 6/3" },
+        "effects": { "save": "none", "approval": "block", "card": "block", "import": "none" },
+        "reqs": ["FR-APR-003", "FR-REQ-014"],
+        "evidence": ["src/utils/scheduleRegulations.ts#reviewSchedule"]
+      },
+      {
+        "id": "spread", "icon": "split", "figure": "spread",
+        "title": { "ar": "توزيع شعب المقرر", "en": "Spreading a course's sections" },
+        "text": { "ar": "شعب المقرر الواحد في الكلية الواحدة تتوزع على أوقات أو أيام مختلفة. شعبتان في الساعة نفسها ويوم مشترك بند «للمراجعة» وتنبيه لين في الحفظ؛ وفي كرت الأستاذ تنبيهٌ واضح لا يمنع ولا يطلب استثناءً، ولا يُنبَّه على ما عرضه القسم نفسه. والكليتان لا تتنافسان على الطالب نفسه.", "en": "The sections of one course in one college spread over different hours or days. Two sections at the same hour on a shared day are a «review» item and a soft note on save; on the faculty card it is a clear warning that does not block or require an exception, and nothing is flagged for what the department itself offered. Two colleges do not compete for the same student." },
+        "article": { "ar": "م.7/5", "en": "Art. 7/5" },
+        "effects": { "save": "warn", "approval": "review", "card": "warn", "import": "none" },
+        "reqs": ["FR-SCH-010", "FR-REQ-014", "IR-APR-037"],
+        "evidence": ["src/utils/scheduleRegulations.ts#sameCourseSectionClash", "src/server/core/scheduleConflicts.ts#sectionClashNote", "src/utils/instructorRequestVerdict.ts#sectionClashWarns"]
+      },
+      {
+        "id": "rotation", "icon": "refresh-cw", "figure": "rotation",
+        "title": { "ar": "تدوير المقرر أحادي الطرح", "en": "Rotating single-section courses" },
+        "text": { "ar": "المقرر المطروح بشعبة واحدة في فصلين متتاليين لا يبقى عند العضو نفسه. يُقرأ في مراجعة الاعتماد حين يتوفر جدول الفصل السابق، ولا يمنع.", "en": "A course offered as a single section in two consecutive terms does not stay with the same member. It is read in the approval review when the previous term's schedule is available, and never blocks." },
+        "article": { "ar": "م.6/4", "en": "Art. 6/4" },
+        "effects": { "save": "none", "approval": "review", "card": "none", "import": "none" },
+        "reqs": ["IR-APR-037"],
+        "evidence": ["src/utils/scheduleRegulations.ts#reviewSchedule", "src/components/ScheduleReview.tsx"]
+      },
+      {
+        "id": "balance", "icon": "sunset", "figure": "balance",
+        "title": { "ar": "توزيع الفترتين", "en": "Morning and evening balance" },
+        "text": { "ar": "الفترة الصباحية تحمل 50–70٪ من مواعيد القسم والمسائية 30–50٪، محسوبةً بساعة البداية على عائلة القسم كلها عبر كلياتها. لا تُقرأ النسبة تحت عشرة مواعيد، وهي ملاحظة لا تمنع.", "en": "The morning period holds 50–70% of the department's appointments and the evening 30–50%, counted by start hour across the whole department family and its colleges. The share is not read below ten appointments, and it is a note that never blocks." },
+        "article": { "ar": "م.7/2", "en": "Art. 7/2" },
+        "effects": { "save": "none", "approval": "note", "card": "none", "import": "none" },
+        "reqs": ["IR-APR-037"],
+        "evidence": ["src/utils/scheduleRegulations.ts#periodBalanceFinding", "src/utils/scheduleRegulations.ts#PERIOD_BALANCE_MIN_SECTIONS"]
+      },
+      {
+        "id": "meeting", "icon": "users-round", "figure": "meeting",
+        "title": { "ar": "وقت اجتماع القسم", "en": "Department meeting window" },
+        "text": { "ar": "نافذة يحجزها القسم لاجتماعه في يوم ووقت. الموعد الذي يقع فيها بند «للمراجعة» مصدره قرار القسم لا اللائحة، فلا يدخل موانع التوقيع.", "en": "A window the department keeps for its meeting on one day and time. An appointment inside it is a «review» item whose source is the department's decision, not the regulation, so it never enters the signing gates." },
+        "article": { "ar": "قرار القسم", "en": "Department decision" },
+        "effects": { "save": "none", "approval": "review", "card": "none", "import": "none" },
+        "reqs": ["IR-APR-037"],
+        "evidence": ["src/utils/scheduleRegulations.ts#reviewSchedule"]
+      }
+    ]
+  },
+  "library": {
+    "title": { "ar": "مكتبة الأنماط", "en": "Pattern library" },
+    "lead": {
+      "ar": "الأنماط المعتمدة لكل عدد من الساعات الأسبوعية، كما هي في الكود. كل لقاء شريط بطول دقائقه على أسبوع الأحد–الخميس. أنماط اليوم الواحد كتل للمختبرات والورش والتدريب تصلح لأي يوم، والمثال يوم الأربعاء.",
+      "en": "The approved patterns for each number of weekly hours, exactly as in the code. Each meeting is a bar sized by its minutes on a Sunday–Thursday week. One-day patterns are blocks for laboratories, workshops and training that fit any day; Wednesday is the example."
+    },
+    "notes": [
+      { "ar": "أطوال الكتل زمنية: 110 = محاضرتان من 50 بينهما 10، و170 = ثلاث، و230 = أربع، و290 = خمس. والدقائق التدريسية تُحسب بلا الفواصل.", "en": "Block lengths are elapsed time: 110 = two 50-minute lectures with a 10-minute gap, 170 = three, 230 = four, 290 = five. Teaching minutes exclude the gaps." },
+      { "ar": "مقرر نظري بثلاث ساعات أو أربع يطابق نمطاً بعينه، أو الأطوال نفسها على أيام غير متجاورة (الأحد والثلاثاء مثلاً)؛ ولقاءان في يومين متجاورين لا يطابقان (م.7/8).", "en": "A theoretical course of three or four hours matches a pattern exactly, or the same lengths on non-adjacent days (Sunday and Tuesday, for example); two meetings on adjacent days do not (art. 7/8)." },
+      { "ar": "النقل بين الأسرتين يعيد تشكيل المقرر كله: ثلاث ساعات لقاءان من 80 في الاثنين والأربعاء، أو ثلاثة من 50 في الأحد والثلاثاء والخميس.", "en": "Moving between families reshapes the whole course: three hours are two 80-minute meetings on Monday and Wednesday, or three 50-minute meetings on Sunday, Tuesday and Thursday." }
+    ],
+    "reqs": ["FR-SCH-017", "FR-SCH-055"],
+    "algos": ["ALG-SCH-02"],
+    "evidence": ["src/utils/scheduleRegulations.ts#PATTERN_LIBRARY", "src/utils/scheduleRegulations.ts#patternLibraryByHours", "src/utils/scheduleRegulations.ts#meetingsMatchApprovedPattern", "src/utils/scheduleRegulations.ts#planMove"]
+  },
+  "checks": {
+    "title": { "ar": "الفحوص", "en": "Checks" },
+    "lead": {
+      "ar": "كل فحص يجريه النظام على الجدول، بشدّته وأثره. مراجعة اللائحة تقرأ الجدول كله وتعطي كل بند شدّةً وأثراً على الاعتماد؛ وبوابة الحفظ تفحص الموعد الواحد لحظة كتابته فتردّ بـ400 أو 409 أو تمرّر الملاحظة اللينة.",
+      "en": "Every check the system runs on the schedule, with its severity and effect. The regulation review reads the whole schedule and gives each finding a severity and an approval effect; the save gate checks one appointment as it is written and answers 400, 409 or passes the soft note through."
+    },
+    "reviewTitle": { "ar": "مراجعة اللائحة", "en": "Regulation review" },
+    "reviewLead": {
+      "ar": "يعطي كل بند شدّته (عالية، متوسطة، منخفضة) ومصدره وأثره على الاعتماد. ولا يمنع التوقيع والإرسال منها إلا ما أثره «يمنع» ومصدره القرار، وتعذّرُ الفحص نفسه يمنع أيضاً ولا يُعامل الجدول كأنه سليم.",
+      "en": "Each finding carries a severity (high, medium, low), a source and an approval effect. Only findings whose effect is «block» and whose source is the decision stop signing and sending; a failed review also blocks rather than treating the schedule as sound."
+    },
+    "review": [
+      {
+        "rule": "regulation-ladder",
+        "title": { "ar": "خارج سُلّم اللائحة", "en": "Off the regulation ladder" },
+        "article": { "ar": "سُلّم البدايات ومكتبة الأنماط", "en": "Start ladder and pattern library" },
+        "detects": { "ar": "موعد يبدأ خارج سُلّم أيامه أو طوله ليس من أطوال المكتبة لأيامه؛ بند واحد لكل مقرر.", "en": "An appointment starting off its days' ladder or whose length is not a library length for its days; one finding per course." },
+        "reqs": ["FR-SCH-016"]
+      },
+      {
+        "rule": "theoretical-pattern",
+        "title": { "ar": "نمط المقرر النظري", "en": "Theoretical course pattern" },
+        "article": { "ar": "م.7/8", "en": "Art. 7/8" },
+        "detects": { "ar": "شعبة مقرر نظري بثلاث ساعات أو أربع لا تطابق لقاءاتها نمطاً من المكتبة ولا الأطوال نفسها على أيام غير متجاورة.", "en": "A section of a three- or four-hour theoretical course whose meetings match no library pattern nor the same lengths on non-adjacent days." },
+        "reqs": ["FR-APR-003", "FR-SCH-017"]
+      },
+      {
+        "rule": "fixed-course-time",
+        "title": { "ar": "وقت الشعبة غير ثابت", "en": "Section time not fixed" },
+        "article": { "ar": "م.7/9", "en": "Art. 7/9" },
+        "detects": { "ar": "شعبة تبدأ لقاءاتها في وقتين مختلفين أو أكثر.", "en": "A section whose meetings start at two or more different times." },
+        "reqs": ["FR-APR-003"]
+      },
+      {
+        "rule": "sections-same-hour",
+        "title": { "ar": "شعب المقرر في الوقت نفسه", "en": "Course sections at the same hour" },
+        "article": { "ar": "م.7/5", "en": "Art. 7/5" },
+        "detects": { "ar": "شعبتان من المقرر نفسه في الكلية نفسها تبدآن في الساعة نفسها وتشتركان في يوم.", "en": "Two sections of the same course in the same college starting at the same hour on a shared day." },
+        "reqs": ["IR-APR-037", "FR-REQ-014"]
+      },
+      {
+        "rule": "consecutive-long-lecture",
+        "title": { "ar": "أكثر من شعبتين متتاليتين فوق الساعة", "en": "More than two consecutive over-an-hour sections" },
+        "article": { "ar": "م.6/2", "en": "Art. 6/2" },
+        "detects": { "ar": "ثلاث محاضرات متتالية أو أكثر للأستاذ في اليوم، طول كل منها فوق 60 دقيقة.", "en": "Three or more consecutive lectures of one member in a day, each longer than 60 minutes." },
+        "reqs": ["FR-APR-003"]
+      },
+      {
+        "rule": "consecutive-one-hour",
+        "title": { "ar": "أكثر من ثلاث شعب متتالية بساعة", "en": "More than three consecutive one-hour sections" },
+        "article": { "ar": "م.6/3", "en": "Art. 6/3" },
+        "detects": { "ar": "أربع محاضرات متتالية أو أكثر للأستاذ في اليوم، طول كل منها ساعة أو أقل.", "en": "Four or more consecutive lectures of one member in a day, each an hour or shorter." },
+        "reqs": ["FR-APR-003"]
+      },
+      {
+        "rule": "rotation",
+        "title": { "ar": "التدوير غير محقق", "en": "Rotation not achieved" },
+        "article": { "ar": "م.6/4", "en": "Art. 6/4" },
+        "detects": { "ar": "مقرر أحادي الطرح في الفصلين، وما زال عند العضو نفسه.", "en": "A course offered as one section in both terms and still with the same member." },
+        "reqs": ["IR-APR-037"]
+      },
+      {
+        "rule": "period-balance",
+        "title": { "ar": "توزيع الفترتين", "en": "Period balance" },
+        "article": { "ar": "م.7/2", "en": "Art. 7/2" },
+        "detects": { "ar": "حصة الصباح خارج 50–70٪ من عشرة مواعيد فأكثر في عائلة القسم.", "en": "A morning share outside 50–70% of ten or more appointments in the department family." },
+        "reqs": ["IR-APR-037"]
+      },
+      {
+        "rule": "meeting-window",
+        "title": { "ar": "داخل وقت اجتماع القسم", "en": "Inside the department meeting window" },
+        "article": { "ar": "قرار القسم", "en": "Department decision" },
+        "detects": { "ar": "موعد يتداخل مع النافذة التي يحجزها القسم لاجتماعه.", "en": "An appointment overlapping the window the department keeps for its meeting." },
+        "reqs": ["IR-APR-037"]
+      },
+      {
+        "rule": "incomplete",
+        "title": { "ar": "بيانات غير مكتملة", "en": "Incomplete data" },
+        "article": { "ar": "جاهزية الاعتماد", "en": "Approval readiness" },
+        "detects": { "ar": "موعد بلا أيام أو بلا وقت أو بلا أستاذ. يُعدّ في المراجعة والدرجة، ومصدره الجاهزية لا القرار فلا يدخل موانع التوقيع اللائحية.", "en": "An appointment with no days, no time or no instructor. It counts in the review and the score; its source is readiness, not the decision, so it is not among the regulation signing gates." },
+        "reqs": ["IR-APR-037", "FR-APR-025"]
+      }
+    ],
+    "saveTitle": { "ar": "بوابة الحفظ", "en": "Save gate" },
+    "saveLead": {
+      "ar": "ما يُفحص عند إضافة موعد أو تعديله، بالترتيب نفسه في الفحص الحي (check-conflicts) والحفظ. الملاحظة اللينة تصل الشاشة مع الرد ولا تمنع.",
+      "en": "What is checked when an appointment is added or edited, in the same order in the live check (check-conflicts) and the save. A soft note reaches the screen with the reply and never blocks."
+    },
+    "save": [
+      { "id": "payload", "outcome": "400", "title": { "ar": "الأيام والوقت واليوم الجامعي", "en": "Days, time and the university day" }, "detects": { "ar": "يوم واحد على الأقل، وساعة صالحة، ونهاية بعد البداية، وداخل 08:00–20:00.", "en": "At least one day, a valid clock, an end after the start, inside 08:00–20:00." }, "reqs": ["FR-SCH-015"], "evidence": ["src/server/core/scheduleRules.ts#schedulePayloadIssues"] },
+      { "id": "hours", "outcome": "400", "title": { "ar": "سقف ساعات الشعبة", "en": "Section hours ceiling" }, "detects": { "ar": "مجموع دقائق الشعبة بعد هذا الموعد يتجاوز السقف.", "en": "The section's minutes after this appointment exceed the ceiling." }, "reqs": ["FR-SCH-018"], "evidence": ["src/server/core/scheduleRules.ts#scheduleLengthIssue"] },
+      { "id": "pattern", "outcome": "400", "title": { "ar": "نمط غير معتمد", "en": "Unapproved pattern" }, "detects": { "ar": "أيام الشعبة ليست نمطاً في المكتبة لساعات المقرر.", "en": "The section's days are not a library pattern for the course hours." }, "reqs": ["FR-SCH-017"], "evidence": ["src/server/core/scheduleRules.ts#unapprovedPatternIssue"] },
+      { "id": "instructor", "outcome": "409", "title": { "ar": "حجز مزدوج للأستاذ", "en": "Instructor double booking" }, "detects": { "ar": "للأستاذ موعد متداخل في الفصل كله، ولا يُعدّ «هيئة تدريسية» شخصاً.", "en": "The instructor has an overlapping appointment anywhere in the term; the faculty placeholder is not a person." }, "reqs": ["FR-SCH-010", "FR-SCH-008"], "evidence": ["src/server/core/scheduleConflicts.ts#scheduleConflicts"] },
+      { "id": "room", "outcome": "409", "title": { "ar": "حجز مزدوج للقاعة", "en": "Hall double booking" }, "detects": { "ar": "القاعة مشغولة في الوقت نفسه.", "en": "The hall is taken at the same time." }, "reqs": ["FR-SCH-010"], "evidence": ["src/server/core/scheduleConflicts.ts#scheduleConflicts"] },
+      { "id": "duplicate", "outcome": "409", "title": { "ar": "موعد مكرر", "en": "Duplicate entry" }, "detects": { "ar": "المقرر والشعبة والأيام والوقت نفسها ولا شيء يميّز الصفين.", "en": "Same course, section, days and time with nothing telling the two rows apart." }, "reqs": ["FR-SCH-007"], "evidence": ["src/utils/scheduleIntelligence.ts#isBlockingConflict"] },
+      { "id": "barter", "outcome": "409", "title": { "ar": "قاعة قسم آخر ونوافذ الاستعارة", "en": "Another department's hall and barter windows" }, "detects": { "ar": "قاعة مسجلة لقسم آخر بلا نافذة استعارة تغطي الموعد، أو موعد يتجاوز نافذة معتمدة.", "en": "A hall registered to another department with no barter window covering the appointment, or an appointment beyond an approved window." }, "reqs": ["FR-SCH-012"], "evidence": ["src/server/core/scheduleConflicts.ts#hallBarterWindow"] },
+      { "id": "hold", "outcome": "409", "title": { "ar": "حجز طلب أستاذ", "en": "Faculty request hold" }, "detects": { "ar": "الوقت محجوز لطلب أستاذ ينتظر القسم؛ يُردّ برمز request-hold ويجوز التجاوز صراحة.", "en": "The slot is held by a faculty request awaiting the department; answered with code request-hold and may be overridden explicitly." }, "reqs": ["FR-SCH-013"], "evidence": ["src/server/core/scheduleConflicts.ts#requestHoldRefusal"] },
+      { "id": "lock", "outcome": "409", "title": { "ar": "الجدول عند التسجيل", "en": "Schedule with the registrar" }, "detects": { "ar": "لا كتابة على جدول عند التسجيل إلا في جولة تعديل مفتوحة، ولا على فصل منتهٍ (schedule-locked).", "en": "No write to a schedule with the registrar except in an open amendment round, nor to an ended term (schedule-locked)." }, "reqs": ["FR-APR-014"], "evidence": ["src/server/core/approvals.ts#scheduleLockRefusal"] },
+      { "id": "twice", "outcome": "soft", "title": { "ar": "الشعبة نفسها في مكانين", "en": "Same section in two places" }, "detects": { "ar": "الشعبة مسجلة مرتين بالأيام والوقت نفسها في قاعتين أو بأستاذين.", "en": "The section recorded twice at the same days and time in two halls or with two instructors." }, "reqs": ["FR-SCH-007"], "evidence": ["src/utils/scheduleBlockers.ts#readScopeConflicts"] },
+      { "id": "doorway", "outcome": "soft", "title": { "ar": "فاصل القاعة", "en": "Hall turnaround gap" }, "detects": { "ar": "أقل من 10 دقائق بين محاضرتين في القاعة نفسها.", "en": "Less than 10 minutes between two lectures in the same hall." }, "reqs": ["FR-SCH-009"], "evidence": ["src/utils/scheduleIntelligence.ts#requiredGapForDays"] },
+      { "id": "ladder", "outcome": "soft", "title": { "ar": "سُلّم البدايات وعادة القسم", "en": "Start ladder and department habit" }, "detects": { "ar": "بداية خارج السُّلّم، وإلا بداية تبعد قليلاً عن عادة القسم.", "en": "A start off the ladder, otherwise a start slightly off the department's habit." }, "reqs": ["FR-SCH-016", "FR-SCH-020"], "evidence": ["src/server/core/scheduleConflicts.ts#rhythmNote"] },
+      { "id": "length", "outcome": "soft", "title": { "ar": "طول المحاضرة", "en": "Lecture length" }, "detects": { "ar": "طول لا يوافق محاضرات اليوم وفواصلها ولا كتلة من المكتبة.", "en": "A length matching neither the day's lectures and gaps nor a library block." }, "reqs": ["FR-SCH-016", "FR-SCH-021"], "evidence": ["src/server/routes/scheduleReviewRoutes.ts#scheduleLengthNotice"] },
+      { "id": "spread", "outcome": "soft", "title": { "ar": "شعبة أخرى من المقرر نفسه", "en": "Another section of the same course" }, "detects": { "ar": "شعبة أخرى من مقرر التخصص في الوقت نفسه (م.7/5).", "en": "Another section of the specialisation course at the same time (art. 7/5)." }, "reqs": ["FR-SCH-010"], "evidence": ["src/server/core/scheduleConflicts.ts#sectionClashNote"] },
+      { "id": "cohort", "outcome": "soft", "title": { "ar": "تعارض على الطلاب", "en": "Shared-student clash" }, "detects": { "ar": "مقرران يحتاجهما الطلبة معاً متداخلان، بحسب الاستبيان.", "en": "Two courses students need together overlap, per the survey." }, "reqs": ["FR-SCH-009"], "evidence": ["src/server/core/scheduleConflicts.ts#scheduleConflicts"] },
+      { "id": "travel", "outcome": "soft", "title": { "ar": "زمن التنقل بين المواقع", "en": "Inter-campus travel time" }, "detects": { "ar": "وقت أقل من المضبوط للتنقل إلى موعد في موقع آخر.", "en": "Less than the configured time to reach an appointment at another campus." }, "reqs": ["FR-SCH-019"], "evidence": ["src/server/core/scheduleConflicts.ts#interCampusWarnings"] }
+    ]
+  },
+  "approvals": {
+    "title": { "ar": "الاعتمادات", "en": "Approvals" },
+    "lead": {
+      "ar": "يمرّ جدول كل قسم في كل فصل بست حالات. يوقّع رئيس لجنة الجدول ثم رئيس القسم، وتوقيع رئيس القسم هو الإرسال، فيصل الجدول إلى التسجيل في جولة مرقّمة. يكتب التسجيل ملاحظاته على الخانات فيُرجع أو يقبل، وبعد القبول يفتح كل تعديل جولة تعديل تلقائياً.",
+      "en": "Each department's schedule passes through six states every term. The schedule committee chair signs, then the department head, and the head's signature is the send: the schedule reaches the registrar in a numbered round. The registrar writes notes on cells and returns or accepts; after acceptance every edit opens an amendment round automatically."
+    },
+    "stages": [
+      { "status": "drafting", "icon": "pencil-line", "label": { "ar": "قيد الإعداد", "en": "In preparation" }, "actor": "committeeChair", "action": { "ar": "تبني اللجنة الجدول وتوقّعه", "en": "The committee builds and signs" } },
+      { "status": "committee", "icon": "signature", "label": { "ar": "موقّع من اللجنة", "en": "Signed by the committee" }, "actor": "departmentHead", "action": { "ar": "يوقّع رئيس القسم أو يُرجع للجنة", "en": "The head signs or returns it to the committee" } },
+      { "status": "submitted", "icon": "send", "label": { "ar": "عند التسجيل", "en": "With the registrar" }, "actor": "registrarStaff", "action": { "ar": "يُقفل التعديل؛ يكتب التسجيل ملاحظاته ويُرجع أو يقبل", "en": "Editing is locked; the registrar writes notes and returns or accepts" } },
+      { "status": "accepted", "icon": "badge-check", "label": { "ar": "معتمد", "en": "Accepted" }, "actor": "system", "action": { "ar": "أي تعديل يفتح جولة تعديل ويعيده عند التسجيل", "en": "Any edit opens an amendment round and sends it back to the registrar" } }
+    ],
+    "loops": [
+      { "from": "committee", "to": "drafting", "icon": "undo-2", "label": { "ar": "إرجاع رئيس القسم بسبب مكتوب (3–400 حرف): تسقط التواقيع", "en": "Head return with a written reason (3–400 characters): signatures drop" } },
+      { "from": "submitted", "to": "returned", "icon": "message-square-warning", "label": { "ar": "إرجاع التسجيل بملاحظة مفتوحة واحدة على الأقل: يبقى التوقيعان، ويعيد القسم الإرسال في جولة جديدة", "en": "Registrar return with at least one open note: both signatures stay, and the department resends in a new round" } },
+      { "from": "accepted", "to": "submitted", "icon": "git-branch-plus", "label": { "ar": "تعديل بعد القبول، أو إرجاع المعتمد: جولة جديدة أساسها ما قُبل", "en": "An edit after acceptance, or returning an accepted schedule: a new round based on what was accepted" } }
+    ],
+    "returnedLabel": { "ar": "مُرجَع بملاحظات", "en": "Returned with notes" },
+    "headLabel": { "ar": "موقّع من رئيس القسم", "en": "Signed by the head" },
+    "headNote": { "ar": "حالة عابرة: يرسل توقيع رئيس القسم الجدول في الحفظ نفسه، فإن منع الإرسال مانع بقي التوقيع وقيل السبب.", "en": "A passing state: the head's signature sends the schedule in the same save; if a gate blocks the send, the signature stays and the reason is given." },
+    "gatesTitle": { "ar": "ما يمنع كل قرار", "en": "What blocks each decision" },
+    "actions": [
+      {
+        "id": "sign", "icon": "pen-line", "actors": ["committeeChair", "departmentHead"], "route": "POST /api/approvals/sign",
+        "title": { "ar": "التوقيع", "en": "Sign" },
+        "effect": { "ar": "يلتقط نسخة ويثبّت التوقيع عليها برمز تحقق وعدد المواعيد وعدد تنبيهات اللائحة. توقيع رئيس القسم يرسل الجدول.", "en": "Captures a version and records the signature on it with a verification code, the appointment count and the regulation-notice count. The head's signature sends the schedule." },
+        "gates": [
+          { "code": "course-requirements-missing", "text": { "ar": "مقرر بلا نوع قاعة مناسب أو طبيعة تدريس", "en": "A course with no suitable room type or teaching nature" } },
+          { "code": "regulation-blockers", "text": { "ar": "بند لائحي أثره «يمنع»: نمط النظري، وقت الشعبة، التدريس المتتالي", "en": "A regulation finding with effect «block»: theoretical pattern, section time, consecutive teaching" } },
+          { "code": "blocking-conflicts", "text": { "ar": "تعارض مادّي: حجز مزدوج لأستاذ أو قاعة، أو موعد مكرر", "en": "A material conflict: instructor or hall double booking, or a duplicate entry" } },
+          { "code": "missing-capacity", "text": { "ar": "مقرر بلا سعة مسجّلة", "en": "A course with no registered capacity" } },
+          { "code": "wrong-order · same-person-both-stages", "text": { "ar": "رئيس القسم قبل اللجنة، أو الشخص نفسه للمرحلتين", "en": "The head before the committee, or the same person for both stages" } },
+          { "code": "empty · locked · already-signed", "text": { "ar": "جدول فارغ، أو عند التسجيل، أو موقّع من قبل", "en": "An empty schedule, one with the registrar, or one already signed" } }
+        ],
+        "reqs": ["FR-APR-001", "FR-APR-002", "FR-APR-003", "FR-APR-004"],
+        "evidence": ["src/server/routes/approvalsRoutes.ts#/api/approvals/sign", "src/utils/approvalWorkflow.ts#canSign"]
+      },
+      {
+        "id": "submit", "icon": "send", "actors": ["committeeChair", "departmentHead"], "route": "POST /api/approvals/submit",
+        "title": { "ar": "الإرسال للتسجيل", "en": "Send to the registrar" },
+        "effect": { "ar": "يفتح جولة مرقّمة بنسختها، ويقفل التعديل، ويمسح طلب التمديد المعلّق.", "en": "Opens a numbered round with its version, locks editing and clears any pending extension request." },
+        "gates": [
+          { "code": "already-submitted · already-accepted", "text": { "ar": "الجدول مُرسَل، أو معتمد ولم يتغيّر بعد القبول", "en": "Already sent, or accepted and unchanged since" } },
+          { "code": "not-signed", "text": { "ar": "ينقص توقيع اللجنة أو رئيس القسم", "en": "The committee or head signature is missing" } },
+          { "code": "pending-additions", "text": { "ar": "شعب أُضيفت بعد توقيع رئيس القسم تنتظر إقراره", "en": "Sections added after the head's signature await his acknowledgement" } },
+          { "code": "regulation-blockers", "text": { "ar": "بند لائحي أثره «يمنع»", "en": "A regulation finding with effect «block»" } },
+          { "code": "blocking-conflicts", "text": { "ar": "تعارض مادّي", "en": "A material conflict" } },
+          { "code": "unresolved-notes", "text": { "ar": "ملاحظة تسجيل مفتوحة بلا معالجة ولا رد", "en": "A registrar note still open, neither fixed nor answered" } },
+          { "code": "deadline", "text": { "ar": "أول إرسال بعد انقضاء الموعد (الجولات التالية تمرّ)", "en": "The first send after the deadline (later rounds pass)" } }
+        ],
+        "reqs": ["FR-APR-004", "FR-APR-005", "FR-APR-007", "FR-APR-017"],
+        "evidence": ["src/server/routes/approvalsRoutes.ts#submitToRegistrar", "src/utils/approvalWorkflow.ts#canSubmit"]
+      },
+      {
+        "id": "return", "icon": "undo-2", "actors": ["registrarStaff", "collegeRegistrar", "registrarHead"], "route": "POST /api/approvals/return",
+        "title": { "ar": "إرجاع التسجيل", "en": "Registrar return" },
+        "effect": { "ar": "يعيد الجدول للقسم ويفتح التعديل، ويُبقي التوقيعين، ويسجّل على الجولة الوقت ومن أرجع وعدد الملاحظات.", "en": "Sends the schedule back and reopens editing, keeps both signatures, and records on the round the time, who returned it and the note count." },
+        "gates": [
+          { "code": "no-notes · not-reviewable", "text": { "ar": "لا ملاحظة تسجيل مفتوحة، أو الجدول ليس عند التسجيل ولا معتمداً", "en": "No open registrar note, or the schedule is neither with the registrar nor accepted" } }
+        ],
+        "reqs": ["FR-APR-008", "FR-APR-009", "FR-APR-010"],
+        "evidence": ["src/server/routes/approvalsRoutes.ts#/api/approvals/return", "src/utils/approvalWorkflow.ts#canReturn"]
+      },
+      {
+        "id": "accept", "icon": "badge-check", "actors": ["registrarStaff", "collegeRegistrar", "registrarHead"], "route": "POST /api/approvals/accept",
+        "title": { "ar": "القبول النهائي", "en": "Final acceptance" },
+        "effect": { "ar": "يلتقط النسخة المقبولة، ويفرّغ قائمة الإضافات، ويغلق ما بقي من ملاحظات التسجيل «بالقبول» مع بقاء نصها. واللائحة تُعرض هنا ولا تمنع.", "en": "Captures the accepted version, empties the additions queue and closes remaining registrar notes «by acceptance», keeping their text. The regulation is shown here and does not block." },
+        "gates": [
+          { "code": "", "text": { "ar": "الجدول ليس «عند التسجيل» الآن", "en": "The schedule is not «with the registrar» now" } },
+          { "code": "blocking-conflicts", "text": { "ar": "تعارض مادّي: يُرجع للقسم لمعالجته", "en": "A material conflict: return it to the department to fix" } }
+        ],
+        "reqs": ["FR-APR-011", "FR-APR-013"],
+        "evidence": ["src/server/routes/approvalsRoutes.ts#/api/approvals/accept"]
+      }
+    ],
+    "commonGates": { "ar": "وقبل كل قرار: الصلاحية والنطاق (403)، والفصل المنتهي (term-closed)، وأن الجولة وعدد المواعيد والحالة كما رآها صاحب القرار (stale-view)، وطابور واحد لكل قسم برقم مراجعة (approval-revision).", "en": "Before every decision: role and scope (403), the ended term (term-closed), the round, appointment count and status as the decider saw them (stale-view), and one queue per department with a revision number (approval-revision)." },
+    "commonReqs": ["FR-APR-012", "FR-APR-015", "NFR-APR-001"],
+    "notBlocking": {
+      "title": { "ar": "ما لا يمنع التوقيع", "en": "What does not block signing" },
+      "items": [
+        { "ar": "ملاحظات اللائحة وبنود «للمراجعة»: السُّلّم، والفترتان، وشعب المقرر في الوقت نفسه، والتدوير", "en": "Regulation notes and «review» items: ladder, period balance, sections at the same hour, rotation" },
+        { "ar": "الشعبة نفسها مسجلة مرتين في قاعتين أو بأستاذين", "en": "The same section recorded twice in two halls or with two instructors" },
+        { "ar": "نواقص البيانات الأخرى غير السعة ونوع القاعة وطبيعة التدريس", "en": "Data gaps other than capacity, room type and teaching nature" }
+      ]
+    },
+    "deadlines": {
+      "title": { "ar": "المواعيد والتمديد", "en": "Deadlines and extensions" },
+      "items": [
+        { "icon": "calendar-clock", "actor": "registrarHead", "text": { "ar": "يضع المسجّل العام موعد تسليم الفصل أو يرفعه. ينقضي الموعد بعد 23:59:59 من يومه بتوقيت الكويت، ويُعدّ قريباً حين يبقى سبعة أيام أو أقل.", "en": "The university registrar sets or clears the term's submission date. It passes after 23:59:59 of its day in Kuwait time and is «near» at seven days or fewer." }, "reqs": ["FR-APR-017"] },
+        { "icon": "calendar-plus", "actor": "collegeRegistrar", "text": { "ar": "يمنح المسجّل العام ورئيس تسجيل الكلية استثناءً لقسم أو كلية أو أقسام بعينها: 1–60 يوماً أو تاريخاً صريحاً، بسبب مكتوب، ولا يسبق موعد الفصل.", "en": "The university and college registrars grant an exception to a department, a college or named departments: 1–60 days or an explicit date, with a written reason, never before the term deadline." }, "reqs": ["FR-APR-018", "FR-APR-029"] },
+        { "icon": "hand", "actor": "departmentHead", "text": { "ar": "تطلب اللجنة أو رئيس القسم تمديداً (1–60 يوماً، 7 افتراضاً) حين يبقى ثلاثة أيام أو أقل أو بعد الانقضاء، لجدول لم يصل التسجيل.", "en": "The committee or head requests an extension (1–60 days, 7 by default) when three days or fewer remain or after it passes, for a schedule not yet with the registrar." }, "reqs": ["FR-APR-019"] },
+        { "icon": "lock", "actor": "system", "text": { "ar": "بعد الموعد الفاعل يُمنع أول إرسال والاستيراد من ملف ونسخ فصل والحذف الجماعي فوق 30٪، ويبقى التعديل الجزئي والجولات التالية مفتوحة.", "en": "After the effective deadline the first send, file import, term copy and bulk deletion above 30% are refused, while partial edits and later rounds stay open." }, "reqs": ["FR-APR-017"] }
+      ]
+    },
+    "score": {
+      "title": { "ar": "درجة الاعتماد", "en": "Approval score" },
+      "formula": { "ar": "الدرجة = المواعيد السليمة ÷ كل مواعيد النطاق × 100", "en": "Score = sound appointments ÷ all scope appointments × 100" },
+      "text": { "ar": "السليم موعد لا يمسّه بند يحتاج معالجة. يُعدّ كل موعد مرة واحدة عند أول فئة تمسّه بترتيب الخطورة (الموانع ثم اللائحة)، فشرائح الحلقة والسليم تساوي الكل. ولكل فئة الدرجة لو عولجت وحدها: (السليم + ما لا يمسّه غيرها) ÷ الكل. وتُعرض المعادلة جملة يتحقق منها القارئ بيده.", "en": "A sound appointment is one no finding needing action touches. Each appointment is counted once at the first category touching it in severity order (blockers, then regulation), so the ring's slices plus the sound ones equal the whole. Each category shows the score if it alone were fixed: (sound + those only it touches) ÷ all. The formula is shown as a sentence the reader can check by hand." },
+      "example": { "ar": "السليم 81 ÷ الكل 100 × 100 = 81", "en": "sound 81 ÷ all 100 × 100 = 81" },
+      "reqs": ["FR-APR-025", "IR-APR-037"],
+      "evidence": ["src/utils/approvalScore.ts#approvalScoreBreakdown"]
+    },
+    "reqs": ["FR-APR-001", "FR-APR-006", "FR-APR-013", "FR-APR-014", "IR-APR-031", "IR-APR-035"],
+    "evidence": ["src/utils/approvalWorkflow.ts#APPROVAL_STATUS_LABEL", "src/utils/academicRoles.ts#signatureStage", "src/utils/academicRoles.ts#canReviewSubmissions", "src/server/core/approvals.ts#regulationNoticesForScope"]
+  },
+  "where": {
+    "title": { "ar": "أين تُطبَّق", "en": "Where it applies" },
+    "lead": {
+      "ar": "الأبواب التي تمرّ منها اللائحة، وأثر كل قاعدة في كل باب. الجدول يقرأ صفاً لكل قاعدة وعموداً لكل باب.",
+      "en": "The doors the regulation passes through, and each rule's effect at each door. The table reads one row per rule and one column per door."
+    },
+    "points": [
+      {
+        "id": "editor", "icon": "pencil-ruler", "screen": { "ar": "الجدول الدراسي: نموذج الموعد", "en": "Schedule: appointment form" },
+        "text": { "ar": "يكمل المحرر أيام المقرر ونهايته بنمط معتمد كلما تغيّر المقرر أو الأيام أو البداية، ويعرض الفحص الحي قبل الحفظ بالخطوات نفسها التي تحكم الحفظ. والحفظ يرفض بـ400 أو 409 ويمرّر الملاحظات اللينة.", "en": "The editor completes the course's days and end with an approved pattern whenever the course, days or start change, and the live check runs the same steps that govern the save. The save refuses with 400 or 409 and passes soft notes through." },
+        "reqs": ["FR-SCH-055", "FR-SCH-021", "FR-SCH-010"],
+        "evidence": ["src/components/Schedules.tsx#applyApprovedPattern", "src/server/core/scheduleWrites.ts"]
+      },
+      {
+        "id": "review", "icon": "clipboard-check", "screen": { "ar": "نافذة «مراجعة الاعتماد»", "en": "The «approval review» sheet" },
+        "text": { "ar": "تقرأ بنود اللائحة كلها مجمّعة ببطاقة لكل نوع، مع المادة وعدد المواعيد والدرجة لو عولج، وتوزيع الفترتين، وتُطبع بتوقيع.", "en": "Reads every regulation finding grouped into one card per kind, with the article, the number of appointments and the score if fixed, the period balance, and prints with a signature." },
+        "reqs": ["IR-APR-037", "FR-APR-024", "FR-APR-025"],
+        "evidence": ["src/components/ScheduleReview.tsx", "src/server/routes/scheduleReviewRoutes.ts#/api/schedules/review-readiness"]
+      },
+      {
+        "id": "bar", "icon": "stamp", "screen": { "ar": "شريط الاعتماد والتوقيع", "en": "Approval bar and signing" },
+        "text": { "ar": "يعرض عدد تنبيهات اللائحة والموانع، ويمنع التوقيع والإرسال برمز regulation-blockers متى وُجد بند لائحي أثره «يمنع» في صفوف القسم.", "en": "Shows the regulation-notice and blocker counts, and refuses signing and sending with code regulation-blockers whenever a regulation finding with effect «block» lies in the department's rows." },
+        "reqs": ["IR-APR-031", "IR-APR-035", "FR-APR-003"],
+        "evidence": ["src/components/ApprovalBar.tsx", "src/server/core/approvals.ts#regulationNoticesForScope"]
+      },
+      {
+        "id": "card", "icon": "presentation", "screen": { "ar": "كرت الأستاذ (رابط شخصي)", "en": "Faculty card (personal link)" },
+        "text": { "ar": "اللائحة ملزمة في كرت الأستاذ: يُحسب طول اللقاء وتُكمل أيام النمط تلقائياً، ويُمنع النمط غير المعتمد والبداية خارج السُّلّم وتجاوز الساعات؛ أما شعبة أخرى من المقرر نفسه في الوقت نفسه فتنبيهٌ واضح لا يمنع الإرسال ولا يطلب استثناءً. والبند «للمراجعة» يجعل الطلب «يحتاج استثناءً» بسبب مكتوب. ولا يُمنع صف لم يمسّه الأستاذ.", "en": "The regulation is binding on the faculty card: the meeting length and the pattern's days are filled in automatically, and an unapproved pattern, a start off the ladder and exceeding the hours are blocked; another section of the same course at the same time is a clear warning that neither prevents sending nor requires an exception. A «review» finding makes the request «needs an exception» with a written reason. A row the member did not touch is never blocked." },
+        "reqs": ["FR-REQ-014", "FR-REQ-015", "FR-REQ-018"],
+        "evidence": ["src/utils/instructorRequestVerdict.ts#judgeRequest", "src/server/core/instructorRequests.ts#judgeRequestItems"]
+      },
+      {
+        "id": "import", "icon": "file-up", "screen": { "ar": "معاينة الاستيراد", "en": "Import preview" },
+        "text": { "ar": "تفحص الصفوف فيما بينها بدالة التعارض نفسها، وتمنع نشر صف غيّر المراجع أيامه أو وقته بيده ما لم تكن أيامه نمطاً معتمداً، بملاحظة على خانة الأيام تسمّي الأنماط.", "en": "Checks the rows against each other with the same conflict function, and blocks publishing a row whose days or time the reviewer changed by hand unless its days are an approved pattern, with a note on the days cell naming the patterns." },
+        "reqs": ["FR-IMP-042"],
+        "evidence": ["src/components/ScheduleTransfer.tsx#manualPatternIssues", "src/components/ScheduleTransfer.tsx#previewConflicts"]
+      },
+      {
+        "id": "proposal", "icon": "lightbulb", "screen": { "ar": "المقترح الدراسي", "en": "Study proposal" },
+        "text": { "ar": "يفحص الجدول الناتج عن المقترح بسقف الساعات نفسه، ويقول بنود اللائحة على العمليات التي مسّتها ملاحظةً أو بنداً للمراجعة دون أن يمنع.", "en": "Checks the schedule the proposal would produce with the same hours ceiling, and states the regulation findings on the operations they touch as notes or review items without blocking." },
+        "reqs": ["FR-PLN-026"],
+        "evidence": ["src/server/studyProposalEngine.ts#evaluateProposal"]
+      }
+    ]
+  }
+}

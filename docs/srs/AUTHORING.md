@@ -86,3 +86,9 @@ node scripts/srs/validate.mjs docs/srs/modules/<ملفك>.json   # يجب أن �
 - كل مسار خادم جديد (`app.get/post/...`) يُحسب تلقائياً على الوحدة التي تدّعي ملفه؛ ولقطته في `docs/srs/endpoints.snapshot.json` (`npm run srs:sync`). إضافة مسار بلا تحديث اللقطة تُفشل CI.
 - عند إضافة ميزة: أضف متطلبها في وحدتها بحالة `implemented` مع الكود والاختبار، في **التغيير نفسه**. وعند إزالة ميزة: حوّل متطلبها إلى `planned` أو احذفه مع ذكر ذلك في `docs/srs/revisions.json`.
 - تُولَّد الوثيقة بـ`npm run srs:build`، وملفا PDF بـ`npm run srs:pdf`.
+
+## 6. تطبيق اللائحة
+
+قسم «تطبيق اللائحة» (2.6 في PDF، وتبويب «اللائحة» في الصفحة) يُبنى من ملفين:
+- `docs/srs/regulation.snapshot.json`: الأرقام والأنماط وبنود المراجعة كما يطبّقها `src/utils/scheduleRegulations.ts`، يكتبها `npm run srs:sync` (عبر `scripts/srs/regulation-snapshot.ts`). لا تُعدَّل يدوياً؛ و`tests/srs-regulation-sync-audit.ts` يفشل إن تأخرت عن الكود.
+- `docs/srs/regulation.json`: السرد بلغتيه (القواعد وأثرها في كل باب، والفحوص، والاعتمادات، وأين تُطبَّق) مع المتطلبات ومراجع الكود. البناء يرفض متطلباً أو رمزاً غير موجود، وبنداً في `reviewSchedule` لا يصفه السرد، ورقماً يقتبسه النص تغيّر في الكود.

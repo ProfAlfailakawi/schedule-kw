@@ -302,6 +302,7 @@
     "srs:validate": "node scripts/srs/validate.mjs",
     "test:srs-doc": "node scripts/srs/check.mjs",
     "test:srs-route": "tsx tests/srs-route-audit.ts",
+    "test:srs-regulation-sync": "tsx tests/srs-regulation-sync-audit.ts",
     "test:tsconfig-strictness": "tsx tests/tsconfig-strictness-audit.ts"
   },
   "dependencies": {

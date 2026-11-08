@@ -8,6 +8,7 @@ import { techModel, techFingerprintFiles } from "./tech.mjs";
 import { readUsage, USAGE_SOURCE } from "./usage.mjs";
 import { loadAlgorithms, algorithmFiles } from "./algorithms.mjs";
 import { loadIntegration, INTEGRATION_FILE } from "./integration.mjs";
+import { loadRegulation, regulationFiles } from "./regulation.mjs";
 
 export const STATUS_ORDER = ["implemented", "in-progress", "planned"];
 export const PRIORITY_ORDER = ["must", "should", "could"];
@@ -22,7 +23,7 @@ export const LABELS = {
 export function contentHash() {
   const h = crypto.createHash("sha256");
   const add = file => h.update(file + "\0").update(fs.readFileSync(path.join(ROOT, file)));
-  for (const f of ["docs/srs/meta.json", "docs/srs/actors.json", "docs/srs/front.json", "docs/srs/revisions.json", ...techFingerprintFiles(), USAGE_SOURCE, ...algorithmFiles(), INTEGRATION_FILE]) add(f);
+  for (const f of ["docs/srs/meta.json", "docs/srs/actors.json", "docs/srs/front.json", "docs/srs/revisions.json", ...techFingerprintFiles(), USAGE_SOURCE, ...algorithmFiles(), INTEGRATION_FILE, ...regulationFiles()]) add(f);
   for (const { file } of loadModules()) add(file);
   const libs = fs.readdirSync(path.join(ROOT, "scripts/srs/lib")).filter(f => f.endsWith(".mjs")).sort().map(f => `scripts/srs/lib/${f}`);
   const themes = fs.readdirSync(path.join(ROOT, "scripts/srs/theme")).sort().map(f => `scripts/srs/theme/${f}`);
@@ -88,5 +89,6 @@ export function buildModel() {
     hash: contentHash(),
   };
   model.integration = loadIntegration(model);
+  model.regulation = loadRegulation();
   return model;
 }
