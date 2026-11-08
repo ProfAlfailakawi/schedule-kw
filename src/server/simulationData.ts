@@ -64,6 +64,15 @@ export async function universityUnitCap(): Promise<number> {
   return studentUnitCapOf(doc?.maxUnits);
 }
 
+/** يحفظ السقف الجامعي؛ وإن تغيّر قُدِّم الرادارُ المحفوظ فتتجدّد التذاكر عند القراءة التالية (مراجعة #425). */
+export async function saveUniversityUnitCap(maxUnits: number, by: string): Promise<{ before: number; changed: boolean }> {
+  const before = await universityUnitCap();
+  await Repository.saveFeatureDoc(UNIVERSITY_UNIT_CAP_DOC.collection, UNIVERSITY_UNIT_CAP_DOC.id, { maxUnits, by, at: new Date().toISOString() });
+  const changed = before !== maxUnits;
+  if (changed) await Repository.markRegistrationRunsStale();
+  return { before, changed };
+}
+
 export interface SimulationLoadOptions { wishesTermId?: number }
 export async function loadSimulationInput(term: AdTerm, rounds: number, options: SimulationLoadOptions = {}): Promise<{ input: SimInput; courses: Map<number, AdCourse>; population: number; fingerprint: string; schedules: import("../types").FSchedule[]; duplicateRows: number }> {
   const termId = Number(term.AdTermId);
