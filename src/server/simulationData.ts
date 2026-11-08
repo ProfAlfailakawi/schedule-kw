@@ -14,7 +14,8 @@ import type { DemandRepair } from "../utils/demandRepair";
 import type { SectionProposal } from "../utils/sectionOpening";
 import { remainingNeed } from "../utils/curriculumRules";
 import { campusOf } from "../utils/campusTravel";
-import { auditSimOfferings, parseClock, simulateRegistration, type SimInput, type SimOffering, type SimPlanRules, type SimResult, type SimSlot, type SimStudent } from "../utils/registrationSim";
+import { UNIVERSITY_UNIT_CAP_DOC, studentUnitCapOf } from "../utils/studentUnitCap";
+import { SIM_UNITS_DEFAULT, auditSimOfferings, parseClock, simulateRegistration, type SimInput, type SimOffering, type SimPlanRules, type SimResult, type SimSlot, type SimStudent } from "../utils/registrationSim";
 
 const DAYS: Array<[keyof import("../types").FSchedule, number]> = [["fsunday", 0], ["fmonday", 1], ["ftuesday", 2], ["fwednesday", 3], ["fthursday", 4]];
 
@@ -57,6 +58,21 @@ export function buildSimulationOfferings(termId: number, schedules: import("../t
 export const sectionPlanId = (sectionId: number) => `sec:${sectionId}`;
 
 /** `wishesTermId`: الفصلُ الذي تُقرأ رغباتُ الملفات له (الأصلُ فصلُ الرادار نفسه). يحمله الرادارُ المحفوظ (`RegistrationRun.wishesTermId`) فيُعاد قياسُه كما حُسب. */
+/** السقفُ الجامعي لوحدات الطالب (قرار المالك 2026-11-08): إعدادٌ واحدٌ للجميع؛ سقفُ القسم القديم لا يُقرأ. */
+export async function universityUnitCap(): Promise<number> {
+  const doc = await Repository.getFeatureDoc<{ maxUnits?: number }>(UNIVERSITY_UNIT_CAP_DOC.collection, UNIVERSITY_UNIT_CAP_DOC.id).catch(() => null);
+  return studentUnitCapOf(doc?.maxUnits);
+}
+
+/** يحفظ السقف الجامعي؛ وإن تغيّر قُدِّم الرادارُ المحفوظ فتتجدّد التذاكر عند القراءة التالية (مراجعة #425). */
+export async function saveUniversityUnitCap(maxUnits: number, by: string): Promise<{ before: number; changed: boolean }> {
+  const before = await universityUnitCap();
+  await Repository.saveFeatureDoc(UNIVERSITY_UNIT_CAP_DOC.collection, UNIVERSITY_UNIT_CAP_DOC.id, { maxUnits, by, at: new Date().toISOString() });
+  const changed = before !== maxUnits;
+  if (changed) await Repository.markRegistrationRunsStale();
+  return { before, changed };
+}
+
 export interface SimulationLoadOptions { wishesTermId?: number }
 export async function loadSimulationInput(term: AdTerm, rounds: number, options: SimulationLoadOptions = {}): Promise<{ input: SimInput; courses: Map<number, AdCourse>; population: number; fingerprint: string; schedules: import("../types").FSchedule[]; duplicateRows: number }> {
   const termId = Number(term.AdTermId);
@@ -116,15 +132,16 @@ export async function loadSimulationInput(term: AdTerm, rounds: number, options:
       student.remainingUnits = remainingNeed(plan.courseIds, { rules: plan.rules, groups: plan.groups }, new Set(student.passed), credit).remainingUnits;
     }
   }
+  const maxUnits = await universityUnitCap();
   const fingerprintPayload = {
-    termId,
+    termId, maxUnits,
     profiles: profiles.map(profile => [profile.id, profile.updatedAt, profile.wishes?.termId, profile.wishes?.updatedAt, profile.wishes?.courseIds, profile.wishes?.targetUnits, profile.wishes?.constraints, profile.passedCourseIds, profile.curriculumPlanId]),
     schedules: schedules.map(row => [row.id, row.rev, row.AdCollegeId, row.AdSectionId, row.AdCourseId, row.SCode, row.fsunday, row.fmonday, row.ftuesday, row.fwednesday, row.fthursday, row.fstarttime, row.fendtime, row.AdInstructorId, row.AdRoomCode, row.AdRoomHall]),
     courses: [...courseById.values()].map(row => [row.AdCourseId, row.CourseCode, row.CourseName, row.CourseCredit, row.MaxStudent]),
     plans: plans.map(plan => [plan.planId, plan.courseIds, plan.rules, plan.groups, plan.hasApprovedRules]),
   };
   const fingerprint = createHash("sha256").update(JSON.stringify(fingerprintPayload)).digest("hex");
-  return { input: { students, offerings: offeringRows, plans, credit, rounds }, courses: courseById, population: students.length, fingerprint, schedules, duplicateRows: offeringBuild.duplicateRows };
+  return { input: { students, offerings: offeringRows, plans, credit, rounds, maxUnits }, courses: courseById, population: students.length, fingerprint, schedules, duplicateRows: offeringBuild.duplicateRows };
 }
 
 export interface DemandRepairImpact {
@@ -333,7 +350,7 @@ export async function runRegistrationSimulation(term: AdTerm, by: string, option
   const rounds = Math.max(1, term.AdTermStudentPhases?.rounds?.length || 2);
   const { input, courses, population, fingerprint, duplicateRows } = await loadSimulationInput(term, rounds, options);
   const participants = input.students.filter(student => student.wishes);
-  const nonParticipants = input.students.filter(student => !student.wishes).map(student => ({ ...student, wishes: { targetUnits: 15, courseIds: [], constraints: {} } }));
+  const nonParticipants = input.students.filter(student => !student.wishes).map(student => ({ ...student, wishes: { targetUnits: Math.min(SIM_UNITS_DEFAULT, input.maxUnits ?? SIM_UNITS_DEFAULT), courseIds: [], constraints: {} } }));
   const result = simulateRegistration({ ...input, students: participants, assessCapacity: true });
   const projection = simulateRegistration({ ...input, students: nonParticipants, assessCapacity: true });
   const termId = Number(term.AdTermId);

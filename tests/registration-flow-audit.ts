@@ -341,6 +341,24 @@ try {
     check(state.limits?.termUnits === 13.5 && state.limits.wishUnitsMin === 12 && state.limits.wishUnitsMax === 15, "H1 /state يرسل حدود الوحدات وثابت الفصل");
   }
 
+  /* ── K1: تغييرُ السقف الجامعي يُقدِّم الرادار المحفوظ، فلا تُقدَّم تذاكرُ فوق السقف الجديد ── */
+  {
+    const { saveUniversityUnitCap } = await import("../src/server/simulationData");
+    await http("POST", "/api/simulation/run", { who: "admin" });
+    const fresh = (await http("GET", "/api/simulation/summary", { who: "admin" })).json;
+    check(fresh.run && fresh.run.stale === false, "K1 رادارٌ حديث قبل تغيير السقف", fresh.run);
+    const same = await saveUniversityUnitCap(15, "اختبار");
+    check(same.changed === false && (await http("GET", "/api/simulation/summary", { who: "admin" })).json.run.stale === false, "K1 حفظُ السقف نفسه لا يُقدِّم الرادار");
+    const lowered = await saveUniversityUnitCap(9, "اختبار");
+    check(lowered.changed === true && lowered.before === 15, "K1 السقف تغيّر من 15 إلى 9", lowered);
+    check((await http("GET", "/api/simulation/summary", { who: "admin" })).json.run.stale === true, "K1 تغييرُ السقف يجعل الرادار المحفوظ قديماً فيتجدّد عند القراءة التالية");
+    await http("POST", "/api/simulation/run", { who: "admin" });
+    const runTerm = Number((await http("GET", "/api/simulation/summary", { who: "admin" })).json.run?.termId || 1);
+    const tickets = (await Promise.all((await Repository.listStudentProfiles()).map(profile => Repository.getRegistrationTicket(runTerm, profile.id)))).filter(Boolean);
+    check(Array.isArray(tickets) && tickets.length > 0 && tickets.every((t: any) => (t.plans || []).every((plan: any) => plan.units <= 9)), "K1 بعد التجديد: لا خطة في أي تذكرة فوق 9", tickets.length);
+    await saveUniversityUnitCap(15, "اختبار");
+  }
+
 } finally { server.close(); }
 
 console.log(`\n${passed} passed, ${failed} failed`);

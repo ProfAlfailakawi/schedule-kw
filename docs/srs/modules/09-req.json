@@ -60,12 +60,13 @@
     "src/styles/46-inbox-campus.css",
     "src/styles/46-publish-pick.css",
     "src/styles/47-publish-person.css",
-    "src/server/routes/publishCardsRoutes.ts",
+    "src/server/publishCardsRoutes.ts",
     "src/server/core/cardRecipients.ts",
     "src/utils/cardRecipients.ts",
     "src/utils/offeredCourses.ts",
     "src/utils/personCourseDefaults.ts",
-    "src/components/PersonCoursesSheet.tsx"
+    "src/components/PersonCoursesSheet.tsx",
+    "src/utils/cardPreview.ts"
   ],
   "screens": [
     { "name": { "ar": "بطاقة طلب الأستاذ (/r/)", "en": "Instructor request card (/r/)" }, "file": "src/server/pages/instructorRequestPage.ts", "note": { "ar": "صفحة عامة تُفتح بالرابط الشخصي: أسبوع الأستاذ، تعديل البنود، التوقيع، الحوار مع القسم، وذاكرة الفصول.", "en": "Public page opened with the personal link: the member's week, item editing, signing, dialogue with the department and term memory." } },
@@ -1396,7 +1397,7 @@
         { "ar": "المعاينة لا تغيّر طلباً ولا رابطاً ولا سجل إرسال ولا عدّاد فتح.", "en": "The preview changes no request, link, send log or open counter." },
         { "ar": "التذكير يقع على من لم يرد وحدهم ويعلّم remindedAt؛ وفي الديمو تسليمٌ وهمي (delivery=demo).", "en": "The reminder reaches non-repliers only and marks remindedAt; in the demo delivery is simulated (delivery=demo)." }
       ],
-      "evidence": { "code": ["src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/issue", "src/server/routes/publishCardsRoutes.ts#/api/instructor-requests/preview", "src/server/routes/publishCardsRoutes.ts#/api/instructor-requests/remind", "src/utils/cardRecipients.ts#reminderTargets", "src/utils/personCourseDefaults.ts#personCourseDefaults", "src/utils/offeredCourses.ts#offeredBreach"], "tests": ["tests/publish-cards-per-person-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/issue", "src/server/publishCardsRoutes.ts#/api/instructor-requests/preview", "src/server/publishCardsRoutes.ts#/api/instructor-requests/remind", "src/utils/cardRecipients.ts#reminderTargets", "src/utils/personCourseDefaults.ts#personCourseDefaults", "src/utils/offeredCourses.ts#offeredBreach"], "tests": ["tests/publish-cards-per-person-audit.ts"] }
     }
   ],
   "edgeCases": [

@@ -10,27 +10,28 @@
  * كلُّها بإذن القسم (7) ونطاقه، وبلا رقمٍ مدني ولا قاعة.
  */
 import type { Express, Response } from "express";
-import { Repository } from "../../db/repository";
-import type { InstructorRequest } from "../../types";
-import { type AuthenticatedRequest, requirePermission } from "../core/auth";
-import { isScopeAllowed } from "../core/scope";
-import { staffFamilyScopes } from "../core/staffCard";
-import { currentInstructorRequestGeneration, instructorRequestSectionCourses, requestWindowOpen } from "../core/instructorRequests";
-import { exclusionRefusal, readCardExclusions } from "../core/cardRecipients";
-import { placeholderInstructorIds } from "../core/smartImport";
-import { termChronologyServer } from "../core/ordering";
-import { publicPageNonce } from "../core/publicPages";
-import { planBadgesFor, sheetSidesFor } from "../planBadgeShared";
-import { pushHooks } from "../pushRoutes";
-import { serveRequestCard } from "./publicRequestRoutes";
-import { instructorRequestPage } from "../pages/instructorRequestPage";
-import { followUpState, reminderTargets } from "../../utils/cardRecipients";
-import { latestRequestByInstructor } from "../../utils/requestReissue";
-import { linkMode } from "../../utils/linkMode";
-import { requestItemFromRow } from "../../utils/instructorRequestItems";
-import { normalizeInstructorDeadline } from "../../utils/instructorRequestWindows";
-import { isTrainingAssistant } from "../../utils/taConversion";
-import { byCourseNumber } from "../../utils/sheetMembership";
+import { Repository } from "../db/repository";
+import type { InstructorRequest } from "../types";
+import { type AuthenticatedRequest, requirePermission } from "./core/auth";
+import { isScopeAllowed } from "./core/scope";
+import { staffFamilyScopes } from "./core/staffCard";
+import { currentInstructorRequestGeneration, instructorRequestDepartmentScopes, instructorRequestSectionCourses, requestWindowOpen } from "./core/instructorRequests";
+import { exclusionRefusal, readCardExclusions } from "./core/cardRecipients";
+import { placeholderInstructorIds } from "./core/smartImport";
+import { termChronologyServer } from "./core/ordering";
+import { publicPageNonce } from "./core/publicPages";
+import { planBadgesFor, sheetSidesBySection } from "./planBadgeShared";
+import { pushHooks } from "./pushRoutes";
+import { serveRequestCard } from "./routes/publicRequestRoutes";
+import { instructorRequestPreviewPage } from "./pages/instructorRequestPage";
+import { followUpState, reminderTargets } from "../utils/cardRecipients";
+import { previewCardRequest } from "../utils/cardPreview";
+import { latestRequestByInstructor } from "../utils/requestReissue";
+import { linkMode } from "../utils/linkMode";
+import { requestItemFromRow } from "../utils/instructorRequestItems";
+import { normalizeInstructorDeadline } from "../utils/instructorRequestWindows";
+import { isTrainingAssistant } from "../utils/taConversion";
+import { byCourseNumber } from "../utils/sheetMembership";
 
 const scopeOf = (source: any) => ({ collegeId: Number(source?.collegeId || 0), sectionId: Number(source?.sectionId || 0), termId: Number(source?.termId || 0) });
 
@@ -49,19 +50,32 @@ app.get("/api/instructor-requests/course-defaults", requirePermission(7), async 
   const { collegeId, sectionId, termId } = scopeOf(req.query);
   if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
   const family = await staffFamilyScopes(collegeId, sectionId);
-  const [catalogue, history, terms, allCourses, instructors] = await Promise.all([
-    instructorRequestSectionCourses(sectionId),
+  /* الكتالوجُ من عائلة القسم بمواقعها الشقيقة — النطاقُ نفسُه الذي تعرضه بطاقةُ الأستاذ (instructorRequestDepartmentScopes)،
+     فلا يُخفي اختيارٌ خاص مقرراً في موقعٍ شقيق لم يُعرض في الورقة. */
+  const scopes = await instructorRequestDepartmentScopes({ AdSectionId: sectionId } as InstructorRequest);
+  const [catalogues, history, terms, allCourses, instructors] = await Promise.all([
+    Promise.all([...new Set(scopes.map(scope => scope.sectionId))].map(async id => [id, await instructorRequestSectionCourses(id)] as const)),
     Promise.all(family.map(scope => Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId }))),
     Repository.getTerms(),
     Repository.getCourses(),
     Repository.getInstructors(),
   ]);
-  const courses = (catalogue as any[]).filter(row => Number(row.AdCollegeId) === collegeId)
-    .map(row => ({ id: Number(row.AdCourseId), name: String(row.CourseName || ""), code: String(row.CourseCode || "") })).filter(row => row.id)
+  const catalogueOf = new Map(catalogues);
+  const seen = new Set<number>();
+  const courses = scopes.flatMap(scope => ((catalogueOf.get(scope.sectionId) || []) as any[])
+    .filter(row => Number(row.AdSectionId) === scope.sectionId && Number(row.AdCollegeId) === scope.collegeId)
+    .map(row => ({ id: Number(row.AdCourseId), name: String(row.CourseName || row.AdCourseName || "").trim(), code: String(row.CourseCode || row.AdCourseCode || "").trim(),
+      collegeId: scope.collegeId, collegeName: scope.collegeName, sectionId: scope.sectionId })))
+    .filter(row => row.id && row.name && !seen.has(row.id) && Boolean(seen.add(row.id)))
     .sort(byCourseNumber((course: { code: string; name: string }) => course.code, course => course.name));
-  const ids = courses.map(course => course.id);
-  const [sides, badges] = await Promise.all([sheetSidesFor(sectionId, ids), planBadgesFor(ids.map(courseId => ({ courseId, sectionId })))]);
-  const planLabel = ids.map(id => badges[`${sectionId}:${id}`]).find(Boolean) || "";
+  /* جهةُ الصحيفة ووسمُها لكل موقعٍ بقسمه (sheetSidesBySection): المصدرُ نفسُه لوسم «صحيفة 2026» في البطاقة. */
+  const bySection = new Map<number, number[]>();
+  for (const course of courses) bySection.set(course.sectionId, [...(bySection.get(course.sectionId) || []), course.id]);
+  const [sidesBySection, badges] = await Promise.all([
+    sheetSidesBySection([...bySection].map(([sid, courseIds]) => ({ sectionId: sid, courseIds }))),
+    planBadgesFor(courses.map(course => ({ courseId: course.id, sectionId: course.sectionId }))),
+  ]);
+  const planLabel = courses.map(course => badges[`${course.sectionId}:${course.id}`]).find(Boolean) || "";
   /* «درّسه» = فصلٌ أسبق بالتسلسل الزمني في عائلة القسم (القاعدةُ نفسُها في «من يدرّس كل مقرر»). */
   const target = (terms as any[]).find(row => Number(row.AdTermId) === termId);
   const rank = termChronologyServer(target);
@@ -81,7 +95,7 @@ app.get("/api/instructor-requests/course-defaults", requirePermission(7), async 
     if (!list.some(entry => entry.id === courseId)) list.push({ id: courseId, name: courseName.get(courseId) || String(row.AdCourseName || "") });
   }
   res.setHeader("Cache-Control", "no-store");
-  res.json({ courses: courses.map(course => ({ ...course, side: sides?.[course.id] || null })), planLabel, taught });
+  res.json({ courses: courses.map(course => ({ ...course, side: sidesBySection.get(course.sectionId)?.[course.id] || null })), planLabel, taught });
 });
 
 /* ── المعاينة ─────────────────────────────────────────────────────────────── */
@@ -107,22 +121,21 @@ app.get("/api/instructor-requests/preview", requirePermission(7), async (req: Au
   const chosen = rawIds === undefined ? undefined : rawIds === "all" || !rawIds ? null
     : [...new Set(rawIds.split(",").map(Number).filter(id => Number.isSafeInteger(id) && id > 0))].slice(0, 400);
   const closesAt = normalizeInstructorDeadline(String(req.query.closesAt || "")) || new Date(Date.now() + 7 * 86400000).toISOString();
-  const held = latestCards(requests).get(instructorId);
+  /* الطلبُ الذي يحكم به الإصدار: الأحدث، إلا أن طلباً قدّمه أو قيد المراجعة يسبقه (كما في /issue). */
+  const own = requests.filter(row => Number(row.AdInstructorId) === instructorId);
+  const held = latestCards(own.filter(row => row.status === "submitted" || row.status === "in-review")).get(instructorId) || latestCards(own).get(instructorId);
   const courseName = new Map((courses as any[]).map(row => [Number(row.AdCourseId), String(row.CourseName || "")]));
   const collegeNameById = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
   const now = new Date().toISOString();
-  /* بطاقتُه القائمة إن كانت، بالصفة والموعد والمقررات التي ستُرسل؛ وإلا بطاقةٌ تُبنى في الذاكرة كما يبنيها الإصدار. لا يُحفظ شيء. */
-  const request: InstructorRequest = held ? {
-    ...held, linkMode: mode, window: { opensAt: held.window?.opensAt || now, closesAt },
-    offeredCourseIds: chosen === undefined ? held.offeredCourseIds ?? null : chosen,
-  } : {
+  /* بقرار الإصدار نفسه (reissueMove): ينتظر القسمَ ← كما هو؛ لم يُرسل ← بالموعد الجديد؛ ثُبّت أو لا طلب ← بطاقةٌ جديدة «أُرسل». لا يُحفظ شيء. */
+  const { request } = previewCardRequest(held, () => ({
     id: "preview", AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, AdInstructorId: instructorId,
     linkId: "preview", linkMode: mode, window: { opensAt: now, closesAt }, source: "draft", status: "sent",
     offeredCourseIds: chosen ?? null,
     items: (termRows as any[]).filter(row => Number(row.AdInstructorId) === instructorId)
       .map(row => requestItemFromRow(row, courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), collegeNameById)),
     timeline: [], createdAt: now,
-  } as InstructorRequest;
+  } as InstructorRequest), { mode, closesAt, now, offered: chosen });
   await serveRequestCard(req, res, { link: { id: "preview" }, request }, true);
 });
 
@@ -136,7 +149,7 @@ app.get("/api/instructor-requests/preview-page", requirePermission(7), async (re
     ...(typeof req.query.courseIds === "string" ? { courseIds: req.query.courseIds.slice(0, 4000) } : {}),
     ...(typeof req.query.closesAt === "string" ? { closesAt: req.query.closesAt.slice(0, 40) } : {}) });
   res.setHeader("Cache-Control", "no-store");
-  res.type("text/html; charset=utf-8").send(instructorRequestPage("preview", publicPageNonce(res), "", {
+  res.type("text/html; charset=utf-8").send(instructorRequestPreviewPage(publicPageNonce(res), {
     api: `/api/instructor-requests/preview?${params}`, name: String(person?.AdInstructorName || "الأستاذ"),
   }));
 });

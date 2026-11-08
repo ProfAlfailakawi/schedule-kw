@@ -2,6 +2,9 @@
  * ── ملاحظات المالك 2026-11-05: 5، 13، 14، 16، 27 ───────────────────────────
  */
 import fs from "fs";
+import { runInNewContext } from "node:vm";
+import { STUDENT_HOME_SCRIPT } from "../src/server/studentHomePage";
+import { parseClock, simulateRegistration, type SimInput } from "../src/utils/registrationSim";
 import { actorMaySign } from "../src/utils/seats";
 import { cleanTravelPolicy, defaultTravelPolicy, travelRuleFor } from "../src/utils/campusTravelPolicy";
 import { DEFAULT_STUDENT_UNIT_CAP, STUDENT_UNIT_CAP_MAX, STUDENT_UNIT_CAP_MIN, UNIVERSITY_UNIT_CAP_DOC, studentUnitCapOf, studentUnitCapProblem } from "../src/utils/studentUnitCap";
@@ -46,7 +49,8 @@ check(/app\.put\("\/api\/student-unit-cap",requireAuth,requireRootAdmin,/.test(r
 check(/app\.get\("\/api\/student-unit-cap",requireAuth,requireRootAdmin,/.test(reference), "القراءة في الإدارة للمدير الرئيسي وحده");
 check(!/section-student-settings/.test(reference), "لا مسار لسقف القسم");
 check(/studentUnitCapProblem\(/.test(reference) && /auditChanges/.test(reference.slice(reference.indexOf('"/api/student-unit-cap"'))), "الخادم يتحقق من الحدود ويكتب في سجل التدقيق");
-check(UNIVERSITY_UNIT_CAP_DOC.collection === "universityStudentSettings" && !/sectionStudentSettings/.test(door) && /UNIVERSITY_UNIT_CAP_DOC/.test(door), "مساري يقرأ السقف الجامعي ويتجاهل سقف القسم");
+const simData = read("src/server/simulationData.ts");
+check(UNIVERSITY_UNIT_CAP_DOC.collection === "universityStudentSettings" && !/sectionStudentSettings/.test(door + simData) && /UNIVERSITY_UNIT_CAP_DOC/.test(simData) && /universityUnitCap\(\)/.test(door), "مساري يقرأ السقف الجامعي ويتجاهل سقف القسم");
 check(!fs.existsSync("src/components/StudentUnitCapField.tsx") && !/StudentUnitCap|unit-cap-field/.test(read("src/components/ScheduleTransfer.tsx")), "لا أداة للسقف في «تخطيط الشعب»");
 check(/StudentUnitCapSetting/.test(read("src/components/Terms.tsx")) && /rootAdmin/.test(read("src/components/Terms.tsx")), "الأداة في «البيانات الأكاديمية» ← الفصول، للمدير الرئيسي");
 const advice = (maxUnits?: number) => adviseStudent({
@@ -57,6 +61,49 @@ check(advice().target === 15, "بلا سقف يبقى ١٥");
 check(advice(21).target === 21, "سقف الجامعة يرفع الاقتراح");
 check(advice(9).target === 9, "سقفٌ دون ١٢ لا يُرفع إلى ١٢");
 check(/units > unitCap/.test(door), "الحفظ يقرأ السقف الجامعي");
+
+/* 14ب — مراجعة #423: سقف 9 يحكم التذاكر وكل مسار حفظ بلا اختيار صريح. */
+{
+  const credit = new Map([1, 2, 3, 4, 5].map(id => [id, 3] as [number, number]));
+  const input: SimInput = {
+    students: [{ fp: "a", planId: "p", passed: [], assessable: true, remainingUnits: 15 }, { fp: "w", planId: "p", passed: [], assessable: true, remainingUnits: 15, wishes: { targetUnits: 15, courseIds: [], constraints: {} } }],
+    offerings: [1, 2, 3, 4, 5].map((id, i) => ({ id: `${id}|01`, courseId: id, code: "01", collegeId: 1, sectionId: 11, capacity: 10, slots: [{ day: i, start: parseClock("08:00")!, end: parseClock("09:00")! }] })),
+    plans: [{ planId: "p", courseIds: [1, 2, 3, 4, 5], hasApprovedRules: true, rules: [1, 2, 3, 4, 5].map(courseId => ({ courseId, level: 1, kind: "compulsory" as const })), groups: [] }],
+    credit, rounds: 1, maxUnits: 9,
+  };
+  for (const assessCapacity of [true, false]) {
+    const tickets = simulateRegistration({ ...input, assessCapacity }).tickets;
+    check(tickets.length === 2 && tickets.every(t => t.plans.every(plan => plan.units <= 9)) && tickets.every(t => t.plans[0].units === 9), `التذاكر لا تتجاوز سقف 9 (${assessCapacity ? "تحليل السعة" : "الرغبات"})`);
+  }
+  check(simulateRegistration({ ...input, maxUnits: undefined, assessCapacity: true }).tickets[0].plans[0].units === 15, "بلا سقف: 15 كما كان");
+  check(/const maxUnits = await universityUnitCap\(\)/.test(simData) && /rounds, maxUnits \}/.test(simData) && !/targetUnits: 15,/.test(simData), "التشغيل يمرّر السقف الجامعي، ولا 15 ثابتة لغير المشاركين");
+
+  const fnOf = (name: string) => {
+    const begin = STUDENT_HOME_SCRIPT.indexOf("function " + name + "(");
+    const end = STUDENT_HOME_SCRIPT.indexOf("\nfunction ", begin + 1);
+    if (begin < 0) throw new Error("لا دالة " + name);
+    return STUDENT_HOME_SCRIPT.slice(begin, end < 0 ? undefined : end);
+  };
+  const sent: any[] = [];
+  const button = { disabled: false, addEventListener() {} };
+  const cx: Record<string, any> = {
+    S: { state: { term: { id: 7 }, profile: { wishes: null }, limits: { wishUnitsMin: 9, wishUnitsMax: 9, termUnits: 13.5 } } },
+    api: (_m: string, _u: string, body: any) => { sent.push(body); return { then() {} }; },
+    tkItems: () => [{ courseId: 1 }], kmCartIds: () => [1], toast() {}, renderWishes() {},
+    document: { getElementById: () => button },
+  };
+  runInNewContext([fnOf("lim"), fnOf("fitUnits"), fnOf("wishState"), fnOf("tkSaveWishes"), fnOf("kmSendWishes"),
+    "this.wishState=wishState;this.tkSaveWishes=tkSaveWishes;this.kmSendWishes=kmSendWishes;"].join("\n"), cx);
+  check(cx.wishState().targetUnits === 9, "نموذج الرغبات بلا رغبات: يبدأ من السقف 9 لا 15");
+  cx.tkSaveWishes({}, { disabled: false });
+  cx.kmSendWishes();
+  check(sent.length === 2 && sent.every(body => body.targetUnits === 9), "حفظ الرغبات من «جدولي» ومن «الخريطة» بلا اختيار صريح: 9 لا 15");
+  cx.S.state.profile.wishes = { termId: 7, targetUnits: 15, courseIds: [], constraints: {} };
+  cx.S.wDraft = null; sent.length = 0;
+  button.disabled = false; cx.tkSaveWishes({}, { disabled: false }); cx.kmSendWishes();
+  check(cx.wishState().targetUnits === 9 && sent.every(body => body.targetUnits === 9), "رغبةٌ محفوظة قبل خفض السقف تُقصّ إلى 9");
+  check(/fitUnits\(a\.units\)/.test(STUDENT_HOME_SCRIPT), "حفظ المقترح يقصّ بالدالة نفسها");
+}
 
 /* 16 */
 const picker = read("src/components/proposal/ProposalCoursePicker.tsx");

@@ -14,7 +14,7 @@ import { arabicMatchKey } from "./arabicText";
 export type PlanSide = "new" | "old" | "shared";
 export type CourseMark = "taught" | "match" | "fresh" | "plain";
 
-export interface DeptCourse { id: number; name: string; code?: string; side?: PlanSide | null }
+export interface DeptCourse { id: number; name: string; code?: string; side?: PlanSide | null; collegeId?: number; collegeName?: string }
 export interface TaughtCourse { id: number; name: string }
 
 /**
@@ -52,7 +52,8 @@ export function personCourseDefaults(courses: readonly DeptCourse[], taught: rea
   /* «مقابل» يُبحث عنه في القديمة كلّها (لا فيما درّسه وحده): الجديدُ بلا مقابلٍ قديم هو «جديد» حقاً. */
   const oldNames = new Set(courses.filter(course => course.side === "old").map(course => courseNameKey(course.name)).filter(Boolean));
   const old = (tabs ? courses.filter(course => inOld(course.side)) : courses)
-    .map(course => ({ id: course.id, mark: (taughtIds.has(course.id) ? "taught" : "plain") as CourseMark }));
+    /* المقررُ نفسُه في موقعٍ شقيق برقمٍ آخر: الاسمُ يكفي («درّسه» هناك = درّسه). */
+    .map(course => ({ id: course.id, mark: (taughtIds.has(course.id) || taughtNames.has(courseNameKey(course.name)) ? "taught" : "plain") as CourseMark }));
   const fresh = tabs ? courses.filter(course => inNew(course.side)).map(course => {
     const key = courseNameKey(course.name);
     const mark: CourseMark = taughtIds.has(course.id) || (key && taughtNames.has(key)) ? "match"

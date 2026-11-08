@@ -21,6 +21,7 @@ import { ensureCollegeRegistrars } from "../seatsRoutes";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { readDegreeRuleInput } from "../../utils/degreeRules";
 import { UNIVERSITY_UNIT_CAP_DOC, studentUnitCapOf, studentUnitCapProblem } from "../../utils/studentUnitCap";
+import { saveUniversityUnitCap } from "../simulationData";
 import { cleanTravelPolicy } from "../../utils/campusTravelPolicy";
 import { readTravelPolicy, saveTravelPolicy } from "../core/travelPolicy";
 import { canManageDeadline } from "../../utils/academicRoles";
@@ -177,8 +178,7 @@ app.get("/api/student-unit-cap",requireAuth,requireRootAdmin,async(_req:Authenti
 app.put("/api/student-unit-cap",requireAuth,requireRootAdmin,async(req:AuthenticatedRequest,res:Response)=>{
   const problem=studentUnitCapProblem(req.body?.maxUnits);
   if(problem){res.status(400).json({error:problem});return;}
-  const maxUnits=Number(req.body.maxUnits),before=studentUnitCapOf((await readUnitCapDoc())?.maxUnits);
-  await Repository.saveFeatureDoc(UNIVERSITY_UNIT_CAP_DOC.collection,UNIVERSITY_UNIT_CAP_DOC.id,{maxUnits,by:String(req.user?.Name||""),at:new Date().toISOString()});
+  const maxUnits=Number(req.body.maxUnits),{before}=await saveUniversityUnitCap(maxUnits,String(req.user?.Name||""));
   res.locals.auditEntity="سقف وحدات مساري";
   res.locals.auditChanges=`سقف وحدات الطالب في مساري: ${before} ← ${maxUnits}`;
   res.json({maxUnits});

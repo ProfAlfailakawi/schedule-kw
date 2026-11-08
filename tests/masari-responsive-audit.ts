@@ -64,6 +64,7 @@ const ctx: Record<string, any> = {
   AR: { day: "day", hour: "hour", unit: "unit", section: "section" },
 };
 runInNewContext([
+  jsFn("lim", "fitUnits"), jsFn("fitUnits", "esc"),
   jsFn("tkItems", "tkOptions"),
   jsFn("tkPlanFit", "tkPlanCompare"),
   jsFn("tkPlanCompare", "tkGrid"),
@@ -89,5 +90,30 @@ const results = ["A", "B", "C"].map((current) => {
   return choices.map((m) => m[1] + ":" + m[3]).join(",");
 });
 assert.equal(new Set(results).size, 1, "النقاط ومواقع البطاقات لا تقفز عند التنقل بين أ وب وج");
+
+/* هدفُ الوحدات في تقييم الخطط وشريطُ الخريطة يأتيان من السقف الجامعي لا من 15 ثابتة. */
+{
+  const untimed = (n: number) => ({ label: "A", items: mkItems(1, n).map(item => ({ ...item, timesVisible: false })) });
+  const seven = untimed(7);
+  ctx.S.state = { profile: { wishes: null }, term: { id: 1 }, limits: { wishUnitsMin: 12, wishUnitsMax: 21 } };
+  assert.equal(ctx.tkPlanFit(seven).score, 100, "بلا رغبات: الهدف هو السقف 21، فخطة 21 وحدة كاملة");
+  ctx.S.state.limits = { wishUnitsMin: 9, wishUnitsMax: 9 };
+  assert.equal(ctx.tkPlanFit(untimed(3)).score, 100, "سقف 9: خطة 9 وحدات هي الهدف");
+  ctx.S.state.profile.wishes = { termId: 1, targetUnits: 15, constraints: {} };
+  assert.equal(ctx.tkPlanFit(untimed(3)).score, 100, "رغبة 15 محفوظة قبل خفض السقف تُقصّ إلى 9");
+  const bar: any = { hidden: true, innerHTML: "" };
+  const mx: Record<string, any> = {
+    S: { tab: "plan", view: "home", state: { profile: { wishes: null }, term: { id: 1 }, limits: { wishUnitsMin: 12, wishUnitsMax: 21 } } },
+    kmCartIds: () => [1, 2, 3, 4, 5], kmUnits: () => 15, kmCanWish: () => true, ic: () => "", countOf: (n: number, u: string) => n + " " + u, AR: { unit: "وحدة", course: "مقرر" },
+    kmSendWishes() {}, document: { getElementById: (id: string) => (id === "kbar" ? bar : { addEventListener() {} }), querySelector: () => null },
+  };
+  const mapFn = (name: string) => { const b = STUDENT_HOME_SCRIPT.indexOf("function " + name + "("); return STUDENT_HOME_SCRIPT.slice(b, STUDENT_HOME_SCRIPT.indexOf("\nfunction ", b + 1)); };
+  runInNewContext([mapFn("lim"), mapFn("fitUnits"), mapFn("kmBarUpdate")].join("\n"), mx);
+  mx.kmBarUpdate();
+  assert.ok(bar.innerHTML.includes("ضمن الحدّ (12 إلى 21)") && bar.innerHTML.includes("هدف رغباتك: 21 وحدة") && !bar.innerHTML.includes("12 إلى 15"), "شريط الخريطة يعرض المدى الحقيقي من السقف");
+  mx.S.state.limits = { wishUnitsMin: 9, wishUnitsMax: 9 };
+  mx.kmBarUpdate();
+  assert.ok(bar.innerHTML.includes("فوق 9 وحدة") && bar.innerHTML.includes("kb-meter over"), "سقف 9: 15 وحدة فوق السقف");
+}
 
 console.log("✓ مساري: العرض ثابت، النصوص غير مضغوطة، والخطط أ/ب/ج تتبدّل بثبات على الهاتف والحاسوب");

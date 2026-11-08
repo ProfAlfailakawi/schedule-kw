@@ -71,7 +71,7 @@ import { registerPdfImportRoutes } from "./src/server/routes/pdfImportRoutes";
 import { registerPlanningRoutes } from "./src/server/routes/planningRoutes";
 import { registerPublicCalendarRoutes } from "./src/server/routes/publicCalendarRoutes";
 import { registerPublicRequestRoutes } from "./src/server/routes/publicRequestRoutes";
-import { registerPublishCardsRoutes } from "./src/server/routes/publishCardsRoutes";
+import { registerPublishCardsRoutes } from "./src/server/publishCardsRoutes";
 import { registerPublicStaffRoutes } from "./src/server/routes/publicStaffRoutes";
 import { registerReferenceRoutes } from "./src/server/routes/referenceRoutes";
 import { registerReportsRoutes } from "./src/server/routes/reportsRoutes";

@@ -64,6 +64,8 @@ export default function PersonCoursesSheet({ name, payload, taught, initial, onA
   const toggle = (id: number) => setSelected(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const chosenIn = (rows: Array<{ id: number }>) => rows.filter(row => selected.has(row.id)).length;
   const newLabel = payload.planLabel || "الصحيفة الجديدة";
+  /* عائلةٌ بمواقع شقيقة: يُكتب موقعُ كل مقرر بجانبه، فلا يلتبس مقرران باسمٍ واحد. */
+  const campuses = new Set(payload.courses.map(course => course.collegeId).filter(Boolean)).size > 1;
   const summary = selectionSummary(payload, [...selected]);
 
   return createPortal(
@@ -104,7 +106,8 @@ export default function PersonCoursesSheet({ name, payload, taught, initial, onA
                   data-plan={defaults.tabs && tab === "new" ? "new" : "old"} data-mark={row.mark} onClick={() => toggle(row.id)} data-guide-ignore="ورقة مقررات البطاقة لشخص واحد — اختيار داخل الورقة، لا يرسل شيئاً">
                   <span className="pcs-box" aria-hidden="true">{on ? <Check /> : null}</span>
                   <span className="pcs-name"><bdi className="pcs-code">{String(course?.code || "").replace(/\D/g, "").slice(-3)}</bdi> {course?.name}
-                    {defaults.tabs && tab === "new" ? <CourseTags courseId={row.id} /> : null}</span>
+                    {defaults.tabs && tab === "new" ? <CourseTags courseId={row.id} /> : null}
+                    {campuses && course?.collegeName ? <small className="pcs-campus">{course.collegeName}</small> : null}</span>
                   {mark ? <span className="pcs-mark" title={mark.label}><span aria-hidden="true">{mark.icon}</span>{mark.label}</span> : null}
                 </button>
               );

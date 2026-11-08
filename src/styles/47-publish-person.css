@@ -20,6 +20,7 @@
 .pcs-chip[aria-checked=true] .pcs-box{border-color:var(--accent);background:var(--accent);color:#fff}
 .pcs-name{flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.5}
 .pcs-code{font-size:.74rem;font-weight:700;color:var(--muted,#6b7280);font-variant-numeric:tabular-nums}
+.pcs-campus{display:block;font-size:.72rem;color:var(--muted,#6b7280)}
 .pcs-mark{display:inline-flex;align-items:center;gap:3px;flex:none;padding:1px 8px;border-radius:999px;background:var(--surface-2,#f4f5f2);font-size:.72rem;font-weight:700;color:var(--muted,#5b6660)}
 .pcs-chip[data-mark=fresh] .pcs-mark{background:#fff6dc;color:#8a6200}
 .pcs-chip[data-mark=match] .pcs-mark,.pcs-chip[data-mark=taught] .pcs-mark{background:var(--accent-soft);color:var(--accent)}

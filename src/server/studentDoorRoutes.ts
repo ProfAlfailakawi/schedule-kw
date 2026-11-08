@@ -19,7 +19,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { createHash, randomUUID } from "crypto";
 import type { Express, Request, Response, NextFunction } from "express";
 import { Repository } from "../db/repository";
-import { UNIVERSITY_UNIT_CAP_DOC, studentUnitCapOf, studentUnitFloorOf } from "../utils/studentUnitCap";
+import { studentUnitFloorOf } from "../utils/studentUnitCap";
 import { offeringStatesForTerm } from "./offeringStates";
 import { offeringBadge, offeringBlocked } from "../utils/courseOffering";
 import type { AdCourse, StudentNeed, StudentProfile, StudentWishes } from "../types";
@@ -31,7 +31,7 @@ import {
   AFTER_GRADUATION_DAYS, CODE_LENGTH, CODE_MAX_FAILURES, REMEMBER_DAYS, afterCodeFailure, codeProblem, expectedGraduation,
   lockState, planProgress, profileLifetime, resetLifetime, sanitizePassed, shouldTouch, unitsOf, RESET_COOLDOWN_DAYS, TYPICAL_TERM_UNITS, DEFAULT_TERM_UNITS, peerCourseCounts,
 } from "../utils/studentProfile";
-import { buildSimulationOfferings, ticketContext } from "./simulationData";
+import { buildSimulationOfferings, ticketContext, universityUnitCap } from "./simulationData";
 import { readTravelPolicy } from "./core/travelPolicy";
 import { auditSimOfferings, SIM_UNITS_DEFAULT } from "../utils/registrationSim";
 import { verifiedUnresolvableStudentConflicts } from "../utils/studentCaseConflict";
@@ -78,11 +78,6 @@ export interface StudentDoorDeps {
 const PROOF_MAX_BYTES = 14 * 1024 * 1024;
 const GRADUATE_REASONS = ["field-conflict", "field-prerequisite-conflict"] as const;
 
-/** وحداتُ الطالب في فصله: من ١٢ إلى السقف الجامعي (قرار المالك 2026-11-08)، إعدادٌ واحدٌ للجميع؛ سقفُ القسم القديم لا يُقرأ. */
-export async function universityUnitCap(): Promise<number> {
-  const doc = await Repository.getFeatureDoc<{ maxUnits?: number }>(UNIVERSITY_UNIT_CAP_DOC.collection, UNIVERSITY_UNIT_CAP_DOC.id).catch(() => null);
-  return studentUnitCapOf(doc?.maxUnits);
-}
 const SESSION_HOURS = 12;
 
 type Door = { fingerprint: string; profile: StudentProfile };

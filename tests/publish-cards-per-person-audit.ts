@@ -13,6 +13,7 @@ import { waitForDemoSeed } from "./helpers/demoSeed";
 import { courseNameKey, personCourseDefaults, selectionCounts } from "../src/utils/personCourseDefaults";
 import { normalizeOfferedCourses, offeredBreach, offeredCourseSet } from "../src/utils/offeredCourses";
 import { cardExclusions, followUpState, reminderTargets } from "../src/utils/cardRecipients";
+import { previewCardRequest } from "../src/utils/cardPreview";
 
 const PORT = Number(process.env.CARDS_FLOW_PORT || 3672);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -53,6 +54,9 @@ function pureChecks() {
   check(JSON.stringify([...d.selected].sort((a, b) => a - b)) === JSON.stringify([1, 3, 11]), "N المختارُ ابتداءً: ما درّسه ومقابلُه", d.selected);
   const counts = selectionCounts(courses, d.selected);
   check(counts.total === 3 && counts.fresh === 2, "N الملخّص: 3 مقررات · 2 من الجديدة", counts);
+  /* الموقع الشقيق: المقررُ نفسُه باسمه برقمٍ آخر في القديمة يُعدّ «درّسه». */
+  const sibling = personCourseDefaults([...courses, { id: 31, name: "أصول التربية", side: "old" as const }], [{ id: 1, name: "أصول التربية" }]);
+  check(mark(sibling.old, 31) === "taught" && sibling.selected.includes(31), "N المقررُ نفسُه في موقعٍ شقيق (رقمٌ آخر) يُعدّ «درّسه»");
   const flat = personCourseDefaults([{ id: 1, name: "أ" }, { id: 2, name: "ب" }], [{ id: 2, name: "ب" }]);
   check(!flat.tabs && !flat.fresh.length && flat.selected.join() === "2", "N قسمٌ بلا صحيفتين: قائمةٌ واحدة");
 
@@ -66,6 +70,20 @@ function pureChecks() {
   check(offeredBreach(null, [{ action: "add", courseId: 9 }], () => undefined) === -1, "O وبلا قيدٍ لا رفض");
   const norm = normalizeOfferedCourses({ 5: [3, 3, "4", -1], 6: [], 99: [1], x: "y" }, new Set([5, 6]));
   check(JSON.stringify([...norm]) === JSON.stringify([[5, [3, 4]]]), "O ما يصل يُنقّى: للمختارين وحدهم، بلا تكرار، والفارغةُ بلا قيد", [...norm]);
+
+  /* ── P: المعاينةُ بقرار الإصدار نفسه (reissueMove) ── */
+  const freshReq = () => ({ id: "preview", status: "sent", items: [{ rowId: 1, action: "keep" }], timeline: [], window: { opensAt: "", closesAt: "" } }) as any;
+  const opts = { mode: "edit" as const, closesAt: "2026-12-01T20:00:00.000Z", now: "2026-11-08T00:00:00.000Z", offered: [7] };
+  const settled = { id: "r1", status: "settled", submittedAt: "x", items: [{ rowId: 1, action: "change", decision: { state: "fixed" } }], window: { opensAt: "a", closesAt: "b" } } as any;
+  const pv1 = previewCardRequest(settled, freshReq, opts);
+  check(pv1.move === "fresh" && pv1.request.status === "sent" && pv1.request.id === "preview" && !pv1.request.items.some((it: any) => it.decision) && pv1.request.window.closesAt === opts.closesAt && JSON.stringify(pv1.request.offeredCourseIds) === "[7]",
+    "P طلبٌ ثُبّت: المعاينةُ بطاقةٌ جديدة «أُرسل» بلا قرارات — كما يُصدرها «أرسل»", pv1);
+  const waiting = { id: "r2", status: "submitted", submittedAt: "x", items: [{ rowId: 1, action: "change", decision: null }], window: { opensAt: "a", closesAt: "old" }, linkMode: "edit" } as any;
+  const pv2 = previewCardRequest(waiting, freshReq, opts);
+  check(pv2.move === "keep" && pv2.request.id === "r2" && pv2.request.status === "submitted" && pv2.request.window.closesAt === "old", "P طلبٌ ينتظر القسم: كما هو، وموعدُه لا يُمسّ", pv2);
+  const unsent = { id: "r3", status: "sent", items: [], window: { opensAt: "a", closesAt: "old" } } as any;
+  const pv3 = previewCardRequest(unsent, freshReq, { ...opts, offered: undefined });
+  check(pv3.move === "extend" && pv3.request.id === "r3" && pv3.request.window.closesAt === opts.closesAt && pv3.request.offeredCourseIds === null, "P طلبٌ لم يُرسل: بالموعد الجديد");
 
   /* ── X: المستبعَدون ── */
   const ex = cardExclusions({
@@ -179,6 +197,12 @@ async function liveChecks() {
     "O بطاقتُه لا تعرض إلا مقرراته", { courses: (card.json.courses || []).map((c: any) => c.id), offerings: (card.json.availableOfferings || []).map((o: any) => o.courseId) });
   const cardB = await http("GET", `/api/public/request/${reqB.linkId}`);
   check(cardB.status === 200 && (cardB.json.courses || []).length > allowed.length, "O وبطاقةُ زميله بكل المقررات", (cardB.json.courses || []).length);
+  /* الورقةُ من عائلة القسم نفسها التي تعرضها البطاقة (المواقع الشقيقة): اختيارٌ خاص لا يُخفي مقررَ موقعٍ شقيق لم يُعرض. */
+  const sheetIds = new Set<number>(defaults.courses.map((c: any) => Number(c.id)));
+  const cardIds = [...new Set<number>((cardB.json.courses || []).map((c: any) => Number(c.id)))];
+  const cardColleges = new Set((cardB.json.courses || []).map((c: any) => Number(c.collegeId)));
+  check(cardIds.every(id => sheetIds.has(id)), "O ورقةُ المقررات تشمل كل مقررات البطاقة في كل مواقع العائلة", { missing: cardIds.filter(id => !sheetIds.has(id)), colleges: [...cardColleges] });
+  check(defaults.courses.every((c: any) => Number(c.collegeId) > 0 && typeof c.collegeName === "string"), "O ولكل مقررٍ موقعُه");
   if (outside) {
     const opt = (cardB.json.courses || []).find((c: any) => Number(c.id) === outside) || { collegeId: 1, sectionId: 1 };
     const breach = await http("POST", `/api/public/request/${reqA.linkId}`, { requestRevision: reqA.requestRevision ?? 0,

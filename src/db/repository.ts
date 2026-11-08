@@ -7151,6 +7151,8 @@ export const Repository = {
     }
     return (db.registrationRuns || []).find(row => row.id === String(termId));
   },
+  /** يُقدِّم الرادار المحفوظ حين يتغيّر مُدخَلٌ لا تراه أختامُه الزمنية (كالسقف الجامعي لوحدات الطالب). */
+  markRegistrationRunsStale: (termId?: number): Promise<void> => markRegistrationRunsStale(termId),
   getRegistrationTicket: async (termId: number, fingerprint: string): Promise<RegistrationTicket | undefined> => {
     if (!fingerprint) return undefined;
     const id = `${termId}_${fingerprint}`;
