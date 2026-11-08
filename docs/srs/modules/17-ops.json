@@ -1476,6 +1476,14 @@
         {
           "ar": "بعد التحضير لكل صفة في مبدّل الصفات قائمة غير فارغة في الشاشات الأساسية.",
           "en": "After preparation, every role in the switcher has non-empty lists on its main screens."
+        },
+        {
+          "ar": "مشهد العرض: أول مقرر في قائمة جدول الديمو وفي موعده تماماً مقرران آخران (من مستواه ومن مستوى آخر)؛ وزوجا مقرنات في الصحيفة الفعّالة أحدهما بلا شعبة بديلة والآخر له بديلة فيسكت التنبيه؛ ومثال «تفتح» وورشة عامة خارج الصحائف؛ وكلية تجريبية في حرم آخر يلي موعدُها موعداً في الحرم الرئيسي بنصف ساعة وسياسة تنقّل 60 دقيقة للأزواج الثلاثة؛ وكل ذلك يُضاف بلا مساس بما وُزّع، فكل قاعة وأستاذ فيه حرّ في ساعته.",
+          "en": "The showcase scene: the first course in the demo schedule list has exactly at its time two other courses (one of its level and one of another); two co-requisite pairs in the active sheet, one with no alternative section and one with an alternative so the note stays silent; an «unlocks» example and a general workshop outside the sheets; a demo college on another campus whose meeting follows a main-campus meeting by half an hour, with a 60-minute travel policy for the three pairs; all added without touching what was placed, so every hall and instructor in it is free at its hour."
+        },
+        {
+          "ar": "أنواع القاعات في الديمو: «قاعة تدريسية» و«مختبر حاسوب» عامّان لكل الأقسام، و«ورشة» و«استوديو إنتاج» لقسم الديمو وحده.",
+          "en": "Demo hall types: «lecture hall» and «computer lab» are general for every department, and «workshop» and «production studio» belong to the demo department alone."
         }
       ],
       "evidence": {
@@ -1485,11 +1493,13 @@
           "src/server/demoPreviousTermSeed.ts",
           "src/server/demoSectionRequestsSeed.ts",
           "src/server/core/demo.ts",
-          "src/db/demoSandbox.ts"
+          "src/db/demoSandbox.ts",
+          "src/db/demoShowcase.ts"
         ],
         "tests": [
           "tests/demo-every-role-audit.ts",
-          "tests/demo-cases-audit.ts"
+          "tests/demo-cases-audit.ts",
+          "tests/demo-showcase-audit.ts"
         ]
       }
     },

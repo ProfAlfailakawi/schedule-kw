@@ -1078,6 +1078,10 @@
         {
           "ar": "مسح 66 شاشة لكل الأدوار والصفحات العامة بعرض 390 و768 بلمس: صفر هدفٍ دون 44×44 (كان 322 و881).",
           "en": "A sweep of 66 screens across all roles and public pages at 390 and 768 with touch: zero targets under 44×44 (was 322 and 881)."
+        },
+        {
+          "ar": "لا تأخذ طبقة لمسٍ نقرةَ جارها: عين مفتاح الألوان وسهم التمرير تمتدّان في الفجوة وحدها، وأزرار التوقيع في شريط الاعتماد تأخذ نصف الفجوة بين جارين أيقونيين فيبلغ كلٌّ منها 44 («سحب توقيعي» كان 42)، وعدّاد الإشعارات فوق زرّ البحث الشامل لا يأخذ نقرته؛ والرسم والمسافات والفأرة على سطح المكتب كما هي.",
+          "en": "No touch layer takes its neighbour's tap: the colour-key eye and the scroll arrow extend into the gap only, the signature buttons in the approval bar take half the gap between icon neighbours so each reaches 44 («withdraw my signature» was 42), and the notification counter over the global search button does not take its tap; drawing, spacing and the desktop mouse are unchanged."
         }
       ],
       "evidence": {

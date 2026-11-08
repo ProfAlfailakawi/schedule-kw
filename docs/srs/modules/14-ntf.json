@@ -1603,16 +1603,22 @@
         {
           "ar": "حدث مختلط النوع يُلخَّص بأيقونات وأعدادها.",
           "en": "A mixed-kind batch is summarised as icons with counts."
+        },
+        {
+          "ar": "«ذكّر من لم يرد» في النشر يدفع إلى كرت كل من لم يرد (ممن فعّل تنبيهاته فيه) «🔔 تذكير بطلب جدولك» بنص «لم يصل ردّك بعد · يُغلق <اليوم والتاريخ>» ووسم card-reminder؛ ولا يُدفع شيء في الديمو.",
+          "en": "«Remind those who have not replied» in publishing pushes to each non-replier's card (where notices are enabled) «🔔 a reminder about your schedule request» with the body «your reply has not arrived yet · closes <day and date>» and the card-reminder tag; nothing is pushed in the demo."
         }
       ],
       "evidence": {
         "code": [
           "src/server/pushRoutes.ts",
           "src/server/pushMessages.ts",
+          "src/server/pushMessages.ts#cardReminderMessage",
           "src/server/pushCard.ts"
         ],
         "tests": [
-          "tests/web-push-audit.ts"
+          "tests/web-push-audit.ts",
+          "tests/publish-cards-per-person-audit.ts"
         ]
       }
     },

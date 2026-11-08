@@ -34,18 +34,19 @@
         {"ar": "طول الموعد مقبول إذا ساوى k محاضرات بطول اليوم مع فاصل 10 دقائق بينها، وk لا يتجاوز ساعات المقرر، أو ساوى طول كتلةٍ من المكتبة.", "en": "A length is accepted when it equals k lectures of the day's length with 10-minute gaps, k not exceeding the course hours, or equals a library block length."},
         {"ar": "البداية تُقارن بسلّم اللائحة: خطوة 60 دقيقة للأحد والثلاثاء والخميس و90 دقيقة للاثنين والأربعاء بدءاً من 08:00؛ والخروج عنه تنبيهٌ لا يمنع.", "en": "The start is compared with the regulation ladder: 60-minute steps on Sun/Tue/Thu and 90-minute steps on Mon/Wed from 08:00; a start off the ladder is a non-blocking note."},
         {"ar": "أيام الشعبة تُطابق نمطاً في المكتبة لساعات المقرر: تطابقاً تاماً، أو كتلة يومٍ واحد، أو الأطوال نفسها على أيام غير متجاورة.", "en": "The section's days must match a library pattern for the course hours: exactly, as a one-day block, or with the same lengths on non-adjacent days."},
+        {"ar": "إن وافقت الأيام نمطاً فطول الموعد يجب أن يساوي طول النمط لتلك الأيام، وإلا رُفض بسطرٍ يقول النهاية الصحيحة؛ إلا موعداً قائماً لم يتغيّر شكله، وساعاتٍ لا نمط لها في المكتبة.", "en": "When the days match a pattern, the appointment length must equal that pattern's length for those days, otherwise it is refused with a line naming the correct end; an existing appointment whose shape is unchanged, and hours with no library pattern, are exempt."},
         {"ar": "تُجمع دقائق الأسبوع للشعبة (الموعد وبقية لقاءاتها المختلفة، دون عدّ النسخة المطابقة مرتين) وتُقارن بالسقف.", "en": "The section's weekly minutes (this row plus its other distinct meetings, never counting an identical copy twice) are summed and compared with the ceiling."}
       ],
       "inputs": {"ar": "أيام الموعد ووقته، ساعات المقرر، لقاءات الشعبة الأخرى.", "en": "The appointment's days and times, the course hours, and the section's other meetings."},
-      "output": {"ar": "رسالة رفضٍ للطول أو للسقف، أو جملة تنبيهٍ للسلّم والنمط، أو لا شيء.", "en": "A refusal message for length or ceiling, a note for ladder or pattern, or nothing."},
+      "output": {"ar": "رسالة رفضٍ للطول أو للنمط أو للسقف، أو جملة تنبيهٍ للسلّم، أو لا شيء.", "en": "A refusal message for length, pattern or ceiling, a note for the ladder, or nothing."},
       "guarantee": {"ar": "قواعد ثابتة بأرقام اللائحة؛ لا يغيّرها تاريخ القسم ولا تُقدَّم عادةٌ على اللائحة.", "en": "Fixed rules using the regulation's figures; department history never overrides them."},
       "numbers": [
         {"ar": "50 دقيقة للأحد والثلاثاء والخميس، و80 دقيقة للاثنين والأربعاء، وفاصل 10 دقائق.", "en": "50 minutes on Sun/Tue/Thu, 80 minutes on Mon/Wed, 10-minute gap."},
         {"ar": "سقف دقائق الأسبوع = round(الساعات × 50 × 1.1).", "en": "Weekly-minutes ceiling = round(hours × 50 × 1.1)."},
         {"ar": "كتلة الاثنين والأربعاء المزدوجة تُقبل بفارق 5 دقائق (08:00–10:50).", "en": "The Mon/Wed double block is accepted 5 minutes short (08:00–10:50)."}
       ],
-      "evidence": {"code": ["src/utils/scheduleRegulations.ts#lectureLengthProblem", "src/utils/scheduleRegulations.ts#startLadderNote", "src/utils/scheduleRegulations.ts#meetingsMatchApprovedPattern", "src/utils/scheduleRegulations.ts#sectionWeeklyHours", "src/server/core/scheduleRules.ts#scheduleLengthIssue"], "tests": ["tests/lecture-length-audit.ts", "tests/approved-patterns-audit.ts", "tests/section-schedule-hours-audit.ts", "tests/pattern-library-audit.ts"]},
-      "requirements": ["FR-SCH-016", "FR-SCH-017", "FR-SCH-018"]
+      "evidence": {"code": ["src/utils/scheduleRegulations.ts#lectureLengthProblem", "src/utils/scheduleRegulations.ts#startLadderNote", "src/utils/scheduleRegulations.ts#meetingsMatchApprovedPattern", "src/utils/scheduleRegulations.ts#sectionWeeklyHours", "src/server/core/scheduleRules.ts#scheduleLengthIssue", "src/utils/appointmentRegulation.ts#patternLengthIssue"], "tests": ["tests/lecture-length-audit.ts", "tests/approved-patterns-audit.ts", "tests/section-schedule-hours-audit.ts", "tests/pattern-library-audit.ts", "tests/new-appointment-pattern-end-audit.ts"]},
+      "requirements": ["FR-SCH-016", "FR-SCH-017", "FR-SCH-018", "FR-SCH-068"]
     },
     {
       "id": "ALG-SCH-03",

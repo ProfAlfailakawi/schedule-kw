@@ -5,8 +5,9 @@
  *  ٢) كل ملف برمجي مراقَب تدّعيه وحدةٌ ما (ملفٌ جديد بلا وحدة يوقف الدمج).
  *  ٣) لقطة مسارات الخادم مطابقة (مسارٌ مضاف أو محذوف يوقف الدمج حتى تُحدَّث اللقطة ويُكتب متطلبه).
  *  ٤) أيقونات الوثيقة موجودة في lucide، والناتج النهائي بلا عبارة ممنوعة.
- *  ٥) ملفا PDF موجودان ويطابقان manifest.json (لا يُعبَث بهما). وإن كانا أقدم من المحتوى المكتوب فتنبيهٌ لا منع:
- *     PDF لقطةُ إصدار (حجمُه ~15MB فلا يدخل التاريخ مع كل تعديل)، والصفحة التفاعلية هي الحيّة.
+ *  ٥) ملفا PDF موجودان ويطابقان manifest.json (لا يُعبَث بهما)، وليسا أقدم من المحتوى المكتوب:
+ *     زرُّ PDF في الصفحة يفتحهما، فتغييرُ الوثيقة يجدّدهما في التغيير نفسه (npm run srs:pdf) وإلا وقف الدمج.
+ *  ٦) وفي طلبات الدمج: تغييرُ كود البرنامج يمسّ الوثيقة أيضاً، أو يصرّح أنه لا يغيّر ما تصفه (scripts/srs/pr-guard.mjs).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -46,7 +47,8 @@ if (model) {
   if (!fs.existsSync(manifestFile)) problems.push("لا docs/srs/pdf/manifest.json — شغّل npm run srs:pdf");
   else {
     const mf = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-    if (mf.hash !== model.hash) warnings.push(`ملفا PDF لقطةٌ أقدم من المحتوى المكتوب (${mf.hash} ← ${model.hash}، إصدار ${mf.version}). الصفحة التفاعلية حيّة دائماً؛ جدّد الملفين عند الإصدار بـ npm run srs:pdf.`);
+    /* زرُّ PDF في الصفحة يفتح هذين الملفين، فلا يُدمج تغييرٌ في الوثيقة ما لم يُجدَّدا معه (قرار المالك 2026-11-08). */
+    if (mf.hash !== model.hash) problems.push(`ملفا PDF أقدم من المحتوى المكتوب (${mf.hash} ← ${model.hash}، إصدار ${mf.version}). زر PDF يفتحهما، فجدّدهما في التغيير نفسه: npm run srs:pdf`);
     for (const l of ["ar", "en"]) {
       const f = path.join(PDF_DIR, `SRS-${l}.pdf`);
       if (!fs.existsSync(f)) { problems.push(`ناقص: docs/srs/pdf/SRS-${l}.pdf`); continue; }

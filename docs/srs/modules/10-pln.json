@@ -1981,6 +1981,10 @@
         {
           "ar": "الإرسال لا يحجز شعبة ولا قاعة.",
           "en": "Sending reserves no section and no hall."
+        },
+        {
+          "ar": "صفّ المقترح المنقول أو الجديد تُحسب نهايته من النمط المعتمد لساعات المقرر (والشكل الذي لم يتغيّر يبقى)، ونهاية تخالف طول النمط مانعة، وتاريخ المقرر لا يُعفيه من سقف الساعات كبوابة الحفظ.",
+          "en": "A moved or new proposal row has its end computed from the approved pattern for the course hours (an unchanged shape stays as is), an end not matching the pattern length is a blocker, and the course history does not exempt it from the hours ceiling, as at the save gate."
         }
       ],
       "evidence": {
@@ -2327,6 +2331,10 @@
         {
           "ar": "GET ta-trainees يعيد معرّفات المدرّبين فقط لوسم «تدريب»، لمن يحمل أحد الأذونات 3 أو 7 أو 8 أو 9 أو 10 أو 14 أو 16 أو 17 في نطاقه.",
           "en": "GET ta-trainees returns only trainee ids for the training tag, to holders of any of permissions 3, 7, 8, 9, 10, 14, 16 or 17 within scope."
+        },
+        {
+          "ar": "المقررات المسموحة لكل مدرّب تُختار من ورقة المقررات نفسها التي في بطاقة الأستاذ لكل شخص (تبويبا الصحيفة السابقة والجديدة، وما درّسه ومقابله والجديد)، و«اعتمد» يحفظها قبل الفتح مسودة وأثناءه فوراً.",
+          "en": "Each trainee's allowed courses are chosen in the same courses sheet as the per-person faculty card (the previous and new plan tabs, what was taught, its counterpart and new courses), and «apply» keeps them as a draft before opening and saves them at once during the phase."
         }
       ],
       "evidence": {
@@ -2337,7 +2345,9 @@
           "src/server/routes/offeringRoutes.ts#/api/ta-phase/allowed",
           "src/server/routes/offeringRoutes.ts#/api/ta-trainees",
           "src/server/routes/offeringRoutes.ts#dispatchTaWaves",
-          "src/utils/taPhase.ts#planWaves"
+          "src/utils/taPhase.ts#planWaves",
+          "src/components/TAPhasePanel.tsx",
+          "src/components/PersonCoursesSheet.tsx"
         ],
         "tests": [
           "tests/ta-phase-flow-audit.ts"

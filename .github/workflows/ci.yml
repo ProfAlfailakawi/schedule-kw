@@ -29,6 +29,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          # والدُ رأس الدمج يلزم حارسَ الوثيقة أدناه ليقارن ما غيّره الطلب وحده.
+          fetch-depth: 2
+
+      # طلبٌ يغيّر كود البرنامج يغيّر وثيقة المتطلبات معه، أو يصرّح «[srs: بلا تغيير]» بسببٍ مكتوب.
+      - name: SRS pull-request guard
+        if: github.event_name == 'pull_request'
+        run: node scripts/srs/pr-guard.mjs HEAD^1
 
       - name: Deploy target guard
         run: node tests/deploy-target-guard.mjs

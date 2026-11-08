@@ -1652,6 +1652,10 @@
       ],
       "acceptance": [
         {
+          "ar": "التبويبات العشر لفصلٍ مفتوح صفّان متساويان (5 فوق و5 تحت) على الشاشة الواسعة واللوح، وعمودان متساويان في 5 صفوف كاملة على الهاتف (760 بكسل فأقل)، فلا تبويب يتيم في سطر وحده؛ وتبويبا الفصل المنتهي في صفٍّ واحد.",
+          "en": "The ten tabs of an open term form two equal rows (5 above and 5 below) on wide screens and tablets, and two equal columns of 5 full rows on phones (760 pixels or less), so no tab is alone on a line; the two tabs of an ended term sit in one row."
+        },
+        {
           "ar": "فصل منتهٍ يعرض «تصدير» و«نشر» فقط، وأي تبويب آخر مفتوح يعود إلى التصدير.",
           "en": "An ended term shows only export and publish, and any other open tab returns to export."
         },
