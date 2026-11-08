@@ -186,6 +186,15 @@ export function taWindowMessage(token: string, closesAt: string, at = new Date()
   return { title: "🎓 فُتح باب التدريب لك", body: ["اختر شعبتك", closes ? `يُغلق ${closes}` : ""].filter(Boolean).join(" · "), url: cardPath(token), tag: "card-ta", at };
 }
 
+/** «ذكّر من لم يرد»: تذكيرٌ إلى كرت الأستاذ نفسه، بلا قاعةٍ ولا تفصيل. */
+export function cardReminderMessage(token: string, closesAt: string, at = new Date().toISOString()): PushMessage {
+  const date = Date.parse(closesAt);
+  const closes = Number.isFinite(date)
+    ? new Date(date).toLocaleDateString("ar-KW-u-nu-latn", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kuwait" })
+    : "";
+  return { title: "🔔 تذكير بطلب جدولك", body: ["لم يصل ردّك بعد", closes ? `يُغلق ${closes}` : ""].filter(Boolean).join(" · "), url: cardPath(token), tag: "card-reminder", at };
+}
+
 export function cardTestMessage(token: string, at = new Date().toISOString()): PushMessage {
   return { title: "🔔 التنبيهات تعمل", body: "هكذا يصلك قرار القسم على طلبك", url: cardPath(token), tag: "card-test", at };
 }

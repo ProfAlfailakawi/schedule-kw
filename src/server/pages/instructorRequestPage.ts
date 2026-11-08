@@ -43,7 +43,23 @@ import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_D
  *     وما رُفض ولماذا. فلا يُقال بعدها «أنتم ما سويتوا شيئاً»، ولا يُقال له
  *     «أرسلنا» وهو لم يفتح.
  */
-export function instructorRequestPage(token: string, nonce: string, demoHint = ""): string {
+/**
+ * معاينةُ المنسّق (‎/api/instructor-requests/preview-page‎): الصفحةُ نفسُها حرفاً، تقرأ بطاقتَه من
+ * مسار المعاينة، ولا تكتب شيئاً — كلُّ نداءٍ غيرِ القراءة يُردّ في المتصفح قبل أن يغادره، ولا بثَّ ولا مسودة.
+ */
+export interface RequestPagePreview { api: string; name: string }
+const escapeHtmlText = (value: string) => String(value || "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string));
+const previewPrelude = (preview: RequestPagePreview, nonce: string) => `<div class="preview-bar" role="status" style="position:sticky;top:0;z-index:50;display:flex;gap:8px;align-items:center;justify-content:center;padding:9px 14px;background:#1f6b5c;color:#fff;font:700 13px/1.5 'Plex Arabic',Tahoma,sans-serif"><span aria-hidden="true">👁️</span><span>معاينة · كما يراها ${escapeHtmlText(preview.name)} · لا يُرسل شيء</span></div>
+<script nonce="${nonce}">(function(){var API=${JSON.stringify(preview.api).replace(/</g, "\\u003c")},BASE="/api/public/request/preview",real=window.fetch.bind(window);
+window.fetch=function(url,init){var u=String(url&&url.url||url),m=String(init&&init.method||"GET").toUpperCase();
+ if(u.indexOf(BASE)===0){if(m==="GET"&&(u===BASE||u.indexOf(BASE+"?")===0))return real(API,{credentials:"include",cache:"no-store"});
+  return Promise.resolve(new Response(JSON.stringify({error:"معاينة فقط — لا يُرسل شيء."}),{status:403,headers:{"Content-Type":"application/json"}}))}
+ return real(url,init)};
+try{delete window.EventSource}catch(e){}window.EventSource=undefined;
+try{var gi=Storage.prototype.getItem,si=Storage.prototype.setItem;Storage.prototype.getItem=function(k){return String(k).indexOf("preview")>=0?null:gi.call(this,k)};Storage.prototype.setItem=function(k,v){if(String(k).indexOf("preview")>=0)return;return si.call(this,k,v)}}catch(e){}
+})();</script>`;
+
+export function instructorRequestPage(token: string, nonce: string, demoHint = "", preview?: RequestPagePreview): string {
   return `<!doctype html><html lang="ar" dir="rtl"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -191,7 +207,7 @@ ${PUSH_CARD_CSS}
 .confirm-code a{color:#246b55}
 @media(max-width:400px){.confirm-card{padding-inline:15px}.confirm-facts{gap:6px}.confirm-fact{font-size:11.5px}}
 @media(prefers-reduced-motion:reduce){.confirm-card *{animation:none!important;transition:none!important}}
-</style></head><body>${demoHint?`<div id="demoTop" style="max-width:760px;margin:0 auto;padding:12px 16px 0">${demoHint}</div>`:""}<div class="wrap" id="host"><div class="skel" role="status" aria-busy="true"><span class="sr">يفتح جدولك…</span><i></i><i></i><i></i></div></div>
+</style></head><body>${preview?previewPrelude(preview, nonce):""}${demoHint?`<div id="demoTop" style="max-width:760px;margin:0 auto;padding:12px 16px 0">${demoHint}</div>`:""}<div class="wrap" id="host"><div class="skel" role="status" aria-busy="true"><span class="sr">يفتح جدولك…</span><i></i><i></i><i></i></div></div>
 <script nonce="${nonce}">(function(){
 ${PUBLIC_KIT_SCRIPT}
 ${CALENDAR_LINKS_CLIENT_JS}

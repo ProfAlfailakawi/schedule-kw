@@ -8,22 +8,32 @@
  * في مرحلة التدريب. الإرسالُ يقع على كل سجلّات الشخص المختار، ولا يمسّ غيره.
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Check, Search, UserCheck, Users } from "lucide-react";
+import { BookOpen, Check, Eye, Search, UserCheck, Users } from "lucide-react";
 import PersonChips from "./PersonChips";
+import PersonCoursesSheet, { selectionSummary, taughtOf, type CourseDefaultsPayload } from "./PersonCoursesSheet";
+import type { FollowUpState } from "../utils/cardRecipients";
 import { instructorPickerPeople } from "../utils/instructorPickerChoices";
 import { AR, countOf } from "../utils/arabicCount";
 import { instructorIdentityKey } from "../utils/instructorIdentity";
 
 export type Audience = "all" | "picked";
 
-/** شخصٌ مختار: كلُّ سجلّاته، واسمُه، وجوّالُه للتسليم. */
+/** شخصٌ مختار: كلُّ سجلّاته، واسمُه، وجوّالُه للتسليم، ومقرراتُ بطاقته إن اختارها المنسّق (null/غياب = كل المقررات). */
 export interface PickedPerson {
   key: number;
   ids: number[];
   name: string;
   mobile: string;
   sections: number;
+  courses?: number[] | null;
 }
+
+/** حالةُ ما بعد الإرسال: ✉️ لم يفتح · 👀 فتح · ✅ ردّ. */
+export const FOLLOW_ICON: Record<FollowUpState, { icon: string; label: string }> = {
+  sent: { icon: "✉️", label: "لم يفتح" },
+  opened: { icon: "👀", label: "فتح" },
+  replied: { icon: "✅", label: "ردّ" },
+};
 
 interface Recipient { AdInstructorId: number; AdInstructorName: string; AdInstructorMobile: string; sections: number }
 
@@ -49,16 +59,34 @@ export function AudiencePicker({ value, onChange }: { value: Audience; onChange:
   );
 }
 
-export default function PublishRecipientPicker({ collegeId, sectionId, termId, onChange, visitingOf, traineeOf }: {
+export default function PublishRecipientPicker({ collegeId, sectionId, termId, onChange, visitingOf, traineeOf, perPersonCourses = false, stateOf, onPreview }: {
   collegeId: number; sectionId: number; termId: number;
   onChange: (people: PickedPerson[]) => void;
   visitingOf: (id: number) => boolean;
   traineeOf: (id: number) => boolean;
+  /** ✏️: لكل مختارٍ زرُّ «المقررات» (ورقةٌ تبدأ من تاريخه). */
+  perPersonCourses?: boolean;
+  /** حالةُ بطاقته بعد الإرسال (إن وصلته). */
+  stateOf?: (ids: number[]) => FollowUpState | undefined;
+  /** 👁️ معاينةُ بطاقته كما يراها — لا يُصدَر شيء. */
+  onPreview?: (person: PickedPerson) => void;
 }) {
   const [rows, setRows] = useState<Recipient[] | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  /* مقرراتُ كل شخص اختارها المنسّق صراحةً؛ من لا مدخلَ له: كل المقررات كاليوم. */
+  const [courses, setCourses] = useState<Map<number, number[]>>(new Map());
+  const [defaults, setDefaults] = useState<CourseDefaultsPayload | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
+  useEffect(() => {
+    if (!perPersonCourses) return;
+    let cancelled = false;
+    setCourses(new Map()); setDefaults(null);
+    void fetch(`/api/instructor-requests/course-defaults?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include" })
+      .then(response => (response.ok ? response.json() : null)).then(data => { if (!cancelled && data?.courses) setDefaults(data); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [perPersonCourses, collegeId, sectionId, termId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +114,7 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
     }));
   }, [rows]);
 
-  useEffect(() => { onChange(people.filter(person => selected.has(person.key))); }, [people, selected]);
+  useEffect(() => { onChange(people.filter(person => selected.has(person.key)).map(person => ({ ...person, courses: perPersonCourses ? courses.get(person.key) ?? null : null }))); }, [people, selected, courses, perPersonCourses]);
 
   const needle = instructorIdentityKey(query.trim());
   const shown = needle ? people.filter(person => instructorIdentityKey(person.name).includes(needle) || person.name.includes(query.trim())) : people;
@@ -122,17 +150,45 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
       <div className="publish-pick-list" role="group" aria-label="أساتذة القسم">
         {shown.map(person => {
           const on = selected.has(person.key);
+          const state = stateOf?.(person.ids);
+          const custom = courses.get(person.key);
           return (
-            <button key={person.key} type="button" className="of-chip" role="checkbox" aria-checked={on} aria-pressed={on}
-              data-guide-ignore="لمن؟ — اختيار من يُرسَل إليه في بطاقة الأستاذ، لا يرسل شيئاً بنفسه" onClick={() => toggle(person.key)}>
-              <span className="publish-pick-box" aria-hidden="true">{on ? <Check /> : null}</span>
-              <span className="publish-pick-name">{person.name}<PersonChips visiting={person.ids.some(visitingOf)} trainee={person.ids.some(traineeOf)} /></span>
-              {person.sections ? <small>{countOf(person.sections, AR.section)}</small> : null}
-            </button>
+            <div key={person.key} className="publish-pick-row">
+              <button type="button" className="of-chip" role="checkbox" aria-checked={on} aria-pressed={on}
+                data-guide-ignore="لمن؟ — اختيار من يُرسَل إليه في بطاقة الأستاذ، لا يرسل شيئاً بنفسه" onClick={() => toggle(person.key)}>
+                <span className="publish-pick-box" aria-hidden="true">{on ? <Check /> : null}</span>
+                <span className="publish-pick-name">{person.name}<PersonChips visiting={person.ids.some(visitingOf)} trainee={person.ids.some(traineeOf)} /></span>
+                {person.sections ? <small>{countOf(person.sections, AR.section)}</small> : null}
+              </button>
+              <span className="publish-pick-tools">
+                {/* خاناتٌ ثابتة (حالة · معاينة · مقررات): تصطفّ الأسطرُ عموداً واحداً وإن غاب بعضُها. */}
+                {state ? <span className="publish-state" role="img" aria-label={FOLLOW_ICON[state].label} title={FOLLOW_ICON[state].label}>{FOLLOW_ICON[state].icon}</span> : <span className="publish-state" aria-hidden="true" />}
+                {onPreview ? (
+                  <button type="button" className="ta-mini" title="معاينة بطاقته" aria-label={`معاينة بطاقة ${person.name}`}
+                    data-guide-ignore="معاينة بطاقة الأستاذ كما يراها — للقراءة فقط، لا تُصدر شيئاً" onClick={() => onPreview({ ...person, courses: perPersonCourses ? custom ?? null : null })}>
+                    <Eye aria-hidden="true" />
+                  </button>
+                ) : null}
+                {perPersonCourses && on ? (
+                  <button type="button" className="ta-mini" data-custom={custom ? "1" : undefined} disabled={!defaults}
+                    title={selectionSummary(defaults, custom ?? null)} aria-label={`مقررات ${person.name}: ${selectionSummary(defaults, custom ?? null)}`}
+                    data-guide-ignore="مقررات بطاقة الأستاذ لشخص واحد — تفتح ورقة الاختيار، لا ترسل شيئاً" onClick={() => setEditing(person.key)}>
+                    <BookOpen aria-hidden="true" /><b>{custom ? custom.length : "∞"}</b>
+                  </button>
+                ) : perPersonCourses ? <span className="publish-pick-slot" aria-hidden="true" /> : null}
+              </span>
+            </div>
           );
         })}
         {!shown.length ? <small className="publish-pick-count">لا اسم يطابق «{query.trim()}».</small> : null}
       </div>
+      {editing !== null && defaults ? (() => {
+        const person = people.find(row => row.key === editing);
+        if (!person) return null;
+        return <PersonCoursesSheet name={person.name} payload={defaults} taught={taughtOf(defaults, person.ids)} initial={courses.get(person.key) ?? null}
+          onClose={() => setEditing(null)}
+          onApply={chosen => { setCourses(current => { const next = new Map(current); if (chosen) next.set(person.key, chosen); else next.delete(person.key); return next; }); setEditing(null); }} />;
+      })() : null}
     </div>
   );
 }

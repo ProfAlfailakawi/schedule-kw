@@ -19,6 +19,7 @@ import { isScopeAllowed } from "../core/scope";
 import { shareLinkLabel, shareLinkStillReadable } from "../core/shareLinks";
 import { liveStaffPublication, staffFamilyScopes, staffFamilyShareLinks } from "../core/staffCard";
 import { surveyTermEnded } from "../core/studentIdentity";
+import { readCardExclusions } from "../core/cardRecipients";
 
 const SHARE_MAX_DAYS = 180;
 
@@ -201,12 +202,14 @@ app.get("/api/share/:id/faculty", requirePermission(7), async (req: Authenticate
   if (!await staffLinkFamilyAllowed(req, parent)) {
     res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return;
   }
-  const [eligible, people] = await Promise.all([
+  /* التسليمُ لأساتذة القسم وحدهم: المنتدبون والمتدرّبون لا تصلهم بطاقةُ القسم (قرار المالك 2026-11-08). */
+  const [eligible, people, excluded] = await Promise.all([
     personalLinkEligibleIds(parent.AdCollegeId, parent.AdSectionId, parent.AdTermId),
     Repository.getInstructors(),
+    readCardExclusions(parent.AdCollegeId, parent.AdSectionId, parent.AdTermId),
   ]);
   res.setHeader("Cache-Control", "no-store");
-  res.json(people.filter(person => eligible.has(Number(person.AdInstructorId))).map(person => ({
+  res.json(people.filter(person => eligible.has(Number(person.AdInstructorId)) && !excluded.has(Number(person.AdInstructorId))).map(person => ({
     AdInstructorId: person.AdInstructorId,
     AdInstructorName: person.AdInstructorName,
     AdInstructorMobile: person.AdInstructorMobile || "",

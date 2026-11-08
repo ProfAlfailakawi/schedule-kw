@@ -71,6 +71,7 @@ import { registerPdfImportRoutes } from "./src/server/routes/pdfImportRoutes";
 import { registerPlanningRoutes } from "./src/server/routes/planningRoutes";
 import { registerPublicCalendarRoutes } from "./src/server/routes/publicCalendarRoutes";
 import { registerPublicRequestRoutes } from "./src/server/routes/publicRequestRoutes";
+import { registerPublishCardsRoutes } from "./src/server/routes/publishCardsRoutes";
 import { registerPublicStaffRoutes } from "./src/server/routes/publicStaffRoutes";
 import { registerReferenceRoutes } from "./src/server/routes/referenceRoutes";
 import { registerReportsRoutes } from "./src/server/routes/reportsRoutes";
@@ -451,6 +452,8 @@ registerStudentRegistrationRoutes(app);
 /* «طلب شعبة»: الإرشاد ← لجنة الجدول ← التسجيل، ببطاقاتٍ في كشف التسجيل (src/utils/sectionRequests.ts). */
 registerSectionRequestsRoutes(app);
 registerInstructorRequestsRoutes(app);
+/* «نشر ← بطاقة الأستاذ» لكل شخص: مقرراتُه، ومعاينتُه، ومتابعتُه، وتذكيرُ من لم يرد. */
+registerPublishCardsRoutes(app);
 registerPublicRequestRoutes(app);
 
 /* ── المقترح الدراسي: ما يعدّه القسم للأستاذ من عدة مواد ─────────────────────

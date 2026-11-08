@@ -57,7 +57,14 @@
     "src/styles/40-appointment-studio.css",
     "src/styles/40-course-reach.css",
     "src/styles/46-inbox-campus.css",
-    "src/styles/46-publish-pick.css"
+    "src/styles/46-publish-pick.css",
+    "src/styles/47-publish-person.css",
+    "src/server/routes/publishCardsRoutes.ts",
+    "src/server/core/cardRecipients.ts",
+    "src/utils/cardRecipients.ts",
+    "src/utils/offeredCourses.ts",
+    "src/utils/personCourseDefaults.ts",
+    "src/components/PersonCoursesSheet.tsx"
   ],
   "screens": [
     { "name": { "ar": "بطاقة طلب الأستاذ (/r/)", "en": "Instructor request card (/r/)" }, "file": "src/server/pages/instructorRequestPage.ts", "note": { "ar": "صفحة عامة تُفتح بالرابط الشخصي: أسبوع الأستاذ، تعديل البنود، التوقيع، الحوار مع القسم، وذاكرة الفصول.", "en": "Public page opened with the personal link: the member's week, item editing, signing, dialogue with the department and term memory." } },
@@ -1353,6 +1360,25 @@
         { "ar": "استثناء فردي لأستاذ ينتظر طلبُه الأخير قراراً (أُرسل أو قيد المراجعة) ← يحمل الطلبُ نفسه الاستثناء برابطه (ويُستبدل الرابط إن مات) ويُضاف إلى سجله سطر «استثناء فردي لظرف طارئ»، فلا يصير للأستاذ طلبان مفتوحان.", "en": "An individual exception for a member whose latest request awaits a decision (submitted or under review) puts the exception on that same request and link (replacing the link when it is dead) and adds an «individual exception for an emergency» line to its timeline, so the member never has two open requests." }
       ],
       "evidence": { "code": ["src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/issue", "src/utils/requestReissue.ts#reissueMove", "src/server/core/staffCard.ts#staffFamilyScopes", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/send-log"], "tests": ["tests/request-reissue-audit.ts", "tests/publish-requests-audit.ts", "tests/handover-fixes-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-056",
+      "kind": "functional",
+      "title": { "ar": "بطاقة الأستاذ لكل شخص: من تصله، ومقرراته، ومعاينته، ومتابعته", "en": "Faculty card per person: recipients, courses, preview and follow-up" },
+      "text": {
+        "ar": "يجب ألا تصل بطاقةُ الأستاذ للعرض أو لطلب التعديل («أساتذة محددون» و«الكل») إلا أساتذة القسم: لا المنتدبين أبداً، ولا المتدرّبين ومدرّبي مرحلة التدريب (ومن كان أستاذاً ومتدرّباً معاً في الفصل يظهر في مرحلة التدريب وحدها)، ويحكم بذلك الخادم في الإصدار والقائمة وقائمة التسليم. وفي طلب التعديل لأساتذة محددين يختار المنسّق لكل شخص مقرراتِ بطاقته من ورقةٍ بتبويبين («الصحيفة السابقة» والجديدة باسمها) تبدأ من تاريخه: ما درّسه، ومقابله في الجديدة بمطابقة الاسم بعد التوحيد العربي، والجديد بلا مقابل غير مختار؛ وتُحفظ القائمة مع طلبه فلا يرى ولا يطلب مقرراً خارجها، ومن لم يُختر له شيء يبقى بكل المقررات. ومعاينةُ بطاقة الشخص كما يراها لا تُصدر شيئاً ولا تسجّل فتحاً. وبعد الإرسال حالةٌ لكل شخص (لم يفتح · فتح · ردّ)، و«ذكّر من لم يرد» بتأكيد يقع على من لم يرد في بطاقة طلب التعديل وحدها بقناة التسليم القائمة.",
+        "en": "The faculty card (view and edit, selected and all) shall reach department faculty only: never visiting members, nor trainees and training-phase trainers (a member who is both appears only in the training phase), enforced by the server in issuing, the recipients list and the delivery list. In an edit send to selected faculty the coordinator picks each person's card courses from a sheet with two tabs (the previous plan and the new plan by its name) that starts from their history: taught courses, their new-plan counterparts matched by normalised Arabic name, and new courses with no counterpart left unselected; the list is stored with the request, so the member neither sees nor requests a course outside it, and anyone without a choice keeps all courses. Previewing a person's card as they will see it issues nothing and records no open. After sending each person shows a state (not opened, opened, replied), and a confirmed «remind those who have not replied» reaches only non-repliers of edit cards through the existing delivery channel."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "إرسالٌ محدد لمنتدب أو متدرّب يُرفض (400، code=card-excluded) ولا يُكتب شيء؛ و«الكل» يتخطّاهم.", "en": "A selected send to a visiting member or trainee is refused (400, code=card-excluded) and nothing is written; an all send skips them." },
+        { "ar": "طلبُ مقررٍ خارج offeredCourseIds من بطاقة الأستاذ يُرفض 400 قبل التوقيع، وما طلبه قبل القيد يبقى له.", "en": "Requesting a course outside offeredCourseIds from the card is refused with 400 before signing; what was requested before the limit stays." },
+        { "ar": "المعاينة لا تغيّر طلباً ولا رابطاً ولا سجل إرسال ولا عدّاد فتح.", "en": "The preview changes no request, link, send log or open counter." },
+        { "ar": "التذكير يقع على من لم يرد وحدهم ويعلّم remindedAt؛ وفي الديمو تسليمٌ وهمي (delivery=demo).", "en": "The reminder reaches non-repliers only and marks remindedAt; in the demo delivery is simulated (delivery=demo)." }
+      ],
+      "evidence": { "code": ["src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/issue", "src/server/routes/publishCardsRoutes.ts#/api/instructor-requests/preview", "src/server/routes/publishCardsRoutes.ts#/api/instructor-requests/remind", "src/utils/cardRecipients.ts#reminderTargets", "src/utils/personCourseDefaults.ts#personCourseDefaults", "src/utils/offeredCourses.ts#offeredBreach"], "tests": ["tests/publish-cards-per-person-audit.ts"] }
     }
   ],
   "edgeCases": [

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, GraduationCap, MessageCircle, Plus, Send, Timer, X } from "lucide-react";
 import { PrimaryButton, SecondaryButton } from "./ui";
 import { reachAboutTaPhase } from "../utils/reachInstructor";
+import PersonCoursesSheet, { selectionSummary, taughtOf, type CourseDefaultsPayload } from "./PersonCoursesSheet";
 
 type Vacant = { key: string; courseId: number; courseName: string; sectionCode: string; days: string[]; start: string; end: string; room: string };
 type Ta = { id: number; name: string; load: number; chosen: number; opened: boolean; sent: boolean; linkId: string; mobile: string; allowed: number[] };
@@ -52,20 +53,23 @@ export default function TAPhasePanel({ collegeId, sectionId, termId, confirmSend
     } catch (e: any) { setError(e.message); }
   };
   useEffect(() => { if (collegeId && sectionId && termId) void load(); }, [collegeId, sectionId, termId]);
+  /* ورقةُ المقررات نفسُها التي في ✏️ (تبويبا الصحيفة، 🕘/🔗/✨): مقرراتُ القسم وتاريخُ كل مدرّب. */
+  const [defaults, setDefaults] = useState<CourseDefaultsPayload | null>(null);
+  useEffect(() => {
+    if (!collegeId || !sectionId || !termId) return;
+    let cancelled = false;
+    void fetch(`/api/instructor-requests/course-defaults?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include" })
+      .then(response => (response.ok ? response.json() : null)).then(data => { if (!cancelled && data?.courses) setDefaults(data); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [collegeId, sectionId, termId]);
 
   const placed = useMemo(() => new Set(waves.flat()), [waves]);
   const toggle = (wave: number, id: number) => setWaves(current => current.map((list, index) =>
     index === wave ? (list.includes(id) ? list.filter(x => x !== id) : [...list, id]) : list.filter(x => x !== id)));
-  /* مقررات الشعب الشاغرة أولاً: هي ما يمكن اختياره فعلاً. */
-  const courseChoices = useMemo(() => {
-    const vacantIds = new Set((phase?.vacant || []).map(row => row.courseId));
-    return [...(phase?.courses || [])].sort((a, b) => Number(vacantIds.has(b.id)) - Number(vacantIds.has(a.id)) || a.name.localeCompare(b.name, "ar"))
-      .map(course => ({ ...course, vacant: vacantIds.has(course.id) }));
-  }, [phase]);
-
-  const toggleCourse = async (taId: number, courseId: number) => {
-    const current = allowed[taId] || [];
-    const next = current.includes(courseId) ? current.filter(id => id !== courseId) : [...current, courseId];
+  /* «اعتمد» من الورقة: قائمةُ المدرّب (فارغة = كل المقررات). مسودةٌ قبل الفتح، وتُحفظ فوراً بعده. */
+  const applyCourses = async (taId: number, chosen: number[] | null) => {
+    const next = chosen || [];
+    setEditing(null);
     setAllowed(all => ({ ...all, [taId]: next }));
     if (phase?.doc && !phase.doc.closedAt) {
       await fetch("/api/ta-phase/allowed", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
@@ -96,20 +100,13 @@ export default function TAPhasePanel({ collegeId, sectionId, termId, confirmSend
   if (!phase) return <div className="of-section" role="status">{error || "…"}</div>;
   const cd = phase.countdown;
   const closesLabel = phase.doc ? new Intl.DateTimeFormat("ar-KW-u-nu-latn", { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kuwait" }).format(new Date(phase.doc.closesAt)) : "";
-  const allowedEditor = (ta: Ta) => editing === ta.id ? (
-    <div className="ta-allowed" aria-label={`مقررات ${ta.name}`}>
-      <div className="of-chips">
-        {courseChoices.map(course => (
-          <button data-guide-ignore="مرحلة التدريب — إعداد الموجات والنافذة" type="button" key={course.id} className="of-chip" aria-pressed={(allowed[ta.id] || []).includes(course.id)} onClick={() => void toggleCourse(ta.id, course.id)}>
-            {course.vacant ? "🪑" : "📘"} {course.name}
-          </button>
-        ))}
-      </div>
-      <small className="ta-allowed-hint">{(allowed[ta.id] || []).length ? countOf((allowed[ta.id] || []).length, AR.course) : "كل المقررات"}</small>
-    </div>
+  const allowedEditor = (ta: Ta) => editing === ta.id && defaults ? (
+    <PersonCoursesSheet name={ta.name} payload={defaults} taught={taughtOf(defaults, [ta.id])} initial={(allowed[ta.id] || []).length ? allowed[ta.id] : null}
+      onClose={() => setEditing(null)} onApply={chosen => void applyCourses(ta.id, chosen)} />
   ) : null;
   const allowedButton = (ta: Ta) => (
-    <button data-guide-ignore="مرحلة التدريب — إعداد الموجات والنافذة" type="button" className="ta-mini" aria-expanded={editing === ta.id} title="المقررات المسموحة" aria-label={`المقررات المسموحة لـ${ta.name}`} onClick={() => setEditing(current => current === ta.id ? null : ta.id)}>
+    <button data-guide-ignore="مرحلة التدريب — إعداد الموجات والنافذة" type="button" className="ta-mini" aria-expanded={editing === ta.id} disabled={!defaults}
+      title={selectionSummary(defaults, (allowed[ta.id] || []).length ? allowed[ta.id] : null)} aria-label={`المقررات المسموحة لـ${ta.name}`} onClick={() => setEditing(ta.id)}>
       <BookOpen aria-hidden="true" /><b>{(allowed[ta.id] || []).length || "∞"}</b>
     </button>
   );

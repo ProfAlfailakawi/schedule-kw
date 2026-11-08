@@ -56,6 +56,7 @@ import { movementHistoryScopes, scheduleMovementEntries } from "../core/staffCar
 import { surveyFingerprint } from "../core/studentIdentity";
 import { instructorRequestPage } from "../pages/instructorRequestPage";
 import { publicInvalidLinkPage } from "../pages/publicInvalidLinkPage";
+import { offeredAllows, offeredBreach, offeredCourseSet } from "../../utils/offeredCourses";
 
 /* طلبُ الأستاذ وردُّه من رابطه العام: حدٌّ سخيٌّ لإنسانٍ يكتب، فوق عدّاد
    المحاولات الموقّعة (publicAttempts) لا بدلاً منه. */
@@ -649,15 +650,24 @@ export function registerPublicRequestRoutes(app: Express): void {
 /* ── بابُ الأستاذ ────────────────────────────────────────────────────────── */
 
 app.get("/api/public/request/:token", async (req: Request, res: Response) => {
-  const resolved = await resolveRequestLink(String(req.params.token || ""));
+  await serveRequestCard(req, res, await resolveRequestLink(String(req.params.token || "")));
+});
+registerPublicRequestWritesRoutes(app);
+}
+
+/**
+ * بطاقةُ الأستاذ كما يقرؤها (GET ‎/api/public/request/:token‎) — ومعاينةُ المنسّق بالمسار نفسه حرفاً
+ * (`preview`): لا يُسجَّل فتحٌ ولا تُحدَّث المسودة ولا يُكتب شيء، فيرى المنسّقُ ما سيراه هو بالضبط.
+ */
+export async function serveRequestCard(req: Request, res: Response, resolved: Awaited<ReturnType<typeof resolveRequestLink>> | { link: { id: string }; request: InstructorRequest }, preview = false) {
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
 
   /* أولُ فتحٍ يُسجَّل مرّةً واحدة. وهو لا يقول «وصلت الرسالة» — يقول «فُتح
      الرابط»، وهذا كلُّ ما يعرفه النظام بصدق. */
-  let request = await refreshUnsubmittedInstructorRequest(resolved.request);
+  let request = preview ? resolved.request : await refreshUnsubmittedInstructorRequest(resolved.request);
   const openedAt = new Date().toISOString();
   /* إعادةُ الجلب الصامتة (عودةٌ إلى الصفحة، أو بثٌّ من القسم) ليست «فتحاً»: لو عُدّت لانتفخ عدّادُ الفتح بلا أن يفتح أحد. */
-  const silent = String(req.query.live || "") === "1";
+  const silent = preview || String(req.query.live || "") === "1";
   if (!silent) void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
 
   /* تسجيلُ الفتح وقوائمُ الصفحة والحكمُ على البنود لا يعتمد أحدُها على الآخر: تُقرأ معاً، ثم يُدمج الفتحُ في النتيجة (حقولُ العدّ والحركة وحدها). */
@@ -696,7 +706,9 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
   const taDoc = mode === "ta" ? await taPhaseForRequest(request) : null;
   const taAllowed = allowedFor(taDoc, Number(request.AdInstructorId));
   const termStates = await offeringStatesForTerm(Number(request.AdTermId));
-  const offerings = open ? await lockUnreached((await availableInstructorOfferings(request)).filter(option => (!taAllowed || taAllowed.has(Number(option.courseId))) && !offeringBlocked(termStates, Number(option.courseId))), Number(request.AdTermId)) : [];
+  /* مقرراتُ هذه البطاقة وحدها إن اختارها المنسّق (utils/offeredCourses): لا يُعرض ما خارجها. */
+  const offeredSet = offeredCourseSet(request);
+  const offerings = open ? await lockUnreached((await availableInstructorOfferings(request)).filter(option => (!taAllowed || taAllowed.has(Number(option.courseId))) && !offeringBlocked(termStates, Number(option.courseId)) && offeredAllows(offeredSet, option.courseId)), Number(request.AdTermId)) : [];
   /* وسومُ المقرر الموحّدة (src/utils/courseTags.ts) من المصدر نفسه في الجدول، مع ضبط هوية المقرر وقسمه:
      الصحيفة (صحيفةُ القسم، ثم صحيفةُ مقرر الخدمة) ونوعُ المتطلب — للموعد القائم، ولمقررات الإضافة، وللشعب الشاغرة. */
   const tagFacts = await courseTagFactsFor([
@@ -737,14 +749,18 @@ app.get("/api/public/request/:token", async (req: Request, res: Response) => {
     calendarLegacyKey: calendarToken,
     /* مقررات هذا القسم العلمي في كل كليةٍ يوجد فيها؛ الكلية تُختار صراحةً قبل المقرر.
        للعرض فقط ومرحلة التدريب: لا إضافةَ حرّة، فلا مقررات. */
-    courses: mode === "edit" ? coursesWithOffering(await withPlanHints(courses as any[], Number(request.AdTermId)), offeringViews) : [],
+    courses: mode === "edit" ? coursesWithOffering(await withPlanHints((courses as any[]).filter(option => offeredAllows(offeredSet, option.id)), Number(request.AdTermId)), offeringViews) : [],
     /* أنماطُ اللائحة لكل مقرر (B1/B2/B3): مصدرُها الواحد patternsForHours — يُكمَل بها اليومُ الأول ضغطةً واحدة. */
     dayPatterns: await requestDayPatterns([...(request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)), ...(courses as any[]).map(option => Number(option.id))]),
     /* أنماطُ اللائحة بدقائق كل يوم (والكتلةُ الواحدة): الصفحةُ تحسب بها النهايةَ بالمحرّك نفسِه الذي يحسب به الخادم
        (REQUEST_LENGTH_SCRIPT)، فلا يقرأ الأستاذُ 16:50 ويُحفظ 17:15. */
     lengthPatterns: await requestLengthPatterns([...(request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)), ...(courses as any[]).map(option => Number(option.id))]),
+    ...(preview ? { preview: true } : {}),
   });
-});
+}
+
+/* بقيةُ مسارات باب الأستاذ (الإرسال والحوار والفحص…): مكانُها وعمودُها كما كانا. */
+function registerPublicRequestWritesRoutes(app: Express): void {
 
 app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Request, res: Response) => {
   const resolved = await resolveRequestLink(String(req.params.token || ""));
@@ -763,6 +779,20 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   if (postMode === "ta" && (Array.isArray(req.body?.items) ? req.body.items : []).some((item: any) => item && item.action !== "keep" && !item.offeringId)) {
     res.status(400).json({ error: "في مرحلة التدريب تختار من الشعب الشاغرة فقط." });
     return;
+  }
+  /* مقرراتُ البطاقة (✏️ لأساتذة محددين): مقررٌ خارج قائمته لا يُطلب ولو أُرسل من خارج الواجهة.
+     وما طلبه قبل أن تُقيَّد بطاقتُه يبقى له يقرّره القسم. */
+  const offeredSet = offeredCourseSet(resolved.request);
+  if (offeredSet) {
+    const sentItems = Array.isArray(req.body?.items) ? req.body.items : [];
+    const offeringIds = sentItems.filter((item: any) => item?.action === "add" && item.offeringId).map((item: any) => Number(item.offeringId));
+    const offeringRows = offeringIds.length ? await Repository.getSchedulesByScope({ termId: Number(resolved.request.AdTermId) }) : [];
+    const heldOfferings = new Set((resolved.request.items || []).flatMap(item => item.offeringRowIds || []).map(Number));
+    const heldCourses = new Set((resolved.request.items || []).filter(item => item.action === "add" && !item.offeringRowIds?.length).map(item => Number(item.after?.courseId || 0)));
+    const breach = offeredBreach(offeredSet, sentItems,
+      id => Number((offeringRows as any[]).find(row => Number(row.id) === id)?.AdCourseId || 0) || undefined,
+      item => (item.offeringId ? heldOfferings.has(Number(item.offeringId)) : heldCourses.has(Number(item.courseId))));
+    if (breach >= 0) { res.status(400).json({ error: "هذا المقرر ليس من مقررات بطاقتك.", itemIndex: breach }); return; }
   }
   /* C5: مقررٌ غير مطروح لا يُضاف ولو أُرسل من خارج الواجهة. */
   if (postMode === "edit") {
