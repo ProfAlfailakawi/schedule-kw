@@ -66,4 +66,7 @@ ok(family.includes("getDepartmentFaculty") && family.includes("readLiveVisitingR
 ok(panel.includes("<InstructorPicker") && panel.includes("onlyIds={preview.familyIds") && panel.includes('emptyLabel="هيئة تدريسية"') && panel.includes("canCreate={false}"), "panel reuses the editor picker");
 ok(picker.includes("onlyIds?: Iterable<number>") && picker.includes("outsideOnly(person)"), "picker can be limited to the family");
 ok(panel.includes("تعارض") && panel.includes("فوق النصاب"), "soft warnings shown");
+/* القائمة تُظهر الأستاذ الجديد فوراً: اللوحة تكتب في فصل الجدول المعروض نفسه، ثم يُعاد تحميل صفوفه. */
+ok(/<TAConversionPanel[\s\S]{0,200}termId=\{Number\(filterTerm\)\}/.test(schedule), "panel writes to the term the board shows");
+ok(/onChanged=\{\(\) => \{ void loadRows\(\);/.test(schedule) && /setResult\([^)]*\)[\s\S]{0,80}onChanged\(\);/.test(panel), "board rows reload right after converting");
 console.log("TA conversion: " + checks + " checks passed");
