@@ -19,7 +19,7 @@ import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/sched
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { personRecordIds } from "../utils/instructorPickerChoices";
 import { reviewSchedule, effectiveCourseHours, maxWeeklyMinutesFor, sectionWeeklyHours } from "../utils/scheduleRegulations";
-import { learnCourseNature } from "../utils/courseNature";
+import { patternLengthIssue, sameScheduleShape } from "../utils/appointmentRegulation";
 import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
 import { mergeRegistryWithSeed } from "./locationRegistryEngine";
 import {
@@ -191,10 +191,8 @@ export async function proposalSchedulePreflight(
 
   // An unchanged inherited lecture shape must not newly reject existing data.
   const original = world.termRows.find(item => Number(item.id) === Number(row.id));
-  const unchangedShape = original
-    && String(original.fstarttime) === String(row.fstarttime)
-    && String(original.fendtime) === String(row.fendtime)
-    && PROPOSAL_DAY_KEYS.every(day => Boolean((original as any)[day]) === Boolean((row as any)[day]));
+  /* القاعدةُ الواحدة نفسُها التي يتخطّى بها الخادمُ والنموذج (sameScheduleShape). */
+  const unchangedShape = sameScheduleShape(original as any, row as any);
   if (unchangedShape) return issues;
   const courseId = Number(row.AdCourseId);
   const course = world.catalog.courseById.get(courseId);
@@ -208,13 +206,13 @@ export async function proposalSchedulePreflight(
       && Number(item.AdTermId) === Number(row.AdTermId));
     /* المصدر الواحد نفسه الذي يقرأ به الحفظ: الكتلة بنمط ساعات المقرر، والنسخة المطابقة لا تضاعف. */
     const total = sectionWeeklyHours(row, siblings, hours).total;
+    /* لا يُعفي تاريخُ المقرّر من سقف الساعات — كبوابة الحفظ (المالك 2026-10-30 و2026-11-08): كان «طبعُ» المقرّر يُسقط المنع هنا وحده. */
     if (total > maxWeeklyMinutesFor(hours)) {
-      // Add/Edit makes the identical historical-nature exception.
-      const history = await Repository.getScheduleHistoryForCourses([courseId]);
-      const nature = learnCourseNature(courseId, history as FSchedule[]);
-      const habitual = nature && nature.confidence !== "low" ? nature.meetingMinutes : undefined;
-      if (!habitual) issues.push(`ساعات هذا المقرر المعتمدة ${countOf(hours, AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total / 50), AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`);
+      issues.push(`ساعات هذا المقرر المعتمدة ${countOf(hours, AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total / 50), AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`);
     }
+    /* النهايةُ من النمط المعتمد، بالحكم الواحد نفسه الذي يقرؤه النموذج والخادم (patternLengthIssue). */
+    const lengthIssue = patternLengthIssue({ CourseHours: hours }, PROPOSAL_DAY_KEYS.filter(day => Boolean((row as any)[day])) as any, String(row.fstarttime), String(row.fendtime));
+    if (lengthIssue) issues.push(lengthIssue);
   }
   return issues;
 }
@@ -235,7 +233,7 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   const driftOps = new Set(drift.map(d => d.opId));
 
   const applied = applyProposalOps(world.termRows, validOps.filter(op => !driftOps.has(op.id)), {
-    instructorId: input.instructorId, termId: input.termId, placeholderId,
+    instructorId: input.instructorId, termId: input.termId, placeholderId, courseHoursOf: id => effectiveCourseHours(world.catalog.courseById.get(id) as any),
   });
   const appliedErrors = new Map(applied.errors.map(e => [e.opId, e]));
 
@@ -573,6 +571,7 @@ export async function suggestAlternatives(
   const baseDays = baseEval.after.metrics.attendanceDays;
   const without = applyProposalOps(w.termRows, input.ops.filter(o => o.id !== opId), {
     instructorId: input.instructorId, termId: input.termId, placeholderId: [...w.placeholders][0] || null,
+    courseHoursOf: id => effectiveCourseHours(w.catalog.courseById.get(id) as any),
   });
   // The source row of the operation is being moved/reassigned, so do not count
   // its old occupancy as a conflict in the quick prefilter.
@@ -694,7 +693,7 @@ export async function rankVacancies(
 ): Promise<{ vacancies: VacancyVerdict[]; checked: number; total: number; partial: boolean }> {
   const maxChecks = Math.max(0, options.maxChecks ?? 24);
   const placeholderId = [...world.placeholders].sort((a, b) => a - b)[0] || null;
-  const applied = applyProposalOps(world.termRows, input.ops, { instructorId: input.instructorId, termId: input.termId, placeholderId });
+  const applied = applyProposalOps(world.termRows, input.ops, { instructorId: input.instructorId, termId: input.termId, placeholderId, courseHoursOf: id => effectiveCourseHours(world.catalog.courseById.get(id) as any) });
   const mine = applied.rows.filter(row => ofPerson(world, row));
   const used = new Set(input.ops.map(op => op.source?.id).filter((id): id is number => typeof id === "number"));
   const nameOf = (row: FSchedule) => String(world.catalog.courseById.get(Number(row.AdCourseId))?.CourseName || row.AdCourseName || "");

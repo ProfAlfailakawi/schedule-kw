@@ -271,3 +271,4 @@ test:matrix-continuation
 test:srs-doc
 test:srs-route
 test:tsconfig-strictness
+test:new-appointment-pattern-end

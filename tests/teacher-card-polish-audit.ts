@@ -68,7 +68,8 @@ check(!labSplit.sendable && labSplit.shapes?.[0]?.days.join() === "fwednesday" &
 const labKept = judgeRequest(ask({ days: labSplit.shapes?.[0]?.days as any || [] }), labContext);
 check(labKept.sendable && labKept.computedEnd === "12:00", "وتطبيقُه يمرّ ويبقى طولُ اللقاء أربع ساعات");
 const labMoved = judgeRequest(ask({ days: ["fthursday"], start: "08:00" }), labContext);
-check(labMoved.sendable && labMoved.computedEnd === "12:00", "ونقلُ المختبر اليومي إلى يومٍ آخر يُبقي طولَه ويمرّ");
+/* قرار المالك 2026-11-08: البدايةُ أو اليومُ يتغيّر ← النهايةُ من النمط المعتمد (كتلةُ الأربع ساعات 230د)، لا طولٌ قديم (240د). */
+check(labMoved.sendable && labMoved.computedEnd === "11:50", "ونقلُ المختبر اليومي إلى يومٍ آخر يأخذ كتلةَ اللائحة (230د) ويمرّ", labMoved);
 const notLab = judgeRequest(ask({ days: ["fwednesday"] }), context(4));
 check(!(notLab.shapes || []).some(shape => /كما هو الآن/.test(shape.label)), "وشعبةٌ ليست لقاءً ممتدّاً لا يُعرض لها خيارُ اليوم الواحد");
 

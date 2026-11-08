@@ -28,7 +28,7 @@ import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } fr
 import PersonChips from "./PersonChips";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
-import { bestRegulationChoice, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, patternLengthIssue, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { byCourseNumber } from "../utils/sheetMembership";
 import SameSlotHint from "./SameSlotHint";
@@ -395,6 +395,8 @@ export default function QuickCreatePopover({
     checking: checkable && (!previewCurrent || liveCheck.checking),
     companionRequired,
     regulation: fit,
+    /* نهايةٌ تخالف النمط تمنع بسطرٍ يقول النهاية الصحيحة؛ وإصلاحُها «طبّق النمط المعتمد» بجانب الشرائح. */
+    regulationNote: patternLengthIssue(selectedCourse, chosenDays, draft.start, draft.end) || undefined,
     notes: (previewCurrent ? liveCheck.notices : []).map(text => ({ kind: "time" as const, text })),
   });
   const blockingCount = previewCurrent ? liveCheck.conflicts.filter(isBlockingConflict).filter(item => !item?.holdRequestId).length : 0;
@@ -617,7 +619,9 @@ export default function QuickCreatePopover({
                     /* «المدة» بالعجلة تجاوزٌ متعمَّد؛ أما الساعة والدقيقة فتعيدان النهاية إلى النمط. */
                     const lengthChanged = minutesOf(next.end) - minutesOf(next.start) !== minutesOf(draft.end) - minutesOf(draft.start);
                     if (lengthChanged) timeEdited.current = regulationFit(selectedCourse, chosenDays, next.start, next.end) === "off";
-                    const fitted = !timeEdited.current && !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start, minutesOf(next.end) - minutesOf(next.start)) : "";
+                    /* قرار المالك 2026-11-08: تحريكُ البداية يحسب النهاية من النمط دائماً، ولو سبقه تجاوز. */
+                    const fitted = !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start, minutesOf(next.end) - minutesOf(next.start)) : "";
+                    if (fitted) timeEdited.current = false;
                     if (fitted && fitted !== next.end) flashAutofill();
                     const end = fitted || next.end;
                     patch({ start: next.start, end });
@@ -640,7 +644,7 @@ export default function QuickCreatePopover({
           </div>
         ) : null}
         {regulationChips.length || fit === "off" ? (
-          <RegulationPatternChips compact choices={regulationChips} activeId={regulationChoiceFor(selectedCourse, chosenDays)?.id} fit={fit} onPick={applyChoice}
+          <RegulationPatternChips compact choices={regulationChips} activeId={regulationChoiceFor(selectedCourse, chosenDays, minutesOf(draft.end) - minutesOf(draft.start))?.id} fit={fit} onPick={applyChoice}
             onApplyBest={!daysLocked && regulationHours(selectedCourse) > 0 && fit === "off" ? applyBest : undefined} autofilled={autofillFlash} />
         ) : null}
       </section>

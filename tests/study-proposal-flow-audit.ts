@@ -228,7 +228,8 @@ async function main() {
   ev = await evaluate(salem, [editOp]);
   check(ev.after.metrics.sections === ev.before.metrics.sections, "التعديل: عدد الشعب بعده = قبله (القديم لا يُحسب مع الجديد)", [ev.before.metrics.sections, ev.after.metrics.sections]);
   check(ev.after.ghosts.some((g: any) => g.state === "out") && ev.after.items.some((i: any) => i.state === "modified"), "معاينة التعديل تُظهر الموضع القديم (ghost) والجديد (معدّل)");
-  const f3 = await makeFaculty("0109454", "603", "M", "17:00", "18:20");
+  /* 0109454 بأربع ساعات: الاثنين وحده 110د أو كتلة 230د (المالك 2026-11-08: طولٌ خارج المكتبة — 80د — لا يُحفظ). */
+  const f3 = await makeFaculty("0109454", "603", "M", "17:00", "18:50");
   const swapOut = salemRows.find(r => r.id !== movable.id && r.id !== fac1.id)!;
   const replaceOp = { id: "r1", kind: "replace", incoming: "assign", source: { id: f3.id }, out: { snapshot: { id: swapOut.id }, action: "unassign" }, target: targetOf(f3.AdCourseId, f3.SCode, daysOfRow(f3), f3.fstarttime, f3.fendtime, ownRoom(f3)) };
   ev = await evaluate(salem, [replaceOp]);
@@ -267,7 +268,8 @@ async function main() {
 
   /* ═══ ٦) مواد مستقلة: موافقةٌ جزئية تُثبّت ما وُوفق عليه وحده ═══════════════ */
   const f4 = await makeFaculty("0109401", "604", "H", "18:00", "18:50");
-  const f5 = await makeFaculty("0109454", "605", "H", "19:00", "19:50");
+  /* وكذلك الخميس وحده لمقرّر الأربع ساعات: 110د لا 50د. */
+  const f5 = await makeFaculty("0109454", "605", "H", "15:00", "16:50");
   const p6 = (await newProposal(noura, [opAssign("n1", f4), opAssign("n2", f5)])).json;
   const s6 = await sendIt(p6);
   check(s6.status === 200, "تجهيز مقترح المواد المستقلة وإرساله", s6.json.evaluation?.findings?.map((f: any) => `${f.kind}:${f.code}:${f.title}:${f.detail}`));
