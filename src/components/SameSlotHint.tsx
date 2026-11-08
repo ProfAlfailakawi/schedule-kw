@@ -1,10 +1,10 @@
 import CourseTags from "./CourseTags";
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, BookOpen, Check, CheckCircle2, Clock3, Copy, GraduationCap, Layers, Link2, LockOpen, UserRound, X } from "lucide-react";
+import { AlertCircle, BookOpen, Check, CheckCircle2, ChevronDown, Clock3, Copy, GraduationCap, Layers, Link2, LockOpen, UserRound, X } from "lucide-react";
 import { AR, countOf, oblique } from "../utils/arabicCount";
 import { formatScheduleTimeRange, scheduleClockForDisplay, scheduleDayWindowMinutes, type ScheduleDayWindow } from "../utils/scheduleTime";
-import { capSameSlot, sameSlotOf, slotMinutes, SLOT_DAYS, type SameSlotItem, type SameSlotQuery, type SameSlotResult, type SlotDay, type SlotRow } from "../utils/sameSlot";
+import { sameSlotGroups, sameSlotOf, sameSlotSheet, slotMinutes, SLOT_DAYS, visibleSections, type SameSlotCourseRow, type SameSlotGroup, type SameSlotGroupKind, type SameSlotItem, type SameSlotQuery, type SameSlotResult, type SameSlotView, type SlotDay, type SlotRow } from "../utils/sameSlot";
 import { sameLevelLookup, unlockLookup } from "../utils/planPeers";
 import { cachedPlanFacts, loadPlanFacts, NO_PLAN_FACTS, type PlanFacts } from "../utils/planFactsCache";
 import { coreqFindings, coreqFreeTime, coreqScopeRows, partnersOfCourse, type CoreqFreeTime } from "../utils/coreqSections";
@@ -59,17 +59,14 @@ function usePlanFacts(collegeId: number | undefined, sectionId: number | undefin
 /** وسمُ المقررات التي تُؤخذ في فصلٍ واحد: سطرُ مجموعتها ووصفُها. كلمةٌ واحدة هنا تغيّرها كلَّها. */
 const TAKEN_TOGETHER = "تُؤخذ معًا";
 
-/** بنودُ الورقة متجاورةً تحت سطر مجموعتها: «تفتح» أو TAKEN_TOGETHER أو بلا سطر. */
-function groupedRows<R>(items: readonly SameSlotItem<R>[]) {
-  const groups: Array<{ key: string; items: SameSlotItem<R>[] }> = [];
-  for (const item of items) {
-    const key = item.unlock ? `unlock|${item.unlock.names.join("|")}` : item.sameLevel ? "level" : "plain";
-    const last = groups[groups.length - 1];
-    if (last?.key === key) last.items.push(item);
-    else groups.push({ key, items: [item] });
-  }
-  return groups;
-}
+/** وجوهُ المجموعات في رقائق الورقة وسطورها: أيقونةٌ، والاسمُ لقارئ الشاشة وسطرِ المجموعة.
+    «المقرر نفسه» أولاً لأن نسيانَ شعبةٍ مكررة أسهلُ ما يقع. */
+const GROUP_FACE: Record<SameSlotGroupKind, { name: string; Icon: typeof Copy }> = {
+  course: { name: "المقرر نفسه", Icon: Copy },
+  unlock: { name: "تفتح مقرراً تالياً", Icon: LockOpen },
+  level: { name: TAKEN_TOGETHER, Icon: GraduationCap },
+  time: { name: "في الوقت نفسه", Icon: Clock3 },
+};
 
 /** ما يقف فوق ورقة الموعد على الحاسوب: شريط الجوال وترويسة الصفحة، ما دام ظاهراً فوق الشارة. */
 const SHEET_CEILING = ".mobile-topbar, .page-heading";
@@ -121,15 +118,25 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
   const sameLevel = useMemo(() => sameLevelLookup(levelGroups), [levelGroups]);
   const unlockOf = useMemo(() => unlockLookup(unlockGroups), [unlockGroups]);
   const result: SameSlotResult<R> = useMemo(() => sameSlotOf<R>(rows, { ...query, softSkipIds: [...(query.softSkipIds || []), ...twinIds], codeOf: (id) => courseOf(id)?.CourseCode, sameLevel, unlockOf }), [rows, query, twinIds, sameLevel, unlockOf]); // eslint-disable-line react-hooks/exhaustive-deps
+  const groups = useMemo(() => sameSlotGroups(result.items), [result]);
   const [open, setOpen] = useState(false);
+  /* رقاقةُ النوع المختارة و«+n» المفتوح: يعودان إلى «الكل» مطوياً كلما طُويت الورقة. */
+  const [view, setView] = useState<SameSlotView>("all");
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => { if (!open) { setView("all"); setExpanded(false); } }, [open]);
   const button = useRef<HTMLButtonElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
+  const tabList = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const [phone, setPhone] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
 
-  const count = result.count;
-  const { partialCount, sectionCount } = result;
+  /* العددُ صفوفُ المقررات كما تُرى: شعبُ المقرر الواحد صفٌّ واحد؛ وشعبُ المقرر نفسه تُعدّ شُعَباً. */
+  const count = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  const sectionCount = groups.filter(group => group.kind === "course").reduce((sum, group) => sum + group.rows.reduce((n, row) => n + row.sections.length, 0), 0);
+  const otherRows = groups.filter(group => group.kind !== "course").flatMap(group => group.rows);
+  const partialCount = otherRows.filter(row => !row.exact).length;
+  const exactCount = otherRows.length - partialCount;
   const twinCount = twins.length;
   /* لا شيءَ يُقال ← تُطوى الورقةُ المفتوحة معه. */
   useEffect(() => { if (!count && !twinCount && open) setOpen(false); }, [count, twinCount, open]);
@@ -159,7 +166,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
     return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
-  }, [open, result, twinCount]);
+  }, [open, result, twinCount, view, expanded]);
 
   useEffect(() => {
     if (!open) return;
@@ -184,26 +191,81 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
 
   if (!count && !twinCount) return null;
 
-  const capped = capSameSlot(result.items);
+  const shown = sameSlotSheet<R>(groups, view, expanded);
+  const shownRows = shown.groups.flatMap(group => group.rows);
   const chosen = SLOT_DAYS.filter(day => days.includes(day.key));
   const several = chosen.length > 1;
-  const exactCount = count - partialCount - sectionCount;
   const label = [
     exactCount ? `${countOf(exactCount, AR.course)} في الوقت نفسه` : "",
     partialCount ? `تداخل مع ${countOf(partialCount, oblique(AR.course))} من أقرانه في الصحيفة` : "",
-    sectionCount ? `${countOf(sectionCount, AR.section)} من المقرر نفسه بوقت قريب` : "",
+    sectionCount ? `${countOf(sectionCount, AR.section)} من المقرر نفسه في الوقت نفسه أو قريبة منه` : "",
     twinCount ? "مقرن متداخل" : "",
   ].filter(Boolean).join("، ");
   const timeText = formatScheduleTimeRange(start, end);
   const ownName = courseOf(Number(courseId))?.CourseName || "هذا المقرر";
 
-  const rowNode = ({ row, days: rowDays, sameLevel: level, sameCourse, unlock, kind }: SameSlotItem<R>, index: number) => {
+  /* الرقائق: «الكل» ثم نوعٌ لكل مجموعة؛ والأسهم بينها (في الاتجاه من اليمين: اليسارُ هو التالي). */
+  const views: SameSlotView[] = shown.tabs.length ? ["all", ...shown.tabs.map(tab => tab.kind)] : [];
+  const tabId = (key: SameSlotView) => `${titleId}-tab-${key}`;
+  const panelId = `${titleId}-panel`;
+  const pick = (next: SameSlotView, focus = false) => {
+    setView(next);
+    if (focus) tabList.current?.querySelector<HTMLElement>(`[data-view="${next}"]`)?.focus();
+  };
+  const onTabKey = (event: React.KeyboardEvent) => {
+    const at = views.indexOf(shown.view);
+    const step = event.key === "ArrowLeft" ? 1 : event.key === "ArrowRight" ? -1 : 0;
+    const next = event.key === "Home" ? 0 : event.key === "End" ? views.length - 1 : step ? (at + step + views.length) % views.length : -1;
+    if (next < 0) return;
+    event.preventDefault();
+    pick(views[next], true);
+  };
+  const tabNode = (key: SameSlotView) => {
+    const tab = shown.tabs.find(item => item.kind === key);
+    const face = key === "all" ? { name: "الكل", Icon: Layers } : GROUP_FACE[key];
+    const number = !tab ? count : key === "course" ? tab.sectionCount : tab.rowCount;
+    const counted = !tab ? countOf(count, AR.course) : key === "course" ? countOf(tab.sectionCount, AR.section) : countOf(tab.rowCount, AR.course);
+    const selected = shown.view === key;
+    return (
+      <button key={key} id={tabId(key)} data-view={key} type="button" role="tab" aria-selected={selected} aria-controls={panelId} tabIndex={selected ? 0 : -1}
+        className={`same-slot-tab is-${key}${selected ? " is-active" : ""}`} aria-label={`${face.name}: ${counted}`} title={face.name}
+        data-guide-ignore="يعرض نوعاً من المقررات في الورقة؛ لا يحفظ شيئاً" onClick={() => pick(key)}>
+        <face.Icon aria-hidden="true" /><b dir="ltr">{number}</b>
+      </button>
+    );
+  };
+
+  const legendNode = (group: SameSlotGroup<R>) => {
+    /* في «الكل» يُعرض صفٌّ واحد؛ والباقي «+n» على سطر مجموعته يفتح رقاقتها. */
+    const all = groups.filter(item => item.key === group.key).reduce((sum, item) => sum + item.rows.length, 0);
+    const extra = shown.tabs.length && shown.view === "all" ? all - group.rows.length : 0;
+    const more = extra ? (
+      <button type="button" className="same-slot-legend-more" aria-label={`إظهار الكل: ${countOf(all, AR.course)}`} data-guide-ignore="يعرض بقية المجموعة؛ لا يحفظ شيئاً" onClick={() => pick(group.kind)}>
+        <bdi dir="ltr">+{extra}</bdi>
+      </button>
+    ) : null;
+    if (group.unlock) return <p className="same-slot-legend is-unlock"><LockOpen aria-hidden="true" />تفتح: <b>{group.unlock.names[0]}</b>{group.unlock.names.length > 1 ? <bdi dir="ltr">+{group.unlock.names.length - 1}</bdi> : null}{more}</p>;
+    if (group.kind === "level") return <p className="same-slot-legend"><GraduationCap aria-hidden="true" />{TAKEN_TOGETHER}{more}</p>;
+    if (group.kind === "course") return <p className="same-slot-legend is-course"><Copy aria-hidden="true" />{GROUP_FACE[group.kind].name}{more}</p>;
+    /* الوقتُ نفسه بلا سطر حين يكون وحده، كما كان. */
+    return shown.tabs.length ? <p className="same-slot-legend"><Clock3 aria-hidden="true" />{GROUP_FACE[group.kind].name}{more}</p> : null;
+  };
+
+  const rowNode = (courseRow: SameSlotCourseRow<R>, index: number) => {
+    const { row, sameLevel: level, sameCourse, unlock } = courseRow.sections[0];
     const course = courseOf(Number(row.AdCourseId));
     const name = row.AdCourseName || course?.CourseName || "موعد آخر";
-    const who = instructorName && row.AdInstructorId ? instructorName(Number(row.AdInstructorId)) : "";
+    /* الأستاذُ حين تشترك فيه الشعبُ كلُّها؛ وإلا لا اسم. */
+    const teachers = [...new Set(courseRow.sections.map(section => Number(section.row.AdInstructorId) || 0))];
+    const who = instructorName && teachers.length === 1 && teachers[0] ? instructorName(teachers[0]) : "";
     const hue = hueOf(Number(row.AdCourseId) || index);
+    const { sections, hidden } = visibleSections(courseRow);
+    const codes = courseRow.sections.map(section => section.row.SCode).filter(Boolean) as string[];
+    /* شعبٌ مدموجة بأيامٍ مختلفة: كلُّ رقاقةٍ تحمل أيامها، فلا يضيع أيُّ شعبةٍ تتداخل في أيِّ يوم. */
+    const daysDiffer = several && new Set(courseRow.sections.map(section => section.days.join("+"))).size > 1;
+    const daysOf = (section: SameSlotCourseRow<R>["sections"][number]) => SLOT_DAYS.filter(day => section.days.includes(day.key)).map(day => day.short).join("·");
     return (
-      <li key={row.id} className={[level || unlock ? "is-level" : "", kind === "exact" ? "" : "is-partial"].filter(Boolean).join(" ") || undefined} style={{ ["--ss-hue" as any]: hue }}>
+      <li key={courseRow.key} className={[level || unlock ? "is-level" : "", courseRow.exact ? "" : "is-partial"].filter(Boolean).join(" ") || undefined} style={{ ["--ss-hue" as any]: hue }}>
         <span className="same-slot-icon" aria-hidden="true"><BookOpen /></span>
         <span className="same-slot-main">
           <b>{name}</b>
@@ -211,14 +273,21 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
             {course?.CourseCode ? <bdi dir="ltr">{course.CourseCode}</bdi> : null}
             <CourseTags courseId={row.AdCourseId} />
             {who ? <span className="same-slot-who"><UserRound aria-hidden="true" />{who}</span> : null}
-            {several ? <span className="same-slot-days">{SLOT_DAYS.filter(day => rowDays.includes(day.key)).map(day => <i key={day.key}>{day.short}</i>)}</span> : null}
+            {several ? <span className="same-slot-days">{SLOT_DAYS.filter(day => courseRow.days.includes(day.key)).map(day => <i key={day.key}>{day.short}</i>)}</span> : null}
           </small>
         </span>
-        {row.SCode ? <span className="same-slot-chip">شعبة <bdi dir="ltr">{row.SCode}</bdi></span> : null}
+        {courseRow.sections.length === 1
+          ? (row.SCode ? <span className="same-slot-chip">شعبة <bdi dir="ltr">{row.SCode}</bdi></span> : null)
+          : codes.length ? (
+            <span className="same-slot-sections" role="img" aria-label={`${countOf(codes.length, AR.section)}: ${courseRow.sections.filter(section => section.row.SCode).map(section => daysDiffer ? `${section.row.SCode} (${daysOf(section)})` : String(section.row.SCode)).join("، ")}`}>
+              {sections.map(section => section.row.SCode ? <span key={String(section.row.id)} className="same-slot-chip"><bdi dir="ltr">{section.row.SCode}</bdi>{daysDiffer ? <small className="same-slot-chip-days">{daysOf(section)}</small> : null}</span> : null)}
+              {hidden ? <bdi className="same-slot-chip is-more" dir="ltr">+{hidden}</bdi> : null}
+            </span>
+          ) : null}
         {unlock ? <span className="same-slot-level" title="يفتحان معاً مقرراً تالياً" role="img" aria-label="يفتحان معاً مقرراً تالياً"><LockOpen /></span> : null}
         {level ? <span className="same-slot-level" title={TAKEN_TOGETHER} role="img" aria-label={TAKEN_TOGETHER}><GraduationCap /></span> : null}
         {sameCourse ? <span className="same-slot-level" title="المقرر نفسه" role="img" aria-label="المقرر نفسه"><Copy /></span> : null}
-        {kind === "exact" ? null : <OverlapSpan own={{ start: query.start, end: query.end }} row={row} near={kind === "near"} />}
+        {courseRow.exact ? null : <OverlapSpan own={{ start: query.start, end: query.end }} sections={courseRow.sections} drawn={sections} near={courseRow.near} />}
       </li>
     );
   };
@@ -246,26 +315,28 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
           </button>
         </header>
         {count ? <>
+        {views.length ? (
+          <div ref={tabList} className="same-slot-tabs" role="tablist" aria-label="أنواع ما في الوقت نفسه" onKeyDown={onTabKey}>
+            {views.map(tabNode)}
+          </div>
+        ) : null}
         <div className="same-slot-bar" aria-hidden="true">
-          {capped.items.map((item, index) => (
-            <i key={String(item.row.id)} style={{ background: `hsl(${hueOf(Number(item.row.AdCourseId) || index)} 48% 56%)` }} />
+          {shownRows.map((courseRow, index) => (
+            <i key={courseRow.key} style={{ background: `hsl(${hueOf(Number(courseRow.sections[0].row.AdCourseId) || index)} 48% 56%)` }} />
           ))}
         </div>
-        <div className="same-slot-body">
-          {groupedRows(capped.items).map((group, index) => {
-            const unlock = group.items[0].unlock;
-            return (
-              <section key={`${group.key}|${index}`} className="same-slot-day">
-                {unlock ? (
-                  <p className="same-slot-legend is-unlock"><LockOpen aria-hidden="true" />تفتح: <b>{unlock.names[0]}</b>{unlock.names.length > 1 ? <bdi dir="ltr">+{unlock.names.length - 1}</bdi> : null}</p>
-                ) : group.key === "level" ? (
-                  <p className="same-slot-legend"><GraduationCap aria-hidden="true" />{TAKEN_TOGETHER}</p>
-                ) : null}
-                <ul>{group.items.map(rowNode)}</ul>
-              </section>
-            );
-          })}
-          {capped.hidden ? <p className="same-slot-more"><bdi dir="ltr">+{capped.hidden}</bdi></p> : null}
+        <div className="same-slot-body" id={panelId} {...(views.length ? { role: "tabpanel", "aria-labelledby": tabId(shown.view) } : {})}>
+          {shown.groups.map(group => (
+            <section key={group.key} className="same-slot-day">
+              {legendNode(group)}
+              <ul>{group.rows.map(rowNode)}</ul>
+            </section>
+          ))}
+          {shown.hidden && !views.length ? (
+            <button type="button" className="same-slot-more" aria-label={`إظهار البقية: ${countOf(shown.hidden, AR.course)}`} data-guide-ignore="يُظهر بقية المقررات في الورقة؛ لا يحفظ شيئاً" onClick={() => setExpanded(true)}>
+              <bdi dir="ltr">+{shown.hidden}</bdi><ChevronDown aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
         </> : null}
         {twins.map(twin => <React.Fragment key={twin.partnerCourseId}><TwinNode twin={twin} own={{ name: ownName, start: query.start, end: query.end }} courseOf={courseOf} /></React.Fragment>)}
@@ -278,7 +349,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
       <button
         ref={button}
         type="button"
-        className={`same-slot-chip-btn${open ? " is-open" : ""}${className ? ` ${className}` : ""}`}
+        className={`same-slot-chip-btn${open ? " is-open" : ""}${sectionCount ? " has-dup" : ""}${className ? ` ${className}` : ""}`}
         aria-label={label}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -288,6 +359,7 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
       >
         {count ? <><Layers aria-hidden="true" /><b dir="ltr">{count}</b></> : null}
         {twinCount ? <Link2 aria-hidden="true" /> : null}
+        {sectionCount ? <span className="same-slot-dup" aria-hidden="true"><Copy /></span> : null}
       </button>
       {open ? createPortal(sheetNode, document.body) : null}
     </>
@@ -295,29 +367,37 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
 }
 
 /** الوقتُ بدقائقه كما يُعرض في الجدول. */
+const hhmm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 const clockOf = (minutes: number) => scheduleClockForDisplay(`${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`);
 
 /**
  * التداخل الجزئي: وقتُ الصف نفسه (عنوانُ الورقة لا يصفه)، وشريطان بمحورٍ واحد بلغة بطاقة المقرن:
  * الأعلى هذا الموعد والأسفل ذاك، والعنبريُّ موضعُ التداخل. والقريبةُ بلا عنبري: يُرى الفاصلُ بينهما.
+ * الصفُّ المدموج: شريطٌ رفيع لكل شعبةٍ مرسومة تحت شريط الموعد بالمحور نفسه، ووقتُه من أبكرها إلى آخرها،
+ * والوصفُ المقروء يسمّي كلَّ شعبةٍ بوقتها.
  */
-function OverlapSpan({ own, row, near }: { own: { start: string; end: string }; row: SlotRow; near: boolean }) {
+function OverlapSpan({ own, sections, drawn, near }: { own: { start: string; end: string }; sections: readonly SameSlotItem<SlotRow>[]; drawn: readonly SameSlotItem<SlotRow>[]; near: boolean }) {
   const a0 = slotMinutes(own.start), a1 = slotMinutes(own.end);
-  const b0 = slotMinutes(row.fstarttime), b1 = slotMinutes(row.fendtime);
-  const lo = Math.min(a0, b0), span = Math.max(1, Math.max(a1, b1) - lo);
+  const spans = drawn.map(({ row, kind }) => ({ id: String(row.id), b0: slotMinutes(row.fstarttime), b1: slotMinutes(row.fendtime), near: kind === "near" }));
+  const lo = Math.min(a0, ...spans.map(s => s.b0)), span = Math.max(1, Math.max(a1, ...spans.map(s => s.b1)) - lo);
   const pct = (value: number) => ((value - lo) / span) * 100;
   const segment = (kind: string, from: number, to: number) => (
     <i className={kind} style={{ insetInlineStart: `${pct(from)}%`, width: `${pct(to) - pct(from)}%` }} />
   );
-  const cut = near ? null : segment("is-overlap", Math.max(a0, b0), Math.min(a1, b1));
-  const time = formatScheduleTimeRange(row.fstarttime, row.fendtime);
+  const cutOf = (s: (typeof spans)[number]) => (s.near ? null : segment("is-overlap", Math.max(a0, s.b0), Math.min(a1, s.b1)));
+  const sayOne = ({ row, kind }: SameSlotItem<SlotRow>) => `${kind === "near" ? "قريبة" : kind === "exact" ? "الوقت نفسه" : "تداخل جزئي"}، وقته ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`;
+  const row = sections[0].row;
+  const single = sections.length === 1;
+  const first = Math.min(...sections.map(s => slotMinutes(s.row.fstarttime))), last = Math.max(...sections.map(s => slotMinutes(s.row.fendtime)));
+  const time = single ? formatScheduleTimeRange(row.fstarttime, row.fendtime) : formatScheduleTimeRange(hhmm(first), hhmm(last));
+  const spoken = single ? sayOne(sections[0]) : sections.map(s => `شعبة ${s.row.SCode || ""}: ${sayOne(s)}`).join("؛ ");
   return (
-    <span className={`same-slot-span${near ? " is-near" : ""}`} role="img" aria-label={`${near ? "قريبة" : "تداخل جزئي"}، وقته ${time}`} title={near ? "قريبة" : "تداخل جزئي"}>
+    <span className={`same-slot-span${near ? " is-near" : ""}`} role="img" aria-label={spoken} title={near ? "قريبة" : "تداخل جزئي"}>
       <Clock3 />
       <strong dir="ltr">{time}</strong>
       <span className="same-slot-tracks">
-        <span className="twin-track">{segment("is-free", a0, a1)}{cut}</span>
-        <span className="twin-track">{segment("is-free", b0, b1)}{cut}</span>
+        <span className="twin-track">{segment("is-free", a0, a1)}{spans.map(s => <React.Fragment key={s.id}>{cutOf(s)}</React.Fragment>)}</span>
+        {spans.map(s => <span key={s.id} className="twin-track">{segment("is-free", s.b0, s.b1)}{cutOf(s)}</span>)}
       </span>
       {near ? <em>قريبة</em> : null}
     </span>
