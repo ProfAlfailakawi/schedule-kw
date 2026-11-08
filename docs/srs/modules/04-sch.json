@@ -12,6 +12,7 @@
   "sources": [
     "src/server/routes/schedulesRoutes.ts",
     "src/server/routes/scheduleToolsRoutes.ts",
+    "src/server/core/departmentPickerFamily.ts",
     "src/server/routes/scheduleLiveRoutes.ts",
     "src/server/routes/scheduleNotesRoutes.ts",
     "src/server/routes/scheduleReviewRoutes.ts",
@@ -714,9 +715,10 @@
         { "ar": "تنفيذ بلا الرمز ta-conversion يُردّ 409 «التحويل يحتاج تأكيداً صريحاً».", "en": "A run without the token ta-conversion is refused with 409 «conversion needs explicit confirmation»." },
         { "ar": "تغيّر جدول أو تصنيف بعد المعاينة يُردّ 409 «افتح المعاينة من جديد»؛ وأكثر من 400 موعد أو أكثر من سجل «هيئة تدريسية» يمنع.", "en": "A schedule or classification change after the preview is refused with 409 «reopen the preview»; more than 400 appointments or more than one placeholder record blocks." },
         { "ar": "فصل مجمَّد أو جدول مقفل يمنع التحويل.", "en": "A frozen term or locked schedule blocks the conversion." },
-        { "ar": "GET /api/schedules/ta-conversion يعيد المعاينة (الأشخاص، عدد المواعيد المتأثرة، الشعب، previewKey، هل يُسمح ولماذا، اسم الفصل والقسم) بلا ذاكرة؛ وبلا كلية أو قسم أو فصل 400 وخارج النطاق 403.", "en": "GET /api/schedules/ta-conversion returns the preview (people, affected appointment count, sections, previewKey, whether it is allowed and why, term and department names) uncached; without college, department or term it returns 400 and outside scope 403." }
+        { "ar": "GET /api/schedules/ta-conversion يعيد المعاينة (الأشخاص، عدد المواعيد المتأثرة، الشعب، previewKey، هل يُسمح ولماذا، اسم الفصل والقسم) بلا ذاكرة؛ وبلا كلية أو قسم أو فصل 400 وخارج النطاق 403.", "en": "GET /api/schedules/ta-conversion returns the preview (people, affected appointment count, sections, previewKey, whether it is allowed and why, term and department names) uncached; without college, department or term it returns 400 and outside scope 403." },
+        { "ar": "لكل اسم TA اختيارُ هدفٍ من قائمة أستاذ المقرر نفسها («أساتذة هذا القسم فقط» و«منتدبون هذا الفصل»)، والافتراضي «هيئة تدريسية»؛ وهدفٌ من خارج عائلة القسم يُردّ 400 برسالة عربية، والتعارض وتجاوز النصاب تنبيهٌ لا يمنع.", "en": "Each TA may be given a target from the instructor picker's own list (department faculty and this term's visiting teachers), defaulting to the placeholder; a target outside the department family is refused with 400 in Arabic, and a clash or load excess is a soft warning that never blocks." }
       ],
-      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/taConversion.ts", "src/server/routes/scheduleToolsRoutes.ts#/api/schedules/ta-conversion"], "tests": ["tests/ta-conversion-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/taConversion.ts", "src/server/routes/scheduleToolsRoutes.ts#/api/schedules/ta-conversion", "src/server/core/departmentPickerFamily.ts#departmentPickerFamily", "src/components/TAConversionPanel.tsx"], "tests": ["tests/ta-conversion-audit.ts", "tests/ta-conversion-family-http-audit.ts"] }
     },
     {
       "id": "FR-SCH-027",

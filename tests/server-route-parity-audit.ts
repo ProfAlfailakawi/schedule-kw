@@ -243,7 +243,13 @@ const updatedPlanFacts = (r:Row) => r.kind==="route" && r.methods.length===1 && 
    pinned by tests/teacher-card-peers-audit.ts instead of call-text parity. */
 const updatedTeacherCheck = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post"
   && (r.path==="/api/public/request/:token/check" || r.path==="/api/public/request/:token/check-batch");
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : r.call || "-"} ${r.name}`;
+/* One intentional TA-conversion extension: each TA may go to a teacher of the department's own family
+   (the instructor picker's «أساتذة هذا القسم فقط» + «منتدبون هذا الفصل») instead of «هيئة تدريسية».
+   GET adds familyIds/checks (soft clash/load warnings); POST validates targets (400 outside the family).
+   Same paths, permission 7, scope guard, confirm token, preview key, undo version and audit; behaviour
+   is pinned by tests/ta-conversion-audit.ts and tests/ta-conversion-family-http-audit.ts. */
+const updatedTaConversion = (r:Row) => r.kind==="route" && r.methods.length===1 && (r.methods[0]==="get" || r.methods[0]==="post") && r.path==="/api/schedules/ta-conversion";
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();

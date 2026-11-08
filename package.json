@@ -18,6 +18,7 @@
     "test:sheet-membership": "tsx tests/sheet-membership-audit.ts",
     "test:visiting-lookup": "tsx tests/visiting-lookup-audit.ts",
     "test:ta-conversion": "tsx tests/ta-conversion-audit.ts",
+    "test:ta-conversion-http": "tsx tests/ta-conversion-family-http-audit.ts",
     "test:calendar-ics": "tsx tests/calendar-ics-audit.ts",
     "test:review-audit-1028": "tsx tests/review-audit-2026-10-28.ts",
     "test:owner-approved-1029": "tsx tests/owner-approved-2026-10-29-audit.ts",

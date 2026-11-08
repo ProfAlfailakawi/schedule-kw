@@ -11202,7 +11202,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               data-guide-ignore="معاينة تحويل أسماء TA داخل القسم والفصل دون تعديل إلا بعد التأكيد"
               onClick={() => { if (!refuseInPractice()) setTaConversionOpen(true); }}
               disabled={!filterCollege || !filterSection || !filterTerm}
-              title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية"
+              title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية أو أستاذ من القسم"
             >
               <Replace aria-hidden="true" /> تحويل هيئة التدريب
             </GhostButton> : null}
@@ -11234,6 +11234,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       </Surface>
       {taConversionOpen ? <TAConversionPanel
         collegeId={Number(filterCollege)} sectionId={Number(filterSection)} termId={Number(filterTerm)}
+        instructors={instructors as any[]} visitingIds={visitingIds} visitingRosterIds={pickerVisitingRosterIds}
         onClose={() => setTaConversionOpen(false)}
         onChanged={() => { void loadRows(); setLiveFeedSerial(value => value + 1); }}
       /> : null}

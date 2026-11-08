@@ -59,6 +59,10 @@ interface Props {
   disabled?: boolean;
   /** يقصر البحث والاختيار على هيئة القسم، مع السماح للمنتدبين المحددين صراحة. */
   strictDepartmentOnly?: boolean;
+  /** يقصر القائمة على هذه المعرّفات (و«هيئة تدريسية»)، كتحويل هيئة التدريب الذي يحكم الخادمُ فيه بالعائلة نفسها. */
+  onlyIds?: Iterable<number>;
+  /** نصُّ الزر حين لا اختيار بعد. */
+  emptyLabel?: string;
 }
 
 /** قانون هوية الاسم المشترك نفسه الذي تحكم به مطابقة الاستيراد: همزات الألف،
@@ -68,7 +72,7 @@ const withoutTitles = instructorCleanName;
 /** والمسافات نفسها لا تحجب: «عبد العزيز» يجد «عبدالعزيز». */
 const spaceless = (value: string) => value.replace(/ /g, "");
 
-export default function InstructorPicker({ value, onChange, instructors, departmentIds, visitingIds, visitingRosterIds, canCreate = true, suggestedName = "", onCreated, onSelected, collegeId = 0, sectionId = 0, termId = 0, disabled, strictDepartmentOnly = false }: Props) {
+export default function InstructorPicker({ value, onChange, instructors, departmentIds, visitingIds, visitingRosterIds, canCreate = true, suggestedName = "", onCreated, onSelected, collegeId = 0, sectionId = 0, termId = 0, disabled, strictDepartmentOnly = false, onlyIds, emptyLabel = "اختر أستاذ المقرر" }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
@@ -155,8 +159,10 @@ export default function InstructorPicker({ value, onChange, instructors, departm
     const id = Number(person?.AdInstructorId);
     return Boolean(visitingRosterIds) && id !== Number(value) && visitingSet.has(id) && !rosterSet.has(id);
   };
+  const onlySet = useMemo(() => onlyIds ? new Set(Array.from(onlyIds, Number)) : null, [onlyIds]);
+  const outsideOnly = (person: any) => Boolean(onlySet) && !isFacultyPlaceholder(person) && !onlySet!.has(Number(person?.AdInstructorId));
   const isHidden = (person: any) =>
-    person?.AdInstructorStatus === "retired" || person?.AdInstructorStatus === "sabbatical" || outsideTermRoster(person);
+    person?.AdInstructorStatus === "retired" || person?.AdInstructorStatus === "sabbatical" || outsideTermRoster(person) || outsideOnly(person);
   const results = useMemo(() => {
     const needle = withoutTitles(query);
     if (!needle) {
@@ -194,7 +200,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
         a.score - b.score ||
         byArabic(a.person.AdInstructorName, b.person.AdInstructorName))
       .map(x => x.person), placeholderPreference).slice(0, 40);
-  }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, rosterSet, visitingSet, visitingRosterIds, value, placeholderPreference]);
+  }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, rosterSet, visitingSet, visitingRosterIds, value, placeholderPreference, onlySet]);
 
   /* الأعضاء أولاً ثم المنتدبون (مع الحفاظ على ترتيب البحث داخل كل مجموعة)، و«هيئة تدريسية» وحدها. */
   const grouped = useMemo(() => {
@@ -270,7 +276,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       >
         <UserRound aria-hidden="true" />
         <span className="instructor-identity">
-          <b>{selected ? (isFacultyPlaceholder(selected) ? "بدون أستاذ بعد" : <>{selected.AdInstructorName}<PersonChips visiting={visitingSet.has(selected.AdInstructorId)} trainee={trainees.has(Number(selected.AdInstructorId))} /></>) : "اختر أستاذ المقرر"}</b>
+          <b>{selected ? (isFacultyPlaceholder(selected) ? "بدون أستاذ بعد" : <>{selected.AdInstructorName}<PersonChips visiting={visitingSet.has(selected.AdInstructorId)} trainee={trainees.has(Number(selected.AdInstructorId))} /></>) : emptyLabel}</b>
           {selected?.AdInstructorCivil && !isFacultyPlaceholder(selected) ? <small dir="ltr">{selected.AdInstructorCivil}</small> : null}
         </span>
       </button>
