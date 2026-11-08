@@ -47,7 +47,7 @@ check(count(out, "deleted") === 1 && count(out, "added") === 1, "فرعٌ آخر
 
 // 6) شعبتان متطابقتا المفتاح في الحي: لا تخمين.
 out = run([original(215, "0109215", "501", "1332", 0)], [recreated(9001, 215, "501"), recreated(9002, 215, "501", { AdRoomHall: "G20" })]);
-check(count(out, "deleted") === 1 && count(out, "added") === 2, "تكرارُ المفتاح في الحي يبقى كما هو بلا تخمين");
+check(count(out, "deleted") === 0 && count(out, "added") === 1 && count(out, "unchanged") === 1, "صفّان بمفتاحٍ واحد: يُربط الأقرب (المطابق) بالأصل ويبقى الآخر إضافة");
 
 // 7) مقررٌ آخر برقم الشعبة نفسه: لا ربط.
 out = run([original(215, "0109215", "501", "1332", 0)], [recreated(9001, 334, "501")]);
@@ -98,7 +98,7 @@ console.log(`\n${passed} passed, 0 failed`);
 
   // رقمٌ جديد مع وقتٍ مختلف: لا دليل على أنها الشعبة نفسها.
   o = go([...live0.filter((_, i) => i !== 2), again(base[2], 92, { SCode: "506", id: 7092, fstarttime: "15:00", fendtime: "16:50" })]);
-  check(n(o, "deleted") === 1 && n(o, "added") === 1, "رقمٌ ووقتٌ تغيّرا معاً: يبقى حذفاً وإضافة");
+  check(n(o, "deleted") + n(o, "added") === 0 && n(o, "changed") === 1, "رقمٌ ووقتٌ تغيّرا معاً (وحيدةٌ من المقرر في الفرع): تعديلٌ أصفر");
 
   // تبديل الأوقات بين شعبتين من مقرر واحد: تعديلان لا حذف ولا إضافة.
   const sw = live0.map(r => ({ ...r }));
@@ -146,10 +146,23 @@ console.log(`\n${passed} passed, 0 failed`);
   check(n(x, "deleted") + n(x, "added") === 0 && n(x, "changed") === 1, "رقمٌ فقط تغيّر: صفٌّ أصفر واحد");
 
   x = go([o(-1, "501", "1001", 0)], [mine(9101, "515", { fsunday: false, ftuesday: true })]);
-  check(n(x, "deleted") === 1 && n(x, "added") === 1, "الرقم واليوم معاً تغيّرا: يبقى حذفاً وإضافة");
+  check(n(x, "deleted") + n(x, "added") === 0 && n(x, "changed") === 1, "الرقم واليوم معاً تغيّرا: صفٌّ أصفر واحد");
 
-  x = go([o(-1, "501", "1001", 0)], [mine(9101, "515", { fstarttime: "14:00", fendtime: "15:20" })]);
-  check(n(x, "deleted") === 1 && n(x, "added") === 1, "الرقم والوقت معاً تغيّرا: يبقى حذفاً وإضافة");
+  x = go([o(-1, "501", "1001", 0)], [mine(9101, "515", { fstarttime: "14:00", fendtime: "15:20", AdRoomHall: "G20" })]);
+  check(n(x, "deleted") + n(x, "added") === 0 && n(x, "changed") === 1, "الرقم والوقت والقاعة معاً تغيّرت: صفٌّ أصفر واحد");
+
+  // حذفان وإضافتان: يُربط كلٌّ بالأقرب إليه بوضوح.
+  x = go([o(-1, "501", "1001", 0), o(-2, "502", "1002", 1, { fsunday: false, fmonday: true, fstarttime: "09:00", fendtime: "10:20", AdRoomHall: "F05" })],
+    [mine(9101, "512", { AdRoomHall: "G20" }), mine(9102, "515", { fsunday: false, fmonday: true, fstarttime: "09:00", fendtime: "10:20", AdRoomHall: "F05" })]);
+  check(n(x, "deleted") + n(x, "added") === 0 && n(x, "changed") === 2, "حذفان وإضافتان من المقرر نفسه: يُربط كلٌّ بالأقرب (تعديلان أصفران)");
+
+  // متساويتا القرب: لا تخمين.
+  x = go([o(-1, "501", "1001", 0)], [mine(9101, "512", { AdRoomHall: "G20" }), mine(9102, "515", { AdRoomHall: "G21" })]);
+  check(n(x, "deleted") === 1 && n(x, "added") === 2, "إضافتان متساويتا القرب من أصلٍ واحد: لا تخمين");
+
+  // حذفان وإضافتان بلا قربٍ كافٍ: لا تخمين.
+  x = go([o(-1, "501", "1001", 0), o(-2, "502", "1002", 1, { fstarttime: "14:00", fendtime: "15:20" })], [mine(9101, "515", { fstarttime: "08:00", fendtime: "09:20" }), mine(9102, "516", { fstarttime: "09:30", fendtime: "10:50" })]);
+  check(n(x, "deleted") === 2 && n(x, "added") === 2, "حذفان وإضافتان من المقرر نفسه: يبقى كله أحمر وأخضر بلا تخمين");
 
   x = go([o(-1, "501", "1001", 0)], [mine(9101, "515"), mine(9102, "516")]);
   check(n(x, "deleted") === 1 && n(x, "added") === 2, "شعبتان جديدتان بالمواصفات نفسها: لا تخمين");
