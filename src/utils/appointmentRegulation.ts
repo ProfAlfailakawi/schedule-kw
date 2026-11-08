@@ -165,7 +165,7 @@ export function singleDayLengths(course: RegulationCourse | null | undefined, da
   return [...new Set(out)];
 }
 
-export function patternMinutes(course: RegulationCourse | null | undefined, days: readonly DayKey[], currentMinutes?: number): number | null {
+export function patternMinutes(course: RegulationCourse | null | undefined, days: readonly DayKey[], currentMinutes?: number, nearest = false): number | null {
   const patterns = patternsForHours(regulationHours(course));
   const ordered = DAY_KEYS.filter(day => days.includes(day));
   if (!patterns.length || !ordered.length) return null;
@@ -173,6 +173,9 @@ export function patternMinutes(course: RegulationCourse | null | undefined, days
     const allowed = singleDayLengths(course, ordered[0]);
     const current = Number(currentMinutes);
     if (current > 0 && allowed.includes(current)) return current;
+    /* نقلُ موعدٍ قائم (سحب، اعتماد اقتراح، بناء شعب، مقترح): أقربُ طولٍ معتمد لطوله (خميس 75د ← 50د)، لا الكتلة —
+       الموعدُ لقاءٌ من شعبته لا كتلةٌ جديدة. أما كتابةُ بدايةٍ في النموذج فبلا nearest: الكتلةُ («اثنين · 170د»). */
+    if (nearest && current > 0 && allowed.length) return [...allowed].sort((a, b) => Math.abs(a - current) - Math.abs(b - current) || a - b)[0];
     const block = patterns.find(pattern => pattern.days.length === 1);
     return block ? block.minutesPerDay[0] : (allowed[0] ?? null);
   }
@@ -181,10 +184,10 @@ export function patternMinutes(course: RegulationCourse | null | undefined, days
 }
 
 /** النهاية المحسوبة من البداية ودقائق النمط المعتمد للأيام المختارة؛ "" إن لم يُعرف نمط. */
-export function regulationEnd(course: RegulationCourse | null | undefined, days: readonly DayKey[], start: string, minutes?: number): string {
+export function regulationEnd(course: RegulationCourse | null | undefined, days: readonly DayKey[], start: string, minutes?: number, nearest = false): string {
   const from = toMinutes(start);
   if (!Number.isFinite(from)) return "";
-  const length = patternMinutes(course, days, minutes);
+  const length = patternMinutes(course, days, minutes, nearest);
   if (!length) return "";
   return clock(Math.min(SCHEDULE_CLOCK_END, from + length));
 }

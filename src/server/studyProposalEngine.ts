@@ -233,7 +233,7 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   const driftOps = new Set(drift.map(d => d.opId));
 
   const applied = applyProposalOps(world.termRows, validOps.filter(op => !driftOps.has(op.id)), {
-    instructorId: input.instructorId, termId: input.termId, placeholderId,
+    instructorId: input.instructorId, termId: input.termId, placeholderId, courseHoursOf: id => effectiveCourseHours(world.catalog.courseById.get(id) as any),
   });
   const appliedErrors = new Map(applied.errors.map(e => [e.opId, e]));
 
@@ -571,6 +571,7 @@ export async function suggestAlternatives(
   const baseDays = baseEval.after.metrics.attendanceDays;
   const without = applyProposalOps(w.termRows, input.ops.filter(o => o.id !== opId), {
     instructorId: input.instructorId, termId: input.termId, placeholderId: [...w.placeholders][0] || null,
+    courseHoursOf: id => effectiveCourseHours(w.catalog.courseById.get(id) as any),
   });
   // The source row of the operation is being moved/reassigned, so do not count
   // its old occupancy as a conflict in the quick prefilter.
@@ -692,7 +693,7 @@ export async function rankVacancies(
 ): Promise<{ vacancies: VacancyVerdict[]; checked: number; total: number; partial: boolean }> {
   const maxChecks = Math.max(0, options.maxChecks ?? 24);
   const placeholderId = [...world.placeholders].sort((a, b) => a - b)[0] || null;
-  const applied = applyProposalOps(world.termRows, input.ops, { instructorId: input.instructorId, termId: input.termId, placeholderId });
+  const applied = applyProposalOps(world.termRows, input.ops, { instructorId: input.instructorId, termId: input.termId, placeholderId, courseHoursOf: id => effectiveCourseHours(world.catalog.courseById.get(id) as any) });
   const mine = applied.rows.filter(row => ofPerson(world, row));
   const used = new Set(input.ops.map(op => op.source?.id).filter((id): id is number => typeof id === "number"));
   const nameOf = (row: FSchedule) => String(world.catalog.courseById.get(Number(row.AdCourseId))?.CourseName || row.AdCourseName || "");

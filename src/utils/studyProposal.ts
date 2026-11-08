@@ -20,6 +20,7 @@ import { instructorGapStats, timeToMinutes } from "./scheduleIntelligence";
 import { isValidClock } from "./scheduleTime";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
+import { regulationEnd, sameScheduleShape } from "./appointmentRegulation";
 
 export const PROPOSAL_DAY_KEYS: StudyProposalDayKey[] = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"];
 export const PROPOSAL_DAY_NAMES: Record<StudyProposalDayKey, string> = {
@@ -179,6 +180,8 @@ export interface ApplyContext {
   placeholderId?: number | null;
   /** عمليات بعينها فقط (التثبيت الجزئي للمواد المستقلة). */
   onlyOpIds?: ReadonlySet<string>;
+  /** ساعاتُ المقرّر: موعدٌ يُنقل أو يُنشأ تُحسب نهايتُه من النمط المعتمد (المالك 2026-11-08)، والشكلُ الذي لم يتغيّر يبقى. */
+  courseHoursOf?: (courseId: number) => number;
 }
 
 export interface AppliedProposal {
@@ -197,6 +200,15 @@ export interface AppliedProposal {
 export const tempRowId = (index: number) => -1000 - index;
 
 function rowFromSpec(spec: StudyProposalRowSpec, base: Partial<FSchedule>, ctx: ApplyContext): FSchedule {
+  const row = rowFromSpecAsIs(spec, base, ctx);
+  const hours = ctx.courseHoursOf?.(Number(spec.AdCourseId)) || 0;
+  if (!hours || sameScheduleShape(base as any, row as any)) return row;
+  const span = timeToMinutes(row.fendtime) - timeToMinutes(row.fstarttime);
+  const end = regulationEnd({ CourseHours: hours }, spec.days as any, row.fstarttime, span, true);
+  return end ? { ...row, fendtime: end } : row;
+}
+
+function rowFromSpecAsIs(spec: StudyProposalRowSpec, base: Partial<FSchedule>, ctx: ApplyContext): FSchedule {
   return {
     ...(base as FSchedule),
     AdCollegeId: spec.AdCollegeId,

@@ -249,7 +249,12 @@ const updatedTeacherCheck = (r:Row) => r.kind==="route" && r.methods.length===1 
    Same paths, permission 7, scope guard, confirm token, preview key, undo version and audit; behaviour
    is pinned by tests/ta-conversion-audit.ts and tests/ta-conversion-family-http-audit.ts. */
 const updatedTaConversion = (r:Row) => r.kind==="route" && r.methods.length===1 && (r.methods[0]==="get" || r.methods[0]==="post") && r.path==="/api/schedules/ta-conversion";
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : r.call || "-"} ${r.name}`;
+/* One intentional change to the study-proposal commit (owner 2026-11-08): the applied rows read the course hours
+   (`courseHoursOf`) so a moved or new lecture is written with the approved pattern end instead of a legacy length
+   that the save gate would refuse. Same path, permission, scope guard, readiness check and write; behaviour is
+   pinned by tests/study-proposal-flow-audit.ts and tests/new-appointment-pattern-end-audit.ts. */
+const updatedProposalCommit = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post" && r.path==="/api/study-proposals/:id/commit";
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : updatedProposalCommit(r) ? "[proposal-commit-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();

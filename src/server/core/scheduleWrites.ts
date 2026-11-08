@@ -20,7 +20,7 @@ import { noteScheduleMutation, scheduleLockRefusal } from "./approvals";
 import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
 import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./scheduleConflicts";
-import { describeScheduleChange, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues, unapprovedPatternIssue } from "./scheduleRules";
+import { describeScheduleChange, fitPatternEnd, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues, unapprovedPatternIssue } from "./scheduleRules";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
 import { noteTrail } from "../activityTrail";
@@ -71,6 +71,8 @@ export async function companionBookingFor(course:AdCourse,body:any,canonical:any
 }
 
 export const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
+  /* مسارٌ داخلي (اعتماد اقتراح، بناء شعب، مقترح، آلة الزمن): النهايةُ من النمط المعتمد لا طولٌ قديم يُحمل ثم يُرفض. */
+  if ((req as any).__fitPattern && req.body) req.body = { ...req.body, fendtime: await fitPatternEnd(req.body) };
   const {
     AdCollegeId,
     AdSectionId,
@@ -203,6 +205,11 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
 
 export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
   const id = parseInt(req.params.id);
+  /* مسارٌ داخلي ينقل موعداً إلى وقتٍ أو يومٍ جديد: النهايةُ من النمط؛ والشكلُ الذي لم يتغيّر (نقلُ قاعةٍ أو أستاذ) يبقى (A6). */
+  if ((req as any).__fitPattern && req.body) {
+    const saved = await Repository.getScheduleById(id).catch(() => null);
+    if (saved && !sameScheduleShape(saved as any, req.body)) req.body = { ...req.body, fendtime: await fitPatternEnd(req.body) };
+  }
   const {
     AdCollegeId,
     AdSectionId,
@@ -446,7 +453,7 @@ interface InnerScheduleResult { status: number; body: any; headers: Record<strin
 export async function runScheduleHandler(
   handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
   req: AuthenticatedRequest,
-  patch: { params?: Record<string, string>; body: any; hypotheticalWeek?: FSchedule[]; dryRun?: boolean; restoreOrigin?: { value: any }; exactRestore?: boolean },
+  patch: { params?: Record<string, string>; body: any; hypotheticalWeek?: FSchedule[]; dryRun?: boolean; restoreOrigin?: { value: any }; exactRestore?: boolean; fitPattern?: boolean },
 ): Promise<InnerScheduleResult> {
   const result: InnerScheduleResult = { status: 200, body: undefined, headers: {} };
   const inner: any = Object.create(req);
@@ -458,6 +465,8 @@ export async function runScheduleHandler(
   inner.__restoreOrigin = patch.restoreOrigin;
   /* استعادةٌ تعيد الجدول كما كان بالضبط (آلة الزمن): التراجعُ لا يُمنع بقاعدة النمط. */
   inner.__exactRestore = Boolean(patch.exactRestore);
+  /* كلُّ كتابةٍ تمرّ من هنا مسارٌ داخلي بنى صفَّه بنفسه: تُحسب نهايتُه من النمط (المالك 2026-11-08)، إلا الاستعادةَ الحرفية. */
+  inner.__fitPattern = !patch.exactRestore && !patch.restoreOrigin && patch.fitPattern !== false;
   const sink: any = {
     locals: {}, headersSent: false, statusCode: 200,
     status(code: number) { result.status = code; this.statusCode = code; return this; },

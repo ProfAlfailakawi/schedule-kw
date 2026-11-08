@@ -15,7 +15,7 @@ import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
 import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
-import { patternLengthIssue } from "../../utils/appointmentRegulation";
+import { patternLengthIssue, regulationEnd } from "../../utils/appointmentRegulation";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
@@ -111,6 +111,16 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
   const named=DAY_KEYS.filter(day=>union.has(day)).map(day=>DAY_NAMES[DAY_KEYS.indexOf(day)]).join(" · ");
   const allowed=patternsForHours(hours).map(pattern=>pattern.days.length===1?`يوم واحد ${pattern.minutesPerDay[0]}د`:pattern.label).join("، ");
   return `أيام هذه الشعبة (${named}) ليست نمطاً معتمداً لمقرّرٍ ${countOf(hours,AR.hour)} أسبوعياً في مكتبة الأنماط. المعتمد: ${allowed}.`;
+}
+/** نهايةُ الموعد من النمط المعتمد لساعات المقرّر وأيامه وبدايته (regulationEnd، الحكمُ الواحد): الطولُ المعتمد يبقى،
+    والطولُ القديمُ خارج المكتبة (75د) يعود إلى النمط. ما لا نمطَ له يبقى كما هو. */
+export async function fitPatternEnd(row:any):Promise<string>{
+  const end=String(row?.fendtime||"");
+  if(!Number(row?.AdCourseId)||!isValidClock(row?.fstarttime)||!isValidClock(row?.fendtime))return end;
+  const hours=effectiveCourseHours(await Repository.getCourseById(Number(row.AdCourseId)).catch(()=>null));
+  if(!(hours>0))return end;
+  const span=timeToMinutes(String(row.fendtime))-timeToMinutes(String(row.fstarttime));
+  return regulationEnd({CourseHours:hours},SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as DayKey[],String(row.fstarttime),span,true)||end;
 }
 export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;

@@ -13,7 +13,7 @@
 /* قواعدُ الخادم أوّلاً (ترتيبُ الوحدات الدائرية كما في full-day-setting-audit)، ووضعُ العرض يُضبط قبل فتح المستودع. */
 process.env.DATA_MODE = "demo";
 await import("../src/server/core/hallBarter");
-const { scheduleLengthIssue, unapprovedPatternIssue } = await import("../src/server/core/scheduleRules");
+const { scheduleLengthIssue, unapprovedPatternIssue, fitPatternEnd } = await import("../src/server/core/scheduleRules");
 const { Repository, initDatabase } = await import("../src/db/repository");
 const { nextCourseSectionCode } = await import("../src/utils/nextCourseSectionCode");
 const { patternEnd, patternLengthIssue, patternMinutes, regulationEnd, regulationFit } = await import("../src/utils/appointmentRegulation");
@@ -120,6 +120,11 @@ check(ownMeetingOf({ days: "الاثنين · الأربعاء", time: "08:00 �
 const pageFns = new Function(`${REQUEST_LENGTH_SCRIPT}; return { meetingSlots };`)() as any;
 check(JSON.stringify(pageFns.meetingSlots(["fmonday", "fwednesday"], "08:00", lengthPatternsForHours(3).map(p => ({ days: p.days, minutes: p.minutes })), own)) === JSON.stringify(meetingSlots(["fmonday", "fwednesday"], "08:00", lengthPatternsForHours(3), own))
   && pageFns.meetingSlots(["fmonday", "fwednesday"], "09:30", lengthPatternsForHours(3), own)[0].end === "10:50", "N7 صفحةُ الأستاذ تحسب ما يحسبه الخادم");
+/* N8 — المسارات التي تنقل موعداً تحسب النهاية بنفسها (أقربُ طولٍ معتمد)، والنموذجُ يبقى على الكتلة. */
+check(regulationEnd(three, ["fthursday"], "18:00", 75, true) === "18:50" && regulationEnd(three, ["fmonday"], "08:00", 75, true) === "09:20", "N8 نقلُ لقاءٍ قديم (75د): أقربُ طولٍ معتمد لليوم (خميس 50، اثنين 80)");
+check(regulationEnd(three, ["fmonday"], "08:00", 30) === "10:50", "N8 والنموذج (بلا nearest) يبقى على الكتلة: «اثنين · 170د» ← 10:50");
+check(await fitPatternEnd({ ...scope, fsunday: false, fmonday: false, ftuesday: false, fwednesday: false, fthursday: true, fstarttime: "18:00", fendtime: "19:15" }) === "18:50", "N8 الخادم: اعتمادُ نقلٍ إلى الخميس 18:00 يكتب 18:50");
+check(await fitPatternEnd({ ...scope, fsunday: false, fmonday: true, ftuesday: false, fwednesday: true, fthursday: false, fstarttime: "09:30", fendtime: "10:45" }) === "10:50", "N8 الخادم: اثنين·أربعاء 75د ← 80د");
 const schedulesSrc = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 const proposalSrc = fs.readFileSync("src/server/studyProposalEngine.ts", "utf8");
 const writesSrc = fs.readFileSync("src/server/core/scheduleWrites.ts", "utf8");

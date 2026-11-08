@@ -28,6 +28,7 @@ import type {
 } from "../types";
 import { toEnglishDigits } from "../utils/digits";
 import { departmentVacancyRows } from "../utils/proposalVacancyScope";
+import { effectiveCourseHours } from "../utils/scheduleRegulations";
 import { withFamilyScopes } from "./studyProposalEngine";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../utils/termSequence";
 import { normalizeClock, withinScheduleDay, scheduleDayWindowMinutes } from "../utils/scheduleTime";
@@ -732,6 +733,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     /* ── التنفيذ ─────────────────────────────────────────────────────────── */
     const applied = applyProposalOps(world.termRows, ops, {
       instructorId: proposal.AdInstructorId, termId: proposal.AdTermId, placeholderId, onlyOpIds: new Set(ready.opIds),
+      courseHoursOf: (id: number) => effectiveCourseHours(world.catalog.courseById.get(id) as any),
     });
     if (applied.errors.length) return void refuse(409, "proposal-stale", applied.errors[0].message);
     const liveById = new Map(world.termRows.map(row => [Number(row.id), row]));
@@ -885,6 +887,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     const placeholderId = [...world.placeholders].sort((a, b) => a - b)[0] || null;
     const applied = applyProposalOps(world.termRows, ops, {
       instructorId: proposal.AdInstructorId, termId: proposal.AdTermId, placeholderId,
+      courseHoursOf: (id: number) => effectiveCourseHours(world.catalog.courseById.get(id) as any),
       /* بعد التثبيت صارت الصفوف حيّة: لا تُعاد العمليات عليها، فيُعرض الجدول الفعلي كما هو. */
       onlyOpIds: proposal.commit ? new Set<string>() : undefined,
     });

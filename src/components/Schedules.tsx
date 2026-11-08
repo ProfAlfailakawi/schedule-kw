@@ -5735,7 +5735,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (before && before.fstarttime === candidate.fstarttime && daysOfRow(before as any).join("+") === daysOfRow(candidate as any).join("+")) return candidate;
     const course = courseById.get(Number(candidate.AdCourseId || 0));
     const span = candidate.fstarttime && candidate.fendtime ? mins(String(candidate.fendtime)) - mins(String(candidate.fstarttime)) : 0;
-    const end = candidate.fstarttime ? regulationEnd(course, daysOfRow(candidate as any), String(candidate.fstarttime), span) : "";
+    const end = candidate.fstarttime ? regulationEnd(course, daysOfRow(candidate as any), String(candidate.fstarttime), span, true) : "";
     return end && end !== candidate.fendtime ? { ...candidate, fendtime: end } : candidate;
   };
   const commitMove = async (request: SchedulePhysicsDropRequest) => {
