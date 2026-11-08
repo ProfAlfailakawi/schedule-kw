@@ -1,0 +1,524 @@
+{
+ "source": "src/utils/scheduleRegulations.ts",
+ "decisionLabel": "قرار 1913/2016",
+ "teachingDay": {
+  "from": "08:00",
+  "to": "20:00"
+ },
+ "lectureMinutes": {
+  "short": 50,
+  "long": 80
+ },
+ "mixedLadderStep": 0,
+ "days": [
+  {
+   "key": "fsunday",
+   "name": "الأحد",
+   "family": "short",
+   "lectureMinutes": 50,
+   "gapMinutes": 10,
+   "ladderStep": 60,
+   "firstStart": "08:00",
+   "ladder": [
+    "08:00",
+    "09:00",
+    "10:00",
+    "11:00",
+    "12:00",
+    "13:00",
+    "14:00",
+    "15:00",
+    "16:00",
+    "17:00",
+    "18:00",
+    "19:00"
+   ],
+   "acceptedLengths": [
+    50,
+    110,
+    170,
+    230,
+    290
+   ]
+  },
+  {
+   "key": "fmonday",
+   "name": "الاثنين",
+   "family": "long",
+   "lectureMinutes": 80,
+   "gapMinutes": 10,
+   "ladderStep": 90,
+   "firstStart": "08:00",
+   "ladder": [
+    "08:00",
+    "09:30",
+    "11:00",
+    "12:30",
+    "14:00",
+    "15:30",
+    "17:00",
+    "18:30"
+   ],
+   "acceptedLengths": [
+    80,
+    165,
+    170,
+    260,
+    290,
+    350,
+    440
+   ]
+  },
+  {
+   "key": "ftuesday",
+   "name": "الثلاثاء",
+   "family": "short",
+   "lectureMinutes": 50,
+   "gapMinutes": 10,
+   "ladderStep": 60,
+   "firstStart": "08:00",
+   "ladder": [
+    "08:00",
+    "09:00",
+    "10:00",
+    "11:00",
+    "12:00",
+    "13:00",
+    "14:00",
+    "15:00",
+    "16:00",
+    "17:00",
+    "18:00",
+    "19:00"
+   ],
+   "acceptedLengths": [
+    50,
+    110,
+    170,
+    230,
+    290
+   ]
+  },
+  {
+   "key": "fwednesday",
+   "name": "الأربعاء",
+   "family": "long",
+   "lectureMinutes": 80,
+   "gapMinutes": 10,
+   "ladderStep": 90,
+   "firstStart": "08:00",
+   "ladder": [
+    "08:00",
+    "09:30",
+    "11:00",
+    "12:30",
+    "14:00",
+    "15:30",
+    "17:00",
+    "18:30"
+   ],
+   "acceptedLengths": [
+    80,
+    165,
+    170,
+    260,
+    290,
+    350,
+    440
+   ]
+  },
+  {
+   "key": "fthursday",
+   "name": "الخميس",
+   "family": "short",
+   "lectureMinutes": 50,
+   "gapMinutes": 10,
+   "ladderStep": 60,
+   "firstStart": "08:00",
+   "ladder": [
+    "08:00",
+    "09:00",
+    "10:00",
+    "11:00",
+    "12:00",
+    "13:00",
+    "14:00",
+    "15:00",
+    "16:00",
+    "17:00",
+    "18:00",
+    "19:00"
+   ],
+   "acceptedLengths": [
+    50,
+    110,
+    170,
+    230,
+    290
+   ]
+  }
+ ],
+ "weeklyCap": {
+  "formula": "round(round(hours) × 50 × 1.1)",
+  "byHours": [
+   {
+    "hours": 1,
+    "base": 50,
+    "max": 55
+   },
+   {
+    "hours": 2,
+    "base": 100,
+    "max": 110
+   },
+   {
+    "hours": 3,
+    "base": 150,
+    "max": 165
+   },
+   {
+    "hours": 4,
+    "base": 200,
+    "max": 220
+   },
+   {
+    "hours": 5,
+    "base": 250,
+    "max": 275
+   }
+  ]
+ },
+ "library": [
+  {
+   "hours": 1,
+   "patterns": [
+    {
+     "id": "1h-single",
+     "days": [
+      "fsunday"
+     ],
+     "minutesPerDay": [
+      50
+     ],
+     "weeklyMinutes": 50,
+     "note": "فترة تدريس واحدة مدتها 50 دقيقة في يوم واحد."
+    }
+   ]
+  },
+  {
+   "hours": 2,
+   "patterns": [
+    {
+     "id": "2h-two-days",
+     "days": [
+      "fsunday",
+      "ftuesday"
+     ],
+     "minutesPerDay": [
+      50,
+      50
+     ],
+     "weeklyMinutes": 100,
+     "note": "فترتان: 50 دقيقة في الأحد و50 دقيقة في الثلاثاء."
+    },
+    {
+     "id": "2h-tue-thu",
+     "days": [
+      "ftuesday",
+      "fthursday"
+     ],
+     "minutesPerDay": [
+      50,
+      50
+     ],
+     "weeklyMinutes": 100,
+     "note": "فترتان: 50 دقيقة في الثلاثاء و50 دقيقة في الخميس."
+    },
+    {
+     "id": "2h-mon-wed",
+     "days": [
+      "fmonday",
+      "fwednesday"
+     ],
+     "minutesPerDay": [
+      50,
+      50
+     ],
+     "weeklyMinutes": 100,
+     "note": "فترتان: 50 دقيقة في الاثنين و50 دقيقة في الأربعاء."
+    },
+    {
+     "id": "2h-one-block",
+     "days": [
+      "ftuesday"
+     ],
+     "minutesPerDay": [
+      110
+     ],
+     "weeklyMinutes": 100,
+     "note": "فترتان تدريسيّتان من 50 دقيقة بينهما فاصل 10 دقائق (110 دقائق زمنية)."
+    }
+   ]
+  },
+  {
+   "hours": 3,
+   "patterns": [
+    {
+     "id": "3h-three-days",
+     "days": [
+      "fsunday",
+      "ftuesday",
+      "fthursday"
+     ],
+     "minutesPerDay": [
+      50,
+      50,
+      50
+     ],
+     "weeklyMinutes": 150,
+     "note": "ثلاث فترات: 50 دقيقة في الأحد والثلاثاء والخميس."
+    },
+    {
+     "id": "3h-two-days",
+     "days": [
+      "fmonday",
+      "fwednesday"
+     ],
+     "minutesPerDay": [
+      80,
+      80
+     ],
+     "weeklyMinutes": 160,
+     "note": "ثلاث فترات موزعة على لقاءين: 80 دقيقة في الاثنين و80 دقيقة في الأربعاء."
+    },
+    {
+     "id": "3h-block",
+     "days": [
+      "fwednesday"
+     ],
+     "minutesPerDay": [
+      170
+     ],
+     "weeklyMinutes": 150,
+     "note": "ثلاث فترات تدريسية من 50 دقيقة، وبينها فاصلان من 10 دقائق (170 دقيقة زمنية) — للمختبرات والورش."
+    }
+   ]
+  },
+  {
+   "hours": 4,
+   "patterns": [
+    {
+     "id": "4h-mon-wed",
+     "days": [
+      "fmonday",
+      "fwednesday"
+     ],
+     "minutesPerDay": [
+      110,
+      110
+     ],
+     "weeklyMinutes": 200,
+     "note": "أربع فترات تدريسية: فترتان من 50 دقيقة مع فاصل 10 دقائق في الاثنين ومثلهما في الأربعاء (110 دقائق زمنية لكل لقاء)."
+    },
+    {
+     "id": "4h-sun-tue",
+     "days": [
+      "fsunday",
+      "ftuesday"
+     ],
+     "minutesPerDay": [
+      110,
+      110
+     ],
+     "weeklyMinutes": 200,
+     "note": "أربع فترات تدريسية من 50 دقيقة على يومين قصيرين؛ 100 دقيقة تدريسية مع فاصل 10 دقائق لكل لقاء (110 دقائق زمنية)."
+    },
+    {
+     "id": "4h-tue-thu",
+     "days": [
+      "ftuesday",
+      "fthursday"
+     ],
+     "minutesPerDay": [
+      110,
+      110
+     ],
+     "weeklyMinutes": 200,
+     "note": "أربع فترات تدريسية من 50 دقيقة على يومين قصيرين؛ 100 دقيقة تدريسية مع فاصل 10 دقائق لكل لقاء (110 دقائق زمنية)."
+    },
+    {
+     "id": "4h-sun-thu",
+     "days": [
+      "fsunday",
+      "fthursday"
+     ],
+     "minutesPerDay": [
+      110,
+      110
+     ],
+     "weeklyMinutes": 200,
+     "note": "أربع فترات تدريسية من 50 دقيقة على يومين قصيرين؛ 100 دقيقة تدريسية مع فاصل 10 دقائق لكل لقاء (110 دقائق زمنية)."
+    },
+    {
+     "id": "4h-block",
+     "days": [
+      "fwednesday"
+     ],
+     "minutesPerDay": [
+      230
+     ],
+     "weeklyMinutes": 200,
+     "note": "أربع فترات تدريسية من 50 دقيقة، وبينها ثلاثة فواصل من 10 دقائق (230 دقيقة زمنية) — للمختبرات والتدريب."
+    }
+   ]
+  },
+  {
+   "hours": 5,
+   "patterns": [
+    {
+     "id": "5h-block",
+     "days": [
+      "fwednesday"
+     ],
+     "minutesPerDay": [
+      290
+     ],
+     "weeklyMinutes": 250,
+     "note": "خمس فترات تدريسية من 50 دقيقة، وبينها أربعة فواصل من 10 دقائق (290 دقيقة زمنية) — للتدريب الميداني والعملي."
+    },
+    {
+     "id": "5h-split",
+     "days": [
+      "fmonday",
+      "fwednesday"
+     ],
+     "minutesPerDay": [
+      170,
+      110
+     ],
+     "weeklyMinutes": 250,
+     "note": "خمس فترات تدريسية: ثلاث فترات (170 دقيقة زمنية) وفترتان (110 دقائق زمنية) على يومين."
+    },
+    {
+     "id": "5h-sun-tue",
+     "days": [
+      "fsunday",
+      "ftuesday"
+     ],
+     "minutesPerDay": [
+      170,
+      110
+     ],
+     "weeklyMinutes": 250,
+     "note": "خمس فترات تدريسية: ثلاث فترات (170 دقيقة زمنية) في الأحد وفترتان (110 دقائق زمنية) في الثلاثاء."
+    },
+    {
+     "id": "5h-tue-thu",
+     "days": [
+      "ftuesday",
+      "fthursday"
+     ],
+     "minutesPerDay": [
+      170,
+      110
+     ],
+     "weeklyMinutes": 250,
+     "note": "خمس فترات تدريسية: ثلاث فترات (170 دقيقة زمنية) في الثلاثاء وفترتان (110 دقائق زمنية) في الخميس."
+    }
+   ]
+  }
+ ],
+ "consecutive": {
+  "longLectureOverMinutes": 60,
+  "maxLongInRow": 2,
+  "maxOneHourInRow": 3,
+  "consecutiveGapMinutes": 15
+ },
+ "periodBalance": {
+  "minSections": 10,
+  "morning": {
+   "from": "08:00",
+   "to": "14:00"
+  },
+  "evening": {
+   "from": "14:00",
+   "to": "20:00"
+  },
+  "morningShare": {
+   "min": 50,
+   "max": 70
+  }
+ },
+ "findings": [
+  {
+   "rule": "regulation-ladder",
+   "article": "سُلّم البدايات ومكتبة الأنماط",
+   "severity": "low",
+   "source": "decision-1912",
+   "approvalEffect": "note"
+  },
+  {
+   "rule": "theoretical-pattern",
+   "article": "م.7/8",
+   "severity": "high",
+   "source": "decision-1912",
+   "approvalEffect": "block"
+  },
+  {
+   "rule": "fixed-course-time",
+   "article": "م.7/9",
+   "severity": "high",
+   "source": "decision-1912",
+   "approvalEffect": "block"
+  },
+  {
+   "rule": "sections-same-hour",
+   "article": "م.7/5",
+   "severity": "high",
+   "source": "decision-1912",
+   "approvalEffect": "review"
+  },
+  {
+   "rule": "consecutive-long-lecture",
+   "article": "م.6/2",
+   "severity": "high",
+   "source": "decision-1912",
+   "approvalEffect": "block"
+  },
+  {
+   "rule": "consecutive-one-hour",
+   "article": "م.6/3",
+   "severity": "high",
+   "source": "decision-1912",
+   "approvalEffect": "block"
+  },
+  {
+   "rule": "rotation",
+   "article": "م.6/4",
+   "severity": "medium",
+   "source": "decision-1912",
+   "approvalEffect": "review"
+  },
+  {
+   "rule": "period-balance",
+   "article": "م.7/2",
+   "severity": "low",
+   "source": "decision-1912",
+   "approvalEffect": "note"
+  },
+  {
+   "rule": "meeting-window",
+   "article": "قرار القسم",
+   "severity": "medium",
+   "source": "department",
+   "approvalEffect": "review"
+  },
+  {
+   "rule": "incomplete",
+   "article": "جاهزية الاعتماد",
+   "severity": "high",
+   "source": "readiness",
+   "approvalEffect": "block"
+  }
+ ]
+}

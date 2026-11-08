@@ -14,6 +14,7 @@ import { renderPrint } from "./lib/render-print.mjs";
 import { validateHistory } from "./lib/history.mjs";
 import { validateAlgorithms } from "./lib/algorithms.mjs";
 import { validateIntegration } from "./lib/integration.mjs";
+import { validateRegulation } from "./lib/regulation.mjs";
 import { missingIcons } from "./lib/icons.mjs";
 
 /** حساب المالك على منصة الاستضافة ومعرّفات المشاريع السحابية: لا تظهر في أي ناتج. */
@@ -39,6 +40,7 @@ export function buildAll({ strict = true } = {}) {
   validateHistory(model);
   if (strict) validateAlgorithms(model);
   if (strict) validateIntegration(model);
+  if (strict) validateRegulation(model);
   const html = renderInteractive(model, { pdfs: pdfFiles(), pdfInfo: pdfInfo(model.hash) });
   if (missingIcons().length) console.warn(`⚠ أيقونات غير موجودة في lucide: ${missingIcons().join(", ")}`);
   for (const c of model.glossaryConflicts) console.warn(`⚠ تعارض مصطلح: ${c}`);

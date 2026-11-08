@@ -205,3 +205,9 @@ body[data-view="modules"][data-mod=""] .mod-layout{grid-template-columns:minmax(
 .hero{grid-template-columns:auto 1fr auto}
 .hero .hero-medal{grid-row:1;grid-column:3}
 @media (max-width:760px){.hero{grid-template-columns:1fr}.hero .hero-medal{grid-row:auto;grid-column:auto;justify-self:start;flex-direction:row;gap:.7rem;padding:.5rem 1rem;min-width:0}.hero .hero-medal b{font-size:2.4rem}}
+.rsubs{margin:.2rem 0 1rem}
+.rpanel[hidden]{display:none}
+
+/* أحد عشر تبويباً تتسع للشاشة العريضة دون تمريرٍ يخفي آخرها */
+@media (min-width:1000px){.tabs-in{gap:0;justify-content:space-between}.tab{padding:0 .5rem;gap:.3rem;font-size:.86rem}.tab .n{padding:0 .38rem}}
+@media (min-width:1000px) and (max-width:1360px){html[lang="en"] .tab{padding:0 .4rem;font-size:.82rem}html[lang="en"] .tab .ic{width:15px;height:15px}}

@@ -270,5 +270,6 @@ test:room-types-by-department
 test:matrix-continuation
 test:srs-doc
 test:srs-route
+test:srs-regulation-sync
 test:tsconfig-strictness
 test:new-appointment-pattern-end

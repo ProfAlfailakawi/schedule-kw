@@ -107,6 +107,7 @@
     var h = decodeURIComponent(location.hash || "");
     var m;
     if ((m = /^#\/modules(?:\/([A-Z]{3})(?:\/([a-z]+))?)?$/.exec(h))) { show("modules", m[1] || "", m[2] || "", { silent: true }); return; }
+    if ((m = /^#\/reg\/([a-z]+)$/.exec(h))) { show("reg", "", "", { silent: true }); regPart(m[1]); return; }
     if ((m = /^#\/([a-z]+)$/.exec(h)) && (m[1] === "requirements" || $("#v-" + m[1]))) { show(m[1], "", "", { silent: true }); return; }
     if ((m = /^#((?:FR|NFR|DR|IR)-[A-Z]{3}-\d{3})$/.exec(h))) { openReq(m[1]); return; }
     if ((m = /^#(ALG-([A-Z]{3})-\d{2})$/.exec(h))) { panelOf[m[2]] = "algos"; show("modules", m[2], "algos", { silent: true, keepScroll: true }); var el = document.getElementById(m[1]); if (el) el.scrollIntoView({ block: "center" }); return; }
@@ -125,7 +126,7 @@
   tabs.forEach(function (t) { t.addEventListener("click", function () { show(t.dataset.view, "", ""); }); });
   $$("[data-mod]").forEach(function (b) { if (b === document.body) return; b.addEventListener("click", function () { show("modules", b.dataset.mod, ""); }); });
   $$("[data-go]").forEach(function (b) { b.addEventListener("click", function () { show(b.dataset.go, "", ""); }); });
-  $$(".subtab:not(.isub)").forEach(function (b) { b.addEventListener("click", function () { var m = b.closest(".mod").dataset.module; show("modules", m, b.dataset.p, { keepScroll: true }); }); });
+  $$(".mod .subtab").forEach(function (b) { b.addEventListener("click", function () { var m = b.closest(".mod").dataset.module; show("modules", m, b.dataset.p, { keepScroll: true }); }); });
   var pick = $("#modpick"); if (pick) pick.addEventListener("change", function () { show("modules", pick.value, ""); });
   $$("[data-more]").forEach(function (b) { b.addEventListener("click", function () { b.parentNode.classList.add("open"); b.remove(); }); });
   $$(".back-map").forEach(function (b) { b.addEventListener("click", function () { show("modules", "", ""); }); });
@@ -205,6 +206,14 @@
     $$(".isub").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
     $$("#v-integ .ipanel").forEach(function (p) { p.hidden = p.dataset.ip !== b.dataset.ip; });
   }); });
+  /* ── تبويب اللائحة: أقسامه الخمسة، ويُتذكّر القسم في الرابط (#/reg/approvals) ─── */
+  function regPart(k, push) {
+    var ok = $$(".rsub").some(function (x) { return x.dataset.rp === k; }); if (!ok) k = "rules";
+    $$(".rsub").forEach(function (x) { x.setAttribute("aria-selected", String(x.dataset.rp === k)); });
+    $$("#v-reg .rpanel").forEach(function (p) { p.hidden = p.dataset.rp !== k; });
+    if (push && history.replaceState) safe(function () { history.replaceState(null, "", location.pathname + location.search + "#/reg" + (k === "rules" ? "" : "/" + k)); });
+  }
+  $$(".rsub").forEach(function (b) { b.addEventListener("click", function () { regPart(b.dataset.rp, true); }); });
   var racc = "";
   function routeFilter() {
     var q = (($("#rt-q") || {}).value || "").trim().toLowerCase(), mod = ($("#rt-mod") || {}).value || "", n = 0;
