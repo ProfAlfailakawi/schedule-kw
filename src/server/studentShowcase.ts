@@ -26,6 +26,7 @@ import { profileLifetime, unitsOf } from "../utils/studentProfile";
 import { runRegistrationSimulation } from "./simulationData";
 import { DEMO_JAHRA_COLLEGE_NAME, demoTravelPolicyDoc } from "../db/demoShowcase";
 import { codeVersion, doorCookie, signDoorSession, clearDoorCookie, readCookie } from "./studentDoor";
+import { UNIVERSITY_UNIT_CAP_DOC, studentUnitCapOf } from "../utils/studentUnitCap";
 
 export const SHOWCASE_COOKIE = "sh_demo_stu";
 const TTL_MS = 2 * 60 * 60_000;
@@ -181,6 +182,14 @@ export function registerStudentShowcase(app: Express, deps: ShowcaseDeps): void 
       const id = `demo_stu_${randomUUID()}`;
       const today = new Date(Date.now() + 3 * 3_600_000).toISOString().slice(0, 10);
       const { state, profile } = buildShowcaseSeed(today);
+      /* سقفُ مساري الذي وضعه زائرُ البيئة التجريبية في جلسته («البيانات الأكاديمية» ← الفصول)
+         يصحبه إلى الطالب التجريبي؛ ولا يُقرأ شيءٌ من الحقيقي. */
+      const staffSandbox = readCookie(req.headers.cookie, "session_id") || "";
+      const capDoc = staffSandbox.startsWith("demo_") && !staffSandbox.startsWith("demo_stu_")
+        ? await Repository.withDemoSandbox(staffSandbox, () => Repository.getFeatureDoc(UNIVERSITY_UNIT_CAP_DOC.collection, UNIVERSITY_UNIT_CAP_DOC.id)).catch(() => null)
+        : null;
+      const unitCap = studentUnitCapOf((capDoc as { maxUnits?: number } | null)?.maxUnits);
+      if (capDoc) (state as any).featureDocs = { ...(state as any).featureDocs, [UNIVERSITY_UNIT_CAP_DOC.collection]: { [UNIVERSITY_UNIT_CAP_DOC.id]: capDoc } };
       Repository.createShowcaseSandbox(id, TTL_MS, state);
       live.push({ id, at: Date.now() });
       const fingerprint = `demo-${randomUUID()}`;
@@ -198,7 +207,7 @@ export function registerStudentShowcase(app: Express, deps: ShowcaseDeps): void 
           id: fingerprint, fingerprint, ...profile,
           /* رغباتٌ تجريبية كي تظهر تذكرةٌ حقيقية البنية بخططها الثلاث في «مساري»،
              من دون تشغيل الرادار أو إنشاء أي سجل خارج صندوق هذه الزيارة. */
-          wishes: { termId: 1, targetUnits: 15, courseIds: sampleWishes, constraints: {}, updatedAt: iso },
+          wishes: { termId: 1, targetUnits: unitCap, courseIds: sampleWishes, constraints: {}, updatedAt: iso },
           codeHash, codeSalt: "demo", nameCipher, civilCipher, updatedAt: iso, ...base, ...profileLifetime(base, new Date()),
         } as any));
         const term = (await Repository.getTerms() as any[]).find(row => Number(row.AdTermId) === 1);

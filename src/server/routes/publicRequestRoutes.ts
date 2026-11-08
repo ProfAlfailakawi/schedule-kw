@@ -29,7 +29,7 @@ import { verificationCode } from "../../utils/approvalWorkflow";
 import { DAY_KEYS, DAY_NAMES, daysApprovedForHours, effectiveCourseHours, expectedMinutesForDay, patternsForHours, startLadderNote, type DayKey } from "../../utils/scheduleRegulations";
 import { courseTagFactsFor, serviceCourseKeys } from "../planBadgeShared";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
-import { endForRequest, headlineReasonOf, rowFromRequest, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
+import { endForRequest, headlineReasonOf, rowFromRequest, softSectionClash, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
 import { offeringStatesForTerm } from "../offeringStates";
 import { pushHooks } from "../pushRoutes";
 import { coursePlanHint, notedScopeBreach } from "../../utils/requestNotedScope";
@@ -138,6 +138,9 @@ function teacherSafeText(request: { items?: InstructorRequestItem[] }, text: str
   return scrubPlaceText(text || "", (request.items || []).flatMap(item => roomTokensOf(item)));
 }
 /** حكمُ بندٍ كما يصل صفحةَ الأستاذ: سطرُه ونصيحتُه بلا رمز قاعةٍ ولا مبنى. */
+/** تنبيهُ الشعبة الأخرى من المقرر نفسه (لا يمنع): يصل الصفحةَ علامةً، ونصُّه فيها. */
+const sameCourseWarned = (item: InstructorRequestItem) => (item.reasons || []).some(reason => softSectionClash(reason as any));
+
 function teacherSafeVerdict<T extends { headline?: string; advice?: string }>(request: { items?: InstructorRequestItem[] }, verdict: T): T {
   return { ...verdict, headline: teacherSafeText(request, verdict.headline), advice: teacherSafeText(request, verdict.advice) };
 }
@@ -1205,6 +1208,8 @@ app.post("/api/public/request/:token/check", async (req: Request, res: Response)
     shapes: item.shapes || [],
     advice: item.advice || "",
     block: item.block || 0,
+    /* تلميحان لا يمنعان: أسماءُ أقران المقرر من الصحيفة وحدها، والشعبةُ الأخرى من المقرر نفسه. */
+    peers: item.peers, sameCourse: sameCourseWarned(item),
     /* الخلطُ الممنوع يُرسم: النمطُ المختار بجانب المعتمد من مكتبة الأنماط. */
     ...((item.reasons || []).some((reason: any) => reason.blocking && /لا يُخلط/.test(String(reason.text || "")))
       ? { patternNotice: await mixedPatternNotice(Number(item.after?.courseId || item.before?.courseId || 0), (item.slots || []).map(slot => slot.day as RequestDayKey), Number(resolved.request.AdTermId), undefined, true).catch(() => null) }
@@ -1281,6 +1286,7 @@ app.post("/api/public/request/:token/check-batch", async (req: Request, res: Res
         slots: item.slots || [], computedEnd: item.slots?.[0]?.end || "", roomAvailable: item.roomAvailable ?? null,
         nearestTimes: (item.nearestTimes || []).map(slot => ({ day: slot.day, days: slot.days, start: slot.start, end: slot.end })),
         shapes: item.shapes || [], advice: item.advice || "", block: item.block || 0,
+        peers: item.peers, sameCourse: sameCourseWarned(item),
         ...(mixed ? { patternNotice: await mixedPatternNotice(courseId, (item.slots || []).map(slot => slot.day as RequestDayKey), Number(resolved.request.AdTermId), undefined, true).catch(() => null) } : {}),
         notes: itemNotes,
       });

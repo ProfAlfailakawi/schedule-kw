@@ -15,6 +15,7 @@
     "src/server/routes/publicStaffRoutes.ts",
     "src/server/core/instructorRequests.ts",
     "src/server/core/staffCard.ts",
+    "src/utils/teacherPeerNote.ts",
     "src/server/pages/instructorRequestPage.ts",
     "src/server/pages/staffCardPage.ts",
     "src/server/requestPageStyles.ts",
@@ -1363,6 +1364,23 @@
     },
     {
       "id": "FR-REQ-056",
+      "kind": "functional",
+      "title": { "ar": "تلميحا «في الوقت نفسه» في كرت الأستاذ", "en": "Same-time hints on the faculty card" },
+      "text": {
+        "ar": "يجب على النظام أن ينبّه الأستاذ دون أن يمنعه: إذا تداخل الوقت الذي اختاره (تداخلاً جزئياً في يوم مشترك، والتلاصق لا يُعدّ) مع شعبة مقرر قرين لمقرره في صحيفة القسم («تفتح» أو «تُؤخذ معًا»، بالقسم والفصل والكلية وبحقائق الصحيفة نفسها التي تقرؤها ورقة القسم) ظهرت أيقونة صغيرة بجانب الوقت وسطر قصير، وعند فتحه أسماء المقررات وحدها بأيقونة العلاقة؛ وإذا تداخل مع شعبة أخرى من المقرر نفسه ظهر تنبيه واضح «شعبة أخرى من المقرر نفسه في هذا الوقت، وقد لا يعتمده القسم» بالقاعدة التي يقرؤها القسم (رقم الشعبة بصيغة واحدة، وصفوف وضع التجربة لا تُعدّ). ولا يُعرض للأستاذ اسم أستاذ ولا رقم شعبة ولا وقت غيره ولا قاعة، ولا المقرر الذي يوافق الوقت بلا علاقة.",
+        "en": "The system shall warn the member without blocking: when the chosen time overlaps (partially on a shared day; touching does not count) a section of a peer of the course in the department's study plan (unlock or taken-together, within the department, term and college, from the same plan facts the department sheet reads), a small icon appears beside the time with a short line, and opening it lists only the peer course names with the relation icon; when it overlaps another section of the same course, a clear warning reads «another section of the same course is at this time, and the department may not approve it», using the department's rule (normalised section number, practice rows excluded). The member never sees another instructor's name, a section number, another's time or a room, nor a same-time course without a plan relation."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["instructor", "system"],
+      "acceptance": [
+        { "ar": "الشعبة الأخرى من المقرر نفسه لا تمنع الإرسال ولا تطلب سبب استثناء، وسطر الحكم يبقى «الوقت متاح».", "en": "Another section of the same course neither blocks the send nor asks for an exception reason, and the verdict line stays «time available»." },
+        { "ar": "الحمولة إلى الصفحة: peers بأسماء المقررات وعلاقتها فقط، وsameCourse علامة.", "en": "The page payload carries peers with course names and relation only, and sameCourse as a flag." }
+      ],
+      "evidence": { "code": ["src/utils/teacherPeerNote.ts#teacherPeerNote", "src/utils/instructorRequestVerdict.ts#judgeRequest", "src/server/core/instructorRequests.ts#judgeRequestItems", "src/server/pages/instructorRequestPage.ts"], "tests": ["tests/teacher-card-peers-audit.ts", "tests/holds-patterns-r4-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-057",
       "kind": "functional",
       "title": { "ar": "بطاقة الأستاذ لكل شخص: من تصله، ومقرراته، ومعاينته، ومتابعته", "en": "Faculty card per person: recipients, courses, preview and follow-up" },
       "text": {

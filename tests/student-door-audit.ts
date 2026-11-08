@@ -243,6 +243,8 @@ check(studentHomeSource.includes('homePart("request-context")') && studentHomeSo
       { id: "p-11-old", AdCollegeId: 1, AdSectionId: 11, name: "السابقة", status: "transition", createdAt: "2026-01-01" },
       { id: "p-12-new", AdCollegeId: 1, AdSectionId: 12, name: "الجديدة", status: "active", createdAt: "2026-02-01" }],
     curriculumPlanCourses: planCourses, courseTransitions: [], schedules, rooms: [], studentNeeds: [], studentProfiles: [],
+    /* السقف الجامعي ١٨ يُقرأ، وسقفُ القسم القديم ٢١ باقٍ في البيانات ولا يُقرأ (قرار المالك 2026-11-08). */
+    featureDocs: { universityStudentSettings: { university: { maxUnits: 18 } }, sectionStudentSettings: { section_11: { maxUnits: 21 } } },
   }), { mode: 0o600 });
 
   type Res = { status: number; json: any; cookies: string[]; headers: Headers };
@@ -311,7 +313,8 @@ check(studentHomeSource.includes('homePart("request-context")') && studentHomeSo
       check(new Date(saved.json.keepsUntil).getTime() > Date.now() && ["graduation", "inactive"].includes(saved.json.keepsReason), "D6 للملف عمرٌ مكتوب", saved.json.keepsUntil);
 
       check((await http("PUT", "/api/public/me/wishes", { targetUnits: 9, courseIds: [] })).json.code === "bad-units", "D6 وحداتٌ دون ١٢ مرفوضة");
-      check((await http("PUT", "/api/public/me/wishes", { targetUnits: 16, courseIds: [] })).json.code === "bad-units", "D6 وفوق ١٥ مرفوضة");
+      check((await http("PUT", "/api/public/me/wishes", { targetUnits: 19, courseIds: [] })).json.code === "bad-units", "D6 وفوق السقف الجامعي ١٨ مرفوضة، وسقفُ القسم ٢١ لا يُقرأ");
+      check((await http("GET", "/api/public/me/state")).json.limits?.wishUnitsMax === 18, "D6 مساري يرسل السقف الجامعي");
       const offered = (await http("GET", "/api/public/me/offered")).json;
       check(offered.ready === true && offered.remainingCount > 0 && offered.offeredCount >= 1, "D6 المطروح لي: أعدادٌ من الجدول", offered);
       const wantId = offered.courses.find((c: any) => c.sections > 0).id;
