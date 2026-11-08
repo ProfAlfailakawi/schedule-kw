@@ -49,8 +49,17 @@ import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_D
  */
 export interface RequestPagePreview { api: string; name: string }
 const escapeHtmlText = (value: string) => String(value || "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string));
-const previewPrelude = (preview: RequestPagePreview, nonce: string) => `<div class="preview-bar" role="status" style="position:sticky;top:0;z-index:50;display:flex;gap:8px;align-items:center;justify-content:center;padding:9px 14px;background:#1f6b5c;color:#fff;font:700 13px/1.5 'Plex Arabic',Tahoma,sans-serif"><span aria-hidden="true">👁️</span><span>معاينة · كما يراها ${escapeHtmlText(preview.name)} · لا يُرسل شيء</span></div>
-<script nonce="${nonce}">(function(){var API=${JSON.stringify(preview.api).replace(/</g, "\\u003c")},BASE="/api/public/request/preview",real=window.fetch.bind(window);
+const previewPrelude = (preview: RequestPagePreview, nonce: string) => `<div class="preview-bar" role="status" style="position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:9px 14px;background:#1f6b5c;color:#fff;font:700 13px/1.5 'Plex Arabic',Tahoma,sans-serif"><span aria-hidden="true">👁️</span><span>معاينة · كما يراها ${escapeHtmlText(preview.name)} · لا يُرسل شيء</span><button type="button" id="preview-back" aria-label="رجوع إلى النشر" title="رجوع إلى النشر" style="margin-inline-start:6px;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 14px;border:1px solid rgba(255,255,255,.55);border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font:inherit;cursor:pointer"><span aria-hidden="true">→</span>رجوع</button></div>
+<script nonce="${nonce}">(function(){
+/* المعاينةُ تُفتح في لسانٍ جديد بلا صفحةٍ سابقة، فزرُّ «رجوع» في المتصفح لا يعيد إلى البرنامج.
+   «رجوع» هنا — ورجوعُ المتصفح بعد أول لمسة — يغلق اللسانَ فتعود نافذةُ النشر كما تُركت،
+   وإن لم يُغلق (فُتحت في اللسان نفسه) عاد إلى الجدول. */
+function back(){try{window.close()}catch(e){}setTimeout(function(){if(!window.closed)location.replace("/FSchedule/Index")},200)}
+document.getElementById("preview-back").addEventListener("click",back);
+var armed=false;function arm(){if(armed)return;armed=true;try{history.pushState({preview:1},"");window.addEventListener("popstate",back)}catch(e){}}
+window.addEventListener("pointerdown",arm,{once:true,capture:true});window.addEventListener("keydown",arm,{once:true,capture:true});
+})();
+(function(){var API=${JSON.stringify(preview.api).replace(/</g, "\\u003c")},BASE="/api/public/request/preview",real=window.fetch.bind(window);
 window.fetch=function(url,init){var u=String(url&&url.url||url),m=String(init&&init.method||"GET").toUpperCase();
  if(u.indexOf(BASE)===0){if(m==="GET"&&(u===BASE||u.indexOf(BASE+"?")===0))return real(API,{credentials:"include",cache:"no-store"});
   return Promise.resolve(new Response(JSON.stringify({error:"معاينة فقط — لا يُرسل شيء."}),{status:403,headers:{"Content-Type":"application/json"}}))}
