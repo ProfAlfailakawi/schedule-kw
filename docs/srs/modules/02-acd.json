@@ -2165,13 +2165,18 @@
           "en": "A value outside 3-30 or not an integer returns 400; anyone but the root administrator gets 403."
         },
         {
-          "ar": "الحفظ يكتب الوثيقة universityStudentSettings/university مع الاسم والوقت ويُسجّل القيمة قبل وبعد في سجل التدقيق؛ وفي البيئة التجريبية يبقى في صندوق الجلسة.",
-          "en": "Saving writes universityStudentSettings/university with the name and time and records before and after in the audit log; in the demo it stays in the session sandbox."
+          "ar": "الحفظ يكتب الوثيقة universityStudentSettings/university مع الاسم والوقت ويُسجّل القيمة قبل وبعد في سجل التدقيق؛ وفي البيئة التجريبية يبقى في صندوق الجلسة ويصحب «جرّب كطالب» إلى الطالب التجريبي.",
+          "en": "Saving writes universityStudentSettings/university with the name and time and records before and after in the audit log; in the demo it stays in the session sandbox and carries over to the demo student through «try as a student»."
+        },
+        {
+          "ar": "حفظ قيمة مختلفة يعلّم تشغيلات رادار التسجيل المحفوظة قديمةً فتتجدّد تذاكرها بالسقف الجديد عند القراءة التالية؛ وحفظ القيمة نفسها لا يمسّها.",
+          "en": "Saving a different value marks saved registration radar runs stale so their tickets regenerate with the new cap on the next read; saving the same value leaves them untouched."
         }
       ],
       "evidence": {
         "code": [
           "src/server/routes/referenceRoutes.ts#/api/student-unit-cap",
+          "src/server/simulationData.ts#saveUniversityUnitCap",
           "src/utils/studentUnitCap.ts",
           "src/components/StudentUnitCapSetting.tsx"
         ],

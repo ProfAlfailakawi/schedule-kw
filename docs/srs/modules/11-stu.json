@@ -231,8 +231,8 @@
           "en": "Reads the «suggestions only» card and presses «understood»."
         },
         {
-          "ar": "في مرحلة الرغبات يكتب وحداته (12 إلى سقف قسمه) ومقرراته وقيود وقته.",
-          "en": "In the wishes phase writes units (12 up to the department cap), courses and time constraints."
+          "ar": "في مرحلة الرغبات يكتب وحداته (12 إلى السقف الجامعي) ومقرراته وقيود وقته.",
+          "en": "In the wishes phase writes units (12 up to the university cap), courses and time constraints."
         },
         {
           "ar": "بعد التجميد يرى تذكرته بخططها الثلاث ونافذته، دون موعدٍ لشعبة جدولها غير موقَّع.",
@@ -1263,8 +1263,8 @@
         "en": "Writing wishes during the wishes phase"
       },
       "text": {
-        "ar": "يجب على النظام ألا يقبل الرغبات إلا في مرحلة الرغبات، وبعد اكتمال الملف، بوحداتٍ بين 12 وسقف القسم، وبحدٍّ أقصى 12 مقرراً من المتبقي في صحيفته، وألا يُدخل مقرراً ينقصه مسبق، وأن يحفظ قيود الوقت الثلاثة (بلا صباح، بلا ظهر، يوم فراغ).",
-        "en": "The system shall accept wishes only during the wishes phase, after the profile is complete, with units from 12 up to the department cap, at most 12 courses taken from the remainder of the student's plan, shall exclude any course whose prerequisite is unmet, and shall store the three time constraints (no morning, no afternoon, a free day)."
+        "ar": "يجب على النظام ألا يقبل الرغبات إلا في مرحلة الرغبات، وبعد اكتمال الملف، بوحداتٍ بين 12 والسقف الجامعي، وبحدٍّ أقصى 12 مقرراً من المتبقي في صحيفته، وألا يُدخل مقرراً ينقصه مسبق، وأن يحفظ قيود الوقت الثلاثة (بلا صباح، بلا ظهر، يوم فراغ).",
+        "en": "The system shall accept wishes only during the wishes phase, after the profile is complete, with units from 12 up to the university cap, at most 12 courses taken from the remainder of the student's plan, shall exclude any course whose prerequisite is unmet, and shall store the three time constraints (no morning, no afternoon, a free day)."
       },
       "priority": "must",
       "status": "implemented",
@@ -1321,6 +1321,14 @@
         {
           "ar": "بلا إعداد ← wishUnitsMax = 15.",
           "en": "With no setting wishUnitsMax = 15."
+        },
+        {
+          "ar": "كل حفظٍ للرغبات بلا اختيارٍ صريح للوحدات (النموذج، و«جدولي»، والخريطة، والمقترح) يقصّ الوحدات إلى حدّي الخادم، والغائب يصير السقف؛ وشريط وحدات الخريطة يقيس من الأدنى إلى السقف («ممتاز ✓ ضمن الحدّ (12 إلى السقف)»).",
+          "en": "Every wishes save without an explicit unit choice (the form, «my schedule», the map and the advice) clips the units to the server limits, and a missing value becomes the cap; the map's unit bar measures from the minimum to the cap («excellent ✓ within the limit (12 to the cap)»)."
+        },
+        {
+          "ar": "سقف التذاكر في رادار التسجيل هو السقف الجامعي؛ وتغييره يعلّم تشغيلات الرادار المحفوظة قديمةً فتتجدّد التذاكر عند القراءة التالية، وحفظ القيمة نفسها لا يفعل.",
+          "en": "Registration radar tickets use the university cap; changing it marks saved radar runs stale so tickets regenerate on the next read, while saving the same value does not."
         }
       ],
       "evidence": {
@@ -1328,11 +1336,17 @@
           "src/utils/studentUnitCap.ts",
           "src/server/routes/referenceRoutes.ts",
           "src/server/studentDoorRoutes.ts",
-          "src/components/StudentUnitCapSetting.tsx"
+          "src/components/StudentUnitCapSetting.tsx",
+          "src/server/simulationData.ts#saveUniversityUnitCap",
+          "src/utils/registrationSim.ts",
+          "src/server/studentHomePage.ts",
+          "src/server/studentMapUi.ts"
         ],
         "tests": [
           "tests/student-door-audit.ts",
-          "tests/admin-rules-r4-audit.ts"
+          "tests/admin-rules-r4-audit.ts",
+          "tests/registration-flow-audit.ts",
+          "tests/masari-responsive-audit.ts"
         ]
       }
     },
@@ -1344,8 +1358,8 @@
         "en": "Student advice and peer counts"
       },
       "text": {
-        "ar": "يجب على النظام أن يقترح للطالب مقررات فصله من صحيفته وقواعدها ومما يُطرح فعلاً بوحدات بين 12 وسقف قسمه، مرتّبةً بما تفتحه أولاً، مع سبب كل اقتراح وتقدير فصول ما بعد الفصل (حتى 14)، وألا يعرض «يريده N طالباً» إلا في قسمٍ فيه 10 ملفاتٍ فأكثر ولمقررٍ طلبه 5 فأكثر.",
-        "en": "The system shall suggest to the student the term's courses from the plan, its rules and what is actually offered, with units from 12 up to the department cap, ordered by what each course unlocks, giving the reason for every pick and an estimate of remaining terms (up to 14), and shall show «wanted by N students» only in a department with at least 10 profiles and for a course wanted by at least 5."
+        "ar": "يجب على النظام أن يقترح للطالب مقررات فصله من صحيفته وقواعدها ومما يُطرح فعلاً بوحدات بين 12 والسقف الجامعي، مرتّبةً بما تفتحه أولاً، مع سبب كل اقتراح وتقدير فصول ما بعد الفصل (حتى 14)، وألا يعرض «يريده N طالباً» إلا في قسمٍ فيه 10 ملفاتٍ فأكثر ولمقررٍ طلبه 5 فأكثر.",
+        "en": "The system shall suggest to the student the term's courses from the plan, its rules and what is actually offered, with units from 12 up to the university cap, ordered by what each course unlocks, giving the reason for every pick and an estimate of remaining terms (up to 14), and shall show «wanted by N students» only in a department with at least 10 profiles and for a course wanted by at least 5."
       },
       "priority": "should",
       "status": "implemented",
@@ -2187,8 +2201,8 @@
         "en": "Registration rehearsal engine"
       },
       "text": {
-        "ar": "يجب على النظام أن يحاكي بحتمية تامة لكل طالبٍ ذي رغبات مقرراته المتبقية بقواعد صحيفته ويبني له ثلاث خطط: (أ) الأقرب لرغباته وقيوده بخصمٍ من دفتر مقاعد افتراضي بترتيب النوافذ، و(ب) شعب بديلة، و(ج) حدّ أدنى آمن 12 وحدة، بوحدات مقصوصة بين 12 و18 (الافتراضي 15)، ويرتّب الطلبة بالأشدّ حاجةً أولاً ويقسّمهم بالتساوي على الجولات، وأن يبقى تقديراً لا حجزاً.",
-        "en": "The system shall deterministically simulate for each student with wishes the remaining courses under the plan's rules and build three plans: (A) closest to wishes and constraints, drawing on a virtual seat ledger in window order, (B) alternative sections, and (C) a safe minimum of 12 units, with units clamped between 12 and 18 (default 15), ordering students by greatest need first and splitting them evenly over rounds, and shall remain an estimate rather than a reservation."
+        "ar": "يجب على النظام أن يحاكي بحتمية تامة لكل طالبٍ ذي رغبات مقرراته المتبقية بقواعد صحيفته ويبني له ثلاث خطط: (أ) الأقرب لرغباته وقيوده بخصمٍ من دفتر مقاعد افتراضي بترتيب النوافذ، و(ب) شعب بديلة، و(ج) حدّ أدنى آمن 12 وحدة، بوحدات مقصوصة بين 12 و18 (الافتراضي 15) ولا تتجاوز السقف الجامعي، ويرتّب الطلبة بالأشدّ حاجةً أولاً ويقسّمهم بالتساوي على الجولات، وأن يبقى تقديراً لا حجزاً.",
+        "en": "The system shall deterministically simulate for each student with wishes the remaining courses under the plan's rules and build three plans: (A) closest to wishes and constraints, drawing on a virtual seat ledger in window order, (B) alternative sections, and (C) a safe minimum of 12 units, with units clamped between 12 and 18 (default 15) and never above the university cap, ordering students by greatest need first and splitting them evenly over rounds, and shall remain an estimate rather than a reservation."
       },
       "priority": "must",
       "status": "implemented",
@@ -2204,6 +2218,10 @@
         {
           "ar": "targetUnits = 21 ← يُقصّ إلى 18 في المحاكاة.",
           "en": "targetUnits = 21 is clamped to 18 in the simulation."
+        },
+        {
+          "ar": "سقف جامعي 9 ← لا خطة في تذكرة فوق 9 وحدات، وغير المشارك يُفترض على 9 لا على 15، والخطة (ج) لا تتجاوزه، وفئات القدرة تُقاس على الأصغر من 15 أو 12 والسقف.",
+          "en": "A university cap of 9 → no ticket plan exceeds 9 units, a non-participant is assumed at 9 rather than 15, plan C does not exceed it, and the capacity bands measure against the smaller of 15 or 12 and the cap."
         },
         {
           "ar": "الخطتان (ب) و(ج) لا تخصمان من الدفتر.",
@@ -2844,13 +2862,18 @@
         {
           "ar": "مشاركة بلا أي موعدٍ معتمد ← رسالة «لا مواعيد معتمدة لتُشارَك بعد» ولا صورة.",
           "en": "Sharing with no approved time ← the message «no approved times to share yet» and no image."
+        },
+        {
+          "ar": "موعدان متتاليان في اليوم نفسه من حرمين مختلفين والفاصل أقصر من مدة سياسة التنقل لذلك الزوج ← أيقونة صغيرة على الموعد اللاحق وسطر واحد في القائمة وفي لوحة المقرر، حتى تلميحين في اليوم؛ ولا يمنع ولا يغيّر اختياراً، والمتداخلان أو الفاصل الكافي لا يُنبَّه عليهما، والحرم في التذكرة مفتاح فقط والغائب هو الرئيسي.",
+          "en": "Two consecutive meetings on the same day at two different campuses with a gap shorter than the travel policy's time for that pair ← a small icon on the later meeting and one line in the list and in the course panel, at most two hints a day; it never blocks or changes a choice, overlapping meetings or a sufficient gap get no hint, and the campus in the ticket is only a key, a missing one meaning the main campus."
         }
       ],
       "evidence": {
         "code": [
           "src/server/studentDoorRoutes.ts",
           "src/server/studentHomePage.ts#tkShareImage",
-          "src/server/core/travelPolicy.ts"
+          "src/server/core/travelPolicy.ts",
+          "src/utils/campusTravelHint.ts#travelHints"
         ],
         "tests": [
           "tests/masari-travel-hint-audit.ts",
@@ -3593,8 +3616,8 @@
         "en": "Wishes wizard and peer counter on the page"
       },
       "text": {
-        "ar": "يجب على صفحة «مساري» أن تجمع الرغبات في ثلاث شرائح تُمرَّر بالأزرار أو بسحبٍ أفقي لا يقل عن 60px: عدد الوحدات بين wishUnitsMin (12) وwishUnitsMax (15 افتراضياً) ويبدأ بما كتبه الطالب أو 15، ثم ما لا يناسبه اختيارياً (لا أستطيع الصباح الباكر، لا أستطيع بعد الظهر، أحتاج يوماً فارغاً)، ثم مقررات بعينها اختيارياً حتى 12 من المتبقي المستوفي مسبقاته مع قائمة مطويّة بالمقفل وسببه؛ وأن تعرض بعد الحفظ شارة «وصلت» بنبضةٍ واحدة وسطر «أنت واحدٌ من N أرسلوا رغباتهم في قسمك» حين يسمح الخادم بالعدد، وإلا «رغباتك تغذّي رادار التسجيل لقسمك»؛ وأن تعرض الرغبات للقراءة فقط في مرحلة التجميد وتخفيها في غير المرحلتين؛ وأن يحفظ زر «استخدمها في رغباتي» مقررات الاقتراح بوحداتٍ مقصوصة بين 12 والسقف (15 افتراضياً).",
-        "en": "The Masari page shall collect wishes in three slides moved by buttons or a horizontal swipe of at least 60px: the number of units between wishUnitsMin (12) and wishUnitsMax (15 by default), starting from what the student wrote or 15; then optional constraints (no early morning, no afternoon, a free day); then optional specific courses, up to 12, from the remainder whose prerequisites are met, with a folded list of locked courses and their reason; after saving it shall show a «received» chip that pulses once and the line «you are one of N who sent their wishes in your department» when the server allows the count, otherwise «your wishes feed your department's registration radar»; it shall show the wishes read-only during the freeze and hide them outside these two phases; and «use them in my wishes» shall save the suggested courses with units clamped between 12 and the cap (15 by default)."
+        "ar": "يجب على صفحة «مساري» أن تجمع الرغبات في ثلاث شرائح تُمرَّر بالأزرار أو بسحبٍ أفقي لا يقل عن 60px: عدد الوحدات بين wishUnitsMin (12) وwishUnitsMax (15 افتراضياً) ويبدأ بما كتبه الطالب مقصوصاً إلى الحدّين وإلا بالسقف، ثم ما لا يناسبه اختيارياً (لا أستطيع الصباح الباكر، لا أستطيع بعد الظهر، أحتاج يوماً فارغاً)، ثم مقررات بعينها اختيارياً حتى 12 من المتبقي المستوفي مسبقاته مع قائمة مطويّة بالمقفل وسببه؛ وأن تعرض بعد الحفظ شارة «وصلت» بنبضةٍ واحدة وسطر «أنت واحدٌ من N أرسلوا رغباتهم في قسمك» حين يسمح الخادم بالعدد، وإلا «رغباتك تغذّي رادار التسجيل لقسمك»؛ وأن تعرض الرغبات للقراءة فقط في مرحلة التجميد وتخفيها في غير المرحلتين؛ وأن يحفظ زر «استخدمها في رغباتي» مقررات الاقتراح بوحداتٍ مقصوصة بين 12 والسقف (15 افتراضياً).",
+        "en": "The Masari page shall collect wishes in three slides moved by buttons or a horizontal swipe of at least 60px: the number of units between wishUnitsMin (12) and wishUnitsMax (15 by default), starting from what the student wrote clipped to the limits, otherwise the cap; then optional constraints (no early morning, no afternoon, a free day); then optional specific courses, up to 12, from the remainder whose prerequisites are met, with a folded list of locked courses and their reason; after saving it shall show a «received» chip that pulses once and the line «you are one of N who sent their wishes in your department» when the server allows the count, otherwise «your wishes feed your department's registration radar»; it shall show the wishes read-only during the freeze and hide them outside these two phases; and «use them in my wishes» shall save the suggested courses with units clamped between 12 and the cap (15 by default)."
       },
       "priority": "should",
       "status": "implemented",
@@ -3635,8 +3658,8 @@
         "en": "Comparing the three plans and editing the suggested schedule in the browser"
       },
       "text": {
-        "ar": "يجب على صفحة «مساري» أن تعرض الخطط أ «الأقرب لرغباتك» وب «شعبٌ بديلة إن امتلأت أ» وج «الحدّ الأدنى الآمن» بترتيبٍ ثابت لا يتغيّر بالنقاط، وأن تحسب لكل خطةٍ (بنسختها المعدّلة) مؤشراً: ملاءمة الوحدات = max(0، 100 − |الوحدات − الهدف| × 12) والهدف وحدات الرغبات أو 15؛ وحين تظهر كل المواعيد ملاءمة الجدول = max(0، 100 − 22 × مخالفات القيود (بداية قبل 08:00 مع «لا صباحاً»، أو من 13:00 فأكثر مع «لا بعد الظهر») − 9 × (الأيام − 1) مع «يوم فارغ» أو 3 × (الأيام − 3) بدونه − 5 × ساعات الفراغ الكاملة)، والمؤشر = 0.45 × الوحدات + 0.45 × الجدول + 0.10 × max(0، 100 − 14 × الشعب قليلة المقاعد)، وإلا المؤشر = ملاءمة الوحدات؛ والأفضل أعلاها ثم أقلها وحدات، موسوماً «الأنسب لك» أو «الأقرب لهدفك» حين لم تُعتمد المواعيد؛ وأن تعرض الأسبوع شبكةً أو قائمة، ويُظهر لمسُ مقررٍ شعبه البديلة على الشبكة (الأحمر يتعارض) ويُرفض اختيار شعبة متعارضة برسالة، ويتيح «لا أريده» مع زر استرجاع، و«أضف مقرراً» و«بدّله» من مجمّع المتاح مع وسم المقفل بمسبق والمتعارض وما يتجاوز السقف، واقتراح تبديل شعبة مقررٍ واحدٍ آخر حين يُزيل ذلك التعارض الوحيد؛ وأن تنبّه «أقل من 12»، وتعرض «ما لم نضعه (n)» بأسبابه، ولا تُظهر «اجعلها رغباتي» إلا بعد تعديلٍ وما دامت الرغبات قابلة للتعديل فتحفظ أول 12 مقرراً بهدف الوحدات الحالي أو 15. وكل ذلك معاينة شخصية لا تغيّر جدول القسم.",
-        "en": "The Masari page shall show plans A «closest to your wishes», B «alternative sections if A fills» and C «safe minimum» in a fixed order that the score never reorders, and shall compute for each plan (in its edited form) a score: unit fit = max(0, 100 − |units − target| × 12), with the target being the wishes' units or 15; when all times are visible, schedule fit = max(0, 100 − 22 × constraint violations (a start before 08:00 under «no morning», or at 13:00 or later under «no afternoon») − 9 × (days − 1) with «free day» or 3 × (days − 3) without it − 5 × whole gap hours), and score = 0.45 × unit fit + 0.45 × schedule fit + 0.10 × max(0, 100 − 14 × low-seat sections), otherwise score = unit fit; the best is the highest, then the fewest units, labelled «best for you», or «closest to your target» when times are not approved; it shall show the week as a grid or a list, touching a course shows its alternative sections on the grid (red when clashing), choosing a clashing section is refused with a message, «I don't want it» comes with an undo chip, «add a course» and «swap it» open the available pool marking courses locked by a prerequisite, clashing, or above the cap, and proposing to switch one other course's section when that removes the only clash; it shall warn «less than 12», list «what we could not place (n)» with reasons, and show «make these my wishes» only after an edit and while wishes are editable, saving the first 12 courses with the current unit target or 15. All of it is a personal preview that does not change the department schedule."
+        "ar": "يجب على صفحة «مساري» أن تعرض الخطط أ «الأقرب لرغباتك» وب «شعبٌ بديلة إن امتلأت أ» وج «الحدّ الأدنى الآمن» بترتيبٍ ثابت لا يتغيّر بالنقاط، وأن تحسب لكل خطةٍ (بنسختها المعدّلة) مؤشراً: ملاءمة الوحدات = max(0، 100 − |الوحدات − الهدف| × 12) والهدف وحدات الرغبات مقصوصةً إلى حدّي الخادم (wishUnitsMin وwishUnitsMax)، وإلا السقف؛ وحين تظهر كل المواعيد ملاءمة الجدول = max(0، 100 − 22 × مخالفات القيود (بداية قبل 08:00 مع «لا صباحاً»، أو من 13:00 فأكثر مع «لا بعد الظهر») − 9 × (الأيام − 1) مع «يوم فارغ» أو 3 × (الأيام − 3) بدونه − 5 × ساعات الفراغ الكاملة)، والمؤشر = 0.45 × الوحدات + 0.45 × الجدول + 0.10 × max(0، 100 − 14 × الشعب قليلة المقاعد)، وإلا المؤشر = ملاءمة الوحدات؛ والأفضل أعلاها ثم أقلها وحدات، موسوماً «الأنسب لك» أو «الأقرب لهدفك» حين لم تُعتمد المواعيد؛ وأن تعرض الأسبوع شبكةً أو قائمة، ويُظهر لمسُ مقررٍ شعبه البديلة على الشبكة (الأحمر يتعارض) ويُرفض اختيار شعبة متعارضة برسالة، ويتيح «لا أريده» مع زر استرجاع، و«أضف مقرراً» و«بدّله» من مجمّع المتاح مع وسم المقفل بمسبق والمتعارض وما يتجاوز السقف، واقتراح تبديل شعبة مقررٍ واحدٍ آخر حين يُزيل ذلك التعارض الوحيد؛ وأن تنبّه «أقل من 12»، وتعرض «ما لم نضعه (n)» بأسبابه، ولا تُظهر «اجعلها رغباتي» إلا بعد تعديلٍ وما دامت الرغبات قابلة للتعديل فتحفظ أول 12 مقرراً بهدف الوحدات الحالي مقصوصاً إلى الحدّين وإلا بالسقف. وكل ذلك معاينة شخصية لا تغيّر جدول القسم.",
+        "en": "The Masari page shall show plans A «closest to your wishes», B «alternative sections if A fills» and C «safe minimum» in a fixed order that the score never reorders, and shall compute for each plan (in its edited form) a score: unit fit = max(0, 100 − |units − target| × 12), with the target being the wishes' units clipped to the server limits (wishUnitsMin and wishUnitsMax), otherwise the cap; when all times are visible, schedule fit = max(0, 100 − 22 × constraint violations (a start before 08:00 under «no morning», or at 13:00 or later under «no afternoon») − 9 × (days − 1) with «free day» or 3 × (days − 3) without it − 5 × whole gap hours), and score = 0.45 × unit fit + 0.45 × schedule fit + 0.10 × max(0, 100 − 14 × low-seat sections), otherwise score = unit fit; the best is the highest, then the fewest units, labelled «best for you», or «closest to your target» when times are not approved; it shall show the week as a grid or a list, touching a course shows its alternative sections on the grid (red when clashing), choosing a clashing section is refused with a message, «I don't want it» comes with an undo chip, «add a course» and «swap it» open the available pool marking courses locked by a prerequisite, clashing, or above the cap, and proposing to switch one other course's section when that removes the only clash; it shall warn «less than 12», list «what we could not place (n)» with reasons, and show «make these my wishes» only after an edit and while wishes are editable, saving the first 12 courses with the current unit target clipped to the limits, otherwise the cap. All of it is a personal preview that does not change the department schedule."
       },
       "priority": "should",
       "status": "implemented",
