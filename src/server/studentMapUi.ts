@@ -398,9 +398,9 @@ function kmRegHtml(){var X=KM.x,ids=kmNowIds(),a=KM.advice,isMain=function(id){v
 function kmBarUpdate(){var bar=document.getElementById("kbar");if(!bar)return;var ids=kmCartIds(),u=kmUnits(ids);
   var ap=document.querySelector(".app");if(!kmCanWish()||!ids.length||S.tab!=="plan"||S.view!=="home"){bar.hidden=true;if(ap)ap.classList.remove("km-bar");return}
   if(ap)ap.classList.add("km-bar");
-  bar.hidden=false;/* الحدّ من 12 إلى 15 وحدة: المقياس 0–15، والعلامة عند 12؛ من بلغ 12 فقد أتمّ الحدّ (ممتاز) ولا يُطلب منه المزيد. */
+  bar.hidden=false;/* الحدّ من حدود الخادم (12 إلى السقف الجامعي): المقياس 0–السقف، ومن بلغ الأدنى فقد أتمّ الحدّ (ممتاز) ولا يُطلب منه المزيد. */
   var wish=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null,target=fitUnits(wish&&wish.targetUnits);
-  var pct=Math.min(100,u/15*100),st=u<12?'low':(u>15?'over':'ok'),msg=st==='low'?'ينقصك '+countOf(12-u,AR.unit)+' لتبلغ الحدّ الأدنى (12)':(st==='over'?'فوق 15 وحدة — سيُعدّ حملُك 15':'ممتاز ✓ ضمن الحدّ (12 إلى 15)');
+  var lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15),pct=Math.min(100,u/hi*100),st=u<lo?'low':(u>hi?'over':'ok'),msg=st==='low'?'ينقصك '+countOf(lo-u,AR.unit)+' لتبلغ الحدّ الأدنى ('+lo+')':(st==='over'?'فوق '+countOf(hi,AR.unit)+' — سيُعدّ حملُك '+hi:'ممتاز ✓ ضمن الحدّ ('+lo+' إلى '+hi+')');
   bar.innerHTML='<div class="kb-m"><b>اختيارك للتخطيط · '+countOf(ids.length,AR.course)+' · '+countOf(u,AR.unit)+'</b><div class="kb-meter '+st+'" aria-hidden="true"><i style="inline-size:'+pct+'%"></i><span></span></div><small class="'+(st==='ok'?'ok':'')+'">'+msg+'</small><small class="goal">هدف رغباتك: '+countOf(target,AR.unit)+' · لا يُحفظ الاختيار إلا عند الضغط</small></div><button type="button" class="btn" id="kbsend">'+ic("heart")+' أضفها إلى رغباتي</button>';
   document.getElementById("kbsend").addEventListener("click",kmSendWishes)}
 function kmSendWishes(){var b=document.getElementById("kbsend");if(!b||b.disabled)return;var ids=kmCartIds(),w=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null;
