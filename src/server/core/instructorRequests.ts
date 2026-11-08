@@ -28,6 +28,9 @@ import { learnRhythm } from "../../utils/departmentRhythm";
 import { readStudentDemand, cohortPairs } from "../../utils/studentDemand";
 import { dayKeysOf } from "../../utils/instructorRequestItems";
 import { judgeRequest, type RequestDayKey } from "../../utils/instructorRequestVerdict";
+import { sectionPlanFacts } from "./coreqPairs";
+import { sameLevelLookup, unlockLookup } from "../../utils/planPeers";
+import { teacherPeerNote } from "../../utils/teacherPeerNote";
 import { chosenAlternativeIndex } from "../../utils/requestAlternatives";
 import { learnCourseNature, type CourseNature } from "../../utils/courseNature";
 import { scheduleDayWindowMinutes } from "../../utils/scheduleTime";
@@ -398,6 +401,13 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
     if (prior) priorHabits.set(courseId, prior);
   }));
 
+  /* «في الوقت نفسه» للأستاذ: أقرانُ مقرره من صحيفة قسم البند (المخبأ نفسه الذي تقرؤه ورقةُ القسم). للأستاذ وحده. */
+  const peerLookups = new Map<number, { sameLevel: (a: number, b: number) => boolean; unlockOf: ReturnType<typeof unlockLookup> }>();
+  if (!options.forDepartment) await Promise.all([...new Set([...scopesNeeded.values()].map(scope => scope.sectionId))].map(async sectionId => {
+    const facts = await sectionPlanFacts(sectionId);
+    if (facts.levelGroups.length || facts.unlockGroups.length) peerLookups.set(sectionId, { sameLevel: sameLevelLookup(facts.levelGroups), unlockOf: unlockLookup(facts.unlockGroups) });
+  }));
+
   const items = (request.items || []).map((item, index) => {
     const slot = item.slots?.[0];
     const days = (item.slots || []).map(entry => entry.day as RequestDayKey);
@@ -479,7 +489,8 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       offerAlternatives: Boolean(options.forDepartment),
       ladderBlocks: !options.forDepartment && !offeredByDepartment,
       departmentHoursWarnOnly: Boolean(options.forDepartment) || offeredByDepartment,
-      sectionClashBlocks: !options.forDepartment && !offeredByDepartment,
+      /* شعبةٌ أخرى من المقرر نفسه: تنبيهٌ لا يمنع (المالك 2026-11-08)، وما عرضه القسمُ نفسُه لا يُنبَّه عليه. */
+      sectionClashWarns: !options.forDepartment && !offeredByDepartment,
       travelShortfall: (slots, others) => travelShortfalls(context.travelPolicy, Number(request.AdInstructorId), id => context.campusByCollege.get(id),
         { collegeId: targetCollegeId, slots }, others)[0] || null,
       travelBlocks: !options.forDepartment && !offeredByDepartment,
@@ -528,6 +539,15 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
         return { roomSwitch: { from: [original!.AdRoomCode, original!.AdRoomHall].filter(Boolean).join("/"),
           to: { roomId: String(to.roomId || ""), buildingId: String(to.buildingId || ""), room: to.room, hall: to.hall, ...withFacility.get(verdict.roomCandidates[0]) } } };
       })() : { roomSwitch: undefined }),
+      peers: (() => {
+        const lookups = peerLookups.get(targetSectionId);
+        if (!lookups || item.offeringRowIds?.length || (item.action !== "add" && item.action !== "change") || !item.slots?.length) return undefined;
+        return teacherPeerNote(context.allRows, {
+          slots: item.slots, courseId: courseIdOfItem, sectionId: targetSectionId, termId: Number(request.AdTermId), collegeId: targetCollegeId,
+          instructorId: Number(request.AdInstructorId), ...lookups,
+          nameOf: id => String(context.courses.get(id)?.CourseName || ""),
+        });
+      })(),
       courseRequirements: selectedCourse ? { CourseRoomType: selectedCourse.CourseRoomType, CourseTeachingMode: selectedCourse.CourseTeachingMode,
         CourseCompanionRoomType: selectedCourse.CourseCompanionRoomType, MaxStudent: selectedCourse.MaxStudent } : undefined,
       verdict: verdict.kind,

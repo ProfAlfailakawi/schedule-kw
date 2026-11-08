@@ -6,10 +6,15 @@
 .schedule-editor.is-studio .page-heading::after{display:none}
 .schedule-editor.is-studio .page-eyebrow{color:var(--brass);font-weight:700;letter-spacing:0}
 .schedule-editor.is-studio .page-heading h1{font-size:clamp(24px,2.1vw,30px);line-height:1.25;letter-spacing:-.01em}
-.schedule-editor.is-studio .page-heading p{margin-top:8px}
-.appt-scope{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-height:36px;padding:4px 6px 4px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink-2);font-size:13.5px;line-height:1.4}
+.schedule-editor.is-studio .page-heading p{margin-top:8px;max-width:none}
+/* لا سقف 66ch على كبسولة النطاق: تتسع لعرض الرأس، ولا تُختصر إلا حين يضيق فعلاً. */
+.schedule-editor.is-studio .page-heading-copy{max-width:none}
+/* سطرٌ واحد دائماً: الأيقونة في أوله، والنص يأخذ الباقي ويُختصر بـ«…»، و«تغيير/تم» في آخره لا ينكسر (المالك 2026-11-08). */
+.appt-scope{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:6px 8px;max-width:100%;min-width:0;min-height:36px;padding:4px 6px 4px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink-2);font-size:13.5px;line-height:1.4;vertical-align:middle}
 .appt-scope>svg{width:16px;height:16px;color:var(--brass);flex:none}
-.appt-scope-text{min-width:0;overflow-wrap:anywhere}
+.appt-scope-text{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.appt-scope>.colleague-presence-chip{flex:0 1 auto}
+.appt-scope>.appt-link{flex:none}
 .appt-link{border:0;background:none;color:var(--accent);font:inherit;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .appt-link:hover{background:var(--accent-softer)}
 .appt-link:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
@@ -222,6 +227,8 @@
   .schedule-editor.is-studio{--appt-bar-h:66px}
   .schedule-editor.is-studio .page-heading h1{font-size:24px}
   .appt-scope{border-radius:16px;padding:8px 12px}
+  /* هدف اللمس 44px يبقى، لكنه لا يُطيل الكبسولة: يتجاوز حافتيها بلا أثرٍ مرئي. */
+  .appt-scope>.appt-link{margin-block:-12px}
   .schedule-editor.is-studio .appt-step{padding:16px;border-radius:18px;gap:14px}
   .schedule-editor.is-studio .appt-fields-3{grid-template-columns:minmax(0,1fr)}
   .schedule-editor.is-studio .appt-time-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
