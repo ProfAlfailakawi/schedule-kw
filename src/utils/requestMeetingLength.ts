@@ -24,7 +24,7 @@ import { DAY_KEYS, DAY_NAMES, expectedMinutesForDay, patternsForHours, type DayK
 export interface LengthPattern { days: DayKey[]; minutes: number[] }
 
 /** الموعدُ القائم كما هو: أيامُه وطولُ لقائه. */
-export interface OwnMeeting { days: DayKey[]; minutes: number }
+export interface OwnMeeting { days: DayKey[]; minutes: number; /** بدايةُ الموعد المحفوظ «HH:MM» — الشكلُ نفسه يبقى طولَه. */ start?: string }
 
 export interface MeetingSlot { day: DayKey; start: string; end: string }
 
@@ -69,7 +69,9 @@ export function meetingMinutes(days: readonly DayKey[], patterns: readonly Lengt
 export function meetingSlots(days: readonly DayKey[], start: string, patterns: readonly LengthPattern[], own?: OwnMeeting | null): MeetingSlot[] {
   const from = toMinutes(start);
   if (!days.length || !Number.isFinite(from)) return [];
-  const minutes = meetingMinutes(days, patterns, own);
+  /* الشكلُ لم يتغيّر (الأيامُ والبدايةُ كما حُفظت) ← طولُه المحفوظ كما هو، ولو كان قديماً خارج المكتبة (A6، sameScheduleShape). */
+  const unchanged = own && own.minutes > 0 && own.start && toMinutes(own.start) === from && sameDays(days, own.days);
+  const minutes = unchanged ? days.map(() => own!.minutes) : meetingMinutes(days, patterns, own);
   return days.map((day, index) => ({ day, start: clockOf(from), end: clockOf(from + minutes[index]) }));
 }
 
@@ -79,7 +81,7 @@ export function ownMeetingOf(before: { days?: string; time?: string } | null | u
   const names = String(before?.days || "").split("·").map(part => part.trim()).filter(Boolean);
   const days = names.map(name => DAY_KEYS[DAY_NAMES.indexOf(name)]).filter(Boolean) as DayKey[];
   const minutes = clocks.length >= 2 ? toMinutes(clocks[1]) - toMinutes(clocks[0]) : NaN;
-  return days.length && days.length === names.length && Number.isFinite(minutes) && minutes > 0 ? { days, minutes } : null;
+  return days.length && days.length === names.length && Number.isFinite(minutes) && minutes > 0 ? { days, minutes, start: clockOf(toMinutes(clocks[0])) } : null;
 }
 
 /**

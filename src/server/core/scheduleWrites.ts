@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  */
 import { roomTypeIn } from "../../utils/roomTypeForSection";
+import { sameScheduleShape } from "../../utils/appointmentRegulation";
 import { RequestReservationConflict, RequestHoldConflict } from "../../utils/instructorRequestReservations";
 import { Response } from "express";
 import { Repository, ScheduleRevisionConflict } from "../../db/repository";
@@ -245,7 +246,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   }
   const payloadIssues=await schedulePayloadIssues(req.body,{keptTime:Boolean((req as any).__exactRestore)||(existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime)});
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
-  {const unchangedShape=existing&&existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(req.body?.[k]));
+  {const unchangedShape=sameScheduleShape(existing as any,req.body);
   const lengthIssue=unchangedShape?null:await scheduleLengthIssue({...req.body,id},(req as any).__hypotheticalWeek);
   if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}
   /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) يبقى كما هو؛ ومن غيّر أيامه أو وقته فبنمطٍ معتمد. */

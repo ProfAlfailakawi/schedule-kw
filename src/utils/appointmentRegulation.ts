@@ -189,6 +189,18 @@ export function regulationEnd(course: RegulationCourse | null | undefined, days:
   return clock(Math.min(SCHEDULE_CLOCK_END, from + length));
 }
 
+/**
+ * ── الشكلُ لم يتغيّر (A6): الأيامُ والبدايةُ والنهايةُ كما حُفظت ─────────────────────
+ * القاعدةُ الواحدة التي يتخطّى بها الخادمُ (unchangedShape) فحوصَ الشكل لموعدٍ قائم، ويقرؤها النموذج وكرتُ
+ * الأستاذ والمقترح حرفاً: موعدٌ قديمٌ بطولٍ خارج المكتبة (75د) تُغيَّر قاعتُه أو أستاذُه وحدهما يُحفظ كما هو؛
+ * ومن غيّر يومه أو وقته فبالنمط المعتمد.
+ */
+export function sameScheduleShape(saved: Partial<Record<DayKey | "fstarttime" | "fendtime", unknown>> | null | undefined, next: Partial<Record<DayKey | "fstarttime" | "fendtime", unknown>> | null | undefined): boolean {
+  if (!saved || !next) return false;
+  return saved.fstarttime === next.fstarttime && saved.fendtime === next.fendtime
+    && DAY_KEYS.every(day => Boolean(saved[day]) === Boolean(next[day]));
+}
+
 /** الاسمُ الذي تقرؤه الشاشاتُ الأخرى (المقترح، كرت الأستاذ): النهاية من البداية بالنمط وحده. */
 export const patternEnd = regulationEnd;
 

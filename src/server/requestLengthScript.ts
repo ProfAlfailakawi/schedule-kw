@@ -23,8 +23,10 @@ function meetingMinutes(days,patterns,own){
 }
 function meetingSlots(days,start,patterns,own){
  var m=/^(\d{1,2}):(\d{2})$/.exec(String(start||""));if(!days||!days.length||!m)return [];
- var from=(+m[1])*60+(+m[2]),list=meetingMinutes(days,patterns,own);
+ var from=(+m[1])*60+(+m[2]);
  var hm=function(v){return String(Math.floor(v/60)).padStart(2,"0")+":"+String(v%60).padStart(2,"0")};
+ var same=function(a,b){return a.length===b.length&&a.every(function(d){return b.indexOf(d)>=0})};
+ var list=own&&own.minutes>0&&own.start===hm(from)&&own.days&&same(days,own.days)?days.map(function(){return own.minutes}):meetingMinutes(days,patterns,own);
  return days.map(function(d,k){return{day:d,start:hm(from),end:hm(from+list[k])}});
 }
 `;

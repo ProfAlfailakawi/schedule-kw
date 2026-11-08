@@ -216,7 +216,7 @@ function clock(m){m=Math.min(m,Math.min(DAY_E,1439));return String(Math.floor(m/
    «19:30 – 20:00» كانت تُخفي محاضرةً تنتهي 20:20 ويمنعها الفحص (المالك 2026-10-30). */
 ${REQUEST_LENGTH_SCRIPT}
 function lengthPatternsOf(it){return((data&&data.lengthPatterns)||{})[courseIdOf(it)]||[]}
-function ownOf(it){if(!it||it.rowId==null)return null;var o=originalOf(it),r=rangeOf((it.before||{}).time);if(!o.days.length||!r||r[1]<=r[0])return null;return{days:o.days,minutes:r[1]-r[0]}}
+function ownOf(it){if(!it||it.rowId==null)return null;var o=originalOf(it),r=rangeOf((it.before||{}).time);if(!o.days.length||!r||r[1]<=r[0])return null;return{days:o.days,minutes:r[1]-r[0],start:String(Math.floor(r[0]/60)).padStart(2,"0")+":"+String(r[0]%60).padStart(2,"0")}}
 function sameSlots(list,days,start){return !!(list&&list.length&&list.length===days.length&&list.every(function(sl){return days.indexOf(sl.day)>=0&&sl.start===start}))}
 function slotsFor(it,days,start){days=days||[];if(!it||!days.length||!start)return [];
 if(sameSlots(it.computedSlots,days,start))return it.computedSlots;

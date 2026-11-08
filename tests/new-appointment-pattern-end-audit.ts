@@ -19,6 +19,10 @@ const { nextCourseSectionCode } = await import("../src/utils/nextCourseSectionCo
 const { patternEnd, patternLengthIssue, patternMinutes, regulationEnd, regulationFit } = await import("../src/utils/appointmentRegulation");
 const { daysFitLibrary } = await import("../src/utils/scheduleRegulations");
 const { appointmentVerdict } = await import("../src/utils/appointmentVerdict");
+const { sameScheduleShape } = await import("../src/utils/appointmentRegulation");
+const { meetingSlots, lengthPatternsForHours, ownMeetingOf } = await import("../src/utils/requestMeetingLength");
+const { REQUEST_LENGTH_SCRIPT } = await import("../src/server/requestLengthScript");
+const fs = await import("node:fs");
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, detail?: unknown) => {
@@ -98,6 +102,28 @@ check(regulationEnd(three, ["ftuesday"], "08:00") === "10:50", "N5 الثلاث�
 check(await scheduleLengthIssue(tuesday, existing) === null && await unapprovedPatternIssue(tuesday, existing) === null, "N5 الثلاثاء 08:00–10:50 يُحفظ ولو كانت العادة الاثنين·الأربعاء");
 const tuesdayWrong = await unapprovedPatternIssue({ ...tuesday, fendtime: "09:15" }, existing);
 check(/لا توافق النمط المعتمد/.test(String(tuesdayWrong)), "N5 والثلاثاء بنهايةٍ يدوية مخالفة (09:15) يمنع", tuesdayWrong);
+
+/* N7 — موعدٌ قديم بطولٍ خارج المكتبة (اثنين·أربعاء 75د) تتغيّر قاعتُه وحدها يُحفظ؛ وتغييرُ بدايته يطبّق النمط. */
+const legacy = { fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:15" };
+const roomOnly = { ...legacy, AdRoomCode: "901A02", AdRoomHall: "301" };
+check(regulationFit(three, ["fmonday", "fwednesday"], "08:00", "09:15") === "off", "N7 الطولُ القديم (75د) خارج النمط فعلاً");
+check(sameScheduleShape(legacy, roomOnly) && !sameScheduleShape(legacy, { ...legacy, fstarttime: "09:30", fendtime: "10:45" }), "N7 القاعدةُ الواحدة: تغييرُ القاعة شكلٌ لم يتغيّر، وتغييرُ البداية شكلٌ جديد");
+const keptVerdict = appointmentVerdict({ form: { ...roomOnly, AdCourseId: 9, AdInstructorId: 2, buildingId: "b", roomId: "r" } as any, validationIssues: [], conflicts: [],
+  regulation: sameScheduleShape(legacy, roomOnly) ? "unknown" : regulationFit(three, ["fmonday", "fwednesday"], "08:00", "09:15") });
+check(keptVerdict.canSave, "N7 النموذج: تغييرُ القاعة وحدها يُحفظ (لا مانعَ للطول القديم)", keptVerdict.blockers);
+check(regulationEnd(three, ["fmonday", "fwednesday"], "09:30", 75) === "10:50", "N7 تغييرُ البداية يطبّق النمط: 09:30 ← 10:50");
+check(sameScheduleShape(null, roomOnly) === false, "N7 موعدٌ جديد ليس «شكلاً لم يتغيّر»");
+const own = { days: ["fmonday", "fwednesday"] as any, minutes: 75, start: "08:00" };
+check(meetingSlots(["fmonday", "fwednesday"], "08:00", lengthPatternsForHours(3), own).every(slot => slot.end === "09:15"), "N7 كرت الأستاذ: البدايةُ والأيامُ كما هي ← الطولُ المحفوظ يبقى");
+check(meetingSlots(["fmonday", "fwednesday"], "09:30", lengthPatternsForHours(3), own).every(slot => slot.end === "10:50"), "N7 كرت الأستاذ: بدايةٌ جديدة ← النمط (10:50)");
+check(ownMeetingOf({ days: "الاثنين · الأربعاء", time: "08:00 – 09:15" })?.start === "08:00", "N7 لقطةُ البند تحمل بداية الموعد المحفوظ");
+const pageFns = new Function(`${REQUEST_LENGTH_SCRIPT}; return { meetingSlots };`)() as any;
+check(JSON.stringify(pageFns.meetingSlots(["fmonday", "fwednesday"], "08:00", lengthPatternsForHours(3).map(p => ({ days: p.days, minutes: p.minutes })), own)) === JSON.stringify(meetingSlots(["fmonday", "fwednesday"], "08:00", lengthPatternsForHours(3), own))
+  && pageFns.meetingSlots(["fmonday", "fwednesday"], "09:30", lengthPatternsForHours(3), own)[0].end === "10:50", "N7 صفحةُ الأستاذ تحسب ما يحسبه الخادم");
+const schedulesSrc = fs.readFileSync("src/components/Schedules.tsx", "utf8");
+const proposalSrc = fs.readFileSync("src/server/studyProposalEngine.ts", "utf8");
+const writesSrc = fs.readFileSync("src/server/core/scheduleWrites.ts", "utf8");
+check(/sameScheduleShape\(\(editorOriginalRow/.test(schedulesSrc) && /sameScheduleShape\(original/.test(proposalSrc) && /unchangedShape=sameScheduleShape\(existing/.test(writesSrc), "N7 المحرر والمقترح وبوابة التعديل يقرؤون sameScheduleShape نفسها");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

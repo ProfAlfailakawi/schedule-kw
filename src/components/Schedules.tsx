@@ -92,7 +92,7 @@ import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
-import { bestRegulationChoice, completeRegulation, endIsDeliberate, patternLengthIssue, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, completeRegulation, endIsDeliberate, patternLengthIssue, pickDay, sameScheduleShape, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
 import {
@@ -4267,7 +4267,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     conflicts,
     checking,
     companionRequired,
-    regulation: formRegulationFit,
+    /* موعدٌ قائم لم يتغيّر شكله (الأيام والوقت كما حُفظت) — تغيّرت قاعتُه أو أستاذُه وحدهما — لا يُمنع بطولٍ قديم:
+       القاعدةُ نفسُها التي يتخطّى بها الخادم (sameScheduleShape ← unchangedShape). */
+    regulation: editor === "edit" && sameScheduleShape((editorOriginalRow || formScopeRows.rows.find(row => Number(row.id) === Number(editId))) as any, form as any) ? "unknown" : formRegulationFit,
     /* سطرٌ واحد يقول النهاية الصحيحة (المالك 2026-11-08)، ومعه «طبّق النمط» في شريط الموانع. */
     regulationNote: patternLengthIssue(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || "")) || "أيام الموعد أو مدته ليست نمطاً معتمداً لساعات المقرر.",
     notes: [

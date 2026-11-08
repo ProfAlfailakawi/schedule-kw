@@ -19,7 +19,7 @@ import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/sched
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { personRecordIds } from "../utils/instructorPickerChoices";
 import { reviewSchedule, effectiveCourseHours, maxWeeklyMinutesFor, sectionWeeklyHours } from "../utils/scheduleRegulations";
-import { patternLengthIssue } from "../utils/appointmentRegulation";
+import { patternLengthIssue, sameScheduleShape } from "../utils/appointmentRegulation";
 import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
 import { mergeRegistryWithSeed } from "./locationRegistryEngine";
 import {
@@ -191,10 +191,8 @@ export async function proposalSchedulePreflight(
 
   // An unchanged inherited lecture shape must not newly reject existing data.
   const original = world.termRows.find(item => Number(item.id) === Number(row.id));
-  const unchangedShape = original
-    && String(original.fstarttime) === String(row.fstarttime)
-    && String(original.fendtime) === String(row.fendtime)
-    && PROPOSAL_DAY_KEYS.every(day => Boolean((original as any)[day]) === Boolean((row as any)[day]));
+  /* القاعدةُ الواحدة نفسُها التي يتخطّى بها الخادمُ والنموذج (sameScheduleShape). */
+  const unchangedShape = sameScheduleShape(original as any, row as any);
   if (unchangedShape) return issues;
   const courseId = Number(row.AdCourseId);
   const course = world.catalog.courseById.get(courseId);
