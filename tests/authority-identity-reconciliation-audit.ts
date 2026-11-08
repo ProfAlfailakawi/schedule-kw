@@ -139,8 +139,15 @@ assert.equal(matchAuthorityThroughPublication([otherSource],[otherPublished],[ot
 // A missing published trail must never trigger a forced original/new mapping.
 assert.equal(matchAuthorityThroughPublication([firstSource],[],[firstLive],codes).size,0,
   "No historical snapshot means multiple edited fields cannot be guessed");
-assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[manual],codes).size,0,
-  "A user-created new appointment is never consumed by the source bridge");
+const manualEdited={...firstLive,referenceNumber:"",sourceCourseCode:"",sourceSectionText:"",sourceOrder:1_000_070};
+assert.equal(matchAuthorityThroughPublication([firstSource],[],[manualEdited],codes).size,1,
+  "بلا أثر نشر: حذفٌ واحد وإضافةٌ يدويةٌ واحدة من المقرر والفرع نفسه هما الشعبة نفسها (قاعدة المالك)");
+assert.equal(matchAuthorityThroughPublication([firstSource],[],[manualEdited,{...manualEdited,id:9911,SCode:"580"}],codes).size,0,
+  "إضافتان يدويتان من المقرر والفرع نفسه بلا قربٍ يميّز: لا تخمين");
+assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[{...manual,SCode:firstPublished.SCode}],codes).size,1,
+  "شعبةٌ أُنشئت يدوياً بالمقرر ورقم الشعبة المنشور والموقع نفسه هي الشعبة المُعادة: تعديلٌ لا إضافة (قاعدة المالك)");
+assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[{...manual,SCode:"599"}],codes).size,1,
+  "شعبةٌ يدوية برقمٍ آخر وهي الوحيدة من المقرر والفرع: الشعبة نفسها وقد تغيّر رقمها (قاعدة المالك)");
 assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[{...firstLive,id:775,AdRoomCode:"012J14"}],codes).size,0,
   "An original Girls classroom cannot silently be attributed to Jahra");
 
@@ -282,8 +289,8 @@ assert.equal(matchAuthorityThroughPublication([strongReplacements[0].source],[],
   [{...strongReplacements[0].current,AdRoomCode:"011B17"}],reviewedCourseCodes).size,0,
   "Girls original cannot link to boys campus");
 assert.equal(matchAuthorityThroughPublication([strongReplacements[1].source],[],
-  [{...strongReplacements[1].current,AdInstructorId:999}],reviewedCourseCodes).size,0,
-  "Different professor invalidates a less-certain edited-time link");
+  [{...strongReplacements[1].current,AdInstructorId:999}],reviewedCourseCodes).size,1,
+  "أستاذٌ مختلف خانةٌ معدَّلة لا تنقض الربط: الشعبة الوحيدة من المقرر والفرع هي الأصل نفسه (قاعدة المالك)");
 assert.equal(matchAuthorityThroughPublication([strongReplacements[2].source],[],
   [{...strongReplacements[2].current,AdRoomHall:"F15"}],reviewedCourseCodes).size,1,
   "الشعبة نفسها (المقرر ورقم الشعبة والموقع) تبقى هي هي مهما تعدّلت خاناتها: تعديلٌ لا حذفٌ وإضافة، وتظهر خاناتها المتغيرة وحدها");
@@ -325,8 +332,8 @@ assert.deepEqual([...sevenPairs].sort((a,b)=>a[0]-b[0]),
   additionalGirlsCases.map((_,i)=>[i,i]),
   "Seven individually evidenced same-professor placements match one-to-one");
 assert.equal(matchAuthorityThroughPublication(previousGirls,[],
-  liveGirls.map((x,i)=>i===0?{...x,AdInstructorId:999}:x),reviewedCodes).has(0),false,
-  "A different original/current professor makes a suggestive multi-cell match invalid");
+  liveGirls.map((x,i)=>i===0?{...x,AdInstructorId:999}:x),reviewedCodes).has(0),true,
+  "أستاذٌ مختلف خانةٌ معدَّلة: الشعبة الأقرب بوضوح تُربط ويظهر الأستاذ أصفر");
 assert.equal(matchAuthorityThroughPublication(previousGirls,[],
   [...liveGirls,{...liveGirls[3],id:123456}],reviewedCodes).has(3),false,
   "No guessing if two live classes satisfy the same printed source link");
@@ -334,7 +341,7 @@ assert.equal(matchAuthorityThroughPublication(previousGirls,[],
   liveGirls.map((x,i)=>i===5?{...x,AdRoomCode:"011B17"}:x),reviewedCodes).has(5),false,
   "An original girls appointment must never match a boys section");
 assert.equal(matchAuthorityThroughPublication(previousGirls.map((x,i)=>i===2?
-  {...x,AdInstructorId:0}:x),[],liveGirls,reviewedCodes).has(2),false,
-  "A blank original PDF professor does not prove teacher continuity without a publication snapshot");
+  {...x,AdInstructorId:0}:x),[],liveGirls,reviewedCodes).has(2),true,
+  "أستاذٌ فارغٌ في الأصل لا يمنع الربط بالقرب (المقرر والفرع والأيام والوقت والقاعة)؛ والتقرير نفسه لا يعدّه تغييراً");
 
 console.log("Authority identity: official section gaps, real edits, false references, unique provenance and faculty baselines passed.");

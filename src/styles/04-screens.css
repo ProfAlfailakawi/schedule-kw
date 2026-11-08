@@ -2879,3 +2879,10 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .capacity-by-mode-plan ul{margin:0;padding-inline-start:18px}
 .capacity-by-mode-msg{margin:0;font-weight:650}.capacity-by-mode-msg[data-ok="1"]{color:var(--ok,#1f6b5c)}.capacity-by-mode-msg[data-ok="0"]{color:var(--bad,#ad2f28)}
 @media(max-width:480px){.capacity-by-mode-caps{grid-template-columns:1fr}}
+
+/* الرقم المرجعي في تغييرات الجدول: شريحةٌ أخرى غير رقم المقرر — محيطٌ مخطوطٌ بلونٍ بنفسجيٍّ هادئ، في صفٍّ واحد قبل رقم المقرر. */
+.crn-chip{display:inline-flex;align-items:center;flex:none;min-height:24px;padding:1px 9px;border:1px solid color-mix(in srgb,#5b4bb0 45%,transparent);border-radius:8px;background:color-mix(in srgb,#5b4bb0 8%,transparent);color:#4a3d99;font:600 12px/1.4 var(--font-mono,ui-monospace,monospace);letter-spacing:.2px;font-variant-numeric:tabular-nums}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .crn-chip{color:#b9afff;border-color:color-mix(in srgb,#b9afff 50%,transparent);background:color-mix(in srgb,#b9afff 10%,transparent)}}
+:root[data-theme="dark"] .crn-chip{color:#b9afff;border-color:color-mix(in srgb,#b9afff 50%,transparent);background:color-mix(in srgb,#b9afff 10%,transparent)}
+.agenda-list .changes-row .agenda-title-row{flex-wrap:wrap}
+.review-row-card small .crn-chip{margin-inline-start:4px}

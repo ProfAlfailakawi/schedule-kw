@@ -50,7 +50,7 @@ assert.equal(isSame("AdInstructorId", { ...original }), false);
 // The original comparison must be wired to this guard, not just tested in isolation.
 const server = readServerSource();
 assert.match(server, /authorityFieldMatchesOriginal\(field,source,next\)/);
-assert.match(server, /const visibleChangedFields=changedFields\.filter\(field=>field!=="SCode"\)/);
+assert.match(server, /const visibleChangedFields=changedFields\.filter\(field=>field!=="SCode"\|\|!isAuthorityImportedRow\(next\)\)/);
 assert.match(server, /baselineRows=importLayout==="authority-pdf"/);
 
 
