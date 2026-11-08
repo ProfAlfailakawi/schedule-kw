@@ -75,6 +75,51 @@ type CurriculumTarget = {
 };
 
 /** `embedded` means the academic console already supplies the page identity. */
+/** السعةُ حسب طبيعة المقرر: قسمٌ واحد باسمه في كل الحُرُم — معاينةٌ أولاً ثم تطبيق. لمدير النظام وحده. */
+const CAPACITY_MODE_ROWS = [["theoretical", "نظري", "50"], ["practical", "عملي", "20"], ["field_training", "تدريب ميداني", "15"]] as const;
+function CapacityByMode({ sections, onDone }: { sections: any[]; onDone: () => void }) {
+  const names = useMemo(() => [...new Set(sections.map(item => String(item.AdSectionName || "")).filter(Boolean))].sort(byArabic), [sections]);
+  const [sectionName, setSectionName] = useState("");
+  const [caps, setCaps] = useState<Record<string, string>>({ theoretical: "50", practical: "20", field_training: "15" });
+  const [plan, setPlan] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const run = async (apply: boolean) => {
+    /* التطبيق يُرسل ما عُرضت معاينتُه حرفاً، لا ما في الخانات الآن: ما لم يُعاين لا يُكتب. */
+    const inputs = apply && plan?.request ? plan.request : { sectionName, caps };
+    setBusy(true); setMessage(null);
+    try {
+      const response = await fetch("/api/admin/courses/capacity-by-mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...inputs, apply }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) { setMessage({ ok: false, text: body.error || "تعذّر الحساب." }); return; }
+      setPlan(apply ? null : { ...body, request: inputs });
+      if (apply) { setMessage({ ok: true, text: `تم تعديل ${countOf(body.written, AR.course)}.` }); onDone(); }
+    } catch { setMessage({ ok: false, text: "تعذّر الاتصال." }); } finally { setBusy(false); }
+  };
+  const changing = plan ? Object.values<any>(plan.byMode).reduce((sum, row) => sum + row.changing, 0) : 0;
+  return <details className="capacity-by-mode">
+    <summary data-guide-ignore="فتح أداة السعة حسب طبيعة المقرر"><GraduationCap aria-hidden="true" />السعة حسب طبيعة المقرر</summary>
+    <div className="capacity-by-mode-body">
+      <select aria-label="القسم العلمي" value={sectionName} disabled={busy} data-guide-ignore="اختيار القسم الذي تُضبط سعات مقرراته" onChange={event => { setSectionName(event.target.value); setPlan(null); setMessage(null); }}>
+        <option value="">اختر القسم (كل حُرُمه)</option>
+        {names.map(name => <option key={name} value={name}>{name}</option>)}
+      </select>
+      <div className="capacity-by-mode-caps">
+        {CAPACITY_MODE_ROWS.map(([key, label]) => <label key={key}><span>{label}</span>
+          <input type="number" inputMode="numeric" min={1} max={200} value={caps[key]} disabled={busy} data-guide-ignore="سعة هذه الطبيعة" onChange={event => { setCaps(current => ({ ...current, [key]: event.target.value })); setPlan(null); }} /></label>)}
+      </div>
+      <button type="button" className="capacity-by-mode-go" disabled={busy || !sectionName} data-guide-ignore="معاينة الأثر دون كتابة شيء" onClick={() => void run(false)}>معاينة</button>
+      {plan ? <div className="capacity-by-mode-plan" role="status">
+        <p>{plan.branches.map((row: any) => `${row.college} (${row.courses})`).join(" · ")}</p>
+        <ul>{CAPACITY_MODE_ROWS.map(([key, label]) => plan.byMode[key] ? <li key={key}><b>{label}</b> → {plan.caps[key]} · يتغيّر {plan.byMode[key].changing} من {plan.byMode[key].total}</li> : null)}</ul>
+        {plan.untouched ? <small>المقررات بلا طبيعة نظري أو عملي أو ميداني ({plan.untouched}) تبقى كما هي.</small> : null}
+        <button type="button" className="capacity-by-mode-go" data-tone="apply" disabled={busy || !changing} data-guide-ignore="تطبيق السعات على كل مقررات القسم في كل الحُرُم" onClick={() => void run(true)}>{changing ? `تطبيق على ${changing}` : "لا شيء يتغيّر"}</button>
+      </div> : null}
+      {message ? <p className="capacity-by-mode-msg" data-ok={message.ok ? "1" : "0"} role="status">{message.text}</p> : null}
+    </div>
+  </details>;
+}
+
 export default function Courses({ embedded = false, actionSlot = null, scopes = [], isAdmin = true }: { embedded?: boolean; actionSlot?: HTMLElement | null; scopes?: ScopeAssignmentLike[]; isAdmin?: boolean }) {
   const shape = scopeShape(scopes, isAdmin);
   const [items, setItems] = useState<any[]>([]),
@@ -662,6 +707,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       )}
       {receipt ? <Notice type="success" onDismiss={() => setReceipt(null)}>{receipt}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
+      {isAdmin ? <CapacityByMode sections={sections} onDone={() => window.location.reload()} /> : null}
       <div className="catalog-workspace">
         <Surface className="catalog-master">
           <ListToolbar value={query} onChange={setQuery} count={filtered.length} placeholder="الرقم الأكاديمي، اسم المقرر، الكلية أو القسم">
