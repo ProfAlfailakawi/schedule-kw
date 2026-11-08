@@ -1,11 +1,14 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeftRight, CalendarDays, Check, CheckCircle2, History, Replace, RotateCcw, ShieldCheck, UsersRound, X } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ArrowLeftRight, CalendarDays, Check, CheckCircle2, CornerDownLeft, History, Replace, RotateCcw, ShieldCheck, UsersRound, X } from "lucide-react";
+import InstructorPicker from "./InstructorPicker";
+import { taTargetsQuery } from "../utils/taConversion";
 import { PrimaryButton, SecondaryButton, visualConfirm, useDialogDismiss } from "./ui";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import "./ta-conversion.css";
 
 type Summary = { id: number; name: string; appointments: number; sections: number };
+type TargetCheck = { id: number; target: number; clash: boolean; over: boolean };
 type Preview = {
   people: Summary[];
   affected: number;
@@ -15,18 +18,26 @@ type Preview = {
   reason?: string;
   termName: string;
   sectionName: string;
+  /** عائلةُ القسم كما في قائمة أستاذ المقرر: الخادمُ يقبل الهدف منها وحدها. */
+  familyIds?: number[];
+  checks?: TargetCheck[];
 };
 type Result = { changed: number; undoVersionId?: string };
 
-export default function TAConversionPanel({ collegeId, sectionId, termId, onClose, onChanged }: {
+export default function TAConversionPanel({ collegeId, sectionId, termId, onClose, onChanged, instructors = [], visitingIds, visitingRosterIds }: {
   collegeId: number; sectionId: number; termId: number;
   onClose: () => void; onChanged: () => void;
+  /** ما تعرفه شاشة الجدول من أسماء وشارات «منتدب»، كما تمرّره لقائمة أستاذ المقرر. */
+  instructors?: any[]; visitingIds?: Iterable<number>; visitingRosterIds?: Iterable<number>;
 }) {
   useDialogDismiss(true, onClose);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
+  const [targets, setTargets] = useState<Record<number, number>>({});
+  const [checks, setChecks] = useState<TargetCheck[]>([]);
+  const targetText = taTargetsQuery(targets);
   const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) }).toString();
 
   const reload = useCallback(async () => {
@@ -49,11 +60,27 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
     return () => { live = false; controller.abort(); };
   }, [query]);
 
+  /* تنبيهاتُ من اختير: تعارضٌ أو تجاوزُ نصاب. تُعرض ولا تمنع. */
+  useEffect(() => {
+    if (!targetText) { setChecks([]); return; }
+    const controller = new AbortController();
+    fetch("/api/schedules/ta-conversion?" + query + "&targets=" + encodeURIComponent(targetText), { cache: "no-store", signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (data && Array.isArray(data.checks)) setChecks(data.checks); })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [query, targetText]);
+
+  const family = useMemo(() => new Set((preview?.familyIds || []).map(Number)), [preview?.familyIds]);
+  const chosenCount = (preview?.people || []).filter(person => (targets[person.id] || 0) > 0).reduce((sum, person) => sum + person.appointments, 0);
+
   const convert = async () => {
     if (!preview?.affected || !preview.allowed || busy) return;
     const accepted = await visualConfirm({
       title: "تحويل هيئة التدريب",
-      message: "سيُستبدل اسم الأستاذ فقط في " + countOf(preview.affected, AR.appointment) + " من هذا الفصل. المقررات والشعب والقاعات والأوقات لا تتغيّر.",
+      message: "سيُستبدل اسم الأستاذ فقط في " + countOf(preview.affected, AR.appointment) + " من هذا الفصل"
+        + (chosenCount ? ": " + countOf(chosenCount, AR.appointment) + " إلى أساتذة القسم" + (preview.affected - chosenCount ? "، والباقي إلى هيئة تدريسية" : "") : "")
+        + ". المقررات والشعب والقاعات والأوقات لا تتغيّر.",
       confirmLabel: "تأكيد التحويل",
     });
     if (!accepted) return;
@@ -61,11 +88,12 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
     try {
       const response = await fetch("/api/schedules/ta-conversion", {
         method: "POST", headers: { "Content-Type": "application/json", "x-schedule-confirm": "ta-conversion" },
-        body: JSON.stringify({ collegeId, sectionId, termId, previewKey: preview.previewKey }),
+        body: JSON.stringify({ collegeId, sectionId, termId, previewKey: preview.previewKey, targets }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "تعذّر التحويل");
       setResult({ changed: Number(data.changed) || 0, undoVersionId: data.undoVersionId });
+      setTargets({});
       onChanged();
       await reload();
     } catch (reason: any) {
@@ -87,6 +115,7 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
       }, options => visualConfirm(options));
       if (done !== null) {
         setResult(null);
+        setTargets({});
         onChanged();
         await reload();
       }
@@ -120,13 +149,40 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
               </div>
               {preview.people.length ? (
                 <div className="ta-conversion-people">
-                  {preview.people.map(person => (
-                    <div className="ta-conversion-person" key={person.id}>
-                      <span className="ta-conversion-avatar"><UsersRound aria-hidden="true" /></span>
-                      <strong>{person.name}</strong>
-                      <small>{countOf(person.appointments, AR.appointment)}</small>
-                    </div>
-                  ))}
+                  {preview.people.map(person => {
+                    const target = targets[person.id] || 0;
+                    const flag = target ? checks.find(item => item.id === person.id && item.target === target) : undefined;
+                    return (
+                      <div className="ta-conversion-person" key={person.id}>
+                        <span className="ta-conversion-avatar"><UsersRound aria-hidden="true" /></span>
+                        <strong>{person.name}</strong>
+                        <small>{countOf(person.appointments, AR.appointment)}</small>
+                        <div className="ta-conversion-target" role="group" aria-label={"تحويل " + person.name + " إلى"}>
+                          <CornerDownLeft aria-hidden="true" />
+                          <InstructorPicker
+                            value={target}
+                            onChange={id => setTargets(current => ({ ...current, [person.id]: family.has(Number(id)) ? Number(id) : 0 }))}
+                            instructors={instructors}
+                            departmentIds={preview.familyIds || []}
+                            visitingIds={visitingIds}
+                            visitingRosterIds={visitingRosterIds}
+                            onlyIds={preview.familyIds || []}
+                            emptyLabel="هيئة تدريسية"
+                            canCreate={false}
+                            strictDepartmentOnly
+                            collegeId={collegeId} sectionId={sectionId} termId={termId}
+                            disabled={busy || !preview.allowed}
+                          />
+                        </div>
+                        {flag && (flag.clash || flag.over) ? (
+                          <ul className="ta-conversion-flags" aria-label="تنبيه">
+                            {flag.clash ? <li><AlertTriangle aria-hidden="true" />تعارض</li> : null}
+                            {flag.over ? <li><AlertTriangle aria-hidden="true" />فوق النصاب</li> : null}
+                          </ul>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : <div className="ta-conversion-empty"><CheckCircle2 aria-hidden="true" /><strong>لا أسماء TA تحتاج تحويلاً</strong><small>حدّد صفة «هيئة تدريب · TA» من بطاقة الأستاذ عند الحاجة.</small></div>}
               <p className="ta-conversion-protection"><ShieldCheck aria-hidden="true" /> تتغير الأسماء فقط؛ يبقى الجدول كما هو.</p>
