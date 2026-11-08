@@ -120,3 +120,5 @@
 .twin-card .twin-line .twin-mark svg{width:13px;height:13px;color:var(--accent-strong)}
 .twin-mark strong{font-weight:800}
 .same-slot-chip-btn svg+svg{margin-inline-start:-1px}
+
+.same-slot-chip-days{margin-inline-start:4px;font-size:.72em;opacity:.75;white-space:nowrap}

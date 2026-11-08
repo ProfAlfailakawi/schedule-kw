@@ -261,6 +261,9 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
     const hue = hueOf(Number(row.AdCourseId) || index);
     const { sections, hidden } = visibleSections(courseRow);
     const codes = courseRow.sections.map(section => section.row.SCode).filter(Boolean) as string[];
+    /* شعبٌ مدموجة بأيامٍ مختلفة: كلُّ رقاقةٍ تحمل أيامها، فلا يضيع أيُّ شعبةٍ تتداخل في أيِّ يوم. */
+    const daysDiffer = several && new Set(courseRow.sections.map(section => section.days.join("+"))).size > 1;
+    const daysOf = (section: SameSlotCourseRow<R>["sections"][number]) => SLOT_DAYS.filter(day => section.days.includes(day.key)).map(day => day.short).join("·");
     return (
       <li key={courseRow.key} className={[level || unlock ? "is-level" : "", courseRow.exact ? "" : "is-partial"].filter(Boolean).join(" ") || undefined} style={{ ["--ss-hue" as any]: hue }}>
         <span className="same-slot-icon" aria-hidden="true"><BookOpen /></span>
@@ -276,8 +279,8 @@ export default function SameSlotHint<R extends SlotRow & { AdCourseName?: string
         {courseRow.sections.length === 1
           ? (row.SCode ? <span className="same-slot-chip">شعبة <bdi dir="ltr">{row.SCode}</bdi></span> : null)
           : codes.length ? (
-            <span className="same-slot-sections" role="img" aria-label={`${countOf(codes.length, AR.section)}: ${codes.join("، ")}`}>
-              {sections.map(section => section.row.SCode ? <bdi key={String(section.row.id)} className="same-slot-chip" dir="ltr">{section.row.SCode}</bdi> : null)}
+            <span className="same-slot-sections" role="img" aria-label={`${countOf(codes.length, AR.section)}: ${courseRow.sections.filter(section => section.row.SCode).map(section => daysDiffer ? `${section.row.SCode} (${daysOf(section)})` : String(section.row.SCode)).join("، ")}`}>
+              {sections.map(section => section.row.SCode ? <span key={String(section.row.id)} className="same-slot-chip"><bdi dir="ltr">{section.row.SCode}</bdi>{daysDiffer ? <small className="same-slot-chip-days">{daysOf(section)}</small> : null}</span> : null)}
               {hidden ? <bdi className="same-slot-chip is-more" dir="ltr">+{hidden}</bdi> : null}
             </span>
           ) : null}
