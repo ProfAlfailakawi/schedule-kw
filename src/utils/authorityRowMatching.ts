@@ -301,6 +301,42 @@ function applyConfirmedAuthorityLinks(
 }
 
 /**
+ * ── الشعبةُ المُعادة تبقى هي هي ────────────────────────────────────────
+ * يحذف المنسّق موعداً ثم يضيفه من جديد، وقد يكرّر ذلك مراراً، ثم ينتهي إلى الشعبة
+ * الأصلية نفسِها بتغييرِ خانةٍ أو خانتين. هذا تعديلٌ لا حذفٌ وإضافة.
+ *
+ * فبعد كل ما سبق، ومن بين ما بقي بلا رابط وحدَه: صفٌّ أصليٌّ وصفٌّ حيٌّ لهما
+ * المقرر نفسه ورقمُ الشعبة نفسه والموقعُ نفسه، وهما الوحيدان بهذا المفتاح من الجهتين،
+ * يُربطان. فما اتفق كلُّه لا يظهر، وما اختلف فيه خانةٌ تظهر خانتُه وحدها. وإن تكرر
+ * المفتاح عند أيٍّ من الجهتين بقيا كما هما: لا يُخمَّن. ورقمُ الشعبة المختلف شعبةٌ أخرى،
+ * فيبقى حذفاً وإضافة.
+ */
+function linkRecreatedSections(baseline:readonly Row[],current:readonly Row[],pairs:Map<number,number>,codes?:Map<number,string>){
+  const used=new Set(pairs.values());
+  const key=(row:Row,source:boolean)=>{
+    const c=courseKey(row,codes),sec=section(row,source),st=site(row);
+    return c&&sec&&st?[c,st,sec].join("|"):"";
+  };
+  const sources=new Map<string,number[]>(),lives=new Map<string,number[]>();
+  baseline.forEach((row,i)=>{
+    if(pairs.has(i))return;
+    const k=key(row,true);
+    if(k)sources.set(k,[...(sources.get(k)||[]),i]);
+  });
+  current.forEach((row,j)=>{
+    if(used.has(j))return;
+    const k=key(row,false);
+    if(k)lives.set(k,[...(lives.get(k)||[]),j]);
+  });
+  for(const [k,s] of sources){
+    const l=lives.get(k)||[];
+    if(s.length!==1||l.length!==1)continue;
+    if(!sameCourse(baseline[s[0]],current[l[0]],codes))continue;
+    pairs.set(s[0],l[0]);used.add(l[0]);
+  }
+}
+
+/**
  * An edited imported appointment retains its database id from first publish.
  * A legacy import can also retain its unique sourceOrder across preview and
  * publication, even if time, days and room were edited together. Match that
@@ -326,6 +362,7 @@ export function matchAuthorityThroughPublication(
     const fallback=matchAuthoritySourceRows(
       sourceIndices.map(i=>baseline[i]),currentIndices.map(i=>current[i]),courseCodeById);
     for(const [i,j] of fallback)approved.set(sourceIndices[i],currentIndices[j]);
+    linkRecreatedSections(baseline,current,approved,courseCodeById);
     return approved;
   }
 
@@ -432,6 +469,7 @@ export function matchAuthorityThroughPublication(
   const restCurrent=current.map((_,i)=>i).filter(i=>!currentTaken.has(i));
   const fallback=matchAuthoritySourceRows(restOrigins.map(i=>baseline[i]),restCurrent.map(i=>current[i]),courseCodeById);
   for(const [i,j] of fallback)sourceToCurrent.set(restOrigins[i],restCurrent[j]);
+  linkRecreatedSections(baseline,current,sourceToCurrent,courseCodeById);
   return sourceToCurrent;
 }
 
