@@ -227,6 +227,101 @@ export function sameSlotOf<R extends SlotRow>(rows: readonly R[], query: SameSlo
   return { items, count: items.length, partialCount: inexact.length - sectionCount, sectionCount };
 }
 
+/* ── صفوفُ المقررات ومجموعاتُ الورقة ──────────────────────────────────────────
+   شعبُ المقرر الواحد في المجموعة الواحدة صفٌّ واحد: الشعبُ رقائقُ صغيرة وأوقاتُها أشرطةٌ رفيعة،
+   فلا تملأ ثلاثُ شعبٍ من مقررٍ واحد السقفَ وتُخفي مجموعةً أخرى. */
+
+/** أشرطةُ الشعب في صفٍّ مدموج قبل «+n». */
+export const SAME_SLOT_SECTION_BARS = 3;
+
+/** مجموعاتُ الورقة بترتيبها: المقرر نفسه (أسهلُ ما يُنسى) ثم «تفتح» ثم «تُؤخذ معًا» ثم الوقتُ نفسه. */
+export type SameSlotGroupKind = "course" | "unlock" | "level" | "time";
+export const SAME_SLOT_GROUP_ORDER: readonly SameSlotGroupKind[] = ["course", "unlock", "level", "time"];
+
+export interface SameSlotCourseRow<R> {
+  /** مفتاحٌ فريد في الورقة كلها (للمفاتيح في React). */
+  key: string;
+  /** الشعبُ بترتيب أهميتها (الأطول تداخلاً أولاً)، كلٌّ بوقته وأيامه ونوعه. */
+  sections: SameSlotItem<R>[];
+  /** مجموعُ الأيام المشتركة. */
+  days: SlotDay[];
+  /** exact حين تطابقت شعبُه كلُّها؛ وإلا يُعرض بأوقاته. */
+  exact: boolean;
+  /** قريبةٌ كلُّها بلا تداخل. */
+  near: boolean;
+}
+export interface SameSlotGroup<R> { key: string; kind: SameSlotGroupKind; unlock?: UnlockLink; rows: SameSlotCourseRow<R>[] }
+
+export const sameSlotGroupKindOf = (item: SameSlotItem<unknown>): SameSlotGroupKind =>
+  item.sameCourse ? "course" : item.unlock ? "unlock" : item.sameLevel ? "level" : "time";
+
+/** البنودُ (بترتيب sameSlotOf) مجموعاتٍ بترتيب SAME_SLOT_GROUP_ORDER، وفي كلٍّ صفٌّ لكل مقرر. */
+export function sameSlotGroups<R extends SlotRow>(items: readonly SameSlotItem<R>[]): SameSlotGroup<R>[] {
+  const kinds = new Map<SameSlotGroupKind, Map<string, SameSlotGroup<R>>>();
+  for (const item of items) {
+    const kind = sameSlotGroupKindOf(item);
+    const groupKey = kind === "unlock" ? `unlock|${item.unlock!.names.join("|")}` : kind;
+    const groups = kinds.get(kind) || kinds.set(kind, new Map()).get(kind)!;
+    const group = groups.get(groupKey) || groups.set(groupKey, { key: groupKey, kind, unlock: item.unlock, rows: [] }).get(groupKey)!;
+    const course = Number(item.row.AdCourseId);
+    const rowKey = `${groupKey}|${course ? `c${course}` : `#${item.row.id}`}`;
+    const held = group.rows.find(row => row.key === rowKey);
+    if (held) held.sections.push(item);
+    else group.rows.push({ key: rowKey, sections: [item], days: [], exact: true, near: true });
+  }
+  const groups = SAME_SLOT_GROUP_ORDER.flatMap(kind => [...(kinds.get(kind)?.values() || [])]);
+  for (const group of groups) for (const row of group.rows) {
+    row.days = SLOT_DAYS.filter(day => row.sections.some(s => s.days.includes(day.key))).map(day => day.key);
+    row.exact = row.sections.every(s => s.kind === "exact");
+    row.near = row.sections.every(s => s.kind === "near");
+  }
+  return groups;
+}
+
+/**
+ * سقفُ صفوف الورقة: صفٌّ من كل مجموعة أولاً (بترتيبها)، ثم يُملأ الباقي بترتيب المجموعات.
+ * المجموعاتُ تبقى بترتيبها وصفوفُها بترتيبها؛ وما لم يظهر عددٌ لـ«+n».
+ */
+export function capCourseRows<R>(groups: readonly SameSlotGroup<R>[], max = SAME_SLOT_VISIBLE_ROWS): { groups: SameSlotGroup<R>[]; hidden: number } {
+  const take = groups.map(() => 0);
+  let left = Math.max(0, max);
+  groups.forEach((group, index) => { if (left > 0 && group.rows.length) { take[index] = 1; left--; } });
+  groups.forEach((group, index) => { const more = Math.min(left, group.rows.length - take[index]); take[index] += more; left -= more; });
+  const shown = groups.map((group, index) => ({ ...group, rows: group.rows.slice(0, take[index]) })).filter(group => group.rows.length);
+  const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  return { groups: shown, hidden: total - shown.reduce((sum, group) => sum + group.rows.length, 0) };
+}
+
+/** «الكل» ملخّصٌ بصفٍّ من كل مجموعة؛ ورقاقةُ نوعٍ تعرض صفوفَه كلَّها. */
+export type SameSlotView = "all" | SameSlotGroupKind;
+export interface SameSlotKindTab { kind: SameSlotGroupKind; rowCount: number; sectionCount: number }
+
+/**
+ * ما تعرضه الورقة: رقائقُ الأنواع حين يكون فيها أكثرُ من نوع، والمجموعاتُ المعروضة، وما خفي منها عدداً.
+ * نوعٌ واحد ← بلا رقائق، والسقفُ ٤ صفوف ثم «+n» يُفتح في مكانه (expanded).
+ */
+export function sameSlotSheet<R>(groups: readonly SameSlotGroup<R>[], view: SameSlotView = "all", expanded = false): { tabs: SameSlotKindTab[]; view: SameSlotView; groups: SameSlotGroup<R>[]; hidden: number } {
+  const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  const tabs = SAME_SLOT_GROUP_ORDER.flatMap(kind => {
+    const rows = groups.filter(group => group.kind === kind).flatMap(group => group.rows);
+    return rows.length ? [{ kind, rowCount: rows.length, sectionCount: rows.reduce((sum, row) => sum + row.sections.length, 0) }] : [];
+  });
+  if (tabs.length < 2) {
+    const capped = expanded ? { groups: [...groups], hidden: 0 } : capCourseRows(groups);
+    return { tabs: [], view: "all", ...capped };
+  }
+  if (view !== "all" && tabs.some(tab => tab.kind === view)) return { tabs, view, groups: groups.filter(group => group.kind === view), hidden: 0 };
+  const shown = groups.map(group => ({ ...group, rows: group.rows.slice(0, 1) }));
+  return { tabs, view: "all", groups: shown, hidden: total - shown.length };
+}
+
+/** شعبُ الصف المرسومة (أهمُّها حتى SAME_SLOT_SECTION_BARS) مرتبةً برقمها، والباقي عدداً. */
+export function visibleSections<R extends SlotRow>(row: SameSlotCourseRow<R>, max = SAME_SLOT_SECTION_BARS): { sections: SameSlotItem<R>[]; hidden: number } {
+  const sections = row.sections.slice(0, max).sort((a, b) =>
+    numeric(a.row.SCode) - numeric(b.row.SCode) || slotMinutes(a.row.fstarttime) - slotMinutes(b.row.fstarttime));
+  return { sections, hidden: row.sections.length - sections.length };
+}
+
 /** أولُ `max` بندٍ بالترتيب نفسه، والباقي عدداً — لسطر «+٣». */
 export function capSameSlot<T>(items: readonly T[], max = SAME_SLOT_VISIBLE_ROWS): { items: T[]; hidden: number } {
   const shown = items.slice(0, Math.max(0, max));
