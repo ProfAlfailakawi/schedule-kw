@@ -139,8 +139,8 @@ assert.equal(matchAuthorityThroughPublication([otherSource],[otherPublished],[ot
 // A missing published trail must never trigger a forced original/new mapping.
 assert.equal(matchAuthorityThroughPublication([firstSource],[],[firstLive],codes).size,0,
   "No historical snapshot means multiple edited fields cannot be guessed");
-assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[manual],codes).size,1,
-  "شعبةٌ أُنشئت يدوياً بالمقرر ورقم الشعبة والموقع نفسه هي الشعبة المُعادة: تعديلٌ لا إضافة (قاعدة المالك)");
+assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[{...manual,SCode:firstPublished.SCode}],codes).size,1,
+  "شعبةٌ أُنشئت يدوياً بالمقرر ورقم الشعبة المنشور والموقع نفسه هي الشعبة المُعادة: تعديلٌ لا إضافة (قاعدة المالك)");
 assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[{...manual,SCode:"599"}],codes).size,0,
   "شعبةٌ يدوية برقمٍ آخر تبقى إضافةً جديدة ولا يلتهمها جسر الأصل");
 assert.equal(matchAuthorityThroughPublication([firstSource],[firstPublished],[{...firstLive,id:775,AdRoomCode:"012J14"}],codes).size,0,

@@ -5,6 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { buildAuthorityPdfDiff } from "../src/server/core/authority";
+import { matchAuthorityThroughPublication } from "../src/utils/authorityRowMatching";
 
 let passed = 0;
 const check = (ok: boolean, label: string) => { assert.ok(ok, label); passed++; console.log(`  ✓ ${label}`); };
@@ -36,9 +37,9 @@ check(out.rows.find((r: any) => r.status === "changed").changedFields.every((f: 
 out = run([original(215, "0109215", "501", "1332", 0)], [recreated(9001, 215, "501", { ftuesday: false, fwednesday: true, fstarttime: "11:00", fendtime: "13:50" })]);
 check(count(out, "deleted") === 0 && count(out, "added") === 0 && count(out, "changed") === 1, "يومٌ ووقتٌ مختلفان في الشعبة نفسها: تعديل");
 
-// 4) رقمُ شعبةٍ آخر = شعبةٌ أخرى: حذفٌ وإضافة.
+// 4) رقمُ الشعبة وحده تغيّر: تعديلٌ أصفر (قاعدة المالك).
 out = run([original(215, "0109215", "501", "1332", 0)], [recreated(9001, 215, "502")]);
-check(count(out, "deleted") === 1 && count(out, "added") === 1, "رقم الشعبة المختلف يبقى حذفاً وإضافة");
+check(count(out, "deleted") === 0 && count(out, "added") === 0 && count(out, "changed") === 1, "رقم الشعبة وحده تغيّر (اليوم والوقت والمقرر كما هي): صفٌّ أصفر واحد");
 
 // 5) موقعٌ آخر (فرع آخر): لا ربط.
 out = run([original(215, "0109215", "501", "1332", 0)], [recreated(9001, 215, "501", { AdRoomCode: "012B08" })]);
@@ -93,7 +94,11 @@ console.log(`\n${passed} passed, 0 failed`);
 
   // رقمٌ يطابق الرقم الرسمي المطبوع لشعبةٍ محذوفة لا يصير تعديلاً لها.
   o = go([...live0.filter((_, i) => i !== 2), again(base[2], 91, { SCode: "506", id: 7091 })]);
-  check(n(o, "deleted") === 1 && n(o, "added") === 1, "رقمٌ جديد يصادف الرسمي لشعبةٍ محذوفة يبقى إضافةً وحذفاً");
+  check(n(o, "deleted") === 0 && n(o, "added") === 0 && n(o, "changed") === 1, "الرقم وحده تغيّر (اليوم والوقت نفسهما): تعديلٌ أصفر لا حذفٌ وإضافة");
+
+  // رقمٌ جديد مع وقتٍ مختلف: لا دليل على أنها الشعبة نفسها.
+  o = go([...live0.filter((_, i) => i !== 2), again(base[2], 92, { SCode: "506", id: 7092, fstarttime: "15:00", fendtime: "16:50" })]);
+  check(n(o, "deleted") === 1 && n(o, "added") === 1, "رقمٌ ووقتٌ تغيّرا معاً: يبقى حذفاً وإضافة");
 
   // تبديل الأوقات بين شعبتين من مقرر واحد: تعديلان لا حذف ولا إضافة.
   const sw = live0.map(r => ({ ...r }));
@@ -103,5 +108,63 @@ console.log(`\n${passed} passed, 0 failed`);
 
   o = go([]);
   check(n(o, "deleted") === 12, "جدولٌ حيٌّ فارغ: كل ما في الأصل محذوف");
+  console.log(`\n${passed} passed, 0 failed`);
+}
+
+// شعبةٌ حُذفت في معاينة الاستيراد فأُعيد ترقيمُ ما بعدها عند النشر: يُعتدّ برقمها المنشور.
+{
+  const mk = (id: number, ref: string, order: number, sec: string, over: Record<string, any> = {}) => ({
+    id, AdCourseId: 215, sourceCourseCode: "0109215", referenceNumber: ref, sourceOrder: order, SCode: sec, sourceSectionText: sec,
+    AdRoomCode: "011B17", AdRoomHall: "F06", AdInstructorId: 0,
+    fsunday: false, fmonday: false, ftuesday: true, fwednesday: false, fthursday: false, fstarttime: "17:00", fendtime: "19:50", ...over });
+  const baseline = [mk(-1, "1001", 0, "501"), mk(-2, "1002", 1, "502", { fstarttime: "11:00", fendtime: "13:50" })];
+  // نُشر المرجع ١٠٠٢ برقم ٥٠١ لأن الأولى حُذفت في المعاينة.
+  const published = [mk(31, "1002", 1, "501", { fstarttime: "11:00", fendtime: "13:50" })];
+  const recreated = { ...published[0], id: 9100, referenceNumber: "", sourceOrder: 1_000_100, sourceCourseCode: "", sourceSectionText: undefined, AdRoomHall: "G20" };
+  const m = matchAuthorityThroughPublication(baseline, published, [recreated], new Map([[215, "0109215"]]));
+  check(m.get(1) === 0 && !m.has(0), "المُعادة تُربط بأصلها الحقيقي (المرجع ١٠٠٢) لا بالمحذوف في المعاينة");
+  console.log(`\n${passed} passed, 0 failed`);
+}
+
+// ── الشعبة التي تغيّر رقمها وحده ──
+{
+  const codes3 = new Map<number, string>([[215, "0109215"], [334, "0109334"]]);
+  const o = (id: number, sec: string, ref: string, order: number, over: Record<string, any> = {}) => ({
+    id, AdCourseId: 215, sourceCourseCode: "0109215", referenceNumber: ref, sourceOrder: order, SCode: sec, sourceSectionText: sec,
+    AdRoomCode: "011B17", AdRoomHall: "F04", AdInstructorId: 0,
+    fsunday: true, fmonday: false, ftuesday: false, fwednesday: false, fthursday: false, fstarttime: "11:00", fendtime: "12:20", ...over });
+  const mine = (id: number, sec: string, over: Record<string, any> = {}) => ({ ...o(id, sec, "", 1_000_000 + id), sourceCourseCode: "", sourceSectionText: undefined, ...over });
+  const go = (base: any[], live: any[]) => buildAuthorityPdfDiff(base, live, { courseCodeById: codes3, instructorNameById: new Map() }) as any;
+  const n = (x: any, s: string) => x.rows.filter((r: any) => r.status === s).length;
+
+  let x = go([o(-1, "501", "1001", 0)], [mine(9101, "515", { AdRoomHall: "G20" })]);
+  check(n(x, "deleted") + n(x, "added") === 0 && n(x, "changed") === 1, "٥٠١ صارت ٥١٥ بالمقرر واليوم والوقت نفسها وقاعةٍ مختلفة: صفٌّ أصفر واحد");
+  const f = x.rows.find((r: any) => r.status === "changed").changedFields;
+  check(f.includes("SCode") && f.includes("AdRoomHall"), "وتتلوّن خانتا رقم الشعبة والقاعة");
+
+  x = go([o(-1, "501", "1001", 0)], [mine(9101, "515")]);
+  check(n(x, "deleted") + n(x, "added") === 0 && n(x, "changed") === 1, "رقمٌ فقط تغيّر: صفٌّ أصفر واحد");
+
+  x = go([o(-1, "501", "1001", 0)], [mine(9101, "515", { fsunday: false, ftuesday: true })]);
+  check(n(x, "deleted") === 1 && n(x, "added") === 1, "الرقم واليوم معاً تغيّرا: يبقى حذفاً وإضافة");
+
+  x = go([o(-1, "501", "1001", 0)], [mine(9101, "515", { fstarttime: "14:00", fendtime: "15:20" })]);
+  check(n(x, "deleted") === 1 && n(x, "added") === 1, "الرقم والوقت معاً تغيّرا: يبقى حذفاً وإضافة");
+
+  x = go([o(-1, "501", "1001", 0)], [mine(9101, "515"), mine(9102, "516")]);
+  check(n(x, "deleted") === 1 && n(x, "added") === 2, "شعبتان جديدتان بالمواصفات نفسها: لا تخمين");
+
+  x = go([o(-1, "501", "1001", 0)], [mine(9101, "515", { AdCourseId: 334 })]);
+  check(n(x, "deleted") === 1 && n(x, "added") === 1, "مقررٌ آخر لا يُربط");
+
+  x = go([o(-1, "501", "1001", 0)], [mine(9101, "515", { AdRoomCode: "012B08" })]);
+  check(n(x, "deleted") === 1 && n(x, "added") === 1, "فرعٌ آخر لا يُربط");
+
+  // شعبةٌ حُذفت في معاينة الاستيراد وأُعيد ترقيم ما بعدها: المرتبط بالنشر هو الأصل فقط.
+  const base2 = [o(-1, "501", "1001", 0), o(-2, "502", "1002", 1, { fstarttime: "14:00", fendtime: "15:20" })];
+  const pub2 = [o(31, "501", "1002", 1, { fstarttime: "14:00", fendtime: "15:20" })];
+  const recreated = { ...pub2[0], id: 9200, referenceNumber: "", sourceOrder: 1_000_200, sourceCourseCode: "", sourceSectionText: undefined, AdRoomHall: "G20" };
+  const m = matchAuthorityThroughPublication(base2, pub2, [recreated], codes3);
+  check(m.get(1) === 0 && !m.has(0), "المُعادة تُربط بأصلها الحقيقي (المرجع ١٠٠٢) لا بالمحذوف في المعاينة");
   console.log(`\n${passed} passed, 0 failed`);
 }
