@@ -167,7 +167,7 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
     /* إلا الصفّ الذي أنشأه المنسّق بيده: رقمُ شعبته اختياره هو، فتغيّره تعديلٌ حقيقيّ يظهر أصفر
        (الشعبة المحذوفة ثم المُعادة برقمٍ آخر)، لا توليدٌ من الاستيراد. */
     const visibleChangedFields=changedFields.filter(field=>field!=="SCode"||!isAuthorityImportedRow(next));
-    reportRows.push({status:visibleChangedFields.length?"changed":"unchanged",changedFields,referenceNumber:String(source.referenceNumber||next.referenceNumber||""),source,current:next});
+    reportRows.push({status:visibleChangedFields.length?"changed":"unchanged",changedFields,sectionRenumbered:visibleChangedFields.includes("SCode"),referenceNumber:String(source.referenceNumber||next.referenceNumber||""),source,current:next});
   });
   current.forEach((row:any,index:number)=>{
     if(consumed.has(index))return;

@@ -139,6 +139,7 @@ console.log(`\n${passed} passed, 0 failed`);
 
   let x = go([o(-1, "501", "1001", 0)], [mine(9101, "515", { AdRoomHall: "G20" })]);
   check(n(x, "deleted") + n(x, "added") === 0 && n(x, "changed") === 1, "٥٠١ صارت ٥١٥ بالمقرر واليوم والوقت نفسها وقاعةٍ مختلفة: صفٌّ أصفر واحد");
+  check(x.rows.find((r: any) => r.status === "changed").sectionRenumbered === true, "ويحمل الصفُّ علامة «الرقم تغيّر» ليُلوَّن في الورقة المطبوعة");
   const f = x.rows.find((r: any) => r.status === "changed").changedFields;
   check(f.includes("SCode") && f.includes("AdRoomHall"), "وتتلوّن خانتا رقم الشعبة والقاعة");
 
