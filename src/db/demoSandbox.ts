@@ -11,6 +11,7 @@ import { roleDefinition, type AcademicRole } from "../utils/academicRoles";
 import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurricula";
 import { seatState, sectionKey, type SeatQuotaConfig } from "../utils/advisorSeats";
 import type { ActivityTrailEntry } from "../utils/activityTrail";
+import { demoShowcaseCourses, demoShowcaseRows, demoTravelPolicyDoc } from "./demoShowcase";
 
 /*
  * ── الصندوق التجريبي: كليةٌ واحدة، وعدة أقسام لعرض استعارة القاعات ─────────
@@ -69,6 +70,7 @@ export interface DemoSandboxState {
   scheduleApprovals: any[];
   /* سجلُّ المباني والقاعات: بدونه لا يُحفظ موعدٌ في الصندوق (locationPreflight). */
   locationBuildings: MasterBuilding[]; locationRooms: MasterRoom[]; locationRoomTypeScopes: Record<string, number[]>;
+  locationRoomTypes?: string[];
   registrationStats?: any[];
   /* النصاب التدريسي (ميزةٌ اختيارية مفعَّلةٌ في الصندوق لتُشرح): انظر DEMO_TEACHING_LOAD. */
   teachingLoadConfig?: any[];
@@ -222,7 +224,14 @@ const DEMO_HALLS: readonly DemoHall[] = DEMO_BUILDINGS.flatMap(b => b.rooms.map(
 })));
 const hallsForSection = (sectionId: number) => DEMO_HALLS.filter(h => h.sectionIds.includes(sectionId));
 const isLabHall = (hall: DemoHall) => /^(L|S)\d/.test(hall.hall);
-const demoRoomType = (hall: DemoHall) => hall.hall.startsWith("L") ? "مختبر حاسوب" : hall.hall.startsWith("S") ? "استوديو إنتاج" : "تدريسية";
+/* أنواعُ القاعات في الديمو كما سيُسمّيها المالك: «قاعة تدريسية» و«مختبر حاسوب» عامّان لكل الأقسام،
+   و«ورشة» و«استوديو إنتاج» خاصّان بتكنولوجيا التعليم وحده (DEMO_ROOM_TYPE_SCOPES). */
+export const DEMO_LECTURE_TYPE = "قاعة تدريسية";
+export const DEMO_WORKSHOP_TYPE = "ورشة";
+export const DEMO_WORKSHOP_ROOM_ID = "room_901A01_W01";
+export const DEMO_ROOM_TYPES = [DEMO_LECTURE_TYPE, "مختبر حاسوب", DEMO_WORKSHOP_TYPE, "استوديو إنتاج", "استوديو التصوير"] as const;
+export const DEMO_ROOM_TYPE_SCOPES: Record<string, number[]> = { [DEMO_WORKSHOP_TYPE]: [DEMO_SECTION_ID], "استوديو إنتاج": [DEMO_SECTION_ID] };
+const demoRoomType = (hall: DemoHall) => hall.hall.startsWith("L") ? "مختبر حاسوب" : hall.hall.startsWith("S") ? "استوديو إنتاج" : DEMO_LECTURE_TYPE;
 const demoRoomCapacity = (hall: DemoHall) => Number(hall.description.match(/(\d+)\s*مقعد/)?.[1] || 0) || null;
 function hallFields(hall: DemoHall): Partial<FSchedule> {
   return { buildingId: hall.buildingId, roomId: hall.roomId, AdRoomCode: hall.code, AdRoomHall: hall.hall, locationStatus: "VERIFIED" };
@@ -261,6 +270,15 @@ function demoLocationRegistry(schedules: FSchedule[]): { buildings: MasterBuildi
     collegeIds: [studioBuilding.collegeId], sectionIds: [DEMO_SECTION_ID], primarySectionIds: [DEMO_SECTION_ID],
     shared: false, sharedConfidence: "CONFIRMED",
     historicalUsageCount: schedules.filter(row => row.companionRoomId === DEMO_STUDIO_ROOM_ID).length, firstTermId: 1, lastTermId: 1,
+    confidence: "CONFIRMED", source: "DEMO_SANDBOX", adminVerified: true, evidence, auditHistory: [],
+    createdAt: at, updatedAt: at, lastVerifiedAt: at,
+  } as MasterRoom);
+  /* ورشةٌ واحدة بنوعٍ خاصٍّ بالقسم (لا تدخل التوزيع الطمّاع: لا تغيّر مواضع الجدول). */
+  rooms.push({
+    id: DEMO_WORKSHOP_ROOM_ID, buildingId: demoBuildingId(studioBuilding), buildingCode: demoBuildingCode(studioBuilding), canonicalCode: "W01", active: true, aliases: [],
+    roomType: DEMO_WORKSHOP_TYPE, capacity: 20,
+    collegeIds: [studioBuilding.collegeId], sectionIds: [DEMO_SECTION_ID], primarySectionIds: [DEMO_SECTION_ID],
+    shared: false, sharedConfidence: "CONFIRMED", historicalUsageCount: 0, firstTermId: 1, lastTermId: 1,
     confidence: "CONFIRMED", source: "DEMO_SANDBOX", adminVerified: true, evidence, auditHistory: [],
     createdAt: at, updatedAt: at, lastVerifiedAt: at,
   } as MasterRoom);
@@ -942,14 +960,14 @@ export function createDemoSandboxState(): DemoSandboxState {
   if(demoFitCourse&&demoFitRow){
     demoFitCourse.CourseRoomType="مختبر حاسوب";
     const occupied=(hall:DemoHall)=>first.some(row=>row!==demoFitRow&&row.roomId===hall.roomId&&["fsunday","fmonday","ftuesday","fwednesday","fthursday"].some(day=>Boolean((row as any)[day])&&Boolean((demoFitRow as any)[day])&&Number(row.fstarttime.replace(":",""))<Number(demoFitRow.fendtime.replace(":",""))&&Number(row.fendtime.replace(":",""))>Number(demoFitRow.fstarttime.replace(":",""))));
-    const hall=DEMO_HALLS.find(item=>demoRoomType(item)==="تدريسية"&&Number(demoRoomCapacity(item)||0)<Number(demoFitCourse.MaxStudent)&&!occupied(item));
+    const hall=DEMO_HALLS.find(item=>demoRoomType(item)===DEMO_LECTURE_TYPE&&Number(demoRoomCapacity(item)||0)<Number(demoFitCourse.MaxStudent)&&!occupied(item));
     if(hall)Object.assign(demoFitRow,hallFields(hall));
   }
   /* مخالفتان إضافيتان بنوعين مختلفين لتقرير «المقررات × القاعات»: مقرران نوعُهما غير نوع قاعاتهما. */
   {
     const hallType = (row: FSchedule) => { const hall = DEMO_HALLS.find(item => item.roomId === row.roomId); return hall ? demoRoomType(hall) : ""; };
     const roomsOf = (course: AdCourse) => first.filter(row => Number(row.AdCourseId) === Number(course.AdCourseId));
-    const candidates = courses.filter(course => course !== demoFitCourse && !course.CourseRoomType && roomsOf(course).length && roomsOf(course).every(row => hallType(row) === "تدريسية"));
+    const candidates = courses.filter(course => course !== demoFitCourse && !course.CourseRoomType && roomsOf(course).length && roomsOf(course).every(row => hallType(row) === DEMO_LECTURE_TYPE));
     for (const [at, type] of (["استوديو إنتاج", "مختبر حاسوب"] as const).entries()) if (candidates[at * 2]) candidates[at * 2].CourseRoomType = type;
   }
   /* مشهد «المرفق المرافق» (A3): مقررٌ واحد من القسم يتطلب استوديو التصوير، وشعبته القائمة مربوطةٌ
@@ -965,6 +983,15 @@ export function createDemoSandboxState(): DemoSandboxState {
       Object.assign(row, { companionRoomId: DEMO_STUDIO_ROOM_ID, companionRoomLabel: `${demoBuildingCode(DEMO_BUILDINGS[0])} / ${DEMO_STUDIO_HALL}` });
     }
   }
+  /* مشهد العرض (demoShowcase.ts): أول مقرر في القائمة ومعه مقرران في موعده نفسه، وتوأمان في الصحيفة، ومقرر الجهراء.
+     يُضاف آخر الجدول بلا مساسٍ بما وُزّع: كلُّ قاعةٍ وأستاذٍ فيه حرٌّ في ساعته (يحرسه tests/demo-showcase-audit.ts). */
+  const showcaseFirstId = Math.max(0, ...courses.map(course => Number(course.AdCourseId))) + 1;
+  courses.push(...demoShowcaseCourses(showcaseFirstId, DEMO_COLLEGE_ID));
+  const hallByCode = (hall: string) => {
+    const found = DEMO_HALLS.find(item => item.hall === hall && item.sectionIds.includes(DEMO_SECTION_ID));
+    return found ? hallFields(found) : {};
+  };
+  first.push(...demoShowcaseRows(courses, Math.max(0, ...first.map(row => Number(row.id))) + 1, DEMO_COLLEGE_ID, DEMO_TERM_CURRENT, hallByCode));
   const acceptedFirst = structuredClone(first);
   plantConflicts(first);
   /* مخالفتان لائحيتان تُضافان بعد القبول (مراجعةٌ لا منع)، فيُقرأ تقريرُ الجدول بكشفهما. */
@@ -1173,7 +1200,8 @@ export function createDemoSandboxState(): DemoSandboxState {
     }))], scheduleApprovals: seeded.approvals,
     locationBuildings: registry.buildings, locationRooms: registry.rooms,
     /* استوديو القسم نوعٌ خاصٌّ به: يراه غيرُه «قاعة عامة»، ويُنبَّه إن استعاره. */
-    locationRoomTypeScopes: { "استوديو إنتاج": [DEMO_SECTION_ID] },
+    locationRoomTypes: [...DEMO_ROOM_TYPES].sort((a, b) => a.localeCompare(b, "ar")),
+    locationRoomTypeScopes: structuredClone(DEMO_ROOM_TYPE_SCOPES),
     teachingLoadConfig: [{
       id: "main", enabled: true, ranks: DEMO_TEACHING_LOAD_RANKS.map(rank => ({ ...rank })),
       assignments: structuredClone(DEMO_TEACHING_LOAD_ASSIGNMENTS), updatedAt: now, updatedBy: "بيانات الديمو",
@@ -1181,6 +1209,8 @@ export function createDemoSandboxState(): DemoSandboxState {
     curriculumPlans: sheets.plans, curriculumPlanCourses: sheets.links, curriculumRuleSets: sheets.ruleSets, curriculumRuleDrafts: sheets.drafts,
     featureDocs: {
       ...demoAdvisorSeats(schedules, daysAgo => new Date(Date.now() - daysAgo * 86_400_000).toISOString()),
+      /* سياسة التنقّل بين الحرمين: ستون دقيقةً للأزواج الثلاثة في الديمو وحده (الحقيقي يضبطها التسجيل). */
+      campusTravelPolicy: { global: demoTravelPolicyDoc() },
       /* «افتحه للطرح»: قرارُ القسم في وثيقة حالة الطرح نفسها — 343 مفتوحٌ في الأول رغم «لم نصل بعد». */
       courseOfferingStates: (() => {
         const open = courses.find(course => course.CourseCode === DEMO_REACH_OPEN_CODE);

@@ -2606,7 +2606,9 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 }
 
 /** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
-export type FeatureCollection = "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
+export type FeatureCollection =
+  /* سقفُ وحدات الطالب في «مساري»: الجامعيُّ وحده يُقرأ؛ وثائقُ الأقسام القديمة باقيةٌ لا تُقرأ ولا تُكتب. */
+  | "universityStudentSettings" | "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
   /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
   | "seatLedgers" | "seatMemberLinks"
   /* إعادةُ تعيين كلمة السر: أثرُ الكلمة المؤقتة ودخولُها الواحد، لا الكلمة (src/server/accountPassword.ts). */
@@ -5894,6 +5896,49 @@ export const Repository = {
     return true;
   },
 
+  /** مقرراتُ البطاقة وحدها (utils/offeredCourses) — حقلٌ واحد يُكتب، فلا يُمحى قرارٌ أو ردٌّ وصل بين القراءة والكتابة. null = بلا قيد. */
+  setInstructorRequestOfferedCourses: async (id: string, offeredCourseIds: number[] | null): Promise<boolean> => {
+    const at = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        tx.update(ref, { offeredCourseIds, updatedAt: at });
+        return { ...(snap.data() as InstructorRequest), offeredCourseIds, updatedAt: at };
+      });
+      if (saved) announceInstructorRequestSaved(saved);
+      return Boolean(saved);
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return false;
+    row.offeredCourseIds = offeredCourseIds;
+    row.updatedAt = at;
+    saveDatabase();
+    announceInstructorRequestSaved(row);
+    return true;
+  },
+
+  /** «ذكّر من لم يرد»: لحظةُ التذكير تُلحق بطلبه (حقلٌ واحد). */
+  noteInstructorRequestReminded: async (id: string, at: string): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        const remindedAt = [...((snap.data() as InstructorRequest).remindedAt || []), at].slice(-20);
+        tx.update(ref, { remindedAt });
+        return { ...(snap.data() as InstructorRequest), remindedAt };
+      });
+      return Boolean(saved);
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return false;
+    row.remindedAt = [...(row.remindedAt || []), at].slice(-20);
+    saveDatabase();
+    return true;
+  },
+
   setInstructorRequestLinkMode: async (id: string, mode: LinkMode): Promise<boolean> => {
     const at = new Date().toISOString();
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -7106,6 +7151,8 @@ export const Repository = {
     }
     return (db.registrationRuns || []).find(row => row.id === String(termId));
   },
+  /** يُقدِّم الرادار المحفوظ حين يتغيّر مُدخَلٌ لا تراه أختامُه الزمنية (كالسقف الجامعي لوحدات الطالب). */
+  markRegistrationRunsStale: (termId?: number): Promise<void> => markRegistrationRunsStale(termId),
   getRegistrationTicket: async (termId: number, fingerprint: string): Promise<RegistrationTicket | undefined> => {
     if (!fingerprint) return undefined;
     const id = `${termId}_${fingerprint}`;

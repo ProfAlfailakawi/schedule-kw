@@ -8,8 +8,8 @@
  * والأربعاء يُمنع «لا يغطّيها» ويُقترح عليه اليومان نفساهما (المالك 2026-10-30).
  *
  * القاعدةُ الآن واحدة، وهي قاعدةُ المحرّر الكامل (appointmentRegulation):
- *   1) الأيامُ نفسُها والوقتُ وحده تغيّر ← طولُ الموعد نفسه.
- *   2) لقاءُ يومٍ واحد يُنقل إلى يومٍ واحد ← طولُه نفسه (قد يكون لقاءً من شعبةٍ بصفّين).
+ *   1) الأيامُ نفسُها والوقتُ وحده تغيّر ← طولُ الموعد نفسه، إن كان طولاً معتمداً في المكتبة.
+ *   2) لقاءُ يومٍ واحد يُنقل إلى يومٍ واحد ← طولُه نفسه (قد يكون لقاءً من شعبةٍ بصفّين)، بالشرط نفسه.
  *   3) وإلا نمطُ اللائحة لساعات المقرّر إن طابق الأيام (والكتلةُ الواحدة على أيّ يوم).
  *   4) وإلا طولُ اليوم في اللائحة: 50 للأحد والثلاثاء والخميس، و80 للاثنين والأربعاء،
  *      ثم يحكم الفحصُ على المجموع (لا يغطّي، أو يتجاوز، أو خلطٌ غير معتمد).
@@ -24,7 +24,7 @@ import { DAY_KEYS, DAY_NAMES, expectedMinutesForDay, patternsForHours, type DayK
 export interface LengthPattern { days: DayKey[]; minutes: number[] }
 
 /** الموعدُ القائم كما هو: أيامُه وطولُ لقائه. */
-export interface OwnMeeting { days: DayKey[]; minutes: number }
+export interface OwnMeeting { days: DayKey[]; minutes: number; /** بدايةُ الموعد المحفوظ «HH:MM» — الشكلُ نفسه يبقى طولَه. */ start?: string }
 
 export interface MeetingSlot { day: DayKey; start: string; end: string }
 
@@ -42,11 +42,28 @@ export function lengthPatternsForHours(hours: number): LengthPattern[] {
 const sameDays = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every(day => b.includes(day));
 
+/** طولُ الموعد القائم معتمدٌ لهذه الأيام؟ (لا أنماطَ لساعاته ← لا يُحكم، فيبقى.) قرار المالك 2026-11-08: طولٌ قديمٌ
+    يخالف المكتبة (75د) لا يُنقل مع البداية — النهايةُ من النمط، وإلا مُنع البندُ ولا يُرسل حتى يُصلَح. */
+export function ownLengthAllowed(days: readonly DayKey[], patterns: readonly LengthPattern[], minutes: number): boolean {
+  if (!patterns.length) return true;
+  if (days.length === 1) return patterns.some(pattern => pattern.days.length === 1
+    ? pattern.minutes[0] === minutes
+    : pattern.days.includes(days[0]) && pattern.minutes[pattern.days.indexOf(days[0])] === minutes);
+  return patterns.some(pattern => sameDays(days, pattern.days) && days.every(day => pattern.minutes[pattern.days.indexOf(day)] === minutes));
+}
+
 /** دقائقُ اللقاء لكل يوم، بترتيب الأيام المعطاة. */
 export function meetingMinutes(days: readonly DayKey[], patterns: readonly LengthPattern[], own?: OwnMeeting | null): number[] {
   if (!days.length) return [];
-  if (own && own.minutes > 0 && own.days.length && (sameDays(days, own.days) || (days.length === 1 && own.days.length === 1)))
+  if (own && own.minutes > 0 && own.days.length && (sameDays(days, own.days) || (days.length === 1 && own.days.length === 1)) && ownLengthAllowed(days, patterns, own.minutes))
     return days.map(() => own.minutes);
+  /* نقلُ لقاءٍ قائمٍ بيومٍ واحد إلى يومٍ واحد بطولٍ خارج المكتبة (خميس 75د): أقربُ طولٍ معتمد لذلك اليوم (110 لا كتلة 230) —
+     القاعدةُ نفسُها التي يكتب بها الخادمُ والسحبُ موعداً منقولاً (regulationEnd بـ nearest). */
+  if (own && own.minutes > 0 && days.length === 1 && own.days.length === 1 && patterns.length) {
+    const lengths = [...new Set(patterns.flatMap(pattern => pattern.days.length === 1 ? [pattern.minutes[0]]
+      : pattern.days.includes(days[0]) ? [pattern.minutes[pattern.days.indexOf(days[0])]] : []))];
+    if (lengths.length) return [lengths.sort((a, b) => Math.abs(a - own.minutes) - Math.abs(b - own.minutes) || a - b)[0]];
+  }
   for (const pattern of patterns) {
     if (days.length === 1 && pattern.days.length === 1) return [pattern.minutes[0]];
     if (pattern.days.length === days.length && sameDays(days, pattern.days))
@@ -59,7 +76,9 @@ export function meetingMinutes(days: readonly DayKey[], patterns: readonly Lengt
 export function meetingSlots(days: readonly DayKey[], start: string, patterns: readonly LengthPattern[], own?: OwnMeeting | null): MeetingSlot[] {
   const from = toMinutes(start);
   if (!days.length || !Number.isFinite(from)) return [];
-  const minutes = meetingMinutes(days, patterns, own);
+  /* الشكلُ لم يتغيّر (الأيامُ والبدايةُ كما حُفظت) ← طولُه المحفوظ كما هو، ولو كان قديماً خارج المكتبة (A6، sameScheduleShape). */
+  const unchanged = own && own.minutes > 0 && own.start && toMinutes(own.start) === from && sameDays(days, own.days);
+  const minutes = unchanged ? days.map(() => own!.minutes) : meetingMinutes(days, patterns, own);
   return days.map((day, index) => ({ day, start: clockOf(from), end: clockOf(from + minutes[index]) }));
 }
 
@@ -69,7 +88,7 @@ export function ownMeetingOf(before: { days?: string; time?: string } | null | u
   const names = String(before?.days || "").split("·").map(part => part.trim()).filter(Boolean);
   const days = names.map(name => DAY_KEYS[DAY_NAMES.indexOf(name)]).filter(Boolean) as DayKey[];
   const minutes = clocks.length >= 2 ? toMinutes(clocks[1]) - toMinutes(clocks[0]) : NaN;
-  return days.length && days.length === names.length && Number.isFinite(minutes) && minutes > 0 ? { days, minutes } : null;
+  return days.length && days.length === names.length && Number.isFinite(minutes) && minutes > 0 ? { days, minutes, start: clockOf(toMinutes(clocks[0])) } : null;
 }
 
 /**

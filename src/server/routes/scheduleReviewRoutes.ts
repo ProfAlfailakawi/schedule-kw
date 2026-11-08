@@ -7,6 +7,7 @@
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
 import type { Express } from "express";
+import { sameScheduleShape } from "../../utils/appointmentRegulation";
 import { Response } from "express";
 import { Repository, ScheduleRevisionConflict } from "../../db/repository";
 import { isBlockingConflict, outsideScopeClashes, timeToMinutes } from "../../utils/scheduleIntelligence";
@@ -46,7 +47,7 @@ async function checkLengthIssue(row:any):Promise<string|null>{
   const editedId=Number(row.excludeId||0);
   if(editedId){
     const existing=await Repository.getScheduleById(editedId);
-    const unchangedShape=existing&&existing.fstarttime===row.fstarttime&&existing.fendtime===row.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(row?.[k]));
+    const unchangedShape=sameScheduleShape(existing as any,row);
     if(unchangedShape)return null;
   }
   return scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)});
@@ -58,7 +59,7 @@ async function checkPatternIssue(row:any):Promise<string|null>{
   const editedId=Number(row.excludeId||0);
   if(editedId){
     const existing=await Repository.getScheduleById(editedId);
-    const unchangedShape=existing&&existing.fstarttime===row.fstarttime&&existing.fendtime===row.fendtime&&SCHEDULE_DAY_KEYS.every(k=>Boolean((existing as any)[k])===Boolean(row?.[k]));
+    const unchangedShape=sameScheduleShape(existing as any,row);
     if(unchangedShape)return null;
   }
   return unapprovedPatternIssue({...row,id:Number(row.excludeId||row.id||0)});

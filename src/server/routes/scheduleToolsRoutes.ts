@@ -11,14 +11,16 @@ import type { Express } from "express";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { placeholderMatch } from "../../utils/placeholderMatch";
 import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "../../utils/slotSuggestionScope";
-import { emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, SUGGESTION_EMPTY_WORD, toClock, type SuggestionDayKey, type SuggestionEmptyReason, type SuggestionHall } from "../../utils/suggestionEngine";
+import { deferCoreqClashes, emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, SUGGESTION_EMPTY_WORD, toClock, type SuggestionDayKey, type SuggestionEmptyReason, type SuggestionHall } from "../../utils/suggestionEngine";
 import { reservationRows, RequestReservationConflict, RequestHoldConflict } from "../../utils/instructorRequestReservations";
 import { Response, NextFunction } from "express";
 import { createHash } from "crypto";
 import { Repository, ScheduleRevisionConflict, withSerialLock } from "../../db/repository";
 import { isBlockingConflict, timeToMinutes } from "../../utils/scheduleIntelligence";
 import { ensureSectionFaculty } from "../sectionFaculty";
-import { isTrainingAssistant, planTaConversion } from "../../utils/taConversion";
+import { chosenTaTargets, isTrainingAssistant, planTaConversion, readTaTargets, taConversionMoves, taTargetsProblem } from "../../utils/taConversion";
+import { departmentPickerFamily } from "../core/departmentPickerFamily";
+import { evaluateTeachingLoad, loadLimitOf, loadTermContext, teachingHoursByInstructor } from "../../utils/teachingLoad";
 import type { FSchedule } from "../../types";
 import { computeMeetingSlots, inspectMeetingSlot } from "../../utils/meetingSlots";
 import { departmentFamily } from "../../utils/sectionLabel";
@@ -36,7 +38,8 @@ import { applyRequestHoldOverride, noteRequestHoldOverride, requestHoldRefusal, 
 import { meetingExcludedIds, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIssue, sectionScheduleWindow, travelMinutesFor } from "../core/scheduleRules";
 import { createScheduleHandler, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed } from "../core/scope";
-import { coreqPairsOfSection } from "../core/coreqPairs";
+import { coreqPairsOfSection, sectionPlanFacts } from "../core/coreqPairs";
+import { coreqForcedClash, partnersOfCourse } from "../../utils/coreqSections";
 import { approvalBlockerOptions, placeholderInstructorIds } from "../core/smartImport";
 import { captureScopeVersion, confirmTokens, recordVersionAfter } from "../core/versions";
 
@@ -65,14 +68,48 @@ async function taConversionState(req: AuthenticatedRequest, collegeId: number, s
   const lock = frozen ? TERM_FROZEN_MESSAGE : await scheduleLockRefusal(req, collegeId, sectionId, termId);
   const tooMany = plan.affected.length > 400;
   const allowed = !lock && mine.length <= 1 && !tooMany;
+  const family = await departmentPickerFamily(collegeId, sectionId, termId, rows.map(row => Number(row.AdInstructorId)));
   return {
-    rows, plan, mine,
+    rows, plan, mine, placeholders, instructors, family,
     previewKey, allowed,
     reason: lock || (mine.length > 1 ? "يوجد أكثر من سجل «هيئة تدريسية» في القسم؛ راجع السجل قبل التحويل." : "")
       || (tooMany ? "عدد المواعيد أكبر من الحد الآمن للتحويل دفعة واحدة (400)." : ""),
     termName: terms.find(t => Number(t.AdTermId) === termId)?.AdTermName || "",
     sectionName: section?.AdSectionName || "",
   };
+}
+
+/**
+ * تنبيهاتٌ ليّنة لمن اختير بدل «هيئة تدريسية»: تعارضُ الأستاذ في الجامعة كلها (القاعدة نفسها التي
+ * تحكم الحفظ: blockingConflicts) وتجاوزُ النصاب (evaluateTeachingLoad، وإلا النصاب المسجّل).
+ * تُعرض ولا تمنع.
+ */
+async function taConversionChecks(state: Awaited<ReturnType<typeof taConversionState>>, chosen: Map<number, number>, termId: number, placeholderId: number) {
+  if (!chosen.size) return [];
+  const [termRows, courses, config, terms, options] = await Promise.all([
+    Repository.getSchedulesByScope({ termId }), Repository.getCourses(), Repository.getTeachingLoadConfig(), Repository.getTerms(), approvalBlockerOptions(),
+  ]);
+  const moved = new Map(taConversionMoves(state.plan.affected, chosen, placeholderId).map(move => [Number(move.row.id), { ...move.row, AdInstructorId: move.to }]));
+  const universe = termRows.map(row => moved.get(Number(row.id)) || row);
+  const candidates = state.plan.affected.filter(row => chosen.has(Number(row.AdInstructorId))).map(row => moved.get(Number(row.id))!);
+  const fromOf = new Map(state.plan.affected.map(row => [Number(row.id), Number(row.AdInstructorId)]));
+  const clashed = new Set<number>();
+  for (const item of blockingConflicts(candidates, universe, options)) {
+    if (item.type !== "instructor" && !item.reasons?.includes("instructor")) continue;
+    for (const id of [Number(item.rowId), Number(item.otherId)]) {
+      const from = fromOf.get(id);
+      if (from && chosen.has(from)) clashed.add(from);
+    }
+  }
+  const hours = teachingHoursByInstructor(universe as any, new Map<number, number>(courses.map(course => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number])));
+  const context = loadTermContext(terms as any, termId);
+  return [...chosen].map(([from, to]) => {
+    const total = hours.get(to) || 0;
+    const person = state.instructors.find(p => Number(p.AdInstructorId) === to);
+    const limit = loadLimitOf(person as any);
+    const over = config.enabled ? evaluateTeachingLoad(config, to, total, context).state === "over" : (limit !== null && total > limit);
+    return { id: from, target: to, clash: clashed.has(from), over };
+  });
 }
 
 /* The timetable tool keeps permission 7. The same read-only calculation is also
@@ -103,7 +140,7 @@ app.get("/api/schedules/coreq-pairs", requirePermission(7), async (req: Authenti
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0);
   if (!sectionId) { res.status(400).json({ error: "حدد القسم." }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  res.json({ pairs: await coreqPairsOfSection(sectionId) });
+  res.json(await sectionPlanFacts(sectionId));
 });
 
 app.get("/api/schedules/ta-conversion", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -111,11 +148,16 @@ app.get("/api/schedules/ta-conversion", requirePermission(7), async (req: Authen
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحياتك" }); return; }
   const state = await taConversionState(req, collegeId, sectionId, termId);
+  /* ?targets=12:45,13:0 — تنبيهاتُ من اختير فقط؛ الاختيارُ من خارج العائلة لا يُحسب له شيء. */
+  const chosen = new Map([...chosenTaTargets(readTaTargets(req.query.targets), state.placeholders)]
+    .filter(([from, to]) => state.plan.people.some(person => person.id === from) && state.family.has(to)));
+  const checks = await taConversionChecks(state, chosen, termId, state.mine[0] || 0);
   res.setHeader("Cache-Control", "no-store");
   res.json({
     people: state.plan.people, affected: state.plan.affected.length, sections: state.plan.sections,
     previewKey: state.previewKey, allowed: state.allowed, reason: state.reason,
     termName: state.termName, sectionName: state.sectionName,
+    placeholderId: state.mine[0] || 0, familyIds: [...state.family], checks,
   });
 });
 app.post("/api/schedules/ta-conversion", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -130,17 +172,24 @@ app.post("/api/schedules/ta-conversion", requirePermission(7), async (req: Authe
       res.status(409).json({ error: "تغيّر الجدول أو تصنيف أحد الأساتذة بعد المعاينة؛ افتح المعاينة من جديد." }); return;
     }
     const affected = state.plan.affected;
+    /* الهدفُ من عائلة القسم وحدها (أساتذة القسم ومنتدبو الفصل كما في قائمة أستاذ المقرر)؛ وإلا «هيئة تدريسية». */
+    const chosen = chosenTaTargets(readTaTargets(req.body?.targets), state.placeholders);
+    const nameOf = (id: number) => String(state.instructors.find(person => Number(person.AdInstructorId) === id)?.AdInstructorName || "");
+    const targetProblem = taTargetsProblem(chosen, new Set(state.plan.people.map(person => person.id)), state.family, nameOf);
+    if (targetProblem) { res.status(400).json({ error: targetProblem }); return; }
     if (!affected.length) { res.json({ changed: 0 }); return; }
     if (affected.length > 400) { res.status(409).json({ error: "عدد المواعيد أكبر من الحد الآمن للتحويل دفعة واحدة (400)." }); return; }
-    const placeholderId = state.mine[0] || (await ensureSectionFaculty(Repository, collegeId, sectionId)).instructorId;
-    if (!placeholderId) { res.status(409).json({ error: "تعذّر تحديد سجل «هيئة تدريسية» الخاص بالقسم." }); return; }
-    const before = await captureScopeVersion(req, collegeId, sectionId, termId, "قبل تحويل هيئة التدريب TA إلى هيئة تدريسية", "manual");
+    const needsPlaceholder = affected.some(row => !chosen.has(Number(row.AdInstructorId)));
+    const placeholderId = !needsPlaceholder ? 0 : state.mine[0] || (await ensureSectionFaculty(Repository, collegeId, sectionId)).instructorId;
+    if (needsPlaceholder && !placeholderId) { res.status(409).json({ error: "تعذّر تحديد سجل «هيئة تدريسية» الخاص بالقسم." }); return; }
+    const moves = taConversionMoves(affected, chosen, placeholderId);
+    const before = await captureScopeVersion(req, collegeId, sectionId, termId, "قبل تحويل هيئة التدريب TA إلى " + (chosen.size ? "أساتذة القسم" : "هيئة تدريسية"), "manual");
     let updated: FSchedule[];
     try {
-      updated = await Repository.moveSchedulesBatch(affected.map(row => ({
+      updated = await Repository.moveSchedulesBatch(moves.map(({ row, to }) => ({
         id: Number(row.id),
         expectedRev: Number(row.rev || 0),
-        fields: { AdInstructorId: placeholderId },
+        fields: { AdInstructorId: to },
       })));
     } catch (error: any) {
       if (error instanceof ScheduleRevisionConflict) {
@@ -150,7 +199,10 @@ app.post("/api/schedules/ta-conversion", requirePermission(7), async (req: Authe
     }
     const byId = new Map(updated.map(row => [Number(row.id), row]));
     await recordVersionAfter(before, current => current.map(row => byId.get(Number(row.id)) || row));
-    res.locals.auditChanges = "تحويل أسماء " + state.plan.people.length + " من هيئة التدريب في " + countOf(updated.length, AR.appointment) + " إلى هيئة تدريسية.";
+    const toPeople = moves.filter(move => chosen.has(Number(move.row.AdInstructorId))).length;
+    res.locals.auditChanges = "تحويل أسماء " + state.plan.people.length + " من هيئة التدريب في " + countOf(updated.length, AR.appointment)
+      + (toPeople ? ": " + countOf(toPeople, AR.appointment) + " إلى أساتذة القسم (" + [...chosen].map(([from, to]) => nameOf(from) + " ← " + nameOf(to)).join("، ") + ")"
+        + (updated.length - toPeople ? "، والباقي إلى هيئة تدريسية." : ".") : " إلى هيئة تدريسية.");
     res.locals.auditRowIds = updated.map(row => Number(row.id)).slice(0, 10);
     await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "edit" });
     res.json({ changed: updated.length, undoVersionId: before?.id });
@@ -400,7 +452,12 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
      الأكاديمية والقاعة وفق منطق موعد جديد حرفياً قبل إظهار أي خيار. والبوابة
      تمشي القائمة المرتّبة كلها (بسقف) لا أول 18 فقط: كان رفضُ الأوائل يُفرغ
      النتيجة رغم وجود خيارات صالحة بعدهم — «يعمل مرة ولا يعمل مرة». */
-  const ranked = orderSuggestionCandidates(candidates, roomOnly);
+  /* المقرن: حُكمُ تنبيه «موعد» نفسه يؤخّر الوقت الذي تتداخل فيه كلُّ التركيبات. لا يتغير شيءٌ لمقررٍ بلا مقرن. */
+  const coreqPartners = roomOnly ? [] : partnersOfCourse(await coreqPairsOfSection(sectionId), Number(body.AdCourseId || 0));
+  const coreqRows = coreqPartners.length ? live.filter(row => Number(row.AdSectionId) === sectionId) : [];
+  const dayFlags = Object.fromEntries(SCHEDULE_DAY_KEYS.map(key => [key, dayKeys.includes(key as SuggestionDayKey)]));
+  const { ranked, deferred } = deferCoreqClashes(orderSuggestionCandidates(candidates, roomOnly), slot => coreqPartners.length > 0
+    && coreqForcedClash({ ...dayFlags, id: -1, AdCourseId: Number(body.AdCourseId || 0), SCode: String(body.SCode || ""), fstarttime: slot.start, fendtime: slot.end }, coreqRows as any, coreqPartners, editedRowId));
   const conflictReq = Object.create(req) as AuthenticatedRequest;
   if (owner) (conflictReq as any).__requestReservationOwner = owner;
   const wanted = roomOnly ? 6 : 3;
@@ -409,6 +466,7 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   let rejectedByScheduleGate = 0, gated = 0;
   for (const slot of ranked) {
     if (slots.length >= wanted || gated >= GATE_LIMIT) break;
+    if (deferred.has(slot) && slots.some(chosen => deferred.has(chosen))) break;
     gated++;
     const candidate = {
       ...body,

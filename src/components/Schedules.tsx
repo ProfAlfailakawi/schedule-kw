@@ -74,6 +74,7 @@ import {
   ArrowUp,
   ArrowDown,
   FlaskConical,
+  Ruler,
 } from "lucide-react";
 import { DnaCount, DnaStatusHeader } from "./dna";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
@@ -91,7 +92,7 @@ import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
-import { bestRegulationChoice, completeRegulation, endIsDeliberate, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, completeRegulation, endIsDeliberate, patternLengthIssue, pickDay, sameScheduleShape, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
 import {
@@ -168,6 +169,7 @@ import { isTermClosed, previousYearSameTermName, sameTermName, sortTermsNewest, 
 import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
 import SameSlotHint from "./SameSlotHint";
+import { conflictSkipIds } from "../utils/sameSlot";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
 import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { TimeCounterPopover } from "./TimeCounter";
@@ -1598,10 +1600,38 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * worse than not guessing — so the number is filled in only while the field
    * is still untouched for this course, and anything typed by hand wins.
    */
-  const nextSectionCode = (courseId: number, termId: number, excludeId?: number | null) =>
-    nextCourseSectionCode(rows, courseId, termId, excludeId);
+  /* ── رقمُ الشعبة من نطاق النموذج نفسه، لا من اللوحة وحدها (المالك 2026-11-08) ──────────
+     كانت الشعبة الجديدة تُقترح من صفوف اللوحة المحمّلة: لوحةٌ لقسمٍ أو فصلٍ آخر، أو لم تُحدَّث بعد إضافةٍ من
+     جهازٍ آخر، فلا ترى شعبة المقرّر 501 القائمة — فيُفتح «موعد جديد» وفيه «501» ويمنعه سقفُ الساعات لأنه
+     يُحسب مع تلك الشعبة. يُقرأ الآن جدولُ نطاق النموذج (الكلية والقسم والفصل) عند فتحه، ويُضمّ إلى اللوحة. */
+  const [formScopeRows, setFormScopeRows] = useState<{ key: string; rows: FSchedule[] }>({ key: "", rows: [] });
+  const formScopeKey = editor !== "index" && Number(form.AdCollegeId) && Number(form.AdSectionId) && (Number(form.AdTermId) || filterTerm)
+    ? `${Number(form.AdCollegeId)}|${Number(form.AdSectionId)}|${Number(form.AdTermId) || filterTerm}` : "";
+  useEffect(() => {
+    if (!formScopeKey) return;
+    const [collegeId, sectionId, termId] = formScopeKey.split("|");
+    let alive = true;
+    fetchJson(`/api/schedules?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`)
+      .then((data: any) => { if (alive && Array.isArray(data)) setFormScopeRows({ key: formScopeKey, rows: data }); })
+      .catch(() => { /* اللوحة وحدها تبقى مصدر الاقتراح، والخادمُ يقول الرقم الحرّ إن منع. */ });
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formScopeKey, editor]);
+  const boardRowsForCode = rows;
+  const nextSectionCode = (courseId: number, termId: number, excludeId?: number | null) => {
+    /* «rows» هنا: اللوحة + جدول نطاق النموذج حين وصل لنطاقه نفسه. */
+    const rows = formScopeRows.key && formScopeRows.key === formScopeKey ? [...boardRowsForCode, ...formScopeRows.rows] : boardRowsForCode;
+    return nextCourseSectionCode(rows, courseId, termId, excludeId);
+  };
 
   const sectionAutofilled = useRef(false);
+  /* وصل جدولُ النطاق بعد اختيار المقرّر: رقمٌ اقترحه النموذج (لم يكتبه أحد) يُصحَّح إلى الحرّ التالي. */
+  useEffect(() => {
+    if (editor !== "create" || !sectionAutofilled.current || !Number(form.AdCourseId) || formScopeRows.key !== formScopeKey) return;
+    const suggested = nextSectionCode(Number(form.AdCourseId), Number(form.AdTermId) || filterTerm || 0, null);
+    if (suggested && suggested !== String(form.SCode || "")) setForm(previous => ({ ...previous, SCode: suggested }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formScopeRows, editor, form.AdCourseId]);
   const sectionHint = useMemo(() => {
     const courseId = Number(form.AdCourseId || 0);
     if (!courseId) return undefined;
@@ -4074,7 +4104,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const formDays = daysOfRow(form as any);
   /* G5: اسمٌ له إملاءٌ آخر في مقررات القسم نفسه → اقتراح دمج (لا حذف). */
   const courseSpellingTwins = useMemo(() => spellingTwinsOf(courseName, courseNames), [courseName, courseNames]);
-  const formRegulationChoice = useMemo(() => regulationChoiceFor(formCourse, formDays), [formCourse, formDays.join("+")]);
+  /* الشريحةُ المضيئة تقول ما في النموذج فعلاً: يومٌ منفرد بطولٍ آخر ليس «اثنين · 170د» (كانت تضيء والنهاية 08:30). */
+  const formRegulationSpan = form.fstarttime && form.fendtime ? mins(String(form.fendtime)) - mins(String(form.fstarttime)) : 0;
+  const formRegulationChoice = useMemo(() => regulationChoiceFor(formCourse, formDays, formRegulationSpan), [formCourse, formDays.join("+"), formRegulationSpan]);
   const formRegulationFit = regulationFit(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || ""));
   const formRegulationChips = useMemo(() => {
     const pool = [...(formRegulationChoice ? [formRegulationChoice] : []), ...regulationAlternatives,
@@ -4235,14 +4267,33 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     conflicts,
     checking,
     companionRequired,
-    regulation: formRegulationFit,
-    regulationNote: "خارج نمط اللائحة",
+    /* موعدٌ قائم لم يتغيّر شكله (الأيام والوقت كما حُفظت) — تغيّرت قاعتُه أو أستاذُه وحدهما — لا يُمنع بطولٍ قديم:
+       القاعدةُ نفسُها التي يتخطّى بها الخادم (sameScheduleShape ← unchangedShape). */
+    regulation: editor === "edit" && sameScheduleShape((editorOriginalRow || formScopeRows.rows.find(row => Number(row.id) === Number(editId))) as any, form as any) ? "unknown" : formRegulationFit,
+    /* سطرٌ واحد يقول النهاية الصحيحة (المالك 2026-11-08)، ومعه «طبّق النمط» في شريط الموانع. */
+    regulationNote: patternLengthIssue(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || "")) || "أيام الموعد أو مدته ليست نمطاً معتمداً لساعات المقرر.",
     notes: [
       ...editorSupplementalCards.map(card => ({ kind: "time" as const, text: String(card.title || ""), detail: String(card.detail || "") || undefined })),
       ...(formReachNote ? [{ kind: "section" as const, text: formReachNote }] : []),
       ...(departmentHours ? [{ kind: "time" as const, text: departmentHours }] : []),
     ],
   });
+  /* ── مانعٌ له إصلاحٌ بضغطة (المالك 2026-11-08) ───────────────────────────────────
+     • النهاية تخالف النمط ← «طبّق النمط» (الأيام والنهاية من المكتبة).
+     • الشعبة نفسها أخذت ساعاتها والموعدُ وحده يتّسع ← الخادم يقول الرقم الحرّ التالي، فيُعرض «شعبة جديدة N»
+       وسطرٌ قصير يقول السبب. من قصد الإضافة إلى الشعبة القائمة يبقى المنعُ (القاعدة)، و«بديل» يقترح غيره. */
+  const editorRegulationBlocked = editorVerdict.blockers.some(item => item.id === "regulation") && regulationHours(formCourse) > 0;
+  const editorFreshSection = editorVerdict.blockers.map(item => /لشعبة جديدة: (\d+)/.exec(item.text)?.[1] || "").find(Boolean) || "";
+  const editorBlockerLine = (text: string) => {
+    if (!/لشعبة جديدة: \d+/.test(text)) return text;
+    const counted = /نفسها: (.+?) — لشعبة جديدة/.exec(text)?.[1];
+    return `الشعبة ${String(form.SCode || "")} أخذت ساعاتها المعتمدة${counted ? ` (${counted})` : ""}.`;
+  };
+  const useFreshSection = () => {
+    if (!editorFreshSection) return;
+    sectionAutofilled.current = false;
+    setForm(previous => ({ ...previous, SCode: editorFreshSection }));
+  };
   const [altBusy, setAltBusy] = useState(false);
   /* «بديل» ينزل إلى قسم «بدائل آمنة» في النموذج بسلاسة، ويضعه في التركيز ويضيئه لحظة. */
   const alternativesRef = useRef<HTMLElement | null>(null);
@@ -5676,6 +5727,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return false;
   }, [presence]);
 
+  /* ── النقلُ بالسحب يحسب النهاية من النمط (المالك 2026-11-08) ───────────────────────
+     بدايةٌ جديدة على أي يوم ← النهايةُ من ساعات المقرّر والنمط والأيام (regulationEnd، الحكمُ الواحد نفسه):
+     الطولُ المعتمد يبقى كما هو، وطولٌ قديمٌ خارج المكتبة (75د) يعود إلى النمط بدل أن يُنقل فيمنعه الخادم. */
+  const patternedMove = <T extends Partial<FSchedule>,>(candidate: T, before?: Partial<FSchedule>): T => {
+    /* نقلُ القاعة وحدها (البداية والأيام كما هي) لا يمسّ الطول: الموعدُ القائم يبقى كما هو (A6). */
+    if (before && before.fstarttime === candidate.fstarttime && daysOfRow(before as any).join("+") === daysOfRow(candidate as any).join("+")) return candidate;
+    const course = courseById.get(Number(candidate.AdCourseId || 0));
+    const span = candidate.fstarttime && candidate.fendtime ? mins(String(candidate.fendtime)) - mins(String(candidate.fstarttime)) : 0;
+    const end = candidate.fstarttime ? regulationEnd(course, daysOfRow(candidate as any), String(candidate.fstarttime), span, true) : "";
+    return end && end !== candidate.fendtime ? { ...candidate, fendtime: end } : candidate;
+  };
   const commitMove = async (request: SchedulePhysicsDropRequest) => {
     if (showMobileReadOnlyGate()) return;
     const { row, target } = request;
@@ -5734,7 +5796,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           candidate.fendtime = timeFromMins(Math.min(SCHEDULE_DAY_LAST_MINUTE, mins(candidate.fstarttime) + expectedMinutesForDay(day as RegDayKey)));
         }
       }
-      return { before: item, after: candidate };
+      return { before: item, after: patternedMove(candidate, item) };
     });
     const moveTimingNotes = [...new Set(
       moves.map(move => historicalTimingNote(move.after)).filter((note): note is string => Boolean(note)),
@@ -5981,7 +6043,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       label: days.find(item => item.key === day)?.label || "",
       room: { code: building, hall },
     };
-    const after = buildPhysicsTargetCandidate(row, target);
+    const after = patternedMove(buildPhysicsTargetCandidate(row, target), row);
     /* ── القاعة الهدف بهويتها، لا باسمها وحده ──────────────────────────────
        الصفّ الموثّق يحمل معرّف قاعته القديمة، فإن أُرسل الاسم الجديد وحده
        عاد الخادم فحسم المكان من المعرّف القديم. فتُرسل هوية القاعة الهدف كما
@@ -9457,6 +9519,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   useEffect(() => { studioMeter.current?.blocked(editorVerdict.blockers.length > 0); }, [editorVerdict.blockers.length > 0]);
   const studioChip = (done: boolean, changed?: boolean) => `appt-chip${done ? "" : " is-missing"}${changed ? " is-changed" : ""}`;
   const studioInitial = String(selectedInstructor?.AdInstructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
+  const studioScopeText = [formScopeLabel, studioTermName].filter(Boolean).join(" · ") || "اختر الكلية والقسم والفصل";
   const editorView = (
       <div className={`content-stack editor-page schedule-editor is-studio${studioChecksOpen ? " is-checks-open" : ""}`} data-tone={studioTone}>
         {/* The way out, at the top where the eye already is. */}
@@ -9474,7 +9537,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           subtitle={
             <span className="appt-scope">
               <Building2 aria-hidden="true" />
-              <span className="appt-scope-text">{[formScopeLabel, studioTermName].filter(Boolean).join(" · ") || "اختر الكلية والقسم والفصل"}</span>
+              <span className="appt-scope-text" title={studioScopeText}>{studioScopeText}</span>
               <ColleaguePresenceChip holds={studioHolds.holds} collegeId={Number(form.AdCollegeId || 0)} sectionId={Number(form.AdSectionId || 0)} />
               {!studioScopeMissing ? (
                 <button type="button" className="appt-link" aria-expanded={studioScopeExpanded} onClick={() => setStudioScopeOpen(open => !open)}
@@ -9725,9 +9788,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         setStartTimeLimitNotice("");
                         setScheduleTouched(true);
                         const start = e.target.value;
-                        if (!timingOverride && start && regulationEnd(formCourse, formDays, start, formSpan)) flashAutofill();
+                        /* قرار المالك 2026-11-08: البدايةُ على أي يوم تحسب النهاية من ساعات المقرّر والنمط والأيام دائماً،
+                           ولو سبقها تجاوزٌ أو طولٌ قديم (كانت «اثنين · 170د» + 08:00 ← 08:30). ما لا نمطَ له يحفظ طوله. */
+                        const patterned = Boolean(start && regulationEnd(formCourse, formDays, start, formSpan));
+                        if (patterned) { setTimingOverride(false); flashAutofill(); }
                         /* مسحُ البداية لا يحسب نهايةً من لا شيء (كانت 01:20). */
-                        setForm((p) => ({ ...p, fstarttime: start, fendtime: !start ? p.fendtime : timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
+                        setForm((p) => ({ ...p, fstarttime: start, fendtime: !start ? p.fendtime : patterned ? endForStart(p, start) : timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
                       }}
                       required
                     />
@@ -9762,9 +9828,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         const shownEnd = form.fendtime || form.fstarttime || SCHEDULE_DAY_START_TIME;
                         const spanBefore = Math.max(30, mins(shownEnd) - mins(shownStart));
                         const lengthChanged = mins(next.end) - mins(next.start) !== spanBefore;
-                        if (!lengthChanged && !timingOverride && regulationEnd(formCourse, formDays, next.start, formSpan)) flashAutofill();
+                        const patterned = !lengthChanged && Boolean(regulationEnd(formCourse, formDays, next.start, formSpan));
+                        if (patterned) { setTimingOverride(false); flashAutofill(); }
                         if (lengthChanged) setTimingOverride(regulationFit(formCourse, formDays, next.start, next.end) === "off" && regulationHours(formCourse) > 0);
-                        setForm((p) => ({ ...p, fstarttime: next.start, fendtime: lengthChanged || timingOverride ? next.end : (endForStart(p, next.start) || next.end) }));
+                        setForm((p) => ({ ...p, fstarttime: next.start, fendtime: lengthChanged || (timingOverride && !patterned) ? next.end : (endForStart(p, next.start) || next.end) }));
                       }}
                       onClose={() => setTimeCounterOpen(false)}
                     />
@@ -9800,17 +9867,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <div className="appt-duration-value"><bdi dir="ltr">{studioDuration ? studioDuration : "—"}</bdi>{studioDuration ? <small>د</small> : null}
                   <SameSlotHint rows={rows} courseOf={(id: number) => courseById.get(id)} instructorName={(id: number) => instructorById.get(id)?.AdInstructorName || ""}
                     days={selectedFormDays.map(d => d.key as any)} start={String(form.fstarttime || "")} end={String(form.fendtime || "")}
-                    excludeId={editId} skipIds={conflicts.flatMap((c: any) => [c?.rowId, c?.otherId]).filter(Boolean)}
+                    excludeId={editId} {...conflictSkipIds(conflicts, isBlockingConflict)}
                     courseId={Number(form.AdCourseId) || undefined} sectionId={Number(form.AdSectionId) || filterSection || undefined} termId={Number(form.AdTermId) || filterTerm || undefined}
-                    collegeId={Number(form.AdCollegeId) || filterCollege || undefined} scode={String(form.SCode || "")} />
+                    collegeId={Number(form.AdCollegeId) || filterCollege || undefined} scode={String(form.SCode || "")} dayWindow={activeScheduleWindow} />
                   </div>
                 </div>
                   </div>
                   {editorVerdict.blockers.length?<div className="editor-validation-strip" role="alert">
                     <X aria-hidden="true" className="appt-inline-mark" />
-                    <span className="appt-inline-text">{editorVerdict.blockers[0].text}</span>
+                    <span className="appt-inline-text">{editorBlockerLine(editorVerdict.blockers[0].text)}</span>
                     {editorVerdict.blockers.length > 1 ? <button type="button" className="appt-inline-more" onClick={() => setStudioChecksOpen(true)}
                       data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً"><bdi dir="ltr">+{editorVerdict.blockers.length - 1}</bdi></button> : null}
+                    {editorFreshSection ? <button type="button" className="appt-inline-alt is-fix" onClick={useFreshSection}
+                      data-guide-ignore="يغيّر رقم الشعبة إلى الرقم الحرّ التالي لهذا المقرر فيزول مانع الساعات؛ لا يحفظ شيئاً"><Plus aria-hidden="true" />شعبة جديدة <bdi dir="ltr">{editorFreshSection}</bdi></button> : null}
+                    {editorRegulationBlocked ? <button type="button" className="appt-inline-alt is-fix" onClick={applyApprovedPattern}
+                      data-guide-ignore="يعيد الأيام والنهاية إلى النمط المعتمد لساعات المقرر؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />طبّق النمط</button> : null}
                     <button type="button" className="appt-inline-alt" onClick={() => goToAlternatives()} disabled={altBusy}
                       data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً"><WandSparkles aria-hidden="true" />{altBusy ? "…" : "بديل"}</button>
                   </div>:null}
@@ -11200,7 +11271,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               data-guide-ignore="معاينة تحويل أسماء TA داخل القسم والفصل دون تعديل إلا بعد التأكيد"
               onClick={() => { if (!refuseInPractice()) setTaConversionOpen(true); }}
               disabled={!filterCollege || !filterSection || !filterTerm}
-              title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية"
+              title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية أو أستاذ من القسم"
             >
               <Replace aria-hidden="true" /> تحويل هيئة التدريب
             </GhostButton> : null}
@@ -11232,6 +11303,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       </Surface>
       {taConversionOpen ? <TAConversionPanel
         collegeId={Number(filterCollege)} sectionId={Number(filterSection)} termId={Number(filterTerm)}
+        instructors={instructors as any[]} visitingIds={visitingIds} visitingRosterIds={pickerVisitingRosterIds}
         onClose={() => setTaConversionOpen(false)}
         onChanged={() => { void loadRows(); setLiveFeedSerial(value => value + 1); }}
       /> : null}
@@ -13084,7 +13156,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             AdCollegeId: filterCollege, AdSectionId: filterSection, AdTermId: filterTerm,
           }, day)}
           conflictOf={quickConflict}
-          sameSlot={{ rows, courseOf: (id: number) => courseById.get(id), instructorName: (id: number) => instructorById.get(id)?.AdInstructorName || "" }}
+          sameSlot={{ rows, courseOf: (id: number) => courseById.get(id), instructorName: (id: number) => instructorById.get(id)?.AdInstructorName || "", dayWindow: sections.find(section => Number(section.AdSectionId) === Number(quickScope().sectionId)) }}
           nextSectionCode={(courseId) => nextSectionCode(courseId, Number(filterTerm) || 0)}
           departmentIds={departmentInstructorIds}
           visitingIds={visitingIds}

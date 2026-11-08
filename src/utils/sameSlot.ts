@@ -1,25 +1,52 @@
 /**
- * «في الوقت نفسه»: مواعيدُ أخرى في اليوم نفسه وبالبداية والنهاية نفسيهما تماماً.
+ * «في الوقت نفسه»: مواعيدُ أخرى في اليوم نفسه وبالبداية والنهاية نفسيهما تماماً،
+ * ومعها أقرانُ مقرر الموعد من صحيفته (يفتحان مقرراً تالياً، أو إجباريان من مستوى واحد) إن تداخل
+ * وقتُها جزئياً، وشعبُ المقرر نفسه إن تداخلت أو قربت من الموعد.
  *
  * تلميحٌ هادئ لا حاجز: من يُدخل موعداً بسرعةٍ ينسى أن مقرراتٍ أخرى تشغل الساعة ذاتها،
  * فيُرى له عددُها وأسماؤها. ليس بديلاً عن تعارض القاعة والأستاذ (الخادم حَكَمُهما)،
- * ولا يعيد ذكر ما سمّاه فحصُ التعارض نفسُه (skipIds).
+ * ولا يعيد ذكر ما سمّاه فحصُ التعارض نفسُه (skipIds)، إلا قرينَ «تفتح» حين لا يسمّيه غيرُ ملاحظةٍ لينة (softSkipIds).
  *
- * «التطابق التام» وحده: التداخلُ الجزئي والتلاصقُ (تنتهي إحداهما حين تبدأ الأخرى) ليسا
- * «في الوقت نفسه». ملفٌّ خالص بلا React ولا شبكة؛ يُختبر في tests/same-slot-audit.ts.
+ * غيرُ الأقران: التطابقُ التام وحده، فتبقى الشارةُ هادئة. الأقران: يكفي التداخل، لأن الطالب يريدهما معاً،
+ * ما دام قسمُ الموعد وفصلُه وكليتُه معروفة؛ والقربُ بين مقررين مختلفين لا يُقال لأنه لا يمنع أخذهما.
+ * والأقرانُ من الصحيفة وحدها (src/utils/planPeers.ts): لا تخمينَ من رقم المقرر، ونقصُ البيانات صمت.
+ * شعبُ المقرر نفسه: يكفي التداخل أو فاصلٌ داخل نافذة القرب (nearSectionWindow)،
+ * لأن من يفتح شعبتين متقاربتين قد ينسى؛ فالطالب يختار إحداهما والتقارب يضيّق خياره.
+ * والتلاصقُ (تنتهي إحداهما حين تبدأ الأخرى) ليس تداخلاً: يسكت بين مقررين ويُعدّ قرباً بين شعبتين.
+ * وصفٌّ من قسمٍ آخر أو كليةٍ أخرى لا يُعدّ في أي فرع؛ وصفوفُ الشعبة الجارية نفسها ليست شعبةً أخرى.
+ * وصفوفُ «وضع تجربة» مؤقتة فلا تُعدّ (isPracticeRow)، وصفٌّ بلا فصل لا يُعدّ في سؤالٍ سمّى فصله.
+ * ملفٌّ خالص بلا React ولا شبكة؛ يُختبر في tests/same-slot-audit.ts.
  */
 
+import { toEnglishDigits } from "./digits";
+import type { UnlockLink } from "./planPeers";
+
 export type SlotDay = "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday";
-export const SLOT_DAYS: ReadonlyArray<{ key: SlotDay; label: string }> = [
-  { key: "fsunday", label: "الأحد" },
-  { key: "fmonday", label: "الاثنين" },
-  { key: "ftuesday", label: "الثلاثاء" },
-  { key: "fwednesday", label: "الأربعاء" },
-  { key: "fthursday", label: "الخميس" },
+export const SLOT_DAYS: ReadonlyArray<{ key: SlotDay; label: string; short: string }> = [
+  { key: "fsunday", label: "الأحد", short: "أحد" },
+  { key: "fmonday", label: "الاثنين", short: "اثنين" },
+  { key: "ftuesday", label: "الثلاثاء", short: "ثلاثاء" },
+  { key: "fwednesday", label: "الأربعاء", short: "أربعاء" },
+  { key: "fthursday", label: "الخميس", short: "خميس" },
 ];
+
+/** صفوفُ الورقة قبل «+n»: قائمةٌ هادئة، والأهمُّ أولاً. */
+export const SAME_SLOT_VISIBLE_ROWS = 4;
+
+export const NEAR_SECTION_MIN_MINUTES = 60;
+export const NEAR_SECTION_MAX_MINUTES = 120;
+
+/**
+ * أقصى فاصلٍ بالدقائق تُعدّ معه شعبةٌ أخرى من المقرر نفسه قريبة: نصفُ أطول الجلستين بين الحدّين.
+ * ساعة أو ساعتان ← ٦٠، ثلاث ← ٩٠، أربع أو خمس ← ١٢٠.
+ */
+export function nearSectionWindow(minutesA: number, minutesB: number): number {
+  return Math.min(NEAR_SECTION_MAX_MINUTES, Math.max(NEAR_SECTION_MIN_MINUTES, Math.max(minutesA, minutesB) / 2));
+}
 
 export interface SlotRow {
   id?: number | string;
+  AdCollegeId?: number;
   AdCourseId?: number;
   AdSectionId?: number;
   AdTermId?: number;
@@ -37,20 +64,46 @@ export interface SameSlotQuery {
   excludeId?: number | string | null;
   /** صفوفٌ سمّاها فحصُ التعارض الصريح (قاعة/أستاذ/تكرار): لا تُكرَّر هنا. */
   skipIds?: Iterable<number | string>;
-  /** المقررُ الذي يُنشأ له الموعد — لتقديم «نفس المستوى». */
+  /** صفوفٌ سمّتها ملاحظةٌ لينة: لا تُكرَّر، إلا قرينَ «تفتح» فالملاحظةُ لا تقول ما يفتحانه. */
+  softSkipIds?: Iterable<number | string>;
+  /** المقررُ الذي يُنشأ له الموعد — لمعرفة أقرانه وشعبه. */
   courseId?: number;
   sectionId?: number;
   termId?: number;
-  /** رمزُ المقرر كما يُعرض في الشاشة (المستوى من مئاته). */
+  /** الكلية: البنون والبنات لا يختلطان، فلا تداخلَ ولا قرب بين كليتين. */
+  collegeId?: number;
+  /** رقمُ الشعبة الجاري إدخالُها: صفوفُها الأخرى (محاضرة ومختبر) ليست شعبةً أخرى. */
+  scode?: string;
+  /** رمزُ المقرر كما يُعرض في الشاشة: للترتيب وحده. */
   codeOf?: (courseId: number) => unknown;
+  /** هل هما من مستوى واحد في صحيفةٍ واحدة (sameLevelLookup)؟ بدونها لا «نفس المستوى». */
+  sameLevel?: (a: number, b: number) => boolean;
+  /** ما يفتحانه معاً (unlockLookup). */
+  unlockOf?: (a: number, b: number) => UnlockLink | undefined;
 }
 
-export interface SameSlotItem<R> { row: R; sameLevel: boolean }
-export interface SameSlotDay<R> { day: SlotDay; label: string; items: SameSlotItem<R>[] }
+/** exact الوقتُ نفسه؛ partial تداخلٌ جزئي؛ near فاصلٌ قصير بلا تداخل. غيرُ exact يُعرض بوقته هو. */
+export type SameSlotKind = "exact" | "partial" | "near";
+
+export interface SameSlotItem<R> {
+  row: R;
+  /** أيامُ الموعد التي يشاركها هذا البند (الشعبةُ ذات الأيام الثلاثة بندٌ واحد). */
+  days: SlotDay[];
+  /** من مستواه في الصحيفة، وليس بينهما «تفتح» (تُغني عنها). */
+  sameLevel: boolean;
+  /** شعبةٌ أخرى من مقرر الموعد: طلابها غيرُ طلابه، فلا تُوصف بـ«نفس المستوى». */
+  sameCourse: boolean;
+  unlock?: UnlockLink;
+  kind: SameSlotKind;
+}
 export interface SameSlotResult<R> {
-  days: SameSlotDay<R>[];
-  /** عددُ المواعيد المختلفة (الصفُّ ذو اليومين يُعدّ مرة). */
+  items: SameSlotItem<R>[];
+  /** عددُ البنود كما يقرؤها الإنسان: الشعبةُ الواحدة مرة وإن تعددت أيامها وصفوفها. */
   count: number;
+  /** ومنها: أقرانٌ بتداخل جزئي. */
+  partialCount: number;
+  /** ومنها: شعبٌ أخرى من المقرر نفسه متداخلة أو قريبة. */
+  sectionCount: number;
 }
 
 /** دقائق «HH:MM»، أو NaN إن لم تصحّ. */
@@ -61,11 +114,32 @@ export const slotMinutes = (value: unknown): number => {
   return m > 59 ? NaN : h * 60 + m;
 };
 
-/** مستوى المقرر من رمزه المعروض: مئاتُ آخر ثلاثة أرقام («0109105» ← ١٠٠). صفرٌ إن لم يُعرف. */
-export function levelOfCode(code: unknown): number {
-  const digits = String(code ?? "").replace(/\D/g, "");
-  if (digits.length < 3) return 0;
-  return Number(digits.slice(-3, -2)) * 100;
+/**
+ * رقمُ الشعبة للمقارنة وحدها: «01» و«1» و«٠١» شعبةٌ واحدة، والرمزُ غير الرقمي يبقى كما هو.
+ * لا يُخزَّن ولا يُعرض: المخزونُ والمعروضُ كما أُدخلا.
+ */
+export function sectionCodeKey(value: unknown): string {
+  const code = String(value ?? "").trim();
+  const digits = toEnglishDigits(code);
+  return /^\d+$/.test(digits) ? digits.replace(/^0+(?=\d)/, "") : code;
+}
+
+/* «وضع تجربة» يعطي صفوفه -(1…999,999,999) وحجوزُ الطلبات تبدأ من -2,000,000,000 (reservationRows). */
+const PRACTICE_ROW_FLOOR = -1_000_000_000;
+
+/** صفٌّ من «وضع تجربة»: مؤقتٌ في المتصفح، فلا يدخل التلميح. أما حجزُ الطلب فسالبٌ أيضاً لكنه حقيقي. */
+export const isPracticeRow = (row: { id?: number | string }): boolean => {
+  const id = Number(row.id);
+  return id < 0 && id >= PRACTICE_ROW_FLOOR;
+};
+
+/**
+ * معرّفاتُ ما سمّاه فحصُ التعارض: الصريحُ يُسقط صفَّه من القائمة بلا استثناء (skipIds)،
+ * والملاحظةُ اللينة تُسقطه ما لم يكن قرينَ «تفتح» (softSkipIds). `isBlocking` هو isBlockingConflict.
+ */
+export function conflictSkipIds(conflicts: readonly any[], isBlocking: (conflict: any) => boolean) {
+  const idsOf = (list: readonly any[]) => list.flatMap(conflict => [conflict?.rowId, conflict?.otherId]).filter(Boolean) as Array<number | string>;
+  return { skipIds: idsOf(conflicts.filter(isBlocking)), softSkipIds: idsOf(conflicts.filter(conflict => !isBlocking(conflict))) };
 }
 
 const numeric = (value: unknown): number => {
@@ -74,54 +148,182 @@ const numeric = (value: unknown): number => {
 };
 
 export function sameSlotOf<R extends SlotRow>(rows: readonly R[], query: SameSlotQuery): SameSlotResult<R> {
-  const empty: SameSlotResult<R> = { days: [], count: 0 };
+  const empty: SameSlotResult<R> = { items: [], count: 0, partialCount: 0, sectionCount: 0 };
   const from = slotMinutes(query.start), to = slotMinutes(query.end);
   if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || !query.days.length) return empty;
   const skip = new Set<string>([...(query.skipIds || [])].map(String));
+  const softSkip = new Set<string>([...(query.softSkipIds || [])].map(String));
   if (query.excludeId != null && query.excludeId !== "" && Number(query.excludeId) !== 0) skip.add(String(query.excludeId));
   const wanted = SLOT_DAYS.filter(day => query.days.includes(day.key));
-  const level = query.courseId && query.codeOf ? levelOfCode(query.codeOf(query.courseId)) : 0;
-  const levelCache = new Map<number, number>();
-  const levelOf = (courseId: number) => {
-    if (!query.codeOf) return 0;
-    if (!levelCache.has(courseId)) levelCache.set(courseId, levelOfCode(query.codeOf(courseId)));
-    return levelCache.get(courseId)!;
+  const own = Number(query.courseId) || 0;
+  const sameSection = (row: R) => Boolean(query.sectionId) && Number(row.AdSectionId) === Number(query.sectionId);
+  const unlockAs = (row: R) => (own && sameSection(row) ? query.unlockOf?.(own, Number(row.AdCourseId)) : undefined);
+  const sameLevelAs = (row: R) => Boolean(own && sameSection(row) && query.sameLevel?.(own, Number(row.AdCourseId)));
+
+  const isExact = (row: R) => slotMinutes(row.fstarttime) === from && slotMinutes(row.fendtime) === to;
+  /* أشدُّ من «نفس المستوى» وحده: قسمٌ وفصلٌ وكليةٌ مسمّاة، فلا يُجزم على صفٍّ مجهول النطاق. */
+  const inScope = (row: R) =>
+    Boolean(query.sectionId && query.termId && query.collegeId) &&
+    Number(row.AdSectionId) === Number(query.sectionId) &&
+    Number(row.AdTermId) === Number(query.termId) &&
+    Number(row.AdCollegeId) === Number(query.collegeId);
+  /* الفاصل بالدقائق: سالبٌ للتداخل، صفرٌ للتلاصق، NaN لوقتٍ لا يُقرأ. */
+  const gapOf = (row: R) => {
+    const rowFrom = slotMinutes(row.fstarttime), rowTo = slotMinutes(row.fendtime);
+    return rowTo > rowFrom ? Math.max(rowFrom - to, from - rowTo) : NaN;
   };
-  const sameLevelAs = (row: R) =>
-    Boolean(level) && levelOf(Number(row.AdCourseId)) === level &&
-    (!query.sectionId || !row.AdSectionId || Number(row.AdSectionId) === Number(query.sectionId));
+  const ownCode = sectionCodeKey(query.scode);
 
-  const exact = rows.filter(row =>
-    !skip.has(String(row.id)) &&
-    (!query.termId || !row.AdTermId || Number(row.AdTermId) === Number(query.termId)) &&
-    slotMinutes(row.fstarttime) === from && slotMinutes(row.fendtime) === to);
+  const ownSection = (row: R) => own > 0 && Number(row.AdCourseId) === own;
+  const describe = (row: R, kind: SameSlotKind) => {
+    const unlock = unlockAs(row);
+    return { unlock, sameLevel: !unlock && sameLevelAs(row), sameCourse: ownSection(row), kind };
+  };
+  const found = rows.flatMap(row => {
+    if (skip.has(String(row.id)) || isPracticeRow(row)) return [];
+    if (softSkip.has(String(row.id)) && !unlockAs(row)) return [];
+    if (query.termId && Number(row.AdTermId) !== Number(query.termId)) return [];
+    if (query.sectionId && row.AdSectionId && Number(row.AdSectionId) !== Number(query.sectionId)) return [];
+    if (query.collegeId && row.AdCollegeId && Number(row.AdCollegeId) !== Number(query.collegeId)) return [];
+    if (ownCode && ownSection(row) && sectionCodeKey(row.SCode) === ownCode) return [];
+    if (isExact(row)) return [{ row, ...describe(row, "exact") }];
+    const gap = gapOf(row);
+    if (!inScope(row) || !Number.isFinite(gap)) return [];
+    if (ownSection(row)) {
+      const rowLength = slotMinutes(row.fendtime) - slotMinutes(row.fstarttime);
+      if (gap > nearSectionWindow(to - from, rowLength)) return [];
+      return [{ row, ...describe(row, gap < 0 ? "partial" : "near") }];
+    }
+    const item = describe(row, "partial");
+    return gap < 0 && (item.unlock || item.sameLevel) ? [{ row, ...item }] : [];
+  });
 
-  const order = (a: SameSlotItem<R>, b: SameSlotItem<R>) =>
-    Number(b.sameLevel) - Number(a.sameLevel) ||
+  /* صفوفُ الشعبة الواحدة بوقتها الواحد بندٌ واحد، أيامُه مجموعُ أيامها. */
+  const merged = new Map<string, SameSlotItem<R>>();
+  for (const { row, ...facts } of found) {
+    const days = wanted.filter(day => Boolean(row[day.key])).map(day => day.key);
+    if (!days.length) continue;
+    /* صفٌّ بلا مقرر لا شعبةَ له يُجمع إليها: بندٌ بمعرّفه. */
+    const key = `${Number(row.AdCourseId) || `#${row.id}`}|${sectionCodeKey(row.SCode) || `#${row.id}`}|${slotMinutes(row.fstarttime)}|${slotMinutes(row.fendtime)}`;
+    const held = merged.get(key);
+    if (held) held.days = wanted.filter(day => held.days.includes(day.key) || days.includes(day.key)).map(day => day.key);
+    else merged.set(key, { row, days, ...facts });
+  }
+
+  /* الأهمُّ أولاً، والسقفُ قصير: ما يفتح مقرراً، ثم شعبُ المقرر (أسهلُها نسياناً)، ثم المستوى، ثم الباقي؛
+     وفي كلٍّ التطابقُ ثم الأطولُ تداخلاً. */
+  const tier = (item: SameSlotItem<R>) => (item.unlock ? 0 : item.sameCourse ? 1 : item.sameLevel ? 2 : 3);
+  const sharedMinutes = (row: R) => Math.min(to, slotMinutes(row.fendtime)) - Math.max(from, slotMinutes(row.fstarttime));
+  const items = [...merged.values()].sort((a, b) =>
+    tier(a) - tier(b) ||
+    (a.unlock?.rank ?? 0) - (b.unlock?.rank ?? 0) ||
+    Number(a.kind !== "exact") - Number(b.kind !== "exact") ||
+    sharedMinutes(b.row) - sharedMinutes(a.row) ||
     numeric(query.codeOf?.(Number(a.row.AdCourseId))) - numeric(query.codeOf?.(Number(b.row.AdCourseId))) ||
     numeric(a.row.SCode) - numeric(b.row.SCode) ||
-    numeric(a.row.id) - numeric(b.row.id);
-
-  const days: SameSlotDay<R>[] = [];
-  const unique = new Set<string>();
-  for (const day of wanted) {
-    const items = exact.filter(row => Boolean(row[day.key])).map(row => ({ row, sameLevel: sameLevelAs(row) })).sort(order);
-    if (!items.length) continue;
-    items.forEach(item => unique.add(String(item.row.id)));
-    days.push({ day: day.key, label: day.label, items });
-  }
-  return { days, count: unique.size };
+    numeric(a.row.id) - numeric(b.row.id));
+  const inexact = items.filter(item => item.kind !== "exact");
+  const sectionCount = inexact.filter(item => item.sameCourse).length;
+  return { items, count: items.length, partialCount: inexact.length - sectionCount, sectionCount };
 }
 
-/** أولُ `max` صفٍّ عبر الأيام بالترتيب نفسه، والباقي عدداً — لسطر «+٣». */
-export function capSameSlot<R>(days: readonly SameSlotDay<R>[], max = 6): { days: SameSlotDay<R>[]; hidden: number } {
-  let left = Math.max(0, max), hidden = 0;
-  const out: SameSlotDay<R>[] = [];
-  for (const day of days) {
-    const shown = day.items.slice(0, left);
-    left -= shown.length;
-    hidden += day.items.length - shown.length;
-    if (shown.length) out.push({ ...day, items: shown });
+/* ── صفوفُ المقررات ومجموعاتُ الورقة ──────────────────────────────────────────
+   شعبُ المقرر الواحد في المجموعة الواحدة صفٌّ واحد: الشعبُ رقائقُ صغيرة وأوقاتُها أشرطةٌ رفيعة،
+   فلا تملأ ثلاثُ شعبٍ من مقررٍ واحد السقفَ وتُخفي مجموعةً أخرى. */
+
+/** أشرطةُ الشعب في صفٍّ مدموج قبل «+n». */
+export const SAME_SLOT_SECTION_BARS = 3;
+
+/** مجموعاتُ الورقة بترتيبها: المقرر نفسه (أسهلُ ما يُنسى) ثم «تفتح» ثم «تُؤخذ معًا» ثم الوقتُ نفسه. */
+export type SameSlotGroupKind = "course" | "unlock" | "level" | "time";
+export const SAME_SLOT_GROUP_ORDER: readonly SameSlotGroupKind[] = ["course", "unlock", "level", "time"];
+
+export interface SameSlotCourseRow<R> {
+  /** مفتاحٌ فريد في الورقة كلها (للمفاتيح في React). */
+  key: string;
+  /** الشعبُ بترتيب أهميتها (الأطول تداخلاً أولاً)، كلٌّ بوقته وأيامه ونوعه. */
+  sections: SameSlotItem<R>[];
+  /** مجموعُ الأيام المشتركة. */
+  days: SlotDay[];
+  /** exact حين تطابقت شعبُه كلُّها؛ وإلا يُعرض بأوقاته. */
+  exact: boolean;
+  /** قريبةٌ كلُّها بلا تداخل. */
+  near: boolean;
+}
+export interface SameSlotGroup<R> { key: string; kind: SameSlotGroupKind; unlock?: UnlockLink; rows: SameSlotCourseRow<R>[] }
+
+export const sameSlotGroupKindOf = (item: SameSlotItem<unknown>): SameSlotGroupKind =>
+  item.sameCourse ? "course" : item.unlock ? "unlock" : item.sameLevel ? "level" : "time";
+
+/** البنودُ (بترتيب sameSlotOf) مجموعاتٍ بترتيب SAME_SLOT_GROUP_ORDER، وفي كلٍّ صفٌّ لكل مقرر. */
+export function sameSlotGroups<R extends SlotRow>(items: readonly SameSlotItem<R>[]): SameSlotGroup<R>[] {
+  const kinds = new Map<SameSlotGroupKind, Map<string, SameSlotGroup<R>>>();
+  for (const item of items) {
+    const kind = sameSlotGroupKindOf(item);
+    const groupKey = kind === "unlock" ? `unlock|${item.unlock!.names.join("|")}` : kind;
+    const groups = kinds.get(kind) || kinds.set(kind, new Map()).get(kind)!;
+    const group = groups.get(groupKey) || groups.set(groupKey, { key: groupKey, kind, unlock: item.unlock, rows: [] }).get(groupKey)!;
+    const course = Number(item.row.AdCourseId);
+    const rowKey = `${groupKey}|${course ? `c${course}` : `#${item.row.id}`}`;
+    const held = group.rows.find(row => row.key === rowKey);
+    if (held) held.sections.push(item);
+    else group.rows.push({ key: rowKey, sections: [item], days: [], exact: true, near: true });
   }
-  return { days: out, hidden };
+  const groups = SAME_SLOT_GROUP_ORDER.flatMap(kind => [...(kinds.get(kind)?.values() || [])]);
+  for (const group of groups) for (const row of group.rows) {
+    row.days = SLOT_DAYS.filter(day => row.sections.some(s => s.days.includes(day.key))).map(day => day.key);
+    row.exact = row.sections.every(s => s.kind === "exact");
+    row.near = row.sections.every(s => s.kind === "near");
+  }
+  return groups;
+}
+
+/**
+ * سقفُ صفوف الورقة: صفٌّ من كل مجموعة أولاً (بترتيبها)، ثم يُملأ الباقي بترتيب المجموعات.
+ * المجموعاتُ تبقى بترتيبها وصفوفُها بترتيبها؛ وما لم يظهر عددٌ لـ«+n».
+ */
+export function capCourseRows<R>(groups: readonly SameSlotGroup<R>[], max = SAME_SLOT_VISIBLE_ROWS): { groups: SameSlotGroup<R>[]; hidden: number } {
+  const take = groups.map(() => 0);
+  let left = Math.max(0, max);
+  groups.forEach((group, index) => { if (left > 0 && group.rows.length) { take[index] = 1; left--; } });
+  groups.forEach((group, index) => { const more = Math.min(left, group.rows.length - take[index]); take[index] += more; left -= more; });
+  const shown = groups.map((group, index) => ({ ...group, rows: group.rows.slice(0, take[index]) })).filter(group => group.rows.length);
+  const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  return { groups: shown, hidden: total - shown.reduce((sum, group) => sum + group.rows.length, 0) };
+}
+
+/** «الكل» ملخّصٌ بصفٍّ من كل مجموعة؛ ورقاقةُ نوعٍ تعرض صفوفَه كلَّها. */
+export type SameSlotView = "all" | SameSlotGroupKind;
+export interface SameSlotKindTab { kind: SameSlotGroupKind; rowCount: number; sectionCount: number }
+
+/**
+ * ما تعرضه الورقة: رقائقُ الأنواع حين يكون فيها أكثرُ من نوع، والمجموعاتُ المعروضة، وما خفي منها عدداً.
+ * نوعٌ واحد ← بلا رقائق، والسقفُ ٤ صفوف ثم «+n» يُفتح في مكانه (expanded).
+ */
+export function sameSlotSheet<R>(groups: readonly SameSlotGroup<R>[], view: SameSlotView = "all", expanded = false): { tabs: SameSlotKindTab[]; view: SameSlotView; groups: SameSlotGroup<R>[]; hidden: number } {
+  const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  const tabs = SAME_SLOT_GROUP_ORDER.flatMap(kind => {
+    const rows = groups.filter(group => group.kind === kind).flatMap(group => group.rows);
+    return rows.length ? [{ kind, rowCount: rows.length, sectionCount: rows.reduce((sum, row) => sum + row.sections.length, 0) }] : [];
+  });
+  if (tabs.length < 2) {
+    const capped = expanded ? { groups: [...groups], hidden: 0 } : capCourseRows(groups);
+    return { tabs: [], view: "all", ...capped };
+  }
+  if (view !== "all" && tabs.some(tab => tab.kind === view)) return { tabs, view, groups: groups.filter(group => group.kind === view), hidden: 0 };
+  const shown = groups.map(group => ({ ...group, rows: group.rows.slice(0, 1) }));
+  return { tabs, view: "all", groups: shown, hidden: total - shown.length };
+}
+
+/** شعبُ الصف المرسومة (أهمُّها حتى SAME_SLOT_SECTION_BARS) مرتبةً برقمها، والباقي عدداً. */
+export function visibleSections<R extends SlotRow>(row: SameSlotCourseRow<R>, max = SAME_SLOT_SECTION_BARS): { sections: SameSlotItem<R>[]; hidden: number } {
+  const sections = row.sections.slice(0, max).sort((a, b) =>
+    numeric(a.row.SCode) - numeric(b.row.SCode) || slotMinutes(a.row.fstarttime) - slotMinutes(b.row.fstarttime));
+  return { sections, hidden: row.sections.length - sections.length };
+}
+
+/** أولُ `max` بندٍ بالترتيب نفسه، والباقي عدداً — لسطر «+٣». */
+export function capSameSlot<T>(items: readonly T[], max = SAME_SLOT_VISIBLE_ROWS): { items: T[]; hidden: number } {
+  const shown = items.slice(0, Math.max(0, max));
+  return { items: shown, hidden: items.length - shown.length };
 }

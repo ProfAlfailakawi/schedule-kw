@@ -45,7 +45,6 @@ const COURSE_EXCEPTIONS: Exception[] = [
   { file: "src/components/StudentRegistration.tsx", text: "committee ? `عدم موافقة اللجنة على «${course.name}»` : `ردّ «${course.name}»`", reason: STUDENT },
   { file: "src/components/StudentRegistration.tsx", text: `current.course.name`, reason: STUDENT },
   { file: "src/components/SectionSimulator.tsx", text: `impact.card.courseCode`, reason: SENTENCE },
-  { file: "src/components/TAPhasePanel.tsx", text: `course.name`, reason: PILL },
   { file: "src/components/TAPhasePanel.tsx", text: `row.courseName`, reason: PILL },
   { file: "src/components/Schedules.tsx", text: "courseName || \"المقرر\"", reason: "شريحةُ ملخّص الموعد في شريط الحفظ — الوسومُ في سطر «المقرر» فوقها في النموذج نفسه" },
   { file: "src/components/Schedules.tsx", text: `guideGhostDiff.before.AdCourseName || "المقرر المحدد"`, reason: "معاينةُ الجولة الإرشادية (لا تحفظ) — عنوانٌ مؤقت" },

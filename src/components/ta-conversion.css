@@ -1,4 +1,4 @@
-.ta-conversion-sheet{max-width:520px;width:min(94vw,520px);overflow:hidden}
+.ta-conversion-sheet{max-width:520px;width:min(94vw,520px);overflow-x:hidden;overflow-y:auto}
 .ta-conversion-heading{display:flex;align-items:center;gap:13px;min-width:0}
 .ta-conversion-heading h2{font-size:20px;margin:3px 0}
 .ta-conversion-heading small{display:flex;align-items:center;gap:7px;opacity:.68}
@@ -15,8 +15,16 @@
 .ta-conversion-numbers svg{width:17px;height:17px;opacity:.55}
 .ta-conversion-numbers strong{font-size:26px;font-weight:750;line-height:1.1;font-variant-numeric:tabular-nums}
 .ta-conversion-numbers small{opacity:.65;font-size:11px}
-.ta-conversion-people{display:grid;gap:0;max-height:220px;overflow-y:auto;border-block:1px solid color-mix(in srgb,currentColor 10%,transparent)}
-.ta-conversion-person{display:flex;align-items:center;gap:10px;padding:10px 3px}
+.ta-conversion-people{display:grid;gap:0;border-block:1px solid color-mix(in srgb,currentColor 10%,transparent)}
+.ta-conversion-person{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 10px;padding:10px 3px}
+.ta-conversion-target{grid-column:1/-1;display:flex;align-items:center;gap:8px;min-width:0}
+.ta-conversion-target>svg{width:15px;height:15px;opacity:.5;flex-shrink:0}
+.ta-conversion-target .instructor-picker{flex:1;min-width:0}
+.ta-conversion-target .instructor-trigger{min-height:44px}
+.ta-conversion-target .instructor-pop{width:100%;min-width:0}
+.ta-conversion-flags{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.ta-conversion-flags li{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--warn,#9a5b00);background:color-mix(in srgb,var(--warn,#d98b00) 13%,transparent);border-radius:999px;padding:3px 9px}
+.ta-conversion-flags svg{width:13px;height:13px;flex-shrink:0}
 .ta-conversion-person+.ta-conversion-person{border-top:1px solid color-mix(in srgb,currentColor 8%,transparent)}
 .ta-conversion-avatar{display:grid;place-items:center;width:28px;height:28px;flex-shrink:0;border-radius:9px;background:color-mix(in srgb,currentColor 6%,transparent)}
 .ta-conversion-avatar svg{width:15px;height:15px;opacity:.7}

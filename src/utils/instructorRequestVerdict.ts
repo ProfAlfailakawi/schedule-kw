@@ -46,6 +46,7 @@ import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, isValidClo
 import { roomIdentityKey } from "./locationRegistry";
 import { habitualBlockMinutes, historicalOrigin, type CourseNature } from "./courseNature";
 import { lengthPatternsForHours, meetingMinutes, meetingSlots, type OwnMeeting } from "./requestMeetingLength";
+import { patternLabel, patternLengthIssue, sameScheduleShape } from "./appointmentRegulation";
 
 /** ما يطلبه الأستاذ في صفٍّ واحد. */
 export type RequestAction = "keep" | "change" | "delete" | "add";
@@ -205,8 +206,8 @@ export interface VerdictContext {
   ladderBlocks?: boolean;
   /** استثناءُ دوام القسم: يمنع كرتَ الأستاذ افتراضاً، وتنبيهٌ فقط لقراءة القسم ولما عرضه القسم بنفسه. */
   departmentHoursWarnOnly?: boolean;
-  /** شعبتان من مقرر تخصص في الوقت نفسه تُمنعان: كرتُ الأستاذ وحده (ملاحظة المالك 8). */
-  sectionClashBlocks?: boolean;
+  /** شعبتان من مقرر تخصص في الوقت نفسه: تنبيهٌ واضح لا يمنع، في كرت الأستاذ وحده (المالك 2026-11-08، وكان يمنع بملاحظته 8). */
+  sectionClashWarns?: boolean;
   /** مدةُ التنقّل بين المواقع من إعدادات التسجيل: أولُ نقصٍ بين الموعد المطلوب وبقية مواعيد الأستاذ. */
   travelShortfall?: (slots: ReadonlyArray<{ day: string; start: string; end: string }>, others: readonly any[]) => { need: number; gap: number } | null;
   /** إلزامٌ في بطاقة الأستاذ، وتنبيهٌ في شاشات القسم. */
@@ -426,8 +427,11 @@ export function weeklyLoadOf(rows: FSchedule[], courses: Map<number, AdCourse>):
  */
 /* الأخصّ يُقال أولاً: تصادمٌ مع محاضرته هو أوضحُ للأستاذ من «تتابع مرتفع» وإن سبقه في القائمة. */
 const HEADLINE_ORDER: RequestReasonSource[] = ["window", "shape", "instructor", "cohort", "room"];
+/** تنبيهُ الشعبة الأخرى اللين: سطرُه وحده تحت الحكم، فلا يصير عنوانَه ولا يطلب استثناءً. */
+export const softSectionClash = (reason: RequestReason | undefined): boolean => Boolean(reason && reason.code === "section-clash" && !reason.blocking);
+
 export function headlineReasonOf(list: ReadonlyArray<RequestReason> | undefined): RequestReason | undefined {
-  const all = list || [];
+  const all = (list || []).filter(reason => !softSectionClash(reason));
   const blocking = all.filter(reason => reason.blocking);
   const pool = blocking.length ? blocking : all;
   for (const source of HEADLINE_ORDER) { const hit = pool.find(reason => reason.source === source); if (hit) return hit; }
@@ -443,7 +447,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const ownRow = inbound.rowId == null ? undefined : context.allRows.find(row => Number(row.id) === Number(inbound.rowId));
   const ownDays = ownRow ? DAY_KEYS.filter(day => Boolean((ownRow as any)[day])) : [];
   const ownLength = ownRow ? toMinutes(ownRow.fendtime) - toMinutes(ownRow.fstarttime) : 0;
-  const own: OwnMeeting | null = ownRow && inbound.action === "change" && ownDays.length && ownLength > 0 ? { days: ownDays, minutes: ownLength } : null;
+  const own: OwnMeeting | null = ownRow && inbound.action === "change" && ownDays.length && ownLength > 0 ? { days: ownDays, minutes: ownLength, start: ownRow!.fstarttime } : null;
   const hours = effectiveCourseHours(context.courses.get(inbound.AdCourseId));
   const lengthPatterns = lengthPatternsForHours(hours);
   const engineSlots = !inbound.slots?.length && inbound.days.length && isValidClock(inbound.start) && (inbound.action === "change" || inbound.action === "add")
@@ -494,7 +498,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const verdictOf = (): RequestVerdict => {
     const blocking = reasons.some(reason => reason.blocking);
     /* Shared-student demand is advice, not an exception requiring a signed justification. */
-    const exceptionReasons = reasons.filter(reason => reason.source !== "cohort" && reason.code !== "travel");
+    const exceptionReasons = reasons.filter(reason => reason.source !== "cohort" && reason.code !== "travel" && !softSectionClash(reason));
     const kind: RequestVerdictKind = blocking ? "conflict" : exceptionReasons.length ? "exception" : "clear";
     return {
       kind, reasons, sendable: !blocking, needsExcuse: kind === "exception",
@@ -699,8 +703,29 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     });
   }
 
-  /* شعبةٌ أخرى من مقرر التخصص في الوقت نفسه: تُمنع في كرت الأستاذ (ملاحظة المالك 8)، وفي شاشات القسم تبقى م.7/5 تنبيهاً. */
-  if (context.sectionClashBlocks && !request.relatedRowIds?.length && (request.action === "add" || request.action === "change")) {
+  /* ── نهايةٌ تخالف النمط المعتمد لا تُرسل (المالك 2026-11-08) ────────────────────────
+     النهايةُ تُحسب من النمط (meetingMinutes)؛ فما وصل بطولٍ يخالفه (صفحةٌ قديمة، مواعيدُ مكتوبة) يُمنع بسطرٍ
+     يقول النهاية الصحيحة، ومعه زرُّ «طبّق النمط» (الأيامُ نفسُها، فيحسب المحرّكُ طولَ المكتبة). الحكمُ الواحد
+     نفسه في المحرّر والخادم والمقترح (patternLengthIssue). الشعبةُ الشاغرة القائمة تُؤخذ كما هي. */
+  /* موعدٌ قائم لم يتغيّر شكله (الأيام والبداية والنهاية كما حُفظت) لا يُمنع بطوله القديم — القاعدةُ الواحدة (sameScheduleShape). */
+  const keptShape = Boolean(ownRow) && slots.length > 0 && slots.every(slot => slot.start === slots[0].start && slot.end === slots[0].end)
+    && sameScheduleShape(ownRow as any, { fstarttime: slots[0].start, fendtime: slots[0].end, ...Object.fromEntries(slots.map(slot => [slot.day, true])) } as any);
+  if (!keptShape && !mixedUnapproved && courseHours > 0 && !request.relatedRowIds?.length && (request.action === "add" || request.action === "change")) {
+    const groups = new Map<string, DayKey[]>();
+    for (const slot of slots) groups.set(`${slot.start}|${slot.end}`, [...(groups.get(`${slot.start}|${slot.end}`) || []), slot.day]);
+    const lengthIssue = [...groups.entries()].map(([key, days]) => { const [start, end] = key.split("|"); return patternLengthIssue({ CourseHours: courseHours }, days, start, end); }).find(Boolean);
+    if (lengthIssue) {
+      reasons.push({ source: "shape", code: "pattern", blocking: true, text: lengthIssue });
+      const result = verdictOf();
+      result.shapes = [{ days: [...request.days], label: `طبّق النمط: ${patternLabel({ CourseHours: courseHours }, request.days) || "المعتمد"}` }];
+      return result;
+    }
+  }
+
+  /* شعبةٌ أخرى من مقرر التخصص في الوقت نفسه: في كرت الأستاذ تنبيهٌ واضح لا يمنع ولا يطلب استثناءً (المالك 2026-11-08،
+     وكانت تُمنع بملاحظته 8)، وفي شاشات القسم تبقى م.7/5 تنبيهاً. القاعدةُ واحدة (sameCourseSectionClash): تداخلٌ لا تلاصق،
+     ورقمُ الشعبة بـsectionCodeKey، وصفوفُ «وضع تجربة» لا تُعدّ. ولا يُذكر رقمُ الشعبة الأخرى للأستاذ. */
+  if (context.sectionClashWarns && !request.relatedRowIds?.length && (request.action === "add" || request.action === "change")) {
     const ownIds = new Set(context.instructorRowsAfter.map(row => Number(row.id)));
     const others = [...context.allRows.filter(row => Number(row.AdInstructorId) !== Number(context.instructorId) && !ownIds.has(Number(row.id))),
       ...context.instructorRowsAfter];
@@ -711,7 +736,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       AdCollegeId: self?.AdCollegeId ?? context.roomCollegeId ?? context.allRows[0]?.AdCollegeId,
       [slot.day]: true, fstarttime: slot.start, fendtime: slot.end,
     } as any, others, course)).find(Boolean);
-    if (clash) reasons.push({ source: "shape", code: "section-clash", blocking: true, text: `شعبة أخرى من هذا المقرر في الوقت نفسه (${String(clash.SCode || "")}).` });
+    if (clash) reasons.push({ source: "shape", code: "section-clash", blocking: false, text: "شعبة أخرى من المقرر نفسه في هذا الوقت، وقد لا يعتمده القسم." });
   }
 
   /* سُلّمُ البدايات في اللائحة (المالك 2026-10-30): الأحد والثلاثاء والخميس على رأس الساعة، والاثنين والأربعاء 8:00 ثم

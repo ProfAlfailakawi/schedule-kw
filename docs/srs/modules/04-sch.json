@@ -12,6 +12,7 @@
   "sources": [
     "src/server/routes/schedulesRoutes.ts",
     "src/server/routes/scheduleToolsRoutes.ts",
+    "src/server/core/departmentPickerFamily.ts",
     "src/server/routes/scheduleLiveRoutes.ts",
     "src/server/routes/scheduleNotesRoutes.ts",
     "src/server/routes/scheduleReviewRoutes.ts",
@@ -59,6 +60,8 @@
     "src/components/TeacherMiniWeek.tsx",
     "src/components/SameSlotHint.tsx",
     "src/utils/sameSlot.ts",
+    "src/utils/planPeers.ts",
+    "src/utils/planFactsCache.ts",
     "src/utils/coreqSections.ts",
     "src/server/core/coreqPairs.ts",
     "src/styles/51-same-slot.css",
@@ -712,9 +715,10 @@
         { "ar": "تنفيذ بلا الرمز ta-conversion يُردّ 409 «التحويل يحتاج تأكيداً صريحاً».", "en": "A run without the token ta-conversion is refused with 409 «conversion needs explicit confirmation»." },
         { "ar": "تغيّر جدول أو تصنيف بعد المعاينة يُردّ 409 «افتح المعاينة من جديد»؛ وأكثر من 400 موعد أو أكثر من سجل «هيئة تدريسية» يمنع.", "en": "A schedule or classification change after the preview is refused with 409 «reopen the preview»; more than 400 appointments or more than one placeholder record blocks." },
         { "ar": "فصل مجمَّد أو جدول مقفل يمنع التحويل.", "en": "A frozen term or locked schedule blocks the conversion." },
-        { "ar": "GET /api/schedules/ta-conversion يعيد المعاينة (الأشخاص، عدد المواعيد المتأثرة، الشعب، previewKey، هل يُسمح ولماذا، اسم الفصل والقسم) بلا ذاكرة؛ وبلا كلية أو قسم أو فصل 400 وخارج النطاق 403.", "en": "GET /api/schedules/ta-conversion returns the preview (people, affected appointment count, sections, previewKey, whether it is allowed and why, term and department names) uncached; without college, department or term it returns 400 and outside scope 403." }
+        { "ar": "GET /api/schedules/ta-conversion يعيد المعاينة (الأشخاص، عدد المواعيد المتأثرة، الشعب، previewKey، هل يُسمح ولماذا، اسم الفصل والقسم) بلا ذاكرة؛ وبلا كلية أو قسم أو فصل 400 وخارج النطاق 403.", "en": "GET /api/schedules/ta-conversion returns the preview (people, affected appointment count, sections, previewKey, whether it is allowed and why, term and department names) uncached; without college, department or term it returns 400 and outside scope 403." },
+        { "ar": "لكل اسم TA اختيارُ هدفٍ من قائمة أستاذ المقرر نفسها («أساتذة هذا القسم فقط» و«منتدبون هذا الفصل»)، والافتراضي «هيئة تدريسية»؛ وهدفٌ من خارج عائلة القسم يُردّ 400 برسالة عربية، والتعارض وتجاوز النصاب تنبيهٌ لا يمنع.", "en": "Each TA may be given a target from the instructor picker's own list (department faculty and this term's visiting teachers), defaulting to the placeholder; a target outside the department family is refused with 400 in Arabic, and a clash or load excess is a soft warning that never blocks." }
       ],
-      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/taConversion.ts", "src/server/routes/scheduleToolsRoutes.ts#/api/schedules/ta-conversion"], "tests": ["tests/ta-conversion-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/taConversion.ts", "src/server/routes/scheduleToolsRoutes.ts#/api/schedules/ta-conversion", "src/server/core/departmentPickerFamily.ts#departmentPickerFamily", "src/components/TAConversionPanel.tsx"], "tests": ["tests/ta-conversion-audit.ts", "tests/ta-conversion-family-http-audit.ts"] }
     },
     {
       "id": "FR-SCH-027",
@@ -731,9 +735,10 @@
         { "ar": "مدة الطلب تُقصّ بين 30 و300 دقيقة (60 افتراضياً)؛ وبلا أيام يُعاد slots فارغة بسبب days.", "en": "The requested duration is clamped between 30 and 300 minutes (60 by default); with no days an empty slots list is returned with reason days." },
         { "ar": "ما رُفض من البوابة يُعدّ في rejectedByScheduleGate ولا يُعرض؛ وإن فرغت النتيجة يُعاد سبب مسمّى.", "en": "What the gate rejects is counted in rejectedByScheduleGate and not shown; if nothing remains a named reason is returned." },
         { "ar": "تُعاد حتى أربع شعب «هيئة تدريسية» مطابقة تماماً باسم replaceable، ومقرر يتطلب مرفقاً لا يُقترح له وقت بلا مرفق خالٍ.", "en": "Up to four exactly matching faculty-placeholder sections are returned as replaceable; a course needing a companion facility gets no slot without a free one." },
-        { "ar": "إن تجاوز الساعات المعتمدة السقف تُعاد النتيجة فارغة بسبب hours.", "en": "If the approved-hours ceiling is exceeded the result is empty with reason hours." }
+        { "ar": "إن تجاوز الساعات المعتمدة السقف تُعاد النتيجة فارغة بسبب hours.", "en": "If the approved-hours ceiling is exceeded the result is empty with reason hours." },
+        { "ar": "الوقت الذي تتداخل فيه كلُّ تركيبات الشعب مع مقرنٍ للمقرر يتأخر عن كل وقتٍ سواه، ويُعرض منه واحدٌ على الأكثر؛ ولا يتغير شيءٌ لمقررٍ بلا مقرن.", "en": "A time where every section combination clashes with a co-requisite ranks after all other times and at most one is shown; a course with no co-requisite is unaffected." }
       ],
-      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/suggestionEngine.ts", "src/utils/slotSuggestionScope.ts"], "tests": ["tests/slot-suggestion-recovery-audit.ts", "tests/appointment-forms-audit.ts", "tests/placeholder-action-audit.ts"] }
+      "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts", "src/utils/suggestionEngine.ts", "src/utils/slotSuggestionScope.ts", "src/utils/coreqSections.ts"], "tests": ["tests/slot-suggestion-recovery-audit.ts", "tests/appointment-forms-audit.ts", "tests/placeholder-action-audit.ts", "tests/coreq-sections-audit.ts"] }
     },
     {
       "id": "FR-SCH-028",
@@ -1072,7 +1077,7 @@
       "actors": ["committeeChair"],
       "acceptance": [
         { "ar": "إن وُجدت تركيبة شعب واحدة بلا تداخل فلا ملاحظة؛ والملاحظة منخفضة ولا تمنع الحفظ، وتعثّر قراءتها لا يكسر الفحص.", "en": "If one section combination has no overlap there is no note; the note is low and never blocks the save, and failing to read it does not break the check." },
-        { "ar": "«في الوقت نفسه» تطابق تام فقط (لا تداخل جزئي ولا تلاصق)، مرتّب بالمستوى نفسه أولاً ثم رقم المقرر ثم الشعبة، ويُعرض حتى 6 صفوف ثم «+n».", "en": "«At the same time» is an exact match only (no partial overlap or touching), ordered with the same level first, then course number, then section, and shows up to 6 rows then «+n»." },
+        { "ar": "«في الوقت نفسه» تطابق تام، ويُضاف إليه التداخل الجزئي (لا التلاصق) لأقران مقرر الموعد في قسمه وفصله وكليته، من صحيفةٍ واحدة بلا تخمين من الرقم: مقرران يفتحان معاً مقرراً تالياً (مسبقان إلزاميان وحتى 5 مسبقات)، أو إجباريان بالمستوى نفسه، وشعب المقرر نفسه المتداخلة أو القريبة بفاصل لا يتجاوز نصف أطول الجلستين (بين 60 و120 دقيقة)، مرتّب بما يفتح ثم شعب المقرر ثم المستوى ثم الباقي، وفي كلٍّ التطابق ثم الأطول تداخلاً ثم رقم المقرر ثم الشعبة؛ والشعبة الواحدة بند واحد بشارات أيامها، ويُعرض حتى 4 بنود ثم «+n»، وكل بند غير مطابق يعرض وقته هو.", "en": "«At the same time» is an exact match, plus a partial overlap (not touching times) with the appointment course's peers in its department, term and college, read from one single plan with no guess from the number: two courses that together unlock a next course (required prerequisites, at most 5) or two compulsory courses of the same level, plus the course's other sections that overlap or lie within half the longer session (between 60 and 120 minutes), ordered by what it unlocks, then the course's sections, then level, then the rest, and within each by exact match, longest overlap, course number and section; one section is one item with day chips, up to 4 items then «+n», and every non-exact item shows its own time." },
         { "ar": "الأزواج مخبّأة 30 ثانية لكل قسم، والمسودات والمؤرشفة لا تُقرأ؛ وبلا قسم 400 وخارج النطاق 403.", "en": "Pairs are cached 30 seconds per department, drafts and archived sheets are not read; without a department 400, outside scope 403." }
       ],
       "evidence": { "code": ["src/server/routes/scheduleToolsRoutes.ts#/api/schedules/coreq-pairs", "src/server/core/coreqPairs.ts#coreqPairsOfSection", "src/utils/coreqSections.ts#coreqFindings", "src/utils/sameSlot.ts#sameSlotOf", "src/server/core/scheduleConflicts.ts", "src/components/SameSlotHint.tsx"], "tests": ["tests/same-slot-audit.ts"] }

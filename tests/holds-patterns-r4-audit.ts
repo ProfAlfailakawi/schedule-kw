@@ -25,7 +25,8 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
 /* ── 19: السبب الجذري: يومٌ منفرد كان يُقرأ كتلة ── */
 {
   check(regulationEnd(theory3, ["fsunday"], "09:00") === "11:50", "19 القراءة القديمة بلا طول تبقى لموعدٍ جديد (هي مصدر الخلل حين يُعرف الطول)");
-  check(regulationEnd(theory3, ["fsunday"], "09:00", 50) === "", "19 صفُّ الأحد 50د لا يصير 170د عند تغيير بدايته");
+  /* 2026-11-08: الطولُ المعتمد لليوم (50 لقاءٌ من أحد·ثلاثاء·خميس) يُحسب نهايةً بنفسه بدل "" — ولا يصير 170. */
+  check(regulationEnd(theory3, ["fsunday"], "09:00", 50) === "09:50", "19 صفُّ الأحد 50د لا يصير 170د عند تغيير بدايته");
   check(completeRegulation(theory3, ["fsunday"], "09:00", { minutes: 50, keepDays: true }) === null, "19 الإكمال لا يعيد تشكيل لقاءٍ منفرد");
   check(completeRegulation(theory3, ["fwednesday"], "08:00", { minutes: 170, keepDays: true })?.end === "10:50", "19 الكتلة المقصودة تبقى كتلة");
   check(completeRegulation(theory3, ["fsunday", "fthursday"], "08:00", { minutes: 50, keepDays: true }) === null, "19 أيامٌ اختارها صاحبها لا تُستبدل");
@@ -76,7 +77,8 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const conflicts = read("src/server/core/scheduleConflicts.ts");
   check(/type: "regulation", severity: "low", soft: true/.test(conflicts), "8 في «موعد» تنبيهٌ لا يمنع");
   const requests = read("src/server/core/instructorRequests.ts");
-  check(/sectionClashBlocks: !options\.forDepartment/.test(requests) && /code: "section-clash", blocking: true/.test(read("src/utils/instructorRequestVerdict.ts")), "8 في كرت الأستاذ يمنع");
+  /* قرار المالك 2026-11-08: في كرت الأستاذ تنبيهٌ واضح لا يمنع (كان يمنع)؛ تفاصيلُه في tests/teacher-card-peers-audit.ts. */
+  check(/sectionClashWarns: !options\.forDepartment/.test(requests) && /code: "section-clash", blocking: false/.test(read("src/utils/instructorRequestVerdict.ts")), "8 في كرت الأستاذ ينبّه ولا يمنع");
 }
 
 /* ── 4 و10: الحجز يقارن ولا يمنع ── */

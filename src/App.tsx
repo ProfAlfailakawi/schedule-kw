@@ -56,6 +56,7 @@ import { multiSiteDepartment } from "./utils/inboxAudience";
 import ScopeContextChip from "./components/ScopeContextChip";
 import { readSharedScope, setSharedScopeUser, writeSharedScope } from "./utils/sharedScope";
 import { forgetWarmStarts, scheduleWorkspaceUrl, warmStart } from "./utils/warmStart";
+import { forgetPlanFacts } from "./utils/planFactsCache";
 import { DEMO_STAGE_SECTION_ID, setDemoSession } from "./utils/demoSession";
 import { formatScheduleTimeRange } from "./utils/scheduleTime";
 import { installClientTelemetry, setTelemetryOwner, telemetryBreadcrumb, telemetryGuide } from "./utils/clientTelemetry";
@@ -1669,6 +1670,7 @@ export default function App() {
     if ((data.user as any)?.MustChangePassword) { setPasswordGate(data); return; }
     setPasswordGate(null);
     forgetWarmStarts();
+    forgetPlanFacts();
     setUser(data.user);
     try { localStorage.setItem("schedule-last-user", String(data.user?.SystemUserId || 0)); } catch { /* private mode */ }
     setPermissions(data.permissions || []);
@@ -1689,6 +1691,7 @@ export default function App() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     forgetTrailStamps();
     forgetWarmStarts();
+    forgetPlanFacts();
     await forgetCachedReads();
     setUser(null);
     setPermissions([]);

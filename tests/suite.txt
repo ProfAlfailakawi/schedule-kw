@@ -164,6 +164,7 @@ test:registration-flow
 test:section-opening
 test:feature-notifications
 test:demo-radar
+test:demo-showcase
 test:demo-firestore-isolation
 test:plan-pdf
 test:plan-sheet-import
@@ -227,11 +228,14 @@ test:review-1105
 test:holds-patterns-r4
 test:one-line-appointment
 test:same-slot
+test:plan-peers
+test:teacher-card-peers
 test:coreq-sections
 test:schedule-wipe
 test:instructor-availability
 test:instructor-offering-flow
 test:ta-conversion
+test:ta-conversion-http
 test:unchanged-request
 test:unchanged-request-http
 test:course-number-seven-digit
@@ -267,3 +271,4 @@ test:matrix-continuation
 test:srs-doc
 test:srs-route
 test:tsconfig-strictness
+test:new-appointment-pattern-end

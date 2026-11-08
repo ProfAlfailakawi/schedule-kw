@@ -1300,28 +1300,27 @@
       "id": "FR-STU-008",
       "kind": "functional",
       "title": {
-        "ar": "سقف وحدات الطالب لكل قسم",
-        "en": "Per-department student unit cap"
+        "ar": "سقف وحدات الطالب للجامعة",
+        "en": "University-wide student unit cap"
       },
       "text": {
-        "ar": "يجب على النظام أن يتيح لقسمٍ بصلاحية الجدول اختيار سقف وحدات الطلبة في «مساري» من 15 أو 18 أو 21، وأن يسري على القسم وأقسام حرمه، وأن يكون الافتراضي 15 حين لا اختيار، وأن يُرسل الخادمُ السقف في limits.wishUnitsMax.",
-        "en": "The system shall let a department holding the schedule permission choose the student unit cap in Masari as 15, 18 or 21, shall apply it to the department and its campus family, shall default to 15 when nothing is chosen, and shall send the cap to the page in limits.wishUnitsMax."
+        "ar": "يجب على النظام أن يقرأ في «مساري» سقفاً واحداً لوحدات الطالب يضعه المدير الرئيسي للجامعة كلها (3–30، الافتراضي 15)، وأن يتجاهل سقوف الأقسام القديمة، وأن يُرسل السقف في limits.wishUnitsMax ويرفض ما فوقه ويقيّد به المقترح.",
+        "en": "The system shall read in Masari one student unit cap set by the root administrator for the whole university (3-30, default 15), shall ignore old per-department caps, and shall send the cap in limits.wishUnitsMax, reject wishes above it and bound the advice by it."
       },
       "priority": "should",
       "status": "implemented",
       "actors": [
-        "departmentHead",
-        "committeeChair",
+        "admin",
         "student"
       ],
       "acceptance": [
         {
-          "ar": "PUT /api/section-student-settings بقيمة 16 ← 400 «اختر 15 أو 18 أو 21».",
-          "en": "PUT /api/section-student-settings with 16 yields 400 asking for 15, 18 or 21."
+          "ar": "سقف جامعي 18 وسقف قسم قديم 21 ← wishUnitsMax = 18، ورغبة بـ19 وحدة ← 400.",
+          "en": "A university cap of 18 with an old department cap of 21 yields wishUnitsMax = 18, and a wish of 19 units yields 400."
         },
         {
-          "ar": "قسم بلا إعداد ← wishUnitsMax = 15.",
-          "en": "A department with no setting returns wishUnitsMax = 15."
+          "ar": "بلا إعداد ← wishUnitsMax = 15.",
+          "en": "With no setting wishUnitsMax = 15."
         }
       ],
       "evidence": {
@@ -1329,10 +1328,11 @@
           "src/utils/studentUnitCap.ts",
           "src/server/routes/referenceRoutes.ts",
           "src/server/studentDoorRoutes.ts",
-          "src/components/StudentUnitCapField.tsx"
+          "src/components/StudentUnitCapSetting.tsx"
         ],
         "tests": [
-          "tests/student-door-audit.ts"
+          "tests/student-door-audit.ts",
+          "tests/admin-rules-r4-audit.ts"
         ]
       }
     },

@@ -38,6 +38,7 @@
     "src/server/demoPreviousTermSeed.ts",
     "src/server/demoSectionRequestsSeed.ts",
     "src/db/demoSandbox.ts",
+    "src/db/demoShowcase.ts",
     "src/db/demoActivityTrail.ts",
     "src/utils/updatingNotice.ts",
     "public/sw.js",

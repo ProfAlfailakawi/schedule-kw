@@ -18,7 +18,7 @@ async function request(url: string, init?: RequestInit) {
   return data;
 }
 
-export default function LocationQuickSetup({ header, demoReadOnly = false }: { header?: React.ReactNode; demoReadOnly?: boolean }) {
+export default function LocationQuickSetup({ header, demoReadOnly = false, demoSandbox = false }: { header?: React.ReactNode; demoReadOnly?: boolean; demoSandbox?: boolean }) {
   const [data, setData] = useState<SetupData>(empty);
   const [collegeId, setCollegeId] = useState(0);
   const [sectionId, setSectionId] = useState(0);
@@ -137,7 +137,7 @@ export default function LocationQuickSetup({ header, demoReadOnly = false }: { h
   return <div className="content-stack location-quick-setup">
     {header}
     <PageTitle eyebrow="إدارة النظام · للمدير الرئيسي فقط" subtitle="إضافة المباني وقاعات الأقسام المشتركة، مع بقاء السجل الإداري الكامل كما هو.">إضافة المباني والقاعات</PageTitle>
-    {demoReadOnly ? <Notice type="info">العرض التجريبي: الحفظ متوقف.</Notice> : null}
+    {demoReadOnly ? <Notice type="info">العرض التجريبي: الحفظ متوقف.</Notice> : demoSandbox ? <Notice type="info" inline>العرض التجريبي: ما تضيفه هنا يبقى في جلستك فقط ولا يصل إلى بيانات الجامعة.</Notice> : null}
     {error ? <Notice>{error}</Notice> : null}{notice ? <div className="location-quick-notice" role="status">{notice}</div> : null}
     <LocationRoomTypeManager demoReadOnly={demoReadOnly} onTypesChange={setRoomTypes} sections={data.sections} onScopesChange={setRoomTypeScopes} />
     <Surface className="location-quick-filters">

@@ -523,6 +523,8 @@ var S={state:null,view:"boot",civil:"",exists:false,resetPending:false,resetAt:"
 function defaultUnits(){var s=S.state,w=s&&s.profile&&s.profile.wishes,u=w&&s.term&&w.termId===s.term.id?Number(w.targetUnits):Math.round(lim("termUnits",13.5));var lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);return Math.max(lo,Math.min(hi,u||lo))}
 function termsLeft(remaining){return remaining>0?whatIf(remaining,defaultUnits(),false).regular:0}
 function lim(k,d){var l=S.state&&S.state.limits;return l&&typeof l[k]==="number"?l[k]:d}
+/* وحداتٌ في حدود الخادم (السقف الجامعي): الغائبُ أعلى المسموح، وما خرج يُقصّ. */
+function fitUnits(u){var lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);return Math.max(lo,Math.min(hi,Math.round(Number(u))||hi))}
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function digits(v){return String(v||"").replace(/[٠-٩]/g,function(d){return String("٠١٢٣٤٥٦٧٨٩".indexOf(d))}).replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))}).replace(/\D/g,"")}
 function civilValid(v){v=String(v||"");if(!/^\d{12}$/.test(v))return false;var w=[2,1,6,3,7,9,10,5,8,4,2],sum=0;for(var i=0;i<11;i++)sum+=Number(v.charAt(i))*w[i];return 11-(sum%11)===Number(v.charAt(11))}
@@ -950,7 +952,7 @@ function tkMoments(items){var by={},after=null,near=null;
     if(!after||last<after.at)after={day:Number(d),at:last};
     for(var n=1;n<a.length;n++){var g=a[n].start-a[n-1].end;if(a[n].b&&a[n].b===a[n-1].b&&g>=30&&g<=180&&(!near||g>near.min))near={day:Number(d),from:a[n-1].end,to:a[n].start,min:g}}});
   return{after:after,near:near}}
-function tkPlanFit(plan){var items=plan.items||[],units=items.reduce(function(n,i){return n+(Number(i.credit)||0)},0),w=S.state&&S.state.profile&&S.state.profile.wishes;if(w&&S.state.term&&w.termId!==S.state.term.id)w=null;var target=w?Number(w.targetUnits)||15:15,allTimes=items.length>0&&items.every(function(i){return i.timesVisible}),days={},early=0,late=0,gap=0;
+function tkPlanFit(plan){var items=plan.items||[],units=items.reduce(function(n,i){return n+(Number(i.credit)||0)},0),w=S.state&&S.state.profile&&S.state.profile.wishes;if(w&&S.state.term&&w.termId!==S.state.term.id)w=null;var target=fitUnits(w&&w.targetUnits),allTimes=items.length>0&&items.every(function(i){return i.timesVisible}),days={},early=0,late=0,gap=0;
   if(allTimes){items.forEach(function(i){(i.slots||[]).forEach(function(s){days[s.day]=true;if(s.start<540)early++;if(s.start>=780)late++})});var by={};items.forEach(function(i){(i.slots||[]).forEach(function(s){(by[s.day]||(by[s.day]=[])).push(s)})});Object.keys(by).forEach(function(d){var a=by[d].sort(function(x,y){return x.start-y.start});for(var j=1;j<a.length;j++)gap+=Math.max(0,a[j].start-a[j-1].end)})}
   var constraints=w&&w.constraints||{},unitFit=Math.max(0,100-Math.abs(units-target)*12),violations=(constraints.noMorning?early:0)+(constraints.noAfternoon?late:0),daysN=Object.keys(days).length,scheduleFit=allTimes?Math.max(0,100-violations*22-(constraints.freeDay?Math.max(0,daysN-1)*9:Math.max(0,daysN-3)*3)-Math.floor(gap/60)*5):unitFit;
   var tight=items.filter(function(i){return i.tight}).length,score=Math.round(allTimes?unitFit*.45+scheduleFit*.45+Math.max(0,100-tight*14)*.1:unitFit);
@@ -1011,7 +1013,7 @@ function tkPoolSheet(cur,replaceId){
       options:p.offerings.map(function(o){return{offeringId:o.offeringId,section:o.section,slots:o.slots,tight:false}})})}
     S.tkSel=p.courseId;S.tkErr="";closeSheet();paintTicket(document.getElementById("ticket"))})})}
 function tkSaveWishes(cur,btn){var items=tkItems(cur),w=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null;
-  var units=w?w.targetUnits:15;btn.disabled=true;
+  var units=fitUnits(w&&w.targetUnits);btn.disabled=true;
   api("PUT","/api/public/me/wishes",{targetUnits:units,courseIds:items.map(function(i){return Number(i.courseId)}).slice(0,12),constraints:w?w.constraints:{}}).then(function(r){btn.disabled=false;
     if(!r.ok){toast(r.d.error||"تعذّر الحفظ",true);return}S.state.profile.wishes=r.d.wishes;S.wDraft=null;S.wCount=null;toast("سُجّلت رغباتك — يتحدّث جدولك المقترح في التحديث القادم");renderWishes()})}
 function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||{};S.tkRemoved=S.tkRemoved||{};S.tkAdded=S.tkAdded||{};
@@ -1184,14 +1186,14 @@ function loadPlan(){var host=document.getElementById("advice");if(!host)return;
     var kt=document.getElementById("kt"),ks=document.getElementById("kts");
     if(a&&kt&&a.done){kt.textContent="✓";ks.textContent="أكملت الصحيفة"}
     var b=document.getElementById("advw");if(b&&a)b.addEventListener("click",function(){b.disabled=true;var w=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null;
-      api("PUT","/api/public/me/wishes",{targetUnits:Math.max(12,Math.min(lim("wishUnitsMax",15),a.units||15)),courseIds:a.picks.map(function(p){return p.courseId}),constraints:w?w.constraints:{}}).then(function(x){b.disabled=false;
+      api("PUT","/api/public/me/wishes",{targetUnits:fitUnits(a.units),courseIds:a.picks.map(function(p){return p.courseId}),constraints:w?w.constraints:{}}).then(function(x){b.disabled=false;
         if(!x.ok){toast(x.d.error||"تعذّر الحفظ",true);return}S.state.profile.wishes=x.d.wishes;S.wDraft=null;S.wCount=null;S.wEdit=false;toast("صارت رغباتك");renderWishes()})});
     if(S.state.phase.mode==="wishes")renderWishes()})}
 ${STUDENT_MAP_SCRIPT}
 /* ── الرغبات: ثلاث بطاقاتٍ تمرّرها (كم وحدة ← ما لا يناسبك ← مقررات بعينها) ثم «وصلت» وعدّادُ زملائك. ── */
 function wishState(){if(S.wDraft)return S.wDraft;var s=S.state,w=s.profile.wishes;if(w&&s.term&&w.termId!==s.term.id)w=null;
-  var cur=w||{targetUnits:15,courseIds:[],constraints:{}};
-  S.wDraft={targetUnits:cur.targetUnits,courseIds:cur.courseIds.slice(),constraints:{noMorning:!!cur.constraints.noMorning,noAfternoon:!!cur.constraints.noAfternoon,freeDay:!!cur.constraints.freeDay}};return S.wDraft}
+  var cur=w||{courseIds:[],constraints:{}};
+  S.wDraft={targetUnits:fitUnits(cur.targetUnits),courseIds:cur.courseIds.slice(),constraints:{noMorning:!!cur.constraints.noMorning,noAfternoon:!!cur.constraints.noAfternoon,freeDay:!!cur.constraints.freeDay}};return S.wDraft}
 /* «مقرر بعينه · مقرران بعينهما · ٣ مقررات بعينها · ١١ مقرراً بعينه»: المطابقةُ في العدد والجنس. */
 function chosenCourses(n){return n===1?"مقرر بعينه":n===2?"مقرران بعينهما":countOf(n,AR.course)+(n<=10?" بعينها":" بعينه")}
 function wishChips(w){var h='<span class="chip ok">'+countOf(w.targetUnits,AR.unit)+'</span>';

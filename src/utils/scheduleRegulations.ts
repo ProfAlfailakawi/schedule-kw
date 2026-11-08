@@ -3,6 +3,7 @@ import { type CourseNature } from "./courseNature";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_LAST_MINUTE , formatScheduleTimeRange } from "./scheduleTime";
 import { AR, countOf, oblique } from "./arabicCount";
 import { placeholderInstructorIds } from "./instructorIdentity";
+import { isPracticeRow, sectionCodeKey } from "./sameSlot";
 
 /**
  * The timetable rules of PAAET decision 1913/2016, written as code.
@@ -546,9 +547,11 @@ export function meetingsMatchApprovedPattern(meetings: ReadonlyArray<{ day: DayK
 
 /**
  * ── شعبتان من مقرر واحد في الوقت نفسه (ملاحظة المالك 8) ───────────────────────
- * قاعدةٌ واحدة بدرجتين: تنبيهٌ لا يمنع في «موعد»، ومنعٌ في كرت الأستاذ — لمقررات التخصص وحدها.
+ * قاعدةٌ واحدة، تنبيهٌ لا يمنع في «موعد» وفي كرت الأستاذ (المالك 2026-11-08؛ كان يمنع في الكرت) — لمقررات التخصص وحدها.
  * مقررُ التخصص هو ما يملكه قسمُ الشعبة، ولو كان متطلبَ كليةٍ في صحف أقسامٍ أخرى؛ ومقررُ الخدمة
  * القادم من قسمٍ آخر يتكرّر شعبُه في الساعة نفسها عادةً. والكليتان (بنين/بنات) لا تتنافسان (م.7/5).
+ * وحجوزُ الطلبات في `others` تُعدّ شعباً قائمة، كما يعدّها حُكمُ المقرن (src/utils/coreqSections.ts).
+ * وصفوفُ «وضع تجربة» مؤقتة فلا تُعدّ (isPracticeRow)، كما في ورقة «في الوقت نفسه».
  */
 export function isSpecializationCourse(course: { AdSectionId?: unknown } | null | undefined, sectionId: unknown): boolean {
   const owner = Number(course?.AdSectionId || 0);
@@ -557,7 +560,7 @@ export function isSpecializationCourse(course: { AdSectionId?: unknown } | null 
 export function sameCourseSectionClash<T extends FSchedule>(
   row: Partial<FSchedule>, others: readonly T[], course: { AdSectionId?: unknown } | null | undefined,
 ): T | undefined {
-  const code = String(row.SCode ?? "").trim();
+  const code = sectionCodeKey(row.SCode);
   const owner = Number((course as any)?.AdSectionId || 0);
   if (!owner || (row.AdSectionId != null && Number(row.AdSectionId) !== owner)) return undefined;
   const days = DAY_KEYS.filter(day => Boolean((row as any)[day]));
@@ -567,7 +570,8 @@ export function sameCourseSectionClash<T extends FSchedule>(
     && Number(other.AdCollegeId || 0) === Number(row.AdCollegeId || 0)
     && Number(other.AdSectionId || 0) === owner
     && Number(other.id) !== Number((row as any).id)
-    && String(other.SCode ?? "").trim() !== code
+    && !isPracticeRow(other)
+    && sectionCodeKey(other.SCode) !== code
     && days.some(day => Boolean((other as any)[day]))
     && toMinutes(other.fstarttime) < to && toMinutes(other.fendtime) > from);
 }

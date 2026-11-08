@@ -230,7 +230,39 @@ const updatedAuthorityReport = (r:Row) => r.kind==="route" && r.methods.length==
    Their behaviour is pinned by tests/rooms-one-screen-audit.ts instead of call-text parity. */
 const updatedLocationEdit = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="put"
   && (r.path==="/api/admin/location-setup/buildings/:id" || r.path==="/api/admin/location-registry/rooms/:id");
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : r.call || "-"} ${r.name}`;
+/* One intentional suggestion edit: the co-requisite defers times where every section combination clashes.
+   Its behaviour is pinned by tests/coreq-sections-audit.ts instead of call-text parity. */
+const updatedCoreqSuggest = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post" && r.path==="/api/schedules/suggest-slots";
+/* One intentional payload extension: the co-requisite pairs read also carries the plan peers
+   (levelGroups, unlockGroups) from the same cached plan read. Same path, permission and scope guard;
+   its behaviour is pinned by tests/plan-peers-audit.ts and tests/coreq-sections-audit.ts. */
+const updatedPlanFacts = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="get" && r.path==="/api/schedules/coreq-pairs";
+/* One intentional payload extension on the teacher card checks (owner 2026-11-08): each checked item also carries
+   `peers` (plan-peer course NAMES only, with their relation) and `sameCourse` (another section of the same course
+   overlaps: a soft warning, no longer a block). Same paths, token guard and teacher-safe text; the behaviour is
+   pinned by tests/teacher-card-peers-audit.ts instead of call-text parity. */
+const updatedTeacherCheck = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post"
+  && (r.path==="/api/public/request/:token/check" || r.path==="/api/public/request/:token/check-batch");
+/* One intentional TA-conversion extension: each TA may go to a teacher of the department's own family
+   (the instructor picker's «أساتذة هذا القسم فقط» + «منتدبون هذا الفصل») instead of «هيئة تدريسية».
+   GET adds familyIds/checks (soft clash/load warnings); POST validates targets (400 outside the family).
+   Same paths, permission 7, scope guard, confirm token, preview key, undo version and audit; behaviour
+   is pinned by tests/ta-conversion-audit.ts and tests/ta-conversion-family-http-audit.ts. */
+const updatedTaConversion = (r:Row) => r.kind==="route" && r.methods.length===1 && (r.methods[0]==="get" || r.methods[0]==="post") && r.path==="/api/schedules/ta-conversion";
+/* One intentional change to the study-proposal commit (owner 2026-11-08): the applied rows read the course hours
+   (`courseHoursOf`) so a moved or new lecture is written with the approved pattern end instead of a legacy length
+   that the save gate would refuse. Same path, permission, scope guard, readiness check and write; behaviour is
+   pinned by tests/study-proposal-flow-audit.ts and tests/new-appointment-pattern-end-audit.ts. */
+const updatedProposalCommit = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post" && r.path==="/api/study-proposals/:id/commit";
+/* Teacher card per person (owner decision 2026-11-08): visiting and trainee people are excluded from
+   👁️/✏️ issuing, the recipients list and the delivery faculty list; ✏️ picked sends store per-person
+   offered courses; the teacher card read is shared with the coordinator preview (serveRequestCard) and
+   filters by the offered list; the teacher submit refuses courses outside it. Same paths, permissions and
+   scope guards; behaviour pinned by tests/publish-cards-per-person-audit.ts and tests/publish-pick-teachers-audit.ts. */
+const updatedPersonCards = (r:Row) => r.kind==="route" && r.methods.length===1 && (
+  (r.methods[0]==="post" && (r.path==="/api/instructor-requests/issue" || r.path==="/api/public/request/:token"))
+  || (r.methods[0]==="get" && (r.path==="/api/instructor-requests/recipients" || r.path==="/api/share/:id/faculty" || r.path==="/api/public/request/:token")));
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : updatedPersonCards(r) ? "[person-cards-audited]" : updatedProposalCommit(r) ? "[proposal-commit-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();

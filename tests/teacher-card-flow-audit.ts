@@ -370,7 +370,9 @@ async function main() {
       check(usefulGuidance || noRoomAlternatives, "إرشادُ النمط يظهر عند وجود بدائل قاعة؛ ولا تُختلق بدائل عند غيابها", same.json);
       check(same.json.block === 75, "والطولُ الأصلي ٧٥ دقيقة يُمرَّر للصفحة", same.json.block);
       const later = await http("POST", `/api/public/request/${link}/check`, { itemIndex: at(thursday), rowId: thursday.rowId, action: "change", days: ["fthursday"], start: "15:00", items: asChange(thursday, ["fthursday"], "15:00") });
-      check(later.json.kind === "clear" && later.json.computedEnd === "16:15", "بدايةٌ ١٥:٠٠ في اليوم نفسه: ١٥:٠٠–١٦:١٥ بلا مانع", later.json);
+      /* قرار المالك 2026-11-08: البدايةُ الجديدة تأخذ النهاية من النمط المعتمد لساعات المقرّر ويومه — أقربُ طولٍ معتمد
+         لطوله القديم (75د ← 110د للخميس، لا كتلة 230د)، كما يكتب الخادمُ والسحبُ موعداً منقولاً. */
+      check(later.json.kind === "clear" && later.json.computedEnd === "16:50", "بدايةٌ ١٥:٠٠ في اليوم نفسه: ١٥:٠٠–١٦:٥٠ (طولُ النمط المعتمد) بلا مانع", later.json);
 
       /* ٢) الخريطةُ: مشكلةُ الأيام لا تُلوّن الأوقات كلَّها حمراء. */
       const heatShape = await http("POST", `/api/public/request/${link}/check-times`, { itemIndex: at(monWed), items: asChange(monWed, ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"], "09:30"), starts: ["08:00", "09:00", "10:00"] });

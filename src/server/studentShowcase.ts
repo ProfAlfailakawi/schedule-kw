@@ -24,7 +24,9 @@ import { buildReferenceRules } from "../utils/referenceApply";
 import { referenceCodeKey } from "../utils/curriculumReference";
 import { profileLifetime, unitsOf } from "../utils/studentProfile";
 import { runRegistrationSimulation } from "./simulationData";
+import { DEMO_JAHRA_COLLEGE_NAME, demoTravelPolicyDoc } from "../db/demoShowcase";
 import { codeVersion, doorCookie, signDoorSession, clearDoorCookie, readCookie } from "./studentDoor";
+import { UNIVERSITY_UNIT_CAP_DOC, studentUnitCapOf } from "../utils/studentUnitCap";
 
 export const SHOWCASE_COOKIE = "sh_demo_stu";
 const TTL_MS = 2 * 60 * 60_000;
@@ -53,6 +55,10 @@ const DEMO_MEETINGS: ReadonlyArray<readonly [number, number, string, string]> = 
 const PASSED = ["0109105", "0109108", "0109121", "0109122", "0109123", "0102114", "0102115", "0101102", "0103105", "0103116", "0130099", "0130161", "0102101", "0106101", "0109220", "0109221"];
 export const SHOWCASE_STUDENT_NAME = "سارة محمد العتيبي";
 
+/** القسمُ الذي يُدرَّس مقرره في الجهراء: يلي مقرراً رئيسياً بنصف ساعةٍ فيظهر تلميح التنقّل (سياسةٌ تجريبية ستون دقيقة). */
+const JAHRA_DEPT = "10";
+const JAHRA_COLLEGE_ID = 2;
+
 const dayAdd = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 /** حالةُ الصندوق (خالصة): أقسامٌ ومقرراتٌ وصحائفٌ وقواعدُ معتمدة وشعبٌ وفصلٌ بباب رغبات مفتوح. */
@@ -61,7 +67,7 @@ export function buildShowcaseSeed(todayISO: string) {
   if (!ref) throw new Error("الصحيفة المرجعية لقسم تكنولوجيا التعليم غير موجودة");
   const sections: any[] = [], sid = new Map<string, number>();
   const sectionOf = (dept: string) => {
-    if (!sid.has(dept)) { const id = 100 + sid.size; sid.set(dept, id); sections.push({ AdSectionId: id, AdCollegeId: 1, AdSectionCode: dept, AdSectionName: `قسم ${DEPT[dept] || dept}` }); }
+    if (!sid.has(dept)) { const id = 100 + sid.size; sid.set(dept, id); sections.push({ AdSectionId: id, AdCollegeId: dept === JAHRA_DEPT ? JAHRA_COLLEGE_ID : 1, AdSectionCode: dept, AdSectionName: `قسم ${DEPT[dept] || dept}` }); }
     return sid.get(dept)!;
   };
   const tech = sectionOf("09");
@@ -72,7 +78,8 @@ export function buildShowcaseSeed(todayISO: string) {
     seen.add(c.code);
     const id = next++;
     idByCode.set(referenceCodeKey(c.code), id);
-    courses.push({ AdCourseId: id, AdCollegeId: 1, AdSectionId: sectionOf(c.code.slice(2, 4)), CourseCode: c.code, CourseName: c.name, CourseCredit: c.credit, CourseHours: c.hours, MaxStudent: 40 });
+    const dept = c.code.slice(2, 4);
+    courses.push({ AdCourseId: id, AdCollegeId: dept === JAHRA_DEPT ? JAHRA_COLLEGE_ID : 1, AdSectionId: sectionOf(dept), CourseCode: c.code, CourseName: c.name, CourseCredit: c.credit, CourseHours: c.hours, MaxStudent: 40 });
   }
   const own = courses.filter(c => c.AdSectionId === tech);
   const schedules: any[] = [];
@@ -84,7 +91,7 @@ export function buildShowcaseSeed(todayISO: string) {
     for (let variant = 0; variant < 2; variant++) {
       const [firstDay, secondDay, start, end] = DEMO_MEETINGS[(position + variant * 4) % DEMO_MEETINGS.length];
       schedules.push({
-        id: row++, AdCollegeId: 1, AdSectionId: c.AdSectionId, AdTermId: 1,
+        id: row++, AdCollegeId: c.AdCollegeId, AdSectionId: c.AdSectionId, AdTermId: 1,
         AdCourseId: c.AdCourseId, AdCourseName: c.CourseName, SCode: String(variant + 1).padStart(2, "0"),
         AdInstructorId: 1, AdRoomCode: "", AdRoomHall: "",
         fsunday: firstDay === 0 || secondDay === 0,
@@ -97,8 +104,9 @@ export function buildShowcaseSeed(todayISO: string) {
     }
   }
   const stamp = new Date(`${todayISO}T00:00:00Z`).toISOString();
+  const collegeOfSection = (sectionId: number) => Number(sections.find(item => item.AdSectionId === sectionId)?.AdCollegeId || 1);
   const approved = (planId: string, sectionId: number, built: { rules: any; groups: any }, externals?: number[]) =>
-    ({ id: planId, planId, AdCollegeId: 1, AdSectionId: sectionId, version: 1, approvedAt: stamp, approvedBy: "demo", rules: built.rules, groups: built.groups, ...(externals ? { externals } : {}) });
+    ({ id: planId, planId, AdCollegeId: collegeOfSection(sectionId), AdSectionId: sectionId, version: 1, approvedAt: stamp, approvedBy: "demo", rules: built.rules, groups: built.groups, ...(externals ? { externals } : {}) });
   const ruleSets: any[] = [];
   const memberOwn = new Map(own.map(c => [referenceCodeKey(c.CourseCode), c.AdCourseId] as const));
   const planId = "tech-new";
@@ -114,14 +122,17 @@ export function buildShowcaseSeed(todayISO: string) {
     state: {
       terms: [{ AdTermId: 1, AdTermName: "الفصل الأول 2026/2027", AdTermStart: dayAdd(todayISO, 30), AdTermWeeks: 14, AdTermClosed: false,
         AdTermStudentPhases: { wishesOpen: dayAdd(todayISO, -3), wishesClose: dayAdd(todayISO, 12), rounds: [{ id: "r1", name: "مبكر", start: dayAdd(todayISO, 16), end: dayAdd(todayISO, 22) }, { id: "r2", name: "عادي", start: dayAdd(todayISO, 23), end: dayAdd(todayISO, 30) }] } }],
-      colleges: [{ AdCollegeId: 1, AdCollegeCode: "01", AdCollegeName: "كلية التربية الأساسية" }], sections,
+      colleges: [{ AdCollegeId: 1, AdCollegeCode: "01", AdCollegeName: "كلية التربية الأساسية" },
+        { AdCollegeId: JAHRA_COLLEGE_ID, AdCollegeCode: "02", AdCollegeName: DEMO_JAHRA_COLLEGE_NAME }], sections,
+      /* سياسة التنقّل التجريبية: ستون دقيقةً للأزواج الثلاثة (وإلا فالأصلُ ثلاثون فلا يضيق فاصلُ النصف ساعة). */
+      featureDocs: { campusTravelPolicy: { global: demoTravelPolicyDoc() } },
       instructors: [{ AdInstructorId: 1, AdInstructorName: "د. أحمد", AdInstructorCivil: "", AdInstructorMobile: "" }],
       courses, schedules,
       /* اعتمادٌ افتراضي داخل صندوق الزيارة فقط: يتيح عرض الأوقات والشعب للتوضيح.
          لا يكتب توقيعاً حقيقياً ولا يغيّر حالة جدول قسمٍ في النظام. */
       scheduleApprovals: [...new Set(schedules.map(row => Number(row.AdSectionId)))].map(sectionId => ({
-        id: `1:${sectionId}:1`, scopeKey: `1:${sectionId}:1`,
-        AdCollegeId: 1, AdSectionId: sectionId, AdTermId: 1, status: "head",
+        id: `${collegeOfSection(sectionId)}:${sectionId}:1`, scopeKey: `${collegeOfSection(sectionId)}:${sectionId}:1`,
+        AdCollegeId: collegeOfSection(sectionId), AdSectionId: sectionId, AdTermId: 1, status: "head",
         signatures: [], rounds: [], currentRound: 1, pendingAdditions: [], updatedAt: stamp,
       })),
       curriculumPlans: [{ id: planId, AdCollegeId: 1, AdSectionId: tech, name: "خطة 2026/2027", status: "active", createdAt: "2026-02-01" }],
@@ -171,6 +182,14 @@ export function registerStudentShowcase(app: Express, deps: ShowcaseDeps): void 
       const id = `demo_stu_${randomUUID()}`;
       const today = new Date(Date.now() + 3 * 3_600_000).toISOString().slice(0, 10);
       const { state, profile } = buildShowcaseSeed(today);
+      /* سقفُ مساري الذي وضعه زائرُ البيئة التجريبية في جلسته («البيانات الأكاديمية» ← الفصول)
+         يصحبه إلى الطالب التجريبي؛ ولا يُقرأ شيءٌ من الحقيقي. */
+      const staffSandbox = readCookie(req.headers.cookie, "session_id") || "";
+      const capDoc = staffSandbox.startsWith("demo_") && !staffSandbox.startsWith("demo_stu_")
+        ? await Repository.withDemoSandbox(staffSandbox, () => Repository.getFeatureDoc(UNIVERSITY_UNIT_CAP_DOC.collection, UNIVERSITY_UNIT_CAP_DOC.id)).catch(() => null)
+        : null;
+      const unitCap = studentUnitCapOf((capDoc as { maxUnits?: number } | null)?.maxUnits);
+      if (capDoc) (state as any).featureDocs = { ...(state as any).featureDocs, [UNIVERSITY_UNIT_CAP_DOC.collection]: { [UNIVERSITY_UNIT_CAP_DOC.id]: capDoc } };
       Repository.createShowcaseSandbox(id, TTL_MS, state);
       live.push({ id, at: Date.now() });
       const fingerprint = `demo-${randomUUID()}`;
@@ -188,7 +207,7 @@ export function registerStudentShowcase(app: Express, deps: ShowcaseDeps): void 
           id: fingerprint, fingerprint, ...profile,
           /* رغباتٌ تجريبية كي تظهر تذكرةٌ حقيقية البنية بخططها الثلاث في «مساري»،
              من دون تشغيل الرادار أو إنشاء أي سجل خارج صندوق هذه الزيارة. */
-          wishes: { termId: 1, targetUnits: 15, courseIds: sampleWishes, constraints: {}, updatedAt: iso },
+          wishes: { termId: 1, targetUnits: unitCap, courseIds: sampleWishes, constraints: {}, updatedAt: iso },
           codeHash, codeSalt: "demo", nameCipher, civilCipher, updatedAt: iso, ...base, ...profileLifetime(base, new Date()),
         } as any));
         const term = (await Repository.getTerms() as any[]).find(row => Number(row.AdTermId) === 1);
