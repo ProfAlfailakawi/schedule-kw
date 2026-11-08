@@ -15,6 +15,8 @@ function meetingMinutes(days,patterns,own){
   if(days.length===1)return list.some(function(p){return p.days.length===1?p.minutes[0]===m:(p.days.indexOf(days[0])>=0&&p.minutes[p.days.indexOf(days[0])]===m)});
   return list.some(function(p){return same(days,p.days)&&days.every(function(d){return p.minutes[p.days.indexOf(d)]===m})})};
  if(own&&own.minutes>0&&own.days&&own.days.length&&(same(days,own.days)||(days.length===1&&own.days.length===1))&&allowed(own.minutes))return days.map(function(){return own.minutes});
+ if(own&&own.minutes>0&&days.length===1&&own.days&&own.days.length===1&&list.length){var ls=[];list.forEach(function(p){var v=p.days.length===1?p.minutes[0]:(p.days.indexOf(days[0])>=0?p.minutes[p.days.indexOf(days[0])]:null);if(v!=null&&ls.indexOf(v)<0)ls.push(v)});
+  if(ls.length){ls.sort(function(a,b){return Math.abs(a-own.minutes)-Math.abs(b-own.minutes)||a-b});return [ls[0]]}}
  for(var k=0;k<list.length;k++){var p=list[k];
   if(days.length===1&&p.days.length===1)return [p.minutes[0]];
   if(p.days.length===days.length&&same(days,p.days))return days.map(function(d){return p.minutes[p.days.indexOf(d)]});

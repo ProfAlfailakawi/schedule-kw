@@ -57,6 +57,13 @@ export function meetingMinutes(days: readonly DayKey[], patterns: readonly Lengt
   if (!days.length) return [];
   if (own && own.minutes > 0 && own.days.length && (sameDays(days, own.days) || (days.length === 1 && own.days.length === 1)) && ownLengthAllowed(days, patterns, own.minutes))
     return days.map(() => own.minutes);
+  /* نقلُ لقاءٍ قائمٍ بيومٍ واحد إلى يومٍ واحد بطولٍ خارج المكتبة (خميس 75د): أقربُ طولٍ معتمد لذلك اليوم (110 لا كتلة 230) —
+     القاعدةُ نفسُها التي يكتب بها الخادمُ والسحبُ موعداً منقولاً (regulationEnd بـ nearest). */
+  if (own && own.minutes > 0 && days.length === 1 && own.days.length === 1 && patterns.length) {
+    const lengths = [...new Set(patterns.flatMap(pattern => pattern.days.length === 1 ? [pattern.minutes[0]]
+      : pattern.days.includes(days[0]) ? [pattern.minutes[pattern.days.indexOf(days[0])]] : []))];
+    if (lengths.length) return [lengths.sort((a, b) => Math.abs(a - own.minutes) - Math.abs(b - own.minutes) || a - b)[0]];
+  }
   for (const pattern of patterns) {
     if (days.length === 1 && pattern.days.length === 1) return [pattern.minutes[0]];
     if (pattern.days.length === days.length && sameDays(days, pattern.days))

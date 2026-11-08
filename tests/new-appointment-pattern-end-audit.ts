@@ -125,6 +125,12 @@ check(regulationEnd(three, ["fthursday"], "18:00", 75, true) === "18:50" && regu
 check(regulationEnd(three, ["fmonday"], "08:00", 30) === "10:50", "N8 والنموذج (بلا nearest) يبقى على الكتلة: «اثنين · 170د» ← 10:50");
 check(await fitPatternEnd({ ...scope, fsunday: false, fmonday: false, ftuesday: false, fwednesday: false, fthursday: true, fstarttime: "18:00", fendtime: "19:15" }) === "18:50", "N8 الخادم: اعتمادُ نقلٍ إلى الخميس 18:00 يكتب 18:50");
 check(await fitPatternEnd({ ...scope, fsunday: false, fmonday: true, ftuesday: false, fwednesday: true, fthursday: false, fstarttime: "09:30", fendtime: "10:45" }) === "10:50", "N8 الخادم: اثنين·أربعاء 75د ← 80د");
+/* N9 — كرت الأستاذ: نقلُ لقاء الخميس 75د لمقرّر أربع ساعات إلى 15:00 ← أقربُ طولٍ معتمد (110د: 16:50) لا الكتلة 230د، والصفحةُ مثله. */
+const thu75 = { days: ["fthursday"] as any, minutes: 75, start: "14:00" };
+const p4 = lengthPatternsForHours(4);
+check(meetingSlots(["fthursday"], "15:00", p4, thu75)[0].end === "16:50", "N9 كرت الأستاذ: الخميس 15:00 ← 16:50 (110د)");
+check(pageFns.meetingSlots(["fthursday"], "15:00", p4.map(p => ({ days: p.days, minutes: p.minutes })), thu75)[0].end === "16:50", "N9 وصفحةُ الأستاذ تحسب 16:50 نفسها");
+check(meetingSlots(["fthursday"], "14:00", p4, thu75)[0].end === "15:15", "N9 والبدايةُ نفسها (لم يتغيّر الشكل) تُبقي 75د");
 const schedulesSrc = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 const proposalSrc = fs.readFileSync("src/server/studyProposalEngine.ts", "utf8");
 const writesSrc = fs.readFileSync("src/server/core/scheduleWrites.ts", "utf8");
