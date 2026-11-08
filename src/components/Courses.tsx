@@ -85,12 +85,14 @@ function CapacityByMode({ sections, onDone }: { sections: any[]; onDone: () => v
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const run = async (apply: boolean) => {
+    /* التطبيق يُرسل ما عُرضت معاينتُه حرفاً، لا ما في الخانات الآن: ما لم يُعاين لا يُكتب. */
+    const inputs = apply && plan?.request ? plan.request : { sectionName, caps };
     setBusy(true); setMessage(null);
     try {
-      const response = await fetch("/api/admin/courses/capacity-by-mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionName, caps, apply }) });
+      const response = await fetch("/api/admin/courses/capacity-by-mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...inputs, apply }) });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) { setMessage({ ok: false, text: body.error || "تعذّر الحساب." }); return; }
-      setPlan(apply ? null : body);
+      setPlan(apply ? null : { ...body, request: inputs });
       if (apply) { setMessage({ ok: true, text: `تم تعديل ${countOf(body.written, AR.course)}.` }); onDone(); }
     } catch { setMessage({ ok: false, text: "تعذّر الاتصال." }); } finally { setBusy(false); }
   };
@@ -98,13 +100,13 @@ function CapacityByMode({ sections, onDone }: { sections: any[]; onDone: () => v
   return <details className="capacity-by-mode">
     <summary data-guide-ignore="فتح أداة السعة حسب طبيعة المقرر"><GraduationCap aria-hidden="true" />السعة حسب طبيعة المقرر</summary>
     <div className="capacity-by-mode-body">
-      <select aria-label="القسم العلمي" value={sectionName} data-guide-ignore="اختيار القسم الذي تُضبط سعات مقرراته" onChange={event => { setSectionName(event.target.value); setPlan(null); setMessage(null); }}>
+      <select aria-label="القسم العلمي" value={sectionName} disabled={busy} data-guide-ignore="اختيار القسم الذي تُضبط سعات مقرراته" onChange={event => { setSectionName(event.target.value); setPlan(null); setMessage(null); }}>
         <option value="">اختر القسم (كل حُرُمه)</option>
         {names.map(name => <option key={name} value={name}>{name}</option>)}
       </select>
       <div className="capacity-by-mode-caps">
         {CAPACITY_MODE_ROWS.map(([key, label]) => <label key={key}><span>{label}</span>
-          <input type="number" inputMode="numeric" min={1} max={200} value={caps[key]} data-guide-ignore="سعة هذه الطبيعة" onChange={event => { setCaps(current => ({ ...current, [key]: event.target.value })); setPlan(null); }} /></label>)}
+          <input type="number" inputMode="numeric" min={1} max={200} value={caps[key]} disabled={busy} data-guide-ignore="سعة هذه الطبيعة" onChange={event => { setCaps(current => ({ ...current, [key]: event.target.value })); setPlan(null); }} /></label>)}
       </div>
       <button type="button" className="capacity-by-mode-go" disabled={busy || !sectionName} data-guide-ignore="معاينة الأثر دون كتابة شيء" onClick={() => void run(false)}>معاينة</button>
       {plan ? <div className="capacity-by-mode-plan" role="status">
