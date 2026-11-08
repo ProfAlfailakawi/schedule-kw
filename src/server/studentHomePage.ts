@@ -523,6 +523,8 @@ var S={state:null,view:"boot",civil:"",exists:false,resetPending:false,resetAt:"
 function defaultUnits(){var s=S.state,w=s&&s.profile&&s.profile.wishes,u=w&&s.term&&w.termId===s.term.id?Number(w.targetUnits):Math.round(lim("termUnits",13.5));var lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);return Math.max(lo,Math.min(hi,u||lo))}
 function termsLeft(remaining){return remaining>0?whatIf(remaining,defaultUnits(),false).regular:0}
 function lim(k,d){var l=S.state&&S.state.limits;return l&&typeof l[k]==="number"?l[k]:d}
+/* وحداتٌ في حدود الخادم (السقف الجامعي): الغائبُ أعلى المسموح، وما خرج يُقصّ. */
+function fitUnits(u){var lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);return Math.max(lo,Math.min(hi,Math.round(Number(u))||hi))}
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function digits(v){return String(v||"").replace(/[٠-٩]/g,function(d){return String("٠١٢٣٤٥٦٧٨٩".indexOf(d))}).replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))}).replace(/\D/g,"")}
 function civilValid(v){v=String(v||"");if(!/^\d{12}$/.test(v))return false;var w=[2,1,6,3,7,9,10,5,8,4,2],sum=0;for(var i=0;i<11;i++)sum+=Number(v.charAt(i))*w[i];return 11-(sum%11)===Number(v.charAt(11))}
@@ -1011,7 +1013,7 @@ function tkPoolSheet(cur,replaceId){
       options:p.offerings.map(function(o){return{offeringId:o.offeringId,section:o.section,slots:o.slots,tight:false}})})}
     S.tkSel=p.courseId;S.tkErr="";closeSheet();paintTicket(document.getElementById("ticket"))})})}
 function tkSaveWishes(cur,btn){var items=tkItems(cur),w=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null;
-  var units=w?w.targetUnits:15;btn.disabled=true;
+  var units=fitUnits(w&&w.targetUnits);btn.disabled=true;
   api("PUT","/api/public/me/wishes",{targetUnits:units,courseIds:items.map(function(i){return Number(i.courseId)}).slice(0,12),constraints:w?w.constraints:{}}).then(function(r){btn.disabled=false;
     if(!r.ok){toast(r.d.error||"تعذّر الحفظ",true);return}S.state.profile.wishes=r.d.wishes;S.wDraft=null;S.wCount=null;toast("سُجّلت رغباتك — يتحدّث جدولك المقترح في التحديث القادم");renderWishes()})}
 function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||{};S.tkRemoved=S.tkRemoved||{};S.tkAdded=S.tkAdded||{};
@@ -1184,14 +1186,14 @@ function loadPlan(){var host=document.getElementById("advice");if(!host)return;
     var kt=document.getElementById("kt"),ks=document.getElementById("kts");
     if(a&&kt&&a.done){kt.textContent="✓";ks.textContent="أكملت الصحيفة"}
     var b=document.getElementById("advw");if(b&&a)b.addEventListener("click",function(){b.disabled=true;var w=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null;
-      api("PUT","/api/public/me/wishes",{targetUnits:Math.max(lim("wishUnitsMin",12),Math.min(lim("wishUnitsMax",15),a.units||15)),courseIds:a.picks.map(function(p){return p.courseId}),constraints:w?w.constraints:{}}).then(function(x){b.disabled=false;
+      api("PUT","/api/public/me/wishes",{targetUnits:fitUnits(a.units),courseIds:a.picks.map(function(p){return p.courseId}),constraints:w?w.constraints:{}}).then(function(x){b.disabled=false;
         if(!x.ok){toast(x.d.error||"تعذّر الحفظ",true);return}S.state.profile.wishes=x.d.wishes;S.wDraft=null;S.wCount=null;S.wEdit=false;toast("صارت رغباتك");renderWishes()})});
     if(S.state.phase.mode==="wishes")renderWishes()})}
 ${STUDENT_MAP_SCRIPT}
 /* ── الرغبات: ثلاث بطاقاتٍ تمرّرها (كم وحدة ← ما لا يناسبك ← مقررات بعينها) ثم «وصلت» وعدّادُ زملائك. ── */
 function wishState(){if(S.wDraft)return S.wDraft;var s=S.state,w=s.profile.wishes;if(w&&s.term&&w.termId!==s.term.id)w=null;
-  var cur=w||{targetUnits:15,courseIds:[],constraints:{}};
-  S.wDraft={targetUnits:cur.targetUnits,courseIds:cur.courseIds.slice(),constraints:{noMorning:!!cur.constraints.noMorning,noAfternoon:!!cur.constraints.noAfternoon,freeDay:!!cur.constraints.freeDay}};return S.wDraft}
+  var cur=w||{courseIds:[],constraints:{}};
+  S.wDraft={targetUnits:fitUnits(cur.targetUnits),courseIds:cur.courseIds.slice(),constraints:{noMorning:!!cur.constraints.noMorning,noAfternoon:!!cur.constraints.noAfternoon,freeDay:!!cur.constraints.freeDay}};return S.wDraft}
 /* «مقرر بعينه · مقرران بعينهما · ٣ مقررات بعينها · ١١ مقرراً بعينه»: المطابقةُ في العدد والجنس. */
 function chosenCourses(n){return n===1?"مقرر بعينه":n===2?"مقرران بعينهما":countOf(n,AR.course)+(n<=10?" بعينها":" بعينه")}
 function wishChips(w){var h='<span class="chip ok">'+countOf(w.targetUnits,AR.unit)+'</span>';

@@ -399,13 +399,13 @@ function kmBarUpdate(){var bar=document.getElementById("kbar");if(!bar)return;va
   var ap=document.querySelector(".app");if(!kmCanWish()||!ids.length||S.tab!=="plan"||S.view!=="home"){bar.hidden=true;if(ap)ap.classList.remove("km-bar");return}
   if(ap)ap.classList.add("km-bar");
   bar.hidden=false;/* الحدّ من 12 إلى 15 وحدة: المقياس 0–15، والعلامة عند 12؛ من بلغ 12 فقد أتمّ الحدّ (ممتاز) ولا يُطلب منه المزيد. */
-  var wish=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null,target=wish?wish.targetUnits:15;
+  var wish=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null,target=fitUnits(wish&&wish.targetUnits);
   var pct=Math.min(100,u/15*100),st=u<12?'low':(u>15?'over':'ok'),msg=st==='low'?'ينقصك '+countOf(12-u,AR.unit)+' لتبلغ الحدّ الأدنى (12)':(st==='over'?'فوق 15 وحدة — سيُعدّ حملُك 15':'ممتاز ✓ ضمن الحدّ (12 إلى 15)');
   bar.innerHTML='<div class="kb-m"><b>اختيارك للتخطيط · '+countOf(ids.length,AR.course)+' · '+countOf(u,AR.unit)+'</b><div class="kb-meter '+st+'" aria-hidden="true"><i style="inline-size:'+pct+'%"></i><span></span></div><small class="'+(st==='ok'?'ok':'')+'">'+msg+'</small><small class="goal">هدف رغباتك: '+countOf(target,AR.unit)+' · لا يُحفظ الاختيار إلا عند الضغط</small></div><button type="button" class="btn" id="kbsend">'+ic("heart")+' أضفها إلى رغباتي</button>';
   document.getElementById("kbsend").addEventListener("click",kmSendWishes)}
 function kmSendWishes(){var b=document.getElementById("kbsend");if(!b||b.disabled)return;var ids=kmCartIds(),w=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null;
   b.disabled=true;
-  api("PUT","/api/public/me/wishes",{targetUnits:w?w.targetUnits:15,courseIds:ids.slice(0,12),constraints:w?w.constraints:{}}).then(function(r){b.disabled=false;
+  api("PUT","/api/public/me/wishes",{targetUnits:fitUnits(w&&w.targetUnits),courseIds:ids.slice(0,12),constraints:w?w.constraints:{}}).then(function(r){b.disabled=false;
     if(!r.ok){toast(r.d.error||"تعذّر الحفظ",true);return}
     S.state.profile.wishes=r.d.wishes;S.wDraft=null;S.wCount=null;S.wEdit=false;toast("صارت رغباتك");if(typeof renderWishes==="function")renderWishes()})}
 function kmToggleCart(id){if(!kmCanWish())return;var c=KM.x.byId[id];if(!c||KM.x.isPassed(id)||!kmOff(id))return;
