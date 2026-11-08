@@ -238,6 +238,7 @@
     "test:changes": "tsx tests/schedule-changes-audit.ts",
     "test:authority-identity": "tsx tests/authority-identity-reconciliation-audit.ts && tsx tests/authority-diff-cell-audit.ts",
     "test:authority-net-diff": "tsx tests/authority-net-diff-audit.ts",
+    "test:authority-recreated-section": "tsx tests/authority-recreated-section-audit.ts",
     "test:course-number-seven-digit": "tsx tests/course-number-seven-digit-audit.ts",
     "test:report-stamp": "tsx tests/report-stamp-audit.ts",
     "test:report-print-menus": "tsx tests/report-print-menus-audit.ts",

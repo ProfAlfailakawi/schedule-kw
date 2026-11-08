@@ -285,8 +285,8 @@ assert.equal(matchAuthorityThroughPublication([strongReplacements[1].source],[],
   [{...strongReplacements[1].current,AdInstructorId:999}],reviewedCourseCodes).size,0,
   "Different professor invalidates a less-certain edited-time link");
 assert.equal(matchAuthorityThroughPublication([strongReplacements[2].source],[],
-  [{...strongReplacements[2].current,AdRoomHall:"F15"}],reviewedCourseCodes).size,0,
-  "A second unexpected change must not be silently approved");
+  [{...strongReplacements[2].current,AdRoomHall:"F15"}],reviewedCourseCodes).size,1,
+  "الشعبة نفسها (المقرر ورقم الشعبة والموقع) تبقى هي هي مهما تعدّلت خاناتها: تعديلٌ لا حذفٌ وإضافة، وتظهر خاناتها المتغيرة وحدها");
 assert.equal(matchAuthorityThroughPublication([strongReplacements[0].source],[],
   [strongReplacements[0].current,{...strongReplacements[0].current,id:9876}],reviewedCourseCodes).size,0,
   "Two indistinguishable candidates must remain unpaired");

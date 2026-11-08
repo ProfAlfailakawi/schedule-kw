@@ -475,7 +475,7 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
           before:diffFieldValue(entry.source,field,names),after:diffFieldValue(entry.current,field,names),
         }))
         :[];
-      return [{kind,scheduleId:Number(row.id),row,changes}];
+      return [{kind,scheduleId:Number(row.id),row,changes,referenceNumber:String(entry.source?.referenceNumber||row.referenceNumber||"")}];
     });
     diff={
       entries,
@@ -528,6 +528,7 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
     courseCode: courseCodeById.get(Number(row.AdCourseId)) || "",
     course: names.courseById.get(Number(row.AdCourseId)) || String(row.AdCourseName || `موعد ${row.id}`),
     sectionCode: String(row.SCode || "—"),
+    referenceNumber: String(row.referenceNumber || ""),
     time: diffFieldValue(row, "time", names),
     days: namedDays(row) || "بدون أيام",
     room: diffFieldValue(row, "room", names),
@@ -539,7 +540,7 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
   const diffForClient = {
     ...diff,
     entries: diff.entries
-      .map(entry => ({ ...entry, display: asDisplayRow(entry.row) }))
+      .map(entry => ({ ...entry, display: { ...asDisplayRow(entry.row), referenceNumber: String((entry as any).referenceNumber || (entry.row as any)?.referenceNumber || "") } }))
       .sort((a, b) =>
         (a.display.dayOrder ?? 99) - (b.display.dayOrder ?? 99)
         || (a.display.startMinutes ?? 99999) - (b.display.startMinutes ?? 99999)
