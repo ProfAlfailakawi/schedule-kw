@@ -808,12 +808,15 @@
 .pr-issues-fold>summary em{font-style:normal;font-size:.8em;padding:1px 8px;border-radius:999px;background:var(--brass-soft);color:var(--ink)}
 .pr-issues-fold[open]>.pr-issueboard{margin:0 10px 10px}
 
-.unit-cap-field{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-block-end:var(--s3);padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);font-size:.84rem}
-.unit-cap-field>span{display:inline-flex;align-items:center;gap:6px;margin-inline-end:auto;font-weight:700}
-.unit-cap-field>span svg{inline-size:16px;block-size:16px;color:var(--accent)}
-.unit-cap-field button{min-inline-size:44px;min-block-size:38px;border:1px solid var(--line);border-radius:var(--r-full);background:transparent;font:inherit;font-weight:700;cursor:pointer}
-.unit-cap-field button.on{border-color:var(--accent);background:var(--accent-softer);color:var(--accent-ink)}
-.unit-cap-field small{flex-basis:100%;color:var(--danger)}
+.unit-cap-setting{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-block-end:var(--s3);padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);font-size:.84rem}
+.unit-cap-setting>label{display:inline-flex;align-items:center;gap:6px;font-weight:700}
+.unit-cap-setting>label svg{inline-size:16px;block-size:16px;color:var(--accent)}
+.unit-cap-setting input{inline-size:4.5em;min-block-size:38px;padding:0 8px;border:1px solid var(--line);border-radius:var(--r-md);background:transparent;font:inherit;font-weight:700;text-align:center}
+.unit-cap-setting input[aria-invalid="true"]{border-color:var(--danger)}
+.unit-cap-setting button{min-inline-size:56px;min-block-size:38px;border:1px solid var(--accent);border-radius:var(--r-full);background:var(--accent-softer);color:var(--accent-ink);font:inherit;font-weight:700;cursor:pointer}
+.unit-cap-setting button:disabled{opacity:.45;cursor:default}
+.unit-cap-setting small{color:var(--muted)}
+.unit-cap-setting small.bad{color:var(--danger)}
 
 .travel-policy summary{display:flex;align-items:center;gap:7px;font-weight:700;cursor:pointer}
 .travel-policy summary svg{inline-size:16px;block-size:16px;color:var(--brass)}

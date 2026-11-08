@@ -110,7 +110,7 @@ export default function AcademicConsole({
   hasPerm: (id: number) => boolean;
   scopes?: ScopeAssignmentLike[];
   isAdmin?: boolean;
-  /** المدير الرئيسي: استثناءُ نصاب العضو من شاشة الأساتذة. */
+  /** المدير الرئيسي: استثناءُ نصاب العضو من شاشة الأساتذة، وسقفُ وحدات مساري في الفصول. */
   rootAdmin?: boolean;
   demoReadOnly?: boolean;
 }) {
@@ -159,7 +159,7 @@ export default function AcademicConsole({
         <div className="console-action-slot no-print" ref={setActionSlot} />
       </div>
       <Suspense fallback={<CatalogSkeleton />}>
-        {active === "terms" ? <Terms embedded actionSlot={actionSlot} /> : null}
+        {active === "terms" ? <Terms embedded actionSlot={actionSlot} rootAdmin={rootAdmin} /> : null}
         {active === "colleges" ? <Colleges embedded actionSlot={actionSlot} /> : null}
         {active === "sections" ? <Sections embedded actionSlot={actionSlot} /> : null}
         {active === "instructors" ? <Instructors embedded actionSlot={actionSlot} loadAdmin={rootAdmin} demoReadOnly={demoReadOnly} /> : null}

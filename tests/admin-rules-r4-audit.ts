@@ -4,7 +4,7 @@
 import fs from "fs";
 import { actorMaySign } from "../src/utils/seats";
 import { cleanTravelPolicy, defaultTravelPolicy, travelRuleFor } from "../src/utils/campusTravelPolicy";
-import { studentUnitCapOf } from "../src/utils/studentUnitCap";
+import { DEFAULT_STUDENT_UNIT_CAP, STUDENT_UNIT_CAP_MAX, STUDENT_UNIT_CAP_MIN, UNIVERSITY_UNIT_CAP_DOC, studentUnitCapOf, studentUnitCapProblem } from "../src/utils/studentUnitCap";
 import { adviseStudent } from "../src/utils/studentAdvice";
 import { cleanSectionRoomTypes, roomTypeIn } from "../src/utils/roomTypeForSection";
 import { roomSuitability } from "../src/utils/roomSuitability";
@@ -36,14 +36,27 @@ check(/severity: "warning", soft: true/.test(read("src/server/core/scheduleConfl
 check(/"\/campus-travel-policy"/.test(read("src/server/roleGuard.ts")), "حارس الأدوار يسمح للمسجّل العام");
 
 /* 14 */
-check(studentUnitCapOf(21) === 21 && studentUnitCapOf(18) === 18 && studentUnitCapOf(undefined) === 15 && studentUnitCapOf(30) === 15, "خيارات السقف");
+/* 14 — قرار المالك 2026-11-08: السقف إعدادٌ واحدٌ للجامعة يضعه المدير الرئيسي في «البيانات الأكاديمية». */
+check(DEFAULT_STUDENT_UNIT_CAP === 15 && STUDENT_UNIT_CAP_MIN === 3 && STUDENT_UNIT_CAP_MAX === 30, "الغائب ١٥ والمدى ٣–٣٠");
+check(studentUnitCapOf(21) === 21 && studentUnitCapOf(16) === 16 && studentUnitCapOf(undefined) === 15 && studentUnitCapOf(31) === 15 && studentUnitCapOf(2) === 15 && studentUnitCapOf(17.5) === 15, "قراءة السقف");
+check(studentUnitCapProblem(3) === null && studentUnitCapProblem(30) === null && studentUnitCapProblem(15) === null, "الحدود مقبولة");
+check([2, 31, 0, -5, 12.5, "x", null, undefined, true].every(value => studentUnitCapProblem(value) !== null), "خارج الحدود أو غير الصحيح مرفوض");
+const reference = read("src/server/routes/referenceRoutes.ts"), door = read("src/server/studentDoorRoutes.ts");
+check(/app\.put\("\/api\/student-unit-cap",requireAuth,requireRootAdmin,/.test(reference), "الحفظ للمدير الرئيسي وحده");
+check(/app\.get\("\/api\/student-unit-cap",requireAuth,requireRootAdmin,/.test(reference), "القراءة في الإدارة للمدير الرئيسي وحده");
+check(!/section-student-settings/.test(reference), "لا مسار لسقف القسم");
+check(/studentUnitCapProblem\(/.test(reference) && /auditChanges/.test(reference.slice(reference.indexOf('"/api/student-unit-cap"'))), "الخادم يتحقق من الحدود ويكتب في سجل التدقيق");
+check(UNIVERSITY_UNIT_CAP_DOC.collection === "universityStudentSettings" && !/sectionStudentSettings/.test(door) && /UNIVERSITY_UNIT_CAP_DOC/.test(door), "مساري يقرأ السقف الجامعي ويتجاهل سقف القسم");
+check(!fs.existsSync("src/components/StudentUnitCapField.tsx") && !/StudentUnitCap|unit-cap-field/.test(read("src/components/ScheduleTransfer.tsx")), "لا أداة للسقف في «تخطيط الشعب»");
+check(/StudentUnitCapSetting/.test(read("src/components/Terms.tsx")) && /rootAdmin/.test(read("src/components/Terms.tsx")), "الأداة في «البيانات الأكاديمية» ← الفصول، للمدير الرئيسي");
 const advice = (maxUnits?: number) => adviseStudent({
   planCourseIds: [1, 2, 3, 4, 5, 6, 7], passed: [], passedUnits: 0, rules: [], groups: [],
   credit: new Map([1, 2, 3, 4, 5, 6, 7].map(id => [id, 3])), name: id => `م${id}`, code: id => String(id), offered: () => true, targetUnits: 21, maxUnits,
 });
 check(advice().target === 15, "بلا سقف يبقى ١٥");
-check(advice(21).target === 21, "سقف القسم يرفع الاقتراح");
-check(/units > unitCap/.test(read("src/server/studentDoorRoutes.ts")), "الحفظ يقرأ سقف القسم");
+check(advice(21).target === 21, "سقف الجامعة يرفع الاقتراح");
+check(advice(9).target === 9, "سقفٌ دون ١٢ لا يُرفع إلى ١٢");
+check(/units > unitCap/.test(door), "الحفظ يقرأ السقف الجامعي");
 
 /* 16 */
 const picker = read("src/components/proposal/ProposalCoursePicker.tsx");
