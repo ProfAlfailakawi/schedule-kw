@@ -32,11 +32,27 @@
     inset-block:min(0px,calc((100% - var(--ix-tap)) / 2));
     inset-inline:min(0px,calc((100% - var(--ix-tap)) / 2));
   }
-  /* العينُ والسهمُ ملاصقان لشريحة الفلتر: يكفيهما ما يبلغ 44 أفقياً لا أكثر. */
-  .week-legend-eye::after,.week-legend-arrow::after{
-    inset-inline:min(-2px,calc((100% - var(--ix-tap)) / 2));
-    inset-block:min(-8px,calc((100% - var(--ix-tap)) / 2));
+  /* العينُ والسهمُ ملاصقان لشرائح الفلتر، فلا تمتدّ طبقتُهما فوق شريحةٍ قط:
+     العينُ تمتدّ عمودياً، وأفقياً في الفجوة (6) إلى الشريحة التالية فقط لا إلى شريحتها؛
+     والسهمُ عمودياً حتى 44، وأفقياً في فجوته (2) وحدها. */
+  .week-legend-eye::after{
+    inset-block:min(0px,calc((100% - var(--ix-tap)) / 2));
+    inset-inline-start:0;inset-inline-end:-7px;
   }
+  .week-legend-arrow::after{
+    inset-block:min(-8px,calc((100% - var(--ix-tap)) / 2));
+    inset-inline:-2px;
+  }
+  /* أزرارُ التوقيع في شريط الاعتماد بينها 6: لكلٍّ نصفُ الفجوة من جهة جاره الأيقوني،
+     وكلُّها من جهة الزرّ الرئيسي (لا طبقةَ له)، و5 في الفراغ عند طرف الصف. فيبلغ كلٌّ 44
+     ولا يأخذ أحدٌ نقرةَ جاره. */
+  .approval-sign .apb-icon-btn::after{inset-block:-5px;inset-inline:-4px}
+  .approval-sign>.apb-tip:first-child .apb-icon-btn::after{inset-inline-start:-6px}
+  .approval-sign>.apb-tip:last-child .apb-icon-btn::after{inset-inline-end:-6px}
+  .approval-sign>.apb-tip:has(+ .apb-primary) .apb-icon-btn::after{inset-inline-end:-7px}
+  .approval-sign>.apb-primary + .apb-tip .apb-icon-btn::after{inset-inline-start:-7px}
+  /* عدّادُ الإشعارات يبرز من حافة الجرس فوق زرّ البحث الشامل المجاور: يُرى ولا يأخذ نقرته. */
+  .notify-count{pointer-events:none}
   /* شريطُ الجدول العائم يتّسع مع محتواه: فجوةٌ 12 بين أزراره تسمح لكلٍّ منها أن يبلغ 44
      أفقياً دون أن تتداخل طبقتا جارين (34 + 5 + 5، والفجوة 12). */
   .schedule-dock,.schedule-dock .dock-views{gap:12px}
