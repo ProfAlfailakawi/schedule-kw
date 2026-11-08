@@ -468,6 +468,46 @@ app.post("/api/courses", requirePermission(6), async (req: AuthenticatedRequest,
   }
 });
 
+/* ── السعةُ حسب طبيعة المقرر ────────────────────────────────────────────────
+ * قسمٌ واحدٌ باسمه (تكنولوجيا التعليم مثلاً) له نسخةٌ في كل حرم، وللمالك أن يريد سعةً واحدة لكل طبيعة:
+ * نظري ٥٠ · عملي ٢٠ · تدريب ميداني ١٥. مديرُ النظام وحده، لأن الأثر عابرٌ للكليات.
+ * «apply:false» معاينةٌ لا تكتب شيئاً؛ والمقرر «التطبيقي» أو غير المصنّف يُترك ويُعدّ ولا يُمسّ. */
+const CAPACITY_MODES = ["theoretical", "practical", "field_training"] as const;
+app.post("/api/admin/courses/capacity-by-mode", requirePermission(6), requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const wantedName = normalizeArabicText(String(req.body?.sectionName || ""));
+  if (!wantedName) { res.status(400).json({ error: "اختر القسم العلمي." }); return; }
+  const caps: Record<string, number> = {};
+  for (const mode of CAPACITY_MODES) {
+    const value = boundedInt(req.body?.caps?.[mode], 1, COURSE_LIMIT.students[1]);
+    if (value === null) { res.status(400).json({ error: `السعة لكل طبيعة رقمٌ صحيحٌ بين 1 و${COURSE_LIMIT.students[1]}.` }); return; }
+    caps[mode] = value;
+  }
+  const [allCourses, allSections, allColleges] = await Promise.all([Repository.getCourses(), Repository.getSections(), Repository.getColleges()]);
+  const sections = allSections.filter(section => normalizeArabicText(String(section.AdSectionName || "")) === wantedName);
+  if (!sections.length) { res.status(404).json({ error: "لا قسم بهذا الاسم." }); return; }
+  const sectionIds = new Set(sections.map(section => Number(section.AdSectionId)));
+  const mine = allCourses.filter(course => sectionIds.has(Number(course.AdSectionId)));
+  const byMode: Record<string, { total: number; changing: number }> = {};
+  const toWrite = new Map<number, number[]>();
+  let untouched = 0;
+  for (const course of mine) {
+    const mode = String(course.CourseTeachingMode || "");
+    if (!(CAPACITY_MODES as readonly string[]).includes(mode)) { untouched++; continue; }
+    const row = (byMode[mode] ||= { total: 0, changing: 0 });
+    row.total++;
+    if (Number(course.MaxStudent) !== caps[mode]) { row.changing++; toWrite.set(caps[mode], [...(toWrite.get(caps[mode]) || []), Number(course.AdCourseId)]); }
+  }
+  const branches = sections.map(section => ({
+    college: String(allColleges.find(college => Number(college.AdCollegeId) === Number(section.AdCollegeId))?.AdCollegeName || ""),
+    courses: mine.filter(course => Number(course.AdSectionId) === Number(section.AdSectionId)).length,
+  }));
+  let written = 0;
+  if (req.body?.apply === true) {
+    for (const [capacity, ids] of toWrite) written += await Repository.setCourseCapacityForIds(ids, capacity);
+  }
+  res.json({ applied: req.body?.apply === true, written, untouched, byMode, branches, caps });
+});
+
 app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedRequest, res: Response) => {
   const id = parseInt(req.params.id);
   const CourseCode = cleanText(req.body?.CourseCode, TEXT_LIMIT.code);
