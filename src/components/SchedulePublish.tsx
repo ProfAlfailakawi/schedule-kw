@@ -4,7 +4,8 @@ import { useTrainees } from "../utils/trainees";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import TAPhasePanel from "./TAPhasePanel";
 import PublishSendLog from "./PublishSendLog";
-import PublishRecipientPicker, { AudiencePicker, type Audience, type PickedPerson } from "./PublishRecipientPicker";
+import PublishRecipientPicker, { AudiencePicker, FOLLOW_ICON, type Audience, type PickedPerson } from "./PublishRecipientPicker";
+import type { FollowUpState } from "../utils/cardRecipients";
 import CourseOfferingPanel from "./CourseOfferingPanel";
 import PrepublishReachSheet from "./PrepublishReachSheet";
 import { gateGenerations, gatePublish, offeringScopeKey, readOffering, rememberReach, type OfferingSnapshot, type PrepublishRow } from "../utils/prepublishReach";
@@ -12,7 +13,7 @@ import type { LinkMode } from "../utils/linkMode";
 import { DnaStepper } from "./dna";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarPlus, Check, Copy, Flag, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
+import { BellRing, CalendarPlus, Check, Copy, Flag, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
 import MasariQrButton from "./MasariQrButton";
 import { reachAboutCard, unreachable, whatsappNumber } from "../utils/reachInstructor";
 import type { AdInstructor } from "../types";
@@ -221,12 +222,13 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * الأساتذة»، ويُرسل لكلِّ أستاذٍ رابطُه من هناك.
    */
   /* `instructorIds`: «أساتذة محددون» — يُرسل الحقلُ ولو فارغاً، فيرفضه الخادم ولا يصير «للجميع». */
-  const issueRequests = async (deadline = `${closesAt}T${closeTime}`, instructorId = 0, reason = "", reopen = false, mode: LinkMode = sendMode, instructorIds?: number[]) => {
+  const issueRequests = async (deadline = `${closesAt}T${closeTime}`, instructorId = 0, reason = "", reopen = false, mode: LinkMode = sendMode, instructorIds?: number[], offeredCourses?: Record<number, number[]>) => {
     const response = await fetch("/api/instructor-requests/issue", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ collegeId, sectionId, termId, closesAt: mode === "view" ? viewDeadline() : deadline, source: "draft", mode,
-        ...(instructorId ? { instructorId, reason } : {}), ...(reopen ? { reopen: true } : {}), ...(instructorIds ? { instructorIds } : {}) }),
+        ...(instructorId ? { instructorId, reason } : {}), ...(reopen ? { reopen: true } : {}), ...(instructorIds ? { instructorIds } : {}),
+        ...(offeredCourses && Object.keys(offeredCourses).length ? { offeredCourses } : {}) }),
     });
     const data = await readReply(response, "تعذر فتح طلبات التعديل");
     if (data?.emptyTerm) {
@@ -396,8 +398,11 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       setReplaced(0);
       setIssued(null);
       setDelivered(null);
-      await issueRequests(`${closesAt}T${closeTime}`, 0, "", false, sendMode, ids);
+      /* ✏️: مقرراتُ كل شخص اختارها المنسّق — على كل سجلّاته؛ ومن لم يُختر له شيء: كل المقررات. */
+      const offeredCourses = sendMode === "edit" ? Object.fromEntries(people.filter(person => person.courses?.length).flatMap(person => person.ids.map(id => [id, person.courses!]))) : undefined;
+      await issueRequests(`${closesAt}T${closeTime}`, 0, "", false, sendMode, ids, offeredCourses);
       await showDelivered(publication.id, people);
+      void loadFollow();
       setStep("links");
     } catch (e: any) {
       setError(e.message);
@@ -406,6 +411,64 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     }
   };
   const picking = kind === "staff" && sendMode !== "ta" && audience === "picked";
+
+  /* ── بعد الإرسال: ✉️ لم يفتح · 👀 فتح · ✅ ردّ، و«ذكّر من لم يرد» ─────────────
+   * الحالةُ من وقائع الطلب نفسه (فُتح الرابط، أُرسل الطلب). والتذكيرُ يحكم الخادمُ بمن يقع عليه لحظةَ
+   * الضغط (من لم يرد في ✏️ وحده)، ويصل كرتَه، ويعود هنا رسالةً جاهزة لكلٍّ يرسلها المنسّق بيده. */
+  const [follow, setFollow] = useState<{ people: Array<{ instructorId: number; name: string; state: FollowUpState; mode: string }>; awaiting: number[] } | null>(null);
+  const [remindAsk, setRemindAsk] = useState(false);
+  const [reminded, setReminded] = useState<{ demo: boolean; people: Array<PickedPerson & { personalId: string }> } | null>(null);
+  const loadFollow = async () => {
+    if (!scoped || kind !== "staff") { setFollow(null); return; }
+    try {
+      const response = await fetch(`/api/instructor-requests/follow-up?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" });
+      setFollow(response.ok ? await response.json() : null);
+    } catch { setFollow(null); }
+  };
+  useEffect(() => { setReminded(null); setRemindAsk(false); if (open && kind === "staff") void loadFollow(); else setFollow(null); }, [open, kind, collegeId, sectionId, termId]);
+  /* عودةُ المنسّق إلى اللسان (بعد معاينةٍ أو محادثة) تُحدّث الحالات: من فتح ومن ردّ في أثناء غيابه. */
+  useEffect(() => {
+    if (!open || kind !== "staff") return;
+    const again = () => { if (document.visibilityState === "visible") void loadFollow(); };
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", again);
+    return () => { window.removeEventListener("focus", again); document.removeEventListener("visibilitychange", again); };
+  }, [open, kind, collegeId, sectionId, termId, step]);
+  const followState = useMemo(() => new Map((follow?.people || []).map(row => [Number(row.instructorId), row.state])), [follow]);
+  const stateOf = (ids: number[]): FollowUpState | undefined => {
+    const states = ids.map(id => followState.get(Number(id))).filter(Boolean) as FollowUpState[];
+    return states.includes("replied") ? "replied" : states.includes("opened") ? "opened" : states[0];
+  };
+  const awaitingPeople = (follow?.people || []).filter(row => (follow?.awaiting || []).includes(Number(row.instructorId)));
+  /* 👁️ معاينةُ بطاقته كما يراها، بالصفة والموعد والمقررات التي ستُرسل — في لسانٍ جديد، ولا يُصدَر شيء. */
+  const previewCard = (person: PickedPerson) => {
+    const params = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId), instructorId: String(person.ids[0]),
+      mode: sendMode === "view" ? "view" : "edit", courseIds: person.courses?.length ? person.courses.join(",") : "all",
+      ...(closesAt ? { closesAt: `${closesAt}T${closeTime}` } : {}) });
+    window.open(`/api/instructor-requests/preview-page?${params}`, "_blank", "noopener");
+  };
+  const sendReminder = async () => {
+    setRemindAsk(false); setBusy(true); setError(null); setReminded(null);
+    try {
+      const response = await fetch("/api/instructor-requests/remind", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, termId }),
+      });
+      const data = await readReply(response, "تعذّر التذكير");
+      const people: PickedPerson[] = (data?.reminded || []).map((row: { instructorId: number; name: string; mobile: string }) =>
+        ({ key: Number(row.instructorId), ids: [Number(row.instructorId)], name: row.name, mobile: row.mobile, sections: 0 }));
+      let personal = new Map<number, string>();
+      if (staffPublication && people.length) {
+        const minted = await fetch(`/api/share/${encodeURIComponent(staffPublication.id)}/personal`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instructorIds: people.map(person => person.key) }),
+        }).then(reply => readReply(reply, "تعذر تجهيز الروابط الشخصية")).catch(() => null);
+        personal = new Map((minted?.links || []).map((row: { instructorId: number; id: string }) => [Number(row.instructorId), row.id]));
+      }
+      setReminded({ demo: data?.delivery === "demo", people: people.map(person => ({ ...person, personalId: personal.get(person.key) || "" })) });
+      await loadFollow();
+    } catch (e: any) { setError(e.message); } finally { setBusy(false); }
+  };
+  const customCount = pickedPeople.filter(person => person.courses?.length).length;
+  const pickSummary = [countOf(pickedPeople.length, AR.instructor), sendMode === "edit" && customCount ? `${customCount.toLocaleString("ar-KW-u-nu-latn")} بمقررات خاصة` : ""].filter(Boolean).join(" · ");
 
   /**
    * ── قبل الإرسال: «لم نصل بعد» ──────────────────────────────────────────
@@ -788,7 +851,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 </div>
               ) : null}
               {picking ? <PublishRecipientPicker collegeId={collegeId} sectionId={sectionId} termId={termId} onChange={setPickedPeople}
-                visitingOf={id => isVisiting(id, collegeId, sectionId)} traineeOf={id => trainees.has(Number(id))} /> : null}
+                visitingOf={id => isVisiting(id, collegeId, sectionId)} traineeOf={id => trainees.has(Number(id))}
+                perPersonCourses={sendMode === "edit"} stateOf={stateOf} onPreview={previewCard} /> : null}
+              {picking && pickedPeople.length ? <p className="publish-summary-line" aria-live="polite">{pickSummary}</p> : null}
               {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} checking={reachChecking} confirmSend={proceed => void guardSend(proceed)} /> : null}
               {kind === "staff" && (sendMode === "edit" || (sendMode === "ta" && offeringOpen)) ? (
                 <details id="publish-offering" className="of-section" open={offeringOpen} onToggle={event => setOfferingOpen(event.currentTarget.open)}><summary>🟢🔒🌱🎯 حالة طرح المقررات في بطاقة الأستاذ</summary>
@@ -908,7 +973,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                       const done = person.ids.some(id => sent.has(id));
                       return (
                         <li key={person.key} className={done ? "sent" : ""}>
-                          <span className="share-deliver-name">{person.name}<PersonChips visiting={person.ids.some(id => isVisiting(id, collegeId, sectionId))} trainee={person.ids.some(id => trainees.has(Number(id)))} /></span>
+                          <span className="share-deliver-name">{(() => { const state = stateOf(person.ids); return state ? <span className="publish-state" role="img" aria-label={FOLLOW_ICON[state].label} title={FOLLOW_ICON[state].label}>{FOLLOW_ICON[state].icon}</span> : null; })()}{person.name}<PersonChips visiting={person.ids.some(id => isVisiting(id, collegeId, sectionId))} trainee={person.ids.some(id => trainees.has(Number(id)))} /></span>
                           {url ? (
                             <span className="publish-delivered-actions">
                               <button type="button" className="ta-mini" title={copied === person.personalId ? "تم النسخ" : "نسخ رابطه الشخصي"}
@@ -933,6 +998,69 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                   </ul>
                 </div>
               ) : null}
+              {kind === "staff" && follow?.people.length ? (
+                <section className="publish-follow" aria-label="متابعة بطاقة الأستاذ">
+                  <header>
+                    <b>المتابعة</b>
+                    <span className="publish-follow-counts">
+                      {(["sent", "opened", "replied"] as const).map(state => (
+                        <span key={state} title={FOLLOW_ICON[state].label}><span aria-hidden="true">{FOLLOW_ICON[state].icon}</span> {`${FOLLOW_ICON[state].label} ${follow.people.filter(row => row.state === state).length.toLocaleString("ar-KW-u-nu-latn")}`}</span>
+                      ))}
+                    </span>
+                    <SecondaryButton type="button" disabled={busy || !awaitingPeople.length} onClick={() => setRemindAsk(true)}
+                      data-guide-ignore="يفتح ورقة تأكيد تذكير من لم يرد في بطاقة الأستاذ — لا يرسل شيئاً قبل التأكيد">
+                      <BellRing aria-hidden="true" /> {awaitingPeople.length ? `ذكّر من لم يرد (${awaitingPeople.length.toLocaleString("ar-KW-u-nu-latn")})` : "ذكّر من لم يرد"}
+                    </SecondaryButton>
+                  </header>
+                  {reminded ? (
+                    <div className="share-deliver">
+                      <p className="share-deliver-lead">{reminded.demo
+                        ? `ذُكِّر ${countOf(reminded.people.length, AR.instructor)} · الديمو: تسليمٌ وهميّ، لا رسالةَ حقيقية.`
+                        : `ذُكِّر ${countOf(reminded.people.length, AR.instructor)} في كروتهم · وأرسل لكلٍّ رسالته إن شئت:`}</p>
+                      <ul className="share-deliver-list">
+                        {reminded.people.map(person => {
+                          const message = person.personalId ? reachAboutCard({ AdInstructorName: person.name, AdInstructorMobile: person.mobile }, personalUrl(person.personalId), "reminder") : null;
+                          return (
+                            <li key={person.key}>
+                              <span className="share-deliver-name">{person.name}</span>
+                              {message?.href ? (
+                                <a href={message.href} target="_blank" rel="noopener noreferrer"
+                                  data-guide-ignore="فتح محادثة واتساب بتذكير الأستاذ — الإرسال بيد المنسّق" onClick={() => markSent(person.personalId)}>
+                                  <Send aria-hidden="true" /> افتح المحادثة
+                                </a>
+                              ) : <small className="share-deliver-wait">{person.personalId ? "لا رقم جوّال صالح" : "لا رابط شخصي له"}</small>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+              {remindAsk ? createPortal(
+                <div className="ppr-backdrop no-print" onMouseDown={event => { if (event.target === event.currentTarget) setRemindAsk(false); }}>
+                  <div className="ppr-sheet" role="alertdialog" aria-modal="true" aria-labelledby="remind-title"
+                    onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setRemindAsk(false); } }}>
+                    <header className="ppr-head">
+                      <span className="pcs-glyph" aria-hidden="true">🔔</span>
+                      <div>
+                        <h3 id="remind-title">{`تذكير ${countOf(awaitingPeople.length, oblique(AR.instructor))}`}</h3>
+                        <small>لم يصل ردّهم بعد · يصل التذكير بطاقاتهم</small>
+                      </div>
+                    </header>
+                    <div className="ppr-scroll">
+                      <ul className="publish-remind-list">
+                        {awaitingPeople.map(row => <li key={row.instructorId}><span aria-hidden="true">{FOLLOW_ICON[row.state].icon}</span><span>{row.name}</span></li>)}
+                      </ul>
+                    </div>
+                    <footer className="ppr-actions">
+                      <PrimaryButton type="button" autoFocus onClick={() => void sendReminder()} data-guide-ignore="يرسل التذكير لمن لم يرد بعد التأكيد في الورقة">
+                        <BellRing aria-hidden="true" /> أرسل التذكير
+                      </PrimaryButton>
+                      <SecondaryButton type="button" onClick={() => setRemindAsk(false)} data-guide-ignore="يغلق ورقة التذكير دون إرسال">إلغاء</SecondaryButton>
+                    </footer>
+                  </div>
+                </div>, document.body) : null}
               <div className="share-list" role="list" aria-live="polite">
                 {loadingLinks ? (
                   <p className="share-empty" role="status">جارٍ تحميل سجل النشر لهذا القسم والفصل…</p>

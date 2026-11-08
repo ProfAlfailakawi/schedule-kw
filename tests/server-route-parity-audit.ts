@@ -254,7 +254,15 @@ const updatedTaConversion = (r:Row) => r.kind==="route" && r.methods.length===1 
    that the save gate would refuse. Same path, permission, scope guard, readiness check and write; behaviour is
    pinned by tests/study-proposal-flow-audit.ts and tests/new-appointment-pattern-end-audit.ts. */
 const updatedProposalCommit = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post" && r.path==="/api/study-proposals/:id/commit";
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : updatedProposalCommit(r) ? "[proposal-commit-audited]" : r.call || "-"} ${r.name}`;
+/* Teacher card per person (owner decision 2026-11-08): visiting and trainee people are excluded from
+   👁️/✏️ issuing, the recipients list and the delivery faculty list; ✏️ picked sends store per-person
+   offered courses; the teacher card read is shared with the coordinator preview (serveRequestCard) and
+   filters by the offered list; the teacher submit refuses courses outside it. Same paths, permissions and
+   scope guards; behaviour pinned by tests/publish-cards-per-person-audit.ts and tests/publish-pick-teachers-audit.ts. */
+const updatedPersonCards = (r:Row) => r.kind==="route" && r.methods.length===1 && (
+  (r.methods[0]==="post" && (r.path==="/api/instructor-requests/issue" || r.path==="/api/public/request/:token"))
+  || (r.methods[0]==="get" && (r.path==="/api/instructor-requests/recipients" || r.path==="/api/share/:id/faculty" || r.path==="/api/public/request/:token")));
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : updatedPersonCards(r) ? "[person-cards-audited]" : updatedProposalCommit(r) ? "[proposal-commit-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();

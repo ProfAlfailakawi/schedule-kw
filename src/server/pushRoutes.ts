@@ -30,7 +30,7 @@ import {
   type PushFetch, type PushMessage, type PushSubscriptionRecord, type PushUrgency, type VapidKeys,
 } from "./webPush";
 import {
-  adminRepliesMessage, adminRequestsMessage, adminTestMessage, cardTestMessage, messageMentionsRoom, roomTokensOf,
+  adminRepliesMessage, adminRequestsMessage, adminTestMessage, cardReminderMessage, cardTestMessage, messageMentionsRoom, roomTokensOf,
   taWindowMessage, teacherDigestMessage, teacherEventFor, type TeacherEvent,
 } from "./pushMessages";
 import { CARD_TOKEN_PATTERN, cardManifest } from "./pushCard";
@@ -262,6 +262,13 @@ function createPushEngine(deps: PushRouteDeps) {
         if (live.length) await deliver(live, taWindowMessage(entry.linkId, closesAt), { urgency: "high", topic: pushTopic(`ta:${entry.linkId}`) });
       }));
     },
+    /** «ذكّر من لم يرد»: إلى كرت كل أستاذٍ لم يرد (من فعّل تنبيهاته فيه). */
+    async cardReminded(sent: Array<{ linkId: string; closesAt: string }>) {
+      await Promise.all(sent.map(async entry => {
+        const live = await liveCardRecords(entry.linkId);
+        if (live.length) await deliver(live, cardReminderMessage(entry.linkId, entry.closesAt), { urgency: "normal", topic: pushTopic(`card:${entry.linkId}`) });
+      }));
+    },
   };
 }
 
@@ -301,6 +308,8 @@ export const pushHooks = {
   departmentReplied: (request: InstructorRequest, index: number) => fire("department reply", current => current.departmentReplied(request, index)),
   /** 🎓 موجةُ مرحلة التدريب أُرسلت: لكل مدرّبٍ إلى كرته الجديد. */
   taWindowOpened: (closesAt: string, sent: Array<{ instructorId: number; linkId: string }>) => fire("ta window", current => current.taWindowOpened(closesAt, sent)),
+  /** 🔔 «ذكّر من لم يرد» (نشر ← بطاقة الأستاذ): إلى كرت كل من لم يرد. */
+  cardReminded: (sent: Array<{ linkId: string; closesAt: string }>) => fire("card reminder", current => current.cardReminded(sent)),
   /** 📨 طلبُ شعبة (src/server/sectionRequestsRoutes.ts): لمن تختارهم قاعدةُ الطرف بنطاقه وصفته. */
   toAccounts: (pick: (account: PushAccount) => boolean, message: PushMessage, topicSeed: string) => fire("section request", current => current.noteForAccounts(pick, message, topicSeed)),
   /** تسجيلُ خروجٍ صريح: تُسقط اشتراكاتُ الأجهزة التي فُعّلت من تلك الجلسة. */

@@ -1,0 +1,49 @@
+/* ── نشر بطاقة الأستاذ لكل شخص: ورقةُ المقررات، وسطرُ الشخص (حالة · معاينة · مقررات)، والتذكير ──
+   الورقةُ على هيكل ورقة «لم نصل بعد» (.ppr-sheet) فتبدو من عائلتها؛ وشرائحُ القديمة بإطارٍ هادئ والجديدة ممتلئة. */
+.pcs-sheet{width:min(620px,100%)}
+.pcs-head{position:relative}
+.pcs-glyph{display:grid;place-items:center;flex:none;inline-size:42px;block-size:42px;border-radius:14px;background:var(--accent-soft);font-size:20px}
+.pcs-close{margin-inline-start:auto;display:grid;place-items:center;flex:none;inline-size:40px;block-size:40px;border:0;border-radius:12px;background:transparent;color:var(--muted,#6b7280);cursor:pointer}
+.pcs-close svg{inline-size:18px;block-size:18px}
+.pcs-close:hover{background:var(--surface-2,#f4f5f2)}
+.pcs-tabs{margin:0;max-width:none}
+.pcs-tabs button[aria-selected=true]{border-color:var(--accent);background:var(--accent-softer,var(--accent-soft));box-shadow:0 0 0 3px var(--accent-soft)}
+.pcs-tabs button b{font-size:.76rem;font-weight:700;color:var(--muted,#6b7280)}
+.pcs-chips{display:grid;gap:6px}
+.pcs-chip{display:flex;align-items:center;gap:8px;inline-size:100%;min-width:0;min-height:44px;padding:6px 10px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface,#fff);font:inherit;font-size:.86rem;color:inherit;text-align:start;cursor:pointer;transition:border-color .15s,background .15s}
+.pcs-chip[data-plan=new]{background:var(--accent-softer,#eef6f2);border-color:transparent}
+.pcs-chip[aria-checked=true]{border-color:var(--accent)}
+.pcs-chip[data-plan=new][aria-checked=true]{background:var(--accent-soft)}
+.pcs-chip:focus-visible{outline:3px solid var(--accent-soft);outline-offset:1px}
+.pcs-box{display:inline-grid;place-items:center;flex:none;inline-size:20px;block-size:20px;border:1.5px solid var(--line2,var(--line));border-radius:6px;background:var(--surface,#fff)}
+.pcs-box svg{inline-size:14px;block-size:14px}
+.pcs-chip[aria-checked=true] .pcs-box{border-color:var(--accent);background:var(--accent);color:#fff}
+.pcs-name{flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.5}
+.pcs-code{font-size:.74rem;font-weight:700;color:var(--muted,#6b7280);font-variant-numeric:tabular-nums}
+.pcs-campus{display:block;font-size:.72rem;color:var(--muted,#6b7280)}
+.pcs-mark{display:inline-flex;align-items:center;gap:3px;flex:none;padding:1px 8px;border-radius:999px;background:var(--surface-2,#f4f5f2);font-size:.72rem;font-weight:700;color:var(--muted,#5b6660)}
+.pcs-chip[data-mark=fresh] .pcs-mark{background:#fff6dc;color:#8a6200}
+.pcs-chip[data-mark=match] .pcs-mark,.pcs-chip[data-mark=taught] .pcs-mark{background:var(--accent-soft);color:var(--accent)}
+.pcs-summary{margin:0;text-align:center;font-size:.86rem}
+/* سطرُ الشخص في «أساتذة محددون»: الاسمُ ثم أزرارٌ صغيرة (حالة · معاينة · مقررات) */
+.publish-pick-row{display:flex;align-items:center;gap:6px;min-width:0}
+.publish-pick-row>.of-chip{flex:1;min-width:0}
+.publish-pick-tools{display:inline-flex;align-items:center;gap:4px;flex:none}
+.publish-pick-tools .ta-mini{display:inline-flex;align-items:center;gap:4px;min-block-size:40px;min-inline-size:40px;justify-content:center}
+.publish-pick-tools .ta-mini svg{inline-size:16px;block-size:16px}
+.publish-pick-tools .ta-mini[data-custom],.publish-pick-tools .ta-mini:has(b),.publish-pick-slot{min-inline-size:56px}
+.publish-pick-slot{display:inline-block;flex:none}
+.publish-pick-tools .ta-mini[data-custom="1"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:800}
+.publish-state{display:inline-grid;place-items:center;flex:none;inline-size:26px;block-size:26px;font-size:15px;line-height:1}
+.publish-summary-line{margin:4px 0 0;font-size:.84rem;font-weight:700;color:var(--muted,#5b6660)}
+.publish-follow{display:grid;gap:8px;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface,#fff);min-width:0}
+.publish-follow header{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.publish-follow header b{font-size:.9rem}
+.publish-follow-counts{display:inline-flex;flex-wrap:wrap;gap:10px;font-size:.8rem;color:var(--muted,#5b6660)}
+.publish-follow header .btn{margin-inline-start:auto}
+.publish-remind-list{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.publish-remind-list li{display:flex;align-items:center;gap:8px;min-width:0;font-size:.86rem}
+.publish-remind-list li>span{flex:1;min-width:0;overflow-wrap:anywhere}
+@media(max-width:560px){
+  .publish-follow header .btn{inline-size:100%;justify-content:center;margin-inline-start:0}
+}

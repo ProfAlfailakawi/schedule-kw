@@ -44,6 +44,8 @@ import { isScopeAllowed } from "../core/scope";
 import { shareLinkStillReadable } from "../core/shareLinks";
 import { placeholderInstructorIds } from "../core/smartImport";
 import { liveStaffPublication, staffFamilyScopes, staffFamilyShareLinks } from "../core/staffCard";
+import { exclusionRefusal, readCardExclusions } from "../core/cardRecipients";
+import { normalizeOfferedCourses } from "../../utils/offeredCourses";
 import { captureScopeVersion, recordVersionAfter } from "../core/versions";
 
 async function requireCurrentInstructorRequestGeneration(request: InstructorRequest, res: Response): Promise<boolean> {
@@ -227,6 +229,14 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   const person = individualOnly ? (instructors as any[]).find(row => Number(row.AdInstructorId) === selectedInstructorId) : null;
   /* المختارون من جدول هذه العائلة وحدها: معرّفٌ من خارجها لا يُصدَر له شيء. */
   const pickedSet = new Set(picked);
+  /* 👁️/✏️ لأساتذة القسم وحدهم (قرار المالك 2026-11-08): المنتدبُ لا يصله شيء، والمتدرّبُ في 🎓 وحدها.
+     يحكم هنا الخادم، لا القائمةُ وحدها: اختيارٌ صريحٌ لمستبعَدٍ يُرفض كلُّه، و«الكل» يتخطّاه. */
+  const excluded = await readCardExclusions(collegeId, sectionId, termId);
+  const excludedPick = (individualOnly ? [selectedInstructorId] : onlyNoted ? [] : picked).find(id => excluded.has(id));
+  if (excludedPick) { res.status(400).json({ error: exclusionRefusal(excluded.get(excludedPick)!), code: "card-excluded" }); return; }
+  /* ✏️ لأساتذة محددين: مقرراتُ كل بطاقة (utils/offeredCourses). من لم يُختر له شيء: كلُّ المقررات. */
+  const offered = picking && !onlyNoted && issueMode === "edit" ? normalizeOfferedCourses(req.body?.offeredCourses, pickedSet) : null;
+  const offeredFor = (instructorId: number) => (offered ? { offeredCourseIds: offered.get(instructorId) ?? null } : {});
   if (picking && picked.some(id => !byInstructor.has(id))) {
     res.status(404).json({ error: "بعض الأساتذة المختارين ليسوا في جدول هذه العائلة والفصل." }); return;
   }
@@ -273,6 +283,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     if (individualOnly && instructorId !== selectedInstructorId) continue;
     /* غيرُ المختارين لا يُمسّ طلبُهم ولا رابطُهم ولا صفتُه. */
     if (picking && !pickedSet.has(instructorId)) continue;
+    if (excluded.has(instructorId)) continue;
     /* أستاذٌ له طلبٌ في هذا الفصل لا يُعطى ثانياً: طلبان يعنيان أن أحدهما
        سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. لكن طلباً مات موعدُه أو رابطُه
        لا يبقى «طلبَه» — يتبع الموعدَ الجديد (src/utils/requestReissue.ts). */
@@ -287,6 +298,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
       /* طلبُه ورابطُه كما هما ينتظران قرارَ القسم؛ وصفةُ الإرسال الجديدة هي ما يحكم بطاقتَه (E1).
          تُكتب الصفةُ وحدها، لا الطلبُ كلُّه: قرارٌ أو ردٌّ يصل بين القراءة والكتابة لا يُمحى. */
       if (linkMode(held) !== issueMode) await Repository.setInstructorRequestLinkMode(held.id, issueMode);
+      if (offered) await Repository.setInstructorRequestOfferedCourses(held.id, offered.get(instructorId) ?? null);
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
@@ -306,6 +318,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
         ...held,
         linkId,
         linkMode: issueMode,
+        ...offeredFor(instructorId),
         window: individualOnly ? held.window : { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt },
         ...(individualOnly ? {
           individualException: exceptional,
@@ -322,6 +335,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
       AdInstructorId: instructorId,
       linkId: link.id,
       linkMode: issueMode,
+      ...offeredFor(instructorId),
       window: { opensAt, closesAt: baseCloseAt },
       ...(individualOnly ? { individualException: exceptional } : {}),
       source,
@@ -414,11 +428,13 @@ app.get("/api/instructor-requests/recipients", requirePermission(7), async (req:
     Repository.getInstructors(),
   ]);
   const placeholderIds = placeholderInstructorIds(instructors as any[]);
+  /* بلا منتدبين ولا متدرّبين: الحكمُ نفسُه الذي يُصدِر به الإرسال (قرار المالك 2026-11-08). */
+  const excluded = await readCardExclusions(collegeId, sectionId, termId);
   /* الشعبةُ مرّةً واحدة وإن تعدّدت مواعيدُها: (الموقع، المقرر، رقم الشعبة). */
   const sectionKeys = new Map<number, Set<string>>();
   for (const row of familyRows.flat() as any[]) {
     const id = Number(row.AdInstructorId || 0);
-    if (!id || placeholderIds.has(id)) continue;
+    if (!id || placeholderIds.has(id) || excluded.has(id)) continue;
     const key = `${row.AdCollegeId}:${row.AdCourseId}:${String(row.SCode || row.id)}`;
     const held = sectionKeys.get(id);
     if (held) held.add(key); else sectionKeys.set(id, new Set([key]));
