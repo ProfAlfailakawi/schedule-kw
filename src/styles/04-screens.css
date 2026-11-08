@@ -2854,3 +2854,10 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .location-type-scope-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px}
 .location-type-row:has(.location-type-scope-panel){grid-column:1/-1}
 .location-type-scope-list label{display:grid;grid-template-columns:18px minmax(0,1fr);justify-items:start}
+
+/* اختيارُ الحالة: خياران صريحان «فعّال | غير فعّال» — المضغوطُ منهما هو الحالة التي ستصير، فلا يلتبس الأمر بزرٍّ يقلب نفسه. */
+.active-choice{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.active-choice button{min-height:44px;padding:8px 12px;border:1px solid transparent;border-radius:11px;background:transparent;color:var(--muted,#5b6660);font:inherit;font-weight:650;cursor:pointer}
+.active-choice button[aria-checked="true"][data-on="1"]{background:var(--ok2,#dcece7);border-color:var(--ok,#1f6b5c);color:var(--ok,#1f6b5c)}
+.active-choice button[aria-checked="true"][data-on="0"]{background:var(--bad2,#fdecea);border-color:var(--bad,#ad2f28);color:var(--bad,#ad2f28)}
+.active-choice button:focus-visible{outline:2px solid var(--lqs-accent,#1f6b5c);outline-offset:2px}
