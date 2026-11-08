@@ -65,7 +65,7 @@ export interface VerdictInput {
   checking?: boolean;
   /** المقرر يتطلب مرفقاً مرافقاً (استوديو…). */
   companionRequired?: boolean;
-  /** هل يطابق الموعد نمطاً معتمداً؟ off → تنبيه ⚠️ لا يمنع. */
+  /** هل يطابق الموعد نمطاً معتمداً؟ off → مانعٌ واحد (المالك 2026-11-08). */
   regulation?: "fits" | "off" | "unknown";
   regulationNote?: string;
   /** ملاحظات لا تمنع الحفظ من مصادر أخرى (مراجعة اللائحة، السجل التاريخي). */
@@ -165,7 +165,10 @@ const conflictText = (conflict: any) => String(conflict?.message || "تعارض"
 export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
   const { form, companionRequired = false } = input;
   const chosen = chosenFields(form, companionRequired);
-  const issues = relevantIssues(input.validationIssues, form, companionRequired);
+  /* النهايةُ المخالفة للنمط يقولها النموذجُ نفسه سطراً واحداً (ومعه «طبّق النمط»)؛ فلا يتكرر سطرُ الخادم بالمعنى نفسه. */
+  const regulationBlocks = input.regulation === "off" && chosen.time;
+  const issues = relevantIssues(input.validationIssues, form, companionRequired)
+    .filter(text => !(regulationBlocks && /لا توافق النمط المعتمد/.test(text)));
   const conflicts = relevantConflicts(input.conflicts, form, companionRequired);
   const byKind = new Map<CheckKind, VerdictDetail[]>(ORDER.map(kind => [kind, []]));
   issues.forEach((text, index) => byKind.get(issueKind(text))!.push({ id: `issue-${index}`, text, blocks: true }));
@@ -181,8 +184,9 @@ export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
     if (!chosen[note.kind] && note.kind !== "time") return;
     byKind.get(note.kind)!.push({ id: `note-${index}`, text: note.text, detail: note.detail, blocks: false });
   });
-  if (input.regulation === "off" && chosen.time) {
-    byKind.get("time")!.push({ id: "regulation", text: input.regulationNote || "خارج نمط اللائحة", blocks: false });
+  /* قرار المالك 2026-11-08: نهايةٌ أو أيامٌ تخالف النمط المعتمد لساعات المقرّر تمنع الحفظ (كان تنبيهاً). */
+  if (regulationBlocks) {
+    byKind.get("time")!.push({ id: "regulation", text: input.regulationNote || "النهاية لا توافق النمط المعتمد لساعات المقرر.", blocks: true });
   }
   const checks: VerdictCheck[] = ORDER
     .filter(kind => kind !== "facility" || companionRequired)

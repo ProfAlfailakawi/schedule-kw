@@ -42,8 +42,11 @@ type Day = typeof DAYS[number];
   check(meetingMinutes(["fmonday", "fwednesday"], p4).join() === "110,110", "أربع ساعات على الاثنين والأربعاء: ١١٠ د (لا 75 تُمنع «لا يغطّيها»)");
   check(meetingMinutes(["fmonday", "fwednesday"], p5).join() === "170,110", "والنمطُ المختلف الأطوال المعتمد يبقى كما هو (١٧٠/١١٠)");
   const twin: OwnMeeting = { days: ["fsunday", "ftuesday"], minutes: 75 };
-  check(meetingMinutes(["ftuesday", "fsunday"], p3, twin).join() === "75,75", "الأيامُ نفسُها والوقتُ وحده تغيّر: طولُ الموعد نفسه (75)");
-  check(meetingMinutes(["fmonday"], p3, { days: ["fthursday"], minutes: 75 }).join() === "75", "ولقاءُ يومٍ واحد يُنقل إلى يومٍ واحد يحمل طولَه");
+  /* قرار المالك 2026-11-08: الطولُ القائم يُحمل إن كان معتمداً في المكتبة لهذه الأيام، وإلا فالنهايةُ من النمط. */
+  check(meetingMinutes(["ftuesday", "fsunday"], p3, twin).join() === "50,50", "الأيامُ نفسُها والوقتُ وحده تغيّر: طولٌ قديم خارج المكتبة (75) لا يُحمل");
+  check(meetingMinutes(["fmonday", "fwednesday"], p3, { days: ["fmonday", "fwednesday"], minutes: 80 }).join() === "80,80", "والطولُ المعتمد القائم (80) يُحمل");
+  check(meetingMinutes(["fmonday"], p3, { days: ["fthursday"], minutes: 75 }).join() === "170", "ولقاءُ يومٍ واحد بطولٍ خارج المكتبة يُنقل بكتلة اللائحة (170)");
+  check(meetingMinutes(["fmonday"], p3, { days: ["fthursday"], minutes: 80 }).join() === "80", "ولقاءُ يومٍ واحد بطولٍ معتمدٍ لليوم الجديد (اثنين 80) يحمل طولَه");
   check(meetingMinutes(["fsunday", "ftuesday", "fthursday"], p3, twin).join() === "50,50,50", "وأيامٌ أخرى: نمطُ اللائحة لا طولُ الموعد القديم");
   check(meetingMinutes(["fsunday", "fmonday"], p3).join() === "50,80", "وأيامٌ لا نمطَ لها: طولُ اليوم في اللائحة، ويحكم الفحصُ بعدها");
   check(ownMeetingOf({ days: "الأحد · الثلاثاء", time: "11:00 – 12:15" })?.minutes === 75 && ownMeetingOf({ days: "", time: "" }) === null,
@@ -89,7 +92,7 @@ type Day = typeof DAYS[number];
     "و75/75/50 (٢٠٠ د لمقرّر ثلاث ساعات) يُمنع «يتجاوز» — سقفُ الساعات عاد بلا إعفاءٍ بالذاكرة", legacy.reasons);
   const overBefore = row({ fstarttime: "08:00", fendtime: "09:20" });
   const keepsOwn = judgeRequest(ask({ start: "10:00" }), ctx(3, [overBefore]));
-  check(keepsOwn.sendable && keepsOwn.computedEnd === "11:20", "وشعبةٌ قائمة تتجاوز أصلاً لا تُمنع من نقل وقتها بطولها نفسه (لم تزد)", keepsOwn);
+  check(keepsOwn.sendable && keepsOwn.computedEnd === "10:50", "وشعبةٌ قائمة تتجاوز أصلاً (80د على ح·ث·خ) تُنقل بطول النمط المعتمد (50د) فلا تُمنع", keepsOwn);
 
   const monWed4 = judgeRequest(ask({ action: "add", rowId: null, tempId: -1, days: ["fmonday", "fwednesday"], start: "08:00" } as any), ctx(4, []));
   check(monWed4.sendable && monWed4.computedEnd === "09:50", "مقرّرُ أربع ساعات على الاثنين والأربعاء: ١١٠ د ويمرّ (لا حلقة «جرّب الاثنين والأربعاء»)", monWed4);

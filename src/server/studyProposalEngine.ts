@@ -19,7 +19,7 @@ import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/sched
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { personRecordIds } from "../utils/instructorPickerChoices";
 import { reviewSchedule, effectiveCourseHours, maxWeeklyMinutesFor, sectionWeeklyHours } from "../utils/scheduleRegulations";
-import { learnCourseNature } from "../utils/courseNature";
+import { patternLengthIssue } from "../utils/appointmentRegulation";
 import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
 import { mergeRegistryWithSeed } from "./locationRegistryEngine";
 import {
@@ -208,13 +208,13 @@ export async function proposalSchedulePreflight(
       && Number(item.AdTermId) === Number(row.AdTermId));
     /* المصدر الواحد نفسه الذي يقرأ به الحفظ: الكتلة بنمط ساعات المقرر، والنسخة المطابقة لا تضاعف. */
     const total = sectionWeeklyHours(row, siblings, hours).total;
+    /* لا يُعفي تاريخُ المقرّر من سقف الساعات — كبوابة الحفظ (المالك 2026-10-30 و2026-11-08): كان «طبعُ» المقرّر يُسقط المنع هنا وحده. */
     if (total > maxWeeklyMinutesFor(hours)) {
-      // Add/Edit makes the identical historical-nature exception.
-      const history = await Repository.getScheduleHistoryForCourses([courseId]);
-      const nature = learnCourseNature(courseId, history as FSchedule[]);
-      const habitual = nature && nature.confidence !== "low" ? nature.meetingMinutes : undefined;
-      if (!habitual) issues.push(`ساعات هذا المقرر المعتمدة ${countOf(hours, AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total / 50), AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`);
+      issues.push(`ساعات هذا المقرر المعتمدة ${countOf(hours, AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total / 50), AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`);
     }
+    /* النهايةُ من النمط المعتمد، بالحكم الواحد نفسه الذي يقرؤه النموذج والخادم (patternLengthIssue). */
+    const lengthIssue = patternLengthIssue({ CourseHours: hours }, PROPOSAL_DAY_KEYS.filter(day => Boolean((row as any)[day])) as any, String(row.fstarttime), String(row.fendtime));
+    if (lengthIssue) issues.push(lengthIssue);
   }
   return issues;
 }

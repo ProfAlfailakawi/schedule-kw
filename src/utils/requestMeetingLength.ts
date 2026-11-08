@@ -8,8 +8,8 @@
  * والأربعاء يُمنع «لا يغطّيها» ويُقترح عليه اليومان نفساهما (المالك 2026-10-30).
  *
  * القاعدةُ الآن واحدة، وهي قاعدةُ المحرّر الكامل (appointmentRegulation):
- *   1) الأيامُ نفسُها والوقتُ وحده تغيّر ← طولُ الموعد نفسه.
- *   2) لقاءُ يومٍ واحد يُنقل إلى يومٍ واحد ← طولُه نفسه (قد يكون لقاءً من شعبةٍ بصفّين).
+ *   1) الأيامُ نفسُها والوقتُ وحده تغيّر ← طولُ الموعد نفسه، إن كان طولاً معتمداً في المكتبة.
+ *   2) لقاءُ يومٍ واحد يُنقل إلى يومٍ واحد ← طولُه نفسه (قد يكون لقاءً من شعبةٍ بصفّين)، بالشرط نفسه.
  *   3) وإلا نمطُ اللائحة لساعات المقرّر إن طابق الأيام (والكتلةُ الواحدة على أيّ يوم).
  *   4) وإلا طولُ اليوم في اللائحة: 50 للأحد والثلاثاء والخميس، و80 للاثنين والأربعاء،
  *      ثم يحكم الفحصُ على المجموع (لا يغطّي، أو يتجاوز، أو خلطٌ غير معتمد).
@@ -42,10 +42,20 @@ export function lengthPatternsForHours(hours: number): LengthPattern[] {
 const sameDays = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every(day => b.includes(day));
 
+/** طولُ الموعد القائم معتمدٌ لهذه الأيام؟ (لا أنماطَ لساعاته ← لا يُحكم، فيبقى.) قرار المالك 2026-11-08: طولٌ قديمٌ
+    يخالف المكتبة (75د) لا يُنقل مع البداية — النهايةُ من النمط، وإلا مُنع البندُ ولا يُرسل حتى يُصلَح. */
+export function ownLengthAllowed(days: readonly DayKey[], patterns: readonly LengthPattern[], minutes: number): boolean {
+  if (!patterns.length) return true;
+  if (days.length === 1) return patterns.some(pattern => pattern.days.length === 1
+    ? pattern.minutes[0] === minutes
+    : pattern.days.includes(days[0]) && pattern.minutes[pattern.days.indexOf(days[0])] === minutes);
+  return patterns.some(pattern => sameDays(days, pattern.days) && days.every(day => pattern.minutes[pattern.days.indexOf(day)] === minutes));
+}
+
 /** دقائقُ اللقاء لكل يوم، بترتيب الأيام المعطاة. */
 export function meetingMinutes(days: readonly DayKey[], patterns: readonly LengthPattern[], own?: OwnMeeting | null): number[] {
   if (!days.length) return [];
-  if (own && own.minutes > 0 && own.days.length && (sameDays(days, own.days) || (days.length === 1 && own.days.length === 1)))
+  if (own && own.minutes > 0 && own.days.length && (sameDays(days, own.days) || (days.length === 1 && own.days.length === 1)) && ownLengthAllowed(days, patterns, own.minutes))
     return days.map(() => own.minutes);
   for (const pattern of patterns) {
     if (days.length === 1 && pattern.days.length === 1) return [pattern.minutes[0]];

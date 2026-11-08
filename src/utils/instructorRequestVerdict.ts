@@ -46,6 +46,7 @@ import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, isValidClo
 import { roomIdentityKey } from "./locationRegistry";
 import { habitualBlockMinutes, historicalOrigin, type CourseNature } from "./courseNature";
 import { lengthPatternsForHours, meetingMinutes, meetingSlots, type OwnMeeting } from "./requestMeetingLength";
+import { patternLabel, patternLengthIssue } from "./appointmentRegulation";
 
 /** ما يطلبه الأستاذ في صفٍّ واحد. */
 export type RequestAction = "keep" | "change" | "delete" | "add";
@@ -697,6 +698,22 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       text: `الأيام المختارة ليست نمطاً معتمداً لهذا المقرّر في مكتبة الأنماط — المعتمد: ${patternsForHours(courseHours).map(pattern => pattern.label).join(" أو ")}.`,
       blocking: true,
     });
+  }
+
+  /* ── نهايةٌ تخالف النمط المعتمد لا تُرسل (المالك 2026-11-08) ────────────────────────
+     النهايةُ تُحسب من النمط (meetingMinutes)؛ فما وصل بطولٍ يخالفه (صفحةٌ قديمة، مواعيدُ مكتوبة) يُمنع بسطرٍ
+     يقول النهاية الصحيحة، ومعه زرُّ «طبّق النمط» (الأيامُ نفسُها، فيحسب المحرّكُ طولَ المكتبة). الحكمُ الواحد
+     نفسه في المحرّر والخادم والمقترح (patternLengthIssue). الشعبةُ الشاغرة القائمة تُؤخذ كما هي. */
+  if (!mixedUnapproved && courseHours > 0 && !request.relatedRowIds?.length && (request.action === "add" || request.action === "change")) {
+    const groups = new Map<string, DayKey[]>();
+    for (const slot of slots) groups.set(`${slot.start}|${slot.end}`, [...(groups.get(`${slot.start}|${slot.end}`) || []), slot.day]);
+    const lengthIssue = [...groups.entries()].map(([key, days]) => { const [start, end] = key.split("|"); return patternLengthIssue({ CourseHours: courseHours }, days, start, end); }).find(Boolean);
+    if (lengthIssue) {
+      reasons.push({ source: "shape", code: "pattern", blocking: true, text: lengthIssue });
+      const result = verdictOf();
+      result.shapes = [{ days: [...request.days], label: `طبّق النمط: ${patternLabel({ CourseHours: courseHours }, request.days) || "المعتمد"}` }];
+      return result;
+    }
   }
 
   /* شعبةٌ أخرى من مقرر التخصص في الوقت نفسه: تُمنع في كرت الأستاذ (ملاحظة المالك 8)، وفي شاشات القسم تبقى م.7/5 تنبيهاً. */

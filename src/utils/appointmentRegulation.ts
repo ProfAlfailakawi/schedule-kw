@@ -10,7 +10,7 @@
  *   • أكثر من نمط يحتوي اليوم → يُطبَّق الأنسب لطبيعة المقرر، والبقية شرائح.
  *   • التعديل اليدوي مسموح، وما خرج عن اللائحة يُعلَّم ⚠️ ولا يُمنع.
  */
-import { DAY_KEYS, DAY_NAMES, patternsForHours, type DayKey, type WeeklyPattern } from "./scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysFitLibrary, patternsForHours, type DayKey, type WeeklyPattern } from "./scheduleRegulations";
 import { SCHEDULE_CLOCK_END } from "./scheduleTime";
 
 export type { DayKey } from "./scheduleRegulations";
@@ -147,13 +147,76 @@ export function pickDay(
   return { days: [...days], applied, alternatives };
 }
 
+/**
+ * ── طولُ اللقاء من مكتبة الأنماط وحدها (المالك 2026-11-08) ─────────────────────
+ * مصدرٌ واحد لكل من يحسب نهايةً من بداية: المحرّر الكامل، والبطاقة السريعة، والخادم، والمقترح.
+ * لا عادةَ هنا ولا تاريخ: ساعاتُ المقرّر + الأيام (+ طولُ الموعد الحالي ليومٍ منفرد إن كان طولاً معتمداً).
+ *   • أيامٌ بعدد نمطٍ موحّد الطول وبأيامه نفسها ← دقائقُه (اثنين·أربعاء ← 80).
+ *   • يومٌ واحد ← طولُه الحالي إن كان معتمداً لذلك اليوم (لقاءٌ من نمطٍ يُبنى صفّاً صفّاً، أو الكتلة)،
+ *     وإلا الكتلة (اثنين · 170د). كان طولٌ قديمٌ غير معتمد (30د) يُبقى كما هو فتصير 08:00 ← 08:30.
+ * null: لا ساعات، أو لا أنماطَ لها في المكتبة، أو أيامٌ ليست نمطاً موحّد الطول.
+ */
+export function singleDayLengths(course: RegulationCourse | null | undefined, day: DayKey): number[] {
+  const out: number[] = [];
+  for (const pattern of patternsForHours(regulationHours(course))) {
+    if (pattern.days.length === 1) out.push(pattern.minutesPerDay[0]);
+    else pattern.days.forEach((patternDay, index) => { if (patternDay === day) out.push(pattern.minutesPerDay[index]); });
+  }
+  return [...new Set(out)];
+}
+
+export function patternMinutes(course: RegulationCourse | null | undefined, days: readonly DayKey[], currentMinutes?: number): number | null {
+  const patterns = patternsForHours(regulationHours(course));
+  const ordered = DAY_KEYS.filter(day => days.includes(day));
+  if (!patterns.length || !ordered.length) return null;
+  if (ordered.length === 1) {
+    const allowed = singleDayLengths(course, ordered[0]);
+    const current = Number(currentMinutes);
+    if (current > 0 && allowed.includes(current)) return current;
+    const block = patterns.find(pattern => pattern.days.length === 1);
+    return block ? block.minutesPerDay[0] : (allowed[0] ?? null);
+  }
+  const exact = patterns.find(pattern => uniform(pattern) && pattern.days.length === ordered.length && pattern.days.every(day => ordered.includes(day)));
+  return exact ? exact.minutesPerDay[0] : null;
+}
+
 /** النهاية المحسوبة من البداية ودقائق النمط المعتمد للأيام المختارة؛ "" إن لم يُعرف نمط. */
 export function regulationEnd(course: RegulationCourse | null | undefined, days: readonly DayKey[], start: string, minutes?: number): string {
   const from = toMinutes(start);
   if (!Number.isFinite(from)) return "";
-  const choice = regulationChoiceFor(course, days, minutes);
-  if (!choice) return "";
-  return clock(Math.min(SCHEDULE_CLOCK_END, from + choice.minutes));
+  const length = patternMinutes(course, days, minutes);
+  if (!length) return "";
+  return clock(Math.min(SCHEDULE_CLOCK_END, from + length));
+}
+
+/** الاسمُ الذي تقرؤه الشاشاتُ الأخرى (المقترح، كرت الأستاذ): النهاية من البداية بالنمط وحده. */
+export const patternEnd = regulationEnd;
+
+/** «اثنين · 170د» — النمطُ الذي تُحسب به النهاية، للسطر الذي يقول السبب. */
+export function patternLabel(course: RegulationCourse | null | undefined, days: readonly DayKey[], minutes?: number): string {
+  const ordered = DAY_KEYS.filter(day => days.includes(day));
+  const length = patternMinutes(course, ordered, minutes);
+  return length ? `${ordered.map(shortDay).join("·")} · ${length}د` : "";
+}
+
+/**
+ * ── نهايةٌ تخالف النمط المعتمد تمنع الحفظ (المالك 2026-11-08) ───────────────────
+ * سطرٌ واحد يقول السبب والنهاية الصحيحة، أو "" حين يوافق (أو لا يُحكم: لا ساعات، لا أنماط لها،
+ * أو الأيامُ نفسُها ليست نمطاً — ذاك حكمُ الأيام في unapprovedPatternIssue لا حكمُ الطول).
+ */
+export function patternLengthIssue(course: RegulationCourse | null | undefined, days: readonly DayKey[], start: string, end: string): string {
+  const hours = regulationHours(course);
+  const ordered = DAY_KEYS.filter(day => days.includes(day));
+  if (!hours || !patternsForHours(hours).length || !ordered.length) return "";
+  const from = toMinutes(start), to = toMinutes(end);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return "";
+  if (daysFitLibrary(hours, ordered, ordered.length > 1) === false) return "";
+  if (regulationFit(course, ordered, start, end) !== "off") return "";
+  const expected = regulationEnd(course, ordered, start);
+  const label = patternLabel(course, ordered);
+  return expected
+    ? `مدة الموعد ${to - from}د لا توافق النمط المعتمد (${label}): النهاية ${expected}.`
+    : `مدة الموعد ${to - from}د لا توافق النمط المعتمد لهذه الأيام.`;
 }
 
 /** نهايةٌ كتبها المستخدم ولا تساوي نهاية النمط: طولُه هو، ولا يعيده تغييرُ البداية. */
@@ -171,7 +234,8 @@ export function regulationFit(
   start: string,
   end: string,
 ): RegulationFit {
-  if (!regulationHours(course) || !days.length) return "unknown";
+  /* ساعاتٌ لا نمطَ لها في المكتبة (تدريبٌ ميداني بتسع ساعات مثلاً) لا يُحكم عليها: كانت تُقرأ «خارج اللائحة». */
+  if (!regulationHours(course) || !days.length || !patternsForHours(regulationHours(course)).length) return "unknown";
   const from = toMinutes(start), to = toMinutes(end);
   const length = to - from;
   const ordered = DAY_KEYS.filter(day => days.includes(day));

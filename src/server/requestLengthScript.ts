@@ -2,7 +2,7 @@
  * ── طولُ اللقاء في صفحة الأستاذ: الخوارزميةُ نفسُها التي يحسب بها الخادم ──
  *
  * نسخةُ المتصفّح من محرّك src/utils/requestMeetingLength.ts (meetingMinutes · meetingSlots):
- * الأيامُ نفسُها ← طولُ الموعد نفسه، ويومٌ واحد يُنقل إلى يومٍ واحد ← طولُه، وإلا نمطُ اللائحة لساعات
+ * الأيامُ نفسُها ← طولُ الموعد نفسه، ويومٌ واحد يُنقل إلى يومٍ واحد ← طولُه (إن كان معتمداً في المكتبة)، وإلا نمطُ اللائحة لساعات
  * المقرّر، وإلا 50/80. بلا استيراد، فتُحقن في القالب وتُقرأ في الاختبار كما هي، والاختبارُ يقارن
  * النسختين على جدول حالات (tests/teacher-card-logic-audit.ts).
  */
@@ -10,8 +10,11 @@ export const REQUEST_LENGTH_SCRIPT = String.raw`
 function meetingMinutes(days,patterns,own){
  if(!days||!days.length)return [];
  var same=function(a,b){return a.length===b.length&&a.every(function(d){return b.indexOf(d)>=0})};
- if(own&&own.minutes>0&&own.days&&own.days.length&&(same(days,own.days)||(days.length===1&&own.days.length===1)))return days.map(function(){return own.minutes});
  var list=patterns||[];
+ var allowed=function(m){if(!list.length)return true;
+  if(days.length===1)return list.some(function(p){return p.days.length===1?p.minutes[0]===m:(p.days.indexOf(days[0])>=0&&p.minutes[p.days.indexOf(days[0])]===m)});
+  return list.some(function(p){return same(days,p.days)&&days.every(function(d){return p.minutes[p.days.indexOf(d)]===m})})};
+ if(own&&own.minutes>0&&own.days&&own.days.length&&(same(days,own.days)||(days.length===1&&own.days.length===1))&&allowed(own.minutes))return days.map(function(){return own.minutes});
  for(var k=0;k<list.length;k++){var p=list[k];
   if(days.length===1&&p.days.length===1)return [p.minutes[0]];
   if(p.days.length===days.length&&same(days,p.days))return days.map(function(d){return p.minutes[p.days.indexOf(d)]});

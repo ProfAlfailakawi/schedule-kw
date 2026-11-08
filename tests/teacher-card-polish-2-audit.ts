@@ -50,7 +50,8 @@ check((same.shapes || []).length > 0 && (same.shapes || []).every(s => s.days.le
 /* P2: بدايةٌ أخرى في اليوم نفسه */
 const later = judge(["fthursday"], "15:00");
 check(!later.reasons.some(r => r.blocking && r.source === "shape"), "P2 بدايةٌ أخرى في الخميس نفسه لا تُمنع بنقص الساعات", later);
-check(later.blockMinutes === 75 && later.computedEnd === "16:15", "P2 المدةُ مدةُ الموعد الحالي (٧٥ دقيقة): ينتهي 16:15", { block: later.blockMinutes, end: later.computedEnd });
+/* قرار المالك 2026-11-08: طولٌ قديمٌ خارج المكتبة (75د) لا يُنقل مع البداية؛ النهايةُ من النمط (كتلةُ الأربع ساعات 230د). */
+check(later.blockMinutes === 230 && later.computedEnd === "18:50", "P2 المدةُ من النمط المعتمد لا من طول الموعد القديم (٧٥ دقيقة): ينتهي 18:50", { block: later.blockMinutes, end: later.computedEnd });
 
 /* P3: النصُّ يساوي الأزرار، وكلُّ زرٍّ يمرّ من الفاحص */
 const bad = judge(["fsunday", "fwednesday"], "09:00", full);

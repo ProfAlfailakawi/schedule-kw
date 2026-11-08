@@ -14,7 +14,9 @@ import { directoryVisitingIds, termVisitingIds } from "../../utils/liveVisiting"
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
-import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionWeeklyHours, type DayKey } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
+import { patternLengthIssue } from "../../utils/appointmentRegulation";
+import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
@@ -27,6 +29,9 @@ import { confirmedDepartmentRoomIds, dataContextCacheKey, readLocationRegistry }
 // --- SCHEDULES (FSchedule) API ---
 
 export const SCHEDULE_DAY_KEYS=["fsunday","fmonday","ftuesday","fwednesday","fthursday"] as const;
+/** الصفُّ نفسه في الأسبوع المفحوص: معرّفٌ رقمي (الإنتاج) أو نصّي (مسوّدة، «draft-…»). كان Number("draft-1") = NaN
+    فلا يساوي نفسَه، فيُحسب الموعدُ المعدَّل مع نفسه في ساعات الشعبة. */
+export const isSameRow=(other:any,row:any)=>{const a=String(other?.id??"").trim(),b=String(row?.id??"").trim();return Boolean(b)&&b!=="0"&&a===b;};
 /**
  * ── الوقت يُقارَن بالدقائق، لا بالحروف ──────────────────────────────────────
  *
@@ -96,11 +101,13 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
     const siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
       .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
         &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
-        &&Number(other.id)!==Number(row.id||0));
+        &&!isSameRow(other,row));
     for(const other of siblings)for(const day of SCHEDULE_DAY_KEYS)if((other as any)[day])union.add(day as DayKey);
   }
   const fits=daysFitLibrary(hours,union,own.length>1);
-  if(fits!==false)return null;
+  /* والطولُ أيضاً (المالك 2026-11-08): أيامٌ معتمدة بنهايةٍ تخالف نمطها تمنع، والسطرُ يقول النهاية الصحيحة.
+     الحكمُ في appointmentRegulation (patternLengthIssue) — المصدرُ نفسه الذي يقرؤه النموذج والمقترح. */
+  if(fits!==false)return patternLengthIssue({CourseHours:hours},own,String(row?.fstarttime||""),String(row?.fendtime||""))||null;
   const named=DAY_KEYS.filter(day=>union.has(day)).map(day=>DAY_NAMES[DAY_KEYS.indexOf(day)]).join(" · ");
   const allowed=patternsForHours(hours).map(pattern=>pattern.days.length===1?`يوم واحد ${pattern.minutesPerDay[0]}د`:pattern.label).join("، ");
   return `أيام هذه الشعبة (${named}) ليست نمطاً معتمداً لمقرّرٍ ${countOf(hours,AR.hour)} أسبوعياً في مكتبة الأنماط. المعتمد: ${allowed}.`;
@@ -115,17 +122,20 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
      المنعُ هنا محصورٌ في تجاوز مجموع العبء الأسبوعي لساعات المقرر. */
   /* مقرّرٌ لا يزيد على ساعاته المعتمدة في أي مكان يُنشأ منه: صفوفُه الأخرى في الفصل والشعبة نفسيهما تُحسب معه. */
   if(hours>0&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
-    const siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
-      .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
-        &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
-        &&Number(other.id)!==Number(row.id||0));
+    const scopeRows=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
+      .filter((other:any)=>Number(other.AdCourseId)===courseId&&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
+        &&!isSameRow(other,row));
+    const siblings=scopeRows.filter((other:any)=>String(other.SCode||"")===String(row.SCode||""));
     /* مصدرٌ واحد (sectionWeeklyHours): النسخة المطابقة للموعد نفسه لا تضاعف المجموع، والمواعيد المحسوبة تُسمّى. */
     const reading=sectionWeeklyHours(row,siblings,hours);
     /* شعبةٌ قائمة تتجاوز ساعاتها أصلاً (بياناتٌ قديمة) لا تُمنع من النقل ما لم يزد مجموعُها — كما في طلب الأستاذ؛
        وما يُنشأ أو يزيد يُقاس بالسقف وحده، ولا يُعفيه تاريخُ المقرّر. */
     const existing=reading.total>maxWeeklyMinutesFor(hours)&&Number(row?.id)>0?await Repository.getScheduleById(Number(row.id)).catch(()=>null):null;
     if(existing&&reading.total<=sectionWeeklyHours(existing,siblings,hours).total)return null;
-    if(reading.total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(reading.total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}`;
+    /* الموعدُ وحده يتّسع لساعات المقرّر والشعبةُ نفسُها مكتملة: السببُ رقمُ الشعبة لا الموعد — فيُقال الرقمُ الحرّ
+       التالي لهذا المقرّر في الفصل والقسم، ويعرضه النموذج زرّاً «شعبة جديدة» (المالك 2026-11-08). */
+    const freshCode=reading.others.length&&weeklyLectureMinutes(row,hours)<=maxWeeklyMinutesFor(hours)?nextCourseSectionCode([...scopeRows,row] as any,courseId,Number(row.AdTermId),null):"";
+    if(reading.total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(reading.total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}${freshCode&&freshCode!==String(row.SCode||"")?` — لشعبة جديدة: ${freshCode}`:""}`;
   }
   return null;
 }
