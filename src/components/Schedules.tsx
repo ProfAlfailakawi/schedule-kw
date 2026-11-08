@@ -9458,6 +9458,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   useEffect(() => { studioMeter.current?.blocked(editorVerdict.blockers.length > 0); }, [editorVerdict.blockers.length > 0]);
   const studioChip = (done: boolean, changed?: boolean) => `appt-chip${done ? "" : " is-missing"}${changed ? " is-changed" : ""}`;
   const studioInitial = String(selectedInstructor?.AdInstructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
+  const studioScopeText = [formScopeLabel, studioTermName].filter(Boolean).join(" · ") || "اختر الكلية والقسم والفصل";
   const editorView = (
       <div className={`content-stack editor-page schedule-editor is-studio${studioChecksOpen ? " is-checks-open" : ""}`} data-tone={studioTone}>
         {/* The way out, at the top where the eye already is. */}
@@ -9475,7 +9476,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           subtitle={
             <span className="appt-scope">
               <Building2 aria-hidden="true" />
-              <span className="appt-scope-text">{[formScopeLabel, studioTermName].filter(Boolean).join(" · ") || "اختر الكلية والقسم والفصل"}</span>
+              <span className="appt-scope-text" title={studioScopeText}>{studioScopeText}</span>
               <ColleaguePresenceChip holds={studioHolds.holds} collegeId={Number(form.AdCollegeId || 0)} sectionId={Number(form.AdSectionId || 0)} />
               {!studioScopeMissing ? (
                 <button type="button" className="appt-link" aria-expanded={studioScopeExpanded} onClick={() => setStudioScopeOpen(open => !open)}

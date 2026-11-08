@@ -229,6 +229,7 @@ test:holds-patterns-r4
 test:one-line-appointment
 test:same-slot
 test:plan-peers
+test:teacher-card-peers
 test:coreq-sections
 test:schedule-wipe
 test:instructor-availability

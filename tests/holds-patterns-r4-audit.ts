@@ -76,7 +76,8 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const conflicts = read("src/server/core/scheduleConflicts.ts");
   check(/type: "regulation", severity: "low", soft: true/.test(conflicts), "8 في «موعد» تنبيهٌ لا يمنع");
   const requests = read("src/server/core/instructorRequests.ts");
-  check(/sectionClashBlocks: !options\.forDepartment/.test(requests) && /code: "section-clash", blocking: true/.test(read("src/utils/instructorRequestVerdict.ts")), "8 في كرت الأستاذ يمنع");
+  /* قرار المالك 2026-11-08: في كرت الأستاذ تنبيهٌ واضح لا يمنع (كان يمنع)؛ تفاصيلُه في tests/teacher-card-peers-audit.ts. */
+  check(/sectionClashWarns: !options\.forDepartment/.test(requests) && /code: "section-clash", blocking: false/.test(read("src/utils/instructorRequestVerdict.ts")), "8 في كرت الأستاذ ينبّه ولا يمنع");
 }
 
 /* ── 4 و10: الحجز يقارن ولا يمنع ── */

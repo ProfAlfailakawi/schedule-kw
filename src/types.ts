@@ -1484,6 +1484,8 @@ export interface InstructorRequestItem {
   shapes?: Array<{ days: string[]; label: string }>;
   /** ملاحظةٌ إرشادية لا تمنع (موعدُه الحالي لا يغطّي ساعات المقرّر). */
   advice?: string;
+  /** «في الوقت نفسه» للأستاذ: أسماءُ أقران مقرره من الصحيفة ممن يتداخل معهم وقتُه، بعلاقتها. لا يمنع. src/utils/teacherPeerNote.ts */
+  peers?: { relation: "unlock" | "level"; line: string; courses: Array<{ name: string; relation: "unlock" | "level" }> };
   /** طولُ اللقاء بالدقائق حين يكون يوماً واحداً بطولٍ غير طول المحاضرة (من الصفّ أو من تاريخ المقرّر). */
   block?: number;
   decision?: {
