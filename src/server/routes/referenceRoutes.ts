@@ -20,10 +20,9 @@ import { provisionCollegeUsers } from "../sectionUsers";
 import { ensureCollegeRegistrars } from "../seatsRoutes";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { readDegreeRuleInput } from "../../utils/degreeRules";
-import { STUDENT_UNIT_CAPS, sectionStudentSettingsId, studentUnitCapOf } from "../../utils/studentUnitCap";
+import { UNIVERSITY_UNIT_CAP_DOC, studentUnitCapOf, studentUnitCapProblem } from "../../utils/studentUnitCap";
 import { cleanTravelPolicy } from "../../utils/campusTravelPolicy";
 import { readTravelPolicy, saveTravelPolicy } from "../core/travelPolicy";
-import { staffFamilyScopes } from "../core/staffCard";
 import { canManageDeadline } from "../../utils/academicRoles";
 import { DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES } from "../../utils/campusTravel";
 import { isValidClock, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, scheduleDayWindowMinutes, withinScheduleDay, withinUniversityDay, universityDayIssue } from "../../utils/scheduleTime";
@@ -170,20 +169,18 @@ app.get("/api/schedule-day-window", requirePermission(7), async (req:Authenticat
   const {startTime,endTime}=scheduleDayWindowMinutes(section);res.setHeader("Cache-Control","no-store");res.json({startTime,endTime});
 });
 
-/* سقفُ وحدات الطالب في «مساري» (ملاحظة المالك 14): قرارُ القسم، يسري على حرمه كلِّها. */
-app.get("/api/section-student-settings",requirePermission(7),async(req:AuthenticatedRequest,res:Response)=>{
-  const collegeId=Number(req.query.collegeId||0),sectionId=Number(req.query.sectionId||0);
-  if(!collegeId||!sectionId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
-  const doc=await Repository.getFeatureDoc<{maxUnits?:number}>("sectionStudentSettings",sectionStudentSettingsId(sectionId));
-  res.setHeader("Cache-Control","no-store");res.json({maxUnits:studentUnitCapOf(doc?.maxUnits)});
+/* سقفُ وحدات الطالب في «مساري»: إعدادٌ واحدٌ للجامعة يضعه المدير الرئيسي (قرار المالك 2026-11-08). */
+const readUnitCapDoc=()=>Repository.getFeatureDoc<{maxUnits?:number}>(UNIVERSITY_UNIT_CAP_DOC.collection,UNIVERSITY_UNIT_CAP_DOC.id);
+app.get("/api/student-unit-cap",requireAuth,requireRootAdmin,async(_req:AuthenticatedRequest,res:Response)=>{
+  res.setHeader("Cache-Control","no-store");res.json({maxUnits:studentUnitCapOf((await readUnitCapDoc())?.maxUnits)});
 });
-app.put("/api/section-student-settings",requirePermission(7),async(req:AuthenticatedRequest,res:Response)=>{
-  const collegeId=Number(req.body?.collegeId||0),sectionId=Number(req.body?.sectionId||0),maxUnits=Number(req.body?.maxUnits);
-  if(!collegeId||!sectionId||!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
-  if(!(STUDENT_UNIT_CAPS as readonly number[]).includes(maxUnits)){res.status(400).json({error:"اختر 15 أو 18 أو 21."});return;}
-  const family=await staffFamilyScopes(collegeId,sectionId);
-  await Promise.all([{sectionId},...family].map(scope=>Repository.saveFeatureDoc("sectionStudentSettings",sectionStudentSettingsId(scope.sectionId),{maxUnits,by:String(req.user?.Name||""),at:new Date().toISOString()})));
-  res.locals.auditChanges=`سقف وحدات الطالب في مساري: ${maxUnits}`;
+app.put("/api/student-unit-cap",requireAuth,requireRootAdmin,async(req:AuthenticatedRequest,res:Response)=>{
+  const problem=studentUnitCapProblem(req.body?.maxUnits);
+  if(problem){res.status(400).json({error:problem});return;}
+  const maxUnits=Number(req.body.maxUnits),before=studentUnitCapOf((await readUnitCapDoc())?.maxUnits);
+  await Repository.saveFeatureDoc(UNIVERSITY_UNIT_CAP_DOC.collection,UNIVERSITY_UNIT_CAP_DOC.id,{maxUnits,by:String(req.user?.Name||""),at:new Date().toISOString()});
+  res.locals.auditEntity="سقف وحدات مساري";
+  res.locals.auditChanges=`سقف وحدات الطالب في مساري: ${before} ← ${maxUnits}`;
   res.json({maxUnits});
 });
 

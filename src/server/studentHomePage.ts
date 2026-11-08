@@ -1184,7 +1184,7 @@ function loadPlan(){var host=document.getElementById("advice");if(!host)return;
     var kt=document.getElementById("kt"),ks=document.getElementById("kts");
     if(a&&kt&&a.done){kt.textContent="✓";ks.textContent="أكملت الصحيفة"}
     var b=document.getElementById("advw");if(b&&a)b.addEventListener("click",function(){b.disabled=true;var w=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null;
-      api("PUT","/api/public/me/wishes",{targetUnits:Math.max(12,Math.min(lim("wishUnitsMax",15),a.units||15)),courseIds:a.picks.map(function(p){return p.courseId}),constraints:w?w.constraints:{}}).then(function(x){b.disabled=false;
+      api("PUT","/api/public/me/wishes",{targetUnits:Math.max(lim("wishUnitsMin",12),Math.min(lim("wishUnitsMax",15),a.units||15)),courseIds:a.picks.map(function(p){return p.courseId}),constraints:w?w.constraints:{}}).then(function(x){b.disabled=false;
         if(!x.ok){toast(x.d.error||"تعذّر الحفظ",true);return}S.state.profile.wishes=x.d.wishes;S.wDraft=null;S.wCount=null;S.wEdit=false;toast("صارت رغباتك");renderWishes()})});
     if(S.state.phase.mode==="wishes")renderWishes()})}
 ${STUDENT_MAP_SCRIPT}

@@ -2147,34 +2147,37 @@
       "id": "FR-ACD-035",
       "kind": "functional",
       "title": {
-        "ar": "سقف وحدات الطالب في «مساري» لكل قسم",
-        "en": "Per-department student unit cap in Masari"
+        "ar": "سقف وحدات الطالب في «مساري» للجامعة",
+        "en": "University-wide student unit cap in Masari"
       },
       "text": {
-        "ar": "يجب على النظام أن يحفظ لكل قسم سقف وحدات الطالب في «مساري» بإحدى ثلاث قيم 15 أو 18 أو 21 (الافتراضي 15) عبر GET وPUT /api/section-student-settings، وأن يسري القرار على القسم في كل كلياته.",
-        "en": "The system shall store for each department the student unit cap in Masari as one of 15, 18 or 21 (default 15) through GET and PUT /api/section-student-settings, and the decision shall apply to the department in all its colleges."
+        "ar": "يجب على النظام أن يحفظ سقفاً واحداً لوحدات الطالب في «مساري» للجامعة كلها، عدداً صحيحاً من 3 إلى 30 (الافتراضي 15)، يضعه المدير الرئيسي في «البيانات الأكاديمية» ← الفصول عبر GET وPUT /api/student-unit-cap؛ وسقوف الأقسام القديمة تبقى في البيانات ولا تُقرأ.",
+        "en": "The system shall store one student unit cap in Masari for the whole university, an integer from 3 to 30 (default 15), set by the root administrator in Academic data > Terms through GET and PUT /api/student-unit-cap; old per-department caps stay stored and are ignored."
       },
       "priority": "should",
       "status": "implemented",
       "actors": [
-        "committeeChair"
+        "admin"
       ],
       "acceptance": [
         {
-          "ar": "قيمة غير الثلاث تردّ 400 «اختر 15 أو 18 أو 21.»، وقسم خارج النطاق 403؛ ويلزم الشاشة 7.",
-          "en": "A value other than the three returns 400, a department outside scope 403; screen 7 is required."
+          "ar": "قيمة خارج 3–30 أو غير صحيحة تردّ 400، وغير المدير الرئيسي 403.",
+          "en": "A value outside 3-30 or not an integer returns 400; anyone but the root administrator gets 403."
         },
         {
-          "ar": "الحفظ يكتب الوثيقة sectionStudentSettings لكل أقسام العائلة مع الاسم والوقت ويُسجّل في سجل التدقيق.",
-          "en": "Saving writes the sectionStudentSettings document for every department of the family with the name and time and is recorded in the audit trail."
+          "ar": "الحفظ يكتب الوثيقة universityStudentSettings/university مع الاسم والوقت ويُسجّل القيمة قبل وبعد في سجل التدقيق؛ وفي البيئة التجريبية يبقى في صندوق الجلسة.",
+          "en": "Saving writes universityStudentSettings/university with the name and time and records before and after in the audit log; in the demo it stays in the session sandbox."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/routes/referenceRoutes.ts#/api/section-student-settings",
-          "src/utils/studentUnitCap.ts"
+          "src/server/routes/referenceRoutes.ts#/api/student-unit-cap",
+          "src/utils/studentUnitCap.ts",
+          "src/components/StudentUnitCapSetting.tsx"
         ],
-        "tests": []
+        "tests": [
+          "tests/admin-rules-r4-audit.ts"
+        ]
       },
       "inferred": true
     },

@@ -24,7 +24,7 @@ export interface AdviceInput {
   /** مطروحٌ هذا الفصل بشعبةٍ واحدةٍ على الأقل. */
   offered: (id: number) => boolean;
   targetUnits: number;
-  /** سقفُ القسم؛ الغائب ١٥. */
+  /** السقفُ الجامعي؛ الغائب ١٥. */
   maxUnits?: number;
 }
 
@@ -58,7 +58,8 @@ export function adviseStudent(input: AdviceInput): Advice {
   const ruleOf = new Map(input.rules.map(rule => [rule.courseId, rule] as const));
   const credit = (id: number) => input.credit.get(id) || 0;
   /* فصلُ الطالب بين ١٢ و١٥ وحدة: لا يُقترح فوق ١٥ ولا يُترك دون ١٢ ما دام في المطروح ما يملؤه. */
-  const target = Math.max(MIN_UNITS, Math.min(input.maxUnits || MAX_UNITS, Math.round(input.targetUnits) || MAX_UNITS));
+  const cap = input.maxUnits || MAX_UNITS;
+  const target = Math.max(Math.min(MIN_UNITS, cap), Math.min(cap, Math.round(input.targetUnits) || MAX_UNITS));
   const inGroup = new Set(input.groups.flatMap(group => group.courseIds));
   const loose = new Set(input.rules.filter(rule => rule.kind === "elective" && !inGroup.has(rule.courseId)).map(rule => rule.courseId));
   const compulsory = plan.filter(id => !inGroup.has(id) && !loose.has(id) && !passed.has(id));
