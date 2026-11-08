@@ -313,19 +313,22 @@ function applyConfirmedAuthorityLinks(
  */
 function linkRecreatedSections(baseline:readonly Row[],current:readonly Row[],pairs:Map<number,number>,codes?:Map<number,string>){
   const used=new Set(pairs.values());
-  const key=(row:Row,source:boolean)=>{
-    const c=courseKey(row,codes),sec=section(row,source),st=site(row);
+  /* رقمُ الشعبة هنا هو المخزَّن (SCode) لا الرسمي المطبوع في ملف التسجيل: هو الذي يراه المنسّق
+     في شاشات البرنامج وفي التقرير، وهو الذي يكتبه حين يُعيد شعبة. ولو أُضيف الرسمي احتياطاً
+     لارتبطت شعبةٌ جديدة برقمٍ صدف أنه الرقم الرسمي لشعبةٍ محذوفة، وهذا إضافةٌ لا تعديل. */
+  const keyOf=(row:Row)=>{
+    const c=courseKey(row,codes),sec=number(row.SCode),st=site(row);
     return c&&sec&&st?[c,st,sec].join("|"):"";
   };
   const sources=new Map<string,number[]>(),lives=new Map<string,number[]>();
   baseline.forEach((row,i)=>{
     if(pairs.has(i))return;
-    const k=key(row,true);
+    const k=keyOf(row);
     if(k)sources.set(k,[...(sources.get(k)||[]),i]);
   });
   current.forEach((row,j)=>{
     if(used.has(j))return;
-    const k=key(row,false);
+    const k=keyOf(row);
     if(k)lives.set(k,[...(lives.get(k)||[]),j]);
   });
   for(const [k,s] of sources){
