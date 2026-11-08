@@ -9700,7 +9700,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <header className="appt-step-head">
                     <span className="appt-num">2</span>
                     <div className="appt-q"><strong>من؟ الأستاذ</strong><small>أساتذة القسم والمنتدبون إليه</small></div>
-                  <div className="instructor-tools"><MiniWeekToggle enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /></div>
+                  {studioTeacherId && isFacultyPlaceholderId(studioTeacherId) ? null : <div className="instructor-tools"><MiniWeekToggle enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /></div>}
                     {studioTeacherDone ? <button type="button" className="appt-link" onClick={() => setStudioTeacherOpen(false)}
                       data-guide-ignore="يطوي حقل الأستاذ سطراً واحداً بعد الاختيار؛ لا يغيّر شيئاً">تم</button> : null}
                   </header>
@@ -9737,7 +9737,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <PersonChips visiting={formVisiting(form.AdInstructorId)} trainee={formTrainees.has(Number(form.AdInstructorId))} />
                   {studioLoad ? <span className="appt-tag is-info" title="النصاب الآن ثم بعد هذا الموعد">النصاب <bdi dir="ltr">{studioLoad.loadNow}</bdi> ← <bdi dir="ltr">{studioLoad.loadAfter}</bdi></span> : null}
                   <span className="appt-sumrow-end">
-                  <div className="instructor-tools"><MiniWeekToggle enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /></div>
+                  {studioTeacherId && isFacultyPlaceholderId(studioTeacherId) ? null : <div className="instructor-tools"><MiniWeekToggle enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /></div>}
                     <button type="button" className="appt-link" onClick={() => setStudioTeacherOpen(true)}
                       data-guide-ignore="يفتح حقل الأستاذ لتغييره؛ لا يحفظ شيئاً">تغيير</button>
                   </span>
