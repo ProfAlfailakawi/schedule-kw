@@ -4,7 +4,7 @@
  * الشعبةُ بندٌ واحد؛ السقف والترتيب؛ «تفتح» أولاً؛ وما سمّاه فحصُ التعارض لا يتكرر.
  */
 import fs from "node:fs";
-import { capSameSlot, conflictSkipIds, isPracticeRow, NEAR_SECTION_MAX_MINUTES, NEAR_SECTION_MIN_MINUTES, nearSectionWindow, SAME_SLOT_VISIBLE_ROWS, sameSlotOf, sectionCodeKey, slotMinutes, type SlotRow } from "../src/utils/sameSlot";
+import { capCourseRows, capSameSlot, conflictSkipIds, isPracticeRow, NEAR_SECTION_MAX_MINUTES, NEAR_SECTION_MIN_MINUTES, nearSectionWindow, SAME_SLOT_SECTION_BARS, SAME_SLOT_VISIBLE_ROWS, sameSlotGroups, sameSlotOf, sameSlotSheet, sectionCodeKey, slotMinutes, visibleSections, type SlotRow } from "../src/utils/sameSlot";
 import { sameLevelLookup, unlockLookup } from "../src/utils/planPeers";
 import { sameCourseSectionClash } from "../src/utils/scheduleRegulations";
 import { isBlockingConflict } from "../src/utils/scheduleIntelligence";
@@ -218,7 +218,7 @@ check(hint.includes("SHEET_CEILING") && hint.includes("maxHeight: pos.maxHeight"
 check(hint.includes("<em>قريبة</em>") && hint.includes("near ? null"), "القريبة بوسمٍ مميز وبلا لون تداخل");
 check(/role="dialog"/.test(hint) && /aria-labelledby/.test(hint) && /aria-label=\{label\}/.test(hint), "حوارٌ معنوَن وزرٌّ بوصفٍ مقروء");
 check(!/fetch\(/.test(hint) && hint.includes("loadPlanFacts(collegeId, sectionId)") && read("src/utils/planFactsCache.ts").includes("/api/schedules/coreq-pairs"), "طلبٌ واحد مخبَّأ لكل قسم (المقرنات) وما سواه من الصفوف المحمّلة");
-check(hint.includes("key={`${group.key}|${index}`}"), "مفتاحُ مجموعة الورقة فريد: «بلا سطر» قد تتكرر");
+check(hint.includes("key={group.key}") && hint.includes("key={courseRow.key}"), "مفاتيحُ المجموعات والصفوف من مفاتيحها الفريدة (تُختبر أدناه)");
 check(!hint.includes("مما يُؤخذ معه") && hint.includes("من أقرانه في الصحيفة"), "الوصف المقروء يصدق على «تفتح» و«تُؤخذ معًا» معاً");
 const app = read("src/App.tsx");
 check(/forgetTrailStamps\(\);\s*forgetWarmStarts\(\);\s*forgetPlanFacts\(\);/.test(app) && !/from "\.\/components\/SameSlotHint"/.test(app), "الخروج يمحو حقائق الصحيفة، بلا سحب الشارة إلى الحزمة الأولى");
@@ -239,7 +239,65 @@ check(sectionCodeKey("01A") === "01A" && sectionCodeKey(" م1 ") === "م1" && se
   check(near.count === 1 && near.sectionCount === 1 && near.items[0].kind === "near" && near.items[0].days.length === 2, "الشعبةُ القريبة المدموجة تبقى «near» فيبقى وسمُها", near.items);
 }
 const sheetSource = fs.readFileSync("src/components/SameSlotHint.tsx", "utf8");
-check(sheetSource.includes('near={kind === "near"}') && sheetSource.includes("{near ? <em>قريبة</em> : null}"), "وسمُ «قريبة» مستقلٌّ عن وقت الصف");
+check(sheetSource.includes('near: kind === "near"') && sheetSource.includes("near={courseRow.near}") && sheetSource.includes("{near ? <em>قريبة</em> : null}"), "وسمُ «قريبة» مستقلٌّ عن وقت الصف");
+
+/* ── صفوفُ المقررات: شعبُ المقرر الواحد صفٌّ واحد، ومجموعاتٌ مرئية كلُّها ── */
+{
+  /* حالة المالك: «الشفافيات» (200) الاثنين 11:00–14:50. اللوحات (201) بثلاث شعب، والصوت (202) يفتحان معه X؛
+     والأفلام (203) تفتح معه Y؛ ومبادئ الحاسوب (204) «تُؤخذ معًا». */
+  const m = (id: number, course: number, scode: string, start: string, end: string) => row(id, course, ["m"], start, end, { SCode: scode });
+  const unlockOf = unlockLookup([
+    { nextCourseId: 300, nextCourseName: "المجسمات", courseIds: [200, 201, 202], blocked: [] },
+    { nextCourseId: 301, nextCourseName: "التصوير", courseIds: [200, 203], blocked: [] },
+  ]);
+  const q = { days: ["fmonday" as const], start: "11:00", end: "14:50", courseId: 200, sectionId: 7, termId: 20261, collegeId: 3, scode: "1", unlockOf, sameLevel: sameLevelLookup(levels([200, 204])) };
+  const example = [
+    m(1, 201, "501", "12:00", "15:50"), m(2, 201, "502", "08:00", "11:50"), m(3, 201, "504", "14:00", "17:50"),
+    m(4, 202, "504", "13:00", "15:50"), m(5, 203, "502", "10:00", "12:50"), m(6, 204, "504", "14:00", "16:50"),
+  ];
+  const res = sameSlotOf(example, q);
+  check(res.count === 6, "المثال: ستُّ شعب", res.count);
+  let groups = sameSlotGroups(res.items);
+  check(groups.map(g => g.kind).join() === "unlock,unlock,level" && groups.reduce((n, g) => n + g.rows.length, 0) === 4, "المثال: أربعة صفوف مقررات في ثلاث مجموعات بترتيبها", groups.map(g => [g.key, g.rows.length]));
+  const boards = groups[0].rows.find(r => r.sections[0].row.AdCourseId === 201)!;
+  check(boards.sections.length === 3 && !boards.exact && !boards.near, "اللوحات صفٌّ واحد بثلاث شعب");
+  check(boards.sections.map(s => `${s.row.SCode}=${s.row.fstarttime}-${s.row.fendtime}`).sort().join() === "501=12:00-15:50,502=08:00-11:50,504=14:00-17:50", "كلُّ شعبةٍ مدموجة تبقى بوقتها", boards.sections.map(s => s.row.SCode));
+  check(visibleSections(boards).sections.map(s => s.row.SCode).join() === "501,502,504" && visibleSections(boards).hidden === 0, "الشعبُ المرسومة برقمها");
+  const capped = capCourseRows(groups);
+  check(capped.hidden === 0 && capped.groups.length === 3 && capped.groups.flatMap(g => g.rows).length === 4, "السقف يعدّ صفوف المقررات: الأربعة ظاهرة ومنها «تُؤخذ معًا»", capped);
+  const single = groups[2].rows[0];
+  check(single.sections.length === 1 && single.sections[0].row.id === 6 && single.sections[0].sameLevel, "صفٌّ بشعبةٍ واحدة كما كان");
+  check(capCourseRows(groups, 3).groups.map(g => g.rows.length).join() === "1,1,1", "سقفٌ أضيق: صفٌّ من كل مجموعة قبل ملء الأولى", capCourseRows(groups, 3).groups.map(g => g.rows.length));
+
+  /* ومعها شعبتان من المقرر نفسه: بالوقت نفسه، وقريبة بعده. */
+  const withOwn = [...example, m(7, 200, "2", "11:00", "14:50"), m(8, 200, "3", "15:30", "17:30")];
+  groups = sameSlotGroups(sameSlotOf(withOwn, q).items);
+  check(groups.map(g => g.kind).join() === "course,unlock,unlock,level", "المقرر نفسه أولاً ثم «تفتح» ثم «تُؤخذ معًا»", groups.map(g => g.kind));
+  const own = groups[0].rows;
+  check(own.length === 1 && own[0].sections.length === 2 && !own[0].exact && !own[0].near && own[0].sections.map(s => s.kind).sort().join() === "exact,near", "شعبتا المقرر نفسه صفٌّ واحد، كلٌّ بنوعه", own[0]?.sections.map(s => s.kind));
+  let sheet = sameSlotSheet(groups);
+  check(sheet.tabs.map(t => t.kind).join() === "course,unlock,level" && sheet.view === "all", "الرقائق: نوعٌ لكل مجموعة، و«الكل» أولاً", sheet.tabs);
+  check(sheet.groups.map(g => `${g.kind}:${g.rows.length}`).join() === "course:1,unlock:1,unlock:1,level:1" && sheet.hidden === 1, "«الكل»: صفٌّ من كل مجموعة بترتيبها، والباقي عدداً", sheet.groups.map(g => g.rows.length));
+  check(sheet.tabs.find(t => t.kind === "course")!.sectionCount === 2 && sheet.tabs.find(t => t.kind === "unlock")!.rowCount === 3, "العدد صادق: شعبُ المقرر نفسه شُعَبٌ، وغيرُها صفوف مقررات");
+  sheet = sameSlotSheet(groups, "unlock");
+  check(sheet.view === "unlock" && sheet.groups.length === 2 && sheet.groups.flatMap(g => g.rows).length === 3 && sheet.hidden === 0, "رقاقةُ «تفتح»: صفوفُها كلُّها", sheet.groups.map(g => g.rows.length));
+  sheet = sameSlotSheet(groups, "course");
+  check(sheet.groups.length === 1 && sheet.groups[0].kind === "course", "رقاقةُ المقرر نفسه: مجموعتُه وحدها");
+  check(sameSlotSheet(groups, "time").view === "all", "نوعٌ غائب: يعود إلى «الكل»");
+  const keys = groups.flatMap(g => [g.key, ...g.rows.map(r => r.key)]);
+  check(new Set(keys).size === keys.length && new Set(groups.flatMap(g => g.rows.flatMap(r => r.sections.map(s => String(s.row.id))))).size === 8, "مفاتيحُ React فريدة", keys);
+
+  /* نوعٌ واحد: بلا رقائق، والسقف ٤ ثم «+n» يُفتح في مكانه. */
+  const plain = Array.from({ length: 6 }, (_, i) => row(400 + i, 500 + i, ["s"], "08:00", "08:50"));
+  const plainGroups = sameSlotGroups(sameSlotOf(plain, { days: ["fsunday"], start: "08:00", end: "08:50" }).items);
+  sheet = sameSlotSheet(plainGroups);
+  check(sheet.tabs.length === 0 && sheet.groups.flatMap(g => g.rows).length === 4 && sheet.hidden === 2, "نوعٌ واحد: أربعة صفوف و«+٢»", sheet.hidden);
+  sheet = sameSlotSheet(plainGroups, "all", true);
+  check(sheet.groups.flatMap(g => g.rows).length === 6 && sheet.hidden === 0, "«+n» يُفتح في مكانه");
+  const fiveSections = sameSlotGroups(sameSlotOf(["1", "2", "3", "4", "5"].map((code, i) => row(410 + i, 600, ["s"], "08:00", "08:50", { SCode: code })), { days: ["fsunday"], start: "08:00", end: "08:50" }).items);
+  check(fiveSections.length === 1 && fiveSections[0].rows.length === 1 && visibleSections(fiveSections[0].rows[0]).sections.length === SAME_SLOT_SECTION_BARS && visibleSections(fiveSections[0].rows[0]).hidden === 2, "خمسُ شعب: ثلاثُ رقائق و«+٢»");
+  check(/sectionCount \? <span className="same-slot-dup"/.test(sheetSource) && sheetSource.includes('role="tablist"') && sheetSource.includes('role="tab"') && sheetSource.includes("ArrowLeft"), "وسمُ المقرر نفسه على الشارة، ورقائقُ بأسهم لوحة المفاتيح");
+}
 
 /* صفوفُ «وضع تجربة» مؤقتة: خارج التلميح؛ وحجوزُ الطلبات ليست منها. */
 {

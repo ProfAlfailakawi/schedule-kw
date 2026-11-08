@@ -91,6 +91,8 @@ export interface SimInput {
   rounds: number;
   /** Capacity analysis tests the same reported constraints against a 15-unit target. */
   assessCapacity?: boolean;
+  /** السقفُ الجامعي لوحدات الطالب («البيانات الأكاديمية» ← الفصول): لا تتجاوزه خطةٌ في تذكرة. الغائبُ = بلا سقفٍ إضافي. */
+  maxUnits?: number;
   /** سيناريو «لو زال القيد»: للمقارنة فقط. */
   relax?: SimRelax;
 }
@@ -156,6 +158,7 @@ const isTight = (ledger: Ledger, id: string) => free(ledger, id) <= Math.ceil((l
 interface Pick { courseId: number; offeringId: string }
 
 export function simulateRegistration(input: SimInput): SimResult {
+  const unitCap = Number(input.maxUnits) > 0 ? Number(input.maxUnits) : Infinity;
   const audited = auditSimOfferings(input.offerings);
   const excludedIds = new Set(audited.issues.map(issue => issue.offeringId));
   const uncertainCourses = new Set(input.offerings.filter(offering => excludedIds.has(offering.id)).map(offering => offering.courseId));
@@ -235,9 +238,9 @@ export function simulateRegistration(input: SimInput): SimResult {
     }
     candidates.sort((a, b) => b.priority - a.priority || a.courseId - b.courseId);
     const defaulted = !student.wishes;
-    const target = input.assessCapacity
+    const target = Math.min(unitCap, input.assessCapacity
       ? Math.min(SIM_UNITS_DEFAULT, Math.max(0, need.remainingUnits))
-      : Math.min(clampUnits(student.wishes?.targetUnits ?? SIM_UNITS_DEFAULT), Math.max(SIM_UNITS_MIN, need.remainingUnits));
+      : Math.min(clampUnits(student.wishes?.targetUnits ?? SIM_UNITS_DEFAULT), Math.max(SIM_UNITS_MIN, need.remainingUnits)));
     /* حاجتُه: من أوشك على التخرّج أولاً، ثم من عليه إجباريٌّ أكثر. */
     const graduating = need.remainingUnits > 0 && need.remainingUnits <= 36 ? 2000 - need.remainingUnits : 0;
     return { student, passed, passedUnits, plan, need, target, defaulted, score: graduating + need.compulsoryUnits, candidates, unmet, coreqNeed, prereqOk };
@@ -414,7 +417,7 @@ export function simulateRegistration(input: SimInput): SimResult {
     const avoid = new Set(a.map(p => p.offeringId));
     const picks: Pick[] = [];
     let units = 0;
-    const cap = label === "B" ? entry.target : SIM_UNITS_MIN;
+    const cap = label === "B" ? entry.target : Math.min(SIM_UNITS_MIN, unitCap);
     const list = label === "B" ? entry.candidates : entry.candidates.filter(c => c.required);
     for (const c of list) {
       if (picks.some(p => p.courseId === c.courseId)) continue;
@@ -441,8 +444,9 @@ export function simulateRegistration(input: SimInput): SimResult {
     const incompleteOffer = units < entry.target && Boolean(entry.plan?.courseIds.some(id => !entry.passed.has(id) && uncertainCourses.has(id)));
     let band: NonNullable<SimTicket["assessment"]>;
     if ((input.assessCapacity && incompleteData(entry)) || entry.student.assessable === false || unresolvedBySearch.has(entry.student.fp) || incompleteOffer) band = "unknown";
-    else if (units >= 15) band = "canReach15";
-    else if (units >= 12) band = "canReach12To14";
+    /* سقفٌ جامعيٌّ دون ١٥ أو ١٢: من بلغه بلغ الحدَّ المطلوب منه. */
+    else if (units >= Math.min(15, unitCap)) band = "canReach15";
+    else if (units >= Math.min(12, unitCap)) band = "canReach12To14";
     else if (Number(entry.student.remainingUnits) > 0 && Number(entry.student.remainingUnits) < 12 && units >= Number(entry.student.remainingUnits)) band = "graduatingBelow12";
     else band = "below12";
     capacity[band] += 1;

@@ -21,9 +21,11 @@ import {
   CatalogFormDrawer,
   visualConfirm,
 } from "./ui";
+import StudentUnitCapSetting from "./StudentUnitCapSetting";
 type Mode = "index" | "create" | "edit";
 /** `embedded` means the academic console already supplies the page identity. */
-export default function Terms({ embedded = false, actionSlot = null }: { embedded?: boolean; actionSlot?: HTMLElement | null }) {
+/** `rootAdmin`: المدير الرئيسي يرى هنا سقفَ وحدات الطالب في «مساري» للجامعة كلها. */
+export default function Terms({ embedded = false, actionSlot = null, rootAdmin = false }: { embedded?: boolean; actionSlot?: HTMLElement | null; rootAdmin?: boolean }) {
   const [items, setItems] = useState<any[]>([]),
     [mode, setMode] = useState<Mode>("index"),
     [editId, setEditId] = useState<number | null>(null),
@@ -253,6 +255,7 @@ export default function Terms({ embedded = false, actionSlot = null }: { embedde
         </PageTitle>
       )}
       {error ? <Notice>{error}</Notice> : null}
+      {rootAdmin ? <StudentUnitCapSetting /> : null}
       <div className="catalog-workspace" aria-busy={loading}>
         <Surface className="catalog-master">
           <h2 className="sr-only">قائمة الفصول الدراسية</h2>

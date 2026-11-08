@@ -229,11 +229,13 @@ test:holds-patterns-r4
 test:one-line-appointment
 test:same-slot
 test:plan-peers
+test:teacher-card-peers
 test:coreq-sections
 test:schedule-wipe
 test:instructor-availability
 test:instructor-offering-flow
 test:ta-conversion
+test:ta-conversion-http
 test:unchanged-request
 test:unchanged-request-http
 test:course-number-seven-digit

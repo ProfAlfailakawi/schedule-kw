@@ -206,8 +206,8 @@ export interface VerdictContext {
   ladderBlocks?: boolean;
   /** استثناءُ دوام القسم: يمنع كرتَ الأستاذ افتراضاً، وتنبيهٌ فقط لقراءة القسم ولما عرضه القسم بنفسه. */
   departmentHoursWarnOnly?: boolean;
-  /** شعبتان من مقرر تخصص في الوقت نفسه تُمنعان: كرتُ الأستاذ وحده (ملاحظة المالك 8). */
-  sectionClashBlocks?: boolean;
+  /** شعبتان من مقرر تخصص في الوقت نفسه: تنبيهٌ واضح لا يمنع، في كرت الأستاذ وحده (المالك 2026-11-08، وكان يمنع بملاحظته 8). */
+  sectionClashWarns?: boolean;
   /** مدةُ التنقّل بين المواقع من إعدادات التسجيل: أولُ نقصٍ بين الموعد المطلوب وبقية مواعيد الأستاذ. */
   travelShortfall?: (slots: ReadonlyArray<{ day: string; start: string; end: string }>, others: readonly any[]) => { need: number; gap: number } | null;
   /** إلزامٌ في بطاقة الأستاذ، وتنبيهٌ في شاشات القسم. */
@@ -427,8 +427,11 @@ export function weeklyLoadOf(rows: FSchedule[], courses: Map<number, AdCourse>):
  */
 /* الأخصّ يُقال أولاً: تصادمٌ مع محاضرته هو أوضحُ للأستاذ من «تتابع مرتفع» وإن سبقه في القائمة. */
 const HEADLINE_ORDER: RequestReasonSource[] = ["window", "shape", "instructor", "cohort", "room"];
+/** تنبيهُ الشعبة الأخرى اللين: سطرُه وحده تحت الحكم، فلا يصير عنوانَه ولا يطلب استثناءً. */
+export const softSectionClash = (reason: RequestReason | undefined): boolean => Boolean(reason && reason.code === "section-clash" && !reason.blocking);
+
 export function headlineReasonOf(list: ReadonlyArray<RequestReason> | undefined): RequestReason | undefined {
-  const all = list || [];
+  const all = (list || []).filter(reason => !softSectionClash(reason));
   const blocking = all.filter(reason => reason.blocking);
   const pool = blocking.length ? blocking : all;
   for (const source of HEADLINE_ORDER) { const hit = pool.find(reason => reason.source === source); if (hit) return hit; }
@@ -495,7 +498,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   const verdictOf = (): RequestVerdict => {
     const blocking = reasons.some(reason => reason.blocking);
     /* Shared-student demand is advice, not an exception requiring a signed justification. */
-    const exceptionReasons = reasons.filter(reason => reason.source !== "cohort" && reason.code !== "travel");
+    const exceptionReasons = reasons.filter(reason => reason.source !== "cohort" && reason.code !== "travel" && !softSectionClash(reason));
     const kind: RequestVerdictKind = blocking ? "conflict" : exceptionReasons.length ? "exception" : "clear";
     return {
       kind, reasons, sendable: !blocking, needsExcuse: kind === "exception",
@@ -716,8 +719,10 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     }
   }
 
-  /* شعبةٌ أخرى من مقرر التخصص في الوقت نفسه: تُمنع في كرت الأستاذ (ملاحظة المالك 8)، وفي شاشات القسم تبقى م.7/5 تنبيهاً. */
-  if (context.sectionClashBlocks && !request.relatedRowIds?.length && (request.action === "add" || request.action === "change")) {
+  /* شعبةٌ أخرى من مقرر التخصص في الوقت نفسه: في كرت الأستاذ تنبيهٌ واضح لا يمنع ولا يطلب استثناءً (المالك 2026-11-08،
+     وكانت تُمنع بملاحظته 8)، وفي شاشات القسم تبقى م.7/5 تنبيهاً. القاعدةُ واحدة (sameCourseSectionClash): تداخلٌ لا تلاصق،
+     ورقمُ الشعبة بـsectionCodeKey، وصفوفُ «وضع تجربة» لا تُعدّ. ولا يُذكر رقمُ الشعبة الأخرى للأستاذ. */
+  if (context.sectionClashWarns && !request.relatedRowIds?.length && (request.action === "add" || request.action === "change")) {
     const ownIds = new Set(context.instructorRowsAfter.map(row => Number(row.id)));
     const others = [...context.allRows.filter(row => Number(row.AdInstructorId) !== Number(context.instructorId) && !ownIds.has(Number(row.id))),
       ...context.instructorRowsAfter];
@@ -728,7 +733,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       AdCollegeId: self?.AdCollegeId ?? context.roomCollegeId ?? context.allRows[0]?.AdCollegeId,
       [slot.day]: true, fstarttime: slot.start, fendtime: slot.end,
     } as any, others, course)).find(Boolean);
-    if (clash) reasons.push({ source: "shape", code: "section-clash", blocking: true, text: `شعبة أخرى من هذا المقرر في الوقت نفسه (${String(clash.SCode || "")}).` });
+    if (clash) reasons.push({ source: "shape", code: "section-clash", blocking: false, text: "شعبة أخرى من المقرر نفسه في هذا الوقت، وقد لا يعتمده القسم." });
   }
 
   /* سُلّمُ البدايات في اللائحة (المالك 2026-10-30): الأحد والثلاثاء والخميس على رأس الساعة، والاثنين والأربعاء 8:00 ثم

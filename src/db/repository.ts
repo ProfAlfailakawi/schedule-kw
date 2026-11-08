@@ -2606,7 +2606,9 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 }
 
 /** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
-export type FeatureCollection = "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
+export type FeatureCollection =
+  /* سقفُ وحدات الطالب في «مساري»: الجامعيُّ وحده يُقرأ؛ وثائقُ الأقسام القديمة باقيةٌ لا تُقرأ ولا تُكتب. */
+  | "universityStudentSettings" | "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
   /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
   | "seatLedgers" | "seatMemberLinks"
   /* إعادةُ تعيين كلمة السر: أثرُ الكلمة المؤقتة ودخولُها الواحد، لا الكلمة (src/server/accountPassword.ts). */
@@ -7106,6 +7108,8 @@ export const Repository = {
     }
     return (db.registrationRuns || []).find(row => row.id === String(termId));
   },
+  /** يُقدِّم الرادار المحفوظ حين يتغيّر مُدخَلٌ لا تراه أختامُه الزمنية (كالسقف الجامعي لوحدات الطالب). */
+  markRegistrationRunsStale: (termId?: number): Promise<void> => markRegistrationRunsStale(termId),
   getRegistrationTicket: async (termId: number, fingerprint: string): Promise<RegistrationTicket | undefined> => {
     if (!fingerprint) return undefined;
     const id = `${termId}_${fingerprint}`;

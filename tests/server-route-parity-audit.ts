@@ -237,7 +237,19 @@ const updatedCoreqSuggest = (r:Row) => r.kind==="route" && r.methods.length===1 
    (levelGroups, unlockGroups) from the same cached plan read. Same path, permission and scope guard;
    its behaviour is pinned by tests/plan-peers-audit.ts and tests/coreq-sections-audit.ts. */
 const updatedPlanFacts = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="get" && r.path==="/api/schedules/coreq-pairs";
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : r.call || "-"} ${r.name}`;
+/* One intentional payload extension on the teacher card checks (owner 2026-11-08): each checked item also carries
+   `peers` (plan-peer course NAMES only, with their relation) and `sameCourse` (another section of the same course
+   overlaps: a soft warning, no longer a block). Same paths, token guard and teacher-safe text; the behaviour is
+   pinned by tests/teacher-card-peers-audit.ts instead of call-text parity. */
+const updatedTeacherCheck = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post"
+  && (r.path==="/api/public/request/:token/check" || r.path==="/api/public/request/:token/check-batch");
+/* One intentional TA-conversion extension: each TA may go to a teacher of the department's own family
+   (the instructor picker's «أساتذة هذا القسم فقط» + «منتدبون هذا الفصل») instead of «هيئة تدريسية».
+   GET adds familyIds/checks (soft clash/load warnings); POST validates targets (400 outside the family).
+   Same paths, permission 7, scope guard, confirm token, preview key, undo version and audit; behaviour
+   is pinned by tests/ta-conversion-audit.ts and tests/ta-conversion-family-http-audit.ts. */
+const updatedTaConversion = (r:Row) => r.kind==="route" && r.methods.length===1 && (r.methods[0]==="get" || r.methods[0]==="post") && r.path==="/api/schedules/ta-conversion";
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();
