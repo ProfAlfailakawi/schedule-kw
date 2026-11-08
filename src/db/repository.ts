@@ -5896,6 +5896,49 @@ export const Repository = {
     return true;
   },
 
+  /** مقرراتُ البطاقة وحدها (utils/offeredCourses) — حقلٌ واحد يُكتب، فلا يُمحى قرارٌ أو ردٌّ وصل بين القراءة والكتابة. null = بلا قيد. */
+  setInstructorRequestOfferedCourses: async (id: string, offeredCourseIds: number[] | null): Promise<boolean> => {
+    const at = new Date().toISOString();
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        tx.update(ref, { offeredCourseIds, updatedAt: at });
+        return { ...(snap.data() as InstructorRequest), offeredCourseIds, updatedAt: at };
+      });
+      if (saved) announceInstructorRequestSaved(saved);
+      return Boolean(saved);
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return false;
+    row.offeredCourseIds = offeredCourseIds;
+    row.updatedAt = at;
+    saveDatabase();
+    announceInstructorRequestSaved(row);
+    return true;
+  },
+
+  /** «ذكّر من لم يرد»: لحظةُ التذكير تُلحق بطلبه (حقلٌ واحد). */
+  noteInstructorRequestReminded: async (id: string, at: string): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        const remindedAt = [...((snap.data() as InstructorRequest).remindedAt || []), at].slice(-20);
+        tx.update(ref, { remindedAt });
+        return { ...(snap.data() as InstructorRequest), remindedAt };
+      });
+      return Boolean(saved);
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return false;
+    row.remindedAt = [...(row.remindedAt || []), at].slice(-20);
+    saveDatabase();
+    return true;
+  },
+
   setInstructorRequestLinkMode: async (id: string, mode: LinkMode): Promise<boolean> => {
     const at = new Date().toISOString();
     if (firestoreDb && !demoSandboxContext.getStore()) {
