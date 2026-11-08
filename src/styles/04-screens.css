@@ -2885,4 +2885,4 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .crn-chip{color:#b9afff;border-color:color-mix(in srgb,#b9afff 50%,transparent);background:color-mix(in srgb,#b9afff 10%,transparent)}}
 :root[data-theme="dark"] .crn-chip{color:#b9afff;border-color:color-mix(in srgb,#b9afff 50%,transparent);background:color-mix(in srgb,#b9afff 10%,transparent)}
 .agenda-list .changes-row .agenda-title-row{flex-wrap:wrap}
-.review-row-card small .crn-chip{margin-inline-end:6px}
+.review-row-card small .crn-chip{margin-inline-start:4px}

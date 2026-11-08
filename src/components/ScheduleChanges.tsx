@@ -593,7 +593,7 @@ function FindingPerson({ who, rows, onJump }: { who: string; rows: DisplayRow[];
               <span className="rrc-code" dir="ltr">{row.courseCode || "—"}</span>
               <div className="rrc-main">
                 {single ? null : <strong>{row.course}</strong>}
-                <small>{row.referenceNumber ? <bdi className="crn-chip" dir="ltr">{row.referenceNumber}</bdi> : null}<span>شعبة {row.sectionCode}</span> · {row.days || "بلا أيام"}{row.room ? <> · <bdi dir="ltr">{row.room}</bdi></> : null}</small>
+                <small>شعبة {row.sectionCode}{row.referenceNumber ? <> <bdi className="crn-chip" dir="ltr">{row.referenceNumber}</bdi></> : null} · {row.days || "بلا أيام"}{row.room ? <> · <bdi dir="ltr">{row.room}</bdi></> : null}</small>
               </div>
               <time className="rrc-time" dir="ltr">{row.time}</time>
             </button>
