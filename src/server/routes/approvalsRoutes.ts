@@ -111,7 +111,8 @@ async function blockingSummaryFor(collegeId: number, sectionId: number, termId: 
 }
 
 async function regulationNoticeCount(collegeId: number, sectionId: number, termId: number): Promise<number> {
-  return (await regulationNoticesForScope(collegeId, sectionId, termId)).length;
+  /* الملاحظةُ (م.7/2) لا تُعدّ مانعاً: يُعدّ ما يمنع فقط. */
+  return (await regulationNoticesForScope(collegeId, sectionId, termId)).filter(item => item.approvalEffect === "block").length;
 }
 
 function approvalActor(req: AuthenticatedRequest) {

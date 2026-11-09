@@ -216,10 +216,8 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
   const ownRows=termRows.filter(row=>Number(row.AdCollegeId)===collegeId&&Number(row.AdSectionId)===sectionId);
   const ownCourseIds=new Set(ownRows.map(row=>Number(row.AdCourseId)));
   const ownCourses=(await Repository.getCourses()).filter(course=>ownCourseIds.has(Number(course.AdCourseId)));
-  const expectedSeats=ownCourses.reduce((largest:number,course:any)=>{
-    const groups=new Set(ownRows.filter(row=>Number(row.AdCourseId)===Number(course.AdCourseId)).map(row=>String(row.SCode||""))).size||1;
-    return Math.max(largest,Math.ceil(Number(course.MaxStudent||0)/groups));
-  },0);
+  /* سعةُ المقرر لكل شعبة (م.8) فلا تُقسم على عدد الشعب: أكبرُ سعةٍ عند القسم الطالب. */
+  const expectedSeats=ownCourses.reduce((largest:number,course:any)=>Math.max(largest,Number(course.MaxStudent||0)),0);
   const opportunities:any[]=[];
   for(const room of collegeRooms){
     /* السجل أولاً، فإن سكت عن هذه القاعة — أو نسب أقسامها إلى كلية أخرى —

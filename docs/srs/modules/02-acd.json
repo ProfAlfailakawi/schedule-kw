@@ -57,6 +57,8 @@
     "src/components/Sections.tsx",
     "src/components/Instructors.tsx",
     "src/components/Courses.tsx",
+    "src/utils/capacityLimits.ts",
+    "src/server/core/capacityRules.ts",
     "src/components/CourseTags.tsx",
     "src/components/CourseImpact.tsx",
     "src/components/CourseOfferingPanel.tsx",

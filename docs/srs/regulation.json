@@ -128,11 +128,20 @@
       {
         "id": "balance", "icon": "sunset", "figure": "balance",
         "title": { "ar": "توزيع الفترتين", "en": "Morning and evening balance" },
-        "text": { "ar": "الفترة الصباحية تحمل 50–70٪ من مواعيد القسم والمسائية 30–50٪، محسوبةً بساعة البداية على عائلة القسم كلها عبر كلياتها. لا تُقرأ النسبة تحت عشرة مواعيد، وهي ملاحظة لا تمنع.", "en": "The morning period holds 50–70% of the department's appointments and the evening 30–50%, counted by start hour across the whole department family and its colleges. The share is not read below ten appointments, and it is a note that never blocks." },
+        "text": { "ar": "الفترة الصباحية تحمل 50–70٪ من مواعيد القسم والمسائية 30–50٪، محسوبةً بساعة البداية على عائلة القسم كلها عبر كلياتها. تُقرأ على أي عدد من المواعيد، فاللائحة لا تذكر حدّاً أدنى لها، وهي ملاحظة تظهر في الاعتماد ولا تمنع التوقيع ولا الإرسال.", "en": "The morning period holds 50–70% of the department's appointments and the evening 30–50%, counted by start hour across the whole department family and its colleges. The share is read on any number of appointments because the regulation sets no minimum; it is a note shown in approval and it never blocks signing or sending." },
         "article": { "ar": "م.7/2", "en": "Art. 7/2" },
         "effects": { "save": "none", "approval": "note", "card": "none", "import": "none" },
         "reqs": ["IR-APR-037"],
-        "evidence": ["src/utils/scheduleRegulations.ts#periodBalanceFinding", "src/utils/scheduleRegulations.ts#PERIOD_BALANCE_MIN_SECTIONS"]
+        "evidence": ["src/utils/scheduleRegulations.ts#periodBalanceFinding", "src/server/core/approvals.ts#regulationNoticesForScope"]
+      },
+      {
+        "id": "capacity", "icon": "users-round", "figure": "none",
+        "title": { "ar": "حدود أعداد الطلبة في الشعبة", "en": "Student limits per section" },
+        "text": { "ar": "سعة الشعبة المسجّلة في المقرر تكون ضمن حدّي طبيعته: نظري 20–60، تطبيقي 15–40، عملي 15–25، تدريب ميداني 15–60 في التخصصات النظرية و15–25 في العلمية. ما خرج عنها يمنع الحفظ والاعتماد إلا أن يسجّل مدير النظام للمقرر استثناءً في عائلة القسم لأحد أسباب م.9: أحادي الطرح لازم للتخرج، أو فيه طلبة متوقع تخرجهم، أو طبيعته تتطلب أقل، أو قلّة المقبولين، أو إيقاف القبول. لا يُحكم على مقرر بلا طبيعة تدريس أو بلا سعة. والحدّ الأدنى في اللائحة لعدد المسجّلين فعلاً، وهو غير محفوظ في الجدول، فلا يُقاس إلا على السعة.", "en": "The section capacity recorded on a course stays within the limits of its nature: theoretical 20–60, applied 15–40, practical 15–25, field training 15–60 in theoretical specializations and 15–25 in scientific ones. Anything outside blocks saving and approval unless the system administrator records an exception for the course in the department family for one of the Art. 9 reasons: a single-offering course needed for graduation, expected graduates, a nature that needs fewer students, too few admitted students, or stopped admission. A course with no teaching nature or no capacity is not judged. The regulation's minimum is for the number actually registered, which the schedule does not hold, so only the capacity is measured." },
+        "article": { "ar": "م.8، م.9", "en": "Art. 8, 9" },
+        "effects": { "save": "block", "approval": "block", "card": "none", "import": "none" },
+        "reqs": ["IR-APR-037"],
+        "evidence": ["src/utils/capacityLimits.ts", "src/utils/scheduleRegulations.ts#reviewSchedule", "src/server/core/capacityRules.ts", "src/server/routes/coursesRoutes.ts"]
       },
       {
         "id": "meeting", "icon": "users-round", "figure": "meeting",
@@ -225,7 +234,14 @@
         "rule": "period-balance",
         "title": { "ar": "توزيع الفترتين", "en": "Period balance" },
         "article": { "ar": "م.7/2", "en": "Art. 7/2" },
-        "detects": { "ar": "حصة الصباح خارج 50–70٪ من عشرة مواعيد فأكثر في عائلة القسم.", "en": "A morning share outside 50–70% of ten or more appointments in the department family." },
+        "detects": { "ar": "حصة الصباح خارج 50–70٪ من مواعيد عائلة القسم.", "en": "A morning share outside 50–70% of the department family's appointments." },
+        "reqs": ["IR-APR-037"]
+      },
+      {
+        "rule": "capacity-range",
+        "title": { "ar": "سعة الشعبة خارج حدود اللائحة", "en": "Section capacity outside the regulation limits" },
+        "article": { "ar": "م.8", "en": "Art. 8" },
+        "detects": { "ar": "سعة مقرر له طبيعة تدريس خارج حدّي طبيعته، ولم يسجّل المدير له استثناءً من م.9.", "en": "A capacity on a course with a teaching nature, outside the limits of that nature, with no Art. 9 exception recorded by the administrator." },
         "reqs": ["IR-APR-037"]
       },
       {

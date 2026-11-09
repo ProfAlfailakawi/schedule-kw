@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
 import { resolveScopeSelection, singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeContext";
-import { BookOpen, Building2, DoorOpen, GraduationCap, Trash2 } from "lucide-react";
+import { BookOpen, Building2, DoorOpen, GraduationCap, Trash2, Users } from "lucide-react";
 import { sortByName, byArabic } from "../utils/sorting";
 import CurriculumPlans from "./CurriculumPlans";
 import CourseTags from "./CourseTags";
 import { AR, countOf } from "../utils/arabicCount";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
-import { sectionLabels } from "../utils/sectionLabel";
+import { departmentFamilyKey, sectionLabels } from "../utils/sectionLabel";
 import { decimalText, numericText } from "../utils/digits";
 import type { AdSection } from "../types";
 import type { CurriculumPlan } from "../types";
@@ -115,6 +115,69 @@ function CapacityByMode({ sections, onDone }: { sections: any[]; onDone: () => v
         {plan.untouched ? <small>المقررات بلا طبيعة نظري أو عملي أو ميداني ({plan.untouched}) تبقى كما هي.</small> : null}
         <button type="button" className="capacity-by-mode-go" data-tone="apply" disabled={busy || !changing} data-guide-ignore="تطبيق السعات على كل مقررات القسم في كل الحُرُم" onClick={() => void run(true)}>{changing ? `تطبيق على ${changing}` : "لا شيء يتغيّر"}</button>
       </div> : null}
+      {message ? <p className="capacity-by-mode-msg" data-ok={message.ok ? "1" : "0"} role="status">{message.text}</p> : null}
+    </div>
+  </details>;
+}
+
+/** م.9: استثناءُ السعة لمقررٍ في عائلة قسم، ونوعُ تخصص العائلة (للتدريب الميداني). لمدير النظام وحده. */
+function CapacityExceptions({ sections, courses }: { sections: any[]; courses: any[] }) {
+  const names = useMemo(() => [...new Set(sections.map(item => String(item.AdSectionName || "")).filter(Boolean))].sort(byArabic), [sections]);
+  const [sectionName, setSectionName] = useState("");
+  const [data, setData] = useState<{ rules: any; reasons: Record<string, string> } | null>(null);
+  const [courseCode, setCourseCode] = useState("");
+  const [reason, setReason] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const load = async () => {
+    try { const response = await fetch("/api/admin/capacity-exceptions", { credentials: "include" }); if (response.ok) setData(await response.json()); } catch { /* تبقى القائمة كما هي */ }
+  };
+  const key = departmentFamilyKey(sectionName);
+  const familyIds = useMemo(() => new Set(sections.filter(item => key && departmentFamilyKey(item.AdSectionName) === key).map(item => Number(item.AdSectionId))), [sections, key]);
+  const familyCourses = useMemo(() => {
+    const seen = new Set<string>();
+    return courses.filter(course => familyIds.has(Number(course.AdSectionId))).filter(course => { const code = String(course.CourseCode || ""); if (!code || seen.has(code)) return false; seen.add(code); return true; })
+      .sort((a, b) => String(a.CourseCode).localeCompare(String(b.CourseCode)));
+  }, [courses, familyIds]);
+  const family = data?.rules?.families?.[key] || {};
+  const entries: Array<[string, any]> = Object.entries(family.courses || {});
+  const send = async (body: Record<string, unknown>) => {
+    setBusy(true); setMessage(null);
+    try {
+      const response = await fetch("/api/admin/capacity-exceptions", { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionName, ...body }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) { setMessage({ ok: false, text: result.error || "تعذّر الحفظ." }); return; }
+      setData(current => ({ reasons: current?.reasons || {}, rules: result.rules }));
+      setMessage({ ok: true, text: "تم الحفظ." });
+    } catch { setMessage({ ok: false, text: "تعذّر الاتصال." }); } finally { setBusy(false); }
+  };
+  return <details className="capacity-by-mode" onToggle={event => { if ((event.currentTarget as HTMLDetailsElement).open && !data) void load(); }}>
+    <summary data-guide-ignore="فتح استثناءات حدود السعة (م.9)"><Users aria-hidden="true" />استثناءات حدود السعة · م.9</summary>
+    <div className="capacity-by-mode-body">
+      <select aria-label="القسم العلمي" value={sectionName} disabled={busy} data-guide-ignore="اختيار القسم الذي تُسجَّل له الاستثناءات" onChange={event => { setSectionName(event.target.value); setMessage(null); setCourseCode(""); }}>
+        <option value="">اختر القسم (كل حُرُمه)</option>
+        {names.map(name => <option key={name} value={name}>{name}</option>)}
+      </select>
+      {key ? <>
+        <label className="capacity-exc-row"><span>نوع تخصص القسم (للتدريب الميداني)</span>
+          <select aria-label="نوع التخصص" value={family.specialization === "scientific" ? "scientific" : "theoretical"} disabled={busy} data-guide-ignore="نوع التخصص: نظري أو علمي، يحدد أقصى سعة للتدريب الميداني" onChange={event => void send({ specialization: event.target.value })}>
+            <option value="theoretical">نظري (ميداني حتى 60)</option><option value="scientific">علمي (ميداني حتى 25)</option>
+          </select></label>
+        {entries.length ? <ul className="capacity-exc-list">{entries.map(([code, item]) => <li key={code}>
+          <b dir="ltr">{code}</b><span>{data?.reasons?.[item.reason] || item.reason}{item.note ? ` — ${item.note}` : ""}</span>
+          <button type="button" disabled={busy} data-guide-ignore="إلغاء استثناء هذا المقرر" aria-label={`إلغاء استثناء ${code}`} onClick={() => void send({ courseCode: code, remove: true })}>إلغاء</button></li>)}</ul> : <p className="capacity-by-mode-msg">لا استثناءات مسجّلة لهذا القسم.</p>}
+        <select aria-label="المقرر" value={courseCode} disabled={busy} data-guide-ignore="اختيار المقرر المستثنى" onChange={event => setCourseCode(event.target.value)}>
+          <option value="">اختر المقرر</option>
+          {familyCourses.map(course => <option key={course.AdCourseId} value={course.CourseCode}>{course.CourseCode} · {course.CourseName}</option>)}
+        </select>
+        <select aria-label="سبب الاستثناء" value={reason} disabled={busy} data-guide-ignore="سبب الاستثناء من م.9" onChange={event => setReason(event.target.value)}>
+          <option value="">اختر السبب</option>
+          {Object.entries(data?.reasons || {}).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+        <input type="text" maxLength={300} placeholder="ملاحظة (اختياري)" aria-label="ملاحظة الاستثناء" value={note} disabled={busy} data-guide-ignore="ملاحظة قصيرة على الاستثناء" onChange={event => setNote(event.target.value)} />
+        <button type="button" className="capacity-by-mode-go" data-tone="apply" disabled={busy || !courseCode || !reason} data-guide-ignore="تسجيل استثناء السعة لهذا المقرر" onClick={() => void send({ courseCode, reason, note }).then(() => { setCourseCode(""); setReason(""); setNote(""); })}>تسجيل الاستثناء</button>
+      </> : null}
       {message ? <p className="capacity-by-mode-msg" data-ok={message.ok ? "1" : "0"} role="status">{message.text}</p> : null}
     </div>
   </details>;
@@ -708,6 +771,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       {receipt ? <Notice type="success" onDismiss={() => setReceipt(null)}>{receipt}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
       {isAdmin ? <CapacityByMode sections={sections} onDone={() => window.location.reload()} /> : null}
+      {isAdmin ? <CapacityExceptions sections={sections} courses={items} /> : null}
       <div className="catalog-workspace">
         <Surface className="catalog-master">
           <ListToolbar value={query} onChange={setQuery} count={filtered.length} placeholder="الرقم الأكاديمي، اسم المقرر، الكلية أو القسم">
