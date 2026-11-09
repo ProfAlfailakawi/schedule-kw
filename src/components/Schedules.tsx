@@ -5420,6 +5420,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }))) return;
     if (practiceMode) {
       setRows(current => current.filter(item => item.id !== id));
+      forgetMiniWeekRows([id]);
       setMessage("تم الحذف داخل «وضع تجربة» فقط. لم يتغير جدولك الحقيقي.");
       if (guideOperationRef.current?.featureId === "schedule.practice") emitGuideResult({ featureId:"schedule.practice", ok:true, signal:"schedule.practice.changed" });
       else recordFeatureEvent(Number(user?.SystemUserId || 0), "schedule.practice", "completed", { stepCount: 1 });
@@ -11575,7 +11576,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     </div>
                     <details className="agenda-mobile-actions" onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
                       <summary aria-label="خيارات الموعد" data-guide-ignore="خيارات تعديل وحذف الموعد على الهاتف">⋯</summary>
-                      <div>
+                      <div className="agenda-mobile-actions-menu">
                         {weekPeekOk(s) ? <IconAction label="الجدول الدراسي" kind="week" onClick={() => setWeekPeek(s)} /> : null}
                         <IconAction label="تعديل" kind="edit" onClick={() => openEdit(s)} />
                         <IconAction label="حذف" kind="delete" onClick={() => remove(s.id)} />
