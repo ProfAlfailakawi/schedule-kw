@@ -499,6 +499,12 @@ export default function TeacherMiniWeek({
   const labelEvery = hourPixels < 24 ? 2 : 1;
 
   const nameOf = (row: FSchedule) => String(row.AdCourseName || courses.get(Number(row.AdCourseId))?.CourseName || "");
+  const siteOf = (row: FSchedule) => {
+    const name = collegeNames?.get(Number(row.AdCollegeId)) || "";
+    const branch = /الفحيحيل|الجهراء/.exec(name)?.[0] || /بنين|بنات/.exec(name)?.[0];
+    return branch || (name.includes("-") ? name.split(/\s*[-–—]\s*/).at(-1) || "" : "");
+  };
+  const activeLecture = lectures.find(item => `${item.id}:${item.day}` === active);
   const pick = (target: MiniTarget, lecture?: MiniLecture) => {
     const room = lecture ? adjacentRoom(lecture, target, all, excludeId) : null;
     onPick({ day: target.day, start: toClock(target.start), end: toClock(target.end), days: target.days, room: room || undefined });
@@ -734,6 +740,10 @@ export default function TeacherMiniWeek({
     {open ? <button type="button" className="mini-week-close" aria-label="إغلاق جدول الأستاذ" title="إغلاق (Esc)" onClick={() => setOpen(false)}
       data-guide-ignore="يطوي جدول الأستاذ المصغّر؛ لا يغيّر الموعد"><X aria-hidden="true" /></button> : null}
     {open ? <div className="mini-week-body" id={bodyId} onMouseLeave={resetHover}>
+      {activeLecture ? <div className="mini-week-selected-course" role="status">
+        <b>{nameOf(activeLecture.row)}</b>
+        <span>{siteOf(activeLecture.row)}{siteOf(activeLecture.row) ? " · " : ""}{DAY_SHORT[activeLecture.day]} · <bdi dir="ltr">{toClock(activeLecture.start)}–{toClock(activeLecture.end)}</bdi></span>
+      </div> : null}
       <div className="mini-week-days" aria-hidden="true">
         <span />
         {DAY_KEYS.map(day => <span key={day} className={draftDays.includes(day) ? "is-draft" : ""} onMouseMove={widen(day)} onClick={tapWiden(day)}>{DAY_SHORT[day]}</span>)}
@@ -773,8 +783,7 @@ export default function TeacherMiniWeek({
               const height = pixels(item.start, item.end);
               const label = nameOf(item.row) || String(courses.get(Number(item.row.AdCourseId))?.CourseCode || "");
               const where = [item.row.AdRoomCode, item.row.AdRoomHall].filter(Boolean).join("/");
-              const collegeName = collegeNames?.get(Number(item.row.AdCollegeId)) || "";
-              const site = /الفحيحيل|الجهراء/.exec(collegeName)?.[0] || /بنين|بنات/.exec(collegeName)?.[0] || collegeName.split(/\s*[-–—]\s*/).at(-1) || collegeName;
+              const site = siteOf(item.row);
               return <div key={key} role="group" className={`mini-week-chip${item.otherCollege ? " is-other" : ""}${height >= 80 ? " is-roomy" : height >= 48 ? " is-tall" : height >= 15 ? "" : " is-thin"}${active === key ? " is-active" : ""}`}
                 style={place(item.start, item.end)} onClick={() => setActive(value => value === key ? "" : key)}
                 aria-label={`${nameOf(item.row)}${site ? ` · ${site}` : ""} · ${toClock(item.start)}–${toClock(item.end)}${item.otherCollege ? " · كلية أخرى" : ""}`}
@@ -813,7 +822,7 @@ export default function TeacherMiniWeek({
         <b className="mini-week-legend-room" title="القاعة المختارة في النموذج"><DoorOpen aria-hidden="true" /><bdi dir="ltr">{roomLabel}</bdi></b>
       </div> : null}
       <p className="mini-week-hint"><Info aria-hidden="true" />
-        <span>{readOnly ? "أسبوعه في كل عائلة القسم · عرضٌ فقط" : <>{hoverable ? "مرّر على «+» فتضيء خانات النمط" : "اضغط «+» لتضع الموعد"}{canDraw ? " · اسحب على فراغ لترسم موعداً" : ""} · لا يُحفظ شيء</>}</span>
+        <span>{readOnly ? "أسبوعه في كل عائلة القسم · اضغط المادة لعرض اسمها كاملاً" : <>{hoverable ? "مرّر على «+» فتضيء خانات النمط" : "اضغط «+» لتضع الموعد"}{canDraw ? " · اسحب على فراغ لترسم موعداً" : ""} · اضغط المادة لعرض اسمها كاملاً · لا يُحفظ شيء</>}</span>
       </p>
     </div> : null}
   </section>;
