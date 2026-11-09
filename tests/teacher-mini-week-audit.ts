@@ -91,5 +91,13 @@ const block = css.slice(css.indexOf("/* ── N3: جدول الأستاذ ال�
 check(block.length > 2000 && !/#[0-9a-fA-F]{3,8}\b/.test(block) && /var\(--accent\)/.test(block), "W7 ألوان من رموز التصميم وحدها (الوضع الداكن)");
 check(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(component) && /from "lucide-react"/.test(component), "W8 أيقونات lucide بلا رموز تعبيرية");
 
+/* W9 موعدٌ حُذف لا يبقى في ذاكرة أسابيع الأستاذ فيُحسب في النصاب (٢١ بدل ١٨ حتى الفتحة التالية). */
+const schedulesSrc = fs.readFileSync("src/components/Schedules.tsx", "utf8");
+check(/export function forgetMiniWeekRows/.test(component) && /widerCache\.set\(key, list\.filter\(keep\)\)/.test(component) && /familyCache\.set\(key, \{ \.\.\.week, rows: week\.rows\.filter\(keep\)/.test(component) && /roomCache\.set\(key, list\.filter\(keep\)\)/.test(component),
+  "W9 forgetMiniWeekRows تنزع الصفوف المحذوفة من ذاكرات الأسابيع الثلاث");
+check(/const deleteScheduleRow = async[\s\S]{0,700}forgetMiniWeekRows\(\[id\]\)/.test(schedulesSrc) && /step\.method === "DELETE"\) forgetMiniWeekRows/.test(schedulesSrc),
+  "W10 كل حذفٍ (والتراجع) يُنسي الصفَّ المحذوف فوراً");
+check((component.match(/cache: "no-store"/g) || []).length === 3 && /forgotten\]\);/.test(component), "W11 قراءات الأسابيع بلا تخزين وتُعاد عند النسيان");
+
 console.log(`\nteacher-mini-week audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

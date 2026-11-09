@@ -121,9 +121,39 @@ function useMedia(query: string, enabled: boolean) {
   return match;
 }
 
-/** أسبوع الأستاذ في الأقسام الأخرى (ضمن صلاحية القارئ): قراءةٌ واحدة بالمسار القائم، تبقى بين الفتحات. */
+/**
+ * ذاكرةُ الأسابيع تبقى بين الفتحات لتُعرض فوراً، فموعدٌ حُذف الآن كان يبقى فيها ويُحسب في النصاب
+ * (حُذف مقررٌ ثم أُضيف آخر فظهر ٢١ ساعة بدل ١٨ حتى الفتحة التالية). كل كتابةٍ تستدعي هذه الدالة
+ * بأرقام الصفوف المحذوفة (أو بلا أرقام لمسح الكل): تُنزَع من الذاكرات الثلاث، ثم تُعاد القراءة.
+ */
 const widerCache = new Map<string, FSchedule[]>();
+type FamilyWeek = { rows: FSchedule[]; courses: AdCourse[] };
+const familyCache = new Map<string, FamilyWeek>();
+const roomCache = new Map<string, FSchedule[]>();
+const WEEK_FORGET_EVENT = "teacher-mini-week:forget";
+export function forgetMiniWeekRows(ids?: ReadonlyArray<number | string>) {
+  if (!ids) { widerCache.clear(); familyCache.clear(); roomCache.clear(); }
+  const gone = new Set((ids || []).map(Number));
+  const keep = (row: FSchedule) => !gone.has(Number(row.id));
+  for (const [key, list] of widerCache) widerCache.set(key, list.filter(keep));
+  for (const [key, week] of familyCache) familyCache.set(key, { ...week, rows: week.rows.filter(keep) });
+  for (const [key, list] of roomCache) roomCache.set(key, list.filter(keep));
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(WEEK_FORGET_EVENT));
+}
+/** يعيد القراءة (ويعرض ما في الذاكرة بعد التنقية) كلما نُسي صفٌّ من أي نافذة. */
+function useForgetTick() {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setTick(value => value + 1);
+    window.addEventListener(WEEK_FORGET_EVENT, bump);
+    return () => window.removeEventListener(WEEK_FORGET_EVENT, bump);
+  }, []);
+  return tick;
+}
+
+/** أسبوع الأستاذ في الأقسام الأخرى (ضمن صلاحية القارئ): قراءةٌ واحدة بالمسار القائم، تبقى بين الفتحات. */
 export function useWiderWeek(teacherId: number, termId: number, refresh: unknown) {
+  const forgotten = useForgetTick();
   const key = `${termId}:${teacherId}`;
   const [state, setState] = useState<{ key: string; rows: FSchedule[] }>(() => ({ key, rows: widerCache.get(key) || [] }));
   useEffect(() => {
@@ -131,7 +161,7 @@ export function useWiderWeek(teacherId: number, termId: number, refresh: unknown
     if (!teacherId || !termId) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      fetch(`/api/schedules?termId=${termId}&instructorId=${teacherId}`, { credentials: "include", signal: controller.signal })
+      fetch(`/api/schedules?termId=${termId}&instructorId=${teacherId}`, { credentials: "include", cache: "no-store", signal: controller.signal })
         .then(response => response.ok ? response.json() : null)
         .then(list => {
           if (!Array.isArray(list)) return;
@@ -141,7 +171,7 @@ export function useWiderWeek(teacherId: number, termId: number, refresh: unknown
         .catch(() => undefined);
     }, 140);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [key, teacherId, termId, refresh]);
+  }, [key, teacherId, termId, refresh, forgotten]);
   return state.key === key ? state.rows : [];
 }
 
@@ -150,10 +180,9 @@ export function useWiderWeek(teacherId: number, termId: number, refresh: unknown
  * والفروع — ولو كان نطاقُ القارئ موقعاً واحداً منها، ومعها ساعاتُ مقرراتها ليُحسب النصابُ كاملاً.
  * قراءةٌ واحدة بالأسلوب نفسه (تأخيرٌ قصير وإلغاءٌ عند التغيّر)، تبقى بين الفتحات.
  */
-type FamilyWeek = { rows: FSchedule[]; courses: AdCourse[] };
 const EMPTY_FAMILY: FamilyWeek = { rows: [], courses: [] };
-const familyCache = new Map<string, FamilyWeek>();
 export function useFamilyWeek(teacherId: number, termId: number, collegeId: number, sectionId: number, refresh: unknown): FamilyWeek {
+  const forgotten = useForgetTick();
   const key = `${termId}:${teacherId}:${collegeId}:${sectionId}`;
   const [state, setState] = useState<{ key: string; data: FamilyWeek }>(() => ({ key, data: familyCache.get(key) || EMPTY_FAMILY }));
   useEffect(() => {
@@ -161,7 +190,7 @@ export function useFamilyWeek(teacherId: number, termId: number, collegeId: numb
     if (!teacherId || !termId || !collegeId || !sectionId) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      fetch(`/api/schedules/teacher-family-week?termId=${termId}&instructorId=${teacherId}&collegeId=${collegeId}&sectionId=${sectionId}`, { credentials: "include", signal: controller.signal })
+      fetch(`/api/schedules/teacher-family-week?termId=${termId}&instructorId=${teacherId}&collegeId=${collegeId}&sectionId=${sectionId}`, { credentials: "include", cache: "no-store", signal: controller.signal })
         .then(response => response.ok ? response.json() : null)
         .then(data => {
           if (!data || !Array.isArray(data.rows)) return;
@@ -172,7 +201,7 @@ export function useFamilyWeek(teacherId: number, termId: number, collegeId: numb
         .catch(() => undefined);
     }, 160);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [key, teacherId, termId, collegeId, sectionId, refresh]);
+  }, [key, teacherId, termId, collegeId, sectionId, refresh, forgotten]);
   return state.key === key ? state.data : EMPTY_FAMILY;
 }
 
@@ -180,8 +209,8 @@ export function useFamilyWeek(teacherId: number, termId: number, collegeId: numb
  * حجوز القاعة المختارة في الفصل (ضمن صلاحية القارئ): قراءةٌ واحدة بالمسار القائم بالمبنى والقاعة،
  * بالأسلوب نفسه (تأخيرٌ قصير وإلغاءٌ عند التغيّر)، وتبقى لكل فصلٍ وقاعة بين الفتحات.
  */
-const roomCache = new Map<string, FSchedule[]>();
 export function useRoomWeek(room: MiniRoom | null | undefined, termId: number, refresh: unknown) {
+  const forgotten = useForgetTick();
   const code = roomReady(room) ? String(room.code).trim() : "", hall = roomReady(room) ? String(room.hall).trim() : "";
   const key = code && hall && termId ? `${termId}:${code.toUpperCase()}/${hall.toUpperCase()}` : "";
   const [state, setState] = useState<{ key: string; rows: FSchedule[] }>(() => ({ key, rows: roomCache.get(key) || [] }));
@@ -190,7 +219,7 @@ export function useRoomWeek(room: MiniRoom | null | undefined, termId: number, r
     if (!key) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      fetch(`/api/schedules?termId=${termId}&building=${encodeURIComponent(code)}&hall=${encodeURIComponent(hall)}`, { credentials: "include", signal: controller.signal })
+      fetch(`/api/schedules?termId=${termId}&building=${encodeURIComponent(code)}&hall=${encodeURIComponent(hall)}`, { credentials: "include", cache: "no-store", signal: controller.signal })
         .then(response => response.ok ? response.json() : null)
         .then(list => {
           if (!Array.isArray(list)) return;
@@ -201,7 +230,7 @@ export function useRoomWeek(room: MiniRoom | null | undefined, termId: number, r
     }, 140);
     return () => { window.clearTimeout(timer); controller.abort(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, refresh]);
+  }, [key, refresh, forgotten]);
   return state.key === key ? state.rows : [];
 }
 

@@ -87,7 +87,7 @@ import { createEntryMeter, sendEntryMeasure, type EntryMeter, type HelperName } 
 import { useCourseReach } from "./CourseReach";
 import { reachLocked, reachNote, shortCourseCode } from "../utils/courseReach";
 import { byCourseNumber } from "../utils/sheetMembership";
-import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, useWiderWeek, type MiniPick } from "./TeacherMiniWeek";
+import TeacherMiniWeek, { MiniWeekToggle, forgetMiniWeekRows, useMiniWeekEnabled, useWiderWeek, type MiniPick } from "./TeacherMiniWeek";
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
@@ -1508,9 +1508,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       return send([...new Set<string>(failure.holds.map((hold: any) => String(hold.requestId)))]);
     }
   };
-  const deleteScheduleRow = (id: number | string) => withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${id}`, overrideRequestHolds
-    ? { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ overrideRequestHolds }) }
-    : { method: "DELETE" }), "الحذف");
+  const deleteScheduleRow = async (id: number | string) => {
+    const result = await withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${id}`, overrideRequestHolds
+      ? { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ overrideRequestHolds }) }
+      : { method: "DELETE" }), "الحذف");
+    /* ذاكرةُ أسبوع الأستاذ تُنسي الصفَّ المحذوف فوراً: لا يُحسب في النصاب حتى الفتحة التالية. */
+    forgetMiniWeekRows([id]);
+    return result;
+  };
   /**
    * The department's own courses, not the university's — added, not swapped in.
    *
@@ -1859,6 +1864,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
             });
             restored += 1;
+            if (step.method === "DELETE") forgetMiniWeekRows([Number(step.url.split("/").pop())]);
           }
         } catch (stepError: any) {
           await loadRows();
