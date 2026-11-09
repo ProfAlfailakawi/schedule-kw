@@ -3,7 +3,7 @@
  * العينات تُركَّب من أجزاء كي لا يحمل هذا الملف ما يحرسه.
  */
 import fs from "node:fs";
-import { scanDiffText, isSkipped, ruleApplies } from "../scripts/ci/pr-lines-guard.mjs";
+import { scanDiffText, isSkipped, ruleApplies, diffPath } from "../scripts/ci/pr-lines-guard.mjs";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, name: string) => { if (ok) { passed++; console.log(`✓ ${name}`); } else { failed++; console.log(`✗ ${name}`); } };
@@ -25,6 +25,8 @@ check(isSkipped("docs/srs/pdf/SRS-ar.pdf") && isSkipped("package-lock.json"), "L
 check(ruleApplies({ id: "owner-ids" } as never, "scripts/srs/x.mjs") === false, "L9 قاعدة المعرّفات معطّلة في أدوات الوثيقة");
 const hunk = scanDiffText(diff("src/a.ts", "ok", `// ${tool}`));
 check(hunk.length === 1 && hunk[0].line === 2, "L10 رقم السطر صحيح");
+check(scanDiffText(`diff --git "a/x" "b/x"\n--- /dev/null\n+++ "b/tests/fixtures/\\330\\256\\330\\267\\330\\251.txt"\n@@ -0,0 +1 @@\n+// ${short}\n`).length === 0, "L12 مسار مقتبس بحروف عربية يُفكّ فيُستثنى المجلد");
+check(diffPath('"b/src/\\330\\256.ts"') === "src/خ.ts" && diffPath("b/src/a.ts") === "src/a.ts", "L13 فكّ المسار المقتبس وحذف البادئة");
 check(/pr-lines-guard\.mjs HEAD\^1/.test(fs.readFileSync(".github/workflows/ci.yml", "utf8")), "L11 الحارس يعمل في CI على كل طلب");
 
 console.log(`\npr lines guard audit: ${passed} passed, ${failed} failed`);

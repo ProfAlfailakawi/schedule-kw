@@ -41,6 +41,25 @@ const OWNER_IDS_OK = [
 ];
 const ALLOW = /lines-guard:\s*allow\s+\S/;
 
+/** مسارُ git قد يأتي مقتبساً بهروب ثماني (أسماء غير لاتينية)؛ يُفكّ ثم تُحذف بادئة الوجهة. */
+export function diffPath(raw) {
+  let text = raw.replace(/\t.*$/, "");
+  if (text.startsWith('"') && text.endsWith('"')) {
+    const bytes = [];
+    const body = text.slice(1, -1);
+    for (let i = 0; i < body.length; i++) {
+      const ch = body[i];
+      if (ch !== "\\") { bytes.push(...Buffer.from(ch, "utf8")); continue; }
+      const octal = /^[0-7]{3}/.exec(body.slice(i + 1));
+      if (octal) { bytes.push(parseInt(octal[0], 8)); i += 3; continue; }
+      const next = body[++i];
+      bytes.push(({ n: 10, t: 9, r: 13, a: 7, b: 8, f: 12, v: 11 })[next] ?? next.charCodeAt(0));
+    }
+    text = Buffer.from(bytes).toString("utf8");
+  }
+  return text === "/dev/null" ? text : text.replace(/^b\//, "");
+}
+
 export const isSkipped = file => SKIP.some(re => re.test(file));
 export const ruleApplies = (rule, file) => !(rule.id === "owner-ids" && OWNER_IDS_OK.some(re => re.test(file)));
 
@@ -49,7 +68,7 @@ export function scanDiffText(diff) {
   const found = [];
   let file = "", line = 0;
   for (const raw of diff.split("\n")) {
-    if (raw.startsWith("+++ ")) { file = raw.slice(4).replace(/^b\//, ""); continue; }
+    if (raw.startsWith("+++ ")) { file = diffPath(raw.slice(4)); continue; }
     if (raw.startsWith("--- ")) continue;
     const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
     if (hunk) { line = Number(hunk[1]); continue; }
@@ -72,7 +91,7 @@ function main() {
   const base = process.argv[2] || event?.pull_request?.base?.sha;
   if (!base) { console.log("حارس الأسطر: لا أساس للمقارنة (ليس طلب دمج) — لا شيء يُفحص."); return 0; }
   const head = process.argv[3] || "HEAD";
-  const diff = execFileSync("git", ["diff", "-U0", "--no-color", "--diff-filter=AMR", base, head], { encoding: "utf8", maxBuffer: 1 << 29 });
+  const diff = execFileSync("git", ["-c", "core.quotepath=false", "diff", "-U0", "--no-color", "--diff-filter=AMR", base, head], { encoding: "utf8", maxBuffer: 1 << 29 });
   const found = scanDiffText(diff);
   if (!found.length) { console.log("✓ حارس الأسطر: الأسطر المضافة نظيفة."); return 0; }
   console.error(`✗ حارس الأسطر: ${found.length} سطراً مضافاً يخالف شروط التسليم:`);
