@@ -90,6 +90,8 @@ interface DiffChange { field: DiffFieldKey; label: string; before: string; after
  */
 interface DisplayRow {
   scheduleId: number; courseCode: string; course: string; sectionCode: string;
+  /** الرقم المرجعي في ملف التسجيل الأصلي (CRN)؛ فارغٌ لما أُضيف ولم يكن في الملف. */
+  referenceNumber?: string;
   time: string; days: string; room: string; instructor: string;
   dayOrder?: number; startMinutes?: number;
   /** الأستاذ منتدب: تظهر شارته بجانب اسمه كما في بقية الشاشات. */
@@ -591,7 +593,7 @@ function FindingPerson({ who, rows, onJump }: { who: string; rows: DisplayRow[];
               <span className="rrc-code" dir="ltr">{row.courseCode || "—"}</span>
               <div className="rrc-main">
                 {single ? null : <strong>{row.course}</strong>}
-                <small>شعبة {row.sectionCode} · {row.days || "بلا أيام"}{row.room ? <> · <bdi dir="ltr">{row.room}</bdi></> : null}</small>
+                <small>شعبة {row.sectionCode}{row.referenceNumber ? <> <bdi className="crn-chip" dir="ltr">{row.referenceNumber}</bdi></> : null} · {row.days || "بلا أيام"}{row.room ? <> · <bdi dir="ltr">{row.room}</bdi></> : null}</small>
               </div>
               <time className="rrc-time" dir="ltr">{row.time}</time>
             </button>
@@ -833,6 +835,7 @@ function ScheduleRowCard({ row, index, kind, tag, changes, children }: {
       <div className="agenda-core">
         <div className="agenda-title-row">
           {tag ? <span className="changes-kind">{tag}</span> : null}
+          {row.referenceNumber ? <span className="crn-chip" dir="ltr" title="الرقم المرجعي في ملف التسجيل">{row.referenceNumber}</span> : null}
           <span className="code-chip">{row.courseCode || "—"}</span>
           <strong><Cell field="course">{row.course}</Cell></strong>
           <Badge tone="neutral">شعبة <Cell field="sectionCode">{row.sectionCode}</Cell></Badge>

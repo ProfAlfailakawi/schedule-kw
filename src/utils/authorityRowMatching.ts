@@ -301,6 +301,130 @@ function applyConfirmedAuthorityLinks(
 }
 
 /**
+ * ── الشعبةُ المُعادة تبقى هي هي ────────────────────────────────────────
+ * يحذف المنسّق موعداً ثم يضيفه من جديد، وقد يكرّر ذلك مراراً، ثم ينتهي إلى الشعبة
+ * الأصلية نفسِها بتغييرِ خانةٍ أو خانتين. هذا تعديلٌ لا حذفٌ وإضافة.
+ *
+ * فبعد كل ما سبق، ومن بين ما بقي بلا رابط وحدَه: صفٌّ أصليٌّ وصفٌّ حيٌّ لهما
+ * المقرر نفسه ورقمُ الشعبة نفسه والموقعُ نفسه، وهما الوحيدان بهذا المفتاح من الجهتين،
+ * يُربطان. فما اتفق كلُّه لا يظهر، وما اختلف فيه خانةٌ تظهر خانتُه وحدها. وإن تكرر
+ * المفتاح عند أيٍّ من الجهتين بقيا كما هما: لا يُخمَّن. ورقمُ الشعبة المختلف شعبةٌ أخرى،
+ * فيبقى حذفاً وإضافة.
+ */
+function linkRecreatedSections(baseline:readonly Row[],current:readonly Row[],pairs:Map<number,number>,codes?:Map<number,string>,publishedSection?:Map<number,string>){
+  const used=new Set(pairs.values());
+  /* رقمُ الشعبة هنا هو المخزَّن (SCode) لا الرسمي المطبوع في ملف التسجيل: هو الذي يراه المنسّق
+     في شاشات البرنامج وفي التقرير، وهو الذي يكتبه حين يُعيد شعبة. ولو أُضيف الرسمي احتياطاً
+     لارتبطت شعبةٌ جديدة برقمٍ صدف أنه الرقم الرسمي لشعبةٍ محذوفة، وهذا إضافةٌ لا تعديل. */
+  /* وإن حُذفت شعبةٌ في معاينة الاستيراد أُعيد ترقيم ما بعدها عند النشر، فرقمُ الصف الأصلي المخزَّن
+     هو رقمه المنشور (إن وُجد أثرُ نشرٍ يربطه) لا رقمُه في الملف الأصلي. */
+  const keyOf=(row:Row,index?:number)=>{
+    const published=index===undefined?undefined:publishedSection?.get(index);
+    const c=courseKey(row,codes),sec=published||number(row.SCode),st=site(row);
+    return c&&sec&&st?[c,st,sec].join("|"):"";
+  };
+  const sources=new Map<string,number[]>(),lives=new Map<string,number[]>();
+  baseline.forEach((row,i)=>{
+    if(pairs.has(i))return;
+    /* مع أثر نشر: ما لم يُنشر (حُذف في معاينة الاستيراد) لا يدخل في الربط برقم الشعبة. */
+    if(publishedSection&&!publishedSection.has(i))return;
+    const k=keyOf(row,i);
+    if(k)sources.set(k,[...(sources.get(k)||[]),i]);
+  });
+  current.forEach((row,j)=>{
+    if(used.has(j))return;
+    const k=keyOf(row);
+    if(k)lives.set(k,[...(lives.get(k)||[]),j]);
+  });
+  for(const [k,s] of sources){
+    const l=lives.get(k)||[];
+    if(s.length!==1||l.length!==1)continue;
+    if(!sameCourse(baseline[s[0]],current[l[0]],codes))continue;
+    pairs.set(s[0],l[0]);used.add(l[0]);
+  }
+}
+
+/**
+ * ── الشعبة التي تغيّر رقمها ───────────────────────────────────────────
+ * حُذفت الشعبة ٥٠١ وأُضيفت ٥١٥: هي الشعبة نفسها وقد تغيّر رقمها (وربما يومها ووقتها وقاعتها). فمن بين ما
+ * بقي بلا رابط، صفٌّ أصليٌّ وصفٌّ حيٌّ هما الوحيدان بالمقرر والموقع نفسه من الجهتين يُربطان فيظهر تعديلاً
+ * أصفر لا حذفاً وإضافة.
+ */
+function linkRenumberedSections(baseline:readonly Row[],current:readonly Row[],pairs:Map<number,number>,codes?:Map<number,string>,eligible?:Set<number>){
+  const used=new Set(pairs.values());
+  /* مرورٌ أول بالمقرر والموقع واليوم والوقت، ثم مرورٌ ثانٍ بالمقرر والموقع وحدهما على ما بقي:
+     حذفٌ واحد وإضافةٌ واحدة من المقرر نفسه في الفرع نفسه هما الشعبة نفسها وقد تغيّر رقمها ووقتها (قاعدة المالك).
+     وإن تعدد الحذف أو الإضافة لم يُخمَّن. */
+  for(const strict of [true,false]){
+    const keyOf=(row:Row)=>{
+      const c=courseKey(row,codes),p=placement(row);
+      if(!c||!p.site)return "";
+      if(!strict)return [c,p.site].join("|");
+      return validTime(p)&&p.day!=="00000"?[c,p.site,p.day,p.time].join("|"):"";
+    };
+    const sources=new Map<string,number[]>(),lives=new Map<string,number[]>();
+    baseline.forEach((row,i)=>{
+      if(pairs.has(i)||(eligible&&!eligible.has(i)))return;
+      const k=keyOf(row);
+      if(k)sources.set(k,[...(sources.get(k)||[]),i]);
+    });
+    current.forEach((row,j)=>{
+      if(used.has(j))return;
+      /* صفٌّ مستوردٌ بمرجعه غير مربوطٍ شيءٌ يُراجَع لا تعديلٌ يدوي: لا يُربط هنا إلا ما أنشأه المنسّق. */
+      if(!strict&&isAuthorityImportedRow(row))return;
+      const k=keyOf(row);
+      if(k)lives.set(k,[...(lives.get(k)||[]),j]);
+    });
+    for(const [k,s] of sources){
+      const l=lives.get(k)||[];
+      if(s.length!==1||l.length!==1)continue;
+      if(!sameCourse(baseline[s[0]],current[l[0]],codes))continue;
+      pairs.set(s[0],l[0]);used.add(l[0]);
+    }
+  }
+  /* مروراً ثالثاً: حين يتعدد الحذف والإضافة من المقرر والموقع نفسه، يُقارَن كل أصلٍ بكل جديد
+     (اليوم، بدء الوقت، نهايته، المبنى، القاعة، الأستاذ المعروف)، ويُربط الزوج الذي هو الأقرب بوضوحٍ
+     للطرفين معاً وبثلاث نقاطٍ فأكثر. وما لم يتميّز يبقى حذفاً وإضافة بلا تخمين. */
+  const closeness=(a:Row,b:Row)=>{
+    const x=placement(a),y=placement(b);
+    const [sa,ea]=x.time.split("~"),[sb,eb]=y.time.split("~");
+    const ia=Number(a.AdInstructorId||0),ib=Number(b.AdInstructorId||0);
+    return Number(x.day!=="00000"&&x.day===y.day)+Number(Boolean(sa)&&sa===sb)+Number(Boolean(ea)&&ea===eb)
+      +Number(Boolean(x.building)&&x.building===y.building)+Number(Boolean(x.room)&&x.room===y.room)
+      +Number(ia>0&&ia===ib);
+  };
+  const groups=new Map<string,{src:number[];live:number[]}>();
+  const gKey=(row:Row)=>{const c=courseKey(row,codes),st=site(row);return c&&st?c+"|"+st:"";};
+  baseline.forEach((row,i)=>{
+    if(pairs.has(i)||(eligible&&!eligible.has(i)))return;
+    const k=gKey(row);if(!k)return;
+    const g=groups.get(k)||{src:[],live:[]};g.src.push(i);groups.set(k,g);
+  });
+  current.forEach((row,j)=>{
+    if(used.has(j)||isAuthorityImportedRow(row))return;
+    const k=gKey(row);if(!k)return;
+    const g=groups.get(k)||{src:[],live:[]};g.live.push(j);groups.set(k,g);
+  });
+  for(const g of groups.values()){
+    let src=[...g.src],live=[...g.live];
+    while(src.length&&live.length){
+      let best:{i:number;j:number;score:number}|null=null;
+      for(const i of src)for(const j of live){
+        if(!sameCourse(baseline[i],current[j],codes))continue;
+        const score=closeness(baseline[i],current[j]);
+        if(score<3)continue;
+        const rivals=[...src.filter(x=>x!==i).map(x=>closeness(baseline[x],current[j])),...live.filter(x=>x!==j).map(x=>closeness(baseline[i],current[x]))];
+        if(rivals.some(r=>r>=score))continue;
+        if(!best||score>best.score)best={i,j,score};
+      }
+      if(!best)break;
+      pairs.set(best.i,best.j);used.add(best.j);
+      src=src.filter(x=>x!==best!.i);live=live.filter(x=>x!==best!.j);
+    }
+  }
+}
+
+/**
  * An edited imported appointment retains its database id from first publish.
  * A legacy import can also retain its unique sourceOrder across preview and
  * publication, even if time, days and room were edited together. Match that
@@ -326,6 +450,8 @@ export function matchAuthorityThroughPublication(
     const fallback=matchAuthoritySourceRows(
       sourceIndices.map(i=>baseline[i]),currentIndices.map(i=>current[i]),courseCodeById);
     for(const [i,j] of fallback)approved.set(sourceIndices[i],currentIndices[j]);
+    linkRecreatedSections(baseline,current,approved,courseCodeById);
+    linkRenumberedSections(baseline,current,approved,courseCodeById);
     return approved;
   }
 
@@ -432,6 +558,9 @@ export function matchAuthorityThroughPublication(
   const restCurrent=current.map((_,i)=>i).filter(i=>!currentTaken.has(i));
   const fallback=matchAuthoritySourceRows(restOrigins.map(i=>baseline[i]),restCurrent.map(i=>current[i]),courseCodeById);
   for(const [i,j] of fallback)sourceToCurrent.set(restOrigins[i],restCurrent[j]);
+  const publishedSection=new Map([...sourceToPublished].map(([origin,snap])=>[origin,number(published[snap].SCode)] as [number,string]).filter(([,sec])=>sec));
+  linkRecreatedSections(baseline,current,sourceToCurrent,courseCodeById,publishedSection);
+  linkRenumberedSections(baseline,current,sourceToCurrent,courseCodeById,new Set(sourceToPublished.keys()));
   return sourceToCurrent;
 }
 

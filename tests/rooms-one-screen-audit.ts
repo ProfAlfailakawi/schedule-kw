@@ -42,7 +42,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   const delBuilding = routes.split('app.delete("/api/admin/location-setup/buildings/:id"')[1]?.split('app.post("/api/admin/location-setup/rooms"')[0] || "";
   check(delBuilding.includes("archiveLocationBuilding") && !/Repository\.(delete|remove)/.test(delBuilding), "حذف المبنى أرشفةٌ لا إزالة");
   const quick = read("src/components/LocationQuickSetup.tsx");
-  check(quick.includes('aria-label="المبنى فعّال"') && quick.includes("الأقسام: {buildingDeptsLine}"), "نموذج المبنى فيه مفتاح «المبنى فعّال» وسطر الأقسام المطوي");
+  check(quick.includes('role="radiogroup" aria-label="حالة المبنى"') && quick.includes("الأقسام: {buildingDeptsLine}"), "نموذج المبنى فيه خياران «فعّال | غير فعّال» وسطر الأقسام المطوي");
   check(!/hall-barter|location-registry\/migration/.test(quick), "الشاشة الموحّدة بلا مهاجرة");
   const admin = read("src/components/AdminUsers.tsx");
   check(!admin.includes('value: "locations"') && !admin.includes("LocationRegistryAdmin"), "تبويب «المباني والقاعات» القديم لم يعد ظاهراً");

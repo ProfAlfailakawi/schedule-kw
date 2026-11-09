@@ -15,6 +15,8 @@ export type AuthorityReportEntry = {
   needsSourceReview?: boolean;
   changedFields: string[];
   referenceNumber: string;
+  /** صفٌّ أنشأه المنسّق بيده وتغيّر رقم شعبته عن الأصل: تُلوَّن خلية الرقم وحدها. */
+  sectionRenumbered?: boolean;
   source: FSchedule | null;
   current: FSchedule | null;
   /** يُملأ فقط في وثيقة تضم مواقع الفرع: اسم موقع هذا الصف. */
@@ -160,7 +162,7 @@ export default function AuthorityPdfReport({
                         : <div role="cell" className="print-ltr authority-pdf-reference-number">{entry.referenceNumber || "—"}</div>}
                       {/* Section numbering is a system-canonical import convention, not
                           a user edit. Keep the value visible but never paint it yellow. */}
-                      <div role="cell" className="print-ltr">{entry.status === "deleted" && Number(normalizeAuthoritySectionCode(entry.source?.sourceSectionText)) >= 500 && Number(normalizeAuthoritySectionCode(entry.source?.sourceSectionText)) <= 999
+                      <div role="cell" className={`print-ltr ${cell(Boolean(entry.sectionRenumbered) && entry.status === "changed")}`}>{entry.status === "deleted" && Number(normalizeAuthoritySectionCode(entry.source?.sourceSectionText)) >= 500 && Number(normalizeAuthoritySectionCode(entry.source?.sourceSectionText)) <= 999
                         ? normalizeAuthoritySectionCode(entry.source?.sourceSectionText)
                         : String(row.SCode || "").trim() || "—"}</div>
                       {/* الموقع بطاقة صغيرة بجانب اسم المقرر، لا عموداً جديداً:

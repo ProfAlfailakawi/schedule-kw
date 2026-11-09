@@ -693,7 +693,7 @@ export default function QuickCreatePopover({
           <li className={`qc-step${teacherDone ? " is-done" : " is-current"}`} data-qc-step="teacher">
             <span className="qc-num" aria-hidden="true">{teacherDone ? <Check /> : "2"}</span>
             <div className="qc-step-body qc-field qc-teacher">
-              <span className="qc-teacher-label">الأستاذ{miniWeek ? <MiniWeekToggle compact enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /> : null}</span>
+              <span className="qc-teacher-label">الأستاذ{miniWeek && !(miniTeacherId && miniWeek.isPlaceholder(miniTeacherId)) ? <MiniWeekToggle compact enabled={miniWeekEnabled} onChange={setMiniWeekEnabled} /> : null}</span>
               {lockedTeacher ? (
                 <span className="qc-teacher-locked">
                   <UserRound aria-hidden="true" /><b>{teacherName || "أستاذ الطلب"}</b>

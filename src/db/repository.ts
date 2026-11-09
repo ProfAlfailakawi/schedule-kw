@@ -8545,6 +8545,34 @@ export const Repository = {
     return count;
   },
 
+  /** سعةُ مقرراتٍ محدّدة بأرقامها دفعةً واحدة (الحدّ الأعلى لعدد الطلبة في الشعبة). */
+  setCourseCapacityForIds: async (ids:number[],capacity:number): Promise<number> => {
+    const wanted=new Set(ids.map(Number).filter(Boolean));
+    if(!wanted.size)return 0;
+    invalidateReference(REFERENCE_KEYS.courses);
+    if(firestoreDb&&!demoSandboxContext.getStore()){
+      const list=[...wanted];let count=0;
+      for(let i=0;i<list.length;i+=400){
+        const batch=firestoreDb.batch();
+        for(const id of list.slice(i,i+400)){
+          batch.set(firestoreDb.collection("courses").doc(`course_${id}`),{MaxStudent:capacity},{merge:true});
+          count++;
+        }
+        await batch.commit();
+      }
+      await markRegistrationRunsStale();
+      return count;
+    }
+    let count=0;
+    db.courses=(db.courses||[]).map(course=>{
+      if(!wanted.has(Number(course.AdCourseId))||Number(course.MaxStudent)===capacity)return course;
+      count++;
+      return {...course,MaxStudent:capacity};
+    });
+    if(count){saveDatabase();await markRegistrationRunsStale();}
+    return count;
+  },
+
   renameCourseRoomType: async (oldName:string,newName:string): Promise<number> => {
     invalidateReference(REFERENCE_KEYS.courses);
     if(firestoreDb&&!demoSandboxContext.getStore()){

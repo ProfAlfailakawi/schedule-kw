@@ -164,8 +164,10 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
        it from sourceSectionText before this comparison. Keep SCode out of the
        user-edit badge because the Authority preview locks that cell, while the
        full changedFields array still preserves audit truth. */
-    const visibleChangedFields=changedFields.filter(field=>field!=="SCode");
-    reportRows.push({status:visibleChangedFields.length?"changed":"unchanged",changedFields,referenceNumber:String(source.referenceNumber||next.referenceNumber||""),source,current:next});
+    /* إلا الصفّ الذي أنشأه المنسّق بيده: رقمُ شعبته اختياره هو، فتغيّره تعديلٌ حقيقيّ يظهر أصفر
+       (الشعبة المحذوفة ثم المُعادة برقمٍ آخر)، لا توليدٌ من الاستيراد. */
+    const visibleChangedFields=changedFields.filter(field=>field!=="SCode"||!isAuthorityImportedRow(next));
+    reportRows.push({status:visibleChangedFields.length?"changed":"unchanged",changedFields,sectionRenumbered:visibleChangedFields.includes("SCode"),referenceNumber:String(source.referenceNumber||next.referenceNumber||""),source,current:next});
   });
   current.forEach((row:any,index:number)=>{
     if(consumed.has(index))return;

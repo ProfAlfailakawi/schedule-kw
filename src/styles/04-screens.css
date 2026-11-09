@@ -2854,3 +2854,35 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .location-type-scope-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px}
 .location-type-row:has(.location-type-scope-panel){grid-column:1/-1}
 .location-type-scope-list label{display:grid;grid-template-columns:18px minmax(0,1fr);justify-items:start}
+
+/* اختيارُ الحالة: خياران صريحان «فعّال | غير فعّال» — المضغوطُ منهما هو الحالة التي ستصير، فلا يلتبس الأمر بزرٍّ يقلب نفسه. */
+.active-choice{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.active-choice button{min-height:44px;padding:8px 12px;border:1px solid transparent;border-radius:11px;background:transparent;color:var(--muted,#5b6660);font:inherit;font-weight:650;cursor:pointer}
+.active-choice button[aria-checked="true"][data-on="1"]{background:var(--ok2,#dcece7);border-color:var(--ok,#1f6b5c);color:var(--ok,#1f6b5c)}
+.active-choice button[aria-checked="true"][data-on="0"]{background:var(--bad2,#fdecea);border-color:var(--bad,#ad2f28);color:var(--bad,#ad2f28)}
+.active-choice button:focus-visible{outline:2px solid var(--lqs-accent,#1f6b5c);outline-offset:2px}
+
+/* السعةُ حسب طبيعة المقرر (مدير النظام): بطاقةٌ مطويّة فوق المكتبة. */
+.capacity-by-mode{margin-block:0 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.capacity-by-mode>summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 14px;cursor:pointer;font-weight:650;list-style:none}
+.capacity-by-mode>summary::-webkit-details-marker{display:none}
+.capacity-by-mode>summary svg{inline-size:18px;block-size:18px;color:var(--accent,#1f6b5c)}
+.capacity-by-mode-body{display:grid;gap:10px;padding:4px 14px 14px}
+.capacity-by-mode-body select,.capacity-by-mode-caps input{min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:var(--surface);font:inherit}
+.capacity-by-mode-caps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.capacity-by-mode-caps label{display:grid;gap:4px;font-size:13px;color:var(--muted,#5b6660)}
+.capacity-by-mode-go{min-height:44px;border:1px solid var(--accent,#1f6b5c);border-radius:12px;background:var(--soft,#edf5f0);color:var(--accent,#1f6b5c);font:inherit;font-weight:700;cursor:pointer}
+.capacity-by-mode-go[data-tone="apply"]{background:var(--accent,#1f6b5c);color:#fff}
+.capacity-by-mode-go:disabled{opacity:.5;cursor:not-allowed}
+.capacity-by-mode-plan{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft,#edf5f0)}
+.capacity-by-mode-plan p{margin:0;font-size:13px;color:var(--muted,#5b6660)}
+.capacity-by-mode-plan ul{margin:0;padding-inline-start:18px}
+.capacity-by-mode-msg{margin:0;font-weight:650}.capacity-by-mode-msg[data-ok="1"]{color:var(--ok,#1f6b5c)}.capacity-by-mode-msg[data-ok="0"]{color:var(--bad,#ad2f28)}
+@media(max-width:480px){.capacity-by-mode-caps{grid-template-columns:1fr}}
+
+/* الرقم المرجعي في تغييرات الجدول: شريحةٌ أخرى غير رقم المقرر — محيطٌ مخطوطٌ بلونٍ بنفسجيٍّ هادئ، في صفٍّ واحد قبل رقم المقرر. */
+.crn-chip{display:inline-flex;align-items:center;flex:none;min-height:24px;padding:1px 9px;border:1px solid color-mix(in srgb,#5b4bb0 45%,transparent);border-radius:8px;background:color-mix(in srgb,#5b4bb0 8%,transparent);color:#4a3d99;font:600 12px/1.4 var(--font-mono,ui-monospace,monospace);letter-spacing:.2px;font-variant-numeric:tabular-nums}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .crn-chip{color:#b9afff;border-color:color-mix(in srgb,#b9afff 50%,transparent);background:color-mix(in srgb,#b9afff 10%,transparent)}}
+:root[data-theme="dark"] .crn-chip{color:#b9afff;border-color:color-mix(in srgb,#b9afff 50%,transparent);background:color-mix(in srgb,#b9afff 10%,transparent)}
+.agenda-list .changes-row .agenda-title-row{flex-wrap:wrap}
+.review-row-card small .crn-chip{margin-inline-start:4px}
