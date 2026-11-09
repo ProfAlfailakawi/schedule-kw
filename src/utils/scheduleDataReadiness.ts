@@ -31,8 +31,6 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
   const roomById = new Map(registryRooms.map(room => [String(room.id), room]));
   const registeredRoomTypes=[...new Set((roomTypeOptions?roomTypeOptions:registryRooms.filter(room=>room.active!==false&&room.confidence!=="UNVERIFIED").map(room=>String(room.roomType||""))).map(type=>String(type||"").normalize("NFKC").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));
   const missing = new Map<string, DataGapItem>();
-  const sectionsByCourse=new Map<number,Set<string>>();
-  for(const row of scheduleRows){const id=Number(row.AdCourseId||0);if(!id)continue;const set=sectionsByCourse.get(id)||new Set<string>();set.add(String(row.SCode||row.id));sectionsByCourse.set(id,set);}
   const fitIssues:Array<{kind:"capacity"|"room-type";scheduleId:string;label:string;room:string;detail:string;courseName:string;preferredType?:string;actualType?:string;capacity?:number;requiredSeats?:number}> = [];
   let unknownRoomCapacity=0;
   for (const row of scheduleRows) {
@@ -72,8 +70,8 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
       const room = roomById.get(roomId);
       if (!room) missing.set(`room:${roomId}`, { kind: "room", id: roomId, label: `قاعة ${row.AdRoomHall || roomId}`, fields: ["تأكيد ربط القاعة في سجل المواقع"] });
       else if(course){
-        const sectionCount=Math.max(1,sectionsByCourse.get(courseId)?.size||1);
-        const estimatedSeats=Number(course.MaxStudent)>0?Math.ceil(Number(course.MaxStudent)/sectionCount):0;
+        /* سعة المقرر هي سعة كل شعبة (قرار 1913/2016 م.8: الحدود لأعداد الطلبة في الشعب): لا تُقسم على عدد الشعب. */
+        const estimatedSeats=Number(course.MaxStudent)>0?Number(course.MaxStudent):0;
         if(estimatedSeats>0&&Number(room.capacity)>0&&estimatedSeats>Number(room.capacity))fitIssues.push({kind:"capacity",scheduleId:String(row.id),label,room:`${row.AdRoomCode||room.buildingCode}/${row.AdRoomHall||room.canonicalCode}`,capacity:Number(room.capacity),requiredSeats:estimatedSeats,detail:`تقديريًا ${countOf(estimatedSeats,AR.seat)} مقابل سعة ${countOf(Number(room.capacity),AR.seat)}.`,courseName:String(course.CourseName||row.AdCourseName||"")});
         else if(estimatedSeats>0&&!Number(room.capacity))unknownRoomCapacity++;
         const requiredType=String(course.CourseRoomType||"").trim(),actualType=roomTypeIn(room as any,row.AdSectionId,roomTypeScopes);

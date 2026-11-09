@@ -13,6 +13,7 @@ import { departmentFamily } from "../../utils/sectionLabel";
 import { describeWholesaleRefusal, emptyApproval, isWholesaleChange, readDeadline, type DeadlineState, type WholesaleAction, appendApprovalEvent, approvalLockReason, mergePendingAdditions, openRound, roundBaselineVersionId, TERM_CLOSED_APPROVAL_MESSAGE } from "../../utils/approvalWorkflow";
 import { approvalBlockerCount, type ApprovalBlockerOptions } from "../../utils/scheduleBlockers";
 import { periodBalanceFinding, reviewSchedule } from "../../utils/scheduleRegulations";
+import { capacityContextForSection } from "./capacityRules";
 import { isAcademicRole, signatureStage } from "../../utils/academicRoles";
 import type { AuthenticatedRequest } from "./auth";
 
@@ -295,13 +296,15 @@ export async function regulationNoticesForScope(collegeId: number, sectionId: nu
       rows: rows as any,
       courses: new Map(courses.map((row: any) => [Number(row.AdCourseId), row])),
       instructors: new Map(instructors.map((row: any) => [Number(row.AdInstructorId), row])),
+      capacity: await capacityContextForSection(sectionId),
     });
     const familyRows = rows;
     const familyBalance = periodBalanceFinding(familyRows as any);
     const allFindings = [...findings, ...(familyBalance ? [familyBalance] : [])];
     const ownIds = new Set(scopeRows.map((row: any) => Number(row.id)));
     return allFindings
-      .filter(item => item.approvalEffect === "block" && item.source === "decision-1912")
+      /* موانعُ اللائحة، ومعها ملاحظةُ نسبة الفترتين (م.7/2): تظهر في الاعتماد ولا تمنع التوقيع ولا الإرسال. */
+      .filter(item => item.source === "decision-1912" && (item.approvalEffect === "block" || item.rule === "period-balance"))
       .map(item => ({
         rule: String(item.rule || ""),
         article: String(item.article || ""),

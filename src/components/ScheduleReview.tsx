@@ -7,7 +7,7 @@ import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBa
 import PagedFindingList from "./PagedFindingList";
 import { packPrintFindings, type PrintFindingPiece } from "../utils/printFindingPages";
 import {
-  DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, isDecision1912Finding, periodBalanceSnapshot, PERIOD_BALANCE_MIN_SECTIONS, reviewSchedule,
+  DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, isDecision1912Finding, periodBalanceSnapshot, reviewSchedule,
   type DayKey, type RegulationFinding
 } from "../utils/scheduleRegulations";
 import type { CourseNature } from "../utils/courseNature";
@@ -234,6 +234,8 @@ interface FamilyReading {
   courses: AdCourse[];
   instructors: AdInstructor[];
   members?: Array<{ collegeId: number; sectionId: number }>;
+  /** م.8 و م.9 كما يقرؤهما الخادم لهذه العائلة. */
+  capacity?: { specialization: "theoretical" | "scientific"; excused: string[] };
 }
 
 export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, colleges, instructors: instructorsProp, visitingIds, previousRows: previousRowsProp, nature: natureProp, scopeLine, collegeId, sectionId, termId, meeting, onClose, onFocusRows }: Props) {
@@ -279,8 +281,9 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   );
   const visitingIdSet = useMemo(() => new Set(Array.from(visitingIds || [], Number).filter(Boolean)), [visitingIds]);
   const baseFindings = useMemo(
-    () => reviewSchedule({ rows, courses, instructors, previousRows, meeting, nature }),
-    [rows, courses, instructors, previousRows, meeting, nature]
+    () => reviewSchedule({ rows, courses, instructors, previousRows, meeting, nature,
+      capacity: family?.capacity ? { specialization: family.capacity.specialization, excused: new Set(family.capacity.excused) } : null }),
+    [rows, courses, instructors, previousRows, meeting, nature, family?.capacity]
   );
   const decisionFindings = useMemo(() => baseFindings.filter(isDecision1912Finding), [baseFindings]);
   const periodBalance = useMemo(() => periodBalanceSnapshot(rows), [rows]);
@@ -870,9 +873,9 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
           </button>
           {periodOpen ? <div id="review-period-content" className="review-period-content">
             <div className="review-period-hours"><span><b>الصباحي</b><small>08:00–14:00</small><strong>50–70٪</strong></span><i aria-hidden="true"/><span><b>المسائي</b><small>14:00–20:00</small><strong>30–50٪</strong></span></div>
-            {periodBalance && periodBalance.sections >= PERIOD_BALANCE_MIN_SECTIONS
+            {periodBalance
               ? <PeriodBalanceInfographic {...periodBalance} />
-              : <p>{periodBalance ? `قراءة التوزيع بعد ${countOf(PERIOD_BALANCE_MIN_SECTIONS, AR.appointment)}: الصباحي ${periodBalance.morning}٪ · المسائي ${periodBalance.evening}٪ (${countOf(periodBalance.sections, AR.appointment)}).` : "لا توجد مواعيد ضمن الفترتين حالياً."}</p>}
+              : <p>لا توجد مواعيد ضمن الفترتين حالياً.</p>}
           </div> : null}
         </section>
 

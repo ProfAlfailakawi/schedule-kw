@@ -2886,3 +2886,9 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 :root[data-theme="dark"] .crn-chip{color:#b9afff;border-color:color-mix(in srgb,#b9afff 50%,transparent);background:color-mix(in srgb,#b9afff 10%,transparent)}
 .agenda-list .changes-row .agenda-title-row{flex-wrap:wrap}
 .review-row-card small .crn-chip{margin-inline-start:4px}
+.capacity-exc-row{display:grid;gap:4px;font-size:13px;color:var(--muted,#5b6660)}
+.capacity-exc-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.capacity-exc-list li{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:var(--surface);font-size:13px}
+.capacity-exc-list li span{flex:1;min-inline-size:0;overflow-wrap:anywhere}
+.capacity-exc-list li button{min-height:36px;padding:4px 12px;border:1px solid var(--bad,#ad2f28);border-radius:10px;background:transparent;color:var(--bad,#ad2f28);font:inherit;cursor:pointer}
+.capacity-by-mode-body input[type=text]{min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:var(--surface);font:inherit}
