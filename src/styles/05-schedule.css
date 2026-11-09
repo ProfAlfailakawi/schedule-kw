@@ -300,6 +300,7 @@ button.schedule-radar:hover{filter:brightness(.96)}
    the row is engaged — hovered, focused, or selected. Space is reserved so
    nothing shifts when they arrive. Touch has no hover, so there they always show. */
 .agenda-actions{display:flex;align-items:center;justify-content:flex-end;gap:var(--s2);opacity:0;transition:opacity .16s var(--ease)}
+.agenda-actions{flex-wrap:nowrap;white-space:nowrap;min-width:max-content}
 .agenda-card:hover .agenda-actions,
 .agenda-card:focus-within .agenda-actions,
 .agenda-card.xray-origin .agenda-actions{opacity:1}
