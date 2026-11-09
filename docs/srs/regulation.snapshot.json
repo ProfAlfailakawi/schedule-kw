@@ -435,7 +435,6 @@
   "consecutiveGapMinutes": 15
  },
  "periodBalance": {
-  "minSections": 10,
   "morning": {
    "from": "08:00",
    "to": "14:00"
@@ -505,6 +504,13 @@
    "severity": "low",
    "source": "decision-1912",
    "approvalEffect": "note"
+  },
+  {
+   "rule": "capacity-range",
+   "article": "م.8",
+   "severity": "high",
+   "source": "decision-1912",
+   "approvalEffect": "block"
   },
   {
    "rule": "meeting-window",

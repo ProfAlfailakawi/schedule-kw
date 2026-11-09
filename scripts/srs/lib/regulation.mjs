@@ -65,7 +65,6 @@ function quotedFigures(s) {
     ["فاصل التتابع", s.consecutive.consecutiveGapMinutes, 15],
     ["أدنى حصة صباحية", s.periodBalance.morningShare.min, 50],
     ["أعلى حصة صباحية", s.periodBalance.morningShare.max, 70],
-    ["حدّ قراءة الفترتين", s.periodBalance.minSections, 10],
     ["نهاية الفترة الصباحية", s.periodBalance.morning.to, "14:00"],
     ["عدد أنماط المكتبة", s.library.reduce((n, g) => n + g.patterns.length, 0), 17],
   ];

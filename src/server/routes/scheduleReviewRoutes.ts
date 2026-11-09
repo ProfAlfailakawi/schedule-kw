@@ -24,6 +24,7 @@ import { noteScheduleMutation, scheduleLockRefusal } from "../core/approvals";
 import { type AuthenticatedRequest, requirePermission } from "../core/auth";
 import { barterRequestRoomKey, HALL_BARTER_DAY_LABEL } from "../core/hallBarter";
 import { courseHabit } from "../core/instructorRequests";
+import { capacityContextForSection } from "../core/capacityRules";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { scheduleConflicts } from "../core/scheduleConflicts";
 import { describeScheduleChange, hoursNotice, mixedPatternNotice, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, unapprovedPatternIssue } from "../core/scheduleRules";
@@ -288,6 +289,8 @@ app.get("/api/schedules/review-readiness", requirePermission(7), async (req: Aut
       courses:courses.filter(row=>usedCourses.has(Number(row.AdCourseId))),
       instructors:instructors.filter(row=>usedInstructors.has(Number(row.AdInstructorId))),
       members:members.map(member=>({collegeId:member.collegeId,sectionId:member.sectionId})),
+      /* م.8 و م.9: نوعُ تخصص العائلة والمقرراتُ المستثناة، لتقرأ الشاشةُ القاعدةَ نفسَها التي يقرؤها الخادم. */
+      capacity:await (async()=>{const context=await capacityContextForSection(sectionId);return {specialization:context.specialization,excused:[...context.excused]};})(),
     };
   }
   res.json({blockers,warnings,blockingConflicts:conflictList.length,blockingRows:touchedRowIds.length,blockingDuplicates:doubleEntryCount(conflictList),checkedRows:scopeRows.length,termRows:termRows.length,...(family?{family}:{})});

@@ -4,6 +4,7 @@ import { SCHEDULE_DAY_END, SCHEDULE_DAY_LAST_MINUTE , formatScheduleTimeRange } 
 import { AR, countOf, oblique } from "./arabicCount";
 import { placeholderInstructorIds } from "./instructorIdentity";
 import { isPracticeRow, sectionCodeKey } from "./sameSlot";
+import { capacityCourseKey, capacityLimitProblem, type CapacitySpecialization } from "./capacityLimits";
 
 /**
  * The timetable rules of PAAET decision 1913/2016, written as code.
@@ -80,9 +81,6 @@ export const LONG_LECTURE_MINUTES = 80;
 const MORNING_START = 8 * 60;
 const MORNING_END = 14 * 60;
 const EVENING_END = 20 * 60;
-
-/** Below this many appointments a morning/evening share is noise, not a department. */
-export const PERIOD_BALANCE_MIN_SECTIONS = 10;
 
 export const toMinutes = (value: string) => {
   const [h, m] = String(value || "0:0").split(":").map(Number);
@@ -469,6 +467,11 @@ export interface RegulationContext {
   meeting?: { day: DayKey; from: string; to: string } | null;
   /** What each course has habitually been, learned from every term on record. */
   nature?: Map<number, CourseNature> | null;
+  /**
+   * م.8 و م.9: ما تعرفه القاعدةُ عن عائلة هذا القسم — نوعُ تخصصها (للتدريب الميداني) والمقرراتُ التي سجّل لها
+   * المدير استثناءً. غيابُه يعني أن القاعدة لا تُقرأ هنا (الشاشةُ لم تصلها الوثيقة بعد)، لا أنها بلا استثناءات.
+   */
+  capacity?: { specialization: CapacitySpecialization; excused: ReadonlySet<string> } | null;
 }
 
 /** Consecutive means the next one starts within a quarter hour of this one ending. */
@@ -487,7 +490,8 @@ const CONSECUTIVE_GAP = 15;
  */
 export function periodBalanceFinding(rows: readonly FSchedule[]): RegulationFinding | null {
   const data = periodBalanceSnapshot(rows);
-  if (!data || data.sections < PERIOD_BALANCE_MIN_SECTIONS) return null;
+  /* لا حدَّ أدنى لعدد المواعيد: اللائحة لا تذكره (م.7/2). */
+  if (!data) return null;
   const { morning, evening, sections, morningCount } = data;
   const morningShare = morning;
   const eveningShare = evening;
@@ -790,6 +794,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   appendConsecutiveFinding(runsOverOneHour, "م.6/3", "أكثر من ثلاث شعب متتالية لمقرر محاضرته ساعة", "consecutive-one-hour");
 
   // --- م.6/4 — rotation of single-section courses -------------------------
+  const rotationPlaceholders = placeholderInstructorIds(instructors.values());
   if (context.previousRows?.length) {
     const previousOwner = new Map<number, number>();
     const previousCount = new Map<number, number>();
@@ -802,6 +807,8 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     for (const [courseId, list] of byCourse) {
       // The rule is about courses offered as a single section.
       if (list.length !== 1 || previousCount.get(courseId) !== 1) continue;
+      /* «هيئة تدريسية» ليست شخصاً: إبقاؤها على مقررٍ لا يعني بقاءه عند العضو نفسه. */
+      if (rotationPlaceholders.has(Number(list[0].AdInstructorId))) continue;
       if (previousOwner.get(courseId) === list[0].AdInstructorId && list[0].AdInstructorId) {
         repeated.push(`${courses.get(courseId)?.CourseCode || courseId} · ${who(list[0].AdInstructorId)}`);
         repeatedRows.push(list[0].id);
@@ -817,6 +824,30 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
         title: `التدوير غير محقق (${arabicNumber(repeated.length)})`,
         detail: `المقرر أحادي الطرح ما زال عند نفس العضو مقارنة بالفصل السابق. ${repeated.slice(0, 5).join(" — ")}`,
         rowIds: repeatedRows
+      });
+    }
+  }
+
+  // --- م.8 و م.9 — سعة الشعبة ضمن حدّ طبيعة المقرر، إلا باستثناءٍ سجّله المدير ---------
+  if (context.capacity) {
+    const outside = new Map<number, { rows: FSchedule[]; problem: string }>();
+    for (const [courseId, list] of byCourse) {
+      const course = courses.get(courseId);
+      if (!course || context.capacity.excused.has(capacityCourseKey(course.CourseCode))) continue;
+      const problem = capacityLimitProblem({ mode: course.CourseTeachingMode, capacity: course.MaxStudent, specialization: context.capacity.specialization });
+      if (problem) outside.set(courseId, { rows: list, problem });
+    }
+    if (outside.size) {
+      const labels = [...outside.keys()].map(id => courses.get(id)?.CourseCode || String(id));
+      findings.push({
+        rule: "capacity-range",
+        article: "م.8",
+        severity: "high",
+        source: "decision-1912",
+        approvalEffect: "block",
+        title: `سعة الشعبة خارج حدود اللائحة (${arabicNumber(outside.size)})`,
+        detail: `${labels.slice(0, 5).join("، ")}${labels.length > 5 ? "…" : ""} — ${[...outside.values()][0].problem} يُستثنى بقرارٍ من مدير النظام لأحد أسباب م.9.`,
+        rowIds: [...new Set([...outside.values()].flatMap(item => item.rows.map(row => row.id)))],
       });
     }
   }

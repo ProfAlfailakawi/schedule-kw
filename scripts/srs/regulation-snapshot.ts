@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, PERIOD_BALANCE_MIN_SECTIONS, LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES,
+  DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES,
   expectedMinutesForDay, requiredGapForDay, ladderStepForDays, startLadderNote, lectureLengthProblem,
   maxWeeklyMinutesFor, patternLibraryByHours, periodBalanceFinding, periodBalanceSnapshot, reviewSchedule,
   type DayKey, type RegulationContext,
@@ -54,7 +54,9 @@ function probes(): Array<{ rule: string; rows: Row[]; extra?: Partial<Regulation
     { rule: "consecutive-one-hour", rows: ["08:00", "09:00", "10:00", "11:00"].map((from, i) => row({ AdCourseId: 101 + i, SCode: String(i + 1), days: ["fsunday"], from, to: clock(toMin(from) + 50) })),
       courses: [course(101), course(102), course(103), course(104)] },
     { rule: "rotation", rows: [row({ days: ["fsunday", "ftuesday", "fthursday"], from: "08:00", to: "08:50" })], extra: { previousRows: [row({ days: ["fsunday", "ftuesday", "fthursday"], from: "08:00", to: "08:50" })] as any } },
-    { rule: "period-balance", rows: Array.from({ length: PERIOD_BALANCE_MIN_SECTIONS }, (_, i) => row({ AdCourseId: 300 + i, AdInstructorId: 0, days: ["fsunday"], from: "15:00", to: "15:50" })) },
+    { rule: "period-balance", rows: Array.from({ length: 4 }, (_, i) => row({ AdCourseId: 300 + i, AdInstructorId: 0, days: ["fsunday"], from: "15:00", to: "15:50" })) },
+    { rule: "capacity-range", rows: [row({ AdCourseId: 401, days: ["fsunday"], from: "08:00", to: "08:50" })],
+      courses: [course(401, { CourseTeachingMode: "theoretical", MaxStudent: 80 })], extra: { capacity: { specialization: "theoretical", excused: new Set<string>() } } },
     { rule: "meeting-window", rows: [row({ days: ["fsunday"], from: "12:00", to: "12:50" })], extra: { meeting: { day: "fsunday", from: "12:00", to: "13:00" } } },
     { rule: "incomplete", rows: [row({ AdInstructorId: 0, days: ["fsunday"], from: "08:00", to: "08:50" })] },
   ];
@@ -120,7 +122,6 @@ function periodBalance() {
     if (!periodBalanceFinding(rows as any)) accepted.push(k);
   }
   return {
-    minSections: PERIOD_BALANCE_MIN_SECTIONS,
     morning: { from: clock(morning[0]), to: clock(morning[morning.length - 1] + 1) },
     evening: { from: clock(morning[morning.length - 1] + 1), to: clock(counted[counted.length - 1] + 1) },
     morningShare: { min: accepted[0], max: accepted[accepted.length - 1] },
