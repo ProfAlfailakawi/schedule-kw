@@ -2797,6 +2797,62 @@
           "tests/program-provision-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-ACD-050",
+      "kind": "functional",
+      "title": {
+        "ar": "السعة حسب طبيعة المقرر لقسمٍ كاملٍ في كل الحُرُم",
+        "en": "Capacity by course nature for a whole department family"
+      },
+      "text": {
+        "ar": "يجب أن تتيح شاشة المقررات لمدير النظام وحده أداةً «السعة حسب طبيعة المقرر» تختار فيها قسماً علمياً باسمه فتشمل كل نسخه في كل الحُرُم، وتضبط سعة واحدة لكل طبيعة (نظري 50 وعملي 20 وتدريب ميداني 15 افتراضاً)، ثم تعرض معاينةً لا تكتب شيئاً (الكليات مع عدد مقرراتها، ولكل طبيعة سعتها الجديدة وعدد ما يتغيّر من إجمالي مقرراتها) قبل زر «تطبيق». ويكون الطلب POST /api/admin/courses/capacity-by-mode بالحقول sectionName وcaps وapply، فيرفض بـ 400 قسماً غير مختار ومعه الرسالة «اختر القسم العلمي.» وسعةً ليست عدداً صحيحاً بين 1 و200 لأي من الطبائع الثلاث، وبـ 404 اسماً لا يطابق قسماً. ولا يُحسب إلا المقرر ذو الطبيعة نظري أو عملي أو تدريب ميداني ويتغيّر إن اختلفت سعته الحالية؛ أما المقرر غير المصنّف أو ذو الطبيعة الأخرى فيُعدّ في «untouched» ولا يُمسّ. ولا يُكتب شيء إلا إذا كان apply صحيحاً (true) فعلاً، وعندها تُكتب السعات دفعةً بدفعة بحدٍّ أقصى 400 مقرر في الدفعة الواحدة، وتُعلَّم نتائج التسجيل المحسوبة قديمة، ويعيد الخادم عدد المكتوب والمعاينة نفسها. ويُرسل التطبيق مدخلات المعاينة ذاتها حرفاً لا ما في الخانات حينها، وتُعطَّل الخانات أثناء الطلب، وتُفرَّغ المعاينة إذا تغيّر القسم أو أي سعة.",
+        "en": "The Courses screen shall give the system administrator alone a «Capacity by course nature» tool in which a department is chosen by name, covering every copy of it in every campus branch, with one capacity per nature (theory 50, practical 20, field training 15 by default), then show a preview that writes nothing (the colleges with their course counts and, per nature, the new capacity and how many of its total courses change) before an «Apply» button. The request is POST /api/admin/courses/capacity-by-mode with sectionName, caps and apply; it shall refuse with 400 an unchosen department with a «choose the department» message and a capacity that is not a whole number from 1 to 200 for any of the three natures, and with 404 a name that matches no department. Only a course whose nature is theory, practical or field training is counted and changes when its current capacity differs; an unclassified course or one of any other nature is counted in «untouched» and is left alone. Nothing is written unless apply is exactly true, and then the capacities are written in batches of at most 400 courses, the computed registration results are marked stale, and the server returns the number written together with the same preview. The app sends the very inputs that were previewed rather than the boxes' current values, disables the boxes during the request, and clears the preview when the department or any capacity changes."
+      },
+      "rationale": {
+        "ar": "للقسم الواحد نسخة في كل حرم، وتوحيد السعات يدوياً مقرراً مقرراً بطيء وعرضة للخطأ، وأثره عابر للكليات فيقتصر على مدير النظام.",
+        "en": "One department has a copy in every branch, setting capacities course by course is slow and error-prone, and the effect crosses colleges so it is limited to the system administrator."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "قسم له نسختان وفيهما 10 مقررات نظرية سعتها 50 وواحد سعته 40 ← المعاينة تُظهر «يتغيّر 1 من 11» ولا يتغيّر شيء في البيانات قبل «تطبيق».",
+          "en": "A department with two copies holding 10 theory courses at capacity 50 and one at 40 ← the preview shows 1 of 11 changing and no data changes before Apply."
+        },
+        {
+          "ar": "طلب بلا sectionName ← 400 «اختر القسم العلمي.»؛ وسعة عملي 0 أو 201 ← 400 «السعة لكل طبيعة رقمٌ صحيحٌ بين 1 و200.»؛ واسم قسم غير موجود ← 404 «لا قسم بهذا الاسم.».",
+          "en": "A request with no sectionName ← 400 «اختر القسم العلمي.»; a practical capacity of 0 or 201 ← 400 «السعة لكل طبيعة رقمٌ صحيحٌ بين 1 و200.»; an unknown department name ← 404 «لا قسم بهذا الاسم.»."
+        },
+        {
+          "ar": "مقرر بلا طبيعة أو بطبيعة غير الثلاث ← يدخل في عدد المقررات التي «تبقى كما هي» ولا تتغير سعته بعد «تطبيق».",
+          "en": "A course with no nature or a nature other than the three ← it is counted among those that «stay as they are» and its capacity does not change after Apply."
+        },
+        {
+          "ar": "تطبيق على 900 مقرر متغيّر في قاعدة Firestore ← يُكتب في 3 دفعات (400 و400 و100) ثم تُعلَّم نتائج التسجيل قديمة.",
+          "en": "Apply to 900 changing courses on Firestore ← written in 3 batches (400, 400 and 100) and then the registration results are marked stale."
+        },
+        {
+          "ar": "غير مدير النظام ← لا تظهر الأداة في الشاشة ويرفض الخادم الطلب.",
+          "en": "A user who is not the system administrator ← the tool is not shown on the screen and the server refuses the request."
+        },
+        {
+          "ar": "كل استدعاء كتابة لهذا المسار يُسجَّل في سجل التدقيق كأي كتابة (المستخدم والمسار والحالة)، دون تفصيل لكل مقرر؛ وليس من مسارات «الأثر» المخصّصة للمواعيد.",
+          "en": "Every write call to this route is recorded in the audit log like any write (user, path and status), without per-course detail; it is not one of the activity-trail routes reserved for appointments."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts#/api/admin/courses/capacity-by-mode",
+          "src/db/repository.ts#setCourseCapacityForIds",
+          "src/components/Courses.tsx#CapacityByMode"
+        ],
+        "tests": []
+      },
+      "inferred": true
     }
   ],
   "edgeCases": [
