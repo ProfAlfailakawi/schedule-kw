@@ -485,3 +485,10 @@ body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:
 .request-hold-actions button.is-primary{background:var(--accent);border-color:transparent;color:var(--accent-contrast)}
 .request-hold-actions svg{inline-size:16px;block-size:16px}
 @media (max-width:560px){.request-hold-actions{display:grid}.request-hold-actions button{inline-size:100%}}
+
+/* «الجدول الدراسي» من قائمة الموعد: نافذةٌ فوق الصفحة تحمل بطاقة جدول الأستاذ (عرضٌ فقط). */
+.week-peek{position:fixed;inset:0;z-index:240;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,var(--ink) 38%,transparent);backdrop-filter:blur(2px)}
+.week-peek-card{width:min(560px,100%);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain;border-radius:22px}
+.week-peek-card>.mini-week{box-shadow:var(--shadow-lg)}
+.week-peek-card>.mini-week.is-sheet{position:relative;inset:auto;max-height:none;margin:0;max-width:none}
+.week-peek-card .mini-week-grip{display:none}

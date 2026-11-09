@@ -87,6 +87,7 @@ import { createEntryMeter, sendEntryMeasure, type EntryMeter, type HelperName } 
 import { useCourseReach } from "./CourseReach";
 import { reachLocked, reachNote, shortCourseCode } from "../utils/courseReach";
 import { byCourseNumber } from "../utils/sheetMembership";
+import TeacherWeekPeek from "./TeacherWeekPeek";
 import TeacherMiniWeek, { MiniWeekToggle, forgetMiniWeekRows, useMiniWeekEnabled, useWiderWeek, type MiniPick } from "./TeacherMiniWeek";
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
@@ -4161,6 +4162,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   /* N3: «+» أو «قبلها/بعدها» في جدول الأستاذ المصغّر يملأ أيام النمط والبداية والنهاية،
      و«قبلها/بعدها» يقترح قاعة المحاضرة الملاصقة (أو مبناها) ما لم تُختر قاعة. الحكم يفحص كأي اختيار. */
+  /* «الجدول الدراسي» من قائمة الموعد: الموعد الذي يُعرض أسبوع صاحبه كاملاً (عرضٌ فقط). */
+  const [weekPeek, setWeekPeek] = useState<FSchedule | null>(null);
+  const weekPeekOk = (row: FSchedule) => Number(row.AdInstructorId) > 0 && !isFacultyPlaceholderId(Number(row.AdInstructorId)) && !practiceMode;
   const miniWeekWindow = useMemo(() => ({ start: activeScheduleWindow.start, end: activeScheduleWindow.end }), [activeScheduleWindow.start, activeScheduleWindow.end]);
   const isFacultyPlaceholderId = (id: number) => isFacultyPlaceholder(instructorById.get(id) as any);
   /* جدول الأستاذ المصغّر: مفتاح إظهار/إخفاء يُتذكَّر لكل مستخدم على هذا الجهاز. */
@@ -11562,11 +11566,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <details className="agenda-mobile-actions" onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
                       <summary aria-label="خيارات الموعد" data-guide-ignore="خيارات تعديل وحذف الموعد على الهاتف">⋯</summary>
                       <div>
+                        {weekPeekOk(s) ? <IconAction label="الجدول الدراسي" kind="week" onClick={() => setWeekPeek(s)} /> : null}
                         <IconAction label="تعديل" kind="edit" onClick={() => openEdit(s)} />
                         <IconAction label="حذف" kind="delete" onClick={() => remove(s.id)} />
                       </div>
                     </details>
                     <div className="agenda-actions">
+                      {weekPeekOk(s) ? <IconAction label="الجدول الدراسي" kind="week" onClick={() => setWeekPeek(s)} /> : null}
                       <IconAction
                         label="تعديل"
                         kind="edit"
@@ -11578,6 +11584,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         onClick={() => remove(s.id)}
                       />
                     </div>
+                    {weekPeek?.id === s.id ? (() => {
+                      const person = instructorById.get(Number(s.AdInstructorId)), nisabInfo = loadNisabOf(person);
+                      return <TeacherWeekPeek row={s} teacherName={person?.AdInstructorName || ""} nisab={nisabInfo.nisab} overtime={nisabInfo.overtime} limited={nisabInfo.limited}
+                        visiting={formVisiting(s.AdInstructorId)} rows={rows} courses={courseById} window={miniWeekWindow} userId={Number(user?.SystemUserId || 0)} onClose={() => setWeekPeek(null)} />;
+                    })() : null}
                   </article>
                 );
               });

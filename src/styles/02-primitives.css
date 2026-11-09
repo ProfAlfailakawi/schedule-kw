@@ -254,6 +254,7 @@
 .icon-action svg{width:15px;height:15px}
 .icon-action:hover{color:var(--ink);border-color:var(--line-strong);background:var(--surface-2)}
 .icon-action-edit:hover,
+.icon-action-week:hover,
 .icon-action-insight:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--accent);background:var(--accent-softer)}
 .icon-action-delete:hover{border-color:color-mix(in srgb,var(--danger) 45%,var(--line));color:var(--danger);background:var(--danger-soft)}
 
