@@ -131,10 +131,23 @@ type FamilyWeek = { rows: FSchedule[]; courses: AdCourse[] };
 const familyCache = new Map<string, FamilyWeek>();
 const roomCache = new Map<string, FSchedule[]>();
 const WEEK_FORGET_EVENT = "teacher-mini-week:forget";
+/**
+ * شاهدُ القبر: صفٌّ حُذف الآن لا يُحسب في النصاب ولو أعادته قراءةٌ قديمة — الخادم يخدم من ذاكرته
+ * (وقد تكون نسخةً أخرى منه لم يصلها خبرُ الحذف بعد) والقراءةُ التي تلي الحذف مباشرةً هي أكثرُها عرضةً
+ * لذلك. يبقى ست دقائق (أطول من عمر ذاكرة الخادم: خمس).
+ */
+const GONE_MS = 6 * 60_000;
+const gone = new Map<number, number>();
+const alive = (row: FSchedule) => {
+  const at = gone.get(Number(row.id));
+  if (at === undefined) return true;
+  if (Date.now() - at > GONE_MS) { gone.delete(Number(row.id)); return true; }
+  return false;
+};
 export function forgetMiniWeekRows(ids?: ReadonlyArray<number | string>) {
+  for (const id of ids || []) gone.set(Number(id), Date.now());
   if (!ids) { widerCache.clear(); familyCache.clear(); roomCache.clear(); }
-  const gone = new Set((ids || []).map(Number));
-  const keep = (row: FSchedule) => !gone.has(Number(row.id));
+  const keep = alive;
   for (const [key, list] of widerCache) widerCache.set(key, list.filter(keep));
   for (const [key, week] of familyCache) familyCache.set(key, { ...week, rows: week.rows.filter(keep) });
   for (const [key, list] of roomCache) roomCache.set(key, list.filter(keep));
@@ -263,7 +276,7 @@ type Drawn = DrawnPlacement & { clash: boolean; golden: boolean };
 export default function TeacherMiniWeek({
   teacherId, teacherName, nisab = 0, overtime = 0, limited = nisab > 0, visiting = false, trainee = false, rows, termId, collegeId, sectionId = 0, excludeId = 0, original = null,
   draft, verdict, checked = true, course, courses, window: dayWindow, userId = 0, fixedDays, onPick, variant = "side",
-  autoCollapse = false, dockable = false, room = null,
+  autoCollapse = false, dockable = false, room = null, readOnly = false, onClose,
 }: {
   teacherId: number;
   teacherName: string;
@@ -303,6 +316,9 @@ export default function TeacherMiniWeek({
   dockable?: boolean;
   /** القاعة المختارة في النموذج: حجوزها مخطّطةٌ نحاسية، وخانات «+» الحرّة للاثنين معاً ذهبية. */
   room?: MiniRoom | null;
+  /** عرضٌ فقط («الجدول الدراسي» من قائمة الموعد): مفتوحٌ دائماً، بلا خانات «+» ولا رسم ولا قبلها/بعدها، وX تستدعي onClose. */
+  readOnly?: boolean;
+  onClose?: () => void;
 }) {
   const bodyId = useId();
   /* The instructor week is a side column wherever the page has the room — a desk, a
@@ -312,7 +328,7 @@ export default function TeacherMiniWeek({
   const sheet = useMedia("(max-width: 639px)", variant === "side");
   const hoverable = useMedia("(hover: hover)", true);
   /* الرسم بالمؤشر: فأرةٌ أو قلم على سطح المكتب — لا الشريط السفلي ولا اللمس. */
-  const canDraw = useMedia("(hover: hover) and (pointer: fine)", !sheet) && !sheet;
+  const canDraw = useMedia("(hover: hover) and (pointer: fine)", !sheet) && !sheet && !readOnly;
   const storageKey = `teacher-mini-week:${variant}${sheet ? ":sheet" : ""}:${userId}`;
   const storedOpen = (key: string) => {
     const value = safeStorage.get(key);
@@ -328,8 +344,9 @@ export default function TeacherMiniWeek({
     override = autoCollapse ? false : auto.override;
     setAuto({ on: autoCollapse, override });
   }
-  const open = autoCollapse ? override : stayOpen;
+  const open = readOnly ? true : autoCollapse ? override : stayOpen;
   const setOpen = (next: boolean) => {
+    if (readOnly) { if (!next) onClose?.(); return; }
     if (autoCollapse) setAuto({ on: true, override: next });
     setStayOpen(next);
     safeStorage.set(storageKey, next ? "open" : "closed");
@@ -350,7 +367,7 @@ export default function TeacherMiniWeek({
         return;
       }
       const inside = Boolean(shell.current && document.activeElement && shell.current.contains(document.activeElement));
-      if (!sheet && !inside) return;
+      if (!sheet && !inside && !readOnly) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setOpen(false);
@@ -364,7 +381,8 @@ export default function TeacherMiniWeek({
 
   const wider = useWiderWeek(teacherId, termId, rows);
   const family = useFamilyWeek(teacherId, termId, collegeId, Number(sectionId) || 0, rows);
-  const all = useMemo(() => [...rows, ...wider, ...family.rows], [rows, wider, family.rows]);
+  const forgotten = useForgetTick();
+  const all = useMemo(() => [...rows, ...wider, ...family.rows].filter(alive), [rows, wider, family.rows, forgotten]);
   const lectures = useMemo(() => teacherLectures(all, teacherId, termId, excludeId, collegeId), [all, teacherId, termId, excludeId, collegeId]);
   const own = useMemo(() => teacherRows(all, teacherId, termId, excludeId), [all, teacherId, termId, excludeId]);
   const before = original && Number(original.AdInstructorId) === teacherId && (!termId || Number(original.AdTermId) === termId) ? original : null;
@@ -394,8 +412,8 @@ export default function TeacherMiniWeek({
   if (tone !== "checking") settled.current = tone;
 
   const span = useMemo(() => compactSpan(dayWindow, [...lectures.map(item => item.end), ...(ghost ? [ghost.end] : [])]), [dayWindow, lectures, ghost]);
-  const targets = useMemo(() => freeTargets(course, lectures, span, { fixedDays, avoid: ghost }), [course, lectures, span, fixedKey, ghost]);
-  const placements = useMemo(() => new Map(lectures.map(item => [`${item.id}:${item.day}`, {
+  const targets = useMemo(() => readOnly ? [] : freeTargets(course, lectures, span, { fixedDays, avoid: ghost }), [course, lectures, span, fixedKey, ghost]);
+  const placements = useMemo(() => new Map(readOnly ? [] : lectures.map(item => [`${item.id}:${item.day}`, {
     before: adjacentPlacement(item, "before", course, lectures, dayWindow, { minutes: draftMinutes, fixedDays }),
     after: adjacentPlacement(item, "after", course, lectures, dayWindow, { minutes: draftMinutes, fixedDays }),
   }])), [lectures, course, dayWindow, draftMinutes, fixedKey]);
@@ -405,7 +423,7 @@ export default function TeacherMiniWeek({
   const roomOn = roomReady(room);
   const roomLabel = roomOn ? `${String(room?.code || "").trim()}/${String(room?.hall || "").trim()}` : "";
   const roomFetched = useRoomWeek(roomOn ? room : null, termId, rows);
-  const roomRows = useMemo(() => roomOn ? [...rows.filter(row => inRoom(row, room)), ...roomFetched] : [], [roomOn, roomLabel, rows, roomFetched]);
+  const roomRows = useMemo(() => roomOn ? [...rows.filter(row => inRoom(row, room)), ...roomFetched].filter(alive) : [], [roomOn, roomLabel, rows, roomFetched, forgotten]);
   const roomBusy = useMemo(() => roomBlocks(roomRows, { teacherId, termId, excludeId }), [roomRows, teacherId, termId, excludeId]);
   const shownTargets: Array<MiniTarget & { golden?: boolean }> = useMemo(() => roomOn ? goldenTargets(targets, roomRows, { teacherId, termId, excludeId }) : targets,
     [roomOn, targets, roomRows, teacherId, termId, excludeId]);
@@ -416,7 +434,7 @@ export default function TeacherMiniWeek({
   useEffect(() => { setPreview(null); }, [ghostKey, teacherId]);
 
   /* «تطفو» (dockable، سطح المكتب): الترويسة مقبضٌ يُسحب، والموضع والحجم يُتذكَّران، ونقرتان تعيدانها. */
-  const dockOn = dockable && variant === "side" && !sheet;
+  const dockOn = dockable && variant === "side" && !sheet && !readOnly;
   const floatKey = `teacher-mini-week:float:${userId}`;
   const readFloat = () => parseFloatRect(safeStorage.json<unknown>(floatKey, null));
   const [floatRect, setFloatRect] = useState<FloatRect | null>(readFloat);
@@ -675,6 +693,7 @@ export default function TeacherMiniWeek({
     {dockOn && !floating ? <span className="mini-week-notch" aria-hidden="true" /> : null}
     <button type="button" className="mini-week-head" aria-expanded={open} aria-controls={bodyId} title={headTitle}
       onClick={event => {
+        if (readOnly) return;
         if (swallowClick.current) { swallowClick.current = false; return; }
         if (dockOn && event.detail > 1) return;
         if (dockOn) lastToggle.current = Date.now();
@@ -786,7 +805,7 @@ export default function TeacherMiniWeek({
         <b className="mini-week-legend-room" title="القاعة المختارة في النموذج"><DoorOpen aria-hidden="true" /><bdi dir="ltr">{roomLabel}</bdi></b>
       </div> : null}
       <p className="mini-week-hint"><Info aria-hidden="true" />
-        <span>{hoverable ? "مرّر على «+» فتضيء خانات النمط" : "اضغط «+» لتضع الموعد"}{canDraw ? " · اسحب على فراغ لترسم موعداً" : ""} · لا يُحفظ شيء</span>
+        <span>{readOnly ? "أسبوعه في كل عائلة القسم · عرضٌ فقط" : <>{hoverable ? "مرّر على «+» فتضيء خانات النمط" : "اضغط «+» لتضع الموعد"}{canDraw ? " · اسحب على فراغ لترسم موعداً" : ""} · لا يُحفظ شيء</>}</span>
       </p>
     </div> : null}
   </section>;

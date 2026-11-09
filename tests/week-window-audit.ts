@@ -191,7 +191,7 @@ const practical3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const component = fs.readFileSync("src/components/TeacherMiniWeek.tsx", "utf8");
   const css = fs.readFileSync("src/styles/41-week-window.css", "utf8");
   const autoBlock = component.slice(component.indexOf("const [auto, setAuto]"), component.indexOf("const setOpen = (next: boolean)"));
-  check(autoBlock.length > 80 && !/safeStorage/.test(autoBlock) && /override = autoCollapse \? false : auto\.override/.test(autoBlock) && /const open = autoCollapse \? override : stayOpen/.test(autoBlock),
+  check(autoBlock.length > 80 && !/safeStorage/.test(autoBlock) && /override = autoCollapse \? false : auto\.override/.test(autoBlock) && /const open = readOnly \? true : autoCollapse \? override : stayOpen/.test(autoBlock),
     "C1 الطيّ التلقائي حالةٌ محلية لا تُكتب، وتجاوزه يعود حين يبدأ طيٌّ تلقائيٌّ جديد");
   check(/\/api\/schedules\?termId=\$\{termId\}&building=\$\{encodeURIComponent\(code\)\}&hall=\$\{encodeURIComponent\(hall\)\}/.test(component) && /roomCache\.set\(key, list\)/.test(component) && /controller\.abort\(\)/.test(component),
     "C2 حجوز القاعة بالمسار القائم، بذاكرةٍ لكل فصلٍ وقاعة وإلغاءٍ عند التغيّر");

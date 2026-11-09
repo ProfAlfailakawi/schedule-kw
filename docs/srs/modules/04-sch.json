@@ -58,6 +58,8 @@
     "src/components/MeetingSlots.tsx",
     "src/components/SectionScheduleHours.tsx",
     "src/components/TeacherMiniWeek.tsx",
+    "src/components/TeacherWeekPeek.tsx",
+    "src/utils/scheduleReadFreshness.ts",
     "src/components/SameSlotHint.tsx",
     "src/utils/sameSlot.ts",
     "src/utils/planPeers.ts",
@@ -1614,6 +1616,39 @@
         { "ar": "الزر يغيّر رقم الشعبة وحده ولا يحفظ؛ ومن قصد الإضافة إلى الشعبة القائمة يبقى المنع؛ والموعد ذو المعرّف النصّي (مسودة) لا يُحسب مع نفسه في ساعات شعبته.", "en": "The button changes the section number only and saves nothing; whoever means to add to the existing section stays blocked; an appointment with a text id (a draft) is not counted against itself in its section's hours." }
       ],
       "evidence": { "code": ["src/components/Schedules.tsx#nextSectionCode", "src/components/Schedules.tsx#useFreshSection", "src/server/core/scheduleRules.ts#scheduleLengthIssue", "src/server/core/scheduleRules.ts#isSameRow", "src/utils/nextCourseSectionCode.ts"], "tests": ["tests/new-appointment-pattern-end-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-070",
+      "kind": "functional",
+      "title": { "ar": "«الجدول الدراسي» من قائمة الموعد", "en": "«Class schedule» from the appointment actions" },
+      "text": {
+        "ar": "يجب على النظام أن يضع بجانب «تعديل» و«حذف» على كل موعد (وفي قائمة ⋯ على الهاتف) زرّاً صغيراً «الجدول الدراسي» يفتح أسبوع صاحب الموعد كاملاً عبر كل كليات عائلة قسمه ببطاقة جدول الأستاذ المصغّر نفسها (النصاب وأيام الحضور والفراغات) عرضاً فقط، وأن يُغلق بزرّ الإغلاق أو Esc أو النقر خارجه.",
+        "en": "The system shall place beside «Edit» and «Delete» on every appointment (and in the ⋯ menu on a phone) a small «Class schedule» button that opens the appointment's instructor's whole week across every college of the department family, on the same teacher mini-week card (load, attendance days and gaps), read-only, closing with the close button, Esc or a click outside."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "العرض للقراءة فقط: لا خانات «+» ولا «قبلها/بعدها» ولا رسم بالسحب، ولا يُحفظ شيء.", "en": "The view is read-only: no «+» slots, no «before/after» and no drag-to-draw, and nothing is saved." },
+        { "ar": "لا يظهر الزر على موعد أستاذٍ بديل (placeholder) ولا في وضع التجربة.", "en": "The button does not appear on a placeholder-instructor appointment or in practice mode." }
+      ],
+      "evidence": { "code": ["src/components/TeacherWeekPeek.tsx", "src/components/TeacherMiniWeek.tsx#readOnly", "src/components/Schedules.tsx#weekPeekOk", "src/components/ui.tsx#IconAction"], "tests": ["tests/teacher-mini-week-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-071",
+      "kind": "functional",
+      "title": { "ar": "لا قراءةَ قديمة بعد كتابةٍ في الجدول", "en": "No stale read after a schedule write" },
+      "text": {
+        "ar": "يجب على النظام، بعد كل كتابةٍ ناجحة في الجدول (إضافة أو تعديل أو حذف)، أن ينسى ما حُفظ من قراءاتٍ سابقة قبل رسم الشاشة من جديد: لقطة /api/schedules في ذاكرة عامل الخدمة، والقراءة المسبقة للوحة، ورفّ اللوحة في الذاكرة، وذاكرة أسبوع الأستاذ؛ فلا يظهر نصابٌ أو موعدٌ كان قبل الكتابة.",
+        "en": "After every successful schedule write (create, edit or delete) the system shall forget previously stored reads before painting the screen again: the /api/schedules snapshot in the service-worker cache, the board's warm-start read, the in-memory board shelf and the instructor-week cache, so no load or appointment from before the write is shown."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "حذف موعدٍ يُنقص نصاب أستاذه في الشاشة فوراً وعند الدخول إليها من جديد، دون انتظار قراءة الشبكة.", "en": "Deleting an appointment lowers its instructor's load on screen at once and when the screen is entered again, without waiting for the network read." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleReadFreshness.ts", "src/components/Schedules.tsx#fetchJson", "src/components/TeacherMiniWeek.tsx#forgetMiniWeekRows"], "tests": ["tests/schedule-stale-read-audit.ts", "tests/teacher-mini-week-audit.ts"] }
     }
   ],
   "edgeCases": [

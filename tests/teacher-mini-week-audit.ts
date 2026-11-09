@@ -99,5 +99,15 @@ check(/const deleteScheduleRow = async[\s\S]{0,700}forgetMiniWeekRows\(\[id\]\)/
   "W10 كل حذفٍ (والتراجع) يُنسي الصفَّ المحذوف فوراً");
 check((component.match(/cache: "no-store"/g) || []).length === 3 && /forgotten\]\);/.test(component), "W11 قراءات الأسابيع بلا تخزين وتُعاد عند النسيان");
 
+/* W12 «الجدول الدراسي» من قائمة الموعد: زرٌّ صغير يفتح أسبوع الأستاذ عبر عائلة قسمه، عرضاً فقط. */
+const peekSrc = fs.readFileSync("src/components/TeacherWeekPeek.tsx", "utf8");
+check((schedulesSrc.match(/label="الجدول الدراسي" kind="week"/g) || []).length === 2 && /<TeacherWeekPeek[\s\S]{0,500}rows=\{rows\}/.test(schedulesSrc), "W12 زر «الجدول الدراسي» بجانب تعديل/حذف (سطح المكتب وقائمة ⋯ على الهاتف) ويفتح أسبوع صاحب الموعد");
+check(/readOnly onClose/.test(peekSrc) && /readOnly \? \[\] : freeTargets/.test(component) && /readOnly \? true :/.test(component) && /if \(readOnly\) return;/.test(component), "W13 العرض للقراءة فقط: بلا «+» ولا قبلها/بعدها ولا رسم، ومفتوحٌ دائماً");
+check(/useFamilyWeek\(teacherId, termId, collegeId, Number\(sectionId\)/.test(component) && /sectionId=\{Number\(row\.AdSectionId\)\}/.test(peekSrc), "W14 يقرأ أسبوعه في عائلة القسم كلها (النصاب نفسه)");
+
+/* W15 شاهدُ القبر: صفٌّ حُذف لا يعود إلى النصاب ولو أعادته قراءةٌ قديمة (نسخةٌ أخرى من الخادم لم يصلها الحذف). */
+check(/const gone = new Map<number, number>\(\)/.test(component) && /for \(const id of ids \|\| \[\]\) gone\.set\(Number\(id\), Date\.now\(\)\)/.test(component)
+  && /\.\.\.family\.rows\]\.filter\(alive\)/.test(component) && /\.\.\.roomFetched\]\.filter\(alive\)/.test(component), "W15 الصفوف المحذوفة تُرشَّح من أسبوع الأستاذ والقاعة ست دقائق ولو عادت من الخادم");
+
 console.log(`\nteacher-mini-week audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
