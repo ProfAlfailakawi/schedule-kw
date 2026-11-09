@@ -659,7 +659,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
         source: "readiness",
         approvalEffect: "block",
         title: `ساعات الشعبة أقل من ساعات المقرر (${name(first)} · ${sectionCode})`,
-        detail: `الشعبة ${sectionCode}: مجموعها ${reading.total} دقيقة من ${reading.required} دقيقة معتمدة لمقرر ${hours} ساعات أسبوعياً. أكمِل ساعات الشعبة قبل الحفظ والاعتماد.`,
+        detail: `الشعبة ${sectionCode}: مجموعها ${countOf(reading.total, AR.minute)} من ${countOf(reading.required, AR.minute)} معتمدة لمقرر ${countOf(hours, AR.hour)} أسبوعياً. أكمِل ساعات الشعبة قبل الحفظ والاعتماد.`,
         subjectKey: `course:${courseId}:${Number(first.AdCollegeId) || 0}:${sectionCode}`,
         subjectLabel: `${name(first)} · شعبة ${sectionCode}`,
         rowIds: sectionRows.map(row => row.id),

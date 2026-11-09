@@ -205,11 +205,13 @@ export async function proposalSchedulePreflight(
       && Number(item.AdSectionId) === Number(row.AdSectionId)
       && Number(item.AdTermId) === Number(row.AdTermId));
     /* المصدر الواحد نفسه الذي يقرأ به الحفظ: الكتلة بنمط ساعات المقرر، والنسخة المطابقة لا تضاعف. */
-    const total = sectionWeeklyHours(row, siblings, hours).total;
+    const reading = sectionWeeklyHours(row, siblings, hours);
+    const total = reading.total;
     /* لا يُعفي تاريخُ المقرّر من سقف الساعات — كبوابة الحفظ (المالك 2026-10-30 و2026-11-08): كان «طبعُ» المقرّر يُسقط المنع هنا وحده. */
     if (total > maxWeeklyMinutesFor(hours)) {
       issues.push(`ساعات هذا المقرر المعتمدة ${countOf(hours, AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total / 50), AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`);
     }
+    if (reading.under) issues.push(`ساعات الشعبة أقل من ساعات المقرر المعتمدة (${countOf(hours, AR.hour)} أسبوعيًا): ${countOf(reading.total, AR.minute)} من ${countOf(reading.required, AR.minute)}. لا يُحفظ موعد ناقص الساعات.`);
     /* النهايةُ من النمط المعتمد، بالحكم الواحد نفسه الذي يقرؤه النموذج والخادم (patternLengthIssue). */
     const lengthIssue = patternLengthIssue({ CourseHours: hours }, PROPOSAL_DAY_KEYS.filter(day => Boolean((row as any)[day])) as any, String(row.fstarttime), String(row.fendtime));
     if (lengthIssue) issues.push(lengthIssue);

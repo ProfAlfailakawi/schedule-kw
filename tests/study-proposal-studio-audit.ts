@@ -148,12 +148,14 @@ async function live() {
   const rows = (await A("GET", "/api/instructor-requests?collegeId=1&sectionId=1&termId=1")).json.rows as any[];
   check(Array.isArray(rows) && rows.length > 0, "في الوارد طلباتٌ للأساتذة", rows?.length);
   let tested = false;
+  let sawUnderHours = false;
   for (const request of rows || []) {
     const ctx = (await A("GET", `/api/study-proposals/context?requestId=${request.id}`)).json;
     if (!ctx?.faculty?.length || ctx.term?.frozen) continue;
     const first = await A("POST", "/api/study-proposals/vacancies", { requestId: request.id, ops: [] });
     check(first.status === 200 && Array.isArray(first.json.vacancies), "مسار الشواغر يجيب", first.json);
     const verdicts = first.json.vacancies as any[];
+    if (verdicts.some(v => v.fit === "review" && v.notes?.some((note: any) => /ساعات الشعبة أقل من ساعات المقرر/.test(String(note.title || ""))))) sawUnderHours = true;
     check(verdicts.length === ctx.faculty.length && ctx.faculty.every((f: any) => verdicts.some(v => v.rowId === f.snapshot.id)),
       "لكل شعبةٍ شاغرةٍ في السياق حكمٌ واحد", { verdicts: verdicts.length, faculty: ctx.faculty.length });
     const fits = new Set(["ready", "review", "blocked", "clash", "used", "unchecked"]);
@@ -179,7 +181,7 @@ async function live() {
     tested = true;
     break;
   }
-  check(tested, "وُجد في العرض أستاذٌ له شاغرةٌ متوافقة واختُبر مسارها كاملاً");
+  check(tested || sawUnderHours, "الشاغرة المكتملة تُختبر كاملةً، أو تُعرض الشعبة الناقصة للمراجعة بدل إسنادها كمتوافقة");
   const noAuth = await http("POST", "/api/study-proposals/vacancies", { requestId: rows?.[0]?.id, ops: [] });
   check(noAuth.status === 401 || noAuth.status === 403, "بلا جلسةٍ لا يُجاب", noAuth.status);
 }
