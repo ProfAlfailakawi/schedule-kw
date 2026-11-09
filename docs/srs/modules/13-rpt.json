@@ -1427,6 +1427,10 @@
         {
           "ar": "جدول فارغ حالياً يُقارن فيُصنَّف كل صف أصلي «محذوف» ولا يُخفى التقرير.",
           "en": "A currently empty table is still compared and every original row is classified deleted, so the report is not suppressed."
+        },
+        {
+          "ar": "في الورقة المطبوعة، شعبة أنشأها المنسّق بيده وتغيّر رقمها عن الأصل (501 ← 515 مثلاً) ← صف «معدَّل» تُلوَّن فيه خلية رقم الشعبة وحدها بالأصفر، ولا تُلوَّن خلية رقم صفٍّ مستورد؛ والتصميم المطبوع نفسه لا يتغيّر.",
+          "en": "On the printed sheet, a section the coordinator created by hand whose number changed from the original (501 to 515, for example) ← a «changed» row with only the section-number cell coloured yellow, and the number cell of an imported row is not coloured; the printed design itself does not change."
         }
       ],
       "evidence": {
@@ -1438,7 +1442,8 @@
         "tests": [
           "tests/schedule-changes-audit.ts",
           "tests/changes-baseline-audit.ts",
-          "tests/authority-net-diff-audit.ts"
+          "tests/authority-net-diff-audit.ts",
+          "tests/authority-recreated-section-audit.ts"
         ]
       }
     },

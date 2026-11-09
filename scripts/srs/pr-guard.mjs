@@ -28,7 +28,10 @@ const changed = git("diff", "--name-only", base, head).split("\n").filter(Boolea
 const watched = WATCHED.map(globToRegExp);
 /* أداةُ الوثيقة نفسها ليست «البرنامج»: تغييرها يُفحص بفحوص الوثيقة لا بهذا الحارس. */
 const product = changed.filter(f => watched.some(r => r.test(f)) && !UNWATCHED.some(r => r.test(f)) && !f.startsWith("scripts/srs/"));
-const docs = changed.filter(f => f.startsWith("docs/srs/"));
+/* ما يولّده الأمر نفسه (لقطة المسارات ولقطة اللائحة وملفا PDF وبصمة الوصول) لا يُعدّ كتابةً للوثيقة:
+   مساران جديد يحرّك اللقطة وحدها دون أن يُكتب متطلبه، وهذا بالضبط ما يجب أن يُوقَف (طلب #434). */
+const GENERATED = [/^docs\/srs\/endpoints\.snapshot\.json$/, /^docs\/srs\/regulation\.snapshot\.json$/, /^docs\/srs\/pdf\//, /^docs\/srs\/access\.sha256$/];
+const docs = changed.filter(f => f.startsWith("docs/srs/") && !GENERATED.some(r => r.test(f)));
 const declared = /\[srs:\s*(بلا تغيير|no change)\s*\]/i.test(`${pr?.title || ""}\n${pr?.body || ""}`);
 
 if (!product.length) { console.log("✓ حارس الطلب: لا تغيير في كود البرنامج."); process.exit(0); }

@@ -2702,6 +2702,10 @@
           "en": "Ordering is by first day, then start, then (added, changed, removed), then course and section; the baseline line says: the authority's version, «first review … every appointment shows as added», «nothing moved since registration last reviewed», the round's version, or the last snapshot; when the authority version is available the baseline can be chosen between «since the last review» and the authority version."
         },
         {
+          "ar": "يظهر الرقم المرجعي (CRN) من ملف التسجيل الأصلي أولاً في كل صف من صفوف الشاشة، قبل رمز المقرر، بشريحة مميّزة عن شريحة رقم المقرر (ومعه خانة الشعبة في قائمة المراجعة)، ويغيب عمّا أُضيف ولم يكن في الملف؛ والشعبة المحذوفة ثم المُعادة أو التي تغيّر رقمها وحدها تظهر صفاً معدّلاً واحداً لا «محذوفاً» و«مضافاً».",
+          "en": "The reference number (CRN) from the original registration file shows first in every row of the screen, before the course code, in a chip distinct from the course-number chip (and beside the section in the review list), and is absent for what was added and was not in the file; a section deleted then recreated, or one whose number alone changed, shows as one changed row and not as «deleted» plus «added»."
+        },
+        {
           "ar": "«الجولات السابقة (N)» خطٌّ زمني لكل جولة: أُرسلت (أو فُتحت جولة تعديل)، وأُرجعت بـN ملاحظة «فتحرّك N صف» أو «ولم يتحرّك صف»، وقُبلت؛ و«اعرض تغييراتها» يعرض الجولة كما انتهت مع «عُد إلى الجولة الجارية»، ولا تُعرض أزرار القرار على جولةٍ مضت.",
           "en": "«earlier rounds (N)» is a timeline per round: sent (or amendment round opened), returned with N notes «and N rows moved» or «and no row moved», accepted; «show its changes» shows the round as it ended with «back to the current round», and decision buttons are not shown on a past round."
         },
@@ -2732,7 +2736,8 @@
         ],
         "tests": [
           "tests/schedule-changes-audit.ts",
-          "tests/changes-baseline-audit.ts"
+          "tests/changes-baseline-audit.ts",
+          "tests/authority-recreated-section-audit.ts"
         ]
       }
     },
