@@ -131,10 +131,23 @@ type FamilyWeek = { rows: FSchedule[]; courses: AdCourse[] };
 const familyCache = new Map<string, FamilyWeek>();
 const roomCache = new Map<string, FSchedule[]>();
 const WEEK_FORGET_EVENT = "teacher-mini-week:forget";
+/**
+ * شاهدُ القبر: صفٌّ حُذف الآن لا يُحسب في النصاب ولو أعادته قراءةٌ قديمة — الخادم يخدم من ذاكرته
+ * (وقد تكون نسخةً أخرى منه لم يصلها خبرُ الحذف بعد) والقراءةُ التي تلي الحذف مباشرةً هي أكثرُها عرضةً
+ * لذلك. يبقى ست دقائق (أطول من عمر ذاكرة الخادم: خمس).
+ */
+const GONE_MS = 6 * 60_000;
+const gone = new Map<number, number>();
+const alive = (row: FSchedule) => {
+  const at = gone.get(Number(row.id));
+  if (at === undefined) return true;
+  if (Date.now() - at > GONE_MS) { gone.delete(Number(row.id)); return true; }
+  return false;
+};
 export function forgetMiniWeekRows(ids?: ReadonlyArray<number | string>) {
+  for (const id of ids || []) gone.set(Number(id), Date.now());
   if (!ids) { widerCache.clear(); familyCache.clear(); roomCache.clear(); }
-  const gone = new Set((ids || []).map(Number));
-  const keep = (row: FSchedule) => !gone.has(Number(row.id));
+  const keep = alive;
   for (const [key, list] of widerCache) widerCache.set(key, list.filter(keep));
   for (const [key, week] of familyCache) familyCache.set(key, { ...week, rows: week.rows.filter(keep) });
   for (const [key, list] of roomCache) roomCache.set(key, list.filter(keep));
@@ -368,7 +381,8 @@ export default function TeacherMiniWeek({
 
   const wider = useWiderWeek(teacherId, termId, rows);
   const family = useFamilyWeek(teacherId, termId, collegeId, Number(sectionId) || 0, rows);
-  const all = useMemo(() => [...rows, ...wider, ...family.rows], [rows, wider, family.rows]);
+  const forgotten = useForgetTick();
+  const all = useMemo(() => [...rows, ...wider, ...family.rows].filter(alive), [rows, wider, family.rows, forgotten]);
   const lectures = useMemo(() => teacherLectures(all, teacherId, termId, excludeId, collegeId), [all, teacherId, termId, excludeId, collegeId]);
   const own = useMemo(() => teacherRows(all, teacherId, termId, excludeId), [all, teacherId, termId, excludeId]);
   const before = original && Number(original.AdInstructorId) === teacherId && (!termId || Number(original.AdTermId) === termId) ? original : null;
@@ -409,7 +423,7 @@ export default function TeacherMiniWeek({
   const roomOn = roomReady(room);
   const roomLabel = roomOn ? `${String(room?.code || "").trim()}/${String(room?.hall || "").trim()}` : "";
   const roomFetched = useRoomWeek(roomOn ? room : null, termId, rows);
-  const roomRows = useMemo(() => roomOn ? [...rows.filter(row => inRoom(row, room)), ...roomFetched] : [], [roomOn, roomLabel, rows, roomFetched]);
+  const roomRows = useMemo(() => roomOn ? [...rows.filter(row => inRoom(row, room)), ...roomFetched].filter(alive) : [], [roomOn, roomLabel, rows, roomFetched, forgotten]);
   const roomBusy = useMemo(() => roomBlocks(roomRows, { teacherId, termId, excludeId }), [roomRows, teacherId, termId, excludeId]);
   const shownTargets: Array<MiniTarget & { golden?: boolean }> = useMemo(() => roomOn ? goldenTargets(targets, roomRows, { teacherId, termId, excludeId }) : targets,
     [roomOn, targets, roomRows, teacherId, termId, excludeId]);

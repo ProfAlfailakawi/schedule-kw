@@ -105,5 +105,9 @@ check((schedulesSrc.match(/label="الجدول الدراسي" kind="week"/g) ||
 check(/readOnly onClose/.test(peekSrc) && /readOnly \? \[\] : freeTargets/.test(component) && /readOnly \? true :/.test(component) && /if \(readOnly\) return;/.test(component), "W13 العرض للقراءة فقط: بلا «+» ولا قبلها/بعدها ولا رسم، ومفتوحٌ دائماً");
 check(/useFamilyWeek\(teacherId, termId, collegeId, Number\(sectionId\)/.test(component) && /sectionId=\{Number\(row\.AdSectionId\)\}/.test(peekSrc), "W14 يقرأ أسبوعه في عائلة القسم كلها (النصاب نفسه)");
 
+/* W15 شاهدُ القبر: صفٌّ حُذف لا يعود إلى النصاب ولو أعادته قراءةٌ قديمة (نسخةٌ أخرى من الخادم لم يصلها الحذف). */
+check(/const gone = new Map<number, number>\(\)/.test(component) && /for \(const id of ids \|\| \[\]\) gone\.set\(Number\(id\), Date\.now\(\)\)/.test(component)
+  && /\.\.\.family\.rows\]\.filter\(alive\)/.test(component) && /\.\.\.roomFetched\]\.filter\(alive\)/.test(component), "W15 الصفوف المحذوفة تُرشَّح من أسبوع الأستاذ والقاعة ست دقائق ولو عادت من الخادم");
+
 console.log(`\nteacher-mini-week audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
