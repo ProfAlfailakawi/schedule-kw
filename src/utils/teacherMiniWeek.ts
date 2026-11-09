@@ -210,7 +210,7 @@ export function teacherHeader(
   original?: FSchedule | null,
 ): MiniHeader {
   const before = original ? [...rows, original] : [...rows];
-  const counted = draft && (Number(draft.AdCourseId) || hasTime(draft));
+  const counted = draft && hasTime(draft);
   const after = counted ? [...rows, { ...draft, id: -1 } as FSchedule] : [...rows];
   const now = weekStats(before), then = weekStats(after);
   return {

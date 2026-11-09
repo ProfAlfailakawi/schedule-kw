@@ -492,5 +492,9 @@ body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:
 .week-peek-card>.mini-week{box-shadow:var(--shadow-lg)}
 .week-peek-card>.mini-week.is-sheet{position:relative;inset:auto;max-height:none;margin:0;max-width:none}
 .week-peek-card .mini-week-grip{display:none}
+.week-peek{width:100%;min-width:0;max-width:none;padding:16px;border:0;border-radius:0;white-space:normal}
+.week-peek-card{position:relative;min-width:0;width:min(560px,100%);background:var(--surface)}
+.week-peek-dismiss{position:sticky;top:0;z-index:20;display:block;margin:8px 8px 0 auto;padding:8px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-weight:700;cursor:pointer}
+@media (max-width:639px){.week-peek{padding:8px}.week-peek-card{width:100%;max-height:calc(100dvh - 16px)}.week-peek-card>.mini-week{width:100%}}
 /* وضع التركيز على القائمة (z-index:1500 للقائمة): نافذة «الجدول الدراسي» فوقها. */
 html[data-schedule-workspace="focus"] .week-peek{z-index:1600}

@@ -29,6 +29,7 @@ export default function TeacherWeekPeek({ row, teacherName, nisab, overtime, lim
       /* البوابة تبقى شجرةً لبطاقة الموعد في React: ما يجري داخلها لا يفتح تعديل الموعد. */
       onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
       <div className="week-peek-card">
+        <button type="button" className="week-peek-dismiss" aria-label="إغلاق الجدول الدراسي" onClick={onClose}>إغلاق ✕</button>
         <TeacherMiniWeek
           readOnly onClose={onClose} variant="side"
           teacherId={Number(row.AdInstructorId)} teacherName={teacherName}

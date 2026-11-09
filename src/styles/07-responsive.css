@@ -437,7 +437,6 @@
   .week-time-head,.week-day-head{min-height:44px;font-size:var(--t-xs)}
   .week-title{font-size:var(--t-xs)}
   .week-who,.week-when{font-size:11px}
-  .week-peek{min-width:190px;max-width:250px}
   .xray-relations{justify-content:flex-start}
 
   .living-pulse-shell,.living-command-deck{grid-template-columns:minmax(0,1fr);gap:var(--s4);padding:var(--s4)}
