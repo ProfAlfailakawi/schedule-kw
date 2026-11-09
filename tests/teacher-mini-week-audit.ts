@@ -72,6 +72,8 @@ check(adjacentRoom(lectures.find(item => item.otherCollege)!, spot, rows) === nu
 const courses = new Map([[11, { AdCourseId: 11, CourseHours: 3 }], [12, { AdCourseId: 12, CourseHours: 3 }], [20, { AdCourseId: 20, CourseHours: 3 }]] as any);
 const own = teacherRows(rows, 7, 1);
 const header = teacherHeader(own, courses as any, { AdCourseId: 20, SCode: "502", fsunday: true, fstarttime: "11:00", fendtime: "11:50" } as any, 18);
+const pending = teacherHeader(own, courses as any, { AdCourseId: 20, SCode: "502" } as any, 18);
+check(pending.loadNow === 6 && pending.loadAfter === 6, "N20a اختيار مقرر قبل تحديد أيامه ووقته لا يضيف ساعات إلى نصاب الأستاذ", pending);
 check(header.loadNow === 6 && header.loadAfter === 9 && header.nisab === 18 && header.daysAfter === 5 && header.daysNow === 5, "N20 النصاب 6 → 9 من 18، وأيام الحضور", header);
 check(header.gapAfter > header.gapNow, "N21 موعدٌ بعيد عن محاضرات اليوم يزيد الفراغات", header);
 const editing = teacherHeader(teacherRows(rows, 7, 1, 1), courses as any, { ...rows[0], fstarttime: "10:00", fendtime: "10:50" }, 18, rows[0]);
