@@ -303,9 +303,10 @@
 .mini-week-chip{z-index:2;inset-inline:2px;display:grid;background:color-mix(in srgb,var(--mw-own) 13%,var(--surface));border-inline-start:3px solid var(--mw-own);border-radius:6px 8px 8px 6px;box-shadow:0 1px 0 color-mix(in srgb,var(--line) 70%,transparent);cursor:default}
 .mini-week-chip.is-other{background:color-mix(in srgb,var(--mw-other) 15%,var(--surface));border-inline-start-color:var(--mw-other)}
 .mini-week-chip-text{display:flex;flex-direction:column;gap:1px;min-width:0;height:100%;padding:3px 3px 2px 2px;overflow:hidden}
-.mini-week-chip-text b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:9px;font-weight:800;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
+.mini-week-chip-text b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;font-size:9px;font-weight:800;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
 .mini-week-chip-site{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:9px;font-weight:400;line-height:1.2}
-.mini-week-chip.is-tall .mini-week-chip-text b{-webkit-line-clamp:3}
+.mini-week-chip.is-tall .mini-week-chip-text b{-webkit-line-clamp:2}
+.mini-week-chip.is-roomy .mini-week-chip-text b{-webkit-line-clamp:3}
 .mini-week-chip-text .mini-week-chip-site{margin-top:auto}
 .mini-week-chip-text small{font:600 8.5px/1.1 var(--font-mono);font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--mw-own) 70%,var(--ink))}
 .mini-week-chip.is-other .mini-week-chip-text small{color:color-mix(in srgb,var(--mw-other) 75%,var(--ink))}
@@ -371,6 +372,7 @@ body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:
 .mini-week.is-side .mini-week-axis span,.mini-week.is-sheet .mini-week-axis span{font-size:11px}
 .mini-week.is-side .mini-week-chip-text,.mini-week.is-sheet .mini-week-chip-text{padding:5px 5px 3px 3px}
 .mini-week.is-side .mini-week-chip-text b,.mini-week.is-sheet .mini-week-chip-text b{font-size:11.5px}
+.mini-week.is-side .mini-week-chip:not(.is-tall):not(.is-roomy) .mini-week-chip-text,.mini-week.is-sheet .mini-week-chip:not(.is-tall):not(.is-roomy) .mini-week-chip-text{padding:2px 3px}
 .mini-week.is-side .mini-week-chip-text small,.mini-week.is-sheet .mini-week-chip-text small{font-size:10px}
 .mini-week.is-side .mini-week-target svg,.mini-week.is-sheet .mini-week-target svg{width:16px;height:16px}
 .mini-week.is-side .mini-week-stick,.mini-week.is-sheet .mini-week-stick{width:26px;height:26px}
@@ -489,13 +491,12 @@ body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:
 @media (max-width:560px){.request-hold-actions{display:grid}.request-hold-actions button{inline-size:100%}}
 
 /* «الجدول الدراسي» من قائمة الموعد: نافذةٌ فوق الصفحة تحمل بطاقة جدول الأستاذ (عرضٌ فقط). */
-.week-peek{position:fixed;inset:0;z-index:240;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,var(--ink) 38%,transparent);backdrop-filter:blur(2px)}
-.week-peek-card{width:min(560px,100%);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain;border-radius:22px}
-.week-peek-card>.mini-week{box-shadow:var(--shadow-lg)}
-.week-peek-card>.mini-week.is-sheet{position:relative;inset:auto;max-height:none;margin:0;max-width:none}
-.week-peek-card .mini-week-grip{display:none}
-.week-peek{width:100%;min-width:0;max-width:none;padding:16px;border:0;border-radius:0;white-space:normal;color:var(--ink);pointer-events:auto}
-.week-peek-card{position:relative;min-width:0;width:min(560px,100%);background:var(--surface)}
-@media (max-width:639px){.week-peek{padding:8px}.week-peek-card{width:100%;max-height:calc(100dvh - 16px)}.week-peek-card>.mini-week{width:100%}}
+.teacher-week-dialog{position:fixed;inset:0;z-index:240;display:grid;place-items:center;width:100%;padding:16px;background:color-mix(in srgb,var(--ink) 38%,transparent);backdrop-filter:blur(2px);color:var(--ink)}
+.teacher-week-dialog-card{position:relative;min-width:0;width:min(560px,100%);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain;border-radius:22px;background:var(--surface)}
+.teacher-week-dialog-card>.mini-week{box-shadow:var(--shadow-lg)}
+.teacher-week-dialog-card>.mini-week.is-sheet{position:relative;inset:auto;max-height:none;margin:0;max-width:none}
+.teacher-week-dialog-card .mini-week-grip{display:none}
+.teacher-week-dialog .mini-week-head{cursor:default}
+@media (max-width:639px){.teacher-week-dialog{padding:8px}.teacher-week-dialog-card{width:100%;max-height:calc(100dvh - 16px)}.teacher-week-dialog-card>.mini-week{width:100%}}
 /* وضع التركيز على القائمة (z-index:1500 للقائمة): نافذة «الجدول الدراسي» فوقها. */
-html[data-schedule-workspace="focus"] .week-peek{z-index:1600}
+html[data-schedule-workspace="focus"] .teacher-week-dialog{z-index:1600}

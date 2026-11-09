@@ -26,10 +26,10 @@ export default function TeacherWeekPeek({ row, teacherName, nisab, overtime, lim
 }) {
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="week-peek" role="dialog" aria-modal="true" aria-label={`الجدول الدراسي · ${teacherName || "الأستاذ"}`} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}
+    <div className="teacher-week-dialog" role="dialog" aria-modal="true" aria-label={`الجدول الدراسي · ${teacherName || "الأستاذ"}`} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}
       /* البوابة تبقى شجرةً لبطاقة الموعد في React: ما يجري داخلها لا يفتح تعديل الموعد. */
       onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-      <div className="week-peek-card">
+      <div className="teacher-week-dialog-card">
         <TeacherMiniWeek
           readOnly onClose={onClose} variant="side"
           teacherId={Number(row.AdInstructorId)} teacherName={teacherName}

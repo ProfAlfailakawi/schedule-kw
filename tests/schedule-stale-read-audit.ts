@@ -33,7 +33,7 @@ const schedules = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 check(/res\.ok && mutating && url\.startsWith\("\/api\/schedules"\)\) void forgetScheduleReads\(\)/.test(schedules), "F3 كل كتابةٍ ناجحة في الجدول تنسى اللقطات القديمة");
 check(/boardShelf\.set\(key, \{ \.\.\.prior, rows \}\)/.test(schedules) && /if \(practiceMode \|\| rowsLoading/.test(schedules), "F4 رفّ اللوحة يتبع ما على الشاشة (إلا في وضع التجربة)");
 const css = fs.readFileSync("src/styles/36-appointment-forms.css", "utf8");
-check(/html\[data-schedule-workspace="focus"\] \.week-peek\{z-index:1600\}/.test(css), "F5 نافذة «الجدول الدراسي» فوق قائمة وضع التركيز");
+check(/html\[data-schedule-workspace="focus"\] \.teacher-week-dialog\{z-index:1600\}/.test(css), "F5 نافذة «الجدول الدراسي» فوق قائمة وضع التركيز");
 
 console.log(`\nschedule-stale-read audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

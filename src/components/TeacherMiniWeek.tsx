@@ -775,14 +775,14 @@ export default function TeacherMiniWeek({
               const where = [item.row.AdRoomCode, item.row.AdRoomHall].filter(Boolean).join("/");
               const collegeName = collegeNames?.get(Number(item.row.AdCollegeId)) || "";
               const site = /الفحيحيل|الجهراء/.exec(collegeName)?.[0] || /بنين|بنات/.exec(collegeName)?.[0] || collegeName.split(/\s*[-–—]\s*/).at(-1) || collegeName;
-              return <div key={key} role="group" className={`mini-week-chip${item.otherCollege ? " is-other" : ""}${height >= 30 ? " is-tall" : height >= 15 ? "" : " is-thin"}${active === key ? " is-active" : ""}`}
+              return <div key={key} role="group" className={`mini-week-chip${item.otherCollege ? " is-other" : ""}${height >= 80 ? " is-roomy" : height >= 48 ? " is-tall" : height >= 15 ? "" : " is-thin"}${active === key ? " is-active" : ""}`}
                 style={place(item.start, item.end)} onClick={() => setActive(value => value === key ? "" : key)}
-                aria-label={`${nameOf(item.row)} · ${toClock(item.start)}–${toClock(item.end)}${item.otherCollege ? " · كلية أخرى" : ""}`}
-                title={`${nameOf(item.row)}${item.row.SCode ? ` · ${item.row.SCode}` : ""}\n${toClock(item.start)}–${toClock(item.end)}${where ? ` · ${where}` : ""}${item.otherCollege ? " · كلية أخرى" : ""}`}>
+                aria-label={`${nameOf(item.row)}${site ? ` · ${site}` : ""} · ${toClock(item.start)}–${toClock(item.end)}${item.otherCollege ? " · كلية أخرى" : ""}`}
+                title={`${nameOf(item.row)}${item.row.SCode ? ` · ${item.row.SCode}` : ""}${site ? ` · ${site}` : ""}\n${toClock(item.start)}–${toClock(item.end)}${where ? ` · ${where}` : ""}${item.otherCollege ? " · كلية أخرى" : ""}`}>
                 <span className="mini-week-chip-text">
                   <b>{label}</b>
                   {site ? <span className="mini-week-chip-site">{site}</span> : null}
-                  {height >= 64 ? <small dir="ltr">{toClock(item.start)}</small> : null}
+                  {height >= 80 ? <small dir="ltr">{toClock(item.start)}</small> : null}
                 </span>
                 {spot?.before ? <button type="button" className="mini-week-stick is-before" aria-label={`قبلها · ${toClock(spot.before.start)}`} title={`قبلها · ${toClock(spot.before.start)}`}
                   onMouseEnter={hover(spot.before, true)} onFocus={hover(spot.before, true)} onBlur={hover(null)} onClick={event => { event.stopPropagation(); pick(spot.before!, item); }}
