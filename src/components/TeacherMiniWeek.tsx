@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Building2, CalendarDays, CalendarOff, Check, ChevronDown, DoorOpen, Hourglass, Info, Pin, Plus, Star, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, CalendarDays, CalendarOff, Check, ChevronDown, DoorOpen, Hourglass, Info, Pin, Plus, Star, X } from "lucide-react";
 import type { AdCourse, FSchedule } from "../types";
 import type { AppointmentVerdict } from "../utils/appointmentVerdict";
 import { DAY_KEYS, type DayKey } from "../utils/scheduleRegulations";
@@ -676,7 +676,7 @@ export default function TeacherMiniWeek({
   const inOvertime = !over && limited && header.loadAfter > header.nisab;
   const dayDelta = header.daysAfter - header.daysNow;
   const gapDelta = header.gapAfter - header.gapNow;
-  const facts = `النصاب ${header.loadNow} ← ${header.loadAfter}${limited ? ` من ${header.nisab}` : ""}${limited && overtime ? ` وإضافيّ ${overtime}` : ""}${familySites > 1 ? ` · في ${countOf(familySites, AR.college)} من عائلة القسم` : ""} · أيام الحضور ${header.daysAfter} · ${gapWords(header.gapAfter)}`;
+  const facts = `النصاب ${header.loadAfter}${limited ? ` من ${header.nisab}` : ""}${limited && overtime ? ` وإضافيّ ${overtime}` : ""}${familySites > 1 ? ` · في ${countOf(familySites, AR.college)} من عائلة القسم` : ""} · أيام الحضور ${header.daysAfter} · ${gapWords(header.gapAfter)}`;
   const headTitle = dockOn ? `${facts}\n${floating ? "نقرتان: تعود إلى مكانها" : "اسحب الترويسة لتطفو"}` : facts;
   const ghostPill = Boolean(ghost && tone === "blocked" && pixels(ghost.start, ghost.end) >= 30);
 
@@ -710,8 +710,8 @@ export default function TeacherMiniWeek({
       <span className="mini-week-who">
         <b><span className="mini-week-name">{teacherName || "الأستاذ"}</span><PersonChips visiting={visiting} trainee={trainee} /></b>
         <span className="mini-week-facts">
-          <em className={`is-load${over ? " is-over" : inOvertime ? " is-overtime" : loadDelta > 0 ? " is-up" : ""}`} aria-label={`النصاب ${header.loadNow} ثم ${header.loadAfter}`}>
-            <span dir="ltr">{header.loadNow}</span><ArrowLeft aria-hidden="true" /><span dir="ltr">{header.loadAfter}{limited ? <small>/{header.nisab}{overtime ? `+${overtime}` : ""}</small> : null}</span>
+          <em className={`is-load${over ? " is-over" : inOvertime ? " is-overtime" : loadDelta > 0 ? " is-up" : ""}`} aria-label={`النصاب ${header.loadAfter}${limited ? ` من ${header.nisab}` : ""}${overtime ? ` مع إضافي ${overtime}` : ""}`}>
+            <span dir="ltr">{header.loadAfter}{limited ? <small>/{header.nisab}{overtime ? `+${overtime}` : ""}</small> : null}</span>
           </em>
           {familySites > 1 ? (
             <em className="is-family" title={`النصاب يشمل محاضراته في كل كليات القسم (${countOf(familySites, AR.college)})`} aria-label={`النصاب يشمل ${countOf(familySites, AR.college)} من عائلة القسم`}>
