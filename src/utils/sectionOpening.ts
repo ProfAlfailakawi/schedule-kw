@@ -13,6 +13,7 @@ import type { Prediction } from "./courseSuccession";
 import { roomIdentityKey } from "./locationRegistry";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
 import { loadCapOf } from "./teachingLoad";
+import { patternsForHours } from "./scheduleRegulations";
 
 /**
  * ── الشعبة الجديدة، وأين توضع ───────────────────────────────────────────────
@@ -299,10 +300,12 @@ export function readSectionOpenings(
     if (!seed) continue;
     const spanOf = (rows: FSchedule[]) => rows.map(row => timeToMinutes(row.fendtime) - timeToMinutes(row.fstarttime)).filter(minutes => minutes > 0);
     const lengths = spanOf(mine);
-    const length = mode(lengths)
+    const historicalLength = mode(lengths)
       || (!week.length ? mode(spanOf(past.filter(row => Number(row.AdTermId) === Number(past[0]?.AdTermId)))) : 0)
       || rhythm?.patterns.find(pattern => Number(pattern.durationMinutes) > 0)?.durationMinutes
       || 0;
+    const completeBlock = patternsForHours(Number(course.CourseHours || course.CourseCredit) || 0).find(pattern => pattern.days.length === 1)?.minutesPerDay[0] || 0;
+    const length = historicalLength > 0 ? completeBlock || historicalLength : 0;
     /* لا نخترع مدة للمحاضرة. من دون شعبة قائمة أو مدة تعلّمها القسم، لا توجد
        توصية قابلة للتنفيذ حتى لو توافرت قاعة وأستاذ. */
     if (!Number.isFinite(Number(length)) || Number(length) <= 0) continue;
@@ -338,6 +341,7 @@ export function readSectionOpenings(
         for (const time of ladder) {
           if (placed) break;
           const at = timeToMinutes(time);
+          if (at + length > 20 * 60) continue;
           for (const room of rooms.filter(candidateRoom => fits(candidateRoom, capacity)).slice(0, 24)) {
             if (placed) break;
             /* An executable placement needs an active teacher with a recorded

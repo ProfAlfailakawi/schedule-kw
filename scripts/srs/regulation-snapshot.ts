@@ -45,6 +45,7 @@ const review = (rows: Row[], extra: Partial<RegulationContext> = {}, courses: Ar
 function probes(): Array<{ rule: string; rows: Row[]; extra?: Partial<RegulationContext>; courses?: Array<readonly [number, any]> }> {
   const theory = [course(201, { CourseTeachingMode: "theoretical", CourseHours: 3 })];
   return [
+    { rule: "section-hours-under", rows: [row({ days: ["fsunday"], from: "08:00", to: "08:50" })] },
     { rule: "regulation-ladder", rows: [row({ days: ["fsunday"], from: "08:30", to: "09:20" })] },
     { rule: "theoretical-pattern", courses: theory, rows: [row({ AdCourseId: 201, days: ["fsunday", "fmonday"], from: "08:00", to: "08:50" })] },
     { rule: "fixed-course-time", rows: [row({ days: ["fsunday"], from: "08:00", to: "08:50" }), row({ days: ["ftuesday"], from: "09:00", to: "09:50" })] },

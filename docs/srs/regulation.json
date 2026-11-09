@@ -182,6 +182,13 @@
     },
     "review": [
       {
+        "rule": "section-hours-under",
+        "title": { "ar": "ساعات الشعبة أقل من ساعات المقرر", "en": "Section below course hours" },
+        "article": { "ar": "جاهزية الاعتماد", "en": "Approval readiness" },
+        "detects": { "ar": "مجموع دقائق لقاءات الشعبة أقل من الساعات الأسبوعية المعتمدة للمقرر؛ يظهر كمانع في المراجعة والحفظ.", "en": "The section's weekly teaching minutes fall below the course's approved weekly hours; shown as a blocker in review and save." },
+        "reqs": ["FR-SCH-018"]
+      },
+      {
         "rule": "regulation-ladder",
         "title": { "ar": "خارج سُلّم اللائحة", "en": "Off the regulation ladder" },
         "article": { "ar": "سُلّم البدايات ومكتبة الأنماط", "en": "Start ladder and pattern library" },
@@ -266,7 +273,7 @@
     },
     "save": [
       { "id": "payload", "outcome": "400", "title": { "ar": "الأيام والوقت واليوم الجامعي", "en": "Days, time and the university day" }, "detects": { "ar": "يوم واحد على الأقل، وساعة صالحة، ونهاية بعد البداية، وداخل 08:00–20:00.", "en": "At least one day, a valid clock, an end after the start, inside 08:00–20:00." }, "reqs": ["FR-SCH-015"], "evidence": ["src/server/core/scheduleRules.ts#schedulePayloadIssues"] },
-      { "id": "hours", "outcome": "400", "title": { "ar": "سقف ساعات الشعبة", "en": "Section hours ceiling" }, "detects": { "ar": "مجموع دقائق الشعبة بعد هذا الموعد يتجاوز السقف.", "en": "The section's minutes after this appointment exceed the ceiling." }, "reqs": ["FR-SCH-018"], "evidence": ["src/server/core/scheduleRules.ts#scheduleLengthIssue"] },
+      { "id": "hours", "outcome": "400", "title": { "ar": "ساعات الشعبة المعتمدة", "en": "Approved section hours" }, "detects": { "ar": "مجموع دقائق الشعبة بعد هذا الموعد يقل عن الساعات المعتمدة أو يتجاوز السقف.", "en": "The section's minutes after this appointment fall below the approved hours or exceed the ceiling." }, "reqs": ["FR-SCH-018"], "evidence": ["src/server/core/scheduleRules.ts#scheduleLengthIssue"] },
       { "id": "pattern", "outcome": "400", "title": { "ar": "نمط غير معتمد", "en": "Unapproved pattern" }, "detects": { "ar": "أيام الشعبة ليست نمطاً في المكتبة لساعات المقرر، أو نهايتها تخالف طول نمطها.", "en": "The section's days are not a library pattern for the course hours, or its end does not match the pattern's length." }, "reqs": ["FR-SCH-017", "FR-SCH-068"], "evidence": ["src/server/core/scheduleRules.ts#unapprovedPatternIssue"] },
       { "id": "instructor", "outcome": "409", "title": { "ar": "حجز مزدوج للأستاذ", "en": "Instructor double booking" }, "detects": { "ar": "للأستاذ موعد متداخل في الفصل كله، ولا يُعدّ «هيئة تدريسية» شخصاً.", "en": "The instructor has an overlapping appointment anywhere in the term; the faculty placeholder is not a person." }, "reqs": ["FR-SCH-010", "FR-SCH-008"], "evidence": ["src/server/core/scheduleConflicts.ts#scheduleConflicts"] },
       { "id": "room", "outcome": "409", "title": { "ar": "حجز مزدوج للقاعة", "en": "Hall double booking" }, "detects": { "ar": "القاعة مشغولة في الوقت نفسه.", "en": "The hall is taken at the same time." }, "reqs": ["FR-SCH-010"], "evidence": ["src/server/core/scheduleConflicts.ts#scheduleConflicts"] },

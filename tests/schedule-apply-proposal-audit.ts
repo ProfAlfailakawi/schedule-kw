@@ -11,6 +11,7 @@ import path from "path";
 import { waitForDemoSeed } from "./helpers/demoSeed";
 import { startDemoServer, type LiveServer } from "./helpers/liveServer";
 import { readServerSource } from "./helpers/serverSource.mjs";
+import { patternsForHours } from "../src/utils/scheduleRegulations";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -47,7 +48,7 @@ try {
     /* الفصلُ الأول كلُّه (كل الأقسام). بلا termId يقرأ الخادمُ أحدثَ فصل — الثاني 2026/2027، ولا مواعيد فيه —
        فكانت كلُّ خانةٍ تبدو «خالية» ويتعارض الإعدادُ مع مواعيد الفصل الأول. */
     const termRows = async () => (await call("GET", "/api/schedules?termId=1")).body as any[];
-    const freeSlot = async (teacherId: number, rooms: any[], duration = 75) => {
+    const freeSlot = async (teacherId: number, rooms: any[], duration = 170) => {
       const everything = await termRows();
       const mins = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
       const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
@@ -63,17 +64,20 @@ try {
     };
 
     const rows = await week();
+    const catalog = (await call("GET", "/api/courses")).body as any[];
+    const hoursFor = (row: any) => Number(catalog.find(course => Number(course.AdCourseId) === Number(row.AdCourseId))?.CourseHours || 0);
+    const blockFor = (courseId: number) => patternsForHours(hoursFor({ AdCourseId: courseId })).find(pattern => pattern.days.length === 1)?.minutesPerDay[0] || 170;
     const base = rows[0];
     const origin = { kind: "radar", refId: "course:1", note: "اختبار" };
     const scope = { collegeId: base.AdCollegeId, sectionId: base.AdSectionId, termId: base.AdTermId };
 
     /* ── نقل ── */
-    const target = { day: "fthursday", start: "18:00", end: "19:15" };
+    const target = { day: "fthursday", start: "17:00", end: "19:50" };
     const from = { day: "fsunday", start: base.fstarttime, end: base.fendtime };
     const moved = await call("POST", "/api/schedules/apply-proposal", { kind: "move", ...scope, moves: [{ rowId: base.id, from, to: target }], origin });
     check(moved.status === 200 && moved.body?.ok && moved.body.applied?.[0]?.row?.fthursday === true && moved.body.applied[0].row.fsunday === false, "M1 النقل يكتب في الجدول الأصلي (يوم الخميس بدل الأحد)", moved);
     const after = (await week()).find(row => row.id === base.id);
-    check(after?.fstarttime === "18:00" && after?.fthursday === true && after?.origin?.kind === "radar" && after.origin.refId === "course:1" && Boolean(after.origin.by), "M2 الصفُّ المخزَّن تغيّر وعليه مصدرُه (الرادار) ومن اعتمده");
+    check(after?.fstarttime === "17:00" && after?.fthursday === true && after?.origin?.kind === "radar" && after.origin.refId === "course:1" && Boolean(after.origin.by), "M2 الصفُّ المخزَّن تغيّر وعليه مصدرُه (الرادار) ومن اعتمده");
     check(Number(after?.rev) === Number(base.rev || 0) + 1, "M3 الإصدار رُفع مرةً واحدة (مسار الحفظ نفسُه)");
     const radar = await call("GET", "/api/simulation/summary");
     check(radar.body?.run?.stale === true, "M4 الرادار عُلِّم قديماً فور التغيير (يُعاد حسابُه)", radar.body?.run && { stale: radar.body.run.stale });
@@ -100,8 +104,8 @@ try {
     const pair = rows.filter(row => row.id !== base.id).reduce((found: any[] | null, row, _i, all) => found || (all.filter(other => other.id !== row.id && Number(other.AdInstructorId) === Number(row.AdInstructorId))[0] ? [row, all.find(other => other.id !== row.id && Number(other.AdInstructorId) === Number(row.AdInstructorId))] : null), null) as any[];
     const [a, second] = pair;
     const swap = await call("POST", "/api/schedules/apply-proposal", { kind: "swap", ...scope, moves: [
-      { rowId: a.id, from: { day: dayOf(a), start: a.fstarttime, end: a.fendtime }, to: { day: "fwednesday", start: "17:00", end: "18:15" } },
-      { rowId: second.id, from: { day: dayOf(second), start: second.fstarttime, end: second.fendtime }, to: { day: "fwednesday", start: "17:00", end: "18:15" } },
+      { rowId: a.id, from: { day: dayOf(a), start: a.fstarttime, end: a.fendtime }, to: { day: "fwednesday", start: "17:00", end: "19:50" } },
+      { rowId: second.id, from: { day: dayOf(second), start: second.fstarttime, end: second.fendtime }, to: { day: "fwednesday", start: "17:00", end: "19:50" } },
     ], origin });
     const afterSwap = await week();
     const aNow = afterSwap.find(row => row.id === a.id), secondNow = afterSwap.find(row => row.id === second.id);
@@ -113,7 +117,7 @@ try {
     }
 
     /* تبديلٌ صالح: الموعدان لأستاذٍ واحد يتبادلان وقتيهما. الحالةُ النهائية سليمة، وأيُّ خطوةٍ وحدها تتعارض مع الأخرى. */
-    const swapPair = rows.filter(row => row.id !== base.id).reduce((found: any[] | null, row, _i, all) => {
+    const swapPair = rows.filter(row => row.id !== base.id && hoursFor(row) === 3).reduce((found: any[] | null, row, _i, all) => {
       if (found) return found;
       const mate = all.find(other => other.id !== row.id && Number(other.AdInstructorId) === Number(row.AdInstructorId)
         && (dayOf(other) !== dayOf(row) || other.fstarttime !== row.fstarttime) && other.fstarttime && Number(other.fendtime.slice(0, 2)) - Number(other.fstarttime.slice(0, 2)) === Number(row.fendtime.slice(0, 2)) - Number(row.fstarttime.slice(0, 2)));
@@ -140,16 +144,16 @@ try {
     } else check(true, "W2 (لا موعدان متكافئان لأستاذٍ واحد في بيانات التجربة)");
     /* ── فتحُ شعبة ── */
     const opening = await call("POST", "/api/schedules/apply-proposal", { kind: "opening", ...scope, courseId: base.AdCourseId, placement: {
-      day: "fmonday", start: "18:30", end: "19:45", sectionCode: base.SCode, instructorId: base.AdInstructorId,
+      day: "fmonday", start: "17:00", end: "19:50", sectionCode: base.SCode, instructorId: base.AdInstructorId,
       roomCode: base.AdRoomCode, roomHall: base.AdRoomHall, buildingId: base.buildingId, roomId: base.roomId,
     }, origin: { kind: "student-case", refId: "need:test", note: "طلب طالب" } });
     check(opening.status === 201 && opening.body?.applied?.[0]?.action === "add", "O1 فتحُ الشعبة يُنشئ صفّاً جديداً في الجدول الأصلي", opening);
     const opened = opening.body?.applied?.[0]?.row;
     check(opened && opened.SCode !== base.SCode && /^\d+$/.test(String(opened.SCode)) && opened.AdCourseId === base.AdCourseId && opened.origin?.kind === "student-case", "O2 برقمٍ جديدٍ لم يُستعمل (اقترح المحرّكُ رقماً مستعملاً فرُفع) ومصدرُه حالة الطالب", opened);
     check((await week()).some(row => row.id === opened?.id), "O3 ويظهر في جدول القسم");
-    const noTeacher = await call("POST", "/api/schedules/apply-proposal", { kind: "opening", ...scope, courseId: base.AdCourseId, placement: { day: "ftuesday", start: "18:30", end: "19:45", sectionCode: "99", instructorId: 0, buildingId: base.buildingId, roomId: base.roomId, roomCode: base.AdRoomCode, roomHall: base.AdRoomHall }, origin });
+    const noTeacher = await call("POST", "/api/schedules/apply-proposal", { kind: "opening", ...scope, courseId: base.AdCourseId, placement: { day: "ftuesday", start: "17:00", end: "19:50", sectionCode: "99", instructorId: 0, buildingId: base.buildingId, roomId: base.roomId, roomCode: base.AdRoomCode, roomHall: base.AdRoomHall }, origin });
     check(noTeacher.status === 422 && noTeacher.body?.code === "needs-instructor", "O4 بلا أستاذٍ خالٍ لا تُفتح الشعبة (يُطلب اختياره)", noTeacher);
-    const occupied = await call("POST", "/api/schedules/apply-proposal", { kind: "opening", ...scope, courseId: base.AdCourseId, placement: { day: "fmonday", start: "18:30", end: "19:45", sectionCode: "88", instructorId: base.AdInstructorId, buildingId: base.buildingId, roomId: base.roomId, roomCode: base.AdRoomCode, roomHall: base.AdRoomHall }, origin });
+    const occupied = await call("POST", "/api/schedules/apply-proposal", { kind: "opening", ...scope, courseId: base.AdCourseId, placement: { day: "fmonday", start: "17:00", end: "19:50", sectionCode: "88", instructorId: base.AdInstructorId, buildingId: base.buildingId, roomId: base.roomId, roomCode: base.AdRoomCode, roomHall: base.AdRoomHall }, origin });
     check(occupied.status === 409, "O5 قاعةٌ وأستاذٌ مشغولان في الوقت نفسه (الشعبة التي فُتحت للتوّ) يُردّان", occupied);
 
     /* ── كشف التسجيل: «موافق» تفتح الشعبة في الجدول وتُسجَّل الموافقة معاً ── */
@@ -157,7 +161,7 @@ try {
     const pending = (await registration()).flatMap(row => (row.courses || []).filter((c: any) => !c.settled && !c.readOnly).map((c: any) => ({ row, course: c })));
     const target1 = pending[0], target2 = pending[1];
     const teacherRow = (await week()).find(row => Number(row.AdCourseId) === Number(target1.course.id)) || base;
-    const approvalSlot = await freeSlot(Number(teacherRow.AdInstructorId), [teacherRow]);
+    const approvalSlot = await freeSlot(Number(teacherRow.AdInstructorId), [teacherRow], blockFor(Number(target1.course.id)));
     const slotFor = (extra: any = {}) => ({ ...approvalSlot, sectionCode: "01", instructorId: teacherRow.AdInstructorId,
       roomCode: teacherRow.AdRoomCode, roomHall: teacherRow.AdRoomHall, buildingId: teacherRow.buildingId, roomId: teacherRow.roomId, ...extra });
     const before = (await week()).length;
@@ -171,7 +175,7 @@ try {
     if (target2) {
       const rejected = await call("POST", `/api/student-registration/${target2.row.id}/course-state`, { courseId: target2.course.id, state: "awaiting-registration", openSection: slotFor({ sectionCode: "77" }) });
       const stillOpen = (await registration()).find(row => row.id === target2.row.id)?.courses.find((c: any) => c.id === target2.course.id);
-      check(rejected.status === 409 && rejected.body?.stateSaved === false && stillOpen?.settled === false && (await week()).length === before + 1, "R4 شعبةٌ تتعارض مع ما فُتح للتوّ: تُردّ، ولا تُسجَّل الموافقة، ولا يُكتب شيء", rejected);
+      check(rejected.status >= 400 && rejected.body?.stateSaved === false && stillOpen?.settled === false && (await week()).length === before + 1, "R4 شعبةٌ غير صالحة تُردّ، ولا تُسجَّل الموافقة، ولا يُكتب شيء", rejected);
       const reject = await call("POST", `/api/student-registration/${target2.row.id}/course-state`, { courseId: target2.course.id, state: "committee-rejected", reasonCode: "prerequisite", openSection: slotFor({ day: "fthursday", start: "09:00", end: "10:15", sectionCode: "66" }) });
       check(reject.status === 200 && (await week()).length === before + 1, "R5 عدمُ الموافقة لا يفتح شعبةً ولو أُرسل معه اقتراح");
     }
@@ -187,10 +191,11 @@ try {
       const mins = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
       const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
       let free: { day: string; start: string; end: string } | null = null;
-      for (const day of ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"]) for (let start = 8 * 60; start + 75 <= 20 * 60 && !free; start += 30) {
-        const busy = everything.some(row => row[day] && mins(row.fstarttime) < start + 75 && mins(row.fendtime) > start
+      const duration = blockFor(Number(target3.course.id));
+      for (const day of ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"]) for (let start = 8 * 60; start + duration <= 20 * 60 && !free; start += 30) {
+        const busy = everything.some(row => row[day] && mins(row.fstarttime) < start + duration && mins(row.fendtime) > start
           && (Number(row.AdInstructorId) === Number(teacherRow.AdInstructorId) || (row.roomId && row.roomId === teacherRow.roomId)));
-        if (!busy) free = { day, start: clock(start), end: clock(start + 75) };
+        if (!busy) free = { day, start: clock(start), end: clock(start + duration) };
       }
       const slot3 = slotFor({ ...free, sectionCode: "55" });
       const [one, two] = await Promise.all([1, 2].map(() => call("POST", `/api/student-registration/${target3.row.id}/course-state`, { courseId: target3.course.id, state: "awaiting-registration", openSection: slot3 })));

@@ -450,6 +450,13 @@
  },
  "findings": [
   {
+   "rule": "section-hours-under",
+   "article": "جاهزية الاعتماد",
+   "severity": "high",
+   "source": "readiness",
+   "approvalEffect": "block"
+  },
+  {
    "rule": "regulation-ladder",
    "article": "سُلّم البدايات ومكتبة الأنماط",
    "severity": "low",

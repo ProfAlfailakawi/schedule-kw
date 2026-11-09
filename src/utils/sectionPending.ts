@@ -2,6 +2,7 @@ import type { AdCourse, FSchedule } from "../types";
 import { SCHEDULE_DAYS, findConflicts, minutesToTime, timeToMinutes, type DayKey } from "./scheduleIntelligence";
 import type { Placement } from "./sectionOpening";
 import type { RhythmReading } from "./departmentRhythm";
+import { effectiveCourseHours, patternsForHours, sectionWeeklyHours } from "./scheduleRegulations";
 
 /**
  * ── شعبةٌ بوقتٍ من تاريخ القسم وقاعةٍ بانتظار التثبيت ────────────────────────────
@@ -45,7 +46,7 @@ export function templatesFromHistory(past: readonly FSchedule[], termOrder: read
 export interface PendingRoom { roomId: string; buildingId: string; code: string; hall: string; capacity: number }
 
 export interface PendingInput {
-  course: Pick<AdCourse, "AdCourseId" | "CourseName">;
+  course: Pick<AdCourse, "AdCourseId" | "CourseName" | "CourseHours" | "CourseCredit">;
   count: number;
   /** أول رقم شعبة يُعطى. */
   firstCode: number;
@@ -95,6 +96,13 @@ export function placePending(input: PendingInput): Array<Placement & { days: Day
   /* شعبتان لمقررٍ واحد لا تقعان في الوقت نفسه: يتوزّع القسم على الأسبوع لا يتكدّس. */
   const usedSlots = new Set<string>();
   const slotKey = (days: DayKey[], start: string) => `${days.join(",")}@${start}`;
+  const hours = effectiveCourseHours(input.course);
+  const completeBlock = patternsForHours(hours).find(pattern => pattern.days.length === 1)?.minutesPerDay[0] || 0;
+  const complete = (days: DayKey[], start: number, end: number, template?: Template) => {
+    let row = draftRow(input, days, start, end, template);
+    if (sectionWeeklyHours(row, [], hours).under && days.length === 1 && completeBlock) row = draftRow(input, days, start, start + completeBlock, template);
+    return !sectionWeeklyHours(row, [], hours).under && timeToMinutes(row.fendtime) <= 20 * 60 ? row : null;
+  };
   const push = (index: number, row: FSchedule, days: DayKey[], note: string) => {
     input.working.push(row);
     placed.push({
@@ -114,7 +122,8 @@ export function placePending(input: PendingInput): Array<Placement & { days: Day
       if (usedTemplates.has(i)) continue;
       const t = input.templates[i];
       if (usedSlots.has(slotKey(t.days, t.start))) continue;
-      const row = settle(draftRow(input, t.days, timeToMinutes(t.start), timeToMinutes(t.end), t));
+      const candidate = complete(t.days, timeToMinutes(t.start), timeToMinutes(t.end), t);
+      const row = candidate && settle(candidate);
       if (!row) continue;
       usedTemplates.add(i); usedSlots.add(slotKey(t.days, t.start)); push(slot, row, t.days, "كالفصل المماثل"); return true;
     }
@@ -125,7 +134,8 @@ export function placePending(input: PendingInput): Array<Placement & { days: Day
       for (const time of ladder) {
         const at = timeToMinutes(time);
         if (usedSlots.has(slotKey([day], minutesToTime(at)))) continue;
-        const row = settle(draftRow(input, [day], at, at + length, input.templates[0]));
+        const candidate = complete([day], at, at + length, input.templates[0]);
+        const row = candidate && settle(candidate);
         if (!row) continue;
         usedSlots.add(slotKey([day], minutesToTime(at))); push(slot, row, [day], "وقتٌ معتاد للقسم"); return true;
       }

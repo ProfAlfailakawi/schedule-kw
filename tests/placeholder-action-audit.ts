@@ -55,17 +55,18 @@ try {
     const people = (await call("GET", "/api/instructors?collegeId=1&sectionId=1&termId=1")).body as any[];
     const placeholder = people.find(person => String(person.AdInstructorName || "").startsWith("هيئة"));
     const rows0 = await board();
-    const courseIds = [...new Set(rows0.map(row => Number(row.AdCourseId)))];
+    const courses = (await call("GET", "/api/courses?collegeId=1&sectionId=1")).body as any[];
+    const courseIds = [...new Set(rows0.map(row => Number(row.AdCourseId)))].filter(id => Number(courses.find(course => Number(course.AdCourseId) === id)?.CourseHours) === 3);
     check(Boolean(placeholder) && courseIds.length >= 2, "B0 بيانات التجربة: «هيئة تدريسية» ومقرران على الأقل", { placeholder, courses: courseIds.length });
     if (placeholder && courseIds.length >= 2) {
       /* خانة حرّة تماماً (قاعة وأستاذ) للبناء عليها: الخميس 18:00 بلا أحد في القسم. */
-      const day = { fsunday: false, fmonday: false, ftuesday: false, fwednesday: false, fthursday: true };
+      const day = { fsunday: true, fmonday: false, ftuesday: true, fwednesday: false, fthursday: true };
       const time = { fstarttime: "18:00", fendtime: "18:50" };
       const scope = { AdCollegeId: 1, AdSectionId: 1, AdTermId: 1 };
       const free = await call("POST", "/api/schedules/suggest-slots", { ...scope, ...day, ...time, AdCourseId: courseIds[0], roomOnly: true });
       const rooms = (free.body?.slots || []) as any[];
       check(rooms.length >= 2, "B1 قاعتان حرّتان على الأقل في الخانة الاختبارية", free.body);
-      const busyAt = (personId: number, rows: any[]) => rows.some(row => Number(row.AdInstructorId) === personId && row.fthursday && row.fstarttime < "18:50" && row.fendtime > "18:00");
+      const busyAt = (personId: number, rows: any[]) => rows.some(row => Number(row.AdInstructorId) === personId && (row.fsunday || row.ftuesday || row.fthursday) && row.fstarttime < "18:50" && row.fendtime > "18:00");
       const teacher = people.find(person => person !== placeholder && !String(person.AdInstructorName || "").startsWith("هيئة") && !busyAt(Number(person.AdInstructorId), rows0));
       const makePlaceholder = async (courseId: number, scode: string, room: any) => (await call("POST", "/api/schedules", {
         ...scope, ...day, ...time, AdCourseId: courseId, SCode: scode, AdInstructorId: placeholder.AdInstructorId,

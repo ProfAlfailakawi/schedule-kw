@@ -53,7 +53,7 @@ for (const article of ["6/2", "6/3", "7/8", "7/9", "8"]) {
     `اللائحة: المادة ${article} في العرض «تمنع التوقيع» وفي الكود`);
 }
 const blockCount = (regs.match(/approvalEffect: "block"/g) || []).length;
-check(blockCount === 5, `اللائحة: خمسة مواضع منعٍ في الكود كما يقول العرض (الآن ${blockCount})`, "تغيّر عدد ما يمنع التوقيع: راجع شريحة «اللائحة · قرار 1913/2016».");
+check(blockCount === 6, `قواعد المراجعة: ستة مواضع منعٍ في الكود (الآن ${blockCount})`, "تغيّر عدد ما يمنع المراجعة: راجع قواعد الجدول.");
 
 const lensCount = (read("src/components/Reports.tsx").match(/const LENSES[\s\S]*?\n\];/)?.[0].match(/\{ id: "/g) || []).length;
 check(lensCount === 15 && deck.includes("خمس عشرة عدسة"), `التقارير: خمس عشرة عدسة (الآن ${lensCount})`, "تغيّر عدد العدسات: راجع شريحة «التقارير».");

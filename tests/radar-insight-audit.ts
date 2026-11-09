@@ -90,7 +90,7 @@ try {
     check(impact.status === 200 && impact.body?.course?.id === base.AdCourseId && Array.isArray(impact.body.plans) && Array.isArray(impact.body.prereqs) && Array.isArray(impact.body.dependents), "L15 أثرُ المقرر: ما يسبقه وما يفتحه وصحائفه", impact);
     check((await call("GET", "/api/impact/course?courseId=99999999")).status === 404, "L16 مقررٌ غير موجود يُردّ");
     check((await fetch(BASE + `/api/impact/course?courseId=${base.AdCourseId}`)).status >= 401, "L17 أثرُ المقرر بلا دخولٍ مرفوض");
-    const target = { day: "fthursday", start: "18:00", end: "19:15" };
+    const target = { day: "fthursday", start: "17:00", end: "19:50" };
     const applied = await call("POST", "/api/schedules/apply-proposal", { kind: "move", collegeId: base.AdCollegeId, sectionId: base.AdSectionId, termId: base.AdTermId, moves: [{ rowId: base.id, from: { day: "fsunday", start: base.fstarttime, end: base.fendtime }, to: target }], origin: { kind: "radar", refId: `course:${base.AdCourseId}`, note: "اختبار ذاكرة الموعد" } });
     check(applied.status === 200, "L18 اعتمادُ نقلٍ بمصدر", applied);
     await new Promise(r => setTimeout(r, 300));
