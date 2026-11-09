@@ -300,7 +300,8 @@ export async function regulationNoticesForScope(collegeId: number, sectionId: nu
     });
     const familyRows = rows;
     const familyBalance = periodBalanceFinding(familyRows as any);
-    const allFindings = [...findings, ...(familyBalance ? [familyBalance] : [])];
+    /* reviewSchedule يقرأ نسبة الفترتين على صفوف العائلة نفسها: تُضاف مرةً واحدة فقط إن غابت عنه. */
+    const allFindings = findings.some(item => item.rule === "period-balance") ? findings : [...findings, ...(familyBalance ? [familyBalance] : [])];
     const ownIds = new Set(scopeRows.map((row: any) => Number(row.id)));
     return allFindings
       /* موانعُ اللائحة، ومعها ملاحظةُ نسبة الفترتين (م.7/2): تظهر في الاعتماد ولا تمنع التوقيع ولا الإرسال. */

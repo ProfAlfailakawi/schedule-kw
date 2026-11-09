@@ -1354,7 +1354,7 @@
    ],
    "path": "/api/admin/capacity-exceptions",
    "name": "bound dispatch",
-   "call": "1d55e73a2ca63cdb",
+   "call": "8e3ca76528486159",
    "site": "src/server/routes/coursesRoutes.ts:497",
    "regexp": "/^\\/api\\/admin\\/capacity-exceptions\\/?$/i",
    "end": true
@@ -1367,7 +1367,7 @@
    "path": "/api/admin/courses/capacity-by-mode",
    "name": "bound dispatch",
    "call": "0ee55a44655d4c8d",
-   "site": "src/server/routes/coursesRoutes.ts:527",
+   "site": "src/server/routes/coursesRoutes.ts:533",
    "regexp": "/^\\/api\\/admin\\/courses\\/capacity-by-mode\\/?$/i",
    "end": true
   },
@@ -1378,8 +1378,8 @@
    ],
    "path": "/api/courses/:id",
    "name": "bound dispatch",
-   "call": "bbeb38e15fa00d84",
-   "site": "src/server/routes/coursesRoutes.ts:570",
+   "call": "c325b1469bea00bb",
+   "site": "src/server/routes/coursesRoutes.ts:576",
    "regexp": "/^\\/api\\/courses(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -1391,7 +1391,7 @@
    "path": "/api/courses/:id",
    "name": "bound dispatch",
    "call": "3430c8e78c00b093",
-   "site": "src/server/routes/coursesRoutes.ts:748",
+   "site": "src/server/routes/coursesRoutes.ts:771",
    "regexp": "/^\\/api\\/courses(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },

@@ -499,28 +499,34 @@ app.put("/api/admin/capacity-exceptions", requirePermission(6), requireRootAdmin
   if (!familyKey) { res.status(400).json({ error: "اختر القسم العلمي." }); return; }
   const sections = await Repository.getSections();
   if (!sections.some(section => departmentFamilyKey(section.AdSectionName) === familyKey)) { res.status(404).json({ error: "لا قسم بهذا الاسم." }); return; }
-  const rules: CapacityRules = await readCapacityRules();
-  const family = (rules.families[familyKey] ||= {});
   const by = String(req.user?.Name || req.user?.SystemUserLogin || "").slice(0, 120);
+  let specialization: CapacitySpecialization | null = null;
   if (req.body?.specialization !== undefined) {
-    const specialization = String(req.body.specialization);
-    if (specialization !== "theoretical" && specialization !== "scientific") { res.status(400).json({ error: "نوع التخصص نظري أو علمي." }); return; }
-    family.specialization = specialization as CapacitySpecialization;
+    const value = String(req.body.specialization);
+    if (value !== "theoretical" && value !== "scientific") { res.status(400).json({ error: "نوع التخصص نظري أو علمي." }); return; }
+    specialization = value;
   }
   const code = capacityCourseKey(req.body?.courseCode);
-  if (code) {
-    const courses = family.courses ||= {};
-    if (req.body?.remove === true) delete courses[code];
-    else {
-      if (!isCapacityExceptionReason(req.body?.reason)) { res.status(400).json({ error: "اختر سبب الاستثناء من أسباب م.9." }); return; }
-      const owned = (await Repository.getCourses()).some(course => capacityCourseKey(course.CourseCode) === code
-        && sections.some(section => Number(section.AdSectionId) === Number(course.AdSectionId) && departmentFamilyKey(section.AdSectionName) === familyKey));
-      if (!owned) { res.status(404).json({ error: "هذا المقرر ليس في عائلة هذا القسم." }); return; }
-      courses[code] = { reason: req.body.reason, ...(String(req.body?.note || "").trim() ? { note: String(req.body.note).trim().slice(0, 300) } : {}), by, at: new Date().toISOString() };
-    }
+  const removing = req.body?.remove === true;
+  if (code && !removing) {
+    if (!isCapacityExceptionReason(req.body?.reason)) { res.status(400).json({ error: "اختر سبب الاستثناء من أسباب م.9." }); return; }
+    const owned = (await Repository.getCourses()).some(course => capacityCourseKey(course.CourseCode) === code
+      && sections.some(section => Number(section.AdSectionId) === Number(course.AdSectionId) && departmentFamilyKey(section.AdSectionName) === familyKey));
+    if (!owned) { res.status(404).json({ error: "هذا المقرر ليس في عائلة هذا القسم." }); return; }
   }
-  await Repository.saveFeatureDoc(CAPACITY_RULES_DOC.collection, CAPACITY_RULES_DOC.id, rules);
-  res.json({ rules });
+  /* الوثيقة واحدةٌ لكل العائلات: تُحدَّث ذرّياً فلا يمحو حفظُ عائلةٍ ما حفظه مديرٌ آخر في اللحظة نفسها. */
+  const saved = await Repository.updateFeatureDoc<CapacityRules, true>(CAPACITY_RULES_DOC.collection, CAPACITY_RULES_DOC.id, current => {
+    const rules: CapacityRules = current && typeof current === "object" && current.families ? JSON.parse(JSON.stringify(current)) : { families: {} };
+    const family = (rules.families[familyKey] ||= {});
+    if (specialization) family.specialization = specialization;
+    if (code) {
+      const courses = family.courses ||= {};
+      if (removing) delete courses[code];
+      else courses[code] = { reason: req.body.reason, ...(String(req.body?.note || "").trim() ? { note: String(req.body.note).trim().slice(0, 300) } : {}), by, at: new Date().toISOString() };
+    }
+    return { next: rules, result: true as const };
+  });
+  res.json({ rules: saved.ok ? saved.next : await readCapacityRules() });
 });
 
 const CAPACITY_MODES = ["theoretical", "practical", "field_training"] as const;
@@ -640,6 +646,23 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   if (codeExists) {
     res.status(400).json({ error: "تم تسجيل رمز المقرر الدراسي هذا من قبل" });
     return;
+  }
+
+  /* طبيعةُ التدريس تسري على نسخ المقرر في الأحرام: فيُفحص كلُّ نسخةٍ يغيّرها الحفظ بسعتها هي، قبل أي كتابةٍ مزامنة.
+     وإلا صارت نسخةٌ سعتُها ٥٠ «عملية» بحفظِ نسخةٍ سعتُها ٢٠ فيمنعها الاعتمادُ بعد أن نجح الحفظ. */
+  if (CourseTeachingMode !== undefined && String(CourseTeachingMode || "") !== String(currentCourse.CourseTeachingMode || "")) {
+    const [allCourses, allSections, allColleges] = await Promise.all([Repository.getCourses(), Repository.getSections(), Repository.getColleges()]);
+    const candidates = roomTypeSiblingIds({ ...currentCourse, AdCollegeId: collegeId, AdSectionId: sectionId, CourseCode }, allCourses as any, allSections as any, allColleges as any);
+    for (const siblingId of candidates) {
+      const other = allCourses.find(course => Number(course.AdCourseId) === siblingId);
+      if (!other || Number(other.AdCourseId) === id) continue;
+      if (!req.user.IsAdminUser && (!isScopeAllowed(req, Number(other.AdCollegeId), Number(other.AdSectionId)) || !await committeeCatalogEditAllowed(req, Number(other.AdSectionId)))) continue;
+      const refusal = await capacityRefusal(String(other.CourseCode || CourseCode), Number(other.AdSectionId), CourseTeachingMode || undefined, Number(other.MaxStudent));
+      if (refusal) {
+        const college = String(allColleges.find(item => Number(item.AdCollegeId) === Number(other.AdCollegeId))?.AdCollegeName || "");
+        res.status(400).json({ error: `نسخة المقرر في ${college}: ${refusal}` }); return;
+      }
+    }
   }
 
   try {
