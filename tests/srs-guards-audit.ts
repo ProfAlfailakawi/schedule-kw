@@ -19,6 +19,8 @@ check(/fetch-depth: 2/.test(ci) && /if: github\.event_name == 'pull_request'\s*\
 const guard = read("scripts/srs/pr-guard.mjs");
 check(/\[srs:\\s\*\(بلا تغيير\|no change\)\\s\*\\\]/.test(guard), "G3 التصريح المقبول «[srs: بلا تغيير]» أو «[srs: no change]»");
 
+check(/GENERATED = \[[^\]]*endpoints\\\.snapshot\\\.json/.test(guard) && /f\.startsWith\("docs\/srs\/"\) && !GENERATED\.some/.test(guard), "G5 لقطة المسارات وما يولّده الأمر نفسه لا يُعدّ كتابةً للوثيقة");
+
 /* التجربة على الشجرة الحالية: لا فرق عن نفسها، فلا تغيير في كود البرنامج. */
 const out = execFileSync("node", ["scripts/srs/pr-guard.mjs", "HEAD", "HEAD"], { encoding: "utf8" });
 check(/لا تغيير في كود البرنامج/.test(out), "G4 الحارس يعمل ويقرأ الفرق");

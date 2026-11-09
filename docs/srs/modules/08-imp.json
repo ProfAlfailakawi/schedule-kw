@@ -1717,8 +1717,8 @@
         "en": "Comparing the schedule with the authority file"
       },
       "text": {
-        "ar": "يجب على النظام أن يحفظ القراءة الأولى للوثيقة خط أساس لا يتغير وأن يقارنها بالجدول الحي لا بالمسودة المحفوظة، فيطابق الصفوف بالرقم المرجعي (CRN) أولاً ثم بالهوية الأكاديمية الفريدة، ويصنّف كل صف: مضاف أو محذوف أو معدَّل أو كما هو أو يحتاج مراجعة مصدر (سجل مستورد غير مربوط لا يُعدّ إضافة مثبتة)، ويحدّد الخلايا المعدَّلة من اثني عشر حقلاً، ويقارن المقرر برمزه الرسمي لا برقمه الداخلي، ويعدّ أستاذين مسجّلين مختلفين تغييراً.",
-        "en": "The system shall keep the first reading of the file as an unchanging baseline and compare it with the live schedule, not the saved draft, matching rows by the authority reference number (CRN) first and then by unique academic identity, classifying each row as added, deleted, changed, unchanged or needing source review (an unlinked imported record is not a proven addition), marking changed cells among twelve fields, comparing a course by its official code and not its internal number, and treating two different registered instructors as a change."
+        "ar": "يجب على النظام أن يحفظ القراءة الأولى للوثيقة خط أساس لا يتغير وأن يقارنها بالجدول الحي لا بالمسودة المحفوظة، فيطابق الصفوف بالرقم المرجعي (CRN) أولاً ثم بالهوية الأكاديمية الفريدة، ثم يربط ما بقي بلا رابط بما أنشأه المنسّق بيده فيظهر تعديلاً أصفر لا حذفاً وإضافة: الشعبة المحذوفة ثم المُعادة بمقررها ورقم شعبتها المخزَّن (الذي يراه المنسّق لا الرسمي المطبوع، أو رقمها المنشور إن وُجد أثر نشر) وموقعها، حين يكون الصف الوحيد بهذا المفتاح من الجهتين؛ ثم الشعبة التي تغيّر رقمها بالمقرر والموقع واليوم والوقت، ثم بالمقرر والموقع وحدهما إن كانت الوحيدة من الجهتين (فيبقى تغيّر الرقم والوقت معاً تعديلاً واحداً)، ثم عند تعدد المحذوف والمضاف من المقرر والموقع نفسه الزوجَ الأقرب بوضوح للطرفين بثلاث نقاط فأكثر من ست (اليوم وبداية الوقت ونهايته والمبنى والقاعة والأستاذ المعروف)؛ وما التبس أو تساوى قربه يبقى حذفاً وإضافة بلا تخمين، ولا يُربط مقررٌ آخر ولا موقعٌ آخر؛ ويُلوَّن رقم الشعبة وحده في صفٍّ أنشأه المنسّق وتغيّر رقمه (في الشاشة وفي الورقة المطبوعة)، أما رقم صفٍّ مستورد فلا يُلوَّن، ويصنّف كل صف: مضاف أو محذوف أو معدَّل أو كما هو أو يحتاج مراجعة مصدر (سجل مستورد غير مربوط لا يُعدّ إضافة مثبتة)، ويحدّد الخلايا المعدَّلة من اثني عشر حقلاً، ويقارن المقرر برمزه الرسمي لا برقمه الداخلي، ويعدّ أستاذين مسجّلين مختلفين تغييراً.",
+        "en": "The system shall keep the first reading of the file as an unchanging baseline and compare it with the live schedule, not the saved draft, matching rows by the authority reference number (CRN) first and then by unique academic identity, then linking what is left unlinked to rows the coordinator created by hand so that it shows as a yellow change rather than a deletion plus an addition: a section deleted then recreated by its course, its stored section number (the one the coordinator sees, not the official printed one, or its published number when a publication trace exists) and its site, when it is the only row with that key on both sides; then a section whose number changed by course, site, day and time, then by course and site alone when it is the only one on both sides (so a number and time change together remains one change); then, where several deleted and added rows share a course and site, the pair that is clearly the closest for both sides with three or more points out of six (day, start, end, building, room and the known instructor); anything ambiguous or equally close stays a deletion plus an addition with no guessing, and another course or another site is never linked; only the section-number cell is coloured in a row the coordinator created whose number changed (on screen and on the printed sheet), while the number of an imported row is not coloured; classifying each row as added, deleted, changed, unchanged or needing source review (an unlinked imported record is not a proven addition), marking changed cells among twelve fields, comparing a course by its official code and not its internal number, and treating two different registered instructors as a change."
       },
       "priority": "must",
       "status": "implemented",
@@ -1739,17 +1739,36 @@
         {
           "ar": "جدول حي فارغ ← كل صف أصلي «محذوف» ولا يُرد 404.",
           "en": "An empty live table classifies every original row as deleted and does not return 404."
+        },
+        {
+          "ar": "الشعبة 501 من المقرر 0109215 حُذفت ثم أُعيدت بالرقم نفسه والموقع نفسه ← «كما هي» بلا حذف ولا إضافة؛ وأُعيدت بقاعة G20 بدل F06 ← تعديل واحد تُلوَّن فيه خانة القاعة وحدها.",
+          "en": "Section 501 of course 0109215 deleted then recreated with the same number and site ← unchanged, no deletion or addition; recreated in room G20 instead of F06 ← one change with only the room cell coloured."
+        },
+        {
+          "ar": "الشعبة 501 أُعيدت برقم 515 (وحدها من المقرر في الفرع) ← صف أصفر واحد تُلوَّن فيه خانة الرقم، سواء بقي اليوم والوقت أم تغيّرا معهما من 11:00 إلى 14:00 ← لا حذف ولا إضافة.",
+          "en": "Section 501 recreated as 515 (the only one of the course in the branch) ← one yellow row with the number cell coloured, whether day and time stayed or changed with it from 11:00 to 14:00 ← no deletion or addition."
+        },
+        {
+          "ar": "حذفان وإضافتان من المقرر والفرع نفسه، وكل إضافة أقرب بوضوح إلى أصلٍ ← تعديلان أصفران؛ وإضافتان متساويتا القرب من أصلٍ واحد، أو إضافة من مقرر آخر أو فرع آخر ← يبقى الأصل محذوفاً والإضافة إضافة.",
+          "en": "Two deletions and two additions of the same course and branch, each addition clearly closest to one original ← two yellow changes; two additions equally close to one original, or an addition of another course or branch ← the original stays deleted and the addition stays added."
+        },
+        {
+          "ar": "شعبة حُذفت في معاينة الاستيراد فأُعيد ترقيم ما بعدها عند النشر ← تُربط الشعبة المُعادة بأصلها الذي نُشر (مرجعه 1002 برقم 501) لا بالمحذوف (مرجعه 1001).",
+          "en": "A section deleted in the import preview so that later ones were renumbered at publication ← the recreated section is linked to its published original (reference 1002 published as 501) and not to the deleted one (reference 1001)."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/core/authority.ts",
+          "src/server/core/authority.ts#buildAuthorityPdfDiff",
           "src/server/routes/reportsRoutes.ts",
           "src/utils/authorityRowMatching.ts",
+          "src/utils/authorityRowMatching.ts#linkRecreatedSections",
+          "src/utils/authorityRowMatching.ts#linkRenumberedSections",
           "src/utils/authorityNetChange.ts",
           "src/utils/authorityReportOrdering.ts"
         ],
         "tests": [
+          "tests/authority-recreated-section-audit.ts",
           "tests/authority-net-diff-audit.ts",
           "tests/authority-identity-reconciliation-audit.ts",
           "tests/authority-diff-cell-audit.ts",
