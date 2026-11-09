@@ -144,6 +144,8 @@ const alive = (row: FSchedule) => {
   if (Date.now() - at > GONE_MS) { gone.delete(Number(row.id)); return true; }
   return false;
 };
+export const withoutDeletedMiniWeekRows = (rows: readonly FSchedule[]): FSchedule[] =>
+  gone.size && rows.some(row => !alive(row)) ? rows.filter(alive) : rows as FSchedule[];
 export function forgetMiniWeekRows(ids?: ReadonlyArray<number | string>) {
   for (const id of ids || []) gone.set(Number(id), Date.now());
   if (!ids) { widerCache.clear(); familyCache.clear(); roomCache.clear(); }
@@ -185,7 +187,7 @@ export function useWiderWeek(teacherId: number, termId: number, refresh: unknown
     }, 140);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [key, teacherId, termId, refresh, forgotten]);
-  return state.key === key ? state.rows : [];
+  return state.key === key ? withoutDeletedMiniWeekRows(state.rows) : [];
 }
 
 /**
@@ -215,7 +217,9 @@ export function useFamilyWeek(teacherId: number, termId: number, collegeId: numb
     }, 160);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [key, teacherId, termId, collegeId, sectionId, refresh, forgotten]);
-  return state.key === key ? state.data : EMPTY_FAMILY;
+  if (state.key !== key) return EMPTY_FAMILY;
+  const activeRows = withoutDeletedMiniWeekRows(state.data.rows);
+  return activeRows === state.data.rows ? state.data : { ...state.data, rows: activeRows };
 }
 
 /**
