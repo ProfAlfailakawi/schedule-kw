@@ -201,6 +201,10 @@ export function DeadlineStrip({ deadline }: { deadline?: InboxRow["deadline"] })
           تمديدٌ خاصّ بالقسم{deadline.extensionReason ? ` — ${deadline.extensionReason}` : ""}
         </span>
       ) : null}
+      {/* ما تقوله اللائحة عن هذا الموعد: لا ينقل موعدَ التسليم ولا يضيف مانعاً، تذكيرٌ بمرجعه. */}
+      <small className="deadline-article" title="قرار 1913/2016">
+        م.6/5: أسماء الأعضاء قبل بداية التسجيل المتأخر · م.7/7: الشعب الإضافية خلال أسبوعين من نهاية التسجيل المبكر
+      </small>
     </div>
   );
 }

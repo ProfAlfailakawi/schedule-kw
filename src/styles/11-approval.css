@@ -1742,3 +1742,4 @@ button.apb-staff-chip,button.apb-staff-need{border:0;font-family:inherit;cursor:
 .request-absent-icon>svg{inline-size:16px;block-size:16px}
 .request-room-switch{font-family:inherit;color:var(--accent-ink,var(--accent));font-weight:600}
 .request-room-switch{gap:5px}.request-room-switch bdi{font-family:var(--font-mono,ui-monospace,monospace);margin-inline-start:4px}
+.deadline-strip .deadline-article{flex:1 1 100%;margin-block-start:2px;color:var(--muted,#5b6660);font-size:11.5px;line-height:1.6;font-weight:500}
