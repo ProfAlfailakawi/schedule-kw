@@ -4,7 +4,6 @@ import { ArrowDown, ArrowLeft, ArrowUp, Building2, CalendarDays, CalendarOff, Ch
 import type { AdCourse, FSchedule } from "../types";
 import type { AppointmentVerdict } from "../utils/appointmentVerdict";
 import { DAY_KEYS, type DayKey } from "../utils/scheduleRegulations";
-import { courseLabel } from "../utils/courseLabel";
 import { AR, countOf } from "../utils/arabicCount";
 import {
   adjacentPlacement, adjacentRoom, clampFloatRect, compactSpan, drawnPlacement, freeTargets, goldenTargets, inRoom, parseFloatRect, roomBlocks, roomReady,
@@ -772,7 +771,7 @@ export default function TeacherMiniWeek({
               const key = `${item.id}:${item.day}`;
               const spot = placements.get(key);
               const height = pixels(item.start, item.end);
-              const label = courseLabel(nameOf(item.row), 0.3).text || String(courses.get(Number(item.row.AdCourseId))?.CourseCode || "");
+              const label = nameOf(item.row) || String(courses.get(Number(item.row.AdCourseId))?.CourseCode || "");
               const where = [item.row.AdRoomCode, item.row.AdRoomHall].filter(Boolean).join("/");
               const collegeName = collegeNames?.get(Number(item.row.AdCollegeId)) || "";
               const site = /الفحيحيل|الجهراء/.exec(collegeName)?.[0] || /بنين|بنات/.exec(collegeName)?.[0] || collegeName.split(/\s*[-–—]\s*/).at(-1) || collegeName;
@@ -783,7 +782,7 @@ export default function TeacherMiniWeek({
                 <span className="mini-week-chip-text">
                   <b>{label}</b>
                   {site ? <span className="mini-week-chip-site">{site}</span> : null}
-                  {height >= 30 ? <small dir="ltr">{toClock(item.start)}</small> : null}
+                  {height >= 64 ? <small dir="ltr">{toClock(item.start)}</small> : null}
                 </span>
                 {spot?.before ? <button type="button" className="mini-week-stick is-before" aria-label={`قبلها · ${toClock(spot.before.start)}`} title={`قبلها · ${toClock(spot.before.start)}`}
                   onMouseEnter={hover(spot.before, true)} onFocus={hover(spot.before, true)} onBlur={hover(null)} onClick={event => { event.stopPropagation(); pick(spot.before!, item); }}
