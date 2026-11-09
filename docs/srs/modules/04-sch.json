@@ -59,6 +59,7 @@
     "src/components/SectionScheduleHours.tsx",
     "src/components/TeacherMiniWeek.tsx",
     "src/components/TeacherWeekPeek.tsx",
+    "src/utils/scheduleReadFreshness.ts",
     "src/components/SameSlotHint.tsx",
     "src/utils/sameSlot.ts",
     "src/utils/planPeers.ts",
@@ -1632,6 +1633,22 @@
         { "ar": "لا يظهر الزر على موعد أستاذٍ بديل (placeholder) ولا في وضع التجربة.", "en": "The button does not appear on a placeholder-instructor appointment or in practice mode." }
       ],
       "evidence": { "code": ["src/components/TeacherWeekPeek.tsx", "src/components/TeacherMiniWeek.tsx#readOnly", "src/components/Schedules.tsx#weekPeekOk", "src/components/ui.tsx#IconAction"], "tests": ["tests/teacher-mini-week-audit.ts"] }
+    },
+    {
+      "id": "FR-SCH-071",
+      "kind": "functional",
+      "title": { "ar": "لا قراءةَ قديمة بعد كتابةٍ في الجدول", "en": "No stale read after a schedule write" },
+      "text": {
+        "ar": "يجب على النظام، بعد كل كتابةٍ ناجحة في الجدول (إضافة أو تعديل أو حذف)، أن ينسى ما حُفظ من قراءاتٍ سابقة قبل رسم الشاشة من جديد: لقطة /api/schedules في ذاكرة عامل الخدمة، والقراءة المسبقة للوحة، ورفّ اللوحة في الذاكرة، وذاكرة أسبوع الأستاذ؛ فلا يظهر نصابٌ أو موعدٌ كان قبل الكتابة.",
+        "en": "After every successful schedule write (create, edit or delete) the system shall forget previously stored reads before painting the screen again: the /api/schedules snapshot in the service-worker cache, the board's warm-start read, the in-memory board shelf and the instructor-week cache, so no load or appointment from before the write is shown."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead"],
+      "acceptance": [
+        { "ar": "حذف موعدٍ يُنقص نصاب أستاذه في الشاشة فوراً وعند الدخول إليها من جديد، دون انتظار قراءة الشبكة.", "en": "Deleting an appointment lowers its instructor's load on screen at once and when the screen is entered again, without waiting for the network read." }
+      ],
+      "evidence": { "code": ["src/utils/scheduleReadFreshness.ts", "src/components/Schedules.tsx#fetchJson", "src/components/TeacherMiniWeek.tsx#forgetMiniWeekRows"], "tests": ["tests/schedule-stale-read-audit.ts", "tests/teacher-mini-week-audit.ts"] }
     }
   ],
   "edgeCases": [

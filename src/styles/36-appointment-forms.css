@@ -492,3 +492,5 @@ body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:
 .week-peek-card>.mini-week{box-shadow:var(--shadow-lg)}
 .week-peek-card>.mini-week.is-sheet{position:relative;inset:auto;max-height:none;margin:0;max-width:none}
 .week-peek-card .mini-week-grip{display:none}
+/* وضع التركيز على القائمة (z-index:1500 للقائمة): نافذة «الجدول الدراسي» فوقها. */
+html[data-schedule-workspace="focus"] .week-peek{z-index:1600}

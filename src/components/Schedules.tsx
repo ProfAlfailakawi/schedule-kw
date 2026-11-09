@@ -88,6 +88,7 @@ import { useCourseReach } from "./CourseReach";
 import { reachLocked, reachNote, shortCourseCode } from "../utils/courseReach";
 import { byCourseNumber } from "../utils/sheetMembership";
 import TeacherWeekPeek from "./TeacherWeekPeek";
+import { forgetScheduleReads } from "../utils/scheduleReadFreshness";
 import TeacherMiniWeek, { MiniWeekToggle, forgetMiniWeekRows, useMiniWeekEnabled, useWiderWeek, type MiniPick } from "./TeacherMiniWeek";
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
@@ -1453,6 +1454,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         throw parseError;
       }
     }
+    /* كتابةٌ ناجحة في الجدول: ما حُفظ من قراءاتٍ سابقة (لقطة عامل الخدمة والقراءة المسبقة) صار قديماً. */
+    if (res.ok && mutating && url.startsWith("/api/schedules")) void forgetScheduleReads();
     if (!res.ok) {
       const failure: any = new Error(data.error || `تعذر إتمام العملية (${res.status}).`);
       /* The blockers the server listed are the whole substance of a refusal.
@@ -2124,6 +2127,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
   const rowsScopeRef = useRef("");
   const shelfKey = (stamp: string) => `${Number(user?.SystemUserId || 0)}:${stamp}`;
+  /* رفُّ اللوحة يتبع ما على الشاشة: حذفٌ أو إضافةٌ أو نقلٌ يصل الرفَّ أيضاً، فلا يعود النطاقُ بالموعد المحذوف حين يُرسم من الرفّ قبل الشبكة. */
+  useEffect(() => {
+    if (practiceMode || rowsLoading || !rowsScope || rowsScopeRef.current !== rowsScope) return;
+    const key = shelfKey(rowsScope), prior = boardShelf.get(key);
+    if (prior && prior.rows !== rows) boardShelf.set(key, { ...prior, rows });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
 
   const loadRows = async (opts?: { silent?: boolean }) => {
     const scope = scopeRef.current;
