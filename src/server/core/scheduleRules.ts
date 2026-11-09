@@ -146,6 +146,7 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
        التالي لهذا المقرّر في الفصل والقسم، ويعرضه النموذج زرّاً «شعبة جديدة» (المالك 2026-11-08). */
     const freshCode=reading.others.length&&weeklyLectureMinutes(row,hours)<=maxWeeklyMinutesFor(hours)?nextCourseSectionCode([...scopeRows,row] as any,courseId,Number(row.AdTermId),null):"";
     if(reading.total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(reading.total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}${freshCode&&freshCode!==String(row.SCode||"")?` — لشعبة جديدة: ${freshCode}`:""}`;
+    if(reading.under)return `ساعات الشعبة ${String(row.SCode||"")} أقل من ساعات المقرر المعتمدة (${countOf(hours,AR.hour)} أسبوعيًا): المجموع بعد هذا الموعد ${reading.total} من ${reading.required} دقيقة. لا يُحفظ موعد ناقص الساعات؛ أكمِل ساعات الشعبة قبل الحفظ.`;
   }
   return null;
 }

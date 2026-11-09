@@ -13,7 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { bestRegulationChoice, completeRegulation, regulationFit } from "../src/utils/appointmentRegulation";
-import { sectionWeeklyHours, weeklyLectureMinutes } from "../src/utils/scheduleRegulations";
+import { reviewSchedule, sectionWeeklyHours, weeklyLectureMinutes } from "../src/utils/scheduleRegulations";
 import { appointmentVerdict } from "../src/utils/appointmentVerdict";
 import { placeholderMatch } from "../src/utils/placeholderMatch";
 import { fitsCoursePattern, lectureStickOptions, teacherLectures, toClock } from "../src/utils/teacherMiniWeek";
@@ -39,6 +39,14 @@ const theory3 = { CourseHours: 3, CourseTeachingMode: "theoretical" };
   check(twin.total === 150 && !twin.over && twin.others.length === 0, "H3 نسخةٌ مطابقة للموعد نفسه (سجلٌّ مكرّر) لا تضاعف المجموع إلى «6 ساعات»", twin);
   const real = sectionWeeklyHours(block, [{ ...days(["fsunday", "ftuesday", "fthursday"]), fstarttime: "08:00", fendtime: "08:50" }], 3);
   check(real.over && real.others.length === 1, "H4 موعدٌ آخر حقيقي للشعبة نفسها يبقى مانعاً — ويُسمّى في التنبيه", real);
+  const short = sectionWeeklyHours({ ...days(["fsunday"]), fstarttime: "08:00", fendtime: "08:50" }, [], 3);
+  check(short.under && short.total === 50 && short.required === 150 && !alone.under, "H4a نقص ساعات الشعبة يمنع، والنمط الكامل لا يُمنع", short);
+  const reviewRow = { id: 1001, AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, AdCourseId: 501, SCode: "7", AdInstructorId: 1,
+    ...days(["fsunday"]), fstarttime: "08:00", fendtime: "08:50" } as any;
+  const reviewed = reviewSchedule({ rows: [reviewRow], courses: new Map([[501, { AdCourseId: 501, CourseHours: 3, CourseCode: "C501" } as any]]), instructors: new Map() });
+  check(reviewed.some(item => item.rule === "section-hours-under" && item.approvalEffect === "block" && item.rowIds.includes(1001)), "H4b المراجعة تمنع الشعبة الناقصة وتحدد موعدها");
+  const completeReview = reviewSchedule({ rows: [{ ...reviewRow, ftuesday: true, fthursday: true }], courses: new Map([[501, { AdCourseId: 501, CourseHours: 3, CourseCode: "C501" } as any]]), instructors: new Map() });
+  check(!completeReview.some(item => item.rule === "section-hours-under"), "H4c المراجعة تقبل الشعبة المكتملة 3×50 دقيقة");
   const rules = readServerSource();
   check(/sectionWeeklyHours\(row,siblings,hours\)/.test(rules) && /حُسب معه للشعبة/.test(rules), "H5 الحفظ والفحص والمقترح من مصدرٍ واحد (sectionWeeklyHours) ويسمّي ما حُسب");
   check(/sectionWeeklyHours\(row, siblings, hours\)/.test(read("src/server/studyProposalEngine.ts")), "H6 المقترح الدراسي بالمصدر نفسه (الكتلة بنمط ساعات المقرر)");
@@ -207,6 +215,8 @@ try {
     /* لقطة المالك: شعبة جديدة · أربعاء 08:00–10:50 لمقرر 3 ساعات → لا مانع ساعات. */
     const wed = await call("POST", "/api/schedules/check-conflicts", { ...scope, AdCourseId: fresh?.AdCourseId, SCode: "577", AdInstructorId: 1, ...days(["fwednesday"]), fstarttime: "08:00", fendtime: "10:50", excludeId: 0 });
     check(wed.status === 200 && !(wed.body?.validationIssues || []).some((text: string) => /الساعات المعتمدة/.test(text)), "V1 حيّ: «أربعاء · 170د» لشعبةٍ جديدة بلا «تجاوز الساعات»", wed.body);
+    const shortCheck = await call("POST", "/api/schedules/check-conflicts", { ...scope, AdCourseId: fresh?.AdCourseId, SCode: "578", AdInstructorId: 1, ...days(["fsunday"]), fstarttime: "08:00", fendtime: "08:50", excludeId: 0 });
+    check(shortCheck.status === 200 && (shortCheck.body?.validationIssues || []).some((text: string) => /أقل من ساعات المقرر/.test(text)), "V1a الفحص الحيّ يظهر مانع النقص قبل الحفظ", shortCheck.body);
 
     /* خانة «هيئة تدريسية» مطابقة تماماً في «اقترح وقتاً وقاعة» و«اقترح قاعة». */
     const placeholder = people.find(person => String(person.AdInstructorName || "").startsWith("هيئة"));
@@ -218,6 +228,9 @@ try {
     const room = (free.body?.slots || [])[0];
     check(Boolean(placeholder && teacher && room && fresh), "V2 بيانات التجربة: «هيئة تدريسية» وأستاذ حرّ وقاعة حرّة", { placeholder: Boolean(placeholder), teacher: Boolean(teacher), room, fresh: fresh?.AdCourseId });
     if (placeholder && teacher && room && fresh) {
+      const refused = await call("POST", "/api/schedules", { ...scope, ...days(["fsunday"]), ...time, AdCourseId: fresh.AdCourseId, SCode: "993", AdInstructorId: placeholder.AdInstructorId,
+        buildingId: room.buildingId, roomId: room.roomId, AdRoomCode: room.room, AdRoomHall: room.hall, locationStatus: "VERIFIED" });
+      check(refused.status === 400 && /أقل من ساعات المقرر/.test(String(refused.body?.error || "")), "V2a الخادم يرفض حفظ الموعد الناقص فعلاً", refused);
       const made = (await call("POST", "/api/schedules", { ...scope, ...sth, ...time, AdCourseId: fresh.AdCourseId, SCode: "991", AdInstructorId: placeholder.AdInstructorId,
         buildingId: room.buildingId, roomId: room.roomId, AdRoomCode: room.room, AdRoomHall: room.hall, locationStatus: "VERIFIED" })).body;
       check(Number(made?.id) > 0, "V3 أُنشئت شعبة «هيئة تدريسية» (أحد·ثلاثاء·خميس 18:00–18:50)", made);

@@ -644,6 +644,29 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
     return bySection;
   };
 
+  for (const [courseId, list] of byCourse) {
+    const hours = effectiveCourseHours(courses.get(courseId));
+    if (!(hours > 0)) continue;
+    for (const sectionRows of sectionsOf(list).values()) {
+      const first = sectionRows[0];
+      const reading = sectionWeeklyHours(first, sectionRows.slice(1), hours);
+      if (!reading.under) continue;
+      const sectionCode = String(first.SCode ?? "").trim() || "—";
+      findings.push({
+        rule: "section-hours-under",
+        article: "جاهزية الاعتماد",
+        severity: "high",
+        source: "readiness",
+        approvalEffect: "block",
+        title: `ساعات الشعبة أقل من ساعات المقرر (${name(first)} · ${sectionCode})`,
+        detail: `الشعبة ${sectionCode}: مجموعها ${reading.total} دقيقة من ${reading.required} دقيقة معتمدة لمقرر ${hours} ساعات أسبوعياً. أكمِل ساعات الشعبة قبل الحفظ والاعتماد.`,
+        subjectKey: `course:${courseId}:${Number(first.AdCollegeId) || 0}:${sectionCode}`,
+        subjectLabel: `${name(first)} · شعبة ${sectionCode}`,
+        rowIds: sectionRows.map(row => row.id),
+      });
+    }
+  }
+
   // --- م.7/8 — theoretical patterns must stay in sync with the pattern library.
   for (const [courseId, list] of byCourse) {
     const course = courses.get(courseId);
@@ -973,6 +996,8 @@ const sameMeeting = (a: MeetingLike, b: MeetingLike) =>
 export interface SectionHoursReading {
   /** دقائق الأسبوع للشعبة بعد هذا الموعد. */
   total: number;
+  required: number;
+  under: boolean;
   max: number;
   over: boolean;
   /** مواعيد الشعبة الأخرى التي حُسبت معه (لتُسمّى في التنبيه). */
@@ -991,7 +1016,8 @@ export function sectionWeeklyHours(row: MeetingLike, siblings: readonly MeetingL
     .filter((other, index, list) => list.findIndex(item => sameMeeting(item, other)) === index);
   const total = others.reduce((sum, other) => sum + weeklyLectureMinutes(other, hours), 0) + weeklyLectureMinutes(row, hours);
   const max = maxWeeklyMinutesFor(hours);
-  return { total, max, over: hours > 0 && total > max, others };
+  const required = Math.round(Math.round(hours) * 50);
+  return { total, required, under: hours > 0 && total < required, max, over: hours > 0 && total > max, others };
 }
 
 /** «الأربعاء 08:00–10:50» لموعدٍ حُسب مع الشعبة. */
