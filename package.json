@@ -303,6 +303,7 @@
     "srs:validate": "node scripts/srs/validate.mjs",
     "test:srs-doc": "node scripts/srs/check.mjs",
     "test:srs-guards": "tsx tests/srs-guards-audit.ts",
+    "test:pr-lines-guard": "tsx tests/pr-lines-guard-audit.ts",
     "test:srs-route": "tsx tests/srs-route-audit.ts",
     "test:srs-regulation-sync": "tsx tests/srs-regulation-sync-audit.ts",
     "test:tsconfig-strictness": "tsx tests/tsconfig-strictness-audit.ts"

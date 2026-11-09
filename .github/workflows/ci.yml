@@ -38,6 +38,11 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node scripts/srs/pr-guard.mjs HEAD^1
 
+      # الأسطر التي يضيفها الطلب وحدها لا تحمل عبارةً محجوزة ولا معرّفاً خاصاً بالمالك خارج ملفات النشر.
+      - name: Added-lines guard
+        if: github.event_name == 'pull_request'
+        run: node scripts/ci/pr-lines-guard.mjs HEAD^1
+
       - name: Deploy target guard
         run: node tests/deploy-target-guard.mjs
 

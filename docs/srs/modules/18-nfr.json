@@ -1688,6 +1688,10 @@
         {
           "ar": "فحص الأنواع يشمل المستودع كله (الاستثناء node_modules وdist فقط) بثمانية خيارات صارمة: alwaysStrict وnoImplicitThis وuseUnknownInCatchVariables وnoFallthroughCasesInSwitch وstrictBuiltinIteratorReturn وnoImplicitOverride وstrictFunctionTypes وstrictBindCallApply؛ وحذفُ خيار أو إضافةُ استثناء يُفشل test:tsconfig-strictness.",
           "en": "Type checking covers the whole repository (only node_modules and dist excluded) with eight strict options: alwaysStrict, noImplicitThis, useUnknownInCatchVariables, noFallthroughCasesInSwitch, strictBuiltinIteratorReturn, noImplicitOverride, strictFunctionTypes and strictBindCallApply; removing an option or adding an exclusion fails test:tsconfig-strictness."
+        },
+        {
+          "ar": "حارس الأسطر المضافة في CI يقرأ ما يضيفه كل طلب دمج وحده ويرفض العبارات المحجوزة والمعرّفات الخاصة بالمالك خارج ملفات النشر، ولا يمرّ استثناءٌ إلا بسببٍ مكتوب في السطر نفسه؛ ويثبّته test:pr-lines-guard.",
+          "en": "The added-lines guard in CI reads only what each pull request adds and refuses reserved wording and owner-private identifiers outside deployment files; an exception passes only with a written reason on the same line, and test:pr-lines-guard pins it."
         }
       ],
       "evidence": {
@@ -1695,12 +1699,14 @@
           "tsconfig.json",
           "package.json",
           "tests/suite.txt",
+          "scripts/ci/pr-lines-guard.mjs",
           "docs/SERVER_MAP.md"
         ],
         "tests": [
           "tests/server-route-parity-audit.ts",
           "tests/public-pages-syntax-audit.ts",
-          "tests/tsconfig-strictness-audit.ts"
+          "tests/tsconfig-strictness-audit.ts",
+          "tests/pr-lines-guard-audit.ts"
         ]
       }
     },
