@@ -10249,6 +10249,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               verdict={editorVerdict}
               course={formCourse}
               courses={courseById}
+              collegeNames={new Map(colleges.map(college => [Number(college.AdCollegeId), college.AdCollegeName]))}
               window={miniWeekWindow}
               userId={Number(user?.SystemUserId || 0)}
               onPick={pickFromMiniWeek}
@@ -11598,7 +11599,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     {weekPeek?.id === s.id ? (() => {
                       const person = instructorById.get(Number(s.AdInstructorId)), nisabInfo = loadNisabOf(person);
                       return <TeacherWeekPeek row={s} teacherName={person?.AdInstructorName || ""} nisab={nisabInfo.nisab} overtime={nisabInfo.overtime} limited={nisabInfo.limited}
-                        visiting={formVisiting(s.AdInstructorId)} rows={rows} courses={courseById} window={miniWeekWindow} userId={Number(user?.SystemUserId || 0)} onClose={() => setWeekPeek(null)} />;
+                        visiting={formVisiting(s.AdInstructorId)} rows={rows} courses={courseById} collegeNames={new Map(colleges.map(college => [Number(college.AdCollegeId), college.AdCollegeName]))} window={miniWeekWindow} userId={Number(user?.SystemUserId || 0)} onClose={() => setWeekPeek(null)} />;
                     })() : null}
                   </article>
                 );

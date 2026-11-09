@@ -10,7 +10,7 @@ import TeacherMiniWeek from "./TeacherMiniWeek";
  * (بطاقة جدول الأستاذ المصغّر نفسها) عرضاً فقط: لا «+» ولا رسم ولا حفظ.
  * نافذةٌ فوق الصفحة، والنقر خارجها أو Esc أو X يغلقها.
  */
-export default function TeacherWeekPeek({ row, teacherName, nisab, overtime, limited, visiting, rows, courses, window: dayWindow, userId, onClose }: {
+export default function TeacherWeekPeek({ row, teacherName, nisab, overtime, limited, visiting, rows, courses, collegeNames, window: dayWindow, userId, onClose }: {
   row: FSchedule;
   teacherName: string;
   nisab: number;
@@ -19,6 +19,7 @@ export default function TeacherWeekPeek({ row, teacherName, nisab, overtime, lim
   visiting: boolean;
   rows: readonly FSchedule[];
   courses: Map<number, AdCourse>;
+  collegeNames: Map<number, string>;
   window: MiniSpan;
   userId: number;
   onClose: () => void;
@@ -35,7 +36,7 @@ export default function TeacherWeekPeek({ row, teacherName, nisab, overtime, lim
           nisab={nisab} overtime={overtime} limited={limited} visiting={visiting}
           rows={rows} termId={Number(row.AdTermId)} collegeId={Number(row.AdCollegeId)} sectionId={Number(row.AdSectionId)}
           draft={null} verdict={{ state: "idle", blockers: [] } as any} checked={false}
-          courses={courses} window={dayWindow} userId={userId} onPick={() => undefined}
+          courses={courses} collegeNames={collegeNames} window={dayWindow} userId={userId} onPick={() => undefined}
         />
       </div>
     </div>,

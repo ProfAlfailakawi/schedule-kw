@@ -304,6 +304,7 @@
 .mini-week-chip.is-other{background:color-mix(in srgb,var(--mw-other) 15%,var(--surface));border-inline-start-color:var(--mw-other)}
 .mini-week-chip-text{display:grid;align-content:start;gap:1px;min-width:0;padding:3px 3px 2px 2px;overflow:hidden;-webkit-mask-image:linear-gradient(to right,transparent 0,black 6px);mask-image:linear-gradient(to right,transparent 0,black 6px)}
 .mini-week-chip-text b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;font-size:9px;font-weight:800;line-height:1.25;color:var(--ink);overflow-wrap:normal}
+.mini-week-chip-site{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:9px;font-weight:400;line-height:1.2}
 .mini-week-chip.is-tall .mini-week-chip-text b{-webkit-line-clamp:2}
 .mini-week-chip-text small{font:600 8.5px/1.1 var(--font-mono);font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--mw-own) 70%,var(--ink))}
 .mini-week-chip.is-other .mini-week-chip-text small{color:color-mix(in srgb,var(--mw-other) 75%,var(--ink))}

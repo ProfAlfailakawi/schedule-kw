@@ -281,6 +281,7 @@ export default function TeacherMiniWeek({
   teacherId, teacherName, nisab = 0, overtime = 0, limited = nisab > 0, visiting = false, trainee = false, rows, termId, collegeId, sectionId = 0, excludeId = 0, original = null,
   draft, verdict, checked = true, course, courses, window: dayWindow, userId = 0, fixedDays, onPick, variant = "side",
   autoCollapse = false, dockable = false, room = null, readOnly = false, onClose,
+  collegeNames,
 }: {
   teacherId: number;
   teacherName: string;
@@ -323,6 +324,7 @@ export default function TeacherMiniWeek({
   /** عرضٌ فقط («الجدول الدراسي» من قائمة الموعد): مفتوحٌ دائماً، بلا خانات «+» ولا رسم ولا قبلها/بعدها، وX تستدعي onClose. */
   readOnly?: boolean;
   onClose?: () => void;
+  collegeNames?: Map<number, string>;
 }) {
   const bodyId = useId();
   /* The instructor week is a side column wherever the page has the room — a desk, a
@@ -772,12 +774,15 @@ export default function TeacherMiniWeek({
               const height = pixels(item.start, item.end);
               const label = courseLabel(nameOf(item.row), 0.3).text || String(courses.get(Number(item.row.AdCourseId))?.CourseCode || "");
               const where = [item.row.AdRoomCode, item.row.AdRoomHall].filter(Boolean).join("/");
+              const collegeName = collegeNames?.get(Number(item.row.AdCollegeId)) || "";
+              const site = /الفحيحيل|الجهراء/.exec(collegeName)?.[0] || /بنين|بنات/.exec(collegeName)?.[0] || collegeName.split(/\s*[-–—]\s*/).at(-1) || collegeName;
               return <div key={key} role="group" className={`mini-week-chip${item.otherCollege ? " is-other" : ""}${height >= 30 ? " is-tall" : height >= 15 ? "" : " is-thin"}${active === key ? " is-active" : ""}`}
                 style={place(item.start, item.end)} onClick={() => setActive(value => value === key ? "" : key)}
                 aria-label={`${nameOf(item.row)} · ${toClock(item.start)}–${toClock(item.end)}${item.otherCollege ? " · كلية أخرى" : ""}`}
                 title={`${nameOf(item.row)}${item.row.SCode ? ` · ${item.row.SCode}` : ""}\n${toClock(item.start)}–${toClock(item.end)}${where ? ` · ${where}` : ""}${item.otherCollege ? " · كلية أخرى" : ""}`}>
                 <span className="mini-week-chip-text">
                   <b>{label}</b>
+                  {site ? <span className="mini-week-chip-site">{site}</span> : null}
                   {height >= 30 ? <small dir="ltr">{toClock(item.start)}</small> : null}
                 </span>
                 {spot?.before ? <button type="button" className="mini-week-stick is-before" aria-label={`قبلها · ${toClock(spot.before.start)}`} title={`قبلها · ${toClock(spot.before.start)}`}
