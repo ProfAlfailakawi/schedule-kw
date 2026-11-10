@@ -37,7 +37,9 @@ check(completeSectionEnd(three, ["fthursday"], "09:00", 50) === "11:50", "N0 ا�
 check(completeSectionEnd(three, ["fsunday", "ftuesday", "fthursday"], "09:00", 50) === "09:50", "N0 نمط الأيام الثلاثة يبقي اللقاء 50 دقيقة");
 check(completeSectionEnd(four, ["fmonday"], "09:00", 110) === "12:50", "N0 اليوم الواحد لمقرر 4 ساعات يكمل كتلته");
 check(completeSectionEnd(four, ["fsunday", "ftuesday"], "09:00", 50) === "10:50", "N0 الأحد والثلاثاء لمقرر 4 ساعات يحسبان 110 دقائق لكل يوم");
-check(completeSectionEnd(three, ["fsunday", "ftuesday"], "09:00", 50) === "", "N0 الأحد والثلاثاء وحدهما غير معتمدين لمقرر 3 ساعات");
+check(completeSectionEnd(three, ["fsunday", "ftuesday"], "09:00", 50) === "10:20", "N0 الأحد والثلاثاء لمقرر 3 ساعات يحسبان 80 دقيقة لكل يوم");
+check(completeSectionEnd(three, ["fmonday", "fwednesday"], "09:00", 50) === "10:20", "N0 الاثنين والأربعاء لمقرر 3 ساعات يحسبان 80 دقيقة لكل يوم");
+check(completeSectionEnd(three, ["ftuesday", "fthursday"], "09:00", 50) === "10:20", "N0 الثلاثاء والخميس لمقرر 3 ساعات يحسبان 80 دقيقة لكل يوم");
 
 /* N1 */
 const board = [
@@ -60,7 +62,7 @@ check(regulationEnd(three, ["ftuesday"], "13:00", 0) === "15:50", "N2 أي يو�
 check(regulationEnd(four, ["fsunday", "ftuesday"], "08:00") === "09:50", "N2 أربع ساعات أحد·ثلاثاء ← +110");
 check(patternEnd(three, ["fmonday"], "8:00") === "10:50", "N2 بدايةٌ بلا صفرٍ أوّل (8:00) تُقرأ");
 check(regulationEnd(field, ["fmonday"], "08:00") === "" && patternMinutes(field, ["fmonday"]) === null, "N2 ساعاتٌ لا نمطَ لها في المكتبة: لا نهايةَ تُخترع");
-check(regulationEnd(three, ["fsunday", "ftuesday"], "08:00") === "", "N2 أيامٌ ليست نمطاً: لا نهايةَ تُخترع (حكمُ الأيام يقوله فحصٌ آخر)");
+check(regulationEnd(three, ["fsunday", "ftuesday"], "08:00") === "09:20", "N2 الأحد والثلاثاء نمط 3 ساعات معتمد");
 
 /* N3 */
 const wrong = patternLengthIssue(three, ["fmonday"], "08:00", "08:30");
@@ -68,7 +70,7 @@ check(/لا توافق النمط المعتمد/.test(wrong) && /10:50/.test(wr
 check(patternLengthIssue(three, ["fmonday"], "08:00", "10:50") === "", "N3 اثنين 08:00–10:50 سليم");
 check(patternLengthIssue(three, ["fmonday"], "08:00", "09:20") === "", "N3 اثنين 80د (لقاءٌ من نمطٍ معتمد) سليم");
 check(/09:20/.test(patternLengthIssue(three, ["fmonday", "fwednesday"], "08:00", "09:15")), "N3 اثنين·أربعاء 75د يمنع والنهاية 09:20");
-check(patternLengthIssue(three, ["fsunday", "ftuesday"], "08:00", "09:15") === "", "N3 أيامٌ ليست نمطاً: يقولها فحصُ الأيام لا فحصُ الطول (سطرٌ واحد)");
+check(/09:20/.test(patternLengthIssue(three, ["fsunday", "ftuesday"], "08:00", "09:15")), "N3 الأحد والثلاثاء المعتمدان يصححان نهاية 75 دقيقة إلى 80 دقيقة");
 check(patternLengthIssue(field, ["fmonday"], "08:00", "09:15") === "", "N3 ساعاتٌ لا نمطَ لها: لا منع");
 
 /* N4 */
@@ -126,9 +128,9 @@ const pageFns = new Function(`${REQUEST_LENGTH_SCRIPT}; return { meetingSlots };
 check(JSON.stringify(pageFns.meetingSlots(["fmonday", "fwednesday"], "08:00", lengthPatternsForHours(3).map(p => ({ days: p.days, minutes: p.minutes })), own)) === JSON.stringify(meetingSlots(["fmonday", "fwednesday"], "08:00", lengthPatternsForHours(3), own))
   && pageFns.meetingSlots(["fmonday", "fwednesday"], "09:30", lengthPatternsForHours(3), own)[0].end === "10:50", "N7 صفحةُ الأستاذ تحسب ما يحسبه الخادم");
 /* N8 — المسارات التي تنقل موعداً تحسب النهاية بنفسها (أقربُ طولٍ معتمد)، والنموذجُ يبقى على الكتلة. */
-check(regulationEnd(three, ["fthursday"], "18:00", 75, true) === "18:50" && regulationEnd(three, ["fmonday"], "08:00", 75, true) === "09:20", "N8 نقلُ لقاءٍ قديم (75د): أقربُ طولٍ معتمد لليوم (خميس 50، اثنين 80)");
+check(regulationEnd(three, ["fthursday"], "18:00", 75, true) === "19:20" && regulationEnd(three, ["fmonday"], "08:00", 75, true) === "09:20", "N8 نقلُ لقاءٍ قديم (75د): أقربُ طولٍ معتمد لليوم 80د");
 check(regulationEnd(three, ["fmonday"], "08:00", 30) === "10:50", "N8 والنموذج (بلا nearest) يبقى على الكتلة: «اثنين · 170د» ← 10:50");
-check(await fitPatternEnd({ ...scope, fsunday: false, fmonday: false, ftuesday: false, fwednesday: false, fthursday: true, fstarttime: "18:00", fendtime: "19:15" }) === "18:50", "N8 الخادم: اعتمادُ نقلٍ إلى الخميس 18:00 يكتب 18:50");
+check(await fitPatternEnd({ ...scope, fsunday: false, fmonday: false, ftuesday: false, fwednesday: false, fthursday: true, fstarttime: "18:00", fendtime: "19:15" }) === "19:20", "N8 الخادم: اعتمادُ نقلٍ إلى الخميس 18:00 يكتب 19:20");
 check(await fitPatternEnd({ ...scope, fsunday: false, fmonday: true, ftuesday: false, fwednesday: true, fthursday: false, fstarttime: "09:30", fendtime: "10:45" }) === "10:50", "N8 الخادم: اثنين·أربعاء 75د ← 80د");
 /* N9 — كرت الأستاذ: نقلُ لقاء الخميس 75د لمقرّر أربع ساعات إلى 15:00 ← أقربُ طولٍ معتمد (110د: 16:50) لا الكتلة 230د، والصفحةُ مثله. */
 const thu75 = { days: ["fthursday"] as any, minutes: 75, start: "14:00" };

@@ -44,7 +44,7 @@ check(daysFitLibrary(3, ["fsunday", "ftuesday"], false) === true && daysFitLibra
 check(daysApprovedForHours(0, ["fsunday"]) === null && daysApprovedForHours(9, ["fsunday"]) === null, "P2 ساعاتٌ مجهولة أو بلا نمط في المكتبة: لا يُحكم");
 
 const sunday = libraryLengthsForDay("fsunday"), monday = libraryLengthsForDay("fmonday");
-check(sunday.has(50) && sunday.has(110) && sunday.has(170) && !sunday.has(75) && !sunday.has(80), "P3 الأحد: 50 و110 و170 — لا 75 ولا 80");
+check(sunday.has(50) && sunday.has(80) && sunday.has(110) && sunday.has(170) && !sunday.has(75), "P3 الأحد: 50 و80 و110 و170 — لا 75");
 check(monday.has(80) && monday.has(110) && !monday.has(75), "P3 الاثنين: 80 و110 — لا 75");
 
 const habit = (minutes: number) => ({ minute: 480, samples: 9, share: 0.8, ladder: [], starts: [], durationMinutes: minutes, durationSamples: 9, durationShare: 0.8 } as any);

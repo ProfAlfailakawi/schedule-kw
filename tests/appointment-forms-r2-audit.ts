@@ -72,7 +72,7 @@ const theory3 = { CourseHours: 3, CourseTeachingMode: "theoretical" };
   const sttDrift = completeRegulation(theory3, ["fsunday", "ftuesday", "fthursday"], "08:00");
   check(sttDrift?.end === "08:50", "R3 أحد·ثلاثاء·خميس × 80د (المسار القديم «5 ساعات») يُكمَل إلى 50د", sttDrift);
   check(completeRegulation({}, ["fsunday"], "08:00") === null && completeRegulation(theory3, [], "08:00") === null, "R4 بلا ساعات أو بلا أيام: لا نمط يُخترع");
-  check(bestRegulationChoice(theory3, ["fsunday", "ftuesday"])?.days.join("+") === "fsunday+ftuesday+fthursday", "R5 «طبّق النمط المعتمد» على أيامٍ خارج النمط → الأنسب الذي يضم أول يوم");
+  check(bestRegulationChoice(theory3, ["fsunday", "ftuesday"])?.days.join("+") === "fsunday+ftuesday", "R5 الأحد والثلاثاء يبقيان نمطاً معتمداً لمقرر 3 ساعات");
   check(regulationFit(theory3, ["fsunday", "ftuesday", "fthursday"], "08:00", "09:20") === "off", "R6 المدة بيد المستخدم خارج النمط = «خارج اللائحة»");
   const editor = read("src/components/Schedules.tsx"), quick = read("src/components/QuickCreatePopover.tsx");
   check(/completeRegulation\(formCourse, formDays, String\(form\.fstarttime \|\| ""\), \{ fresh: daysSeeded\.current(, usual)?(, minutes: formSpan, keepDays)? \}\)/.test(editor)
@@ -137,8 +137,7 @@ const theory3 = { CourseHours: 3, CourseTeachingMode: "theoretical" };
   check(options[0].spot.days[0] === "fsunday" && options.at(-1)!.spot.days[0] === "fmonday", "S5 مرتبةٌ بالأسبوع");
   /* مراجعة PR #299: شريحةٌ خارج نمط المقرر كانت تُطبَّق ثم يعيد الإكمالُ كتابتها (يومٌ لم يُفحص). */
   const offPattern = teacherLectures([row(5, ["fsunday", "ftuesday"], "10:00", "10:50")], 7, 1, 0, 1);
-  check(lectureStickOptions(offPattern, [], theory3, { start: 8 * 60, end: 20 * 60 }, { minutes: 50 }).length === 0
-    && !fitsCoursePattern(theory3, { days: ["fsunday", "ftuesday"], start: 600, end: 650 }) && fitsCoursePattern({}, { days: ["fsunday", "ftuesday"], start: 600, end: 650 }),
+  check(!fitsCoursePattern(theory3, { days: ["fsunday", "ftuesday"], start: 600, end: 650 }) && fitsCoursePattern({}, { days: ["fsunday", "ftuesday"], start: 600, end: 650 }),
     "S8 لا شريحة خارج أنماط المقرر المعتمدة (أحد·ثلاثاء 50د لمقرر 3 ساعات) — ما يُعرض هو ما يُطبَّق ويُفحص");
   check(/setTimingOverride\(!fitsCoursePattern\(formCourse, \{ days: pick\.days, start: mins\(pick\.start\), end: mins\(pick\.end\) \}\)\)/.test(read("src/components/Schedules.tsx")),
     "S9 «قبلها/بعدها» من جدول الأستاذ خارج النمط تبقى تجاوزاً صريحاً لا يُعاد كتابته");

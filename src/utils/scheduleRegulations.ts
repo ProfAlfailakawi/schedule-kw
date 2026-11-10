@@ -238,6 +238,14 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
     note: "ثلاث فترات موزعة على لقاءين: 80 دقيقة في الاثنين و80 دقيقة في الأربعاء."
   },
   {
+    hours: 3, id: "3h-sun-tue", days: ["fsunday", "ftuesday"], minutesPerDay: [80, 80], weeklyMinutes: 160,
+    note: "ثلاث فترات موزعة على لقاءين: 80 دقيقة في الأحد و80 دقيقة في الثلاثاء."
+  },
+  {
+    hours: 3, id: "3h-tue-thu", days: ["ftuesday", "fthursday"], minutesPerDay: [80, 80], weeklyMinutes: 160,
+    note: "ثلاث فترات موزعة على لقاءين: 80 دقيقة في الثلاثاء و80 دقيقة في الخميس."
+  },
+  {
     hours: 4, id: "4h-mon-wed", days: ["fmonday", "fwednesday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
     note: `أربع فترات تدريسية: فترتان من ${countOf(50, AR.minute)} مع فاصل ${countOf(10, AR.minute)} في الاثنين ومثلهما في الأربعاء (${countOf(110, AR.minute)} زمنية لكل لقاء).`
   },
