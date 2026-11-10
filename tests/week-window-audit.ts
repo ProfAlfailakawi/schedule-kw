@@ -88,7 +88,7 @@ const practical3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const lone = drawnPlacement({}, "fthursday", 10 * 60, 11 * 60, { span });
   check(lone?.days.join() === "fthursday", "S5 وإلا اليوم وحده", lone);
   const offPattern = drawnPlacement(theory3, "ftuesday", 10 * 60, 10 * 60 + 40, { span, draftDays: ["fsunday", "ftuesday"] });
-  check(offPattern?.days.join() === "fsunday,ftuesday" && offPattern.minutes === 50, "S6 أيامٌ اختارها المستخدم خارج النمط تبقى، بمدة اللائحة لذلك اليوم", offPattern);
+  check(offPattern?.days.join() === "fsunday,ftuesday" && offPattern.minutes === 80, "S6 زوج الأحد والثلاثاء لمقرر ثلاث ساعات يأخذ 80 دقيقة", offPattern);
   const block = drawnPlacement(theory3, "fwednesday", 8 * 60, 8 * 60, { span, draftDays: ["fwednesday"] });
   check(block?.days.join() === "fwednesday" && block.minutes === 170, "S7 كتلة اليوم الواحد في الموعد الجاري: مدتها هي (170د)", block);
   const lab = drawnPlacement(practical3, "fwednesday", 8 * 60, 8 * 60, { span });

@@ -292,6 +292,32 @@
      "note": "ثلاث فترات موزعة على لقاءين: 80 دقيقة في الاثنين و80 دقيقة في الأربعاء."
     },
     {
+     "id": "3h-sun-tue",
+     "days": [
+      "fsunday",
+      "ftuesday"
+     ],
+     "minutesPerDay": [
+      80,
+      80
+     ],
+     "weeklyMinutes": 160,
+     "note": "ثلاث فترات موزعة على لقاءين: 80 دقيقة في الأحد و80 دقيقة في الثلاثاء."
+    },
+    {
+     "id": "3h-tue-thu",
+     "days": [
+      "ftuesday",
+      "fthursday"
+     ],
+     "minutesPerDay": [
+      80,
+      80
+     ],
+     "weeklyMinutes": 160,
+     "note": "ثلاث فترات موزعة على لقاءين: 80 دقيقة في الثلاثاء و80 دقيقة في الخميس."
+    },
+    {
      "id": "3h-block",
      "days": [
       "fwednesday"

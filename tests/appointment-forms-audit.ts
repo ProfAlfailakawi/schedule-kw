@@ -35,7 +35,7 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const manual = pickDay(theory3, ["fsunday", "ftuesday"], "fthursday", true);
   check(join(manual.days) === "fsunday+ftuesday+fthursday", "B1: الاختيار اليدوي يُضاف يوماً يوماً");
   const unpick = pickDay(theory3, ["fsunday", "ftuesday", "fthursday"], "fthursday", false);
-  check(join(unpick.days) === "fsunday+ftuesday" && unpick.applied === null, "B1: إزالة يوم تترك الباقي ويُعلَّم خارج اللائحة");
+  check(join(unpick.days) === "fsunday+ftuesday", "B1: إزالة يوم تترك زوج الأحد والثلاثاء المعتمد");
   check(regulationFit(theory3, ["fsunday", "ftuesday"], "08:00", "08:50") === "off", "B1: ⚠️ يومان لمقرر 3 ساعات خارج اللائحة");
   check(regulationFit(theory3, ["fmonday", "fwednesday"], "08:00", "09:20") === "fits", "B1: الاثنين·الأربعاء 80د يطابق");
   check(regulationFit(theory3, ["fmonday", "fwednesday"], "08:00", "09:00") === "off", "B1: المدة اليدوية المختلفة ⚠️ لا تُمنع");
@@ -134,7 +134,7 @@ check(/instructorId: 0,\s*room: String\(seed\.roomCode \?\? ""\)/.test(editor), 
 check(/companionRoomId: form\.companionRoomId \|\| ""/.test(editor) && /buildingId: form\.buildingId, roomId: form\.roomId, locationStatus: form\.locationStatus, companionRoomId/.test(editor), "A3: مفتاح الفحص الحيّ يشمل المرفق والمبنى والقاعة الرسمية");
 check(/buildingChanged\?\{companionRoomId:"",companionRoomLabel:""\}:\{\}/.test(editor), "A3: المرفق لا يُمحى بتطبيع الموقع، بل بتغيّر المبنى فقط");
 check(!/form\.companionRoomId\]\);/.test(companionPicker) && /chosenRef\.current/.test(companionPicker), "A7: منتقي المرفق لا يعيد الجلب عند كل ربط");
-check(/editorVerdict\.blockers\.length\?<div className="editor-validation-strip"/.test(editor) && /<AppointmentChecksPanel\s+verdict=\{editorVerdict\}/.test(editor) && /submitDisabled=\{Boolean\(!selectedFormDays\.length\|\|!editorVerdict\.canSave(\|\|studioMissing\.length>0)?\)\}/.test(editor), "A6: الشريط واللوحة وزرّ الحفظ من editorVerdict وحده");
+check(/editorVerdict\.blockers\.length\?<div className=/.test(editor) && /<AppointmentChecksPanel\s+verdict=\{editorVerdict\}/.test(editor) && /submitDisabled=\{Boolean\(!selectedFormDays\.length\|\|!editorVerdict\.canSave(\|\|studioMissing\.length>0)?\)\}/.test(editor), "A6: الشريط واللوحة وزرّ الحفظ من editorVerdict وحده");
 check(/checkCache\.current\.get\(checkPayloadKey\)/.test(editor) && /formChanged \? 160 : 600/.test(editor), "A7: ذاكرة فحص لكل قيم + إعادة فحص صامتة عند تحديث الجدول");
 const checkRoute = server.slice(server.indexOf('app.post("/api/schedules/check-conflicts"'), server.indexOf('app.post("/api/schedules/check-conflicts"') + 2200);
 check(/await Promise\.all\(\[/.test(checkRoute) && /scheduleConflicts\(req,row/.test(checkRoute), "A7: خطوات الفحص على الخادم متوازية");
@@ -147,7 +147,7 @@ check(/fetchAlternatives\(/.test(editor) && !/\/api\/intelligence\/conflict-solu
 check(/fetchSuggestions\(suggestionBody\(payload/.test(quick) && /fetchSuggestions\(suggestionBody\(\{ \.\.\.form/.test(editor), "A8: البطاقة السريعة والمحرر يسألان الباب نفسه");
 check(/suggestionDuration\(\)/.test(editor) && /regulationChoiceFor\(courseById\.get/.test(editor), "A8: مدة «وقت وقاعة» من نمط اللائحة لا 60 دقيقة ثابتة");
 check(/chooseFormDay\(d\.key as RegDayKey, e\.target\.checked\)/.test(editor) && /endForStart\(p, start\)/.test(editor) && /<RegulationPatternChips/.test(editor), "B1: المحرر الكامل — اليوم يكمل النمط والبداية تحسب النهاية + شرائح");
-check(/pickDay\(course, \[\], seed\.day, true\)/.test(quick) && /<RegulationPatternChips compact/.test(quick) && /regulationEnd\(course, result\.days, current\.start, span\)/.test(quick), "B1: «موعد جديد» السريع — المقرر يكمل النمط والنهاية");
+check(/pickDay\(course, \[\], seed\.day, true\)/.test(quick) && /<RegulationPatternChips compact/.test(quick) && /completeSectionEnd\(course, result\.days, current\.start, span\)/.test(quick), "B1: «موعد جديد» السريع — المقرر يكمل النمط والنهاية");
 check(/\(draft\.days\?\.length \? draft\.days : \[quick\.day\]\)\.forEach/.test(editor) && /companionRoomId: draft\.companionRoomId \|\| ""/.test(editor), "B1/A3: الحفظ السريع يحفظ كل أيام النمط والمرفق المرافق");
 check(/appointmentVerdict\(\{/.test(quick) && /qc-checks/.test(quick), "A6: البطاقة السريعة تقرأ الحكم الواحد");
 check(/room-suggest-best/.test(cards) && /الأنسب/.test(cards) && /room-suggest-code/.test(cards) && /room-suggestion-time/.test(cards), "G1: رمز القاعة كبير + شريحة وقت + «الأنسب»");

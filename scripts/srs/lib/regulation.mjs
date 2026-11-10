@@ -66,7 +66,7 @@ function quotedFigures(s) {
     ["أدنى حصة صباحية", s.periodBalance.morningShare.min, 50],
     ["أعلى حصة صباحية", s.periodBalance.morningShare.max, 70],
     ["نهاية الفترة الصباحية", s.periodBalance.morning.to, "14:00"],
-    ["عدد أنماط المكتبة", s.library.reduce((n, g) => n + g.patterns.length, 0), 17],
+    ["عدد أنماط المكتبة", s.library.reduce((n, g) => n + g.patterns.length, 0), 19],
   ];
 }
 

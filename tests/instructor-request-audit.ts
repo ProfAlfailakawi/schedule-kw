@@ -389,7 +389,7 @@ check(judgeRequest(ask({ action: "delete" }), context({
   check(dropped.sendable && dropped.computedEnd === "10:50", "ثلاثُ ساعاتٍ في يومٍ واحد: كتلةُ اللائحة ١٧٠ د تغطّيها (08:00 ← 10:50)", dropped);
   const twoShort = judgeRequest({ rowId: 32, action: "change", AdCourseId: 100, days: ["fsunday", "ftuesday"], start: "08:00" },
     context({ courses: new Map([[100, course(100, 3)]]), allRows: [three], instructorRowsAfter: [three] }));
-  check(!twoShort.sendable && twoShort.reasons.some(r => r.source === "shape" && /ساعات/.test(r.text)), "ويومان بخمسين دقيقة لا يغطّيان ثلاث ساعات: يُمنع", twoShort.reasons);
+  check(twoShort.sendable && twoShort.computedEnd === "09:20", "زوج الأحد والثلاثاء لمقرر ثلاث ساعات يكتمل تلقائياً إلى 80 دقيقة", twoShort.reasons);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

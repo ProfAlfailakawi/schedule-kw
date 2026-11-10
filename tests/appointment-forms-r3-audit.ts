@@ -44,7 +44,7 @@ const shape = (value: { days: string[]; end: string } | null) => value ? `${valu
   check(shape(completeRegulation(theory3, [], "08:00", { usual })) === "fsunday+ftuesday+fthursday 08:50", "A8 المقرر + البداية وحدهما → الأيام والنهاية تكتملان");
   check(completeRegulation(theory3, [], "", { usual }) === null, "A9 المقرر وحده (بلا بداية ولا يوم) لا يختار أياماً");
   const habit = usualRegulationChoice(theory3, [{ days: ["fsunday", "ftuesday"], count: 9 }, { days: ["fmonday", "fwednesday"], count: 2 }, { days: ["fmonday", "fwednesday"] }]);
-  check(habit?.days.join("+") === "fmonday+fwednesday" && habit.minutes === 80, "A10 عادة القسم تُقدَّم إن كانت نمطاً معتمداً، وتُهمل عادةٌ خارج اللائحة (أحد·ثلاثاء لثلاث ساعات)", habit);
+  check(habit?.days.join("+") === "fsunday+ftuesday" && habit.minutes === 80, "A10 عادة الأحد والثلاثاء المعتمدة تُقدَّم لمقرر ثلاث ساعات", habit);
   const lab = usualRegulationChoice(lab3);
   check(lab?.days.length === 1 && lab.minutes === 170, "A11 مقررٌ عملي بلا عادة: كتلةٌ واحدة 170د", lab);
   check(usualRegulationChoice({}) === null && completeRegulation({}, [], "08:00", { usual: usualRegulationChoice({}) }) === null, "A12 مقررٌ بلا ساعات: لا شيء يُكمل");

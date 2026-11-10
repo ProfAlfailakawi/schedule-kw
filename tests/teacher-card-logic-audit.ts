@@ -43,7 +43,7 @@ type Day = typeof DAYS[number];
   check(meetingMinutes(["fmonday", "fwednesday"], p5).join() === "170,110", "والنمطُ المختلف الأطوال المعتمد يبقى كما هو (١٧٠/١١٠)");
   const twin: OwnMeeting = { days: ["fsunday", "ftuesday"], minutes: 75 };
   /* قرار المالك 2026-11-08: الطولُ القائم يُحمل إن كان معتمداً في المكتبة لهذه الأيام، وإلا فالنهايةُ من النمط. */
-  check(meetingMinutes(["ftuesday", "fsunday"], p3, twin).join() === "50,50", "الأيامُ نفسُها والوقتُ وحده تغيّر: طولٌ قديم خارج المكتبة (75) لا يُحمل");
+  check(meetingMinutes(["ftuesday", "fsunday"], p3, twin).join() === "80,80", "الأيامُ نفسُها والوقتُ وحده تغيّر: طولٌ قديم خارج المكتبة (75) لا يُحمل");
   check(meetingMinutes(["fmonday", "fwednesday"], p3, { days: ["fmonday", "fwednesday"], minutes: 80 }).join() === "80,80", "والطولُ المعتمد القائم (80) يُحمل");
   check(meetingMinutes(["fmonday"], p3, { days: ["fthursday"], minutes: 75 }).join() === "80", "ولقاءُ يومٍ واحد بطولٍ خارج المكتبة يُنقل بأقرب طولٍ معتمد لليوم الجديد (اثنين 80)");
   check(meetingMinutes(["fmonday"], p3, { days: ["fthursday"], minutes: 80 }).join() === "80", "ولقاءُ يومٍ واحد بطولٍ معتمدٍ لليوم الجديد (اثنين 80) يحمل طولَه");

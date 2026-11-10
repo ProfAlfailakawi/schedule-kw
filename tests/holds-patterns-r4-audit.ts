@@ -43,7 +43,7 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   check(regulationFit(theory5, ["fmonday", "fwednesday"], "08:00", "10:50") === "fits", "19 نمط الخمس ساعات (170+110) معتمد في المكتبة فلا يُعلَّم");
   check(regulationFit(theory3, ["fsunday"], "08:00", "09:00") === "off", "19 طولٌ خارج المكتبة ما زال يُنبَّه إليه");
   const editor = read("src/components/Schedules.tsx");
-  check(/const library = regulationEnd\(course, daysOfRow\(row as any\), start, span\)/.test(editor) && /pickDay\(formCourse, formDays, day, checked, formSpan\)/.test(editor) && /minutes: formSpan, keepDays/.test(editor), "19 المحرر يمرّر الطول القائم في كل مسار");
+  check(/const library = completeSectionEnd\(course, daysOfRow\(row as any\), start, span\)/.test(editor) && /pickDay\(formCourse, formDays, day, checked, formSpan\)/.test(editor) && /minutes: formSpan, keepDays/.test(editor), "19 المحرر يكمل النهاية ويبقي الطول القائم لمسار اختيار الأيام");
   check(/regulationEnd\(courseById\.get\(Number\(row\.AdCourseId\)\) as any, days, start, span\)/.test(read("src/components/ImportPreviewTable.tsx")), "19 معاينة الاستيراد تحفظ الطول");
   check(/pickDay\(selectedCourse, chosenDays, day, checked, minutesOf\(draft\.end\) - minutesOf\(draft\.start\)\)/.test(read("src/components/QuickCreatePopover.tsx")), "19 الموعد السريع يحفظ الطول");
 }
