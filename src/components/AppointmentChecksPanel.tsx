@@ -60,6 +60,20 @@ function hoursVisual(text: string): { label: string; current: string; allowed: s
   return under ? { label: "ساعات الشعبة ناقصة", current: under[1], allowed: under[2], unit: "د" } : null;
 }
 
+const patternBlock = (detail: VerdictDetail) => detail.blocks && /ليست نمطاً معتمداً|ليس نمطاً معتمداً|النمط غير معتمد|خارج اللائحة/.test(detail.text);
+
+function shownDetails(check: VerdictCheck): VerdictDetail[] {
+  if (check.kind !== "time" || !check.details.some(patternBlock)) return check.details;
+  let patternShown = false;
+  return check.details.filter(detail => {
+    if (!detail.blocks && /خارج المعتاد تاريخياً/.test(detail.text)) return false;
+    if (!patternBlock(detail)) return true;
+    if (patternShown) return false;
+    patternShown = true;
+    return true;
+  });
+}
+
 export default function AppointmentChecksPanel({
   verdict, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, onOpenReach, reachBusy = false, missing = [], saveLabel = "موافق", children,
 }: {
@@ -121,11 +135,15 @@ export default function AppointmentChecksPanel({
           {open ? <details open={check.state === "block" || (Boolean(onOpenReach) && check.details.some(detail => isReachNote(detail.text)))}>
             <summary aria-label={`${check.label}: ${check.word}`}>{tile}</summary>
             <ul className="checks-details">
-              {check.details.map(detail => <li key={detail.id} className={detail.blocks ? "is-block" : "is-warn"}>
+              {shownDetails(check).map(detail => <li key={detail.id} className={detail.blocks ? "is-block" : "is-warn"}>
                 {renderConflict && detail.conflict ? renderConflict(detail) : hoursVisual(detail.text) ? <p className="checks-hours" aria-label={detail.text}>
                   <Clock3 aria-hidden="true" /><b>{hoursVisual(detail.text)?.label}</b>
                   <bdi dir="ltr">{hoursVisual(detail.text)?.current}/{hoursVisual(detail.text)?.allowed} <small>{hoursVisual(detail.text)?.unit}</small></bdi>
+                </p> : patternBlock(detail) ? <p className="checks-hours checks-pattern" aria-label={detail.text} title={detail.text}>
+                  <Ruler aria-hidden="true" /><b>نمط الأيام غير معتمد</b>
+                  {/مقرر (\d+) ساعات/.exec(detail.text)?.[1] ? <bdi dir="ltr">{/مقرر (\d+) ساعات/.exec(detail.text)?.[1]} <small>س</small></bdi> : null}
                 </p> : <p><b>{detail.text}</b>{detail.detail ? <small>{detail.detail}</small> : null}</p>}
+                {patternBlock(detail) && detail.text.length > 110 ? <details className="checks-pattern-more"><summary>الأنماط المعتمدة</summary><p>{detail.text}</p></details> : null}
                 {onApplyPattern && isPatternDetail(detail.text) ? <button type="button" className="checks-alt checks-apply-pattern"
                   data-guide-ignore="يعيد الأيام والنهاية إلى النمط المعتمد لساعات المقرر؛ لا يحفظ شيئاً"
                   onClick={onApplyPattern}><Ruler aria-hidden="true" />طبّق النمط</button> : null}
