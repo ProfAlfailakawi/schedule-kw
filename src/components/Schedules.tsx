@@ -94,7 +94,7 @@ import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
-import { bestRegulationChoice, completeRegulation, endIsDeliberate, patternLengthIssue, pickDay, sameScheduleShape, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, completeRegulation, completeSectionEnd, endIsDeliberate, patternLengthIssue, pickDay, sameScheduleShape, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
 import {
@@ -4143,7 +4143,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const endForStart = (row: Partial<FSchedule>, start: string) => {
     const course = courseById.get(Number(row.AdCourseId || 0));
     const span = row.fstarttime && row.fendtime ? mins(String(row.fendtime)) - mins(String(row.fstarttime)) : 0;
-    const library = regulationEnd(course, daysOfRow(row as any), start, span);
+    const library = completeSectionEnd(course, daysOfRow(row as any), start, span);
     if (library) return library;
     /* موعدٌ لا نمطَ يقرؤه (لقاءٌ منفرد مثلاً) يبقى طولُه: البدايةُ تنقله ولا تعيد تشكيله. */
     return span > 0 && regulationHours(course) > 0 ? timeFromMins(Math.min(SCHEDULE_CLOCK_END, mins(start) + span)) : autoEndFor(row, start);
@@ -4158,7 +4158,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     usualDismissed.current = result.days.length ? "" : `${Number(form.AdCourseId) || 0}|${form.fstarttime || ""}`;
     if (result.applied && checked) flashAutofill();
     /* أيامٌ لا تطابق نمطاً لمقررٍ له ساعات = تجاوزٌ متعمَّد؛ وإلا فالإكمال الآلي يبقى حارساً. */
-    setTimingOverride(Boolean(regulationHours(formCourse) && result.days.length && !result.applied));
+    setTimingOverride(Boolean(regulationHours(formCourse) && result.days.length > 1 && !result.applied));
     setRegulationAlternatives(result.alternatives);
     setForm(previous => {
       const next: any = { ...previous };
@@ -4303,6 +4303,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      • الشعبة نفسها أخذت ساعاتها والموعدُ وحده يتّسع ← الخادم يقول الرقم الحرّ التالي، فيُعرض «شعبة جديدة N»
        وسطرٌ قصير يقول السبب. من قصد الإضافة إلى الشعبة القائمة يبقى المنعُ (القاعدة)، و«بديل» يقترح غيره. */
   const editorRegulationBlocked = editorVerdict.blockers.some(item => item.id === "regulation") && regulationHours(formCourse) > 0;
+  const editorUnderHours = editorVerdict.blockers.map(item => /ساعات الشعبة .+ أقل من ساعات المقرر · (\d+)\/(\d+) د/.exec(item.text)).find(Boolean);
   const editorFreshSection = editorVerdict.blockers.map(item => /لشعبة جديدة: (\d+)/.exec(item.text)?.[1] || "").find(Boolean) || "";
   const editorBlockerLine = (text: string) => {
     if (!/لشعبة جديدة: \d+/.test(text)) return text;
@@ -9811,7 +9812,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         const start = e.target.value;
                         /* قرار المالك 2026-11-08: البدايةُ على أي يوم تحسب النهاية من ساعات المقرّر والنمط والأيام دائماً،
                            ولو سبقها تجاوزٌ أو طولٌ قديم (كانت «اثنين · 170د» + 08:00 ← 08:30). ما لا نمطَ له يحفظ طوله. */
-                        const patterned = Boolean(start && regulationEnd(formCourse, formDays, start, formSpan));
+                        const patterned = Boolean(start && completeSectionEnd(formCourse, formDays, start, formSpan));
                         if (patterned) { setTimingOverride(false); flashAutofill(); }
                         /* مسحُ البداية لا يحسب نهايةً من لا شيء (كانت 01:20). */
                         setForm((p) => ({ ...p, fstarttime: start, fendtime: !start ? p.fendtime : patterned ? endForStart(p, start) : timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
@@ -9849,10 +9850,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         const shownEnd = form.fendtime || form.fstarttime || SCHEDULE_DAY_START_TIME;
                         const spanBefore = Math.max(30, mins(shownEnd) - mins(shownStart));
                         const lengthChanged = mins(next.end) - mins(next.start) !== spanBefore;
-                        const patterned = !lengthChanged && Boolean(regulationEnd(formCourse, formDays, next.start, formSpan));
+                        const patterned = Boolean(completeSectionEnd(formCourse, formDays, next.start));
                         if (patterned) { setTimingOverride(false); flashAutofill(); }
-                        if (lengthChanged) setTimingOverride(regulationFit(formCourse, formDays, next.start, next.end) === "off" && regulationHours(formCourse) > 0);
-                        setForm((p) => ({ ...p, fstarttime: next.start, fendtime: lengthChanged || (timingOverride && !patterned) ? next.end : (endForStart(p, next.start) || next.end) }));
+                        if (lengthChanged && !patterned) setTimingOverride(regulationFit(formCourse, formDays, next.start, next.end) === "off" && regulationHours(formCourse) > 0);
+                        setForm((p) => ({ ...p, fstarttime: next.start, fendtime: patterned ? (completeSectionEnd(formCourse, formDays, next.start) || next.end) : next.end }));
                       }}
                       onClose={() => setTimeCounterOpen(false)}
                     />
@@ -9894,15 +9895,23 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </div>
                 </div>
                   </div>
-                  {editorVerdict.blockers.length?<div className="editor-validation-strip" role="alert">
-                    <X aria-hidden="true" className="appt-inline-mark" />
-                    <span className="appt-inline-text">{editorBlockerLine(editorVerdict.blockers[0].text)}</span>
+                  {editorVerdict.blockers.length?<div className={`editor-validation-strip${editorUnderHours ? " is-under-hours" : ""}`} role="alert">
+                    {editorUnderHours ? <>
+                      <Timer aria-hidden="true" className="appt-inline-mark" />
+                      <span className="appt-inline-text">ساعات الشعبة ناقصة</span>
+                      <bdi className="appt-hours-figure" dir="ltr">{editorUnderHours[1]}<span>/</span>{editorUnderHours[2]} <small>د</small></bdi>
+                    </> : <><X aria-hidden="true" className="appt-inline-mark" />
+                      <span className="appt-inline-text">{editorBlockerLine(editorVerdict.blockers[0].text)}</span></>}
                     {editorVerdict.blockers.length > 1 ? <button type="button" className="appt-inline-more" onClick={() => setStudioChecksOpen(true)}
                       data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً"><bdi dir="ltr">+{editorVerdict.blockers.length - 1}</bdi></button> : null}
                     {editorFreshSection ? <button type="button" className="appt-inline-alt is-fix" onClick={useFreshSection}
                       data-guide-ignore="يغيّر رقم الشعبة إلى الرقم الحرّ التالي لهذا المقرر فيزول مانع الساعات؛ لا يحفظ شيئاً"><Plus aria-hidden="true" />شعبة جديدة <bdi dir="ltr">{editorFreshSection}</bdi></button> : null}
                     {editorRegulationBlocked ? <button type="button" className="appt-inline-alt is-fix" onClick={applyApprovedPattern}
                       data-guide-ignore="يعيد الأيام والنهاية إلى النمط المعتمد لساعات المقرر؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />طبّق النمط</button> : null}
+                    {editorUnderHours ? <button type="button" className="appt-inline-alt is-fix" onClick={() => {
+                      const end = completeSectionEnd(formCourse, formDays, String(form.fstarttime || ""));
+                      if (end) { setTimingOverride(false); setForm(previous => ({ ...previous, fendtime: end })); flashAutofill(); }
+                    }} data-guide-ignore="يكمل نهاية الموعد وفق ساعات المقرر والأيام المختارة؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />أكمل النمط</button> : null}
                     <button type="button" className="appt-inline-alt" onClick={() => goToAlternatives()} disabled={altBusy}
                       data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً"><WandSparkles aria-hidden="true" />{altBusy ? "…" : "بديل"}</button>
                   </div>:null}

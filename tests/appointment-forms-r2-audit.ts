@@ -81,8 +81,8 @@ const theory3 = { CourseHours: 3, CourseTeachingMode: "theoretical" };
   check(/timingOpenedKey\.current = timingKeyOf\(values\)/.test(editor) && /key === timingOpenedKey\.current\) return/.test(editor), "R9 «تعديل» لا يغيّر الموعد المحفوظ عند فتحه");
   check(/const lengthChanged = mins\(next\.end\) - mins\(next\.start\) !== spanBefore/.test(editor) && /setTimingOverride\(regulationHours\(formCourse\) > 0 && \(?regulationFit\(/.test(editor),
     "R10 عجلة الوقت: الساعة تعيد النهاية إلى النمط، و«المدة» أو النهاية باليد تجاوزٌ متعمَّد");
-  check(/const lengthChanged = minutesOf\(next\.end\) - minutesOf\(next\.start\) !== minutesOf\(draft\.end\) - minutesOf\(draft\.start\)/.test(quick)
-    && !/onChange=\{\(next\) => \{ timeEdited\.current = true;/.test(quick), "R11 «موعد جديد» السريع: تحريك الساعة لم يعد يُطفئ الإكمال اللائحي");
+  check(/completeSectionEnd\(selectedCourse, chosenDays, next\.start\)/.test(quick)
+    && !/onChange=\{\(next\) => \{ timeEdited\.current = true;/.test(quick), "R11 «موعد جديد» السريع: البداية والمدة تعيدان النهاية إلى النمط المكتمل");
   check(/onApplyBest=\{patternOverridden \? applyApprovedPattern : undefined\}/.test(editor) && /onApplyPattern=\{patternOverridden \? applyApprovedPattern : undefined\}/.test(editor)
     && /onApplyBest=\{!daysLocked && regulationHours\(selectedCourse\) > 0 && fit === "off" \? applyBest : undefined\}/.test(quick), "R12 «طبّق النمط المعتمد» بضغطة: الشرائح ولوحة الفحص والبطاقة السريعة");
   check(/طبّق النمط المعتمد/.test(read("src/components/RegulationPatternChips.tsx")) && /isPatternDetail\(detail\.text\)/.test(read("src/components/AppointmentChecksPanel.tsx")), "R13 الزرّ يظهر بجانب «خارج اللائحة» وبند الساعات");

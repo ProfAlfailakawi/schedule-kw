@@ -18,7 +18,7 @@ import type {
 import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/scheduleIntelligence";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { personRecordIds } from "../utils/instructorPickerChoices";
-import { reviewSchedule, effectiveCourseHours, maxWeeklyMinutesFor, sectionWeeklyHours } from "../utils/scheduleRegulations";
+import { reviewSchedule, effectiveCourseHours, maxWeeklyMinutesFor, sectionHoursShortfallText, sectionWeeklyHours } from "../utils/scheduleRegulations";
 import { patternLengthIssue, sameScheduleShape } from "../utils/appointmentRegulation";
 import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
 import { mergeRegistryWithSeed } from "./locationRegistryEngine";
@@ -211,7 +211,7 @@ export async function proposalSchedulePreflight(
     if (total > maxWeeklyMinutesFor(hours)) {
       issues.push(`ساعات هذا المقرر المعتمدة ${countOf(hours, AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total / 50), AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`);
     }
-    if (reading.under) issues.push(`ساعات الشعبة أقل من ساعات المقرر المعتمدة (${countOf(hours, AR.hour)} أسبوعيًا): ${countOf(reading.total, AR.minute)} من ${countOf(reading.required, AR.minute)}. لا يُحفظ موعد ناقص الساعات.`);
+    if (reading.under) issues.push(sectionHoursShortfallText(row.SCode, reading));
     /* النهايةُ من النمط المعتمد، بالحكم الواحد نفسه الذي يقرؤه النموذج والخادم (patternLengthIssue). */
     const lengthIssue = patternLengthIssue({ CourseHours: hours }, PROPOSAL_DAY_KEYS.filter(day => Boolean((row as any)[day])) as any, String(row.fstarttime), String(row.fendtime));
     if (lengthIssue) issues.push(lengthIssue);

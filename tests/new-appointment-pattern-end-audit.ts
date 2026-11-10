@@ -16,7 +16,7 @@ await import("../src/server/core/hallBarter");
 const { scheduleLengthIssue, unapprovedPatternIssue, fitPatternEnd } = await import("../src/server/core/scheduleRules");
 const { Repository, initDatabase } = await import("../src/db/repository");
 const { nextCourseSectionCode } = await import("../src/utils/nextCourseSectionCode");
-const { patternEnd, patternLengthIssue, patternMinutes, regulationEnd, regulationFit } = await import("../src/utils/appointmentRegulation");
+const { completeSectionEnd, patternEnd, patternLengthIssue, patternMinutes, regulationEnd, regulationFit } = await import("../src/utils/appointmentRegulation");
 const { daysFitLibrary } = await import("../src/utils/scheduleRegulations");
 const { appointmentVerdict } = await import("../src/utils/appointmentVerdict");
 const { sameScheduleShape } = await import("../src/utils/appointmentRegulation");
@@ -33,6 +33,11 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
 const three = { CourseHours: 3 };
 const four = { CourseHours: 4 };
 const field = { CourseHours: 9 };
+check(completeSectionEnd(three, ["fthursday"], "09:00", 50) === "11:50", "N0 الخميس وحده يكمل 3 ساعات تلقائياً بدل 09:50");
+check(completeSectionEnd(three, ["fsunday", "ftuesday", "fthursday"], "09:00", 50) === "09:50", "N0 نمط الأيام الثلاثة يبقي اللقاء 50 دقيقة");
+check(completeSectionEnd(four, ["fmonday"], "09:00", 110) === "12:50", "N0 اليوم الواحد لمقرر 4 ساعات يكمل كتلته");
+check(completeSectionEnd(four, ["fsunday", "ftuesday"], "09:00", 50) === "10:50", "N0 الأحد والثلاثاء لمقرر 4 ساعات يحسبان 110 دقائق لكل يوم");
+check(completeSectionEnd(three, ["fsunday", "ftuesday"], "09:00", 50) === "", "N0 الأحد والثلاثاء وحدهما غير معتمدين لمقرر 3 ساعات");
 
 /* N1 */
 const board = [

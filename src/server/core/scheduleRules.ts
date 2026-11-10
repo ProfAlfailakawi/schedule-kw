@@ -14,7 +14,7 @@ import { directoryVisitingIds, termVisitingIds } from "../../utils/liveVisiting"
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
-import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
 import { patternLengthIssue, regulationEnd } from "../../utils/appointmentRegulation";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
 import { AR, countOf } from "../../utils/arabicCount";
@@ -146,7 +146,7 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
        التالي لهذا المقرّر في الفصل والقسم، ويعرضه النموذج زرّاً «شعبة جديدة» (المالك 2026-11-08). */
     const freshCode=reading.others.length&&weeklyLectureMinutes(row,hours)<=maxWeeklyMinutesFor(hours)?nextCourseSectionCode([...scopeRows,row] as any,courseId,Number(row.AdTermId),null):"";
     if(reading.total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(reading.total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}${freshCode&&freshCode!==String(row.SCode||"")?` — لشعبة جديدة: ${freshCode}`:""}`;
-    if(reading.under)return `ساعات الشعبة ${String(row.SCode||"")} أقل من ساعات المقرر المعتمدة (${countOf(hours,AR.hour)} أسبوعيًا): المجموع بعد هذا الموعد ${countOf(reading.total,AR.minute)} من ${countOf(reading.required,AR.minute)}. لا يُحفظ موعد ناقص الساعات؛ أكمِل ساعات الشعبة قبل الحفظ.`;
+    if(reading.under)return sectionHoursShortfallText(row.SCode,reading);
   }
   return null;
 }

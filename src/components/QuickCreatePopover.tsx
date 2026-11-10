@@ -28,7 +28,7 @@ import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } fr
 import PersonChips from "./PersonChips";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
-import { bestRegulationChoice, patternLengthIssue, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, completeSectionEnd, patternLengthIssue, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { byCourseNumber } from "../utils/sheetMembership";
 import SameSlotHint from "./SameSlotHint";
@@ -217,11 +217,11 @@ export default function QuickCreatePopover({
     setDayChoices(result.alternatives);
     /* نمطٌ طُبّق يحسب طولَه؛ وما لم يُطبَّق نمطٌ (يومٌ بقي وحده) يبقى طولُه. */
     const span = result.applied ? undefined : minutesOf(draft.end) - minutesOf(draft.start);
-    const end = timeEdited.current || hasDifferentTimes ? "" : regulationEnd(course, result.days, draft.start, span);
+    const end = hasDifferentTimes ? "" : completeSectionEnd(course, result.days, draft.start, span);
     if (result.applied && (result.days.join("+") !== chosenDays.join("+") || (end && end !== draft.end))) flashAutofill();
     if (!end) return;
     setDraft(current => {
-      const next = regulationEnd(course, result.days, current.start, span);
+      const next = completeSectionEnd(course, result.days, current.start, span);
       return next && next !== current.end ? { ...current, end: next } : current;
     });
   };
@@ -233,6 +233,9 @@ export default function QuickCreatePopover({
     patch(next);
     const course = courses.find(item => Number(item.AdCourseId) === courseId);
     if (!daysLocked && course) applyDays(course, pickDay(course, [], seed.day, true));
+    else if (course && !seed.fixedSlots?.length && !seed.instructorRequestId) {
+      setDraft(current => ({ ...current, end: completeSectionEnd(course, chosenDays, current.start) || current.end }));
+    }
   };
   const toggleDay = (day: DayKey) => {
     if (daysLocked) return;
@@ -267,6 +270,9 @@ export default function QuickCreatePopover({
     if (initialCourseId && !daysLocked) {
       const course = courses.find(item => Number(item.AdCourseId) === Number(initialCourseId));
       if (course) applyDays(course, pickDay(course, [], seed.day, true));
+    } else if (initialCourseId && !seed.fixedSlots?.length && !seed.instructorRequestId) {
+      const course = courses.find(item => Number(item.AdCourseId) === Number(initialCourseId));
+      if (course) setDraft(current => ({ ...current, end: completeSectionEnd(course, chosenDays, current.start) || current.end }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -452,6 +458,8 @@ export default function QuickCreatePopover({
   };
   const dayLabel = chosenDays.map(day => DAY_ORDER.find(item => item.key === day)?.short).filter(Boolean).join("·") || seed.dayLabel;
   const firstBlocker = verdict.blockers[0]?.text;
+  const blockerMessage = error || (blocked || checkFailed ? firstBlocker || liveCheck.error : "");
+  const underHours = /ساعات الشعبة .+ أقل من ساعات المقرر · (\d+)\/(\d+) د/.exec(String(blockerMessage || ""));
 
   /* ── «حارس الزملاء» في البطاقة نفسها: من يبني موعداً معك الآن يُرى، وخانتك محجوزةٌ له دقيقتين ── */
   const placeholderIds = useMemo(() => (instructors as any[]).filter(person => isFacultyPlaceholder(person)).map(person => Number(person.AdInstructorId)), [instructors]);
@@ -617,10 +625,8 @@ export default function QuickCreatePopover({
                   onChange={(next) => {
                     meter?.mark("wheel");
                     /* «المدة» بالعجلة تجاوزٌ متعمَّد؛ أما الساعة والدقيقة فتعيدان النهاية إلى النمط. */
-                    const lengthChanged = minutesOf(next.end) - minutesOf(next.start) !== minutesOf(draft.end) - minutesOf(draft.start);
-                    if (lengthChanged) timeEdited.current = regulationFit(selectedCourse, chosenDays, next.start, next.end) === "off";
-                    /* قرار المالك 2026-11-08: تحريكُ البداية يحسب النهاية من النمط دائماً، ولو سبقه تجاوز. */
-                    const fitted = !lengthChanged ? regulationEnd(selectedCourse, chosenDays, next.start, minutesOf(next.end) - minutesOf(next.start)) : "";
+                    /* عند معرفة المقرر والأيام، النهاية من النمط حتى لو حملت العجلة مدةً قديمة. */
+                    const fitted = completeSectionEnd(selectedCourse, chosenDays, next.start);
                     if (fitted) timeEdited.current = false;
                     if (fitted && fitted !== next.end) flashAutofill();
                     const end = fitted || next.end;
@@ -798,12 +804,11 @@ export default function QuickCreatePopover({
           {verdict.state === "checking" ? <li className="is-pending"><Loader2 aria-hidden="true" /></li> : null}
         </ul>
       ) : null}
-      {error ? (
-        <p className="qc-warn qc-warn-hard"><AlertTriangle aria-hidden="true" />{error}</p>
+      {blockerMessage ? (
+        underHours ? <p className="qc-warn qc-warn-hard qc-warn-hours"><Clock3 aria-hidden="true" /><span>ساعات الشعبة ناقصة</span><bdi dir="ltr">{underHours[1]}/{underHours[2]} د</bdi></p>
+          : <p className="qc-warn qc-warn-hard"><AlertTriangle aria-hidden="true" />{blockerMessage}</p>
       ) : !digitsOk ? (
         <p className="qc-warn"><AlertTriangle aria-hidden="true" />الرجاء كتابة رقم الشعبة بالأرقام الإنجليزية.</p>
-      ) : blocked || checkFailed ? (
-        <p className="qc-warn qc-warn-hard"><AlertTriangle aria-hidden="true" />{firstBlocker || liveCheck.error}</p>
       ) : clash && !previewCurrent ? (
         <p className="qc-warn"><AlertTriangle aria-hidden="true" />{clash}</p>
       ) : null}

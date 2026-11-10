@@ -192,6 +192,12 @@ export function regulationEnd(course: RegulationCourse | null | undefined, days:
   return clock(Math.min(SCHEDULE_CLOCK_END, from + length));
 }
 
+/** A single selected day is a complete weekly block in a newly shaped appointment.
+ * A 50-minute meeting belongs to a multi-day pattern and cannot stand alone. */
+export function completeSectionEnd(course: RegulationCourse | null | undefined, days: readonly DayKey[], start: string, currentMinutes?: number): string {
+  return regulationEnd(course, days, start, days.length === 1 ? undefined : currentMinutes);
+}
+
 /**
  * ── الشكلُ لم يتغيّر (A6): الأيامُ والبدايةُ والنهايةُ كما حُفظت ─────────────────────
  * القاعدةُ الواحدة التي يتخطّى بها الخادمُ (unchangedShape) فحوصَ الشكل لموعدٍ قائم، ويقرؤها النموذج وكرتُ

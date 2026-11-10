@@ -3595,6 +3595,9 @@ html.schedule-physics-active .rooms-paint{display:none}
   font-size:var(--t-xs);line-height:1.45;
 }
 .qc-warn-hard{background:var(--danger-soft);color:var(--danger)}
+.qc-warn-hours{align-items:center;gap:8px}
+.qc-warn-hours span{flex:1;font-weight:650}
+.qc-warn-hours bdi{padding:3px 8px;border-radius:999px;background:var(--surface);font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .qc-warn svg{width:13px;height:13px;flex:none;margin-top:1px}
 
 .qc-foot{display:flex;align-items:center;gap:var(--s2)}

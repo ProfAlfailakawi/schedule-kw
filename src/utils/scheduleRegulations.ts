@@ -1004,6 +1004,11 @@ export interface SectionHoursReading {
   others: MeetingLike[];
 }
 
+/** Compact save blocker shared by appointment forms and study proposals. */
+export function sectionHoursShortfallText(code: unknown, reading: SectionHoursReading): string {
+  return `ساعات الشعبة ${String(code || "—")} أقل من ساعات المقرر · ${reading.total}/${reading.required} د · اختر نمطاً كاملاً`;
+}
+
 /**
  * ── مجموع ساعات الشعبة بعد هذا الموعد: مصدرٌ واحد للحفظ والفحص والمقترح ─────────
  * الموعد نفسه بنمط ساعات المقرر (كتلة «أربعاء · 170د» = 150 دقيقة معتمدة لمقرر 3 ساعات)،
