@@ -273,14 +273,14 @@ html.screen body{cursor:none;background:radial-gradient(90% 70% at 100% 0,var(--
 .screen .floor{display:contents}
 .screen .floor h3{display:none}
 .screen .tiles{flex:1;min-height:0;gap:1.3vh;grid-auto-rows:minmax(0,1fr);grid-template-columns:repeat(var(--cols,6),minmax(0,1fr))}
-.screen .tile{--th:15vh;padding:calc(var(--th)*.1) calc(var(--th)*.16) calc(var(--th)*.08) calc(var(--th)*.12);border-radius:calc(var(--th)*.12);background:var(--st-s);border-color:transparent;justify-content:space-between;box-shadow:none}
+.screen .tile{--th:15vh;padding:calc(var(--th)*.055) calc(var(--th)*.16) calc(var(--th)*.045) calc(var(--th)*.12);border-radius:calc(var(--th)*.12);background:var(--st-s);border-color:transparent;justify-content:space-between;box-shadow:none}
 .screen .tile::before{width:calc(var(--th)*.05)}
-.screen .tile .t-code{font-size:calc(var(--th)*.3)}
-.screen .tile .t-dot{width:calc(var(--th)*.2);height:calc(var(--th)*.2)}
-.screen .tile .t-dot .i{width:calc(var(--th)*.12);height:calc(var(--th)*.12)}
-.screen .tile .t-state{font-size:calc(var(--th)*.15)}
-.screen .tile .t-meta{font-size:calc(var(--th)*.11);color:var(--ink);opacity:.82}
-.screen .tile .t-bar{height:calc(var(--th)*.04);margin-top:calc(var(--th)*.05);background:rgba(255,255,255,.08)}
+.screen .tile .t-code{font-size:calc(var(--th)*.27);line-height:1.08}
+.screen .tile .t-dot{width:calc(var(--th)*.18);height:calc(var(--th)*.18)}
+.screen .tile .t-dot .i{width:calc(var(--th)*.11);height:calc(var(--th)*.11)}
+.screen .tile .t-state{font-size:calc(var(--th)*.13);line-height:1.15}
+.screen .tile .t-meta{font-size:calc(var(--th)*.105);line-height:1.2;padding:0;color:var(--ink);opacity:.82}
+.screen .tile .t-bar{height:calc(var(--th)*.025);margin-top:calc(var(--th)*.02);background:rgba(255,255,255,.08)}
 `;
 
 /* ألوانُ الحال: لكل حالٍ لونٌ وتعبئةٌ ناعمة ولونُ نصٍّ يقرأ فوق البطاقة (النصُّ الصغير بأغمق الدرجات). */
