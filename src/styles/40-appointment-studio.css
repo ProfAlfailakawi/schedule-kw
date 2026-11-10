@@ -197,8 +197,9 @@
 /* لوحة الفحص: تنسدل من اليسار عند الطلب (ومن الأسفل على الهاتف) */
 .appt-drawer-scrim{position:fixed;inset:0;z-index:190;background:rgba(14,20,18,.26);opacity:0;visibility:hidden;transition:opacity .2s var(--ease-out),visibility 0s linear .2s}
 .appt-drawer-scrim.is-open{opacity:1;visibility:visible;transition:opacity .2s var(--ease-out)}
-.appt-drawer{position:fixed;inset-block:0;left:0;z-index:195;width:min(460px,92vw);display:flex;flex-direction:column;overflow:auto;overscroll-behavior:contain;background:var(--canvas);border-inline-start:1px solid var(--line);box-shadow:24px 0 60px -30px rgba(10,20,16,.45);transform:translateX(-102%);visibility:hidden;transition:transform .26s var(--ease-out),visibility 0s linear .26s}
+.appt-drawer{position:fixed;inset-block:0;left:0;z-index:195;width:min(460px,92vw);display:flex;flex-direction:column;overflow:hidden;background:var(--canvas);border-inline-start:1px solid var(--line);box-shadow:24px 0 60px -30px rgba(10,20,16,.45);transform:translateX(-102%);visibility:hidden;transition:transform .26s var(--ease-out),visibility 0s linear .26s}
 .appt-drawer.is-open{transform:none;visibility:visible;transition:transform .26s var(--ease-out)}
+.appt-drawer-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding-bottom:env(safe-area-inset-bottom)}
 .appt-drawer-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--canvas) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .appt-drawer-head b{font-size:16px}
 .appt-drawer-close{margin-inline-start:auto;width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer}
@@ -213,7 +214,7 @@
   .schedule-editor.is-studio .page-heading{padding-inline-end:56px}
   .appt-esc{display:none}
   .schedule-editor.is-studio .mini-week.is-sheet{bottom:calc(var(--dock-h,0px) + var(--appt-bar-h,76px) + 8px + env(safe-area-inset-bottom))}
-  .appt-drawer{inset:auto 0 0 0;top:auto;width:auto;max-height:84dvh;border-inline-start:0;border-top:1px solid var(--line);border-radius:24px 24px 0 0;box-shadow:0 -24px 60px -30px rgba(10,20,16,.45);transform:translateY(102%);padding-bottom:env(safe-area-inset-bottom)}
+  .appt-drawer{inset:auto 0 0 0;top:auto;width:auto;height:84dvh;max-height:84dvh;border-inline-start:0;border-top:1px solid var(--line);border-radius:24px 24px 0 0;box-shadow:0 -24px 60px -30px rgba(10,20,16,.45);transform:translateY(102%)}
   .appt-drawer.is-open{transform:none}
   .appt-drawer-grip{display:block;position:absolute;top:6px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:99px;background:var(--line-strong)}
   .appt-drawer-head{padding-top:20px;border-radius:24px 24px 0 0}

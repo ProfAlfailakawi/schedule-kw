@@ -53,6 +53,13 @@ function Ring({ verdict }: { verdict: AppointmentVerdict }) {
 /** مانعٌ أو تنبيهٌ عن ساعات المقرر أو نمطه: يُصلَح بضغطة «طبّق النمط المعتمد». */
 export const isPatternDetail = (text: string) => /الساعات المعتمدة|نمط اللائحة|خارج اللائحة|النمط غير معتمد/.test(String(text || ""));
 
+function hoursVisual(text: string): { label: string; current: string; allowed: string; unit: string } | null {
+  const over = /ساعات هذا المقرر المعتمدة (\d+) ساعات أسبوعيًا، والمجموع بعد هذا الموعد يزيدها \((\d+) ساعات/.exec(text);
+  if (over) return { label: "ساعات الشعبة زائدة", current: over[2], allowed: over[1], unit: "س" };
+  const under = /ساعات الشعبة .+ أقل من ساعات المقرر · (\d+)\/(\d+) د/.exec(text);
+  return under ? { label: "ساعات الشعبة ناقصة", current: under[1], allowed: under[2], unit: "د" } : null;
+}
+
 export default function AppointmentChecksPanel({
   verdict, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, onOpenReach, reachBusy = false, missing = [], saveLabel = "موافق", children,
 }: {
@@ -115,10 +122,13 @@ export default function AppointmentChecksPanel({
             <summary aria-label={`${check.label}: ${check.word}`}>{tile}</summary>
             <ul className="checks-details">
               {check.details.map(detail => <li key={detail.id} className={detail.blocks ? "is-block" : "is-warn"}>
-                {renderConflict && detail.conflict ? renderConflict(detail) : <p><b>{detail.text}</b>{detail.detail ? <small>{detail.detail}</small> : null}</p>}
+                {renderConflict && detail.conflict ? renderConflict(detail) : hoursVisual(detail.text) ? <p className="checks-hours" aria-label={detail.text}>
+                  <Clock3 aria-hidden="true" /><b>{hoursVisual(detail.text)?.label}</b>
+                  <bdi dir="ltr">{hoursVisual(detail.text)?.current}/{hoursVisual(detail.text)?.allowed} <small>{hoursVisual(detail.text)?.unit}</small></bdi>
+                </p> : <p><b>{detail.text}</b>{detail.detail ? <small>{detail.detail}</small> : null}</p>}
                 {onApplyPattern && isPatternDetail(detail.text) ? <button type="button" className="checks-alt checks-apply-pattern"
                   data-guide-ignore="يعيد الأيام والنهاية إلى النمط المعتمد لساعات المقرر؛ لا يحفظ شيئاً"
-                  onClick={onApplyPattern}><Ruler aria-hidden="true" />طبّق النمط المعتمد</button> : null}
+                  onClick={onApplyPattern}><Ruler aria-hidden="true" />طبّق النمط</button> : null}
                 {onOpenReach && isReachNote(detail.text) ? <button type="button" className="checks-alt checks-open-reach" disabled={reachBusy}
                   data-guide-ignore="يفتح المقرر للطرح رغم «لم نصل بعد» فيُختار في بطاقة الأستاذ أيضاً؛ لا يحفظ الموعد"
                   onClick={onOpenReach}><LockOpen aria-hidden="true" />{reachBusy ? "…" : "افتحه للطرح"}</button> : null}

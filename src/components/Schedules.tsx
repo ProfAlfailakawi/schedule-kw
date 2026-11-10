@@ -10291,6 +10291,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             <button type="button" ref={studioDrawerCloseRef} className="appt-drawer-close" onClick={() => setStudioChecksOpen(false)} aria-label="إغلاق لوحة الفحص"
               data-guide-ignore="يغلق لوحة فحص الموعد؛ لا يغيّر شيئاً"><X aria-hidden="true" /></button>
           </div>
+          <div className="appt-drawer-body">
           <AppointmentChecksPanel
             verdict={editorVerdict}
             missing={studioMissing}
@@ -10392,6 +10393,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               </div>
             ) : null}
           </AppointmentChecksPanel>
+          </div>
         </div>
       </div>
     );
