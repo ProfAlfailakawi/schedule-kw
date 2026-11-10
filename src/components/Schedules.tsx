@@ -4304,6 +4304,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
        وسطرٌ قصير يقول السبب. من قصد الإضافة إلى الشعبة القائمة يبقى المنعُ (القاعدة)، و«بديل» يقترح غيره. */
   const editorRegulationBlocked = editorVerdict.blockers.some(item => item.id === "regulation") && regulationHours(formCourse) > 0;
   const editorUnderHours = editorVerdict.blockers.map(item => /ساعات الشعبة .+ أقل من ساعات المقرر · (\d+)\/(\d+) د/.exec(item.text)).find(Boolean);
+  const editorOverHours = /ساعات هذا المقرر المعتمدة (\d+) ساعات أسبوعيًا، والمجموع بعد هذا الموعد يزيدها \((\d+) ساعات/.exec(editorVerdict.blockers[0]?.text || "");
   const editorFreshSection = editorVerdict.blockers.map(item => /لشعبة جديدة: (\d+)/.exec(item.text)?.[1] || "").find(Boolean) || "";
   const editorBlockerLine = (text: string) => {
     if (!/لشعبة جديدة: \d+/.test(text)) return text;
@@ -9895,13 +9896,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </div>
                 </div>
                   </div>
-                  {editorVerdict.blockers.length?<div className={`editor-validation-strip${editorUnderHours ? " is-under-hours" : ""}`} role="alert">
+                  {editorVerdict.blockers.length?<div className={`editor-validation-strip${editorUnderHours || editorOverHours ? " is-hours" : ""}`} role="alert" aria-label={editorVerdict.blockers[0].text}>
                     {editorUnderHours ? <>
                       <Timer aria-hidden="true" className="appt-inline-mark" />
                       <span className="appt-inline-text">ساعات الشعبة ناقصة</span>
                       <bdi className="appt-hours-figure" dir="ltr">{editorUnderHours[1]}<span>/</span>{editorUnderHours[2]} <small>د</small></bdi>
+                    </> : editorOverHours ? <>
+                      <Timer aria-hidden="true" className="appt-inline-mark" />
+                      <span className="appt-inline-text">ساعات الشعبة زائدة</span>
+                      <bdi className="appt-hours-figure" dir="ltr">{editorOverHours[2]}<span>/</span>{editorOverHours[1]} <small>س</small></bdi>
                     </> : <><X aria-hidden="true" className="appt-inline-mark" />
                       <span className="appt-inline-text">{editorBlockerLine(editorVerdict.blockers[0].text)}</span></>}
+                    <div className="appt-inline-actions">
                     {editorVerdict.blockers.length > 1 ? <button type="button" className="appt-inline-more" onClick={() => setStudioChecksOpen(true)}
                       data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً"><bdi dir="ltr">+{editorVerdict.blockers.length - 1}</bdi></button> : null}
                     {editorFreshSection ? <button type="button" className="appt-inline-alt is-fix" onClick={useFreshSection}
@@ -9914,6 +9920,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     }} data-guide-ignore="يكمل نهاية الموعد وفق ساعات المقرر والأيام المختارة؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />أكمل النمط</button> : null}
                     <button type="button" className="appt-inline-alt" onClick={() => goToAlternatives()} disabled={altBusy}
                       data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً"><WandSparkles aria-hidden="true" />{altBusy ? "…" : "بديل"}</button>
+                    </div>
                   </div>:null}
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
                   <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
