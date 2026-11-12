@@ -117,11 +117,13 @@ export const REQUEST_VISUAL_CSS = String.raw`
 .vart .sk-gi{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .sk-rule-tag{font:inherit;cursor:pointer}
 .sk-plan-tag{display:inline-block;margin-inline-start:7px;padding:1px 8px;border:1px solid var(--ok);border-radius:999px;background:var(--ok2);color:var(--ok);font-size:10.5px;font-weight:700;vertical-align:middle}
-.sk-badge-toast{position:fixed;z-index:1000;inset-inline:18px;bottom:calc(20px + env(safe-area-inset-bottom));max-width:430px;margin-inline:auto;padding:13px 17px;border:1px solid var(--line);border-radius:14px;background:var(--ink);color:#fff;box-shadow:0 12px 32px rgba(0,0,0,.22);font-size:13px;line-height:1.7;text-align:center}
+body:has(.send) .sk-badge-toast{bottom:calc(96px + env(safe-area-inset-bottom))}
+.nextnow[data-tone=warn]{border-color:color-mix(in srgb,var(--amber,#b7791f) 45%,var(--line));background:color-mix(in srgb,var(--amber,#b7791f) 7%,var(--card))}
+.sk-badge-toast{position:fixed;z-index:1000;inset-inline:18px;bottom:calc(20px + env(safe-area-inset-bottom));pointer-events:none;max-width:430px;margin-inline:auto;padding:13px 17px;border:1px solid var(--line);border-radius:14px;background:var(--ink);color:#fff;box-shadow:0 12px 32px rgba(0,0,0,.22);font-size:13px;line-height:1.7;text-align:center}
 .dept .vshort{margin-inline-start:6px}
 .alts button{display:inline-flex;flex-direction:column;align-items:center;gap:4px;min-block-size:56px;padding:8px 14px}
 
-.nextnow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;margin:0 0 14px;padding:14px;border:1.5px solid var(--line);border-radius:18px;background:var(--card)}
+.nextnow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;margin:16px 0 14px;padding:14px;border:1.5px solid var(--line);border-radius:18px;background:var(--card)}
 .nextnow[data-tone=act]{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--card));box-shadow:0 6px 18px color-mix(in srgb,var(--ok) 14%,transparent)}
 .nextnow[data-tone=done]{background:var(--soft)}
 .nx-ic{display:grid;place-items:center;width:46px;height:46px;border-radius:15px;background:var(--soft);color:var(--muted)}
@@ -247,12 +249,18 @@ function skEnds(slots,days,end){var list=(slots&&slots.length?slots:(days||[]).m
  if(!groups.length)return end?'<bdi dir="ltr" class="ends-t">'+esc(end)+'</bdi>':"";
  return groups.map(function(g){return '<span class="ends-g">'+skPills(g.days)+'<bdi dir="ltr" class="ends-t">'+esc(g.end)+'</bdi><span class="sr">'+esc(fmtDays(g.days))+' '+esc(g.end)+'</span></span>'}).join("")}
 /* «ماذا أحتاج منك الآن؟»: خطوةٌ واحدةٌ كبيرة تتغيّر بمرحلة الطلب، فلا يحتاج الأستاذ أن يقرأ المسار ليعرف. */
-function skNext(open,sent,edited){var s=stageIdx(),pend=pendingList().length,ic="eye",tone="wait",t="",sub="",btn="";
+/* «ماذا أحتاج منك الآن؟» لا تقول «جاهز» وفي الطلب مانعٌ أو موعدٌ ناقص (المالك 2026-11-12): تقول ما يُصلَح وتأخذه إليه.
+   وحين يكون كلُّ شيءٍ سليماً يتكلّم شريطُ الإرسال وحده، فلا بطاقتان تقولان الشيءَ نفسه فوق زرّه. */
+function skNext(open,sent,edited,blocked,incomplete,pinBlocked){var s=stageIdx(),pend=pendingList().length,ic="eye",tone="wait",t="",sub="",btn="";
+ blocked=blocked||0;incomplete=incomplete||0;
  if(!open&&!sent){ic="lock";tone="done";t="انتهت مدة استقبال الطلبات";sub="جدولك كما هو، ولا شيء مطلوب منك."}
- else if(!sent){ic=edited>0?"send":"pen";tone="act";
-  t=edited>0?"طلبك جاهز للإرسال":"جدولك لم يتغير";
-  sub=edited>0?countOf(edited,AR.edit)+" · اضغط «أرسل التعديلات» حين تنتهي":"إذا كان جدولك صحيحاً، اضغط «ثبّت الجدول»";
-  btn=""; /* زرُّ الإرسال الحقيقي موجود في شريط الإرسال؛ لا اختصار يعجز عن الوصول إليه */ }
+ else if(open&&(blocked||incomplete)&&(!sent||edited>0)){ic="you";tone="warn";
+  t=blocked?"طلبك لم يكتمل بعد":"أكمل الموعد الجديد";
+  sub=blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb)+" قبل الإرسال":"أيامٌ ووقتُ بدايةٍ ناقصان";
+  btn='<button type="button" class="nx-btn" data-nx="decide">'+gi("arrow")+'اذهب إليه</button>'}
+ else if(open&&!sent&&edited===0&&pinBlocked){ic="you";tone="warn";t="لا يمكن تثبيت جدولك كما هو";sub=pinBlocked;
+  btn='<button type="button" class="nx-btn" data-nx="decide">'+gi("arrow")+'اذهب إلى الموعد</button>'}
+ else if(!sent){return ""}
  else if(s===2||pend>0){ic="you";tone="act";t="قرارك مطلوب الآن";sub=countOf(pend||1,AR.item)+" ينتظر ردّك من القسم";btn='<button type="button" class="nx-btn" data-nx="decide">'+gi("arrow")+'اذهب إلى القرار</button>'}
  else if(s===1){ic="eye";tone="wait";t="القسم يراجع طلبك";sub="لا شيء مطلوب منك الآن"}
  else if(s===3){ic="shield";tone="wait";t="بانتظار تثبيت القسم";sub="لا شيء مطلوب منك الآن"}

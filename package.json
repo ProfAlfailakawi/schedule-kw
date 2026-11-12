@@ -8,6 +8,7 @@
     "build": "npm run verify:pwa && npm run audit:brand && npm run audit:guide && npm run test:guide && npm run test:guide:perf && node scripts/stamp-build.mjs && vite build && (node scripts/srs/build.mjs --site || echo \"تنبيه: لم تُبنَ صفحة الوثيقة\") && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && node scripts/stamp-sw.mjs",
     "start": "NODE_ENV=production node dist/server.cjs",
     "test": "node scripts/run-tests.mjs",
+    "test:instructor-requests-owner-notes": "tsx tests/instructor-requests-owner-notes-audit.ts",
     "test:visiting-badge-g1": "tsx tests/visiting-badge-group1-audit.ts",
     "test:visiting-badge-g2": "tsx tests/visiting-badge-group2-audit.ts",
     "test:visiting-badge-g3": "tsx tests/visiting-badge-group3-audit.ts",

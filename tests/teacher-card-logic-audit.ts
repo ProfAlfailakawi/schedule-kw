@@ -246,7 +246,7 @@ type Day = typeof DAYS[number];
     "وجسمٌ ليس JSON صالحاً يُردّ 400 لا 500");
   check(server.includes('res.status(400).json({ error: "لا يُخلط بين أيام الـ50 والـ80 دقيقة إلا بنمطٍ معتمد في مكتبة الأنماط." });'),
     "واقتراحُ الأستاذ المضادّ يمرّ بقاعدة الأيام نفسها");
-  check(server.includes("lengthPatterns: await requestLengthPatterns(") && !/historicalLectureMinutes/.test(server.slice(server.indexOf("async function requestSlotsForCourse"), server.indexOf("async function instructorRequestItemsFromPayload"))),
+  check(server.includes("requestLengthPatterns(patternCourseIds)") && !/historicalLectureMinutes/.test(server.slice(server.indexOf("async function requestSlotsForCourse"), server.indexOf("async function instructorRequestItemsFromPayload"))),
     "والخادمُ يرسل أنماطَ الطول للصفحة، ولا يقرأ طولَ يومٍ من الذاكرة");
 }
 

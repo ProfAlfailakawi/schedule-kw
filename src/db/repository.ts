@@ -6011,6 +6011,18 @@ export const Repository = {
   },
 
   /* وارد القسم أو الكلية: sectionId=0 يعني كل أقسام الكلية في الفصل نفسه. */
+  /** طلباتُ أستاذٍ واحد في فصل: قراءةٌ بمعرّفه لا مسحٌ لطلبات الفصل كلّه (ملاحظة المالك 9: «بطاقتي» بطيئة).
+   *  مساواتان فقط، فلا تحتاج فهرساً مركّباً. */
+  getInstructorRequestsForInstructor: async (termId: number, instructorId: number): Promise<InstructorRequest[]> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection("instructorRequests").where("AdInstructorId", "==", Number(instructorId)).where("AdTermId", "==", Number(termId)).limit(200).get();
+      return snap.docs.map(doc => doc.data() as InstructorRequest).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    return (db.instructorRequests || [])
+      .filter(row => Number(row.AdTermId) === Number(termId) && Number(row.AdInstructorId) === Number(instructorId))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
   getInstructorRequests: async (collegeId: number, sectionId: number, termId: number): Promise<InstructorRequest[]> => {
     const inScope = (row: InstructorRequest) =>
       Number(row.AdTermId) === termId &&

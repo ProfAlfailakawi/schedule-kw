@@ -852,17 +852,22 @@ function paint(){
  var incompleteN=state.filter(incompleteItem).length;
  var changed=state.filter(function(it){return it.action!=="keep"&&!unchangedEdit(it)&&!incompleteItem(it)}).length;
  var blocked=state.filter(function(it){return !unchangedEdit(it)&&!incompleteItem(it)&&(it.tone==="bad"||it.tone==="checking")}).length;
+ var badN=state.filter(function(it){return !unchangedEdit(it)&&!incompleteItem(it)&&it.tone==="bad"}).length;
  var ready=incompleteN&&!blocked?"أكمل الموعد الجديد":blocked?"راجع الموانع":changed?countOf(changed,AR.change)+" "+nounFor(changed,AR.readyAdj):"الجدول لم يتغير";
  var edited=editedCount(),pend=pendingList().length,events=(r.timeline||[]).filter(function(e){return e.kind!=="link-opened"&&e.kind!=="link-created"}).length;
  /* الشارةُ تقول الحقيقة في كل حال: مسودة قبل الإرسال، ومرسَلٌ غير معتمدٍ بعده، وهي باقيةٌ في اللقطة والطباعة. */
  var stateTxt=approved?"انتهت مراجعة القسم لطلبك":sent?"مرسَل · غير معتمد بعد · لا يُعتبر تكليفاً":"مسودة · غير معتمدة · لا تُعتبر تكليفاً";
+ /* تثبيتُ الجدول كما هو يُمنع إن خالف موعدٌ قائمٌ النمطَ أو اللائحة (المالك): يقول الخادمُ السبب، فيُقال هنا قبل الضغط.
+    ومع ملاحظةٍ للقسم ليس تثبيتاً بل إرسالٌ ينتظر القسم (canConfirmUnchanged)، فلا يُمنع. */
+ var pinBlockTxt=(!sent&&edited===0&&!String(noteNow()).trim()&&data.pinBlocked&&data.pinBlocked.length)?data.pinBlocked.map(function(p){return p.text}).join(" · "):"";
+ var pinSoftTxt=(!sent&&edited===0&&!pinBlockTxt&&data.pinSoft&&data.pinSoft.length)?data.pinSoft.map(function(p){return p.text}).join(" · "):"";
  var showReady=open&&(!sent||edited>0);
  var readyTxt=sent&&!blocked?countOf(edited,AR.edit):ready;
- var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?"تأكيدك يثبّت الجدول كما هو":sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
+ var readySub=pinSoftTxt?"تنبيه لا يمنع: "+pinSoftTxt+" — يصل القسمَ مع تثبيتك":incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?"تأكيدك يثبّت الجدول كما هو":sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
  var h=skBackIcon()+proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم. احفظ تعديلك أو أرسله ثم حدّث الصفحة.</span></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open||data.mode==="view"?"":(r.window&&r.window.closesAt&&Date.parse(r.window.closesAt)<=Date.now())?" · انتهت مدّة الطلبات، والصفحة للقراءة":approved?" · اكتمل طلبك، والصفحة للقراءة":" · الصفحة للقراءة")+'</p>'+
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+tcRibbon(r,open)+
-  (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited)+
+  (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited,badN,incompleteN,pinBlockTxt)+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
  h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(notedScope().length?'<div class="noted-banner" role="status">'+gi("eye")+'<span>التسجيل أعاد جدولك بملاحظات. عدّل المقررات المميّزة فقط.</span></div>':'')+(deckHtml()||calmHtml())+offeringsHtml()+replayHtml()+memoryHtml()+planTable();
  if(open&&!notedScope().length&&data.courses&&data.courses.length){
@@ -881,7 +886,8 @@ function paint(){
 
  h+='</section><section data-panel="activity" '+(activeTab==="activity"?'':'hidden')+'>'+activityHtml(r)+'</section>';
  /* الإرسالُ شريطٌ صغير لا يظهر إلا حين يكون عند الأستاذ ما يُرسل. والتوقيعُ في ورقةٍ تقول ما سيُوقَّع عليه. */
- if(open&&!chooserOpen&&(!sent||edited>0))h+='<div class="send"><div class="sendbar"><div class="sb-t"><b>'+esc(readyTxt)+'</b><small>'+readySub+'</small></div>'+
+ /* شريطُ الإرسال لا يظهر إلا وكلُّ شيءٍ مكتملٌ وسليم: وإلا فالبطاقةُ أعلاه تقول ما يُصلَح (المالك 2026-11-12). */
+ if(open&&!chooserOpen&&(!sent||edited>0)&&!badN&&!incompleteN&&!pinBlockTxt)h+='<div class="send"><div class="sendbar"><div class="sb-t"><b>'+esc(readyTxt)+'</b><small>'+readySub+'</small></div>'+
   '<button type="button" id="send" '+(blocked||incompleteN?'data-blocked="1"':'')+'>'+(incompleteN&&!blocked?gi("arrow")+'أكمله':blocked?gi("arrow")+'اختر وقتاً متاحاً':edited===0?gi("check")+(String(noteNow()).trim()?"ثبّت الجدول وأرسل الملاحظة":"ثبّت الجدول"):gi("finger")+(sent?'أرسل التعديلات':'أرسل الطلب'))+'</button></div></div>';
  host.innerHTML=h;
  var slot=document.getElementById("demoSlot");
@@ -981,9 +987,9 @@ function wire(){tcWire();
  var drop=document.getElementById("dropDraft");if(drop)drop.onclick=function(){clearAllDrafts();dirty=false;location.reload()};
  var send=document.getElementById("send");if(send)send.onclick=submit;
  var replay=document.getElementById("replay");if(replay)replay.onclick=replayPrevious;
- VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)]){state[+key.slice(3)].excuse=value;dirty=true;saveDraft()}if(key==="gen"){genNote=value;dirty=true;saveDraft()}});
+ VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)]){state[+key.slice(3)].excuse=value;dirty=true;saveDraft()}if(key==="gen"){var hadNote=!!String(noteNow()).trim();genNote=value;dirty=true;saveDraft();if(hadNote!==!!String(value||"").trim())paint()}});
  var na=document.getElementById("noteAdd");if(na)na.onclick=function(){noteOpen=true;paint();var g=document.getElementById("genNote");if(g)g.focus()};
- var gn=document.getElementById("genNote");if(gn)gn.oninput=function(){genNote=gn.value;dirty=true;saveDraft()};
+ var gn=document.getElementById("genNote");if(gn)gn.oninput=function(){var hadNote=!!String(noteNow()).trim();genNote=gn.value;dirty=true;saveDraft();/* وجودُ الملاحظة يغيّر ما يُرسل (تثبيتٌ أم إرسالٌ للقسم): يُعاد الرسم حين تنقلب، والتركيزُ محفوظ. */if(hadNote!==!!gn.value.trim())paint()};
  host.querySelectorAll("[data-accept]").forEach(function(el){el.onclick=function(){askAccept(+el.dataset.i,+el.dataset.accept)}});
  host.querySelectorAll("[data-accept-all]").forEach(function(el){el.onclick=askAcceptAll});
  host.querySelectorAll("[data-counter]").forEach(function(el){el.onclick=function(){openCounter(+el.dataset.counter)}});

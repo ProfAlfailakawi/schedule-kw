@@ -294,7 +294,11 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
-    if (held && move === "keep" && !individualOnly && !reopening && !onlyNoted) {
+    /* ✏️ لأساتذة محددين إلى من أرسل طلبه وأُغلقت نافذتُه: الإرسالُ الصريح له يعيد فتح طلبه نفسه بالموعد الجديد.
+       كان يُعدّ «ينتظر القسم» فلا يُمسّ، فتبقى نافذتُه القديمة مغلقةً ويرى بطاقتَه «للعرض» مهما أُعيد النشرُ له
+       (حادثة 2026-11-11: خمسةُ إرسالاتٍ خاصة لأستاذةٍ طلبُها «قيد المراجعة» منذ 28 أكتوبر). */
+    const pickedEditReopen = picking && !onlyNoted && issueMode === "edit" && move === "keep" && !requestWindowOpen(held!);
+    if (held && move === "keep" && !individualOnly && !reopening && !onlyNoted && !pickedEditReopen) {
       /* طلبُه ورابطُه كما هما ينتظران قرارَ القسم؛ وصفةُ الإرسال الجديدة هي ما يحكم بطاقتَه (E1).
          تُكتب الصفةُ وحدها، لا الطلبُ كلُّه: قرارٌ أو ردٌّ يصل بين القراءة والكتابة لا يُمحى. */
       if (linkMode(held) !== issueMode) await Repository.setInstructorRequestLinkMode(held.id, issueMode);
@@ -305,7 +309,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     /* ملاحظاتُ التسجيل تعيد فتح الطلب المرسَل: بلا نافذةٍ جديدة لا يستطيع صاحبه تصحيح ما مُيّز له.
        والاستثناءُ الفردي كذلك: طلبُه المرسَل أو قيدُ المراجعة يُمدَّد هو نفسُه، فلا يصير له طلبان مفتوحان
        برابطين، ويُسجَّل الاستثناءُ في سجلّ الطلب نفسه. */
-    if (held && (move === "extend" || ((onlyNoted || individualOnly) && move === "keep"))) {
+    if (held && (move === "extend" || ((onlyNoted || individualOnly || pickedEditReopen) && move === "keep"))) {
       const heldLink = await Repository.getShareLink(held.linkId);
       const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
       let linkId = held.linkId;
@@ -323,6 +327,8 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
         ...(individualOnly ? {
           individualException: exceptional,
           timeline: [...(held.timeline || []), { kind: "link-created", at: opensAt, by: "القسم", detail: "استثناء فردي لظرف طارئ" }],
+        } : pickedEditReopen ? {
+          timeline: [...(held.timeline || []), { kind: "link-created", at: opensAt, by: "القسم", detail: "أُعيد فتح التعديل بإرسالٍ خاص" }],
         } : {}),
       });
       issued.push({ instructorId, linkId, reissued: false, renewed: true });
