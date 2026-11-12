@@ -185,7 +185,7 @@ export function parseDemandReport(pages: readonly (readonly DemandTextItem[])[])
     }
   }
   if (!report.courses.length) throw new DemandReportError("لم يُقرأ أي مقرر من الملف.");
-  if (departments.length > 1) report.warnings.push(`الملف يحمل ${departments.length} أقسام؛ قُرئ الأول وحده (${departments[0]}).`);
+  if (departments.length > 1) report.warnings.push(`الملف يحمل أكثر من قسم (${departments.length})؛ قُرئ الأول وحده (${departments[0]}).`);
   for (const item of report.courses) {
     const { boys, girls, total } = item.students;
     if (boys + girls !== total) report.warnings.push(`${item.code}: المجموع ${total} لا يساوي البنين والبنات.`);
