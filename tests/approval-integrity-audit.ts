@@ -104,7 +104,7 @@ check(importBody.includes("createdRows.push(created)"),
   "وكلُّ صفٍّ يصل من الاستيراد يُسجَّل كأيِّ صفٍّ يُضاف باليد");
 
 const moveAt = server.indexOf('app.post("/api/schedules/move-batch"');
-const moveBody = server.slice(moveAt, moveAt + 5400);
+const moveBody = server.slice(moveAt, moveAt + 7600);
 check(moveBody.includes("touchedScopes"), "والنقل الجماعي يقرأ قفل كل نطاقٍ يمسّه");
 check(moveBody.includes('noteScheduleMutation(req, scope.collegeId, scope.sectionId, scope.termId, { kind: "edit" })'),
   "ويُبلّغ عن تعديله: جدولٌ مقبولٌ يعود جولةً جديدة بعده");

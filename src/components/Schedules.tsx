@@ -198,9 +198,11 @@ import { useTrainees } from "../utils/trainees";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal, onLiveState, setLiveScope, type LiveState } from "../utils/livePulse";
-import { adviseDayPattern, daysApprovedForHours, DECISION_1913_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
+import { adviseDayPattern, daysApprovedForHours, ladderStartsForDays, DECISION_1913_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { askRequestHold, type RequestHold } from "./RequestHoldSheet";
+import type { RegulationExceptionIssue } from "../utils/regulationException";
+import { askRegulationException, REGULATION_EXCEPTION_DECLINED, regulationIssuesOf, withRegulationException } from "./RegulationExceptionSheet";
 import { rowClashReasons } from "../utils/scheduleBlockers";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { fitsCoursePattern, teacherHeader, teacherRows } from "../utils/teacherMiniWeek";
@@ -1001,6 +1003,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     /* «النمط غير معتمد»: رسمٌ من الخادم (مكتبة الأنماط)، تنبيهٌ لا يمنع الحفظ. */
     [patternNotice, setPatternNotice] = useState(""),
     [lectureNotice, setLectureNotice] = useState(""),
+    /* ما يُحفظ بتأكيدٍ صريح فقط (ملاحظتا المالك 10 و20): من فحص الخادم نفسه. */
+    [regulationIssues, setRegulationIssues] = useState<RegulationExceptionIssue[]>([]),
     [checking, setChecking] = useState(false),
     [solutions, setSolutions] = useState<any[]>([]),
     [solving, setSolving] = useState(false),
@@ -1458,6 +1462,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }
     /* كتابةٌ ناجحة في الجدول: ما حُفظ من قراءاتٍ سابقة (لقطة عامل الخدمة والقراءة المسبقة) صار قديماً. */
     if (res.ok && mutating && url.startsWith("/api/schedules")) void forgetScheduleReads();
+    /* ── مخالفةُ لائحةٍ لا تمنع: سؤالٌ صريح ثم الطلبُ نفسه (ملاحظتا المالك 10 و20) ──
+       كلُّ حفظٍ من هذه الشاشة يمرّ من هنا: النموذج، والبطاقة السريعة، والسحب، وحجزُ الطلب. «تراجع» لا يكتب شيئاً. */
+    const refusalIssues = mutating ? regulationIssuesOf(res.status, data) : null;
+    if (refusalIssues) {
+      const marked = withRegulationException(options?.body);
+      if (marked && await askRegulationException(refusalIssues)) return fetchJson(url, { ...options, body: marked });
+      const declined: any = new Error(marked ? REGULATION_EXCEPTION_DECLINED : String(data.error || REGULATION_EXCEPTION_DECLINED));
+      declined.code = data.code;
+      declined.regulation = refusalIssues;
+      throw declined;
+    }
     if (!res.ok) {
       const failure: any = new Error(data.error || `تعذر إتمام العملية (${res.status}).`);
       /* The blockers the server listed are the whole substance of a refusal.
@@ -4913,6 +4928,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setServerValidationIssues([]);
       setPatternNotice("");
       setLectureNotice("");
+      setRegulationIssues([]);
       setChecking(false);
       lastCheckFormKey.current = "";
       return;
@@ -4924,6 +4940,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setServerValidationIssues(Array.isArray(data.validationIssues) ? data.validationIssues : []);
       setPatternNotice(typeof data.patternNotice === "string" ? data.patternNotice : "");
       setLectureNotice(typeof data.lectureNotice === "string" ? data.lectureNotice : "");
+      setRegulationIssues(Array.isArray(data.regulation) ? data.regulation : []);
     };
     const cached = checkCache.current.get(checkPayloadKey);
     if (cached && Date.now() - cached.at < 20_000) { apply(cached.data); setChecking(false); return; }
@@ -9489,7 +9506,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioScopeMissing = !Number(form.AdCollegeId || 0) || !Number(form.AdSectionId || 0) || !Number(form.AdTermId || 0);
   const studioScopeExpanded = studioScopeMissing || studioScopeOpen;
   const studioTermName = String(terms.find(term => Number(term.AdTermId) === Number(form.AdTermId))?.AdTermName || "");
-  const studioBlockers = editorVerdict.blockers.length, studioNotes = editorVerdict.notes.length;
+  const studioBlockers = editorVerdict.blockers.length, studioNotes = Math.max(editorVerdict.notes.length, regulationIssues.length);
   const studioTone = approvalLock ? "locked" : studioBlockers ? "block" : checking ? "checking" : studioMissing.length ? "missing" : studioNotes ? "warn" : "ok";
   const studioDuration = form.fstarttime && form.fendtime ? Math.max(0, mins(String(form.fendtime)) - mins(String(form.fstarttime))) : 0;
   const studioEndByPattern = Boolean(form.fendtime) && !timingOverride && regulationHours(formCourse) > 0 && formRegulationFit !== "off";
@@ -9805,6 +9822,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           min={SCHEDULE_DAY_START_TIME}
           max={SCHEDULE_DAY_END_TIME}
                       value={form.fstarttime}
+                      suggestions={ladderStartsForDays(formDays as RegDayKey[])}
                       onOutOfRange={(limit) => {
                         const boundary = limit === "max" ? SCHEDULE_DAY_END_TIME : SCHEDULE_DAY_START_TIME;
                         setStartTimeLimitNotice(`${limit === "max" ? "ينتهي الدوام" : "يبدأ الدوام"} عند ${scheduleClockForDisplay(boundary)}.`);

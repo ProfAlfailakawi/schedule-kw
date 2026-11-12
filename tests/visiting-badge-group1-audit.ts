@@ -70,7 +70,7 @@ const I = read("src/components/ImportPreviewTable.tsx");
 check(!/import-visiting-badge/.test(I) && /<VisitingBadge compact \/>/.test(I), "الاستيراد: الشارة الموحّدة بدل الوسم اليدوي");
 check(/withVisitingSuffix\(instructorById\.get\(Number\(row\.AdInstructorId\)\)\?\.AdInstructorName \|\| "الأستاذ", visitingIdSet/.test(I), "الاستيراد: ملاحظة تعارض الأستاذ بلاحقة");
 const P = read("src/components/InstructorPicker.tsx");
-check(!/instructor-visiting-label/.test(P) && (P.match(/<PersonChips visiting=\{visitingSet\.has\((?:selected|person)\.AdInstructorId\)\} trainee=\{trainees\.has\(Number\((?:selected|person)\.AdInstructorId\)\)\} \/>/g) || []).length === 2, "منتقي الأستاذ: الشارة الموحّدة في الموضعين");
+check(!/instructor-visiting-label/.test(P) && (P.match(/<PersonChips visiting=\{visitingSet\.has\((?:selected|person)\.AdInstructorId\)\} trainee=\{(?:trainees\.has\(Number\((?:selected|person)\.AdInstructorId\)\)|isTa\((?:selected|person)\))\} \/>/g) || []).length === 2, "منتقي الأستاذ: الشارة الموحّدة في الموضعين");
 const N = read("src/components/Instructors.tsx");
 check(!/staff-badge is-delegate/.test(N) && /<VisitingBadge compact \/>/.test(N), "الأساتذة: الشارة الموحّدة بدل staff-badge");
 check(/<h2>\{selected\.AdInstructorName\}\{delegateIds\.has\(selected\.AdInstructorId\) \? <VisitingBadge compact \/>/.test(N), "الأساتذة: عنوان المفتش يحمل الشارة");

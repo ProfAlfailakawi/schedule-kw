@@ -360,6 +360,20 @@ export function ladderStepForDays(days: Iterable<DayKey>): number {
   return long ? 90 : 60;
 }
 
+/**
+ * ── بداياتُ السُّلّم للأيام المختارة (م.7/8) ─────────────────────────────────────
+ * ما يعرضه منتقي البداية: الأحد والثلاثاء والخميس على رأس الساعة (8:00، 9:00…)، والاثنين والأربعاء
+ * 8:00 ثم كل ساعةٍ ونصف (9:30، 11:00، 12:30، 14:00…). بين `from` و`to` (بالدقائق، شاملةً `from`).
+ * أيامٌ مختلطة أو بلا أيام: [] — لا سُلّمَ واحداً لها، والمنتقي يبقى حرّاً.
+ */
+export function ladderStartsForDays(days: Iterable<DayKey>, from = 8 * 60, to = EVENING_END): string[] {
+  const step = ladderStepForDays(days);
+  if (!step) return [];
+  const out: string[] = [];
+  for (let minute = 8 * 60; minute < to; minute += step) if (minute >= from) out.push(clock(minute));
+  return out;
+}
+
 export function startLadderNote(days: Iterable<DayKey>, start: string): string {
   const list = [...new Set(days)];
   const match = /^(\d{1,2}):(\d{2})$/.exec(String(start || "").trim());
@@ -588,6 +602,38 @@ export function sameCourseSectionClash<T extends FSchedule>(
     && toMinutes(other.fstarttime) < to && toMinutes(other.fendtime) > from);
 }
 
+/**
+ * ── م.6/2 و م.6/3: السلاسلُ المتتالية لعضوٍ واحد في يومٍ واحد ──────────────────
+ * مصدرٌ واحد يقرؤه فحصُ الاعتماد (reviewSchedule) وتأكيدُ الحفظ (regulationException.ts):
+ * المتتاليان بينهما ربعُ ساعةٍ أو أقل، والتداخلُ ليس تتالياً. محاضرةٌ أطول من ساعة (أكثر من 60د) تُعدّ
+ * في سلسلة «الطويلة» وحدها (لا تزيد على اثنتين — م.6/2)، ومحاضرةُ الساعة في سلسلة «الساعة» (لا تزيد على ثلاث — م.6/3).
+ * يعيد السلاسلَ المخالفة وحدها.
+ */
+export const LONG_RUN_LIMIT = 2;
+export const ONE_HOUR_RUN_LIMIT = 3;
+export function consecutiveTeachingRuns<T extends Pick<FSchedule, "fstarttime" | "fendtime">>(onDay: readonly T[]): { long: T[][]; oneHour: T[][] } {
+  const out = { long: [] as T[][], oneHour: [] as T[][] };
+  const sorted = onDay.slice().sort((a, b) => toMinutes(a.fstarttime) - toMinutes(b.fstarttime));
+  if (sorted.length <= LONG_RUN_LIMIT) return out;
+  let longRun: T[] = [];
+  let oneHourRun: T[] = [];
+  let previous: T | null = null;
+  const recordLong = () => { if (longRun.length > LONG_RUN_LIMIT) out.long.push([...longRun]); longRun = []; };
+  const recordOneHour = () => { if (oneHourRun.length > ONE_HOUR_RUN_LIMIT) out.oneHour.push([...oneHourRun]); oneHourRun = []; };
+  for (const row of sorted) {
+    if (previous) {
+      const gap = toMinutes(row.fstarttime) - toMinutes(previous.fendtime);
+      if (gap < 0 || gap > CONSECUTIVE_GAP) { recordLong(); recordOneHour(); }
+    }
+    if (toMinutes(row.fendtime) - toMinutes(row.fstarttime) > 60) { recordOneHour(); longRun.push(row); }
+    else { recordLong(); oneHourRun.push(row); }
+    previous = row;
+  }
+  recordLong();
+  recordOneHour();
+  return out;
+}
+
 export function reviewSchedule(context: RegulationContext): RegulationFinding[] {
   const { rows, courses, instructors } = context;
   const findings: RegulationFinding[] = [];
@@ -772,40 +818,10 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   });
   for (const [instructorId, list] of byInstructor) {
     for (const day of DAY_KEYS) {
-      const onDay = list
-        .filter(row => (row as any)[day])
-        .sort((a, b) => toMinutes(a.fstarttime) - toMinutes(b.fstarttime));
-      if (onDay.length < 3) continue;
-      let longRun: FSchedule[] = [];
-      let oneHourRun: FSchedule[] = [];
-      let previous: FSchedule | null = null;
-      const recordLong = () => {
-        if (longRun.length > 2) runsOverLong.push({ instructorId, day, rows: [...longRun] });
-        longRun = [];
-      };
-      const recordOneHour = () => {
-        if (oneHourRun.length > 3) runsOverOneHour.push({ instructorId, day, rows: [...oneHourRun] });
-        oneHourRun = [];
-      };
-      for (const row of onDay) {
-        if (previous) {
-          const gap = toMinutes(row.fstarttime) - toMinutes(previous.fendtime);
-          if (gap < 0 || gap > CONSECUTIVE_GAP) {
-            recordLong();
-            recordOneHour();
-          }
-        }
-        if (duration(row) > 60) {
-          recordOneHour();
-          longRun.push(row);
-        } else {
-          recordLong();
-          oneHourRun.push(row);
-        }
-        previous = row;
-      }
-      recordLong();
-      recordOneHour();
+      const onDay = list.filter(row => (row as any)[day]);
+      const runs = consecutiveTeachingRuns(onDay);
+      runs.long.forEach(run => runsOverLong.push({ instructorId, day, rows: run }));
+      runs.oneHour.forEach(run => runsOverOneHour.push({ instructorId, day, rows: run }));
     }
   }
   const appendConsecutiveFinding = (cases: typeof runsOverLong, article: string, title: string, rule: string) => {

@@ -512,3 +512,21 @@ body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:
 @media (max-width:639px){.teacher-week-dialog{padding:8px}.teacher-week-dialog-card{width:100%;max-height:calc(100dvh - 16px)}.teacher-week-dialog-card>.mini-week{width:100%}}
 /* وضع التركيز على القائمة (z-index:1500 للقائمة): نافذة «الجدول الدراسي» فوقها. */
 html[data-schedule-workspace="focus"] .teacher-week-dialog{z-index:1600}
+
+/* ── «هذا الموعد يخالف اللائحة»: تأكيدُ الاستثناء قبل الحفظ (ملاحظتا المالك 10 و20) ── */
+.regulation-exception-sheet{z-index:1310}
+.regulation-exception-sheet .changes-extend-card{inline-size:min(470px,100%);border-top:3px solid var(--warning)}
+.regulation-exception-sheet header strong{display:inline-flex;align-items:center;gap:8px}
+.regulation-exception-sheet header strong svg{inline-size:19px;block-size:19px;color:var(--warning)}
+.regulation-exception-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.regulation-exception-list li{display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:10px;padding:10px 12px;border-radius:12px;background:var(--warning-soft);color:var(--ink);font-size:.9rem;line-height:1.7}
+.regulation-exception-list li>svg{inline-size:17px;block-size:17px;margin-block-start:4px;color:var(--warning)}
+.regulation-exception-article{align-self:start;padding:2px 9px;border-radius:999px;background:var(--surface);border:1px solid color-mix(in srgb,var(--warning) 45%,var(--line));color:var(--warning);font-size:.78rem;font-weight:700;white-space:nowrap}
+.regulation-exception-ask{margin:0;color:var(--muted);font-size:.84rem}
+.regulation-exception-sheet .request-hold-actions button.regulation-exception-confirm{background:var(--warning);color:var(--surface)}
+.qc-ladder{display:flex;flex-wrap:wrap;gap:6px;margin-block-start:8px}
+.qc-ladder button{min-block-size:30px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:.8rem;cursor:pointer}
+.qc-ladder button[aria-pressed="true"]{background:var(--accent);border-color:transparent;color:var(--accent-contrast)}
+.qc-status[data-tone="warn"]{color:var(--warning)}
+.qc-status-regulation{display:inline-flex;align-items:center;gap:6px}
+.qc-status-regulation svg{inline-size:16px;block-size:16px}
