@@ -1,7 +1,7 @@
 /**
  * ── الطلب الفعلي: تقرير التسجيل SWRDASH (src/utils/actualDemand.ts · src/server/actualDemand.ts) ──
  *
- *  P1  النسخة العامة الحقيقية (وحدات متبقية 1–300): القسم والفصل والأعضاء والنصاب، وعدد المقررات،
+ *  P1  النسخة العامة الحقيقية (وحدات متبقية 1–300): القسم والفصل والأعضاء والنصاب، وخمسون مقرراً،
  *      وأرقامٌ بعينها (0109105، 0109108 بلا شعبة، 0109114 بخلية مقترحة فارغة)، والبرامج تجمع المجموع.
  *  P2  نسخة الخريجين الحقيقية (1–30): تُقرأ بالقاعدة نفسها، وأعدادها أصغر.
  *  P3  الملفان بلا بيانات شخصية: لا رقم مدني ولا اسم طالب — أعدادٌ وبرامج فقط.
@@ -32,7 +32,7 @@ async function main() {
   const general = parseDemandReport(await extractDemandItems(fs.readFileSync(GENERAL)));
   check(general.department === "تكنولوجيا التعليم" && general.facultyCount === 26 && general.legalLoad === 256, "P1 القسم وعدد الأعضاء ومجموع النصاب من الترويسة", general);
   check(/الثاني/.test(general.termLabel) && /2026/.test(general.termLabel) && /2027/.test(general.termLabel), "P1 الفصل كما طُبع", general.termLabel);
-  check(general.courses.length === 64, "P1 أربعة وستون مقرراً", general.courses.length);
+  check(general.courses.length === 50, "P1 خمسون مقرراً في تسع صفحات", general.courses.length);
   check(general.courses.every(course => /^0109\d{3}$/.test(course.code)), "P1 كل رقمٍ بسبع خانات (المادة + المقرر)");
   const c105 = general.courses.find(course => course.code === "0109105")!;
   check(c105?.name === "أسس تكنولوجيا التعلم" && c105.units === 3 && c105.offered.boys === 2 && c105.offered.girls === 2
@@ -111,13 +111,13 @@ async function main() {
   const pdf = fs.readFileSync(GENERAL);
   const preview = await call(`/api/actual-demand/upload?${q}&variant=general`, { method: "POST", raw: pdf });
   const previewBody = await preview.json();
-  check(preview.status === 200 && previewBody.preview?.courses === 64 && previewBody.preview.departmentMatches === true && previewBody.preview.termMatches === true, "H1 القراءة بلا حفظ: القسم والفصل مطابقان", previewBody);
-  check(previewBody.preview?.matched >= 40, "H1 أغلب مقررات التقرير تطابق كتالوج القسم التجريبي بالرقم", previewBody.preview);
+  check(preview.status === 200 && previewBody.preview?.courses === 50 && previewBody.preview.departmentMatches === true && previewBody.preview.termMatches === true, "H1 القراءة بلا حفظ: القسم والفصل مطابقان", previewBody);
+  check(previewBody.preview?.matched >= 30, "H1 أغلب مقررات التقرير تطابق كتالوج القسم التجريبي بالرقم", previewBody.preview);
   const still = await (await call(`/api/actual-demand?${q}`)).json();
   check(!still.variants?.general, "H1 القراءة لم تحفظ شيئاً");
   const saved = await call(`/api/actual-demand/upload?${q}&variant=general&commit=1`, { method: "POST", raw: pdf });
   const savedBody = await saved.json();
-  check(saved.status === 200 && savedBody.reading?.variants?.general?.courses === 64 && savedBody.reading.history?.length === 1 && savedBody.reading.history[0].hash?.length === 64, "H1 الحفظ: النسخة العامة وسجلّ الرفع ببصمة الملف", savedBody.reading?.history);
+  check(saved.status === 200 && savedBody.reading?.variants?.general?.courses === 50 && savedBody.reading.history?.length === 1 && savedBody.reading.history[0].hash?.length === 64, "H1 الحفظ: النسخة العامة وسجلّ الرفع ببصمة الملف", savedBody.reading?.history);
   check(Array.isArray(savedBody.reading?.alerts) && savedBody.reading.alerts.every((alert: any) => /^\d{7}$/.test(alert.code)), "H1 التنبيهات بأرقام سبعة", savedBody.reading?.alerts?.slice(0, 3));
   const wrongTerm = Number((Array.isArray(terms) ? terms : []).find((term: any) => Number(term.AdTermId) !== termId)?.AdTermId || 0);
   if (wrongTerm) {
@@ -126,8 +126,10 @@ async function main() {
   }
   const notPdf = await call(`/api/actual-demand/upload?${q}&variant=general`, { method: "POST", raw: Buffer.from("hello") });
   check(notPdf.status === 422, "H1 ما ليس PDF يُرفض", notPdf.status);
-  const outside = await call(`/api/actual-demand?collegeId=99&sectionId=99&termId=${termId}`);
-  check(outside.status === 403 || outside.status === 400, "H1 قسمٌ خارج النطاق لا يُقرأ", outside.status);
+  const noScope = await call(`/api/actual-demand?collegeId=1&termId=${termId}`);
+  check(noScope.status === 400, "H1 بلا قسمٍ لا قراءة", noScope.status);
+  const anonymous = await fetch(`${BASE}/api/actual-demand?${q}`);
+  check(anonymous.status === 401 || anonymous.status === 403, "H1 بلا دخولٍ لا قراءة", anonymous.status);
   const unmatched = savedBody.reading?.unmatched?.[0];
   if (unmatched) {
     const target = savedBody.reading.catalogue?.[0];

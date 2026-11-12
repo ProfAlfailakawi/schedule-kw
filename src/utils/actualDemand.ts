@@ -258,7 +258,7 @@ export function matchDemandCourses(
 /** أقلّ عددٍ يُعدّ «طلباً كبيراً»: الحدّ الأدنى لشعبة نظرية في م.8 — ما يكفي لفتح شعبة. */
 export const DEMAND_ALERT_MIN_STUDENTS = 20;
 
-export interface DemandAlert { code: string; name: string; students: number; graduates: number; courseIds: number[] }
+export interface DemandAlert { code: string; name: string; students: number; boys: number; girls: number; graduates: number; courseIds: number[] }
 
 /**
  * المقررات التي يحتاجها عددٌ يكفي لشعبة ولا شعبة لها: في جدولنا إن طوبق المقرر،
@@ -287,7 +287,7 @@ export function demandAlerts(input: {
       ? match.courseIds.reduce((sum, id) => sum + (input.scheduledSections.get(id) || 0), 0)
       : course.offered.boys + course.offered.girls;
     if (offered > 0) continue;
-    out.push({ code: course.code, name: course.name, students, graduates, courseIds: match?.courseIds || [] });
+    out.push({ code: course.code, name: course.name, students, boys: course.students.boys, girls: course.students.girls, graduates, courseIds: match?.courseIds || [] });
   }
   return out.sort((a, b) => (b.graduates > 0 ? 1 : 0) - (a.graduates > 0 ? 1 : 0) || b.graduates - a.graduates || b.students - a.students);
 }

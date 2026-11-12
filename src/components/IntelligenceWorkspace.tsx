@@ -10,6 +10,7 @@ import { departmentFamily } from "../utils/sectionLabel";
 import { usePageAwake } from "../utils/pageAwake";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import PlanSheetPublisher from "./PlanSheetPublisher";
+import ActualDemandPanel, { type DemandReadingView } from "./ActualDemandPanel";
 import { WhatIfDesk } from "./TimeMachine";
 import { roleDefinition } from "../utils/academicRoles";
 import { mergeDemandReadings, mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
@@ -33,6 +34,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   CircleHelp,
+  ClipboardList,
   Clock3,
   Command,
   Dna,
@@ -231,7 +233,9 @@ type InsightScene =
   /* الصحيفة: نشرُ الصحائف المعتمدة للجميع (رابط وQR وPDF) لرئيس لجنة الجدول. */
   | "sheet"
   /* «فرصة لتحسين الجدول»: بطاقتُها هنا، وأيقونتُها في «أدوات البيانات» — ولا مكان ثالث. */
-  | "improve";
+  | "improve"
+  /* الطلب الفعلي: تقرير التسجيل (SWRDASH) — الرفعُ والتنبيه والعلاج في بطاقةٍ واحدة. */
+  | "actualDemand";
 /* «جرّب» — every card it holds, including the three that used to appear on
    their own the moment a scenario existed. */
 type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger";
@@ -425,6 +429,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   /* نشرُ الصحائف للعامة: رئيس لجنة الجدول وإدارة النظام وحدهما (والخادمُ يتحقق ثانيةً). */
   const canPublishSheets = isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair";
   const [sheetSummary, setSheetSummary] = useState<{ published: number; total: number } | null>(null);
+  /* رقمُ بطاقة «الطلب الفعلي»: يُقرأ مع النطاق، وتحدّثه اللوحةُ نفسها بعد كل رفعٍ أو ربط. */
+  const [actualDemand, setActualDemand] = useState<DemandReadingView | null>(null);
   const loadSheetSummary = useCallback(() => {
     if (!canPublishSheets) return;
     fetch("/api/plan-sheets").then(res => (res.ok ? res.json() : null)).then(body => {
@@ -454,6 +460,14 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         ? v
         : "command";
     });
+  useEffect(() => {
+    setActualDemand(null);
+    if (!collegeId || !sectionId || !termId) return;
+    const controller = new AbortController();
+    fetch(`/api/actual-demand?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include", signal: controller.signal })
+      .then(res => (res.ok ? res.json() : null)).then(body => { if (!controller.signal.aborted) setActualDemand(body); }).catch(() => undefined);
+    return () => controller.abort();
+  }, [collegeId, sectionId, termId]);
   /* رابطُ آلة الزمن والمركزُ مفتوح: اللسانُ المطلوب يُفرض كلما تغيّر، لا عند أول تركيبٍ وحده. */
   useEffect(() => {
     if (!initialTab) return;
@@ -2140,6 +2154,15 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             }]
           : []),
         {
+          value: "actualDemand" as const,
+          label: "الطلب الفعلي",
+          detail: "تقرير التسجيل: من يحتاج ماذا",
+          metric: actualDemand && (actualDemand.variants.general || actualDemand.variants.graduates)
+            ? (actualDemand.alerts.length ? countOf(actualDemand.alerts.length, AR.course) : "✓")
+            : "ارفع",
+          icon: <ClipboardList />,
+        },
+        {
           value: "improve" as const,
           label: "فرصة لتحسين الجدول",
           detail: "موعدٌ بديل يُكمل جداول الطلبة",
@@ -3615,6 +3638,11 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           {canPublishSheets && activeInsightKey === "sheet" ? (
             <div className="content-stack insight-scene-panel" id="insight-panel-sheet" role="tabpanel" aria-labelledby="insight-tab-sheet" tabIndex={0}>
               <PlanSheetPublisher onChanged={loadSheetSummary} focusSectionId={Number(sectionId) || 0} isAdmin={isPowerAdmin} />
+            </div>
+          ) : null}
+          {activeInsightKey === "actualDemand" && collegeId && sectionId && termId ? (
+            <div className="content-stack insight-scene-panel" id="insight-panel-actualDemand" role="tabpanel" aria-labelledby="insight-tab-actualDemand" tabIndex={0}>
+              <ActualDemandPanel collegeId={Number(collegeId)} sectionId={Number(sectionId)} termId={Number(termId)} onReading={setActualDemand} />
             </div>
           ) : null}
           {activeInsightKey === "improve" && collegeId && sectionId && termId ? (

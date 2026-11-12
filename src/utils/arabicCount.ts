@@ -160,6 +160,7 @@ export const AR = {
   attempt:     { one: "محاولة", two: "محاولتان", few: "محاولات", many: "محاولة" },
   round:       { one: "جولة", two: "جولتان", few: "جولات", many: "جولة" },
   student:     { one: "طالب", two: "طالبان", few: "طلاب", many: "طالباً" },
+  graduate:    { one: "خريج", two: "خريجان", few: "خريجين", many: "خريجاً" },
   pair:        { one: "زوج", two: "زوجان", few: "أزواج", many: "زوجاً" },
   account:     { one: "حساب", two: "حسابان", few: "حسابات", many: "حساباً" },
   visit:       { one: "مرة", two: "مرتان", few: "مرات", many: "مرة" },

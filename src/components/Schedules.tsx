@@ -214,6 +214,7 @@ import { courseLabel, instructorLabel } from "../utils/courseLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
+import { actualDemandNotice, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
 import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
 import { historicalDurationMinutes, pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
@@ -4911,6 +4912,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     /* بعد openCreate: فتحُ المحرّر يمحو البذرةَ السابقة (clearEditorTransients)، وهذه بذرتُه هو. */
     pendingSectionRequest.current = seed;
     setMessage(sectionRequestNotice(seed));
+  }, [mode, courses.length]);
+  /* ── بذرةٌ من «الطلب الفعلي»: مقررٌ يحتاجه الطلبة ولا شعبة له — المقرر والكلية والفصل، والباقي قرارُ اللجنة ── */
+  useEffect(() => {
+    if (mode !== "schedule" || !courses.length) return;
+    const seed = takeActualDemandHandoff();
+    if (!seed) return;
+    openCreate({ courseId: seed.courseId, collegeId: seed.collegeId, sectionId: seed.sectionId, termId: seed.termId });
+    setMessage(actualDemandNotice(seed));
   }, [mode, courses.length]);
   const checkCache = useRef(new Map<string, { at: number; data: any }>());
   useEffect(() => { checkCache.current.clear(); }, [rows]);

@@ -252,6 +252,7 @@ test:activity-trail
 test:seat-access-card
 test:first-login-password
 test:colleague-guard-measure
+test:actual-demand
 test:colleagues-advising-registration
 test:quick-studio-family
 test:lecture-stick-own

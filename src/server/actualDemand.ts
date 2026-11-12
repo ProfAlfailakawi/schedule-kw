@@ -154,13 +154,22 @@ function courseFace(context: DemandContext, code: string, fallbackName: string):
   return course ? { code: authorityCourseCode(course.CourseCode, member?.departmentKey) || code, name: String(course.CourseName || fallbackName) } : { code, name: fallbackName };
 }
 
+/** أين تُفتح الشعبة: نسخة المقرر في كل عضوٍ من العائلة، بكليته ومساره. */
+function targetsOf(context: DemandContext, courseIds: readonly number[]) {
+  return courseIds.map(id => {
+    const course = context.catalogue.find(row => Number(row.AdCourseId) === Number(id));
+    const member = course ? context.family.members.find(item => item.sectionId === Number(course.AdSectionId)) : undefined;
+    return member ? { courseId: Number(id), collegeId: member.collegeId, sectionId: member.sectionId, track: member.track } : null;
+  }).filter(Boolean) as Array<{ courseId: number; collegeId: number; sectionId: number; track: string }>;
+}
+
 export function demandReading(context: DemandContext) {
   const general = context.stored?.variants?.general?.report || null;
   const graduates = context.stored?.variants?.graduates?.report || null;
   const base = general || graduates;
   const scheduled = sectionsByCourse(context.rows);
   const alerts = demandAlerts({ general, graduates, matches: context.matches, scheduledSections: scheduled })
-    .map(alert => ({ ...alert, ...courseFace(context, alert.code, alert.name) , report: alert.code }));
+    .map(alert => ({ ...alert, ...courseFace(context, alert.code, alert.name), targets: targetsOf(context, alert.courseIds) }));
   const seenCodes = new Set<string>();
   const unmatched = [general, graduates].flatMap(report => report?.courses || [])
     .filter(course => context.matches.get(course.code)?.status === "unmatched" && !seenCodes.has(course.code) && seenCodes.add(course.code))
