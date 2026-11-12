@@ -623,12 +623,15 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
 
   /* الورقةُ تطبع كلَّ موعد: تُرصّ الملاحظاتُ بطولها، وما زاد عن صفحةٍ يُكمَل
      بعنوان «تتمة» في التي تليها (printFindingPages). */
-  const printPages = packPrintFindings<ReviewFindingGroup>([...groupedFindings, ...warningGroups], finding => finding.rowIds);
+  /* وملاحظاتُ «خارج سُلّم اللائحة» تُطبع كما تُرى: كانت الورقةُ تسقطها، فيُطبع قسمٌ ليس عنده
+     غيرُها «لا توجد موانع ظاهرة» بلا ملاحظاته. تُرصّ بعد غيرها في البطاقة المطبوعة نفسها. */
+  const printFindings = [...groupedFindings, ...warningGroups, ...ladderNotes];
+  const printPages = packPrintFindings<ReviewFindingGroup>(printFindings, finding => finding.rowIds);
   const firstPrintPage = printPages[0] || [];
   const printFollowupPages = printPages.slice(1);
   const renderPrintFinding = ({ finding, rowIds, part, parts }: PrintFindingPiece<ReviewFindingGroup>) => (
     <article className={`print-review-finding severity-${findingTone(finding)}`} key={`${finding.groupKey}:${part}`}>
-      <header><b className="print-finding-index">{findingIcon(finding)}</b><div><strong>{markVisitingNames(finding.title, finding.rowIds)}{parts > 1 ? ` · ${part === 1 ? "يتبع" : "تتمة"} (${part.toLocaleString("ar-KW-u-nu-latn")} من ${parts.toLocaleString("ar-KW-u-nu-latn")})` : ""}</strong><span>{finding.groupedCount > 1 ? `${countOf(finding.groupedCount, AR.conflict)} · ${finding.detail}` : finding.detail}</span></div><em>{finding.article}</em><i>{findingStatus(finding)}</i></header>
+      <header><b className="print-finding-index">{findingIcon(finding)}</b><div><strong>{markVisitingNames(finding.title, finding.rowIds)}{parts > 1 ? ` · ${part === 1 ? "يتبع" : "تتمة"} (${part.toLocaleString("ar-KW-u-nu-latn")} من ${parts.toLocaleString("ar-KW-u-nu-latn")})` : ""}</strong><span>{finding.groupedCount > 1 ? `${countOf(finding.groupedCount, finding.rule === "regulation-ladder" ? AR.course : AR.conflict)} · ${finding.detail}` : finding.detail}</span></div><em>{finding.article}</em><i>{findingStatus(finding)}</i></header>
       {rowIds.length ? <div className="print-review-rows">{rowIds.map(id => <span key={id}>{describe(byId.get(id))}</span>)}</div> : null}
     </article>
   );
@@ -975,7 +978,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                 <div className="print-spread-keys">{spread.high ? <span className="seg-high">{spreadLabel.high}</span> : null}{spread.medium ? <span className="seg-medium">{spreadLabel.medium}</span> : null}{spread.low ? <span className="seg-low">{spreadLabel.low}</span> : null}{spread.clean ? <span className="seg-clean">{spreadLabel.clean}</span> : null}</div>
               </div>
               <section className="print-review-findings">
-                {findings.length ? firstPrintPage.map(renderPrintFinding) : <div className="print-review-clear"><CheckCircle2 /><strong>{unclassifiedCourses ? "فحص غير مكتمل" : "لا توجد موانع ظاهرة"}</strong><span>{unclassifiedCourses ? `${countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ نمط المادة 7/8 غير مفحوص.` : "لا توجد موانع ظاهرة في هذا الفحص."}</span></div>}
+                {reviewHasFindings(groupedFindings.length, warningGroups.length, ladderNotes.length) ? firstPrintPage.map(renderPrintFinding) : <div className="print-review-clear"><CheckCircle2 /><strong>{unclassifiedCourses ? "فحص غير مكتمل" : "لا توجد موانع ظاهرة"}</strong><span>{unclassifiedCourses ? `${countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ نمط المادة 7/8 غير مفحوص.` : "لا توجد موانع ظاهرة في هذا الفحص."}</span></div>}
               </section>
               {!printFollowupPages.length ? (
                 <div className="print-signatures print-explicit-page-meta">
