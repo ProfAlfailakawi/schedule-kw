@@ -646,7 +646,9 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
    * notes behind a click buys nothing.
    */
   const pressingFindings = groupedFindings.filter(finding => finding.approvalEffect !== "note");
-  const quietFindings = [...groupedFindings.filter(finding => finding.approvalEffect === "note"), ...ladderNotes, ...libraryNotes];
+  /* «خارج سُلّم اللائحة» و«نمط غير معتمد في المكتبة» تنبيهان لا يمنعان، يُعرضان هنا ويُعدّان (reviewHasFindings). */
+  const quietFindings = [...groupedFindings.filter(finding => finding.approvalEffect === "note"), ...ladderNotes];
+  quietFindings.push(...libraryNotes);
   const quietNames = quietFindings.slice(0, 3).map(finding => finding.title).join(" · ");
   const quietPreview = quietFindings.length > 3
     ? `${quietNames} · و${(quietFindings.length - 3).toLocaleString("ar-KW-u-nu-latn")} غيرها`
@@ -714,7 +716,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             <section className="review-subject">
               <header>
                 <strong>{markVisitingNames(subject.label, subjectRowIds)}</strong>
-                <small>{(finding.rule === "regulation-ladder" || finding.rule === "pattern-off-library") ? "تنبيه لائحي" : countOf(subject.items.length, AR.conflict)}</small>
+                <small>{finding.rule === "regulation-ladder" || finding.rule === "pattern-off-library" ? "تنبيه لائحي" : countOf(subject.items.length, AR.conflict)}</small>
               </header>
               <div className="review-subject-cases">
                 {renderCompactRows(subjectRowIds)}
@@ -756,7 +758,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                     <span className="finding-share-wrap">
                       <span className="finding-share-count" title={elsewhere > 0 ? `و${countOf(elsewhere, AR.appointment)} في كلية أخرى من القسم لا تُحسب في هذه الدرجة` : undefined}>
                         <b>{finding.groupedCount.toLocaleString("ar-KW-u-nu-latn")}</b>
-                        <span>{(finding.rule === "regulation-ladder" || finding.rule === "pattern-off-library") ? nounFor(finding.groupedCount, AR.course) : finding.groupedCount === 1 ? "تعارض" : "تعارضات"}</span>
+                        <span>{finding.rule === "regulation-ladder" ? nounFor(finding.groupedCount, AR.course) : finding.rule === "pattern-off-library" ? nounFor(finding.groupedCount, AR.course) : finding.groupedCount === 1 ? "تعارض" : "تعارضات"}</span>
                         <i>·</i>
                         <span data-finding-count={scoped.length}>{countOf(scoped.length, AR.appointment)} {nounFor(scoped.length, AR.affectedAdj)}</span>
                       </span>

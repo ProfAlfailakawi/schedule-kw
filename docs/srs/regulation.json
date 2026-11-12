@@ -203,6 +203,13 @@
         "reqs": ["FR-APR-003", "FR-SCH-017"]
       },
       {
+        "rule": "pattern-off-library",
+        "title": { "ar": "نمط غير معتمد في المكتبة", "en": "Pattern not approved in the library" },
+        "article": { "ar": "م.7/8", "en": "Art. 7/8" },
+        "detects": { "ar": "شعبة مقرر نظري بثلاث ساعات أو أربع بأطوال نمطٍ من المكتبة على أيامٍ غير متجاورة ليست أيامه (الأحد + الأربعاء 80 دقيقة): ملاحظةٌ لا تمنع الاعتماد، والحفظ يطلب نمط المكتبة.", "en": "A section of a three- or four-hour theoretical course at a library pattern's lengths on non-adjacent days other than its own (Sun + Wed 80 minutes): a note that does not block approval, while saving asks for the library pattern." },
+        "reqs": ["IR-APR-037", "FR-SCH-017"]
+      },
+      {
         "rule": "fixed-course-time",
         "title": { "ar": "وقت الشعبة غير ثابت", "en": "Section time not fixed" },
         "article": { "ar": "م.7/9", "en": "Art. 7/9" },

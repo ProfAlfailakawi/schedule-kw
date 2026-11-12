@@ -49,7 +49,11 @@ console.log("I1 — م.7/8 يقرأ الشكل لا اليوم المثال");
   check(meetingsMatchApprovedPattern([{ day: "fmonday" as DayKey, minutes: 110 }, { day: "fwednesday" as DayKey, minutes: 110 }], 4), "4 ساعات: 110/110 الاثنين·الأربعاء مطابق");
   check(!meetingsMatchApprovedPattern([{ day: "fsunday" as DayKey, minutes: 110 }, { day: "fmonday" as DayKey, minutes: 110 }], 4), "4 ساعات: 110 على يومين متتاليين لا يطابق");
   const finding = review([row(121, "509", ["sun", "mon"], "08:00", "09:20")], [course]).find(f => f.rule === "theoretical-pattern");
-  check(Boolean(finding?.detail.includes("أيام غير متتالية")), "نص الملاحظة يذكر أن الأطوال نفسها على أيام غير متتالية مقبولة");
+  /* المكتبةُ وحدها معتمدة (المالك 2026-10-30): النصُّ يسرد أنماطها ولا يَعِد بأيامٍ غيرها؛ وأطوالُها على أيامٍ غير
+     أيامها (الأحد·الأربعاء 80) تنبيهٌ لا يمنع «نمط غير معتمد في المكتبة» (tests/pattern-rule-unify-audit.ts). */
+  check(Boolean(finding?.detail.includes("80 دقيقة يوم الاثنين")) && !finding?.detail.includes("أيام غير متتالية"), "نص الملاحظة يسرد أنماط المكتبة ولا يقبل أياماً غيرها");
+  const soft = review([row(121, "510", ["sun", "wed"], "08:00", "09:20")], [course]);
+  check(!soft.some(f => f.rule === "theoretical-pattern") && soft.some(f => f.rule === "pattern-off-library" && f.approvalEffect === "note"), "الأحد·الأربعاء 2×80: تنبيه «نمط غير معتمد في المكتبة» لا مانع");
 }
 
 console.log("I3 — لا خلط بين الكليات");

@@ -497,6 +497,13 @@
    "approvalEffect": "block"
   },
   {
+   "rule": "pattern-off-library",
+   "article": "م.7/8",
+   "severity": "low",
+   "source": "decision-1912",
+   "approvalEffect": "note"
+  },
+  {
    "rule": "fixed-course-time",
    "article": "م.7/9",
    "severity": "high",

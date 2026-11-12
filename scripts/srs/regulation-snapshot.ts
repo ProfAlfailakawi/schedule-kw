@@ -48,6 +48,7 @@ function probes(): Array<{ rule: string; rows: Row[]; extra?: Partial<Regulation
     { rule: "section-hours-under", rows: [row({ days: ["fsunday"], from: "08:00", to: "08:50" })] },
     { rule: "regulation-ladder", rows: [row({ days: ["fsunday"], from: "08:30", to: "09:20" })] },
     { rule: "theoretical-pattern", courses: theory, rows: [row({ AdCourseId: 201, days: ["fsunday", "fmonday"], from: "08:00", to: "08:50" })] },
+    { rule: "pattern-off-library", courses: theory, rows: [row({ AdCourseId: 201, days: ["fsunday", "fwednesday"], from: "08:00", to: "09:20" })] },
     { rule: "fixed-course-time", rows: [row({ days: ["fsunday"], from: "08:00", to: "08:50" }), row({ days: ["ftuesday"], from: "09:00", to: "09:50" })] },
     { rule: "sections-same-hour", rows: [row({ SCode: "1", days: ["fsunday"], from: "08:00", to: "08:50" }), row({ SCode: "2", AdInstructorId: 12, days: ["fsunday"], from: "08:00", to: "08:50" })] },
     { rule: "consecutive-long-lecture", rows: ["08:00", "09:30", "11:00"].map((from, i) => row({ AdCourseId: 101 + i, SCode: String(i + 1), days: ["fmonday"], from, to: clock(toMin(from) + 80) })),

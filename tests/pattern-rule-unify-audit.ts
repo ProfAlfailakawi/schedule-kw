@@ -70,7 +70,7 @@ check(offLibrary && offLibrary.approvalEffect === "note" && offLibrary.title ===
 check(R.isDecision1912Finding(offLibrary as any), "U2 والتنبيهُ من بنود اللائحة فتعرضه شاشةُ المراجعة");
 check(reviewHasFindings(0, 0, 1), "U2 وتنبيهٌ واحدٌ وحده يُعدّ فيما يُعرض (لا «لا ملاحظات»)");
 const screen = fs.readFileSync("src/components/ScheduleReview.tsx", "utf8");
-check(/finding\.rule === "pattern-off-library"/.test(screen) && /\.\.\.ladderNotes, \.\.\.libraryNotes\]/.test(screen)
+check(/finding\.rule === "pattern-off-library"/.test(screen) && /quietFindings\.push\(\.\.\.libraryNotes\)/.test(screen)
   && /reviewHasFindings\(groupedFindings\.length, warningGroups\.length, quietFindings\.length\)/.test(screen),
   "U2 الشاشة تجمع التنبيه في الملاحظات الهادئة، وreviewHasFindings يعدّها");
 const adjacent = ruleOf([reviewRow(5, SUN_MON, "08:00", "09:20")], "theoretical-pattern");
