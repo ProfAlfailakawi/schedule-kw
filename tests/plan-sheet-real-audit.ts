@@ -7,7 +7,7 @@ import fs from "fs";
 import { extractPlanItems } from "../src/server/planPdfExtract";
 import { parsePlanItems } from "../src/utils/planPdfParser";
 import { buildReferenceRules } from "../src/utils/referenceApply";
-import { blockingWarnings, checkSheetScope, isNewSheet, sheetKey, sheetOwnKey, sheetToReference, correctedNames, dominantDepartment, ownCourses, printedTotalsNotes } from "../src/utils/planSheetImport";
+import { blockingWarnings, checkSheetScope, isNewSheet, sheetKey, sheetOwnKey, sheetSectionName, sheetToReference, correctedNames, dominantDepartment, ownCourses, printedTotalsNotes } from "../src/utils/planSheetImport";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -63,6 +63,14 @@ const EXPECTED: Record<string, [string, number]> = {
   check(!half.rules.find(rule => rule.courseId === ids.get("0105457"))?.prereq?.anyOf?.length && half.notes.some(note => /غير موجود في كتالوج/.test(note)), "ينقص أحد البديلين: لا تُقيَّد المجموعة وتُعدّ غير مربوطة");
   const notes = await Promise.all(["ba-0113", "ba-0109", "ba-0102"].map(async file => printedTotalsNotes(parsePlanItems(await extractPlanItems(fs.readFileSync(`tests/fixtures/plans/graduation-2026/${file}.pdf`)))).length));
   check(notes.every(n => n > 0), "المجاميع المطبوعة الخاطئة في الصحيفة تظهر ملاحظات");
+  /* العلوم الصحية: «كليه» بالهاء و«صـحــه البيـــئه» بالتطويل تُقرآن، والقسم الجديد يُسمّى صحيحاً */
+  const env = parsePlanItems(await extractPlanItems(fs.readFileSync("tests/fixtures/plans/health-sciences/ba-031001.pdf")));
+  check(env.college === "كليه العلوم الصحيه" && env.department === "قسم صحه البيئه" && !env.warnings.length, "العلوم الصحية: الكلية والقسم يُقرآن بلا تحذير");
+  check(env.degreeUnits === 131 && env.courses.length === 71 && sheetKey(env) === "0344", "صحة البيئة: 131 وحدة و71 مقرراً، ورمزها 0344");
+  check(sheetSectionName(env, "قسم م") === "قسم صحة البيئة", "القسم الجديد يُسمّى «قسم صحة البيئة»");
+  const envScope = { collegeName: "كلية العلوم الصحية - بنات", collegeCode: "03", sectionName: "قسم صحة البيئة", departmentKey: "0344" };
+  check(checkSheetScope(env, envScope) === null, "صحة البيئة: تُقبل في قسمها بكلية العلوم الصحية");
+  check(checkSheetScope(env, { ...envScope, collegeName: "كلية التربية الأساسية - بنات", collegeCode: "01", departmentKey: "0144" })?.kind === "college", "صحة البيئة: لا تُقبل في كليةٍ أخرى");
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);
 })();
