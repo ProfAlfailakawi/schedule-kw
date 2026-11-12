@@ -158,6 +158,8 @@ interface Props {
   scopes?: ScopeAssignmentLike[];
   powerAdmin?: boolean;
   onOpenDepartmentSchedule?: () => void;
+  /** بعد التوقيع بنجاح: ينقله المضيفُ إلى «الاستعلامات والتقارير». */
+  onSigned?: () => void;
 }
 
 const request = async (url: string, init?: RequestInit) => {
@@ -875,8 +877,9 @@ const CROSS_KIND_LABEL: Record<string, string> = {
   doorway: "زمنُ الانتقال", cohort: "دفعةُ الطلبة",
 };
 
-function Report({ termId, termName, scope, role, onBack, archive = false, frozen = false }: {
+function Report({ termId, termName, scope, role, onBack, onSigned, archive = false, frozen = false }: {
   key?: React.Key;
+  onSigned?: () => void;
   /** فصلٌ صار أرشيفاً (termIsArchive): لا شريطَ اعتمادٍ ولا توقيع. */
   archive?: boolean;
   /** فصلٌ سابق: يُقرأ التقريرُ كلُّه، وكلُّ ما يكتب معطَّل (والخادم يرفض أيضاً). */
@@ -1163,6 +1166,7 @@ function Report({ termId, termName, scope, role, onBack, archive = false, frozen
           signatureStage={role.signatureStage}
           refreshSignal={approvalSignal}
           onChanged={() => { setApprovalSignal(value => value + 1); void load(); }}
+          onSigned={onSigned}
         />
       ) : null}
 
@@ -1417,7 +1421,7 @@ function Report({ termId, termName, scope, role, onBack, archive = false, frozen
 
 /* ── الشاشة ─────────────────────────────────────────────────────────────── */
 
-export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin = false, onOpenDepartmentSchedule }: Props) {
+export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin = false, onOpenDepartmentSchedule, onSigned }: Props) {
   const [terms, setTerms] = useState<AdTerm[] | null>(null);
   const [termId, setTermId] = useState(0);
   const [opened, setOpened] = useState<{ collegeId: number; sectionId: number; collegeName?: string; sectionName?: string } | null>(null);
@@ -1539,7 +1543,7 @@ export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin =
       {!termId ? (
         <EmptyState title="اختر الفصل" detail="تُعرض تغييرات الجداول لفصلٍ واحد في كل مرّة." />
       ) : active ? (
-        <Report key={reloadKey} termId={termId} termName={term?.AdTermName || ""} scope={active} role={role} archive={termIsArchive(term, terms || []) || frozenTerm} frozen={frozenTerm} onBack={opened ? () => setOpened(null) : undefined} />
+        <Report key={reloadKey} termId={termId} termName={term?.AdTermName || ""} scope={active} role={role} archive={termIsArchive(term, terms || []) || frozenTerm} frozen={frozenTerm} onBack={opened ? () => setOpened(null) : undefined} onSigned={onSigned} />
       ) : (
         <Surface>
           <Inbox_

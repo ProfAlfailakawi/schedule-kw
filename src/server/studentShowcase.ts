@@ -30,6 +30,8 @@ import { UNIVERSITY_UNIT_CAP_DOC, studentUnitCapOf } from "../utils/studentUnitC
 
 export const SHOWCASE_COOKIE = "sh_demo_stu";
 const TTL_MS = 2 * 60 * 60_000;
+/** مساراتُ الدخول الحقيقي (تحمل رقماً مدنياً): لا تُخدم من صندوق التجربة. */
+const REAL_SIGN_IN_PATHS = new Set(["/identity", "/enter", "/reset"]);
 const MAX_SANDBOXES = 150;
 
 const DEPT: Record<string, string> = { "01": "الدراسات الإسلامية", "02": "اللغة العربية", "03": "الاجتماعيات", "05": "الرياضيات", "06": "العلوم", "07": "التربية البدنية", "08": "التربية الفنية", "09": "تكنولوجيا التعليم", "10": "التربية الموسيقية", "11": "علم النفس", "12": "المكتبات", "13": "الحاسوب", "14": "أصول التربية", "15": "التربية الخاصة", "16": "الإدارة التربوية", "19": "التربية الخاصة", "20": "المناهج", "21": "المناهج وطرق التدريس", "24": "الهندسة", "30": "اللغة الإنجليزية", "65": "علوم أخرى" };
@@ -163,6 +165,16 @@ export function registerStudentShowcase(app: Express, deps: ShowcaseDeps): void 
   app.use("/api/public/me", (req: Request, res: Response, next: NextFunction) => {
     const id = readCookie(req.headers.cookie, SHOWCASE_COOKIE);
     if (!id || !id.startsWith("demo_stu_")) { next(); return; }
+    /* دخولٌ حقيقيٌّ برقمٍ مدني لا يجري في الصندوق أبداً: كان كوكي التجربة الباقي يحوّل
+       «الهوية» و«الدخول» و«نسيت رمزي» إليه، فيُنشئ الطالبُ ملفّاً ورمزاً داخل صندوقٍ مؤقت
+       في ذاكرة نسخةٍ واحدة. يزول الصندوق (انتهاءٌ أو نسخةٌ أخرى) فيُطرد الطالب، ويعود فيُرفض
+       رمزُه الصحيح لأن ملفَّه الحقيقي برمزٍ آخر. فالتجربةُ تنتهي هنا ويمضي الطلب إلى الحقيقي. */
+    if (req.method === "POST" && REAL_SIGN_IN_PATHS.has(req.path)) {
+      Repository.dropDemoSandbox(id);
+      res.append("Set-Cookie", cookie("", 0));
+      next();
+      return;
+    }
     if (Repository.runDemoSandbox(id, next)) return;
     res.setHeader("Set-Cookie", [cookie("", 0), clearDoorCookie(secure)]);
     next();
