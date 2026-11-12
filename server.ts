@@ -90,6 +90,7 @@ import { registerUsersRoutes } from "./src/server/routes/usersRoutes";
 import { registerSeatsRoutes, seatMemberGuard } from "./src/server/seatsRoutes";
 import { registerSectionRequestsRoutes } from "./src/server/sectionRequestsRoutes";
 import { registerScheduleHoldsRoutes } from "./src/server/scheduleHoldsRoutes";
+import { registerActualDemandRoutes } from "./src/server/actualDemandRoutes";
 import { activityTrailRecorder, registerActivityTrailRoutes } from "./src/server/activityTrail";
 import { registerAppointmentMetricsRoutes } from "./src/server/appointmentMetrics";
 import { registerVerifyRoutes } from "./src/server/routes/verifyRoutes";
@@ -443,6 +444,8 @@ registerActivityTrailRoutes(app);
 /* حارسُ الزملاء: حجزٌ ليّن لدقيقتين يراه من يبني موعداً معك، ومقياسُ إدخال المواعيد (مجهول الهوية). */
 registerScheduleHoldsRoutes(app);
 registerAppointmentMetricsRoutes(app);
+/* الطلب الفعلي: تقرير التسجيل (SWRDASH) لعائلة القسم في الفصل. */
+registerActualDemandRoutes(app);
 registerShareRoutes(app);
 registerPlanningRoutes(app);
 registerPublicCalendarRoutes(app);
