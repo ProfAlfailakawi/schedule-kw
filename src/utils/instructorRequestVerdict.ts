@@ -631,7 +631,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       reasons.push({ source: "shape", code: "hours", blocking: true, text: "مجموع مواعيد المقرر يتجاوز ساعاته الأسبوعية المعتمدة. راجع توزيع المواعيد." });
       return verdictOf();
     }
-    if (!mixedUnapproved && weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
+    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
       /* الأنماطُ المقترحة (أزرارٌ ونصّ «جرّب») تُبنى من نمط المقرّر نفسه في فصولٍ سابقة أولاً، ولا يُرجع إلى أنماط اللائحة إلا حين
          لا نمطَ له أو لا يقبله الفاحصُ. هذا في الاقتراح وحده: شرطُ المنع أعلاه والعتبةُ أدناه كما هما، وكلُّ زرٍّ يمرّ منهما. */
       const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);

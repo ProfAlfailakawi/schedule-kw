@@ -115,12 +115,13 @@ const fourSunThu = judgeRequest(asked("10:00", ["fsunday", "fthursday"], 4), {
   ...verdictContext(true), courses: new Map([[4, { AdCourseId: 4, CourseHours: 4, CourseName: "أربع ساعات" } as any]]), instructorLoad: 0,
 } as any);
 /* قرار المالك 2026-11-13: «الأحد·الخميس 110/110» أُزيل — كرتُ الأستاذ يمنعه لمقرّرٍ بأربع ساعات أيضاً. */
-check(!fourSunThu.sendable && fourSunThu.reasons.some(reason => reason.code === "pattern" && /ليست نمطاً معتمداً/.test(reason.text)),
-  "P9 كرت الأستاذ: أربع ساعات على الأحد·الخميس «ليست نمطاً معتمداً»");
+check(!fourSunThu.sendable && fourSunThu.reasons.some(reason => reason.blocking && (reason.code === "pattern" || reason.code === "hours"))
+  && !(fourSunThu.shapes || []).some(shape => shape.days.join() === "fsunday,fthursday"),
+  "P9 كرت الأستاذ: أربع ساعات على الأحد·الخميس تُمنع، ولا يُقترح الأحد·الخميس");
 const fourMonThu = judgeRequest(asked("10:00", ["fmonday", "fthursday"], 4), {
   ...verdictContext(true), courses: new Map([[4, { AdCourseId: 4, CourseHours: 4, CourseName: "أربع ساعات" } as any]]), instructorLoad: 0,
 } as any);
-check(!fourMonThu.sendable && fourMonThu.reasons.some(reason => reason.code === "pattern"), "P9 كرت الأستاذ: الاثنين·الخميس يُمنع");
+check(!fourMonThu.sendable && fourMonThu.reasons.some(reason => reason.blocking && (reason.code === "pattern" || reason.code === "hours")), "P9 كرت الأستاذ: الاثنين·الخميس يُمنع");
 const fourTueThu = judgeRequest(asked("10:00", ["ftuesday", "fthursday"], 4), {
   ...verdictContext(true), courses: new Map([[4, { AdCourseId: 4, CourseHours: 4, CourseName: "أربع ساعات" } as any]]), instructorLoad: 0,
 } as any);
