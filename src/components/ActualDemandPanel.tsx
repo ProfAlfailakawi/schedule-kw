@@ -12,7 +12,7 @@ import {
 import SearchableSelect from "./SearchableSelect";
 import CourseTags from "./CourseTags";
 import { Num } from "./ui";
-import { AR, countOf, nounFor } from "../utils/arabicCount";
+import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { DEMAND_VARIANT_LABEL, guessDemandVariant, type DemandVariant } from "../utils/actualDemand";
 import { putActualDemandHandoff } from "../utils/actualDemandHandoff";
 
@@ -266,7 +266,7 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
                       <span className="ad-chips">
                         {item.branches.filter(branch => branch.gap !== 0).map(branch => (
                           <em key={branch.track || "all"} className={branch.gap > 0 ? "is-short" : "is-spare"}>
-                            {branch.gap > 0 ? "−" : "+"}{Math.abs(branch.gap)} {nounFor(Math.abs(branch.gap), AR.section)}{branch.track ? ` · ${branch.track === "boys" ? "بنين" : "بنات"}` : ""}
+                            {branch.gap > 0 ? `ينقصه ${countOf(branch.gap, AR.section)}` : `فائض ${countOf(-branch.gap, oblique(AR.section))}`}{branch.track ? ` · ${branch.track === "boys" ? "بنين" : "بنات"}` : ""}
                           </em>
                         ))}
                         {item.move ? <em className="is-move"><ArrowLeftRight aria-hidden="true" />{countOf(item.move.sections, AR.section)} · {item.move.from === "girls" ? "بنات ← بنين" : "بنين ← بنات"}</em> : null}
