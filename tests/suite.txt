@@ -152,6 +152,7 @@ test:plan-sheet
 test:program-provision
 test:student-map
 test:student-showcase
+test:review-family
 test:masari-responsive
 test:masari-ease
 test:masari-visual
