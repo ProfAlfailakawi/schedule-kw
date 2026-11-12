@@ -629,7 +629,7 @@ function viewCode(){
   btn.addEventListener("click",submit);document.getElementById("code").addEventListener("keydown",function(e){if(e.key==="Enter")submit()});
   document.getElementById("other").addEventListener("click",function(){S.civil="";S.remember=false;setView("gate")});
   document.getElementById("forgot").addEventListener("click",function(){
-    var el=sheet('<h3>نسيت رمزك؟</h3><p class="lead">تواصل مع أستاذ مقررك ليساعدك في الدخول إلى ملفّك. لا يُسترجع الرمز من هذه الصفحة.</p>'+errBox("rerr")+'<button class="btn" id="rc">حسناً</button><p class="muted">أو اطلب حذف ملفّك لتنشئ غيره: يُحذف بعد 30 يوماً، ويُلغى الطلب إن دخلت برمزك قبلها.</p><button class="btn danger" id="rq">اطلب حذف ملفي</button>');
+    var el=sheet('<h3>نسيت رمزك؟</h3><p class="lead">حمايةً لملفّك لا يستطيع أحدٌ استرجاع الرمز. يمكنك طلب حذف الملف: يُحذف بعد 30 يوماً، وإن تذكّرت رمزك قبلها وأدخلته أُلغي الطلب. ثم تنشئ ملفاً جديداً بدقائق.</p>'+errBox("rerr")+'<button class="btn danger" id="rq">اطلب حذف ملفي</button><button class="btn alt" id="rc">تراجع</button>');
     document.getElementById("rc").addEventListener("click",closeSheet);
     document.getElementById("rq").addEventListener("click",function(){var b=this;b.disabled=true;api("POST","/api/public/me/reset",{civil:S.civil}).then(function(r){b.disabled=false;if(!r.ok){showErr("rerr",r.d.error||"تعذّر الطلب");return}closeSheet();S.resetPending=true;S.resetAt=r.d.deleteAt;toast("سيُحذف ملفّك بعد 30 يوماً ما لم تدخل برمزك.");viewCode()})})});
   setTimeout(function(){var i=document.getElementById("code");if(i)i.focus()},60);
