@@ -1,0 +1,29 @@
+{
+  "appId": "com.dralfailakawi.schedule",
+  "appName": "SCHEDULE",
+  "webDir": "www",
+  "server": {
+    "url": "https://schedule-kw.com",
+    "errorPath": "offline.html",
+    "allowNavigation": [
+      "schedule-kw.com",
+      "*.firebaseapp.com",
+      "*.googleapis.com"
+    ]
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#F2F3EF",
+    "scheme": "SCHEDULE",
+    "limitsNavigationsToAppBoundDomains": false,
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "launchAutoHide": true,
+      "backgroundColor": "#F2F3EF",
+      "showSpinner": false
+    }
+  }
+}
