@@ -14,8 +14,7 @@
  */
 import { arabicMatchKey } from "./arabicText";
 import { parseTermName } from "./pdfTermRule";
-import { authorityCourseCodeMatches } from "./authorityAcademicCodes";
-import { capacityCourseKey } from "./capacityLimits";
+import { authorityCatalogueCourseDigits, authorityCourseCodeMatches } from "./authorityAcademicCodes";
 
 export interface DemandTextItem { str: string; x: number; y: number; w: number }
 
@@ -235,22 +234,40 @@ export function matchDemandCourses(
 ): DemandMatch[] {
   const memberIds = new Set(members.map(member => Number(member.sectionId)));
   const own = catalogue.filter(course => memberIds.has(Number(course.AdSectionId)));
+  /* نسخُ المقرر في كل عضو: الرقمُ كما طُبع، ثم بمفتاح العضو نفسه (كلية + قسم) والمقررُ نفسه —
+     فرعٌ مفتاحه 0209 يحمل 0109105 باسم 0209105، ولا يُطابَق بالاسم أبداً. */
+  const copiesOf = (code: string) => {
+    const ids: number[] = [];
+    const tail = code.slice(-3);
+    for (const member of members) {
+      const rows = own.filter(course => Number(course.AdSectionId) === Number(member.sectionId));
+      let hit = rows.filter(course => authorityCourseCodeMatches(code, course.CourseCode, member.departmentKey));
+      const local = /^\d{4}$/.test(member.departmentKey) ? `${member.departmentKey}${tail}` : "";
+      if (!hit.length && local && local !== code) hit = rows.filter(course => authorityCourseCodeMatches(local, course.CourseCode, member.departmentKey));
+      if (hit.length === 1) ids.push(Number(hit[0].AdCourseId));
+    }
+    return ids;
+  };
   return courses.map(({ code }) => {
     const link = links[code];
     if (link && "ignore" in link) return { code, status: "ignored" as const, courseIds: [] };
-    const ids: number[] = [];
-    for (const member of members) {
-      const rows = own.filter(course => Number(course.AdSectionId) === Number(member.sectionId) && authorityCourseCodeMatches(code, course.CourseCode, member.departmentKey));
-      if (rows.length === 1) ids.push(Number(rows[0].AdCourseId));
-    }
+    const ids = copiesOf(code);
     if (ids.length) return { code, status: "matched" as const, courseIds: ids };
     if (link && "courseCode" in link) {
-      const key = capacityCourseKey(link.courseCode);
-      const linked = own.filter(course => capacityCourseKey(course.CourseCode) === key).map(course => Number(course.AdCourseId));
+      /* الربطُ هويةٌ للعائلة كلها: رقمُ المقرر (آخر ثلاث خانات) يُقرأ بمفتاح كل عضو، فيلتقي
+         المخزَّن قصيراً (105) والمخزَّن كاملاً (0109105) في الفروع كلها. */
+      const digits = demandLinkIdentity(link.courseCode);
+      const linked = digits ? copiesOf(digits.padStart(7, "0")) : [];
       if (linked.length) return { code, status: "linked" as const, courseIds: linked };
     }
     return { code, status: "unmatched" as const, courseIds: [] };
   });
+}
+
+/** هويةُ الربط اليدوي للعائلة: رقمُ المقرر بخاناته الثلاث، من رمزٍ قصير (105) أو كامل (0109105). */
+export function demandLinkIdentity(courseCode: unknown): string {
+  const digits = authorityCatalogueCourseDigits(courseCode);
+  return digits.length >= 3 ? digits.slice(-3) : digits ? digits.padStart(3, "0") : "";
 }
 
 /* ── التنبيه الأحمر: طلبٌ كبير بلا شعبة ─────────────────────────────────── */

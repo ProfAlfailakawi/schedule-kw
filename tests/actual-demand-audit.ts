@@ -7,13 +7,15 @@
  *  P3  الملفان بلا بيانات شخصية: لا رقم مدني ولا اسم طالب — أعدادٌ وبرامج فقط.
  *  P4  ما ليس SWRDASH يُرفض برسالة، والنسخة تُخمَّن من اسم الملف.
  *  M1  المطابقة بالرقم وحده في كل عضوٍ من العائلة، والربط المحفوظ والتجاهل.
+ *  M2  عضوان بمفتاحين مختلفين (0109 و0209): الرقم يُقرأ بمفتاح كل عضو.
+ *  M3  الربط اليدوي هويةٌ للعائلة: الرمز القصير والكامل يلتقيان.
  *  A1  التنبيه الأحمر: طلبٌ كبير بلا شعبة في جدولنا، والخريجون أولاً.
  *  H1  خادمٌ حيّ (تجربة): القراءة بلا حفظ، ثم الحفظ، ثم القراءة، والصلاحية، والربط، وسجلّ التدقيق.
  */
 import fs from "node:fs";
 import { extractDemandItems } from "../src/server/actualDemand";
 import {
-  demandAlerts, demandDepartmentMatches, demandName, demandTermMatches, guessDemandVariant, matchDemandCourses, parseDemandReport, DemandReportError,
+  demandAlerts, demandDepartmentMatches, demandLinkIdentity, demandName, demandTermMatches, guessDemandVariant, matchDemandCourses, parseDemandReport, DemandReportError,
   type DemandReport,
 } from "../src/utils/actualDemand";
 import { startDemoServer, type LiveServer } from "./helpers/liveServer";
@@ -83,6 +85,22 @@ async function main() {
   check(matched[0].status === "matched" && matched[0].courseIds.join() === "1,2", "M1 الرقم يطابق نسخة البنين (105) والبنات (0109105)", matched[0]);
   check(matched[1].status === "unmatched" && !matched[1].courseIds.length, "M1 مقررُ قسمٍ آخر لا يُطابَق لأنه خارج العائلة", matched[1]);
   check(matched[2].status === "linked" && matched[2].courseIds.join() === "3,4" && matched[3].status === "ignored", "M1 الربط المحفوظ يمتد للعائلة، والتجاهل يُحترم", matched.slice(2));
+  /* M2: عضوان بمفتاحين مختلفين (0109 و0209): الرقمُ يُقرأ بمفتاح كل عضو، والقسمُ والمقررُ هويةٌ واحدة. */
+  const split = [{ collegeId: 11, sectionId: 101, departmentKey: "0109" }, { collegeId: 21, sectionId: 301, departmentKey: "0209" }];
+  const splitCatalogue = [
+    { AdCourseId: 11, AdSectionId: 101, AdCollegeId: 11, CourseCode: "105", CourseName: "أسس تكنولوجيا التعلم" },
+    { AdCourseId: 12, AdSectionId: 301, AdCollegeId: 21, CourseCode: "105", CourseName: "أسس تكنولوجيا التعلم" },
+    { AdCourseId: 13, AdSectionId: 301, AdCollegeId: 21, CourseCode: "0209110", CourseName: "مقدمة في الكمبيوتر التعليمي" },
+    { AdCourseId: 14, AdSectionId: 101, AdCollegeId: 11, CourseCode: "777", CourseName: "مقرر قديم" },
+    { AdCourseId: 15, AdSectionId: 301, AdCollegeId: 21, CourseCode: "0209777", CourseName: "مقرر قديم" },
+  ];
+  const across = matchDemandCourses([{ code: "0109105" }, { code: "0109110" }, { code: "0109199" }, { code: "0109198" }], splitCatalogue, split,
+    { "0109199": { courseCode: "777" }, "0109198": { courseCode: "0209777" } });
+  check(across[0].status === "matched" && across[0].courseIds.join() === "11,12", "M2 0109105 يطابق 105 تحت 0109 و105 تحت 0209", across[0]);
+  check(across[1].status === "matched" && across[1].courseIds.join() === "13", "M2 0109110 يطابق 0209110 الكامل في الفرع الآخر", across[1]);
+  check(across[2].status === "linked" && across[2].courseIds.join() === "14,15" && across[3].status === "linked" && across[3].courseIds.join() === "14,15",
+    "M3 الربط اليدوي هويةٌ للعائلة: القصير (777) والكامل (0209777) يلتقيان في النسختين", across.slice(2));
+  check(demandLinkIdentity("105") === "105" && demandLinkIdentity("0109105") === "105" && demandLinkIdentity("114101") === "101", "M3 هوية الربط: آخر ثلاث خانات من الرمز القصير أو الكامل");
 
   /* A1 */
   const matches = new Map(matchDemandCourses(general.courses, catalogue, members).map(match => [match.code, match] as const));

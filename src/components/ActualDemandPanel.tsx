@@ -10,6 +10,7 @@ import {
   CalendarPlus, CircleCheck, ClipboardList, EyeOff, FileUp, GraduationCap, Link2, OctagonAlert, TriangleAlert, Unlink, Users, X,
 } from "lucide-react";
 import SearchableSelect from "./SearchableSelect";
+import CourseTags from "./CourseTags";
 import { Num } from "./ui";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { DEMAND_VARIANT_LABEL, guessDemandVariant, type DemandVariant } from "../utils/actualDemand";
@@ -221,7 +222,7 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
               {reading.alerts.slice(0, showAll ? reading.alerts.length : 8).map(alert => (
                 <li key={alert.code} className={alert.graduates ? "is-grad" : ""}>
                   <span className="ad-item-icon" aria-hidden="true">{alert.graduates ? <GraduationCap /> : <OctagonAlert />}</span>
-                  <span className="ad-item-main"><span className="ad-code" dir="ltr">{alert.code}</span><span>{alert.name}</span></span>
+                  <span className="ad-item-main"><span className="ad-code" dir="ltr">{alert.code}</span><span>{alert.name}{alert.targets.length ? <CourseTags courseIds={alert.targets.map(target => target.courseId)} /> : null}</span></span>
                   <span className="ad-item-num" title={countOf(alert.students, AR.student)}>
                     <Num value={alert.students.toLocaleString("en-US")} />
                     {alert.graduates ? <small><GraduationCap aria-hidden="true" /><Num value={alert.graduates} /></small> : null}
