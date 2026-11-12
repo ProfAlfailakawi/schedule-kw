@@ -88,6 +88,7 @@ check(/code: "pin-blocked"/.test(pub) && /if \(unchangedConfirmed\) \{\s*const b
 check(/pinBlocked,/.test(pub), "7: الصفحةُ تعرف المانعَ قبل الضغط");
 const page = read("src/server/pages/instructorRequestPage.ts");
 check(/var pinBlockTxt=/.test(page) && /!pinBlockTxt\)h\+='<div class="send">/.test(page), "7: لا زرَّ «ثبّت الجدول» وفيه مخالفة");
+check(/edited===0&&!String\(noteNow\(\)\)\.trim\(\)&&data\.pinBlocked/.test(page) && /if\(hadNote!==!!gn\.value\.trim\(\)\)paint\(\)/.test(page), "7: ملاحظةٌ للقسم تجعله إرسالاً لا تثبيتاً، ويُعاد رسمُ الشريط حين تُكتب");
 
 /* ── 18 · الجاهزيةُ والشريط ──────────────────────────────────────────────── */
 const visual = read("src/server/requestVisual.ts");

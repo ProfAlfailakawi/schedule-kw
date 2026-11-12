@@ -857,8 +857,9 @@ function paint(){
  var edited=editedCount(),pend=pendingList().length,events=(r.timeline||[]).filter(function(e){return e.kind!=="link-opened"&&e.kind!=="link-created"}).length;
  /* الشارةُ تقول الحقيقة في كل حال: مسودة قبل الإرسال، ومرسَلٌ غير معتمدٍ بعده، وهي باقيةٌ في اللقطة والطباعة. */
  var stateTxt=approved?"انتهت مراجعة القسم لطلبك":sent?"مرسَل · غير معتمد بعد · لا يُعتبر تكليفاً":"مسودة · غير معتمدة · لا تُعتبر تكليفاً";
- /* تثبيتُ الجدول كما هو يُمنع إن خالف موعدٌ قائمٌ النمطَ أو اللائحة (المالك): يقول الخادمُ السبب، فيُقال هنا قبل الضغط. */
- var pinBlockTxt=(!sent&&edited===0&&data.pinBlocked&&data.pinBlocked.length)?data.pinBlocked.map(function(p){return p.text}).join(" · "):"";
+ /* تثبيتُ الجدول كما هو يُمنع إن خالف موعدٌ قائمٌ النمطَ أو اللائحة (المالك): يقول الخادمُ السبب، فيُقال هنا قبل الضغط.
+    ومع ملاحظةٍ للقسم ليس تثبيتاً بل إرسالٌ ينتظر القسم (canConfirmUnchanged)، فلا يُمنع. */
+ var pinBlockTxt=(!sent&&edited===0&&!String(noteNow()).trim()&&data.pinBlocked&&data.pinBlocked.length)?data.pinBlocked.map(function(p){return p.text}).join(" · "):"";
  var showReady=open&&(!sent||edited>0);
  var readyTxt=sent&&!blocked?countOf(edited,AR.edit):ready;
  var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?"تأكيدك يثبّت الجدول كما هو":sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
@@ -985,9 +986,9 @@ function wire(){tcWire();
  var drop=document.getElementById("dropDraft");if(drop)drop.onclick=function(){clearAllDrafts();dirty=false;location.reload()};
  var send=document.getElementById("send");if(send)send.onclick=submit;
  var replay=document.getElementById("replay");if(replay)replay.onclick=replayPrevious;
- VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)]){state[+key.slice(3)].excuse=value;dirty=true;saveDraft()}if(key==="gen"){genNote=value;dirty=true;saveDraft()}});
+ VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)]){state[+key.slice(3)].excuse=value;dirty=true;saveDraft()}if(key==="gen"){var hadNote=!!String(noteNow()).trim();genNote=value;dirty=true;saveDraft();if(hadNote!==!!String(value||"").trim())paint()}});
  var na=document.getElementById("noteAdd");if(na)na.onclick=function(){noteOpen=true;paint();var g=document.getElementById("genNote");if(g)g.focus()};
- var gn=document.getElementById("genNote");if(gn)gn.oninput=function(){genNote=gn.value;dirty=true;saveDraft()};
+ var gn=document.getElementById("genNote");if(gn)gn.oninput=function(){var hadNote=!!String(noteNow()).trim();genNote=gn.value;dirty=true;saveDraft();/* وجودُ الملاحظة يغيّر ما يُرسل (تثبيتٌ أم إرسالٌ للقسم): يُعاد الرسم حين تنقلب، والتركيزُ محفوظ. */if(hadNote!==!!gn.value.trim())paint()};
  host.querySelectorAll("[data-accept]").forEach(function(el){el.onclick=function(){askAccept(+el.dataset.i,+el.dataset.accept)}});
  host.querySelectorAll("[data-accept-all]").forEach(function(el){el.onclick=askAcceptAll});
  host.querySelectorAll("[data-counter]").forEach(function(el){el.onclick=function(){openCounter(+el.dataset.counter)}});
