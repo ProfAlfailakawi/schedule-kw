@@ -93,7 +93,11 @@ export interface TmContext {
   canWrite: boolean;
   /** مفتاح القسم (0109) لكل AdSectionId: للعرض بسبع خانات وحده، لا للمطابقة. */
   departmentKeys?: Record<string, string>;
+  /** حقائقُ الصحيفة السارية لكل مقرر (المستوى، النوع، وما يفتحه من مقررات). null = لا صحيفة قواعد. */
+  plan?: Record<string, TmPlanFact> | null;
 }
+
+export interface TmPlanFact { level?: number; kind?: string; unlocks: number[] }
 
 export type TmChange =
   | { id: string; op: "remove"; rowIds: number[]; label: string; why?: string; cause?: string }
@@ -276,8 +280,8 @@ export function tmCourseNumber(course: Pick<AdCourse, "CourseCode" | "AdSectionI
   return authorityCourseCode(code, context.departmentKeys?.[String(Number(course?.AdSectionId) || Number(context.scope.sectionId))]);
 }
 
-const courseMapOf = (context: Pick<TmContext, "courses">) => new Map(context.courses.map(course => [Number(course.AdCourseId), course] as const));
-const scopeOf = (context: Pick<TmContext, "scope">) => (row: FSchedule) =>
+export const courseMapOf = (context: Pick<TmContext, "courses">) => new Map(context.courses.map(course => [Number(course.AdCourseId), course] as const));
+export const scopeOf = (context: Pick<TmContext, "scope">) => (row: FSchedule) =>
   Number(row.AdCollegeId) === Number(context.scope.collegeId) && Number(row.AdSectionId) === Number(context.scope.sectionId);
 
 export function blockingConflicts(scopeRows: FSchedule[], board: FSchedule[], placeholders: Set<number>): ConflictInsight[] {
@@ -532,7 +536,7 @@ function rankedHalls(context: TmContext, course: AdCourse | undefined, prefer?: 
   }).sort((a, b) => b.score - a.score).map(item => item.hall);
 }
 
-function verifyNoNewBlocking(before: FSchedule[], after: FSchedule[], context: TmContext): boolean {
+export function verifyNoNewBlocking(before: FSchedule[], after: FSchedule[], context: TmContext): boolean {
   const placeholders = placeholderIdsOf(context);
   const inScope = scopeOf(context);
   return blockingConflicts(after.filter(inScope), after, placeholders).length <= blockingConflicts(before.filter(inScope), before, placeholders).length;

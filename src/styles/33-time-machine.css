@@ -381,3 +381,49 @@
   .tm-confirm-backdrop{place-items:end center;padding:0}
   .tm-confirm{border-radius:var(--r-xl) var(--r-xl) 0 0;max-height:92dvh}
 }
+
+/* ── «ماذا لو» داخل مركز الذكاء: خمسة أوضاع بأيقونة وكلمة، واقتراحاتٌ ذكية قصيرة ── */
+.tm-page.is-embedded{padding-block:0 24px;max-width:none}
+.tm-modes{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.tm-ask .tm-goals{grid-column:1/-1;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.tm-ask .tm-goals button{min-height:44px}
+.ss-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:10px}
+.ss-card{display:grid;gap:8px;align-content:start;padding:12px 14px;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--surface)}
+.ss-card header{display:flex;align-items:center;gap:8px}
+.ss-card header b{flex:1;font-size:var(--t-sm)}
+.ss-ico{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent)}
+.ss-ico svg{width:17px;height:17px}
+.ss-title{margin:0;font-weight:700;overflow-wrap:anywhere}
+.ss-why{margin:0;color:var(--muted);font-size:var(--t-sm)}
+.ss-card .btn{justify-self:start}
+.ss-remove,.ss-pattern{display:grid;gap:12px}
+.ss-pick{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface)}
+.ss-pick svg{width:20px;height:20px;color:var(--accent);flex:none}
+.ss-pick select{flex:1;min-width:0;border:0;background:transparent;font:inherit;color:var(--ink)}
+.ss-verdict{display:grid;gap:10px;padding:14px;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--surface)}
+.ss-verdict header{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ss-verdict header b{font-size:var(--ix-card)}
+.ss-verdict header small{color:var(--muted);overflow-wrap:anywhere}
+.ss-verdict ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ss-verdict li{display:flex;align-items:flex-start;gap:6px;font-size:var(--t-sm)}
+.ss-verdict svg{width:17px;height:17px;flex:none}
+.ss-verdict.is-stop{border-color:var(--danger,#c0392b);background:var(--danger-soft,#fdecea)}
+.ss-verdict.is-care{border-color:var(--warning,#b7791f);background:var(--warning-soft)}
+.ss-verdict.is-go{border-color:var(--accent);background:var(--accent-soft)}
+.ss-verdict li.is-stop svg{color:var(--danger,#c0392b)}
+.ss-verdict li.is-care svg{color:var(--warning,#b7791f)}
+.ss-verdict li.is-go svg{color:var(--accent)}
+.ss-verdict .btn{justify-self:start}
+.ss-pattern .tm-chips{align-items:center}
+.ss-pattern .tm-chips>svg{width:18px;height:18px;color:var(--accent)}
+.ss-pattern-result{display:grid;gap:10px}
+.ss-pattern-result .tm-kpis{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.ss-pattern-result .tm-kpis li{grid-template-columns:auto auto 1fr}
+.ss-pattern-result em{font-style:normal;font-size:var(--t-sm);color:var(--muted)}
+.ss-pattern-result em.is-good{color:var(--accent)}
+.ss-pattern-result em.is-bad,.ss-rows .is-bad{color:var(--danger,#c0392b)}
+.ss-rows{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ss-rows li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--r-md,10px);border:1px solid var(--line);background:var(--surface)}
+.ss-rows li span{display:inline-flex;align-items:center;gap:6px}
+.ss-rows li svg{width:14px;height:14px}
+.ss-rows small{color:var(--muted)}

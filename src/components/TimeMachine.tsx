@@ -1,13 +1,17 @@
 /**
- * ── ⏳ آلة الزمن ──
+ * ── ⏳ آلة الزمن («ماذا لو» في مركز الذكاء) ──
  * سيناريوهاتٌ فوق الجدول الحيّ كفروع git: لا شيء يُكتب حتى «اعتمد الكل».
- *   🚨 طوارئ: جملةٌ ← ثلاثة حلولٍ مرتّبة في ثوانٍ.
- *   🧪 مختبر: تعديلٌ حرّ على الشعب بأثرٍ حيّ (محاكي الشعب).
- *   🎯 هدف: «صفّر الخميس»، «قلّل الفجوات»، «وفّر قاعتين».
- * ثم مقارنةٌ جنباً إلى جنب، وحفظٌ ونسخٌ ومشاركةٌ للعرض، وتنبيهُ انحراف.
+ *   ✨ اقتراحات: أستاذٌ بدل «هيئة تدريسية»/TA، وقاعةٌ تعود إلى نوعها — بلا كتابة.
+ *   🚨 طارئ: جملةٌ أو هدفٌ جاهز ← حلولٌ مرتّبة في ثوانٍ.
+ *   🧪 الشعب: تعديلٌ حرّ على الشعب بأثرٍ حيّ (محاكي الشعب).
+ *   🗑 حذف مقرر: حكمٌ بأسبابه قبل التجربة.
+ *   🔀 النمط: كتلةٌ طويلة ← يومان، قراءةٌ فقط.
+ * صار داخل مركز الذكاء («جرّب ← ماذا لو») لمن يبني الجدول؛ والصفحةُ المستقلة
+ * باقيةٌ لمن يقرأ الجدول ولا يدخل المركز (رئيس القسم والعميد).
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, CircleCheck, FlaskConical, Hourglass, Layers, PencilLine, Puzzle, Scale, Siren, Sparkles, Target, X } from "lucide-react";
+import { Building2, FlaskConical, Hourglass, Layers, Puzzle, Scale, Shuffle, Siren, Sparkles, Trash2 } from "lucide-react";
+import { PatternWhatIf, RemovalCheck, SuggestionList, type TryChanges } from "./SmartSuggestions";
 import {
   boardOf, compareScenarios, describeProblem, driftOf, parseProblem, solveProblem, tmCourseNumber,
   type TmProblem, type TmScenarioRecord, type TmSolution,
@@ -18,9 +22,15 @@ import { SectionSimulatorBody } from "./SectionSimulator";
 import { COMPARE_ICON, Ico, LevelDot, Loading, PHILOSOPHY_ICON, scopeQuery, type IcoName, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 import { takeTimeMachineAsk } from "../utils/timeMachineLink";
 import { readSharedScope, writeSharedScope } from "../utils/sharedScope";
-import { safeStorage } from "../utils/safeStorage";
 
-type Mode = "emergency" | "lab" | "goal";
+type Mode = "suggest" | "emergency" | "lab" | "remove" | "pattern";
+const MODES: Array<[Mode, React.ReactNode, string]> = [
+  ["suggest", <Sparkles key="i" />, "اقتراحات"],
+  ["emergency", <Siren key="i" />, "طارئ"],
+  ["lab", <FlaskConical key="i" />, "الشعب"],
+  ["remove", <Trash2 key="i" />, "حذف مقرر"],
+  ["pattern", <Shuffle key="i" />, "النمط"],
+];
 
 /** أمثلةٌ من الجدول نفسه (قاعةٌ وأستاذٌ ومقررٌ حقيقيون في النطاق) لا من نصٍّ ثابت. */
 function examplesOf(context: LoadedContext): string[] {
@@ -112,35 +122,18 @@ export default function TimeMachine() {
   );
 }
 
-/* ── ثلاثُ خطوات بأيقونات: تشرح أول مرة، ثم تبقى مؤشّراً لمكان القارئ. ── */
-const INTRO_KEY = "tm-intro-seen-v1";
-const STEPS: Array<{ icon: React.ReactNode; title: string; hint: string }> = [
-  { icon: <PencilLine />, title: "اكتب المشكلة", hint: "جملةٌ قصيرة، أو هدف، أو تعديلٌ حرّ في المختبر" },
-  { icon: <Scale />, title: "قارن الحلول", hint: "ثلاثة حلول بأثرها قبل وبعد — على نسخةٍ افتراضية" },
-  { icon: <CircleCheck />, title: "اعتمد", hint: "ترى قبلها ما يتغيّر ومن يُبلَّغ، والتراجع بنقرة" },
-];
-function TmSteps({ step }: { step: 1 | 2 | 3 }) {
-  const [firstRun, setFirstRun] = useState(() => !safeStorage.get(INTRO_KEY));
-  const dismiss = () => { safeStorage.set(INTRO_KEY, "1"); setFirstRun(false); };
-  return (
-    <ol className={`tm-steps ${firstRun ? "is-intro" : ""}`} aria-label="خطوات آلة الزمن">
-      {STEPS.map((item, index) => {
-        const n = index + 1;
-        const state = n < step ? "done" : n === step ? "now" : "next";
-        return (
-          <li key={item.title} className={`tm-step is-${state}`} aria-current={state === "now" ? "step" : undefined}>
-            <span className="tm-step-ico" aria-hidden="true">{state === "done" ? <CircleCheck /> : item.icon}</span>
-            <span className="tm-step-copy"><b><i>{n}</i>{item.title}</b>{firstRun ? <small>{item.hint}</small> : null}</span>
-          </li>
-        );
-      })}
-      {firstRun ? <li className="tm-step-close"><button type="button" onClick={dismiss} aria-label="فهمت، أخفِ الشرح" data-guide-ignore="يخفي شرح الخطوات فقط"><X aria-hidden="true" /></button></li> : null}
-    </ol>
-  );
+/**
+ * «ماذا لو» داخل مركز الذكاء: النطاقُ نطاقُ المركز نفسه، فلا منتقٍ ثانٍ ولا رأسُ صفحة.
+ */
+export function WhatIfDesk({ collegeId, sectionId, termId }: { collegeId: number; sectionId: number; termId: number }) {
+  const { context, error, reload } = useTimeMachineContext({ collegeId, sectionId, termId });
+  if (error) return <p className="tm-note" role="alert">{error}</p>;
+  if (!context) return <Loading />;
+  return <div className="tm-page is-embedded"><TimeMachineBody key={`${context.scope.collegeId}:${context.scope.sectionId}:${context.scope.termId}`} context={context} reload={reload} /></div>;
 }
 
 function TimeMachineBody({ context, reload }: { key?: string; context: LoadedContext; reload: () => void }) {
-  const [mode, setMode] = useState<Mode>("emergency");
+  const [mode, setMode] = useState<Mode>("suggest");
   const [text, setText] = useState("");
   const [problem, setProblem] = useState<TmProblem | null>(null);
   const [unknown, setUnknown] = useState(false);
@@ -150,7 +143,6 @@ function TimeMachineBody({ context, reload }: { key?: string; context: LoadedCon
   const [saved, setSaved] = useState<TmScenarioRecord[]>([]);
   const [comparing, setComparing] = useState<Set<string>>(new Set());
   const [elapsed, setElapsed] = useState(0);
-  const [labBasket, setLabBasket] = useState(0);
   const base = useMemo(() => boardOf(context), [context]);
   /* «جرّبه» يرسم الأثر أسفل الصفحة: ننتقل إليه فوراً، فلا يضغط القارئ ولا يرى شيئاً. */
   const benchRef = useRef<HTMLDivElement | null>(null);
@@ -171,9 +163,15 @@ function TimeMachineBody({ context, reload }: { key?: string; context: LoadedCon
   useEffect(() => { void loadSaved(); }, [context]);
   /* جملةٌ جاءت من شاشةٍ أخرى (التنبؤ، التخطيط): تُكتب في خانة الطوارئ وتُحلّ فوراً، مرّةً واحدة. */
   useEffect(() => {
-    const ask = takeTimeMachineAsk();
-    if (!ask) return;
-    setMode("emergency"); setText(ask); run(parseProblem(ask, context));
+    const consume = () => {
+      const ask = takeTimeMachineAsk();
+      if (!ask) return;
+      setMode("emergency"); setText(ask); run(parseProblem(ask, context));
+    };
+    consume();
+    /* رابطٌ جديد والآلة مفتوحة أصلاً (التنبؤ من داخل مركز الذكاء): يُقرأ ويُحلّ أيضاً. */
+    window.addEventListener("popstate", consume);
+    return () => window.removeEventListener("popstate", consume);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -194,22 +192,24 @@ function TimeMachineBody({ context, reload }: { key?: string; context: LoadedCon
     setProblem(null); setSolutions([]);
   };
 
+  /* المقارنةُ عند الطلب وحده: جدولٌ يظهر دائماً بثلاثة أعمدةٍ متطابقة غالباً ضجيج. */
   const comparison = useMemo(() => {
     const picked = solutions.filter(item => comparing.has(item.id));
-    const list = picked.length >= 2 ? picked : solutions;
-    return list.length >= 2 ? { list, table: compareScenarios(list.map(item => item.delta)) } : null;
+    return picked.length >= 2 ? { list: picked, table: compareScenarios(picked.map(item => item.delta)) } : null;
   }, [solutions, comparing]);
+  /* اقتراحٌ أو حذفُ مقرر يُفتح في المنضدة نفسها التي تفتح فيها الحلول. */
+  const tryChanges = (pick: TryChanges) => {
+    setScenario(null); setProblem(null); setSolutions([]);
+    setChosen({ id: `try-${Date.now()}`, philosophy: "minimal", title: pick.title, icon: "idea", changes: pick.changes, why: [], delta: null as any, score: 0, satisfied: true });
+  };
 
   const problemLabel = problem ? describeProblem(problem, context) : undefined;
-  const step: 1 | 2 | 3 = mode === "lab" ? (labBasket ? 2 : 1) : chosen ? 3 : problem ? 2 : 1;
 
   return (
     <>
-      <TmSteps step={step} />
-
       <nav className="tm-modes" aria-label="الوضع">
-        {([["emergency", <Siren key="i" />, "طوارئ"], ["lab", <FlaskConical key="i" />, "مختبر"], ["goal", <Target key="i" />, "هدف"]] as Array<[Mode, React.ReactNode, string]>).map(([value, icon, label]) => (
-          <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={value} type="button" className={mode === value ? "on" : ""} aria-pressed={mode === value} onClick={() => { setMode(value); run(null); setUnknown(false); }}>{icon}<b>{label}</b></button>
+        {MODES.map(([value, icon, label]) => (
+          <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={value} type="button" className={mode === value ? "on" : ""} aria-pressed={mode === value} onClick={() => { setMode(value); run(null); setUnknown(false); setChosen(null); }}>{icon}<b>{label}</b></button>
         ))}
       </nav>
 
@@ -218,21 +218,22 @@ function TimeMachineBody({ context, reload }: { key?: string; context: LoadedCon
           <Siren aria-hidden="true" />
           <input data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" value={text} onChange={event => setText(event.target.value)} placeholder="ماذا حدث؟" aria-label="صف المشكلة" />
           <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="submit" className="btn btn-primary"><Sparkles aria-hidden="true" />حلول</button>
+          <div className="tm-goals">
+            {GOALS.map(goal => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={goal.label} type="button" className={problem && JSON.stringify(problem) === JSON.stringify(goal.problem) ? "on" : ""} onClick={() => { setText(""); run(goal.problem); }}><Ico n={goal.icon} className="tm-goal-ico" /><b>{goal.label}</b></button>)}
+          </div>
           <div className="tm-examples">{examplesOf(context).map(example => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={example} type="button" onClick={() => { setText(example); run(parseProblem(example, context)); }}>{example}</button>)}</div>
         </form>
       ) : null}
 
-      {mode === "goal" ? (
-        <div className="tm-goals">
-          {GOALS.map(goal => <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" key={goal.label} type="button" className={problem && JSON.stringify(problem) === JSON.stringify(goal.problem) ? "on" : ""} onClick={() => run(goal.problem)}><Ico n={goal.icon} className="tm-goal-ico" /><b>{goal.label}</b></button>)}
-        </div>
-      ) : null}
+      {mode === "suggest" ? <SuggestionList context={context} onTry={tryChanges} /> : null}
+      {mode === "remove" ? <RemovalCheck context={context} onTry={tryChanges} /> : null}
+      {mode === "pattern" ? <PatternWhatIf context={context} /> : null}
 
-      {unknown && mode !== "lab" && text ? <p className="tm-note" role="status"><Ico n="idea" /> لم أفهم الجملة. جرّب: «قاعة … تعطلت الأحد»، «د. … معتذر الخميس»، «زاد الطلب على 0109468»</p> : null}
+      {unknown && mode === "emergency" && text ? <p className="tm-note" role="status"><Ico n="idea" /> لم أفهم الجملة. جرّب: «قاعة … تعطلت الأحد»، «د. … معتذر الخميس»، «زاد الطلب على 0109468»</p> : null}
 
-      {mode === "lab" ? <SectionSimulatorBody context={context} reload={reload} onBasket={setLabBasket} /> : null}
+      {mode === "lab" ? <SectionSimulatorBody context={context} reload={reload} /> : null}
 
-      {mode !== "lab" && problem ? (
+      {mode === "emergency" && problem ? (
         <section className="tm-solutions" aria-label="حلول جاهزة" ref={solutionsRef}>
           <h2><Ico n="problem" className="tm-h-ico" />{problemLabel}<small><bdi>{elapsed} ms</bdi></small></h2>
           {solutions.length ? (
@@ -284,7 +285,7 @@ function TimeMachineBody({ context, reload }: { key?: string; context: LoadedCon
 
       {mode !== "lab" && chosen ? (
         <div ref={benchRef} className="tm-bench-anchor">
-          <ScenarioWorkbench context={context} changes={chosen.changes} mode={problem ? (mode === "goal" ? "goal" : "emergency") : (scenario?.mode || "lab")}
+          <ScenarioWorkbench context={context} changes={chosen.changes} mode={problem ? (GOALS.some(goal => goal.problem.kind === problem.kind) ? "goal" : "emergency") : (scenario?.mode || "lab")}
             problem={problemLabel || scenario?.problem} scenario={scenario} onScenario={onScenario}
             defaultName={problemLabel || chosen.title} onDiscard={() => { setChosen(null); setScenario(null); }} onApplied={() => { reload(); void loadSaved(); }} />
         </div>

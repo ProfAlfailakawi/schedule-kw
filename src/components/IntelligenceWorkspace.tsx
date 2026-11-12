@@ -10,6 +10,7 @@ import { departmentFamily } from "../utils/sectionLabel";
 import { usePageAwake } from "../utils/pageAwake";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import PlanSheetPublisher from "./PlanSheetPublisher";
+import { WhatIfDesk } from "./TimeMachine";
 import { roleDefinition } from "../utils/academicRoles";
 import { mergeDemandReadings, mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
 import { DEMO_STAGE_SECTION_ID, isDemoSession } from "../utils/demoSession";
@@ -40,6 +41,7 @@ import {
   FileSpreadsheet,
   Gauge,
   History,
+  Hourglass,
   Lightbulb,
   LockKeyhole,
   MessageSquareText,
@@ -169,7 +171,7 @@ function professorWeekShape(rows: any[]) {
   return { from, to, days, hours };
 }
 
-type Tab = "command" | "copilot" | "twin" | "history";
+type Tab = "command" | "copilot" | "twin" | "whatif" | "history";
 
 function PdfDifferenceBody({report,courses,instructors,isVisiting}:{report:any;courses:AdCourse[];instructors:AdInstructor[];isVisiting:(instructorId:unknown,collegeId:unknown,sectionId:unknown)=>boolean}){
   return <>
@@ -249,6 +251,8 @@ type InsightReason = {
 interface Props {
   user: any;
   scopes: any[];
+  /** «آلة الزمن» صارت «جرّب ← ماذا لو»: رابطُها القديم يفتح المركز على هذا اللسان. */
+  initialTab?: Tab;
 }
 /**
  * ── بطاقة واحدة، صفحة واحدة ─────────────────────────────────────────────────
@@ -414,7 +418,7 @@ function metricBadge(metric: unknown) {
   return text && !/^[0٠]$/.test(text) ? <b data-long={text.length > 7 || undefined} data-word={/[\u0600-\u06FF]/.test(text) || undefined}>{text}</b> : null;
 }
 
-export default function IntelligenceWorkspace({ user, scopes }: Props) {
+export default function IntelligenceWorkspace({ user, scopes, initialTab }: Props) {
   const isPowerAdmin = Boolean(user?.IsAdminUser || user?.SystemUserId === 1);
   /* لوحة القواعد: الخادم (requirePowerAdmin) يقصر الكتابة على الإدارة الرئيسية. */
   const canEditRules = isPowerAdmin;
@@ -439,16 +443,25 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
     [sectionId, setSectionId] = useState(0),
     [termId, setTermId] = useState(0),
     [tab, setTab] = useState<Tab>(() => {
+      if (initialTab) return initialTab;
       const v = sessionStorage.getItem(
         "schedule-intelligence-tab",
       ) as Tab | null;
       sessionStorage.removeItem("schedule-intelligence-tab");
       /* الاستيراد يعيش في «نقل الجدول» وحده؛ قيمةٌ قديمة محفوظة («import») تعود إلى القراءة. */
       return v &&
-        ["command", "copilot", "twin", "history"].includes(v)
+        ["command", "copilot", "twin", "whatif", "history"].includes(v)
         ? v
         : "command";
     });
+  /* رابطُ آلة الزمن والمركزُ مفتوح: اللسانُ المطلوب يُفرض كلما تغيّر، لا عند أول تركيبٍ وحده. */
+  useEffect(() => {
+    if (!initialTab) return;
+    const follow = () => { if (new URLSearchParams(window.location.search).has("ask")) setTab(initialTab); };
+    setTab(initialTab);
+    window.addEventListener("popstate", follow);
+    return () => window.removeEventListener("popstate", follow);
+  }, [initialTab]);
   const { lookup: visitingLookup, isVisiting } = useVisitingLookup(termId);
   const scopeOwner = Number(user?.SystemUserId || 0);
   const [analysisScope, setAnalysisScope] = useState<"college" | "department">("college");
@@ -1901,7 +1914,7 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         if (featureId) intelligenceGuideOperationRef.current={ featureId, transactionId:detail.transactionId ? String(detail.transactionId) : undefined, startedAt:Date.now(), expected:value === "understand" ? "intelligence.scene.understand" : value === "try" ? "intelligence.scene.try" : "intelligence.scene.approve" };
         changeScene(value);
       }
-      if (detail.type === "tab" && detail.value && ["command","copilot","twin","history"].includes(String(detail.value))) {
+      if (detail.type === "tab" && detail.value && ["command","copilot","twin","whatif","history"].includes(String(detail.value))) {
         const value=String(detail.value);
         if (featureId) intelligenceGuideOperationRef.current={ featureId, transactionId:detail.transactionId ? String(detail.transactionId) : undefined, startedAt:Date.now(), expected:value === "copilot" ? "intelligence.ask-table" : featureId };
         setTab(value as Tab);
@@ -2430,6 +2443,16 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
             onClick={() => setTab("twin")}
           >
             <Network /> النسخة التجريبية
+          </button>
+          {/* «آلة الزمن» ومحاكي الشعب والاقتراحات الذكية: لسانٌ واحد هنا بدل زرٍّ في القائمة ولسانين في أدوات البيانات. */}
+          <button
+            type="button"
+            data-guide-ignore="وجهةُ «آلة الزمن» مسجّلة في المرشد باسم page.timeMachine"
+            className={tab === "whatif" ? "active" : ""}
+            aria-pressed={tab === "whatif"}
+            onClick={() => setTab("whatif")}
+          >
+            <Hourglass /> ماذا لو
           </button>
           {/* Importing a timetable lives in Data Tools only. Two doors to the
               same reviewed route split attention and let one screen fall behind
@@ -4787,6 +4810,9 @@ export default function IntelligenceWorkspace({ user, scopes }: Props) {
         </div>
       ) : null}
 
+      {tab === "whatif" && collegeId && sectionId && termId ? (
+        <WhatIfDesk collegeId={collegeId} sectionId={sectionId} termId={termId} />
+      ) : null}
       {tab === "history" ? (
         <div className="history-layout">
           <CardDeck

@@ -139,6 +139,37 @@ function registrationOf(stats: RegistrationStats | null, courseIds: Set<number>)
   };
 }
 
+/**
+ * ── حقائقُ الصحيفة لكل مقرر: المستوى، والنوع، وما يفتحه ──
+ * لقرار «احذف مقرراً»: هل هو إجباري؟ في أي مستوى؟ وأيُّ مقرراتٍ تشترطه؟
+ * من صحائف القسم غير المؤرشفة وقواعدها المعتمدة وحدها؛ ولا أسماء طلبة.
+ */
+async function planFactsFor(collegeId: number, sectionId: number): Promise<TmContext["plan"]> {
+  try {
+    const plans = (await Repository.getCurriculumPlans(sectionId))
+      .filter(plan => plan.status !== "archived" && !plan.virtual && Number(plan.AdCollegeId) === collegeId);
+    const facts: Record<string, { level?: number; kind?: string; unlocks: number[] }> = {};
+    let any = false;
+    for (const plan of plans) {
+      const set = await Repository.getRuleSet(plan.id);
+      if (!set || set.status === "review") continue;
+      any = true;
+      for (const rule of set.rules || []) {
+        const key = String(rule.courseId);
+        const fact = facts[key] || (facts[key] = { unlocks: [] });
+        if (rule.level && !fact.level) fact.level = Number(rule.level);
+        if (rule.kind && !fact.kind) fact.kind = String(rule.kind);
+        const needs = [...(rule.prereq?.all || []), ...(rule.prereq?.anyOf || []).flat()];
+        for (const need of needs) {
+          const owner = facts[String(need)] || (facts[String(need)] = { unlocks: [] });
+          if (!owner.unlocks.includes(Number(rule.courseId))) owner.unlocks.push(Number(rule.courseId));
+        }
+      }
+    }
+    return any ? facts : null;
+  } catch { return null; }
+}
+
 export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): void {
   const fail = (res: Response, status: number, error: string, extra: Record<string, unknown> = {}) => res.status(status).json({ error, ...extra });
   const scopeOfQuery = (req: Request) => ({ collegeId: Number(req.query.collegeId || req.body?.collegeId || 0), sectionId: Number(req.query.sectionId || req.body?.sectionId || 0), termId: Number(req.query.termId || req.body?.termId || 0) });
@@ -183,6 +214,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
       loadLimits: await deps.loadLimits(instructors, termId),
       canWrite: await deps.canWrite(req),
       departmentKeys,
+      plan: await planFactsFor(collegeId, sectionId),
       live: termRows,
     };
   }
