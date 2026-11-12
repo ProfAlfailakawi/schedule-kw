@@ -535,7 +535,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
     if (heldHours > 0 && heldMinutes < minWeeklyMinutesFor(heldHours)) {
       const wanted = minWeeklyMinutesFor(heldHours);
       /* الاقتراحُ يبدأ من تاريخ القسم مع هذا المقرر، ثم من أنماط اللائحة إن لم يكن له تاريخٌ يصلح (القاعدةُ نفسُها في الاقتراح عند المنع). */
-      const approvedFor = (days: DayKey[]) => patternsForHours(heldHours).some(pattern => pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
+      const approvedFor = (days: DayKey[]) => daysApprovedForHours(heldHours, days) === true;
       const mixedWithoutApproval = (days: DayKey[]) => days.some(day => expectedMinutesForDay(day) === 50) && days.some(day => expectedMinutesForDay(day) !== 50) && !approvedFor(days);
       const usual = historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId);
       /* الاقتراحُ يُطبَّق بالمحرّك نفسه: دقائقُ الزرّ هي ما سيُحسب حين يُضغط، ولا يُقترح ما يتجاوز الساعات. */
@@ -631,7 +631,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       reasons.push({ source: "shape", code: "hours", blocking: true, text: "مجموع مواعيد المقرر يتجاوز ساعاته الأسبوعية المعتمدة. راجع توزيع المواعيد." });
       return verdictOf();
     }
-    if (weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
+    if (!mixedUnapproved && weekly < Math.min(minWeeklyMinutesFor(courseHours), originalWeekly)) {
       /* الأنماطُ المقترحة (أزرارٌ ونصّ «جرّب») تُبنى من نمط المقرّر نفسه في فصولٍ سابقة أولاً، ولا يُرجع إلى أنماط اللائحة إلا حين
          لا نمطَ له أو لا يقبله الفاحصُ. هذا في الاقتراح وحده: شرطُ المنع أعلاه والعتبةُ أدناه كما هما، وكلُّ زرٍّ يمرّ منهما. */
       const threshold = Math.min(minWeeklyMinutesFor(courseHours), originalWeekly);
@@ -648,7 +648,7 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
         : [];
       /* ما يُقترح يمرّ من الفاحص نفسه بلا استثناء: نمطٌ يجمع أيام الخمسين والثمانين خارج الأنماط المعتمدة لساعات المقرّر
          يطلب سبباً إن طُبّق، فلا يُقترح. */
-      const approvedFor = (days: DayKey[]) => patternsForHours(courseHours).some(pattern => pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
+      const approvedFor = (days: DayKey[]) => daysApprovedForHours(courseHours, days) === true;
       const mixedWithoutApproval = (days: DayKey[]) => days.some(day => expectedMinutesForDay(day) === 50) && days.some(day => expectedMinutesForDay(day) !== 50) && !approvedFor(days);
       const usual = historicalOrigin((context.suggestNature || context.nature)?.get(Number(request.AdCourseId)), context.termId);
       /* دقائقُ الزرّ هي ما سيحسبه المحرّكُ حين يُضغط؛ فلا يُقترح نمطٌ لا يغطّي الساعات أو يتجاوزها بعد تطبيقه. */
