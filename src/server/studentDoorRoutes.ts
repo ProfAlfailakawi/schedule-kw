@@ -311,7 +311,8 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const token = signDoorSession(await deps.identityKey(), {
       fingerprint: profile.fingerprint, exp: Date.now() + maxAgeSeconds * 1000, cv: codeVersion(profile.codeHash),
     });
-    res.setHeader("Set-Cookie", doorCookie(token, { remember, maxAgeSeconds, secure }));
+    /* append لا setHeader: يبقى معه مسحُ كوكي التجربة إن سبقه (studentShowcase). */
+    res.append("Set-Cookie", doorCookie(token, { remember, maxAgeSeconds, secure }));
   };
 
   /** من هذا الزائر؟ كوكي موقَّع + ملفٌّ ما زال بالرمز نفسه. */

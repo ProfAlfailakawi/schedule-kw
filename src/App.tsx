@@ -1609,6 +1609,8 @@ export default function App() {
         ? "reportDepartment"
         : availableReportModes[0]
   ) as View | undefined;
+  /** وجهةُ «الاستعلامات والتقارير» كما في القائمة: البحث إن أُذن به وإلا التقرير. */
+  const queryCentreView = (smartSearchView || smartReportView) as View | undefined;
   const recordUse = (view: View) => {
     if (!user) return;
     setUsage((prev) => {
@@ -1878,7 +1880,7 @@ export default function App() {
         );
       case "schedules":
         return hasPerm(7) ? (
-          <Schedules mode="schedule" user={user} scopes={scopes} permissions={permissions} signatureStage={sessionRole.signatureStage} canSign={sessionRole.canSign !== false} committeeEligible={sessionRole.committeeEligible} onNavigate={(view) => go(view as View)} />
+          <Schedules mode="schedule" user={user} scopes={scopes} permissions={permissions} signatureStage={sessionRole.signatureStage} canSign={sessionRole.canSign !== false} committeeEligible={sessionRole.committeeEligible} onNavigate={(view) => go(view as View)} onOpenQueryCentre={queryCentreView ? () => go(queryCentreView) : undefined} />
         ) : (
           unauthorized()
         );
@@ -1921,6 +1923,7 @@ export default function App() {
             scopes={scopes}
             powerAdmin={isPowerAdmin}
             onOpenDepartmentSchedule={sessionRole.id === "departmentHead" ? () => go("departmentSchedule") : undefined}
+            onSigned={queryCentreView ? () => go(queryCentreView) : undefined}
             scope={(() => {
               /* القسم الواحد يفتح على تقريره مباشرةً — بالقاعدة الواحدة نفسها
                  التي تُخفي منتقي القسم في كل شاشة (singleDepartmentOf). */
