@@ -114,6 +114,8 @@ async function main() {
       AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, AdCourseId: c.AdCourseId, SCode: scode, AdInstructorId: placeholder.AdInstructorId,
       fsunday: flags.includes("S"), fmonday: flags.includes("M"), ftuesday: flags.includes("T"), fwednesday: flags.includes("W"), fthursday: flags.includes("H"),
       fstarttime: start, fendtime: end, ...(await roomFreeAt(flags, start, end)),
+      /* موضعٌ مقصود للاختبار (08:30 خارج السُّلّم): يُحفظ بتأكيد الاستثناء الصريح كما يحفظه القسم. */
+      regulationException: true,
     };
     void hall;
     const r = await A("POST", "/api/schedules", body);
@@ -197,7 +199,7 @@ async function main() {
   done2 = await A("POST", `/api/study-proposals/${p2.proposal.id}/commit`, { rev: undone2.json.proposal.rev, confirm: true });
   /* صفٌّ أنشأه التثبيت ثم عُدّل: التراجع يتوقف ولا يمحو التعديل. */
   const made701 = (await rows()).find(r => r.SCode === "701");
-  const touched = await A("PUT", `/api/schedules/${made701.id}`, { ...made701, id: undefined, fstarttime: "17:10", fendtime: "20:00" });
+  const touched = await A("PUT", `/api/schedules/${made701.id}`, { ...made701, id: undefined, fstarttime: "17:10", fendtime: "20:00", regulationException: true });
   const staleUndo = await A("POST", `/api/study-proposals/${p2.proposal.id}/undo-commit`, { rev: done2.json.proposal.rev });
   check(touched.status === 200 && staleUndo.status === 409 && staleUndo.json.code === "proposal-stale" && (await rows()).find(r => r.id === made701.id)?.fstarttime === "17:10", "تعديلٌ بعد التثبيت يوقف التراجع ولا يُمحى", staleUndo.json);
   await A("PUT", `/api/schedules/${made701.id}`, { ...(await rows()).find(r => r.id === made701.id), id: undefined, fstarttime: made701.fstarttime, fendtime: made701.fendtime });

@@ -6,6 +6,8 @@
  * متأخراً قليلاً، ولا يُعرض «لا توجد تعارضات» ما لم يكن الفحصُ المكتمل
  * لهذه المواد بعينها.
  */
+import { regulationExceptionIssues } from "../../utils/regulationException";
+import { askRegulationException } from "../RegulationExceptionSheet";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   StudyProposal, StudyProposalDayKey, StudyProposalOp, StudyProposalResponseMode,
@@ -13,7 +15,7 @@ import type {
 import { safeStorage } from "../../utils/safeStorage";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import {
-  daysOf, materialFingerprint, PROPOSAL_DEFAULT_DAYS, PROPOSAL_DEFAULT_MESSAGE, PROPOSAL_MAX_OPS, placeLabel, proposalChangeSet,
+  daysOf, materialFingerprint, PROPOSAL_DAY_KEYS, PROPOSAL_DEFAULT_DAYS, PROPOSAL_DEFAULT_MESSAGE, PROPOSAL_MAX_OPS, placeLabel, proposalChangeSet,
   type GridItem, type ProposalChangeKind, type ProposalEvaluation, type VacancyVerdict,
 } from "../../utils/studyProposal";
 import {
@@ -459,7 +461,31 @@ export function useProposalWorkspace(options: { requestId: string; proposalId?: 
     return quickOverlap(draftItem, afterItems.filter(item => item.opId !== draft.editingOpId), ignore);
   }, [draftItem, afterItems, draft.rowId, draft.mode, draft.editingOpId]);
 
+  /* ── «هذا الموعد يخالف اللائحة» في المقترح أيضاً (ملاحظتا المالك 10 و20) ─────────────
+     المصدرُ نفسه الذي يحكم به الخادمُ عند الحفظ (regulationException.ts)، على أسبوع الأستاذ كما سيصير.
+     لا تُضاف العمليةُ إلى المسودة إلا بزرّ «المتابعة استثناءً». */
+  const submitDraftChecked = useCallback(async (): Promise<boolean> => {
+    if (draftItem) {
+      const course = draft.courseId ? dctx?.courses.get(draft.courseId) : undefined;
+      const flags = (days: readonly string[]) => Object.fromEntries(PROPOSAL_DAY_KEYS.map(day => [day, days.includes(day)]));
+      const asRow = (item: GridItem, id: string) => ({
+        id, AdInstructorId: ctx?.instructor.id, AdCourseId: Number(String(item.courseCode).replace(/\D/g, "")) || 0, SCode: item.SCode,
+        AdCollegeId: 0, AdSectionId: 0, AdCourseName: item.courseName, fstarttime: item.start, fendtime: item.end, ...flags(item.days),
+      });
+      const others = afterItems.filter(item => item.opId !== draft.editingOpId && !(draft.rowId != null && item.rowId === draft.rowId) && !item.outside);
+      const issues = regulationExceptionIssues({
+        row: asRow(draftItem, "draft"),
+        week: others.map(item => asRow(item, item.key)),
+        courseHours: Number(course?.hours || 0),
+        nameOf: (row: any) => String(row.AdCourseName || ""),
+      });
+      if (issues.length && !await askRegulationException(issues)) return false;
+    }
+    return submitDraft();
+  }, [draftItem, draft, dctx, ctx, afterItems, submitDraft]);
+
   return {
+    submitDraftChecked,
     ctx, loading, loadError, view, proposal, ops, setOps, message, setMessage, title, setTitle, responseMode, setResponseMode,
     expiryDays, setExpiryDays, dirty, saveState, savedAt, saveError, conflict, takeTheirs, keepMine, restorable, restoreBackup, discardBackup,
     evaluation, evalState, evalCurrent, evalError, retryEvaluation,

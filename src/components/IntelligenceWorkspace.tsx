@@ -1,4 +1,5 @@
 import CourseTags from "./CourseTags";
+import { askRegulationException, REGULATION_EXCEPTION_DECLINED, regulationIssuesOf, withRegulationException } from "./RegulationExceptionSheet";
 import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
@@ -656,6 +657,13 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     if (body) {
       try { d = JSON.parse(body); }
       catch { const error=new Error(r.ok ? "وصل رد غير متوقع من الخادم. أعد المحاولة بعد لحظات." : `الخادم مشغول حالياً (${r.status}). أعد المحاولة بعد قليل.`);telemetryError("response.parse",error);throw error; }
+    }
+    /* النقلُ المقترح حفظٌ كالسحب: مخالفةُ لائحةٍ لا تمنع تُسأل عنها صراحةً (ملاحظتا المالك 10 و20). */
+    const regulationIssues = method !== "GET" ? regulationIssuesOf(r.status, d) : null;
+    const marked = regulationIssues ? withRegulationException(options?.body) : null;
+    if (regulationIssues && marked) {
+      if (await askRegulationException(regulationIssues)) return fetchJson(url, { ...options, body: marked });
+      throw Object.assign(new Error(REGULATION_EXCEPTION_DECLINED), { code: d.code, status: r.status, url });
     }
     if (!r.ok)
       throw Object.assign(new Error(d.error || "تعذر تنفيذ العملية"), { issues: d.issues, code: d.code, changes: d.changes, status: r.status, url, ref: d.ref });

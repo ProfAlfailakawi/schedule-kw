@@ -16,6 +16,8 @@ import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
 import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
 import { patternLengthIssue, regulationEnd } from "../../utils/appointmentRegulation";
+import { REGULATION_EXCEPTION_CODE, regulationExceptionIssues, regulationExceptionMessage, type RegulationExceptionIssue } from "../../utils/regulationException";
+import { placeholderInstructorIds } from "../../utils/instructorIdentity";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
@@ -112,6 +114,27 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
   const allowed=patternsForHours(hours).map(pattern=>pattern.days.length===1?`يوم واحد ${pattern.minutesPerDay[0]}د`:pattern.label).join("، ");
   return `أيام هذه الشعبة (${named}) ليست نمطاً معتمداً لمقرّرٍ ${countOf(hours,AR.hour)} أسبوعياً في مكتبة الأنماط. المعتمد: ${allowed}.`;
 }
+/**
+ * ── مخالفاتُ اللائحة التي تُحفظ بتأكيدٍ صريح فقط (ملاحظتا المالك 10 و20) ──────────────
+ * السُّلّم (م.7/8)، ووقتُ الشعبة الثابت (م.7/9)، والتتالي (م.6/2، م.6/3) — من regulationException.ts،
+ * المصدرِ الذي يقرؤه المقترحُ الدراسي أيضاً. التتالي يُقرأ على أسبوع الأستاذ في الجامعة كلها (تعارضاتُ
+ * الأستاذ جامعية — قرار المالك 2026-10-29)، فيُقرأ الفصلُ كله لا القسم وحده.
+ */
+export async function regulationExceptionsFor(row:any,hypothetical?:FSchedule[],options:{shapeChanged?:boolean;sequenceChanged?:boolean}={}):Promise<RegulationExceptionIssue[]>{
+  if(options.shapeChanged===false&&options.sequenceChanged===false)return [];
+  const termId=Number(row?.AdTermId||0);
+  const [week,instructors,courses]=await Promise.all([
+    hypothetical?Promise.resolve(hypothetical):termId?Repository.getSchedulesByScope({termId}):Promise.resolve([] as FSchedule[]),
+    Repository.getInstructors(),
+    Repository.getCourses(),
+  ]);
+  const courseCode=new Map((courses as any[]).map(course=>[Number(course.AdCourseId),String(course.CourseName||course.CourseCode||"")]));
+  const course=(courses as any[]).find(item=>Number(item.AdCourseId)===Number(row?.AdCourseId));
+  return regulationExceptionIssues({row,week:week as any,placeholders:placeholderInstructorIds(instructors as any),...options,courseHours:effectiveCourseHours(course),
+    nameOf:(other:any)=>courseCode.get(Number(other?.AdCourseId))||String(other?.AdCourseName||"")});
+}
+/** ردُّ الرفض الذي يفتح ورقةَ التأكيد: 409 برمزٍ معروف، وكلُّ قاعدةٍ بمادّتها. */
+export const regulationExceptionRefusal=(issues:RegulationExceptionIssue[])=>({error:regulationExceptionMessage(issues),code:REGULATION_EXCEPTION_CODE,regulation:issues});
 /** نهايةُ الموعد من النمط المعتمد لساعات المقرّر وأيامه وبدايته (regulationEnd، الحكمُ الواحد): الطولُ المعتمد يبقى،
     والطولُ القديمُ خارج المكتبة (75د) يعود إلى النمط. ما لا نمطَ له يبقى كما هو. */
 export async function fitPatternEnd(row:any):Promise<string>{

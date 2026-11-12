@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME } from "../utils/scheduleTime";
 
 /**
@@ -35,9 +35,13 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "value" 
   step?: number;
   onChange: (event: { target: { value: string } }) => void;
   onOutOfRange?: (limit: "min" | "max", attempted: string, boundary: string) => void;
+  /** بداياتٌ معتمدة تُعرض قائمةً عند الكتابة (سُلّم اللائحة للأيام المختارة، م.7/8). */
+  suggestions?: readonly string[];
 };
 
-export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_START_TIME, max = SCHEDULE_DAY_END_TIME, step: _step, className, onBlur, ...rest }: Props) {
+export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_START_TIME, max = SCHEDULE_DAY_END_TIME, step: _step, className, onBlur, suggestions, ...rest }: Props) {
+  const listId = `time-ladder-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const hasList = Boolean(suggestions && suggestions.length);
   const [text, setText] = useState(value || "");
   const [bad, setBad] = useState(false);
   const focused = useRef(false);
@@ -81,8 +85,10 @@ export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_ST
   };
 
   return (
+    <>
     <input
       {...rest}
+      list={hasList ? listId : rest.list}
       type="text"
       inputMode="numeric"
       dir="ltr"
@@ -96,6 +102,8 @@ export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_ST
       onBlur={e => { focused.current = false; settle(); onBlur?.(e); }}
       onChange={e => handle(e.target.value)}
     />
+    {hasList ? <datalist id={listId}>{suggestions!.map(time => <option key={time} value={time} />)}</datalist> : null}
+    </>
   );
 }
 

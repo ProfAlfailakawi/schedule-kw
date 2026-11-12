@@ -78,7 +78,7 @@ export default function ProposalQuickCard({ ws, seed, onClose, onMore }: {
   const toggleDay = (day: StudyProposalDayKey) => ws.patchDraft(cur => ({ days: cur.days.includes(day) ? cur.days.filter(d => d !== day) : [...cur.days, day] }));
   const editingRow = draft.rowId != null ? ws.currentItems.find(i => i.rowId === draft.rowId) : undefined;
 
-  const submit = () => { if (ws.submitDraft()) onClose(); };
+  const submit = () => { void ws.submitDraftChecked().then(ok => { if (ok) onClose(); }); };
   const ready = kind === "assign" ? draft.facultyId != null
     : kind === "edit" ? draft.rowId != null && draft.days.length > 0 && Boolean(draft.start && draft.end)
       : Boolean(draft.courseId && draft.scode.trim() && draft.days.length && draft.start && draft.end);

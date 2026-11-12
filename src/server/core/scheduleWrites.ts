@@ -20,7 +20,8 @@ import { noteScheduleMutation, scheduleLockRefusal } from "./approvals";
 import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
 import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./scheduleConflicts";
-import { describeScheduleChange, fitPatternEnd, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues, unapprovedPatternIssue } from "./scheduleRules";
+import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues, unapprovedPatternIssue } from "./scheduleRules";
+import { regulationExceptionAccepted, regulationExceptionAudit } from "../../utils/regulationException";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
 import { noteTrail } from "../activityTrail";
@@ -139,6 +140,10 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const blockingSave=conflicts.filter((c:any)=>!c.soft);
   if(blockingSave.length&&blockingSave.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingSave.map((c:any)=>String(c.holdRequestId)))] as string[],blockingSave.map((c:any)=>String(c.holdItemId||""))),issues:blockingSave});return;}
   if(blockingSave.length){res.status(409).json({error:blockingSave[0].message||"يوجد تعارض يمنع الحفظ",issues:blockingSave});return;}
+  /* مخالفةُ لائحةٍ لا تمنع: لا تُحفظ إلا بتأكيدٍ صريح من القسم (ملاحظتا المالك 10 و20). المساراتُ الداخلية
+     (اعتمادُ طلب أستاذ، المقترح، آلة الزمن…) حكمت قبل أن تصل هنا، وكرتُ الأستاذ يمنع بنفسه. */
+  const createException=(req as any).__internal?[]:await regulationExceptionsFor(canonicalBody,(req as any).__hypotheticalWeek);
+  if(createException.length&&!regulationExceptionAccepted(req.body)){res.status(409).json(regulationExceptionRefusal(createException));return;}
 
   /* القفل يُقرأ بعد أن يثبت أن الطلب صحيحٌ في ذاته: ردُّ «الجدول عند التسجيل»
      على طلبٍ ناقص الحقول يخفي الخطأ الحقيقي خلف خطأٍ إجرائي. */
@@ -199,6 +204,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", row: newSched });
 
   res.locals.auditRowIds = [Number(newSched.id)];
+  if (createException.length) res.locals.auditChanges = `${trailTarget(newSched)} · ${trailSlot(newSched)} · ${regulationExceptionAudit(createException)}`;
   noteTrail(res, { target: trailTarget(newSched), after: trailSlot(newSched), scope: { collegeId, sectionId, termId }, row: Number(newSched.id) });
   res.status(201).json(createFixes.length ? { ...newSched, requestFix: createFixes } : newSched);
 };
@@ -297,6 +303,12 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const blockingEdit=conflicts.filter((c:any)=>!c.soft);
   if(blockingEdit.length&&blockingEdit.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingEdit.map((c:any)=>String(c.holdRequestId)))] as string[],blockingEdit.map((c:any)=>String(c.holdItemId||""))),issues:blockingEdit});return;}
   if(blockingEdit.length){res.status(409).json({error:blockingEdit[0].message||"يوجد تعارض يمنع التعديل",issues:blockingEdit});return;}
+  /* المخالفةُ التي لا تمنع تحتاج تأكيداً صريحاً (ملاحظتا المالك 10 و20): الشكلُ المحفوظ كما هو لا يُسأل عنه،
+     وتغييرُ الأستاذ وحده يُسأل عن تتاليه. */
+  const keptShape=sameScheduleShape(existing as any,req.body);
+  const editException=(req as any).__internal?[]:await regulationExceptionsFor({...canonicalBody,id},(req as any).__hypotheticalWeek,{
+    shapeChanged:!keptShape,sequenceChanged:!keptShape||Number(existing.AdInstructorId||0)!==instructorId});
+  if(editException.length&&!regulationExceptionAccepted(req.body)){res.status(409).json(regulationExceptionRefusal(editException));return;}
 
   /* النطاقان معاً: نقلُ موعدٍ من قسمٍ مُرسَلٍ إلى آخر يمسّ الجدولين، فيكفي
      قفلُ أحدهما للمنع. */
@@ -359,7 +371,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
       }
     }
     // Hand the audit trail the sentence describing what actually moved.
-    res.locals.auditChanges = describeScheduleChange(existing, updated) || undefined;
+    res.locals.auditChanges = [describeScheduleChange(existing, updated), editException.length ? regulationExceptionAudit(editException) : ""].filter(Boolean).join(" · ") || undefined;
     /* إعادةُ حفظٍ بلا فرقٍ ليست حركة: لا تُكتب في الأثر. */
     noteTrail(res, res.locals.auditChanges || Number(existing.AdCourseId) !== Number(updated.AdCourseId)
       ? { target: trailTarget(updated), before: trailSlot(existing), after: trailSlot(updated), scope: { collegeId, sectionId, termId }, row: Number(id) }
@@ -461,6 +473,8 @@ export async function runScheduleHandler(
   inner.params = patch.params || {};
   /* أعلامٌ داخليةٌ لا يملكها طلبٌ قادمٌ من المتصفّح: تُضبط هنا وحدها. */
   inner.__hypotheticalWeek = patch.hypotheticalWeek;
+  /* مسارٌ داخلي: حكم صاحبُه قبل أن يصل هنا، فلا تُسأل ورقةُ «الاستثناء اللائحي» (regulationExceptionsFor). */
+  inner.__internal = true;
   inner.__dryRun = Boolean(patch.dryRun);
   inner.__restoreOrigin = patch.restoreOrigin;
   /* استعادةٌ تعيد الجدول كما كان بالضبط (آلة الزمن): التراجعُ لا يُمنع بقاعدة النمط. */

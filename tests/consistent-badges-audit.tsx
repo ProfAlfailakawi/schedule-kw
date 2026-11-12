@@ -113,7 +113,7 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
     ["src/components/InstructorInbox.tsx", /<PersonChips visiting=\{isVisiting\(row\.AdInstructorId, row\.AdCollegeId, row\.AdSectionId\)\} trainee=\{isTaRequest\(row\)\} \/>/, "الوارد: ترويسة الطلب"],
     ["src/components/proposal/ProposalInboxParts.tsx", /chips: <PersonChips visiting=\{choice\.visiting\} trainee=\{choice\.trainee\} \/>/, "منتقي أستاذ المقترح الدراسي"],
     ["src/components/proposal/ProposalHeader.tsx", /<PersonChips visiting=\{visiting\} trainee=\{trainee\} \/><\/h1>/, "رأس المقترح"],
-    ["src/components/InstructorPicker.tsx", /<PersonChips visiting=\{visitingSet\.has\(person\.AdInstructorId\)\} trainee=\{trainees\.has\(Number\(person\.AdInstructorId\)\)\} \/>/, "منتقي أستاذ الموعد"],
+    ["src/components/InstructorPicker.tsx", /<PersonChips visiting=\{visitingSet\.has\(person\.AdInstructorId\)\} trainee=\{(?:trainees\.has\(Number\(person\.AdInstructorId\)\)|isTa\(person\))\} \/>/, "منتقي أستاذ الموعد"],
     ["src/components/TeacherMiniWeek.tsx", /<PersonChips visiting=\{visiting\} trainee=\{trainee\} \/>/, "رأس الأسبوع المصغّر"],
     ["src/components/SchedulePublish.tsx", /<PersonChips visiting=\{isVisiting\(person\.AdInstructorId, collegeId, sectionId\)\} trainee=\{trainees\.has\(Number\(person\.AdInstructorId\)\)\} \/>/, "النشر: قائمة الإرسال"],
     ["src/components/Reports.tsx", /const personChips = \(id: unknown, visiting = isVisitingInstructor\(Number\(id\)\)\) => <PersonChips/, "التقارير على الشاشة"],
