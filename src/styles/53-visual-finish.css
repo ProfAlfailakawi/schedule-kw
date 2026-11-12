@@ -56,3 +56,10 @@
   .dashboard-page .deck-signals>article{padding-inline:var(--s4)}
   .dashboard-page .deck-signals>article>b{white-space:nowrap;font-size:min(34px,7.4vw)}
 }
+
+/* 5) System vault hero on a phone: the seal floated at the vertical middle of
+   a tall block (title + sixteen collection chips), detached from the title it
+   introduces. It now sits at the top, beside the kicker and title. */
+@media screen and (max-width:760px){
+  .system-vault-hero>.system-vault-seal{align-self:start}
+}
