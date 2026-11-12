@@ -15,7 +15,7 @@
 import fs from "fs";
 import { buildTeacherTracks } from "../src/utils/cardRecipients";
 import { rankRequestRooms } from "../src/utils/requestRoomRanking";
-import { sectionDaysCompliant } from "../src/server/routes/publicRequestRoutes";
+import { daysFitLibrary } from "../src/utils/scheduleRegulations";
 import type { DayKey } from "../src/utils/scheduleRegulations";
 
 let passed = 0, failed = 0;
@@ -85,7 +85,7 @@ check(/أُعيد فتح التعديل بإرسالٍ خاص/.test(issue), "15:
 
 /* ── 7 · التثبيت ─────────────────────────────────────────────────────────── */
 const pub = read("src/server/routes/publicRequestRoutes.ts");
-check(/export async function pinReview/.test(pub) && /sectionDaysCompliant\(hours, union, own\.length > 1\)/.test(pub) && /scheduleLengthIssue\(row\)/.test(pub), "7: التثبيتُ يُفحص بأيام النمط وساعات المقرر");
+check(/export async function pinReview/.test(pub) && /daysFitLibrary\(hours, union, own\.length > 1\) === false/.test(pub) && !/sectionDaysCompliant|spread/.test(pub) && /scheduleLengthIssue\(row\)/.test(pub), "7: التثبيتُ يُفحص بأيام النمط وساعات المقرر");
 check(/code: "pin-blocked"/.test(pub) && /const review = await pinReview\(judged\);\s*const blockers = review\.blocks;/.test(pub), "7: الخادمُ يرفض التثبيت المخالف بنصّه");
 check(/pinBlocked: pinState\.blocks,/.test(pub) && /pinSoft: pinState\.soft,/.test(pub), "7: الصفحةُ تعرف المانعَ والتنبيهَ قبل الضغط");
 /* قرار المالك: مدّةُ اللقاء وحدها (75د قديمة) لا تمنع «ثبّت»؛ تُقال للأستاذ وتصل القسم. */
@@ -98,10 +98,15 @@ check(/edited===0&&!String\(noteNow\(\)\)\.trim\(\)&&data\.pinBlocked/.test(page
 
 {
   const d = (...days: DayKey[]) => new Set<DayKey>(days);
-  check(sectionDaysCompliant(3, d("fmonday", "fwednesday"), true), "7: الاثنين والأربعاء لمقررٍ بثلاث ساعات نمطٌ معتمد");
-  check(sectionDaysCompliant(3, d("fsunday", "ftuesday"), true), "7: الأحد والثلاثاء (غير متجاورين) ممتثلان");
-  check(sectionDaysCompliant(3, d("fsunday", "fthursday"), true), "7: الأحد والخميس (غير متجاورين) ممتثلان");
-  check(!sectionDaysCompliant(3, d("fsunday", "fmonday"), true), "7: يومان متجاوران يمنعان التثبيت");
+  /* قرار المالك 2026-11-13: المكتبةُ وحدها — لا «يومان غير متجاورين» بالعدد. */
+  const pinOk = (hours: number, ...days: DayKey[]) => daysFitLibrary(hours, d(...days), days.length > 1) !== false;
+  check(pinOk(3, "fmonday", "fwednesday"), "7: الاثنين والأربعاء لمقررٍ بثلاث ساعات نمطٌ معتمد");
+  check(pinOk(3, "fsunday", "ftuesday") && pinOk(3, "ftuesday", "fthursday"), "7: الأحد·الثلاثاء والثلاثاء·الخميس في المكتبة: يثبّت");
+  check([2, 3, 4, 5].every(h => !pinOk(h, "fmonday", "fthursday")), "7: الاثنين·الخميس يمنع التثبيت لكل الساعات");
+  check([2, 3, 4, 5].every(h => !pinOk(h, "fsunday", "fwednesday")), "7: الأحد·الأربعاء يمنع التثبيت لكل الساعات");
+  check([2, 3, 4, 5].every(h => !pinOk(h, "fsunday", "fthursday")), "7: الأحد·الخميس يمنع التثبيت لكل الساعات");
+  check(!pinOk(3, "fsunday", "fmonday"), "7: يومان متجاوران يمنعان التثبيت");
+  check(["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].every(day => [1, 2, 3, 4, 5].every(h => pinOk(h, day as DayKey))), "7: كتلةُ اليوم الواحد تثبَّت على أيّ يوم");
 }
 
 /* ── 18 · الجاهزيةُ والشريط ──────────────────────────────────────────────── */

@@ -92,7 +92,6 @@ export function demandSupply(input: {
   rows: readonly SupplyRow[];
   capacity: SupplyCapacity;
 }): SupplyReading {
-  const base = input.general || input.graduates;
   const grads = new Map((input.graduates?.courses || []).map(course => [course.code, course.students] as const));
   const counts = sectionCounts(input.rows);
   const byId = new Map(input.catalogue.map(course => [Number(course.AdCourseId), course] as const));
@@ -106,14 +105,19 @@ export function demandSupply(input: {
     totals.set(key, at);
   };
   const items: SupplyItem[] = [];
-  for (const course of base?.courses || []) {
+  /* المقررات اتحادُ التقريرين: مقررٌ لا يذكره إلا تقريرُ الخريجين لا يسقط من النسبة والقائمة والشارة. */
+  const generalCodes = new Set((input.general?.courses || []).map(course => course.code));
+  const union = [...(input.general?.courses || []), ...(input.graduates?.courses || []).filter(course => !generalCodes.has(course.code))];
+  for (const course of union) {
     const match = input.matches.get(course.code);
     if (!match || !match.courseIds.length || match.status === "ignored" || match.status === "unmatched") continue;
     const own = match.courseIds.map(id => byId.get(id)).filter(Boolean) as SupplyCourse[];
     /* سقفُ المقرر لا يتبع العضو المفتوح أولاً: لكل نسخةٍ سقفُها، والمعروضُ أكبرها بترتيبٍ ثابت. */
     const caps = own.map(item => seatCap(item, input.capacity)).sort((a, b) => b.cap - a.cap || Number(a.assumed) - Number(b.assumed));
     const { cap, assumed } = caps[0] || seatCap(undefined, input.capacity);
-    const demandSplit = input.general?.courses.find(item => item.code === course.code)?.students || { boys: 0, girls: 0, total: 0 };
+    /* الخريجون طلبةٌ أيضاً: مقررٌ غاب عن التقرير العام يُحسب طلبُه العامّ بخريجيه على الأقل. */
+    const demandSplit = input.general?.courses.find(item => item.code === course.code)?.students
+      || (input.general ? grads.get(course.code) : undefined) || { boys: 0, girls: 0, total: 0 };
     const gradSplit = grads.get(course.code);
     const branches: SupplyBranch[] = tracks.map(track => {
       const colleges = input.members

@@ -36,7 +36,8 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const noTime = pickDay(theory4, ["fsunday", "ftuesday"], "ftuesday", false);
   check(noTime.applied === null, "19 وبلا وقتٍ بعد: النظريُّ لا يُفترض كتلة");
   const sunThu = pickDay(theory4, ["fsunday"], "fthursday", true, 110);
-  check(join(sunThu.days) === "fsunday+fthursday" && Boolean(sunThu.applied), "19 الأحد·الخميس لأربع ساعات صار يُوصل إليه بالضغط (كان يُسقط الأحد)", sunThu);
+  /* قرار المالك 2026-11-13: «الأحد·الخميس» أُزيل من المكتبة — الضغطُ لا يبني منه نمطاً معتمداً. */
+  check(!(join(sunThu.days) === "fsunday+fthursday" && sunThu.applied), "19 الأحد·الخميس لأربع ساعات لا يُطبَّق نمطاً معتمداً بالضغط", sunThu);
   const labMove = pickDay(lab3, ["fwednesday"], "fmonday", true, 170);
   check(join(labMove.days) === "fmonday+fwednesday" && labMove.alternatives.length > 0, "19 ضغط يوم لا يحذف يوم الكتلة، والشرائح تعرض البديل", labMove);
   check(regulationFit(theory3, ["fsunday"], "08:00", "08:50") === "fits", "19 لقاءٌ من نمطٍ معتمد في صفٍّ مستقل ليس «خارج اللائحة»");
