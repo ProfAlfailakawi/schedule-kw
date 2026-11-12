@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { CalendarClock, Clock3, Layers, ShieldAlert, X } from "lucide-react";
+import { CalendarClock, Clock3, GraduationCap, Layers, ShieldAlert, X } from "lucide-react";
 import { REGULATION_EXCEPTION_CODE, REGULATION_EXCEPTION_FLAG, type RegulationExceptionIssue, type RegulationExceptionRule } from "../utils/regulationException";
 
 /**
@@ -16,7 +16,7 @@ const RULE_ICON: Record<RegulationExceptionRule, typeof Clock3> = {
   "consecutive-one-hour": Layers,
 };
 
-function RegulationExceptionSheet({ issues, onChoose }: { issues: readonly RegulationExceptionIssue[]; onChoose: (accepted: boolean) => void }) {
+function RegulationExceptionSheet({ issues, note, onChoose }: { issues: readonly RegulationExceptionIssue[]; note?: string; onChoose: (accepted: boolean) => void }) {
   const cancelRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     cancelRef.current?.focus();
@@ -43,6 +43,7 @@ function RegulationExceptionSheet({ issues, onChoose }: { issues: readonly Regul
             );
           })}
         </ul>
+        {note ? <p className="regulation-exception-soft" role="note"><GraduationCap aria-hidden="true" />{note}<small>ملاحظة · لا تمنع</small></p> : null}
         <p className="regulation-exception-ask">هل تريد المتابعة استثناءً؟ يُسجَّل الاستثناء في سجل التدقيق.</p>
         <div className="request-hold-actions">
           <button type="button" className="is-primary regulation-exception-confirm" data-guide-ignore="يحفظ الموعد استثناءً من اللائحة ويسجّله في سجل التدقيق" onClick={() => onChoose(true)}>
@@ -56,12 +57,12 @@ function RegulationExceptionSheet({ issues, onChoose }: { issues: readonly Regul
 }
 
 /** يفتح الورقة ويعيد القرار: true للمتابعة استثناءً. مركّبٌ مستقل لأن السؤال يقع داخل مسار حفظ. */
-export function askRegulationException(issues: readonly RegulationExceptionIssue[]): Promise<boolean> {
+export function askRegulationException(issues: readonly RegulationExceptionIssue[], note?: string): Promise<boolean> {
   return new Promise(resolve => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
-    root.render(<RegulationExceptionSheet issues={issues} onChoose={accepted => { root.unmount(); host.remove(); resolve(accepted); }} />);
+    root.render(<RegulationExceptionSheet issues={issues} note={note} onChoose={accepted => { root.unmount(); host.remove(); resolve(accepted); }} />);
   });
 }
 

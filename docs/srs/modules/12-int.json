@@ -1626,9 +1626,45 @@
       ],
       "evidence": { "code": ["src/utils/smartSuggestions.ts#courseRemovalVerdict", "src/server/timeMachineRoutes.ts", "src/server/timeMachineRoutes.ts#actualDemandFactsFor"], "tests": ["tests/smart-suggestions-audit.ts"] },
       "inferred": false
+    },
+    {
+      "id": "FR-INT-077",
+      "kind": "functional",
+      "title": {"ar": "تعارض مقررات خريجي البرنامج الواحد", "en": "Clashes between courses needed by one program's graduates"},
+      "text": {
+        "ar": "يجب أن يكشف النظام في «مراجعة الاعتماد» كل مقررين يحتاجهما خريجو البرنامج نفسه (من تقرير الخريجين) وتتداخل كلُّ شعبةٍ من الأول مع كلِّ شعبةٍ من الثاني في المسار نفسه، بأثرٍ = مجموع min(خريجي البرنامج في الأول، في الثاني) على البرامج المشتركة، مرتبةً بالأثر، ملاحظةً لا تمنع الاعتماد ولا تظهر في المطبوع.",
+        "en": "The system shall reveal in the «approval review» every two courses needed by graduates of the same program (from the graduates report) where every section of the first overlaps every section of the second in the same track, with an impact = sum of min(program graduates in the first, in the second) over shared programs, ordered by impact, as a note that never blocks approval and does not appear on paper."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        {"ar": "مقرران لـBA-0115 متداخلان في شعب البنين كلها ← «يمسّ ٥ خريجين»؛ وشعبةٌ ثانية لا تتداخل تُزيل التعارض.", "en": "Two BA-0115 courses overlapping in all boys sections → «affects 5 graduates»; a second non-overlapping section removes the clash."}
+      ],
+      "evidence": { "code": ["src/utils/actualDemandGraduates.ts#graduateClashes", "src/components/ScheduleReview.tsx"], "tests": ["tests/actual-demand-graduates-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-078",
+      "kind": "functional",
+      "title": {"ar": "أثر الموعد على الخريجين قبل حفظه", "en": "Impact of an appointment on graduates before saving"},
+      "text": {
+        "ar": "يجب أن يقول المحرّر قبل حفظ موعدٍ يصنع تعارضاً جديداً بين مقررات خريجي البرنامج الواحد «يمسّ N خريجاً» ملاحظةً لا تمنع الحفظ (فحص check-conflicts)، وأن تحمل ورقة «هذا الموعد يخالف اللائحة» الملاحظة نفسها سطراً هادئاً إن ظهرت، بلا نافذةٍ جديدة.",
+        "en": "Before saving an appointment that creates a new clash between courses needed by one program's graduates, the editor shall say «affects N graduates» as a note that never blocks the save (the check-conflicts reading), and the «this appointment breaks the regulation» sheet shall carry the same note as a quiet line when it appears, with no new dialog."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        {"ar": "نقل شعبة إلى وقت مقررٍ يحتاجه خريجو برنامجها ← «يمسّ ٤ خريجين»؛ تعديلٌ يُزيل التعارض لا يُنبَّه عليه.", "en": "Moving a section onto the time of a course its program's graduates need → «affects 4 graduates»; an edit that removes the clash raises nothing."},
+        {"ar": "العدد والمعدود: «٧ خريجين»، «١٢ خريجاً».", "en": "Count agreement: «7 graduates», «12 graduates»."}
+      ],
+      "evidence": { "code": ["src/utils/actualDemandGraduates.ts#graduateImpactOf", "src/server/actualDemand.ts#graduateImpactFor", "src/server/routes/scheduleReviewRoutes.ts", "src/components/RegulationExceptionSheet.tsx", "src/components/Schedules.tsx"], "tests": ["tests/actual-demand-graduates-audit.ts"] },
+      "inferred": false
     }
   ],
   "edgeCases": [
+    { "title": {"ar": "لا تقرير خريجين", "en": "No graduates report"}, "scenario": {"ar": "رُفع التقرير العام وحده.", "en": "Only the general report was uploaded."}, "behavior": {"ar": "لا تعارض خريجين ولا ملاحظة قبل الحفظ؛ لا حكم بلا بيانات.", "en": "No graduates' clash and no pre-save note; no verdict without data."}, "evidence": ["tests/actual-demand-graduates-audit.ts"] },
     { "title": {"ar": "كلية بلا مسار بنين أو بنات", "en": "A college with no boys or girls track"}, "scenario": {"ar": "اسم الكلية لا يحمل «بنين» ولا «بنات» (العرض التجريبي).", "en": "The college name carries neither «boys» nor «girls» (the demo)."}, "behavior": {"ar": "مسارٌ واحد يخدم مجموع الطلبة، ولا اقتراح نقل.", "en": "One track serves all students, with no move suggestion."}, "evidence": ["tests/actual-demand-supply-audit.ts"] },
     {
       "title": { "ar": "غياب خدمة Gemini أو فشلها", "en": "Gemini service absent or failing" },
