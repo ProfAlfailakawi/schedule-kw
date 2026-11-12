@@ -102,11 +102,7 @@ export function regulationChoiceFor(course: RegulationCourse | null | undefined,
   const all = regulationChoicesForDay(course, days[0]);
   const found = all.find(choice => choice.days.length === days.length && choice.days.every(day => days.includes(day))) || null;
   if (found && found.days.length === 1 && Number(minutes) > 0 && found.minutes !== minutes) return null;
-  if (found) return found;
-  /* الأطوالُ نفسُها على أيامٍ غير متتالية نمطٌ معتمد (الأحد·الأربعاء 80 مثلُ الاثنين·الأربعاء) — الحكمُ الواحد
-     approvedShapeForDays، وهو ما تقبله مراجعةُ الاعتماد. */
-  const shape = days.length > 1 ? approvedShapeForDays(regulationHours(course), days, true) : null;
-  return shape ? choiceOf(shape, shape.days) : null;
+  return found;
 }
 
 /** هل اليومُ المنفرد قرارُ كتلة؟ طولُه يقول، وبلا طولٍ يقوله نوعُ المقرر: النظريُّ لا يُفترض كتلة. */

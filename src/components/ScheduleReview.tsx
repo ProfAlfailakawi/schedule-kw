@@ -425,6 +425,17 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       detail: items.map(item => item.detail).slice(0, 3).join("؛ ") + (items.length > 3 ? `؛ و${countOf(items.length - 3, AR.course)} غيرها` : ""),
     }];
   }, [decisionFindings, inScope]);
+  /* «نمط غير معتمد في المكتبة»: أطوالُ نمطٍ معتمد على أيامٍ غير أيامه (الأحد·الأربعاء 80). كانت المراجعةُ تقبله صامتة،
+     والحفظُ يطلب المكتبة؛ فيُقال هنا تنبيهاً لا يمنع ولا يُنقص الدرجة، ويُعدّ فيما يُعرض (reviewHasFindings). */
+  const libraryNotes = useMemo<ReviewFindingGroup[]>(() => {
+    const items = decisionFindings.filter(finding => finding.rule === "pattern-off-library").map(inScope).filter(Boolean) as RegulationFinding[];
+    if (!items.length) return [];
+    const rowIds = [...new Set(items.flatMap(item => item.rowIds))];
+    return [{
+      ...items[0], title: "نمط غير معتمد في المكتبة", groupKey: "pattern-off-library", rowIds, groupedItems: items, groupedCount: items.length,
+      detail: items.map(item => `${item.subjectLabel ? `${item.subjectLabel}: ` : ""}${item.detail}`).slice(0, 3).join("؛ ") + (items.length > 3 ? `؛ و${countOf(items.length - 3, AR.course)} غيرها` : ""),
+    }];
+  }, [decisionFindings, inScope]);
   /* What actually stops a signature: the material conflicts canSign refuses. */
   const blocking = findings.filter(isMaterialFinding);
   const regulationGroups = useMemo(() => groupedFindings.filter(finding => !isMaterialFinding(finding)), [groupedFindings]);
@@ -520,7 +531,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   const findingPreview = (finding: ReviewFindingGroup) => {
     const entity = groupEntitySummary(finding);
     /* ملاحظةُ السُّلّم مجمّعةٌ بالمقرّرات لا بالتعارضات: لا يُقال «٢٧ تعارضاً» عن مواعيد لا تتعارض. */
-    if (finding.rule === "regulation-ladder") return `${entity} · ${countOf(finding.groupedCount, AR.course)} · تنبيه لائحي لا يمنع`;
+    if (finding.rule === "regulation-ladder" || finding.rule === "pattern-off-library") return `${entity} · ${countOf(finding.groupedCount, AR.course)} · تنبيه لائحي لا يمنع`;
     if (finding.groupedCount > 1) return `${entity} · ${countOf(finding.groupedCount, AR.conflict)}`;
     if (finding.approvalEffect === "block") return `${entity} · يحتاج معالجة قبل الاعتماد`;
     if (finding.source === "decision-1912") return `${entity} · تنبيه لائحي`;
@@ -635,7 +646,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
    * notes behind a click buys nothing.
    */
   const pressingFindings = groupedFindings.filter(finding => finding.approvalEffect !== "note");
-  const quietFindings = [...groupedFindings.filter(finding => finding.approvalEffect === "note"), ...ladderNotes];
+  const quietFindings = [...groupedFindings.filter(finding => finding.approvalEffect === "note"), ...ladderNotes, ...libraryNotes];
   const quietNames = quietFindings.slice(0, 3).map(finding => finding.title).join(" · ");
   const quietPreview = quietFindings.length > 3
     ? `${quietNames} · و${(quietFindings.length - 3).toLocaleString("ar-KW-u-nu-latn")} غيرها`
@@ -703,7 +714,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             <section className="review-subject">
               <header>
                 <strong>{markVisitingNames(subject.label, subjectRowIds)}</strong>
-                <small>{finding.rule === "regulation-ladder" ? "تنبيه لائحي" : countOf(subject.items.length, AR.conflict)}</small>
+                <small>{(finding.rule === "regulation-ladder" || finding.rule === "pattern-off-library") ? "تنبيه لائحي" : countOf(subject.items.length, AR.conflict)}</small>
               </header>
               <div className="review-subject-cases">
                 {renderCompactRows(subjectRowIds)}
@@ -745,7 +756,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                     <span className="finding-share-wrap">
                       <span className="finding-share-count" title={elsewhere > 0 ? `و${countOf(elsewhere, AR.appointment)} في كلية أخرى من القسم لا تُحسب في هذه الدرجة` : undefined}>
                         <b>{finding.groupedCount.toLocaleString("ar-KW-u-nu-latn")}</b>
-                        <span>{finding.rule === "regulation-ladder" ? nounFor(finding.groupedCount, AR.course) : finding.groupedCount === 1 ? "تعارض" : "تعارضات"}</span>
+                        <span>{(finding.rule === "regulation-ladder" || finding.rule === "pattern-off-library") ? nounFor(finding.groupedCount, AR.course) : finding.groupedCount === 1 ? "تعارض" : "تعارضات"}</span>
                         <i>·</i>
                         <span data-finding-count={scoped.length}>{countOf(scoped.length, AR.appointment)} {nounFor(scoped.length, AR.affectedAdj)}</span>
                       </span>

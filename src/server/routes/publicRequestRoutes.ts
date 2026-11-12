@@ -26,7 +26,7 @@ import { chosenAlternativeIndex } from "../../utils/requestAlternatives";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "../../utils/instructorMovementWindow";
 import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "../../utils/instructorRequestConfirmation";
 import { verificationCode } from "../../utils/approvalWorkflow";
-import { DAY_KEYS, DAY_NAMES, daysApprovedForHours, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, patternsForHours, startLadderNote, type DayKey } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysApprovedForHours, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, likeLibraryShape, patternsForHours, startLadderNote, type DayKey } from "../../utils/scheduleRegulations";
 import { courseTagFactsFor, serviceCourseKeys } from "../planBadgeShared";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { endForRequest, headlineReasonOf, rowFromRequest, softSectionClash, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
@@ -823,10 +823,11 @@ export async function pinReview(request: InstructorRequest): Promise<{ blocks: A
 export async function pinBlockers(request: InstructorRequest) { return (await pinReview(request)).blocks; }
 
 /** أيامُ الشعبة نمطٌ معتمد، أو أيامٌ غيرُ متجاورة بعدد أيام نمطٍ معتمدٍ متعدّد الأيام لساعات المقرر. خالصة.
-    الحكمُ الواحد نفسه في كل المسارات (daysFitLibrary ← approvedShapesForHours)، لا نسخةٌ ثانية هنا. */
+    من المصدر الواحد (daysFitLibrary وlikeLibraryShape في scheduleRegulations)، لا نسخةٌ ثانية هنا. ما يشبه نمطاً
+    من المكتبة لا يمنع «ثبّت» لصفٍّ قائم، ويُقال تنبيهاً (unapprovedPatternIssue في soft أدناه). */
 export function sectionDaysCompliant(hours: number, days: ReadonlySet<DayKey>, exact: boolean): boolean {
   if (!(hours > 0) || !days.size) return true;
-  return daysFitLibrary(hours, days, exact) !== false;
+  return daysFitLibrary(hours, days, exact) !== false || likeLibraryShape(hours, [...days]);
 }
 
 /* بقيةُ مسارات باب الأستاذ (الإرسال والحوار والفحص…): مكانُها وعمودُها كما كانا. */

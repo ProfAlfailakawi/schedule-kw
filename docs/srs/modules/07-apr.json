@@ -2867,6 +2867,10 @@
           "en": "«fix» highlights the item's appointments on the week board (a 20-second glow) and closes the sheet; the instructors in an item are paged by 8 with a search, and its cases by 6."
         },
         {
+          "ar": "مقرر نظري بثلاث أو أربع ساعات على أيامٍ غير أيام مكتبة الأنماط بأطوال نمطٍ منها (الأحد + الأربعاء 80 دقيقة) يُعرض «نمط غير معتمد في المكتبة» ملاحظةً لا تمنع الاعتماد ولا تُنقص الدرجة وتُعدّ فيما يُعرض؛ ويومان متتاليان أو طولٌ خارج المكتبة يبقيان مانعاً «توزيع مقرر نظري لا يطابق نمط».",
+          "en": "A three- or four-hour theoretical course on days other than the pattern library's, at a library pattern's lengths (Sun + Wed 80 minutes), is shown as «pattern not approved in the library», a note that neither blocks approval nor lowers the score and is counted among what is shown; adjacent days or a length outside the library remain the «theoretical course distribution does not match the pattern» blocker."
+        },
+        {
           "ar": "«توزيع الفترتين» (قرار 1913/2016 · م.7/2): الصباحي 08:00–14:00 بنسبة 50–70٪ والمسائي 14:00–20:00 بنسبة 30–50٪، والرسم يظهر بعد الحد الأدنى من المواعيد وإلا تُذكر القراءة نصاً.",
           "en": "«period balance» (decision 1913/2016 · art. 7/2): morning 08:00–14:00 at 50–70% and evening 14:00–20:00 at 30–50%; the chart appears after the minimum number of appointments, otherwise the reading is stated in text."
         },
@@ -2886,7 +2890,8 @@
         "tests": [
           "tests/approval-review-audit.ts",
           "tests/review-1105-audit.ts",
-          "tests/schedule-board-fixes-audit.ts"
+          "tests/schedule-board-fixes-audit.ts",
+          "tests/pattern-rule-unify-audit.ts"
         ]
       }
     },
