@@ -60,9 +60,10 @@ export function dominantDepartment(plan: Pick<ParsedPlan, "courses">, field: "de
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || "";
 }
 
-/** الصحيفة الجديدة تبدأ من هذه السنة؛ ما قبلها قديمةٌ تدخل «الصحيفة السابقة» ولا تمسّ الفعّالة. */
+/** الصحيفة الجديدة تبدأ من هذه السنة؛ ما قبلها قديمةٌ تدخل «الصحيفة السابقة» ولا تمسّ الفعّالة.
+ *  وهذا تجديدُ التربية الأساسية (BA-01…) وحدها: صحيفةُ كليةٍ أخرى هي المعتمدة لها مهما كانت سنتها (العلوم البيئية 2008). */
 export const NEW_PLAN_FROM_YEAR = 2026;
-export const isNewSheet = (plan: Pick<ParsedPlan, "startYear">) => plan.startYear >= NEW_PLAN_FROM_YEAR;
+export const isNewSheet = (plan: Pick<ParsedPlan, "startYear" | "program">) => plan.startYear >= NEW_PLAN_FROM_YEAR || /^BA-(?!01)\d{2}/.test(String(plan.program || ""));
 
 /**
  * صحائفُ برامج التربية الخاصة ورياض الأطفال تُطبع باسم القسم الإداري («علم النفس»، «علم التربية») لا باسم القسم
