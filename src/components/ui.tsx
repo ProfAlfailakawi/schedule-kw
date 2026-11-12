@@ -667,3 +667,12 @@ export function MicroLoader({ size = 24, label = "جاري المعالجة…",
 }
 
 export function SkeletonDeck({count=4}:{count?:number}){return <div className="record-deck skeleton-deck">{Array.from({length:count},(_,i)=><article className="record-card skeleton-card" key={i}><span/><div><i/><i/></div></article>)}</div>}
+
+/** موعدٌ بتوقيت الكويت في سطرين: التاريخ ثم الساعة، كلٌّ معزولٌ باتجاهه. */
+export function KwWhen({ value }: { value: string }) {
+  const at = new Date(value);
+  if (!Number.isFinite(at.getTime())) return <span className="kw-when">—</span>;
+  const date = new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kuwait" }).format(at);
+  const time = new Intl.DateTimeFormat("ar-KW-u-nu-latn", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kuwait" }).format(at);
+  return <span className="kw-when"><bdi className="kw-when-date">{date}</bdi><bdi className="kw-when-time">الساعة {time}</bdi></span>;
+}

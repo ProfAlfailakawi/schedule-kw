@@ -100,6 +100,7 @@ check(/\.trail-day,\.trail-day>ol,\.trail-item,\.trail-item>button,\.trail-text\
 /* 3هـ) آلة الزمن: أزرار الأمثلة الطويلة تلتفّ داخل البطاقة بدل أن تتجاوز العرض (كانت -66..353 على 382)، ومفتاح النصاب يحصل على منطقة لمس ≥44px. */
 const timeMachineCss = flat(read("src/styles/33-time-machine.css"));
 check(/\.tm-examplesbutton\{max-inline-size:100%;white-space:normal/.test(timeMachineCss), "أزرارُ أمثلة آلة الزمن تلتفّ ولا تتجاوز عرضَ الشاشة");
+check(/\.tm-ask\{grid-template-columns:minmax\(0,1fr\)auto\}/.test(timeMachineCss) && /\.tm-askinput\{min-inline-size:0;inline-size:100%/.test(timeMachineCss), "حقلُ «ماذا حدث؟» في آلة الزمن لا يوسّع صفّه (WebKit: كان -79..291 على 320)");
 const teachingLoadCss = flat(read("src/styles/29-teaching-load.css"));
 check(/\.tl-toggle::after\{content:"";position:absolute;inset:-9px-4px\}/.test(teachingLoadCss), "مفتاحُ النصاب التدريسي: منطقةُ لمس ≥44px بلا تغيير الرسم");
 

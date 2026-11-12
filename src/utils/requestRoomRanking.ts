@@ -23,6 +23,8 @@ export interface RankableRoom {
   fit: number;
   /** أقسامُ القاعة في السجلّ. */
   sectionIds?: readonly number[];
+  /** نوعُ القاعة المسجّل يخالف نوعَ المقرر أو نمطَ تدريسه (roomSuitability: typeRank صفر). */
+  typeMismatch?: boolean;
 }
 
 export interface RoomRankingContext {
@@ -44,7 +46,11 @@ export interface RankedRoom extends RankableRoom { why: RequestRoomReason[]; sco
 
 export function rankRequestRooms(rooms: readonly RankableRoom[], context: RoomRankingContext): RankedRoom[] {
   const seats = Number(context.seats || 0);
-  const adequate = rooms.filter(room => !(seats > 0 && Number(room.capacity || 0) > 0 && Number(room.capacity) < seats));
+  /* السعةُ المسجّلة دون سعة الشعبة (MaxStudent) لا تُرشَّح. ونوعُ القاعة المخالفُ لنوع المقرر (مختبرٌ لمقررٍ نظري،
+     أو قاعةُ محاضرةٍ لمقررٍ عملي) لا يُرشَّح ما دامت للقسم قاعةٌ من النوع الصحيح (المالك 2026-11-12: اختار النظامُ
+     قاعةً لا تلائم المقرر). فإن لم تكن له قاعةٌ من نوعه أصلاً بقي المخالفُ آخرَ الترتيب، ويراه القسمُ ملاءمةً تحتاج مراجعة. */
+  const roomy = rooms.filter(room => !(seats > 0 && Number(room.capacity || 0) > 0 && Number(room.capacity) < seats));
+  const adequate = rooms.some(room => !room.typeMismatch) ? roomy.filter(room => !room.typeMismatch) : roomy;
   const usages = adequate.map(room => context.usage.get(String(room.roomId || room.key)) || 0);
   const least = usages.length ? Math.min(...usages) : 0;
   const ranked = adequate.map((room, at) => {

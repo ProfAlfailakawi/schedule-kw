@@ -439,7 +439,9 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
     const rankedRooms = item.offeringRowIds?.length ? [] : rankRequestRooms(rules.knownRoomKeys.map(key => {
       const hall = rules.hallByKey.get(key), room = rules.registry.rooms.find(entry => entry.id === hall?.roomId);
       return { key, roomId: hall?.roomId ? String(hall.roomId) : undefined, buildingId: hall?.buildingId ? String(hall.buildingId) : undefined,
-        capacity: Number((room as any)?.capacity || 0), fit: rules.selectedCourseFit(key, courseIdOfItem), sectionIds: (room as any)?.sectionIds || [] };
+        capacity: Number((room as any)?.capacity || 0), fit: rules.selectedCourseFit(key, courseIdOfItem), sectionIds: (room as any)?.sectionIds || [],
+        /* typeRank صفر = نوعٌ مسجّلٌ مخالف (selectedCourseFit = typeRank×1000 + تعديلٌ لا يبلغ ±100). */
+        typeMismatch: rules.selectedCourseFit(key, courseIdOfItem) < 500 };
     }), {
       courseSectionId: targetSectionId,
       nearBuildingIds: new Set(sameDayMine.map(row => String((row as any).buildingId || "")).filter(Boolean)),

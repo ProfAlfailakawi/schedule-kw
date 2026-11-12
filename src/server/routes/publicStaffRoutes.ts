@@ -35,7 +35,7 @@ import { sortTermsNewestServer } from "../core/ordering";
 import { demoPageHint, publicPageNonce } from "../core/publicPages";
 import { weekExceptionDayKey } from "../core/scheduleRules";
 import { buildSharePayload, calendarKey, publicAttemptReserve, resolveShareToken, SHARE_DAY_KEYS, SHARE_DAY_NAMES, shareDayIndexes, shareLinkStillReadable, stableCalendarPath } from "../core/shareLinks";
-import { liveStaffPublication, movementHistoryScopes, scheduleMovementEntries, staffFamilyShareLinks } from "../core/staffCard";
+import { liveStaffPublication, livePersonalStaffLinkOf, movementHistoryScopes, scheduleMovementEntries, staffFamilyShareLinks } from "../core/staffCard";
 import { visitingChecker } from "../core/visiting";
 import { publicInvalidLinkPage } from "../pages/publicInvalidLinkPage";
 import { staffCardPage } from "../pages/staffCardPage";
@@ -81,10 +81,13 @@ async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, 
   // Security gate: the instructor must actually appear in the link's OWN term, so
   // a wrong number and "teaches nothing" stay one indistinguishable 404 at the
   // door. Only after passing may they pin another term (Idea 2).
-  const linkRows = (await Repository.getSchedulesByScope({ termId: link.AdTermId }))
-    .filter(row => row.AdInstructorId === person.AdInstructorId);
-  const linkTermRequests = await currentInstructorRequestGeneration((await Repository.getInstructorRequests(0, 0, Number(link.AdTermId)))
-    .filter(request => Number(request.AdInstructorId) === Number(person.AdInstructorId)));
+  /* جدولُه وطلباتُه تُقرآن معاً، وطلباتُه بمعرّفه لا بمسح طلبات الفصل كلّه (ملاحظة المالك 9). */
+  const [termRowsAll, ownRequests] = await Promise.all([
+    Repository.getSchedulesByScope({ termId: link.AdTermId }),
+    Repository.getInstructorRequestsForInstructor(Number(link.AdTermId), Number(person.AdInstructorId)),
+  ]);
+  const linkRows = termRowsAll.filter(row => row.AdInstructorId === person.AdInstructorId);
+  const linkTermRequests = await currentInstructorRequestGeneration(ownRequests);
   const linkHistoryScopes = movementHistoryScopes(linkTermRequests, { collegeId: Number(link.AdCollegeId), sectionId: Number(link.AdSectionId) });
   /* ومن حُذف كلُّ ما يدرّسه في هذا الفصل بعد أن كان له فيه جدول، تُفتح بطاقتُه
      فارغةً مع حركته — ليرى ما حدث لا «لا توجد بطاقة». ومن لم يدرّس هنا قطّ
@@ -106,8 +109,8 @@ async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, 
 // A link issued by one campus must never hide requests from another campus.
   /* طلباتُه في الفصل كلِّه: الطلبُ يحمل جدولَه بكل كلياته، فلا يُبحث عنه
      بكليةٍ بعينها. */
-  const requestRows = displayTermId === link.AdTermId ? linkTermRequests : await currentInstructorRequestGeneration((await Repository.getInstructorRequests(0, 0, Number(displayTermId)))
-    .filter(request => Number(request.AdInstructorId) === Number(person.AdInstructorId)));
+  const requestRows = displayTermId === link.AdTermId ? linkTermRequests : await currentInstructorRequestGeneration(
+    await Repository.getInstructorRequestsForInstructor(Number(displayTermId), Number(person.AdInstructorId)));
   /* ── بابُ الطلب بعد الرقم المدني، في الرابطين ─────────────────────────────
      a966906 حجب روابطَ الطلب عن رابط القسم، فاختفى بابُ التعديل من بطاقة كل
      أستاذٍ فتحها من رابط القسم — وهو الطريق الذي ينشره القسم. والرقمُ المدنيُّ
@@ -126,7 +129,8 @@ async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, 
   const publishedFamilies = new Set<string>();
   await Promise.all([...familySeeds].map(async ([key, scope]) => {
     const links = await staffFamilyShareLinks(scope.collegeId, scope.sectionId, Number(displayTermId));
-    if (links.some(liveStaffPublication)) publishedFamilies.add(key);
+    /* والرابطُ الشخصيُّ الحيّ نشرٌ له هو: إيقافُ بطاقة القسم (أو استبدالُها لمجموعةٍ أخرى) لا يُسقط من وصلته بطاقتُه. */
+    if (links.some(liveStaffPublication) || links.some(row => livePersonalStaffLinkOf(row, Number(person.AdInstructorId)))) publishedFamilies.add(key);
   }));
   const eligibleRequests: Array<{ request: InstructorRequest; windowOpen: boolean }> = [];
   for (const request of requestRows) {

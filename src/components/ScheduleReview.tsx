@@ -286,7 +286,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     [rows, courses, instructors, previousRows, meeting, nature, family?.capacity]
   );
   const decisionFindings = useMemo(() => baseFindings.filter(isDecision1912Finding), [baseFindings]);
-  const periodBalance = useMemo(() => periodBalanceSnapshot(rows), [rows]);
+  const periodBalance = useMemo(() => periodBalanceSnapshot(scopeRows), [scopeRows]);
   const [serverBlockers, setServerBlockers] = useState<Array<{id:string;type:string;title:string;detail:string;rowIds:number[];subjectKey?:string;subjectLabel?:string}>>([]);
   /* What the same reading says without counting it: the same section in two
      halls or with two teachers (قاعدة المالك 2026-09-27). */

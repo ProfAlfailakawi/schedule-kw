@@ -6,6 +6,7 @@
  *   preview-page     صفحةُ البطاقة نفسها في وضع المعاينة.
  *   follow-up        ✉️ لم يفتح · 👀 فتح · ✅ ردّ لكل من وصلته بطاقة، ومن لم يرد.
  *   remind           «ذكّر من لم يرد»: لمن لم يرد في ✏️ وحده، بقناة التسليم القائمة (كرتُه، وواتساب بيد المنسّق).
+ *   track            مسارُ كل أستاذ بالترتيب: كلُّ إرسالٍ وصله، وفتحُه، وتثبيتُه أو تعديلُه، والردودُ وقراراتُ القسم.
  *
  * كلُّها بإذن القسم (7) ونطاقه، وبلا رقمٍ مدني ولا قاعة.
  */
@@ -14,7 +15,7 @@ import { Repository } from "../db/repository";
 import type { InstructorRequest } from "../types";
 import { type AuthenticatedRequest, requirePermission } from "./core/auth";
 import { isScopeAllowed } from "./core/scope";
-import { staffFamilyScopes } from "./core/staffCard";
+import { staffFamilyScopes, staffFamilyShareLinks } from "./core/staffCard";
 import { currentInstructorRequestGeneration, instructorRequestDepartmentScopes, instructorRequestSectionCourses, requestWindowOpen } from "./core/instructorRequests";
 import { exclusionRefusal, readCardExclusions } from "./core/cardRecipients";
 import { placeholderInstructorIds } from "./core/smartImport";
@@ -24,7 +25,7 @@ import { planBadgesFor, sheetSidesBySection } from "./planBadgeShared";
 import { pushHooks } from "./pushRoutes";
 import { serveRequestCard } from "./routes/publicRequestRoutes";
 import { instructorRequestPreviewPage } from "./pages/instructorRequestPage";
-import { followUpState, reminderTargets } from "../utils/cardRecipients";
+import { buildTeacherTracks, followUpState, reminderTargets } from "../utils/cardRecipients";
 import { previewCardRequest } from "../utils/cardPreview";
 import { latestRequestByInstructor } from "../utils/requestReissue";
 import { linkMode } from "../utils/linkMode";
@@ -168,6 +169,34 @@ app.get("/api/instructor-requests/follow-up", requirePermission(7), async (req: 
       remindedAt: (row.remindedAt || []).at(-1) || "",
     })),
     awaiting: reminderTargets(requests, requestWindowOpen, excluded).map(row => Number(row.AdInstructorId)),
+  });
+});
+
+/* ── مسارُ كل أستاذ (ملاحظتا المالك 13 و14) ────────────────────────────────────
+ * لمن أُرسل، ومتى، وبأيّ صفة؛ من فتح؛ من ثبّت ومن غيّر ومن ردّ؛ وما قرّره القسم — عبر كل الجولات، لا آخرَها وحده.
+ * للقراءة فقط، بلا رقمٍ مدنيّ ولا قاعة. */
+app.get("/api/instructor-requests/track", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const { collegeId, sectionId, termId } = scopeOf(req.query);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const [sends, requests, links, instructors] = await Promise.all([
+    Promise.all(family.map(scope => Repository.listFeatureDocs<any>("linkModeLog", `${scope.collegeId}:${scope.sectionId}:${termId}:`))).then(groups => groups.flat()),
+    Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId))).then(groups => groups.flat()),
+    staffFamilyShareLinks(collegeId, sectionId, termId),
+    Repository.getInstructors(),
+  ]);
+  const personal = links.filter(link => Number(link.AdInstructorId || 0) > 0).map(link => {
+    const mark = (link.marks || {})[String(link.AdInstructorId)] || {};
+    return { instructorId: Number(link.AdInstructorId), sentAt: String(mark.sentAt || ""), seenAt: String(mark.seenAt || "") };
+  });
+  const day = new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", timeZone: "Asia/Kuwait" });
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    people: buildTeacherTracks({
+      sends, requests: requests as any, personal,
+      names: new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")])),
+      when: iso => { const at = new Date(iso); return Number.isFinite(at.getTime()) ? day.format(at) : ""; },
+    }),
   });
 });
 
