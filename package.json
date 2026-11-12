@@ -127,6 +127,7 @@
     "test:program-provision": "tsx tests/program-provision-audit.ts",
     "test:student-map": "tsx tests/student-map-audit.ts",
     "test:student-showcase": "tsx tests/student-showcase-audit.ts",
+    "test:review-family": "tsx tests/review-family-audit.ts",
     "test:masari-responsive": "tsx tests/masari-responsive-audit.ts",
     "test:registration-sim": "tsx tests/registration-sim-audit.ts",
     "test:academic-advice": "tsx tests/academic-advice-audit.ts",
