@@ -163,9 +163,15 @@ function TimeMachineBody({ context, reload }: { key?: string; context: LoadedCon
   useEffect(() => { void loadSaved(); }, [context]);
   /* جملةٌ جاءت من شاشةٍ أخرى (التنبؤ، التخطيط): تُكتب في خانة الطوارئ وتُحلّ فوراً، مرّةً واحدة. */
   useEffect(() => {
-    const ask = takeTimeMachineAsk();
-    if (!ask) return;
-    setMode("emergency"); setText(ask); run(parseProblem(ask, context));
+    const consume = () => {
+      const ask = takeTimeMachineAsk();
+      if (!ask) return;
+      setMode("emergency"); setText(ask); run(parseProblem(ask, context));
+    };
+    consume();
+    /* رابطٌ جديد والآلة مفتوحة أصلاً (التنبؤ من داخل مركز الذكاء): يُقرأ ويُحلّ أيضاً. */
+    window.addEventListener("popstate", consume);
+    return () => window.removeEventListener("popstate", consume);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

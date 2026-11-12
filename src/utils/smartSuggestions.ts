@@ -211,8 +211,11 @@ export function courseRemovalVerdict(context: TmContext, courseId: number): Remo
     else if (demand.wanted > 0) push("care", `${countOf(demand.wanted, AR.student)} يطلبونه`);
     else push("go", "لا طلب عليه في الرادار");
   }
+  const remainingKnown = context.registration?.remaining ? String(courseId) in context.registration.remaining : false;
   const remaining = Number(context.registration?.remaining?.[String(courseId)] || 0);
   if (remaining > 0) push("stop", `${countOf(remaining, AR.student)} لم يجتازوه بعد (كشف المتبقي) — قد يتأخر تخرّجهم`);
+  /* غيابُ الدليل ليس صفراً: بلا رادارٍ ولا كشفِ متبقٍّ لهذا المقرر لا يُقال «آمن». */
+  if (!demand && !remainingKnown) push("care", "لا بيانات طلبة له (لا رادار ولا كشف متبقٍّ) — أثره على الطلبة غير معروف");
   /* الصحيفة: النوع والمستوى وما يفتحه. */
   const fact = context.plan?.[String(courseId)];
   if (fact?.kind === "compulsory") push("stop", KIND_LABEL.compulsory);

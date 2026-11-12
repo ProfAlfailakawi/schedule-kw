@@ -1895,14 +1895,14 @@ export default function App() {
         );
       case "intelligence":
         return hasPerm(7) ? (
-          <IntelligenceWorkspace user={user} scopes={scopes} />
+          <IntelligenceWorkspace key="intelligence" user={user} scopes={scopes} />
         ) : (
           unauthorized()
         );
       case "timeMachine":
         /* آلة الزمن: لمن يبني الجدول هي «جرّب ← ماذا لو» داخل مركز الذكاء (والرابطُ القديم يفتحها هناك)؛
            ومن يقرأ الجدول ولا يدخل المركز (رئيس القسم والعميد) يبقى له بابُها المستقل. والحارسُ في الخادم. */
-        if (hasPerm(7)) return <IntelligenceWorkspace user={user} scopes={scopes} initialTab="whatif" />;
+        if (hasPerm(7)) return <IntelligenceWorkspace key="intelligence-whatif" user={user} scopes={scopes} initialTab="whatif" />;
         return opensChangesScreen(sessionRole) ? <TimeMachine /> : unauthorized();
       case "scheduleChanges":
         /* الشاشة لمن يشارك في الدورة: التسجيل يراجع، والقسم يردّ. أمّا أدوار

@@ -84,6 +84,11 @@ console.log("٣) أريد حذف مقرر");
   const elective = courseRemovalVerdict(context, 2)!;
   check(elective.tone !== "stop", "اختياريٌّ بلا طلبة: ليس «لا يُنصح»", elective);
   check(courseRemovalVerdict(context, 999) === null, "مقررٌ مجهول: لا حكم");
+  const blind = courseRemovalVerdict({ ...context, demand: null, registration: null }, 2)!;
+  check(blind.tone !== "go" && blind.headline !== "حذفه آمن" && blind.reasons.some(item => item.tone === "care" && item.text.includes("لا بيانات طلبة")),
+    "بلا رادارٍ ولا كشف متبقٍّ: لا يُقال «آمن»، ويُقال إن أثره على الطلبة غير معروف", blind);
+  const noEntry = courseRemovalVerdict({ ...context, plan: { "2": { level: 100, kind: "elective", unlocks: [] } } }, 2)!;
+  check(noEntry.tone !== "go", "رادارٌ بلا سطرٍ لهذا المقرر ليس دليلاً على صفر طلبة", noEntry);
 }
 
 console.log("٤) تحويل النمط (قراءة فقط)");
@@ -102,6 +107,9 @@ console.log("٥) الدمج في مركز الذكاء");
   const app = read("src/App.tsx"), xfer = read("src/components/ScheduleTransfer.tsx"), intel = read("src/components/IntelligenceWorkspace.tsx"), machine = read("src/components/TimeMachine.tsx");
   check(/!allowed\.schedule && opensChangesScreen\(sessionRole\) \? \(\s*<NavButton[\s\S]{0,120}view="timeMachine"/.test(app), "زرّ آلة الزمن لمن لا يدخل مركز الذكاء وحده");
   check(/initialTab="whatif"/.test(app), "رابط آلة الزمن القديم يفتح «ماذا لو» في المركز");
+  check(/key="intelligence-whatif"/.test(app) && /key="intelligence"/.test(app), "المسار الجديد يركّب المركز من جديد فلا يبقى على لسانه القديم");
+  check(/\[initialTab\]\);/.test(intel) && /window\.addEventListener\("popstate", follow\)/.test(intel), "المركز المفتوح ينتقل إلى «ماذا لو» حين يصل رابطٌ جديد");
+  check(/window\.addEventListener\("popstate", consume\)/.test(machine), "الآلة المفتوحة تقرأ جملة الرابط الجديد وتحلّها");
   check(!xfer.includes('goTab("simulator")') && !xfer.includes('goTab("improve")'), "لا لسان محاكي ولا تحسين في أدوات البيانات");
   check(/<WhatIfDesk collegeId=\{collegeId\}/.test(intel) && /ماذا لو/.test(intel), "«جرّب ← ماذا لو» في المركز");
   check(!/TmSteps/.test(machine) && /SuggestionList/.test(machine) && /RemovalCheck/.test(machine) && /PatternWhatIf/.test(machine), "خطوات الشرح أُزيلت، والأوضاع الجديدة موصولة");

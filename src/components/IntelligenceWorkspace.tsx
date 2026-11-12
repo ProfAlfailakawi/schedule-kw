@@ -453,6 +453,14 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         ? v
         : "command";
     });
+  /* رابطُ آلة الزمن والمركزُ مفتوح: اللسانُ المطلوب يُفرض كلما تغيّر، لا عند أول تركيبٍ وحده. */
+  useEffect(() => {
+    if (!initialTab) return;
+    const follow = () => { if (new URLSearchParams(window.location.search).has("ask")) setTab(initialTab); };
+    setTab(initialTab);
+    window.addEventListener("popstate", follow);
+    return () => window.removeEventListener("popstate", follow);
+  }, [initialTab]);
   const { lookup: visitingLookup, isVisiting } = useVisitingLookup(termId);
   const scopeOwner = Number(user?.SystemUserId || 0);
   const [analysisScope, setAnalysisScope] = useState<"college" | "department">("college");
