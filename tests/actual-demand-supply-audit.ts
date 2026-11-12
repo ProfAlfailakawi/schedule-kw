@@ -6,9 +6,11 @@
  *  S2  نسبة خدمة الطلب للعام وللخريجين، ولكل مسار؛ وما لم يُطابَق أو تُجوهل لا يدخلها.
  *  S3  الترتيب بالأشد: خريجون بلا مقعد أولاً، ثم طلبة، ثم نقل، ثم فائض.
  *  S4  كليةٌ بلا مسار (التجربة): مسارٌ واحد يخدم المجموع.
+ *  S5  لكل مسار سقف نسخته، والنتيجة لا تتبع العضو الأول.
+ *  B1  الشارة: عجزٌ يغطيه نقلٌ مقترح ليس أخضر.
  *  F1  حقائق المقرر لكل AdCourseId (لحكم «حذف مقرر» وشارة المراجعة).
  */
-import { courseDemandFacts, demandSupply, seatCap, DEFAULT_SEAT_CAP } from "../src/utils/actualDemandSupply";
+import { courseDemandFacts, demandBadgeTone, demandSupply, seatCap, DEFAULT_SEAT_CAP } from "../src/utils/actualDemandSupply";
 import type { DemandCourse, DemandMatch, DemandReport } from "../src/utils/actualDemand";
 
 let passed = 0, failed = 0;
@@ -93,5 +95,27 @@ check(flat.items[0].branches.length === 1 && flat.items[0].branches[0].demand ==
 const facts = courseDemandFacts(supply, matches);
 check(facts["3"]?.students === 90 && facts["4"]?.graduates === 6 && facts["1"]?.gap === 0, "F1 الحقائق لكل نسخة من المقرر في العائلة", facts);
 
+
+/* S5: لكل مسارٍ سقفُ نسخته — بنين 20 وبنات 60 — والنتيجة لا تتبع العضو المفتوح أولاً. */
+const mixedCatalogue = [
+  { AdCourseId: 21, AdSectionId: 101, CourseCode: "210", MaxStudent: 20, CourseTeachingMode: "practical" },
+  { AdCourseId: 22, AdSectionId: 201, CourseCode: "210", MaxStudent: 60, CourseTeachingMode: "theoretical" },
+];
+const mixedRows = [{ AdCourseId: 22, AdCollegeId: 12, SCode: "51" }, { AdCourseId: 22, AdCollegeId: 12, SCode: "52" }, { AdCourseId: 21, AdCollegeId: 11, SCode: "01" }];
+const mixedReport = report([course("0109210", 20, 50)]);
+const girlsFirst = demandSupply({ general: mixedReport, graduates: null, matches: new Map([["0109210", { code: "0109210", status: "matched", courseIds: [22, 21] }]]), catalogue: mixedCatalogue, members: [...members].reverse(), rows: mixedRows, capacity: none });
+const boysFirst = demandSupply({ general: mixedReport, graduates: null, matches: new Map([["0109210", { code: "0109210", status: "matched", courseIds: [21, 22] }]]), catalogue: mixedCatalogue, members, rows: mixedRows, capacity: none });
+const girlsBranch = (reading: typeof girlsFirst) => reading.items[0].branches.find(branch => branch.track === "girls")!;
+check(girlsBranch(boysFirst).gap === -1 && girlsBranch(girlsFirst).gap === -1 && boysFirst.items[0].gap === girlsFirst.items[0].gap,
+  "S5 بنات 50 على شعبتين بسقف 60: فائض شعبة واحدة بسقف نسختها، والنتيجة نفسها أيّاً كان العضو الأول", [girlsBranch(boysFirst), girlsBranch(girlsFirst)]);
+
+/* B1: عجزٌ يغطّيه نقلٌ مقترح فقط ليس أخضر — الشارة تقرأ الطلبة بلا مقعد. */
+const moveOnly = demandSupply({ general: report([course("0109105", 70, 10)]), graduates: null, matches, catalogue, members,
+  rows: [{ AdCourseId: 1, AdCollegeId: 11, SCode: "01" }, { AdCourseId: 2, AdCollegeId: 12, SCode: "51" }, { AdCourseId: 2, AdCollegeId: 12, SCode: "52" }], capacity: none });
+const moveFact = courseDemandFacts(moveOnly, matches)["1"];
+check(moveOnly.items[0].move !== null && moveFact.gap === 0 && moveFact.unmetStudents === 30 && demandBadgeTone(moveFact) === "short" && (moveOnly.service.general || 0) < 100,
+  "B1 بنين 70 على 40 وبنات 10 على 80: النقل مقترح، و30 بلا مقعد، والشارة عجز لا «مخدوم»", { item: moveOnly.items[0], fact: moveFact, service: moveOnly.service });
+check(demandBadgeTone({ students: 50, graduates: 0, seats: 60, gap: 0, unmetStudents: 0, unmetGraduates: 0 }) === "ok" && demandBadgeTone({ students: 10, graduates: 0, seats: 120, gap: -1, unmetStudents: 0, unmetGraduates: 0 }) === "spare",
+  "B1 الأخضر للمتوازن وحده، والفائض هادئ");
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

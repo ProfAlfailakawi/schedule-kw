@@ -110,7 +110,9 @@ export function demandSupply(input: {
     const match = input.matches.get(course.code);
     if (!match || !match.courseIds.length || match.status === "ignored" || match.status === "unmatched") continue;
     const own = match.courseIds.map(id => byId.get(id)).filter(Boolean) as SupplyCourse[];
-    const { cap, assumed } = seatCap(own[0], input.capacity);
+    /* سقفُ المقرر لا يتبع العضو المفتوح أولاً: لكل نسخةٍ سقفُها، والمعروضُ أكبرها بترتيبٍ ثابت. */
+    const caps = own.map(item => seatCap(item, input.capacity)).sort((a, b) => b.cap - a.cap || Number(a.assumed) - Number(b.assumed));
+    const { cap, assumed } = caps[0] || seatCap(undefined, input.capacity);
     const demandSplit = input.general?.courses.find(item => item.code === course.code)?.students || { boys: 0, girls: 0, total: 0 };
     const gradSplit = grads.get(course.code);
     const branches: SupplyBranch[] = tracks.map(track => {
@@ -128,7 +130,11 @@ export function demandSupply(input: {
       const need = Math.max(demand, graduates);
       const sections = colleges.reduce((sum, item) => sum + item.sections, 0);
       const seats = colleges.reduce((sum, item) => sum + item.seats, 0);
-      const gap = need > seats ? Math.ceil((need - seats) / cap) : -Math.min(sections, Math.floor((seats - need) / cap));
+      /* عجزُ المسار وفائضُه بسقف نسخته هو (بنين 20 وبنات 60 لا يُقرآن بسقفٍ واحد). */
+      const branchCap = colleges.length
+        ? Math.max(...colleges.map(item => item.sections ? item.seats / item.sections : seatCap(own.find(copy => Number(copy.AdCourseId) === item.courseId), input.capacity).cap))
+        : cap;
+      const gap = need > seats ? Math.ceil((need - seats) / branchCap) : -Math.min(sections, Math.floor((seats - need) / branchCap));
       tally(track, demand, Math.min(demand, seats), graduates, Math.min(graduates, seats));
       return { track, demand, graduates, sections, seats, gap, colleges };
     }).filter(branch => branch.colleges.length || branch.demand || branch.graduates);
@@ -171,4 +177,14 @@ export function courseDemandFacts(reading: SupplyReading, matches: ReadonlyMap<s
     for (const id of matches.get(item.code)?.courseIds || []) out[String(id)] = fact;
   }
   return out;
+}
+
+/**
+ * نبرةُ شارة المراجعة: خريجون بلا مقعد، أو عجز (ومنه ما يغطّيه نقلٌ مقترح لم يُنفَّذ بعد)، أو فائض،
+ * أو متوازن — والأخضر لا يُعطى ما دام طالبٌ بلا مقعد.
+ */
+export function demandBadgeTone(fact: CourseDemandFact): "grad" | "short" | "spare" | "ok" {
+  if (fact.unmetGraduates > 0) return "grad";
+  if (fact.gap > 0 || fact.unmetStudents > 0) return "short";
+  return fact.gap < 0 ? "spare" : "ok";
 }
