@@ -17,7 +17,7 @@ import {
 import LocationPicker from "../LocationPicker";
 import { Field } from "../ui";
 import type { StudyProposalDayKey, StudyProposalOp } from "../../types";
-import { adviseDayPattern, type DayKey } from "../../utils/scheduleRegulations";
+import { adviseDayPattern, ladderStartsForDays, type DayKey } from "../../utils/scheduleRegulations";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME } from "../../utils/scheduleTime";
 import { PROPOSAL_DAY_KEYS, PROPOSAL_DAY_NAMES, daysLabel, type GridItem } from "../../utils/studyProposal";
@@ -260,7 +260,7 @@ function ScheduleFields({ ws, locked }: { ws: Workspace; locked?: boolean }) {
       </div>
       <div className="sp-two">
         <Field label="بداية الوقت" required>
-          <TimeField value={draft.start} min={from} max={until} dir="ltr"
+          <TimeField value={draft.start} min={from} max={until} dir="ltr" suggestions={ladderStartsForDays(draft.days as DayKey[], timeToMinutes(from), timeToMinutes(until))}
             onChange={e => ws.patchDraft({ start: e.target.value })} aria-invalid={invalidTime || undefined} />
         </Field>
         <Field label="نهاية الوقت" required>
@@ -396,7 +396,7 @@ export default function ProposalOpForm({ ws, onDone }: { ws: Workspace; onDone?:
   );
 
   return (
-    <form className="sp-form" onSubmit={e => { e.preventDefault(); if (ws.submitDraft()) onDone?.(); }} aria-labelledby="sp-form-title" noValidate>
+    <form className="sp-form" onSubmit={e => { e.preventDefault(); void ws.submitDraftChecked().then(ok => { if (ok) onDone?.(); }); }} aria-labelledby="sp-form-title" noValidate>
       <div className="sp-form-head">
         <h2 id="sp-form-title">{editing ? "تعديل مادة في المقترح" : "إضافة مادة إلى المقترح"}</h2>
         <p className="sp-fixed"><span><Users aria-hidden="true" />{ctx.instructor.name}<PersonChips visiting={visiting} trainee={trainee} /></span><span>{ctx.term.name}</span></p>

@@ -1,7 +1,7 @@
 import CompanionFacilityPicker from "./CompanionFacilityPicker";
 import SearchableSelect from "./SearchableSelect";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Building2, CalendarClock, Check, Clock3, DoorOpen, Loader2, Lock, Maximize2, Minus, MonitorPlay, Puzzle, SlidersHorizontal, Sparkles, UserRound, X } from "lucide-react";
+import { AlertTriangle, Building2, CalendarClock, Check, Clock3, DoorOpen, Loader2, Lock, Maximize2, Minus, MonitorPlay, Puzzle, ShieldAlert, SlidersHorizontal, Sparkles, UserRound, X } from "lucide-react";
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotice";
 import { holdDraftFromForm, useScheduleHolds } from "../utils/scheduleHolds";
@@ -29,6 +29,8 @@ import PersonChips from "./PersonChips";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
 import { bestRegulationChoice, completeSectionEnd, patternLengthIssue, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
+import { ladderStartsForDays } from "../utils/scheduleRegulations";
+import type { RegulationExceptionIssue } from "../utils/regulationException";
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { byCourseNumber } from "../utils/sheetMembership";
 import SameSlotHint from "./SameSlotHint";
@@ -326,7 +328,7 @@ export default function QuickCreatePopover({
   const ready = Boolean(draft.courseId && draft.scode.trim() && draft.instructorId && draft.buildingId && (draft.roomId || draft.locationStatus === "PENDING_ROOM"));
   const digitsOk = /^\d*$/.test(toEnglishDigits(draft.scode));
   const clash = ready && digitsOk && !hasDifferentTimes ? conflictOf(draft, seed.day) : null;
-  const [liveCheck, setLiveCheck] = useState<{ key: string; checking: boolean; conflicts: any[]; validation: string[]; notices: string[]; error: string }>({
+  const [liveCheck, setLiveCheck] = useState<{ key: string; checking: boolean; conflicts: any[]; validation: string[]; notices: string[]; regulation?: RegulationExceptionIssue[]; error: string }>({
     key: "", checking: false, conflicts: [], validation: [], notices: [], error: "",
   });
   const [ideas, setIdeas] = useState<SuggestionReply["slots"] | null>(null);
@@ -356,7 +358,7 @@ export default function QuickCreatePopover({
   const checkable = Boolean(draft.courseId && digitsOk && !hasDifferentTimes && !seed.deferLiveCheck && (draft.instructorId || draft.roomId));
   useEffect(() => {
     if (!checkable) {
-      setLiveCheck({ key: "", checking: false, conflicts: [], validation: [], notices: [], error: "" });
+      setLiveCheck({ key: "", checking: false, conflicts: [], validation: [], notices: [], regulation: [], error: "" });
       return;
     }
     const controller = new AbortController();
@@ -374,6 +376,7 @@ export default function QuickCreatePopover({
         const validation: string[] = Array.isArray(result.validationIssues) ? result.validationIssues : [];
         setLiveCheck({
           key: checkKey, checking: false, conflicts, validation,
+          regulation: Array.isArray(result.regulation) ? result.regulation : [],
           notices: [
             ...(result.patternNotice ? ["نمط الأيام المختار غير معتمد لهذا المقرر؛ راجع الأنماط المعتادة."] : []),
             ...(result.lectureNotice ? ["مدة المحاضرة تختلف عن النمط المعتاد للمقرر."] : []),
@@ -383,7 +386,7 @@ export default function QuickCreatePopover({
         });
       } catch (issue: any) {
         if (issue?.name !== "AbortError") {
-          setLiveCheck({ key: checkKey, checking: false, conflicts: [], validation: [], notices: [], error: issue?.message || "تعذّر فحص الموعد." });
+          setLiveCheck({ key: checkKey, checking: false, conflicts: [], validation: [], notices: [], regulation: [], error: issue?.message || "تعذّر فحص الموعد." });
         }
       }
     }, 180);
@@ -409,6 +412,8 @@ export default function QuickCreatePopover({
   const pendingCheck = ready && checkable && (!previewCurrent || liveCheck.checking);
   const blocked = previewCurrent && (verdict.blockers.length > 0 || blockingCount > 0);
   const checkFailed = previewCurrent && Boolean(liveCheck.error);
+  /* مخالفةٌ لا تمنع لكنها تُحفظ بتأكيدٍ صريح فقط (ملاحظتا المالك 10 و20): لا «جاهز للحفظ» معها. */
+  const regulationIssues: RegulationExceptionIssue[] = previewCurrent ? (liveCheck.regulation || []) : [];
 
   useEffect(() => { setIdeas(null); setIdeasError(""); setIdeaReason(undefined); setIdeasReplaceable([]); }, [checkKey]);
   const requestIdeas = async (roomOnly: boolean) => {
@@ -562,7 +567,7 @@ export default function QuickCreatePopover({
   }, [showSide, box]);
 
   const durationMinutes = Math.max(0, minutesOf(draft.end) - minutesOf(draft.start));
-  const statusTone = missing.length ? "missing" : pendingCheck ? "checking" : blocked || checkFailed ? "block" : "ok";
+  const statusTone = missing.length ? "missing" : pendingCheck ? "checking" : blocked || checkFailed ? "block" : regulationIssues.length ? "warn" : "ok";
 
   return (<>
     <div
@@ -634,6 +639,21 @@ export default function QuickCreatePopover({
                   }}
                   preferredDuration={regulationChoiceFor(selectedCourse, chosenDays)?.minutes || Number(durationForDay?.(seed.day) || 0)}
                 />
+                {/* سُلّمُ البدايات للأيام المختارة (م.7/8): الاثنين والأربعاء 8:00، 9:30، 11:00… والبقيةُ على رأس الساعة. */}
+                {ladderStartsForDays(chosenDays).length ? (
+                  <div className="qc-ladder" role="group" aria-label="بدايات اللائحة">
+                    {ladderStartsForDays(chosenDays).map(time => (
+                      <button key={time} type="button" dir="ltr" aria-pressed={draft.start === time}
+                        data-guide-ignore="يضع بداية الموعد على سُلّم اللائحة؛ لا يحفظ شيئاً"
+                        onClick={() => {
+                          meter?.mark("wheel");
+                          const fitted = completeSectionEnd(selectedCourse, chosenDays, time);
+                          if (fitted) { timeEdited.current = false; flashAutofill(); }
+                          patch({ start: time, end: fitted || draft.end });
+                        }}>{time}</button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </>
@@ -820,6 +840,7 @@ export default function QuickCreatePopover({
           {missing.length ? <><span className="qc-status-k">ناقص</span>{missing.map(item => <b key={item}>{item}</b>)}</>
             : pendingCheck ? <><Loader2 aria-hidden="true" className="qc-spin" />يفحص الموعد…</>
             : blocked || checkFailed ? <><AlertTriangle aria-hidden="true" />راجع المانع أعلاه</>
+            : regulationIssues.length ? <span className="qc-status-regulation" title={regulationIssues.map(issue => `${issue.text} (${issue.article})`).join("\n")}><ShieldAlert aria-hidden="true" />يخالف اللائحة ({[...new Set(regulationIssues.map(issue => issue.article))].join("، ")}) · يُحفظ بتأكيد</span>
             : <><Check aria-hidden="true" />جاهز للحفظ</>}
         </p>
         <div className="qc-actions">
