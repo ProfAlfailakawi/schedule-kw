@@ -37,7 +37,7 @@ import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
   ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
   DoorOpen, Wrench, RefreshCw, Home, MapPin, History, Users, Scale, BellRing, UserX,
-  CheckCheck, CircleDashed, Plus, Trash2, School,
+  CheckCheck, CircleDashed, Plus, Trash2, School, CalendarDays,
 } from "lucide-react";
 import type { RequestRoomReason } from "../types";
 import { DnaCount } from "./dna";
@@ -58,7 +58,7 @@ import TermFrozenRibbon, { TermFrozenContext, useFrozenScreen, useTermFrozen } f
 import { useScopedTerms } from "./useScopedTerms";
 import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBar";
 import {
-  Badge, EmptyState, MicroLoader, Notice, PageTitle, PrimaryButton, SecondaryButton, Surface,
+  Badge, EmptyState, KwWhen, MicroLoader, Notice, PageTitle, PrimaryButton, SecondaryButton, Surface,
 } from "./ui";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { reachAboutCard } from "../utils/reachInstructor";
@@ -148,10 +148,6 @@ const arabicDate = (iso?: string) => {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("ar-KW-u-nu-latn", { year: "numeric", month: "long", day: "numeric" });
-};
-const unchangedConfirmedDateTime = (iso: string) => {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ar-KW-u-nu-latn", { dateStyle: "medium", timeStyle: "short" });
 };
 
 /* ── ما يصل الأستاذ لا يذكر قاعةً ولا مبنى (قاعدة المالك) ─────────────────
@@ -401,6 +397,13 @@ interface BulkEntry {
 
 /* ── بطاقةُ أستاذ ───────────────────────────────────────────────────────── */
 
+/** ينقل المنسّق من بند الطلب إلى موعده الأصلي في «إدارة الجدول» ويفتح نموذجه المعتاد (ملاحظة المالك 11). */
+function openRowInSchedule(rowId: number) {
+  try { window.sessionStorage.setItem("schedule:open-row", JSON.stringify({ rowId, at: Date.now() })); } catch { /* تخزينٌ غير متاح */ }
+  window.history.pushState({}, "", "/FSchedule/Index");
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 /* ── حوارُ البند ──────────────────────────────────────────────────────────
  * ما قاله القسمُ والأستاذ في البند بترتيبه، وحالتُه من القاعدة الواحدة
  * (`negotiationState`)، وسطرُ ردٍّ يحمل أوقاتاً مقترحة من أقرب المتاح. ليس
@@ -431,8 +434,15 @@ function RequestThread({ item, busy: busyProp, onReply, onClose, onProposal }: {
       <header>
         <strong><MessageSquare aria-hidden="true" /> الحوار مع الأستاذ</strong>
         <span className="request-negotiation" data-negotiation={state}>{NEGOTIATION_LABEL[state]}</span>
+        {item.rowId != null && item.action !== "add" ? (
+          <button type="button" className="request-thread-proposal" onClick={() => openRowInSchedule(Number(item.rowId))}
+            data-guide-ignore="ينتقل إلى الجدول الدراسي ويفتح الموعد الأصلي لهذا البند في نموذجه المعتاد">
+            <CalendarDays aria-hidden="true" /> افتح الموعد في الجدول
+          </button>
+        ) : null}
         {onProposal ? (
-          <button type="button" className="request-thread-proposal" onClick={onProposal} data-guide-target="proposal-from-thread">
+          <button type="button" className="request-thread-proposal" onClick={onProposal} data-guide-target="proposal-from-thread"
+            title="مسودةُ جدولٍ كامل للأستاذ تُرسل له ليوافق عليها — لا تكتب في الجدول قبل موافقته">
             <ClipboardPen aria-hidden="true" /> إعداد مقترح دراسي
           </button>
         ) : null}
@@ -2052,8 +2062,9 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                   <span className="request-confirmed-copy">
                     <strong className="schedule-instructor-with-badge">{row.instructorName}<PersonChips visiting={rowVisiting(row)} trainee={isTaRequest(row)} /></strong>
                     <small>ثبّت جدوله كما هو</small>
+                    {row.pinSoftNotes?.length ? <small className="request-confirmed-soft" title={row.pinSoftNotes.join("\n")}>⚠ مدة لا توافق النمط: {row.pinSoftNotes.join(" · ")}</small> : null}
                   </span>
-                  <time dateTime={unchangedConfirmedAt(row)}>{unchangedConfirmedDateTime(unchangedConfirmedAt(row))}</time>
+                  <time dateTime={unchangedConfirmedAt(row)}>{unchangedConfirmedAt(row) ? <KwWhen value={unchangedConfirmedAt(row)} /> : null}</time>
                 </article>
               ))}
               <p>للمعلومية فقط · لا يلزم أي إجراء من القسم</p>

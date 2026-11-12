@@ -18,8 +18,9 @@ check(card.includes("Repository.getSchedulesByScope({ termId: link.AdTermId })")
 check(card.includes("Repository.getSchedulesByScope({ termId: displayTermId })"), "term switching remains institution-wide");
 check(!card.includes("getSchedulesByScope({ collegeId: link.AdCollegeId, termId:"), "issuing college no longer trims the instructor card");
 /* الطلبُ صار يحمل جدولَ الأستاذ بكل كلياته، فيُقرأ للفصل كله لا لكليةٍ بعينها. */
-check(card.includes("Repository.getInstructorRequests(0, 0, Number(displayTermId))")
-  && card.includes("Number(request.AdInstructorId) === Number(person.AdInstructorId)"), "requests follow the instructor across every college of the term");
+/* وبمعرّفه لا بمسح الفصل (ملاحظة المالك 9): getInstructorRequestsForInstructor بلا كليةٍ ولا قسم. */
+check(card.includes("Repository.getInstructorRequestsForInstructor(Number(displayTermId), Number(person.AdInstructorId))")
+  && card.includes("Repository.getInstructorRequestsForInstructor(Number(link.AdTermId), Number(person.AdInstructorId))"), "requests follow the instructor across every college of the term");
 check(movement.includes("movementScopeMap") && movement.includes("getScheduleVersions(scope.collegeId, scope.sectionId")
   && card.includes("scheduleMovementEntries(Number(person.AdInstructorId)"), "movement history follows every real teaching scope");
 check(card.includes("row.college") && card.includes("department:"), "lecture rows carry their teaching location");

@@ -63,9 +63,9 @@ const issue = server.slice(server.indexOf('app.post("/api/instructor-requests/is
 
 check(issue.includes("const already = latestRequestByInstructor(existing);") && !issue.includes("new Map(existing.map("),
   "الإصدارُ يقرأ أحدثَ طلبٍ لكل أستاذ");
-check(issue.includes("const move = reissueMove(held);") && issue.includes('if (held && move === "keep" && !individualOnly && !reopening && !onlyNoted)'),
+check(issue.includes("const move = reissueMove(held);") && issue.includes('if (held && move === "keep" && !individualOnly && !reopening && !onlyNoted && !pickedEditReopen)'),
   "ولا يكتفي بوجود الطلب: يقرّر بحالته");
-check(issue.includes('if (held && (move === "extend" || ((onlyNoted || individualOnly) && move === "keep")))') && issue.includes("window: individualOnly ? held.window : { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt }"),
+check(issue.includes('if (held && (move === "extend" || ((onlyNoted || individualOnly || pickedEditReopen) && move === "keep")))') && issue.includes("window: individualOnly ? held.window : { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt }"),
   "والطلبُ القائم يأخذ الموعدَ الجديد");
 check(issue.includes("requestLinkNeedsReplacing(heldLink, readable,") && issue.includes("await Repository.revokeShareLink(heldLink.id)"),
   "ورابطُه الميت يُستبدل ويُوقف القديم");

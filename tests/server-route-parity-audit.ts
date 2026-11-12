@@ -262,7 +262,12 @@ const updatedProposalCommit = (r:Row) => r.kind==="route" && r.methods.length===
 const updatedPersonCards = (r:Row) => r.kind==="route" && r.methods.length===1 && (
   (r.methods[0]==="post" && (r.path==="/api/instructor-requests/issue" || r.path==="/api/public/request/:token"))
   || (r.methods[0]==="get" && (r.path==="/api/instructor-requests/recipients" || r.path==="/api/share/:id/faculty" || r.path==="/api/public/request/:token")));
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : updatedPersonCards(r) ? "[person-cards-audited]" : updatedProposalCommit(r) ? "[proposal-commit-audited]" : r.call || "-"} ${r.name}`;
+/* Instructor-request owner notes (owner 2026-11-12, note 14): stopping the department staff card
+   (DELETE /api/share/:id) stops that card alone; the family's personal teacher links and unsent request
+   links are stopped only with an explicit `?scope=all` after a confirmation that names it. Same path,
+   permission 7 and family scope guard; behaviour pinned by tests/instructor-requests-owner-notes-audit.ts. */
+const updatedStaffStop = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="delete" && r.path==="/api/share/:id";
+const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : updatedPersonCards(r) ? "[person-cards-audited]" : updatedProposalCommit(r) ? "[proposal-commit-audited]" : updatedStaffStop(r) ? "[staff-stop-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();
