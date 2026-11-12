@@ -822,13 +822,11 @@ export async function pinReview(request: InstructorRequest): Promise<{ blocks: A
 }
 export async function pinBlockers(request: InstructorRequest) { return (await pinReview(request)).blocks; }
 
-/** أيامُ الشعبة نمطٌ معتمد، أو أيامٌ غيرُ متجاورة بعدد أيام نمطٍ معتمدٍ متعدّد الأيام لساعات المقرر. خالصة. */
+/** أيامُ الشعبة نمطٌ معتمد، أو أيامٌ غيرُ متجاورة بعدد أيام نمطٍ معتمدٍ متعدّد الأيام لساعات المقرر. خالصة.
+    الحكمُ الواحد نفسه في كل المسارات (daysFitLibrary ← approvedShapesForHours)، لا نسخةٌ ثانية هنا. */
 export function sectionDaysCompliant(hours: number, days: ReadonlySet<DayKey>, exact: boolean): boolean {
   if (!(hours > 0) || !days.size) return true;
-  if (daysFitLibrary(hours, days, exact) !== false) return true;
-  const indices = [...days].map(day => DAY_KEYS.indexOf(day)).sort((a, b) => a - b);
-  const spread = indices.every((value, index) => index === 0 || value - indices[index - 1] >= 2);
-  return spread && patternsForHours(hours).some(pattern => pattern.days.length > 1 && pattern.days.length === days.size);
+  return daysFitLibrary(hours, days, exact) !== false;
 }
 
 /* بقيةُ مسارات باب الأستاذ (الإرسال والحوار والفحص…): مكانُها وعمودُها كما كانا. */

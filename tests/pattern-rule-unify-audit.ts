@@ -123,6 +123,10 @@ const browser = new Function(`${REQUEST_LENGTH_SCRIPT}; return meetingMinutes;`)
 check(browser(SUN_WED, L.lengthPatternsForHours(3)).join() === "80,80" && browser(MON_THU, L.lengthPatternsForHours(4)).join() === "110,110",
   "U5 ونسخةُ الصفحة تحسب الشيءَ نفسه من الأنماط التي يرسلها الخادم");
 
+const { sectionDaysCompliant } = await import("../src/server/routes/publicRequestRoutes");
+check(sectionDaysCompliant(3, new Set(SUN_WED), true) && sectionDaysCompliant(4, new Set(MON_THU), true) && !sectionDaysCompliant(3, new Set(SUN_MON), true),
+  "U5 «ثبّت» جدول الأستاذ (pinReview): الأحد·الأربعاء والاثنين·الخميس ممتثلان، والمتتاليان يمنعان");
+
 /* ── U6 الاستيراد ── */
 check(R.daysApprovedForHours(3, SUN_WED) !== false && [...SUN_WED].every(day => R.libraryLengthsForDay(day).has(80)) && [...MON_THU].every(day => R.libraryLengthsForDay(day).has(80)),
   "U6 معاينةُ الاستيراد: لا «نمطٌ غير معتمد» ولا «طولٌ خارج المكتبة» للأحد·الأربعاء أو الاثنين·الخميس 80د");
@@ -133,6 +137,8 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
 const literal = /patternsForHours\([^)]*\)\.some\(\s*\(?(pattern|p)\)?\s*=>\s*(pattern|p)\.days\.length === days\.length/;
 for (const file of ["src/utils/instructorRequestVerdict.ts", "src/server/routes/publicRequestRoutes.ts", "src/server/core/scheduleRules.ts", "src/utils/appointmentRegulation.ts"])
   check(!literal.test(read(file)) && !/patternsForHours\(hours\)\.some\(p=>sameDays/.test(read(file)), `U7 ${file}: لا يحكم بأيام المكتبة حرفاً`);
+const pinRule = read("src/server/routes/publicRequestRoutes.ts").split("export function sectionDaysCompliant")[1]?.split("\n}")[0] || "";
+check(/daysFitLibrary\(hours, days, exact\)/.test(pinRule) && !/patternsForHours|indexOf/.test(pinRule), "U7 «ثبّت» يقرأ المصدرَ الواحد بلا نسخةٍ ثانية من قاعدة التباعد");
 check(/approvedShapesForHours\(hours\)\.map/.test(read("src/utils/requestMeetingLength.ts")), "U7 محرّكُ الطول (الخادم والصفحة) يقرأ المصدرَ الواحد");
 check(/daysApprovedForHours\(hours, days\) === false/.test(read("src/components/ImportPreviewTable.tsx")), "U7 معاينةُ الاستيراد تحكم بالمصدر الواحد");
 
