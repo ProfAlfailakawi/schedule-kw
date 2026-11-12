@@ -150,7 +150,8 @@ export function sheetSectionName(plan: Pick<ParsedPlan, "department">, currentNa
   const a = matchKey(currentName), b = matchKey(plan.department);
   /* اسم «علم النفس/علم التربية» قسمٌ إداري لا اسم القسم المختص: لا يُسمّى به. */
   if (!b || a === b || isUmbrellaSheet(plan)) return "";
-  const bare = stripSection(plan.department);
+  /* «قسم صحه البيئه» يُسمّى به القسم صحيحاً: «قسم صحة البيئة». */
+  const bare = correctCourseName(stripSection(plan.department)).name;
   return /^\s*قسم\s/.test(currentName) ? `قسم ${bare}` : bare;
 }
 
