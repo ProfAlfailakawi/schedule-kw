@@ -435,7 +435,7 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
   const exceptions: RegulationExceptionIssue[] = [];
   {
     const byTerm = new Map<number, FSchedule[]>();
-    const movedById = new Map(candidates.map((candidate: { row: FSchedule }) => [Number(candidate.row.id), candidate.row] as const));
+    const movedById = new Map<number, FSchedule>(candidates.map((candidate: { row: FSchedule }) => [Number(candidate.row.id), candidate.row] as const));
     for (const [index, candidate] of candidates.entries()) {
       if (sameScheduleShape(originals[index] as any, candidate.row as any)) continue;
       const termId = Number(candidate.row.AdTermId);
