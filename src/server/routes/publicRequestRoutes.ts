@@ -49,7 +49,7 @@ import { dataContextCacheKey } from "../core/locations";
 import { arabicUiCollator, courseNameCollator } from "../core/ordering";
 import { demoPageHint, publicPageNonce } from "../core/publicPages";
 import { requestTokenKey } from "../core/rateLimits";
-import { mixedPatternNotice } from "../core/scheduleRules";
+import { mixedPatternNotice, scheduleLengthIssue, unapprovedPatternIssue } from "../core/scheduleRules";
 import { calendarKey, stableCalendarPath } from "../core/shareLinks";
 import { placeholderInstructorIds } from "../core/smartImport";
 import { movementHistoryScopes, scheduleMovementEntries } from "../core/staffCard";
@@ -706,9 +706,24 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
   /* E1/C4/F3: صفةُ الرابط تحكم الكتابة — للعرض فقط لا يكتب أبداً، ومرحلةُ التدريب لا تكتب إلا شعبةً شاغرة. */
   const mode = linkMode(resolved.request);
   const open = mode !== "view" && requestWindowOpen(request);
-  const taDoc = mode === "ta" ? await taPhaseForRequest(request) : null;
+  /* ── أولُ رسمٍ سريع (المالك 2026-11-12: «صفحة طلب التعديل بطيئة») ───────────────
+   * كانت القراءاتُ بعد الحكم تتتابع واحدةً بعد أخرى (حالةُ الطرح، ثم الشعب الشاغرة، ثم الوسوم، ثم الطرح الحرّ،
+   * ثم الاهتمام، ثم الأنماط مرّتين…) وكلٌّ منها لا يحتاج سابقه. تُقرأ الآن معاً، ولا ينتظر إلا ما يعتمد على غيره. */
+  const itemCourseIds = (request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0));
+  const patternCourseIds = [...itemCourseIds, ...(courses as any[]).map(option => Number(option.id))];
+  const [taDoc, termStates, offeringViews, interestDocs, taRows, dayPatterns, lengthPatterns, pinBlocked, hintedCourses] = await Promise.all([
+    mode === "ta" ? taPhaseForRequest(request) : Promise.resolve(null),
+    offeringStatesForTerm(Number(request.AdTermId)),
+    mode === "edit" ? offeringViewsFor(Number(request.AdTermId), courses as any[]) : Promise.resolve(new Map()),
+    mode === "edit" ? Promise.all([...new Set((courses as any[]).map(c => `${c.collegeId}:${c.sectionId}:${Number(request.AdTermId)}`))]
+      .map(id => Repository.getFeatureDoc<CourseInterestDoc>("courseInterest", id))) : Promise.resolve([]),
+    mode === "ta" ? Promise.all([Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }), Repository.getCourses()]) : Promise.resolve(null),
+    requestDayPatterns(patternCourseIds),
+    requestLengthPatterns(patternCourseIds),
+    open && !request.submittedAt ? pinBlockers(judgedRequest).catch(() => []) : Promise.resolve([]),
+    mode === "edit" ? withPlanHints((courses as any[]).filter(option => offeredAllows(offeredCourseSet(request), option.id)), Number(request.AdTermId)) : Promise.resolve([]),
+  ]);
   const taAllowed = allowedFor(taDoc, Number(request.AdInstructorId));
-  const termStates = await offeringStatesForTerm(Number(request.AdTermId));
   /* مقرراتُ هذه البطاقة وحدها إن اختارها المنسّق (utils/offeredCourses): لا يُعرض ما خارجها. */
   const offeredSet = offeredCourseSet(request);
   const offerings = open ? await lockUnreached((await availableInstructorOfferings(request)).filter(option => (!taAllowed || taAllowed.has(Number(option.courseId))) && !offeringBlocked(termStates, Number(option.courseId)) && offeredAllows(offeredSet, option.courseId)), Number(request.AdTermId)) : [];
@@ -723,13 +738,9 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
     ...(offerings as any[]).map(option => ({ courseId: option.courseId, sectionId: option.sectionId })),
   ]);
   const planBadges = tagFacts.sheets;
-  /* C5: حالةُ الطرح على مقررات الإضافة الحرّة (المخفيّ لا يُرسل، والمقفل باهتٌ بنجمة). */
-  const offeringViews = mode === "edit" ? await offeringViewsFor(Number(request.AdTermId), courses as any[]) : new Map();
-  const interestDocs = mode === "edit" ? await Promise.all([...new Set((courses as any[]).map(c => `${c.collegeId}:${c.sectionId}:${Number(request.AdTermId)}`))]
-    .map(id => Repository.getFeatureDoc<CourseInterestDoc>("courseInterest", id))) : [];
-  const interest = interestDocs.flatMap(doc => Object.entries(doc?.byCourse || {}).filter(([, ids]) => (ids as number[]).includes(Number(request.AdInstructorId))).map(([cid]) => Number(cid)));
-  const taHours = mode === "ta" ? weeklyLoadOf((await Repository.getSchedulesByScope({ termId: Number(request.AdTermId) })).filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId)) as any,
-    new Map((await Repository.getCourses()).map(row => [Number(row.AdCourseId), row])) as any) : 0;
+  const interest = (interestDocs as Array<CourseInterestDoc | null>).flatMap(doc => Object.entries(doc?.byCourse || {}).filter(([, ids]) => (ids as number[]).includes(Number(request.AdInstructorId))).map(([cid]) => Number(cid)));
+  const taHours = taRows ? weeklyLoadOf((taRows[0] as any[]).filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId)) as any,
+    new Map((taRows[1] as any[]).map(row => [Number(row.AdCourseId), row])) as any) : 0;
   res.setHeader("Cache-Control", "no-store");
   res.json({
     request: stripForInstructor(judgedRequest),
@@ -752,14 +763,37 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
     calendarLegacyKey: calendarToken,
     /* مقررات هذا القسم العلمي في كل كليةٍ يوجد فيها؛ الكلية تُختار صراحةً قبل المقرر.
        للعرض فقط ومرحلة التدريب: لا إضافةَ حرّة، فلا مقررات. */
-    courses: mode === "edit" ? coursesWithOffering(await withPlanHints((courses as any[]).filter(option => offeredAllows(offeredSet, option.id)), Number(request.AdTermId)), offeringViews) : [],
+    courses: mode === "edit" ? coursesWithOffering(hintedCourses as any[], offeringViews as any) : [],
     /* أنماطُ اللائحة لكل مقرر (B1/B2/B3): مصدرُها الواحد patternsForHours — يُكمَل بها اليومُ الأول ضغطةً واحدة. */
-    dayPatterns: await requestDayPatterns([...(request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)), ...(courses as any[]).map(option => Number(option.id))]),
+    dayPatterns,
     /* أنماطُ اللائحة بدقائق كل يوم (والكتلةُ الواحدة): الصفحةُ تحسب بها النهايةَ بالمحرّك نفسِه الذي يحسب به الخادم
        (REQUEST_LENGTH_SCRIPT)، فلا يقرأ الأستاذُ 16:50 ويُحفظ 17:15. */
-    lengthPatterns: await requestLengthPatterns([...(request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0)), ...(courses as any[]).map(option => Number(option.id))]),
+    lengthPatterns,
+    /* ما يمنع «ثبّت الجدول» الآن (pinBlockers): تقوله الصفحةُ قبل الضغط، والإرسالُ يرفضه بالنص نفسه. */
+    pinBlocked,
     ...(preview ? { preview: true } : {}),
   });
+}
+
+/**
+ * ── «ثبّت الجدول» لا يثبّت ما يخالف النمط أو اللائحة (المالك 2026-11-12) ──────────
+ * تثبيتُ الأستاذ جدولَه كما هو يُغلق طلبه «مكتملاً». فإن كان موعدٌ قائمٌ له يخالف نمطاً معتمداً أو ساعاتِ مقرّره
+ * (الحكمان اللذان تمنع بهما ورشةُ الجدول الحفظ)، فلا يُثبَّت، ويُقال السببُ بنصّه ورقمِ البند ليعدّله أو يكتب للقسم.
+ * والنصُّ بلا قاعة (قاعدة المالك: لا تُعرض القاعات للأستاذ).
+ */
+export async function pinBlockers(request: InstructorRequest): Promise<Array<{ itemIndex: number; text: string }>> {
+  const kept = (request.items || []).map((item, itemIndex) => ({ item, itemIndex }))
+    .filter(({ item }) => item.action === "keep" && item.rowId != null && !item.decision?.state);
+  if (!kept.length) return [];
+  const found = await Promise.all(kept.map(async ({ item, itemIndex }) => {
+    const row = await Repository.getScheduleById(Number(item.rowId)).catch(() => null);
+    if (!row || Number(row.AdInstructorId) !== Number(request.AdInstructorId)) return null;
+    const issue = await unapprovedPatternIssue(row).catch(() => null) || await scheduleLengthIssue(row).catch(() => null);
+    if (!issue) return null;
+    const name = String(item.before?.courseName || row.AdCourseName || "").trim();
+    return { itemIndex, text: `${name ? `${name}: ` : ""}${String(issue).replace(/<[^>]+>/g, "").trim()}` };
+  }));
+  return found.filter(Boolean) as Array<{ itemIndex: number; text: string }>;
 }
 
 /* بقيةُ مسارات باب الأستاذ (الإرسال والحوار والفحص…): مكانُها وعمودُها كما كانا. */
@@ -906,6 +940,13 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   if (changed === 0) {
     liveRows = await Repository.getSchedulesByScope({ termId: Number(resolved.request.AdTermId) });
     unchangedConfirmed = canConfirmUnchanged(judged, liveRows, generalNote, resolved.request);
+    if (unchangedConfirmed) {
+      const blockers = await pinBlockers(judged);
+      if (blockers.length) {
+        res.status(409).json({ error: `لا يمكن تثبيت جدولك كما هو: ${blockers[0].text} عدّل هذا الموعد أو اكتب ملاحظة للقسم.`, code: "pin-blocked", itemIndex: blockers[0].itemIndex, pinBlocked: blockers });
+        return;
+      }
+    }
   }
   let saved: InstructorRequest;
   try { saved = await Repository.saveInstructorRequest({

@@ -10777,6 +10777,22 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     window.addEventListener("schedule-smart-guide-command", onGuideCommand as EventListener);
     return () => window.removeEventListener("schedule-smart-guide-command", onGuideCommand as EventListener);
   }, [changeView, context?.selected?.id, emitGuideResult, practiceMode, rows, showMobileReadOnlyGate, undoLog, viewMode]);
+  /* ── من طلب الأستاذ إلى موعده الأصلي (ملاحظة المالك 11) ─────────────────────
+   * «مقترح دراسي» مساحةٌ أخرى تختلف عن الموعد المعتاد فتربك. فزرُّ «افتح الموعد في الجدول» في وارد الأساتذة
+   * يحمل رقمَ الصفّ إلى هنا: يُضاء الموعدُ الأصلي ويُفتح نموذجُه المعتاد نفسه، بفحوصه وتعارضاته. */
+  useEffect(() => {
+    let wanted: { rowId?: number } | null = null;
+    try { wanted = JSON.parse(window.sessionStorage.getItem("schedule:open-row") || "null"); } catch { wanted = null; }
+    const id = Number(wanted?.rowId || 0);
+    if (!id || !rows.length) return;
+    const row = rows.find(item => Number(item.id) === id);
+    try { window.sessionStorage.removeItem("schedule:open-row"); } catch { /* تخزينٌ غير متاح */ }
+    if (!row) { setMessage("الموعد الأصلي ليس في نطاق الجدول المعروض الآن. اختر كلية الموعد وقسمه ثم أعد المحاولة من الوارد."); return; }
+    if (viewMode === "list") changeView("week");
+    setReviewFocus(new Set([id]));
+    openEdit(row);
+    setMessage("هذا الموعد الأصلي من طلب الأستاذ. عدّله هنا بالنموذج المعتاد، أو أضف موعداً جديداً بجانبه.");
+  }, [rows]);
   useEffect(() => {
     const op = guideOperationRef.current;
     if (!op?.expected?.startsWith("view:")) return;

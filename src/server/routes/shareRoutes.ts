@@ -154,9 +154,22 @@ app.post("/api/share", requirePermission(7), async (req: AuthenticatedRequest, r
 app.delete("/api/share/:id", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const link = await Repository.getShareLink(String(req.params.id));
   if (!link) { res.status(404).json({ error: "الرابط غير موجود" }); return; }
-  /* إلغاء بطاقة القسم يوقف نشر عائلة القسم بالكامل والطلبات غير المرسلة.
-     طلبات الأساتذة التي أُرسلت أو وُقّعت تبقى سجلاتها وروابط قراءتها بلا مساس. */
+  /* ── إيقافُ بطاقة القسم يوقفها وحدها (حادثة 2026-11-11) ──────────────────
+   * كان يوقف معها كلَّ رابطٍ شخصيٍّ في العائلة وكلَّ رابط طلبٍ لم يُرسل — فمن أُرسل
+   * إليهم في مجموعةٍ سابقة فقدوا روابطهم وما أوقفها أحدٌ عن قصد. الآن تبقى روابطُ
+   * الأساتذة الشخصية حيّة، ويُوقف كلُّ رابطٍ منها بعينه، أو كلُّها معاً بطلبٍ صريح
+   * (`?scope=all`) بعد تأكيدٍ يسمّي ذلك. طلباتُ من أرسل تبقى سجلاتُها كما كانت. */
+  const stopEverything = req.query.scope === "all";
+  if (link.kind === "staff" && !Number(link.AdInstructorId || 0) && !stopEverything) {
+    if (!await staffLinkFamilyAllowed(req, link)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+    await Repository.revokeShareLink(link.id);
+    res.locals.auditChanges = "إيقاف بطاقة القسم وحدها (تبقى روابط الأساتذة الشخصية)";
+    res.json({ ok: true, scope: "card" });
+    return;
+  }
+  /* «أوقف الكل»: بطاقةُ القسم وروابطُ العائلة الشخصية والطلباتُ غير المرسلة. */
   if (link.kind === "staff" && !Number(link.AdInstructorId || 0)) {
+    res.locals.auditChanges = "إيقاف بطاقة القسم وكل الروابط الشخصية للعائلة";
     const family = await staffFamilyScopes(link.AdCollegeId, link.AdSectionId);
     if (!family.some(scope => isScopeAllowed(req, scope.collegeId, scope.sectionId))) {
       res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return;

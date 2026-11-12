@@ -512,3 +512,5 @@ body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:
 @media (max-width:639px){.teacher-week-dialog{padding:8px}.teacher-week-dialog-card{width:100%;max-height:calc(100dvh - 16px)}.teacher-week-dialog-card>.mini-week{width:100%}}
 /* وضع التركيز على القائمة (z-index:1500 للقائمة): نافذة «الجدول الدراسي» فوقها. */
 html[data-schedule-workspace="focus"] .teacher-week-dialog{z-index:1600}
+/* كلماتُ حقائق الأستاذ المصغّرة: «نصاب» و«أيام» و«فراغ … س» بدل أرقامٍ بلا معنى (ملاحظة المالك 19). */
+.mini-week-facts em .mini-week-fact-word{margin-inline:1px;font-family:var(--font-sans,inherit);font-size:10px;font-weight:700;color:var(--muted)}

@@ -1,3 +1,4 @@
+import { KwWhen } from "./ui";
 import SendModePicker from "./SendModePicker";
 import PersonChips from "./PersonChips";
 import { useTrainees } from "../utils/trainees";
@@ -418,6 +419,18 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   const [follow, setFollow] = useState<{ people: Array<{ instructorId: number; name: string; state: FollowUpState; mode: string }>; awaiting: number[] } | null>(null);
   const [remindAsk, setRemindAsk] = useState(false);
   const [reminded, setReminded] = useState<{ demo: boolean; people: Array<PickedPerson & { personalId: string }> } | null>(null);
+  /* مسارُ كل أستاذ (ملاحظتا المالك 13 و14): يُقرأ عند فتحه فقط. */
+  const [track, setTrack] = useState<Array<{ instructorId: number; name: string; events: Array<{ at: string; tone: string; text: string }>; last: { at: string; text: string } | null }> | null>(null);
+  const [trackOpen, setTrackOpen] = useState(false);
+  const [trackQuery, setTrackQuery] = useState("");
+  const loadTrack = async () => {
+    try {
+      const response = await fetch(`/api/instructor-requests/track?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" });
+      const data = await readReply(response, "تعذّرت قراءة مسار الأساتذة");
+      setTrack(Array.isArray(data?.people) ? data.people : []);
+    } catch (e: any) { setError(e.message); }
+  };
+  useEffect(() => { setTrack(null); setTrackOpen(false); setTrackQuery(""); }, [open, collegeId, sectionId, termId]);
   const loadFollow = async () => {
     if (!scoped || kind !== "staff") { setFollow(null); return; }
     try {
@@ -522,10 +535,13 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     window.setTimeout(() => document.getElementById("publish-offering")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
 
-  const revoke = async (id: string) => {
+  /* إيقافُ بطاقة القسم يسأل أولاً: وحدها (تبقى روابطُ الأساتذة الشخصية حيّة) أم كلَّ شيء. */
+  const [stopAsk, setStopAsk] = useState<string | null>(null);
+  const revoke = async (id: string, scope: "card" | "all" = "card") => {
     setBusy(true);
+    setStopAsk(null);
     try {
-      const response = await fetch(`/api/share/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const response = await fetch(`/api/share/${encodeURIComponent(id)}${scope === "all" ? "?scope=all" : ""}`, { method: "DELETE" });
       await readReply(response, "تعذر إيقاف الرابط");
       /* إلغاء بطاقة الأستاذ يلغي نشر العائلة؛ حدّث السجل من الخادم بدل
          إيقاف صفٍّ محلي وإبقاء صفوف المواقع الشقيقة ظاهرةً كأنها حيّة. */
@@ -636,10 +652,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   const shownLinks = showPast ? [...active, ...pastLinks] : active;
   const staffPublication = active.find(link => link.kind === "staff");
   const activeExceptions = exceptions.filter(entry => entry.active);
-  const kwTime = (value: string) => new Intl.DateTimeFormat("ar-KW-u-nu-latn", {
-    day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit",
-    timeZone: "Asia/Kuwait",
-  }).format(new Date(value));
+  /* التاريخُ والوقتُ سطران معزولان (bdi): الصيغةُ المدمجة «11 نوفمبر 2026 في 11:59 م» كانت تنقلب أجزاؤها في سطرٍ عربيّ على الحاسوب. */
+  const kwTime = (value: string) => <KwWhen value={value} />;
 
   const currentStep = PUBLISH_STEPS.findIndex(item => item.id === step);
   const openDialog = () => {
@@ -885,12 +899,12 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                     <label className="share-closes">
                       {/* بجانب «الساعة» عنوانٌ ظاهر، فلا يبدو حقلُ التاريخ الفارغ (iOS لا يرسم له نصّاً) خانةً بلا معنى. */}
                       {kind === "staff" ? <span>التاريخ</span> : <span className="sr-only">تاريخ آخر موعد لاستقبال الطلبات</span>}
-                      <input type="date" aria-label="تاريخ آخر موعد لاستقبال الطلبات" value={closesAt} onChange={event => setClosesAt(event.target.value)} />
+                      <input type="date" dir="ltr" aria-label="تاريخ آخر موعد لاستقبال الطلبات" value={closesAt} onChange={event => setClosesAt(event.target.value)} />
                     </label>
                     {kind === "staff" ? (
                       <label className="share-closes">
                         <span>الساعة · الكويت</span>
-                        <input type="time" value={closeTime} onChange={event => setCloseTime(event.target.value)} />
+                        <input type="time" dir="ltr" value={closeTime} onChange={event => setCloseTime(event.target.value)} />
                       </label>
                     ) : null}
                   </div>
@@ -1035,6 +1049,41 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                       </ul>
                     </div>
                   ) : null}
+                  <details className="publish-track" open={trackOpen} onToggle={event => {
+                    const now = (event.currentTarget as HTMLDetailsElement).open;
+                    setTrackOpen(now);
+                    if (now) void loadTrack();
+                  }}>
+                    <summary data-guide-ignore="يعرض مسار كل أستاذ بالترتيب: الإرسال والفتح والتثبيت والتعديل والردود وقرارات القسم — للقراءة فقط">
+                      مسار كل أستاذ: لمن أُرسل، ومن فتح، ومن ثبّت أو غيّر، وما قرّره القسم
+                    </summary>
+                    {track === null ? <p className="publish-track-wait">جارٍ القراءة…</p> : !track.length ? <p className="publish-track-wait">لا حركة بعد.</p> : (
+                      <>
+                        {track.length > 6 ? <input type="search" className="publish-track-search" placeholder="ابحث باسم الأستاذ…" aria-label="ابحث باسم الأستاذ في المسار"
+                          value={trackQuery} onChange={event => setTrackQuery(event.target.value)} /> : null}
+                        <ul className="publish-track-people">
+                          {track.filter(person => !trackQuery.trim() || person.name.includes(trackQuery.trim())).map(person => (
+                            <li key={person.instructorId}>
+                              <details>
+                                <summary data-guide-ignore="يفتح مسار هذا الأستاذ بالترتيب — للقراءة فقط">
+                                  <b>{person.name || "أستاذ"}</b>
+                                  {person.last ? <small>آخر حركة: {person.last.text}</small> : null}
+                                </summary>
+                                <ol className="publish-track-events">
+                                  {person.events.map((event, index) => (
+                                    <li key={`${event.at}-${index}`} data-tone={event.tone}>
+                                      <span>{event.text}</span>
+                                      <time dateTime={event.at}><KwWhen value={event.at} /></time>
+                                    </li>
+                                  ))}
+                                </ol>
+                              </details>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </details>
                 </section>
               ) : null}
               {remindAsk ? createPortal(
@@ -1172,10 +1221,24 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                               <CalendarPlus />
                             </a>
                           )}
-                          <button type="button" title="إيقاف الرابط" aria-label="إيقاف الرابط" onClick={() => revoke(link.id)} disabled={dead || busy}>
+                          <button type="button" title="إيقاف الرابط" aria-label="إيقاف الرابط" aria-expanded={link.kind === "staff" ? stopAsk === link.id : undefined}
+                            onClick={() => (link.kind === "staff" && !Number(link.AdInstructorId || 0) ? setStopAsk(stopAsk === link.id ? null : link.id) : revoke(link.id))} disabled={dead || busy}>
                             <Trash2 />
                           </button>
                         </div> : null}
+                        {stopAsk === link.id && !dead ? (
+                          <div className="share-stop-ask" role="group" aria-label="ماذا تريد أن توقف؟">
+                            <p>إيقاف بطاقة القسم لا يمسّ الروابط الشخصية التي وصلت الأساتذة؛ تبقى تعمل ما لم توقفها.</p>
+                            <div>
+                              <button type="button" disabled={busy} onClick={() => void revoke(link.id, "card")}
+                                data-guide-ignore="يوقف بطاقة القسم وحدها وتبقى روابط الأساتذة الشخصية">أوقف بطاقة القسم فقط</button>
+                              <button type="button" className="danger" disabled={busy} onClick={() => void revoke(link.id, "all")}
+                                data-guide-ignore="يوقف بطاقة القسم وكل الروابط الشخصية للأساتذة في العائلة">أوقف الكل مع روابط الأساتذة</button>
+                              <button type="button" className="ghost" onClick={() => setStopAsk(null)}
+                                data-guide-ignore="يغلق سؤال الإيقاف دون تغيير">تراجع</button>
+                            </div>
+                          </div>
+                        ) : null}
                         {qr?.id === link.id ? (
                           <div className="share-qr">
                             <div className="share-qr-code" role="img" aria-label={`رمز QR للرابط ${link.label || link.id.slice(0, 6)}`} dangerouslySetInnerHTML={{ __html: qr.svg }} />
@@ -1307,8 +1370,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                         </>
                       ) : null}
                       <div className="share-deadline-fields">
-                        <label>إلى تاريخ <input type="date" value={manageDate} onChange={event => setManageDate(event.target.value)} /></label>
-                        <label>الساعة (الكويت) <input type="time" value={manageTime} onChange={event => setManageTime(event.target.value)} /></label>
+                        <label>إلى تاريخ <input type="date" dir="ltr" value={manageDate} onChange={event => setManageDate(event.target.value)} /></label>
+                        <label>الساعة (الكويت) <input type="time" dir="ltr" value={manageTime} onChange={event => setManageTime(event.target.value)} /></label>
                       </div>
                       <div className="share-window-actions">
                         <button data-guide-feature-id="schedule.publish.requests" type="button" disabled={busy || !manageDate || !manageTime || (manageMode === "one" && (!manageInstructorId || !manageReason.trim()))}
@@ -1322,7 +1385,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                     <div className="share-window-exceptions">
                       <strong>استثناءات نشطة ({activeExceptions.length})</strong>
                       {activeExceptions.map(item => <div className="share-window-exception" key={item.instructorId}>
-                        <span><b>{item.name}</b><small>حتى {kwTime(item.closesAt)} · {item.reason}</small></span>
+                        <span><b>{item.name}</b><small>حتى {kwTime(item.closesAt)}<span className="kw-when-reason">{item.reason}</span></small></span>
                         <button data-guide-feature-id="schedule.publish.requests" type="button" disabled={busy} onClick={() => void revokeException(item.instructorId)}>إلغاء الاستثناء</button>
                       </div>)}
                     </div>

@@ -133,3 +133,7 @@ export async function staffFamilyShareLinks(collegeId: number, sectionId: number
 export const liveStaffPublication = (link: ScheduleShareLink): boolean =>
   link.kind === "staff" && !link.revoked && !Number(link.AdInstructorId || 0)
   && Date.parse(String(link.expiresAt || "")) > Date.now();
+/** رابطٌ شخصيٌّ حيٌّ لهذا الأستاذ: يبقى نشراً له وإن أُوقفت بطاقةُ القسم بعده. */
+export const livePersonalStaffLinkOf = (link: ScheduleShareLink, instructorId: number): boolean =>
+  link.kind === "staff" && !link.revoked && Number(link.AdInstructorId || 0) === Number(instructorId) && instructorId > 0
+  && Date.parse(String(link.expiresAt || "")) > Date.now();

@@ -716,19 +716,22 @@ export default function TeacherMiniWeek({
       <span className="mini-week-who">
         <b><span className="mini-week-name">{teacherName || "الأستاذ"}</span><PersonChips visiting={visiting} trainee={trainee} /></b>
         <span className="mini-week-facts">
-          <em className={`is-load${over ? " is-over" : inOvertime ? " is-overtime" : loadDelta > 0 ? " is-up" : ""}`} aria-label={`النصاب ${header.loadAfter}${limited ? ` من ${header.nisab}` : ""}${overtime ? ` مع إضافي ${overtime}` : ""}`}>
-            <span dir="ltr">{header.loadAfter}{limited ? <small>/{header.nisab}{overtime ? `+${overtime}` : ""}</small> : null}</span>
+          <em className={`is-load${over ? " is-over" : inOvertime ? " is-overtime" : loadDelta > 0 ? " is-up" : ""}`}
+            title={`النصاب: ${header.loadAfter}${limited ? ` من ${header.nisab}` : ""}${overtime ? ` مع إضافي ${overtime}` : ""}`} aria-label={`النصاب ${header.loadAfter}${limited ? ` من ${header.nisab}` : ""}${overtime ? ` مع إضافي ${overtime}` : ""}`}>
+            <small className="mini-week-fact-word">نصاب</small><span dir="ltr">{header.loadAfter}{limited ? <small>/{header.nisab}{overtime ? `+${overtime}` : ""}</small> : null}</span>
           </em>
           {familySites > 1 ? (
             <em className="is-family" title={`النصاب يشمل محاضراته في كل كليات القسم (${countOf(familySites, AR.college)})`} aria-label={`النصاب يشمل ${countOf(familySites, AR.college)} من عائلة القسم`}>
               <Building2 aria-hidden="true" /><span>{countOf(familySites, AR.college)}</span>
             </em>
           ) : null}
-          <em className={dayDelta > 0 ? "is-up" : ""} aria-label={`أيام الحضور ${header.daysAfter}`}>
-            <CalendarDays aria-hidden="true" /><span dir="ltr">{header.daysAfter}</span>{dayDelta > 0 ? <sup dir="ltr">+{dayDelta}</sup> : null}
+          <em className={dayDelta > 0 ? "is-up" : ""} title={`أيام الحضور في الأسبوع: ${header.daysAfter}`} aria-label={`أيام الحضور ${header.daysAfter}`}>
+            <CalendarDays aria-hidden="true" /><span dir="ltr">{header.daysAfter}</span><small className="mini-week-fact-word">أيام</small>{dayDelta > 0 ? <sup dir="ltr">+{dayDelta}</sup> : null}
           </em>
-          <em className={gapDelta > 0 ? "is-up" : gapDelta < 0 ? "is-down" : ""} aria-label={gapWords(header.gapAfter)}>
-            <Hourglass aria-hidden="true" /><span dir="ltr">{hoursText(header.gapAfter)}</span>
+          {/* «⌛ 0.5» وحدها لم تُفهم (المالك): هي ساعاتُ الفراغ بين محاضراته في الأسبوع، فتُقال بكلمتها. */}
+          <em className={gapDelta > 0 ? "is-up" : gapDelta < 0 ? "is-down" : ""} aria-label={gapWords(header.gapAfter)}
+            title={header.gapAfter > 0 ? `ساعات الفراغ بين محاضراته في الأسبوع: ${hoursText(header.gapAfter)}` : "لا فراغ بين محاضراته"}>
+            <Hourglass aria-hidden="true" /><small className="mini-week-fact-word">فراغ</small><span dir="ltr">{hoursText(header.gapAfter)}</span><small className="mini-week-fact-word">س</small>
             {gapDelta ? (gapDelta > 0 ? <ArrowUp aria-hidden="true" className="mini-week-trend" /> : <ArrowDown aria-hidden="true" className="mini-week-trend" />) : null}
           </em>
         </span>
