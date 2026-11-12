@@ -110,6 +110,17 @@ check(await scheduleLengthIssue(tuesday, existing) === null && await unapprovedP
 const tuesdayWrong = await unapprovedPatternIssue({ ...tuesday, fendtime: "09:15" }, existing);
 check(/لا توافق النمط المعتمد/.test(String(tuesdayWrong)), "N5 والثلاثاء بنهايةٍ يدوية مخالفة (09:15) يمنع", tuesdayWrong);
 
+/* N8 — قرار المالك 2026-11-13: الحفظُ يحكم بالمكتبة وحدها (الحَكَمُ الواحد daysFitLibrary). */
+{
+  const at = (days: string[], start: string, end: string, code: string) => ({ ...scope, SCode: code, fsunday: days.includes("sun"), fmonday: days.includes("mon"), ftuesday: days.includes("tue"), fwednesday: days.includes("wed"), fthursday: days.includes("thu"), fstarttime: start, fendtime: end });
+  const blocked = async (row: any) => /ليست نمطاً معتمداً/.test(String(await unapprovedPatternIssue(row, [])));
+  check(await blocked(at(["mon", "thu"], "08:00", "09:20", "601")), "N8 الحفظ: الاثنين·الخميس يُمنع");
+  check(await blocked(at(["sun", "wed"], "08:00", "09:20", "602")), "N8 الحفظ: الأحد·الأربعاء يُمنع");
+  check(await blocked(at(["sun", "thu"], "08:00", "09:20", "603")), "N8 الحفظ: الأحد·الخميس يُمنع");
+  check(await unapprovedPatternIssue(at(["sun", "tue"], "08:00", "09:20", "604"), []) === null && await unapprovedPatternIssue(at(["tue", "thu"], "08:00", "09:20", "605"), []) === null, "N8 الحفظ: الأحد·الثلاثاء والثلاثاء·الخميس 80/80 يُحفظان");
+  check(await unapprovedPatternIssue(at(["thu"], "08:00", "10:50", "606"), []) === null && await unapprovedPatternIssue(at(["sun"], "08:00", "10:50", "607"), []) === null, "N8 الحفظ: كتلة 170 على الخميس أو الأحد تُحفظ (أيّ يوم)");
+}
+
 /* N7 — موعدٌ قديم بطولٍ خارج المكتبة (اثنين·أربعاء 75د) تتغيّر قاعتُه وحدها يُحفظ؛ وتغييرُ بدايته يطبّق النمط. */
 const legacy = { fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:15" };
 const roomOnly = { ...legacy, AdRoomCode: "901A02", AdRoomHall: "301" };
