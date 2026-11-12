@@ -19,9 +19,10 @@
 .tm-goals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .tm-goals span{font-size:26px}
 
-.tm-ask{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:12px 14px;border-radius:var(--r-xl);background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-xs)}
+.tm-ask{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px 14px;border-radius:var(--r-xl);background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-xs)}
 .tm-ask>svg{color:var(--danger);width:24px;height:24px}
-.tm-ask input{min-height:var(--ix-tap);border:0;background:transparent;font:inherit;font-size:var(--ix-card);color:var(--ink);outline:none}
+/* WebKit gives the input an intrinsic width (size=20); a bare 1fr column grows to it and pushes «حلول» past the card edge on phones. */
+.tm-ask input{min-inline-size:0;inline-size:100%;min-height:var(--ix-tap);border:0;background:transparent;font:inherit;font-size:var(--ix-card);color:var(--ink);outline:none}
 .tm-examples{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
 .tm-examples{min-inline-size:0}
 .tm-examples button{max-inline-size:100%;white-space:normal;text-align:start;line-height:1.5;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);border-radius:var(--r-full);padding:6px 12px;font:inherit;font-size:var(--t-sm);cursor:pointer}
@@ -217,7 +218,7 @@
   .tm-branch{margin-inline-start:0}
   .tm-modes,.tm-goals{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
   .tm-modes button,.tm-goals button{flex-direction:column;gap:4px;min-height:72px;font-size:var(--t-sm);text-align:center}
-  .tm-ask{grid-template-columns:1fr auto}
+  .tm-ask{grid-template-columns:minmax(0,1fr) auto}
   .tm-ask>svg{display:none}
   .tm-week-col{height:170px}
   .tm-bench-chips{margin-inline-start:0}

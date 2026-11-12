@@ -330,15 +330,22 @@ svg{width:1.15em;height:1.15em;stroke-width:1.75;flex:none}
   border-radius:var(--r-xs);
 }
 
-::-webkit-scrollbar{width:11px;height:11px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{
-  background:color-mix(in srgb,var(--muted-2) 45%,transparent);
-  border:3px solid transparent;
-  border-radius:var(--r-full);
-  background-clip:padding-box;
+/* Styled scrollbars are for mouse screens only. On a touch screen WebKit turns
+   a styled root scrollbar into a real 11px gutter (on the left in RTL): the
+   visual viewport shrinks to width-11px while the layout keeps the full width,
+   so every page is shifted 11px and its leading edge is cut. Touch devices keep
+   their native overlay scrollbars. */
+@media (hover:hover) and (pointer:fine){
+  ::-webkit-scrollbar{width:11px;height:11px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{
+    background:color-mix(in srgb,var(--muted-2) 45%,transparent);
+    border:3px solid transparent;
+    border-radius:var(--r-full);
+    background-clip:padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--muted) 60%,transparent);background-clip:padding-box}
 }
-::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--muted) 60%,transparent);background-clip:padding-box}
 
 /* Numerals: Latin digits, tabular, always laid out left-to-right so Arabic
    sentences never reorder times, codes, phone numbers or civil IDs. */
