@@ -8,6 +8,7 @@
  *  S4  كليةٌ بلا مسار (التجربة): مسارٌ واحد يخدم المجموع.
  *  S5  لكل مسار سقف نسخته، والنتيجة لا تتبع العضو الأول.
  *  B1  الشارة: عجزٌ يغطيه نقلٌ مقترح ليس أخضر.
+ *  U1  المقررات اتحاد التقريرين: ما في تقرير الخريجين وحده لا يسقط.
  *  F1  حقائق المقرر لكل AdCourseId (لحكم «حذف مقرر» وشارة المراجعة).
  */
 import { courseDemandFacts, demandBadgeTone, demandSupply, seatCap, DEFAULT_SEAT_CAP } from "../src/utils/actualDemandSupply";
@@ -117,5 +118,12 @@ check(moveOnly.items[0].move !== null && moveFact.gap === 0 && moveFact.unmetStu
   "B1 بنين 70 على 40 وبنات 10 على 80: النقل مقترح، و30 بلا مقعد، والشارة عجز لا «مخدوم»", { item: moveOnly.items[0], fact: moveFact, service: moveOnly.service });
 check(demandBadgeTone({ students: 50, graduates: 0, seats: 60, gap: 0, unmetStudents: 0, unmetGraduates: 0 }) === "ok" && demandBadgeTone({ students: 10, graduates: 0, seats: 120, gap: -1, unmetStudents: 0, unmetGraduates: 0 }) === "spare",
   "B1 الأخضر للمتوازن وحده، والفائض هادئ");
+
+/* U1: مقررٌ في تقرير الخريجين وحده (بلا شعبة) لا يختفي: عجزٌ، ونسبة الخريجين دون 100، وحقيقته للشارة والحذف. */
+const onlyGrads = demandSupply({ general: report([course("0109105", 30, 30)]), graduates: report([course("0109108", 6, 0, 1)]), matches, catalogue, members,
+  rows: [{ AdCourseId: 1, AdCollegeId: 11, SCode: "01" }, { AdCourseId: 2, AdCollegeId: 12, SCode: "51" }], capacity: none });
+const g108 = onlyGrads.items.find(item => item.code === "0109108");
+check(Boolean(g108) && g108!.unmetGraduates === 6 && g108!.gap > 0 && onlyGrads.service.graduates === 0 && courseDemandFacts(onlyGrads, matches)["3"]?.graduates === 6,
+  "U1 مقرر الخريجين وحدهم بلا شعبة: في القائمة بعجزه، ونسبة الخريجين 0 لا 100، وحقيقته للشارة والحذف", { g108, service: onlyGrads.service });
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

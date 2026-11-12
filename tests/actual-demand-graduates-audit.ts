@@ -5,7 +5,9 @@
  *  G2  شعبةٌ بديلة لا تتداخل تُزيل التعارض؛ وبرنامجان مختلفان لا يتعارضان؛ والمسار الآخر لا يختلط.
  *  G3  أثر الحفظ: موعدٌ جديد يصنع التعارض → «يمسّ N»؛ وتعديلٌ يُزيله أو لا يغيّره → لا شيء.
  *  G4  بلا تقرير خريجين لا حكم.
+ *  G6  الملاحظة تُمحى مع ملاحظات الموعد الأخرى.
  */
+import fs from "node:fs";
 import { graduateClashes, graduateImpactOf, type ClashRow } from "../src/utils/actualDemandGraduates";
 import type { DemandCourse, DemandMatch, DemandReport } from "../src/utils/actualDemand";
 import { AR, countOf } from "../src/utils/arabicCount";
@@ -63,5 +65,13 @@ check(graduateImpactOf({ graduates: report, matches, members, rows, candidate: r
 check(graduateImpactOf({ graduates: null, matches, members, rows, candidate: rows[0] }) === null && !graduateClashes({ graduates: null, matches, members, rows }).length, "G4 بلا تقرير خريجين لا حكم");
 
 check(graduateImpactNote(7).startsWith("يمسّ 7 خريجين") && graduateImpactNote(2).startsWith("يمسّ خريجين") && graduateImpactNote(15).startsWith("يمسّ 15 خريجاً"), "G5 الملاحظة قبل الحفظ: «يمسّ ٧ خريجين»، والمثنى منصوباً");
+/* G6: الملاحظة لا تتسرّب: تُمحى مع ملاحظات الموعد الأخرى في المحرّر الجديد وفي موعدٍ ناقص قبل الفحص. */
+{
+  const src = fs.readFileSync("src/components/Schedules.tsx", "utf8");
+  const clear = src.slice(src.indexOf("const clearEditorTransients = () => {"), src.indexOf("const clearEditorTransients = () => {") + 900);
+  const early = src.slice(src.indexOf("timeRangeInvalid ||"), src.indexOf("timeRangeInvalid ||") + 600);
+  check(/setGraduateNotice\(""\)/.test(clear) && /graduateNoteRef\.current = ""/.test(clear) && /setGraduateNotice\(""\)/.test(early) && /graduateNoteRef\.current = ""/.test(early),
+    "G6 «يمسّ N خريجين» يُمحى في المحرّر الجديد (clearEditorTransients) وفي الموعد الناقص، فلا يصل ورقة الاستثناء");
+}
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

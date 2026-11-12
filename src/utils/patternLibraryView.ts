@@ -29,9 +29,13 @@ const CLOCK = svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
 
 const nf = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
 
-function patternFigure(pattern: { days: DayKey[]; minutesPerDay: number[]; weeklyMinutes: number }, extraClass = ""): string {
-  const label = `${pattern.days.map(day => DAY_FULL[day]).join("، ")} — ${pattern.minutesPerDay.map(nf).join(" + ")} د`;
-  const week = DAY_KEYS.map(day => {
+/** نمطُ اليوم الواحد في المكتبة يصلح لأيّ يوم (المالك 2026-11-13): يُرسم عموداً واحداً تحته «أي يوم»، لا على يومِ المثال. */
+export const ANY_DAY_LABEL = "أي يوم";
+function patternFigure(pattern: { days: DayKey[]; minutesPerDay: number[]; weeklyMinutes: number }, extraClass = "", anyDay = false): string {
+  const label = `${anyDay ? ANY_DAY_LABEL : pattern.days.map(day => DAY_FULL[day]).join("، ")} — ${pattern.minutesPerDay.map(nf).join(" + ")} د`;
+  const week = anyDay
+    ? `<span class="plib-d is-any"><i class="plib-bar is-anyday" style="height:${Math.max(22, Math.round((pattern.minutesPerDay[0] / MAX_MINUTES) * 100))}%"><em>${nf(pattern.minutesPerDay[0])}</em></i><u>${ANY_DAY_LABEL}</u></span>`
+    : DAY_KEYS.map(day => {
     const at = pattern.days.indexOf(day);
     if (at < 0) return `<span class="plib-d"><i class="plib-bar is-off"></i><u>${DAY_INITIAL[day]}</u></span>`;
     const minutes = pattern.minutesPerDay[at];
@@ -43,7 +47,7 @@ function patternFigure(pattern: { days: DayKey[]; minutesPerDay: number[]; weekl
 
 export function patternLibraryHtml(input: PatternLibraryInput): string {
   const groups = input.groups.map(group => {
-    const cards = group.patterns.map(pattern => patternFigure(pattern)).join("");
+    const cards = group.patterns.map(pattern => patternFigure(pattern, "", pattern.days.length === 1)).join("");
     return `<div class="plib-group"><h4><b>${nf(group.hours)}</b><small>${HOUR_WORDS[group.hours] || "ساعات"}</small></h4><div class="plib-row">${cards}</div></div>`;
   }).join("");
   return `<section class="plib-sheet" dir="rtl" aria-label="مكتبة الأنماط">`
@@ -62,7 +66,7 @@ const WARN = svg('<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>');
 const ARROW = svg('<path d="M15 6l-6 6 6 6"/>');
 export function patternNoticeHtml(input: PatternLibraryInput, hours: number, days: DayKey[], minutesPerDay: number[], blocking: boolean): string {
   const chosen = patternFigure({ days, minutesPerDay, weeklyMinutes: minutesPerDay.reduce((sum, value) => sum + value, 0) }, "is-bad");
-  const approved = (input.groups.find(group => group.hours === hours)?.patterns || []).slice(0, 4).map(pattern => patternFigure(pattern)).join("");
+  const approved = (input.groups.find(group => group.hours === hours)?.patterns || []).slice(0, 4).map(pattern => patternFigure(pattern, "", pattern.days.length === 1)).join("");
   return `<section class="plib-sheet plib-notice${blocking ? " is-block" : ""}" dir="rtl" role="note" aria-label="النمط غير معتمد في مكتبة الأنماط">`
     + `<header class="plib-head"><span class="plib-mark is-warn">${WARN}</span><div><b>النمط غير معتمد</b><small>${PATTERN_LIBRARY_ICON}مكتبة الأنماط · ${nf(hours)} ${HOUR_WORDS[hours] || "ساعات"}</small></div></header>`
     + `<div class="plib-row plib-compare">${chosen}${approved ? `<span class="plib-arrow" aria-hidden="true">${ARROW}</span>${approved}` : ""}</div>`
@@ -97,6 +101,9 @@ export const PATTERN_LIBRARY_CSS = `
 .plib-bar.is-off{block-size:4px;background:var(--pl-line);border-radius:3px}
 .plib-bar em{position:absolute;inset-inline:-4px;inset-block-start:-14px;text-align:center;font-style:normal;font-size:9.5px;font-weight:700;color:var(--pl-mut);font-variant-numeric:tabular-nums}
 .plib-d u{text-decoration:none;font-size:10px;font-weight:700;color:var(--pl-mut);line-height:1}
+.plib-d.is-any{grid-column:1/-1}
+.plib-d.is-any u{white-space:nowrap}
+.plib-bar.is-anyday{background:linear-gradient(var(--pl-a),var(--pl-b))}
 .plib-pat figcaption{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-block-start:7px;color:var(--pl-ink)}
 .plib-pat figcaption b{font-size:13px;font-variant-numeric:tabular-nums}
 .plib-pat figcaption small{color:var(--pl-mut);font-size:10.5px}

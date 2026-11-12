@@ -14,7 +14,10 @@ const html = patternLibraryHtml(patternLibraryInput());
 const library = patternLibraryByHours();
 const total = library.reduce((sum, group) => sum + group.patterns.length, 0);
 const fourHourPatterns = library.find(group => group.hours === 4)?.patterns || [];
-check(["fsunday,ftuesday", "ftuesday,fthursday", "fsunday,fthursday"].every(days => fourHourPatterns.some(pattern => pattern.days.join(",") === days && pattern.minutesPerDay.every(minutes => minutes === 110) && pattern.weeklyMinutes === 200)), "٤ ساعات: أزواج الأيام القصيرة المعتمدة تظهر 110 زمنية لكل لقاء و200 دقيقة تدريس أسبوعية");
+check(["fsunday,ftuesday", "ftuesday,fthursday"].every(days => fourHourPatterns.some(pattern => pattern.days.join(",") === days && pattern.minutesPerDay.every(minutes => minutes === 110) && pattern.weeklyMinutes === 200)), "٤ ساعات: الأحد·الثلاثاء والثلاثاء·الخميس 110 زمنية لكل لقاء و200 دقيقة تدريس أسبوعية");
+check(!fourHourPatterns.some(pattern => pattern.days.join(",") === "fsunday,fthursday") && !html.includes("الأحد، الخميس"), "٤ ساعات: «الأحد + الخميس» أُزيل من المكتبة (المالك 2026-11-13)");
+const singles = library.flatMap(group => group.patterns.filter(pattern => pattern.days.length === 1));
+check(singles.length > 0 && (html.match(/<u>أي يوم<\/u>/g) || []).length === singles.length, `أنماطُ اليوم الواحد تُرسم «أي يوم» لا على يوم المثال (${singles.length})`);
 check((html.match(/<figure class="plib-pat"/g) || []).length === total, `كلُّ نمطٍ في المكتبة يُرسم (${total})`);
 check((html.match(/class="plib-group"/g) || []).length === library.length, "ومجموعةٌ لكل عدد ساعات");
 check(!/80 \+ 80 \+ 50/.test(html) && !patternsForHours(4).some(pattern => pattern.id === "4h-mon-wed-thu"),

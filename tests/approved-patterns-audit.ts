@@ -71,7 +71,7 @@ check(/await unapprovedPatternIssue\(row, week, \{ skipIfUnchanged: true \}\)/.t
 const verdict = fs.readFileSync("src/utils/instructorRequestVerdict.ts", "utf8");
 check(/daysApprovedForHours\(courseHours, request\.days\) === false/.test(verdict) && !/historyShape/.test(verdict), "P6 طلبُ الأستاذ: ما ليس نمطاً معتمداً يُمنع، ولا يُعفيه التاريخ");
 check(/code: "pattern"/.test(verdict) && /reason\.code === "pattern"/.test(verdict), "P6 ومعه أزرارُ الأنماط المعتمدة بدل البدائل");
-check((verdict.match(/daysApprovedForHours\((heldHours|courseHours), days\) === true/g) || []).length === 2, "P6 «المعتاد تاريخياً» يُقترح إن كان نمطاً معتمداً وحده");
+check((verdict.match(/daysApprovedForHours\((heldHours|courseHours), days\) === true/g) || []).length === 4 && !/patternsForHours\((heldHours|courseHours)\)\.some\(pattern => pattern\.days\.length === days\.length/.test(verdict), "P6 «المعتاد تاريخياً» يُقترح إن كان نمطاً معتمداً وحده");
 
 const editor = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 check(/courseNature\.suggestion && daysApprovedForHours\(regulationHours\(formCourse\), courseNature\.suggestion\.days as RegDayKey\[\]\) !== false/.test(editor)
@@ -114,8 +114,19 @@ check(!teacherSunThu.sendable && teacherSunThu.reasons.some(reason => reason.cod
 const fourSunThu = judgeRequest(asked("10:00", ["fsunday", "fthursday"], 4), {
   ...verdictContext(true), courses: new Map([[4, { AdCourseId: 4, CourseHours: 4, CourseName: "أربع ساعات" } as any]]), instructorLoad: 0,
 } as any);
-check(fourSunThu.sendable && !fourSunThu.reasons.some(reason => reason.code === "pattern") && fourSunThu.reasons.some(reason => reason.source === "load" && !reason.blocking),
-  "P9 نمط الأربع ساعات الأحد·الخميس معتمد، وتجاوز النصاب تنبيه لا يمنع الطلب");
+/* قرار المالك 2026-11-13: «الأحد·الخميس 110/110» أُزيل — كرتُ الأستاذ يمنعه لمقرّرٍ بأربع ساعات أيضاً. */
+check(!fourSunThu.sendable && fourSunThu.reasons.some(reason => reason.blocking && (reason.code === "pattern" || reason.code === "hours"))
+  && !(fourSunThu.shapes || []).some(shape => shape.days.join() === "fsunday,fthursday"),
+  "P9 كرت الأستاذ: أربع ساعات على الأحد·الخميس تُمنع، ولا يُقترح الأحد·الخميس");
+const fourMonThu = judgeRequest(asked("10:00", ["fmonday", "fthursday"], 4), {
+  ...verdictContext(true), courses: new Map([[4, { AdCourseId: 4, CourseHours: 4, CourseName: "أربع ساعات" } as any]]), instructorLoad: 0,
+} as any);
+check(!fourMonThu.sendable && fourMonThu.reasons.some(reason => reason.blocking && (reason.code === "pattern" || reason.code === "hours")), "P9 كرت الأستاذ: الاثنين·الخميس يُمنع");
+const fourTueThu = judgeRequest(asked("10:00", ["ftuesday", "fthursday"], 4), {
+  ...verdictContext(true), courses: new Map([[4, { AdCourseId: 4, CourseHours: 4, CourseName: "أربع ساعات" } as any]]), instructorLoad: 0,
+} as any);
+check(fourTueThu.sendable && !fourTueThu.reasons.some(reason => reason.code === "pattern") && fourTueThu.reasons.some(reason => reason.source === "load" && !reason.blocking),
+  "P9 أربع ساعات على الثلاثاء·الخميس معتمد، وتجاوز النصاب تنبيه لا يمنع الطلب");
 const core = fs.readFileSync("src/server/core/instructorRequests.ts", "utf8");
 check(/ladderBlocks: !options\.forDepartment && !offeredByDepartment/.test(core) && /chosenAlternativeIndex\(departmentOffers, days, slot\?\.start \|\| ""\) >= 0/.test(core)
   && /message\.from === "department"/.test(core) && /decisionHistory/.test(core),
@@ -142,8 +153,14 @@ check(daysApprovedForHours(2, ["fmonday", "fwednesday"]) === true && meetingMinu
 check(["fsunday,ftuesday", "ftuesday,fthursday", "fmonday,fwednesday"].every(pair => daysApprovedForHours(5, pair.split(",") as any) === true)
   && meetingMinutes(["fsunday", "ftuesday"], lengthPatternsForHours(5)).join() === "170,110" && meetingMinutes(["ftuesday", "fthursday"], lengthPatternsForHours(5)).join() === "170,110",
   "P10 خمسُ ساعات على أزواج الأربع: الأحد·الثلاثاء والثلاثاء·الخميس والاثنين·الأربعاء (170 + 110)");
-check(daysApprovedForHours(4, ["fsunday", "fthursday"]) === true && patternsForHours(4).some(pattern => pattern.days.join() === "fsunday,fthursday"), "P10 أربع ساعات على الأحد·الخميس نمطٌ معتمد 110+110");
-check(daysApprovedForHours(5, ["fsunday", "fthursday"]) === false, "P10 والأحد·الخميس ليس نمطاً للخمس ساعات");
+/* قرار المالك 2026-11-13: المكتبةُ وحدها تُعتمد؛ «الأحد·الخميس 110/110» أُزيل، والاثنين·الخميس والأحد·الأربعاء ليسا نمطاً أبداً. */
+check(!patternsForHours(4).some(pattern => pattern.id === "4h-sun-thu" || pattern.days.join() === "fsunday,fthursday"), "P10 «الأحد·الخميس 110/110» ليس في المكتبة");
+check([1, 2, 3, 4, 5].every(h => daysApprovedForHours(h, ["fsunday", "fthursday"]) === false), "P10 الأحد·الخميس مرفوضٌ لكل الساعات");
+check([1, 2, 3, 4, 5].every(h => daysApprovedForHours(h, ["fmonday", "fthursday"]) === false), "P10 الاثنين·الخميس مرفوضٌ لكل الساعات");
+check([1, 2, 3, 4, 5].every(h => daysApprovedForHours(h, ["fsunday", "fwednesday"]) === false), "P10 الأحد·الأربعاء مرفوضٌ لكل الساعات");
+check([2, 3, 4, 5].every(h => daysApprovedForHours(h, ["fsunday", "ftuesday"]) === true && daysApprovedForHours(h, ["ftuesday", "fthursday"]) === true), "P10 الأحد·الثلاثاء والثلاثاء·الخميس معتمدان حيث في المكتبة (2–5 ساعات)");
+check(["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].every(day => [1, 2, 3, 4, 5].every(h => daysApprovedForHours(h, [day as any]) === true)), "P10 كتلةُ اليوم الواحد (50، 110، 170، 230، 290) على أيّ يوم");
+check(patternsForHours(3).find(pattern => pattern.days.length === 1)?.label === "أي يوم 170د", "P10 وسمُ الكتلة «أي يوم» لا يومُ المثال");
 
 /* P11 الاثنين والأربعاء 8:00–9:20 ثم 9:30. */
 check(LONG_DAY_GAP_MINUTES === 10 && requiredGapForDays(["fmonday", "fwednesday"]) === 10, "P11 فاصل الاثنين والأربعاء 10 دقائق");

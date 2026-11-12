@@ -3107,6 +3107,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setServerValidationIssues([]);
     setPatternNotice("");
     setLectureNotice("");
+    /* أثرُ الموعد السابق على الخريجين لا يبقى في محرّرٍ جديد ولا يصل ورقةَ الاستثناء. */
+    setGraduateNotice("");
+    graduateNoteRef.current = "";
     setChecking(false);
     setScheduleTouched(false);
     setRoomIdeas(null); setRoomIdeasNote(""); setRoomIdeasReason(undefined); setRoomReplaceable([]);
@@ -4944,6 +4947,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setPatternNotice("");
       setLectureNotice("");
       setRegulationIssues([]);
+      setGraduateNotice("");
+      graduateNoteRef.current = "";
       setChecking(false);
       lastCheckFormKey.current = "";
       return;

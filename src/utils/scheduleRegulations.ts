@@ -257,10 +257,7 @@ const PATTERN_LIBRARY: Array<Omit<WeeklyPattern, "label"> & { hours: number }> =
     hours: 4, id: "4h-tue-thu", days: ["ftuesday", "fthursday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
     note: `أربع فترات تدريسية من ${countOf(50, AR.minute)} على يومين قصيرين؛ ${countOf(100, AR.minute)} تدريسية مع فاصل ${countOf(10, AR.minute)} لكل لقاء (${countOf(110, AR.minute)} زمنية).`
   },
-  {
-    hours: 4, id: "4h-sun-thu", days: ["fsunday", "fthursday"], minutesPerDay: [110, 110], weeklyMinutes: 200,
-    note: `أربع فترات تدريسية من ${countOf(50, AR.minute)} على يومين قصيرين؛ ${countOf(100, AR.minute)} تدريسية مع فاصل ${countOf(10, AR.minute)} لكل لقاء (${countOf(110, AR.minute)} زمنية).`
-  },
+  /* «الأحد + الخميس 110/110» أُزيل (المالك 2026-11-13): الأحدُ والخميس ليسا نمطاً لأيّ ساعات. */
   // Laboratories, workshops and field training run as one long sitting. The
   // articles describe lectures and never spell these out, but they are how a
   // large part of an applied-education timetable is actually taught, so they
@@ -334,11 +331,21 @@ export function daysFitLibrary(weeklyHours: number, days: Iterable<DayKey>, exac
   const set = new Set(days);
   const patterns = PATTERN_LIBRARY.filter(pattern => pattern.hours === hours);
   if (!hours || !patterns.length || !set.size) return null;
-  return patterns.some(pattern => pattern.days.length === 1
-    ? set.size === 1
-    : exact
-      ? pattern.days.length === set.size && pattern.days.every(day => set.has(day))
-      : [...set].every(day => pattern.days.includes(day)));
+  return patterns.some(pattern => patternCoversDays(pattern, set, exact));
+}
+
+/**
+ * ── الحَكَمُ الواحد: هل هذه الأيامُ نمطُ هذا المدخل في المكتبة؟ (قرار المالك 2026-11-13) ──────
+ * المكتبةُ وحدها تُعتمد: أيامُ نمطٍ متعدّد الأيام هي أيامُه بعينها (الاثنين·الخميس والأحد·الأربعاء
+ * ليسا نمطاً أبداً، ولا يُقبل «يومان غير متجاورين» بالعدد وحده). ونمطُ اليوم الواحد يصلح لأيّ يوم:
+ * اليومُ المكتوب في المكتبة مثالٌ لا قيد. كلُّ من يحكم «هل هذا نمطٌ معتمد» يمرّ من هنا
+ * (daysFitLibrary وmeetingsMatchApprovedPattern ومن يستدعيهما).
+ */
+function patternCoversDays(pattern: { days: readonly DayKey[] }, set: ReadonlySet<DayKey>, exact = true): boolean {
+  if (pattern.days.length === 1) return set.size === 1;
+  return exact
+    ? pattern.days.length === set.size && pattern.days.every(day => set.has(day))
+    : [...set].every(day => pattern.days.includes(day));
 }
 
 /** الأيامُ نمطٌ معتمد كامل لساعات المقرّر (null: لا يُحكم). */
@@ -404,9 +411,12 @@ export function patternsForHours(weeklyHours: number): WeeklyPattern[] {
   const hours = Math.round(Number(weeklyHours) || 0);
   return PATTERN_LIBRARY.filter(pattern => pattern.hours === hours).map(pattern => ({
     ...pattern,
-    label: pattern.days
-      .map((day, index) => `${dayLabel(day)} ${pattern.minutesPerDay[index]}د`)
-      .join(" · ")
+    /* كتلةُ اليوم الواحد لأيّ يوم: الوسمُ لا يسمّي يومَ المثال (المالك 2026-11-13). */
+    label: pattern.days.length === 1
+      ? `أي يوم ${pattern.minutesPerDay[0]}د`
+      : pattern.days
+        .map((day, index) => `${dayLabel(day)} ${pattern.minutesPerDay[index]}د`)
+        .join(" · ")
   }));
 }
 
@@ -541,34 +551,20 @@ export function periodBalanceSnapshot(rows: readonly FSchedule[]): PeriodBalance
 }
 
 /**
- * ── م.7/8: هل لقاءاتُ الشعبة شكلٌ معتمد؟ ───────────────────────────────────
+ * ── م.7/8: هل لقاءاتُ الشعبة شكلٌ معتمد؟ (قرار المالك 2026-11-13) ─────────────
  *
- * The library names an example day for each shape (Mon+Wed for two 80-minute
- * meetings). What the article fixes is the *shape*: how many meetings, how long
- * each, and that they are spread over the week. 1913/2016 states the 3-hour
- * course as two «hour-and-a-half» periods without binding them to Mon/Wed, and
- * the owner confirmed (2026-10-28) that «نظريات التعلم والتكنولوجيا» on
- * Sun+Tue 14:00–15:20 complies. So a section passes when:
- *   • it matches a library pattern exactly (days and minutes), or
- *   • a single-day block has the library length (any day), or
- *   • its meeting lengths equal a multi-day library pattern's lengths AND its
- *     days are pairwise non-adjacent (Sun+Tue, Mon+Wed, Tue+Thu, Sun+Thu…) —
- *     the same load, spread the way the article intends.
- * Two meetings on adjacent days, a wrong length, or a missing meeting still fail.
+ * المكتبةُ وحدها: الأيامُ نمطٌ في المكتبة لساعات المقرّر بعينه (patternCoversDays — الحَكَمُ الواحد)،
+ * وأطوالُ اللقاءات أطوالُ ذلك النمط (بأيّ ترتيبٍ على أيامه). كتلةُ اليوم الواحد بطولها على أيّ يوم.
+ * لم يعد يُقبل «الأطوالُ نفسها على أيامٍ غير متتالية»: الاثنين·الخميس والأحد·الأربعاء والأحد·الخميس
+ * ليست أنماطاً.
  */
 export function meetingsMatchApprovedPattern(meetings: ReadonlyArray<{ day: DayKey; minutes: number }>, weeklyHours: number): boolean {
-  const actual = meetings.slice().sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day));
-  if (!actual.length) return false;
+  if (!meetings.length) return false;
   const lengths = (list: readonly number[]) => list.slice().sort((a, b) => a - b).join(",");
-  const actualLengths = lengths(actual.map(item => item.minutes));
-  const indices = actual.map(item => DAY_KEYS.indexOf(item.day));
-  const spread = indices.every((value, index) => index === 0 || value - indices[index - 1] >= 2);
-  return patternsForHours(weeklyHours).some(pattern => {
-    if (pattern.days.length === 1) return actual.length === 1 && actual[0].minutes === pattern.minutesPerDay[0];
-    if (pattern.days.length !== actual.length) return false;
-    const exact = pattern.days.every((day, index) => actual[index]?.day === day && actual[index]?.minutes === pattern.minutesPerDay[index]);
-    return exact || (spread && lengths(pattern.minutesPerDay) === actualLengths);
-  });
+  const actualLengths = lengths(meetings.map(item => item.minutes));
+  const days = new Set(meetings.map(item => item.day));
+  if (days.size !== meetings.length) return false;
+  return patternsForHours(weeklyHours).some(pattern => patternCoversDays(pattern, days, true) && lengths(pattern.minutesPerDay) === actualLengths);
 }
 
 /**
@@ -744,7 +740,7 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
       source: "decision-1912",
       approvalEffect: "block",
       title: `توزيع مقرر نظري لا يطابق نمط ${countOf(hours, AR.hour)}`,
-      detail: `المطلوب: ${patternsForHours(hours).map(pattern => pattern.days.map((day, index) => `${countOf(pattern.minutesPerDay[index], AR.minute)} يوم ${dayLabel(day)}`).join("، ")).join("؛ أو ")} — أو الأطوال نفسها على أيام غير متتالية.`,
+      detail: `المطلوب: ${patternsForHours(hours).map(pattern => pattern.days.length === 1 ? `${countOf(pattern.minutesPerDay[0], AR.minute)} في أيّ يوم` : pattern.days.map((day, index) => `${countOf(pattern.minutesPerDay[index], AR.minute)} يوم ${dayLabel(day)}`).join("، ")).join("؛ أو ")}.`,
       subjectKey: `course:${courseId}`,
       subjectLabel: course.CourseCode || course.CourseName,
       rowIds: [...new Set(invalid.map(row => row.id))],

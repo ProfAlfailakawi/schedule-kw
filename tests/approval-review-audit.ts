@@ -48,8 +48,17 @@ console.log("I1 — م.7/8 يقرأ الشكل لا اليوم المثال");
   check(has([row(121, "508", ["sun"], "14:00", "15:20")], [course], "theoretical-pattern"), "لقاءٌ واحد 80 دقيقة لمقرر 3 ساعات: لا يطابق");
   check(meetingsMatchApprovedPattern([{ day: "fmonday" as DayKey, minutes: 110 }, { day: "fwednesday" as DayKey, minutes: 110 }], 4), "4 ساعات: 110/110 الاثنين·الأربعاء مطابق");
   check(!meetingsMatchApprovedPattern([{ day: "fsunday" as DayKey, minutes: 110 }, { day: "fmonday" as DayKey, minutes: 110 }], 4), "4 ساعات: 110 على يومين متتاليين لا يطابق");
+  /* قرار المالك 2026-11-13: المكتبةُ وحدها — لا «الأطوال نفسها على أيامٍ غير متتالية». */
+  check(has([row(121, "510", ["sun", "thu"], "08:00", "09:20")], [course], "theoretical-pattern"), "الأحد·الخميس 2×80 لثلاث ساعات: ليس في المكتبة");
+  check(has([row(121, "511", ["mon", "thu"], "08:00", "09:20")], [course], "theoretical-pattern"), "الاثنين·الخميس 2×80: ليس في المكتبة");
+  check(has([row(121, "512", ["sun", "wed"], "08:00", "09:20")], [course], "theoretical-pattern"), "الأحد·الأربعاء 2×80: ليس في المكتبة");
+  check(!has([row(121, "513", ["thu"], "08:00", "10:50")], [course], "theoretical-pattern") && !has([row(121, "514", ["mon"], "08:00", "10:50")], [course], "theoretical-pattern"), "كتلة 170 على الخميس أو الاثنين: مطابقة (أيّ يوم)");
+  check(!meetingsMatchApprovedPattern([{ day: "fsunday" as DayKey, minutes: 110 }, { day: "fthursday" as DayKey, minutes: 110 }], 4), "4 ساعات: الأحد·الخميس 110/110 لا يطابق (أُزيل من المكتبة)");
+  check(!meetingsMatchApprovedPattern([{ day: "fmonday" as DayKey, minutes: 110 }, { day: "fthursday" as DayKey, minutes: 110 }], 4), "4 ساعات: الاثنين·الخميس لا يطابق");
+  check(meetingsMatchApprovedPattern([{ day: "fsunday" as DayKey, minutes: 110 }, { day: "ftuesday" as DayKey, minutes: 110 }], 4) && meetingsMatchApprovedPattern([{ day: "ftuesday" as DayKey, minutes: 110 }, { day: "fthursday" as DayKey, minutes: 110 }], 4), "4 ساعات: الأحد·الثلاثاء والثلاثاء·الخميس 110/110 مطابقان");
+  check(meetingsMatchApprovedPattern([{ day: "fthursday" as DayKey, minutes: 230 }], 4), "4 ساعات: كتلة 230 على الخميس مطابقة");
   const finding = review([row(121, "509", ["sun", "mon"], "08:00", "09:20")], [course]).find(f => f.rule === "theoretical-pattern");
-  check(Boolean(finding?.detail.includes("أيام غير متتالية")), "نص الملاحظة يذكر أن الأطوال نفسها على أيام غير متتالية مقبولة");
+  check(Boolean(finding) && !finding!.detail.includes("غير متتالية") && finding!.detail.includes("في أيّ يوم"), "نص الملاحظة: المكتبة وحدها، والكتلة «في أيّ يوم»");
 }
 
 console.log("I3 — لا خلط بين الكليات");

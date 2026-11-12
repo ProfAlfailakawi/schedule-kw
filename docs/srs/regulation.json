@@ -74,7 +74,7 @@
       {
         "id": "pattern", "icon": "library", "figure": "library",
         "title": { "ar": "مكتبة الأنماط", "en": "Pattern library" },
-        "text": { "ar": "أيام الشعبة كلها، مع لقاءاتها الأخرى في القسم والفصل، نمطٌ معتمد لساعات المقرر في المكتبة. يُرفض النمط غير المعتمد عند الإنشاء وعند تعديل يغيّر الأيام أو الوقت، وتسمّي الرسالة الأنماط المعتمدة. ويقبل الصف بيوم واحد أن يكون جزءاً من نمط، وكتلة اليوم الواحد تصلح لأي يوم. والطول جزء من النمط: النهاية تُحسب من النمط عند كتابة البداية أو نقل الموعد، وأيامٌ معتمدة بنهاية تخالف طول نمطها تُرفض برسالة تقول النهاية الصحيحة، ما لم يبقَ شكل الموعد القائم كما حُفظ.", "en": "All of a section's days, together with its other meetings in the department and term, form an approved pattern for the course hours. An unapproved pattern is refused on create and on an edit that changes days or time, and the message lists the approved patterns. A one-day row may be part of a pattern, and a one-day block fits any day. The length is part of the pattern: the end is computed from the pattern when a start is typed or an appointment is moved, and approved days with an end that does not match the pattern's length are refused with a message naming the correct end, unless an existing appointment's shape is unchanged." },
+        "text": { "ar": "أيام الشعبة كلها، مع لقاءاتها الأخرى في القسم والفصل، نمطٌ معتمد لساعات المقرر في المكتبة، والمكتبة وحدها تُعتمد: الاثنين والخميس، والأحد والأربعاء، والأحد والخميس ليست أنماطاً لأي عدد من الساعات. يُرفض النمط غير المعتمد عند الإنشاء وعند تعديل يغيّر الأيام أو الوقت، وتسمّي الرسالة الأنماط المعتمدة. ويقبل الصف بيوم واحد أن يكون جزءاً من نمط، وكتلة اليوم الواحد تصلح لأي يوم. والطول جزء من النمط: النهاية تُحسب من النمط عند كتابة البداية أو نقل الموعد، وأيامٌ معتمدة بنهاية تخالف طول نمطها تُرفض برسالة تقول النهاية الصحيحة، ما لم يبقَ شكل الموعد القائم كما حُفظ.", "en": "All of a section's days, together with its other meetings in the department and term, form an approved pattern for the course hours, and only the library counts: Monday and Thursday, Sunday and Wednesday, and Sunday and Thursday are not patterns for any number of hours. An unapproved pattern is refused on create and on an edit that changes days or time, and the message lists the approved patterns. A one-day row may be part of a pattern, and a one-day block fits any day. The length is part of the pattern: the end is computed from the pattern when a start is typed or an appointment is moved, and approved days with an end that does not match the pattern's length are refused with a message naming the correct end, unless an existing appointment's shape is unchanged." },
         "effects": { "save": "block", "approval": "block", "card": "block", "import": "block" },
         "reqs": ["FR-SCH-017", "FR-SCH-068", "FR-SCH-055", "FR-IMP-042", "FR-REQ-014", "FR-REQ-015"],
         "algos": ["ALG-SCH-02"],
@@ -157,12 +157,12 @@
   "library": {
     "title": { "ar": "مكتبة الأنماط", "en": "Pattern library" },
     "lead": {
-      "ar": "الأنماط المعتمدة لكل عدد من الساعات الأسبوعية، كما هي في الكود. كل لقاء شريط بطول دقائقه على أسبوع الأحد–الخميس. أنماط اليوم الواحد كتل للمختبرات والورش والتدريب تصلح لأي يوم، والمثال يوم الأربعاء.",
+      "ar": "الأنماط المعتمدة لكل عدد من الساعات الأسبوعية، كما هي في الكود. كل لقاء شريط بطول دقائقه على أسبوع الأحد–الخميس. أنماط اليوم الواحد كتل للمختبرات والورش والتدريب تصلح لأي يوم، ويُعرض تحتها «أي يوم» بدل يوم المثال. ولا نمط للأحد والخميس.",
       "en": "The approved patterns for each number of weekly hours, exactly as in the code. Each meeting is a bar sized by its minutes on a Sunday–Thursday week. One-day patterns are blocks for laboratories, workshops and training that fit any day; Wednesday is the example."
     },
     "notes": [
       { "ar": "أطوال الكتل زمنية: 110 = محاضرتان من 50 بينهما 10، و170 = ثلاث، و230 = أربع، و290 = خمس. والدقائق التدريسية تُحسب بلا الفواصل.", "en": "Block lengths are elapsed time: 110 = two 50-minute lectures with a 10-minute gap, 170 = three, 230 = four, 290 = five. Teaching minutes exclude the gaps." },
-      { "ar": "مقرر نظري بثلاث ساعات أو أربع يطابق نمطاً بعينه، أو الأطوال نفسها على أيام غير متجاورة (الأحد والثلاثاء مثلاً)؛ ولقاءان في يومين متجاورين لا يطابقان (م.7/8).", "en": "A theoretical course of three or four hours matches a pattern exactly, or the same lengths on non-adjacent days (Sunday and Tuesday, for example); two meetings on adjacent days do not (art. 7/8)." },
+      { "ar": "مقرر نظري بثلاث ساعات أو أربع يطابق نمطاً في المكتبة بأيامه وأطواله، أو كتلة يوم واحد بطولها في أي يوم؛ والأيام التي ليست نمطاً في المكتبة لا تطابق ولو تباعدت، كالاثنين والخميس (م.7/8).", "en": "A theoretical course of three or four hours matches a library pattern by its days and lengths, or a one-day block of its length on any day; days that are not a library pattern do not match even when spread out, such as Monday and Thursday (art. 7/8)." },
       { "ar": "النقل بين الأسرتين يعيد تشكيل المقرر كله: ثلاث ساعات لقاءان من 80 في الاثنين والأربعاء، أو ثلاثة من 50 في الأحد والثلاثاء والخميس.", "en": "Moving between families reshapes the whole course: three hours are two 80-minute meetings on Monday and Wednesday, or three 50-minute meetings on Sunday, Tuesday and Thursday." }
     ],
     "reqs": ["FR-SCH-017", "FR-SCH-055"],
@@ -199,7 +199,7 @@
         "rule": "theoretical-pattern",
         "title": { "ar": "نمط المقرر النظري", "en": "Theoretical course pattern" },
         "article": { "ar": "م.7/8", "en": "Art. 7/8" },
-        "detects": { "ar": "شعبة مقرر نظري بثلاث ساعات أو أربع لا تطابق لقاءاتها نمطاً من المكتبة ولا الأطوال نفسها على أيام غير متجاورة.", "en": "A section of a three- or four-hour theoretical course whose meetings match no library pattern nor the same lengths on non-adjacent days." },
+        "detects": { "ar": "شعبة مقرر نظري بثلاث ساعات أو أربع لا تطابق لقاءاتها نمطاً من المكتبة بأيامه وأطواله.", "en": "A section of a three- or four-hour theoretical course whose meetings match no library pattern by days and lengths." },
         "reqs": ["FR-APR-003", "FR-SCH-017"]
       },
       {
