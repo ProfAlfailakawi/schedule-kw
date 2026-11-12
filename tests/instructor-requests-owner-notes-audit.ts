@@ -15,6 +15,7 @@
 import fs from "fs";
 import { buildTeacherTracks } from "../src/utils/cardRecipients";
 import { rankRequestRooms } from "../src/utils/requestRoomRanking";
+import { sectionDaysCompliant } from "../src/server/routes/publicRequestRoutes";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -83,12 +84,24 @@ check(/أُعيد فتح التعديل بإرسالٍ خاص/.test(issue), "15:
 
 /* ── 7 · التثبيت ─────────────────────────────────────────────────────────── */
 const pub = read("src/server/routes/publicRequestRoutes.ts");
-check(/export async function pinBlockers/.test(pub) && /unapprovedPatternIssue\(row\)/.test(pub) && /scheduleLengthIssue\(row\)/.test(pub), "7: التثبيتُ يُفحص بحكمَي النمط والساعات نفسيهما");
-check(/code: "pin-blocked"/.test(pub) && /if \(unchangedConfirmed\) \{\s*const blockers = await pinBlockers\(judged\);/.test(pub), "7: الخادمُ يرفض التثبيت المخالف بنصّه");
-check(/pinBlocked,/.test(pub), "7: الصفحةُ تعرف المانعَ قبل الضغط");
+check(/export async function pinReview/.test(pub) && /sectionDaysCompliant\(hours, union, own\.length > 1\)/.test(pub) && /scheduleLengthIssue\(row\)/.test(pub), "7: التثبيتُ يُفحص بأيام النمط وساعات المقرر");
+check(/code: "pin-blocked"/.test(pub) && /const review = await pinReview\(judged\);\s*const blockers = review\.blocks;/.test(pub), "7: الخادمُ يرفض التثبيت المخالف بنصّه");
+check(/pinBlocked: pinState\.blocks,/.test(pub) && /pinSoft: pinState\.soft,/.test(pub), "7: الصفحةُ تعرف المانعَ والتنبيهَ قبل الضغط");
+/* قرار المالك: مدّةُ اللقاء وحدها (75د قديمة) لا تمنع «ثبّت»؛ تُقال للأستاذ وتصل القسم. */
+check(/const lengthOnly = await unapprovedPatternIssue\(row\)[^\n]*\n\s*if \(lengthOnly\) soft\.push/.test(pub), "7: مدّةٌ لا توافق النمط تنبيهٌ لا مانع");
+check(/unchangedConfirmed && pinSoftNotes\.length \? \{ pinSoftNotes \}/.test(pub) && /row\.pinSoftNotes\?\.length/.test(read("src/components/InstructorInbox.tsx")), "7: التنبيهُ يُحفظ مع التثبيت ويراه القسم");
+check(/var pinSoftTxt=/.test(read("src/server/pages/instructorRequestPage.ts")) && /تنبيه لا يمنع: /.test(read("src/server/pages/instructorRequestPage.ts")), "7: الأستاذُ يرى التنبيهَ ويثبّت");
 const page = read("src/server/pages/instructorRequestPage.ts");
 check(/var pinBlockTxt=/.test(page) && /!pinBlockTxt\)h\+='<div class="send">/.test(page), "7: لا زرَّ «ثبّت الجدول» وفيه مخالفة");
 check(/edited===0&&!String\(noteNow\(\)\)\.trim\(\)&&data\.pinBlocked/.test(page) && /if\(hadNote!==!!gn\.value\.trim\(\)\)paint\(\)/.test(page), "7: ملاحظةٌ للقسم تجعله إرسالاً لا تثبيتاً، ويُعاد رسمُ الشريط حين تُكتب");
+
+{
+  const d = (...days: string[]) => new Set(days as any);
+  check(sectionDaysCompliant(3, d("fmonday", "fwednesday"), true), "7: الاثنين والأربعاء لمقررٍ بثلاث ساعات نمطٌ معتمد");
+  check(sectionDaysCompliant(3, d("fsunday", "ftuesday"), true), "7: الأحد والثلاثاء (غير متجاورين) ممتثلان");
+  check(sectionDaysCompliant(3, d("fsunday", "fthursday"), true), "7: الأحد والخميس (غير متجاورين) ممتثلان");
+  check(!sectionDaysCompliant(3, d("fsunday", "fmonday"), true), "7: يومان متجاوران يمنعان التثبيت");
+}
 
 /* ── 18 · الجاهزيةُ والشريط ──────────────────────────────────────────────── */
 const visual = read("src/server/requestVisual.ts");
@@ -118,7 +131,7 @@ check(/sessionStorage\.getItem\("schedule:open-row"\)/.test(schedules) && /openE
 check(/getInstructorRequestsForInstructor: async/.test(read("src/db/repository.ts")), "9: قراءةُ طلبات أستاذٍ واحدٍ بمعرّفه");
 const staff = read("src/server/routes/publicStaffRoutes.ts");
 check(/getInstructorRequestsForInstructor\(Number\(link\.AdTermId\), Number\(person\.AdInstructorId\)\)/.test(staff) && !/getInstructorRequests\(0, 0, Number\(link\.AdTermId\)\)/.test(staff), "9: «بطاقتي» لا تمسح طلبات الفصل كلّه");
-check(/const \[taDoc, termStates, offeringViews, interestDocs, taRows, dayPatterns, lengthPatterns, pinBlocked, hintedCourses\] = await Promise\.all\(\[/.test(pub), "9: صفحةُ الطلب تقرأ ما لا يعتمد بعضُه على بعض معاً");
+check(/const \[taDoc, termStates, offeringViews, interestDocs, taRows, dayPatterns, lengthPatterns, pinState, hintedCourses\] = await Promise\.all\(\[/.test(pub), "9: صفحةُ الطلب تقرأ ما لا يعتمد بعضُه على بعض معاً");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

@@ -26,7 +26,7 @@ import { chosenAlternativeIndex } from "../../utils/requestAlternatives";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "../../utils/instructorMovementWindow";
 import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "../../utils/instructorRequestConfirmation";
 import { verificationCode } from "../../utils/approvalWorkflow";
-import { DAY_KEYS, DAY_NAMES, daysApprovedForHours, effectiveCourseHours, expectedMinutesForDay, patternsForHours, startLadderNote, type DayKey } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysApprovedForHours, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, patternsForHours, startLadderNote, type DayKey } from "../../utils/scheduleRegulations";
 import { courseTagFactsFor, serviceCourseKeys } from "../planBadgeShared";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { endForRequest, headlineReasonOf, rowFromRequest, softSectionClash, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
@@ -711,7 +711,7 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
    * ثم الاهتمام، ثم الأنماط مرّتين…) وكلٌّ منها لا يحتاج سابقه. تُقرأ الآن معاً، ولا ينتظر إلا ما يعتمد على غيره. */
   const itemCourseIds = (request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0));
   const patternCourseIds = [...itemCourseIds, ...(courses as any[]).map(option => Number(option.id))];
-  const [taDoc, termStates, offeringViews, interestDocs, taRows, dayPatterns, lengthPatterns, pinBlocked, hintedCourses] = await Promise.all([
+  const [taDoc, termStates, offeringViews, interestDocs, taRows, dayPatterns, lengthPatterns, pinState, hintedCourses] = await Promise.all([
     mode === "ta" ? taPhaseForRequest(request) : Promise.resolve(null),
     offeringStatesForTerm(Number(request.AdTermId)),
     mode === "edit" ? offeringViewsFor(Number(request.AdTermId), courses as any[]) : Promise.resolve(new Map()),
@@ -720,7 +720,7 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
     mode === "ta" ? Promise.all([Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }), Repository.getCourses()]) : Promise.resolve(null),
     requestDayPatterns(patternCourseIds),
     requestLengthPatterns(patternCourseIds),
-    open && !request.submittedAt ? pinBlockers(judgedRequest).catch(() => []) : Promise.resolve([]),
+    open && !request.submittedAt ? pinReview(judgedRequest).catch(() => ({ blocks: [], soft: [] })) : Promise.resolve({ blocks: [], soft: [] }),
     mode === "edit" ? withPlanHints((courses as any[]).filter(option => offeredAllows(offeredCourseSet(request), option.id)), Number(request.AdTermId)) : Promise.resolve([]),
   ]);
   const taAllowed = allowedFor(taDoc, Number(request.AdInstructorId));
@@ -770,30 +770,65 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
        (REQUEST_LENGTH_SCRIPT)، فلا يقرأ الأستاذُ 16:50 ويُحفظ 17:15. */
     lengthPatterns,
     /* ما يمنع «ثبّت الجدول» الآن (pinBlockers): تقوله الصفحةُ قبل الضغط، والإرسالُ يرفضه بالنص نفسه. */
-    pinBlocked,
+    pinBlocked: pinState.blocks,
+    /* ما لا يمنع (مدّةُ لقاءٍ قديمة لا توافق النمط): يُقال للأستاذ تنبيهاً، ويصل القسمَ مع تثبيته. */
+    pinSoft: pinState.soft,
     ...(preview ? { preview: true } : {}),
   });
 }
 
 /**
  * ── «ثبّت الجدول» لا يثبّت ما يخالف النمط أو اللائحة (المالك 2026-11-12) ──────────
- * تثبيتُ الأستاذ جدولَه كما هو يُغلق طلبه «مكتملاً». فإن كان موعدٌ قائمٌ له يخالف نمطاً معتمداً أو ساعاتِ مقرّره
- * (الحكمان اللذان تمنع بهما ورشةُ الجدول الحفظ)، فلا يُثبَّت، ويُقال السببُ بنصّه ورقمِ البند ليعدّله أو يكتب للقسم.
+ * تثبيتُ الأستاذ جدولَه كما هو يُغلق طلبه «مكتملاً». يمنعه ما يمنعه الحفظُ في ورشة الجدول:
+ *   • أيامُ الشعبة ليست نمطاً معتمداً لساعات المقرر — ويُقبل يومان (أو أكثر) غيرُ متجاورين بعدد أيام نمطٍ معتمد
+ *     (القاعدةُ نفسها في meetingsMatchApprovedPattern: الأحد والثلاثاء كالاثنين والأربعاء)؛
+ *   • ساعاتُ المقرر الأسبوعية تزيد أو تنقص (scheduleLengthIssue).
+ * أما مدّةُ اللقاء وحدها (75د قديمة بدل 80د) فتنبيهٌ لا يمنع (قرار المالك: التنبيهاتُ الليّنة لا تمنع «ثبّت»):
+ * تُقال للأستاذ، وتُحفظ مع طلبه ليراها القسم في قائمة من ثبّت جدوله.
  * والنصُّ بلا قاعة (قاعدة المالك: لا تُعرض القاعات للأستاذ).
  */
-export async function pinBlockers(request: InstructorRequest): Promise<Array<{ itemIndex: number; text: string }>> {
+export async function pinReview(request: InstructorRequest): Promise<{ blocks: Array<{ itemIndex: number; text: string }>; soft: Array<{ itemIndex: number; text: string }> }> {
   const kept = (request.items || []).map((item, itemIndex) => ({ item, itemIndex }))
     .filter(({ item }) => item.action === "keep" && item.rowId != null && !item.decision?.state);
-  if (!kept.length) return [];
-  const found = await Promise.all(kept.map(async ({ item, itemIndex }) => {
-    const row = await Repository.getScheduleById(Number(item.rowId)).catch(() => null);
-    if (!row || Number(row.AdInstructorId) !== Number(request.AdInstructorId)) return null;
-    const issue = await unapprovedPatternIssue(row).catch(() => null) || await scheduleLengthIssue(row).catch(() => null);
-    if (!issue) return null;
+  const blocks: Array<{ itemIndex: number; text: string }> = [], soft: Array<{ itemIndex: number; text: string }> = [];
+  if (!kept.length) return { blocks, soft };
+  const clean = (value: unknown) => String(value || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  await Promise.all(kept.map(async ({ item, itemIndex }) => {
+    const row: any = await Repository.getScheduleById(Number(item.rowId)).catch(() => null);
+    if (!row || Number(row.AdInstructorId) !== Number(request.AdInstructorId)) return;
     const name = String(item.before?.courseName || row.AdCourseName || "").trim();
-    return { itemIndex, text: `${name ? `${name}: ` : ""}${String(issue).replace(/<[^>]+>/g, "").trim()}` };
+    const say = (text: string) => ({ itemIndex, text: `${name ? `${name}: ` : ""}${clean(text)}` });
+    const course = await Repository.getCourseById(Number(row.AdCourseId)).catch(() => null);
+    const hours = effectiveCourseHours(course);
+    const own = DAY_KEYS.filter(day => Boolean(row[day])) as DayKey[];
+    if (hours > 0 && own.length) {
+      const siblings = (await Repository.getSchedulesByScope({ collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId), termId: Number(row.AdTermId) }).catch(() => []) as any[])
+        .filter(other => Number(other.AdCourseId) === Number(row.AdCourseId) && String(other.SCode || "") === String(row.SCode || "") && Number(other.id) !== Number(row.id));
+      const union = new Set<DayKey>(own);
+      for (const other of siblings) for (const day of DAY_KEYS) if (other[day]) union.add(day);
+      if (!sectionDaysCompliant(hours, union, own.length > 1)) {
+        const issue = await unapprovedPatternIssue(row).catch(() => null);
+        blocks.push(say(issue || "أيام هذه الشعبة ليست نمطاً معتمداً لساعات المقرر."));
+        return;
+      }
+    }
+    const hoursIssue = await scheduleLengthIssue(row).catch(() => null);
+    if (hoursIssue) { blocks.push(say(hoursIssue)); return; }
+    const lengthOnly = await unapprovedPatternIssue(row).catch(() => null);
+    if (lengthOnly) soft.push(say(lengthOnly));
   }));
-  return found.filter(Boolean) as Array<{ itemIndex: number; text: string }>;
+  const byIndex = (a: { itemIndex: number }, b: { itemIndex: number }) => a.itemIndex - b.itemIndex;
+  return { blocks: blocks.sort(byIndex), soft: soft.sort(byIndex) };
+}
+export async function pinBlockers(request: InstructorRequest) { return (await pinReview(request)).blocks; }
+
+/** أيامُ الشعبة نمطٌ معتمد، أو أيامٌ غيرُ متجاورة بعدد أيام نمطٍ معتمدٍ متعدّد الأيام لساعات المقرر. خالصة. */
+export function sectionDaysCompliant(hours: number, days: ReadonlySet<DayKey>, exact: boolean): boolean {
+  if (!(hours > 0) || !days.size) return true;
+  if (daysFitLibrary(hours, days, exact) !== false) return true;
+  const indices = [...days].map(day => DAY_KEYS.indexOf(day)).sort((a, b) => a - b);
+  const spread = indices.every((value, index) => index === 0 || value - indices[index - 1] >= 2);
+  return spread && patternsForHours(hours).some(pattern => pattern.days.length > 1 && pattern.days.length === days.size);
 }
 
 /* بقيةُ مسارات باب الأستاذ (الإرسال والحوار والفحص…): مكانُها وعمودُها كما كانا. */
@@ -937,11 +972,14 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
   // Only a genuine LIVE unmodified timetable can be confirmed immediately.
   let liveRows: FSchedule[] = [];
   let unchangedConfirmed = false;
+  let pinSoftNotes: string[] = [];
   if (changed === 0) {
     liveRows = await Repository.getSchedulesByScope({ termId: Number(resolved.request.AdTermId) });
     unchangedConfirmed = canConfirmUnchanged(judged, liveRows, generalNote, resolved.request);
     if (unchangedConfirmed) {
-      const blockers = await pinBlockers(judged);
+      const review = await pinReview(judged);
+      const blockers = review.blocks;
+      pinSoftNotes = review.soft.map(entry => entry.text);
       if (blockers.length) {
         res.status(409).json({ error: `لا يمكن تثبيت جدولك كما هو: ${blockers[0].text} عدّل هذا الموعد أو اكتب ملاحظة للقسم.`, code: "pin-blocked", itemIndex: blockers[0].itemIndex, pinBlocked: blockers });
         return;
@@ -955,6 +993,8 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
     items: judged.items,
     note: generalNote || undefined,
     status: unchangedConfirmed ? "settled" : "submitted",
+    /* ثبّته مع تنبيه مدّةٍ لا يمنع: يراه القسمُ في قائمة من ثبّت جدوله ليعالجه (قرار المالك). */
+    ...(unchangedConfirmed && pinSoftNotes.length ? { pinSoftNotes } : {}),
     submittedAt: at,
     signature,
     signatureHistory: [...(resolved.request.signatureHistory || []), ...(resolved.request.signature ? [resolved.request.signature] : [])],
@@ -962,7 +1002,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
       ...(resolved.request.timeline || []),
       ...alternativeEvents,
       { kind: "submitted", at, detail: String(changed) },
-      ...(unchangedConfirmed ? [{ kind: unchangedConfirmationKind, at }] : [{ kind: "received" as const, at, by: "القسم" }]),
+      ...(unchangedConfirmed ? [{ kind: unchangedConfirmationKind, at, ...(pinSoftNotes.length ? { detail: "مع تنبيه مدة لا يمنع" } : {}) }] : [{ kind: "received" as const, at, by: "القسم" }]),
     ],
   }, await requestReservationProposals(judged), unchangedConfirmed
     ? { scheduleFingerprint: unchangedScheduleFingerprint(liveRows, Number(resolved.request.AdInstructorId)) }
