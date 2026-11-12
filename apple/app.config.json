@@ -1,0 +1,20 @@
+{
+  "repo": "schedule-kw",
+  "appId": "com.dralfailakawi.schedule",
+  "nameAr": "SCHEDULE",
+  "nameEn": "SCHEDULE",
+  "displayName": "SCHEDULE",
+  "url": "https://schedule-kw.com",
+  "allowNavigation": [
+    "*.firebaseapp.com",
+    "*.googleapis.com"
+  ],
+  "icon": "public/schedule-icon-512.png",
+  "background": "#F2F3EF",
+  "backgroundDark": "#141513",
+  "accent": "#2C5E4F",
+  "lsCategory": "public.app-category.education",
+  "photos": true,
+  "version": "1.0.0",
+  "build": 1
+}

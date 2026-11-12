@@ -88,7 +88,8 @@ type ColumnName = keyof typeof COLUMNS;
 
 /** الأقواس تُطبع معكوسةً في الطبقة النصية: «)1(» تعني «(1)». */
 const unmirror = (text: string): string => text.replace(/[()]/g, ch => (ch === "(" ? ")" : "("));
-const clean = (text: string): string => unmirror(String(text || "").normalize("NFKC")).replace(/\s+/g, " ").trim();
+/* التطويل («صـحــه») زخرفةٌ في الطباعة لا حرف: يُحذف فيُقرأ الاسم كما يُكتب. */
+const clean = (text: string): string => unmirror(String(text || "").normalize("NFKC")).replace(/\u0640/g, "").replace(/\s+/g, " ").trim();
 const CODE = /^(\d{2,3}) (\d{2}) (\d{2})$/;
 const GLUED_PREREQ = /^[()]?(\d{2,3} \d{2} \d{2})\s*(?:أو)?[()]?$/;
 const STRAY_CODE = /^\d{2,3} \d{2} \+\d{2}$/;
@@ -150,7 +151,8 @@ export function parsePlanItems(pages: PlanItem[][]): ParsedPlan {
     const years = semester.str.match(/(\d{4})-(\d{4})/);
     if (years) plan.startYear = Math.min(Number(years[1]), Number(years[2]));
   }
-  const collegeItem = head.find(item => item.str.startsWith("كلية "));
+  /* «كلية» أو «كليه»: صحائف العلوم الصحية تطبعها بالهاء. */
+  const collegeItem = head.find(item => /^كلي[ةه] /.test(item.str));
   plan.college = collegeItem?.str || "";
   const deptItems = headText(item => item.y > 480 && item.y < 495 && item.str !== ":" && !/^BA-/i.test(item.str) && item.str !== "القسم" && item.str !== "البرنامج");
   plan.department = deptItems.find(item => item.x > 600)?.str || deptItems[0]?.str || "";

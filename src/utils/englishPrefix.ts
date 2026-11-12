@@ -35,8 +35,9 @@ const LETTERS: Record<string, string> = {
   ط: "t", ظ: "z", ع: "a", غ: "gh", ف: "f", ق: "q", ك: "k", ل: "l", م: "m", ن: "n", ه: "h", و: "w", ي: "y", ء: "", ئ: "i", ؤ: "u",
 };
 
+/* NFKC لا NFKD: الثانية تفصل همزة «ئ» علامةً فتُحذف مع التشكيل («البيئة» ← Byyh). */
 const normalize = (value: string) => String(value || "")
-  .normalize("NFKD").replace(/[ً-ٰٟـ]/g, "")
+  .normalize("NFKC").replace(/[ً-ٰٟـ]/g, "")
   .replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").trim();
 
 const cap = (value: string) => value ? value[0].toUpperCase() + value.slice(1) : "";
