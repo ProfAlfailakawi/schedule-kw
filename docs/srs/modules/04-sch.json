@@ -533,10 +533,10 @@
       "kind": "functional",
       "title": { "ar": "مكتبة الأنماط المعتمدة", "en": "Approved pattern library" },
       "text": {
-        "ar": "يجب على النظام أن يرفض عند الإنشاء، وعند التعديل إن تغيّر شكل الموعد (الأيام أو الوقت)، توزيعاً لأيام الشعبة (مجتمعةً مع شعبها الأخرى للمقرر نفسه في القسم والفصل) لا يطابق نمطاً من مكتبة الأنماط (17 نمطاً لمقررات من ساعة إلى خمس ساعات)، وأن يعيد في الرسالة الأنماط المعتمدة.",
-        "en": "The system shall refuse on create, and on edit when the row's shape (days or time) changes, a distribution of the section's days (combined with the course's other meetings in the same department and term) that does not match a pattern in the library of 17 patterns for courses of one to five hours, and list the approved patterns in the message."
+        "ar": "يجب على النظام أن يرفض عند الإنشاء، وعند التعديل إن تغيّر شكل الموعد (الأيام أو الوقت)، توزيعاً لأيام الشعبة (مجتمعةً مع شعبها الأخرى للمقرر نفسه في القسم والفصل) لا يطابق نمطاً من مكتبة الأنماط (17 نمطاً لمقررات من ساعة إلى خمس ساعات) ولا أطوالَ نمطٍ منها على أيامٍ غير متتالية بالعدد نفسه، وأن يعيد في الرسالة الأنماط المعتمدة؛ والحكمُ نفسه في الإنشاء والتعديل والبطاقة السريعة وطلب الأستاذ والاستيراد ومراجعة الاعتماد.",
+        "en": "The system shall refuse on create, and on edit when the row's shape (days or time) changes, a distribution of the section's days (combined with the course's other meetings in the same department and term) that matches neither a pattern in the library of 17 patterns for courses of one to five hours nor a library pattern's lengths on the same number of non-adjacent days, and list the approved patterns in the message; the same rule applies on create, edit, the quick card, teacher requests, import and the approval review."
       },
-      "rationale": { "ar": "قرار المالك 2026-10-30: النمط لازم يكون معتمداً، والتاريخ اقتراح لا يخالف اللائحة.", "en": "Owner decision 2026-10-30: the pattern must be approved; history is a suggestion that never overrides the regulation." },
+      "rationale": { "ar": "قرار المالك 2026-10-30: النمط لازم يكون معتمداً، والتاريخ اقتراح لا يخالف اللائحة. وقراره (القرار 1913/2016 م.7/8): المعتمدُ هو الشكل لا اليوم المثال، فالأحد·الأربعاء والاثنين·الخميس بالأطوال المعتمدة مثلُ الاثنين·الأربعاء.", "en": "Owner decision 2026-10-30: the pattern must be approved; history is a suggestion that never overrides the regulation. Owner ruling (decision 1913/2016 art. 7/8): the shape is approved, not the example day, so Sun+Wed and Mon+Thu at approved lengths count like Mon+Wed." },
       "priority": "must",
       "status": "implemented",
       "actors": ["committeeChair", "departmentHead"],
@@ -544,9 +544,10 @@
         { "ar": "مقرر ساعتان: «الأحد + الثلاثاء» و«الثلاثاء + الخميس» و«الاثنين + الأربعاء» و«الثلاثاء 110 دقيقة» مقبولة؛ و«الأحد + الاثنين» تُردّ 400 مع سرد المعتمد.", "en": "A 2-hour course: Sun+Tue, Tue+Thu, Mon+Wed and Tuesday 110 min are accepted; Sun+Mon is refused with 400 listing the approved ones." },
         { "ar": "الكتل الأحادية معتمدة بأطوالها: 170 لثلاث فترات، و230 لأربع، و290 لخمس.", "en": "Single-day blocks are approved with their lengths: 170 for three periods, 230 for four, 290 for five." },
         { "ar": "إعادة حفظ موعد قائم لم يتغيّر شكله لا تُردّ بقاعدة النمط، ولا الاستعادة الدقيقة من آلة الزمن.", "en": "Re-saving an existing row whose shape is unchanged is not refused by the pattern rule, nor is an exact restore from the time machine." },
-        { "ar": "مقرر بلا ساعات أو اعتمادات لا يُفحص نمطه.", "en": "A course with no hours or credits is not pattern-checked." }
+        { "ar": "مقرر بلا ساعات أو اعتمادات لا يُفحص نمطه.", "en": "A course with no hours or credits is not pattern-checked." },
+        { "ar": "مقرر ثلاث ساعات على «الأحد + الأربعاء» أو «الاثنين + الخميس» بـ80 دقيقة لكل لقاء (وأربع ساعات بـ110) يُقبل في الإنشاء والتعديل والبطاقة السريعة وطلب الأستاذ والاستيراد كما تقبله مراجعة الاعتماد؛ و«الأحد + الاثنين» المتتاليان أو طولٌ خارج المكتبة (75 دقيقة) يُردّ كما كان.", "en": "A 3-hour course on Sun+Wed or Mon+Thu at 80 minutes per meeting (110 for 4 hours) is accepted on create, edit, the quick card, teacher requests and import just as the approval review accepts it; adjacent Sun+Mon or a length outside the library (75 minutes) is refused as before." }
       ],
-      "evidence": { "code": ["src/utils/scheduleRegulations.ts#PATTERN_LIBRARY", "src/utils/scheduleRegulations.ts#daysFitLibrary", "src/server/core/scheduleRules.ts#unapprovedPatternIssue"], "tests": ["tests/approved-patterns-audit.ts", "tests/pattern-library-audit.ts", "tests/holds-patterns-r4-audit.ts"] }
+      "evidence": { "code": ["src/utils/scheduleRegulations.ts#PATTERN_LIBRARY", "src/utils/scheduleRegulations.ts#approvedShapesForHours", "src/utils/scheduleRegulations.ts#daysFitLibrary", "src/server/core/scheduleRules.ts#unapprovedPatternIssue"], "tests": ["tests/approved-patterns-audit.ts", "tests/pattern-library-audit.ts", "tests/holds-patterns-r4-audit.ts", "tests/pattern-rule-unify-audit.ts"] }
     },
     {
       "id": "FR-SCH-018",

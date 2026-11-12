@@ -54,7 +54,8 @@ check(!later.reasons.some(r => r.blocking && r.source === "shape"), "P2 بداي
 check(later.blockMinutes === 110 && later.computedEnd === "16:50", "P2 المدةُ من النمط المعتمد لا من طول الموعد القديم (٧٥ دقيقة): ينتهي 16:50", { block: later.blockMinutes, end: later.computedEnd });
 
 /* P3: النصُّ يساوي الأزرار، وكلُّ زرٍّ يمرّ من الفاحص */
-const bad = judge(["fsunday", "fwednesday"], "09:00", full);
+/* الأحد·الأربعاء بأطوال المكتبة شكلٌ معتمد (قرار المالك: أيامٌ غير متتالية)؛ فالناقصُ يومان متتاليان على طول يومهما. */
+const bad = judge(["fsunday", "fmonday"], "09:00", full);
 const hours = bad.reasons.find(r => r.code === "hours");
 check(!!hours && hours.blocking, "P3 أيامٌ لا تغطّي الساعات: مانعٌ برمز hours", bad.reasons);
 const buttons = (bad.shapes || []).map(s => s.label);
