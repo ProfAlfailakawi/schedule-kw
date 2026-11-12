@@ -275,8 +275,9 @@ export function isSpecialEducationSheet(sheet: { programName?: string }): boolea
 }
 
 /** صحيفةُ مسار: برنامجٌ بتخصصٍ مزدوج (BA-012402…)، أو الإنجليزية للمتوسط والثانوي، أو رياض الأطفال. */
+/* المسارُ المزدوج برنامجٌ للتربية الأساسية (BA-01xxxx)؛ رمزٌ بست خاناتٍ لكليةٍ أخرى (BA-031001 العلوم البيئية) صحيفةُ قسمها الرئيسية. */
 export const trackProgramOf = (sheet: { program: string }): string =>
-  /^BA-\d{6}$/.test(sheet.program) || sheet.program === "BA-0119" || sheet.program === "BA-0110" ? sheet.program : "";
+  /^BA-01\d{4}$/.test(sheet.program) || sheet.program === "BA-0119" || sheet.program === "BA-0110" ? sheet.program : "";
 
 /** رمزُ القسم صاحب الصحيفة: KG لرياض الأطفال، 18 للإنجليزية للمتوسط والثانوي، 19 للتربية الخاصة، وإلا القسمُ الأكثر مقرراتٍ في التخصص. */
 export function sheetHomeCode(sheet: { program: string; programName?: string; courses: Array<{ dept: string; sectionNo: number }> }): string {

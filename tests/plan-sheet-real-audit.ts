@@ -6,6 +6,8 @@
 import fs from "fs";
 import { extractPlanItems } from "../src/server/planPdfExtract";
 import { parsePlanItems } from "../src/utils/planPdfParser";
+import { trackProgramOf } from "../src/server/sheetReconcile";
+import { englishPrefixOf } from "../src/utils/englishPrefix";
 import { buildReferenceRules } from "../src/utils/referenceApply";
 import { blockingWarnings, checkSheetScope, isNewSheet, sheetKey, sheetOwnKey, sheetSectionName, sheetToReference, correctedNames, dominantDepartment, ownCourses, printedTotalsNotes } from "../src/utils/planSheetImport";
 
@@ -71,6 +73,8 @@ const EXPECTED: Record<string, [string, number]> = {
   const envScope = { collegeName: "كلية العلوم الصحية - بنات", collegeCode: "03", sectionName: "قسم صحة البيئة", departmentKey: "0344" };
   check(checkSheetScope(env, envScope) === null, "صحة البيئة: تُقبل في قسمها بكلية العلوم الصحية");
   check(checkSheetScope(env, { ...envScope, collegeName: "كلية التربية الأساسية - بنات", collegeCode: "01", departmentKey: "0144" })?.kind === "college", "صحة البيئة: لا تُقبل في كليةٍ أخرى");
+  check(isNewSheet(env) && !trackProgramOf(env), "صحة البيئة (2008): صحيفة القسم المعتمدة لا «السابقة»، وليست مساراً مزدوجاً");
+  check(englishPrefixOf("قسم صحة البيئة") === "HealthEnvironment", "حسابات صحة البيئة: HealthEnvironment لا HealthByyh");
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);
 })();
