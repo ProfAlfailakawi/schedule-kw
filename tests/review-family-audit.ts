@@ -11,6 +11,8 @@
  *   F5 «توزيع الفترتين» يُحسب لمواعيد الكلية المفتوحة، لا للعائلة كلها.
  *   F6 قسمٌ ليس عنده إلا ملاحظاتُ «خارج سُلّم اللائحة» (شكلُ تكنولوجيا التعليم بنين في
  *      الفصل الثاني 2026/2027) تُعرض ملاحظاتُه، لا «لا ملاحظات».
+ *   F7 والورقةُ المطبوعة كذلك: تُطبع ملاحظاتُ السُّلّم في بطاقة الملاحظة المطبوعة نفسها،
+ *      ويُسأل عن «لا توجد موانع ظاهرة» بالعدّ نفسه الذي تسأل به الشاشة.
  */
 import fs from "fs";
 import os from "os";
@@ -120,6 +122,22 @@ check(/periodBalanceSnapshot\(scopeRows\)/.test(review) && !/periodBalanceSnapsh
   check(reviewHasFindings(0, 0, ladder.length) && !reviewHasFindings(0, 0, 0), "F6 ملاحظاتُ السُّلّم وحدها تكفي لتُعرض القائمة");
   check(/reviewHasFindings\(groupedFindings\.length, warningGroups\.length, quietFindings\.length\)/.test(review)
     && !/\{groupedFindings\.length \|\| warningGroups\.length \?/.test(review), "F6 والشاشة تسأل بها، لا بالموانع والتنبيهات وحدها");
+}
+
+/* F7: الورقةُ المطبوعة — ملاحظاتُ السُّلّم وحدها تُطبع، بالبطاقة نفسها، مجمّعةً بالمقررات. */
+{
+  const { packPrintFindings } = await import("../src/utils/printFindingPages");
+  const ladderOnly = [{ groupKey: "regulation-ladder", rowIds: [1, 2, 3] }];
+  const pages = packPrintFindings(ladderOnly, finding => finding.rowIds);
+  check(pages.length === 1 && pages[0].length === 1 && pages[0][0].rowIds.length === 3, "F7 ملاحظةُ السُّلّم وحدها تملأ الصفحة الأولى بمواعيدها كلها", pages);
+  check(/packPrintFindings<ReviewFindingGroup>\(printFindings,/.test(review)
+    && /const printFindings = \[\.\.\.groupedFindings, \.\.\.warningGroups, \.\.\.ladderNotes\]/.test(review),
+    "F7 الورقةُ ترصّ ملاحظاتِ السُّلّم مع الموانع والتنبيهات");
+  check(/reviewHasFindings\(groupedFindings\.length, warningGroups\.length, ladderNotes\.length\) \? firstPrintPage\.map\(renderPrintFinding\)/.test(review)
+    && !/\{findings\.length \? firstPrintPage/.test(review), "F7 «لا توجد موانع ظاهرة» على الورقة بالعدّ نفسه الذي تسأل به الشاشة");
+  check(/finding\.rule === "regulation-ladder" \? AR\.course : AR\.conflict/.test(review), "F7 السُّلّمُ يُعدّ بالمقررات على الورقة، لا بالتعارضات");
+  const printCards = review.match(/className=\{`print-review-finding /g) || [];
+  check(printCards.length === 1, "F7 لا بطاقةَ مطبوعةً جديدة: الملاحظةُ ترسم بالبطاقة القائمة", printCards.length);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

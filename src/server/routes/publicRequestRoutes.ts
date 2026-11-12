@@ -780,8 +780,8 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
 /**
  * ── «ثبّت الجدول» لا يثبّت ما يخالف النمط أو اللائحة (المالك 2026-11-12) ──────────
  * تثبيتُ الأستاذ جدولَه كما هو يُغلق طلبه «مكتملاً». يمنعه ما يمنعه الحفظُ في ورشة الجدول:
- *   • أيامُ الشعبة ليست نمطاً معتمداً لساعات المقرر — ويُقبل يومان (أو أكثر) غيرُ متجاورين بعدد أيام نمطٍ معتمد
- *     (القاعدةُ نفسها في meetingsMatchApprovedPattern: الأحد والثلاثاء كالاثنين والأربعاء)؛
+ *   • أيامُ الشعبة ليست نمطاً في مكتبة الأنماط لساعات المقرر (daysFitLibrary — الحَكَمُ الواحد، قرار المالك
+ *     2026-11-13: المكتبةُ وحدها، فالاثنين·الخميس والأحد·الأربعاء والأحد·الخميس تمنع، وكتلةُ اليوم الواحد لأيّ يوم)؛
  *   • ساعاتُ المقرر الأسبوعية تزيد أو تنقص (scheduleLengthIssue).
  * أما مدّةُ اللقاء وحدها (75د قديمة بدل 80د) فتنبيهٌ لا يمنع (قرار المالك: التنبيهاتُ الليّنة لا تمنع «ثبّت»):
  * تُقال للأستاذ، وتُحفظ مع طلبه ليراها القسم في قائمة من ثبّت جدوله.
@@ -806,7 +806,7 @@ export async function pinReview(request: InstructorRequest): Promise<{ blocks: A
         .filter(other => Number(other.AdCourseId) === Number(row.AdCourseId) && String(other.SCode || "") === String(row.SCode || "") && Number(other.id) !== Number(row.id));
       const union = new Set<DayKey>(own);
       for (const other of siblings) for (const day of DAY_KEYS) if (other[day]) union.add(day);
-      if (!sectionDaysCompliant(hours, union, own.length > 1)) {
+      if (daysFitLibrary(hours, union, own.length > 1) === false) {
         const issue = await unapprovedPatternIssue(row).catch(() => null);
         blocks.push(say(issue || "أيام هذه الشعبة ليست نمطاً معتمداً لساعات المقرر."));
         return;
@@ -821,15 +821,6 @@ export async function pinReview(request: InstructorRequest): Promise<{ blocks: A
   return { blocks: blocks.sort(byIndex), soft: soft.sort(byIndex) };
 }
 export async function pinBlockers(request: InstructorRequest) { return (await pinReview(request)).blocks; }
-
-/** أيامُ الشعبة نمطٌ معتمد، أو أيامٌ غيرُ متجاورة بعدد أيام نمطٍ معتمدٍ متعدّد الأيام لساعات المقرر. خالصة. */
-export function sectionDaysCompliant(hours: number, days: ReadonlySet<DayKey>, exact: boolean): boolean {
-  if (!(hours > 0) || !days.size) return true;
-  if (daysFitLibrary(hours, days, exact) !== false) return true;
-  const indices = [...days].map(day => DAY_KEYS.indexOf(day)).sort((a, b) => a - b);
-  const spread = indices.every((value, index) => index === 0 || value - indices[index - 1] >= 2);
-  return spread && patternsForHours(hours).some(pattern => pattern.days.length > 1 && pattern.days.length === days.size);
-}
 
 /* بقيةُ مسارات باب الأستاذ (الإرسال والحوار والفحص…): مكانُها وعمودُها كما كانا. */
 function registerPublicRequestWritesRoutes(app: Express): void {
@@ -1104,7 +1095,7 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
     if (start && days.length && !sameAsBase && item.action !== "delete") {
       const hours = effectiveCourseHours(await Repository.getCourseById(proposalCourse));
       const long = (day: string) => day === "fmonday" || day === "fwednesday";
-      const approvedDays = patternsForHours(hours).some(pattern => pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
+      const approvedDays = daysFitLibrary(hours, days as DayKey[], true) === true;
       if (days.some(long) && days.some(day => !long(day)) && !approvedDays) {
         res.status(400).json({ error: "لا يُخلط بين أيام الـ50 والـ80 دقيقة إلا بنمطٍ معتمد في مكتبة الأنماط." });
         return;
