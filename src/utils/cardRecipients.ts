@@ -11,6 +11,7 @@ import type { InstructorRequest } from "../types";
 import { linkMode } from "./linkMode";
 import { latestRequestByInstructor } from "./requestReissue";
 
+import { AR, countOf } from "./arabicCount";
 export type ExclusionReason = "visiting" | "trainee";
 
 export function cardExclusions(input: {
@@ -121,7 +122,7 @@ export function buildTeacherTracks(input: {
       if (event.kind === "link-created" && !event.detail && input.sends.some(send => (send.instructorIds || []).map(Number).includes(id)
         && Math.abs(Date.parse(String(send.at || "")) - Date.parse(String(event.at))) < 120000)) continue;
       const count = event.kind === "submitted" ? Number(event.detail) : NaN;
-      const text = event.kind === "submitted" ? (count === 0 ? "أرسل جدوله دون تعديل" : Number.isFinite(count) && count > 0 ? `أرسل طلبه (${count} تعديل)` : known[1])
+      const text = event.kind === "submitted" ? (count === 0 ? "أرسل جدوله دون تعديل" : Number.isFinite(count) && count > 0 ? `أرسل طلبه (${countOf(count, AR.edit)})` : known[1])
         : event.kind === "link-created" && event.detail ? `فُتح له طلب التعديل · ${event.detail}` : known[1];
       push(id, { at: String(event.at || ""), tone: known[0], text });
     }

@@ -726,7 +726,7 @@ export default function TeacherMiniWeek({
             </em>
           ) : null}
           <em className={dayDelta > 0 ? "is-up" : ""} title={`أيام الحضور في الأسبوع: ${header.daysAfter}`} aria-label={`أيام الحضور ${header.daysAfter}`}>
-            <CalendarDays aria-hidden="true" /><span dir="ltr">{header.daysAfter}</span><small className="mini-week-fact-word">أيام</small>{dayDelta > 0 ? <sup dir="ltr">+{dayDelta}</sup> : null}
+            <CalendarDays aria-hidden="true" /><span>{countOf(header.daysAfter, AR.day)}</span>{dayDelta > 0 ? <sup dir="ltr">+{dayDelta}</sup> : null}
           </em>
           {/* «⌛ 0.5» وحدها لم تُفهم (المالك): هي ساعاتُ الفراغ بين محاضراته في الأسبوع، فتُقال بكلمتها. */}
           <em className={gapDelta > 0 ? "is-up" : gapDelta < 0 ? "is-down" : ""} aria-label={gapWords(header.gapAfter)}

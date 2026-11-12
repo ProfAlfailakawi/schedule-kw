@@ -1221,7 +1221,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                               <CalendarPlus />
                             </a>
                           )}
-                          <button type="button" title="إيقاف الرابط" aria-label="إيقاف الرابط" aria-expanded={link.kind === "staff" ? stopAsk === link.id : undefined}
+                          <button type="button" title="إيقاف الرابط" aria-label="إيقاف الرابط" data-guide-ignore="إيقاف الرابط؛ بطاقة القسم تسأل أولاً: وحدها أم مع روابط الأساتذة" aria-expanded={link.kind === "staff" ? stopAsk === link.id : undefined}
                             onClick={() => (link.kind === "staff" && !Number(link.AdInstructorId || 0) ? setStopAsk(stopAsk === link.id ? null : link.id) : revoke(link.id))} disabled={dead || busy}>
                             <Trash2 />
                           </button>

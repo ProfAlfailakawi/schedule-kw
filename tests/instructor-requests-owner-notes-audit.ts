@@ -58,7 +58,7 @@ const tracks = buildTeacherTracks({
 const nawal = tracks.find(track => track.instructorId === 922)!;
 check(Boolean(nawal) && nawal.events.map(event => event.tone).join(",") === "send,send,open,open,change,decide", "13: الإرسالُ ثم التسليمُ ثم الفتحُ ثم الإرسالُ ثم قرارُ القسم — بالترتيب");
 check(!nawal.events.some(event => event.text === "فُتح له طلب التعديل"), "13: «فُتح له طلب التعديل» لا يكرّر سطرَ الإرسال الواقع معه");
-check(nawal.events.some(event => event.text === "أرسل طلبه (2 تعديل)"), "13: عددُ التعديلات في سطر الإرسال");
+check(nawal.events.some(event => /^أرسل طلبه \(.+\)$/.test(event.text) && /2|تعديلان/.test(event.text)), "13: عددُ التعديلات في سطر الإرسال");
 const hamed = tracks.find(track => track.instructorId === 7)!;
 check(hamed.events.some(event => event.tone === "pin") && hamed.events.some(event => /للعرض/.test(event.text)), "13: التثبيتُ وإرسالُ العرض كلاهما في مساره");
 check(tracks[0].instructorId === 7, "13: الأحدثُ حركةً أولاً");
@@ -105,7 +105,7 @@ check(/<KwWhen value=\{unchangedConfirmedAt\(row\)\} \/>/.test(inbox) && !/uncha
 
 /* ── 19 · الحقائق المصغّرة ───────────────────────────────────────────────── */
 const mini = read("src/components/TeacherMiniWeek.tsx");
-check(/mini-week-fact-word">فراغ</.test(mini) && /mini-week-fact-word">نصاب</.test(mini) && /mini-week-fact-word">أيام</.test(mini), "19: «نصاب» و«أيام» و«فراغ … س» بكلماتها");
+check(/mini-week-fact-word">فراغ</.test(mini) && /mini-week-fact-word">نصاب</.test(mini) && /countOf\(header\.daysAfter, AR\.day\)/.test(mini), "19: «نصاب» و«أيام» و«فراغ … س» بكلماتها");
 check(/ساعات الفراغ بين محاضراته في الأسبوع/.test(mini), "19: تلميحٌ يشرح الفراغ");
 
 /* ── 11 · إلى الموعد الأصلي ─────────────────────────────────────────────── */
