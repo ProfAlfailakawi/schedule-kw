@@ -16,6 +16,7 @@ import fs from "fs";
 import { buildTeacherTracks } from "../src/utils/cardRecipients";
 import { rankRequestRooms } from "../src/utils/requestRoomRanking";
 import { sectionDaysCompliant } from "../src/server/routes/publicRequestRoutes";
+import type { DayKey } from "../src/utils/scheduleRegulations";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -96,7 +97,7 @@ check(/var pinBlockTxt=/.test(page) && /!pinBlockTxt\)h\+='<div class="send">/.t
 check(/edited===0&&!String\(noteNow\(\)\)\.trim\(\)&&data\.pinBlocked/.test(page) && /if\(hadNote!==!!gn\.value\.trim\(\)\)paint\(\)/.test(page), "7: ملاحظةٌ للقسم تجعله إرسالاً لا تثبيتاً، ويُعاد رسمُ الشريط حين تُكتب");
 
 {
-  const d = (...days: string[]) => new Set(days as any);
+  const d = (...days: DayKey[]) => new Set<DayKey>(days);
   check(sectionDaysCompliant(3, d("fmonday", "fwednesday"), true), "7: الاثنين والأربعاء لمقررٍ بثلاث ساعات نمطٌ معتمد");
   check(sectionDaysCompliant(3, d("fsunday", "ftuesday"), true), "7: الأحد والثلاثاء (غير متجاورين) ممتثلان");
   check(sectionDaysCompliant(3, d("fsunday", "fthursday"), true), "7: الأحد والخميس (غير متجاورين) ممتثلان");
