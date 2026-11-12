@@ -109,7 +109,7 @@ const context: TmContext = {
   const ui = read("src/components/AllCourses.tsx");
   check(/الصحيفة الجديدة/.test(ui) && /الصحيفة القديمة/.test(ui) && /ScenarioWorkbench/.test(ui) && /removeOneSection|addOneSection/.test(ui), "1.8 لسانا الصحيفتين، والاعتماد من منضدة السيناريو وحدها");
   const xfer = read("src/components/ScheduleTransfer.tsx");
-  check(/goTab\("courses"\)/.test(xfer) && xfer.indexOf('goTab("planning")') < xfer.indexOf('goTab("courses")') && xfer.indexOf('goTab("courses")') < xfer.indexOf('goTab("simulator")'), "1.9 لسان «كل المقررات» بجانب «تخطيط الشعب»");
+  check(/goTab\("courses"\)/.test(xfer) && xfer.indexOf('goTab("planning")') < xfer.indexOf('goTab("courses")') && !xfer.includes('goTab("simulator")') && !xfer.includes('goTab("improve")'), "1.9 لسان «كل المقررات» بجانب «تخطيط الشعب»، والمحاكي والتحسين في مركز الذكاء وحده");
   check(!/from "\.\.\/utils\/scheduleIntelligence"[\s\S]*findConflicts/.test(read("src/utils/courseWhatIf.ts")), "1.10 لا محرّك ثانٍ: courseWhatIf يستعمل محرّك المحاكي");
 }
 

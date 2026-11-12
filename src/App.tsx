@@ -1900,8 +1900,10 @@ export default function App() {
           unauthorized()
         );
       case "timeMachine":
-        /* آلة الزمن: يحاكي فيها من يقرأ الجدول (رئيس القسم والعميد للعرض)، ويعتمد من يكتبه — والحارسُ في الخادم. */
-        return hasPerm(7) || opensChangesScreen(sessionRole) ? <TimeMachine /> : unauthorized();
+        /* آلة الزمن: لمن يبني الجدول هي «جرّب ← ماذا لو» داخل مركز الذكاء (والرابطُ القديم يفتحها هناك)؛
+           ومن يقرأ الجدول ولا يدخل المركز (رئيس القسم والعميد) يبقى له بابُها المستقل. والحارسُ في الخادم. */
+        if (hasPerm(7)) return <IntelligenceWorkspace user={user} scopes={scopes} initialTab="whatif" />;
+        return opensChangesScreen(sessionRole) ? <TimeMachine /> : unauthorized();
       case "scheduleChanges":
         /* الشاشة لمن يشارك في الدورة: التسجيل يراجع، والقسم يردّ. أمّا أدوار
            العرض الصرف فيكفيها عمود الاعتماد في ميزان الأقسام — وشاشةٌ لا يفعل
@@ -2569,12 +2571,14 @@ export default function App() {
                 activeView={activeView}
                 onGo={go}
                 view="intelligence"
+                active={activeView === "intelligence" || activeView === "timeMachine"}
                 icon={<BrainCircuit />}
                 label="مركز الذكاء"
                 data-guide-ignore="وجهةُ تنقّل مسجّلة في المرشد باسم page.intelligence"
               />
             ) : null}
-            {allowed.schedule || opensChangesScreen(sessionRole) ? (
+            {/* من يبني الجدول يجد آلة الزمن في «مركز الذكاء ← جرّب ← ماذا لو»؛ زرٌّ ثانٍ هنا كان بابين لشيءٍ واحد. */}
+            {!allowed.schedule && opensChangesScreen(sessionRole) ? (
               <NavButton
                 activeView={activeView}
                 onGo={go}

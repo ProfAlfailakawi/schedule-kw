@@ -138,5 +138,3 @@
 .intel-partial-chip button{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);cursor:pointer}
 .intel-partial-chip button svg{width:14px;height:14px}
 
-/* «فرصة لتحسين الجدول» داخل أدوات البيانات: بعرض الورقة كله. */
-.transfer-improve{justify-self:stretch;width:100%;min-width:0}
