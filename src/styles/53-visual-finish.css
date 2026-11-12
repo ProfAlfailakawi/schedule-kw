@@ -1,0 +1,58 @@
+/* ==========================================================================
+   SCHEDULE — VISUAL FINISH (2026-11-12)
+   Presentation only. Imported last, after the touch-target layer, and never
+   touches a min-block-size / min-inline-size that 52-touch-targets sets.
+   Every rule here answers a defect seen on a rendered demo screen at 390 or
+   1440 px; nothing is decorative for its own sake.
+   ========================================================================== */
+
+/* 1) Arabic micro-labels: an 11px floor.
+   Arabic letterforms lose their dots and joins below 11px. These chips and
+   tick labels rendered at 10–10.9px (measured): course tags, compact room-type
+   badges, the teaching-load exception chip, the day-band hour ticks, and the
+   section capacity hint in student requests. The badge that is deliberately
+   font-size:0 inside the week title (icon only) keeps its own rule. */
+.ctags>.ctag{font-size:max(11px,.72em)}
+.course-room-type-badge.is-compact{font-size:max(11px,.62em)}
+.week-course-title-wrap .course-room-type-badge.is-compact{font-size:0}
+.tl-exception-badge{font-size:11px}
+.day-band-track>b{font-size:11px}
+.srq-section small{font-size:max(11px,.84em)}
+
+/* 2) Today's hour strip on a phone scrolls sideways (twelve 44px columns), but
+   nothing said so: the strip simply stopped at a half-cut column. A soft fade
+   on the far edge now shows there is more, and lifts once the strip has been
+   scrolled to its end (scroll-driven, where supported; the fade stays as a
+   static hint elsewhere). No motion is added. */
+@media screen and (max-width:620px){
+  .daybar{
+    -webkit-mask-image:linear-gradient(to left,transparent 0,#000 32px);
+    mask-image:linear-gradient(to left,transparent 0,#000 32px);
+  }
+  @supports (animation-timeline:scroll()){
+    @keyframes daybar-edge-lift{
+      from{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 32px);mask-image:linear-gradient(to left,transparent 0,#000 32px)}
+      to{-webkit-mask-image:linear-gradient(to left,#000 0,#000 32px);mask-image:linear-gradient(to left,#000 0,#000 32px)}
+    }
+    .daybar{animation:daybar-edge-lift linear both;animation-timeline:scroll(self inline)}
+  }
+}
+
+/* 3) University day card (أوقات دوام الأقسام): the clock tile sat alone on its
+   own row above the title, leaving a wide empty band. It now leads the title
+   on one line, like every other card head on the page; the form keeps the full
+   width below. The two free-text hour fields use the same mono, tabular figures
+   as the time pickers beside them, so 08:00 reads the same in both cards. */
+.section-schedule-hours .section-hours-full{display:flex;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:16px}
+.section-schedule-hours .section-hours-full>div:not(.section-hours-full-edit){flex:1 1 0;min-inline-size:0}
+.section-schedule-hours .section-hours-full>.section-hours-full-edit{flex:1 0 100%}
+.section-schedule-hours .section-hours-full strong{display:block;font-size:1rem;color:var(--ink)}
+.section-hours-full .section-hours-time-grid input[type=text]{font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:.04em;text-align:left}
+
+/* 4) Dashboard signal tiles on a phone: the gap figure «2س 1د» broke across
+   two lines in its 120px tile, so one value read as two. Figures stay on one
+   line and scale with the viewport just enough to fit. */
+@media screen and (max-width:560px){
+  .dashboard-page .deck-signals>article{padding-inline:var(--s4)}
+  .dashboard-page .deck-signals>article>b{white-space:nowrap;font-size:min(34px,7.4vw)}
+}
