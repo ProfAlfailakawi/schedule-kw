@@ -332,7 +332,8 @@ export function patternLibraryByHours(): Array<{ hours: number; patterns: Patter
 export function daysFitLibrary(weeklyHours: number, days: Iterable<DayKey>, exact = true): boolean | null {
   const hours = Math.round(Number(weeklyHours) || 0);
   const set = new Set(days);
-  const patterns = PATTERN_LIBRARY.filter(pattern => pattern.hours === hours);
+  /* الشكلُ لا اليومُ المثال (approvedShapesForHours): الأحد·الأربعاء بأطوال الاثنين·الأربعاء معتمد. */
+  const patterns = approvedShapesForHours(hours);
   if (!hours || !patterns.length || !set.size) return null;
   return patterns.some(pattern => pattern.days.length === 1
     ? set.size === 1
@@ -389,14 +390,9 @@ export function startLadderNote(days: Iterable<DayKey>, start: string): string {
     : `محاضرات الأحد والثلاثاء والخميس تبدأ على رأس الساعة (8:00، 9:00، 10:00…)، وهذا الموعد يبدأ ${shown}.`;
 }
 
-/** الأطوالُ المعتمدة ليومٍ ما: أطوالُه في الأنماط التي تضمّه، وأطوالُ الكتل (تصلح لأيّ يوم). */
+/** الأطوالُ المعتمدة ليومٍ ما: أطوالُه في الأشكال المعتمدة التي تضمّه (approvedLengthsForDay)، وأطوالُ الكتل. */
 export function libraryLengthsForDay(day: DayKey): Set<number> {
-  const out = new Set<number>();
-  for (const pattern of PATTERN_LIBRARY) {
-    if (pattern.days.length === 1) out.add(pattern.minutesPerDay[0]);
-    else pattern.days.forEach((patternDay, index) => { if (patternDay === day) out.add(pattern.minutesPerDay[index]); });
-  }
-  return out;
+  return approvedLengthsForDay(day);
 }
 
 /** The approved shapes for a course with this many weekly hours. */
@@ -408,6 +404,112 @@ export function patternsForHours(weeklyHours: number): WeeklyPattern[] {
       .map((day, index) => `${dayLabel(day)} ${pattern.minutesPerDay[index]}د`)
       .join(" · ")
   }));
+}
+
+/**
+ * ── حكمُ النمط الواحد: الشكلُ لا اليومُ المثال (المالك، القرار 1913/2016 م.7/8) ──────────
+ *
+ * المكتبةُ تسمّي يوماً مثالاً لكل شكل (80+80 على الاثنين والأربعاء)، والمعتمدُ هو الشكل: عددُ اللقاءات
+ * وطولُ كلٍّ منها، موزّعةً على أيامٍ غير متتالية. فالأحد·الأربعاء والاثنين·الخميس بـ80 لكلٍّ منهما
+ * مثلُ الاثنين·الأربعاء، وهذا ما تقبله مراجعةُ الاعتماد (meetingsMatchApprovedPattern).
+ *
+ * `approvedShapesForHours` هو المصدرُ الواحد لكل من يسأل «هل هذه الأيامُ والأطوالُ نمطٌ معتمد؟» —
+ * الإنشاء والتعديل والبطاقة السريعة وطلب الأستاذ والاستيراد والمراجعة: أنماطُ المكتبة أولاً بأيامها،
+ * ثم الأطوالُ نفسُها على كل مجموعة أيامٍ غير متتالية بالعدد نفسه (وبكل ترتيبٍ للأطوال المختلفة 170/110).
+ * يومان متتاليان، أو طولٌ ليس في المكتبة، أو عددُ لقاءاتٍ آخر — لا شيء منها هنا.
+ * أما ما يُعرض شرائحَ واقتراحاتٍ فيبقى من المكتبة نفسها (patternsForHours) كي لا تزدحم الشاشات.
+ */
+export function daysSpread(days: readonly DayKey[]): boolean {
+  const indices = days.map(day => DAY_KEYS.indexOf(day)).sort((a, b) => a - b);
+  return indices.every((value, index) => value >= 0 && (index === 0 || value - indices[index - 1] >= 2));
+}
+
+const SPREAD_DAY_SETS: DayKey[][] = (() => {
+  const out: DayKey[][] = [];
+  for (let mask = 1; mask < 1 << DAY_KEYS.length; mask++) {
+    const set = DAY_KEYS.filter((_, index) => mask & (1 << index)) as DayKey[];
+    if (set.length > 1 && daysSpread(set)) out.push(set);
+  }
+  return out;
+})();
+
+function minutePermutations(list: readonly number[]): number[][] {
+  if (list.length <= 1) return [[...list]];
+  const out: number[][] = [];
+  const seen = new Set<string>();
+  list.forEach((value, index) => {
+    for (const rest of minutePermutations([...list.slice(0, index), ...list.slice(index + 1)])) {
+      const next = [value, ...rest];
+      if (!seen.has(next.join(","))) { seen.add(next.join(",")); out.push(next); }
+    }
+  });
+  return out;
+}
+
+const approvedShapesCache = new Map<number, WeeklyPattern[]>();
+
+export function approvedShapesForHours(weeklyHours: number): WeeklyPattern[] {
+  const hours = Math.round(Number(weeklyHours) || 0);
+  const cached = approvedShapesCache.get(hours);
+  if (cached) return cached.map(shape => ({ ...shape, days: [...shape.days], minutesPerDay: [...shape.minutesPerDay] }));
+  const library = patternsForHours(hours);
+  const out: WeeklyPattern[] = [...library];
+  const seen = new Set(library.map(pattern => `${pattern.days.join("+")}|${pattern.minutesPerDay.join(",")}`));
+  for (const pattern of library) {
+    if (pattern.days.length < 2) continue;
+    for (const days of SPREAD_DAY_SETS) {
+      if (days.length !== pattern.days.length) continue;
+      for (const minutesPerDay of minutePermutations(pattern.minutesPerDay)) {
+        const key = `${days.join("+")}|${minutesPerDay.join(",")}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({
+          ...pattern,
+          id: `${pattern.id}@${days.join("+")}`,
+          days: [...days],
+          minutesPerDay,
+          label: days.map((day, index) => `${dayLabel(day)} ${minutesPerDay[index]}د`).join(" · "),
+        });
+      }
+    }
+  }
+  approvedShapesCache.set(hours, out);
+  return approvedShapesForHours(hours);
+}
+
+const sameDaySet = (a: readonly DayKey[], b: readonly DayKey[]) => a.length === b.length && a.every(day => b.includes(day));
+
+/** الشكلُ المعتمد لهذه الأيام بعينها (نمطُ المكتبة بأيامه أولاً)؛ `uniform` يقصره على الموحّد الطول. */
+export function approvedShapeForDays(weeklyHours: number, days: readonly DayKey[], uniform = false): WeeklyPattern | null {
+  const set = [...new Set(days)];
+  if (set.length < 2) return null;
+  return approvedShapesForHours(weeklyHours).find(shape => shape.days.length > 1 && sameDaySet(shape.days, set)
+    && (!uniform || shape.minutesPerDay.every(value => value === shape.minutesPerDay[0]))) || null;
+}
+
+/**
+ * الأطوالُ المعتمدة ليومٍ في نمطٍ لساعاتٍ بعينها (أو لكل الساعات بلا ساعات): طولُ اليوم في كل شكلٍ معتمد يضمّه،
+ * وأطوالُ الكتل (تصلح لأيّ يوم).
+ */
+export function approvedLengthsForDay(day: DayKey, weeklyHours?: number): Set<number> {
+  const hours = weeklyHours == null ? [...new Set(PATTERN_LIBRARY.map(pattern => pattern.hours))] : [weeklyHours];
+  const out = new Set<number>();
+  for (const value of hours) for (const shape of approvedShapesForHours(value)) {
+    if (shape.days.length === 1) out.add(shape.minutesPerDay[0]);
+    else shape.days.forEach((shapeDay, index) => { if (shapeDay === day) out.add(shape.minutesPerDay[index]); });
+  }
+  return out;
+}
+
+/**
+ * صفٌّ واحد (أيامُه بطولٍ واحد) يوافق شكلاً معتمداً: كلُّ أيامه شكلٌ موحّد الطول بهذا الطول، أو يومٌ واحد
+ * هو لقاءٌ من شكلٍ معتمد بهذا الطول (الشعبةُ تُبنى صفّاً صفّاً)، أو كتلةٌ بطولها.
+ */
+export function rowFitsApprovedShape(days: readonly DayKey[], minutes: number, weeklyHours: number): boolean {
+  const set = [...new Set(days)];
+  if (!set.length || !(minutes > 0)) return false;
+  if (set.length === 1) return approvedLengthsForDay(set[0], weeklyHours).has(minutes);
+  return approvedShapesForHours(weeklyHours).some(shape => sameDaySet(shape.days, set) && shape.minutesPerDay.every(value => value === minutes));
 }
 
 export interface MovePlan {
@@ -559,16 +661,11 @@ export function periodBalanceSnapshot(rows: readonly FSchedule[]): PeriodBalance
 export function meetingsMatchApprovedPattern(meetings: ReadonlyArray<{ day: DayKey; minutes: number }>, weeklyHours: number): boolean {
   const actual = meetings.slice().sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day));
   if (!actual.length) return false;
-  const lengths = (list: readonly number[]) => list.slice().sort((a, b) => a - b).join(",");
-  const actualLengths = lengths(actual.map(item => item.minutes));
-  const indices = actual.map(item => DAY_KEYS.indexOf(item.day));
-  const spread = indices.every((value, index) => index === 0 || value - indices[index - 1] >= 2);
-  return patternsForHours(weeklyHours).some(pattern => {
-    if (pattern.days.length === 1) return actual.length === 1 && actual[0].minutes === pattern.minutesPerDay[0];
-    if (pattern.days.length !== actual.length) return false;
-    const exact = pattern.days.every((day, index) => actual[index]?.day === day && actual[index]?.minutes === pattern.minutesPerDay[index]);
-    return exact || (spread && lengths(pattern.minutesPerDay) === actualLengths);
-  });
+  /* المصدرُ الواحد (approvedShapesForHours): أنماطُ المكتبة، والأطوالُ نفسُها على أيامٍ غير متتالية. */
+  return approvedShapesForHours(weeklyHours).some(shape => shape.days.length === 1
+    ? actual.length === 1 && actual[0].minutes === shape.minutesPerDay[0]
+    : shape.days.length === actual.length
+      && shape.days.every((day, index) => actual[index]?.day === day && actual[index]?.minutes === shape.minutesPerDay[index]));
 }
 
 /**
@@ -973,6 +1070,9 @@ export function lectureLengthProblem(
   // One-day applied blocks include the 10-minute changeovers between 50-minute
   // teaching periods. Their approved elapsed length comes from the same library.
   if (days.length === 1 && patternsForHours(courseHours).some(pattern => pattern.days.length === 1 && pattern.minutesPerDay[0] === length)) return null;
+  /* طولٌ لشكلٍ معتمد على هذه الأيام (80 على الأحد·الأربعاء أو الأحد·الثلاثاء لمقررٍ بثلاث ساعات) ليس مخالفة —
+     الحكمُ الواحد نفسه في المراجعة والحفظ (rowFitsApprovedShape). */
+  if (courseHours > 0 && rowFitsApprovedShape(days, length, courseHours)) return null;
   const maxPeriods = Math.max(1, Math.ceil(courseHours || 1));
   const fits = days.some(day => {
     const lecture = expectedMinutesForDay(day), gap = requiredGapForDay(day);

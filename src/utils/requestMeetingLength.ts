@@ -18,7 +18,7 @@
  * والصفحةُ تحمل الخوارزميةَ نفسَها نصّاً (src/server/requestLengthScript.ts)، فلا تقول شيئاً
  * غيرَ ما يحسبه الخادم؛ والاختبارُ يقارن الاثنين على جدول حالات.
  */
-import { DAY_KEYS, DAY_NAMES, expectedMinutesForDay, patternsForHours, type DayKey } from "./scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, approvedShapesForHours, expectedMinutesForDay, type DayKey } from "./scheduleRegulations";
 
 /** نمطٌ معتمد بدقائق كل يوم. نمطُ اليوم الواحد يصلح لأيّ يوم. */
 export interface LengthPattern { days: DayKey[]; minutes: number[] }
@@ -34,9 +34,10 @@ const toMinutes = (value: string) => {
 };
 const clockOf = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
 
-/** أنماطُ اللائحة لساعات المقرّر — من patternsForHours وحدها، بدقائق كل يوم. */
+/** أنماطُ اللائحة لساعات المقرّر بدقائق كل يوم — الحكمُ الواحد approvedShapesForHours: أنماطُ المكتبة أولاً،
+    ثم أطوالُها نفسُها على أيامٍ غير متتالية (الأحد·الأربعاء 80 لمقررٍ بثلاث ساعات)، فيحسبها الخادمُ والصفحةُ معاً. */
 export function lengthPatternsForHours(hours: number): LengthPattern[] {
-  return patternsForHours(hours).map(pattern => ({ days: [...pattern.days], minutes: [...pattern.minutesPerDay] }));
+  return approvedShapesForHours(hours).map(pattern => ({ days: [...pattern.days], minutes: [...pattern.minutesPerDay] }));
 }
 
 const sameDays = (a: readonly string[], b: readonly string[]) =>

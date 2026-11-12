@@ -1,7 +1,8 @@
 /**
  * ── «النمطُ لازم يكون معتمداً، والتاريخُ اقتراحٌ لا يخالف اللائحة» (المالك 2026-10-30) ─────
  *
- *  P1  المكتبة: «الثلاثاء · الخميس» معتمدٌ لمقرّرٍ بساعتين كـ«الأحد · الثلاثاء»، و«الأحد · الخميس» لا.
+ *  P1  المكتبة: «الثلاثاء · الخميس» معتمدٌ لمقرّرٍ بساعتين كـ«الأحد · الثلاثاء»؛ وحكمُ الأيام بالشكل لا باليوم المثال
+ *      (قرار المالك: أيُّ يومين غير متتاليين بالأطوال المعتمدة نفسها — tests/pattern-rule-unify-audit.ts).
  *  P2  daysFitLibrary: النمطُ الكامل، وجزءُ النمط لصفٍّ بيومٍ واحد، والخلط، وما لا يُعرف (null).
  *  P3  الأطوالُ المعتمدة لكل يوم من المكتبة (لا 75 يوم الأحد ولا الاثنين).
  *  P4  عادةُ القسم في المدة لا تُؤخذ إن خالفت المكتبة؛ وتنبيهُ «خارج إيقاع القسم» لا يقال عن طولٍ معتمد.
@@ -35,12 +36,12 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
 const two = patternsForHours(2).map(pattern => pattern.days.join("+"));
 check(two.includes("fsunday+ftuesday") && two.includes("ftuesday+fthursday") && !two.includes("fsunday+fthursday"), "P1 ساعتان: الأحد·الثلاثاء والثلاثاء·الخميس معتمدان، والأحد·الخميس لا");
 
-check(daysApprovedForHours(2, ["fsunday", "fthursday"]) === false, "P2 ساعتان: الأحد·الخميس غير معتمد");
+check(daysApprovedForHours(2, ["fsunday", "fmonday"]) === false && daysApprovedForHours(2, ["fsunday", "fthursday"]) === true, "P2 ساعتان: يومان متتاليان غير معتمدين، والأحد·الخميس غير المتتاليين بأطوالٍ معتمدة معتمد");
 check(daysApprovedForHours(2, ["fsunday", "ftuesday"]) === true && daysApprovedForHours(2, ["ftuesday", "fthursday"]) === true, "P2 ساعتان: الأحد·الثلاثاء والثلاثاء·الخميس معتمدان");
-check(daysApprovedForHours(3, ["fsunday", "fthursday"]) === false && daysApprovedForHours(3, ["fsunday", "ftuesday", "fthursday"]) === true, "P2 ثلاث ساعات: الأحد·الخميس وحدهما ليسا نمطاً، والأحد·الثلاثاء·الخميس معتمد");
+check(daysApprovedForHours(3, ["fsunday", "fmonday"]) === false && daysApprovedForHours(3, ["fsunday", "ftuesday", "fthursday"]) === true && daysApprovedForHours(3, ["fmonday", "ftuesday", "fthursday"]) === false, "P2 ثلاث ساعات: الأحد·الاثنين ليسا نمطاً، والأحد·الثلاثاء·الخميس معتمد، وثلاثةٌ فيها يومان متتاليان لا");
 check(daysApprovedForHours(3, ["fsunday", "fmonday"]) === false, "P2 خلطُ أيام الخمسين بالثمانين غير معتمد");
 check(daysApprovedForHours(3, ["fthursday"]) === true && daysApprovedForHours(2, ["fmonday"]) === true, "P2 يومٌ واحد يصلح لكتلة المقرّر على أيّ يوم");
-check(daysFitLibrary(3, ["fsunday", "ftuesday"], false) === true && daysFitLibrary(2, ["fsunday", "fthursday"], false) === false, "P2 جزءُ نمطٍ معتمد يُقبل لصفٍّ بيومٍ واحد، وما لا يقع في أيّ نمطٍ لا");
+check(daysFitLibrary(3, ["fsunday", "ftuesday"], false) === true && daysFitLibrary(2, ["fsunday", "fmonday"], false) === false, "P2 جزءُ نمطٍ معتمد يُقبل لصفٍّ بيومٍ واحد، وما لا يقع في أيّ نمطٍ لا");
 check(daysApprovedForHours(0, ["fsunday"]) === null && daysApprovedForHours(9, ["fsunday"]) === null, "P2 ساعاتٌ مجهولة أو بلا نمط في المكتبة: لا يُحكم");
 
 const sunday = libraryLengthsForDay("fsunday"), monday = libraryLengthsForDay("fmonday");
@@ -71,7 +72,7 @@ check(/await unapprovedPatternIssue\(row, week, \{ skipIfUnchanged: true \}\)/.t
 const verdict = fs.readFileSync("src/utils/instructorRequestVerdict.ts", "utf8");
 check(/daysApprovedForHours\(courseHours, request\.days\) === false/.test(verdict) && !/historyShape/.test(verdict), "P6 طلبُ الأستاذ: ما ليس نمطاً معتمداً يُمنع، ولا يُعفيه التاريخ");
 check(/code: "pattern"/.test(verdict) && /reason\.code === "pattern"/.test(verdict), "P6 ومعه أزرارُ الأنماط المعتمدة بدل البدائل");
-check((verdict.match(/daysApprovedForHours\((heldHours|courseHours), days\) === true/g) || []).length === 2, "P6 «المعتاد تاريخياً» يُقترح إن كان نمطاً معتمداً وحده");
+check((verdict.match(/&& daysApprovedForHours\((heldHours|courseHours), days\) === true/g) || []).length === 2, "P6 «المعتاد تاريخياً» يُقترح إن كان نمطاً معتمداً وحده");
 
 const editor = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 check(/courseNature\.suggestion && daysApprovedForHours\(regulationHours\(formCourse\), courseNature\.suggestion\.days as RegDayKey\[\]\) !== false/.test(editor)
@@ -108,9 +109,9 @@ check(!judgeRequest(asked("09:00", ["fmonday"]), verdictContext(true)).sendable,
 const departmentOff = judgeRequest(asked("09:30"), verdictContext(false));
 check(departmentOff.sendable && /رأس الساعة/.test(departmentOff.advice || "") && !departmentOff.reasons.some(reason => reason.code === "ladder"),
   "P9 القسم: البداية نفسها تنبيهٌ لا يمنع");
-const teacherSunThu = judgeRequest(asked("10:00", ["fsunday", "fthursday"], 78), verdictContext(true));
+const teacherSunThu = judgeRequest(asked("10:00", ["fsunday", "ftuesday", "fthursday"], 78), verdictContext(true));
 check(!teacherSunThu.sendable && teacherSunThu.reasons.some(reason => reason.code === "pattern" && /ليست نمطاً معتمداً/.test(reason.text)),
-  "P9 كرت الأستاذ: ساعتان على الأحد·الخميس «ليست نمطاً معتمداً»");
+  "P9 كرت الأستاذ: ساعتان على ثلاثة أيام (الأحد·الثلاثاء·الخميس) «ليست نمطاً معتمداً»");
 const fourSunThu = judgeRequest(asked("10:00", ["fsunday", "fthursday"], 4), {
   ...verdictContext(true), courses: new Map([[4, { AdCourseId: 4, CourseHours: 4, CourseName: "أربع ساعات" } as any]]), instructorLoad: 0,
 } as any);
@@ -143,7 +144,7 @@ check(["fsunday,ftuesday", "ftuesday,fthursday", "fmonday,fwednesday"].every(pai
   && meetingMinutes(["fsunday", "ftuesday"], lengthPatternsForHours(5)).join() === "170,110" && meetingMinutes(["ftuesday", "fthursday"], lengthPatternsForHours(5)).join() === "170,110",
   "P10 خمسُ ساعات على أزواج الأربع: الأحد·الثلاثاء والثلاثاء·الخميس والاثنين·الأربعاء (170 + 110)");
 check(daysApprovedForHours(4, ["fsunday", "fthursday"]) === true && patternsForHours(4).some(pattern => pattern.days.join() === "fsunday,fthursday"), "P10 أربع ساعات على الأحد·الخميس نمطٌ معتمد 110+110");
-check(daysApprovedForHours(5, ["fsunday", "fthursday"]) === false, "P10 والأحد·الخميس ليس نمطاً للخمس ساعات");
+check(daysApprovedForHours(5, ["fwednesday", "fthursday"]) === false && daysApprovedForHours(5, ["fsunday", "fthursday"]) === true, "P10 الخمس ساعات على يومين متتاليين ليست نمطاً، وعلى الأحد·الخميس بأطوالها معتمدة");
 
 /* P11 الاثنين والأربعاء 8:00–9:20 ثم 9:30. */
 check(LONG_DAY_GAP_MINUTES === 10 && requiredGapForDays(["fmonday", "fwednesday"]) === 10, "P11 فاصل الاثنين والأربعاء 10 دقائق");

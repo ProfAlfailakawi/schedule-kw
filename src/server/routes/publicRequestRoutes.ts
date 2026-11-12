@@ -1023,7 +1023,7 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
     if (start && days.length && !sameAsBase && item.action !== "delete") {
       const hours = effectiveCourseHours(await Repository.getCourseById(proposalCourse));
       const long = (day: string) => day === "fmonday" || day === "fwednesday";
-      const approvedDays = patternsForHours(hours).some(pattern => pattern.days.length === days.length && pattern.days.every(day => days.includes(day)));
+      const approvedDays = daysApprovedForHours(hours, days as DayKey[]) === true;
       if (days.some(long) && days.some(day => !long(day)) && !approvedDays) {
         res.status(400).json({ error: "لا يُخلط بين أيام الـ50 والـ80 دقيقة إلا بنمطٍ معتمد في مكتبة الأنماط." });
         return;

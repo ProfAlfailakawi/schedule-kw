@@ -14,7 +14,7 @@ import { directoryVisitingIds, termVisitingIds } from "../../utils/liveVisiting"
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
-import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysApprovedForHours, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
 import { patternLengthIssue, regulationEnd } from "../../utils/appointmentRegulation";
 import { REGULATION_EXCEPTION_CODE, regulationExceptionIssues, regulationExceptionMessage, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { placeholderInstructorIds } from "../../utils/instructorIdentity";
@@ -72,8 +72,8 @@ export async function mixedPatternNotice(courseId:number,days:RequestDayKey[],te
   const shortDays=days.filter(d=>d==="fsunday"||d==="ftuesday"||d==="fthursday"),longDays=days.filter(d=>d==="fmonday"||d==="fwednesday");
   if(!courseId||!shortDays.length||!longDays.length)return null;
   const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
-  const sameDays=(list:readonly string[])=>list.length===days.length&&list.every(d=>days.includes(d as RequestDayKey));
-  if(hours>0&&patternsForHours(hours).some(p=>sameDays(p.days)))return null;
+  /* الحكمُ الواحد (daysApprovedForHours ← approvedShapesForHours): الأحد·الأربعاء بأطوالٍ معتمدة ليس خلطاً ممنوعاً. */
+  if(hours>0&&daysApprovedForHours(hours,days as DayKey[])===true)return null;
   void termId;
   const ordered=DAY_KEYS.filter(d=>days.includes(d));
   return patternNoticeHtml(patternLibraryInput(),Math.round(hours)||0,ordered,ordered.map(d=>minutes&&minutes>0?minutes:expectedMinutesForDay(d)),blocking);

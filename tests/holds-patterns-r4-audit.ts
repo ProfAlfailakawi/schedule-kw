@@ -29,8 +29,12 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   check(regulationEnd(theory3, ["fsunday"], "09:00", 50) === "09:50", "19 صفُّ الأحد 50د لا يصير 170د عند تغيير بدايته");
   check(completeRegulation(theory3, ["fsunday"], "09:00", { minutes: 50, keepDays: true }) === null, "19 الإكمال لا يعيد تشكيل لقاءٍ منفرد");
   check(completeRegulation(theory3, ["fwednesday"], "08:00", { minutes: 170, keepDays: true })?.end === "10:50", "19 الكتلة المقصودة تبقى كتلة");
-  check(completeRegulation(theory3, ["fsunday", "fthursday"], "08:00", { minutes: 50, keepDays: true }) === null, "19 أيامٌ اختارها صاحبها لا تُستبدل");
-  check(join(completeRegulation(theory3, ["fsunday", "fthursday"], "08:00")?.days) === "fsunday+ftuesday+fthursday", "19 مقررٌ جديد (بلا keepDays) ما زال يُكمل نمطه");
+  /* الأحد·الخميس لمقررٍ بثلاث ساعات شكلٌ معتمد (80 + 80 على يومين غير متتاليين — قرار المالك، approvedShapesForHours):
+     الأيامُ تبقى ونهايتُها من الشكل. وأيامٌ لا شكلَ معتمداً لها لا تُستبدل بما لم يختره صاحبها. */
+  const keptSunThu = completeRegulation(theory3, ["fsunday", "fthursday"], "08:00", { minutes: 50, keepDays: true });
+  check(join(keptSunThu?.days) === "fsunday+fthursday" && keptSunThu?.end === "09:20", "19 أيامٌ اختارها صاحبها لا تُستبدل (والأحد·الخميس 80د شكلٌ معتمد)", keptSunThu);
+  check(completeRegulation(theory3, ["fsunday", "fmonday"], "08:00", { minutes: 50, keepDays: true }) === null, "19 ويومان متتاليان لا يُستبدلان ولا يُكملان");
+  check(join(completeRegulation(theory3, ["fsunday", "fmonday"], "08:00")?.days) === "fsunday+ftuesday+fthursday", "19 مقررٌ جديد (بلا keepDays) بأيامٍ ليست شكلاً معتمداً ما زال يُكمل نمطه");
   const left = pickDay(theory4, ["fsunday", "ftuesday"], "ftuesday", false, 110);
   check(join(left.days) === "fsunday" && left.applied === null, "19 يومٌ بقي بعد إزالة أخيه ليس كتلة 230د", left);
   const noTime = pickDay(theory4, ["fsunday", "ftuesday"], "ftuesday", false);

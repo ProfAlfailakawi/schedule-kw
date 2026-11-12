@@ -102,13 +102,14 @@ const wednesdayBlock = judgeRequest(ask({ days: ["fwednesday"], start: "09:00" }
 check(wednesdayBlock.sendable && wednesdayBlock.computedEnd === "11:50", "ثلاث ساعات في يومٍ واحد: كتلةُ اللائحة ١٧٠ د تغطّيها (ملاحظة المالك r4) — في الحكم كما في الخادم", wednesdayBlock);
 const allowedPair = judgeRequest(ask({ days: ["fsunday", "ftuesday"], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
 check(allowedPair.sendable && allowedPair.computedEnd === "10:20", "الأحد والثلاثاء لمقرر ثلاث ساعات يُكملان إلى 80 دقيقة");
-const blockedOneDay = judgeRequest(ask({ days: ["fsunday", "fthursday"], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
-check(!blockedOneDay.sendable && blockedOneDay.reasons.some(reason => reason.source === "shape" && reason.blocking), "الأحد والخميس وحدهما خارج نمط الثلاث ساعات");
+/* الأحد·الخميس بأطوال الاثنين·الأربعاء شكلٌ معتمد (قرار المالك: أيامٌ غير متتالية) — فالممنوعُ يومان متتاليان. */
+const blockedOneDay = judgeRequest(ask({ days: ["fsunday", "fmonday"], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
+check(!blockedOneDay.sendable && blockedOneDay.reasons.some(reason => reason.source === "shape" && reason.blocking), "الأحد والاثنين المتتاليان خارج نمط الثلاث ساعات");
 check(blockedOneDay.shapes?.[0]?.days.join() === "fmonday,fwednesday" && /^المعتاد/.test(blockedOneDay.shapes?.[0]?.label || ""), "وأولُ ما يُقترح نمطُ المقرّر المعتاد (اثنين+أربعاء) لا نمطُ اللائحة الأول (أحد+ثلاثاء+خميس)");
 check(/المعتاد تاريخياً: الاثنين 80د/.test(blockedOneDay.reasons.find(reason => reason.source === "shape")?.text || ""), "ونصُّ «جرّب» يذكر المعتاد التاريخي بوضوح");
 const appliedUsual = judgeRequest(ask({ days: blockedOneDay.shapes?.[0]?.days as any || [], start: "09:00" }), noRows(withHistory(monWedNature, 3)));
 check(appliedUsual.sendable && !appliedUsual.reasons.some(reason => reason.source === "shape"), "وتطبيقُ المقترح يمرّ من الفاحص نفسه بلا منع");
-const noHistoryAsk = judgeRequest(ask({ days: ["fsunday", "fthursday"], start: "09:00" }), noRows({ ...context(3), nature: null }));
+const noHistoryAsk = judgeRequest(ask({ days: ["fsunday", "fmonday"], start: "09:00" }), noRows({ ...context(3), nature: null }));
 check(!noHistoryAsk.sendable && noHistoryAsk.shapes?.[0]?.days.join() === "fsunday,ftuesday,fthursday" && !/المعتاد/.test(noHistoryAsk.shapes?.[0]?.label || ""), "ومقرّرٌ بلا تاريخ: أنماطُ اللائحة كما كانت");
 /* مقررٌ درج عليه تاريخياً توزيع اثنين+خميس: يعرضه النظام كتاريخٍ موثوق لا كنمط لائحة، ويمرّ من الفحص نفسه. */
 const monThuNature = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: false, fthursday: true, fstarttime: "09:00", fendtime: "10:20" });
@@ -116,8 +117,9 @@ const monThuNature = natureOf(100, [16, 17, 18], { fmonday: true, fwednesday: fa
    (الحدّ ١١٠ د)، فلا يُقترح ولا يمرّ ولو درج عليه المقرّر — كانت «طبيعته» في الذاكرة تُعفيه. */
 const mixedHistory = judgeRequest(ask({ days: ["fsunday", "ftuesday", "fthursday"], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
 check(!mixedHistory.sendable && !(mixedHistory.shapes || []).some(shape => shape.days.join() === "fmonday,fthursday"), "والتاريخُ الذي يتجاوز الساعاتَ بأطوال اللائحة لا يُقترح", mixedHistory);
-const mixedApplied = judgeRequest(ask({ days: ["fmonday", "fthursday"], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
-/* قاعدة المالك 2026-10-30: اثنين+خميس ليس نمطاً معتمداً أصلاً، فيُمنع بسببه («لا يُخلط») قبل أن يُقاس على الساعات. */
+/* اثنين+خميس لمقررٍ بساعتين (50 + 50 على يومين غير متتاليين) شكلٌ معتمد بقرار المالك؛ وما ليس شكلاً معتمداً
+   (اثنين+ثلاثاء متتاليان) يُمنع بسببه («لا يُخلط») قبل أن يُقاس على الساعات، ولا تُعفيه الذاكرة. */
+const mixedApplied = judgeRequest(ask({ days: ["fmonday", "ftuesday"], start: "09:00" }), noRows(withHistory(monThuNature, 2)));
 check(!mixedApplied.sendable && mixedApplied.reasons.some(reason => reason.blocking && (reason.code === "pattern" || (reason.code === "hours" && /يتجاوز/.test(reason.text)))), "ولا يمرّ إن طُلب: نمطٌ غير معتمد لا تُعفيه الذاكرة", mixedApplied.reasons);
 /* مختبرٌ أربع ساعات يوماً واحداً: طلبُ اثنين+أربعاء عند ١٧:٠٠ — اليوم الواحد لا يتّسع (ينتهي بعد ٢٠:٠٠) فتبقى معه أنماطُ اللائحة القابلة للتطبيق. */
 const lateLab = judgeRequest(ask({ days: ["fmonday", "ftuesday"], start: "17:00" }), labContext);

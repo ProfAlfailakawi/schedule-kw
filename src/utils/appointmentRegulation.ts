@@ -10,7 +10,7 @@
  *   • أكثر من نمط يحتوي اليوم → يُطبَّق الأنسب لطبيعة المقرر، والبقية شرائح.
  *   • التعديل اليدوي مسموح، وما خرج عن اللائحة يُعلَّم ⚠️ ولا يُمنع.
  */
-import { DAY_KEYS, DAY_NAMES, daysFitLibrary, patternsForHours, type DayKey, type WeeklyPattern } from "./scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, approvedLengthsForDay, approvedShapeForDays, approvedShapesForHours, daysFitLibrary, patternsForHours, type DayKey, type WeeklyPattern } from "./scheduleRegulations";
 import { SCHEDULE_CLOCK_END } from "./scheduleTime";
 
 export type { DayKey } from "./scheduleRegulations";
@@ -102,7 +102,11 @@ export function regulationChoiceFor(course: RegulationCourse | null | undefined,
   const all = regulationChoicesForDay(course, days[0]);
   const found = all.find(choice => choice.days.length === days.length && choice.days.every(day => days.includes(day))) || null;
   if (found && found.days.length === 1 && Number(minutes) > 0 && found.minutes !== minutes) return null;
-  return found;
+  if (found) return found;
+  /* الأطوالُ نفسُها على أيامٍ غير متتالية نمطٌ معتمد (الأحد·الأربعاء 80 مثلُ الاثنين·الأربعاء) — الحكمُ الواحد
+     approvedShapeForDays، وهو ما تقبله مراجعةُ الاعتماد. */
+  const shape = days.length > 1 ? approvedShapeForDays(regulationHours(course), days, true) : null;
+  return shape ? choiceOf(shape, shape.days) : null;
 }
 
 /** هل اليومُ المنفرد قرارُ كتلة؟ طولُه يقول، وبلا طولٍ يقوله نوعُ المقرر: النظريُّ لا يُفترض كتلة. */
@@ -157,12 +161,8 @@ export function pickDay(
  * null: لا ساعات، أو لا أنماطَ لها في المكتبة، أو أيامٌ ليست نمطاً موحّد الطول.
  */
 export function singleDayLengths(course: RegulationCourse | null | undefined, day: DayKey): number[] {
-  const out: number[] = [];
-  for (const pattern of patternsForHours(regulationHours(course))) {
-    if (pattern.days.length === 1) out.push(pattern.minutesPerDay[0]);
-    else pattern.days.forEach((patternDay, index) => { if (patternDay === day) out.push(pattern.minutesPerDay[index]); });
-  }
-  return [...new Set(out)];
+  const hours = regulationHours(course);
+  return hours ? [...approvedLengthsForDay(day, hours)] : [];
 }
 
 export function patternMinutes(course: RegulationCourse | null | undefined, days: readonly DayKey[], currentMinutes?: number, nearest = false): number | null {
@@ -179,7 +179,7 @@ export function patternMinutes(course: RegulationCourse | null | undefined, days
     const block = patterns.find(pattern => pattern.days.length === 1);
     return block ? block.minutesPerDay[0] : (allowed[0] ?? null);
   }
-  const exact = patterns.find(pattern => uniform(pattern) && pattern.days.length === ordered.length && pattern.days.every(day => ordered.includes(day)));
+  const exact = approvedShapeForDays(regulationHours(course), ordered, true);
   return exact ? exact.minutesPerDay[0] : null;
 }
 
@@ -262,7 +262,7 @@ export function regulationFit(
   const ordered = DAY_KEYS.filter(day => days.includes(day));
   /* صفٌّ هو لقاءٌ من نمطٍ معتمد: الخمس ساعات (170 + 110) صفّان بطولين، والنمطُ يُبنى أحياناً صفّاً لكل يوم.
      كانت هذه تُقرأ «خارج اللائحة»، والمكتبةُ نفسها تعتمدها. */
-  const partOfPattern = Number.isFinite(length) && patternsForHours(regulationHours(course)).some(pattern => pattern.days.length > 1
+  const partOfPattern = Number.isFinite(length) && approvedShapesForHours(regulationHours(course)).some(pattern => pattern.days.length > 1
     && (ordered.length === 1
       ? pattern.days.some((day, index) => day === ordered[0] && pattern.minutesPerDay[index] === length)
       : !uniform(pattern) && pattern.days.length === ordered.length && pattern.days.every(day => ordered.includes(day)) && pattern.minutesPerDay.includes(length)));

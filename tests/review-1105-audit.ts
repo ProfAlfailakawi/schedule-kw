@@ -23,11 +23,12 @@ const theory1 = { CourseHours: 1, CourseTeachingMode: "theoretical" };
   const row = (extra: any) => ({ id: 1, AdCourseId: 5, SCode: "01", AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, fstarttime: "08:00", fendtime: "09:20", fsunday: false, fmonday: false, ftuesday: false, fwednesday: false, fthursday: false, ...extra });
   const courses = [{ AdCourseId: 5, CourseHours: 3 }] as any;
   const before = [row({ fmonday: true, fwednesday: true })] as any;
-  check(changedRowsFitPatterns(before, [row({ fsunday: true, fthursday: true })] as any, { courses }) === false, "2 حلٌّ بأيامٍ غير معتمدة لا يُعرض");
+  check(changedRowsFitPatterns(before, [row({ fsunday: true, fmonday: true })] as any, { courses }) === false, "2 حلٌّ بأيامٍ غير معتمدة (متتالية) لا يُعرض");
+  check(changedRowsFitPatterns(before, [row({ fsunday: true, fthursday: true })] as any, { courses }) === true, "2 الأحد·الخميس 80د شكلٌ معتمد (أيامٌ غير متتالية) فيُعرض");
   check(changedRowsFitPatterns(before, [row({ fmonday: true, fwednesday: true, fstarttime: "09:30", fendtime: "10:50" })] as any, { courses }) === true, "2 نمطٌ معتمد يمرّ");
-  const legacy = [row({ fsunday: true, fthursday: true })] as any;
+  const legacy = [row({ fsunday: true, fmonday: true })] as any;
   check(changedRowsFitPatterns(legacy, legacy, { courses }) === true, "2 صفٌّ لم يتغيّر شكله يبقى كما هو");
-  check(changedRowsFitPatterns(legacy, [row({ fsunday: true, fthursday: true, fstarttime: "10:00", fendtime: "11:20" })] as any, { courses }) === false, "2 نقل وقت شعبة قديمة بأيام غير معتمدة يُرفض كما يرفضه الاعتماد");
+  check(changedRowsFitPatterns(legacy, [row({ fsunday: true, fmonday: true, fstarttime: "10:00", fendtime: "11:20" })] as any, { courses }) === false, "2 نقل وقت شعبة قديمة بأيام غير معتمدة يُرفض كما يرفضه الاعتماد");
   check(/!changedRowsFitPatterns\(base, after, context\)/.test(read("src/utils/timeMachine.ts")), "2 solveProblem يطبّق الفحص");
   const busy = row({ id: 2, AdInstructorId: 9, fmonday: true, AdRoomCode: "A", AdRoomHall: "1" });
   const own = row({ id: 3, AdInstructorId: 9, fmonday: true, AdRoomCode: "B", AdRoomHall: "2" });
@@ -39,7 +40,8 @@ const theory1 = { CourseHours: 1, CourseTeachingMode: "theoretical" };
   check(endIsDeliberate(theory3, ["fsunday", "ftuesday", "fthursday"], "11:00", "12:30") === true, "3 نهاية مكتوبة خارج النمط متعمَّدة");
   check(endIsDeliberate(theory3, ["fsunday", "ftuesday", "fthursday"], "11:00", "11:50") === false, "3 نهاية النمط ليست تجاوزاً");
   const thu = pickDay(theory3, ["fmonday"], "fthursday", true, 170);
-  check(thu.days.join("+") === "fmonday+fthursday" && thu.applied === null, "3 إضافة الخميس لا تحذف الاثنين", thu);
+  /* والاثنين·الخميس 80د شكلٌ معتمد (أيامٌ غير متتالية — قرار المالك)، فيُطبَّق ولا يُقال «يدوي». */
+  check(thu.days.join("+") === "fmonday+fthursday" && thu.applied?.minutes === 80, "3 إضافة الخميس لا تحذف الاثنين", thu);
   check(/endIsDeliberate\(formCourse, formDays/.test(read("src/components/Schedules.tsx")), "3 النموذج يقرأ النهاية المكتوبة");
 }
 /* 4 */
