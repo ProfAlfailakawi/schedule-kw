@@ -134,6 +134,24 @@ check(ex.headers.getSetCookie().join("|").includes(`${SHOWCASE_COOKIE}=;`), "S4 
   check(wishRes.status !== 200 || !wishJson.wishes.courseIds.includes(advanced.id), "S6 الرغباتُ لا تقبل مقرراً لم تُجتز مسبقاته", wishJson);
 }
 
+/* S7: دخولٌ حقيقيٌّ وكوكي التجربة باقٍ — لا يُخدم من الصندوق، فلا يُطرد صاحبُه بعد زواله ولا يُرفض رمزُه. */
+{
+  const d = await open();
+  const { validateCivilId } = await import("../src/utils/civilId");
+  let civilId = "";
+  for (let n = 0; n < 1000 && !civilId; n++) { const c = `2900101${String(n).padStart(5, "0")}`; if (validateCivilId(c).isValid) civilId = c; }
+  const post = (p: string, body: unknown, jar: string) => fetch(base + p, { method: "POST", headers: { "content-type": "application/json", cookie: jar }, body: JSON.stringify(body) });
+  const made = await post("/api/public/me/enter", { civil: civilId, code: "246813", create: true, agree: true, name: "طالب حقيقي ثلاثي" }, d.jar);
+  const set = made.headers.getSetCookie().join("|");
+  check(made.status === 201 && (await Repository.listStudentProfiles()).length === 1, "S7 الإنشاءُ مع كوكي التجربة يُكتب في المستودع الحقيقي لا في الصندوق", made.status);
+  check(set.includes(`${SHOWCASE_COOKIE}=;`) && /sh_session=[^;]+/.test(set), "S7 ويُمسح كوكي التجربة وتُصدر جلسةُ الباب الحقيقية معاً", set);
+  const realJar = made.headers.getSetCookie().filter(c => c.startsWith("sh_session=")).map(c => c.split(";")[0]).join("; ");
+  const after = await (await get("/api/public/me/state", realJar)).json() as any;
+  check(after.signedIn === true && after.demo === false, "S7 الجلسةُ الحقيقية قائمةٌ بلا صندوق", { signedIn: after.signedIn, demo: after.demo });
+  const again = await post("/api/public/me/enter", { civil: civilId, code: "246813" }, `${SHOWCASE_COOKIE}=demo_stu_gone`);
+  check(again.status === 200, "S7 الرمزُ الصحيح يُقبل لاحقاً ولو حمل المتصفحُ كوكي تجربةٍ منتهية", again.status);
+}
+
 /* S5 */
 let limited = 0;
 for (let i = 0; i < 40; i++) { const r = await fetch(base + "/me/demo", { redirect: "manual" }); if (r.status === 429) limited++; }

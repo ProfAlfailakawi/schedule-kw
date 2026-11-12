@@ -37,6 +37,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     [error, setError] = useState<string | null>(null),
     [identityOpen, setIdentityOpen] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("journey") === "1"),
     [demoLoading, setDemoLoading] = useState(false),
+    [forgotOpen, setForgotOpen] = useState(false),
     [demoEnabled, setDemoEnabled] = useState(false),
     [knownLogin, setKnownLogin] = useState(() => {
       if (typeof window === "undefined") return false;
@@ -229,6 +230,21 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               )}
             </PrimaryButton>
           </form>
+          {/* «نسيت كلمة السر؟»: لا استرجاعَ بالاسم ولا بالرقم المدني وحده من هذه الشاشة
+              (يُعدّد الحسابات ويُخمَّن). الطريقان القائمان هما الآمنان: عضو الفريق برابطه
+              الشخصي وآخر أربعة أرقام من رقمه المدني، ورابطٌ جديد من رئيس فريقه
+              (/api/seats/:id/members/:mid/reset)؛ ورئيس الفريق يعيد مديرُ النظام تعيين كلمته. */}
+          <button type="button" className="demo-entry-link login-forgot-toggle" aria-expanded={forgotOpen} onClick={() => setForgotOpen(open => !open)} data-guide-ignore="يعرض طريقة استعادة الدخول؛ لا يرسل شيئاً">
+            نسيت كلمة السر؟
+          </button>
+          {forgotOpen ? (
+            <div className="login-forgot" role="note">
+              <Notice inline>
+                عضو الفريق: افتح رابطك الشخصي وأكّد بآخر أربعة أرقام من رقمك المدني، أو اطلب من رئيس فريقك رابطاً جديداً.
+                رئيس الفريق: يعيد مدير النظام تعيين كلمة السر.
+              </Notice>
+            </div>
+          ) : null}
           <footer>
             {/* Identity and year read as one quiet signature; the two real
                 doors — trying the system, installing it — carry their names. */}

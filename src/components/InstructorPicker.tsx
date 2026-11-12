@@ -7,6 +7,7 @@ import { instructorCleanName } from "../utils/instructorIdentity";
 import { isFacultyPlaceholder, singleFacultyPlaceholder } from "../utils/placeholderInstructor";
 import PersonChips from "./PersonChips";
 import { useTrainees } from "../utils/trainees";
+import { isTrainingAssistant } from "../utils/taConversion";
 
 /**
  * Choosing who teaches this, out of thousands.
@@ -202,16 +203,22 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       .map(x => x.person), placeholderPreference).slice(0, 40);
   }, [query, knownInstructors, wider, effectiveDepartmentIds, byId, departmentRank, sectionId, strictDepartmentOnly, rosterSet, visitingSet, visitingRosterIds, value, placeholderPreference, onlySet]);
 
-  /* الأعضاء أولاً ثم المنتدبون (مع الحفاظ على ترتيب البحث داخل كل مجموعة)، و«هيئة تدريسية» وحدها. */
+  /* الأعضاء أولاً ثم المنتدبون ثم أعضاءُ هيئة التدريب (🎓، كما في المقترح الدراسي — ملاحظة المالك 12)،
+     و«شاغر · هيئة تدريسية» وحدها في أول القائمة. */
+  const isTa = (person: Instructor) => trainees.has(Number(person.AdInstructorId)) || isTrainingAssistant(person as any);
   const grouped = useMemo(() => {
     const placeholder = results.find(person => isFacultyPlaceholder(person)) || null;
     const people = results.filter(person => !isFacultyPlaceholder(person));
+    const tas = people.filter(isTa);
+    const staff = people.filter(person => !isTa(person));
     return {
       placeholder,
-      members: people.filter(person => !visitingSet.has(person.AdInstructorId)),
-      visiting: people.filter(person => visitingSet.has(person.AdInstructorId)),
+      members: staff.filter(person => !visitingSet.has(person.AdInstructorId)),
+      visiting: staff.filter(person => visitingSet.has(person.AdInstructorId)),
+      tas,
     };
-  }, [results, visitingSet]);
+  }, [results, visitingSet, trainees]);
+  const listed = [...grouped.members, ...grouped.visiting, ...grouped.tas];
 
   useEffect(() => {
     if (!open) return;
@@ -276,7 +283,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       >
         <UserRound aria-hidden="true" />
         <span className="instructor-identity">
-          <b>{selected ? (isFacultyPlaceholder(selected) ? "بدون أستاذ بعد" : <>{selected.AdInstructorName}<PersonChips visiting={visitingSet.has(selected.AdInstructorId)} trainee={trainees.has(Number(selected.AdInstructorId))} /></>) : emptyLabel}</b>
+          <b>{selected ? (isFacultyPlaceholder(selected) ? "شاغر · هيئة تدريسية" : <>{selected.AdInstructorName}<PersonChips visiting={visitingSet.has(selected.AdInstructorId)} trainee={isTa(selected)} /></>) : emptyLabel}</b>
           {selected?.AdInstructorCivil && !isFacultyPlaceholder(selected) ? <small dir="ltr">{selected.AdInstructorCivil}</small> : null}
         </span>
       </button>
@@ -314,13 +321,14 @@ export default function InstructorPicker({ value, onChange, instructors, departm
                 onClick={() => { onSelected?.(grouped.placeholder!); onChange(grouped.placeholder!.AdInstructorId); setOpen(false); }}
               >
                 <UserRoundX aria-hidden="true" />
-                <span className="instructor-identity"><b>بدون أستاذ بعد</b><small>هيئة تدريسية</small></span>
+                <span className="instructor-identity"><b>شاغر</b><small>هيئة تدريسية · بدون أستاذ بعد</small></span>
                 {grouped.placeholder.AdInstructorId === value ? <Check aria-hidden="true" /> : null}
               </button>
             ) : null}
-            {grouped.members.length || grouped.visiting.length ? [...grouped.members, ...grouped.visiting].map((person, index) => (
+            {listed.length ? listed.map((person, index) => (
               <React.Fragment key={person.AdInstructorId}>
                 {index === grouped.members.length && grouped.visiting.length ? <p className="instructor-group-label">منتدبون هذا الفصل</p> : null}
+                {index === grouped.members.length + grouped.visiting.length && grouped.tas.length ? <p className="instructor-group-label">أعضاء هيئة التدريب</p> : null}
                 <button
                   type="button"
                   data-guide-feature-id="schedule.action.change-instructor"
@@ -333,7 +341,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
                       by side, twelve monospace digits left a department's names
                       truncated to a single letter. */}
                   <span className="instructor-identity">
-                    <b>{person.AdInstructorName}<PersonChips visiting={visitingSet.has(person.AdInstructorId)} trainee={trainees.has(Number(person.AdInstructorId))} /></b>
+                    <b>{person.AdInstructorName}<PersonChips visiting={visitingSet.has(person.AdInstructorId)} trainee={isTa(person)} /></b>
                     {!isFacultyPlaceholder(person) ? <small dir="ltr">{person.AdInstructorCivil || "—"}</small> : null}
                   </span>
                   {departmentRank.has(person.AdInstructorId) ? <i className="instructor-department-mark" title={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"} aria-label={visitingSet.has(person.AdInstructorId) ? "منتدب يدرّس هذا الفصل" : "يدرّس في هذا القسم"}><CircleDot aria-hidden="true" /></i> : null}

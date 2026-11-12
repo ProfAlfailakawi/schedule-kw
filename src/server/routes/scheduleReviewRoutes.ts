@@ -27,7 +27,8 @@ import { courseHabit } from "../core/instructorRequests";
 import { capacityContextForSection } from "../core/capacityRules";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { scheduleConflicts } from "../core/scheduleConflicts";
-import { describeScheduleChange, hoursNotice, mixedPatternNotice, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, unapprovedPatternIssue } from "../core/scheduleRules";
+import { describeScheduleChange, hoursNotice, mixedPatternNotice, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, unapprovedPatternIssue } from "../core/scheduleRules";
+import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { companionBookingFor } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed, legacyFDetail } from "../core/scope";
 import { approvalBlockerOptions } from "../core/smartImport";
@@ -153,11 +154,14 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
     scheduleConflicts(req,row,Number(row.excludeId||0)),
     checkPatternIssue(row).catch(()=>null),
   ]);
+  /* ما يحتاج تأكيداً صريحاً عند الحفظ يُقال قبله (ملاحظتا المالك 10 و20): البطاقةُ لا تقول «جاهز للحفظ» وفيه مخالفة. */
+  const regulation=await regulationExceptionsFor({...row,id:Number(row.excludeId||row.id||0)},undefined,savedRow&&sameScheduleShape(savedRow as any,row)
+    ?{shapeChanged:false,sequenceChanged:Number(savedRow.AdInstructorId||0)!==Number(row.AdInstructorId||0)}:{}).catch(()=>[]);
   const validationIssues=[...payloadIssues];
   if(lengthIssue)validationIssues.push(lengthIssue);
   if(patternIssue)validationIssues.push(patternIssue);
   validationIssues.push(...placeIssues);
-  res.json({conflicts,validationIssues,...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{})}); });
+  res.json({conflicts,validationIssues,...(regulation.length?{regulation}:{}),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{})}); });
 
 
 /**
@@ -426,6 +430,22 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
     });
     return;
   }
+  /* النقلُ بالسحب حفظٌ كأي حفظ (ملاحظتا المالك 10 و20): ما يخالف اللائحة ولا يمنع يُسأل عنه صراحةً قبل الكتابة.
+     يُقرأ كلُّ منقولٍ على أسبوع الفصل كما سيصير — المنقولةُ الأخرى في أماكنها الجديدة. */
+  const exceptions: RegulationExceptionIssue[] = [];
+  {
+    const byTerm = new Map<number, FSchedule[]>();
+    const movedById = new Map<number, FSchedule>(candidates.map((candidate: { row: FSchedule }) => [Number(candidate.row.id), candidate.row] as const));
+    for (const [index, candidate] of candidates.entries()) {
+      if (sameScheduleShape(originals[index] as any, candidate.row as any)) continue;
+      const termId = Number(candidate.row.AdTermId);
+      if (!byTerm.has(termId)) byTerm.set(termId, (await Repository.getSchedulesByScope({ termId })).map(row => movedById.get(Number(row.id)) || row));
+      for (const issue of await regulationExceptionsFor(candidate.row, byTerm.get(termId))) {
+        if (!exceptions.some(item => item.rule === issue.rule && item.text === issue.text)) exceptions.push(issue);
+      }
+    }
+  }
+  if (exceptions.length && !regulationExceptionAccepted(req.body)) { res.status(409).json(regulationExceptionRefusal(exceptions)); return; }
   let updated: FSchedule[];
   try {
     updated = await Repository.moveSchedulesBatch(candidates.map((c, index) => ({
@@ -456,6 +476,7 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
       return sentence ? `${before?.AdCourseName || `موعد ${row.id}`}: ${sentence}` : "";
     })
     .filter(Boolean).join(" || ") || undefined;
+  if (exceptions.length) res.locals.auditChanges = [res.locals.auditChanges, regulationExceptionAudit(exceptions)].filter(Boolean).join(" · ");
   /* النقل الجماعي تعديلٌ كأيِّ تعديل: جدولٌ مقبولٌ يعود جولةً جديدة بعده. */
   for (const scope of touchedScopes.values()) {
     await noteScheduleMutation(req, scope.collegeId, scope.sectionId, scope.termId, { kind: "edit" });
