@@ -83,7 +83,7 @@ try {
     const place = ideas.body.slots?.[0];
     assert.ok(place, `fixture needs a real free room at ${day} ${start}: ${JSON.stringify(ideas.body)}`);
     const created = await call("POST", "/api/schedules", { ...body, AdRoomCode: place.room, AdRoomHall: place.hall,
-      roomId: place.roomId, buildingId: place.buildingId, locationStatus: "VERIFIED" });
+      roomId: place.roomId, buildingId: place.buildingId, locationStatus: "VERIFIED", regulationException: true });
     assert.equal(created.status, 201, JSON.stringify(created.body));
     return created.body;
   };
@@ -94,7 +94,7 @@ try {
       const ideas = await call("POST", "/api/schedules/suggest-slots", { ...body, roomOnly: true, durationMinutes: 50 });
       for (const place of ideas.body?.slots || []) {
         const created = await call("POST", "/api/schedules", { ...body, AdRoomCode: place.room, AdRoomHall: place.hall,
-          roomId: place.roomId, buildingId: place.buildingId, locationStatus: "VERIFIED" });
+          roomId: place.roomId, buildingId: place.buildingId, locationStatus: "VERIFIED", regulationException: true });
         if (created.status === 201) return created.body;
       }
     }
@@ -151,7 +151,7 @@ try {
   const submittedRequest = submitted[winnerIndex].body.request;
   const coordinatorRequest = (await call("GET", "/api/instructor-requests?collegeId=1&sectionId=1&termId=1")).body.rows
     .find((row: any) => row.id === submittedRequest.id);
-  const loser = contenders[1 - winnerIndex];
+  const loser = contenders[winnerIndex === 0 ? 1 : 0];
   const browserOffering = browserCard.card.availableOfferings.find((option: any) => fixtureOfferingIds.has(Number(option.id))
     && Number(option.id) !== Number(offered.id));
   assert.ok(browserOffering, "a second public choice is available for the browser journey");
