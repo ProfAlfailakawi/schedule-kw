@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  CalendarPlus, CircleCheck, ClipboardList, EyeOff, FileUp, GraduationCap, Link2, OctagonAlert, TriangleAlert, Unlink, Users, X,
+  ArrowLeftRight, CalendarPlus, CircleCheck, Gauge, TrendingDown, ClipboardList, EyeOff, FileUp, GraduationCap, Link2, OctagonAlert, TriangleAlert, Unlink, Users, X,
 } from "lucide-react";
 import SearchableSelect from "./SearchableSelect";
 import CourseTags from "./CourseTags";
@@ -18,12 +18,30 @@ import { putActualDemandHandoff } from "../utils/actualDemandHandoff";
 
 interface Target { courseId: number; collegeId: number; sectionId: number; track: string }
 interface Alert { code: string; name: string; students: number; boys: number; girls: number; graduates: number; targets: Target[] }
+interface SupplyBranchView { track: string; demand: number; graduates: number; sections: number; seats: number; gap: number }
+export interface SupplyItemView {
+  code: string; name: string; demand: number; graduates: number; sections: number; seats: number; gap: number;
+  unmetStudents: number; unmetGraduates: number; branches: SupplyBranchView[]; move: { from: string; to: string; sections: number } | null; targets: Target[];
+}
+type SupplyKind = "zero" | "grad" | "short" | "move" | "spare";
+/** نوعُ البند: بلا شعبة أصلاً، خريجون بلا مقعد، عجز، نقلٌ يكفي، أو فائض. */
+const kindOf = (item: SupplyItemView): SupplyKind =>
+  item.unmetGraduates > 0 ? "grad" : item.sections === 0 && item.unmetStudents > 0 ? "zero" : item.gap > 0 || item.unmetStudents > 0 ? (item.move && item.gap <= 0 ? "move" : "short") : item.move ? "move" : "spare";
+const KIND_ICON: Record<SupplyKind, React.ReactNode> = {
+  zero: <OctagonAlert />, grad: <GraduationCap />, short: <Users />, move: <ArrowLeftRight />, spare: <TrendingDown />,
+};
+const percent = (value: number | null | undefined) => (value === null || value === undefined ? "—" : `${Math.round(value)}%`);
+const toneOf = (value: number | null | undefined) => (value === null || value === undefined ? "" : value >= 100 ? "is-good" : value >= 85 ? "is-warn" : "is-bad");
+
 interface VariantInfo { uploadedAt: string; by: string; courses: number; students: number; termLabel: string; department: string }
 export interface DemandReadingView {
   family: { key: string; name: string; members: Array<{ collegeId: number; sectionId: number; collegeName: string; track: string }> };
   variants: Record<DemandVariant, VariantInfo | null>;
   history: Array<{ variant: DemandVariant; at: string; by: string; hash: string; courses: number; students: number }>;
   matched: number;
+  /** «نسبة خدمة الطلب» (٪) للعام وللخريجين ولكل مسار؛ null قبل الرفع. */
+  service: { general: number | null; graduates: number | null; byTrack: Array<{ track: string; general: number | null; graduates: number | null }> } | null;
+  supply: SupplyItemView[];
   alerts: Alert[];
   unmatched: Array<{ code: string; name: string; students: number }>;
   catalogue: Array<{ courseId: number; code: string; name: string }>;
@@ -41,15 +59,6 @@ async function readJson(response: Response) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(body?.error || "تعذّر الاتصال."), { status: response.status, body });
   return body;
-}
-
-/** الكلية التي تُفتح فيها الشعبة: الكلية المفتوحة إن كان لمسارها طلبة، وإلا مسارُ الأكثر طلبة. */
-function pickTarget(alert: Alert, collegeId: number): Target | null {
-  const own = alert.targets.find(target => target.collegeId === collegeId);
-  const needs = (track: string) => (track === "boys" ? alert.boys : track === "girls" ? alert.girls : alert.students) > 0;
-  if (own && needs(own.track)) return own;
-  const wanted = alert.boys >= alert.girls ? "boys" : "girls";
-  return alert.targets.find(target => target.track === wanted) || own || alert.targets[0] || null;
 }
 
 export default function ActualDemandPanel({ collegeId, sectionId, termId, initial = null, onReading }: {
@@ -71,19 +80,29 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
   const input = useRef<HTMLInputElement>(null);
   const query = `collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`;
 
+  /* الجدولُ يتغيّر في الورشة: النسبةُ تُقرأ من جديد كلما عاد المستخدم إلى هذه الصفحة. */
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const back = () => { if (document.visibilityState === "visible") setRevision(value => value + 1); };
+    document.addEventListener("visibilitychange", back);
+    window.addEventListener("focus", back);
+    return () => { document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back); };
+  }, []);
   const show = useCallback((next: DemandReadingView | null) => { setReading(next); onReading?.(next); }, [onReading]);
 
   useEffect(() => {
     if (!collegeId || !sectionId || !termId) return;
     const controller = new AbortController();
-    if (!initial) setStatus("loading");
-    setPreview(null); setFile(null); setError("");
+    if (!revision) {
+      if (!initial) setStatus("loading");
+      setPreview(null); setFile(null); setError("");
+    }
     fetch(`/api/actual-demand?${query}`, { credentials: "include", signal: controller.signal })
       .then(readJson)
       .then(body => { if (!controller.signal.aborted) { show(body); setStatus("ready"); } })
-      .catch(failure => { if (!controller.signal.aborted) { show(null); setStatus(failure?.status === 403 ? "denied" : "error"); } });
+      .catch(failure => { if (!controller.signal.aborted && !revision) { show(null); setStatus(failure?.status === 403 ? "denied" : "error"); } });
     return () => controller.abort();
-  }, [query]);
+  }, [query, revision]);
 
   const send = async (picked: File, kind: DemandVariant, commit: boolean, confirm = false) => {
     setBusy(true); setError("");
@@ -123,10 +142,13 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
     finally { setLinking(false); }
   };
 
-  const fix = (alert: Alert) => {
-    const target = pickTarget(alert, collegeId);
+
+  /* العاجز أولاً: الفرعُ الأكبر عجزاً، وإلا مسارُ الأكثر طلبة. */
+  const fixSupply = (item: SupplyItemView) => {
+    const short = [...item.branches].sort((a, b) => b.gap - a.gap || (b.demand - b.seats) - (a.demand - a.seats))[0];
+    const target = item.targets.find(entry => !short?.track || entry.track === short.track) || item.targets[0];
     if (!target) return;
-    putActualDemandHandoff({ courseId: target.courseId, collegeId: target.collegeId, sectionId: target.sectionId, termId, students: alert.students, graduates: alert.graduates });
+    putActualDemandHandoff({ courseId: target.courseId, collegeId: target.collegeId, sectionId: target.sectionId, termId, students: item.unmetStudents || item.demand, graduates: item.unmetGraduates });
     window.location.assign("/FSchedule/Index");
   };
 
@@ -212,31 +234,61 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
 
       {hasReport && reading ? (
         <>
-          <div className={`ad-hero${reading.alerts.length ? " is-bad" : " is-good"}`}>
-            <span className="ad-hero-icon" aria-hidden="true">{reading.alerts.length ? <OctagonAlert /> : <CircleCheck />}</span>
-            <b className="ad-hero-number"><Num value={reading.alerts.length} /></b>
-            <span className="ad-hero-label">{reading.alerts.length ? `${nounFor(reading.alerts.length, AR.course)} بلا شعبة` : "كل مقرر مطلوب له شعبة"}</span>
-          </div>
-          {reading.alerts.length ? (
-            <ol className="ad-list" aria-label="مقررات بلا شعبة، الأشد أولاً">
-              {reading.alerts.slice(0, showAll ? reading.alerts.length : 8).map(alert => (
-                <li key={alert.code} className={alert.graduates ? "is-grad" : ""}>
-                  <span className="ad-item-icon" aria-hidden="true">{alert.graduates ? <GraduationCap /> : <OctagonAlert />}</span>
-                  <span className="ad-item-main"><span className="ad-code" dir="ltr">{alert.code}</span><span>{alert.name}{alert.targets.length ? <CourseTags courseIds={alert.targets.map(target => target.courseId)} /> : null}</span></span>
-                  <span className="ad-item-num" title={countOf(alert.students, AR.student)}>
-                    <Num value={alert.students.toLocaleString("en-US")} />
-                    {alert.graduates ? <small><GraduationCap aria-hidden="true" /><Num value={alert.graduates} /></small> : null}
+          {reading.service ? (
+            <div className={`ad-hero ${toneOf(reading.service.general ?? reading.service.graduates)}`}>
+              <span className="ad-hero-icon" aria-hidden="true">{(reading.service.general ?? reading.service.graduates ?? 0) >= 100 ? <CircleCheck /> : <Gauge />}</span>
+              <div className="ad-hero-stack">
+                <b className="ad-hero-number"><Num value={percent(reading.service.general ?? reading.service.graduates)} /></b>
+                <span className="ad-hero-label">نسبة خدمة الطلب</span>
+              </div>
+              <div className="ad-hero-side">
+                {reading.service.general !== null && reading.service.graduates !== null ? (
+                  <span className={`ad-grad ${toneOf(reading.service.graduates)}`} title="الهدف 100%">
+                    <GraduationCap aria-hidden="true" /><Num value={percent(reading.service.graduates)} /><small>الخريجون</small>
                   </span>
-                  <button type="button" className="btn btn-primary ad-fix" disabled={!alert.targets.length} onClick={() => fix(alert)}
-                    data-guide-ignore="يفتح محرّر موعدٍ جديد لهذا المقرر في الورشة؛ لا يكتب قبل الحفظ هناك">
-                    <CalendarPlus aria-hidden="true" /> عالج
-                  </button>
-                </li>
-              ))}
-            </ol>
+                ) : null}
+                {reading.service.byTrack.filter(row => row.track).map(row => (
+                  <span key={row.track} className="ad-track"><small>{row.track === "boys" ? "بنين" : "بنات"}</small><Num value={percent(row.general ?? row.graduates)} /></span>
+                ))}
+              </div>
+            </div>
           ) : null}
-          {reading.alerts.length > 8 && !showAll ? (
-            <button type="button" className="ad-more" onClick={() => setShowAll(true)} data-guide-ignore="يعرض بقية المقررات في القائمة نفسها">+{countOf(reading.alerts.length - 8, AR.course)}</button>
+          {reading.supply.length ? (
+            <ol className="ad-list" aria-label="المقررات بالأشد أولاً">
+              {reading.supply.slice(0, showAll ? reading.supply.length : 8).map(item => {
+                const kind = kindOf(item);
+                return (
+                  <li key={item.code} className={`is-${kind}`}>
+                    <span className="ad-item-icon" aria-hidden="true">{KIND_ICON[kind]}</span>
+                    <span className="ad-item-main">
+                      <span className="ad-code" dir="ltr">{item.code}</span>
+                      <span>{item.name}{item.targets.length ? <CourseTags courseIds={item.targets.map(target => target.courseId)} /> : null}</span>
+                      <span className="ad-chips">
+                        {item.branches.filter(branch => branch.gap !== 0).map(branch => (
+                          <em key={branch.track || "all"} className={branch.gap > 0 ? "is-short" : "is-spare"}>
+                            {branch.gap > 0 ? "−" : "+"}{Math.abs(branch.gap)} {nounFor(Math.abs(branch.gap), AR.section)}{branch.track ? ` · ${branch.track === "boys" ? "بنين" : "بنات"}` : ""}
+                          </em>
+                        ))}
+                        {item.move ? <em className="is-move"><ArrowLeftRight aria-hidden="true" />{countOf(item.move.sections, AR.section)} · {item.move.from === "girls" ? "بنات ← بنين" : "بنين ← بنات"}</em> : null}
+                      </span>
+                    </span>
+                    <span className="ad-item-num" title={`${countOf(item.demand, AR.student)} · ${countOf(item.seats, AR.seat)}`}>
+                      <Num value={(kind === "spare" ? item.seats - item.demand : item.unmetStudents || item.demand).toLocaleString("en-US")} />
+                      {item.unmetGraduates ? <small><GraduationCap aria-hidden="true" /><Num value={item.unmetGraduates} /></small> : null}
+                    </span>
+                    {kind === "spare" ? <span className="ad-fix-gap" aria-hidden="true" /> : (
+                      <button type="button" className="btn btn-primary ad-fix" disabled={!item.targets.length} onClick={() => fixSupply(item)}
+                        data-guide-ignore="يفتح محرّر موعدٍ جديد لهذا المقرر في الفرع العاجز؛ لا يكتب قبل الحفظ هناك">
+                        <CalendarPlus aria-hidden="true" /> عالج
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          ) : reading.service ? <p className="ad-all-good"><CircleCheck aria-hidden="true" /> كل مقرر مطلوب له مقاعده</p> : null}
+          {reading.supply.length > 8 && !showAll ? (
+            <button type="button" className="ad-more" onClick={() => setShowAll(true)} data-guide-ignore="يعرض بقية المقررات في القائمة نفسها">+{countOf(reading.supply.length - 8, AR.course)}</button>
           ) : null}
           {reading.unmatched.length ? (
             <details className="ad-unmatched">

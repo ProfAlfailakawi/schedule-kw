@@ -87,6 +87,12 @@ console.log("٣) أريد حذف مقرر");
   const blind = courseRemovalVerdict({ ...context, demand: null, registration: null }, 2)!;
   check(blind.tone !== "go" && blind.headline !== "حذفه آمن" && blind.reasons.some(item => item.tone === "care" && item.text.includes("لا بيانات طلبة")),
     "بلا رادارٍ ولا كشف متبقٍّ: لا يُقال «آمن»، ويُقال إن أثره على الطلبة غير معروف", blind);
+  /* الطلب الفعلي (تقرير التسجيل) يسبق الرادار: أرقامُ الخريجين والطلبة الحقيقية في الحكم. */
+  const real = courseRemovalVerdict({ ...context, demand: null, registration: null, actualDemand: { "2": { students: 140, graduates: 7, seats: 60, gap: 2, unmetStudents: 80, unmetGraduates: 0 } } }, 2)!;
+  check(real.tone === "stop" && real.reasons.some(item => item.text.includes("7 خريجين")) && real.reasons.some(item => item.text.includes("140") && item.text.includes("تقرير التسجيل"))
+    && !real.reasons.some(item => item.text.includes("لا بيانات طلبة")), "الطلب الفعلي: «يمسّ 7 خريجين» و140 طالباً يحتاجونه — لا يُنصح بحذفه", real.reasons);
+  const quiet = courseRemovalVerdict({ ...context, demand: null, registration: null, actualDemand: { "2": { students: 0, graduates: 0, seats: 60, gap: -1, unmetStudents: 0, unmetGraduates: 0 } } }, 2)!;
+  check(quiet.reasons.some(item => item.tone === "go" && item.text.includes("لا طالب يحتاجه")), "الطلب الفعلي صفر: سببٌ أخضر لا «غير معروف»", quiet.reasons);
   const noEntry = courseRemovalVerdict({ ...context, plan: { "2": { level: 100, kind: "elective", unlocks: [] } } }, 2)!;
   check(noEntry.tone !== "go", "رادارٌ بلا سطرٍ لهذا المقرر ليس دليلاً على صفر طلبة", noEntry);
 }

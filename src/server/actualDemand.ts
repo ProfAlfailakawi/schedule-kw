@@ -14,6 +14,8 @@ import { isScopeAllowed } from "./core/scope";
 import { departmentFamily, departmentFamilyKey } from "../utils/sectionLabel";
 import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import { trackOf } from "../utils/collegeTrack";
+import { courseDemandFacts, demandSupply, type SupplyCapacity } from "../utils/actualDemandSupply";
+import { capacityContextForSection } from "./core/capacityRules";
 import {
   demandAlerts, demandDepartmentMatches, demandStudents, demandTermMatches, matchDemandCourses, parseDemandReport,
   type DemandCatalogueCourse, type DemandLink, type DemandMatch, type DemandMember, type DemandReport, type DemandTextItem, type DemandVariant,
@@ -116,22 +118,25 @@ export interface DemandContext {
   matches: Map<string, DemandMatch>;
   /** صفوفُ جدول العائلة في الفصل. */
   rows: any[];
+  /** م.8 وم.9 لعائلة القسم: نوعُ التخصص والمقرراتُ المستثناة (مقاعدُ الشعبة بلائحتنا). */
+  capacity: SupplyCapacity;
 }
 
 export async function demandContext(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number): Promise<DemandContext> {
   const family = await demandFamilyFor(req, collegeId, sectionId);
-  const [stored, links, courses, memberRows] = await Promise.all([
+  const [stored, links, courses, memberRows, capacity] = await Promise.all([
     readStoredDemand(termId, family.key),
     readDemandLinks(family.key),
     Repository.getCourses(),
     Promise.all(family.members.map(member => Repository.getSchedulesByScope({ collegeId: member.collegeId, sectionId: member.sectionId, termId }))),
+    capacityContextForSection(sectionId),
   ]);
   const memberIds = new Set(family.members.map(member => member.sectionId));
   const catalogue = (courses as any[]).filter(row => memberIds.has(Number(row.AdSectionId))) as DemandCatalogueCourse[];
   const reports = Object.values(stored?.variants || {}).map(entry => entry!.report);
   const codes = [...new Set(reports.flatMap(report => report.courses.map(course => course.code)))].map(code => ({ code }));
   const matches = new Map(matchDemandCourses(codes, catalogue, family.members, links).map(match => [match.code, match] as const));
-  return { family, stored, links, catalogue, matches, rows: memberRows.flat() };
+  return { family, stored, links, catalogue, matches, rows: memberRows.flat(), capacity };
 }
 
 /** عدد الشعب (رموزٌ مختلفة) لكل مقرر في صفوف الجدول. */
@@ -163,6 +168,13 @@ function targetsOf(context: DemandContext, courseIds: readonly number[]) {
   }).filter(Boolean) as Array<{ courseId: number; collegeId: number; sectionId: number; track: string }>;
 }
 
+/** العرض مقابل الطلب للعائلة في الفصل: النسبة، والقائمة بالأشد، وحقائق كل مقرر. */
+export function demandSupplyOf(context: DemandContext) {
+  const general = context.stored?.variants?.general?.report || null;
+  const graduates = context.stored?.variants?.graduates?.report || null;
+  return demandSupply({ general, graduates, matches: context.matches, catalogue: context.catalogue as any, members: context.family.members, rows: context.rows, capacity: context.capacity });
+}
+
 export function demandReading(context: DemandContext) {
   const general = context.stored?.variants?.general?.report || null;
   const graduates = context.stored?.variants?.graduates?.report || null;
@@ -180,7 +192,14 @@ export function demandReading(context: DemandContext) {
     return entry ? { uploadedAt: entry.uploadedAt, by: entry.uploadedBy, courses: entry.report.courses.length, students: demandStudents(entry.report), termLabel: entry.report.termLabel, department: entry.report.department } : null;
   };
   const members = context.family.members;
+  const supply = base ? demandSupplyOf(context) : null;
   return {
+    /* «نسبة خدمة الطلب» وقائمة المقررات بالأشد (أقصر من عشرين بنداً تُعرض؛ والمتوازن لا يُعرض). */
+    service: supply ? { ...supply.service, byTrack: supply.byTrack } : null,
+    /* لكل AdCourseId في العائلة: ما تقرؤه شارةُ المراجعة وحكمُ «حذف مقرر». */
+    facts: supply ? courseDemandFacts(supply, context.matches) : {},
+    supply: supply ? supply.items.filter(item => item.gap !== 0 || item.unmetGraduates > 0 || item.unmetStudents > 0 || item.move).slice(0, 40)
+      .map(item => ({ ...item, ...courseFace(context, item.code, item.name), report: item.code, targets: targetsOf(context, context.matches.get(item.code)?.courseIds || []) })) : [],
     family: { key: context.family.key, name: context.family.name, members: members.map(({ collegeId, sectionId, collegeName, track }) => ({ collegeId, sectionId, collegeName, track })) },
     variants: { general: variant("general"), graduates: variant("graduates") },
     history: (context.stored?.history || []).slice(0, 10),

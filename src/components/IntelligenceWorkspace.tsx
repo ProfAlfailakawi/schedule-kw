@@ -2156,10 +2156,11 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         {
           value: "actualDemand" as const,
           label: "الطلب الفعلي",
-          detail: "تقرير التسجيل: من يحتاج ماذا",
-          metric: actualDemand && (actualDemand.variants.general || actualDemand.variants.graduates)
-            ? (actualDemand.alerts.length ? String(actualDemand.alerts.length) : "✓")
-            : "ارفع",
+          detail: "نسبة خدمة الطلب من تقرير التسجيل",
+          /* «نسبة خدمة الطلب» على البطاقة نفسها، وتُقرأ من الجدول الحيّ في كل فتح. */
+          metric: actualDemand?.service
+            ? `${Math.round(actualDemand.service.general ?? actualDemand.service.graduates ?? 0)}%`
+            : actualDemand && (actualDemand.variants.general || actualDemand.variants.graduates) ? "—" : "ارفع",
           icon: <ClipboardList />,
         },
         {

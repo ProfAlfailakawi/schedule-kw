@@ -123,3 +123,50 @@
   .ad-fix::after{content:"";position:absolute;inset:-3px}
   .ad-hero{padding:14px}
 }
+
+/* ── (٢) العرض والطلب: «نسبة خدمة الطلب» والقائمة بالأشد ─────────────────────── */
+.ad-hero-stack{display:grid;gap:2px;min-width:0}
+.ad-hero-stack .ad-hero-label{font-size:14px}
+.ad-hero-side{display:flex;flex-wrap:wrap;gap:8px;margin-inline-start:auto;align-items:center}
+.ad-grad{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+.ad-grad svg{width:17px;height:17px;color:var(--brass)}
+.ad-grad .num{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.ad-grad small{font-size:12px;font-weight:700;color:var(--muted)}
+.ad-grad.is-bad .num{color:var(--danger)}
+.ad-grad.is-warn .num{color:var(--warning)}
+.ad-grad.is-good .num{color:var(--success)}
+.ad-track{display:inline-flex;align-items:baseline;gap:5px;height:30px;padding:0 11px;border-radius:999px;background:color-mix(in srgb,var(--surface) 70%,transparent);font-size:12px;font-weight:700;color:var(--muted)}
+.ad-track .num{font-size:14px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.ad-hero.is-warn{background:var(--warning-soft);border-color:color-mix(in srgb,var(--warning) 25%,var(--line))}
+.ad-hero.is-warn .ad-hero-icon{background:var(--warning);color:#fff}
+.ad-hero.is-warn .ad-hero-number .num{color:var(--warning)}
+.ad-hero.is-good .ad-hero-number .num{color:var(--success)}
+.ad-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+.ad-chips em{display:inline-flex;align-items:center;gap:4px;font-style:normal;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.ad-chips em svg{width:12px;height:12px}
+.ad-chips em.is-short{background:var(--danger-soft);color:var(--danger)}
+.ad-chips em.is-spare{background:var(--surface-3);color:var(--ink-2)}
+.ad-chips em.is-move{background:var(--info-soft);color:var(--info)}
+.ad-list li.is-short{border-inline-start-color:var(--danger)}
+.ad-list li.is-zero{border-inline-start-color:var(--danger);background:color-mix(in srgb,var(--danger-soft) 40%,var(--surface))}
+.ad-list li.is-move{border-inline-start-color:var(--info)}
+.ad-list li.is-move .ad-item-icon{background:var(--info-soft);color:var(--info)}
+.ad-list li.is-spare{border-inline-start-color:var(--line-strong)}
+.ad-list li.is-spare .ad-item-icon{background:var(--surface-3);color:var(--muted)}
+.ad-list li.is-spare .ad-item-num>.num{color:var(--muted)}
+.ad-fix-gap{width:86px;flex:none}
+.ad-all-good{display:flex;align-items:center;gap:8px;margin:0;padding:12px 14px;border-radius:14px;background:var(--success-soft);color:var(--success);font-size:14px;font-weight:700}
+.ad-all-good svg{width:18px;height:18px}
+@media (max-width:560px){
+  .ad-hero-side{margin-inline-start:0;width:100%}
+  .ad-fix-gap{display:none}
+}
+
+/* شارةُ الطلب الفعلي على المقرر في «مراجعة الاعتماد» (src/components/DemandBadge.tsx) */
+.demand-badge{display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 7px;margin-inline-start:6px;border-radius:999px;font-size:11px;font-weight:700;vertical-align:middle;font-variant-numeric:tabular-nums;white-space:nowrap}
+.demand-badge svg{width:12px;height:12px}
+.demand-badge.is-short{background:var(--danger-soft);color:var(--danger)}
+.demand-badge.is-grad{background:var(--brass-soft);color:var(--brass)}
+.demand-badge.is-spare{background:var(--surface-3);color:var(--muted)}
+.demand-badge.is-ok{background:var(--success-soft);color:var(--success);padding:0 5px}
+@media print{.demand-badge{display:none!important}}
