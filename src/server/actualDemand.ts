@@ -201,7 +201,9 @@ export function demandReading(context: DemandContext) {
     facts: supply ? courseDemandFacts(supply, context.matches) : {},
     /* م: مقرراتُ خريجي البرنامج الواحد لا تتعارض — ما تعارض منها في كل شعبه. */
     graduateClashes: graduateClashes({ graduates: context.stored?.variants?.graduates?.report || null, matches: context.matches, members: context.family.members, rows: context.rows })
-      .slice(0, 12).map(clash => ({ ...clash, a: courseFace(context, clash.a.code, clash.a.name), b: courseFace(context, clash.b.code, clash.b.name) })),
+      .slice(0, 12).map(clash => ({ ...clash,
+        a: { ...courseFace(context, clash.a.code, clash.a.name), courseIds: context.matches.get(clash.a.code)?.courseIds || [] },
+        b: { ...courseFace(context, clash.b.code, clash.b.name), courseIds: context.matches.get(clash.b.code)?.courseIds || [] } })),
     supply: supply ? supply.items.filter(item => item.gap !== 0 || item.unmetGraduates > 0 || item.unmetStudents > 0 || item.move).slice(0, 40)
       .map(item => ({ ...item, ...courseFace(context, item.code, item.name), report: item.code, targets: targetsOf(context, context.matches.get(item.code)?.courseIds || []) })) : [],
     family: { key: context.family.key, name: context.family.name, members: members.map(({ collegeId, sectionId, collegeName, track }) => ({ collegeId, sectionId, collegeName, track })) },

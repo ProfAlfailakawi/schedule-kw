@@ -16,6 +16,9 @@ const RULE_ICON: Record<RegulationExceptionRule, typeof Clock3> = {
   "consecutive-one-hour": Layers,
 };
 
+/** وسمُ الملاحظة الليّنة (الخريجون): تُقال ولا تمنع. */
+const SOFT_NOTE = "ملاحظة · لا تمنع";
+
 function RegulationExceptionSheet({ issues, note, onChoose }: { issues: readonly RegulationExceptionIssue[]; note?: string; onChoose: (accepted: boolean) => void }) {
   const cancelRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
@@ -43,7 +46,7 @@ function RegulationExceptionSheet({ issues, note, onChoose }: { issues: readonly
             );
           })}
         </ul>
-        {note ? <p className="regulation-exception-soft" role="note"><GraduationCap aria-hidden="true" />{note}<small>ملاحظة · لا تمنع</small></p> : null}
+        {note ? <p className="regulation-exception-soft" role="note"><GraduationCap aria-hidden="true" />{note}<small>{SOFT_NOTE}</small></p> : null}
         <p className="regulation-exception-ask">هل تريد المتابعة استثناءً؟ يُسجَّل الاستثناء في سجل التدقيق.</p>
         <div className="request-hold-actions">
           <button type="button" className="is-primary regulation-exception-confirm" data-guide-ignore="يحفظ الموعد استثناءً من اللائحة ويسجّله في سجل التدقيق" onClick={() => onChoose(true)}>

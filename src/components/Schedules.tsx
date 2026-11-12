@@ -916,6 +916,9 @@ function ScheduleLegendScroller({
 const timingKeyOf = (row: any) =>
   `${Number(row?.AdCourseId || 0)}|${["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(key => row?.[key] ? 1 : 0).join("")}|${String(row?.fstarttime || "")}`;
 
+/** وسمُ ملاحظة الخريجين قبل الحفظ (الطلب الفعلي): تُقال ولا تمنع. */
+const GRADUATE_NOTE_TAG = "ملاحظة فقط · لا تمنع الحفظ";
+
 export default function Schedules({ mode, user, scopes = [], permissions = [], signatureStage: approvalStage = null, canSign = true, committeeEligible = false, onNavigate, onOpenQueryCentre }: Props) {
   const prefsKey = `schedule-workspace-prefs-${user?.SystemUserId || 0}`;
   const lastSavedRef = useRef<any>(null);
@@ -10422,7 +10425,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <div className="schedule-lecture-advisory schedule-graduate-advisory" role="status" aria-label={`ملاحظة لا تمنع الحفظ: ${graduateNotice}`}>
                 <span className="schedule-lecture-advisory__icon" aria-hidden="true"><GraduationCap /></span>
                 <div className="schedule-lecture-advisory__body">
-                  <div className="schedule-lecture-advisory__head"><b>{graduateNotice}</b><span>ملاحظة فقط · لا تمنع الحفظ</span></div>
+                  <div className="schedule-lecture-advisory__head"><b>{graduateNotice}</b><span>{GRADUATE_NOTE_TAG}</span></div>
                 </div>
               </div>
             ) : null}

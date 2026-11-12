@@ -326,7 +326,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
 
   /* الطلب الفعلي (تقرير التسجيل): شارةٌ صغيرة على كل مقرر — قراءةٌ لا تمنع شيئاً. */
   const [demandFacts, setDemandFacts] = useState<Record<string, CourseDemandFact> | null>(null);
-  const [graduateClashes, setGraduateClashes] = useState<Array<{ a: { code: string; name: string }; b: { code: string; name: string }; track: string; graduates: number }>>([]);
+  const [graduateClashes, setGraduateClashes] = useState<Array<{ a: { code: string; name: string; courseIds?: number[] }; b: { code: string; name: string; courseIds?: number[] }; track: string; graduates: number }>>([]);
   useEffect(() => {
     setDemandFacts(null); setGraduateClashes([]);
     if (!collegeId || !sectionId || !termId) return;
@@ -896,7 +896,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
               {graduateClashes.slice(0, 6).map(clash => (
                 <li key={`${clash.track}|${clash.a.code}|${clash.b.code}`} title={`${clash.a.name} × ${clash.b.name}`}>
                   <span dir="ltr" className="rgc-codes">{clash.a.code} × {clash.b.code}</span>
-                  <span className="rgc-names">{clash.a.name} · {clash.b.name}</span>
+                  <span className="rgc-names">{clash.a.name}<CourseTags courseIds={clash.a.courseIds} /> · {clash.b.name}<CourseTags courseIds={clash.b.courseIds} /></span>
                   <b>{countOf(clash.graduates, AR.graduate)}</b>
                 </li>
               ))}
