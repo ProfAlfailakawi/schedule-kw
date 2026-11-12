@@ -41,6 +41,8 @@
     "src/components/ScenarioWorkbench.tsx",
     "src/components/timeMachineShared.tsx",
     "src/components/SectionSimulator.tsx",
+    "src/components/SmartSuggestions.tsx",
+    "src/utils/smartSuggestions.ts",
     "src/components/PreviousPlansPanel.tsx",
     "src/components/SchedulePhysics/ScheduleDecisionPreview.tsx",
     "src/styles/33-time-machine.css"

@@ -24,7 +24,7 @@ const between = (text: string, from: string, to: string) => {
 /* ── I ── */
 {
   const intel = read("src/components/IntelligenceWorkspace.tsx");
-  check(/type Tab = "command" \| "copilot" \| "twin" \| "history";/.test(intel) && !/tab === "import"/.test(intel),
+  check(/type Tab = "command" \| "copilot" \| "twin" \| "whatif" \| "history";/.test(intel) && !/tab === "import"/.test(intel),
     "I1 لا تبويب «استيراد» لا يُفتح: النوع والعرض بلا import");
   check(!/importSmartFile|fillUnreadCellsSmart|importPdf|importExcel|approveAndPublishPdf|downloadImportTemplate|smartRetry|importErrorModal/.test(intel),
     "I2 أدوات الاستيراد المكررة وعرض القراءة الأدق أُزيلت من مركز التحليل");

@@ -2,7 +2,7 @@ import TermSelect from "./TermSelect";
 import { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GraduationCap, AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Lightbulb, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Puzzle, Library } from "lucide-react";
+import { GraduationCap, AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Library } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
@@ -15,7 +15,6 @@ import { importGateSettled, importGateState } from "../utils/importGate";
 import ImportNameFillPanel from "./ImportNameFillPanel";
 import SchedulePublish from "./SchedulePublish";
 import SectionPlanning from "./SectionPlanning";
-import AcademicAdvicePanel from "./AcademicAdvicePanel";
 import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
 import { isAssignableInstructor } from "../utils/instructorStatus";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
@@ -66,10 +65,9 @@ interface Props {
   onClose: () => void;
 }
 
-/* «improve»: أيقونةُ «فرصة لتحسين الجدول» — مدخلُها الثاني بعد بطاقتها في مركز الذكاء، ولا ثالث. */
-type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "simulator" | "improve";
-/* 🧩 محاكي الشعب بجانب «تخطيط الشعب»: ماذا لو حذفنا/أضفنا/دمجنا/قسّمنا؟ (src/components/SectionSimulator.tsx) */
-const SectionSimulator = lazy(() => import("./SectionSimulator"));
+/* «محاكي الشعب» و«فرصة للتحسين» انتقلا إلى مركز الذكاء وحده («جرّب ← ماذا لو» وبطاقة «فرصة لتحسين الجدول»):
+   أداةُ القرار لها بابٌ واحد، وأدواتُ البيانات للبيانات. */
+type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses";
 const DepartmentRoster = lazy(() => import("./DepartmentRoster"));
 /* 📚 «كل المقررات» بجانب التخطيط: كل مقررات الصحيفتين، و«− شعبة / + شعبة» بأثرٍ فوري (src/components/AllCourses.tsx). */
 const AllCourses = lazy(() => import("./AllCourses"));
@@ -1361,9 +1359,6 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "roster" ? "active" : ""} onClick={() => goTab("roster")} title="الأساتذة: النصاب والدرجة والحالة"><GraduationCap />الأساتذة</button>
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
             <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "courses" ? "active" : ""} onClick={() => goTab("courses")} title="كل المقررات"><Library />كل المقررات</button>
-            {/* 🧩 بجانب التخطيط، وبحكمه: فصلٌ منتهٍ لا محاكاةَ لشعبه. */}
-            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "simulator" ? "active" : ""} onClick={() => goTab("simulator")} title="محاكي الشعب"><Puzzle />محاكي الشعب</button>
-            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "improve" ? "active" : ""} onClick={() => goTab("improve")} title="فرصة لتحسين الجدول"><Lightbulb />فرصة للتحسين</button>
             </>
           )}
         </nav>
@@ -1857,18 +1852,6 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           {tab === "roster" ? (
             collegeId && sectionId && termId
               ? <Suspense fallback={<p>⏳</p>}><DepartmentRoster collegeId={collegeId} sectionId={sectionId} termId={termId} /></Suspense>
-              : <p>اختر القسم والفصل أولاً.</p>
-          ) : null}
-
-          {tab === "improve" ? (
-            collegeId && sectionId && termId
-              ? <div className="transfer-improve"><AcademicAdvicePanel collegeId={collegeId} sectionId={sectionId} termId={termId} defaultOpen /></div>
-              : <p>اختر القسم والفصل أولاً.</p>
-          ) : null}
-
-          {tab === "simulator" ? (
-            collegeId && sectionId && termId
-              ? <Suspense fallback={<p>⏳</p>}><SectionSimulator collegeId={collegeId} sectionId={sectionId} termId={termId} /></Suspense>
               : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 
