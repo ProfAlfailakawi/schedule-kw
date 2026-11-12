@@ -9,6 +9,8 @@
  *   F3 رئيسُ قسمٍ نطاقه البنين وحدهم: العائلةُ تُقصر على نطاقه، ولا يُرفض طلبُه.
  *   F4 ويُرفض عضوٌ خارج نطاقه برسالة، لا بقائمةٍ فارغةٍ صامتة.
  *   F5 «توزيع الفترتين» يُحسب لمواعيد الكلية المفتوحة، لا للعائلة كلها.
+ *   F6 قسمٌ ليس عنده إلا ملاحظاتُ «خارج سُلّم اللائحة» (شكلُ تكنولوجيا التعليم بنين في
+ *      الفصل الثاني 2026/2027) تُعرض ملاحظاتُه، لا «لا ملاحظات».
  */
 import fs from "fs";
 import os from "os";
@@ -104,6 +106,21 @@ try {
 const review = fs.readFileSync(path.join(process.cwd(), "src/components/ScheduleReview.tsx"), "utf8");
 check(/periodBalanceSnapshot\(scopeRows\)/.test(review) && !/periodBalanceSnapshot\(rows\)/.test(review),
   "F5 «توزيع الفترتين» لمواعيد الكلية المفتوحة وحدها");
+
+/* F6: موعدٌ بثلاث ساعات يبدأ 08:30 الاثنين — خارج السُّلّم، ولا شيء غيره يمنع أو يُراجَع. */
+{
+  const { reviewSchedule } = await import("../src/utils/scheduleRegulations");
+  const ladderCourses = new Map([[1, { AdCourseId: 1, CourseCode: "0109105", CourseName: "مقرر", CourseHours: 3, CourseCredit: 3, CourseTeachingMode: "theoretical", AdSectionId: 6, AdCollegeId: 5 }]]);
+  const ladderRows = [{ id: 1, AdCollegeId: 5, AdSectionId: 6, AdTermId: TERM, AdCourseId: 1, SCode: "501", AdInstructorId: 100, fsunday: false, fmonday: true, ftuesday: false, fwednesday: false, fthursday: false, fstarttime: "08:30", fendtime: "11:20", AdRoomCode: "011B17", AdRoomHall: "G20" }];
+  const found = reviewSchedule({ rows: ladderRows, courses: ladderCourses, instructors: new Map(), previousRows: [], nature: new Map() } as any) as any[];
+  const ladder = found.filter(item => item.rule === "regulation-ladder");
+  const shownElsewhere = found.filter(item => item.rule !== "regulation-ladder" && item.rule !== "period-balance");
+  check(ladder.length === 1 && shownElsewhere.length === 0, "F6 الشكل نفسه: ملاحظةُ سُلّمٍ واحدة ولا غيرها", found.map(item => item.rule));
+  const { reviewHasFindings } = await import("../src/utils/approvalScore");
+  check(reviewHasFindings(0, 0, ladder.length) && !reviewHasFindings(0, 0, 0), "F6 ملاحظاتُ السُّلّم وحدها تكفي لتُعرض القائمة");
+  check(/reviewHasFindings\(groupedFindings\.length, warningGroups\.length, quietFindings\.length\)/.test(review)
+    && !/\{groupedFindings\.length \|\| warningGroups\.length \?/.test(review), "F6 والشاشة تسأل بها، لا بالموانع والتنبيهات وحدها");
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

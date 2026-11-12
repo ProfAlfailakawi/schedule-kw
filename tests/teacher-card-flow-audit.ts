@@ -195,6 +195,8 @@ async function main() {
       : { rowId: it.rowId, action: "keep", days: [], start: "" });
     const noOpResult = await http("POST", `/api/public/request/${encodeURIComponent(noOpSource.linkId)}`, {
       civil: noOpCivil, requestRevision: noOpCard.json.request.requestRevision, items: unchangedPayload,
+      // ملاحظةٌ عامة: الطلب يذهب إلى القسم لا إلى «ثبّت»، فلا يمنعه نمطُ التجهيز التجريبي (#449).
+      note: "اختبار تطبيع التعديل غير الفعلي",
     });
     const noOpVerify = await http("POST", "/api/public/verify", { civil: noOpCivil, hint: noOpSource.linkId });
     const noOpSignature = (noOpVerify.json.signatures || []).find((entry: any) => entry.code === noOpResult.json.request?.signature?.verifyCode);

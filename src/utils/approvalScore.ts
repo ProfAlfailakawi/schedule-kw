@@ -85,3 +85,12 @@ export function approvalScoreBreakdown(scopeRowIds: readonly number[], categorie
     formula: total ? `السليم ${n(clean)} ÷ الكل ${n(total)} × 100 = ${n(score)}` : "لا مواعيد في النطاق",
   };
 }
+
+/**
+ * هل في المراجعة ما يُعرض؟ ملاحظاتُ «خارج سُلّم اللائحة» (ladderNotes) لا تدخل
+ * groupedFindings، فكان قسمٌ ليس عنده غيرُها — تكنولوجيا التعليم بنين في الفصل
+ * الثاني 2026/2027 — يرى «لا ملاحظات» وعنده خمس. كلُّ ما يُرسم يُعدّ هنا.
+ */
+export function reviewHasFindings(grouped: number, warnings: number, quiet: number): boolean {
+  return grouped + warnings + quiet > 0;
+}

@@ -17,7 +17,7 @@ import { blockingSummaryPhrase } from "../utils/approvalWorkflow";
 import { roomIdentityKey, roomDisplay } from "../utils/locationRegistry";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { rowsInApprovalScope } from "../utils/approvalScope";
-import { approvalScoreBreakdown } from "../utils/approvalScore";
+import { approvalScoreBreakdown, reviewHasFindings } from "../utils/approvalScore";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import CourseTags from "./CourseTags";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
@@ -883,7 +883,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
           {/* «لم نصل بعد»: ملاحظةٌ على شعب المقررات التي لم يصلها الفرع — لا تمنع ولا تدخل الدرجة. */}
           <ReachReviewNotes rows={scopeRows} termId={termId}
             courseLabel={id => ({ code: shortCourseCode(courses.get(id)?.CourseCode), name: String(courses.get(id)?.CourseName || "") })} />
-          {groupedFindings.length || warningGroups.length ? (
+          {reviewHasFindings(groupedFindings.length, warningGroups.length, quietFindings.length) ? (
             <>
               {pressingFindings.map(renderFinding)}
               {/* «لا يمنع الاعتماد»: بجانب الموانع، بلا أثرٍ على الدرجة ولا على التوقيع. */}
