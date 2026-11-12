@@ -2158,7 +2158,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           label: "الطلب الفعلي",
           detail: "تقرير التسجيل: من يحتاج ماذا",
           metric: actualDemand && (actualDemand.variants.general || actualDemand.variants.graduates)
-            ? (actualDemand.alerts.length ? countOf(actualDemand.alerts.length, AR.course) : "✓")
+            ? (actualDemand.alerts.length ? String(actualDemand.alerts.length) : "✓")
             : "ارفع",
           icon: <ClipboardList />,
         },
@@ -3642,7 +3642,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           ) : null}
           {activeInsightKey === "actualDemand" && collegeId && sectionId && termId ? (
             <div className="content-stack insight-scene-panel" id="insight-panel-actualDemand" role="tabpanel" aria-labelledby="insight-tab-actualDemand" tabIndex={0}>
-              <ActualDemandPanel collegeId={Number(collegeId)} sectionId={Number(sectionId)} termId={Number(termId)} onReading={setActualDemand} />
+              <ActualDemandPanel collegeId={Number(collegeId)} sectionId={Number(sectionId)} termId={Number(termId)} initial={actualDemand} onReading={setActualDemand} />
             </div>
           ) : null}
           {activeInsightKey === "improve" && collegeId && sectionId && termId ? (

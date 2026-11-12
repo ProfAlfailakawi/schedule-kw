@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  CalendarPlus, CircleCheck, ClipboardList, FileUp, GraduationCap, Link2, OctagonAlert, TriangleAlert, Unlink, Users, X,
+  CalendarPlus, CircleCheck, ClipboardList, EyeOff, FileUp, GraduationCap, Link2, OctagonAlert, TriangleAlert, Unlink, Users, X,
 } from "lucide-react";
 import SearchableSelect from "./SearchableSelect";
 import { Num } from "./ui";
@@ -51,19 +51,22 @@ function pickTarget(alert: Alert, collegeId: number): Target | null {
   return alert.targets.find(target => target.track === wanted) || own || alert.targets[0] || null;
 }
 
-export default function ActualDemandPanel({ collegeId, sectionId, termId, onReading }: {
+export default function ActualDemandPanel({ collegeId, sectionId, termId, initial = null, onReading }: {
   collegeId: number; sectionId: number; termId: number;
+  /** ما قرأه مركز الذكاء للبطاقة: يُعرض فوراً ثم يُحدَّث. */
+  initial?: DemandReadingView | null;
   /** يُبلَّغ به مركز الذكاء ليكتب رقم البطاقة. */
   onReading?: (reading: DemandReadingView | null) => void;
 }) {
-  const [reading, setReading] = useState<DemandReadingView | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "denied" | "error">("loading");
+  const [reading, setReading] = useState<DemandReadingView | null>(initial);
+  const [status, setStatus] = useState<"loading" | "ready" | "denied" | "error">(initial ? "ready" : "loading");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [variant, setVariant] = useState<DemandVariant>("general");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [linking, setLinking] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const query = `collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`;
 
@@ -72,7 +75,8 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, onRead
   useEffect(() => {
     if (!collegeId || !sectionId || !termId) return;
     const controller = new AbortController();
-    setStatus("loading"); setPreview(null); setFile(null); setError("");
+    if (!initial) setStatus("loading");
+    setPreview(null); setFile(null); setError("");
     fetch(`/api/actual-demand?${query}`, { credentials: "include", signal: controller.signal })
       .then(readJson)
       .then(body => { if (!controller.signal.aborted) { show(body); setStatus("ready"); } })
@@ -134,8 +138,8 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, onRead
       <header className="ad-head">
         <span className="ad-mark" aria-hidden="true"><ClipboardList /></span>
         <div className="ad-title">
-          <strong>الطلب الفعلي</strong>
-          <small>{reading?.family.name || "عائلة القسم"} · تقرير التسجيل</small>
+          <strong>{reading?.family.name || "عائلة القسم"}</strong>
+          <small>بنين وبنات · كل الكليات</small>
         </div>
         <button type="button" className="btn btn-primary ad-upload" disabled={busy} onClick={() => input.current?.click()}
           data-guide-ignore="يختار ملف PDF من التسجيل ويقرؤه أولاً؛ لا يُحفظ شيء قبل «احفظ»">
@@ -195,7 +199,9 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, onRead
 
       {status === "loading" && !reading ? <div className="ad-skeleton" aria-hidden="true"><i /><i /><i /></div> : null}
 
-      {status === "ready" && !hasReport && !preview ? (
+      {busy && !preview ? <div className="ad-reading" role="status"><span className="ad-spin" aria-hidden="true" /> أقرأ الملف…</div> : null}
+
+      {status === "ready" && !hasReport && !preview && !busy ? (
         <button type="button" className="ad-empty" onClick={() => input.current?.click()} data-guide-ignore="يختار ملف PDF من التسجيل؛ لا يُحفظ قبل التأكيد">
           <FileUp aria-hidden="true" />
           <b>ارفع تقرير الطلب</b>
@@ -212,10 +218,10 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, onRead
           </div>
           {reading.alerts.length ? (
             <ol className="ad-list" aria-label="مقررات بلا شعبة، الأشد أولاً">
-              {reading.alerts.slice(0, 8).map(alert => (
+              {reading.alerts.slice(0, showAll ? reading.alerts.length : 8).map(alert => (
                 <li key={alert.code} className={alert.graduates ? "is-grad" : ""}>
                   <span className="ad-item-icon" aria-hidden="true">{alert.graduates ? <GraduationCap /> : <OctagonAlert />}</span>
-                  <span className="ad-item-main"><bdi className="ad-code">{alert.code}</bdi><span>{alert.name}</span></span>
+                  <span className="ad-item-main"><span className="ad-code" dir="ltr">{alert.code}</span><span>{alert.name}</span></span>
                   <span className="ad-item-num" title={countOf(alert.students, AR.student)}>
                     <Num value={alert.students.toLocaleString("en-US")} />
                     {alert.graduates ? <small><GraduationCap aria-hidden="true" /><Num value={alert.graduates} /></small> : null}
@@ -228,19 +234,23 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, onRead
               ))}
             </ol>
           ) : null}
+          {reading.alerts.length > 8 && !showAll ? (
+            <button type="button" className="ad-more" onClick={() => setShowAll(true)} data-guide-ignore="يعرض بقية المقررات في القائمة نفسها">+{countOf(reading.alerts.length - 8, AR.course)}</button>
+          ) : null}
           {reading.unmatched.length ? (
             <details className="ad-unmatched">
               <summary><Unlink aria-hidden="true" /> <b>{countOf(reading.unmatched.length, AR.course)}</b> بلا ربط</summary>
               <ul>
                 {reading.unmatched.slice(0, 20).map(row => (
                   <li key={row.code}>
-                    <span className="ad-item-main"><bdi className="ad-code">{row.code}</bdi><span>{row.name}</span></span>
+                    <span className="ad-item-main"><span className="ad-code" dir="ltr">{row.code}</span><span>{row.name}</span></span>
                     <SearchableSelect value="" ariaLabel={`اربط ${row.code} بمقرر`} placeholder="اربط بمقرر…" disabled={linking}
                       options={reading.catalogue.map(course => ({ value: course.courseId, label: `${course.code} · ${course.name}` }))}
                       onChange={value => void link(row.code, { courseId: Number(value) })} />
-                    <button type="button" className="btn btn-ghost ad-ignore" disabled={linking} onClick={() => void link(row.code, { ignore: true })}
+                    <button type="button" className="ad-ignore" disabled={linking} onClick={() => void link(row.code, { ignore: true })}
+                      aria-label={`${row.code} لا يخص القسم`} title="لا يخص القسم"
                       data-guide-ignore="يحفظ أن هذا المقرر لا يخص القسم فلا يُسأل عنه ثانية">
-                      <X aria-hidden="true" /> لا يخص القسم
+                      <EyeOff aria-hidden="true" />
                     </button>
                   </li>
                 ))}

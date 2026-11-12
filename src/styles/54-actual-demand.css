@@ -55,11 +55,14 @@
 .ad-empty:hover{border-color:var(--accent);background:var(--accent-softer)}
 .ad-empty:focus-visible,.ad-seg button:focus-visible,.ad-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
+.ad-reading{display:flex;align-items:center;justify-content:center;gap:10px;min-height:96px;border-radius:var(--r-lg);background:var(--accent-softer);color:var(--accent-strong);font-size:14px;font-weight:700}
+.ad-spin{width:20px;height:20px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--accent) 25%,transparent);border-top-color:var(--accent);animation:ad-turn .8s linear infinite}
+@keyframes ad-turn{to{transform:rotate(1turn)}}
 .ad-skeleton{display:grid;gap:8px}
 .ad-skeleton i{display:block;height:44px;border-radius:12px;background:linear-gradient(90deg,var(--surface-2),var(--surface-3),var(--surface-2));background-size:200% 100%;animation:ad-shimmer 1.2s linear infinite}
 @keyframes ad-shimmer{to{background-position:-200% 0}}
 @keyframes ad-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.ad-preview,.ad-skeleton i{animation:none}}
+@media (prefers-reduced-motion:reduce){.ad-preview,.ad-skeleton i,.ad-spin{animation:none}}
 
 /* الرقم الكبير */
 .ad-hero{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:var(--r-lg);background:var(--surface-2);border:1px solid var(--line);min-width:0;flex-wrap:wrap}
@@ -82,7 +85,10 @@
 .ad-item-icon svg{width:18px;height:18px}
 .ad-item-main{flex:1;min-width:0;display:grid;gap:1px}
 .ad-item-main span{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.35;overflow-wrap:anywhere}
-.ad-code{font:600 12px/1.2 var(--font-mono);color:var(--muted);letter-spacing:.02em}
+.ad-item-main .ad-code{justify-self:start;font:600 12px/1.2 var(--font-mono);color:var(--muted);letter-spacing:.02em;background:none;padding:0}
+.ad-more{justify-self:center;min-height:40px;padding:0 18px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font:inherit;font-size:13px;font-weight:700;color:var(--ink-2);cursor:pointer}
+.ad-more:hover{border-color:var(--accent);color:var(--accent-strong)}
+.ad-more:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ad-item-num{display:grid;justify-items:end;gap:1px;flex:none}
 .ad-item-num>.num{font-size:20px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
 .ad-item-num small{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:var(--brass)}
@@ -97,18 +103,23 @@
 .ad-unmatched summary svg{width:16px;height:16px;color:var(--warning)}
 .ad-unmatched ul{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:8px}
 .ad-unmatched li{border-inline-start-color:var(--warning);flex-wrap:wrap}
-.ad-unmatched li .ad-item-main{flex:1 1 180px}
-.ad-unmatched li>:not(.ad-item-main):not(.ad-ignore){flex:1 1 200px;min-width:0}
-.ad-ignore{min-height:40px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;flex:none}
-.ad-ignore svg{width:14px;height:14px}
+.ad-unmatched li .ad-item-main{flex:1 1 100%}
+.ad-unmatched li>:not(.ad-item-main):not(.ad-ignore){flex:1 1 0;min-width:0}
+.ad-ignore{width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);display:grid;place-items:center;flex:none;cursor:pointer}
+.ad-ignore:hover{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 35%,var(--line))}
+.ad-ignore:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ad-ignore svg{width:17px;height:17px}
 .ad-note{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:12px;font-weight:600;color:var(--muted)}
 .ad-note svg{width:14px;height:14px}
 
 @media (max-width:560px){
   .ad-panel{padding:14px;border-radius:var(--r-lg)}
   .ad-upload{width:100%;justify-content:center}
-  .ad-list li{flex-wrap:wrap}
-  .ad-list .ad-item-main{flex:1 1 calc(100% - 110px)}
-  .ad-fix{flex:1 1 100%;justify-content:center;min-height:var(--ix-tap)}
+  .ad-list li{gap:8px;padding:9px 10px}
+  .ad-item-icon{width:30px;height:30px}
+  .ad-item-main span{font-size:13px}
+  .ad-item-num>.num{font-size:18px}
+  .ad-fix{position:relative;min-height:38px;padding-inline:11px;gap:4px}
+  .ad-fix::after{content:"";position:absolute;inset:-3px}
   .ad-hero{padding:14px}
 }
