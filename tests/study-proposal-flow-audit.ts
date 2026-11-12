@@ -114,6 +114,8 @@ async function main() {
       AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, AdCourseId: c.AdCourseId, SCode: scode, AdInstructorId: placeholder.AdInstructorId,
       fsunday: flags.includes("S"), fmonday: flags.includes("M"), ftuesday: flags.includes("T"), fwednesday: flags.includes("W"), fthursday: flags.includes("H"),
       fstarttime: start, fendtime: end, ...(await roomFreeAt(flags, start, end)),
+      /* موضعٌ مقصود للاختبار (08:30 خارج السُّلّم): يُحفظ بتأكيد الاستثناء الصريح كما يحفظه القسم. */
+      regulationException: true,
     };
     void hall;
     const r = await A("POST", "/api/schedules", body);
