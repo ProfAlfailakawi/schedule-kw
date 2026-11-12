@@ -260,6 +260,8 @@ interface Props {
    */
   committeeEligible?: boolean;
   onNavigate?: (view:string) => void;
+  /** يفتح «الاستعلامات والتقارير» بالشاشة التي يملك المستخدم إذنها. */
+  onOpenQueryCentre?: () => void;
 }
 type EditorMode = "index" | "create" | "edit";
 type CreateSeed = {
@@ -911,7 +913,7 @@ function ScheduleLegendScroller({
 const timingKeyOf = (row: any) =>
   `${Number(row?.AdCourseId || 0)}|${["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(key => row?.[key] ? 1 : 0).join("")}|${String(row?.fstarttime || "")}`;
 
-export default function Schedules({ mode, user, scopes = [], permissions = [], signatureStage: approvalStage = null, canSign = true, committeeEligible = false, onNavigate }: Props) {
+export default function Schedules({ mode, user, scopes = [], permissions = [], signatureStage: approvalStage = null, canSign = true, committeeEligible = false, onNavigate, onOpenQueryCentre }: Props) {
   const prefsKey = `schedule-workspace-prefs-${user?.SystemUserId || 0}`;
   const lastSavedRef = useRef<any>(null);
   /** Where a press began, so a drag is never mistaken for a tap. */
@@ -11374,6 +11376,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           canEditCourses={permissions.includes(6)}
           onOpenRow={id => { const target = rows.find(item => Number(item.id) === id); if (target) openEdit(target); }}
           onChanged={() => setLiveFeedSerial(value => value + 1)}
+          onSigned={onOpenQueryCentre}
           onLockChange={setApprovalLock}
           onOpenNotes={onNavigate ? () => onNavigate("scheduleChanges") : undefined}
           onOpenCourses={onNavigate ? () => onNavigate("courses") : undefined}

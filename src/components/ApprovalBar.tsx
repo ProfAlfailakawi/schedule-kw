@@ -91,6 +91,8 @@ interface Props {
   /** يفتح محرّر الموعد نفسه (للنواقص التي تتشابك مع التعارضات: أيام، وقت، أستاذ، رمز شعبة). */
   onOpenRow?: (id: number) => void;
   onChanged?: () => void;
+  /** بعد التوقيع بنجاح (اللجنة أو رئيس القسم): ينقله المضيفُ إلى «الاستعلامات والتقارير». */
+  onSigned?: () => void;
   /**
    * يُبلَّغ به سببُ منع التعديل كلّما تغيّر (أو null حين يُفتح)، فتعرف الورشةُ
    * قبل أن تفتح محرّراً يقول «صالح للحفظ» ثم يرفضه الخادم.
@@ -129,7 +131,7 @@ const arabicDate = (iso?: string) => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString("ar-KW-u-nu-latn", { year: "numeric", month: "long", day: "numeric" });
 };
 
-export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, canSign = true, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps, onPlanningGaps }: Props) {
+export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, canSign = true, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onSigned, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps, onPlanningGaps }: Props) {
   const [state, setState] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -325,6 +327,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
       setSheet(null); setReason("");
       await load();
       onChanged?.();
+      if (path === "/api/approvals/sign" && !result?.submitBlocked && !(Number(result?.remaining || 0) > 0)) onSigned?.();
     } catch (e: any) { setError(e.message); await load(); }
     finally { setBusy(false); }
   };
