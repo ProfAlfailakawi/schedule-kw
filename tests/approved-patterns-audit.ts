@@ -62,8 +62,9 @@ const review = fs.readFileSync("src/server/routes/scheduleReviewRoutes.ts", "utf
 const inbox = fs.readFileSync("src/server/routes/instructorRequestsRoutes.ts", "utf8");
 check(/export async function unapprovedPatternIssue/.test(rules) && /sectionDaysFitLibrary\(hours,row,siblings\)/.test(rules), "P5 مانعٌ واحد: أيامُ الشعبة كلها نمطٌ معتمد (والصفّ بيومٍ واحد جزءٌ منه)");
 check(!/historicalOrigin\(await courseHabit\(courseId,termId\)/.test(rules) && !/!habitual&&reading\.total/.test(rules), "P5 لا يُعفي التاريخُ نمطاً مختلطاً ولا سقفَ الساعات");
-check((writes.match(/unapprovedPatternIssue\(/g) || []).length === 2 && /unchangedShape\|\|\(req as any\)\.__exactRestore\?null:await unapprovedPatternIssue/.test(writes)
-  && /\(req as any\)\.__exactRestore\?null:await unapprovedPatternIssue\(req\.body/.test(writes), "P5 بوابتا الإنشاء والتعديل (والشكل الذي لم يتغيّر والاستعادة لا يُرفضان)");
+check((writes.match(/sectionShapeIssue\(/g) || []).length === 2 && /keepsSectionShape\(existing,req\.body\)\?null:await sectionShapeIssue\(\{\.\.\.req\.body,id\}/.test(writes)
+  && (writes.match(/skipPattern:Boolean\(\(req as any\)\.__exactRestore\)/g) || []).length === 2
+  && /scheduleLengthIssue\(row,hypothetical\)\|\|\(options\.skipPattern\?null:await unapprovedPatternIssue\(row,hypothetical\)\)/.test(rules), "P5 بوابتا الإنشاء والتعديل (والشكل الذي لم يتغيّر والاستعادة لا يُرفضان)");
 const machine = fs.readFileSync("src/server/timeMachineRoutes.ts", "utf8");
 check(/dryRunUpdate\(req, op\.rowId, op\.body, finalWeek, kind === "restore"\)/.test(machine) && /inner\.__exactRestore = Boolean\(patch\.exactRestore\)/.test(writes), "P5 استعادةُ «آلة الزمن» تعيد ما كان بالضبط ولا تمنعها قاعدة النمط");
 check(/checkPatternIssue\(row\)/.test(review) && /if\(patternIssue\)validationIssues\.push\(patternIssue\)/.test(review), "P5 الفحصُ المباشر يقول المانع قبل الحفظ");

@@ -56,6 +56,7 @@
     "test:teacher-card-hours-patterns": "tsx tests/teacher-card-hours-patterns-audit.ts",
     "test:teacher-card-logic": "tsx tests/teacher-card-logic-audit.ts",
     "test:approved-patterns": "tsx tests/approved-patterns-audit.ts",
+    "test:final-audit-gaps": "tsx tests/final-audit-gaps-audit.ts",
     "test:new-appointment-pattern-end": "tsx tests/new-appointment-pattern-end-audit.ts",
     "test:pin-regulation": "tsx tests/pin-regulation-audit.ts",
     "test:import-review-rows": "tsx tests/import-review-rows-audit.ts",

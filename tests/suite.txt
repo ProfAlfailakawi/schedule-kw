@@ -223,6 +223,7 @@ test:appointment-entry-parity
 test:appointment-forms
 test:regulation-exception
 test:regulation-exception-paths
+test:final-audit-gaps
 test:request-room-capacity
 test:placeholder-action
 test:course-spelling-merge

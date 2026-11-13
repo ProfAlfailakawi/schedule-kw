@@ -15,7 +15,7 @@ import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
 import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, sectionDaysFitLibrary, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
-import { patternLengthIssue, regulationEnd } from "../../utils/appointmentRegulation";
+import { patternLengthIssue, regulationEnd, sameScheduleShape } from "../../utils/appointmentRegulation";
 import { REGULATION_EXCEPTION_CODE, regulationExceptionIssues, regulationExceptionMessage, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { placeholderInstructorIds } from "../../utils/instructorIdentity";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
@@ -175,6 +175,20 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
   }
   return null;
 }
+/**
+ * ── مانعا الشعبة معاً: ساعاتُ المقرّر ثم النمطُ المعتمد (المصدرُ الواحد لكل حفظ) ──────────────
+ * الإنشاءُ والتعديلُ والنقلُ الجماعي (السحب، التراجع، سلسلةُ الإصلاح) تقرأ هذا الحكم نفسه: الشعبةُ تُحكم
+ * بصفوفها كلِّها على الأسبوع كما سيصير (`hypothetical`)، فنقلُ صفوف شعبةٍ كلِّها إلى نمطٍ معتمد آخر يمرّ،
+ * ونقلُ صفٍّ واحد يكسر نمطها يُمنع. `skipPattern` لاستعادة آلة الزمن (ما كان بالضبط).
+ */
+export async function sectionShapeIssue(row:any,hypothetical?:FSchedule[],options:{skipPattern?:boolean}={}):Promise<string|null>{
+  return await scheduleLengthIssue(row,hypothetical)||(options.skipPattern?null:await unapprovedPatternIssue(row,hypothetical));
+}
+/** الموعدُ القائم بقي في شعبته: المقرّرُ ورمزُ الشعبة كما حُفظا. من غيّر أحدهما دخل شعبةً أخرى فيُحكم نمطُها من جديد. */
+export const sameSectionIdentity=(saved:any,next:any)=>Boolean(saved&&next)
+  &&Number(saved.AdCourseId||0)===Number(next.AdCourseId||0)&&String(saved.SCode??"").trim()===String(next.SCode??"").trim();
+/** موعدٌ قائم لم يتغيّر شكلُه (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) — وحده يتخطّى مانعَي الشعبة (A6). */
+export const keepsSectionShape=(saved:any,next:any)=>sameScheduleShape(saved,next)&&sameSectionIdentity(saved,next);
 /* قرار المالك 2026-11-05: اليومُ الجامعي يمنع الحفظ، ولا يُقصّ الوقت ولا يضيع. واستثناءُ القسم الأضيق ليس هنا: هو تنبيهُ
    hoursNotice أعلاه. وموعدٌ محفوظ لم يتغيّر وقته (keptTime) لا يُردّ بهذا الحدّ، كسائر فحوص الشكل عند التعديل. */
 export async function schedulePayloadIssues(row:any,{keptTime=false}:{keptTime?:boolean}={}){const issues:string[]=[];if(!SCHEDULE_DAY_KEYS.some(k=>Boolean(row?.[k])))issues.push("يجب اختيار يوم واحد على الأقل للمحاضرة");if(row?.fstarttime&&row?.fendtime){
