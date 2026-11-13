@@ -202,10 +202,11 @@ check(Boolean(historicFour.find(finding => finding.rule === "theoretical-pattern
 const verdictSource = fs.readFileSync("src/utils/instructorRequestVerdict.ts", "utf8");
 check(/request\.relatedRowIds\?\.length && finding\.rule === "theoretical-pattern"/.test(verdictSource), "P12 والشعبةُ الشاغرة القائمة تُتسلَّم كما هي");
 const reviewScreen = fs.readFileSync("src/components/ScheduleReview.tsx", "utf8");
-check(/const quietFindings = \[\.\.\.groupedFindings\.filter\(finding => finding\.approvalEffect === "note"\), \.\.\.ladderNotes\]/.test(reviewScreen)
-  && /regulationGroups = useMemo\(\(\) => groupedFindings\.filter/.test(reviewScreen) && !/regulationGroups[^\n]*ladderNotes/.test(reviewScreen),
+check(/const quietFindings = \[\.\.\.groupedFindings\.filter\(finding => finding\.approvalEffect === "note"\), \.\.\.noteGroups\]/.test(reviewScreen)
+  && /regulationGroups = useMemo\(\(\) => groupedFindings\.filter/.test(reviewScreen) && !/regulationGroups\.map[^\n]*noteGroups/.test(reviewScreen)
+  && /\[\.\.\.warningGroups, \.\.\.noteGroups\]\.map\(group => \(\{ key: group\.groupKey, label: group\.title, tone: "note" as const/.test(reviewScreen),
   "P12 شاشةُ «مراجعة الاعتماد» تُظهر «خارج سُلّم اللائحة» في سطر الملاحظات، ولا يُنقص درجةَ الاعتماد");
-check(/finding\.rule === "regulation-ladder" \? nounFor\(finding\.groupedCount, AR\.course\)/.test(reviewScreen), "P12 ويُعدّ بالمقرّرات لا «تعارضات»");
+check(/startsWith\("course:"\)\) \? AR\.course/.test(reviewScreen) && /countOf\(finding\.groupedCount, caseNoun\(finding\)\)/.test(reviewScreen), "P12 ويُعدّ بالمقرّرات لا «تعارضات»");
 void teacherLectures;
 
 /* P13 — قرار المالك 2026-11-13: أيامُ الشعبة كلِّها نمطٌ واحد (sectionDaysFitLibrary) في الحفظ و«ثبّت» وآلة الزمن. */

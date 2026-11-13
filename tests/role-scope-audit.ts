@@ -247,7 +247,8 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   check(/if \(!\(canAnnotate && annotatable\) && !notes\.length\) return null;/.test(changes), "D تقرير التغييرات: لا كتلةَ فارغةً تحت موعدٍ بلا زرٍّ ولا ملاحظة");
   check(/\{spread\.high \? <span className="seg-high">/.test(changes) && /\{spread\.clean \? <span className="seg-clean">/.test(changes), "D مراجعة الاعتماد: مفتاحُ الشريحة الصفرية لا يُكتب");
   const review = read("src/components/ScheduleReview.tsx");
-  check(/\{spread\.high \? <span className="seg-high">/.test(review) && /print-spread-keys">\{spread\.high \?/.test(review), "D نافذة المراجعة ونسختها المطبوعة كذلك");
+  check(/<div className="spread-keys">\s*\{spreadKeys\.map/.test(review) && /print-spread-keys">\{spreadKeys\.map/.test(review)
+  && /return keys\.filter\(key => key\.count > 0\)/.test(read("src/utils/approvalScore.ts")), "D نافذة المراجعة ونسختها المطبوعة كذلك");
 
   const dashboard = read("src/components/Dashboard.tsx");
   check(!dashboard.includes("delta-flat") && /if\(!change\)return null;/.test(dashboard), "D لوحة البداية: لا «=» بجانب رقمٍ لم يتغيّر");
