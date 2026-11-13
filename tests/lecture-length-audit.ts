@@ -42,7 +42,7 @@ const lengthNotice = serverSrc.slice(serverSrc.indexOf("async function scheduleL
 assert.ok(/lectureLengthProblem\(/.test(lengthNotice), "عدم توافق المدة يبقى متاحاً كملاحظة استرشادية");
 const createRoute = serverSrc.slice(serverSrc.indexOf("const createScheduleHandler ="), serverSrc.indexOf('app.post("/api/schedules",'));
 const updateRoute = serverSrc.slice(serverSrc.indexOf("const updateScheduleHandler ="), serverSrc.indexOf('app.put("/api/schedules/:id",'));
-assert.ok(createRoute.includes("scheduleLengthIssue") && updateRoute.includes("scheduleLengthIssue") && !createRoute.includes("lectureLengthProblem") && !updateRoute.includes("lectureLengthProblem"), "الإضافة والتعديل لا يحولان ملاحظة المدة إلى رفض");
+assert.ok(createRoute.includes("sectionShapeIssue") && updateRoute.includes("editShapeIssue") && /scheduleLengthIssue\(row,hypothetical\)\|\|/.test(serverSrc) && !createRoute.includes("lectureLengthProblem") && !updateRoute.includes("lectureLengthProblem"), "الإضافة والتعديل لا يحولان ملاحظة المدة إلى رفض");
 const notice = serverSrc.slice(serverSrc.indexOf("async function mixedPatternNotice("), serverSrc.indexOf("async function scheduleLengthIssue("));
 /* قاعدة المالك 2026-10-30: التاريخُ اقتراحٌ لا يخالف اللائحة — لا يُعفي نمطاً خارج المكتبة. */
 assert.ok(/daysFitLibrary\(hours,days as DayKey\[\],true\)===true/.test(notice) && !/historicalOrigin\(/.test(notice), "والتنبيه لا يظهر لنمطٍ معتمد في المكتبة، ولا يُعفي التاريخُ نمطاً خارجها");

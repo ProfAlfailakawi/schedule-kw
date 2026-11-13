@@ -198,7 +198,7 @@ check(/if\(key==="gen"\)\{(?:var hadNote=[^;]+;)?genNote=value/.test(page) && /n
 const submitHandler = server.slice(server.indexOf('app.post("/api/public/request/:token"'), server.indexOf("ردُّ الأستاذ في حوار البند"));
 check(/String\(req\.body\?\.note \|\| ""\)\.trim\(\)\.slice\(0, 400\)/.test(submitHandler) && /note: generalNote \|\| undefined/.test(submitHandler), "الخادم يحفظها نصاً حتى ٤٠٠ حرف، ولا تدخل في الحكم على البنود");
 const inbox = fs.readFileSync("src/components/InstructorInbox.tsx", "utf8");
-check(/row\.note \? <p className="request-note">/.test(inbox) && /!items\.length && !row\.note/.test(inbox) && /Boolean\(row\.note\) && row\.status !== "sent"/.test(inbox), "والوارد يعرضها، وملاحظةٌ بلا بنودٍ مغيَّرة تبقى بطاقةً لا تُدفن في «الجدول كما هو»");
+check(/row\.note \? <p className="request-note">/.test(inbox) && /!items\.length && !row\.note/.test(inbox) && /Boolean\(row\.note \|\| row\.pinViolations\) && row\.status !== "sent"/.test(inbox), "والوارد يعرضها، وملاحظةٌ بلا بنودٍ مغيَّرة تبقى بطاقةً لا تُدفن في «الجدول كما هو»");
 
 console.log(`\nVoice input audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

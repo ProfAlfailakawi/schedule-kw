@@ -273,7 +273,11 @@ async function main() {
   check(hist.responses.length === 2 && hist.responses[0].version === 1, "ردُّ النسخة القديمة محفوظٌ بجانب الجديد");
   const lcur2 = await getP(lp.proposal.id);
   const beforeLinked = await rows();
-  const ldone = await A("POST", `/api/study-proposals/${lp.proposal.id}/commit`, { rev: lcur2.proposal.rev, confirm: true });
+  /* التثبيتُ حفظٌ من القسم: مخالفةُ السُّلّم (م.7/8) تُسأل في الخادم نفسه — 409 بلا كتابة، ثم بالموافقة الصريحة يُكتب. */
+  const lasked = await A("POST", `/api/study-proposals/${lp.proposal.id}/commit`, { rev: lcur2.proposal.rev, confirm: true });
+  check(lasked.status === 409 && lasked.json.code === "regulation-exception" && (lasked.json.regulation || []).some((issue: any) => issue.article === "م.7/8")
+    && (await rows()).find(r => r.id === f3.id).AdInstructorId !== salemInstructorId, "تثبيتٌ يخالف اللائحة يُسأل عنه في الخادم ولا يُكتب بلا موافقة", lasked.json);
+  const ldone = await A("POST", `/api/study-proposals/${lp.proposal.id}/commit`, { rev: lcur2.proposal.rev, confirm: true, regulationException: true });
   const afterLinked = await rows();
   check(ldone.status === 200, "تثبيت الاستبدال المترابط", ldone.json);
   check(afterLinked.find(r => r.id === f3.id).AdInstructorId === salemInstructorId && afterLinked.find(r => r.id === swapOut.id).AdInstructorId === placeholder.AdInstructorId, "طرفا الاستبدال نُفّذا معاً: دخلت الشعبة وفُكّ إسناد الموعد القديم");

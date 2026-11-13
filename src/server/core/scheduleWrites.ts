@@ -20,7 +20,7 @@ import { noteScheduleMutation, scheduleLockRefusal } from "./approvals";
 import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
 import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./scheduleConflicts";
-import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues, unapprovedPatternIssue } from "./scheduleRules";
+import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, editShapeIssue, schedulePayloadIssues, sectionShapeIssue } from "./scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
@@ -108,11 +108,9 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   }
   const payloadIssues=await schedulePayloadIssues(req.body);
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
-  {const lengthIssue=await scheduleLengthIssue(req.body,(req as any).__hypotheticalWeek);
-  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}
-  /* النمطُ لازم يكون معتمداً لكل من يُنشئ موعداً (المالك 2026-10-30). */
-  const patternIssue=(req as any).__exactRestore?null:await unapprovedPatternIssue(req.body,(req as any).__hypotheticalWeek);
-  if(patternIssue){res.status(400).json({error:patternIssue,issues:[{type:"validation",severity:"high",message:patternIssue}]});return;}}
+  /* ساعاتُ المقرّر والنمطُ المعتمد لكل من يُنشئ موعداً (المالك 2026-10-30) — الحكمُ الواحد sectionShapeIssue. */
+  {const shapeIssue=await sectionShapeIssue(req.body,(req as any).__hypotheticalWeek,{skipPattern:Boolean((req as any).__exactRestore)});
+  if(shapeIssue){res.status(400).json({error:shapeIssue,issues:[{type:"validation",severity:"high",message:shapeIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
   if (!isScopeAllowed(req, collegeId, sectionId) && !req.user.IsAdminUser) {
@@ -266,12 +264,10 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   }
   const payloadIssues=await schedulePayloadIssues(req.body,{keptTime:Boolean((req as any).__exactRestore)||(existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime)});
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
-  {const unchangedShape=sameScheduleShape(existing as any,req.body);
-  const lengthIssue=unchangedShape?null:await scheduleLengthIssue({...req.body,id},(req as any).__hypotheticalWeek);
-  if(lengthIssue){res.status(400).json({error:lengthIssue,issues:[{type:"validation",severity:"high",message:lengthIssue}]});return;}
-  /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) يبقى كما هو؛ ومن غيّر أيامه أو وقته فبنمطٍ معتمد. */
-  const patternIssue=unchangedShape||(req as any).__exactRestore?null:await unapprovedPatternIssue({...req.body,id},(req as any).__hypotheticalWeek);
-  if(patternIssue){res.status(400).json({error:patternIssue,issues:[{type:"validation",severity:"high",message:patternIssue}]});return;}}
+  /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) يبقى كما هو؛ ومن غيّر شيئاً منها فبنمطٍ معتمد. */
+  /* وتغييرُ المقرّر أو الرمز وحده لا يُمنع بمخالفةٍ كانت قائمةً في الصفّ نفسه (editShapeIssue). */
+  {const shapeIssue=await editShapeIssue(existing,{...req.body,id},(req as any).__hypotheticalWeek,{skipPattern:Boolean((req as any).__exactRestore)});
+  if(shapeIssue){res.status(400).json({error:shapeIssue,issues:[{type:"validation",severity:"high",message:shapeIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
   if (existing.sourceOrder !== undefined && Number(existing.sourceOrder) < 1_000_000 && Number(existing.AdCourseId) !== courseId) {

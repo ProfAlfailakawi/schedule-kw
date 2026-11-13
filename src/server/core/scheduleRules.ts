@@ -14,8 +14,8 @@ import { directoryVisitingIds, termVisitingIds } from "../../utils/liveVisiting"
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
-import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, sectionDaysFitLibrary, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
-import { patternLengthIssue, regulationEnd } from "../../utils/appointmentRegulation";
+import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, sectionDaysFitLibrary, sectionPatternIssueText, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
+import { patternLengthIssue, regulationEnd, sameScheduleShape } from "../../utils/appointmentRegulation";
 import { REGULATION_EXCEPTION_CODE, regulationExceptionIssues, regulationExceptionMessage, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { placeholderInstructorIds } from "../../utils/instructorIdentity";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
@@ -112,9 +112,7 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
   /* والطولُ أيضاً (المالك 2026-11-08): أيامٌ معتمدة بنهايةٍ تخالف نمطها تمنع، والسطرُ يقول النهاية الصحيحة.
      الحكمُ في appointmentRegulation (patternLengthIssue) — المصدرُ نفسه الذي يقرؤه النموذج والمقترح. */
   if(fits!==false)return patternLengthIssue({CourseHours:hours},own,String(row?.fstarttime||""),String(row?.fendtime||""))||null;
-  const named=DAY_KEYS.filter(day=>union.has(day)).map(day=>DAY_NAMES[DAY_KEYS.indexOf(day)]).join(" · ");
-  const allowed=patternsForHours(hours).map(pattern=>pattern.days.length===1?`يوم واحد ${pattern.minutesPerDay[0]}د`:pattern.label).join("، ");
-  return `أيام هذه الشعبة (${named}) ليست نمطاً معتمداً لمقرّرٍ ${countOf(hours,AR.hour)} أسبوعياً في مكتبة الأنماط. المعتمد: ${allowed}.`;
+  return sectionPatternIssueText(hours,row,siblings);
 }
 /**
  * ── مخالفاتُ اللائحة التي تُحفظ بتأكيدٍ صريح فقط (ملاحظتا المالك 10 و20) ──────────────
@@ -134,6 +132,26 @@ export async function regulationExceptionsFor(row:any,hypothetical?:FSchedule[],
   const course=(courses as any[]).find(item=>Number(item.AdCourseId)===Number(row?.AdCourseId));
   return regulationExceptionIssues({row,week:week as any,placeholders:placeholderInstructorIds(instructors as any),...options,courseHours:effectiveCourseHours(course),
     nameOf:(other:any)=>courseCode.get(Number(other?.AdCourseId))||String(other?.AdCourseName||"")});
+}
+/**
+ * ── تتالي الأستاذ الجديد حين تُنقل إليه مواعيدُ دفعةً («استبدال الأستاذ»، «تحويل التدريب») ──────────────
+ * الشكلُ لم يتغيّر (الأيام والوقت كما حُفظت) فلا يُسأل عن السُّلّم ولا وقت الشعبة؛ يُسأل عن التتالي وحده (م.6/2، م.6/3)
+ * على الأسبوع كما سيصير (`week`: صفوفُ الفصل والمنقولةُ بأستاذها الجديد). السلسلةُ الواحدة تُقال مرةً ليومها لكل أستاذ،
+ * وسطرُها يسمّي الموعدَ باسمه بدل «هذا الموعد» (الورقةُ هنا لعدّة مواعيد).
+ */
+export async function reassignmentExceptions(candidates:readonly FSchedule[],week:FSchedule[],personName?:(instructorId:number)=>string):Promise<RegulationExceptionIssue[]>{
+  const issues:RegulationExceptionIssue[]=[],seen=new Set<string>();
+  for(const row of candidates){
+    if(!Number(row.AdInstructorId))continue;
+    for(const issue of await regulationExceptionsFor(row,week,{shapeChanged:false,sequenceChanged:true})){
+      const key=`${issue.rule}|${row.AdInstructorId}|${issue.day||row.id}`;
+      if(seen.has(key))continue;seen.add(key);
+      const who=personName?.(Number(row.AdInstructorId))||"";
+      const named=issue.text.replace("هذا الموعد",`${String(row.AdCourseName||"موعد").trim()} ${String(row.fstarttime||"").slice(0,5)}`.trim());
+      issues.push({...issue,text:who?`${who}: ${named}`:named});
+    }
+  }
+  return issues;
 }
 /** ردُّ الرفض الذي يفتح ورقةَ التأكيد: 409 برمزٍ معروف، وكلُّ قاعدةٍ بمادّتها. */
 export const regulationExceptionRefusal=(issues:RegulationExceptionIssue[])=>({error:regulationExceptionMessage(issues),code:REGULATION_EXCEPTION_CODE,regulation:issues});
@@ -174,6 +192,34 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
     if(reading.under)return sectionHoursShortfallText(row.SCode,reading);
   }
   return null;
+}
+/**
+ * ── مانعا الشعبة معاً: ساعاتُ المقرّر ثم النمطُ المعتمد (المصدرُ الواحد لكل حفظ) ──────────────
+ * الإنشاءُ والتعديلُ والنقلُ الجماعي (السحب، التراجع، سلسلةُ الإصلاح) تقرأ هذا الحكم نفسه: الشعبةُ تُحكم
+ * بصفوفها كلِّها على الأسبوع كما سيصير (`hypothetical`)، فنقلُ صفوف شعبةٍ كلِّها إلى نمطٍ معتمد آخر يمرّ،
+ * ونقلُ صفٍّ واحد يكسر نمطها يُمنع. `skipPattern` لاستعادة آلة الزمن (ما كان بالضبط).
+ */
+export async function sectionShapeIssue(row:any,hypothetical?:FSchedule[],options:{skipPattern?:boolean}={}):Promise<string|null>{
+  return await scheduleLengthIssue(row,hypothetical)||(options.skipPattern?null:await unapprovedPatternIssue(row,hypothetical));
+}
+/** الموعدُ القائم بقي في شعبته: المقرّرُ ورمزُ الشعبة كما حُفظا. من غيّر أحدهما دخل شعبةً أخرى فيُحكم نمطُها من جديد. */
+export const sameSectionIdentity=(saved:any,next:any)=>Boolean(saved&&next)
+  &&Number(saved.AdCourseId||0)===Number(next.AdCourseId||0)&&String(saved.SCode??"").trim()===String(next.SCode??"").trim();
+/** موعدٌ قائم لم يتغيّر شكلُه (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) — وحده يتخطّى مانعَي الشعبة (A6). */
+export const keepsSectionShape=(saved:any,next:any)=>sameScheduleShape(saved,next)&&sameSectionIdentity(saved,next);
+/**
+ * ── مانعا الشعبة عند التعديل: لا يُمنع تعديلٌ بمخالفةٍ كانت قائمةً ولم يُنشئها ──────────────────
+ *   • لم يتغيّر الشكلُ ولا الشعبة ← لا يُحكم (A6).
+ *   • تغيّر الشكل (الأيام أو الوقت) ← يُحكم كالإنشاء.
+ *   • تغيّر المقرّرُ أو رمزُ الشعبة وحده (والشكلُ كما هو) ← تُحكم الشعبةُ التي دخلها، ويُمنع إن ساء الحال فقط: الشعبةُ
+ *     الجديدة تخالف والصفُّ لم يكن مخالفاً في شعبته الأصلية بأيامه ووقته نفسيهما. فموعدٌ قديم (75د) يبقى قابلاً لتغيير
+ *     رمزه، وصفٌّ سليم يدخل شعبةً فتصير «أحد + خميس» أو تزيد ساعاتُها يُمنع.
+ */
+export async function editShapeIssue(existing:any,next:any,hypothetical?:FSchedule[],options:{skipPattern?:boolean}={}):Promise<string|null>{
+  if(keepsSectionShape(existing,next))return null;
+  const issue=await sectionShapeIssue(next,hypothetical,options);
+  if(!issue||!sameScheduleShape(existing,next))return issue;
+  return await sectionShapeIssue(existing,hypothetical,options)?null:issue;
 }
 /* قرار المالك 2026-11-05: اليومُ الجامعي يمنع الحفظ، ولا يُقصّ الوقت ولا يضيع. واستثناءُ القسم الأضيق ليس هنا: هو تنبيهُ
    hoursNotice أعلاه. وموعدٌ محفوظ لم يتغيّر وقته (keptTime) لا يُردّ بهذا الحدّ، كسائر فحوص الشكل عند التعديل. */

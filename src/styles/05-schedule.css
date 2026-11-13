@@ -8579,6 +8579,11 @@ html[data-schedule-workspace="presentation"] .schedule-status{padding:0;border:0
 /* ملاحظةُ الأستاذ العامة في بطاقة الوارد. */
 .request-note { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2, #f6f4ee); font-size: var(--t-sm); line-height: 1.7; }
 .request-note > svg { flex: none; width: 16px; height: 16px; margin-top: 4px; color: var(--muted); }
+.request-pin-violations { display: grid; gap: 6px; margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--warn2, #fdf3d7); color: #735100; font-size: 13px; line-height: 1.7; }
+.request-pin-violations > b { display: flex; align-items: center; gap: 6px; }
+.request-pin-violations > b > svg { flex: none; width: 16px; height: 16px; }
+.request-pin-violations > ul { margin: 0; padding-inline-start: 18px; }
+.request-pin-violations > small { opacity: .85; }
 
 /* Companion venue: a quiet secondary room label, never a replacement for the main room. */
 .companion-facility-badge{display:inline-flex;align-items:center;justify-content:center;gap:5px;max-width:100%;min-width:0;padding:3px 8px;border:1px solid color-mix(in srgb,var(--accent,#16745f) 32%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent,#16745f) 8%,var(--surface,#fff));color:var(--accent,#16745f);font-size:11px;font-weight:700;line-height:1.4;vertical-align:middle;white-space:normal;overflow-wrap:anywhere}

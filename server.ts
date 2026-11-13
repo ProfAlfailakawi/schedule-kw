@@ -46,8 +46,8 @@ import { publicPageNonce } from "./src/server/core/publicPages";
 import { rateLimitPublic, requestLinkLimit } from "./src/server/core/rateLimits";
 import { scheduleConflicts } from "./src/server/core/scheduleConflicts";
 import { readSchedulesForRequest, termEndedForReading } from "./src/server/core/scheduleReads";
-import { scheduleLengthIssue } from "./src/server/core/scheduleRules";
-import { createScheduleHandler, runScheduleHandler, updateScheduleHandler } from "./src/server/core/scheduleWrites";
+import { regulationExceptionsFor, scheduleLengthIssue } from "./src/server/core/scheduleRules";
+import { createScheduleHandler, regulationGate, runScheduleHandler, updateScheduleHandler } from "./src/server/core/scheduleWrites";
 import { isScopeAllowed } from "./src/server/core/scope";
 import { graduateProofCore, graduateSubmitCheck, graduateThreshold, graduationCandidatesForSection, isSummerTerm, openStudentIdentity, sealStudentIdentity, studentIdentityKey, surveyFingerprint } from "./src/server/core/studentIdentity";
 import { captureScopeVersion, recordVersionAfter } from "./src/server/core/versions";
@@ -480,6 +480,8 @@ registerStudyProposalRoutes(app, {
   demoSessionId: () => Repository.currentDemoSessionId(),
   scheduleConflicts: scheduleConflicts as any,
   scheduleLockRefusal: scheduleLockRefusal as any,
+  regulationGate,
+  regulationExceptionsFor,
   canWrite: (req, collegeId, sectionId) => isScopeAllowed(req, collegeId, sectionId),
   canSee: (req, collegeId, sectionId) => Boolean(req?.user?.IsAdminUser) || isScopeAllowed(req, collegeId, sectionId),
   canonicalizeLocation: async (row, collegeId, sectionId) => {

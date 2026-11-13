@@ -85,18 +85,20 @@ check(/أُعيد فتح التعديل بإرسالٍ خاص/.test(issue), "15:
 
 /* ── 7 · التثبيت ─────────────────────────────────────────────────────────── */
 const pub = read("src/server/routes/publicRequestRoutes.ts");
-check(/export async function pinReview/.test(pub) && /sectionDaysFitLibrary\(hours, row, siblings\) === false/.test(pub) && !/sectionDaysCompliant|spread/.test(pub) && /scheduleLengthIssue\(row\)/.test(pub), "7: التثبيتُ يُفحص بأيام الشعبة كلها (نمطٌ واحد) وساعات المقرر");
-check(/code: "pin-blocked"/.test(pub) && /const review = await pinReview\(judged\);\s*const blockers = review\.blocks;/.test(pub), "7: الخادمُ يرفض التثبيت المخالف بنصّه");
+const pinSource = read("src/utils/pinViolations.ts");
+check(/export async function pinReview/.test(pub) && /pinRowIssues\(row, context\)/.test(pub) && /sectionDaysFitLibrary\(hours, row as any, siblings as any\) === false/.test(pinSource) && !/sectionDaysCompliant|spread/.test(pub) && /sectionWeeklyHours\(row as any, siblings as any, hours\)/.test(pinSource), "7: التثبيتُ يُفحص بأيام الشعبة كلها (نمطٌ واحد) وساعات المقرر — من المصدر الواحد pinRowIssues");
+check(/code: "pin-blocked"/.test(pub) && /const keptViolations = \(await pinReview\(judged\)\)\.blocks;/.test(pub) && /if \(keptViolations\.length && unchangedConfirmed\)/.test(pub), "7: الخادمُ يرفض التثبيت المخالف بنصّه");
 check(/pinBlocked: pinState\.blocks,/.test(pub) && !/pinSoft/.test(pub), "7: الصفحةُ تعرف المانعَ قبل الضغط، ولا «تنبيه لا يمنع»");
 /* قرار المالك النهائي 2026-11-13: كلُّ مخالفةٍ لائحية تمنع «ثبّت» — المدّة والتتالي والسُّلّم ووقت الشعبة الثابت. */
-check(/if \(lengthIssue\) blocks\.push\(say\(`\$\{lengthIssue\} \(م\.7\/8\)`\)\)/.test(pub), "7: مدّةٌ لا توافق النمط تمنع التثبيت (م.7/8)");
-check(/for \(const issue of pinRegulationIssues\(row, regulationContext\)\)[\s\S]{0,240}blocks\.push\(say\(`\$\{issue\.text\} \(\$\{issue\.article\}\)`\)\)/.test(pub), "7: م.6/2 وم.6/3 والسُّلّم وم.7/9 تمنع التثبيت برقم مادّتها");
+check(/if \(length\) issues\.push\(\{ rule: "pattern-length", article: "م\.7\/8", text: length \}\)/.test(pinSource), "7: مدّةٌ لا توافق النمط تمنع التثبيت (م.7/8)");
+check(/issues\.push\(\.\.\.pinRegulationIssues\(row, context\)\)/.test(pinSource) && /issue\.article \? `\$\{issue\.text\} \(\$\{issue\.article\}\)`/.test(pinSource) && /clean\(pinIssueLine\(issue\)\)/.test(pub), "7: م.6/2 وم.6/3 والسُّلّم وم.7/9 تمنع التثبيت برقم مادّتها");
 check(!/pinSoftNotes|pinSoft:/.test(pub), "7: لا تثبيتَ مع مخالفة يُحفظ");
 check(!/pinSoftTxt|تنبيه لا يمنع: /.test(read("src/server/pages/instructorRequestPage.ts")), "7: لا «تنبيه لا يمنع» عند الأستاذ");
 check(/data-pin-edit="'\+Number\(p\.itemIndex\)\+'"/.test(read("src/server/pages/instructorRequestPage.ts")) && /closest\("\[data-pin-edit\]"\)[\s\S]{0,120}focusItem\(i\)/.test(read("src/server/pages/instructorRequestPage.ts")), "7: كلُّ موعدٍ مخالف بزرّ «عدّل» يأخذه إليه");
 const page = read("src/server/pages/instructorRequestPage.ts");
 check(/var pinBlockTxt=/.test(page) && /!pinBlockTxt\)h\+='<div class="send">/.test(page), "7: لا زرَّ «ثبّت الجدول» وفيه مخالفة");
 check(/edited===0&&!String\(noteNow\(\)\)\.trim\(\)&&data\.pinBlocked/.test(page) && /if\(hadNote!==!!gn\.value\.trim\(\)\)paint\(\)/.test(page), "7: ملاحظةٌ للقسم تجعله إرسالاً لا تثبيتاً، ويُعاد رسمُ الشريط حين تُكتب");
+check(/\(pinList\.length\?'<ul class="pin-blocks"/.test(page) && /pinNoted\?gi\("finger"\)\+"أرسل الملاحظة للقسم"/.test(page) && !/عدّل هذا الموعد أو اكتب ملاحظة للقسم/.test(pub), "7: المخالفاتُ ظاهرةٌ دائماً، والملاحظةُ لا تُسمّى تثبيتاً");
 
 {
   const d = (...days: DayKey[]) => new Set<DayKey>(days);

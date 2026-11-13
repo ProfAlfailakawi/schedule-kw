@@ -19,7 +19,7 @@ import { normalizeInstructorDeadline, individualExceptionOpen } from "../../util
 import { slotTimeGroups } from "../../utils/slotTimeGroups";
 import { uniformPatternSlots } from "../../utils/requestMeetingLength";
 import { effectiveCourseHours } from "../../utils/scheduleRegulations";
-import { teachersWithRegulationIssues } from "../../utils/pinViolations";
+import { scopedPinViolations, teachersWithRegulationIssues } from "../../utils/pinViolations";
 import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
 import { awaitedItemIndexes } from "../../utils/linkedRequestItems";
 import { roleLabel } from "../../utils/academicRoles";
@@ -71,6 +71,8 @@ function requestForDepartment(req: AuthenticatedRequest, request: InstructorRequ
   return { ...request, signatureHistory: undefined, archivedItems: undefined,
     signature: request.signature ? { ...request.signature, signedItems: allVisible ? request.signature.signedItems : undefined } : undefined,
     notes: allVisible ? (request as any).notes : [],
+    /* وسمُ المخالفات بنطاق القارئ نفسه، كما في الوارد (scopedPinViolations). */
+    pinViolations: scopedPinViolations(request, visible),
     items: request.items.map(item => visible(item) ? item : ({
       rowId: item.action === "delete" || item.action === "change" ? item.rowId ?? null : null,
       action: item.action === "delete" || item.action === "change" ? item.action : "keep",
@@ -459,8 +461,9 @@ app.get("/api/instructor-requests/recipients", requirePermission(7), async (req:
 
 /**
  * ── «N أساتذة في جداولهم مخالفات للائحة» قبل إرسال البطاقات (قرار المالك 2026-11-13) ──────
- * الأستاذُ لا يثبّت جدولاً فيه مخالفة (pinReview)، فيُقال للقسم قبل الإرسال مَن في جدوله مخالفةٌ لائحية
- * (م.6/2، م.6/3، م.7/8 السُّلّم، م.7/9) ليصلحها أولاً. تنبيهٌ لا يمنع الإرسال. الحكمُ في utils/pinViolations.ts.
+ * الأستاذُ لا يثبّت جدولاً فيه مخالفة (pinReview)، فيُقال للقسم قبل الإرسال مَن في جدوله ما يمنع «ثبّت» — القواعدُ
+ * نفسُها كلُّها (pinRowIssues): نمطُ الشعبة ومدّةُ اللقاء وساعاتُ المقرّر، والتتالي (م.6/2، م.6/3)، والسُّلّم (م.7/8)،
+ * ووقتُ الشعبة الثابت (م.7/9) — ليصلحها أولاً. تنبيهٌ لا يمنع الإرسال. الحكمُ في utils/pinViolations.ts.
  */
 app.get("/api/instructor-requests/regulation-teachers", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
@@ -618,6 +621,8 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
       signature: full.signature ? { ...full.signature, signedItems: full.items.every(item => inSelection(requestItemScope(full, item))) ? full.signature.signedItems : undefined } : undefined,
       signatureHistory: undefined,
     archivedItems: undefined,
+      /* «جدول فيه مخالفات لائحية»: سطورُ ما في هذا النطاق وحده؛ وما في قسمٍ آخر يُعدّ ولا يُفصَّل. */
+      pinViolations: scopedPinViolations(full, item => inSelection(requestItemScope(full, item))),
       items: (full.items || []).map((item, index) => inSelection(requestItemScope(full, item))
         ? (awaited.has(index) ? { ...item, awaitedElsewhere: true } : item)
         : hiddenItem(item)),
@@ -642,7 +647,8 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
   const totals = {
     sent: rows.length,
     answered: rows.filter(row => row.status !== "sent").length,
-    unchanged: rows.filter(row => row.status !== "sent" && row.changedCount === 0).length,
+    /* طلبٌ بمخالفاتٍ لائحية ليس «بلا تغيير»: هو طلبٌ ينتظر القسم. */
+    unchanged: rows.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.pinViolations).length,
     changed: rows.filter(row => row.changedCount > 0).length,
     /* رابطُ «العرض فقط» لا ينتظر جواباً: لا يُعدّ «لم يفتح» (D2). */
     unopened: notOpened(rows).length,

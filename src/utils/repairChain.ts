@@ -10,6 +10,7 @@ import {
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, SCHEDULE_SLOT_MINUTES } from "./scheduleTime";
 import { regulationStarts, singleDayBlockDays } from "./regulationCandidates";
 import { roomIdentityKey } from "./locationRegistry";
+import { sectionDaysFitLibrary } from "./scheduleRegulations";
 
 /**
  * ── إصلاح بأقل أثر ─────────────────────────────────────────────────────────
@@ -98,24 +99,28 @@ function slotsFor(row: FSchedule, days: readonly DayKey[]): string[] {
  * day (owner rule): the eligible days are those whose regulation accepts its
  * length (singleDayBlockDays), not its original family — a 3-hour Wednesday
  * 08:00–10:50 block may land on Sunday. A single-day row that is one meeting of
- * a multi-row section moves inside its family to a day its siblings do not
- * use, so the section's days and lengths stay one pattern.
+ * a multi-row section is judged WITH its siblings by the save's own judge
+ * (sectionDaysFitLibrary): it may change day only when the whole section then
+ * reads as one library pattern — «Sun 80 + Tue 80» never becomes «Sun + Thu».
+ * Without known course hours the section cannot be judged, so the meeting keeps
+ * its day and only its hour or hall moves.
  */
-const LONG_DAYS: readonly DayKey[] = ["fmonday", "fwednesday"];
 const sameSection = (a: FSchedule, b: FSchedule) => a.id !== b.id
   && Number(a.AdCourseId) === Number(b.AdCourseId) && String(a.SCode ?? "").trim() === String(b.SCode ?? "").trim()
   && Number(a.AdCollegeId || 0) === Number(b.AdCollegeId || 0) && Number(a.AdSectionId || 0) === Number(b.AdSectionId || 0)
   && Number(a.AdTermId) === Number(b.AdTermId);
-function daySetsFor(row: FSchedule, rows: readonly FSchedule[]): DayKey[][] {
+function daySetsFor(row: FSchedule, rows: readonly FSchedule[], weeklyHours = 0): DayKey[][] {
   const own = activeDays(row);
   if (own.length !== 1) return own.length ? [own] : [];
+  const hours = Math.round(Number(weeklyHours) || 0);
   const siblings = rows.filter(other => sameSection(row, other));
   if (siblings.length) {
     const taken = new Set(siblings.flatMap(activeDays));
-    const long = LONG_DAYS.includes(own[0]);
-    return SCHEDULE_DAYS.map(day => day.key).filter(day => LONG_DAYS.includes(day) === long && (day === own[0] || !taken.has(day))).map(day => [day]);
+    return SCHEDULE_DAYS.map(day => day.key)
+      .filter(day => day === own[0] || (!taken.has(day) && hours > 0 && sectionDaysFitLibrary(hours, placed(row, day, row.fstarttime), siblings) === true))
+      .map(day => [day]);
   }
-  const eligible = singleDayBlockDays(duration(row));
+  const eligible = singleDayBlockDays(duration(row), hours);
   return SCHEDULE_DAYS.map(day => day.key).filter(day => day === own[0] || eligible.includes(day)).map(day => [day]);
 }
 
@@ -160,14 +165,14 @@ function collidesWith(candidate: FSchedule, rows: FSchedule[]): FSchedule[] {
  * hall you already have. A repair that is technically valid but scatters a
  * teacher across five days is not a repair anyone will accept.
  */
-function candidatesFor(row: FSchedule, rows: FSchedule[], estate: RoomPlacement[]) {
+function candidatesFor(row: FSchedule, rows: FSchedule[], estate: RoomPlacement[], weeklyHours = 0) {
   const mine = rows.filter(other => other.id !== row.id && other.AdInstructorId === row.AdInstructorId);
   const currentKey=roomIdentityKey(row);
   const currentRoom:RoomPlacement|undefined=currentKey&&row.buildingId&&row.roomId?{key:currentKey,buildingId:row.buildingId,roomId:row.roomId,code:String(row.AdRoomCode||""),hall:String(row.AdRoomHall||"")}:undefined;
   const rooms = [...(currentRoom?[currentRoom]:[]), ...estate.filter(room=>room.key!==currentKey)];
   const out: Array<{ row: FSchedule; score: number; day: DayKey; days: DayKey[]; start: string; room: RoomPlacement }> = [];
   const currentDay = activeDays(row)[0];
-  for (const days of daySetsFor(row, rows)) {
+  for (const days of daySetsFor(row, rows, weeklyHours)) {
     const day = { key: days[0] };
     for (const start of slotsFor(row, days)) {
       for (const room of rooms) {
@@ -225,6 +230,8 @@ export function findRepairChain(
     solved?: (board: FSchedule[], baseline: number) => boolean;
     /** «هيئة تدريسية» records — never a person (placeholderInstructorIds). */
     placeholderInstructorIds?: Iterable<number>;
+    /** ساعاتُ المقرّر الأسبوعية: بها تُحكم الشعبةُ كلُّها على مكتبة الأنماط حين يتغيّر يومُ أحد لقاءاتها. */
+    courseHours?: (row: FSchedule) => number;
   },
 ): RepairChain | null {
   const placeholders = options?.placeholderInstructorIds ? [...options.placeholderInstructorIds] : undefined;
@@ -244,7 +251,7 @@ export function findRepairChain(
     depth: number,
     limit: number,
   ): RepairMove[] | null => {
-    const tries = candidatesFor(card, board, estate)
+    const tries = candidatesFor(card, board, estate, options?.courseHours?.(card) || 0)
       .filter(option => !options?.forbidRoom?.(option.room.code, option.room.hall))
       /* موضعٌ يزيح أكثر من لقاء لا يُفتح أبداً (one domino at a time)، فلا يحجز مكاناً في النافذة: كانت مواضعُ
          أيام الأستاذ المزدحمة تملؤها، فلا يُجرَّب يومٌ فارغ تصلح له الكتلة. */
@@ -329,7 +336,7 @@ export function findRepairChain(
 export function planDisruption(
   affected: FSchedule[],
   allRows: FSchedule[],
-  options?: { maxDepth?: number; forbidRoom?: (code: string, hall: string) => boolean },
+  options?: { maxDepth?: number; forbidRoom?: (code: string, hall: string) => boolean; courseHours?: (row: FSchedule) => number },
 ): RepairChain | null {
   if (!affected.length) return null;
   const scope = allRows.filter(row => Number(row.AdTermId) === Number(affected[0].AdTermId));
@@ -349,6 +356,7 @@ export function planDisruption(
     const chain = findRepairChain(row, board, {
       maxDepth: options?.maxDepth ?? 3,
       forbidRoom,
+      courseHours: options?.courseHours,
       solved: (next, base) => {
         const moved = next.find(item => item.id === row.id);
         if (!moved || forbidRoom(String(moved.AdRoomCode || ""), String(moved.AdRoomHall || ""))) return false;

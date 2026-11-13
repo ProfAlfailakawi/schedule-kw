@@ -4,6 +4,7 @@ import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GraduationCap, AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Library, ClipboardList } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
+import { settleRegulationException } from "./RegulationExceptionSheet";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
@@ -1313,12 +1314,15 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
     if (!fromId) { setError("اختر الأستاذ المراد استبداله."); return; }
     setBusy(true); setError(null);
     try {
-      const response = await fetch("/api/schedules/replace-instructor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fromInstructorId: fromId, toInstructorId: toId, collegeId, sectionId, termId, commit })
-      });
-      const data = await response.json();
+      /* الاستبدالُ حفظٌ من القسم: تتالي الأستاذ البديل يفتح ورقةَ «المتابعة استثناءً» (409)، وبالموافقة يُعاد موسوماً. */
+      const send = async (body: string) => {
+        const response = await fetch("/api/schedules/replace-instructor", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+        return { response, data: await response.json().catch(() => ({})) };
+      };
+      const sent = JSON.stringify({ fromInstructorId: fromId, toInstructorId: toId, collegeId, sectionId, termId, commit });
+      let { response, data } = await send(sent);
+      const settled = await settleRegulationException(response.status, data, sent, send);
+      if (settled) ({ response, data } = settled.value);
       if (!response.ok) throw new Error(data.error || "تعذر التنفيذ");
       if (commit) {
         setRetirePreview(null); setReplacementCheck(null); setFromId(0); setToId(0); onChanged(); await loadReplacementHistory();

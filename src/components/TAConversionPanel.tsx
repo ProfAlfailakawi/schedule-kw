@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeftRight, CalendarDays, Check, CheckCircle2, Corne
 import InstructorPicker from "./InstructorPicker";
 import { taTargetsQuery } from "../utils/taConversion";
 import { PrimaryButton, SecondaryButton, visualConfirm, useDialogDismiss } from "./ui";
+import { settleRegulationException } from "./RegulationExceptionSheet";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import "./ta-conversion.css";
@@ -86,11 +87,15 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
     if (!accepted) return;
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/schedules/ta-conversion", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-schedule-confirm": "ta-conversion" },
-        body: JSON.stringify({ collegeId, sectionId, termId, previewKey: preview.previewKey, targets }),
-      });
-      const data = await response.json().catch(() => ({}));
+      /* التحويلُ حفظٌ من القسم: تتالي من تُنقل إليه المواعيد يفتح ورقةَ «المتابعة استثناءً» (409)، وبالموافقة يُعاد موسوماً. */
+      const send = async (body: string) => {
+        const response = await fetch("/api/schedules/ta-conversion", { method: "POST", headers: { "Content-Type": "application/json", "x-schedule-confirm": "ta-conversion" }, body });
+        return { response, data: await response.json().catch(() => ({})) as any };
+      };
+      const sent = JSON.stringify({ collegeId, sectionId, termId, previewKey: preview.previewKey, targets });
+      let { response, data } = await send(sent);
+      const settled = await settleRegulationException(response.status, data, sent, send);
+      if (settled) ({ response, data } = settled.value);
       if (!response.ok) throw new Error(data.error || "تعذّر التحويل");
       setResult({ changed: Number(data.changed) || 0, undoVersionId: data.undoVersionId });
       setTargets({});

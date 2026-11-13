@@ -27,7 +27,7 @@ import { courseHabit } from "../core/instructorRequests";
 import { capacityContextForSection } from "../core/capacityRules";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { scheduleConflicts } from "../core/scheduleConflicts";
-import { describeScheduleChange, hoursNotice, mixedPatternNotice, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, unapprovedPatternIssue } from "../core/scheduleRules";
+import { describeScheduleChange, hoursNotice, keepsSectionShape, mixedPatternNotice, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, sectionShapeIssue, unapprovedPatternIssue } from "../core/scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { companionBookingFor } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed, legacyFDetail } from "../core/scope";
@@ -50,8 +50,9 @@ async function checkLengthIssue(row:any):Promise<string|null>{
   const editedId=Number(row.excludeId||0);
   if(editedId){
     const existing=await Repository.getScheduleById(editedId);
-    const unchangedShape=sameScheduleShape(existing as any,row);
-    if(unchangedShape)return null;
+    if(keepsSectionShape(existing,row))return null;
+    /* تغييرُ المقرّر أو الرمز وحده: مخالفةٌ كانت قائمةً في الصفّ نفسه لا تُقال مانعاً (editShapeIssue). */
+    if(existing&&sameScheduleShape(existing as any,row)&&await sectionShapeIssue(existing))return null;
   }
   return scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)});
 }
@@ -62,8 +63,9 @@ async function checkPatternIssue(row:any):Promise<string|null>{
   const editedId=Number(row.excludeId||0);
   if(editedId){
     const existing=await Repository.getScheduleById(editedId);
-    const unchangedShape=sameScheduleShape(existing as any,row);
-    if(unchangedShape)return null;
+    if(keepsSectionShape(existing,row))return null;
+    /* تغييرُ المقرّر أو الرمز وحده: مخالفةٌ كانت قائمةً في الصفّ نفسه لا تُقال مانعاً (editShapeIssue). */
+    if(existing&&sameScheduleShape(existing as any,row)&&await sectionShapeIssue(existing))return null;
   }
   return unapprovedPatternIssue({...row,id:Number(row.excludeId||row.id||0)});
 }
@@ -433,17 +435,26 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
     });
     return;
   }
+  /* والنقلُ يُحكم بمانعَي الشعبة كالإنشاء والتعديل (sectionShapeIssue): ساعاتُ المقرّر ونمطُ المكتبة، على الأسبوع كما
+     سيصير — فنقلُ صفوف شعبةٍ كلِّها إلى نمطٍ معتمد يمرّ، وسحبُ ثلاثاءِ «أحد·ثلاثاء» إلى الخميس يُمنع. */
+  const weekByTerm = new Map<number, FSchedule[]>();
+  const movedRowById = new Map<number, FSchedule>(candidates.map((candidate: { row: FSchedule }) => [Number(candidate.row.id), candidate.row] as const));
+  const weekAfterMove = async (termId: number) => {
+    if (!weekByTerm.has(termId)) weekByTerm.set(termId, (await Repository.getSchedulesByScope({ termId })).map(row => movedRowById.get(Number(row.id)) || row));
+    return weekByTerm.get(termId)!;
+  };
+  for (const [index, candidate] of candidates.entries()) {
+    if (keepsSectionShape(originals[index], candidate.row)) continue;
+    const shapeIssue = await sectionShapeIssue(candidate.row, await weekAfterMove(Number(candidate.row.AdTermId)));
+    if (shapeIssue) { res.status(400).json({ error: `لم يُنقل: ${shapeIssue}`, code: "section-shape", issues: [{ type: "validation", severity: "high", message: shapeIssue }] }); return; }
+  }
   /* النقلُ بالسحب حفظٌ كأي حفظ (ملاحظتا المالك 10 و20): ما يخالف اللائحة ولا يمنع يُسأل عنه صراحةً قبل الكتابة.
      يُقرأ كلُّ منقولٍ على أسبوع الفصل كما سيصير — المنقولةُ الأخرى في أماكنها الجديدة. */
   const exceptions: RegulationExceptionIssue[] = [];
   {
-    const byTerm = new Map<number, FSchedule[]>();
-    const movedById = new Map<number, FSchedule>(candidates.map((candidate: { row: FSchedule }) => [Number(candidate.row.id), candidate.row] as const));
     for (const [index, candidate] of candidates.entries()) {
       if (sameScheduleShape(originals[index] as any, candidate.row as any)) continue;
-      const termId = Number(candidate.row.AdTermId);
-      if (!byTerm.has(termId)) byTerm.set(termId, (await Repository.getSchedulesByScope({ termId })).map(row => movedById.get(Number(row.id)) || row));
-      for (const issue of await regulationExceptionsFor(candidate.row, byTerm.get(termId))) {
+      for (const issue of await regulationExceptionsFor(candidate.row, await weekAfterMove(Number(candidate.row.AdTermId)))) {
         if (!exceptions.some(item => item.rule === issue.rule && item.text === issue.text)) exceptions.push(issue);
       }
     }

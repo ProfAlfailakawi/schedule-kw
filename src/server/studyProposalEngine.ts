@@ -18,7 +18,7 @@ import type {
 import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/scheduleIntelligence";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { personRecordIds } from "../utils/instructorPickerChoices";
-import { reviewSchedule, daysFitLibrary, effectiveCourseHours, maxWeeklyMinutesFor, sectionHoursShortfallText, sectionWeeklyHours } from "../utils/scheduleRegulations";
+import { reviewSchedule, sectionDaysFitLibrary, effectiveCourseHours, maxWeeklyMinutesFor, sectionHoursShortfallText, sectionWeeklyHours } from "../utils/scheduleRegulations";
 import { regulationStarts } from "../utils/regulationCandidates";
 import { patternLengthIssue, sameScheduleShape } from "../utils/appointmentRegulation";
 import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
@@ -555,6 +555,17 @@ function dayVariants(days: StudyProposalDayKey[]): StudyProposalDayKey[][] {
 }
 
 /**
+ * الأيامُ البديلة لصفٍّ في المقترح: أيامُه كما هي أولاً، ثم ما تصير به الشعبةُ كلُّها — هذا الصفّ وصفوفُ المقرّر والرمز
+ * نفسيهما (`siblings`) — نمطاً في المكتبة (sectionDaysFitLibrary، حَكَمُ الحفظ). صفٌّ من «أحد 80 + ثلاثاء 80» لا يُعرض له
+ * الخميس بديلاً عن الثلاثاء («أحد + خميس» ليس نمطاً).
+ */
+export function sectionDayVariants(target: Pick<FSchedule, "fstarttime" | "fendtime"> & Partial<Record<StudyProposalDayKey, unknown>>, courseHours: number, siblings: readonly FSchedule[]): StudyProposalDayKey[][] {
+  const own = PROPOSAL_DAY_KEYS.filter(day => Boolean(target[day]));
+  return dayVariants(own).filter((days, index) => index === 0
+    || sectionDaysFitLibrary(courseHours, { ...Object.fromEntries(PROPOSAL_DAY_KEYS.map(day => [day, days.includes(day)])), fstarttime: target.fstarttime, fendtime: target.fendtime }, siblings as any) !== false);
+}
+
+/**
  * يقترح أوقاتاً بديلةً لمادةٍ متعارضة. النمطُ والمدة محفوظان: تتحرك البداية،
  * وقد تتبدّل أيامُ اللقاء داخل الأسرة نفسها فقط (٥٠ دقيقة لا تُجعل ٨٠).
  * كلُّ بديلٍ يمرّ ببوابة الحفظ على الجدول الناتج للمقترح كلّه.
@@ -610,7 +621,9 @@ export async function suggestAlternatives(
   const course = w.catalog.courseById.get(Number(op.target.AdCourseId)) as any;
   /* الأيامُ البديلة من مكتبة الأنماط وحدها (لا الأحد·الخميس)، والبداياتُ من سُلّم اللائحة (المولّدُ الواحد، م.7/8). */
   const courseHours = effectiveCourseHours(course);
-  const variants = dayVariants(daysOf(op.target)).filter((days, index) => index === 0 || daysFitLibrary(courseHours, days as any, days.length > 1) !== false);
+  const sectionSiblings = others.filter(row => Number(row.AdCourseId) === Number(op.target.AdCourseId) && String(row.SCode ?? "").trim() === String(op.target.SCode ?? "").trim()
+    && Number(row.AdCollegeId) === Number(op.target.AdCollegeId) && Number(row.AdSectionId) === Number(op.target.AdSectionId) && Number(row.AdTermId) === Number(input.termId));
+  const variants = sectionDayVariants(op.target, courseHours, sectionSiblings);
   const expectedType = String(course?.CourseRoomType || "").trim();
   const neededCapacity = Number(course?.MaxStudent || 0);
   const masterById = new Map(registry.rooms.map(room => [String(room.id), room]));

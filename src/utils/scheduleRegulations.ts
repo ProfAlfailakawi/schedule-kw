@@ -618,6 +618,17 @@ export function sectionDaysFitLibrary(weeklyHours: number, row: MeetingLike, sib
 }
 
 /**
+ * سطرُ «أيامُ الشعبة ليست نمطاً معتمداً» — النصُّ الواحد الذي يقوله الحفظ (unapprovedPatternIssue) و«ثبّت» وعدّادُ
+ * الإرسال (pinRowIssues): أيامُ الشعبة كلِّها بأسمائها، وما تعتمده المكتبةُ لساعات المقرّر.
+ */
+export function sectionPatternIssueText(weeklyHours: number, row: MeetingLike, siblings: readonly MeetingLike[] = []): string {
+  const union = new Set<DayKey>([row, ...siblings].flatMap(item => DAY_KEYS.filter(day => Boolean(item[day]))));
+  const named = DAY_KEYS.filter(day => union.has(day)).map(day => DAY_NAMES[DAY_KEYS.indexOf(day)]).join(" · ");
+  const allowed = patternsForHours(weeklyHours).map(pattern => pattern.days.length === 1 ? `يوم واحد ${pattern.minutesPerDay[0]}د` : pattern.label).join("، ");
+  return `أيام هذه الشعبة (${named}) ليست نمطاً معتمداً لمقرّرٍ ${countOf(weeklyHours, AR.hour)} أسبوعياً في مكتبة الأنماط. المعتمد: ${allowed}.`;
+}
+
+/**
  * ── شعبتان من مقرر واحد في الوقت نفسه (ملاحظة المالك 8) ───────────────────────
  * قاعدةٌ واحدة، تنبيهٌ لا يمنع في «موعد» وفي كرت الأستاذ (المالك 2026-11-08؛ كان يمنع في الكرت) — لمقررات التخصص وحدها.
  * مقررُ التخصص هو ما يملكه قسمُ الشعبة، ولو كان متطلبَ كليةٍ في صحف أقسامٍ أخرى؛ ومقررُ الخدمة
