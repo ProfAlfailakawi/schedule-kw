@@ -50,7 +50,6 @@
     "tsconfig.json",
     "package.json",
     "Dockerfile",
-    "cloudbuild.yaml",
     "Procfile",
     "firestore.rules",
     "firestore.indexes.json",
@@ -1811,8 +1810,7 @@
         "code": [
           "Dockerfile",
           "Procfile",
-          "scripts/runtime-deps.mjs",
-          "cloudbuild.yaml"
+          "scripts/runtime-deps.mjs"
         ],
         "tests": []
       },
