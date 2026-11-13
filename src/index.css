@@ -66,6 +66,7 @@
 @import "./styles/53-visual-finish.css";
 @import "./styles/54-actual-demand.css";
 @import "./styles/55-duo-adaptive.css";
+@import "./styles/56-intel-nav.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */
