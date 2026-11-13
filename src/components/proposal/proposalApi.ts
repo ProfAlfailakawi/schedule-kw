@@ -5,6 +5,7 @@
 import type {
   AdCourse, StudyProposal, StudyProposalDayKey, StudyProposalMetrics, StudyProposalOp, StudyProposalResponseMode,
 } from "../../types";
+import { settleRegulationException } from "../RegulationExceptionSheet";
 import type { CourseHistory, DecisionState, GridItem, ProposalEvaluation, VacancyVerdict } from "../../utils/studyProposal";
 
 export class ProposalApiError extends Error {
@@ -111,7 +112,14 @@ export const proposalApi = {
   undoCommit: (id: string, rev: number) =>
     call<any>(`/api/study-proposals/${encodeURIComponent(id)}/undo-commit`, json({ rev })),
   commit: (id: string, rev: number, confirm: boolean) =>
-    call<any>(`/api/study-proposals/${encodeURIComponent(id)}/commit`, json({ rev, confirm })),
+    /* التثبيتُ حفظٌ من القسم: ردُّ «استثناء لائحي» (409) يفتح الورقةَ نفسها، وبالموافقة يُعاد الطلبُ موسوماً. */
+    call<any>(`/api/study-proposals/${encodeURIComponent(id)}/commit`, json({ rev, confirm })).catch(async error => {
+      if (!(error instanceof ProposalApiError)) throw error;
+      const sent = JSON.stringify({ rev, confirm });
+      const settled = await settleRegulationException(error.status, error.body, sent, marked => call<any>(`/api/study-proposals/${encodeURIComponent(id)}/commit`, json(JSON.parse(marked))));
+      if (settled) return settled.value;
+      throw error;
+    }),
 };
 
 export type { AdCourse, StudyProposalResponseMode };

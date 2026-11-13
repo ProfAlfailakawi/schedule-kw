@@ -29,6 +29,7 @@ import type {
 import { toEnglishDigits } from "../utils/digits";
 import { departmentVacancyRows } from "../utils/proposalVacancyScope";
 import { effectiveCourseHours } from "../utils/scheduleRegulations";
+import { sameScheduleShape } from "../utils/appointmentRegulation";
 import { withFamilyScopes } from "./studyProposalEngine";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../utils/termSequence";
 import { normalizeClock, withinScheduleDay, scheduleDayWindowMinutes } from "../utils/scheduleTime";
@@ -63,6 +64,9 @@ export interface StudyProposalRouteDeps extends EngineDeps {
   departmentScopes?: (request: InstructorRequest) => Promise<Array<{ collegeId: number; collegeName: string; sectionId: number }>>;
   roleLabel: (role: unknown) => string;
   demoSessionId: () => string;
+  /** بوّابةُ «الاستثناء اللائحي» نفسُها التي يمرّ بها كلُّ حفظٍ من القسم (core/scheduleWrites)، وحَكَمُها (core/scheduleRules). */
+  regulationGate: (req: any) => import("./core/scheduleWrites").RegulationGate;
+  regulationExceptionsFor: (row: any, hypothetical?: FSchedule[], options?: { shapeChanged?: boolean; sequenceChanged?: boolean }) => Promise<import("../utils/regulationException").RegulationExceptionIssue[]>;
 }
 
 const heavyLimit = rateLimit({
@@ -737,6 +741,19 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     });
     if (applied.errors.length) return void refuse(409, "proposal-stale", applied.errors[0].message);
     const liveById = new Map(world.termRows.map(row => [Number(row.id), row]));
+    /* التثبيتُ حفظٌ من القسم كأي حفظ (قاعدة المالك): مخالفةُ اللائحة التي لا تمنع (السُّلّم، وقت الشعبة، التتالي) تُسأل
+       صراحةً هنا في الخادم — لا في الواجهة وحدها — على الأسبوع كما سيصير، وتُسجَّل الموافقةُ في التدقيق (regulationGate). */
+    const gate = deps.regulationGate(req);
+    for (const op of ops) {
+      const row = applied.incoming.get(op.id);
+      if (!row) continue;
+      const live = liveById.get(Number(row.id));
+      const keptShape = Boolean(live) && sameScheduleShape(live as any, row as any);
+      gate.note({ regulation: await deps.regulationExceptionsFor(row, applied.rows as FSchedule[], {
+        shapeChanged: !keptShape, sequenceChanged: !keptShape || Number(live?.AdInstructorId || 0) !== Number(row.AdInstructorId || 0) }) });
+    }
+    const exceptionRefusal = gate.refusal();
+    if (exceptionRefusal) { res.status(409).json(exceptionRefusal); return; }
     const creates: Array<Omit<FSchedule, "id">> = [];
     const createOpIds: string[] = [];
     const updates: Array<{ id: number; fields: Partial<FSchedule>; expectedRev: number }> = [];
@@ -843,6 +860,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       });
       await noteWrites(req, proposal.AdTermId, touchedScopes, versions, result, deletes.map(d => liveById.get(d.id)!).filter(Boolean));
       await noteOnRequest(proposal.requestId, "study-proposal-committed", by, proposal.id);
+      if (gate.issues.length) res.locals.auditChanges = `تثبيت مقترح دراسي${gate.auditSuffix()}`;
       deps.broadcastNotify(deps.demoSessionId());
       res.json({ ...staffView(result.proposal, termClosedOf(world)), committed: true });
     } catch (error) {

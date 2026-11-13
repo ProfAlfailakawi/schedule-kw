@@ -144,6 +144,65 @@ try {
       for (const id of [made.id, other?.id]) if (id) await call("DELETE", `/api/schedules/${id}`);
     }
   }
+
+  /* ── ٥) «استبدال الأستاذ» و«تحويل التدريب» يمرّان ببوّابة الاستثناء اللائحي ── */
+  {
+    const tools = read("src/server/routes/scheduleToolsRoutes.ts"), proposalRoutes = read("src/server/studyProposalRoutes.ts");
+    const routeBody = (source: string, head: string) => { const start = source.indexOf(head); const next = source.slice(start + 10).search(/\n\s*app\.(get|post|put|delete)\(/); return source.slice(start, next < 0 ? undefined : start + 10 + next); };
+    check(['app.post("/api/schedules/replace-instructor"', 'app.post("/api/schedules/ta-conversion"'].every(head => {
+      const body = routeBody(tools, head);
+      return body.includes("regulationGate(req)") && body.includes("reassignmentExceptions(") && /Refusal = gate\.refusal\(\)/.test(body) && body.includes("gate.auditSuffix()");
+    }), "٥-أ المساران يسألان البوّابةَ نفسها قبل الكتابة ويسجّلان الموافقة");
+    const commit = routeBody(proposalRoutes, 'app.post("/api/study-proposals/:id/commit"');
+    check(commit.includes("deps.regulationGate(req)") && commit.indexOf("gate.refusal()") < commit.indexOf("Repository.commitStudyProposal(") && commit.includes("gate.auditSuffix()"),
+      "٥-ب تثبيتُ «مقترح دراسي» يسأل في الخادم قبل الكتابة (الحيُّ في test:study-proposal-flow)");
+    check(["ScheduleTransfer.tsx", "TAConversionPanel.tsx", "proposal/proposalApi.ts"].every(name => read(`src/components/${name}`).includes("settleRegulationException(")), "٥-ج الواجهاتُ الثلاث تفتح الورقةَ نفسها وتعيد الطلب بالموافقة");
+
+    const everything = (await call("GET", "/api/schedules?termId=1")).body as any[];
+    const idle = people.filter(person => !String(person.AdInstructorName || "").startsWith("هيئة") && !everything.some(row => Number(row.AdInstructorId) === Number(person.AdInstructorId) && (row.fmonday || row.fwednesday)));
+    const [x, y] = idle;
+    const mw = ["fmonday", "fwednesday"];
+    const slots = [{ fstarttime: "08:00", fendtime: "09:20" }, { fstarttime: "09:30", fendtime: "10:50" }, { fstarttime: "11:00", fendtime: "12:20" }];
+    const rooms = await Promise.all(slots.map(slot => roomAt(mw, slot)));
+    check(Boolean(x && y && fresh && rooms.every(Boolean)), "٥-د بيانات التجربة: أستاذان بلا مواعيد الاثنين والأربعاء وثلاث قاعات", { idle: idle.length, rooms: rooms.map(Boolean) });
+    if (x && y && fresh && rooms.every(Boolean)) {
+      const make = async (index: number, teacher: any, code: string) => (await call("POST", "/api/schedules", { ...scope, ...flags(mw), ...slots[index], AdCourseId: fresh.AdCourseId, SCode: code, AdInstructorId: teacher.AdInstructorId, ...place(rooms[index]) })).body;
+      const r1 = await make(0, x, "971"), r2 = await make(1, y, "972"), r3 = await make(2, y, "973");
+      check([r1, r2, r3].every(row => Number(row?.id) > 0), "٥-هـ ثلاثُ محاضراتٍ طويلة متتالية: الأولى لأستاذٍ والأخريان لآخر", [r1, r2, r3].map(row => row?.error || row?.id));
+      const ownerOf = async (id: number) => Number(((await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[]).find(row => Number(row.id) === Number(id))?.AdInstructorId);
+      const ask = { fromInstructorId: x.AdInstructorId, toInstructorId: y.AdInstructorId, collegeId: 1, sectionId: 1, termId: 1 };
+      const preview = await call("POST", "/api/schedules/replace-instructor", { ...ask, commit: false });
+      check(preview.status === 200 && (preview.body?.regulation || []).some((issue: any) => issue.article === "م.6/2"), "٥-و المعاينةُ تقول تتالي البديل (م.6/2)", preview.body);
+      const refused = await call("POST", "/api/schedules/replace-instructor", { ...ask, commit: true });
+      check(refused.status === 409 && refused.body?.code === "regulation-exception" && (refused.body?.regulation || []).some((issue: any) => issue.article === "م.6/2" && !/هذا الموعد/.test(issue.text))
+        && await ownerOf(r1.id) === Number(x.AdInstructorId), "٥-ز «استبدال الأستاذ» بلا موافقة: 409 ولا يُكتب شيء", refused);
+      const accepted = await call("POST", "/api/schedules/replace-instructor", { ...ask, commit: true, regulationException: true });
+      check(accepted.status === 200 && accepted.body?.moved >= 1 && await ownerOf(r1.id) === Number(y.AdInstructorId), "٥-ح وبالموافقة الصريحة يُكتب", accepted);
+      const logs = await call("GET", "/api/audit-logs");
+      const lines = (Array.isArray(logs.body) ? logs.body : logs.body?.items || logs.body?.logs || logs.body?.rows || []).map((row: any) => String(row.changes || row.details || row.summary || JSON.stringify(row)));
+      check(lines.some((line: string) => /استبدال الأستاذ/.test(line) && /استثناء لائحي بتأكيد صريح \([^)]*م\.6\/2/.test(line)), "٥-ط والاستثناءُ في سجل التدقيق", lines.slice(0, 4));
+
+      /* تحويلُ التدريب: الموعدُ يعود لصاحبه، وصاحبُه يصير «هيئة تدريب» ثم يُحوَّل اسمُه إلى الأستاذ نفسه. */
+      const back = (await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body.find((row: any) => Number(row.id) === Number(r1.id));
+      const restored = await call("PUT", `/api/schedules/${r1.id}`, { ...back, AdInstructorId: x.AdInstructorId });
+      const asTa = await call("PUT", `/api/instructors/${x.AdInstructorId}`, { ...x, AdInstructorCategory: "ta" });
+      const q = "collegeId=1&sectionId=1&termId=1";
+      const state = (await call("GET", `/api/schedules/ta-conversion?${q}`)).body;
+      check(restored.status === 200 && asTa.status === 200 && state?.allowed && (state.people || []).some((person: any) => Number(person.id) === Number(x.AdInstructorId)), "٥-ي الأستاذُ الأول صار «هيئة تدريب» وله موعد", { restored: restored.status, asTa: asTa.status, state: state?.reason || state?.people });
+      const convert = async (extra: Record<string, unknown> = {}) => {
+        const response = await fetch(BASE + "/api/schedules/ta-conversion", { method: "POST", headers: { cookie, "Content-Type": "application/json", "x-schedule-confirm": "ta-conversion" },
+          body: JSON.stringify({ collegeId: 1, sectionId: 1, termId: 1, previewKey: state.previewKey, targets: { [x.AdInstructorId]: y.AdInstructorId }, ...extra }) });
+        return { status: response.status, body: await response.json().catch(() => null) as any };
+      };
+      const taRefused = await convert();
+      check(taRefused.status === 409 && taRefused.body?.code === "regulation-exception" && (taRefused.body?.regulation || []).some((issue: any) => issue.article === "م.6/2")
+        && await ownerOf(r1.id) === Number(x.AdInstructorId), "٥-ك «تحويل التدريب» بلا موافقة: 409 ولا يُكتب شيء", taRefused);
+      const taDone = await convert({ regulationException: true });
+      check(taDone.status === 200 && taDone.body?.changed >= 1 && await ownerOf(r1.id) === Number(y.AdInstructorId), "٥-ل وبالموافقة الصريحة يُحوَّل", taDone);
+      await call("PUT", `/api/instructors/${x.AdInstructorId}`, { ...x });
+      for (const row of [r1, r2, r3]) await call("DELETE", `/api/schedules/${row.id}`);
+    }
+  }
 } finally {
   await server?.stop();
   fs.rmSync(privateDir, { recursive: true, force: true });

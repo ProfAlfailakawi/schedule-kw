@@ -133,6 +133,26 @@ export async function regulationExceptionsFor(row:any,hypothetical?:FSchedule[],
   return regulationExceptionIssues({row,week:week as any,placeholders:placeholderInstructorIds(instructors as any),...options,courseHours:effectiveCourseHours(course),
     nameOf:(other:any)=>courseCode.get(Number(other?.AdCourseId))||String(other?.AdCourseName||"")});
 }
+/**
+ * ── تتالي الأستاذ الجديد حين تُنقل إليه مواعيدُ دفعةً («استبدال الأستاذ»، «تحويل التدريب») ──────────────
+ * الشكلُ لم يتغيّر (الأيام والوقت كما حُفظت) فلا يُسأل عن السُّلّم ولا وقت الشعبة؛ يُسأل عن التتالي وحده (م.6/2، م.6/3)
+ * على الأسبوع كما سيصير (`week`: صفوفُ الفصل والمنقولةُ بأستاذها الجديد). السلسلةُ الواحدة تُقال مرةً ليومها لكل أستاذ،
+ * وسطرُها يسمّي الموعدَ باسمه بدل «هذا الموعد» (الورقةُ هنا لعدّة مواعيد).
+ */
+export async function reassignmentExceptions(candidates:readonly FSchedule[],week:FSchedule[],personName?:(instructorId:number)=>string):Promise<RegulationExceptionIssue[]>{
+  const issues:RegulationExceptionIssue[]=[],seen=new Set<string>();
+  for(const row of candidates){
+    if(!Number(row.AdInstructorId))continue;
+    for(const issue of await regulationExceptionsFor(row,week,{shapeChanged:false,sequenceChanged:true})){
+      const key=`${issue.rule}|${row.AdInstructorId}|${issue.day||row.id}`;
+      if(seen.has(key))continue;seen.add(key);
+      const who=personName?.(Number(row.AdInstructorId))||"";
+      const named=issue.text.replace("هذا الموعد",`${String(row.AdCourseName||"موعد").trim()} ${String(row.fstarttime||"").slice(0,5)}`.trim());
+      issues.push({...issue,text:who?`${who}: ${named}`:named});
+    }
+  }
+  return issues;
+}
 /** ردُّ الرفض الذي يفتح ورقةَ التأكيد: 409 برمزٍ معروف، وكلُّ قاعدةٍ بمادّتها. */
 export const regulationExceptionRefusal=(issues:RegulationExceptionIssue[])=>({error:regulationExceptionMessage(issues),code:REGULATION_EXCEPTION_CODE,regulation:issues});
 /** نهايةُ الموعد من النمط المعتمد لساعات المقرّر وأيامه وبدايته (regulationEnd، الحكمُ الواحد): الطولُ المعتمد يبقى،

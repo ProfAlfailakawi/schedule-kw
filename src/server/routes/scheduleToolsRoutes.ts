@@ -36,7 +36,7 @@ import { noteScheduleMutation, scheduleLockRefusal } from "../core/approvals";
 import { type AuthenticatedRequest, requirePermission, signInRequiredMessage } from "../core/auth";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, confirmedDepartmentRoomIds, readLocationRegistry } from "../core/locations";
 import { applyRequestHoldOverride, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "../core/scheduleConflicts";
-import { meetingExcludedIds, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIssue, sectionScheduleWindow, travelMinutesFor } from "../core/scheduleRules";
+import { meetingExcludedIds, reassignmentExceptions, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIssue, sectionScheduleWindow, travelMinutesFor } from "../core/scheduleRules";
 import { createScheduleHandler, regulationGate, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { coreqPairsOfSection, sectionPlanFacts } from "../core/coreqPairs";
@@ -184,6 +184,15 @@ app.post("/api/schedules/ta-conversion", requirePermission(7), async (req: Authe
     const placeholderId = !needsPlaceholder ? 0 : state.mine[0] || (await ensureSectionFaculty(Repository, collegeId, sectionId)).instructorId;
     if (needsPlaceholder && !placeholderId) { res.status(409).json({ error: "تعذّر تحديد سجل «هيئة تدريسية» الخاص بالقسم." }); return; }
     const moves = taConversionMoves(affected, chosen, placeholderId);
+    /* التحويلُ حفظٌ كأي حفظ: تتالي من تُنقل إليه المواعيد (م.6/2، م.6/3) يُسأل عنه صراحةً قبل الكتابة (regulationGate). */
+    const gate = regulationGate(req);
+    {
+      const movedById = new Map(moves.map(({ row, to }) => [Number(row.id), { ...row, AdInstructorId: to } as FSchedule]));
+      const week = (await Repository.getSchedulesByScope({ termId })).map(row => movedById.get(Number(row.id)) || row);
+      gate.note({ regulation: await reassignmentExceptions([...movedById.values()], week, nameOf) });
+    }
+    const taRefusal = gate.refusal();
+    if (taRefusal) { res.status(409).json(taRefusal); return; }
     const before = await captureScopeVersion(req, collegeId, sectionId, termId, "قبل تحويل هيئة التدريب TA إلى " + (chosen.size ? "أساتذة القسم" : "هيئة تدريسية"), "manual");
     let updated: FSchedule[];
     try {
@@ -204,6 +213,7 @@ app.post("/api/schedules/ta-conversion", requirePermission(7), async (req: Authe
     res.locals.auditChanges = "تحويل أسماء " + state.plan.people.length + " من هيئة التدريب في " + countOf(updated.length, AR.appointment)
       + (toPeople ? ": " + countOf(toPeople, AR.appointment) + " إلى أساتذة القسم (" + [...chosen].map(([from, to]) => nameOf(from) + " ← " + nameOf(to)).join("، ") + ")"
         + (updated.length - toPeople ? "، والباقي إلى هيئة تدريسية." : ".") : " إلى هيئة تدريسية.");
+    res.locals.auditChanges += gate.auditSuffix();
     res.locals.auditRowIds = updated.map(row => Number(row.id)).slice(0, 10);
     await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "edit" });
     res.json({ changed: updated.length, undoVersionId: before?.id });
@@ -253,14 +263,19 @@ app.post("/api/schedules/replace-instructor", requirePermission(7), async (req: 
     : [];
   const reasons = [...new Set(conflicts.map((item:any) => String(item.message || item.detail || "يوجد تعارض زمني")))];
   const compatible = conflicts.length === 0;
+  /* الاستبدالُ حفظٌ كأي حفظ: تتالي الأستاذ البديل (م.6/2، م.6/3) على أسبوعه كما سيصير يُسأل عنه صراحةً (regulationGate). */
+  const gate = regulationGate(req);
+  if (toId && compatible) gate.note({ regulation: await reassignmentExceptions(candidates, [...remaining, ...candidates]) });
   if (!commit) {
-    res.json({ preview: true, affected: rows.length, compatible, conflicts, reasons, cleared: !toId });
+    res.json({ preview: true, affected: rows.length, compatible, conflicts, reasons, cleared: !toId, regulation: gate.issues });
     return;
   }
   if (!compatible) {
     res.status(409).json({ error: "لا يمكن الاستبدال بسبب تعارض في مواعيد الأستاذ البديل.", compatible: false, conflicts, issues: reasons });
     return;
   }
+  const replaceRefusal = gate.refusal();
+  if (replaceRefusal) { res.status(409).json(replaceRefusal); return; }
   const fromName = instructors.find(i => Number(i.AdInstructorId) === fromId)?.AdInstructorName || `أستاذ ${fromId}`;
   const toName = toId ? (instructors.find(i => Number(i.AdInstructorId) === toId)?.AdInstructorName || `أستاذ ${toId}`) : "بلا أستاذ";
   const undoVersion = await captureScopeVersion(req, collegeId, sectionId, termId, `قبل استبدال الأستاذ: ${fromName} ← ${toName}`, "manual");
@@ -268,6 +283,7 @@ app.post("/api/schedules/replace-instructor", requirePermission(7), async (req: 
   const replacedIds = new Set(rows.map((row: any) => Number(row.id)));
   await recordVersionAfter(undoVersion, before => before.map(row => replacedIds.has(Number(row.id)) ? { ...row, AdInstructorId: toId || 0 } : row));
   if (rows.length) await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "edit" });
+  res.locals.auditChanges = `استبدال الأستاذ: ${fromName} ← ${toName} في ${countOf(rows.length, AR.appointment)}${gate.auditSuffix()}`;
   res.json({ preview: false, moved: rows.length, cleared: !toId, compatible: true, undoVersionId: undoVersion?.id });
 });
 
