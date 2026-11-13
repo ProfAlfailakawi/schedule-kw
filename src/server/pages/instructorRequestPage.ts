@@ -859,17 +859,20 @@ function paint(){
  /* الشارةُ تقول الحقيقة في كل حال: مسودة قبل الإرسال، ومرسَلٌ غير معتمدٍ بعده، وهي باقيةٌ في اللقطة والطباعة. */
  var stateTxt=approved?"انتهت مراجعة القسم لطلبك":sent?"مرسَل · غير معتمد بعد · لا يُعتبر تكليفاً":"مسودة · غير معتمدة · لا تُعتبر تكليفاً";
  /* تثبيتُ الجدول كما هو يُمنع إن خالف موعدٌ قائمٌ النمطَ أو اللائحة (المالك): يقول الخادمُ السبب، فيُقال هنا قبل الضغط.
-    ومع ملاحظةٍ للقسم ليس تثبيتاً بل إرسالٌ ينتظر القسم (canConfirmUnchanged)، فلا يُمنع. */
- var pinBlockTxt=(!sent&&edited===0&&!String(noteNow()).trim()&&data.pinBlocked&&data.pinBlocked.length)?data.pinBlocked.map(function(p){return p.text}).join(" · "):"";
+    والمخالفاتُ ظاهرةٌ دائماً (pinList): لا تُخفيها ملاحظةٌ ولا إرسال. ومع ملاحظةٍ للقسم ليس تثبيتاً بل طلبٌ يصل القسمَ
+    موسوماً بمخالفاته (canConfirmUnchanged)، فلا يُمنع إرسالُه. وموعدٌ يعدّله الأستاذ الآن يخرج من القائمة. */
+ var pinList=(data.pinBlocked||[]).filter(function(p){var it=state[p.itemIndex];return !it||it.action==="keep"||unchangedEdit(it)});
+ var pinBlockTxt=(!sent&&edited===0&&!String(noteNow()).trim()&&data.pinBlocked&&data.pinBlocked.length&&pinList.length)?pinList.map(function(p){return p.text}).join(" · "):"";
+ var pinNoted=!sent&&edited===0&&pinList.length>0&&!pinBlockTxt;
  var showReady=open&&(!sent||edited>0);
  var readyTxt=sent&&!blocked?countOf(edited,AR.edit):ready;
- var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?"تأكيدك يثبّت الجدول كما هو":sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
+ var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?(pinNoted?"ليس تثبيتاً · المخالفات تُعرض للقسم":"تأكيدك يثبّت الجدول كما هو"):sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
  var h=skBackIcon()+proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم. احفظ تعديلك أو أرسله ثم حدّث الصفحة.</span></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open||data.mode==="view"?"":(r.window&&r.window.closesAt&&Date.parse(r.window.closesAt)<=Date.now())?" · انتهت مدّة الطلبات، والصفحة للقراءة":approved?" · اكتمل طلبك، والصفحة للقراءة":" · الصفحة للقراءة")+'</p>'+
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+tcRibbon(r,open)+
   (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited,badN,incompleteN,pinBlockTxt)+
-  /* كلُّ موعدٍ يمنع «ثبّت» برقم مادّته، وزرُّ «عدّل» يأخذه إليه (قرار المالك النهائي 2026-11-13). */
-  (pinBlockTxt?'<ul class="pin-blocks" aria-label="مواعيد تمنع التثبيت">'+data.pinBlocked.map(function(p){return '<li><span>'+esc(p.text)+'</span><button type="button" class="act" data-pin-edit="'+Number(p.itemIndex)+'">'+gi("arrow")+'عدّل</button></li>'}).join("")+'</ul>':'')+
+  /* كلُّ موعدٍ يخالف اللائحة برقم مادّته، وزرُّ «عدّل» يأخذه إليه (قرار المالك النهائي 2026-11-13) — قبل الإرسال وبعده، بملاحظةٍ وبلا ملاحظة. */
+  (pinList.length?'<ul class="pin-blocks" aria-label="مخالفات لائحية في جدولك">'+pinList.map(function(p){return '<li><span>'+esc(p.text)+'</span>'+(open?'<button type="button" class="act" data-pin-edit="'+Number(p.itemIndex)+'">'+gi("arrow")+'عدّل</button>':'')+'</li>'}).join("")+'</ul>':'')+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
  h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(notedScope().length?'<div class="noted-banner" role="status">'+gi("eye")+'<span>التسجيل أعاد جدولك بملاحظات. عدّل المقررات المميّزة فقط.</span></div>':'')+(deckHtml()||calmHtml())+offeringsHtml()+replayHtml()+memoryHtml()+planTable();
  if(open&&!notedScope().length&&data.courses&&data.courses.length){
@@ -890,7 +893,7 @@ function paint(){
  /* الإرسالُ شريطٌ صغير لا يظهر إلا حين يكون عند الأستاذ ما يُرسل. والتوقيعُ في ورقةٍ تقول ما سيُوقَّع عليه. */
  /* شريطُ الإرسال لا يظهر إلا وكلُّ شيءٍ مكتملٌ وسليم: وإلا فالبطاقةُ أعلاه تقول ما يُصلَح (المالك 2026-11-12). */
  if(open&&!chooserOpen&&(!sent||edited>0)&&!badN&&!incompleteN&&!pinBlockTxt)h+='<div class="send"><div class="sendbar"><div class="sb-t"><b>'+esc(readyTxt)+'</b><small>'+readySub+'</small></div>'+
-  '<button type="button" id="send" '+(blocked||incompleteN?'data-blocked="1"':'')+'>'+(incompleteN&&!blocked?gi("arrow")+'أكمله':blocked?gi("arrow")+'اختر وقتاً متاحاً':edited===0?gi("check")+(String(noteNow()).trim()?"ثبّت الجدول وأرسل الملاحظة":"ثبّت الجدول"):gi("finger")+(sent?'أرسل التعديلات':'أرسل الطلب'))+'</button></div></div>';
+  '<button type="button" id="send" '+(blocked||incompleteN?'data-blocked="1"':'')+'>'+(incompleteN&&!blocked?gi("arrow")+'أكمله':blocked?gi("arrow")+'اختر وقتاً متاحاً':edited===0?(pinNoted?gi("finger")+"أرسل الملاحظة للقسم":gi("check")+(String(noteNow()).trim()?"ثبّت الجدول وأرسل الملاحظة":"ثبّت الجدول")):gi("finger")+(sent?'أرسل التعديلات':'أرسل الطلب'))+'</button></div></div>';
  host.innerHTML=h;
  var slot=document.getElementById("demoSlot");
  if(demoNode&&slot){var det=document.createElement("details");det.className="demo";det.open=demoOpen;

@@ -558,7 +558,7 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelSchedul
   const { isVisiting } = useVisitingLookup(row.AdTermId);
 
   /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة تبقى طلباً يُقرأ: الأستاذ أراد أن يوضح شيئاً عن جدوله. */
-  if (!items.length && !row.note) return null;
+  if (!items.length && !row.note && !row.pinViolations) return null;
   /* الحرفُ الأول من الاسم بلا اللقب — وجهُ البطاقة كما في «موعد جديد». */
   const initial = String(row.instructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
 
@@ -635,6 +635,18 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelSchedul
       </header>
 
       {row.note ? <p className="request-note"><MessageSquare aria-hidden="true" /><span>{row.note}</span></p> : null}
+      {row.pinViolations ? (() => {
+        /* طلبٌ أُرسل وفي ما أبقاه الأستاذ مخالفة: ليس تثبيتاً، ويُقرأ موسوماً بموادّه. */
+        const flagged = row.pinViolations.issues || [], elsewhere = Number(row.pinViolations.elsewhere || 0);
+        const articles = [...new Set(flagged.map(issue => issue.article).filter(Boolean))];
+        return (
+          <div className="request-pin-violations" role="status" data-testid="request-pin-violations">
+            <b><AlertTriangle aria-hidden="true" />جدول فيه مخالفات لائحية{articles.length ? ` · ${articles.join("، ")}` : ""}</b>
+            {flagged.length ? <ul>{flagged.map((issue, index) => <li key={index}>{issue.text}</li>)}</ul> : null}
+            {elsewhere ? <small>{countOf(elsewhere, AR.breach)} في مواعيد خارج هذا النطاق</small> : null}
+          </div>
+        );
+      })() : null}
       {(() => {
         const edit = [...(row.timeline || [])].reverse().find(event => event.kind === "schedule-edited");
         return edit ? <p className="request-schedule-edited" role="status"><History aria-hidden="true" /><span><b>تعدّل الجدول المرتبط بهذا الطلب</b>{edit.detail ? ` · ${edit.detail}` : ""}</span></p> : null;
@@ -1496,7 +1508,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     && (row.changedCount > 0
       ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item, row))
       /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة: تُقرأ بطاقةً، لا تُدفن في «الجدول كما هو». */
-      : Boolean(row.note) && row.status !== "sent" && requestInCampus(row as any, campusFilter)));
+      : Boolean(row.note || row.pinViolations) && row.status !== "sent" && requestInCampus(row as any, campusFilter)));
   const changedGroups = useMemo(() => {
     const groups = new Map<string, InboxRequest[]>();
     changed.forEach(row => {
@@ -1505,7 +1517,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     });
     return [...groups.entries()].sort(([a], [b]) => byArabic(a, b));
   }, [changed]);
-  const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !isUnchangedConfirmed(row));
+  const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !row.pinViolations && !isUnchangedConfirmed(row));
   const silent = notOpened<InboxRequest>(visible);
   const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible).filter(row => requestInCampus(row as any, campusFilter));
 

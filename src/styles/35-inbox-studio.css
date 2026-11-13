@@ -72,7 +72,7 @@
 .inbox-studio .request-card-head .request-trail-btn{order:3;flex:none}
 .inbox-studio .request-card-head>.sp-thread{order:4;flex:1 1 100%}
 .inbox-studio .request-card-head .request-trail-line{order:5;flex-basis:100%}
-.inbox-studio .request-card>.request-note,.inbox-studio .request-card>.request-schedule-edited{margin:0;padding:10px 18px;border-radius:0;border-bottom:1px solid var(--line)}
+.inbox-studio .request-card>.request-note,.inbox-studio .request-card>.request-pin-violations,.inbox-studio .request-card>.request-schedule-edited{margin:0;padding:10px 18px;border-radius:0;border-bottom:1px solid var(--line)}
 
 /* ٥) البند: ما هو ← «كان → المطلوب» ← القرار ──────────────────────────── */
 .inbox-studio .request-list{list-style:none;margin:0;padding:0}
@@ -277,7 +277,7 @@
   .inbox-studio .request-avatar{inline-size:34px;block-size:34px;border-radius:11px;font-size:15px}
   .inbox-studio .request-card-id>strong{font-size:15px}
   .inbox-studio .request-card-head>.request-card-flags{justify-content:flex-start}
-  .inbox-studio .request-card>.request-note,.inbox-studio .request-card>.request-schedule-edited{padding:10px 14px}
+  .inbox-studio .request-card>.request-note,.inbox-studio .request-card>.request-pin-violations,.inbox-studio .request-card>.request-schedule-edited{padding:10px 14px}
   .inbox-studio .request-list>.request-row[data-action]{padding:12px 14px}
   .inbox-studio .request-list>.request-row::before{inset-block:14px}
   .inbox-studio .inbox-bulk{bottom:calc(var(--dock-h,0px) + 8px + env(safe-area-inset-bottom));gap:10px;padding-inline:12px 8px}

@@ -14,7 +14,7 @@ import { directoryVisitingIds, termVisitingIds } from "../../utils/liveVisiting"
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
-import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, sectionDaysFitLibrary, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, sectionDaysFitLibrary, sectionPatternIssueText, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
 import { patternLengthIssue, regulationEnd, sameScheduleShape } from "../../utils/appointmentRegulation";
 import { REGULATION_EXCEPTION_CODE, regulationExceptionIssues, regulationExceptionMessage, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { placeholderInstructorIds } from "../../utils/instructorIdentity";
@@ -112,9 +112,7 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
   /* والطولُ أيضاً (المالك 2026-11-08): أيامٌ معتمدة بنهايةٍ تخالف نمطها تمنع، والسطرُ يقول النهاية الصحيحة.
      الحكمُ في appointmentRegulation (patternLengthIssue) — المصدرُ نفسه الذي يقرؤه النموذج والمقترح. */
   if(fits!==false)return patternLengthIssue({CourseHours:hours},own,String(row?.fstarttime||""),String(row?.fendtime||""))||null;
-  const named=DAY_KEYS.filter(day=>union.has(day)).map(day=>DAY_NAMES[DAY_KEYS.indexOf(day)]).join(" · ");
-  const allowed=patternsForHours(hours).map(pattern=>pattern.days.length===1?`يوم واحد ${pattern.minutesPerDay[0]}د`:pattern.label).join("، ");
-  return `أيام هذه الشعبة (${named}) ليست نمطاً معتمداً لمقرّرٍ ${countOf(hours,AR.hour)} أسبوعياً في مكتبة الأنماط. المعتمد: ${allowed}.`;
+  return sectionPatternIssueText(hours,row,siblings);
 }
 /**
  * ── مخالفاتُ اللائحة التي تُحفظ بتأكيدٍ صريح فقط (ملاحظتا المالك 10 و20) ──────────────

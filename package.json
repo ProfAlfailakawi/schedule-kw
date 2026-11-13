@@ -59,6 +59,7 @@
     "test:final-audit-gaps": "tsx tests/final-audit-gaps-audit.ts",
     "test:new-appointment-pattern-end": "tsx tests/new-appointment-pattern-end-audit.ts",
     "test:pin-regulation": "tsx tests/pin-regulation-audit.ts",
+    "test:pin-violations-note": "tsx tests/pin-violations-note-http-audit.ts",
     "test:import-review-rows": "tsx tests/import-review-rows-audit.ts",
     "test:lecture-length": "tsx tests/lecture-length-audit.ts",
     "test:appointment-entry-parity": "tsx tests/appointment-entry-parity-audit.ts",

@@ -618,6 +618,11 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
       signature: full.signature ? { ...full.signature, signedItems: full.items.every(item => inSelection(requestItemScope(full, item))) ? full.signature.signedItems : undefined } : undefined,
       signatureHistory: undefined,
     archivedItems: undefined,
+      /* «جدول فيه مخالفات لائحية»: سطورُ ما في هذا النطاق وحده؛ وما في قسمٍ آخر يُعدّ ولا يُفصَّل. */
+      pinViolations: full.pinViolations?.issues?.length ? (() => {
+        const shown = full.pinViolations!.issues.filter(issue => full.items?.[issue.itemIndex] && inSelection(requestItemScope(full, full.items[issue.itemIndex])));
+        return { at: full.pinViolations!.at, issues: shown, elsewhere: full.pinViolations!.issues.length - shown.length };
+      })() : undefined,
       items: (full.items || []).map((item, index) => inSelection(requestItemScope(full, item))
         ? (awaited.has(index) ? { ...item, awaitedElsewhere: true } : item)
         : hiddenItem(item)),
@@ -642,7 +647,8 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
   const totals = {
     sent: rows.length,
     answered: rows.filter(row => row.status !== "sent").length,
-    unchanged: rows.filter(row => row.status !== "sent" && row.changedCount === 0).length,
+    /* طلبٌ بمخالفاتٍ لائحية ليس «بلا تغيير»: هو طلبٌ ينتظر القسم. */
+    unchanged: rows.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.pinViolations).length,
     changed: rows.filter(row => row.changedCount > 0).length,
     /* رابطُ «العرض فقط» لا ينتظر جواباً: لا يُعدّ «لم يفتح» (D2). */
     unopened: notOpened(rows).length,
