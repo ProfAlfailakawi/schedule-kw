@@ -24,7 +24,10 @@
   font-size:var(--ix-secondary,var(--t-sm));font-weight:700;white-space:nowrap;
 }
 .intelligence-page .insight-page-nav .insight-back:hover{background:var(--accent);color:var(--surface)}
-.intelligence-page .insight-page-nav .insight-back svg{width:17px;height:17px}
+.intelligence-page .insight-page-nav .insight-back svg{
+  width:18px !important;height:18px !important;padding:0 !important;
+  border:0;background:none;color:inherit;
+}
 
 .insight-card-strip{
   flex:1;min-width:0;
