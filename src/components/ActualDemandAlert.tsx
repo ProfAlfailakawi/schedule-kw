@@ -47,8 +47,26 @@ const alertLine = (summary: DemandAlertSummary) => [
 ].filter(Boolean).join(" · ");
 
 /** الشارة: لا شيء بلا تقرير أو بلا عجز. */
-export function DemandAlertBadge({ summary, open, onToggle }: { summary: DemandAlertSummary | null; open: boolean; onToggle: () => void }) {
+export function DemandAlertBadge({ summary, open, onToggle, onOpen }: { summary: DemandAlertSummary | null; open: boolean; onToggle: () => void; onOpen?: () => void }) {
   if (!summary?.show) return null;
+  /* المالك 2026-11-14: الشارةُ تفتح «الطلب الفعلي» في أدوات الجدول مباشرةً، والسهمُ يبقي قائمة «عالج». */
+  if (onOpen) return (
+    <span className="apb-badge-split" data-tone="warning">
+      <button type="button" className="apb-badge apb-data-btn apb-demand-btn" data-tone="warning" onClick={onOpen}
+        title={`الطلب الفعلي — ${alertLine(summary)}. يفتح «الطلب الفعلي» في أدوات الجدول.`} aria-label={`الطلب الفعلي: ${alertLine(summary)}`}
+        data-guide-ignore="يفتح لسان الطلب الفعلي في أدوات الجدول — تنقّلٌ لا يغيّر شيئاً">
+        <ClipboardList aria-hidden="true" />
+        {summary.uncovered ? <><b>{num(summary.uncovered)}</b><span>بلا شعبة</span></> : null}
+        {summary.uncovered && summary.seats ? <i className="apb-demand-dot" aria-hidden="true" /> : null}
+        {summary.seats ? <><Armchair aria-hidden="true" className="apb-demand-seat" /><b>{num(summary.seats)}</b></> : null}
+        {!summary.seats && summary.graduates ? <><GraduationCap aria-hidden="true" /><b>{num(summary.graduates)}</b></> : null}
+      </button>
+      <button type="button" className="apb-badge apb-badge-chev" data-tone="warning" aria-expanded={open} onClick={onToggle} aria-label="قائمة الطلب الفعلي" title="قائمة الطلب الفعلي"
+        data-guide-ignore="يطوي قائمة المقررات بالأشد أو يفتحها — عرضٌ لا فعل">
+        <ChevronDown aria-hidden="true" className="apb-data-chev" />
+      </button>
+    </span>
+  );
   return (
     <button type="button" className="apb-badge apb-data-btn apb-demand-btn" data-tone="warning" aria-expanded={open} onClick={onToggle}
       title={`الطلب الفعلي — ${alertLine(summary)}. اضغط للعلاج.`} aria-label={`الطلب الفعلي: ${alertLine(summary)}`}

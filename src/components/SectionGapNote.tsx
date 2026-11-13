@@ -122,9 +122,22 @@ const KIND = {
 } as const;
 
 /** الشارة: عددُ المقررات التي تنقصها شعب بحسب هذا المصدر. شارتان منفصلتان: التخطيط، ومساري. */
-export function SectionGapBadge({ items, kind, open, onToggle }: { items: GapItem[]; kind: GapKind; open: boolean; onToggle: () => void }) {
+export function SectionGapBadge({ items, kind, open, onToggle, onOpen }: { items: GapItem[]; kind: GapKind; open: boolean; onToggle: () => void; onOpen?: () => void }) {
   if (!items.length) return null;
   const { Icon, word, hint } = KIND[kind];
+  /* المالك 2026-11-14: الشارةُ تفتح لسانها في «أدوات الجدول» مباشرةً، والسهمُ بجانبها يبقي القائمة كما كانت. */
+  if (onOpen) return (
+    <span className="apb-badge-split" data-tone="info">
+      <button type="button" className="apb-badge apb-data-btn" data-tone="info" onClick={onOpen} title={`${hint} · يفتح «${word}» في أدوات الجدول`}
+        data-guide-ignore="يفتح لسان التخطيط في أدوات الجدول — تنقّلٌ لا يغيّر شيئاً">
+        <Icon aria-hidden="true" /><span>{word}</span><b>{num(items.length)}</b>
+      </button>
+      <button type="button" className="apb-badge apb-badge-chev" data-tone="info" aria-expanded={open} onClick={onToggle} aria-label={`قائمة «${word}»`} title={`قائمة «${word}»`}
+        data-guide-ignore="يطوي قائمة الشعب المقترحة أو يفتحها — عرضٌ لا فعل">
+        <ChevronDown aria-hidden="true" className="apb-data-chev" />
+      </button>
+    </span>
+  );
   return (
     <button type="button" className="apb-badge apb-data-btn" data-tone="info" aria-expanded={open} onClick={onToggle} title={hint}
       data-guide-ignore="قائمة الشعب المقترح زيادتها — اختيارية، تعرض مقرراتٍ ينقصها شعب">

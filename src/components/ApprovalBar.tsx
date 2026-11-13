@@ -102,6 +102,8 @@ interface Props {
   onLockChange?: (reason: string | null) => void;
   /** يفتح شاشة التغييرات حيث تُقرأ الملاحظات على مواعيدها. غيابه يعني أنها معروضةٌ هنا. */
   onOpenNotes?: () => void;
+  /** شارتا «التخطيط» و«الطلب الفعلي» تفتحان لسانَهما في «أدوات الجدول» (الجدول الدراسي وحده). */
+  onOpenTool?: (tab: "planning" | "demand") => void;
   onOpenCourses?: () => void;
   /** مقرراتُ القسم التي يطلبها الطلبة وشعبها أقل: يقرؤها مفتاحُ الألوان في الجدول فيضع علامةً صغيرة. */
   onStudentGaps?: (items: GapItem[]) => void;
@@ -133,7 +135,7 @@ const arabicDate = (iso?: string) => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString("ar-KW-u-nu-latn", { year: "numeric", month: "long", day: "numeric" });
 };
 
-export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, canSign = true, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onSigned, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps, onPlanningGaps }: Props) {
+export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, canSign = true, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onSigned, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps, onPlanningGaps, onOpenTool }: Props) {
   const [state, setState] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -744,9 +746,9 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             <ChevronDown aria-hidden="true" className="apb-data-chev" />
           </button>
         ) : null}
-        <SectionGapBadge items={livePlanItems} kind="plan" open={gapOpen === "plan"} onToggle={() => setGapOpen(open => open === "plan" ? null : "plan")} />
+        <SectionGapBadge items={livePlanItems} kind="plan" open={gapOpen === "plan"} onToggle={() => setGapOpen(open => open === "plan" ? null : "plan")} onOpen={onOpenTool ? () => onOpenTool("planning") : undefined} />
         <SectionGapBadge items={gap.studentItems} kind="students" open={gapOpen === "students"} onToggle={() => setGapOpen(open => open === "students" ? null : "students")} />
-        <DemandAlertBadge summary={demandSummary} open={Boolean(demandPanel)} onToggle={() => setDemandOpen(open => !open)} />
+        <DemandAlertBadge summary={demandSummary} open={Boolean(demandPanel)} onToggle={() => setDemandOpen(open => !open)} onOpen={onOpenTool ? () => onOpenTool("demand") : undefined} />
         {showQuickCompareBadge(gap) ? (
           <button type="button" className="apb-badge apb-gap-ghost" onClick={() => setPlanSheet(true)} aria-haspopup="dialog"
             title="قارن شعبك بكشف المتبقي" aria-label="ارفع كشف المتبقي لتظهر لك الشعب المقترحة"

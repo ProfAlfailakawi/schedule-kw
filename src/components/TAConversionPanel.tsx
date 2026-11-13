@@ -25,13 +25,15 @@ type Preview = {
 };
 type Result = { changed: number; undoVersionId?: string };
 
-export default function TAConversionPanel({ collegeId, sectionId, termId, onClose, onChanged, instructors = [], visitingIds, visitingRosterIds }: {
+export default function TAConversionPanel({ collegeId, sectionId, termId, onClose, onChanged, instructors = [], visitingIds, visitingRosterIds, embedded = false }: {
   collegeId: number; sectionId: number; termId: number;
+  /** داخل «أدوات الجدول ← الأساتذة»: لوحةٌ في النافذة لا نافذةٌ فوقها (المالك 2026-11-14). */
+  embedded?: boolean;
   onClose: () => void; onChanged: () => void;
   /** ما تعرفه شاشة الجدول من أسماء وشارات «منتدب»، كما تمرّره لقائمة أستاذ المقرر. */
   instructors?: any[]; visitingIds?: Iterable<number>; visitingRosterIds?: Iterable<number>;
 }) {
-  useDialogDismiss(true, onClose);
+  useDialogDismiss(!embedded, onClose);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -129,18 +131,18 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
   };
 
   return (
-    <div className="transfer-backdrop no-print ta-conversion-backdrop" onMouseDown={event => { if (!busy && event.target === event.currentTarget) onClose(); }}>
-      <section className="transfer-sheet visual-minimal ta-conversion-sheet" role="dialog" aria-modal="true" aria-label="تحويل هيئة التدريب">
+    <div className={embedded ? "ta-conversion-embedded" : "transfer-backdrop no-print ta-conversion-backdrop"} onMouseDown={embedded ? undefined : event => { if (!busy && event.target === event.currentTarget) onClose(); }}>
+      <section className={embedded ? "ta-conversion-sheet is-embedded" : "transfer-sheet visual-minimal ta-conversion-sheet"} role={embedded ? "region" : "dialog"} aria-modal={embedded ? undefined : "true"} aria-label="تحويل هيئة التدريب">
         <header className="ta-conversion-header">
           <div className="ta-conversion-heading">
             <span className="ta-conversion-symbol"><Replace aria-hidden="true" /></span>
             <div>
-              <span className="surface-kicker">الجدول الدراسي · المزيد</span>
+              <span className="surface-kicker">{embedded ? "أدوات الجدول · الأساتذة" : "الجدول الدراسي · المزيد"}</span>
               <h2>تحويل هيئة التدريب</h2>
               <small>TA <ArrowLeftRight aria-hidden="true" /> هيئة تدريسية</small>
             </div>
           </div>
-          <button type="button" data-guide-ignore="إغلاق معاينة تحويل هيئة التدريب دون تغيير" className="drawer-close" onClick={onClose} disabled={busy} aria-label="إغلاق"><X /></button>
+          {embedded ? null : <button type="button" data-guide-ignore="إغلاق معاينة تحويل هيئة التدريب دون تغيير" className="drawer-close" onClick={onClose} disabled={busy} aria-label="إغلاق"><X /></button>}
         </header>
         <div className="ta-conversion-content">
           {!preview && !error ? <p className="ta-conversion-loading">جارٍ قراءة أسماء هيئة التدريب…</p> : null}
@@ -197,7 +199,7 @@ export default function TAConversionPanel({ collegeId, sectionId, termId, onClos
           {result ? <div className="ta-conversion-done" role="status"><Check aria-hidden="true" /><span>تم تحويل {countOf(result.changed, AR.appointment)} بنجاح.</span></div> : null}
           {error ? <p role="alert" className="ta-conversion-error"><AlertTriangle aria-hidden="true" /> {error}</p> : null}
           <div className="ta-conversion-actions">
-            <SecondaryButton type="button" data-guide-ignore="إغلاق معاينة هيئة التدريب" disabled={busy} onClick={onClose}>إغلاق</SecondaryButton>
+            {embedded ? null : <SecondaryButton type="button" data-guide-ignore="إغلاق معاينة هيئة التدريب" disabled={busy} onClick={onClose}>إغلاق</SecondaryButton>}
             {result?.undoVersionId ? <SecondaryButton type="button" data-guide-ignore="التراجع المراجع عن عملية تحويل هيئة التدريب بعد تأكيد مستقل" disabled={busy} onClick={() => void undo()}><RotateCcw aria-hidden="true" /> تراجع</SecondaryButton> : null}
             <PrimaryButton type="button" data-guide-ignore="تحويل هيئة التدريب بعد معاينة صريحة وتأكيد مع حفظ نسخة للتراجع" disabled={busy || !preview?.allowed || !preview?.affected} onClick={() => void convert()}>
               <Check aria-hidden="true" /> {busy ? "جارٍ التنفيذ…" : "تحويل الأسماء"}
