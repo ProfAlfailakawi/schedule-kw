@@ -192,3 +192,57 @@ export function demandBadgeTone(fact: CourseDemandFact): "grad" | "short" | "spa
   if (fact.gap > 0 || fact.unmetStudents > 0) return "short";
   return fact.gap < 0 ? "spare" : "ok";
 }
+
+/**
+ * ── تنبيه الجدول الدراسي: رقمان لعائلة القسم، ومعهما توزيعهما على المسارين ──
+ * «بلا شعبة»: مقررٌ يطلبه طلبةٌ أو خريجون ولا شعبة له في العائلة كلها. «نقص المقاعد»: مجموعُ
+ * الطلبة بلا مقعد في كل المسارات. ولكل مسار عددُه: مقررٌ له شعبٌ للبنين فقط يُعدّ «بلا شعبة» للبنات.
+ * لا تنبيه (show = false) حين خُدم كل طالب — ولا تنبيه أصلاً بلا تقرير، فلا بنود.
+ */
+export interface DemandAlertItem {
+  sections: number; unmetStudents: number; unmetGraduates: number;
+  branches: ReadonlyArray<{ track: string; demand: number; graduates: number; sections: number; seats: number }>;
+}
+export interface DemandAlertSummary {
+  show: boolean;
+  /** مقرراتٌ مطلوبة بلا شعبة في العائلة كلها. */
+  uncovered: number;
+  /** مقاعدُ ناقصة (طلبةٌ بلا مقعد) في كل المسارات. */
+  seats: number;
+  /** خريجون بلا مقعد. */
+  graduates: number;
+  byTrack: Array<{ track: string; uncovered: number; seats: number }>;
+}
+export function demandAlertSummary(items: readonly DemandAlertItem[]): DemandAlertSummary {
+  const uncovered = items.filter(item => item.sections === 0 && (item.unmetStudents > 0 || item.unmetGraduates > 0)).length;
+  const seats = items.reduce((sum, item) => sum + Math.max(0, item.unmetStudents), 0);
+  const graduates = items.reduce((sum, item) => sum + Math.max(0, item.unmetGraduates), 0);
+  const tracks = new Map<string, { uncovered: number; seats: number }>();
+  for (const item of items) {
+    for (const branch of item.branches) {
+      if (!branch.track) continue;
+      const at = tracks.get(branch.track) || { uncovered: 0, seats: 0 };
+      if (branch.sections === 0 && Math.max(branch.demand, branch.graduates) > 0) at.uncovered += 1;
+      at.seats += Math.max(0, branch.demand - branch.seats);
+      tracks.set(branch.track, at);
+    }
+  }
+  const order = (track: string) => (track === "boys" ? 0 : track === "girls" ? 1 : 2);
+  return {
+    show: uncovered > 0 || seats > 0 || graduates > 0,
+    uncovered, seats, graduates,
+    byTrack: [...tracks].sort((a, b) => order(a[0]) - order(b[0])).map(([track, at]) => ({ track, ...at })),
+  };
+}
+
+/** حدُّ القائمة المرسلة إلى الشاشة؛ والأرقام الكلية تُحسب قبله من كل البنود. */
+export const SUPPLY_LIST_LIMIT = 40;
+
+/**
+ * ما يُرسل للشاشة من العرض والطلب: القائمةُ (ما فيه عجزٌ أو فائضٌ أو نقل) مقصوصةً بحدّها،
+ * وملخّصُ التنبيه وعددُ البنود من البنود كلها — فلا ينقص رقمُ الشارة حين تطول القائمة.
+ */
+export function supplyView<T extends SupplyItem>(items: readonly T[], limit = SUPPLY_LIST_LIMIT): { list: T[]; total: number; summary: DemandAlertSummary } {
+  const notable = items.filter(item => item.gap !== 0 || item.unmetGraduates > 0 || item.unmetStudents > 0 || item.move);
+  return { list: notable.slice(0, limit), total: notable.length, summary: demandAlertSummary(items) };
+}
