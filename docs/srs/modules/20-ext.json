@@ -50,7 +50,6 @@
     "public/me.webmanifest",
     "public/updating.html",
     "Dockerfile",
-    "cloudbuild.yaml",
     "firebase.json",
     "ara.traineddata",
     "eng.traineddata",
@@ -621,8 +620,8 @@
         "en": "Domain and official deployment"
       },
       "text": {
-        "ar": "يجب أن ينشر سير «Deploy SCHEDULE» صورة الحاوية وحدها إلى خدمة schedule الرسمية في منطقة واحدة، وألا يغيّر ربط النطاق schedule-kw.com ولا حساب الخدمة ولا الأسرار ولا الذاكرة، وأن يُتحقَّق بعد النشر أن النطاق وعنوان الخدمة الافتراضي يخدمان معرّف البناء نفسه من /sw.js؛ وملف cloudbuild.yaml ليس مسار النشر.",
-        "en": "The «Deploy SCHEDULE» pipeline shall publish only the container image to the official schedule service in one region and shall not change the schedule-kw.com domain mapping, the service account, the secrets or the memory; after release the domain and the platform's default service address shall be verified to serve the same build identifier from /sw.js; cloudbuild.yaml is not the deploy path."
+        "ar": "يجب أن ينشر سير «Deploy SCHEDULE» صورة الحاوية وحدها إلى خدمة schedule الرسمية في منطقة واحدة، وألا يغيّر ربط النطاق schedule-kw.com ولا حساب الخدمة ولا الأسرار ولا الذاكرة، وأن يُتحقَّق بعد النشر أن النطاق وعنوان الخدمة الافتراضي يخدمان معرّف البناء نفسه من /sw.js؛ وهو مسار النشر الوحيد.",
+        "en": "The «Deploy SCHEDULE» pipeline shall publish only the container image to the official schedule service in one region and shall not change the schedule-kw.com domain mapping, the service account, the secrets or the memory; after release the domain and the platform's default service address shall be verified to serve the same build identifier from /sw.js; it is the only deploy path."
       },
       "priority": "must",
       "status": "implemented",
