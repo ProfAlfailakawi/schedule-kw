@@ -864,7 +864,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {kind === "staff" && sendMode !== "ta" ? <AudiencePicker value={audience} onChange={setAudience} /> : null}
               {regulationTeachers.length ? (
                 <details className="share-noted" aria-label="مخالفات اللائحة في جداول الأساتذة">
-                  <summary><strong><Flag aria-hidden="true" /> {countOf(regulationTeachers.length, AR.instructor)} {regulationTeachers.length === 1 ? "في جدوله" : "في جداولهم"} مخالفات للائحة</strong></summary>
+                  <summary><strong><Flag aria-hidden="true" /> مخالفاتٌ للائحة في {regulationTeachers.length === 1 ? "جدول" : "جداول"} {countOf(regulationTeachers.length, AR.instructor)}</strong></summary>
                   <ul>{regulationTeachers.map(item => <li key={item.AdInstructorId}><b>{item.AdInstructorName}</b> · {item.notes.join(" · ")}</li>)}</ul>
                   <p>لن يستطيع صاحبها تثبيت جدوله كما هو حتى تُعدَّل. الإرسال متاح.</p>
                 </details>

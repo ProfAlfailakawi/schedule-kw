@@ -4952,7 +4952,7 @@
    "path": "/api/instructor-requests/issue",
    "name": "bound dispatch",
    "call": "edd63c72301e8472",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:117",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:118",
    "regexp": "/^\\/api\\/instructor-requests\\/issue\\/?$/i",
    "end": true
   },
@@ -4964,7 +4964,7 @@
    "path": "/api/instructor-requests/send-log",
    "name": "bound dispatch",
    "call": "f4e2c379848d07bb",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:386",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:387",
    "regexp": "/^\\/api\\/instructor-requests\\/send-log\\/?$/i",
    "end": true
   },
@@ -4976,7 +4976,7 @@
    "path": "/api/instructor-requests/registrar-noted",
    "name": "bound dispatch",
    "call": "866cc54e3b17ac14",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:417",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:418",
    "regexp": "/^\\/api\\/instructor-requests\\/registrar-noted\\/?$/i",
    "end": true
   },
@@ -4988,8 +4988,20 @@
    "path": "/api/instructor-requests/recipients",
    "name": "bound dispatch",
    "call": "539405442e0040af",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:427",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:428",
    "regexp": "/^\\/api\\/instructor-requests\\/recipients\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/instructor-requests/regulation-teachers",
+   "name": "bound dispatch",
+   "call": "c55c0da8e1d2f612",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:465",
+   "regexp": "/^\\/api\\/instructor-requests\\/regulation-teachers\\/?$/i",
    "end": true
   },
   {
@@ -5000,7 +5012,7 @@
    "path": "/api/instructor-requests/exceptions",
    "name": "bound dispatch",
    "call": "4dfe0e600fb5794d",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:460",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:488",
    "regexp": "/^\\/api\\/instructor-requests\\/exceptions\\/?$/i",
    "end": true
   },
@@ -5012,7 +5024,7 @@
    "path": "/api/instructor-requests/exception/revoke",
    "name": "bound dispatch",
    "call": "9f10a3392a5671f0",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:483",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:511",
    "regexp": "/^\\/api\\/instructor-requests\\/exception\\/revoke\\/?$/i",
    "end": true
   },
@@ -5024,7 +5036,7 @@
    "path": "/api/instructor-requests",
    "name": "bound dispatch",
    "call": "6df03ddb6f0c0901",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:509",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:537",
    "regexp": "/^\\/api\\/instructor-requests\\/?$/i",
    "end": true
   },
@@ -5036,7 +5048,7 @@
    "path": "/api/instructor-requests/:id/decide",
    "name": "bound dispatch",
    "call": "4ec2adef91afab45",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:641",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:669",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/decide\\/?$/i",
    "end": true
   },
@@ -5048,7 +5060,7 @@
    "path": "/api/instructor-requests/:id/cancel-scheduled",
    "name": "bound dispatch",
    "call": "655e79091f83d3ff",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:792",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:820",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/cancel-scheduled\\/?$/i",
    "end": true
   },
@@ -5060,7 +5072,7 @@
    "path": "/api/instructor-requests/:id/reopen-fixed",
    "name": "bound dispatch",
    "call": "e1a554c1da89b229",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:831",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:859",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reopen-fixed\\/?$/i",
    "end": true
   },
@@ -5072,7 +5084,7 @@
    "path": "/api/instructor-requests/:id/apply",
    "name": "bound dispatch",
    "call": "21aa13a456850b36",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:852",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:880",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
   },
@@ -5084,7 +5096,7 @@
    "path": "/api/instructor-requests/:id/reply",
    "name": "bound dispatch",
    "call": "052daaf01a8ee463",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1146",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1174",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
   },
@@ -5168,7 +5180,7 @@
    "path": "/api/public/request/:token",
    "name": "bound dispatch",
    "call": "37ddbd6b3ef7a2fe",
-   "site": "src/server/routes/publicRequestRoutes.ts:655",
+   "site": "src/server/routes/publicRequestRoutes.ts:656",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5179,8 +5191,8 @@
    ],
    "path": "/api/public/request/:token",
    "name": "bound dispatch",
-   "call": "ef447476936b1614",
-   "site": "src/server/routes/publicRequestRoutes.ts:828",
+   "call": "b6de4df799bc6388",
+   "site": "src/server/routes/publicRequestRoutes.ts:842",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5192,7 +5204,7 @@
    "path": "/api/public/request/:token/reply",
    "name": "bound dispatch",
    "call": "7b7f3120e76f8198",
-   "site": "src/server/routes/publicRequestRoutes.ts:1027",
+   "site": "src/server/routes/publicRequestRoutes.ts:1037",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
   },
@@ -5204,7 +5216,7 @@
    "path": "/api/public/request/:token/reply-batch",
    "name": "bound dispatch",
    "call": "84bd1e979cee5e8b",
-   "site": "src/server/routes/publicRequestRoutes.ts:1146",
+   "site": "src/server/routes/publicRequestRoutes.ts:1156",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/reply-batch\\/?$/i",
    "end": true
   },
@@ -5216,7 +5228,7 @@
    "path": "/api/public/request/:token/check",
    "name": "bound dispatch",
    "call": "84d92a8a3cf8e6cb",
-   "site": "src/server/routes/publicRequestRoutes.ts:1209",
+   "site": "src/server/routes/publicRequestRoutes.ts:1219",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check\\/?$/i",
    "end": true
   },
@@ -5228,7 +5240,7 @@
    "path": "/api/public/request/:token/academic-advice",
    "name": "bound dispatch",
    "call": "93035cda4dea4007",
-   "site": "src/server/routes/publicRequestRoutes.ts:1297",
+   "site": "src/server/routes/publicRequestRoutes.ts:1307",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/academic-advice\\/?$/i",
    "end": true
   },
@@ -5240,7 +5252,7 @@
    "path": "/api/public/request/:token/check-batch",
    "name": "bound dispatch",
    "call": "30679a5573b188bb",
-   "site": "src/server/routes/publicRequestRoutes.ts:1331",
+   "site": "src/server/routes/publicRequestRoutes.ts:1341",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check-batch\\/?$/i",
    "end": true
   },
@@ -5252,7 +5264,7 @@
    "path": "/api/public/request/:token/previous",
    "name": "bound dispatch",
    "call": "852125bcca57e7b8",
-   "site": "src/server/routes/publicRequestRoutes.ts:1373",
+   "site": "src/server/routes/publicRequestRoutes.ts:1383",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/previous\\/?$/i",
    "end": true
   },
@@ -5264,7 +5276,7 @@
    "path": "/api/public/request/:token/events",
    "name": "bound dispatch",
    "call": "9cef8e239666cbc0",
-   "site": "src/server/routes/publicRequestRoutes.ts:1415",
+   "site": "src/server/routes/publicRequestRoutes.ts:1425",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/events\\/?$/i",
    "end": true
   },
@@ -5276,7 +5288,7 @@
    "path": "/api/public/request/:token/check-times",
    "name": "bound dispatch",
    "call": "dbdb03ba6414372f",
-   "site": "src/server/routes/publicRequestRoutes.ts:1444",
+   "site": "src/server/routes/publicRequestRoutes.ts:1454",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check-times\\/?$/i",
    "end": true
   },
@@ -5288,7 +5300,7 @@
    "path": "/api/public/request/:token/hold",
    "name": "bound dispatch",
    "call": "382251767765d5c3",
-   "site": "src/server/routes/publicRequestRoutes.ts:1503",
+   "site": "src/server/routes/publicRequestRoutes.ts:1513",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/hold\\/?$/i",
    "end": true
   },
@@ -5300,7 +5312,7 @@
    "path": "/api/public/request/:token/movement",
    "name": "bound dispatch",
    "call": "7e091a1537d0cf62",
-   "site": "src/server/routes/publicRequestRoutes.ts:1553",
+   "site": "src/server/routes/publicRequestRoutes.ts:1563",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/movement\\/?$/i",
    "end": true
   },
@@ -5312,7 +5324,7 @@
    "path": "/r/:token",
    "name": "bound dispatch",
    "call": "3a4024e76c799e35",
-   "site": "src/server/routes/publicRequestRoutes.ts:1582",
+   "site": "src/server/routes/publicRequestRoutes.ts:1592",
    "regexp": "/^\\/r(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5324,7 +5336,7 @@
    "path": "/api/public/request/:token/interest",
    "name": "bound dispatch",
    "call": "b43183c896667a1f",
-   "site": "src/server/routes/publicRequestRoutes.ts:1593",
+   "site": "src/server/routes/publicRequestRoutes.ts:1603",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/interest\\/?$/i",
    "end": true
   },
@@ -5336,7 +5348,7 @@
    "path": "/api/public/request/:token/stick",
    "name": "bound dispatch",
    "call": "23693bb68679d0e1",
-   "site": "src/server/routes/publicRequestRoutes.ts:1614",
+   "site": "src/server/routes/publicRequestRoutes.ts:1624",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/stick\\/?$/i",
    "end": true
   },
@@ -5348,7 +5360,7 @@
    "path": "/r/:token/proposal/:pid",
    "name": "bound dispatch",
    "call": "77980743a8326a70",
-   "site": "src/server/routes/publicRequestRoutes.ts:1679",
+   "site": "src/server/routes/publicRequestRoutes.ts:1689",
    "regexp": "/^\\/r(?:\\/([^/]+?))\\/proposal(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },

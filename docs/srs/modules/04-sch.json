@@ -533,8 +533,8 @@
       "kind": "functional",
       "title": { "ar": "مكتبة الأنماط المعتمدة", "en": "Approved pattern library" },
       "text": {
-        "ar": "يجب على النظام أن يرفض عند الإنشاء، وعند التعديل إن تغيّر شكل الموعد (الأيام أو الوقت)، توزيعاً لأيام الشعبة (مجتمعةً مع شعبها الأخرى للمقرر نفسه في القسم والفصل) لا يطابق نمطاً من مكتبة الأنماط (17 نمطاً لمقررات من ساعة إلى خمس ساعات)، وأن يعيد في الرسالة الأنماط المعتمدة.",
-        "en": "The system shall refuse on create, and on edit when the row's shape (days or time) changes, a distribution of the section's days (combined with the course's other meetings in the same department and term) that does not match a pattern in the library of 17 patterns for courses of one to five hours, and list the approved patterns in the message."
+        "ar": "يجب على النظام أن يرفض عند الإنشاء، وعند التعديل إن تغيّر شكل الموعد (الأيام أو الوقت)، توزيعاً لأيام الشعبة (مجتمعةً مع شعبها الأخرى للمقرر نفسه في القسم والفصل) لا يطابق نمطاً من مكتبة الأنماط (18 نمطاً لمقررات من ساعة إلى خمس ساعات)، وأن يعيد في الرسالة الأنماط المعتمدة. وتُقرأ صفوفُ الشعبة كلُّها معاً: فإذا اكتملت ساعاتُها وجب أن تكون أيامُها نمطاً كاملاً بعينه، ولا يُقبل الجزءُ إلا ما دامت ناقصة وبأطوال نمطٍ واحد (الأحد 80 + الخميس 80 من صفّين لمقررٍ بثلاث ساعات يُرفض)؛ والقاعدةُ نفسُها في «ثبّت» وفي آلة الزمن.",
+        "en": "The system shall refuse on create, and on edit when the row's shape (days or time) changes, a distribution of the section's days (combined with the course's other meetings in the same department and term) that does not match a pattern in the library of 18 patterns for courses of one to five hours, and list the approved patterns in the message. All rows of the section are read together: once its hours are complete its days must be one whole pattern, and a partial set is accepted only while incomplete and with one pattern's lengths (Sun 80 + Thu 80 in two rows for a 3-hour course is refused); the same rule applies to pinning and the time machine."
       },
       "rationale": { "ar": "قرار المالك 2026-10-30: النمط لازم يكون معتمداً، والتاريخ اقتراح لا يخالف اللائحة.", "en": "Owner decision 2026-10-30: the pattern must be approved; history is a suggestion that never overrides the regulation." },
       "priority": "must",
@@ -544,9 +544,10 @@
         { "ar": "مقرر ساعتان: «الأحد + الثلاثاء» و«الثلاثاء + الخميس» و«الاثنين + الأربعاء» و«الثلاثاء 110 دقيقة» مقبولة؛ و«الأحد + الاثنين» تُردّ 400 مع سرد المعتمد.", "en": "A 2-hour course: Sun+Tue, Tue+Thu, Mon+Wed and Tuesday 110 min are accepted; Sun+Mon is refused with 400 listing the approved ones." },
         { "ar": "الكتل الأحادية معتمدة بأطوالها: 170 لثلاث فترات، و230 لأربع، و290 لخمس.", "en": "Single-day blocks are approved with their lengths: 170 for three periods, 230 for four, 290 for five." },
         { "ar": "إعادة حفظ موعد قائم لم يتغيّر شكله لا تُردّ بقاعدة النمط، ولا الاستعادة الدقيقة من آلة الزمن.", "en": "Re-saving an existing row whose shape is unchanged is not refused by the pattern rule, nor is an exact restore from the time machine." },
-        { "ar": "مقرر بلا ساعات أو اعتمادات لا يُفحص نمطه.", "en": "A course with no hours or credits is not pattern-checked." }
+        { "ar": "مقرر بلا ساعات أو اعتمادات لا يُفحص نمطه.", "en": "A course with no hours or credits is not pattern-checked." },
+        { "ar": "صفّان بيومٍ واحد (الأحد 80 والخميس 80) لمقررٍ بثلاث ساعات يُردّان؛ والأحد·الثلاثاء·الخميس من ثلاثة صفوف 50د مقبول.", "en": "Two one-day rows (Sun 80 and Thu 80) for a 3-hour course are refused; Sun·Tue·Thu from three 50-minute rows is accepted." }
       ],
-      "evidence": { "code": ["src/utils/scheduleRegulations.ts#PATTERN_LIBRARY", "src/utils/scheduleRegulations.ts#daysFitLibrary", "src/server/core/scheduleRules.ts#unapprovedPatternIssue"], "tests": ["tests/approved-patterns-audit.ts", "tests/pattern-library-audit.ts", "tests/holds-patterns-r4-audit.ts"] }
+      "evidence": { "code": ["src/utils/scheduleRegulations.ts#PATTERN_LIBRARY", "src/utils/scheduleRegulations.ts#daysFitLibrary", "src/server/core/scheduleRules.ts#unapprovedPatternIssue", "src/utils/scheduleRegulations.ts#sectionDaysFitLibrary"], "tests": ["tests/approved-patterns-audit.ts", "tests/new-appointment-pattern-end-audit.ts", "tests/pattern-library-audit.ts", "tests/holds-patterns-r4-audit.ts"] }
     },
     {
       "id": "FR-SCH-018",
@@ -1707,7 +1708,7 @@
     { "ar": "الشعبة", "en": "Class section", "def": { "ar": "رقم يميّز عرضاً من المقرر في القسم والفصل؛ قد يملك أكثر من موعد (محاضرة ومختبر).", "en": "A number distinguishing an offering of a course in a department and term; it may have more than one appointment (lecture and lab)." } },
     { "ar": "الدوام الشامل", "en": "University teaching day", "def": { "ar": "حدٌّ واحد لبداية اليوم الدراسي ونهايته للبرنامج كله (08:00–20:00 افتراضاً).", "en": "A single limit for the start and end of the teaching day for the whole programme (08:00–20:00 by default)." } },
     { "ar": "نافذة القسم", "en": "Department window", "def": { "ar": "استثناء أضيق من الدوام الشامل لقسم بعينه؛ لا يوسّعه أبداً.", "en": "An exception narrower than the university day for one department; it never widens it." } },
-    { "ar": "مكتبة الأنماط", "en": "Pattern library", "def": { "ar": "التوزيعات المعتمدة لأيام المقرر وأطوالها بحسب ساعاته (17 نمطاً).", "en": "The approved distributions of a course's days and lengths by its hours (17 patterns)." } },
+    { "ar": "مكتبة الأنماط", "en": "Pattern library", "def": { "ar": "التوزيعات المعتمدة لأيام المقرر وأطوالها بحسب ساعاته (18 نمطاً).", "en": "The approved distributions of a course's days and lengths by its hours (18 patterns)." } },
     { "ar": "سُلّم البدايات", "en": "Start ladder", "def": { "ar": "أوقات البداية النظامية: كل ساعة من 08:00 للأحد والثلاثاء والخميس، وكل 90 دقيقة للاثنين والأربعاء.", "en": "The regulation start times: every hour from 08:00 for Sun/Tue/Thu and every 90 minutes for Mon/Wed." } },
     { "ar": "هيئة تدريسية", "en": "Faculty placeholder", "def": { "ar": "سجل أستاذ يدل على أن الشعبة بلا مدرّس معيَّن؛ لا يُحجز مرتين ولا يُحسب شخصاً.", "en": "An instructor record meaning the section has no named teacher; it cannot be double-booked and does not count as a person." } },
     { "ar": "حجز", "en": "Hold", "def": { "ar": "إما حجز طلب أستاذ ينتظر القسم (يمنع ويُسأل عنه)، وإما حجز زميل استشاري لدقيقتين (لا يمنع).", "en": "Either an instructor-request hold awaiting the department (blocks, and is asked about) or an advisory two-minute colleague hold (never blocks)." } },

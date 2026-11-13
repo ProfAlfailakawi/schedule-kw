@@ -77,7 +77,7 @@ check(list.length === 1 && list[0].instructorId === TEACHER && list[0].notes.som
 const route = (await import("node:fs")).readFileSync("src/server/routes/instructorRequestsRoutes.ts", "utf8");
 const publish = (await import("node:fs")).readFileSync("src/components/SchedulePublish.tsx", "utf8");
 check(/app\.get\("\/api\/instructor-requests\/regulation-teachers", requirePermission\(7\)/.test(route) && /isScopeAllowed\(req, collegeId, sectionId\)/.test(route), "R4 المسارُ بإذن القسم ونطاقه");
-check(/regulation-teachers\?collegeId=/.test(publish) && /مخالفات للائحة/.test(publish) && /الإرسال متاح/.test(publish), "R4 الإرسالُ يُنبَّه ولا يُمنع");
+check(/regulation-teachers\?collegeId=/.test(publish) && /مخالفاتٌ للائحة/.test(publish) && /الإرسال متاح/.test(publish), "R4 الإرسالُ يُنبَّه ولا يُمنع");
 
 console.log(`\npin regulation: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
