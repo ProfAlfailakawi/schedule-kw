@@ -8521,9 +8521,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         id: move.id,
         rev: move.before.rev,
         fields: {
-          fsunday: move.day === "fsunday", fmonday: move.day === "fmonday",
-          ftuesday: move.day === "ftuesday", fwednesday: move.day === "fwednesday",
-          fthursday: move.day === "fthursday",
+          fsunday: move.days.includes("fsunday"), fmonday: move.days.includes("fmonday"),
+          ftuesday: move.days.includes("ftuesday"), fwednesday: move.days.includes("fwednesday"),
+          fthursday: move.days.includes("fthursday"),
           fstarttime: move.start, fendtime: move.end,
           buildingId: move.buildingId, roomId: move.roomId, locationStatus: "VERIFIED",
           AdRoomCode: move.roomCode, AdRoomHall: move.roomHall,
@@ -13426,7 +13426,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <span className="repair-line">
                       <bdi>{arabicDays(move.before) || "بلا يوم"} · {formatScheduleTimeRange(move.before.fstarttime, move.before.fendtime)}</bdi>
                       <ChevronLeft className="visual-inline-arrow" aria-hidden="true" />
-                      <bdi>{days.find(d => d.key === move.day)?.label} · {formatScheduleTimeRange(move.start, move.end)} · {move.roomCode}/{move.roomHall}</bdi>
+                      <bdi>{move.days.map(key => days.find(d => d.key === key)?.label).join(" ")} · {formatScheduleTimeRange(move.start, move.end)} · {move.roomCode}/{move.roomHall}</bdi>
                     </span>
                   </div>
                 </li>

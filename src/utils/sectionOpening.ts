@@ -14,6 +14,7 @@ import { roomIdentityKey } from "./locationRegistry";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
 import { loadCapOf } from "./teachingLoad";
 import { patternsForHours } from "./scheduleRegulations";
+import { regulationLengthFor, regulationStarts } from "./regulationCandidates";
 
 /**
  * ── الشعبة الجديدة، وأين توضع ───────────────────────────────────────────────
@@ -336,12 +337,19 @@ export function readSectionOpenings(
       let placed: Placement | null = null;
 
       for (const day of DAY_KEYS) {
-        const ladder = rhythm?.forDay(day)?.ladder || [];
-        if (!ladder.length) continue;
+        /* سُلّمُ القسم اقتراحٌ لا يخالف اللائحة (المولّدُ الواحد): ما خرج منه عن سُلّم م.7/8 لا يُقترح، وطولُ اللقاء طولٌ
+           لائحيّ لهذا اليوم (كتلةُ المكتبة، وإلا أقربُ طولٍ معتمد) — لا ثمانون على الأحد. */
+        const learned = rhythm?.forDay(day)?.ladder || [];
+        if (!learned.length) continue;
+        const dayLength = completeBlock || regulationLengthFor([day], courseHoursNow, length) || 0;
+        if (!dayLength) continue;
+        const official = regulationStarts([day], dayLength).map(minutesToTime);
+        const onLadder = learned.filter(time => official.includes(time));
+        const ladder = onLadder.length ? onLadder : official;
         for (const time of ladder) {
           if (placed) break;
           const at = timeToMinutes(time);
-          if (at + length > 20 * 60) continue;
+          if (at + dayLength > 20 * 60) continue;
           for (const room of rooms.filter(candidateRoom => fits(candidateRoom, capacity)).slice(0, 24)) {
             if (placed) break;
             /* An executable placement needs an active teacher with a recorded
@@ -354,7 +362,7 @@ export function readSectionOpenings(
                 && limit > 0 && (currentLoads.get(id) || 0) + courseHours <= limit;
             });
             for (const teacherId of candidates) {
-              const candidate = draft(seed, day, at, length, room, teacherId, draftId, termId);
+              const candidate = draft(seed, day, at, dayLength, room, teacherId, draftId, termId);
               if (!physicallyFree(candidate, working)) continue;
               if (!clean([candidate], [...working, candidate], pairs, doorway)) continue;
               draftId -= 1;
@@ -363,7 +371,7 @@ export function readSectionOpenings(
               const person = personById.get(teacherId);
               placed = {
                 index: slot, day, dayLabel: DAY_LABEL.get(day) || "",
-                start: minutesToTime(at), end: minutesToTime(at + length),
+                start: minutesToTime(at), end: minutesToTime(at + dayLength),
                 buildingId: room.buildingId, roomId: room.roomId, roomCode: room.code, roomHall: room.hall,
                 instructorId: teacherId,
                 instructorName: person?.AdInstructorName || "",

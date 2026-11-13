@@ -17,7 +17,7 @@ import { blockingSummaryPhrase } from "../utils/approvalWorkflow";
 import { roomIdentityKey, roomDisplay } from "../utils/locationRegistry";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { rowsInApprovalScope } from "../utils/approvalScope";
-import { approvalScoreBreakdown, approvalSpread, approvalSpreadKeys, approvalVerdict, reviewHasFindings } from "../utils/approvalScore";
+import { approvalScoreBreakdown, approvalSpread, approvalSpreadKeys, approvalVerdict, reviewHasFindings, reviewNotesOf } from "../utils/approvalScore";
 import { inboxCampusLabels } from "../utils/inboxCampus";
 import { isCampusCollege, trackOf } from "../utils/collegeTrack";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
@@ -445,8 +445,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   /* ملاحظاتُ اللائحة التي لا تمنع (خارج سُلّم اللائحة وأمثالها): تُجمع كغيرها وتُرسم بالبطاقة نفسها،
      وتظهر في العنوان والشريط «للملاحظة» ولا تُنقص الدرجة (المالك 2026-10-30). «توزيع الفترتين» له قسمه. */
   const noteGroups = useMemo<ReviewFindingGroup[]>(
-    () => groupReviewFindings(decisionFindings.filter(finding => finding.approvalEffect === "note" && finding.rule !== "period-balance").map(inScope).filter(Boolean) as RegulationFinding[]),
-    [decisionFindings, inScope],
+    () => groupReviewFindings([
+      ...decisionFindings.filter(finding => finding.approvalEffect === "note" && finding.rule !== "period-balance"),
+      /* شعبُ المقرر في الساعة نفسها (م.7/5) والتدوير (م.6/4) ووقتُ اجتماع القسم: «للملاحظة» لا تُنقص الدرجة (reviewNotesOf). */
+      ...reviewNotesOf(baseFindings),
+    ].map(inScope).filter(Boolean) as RegulationFinding[]),
+    [decisionFindings, baseFindings, inScope],
   );
   /* What actually stops a signature: the material conflicts canSign refuses. */
   const blocking = findings.filter(isMaterialFinding);

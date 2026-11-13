@@ -154,3 +154,19 @@ export function approvalVerdict(input: { checked: boolean; blocking: number; rea
 export function reviewHasFindings(grouped: number, warnings: number, quiet: number): boolean {
   return grouped + warnings + quiet > 0;
 }
+
+/**
+ * ── بنودُ «المراجعة» التي لا تمنع تُقرأ ملاحظاتٍ (المالك 2026-11-13) ──────────────
+ * ثلاثُ قواعد يقولها reviewSchedule بأثر «review» ولم تكن تُرى في «مراجعة الاعتماد»:
+ *   • شعبُ المقرر الواحد في الساعة نفسها (م.7/5)
+ *   • التدوير (م.6/4)
+ *   • وقتُ اجتماع القسم (قرار القسم)
+ * تُعرض «للملاحظة» بالبطاقة الموحّدة، وتُعدّ في «مواعيد للملاحظة» وفي العنوان («ملاحظات»)، ولا تُنقص الدرجة.
+ * القاعدةُ هنا وحدها، فالشاشة والورقة المطبوعة تقرآنها معاً.
+ */
+export const REVIEW_NOTE_RULES = ["sections-same-hour", "rotation", "meeting-window"] as const;
+export function reviewNotesOf<T extends { rule: string; approvalEffect: string; source: string }>(findings: readonly T[]): Array<T & { approvalEffect: "note" }> {
+  return findings
+    .filter(finding => finding.approvalEffect === "review" && (REVIEW_NOTE_RULES as readonly string[]).includes(finding.rule) && finding.source !== "readiness")
+    .map(finding => ({ ...finding, approvalEffect: "note" as const }));
+}

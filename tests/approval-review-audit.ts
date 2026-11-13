@@ -11,7 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { meetingsMatchApprovedPattern, reviewSchedule, type DayKey } from "../src/utils/scheduleRegulations";
-import { approvalScoreBreakdown, approvalSpread, approvalSpreadKeys, approvalVerdict } from "../src/utils/approvalScore";
+import { approvalScoreBreakdown, approvalSpread, approvalSpreadKeys, approvalVerdict, reviewNotesOf } from "../src/utils/approvalScore";
 import type { AdCourse, FSchedule } from "../src/types";
 
 let passed = 0, failed = 0;
@@ -141,6 +141,30 @@ console.log("I2/I3 — شاشة المراجعة");
     && source.includes("<strong>{printVerdict}</strong>"), "العنوان من دالةٍ واحدة على الشاشة والورقة");
   check(!/<title>\{breakdown\.formula\}<\/title>/.test(source) && !/<title>\{slice\.label\}<\/title>/.test(source), "لا تلميحَ أصليّاً على الحلقة يبقى عائماً فوق القائمة");
   check(source.includes("print-review-ring score-tone-"), "الورقة المطبوعة بقيت بتصميمها (الحلقة المطبوعة لم تُمسّ)");
+}
+
+console.log("ملاحظات المراجعة الثلاث (المالك 2026-11-13): الساعة نفسها، والتدوير، ووقت الاجتماع");
+{
+  const a = theoretical(301, 3), b = theoretical(302, 3);
+  const same = [row(301, "501", ["sun", "tue", "thu"], "08:00", "08:50"), row(301, "502", ["sun", "tue", "thu"], "08:00", "08:50")];
+  const rotation = row(302, "501", ["mon", "wed"], "08:00", "09:20", 1, 77);
+  const previous = [{ ...rotation, id: 9001, AdTermId: 0 } as FSchedule];
+  const findings = reviewSchedule({
+    rows: [...same, rotation], courses: new Map([[301, a], [302, b]]), instructors: new Map(), previousRows: previous,
+    meeting: { day: "fsunday", from: "08:00", to: "09:00" },
+  } as any);
+  const notes = reviewNotesOf(findings);
+  const rules = new Set(notes.map(note => note.rule));
+  check(rules.has("sections-same-hour") && rules.has("rotation") && rules.has("meeting-window"), "الثلاثُ تُقرأ ملاحظاتٍ");
+  check(notes.every(note => note.approvalEffect === "note"), "أثرُها «للملاحظة»");
+  check(notes.find(note => note.rule === "sections-same-hour")?.article === "م.7/5" && notes.find(note => note.rule === "rotation")?.article === "م.6/4", "بوسم المادة (م.7/5، م.6/4)");
+  const scope = [...same, rotation].map(item => Number(item.id));
+  const breakdown = approvalScoreBreakdown(scope, notes.map(note => ({ key: note.rule, label: note.title, tone: "note" as const, rowIds: note.rowIds })));
+  check(breakdown.score === 100 && breakdown.noted === scope.length, "لا تُنقص الدرجة، وتُعدّ «للملاحظة»");
+  check(approvalSpreadKeys(approvalSpread(breakdown)).some(key => key.tone === "low" && key.tail === "للملاحظة"), "تظهر في «مواعيد للملاحظة»");
+  check(approvalVerdict({ checked: true, blocking: 0, readinessError: false, needsFix: 0, notes: notes.length, unclassified: 0 }) === "لا مانع للتوقيع · ملاحظات", "والعنوانُ «ملاحظات»");
+  const source = fs.readFileSync(path.join(process.cwd(), "src/components/ScheduleReview.tsx"), "utf8");
+  check(/reviewNotesOf\(baseFindings\)/.test(source) && /printFindings = \[[^\]]*noteGroups/.test(source), "الشاشةُ والورقةُ المطبوعة تقرآنها من القاعدة نفسها");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

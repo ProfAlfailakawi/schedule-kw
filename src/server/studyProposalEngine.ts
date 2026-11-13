@@ -18,7 +18,8 @@ import type {
 import { isBlockingConflict, timeToMinutes, minutesToTime } from "../utils/scheduleIntelligence";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { personRecordIds } from "../utils/instructorPickerChoices";
-import { reviewSchedule, effectiveCourseHours, maxWeeklyMinutesFor, sectionHoursShortfallText, sectionWeeklyHours } from "../utils/scheduleRegulations";
+import { reviewSchedule, daysFitLibrary, effectiveCourseHours, maxWeeklyMinutesFor, sectionHoursShortfallText, sectionWeeklyHours } from "../utils/scheduleRegulations";
+import { regulationStarts } from "../utils/regulationCandidates";
 import { patternLengthIssue, sameScheduleShape } from "../utils/appointmentRegulation";
 import { confirmedDepartmentRoomIds, eligibleHallsForSection, rowOccupiesRoom } from "../utils/locationRegistry";
 import { mergeRegistryWithSeed } from "./locationRegistryEngine";
@@ -606,8 +607,10 @@ export async function suggestAlternatives(
   }
   const candidateRooms: Array<Room | null> = rooms.length ? rooms : [null];
   const bounds = scheduleDayWindowMinutes(section);
-  const variants = dayVariants(daysOf(op.target));
   const course = w.catalog.courseById.get(Number(op.target.AdCourseId)) as any;
+  /* الأيامُ البديلة من مكتبة الأنماط وحدها (لا الأحد·الخميس)، والبداياتُ من سُلّم اللائحة (المولّدُ الواحد، م.7/8). */
+  const courseHours = effectiveCourseHours(course);
+  const variants = dayVariants(daysOf(op.target)).filter((days, index) => index === 0 || daysFitLibrary(courseHours, days as any, days.length > 1) !== false);
   const expectedType = String(course?.CourseRoomType || "").trim();
   const neededCapacity = Number(course?.MaxStudent || 0);
   const masterById = new Map(registry.rooms.map(room => [String(room.id), room]));
@@ -615,7 +618,7 @@ export async function suggestAlternatives(
 
   const options: Array<{ days: StudyProposalDayKey[]; start: number; room: Room | null; rank: number }> = [];
   for (const days of variants) {
-    for (let start = bounds.start; start + duration <= bounds.end; start += 10) {
+    for (const start of regulationStarts(days as any, duration, bounds)) {
       const shifted = start !== baseStart || days.join() !== daysOf(op.target).join();
       for (const room of candidateRooms) {
         const roomChanged = room ? String(room.roomId) !== String(op.target.roomId || "") : false;

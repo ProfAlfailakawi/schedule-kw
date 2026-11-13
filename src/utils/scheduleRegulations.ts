@@ -1019,6 +1019,12 @@ export function lectureLengthProblem(
   // One-day applied blocks include the 10-minute changeovers between 50-minute
   // teaching periods. Their approved elapsed length comes from the same library.
   if (days.length === 1 && patternsForHours(courseHours).some(pattern => pattern.days.length === 1 && pattern.minutesPerDay[0] === length)) return null;
+  /* المكتبةُ وحدها تُعتمد (المالك 2026-11-13): طولُ نمطٍ معتمد على أيامه لا يُسأل عنه استثناءً — الأحد·الثلاثاء
+     80/80 لثلاث ساعات، والاثنين·الأربعاء 50/50 لساعتين و110/110 لأربع، والأربعاء 110 من نمط الخمس ساعات صفّاً وحده.
+     كانت الصيغةُ العامة تردّها فيقترحها المحرّكُ ثم يفتح لها الحفظُ ورقةَ الاستثناء. */
+  if (patternsForHours(courseHours).some(pattern => pattern.days.length > 1
+    && days.every(day => pattern.days.includes(day))
+    && days.every(day => pattern.minutesPerDay[pattern.days.indexOf(day)] === length))) return null;
   const maxPeriods = Math.max(1, Math.ceil(courseHours || 1));
   const fits = days.some(day => {
     const lecture = expectedMinutesForDay(day), gap = requiredGapForDay(day);

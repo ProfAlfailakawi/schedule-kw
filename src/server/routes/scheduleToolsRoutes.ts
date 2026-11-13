@@ -22,6 +22,7 @@ import { chosenTaTargets, isTrainingAssistant, planTaConversion, readTaTargets, 
 import { departmentPickerFamily } from "../core/departmentPickerFamily";
 import { evaluateTeachingLoad, loadLimitOf, loadTermContext, teachingHoursByInstructor } from "../../utils/teachingLoad";
 import type { FSchedule } from "../../types";
+import { regulationStarts } from "../../utils/regulationCandidates";
 import { computeMeetingSlots, inspectMeetingSlot } from "../../utils/meetingSlots";
 import { departmentFamily } from "../../utils/sectionLabel";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../../utils/termSequence";
@@ -29,7 +30,7 @@ import { blockingConflicts } from "../../utils/scheduleBlockers";
 import { roleDefinition } from "../../utils/academicRoles";
 import { AR, countOf } from "../../utils/arabicCount";
 import { learnAll } from "../../utils/courseNature";
-import { formatScheduleTimeRange, withinUniversityDay, SCHEDULE_SLOT_MINUTES, scheduleDayWindowMinutes } from "../../utils/scheduleTime";
+import { formatScheduleTimeRange, withinUniversityDay, scheduleDayWindowMinutes } from "../../utils/scheduleTime";
 import { eligibleHallsForSection, rowOccupiesRoom } from "../../utils/locationRegistry";
 import { noteScheduleMutation, scheduleLockRefusal } from "../core/approvals";
 import { type AuthenticatedRequest, requirePermission, signInRequiredMessage } from "../core/auth";
@@ -388,7 +389,7 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   if (!halls.length) { empty("halls", "لا توجد قاعات رسمية متاحة لهذا القسم في سجل المباني والقاعات"); return; }
 
   const bounds = scheduleDayWindowMinutes(sectionWindow);
-  const DAY_START = bounds.start, DAY_END = bounds.end, STEP = SCHEDULE_SLOT_MINUTES;
+  const DAY_START = bounds.start, DAY_END = bounds.end;
   // Borrowed rooms are only candidates inside the approved day/time windows.
   const borrowCovers=(roomId:string,day:string,from:number,to:number)=>
     approvedBorrows.some(request=>String(request.roomId)===roomId&&request.day===day&&
@@ -429,7 +430,9 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
 
   const starts: number[] = [];
   if (roomOnly) starts.push(fixedStart);
-  else for (let start = DAY_START; start + duration <= DAY_END; start += STEP) starts.push(start);
+  /* «اقترح لي وقتاً وقاعة»: البداياتُ من سُلّم اللائحة لأيام الموعد (المولّدُ الواحد، م.7/8)، لا كلُّ نصف ساعة —
+     فلا يُقترح 9:30 على الأحد ثم تفتح له ورقةُ الاستثناء عند الحفظ. */
+  else starts.push(...regulationStarts(dayKeys as any, duration, { start: DAY_START, end: DAY_END }));
   const { candidates, stats } = rankSuggestionCandidates({
     dayKeys, starts, duration,
     halls: halls.map(hall=>({room:String(hall.room),hall:String(hall.hall),buildingId:String(hall.buildingId),roomId:String(hall.roomId)})),

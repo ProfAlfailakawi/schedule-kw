@@ -6,6 +6,8 @@ import { activeDays, analyzeSchedule, findConflicts, type AnalyzeOptions, isBloc
 import { evaluateScheduleConstraints } from "./scheduleInnovation";
 import { formatScheduleTimeRange, scheduleClockForDisplay, SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
 import { AR, countOf, oblique } from "./arabicCount";
+import { regulationDaySwaps, regulationStartsNear } from "./regulationCandidates";
+import { effectiveCourseHours } from "./scheduleRegulations";
 
 const DAY_LABEL = new Map(SCHEDULE_DAYS.map(day => [day.key, day.label]));
 const clamp = (value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
@@ -183,6 +185,9 @@ export function buildDecisionMemoryInsight(memories:ScheduleDecisionMemory[], co
   const filtered=memories.filter(m=>!courseId||m.AdCourseId===courseId);return {count:filtered.length,recent:filtered.slice(0,8),warning:filtered[0]?`سبق رفض خيار قريب: ${filtered[0].reason}`:"لا توجد ذاكرة رفض سابقة لهذا السياق."};
 }
 
+/* لقاءاتُ إخوة الصفّ في شعبته (صفوفٌ أخرى للمقرر والرمز نفسيهما): يُنقل اللقاءُ وحده ويبقى النمطُ نمطاً. */
+const sectionMeetings=(row:FSchedule,rows:readonly FSchedule[])=>rows.filter(other=>other.id!==row.id&&Number(other.AdCourseId)===Number(row.AdCourseId)&&String(other.SCode??'').trim()===String(row.SCode??'').trim()&&Number(other.AdCollegeId||0)===Number(row.AdCollegeId||0)&&Number(other.AdSectionId||0)===Number(row.AdSectionId||0)&&Number(other.AdTermId)===Number(row.AdTermId)).map(other=>({days:activeDays(other) as any[],minutes:timeToMinutes(other.fendtime)-timeToMinutes(other.fstarttime)}));
+
 export function createEmergencyPlans(kind:"room"|"day"|"instructor",value:string|number,rows:FSchedule[],universe:FSchedule[],courses:AdCourse[],instructors:AdInstructor[],constraints:ScheduleConstraint[]=[]){
   const baseIds=new Set(rows.map(r=>r.id));const external=universe.filter(r=>!baseIds.has(r.id));const allRooms=[...new Map(universe.map(roomPlacement).filter((r):r is RoomPlacement=>Boolean(r)).map(r=>[r.key,r])).values()];const instructorById=new Map(instructors.map(i=>[i.AdInstructorId,i]));const placeholders=placeholderInstructorIds(instructors as any);
   const affected=kind==="room"?rows.filter(r=>roomKey(r)===String(value)):kind==="day"?rows.filter(r=>Boolean((r as any)[String(value)])):rows.filter(r=>r.AdInstructorId===Number(value));
@@ -192,10 +197,13 @@ export function createEmergencyPlans(kind:"room"|"day"|"instructor",value:string
     for(const item of affected){const index=scenario.findIndex(r=>r.id===item.id);if(index<0)continue;const current=scenario[index];const candidates:FSchedule[]=[];
       if(kind==="room"){
         for(const room of allRooms){if(room.key===String(value))continue;candidates.push(placeInRoom(current,room))}
-        for(let offset of [-60,-30,30,60]){const start=timeToMinutes(current.fstarttime)+offset,end=timeToMinutes(current.fendtime)+offset;if(start>=SCHEDULE_DAY_START&&end<=SCHEDULE_DAY_END)for(const room of allRooms.slice(0,18))candidates.push(placeInRoom({...current,fstarttime:minutesToTime(start),fendtime:minutesToTime(end)},room))}
+        /* أقربُ بداياتٍ على سُلّم اللائحة لأيام الصفّ (المولّدُ الواحد)، لا ±نصف ساعة. */
+        {const span=timeToMinutes(current.fendtime)-timeToMinutes(current.fstarttime);for(const start of regulationStartsNear(activeDays(current),span,timeToMinutes(current.fstarttime),{start:SCHEDULE_DAY_START,end:SCHEDULE_DAY_END}).filter(start=>start!==timeToMinutes(current.fstarttime)).slice(0,4))for(const room of allRooms.slice(0,18))candidates.push(placeInRoom({...current,fstarttime:minutesToTime(start),fendtime:minutesToTime(start+span)},room))}
       } else if(kind==="day"){
-        for(const day of SCHEDULE_DAYS){if(day.key===String(value))continue;const c:any={...current};for(const d of SCHEDULE_DAYS)c[d.key]=false;c[day.key]=true;candidates.push(c)}
-        for(const day of SCHEDULE_DAYS){if(day.key===String(value))continue;for(let offset of [-60,-30,30,60]){const start=timeToMinutes(current.fstarttime)+offset,end=timeToMinutes(current.fendtime)+offset;if(start<SCHEDULE_DAY_START||end>SCHEDULE_DAY_END)continue;const c:any={...current,fstarttime:minutesToTime(start),fendtime:minutesToTime(end)};for(const d of SCHEDULE_DAYS)c[d.key]=false;c[day.key]=true;candidates.push(c)}}
+        /* أيامٌ بديلة من مكتبة الأنماط بطولها، وبداياتٌ على سُلّم اللائحة (regulationDaySwaps + regulationStartsNear):
+           لا يتحوّل صفُّ الأحد·الثلاثاء·الخميس إلى يومٍ واحد بطوله القديم، ولا يقع على 9:30 في الأحد. */
+        {const course=courses.find(item=>Number(item.AdCourseId)===Number(current.AdCourseId));const span=timeToMinutes(current.fendtime)-timeToMinutes(current.fstarttime);
+          for(const shape of regulationDaySwaps(effectiveCourseHours(course),activeDays(current) as any,String(value) as any,span,sectionMeetings(current,[...external,...scenario])))for(const start of regulationStartsNear(shape.days,shape.minutes,timeToMinutes(current.fstarttime),{start:SCHEDULE_DAY_START,end:SCHEDULE_DAY_END}).slice(0,5)){const c:any={...current,fstarttime:minutesToTime(start),fendtime:minutesToTime(start+shape.minutes)};for(const d of SCHEDULE_DAYS)c[d.key]=shape.days.includes(d.key as any);candidates.push(c)}}
       } else {
         const replacements=(courseTeachers.get(current.AdCourseId)||[]).filter(id=>id!==Number(value));for(const id of replacements)candidates.push({...current,AdInstructorId:id});
       }
