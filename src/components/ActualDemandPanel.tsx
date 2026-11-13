@@ -321,6 +321,13 @@ export function DemandSupplyList({ items, termId, inPlace = false, limit = 8 }: 
                 </span>
                 <span className="ad-item-num" title={`${countOf(item.demand, AR.student)} · ${countOf(item.seats, AR.seat)}`}>
                   <Num value={(kind === "spare" ? item.seats - item.demand : item.unmetStudents || item.demand).toLocaleString("en-US")} />
+                  {/* الوحدة تحت الرقم: «طالب» للمحتاجين، و«مقعد فائض» للفائض — فلا يُقرأ رقماً مجرّداً. */}
+                  <span className="ad-item-unit">
+                    <Users aria-hidden="true" />
+                    {kind === "spare"
+                      ? `${nounFor(item.seats - item.demand, AR.seat)} فائض`
+                      : nounFor(item.unmetStudents || item.demand, AR.student)}
+                  </span>
                   {item.unmetGraduates ? <small><GraduationCap aria-hidden="true" /><Num value={item.unmetGraduates} /></small> : null}
                 </span>
                 {kind === "spare" ? <span className="ad-fix-gap" aria-hidden="true" /> : (
