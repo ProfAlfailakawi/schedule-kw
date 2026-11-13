@@ -257,7 +257,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   const scopeLabel = scopeLine;
   /* وسمُ الحرم من اسم الكلية: «بنين»/«بنات»/«الفحيحيل - بنات»… — يُرسم حين تجمع العائلةُ أكثرَ من حرم. */
   const campusTags = useMemo(() => {
-    const ids = [...new Set(rows.map(row => Number(row.AdCollegeId)).filter(Boolean))];
+    const ids: number[] = Array.from(new Set<number>(rows.map(row => Number(row.AdCollegeId)).filter(Boolean)));
     const nameOf = (id: number) => String(colleges.get(id)?.AdCollegeName || "").replace(/\s+/g, " ").trim();
     const labels = inboxCampusLabels(ids.map(nameOf).filter(Boolean));
     let other = 0;
@@ -679,7 +679,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                         <b>{countOf(finding.groupedCount, caseNoun(finding))}</b>
                         <i>·</i>
                         <span data-finding-count={scoped.length}>{countOf(scoped.length, AR.appointment)} {nounFor(scoped.length, AR.affectedAdj)}</span>
-                        {campuses.length ? <span className="review-finding-campuses">{campuses.map(tag => <CampusChip key={tag.label} tag={tag} />)}</span> : null}
+                        {campuses.length ? <span className="review-finding-campuses">{campuses.map(tag => <React.Fragment key={tag.label}><CampusChip tag={tag} /></React.Fragment>)}</span> : null}
                       </span>
                       <span className="finding-share" aria-hidden="true">
                         <i style={{ width: `${Math.min(100, (scoped.length / spread.total) * 100)}%` }} />
@@ -759,7 +759,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             <span className="surface-kicker">مراجعة الاعتماد · {DECISION_1913_LABEL}</span>
             <h2 data-resolved={readinessChecked && sawChecking.current ? "" : undefined}>{verdict}</h2>
             <p>{scopeLabel}</p>
-            {multiCampus ? <small className="review-scope-note review-scope-campuses" data-review-scope="family"><Building2 aria-hidden="true" /> القسم في حُرَمه كلها {[...campusTags.values()].map(tag => <CampusChip key={tag.label} tag={tag} />)}</small> : null}
+            {multiCampus ? <small className="review-scope-note review-scope-campuses" data-review-scope="family"><Building2 aria-hidden="true" /> القسم في حُرَمه كلها {[...campusTags.values()].map(tag => <React.Fragment key={tag.label}><CampusChip tag={tag} /></React.Fragment>)}</small> : null}
             {readinessChecked && unclassifiedCourses ? <small className="review-data-gap"><Info aria-hidden="true" /> {countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ لم يُفحص نمط المادة 7/8 لها.</small> : null}
             {readinessChecked && blockerSummary.conflicts > 0 ? <strong className="review-blocker-headline" data-review-headline="blocking">يمنع الاعتماد: {blockingSummaryPhrase(blockerSummary.conflicts, blockerSummary.rows, blockerSummary.duplicates)}</strong> : null}
             {readinessError ? <small>تمت مراجعة قرار 1913/2016 محلياً، لكن تعذر التأكد الآن من الحجوزات المتعارضة خارج نطاق القسم.</small> : null}

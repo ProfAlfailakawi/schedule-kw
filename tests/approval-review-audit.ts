@@ -105,10 +105,10 @@ console.log("قاعدةٌ واحدة: الملاحظة تُرى ولا تُنق�
   /* شكلُ «تكنولوجيا التعليم بنين»: 56 موعداً، خمسةٌ منها خارج سُلّم اللائحة لا غير. */
   const scope = Array.from({ length: 56 }, (_, i) => i + 1);
   const notesOnly = approvalScoreBreakdown(scope, [{ key: "ladder", label: "خارج سُلّم اللائحة", tone: "note", rowIds: [1, 2, 3, 4, 5] }]);
-  check(notesOnly.score === 100 && notesOnly.clean === 51 && notesOnly.noted === 5, "خمس ملاحظات: الدرجة 100 والسليم 51 وللملاحظة 5", notesOnly);
+  check(notesOnly.score === 100 && notesOnly.clean === 51 && notesOnly.noted === 5, "خمس ملاحظات: الدرجة 100 والسليم 51 وللملاحظة 5");
   check(notesOnly.formula.includes("51") && notesOnly.formula.includes("للملاحظة 5") && notesOnly.formula.includes("56"), `المعادلة تقول الملاحظات: «${notesOnly.formula}»`);
   const keys = approvalSpreadKeys(approvalSpread(notesOnly));
-  check(keys.map(key => `${key.counted} ${key.tail}`).join(" | ") === "5 مواعيد للملاحظة | 51 موعداً سليماً", "مفتاحا الشريط: «5 مواعيد للملاحظة» و«51 موعداً سليماً»", keys);
+  check(keys.map(key => `${key.counted} ${key.tail}`).join(" | ") === "5 مواعيد للملاحظة | 51 موعداً سليماً", "مفتاحا الشريط: «5 مواعيد للملاحظة» و«51 موعداً سليماً»");
   check(notesOnly.segments[0].projected === 100, "«لو عولجت» الملاحظة لا ترفع درجةً لم تُنقصها");
   check(approvalVerdict({ checked: true, blocking: 0, readinessError: false, needsFix: 0, notes: 1, unclassified: 0 }) === "لا مانع للتوقيع · ملاحظات", "العنوان: «لا مانع للتوقيع · ملاحظات»");
   /* شكلُ «بنات»: بند 6/2 على 3 مواعيد من 104، وملاحظةٌ على أحدها وعلى غيره. */
@@ -116,7 +116,7 @@ console.log("قاعدةٌ واحدة: الملاحظة تُرى ولا تُنق�
     { key: "6/2", label: "أكثر من شعبتين متتاليتين", tone: "regulation", rowIds: [1, 2, 3] },
     { key: "ladder", label: "خارج سُلّم اللائحة", tone: "note", rowIds: [3, 4] },
   ]);
-  check(girls.score === 97 && girls.clean === 100 && girls.noted === 1, "بند المعالجة يُنقص (97)، والملاحظة لا", girls);
+  check(girls.score === 97 && girls.clean === 100 && girls.noted === 1, "بند المعالجة يُنقص (97)، والملاحظة لا");
   check(girls.segments.find(segment => segment.key === "6/2")!.projected === 100, "«97 ← 100» للبند وحده — والموعد المشترك مع ملاحظةٍ يُحتسب");
   check(approvalVerdict({ checked: true, blocking: 0, readinessError: false, needsFix: 1, notes: 1, unclassified: 0 }) === "لا مانع للتوقيع · بنود للمعالجة", "المعالجة تسبق الملاحظة في العنوان");
   check(approvalVerdict({ checked: true, blocking: 1, readinessError: false, needsFix: 1, notes: 1, unclassified: 0 }) === "يوجد ما يمنع الاعتماد", "والمانع يسبقهما");
