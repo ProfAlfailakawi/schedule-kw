@@ -68,8 +68,9 @@ check(/opensInSchedule\(item\) && decided !== "fixed"/.test(inbox), "لا يظه
 /* مقترحُ الطلب الكامل باقٍ: مسودةٌ تُرسل للأستاذ ثم تُثبّت */
 check(/data-guide-target="proposal-start"/.test(inbox) && /<StudyProposalWorkspace/.test(inbox) && /<ProposalLauncherBar/.test(inbox), "مقترحُ الطلب الكامل (المسودة والتثبيت) باقٍ");
 const schedules = read("src/components/Schedules.tsx");
-check(/if \(!openEdit\(row\)\) return;\s*if \(wanted\.change\) setForm\(current => \(\{ \.\.\.current, \.\.\.changeFormPatch\(wanted\.change!\) \}\)\);/.test(schedules), "الجدول يفتح النموذج المعتاد ثم يعبّئ الوقت — ولا يعبّئ نموذجاً لم يُفتح");
-check(/openEdit = \(row: FSchedule\): boolean =>/.test(schedules), "فتحُ التعديل يقول هل فُتح");
+check(/openRowChange\.current = wanted\.change \? \{ rowId: id, change: wanted\.change \} : null;\s*openEdit\(row\);/.test(schedules), "الجدول يفتح النموذج المعتاد للموعد الأصلي");
+check(/if \(!pending \|\| editor !== "edit" \|\| Number\(editId\) !== pending\.rowId\) return;[\s\S]{0,120}changeFormPatch\(pending\.change\)/.test(schedules), "ويعبّئ الوقتَ بعد أن يُفتح فعلاً — ولا يعبّئ نموذجاً لم يُفتح");
+check(/openEdit = \(row: FSchedule\) => \{\s*if \(showMobileReadOnlyGate\(\) \|\| lockRefusesEdit\(\)\) return;/.test(schedules), "فتحُ التعديل يفحص القفلَ قبل المحرر كما كان");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

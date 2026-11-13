@@ -213,7 +213,7 @@ import type { CourseNature } from "../utils/courseNature";
 import { courseLabel, instructorLabel } from "../utils/courseLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
-import { changeFormPatch, openRowNotice, takeOpenRow } from "../utils/requestOpenRow";
+import { changeFormPatch, openRowNotice, takeOpenRow, type RequestedChange } from "../utils/requestOpenRow";
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
 import { actualDemandNotice, graduateImpactNote, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
@@ -3093,6 +3093,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
   /** الطلبُ الذي جاءت منه الإضافةُ المفتوحة، إن جاءت من وارد الأساتذة. */
   const pendingHandoff = useRef<RequestHandoff | null>(null);
+  /* «مقترح دراسي» من الوارد: الوقتُ المطلوب ينتظر فتحَ نموذج الموعد الأصلي (src/utils/requestOpenRow.ts). */
+  const openRowChange = useRef<{ rowId: number; change: RequestedChange } | null>(null);
   /** «طلب شعبة» من الإرشاد فتح هذه الإضافة (src/utils/sectionRequestHandoff.ts): يُربط بها ما يُحفظ. */
   const pendingSectionRequest = useRef<SectionRequestHandoff | null>(null);
 
@@ -3223,8 +3225,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setEditId(null);
       setEditor("create");
     },
-    openEdit = (row: FSchedule): boolean => {
-      if (showMobileReadOnlyGate() || lockRefusesEdit()) return false;
+    openEdit = (row: FSchedule) => {
+      if (showMobileReadOnlyGate() || lockRefusesEdit()) return;
       /* التعديل يحمّل هذا الموعد وحده، بلا أثرٍ من موعد سابق. */
       clearEditorTransients();
       setMessage(null);
@@ -3248,7 +3250,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // looks untouched on every other screen right up until the save.
       presence.send({ editing: { rowId: row.id, rev: Number((row as any).rev || 0) } });
       setEditor("edit");
-      return true;
     },
     openDecisionRows = (queue: FSchedule[]) => {
       const ids = [...new Set(queue.map(row => Number(row.id)).filter(Boolean))];
@@ -10842,10 +10843,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (!row) { setMessage("الموعد الأصلي ليس في نطاق الجدول المعروض الآن. اختر كلية الموعد وقسمه ثم أعد المحاولة من الوارد."); return; }
     if (viewMode === "list") changeView("week");
     setReviewFocus(new Set([id]));
-    if (!openEdit(row)) return;
-    if (wanted.change) setForm(current => ({ ...current, ...changeFormPatch(wanted.change!) }));
+    /* الوقتُ المطلوب يُعبّأ بعد أن يُفتح النموذج فعلاً (لا قفل ولا بوابة هاتف) — انظر الأثر التالي. */
+    openRowChange.current = wanted.change ? { rowId: id, change: wanted.change } : null;
+    openEdit(row);
     setMessage(openRowNotice(wanted, Object.fromEntries(days.map(day => [day.key, day.label]))));
   }, [rows]);
+  useEffect(() => {
+    const pending = openRowChange.current;
+    if (!pending || editor !== "edit" || Number(editId) !== pending.rowId) return;
+    openRowChange.current = null;
+    setForm(current => ({ ...current, ...changeFormPatch(pending.change) }));
+  }, [editor, editId]);
   useEffect(() => {
     const op = guideOperationRef.current;
     if (!op?.expected?.startsWith("view:")) return;

@@ -131,7 +131,7 @@ check(/ساعات الفراغ بين محاضراته في الأسبوع/.test
 /* ── 11 · إلى الموعد الأصلي ─────────────────────────────────────────────── */
 check(/function openRowInSchedule\(rowId: number, item: InstructorRequestItem, teacher: string\)/.test(inbox) && /<ClipboardPen aria-hidden="true" \/> مقترح دراسي/.test(inbox), "11: «مقترح دراسي» على البند ينقل إلى الموعد الأصلي");
 const schedules = read("src/components/Schedules.tsx");
-check(/const wanted = takeOpenRow\(\);/.test(schedules) && /if \(!openEdit\(row\)\) return;\s*if \(wanted\.change\) setForm/.test(schedules), "11: الجدولُ يفتح نموذجَه المعتاد للموعد والوقتُ المطلوب معبّأ");
+check(/const wanted = takeOpenRow\(\);/.test(schedules) && /openEdit\(row\);[\s\S]{0,400}changeFormPatch\(pending\.change\)/.test(schedules), "11: الجدولُ يفتح نموذجَه المعتاد للموعد والوقتُ المطلوب معبّأ");
 
 /* ── 9 · السرعة ─────────────────────────────────────────────────────────── */
 check(/getInstructorRequestsForInstructor: async/.test(read("src/db/repository.ts")), "9: قراءةُ طلبات أستاذٍ واحدٍ بمعرّفه");
