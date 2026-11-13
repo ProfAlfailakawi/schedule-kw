@@ -7,7 +7,7 @@
    "path": "/",
    "name": "query",
    "call": "7a2ab2ce58b640a2",
-   "site": "server.ts:125",
+   "site": "server.ts:126",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -17,7 +17,7 @@
    "path": "/",
    "name": "expressInit",
    "call": "7a2ab2ce58b640a2",
-   "site": "server.ts:125",
+   "site": "server.ts:126",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -27,7 +27,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "7a2ab2ce58b640a2",
-   "site": "server.ts:125",
+   "site": "server.ts:126",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -37,7 +37,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "befd5937e999ec35",
-   "site": "server.ts:166",
+   "site": "server.ts:167",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -47,7 +47,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "77994aca145e1e91",
-   "site": "server.ts:167",
+   "site": "server.ts:168",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -61,7 +61,7 @@
    ],
    "name": "wrapped",
    "call": "edfda461e9df8a12",
-   "site": "server.ts:181",
+   "site": "server.ts:182",
    "regexp": "/^\\/api\\/system-backup\\/preview\\/?(?=\\/|$)|^\\/api\\/system-backup\\/import\\/?(?=\\/|$)|^\\/api\\/system-backup\\/import-jobs\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -71,7 +71,7 @@
    "path": "/api/intelligence/drafts",
    "name": "wrapped",
    "call": "a093fd8fe1db8604",
-   "site": "server.ts:188",
+   "site": "server.ts:189",
    "regexp": "/^\\/api\\/intelligence\\/drafts\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -81,7 +81,7 @@
    "path": "/api/landing/inquiry",
    "name": "wrapped",
    "call": "f920940241b9e1eb",
-   "site": "server.ts:190",
+   "site": "server.ts:191",
    "regexp": "/^\\/api\\/landing\\/inquiry\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -91,7 +91,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "5be72f94dfda77ff",
-   "site": "server.ts:191",
+   "site": "server.ts:192",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -101,7 +101,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "2eafa85638bf01df",
-   "site": "server.ts:195",
+   "site": "server.ts:196",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -111,7 +111,7 @@
    "path": "/api/public",
    "name": "wrapped",
    "call": "02968b60a11535c9",
-   "site": "server.ts:219",
+   "site": "server.ts:220",
    "regexp": "/^\\/api\\/public\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -121,7 +121,7 @@
    "path": "/api/public/request/:token",
    "name": "<anonymous>",
    "call": "a856d7507eeb75dc",
-   "site": "server.ts:220",
+   "site": "server.ts:221",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -131,7 +131,7 @@
    "path": "/api/public/request/:token",
    "name": "<anonymous>",
    "call": "a856d7507eeb75dc",
-   "site": "server.ts:220",
+   "site": "server.ts:221",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -141,7 +141,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "7a5ff31cb6663bce",
-   "site": "server.ts:222",
+   "site": "server.ts:223",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -199,7 +199,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "a1a0b03ce1bf4e8a",
-   "site": "server.ts:225",
+   "site": "server.ts:226",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -216,7 +216,7 @@
    ],
    "name": "wrapped",
    "call": "e564cbbe18795929",
-   "site": "server.ts:235",
+   "site": "server.ts:236",
    "regexp": "/^\\/s(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/q(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/r(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/m(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/t(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/k(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -233,7 +233,7 @@
    ],
    "name": "wrapped",
    "call": "461204526a49f82a",
-   "site": "server.ts:236",
+   "site": "server.ts:237",
    "regexp": "/^\\/s(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/q(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/r(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/m(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/t(?:\\/([^/]+?))\\/?(?=\\/|$)|^\\/k(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -243,7 +243,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "f6d8dd021d825aef",
-   "site": "server.ts:240",
+   "site": "server.ts:241",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -253,7 +253,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "121abe6541ab5012",
-   "site": "server.ts:255",
+   "site": "server.ts:256",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -263,16 +263,6 @@
    "path": "/api",
    "name": "wrapped",
    "call": "e22e25dfe37b51e1",
-   "site": "server.ts:257",
-   "regexp": "/^\\/api\\/?(?=\\/|$)/i",
-   "end": false
-  },
-  {
-   "kind": "middleware",
-   "methods": [],
-   "path": "/api",
-   "name": "wrapped",
-   "call": "142951d177ac9127",
    "site": "server.ts:258",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
@@ -282,8 +272,18 @@
    "methods": [],
    "path": "/api",
    "name": "wrapped",
+   "call": "142951d177ac9127",
+   "site": "server.ts:259",
+   "regexp": "/^\\/api\\/?(?=\\/|$)/i",
+   "end": false
+  },
+  {
+   "kind": "middleware",
+   "methods": [],
+   "path": "/api",
+   "name": "wrapped",
    "call": "640b2f8a6f85d24b",
-   "site": "server.ts:288",
+   "site": "server.ts:289",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -293,7 +293,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "e6717e093d05d78f",
-   "site": "server.ts:300",
+   "site": "server.ts:301",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -303,7 +303,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "7ed9cf9f7e352fab",
-   "site": "server.ts:304",
+   "site": "server.ts:305",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -313,7 +313,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "71897bcc662ab562",
-   "site": "server.ts:324",
+   "site": "server.ts:325",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -323,7 +323,7 @@
    "path": "/api",
    "name": "wrapped",
    "call": "98dc25ea0690172d",
-   "site": "server.ts:401",
+   "site": "server.ts:402",
    "regexp": "/^\\/api\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -1401,7 +1401,7 @@
    "path": "/api/approvals",
    "name": "wrapped",
    "call": "af020d076c33a14e",
-   "site": "server.ts:408",
+   "site": "server.ts:409",
    "regexp": "/^\\/api\\/approvals\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -1411,7 +1411,7 @@
    "path": "/api/schedule-notes",
    "name": "wrapped",
    "call": "af020d076c33a14e",
-   "site": "server.ts:408",
+   "site": "server.ts:409",
    "regexp": "/^\\/api\\/schedule-notes\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -1421,7 +1421,7 @@
    "path": "/api/instructor-requests",
    "name": "wrapped",
    "call": "af020d076c33a14e",
-   "site": "server.ts:408",
+   "site": "server.ts:409",
    "regexp": "/^\\/api\\/instructor-requests\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -1431,7 +1431,7 @@
    "path": "/api/student-registration",
    "name": "wrapped",
    "call": "335d805687de3091",
-   "site": "server.ts:414",
+   "site": "server.ts:415",
    "regexp": "/^\\/api\\/student-registration\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -4219,6 +4219,42 @@
    "call": "9b54a17d4af43abf",
    "site": "src/server/appointmentMetrics.ts:48",
    "regexp": "/^\\/api\\/metrics\\/appointment-entry\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/actual-demand",
+   "name": "bound dispatch",
+   "call": "8630c6aae4892325",
+   "site": "src/server/actualDemandRoutes.ts:36",
+   "regexp": "/^\\/api\\/actual-demand\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/actual-demand/upload",
+   "name": "bound dispatch",
+   "call": "289c657859c10690",
+   "site": "src/server/actualDemandRoutes.ts:43",
+   "regexp": "/^\\/api\\/actual-demand\\/upload\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/actual-demand/link",
+   "name": "bound dispatch",
+   "call": "b22863d0806673da",
+   "site": "src/server/actualDemandRoutes.ts:69",
+   "regexp": "/^\\/api\\/actual-demand\\/link\\/?$/i",
    "end": true
   },
   {
@@ -7317,7 +7353,7 @@
    "path": "/api/landing/inquiry",
    "name": "bound dispatch",
    "call": "86a56dd8eb194b8b",
-   "site": "server.ts:785",
+   "site": "server.ts:788",
    "regexp": "/^\\/api\\/landing\\/inquiry\\/?$/i",
    "end": true
   },
@@ -7363,7 +7399,7 @@
    "path": "/api/*",
    "name": "bound dispatch",
    "call": "c9c21090bf85633a",
-   "site": "server.ts:791",
+   "site": "server.ts:794",
    "regexp": "/^\\/api\\/(.*)\\/?$/i",
    "end": true
   },
@@ -7373,7 +7409,7 @@
    "path": "/",
    "name": "<anonymous>",
    "call": "7221b375400abed2",
-   "site": "server.ts:810",
+   "site": "server.ts:813",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7393,7 +7429,7 @@
    "path": "/landing",
    "name": "wrapped",
    "call": "e268366b7d2b7004",
-   "site": "server.ts:868",
+   "site": "server.ts:871",
    "regexp": "/^\\/landing\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7403,7 +7439,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "77cbff21f8e1d9ce",
-   "site": "server.ts:872",
+   "site": "server.ts:875",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7413,7 +7449,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "0c4d0ea21521f618",
-   "site": "server.ts:903",
+   "site": "server.ts:906",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7425,7 +7461,7 @@
    "path": "*",
    "name": "bound dispatch",
    "call": "76d622ce5c9a6e29",
-   "site": "server.ts:932",
+   "site": "server.ts:935",
    "regexp": "/^(.*)\\/?$/i",
    "end": true
   }

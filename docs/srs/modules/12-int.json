@@ -42,7 +42,12 @@
     "src/styles/06-intelligence.css",
     "src/styles/27-intelligence-type.css",
     "docs/PREDICTIVE_INTELLIGENCE.md",
-    "docs/intelligence-planning-tm/*"
+    "docs/intelligence-planning-tm/*",
+    "src/server/actualDemand.ts",
+    "src/server/actualDemandRoutes.ts",
+    "src/utils/actualDemand*.ts",
+    "src/components/ActualDemandPanel.tsx",
+    "src/styles/54-actual-demand.css"
   ],
   "screens": [
     { "name": { "ar": "مركز التحليلات", "en": "Analytics Center" }, "file": "src/components/IntelligenceWorkspace.tsx", "note": { "ar": "ثلاثة مشاهد: افهم وجرّب واعتمد؛ وتبويبات الجودة والقاعات والأساتذة وصحة البيانات والتنبؤ.", "en": "Three scenes: understand, try and approve; tabs for quality, rooms, instructors, data health and forecast." } },
@@ -1478,6 +1483,78 @@
       ],
       "evidence": { "code": ["src/guide/smartGuide.ts#loadGuideProfile", "src/guide/smartGuide.ts#masteryScore", "src/guide/smartGuide.ts#profileKey", "src/guide/smartGuide.ts#discoveredNew"], "tests": [] },
       "inferred": true
+    },
+    {
+      "id": "FR-INT-069",
+      "kind": "functional",
+      "title": { "ar": "قراءة تقرير الطلب الفعلي من التسجيل", "en": "Reading the registrar's actual-demand report" },
+      "text": {
+        "ar": "يجب أن يقرأ النظام ملف PDF لتقرير التسجيل «دراسة احصائيات بالمقررات التي يحتاجها الطالب» (SWRDASH) على الخادم: الفصل والقسم وعدد أعضاء هيئة التدريس ومجموع النصاب من الترويسة، ولكل مقرر رقمه بسبع خانات (المادة + المقرر، مثل 0109105) واسمه ووحداته والشعب المطروحة ومتوسط الطلبة في الشعبة وعدد الطلبة والشعب المقترحة (بنين/بنات/مجموع) وتوزيع الطلبة على برامجهم، ويُحسب لكل رقم عمودُه من ترويسة صفحته فلا تُزاح الخلايا الفارغة.",
+        "en": "The system shall read, on the server, the PDF of the registrar report «study of the courses students need» (SWRDASH): the term, the department, the faculty count and the total legal load from the header, and for every course its 7-digit number (subject + course, e.g. 0109105), name, units, offered sections, average students per section, students needing it and suggested sections (boys/girls/total) and the breakdown by student program; each number is placed by its column from its own page header, so empty cells never shift values."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        { "ar": "النسخة العامة الحقيقية (9 صفحات) تُقرأ 50 مقرراً، و0109105 بثلاث وحدات وشعبتين لكل مسار و218 طالباً، والبرامج تجمع مجموع كل مقرر بلا تحذير.", "en": "The real general report (9 pages) reads 50 courses; 0109105 has 3 units, two sections per track and 218 students; programs sum to each course total with no warning." },
+        { "ar": "ملفٌ ليس SWRDASH يُرفض برسالة، وما ليس PDF يُرفض (422)، والحد 4 MB و60 صفحة.", "en": "A file that is not SWRDASH is refused with a message; a non-PDF is refused (422); the limits are 4 MB and 60 pages." }
+      ],
+      "evidence": { "code": ["src/utils/actualDemand.ts#parseDemandReport", "src/server/actualDemand.ts#extractDemandItems"], "tests": ["tests/actual-demand-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-070",
+      "kind": "functional",
+      "title": { "ar": "حفظ الطلب الفعلي لعائلة القسم مع سجلّ الرفع", "en": "Storing actual demand per department family with an upload history" },
+      "text": {
+        "ar": "يجب أن يُحفظ التقرير لكل فصل وعائلة قسم (بنين وبنات في كل كلياتها) بنسختيه «عام» و«خريجون»، بعد معاينةٍ تعرض القسم والفصل والأعداد وما طوبق، وأن يُرفض الحفظ بلا تأكيد صريح إن خالف القسمُ أو الفصلُ في الملف المفتوحَ، وأن يُسجَّل لكل رفع من رفعه ومتى وبصمة الملف (SHA-256) في سجلّ الرفع وسجلّ التدقيق، بصلاحية تعديل الجدول للقسم نفسها.",
+        "en": "The report shall be stored per term and department family (boys and girls across its colleges) in both its «general» and «graduates» variants, after a preview showing the department, the term, the counts and what matched; saving shall be refused without explicit confirmation when the file's department or term differs from the one open; every upload records who, when and the file fingerprint (SHA-256) in the upload history and the audit log, with the same permission as editing the department schedule."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        { "ar": "المعاينة لا تحفظ شيئاً؛ والحفظ يُرجع النسخة وسجلّ رفعٍ ببصمة من 64 خانة.", "en": "The preview stores nothing; saving returns the variant and an upload history entry with a 64-character fingerprint." },
+        { "ar": "ملفٌ لفصلٍ غير المفتوح يُردّ بـ409 ما لم يُرسل التأكيد.", "en": "A file for another term is answered with 409 unless confirmation is sent." }
+      ],
+      "evidence": { "code": ["src/server/actualDemand.ts#storeDemandVariant", "src/server/actualDemandRoutes.ts", "src/components/ActualDemandPanel.tsx"], "tests": ["tests/actual-demand-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-071",
+      "kind": "functional",
+      "title": { "ar": "مطابقة مقررات التقرير بالكتالوج وربط ما لم يُطابَق", "en": "Matching report courses to the catalogue and linking the rest" },
+      "text": {
+        "ar": "يجب أن يطابق النظام كل مقرر في التقرير بنسخه في كتالوج كل عضو من عائلة القسم برقمه وحده (لا باسمه)، وأن يعرض ما لم يُطابَق ليربطه المستخدم بمقررٍ من مقررات العائلة أو يعلّمه «لا يخص القسم» مرةً واحدة تُحفظ للعائلة وتُقرأ في كل فصل.",
+        "en": "The system shall match every report course to its copies in the catalogue of each member of the department family by number only (never by name), and list what did not match so the user links it to a family course or marks it «not this department» once; the choice is stored for the family and applied every term."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        { "ar": "0109105 يطابق 105 في كلية البنين و0109105 في كلية البنات معاً؛ ومقررُ قسمٍ خارج العائلة لا يُطابَق.", "en": "0109105 matches 105 in the boys' college and 0109105 in the girls' college together; a course of a department outside the family does not match." },
+        { "ar": "الربط المحفوظ يمتد لنسخ العائلة كلها، و«لا يخص القسم» يُخرج المقرر من القائمة.", "en": "A stored link extends to all family copies, and «not this department» removes the course from the list." }
+      ],
+      "evidence": { "code": ["src/utils/actualDemand.ts#matchDemandCourses", "src/server/actualDemand.ts#saveDemandLink"], "tests": ["tests/actual-demand-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-072",
+      "kind": "functional",
+      "title": { "ar": "تنبيه أحمر لمقرر مطلوب بلا شعبة", "en": "Red alert for a needed course with no section" },
+      "text": {
+        "ar": "يجب أن يُظهر النظام فور الرفع قائمةً مرتبة بالأشد للمقررات التي يحتاجها 20 طالباً فأكثر (الحد الأدنى لشعبة نظرية في م.8) أو أي خريج ولا شعبة لها في جدول العائلة للفصل (أو في التقرير إن لم يُطابَق المقرر): الخريجون أولاً ثم الأكثر طلبة، ولكل بند زر «عالج» يفتح محرّر موعدٍ جديد للمقرر في كلية المسار الذي يحتاجه دون حفظ.",
+        "en": "Right after upload the system shall show a list, most severe first, of courses needed by 20 or more students (the minimum of a theoretical section in art. 8) or by any graduate that have no section in the family schedule for the term (or in the report when the course did not match): graduates first, then the most students; each item has a «fix» button opening a new-appointment editor for the course in the college of the track that needs it, without saving."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        { "ar": "0109108 بـ458 طالباً ولا شعبة له يظهر في القائمة؛ ومقررٌ له شعبة في جدولنا لا يظهر.", "en": "0109108 with 458 students and no section appears in the list; a course that has a section in our schedule does not." },
+        { "ar": "«عالج» يحمل المقرر والكلية والفصل إلى الورشة عبر تخزين الجلسة ويُمحى بأول قراءة.", "en": "«Fix» carries the course, college and term to the workspace through the session store and is erased on first read." }
+      ],
+      "evidence": { "code": ["src/utils/actualDemand.ts#demandAlerts", "src/utils/actualDemandHandoff.ts", "src/components/Schedules.tsx#takeActualDemandHandoff"], "tests": ["tests/actual-demand-audit.ts"] },
+      "inferred": false
     }
   ],
   "edgeCases": [
@@ -1528,6 +1605,12 @@
       "scenario": { "ar": "يسأل المستخدم المساعد عن فراغات أستاذ موجود في دليل الجامعة وله مواعيد في قسم آخر فقط.", "en": "The user asks the assistant about the gaps of an instructor who is in the university directory but has appointments only in another department." },
       "behavior": { "ar": "يردّ بأن الأستاذ بلا بيانات في هذا القسم والفصل، ولا يخلط جدول قسم آخر بالإجابة.", "en": "It answers that the instructor has no data in this department and term, and does not mix another department's schedule into the answer." },
       "evidence": ["tests/intelligence-scope-api.mjs"]
+    },
+    {
+      "title": { "ar": "خلية مقترحة فارغة في تقرير الطلب", "en": "An empty suggested cell in the demand report" },
+      "scenario": { "ar": "تقرير الخريجين يطبع لمقرر 0109114 شعبةً مقترحة واحدة للبنين ويترك خلية البنات فارغة.", "en": "The graduates report prints one suggested boys' section for 0109114 and leaves the girls' cell empty." },
+      "behavior": { "ar": "تُقرأ خلية البنات صفراً في عمودها، ولا يُزاح المجموع إليها.", "en": "The girls' cell reads as zero in its column, and the total is not shifted into it." },
+      "evidence": ["tests/actual-demand-audit.ts"]
     }
   ],
   "terms": [
