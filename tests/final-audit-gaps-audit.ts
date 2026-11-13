@@ -55,8 +55,48 @@ const flags = (on: readonly string[]) => Object.fromEntries(DAYS.map(day => [day
   check((writes.match(/sectionShapeIssue\(/g) || []).length === 2 && /keepsSectionShape\(existing,req\.body\)\?null:await sectionShapeIssue/.test(writes), "١-و الإنشاءُ والتعديلُ يقرآن الحكمَ نفسه");
 }
 
+/* ── ٢) سلسلةُ الإصلاح وبدائلُ المقترح تحكم الشعبةَ كلَّها ── */
+{
+  const { findRepairChain } = await import("../src/utils/repairChain");
+  const { sectionDayVariants } = await import("../src/server/studyProposalEngine");
+  const { sectionDaysFitLibrary } = await import("../src/utils/scheduleRegulations");
+  const mk = (id: number, courseId: number, scode: string, teacher: number, days: string[], start: string, end: string, hall: string) => ({
+    id, AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, AdCourseId: courseId, AdCourseName: `م${courseId}`, SCode: scode, AdInstructorId: teacher,
+    ...flags(days), fstarttime: start, fendtime: end, buildingId: "b1", roomId: `r${hall}`, AdRoomCode: "B1", AdRoomHall: hall, locationStatus: "VERIFIED", rev: 0,
+  }) as any;
+  const sun = mk(1, 10, "01", 5, ["fsunday"], "08:00", "09:20", "101"), tue = mk(2, 10, "01", 5, ["ftuesday"], "08:00", "09:20", "101");
+  /* أستاذُ الشعبة مشغولٌ يوم الثلاثاء كلَّه وأيامَ الأحد كلَّها عدا لقاءه، فلا يبقى لنقل الثلاثاء إلا الخميس — وهو يكسر النمط. */
+  const ladder = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+  const end50 = (start: string) => `${start.slice(0, 2)}:50`;
+  const clashTue = mk(3, 11, "01", 5, ["ftuesday"], "08:00", "10:50", "102");
+  const busy = ladder.flatMap((start, index) => [
+    mk(100 + index, 20 + index, "01", 5, ["ftuesday"], start, end50(start), "103"),
+  ]).filter(row => row.fstarttime >= "11:00");
+  const board = [sun, tue, clashTue, ...busy];
+  const hoursOf = (row: any) => Number(row.AdCourseId) === 10 ? 3 : Number(row.AdCourseId) === 11 ? 3 : 1;
+  const judged = findRepairChain(tue, board, { courseHours: hoursOf, maxDepth: 1 });
+  const moveOf = (chain: any) => chain?.moves.find((item: any) => item.id === 2);
+  check(!moveOf(judged) || !moveOf(judged).days.includes("fthursday"), "٢-أ الإصلاحُ لا ينقل ثلاثاءَ «أحد + ثلاثاء» إلى الخميس", judged?.moves.map((item: any) => [item.id, item.days, item.start]));
+  const blind = findRepairChain(tue, board, { maxDepth: 1 });
+  check(!moveOf(blind) || moveOf(blind).days.join() === "ftuesday", "٢-ب وبلا ساعاتٍ معروفة يبقى اللقاءُ على يومه", blind?.moves.map((item: any) => [item.id, item.days, item.start]));
+  /* ونقلُ الأحد إلى الخميس («ثلاثاء + خميس») نمطٌ معتمد، فيُعرض. */
+  const sunBusy = ladder.map((start, index) => mk(200 + index, 40 + index, "01", 5, ["fsunday"], start, end50(start), "103")).filter(row => row.fstarttime >= "10:00");
+  const sunClash = mk(4, 12, "01", 5, ["fsunday"], "08:00", "09:50", "102");
+  const freed = findRepairChain(sun, [sun, tue, sunClash, ...sunBusy], { courseHours: hoursOf, maxDepth: 1 });
+  const freedMove = freed?.moves.find((item: any) => item.id === 1);
+  check(Boolean(freedMove) && (freedMove.days.join() === "fthursday" || freedMove.days.join() === "fsunday")
+    && sectionDaysFitLibrary(3, { ...sun, ...flags(freedMove.days), fstarttime: freedMove.start, fendtime: freedMove.end }, [tue]) === true,
+    "٢-ج وما ينقله الإصلاحُ يُبقي الشعبةَ نمطاً معتمداً («ثلاثاء + خميس» يصحّ)", freed?.moves.map((item: any) => [item.id, item.days, item.start]));
+  const forTue = sectionDayVariants(tue, 3, [sun]).map(days => days.join("+"));
+  const forSun = sectionDayVariants(sun, 3, [tue]).map(days => days.join("+"));
+  check(forTue[0] === "ftuesday" && !forTue.includes("fthursday"), "٢-د بدائلُ المقترح: ثلاثاءُ «أحد + ثلاثاء» لا يُعرض له الخميس", forTue);
+  check(forSun.includes("fthursday"), "٢-هـ وأحدُها يُعرض له الخميس («ثلاثاء + خميس»)", forSun);
+  check(sectionDayVariants(tue, 3, []).map(days => days.join("+")).includes("fthursday"), "٢-و وكتلةُ اليوم الواحد بلا إخوةٍ تبقى على أيّ يوم");
+}
+
 let server: LiveServer | null = null;
 try {
+  if (process.env.GAPS_PURE_ONLY) throw new Error("pure-only");
   server = await startDemoServer("final-gaps");
   const BASE = server.base;
   const login = await fetch(BASE + "/api/auth/demo", { method: "POST" });

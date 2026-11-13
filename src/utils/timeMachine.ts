@@ -1030,7 +1030,7 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
       if (changes.length === affected.length && changes.length) drafts.push({ philosophy: prefer === "fit" ? "students" : "rooms", changes, why: prefer === "fit" ? ["الوقت لا يتغيّر للطلبة", "قاعة بسعةٍ ونوعٍ ملائمين"] : ["قاعاتٌ مشغولة أصلاً", "لا تُفتح قاعة جديدة"] });
     }
     try {
-      const chain = planDisruption(affected, base, { maxDepth: 3, forbidRoom: (code, hall) => hallKey({ code, hall }) === key || (Boolean(problem.hall.roomId) && context.halls.some(h => h.roomId === problem.hall.roomId && h.code === code && h.hall === hall)) });
+      const chain = planDisruption(affected, base, { maxDepth: 3, courseHours: row => effectiveCourseHours(courseMapOf(context).get(Number(row.AdCourseId))), forbidRoom: (code, hall) => hallKey({ code, hall }) === key || (Boolean(problem.hall.roomId) && context.halls.some(h => h.roomId === problem.hall.roomId && h.code === code && h.hall === hall)) });
       if (chain?.moves.length) {
         const ids: string[] = [];
         const changes = chain.moves.map((move, index) => { const change = moveFromRepair(move, index ? ids[index - 1] : undefined); ids.push(change.id); return change; });
