@@ -2943,6 +2943,44 @@
           "tests/deadlines-panel-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-APR-039",
+      "kind": "functional",
+      "title": {
+        "ar": "ثلاث ملاحظات في مراجعة الاعتماد لا تُنقص الدرجة",
+        "en": "Three approval-review notes that do not lower the score"
+      },
+      "text": {
+        "ar": "يجب أن تعرض «مراجعة الاعتماد» شعبَ المقرر الواحد في الساعة نفسها (م.7/5)، والتدويرَ (م.6/4)، ووقتَ اجتماع القسم (قرار القسم) «للملاحظة» بالبطاقة الموحّدة (البند ← الأستاذ مرةً ← مواعيده بوسم الحرم)، وأن تعدّها في «مواعيد للملاحظة» وفي العنوان، ولا تُنقص بها الدرجة، وأن تطبعها في الورقة بياناتٍ في تصميمها الثابت.",
+        "en": "The approval review shall show sections of one course at the same hour (art. 7/5), rotation (art. 6/4) and the department meeting window (department decision) as notes on the unified finding card (finding → teacher once → appointments with campus tags), count them in «appointments to note» and in the title, never lower the score with them, and print them as data in the frozen sheet design."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "الدرجة = (السليم + للملاحظة) ÷ الكل × 100، فلا تتغير بها؛ والعنوانُ بلا مانعٍ ولا معالجة «لا مانع للتوقيع · ملاحظات».",
+          "en": "Score = (clean + noted) ÷ all × 100, unchanged by them; with no blocker or treatment item the title reads «no obstacle to signing · notes»."
+        },
+        {
+          "ar": "الورقة المطبوعة (A4 أفقية) تضيفها بطاقاتٍ بعد غيرها بلا تغيير في التصميم.",
+          "en": "The printed sheet (A4 landscape) adds them as cards after the others with no design change."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/approvalScore.ts#reviewNotesOf",
+          "src/components/ScheduleReview.tsx"
+        ],
+        "tests": [
+          "tests/approval-review-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [
