@@ -289,7 +289,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   const campusesOf = (rowIds: number[]) => {
     const seen = new Map<string, CampusTag>();
     rowIds.forEach(id => { const tag = campusOf(byId.get(id)); if (tag) seen.set(tag.label, tag); });
-    return [...seen.values()];
+    /* بترتيب الرأس نفسه: بنين، بنات، ثم الفروع. */
+    return [...campusTags.values()].filter(tag => seen.has(tag.label));
   };
   const loadedIds = useMemo(() => new Set(localRows.map(row => row.id)), [localRows]);
   const previousRows = family?.previousRows ?? previousRowsProp;

@@ -135,6 +135,8 @@ console.log("I2/I3 — شاشة المراجعة");
     "سطرُ النطاق على الشاشة والورقة للعائلة (حُرَم القسم) لا للكلية المفتوحة");
   check((source.match(/منسق الجدول\{signFor \? ` · \$\{signFor\}` : ""\}/g) || []).length === 2 && source.includes('data-review-sign="college"'),
     "والتوقيعُ يُقال لمن هو: «التوقيع لـ<الكلية>» على الشاشة وعند خانات التوقيع");
+  check(/trackOf\(name\) === "boys" \? 0 : 1/.test(source) && source.includes("return [...campusTags.values()].filter(tag => seen.has(tag.label));"),
+    "ترتيبُ الحُرَم واحد في الرأس والبطاقات والورقة: بنين، بنات، ثم الفروع");
   check(/approvalVerdict\(\{ checked: readinessChecked, \.\.\.verdictInput \}\)/.test(source) && /approvalVerdict\(\{ checked: true, \.\.\.verdictInput \}\)/.test(source)
     && source.includes("<strong>{printVerdict}</strong>"), "العنوان من دالةٍ واحدة على الشاشة والورقة");
   check(!/<title>\{breakdown\.formula\}<\/title>/.test(source) && !/<title>\{slice\.label\}<\/title>/.test(source), "لا تلميحَ أصليّاً على الحلقة يبقى عائماً فوق القائمة");
