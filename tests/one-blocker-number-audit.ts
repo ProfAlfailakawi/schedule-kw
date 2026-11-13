@@ -128,7 +128,9 @@ check((bar.match(/blockingSummaryPhrase\(blockingConflicts, state\.blockingRows,
   "الشريط يقول «تعارضات · تمسّ مواعيد» في التوقيع والإرسال");
 check(review.includes("blockingSummaryPhrase(blockerSummary.conflicts, blockerSummary.rows, blockerSummary.duplicates)") && review.includes("blockingRowIds(localConflicts, rows)"),
   "نافذة المراجعة تتصدّرها عبارة الشريط نفسها، ومحلياً من الدوال نفسها");
-check(review.includes("countOf(spread.high, AR.appointment)") && review.includes("nounFor(spread.high, AR.blockVerb)")
+const scoreUtil = read("src/utils/approvalScore.ts");
+check(scoreUtil.includes("countOf(spread.high, AR.appointment)") && scoreUtil.includes("nounFor(spread.high, AR.blockVerb)")
+  && review.includes("<b>{key.counted}</b><small>{key.tail}</small>")
   && !/<small>يمنع<\/small>|<small>سليم<\/small>|<small>يراجَع<\/small>/.test(review) && !/\{spread\.high\} يمنع/.test(review),
   "ومفاتيح الشريط تقول «مواعيد تمنع» بالمعدود، لا رقماً عارياً يُقرأ موانع");
 

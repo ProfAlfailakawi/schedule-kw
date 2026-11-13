@@ -37,3 +37,39 @@
   .review-finding-side{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:6px}
   .review-finding-tags{justify-content:flex-start}
 }
+
+/* ── شاشةٌ واحدة للعائلة: وسمُ الحرم، والأستاذ مرّةً واحدة ومواعيدُه صفوفاً (المالك 2026-11-13) ── */
+.review-ring .ring-slice-note{stroke:var(--muted-2)}
+.review-campus{display:inline-flex;align-items:center;padding:1px 8px;border-radius:8px;font-size:.7rem;font-weight:800;line-height:1.6;white-space:nowrap;
+  --campus:#6b6f68;background:color-mix(in srgb,var(--campus) 14%,var(--surface));color:color-mix(in srgb,var(--campus) 78%,var(--ink))}
+.review-campus.campus-boys{--campus:#2f6fb7}
+.review-campus.campus-girls{--campus:#b8467d}
+.review-campus.campus-other-0{--campus:#6a4bb8}
+.review-campus.campus-other-1{--campus:#2f8a7a}
+.review-campus.campus-other-2{--campus:#b0702a}
+.review-scope-campuses{flex-wrap:wrap;width:auto;background:var(--surface-2);color:var(--muted)}
+.review-finding-campuses{display:inline-flex;flex-wrap:wrap;gap:4px;margin-inline-start:6px}
+.review-case-details{margin:0;padding:0 20px 4px;display:grid;gap:6px;font-size:.84rem;line-height:1.7;color:var(--ink-2)}
+@media screen{
+  .review-person{border:0;border-top:1px solid var(--line);border-radius:0;margin:0;background:transparent;padding:10px 2px}
+  .review-person:first-child{border-top:0}
+  .review-person-head{display:flex;align-items:center;gap:8px;min-height:0;padding:0 0 6px;background:transparent;cursor:default}
+  .review-person-head .review-person-avatar{width:28px;height:28px;border-radius:9px}
+  .review-person-head .review-person-avatar svg{width:15px;height:15px}
+  .review-person-head>strong{font-size:.95rem;font-weight:800}
+  .review-person-head .review-person-count{color:var(--muted);font-size:.76rem;font-weight:600}
+  .review-person-rows{display:grid;gap:5px}
+  .review-appt{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:10px;padding:7px 11px;border-radius:10px;background:var(--surface-2);font-size:.84rem}
+  .review-appt-course{display:flex;align-items:baseline;gap:8px;min-width:0}
+  .review-appt-course>b{font-variant-numeric:tabular-nums;font-weight:800;flex:none}
+  .review-appt-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
+  .review-appt-section{white-space:nowrap;color:var(--ink-2)}
+  .review-appt-when{display:inline-flex;gap:8px;align-items:baseline;white-space:nowrap;color:var(--muted)}
+  .review-appt-when time{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink-2)}
+}
+@media screen and (max-width:720px){
+  .review-appt{grid-template-columns:minmax(0,1fr) auto;row-gap:4px}
+  .review-appt-course{grid-column:1/-1}
+  .review-appt-name{white-space:normal}
+  .review-appt-when{grid-column:1/-1}
+}

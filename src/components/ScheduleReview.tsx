@@ -17,7 +17,9 @@ import { blockingSummaryPhrase } from "../utils/approvalWorkflow";
 import { roomIdentityKey, roomDisplay } from "../utils/locationRegistry";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { rowsInApprovalScope } from "../utils/approvalScope";
-import { approvalScoreBreakdown, reviewHasFindings } from "../utils/approvalScore";
+import { approvalScoreBreakdown, approvalSpread, approvalSpreadKeys, approvalVerdict, reviewHasFindings } from "../utils/approvalScore";
+import { inboxCampusLabels } from "../utils/inboxCampus";
+import { isCampusCollege, trackOf } from "../utils/collegeTrack";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import CourseTags from "./CourseTags";
 import DemandBadge, { DemandFactsContext } from "./DemandBadge";
@@ -93,8 +95,23 @@ function groupReviewFindings(list: RegulationFinding[]): ReviewFindingGroup[] {
     rowIds: [...bucket.rowIds],
     groupedItems: bucket.items,
     groupedCount: bucket.items.length,
-    detail: bucket.items.length > 1 ? `جُمع هنا ${countOf(bucket.items.length, AR.conflict)} ${nounFor(bucket.items.length, AR.similarAdj)} في بند واحد.` : bucket.base.detail,
+    detail: groupedDetail(bucket.base, bucket.items),
   }));
+}
+
+/* ما يُعدّ به البند: التعارض المادي بالتعارضات، وما كان لكل مقررٍ حالةٌ (سُلّم اللائحة) بالمقررات، وغيرُهما بالحالات. */
+const caseNoun = (finding: RegulationFinding & { groupedItems?: RegulationFinding[] }) =>
+  isMaterialFinding(finding) ? AR.conflict
+    : (finding.groupedItems || [finding]).every(item => String(item.subjectKey || "").startsWith("course:")) ? AR.course
+      : AR.occurrence;
+
+/* نصُّ البند المجمّع: حالاتُه نفسها (ثلاثٌ أولاها ثم عددُ الباقي) — القاعدة نفسها لكل الأنواع. */
+function groupedDetail(base: RegulationFinding, items: RegulationFinding[]): string {
+  if (items.length < 2) return base.detail;
+  const details = [...new Set(items.map(item => item.detail).filter(Boolean))];
+  if (!details.length) return base.detail;
+  const rest = details.length - 3;
+  return details.slice(0, 3).join("؛ ") + (rest > 0 ? `؛ و${countOf(rest, caseNoun({ ...base, groupedItems: items }))} غيرها` : "");
 }
 
 /**
@@ -116,6 +133,12 @@ const findingStatus = (finding: RegulationFinding) => {
   return "مراجعة";
 };
 
+/* ما يفعله البند بالتوقيع، بعبارةٍ واحدة لكل الأنواع (سطر البطاقة الثاني). */
+const findingEffect = (finding: RegulationFinding) =>
+  isMaterialFinding(finding) ? "يمنع الاعتماد"
+    : finding.approvalEffect === "block" ? "يحتاج معالجة قبل الاعتماد"
+      : "لا يمنع الاعتماد";
+
 /** Visual tone follows what the finding does to a signature, not its analytical severity. */
 const findingTone = (finding: RegulationFinding): "high" | "medium" | "low" =>
   isMaterialFinding(finding) ? "high" : finding.approvalEffect === "block" || finding.approvalEffect === "review" ? "medium" : "low";
@@ -125,92 +148,56 @@ const findingIcon = (finding: RegulationFinding) => {
 };
 
 /**
- * One person, once — with their sections folded beneath.
+ * One person, once — with every appointment of the finding beneath, whatever campus.
  *
- * A single lecturer can trip a finding in six sections, and printing the name
- * six times turned a list of people into a list of rows. This shows the name and
- * how many times it recurs; pressing it reveals exactly which sections, so the
- * reader sees who first and the detail only when they ask for it.
+ * The review reads the whole department family (بنين، بنات، الفحيحيل…), so a
+ * lecturer who teaches in three campuses is one name here with all their
+ * appointments under it, each carrying its campus tag. The same structure for
+ * every finding type: finding → teacher → appointments.
  */
 /* أول يومٍ في الأسبوع ثم ساعة البدء — قراءةُ الأستاذ لأسبوعه، لا ترتيبُ الإدخال. */
 const firstDayIndex = (row: FSchedule) => { const i = DAY_KEYS.findIndex(key => (row as any)[key]); return i < 0 ? DAY_KEYS.length : i; };
 const byWeekTime = (a: FSchedule, b: FSchedule) =>
   firstDayIndex(a) - firstDayIndex(b) || String(a.fstarttime || "").localeCompare(String(b.fstarttime || "")) || String(a.SCode || "").localeCompare(String(b.SCode || ""));
+/* الشعبة تُعرف بكليتها: «501» بنين و«501» بنات شعبتان. */
+const sectionKey = (row: FSchedule) => `${row.AdCollegeId}:${row.AdCourseId}:${row.SCode}`;
 
-function ReviewPersonGroup({ group, courses, colleges, visitingIds }: { group: { who: string; rows: FSchedule[] }; courses: Map<number, AdCourse>; colleges: Map<number, AdCollege>; visitingIds: Set<number> }) {
+export interface CampusTag { label: string; tone: string }
+
+export function CampusChip({ tag }: { tag?: CampusTag | null }) {
+  return tag ? <span className={`review-campus campus-${tag.tone}`}>{tag.label}</span> : null;
+}
+
+function ReviewPersonGroup({ group, courses, campusOf, visitingIds }: { group: { who: string; rows: FSchedule[] }; courses: Map<number, AdCourse>; campusOf: (row: FSchedule) => CampusTag | null; visitingIds: Set<number> }) {
   const who = group.who;
   const rows = React.useMemo(() => [...group.rows].sort(byWeekTime), [group.rows]);
   const visiting = rows.some(row => visitingIds.has(Number(row.AdInstructorId)));
-  const sectionCount = new Set(rows.map(row => `${row.AdCourseId}:${row.SCode}`)).size;
-  // Presentation-only grouping: same rows, same finding, grouped for reading.
-  const courseGroups = React.useMemo(() => {
-    const grouped = new Map<number, FSchedule[]>();
-    rows.forEach(row => grouped.set(Number(row.AdCourseId), [...(grouped.get(Number(row.AdCourseId)) || []), row]));
-    return [...grouped.entries()].map(([courseId, items]) => {
-      const course = courses.get(courseId);
-      return {
-        courseId,
-        code: course?.CourseCode || items[0]?.AdCourseName || "—",
-        name: course?.CourseName || items[0]?.AdCourseName || "مقرر غير مسمى",
-        college: course ? colleges.get(Number(course.AdCollegeId))?.AdCollegeName || "" : "",
-        sectionCount: new Set(items.map(row => String(row.SCode))).size,
-        days: DAY_KEYS.map((key, index) => ({
-          key, title: DAY_NAMES[index],
-          appointments: items.filter(row => Boolean((row as any)[key]))
-            .sort((a, b) => String(a.fstarttime || "").localeCompare(String(b.fstarttime || ""))),
-        })).filter(item => item.appointments.length > 0),
-        withoutDay: items.filter(row => !DAY_KEYS.some(day => Boolean((row as any)[day]))),
-      };
-    });
-  }, [rows, courses, colleges]);
+  const sectionCount = new Set(rows.map(sectionKey)).size;
   return (
-    <details className="review-person">
-      <summary className="review-person-head" data-guide-ignore="طيّ شعب أستاذ داخل ملاحظة مراجعة — عرض فقط، لا يغيّر الجدول">
+    <section className="review-person" aria-label={who}>
+      <header className="review-person-head">
         <span className="review-person-avatar" aria-hidden="true"><UserRound /></span>
-        <span className="review-person-identity">
-          <strong className="schedule-instructor-with-badge">{who}{visiting ? <VisitingBadge compact /> : null}</strong>
-          <small><BookOpen aria-hidden="true" /> {countOf(courseGroups.length, AR.course)} <span aria-hidden="true">·</span> {countOf(sectionCount, AR.section)}</small>
-        </span>
-        <span className="review-person-count">{countOf(sectionCount, AR.section)}</span>
-        <ChevronDown className="review-person-chevron" aria-hidden="true" />
-      </summary>
-      <div className="review-person-rows review-course-deck">
-          {courseGroups.map(course => (
-            <section key={course.courseId} className="review-course-card" aria-label={course.name}>
-              <header className="review-course-heading">
-                <span className="review-course-glyph" aria-hidden="true"><BookOpen /></span>
-                <span className="review-course-identity">
-                  <strong>{course.name}<CourseTags courseId={course.courseId} /><DemandBadge courseId={course.courseId} /></strong>
-                  <small dir="ltr">{course.code}</small>
-                  {course.college ? <small className="review-course-college">{course.college}</small> : null}
-                </span>
-                <span className="review-course-count">{countOf(course.sectionCount, AR.section)}</span>
-              </header>
-              <div className="review-course-days">
-                {course.days.map(day => (
-                  <div className="review-course-day" key={day.key}>
-                    <span className="review-day-label"><CalendarDays aria-hidden="true" /> {day.title}</span>
-                    <div className="review-slot-flow" role="list" aria-label={`مواعيد ${day.title}`}>
-                      {day.appointments.map(row => (
-                        <span className="review-slot" role="listitem" key={row.id}>
-                          <b>شعبة {row.SCode || "—"}</b>
-                          <time dir="ltr"><Clock3 aria-hidden="true" />{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {course.withoutDay.map(row => (
-                  <div className="review-course-day" key={row.id}>
-                    <span className="review-day-label">بلا أيام</span>
-                    <span className="review-slot"><b>شعبة {row.SCode || "—"}</b></span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
+        <strong className="schedule-instructor-with-badge">{who}{visiting ? <VisitingBadge compact /> : null}</strong>
+        <small className="review-person-count">{countOf(sectionCount, AR.section)}</small>
+      </header>
+      <div className="review-person-rows" role="list">
+        {rows.map(row => {
+          const course = courses.get(Number(row.AdCourseId));
+          const days = DAY_KEYS.filter(key => (row as any)[key]).map(key => DAY_NAMES[DAY_KEYS.indexOf(key)]).join("، ");
+          return (
+            <div className="review-appt" role="listitem" key={row.id}>
+              <span className="review-appt-course">
+                <b dir="ltr">{course?.CourseCode || row.AdCourseName || "—"}</b>
+                <span className="review-appt-name">{course?.CourseName || row.AdCourseName || "مقرر غير مسمى"}<CourseTags courseId={row.AdCourseId} /><DemandBadge courseId={row.AdCourseId} /></span>
+              </span>
+              <span className="review-appt-section">شعبة {row.SCode || "—"}</span>
+              <CampusChip tag={campusOf(row)} />
+              <span className="review-appt-when"><span>{days || "بلا أيام"}</span><time dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time></span>
+            </div>
+          );
+        })}
       </div>
-    </details>
+    </section>
   );
 }
 
@@ -261,20 +248,36 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     family.instructors.forEach(person => { if (!merged.has(Number(person.AdInstructorId))) merged.set(Number(person.AdInstructorId), person); });
     return merged;
   }, [family, instructorsProp]);
-  /* ── لا خلط بين الكليات (I3) ─────────────────────────────────────────────
-     العائلة تُقرأ لسببٍ واحد: حِملُ الأستاذ الذي يدرّس في بنين وبنات معاً
-     (التتابع م.6/2،3). أمّا الدرجة والموانع وملاحظات المقرر والشعبة فتُحسب
-     لمواعيد الكلية المفتوحة وحدها — هي ما يُوقَّع عليه. والرأس يقول ذلك صراحةً. */
-  const scopeRows = useMemo(
-    () => (family ? rows.filter(row => Number(row.AdCollegeId) === Number(collegeId) && Number(row.AdSectionId) === Number(sectionId)) : rows),
-    [family, rows, collegeId, sectionId],
-  );
+  /* ── شاشةٌ واحدة للعائلة (المالك 2026-11-13) ─────────────────────────────
+     أيَّ عضوٍ فُتح (بنين، بنات، الفحيحيل…) فالمراجعةُ واحدة: مواعيدُ العائلة كلها
+     — ما يسمح به نطاق القارئ، كما يقرؤه الخادم — بدرجةٍ واحدة وعنوانٍ واحد وبطاقاتٍ
+     واحدة، وكلُّ موعدٍ بوسم حرمه. التوقيعُ يبقى لكل كليةٍ كما هو. */
+  const scopeRows = rows;
   const scopeIds = useMemo(() => new Set(scopeRows.map(row => Number(row.id))), [scopeRows]);
-  const otherColleges = family ? Math.max(0, (family.members?.length || 1) - 1) : 0;
   const scopeLabel = scopeLine;
-  const familyNote = otherColleges > 0
-    ? `الدرجة والموانع لهذه الكلية وحدها · حِمل الأستاذ المشترك يُقرأ مع ${countOf(otherColleges, AR.college)} أخرى من القسم`
-    : "";
+  /* وسمُ الحرم من اسم الكلية: «بنين»/«بنات»/«الفحيحيل - بنات»… — يُرسم حين تجمع العائلةُ أكثرَ من حرم. */
+  const campusTags = useMemo(() => {
+    const ids = [...new Set(rows.map(row => Number(row.AdCollegeId)).filter(Boolean))];
+    const nameOf = (id: number) => String(colleges.get(id)?.AdCollegeName || "").replace(/\s+/g, " ").trim();
+    const labels = inboxCampusLabels(ids.map(nameOf).filter(Boolean));
+    let other = 0;
+    const tags = new Map<number, CampusTag>();
+    ids.sort((x, y) => nameOf(x).localeCompare(nameOf(y), "ar")).forEach(id => {
+      const name = nameOf(id);
+      if (!name) return;
+      const track = trackOf(name);
+      const tone = isCampusCollege(name) || !track ? `other-${(other++ % 3)}` : track;
+      tags.set(id, { label: labels.get(name) || name, tone });
+    });
+    return tags;
+  }, [rows, colleges]);
+  const multiCampus = campusTags.size > 1;
+  const campusOf = React.useCallback((row?: FSchedule | null) => (row && multiCampus ? campusTags.get(Number(row.AdCollegeId)) || null : null), [campusTags, multiCampus]);
+  const campusesOf = (rowIds: number[]) => {
+    const seen = new Map<string, CampusTag>();
+    rowIds.forEach(id => { const tag = campusOf(byId.get(id)); if (tag) seen.set(tag.label, tag); });
+    return [...seen.values()];
+  };
   const loadedIds = useMemo(() => new Set(localRows.map(row => row.id)), [localRows]);
   const previousRows = family?.previousRows ?? previousRowsProp;
   const nature = useMemo(
@@ -368,15 +371,10 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   /* The headline is the ApprovalBar's: blocking conflicts (pairs), then the
      appointments they touch — read from the same scoped list as the cards. */
   const blockerSummary = useMemo(() => {
-    if (!family && serverRead && serverSummary) return serverSummary;
-    if (!family && !serverRead) return { conflicts: localConflicts.length, rows: blockingRowIds(localConflicts, rows).length, duplicates: doubleEntryCount(localConflicts) };
-    const conflicts = activeBlockers.filter(item => !String(item.type || "").startsWith("hallBarter"));
-    return {
-      conflicts: conflicts.length,
-      rows: new Set(conflicts.flatMap(item => item.rowIds)).size,
-      duplicates: conflicts.filter(item => item.type === "duplicate").length,
-    };
-  }, [family, serverRead, serverSummary, localConflicts, rows, activeBlockers]);
+    /* الخادم يقرأ العائلة كلها (family=1)، فعددُه هو عددُ هذه الشاشة. */
+    if (serverRead && serverSummary) return serverSummary;
+    return { conflicts: localConflicts.length, rows: blockingRowIds(localConflicts, rows).length, duplicates: doubleEntryCount(localConflicts) };
+  }, [serverRead, serverSummary, localConflicts, rows]);
 
   const blockerFindings = useMemo<RegulationFinding[]>(() => activeBlockers.map((item, index) => ({
     rule: item.id || `approval-blocker-${index}`,
@@ -405,14 +403,10 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     subjectLabel: item.subjectLabel,
     rowIds: Array.isArray(item.rowIds) ? item.rowIds.map(Number).filter(Boolean) : [],
   })), [activeWarnings]);
-  /* Scoped to the opened college (I3). An instructor-load finding keeps its
-     sister-college feet as context — the same person teaches both — but only
-     appears when this college is one of them. */
+  /* ما يُرى من البند: مواعيدُه في العائلة المقروءة (نطاق القارئ). */
   const inScope = React.useCallback((finding: RegulationFinding): RegulationFinding | null => {
-    const crossCollege = finding.rule.startsWith("consecutive-");
     const touched = finding.rowIds.filter(id => scopeIds.has(Number(id)));
-    if (!touched.length) return null;
-    return crossCollege ? finding : { ...finding, rowIds: touched };
+    return touched.length ? { ...finding, rowIds: touched } : null;
   }, [scopeIds]);
   const readinessFindings = useMemo(() => baseFindings.filter(finding => finding.source === "readiness").map(inScope).filter(Boolean) as RegulationFinding[], [baseFindings, inScope]);
   const regulationFindings = useMemo(() => decisionFindings.filter(finding => finding.approvalEffect === "block").map(inScope).filter(Boolean) as RegulationFinding[], [decisionFindings, inScope]);
@@ -434,17 +428,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     () => groupReviewFindings(warningFindings.map(inScope).filter(Boolean) as RegulationFinding[]),
     [warningFindings, inScope],
   );
-  /* سُلّمُ البدايات وأطوالُ المكتبة (المالك 2026-10-30): تنبيهٌ لائحيّ لا يمنع الاعتماد ولا يُنقص الدرجة. يُرى في سطر
-     الملاحظات مع غيره، فيعرف القسمُ مواعيدَه القائمة خارج السُّلّم وإن كان الحفظُ يمرّ بها تنبيهاً. */
-  const ladderNotes = useMemo<ReviewFindingGroup[]>(() => {
-    const items = decisionFindings.filter(finding => finding.rule === "regulation-ladder").map(inScope).filter(Boolean) as RegulationFinding[];
-    if (!items.length) return [];
-    const rowIds = [...new Set(items.flatMap(item => item.rowIds))];
-    return [{
-      ...items[0], title: "خارج سُلّم اللائحة", groupKey: "regulation-ladder", rowIds, groupedItems: items, groupedCount: items.length,
-      detail: items.map(item => item.detail).slice(0, 3).join("؛ ") + (items.length > 3 ? `؛ و${countOf(items.length - 3, AR.course)} غيرها` : ""),
-    }];
-  }, [decisionFindings, inScope]);
+  /* ملاحظاتُ اللائحة التي لا تمنع (خارج سُلّم اللائحة وأمثالها): تُجمع كغيرها وتُرسم بالبطاقة نفسها،
+     وتظهر في العنوان والشريط «للملاحظة» ولا تُنقص الدرجة (المالك 2026-10-30). «توزيع الفترتين» له قسمه. */
+  const noteGroups = useMemo<ReviewFindingGroup[]>(
+    () => groupReviewFindings(decisionFindings.filter(finding => finding.approvalEffect === "note" && finding.rule !== "period-balance").map(inScope).filter(Boolean) as RegulationFinding[]),
+    [decisionFindings, inScope],
+  );
   /* What actually stops a signature: the material conflicts canSign refuses. */
   const blocking = findings.filter(isMaterialFinding);
   const regulationGroups = useMemo(() => groupedFindings.filter(finding => !isMaterialFinding(finding)), [groupedFindings]);
@@ -458,8 +447,9 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     [
       ...(blocking.length ? [{ key: "material", label: "تعارض مادّي", tone: "block" as const, rowIds: blocking.flatMap(finding => finding.rowIds) }] : []),
       ...regulationGroups.map(group => ({ key: group.groupKey, label: group.title, tone: "regulation" as const, rowIds: group.rowIds })),
+      ...[...warningGroups, ...noteGroups].map(group => ({ key: group.groupKey, label: group.title, tone: "note" as const, rowIds: group.rowIds })),
     ],
-  ), [scopeRows, blocking, regulationGroups]);
+  ), [scopeRows, blocking, regulationGroups, warningGroups, noteGroups]);
   const score = breakdown.score;
 
   /**
@@ -468,18 +458,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
    * Every appointment of the opened college is counted once, at the worst thing
    * said about it, so the bar adds up to the schedule itself.
    */
-  const spread = useMemo(() => {
-    const high = breakdown.segments.filter(segment => segment.tone === "block").reduce((sum, segment) => sum + segment.count, 0);
-    const medium = breakdown.segments.filter(segment => segment.tone === "regulation").reduce((sum, segment) => sum + segment.count, 0);
-    return { high, medium, low: 0, clean: breakdown.clean, total: Math.max(1, breakdown.total) };
-  }, [breakdown]);
+  const spread = useMemo(() => approvalSpread(breakdown), [breakdown]);
+  const spreadKeys = approvalSpreadKeys(spread);
   const share = (value: number) => `${(value / spread.total) * 100}%`;
-  const spreadLabel = {
-    high: `${countOf(spread.high, AR.appointment)} ${nounFor(spread.high, AR.blockVerb)} الاعتماد`,
-    medium: `${countOf(spread.medium, AR.appointment)} للمعالجة`,
-    low: countOf(spread.low, AR.note),
-    clean: `${countOf(spread.clean, AR.appointment)} ${nounFor(spread.clean, AR.soundAdj)}`,
-  };
+  const verdictInput = { blocking: blocking.length, readinessError, needsFix: regulationGroups.length, notes: warningGroups.length + noteGroups.length, unclassified: unclassifiedCourses };
+  const verdict = approvalVerdict({ checked: readinessChecked, ...verdictInput });
+  const printVerdict = approvalVerdict({ checked: true, ...verdictInput });
   const tone = blocking.length ? "danger" : score >= 85 ? "good" : "warn";
   const scoreTone = score >= 85 ? "good" : score >= 70 ? "warn" : "danger";
   // A ring drawn as a single arc: circumference 100 makes the maths the score.
@@ -496,7 +480,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       offset += length;
     };
     push("clean", "clean", breakdown.clean, "سليم");
-    breakdown.segments.forEach((segment, index) => push(segment.key, segment.tone === "block" ? "block" : `reg-${index % 4}`, segment.count, segment.label));
+    breakdown.segments.forEach((segment, index) => push(segment.key, segment.tone === "block" ? "block" : segment.tone === "note" ? "note" : `reg-${index % 4}`, segment.count, segment.label));
     return slices;
   }, [breakdown, ringLength]);
 
@@ -537,16 +521,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     return finding.rowIds.length ? countOf(finding.rowIds.length, AR.appointment) : "تنبيه تشغيلي";
   };
 
-  const findingPreview = (finding: ReviewFindingGroup) => {
-    const entity = groupEntitySummary(finding);
-    /* ملاحظةُ السُّلّم مجمّعةٌ بالمقرّرات لا بالتعارضات: لا يُقال «٢٧ تعارضاً» عن مواعيد لا تتعارض. */
-    if (finding.rule === "regulation-ladder") return `${entity} · ${countOf(finding.groupedCount, AR.course)} · تنبيه لائحي لا يمنع`;
-    if (finding.groupedCount > 1) return `${entity} · ${countOf(finding.groupedCount, AR.conflict)}`;
-    if (finding.approvalEffect === "block") return `${entity} · يحتاج معالجة قبل الاعتماد`;
-    if (finding.source === "decision-1912") return `${entity} · تنبيه لائحي`;
-    if (finding.source === "history") return `${entity} · استنتاج تاريخي`;
-    return entity;
-  };
+  /* سطرُ البطاقة الثاني، بالقاعدة نفسها لكل الأنواع: من يمسّه البند · ما يفعله بالتوقيع. */
+  const findingPreview = (finding: ReviewFindingGroup) => `${groupEntitySummary(finding)} · ${findingEffect(finding)}`;
 
   const findingExplanation = (finding: ReviewFindingGroup) => {
     if (finding.rule === "consecutive-long-lecture" || finding.rule === "consecutive-one-hour") {
@@ -591,52 +567,21 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     const days = DAY_KEYS.filter(key => (row as any)[key]).map(key => DAY_NAMES[DAY_KEYS.indexOf(key)]).join("، ");
     const code = courses.get(row.AdCourseId)?.CourseCode || row.AdCourseName || "";
     const who = withVisitingSuffix(instructors.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ", visitingIdSet.has(Number(row.AdInstructorId)));
-    return `${code} · شعبة ${row.SCode} · ${who} · ${days || "بلا أيام"} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`;
-  };
-
-  const renderCompactRows = (rowIds: number[]) => {
-    const uniqueRows = [...new Set(rowIds)].map(id => byId.get(id)).filter(Boolean) as FSchedule[];
-    if (!uniqueRows.length) return null;
-    /* When every row belongs to the same person, the heading above has already
-       said so — repeating the name on each line is the same word six times and
-       pushes the thing that actually differs (section, days, hour) aside. */
-    return (
-      <>
-        <div className="review-subject-rows">
-          {uniqueRows.map(row => {
-            const days = DAY_KEYS.filter(key => (row as any)[key]).map(key => DAY_NAMES[DAY_KEYS.indexOf(key)]).join("، ");
-            const course = courses.get(row.AdCourseId);
-            const code = course?.CourseCode || row.AdCourseName || "—";
-            const courseName = course?.CourseName || row.AdCourseName || "مقرر غير مسمى";
-            const who = instructors.get(row.AdInstructorId)?.AdInstructorName || "بدون أستاذ";
-            return (
-              <article key={`subject-row-${row.id}`} className="review-row-card compact review-identity-row">
-                <span className="rrc-code" dir="ltr">{code}</span>
-                <div className="rrc-main">
-                  <strong className="review-row-course-name">{courseName}<CourseTags courseId={row.AdCourseId} /><DemandBadge courseId={row.AdCourseId} /></strong>
-                  <small className="review-row-owner"><UserRound aria-hidden="true" />{who}{visitingIdSet.has(Number(row.AdInstructorId)) ? <VisitingBadge compact /> : null}</small>
-                  <small className="review-row-days"><CalendarDays aria-hidden="true" />شعبة {row.SCode} · {days || "بلا أيام"}</small>
-                </div>
-                <time className="rrc-time" dir="ltr">{formatScheduleTimeRange(row.fstarttime, row.fendtime)}</time>
-              </article>
-            );
-          })}
-        </div>
-      </>
-    );
+    const campus = campusOf(row)?.label;
+    return `${code} · شعبة ${row.SCode}${campus ? ` · ${campus}` : ""} · ${who} · ${days || "بلا أيام"} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`;
   };
 
   /* الورقةُ تطبع كلَّ موعد: تُرصّ الملاحظاتُ بطولها، وما زاد عن صفحةٍ يُكمَل
      بعنوان «تتمة» في التي تليها (printFindingPages). */
   /* وملاحظاتُ «خارج سُلّم اللائحة» تُطبع كما تُرى: كانت الورقةُ تسقطها، فيُطبع قسمٌ ليس عنده
      غيرُها «لا توجد موانع ظاهرة» بلا ملاحظاته. تُرصّ بعد غيرها في البطاقة المطبوعة نفسها. */
-  const printFindings = [...groupedFindings, ...warningGroups, ...ladderNotes];
+  const printFindings = [...groupedFindings, ...warningGroups, ...noteGroups];
   const printPages = packPrintFindings<ReviewFindingGroup>(printFindings, finding => finding.rowIds);
   const firstPrintPage = printPages[0] || [];
   const printFollowupPages = printPages.slice(1);
   const renderPrintFinding = ({ finding, rowIds, part, parts }: PrintFindingPiece<ReviewFindingGroup>) => (
     <article className={`print-review-finding severity-${findingTone(finding)}`} key={`${finding.groupKey}:${part}`}>
-      <header><b className="print-finding-index">{findingIcon(finding)}</b><div><strong>{markVisitingNames(finding.title, finding.rowIds)}{parts > 1 ? ` · ${part === 1 ? "يتبع" : "تتمة"} (${part.toLocaleString("ar-KW-u-nu-latn")} من ${parts.toLocaleString("ar-KW-u-nu-latn")})` : ""}</strong><span>{finding.groupedCount > 1 ? `${countOf(finding.groupedCount, finding.rule === "regulation-ladder" ? AR.course : AR.conflict)} · ${finding.detail}` : finding.detail}</span></div><em>{finding.article}</em><i>{findingStatus(finding)}</i></header>
+      <header><b className="print-finding-index">{findingIcon(finding)}</b><div><strong>{markVisitingNames(finding.title, finding.rowIds)}{parts > 1 ? ` · ${part === 1 ? "يتبع" : "تتمة"} (${part.toLocaleString("ar-KW-u-nu-latn")} من ${parts.toLocaleString("ar-KW-u-nu-latn")})` : ""}</strong><span>{finding.groupedCount > 1 ? `${countOf(finding.groupedCount, caseNoun(finding))} · ${finding.detail}` : finding.detail}</span></div><em>{finding.article}</em><i>{findingStatus(finding)}</i></header>
       {rowIds.length ? <div className="print-review-rows">{rowIds.map(id => <span key={id}>{describe(byId.get(id))}</span>)}</div> : null}
     </article>
   );
@@ -658,7 +603,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
    * notes behind a click buys nothing.
    */
   const pressingFindings = groupedFindings.filter(finding => finding.approvalEffect !== "note");
-  const quietFindings = [...groupedFindings.filter(finding => finding.approvalEffect === "note"), ...ladderNotes];
+  const quietFindings = [...groupedFindings.filter(finding => finding.approvalEffect === "note"), ...noteGroups];
   const quietNames = quietFindings.slice(0, 3).map(finding => finding.title).join(" · ");
   const quietPreview = quietFindings.length > 3
     ? `${quietNames} · و${(quietFindings.length - 3).toLocaleString("ar-KW-u-nu-latn")} غيرها`
@@ -672,7 +617,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     const course = courses.get(row.AdCourseId);
     return `${instructors.get(row.AdInstructorId)?.AdInstructorName || ""} ${course?.CourseCode || ""} ${course?.CourseName || row.AdCourseName || ""} ${row.SCode}`;
   };
-  const sectionsOf = (rows: FSchedule[]) => new Set(rows.map(row => `${row.AdCourseId}:${row.SCode}`)).size;
+  const sectionsOf = (rows: FSchedule[]) => new Set(rows.map(sectionKey)).size;
 
   const renderFindingPeople = (finding: ReviewFindingGroup) => {
     const groups = new Map<string, { who: string; rows: FSchedule[] }>();
@@ -695,70 +640,32 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
         summary={<><b>{countOf(people.length, AR.instructor)}</b><span>{countOf(sectionsOf(allRows), AR.section)}</span></>}
         getKey={([key]) => key}
         searchText={([, group]) => `${group.who} ${group.rows.map(rowSearchText).join(" ")}`}
-        renderItem={([, group]) => <ReviewPersonGroup group={group} courses={courses} colleges={colleges} visitingIds={visitingIdSet} />}
+        renderItem={([, group]) => <ReviewPersonGroup group={group} courses={courses} campusOf={campusOf} visitingIds={visitingIdSet} />}
       />
     );
   };
 
-  const renderFindingSubjects = (finding: ReviewFindingGroup) => {
-    const subjects = new Map<string, { label: string; items: RegulationFinding[] }>();
-    finding.groupedItems.forEach((item, index) => {
-      const key = item.subjectKey || `case:${index}`;
-      const bucket = subjects.get(key) || { label: item.subjectLabel || groupEntitySummary(finding), items: [] };
-      bucket.items.push(item);
-      subjects.set(key, bucket);
-    });
-    const entries = [...subjects.entries()];
-    const rowCount = new Set(finding.groupedItems.flatMap(item => item.rowIds)).size;
-    return (
-      <PagedFindingList
-        items={entries}
-        pageSize={6}
-        label={`حالات «${findingBaseTitle(finding.title)}»`}
-        listClassName="review-subject-list"
-        summary={<><b>{countOf(entries.length, AR.occurrence)}</b>{rowCount ? <span>{countOf(rowCount, AR.appointment)}</span> : null}</>}
-        getKey={([key]) => key}
-        searchText={([, subject]) => `${subject.label} ${[...new Set(subject.items.flatMap(item => item.rowIds))].map(id => byId.get(id)).filter(Boolean).map(row => rowSearchText(row as FSchedule)).join(" ")}`}
-        renderItem={([, subject]) => {
-          const uniqueDetails = [...new Set(subject.items.map(item => item.detail).filter(Boolean))];
-          const subjectRowIds = [...new Set(subject.items.flatMap(item => item.rowIds))];
-          return (
-            <section className="review-subject">
-              <header>
-                <strong>{markVisitingNames(subject.label, subjectRowIds)}</strong>
-                <small>{finding.rule === "regulation-ladder" ? "تنبيه لائحي" : countOf(subject.items.length, AR.conflict)}</small>
-              </header>
-              <div className="review-subject-cases">
-                {renderCompactRows(subjectRowIds)}
-                {!subjectRowIds.length && uniqueDetails.length ? <p className="review-subject-summary">{markVisitingNames(uniqueDetails[0], subjectRowIds)}</p> : null}
-              </div>
-            </section>
-          );
-        }}
-      />
-    );
-  };
-
-  /* ── بندٌ واحد، بطاقةٌ واحدة ─────────────────────────────────────────────
-     كانت البنود تُعرض مرتين: قائمةٌ فوق فيها «83 ← 98» و«عالج» بعدد مواعيد
-     الكلية المفتوحة (8)، ثم البطاقات نفسها تحتها بعدد مواعيد القسم في كلياته كلها
-     (24). فصار البند الواحد رقمين. الآن البطاقة وحدها: عددُها مواعيدُ الكلية التي
-     تُحسب عليها الدرجة (scoreSegmentOf)، وفيها ما تصير إليه الدرجة و«عالج». */
+  /* ── بندٌ واحد، بطاقةٌ واحدة — والبطاقةُ واحدةٌ لكل الأنواع ─────────────────
+     مانعٌ أو بندٌ للمعالجة أو تنبيهٌ أو ملاحظةُ سُلّم: الرأسُ نفسه (العنوان، المادة،
+     الأثر، العدّ)، و«لو عولج» حين يرفع الدرجة، و«عالج»، و«شرح الملاحظة»، ثم
+     الأستاذ مرّةً واحدة وتحته مواعيدُه بوسم حرمها. */
   /* لكل بطاقةٍ أثرُها هي: الموانع المادية تُفكّ بطاقةً بطاقة (الحلقة تجمعها شريحةً واحدة)،
-     والسليمُ لا يتغيّر — الاتحادُ نفسه — فالدرجة واحدة في الرأس والبطاقات. */
+     والمحتسبُ لا يتغيّر — الاتحادُ نفسه — فالدرجة واحدة في الرأس والبطاقات. */
   const cardBreakdown = useMemo(() => approvalScoreBreakdown(
     scopeRows.map(row => Number(row.id)),
-    groupedFindings.map(group => ({ key: group.groupKey, label: group.title, tone: isMaterialFinding(group) ? "block" as const : "regulation" as const, rowIds: group.rowIds })),
-  ), [scopeRows, groupedFindings]);
+    [...groupedFindings, ...warningGroups, ...noteGroups].map(group => ({ key: group.groupKey, label: group.title,
+      tone: isMaterialFinding(group) ? "block" as const : group.approvalEffect === "block" ? "regulation" as const : "note" as const, rowIds: group.rowIds })),
+  ), [scopeRows, groupedFindings, warningGroups, noteGroups]);
   const scoreSegmentOf = (finding: ReviewFindingGroup) => cardBreakdown.segments.find(segment => segment.key === finding.groupKey);
   const renderFinding = (finding: ReviewFindingGroup) => {
     const scoped = finding.rowIds.filter(id => scopeIds.has(Number(id)));
-    const elsewhere = finding.rowIds.length - scoped.length;
     const segment = scoreSegmentOf(finding);
     const gain = segment ? segment.projected - score : 0;
     const focusable = scoped.filter(id => loadedIds.has(id));
+    const campuses = campusesOf(scoped);
+    const caseDetails = finding.groupedCount > 1 ? [...new Set(finding.groupedItems.map(item => item.detail).filter(Boolean))] : [];
     return (
-            <details key={finding.groupKey} className={`review-finding severity-${findingTone(finding)}`} data-review-finding={finding.groupKey}>
+            <details key={finding.groupKey} className={`review-finding severity-${findingTone(finding)}`} data-review-finding={finding.groupKey} open>
               <summary data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط">
                 <span className="review-mark" aria-hidden="true">{findingIcon(finding)}</span>
                 <span className="review-copy">
@@ -766,11 +673,11 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                   <small>{findingPreview(finding)}</small>
                   {scoped.length ? (
                     <span className="finding-share-wrap">
-                      <span className="finding-share-count" title={elsewhere > 0 ? `و${countOf(elsewhere, AR.appointment)} في كلية أخرى من القسم لا تُحسب في هذه الدرجة` : undefined}>
-                        <b>{finding.groupedCount.toLocaleString("ar-KW-u-nu-latn")}</b>
-                        <span>{finding.rule === "regulation-ladder" ? nounFor(finding.groupedCount, AR.course) : finding.groupedCount === 1 ? "تعارض" : "تعارضات"}</span>
+                      <span className="finding-share-count">
+                        <b>{countOf(finding.groupedCount, caseNoun(finding))}</b>
                         <i>·</i>
                         <span data-finding-count={scoped.length}>{countOf(scoped.length, AR.appointment)} {nounFor(scoped.length, AR.affectedAdj)}</span>
+                        {campuses.length ? <span className="review-finding-campuses">{campuses.map(tag => <CampusChip key={tag.label} tag={tag} />)}</span> : null}
                       </span>
                       <span className="finding-share" aria-hidden="true">
                         <i style={{ width: `${Math.min(100, (scoped.length / spread.total) * 100)}%` }} />
@@ -781,17 +688,20 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                 <span className="review-finding-side">
                   <span className="review-finding-tags"><em>{finding.article}</em><i>{findingStatus(finding)}</i></span>
                   {segment && gain > 0 ? (
-                    <span className="review-score-fix-gain" data-score-fix={segment.key} title={`لو عولج هذا البند وحده تصبح الدرجة ${segment.projected}`}>
+                    <span className="review-score-fix-gain" data-score-fix={segment.key} aria-label={`لو عولج هذا البند وحده تصبح الدرجة ${segment.projected}`}>
                       <TrendingUp aria-hidden="true" />
                       <b>{score.toLocaleString("ar-KW-u-nu-latn")}</b><i aria-hidden="true">←</i><b>{segment.projected.toLocaleString("ar-KW-u-nu-latn")}</b>
                       <em>+{gain.toLocaleString("ar-KW-u-nu-latn")}</em>
                     </span>
                   ) : null}
-                  {onFocusRows && focusable.length ? (
+                  {onFocusRows && scoped.length ? (
+                    /* «عالج» في كل بطاقة أيّاً كان مدخلُ المراجعة؛ يُبرز ما في الجدول المفتوح من مواعيد البند،
+                       وإن كانت كلُّها في حرمٍ آخر قال ذلك ولم يُغلق المراجعة. */
                     <button type="button" className="review-score-fix-act"
                       data-guide-ignore="يُبرز مواعيد البند على الجدول للمعالجة، لا يغيّر شيئاً"
-                      title="أظهر مواعيد هذا البند على الجدول لمعالجتها"
-                      onClick={event => { event.preventDefault(); event.stopPropagation(); onFocusRows(focusable); onClose(); }}>
+                      disabled={!focusable.length}
+                      aria-label={focusable.length ? "أظهر مواعيد هذا البند على الجدول لمعالجتها" : "مواعيد هذا البند في حرمٍ آخر: افتح جدوله لمعالجتها"}
+                      onClick={event => { event.preventDefault(); event.stopPropagation(); if (!focusable.length) return; onFocusRows(focusable); onClose(); }}>
                       <Wrench aria-hidden="true" /> عالج
                     </button>
                   ) : null}
@@ -802,26 +712,21 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                       {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : (
                         <details className="review-rule-explainer">
                           <summary><Info aria-hidden="true" /> شرح الملاحظة <ChevronDown aria-hidden="true" /></summary>
-                          <p>{markVisitingNames(findingExplanation(finding), finding.rowIds)}</p>
+                          {caseDetails.length > 1
+                            ? <ul className="review-case-details">{caseDetails.map(detail => <li key={detail}>{markVisitingNames(detail, finding.rowIds)}</li>)}</ul>
+                            : <p>{markVisitingNames(findingExplanation(finding), finding.rowIds)}</p>}
                         </details>
                       )}
                   </div>
                   {finding.rowIds.length ? (
-                    <>
-                      {finding.source === "history" ? (
-                        <HistoryInfographic rows={finding.rowIds.map(id=>byId.get(id)).filter(Boolean) as FSchedule[]} courses={courses} />
-                      ) : finding.groupedCount > 1 ? (
-                        renderFindingSubjects(finding)
-                      ) : (
-                        renderFindingPeople(finding)
-                      )}
-                    </>
+                    finding.source === "history"
+                      ? <HistoryInfographic rows={finding.rowIds.map(id=>byId.get(id)).filter(Boolean) as FSchedule[]} courses={courses} />
+                      : renderFindingPeople(finding)
                   ) : null}
               </div>
             </details>
     );
   };
-
 
   return (
     // The printable sheet lives inside this dialog, so the wrapper itself can
@@ -832,7 +737,6 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       <section className="review-sheet no-print visual-minimal" role="dialog" aria-modal="true" aria-label="مراجعة الاعتماد">
         <header className={`review-head tone-${tone}`}>
           <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1913_LABEL} ${score} من 100`}>
-            <title>{breakdown.formula}</title>
             <circle className="ring-track" cx="32" cy="32" r="26" />
             {/* One slice per category, starting at twelve o'clock: green is the score. */}
             <g className="ring-slices">
@@ -843,7 +747,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                   cx="32" cy="32" r="26"
                   strokeDasharray={`${Math.max(0, slice.length - (ringSlices.length > 1 ? 0.8 : 0))} ${ringLength}`}
                   strokeDashoffset={-slice.offset}
-                ><title>{slice.label}</title></circle>
+                />
               ))}
             </g>
             <text x="32" y="34" className="ring-number">{score.toLocaleString("ar-KW-u-nu-latn")}</text>
@@ -851,9 +755,9 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
           </svg>
           <div className="review-title">
             <span className="surface-kicker">مراجعة الاعتماد · {DECISION_1913_LABEL}</span>
-            <h2 data-resolved={readinessChecked && sawChecking.current ? "" : undefined}>{!readinessChecked ? "أتحقق من الموانع…" : blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : regulationGroups.length || warningGroups.length ? "لا مانع للتوقيع · بنود للمعالجة" : unclassifiedCourses ? "يلزم استكمال بيانات التدريس" : "لا توجد موانع ظاهرة"}</h2>
+            <h2 data-resolved={readinessChecked && sawChecking.current ? "" : undefined}>{verdict}</h2>
             <p>{scopeLabel}</p>
-            {familyNote ? <small className="review-scope-note" data-review-scope="college"><Building2 aria-hidden="true" /> {familyNote}</small> : null}
+            {multiCampus ? <small className="review-scope-note review-scope-campuses" data-review-scope="family"><Building2 aria-hidden="true" /> القسم في حُرَمه كلها {[...campusTags.values()].map(tag => <CampusChip key={tag.label} tag={tag} />)}</small> : null}
             {readinessChecked && unclassifiedCourses ? <small className="review-data-gap"><Info aria-hidden="true" /> {countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ لم يُفحص نمط المادة 7/8 لها.</small> : null}
             {readinessChecked && blockerSummary.conflicts > 0 ? <strong className="review-blocker-headline" data-review-headline="blocking">يمنع الاعتماد: {blockingSummaryPhrase(blockerSummary.conflicts, blockerSummary.rows, blockerSummary.duplicates)}</strong> : null}
             {readinessError ? <small>تمت مراجعة قرار 1913/2016 محلياً، لكن تعذر التأكد الآن من الحجوزات المتعارضة خارج نطاق القسم.</small> : null}
@@ -865,19 +769,18 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
         {/* The whole term as one bar: every appointment counted once. */}
         <div className="review-spread" role="img" aria-label="توزيع المواعيد حسب الملاحظات">
           <div className="spread-bar">
-            {spread.high ? <i className="seg-high" style={{ width: share(spread.high) }} title={spreadLabel.high} /> : null}
-            {spread.medium ? <i className="seg-medium" style={{ width: share(spread.medium) }} title={spreadLabel.medium} /> : null}
-            {spread.low ? <i className="seg-low" style={{ width: share(spread.low) }} title={spreadLabel.low} /> : null}
-            {spread.clean ? <i className="seg-clean" style={{ width: share(spread.clean) }} title={spreadLabel.clean} /> : null}
+            {spreadKeys.map(key => <i key={key.tone} className={`seg-${key.tone}`} style={{ width: share(key.count) }} />)}
           </div>
           {/* Appointments, said with their noun: «5 مواعيد تمنع» can never be
-              read as «5 موانع» beside the bar's conflict count. */}
+              read as «5 موانع» beside the bar's conflict count. Every tier the
+              same way — blocks, needs-fix, notes, sound (approvalSpreadKeys). */}
           <div className="spread-keys">
-            {/* مفتاحٌ لكل شريحةٍ لها مواعيد — «لا مواعيد تمنع» لا يُكتب مفتاحاً (قاعدة إخفاء الفارغ). */}
-            {spread.high ? <span className="seg-high"><AlertTriangle aria-hidden="true" /><b>{countOf(spread.high, AR.appointment)}</b><small>{nounFor(spread.high, AR.blockVerb)}</small></span> : null}
-            {spread.medium ? <span className="seg-medium"><Wrench aria-hidden="true" /><b>{countOf(spread.medium, AR.appointment)}</b><small>للمعالجة</small></span> : null}
-            {spread.low ? <span className="seg-low"><ClipboardCheck aria-hidden="true" /><b>{countOf(spread.low, AR.note)}</b></span> : null}
-            {spread.clean ? <span className="seg-clean"><CheckCircle2 aria-hidden="true" /><b>{countOf(spread.clean, AR.appointment)}</b><small>{nounFor(spread.clean, AR.soundAdj)}</small></span> : null}
+            {spreadKeys.map(key => (
+              <span key={key.tone} className={`seg-${key.tone}`}>
+                {key.tone === "high" ? <AlertTriangle aria-hidden="true" /> : key.tone === "medium" ? <Wrench aria-hidden="true" /> : key.tone === "low" ? <Info aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+                <b>{key.counted}</b><small>{key.tail}</small>
+              </span>
+            ))}
           </div>
         </div>
 
@@ -984,20 +887,17 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                   <text x="32" y="34" className="ring-number">{score.toLocaleString("ar-KW-u-nu-latn")}</text>
                   <text x="32" y="45" className="ring-unit">/ 100</text>
                 </svg>
-                <div><small>مراجعة الاعتماد · {DECISION_1913_LABEL}</small><strong>{blocking.length ? "يوجد ما يمنع الاعتماد" : readinessError ? "تعذر فحص الموانع خارج القسم" : unclassifiedCourses ? "يلزم استكمال بيانات التدريس" : "لا توجد موانع ظاهرة"}</strong><span>{scopeLabel}</span>{unclassifiedCourses ? <small>{countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ نمط 7/8 غير مفحوص.</small> : null}</div>
+                <div><small>مراجعة الاعتماد · {DECISION_1913_LABEL}</small><strong>{printVerdict}</strong><span>{scopeLabel}</span>{unclassifiedCourses ? <small>{countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ نمط 7/8 غير مفحوص.</small> : null}</div>
               </section>
               <div className="print-review-spread" role="img" aria-label="توزيع المواعيد حسب نتيجة المراجعة">
                 <div className="print-spread-bar">
-                  {spread.high ? <i className="seg-high" style={{ width: share(spread.high) }} /> : null}
-                  {spread.medium ? <i className="seg-medium" style={{ width: share(spread.medium) }} /> : null}
-                  {spread.low ? <i className="seg-low" style={{ width: share(spread.low) }} /> : null}
-                  {spread.clean ? <i className="seg-clean" style={{ width: share(spread.clean) }} /> : null}
+                  {spreadKeys.map(key => <i key={key.tone} className={`seg-${key.tone}`} style={{ width: share(key.count) }} />)}
                 </div>
                 {blockerSummary.conflicts > 0 ? <p className="print-blocker-headline">يمنع الاعتماد: {blockingSummaryPhrase(blockerSummary.conflicts, blockerSummary.rows, blockerSummary.duplicates)}</p> : null}
-                <div className="print-spread-keys">{spread.high ? <span className="seg-high">{spreadLabel.high}</span> : null}{spread.medium ? <span className="seg-medium">{spreadLabel.medium}</span> : null}{spread.low ? <span className="seg-low">{spreadLabel.low}</span> : null}{spread.clean ? <span className="seg-clean">{spreadLabel.clean}</span> : null}</div>
+                <div className="print-spread-keys">{spreadKeys.map(key => <span key={key.tone} className={`seg-${key.tone}`}>{key.counted} {key.tail}</span>)}</div>
               </div>
               <section className="print-review-findings">
-                {reviewHasFindings(groupedFindings.length, warningGroups.length, ladderNotes.length) ? firstPrintPage.map(renderPrintFinding) : <div className="print-review-clear"><CheckCircle2 /><strong>{unclassifiedCourses ? "فحص غير مكتمل" : "لا توجد موانع ظاهرة"}</strong><span>{unclassifiedCourses ? `${countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ نمط المادة 7/8 غير مفحوص.` : "لا توجد موانع ظاهرة في هذا الفحص."}</span></div>}
+                {reviewHasFindings(groupedFindings.length, warningGroups.length, noteGroups.length) ? firstPrintPage.map(renderPrintFinding) : <div className="print-review-clear"><CheckCircle2 /><strong>{unclassifiedCourses ? "فحص غير مكتمل" : "لا توجد موانع ظاهرة"}</strong><span>{unclassifiedCourses ? `${countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ نمط المادة 7/8 غير مفحوص.` : "لا توجد موانع ظاهرة في هذا الفحص."}</span></div>}
               </section>
               {!printFollowupPages.length ? (
                 <div className="print-signatures print-explicit-page-meta">

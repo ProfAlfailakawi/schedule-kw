@@ -60,11 +60,13 @@ check(/<details key={finding\.groupKey} className=/.test(review)
   && /<div className="review-rows">/.test(review)
   && !/setOpen\(current => \(current === finding\.groupKey/.test(review),
   "بطاقات الموانع تستخدم فتحاً أصلياً من المتصفح مع الحفاظ على كل التفاصيل");
-check(/<details className="review-person">/.test(review)
-  && /<summary className="review-person-head"/.test(review)
-  && /review-course-deck/.test(review)
-  && /review-slot-flow/.test(review),
-  "الأستاذ يفتح المواد والأيام والشعب بتوسعة أصلية");
+/* المالك 2026-11-13: البند ← الأستاذ مرّةً واحدة ← مواعيدُه صفوفاً بوسم حرمها، لكل الأنواع. */
+check(/<section className="review-person"/.test(review)
+  && /<header className="review-person-head">/.test(review)
+  && /className="review-appt"/.test(review)
+  && /<CampusChip tag=\{campusOf\(row\)\} \/>/.test(review)
+  && !/renderFindingSubjects/.test(review),
+  "تحت كل بند: الأستاذ مرّةً واحدة ومواعيدُه بوسم الحرم، بلا عرضٍ ثانٍ بالحالات");
 const approvalCss = fs.readFileSync("src/styles/31-approval-atlas.css", "utf8");
 check(/\.review-finding>summary\s*\{/.test(approvalCss)
   && /\.review-person-head::-webkit-details-marker/.test(approvalCss)
