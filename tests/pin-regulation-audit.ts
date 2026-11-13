@@ -104,5 +104,27 @@ const publish = (await import("node:fs")).readFileSync("src/components/ScheduleP
 check(/app\.get\("\/api\/instructor-requests\/regulation-teachers", requirePermission\(7\)/.test(route) && /isScopeAllowed\(req, collegeId, sectionId\)/.test(route), "R4 المسارُ بإذن القسم ونطاقه");
 check(/regulation-teachers\?collegeId=/.test(publish) && /مخالفاتٌ للائحة/.test(publish) && /الإرسال متاح/.test(publish), "R4 الإرسالُ يُنبَّه ولا يُمنع");
 
+console.log("R5 وسمُ المخالفات بنطاق القارئ (طلبٌ يمتدّ على قسمين)");
+{
+  const { scopedPinViolations } = await import("../src/utils/pinViolations");
+  const spanning = {
+    items: [{ action: "keep", rowId: 1, before: { sectionId: 1 } }, { action: "keep", rowId: 2, before: { sectionId: 2 } }],
+    pinViolations: { at: "2026-11-13T00:00:00.000Z", issues: [
+      { itemIndex: 0, text: "مقرر القسم الأول: مخالفة", article: "م.7/8" },
+      { itemIndex: 1, text: "مقرر-القسم-الثاني-السري: مخالفة", article: "م.6/2" },
+      { itemIndex: 1, text: "مقرر-القسم-الثاني-السري: أخرى", article: "م.7/9" },
+    ] },
+  } as any;
+  const forFirst = scopedPinViolations(spanning, (item: any) => item.before.sectionId === 1);
+  check(forFirst?.issues.length === 1 && forFirst.elsewhere === 2 && !JSON.stringify(forFirst).includes("السري"), "R5 منسّقُ القسم الأول يرى سطرَه وعددَ ما في غيره، بلا اسم مقرّرٍ من خارج نطاقه", forFirst);
+  const forNone = scopedPinViolations(spanning, () => false);
+  check(forNone?.issues.length === 0 && forNone.elsewhere === 3 && !JSON.stringify(forNone).includes("مقرر"), "R5 ومن لا يرى بنداً يُعدّ له ولا يُفصَّل", forNone);
+  check(scopedPinViolations({ items: [] } as any, () => true) === undefined, "R5 وبلا وسمٍ لا شيء");
+  const source = (await import("node:fs")).readFileSync("src/server/routes/instructorRequestsRoutes.ts", "utf8");
+  const mutation = source.slice(source.indexOf("function requestForDepartment("), source.indexOf("function requestForDepartment(") + 1400);
+  check(/pinViolations: scopedPinViolations\(request, visible\)/.test(mutation) && /pinViolations: scopedPinViolations\(full, item => inSelection\(requestItemScope\(full, item\)\)\)/.test(source),
+    "R5 الواردُ وردودُ القرار (requestForDepartment) يمرّان بالدالّة نفسها");
+}
+
 console.log(`\npin regulation: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

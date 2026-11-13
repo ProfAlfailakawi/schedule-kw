@@ -91,7 +91,7 @@ try {
   const inboxSrc = fs.readFileSync("src/components/InstructorInbox.tsx", "utf8"), routeSrc = fs.readFileSync("src/server/routes/instructorRequestsRoutes.ts", "utf8");
   assert.ok(/جدول فيه مخالفات لائحية/.test(inboxSrc) && /row\.note \|\| row\.pinViolations/.test(inboxSrc) && /!row\.pinViolations && !isUnchangedConfirmed\(row\)/.test(inboxSrc),
     "بطاقةُ الوارد تعرض «جدول فيه مخالفات لائحية» ولا تدفنه في «الجدول كما هو»");
-  assert.ok(/pinViolations: full\.pinViolations\?\.issues\?\.length/.test(routeSrc) && /inSelection\(requestItemScope\(full, full\.items\[issue\.itemIndex\]\)\)/.test(routeSrc), "وسطورُ الوسم في نطاق القارئ وحده");
+  assert.ok(/pinViolations: scopedPinViolations\(full, item => inSelection\(requestItemScope\(full, item\)\)\)/.test(routeSrc) && /pinViolations: scopedPinViolations\(request, visible\)/.test(routeSrc), "وسطورُ الوسم في نطاق القارئ وحده، في الوارد وفي ردود القرار");
   console.log(`pin violations note HTTP: ${listed ? "inbox row checked · " : ""}all assertions passed`);
 } catch (error) {
   console.error(error);

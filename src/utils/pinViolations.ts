@@ -100,3 +100,17 @@ export function teachersWithRegulationIssues(scopeRows: readonly FSchedule[], co
   }
   return [...byTeacher.entries()].map(([instructorId, entry]) => ({ instructorId, notes: entry.notes }));
 }
+
+/**
+ * وسمُ «جدول فيه مخالفات لائحية» كما يراه قارئٌ بنطاقه — دالّةٌ واحدة للوارد ولردود القرار (requestForDepartment):
+ * سطورُ البنود التي يراها وحدها، وما في قسمٍ آخر يُعدّ (`elsewhere`) ولا يُفصَّل، فلا يصل اسمُ مقرّرٍ أو شعبةٍ من خارج نطاقه.
+ */
+export function scopedPinViolations<Item>(
+  request: { pinViolations?: { at: string; issues: Array<{ itemIndex: number; text: string; article: string }> }; items?: readonly Item[] },
+  visible: (item: Item) => boolean,
+): { at: string; issues: Array<{ itemIndex: number; text: string; article: string }>; elsewhere: number } | undefined {
+  const stored = request.pinViolations;
+  if (!stored?.issues?.length) return undefined;
+  const shown = stored.issues.filter(issue => { const item = request.items?.[issue.itemIndex]; return item !== undefined && visible(item); });
+  return { at: stored.at, issues: shown, elsewhere: stored.issues.length - shown.length };
+}

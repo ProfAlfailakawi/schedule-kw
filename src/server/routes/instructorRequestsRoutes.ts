@@ -19,7 +19,7 @@ import { normalizeInstructorDeadline, individualExceptionOpen } from "../../util
 import { slotTimeGroups } from "../../utils/slotTimeGroups";
 import { uniformPatternSlots } from "../../utils/requestMeetingLength";
 import { effectiveCourseHours } from "../../utils/scheduleRegulations";
-import { teachersWithRegulationIssues } from "../../utils/pinViolations";
+import { scopedPinViolations, teachersWithRegulationIssues } from "../../utils/pinViolations";
 import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
 import { awaitedItemIndexes } from "../../utils/linkedRequestItems";
 import { roleLabel } from "../../utils/academicRoles";
@@ -71,6 +71,8 @@ function requestForDepartment(req: AuthenticatedRequest, request: InstructorRequ
   return { ...request, signatureHistory: undefined, archivedItems: undefined,
     signature: request.signature ? { ...request.signature, signedItems: allVisible ? request.signature.signedItems : undefined } : undefined,
     notes: allVisible ? (request as any).notes : [],
+    /* وسمُ المخالفات بنطاق القارئ نفسه، كما في الوارد (scopedPinViolations). */
+    pinViolations: scopedPinViolations(request, visible),
     items: request.items.map(item => visible(item) ? item : ({
       rowId: item.action === "delete" || item.action === "change" ? item.rowId ?? null : null,
       action: item.action === "delete" || item.action === "change" ? item.action : "keep",
@@ -620,10 +622,7 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
       signatureHistory: undefined,
     archivedItems: undefined,
       /* «جدول فيه مخالفات لائحية»: سطورُ ما في هذا النطاق وحده؛ وما في قسمٍ آخر يُعدّ ولا يُفصَّل. */
-      pinViolations: full.pinViolations?.issues?.length ? (() => {
-        const shown = full.pinViolations!.issues.filter(issue => full.items?.[issue.itemIndex] && inSelection(requestItemScope(full, full.items[issue.itemIndex])));
-        return { at: full.pinViolations!.at, issues: shown, elsewhere: full.pinViolations!.issues.length - shown.length };
-      })() : undefined,
+      pinViolations: scopedPinViolations(full, item => inSelection(requestItemScope(full, item))),
       items: (full.items || []).map((item, index) => inSelection(requestItemScope(full, item))
         ? (awaited.has(index) ? { ...item, awaitedElsewhere: true } : item)
         : hiddenItem(item)),
