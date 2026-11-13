@@ -856,16 +856,23 @@
         {
           "ar": "مع state.databaseDown: ok=false وdatabase=down وref من state.databaseDownRef.",
           "en": "With state.databaseDown: ok=false, database=down and ref taken from state.databaseDownRef."
+        },
+        {
+          "ar": "GET /api/health?warm=1 (نداء التسخين المجدول، بلا مصادقة) يجدّد من الذاكرة القصيرة ما بقي من عمره 90 ثانية أو أقل وحده، ويُتجاهل إن سبقه تسخينٌ بأقل من 60 ثانية، ولا ينتظر أكثر من 8 ثوانٍ، ويجيب الفحصَ نفسه في كل حال.",
+          "en": "GET /api/health?warm=1 (the scheduled warm-up call, unauthenticated) refreshes only short-memory entries with 90 seconds or less left to live, is ignored when a warm-up ran less than 60 seconds earlier, never waits more than 8 seconds, and answers the same health check in every case."
         }
       ],
       "evidence": {
         "code": [
           "src/server/routes/systemRoutes.ts",
-          "src/server/core/state.ts"
+          "src/server/core/state.ts",
+          "src/db/referenceCache.ts#expireForWarmup",
+          "src/db/referenceCache.ts#beginWarmup"
         ],
         "tests": [
           "tests/updating-page-audit.ts",
-          "tests/instructor-offering-flow-audit.ts"
+          "tests/instructor-offering-flow-audit.ts",
+          "tests/final-audit-gaps-audit.ts"
         ]
       }
     },

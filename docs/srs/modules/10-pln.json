@@ -2087,6 +2087,10 @@
         {
           "ar": "إعادة التثبيت لمقترح مثبّت تعيد alreadyCommitted ولا تكرر الكتابة.",
           "en": "Re-committing a committed proposal returns alreadyCommitted and does not write twice."
+        },
+        {
+          "ar": "تثبيتٌ (confirm=true) يخالف قاعدةً لا تمنع من قرار 1913/2016 (السُّلّم، وقت الشعبة الثابت، التتالي) يُردّ في الخادم 409 برمز regulation-exception ولا يُكتب شيء، ويمضي بـregulationException=true ويُسجَّل في سجل التدقيق؛ والأيامُ البديلة لصفٍّ من شعبةٍ بصفوفٍ عدة تُحكم بالشعبة كلِّها فلا يُعرض يومٌ يكسر نمطها.",
+          "en": "A commit (confirm=true) that breaks a non-blocking rule of decision 1913/2016 (ladder, fixed section start, consecutive lectures) is refused on the server with 409 code regulation-exception and nothing written; it proceeds with regulationException=true and is recorded in the audit log; alternative days for one row of a multi-row section are judged by the whole section, so a day that breaks its pattern is never offered."
         }
       ],
       "evidence": {
@@ -2094,10 +2098,12 @@
           "src/server/studyProposalRoutes.ts",
           "src/utils/studyProposal.ts",
           "src/server/studyProposalRoutes.ts#/api/study-proposals/:id/commit",
-          "src/server/studyProposalRoutes.ts#/api/study-proposals/:id/undo-commit"
+          "src/server/studyProposalRoutes.ts#/api/study-proposals/:id/undo-commit",
+          "src/server/studyProposalEngine.ts#sectionDayVariants"
         ],
         "tests": [
-          "tests/study-proposal-flow-audit.ts"
+          "tests/study-proposal-flow-audit.ts",
+          "tests/final-audit-gaps-audit.ts"
         ]
       }
     },
