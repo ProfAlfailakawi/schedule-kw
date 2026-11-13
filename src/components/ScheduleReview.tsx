@@ -723,7 +723,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                   ) : null}
                 </span>
                 <span className="review-finding-side">
-                  <span className="review-finding-tags"><em>{finding.article}</em><i>{findingStatus(finding)}</i></span>
+                  <span className="review-finding-tags"><em>{finding.article}</em><i>{findingStatus(finding)}</i><ChevronDown className="review-finding-chevron" aria-hidden="true" /></span>
                   {segment && gain > 0 ? (
                     <span className="review-score-fix-gain" data-score-fix={segment.key} aria-label={`لو عولج هذا البند وحده تصبح الدرجة ${segment.projected}`}>
                       <TrendingUp aria-hidden="true" />
@@ -742,7 +742,6 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                       <Wrench aria-hidden="true" /> عالج
                     </button>
                   ) : null}
-                  <ChevronDown className="review-finding-chevron" aria-hidden="true" />
                 </span>
               </summary>
               {cardOpen ? <div className="review-rows">

@@ -81,7 +81,7 @@
 
 /* ── كلُّ بندٍ شريطٌ مطويّ، والأستاذ سطرٌ يُفتح على مواعيده (المالك 2026-11-14) ── */
 @media screen{
-  .review-finding-chevron{width:18px;height:18px;flex:none;color:var(--muted-2);transition:transform .2s ease;justify-self:end}
+  .review-finding-chevron{width:18px;height:18px;flex:none;align-self:center;margin-inline-start:2px;color:var(--muted-2);transition:transform .2s ease}
   .review-finding[open] .review-finding-chevron{transform:rotate(180deg);color:var(--accent,#176d59)}
   .review-finding:not([open])>summary{border-bottom:0}
   .review-finding[open]>.review-rows{animation:rise .2s var(--ease-out) both}
