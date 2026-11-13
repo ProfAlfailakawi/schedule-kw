@@ -10,9 +10,11 @@
  *  B1  الشارة: عجزٌ يغطيه نقلٌ مقترح ليس أخضر.
  *  U1  المقررات اتحاد التقريرين: ما في تقرير الخريجين وحده لا يسقط.
  *  F1  حقائق المقرر لكل AdCourseId (لحكم «حذف مقرر» وشارة المراجعة).
+ *  A2  أكثر من 40 مقرراً: القائمة تُقص عند 40، والأرقام الكلية من البنود كلها (الخادم يرسل alertSummary).
  *  A1  تنبيه الجدول الدراسي: «بلا شعبة» للعائلة ونقص المقاعد، وتوزيعهما على المسارين، ولا تنبيه حين خُدم الجميع.
  */
-import { courseDemandFacts, demandAlertSummary, demandBadgeTone, demandSupply, seatCap, DEFAULT_SEAT_CAP } from "../src/utils/actualDemandSupply";
+import fs from "fs";
+import { courseDemandFacts, demandAlertSummary, demandBadgeTone, supplyView, SUPPLY_LIST_LIMIT, demandSupply, seatCap, DEFAULT_SEAT_CAP } from "../src/utils/actualDemandSupply";
 import type { DemandCourse, DemandMatch, DemandReport } from "../src/utils/actualDemand";
 
 let passed = 0, failed = 0;
@@ -136,5 +138,17 @@ check(split.show && split.uncovered === 0 && split.seats === 25 && split.byTrack
   "A1 شعبٌ للبنين فقط: العائلة ليست «بلا شعبة»، لكن البنات بلا شعبة وينقصهن 25 مقعداً", split);
 check(!demandAlertSummary([]).show && !demandAlertSummary([{ sections: 1, unmetStudents: 0, unmetGraduates: 0, branches: [] }]).show,
   "A1 بلا تقرير أو بلا عجز: لا تنبيه");
+/* A2 */
+const many = Array.from({ length: 45 }, (_, index) => ({
+  code: `0109${String(100 + index)}`, name: `مقرر ${index}`, demand: 10, graduates: index < 3 ? 2 : 0, cap: 60, capAssumed: false,
+  sections: 0, seats: 0, gap: 1, unmetStudents: 10, unmetGraduates: index < 3 ? 2 : 0,
+  branches: [{ track: "" as const, demand: 10, graduates: index < 3 ? 2 : 0, sections: 0, seats: 0, gap: 1, colleges: [] }], move: null,
+}));
+const view = supplyView(many);
+check(view.list.length === SUPPLY_LIST_LIMIT && view.total === 45 && view.summary.uncovered === 45 && view.summary.seats === 450 && view.summary.graduates === 6,
+  "A2 45 مقرراً بلا شعبة: القائمة 40، والملخّص 45 مقرراً و450 مقعداً و6 خريجين من البنود كلها", { list: view.list.length, total: view.total, summary: view.summary });
+const serverSource = fs.readFileSync("src/server/actualDemand.ts", "utf8");
+check(/supplyView\(supply\.items\)/.test(serverSource) && /alertSummary: view/.test(serverSource) && !/\.slice\(0, 40\)/.test(serverSource),
+  "A2 demandReading يرسل alertSummary من البنود كلها ولا يقص القائمة يدوياً");
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

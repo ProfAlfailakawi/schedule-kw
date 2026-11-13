@@ -14,7 +14,8 @@ import CourseTags from "./CourseTags";
 import { Num } from "./ui";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { DEMAND_VARIANT_LABEL, guessDemandVariant, type DemandVariant } from "../utils/actualDemand";
-import { openActualDemandFix } from "../utils/actualDemandHandoff";
+import { announceActualDemandChange, openActualDemandFix } from "../utils/actualDemandHandoff";
+import type { DemandAlertSummary } from "../utils/actualDemandSupply";
 
 interface Target { courseId: number; collegeId: number; sectionId: number; track: string }
 interface Alert { code: string; name: string; students: number; boys: number; girls: number; graduates: number; targets: Target[] }
@@ -42,6 +43,9 @@ export interface DemandReadingView {
   /** «نسبة خدمة الطلب» (٪) للعام وللخريجين ولكل مسار؛ null قبل الرفع. */
   service: { general: number | null; graduates: number | null; byTrack: Array<{ track: string; general: number | null; graduates: number | null }> } | null;
   supply: SupplyItemView[];
+  /** أرقام التنبيه من كل البنود على الخادم (القائمة supply مقصوصة)، وعددُ البنود قبل القص. */
+  alertSummary?: DemandAlertSummary | null;
+  supplyTotal?: number;
   alerts: Alert[];
   unmatched: Array<{ code: string; name: string; students: number }>;
   catalogue: Array<{ courseId: number; code: string; name: string }>;
@@ -112,7 +116,7 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
     try {
       const url = `/api/actual-demand/upload?${query}&variant=${kind}${commit ? "&commit=1" : ""}${confirm ? "&confirm=1" : ""}`;
       const body = await readJson(await fetch(url, { method: "POST", credentials: "include", headers: { "content-type": "application/octet-stream" }, body: picked }));
-      if (commit) { show(body.reading); setPreview(null); setFile(null); }
+      if (commit) { show(body.reading); setPreview(null); setFile(null); announceActualDemandChange(); }
       else setPreview(body.preview);
     } catch (failure: any) {
       setError(failure?.message || "تعذّرت قراءة الملف.");
@@ -141,6 +145,7 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
         body: JSON.stringify({ collegeId, sectionId, termId, code, ...payload }),
       }));
       show(body);
+      announceActualDemandChange();
     } catch (failure: any) { setError(failure?.message || "تعذّر الحفظ."); }
     finally { setLinking(false); }
   };

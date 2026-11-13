@@ -234,3 +234,15 @@ export function demandAlertSummary(items: readonly DemandAlertItem[]): DemandAle
     byTrack: [...tracks].sort((a, b) => order(a[0]) - order(b[0])).map(([track, at]) => ({ track, ...at })),
   };
 }
+
+/** حدُّ القائمة المرسلة إلى الشاشة؛ والأرقام الكلية تُحسب قبله من كل البنود. */
+export const SUPPLY_LIST_LIMIT = 40;
+
+/**
+ * ما يُرسل للشاشة من العرض والطلب: القائمةُ (ما فيه عجزٌ أو فائضٌ أو نقل) مقصوصةً بحدّها،
+ * وملخّصُ التنبيه وعددُ البنود من البنود كلها — فلا ينقص رقمُ الشارة حين تطول القائمة.
+ */
+export function supplyView<T extends SupplyItem>(items: readonly T[], limit = SUPPLY_LIST_LIMIT): { list: T[]; total: number; summary: DemandAlertSummary } {
+  const notable = items.filter(item => item.gap !== 0 || item.unmetGraduates > 0 || item.unmetStudents > 0 || item.move);
+  return { list: notable.slice(0, limit), total: notable.length, summary: demandAlertSummary(items) };
+}

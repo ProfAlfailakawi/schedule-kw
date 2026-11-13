@@ -14,7 +14,7 @@ import { isScopeAllowed } from "./core/scope";
 import { departmentFamily, departmentFamilyKey } from "../utils/sectionLabel";
 import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import { trackOf } from "../utils/collegeTrack";
-import { courseDemandFacts, demandSupply, type SupplyCapacity } from "../utils/actualDemandSupply";
+import { courseDemandFacts, demandSupply, supplyView, type SupplyCapacity } from "../utils/actualDemandSupply";
 import { graduateClashes, graduateImpactOf } from "../utils/actualDemandGraduates";
 import { capacityContextForSection } from "./core/capacityRules";
 import {
@@ -194,6 +194,7 @@ export function demandReading(context: DemandContext) {
   };
   const members = context.family.members;
   const supply = base ? demandSupplyOf(context) : null;
+  const view = supply ? supplyView(supply.items) : null;
   return {
     /* «نسبة خدمة الطلب» وقائمة المقررات بالأشد (أقصر من عشرين بنداً تُعرض؛ والمتوازن لا يُعرض). */
     service: supply ? { ...supply.service, byTrack: supply.byTrack } : null,
@@ -204,7 +205,10 @@ export function demandReading(context: DemandContext) {
       .slice(0, 12).map(clash => ({ ...clash,
         a: { ...courseFace(context, clash.a.code, clash.a.name), courseIds: context.matches.get(clash.a.code)?.courseIds || [] },
         b: { ...courseFace(context, clash.b.code, clash.b.name), courseIds: context.matches.get(clash.b.code)?.courseIds || [] } })),
-    supply: supply ? supply.items.filter(item => item.gap !== 0 || item.unmetGraduates > 0 || item.unmetStudents > 0 || item.move).slice(0, 40)
+    /* أرقام تنبيه الجدول الدراسي من البنود كلها، لا من القائمة المقصوصة؛ وsupplyTotal عددُ بنود القائمة قبل القص. */
+    alertSummary: view ? view.summary : null,
+    supplyTotal: view ? view.total : 0,
+    supply: view ? view.list
       .map(item => ({ ...item, ...courseFace(context, item.code, item.name), report: item.code, targets: targetsOf(context, context.matches.get(item.code)?.courseIds || []) })) : [],
     family: { key: context.family.key, name: context.family.name, members: members.map(({ collegeId, sectionId, collegeName, track }) => ({ collegeId, sectionId, collegeName, track })) },
     variants: { general: variant("general"), graduates: variant("graduates") },

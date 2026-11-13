@@ -1689,13 +1689,21 @@
         {
           "ar": "بلا تقرير أو بلا عجز: لا شارة ولا قائمة.",
           "en": "Without a report or without a shortage: no badge and no list."
+        },
+        {
+          "ar": "45 مقرراً بلا شعبة: القائمة المرسلة 40 بنداً، والشارة تقول 45 لأن الخادم يحسب الملخّص من البنود كلها.",
+          "en": "45 courses without a section: the list sent holds 40 items, and the badge says 45 because the server computes the summary from all items."
+        },
+        {
+          "ar": "رفعُ تقرير أو ربطُ مقرر من أدوات البيانات يُحدّث الشارة في الجدول الدراسي بلا إعادة تحميل.",
+          "en": "Uploading a report or matching a course from the data tools refreshes the badge in the study schedule without a reload."
         }
       ],
       "evidence": {
         "code": [
           "src/components/ActualDemandAlert.tsx",
           "src/components/ApprovalBar.tsx",
-          "src/utils/actualDemandSupply.ts#demandAlertSummary",
+          "src/utils/actualDemandSupply.ts#demandAlertSummary", "src/utils/actualDemandSupply.ts#supplyView", "src/server/actualDemand.ts#demandReading",
           "src/utils/actualDemandHandoff.ts#openActualDemandFix"
         ],
         "tests": [

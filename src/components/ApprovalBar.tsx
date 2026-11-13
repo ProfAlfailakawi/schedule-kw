@@ -172,7 +172,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   const gap = useSectionGap(collegeId, sectionId, termId, refreshSignal, gapOpen !== null);
   /* الطلب الفعلي (تقرير التسجيل): شارةٌ بجانب شارة التخطيط، ولا شيء بلا تقرير أو بلا عجز. */
   const demand = useActualDemand(collegeId, sectionId, termId, refreshSignal);
-  const demandSummary = useMemo(() => (demand ? demandAlertSummary(demand.supply) : null), [demand]);
+  const demandSummary = useMemo(() => (demand ? demand.alertSummary ?? demandAlertSummary(demand.supply) : null), [demand]);
   const [demandOpen, setDemandOpen] = useState(false);
   const planAdjustments = useMemo(() => reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems), [gap.planItems, gap.planSurplusItems]);
   /* K2: three shelves, decisions folded out, duplicates merged — the badge counts what is still open. */

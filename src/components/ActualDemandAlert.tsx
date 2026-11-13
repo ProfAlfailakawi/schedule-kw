@@ -10,6 +10,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Armchair, ChevronDown, ClipboardList, GraduationCap, OctagonAlert, X } from "lucide-react";
 import { DemandSupplyList, demandKindOf, type DemandReadingView } from "./ActualDemandPanel";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
+import { ACTUAL_DEMAND_CHANGED_EVENT } from "../utils/actualDemandHandoff";
 import { demandAlertSummary, type DemandAlertSummary } from "../utils/actualDemandSupply";
 
 const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
@@ -19,6 +20,13 @@ const TRACK_LABEL: Record<string, string> = { boys: "بنين", girls: "بنات
 export function useActualDemand(collegeId: number, sectionId: number, termId: number, refreshSignal = 0): DemandReadingView | null {
   const [reading, setReading] = useState<DemandReadingView | null>(null);
   const scope = `${collegeId}|${sectionId}|${termId}`;
+  /* رفعٌ أو ربطٌ من أدوات البيانات أو مركز التحليلات يُعلن نفسه، فتُعاد القراءة بلا إعادة تحميل. */
+  const [changed, setChanged] = useState(0);
+  useEffect(() => {
+    const bump = () => setChanged(value => value + 1);
+    window.addEventListener(ACTUAL_DEMAND_CHANGED_EVENT, bump);
+    return () => window.removeEventListener(ACTUAL_DEMAND_CHANGED_EVENT, bump);
+  }, []);
   useEffect(() => { setReading(null); }, [scope]);
   useEffect(() => {
     if (!collegeId || !sectionId || !termId) return;
@@ -28,7 +36,7 @@ export function useActualDemand(collegeId: number, sectionId: number, termId: nu
       .then(body => { if (!controller.signal.aborted) setReading(body && Array.isArray(body.supply) ? body : null); })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [scope, refreshSignal]);
+  }, [scope, refreshSignal, changed]);
   return reading;
 }
 
