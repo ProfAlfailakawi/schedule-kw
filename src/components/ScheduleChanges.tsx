@@ -37,6 +37,7 @@ import { isViewerOnlyRole } from "../utils/academicRoles";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import VisitingBadge from "./VisitingBadge";
 import ScheduleReview from "./ScheduleReview";
+import { changesReviewHeadline } from "../utils/changesReviewHeadline";
 import { DIFF_FIELD_LABEL, type DiffFieldKey } from "../utils/scheduleDiff";
 import { type PeriodBalanceData } from "../utils/scheduleRegulations";
 import { currentTermId, termIsArchive } from "../utils/termSequence";
@@ -531,7 +532,7 @@ function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExt
 const KIND_LABEL: Record<DiffEntry["kind"], string> = { added: "مضاف", removed: "محذوف", changed: "معدّل" };
 
 /* ── «مراجعة الاعتماد» واحدةٌ في المكانين (المالك 2026-11-14) ─────────────────
-   كانت هنا مراجعةٌ ثانية بدرجتها الخاصة (appointmentCoverageScore) وبطاقاتها، فقد
+   كانت هنا مراجعةٌ ثانية بدرجتها الخاصة (حسابُ تغطيةٍ آخر) وبطاقاتها، فقد
    يرى القسمُ للجدول نفسه رقمين. صارت الشاشةَ نفسَها التي في «الجدول الدراسي»
    (ScheduleReview) مدمجةً في الصفحة: الدرجةُ من approvalScoreBreakdown، والموانعُ
    المادّية وحدها «تمنع»، وبنودُ اللائحة «للمعالجة» — بالقاعدة نفسها. تقرأ من مسار
@@ -542,18 +543,6 @@ const NO_ROWS: FSchedule[] = [];
 const NO_COURSES = new Map<number, AdCourse>();
 const NO_INSTRUCTORS = new Map<number, AdInstructor>();
 const noop = () => undefined;
-
-/** حصيلةُ شريط المراجعة المطويّ: الموانعُ المادّية، ثم ما يحتاج معالجة، ثم الملاحظات — كترتيب عنوان المراجعة. */
-export function changesReviewHeadline(report: Pick<ChangeReport, "reviewBlockers" | "blockingConflicts" | "regulationNotices">) {
-  const material = Math.max((report.reviewBlockers || []).length, report.blockingConflicts || 0);
-  const needsFix = (report.regulationNotices || []).filter(item => item.approvalEffect === "block").length;
-  const notes = (report.regulationNotices || []).length - needsFix;
-  const tone = material ? "danger" : needsFix || notes ? "warn" : "good";
-  const label = material ? countOf(material, AR.approvalBlocker)
-    : needsFix ? `${countOf(needsFix, AR.item)} للمعالجة`
-      : notes ? countOf(notes, AR.note) : "لا ملاحظات";
-  return { material, needsFix, notes, tone, label };
-}
 
 function ChangesReviewOverview({ report, scope, termId, scopeLine, onJump }: {
   report: ChangeReport;
