@@ -215,7 +215,7 @@ import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
 import { changeFormPatch, openRowNotice, takeOpenRow, type RequestedChange } from "../utils/requestOpenRow";
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
-import { actualDemandNotice, graduateImpactNote, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
+import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, graduateImpactNote, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
 import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
 import { historicalDurationMinutes, pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
@@ -4925,14 +4925,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     pendingSectionRequest.current = seed;
     setMessage(sectionRequestNotice(seed));
   }, [mode, courses.length]);
-  /* ── بذرةٌ من «الطلب الفعلي»: مقررٌ يحتاجه الطلبة ولا شعبة له — المقرر والكلية والفصل، والباقي قرارُ اللجنة ── */
+  /* ── بذرةٌ من «الطلب الفعلي»: مقررٌ يحتاجه الطلبة ولا شعبة له — المقرر والكلية والفصل، والباقي قرارُ اللجنة ──
+     و«عالج» من تنبيه الطلب الفعلي في شريط الاعتماد يُرسل حدثاً: تُقرأ البذرة في مكانها بلا إعادة تحميل. */
+  const [actualDemandTick, setActualDemandTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setActualDemandTick(value => value + 1);
+    window.addEventListener(ACTUAL_DEMAND_HANDOFF_EVENT, bump);
+    return () => window.removeEventListener(ACTUAL_DEMAND_HANDOFF_EVENT, bump);
+  }, []);
   useEffect(() => {
     if (mode !== "schedule" || !courses.length) return;
     const seed = takeActualDemandHandoff();
     if (!seed) return;
     openCreate({ courseId: seed.courseId, collegeId: seed.collegeId, sectionId: seed.sectionId, termId: seed.termId });
     setMessage(actualDemandNotice(seed));
-  }, [mode, courses.length]);
+  }, [mode, courses.length, actualDemandTick]);
   const checkCache = useRef(new Map<string, { at: number; data: any }>());
   useEffect(() => { checkCache.current.clear(); }, [rows]);
   useEffect(() => {

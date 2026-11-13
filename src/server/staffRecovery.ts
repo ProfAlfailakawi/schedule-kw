@@ -171,7 +171,11 @@ export function recoveryNotifications(events: RecoveryEvent[], now = Date.now())
 
 /* ── المسارات ─────────────────────────────────────────────────────────────── */
 
-type Update<T> = (id: string, fn: (current: T | null) => { next: T; result: unknown } | { refuse: unknown }) => Promise<{ ok: boolean }>;
+/**
+ * كتابةٌ ذرّية. **القرارُ من ناتجها وحده**: في Firestore تُعاد الدالةُ داخل المعاملة عند التصادم،
+ * فأيُّ متغيّرٍ خارجيٍّ تكتبه محاولةٌ خاسرة يبقى كاذباً. `ok`/`result` هما ما ثبت فعلاً.
+ */
+type Update<T> = (id: string, fn: (current: T | null) => { next: T; result: unknown } | { refuse: unknown }) => Promise<{ ok: boolean; result?: unknown }>;
 
 export interface RecoveryDeps {
   isDemo: () => boolean;
@@ -220,12 +224,12 @@ export function registerStaffRecoveryRoutes(app: Express, deps: RecoveryDeps): v
     if (!login || !tail) { await settle(); res.status(400).json({ error: RECOVERY_NEUTRAL }); return; }
 
     /* المحاولةُ تُحسب أولاً وذرّياً — فلا تتسابق عشرُ محاولاتٍ متزامنة على خمسٍ مسموحة. */
-    let blockedUntil = 0;
-    await deps.updateDoc(guardId, (current: RecoveryGuard | null) => {
-      blockedUntil = guardBlockedUntil(current, now());
-      if (blockedUntil) return { refuse: true };
-      return { next: guardCounted(current, guardId, now()), result: true };
+    const counted = await deps.updateDoc(guardId, (current: RecoveryGuard | null) => {
+      const until = guardBlockedUntil(current, now());
+      if (until) return { refuse: until };
+      return { next: guardCounted(current, guardId, now()), result: 0 };
     });
+    const blockedUntil = counted.ok ? 0 : Number(counted.result) || now() + RECOVERY_BASE_LOCK_MS;
     if (blockedUntil) {
       await settle();
       res.status(429).json({ error: recoveryLockedMessage(blockedUntil, now()), code: "recovery-locked" });
@@ -238,12 +242,11 @@ export function registerStaffRecoveryRoutes(app: Express, deps: RecoveryDeps): v
     const ok = tailMatches(expected, tail);
 
     if (!ok) {
-      let locked = false;
-      await deps.updateDoc(guardId, (current: RecoveryGuard | null) => {
+      const failed = await deps.updateDoc(guardId, (current: RecoveryGuard | null) => {
         const next = guardAfterFailure(current || emptyGuard(guardId, now()), now());
-        locked = Boolean(next.lockedUntil && next.lockedUntil > now() && next.failures === 0);
-        return { next, result: true };
+        return { next, result: Boolean(next.lockedUntil && next.lockedUntil > now() && next.failures === 0) };
       });
+      const locked = failed.ok && failed.result === true;
       await deps.audit({ userId: user ? Number(user.SystemUserId) : 0, name: user ? String(user.Name || user.SystemUserLogin || "") : login, action: "استعادة كلمة السر — تحقق مرفوض", changes: locked ? "أُقفلت الاستعادة بعد خمس محاولات خاطئة" : "الأرقام الأربعة لا تطابق أو الحساب لا يُستعاد من هنا", status: 400 }).catch(() => undefined);
       await settle();
       res.status(400).json({ error: RECOVERY_NEUTRAL });
@@ -277,13 +280,12 @@ export function registerStaffRecoveryRoutes(app: Express, deps: RecoveryDeps): v
     if (next === LEGACY_SHARED_PASSWORD) { res.status(400).json({ error: "اختر كلمة سرٍّ غير الكلمة الموحّدة القديمة" }); return; }
 
     /* التذكرةُ تُستهلك ذرّياً: لا تُحفظ بها كلمتان. */
-    let claimed = false;
-    await deps.updateDoc(id, (current: RecoveryTicket | null) => {
-      if (!ticketUsable(current, user.SystemUserPass, now())) return { refuse: true };
-      claimed = true;
+    /* لا علمَ خارجيّ: المحاولةُ الخاسرة في معاملةٍ أُعيدت لا تترك أثراً يُصدَّق. يُحفظ فقط ما استهلك التذكرةَ فعلاً. */
+    const claim = await deps.updateDoc(id, (current: RecoveryTicket | null) => {
+      if (!ticketUsable(current, user.SystemUserPass, now())) return { refuse: false };
       return { next: { ...current!, usedAt: now() }, result: true };
     });
-    if (!claimed) { res.status(400).json({ error: RECOVERY_TICKET_DEAD, code: "recovery-ticket" }); return; }
+    if (!(claim.ok && claim.result === true)) { res.status(400).json({ error: RECOVERY_TICKET_DEAD, code: "recovery-ticket" }); return; }
 
     await deps.setPassword(Number(user.SystemUserId), {
       SystemUserPass: deps.hash(next), SystemUserPassVault: deps.vault(next), MustChangePassword: false, InitialPasswordExpiresAt: "",

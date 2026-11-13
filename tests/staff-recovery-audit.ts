@@ -35,6 +35,8 @@ function world() {
   const audits: any[] = [];
   const notified: RecoveryEvent[] = [];
   const ended: number[] = [];
+  const passwordWrites: number[] = [];
+  let retries = 0;
   const headPass = word(), staffPass = word(), adminPass = word(), bareSecret = word();
   const users: RecoveryAccount[] = [
     { SystemUserId: 10, Name: "رئيس قسم الرياضيات", SystemUserLogin: "math.head", SystemUserPass: hash(headPass), IsActive: true, IsLocked: false, Role: "departmentHead", AdInstructorId: 501 },
@@ -54,10 +56,21 @@ function world() {
     getUser: async id => users.find(user => user.SystemUserId === id),
     civilTail: async user => civil[Number(user.AdInstructorId || 0)] || "",
     getDoc: async id => docs.get(id) ?? null,
-    updateDoc: async (id, fn) => { const out: any = fn(docs.get(id) ?? null); if ("refuse" in out) return { ok: false }; docs.set(id, out.next); return { ok: true }; },
+    /* كمعاملة Firestore: تُقرأ اللقطة، ثم لحظةُ انتظار، فإن تغيّرت الوثيقةُ أُعيدت الدالةُ على الجديد (المحاولةُ الأولى تُرمى). */
+    updateDoc: async (id, fn) => {
+      for (;;) {
+        const snap = docs.get(id) ?? null;
+        const out: any = fn(snap);
+        await new Promise(resolve => setTimeout(resolve, 5));
+        if ((docs.get(id) ?? null) !== snap) { retries += 1; continue; }
+        if ("refuse" in out) return { ok: false, result: out.refuse };
+        docs.set(id, out.next);
+        return { ok: true, result: out.result };
+      }
+    },
     saveDoc: async (id, row) => { docs.set(id, row); },
     hash, vault: () => "", verify: (password, stored) => hash(password) === stored,
-    setPassword: async (id, fields) => { Object.assign(users.find(user => user.SystemUserId === id)!, fields); },
+    setPassword: async (id, fields) => { passwordWrites.push(id); Object.assign(users.find(user => user.SystemUserId === id)!, fields); },
     endSessions: async id => { ended.push(id); },
     audit: async entry => { audits.push(entry); },
     notifyAdmins: async event => { notified.push(event); },
@@ -65,7 +78,7 @@ function world() {
     minResponseMs: 0,
     ipLimit: 1000,
   });
-  return { app, docs, audits, notified, ended, users, headPass, advance: (ms: number) => { clock += ms; }, now: () => clock };
+  return { app, docs, audits, notified, ended, users, headPass, passwordWrites, retries: () => retries, advance: (ms: number) => { clock += ms; }, now: () => clock };
 }
 
 async function serve(app: express.Express) {
@@ -190,6 +203,26 @@ async function main() {
     check(stale.status === 400 && stale.json.code === "recovery-ticket", "T وتسقط إن تغيّرت الكلمة بعدها (أعادها المدير مثلاً)");
     const forged = await post("/api/auth/recover/complete", { ticket: "x".repeat(43), newPassword: word() + "Ff6" }, "10.6.6.7");
     check(forged.status === 400 && forged.json.code === "recovery-ticket", "T تذكرةٌ مزوّرة تُرفض");
+    server.close();
+  }
+
+  /* ── T · تذكرةٌ واحدة لطلبين متزامنين: معاملةٌ تُعاد لا تُحفظ بها كلمةٌ ثانية ── */
+  {
+    const w = world();
+    const { server, post } = await serve(w.app);
+    const ok = await post("/api/auth/recover/verify", { username: "math.head", tail: "1234" });
+    const first = word() + "Gg7", second = word() + "Hh8";
+    const [a, b] = await Promise.all([
+      post("/api/auth/recover/complete", { ticket: ok.json.ticket, newPassword: first }, "10.10.0.1"),
+      post("/api/auth/recover/complete", { ticket: ok.json.ticket, newPassword: second }, "10.10.0.2"),
+    ]);
+    const statuses = [a.status, b.status].sort().join();
+    check(statuses === "200,400", "T طلبان متزامنان بالتذكرة نفسها: يُقبل واحدٌ ويُرفض الآخر", [a, b]);
+    check(w.retries() > 0, "T المعاملةُ أُعيدت فعلاً (تصادمٌ محاكى)");
+    check(w.passwordWrites.length === 1, "T كلمةٌ واحدة تُكتب — الخاسرُ لا يكتب فوق الفائز", w.passwordWrites);
+    const winner = a.status === 200 ? first : second;
+    check(w.users[0].SystemUserPass === hash(winner), "T الكلمةُ الباقية كلمةُ الطلب المقبول");
+    check(w.notified.length === 1, "H إشعارٌ واحد لا اثنان");
     server.close();
   }
 
