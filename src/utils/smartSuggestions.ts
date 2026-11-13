@@ -21,7 +21,8 @@ import {
 } from "./timeMachine";
 import { activeDays, minutesToTime, timeToMinutes, type DayKey } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
-import { effectiveCourseHours, ladderStartNear, patternOnDays, type DayKey as RegulationDay } from "./scheduleRegulations";
+import { effectiveCourseHours, patternOnDays, type DayKey as RegulationDay } from "./scheduleRegulations";
+import { regulationStartsNear } from "./regulationCandidates";
 import { roomIdentityKey } from "./locationRegistry";
 import { roomSuitability } from "./roomSuitability";
 import { isTrainingAssistant } from "./taConversion";
@@ -325,7 +326,9 @@ export function simulatePatternConversion(context: TmContext, rowIds: number[], 
     const hours = effectiveCourseHours(course);
     const pattern = hours > 0 ? patternOnDays(hours, target as RegulationDay[]) : null;
     const longest = pattern ? Math.max(...pattern.minutesPerDay) : 0;
-    const startText = pattern ? ladderStartNear(target as RegulationDay[], timeToMinutes(row.fstarttime), longest) : null;
+    /* البدايةُ من المولّد اللائحي الواحد (regulationStartsNear) — الأقربُ إلى بداية الصفّ على سُلّم أيام النمط. */
+    const nearest = pattern ? regulationStartsNear(target as RegulationDay[], longest, timeToMinutes(row.fstarttime))[0] : undefined;
+    const startText = nearest === undefined ? null : minutesToTime(nearest);
     if (!pattern || !startText) {
       results.push({ rowId: Number(row.id), label, before, after: target.map(dayLabel).join(" + "), hall: "—", room: "none", teacherFree: true, approved: hours > 0 ? false : null });
       continue;

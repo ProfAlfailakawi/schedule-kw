@@ -25,8 +25,9 @@ import {
   minutesToTime, timeToMinutes, type ConflictInsight, type DayKey,
 } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
-import { effectiveCourseHours, patternsForHours, reviewSchedule, sectionDaysFitLibrary } from "./scheduleRegulations";
+import { effectiveCourseHours, reviewSchedule, sectionDaysFitLibrary, type DayKey as RegulationDay } from "./scheduleRegulations";
 import { findRepairChain, planDisruption, type RepairMove } from "./repairChain";
+import { regulationDaySwaps, regulationPlacementIssues, regulationShapes, regulationStarts, regulationStartsNear } from "./regulationCandidates";
 import { parseNaturalQuery, toEnglishDigits } from "./naturalQuery";
 import { roomIdentityKey } from "./locationRegistry";
 import { roomSuitability } from "./roomSuitability";
@@ -564,6 +565,23 @@ export function changedRowsFitPatterns(before: FSchedule[], after: FSchedule[], 
   });
 }
 
+/**
+ * ما يكتبه الحلُّ لا يفتح ورقةَ «المتابعة استثناءً» عند الحفظ (المالك 2026-11-13): صفٌّ تغيّر شكلُه يمرّ بالحَكَم الذي يقرؤه
+ * الحفظ (regulationPlacementIssues ← regulationExceptionIssues): بدايةٌ على السُّلّم، وطولٌ معتمد، وأيامٌ من المكتبة.
+ */
+export function changedRowsFollowRegulation(before: FSchedule[], after: FSchedule[], context: Pick<TmContext, "courses">): boolean {
+  const courses = courseMapOf(context);
+  const old = new Map(before.map(row => [Number(row.id), row] as const));
+  return after.every(row => {
+    const was = old.get(Number(row.id));
+    if (was && was.fstarttime === row.fstarttime && was.fendtime === row.fendtime && activeDays(was).join() === activeDays(row).join()) return true;
+    const days = activeDays(row) as RegulationDay[];
+    if (!days.length) return true;
+    return regulationPlacementIssues({ days, start: row.fstarttime, end: row.fendtime, hours: effectiveCourseHours(courses.get(Number(row.AdCourseId))) })
+      .every(issue => issue.rule === "pattern");
+  });
+}
+
 /** صفٌّ يكتبه الحلُّ يمرّ بفحص الحفظ كاملاً: تعارضٌ قائم عليه يُسقط اعتماده وإن لم يزد عددُ الموانع. */
 export function changedRowsClear(before: FSchedule[], after: FSchedule[], context: Pick<TmContext, "instructors">): boolean {
   const old = new Map(before.map(row => [Number(row.id), JSON.stringify(row)] as const));
@@ -643,33 +661,17 @@ export function suggestPlacements(board: FSchedule[], courseId: number, context:
   const placeholders = placeholderIdsOf(context);
   const siblings = board.filter(row => inScope(row) && Number(row.AdCourseId) === courseId);
   const pattern = siblings[0];
-  /* أشكالُ الشعبة الجديدة من مكتبة الأنماط لساعات المقرّر (المالك 2026-10-30): أيامُ الشعب القائمة تُقدَّم إن كانت نمطاً
-     معتمداً، ولا يُنسخ نمطٌ خارج المكتبة، والطولُ طولُ النمط. مقرّرٌ بلا ساعاتٍ في المكتبة يبقى على أيام شعبه وطولها. */
+  /* الأشكالُ والبداياتُ من المولّد اللائحي الواحد (regulationCandidates): أيامُ الشعب القائمة تتقدّم إن كانت نمطاً معتمداً،
+     ولا يُنسخ نمطٌ خارج المكتبة، والطولُ طولُ النمط، والبدايةُ على سُلّم اللائحة (م.7/8). مقرّرٌ بلا نمطٍ في المكتبة يبقى
+     على أيام شعبه بطولٍ لائحيّ قريبٍ من طولها. */
   const libraryHours = Math.round(Number(course?.CourseHours || course?.CourseCredit || 0));
-  const library = libraryHours ? patternsForHours(libraryHours).filter(entry => entry.minutesPerDay.every(value => value === entry.minutesPerDay[0])) : [];
   const fallbackMinutes = pattern ? durationOf(pattern) : Math.max(50, Math.round(Number(course?.CourseHours || course?.CourseCredit || 2) * 50));
-  const shapes: Array<{ days: DayKey[]; minutes: number }> = (library.length
-    ? [
-        ...(pattern ? uniquePatterns(siblings) : []).flatMap(set => {
-          const match = library.find(entry => entry.days.length > 1 && entry.days.length === set.length && entry.days.every(day => set.includes(day)));
-          return match ? [{ days: set, minutes: match.minutesPerDay[0] }] : [];
-        }),
-        ...library.flatMap(entry => entry.days.length === 1
-          ? TM_DAYS.map(day => ({ days: [day], minutes: entry.minutesPerDay[0] }))
-          : [{ days: [...entry.days], minutes: entry.minutesPerDay[0] }]),
-      ]
-    : (pattern ? uniquePatterns(siblings) : TM_DAYS.map(day => [day])).map(set => ({ days: set, minutes: fallbackMinutes })))
-    .filter((shape, at, all) => all.findIndex(other => other.days.join() === shape.days.join() && other.minutes === shape.minutes) === at);
-  /* البداياتُ على سُلّم اللائحة: القصيرةُ كل ساعةٍ من الثامنة، والطويلةُ 8:00 ثم 9:30… (والخليطُ كل نصف ساعة). */
-  const startsFor = (set: DayKey[], duration: number) => {
-    const long = set.filter(day => day === "fmonday" || day === "fwednesday").length;
-    const step = !long ? 60 : long === set.length ? 90 : 30;
-    const out: number[] = [];
-    let first = 8 * 60;
-    while (first - step >= SCHEDULE_DAY_START) first -= step;
-    for (let start = first; start + duration <= SCHEDULE_DAY_END; start += step) if (start >= SCHEDULE_DAY_START) out.push(start);
-    return out;
-  };
+  const shapes = regulationShapes(libraryHours, {
+    prefer: pattern ? uniquePatterns(siblings) : [],
+    fallback: pattern ? uniquePatterns(siblings) : TM_DAYS.map(day => [day]),
+    fallbackMinutes,
+  });
+  const startsFor = (set: DayKey[], duration: number) => regulationStarts(set, duration, { start: SCHEDULE_DAY_START, end: SCHEDULE_DAY_END });
   const index = new BusyIndex(board, placeholders);
   const courseTeachers = [...new Set(siblings.map(row => Number(row.AdInstructorId)).filter(id => id > 0 && !placeholders.has(id)))];
   const people = context.instructors.filter(person => !placeholders.has(Number(person.AdInstructorId)) && person.AdInstructorStatus !== "retired" && person.AdInstructorStatus !== "sabbatical");
@@ -921,9 +923,9 @@ export const PHILOSOPHY: Record<Philosophy, { title: string; icon: string }> = {
 };
 
 const moveFromRepair = (move: RepairMove, cause?: string): TmChange => ({
-  id: changeId("d"), op: "move", rowId: move.id, days: [move.day], start: move.start, end: move.end,
+  id: changeId("d"), op: "move", rowId: move.id, days: move.days, start: move.start, end: move.end,
   hall: { code: move.roomCode, hall: move.roomHall, buildingId: move.buildingId, roomId: move.roomId },
-  label: `${move.before.AdCourseName || "موعد"} ش${move.before.SCode} ← ${dayLabel(move.day)} ${move.start} · ${move.roomCode}-${move.roomHall}`,
+  label: `${move.before.AdCourseName || "موعد"} ش${move.before.SCode} ← ${move.days.map(dayLabel).join(" ")} ${move.start} · ${move.roomCode}-${move.roomHall}`,
   why: move.because, cause,
 });
 
@@ -975,23 +977,25 @@ function relocateRow(row: FSchedule, index: BusyIndex, context: TmContext, optio
   const ignore = new Set([Number(row.id)]);
   const course = courseMapOf(context).get(Number(row.AdCourseId));
   const halls = [rowHall(row), ...rankedHalls(context, course, rowHall(row))].filter(hall => hallKey(hall) !== options.avoidHall);
-  const options2: Array<{ days: DayKey[]; start: number; hall: TmHall; cost: number }> = [];
-  const replaceDay = (day: DayKey) => original.map(d => (d === options.avoidDay ? day : d));
-  const dayChoices: DayKey[][] = options.avoidDay && original.includes(options.avoidDay)
-    ? TM_DAYS.filter(day => !original.includes(day)).map(replaceDay)
-    : [original];
-  for (const days of dayChoices) {
-    for (let start = SCHEDULE_DAY_START; start + duration <= SCHEDULE_DAY_END; start += 30) {
-      if (!index.teacherFree(teacher, days, start, start + duration, ignore)) continue;
-      const hall = halls.find(item => index.roomFree(hallKey(item), days, start, start + duration, ignore));
+  const options2: Array<{ days: DayKey[]; start: number; minutes: number; hall: TmHall; cost: number }> = [];
+  /* الأيامُ البديلة والطولُ من مكتبة الأنماط، والبداياتُ من سُلّم اللائحة (regulationCandidates): نقلُ الاثنين·الأربعاء 80
+     إلى الأحد لا يحمل الثمانين معه، ولا يُقترح 9:30 على الأحد. */
+  const hours = effectiveCourseHours(course);
+  const shapes = regulationDaySwaps(hours, original as RegulationDay[], (options.avoidDay as RegulationDay) || null, duration);
+  for (const { days: set, minutes } of shapes) {
+    const days = set as DayKey[];
+    for (const start of regulationStartsNear(days, minutes, timeToMinutes(row.fstarttime), { start: SCHEDULE_DAY_START, end: SCHEDULE_DAY_END })) {
+      if (!index.teacherFree(teacher, days, start, start + minutes, ignore)) continue;
+      const hall = halls.find(item => index.roomFree(hallKey(item), days, start, start + minutes, ignore));
       if (!hall) continue;
-      let cost = Math.abs(start - timeToMinutes(row.fstarttime)) / 15 + (hallKey(hall) === roomIdentityKey(row) ? 0 : 3) + (start >= 16 * 60 ? 6 : 0);
+      let cost = Math.abs(start - timeToMinutes(row.fstarttime)) / 15 + (hallKey(hall) === roomIdentityKey(row) ? 0 : 3) + (start >= 16 * 60 ? 6 : 0)
+        + (days.length === original.length ? 0 : 4);
       if (options.preferTeacherDays && days.some(day => !teacherDays.has(day))) cost += 8;
-      options2.push({ days, start, hall, cost });
+      options2.push({ days, start, minutes, hall, cost });
     }
   }
   const best = options2.sort((a, b) => a.cost - b.cost)[0];
-  return best ? { days: best.days, start: minutesToTime(best.start), end: minutesToTime(best.start + duration), hall: best.hall } : null;
+  return best ? { days: best.days, start: minutesToTime(best.start), end: minutesToTime(best.start + best.minutes), hall: best.hall } : null;
 }
 
 const rowLabel = (row: FSchedule) => `${row.AdCourseName || "موعد"} ش${row.SCode}`;
@@ -1176,7 +1180,7 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
     if (seen.has(signature)) continue;
     seen.add(signature);
     const after = applyChanges(base, draft.changes);
-    if (!verifyNoNewBlocking(base, after, context) || !changedRowsFitPatterns(base, after, context) || !changedRowsClear(base, after, context)) continue;
+    if (!verifyNoNewBlocking(base, after, context) || !changedRowsFitPatterns(base, after, context) || !changedRowsFollowRegulation(base, after, context) || !changedRowsClear(base, after, context)) continue;
     const delta = compareBoards(base, after, context, beforeMetrics);
     const ok = satisfies(problem, base, after, context);
     solutions.push({

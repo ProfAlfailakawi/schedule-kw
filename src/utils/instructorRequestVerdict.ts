@@ -43,6 +43,7 @@ import { sameCourseSectionClash,
 import { findConflicts, minutesToTime } from "./scheduleIntelligence";
 import { rowsForRequestSlots } from "./instructorRequestWeek";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, isValidClock } from "./scheduleTime";
+import { regulationStarts } from "./regulationCandidates";
 import { roomIdentityKey } from "./locationRegistry";
 import { habitualBlockMinutes, historicalOrigin, type CourseNature } from "./courseNature";
 import { lengthPatternsForHours, meetingMinutes, meetingSlots, type OwnMeeting } from "./requestMeetingLength";
@@ -323,16 +324,11 @@ function instructorFree(instructorId: number, days: DayKey[], start: string, end
  *  ليس اختراعاً — هو الشبكةُ التي تُبنى عليها الجداول أصلاً — ويُستعمل مع سُلّم
  *  القسم لا بدلاً منه، فلا يبقى الأستاذُ بلا بديلٍ حين تمتلئ بداياتُ قسمه. */
 function regulationLadder(days: DayKey[]): string[] {
-  const long = days.some(day => day === "fmonday" || day === "fwednesday");
-  const short = days.some(day => day !== "fmonday" && day !== "fwednesday");
-  /* مرساه الثامنة بخطوته، ويمتد في الاتجاهين داخل الدوام الشامل؛ وبلا توسيع يقف حيث وقف دائماً. */
-  const step = long && !short ? 90 : 60;
-  const last = SCHEDULE_DAY_END > 20 * 60 ? SCHEDULE_DAY_END : Math.min(SCHEDULE_DAY_END, step === 90 ? 18 * 60 + 30 : 18 * 60);
-  let first = 8 * 60;
-  while (first - step >= SCHEDULE_DAY_START) first -= step;
-  const out: string[] = [];
-  for (let at = first; at <= last; at += step) if (at >= SCHEDULE_DAY_START) out.push(minutesToTime(at));
-  return out;
+  /* من المولّد اللائحي الواحد (regulationStarts): لا جدولَ سُلّمٍ هنا، ولا بدايةَ قبل الثامنة يسألها الحفظُ استثناءً.
+     وبلا توسيعٍ للدوام يقف حيث وقف دائماً (18:00 للقصيرة و18:30 للطويلة). */
+  const long = days.length > 0 && days.every(day => day === "fmonday" || day === "fwednesday");
+  const last = SCHEDULE_DAY_END > 20 * 60 ? SCHEDULE_DAY_END : Math.min(SCHEDULE_DAY_END, long ? 18 * 60 + 30 : 18 * 60);
+  return regulationStarts(days as any, 0, { start: SCHEDULE_DAY_START, end: last + 1 }).map(minutesToTime);
 }
 
 function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: string[], week: FSchedule[], identity: number): RequestSlot[] {

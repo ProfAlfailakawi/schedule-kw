@@ -74,13 +74,16 @@ export function regulationLengthFor(days: readonly DayKey[], weeklyHours: number
   const uniform = patternsForHours(hours).filter(pattern => pattern.minutesPerDay.every(value => value === pattern.minutesPerDay[0]));
   const exact = uniform.find(pattern => pattern.days.length > 1 && sameSet(pattern.days, set));
   if (exact) return exact.minutesPerDay[0];
-  const blocks = set.length === 1 ? uniform.filter(pattern => pattern.days.length === 1).map(pattern => pattern.minutesPerDay[0]) : [];
+  /* يومٌ واحد: كتلُ المكتبة (لأيّ يوم) وأطوالُ هذا اليوم في أنماطها (صفٌّ من نمطٍ يُبنى صفّاً صفّاً). */
+  const blocks = set.length === 1 ? patternsForHours(hours).flatMap(pattern => pattern.days.length === 1
+    ? [pattern.minutesPerDay[0]]
+    : pattern.days.flatMap((day, index) => (day === set[0] ? [pattern.minutesPerDay[index]] : []))) : [];
   if (blocks.includes(wanted)) return wanted;
   const periods = Math.max(1, hours || 5);
   const flags = Object.fromEntries(set.map(day => [day, true]));
   const lengths = new Set<number>(blocks);
   for (let k = 1; k <= periods; k++) for (const lecture of [50, 80]) lengths.add(k * lecture + (k - 1) * 10);
-  const fits = [...lengths].filter(length => !lectureLengthProblem({ ...flags, fstarttime: "08:00", fendtime: clock(8 * 60 + length) }, periods));
+  const fits = [...lengths].filter(length => !lectureLengthProblem({ ...flags, fstarttime: "08:00", fendtime: clock(8 * 60 + length) }, hours || periods));
   if (!fits.length) return null;
   const target = wanted > 0 ? wanted : Math.min(...fits);
   return fits.sort((a, b) => Math.abs(a - target) - Math.abs(b - target) || a - b)[0];

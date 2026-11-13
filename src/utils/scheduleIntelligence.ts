@@ -4,6 +4,7 @@ import { AR, countOf, nounFor } from "./arabicCount";
 import { placeholderInstructorIds as placeholderIdsOf } from "./instructorIdentity";
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { formatScheduleTimeRange, scheduleClockForDisplay, SCHEDULE_DAY_END, SCHEDULE_DAY_SPAN, SCHEDULE_DAY_START, SCHEDULE_SLOT_MINUTES } from "./scheduleTime";
+import { regulationStarts } from "./regulationCandidates";
 
 export type DayKey = "fsunday"|"fmonday"|"ftuesday"|"fwednesday"|"fthursday";
 export const SCHEDULE_DAYS: Array<{key:DayKey;label:string}> = [
@@ -848,7 +849,8 @@ export function conflictSolutions(row:FSchedule, allRows:FSchedule[], max=5){
   if(roomKey(row))roomScope.add(roomKey(row));
   const relevant=allRows.filter(r=>Number(r.AdInstructorId)===Number(row.AdInstructorId)||roomScope.has(roomKey(r)));
   const dur=Math.max(30,duration(row)); const original=timeToMinutes(row.fstarttime); const candidates:Array<any>=[];
-  for(let start=SCHEDULE_DAY_START;start+dur<=SCHEDULE_DAY_END;start+=SCHEDULE_SLOT_MINUTES){
+  /* البداياتُ من سُلّم اللائحة لأيام الصفّ (regulationStarts — المولّدُ الواحد)، لا كلُّ نصف ساعة. */
+  for(const start of regulationStarts(activeDays(row),dur,{start:SCHEDULE_DAY_START,end:SCHEDULE_DAY_END})){
     const currentRoom=row.roomId&&row.buildingId?{key:roomKey(row),code:row.AdRoomCode,hall:row.AdRoomHall,buildingId:row.buildingId,roomId:row.roomId}:null;
     for(const room of [...(currentRoom?[currentRoom]:[]),...preferredRooms]){
       const candidate={...row,fstarttime:minutesToTime(start),fendtime:minutesToTime(start+dur),AdRoomCode:room.code,AdRoomHall:room.hall,buildingId:room.buildingId,roomId:room.roomId,locationStatus:"VERIFIED" as const};
@@ -877,7 +879,8 @@ export function autoScheduleProposal(targetRows:FSchedule[], allRows:FSchedule[]
     const originalUniverse=[...external,...placed,...remaining];
     const originalConflicts=candidateConflictCount(row,originalUniverse,row.id);
     let best={row:{...row},score:originalConflicts*10000};
-    for(let start=SCHEDULE_DAY_START;start+dur<=SCHEDULE_DAY_END;start+=SCHEDULE_SLOT_MINUTES){
+    /* البداياتُ على سُلّم اللائحة لأيام الصفّ؛ والموضعُ الأصلي يبقى خياراً «بلا تغيير». */
+    for(const start of regulationStarts(activeDays(row),dur,{start:SCHEDULE_DAY_START,end:SCHEDULE_DAY_END})){
       const candidate={...row,fstarttime:minutesToTime(start),fendtime:minutesToTime(start+dur)};
       const universe=[...external,...placed,...remaining];
       const conflicts=candidateConflictCount(candidate,universe,row.id);

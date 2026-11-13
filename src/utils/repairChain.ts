@@ -8,6 +8,7 @@ import {
   type DayKey,
 } from "./scheduleIntelligence";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START, SCHEDULE_SLOT_MINUTES } from "./scheduleTime";
+import { regulationStarts } from "./regulationCandidates";
 import { roomIdentityKey } from "./locationRegistry";
 
 /**
@@ -37,6 +38,8 @@ export interface RepairMove {
   before: FSchedule;
   /** Only the placement changes; identity, course and section never do. */
   day: DayKey;
+  /** أيامُ الصفّ كلُّها بعد النقل: صفٌّ بأيامٍ عدة يبقى على أيامه (نمطُه) ويتحرّك وقتُه فقط. */
+  days: DayKey[];
   start: string;
   end: string;
   buildingId: string;
@@ -65,9 +68,10 @@ const step = SCHEDULE_SLOT_MINUTES;
 const duration = (row: FSchedule) =>
   Math.max(step, timeToMinutes(row.fendtime) - timeToMinutes(row.fstarttime));
 
-const placed = (row: FSchedule, day: DayKey, start: string): FSchedule => {
+const placed = (row: FSchedule, days: DayKey | readonly DayKey[], start: string): FSchedule => {
   const next: any = { ...row };
-  SCHEDULE_DAYS.forEach(d => { next[d.key] = d.key === day; });
+  const set: readonly DayKey[] = typeof days === "string" ? [days] : days;
+  SCHEDULE_DAYS.forEach(d => { next[d.key] = set.includes(d.key); });
   next.fstarttime = start;
   next.fendtime = minutesToTime(timeToMinutes(start) + duration(row));
   return next as FSchedule;
@@ -77,13 +81,27 @@ type RoomPlacement={key:string;buildingId:string;roomId:string;code:string;hall:
 const withRoom = (row: FSchedule, room: RoomPlacement): FSchedule =>
   ({ ...row, buildingId:room.buildingId,roomId:room.roomId,AdRoomCode:room.code,AdRoomHall:room.hall,locationStatus:"VERIFIED" });
 
-/** Every whole-slot start a lecture of this length could legally begin at. */
-function slotsFor(row: FSchedule): string[] {
-  const span = duration(row);
-  const out: string[] = [];
-  for (let at = SCHEDULE_DAY_START; at + span <= SCHEDULE_DAY_END; at += step)
-    out.push(minutesToTime(at));
-  return out;
+/**
+ * Every start a lecture of this length could legally begin at on these days:
+ * the regulation ladder (م.7/8) from the one shared generator — never a free
+ * half-hour that the save would then question as an exception.
+ */
+function slotsFor(row: FSchedule, days: readonly DayKey[]): string[] {
+  return regulationStarts(days as any, duration(row), { start: SCHEDULE_DAY_START, end: SCHEDULE_DAY_END }).map(minutesToTime);
+}
+
+/**
+ * The day sets a row may move to. A row that meets on several days is one
+ * approved pattern and keeps it — only its hour moves. A single-day row may
+ * change day inside its own family (Sun/Tue/Thu or Mon/Wed), so its length
+ * stays a regulation length.
+ */
+const LONG_DAYS: readonly DayKey[] = ["fmonday", "fwednesday"];
+function daySetsFor(row: FSchedule): DayKey[][] {
+  const own = activeDays(row);
+  if (own.length !== 1) return own.length ? [own] : [];
+  const long = LONG_DAYS.includes(own[0]);
+  return SCHEDULE_DAYS.map(day => day.key).filter(day => LONG_DAYS.includes(day) === long).map(day => [day]);
 }
 
 /** The rooms this department actually uses, learned from the board itself. */
@@ -132,24 +150,25 @@ function candidatesFor(row: FSchedule, rows: FSchedule[], estate: RoomPlacement[
   const currentKey=roomIdentityKey(row);
   const currentRoom:RoomPlacement|undefined=currentKey&&row.buildingId&&row.roomId?{key:currentKey,buildingId:row.buildingId,roomId:row.roomId,code:String(row.AdRoomCode||""),hall:String(row.AdRoomHall||"")}:undefined;
   const rooms = [...(currentRoom?[currentRoom]:[]), ...estate.filter(room=>room.key!==currentKey)];
-  const out: Array<{ row: FSchedule; score: number; day: DayKey; start: string; room: RoomPlacement }> = [];
+  const out: Array<{ row: FSchedule; score: number; day: DayKey; days: DayKey[]; start: string; room: RoomPlacement }> = [];
   const currentDay = activeDays(row)[0];
-  for (const day of SCHEDULE_DAYS) {
-    for (const start of slotsFor(row)) {
+  for (const days of daySetsFor(row)) {
+    const day = { key: days[0] };
+    for (const start of slotsFor(row, days)) {
       for (const room of rooms) {
         if (!room.code || !room.hall) continue;
         if (day.key === currentDay && start === row.fstarttime &&
             room.key === currentKey) continue;
-        const candidate = withRoom(placed(row, day.key, start), room);
+        const candidate = withRoom(placed(row, days, start), room);
         let score = 0;
         // Keeping the hall is worth a lot: a room change is a notice to send.
         if (room.key === currentKey) score += 30;
         // Staying on a day the instructor already works costs them nothing.
-        if (mine.some(other => Boolean((other as any)[day.key]))) score += 24;
+        if (mine.some(other => days.some(key => Boolean((other as any)[key])))) score += 24;
         if (day.key === currentDay) score += 18;
         // Near their other lectures rather than stranded across a gap.
         const from = timeToMinutes(candidate.fstarttime), to = timeToMinutes(candidate.fendtime);
-        const sameDay = mine.filter(other => Boolean((other as any)[day.key]));
+        const sameDay = mine.filter(other => days.some(key => Boolean((other as any)[key])));
         if (sameDay.length) {
           const nearest = Math.min(...sameDay.map(other => {
             const a = timeToMinutes(other.fstarttime), b = timeToMinutes(other.fendtime);
@@ -158,7 +177,7 @@ function candidatesFor(row: FSchedule, rows: FSchedule[], estate: RoomPlacement[
           score += Math.max(0, 20 - Math.round(nearest / 30) * 4);
         }
         if (from >= 8 * 60 && from < 14 * 60) score += 8;
-        out.push({ row: candidate, score, day: day.key, start, room });
+        out.push({ row: candidate, score, day: day.key, days, start, room });
       }
     }
   }
@@ -231,6 +250,7 @@ export function findRepairChain(
         id: card.id,
         before: card,
         day: option.day,
+        days: option.days,
         start: option.start,
         end: option.row.fendtime,
         buildingId: option.room.buildingId,
@@ -267,7 +287,7 @@ export function findRepairChain(
 
   const after = conflictCount(moves.reduce((board, move) => board.map(row => (
     row.id === move.id
-      ? withRoom(placed(row, move.day, move.start), {key:`id:${move.roomId}`,buildingId:move.buildingId,roomId:move.roomId,code:move.roomCode,hall:move.roomHall})
+      ? withRoom(placed(row, move.days, move.start), {key:`id:${move.roomId}`,buildingId:move.buildingId,roomId:move.roomId,code:move.roomCode,hall:move.roomHall})
       : row
   )), scope), placeholders);
 
@@ -321,7 +341,7 @@ export function planDisruption(
     chains.push(chain);
     board = chain.moves.reduce((rows, move) => rows.map(item => (
       item.id === move.id
-        ? withRoom(placed(item, move.day, move.start), {key:`id:${move.roomId}`,buildingId:move.buildingId,roomId:move.roomId,code:move.roomCode,hall:move.roomHall})
+        ? withRoom(placed(item, move.days, move.start), {key:`id:${move.roomId}`,buildingId:move.buildingId,roomId:move.roomId,code:move.roomCode,hall:move.roomHall})
         : item
     )), board);
   }
