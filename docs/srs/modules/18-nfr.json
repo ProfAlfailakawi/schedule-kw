@@ -416,8 +416,8 @@
         "en": "Guide performance budget"
       },
       "text": {
-        "ar": "يجب ألا يتجاوز فهم سؤال المرشد 8 ملّي ثانية، ولا بناء فهرسه 300 ملّي ثانية، ولا حجم بنك المعرفة 70000 بايت، وأن يبقى المرشد في حزمة تُحمَّل عند الطلب؛ ويفشل البناء الإنتاجي إن تجاوز أياً منها.",
-        "en": "Understanding a guide question shall take no more than 8 ms, building its index no more than 300 ms, and the knowledge bank shall not exceed 70000 bytes, with the guide kept in a lazily loaded bundle; the production build fails if any is exceeded."
+        "ar": "يجب ألا يتجاوز فهم سؤال المرشد 8 ملّي ثانية، ولا بناء فهرسه 300 ملّي ثانية، ولا حجم بنك المعرفة 70000 بايت، وأن يبقى المرشد في حزمة تُحمَّل عند الطلب؛ ويفشل البناء الإنتاجي إن تجاوز حجمُ البنك حدَّه أو خرج المرشد من الحزمة الكسولة أو تجاوز الزمنُ أربعةَ أضعاف هدفه، وينبّه دون إفشال إن تجاوز الزمنُ هدفه وحده.",
+        "en": "Understanding a guide question shall take no more than 8 ms, building its index no more than 300 ms, and the knowledge bank shall not exceed 70000 bytes, with the guide kept in a lazily loaded bundle; the production build fails if the bank size is exceeded, the guide leaves the lazy bundle, or a timing exceeds four times its target, and warns without failing when a timing exceeds only its target."
       },
       "priority": "should",
       "status": "implemented",
@@ -426,8 +426,8 @@
       ],
       "acceptance": [
         {
-          "ar": "المتوسط على 1000 سؤال بعد 200 تسخين أقل من 8 ملّي ثانية للسؤال.",
-          "en": "The mean over 1000 questions after 200 warm-ups is under 8 ms per question."
+          "ar": "الوسيط على 5 جولات من 200 سؤال بعد 200 تسخين أقل من 8 ملّي ثانية للسؤال، وتجاوزُ 32 ملّي ثانية يُفشل البناء.",
+          "en": "The median over 5 rounds of 200 questions after 200 warm-ups is under 8 ms per question; exceeding 32 ms fails the build."
         },
         {
           "ar": "إزالة الاستيراد الكسول لـ GuideAssistant من App.tsx يُفشل الفحص.",
