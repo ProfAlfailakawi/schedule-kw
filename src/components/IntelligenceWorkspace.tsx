@@ -388,7 +388,9 @@ const CardPageHead = ({ cards, value, onChange, title, metric }: {
   useEffect(() => {
     const chip = strip.current?.querySelector<HTMLElement>("[aria-current='true']");
     const box = strip.current;
-    if (!chip || !box) return;
+    if (!box) return;
+    box.toggleAttribute("data-overflow", box.scrollWidth > box.clientWidth + 2);
+    if (!chip) return;
     /* الشريط وحده يتحرّك أفقياً — لا تُسحب الصفحة كلها كما يفعل scrollIntoView. */
     const offset = chip.offsetLeft - (box.clientWidth - chip.offsetWidth) / 2;
     box.scrollTo({ left: offset, behavior: "auto" });

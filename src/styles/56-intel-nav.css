@@ -31,6 +31,9 @@
   display:flex;gap:var(--s1);
   overflow-x:auto;overscroll-behavior-x:contain;
   scroll-snap-type:x proximity;scrollbar-width:none;
+}
+/* التلاشي عند الحافة إشارةُ «اسحب للمزيد» — فقط حين يفيض الشريط فعلاً. */
+.insight-card-strip[data-overflow]{
   -webkit-mask-image:linear-gradient(to left,#000 calc(100% - 28px),transparent);
   mask-image:linear-gradient(to left,#000 calc(100% - 28px),transparent);
 }
