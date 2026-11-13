@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { GraduationCap, AlertTriangle, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, History, Info, Printer, TrendingUp, UserRound, Wrench, X } from "lucide-react";
+import { GraduationCap, AlertTriangle, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, Clock3, History, Info, Printer, TrendingUp, UserRound, Wrench, X } from "lucide-react";
 import type { AdCollege, AdCourse, AdInstructor, FSchedule } from "../types";
 import { PrintLetterhead, PrintPortal, PrimaryButton, SecondaryButton, useDialogDismiss } from "./ui";
 import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
@@ -173,14 +173,18 @@ function ReviewPersonGroup({ group, courses, campusOf, visitingIds }: { group: {
   const rows = React.useMemo(() => [...group.rows].sort(byWeekTime), [group.rows]);
   const visiting = rows.some(row => visitingIds.has(Number(row.AdInstructorId)));
   const sectionCount = new Set(rows.map(sectionKey)).size;
+  /* مطويٌّ ابتداءً (المالك 2026-11-14): الاسمُ وعددُ شعبه، وتحته مواعيدُه عند اللمس — ولا يُتذكّر بين الفتحات. */
+  const [open, setOpen] = useState(false);
   return (
-    <section className="review-person" aria-label={who}>
-      <header className="review-person-head">
+    <details className={`review-person${open ? " open" : ""}`} aria-label={who} open={open}
+      onToggle={event => { if (event.target === event.currentTarget) setOpen(event.currentTarget.open); }}>
+      <summary className="review-person-head" aria-expanded={open} data-guide-ignore="فتح مواعيد الأستاذ داخل مراجعة الاعتماد فقط — عرض">
         <span className="review-person-avatar" aria-hidden="true"><UserRound /></span>
         <strong className="schedule-instructor-with-badge">{who}{visiting ? <VisitingBadge compact /> : null}</strong>
         <small className="review-person-count">{countOf(sectionCount, AR.section)}</small>
-      </header>
-      <div className="review-person-rows" role="list">
+        <ChevronDown className="review-person-chevron" aria-hidden="true" />
+      </summary>
+      {open ? <div className="review-person-rows" role="list">
         {rows.map(row => {
           const course = courses.get(Number(row.AdCourseId));
           const days = DAY_KEYS.filter(key => (row as any)[key]).map(key => DAY_NAMES[DAY_KEYS.indexOf(key)]).join("، ");
@@ -196,8 +200,8 @@ function ReviewPersonGroup({ group, courses, campusOf, visitingIds }: { group: {
             </div>
           );
         })}
-      </div>
-    </section>
+      </div> : null}
+    </details>
   );
 }
 
@@ -319,6 +323,17 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   const [readinessError, setReadinessError] = useState(false);
   const [quietOpen, setQuietOpen] = useState(false);
   const [periodOpen, setPeriodOpen] = useState(false);
+  /* ── كلُّ بندٍ شريطٌ مطويّ (المالك 2026-11-14) ─────────────────────────
+     العنوان والوسوم والعدّ و«لو عولج» و«عالج» على الشريط؛ وما تحته — الأساتذة
+     ثم مواعيدُ كلٍّ منهم — يُفتح عند اللمس. لا يُتذكّر شيءٌ بين الفتحات. */
+  const [openCards, setOpenCards] = useState<Set<string>>(() => new Set());
+  const [graduatesOpen, setGraduatesOpen] = useState(false);
+  const setCardOpen = React.useCallback((key: string, open: boolean) => setOpenCards(current => {
+    if (current.has(key) === open) return current;
+    const next = new Set(current);
+    if (open) next.add(key); else next.delete(key);
+    return next;
+  }), []);
   useDialogDismiss(true, onClose);
 
   useEffect(() => {
@@ -627,6 +642,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     ? `${quietNames} · و${(quietFindings.length - 3).toLocaleString("ar-KW-u-nu-latn")} غيرها`
     : quietNames;
   const quietRows = new Set(quietFindings.flatMap(finding => finding.rowIds)).size;
+  const allCardKeys = [...pressingFindings, ...warningGroups, ...quietFindings].map(finding => finding.groupKey);
+  const allOpen = allCardKeys.length > 0 && allCardKeys.every(key => openCards.has(key));
 
   /* ── قائمةُ الملاحظة كاملةً، صفحةً صفحة (PagedFindingList) ──────────────
      كانت تعرض اثني عشر أستاذاً ثم تكتفي بعدّ الباقين؛ والآن كلُّهم هنا، ببحثٍ حين
@@ -682,9 +699,11 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     const focusable = scoped.filter(id => loadedIds.has(id));
     const campuses = campusesOf(scoped);
     const caseDetails = finding.groupedCount > 1 ? [...new Set(finding.groupedItems.map(item => item.detail).filter(Boolean))] : [];
+    const cardOpen = openCards.has(finding.groupKey);
     return (
-            <details key={finding.groupKey} className={`review-finding severity-${findingTone(finding)}`} data-review-finding={finding.groupKey} open>
-              <summary data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط">
+            <details key={finding.groupKey} className={`review-finding severity-${findingTone(finding)}`} data-review-finding={finding.groupKey} open={cardOpen}
+              onToggle={event => { if (event.target === event.currentTarget) setCardOpen(finding.groupKey, event.currentTarget.open); }}>
+              <summary data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط" aria-expanded={cardOpen}>
                 <span className="review-mark" aria-hidden="true">{findingIcon(finding)}</span>
                 <span className="review-copy">
                   <strong>{markVisitingNames(finding.title, finding.rowIds)}</strong>
@@ -704,7 +723,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                   ) : null}
                 </span>
                 <span className="review-finding-side">
-                  <span className="review-finding-tags"><em>{finding.article}</em><i>{findingStatus(finding)}</i></span>
+                  <span className="review-finding-tags"><em>{finding.article}</em><i>{findingStatus(finding)}</i><ChevronDown className="review-finding-chevron" aria-hidden="true" /></span>
                   {segment && gain > 0 ? (
                     <span className="review-score-fix-gain" data-score-fix={segment.key} aria-label={`لو عولج هذا البند وحده تصبح الدرجة ${segment.projected}`}>
                       <TrendingUp aria-hidden="true" />
@@ -725,7 +744,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                   ) : null}
                 </span>
               </summary>
-              <div className="review-rows">
+              {cardOpen ? <div className="review-rows">
                   <div className="review-finding-detail">
                       {finding.data && finding.groupedCount === 1 ? <PeriodBalanceInfographic {...finding.data} /> : (
                         <details className="review-rule-explainer">
@@ -741,7 +760,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                       ? <HistoryInfographic rows={finding.rowIds.map(id=>byId.get(id)).filter(Boolean) as FSchedule[]} courses={courses} />
                       : renderFindingPeople(finding)
                   ) : null}
-              </div>
+              </div> : null}
             </details>
     );
   };
@@ -812,17 +831,26 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
 
 
         {graduateClashes.length ? (
-          <section className="review-graduate-clashes" aria-labelledby="review-graduate-title">
-            <h3 id="review-graduate-title"><GraduationCap aria-hidden="true" />تعارض مقررات الخريجين<em>ملاحظة · لا تمنع</em></h3>
-            <ul>
-              {graduateClashes.slice(0, 6).map(clash => (
-                <li key={`${clash.track}|${clash.a.code}|${clash.b.code}`} title={`${clash.a.name} × ${clash.b.name}`}>
-                  <span dir="ltr" className="rgc-codes">{clash.a.code} × {clash.b.code}</span>
-                  <span className="rgc-names">{clash.a.name}<CourseTags courseIds={clash.a.courseIds} /> · {clash.b.name}<CourseTags courseIds={clash.b.courseIds} /></span>
-                  <b>{countOf(clash.graduates, AR.graduate)}</b>
-                </li>
-              ))}
-            </ul>
+          <section className="review-graduate-clashes" aria-labelledby="review-graduate-title" data-open={graduatesOpen || undefined}>
+            <button type="button" className="review-graduate-toggle" aria-expanded={graduatesOpen} aria-controls="review-graduate-list"
+              onClick={() => setGraduatesOpen(value => !value)} data-guide-ignore="طيّ أو فتح تعارض مقررات الخريجين داخل المراجعة — عرض">
+              <GraduationCap aria-hidden="true" />
+              <b id="review-graduate-title">تعارض مقررات الخريجين</b>
+              <span className="review-graduate-count">{countOf(graduateClashes.length, AR.conflict)}</span>
+              <em>ملاحظة · لا تمنع</em>
+              <ChevronDown className="review-graduate-chevron" aria-hidden="true" />
+            </button>
+            {graduatesOpen ? (
+              <ul id="review-graduate-list">
+                {graduateClashes.map(clash => (
+                  <li key={`${clash.track}|${clash.a.code}|${clash.b.code}`} title={`${clash.a.name} × ${clash.b.name}`}>
+                    <span dir="ltr" className="rgc-codes">{clash.a.code} × {clash.b.code}</span>
+                    <span className="rgc-names">{clash.a.name}<CourseTags courseIds={clash.a.courseIds} /> · {clash.b.name}<CourseTags courseIds={clash.b.courseIds} /></span>
+                    <b>{countOf(clash.graduates, AR.graduate)}</b>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
         ) : null}
         <section className="review-period-rule" aria-labelledby="review-period-title" data-open={periodOpen || undefined}>
@@ -845,6 +873,16 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             courseLabel={id => ({ code: shortCourseCode(courses.get(id)?.CourseCode), name: String(courses.get(id)?.CourseName || "") })} />
           {reviewHasFindings(groupedFindings.length, warningGroups.length, quietFindings.length) ? (
             <>
+              {allCardKeys.length > 1 ? (
+                <div className="review-fold-all">
+                  <button type="button" className="review-fold-all-button" aria-pressed={allOpen}
+                    data-guide-ignore="فتح بطاقات المراجعة كلها أو طيّها — عرض فقط"
+                    onClick={() => { if (allOpen) { setOpenCards(new Set()); setQuietOpen(false); } else { setOpenCards(new Set(allCardKeys)); setQuietOpen(true); } }}>
+                    {allOpen ? <ChevronsDownUp aria-hidden="true" /> : <ChevronsUpDown aria-hidden="true" />}
+                    {allOpen ? "اطوِ الكل" : "افتح الكل"}
+                  </button>
+                </div>
+              ) : null}
               {pressingFindings.map(renderFinding)}
               {/* «لا يمنع الاعتماد»: بجانب الموانع، بلا أثرٍ على الدرجة ولا على التوقيع. */}
               {warningGroups.map(renderFinding)}
