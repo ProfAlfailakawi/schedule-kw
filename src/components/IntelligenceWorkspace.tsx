@@ -357,9 +357,14 @@ const liftToTop = (instant: boolean) => {
       ...document.querySelectorAll<HTMLElement>(".insight-page-head, .insight-preview-rail"),
     ].find(el => el.getClientRects().length > 0);
     if (!page && !marker) { if (tries++ < 8) requestAnimationFrame(measure); return; }
-    /* A few pixels of air above the page so it does not butt against the
-       shell's own header. */
-    const top = Math.max(0, documentTop(page || marker!) - 12);
+    /* بطاقةٌ مفتوحة: يصعد صفُّ «كل البطاقات» إلى موضع التصاقه، فيظهر المحتوى تحته
+       مباشرةً — والعنوانُ وشريطُ النطاق فوقه على بُعد تمريرة. يُقاس الحاويةُ لا الصفّ
+       الملتصق (موضعُ الملتصق كذبة). وإلا فأعلى الصفحة كما كان. */
+    const nav = [...document.querySelectorAll<HTMLElement>(".intelligence-page .insight-page-nav")].find(el => el.getClientRects().length > 0);
+    const stick = nav ? parseFloat(getComputedStyle(nav).top) || 0 : 0;
+    const top = nav?.parentElement
+      ? Math.max(0, documentTop(nav.parentElement) - stick - 4)
+      : Math.max(0, documentTop(page || marker!) - 12);
     if (Math.abs(window.scrollY - top) >= 4) window.scrollTo({ top, behavior: instant ? "auto" : "smooth" });
   };
   requestAnimationFrame(() => requestAnimationFrame(measure));
@@ -2583,6 +2588,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         <nav className="scene-subnav no-print" aria-label="أدوات الفهم">
           <button
             type="button"
+            data-guide-ignore="أداةٌ داخل المرحلة: تفتح شبكة بطاقاتها؛ تنقّلٌ لا فعل"
             className={tab === "command" ? "active" : ""}
             aria-pressed={tab === "command"}
             onClick={() => switchTab("command")}
@@ -2603,6 +2609,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         <nav className="scene-subnav no-print" aria-label="أدوات التجربة">
           <button
             type="button"
+            data-guide-ignore="أداةٌ داخل المرحلة: تفتح شبكة بطاقاتها؛ تنقّلٌ لا فعل"
             className={tab === "twin" ? "active" : ""}
             aria-pressed={tab === "twin"}
             onClick={() => switchTab("twin")}
