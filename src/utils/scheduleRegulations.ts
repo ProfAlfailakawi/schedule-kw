@@ -381,6 +381,14 @@ export function ladderStartsForDays(days: Iterable<DayKey>, from = 8 * 60, to = 
   return out;
 }
 
+/** أقربُ بدايةٍ على السُّلّم إلى `start` (بالدقائق) يتّسع بعدها لقاءٌ من `length` دقيقة قبل نهاية اليوم؛
+ *  التعادلُ للأبكر. null حين لا سُلّمَ للأيام أو لا يتّسع. */
+export function ladderStartNear(days: Iterable<DayKey>, start: number, length = 0): string | null {
+  const fits = ladderStartsForDays(days).filter(clockText => toMinutes(clockText) + length <= EVENING_END);
+  if (!fits.length) return null;
+  return fits.reduce((best, clockText) => Math.abs(toMinutes(clockText) - start) < Math.abs(toMinutes(best) - start) ? clockText : best);
+}
+
 export function startLadderNote(days: Iterable<DayKey>, start: string): string {
   const list = [...new Set(days)];
   const match = /^(\d{1,2}):(\d{2})$/.exec(String(start || "").trim());
@@ -418,6 +426,22 @@ export function patternsForHours(weeklyHours: number): WeeklyPattern[] {
         .map((day, index) => `${dayLabel(day)} ${pattern.minutesPerDay[index]}د`)
         .join(" · ")
   }));
+}
+
+/** أزواجُ الأيام في المكتبة (الاثنين·الأربعاء، الأحد·الثلاثاء، الثلاثاء·الخميس) — لا زوجَ خارجها. */
+export function libraryDayPairs(): Array<[DayKey, DayKey]> {
+  const seen = new Map<string, [DayKey, DayKey]>();
+  for (const pattern of PATTERN_LIBRARY) if (pattern.days.length === 2) {
+    const pair = DAY_KEYS.filter(day => pattern.days.includes(day)) as [DayKey, DayKey];
+    seen.set(pair.join(), pair);
+  }
+  return [...seen.values()];
+}
+
+/** نمطُ المكتبة لهذه الساعات على هذه الأيام بعينها (null: ليس نمطاً). */
+export function patternOnDays(weeklyHours: number, days: readonly DayKey[]): WeeklyPattern | null {
+  const set = new Set(days);
+  return patternsForHours(weeklyHours).find(pattern => pattern.days.length > 1 && patternCoversDays(pattern, set, true)) || null;
 }
 
 export interface MovePlan {

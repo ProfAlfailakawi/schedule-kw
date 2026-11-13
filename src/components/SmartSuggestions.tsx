@@ -12,6 +12,7 @@ import {
   type RemovalTone, type SmartSuggestion,
 } from "../utils/smartSuggestions";
 import type { DayKey } from "../utils/scheduleIntelligence";
+import { libraryDayPairs } from "../utils/scheduleRegulations";
 import { LevelDot, type LoadedContext } from "./timeMachineShared";
 
 export interface TryChanges { title: string; changes: TmChange[] }
@@ -67,7 +68,8 @@ export function RemovalCheck({ context, onTry }: { context: LoadedContext; onTry
   );
 }
 
-const PAIRS: Array<[DayKey, DayKey]> = [["fmonday", "fwednesday"], ["fsunday", "ftuesday"], ["fsunday", "fwednesday"], ["ftuesday", "fthursday"]];
+/* أزواجُ الأيام من مكتبة الأنماط وحدها (libraryDayPairs): لا الأحد·الأربعاء ولا الاثنين·الخميس ولا الأحد·الخميس. */
+const PAIRS = libraryDayPairs() as Array<[DayKey, DayKey]>;
 
 export function PatternWhatIf({ context }: { context: LoadedContext }) {
   const candidates = useMemo(() => patternCandidates(context), [context]);
@@ -111,9 +113,10 @@ export function PatternWhatIf({ context }: { context: LoadedContext }) {
               <li key={row.rowId}>
                 <b>{row.label}</b>
                 <span><bdi>{row.before}</bdi> <ArrowLeftRight aria-hidden="true" /> <bdi>{row.after}</bdi></span>
-                <small className={row.room === "none" ? "is-bad" : ""}>{row.room === "same" ? `القاعة نفسها ${row.hall}` : row.room === "other" ? `قاعة أخرى ${row.hall}` : "لا قاعة فارغة"}</small>
-                {!row.teacherFree ? <small className="is-bad">الأستاذ مشغول</small> : null}
-                {row.approved === false ? <small className="is-bad">ليس نمطاً معتمداً</small> : null}
+                {row.approved === false ? <small className="is-bad">ليس نمطاً معتمداً</small> : (<>
+                  <small className={row.room === "none" ? "is-bad" : ""}>{row.room === "same" ? `القاعة نفسها ${row.hall}` : row.room === "other" ? `قاعة أخرى ${row.hall}` : "لا قاعة فارغة"}</small>
+                  {!row.teacherFree ? <small className="is-bad">الأستاذ مشغول</small> : null}
+                </>)}
               </li>
             ))}
           </ul>
