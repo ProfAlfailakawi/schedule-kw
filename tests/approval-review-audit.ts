@@ -131,6 +131,10 @@ console.log("I2/I3 — شاشة المراجعة");
   /* المالك 2026-11-13: شاشةٌ واحدة للعائلة — أيُّ عضوٍ فُتح فالمراجعة نفسها، وكل موعدٍ بوسم حرمه. */
   check(/const scopeRows = rows;/.test(source) && source.includes('data-review-scope="family"'), "المراجعة للعائلة كلها أيّاً كان العضو المفتوح");
   check(/if \(serverRead && serverSummary\) return serverSummary;/.test(source), "عددُ الموانع عددُ الخادم للعائلة نفسها");
+  check(/part\.replace\(\/\\s\+\/g, " "\)\.trim\(\) !== openedCollege/.test(source) && (source.match(/scope=\{scopeLabel\}/g) || []).length === 2,
+    "سطرُ النطاق على الشاشة والورقة للعائلة (حُرَم القسم) لا للكلية المفتوحة");
+  check((source.match(/منسق الجدول\{signFor \? ` · \$\{signFor\}` : ""\}/g) || []).length === 2 && source.includes('data-review-sign="college"'),
+    "والتوقيعُ يُقال لمن هو: «التوقيع لـ<الكلية>» على الشاشة وعند خانات التوقيع");
   check(/approvalVerdict\(\{ checked: readinessChecked, \.\.\.verdictInput \}\)/.test(source) && /approvalVerdict\(\{ checked: true, \.\.\.verdictInput \}\)/.test(source)
     && source.includes("<strong>{printVerdict}</strong>"), "العنوان من دالةٍ واحدة على الشاشة والورقة");
   check(!/<title>\{breakdown\.formula\}<\/title>/.test(source) && !/<title>\{slice\.label\}<\/title>/.test(source), "لا تلميحَ أصليّاً على الحلقة يبقى عائماً فوق القائمة");

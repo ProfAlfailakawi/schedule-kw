@@ -77,3 +77,4 @@
   .review-sheet .review-spread .spread-keys>span{flex:1 1 140px}
   .review-sheet .review-spread .spread-keys>span small{overflow:visible;text-overflow:clip}
 }
+.review-sign-for{display:block;margin-top:4px;color:var(--muted);font-size:.76rem}

@@ -254,7 +254,6 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
      واحدة، وكلُّ موعدٍ بوسم حرمه. التوقيعُ يبقى لكل كليةٍ كما هو. */
   const scopeRows = rows;
   const scopeIds = useMemo(() => new Set(scopeRows.map(row => Number(row.id))), [scopeRows]);
-  const scopeLabel = scopeLine;
   /* وسمُ الحرم من اسم الكلية: «بنين»/«بنات»/«الفحيحيل - بنات»… — يُرسم حين تجمع العائلةُ أكثرَ من حرم. */
   const campusTags = useMemo(() => {
     const ids: number[] = Array.from(new Set<number>(rows.map(row => Number(row.AdCollegeId)).filter(Boolean)));
@@ -262,7 +261,9 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     const labels = inboxCampusLabels(ids.map(nameOf).filter(Boolean));
     let other = 0;
     const tags = new Map<number, CampusTag>();
-    ids.sort((x, y) => nameOf(x).localeCompare(nameOf(y), "ar")).forEach(id => {
+    /* بنين ثم بنات ثم الفروع بأسمائها — ترتيبُ الحُرَم في البرنامج كله. */
+    const rank = (id: number) => { const name = nameOf(id); return isCampusCollege(name) || !trackOf(name) ? 2 : trackOf(name) === "boys" ? 0 : 1; };
+    ids.sort((x, y) => rank(x) - rank(y) || nameOf(x).localeCompare(nameOf(y), "ar")).forEach(id => {
       const name = nameOf(id);
       if (!name) return;
       const track = trackOf(name);
@@ -274,6 +275,16 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     return tags;
   }, [rows, colleges]);
   const multiCampus = campusTags.size > 1;
+  /* سطرُ النطاق للعائلة كلها، على الشاشة والورقة: الكليةُ المفتوحة تُستبدل بحُرَم القسم
+     («الفصل · قسم تكنولوجيا التعليم · بنين، بنات، الفحيحيل»)، فلا تُنسب درجةُ العائلة لكليةٍ واحدة. */
+  const openedCollege = String(colleges.get(Number(collegeId))?.AdCollegeName || "").replace(/\s+/g, " ").trim();
+  const scopeLabel = useMemo(() => {
+    if (!multiCampus) return scopeLine;
+    const parts = String(scopeLine || "").split(" · ").filter(part => part.replace(/\s+/g, " ").trim() !== openedCollege);
+    return [...parts, [...campusTags.values()].map(tag => tag.label).join("، ")].filter(Boolean).join(" · ");
+  }, [multiCampus, scopeLine, openedCollege, campusTags]);
+  /* التوقيعُ لكل كليةٍ على حدة كما كان: يُقال لمن هذه الورقة. */
+  const signFor = multiCampus && openedCollege ? `التوقيع لـ${openedCollege}` : "";
   const campusOf = React.useCallback((row?: FSchedule | null) => (row && multiCampus ? campusTags.get(Number(row.AdCollegeId)) || null : null), [campusTags, multiCampus]);
   const campusesOf = (rowIds: number[]) => {
     const seen = new Map<string, CampusTag>();
@@ -760,6 +771,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             <h2 data-resolved={readinessChecked && sawChecking.current ? "" : undefined}>{verdict}</h2>
             <p>{scopeLabel}</p>
             {multiCampus ? <small className="review-scope-note review-scope-campuses" data-review-scope="family"><Building2 aria-hidden="true" /> القسم في حُرَمه كلها {[...campusTags.values()].map(tag => <React.Fragment key={tag.label}><CampusChip tag={tag} /></React.Fragment>)}</small> : null}
+            {signFor ? <small className="review-sign-for" data-review-sign="college">{signFor}</small> : null}
             {readinessChecked && unclassifiedCourses ? <small className="review-data-gap"><Info aria-hidden="true" /> {countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ لم يُفحص نمط المادة 7/8 لها.</small> : null}
             {readinessChecked && blockerSummary.conflicts > 0 ? <strong className="review-blocker-headline" data-review-headline="blocking">يمنع الاعتماد: {blockingSummaryPhrase(blockerSummary.conflicts, blockerSummary.rows, blockerSummary.duplicates)}</strong> : null}
             {readinessError ? <small>تمت مراجعة قرار 1913/2016 محلياً، لكن تعذر التأكد الآن من الحجوزات المتعارضة خارج نطاق القسم.</small> : null}
@@ -903,7 +915,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
               </section>
               {!printFollowupPages.length ? (
                 <div className="print-signatures print-explicit-page-meta">
-                  <div><span>منسق الجدول</span><i /></div>
+                  <div><span>منسق الجدول{signFor ? ` · ${signFor}` : ""}</span><i /></div>
                   <div><span>رئيس القسم العلمي</span><i /></div>
                   <div><span>التاريخ</span><i /></div>
                 </div>
@@ -922,7 +934,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                 </section>
                 {pageIndex === printFollowupPages.length - 1 ? (
                   <div className="print-signatures print-explicit-page-meta">
-                    <div><span>منسق الجدول</span><i /></div>
+                    <div><span>منسق الجدول{signFor ? ` · ${signFor}` : ""}</span><i /></div>
                     <div><span>رئيس القسم العلمي</span><i /></div>
                     <div><span>التاريخ</span><i /></div>
                   </div>
