@@ -47,6 +47,7 @@
     "src/server/actualDemandRoutes.ts",
     "src/utils/actualDemand*.ts",
     "src/components/ActualDemandPanel.tsx",
+    "src/components/ActualDemandAlert.tsx",
     "src/components/DemandBadge.tsx",
     "src/styles/54-actual-demand.css"
   ],
