@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   Command,
+  KeyRound,
+  Link2,
   LockKeyhole,
   ShieldCheck,
   Sparkles,
@@ -37,7 +40,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     [error, setError] = useState<string | null>(null),
     [identityOpen, setIdentityOpen] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("journey") === "1"),
     [demoLoading, setDemoLoading] = useState(false),
-    [forgotOpen, setForgotOpen] = useState(false),
+    /* «نسيت كلمة السر؟»: تحقّقٌ بآخر أربعة أرقام من الرقم المدني، ثم كلمةٌ جديدة (src/server/staffRecovery.ts). */
+    [recovery, setRecovery] = useState<null | { step: "verify" } | { step: "set"; ticket: string }>(null),
+    [tail, setTail] = useState(""),
+    [newPassword, setNewPassword] = useState(""),
+    [confirmPassword, setConfirmPassword] = useState(""),
     [demoEnabled, setDemoEnabled] = useState(false),
     [knownLogin, setKnownLogin] = useState(() => {
       if (typeof window === "undefined") return false;
@@ -134,6 +141,47 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       setLoading(false);
     }
   };
+  const openRecovery = () => { setError(null); setTail(""); setNewPassword(""); setConfirmPassword(""); setRecovery({ step: "verify" }); };
+  const closeRecovery = () => { setError(null); setTail(""); setNewPassword(""); setConfirmPassword(""); setRecovery(null); };
+  const verifyRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!username.trim() || tail.length !== 4) { setError("اكتب اسم المستخدم وآخر أربعة أرقام من رقمك المدني."); return; }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/recover/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: username.trim(), tail }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ticket) throw new Error(data.error || "تعذّر التحقق.");
+      setTail("");
+      setRecovery({ step: "set", ticket: String(data.ticket) });
+    } catch (err: any) { setError(err.message || "تعذّر التحقق."); }
+    finally { setLoading(false); }
+  };
+  const completeRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (recovery?.step !== "set") return;
+    setError(null);
+    if (newPassword.length < 8) { setError("كلمة السر الجديدة ثمانية أحرف على الأقل."); return; }
+    if (newPassword !== confirmPassword) { setError("الكلمتان غير متطابقتين."); return; }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/recover/complete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: recovery.ticket, newPassword }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.code === "recovery-ticket") setRecovery({ step: "verify" });
+        throw new Error(data.error || "تعذّر الحفظ.");
+      }
+      /* الكلمةُ الجديدة محفوظة: يدخل بها مباشرة. */
+      const login = String(data.login || username).trim();
+      const signIn = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: login, password: newPassword }) });
+      const session = await signIn.json().catch(() => ({}));
+      setNewPassword(""); setConfirmPassword(""); setRecovery(null);
+      if (!signIn.ok) { setPassword(""); updateUsername(login); setError("حُفظت كلمة السر الجديدة. ادخل بها."); return; }
+      rememberLogin(session.user?.SystemUserLogin || login);
+      onLoginSuccess(session);
+    } catch (err: any) { setError(err.message || "تعذّر الحفظ."); }
+    finally { setLoading(false); }
+  };
   return (
     <main ref={mainRef} className="apex-login visual-minimal" dir="rtl">
       <div className="apex-login-ambient" aria-hidden="true">
@@ -199,6 +247,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               <Notice inline>{error}</Notice>
             </div>
           ) : null}
+          {recovery ? null : (
           <form className="apex-login-form" onSubmit={submit}>
             <Field label="اسم المستخدم" required>
               <input
@@ -230,20 +279,48 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               )}
             </PrimaryButton>
           </form>
-          {/* «نسيت كلمة السر؟»: لا استرجاعَ بالاسم ولا بالرقم المدني وحده من هذه الشاشة
-              (يُعدّد الحسابات ويُخمَّن). الطريقان القائمان هما الآمنان: عضو الفريق برابطه
-              الشخصي وآخر أربعة أرقام من رقمه المدني، ورابطٌ جديد من رئيس فريقه
-              (/api/seats/:id/members/:mid/reset)؛ ورئيس الفريق يعيد مديرُ النظام تعيين كلمته. */}
-          <button type="button" className="demo-entry-link login-forgot-toggle" aria-expanded={forgotOpen} onClick={() => setForgotOpen(open => !open)} data-guide-ignore="يعرض طريقة استعادة الدخول؛ لا يرسل شيئاً">
-            نسيت كلمة السر؟
-          </button>
-          {forgotOpen ? (
-            <div className="login-forgot" role="note">
-              <Notice inline>
-                عضو الفريق: افتح رابطك الشخصي وأكّد بآخر أربعة أرقام من رقمك المدني، أو اطلب من رئيس فريقك رابطاً جديداً.
-                رئيس الفريق: يعيد مدير النظام تعيين كلمة السر.
-              </Notice>
-            </div>
+          )}
+          {recovery ? null : (
+            <button type="button" className="demo-entry-link login-forgot-toggle" onClick={openRecovery} data-guide-ignore="يفتح استعادة كلمة السر بالرقم المدني">
+              <KeyRound aria-hidden="true" /> نسيت كلمة السر؟
+            </button>
+          )}
+          {recovery?.step === "verify" ? (
+            <form className="apex-login-form login-recover" onSubmit={verifyRecovery} aria-label="استعادة كلمة السر">
+              <p className="login-recover-head"><KeyRound aria-hidden="true" /><b>استعادة كلمة السر</b></p>
+              <Field label="اسم المستخدم" required>
+                <input autoComplete="username" value={username} onChange={(e) => updateUsername(e.target.value)} disabled={loading} required />
+              </Field>
+              <Field label="آخر أربعة أرقام من رقمك المدني" required>
+                <input className="login-recover-tail" inputMode="numeric" autoComplete="off" dir="ltr" maxLength={4} pattern="[0-9]{4}"
+                  value={tail} onChange={(e) => setTail(e.target.value.replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\D/g, "").slice(0, 4))}
+                  disabled={loading} required autoFocus />
+              </Field>
+              <PrimaryButton type="submit" disabled={loading}>
+                {loading ? <span className="button-spinner" /> : <><ShieldCheck /> تحقّق</>}
+              </PrimaryButton>
+              <button type="button" className="demo-entry-link login-recover-back" onClick={closeRecovery} data-guide-ignore="يعود إلى الدخول دون تغيير شيء">
+                <ArrowRight aria-hidden="true" /> رجوع
+              </button>
+              <small className="login-recover-note"><Link2 aria-hidden="true" /> عضو الفريق يدخل برابطه الشخصي.</small>
+            </form>
+          ) : null}
+          {recovery?.step === "set" ? (
+            <form className="apex-login-form login-recover" onSubmit={completeRecovery} aria-label="كلمة السر الجديدة">
+              <p className="login-recover-head"><LockKeyhole aria-hidden="true" /><b>كلمة سرّ جديدة</b></p>
+              <Field label="كلمة السر الجديدة" required>
+                <input type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={loading} required autoFocus minLength={8} />
+              </Field>
+              <Field label="أعد كتابتها" required>
+                <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={loading} required minLength={8} />
+              </Field>
+              <PrimaryButton type="submit" disabled={loading}>
+                {loading ? <span className="button-spinner" /> : <><LockKeyhole /> احفظ وادخل <ArrowLeft /></>}
+              </PrimaryButton>
+              <button type="button" className="demo-entry-link login-recover-back" onClick={closeRecovery} data-guide-ignore="يلغي الاستعادة؛ كلمة السر الحالية باقية">
+                <ArrowRight aria-hidden="true" /> إلغاء
+              </button>
+            </form>
           ) : null}
           <footer>
             {/* Identity and year read as one quiet signature; the two real

@@ -44,7 +44,9 @@
     "scripts/provision-leadership-accounts.ts",
     "scripts/consolidate-department-advisors.ts",
     "scripts/lib/defaultPassword.ts",
-    "scripts/role-scope-live-audit.mjs"
+    "scripts/role-scope-live-audit.mjs",
+    "src/server/staffRecovery.ts",
+    "src/server/staffRecoveryWiring.ts"
   ],
   "screens": [
     { "name": { "ar": "تسجيل الدخول", "en": "Sign-in" }, "file": "src/components/Login.tsx", "note": { "ar": "اسم المستخدم وكلمة السر، ورابط الدعوة في جزء # الذي يملأ الاسم ولا يُرسل إلى الخادم، وزر الدخول التجريبي إن كان مفعّلاً.", "en": "User name and password, the invitation link fragment that pre-fills the name and is never sent to the server, and the demo entry button when enabled." } },
@@ -1187,6 +1189,25 @@
       ],
       "evidence": { "code": ["scripts/role-scope-live-audit.mjs"], "tests": [] },
       "inferred": true
+    },
+    {
+      "id": "FR-ACC-053",
+      "kind": "functional",
+      "title": { "ar": "«نسيت كلمة السر؟» لكل الموظفين بالرقم المدني", "en": "Forgot password for all staff by civil ID" },
+      "text": {
+        "ar": "يجب أن يستعيد كلُّ موظفٍ صاحب حساب — ورؤساءُ الأقسام وأصحابُ الكراسي منهم — كلمةَ سرّه من شاشة الدخول بنفسه: يكتب اسمَ المستخدم وآخرَ أربعة أرقام من الرقم المدني المسجّل لمن يجلس على الحساب (شاغلُ الكرسي، وإلا الأستاذُ المربوط بالحساب)، فيأخذ تذكرةً لعشر دقائق ولمرةٍ واحدة، ثم يختار كلمةً جديدة فيدخل بها. ولا يتغيّر في الحساب شيءٌ قبل حفظ الجديدة: القديمةُ تعمل حتى تُحفظ، ثم تسقط وتُغلق جلساتُ الحساب كلُّها. ويُجاب الاسمُ غيرُ الموجود والأرقامُ الخاطئة وحسابُ الإدارة والحسابُ بلا رقمٍ مدني والموقوفُ بجوابٍ واحدٍ محايد وفي زمنٍ متقارب. وحساباتُ إدارة النظام مستثناة: يعيدها مديرُ النظام. وكلُّ محاولةٍ ونتيجتُها في سجل التدقيق، وكلُّ استعادةٍ لحساب رئيس (كرسي) تُشعر مديرَ النظام بتنبيهٍ وفي جرسه.",
+        "en": "Every staff account holder, department heads and seat holders included, shall recover their password from the sign-in screen themselves: they type the username and the last four digits of the civil ID on record for whoever sits on the account (the seat holder, else the faculty member linked to the account), receive a ten-minute single-use ticket, then choose a new password and are signed in with it. Nothing changes on the account before the new password is saved: the old one keeps working until then, after which it stops and every session of the account is closed. An unknown username, wrong digits, an administration account, an account with no civil ID on record and a disabled account all receive one neutral answer in similar time. System administration accounts are excluded and are reset by the system administrator. Every attempt and its outcome is written to the audit trail, and every recovery of a head (seat) account notifies the system administrator by push and in the bell."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "POST /api/auth/recover/verify باسمٍ غير موجود أو أرقامٍ خاطئة أو لحساب إدارة يُردّ 400 بالنص المحايد نفسه دون تذكرة.", "en": "POST /api/auth/recover/verify with an unknown username, wrong digits or an administration account returns 400 with the same neutral text and no ticket." },
+        { "ar": "خمسُ محاولاتٍ خاطئة متتالية على اسمٍ تُقفله نصفَ ساعة (ثم تتضاعف حتى يوم) بالرمز recovery-locked، والاسمُ غيرُ الموجود يُقفل كالموجود؛ وعلى الاسم ثماني محاولاتٍ في الساعة، وعلى العنوان عشرٌ في ربع ساعة.", "en": "Five consecutive wrong attempts on a username lock it for half an hour (then doubling up to a day) with code recovery-locked, and an unknown username locks exactly like a known one; a username allows eight attempts per hour and an address ten per quarter hour." },
+        { "ar": "POST /api/auth/recover/complete بالتذكرة يحفظ الكلمة الجديدة ويُغلق الجلسات؛ والتذكرةُ ثانيةً أو بعد عشر دقائق أو بعد تغيّر الكلمة تُردّ 400 بالرمز recovery-ticket.", "en": "POST /api/auth/recover/complete with the ticket saves the new password and closes sessions; the ticket a second time, after ten minutes or after the password changed returns 400 with code recovery-ticket." },
+        { "ar": "لا تحمل وثائقُ الحارس اسمَ المستخدم (بصمتُه فقط)، ولا التذكرةُ نصَّها، ولا السجلُّ الأرقامَ ولا الكلمة.", "en": "Guard documents carry no username (only its fingerprint), tickets are stored by hash, and the audit trail holds neither the digits nor the password." }
+      ],
+      "evidence": { "code": ["src/server/staffRecovery.ts#registerStaffRecoveryRoutes", "src/server/staffRecoveryWiring.ts#staffRecoveryDeps", "src/components/Login.tsx", "src/server/routes/notificationsRoutes.ts"], "tests": ["tests/staff-recovery-audit.ts"] }
     }
   ],
   "edgeCases": [
