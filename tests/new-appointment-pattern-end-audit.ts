@@ -124,7 +124,7 @@ check(/لا توافق النمط المعتمد/.test(String(tuesdayWrong)), "N
 /* N9 — قرار المالك 2026-11-13: أيامُ الشعبة كلِّها نمطٌ واحد (sectionDaysFitLibrary). صفّان بيومٍ واحد
    (الأحد 80 + الخميس 80) لمقررٍ بثلاث ساعات لا يُقبلان لأن كلاً منهما داخل الأحد·الثلاثاء·الخميس. */
 {
-  const at = (id: number, days: string[], start: string, end: string, code: string) => ({ ...scope, id, SCode: code, fsunday: days.includes("sun"), fmonday: days.includes("mon"), ftuesday: days.includes("tue"), fwednesday: days.includes("wed"), fthursday: days.includes("thu"), fstarttime: start, fendtime: end });
+  const at = (id: number, days: string[], start: string, end: string, code: string) => ({ ...scope, id, SCode: code, fsunday: days.includes("sun"), fmonday: days.includes("mon"), ftuesday: days.includes("tue"), fwednesday: days.includes("wed"), fthursday: days.includes("thu"), fstarttime: start, fendtime: end }) as any;
   const blocked = async (row: any, week: any[]) => /ليست نمطاً معتمداً/.test(String(await unapprovedPatternIssue(row, week)));
   const sun80 = at(8101, ["sun"], "08:00", "09:20", "701");
   check(await unapprovedPatternIssue(sun80, [sun80]) === null, "N9 الأحد 80 وحده (الشعبة ناقصة) يُحفظ جزءاً من الأحد·الثلاثاء");
