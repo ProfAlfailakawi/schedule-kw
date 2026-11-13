@@ -51,6 +51,8 @@ async function checkLengthIssue(row:any):Promise<string|null>{
   if(editedId){
     const existing=await Repository.getScheduleById(editedId);
     if(keepsSectionShape(existing,row))return null;
+    /* تغييرُ المقرّر أو الرمز وحده: مخالفةٌ كانت قائمةً في الصفّ نفسه لا تُقال مانعاً (editShapeIssue). */
+    if(existing&&sameScheduleShape(existing as any,row)&&await sectionShapeIssue(existing))return null;
   }
   return scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)});
 }
@@ -62,6 +64,8 @@ async function checkPatternIssue(row:any):Promise<string|null>{
   if(editedId){
     const existing=await Repository.getScheduleById(editedId);
     if(keepsSectionShape(existing,row))return null;
+    /* تغييرُ المقرّر أو الرمز وحده: مخالفةٌ كانت قائمةً في الصفّ نفسه لا تُقال مانعاً (editShapeIssue). */
+    if(existing&&sameScheduleShape(existing as any,row)&&await sectionShapeIssue(existing))return null;
   }
   return unapprovedPatternIssue({...row,id:Number(row.excludeId||row.id||0)});
 }

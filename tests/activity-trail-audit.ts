@@ -309,15 +309,6 @@ try {
     const r = await json(`/api/schedules/${row.id}`, { method: "PUT", body: JSON.stringify({ ...resaved && row.id === resaved.id ? resaved : row, SCode: String(900 + (Number(row.id) % 90)) }) });
     if (r.status === 200) { edited = { before: row, after: r.body }; break; }
   }
-  /* تغييرُ رمز الشعبة يُعاد حكمُه بنمط الشعبة (فلا يمرّ لموعدٍ قديمٍ بمدّةٍ خارج المكتبة): التعديلُ الحقيقيّ حينها إسنادٌ إلى «هيئة تدريسية». */
-  const placeholder = ((await json("/api/instructors?collegeId=1&sectionId=1&termId=1")).body as any[]).find(person => String(person.AdInstructorName || "").startsWith("هيئة"));
-  if (!edited) {
-    for (const row of rows.slice(0, 25)) {
-      if (!placeholder || Number(row.AdInstructorId) === Number(placeholder.AdInstructorId)) continue;
-      const r = await json(`/api/schedules/${row.id}`, { method: "PUT", body: JSON.stringify({ ...resaved && row.id === resaved.id ? resaved : row, AdInstructorId: placeholder.AdInstructorId }) });
-      if (r.status === 200) { edited = { before: row, after: r.body }; break; }
-    }
-  }
   await new Promise(resolve => setTimeout(resolve, 400));
   const afterEdit = await trail();
   const written = afterEdit.entries.find(row => edited && row.row === edited.after.id && row.kind === "edit");
@@ -353,11 +344,6 @@ try {
   let memberEdit: any = null;
   for (const row of memberRows.slice(0, 25)) {
     const r = await json(`/api/schedules/${row.id}`, { method: "PUT", body: JSON.stringify({ ...row, SCode: String(800 + (Number(row.id) % 90)) }) });
-    if (r.status === 200) { memberEdit = r.body; break; }
-  }
-  if (!memberEdit) for (const row of memberRows.slice(0, 25)) {
-    if (!placeholder || Number(row.AdInstructorId) === Number(placeholder.AdInstructorId)) continue;
-    const r = await json(`/api/schedules/${row.id}`, { method: "PUT", body: JSON.stringify({ ...row, AdInstructorId: placeholder.AdInstructorId }) });
     if (r.status === 200) { memberEdit = r.body; break; }
   }
   await new Promise(resolve => setTimeout(resolve, 400));

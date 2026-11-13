@@ -207,6 +207,20 @@ export const sameSectionIdentity=(saved:any,next:any)=>Boolean(saved&&next)
   &&Number(saved.AdCourseId||0)===Number(next.AdCourseId||0)&&String(saved.SCode??"").trim()===String(next.SCode??"").trim();
 /** موعدٌ قائم لم يتغيّر شكلُه (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) — وحده يتخطّى مانعَي الشعبة (A6). */
 export const keepsSectionShape=(saved:any,next:any)=>sameScheduleShape(saved,next)&&sameSectionIdentity(saved,next);
+/**
+ * ── مانعا الشعبة عند التعديل: لا يُمنع تعديلٌ بمخالفةٍ كانت قائمةً ولم يُنشئها ──────────────────
+ *   • لم يتغيّر الشكلُ ولا الشعبة ← لا يُحكم (A6).
+ *   • تغيّر الشكل (الأيام أو الوقت) ← يُحكم كالإنشاء.
+ *   • تغيّر المقرّرُ أو رمزُ الشعبة وحده (والشكلُ كما هو) ← تُحكم الشعبةُ التي دخلها، ويُمنع إن ساء الحال فقط: الشعبةُ
+ *     الجديدة تخالف والصفُّ لم يكن مخالفاً في شعبته الأصلية بأيامه ووقته نفسيهما. فموعدٌ قديم (75د) يبقى قابلاً لتغيير
+ *     رمزه، وصفٌّ سليم يدخل شعبةً فتصير «أحد + خميس» أو تزيد ساعاتُها يُمنع.
+ */
+export async function editShapeIssue(existing:any,next:any,hypothetical?:FSchedule[],options:{skipPattern?:boolean}={}):Promise<string|null>{
+  if(keepsSectionShape(existing,next))return null;
+  const issue=await sectionShapeIssue(next,hypothetical,options);
+  if(!issue||!sameScheduleShape(existing,next))return issue;
+  return await sectionShapeIssue(existing,hypothetical,options)?null:issue;
+}
 /* قرار المالك 2026-11-05: اليومُ الجامعي يمنع الحفظ، ولا يُقصّ الوقت ولا يضيع. واستثناءُ القسم الأضيق ليس هنا: هو تنبيهُ
    hoursNotice أعلاه. وموعدٌ محفوظ لم يتغيّر وقته (keptTime) لا يُردّ بهذا الحدّ، كسائر فحوص الشكل عند التعديل. */
 export async function schedulePayloadIssues(row:any,{keptTime=false}:{keptTime?:boolean}={}){const issues:string[]=[];if(!SCHEDULE_DAY_KEYS.some(k=>Boolean(row?.[k])))issues.push("يجب اختيار يوم واحد على الأقل للمحاضرة");if(row?.fstarttime&&row?.fendtime){

@@ -62,7 +62,7 @@ const review = fs.readFileSync("src/server/routes/scheduleReviewRoutes.ts", "utf
 const inbox = fs.readFileSync("src/server/routes/instructorRequestsRoutes.ts", "utf8");
 check(/export async function unapprovedPatternIssue/.test(rules) && /sectionDaysFitLibrary\(hours,row,siblings\)/.test(rules), "P5 مانعٌ واحد: أيامُ الشعبة كلها نمطٌ معتمد (والصفّ بيومٍ واحد جزءٌ منه)");
 check(!/historicalOrigin\(await courseHabit\(courseId,termId\)/.test(rules) && !/!habitual&&reading\.total/.test(rules), "P5 لا يُعفي التاريخُ نمطاً مختلطاً ولا سقفَ الساعات");
-check((writes.match(/sectionShapeIssue\(/g) || []).length === 2 && /keepsSectionShape\(existing,req\.body\)\?null:await sectionShapeIssue\(\{\.\.\.req\.body,id\}/.test(writes)
+check((writes.match(/sectionShapeIssue\(/g) || []).length === 1 && /await editShapeIssue\(existing,\{\.\.\.req\.body,id\}/.test(writes) && /if\(keepsSectionShape\(existing,next\)\)return null;/.test(rules)
   && (writes.match(/skipPattern:Boolean\(\(req as any\)\.__exactRestore\)/g) || []).length === 2
   && /scheduleLengthIssue\(row,hypothetical\)\|\|\(options\.skipPattern\?null:await unapprovedPatternIssue\(row,hypothetical\)\)/.test(rules), "P5 بوابتا الإنشاء والتعديل (والشكل الذي لم يتغيّر والاستعادة لا يُرفضان)");
 const machine = fs.readFileSync("src/server/timeMachineRoutes.ts", "utf8");

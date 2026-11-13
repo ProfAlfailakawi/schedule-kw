@@ -170,7 +170,7 @@ check(meetingSlots(["fthursday"], "14:00", p4, thu75)[0].end === "15:15", "N9 و
 const schedulesSrc = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 const proposalSrc = fs.readFileSync("src/server/studyProposalEngine.ts", "utf8");
 const writesSrc = fs.readFileSync("src/server/core/scheduleWrites.ts", "utf8");
-check(/sameScheduleShape\(\(editorOriginalRow/.test(schedulesSrc) && /sameScheduleShape\(original/.test(proposalSrc) && /keepsSectionShape\(existing,req\.body\)/.test(writesSrc) && /keepsSectionShape=\(saved:any,next:any\)=>sameScheduleShape\(saved,next\)/.test(fs.readFileSync("src/server/core/scheduleRules.ts", "utf8")), "N7 المحرر والمقترح وبوابة التعديل يقرؤون sameScheduleShape نفسها");
+check(/sameScheduleShape\(\(editorOriginalRow/.test(schedulesSrc) && /sameScheduleShape\(original/.test(proposalSrc) && /editShapeIssue\(existing,\{\.\.\.req\.body,id\}/.test(writesSrc) && /keepsSectionShape=\(saved:any,next:any\)=>sameScheduleShape\(saved,next\)/.test(fs.readFileSync("src/server/core/scheduleRules.ts", "utf8")), "N7 المحرر والمقترح وبوابة التعديل يقرؤون sameScheduleShape نفسها");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -20,7 +20,7 @@ import { noteScheduleMutation, scheduleLockRefusal } from "./approvals";
 import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
 import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./scheduleConflicts";
-import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, keepsSectionShape, schedulePayloadIssues, sectionShapeIssue } from "./scheduleRules";
+import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, editShapeIssue, schedulePayloadIssues, sectionShapeIssue } from "./scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
@@ -265,7 +265,8 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const payloadIssues=await schedulePayloadIssues(req.body,{keptTime:Boolean((req as any).__exactRestore)||(existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime)});
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) يبقى كما هو؛ ومن غيّر شيئاً منها فبنمطٍ معتمد. */
-  {const shapeIssue=keepsSectionShape(existing,req.body)?null:await sectionShapeIssue({...req.body,id},(req as any).__hypotheticalWeek,{skipPattern:Boolean((req as any).__exactRestore)});
+  /* وتغييرُ المقرّر أو الرمز وحده لا يُمنع بمخالفةٍ كانت قائمةً في الصفّ نفسه (editShapeIssue). */
+  {const shapeIssue=await editShapeIssue(existing,{...req.body,id},(req as any).__hypotheticalWeek,{skipPattern:Boolean((req as any).__exactRestore)});
   if(shapeIssue){res.status(400).json({error:shapeIssue,issues:[{type:"validation",severity:"high",message:shapeIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);

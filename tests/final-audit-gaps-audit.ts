@@ -52,7 +52,18 @@ const flags = (on: readonly string[]) => Object.fromEntries(DAYS.map(day => [day
   const move = review.slice(review.indexOf('app.post("/api/schedules/move-batch"'));
   check(/sectionShapeIssue\(candidate\.row, await weekAfterMove\(/.test(move) && move.indexOf("sectionShapeIssue(") < move.indexOf("Repository.moveSchedulesBatch("),
     "١-هـ النقلُ الجماعي يسأل الحكمَ نفسه قبل الكتابة");
-  check((writes.match(/sectionShapeIssue\(/g) || []).length === 2 && /keepsSectionShape\(existing,req\.body\)\?null:await sectionShapeIssue/.test(writes), "١-و الإنشاءُ والتعديلُ يقرآن الحكمَ نفسه");
+  check(/await sectionShapeIssue\(req\.body/.test(writes) && /await editShapeIssue\(existing,\{\.\.\.req\.body,id\}/.test(writes), "١-و الإنشاءُ والتعديلُ يقرآن الحكمَ نفسه");
+  /* تغييرُ الرمز وحده: لا يُمنع بمخالفةٍ كانت قائمة، ويُمنع إن أنشأها. */
+  const { editShapeIssue } = await import("../src/server/core/scheduleRules");
+  const legacy = { ...base, id: 900010, SCode: "970", ...flags(["fmonday", "fwednesday"]), fendtime: "15:15" };
+  (Repository as any).getScheduleById = async (id: number) => Number(id) === 900010 ? legacy : null;
+  check(await sectionShapeIssue(legacy, [legacy] as any) !== null && await editShapeIssue(legacy, { ...legacy, SCode: "971" }, [legacy] as any) === null,
+    "١-و١ موعدٌ قديم (75د) يبقى قابلاً لتغيير رمز شعبته: المخالفةُ كانت قائمةً ولم يُنشئها التعديل");
+  check(/لا توافق النمط المعتمد/.test(String(await editShapeIssue(legacy, { ...legacy, fstarttime: "15:30", fendtime: "16:45" }, [legacy] as any))), "١-و٢ ومن غيّر وقته فبالنمط المعتمد كما كان");
+  const joinSun = { ...sun, id: 900020, SCode: "980" }, lone = { ...base, id: 900021, SCode: "981", ...flags(["fthursday"]), fendtime: "16:50" };
+  const joined = await editShapeIssue(lone, { ...lone, SCode: "980" }, [joinSun, { ...lone, SCode: "980" }] as any);
+  check(await sectionShapeIssue(lone, [joinSun, lone] as any) === null && Boolean(joined), "١-و٣ وصفٌّ سليم يدخل شعبةً فتخالف (ساعاتٌ زائدة أو أيامٌ خارج المكتبة) يُمنع", joined);
+  (Repository as any).getScheduleById = async () => null;
 }
 
 /* ── ٢) سلسلةُ الإصلاح وبدائلُ المقترح تحكم الشعبةَ كلَّها ── */
@@ -195,6 +206,20 @@ try {
       check(Number(other?.id) > 0, "١-م شعبةٌ ثانية للمقرّر نفسه", other);
       const merged = await call("PUT", `/api/schedules/${moved.id}`, { ...moved, SCode: "962" });
       check(merged.status === 400 && /الساعات المعتمدة|ليست نمطاً معتمداً/.test(String(merged.body?.error || "")), "١-ن تعديلُ رمز الشعبة وحده يُعاد حكمُه (كان يمرّ لأن الشكل لم يتغيّر)", merged);
+      /* وموعدٌ قديم بمدّةٍ خارج المكتبة (75د في بيانات التجربة) يُغيَّر رمزُ شعبته ولا يُرفض. */
+      const span = (row: any) => Number(row.fendtime.slice(0, 2)) * 60 + Number(row.fendtime.slice(3)) - Number(row.fstarttime.slice(0, 2)) * 60 - Number(row.fstarttime.slice(3));
+      /* (صفٌّ يتعارض أستاذُه مع غيره بعد تغيير الرمز يُردّ بالتعارض لا بالنمط — يُجرَّب غيرُه.) */
+      const legacyRows = (await board()).filter(row => span(row) === 75).slice(0, 25);
+      let legacyRow: any = null, renamed: any = null;
+      const refusals: string[] = [];
+      for (const row of legacyRows) {
+        const answer = await call("PUT", `/api/schedules/${row.id}`, { ...row, SCode: "958" });
+        if (answer.status === 200) { legacyRow = row; renamed = answer; break; }
+        refusals.push(String(answer.body?.error || answer.status));
+      }
+      check(legacyRows.length > 0 && renamed?.status === 200 && renamed.body?.SCode === "958" && refusals.every(text => !/النمط|ساعات/.test(text)),
+        "١-س موعدٌ قديم (75د) يُغيَّر رمزُ شعبته عبر الخادم ولا يُرفض بالنمط ولا بالساعات", refusals);
+      if (renamed?.status === 200) await call("PUT", `/api/schedules/${legacyRow.id}`, { ...renamed.body, SCode: legacyRow.SCode });
       for (const id of [made.id, other?.id]) if (id) await call("DELETE", `/api/schedules/${id}`);
     }
   }
