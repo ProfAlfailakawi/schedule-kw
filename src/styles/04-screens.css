@@ -151,6 +151,14 @@
 .demo-entry-link::after,.apex-login-identity-trigger::after{content:"";position:absolute;inset:-7px -4px}
 .demo-entry-link:hover:not(:disabled){color:#cfd9d1;border-color:color-mix(in srgb,#79a695 50%,transparent);background:color-mix(in srgb,#0d1714 70%,transparent)}
 .demo-entry-link:disabled{opacity:.55;cursor:default}
+/* «نسيت كلمة السر؟»: خطوتان بشكل نموذج الدخول نفسه، بلا شرحٍ طويل (src/server/staffRecovery.ts). */
+.login-forgot-toggle{align-self:center;margin-top:12px}
+.login-recover-head{display:flex;align-items:center;gap:8px;margin:0;color:#dfe8e2;font-size:15px}
+.login-recover-head svg{width:18px;height:18px;color:var(--accent)}
+.apex-login-form .field input.login-recover-tail{text-align:center;letter-spacing:.55em;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.login-recover-back{justify-self:center}
+.login-recover-note{display:flex;align-items:center;justify-content:center;gap:6px;color:#7d8c85;font-size:12px}
+.login-recover-note svg{width:13px;height:13px}
 
 /* ==========================================================================
    DASHBOARD — COMMAND DECK

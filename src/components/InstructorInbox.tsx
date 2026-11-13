@@ -38,7 +38,7 @@ import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
   ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
   DoorOpen, Wrench, RefreshCw, Home, MapPin, History, Users, Scale, BellRing, UserX,
-  CheckCheck, CircleDashed, Plus, Trash2, School, CalendarDays,
+  CheckCheck, CircleDashed, Plus, Trash2, School,
 } from "lucide-react";
 import type { RequestRoomReason } from "../types";
 import { DnaCount } from "./dna";
@@ -67,6 +67,7 @@ import { inboxInstructorChoices, isPlaceholderInboxRow } from "../utils/instruct
 import { proposalLauncherChoices } from "../utils/instructorPickerChoices";
 import { isTaRequest, notOpened, notParticipated, openedNotAnswered } from "../utils/requestParticipation";
 import { putHandoff } from "../utils/requestHandoff";
+import { putOpenRow, requestedChangeOf } from "../utils/requestOpenRow";
 import { currentTermId } from "../utils/termSequence";
 import { singleDepartmentOf } from "../utils/scopeContext";
 import { readSharedScope, resolveSharedScope, sharedScopeUser, useSharedScope } from "../utils/sharedScope";
@@ -401,24 +402,29 @@ interface BulkEntry {
 
 /* ── بطاقةُ أستاذ ───────────────────────────────────────────────────────── */
 
-/** ينقل المنسّق من بند الطلب إلى موعده الأصلي في «إدارة الجدول» ويفتح نموذجه المعتاد (ملاحظة المالك 11). */
-function openRowInSchedule(rowId: number) {
-  try { window.sessionStorage.setItem("schedule:open-row", JSON.stringify({ rowId, at: Date.now() })); } catch { /* تخزينٌ غير متاح */ }
+/** ينقل المنسّق من بند الطلب إلى موعده الأصلي في «إدارة الجدول» ويفتح نموذجه المعتاد،
+ *  والوقتُ الذي طلبه الأستاذ معبّأٌ فيه (ملاحظة المالك 11). */
+function openRowInSchedule(rowId: number, item: InstructorRequestItem, teacher: string) {
+  putOpenRow({ rowId, change: requestedChangeOf(item) || undefined, teacher });
   window.history.pushState({}, "", "/FSchedule/Index");
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+/** يفتح البندُ نموذجَ الجدول المعتاد: موعدُه الأصلي في التغيير، ونموذجُ الإضافة في الإضافة. */
+export function opensInSchedule(item: Pick<InstructorRequestItem, "action" | "rowId" | "offeringRowIds">): boolean {
+  if (item.action === "change") return item.rowId != null;
+  return item.action === "add" && !item.offeringRowIds?.length;
 }
 
 /* ── حوارُ البند ──────────────────────────────────────────────────────────
  * ما قاله القسمُ والأستاذ في البند بترتيبه، وحالتُه من القاعدة الواحدة
  * (`negotiationState`)، وسطرُ ردٍّ يحمل أوقاتاً مقترحة من أقرب المتاح. ليس
  * قراراً: لا يكتب في الجدول. التثبيتُ والرفضُ يبقيان زرّيهما. */
-function RequestThread({ item, busy: busyProp, onReply, onClose, onProposal }: {
+function RequestThread({ item, busy: busyProp, onReply, onClose }: {
   item: InstructorRequestItem;
   busy: boolean;
   onReply: (text: string, slots: any[]) => void;
   onClose?: () => void;
-  /** يفتح مساحة «إعداد مقترح دراسي» مرتبطةً بهذا البند. */
-  onProposal?: () => void;
 }) {
   const frozenScreen = useFrozenScreen();
   /* فصلٌ سابق: كلُّ ما يُقرِّر معطَّل كما لو كان مشغولاً. */
@@ -438,18 +444,6 @@ function RequestThread({ item, busy: busyProp, onReply, onClose, onProposal }: {
       <header>
         <strong><MessageSquare aria-hidden="true" /> الحوار مع الأستاذ</strong>
         <span className="request-negotiation" data-negotiation={state}>{NEGOTIATION_LABEL[state]}</span>
-        {item.rowId != null && item.action !== "add" ? (
-          <button type="button" className="request-thread-proposal" onClick={() => openRowInSchedule(Number(item.rowId))}
-            data-guide-ignore="ينتقل إلى الجدول الدراسي ويفتح الموعد الأصلي لهذا البند في نموذجه المعتاد">
-            <CalendarDays aria-hidden="true" /> افتح الموعد في الجدول
-          </button>
-        ) : null}
-        {onProposal ? (
-          <button type="button" className="request-thread-proposal" onClick={onProposal} data-guide-target="proposal-from-thread"
-            title="مسودةُ جدولٍ كامل للأستاذ تُرسل له ليوافق عليها — لا تكتب في الجدول قبل موافقته">
-            <ClipboardPen aria-hidden="true" /> إعداد مقترح دراسي
-          </button>
-        ) : null}
         {onClose ? <button type="button" onClick={onClose} aria-label="إغلاق" data-guide-ignore="إغلاق الحوار — لا يغيّر شيئاً"><X /></button> : null}
       </header>
       {thread.length ? (
@@ -532,7 +526,7 @@ function CampusChip({ label }: { key?: React.Key; label?: { chip: string; name: 
   );
 }
 
-function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelScheduled, onReply, busyKey, filter, rowErrors, proposals, onOpenProposal, onBulk }: {
+function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelScheduled, onReply, busyKey, filter, rowErrors, proposals, onOpenProposal, onOpenInSchedule, onBulk }: {
   key?: React.Key;
   row: InboxRequest;
   currentRows: Map<number, FSchedule>;
@@ -545,6 +539,7 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelSchedul
   rowErrors: Record<string, string>;
   proposals: StaffProposalView[];
   onOpenProposal: (open: OpenWorkspace) => void;
+  onOpenInSchedule: (row: InboxRequest, index: number) => void;
   /** كلُّ صفٍّ يقول للشاشة أهو جاهزٌ لـ«ثبّت الجاهز كله». */
   onBulk?: (key: string, entry: BulkEntry | null) => void;
 }) {
@@ -667,7 +662,7 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelSchedul
               onDecide={onDecide}
               onCancelScheduled={onCancelScheduled}
               onReply={onReply}
-              onProposal={itemIndex => onOpenProposal({ requestId: row.id, itemIndex })}
+              onOpenInSchedule={() => onOpenInSchedule(row, index)}
               onBulk={onBulk}
             />
           ))}
@@ -680,7 +675,7 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelSchedul
 /* ── صفُّ بند ─────────────────────────────────────────────────────────────
  * الحكمُ المحفوظ مع الطلب والفحصُ الحيّ يُقرآن معاً: ما منعه أحدُهما مُنع،
  * وما نبّه إليه أحدُهما قيل. ولا يُكرَّر السببُ نفسُه مرّتين. */
-function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onCancelScheduled, onReply, onProposal, onBulk }: {
+function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onCancelScheduled, onReply, onOpenInSchedule, onBulk }: {
   key?: React.Key;
   row: InboxRequest; item: InstructorRequestItem; index: number; current?: FSchedule;
   campus?: { chip: string; name: string };
@@ -689,7 +684,8 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
   onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => void;
   onCancelScheduled: (index: number, note: string) => void;
   onReply: (index: number, text: string, slots: any[]) => void;
-  onProposal?: (index: number) => void;
+  /** «مقترح دراسي»: يفتح الموعدَ الأصلي (أو نموذجَ الإضافة) في الجدول بنموذجه المعتاد. */
+  onOpenInSchedule?: () => void;
   onBulk?: (key: string, entry: BulkEntry | null) => void;
 }) {
   const frozenScreen = useFrozenScreen();
@@ -821,6 +817,12 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
             ) : <span className="request-none">—</span>}
           </div>
           {item.excuse ? <p className="request-excuse"><MessageSquare aria-hidden="true" /><span>{item.excuse}</span></p> : null}
+          {onOpenInSchedule && opensInSchedule(item) && decided !== "fixed" ? (
+            <button type="button" className="request-thread-proposal request-open-row" onClick={onOpenInSchedule} data-guide-target="proposal-from-thread"
+              title={item.action === "add" ? "يفتح نموذج الموعد المعتاد في الجدول، وما طلبه الأستاذ معبّأ فيه" : "يفتح الموعد الأصلي في الجدول بنموذجه المعتاد، والوقت المطلوب معبّأ فيه"}>
+              <ClipboardPen aria-hidden="true" /> مقترح دراسي
+            </button>
+          ) : null}
         </div>
         <div className="request-decision" role="group" aria-label="القرار">
           <div className="request-decision-head">
@@ -933,7 +935,6 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
             busy={busy}
             onClose={hasThread ? undefined : () => setTalking(false)}
             onReply={(text, slots) => onReply(index, text, slots)}
-            onProposal={onProposal ? () => onProposal(index) : undefined}
           />
         </div>
       ) : null}
@@ -1201,6 +1202,23 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     if (target.siblings) { setWorkspace(target); return; }
     const person = personChoicesRef.current.find(choice => choice.requests.some(entry => entry.id === target.requestId));
     setWorkspace({ ...target, siblings: person && person.requests.length > 1 ? person.requests : undefined });
+  };
+  /* «مقترح دراسي» على البند (ملاحظة المالك 11): ضغطةٌ واحدة إلى نموذج الجدول المعتاد —
+     الموعدُ الأصلي في التغيير، ونموذجُ الإضافة ببذرته في الإضافة — بلا مساحةٍ أخرى بينهما. */
+  const openItemInSchedule = (row: InboxRequest, index: number) => {
+    const item = row.items[index];
+    if (!item || !opensInSchedule(item)) return;
+    if (item.action === "change") { openRowInSchedule(Number(item.rowId), item, row.instructorName); return; }
+    const slots = item.slots || [];
+    putHandoff({
+      requestId: row.id, requestRevision: row.requestRevision || 0, itemIndex: index, instructorId: Number(row.AdInstructorId), instructorName: row.instructorName,
+      courseId: Number(item.after?.courseId || 0), collegeId: Number(item.after?.collegeId || row.AdCollegeId),
+      sectionId: Number(item.after?.sectionId || row.AdSectionId), termId: Number(row.AdTermId),
+      days: [...new Set(slots.flatMap(slot => (slot.days?.length ? slot.days : [slot.day])))] as any,
+      start: slots[0]?.start || "", end: slots[0]?.end || "",
+    });
+    if (onNavigate) onNavigate("schedules");
+    else { window.history.pushState({}, "", "/FSchedule/Index"); window.dispatchEvent(new PopStateEvent("popstate")); }
   };
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickError, setQuickError] = useState<string | null>(null);
@@ -2092,6 +2110,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                       rowErrors={rowErrors}
                       proposals={proposals.filter(view => view.proposal.requestId === row.id)}
                       onOpenProposal={openStudyProposal}
+                      onOpenInSchedule={openItemInSchedule}
                       onDecide={(index, state, extra) => void decide(row, index, state, extra)}
                       onCancelScheduled={(index, note) => void cancelScheduled(row, index, note)}
                       onReply={(index, text, slots) => void reply(row, index, text, slots)}

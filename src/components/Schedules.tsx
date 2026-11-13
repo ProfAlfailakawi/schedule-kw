@@ -213,6 +213,7 @@ import type { CourseNature } from "../utils/courseNature";
 import { courseLabel, instructorLabel } from "../utils/courseLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
+import { changeFormPatch, openRowNotice, takeOpenRow, type RequestedChange } from "../utils/requestOpenRow";
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
 import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, graduateImpactNote, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
@@ -3092,6 +3093,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
   /** الطلبُ الذي جاءت منه الإضافةُ المفتوحة، إن جاءت من وارد الأساتذة. */
   const pendingHandoff = useRef<RequestHandoff | null>(null);
+  /* «مقترح دراسي» من الوارد: الوقتُ المطلوب ينتظر فتحَ نموذج الموعد الأصلي (src/utils/requestOpenRow.ts). */
+  const openRowChange = useRef<{ rowId: number; change: RequestedChange } | null>(null);
   /** «طلب شعبة» من الإرشاد فتح هذه الإضافة (src/utils/sectionRequestHandoff.ts): يُربط بها ما يُحفظ. */
   const pendingSectionRequest = useRef<SectionRequestHandoff | null>(null);
 
@@ -10836,21 +10839,28 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return () => window.removeEventListener("schedule-smart-guide-command", onGuideCommand as EventListener);
   }, [changeView, context?.selected?.id, emitGuideResult, practiceMode, rows, showMobileReadOnlyGate, undoLog, viewMode]);
   /* ── من طلب الأستاذ إلى موعده الأصلي (ملاحظة المالك 11) ─────────────────────
-   * «مقترح دراسي» مساحةٌ أخرى تختلف عن الموعد المعتاد فتربك. فزرُّ «افتح الموعد في الجدول» في وارد الأساتذة
-   * يحمل رقمَ الصفّ إلى هنا: يُضاء الموعدُ الأصلي ويُفتح نموذجُه المعتاد نفسه، بفحوصه وتعارضاته. */
+   * «مقترح دراسي» على بند الطلب يحمل رقمَ الصفّ والوقتَ المطلوب إلى هنا بضغطةٍ واحدة: يُضاء
+   * الموعدُ الأصلي ويُفتح نموذجُه المعتاد نفسه بفحوصه وتعارضاته، والوقتُ المطلوب معبّأٌ فيه. */
   useEffect(() => {
-    let wanted: { rowId?: number } | null = null;
-    try { wanted = JSON.parse(window.sessionStorage.getItem("schedule:open-row") || "null"); } catch { wanted = null; }
-    const id = Number(wanted?.rowId || 0);
-    if (!id || !rows.length) return;
+    if (!rows.length) return;
+    const wanted = takeOpenRow();
+    if (!wanted) return;
+    const id = wanted.rowId;
     const row = rows.find(item => Number(item.id) === id);
-    try { window.sessionStorage.removeItem("schedule:open-row"); } catch { /* تخزينٌ غير متاح */ }
     if (!row) { setMessage("الموعد الأصلي ليس في نطاق الجدول المعروض الآن. اختر كلية الموعد وقسمه ثم أعد المحاولة من الوارد."); return; }
     if (viewMode === "list") changeView("week");
     setReviewFocus(new Set([id]));
+    /* الوقتُ المطلوب يُعبّأ بعد أن يُفتح النموذج فعلاً (لا قفل ولا بوابة هاتف) — انظر الأثر التالي. */
+    openRowChange.current = wanted.change ? { rowId: id, change: wanted.change } : null;
     openEdit(row);
-    setMessage("هذا الموعد الأصلي من طلب الأستاذ. عدّله هنا بالنموذج المعتاد، أو أضف موعداً جديداً بجانبه.");
+    setMessage(openRowNotice(wanted, Object.fromEntries(days.map(day => [day.key, day.label]))));
   }, [rows]);
+  useEffect(() => {
+    const pending = openRowChange.current;
+    if (!pending || editor !== "edit" || Number(editId) !== pending.rowId) return;
+    openRowChange.current = null;
+    setForm(current => ({ ...current, ...changeFormPatch(pending.change) }));
+  }, [editor, editId]);
   useEffect(() => {
     const op = guideOperationRef.current;
     if (!op?.expected?.startsWith("view:")) return;

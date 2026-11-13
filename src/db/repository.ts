@@ -2613,6 +2613,8 @@ export type FeatureCollection =
   | "seatLedgers" | "seatMemberLinks"
   /* إعادةُ تعيين كلمة السر: أثرُ الكلمة المؤقتة ودخولُها الواحد، لا الكلمة (src/server/accountPassword.ts). */
   | "passwordResets"
+  /* «نسيت كلمة السر؟» للموظفين (src/server/staffRecovery.ts): حارسٌ على بصمة الاسم، وتذكرةٌ لمرةٍ واحدة، وأثرٌ لمدير النظام. */
+  | "staffRecovery"
   /* طلبُ شعبة (src/utils/sectionRequests.ts): وثيقةٌ لكل طلب، معرّفُها يبدأ بفصله `${termId}:`. */
   | "sectionRequests"
   /* حارسُ الزملاء (src/server/scheduleHolds.ts): حجزٌ واحد لكل جالس يعيش دقيقتين. ومقياسُ إدخال

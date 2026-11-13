@@ -55,6 +55,8 @@ import { readLiveVisitingRoster } from "./src/server/core/visiting";
 import { registerAdminRoutes } from "./src/server/routes/adminRoutes";
 import { registerApprovalsRoutes } from "./src/server/routes/approvalsRoutes";
 import { registerAuthRoutes } from "./src/server/routes/authRoutes";
+import { registerStaffRecoveryRoutes } from "./src/server/staffRecovery";
+import { staffRecoveryDeps } from "./src/server/staffRecoveryWiring";
 import { registerCoursesRoutes } from "./src/server/routes/coursesRoutes";
 import { registerDashboardRoutes } from "./src/server/routes/dashboardRoutes";
 import { registerDraftsRoutes } from "./src/server/routes/draftsRoutes";
@@ -401,6 +403,7 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
 /* «👣 الأثر»: سطرٌ لكل كتابةٍ ناجحة على مسارٍ معروف (src/utils/activityTrail.ts) — لا فتحٌ ولا اطّلاع. */
 app.use("/api", activityTrailRecorder);
 registerAuthRoutes(app);
+registerStaffRecoveryRoutes(app, staffRecoveryDeps());
 registerDashboardRoutes(app);
 registerReferenceRoutes(app);
 registerInstructorsRoutes(app);

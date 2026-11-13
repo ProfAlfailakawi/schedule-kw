@@ -131,9 +131,9 @@ check(/mini-week-fact-word">فراغ</.test(mini) && /mini-week-fact-word">نص�
 check(/ساعات الفراغ بين محاضراته في الأسبوع/.test(mini), "19: تلميحٌ يشرح الفراغ");
 
 /* ── 11 · إلى الموعد الأصلي ─────────────────────────────────────────────── */
-check(/function openRowInSchedule\(rowId: number\)/.test(inbox) && /افتح الموعد في الجدول/.test(inbox), "11: زرٌّ ينقل إلى الموعد الأصلي");
+check(/function openRowInSchedule\(rowId: number, item: InstructorRequestItem, teacher: string\)/.test(inbox) && /<ClipboardPen aria-hidden="true" \/> مقترح دراسي/.test(inbox), "11: «مقترح دراسي» على البند ينقل إلى الموعد الأصلي");
 const schedules = read("src/components/Schedules.tsx");
-check(/sessionStorage\.getItem\("schedule:open-row"\)/.test(schedules) && /openEdit\(row\);\s*setMessage\("هذا الموعد الأصلي من طلب الأستاذ/.test(schedules), "11: الجدولُ يفتح نموذجَه المعتاد للموعد");
+check(/const wanted = takeOpenRow\(\);/.test(schedules) && /openEdit\(row\);[\s\S]{0,400}changeFormPatch\(pending\.change\)/.test(schedules), "11: الجدولُ يفتح نموذجَه المعتاد للموعد والوقتُ المطلوب معبّأ");
 
 /* ── 9 · السرعة ─────────────────────────────────────────────────────────── */
 check(/getInstructorRequestsForInstructor: async/.test(read("src/db/repository.ts")), "9: قراءةُ طلبات أستاذٍ واحدٍ بمعرّفه");

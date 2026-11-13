@@ -436,6 +436,7 @@
 .request-propose:hover,.request-thread-proposal:hover{background:var(--accent-soft)}
 .request-propose svg,.request-thread-proposal svg{inline-size:14px;block-size:14px}
 .request-thread-proposal{margin-inline-start:auto}
+.request-open-row{margin-inline-start:0;justify-self:start;align-self:flex-start}
 
 /* مرشد SCHEDULE العائم يتنحّى ما دامت المساحة مفتوحة: كان يقف فوق الشريط السفلي. */
 body:has(.sp-root) .smart-guide-fab{visibility:hidden}
