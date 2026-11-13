@@ -38,7 +38,7 @@ import { AR, countOf } from "./arabicCount";
 import { sameCourseSectionClash,
   DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, daysApprovedForHours, expectedMinutesForDay, isDecision1912Finding, startLadderNote,
   LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES, patternsForHours, requiredGapForDays, reviewSchedule, toMinutes,
-  weeklyLectureMinutes, maxWeeklyMinutesFor, effectiveCourseHours, type DayKey, type RegulationFinding,
+  weeklyLectureMinutes, maxWeeklyMinutesFor, effectiveCourseHours, sectionDaysFitLibrary, sectionPatternIssueText, type DayKey, type RegulationFinding,
 } from "./scheduleRegulations";
 import { findConflicts, minutesToTime } from "./scheduleIntelligence";
 import { rowsForRequestSlots } from "./instructorRequestWeek";
@@ -714,6 +714,30 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
       reasons.push({ source: "shape", code: "pattern", blocking: true, text: lengthIssue });
       const result = verdictOf();
       result.shapes = [{ days: [...request.days], label: `طبّق النمط: ${patternLabel({ CourseHours: courseHours }, request.days) || "المعتمد"}` }];
+      return result;
+    }
+  }
+
+  /* ── الشعبةُ كلُّها نمطٌ واحد، عند الإرسال لا عند تثبيت القسم وحده ───────────────────────
+     موعدٌ هو أحدُ صفوف شعبةٍ بصفوفٍ عدة («أحد 80 + ثلاثاء 80») كان يُحكم بأيامه وحدها، فيُقبل نقلُ ثلاثائه إلى الخميس
+     ثم يرفضه القسمُ عند التثبيت (unapprovedPatternIssue). الحَكَمُ نفسُه هنا (sectionDaysFitLibrary) لكل مقرّر، على
+     الأسبوع كما سيصير بعد الطلب كلِّه: صفوفُ المقرّر والرمز نفسيهما، لهذا الأستاذ ولغيره. ومعه أيامُ هذا اللقاء التي
+     تُبقي الشعبةَ نمطاً معتمداً أزراراً. */
+  if (!keptShape && !mixedUnapproved && courseHours > 0 && !request.relatedRowIds?.length && request.action === "change" && ownRow && String(ownRow.SCode ?? "").trim()) {
+    const moved = rowsForRequestSlots(slots, { ...base, AdCourseId: request.AdCourseId }, identity);
+    const movedIds = new Set(moved.map(row => Number(row.id)));
+    const siblings = week.filter(row => !movedIds.has(Number(row.id)) && !currentIds.has(Number(row.id))
+      && Number(row.AdCourseId) === Number(request.AdCourseId) && String(row.SCode ?? "").trim() === String(ownRow.SCode ?? "").trim()
+      && Number(row.AdCollegeId || 0) === Number(ownRow.AdCollegeId || 0) && Number(row.AdSectionId || 0) === Number(ownRow.AdSectionId || 0)
+      && Number(row.AdTermId || 0) === Number(ownRow.AdTermId || 0));
+    const broken = siblings.length ? moved.find(row => sectionDaysFitLibrary(courseHours, row, [...siblings, ...moved.filter(other => other !== row)]) === false) : undefined;
+    if (broken) {
+      reasons.push({ source: "shape", code: "pattern", blocking: true, text: sectionPatternIssueText(courseHours, broken, [...siblings, ...moved.filter(other => other !== broken)]) });
+      const result = verdictOf();
+      result.shapes = moved.length === 1 && request.days.length === 1
+        ? DAY_KEYS.filter(day => sectionDaysFitLibrary(courseHours, { ...moved[0], ...Object.fromEntries(DAY_KEYS.map(key => [key, key === day])) }, siblings) === true)
+            .slice(0, 3).map(day => ({ days: [day] as DayKey[], label: DAY_NAMES[DAY_KEYS.indexOf(day)] }))
+        : [];
       return result;
     }
   }

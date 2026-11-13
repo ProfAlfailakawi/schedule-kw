@@ -94,6 +94,43 @@ const flags = (on: readonly string[]) => Object.fromEntries(DAYS.map(day => [day
   check(sectionDayVariants(tue, 3, []).map(days => days.join("+")).includes("fthursday"), "٢-و وكتلةُ اليوم الواحد بلا إخوةٍ تبقى على أيّ يوم");
 }
 
+/* ── ٦) طلبُ الأستاذ يُحكم بالشعبة كلِّها عند الإرسال ── */
+{
+  const { judgeRequest } = await import("../src/utils/instructorRequestVerdict");
+  const { sectionDaysFitLibrary } = await import("../src/utils/scheduleRegulations");
+  const TEACHER = 5;
+  const mk = (id: number, courseId: number, days: string[], teacher = TEACHER, scode = "01") => ({
+    id, AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, AdCourseId: courseId, AdCourseName: `م${courseId}`, SCode: scode, AdInstructorId: teacher,
+    ...flags(days), fstarttime: "10:00", fendtime: "11:20", buildingId: "b1", roomId: "r1", AdRoomCode: "T", AdRoomHall: "1", locationStatus: "VERIFIED", rev: 0,
+  }) as any;
+  const context = (rows: any[], courseHours: number) => ({
+    instructorId: TEACHER, termId: 1, allRows: rows, instructorRowsAfter: rows.filter(row => row.AdInstructorId === TEACHER),
+    courses: new Map([[30, { AdCourseId: 30, CourseHours: courseHours, CourseName: "مقرر الشعبة", CourseCode: "S30" } as any]]), instructors: new Map(),
+    knownRoomKeys: ["legacy:T|1"], ladderBlocks: true,
+  }) as any;
+  const move = (rowId: number, day: string) => ({ rowId, action: "change", AdCourseId: 30, days: [day], start: "10:00", slots: [{ day, start: "10:00", end: "11:20" }] }) as any;
+  const sun = mk(1, 30, ["fsunday"]), tue = mk(2, 30, ["ftuesday"]);
+  const toThu = judgeRequest(move(2, "fthursday"), context([sun, tue], 3));
+  check(!toThu.sendable && toThu.reasons.some(reason => reason.blocking && reason.code === "pattern" && /أيام هذه الشعبة \(الأحد · الخميس\) ليست نمطاً معتمداً/.test(reason.text)),
+    "٦-أ نقلُ ثلاثاءِ «أحد 80 + ثلاثاء 80» إلى الخميس يُمنع عند الإرسال بحكم الشعبة كلِّها", toThu.reasons);
+  check((toThu.shapes || []).length > 0 && (toThu.shapes || []).every(shape => shape.days.length === 1
+    && sectionDaysFitLibrary(3, { ...tue, ...flags(shape.days) }, [sun]) === true), "٦-ب ومعه أيامُ هذا اللقاء التي تُبقي الشعبةَ نمطاً معتمداً", toThu.shapes);
+  const sunToThu = judgeRequest(move(1, "fthursday"), context([sun, tue], 3));
+  check(!sunToThu.reasons.some(reason => reason.blocking && reason.code === "pattern"), "٦-ج ونقلُ أحدِها إلى الخميس («ثلاثاء + خميس») لا يُمنع بالنمط", sunToThu.reasons);
+  /* الشعبةُ لأستاذين: الأخُ عند زميلٍ يُحسب أيضاً. */
+  const other = judgeRequest(move(2, "fthursday"), context([mk(1, 30, ["fsunday"], 9), tue], 3));
+  check(!other.sendable && other.reasons.some(reason => reason.code === "pattern" && /ليست نمطاً معتمداً/.test(reason.text)), "٦-د وصفُّ الشعبة عند زميلٍ يُحسب: الحكمُ على الشعبة لا على الأستاذ", other.reasons);
+  /* لكل مقرّر لا للنظريّ بثلاث وأربع ساعات وحده: مقرّرٌ بساعتين «أحد 50 + ثلاثاء 50». */
+  const two = (id: number, day: string) => ({ ...mk(id, 30, [day]), fendtime: "10:50" });
+  const twoHour = judgeRequest({ ...move(2, "fmonday"), slots: [{ day: "fmonday", start: "09:30", end: "10:20" }], start: "09:30" }, context([two(1, "fsunday"), two(2, "ftuesday")], 2));
+  check(!twoHour.sendable && twoHour.reasons.some(reason => reason.blocking && reason.code === "pattern"), "٦-هـ ولمقرّرٍ بساعتين أيضاً («أحد + اثنين» يُمنع)", twoHour.reasons);
+  const kept = judgeRequest({ rowId: 2, action: "change", AdCourseId: 30, days: ["ftuesday"], start: "10:00", slots: [{ day: "ftuesday", start: "10:00", end: "11:20" }] } as any, context([mk(1, 30, ["fthursday"]), tue], 3));
+  check(!kept.reasons.some(reason => reason.code === "pattern"), "٦-و وموعدٌ قائم لم يتغيّر شكلُه لا يُرفض بنمط شعبته القديم", kept.reasons);
+  const verdictSrc = read("src/utils/instructorRequestVerdict.ts"), inboxRoute = read("src/server/routes/instructorRequestsRoutes.ts");
+  check(/sectionDaysFitLibrary\(courseHours, row, \[\.\.\.siblings/.test(verdictSrc) && /unapprovedPatternIssue\(row, week, \{ skipIfUnchanged: true \}\)/.test(inboxRoute)
+    && /fits=sectionDaysFitLibrary\(hours,row,siblings\)/.test(read("src/server/core/scheduleRules.ts")), "٦-ز الإرسالُ والتثبيتُ يقرآن الحَكَمَ نفسه (sectionDaysFitLibrary)");
+}
+
 let server: LiveServer | null = null;
 try {
   if (process.env.GAPS_PURE_ONLY) throw new Error("pure-only");
