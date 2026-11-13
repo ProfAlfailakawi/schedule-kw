@@ -814,22 +814,22 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   const needsServer = Boolean(readingUrl) || !localRows.length;
   if (needsServer && (!readinessChecked || readinessError)) {
     const failed = readinessChecked && readinessError;
-    const body = (
-      <section className={`review-sheet no-print visual-minimal${inline ? " review-sheet--inline" : ""}`} {...(inline ? { role: "region" } : { role: "dialog", "aria-modal": true })} aria-label="مراجعة الاعتماد">
-        <div className="review-unavailable" role="status" aria-live="polite" data-review-state={failed ? "failed" : "loading"}>
-          {failed ? <AlertTriangle aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
-          <strong>{failed ? "تعذّرت قراءة المراجعة الآن" : "أقرأ المراجعة…"}</strong>
-          {failed ? (
-            <SecondaryButton type="button" data-guide-ignore="إعادة قراءة مراجعة الاعتماد — قراءةٌ لا تغيّر شيئاً" onClick={() => setRetry(value => value + 1)}>
-              <RefreshCw aria-hidden="true" /> أعد المحاولة
-            </SecondaryButton>
-          ) : null}
-          {inline ? null : <button type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق"><X /></button>}
-        </div>
-      </section>
+    return (
+      <div className={inline ? "review-inline" : "review-backdrop"} onMouseDown={inline ? undefined : event => { if (event.target === event.currentTarget) onClose(); }}>
+        <section className={`review-sheet no-print visual-minimal${inline ? " review-sheet--inline" : ""}`} role={inline ? "region" : "dialog"} aria-modal={inline ? undefined : "true"} aria-label="مراجعة الاعتماد">
+          <div className="review-unavailable" role="status" aria-live="polite" data-review-state={failed ? "failed" : "loading"}>
+            {failed ? <AlertTriangle aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
+            <strong>{failed ? "تعذّرت قراءة المراجعة الآن" : "أقرأ المراجعة…"}</strong>
+            {failed ? (
+              <SecondaryButton type="button" data-guide-ignore="إعادة قراءة مراجعة الاعتماد — قراءةٌ لا تغيّر شيئاً" onClick={() => setRetry(value => value + 1)}>
+                <RefreshCw aria-hidden="true" /> أعد المحاولة
+              </SecondaryButton>
+            ) : null}
+            {inline ? null : <button type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق"><X /></button>}
+          </div>
+        </section>
+      </div>
     );
-    return inline ? <div className="review-inline">{body}</div>
-      : <div className="review-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>{body}</div>;
   }
 
   return (
@@ -838,7 +838,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     // meant to produce. Only the on-screen dialog is suppressed on paper.
     <DemandFactsContext.Provider value={demandFacts}>
     <div className={inline ? "review-inline" : "review-backdrop"} onMouseDown={inline ? undefined : event => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`review-sheet no-print visual-minimal${inline ? " review-sheet--inline" : ""}`} {...(inline ? { role: "region" } : { role: "dialog", "aria-modal": true })} aria-label="مراجعة الاعتماد">
+      <section className={`review-sheet no-print visual-minimal${inline ? " review-sheet--inline" : ""}`} role={inline ? "region" : "dialog"} aria-modal={inline ? undefined : "true"} aria-label="مراجعة الاعتماد">
         <header className={`review-head tone-${tone}`}>
           <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1913_LABEL} ${score} من 100`}>
             <circle className="ring-track" cx="32" cy="32" r="26" />
