@@ -118,6 +118,7 @@
     "test:schedule-apply": "tsx tests/schedule-apply-proposal-audit.ts",
     "test:time-machine": "tsx tests/time-machine-audit.ts",
     "test:smart-suggestions": "tsx tests/smart-suggestions-audit.ts",
+    "test:engine-regulation": "tsx tests/engine-regulation-candidates-audit.ts",
     "test:import-term-tools": "tsx tests/import-term-tools-audit.ts",
     "test:time-machine-links": "tsx tests/time-machine-links-audit.ts",
     "test:live-pulse": "tsx tests/live-pulse-audit.ts",
