@@ -78,3 +78,24 @@
   .review-sheet .review-spread .spread-keys>span small{overflow:visible;text-overflow:clip}
 }
 .review-sign-for{display:block;margin-top:4px;color:var(--muted);font-size:.76rem}
+
+/* ── كلُّ بندٍ شريطٌ مطويّ، والأستاذ سطرٌ يُفتح على مواعيده (المالك 2026-11-14) ── */
+@media screen{
+  .review-finding-chevron{width:18px;height:18px;flex:none;color:var(--muted-2);transition:transform .2s ease;justify-self:end}
+  .review-finding[open] .review-finding-chevron{transform:rotate(180deg);color:var(--accent,#176d59)}
+  .review-finding:not([open])>summary{border-bottom:0}
+  .review-finding[open]>.review-rows{animation:rise .2s var(--ease-out) both}
+  .review-person-head{cursor:pointer;list-style:none;padding:8px 6px;border-radius:12px;transition:background .15s ease}
+  .review-person-head:hover,.review-person[open]>.review-person-head{background:var(--av-mint,color-mix(in srgb,var(--accent) 7%,var(--surface)))}
+  .review-person-head .review-person-chevron{width:16px;height:16px;margin-inline-start:auto;flex:none;color:var(--muted-2);transition:transform .2s ease}
+  .review-person[open] .review-person-chevron{transform:rotate(180deg)}
+  .review-person[open]>.review-person-rows{padding:6px 0 2px;animation:rise .18s var(--ease-out) both}
+  .review-fold-all{display:flex;justify-content:flex-end}
+  .review-fold-all-button{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}
+  .review-fold-all-button:hover,.review-fold-all-button:focus-visible{color:var(--accent,#176d59);border-color:color-mix(in srgb,var(--accent,#176d59) 35%,var(--line))}
+  .review-fold-all-button svg{width:15px;height:15px}
+}
+@media (prefers-reduced-motion:reduce){
+  .review-finding-chevron,.review-person-head .review-person-chevron{transition:none}
+  .review-finding[open]>.review-rows,.review-person[open]>.review-person-rows{animation:none}
+}

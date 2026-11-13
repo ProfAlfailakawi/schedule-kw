@@ -54,15 +54,22 @@ check(!/slice\(0,\s*12\)/.test(review) && !/slice\(0,\s*12\)/.test(changes), "ل
 check(!/غيرها…|غيرهم…/.test(review) && !/غيرهم…/.test(changes), "لا «و… غيرها» في قوائم الملاحظات");
 check(!/printRowPreviewLimit/.test(review), "الورقة لا تقتطع المواعيد");
 check(/أظهرها على الجدول/.test(review), "«أظهرها على الجدول» باقٍ");
-/* The whole category and each instructor must expand without React click-state. */
+/* المالك 2026-11-14: كلُّ بندٍ شريطٌ مطويّ ابتداءً، يُفتح بالعنصر الأصلي (details/summary) — لوحةُ مفاتيح وقارئُ شاشة —
+   ولا يُتذكّر شيءٌ بين الفتحات؛ وأكثرُ من بطاقةٍ قد تُفتح معاً (لا «أكورديون» يُغلق غيره). */
 check(/<details key={finding\.groupKey} className=/.test(review)
-  && /<summary data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط"/.test(review)
-  && /<div className="review-rows">/.test(review)
+  && /open=\{cardOpen\}/.test(review) && !/data-review-finding=\{finding\.groupKey\} open>/.test(review)
+  && /<summary data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط" aria-expanded=\{cardOpen\}>/.test(review)
+  && /\{cardOpen \? <div className="review-rows">/.test(review)
+  && /useState<Set<string>>\(\(\) => new Set\(\)\)/.test(review)
   && !/setOpen\(current => \(current === finding\.groupKey/.test(review),
-  "بطاقات الموانع تستخدم فتحاً أصلياً من المتصفح مع الحفاظ على كل التفاصيل");
-/* المالك 2026-11-13: البند ← الأستاذ مرّةً واحدة ← مواعيدُه صفوفاً بوسم حرمها، لكل الأنواع. */
-check(/<section className="review-person"/.test(review)
-  && /<header className="review-person-head">/.test(review)
+  "بطاقات المراجعة مطويةٌ ابتداءً وتُفتح فتحاً أصلياً مع الحفاظ على كل التفاصيل");
+check(/افتح الكل/.test(review) && /اطوِ الكل/.test(review), "«افتح الكل / اطوِ الكل»");
+check(/className="review-graduate-toggle" aria-expanded=\{graduatesOpen\}/.test(review) && /countOf\(graduateClashes\.length, AR\.conflict\)/.test(review)
+  && !/graduateClashes\.slice\(/.test(review), "«تعارض مقررات الخريجين» شريطٌ بعدده يُفتح على الأزواج كلها");
+/* المالك 2026-11-13/14: البند ← الأستاذ مرّةً واحدة (سطرٌ يُفتح) ← مواعيدُه صفوفاً بوسم حرمها، لكل الأنواع. */
+check(/<details className=\{`review-person/.test(review)
+  && /<summary className="review-person-head" aria-expanded=\{open\}/.test(review)
+  && /\{open \? <div className="review-person-rows" role="list">/.test(review)
   && /className="review-appt"/.test(review)
   && /<CampusChip tag=\{campusOf\(row\)\} \/>/.test(review)
   && !/renderFindingSubjects/.test(review),
