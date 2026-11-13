@@ -213,6 +213,7 @@ import type { CourseNature } from "../utils/courseNature";
 import { courseLabel, instructorLabel } from "../utils/courseLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
+import { changeFormPatch, openRowNotice, takeOpenRow } from "../utils/requestOpenRow";
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
 import { actualDemandNotice, graduateImpactNote, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
@@ -3222,8 +3223,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setEditId(null);
       setEditor("create");
     },
-    openEdit = (row: FSchedule) => {
-      if (showMobileReadOnlyGate() || lockRefusesEdit()) return;
+    openEdit = (row: FSchedule): boolean => {
+      if (showMobileReadOnlyGate() || lockRefusesEdit()) return false;
       /* التعديل يحمّل هذا الموعد وحده، بلا أثرٍ من موعد سابق. */
       clearEditorTransients();
       setMessage(null);
@@ -3247,6 +3248,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // looks untouched on every other screen right up until the save.
       presence.send({ editing: { rowId: row.id, rev: Number((row as any).rev || 0) } });
       setEditor("edit");
+      return true;
     },
     openDecisionRows = (queue: FSchedule[]) => {
       const ids = [...new Set(queue.map(row => Number(row.id)).filter(Boolean))];
@@ -10829,20 +10831,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return () => window.removeEventListener("schedule-smart-guide-command", onGuideCommand as EventListener);
   }, [changeView, context?.selected?.id, emitGuideResult, practiceMode, rows, showMobileReadOnlyGate, undoLog, viewMode]);
   /* ── من طلب الأستاذ إلى موعده الأصلي (ملاحظة المالك 11) ─────────────────────
-   * «مقترح دراسي» مساحةٌ أخرى تختلف عن الموعد المعتاد فتربك. فزرُّ «افتح الموعد في الجدول» في وارد الأساتذة
-   * يحمل رقمَ الصفّ إلى هنا: يُضاء الموعدُ الأصلي ويُفتح نموذجُه المعتاد نفسه، بفحوصه وتعارضاته. */
+   * «مقترح دراسي» على بند الطلب يحمل رقمَ الصفّ والوقتَ المطلوب إلى هنا بضغطةٍ واحدة: يُضاء
+   * الموعدُ الأصلي ويُفتح نموذجُه المعتاد نفسه بفحوصه وتعارضاته، والوقتُ المطلوب معبّأٌ فيه. */
   useEffect(() => {
-    let wanted: { rowId?: number } | null = null;
-    try { wanted = JSON.parse(window.sessionStorage.getItem("schedule:open-row") || "null"); } catch { wanted = null; }
-    const id = Number(wanted?.rowId || 0);
-    if (!id || !rows.length) return;
+    if (!rows.length) return;
+    const wanted = takeOpenRow();
+    if (!wanted) return;
+    const id = wanted.rowId;
     const row = rows.find(item => Number(item.id) === id);
-    try { window.sessionStorage.removeItem("schedule:open-row"); } catch { /* تخزينٌ غير متاح */ }
     if (!row) { setMessage("الموعد الأصلي ليس في نطاق الجدول المعروض الآن. اختر كلية الموعد وقسمه ثم أعد المحاولة من الوارد."); return; }
     if (viewMode === "list") changeView("week");
     setReviewFocus(new Set([id]));
-    openEdit(row);
-    setMessage("هذا الموعد الأصلي من طلب الأستاذ. عدّله هنا بالنموذج المعتاد، أو أضف موعداً جديداً بجانبه.");
+    if (!openEdit(row)) return;
+    if (wanted.change) setForm(current => ({ ...current, ...changeFormPatch(wanted.change!) }));
+    setMessage(openRowNotice(wanted, Object.fromEntries(days.map(day => [day.key, day.label]))));
   }, [rows]);
   useEffect(() => {
     const op = guideOperationRef.current;

@@ -283,3 +283,4 @@ test:srs-regulation-sync
 test:tsconfig-strictness
 test:new-appointment-pattern-end
 test:instructor-requests-owner-notes
+test:proposal-open-row
