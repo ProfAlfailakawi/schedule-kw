@@ -604,8 +604,9 @@ registerTimeMachineRoutes(app, {
   /* فصلٌ مجمَّد أو منتهٍ: آلة الزمن تُقرأ وتُحاكى فيه ولا تكتب (كالتخطيط والاستيراد). */
   termFrozen: async termId => (termIsFrozen(termId, (await Repository.getTerms()) as any) ? TERM_FROZEN_MESSAGE
     : await termEndedForReading(termId) ? "انتهى هذا الفصل: آلة الزمن للقراءة والمحاكاة فقط." : null),
-  dryRunUpdate: (req: AuthenticatedRequest, rowId, body, week, exactRestore) => runScheduleHandler(updateScheduleHandler, req, { params: { id: String(rowId) }, body, hypotheticalWeek: week, dryRun: true, exactRestore }),
-  dryRunCreate: (req: AuthenticatedRequest, body, week, exactRestore) => runScheduleHandler(createScheduleHandler, req, { body, hypotheticalWeek: week, dryRun: true, exactRestore }),
+  /* الاعتمادُ حفظٌ من القسم تُجمع مخالفاتُه اللائحية (regulationGate)؛ والاستعادةُ تعيد ما كان بالضبط فلا تُسأل. */
+  dryRunUpdate: (req: AuthenticatedRequest, rowId, body, week, exactRestore) => runScheduleHandler(updateScheduleHandler, req, { params: { id: String(rowId) }, body, hypotheticalWeek: week, dryRun: true, exactRestore, regulation: !exactRestore }),
+  dryRunCreate: (req: AuthenticatedRequest, body, week, exactRestore) => runScheduleHandler(createScheduleHandler, req, { body, hypotheticalWeek: week, dryRun: true, exactRestore, regulation: !exactRestore }),
   lockRefusal: (req: AuthenticatedRequest, collegeId, sectionId, termId) => scheduleLockRefusal(req, collegeId, sectionId, termId),
   captureVersion: (req: AuthenticatedRequest, collegeId, sectionId, termId, label) => captureScopeVersion(req, collegeId, sectionId, termId, label, "manual"),
   /* «ما صار» من صفوف الاعتماد نفسها (R7): يُستدعى بعد المعاملة وقبل الردّ. */

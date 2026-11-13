@@ -21,7 +21,7 @@ import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
 import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./scheduleConflicts";
 import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, schedulePayloadIssues, unapprovedPatternIssue } from "./scheduleRules";
-import { regulationExceptionAccepted, regulationExceptionAudit } from "../../utils/regulationException";
+import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
 import { noteTrail } from "../activityTrail";
@@ -51,6 +51,12 @@ function scheduleOriginOf(req: AuthenticatedRequest): import("../../types").Sche
   };
 }
 
+
+/* المسارُ الداخلي لا يُسأل عن اللائحة إلا إن طلب صاحبُه جمعَ مخالفاته (regulationGate). */
+const skipsRegulation = (req: any) => Boolean(req.__internal) && !req.__regulationCollect;
+/* يُرفض بلا موافقة؛ والجمعُ لا يرفض: صاحبُه يسأل مرةً واحدة عن الخطوات كلها. */
+const regulationRefused = (req: any, issues: readonly RegulationExceptionIssue[]) =>
+  issues.length > 0 && !regulationExceptionAccepted(req.body) && !req.__regulationCollect;
 
 /** The course owns the requirement; the appointment holds the physical facility. */
 export async function companionBookingFor(course:AdCourse,body:any,canonical:any,existing?:FSchedule):Promise<{issue?:string;id:string;label:string}>{
@@ -142,8 +148,9 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   if(blockingSave.length){res.status(409).json({error:blockingSave[0].message||"يوجد تعارض يمنع الحفظ",issues:blockingSave});return;}
   /* مخالفةُ لائحةٍ لا تمنع: لا تُحفظ إلا بتأكيدٍ صريح من القسم (ملاحظتا المالك 10 و20). المساراتُ الداخلية
      (اعتمادُ طلب أستاذ، المقترح، آلة الزمن…) حكمت قبل أن تصل هنا، وكرتُ الأستاذ يمنع بنفسه. */
-  const createException=(req as any).__internal?[]:await regulationExceptionsFor(canonicalBody,(req as any).__hypotheticalWeek);
-  if(createException.length&&!regulationExceptionAccepted(req.body)){res.status(409).json(regulationExceptionRefusal(createException));return;}
+  const createException=skipsRegulation(req)?[]:await regulationExceptionsFor(canonicalBody,(req as any).__hypotheticalWeek);
+  res.locals.regulationException=createException;
+  if(regulationRefused(req,createException)){res.status(409).json(regulationExceptionRefusal(createException));return;}
 
   /* القفل يُقرأ بعد أن يثبت أن الطلب صحيحٌ في ذاته: ردُّ «الجدول عند التسجيل»
      على طلبٍ ناقص الحقول يخفي الخطأ الحقيقي خلف خطأٍ إجرائي. */
@@ -306,9 +313,10 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   /* المخالفةُ التي لا تمنع تحتاج تأكيداً صريحاً (ملاحظتا المالك 10 و20): الشكلُ المحفوظ كما هو لا يُسأل عنه،
      وتغييرُ الأستاذ وحده يُسأل عن تتاليه. */
   const keptShape=sameScheduleShape(existing as any,req.body);
-  const editException=(req as any).__internal?[]:await regulationExceptionsFor({...canonicalBody,id},(req as any).__hypotheticalWeek,{
+  const editException=skipsRegulation(req)?[]:await regulationExceptionsFor({...canonicalBody,id},(req as any).__hypotheticalWeek,{
     shapeChanged:!keptShape,sequenceChanged:!keptShape||Number(existing.AdInstructorId||0)!==instructorId});
-  if(editException.length&&!regulationExceptionAccepted(req.body)){res.status(409).json(regulationExceptionRefusal(editException));return;}
+  res.locals.regulationException=editException;
+  if(regulationRefused(req,editException)){res.status(409).json(regulationExceptionRefusal(editException));return;}
 
   /* النطاقان معاً: نقلُ موعدٍ من قسمٍ مُرسَلٍ إلى آخر يمسّ الجدولين، فيكفي
      قفلُ أحدهما للمنع. */
@@ -460,12 +468,12 @@ export const deleteScheduleHandler = async (req: AuthenticatedRequest, res: Resp
  * والحاكم أخيراً هو الخادم لا الشاشة: الاقتراحُ يُعاد فحصُه لحظةَ الاعتماد على الجدول كما هو
  * الآن، فاقتراحٌ مضى عليه ما يغيّره يُردّ بسببه ولا يُكتب.
  */
-interface InnerScheduleResult { status: number; body: any; headers: Record<string, string>; audit?: string }
+interface InnerScheduleResult { status: number; body: any; headers: Record<string, string>; audit?: string; regulation?: RegulationExceptionIssue[] }
 
 export async function runScheduleHandler(
   handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
   req: AuthenticatedRequest,
-  patch: { params?: Record<string, string>; body: any; hypotheticalWeek?: FSchedule[]; dryRun?: boolean; restoreOrigin?: { value: any }; exactRestore?: boolean; fitPattern?: boolean },
+  patch: { params?: Record<string, string>; body: any; hypotheticalWeek?: FSchedule[]; dryRun?: boolean; restoreOrigin?: { value: any }; exactRestore?: boolean; fitPattern?: boolean; regulation?: boolean },
 ): Promise<InnerScheduleResult> {
   const result: InnerScheduleResult = { status: 200, body: undefined, headers: {} };
   const inner: any = Object.create(req);
@@ -473,8 +481,10 @@ export async function runScheduleHandler(
   inner.params = patch.params || {};
   /* أعلامٌ داخليةٌ لا يملكها طلبٌ قادمٌ من المتصفّح: تُضبط هنا وحدها. */
   inner.__hypotheticalWeek = patch.hypotheticalWeek;
-  /* مسارٌ داخلي: حكم صاحبُه قبل أن يصل هنا، فلا تُسأل ورقةُ «الاستثناء اللائحي» (regulationExceptionsFor). */
+  /* مسارٌ داخلي: لا تُسأل ورقةُ «الاستثناء اللائحي» فيه — إلا حفظاً يطلقه موظّف (regulation): تُجمع مخالفاتُه
+     في النتيجة ولا يُرفض هنا، فيسأل صاحبُه مرةً عن الخطوات كلها (regulationGate). */
   inner.__internal = true;
+  inner.__regulationCollect = Boolean(patch.regulation);
   inner.__dryRun = Boolean(patch.dryRun);
   inner.__restoreOrigin = patch.restoreOrigin;
   /* استعادةٌ تعيد الجدول كما كان بالضبط (آلة الزمن): التراجعُ لا يُمنع بقاعدة النمط. */
@@ -491,7 +501,42 @@ export async function runScheduleHandler(
   inner.res = sink;
   await handler(inner, sink as Response);
   result.audit = sink.locals.auditChanges;
+  result.regulation = sink.locals.regulationException || [];
   return result;
+}
+
+/* ── «الاستثناء اللائحي» لحفظٍ يطلقه موظّف عبر المسار الداخلي (قاعدة المالك) ──────────────────
+ * اعتمادُ اقتراح (مركز الذكاء، الرادار، تخطيط الشعب، حالة طالب)، واعتمادُ سيناريو آلة الزمن، وتثبيتُ طلب أستاذ،
+ * وشعبةُ «هيئة تدريسية»: كلُّها حفظٌ من القسم يكتب عبر runScheduleHandler. تُفحص خطواتُها جافّةً بـ`regulation: true`
+ * (الفحصُ نفسه في معالجَي الحفظ: regulationExceptionsFor)، وتُجمع مخالفاتُها هنا، فلا يُكتب شيء قبل ردٍّ واحد:
+ * 409 «regulation-exception» كالحفظ اليدوي، أو موافقةٌ صريحة (regulationException: true) تُسجَّل في التدقيق.
+ * أما الاستيرادُ والترحيلُ واستعادةُ آلة الزمن (ما كان بالضبط) فلا تُسأل. */
+export interface RegulationGate {
+  /** المخالفاتُ المجموعة بلا تكرار. */
+  readonly issues: RegulationExceptionIssue[];
+  /** يضمّ مخالفاتِ خطوةٍ فُحصت بـ`regulation: true`. */
+  note(result: { regulation?: readonly RegulationExceptionIssue[] } | null | undefined): void;
+  /** جسمُ ردّ 409 حين توجد مخالفةٌ بلا موافقة، وإلا null. */
+  refusal(): ReturnType<typeof regulationExceptionRefusal> | null;
+  /** « · استثناء لائحي بتأكيد صريح (…)» لسطر التدقيق، أو "". */
+  auditSuffix(): string;
+}
+
+export function regulationGate(req: AuthenticatedRequest): RegulationGate {
+  const accepted = regulationExceptionAccepted(req.body);
+  const issues: RegulationExceptionIssue[] = [];
+  const seen = new Set<string>();
+  return {
+    issues,
+    note(result) {
+      for (const issue of result?.regulation || []) {
+        const key = `${issue.rule}|${issue.text}`;
+        if (!seen.has(key)) { seen.add(key); issues.push(issue); }
+      }
+    },
+    refusal: () => issues.length && !accepted ? regulationExceptionRefusal(issues) : null,
+    auditSuffix: () => issues.length ? ` · ${regulationExceptionAudit(issues)}` : "",
+  };
 }
 
 const PROPOSAL_ORIGIN_LABEL: Record<string, string> = {
@@ -519,7 +564,11 @@ function editBodyFor(row: any, to: { day: string; start: string; end: string }, 
 /** نتيجةُ اعتماد اقتراح: حالةٌ وجسمٌ وجملةٌ للتدقيق. يستعملها المسارُ المباشر وقرارُ لجنة كشف التسجيل معاً. */
 export interface ProposalOutcome { status: number; json: any; audit?: string }
 
-export async function applyProposalCore(req: AuthenticatedRequest, body: any): Promise<ProposalOutcome> {
+/** خياراتُ اعتمادٍ ضمن دفعة (تخطيط الشعب): بوّابةٌ واحدة للدفعة، وفحصٌ جافّ على أسبوعٍ يتراكم قبل أي كتابة. */
+export interface ProposalOptions { gate?: RegulationGate; dryRun?: boolean; week?: FSchedule[] }
+
+export async function applyProposalCore(req: AuthenticatedRequest, body: any, options: ProposalOptions = {}): Promise<ProposalOutcome> {
+  const gate = options.gate || regulationGate(req);
   const kind = String(body?.kind || "");
   const origin = body?.origin;
   const fail = (status: number, json: any): ProposalOutcome => ({ status, json });
@@ -543,27 +592,35 @@ export async function applyProposalCore(req: AuthenticatedRequest, body: any): P
       return fail(422, { error: "لا أستاذَ خالياً لهذا الموعد. اختر أستاذاً من ورشة الجدول ثم احفظ.", code: "needs-instructor" });
     }
     /* رقمُ الشعبة: ما اقترحه المحرّك إن لم يُستعمل لهذا المقرر في هذا الفصل، وإلا الأعلى + 1. */
-    const week = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
+    const week = options.week || await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
     const used = new Set(week.filter(row => Number(row.AdCourseId) === courseId).map(row => String(row.SCode)));
     let code = String(slot.sectionCode || "").replace(/\D/g, "");
     if (!code || used.has(code)) {
       const numbers = [...used].map(Number).filter(Number.isFinite);
       code = String((numbers.length ? Math.max(...numbers) : 500) + 1);
     }
-    const result = await runScheduleHandler(createScheduleHandler, req, { body: {
+    const createBody = {
       AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, AdCourseId: courseId,
       SCode: code, AdInstructorId: Number(slot.instructorId),
       ...Object.fromEntries(PROPOSAL_DAYS.map(key => [key, days.includes(key)])), fstarttime: slot.start, fendtime: slot.end,
       AdRoomCode: slot.roomCode || "", AdRoomHall: slot.roomHall || "",
       buildingId: slot.buildingId, roomId: slot.roomId, locationStatus: slot.buildingId && slot.roomId ? "VERIFIED" : undefined,
       origin,
-    } });
+    };
+    /* فحصٌ جافّ أولاً: مخالفةُ اللائحة تُسأل قبل أي كتابة (regulationGate). */
+    const dry = await runScheduleHandler(createScheduleHandler, req, { body: createBody, hypotheticalWeek: options.week, dryRun: true, regulation: true });
+    if (dry.status >= 400) return refuse(dry);
+    gate.note(dry);
+    const exception = gate.refusal();
+    if (exception) return fail(409, { ...exception, applied: [] });
+    if (options.dryRun) return { status: 200, json: { ok: true, dryRun: true, row: dry.body?.row } };
+    const result = await runScheduleHandler(createScheduleHandler, req, { body: createBody });
     if (result.status >= 400) return refuse(result);
     const row = result.body;
     return {
       status: 201,
       json: { ok: true, applied: [{ action: "add", row }], amendment: result.headers["X-Approval-Amendment"] || null },
-      audit: `اعتماد اقتراح من ${where}: فُتحت شعبة ${row.SCode} لـ«${row.AdCourseName}» · ${days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(row.fstarttime, row.fendtime)} · ${row.AdRoomCode}/${row.AdRoomHall}`,
+      audit: `اعتماد اقتراح من ${where}: فُتحت شعبة ${row.SCode} لـ«${row.AdCourseName}» · ${days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(row.fstarttime, row.fendtime)} · ${row.AdRoomCode}/${row.AdRoomHall}${gate.auditSuffix()}`,
     };
   }
 
@@ -594,10 +651,13 @@ export async function applyProposalCore(req: AuthenticatedRequest, body: any): P
     const useFinal = moves.length > 1 ? finalWeek : undefined;
     for (let i = 0; i < moves.length; i += 1) {
       const dry = await runScheduleHandler(updateScheduleHandler, req, {
-        params: { id: String(originals[i].id) }, body: editBodyFor(originals[i], moves[i].to, origin), hypotheticalWeek: useFinal, dryRun: true,
+        params: { id: String(originals[i].id) }, body: editBodyFor(originals[i], moves[i].to, origin), hypotheticalWeek: useFinal, dryRun: true, regulation: true,
       });
       if (dry.status >= 400) return fail(dry.status, { ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر التنفيذ." }), applied: [], reverted: true });
+      gate.note(dry);
     }
+    const exception = gate.refusal();
+    if (exception) return fail(409, { ...exception, applied: [] });
     const applied: Array<{ action: string; row: any }> = [];
     let amendment: string | null = null;
     for (let i = 0; i < moves.length; i += 1) {
@@ -629,7 +689,7 @@ export async function applyProposalCore(req: AuthenticatedRequest, body: any): P
       status: 200,
       json: { ok: true, applied, amendment },
       audit: `اعتماد اقتراح من ${where}: ` + applied.map((item, i) =>
-        `${item.row.AdCourseName} · شعبة ${item.row.SCode} من ${dayLabelOf(moves[i].from.day)} ${formatScheduleTimeRange(moves[i].from.start, moves[i].from.end)} إلى ${dayLabelOf(moves[i].to.day)} ${formatScheduleTimeRange(item.row.fstarttime, item.row.fendtime)}`).join(" ⇄ "),
+        `${item.row.AdCourseName} · شعبة ${item.row.SCode} من ${dayLabelOf(moves[i].from.day)} ${formatScheduleTimeRange(moves[i].from.start, moves[i].from.end)} إلى ${dayLabelOf(moves[i].to.day)} ${formatScheduleTimeRange(item.row.fstarttime, item.row.fendtime)}`).join(" ⇄ ") + gate.auditSuffix(),
     };
   }
 

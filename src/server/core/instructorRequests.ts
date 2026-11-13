@@ -12,6 +12,8 @@ import { roomTypeIn } from "../../utils/roomTypeForSection";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "../../utils/instructorRequestWeek";
 import { rankRequestRooms } from "../../utils/requestRoomRanking";
+import { seatCap } from "../../utils/actualDemandSupply";
+import { capacityContextForSection } from "./capacityRules";
 import { loadLimitOf } from "../../utils/teachingLoad";
 import { liveReservations, occupiedRowsForRequest } from "../../utils/instructorRequestReservations";
 import { Request, Response } from "express";
@@ -390,6 +392,9 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
   }
   await Promise.all([...scopesNeeded].map(([key, scope]) =>
     rulesOnce(rulesByScope, key, () => requestRulesForScope(context, scope.collegeId, scope.sectionId, Number(request.AdTermId)))));
+  /* سقفُ اللائحة لمقاعد الشعبة حين لا سعةَ للمقرر (م.8): طبيعتُه وتخصّصُ عائلة قسمه. */
+  const capacityBySection = new Map(await Promise.all([...new Set([...scopesNeeded.values()].map(scope => scope.sectionId))]
+    .map(async sectionId => [sectionId, await capacityContextForSection(sectionId)] as const)));
 
   /* تاريخُ المقرّرات التي يمسّها الطلب: يقرأ منه الحكمُ طولَ لقاء الشعب ذات اليوم الواحد. */
   const habits = new Map<number, CourseNature>();
@@ -447,7 +452,10 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       nearBuildingIds: new Set(sameDayMine.map(row => String((row as any).buildingId || "")).filter(Boolean)),
       previousRoomIds: new Set([original, ...instructorRows.filter(row => Number(row.AdCourseId) === courseIdOfItem)]
         .map(row => String((row as any)?.roomId || "")).filter(Boolean)),
-      seats: Number(selectedCourse?.MaxStudent || 0),
+      ...(() => {
+        const cap = seatCap(selectedCourse as any, capacityBySection.get(targetSectionId) || { specialization: "theoretical", excused: new Set<string>() });
+        return { seats: cap.cap, seatsAssumed: cap.assumed };
+      })(),
       usage: roomUsageOf(context),
       facility: Boolean(companionType),
     });

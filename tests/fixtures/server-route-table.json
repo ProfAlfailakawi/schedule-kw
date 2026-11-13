@@ -479,7 +479,7 @@
    "path": "/api/auth/recover/verify",
    "name": "bound dispatch",
    "call": "e1a0a107a1bcd3f4",
-   "site": "src/server/staffRecovery.ts:211",
+   "site": "src/server/staffRecovery.ts:212",
    "regexp": "/^\\/api\\/auth\\/recover\\/verify\\/?$/i",
    "end": true
   },
@@ -491,7 +491,7 @@
    "path": "/api/auth/recover/complete",
    "name": "bound dispatch",
    "call": "b0fef65a81077978",
-   "site": "src/server/staffRecovery.ts:262",
+   "site": "src/server/staffRecovery.ts:263",
    "regexp": "/^\\/api\\/auth\\/recover\\/complete\\/?$/i",
    "end": true
   },
@@ -2523,7 +2523,7 @@
    ],
    "path": "/api/schedules/placeholder-action",
    "name": "bound dispatch",
-   "call": "1dc34d86c52cb1bd",
+   "call": "19f0bbf652f5c8ee",
    "site": "src/server/routes/scheduleToolsRoutes.ts:539",
    "regexp": "/^\\/api\\/schedules\\/placeholder-action\\/?$/i",
    "end": true
@@ -2536,7 +2536,7 @@
    "path": "/api/schedules/meeting-participants",
    "name": "bound dispatch",
    "call": "ad7491a8e23ae7b2",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:651",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:657",
    "regexp": "/^\\/api\\/schedules\\/meeting-participants\\/?$/i",
    "end": true
   },
@@ -2548,7 +2548,7 @@
    "path": "/api/schedules/meeting-slots",
    "name": "bound dispatch",
    "call": "b4f01033c69826b6",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:668",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:674",
    "regexp": "/^\\/api\\/schedules\\/meeting-slots\\/?$/i",
    "end": true
   },
@@ -4396,7 +4396,7 @@
    ],
    "path": "/api/section-build/apply",
    "name": "bound dispatch",
-   "call": "9889238db342b5e0",
+   "call": "74d7f0f131ff23d4",
    "site": "src/server/routes/planningRoutes.ts:387",
    "regexp": "/^\\/api\\/section-build\\/apply\\/?$/i",
    "end": true
@@ -4409,7 +4409,7 @@
    "path": "/api/section-build/review-rows",
    "name": "bound dispatch",
    "call": "8d82b14514895490",
-   "site": "src/server/routes/planningRoutes.ts:443",
+   "site": "src/server/routes/planningRoutes.ts:452",
    "regexp": "/^\\/api\\/section-build\\/review-rows\\/?$/i",
    "end": true
   },
@@ -4421,7 +4421,7 @@
    "path": "/api/section-build/undo",
    "name": "bound dispatch",
    "call": "dff1cec84498b24a",
-   "site": "src/server/routes/planningRoutes.ts:483",
+   "site": "src/server/routes/planningRoutes.ts:492",
    "regexp": "/^\\/api\\/section-build\\/undo\\/?$/i",
    "end": true
   },
@@ -4433,7 +4433,7 @@
    "path": "/api/forecast/term",
    "name": "bound dispatch",
    "call": "0153e4574731376e",
-   "site": "src/server/routes/planningRoutes.ts:509",
+   "site": "src/server/routes/planningRoutes.ts:518",
    "regexp": "/^\\/api\\/forecast\\/term\\/?$/i",
    "end": true
   },
@@ -4445,7 +4445,7 @@
    "path": "/api/registration-stats",
    "name": "bound dispatch",
    "call": "685b0178d3c4f47c",
-   "site": "src/server/routes/planningRoutes.ts:531",
+   "site": "src/server/routes/planningRoutes.ts:540",
    "regexp": "/^\\/api\\/registration-stats\\/?$/i",
    "end": true
   },
@@ -4457,7 +4457,7 @@
    "path": "/api/registration-stats/remaining-pdf",
    "name": "bound dispatch",
    "call": "bd4f4785bf481290",
-   "site": "src/server/routes/planningRoutes.ts:540",
+   "site": "src/server/routes/planningRoutes.ts:549",
    "regexp": "/^\\/api\\/registration-stats\\/remaining-pdf\\/?$/i",
    "end": true
   },
@@ -4469,7 +4469,7 @@
    "path": "/api/registration-stats/remaining-cells",
    "name": "bound dispatch",
    "call": "b2176f8d809c24d8",
-   "site": "src/server/routes/planningRoutes.ts:592",
+   "site": "src/server/routes/planningRoutes.ts:601",
    "regexp": "/^\\/api\\/registration-stats\\/remaining-cells\\/?$/i",
    "end": true
   },
@@ -4481,7 +4481,7 @@
    "path": "/api/schedules/section-gap/decisions",
    "name": "bound dispatch",
    "call": "7c60ffad928d6a21",
-   "site": "src/server/routes/planningRoutes.ts:616",
+   "site": "src/server/routes/planningRoutes.ts:625",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/decisions\\/?$/i",
    "end": true
   },
@@ -4493,7 +4493,7 @@
    "path": "/api/schedules/section-gap/decisions",
    "name": "bound dispatch",
    "call": "7400d11d7cad207a",
-   "site": "src/server/routes/planningRoutes.ts:622",
+   "site": "src/server/routes/planningRoutes.ts:631",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/decisions\\/?$/i",
    "end": true
   },
@@ -4505,7 +4505,7 @@
    "path": "/api/schedules/section-gap",
    "name": "bound dispatch",
    "call": "ad8cff7b3a5222d1",
-   "site": "src/server/routes/planningRoutes.ts:645",
+   "site": "src/server/routes/planningRoutes.ts:654",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/?$/i",
    "end": true
   },
@@ -4517,7 +4517,7 @@
    "path": "/api/schedules/section-gap/staffing",
    "name": "bound dispatch",
    "call": "acf52385949e8610",
-   "site": "src/server/routes/planningRoutes.ts:659",
+   "site": "src/server/routes/planningRoutes.ts:668",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/staffing\\/?$/i",
    "end": true
   },
@@ -4529,7 +4529,7 @@
    "path": "/api/schedules/openings-preview",
    "name": "bound dispatch",
    "call": "3c14d525115a59f7",
-   "site": "src/server/routes/planningRoutes.ts:676",
+   "site": "src/server/routes/planningRoutes.ts:685",
    "regexp": "/^\\/api\\/schedules\\/openings-preview\\/?$/i",
    "end": true
   },
@@ -4541,7 +4541,7 @@
    "path": "/api/schedules/academic-advice",
    "name": "bound dispatch",
    "call": "235423b273083908",
-   "site": "src/server/routes/planningRoutes.ts:702",
+   "site": "src/server/routes/planningRoutes.ts:711",
    "regexp": "/^\\/api\\/schedules\\/academic-advice\\/?$/i",
    "end": true
   },
@@ -4553,7 +4553,7 @@
    "path": "/api/schedules/demand",
    "name": "bound dispatch",
    "call": "7fb2a2118ef42dac",
-   "site": "src/server/routes/planningRoutes.ts:715",
+   "site": "src/server/routes/planningRoutes.ts:724",
    "regexp": "/^\\/api\\/schedules\\/demand\\/?$/i",
    "end": true
   },
@@ -4565,7 +4565,7 @@
    "path": "/api/schedules/staff-inbox",
    "name": "bound dispatch",
    "call": "ca162358782c707c",
-   "site": "src/server/routes/planningRoutes.ts:903",
+   "site": "src/server/routes/planningRoutes.ts:912",
    "regexp": "/^\\/api\\/schedules\\/staff-inbox\\/?$/i",
    "end": true
   },
@@ -5095,7 +5095,7 @@
    ],
    "path": "/api/instructor-requests/:id/apply",
    "name": "bound dispatch",
-   "call": "21aa13a456850b36",
+   "call": "df3843d378249151",
    "site": "src/server/routes/instructorRequestsRoutes.ts:852",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
@@ -5108,7 +5108,7 @@
    "path": "/api/instructor-requests/:id/reply",
    "name": "bound dispatch",
    "call": "052daaf01a8ee463",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1146",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1152",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
   },
@@ -6743,7 +6743,7 @@
    "path": "/api/time-machine/scopes",
    "name": "bound dispatch",
    "call": "9f83d6747868558c",
-   "site": "src/server/timeMachineRoutes.ts:235",
+   "site": "src/server/timeMachineRoutes.ts:237",
    "regexp": "/^\\/api\\/time-machine\\/scopes\\/?$/i",
    "end": true
   },
@@ -6755,7 +6755,7 @@
    "path": "/api/time-machine/context",
    "name": "bound dispatch",
    "call": "5f4bbf5baf9c7e56",
-   "site": "src/server/timeMachineRoutes.ts:249",
+   "site": "src/server/timeMachineRoutes.ts:251",
    "regexp": "/^\\/api\\/time-machine\\/context\\/?$/i",
    "end": true
   },
@@ -6767,7 +6767,7 @@
    "path": "/api/time-machine/students",
    "name": "bound dispatch",
    "call": "da873933421ee6bb",
-   "site": "src/server/timeMachineRoutes.ts:262",
+   "site": "src/server/timeMachineRoutes.ts:264",
    "regexp": "/^\\/api\\/time-machine\\/students\\/?$/i",
    "end": true
   },
@@ -6779,7 +6779,7 @@
    "path": "/api/time-machine/scenarios",
    "name": "bound dispatch",
    "call": "de425ae21c12a711",
-   "site": "src/server/timeMachineRoutes.ts:291",
+   "site": "src/server/timeMachineRoutes.ts:293",
    "regexp": "/^\\/api\\/time-machine\\/scenarios\\/?$/i",
    "end": true
   },
@@ -6791,7 +6791,7 @@
    "path": "/api/time-machine/scenarios",
    "name": "bound dispatch",
    "call": "dae6f73da0a376e3",
-   "site": "src/server/timeMachineRoutes.ts:309",
+   "site": "src/server/timeMachineRoutes.ts:311",
    "regexp": "/^\\/api\\/time-machine\\/scenarios\\/?$/i",
    "end": true
   },
@@ -6803,7 +6803,7 @@
    "path": "/api/time-machine/scenarios/:id/copy",
    "name": "bound dispatch",
    "call": "36e7f4ac6fe2914b",
-   "site": "src/server/timeMachineRoutes.ts:346",
+   "site": "src/server/timeMachineRoutes.ts:348",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/copy\\/?$/i",
    "end": true
   },
@@ -6815,7 +6815,7 @@
    "path": "/api/time-machine/scenarios/:id/share",
    "name": "bound dispatch",
    "call": "339911a37c9494c5",
-   "site": "src/server/timeMachineRoutes.ts:361",
+   "site": "src/server/timeMachineRoutes.ts:363",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/share\\/?$/i",
    "end": true
   },
@@ -6827,7 +6827,7 @@
    "path": "/api/time-machine/scenarios/:id",
    "name": "bound dispatch",
    "call": "49066282a4f9d0c4",
-   "site": "src/server/timeMachineRoutes.ts:369",
+   "site": "src/server/timeMachineRoutes.ts:371",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -6839,7 +6839,7 @@
    "path": "/api/time-machine/scenarios/:id/apply",
    "name": "bound dispatch",
    "call": "5d60e288cec5a626",
-   "site": "src/server/timeMachineRoutes.ts:487",
+   "site": "src/server/timeMachineRoutes.ts:494",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
   },
@@ -6851,7 +6851,7 @@
    "path": "/api/time-machine/scenarios/:id/restore",
    "name": "bound dispatch",
    "call": "36d27a5fbcd3afd5",
-   "site": "src/server/timeMachineRoutes.ts:495",
+   "site": "src/server/timeMachineRoutes.ts:502",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/restore\\/?$/i",
    "end": true
   },
@@ -7377,7 +7377,7 @@
    "path": "/api/landing/inquiry",
    "name": "bound dispatch",
    "call": "86a56dd8eb194b8b",
-   "site": "server.ts:791",
+   "site": "server.ts:792",
    "regexp": "/^\\/api\\/landing\\/inquiry\\/?$/i",
    "end": true
   },
@@ -7423,7 +7423,7 @@
    "path": "/api/*",
    "name": "bound dispatch",
    "call": "c9c21090bf85633a",
-   "site": "server.ts:797",
+   "site": "server.ts:798",
    "regexp": "/^\\/api\\/(.*)\\/?$/i",
    "end": true
   },
@@ -7433,7 +7433,7 @@
    "path": "/",
    "name": "<anonymous>",
    "call": "7221b375400abed2",
-   "site": "server.ts:816",
+   "site": "server.ts:817",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7453,7 +7453,7 @@
    "path": "/landing",
    "name": "wrapped",
    "call": "e268366b7d2b7004",
-   "site": "server.ts:874",
+   "site": "server.ts:875",
    "regexp": "/^\\/landing\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7463,7 +7463,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "77cbff21f8e1d9ce",
-   "site": "server.ts:878",
+   "site": "server.ts:879",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7473,7 +7473,7 @@
    "path": "/",
    "name": "wrapped",
    "call": "0c4d0ea21521f618",
-   "site": "server.ts:909",
+   "site": "server.ts:910",
    "regexp": "/^\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7485,7 +7485,7 @@
    "path": "*",
    "name": "bound dispatch",
    "call": "76d622ce5c9a6e29",
-   "site": "server.ts:938",
+   "site": "server.ts:939",
    "regexp": "/^(.*)\\/?$/i",
    "end": true
   }

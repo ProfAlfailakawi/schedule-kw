@@ -62,6 +62,8 @@
     "test:appointment-entry-parity": "tsx tests/appointment-entry-parity-audit.ts",
     "test:appointment-forms": "tsx tests/appointment-forms-audit.ts",
     "test:regulation-exception": "tsx tests/regulation-exception.ts",
+    "test:regulation-exception-paths": "tsx tests/regulation-exception-paths-audit.ts",
+    "test:request-room-capacity": "tsx tests/request-room-capacity-audit.ts",
     "test:placeholder-action": "tsx tests/placeholder-action-audit.ts",
     "test:course-spelling-merge": "tsx tests/course-spelling-merge-audit.ts",
     "test:teacher-mini-week": "tsx tests/teacher-mini-week-audit.ts",

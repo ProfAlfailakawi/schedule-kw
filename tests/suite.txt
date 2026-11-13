@@ -222,6 +222,8 @@ test:lecture-length
 test:appointment-entry-parity
 test:appointment-forms
 test:regulation-exception
+test:regulation-exception-paths
+test:request-room-capacity
 test:placeholder-action
 test:course-spelling-merge
 test:teacher-mini-week
