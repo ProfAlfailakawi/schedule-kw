@@ -3,13 +3,14 @@
  *   1) أستاذٌ حقيقيٌّ متاح يأخذ شعبة «هيئة تدريسية» أو TA، تحت نصابه، بلا تعارض.
  *   2) مقررٌ في قاعةٍ من غير نوعه يعود إلى قاعته الملائمة الفارغة، ويُفسح مكانه لمن يحتاجه.
  *   3) «احذف مقرراً»: حكمٌ واضح بأسبابه (طلبة، صحيفة، نصاب، قاعات).
- *   4) تحويل النمط: كتلةٌ طويلة ← يومان، قراءةٌ فقط، وتقول ما يُوفَّر وما يُستهلك.
+ *   4) تحويل النمط: كتلةٌ طويلة ← نمطٌ بيومين من المكتبة بأطواله وسُلّمه، قراءةٌ فقط.
  *   5) الدمج: لا زرّ «آلة الزمن» لمن يبني الجدول، ولا لسانا المحاكي والتحسين في أدوات البيانات.
  */
 import { readFileSync } from "fs";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import type { TmContext } from "../src/utils/timeMachine";
 import { courseRemovalVerdict, facultySwaps, patternCandidates, roomSwaps, simulatePatternConversion } from "../src/utils/smartSuggestions";
+import { libraryDayPairs } from "../src/utils/scheduleRegulations";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, detail?: unknown) => {
@@ -103,9 +104,26 @@ console.log("٤) تحويل النمط (قراءة فقط)");
   check(cands.length === 1 && cands[0].rowId === 5, "المرشّح: كتلة ٤ ساعات في يومٍ واحد", cands);
   const before = JSON.stringify(context.rows);
   const result = simulatePatternConversion(context, [5], ["fmonday", "fwednesday"]);
-  check(result.rows[0].after.includes("08:00–10:00") && result.rows[0].room === "same", "الاثنين + الأربعاء ساعتان، القاعة نفسها", result.rows[0]);
+  check(result.rows[0].after.includes("08:00–09:50") && result.rows[0].room === "same" && result.rows[0].approved === true, "الاثنين + الأربعاء 110د من المكتبة (لا نصفُ المدة)، القاعة نفسها", result.rows[0]);
   check(result.roomDays.after === result.roomDays.before + 1, "يستهلك يوم قاعةٍ إضافياً", result.roomDays);
   check(JSON.stringify(context.rows) === before, "لا يكتب شيئاً في السياق");
+  /* الأزواجُ من المكتبة وحدها، والأطوالُ أطوالُها، والبدايةُ على السُّلّم. */
+  const pairs = libraryDayPairs().map(pair => pair.join("+"));
+  check(pairs.length === 3 && pairs.includes("fmonday+fwednesday") && pairs.includes("fsunday+ftuesday") && pairs.includes("ftuesday+fthursday")
+    && !pairs.some(pair => ["fsunday+fwednesday", "fmonday+fthursday", "fsunday+fthursday"].includes(pair)), "أزواجُ التحويل: الاثنين·الأربعاء والأحد·الثلاثاء والثلاثاء·الخميس وحدها", pairs);
+  check(/const PAIRS = libraryDayPairs\(\)/.test(read("src/components/SmartSuggestions.tsx")) && !/\["fsunday", "fwednesday"\]/.test(read("src/components/SmartSuggestions.tsx")), "الواجهة تقرأ الأزواج من المكتبة");
+  const late = { ...context, rows: context.rows.map(item => Number(item.id) === 5 ? { ...item, fstarttime: "10:20", fendtime: "14:20" } : item) };
+  const monWed = simulatePatternConversion(late, [5], ["fmonday", "fwednesday"]).rows[0];
+  const sunTue = simulatePatternConversion(late, [5], ["fsunday", "ftuesday"]).rows[0];
+  check(monWed.after.includes("11:00–12:50"), "الاثنين·الأربعاء: البدايةُ على سُلّم 8:00، 9:30، 11:00…", monWed);
+  check(sunTue.after.includes("10:00–11:50"), "الأحد·الثلاثاء: البدايةُ على رأس الساعة", sunTue);
+  const three = { ...context, courses: context.courses.map(item => item.AdCourseId === 5 ? { ...item, CourseHours: 3 } : item), rows: context.rows.map(item => Number(item.id) === 5 ? { ...item, fendtime: "10:50" } : item) };
+  check(simulatePatternConversion(three, [5], ["ftuesday", "fthursday"]).rows[0].after.includes("08:00–09:20"), "ثلاث ساعات: 80د لكل يوم (لا 85)");
+  const five = { ...context, courses: context.courses.map(item => item.AdCourseId === 5 ? { ...item, CourseHours: 5 } : item), rows: context.rows.map(item => Number(item.id) === 5 ? { ...item, fendtime: "12:50" } : item) };
+  const fiveResult = simulatePatternConversion(five, [5], ["fsunday", "ftuesday"]);
+  check(fiveResult.rows[0].after.includes("الأحد 08:00–10:50") && fiveResult.rows[0].after.includes("الثلاثاء 08:00–09:50"), "خمس ساعات: 170 ثم 110 (لا 145/145)", fiveResult.rows[0]);
+  const odd = simulatePatternConversion(context, [5], ["fsunday", "fwednesday"]).rows[0];
+  check(odd.approved === false && odd.room === "none", "زوجٌ خارج المكتبة لا يُحوَّل إليه", odd);
 }
 
 console.log("٥) الدمج في مركز الذكاء");

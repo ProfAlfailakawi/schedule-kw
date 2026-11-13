@@ -29,6 +29,8 @@ export interface RegulationExceptionIssue {
   article: string;
   /** سطرٌ قصير يُقرأ في الورقة. */
   text: string;
+  /** يومُ السلسلة المتتالية (م.6/2، م.6/3): السلسلةُ الواحدة تُقال مرةً لكل يوم مهما كثرت مواعيدها. */
+  day?: DayKey;
 }
 
 export interface ExceptionRow {
@@ -119,12 +121,12 @@ export function regulationExceptionIssues(input: RegulationExceptionInput): Regu
       const long = runs.long.find(run => run.some((item: any) => item.__self));
       if (long && !seen.has("consecutive-long")) {
         seen.add("consecutive-long");
-        issues.push({ rule: "consecutive-long", article: "م.6/2", text: `${countOf(long.length, AR.lecture)} طويلة متتالية للعضو يوم ${dayName}، والحد شعبتان: ${label(long)}.` });
+        issues.push({ rule: "consecutive-long", article: "م.6/2", day, text: `${countOf(long.length, AR.lecture)} طويلة متتالية للعضو يوم ${dayName}، والحد شعبتان: ${label(long)}.` });
       }
       const short = runs.oneHour.find(run => run.some((item: any) => item.__self));
       if (short && !seen.has("consecutive-one-hour")) {
         seen.add("consecutive-one-hour");
-        issues.push({ rule: "consecutive-one-hour", article: "م.6/3", text: `${countOf(short.length, AR.lecture)} من ساعة متتالية للعضو يوم ${dayName}، والحد ثلاث: ${label(short)}.` });
+        issues.push({ rule: "consecutive-one-hour", article: "م.6/3", day, text: `${countOf(short.length, AR.lecture)} من ساعة متتالية للعضو يوم ${dayName}، والحد ثلاث: ${label(short)}.` });
       }
     }
   }

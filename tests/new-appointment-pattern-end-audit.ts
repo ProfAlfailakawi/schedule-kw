@@ -121,6 +121,24 @@ check(/لا توافق النمط المعتمد/.test(String(tuesdayWrong)), "N
   check(await unapprovedPatternIssue(at(["thu"], "08:00", "10:50", "606"), []) === null && await unapprovedPatternIssue(at(["sun"], "08:00", "10:50", "607"), []) === null, "N8 الحفظ: كتلة 170 على الخميس أو الأحد تُحفظ (أيّ يوم)");
 }
 
+/* N9 — قرار المالك 2026-11-13: أيامُ الشعبة كلِّها نمطٌ واحد (sectionDaysFitLibrary). صفّان بيومٍ واحد
+   (الأحد 80 + الخميس 80) لمقررٍ بثلاث ساعات لا يُقبلان لأن كلاً منهما داخل الأحد·الثلاثاء·الخميس. */
+{
+  const at = (id: number, days: string[], start: string, end: string, code: string) => ({ ...scope, id, SCode: code, fsunday: days.includes("sun"), fmonday: days.includes("mon"), ftuesday: days.includes("tue"), fwednesday: days.includes("wed"), fthursday: days.includes("thu"), fstarttime: start, fendtime: end }) as any;
+  const blocked = async (row: any, week: any[]) => /ليست نمطاً معتمداً/.test(String(await unapprovedPatternIssue(row, week)));
+  const sun80 = at(8101, ["sun"], "08:00", "09:20", "701");
+  check(await unapprovedPatternIssue(sun80, [sun80]) === null, "N9 الأحد 80 وحده (الشعبة ناقصة) يُحفظ جزءاً من الأحد·الثلاثاء");
+  check(await blocked(at(8102, ["thu"], "08:00", "09:20", "701"), [sun80]), "N9 الخميس 80 بعد الأحد 80 (الشعبة اكتملت) يُرفض: الأحد·الخميس ليس نمطاً");
+  check(await blocked(sun80, [sun80, at(8102, ["thu"], "08:00", "09:20", "701")]), "N9 وفي دفعةٍ واحدة: الأحد يُرفض حين يكمل الخميسُ الشعبة");
+  const sun50 = at(8201, ["sun"], "08:00", "08:50", "702"), tue50 = at(8202, ["tue"], "08:00", "08:50", "702"), thu50 = at(8203, ["thu"], "08:00", "08:50", "702");
+  check(await unapprovedPatternIssue(thu50, [sun50]) === null, "N9 الأحد 50 + الخميس 50 (ناقصة) تُبنى نحو الأحد·الثلاثاء·الخميس");
+  check(await unapprovedPatternIssue(tue50, [sun50, thu50]) === null && await unapprovedPatternIssue(thu50, [sun50, tue50, thu50]) === null, "N9 الأحد·الثلاثاء·الخميس من ثلاثة صفوف 50د يُحفظ");
+  check(await blocked(at(8302, ["thu"], "08:00", "08:50", "703"), [at(8301, ["sun"], "08:00", "09:20", "703")]), "N9 الأحد 80 + الخميس 50 لا يُكمَلان نمطاً واحداً: يُرفض");
+  check(await blocked(at(8402, ["thu"], "08:00", "09:20", "704"), [at(8401, ["mon"], "08:00", "09:20", "704")]), "N9 الاثنين 80 + الخميس 80 يُرفض");
+  check(await unapprovedPatternIssue(at(8501, ["wed"], "08:00", "10:50", "705"), []) === null && await unapprovedPatternIssue(at(8502, ["thu"], "08:00", "10:50", "706"), []) === null, "N9 كتلة اليوم الواحد على أيّ يوم تُحفظ");
+  check(await unapprovedPatternIssue(at(8602, ["tue"], "08:00", "09:20", "707"), [at(8601, ["sun"], "08:00", "09:20", "707")]) === null, "N9 الأحد 80 + الثلاثاء 80 من صفّين نمطٌ كامل");
+}
+
 /* N7 — موعدٌ قديم بطولٍ خارج المكتبة (اثنين·أربعاء 75د) تتغيّر قاعتُه وحدها يُحفظ؛ وتغييرُ بدايته يطبّق النمط. */
 const legacy = { fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:15" };
 const roomOnly = { ...legacy, AdRoomCode: "901A02", AdRoomHall: "301" };

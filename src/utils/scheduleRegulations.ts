@@ -381,6 +381,14 @@ export function ladderStartsForDays(days: Iterable<DayKey>, from = 8 * 60, to = 
   return out;
 }
 
+/** أقربُ بدايةٍ على السُّلّم إلى `start` (بالدقائق) يتّسع بعدها لقاءٌ من `length` دقيقة قبل نهاية اليوم؛
+ *  التعادلُ للأبكر. null حين لا سُلّمَ للأيام أو لا يتّسع. */
+export function ladderStartNear(days: Iterable<DayKey>, start: number, length = 0): string | null {
+  const fits = ladderStartsForDays(days).filter(clockText => toMinutes(clockText) + length <= EVENING_END);
+  if (!fits.length) return null;
+  return fits.reduce((best, clockText) => Math.abs(toMinutes(clockText) - start) < Math.abs(toMinutes(best) - start) ? clockText : best);
+}
+
 export function startLadderNote(days: Iterable<DayKey>, start: string): string {
   const list = [...new Set(days)];
   const match = /^(\d{1,2}):(\d{2})$/.exec(String(start || "").trim());
@@ -418,6 +426,22 @@ export function patternsForHours(weeklyHours: number): WeeklyPattern[] {
         .map((day, index) => `${dayLabel(day)} ${pattern.minutesPerDay[index]}د`)
         .join(" · ")
   }));
+}
+
+/** أزواجُ الأيام في المكتبة (الاثنين·الأربعاء، الأحد·الثلاثاء، الثلاثاء·الخميس) — لا زوجَ خارجها. */
+export function libraryDayPairs(): Array<[DayKey, DayKey]> {
+  const seen = new Map<string, [DayKey, DayKey]>();
+  for (const pattern of PATTERN_LIBRARY) if (pattern.days.length === 2) {
+    const pair = DAY_KEYS.filter(day => pattern.days.includes(day)) as [DayKey, DayKey];
+    seen.set(pair.join(), pair);
+  }
+  return [...seen.values()];
+}
+
+/** نمطُ المكتبة لهذه الساعات على هذه الأيام بعينها (null: ليس نمطاً). */
+export function patternOnDays(weeklyHours: number, days: readonly DayKey[]): WeeklyPattern | null {
+  const set = new Set(days);
+  return patternsForHours(weeklyHours).find(pattern => pattern.days.length > 1 && patternCoversDays(pattern, set, true)) || null;
 }
 
 export interface MovePlan {
@@ -565,6 +589,32 @@ export function meetingsMatchApprovedPattern(meetings: ReadonlyArray<{ day: DayK
   const days = new Set(meetings.map(item => item.day));
   if (days.size !== meetings.length) return false;
   return patternsForHours(weeklyHours).some(pattern => patternCoversDays(pattern, days, true) && lengths(pattern.minutesPerDay) === actualLengths);
+}
+
+/**
+ * ── أيامُ الشعبة كلِّها نمطٌ واحد في المكتبة (المالك 2026-11-13) ──────────────
+ * الشعبةُ صفوفُ المقرر والرمز نفسيهما في الفصل والكلية والقسم؛ تُجمع أيامُها كلُّها ويُحكم عليها معاً:
+ *   • مكتملة (دقائقُ تدريسها تبلغ ساعات المقرر): أيامُها نمطٌ كامل بعينه. الأحد 80 + الخميس 80 لمقررٍ بثلاث
+ *     ساعات يُرفض وإن وقع كلُّ يومٍ منهما داخل الأحد·الثلاثاء·الخميس.
+ *   • ناقصة (تُبنى صفّاً صفّاً): أيامُها جزءٌ من نمطٍ واحد، وطولُ كلِّ لقاءٍ من أطوال ذلك النمط.
+ * صفٌّ بيومين فأكثر نمطٌ كامل بنفسه. يقرؤه الحفظ (unapprovedPatternIssue) و«ثبّت» (pinReview) وآلةُ الزمن.
+ * null: ساعاتٌ لا تُعرف أو لا نمطَ لها — لا يُحكم بما لا يُعرف.
+ */
+export function sectionDaysFitLibrary(weeklyHours: number, row: MeetingLike, siblings: readonly MeetingLike[] = []): boolean | null {
+  const hours = Math.round(Number(weeklyHours) || 0);
+  const daysOf = (item: MeetingLike) => DAY_KEYS.filter(day => Boolean(item[day]));
+  const own = daysOf(row);
+  if (!own.length) return null;
+  const all = [row, ...siblings].filter(item => daysOf(item).length);
+  const union = new Set<DayKey>(all.flatMap(daysOf));
+  const taught = all.reduce((sum, item) => sum + weeklyLectureMinutes(item, hours), 0);
+  const complete = hours > 0 && taught >= hours * 50;
+  const fit = daysFitLibrary(hours, union, own.length > 1 || complete);
+  if (fit !== true || complete || all.length < 2 || union.size < 2) return fit;
+  const span = (item: MeetingLike) => toMinutes(String(item.fendtime || "")) - toMinutes(String(item.fstarttime || ""));
+  return patternsForHours(hours).some(pattern => pattern.days.length > 1
+    && [...union].every(day => pattern.days.includes(day))
+    && all.every(item => { const length = span(item); return !(length > 0) || pattern.minutesPerDay.some(minutes => Math.abs(minutes - length) <= 5); }));
 }
 
 /**
