@@ -267,7 +267,9 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       if (!name) return;
       const track = trackOf(name);
       const tone = isCampusCollege(name) || !track ? `other-${(other++ % 3)}` : track;
-      tags.set(id, { label: labels.get(name) || name, tone });
+      /* حرمُ البنات الفرعي يُسمّى باسمه وحده («الفحيحيل»): الحرمُ للبنات أصلاً. */
+      const label = labels.get(name) || name;
+      tags.set(id, { label: isCampusCollege(name) ? label.replace(/\s*-\s*بنات\s*$/, "").replace(/^بنات\s*-\s*/, "") || label : label, tone });
     });
     return tags;
   }, [rows, colleges]);
@@ -581,7 +583,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   const printFollowupPages = printPages.slice(1);
   const renderPrintFinding = ({ finding, rowIds, part, parts }: PrintFindingPiece<ReviewFindingGroup>) => (
     <article className={`print-review-finding severity-${findingTone(finding)}`} key={`${finding.groupKey}:${part}`}>
-      <header><b className="print-finding-index">{findingIcon(finding)}</b><div><strong>{markVisitingNames(finding.title, finding.rowIds)}{parts > 1 ? ` · ${part === 1 ? "يتبع" : "تتمة"} (${part.toLocaleString("ar-KW-u-nu-latn")} من ${parts.toLocaleString("ar-KW-u-nu-latn")})` : ""}</strong><span>{finding.groupedCount > 1 ? `${countOf(finding.groupedCount, caseNoun(finding))} · ${finding.detail}` : finding.detail}</span></div><em>{finding.article}</em><i>{findingStatus(finding)}</i></header>
+      <header><b className="print-finding-index">{findingIcon(finding)}</b><div><strong>{markVisitingNames(finding.title, finding.rowIds)}{parts > 1 ? ` · ${part === 1 ? "يتبع" : "تتمة"} (${part.toLocaleString("ar-KW-u-nu-latn")} من ${parts.toLocaleString("ar-KW-u-nu-latn")})` : ""}</strong><span>{markVisitingNames(finding.groupedCount > 1 ? `${countOf(finding.groupedCount, caseNoun(finding))} · ${finding.detail}` : finding.detail, finding.rowIds)}</span></div><em>{finding.article}</em><i>{findingStatus(finding)}</i></header>
       {rowIds.length ? <div className="print-review-rows">{rowIds.map(id => <span key={id}>{describe(byId.get(id))}</span>)}</div> : null}
     </article>
   );

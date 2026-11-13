@@ -56,8 +56,9 @@
   .review-person-head{display:flex;align-items:center;gap:8px;min-height:0;padding:0 0 6px;background:transparent;cursor:default}
   .review-person-head .review-person-avatar{width:28px;height:28px;border-radius:9px}
   .review-person-head .review-person-avatar svg{width:15px;height:15px}
-  .review-person-head>strong{font-size:.95rem;font-weight:800}
-  .review-person-head .review-person-count{color:var(--muted);font-size:.76rem;font-weight:600}
+  .review-person-head>strong{flex:0 1 auto;font-size:.95rem;font-weight:800}
+  .review-person>.review-person-head .review-person-count{margin-inline-start:0;background:none;border:0;padding:0;letter-spacing:normal;font-family:inherit;color:var(--muted);font-size:.76rem;font-weight:600}
+  .review-person-head .review-person-count::before{content:"· ";opacity:.6}
   .review-person-rows{display:grid;gap:5px}
   .review-appt{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:10px;padding:7px 11px;border-radius:10px;background:var(--surface-2);font-size:.84rem}
   .review-appt-course{display:flex;align-items:baseline;gap:8px;min-width:0}
@@ -68,8 +69,11 @@
   .review-appt-when time{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink-2)}
 }
 @media screen and (max-width:720px){
-  .review-appt{grid-template-columns:minmax(0,1fr) auto;row-gap:4px}
-  .review-appt-course{grid-column:1/-1}
+  .review-appt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+  .review-appt-course{flex:1 1 100%}
   .review-appt-name{white-space:normal}
-  .review-appt-when{grid-column:1/-1}
+  /* ثلاثة مفاتيح أو أربعة (تمنع · للمعالجة · للملاحظة · سليم) تُقرأ كاملةً على الهاتف، لا تُقصّ. */
+  .review-sheet .review-spread .spread-keys{display:flex!important;flex-wrap:wrap}
+  .review-sheet .review-spread .spread-keys>span{flex:1 1 140px}
+  .review-sheet .review-spread .spread-keys>span small{overflow:visible;text-overflow:clip}
 }

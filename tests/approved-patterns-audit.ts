@@ -202,7 +202,7 @@ const verdictSource = fs.readFileSync("src/utils/instructorRequestVerdict.ts", "
 check(/request\.relatedRowIds\?\.length && finding\.rule === "theoretical-pattern"/.test(verdictSource), "P12 والشعبةُ الشاغرة القائمة تُتسلَّم كما هي");
 const reviewScreen = fs.readFileSync("src/components/ScheduleReview.tsx", "utf8");
 check(/const quietFindings = \[\.\.\.groupedFindings\.filter\(finding => finding\.approvalEffect === "note"\), \.\.\.noteGroups\]/.test(reviewScreen)
-  && /regulationGroups = useMemo\(\(\) => groupedFindings\.filter/.test(reviewScreen) && !/regulationGroups[^\n]*noteGroups/.test(reviewScreen)
+  && /regulationGroups = useMemo\(\(\) => groupedFindings\.filter/.test(reviewScreen) && !/regulationGroups\.map[^\n]*noteGroups/.test(reviewScreen)
   && /\[\.\.\.warningGroups, \.\.\.noteGroups\]\.map\(group => \(\{ key: group\.groupKey, label: group\.title, tone: "note" as const/.test(reviewScreen),
   "P12 شاشةُ «مراجعة الاعتماد» تُظهر «خارج سُلّم اللائحة» في سطر الملاحظات، ولا يُنقص درجةَ الاعتماد");
 check(/startsWith\("course:"\)\) \? AR\.course/.test(reviewScreen) && /countOf\(finding\.groupedCount, caseNoun\(finding\)\)/.test(reviewScreen), "P12 ويُعدّ بالمقرّرات لا «تعارضات»");
