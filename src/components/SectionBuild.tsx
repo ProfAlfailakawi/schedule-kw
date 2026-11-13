@@ -1,3 +1,4 @@
+import { settleRegulationException } from "./RegulationExceptionSheet";
 import React, { useEffect, useRef, useState } from "react";
 import { CalendarCheck, CircleAlert, CheckCircle2, ClipboardPenLine, DoorClosed, Layers, Undo2, UserRoundX } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
@@ -25,11 +26,15 @@ const FIX_FOR = (reason: string) => /قاعة/.test(reason) ? "أضِف سعة �
   : /وقت/.test(reason) ? "حرّر قاعةً أو أستاذاً في وقتٍ آخر"
   : /تاريخ|مدة/.test(reason) ? "أضِف أول موعدٍ للمقرر ليُعرف طوله" : "";
 
-const call = async (url: string, body: unknown) => {
-  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+const call = async (url: string, body: unknown): Promise<any> => {
+  const sent = JSON.stringify(body);
+  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: sent });
   const text = await response.text();
   let data: any = {};
   try { data = text ? JSON.parse(text) : {}; } catch { throw new Error("وصل ردٌّ غير متوقّع من الخادم."); }
+  /* تنزيلُ شعبٍ تخالف اللائحة: سؤالٌ صريح ثم الطلبُ نفسه موسوماً. */
+  const settled = await settleRegulationException(response.status, data, sent, marked => call(url, JSON.parse(marked)));
+  if (settled) return settled.value;
   if (!response.ok) throw Object.assign(new Error(data.error || "تعذّر التنفيذ."), { code: data.code });
   return data;
 };

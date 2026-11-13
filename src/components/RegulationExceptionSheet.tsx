@@ -77,6 +77,16 @@ export function regulationIssuesOf(status: number, data: any): RegulationExcepti
   return status === 409 && data?.code === REGULATION_EXCEPTION_CODE && Array.isArray(data?.regulation) && data.regulation.length ? data.regulation : null;
 }
 
+/** نداءٌ خارج غلاف الورشة (اعتمادُ اقتراح، آلة الزمن، طلبُ أستاذ، تخطيطُ الشعب): ردُّ «استثناءٍ لائحي» يفتح الورقة،
+    فإن وافق أُعيد الطلبُ نفسه موسوماً (resend)، وإن تراجع رُمي «لم يُحفظ». ولردٍّ آخر null فيمضي النداءُ كما كان. */
+export async function settleRegulationException<T>(status: number, data: any, body: BodyInit | null | undefined, resend: (marked: string) => Promise<T>): Promise<{ value: T } | null> {
+  const issues = regulationIssuesOf(status, data);
+  const marked = issues ? withRegulationException(body) : null;
+  if (!issues || !marked) return null;
+  if (await askRegulationException(issues)) return { value: await resend(marked) };
+  throw Object.assign(new Error(REGULATION_EXCEPTION_DECLINED), { code: data?.code, regulation: issues });
+}
+
 /** جسمُ الطلب نفسه موسوماً بالموافقة الصريحة (JSON فقط؛ غيرُه لا يُعاد). */
 export function withRegulationException(body: BodyInit | null | undefined): string | null {
   if (typeof body !== "string") return null;
