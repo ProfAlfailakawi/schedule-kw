@@ -14,7 +14,7 @@ import { directoryVisitingIds, termVisitingIds } from "../../utils/liveVisiting"
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { patternNoticeHtml } from "../../utils/patternLibraryView";
 import { patternLibraryInput } from "../../utils/patternLibraryInput";
-import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysFitLibrary, effectiveCourseHours, sectionDaysFitLibrary, expectedMinutesForDay, maxWeeklyMinutesFor, meetingLabel, patternsForHours, sectionHoursShortfallText, sectionWeeklyHours, weeklyLectureMinutes, type DayKey } from "../../utils/scheduleRegulations";
 import { patternLengthIssue, regulationEnd } from "../../utils/appointmentRegulation";
 import { REGULATION_EXCEPTION_CODE, regulationExceptionIssues, regulationExceptionMessage, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { placeholderInstructorIds } from "../../utils/instructorIdentity";
@@ -83,7 +83,8 @@ export async function mixedPatternNotice(courseId:number,days:RequestDayKey[],te
  *
  * أيامُ الشعبة كلُّها — هذا الصفّ وصفوفُ المقرّر والشعبة نفسيهما في الفصل والقسم — نمطٌ في مكتبة الأنماط
  * لساعات المقرّر. صفٌّ بيومين فأكثر يُكمل نمطاً كاملاً بعينه؛ وصفٌّ بيومٍ واحد يكفيه أن يقع داخل نمطٍ معتمد
- * (نمطٌ بأوقاتٍ مختلفة يُبنى صفّاً صفّاً، وكتلةُ اليوم الواحد تصلح لأيّ يوم). لا تُعفي العادة شيئاً.
+ * (نمطٌ بأوقاتٍ مختلفة يُبنى صفّاً صفّاً، وكتلةُ اليوم الواحد تصلح لأيّ يوم) ما دامت الشعبةُ ناقصة؛ فإذا اكتملت
+ * ساعاتُها صارت أيامُها نمطاً كاملاً بعينه (sectionDaysFitLibrary). لا تُعفي العادة شيئاً.
  * مقرّرٌ لا تُعرف ساعاتُه أو لا نمطَ لها في المكتبة لا يُحكم عليه هنا.
  */
 export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],options:{skipIfUnchanged?:boolean}={}):Promise<string|null>{
@@ -98,14 +99,16 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
   const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
   if(!(hours>0))return null;
   const union=new Set<DayKey>(own);
+  let siblings:any[]=[];
   if(Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
-    const siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
+    siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
       .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
         &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
         &&!isSameRow(other,row));
     for(const other of siblings)for(const day of SCHEDULE_DAY_KEYS)if((other as any)[day])union.add(day as DayKey);
   }
-  const fits=daysFitLibrary(hours,union,own.length>1);
+  /* الشعبةُ كلُّها تُقرأ معاً (sectionDaysFitLibrary): المكتملةُ نمطٌ كامل بعينه، والناقصةُ جزءٌ من نمطٍ واحد بأطواله. */
+  const fits=sectionDaysFitLibrary(hours,row,siblings);
   /* والطولُ أيضاً (المالك 2026-11-08): أيامٌ معتمدة بنهايةٍ تخالف نمطها تمنع، والسطرُ يقول النهاية الصحيحة.
      الحكمُ في appointmentRegulation (patternLengthIssue) — المصدرُ نفسه الذي يقرؤه النموذج والمقترح. */
   if(fits!==false)return patternLengthIssue({CourseHours:hours},own,String(row?.fstarttime||""),String(row?.fendtime||""))||null;

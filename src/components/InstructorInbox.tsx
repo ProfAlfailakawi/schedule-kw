@@ -2062,7 +2062,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                   <span className="request-confirmed-copy">
                     <strong className="schedule-instructor-with-badge">{row.instructorName}<PersonChips visiting={rowVisiting(row)} trainee={isTaRequest(row)} /></strong>
                     <small>ثبّت جدوله كما هو</small>
-                    {row.pinSoftNotes?.length ? <small className="request-confirmed-soft" title={row.pinSoftNotes.join("\n")}>⚠ مدة لا توافق النمط: {row.pinSoftNotes.join(" · ")}</small> : null}
+                    {row.pinSoftNotes?.length ? <small className="request-confirmed-soft" title={row.pinSoftNotes.join("\n")}>⚠ تنبيه لا يمنع: {row.pinSoftNotes.join(" · ")}</small> : null}
                   </span>
                   <time dateTime={unchangedConfirmedAt(row)}>{unchangedConfirmedAt(row) ? <KwWhen value={unchangedConfirmedAt(row)} /> : null}</time>
                 </article>

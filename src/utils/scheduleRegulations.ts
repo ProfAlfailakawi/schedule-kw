@@ -568,6 +568,32 @@ export function meetingsMatchApprovedPattern(meetings: ReadonlyArray<{ day: DayK
 }
 
 /**
+ * ── أيامُ الشعبة كلِّها نمطٌ واحد في المكتبة (المالك 2026-11-13) ──────────────
+ * الشعبةُ صفوفُ المقرر والرمز نفسيهما في الفصل والكلية والقسم؛ تُجمع أيامُها كلُّها ويُحكم عليها معاً:
+ *   • مكتملة (دقائقُ تدريسها تبلغ ساعات المقرر): أيامُها نمطٌ كامل بعينه. الأحد 80 + الخميس 80 لمقررٍ بثلاث
+ *     ساعات يُرفض وإن وقع كلُّ يومٍ منهما داخل الأحد·الثلاثاء·الخميس.
+ *   • ناقصة (تُبنى صفّاً صفّاً): أيامُها جزءٌ من نمطٍ واحد، وطولُ كلِّ لقاءٍ من أطوال ذلك النمط.
+ * صفٌّ بيومين فأكثر نمطٌ كامل بنفسه. يقرؤه الحفظ (unapprovedPatternIssue) و«ثبّت» (pinReview) وآلةُ الزمن.
+ * null: ساعاتٌ لا تُعرف أو لا نمطَ لها — لا يُحكم بما لا يُعرف.
+ */
+export function sectionDaysFitLibrary(weeklyHours: number, row: MeetingLike, siblings: readonly MeetingLike[] = []): boolean | null {
+  const hours = Math.round(Number(weeklyHours) || 0);
+  const daysOf = (item: MeetingLike) => DAY_KEYS.filter(day => Boolean(item[day]));
+  const own = daysOf(row);
+  if (!own.length) return null;
+  const all = [row, ...siblings].filter(item => daysOf(item).length);
+  const union = new Set<DayKey>(all.flatMap(daysOf));
+  const taught = all.reduce((sum, item) => sum + weeklyLectureMinutes(item, hours), 0);
+  const complete = hours > 0 && taught >= hours * 50;
+  const fit = daysFitLibrary(hours, union, own.length > 1 || complete);
+  if (fit !== true || complete || all.length < 2 || union.size < 2) return fit;
+  const span = (item: MeetingLike) => toMinutes(String(item.fendtime || "")) - toMinutes(String(item.fstarttime || ""));
+  return patternsForHours(hours).some(pattern => pattern.days.length > 1
+    && [...union].every(day => pattern.days.includes(day))
+    && all.every(item => { const length = span(item); return !(length > 0) || pattern.minutesPerDay.some(minutes => Math.abs(minutes - length) <= 5); }));
+}
+
+/**
  * ── شعبتان من مقرر واحد في الوقت نفسه (ملاحظة المالك 8) ───────────────────────
  * قاعدةٌ واحدة، تنبيهٌ لا يمنع في «موعد» وفي كرت الأستاذ (المالك 2026-11-08؛ كان يمنع في الكرت) — لمقررات التخصص وحدها.
  * مقررُ التخصص هو ما يملكه قسمُ الشعبة، ولو كان متطلبَ كليةٍ في صحف أقسامٍ أخرى؛ ومقررُ الخدمة

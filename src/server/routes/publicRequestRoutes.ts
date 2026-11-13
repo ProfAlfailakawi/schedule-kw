@@ -26,7 +26,7 @@ import { chosenAlternativeIndex } from "../../utils/requestAlternatives";
 import { firstInstructorEditAt, movementAfterInstructorEdit } from "../../utils/instructorMovementWindow";
 import { canConfirmUnchanged, isUnchangedConfirmed, unchangedConfirmationKind, unchangedScheduleFingerprint } from "../../utils/instructorRequestConfirmation";
 import { verificationCode } from "../../utils/approvalWorkflow";
-import { DAY_KEYS, DAY_NAMES, daysApprovedForHours, daysFitLibrary, effectiveCourseHours, expectedMinutesForDay, patternsForHours, startLadderNote, type DayKey } from "../../utils/scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysApprovedForHours, daysFitLibrary, effectiveCourseHours, sectionDaysFitLibrary, expectedMinutesForDay, patternsForHours, startLadderNote, type DayKey } from "../../utils/scheduleRegulations";
 import { courseTagFactsFor, serviceCourseKeys } from "../planBadgeShared";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { endForRequest, headlineReasonOf, rowFromRequest, softSectionClash, weeklyLoadOf, type RequestDayKey, type RequestedRow } from "../../utils/instructorRequestVerdict";
@@ -49,7 +49,8 @@ import { dataContextCacheKey } from "../core/locations";
 import { arabicUiCollator, courseNameCollator } from "../core/ordering";
 import { demoPageHint, publicPageNonce } from "../core/publicPages";
 import { requestTokenKey } from "../core/rateLimits";
-import { mixedPatternNotice, scheduleLengthIssue, unapprovedPatternIssue } from "../core/scheduleRules";
+import { mixedPatternNotice, regulationExceptionsFor, scheduleLengthIssue, unapprovedPatternIssue } from "../core/scheduleRules";
+import type { RegulationExceptionIssue } from "../../utils/regulationException";
 import { calendarKey, stableCalendarPath } from "../core/shareLinks";
 import { placeholderInstructorIds } from "../core/smartImport";
 import { movementHistoryScopes, scheduleMovementEntries } from "../core/staffCard";
@@ -780,11 +781,12 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
 /**
  * ── «ثبّت الجدول» لا يثبّت ما يخالف النمط أو اللائحة (المالك 2026-11-12) ──────────
  * تثبيتُ الأستاذ جدولَه كما هو يُغلق طلبه «مكتملاً». يمنعه ما يمنعه الحفظُ في ورشة الجدول:
- *   • أيامُ الشعبة ليست نمطاً في مكتبة الأنماط لساعات المقرر (daysFitLibrary — الحَكَمُ الواحد، قرار المالك
+ *   • أيامُ الشعبة كلِّها ليست نمطاً في مكتبة الأنماط لساعات المقرر (sectionDaysFitLibrary — الحَكَمُ الواحد، قرار المالك
  *     2026-11-13: المكتبةُ وحدها، فالاثنين·الخميس والأحد·الأربعاء والأحد·الخميس تمنع، وكتلةُ اليوم الواحد لأيّ يوم)؛
  *   • ساعاتُ المقرر الأسبوعية تزيد أو تنقص (scheduleLengthIssue).
- * أما مدّةُ اللقاء وحدها (75د قديمة بدل 80د) فتنبيهٌ لا يمنع (قرار المالك: التنبيهاتُ الليّنة لا تمنع «ثبّت»):
- * تُقال للأستاذ، وتُحفظ مع طلبه ليراها القسم في قائمة من ثبّت جدوله.
+ * أما مدّةُ اللقاء وحدها (75د قديمة بدل 80د) وبقيةُ مخالفات اللائحة — التتالي (م.6/2، م.6/3) وسُلّمُ البدايات (م.7/8)
+ * ووقتُ الشعبة الثابت (م.7/9) من regulationExceptionsFor — فتنبيهٌ لا يمنع (قرار المالك: التنبيهاتُ الليّنة لا تمنع «ثبّت»):
+ * تُقال للأستاذ برقم مادّتها، وتُحفظ مع طلبه ليراها القسم في قائمة من ثبّت جدوله.
  * والنصُّ بلا قاعة (قاعدة المالك: لا تُعرض القاعات للأستاذ).
  */
 export async function pinReview(request: InstructorRequest): Promise<{ blocks: Array<{ itemIndex: number; text: string }>; soft: Array<{ itemIndex: number; text: string }> }> {
@@ -793,6 +795,9 @@ export async function pinReview(request: InstructorRequest): Promise<{ blocks: A
   const blocks: Array<{ itemIndex: number; text: string }> = [], soft: Array<{ itemIndex: number; text: string }> = [];
   if (!kept.length) return { blocks, soft };
   const clean = (value: unknown) => String(value || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  /* أسبوعُ الفصل كلُّه مرةً واحدة: التتالي يُقرأ على أسبوع الأستاذ في الجامعة كلها. */
+  const termWeek = await Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }).catch(() => [] as FSchedule[]);
+  const seenRuns = new Set<string>();
   await Promise.all(kept.map(async ({ item, itemIndex }) => {
     const row: any = await Repository.getScheduleById(Number(item.rowId)).catch(() => null);
     if (!row || Number(row.AdInstructorId) !== Number(request.AdInstructorId)) return;
@@ -804,9 +809,7 @@ export async function pinReview(request: InstructorRequest): Promise<{ blocks: A
     if (hours > 0 && own.length) {
       const siblings = (await Repository.getSchedulesByScope({ collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId), termId: Number(row.AdTermId) }).catch(() => []) as any[])
         .filter(other => Number(other.AdCourseId) === Number(row.AdCourseId) && String(other.SCode || "") === String(row.SCode || "") && Number(other.id) !== Number(row.id));
-      const union = new Set<DayKey>(own);
-      for (const other of siblings) for (const day of DAY_KEYS) if (other[day]) union.add(day);
-      if (daysFitLibrary(hours, union, own.length > 1) === false) {
+      if (sectionDaysFitLibrary(hours, row, siblings) === false) {
         const issue = await unapprovedPatternIssue(row).catch(() => null);
         blocks.push(say(issue || "أيام هذه الشعبة ليست نمطاً معتمداً لساعات المقرر."));
         return;
@@ -816,6 +819,13 @@ export async function pinReview(request: InstructorRequest): Promise<{ blocks: A
     if (hoursIssue) { blocks.push(say(hoursIssue)); return; }
     const lengthOnly = await unapprovedPatternIssue(row).catch(() => null);
     if (lengthOnly) soft.push(say(lengthOnly));
+    /* مدّةُ اللقاء قيلت أعلاه (unapprovedPatternIssue)، والسلسلةُ المتتالية الواحدة تُقال مرةً ليومها. */
+    const regulation = await regulationExceptionsFor(row, termWeek).catch(() => [] as RegulationExceptionIssue[]);
+    for (const issue of regulation) {
+      if (issue.rule === "lecture-length") continue;
+      if (issue.day) { const key = `${issue.rule}|${issue.day}`; if (seenRuns.has(key)) continue; seenRuns.add(key); }
+      soft.push(say(`${issue.text} (${issue.article})`));
+    }
   }));
   const byIndex = (a: { itemIndex: number }, b: { itemIndex: number }) => a.itemIndex - b.itemIndex;
   return { blocks: blocks.sort(byIndex), soft: soft.sort(byIndex) };
@@ -984,7 +994,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
     items: judged.items,
     note: generalNote || undefined,
     status: unchangedConfirmed ? "settled" : "submitted",
-    /* ثبّته مع تنبيه مدّةٍ لا يمنع: يراه القسمُ في قائمة من ثبّت جدوله ليعالجه (قرار المالك). */
+    /* ثبّته مع تنبيهٍ لا يمنع (مدّةٌ أو مادّةٌ من اللائحة): يراه القسمُ في قائمة من ثبّت جدوله ليعالجه (قرار المالك). */
     ...(unchangedConfirmed && pinSoftNotes.length ? { pinSoftNotes } : {}),
     submittedAt: at,
     signature,
@@ -993,7 +1003,7 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
       ...(resolved.request.timeline || []),
       ...alternativeEvents,
       { kind: "submitted", at, detail: String(changed) },
-      ...(unchangedConfirmed ? [{ kind: unchangedConfirmationKind, at, ...(pinSoftNotes.length ? { detail: "مع تنبيه مدة لا يمنع" } : {}) }] : [{ kind: "received" as const, at, by: "القسم" }]),
+      ...(unchangedConfirmed ? [{ kind: unchangedConfirmationKind, at, ...(pinSoftNotes.length ? { detail: "مع تنبيه لا يمنع" } : {}) }] : [{ kind: "received" as const, at, by: "القسم" }]),
     ],
   }, await requestReservationProposals(judged), unchangedConfirmed
     ? { scheduleFingerprint: unchangedScheduleFingerprint(liveRows, Number(resolved.request.AdInstructorId)) }
