@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { AlertTriangle, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, History, Info, Printer, TrendingUp, UserRound, Wrench, X } from "lucide-react";
+import { GraduationCap, AlertTriangle, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, History, Info, Printer, TrendingUp, UserRound, Wrench, X } from "lucide-react";
 import type { AdCollege, AdCourse, AdInstructor, FSchedule } from "../types";
 import { PrintLetterhead, PrintPortal, PrimaryButton, SecondaryButton, useDialogDismiss } from "./ui";
 import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
@@ -326,13 +326,18 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
 
   /* الطلب الفعلي (تقرير التسجيل): شارةٌ صغيرة على كل مقرر — قراءةٌ لا تمنع شيئاً. */
   const [demandFacts, setDemandFacts] = useState<Record<string, CourseDemandFact> | null>(null);
+  const [graduateClashes, setGraduateClashes] = useState<Array<{ a: { code: string; name: string; courseIds?: number[] }; b: { code: string; name: string; courseIds?: number[] }; track: string; graduates: number }>>([]);
   useEffect(() => {
-    setDemandFacts(null);
+    setDemandFacts(null); setGraduateClashes([]);
     if (!collegeId || !sectionId || !termId) return;
     const controller = new AbortController();
     void fetch(`/api/actual-demand?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include", signal: controller.signal })
       .then(response => (response.ok ? response.json() : null))
-      .then(data => { if (!controller.signal.aborted && data) setDemandFacts(data.facts || null); })
+      .then(data => {
+        if (controller.signal.aborted) return;
+        setDemandFacts(data?.facts && Object.keys(data.facts).length ? data.facts : null);
+        setGraduateClashes(Array.isArray(data?.graduateClashes) ? data.graduateClashes : []);
+      })
       .catch(() => undefined);
     return () => controller.abort();
   }, [collegeId, sectionId, termId, localRows]);
@@ -884,6 +889,20 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
         ) : null}
 
 
+        {graduateClashes.length ? (
+          <section className="review-graduate-clashes" aria-labelledby="review-graduate-title">
+            <h3 id="review-graduate-title"><GraduationCap aria-hidden="true" />تعارض مقررات الخريجين<em>ملاحظة · لا تمنع</em></h3>
+            <ul>
+              {graduateClashes.slice(0, 6).map(clash => (
+                <li key={`${clash.track}|${clash.a.code}|${clash.b.code}`} title={`${clash.a.name} × ${clash.b.name}`}>
+                  <span dir="ltr" className="rgc-codes">{clash.a.code} × {clash.b.code}</span>
+                  <span className="rgc-names">{clash.a.name}<CourseTags courseIds={clash.a.courseIds} /> · {clash.b.name}<CourseTags courseIds={clash.b.courseIds} /></span>
+                  <b>{countOf(clash.graduates, AR.graduate)}</b>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         <section className="review-period-rule" aria-labelledby="review-period-title" data-open={periodOpen || undefined}>
           <button type="button" className="review-period-toggle" aria-expanded={periodOpen} aria-controls="review-period-content" onClick={() => setPeriodOpen(value => !value)} data-guide-ignore="طيّ أو فتح تفاصيل توزيع الصباحي والمسائي داخل المراجعة">
             <span><Clock3 aria-hidden="true"/><b id="review-period-title">توزيع الفترتين</b><em>قرار 1913/2016 · م.7/2</em></span>

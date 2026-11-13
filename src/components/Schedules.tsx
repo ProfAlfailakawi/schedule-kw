@@ -214,7 +214,7 @@ import { courseLabel, instructorLabel } from "../utils/courseLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
-import { actualDemandNotice, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
+import { actualDemandNotice, graduateImpactNote, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
 import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
 import { historicalDurationMinutes, pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
@@ -916,6 +916,9 @@ function ScheduleLegendScroller({
 const timingKeyOf = (row: any) =>
   `${Number(row?.AdCourseId || 0)}|${["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(key => row?.[key] ? 1 : 0).join("")}|${String(row?.fstarttime || "")}`;
 
+/** وسمُ ملاحظة الخريجين قبل الحفظ (الطلب الفعلي): تُقال ولا تمنع. */
+const GRADUATE_NOTE_TAG = "ملاحظة فقط · لا تمنع الحفظ";
+
 export default function Schedules({ mode, user, scopes = [], permissions = [], signatureStage: approvalStage = null, canSign = true, committeeEligible = false, onNavigate, onOpenQueryCentre }: Props) {
   const prefsKey = `schedule-workspace-prefs-${user?.SystemUserId || 0}`;
   const lastSavedRef = useRef<any>(null);
@@ -1004,6 +1007,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     /* «النمط غير معتمد»: رسمٌ من الخادم (مكتبة الأنماط)، تنبيهٌ لا يمنع الحفظ. */
     [patternNotice, setPatternNotice] = useState(""),
     [lectureNotice, setLectureNotice] = useState(""),
+    /* الطلب الفعلي: «يمسّ N خريجاً» — ملاحظةٌ قبل الحفظ لا تمنعه، وتصل ورقةَ الاستثناء إن ظهرت. */
+    [graduateNotice, setGraduateNotice] = useState(""),
     /* ما يُحفظ بتأكيدٍ صريح فقط (ملاحظتا المالك 10 و20): من فحص الخادم نفسه. */
     [regulationIssues, setRegulationIssues] = useState<RegulationExceptionIssue[]>([]),
     [checking, setChecking] = useState(false),
@@ -1394,6 +1399,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setError(PRACTICE_WRITE_BLOCKED);
     return true;
   };
+  const graduateNoteRef = useRef("");
   const fetchJson = async (url: string, options?: RequestInit) => {
     const method = String(options?.method || "GET").toUpperCase();
     const mutating = method !== "GET" && method !== "HEAD";
@@ -1468,7 +1474,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const refusalIssues = mutating ? regulationIssuesOf(res.status, data) : null;
     if (refusalIssues) {
       const marked = withRegulationException(options?.body);
-      if (marked && await askRegulationException(refusalIssues)) return fetchJson(url, { ...options, body: marked });
+      if (marked && await askRegulationException(refusalIssues, graduateNoteRef.current || undefined)) return fetchJson(url, { ...options, body: marked });
       const declined: any = new Error(marked ? REGULATION_EXCEPTION_DECLINED : String(data.error || REGULATION_EXCEPTION_DECLINED));
       declined.code = data.code;
       declined.regulation = refusalIssues;
@@ -3101,6 +3107,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setServerValidationIssues([]);
     setPatternNotice("");
     setLectureNotice("");
+    /* أثرُ الموعد السابق على الخريجين لا يبقى في محرّرٍ جديد ولا يصل ورقةَ الاستثناء. */
+    setGraduateNotice("");
+    graduateNoteRef.current = "";
     setChecking(false);
     setScheduleTouched(false);
     setRoomIdeas(null); setRoomIdeasNote(""); setRoomIdeasReason(undefined); setRoomReplaceable([]);
@@ -4938,6 +4947,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setPatternNotice("");
       setLectureNotice("");
       setRegulationIssues([]);
+      setGraduateNotice("");
+      graduateNoteRef.current = "";
       setChecking(false);
       lastCheckFormKey.current = "";
       return;
@@ -4950,6 +4961,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setPatternNotice(typeof data.patternNotice === "string" ? data.patternNotice : "");
       setLectureNotice(typeof data.lectureNotice === "string" ? data.lectureNotice : "");
       setRegulationIssues(Array.isArray(data.regulation) ? data.regulation : []);
+      const impact = Number(data.graduateImpact?.graduates) > 0 ? graduateImpactNote(Number(data.graduateImpact.graduates)) : "";
+      setGraduateNotice(impact);
+      graduateNoteRef.current = impact;
     };
     const cached = checkCache.current.get(checkPayloadKey);
     if (cached && Date.now() - cached.at < 20_000) { apply(cached.data); setChecking(false); return; }
@@ -10409,6 +10423,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <span><small>المعتاد</small><strong><CalendarDays aria-hidden="true" />{lectureAdvisoryFacts(lectureNotice).expected}</strong></span>
                     <span><small>الفاصل</small><strong><Timer aria-hidden="true" />{lectureAdvisoryFacts(lectureNotice).gap}</strong></span>
                   </div>
+                </div>
+              </div>
+            ) : null}
+            {graduateNotice ? (
+              <div className="schedule-lecture-advisory schedule-graduate-advisory" role="status" aria-label={`ملاحظة لا تمنع الحفظ: ${graduateNotice}`}>
+                <span className="schedule-lecture-advisory__icon" aria-hidden="true"><GraduationCap /></span>
+                <div className="schedule-lecture-advisory__body">
+                  <div className="schedule-lecture-advisory__head"><b>{graduateNotice}</b><span>{GRADUATE_NOTE_TAG}</span></div>
                 </div>
               </div>
             ) : null}

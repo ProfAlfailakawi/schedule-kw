@@ -170,3 +170,20 @@
 .demand-badge.is-spare{background:var(--surface-3);color:var(--muted)}
 .demand-badge.is-ok{background:var(--success-soft);color:var(--success);padding:0 5px}
 @media print{.demand-badge{display:none!important}}
+
+/* ── المرحلة ٣: حماية الخريجين ─────────────────────────────────────────────────────── */
+.review-graduate-clashes{display:grid;gap:8px;margin-block:10px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--brass) 30%,var(--line));border-radius:var(--r-lg);background:color-mix(in srgb,var(--brass-soft) 50%,var(--surface))}
+.review-graduate-clashes h3{display:flex;align-items:center;gap:7px;margin:0;font-size:14px;font-weight:700;color:var(--ink)}
+.review-graduate-clashes h3 svg{width:17px;height:17px;color:var(--brass)}
+.review-graduate-clashes h3 em{margin-inline-start:auto;font-style:normal;font-size:11.5px;font-weight:700;color:var(--muted)}
+.review-graduate-clashes ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.review-graduate-clashes li{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;min-width:0;padding:8px 10px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.rgc-codes{font:600 12px/1.2 var(--font-mono);color:var(--ink-2);white-space:nowrap}
+.rgc-names{min-width:0;font-size:12.5px;font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-graduate-clashes li b{font-size:12.5px;font-weight:700;color:var(--brass);white-space:nowrap}
+@media (max-width:560px){.review-graduate-clashes li{grid-template-columns:1fr auto}.rgc-names{grid-column:1 / -1;grid-row:2}}
+.schedule-graduate-advisory .schedule-lecture-advisory__icon{color:var(--brass)}
+.regulation-exception-soft{display:flex;align-items:center;gap:7px;margin:0;padding:8px 10px;border-radius:12px;background:var(--brass-soft);color:var(--ink-2);font-size:13px;font-weight:700}
+.regulation-exception-soft svg{width:16px;height:16px;color:var(--brass);flex:none}
+.regulation-exception-soft small{margin-inline-start:auto;font-size:11.5px;font-weight:700;color:var(--muted)}
+@media print{.review-graduate-clashes{display:none}}

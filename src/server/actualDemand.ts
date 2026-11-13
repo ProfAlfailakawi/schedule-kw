@@ -15,6 +15,7 @@ import { departmentFamily, departmentFamilyKey } from "../utils/sectionLabel";
 import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import { trackOf } from "../utils/collegeTrack";
 import { courseDemandFacts, demandSupply, type SupplyCapacity } from "../utils/actualDemandSupply";
+import { graduateClashes, graduateImpactOf } from "../utils/actualDemandGraduates";
 import { capacityContextForSection } from "./core/capacityRules";
 import {
   demandAlerts, demandDepartmentMatches, demandStudents, demandTermMatches, matchDemandCourses, parseDemandReport,
@@ -198,6 +199,11 @@ export function demandReading(context: DemandContext) {
     service: supply ? { ...supply.service, byTrack: supply.byTrack } : null,
     /* لكل AdCourseId في العائلة: ما تقرؤه شارةُ المراجعة وحكمُ «حذف مقرر». */
     facts: supply ? courseDemandFacts(supply, context.matches) : {},
+    /* م: مقرراتُ خريجي البرنامج الواحد لا تتعارض — ما تعارض منها في كل شعبه. */
+    graduateClashes: graduateClashes({ graduates: context.stored?.variants?.graduates?.report || null, matches: context.matches, members: context.family.members, rows: context.rows })
+      .slice(0, 12).map(clash => ({ ...clash,
+        a: { ...courseFace(context, clash.a.code, clash.a.name), courseIds: context.matches.get(clash.a.code)?.courseIds || [] },
+        b: { ...courseFace(context, clash.b.code, clash.b.name), courseIds: context.matches.get(clash.b.code)?.courseIds || [] } })),
     supply: supply ? supply.items.filter(item => item.gap !== 0 || item.unmetGraduates > 0 || item.unmetStudents > 0 || item.move).slice(0, 40)
       .map(item => ({ ...item, ...courseFace(context, item.code, item.name), report: item.code, targets: targetsOf(context, context.matches.get(item.code)?.courseIds || []) })) : [],
     family: { key: context.family.key, name: context.family.name, members: members.map(({ collegeId, sectionId, collegeName, track }) => ({ collegeId, sectionId, collegeName, track })) },
@@ -233,6 +239,24 @@ export function demandPreview(report: DemandReport, context: DemandContext, term
     duplicate: context.stored?.variants?.[variant]?.hash === hash,
     warnings: report.warnings.slice(0, 6),
   };
+}
+
+/**
+ * أثرُ موعدٍ على الخريجين قبل حفظه (ملاحظةٌ لا تمنع): التعارضاتُ الجديدة التي يصنعها بين مقررات
+ * خريجي البرنامج الواحد. null بلا تقرير خريجين أو بلا أثر. لا يرمي.
+ */
+export async function graduateImpactFor(req: AuthenticatedRequest, row: any): Promise<{ graduates: number; pairs: string[] } | null> {
+  try {
+    const collegeId = Number(row?.AdCollegeId || 0), sectionId = Number(row?.AdSectionId || 0), termId = Number(row?.AdTermId || 0);
+    if (!collegeId || !sectionId || !termId || !Number(row?.AdCourseId)) return null;
+    const context = await demandContext(req, collegeId, sectionId, termId);
+    const graduates = context.stored?.variants?.graduates?.report || null;
+    if (!graduates) return null;
+    const impact = graduateImpactOf({ graduates, matches: context.matches, members: context.family.members, rows: context.rows,
+      candidate: { ...row, id: Number(row.excludeId || row.id || 0) || -1 }, replaces: Number(row.excludeId || row.id || 0) });
+    if (!impact) return null;
+    return { graduates: impact.graduates, pairs: impact.clashes.slice(0, 3).map(clash => `${courseFace(context, clash.a.code, clash.a.name).code} × ${courseFace(context, clash.b.code, clash.b.name).code}`) };
+  } catch { return null; }
 }
 
 export { parseDemandReport };
