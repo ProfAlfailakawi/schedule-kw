@@ -42,6 +42,8 @@ import { courseNameCollator, sortTermsNewestServer, verifiedRoomKey } from "../c
 import { finalRowsOnly, readSchedulesForRequest, readsFinalSchedulesOnly } from "../core/scheduleReads";
 import { instructorsForReader, isScopeAllowed, scopedScheduleUniverse } from "../core/scope";
 import { approvalBlockerOptions } from "../core/smartImport";
+import { reviewReadinessReading } from "./scheduleReviewRoutes";
+import { demandContext, demandReading } from "../actualDemand";
 import { readLiveVisitingRoster, readVisitingStatus, visitingChecker } from "../core/visiting";
 
 /*
@@ -327,6 +329,30 @@ app.get("/api/reports/visiting-history", requireAnyPermission([7, 8, 9, 10, 14, 
  * والمحذوف والمعدّل. لقطات الجولات تبقى بديلاً للفصول القديمة التي لم
  * تُستورد لها وثيقة معتمدة.
  */
+/**
+ * ── «مراجعة الاعتماد» داخل «تغييرات الجدول»: قراءةٌ فقط ─────────────────────
+ *
+ * الشاشةُ نفسها التي في «الجدول الدراسي» (ScheduleReview) تُعرض هنا مدمجة، فتقرأ
+ * ما تقرؤه هناك (reviewReadinessReading للعائلة، والطلب الفعلي) — لكن ببوابة هذا
+ * التقرير نفسها: من يفتح «تغييرات الجدول» (التسجيل ورئيس القسم واللجنة) في نطاقه،
+ * والعميدان بعد الاعتماد وحده. لا يُعطى بها أيُّ حقّ كتابة: مسارات الحفظ والتحقق
+ * باقيةٌ على الصلاحية 7.
+ */
+app.get("/api/reports/schedule-changes/review", rateLimitHeavyReport, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الفصل والكلية والقسم أولاً." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  if (readsFinalSchedulesOnly(req) && (await readApproval(collegeId, sectionId, termId)).status !== "accepted") {
+    res.status(403).json({ error: "لم يُعتمد هذا الجدول بعد — يُعرض لكم بعد اعتماده." });
+    return;
+  }
+  const reading = await reviewReadinessReading(req, collegeId, sectionId, termId, true);
+  /* الطلبُ الفعلي وتعارضُ مقررات الخريجين: قراءةٌ لا تمنع، فتعذّرُها لا يُسقط المراجعة. */
+  const demand = await demandContext(req, collegeId, sectionId, termId).then(demandReading).catch(() => null);
+  res.json({ ...reading, demand });
+});
+
 app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الفصل والكلية والقسم أولاً." }); return; }
