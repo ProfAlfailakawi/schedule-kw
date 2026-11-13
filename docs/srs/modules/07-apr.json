@@ -2855,16 +2855,20 @@
       ],
       "acceptance": [
         {
-          "ar": "حين يُقرأ القسم عبر كلياته يقال «الدرجة والموانع لهذه الكلية وحدها · حِمل الأستاذ المشترك يُقرأ مع N كلية أخرى من القسم»؛ وتعذّر قراءة الخادم يقول «تمت مراجعة قرار 1913/2016 محلياً، لكن تعذر التأكد الآن من الحجوزات المتعارضة خارج نطاق القسم.».",
-          "en": "When the department is read across its colleges it says the score and blockers are for this college alone while the shared instructor load is read with N other colleges of the department; a failed server read says decision 1913/2016 was reviewed locally but conflicting bookings outside the department could not be confirmed now."
+          "ar": "المراجعة شاشةٌ واحدة لعائلة القسم: أيُّ عضوٍ فُتح (بنين، بنات، فرعٌ آخر…) يرى الدرجة والعنوان والمفاتيح والبطاقات نفسها لمواعيد العائلة كلها في نطاقه، ويقال «القسم في حُرَمه كلها» بوسم كل حرم؛ والتوقيع يبقى لكل كلية؛ وتعذّر قراءة الخادم يقول «تمت مراجعة قرار 1913/2016 محلياً، لكن تعذر التأكد الآن من الحجوزات المتعارضة خارج نطاق القسم.».",
+          "en": "The review is one screen for the department family: whichever member is opened (boys, girls, a branch campus…) shows the same score, title, keys and cards over all the family's appointments in the reader's scope, saying «the department in all its campuses» with a tag per campus; signing stays per college; a failed server read says decision 1913/2016 was reviewed locally but conflicting bookings outside the department could not be confirmed now."
         },
         {
           "ar": "حالات البند: «مانع اعتماد»، «يحتاج معالجة»، «مراجعة لائحية»، «ملاحظة لائحية»، «سياق تاريخي»، «سياسة القسم»؛ وتحذيرات «الشعبة نفسها مسجّلة مرتين» تُعرض بطاقاتٍ «مراجعة» بجانب الموانع بمادة «لا يمنع الاعتماد»، وتُطبع معها، ولا تدخل الموانع ولا الدرجة؛ ومقرراتٌ بثلاث أو أربع ساعات بلا طبيعة تدريس تُعدّ «لم يُفحص نمط المادة 7/8 لها».",
           "en": "Finding statuses: «approval blocker», «needs treatment», «regulation review», «regulation note», «historical context», «department policy»; «same section recorded twice» warnings are shown as «review» cards beside the blockers under «does not block approval» and printed with them, entering neither the blockers nor the score; courses of three or four hours without a teaching mode are counted as «article 7/8 pattern not checked»."
         },
         {
-          "ar": "«عالج» يُبرز مواعيد البند على لوحة الأسبوع (توهّجٌ 20 ثانية) ويغلق النافذة؛ والأساتذة في البند صفحاتٌ من 8 ببحث، والحالات صفحاتٌ من 6.",
-          "en": "«fix» highlights the item's appointments on the week board (a 20-second glow) and closes the sheet; the instructors in an item are paged by 8 with a search, and its cases by 6."
+          "ar": "بطاقةٌ واحدة لكل أنواع البنود: العنوان والمادة والحالة والعدّ، و«لو عولج» حين يرفع الدرجة، و«عالج»، و«شرح الملاحظة»، ثم الأستاذ مرّةً واحدة وتحته مواعيده (المقرر · الشعبة · وسم الحرم · اليوم · الوقت) صفحاتٍ من 8 ببحث؛ و«عالج» يُبرز مواعيد البند المحمّلة على لوحة الأسبوع (توهّجٌ 20 ثانية) ويغلق النافذة، ويُعطَّل إن كانت كلها في حرمٍ آخر.",
+          "en": "One card for every finding type: title, article, status and counts, the projected score when fixing raises it, «fix», and «explain», then each instructor once with their appointments beneath (course · section · campus tag · day · time) paged by 8 with a search; «fix» highlights the item's loaded appointments on the week board (a 20-second glow) and closes the sheet, and is disabled when they all belong to another campus."
+        },
+        {
+          "ar": "قاعدةٌ واحدة للعنوان والمفاتيح والدرجة على الشاشة والورقة: المانع «يوجد ما يمنع الاعتماد» و«مواعيد تمنع»، وبند المعالجة «لا مانع للتوقيع · بنود للمعالجة» و«مواعيد للمعالجة» ويُنقص الدرجة، والملاحظة (خارج سُلّم اللائحة، الشعبة مسجّلة مرتين) «لا مانع للتوقيع · ملاحظات» و«مواعيد للملاحظة» ولا تُنقص الدرجة، و«سليم» ما لا يمسّه شيء؛ والمعادلة «(السليم + للملاحظة) ÷ الكل × 100».",
+          "en": "One rule for the title, keys and score on screen and paper: a blocker gives «something blocks approval» and «appointments that block», a needs-fix item «no bar to signing · items to fix» and «appointments to fix» and lowers the score, a note (off the regulation ladder, a section recorded twice) «no bar to signing · notes» and «appointments to note» without lowering it, and «sound» is what nothing touches; the formula reads «(sound + to note) ÷ all × 100»."
         },
         {
           "ar": "«توزيع الفترتين» (قرار 1913/2016 · م.7/2): الصباحي 08:00–14:00 بنسبة 50–70٪ والمسائي 14:00–20:00 بنسبة 30–50٪، والرسم يظهر بعد الحد الأدنى من المواعيد وإلا تُذكر القراءة نصاً.",
