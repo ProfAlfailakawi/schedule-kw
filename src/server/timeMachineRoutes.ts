@@ -11,6 +11,8 @@
  * الحيّ (Repository.commitTimeMachinePlan). ثم سجلُّ النسخة ودورةُ الاعتماد كما
  * بعد أيّ تعديل (noteScheduleMutation): التوقيعُ الرسميّ يبقى في مساره.
  */
+import { demandContext, demandSupplyOf } from "./actualDemand";
+import { courseDemandFacts } from "../utils/actualDemandSupply";
 import type { Express, Request, RequestHandler, Response } from "express";
 import { randomUUID } from "crypto";
 import { Repository } from "../db/repository";
@@ -170,6 +172,15 @@ async function planFactsFor(collegeId: number, sectionId: number): Promise<TmCon
   } catch { return null; }
 }
 
+/** الطلب الفعلي (تقرير التسجيل) لكل مقرر في العائلة: ما يقرؤه حكمُ «حذف مقرر». null = لم يُرفع. */
+async function actualDemandFactsFor(req: Request, collegeId: number, sectionId: number, termId: number): Promise<TmContext["actualDemand"]> {
+  try {
+    const context = await demandContext(req as any, collegeId, sectionId, termId);
+    if (!context.stored?.variants?.general && !context.stored?.variants?.graduates) return null;
+    return courseDemandFacts(demandSupplyOf(context), context.matches);
+  } catch { return null; }
+}
+
 export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): void {
   const fail = (res: Response, status: number, error: string, extra: Record<string, unknown> = {}) => res.status(status).json({ error, ...extra });
   const scopeOfQuery = (req: Request) => ({ collegeId: Number(req.query.collegeId || req.body?.collegeId || 0), sectionId: Number(req.query.sectionId || req.body?.sectionId || 0), termId: Number(req.query.termId || req.body?.termId || 0) });
@@ -215,6 +226,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
       canWrite: await deps.canWrite(req),
       departmentKeys,
       plan: await planFactsFor(collegeId, sectionId),
+      actualDemand: await actualDemandFactsFor(req, collegeId, sectionId, termId),
       live: termRows,
     };
   }

@@ -204,7 +204,13 @@ export function courseRemovalVerdict(context: TmContext, courseId: number): Remo
   if (!rows.length) {
     return { courseId, label, tone: "go", headline: "غير مطروح هذا الفصل — لا شيء يُحذف", reasons: [], sections: 0, changes: [], delta: null };
   }
-  /* الطلبة: الرادار ثم كشف المتبقي. */
+  /* الطلبة: الطلب الفعلي من تقرير التسجيل أولاً (أرقامٌ حقيقية)، ثم الرادار ثم كشف المتبقي. */
+  const actual = context.actualDemand?.[String(courseId)];
+  if (actual) {
+    if (actual.graduates > 0) push("stop", `يمسّ ${countOf(actual.graduates, AR.graduate)} (تقرير التسجيل)`);
+    if (actual.students > 0) push(actual.students >= 20 ? "stop" : "care", `${countOf(actual.students, AR.student)} يحتاجونه (تقرير التسجيل)`);
+    else push("go", "لا طالب يحتاجه في تقرير التسجيل");
+  }
   const demand = context.demand?.[String(courseId)];
   if (demand) {
     if (demand.seated > 0) push("stop", `${countOf(demand.seated, AR.student)} جالسون فيه الآن`);
@@ -215,7 +221,7 @@ export function courseRemovalVerdict(context: TmContext, courseId: number): Remo
   const remaining = Number(context.registration?.remaining?.[String(courseId)] || 0);
   if (remaining > 0) push("stop", `${countOf(remaining, AR.student)} لم يجتازوه بعد (كشف المتبقي) — قد يتأخر تخرّجهم`);
   /* غيابُ الدليل ليس صفراً: بلا رادارٍ ولا كشفِ متبقٍّ لهذا المقرر لا يُقال «آمن». */
-  if (!demand && !remainingKnown) push("care", "لا بيانات طلبة له (لا رادار ولا كشف متبقٍّ) — أثره على الطلبة غير معروف");
+  if (!actual && !demand && !remainingKnown) push("care", "لا بيانات طلبة له (لا رادار ولا كشف متبقٍّ) — أثره على الطلبة غير معروف");
   /* الصحيفة: النوع والمستوى وما يفتحه. */
   const fact = context.plan?.[String(courseId)];
   if (fact?.kind === "compulsory") push("stop", KIND_LABEL.compulsory);

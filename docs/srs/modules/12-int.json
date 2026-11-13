@@ -47,6 +47,7 @@
     "src/server/actualDemandRoutes.ts",
     "src/utils/actualDemand*.ts",
     "src/components/ActualDemandPanel.tsx",
+    "src/components/DemandBadge.tsx",
     "src/styles/54-actual-demand.css"
   ],
   "screens": [
@@ -1555,9 +1556,80 @@
       ],
       "evidence": { "code": ["src/utils/actualDemand.ts#demandAlerts", "src/utils/actualDemandHandoff.ts", "src/components/Schedules.tsx#takeActualDemandHandoff"], "tests": ["tests/actual-demand-audit.ts"] },
       "inferred": false
+    },
+    {
+      "id": "FR-INT-073",
+      "kind": "functional",
+      "title": {"ar": "العرض مقابل الطلب لكل مقرر ومسار", "en": "Supply against demand per course and track"},
+      "text": {
+        "ar": "يجب أن يقارن النظام لكل مقرر مطابَق عدد الطلبة الذين يحتاجونه بمقاعد شعبه في جدول عائلة القسم للفصل، أولاً للعائلة ثم لكل مسار (بنين/بنات) وكلياته، بمقعدٍ يُحسب بسقف لائحتنا: سعة المقرر المدخلة حتى أقصى طبيعته في م.8، والمستثنى بقرار المدير في م.9 بسعته، وبلا سعة أقصى الطبيعة، وبلا طبيعة ولا سعة 60 موسوماً «مفترض» — لا متوسط التقرير؛ والنتيجة عجزٌ أو فائضٌ بالشعب، وإن عجز مسارٌ وفاض آخر فالاقتراح نقل شعبة بينهما قبل فتح أخرى.",
+        "en": "For every matched course the system shall compare the students who need it with the seats of its sections in the department family's schedule for the term, first for the family and then per track (boys/girls) and its colleges, with a seat counted by our regulation cap: the course's entered capacity up to its nature's maximum in art. 8, a course excused by the administrator under art. 9 at its capacity, without capacity the nature's maximum, and without nature or capacity 60 flagged «assumed» — never the report's average; the result is a shortage or surplus in sections, and when one track is short while another has surplus the suggestion is to move a section between them before opening a new one."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        {"ar": "مقرر تطبيقي بسعة 40: بنين 93 طالباً على شعبة واحدة ← عجز شعبتين، وبنات 50 على أربع شعب ← فائض شعبتين، والاقتراح نقل شعبتين من بنات إلى بنين.", "en": "An applied course with capacity 40: boys 93 students on one section → short two sections; girls 50 on four sections → two spare; the suggestion moves two sections from girls to boys."},
+        {"ar": "سعة 70 لمقرر نظري تُحسب 60 (م.8)، والعملي 25، والمستثنى بسعته.", "en": "A capacity of 70 on a theoretical course counts as 60 (art. 8), practical as 25, an excused course at its capacity."}
+      ],
+      "evidence": { "code": ["src/utils/actualDemandSupply.ts#demandSupply", "src/utils/actualDemandSupply.ts#seatCap", "src/server/actualDemand.ts#demandSupplyOf"], "tests": ["tests/actual-demand-supply-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-074",
+      "kind": "functional",
+      "title": {"ar": "نسبة خدمة الطلب", "en": "Demand service rate"},
+      "text": {
+        "ar": "يجب أن يعرض النظام رقماً واحداً كبيراً للجدول: «نسبة خدمة الطلب» = مجموع min(الطلب، المقاعد) ÷ مجموع الطلب على المقررات المطابَقة لكل مسار، وتحته نسبة الخريجين (الهدف 100%) ونسبة كل مسار، ثم قائمة قصيرة مرتبة بالأشد (خريجون بلا مقعد، ثم عجز، ثم نقل، ثم فائض) تُفتح كل منها بنقرة على توزيعها بين المسارين، ولكل بند «عالج»؛ وتُحدَّث القراءة مع تغيّر الجدول، وبطاقة «الطلب الفعلي» في مركز التحليلات تحمل النسبة.",
+        "en": "The system shall show one large number for the schedule: «demand service rate» = sum of min(demand, seats) ÷ sum of demand over matched courses per track, with the graduates' rate beneath it (target 100%) and each track's rate, then a short list sorted by severity (graduates without a seat, then shortage, then move, then surplus), each opening with one tap on its split between the tracks, each with «fix»; the reading is refreshed as the schedule changes, and the «actual demand» card in the Analytics Center carries the rate."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        {"ar": "غير المطابَق و«لا يخص القسم» خارج النسبة والقائمة.", "en": "Unmatched courses and those marked «not this department» stay out of the rate and the list."},
+        {"ar": "«عالج» على عجزٍ أو نقلٍ يفتح محرّر موعد جديد في كلية المسار العاجز؛ والفائض يُعرض بلا زر.", "en": "«Fix» on a shortage or a move opens a new-appointment editor in the short track's college; a surplus is shown without a button."}
+      ],
+      "evidence": { "code": ["src/components/ActualDemandPanel.tsx", "src/components/IntelligenceWorkspace.tsx", "src/utils/actualDemandSupply.ts#demandSupply"], "tests": ["tests/actual-demand-supply-audit.ts", "tests/actual-demand-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-075",
+      "kind": "functional",
+      "title": {"ar": "شارة الطلب الفعلي في مراجعة الاعتماد", "en": "Actual-demand badge in the approval review"},
+      "text": {
+        "ar": "يجب أن تحمل كل بطاقة مقرر في «مراجعة الاعتماد» شارةً صغيرة من الطلب الفعلي: خريجون بلا مقعد بعددهم، أو عجزٌ بالشعب، أو فائض، أو ✓ متوازن، دون أن تمنع الاعتماد، ولا تظهر في التقرير المطبوع.",
+        "en": "Every course card in the «approval review» shall carry a small actual-demand badge: graduates without a seat with their number, or a shortage in sections, or a surplus, or ✓ balanced, without blocking approval and without appearing on the printed report."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        {"ar": "بلا تقرير مرفوع لا شارة.", "en": "Without an uploaded report there is no badge."}
+      ],
+      "evidence": { "code": ["src/components/DemandBadge.tsx", "src/components/ScheduleReview.tsx"], "tests": ["tests/actual-demand-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-076",
+      "kind": "functional",
+      "title": {"ar": "حكم «حذف مقرر» بالأرقام الحقيقية", "en": "The «remove a course» verdict uses the real numbers"},
+      "text": {
+        "ar": "يجب أن يقرأ حكم «أريد حذف مقرر» في «ماذا لو» الطلب الفعلي حين يوجد: مقررٌ يحتاجه طلبة أو خريجون ← «لا يُنصح» بعددهم من تقرير التسجيل، ولا يُقال «لا بيانات طلبة» حينها.",
+        "en": "The «I want to remove a course» verdict in «what if» shall read the actual demand when present: a course needed by students or graduates → «not advised» with their number from the registrar report, and «no student data» is not said then."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "standard"],
+      "acceptance": [
+        {"ar": "مقرر يحتاجه 90 طالباً منهم 6 خريجين ← سببٌ «الطلب الفعلي» بنبرة المنع.", "en": "A course needed by 90 students including 6 graduates → a «actual demand» reason with the stop tone."}
+      ],
+      "evidence": { "code": ["src/utils/smartSuggestions.ts#courseRemovalVerdict", "src/server/timeMachineRoutes.ts", "src/server/timeMachineRoutes.ts#actualDemandFactsFor"], "tests": ["tests/smart-suggestions-audit.ts"] },
+      "inferred": false
     }
   ],
   "edgeCases": [
+    { "title": {"ar": "كلية بلا مسار بنين أو بنات", "en": "A college with no boys or girls track"}, "scenario": {"ar": "اسم الكلية لا يحمل «بنين» ولا «بنات» (العرض التجريبي).", "en": "The college name carries neither «boys» nor «girls» (the demo)."}, "behavior": {"ar": "مسارٌ واحد يخدم مجموع الطلبة، ولا اقتراح نقل.", "en": "One track serves all students, with no move suggestion."}, "evidence": ["tests/actual-demand-supply-audit.ts"] },
     {
       "title": { "ar": "غياب خدمة Gemini أو فشلها", "en": "Gemini service absent or failing" },
       "scenario": { "ar": "لا مفتاح مضبوط، أو رفضت الخدمة الطلب، أو انتهت مهلة 45 ثانية أثناء استعلام بلغة طبيعية.", "en": "No key is configured, the service refused the request, or the 45-second timeout elapsed during a natural-language query." },

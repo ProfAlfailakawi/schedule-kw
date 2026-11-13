@@ -95,6 +95,8 @@ export interface TmContext {
   departmentKeys?: Record<string, string>;
   /** حقائقُ الصحيفة السارية لكل مقرر (المستوى، النوع، وما يفتحه من مقررات). null = لا صحيفة قواعد. */
   plan?: Record<string, TmPlanFact> | null;
+  /** الطلب الفعلي من تقرير التسجيل لكل AdCourseId (src/utils/actualDemandSupply.ts). null = لم يُرفع. */
+  actualDemand?: Record<string, { students: number; graduates: number; seats: number; gap: number; unmetStudents: number; unmetGraduates: number }> | null;
 }
 
 export interface TmPlanFact { level?: number; kind?: string; unlocks: number[] }

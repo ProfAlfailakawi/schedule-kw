@@ -234,6 +234,7 @@
     "test:first-login-password": "tsx tests/first-login-password-audit.tsx",
     "test:colleague-guard-measure": "tsx tests/colleague-guard-measure-audit.ts",
     "test:actual-demand": "tsx tests/actual-demand-audit.ts",
+    "test:actual-demand-supply": "tsx tests/actual-demand-supply-audit.ts",
     "test:colleagues-advising-registration": "tsx tests/colleagues-advising-registration-audit.ts",
     "test:quick-studio-family": "tsx tests/quick-studio-family-audit.ts",
     "test:lecture-stick-own": "tsx tests/lecture-stick-own-audit.ts",

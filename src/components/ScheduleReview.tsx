@@ -20,6 +20,8 @@ import { rowsInApprovalScope } from "../utils/approvalScope";
 import { approvalScoreBreakdown, reviewHasFindings } from "../utils/approvalScore";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import CourseTags from "./CourseTags";
+import DemandBadge, { DemandFactsContext } from "./DemandBadge";
+import type { CourseDemandFact } from "../utils/actualDemandSupply";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 import { ReachReviewNotes } from "./CourseReach";
 import { shortCourseCode } from "../utils/courseReach";
@@ -178,7 +180,7 @@ function ReviewPersonGroup({ group, courses, colleges, visitingIds }: { group: {
               <header className="review-course-heading">
                 <span className="review-course-glyph" aria-hidden="true"><BookOpen /></span>
                 <span className="review-course-identity">
-                  <strong>{course.name}<CourseTags courseId={course.courseId} /></strong>
+                  <strong>{course.name}<CourseTags courseId={course.courseId} /><DemandBadge courseId={course.courseId} /></strong>
                   <small dir="ltr">{course.code}</small>
                   {course.college ? <small className="review-course-college">{course.college}</small> : null}
                 </span>
@@ -319,6 +321,19 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       })
       .catch(error => { if (error?.name !== "AbortError") { setServerBlockers([]); setServerWarnings([]); setReadinessError(true); } })
       .finally(() => { if (!controller.signal.aborted) setReadinessChecked(true); });
+    return () => controller.abort();
+  }, [collegeId, sectionId, termId, localRows]);
+
+  /* الطلب الفعلي (تقرير التسجيل): شارةٌ صغيرة على كل مقرر — قراءةٌ لا تمنع شيئاً. */
+  const [demandFacts, setDemandFacts] = useState<Record<string, CourseDemandFact> | null>(null);
+  useEffect(() => {
+    setDemandFacts(null);
+    if (!collegeId || !sectionId || !termId) return;
+    const controller = new AbortController();
+    void fetch(`/api/actual-demand?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include", signal: controller.signal })
+      .then(response => (response.ok ? response.json() : null))
+      .then(data => { if (!controller.signal.aborted && data) setDemandFacts(data.facts || null); })
+      .catch(() => undefined);
     return () => controller.abort();
   }, [collegeId, sectionId, termId, localRows]);
 
@@ -593,7 +608,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
               <article key={`subject-row-${row.id}`} className="review-row-card compact review-identity-row">
                 <span className="rrc-code" dir="ltr">{code}</span>
                 <div className="rrc-main">
-                  <strong className="review-row-course-name">{courseName}<CourseTags courseId={row.AdCourseId} /></strong>
+                  <strong className="review-row-course-name">{courseName}<CourseTags courseId={row.AdCourseId} /><DemandBadge courseId={row.AdCourseId} /></strong>
                   <small className="review-row-owner"><UserRound aria-hidden="true" />{who}{visitingIdSet.has(Number(row.AdInstructorId)) ? <VisitingBadge compact /> : null}</small>
                   <small className="review-row-days"><CalendarDays aria-hidden="true" />شعبة {row.SCode} · {days || "بلا أيام"}</small>
                 </div>
@@ -807,6 +822,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     // The printable sheet lives inside this dialog, so the wrapper itself can
     // never be `no-print` — doing so hid the very report the print button was
     // meant to produce. Only the on-screen dialog is suppressed on paper.
+    <DemandFactsContext.Provider value={demandFacts}>
     <div className="review-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="review-sheet no-print visual-minimal" role="dialog" aria-modal="true" aria-label="مراجعة الاعتماد">
         <header className={`review-head tone-${tone}`}>
@@ -996,6 +1012,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
         </div>
       </PrintPortal>
     </div>
+    </DemandFactsContext.Provider>
   );
 }
 

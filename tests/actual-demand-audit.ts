@@ -10,6 +10,7 @@
  *  M2  عضوان بمفتاحين مختلفين (0109 و0209): الرقم يُقرأ بمفتاح كل عضو.
  *  M3  الربط اليدوي هويةٌ للعائلة: الرمز القصير والكامل يلتقيان.
  *  A1  التنبيه الأحمر: طلبٌ كبير بلا شعبة في جدولنا، والخريجون أولاً.
+ *  H2  بعد الرفع: نسبة خدمة الطلب والقائمة بالأشد والحقائق من الجدول الحيّ.
  *  H1  خادمٌ حيّ (تجربة): القراءة بلا حفظ، ثم الحفظ، ثم القراءة، والصلاحية، والربط، وسجلّ التدقيق.
  */
 import fs from "node:fs";
@@ -137,6 +138,11 @@ async function main() {
   const savedBody = await saved.json();
   check(saved.status === 200 && savedBody.reading?.variants?.general?.courses === 50 && savedBody.reading.history?.length === 1 && savedBody.reading.history[0].hash?.length === 64, "H1 الحفظ: النسخة العامة وسجلّ الرفع ببصمة الملف", savedBody.reading?.history);
   check(Array.isArray(savedBody.reading?.alerts) && savedBody.reading.alerts.every((alert: any) => /^\d{7}$/.test(alert.code)), "H1 التنبيهات بأرقام سبعة", savedBody.reading?.alerts?.slice(0, 3));
+  const service = savedBody.reading?.service;
+  check(typeof service?.general === "number" && service.general >= 0 && service.general <= 100 && service.graduates === null, "H2 «نسبة خدمة الطلب» من الجدول الحيّ (٠–١٠٠)، ولا نسبة خريجين قبل رفع نسختهم", service);
+  const items = savedBody.reading?.supply || [];
+  check(items.length > 0 && items.every((item: any) => /^\d{7}$/.test(item.code) && Array.isArray(item.branches)) && Object.keys(savedBody.reading?.facts || {}).length > 0,
+    "H2 القائمة بالأشد بأرقام سبعة وحقائق كل مقرر للشارة والحذف", items.slice(0, 2));
   const wrongTerm = Number((Array.isArray(terms) ? terms : []).find((term: any) => Number(term.AdTermId) !== termId)?.AdTermId || 0);
   if (wrongTerm) {
     const refusedSave = await call(`/api/actual-demand/upload?collegeId=1&sectionId=1&termId=${wrongTerm}&variant=general&commit=1`, { method: "POST", raw: pdf });
