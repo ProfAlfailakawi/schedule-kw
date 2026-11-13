@@ -27,8 +27,10 @@ import { pickDoorTerm } from "../utils/termStudentPhases";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
 import { AR, countOf } from "../utils/arabicCount";
 import { authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
+import type { RegulationExceptionIssue } from "../utils/regulationException";
+import { regulationGate } from "./core/scheduleWrites";
 
-interface InnerResult { status: number; body: any; headers: Record<string, string> }
+interface InnerResult { status: number; body: any; headers: Record<string, string>; regulation?: RegulationExceptionIssue[] }
 
 export interface TimeMachineDeps {
   requireRead: RequestHandler;
@@ -427,6 +429,8 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
           || Number(row.AdCollegeId) !== scenario.collegeId || Number(row.AdSectionId) !== scenario.sectionId) { fail(res, 403, "خطوةٌ خارج نطاق السيناريو."); return; }
         scopes.set(`${row.AdCollegeId}:${row.AdSectionId}`, { collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId) });
       }
+      /* الاعتمادُ حفظٌ من القسم: مخالفاتُ اللائحة في خطواته تُسأل مرةً قبل الكتابة (regulationGate). */
+      const gate = regulationGate(req as any);
       for (let i = 0; i < ops.length; i += 1) {
         const op = ops[i];
         if (op.kind === "delete") {
@@ -444,7 +448,10 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
         }
         if (dry.body?.row) op.body = { ...op.body, ...dry.body.row };
         delete op.body.id; delete op.body.rev;
+        gate.note(dry);
       }
+      const exception = gate.refusal();
+      if (exception) { res.status(409).json({ ...exception, applied: [], reverted: true }); return; }
 
       const versions = new Map<string, any>();
       for (const [key, scope] of scopes) versions.set(key, await deps.captureVersion(req, scope.collegeId, scope.sectionId, termId, kind === "apply" ? `قبل اعتماد سيناريو «${scenario.name}»` : `قبل استعادة ما قبل «${scenario.name}»`));
@@ -476,7 +483,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
           await deps.noteMutation(req, scope.collegeId, scope.sectionId, termId, { kind: "edit", rows: committed.rows });
         } catch { /* الكتابة تمّت ذرّياً؛ السجلّ الجانبي لا يُبطلها */ }
       }
-      res.locals.auditChanges = `${kind === "apply" ? "اعتماد" : "استعادة"} سيناريو آلة الزمن «${scenario.name}»: ${countOf(ops.length, AR.step)}`;
+      res.locals.auditChanges = `${kind === "apply" ? "اعتماد" : "استعادة"} سيناريو آلة الزمن «${scenario.name}»: ${countOf(ops.length, AR.step)}${gate.auditSuffix()}`;
       res.locals.auditRowIds = [...committed.rows.map(row => row.id), ...committed.deletedIds];
       res.json({ ok: true, scenario: committed.scenario, rows: committed.rows, deletedIds: committed.deletedIds });
     } finally {

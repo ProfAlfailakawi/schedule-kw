@@ -44,7 +44,7 @@ import { curriculumLabelsFor, sectionGapData } from "../core/planning";
 import { departmentStyle } from "../core/rhythm";
 import { readSchedulesForRequest } from "../core/scheduleReads";
 import { meetingExcludedIds, SCHEDULE_DAY_KEYS } from "../core/scheduleRules";
-import { applyProposalCore, dayLabelOf, deleteScheduleHandler, PROPOSAL_DAYS, runScheduleHandler } from "../core/scheduleWrites";
+import { applyProposalCore, dayLabelOf, deleteScheduleHandler, PROPOSAL_DAYS, regulationGate, runScheduleHandler } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { smartContextFrom } from "../core/smartImport";
 import { studentIdentityFor, surveyActiveCourseIds, surveyCohort } from "../core/studentIdentity";
@@ -413,11 +413,20 @@ app.post("/api/section-build/apply", requirePermission(7), async (req: Authentic
       return ok;
     };
     let amendment: string | null = null;
+    const openingOf = (row: any, placement: any) => ({
+      kind: "opening", collegeId, sectionId, termId, courseId: row.courseId, placement: { ...placement, days: [placement.day] },
+      origin: { kind: "planning", refId: `${batchId}:${row.courseId}:${placement.sectionCode}`, note: `تنزيل الشعب: ${row.name} (مطلوب ${row.target}، كان ${row.existing})` },
+    });
+    /* مخالفةُ اللائحة تُسأل مرةً عن الدفعة كلها قبل أي كتابة: فحصٌ جافّ على أسبوعٍ يتراكم (regulationGate). */
+    const gate = regulationGate(req);
+    const week = await Repository.getSchedulesByScope({ termId });
+    for (const [at, { row, placement }] of todo.entries()) {
+      const dry = await applyProposalCore(req, openingOf(row, placement), { gate, dryRun: true, week });
+      if (dry.status >= 400) return { status: dry.status, json: { ...(dry.json || {}), applied: [], reverted: true } };
+      if (dry.json?.row) week.push({ ...dry.json.row, id: -(at + 1) });
+    }
     for (const { row, placement } of todo) {
-      const done = await applyProposalCore(req, {
-        kind: "opening", collegeId, sectionId, termId, courseId: row.courseId, placement: { ...placement, days: [placement.day] },
-        origin: { kind: "planning", refId: `${batchId}:${row.courseId}:${placement.sectionCode}`, note: `تنزيل الشعب: ${row.name} (مطلوب ${row.target}، كان ${row.existing})` },
-      });
+      const done = await applyProposalCore(req, openingOf(row, placement), { gate });
       if (done.status >= 400) {
         const reverted = await rollback();
         return { status: done.status, json: { ...(done.json || {}), applied: [], reverted, error: `${done.json?.error || "تعذّر التنفيذ."}${reverted ? " — لم يُكتب شيء." : " — تعذّر ردّ بعض ما كُتب، راجع الجدول."}` } };
@@ -429,7 +438,7 @@ app.post("/api/section-build/apply", requirePermission(7), async (req: Authentic
     return {
       status: 200,
       json: { ok: true, applied: created.map(row => ({ action: "add", row })), batchId, amendment },
-      audit: `تنزيل الشعب: ${countOf(created.length, AR.section)} — ${created.map(row => `${row.AdCourseName} ش${row.SCode}`).join("، ")}`,
+      audit: `تنزيل الشعب: ${countOf(created.length, AR.section)} — ${created.map(row => `${row.AdCourseName} ش${row.SCode}`).join("، ")}${gate.auditSuffix()}`,
     };
   });
   if (outcome.audit) res.locals.auditChanges = outcome.audit;
