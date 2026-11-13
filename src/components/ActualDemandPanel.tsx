@@ -14,7 +14,7 @@ import CourseTags from "./CourseTags";
 import { Num } from "./ui";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { DEMAND_VARIANT_LABEL, guessDemandVariant, type DemandVariant } from "../utils/actualDemand";
-import { putActualDemandHandoff } from "../utils/actualDemandHandoff";
+import { openActualDemandFix } from "../utils/actualDemandHandoff";
 
 interface Target { courseId: number; collegeId: number; sectionId: number; track: string }
 interface Alert { code: string; name: string; students: number; boys: number; girls: number; graduates: number; targets: Target[] }
@@ -61,8 +61,12 @@ async function readJson(response: Response) {
   return body;
 }
 
-export default function ActualDemandPanel({ collegeId, sectionId, termId, initial = null, onReading }: {
+export default function ActualDemandPanel({ collegeId, sectionId, termId, initial = null, onReading, mode = "full", inPlace = false }: {
   collegeId: number; sectionId: number; termId: number;
+  /** «data» في أدوات البيانات: الرفعُ والربط والرقم وحده — قائمة العلاج مكانُها الجدول ومركز التحليلات. */
+  mode?: "full" | "data";
+  /** داخل الجدول الدراسي: «عالج» يفتح المحرّر في مكانه بلا انتقال. */
+  inPlace?: boolean;
   /** ما قرأه مركز الذكاء للبطاقة: يُعرض فوراً ثم يُحدَّث. */
   initial?: DemandReadingView | null;
   /** يُبلَّغ به مركز الذكاء ليكتب رقم البطاقة. */
@@ -76,7 +80,6 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
   const [variant, setVariant] = useState<DemandVariant>("general");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [linking, setLinking] = useState(false);
-  const [showAll, setShowAll] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const query = `collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`;
 
@@ -142,15 +145,6 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
     finally { setLinking(false); }
   };
 
-
-  /* العاجز أولاً: الفرعُ الأكبر عجزاً، وإلا مسارُ الأكثر طلبة. */
-  const fixSupply = (item: SupplyItemView) => {
-    const short = [...item.branches].sort((a, b) => b.gap - a.gap || (b.demand - b.seats) - (a.demand - a.seats))[0];
-    const target = item.targets.find(entry => !short?.track || entry.track === short.track) || item.targets[0];
-    if (!target) return;
-    putActualDemandHandoff({ courseId: target.courseId, collegeId: target.collegeId, sectionId: target.sectionId, termId, students: item.unmetStudents || item.demand, graduates: item.unmetGraduates });
-    window.location.assign("/FSchedule/Index");
-  };
 
   if (status === "denied") return null;
   const hasReport = Boolean(reading?.variants.general || reading?.variants.graduates);
@@ -253,45 +247,10 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
               </div>
             </div>
           ) : null}
-          {reading.supply.length ? (
-            <ol className="ad-list" aria-label="المقررات بالأشد أولاً">
-              {reading.supply.slice(0, showAll ? reading.supply.length : 8).map(item => {
-                const kind = kindOf(item);
-                return (
-                  <li key={item.code} className={`is-${kind}`}>
-                    <span className="ad-item-icon" aria-hidden="true">{KIND_ICON[kind]}</span>
-                    <span className="ad-item-main">
-                      <span className="ad-code" dir="ltr">{item.code}</span>
-                      <span>{item.name}{item.targets.length ? <CourseTags courseIds={item.targets.map(target => target.courseId)} /> : null}</span>
-                      <span className="ad-chips">
-                        {item.branches.filter(branch => branch.gap !== 0).map(branch => (
-                          <em key={branch.track || "all"} className={branch.gap > 0 ? "is-short" : "is-spare"}>
-                            {branch.gap > 0 ? `ينقصه ${countOf(branch.gap, AR.section)}` : `فائض ${countOf(-branch.gap, oblique(AR.section))}`}{branch.track ? ` · ${branch.track === "boys" ? "بنين" : "بنات"}` : ""}
-                          </em>
-                        ))}
-                        {item.move ? <em className="is-move"><ArrowLeftRight aria-hidden="true" />{countOf(item.move.sections, AR.section)} · {item.move.from === "girls" ? "بنات ← بنين" : "بنين ← بنات"}</em> : null}
-                      </span>
-                    </span>
-                    <span className="ad-item-num" title={`${countOf(item.demand, AR.student)} · ${countOf(item.seats, AR.seat)}`}>
-                      <Num value={(kind === "spare" ? item.seats - item.demand : item.unmetStudents || item.demand).toLocaleString("en-US")} />
-                      {item.unmetGraduates ? <small><GraduationCap aria-hidden="true" /><Num value={item.unmetGraduates} /></small> : null}
-                    </span>
-                    {kind === "spare" ? <span className="ad-fix-gap" aria-hidden="true" /> : (
-                      <button type="button" className="btn btn-primary ad-fix" disabled={!item.targets.length} onClick={() => fixSupply(item)}
-                        data-guide-ignore="يفتح محرّر موعدٍ جديد لهذا المقرر في الفرع العاجز؛ لا يكتب قبل الحفظ هناك">
-                        <CalendarPlus aria-hidden="true" /> عالج
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          ) : reading.service ? <p className="ad-all-good"><CircleCheck aria-hidden="true" /> كل مقرر مطلوب له مقاعده</p> : null}
-          {reading.supply.length > 8 && !showAll ? (
-            <button type="button" className="ad-more" onClick={() => setShowAll(true)} data-guide-ignore="يعرض بقية المقررات في القائمة نفسها">+{countOf(reading.supply.length - 8, AR.course)}</button>
-          ) : null}
+          {mode === "data" ? null : reading.supply.length ? <DemandSupplyList items={reading.supply} termId={termId} inPlace={inPlace} />
+            : reading.service ? <p className="ad-all-good"><CircleCheck aria-hidden="true" /> كل مقرر مطلوب له مقاعده</p> : null}
           {reading.unmatched.length ? (
-            <details className="ad-unmatched">
+            <details className="ad-unmatched" open={mode === "data" || undefined}>
               <summary><Unlink aria-hidden="true" /> <b>{countOf(reading.unmatched.length, AR.course)}</b> بلا ربط</summary>
               <ul>
                 {reading.unmatched.slice(0, 20).map(row => (
@@ -315,5 +274,64 @@ export default function ActualDemandPanel({ collegeId, sectionId, termId, initia
       ) : null}
       {status === "error" ? <p className="ad-error" role="alert"><TriangleAlert aria-hidden="true" /> تعذّرت القراءة الآن.</p> : null}
     </section>
+  );
+}
+
+/** نوعُ البند بالأشد، لمن يعرض القائمة خارج اللوحة (تنبيه الجدول الدراسي). */
+export const demandKindOf = kindOf;
+
+/**
+ * القائمة القصيرة بالأشد: أيقونة · رقم · «عالج». تُعرض في اللوحة وفي تنبيه الجدول الدراسي،
+ * فلا تُكتب مرتين. «عالج» يفتح محرّر موعدٍ جديد في كلية المسار الأعجز؛ لا يكتب شيئاً قبل الحفظ هناك.
+ */
+export function DemandSupplyList({ items, termId, inPlace = false, limit = 8 }: { items: SupplyItemView[]; termId: number; inPlace?: boolean; limit?: number }) {
+  const [showAll, setShowAll] = useState(false);
+  /* العاجز أولاً: الفرعُ الأكبر عجزاً، وإلا مسارُ الأكثر طلبة. */
+  const fixSupply = (item: SupplyItemView) => {
+    const short = [...item.branches].sort((a, b) => b.gap - a.gap || (b.demand - b.seats) - (a.demand - a.seats))[0];
+    const target = item.targets.find(entry => !short?.track || entry.track === short.track) || item.targets[0];
+    if (!target) return;
+    openActualDemandFix({ courseId: target.courseId, collegeId: target.collegeId, sectionId: target.sectionId, termId, students: item.unmetStudents || item.demand, graduates: item.unmetGraduates }, inPlace);
+  };
+  return (
+    <>
+      {items.length ? (
+        <ol className="ad-list" aria-label="المقررات بالأشد أولاً">
+          {items.slice(0, showAll ? items.length : limit).map(item => {
+            const kind = kindOf(item);
+            return (
+              <li key={item.code} className={`is-${kind}`}>
+                <span className="ad-item-icon" aria-hidden="true">{KIND_ICON[kind]}</span>
+                <span className="ad-item-main">
+                  <span className="ad-code" dir="ltr">{item.code}</span>
+                  <span>{item.name}{item.targets.length ? <CourseTags courseIds={item.targets.map(target => target.courseId)} /> : null}</span>
+                  <span className="ad-chips">
+                    {item.branches.filter(branch => branch.gap !== 0).map(branch => (
+                      <em key={branch.track || "all"} className={branch.gap > 0 ? "is-short" : "is-spare"}>
+                        {branch.gap > 0 ? `ينقصه ${countOf(branch.gap, AR.section)}` : `فائض ${countOf(-branch.gap, oblique(AR.section))}`}{branch.track ? ` · ${branch.track === "boys" ? "بنين" : "بنات"}` : ""}
+                      </em>
+                    ))}
+                    {item.move ? <em className="is-move"><ArrowLeftRight aria-hidden="true" />{countOf(item.move.sections, AR.section)} · {item.move.from === "girls" ? "بنات ← بنين" : "بنين ← بنات"}</em> : null}
+                  </span>
+                </span>
+                <span className="ad-item-num" title={`${countOf(item.demand, AR.student)} · ${countOf(item.seats, AR.seat)}`}>
+                  <Num value={(kind === "spare" ? item.seats - item.demand : item.unmetStudents || item.demand).toLocaleString("en-US")} />
+                  {item.unmetGraduates ? <small><GraduationCap aria-hidden="true" /><Num value={item.unmetGraduates} /></small> : null}
+                </span>
+                {kind === "spare" ? <span className="ad-fix-gap" aria-hidden="true" /> : (
+                  <button type="button" className="btn btn-primary ad-fix" disabled={!item.targets.length} onClick={() => fixSupply(item)}
+                    data-guide-ignore="يفتح محرّر موعدٍ جديد لهذا المقرر في الفرع العاجز؛ لا يكتب قبل الحفظ هناك">
+                    <CalendarPlus aria-hidden="true" /> عالج
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
+      {items.length > limit && !showAll ? (
+        <button type="button" className="ad-more" onClick={() => setShowAll(true)} data-guide-ignore="يعرض بقية المقررات في القائمة نفسها">+{countOf(items.length - limit, AR.course)}</button>
+      ) : null}
+    </>
   );
 }

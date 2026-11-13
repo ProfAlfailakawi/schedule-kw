@@ -187,3 +187,36 @@
 .regulation-exception-soft svg{width:16px;height:16px;color:var(--brass);flex:none}
 .regulation-exception-soft small{margin-inline-start:auto;font-size:11.5px;font-weight:700;color:var(--muted)}
 @media print{.review-graduate-clashes{display:none}}
+
+/* ── (٤) الطلب الفعلي داخل الجدول الدراسي (src/components/ActualDemandAlert.tsx) ─────────
+   شارةٌ في شريط الاعتماد بجانب شارة التخطيط وبأسلوبها، وقائمتُها في مكان قائمة التخطيط نفسه.
+   كهرمانيّ لا أحمر: الأحمر في الشريط للمانع، وهذا تنبيهٌ لا يمنع. */
+.apb-demand-btn{gap:4px}
+.apb-demand-btn .apb-demand-seat{margin-inline-start:2px}
+.apb-demand-dot{inline-size:3px;block-size:3px;border-radius:50%;background:currentColor;opacity:.5;margin-inline:3px}
+.apb-gap.apb-demand{background:color-mix(in srgb,var(--warning-soft) 70%,var(--surface))}
+.apb-demand .apb-gap-ic{background:color-mix(in srgb,var(--warning) 16%,transparent);color:var(--warning)}
+.apb-demand>header small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apb-demand>header .apb-dr-close{margin-inline-start:auto}
+.apb-demand-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px}
+.apb-demand-stat{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:10px 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line);min-width:0}
+.apb-demand-stat svg{grid-row:1 / 3;inline-size:20px;block-size:20px;color:var(--danger)}
+.apb-demand-stat b{font-size:1.45rem;font-weight:800;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums}
+.apb-demand-stat small{font-size:.72rem;font-weight:700;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apb-demand-stat[data-kind="seats"] svg{color:var(--warning)}
+.apb-demand-stat[data-kind="grad"]{background:color-mix(in srgb,var(--brass-soft) 45%,var(--surface))}
+.apb-demand-stat[data-kind="grad"] svg,.apb-demand-stat[data-kind="grad"] b{color:var(--brass)}
+.apb-demand-tracks{display:flex;flex-wrap:wrap;gap:6px}
+.apb-demand-track{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:.78rem;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.apb-demand-track em{font-style:normal;font-weight:800;color:var(--ink);padding-inline-end:6px;border-inline-end:1px solid var(--line);margin-inline-end:2px}
+.apb-demand-track svg{inline-size:14px;block-size:14px;color:var(--danger)}
+.apb-demand-track svg+b+svg{color:var(--warning)}
+.apb-demand-track b{font-weight:800}
+.apb-demand-track[data-zero]{opacity:.6}
+.apb-demand .ad-list li{padding:8px 10px}
+@media (max-width:560px){
+  .apb-demand-stats{grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:6px}
+  .apb-demand-stat{padding:8px 10px}
+  .apb-demand-stat b{font-size:1.25rem}
+}
+@media print{.apb-demand-btn,.apb-demand{display:none!important}}

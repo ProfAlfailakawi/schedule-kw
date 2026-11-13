@@ -36,6 +36,19 @@ export function takeActualDemandHandoff(): ActualDemandHandoff | null {
   } catch { return null; }
 }
 
+/** يسمعه الجدول الدراسي حين يُضغط «عالج» من داخله: يفتح المحرّر بلا إعادة تحميل الصفحة. */
+export const ACTUAL_DEMAND_HANDOFF_EVENT = "schedule:actual-demand-handoff";
+
+/**
+ * «عالج»: تُخزَّن البذرة ثم يُفتح المحرّر. من داخل الجدول الدراسي (inPlace) يكفي حدثٌ يسمعه،
+ * ومن خارجه (مركز التحليلات) يُنتقل إليه فيقرؤها عند فتحه.
+ */
+export function openActualDemandFix(handoff: ActualDemandHandoff, inPlace = false): void {
+  putActualDemandHandoff(handoff);
+  if (inPlace) window.dispatchEvent(new Event(ACTUAL_DEMAND_HANDOFF_EVENT));
+  else window.location.assign("/FSchedule/Index");
+}
+
 /** أثرُ الموعد على الخريجين قبل حفظه: «يمسّ ٧ خريجين» (تعارضٌ بين مقررين يحتاجهما خريجو البرنامج نفسه). */
 export const graduateImpactNote = (graduates: number) => `يمسّ ${countOf(graduates, oblique(AR.graduate))}: يتعارض مع مقررٍ يحتاجه خريجو البرنامج نفسه`;
 

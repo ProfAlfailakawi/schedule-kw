@@ -27,6 +27,8 @@ import { SectionGapBadge, SectionGapPanel, showQuickCompareBadge, useSectionGap,
 import { flushPlanDecisions, loadPlanDecisions, readPlanDecisions, savePlanDecision, triagePlanItems, type PlanDecision } from "../utils/planTriage";
 import { reconcilePlanAdjustments, type GapItem } from "../utils/sectionGap";
 import QuickPlanSheet from "./QuickPlanSheet";
+import { DemandAlertBadge, DemandAlertPanel, useActualDemand } from "./ActualDemandAlert";
+import { demandAlertSummary } from "../utils/actualDemandSupply";
 import {
   APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, additionsAwaitingHead, awaitsHeadSignature, blockingSummaryPhrase, deadlinePassed,
 } from "../utils/approvalWorkflow";
@@ -168,6 +170,10 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   const [gapOpen, setGapOpen] = useState<GapKind | null>(null);
   const [planSheet, setPlanSheet] = useState(false);
   const gap = useSectionGap(collegeId, sectionId, termId, refreshSignal, gapOpen !== null);
+  /* الطلب الفعلي (تقرير التسجيل): شارةٌ بجانب شارة التخطيط، ولا شيء بلا تقرير أو بلا عجز. */
+  const demand = useActualDemand(collegeId, sectionId, termId, refreshSignal);
+  const demandSummary = useMemo(() => (demand ? demandAlertSummary(demand.supply) : null), [demand]);
+  const [demandOpen, setDemandOpen] = useState(false);
   const planAdjustments = useMemo(() => reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems), [gap.planItems, gap.planSurplusItems]);
   /* K2: three shelves, decisions folded out, duplicates merged — the badge counts what is still open. */
   const triageScope = `${collegeId}:${sectionId}:${termId}`;
@@ -592,6 +598,8 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   const gapList = gapOpen === "plan" ? planAdjustments : gapOpen === "students" ? gap.studentItems : [];
   const planPanelOpen = gapOpen === "plan" && (planTriage.live.length > 0 || planTriage.handled.length > 0);
   const gapPanel = gapOpen && (gapList.length || planPanelOpen) ? <SectionGapPanel items={gapList} kind={gapOpen} onClose={() => setGapOpen(null)} staffing={gap.staffing} freeSlots={gap.freeSlots} triage={gapOpen === "plan" ? planTriage : undefined} onDecide={decidePlanItem} triageOffline={planDecisionsOffline} /> : null;
+  const demandPanel = demandOpen && demand && demandSummary?.show
+    ? <DemandAlertPanel reading={demand} summary={demandSummary} termId={termId} onClose={() => setDemandOpen(false)} /> : null;
   const readinessPanel = state.dataReadiness ? (
     <section className="apb-data-readiness" data-ready={state.dataReadiness.ready || undefined} aria-label="بيانات تحتاج استكمالاً">
       <header>
@@ -738,6 +746,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
         ) : null}
         <SectionGapBadge items={livePlanItems} kind="plan" open={gapOpen === "plan"} onToggle={() => setGapOpen(open => open === "plan" ? null : "plan")} />
         <SectionGapBadge items={gap.studentItems} kind="students" open={gapOpen === "students"} onToggle={() => setGapOpen(open => open === "students" ? null : "students")} />
+        <DemandAlertBadge summary={demandSummary} open={Boolean(demandPanel)} onToggle={() => setDemandOpen(open => !open)} />
         {showQuickCompareBadge(gap) ? (
           <button type="button" className="apb-badge apb-gap-ghost" onClick={() => setPlanSheet(true)} aria-haspopup="dialog"
             title="قارن شعبك بكشف المتبقي" aria-label="ارفع كشف المتبقي لتظهر لك الشعب المقترحة"
@@ -905,10 +914,12 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
 
       {!showDetails && readinessOpen && readinessPanel ? <div className="apb-expanded apb-expanded-solo">{readinessPanel}</div> : null}
       {!showDetails && gapPanel ? <div className="apb-expanded apb-expanded-solo">{gapPanel}</div> : null}
+      {!showDetails && demandPanel ? <div className="apb-expanded apb-expanded-solo">{demandPanel}</div> : null}
       {showDetails ? (
         <div className="apb-expanded" data-reveal={revealSteps || undefined}>
           {readinessPanel}
           {gapPanel}
+          {demandPanel}
           <div className="apb-expanded-row">
             <Stepper steps={steps} size="lg" returnFrom={returnFrom}
               stamp={(step) => step.sig?.length ? (
