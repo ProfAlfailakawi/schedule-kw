@@ -11,6 +11,7 @@ import { Request, Response } from "express";
 import { BUILD_STAMP } from "../../generated/buildStamp";
 import { state } from "../core/state";
 import { Repository } from "../../db/repository";
+import { expireForWarmup } from "../../db/referenceCache";
 import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME } from "../../utils/scheduleTime";
 
 export function registerSystemRoutes(app: Express): void {
@@ -56,6 +57,8 @@ app.get("/api/health", async (req, res) => {
      يدفع هو ثمن القراءة الباردة. قراءةٌ فقط، ومحدودة بثماني ثوانٍ، وفشلها لا يُفشل الفحص. */
   if (req.query.warm === "1" && !state.databaseDown) {
     const warm = (async () => {
+      /* تجديدٌ لا مجرد قراءة: مدخلٌ ما زال صالحاً قد ينتهي بعد ثوانٍ من هذا النداء. */
+      expireForWarmup();
       const [terms] = await Promise.all([
         Repository.getTerms(), Repository.getCourses(), Repository.getInstructors(),
         Repository.getColleges(), Repository.getSections(),

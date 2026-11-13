@@ -153,7 +153,7 @@
    "path": "/api/demo/config",
    "name": "bound dispatch",
    "call": "bb4c0a208468dfcb",
-   "site": "src/server/routes/systemRoutes.ts:30",
+   "site": "src/server/routes/systemRoutes.ts:31",
    "regexp": "/^\\/api\\/demo\\/config\\/?$/i",
    "end": true
   },
@@ -165,7 +165,7 @@
    "path": "/api/version",
    "name": "bound dispatch",
    "call": "5e6b1531cc29144c",
-   "site": "src/server/routes/systemRoutes.ts:42",
+   "site": "src/server/routes/systemRoutes.ts:43",
    "regexp": "/^\\/api\\/version\\/?$/i",
    "end": true
   },
@@ -177,7 +177,7 @@
    "path": "/api/university-day",
    "name": "bound dispatch",
    "call": "4f2c15719f132ff6",
-   "site": "src/server/routes/systemRoutes.ts:48",
+   "site": "src/server/routes/systemRoutes.ts:49",
    "regexp": "/^\\/api\\/university-day\\/?$/i",
    "end": true
   },
@@ -188,8 +188,8 @@
    ],
    "path": "/api/health",
    "name": "bound dispatch",
-   "call": "459432604c239a22",
-   "site": "src/server/routes/systemRoutes.ts:53",
+   "call": "d3178c076daa0510",
+   "site": "src/server/routes/systemRoutes.ts:54",
    "regexp": "/^\\/api\\/health\\/?$/i",
    "end": true
   },

@@ -155,6 +155,17 @@ export function clearScheduleCacheQuietly() {
   scheduleStore.clear();
 }
 
+/**
+ * تجديدٌ مسبق لنداء التسخين: يجعل كل مدخلٍ مستقرٍّ منتهياً الآن، فيعيد النداءُ نفسه
+ * قراءته فوراً بعمرٍ جديد كامل. بدونه يمرّ مدخلٌ حُمّل قبل النداء بثوانٍ دون تجديد،
+ * ثم ينتهي بعده بثوانٍ ويبقى بارداً حتى النداء التالي. القراءة الجارية لا تُلمس،
+ * والزائر الذي يصل أثناء التجديد يشارك القراءة نفسها (loading) لا يبدأ غيرها.
+ */
+export function expireForWarmup() {
+  for (const entry of store.values()) if (!entry.loading) entry.expiresAt = 0;
+  for (const entry of scheduleStore.values()) if (!entry.loading) entry.expiresAt = 0;
+}
+
 export async function cachedSchedules<T>(key: string, load: () => Promise<T>): Promise<T> {
   if (!enabled) return load();
   const now = Date.now();
