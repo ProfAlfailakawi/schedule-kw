@@ -11,7 +11,7 @@ import { Request, Response } from "express";
 import { BUILD_STAMP } from "../../generated/buildStamp";
 import { state } from "../core/state";
 import { Repository } from "../../db/repository";
-import { expireForWarmup } from "../../db/referenceCache";
+import { beginWarmup, expireForWarmup } from "../../db/referenceCache";
 import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME } from "../../utils/scheduleTime";
 
 export function registerSystemRoutes(app: Express): void {
@@ -54,10 +54,12 @@ app.get("/api/university-day", (_req: Request, res: Response) => {
 app.get("/api/health", async (req, res) => {
   /* ?warm=1 — نداء التسخين المجدول (Cloud Scheduler كل خمس دقائق في ساعات العمل):
      يملأ الذاكرة القصيرة بالمراجع وجداول آخر فصلين قبل أن يصل أوّل أستاذ، فلا
-     يدفع هو ثمن القراءة الباردة. قراءةٌ فقط، ومحدودة بثماني ثوانٍ، وفشلها لا يُفشل الفحص. */
-  if (req.query.warm === "1" && !state.databaseDown) {
+     يدفع هو ثمن القراءة الباردة. قراءةٌ فقط، ومحدودة بثماني ثوانٍ، وفشلها لا يُفشل الفحص.
+     والنداءُ بلا دخول، فلا يُفرغ المخبأ: يُجدَّد ما اقترب أجلُه وحده (expireForWarmup)، ونداءٌ قبل مرور دقيقةٍ
+     على سابقه يُتجاهل (beginWarmup) — الفحصُ نفسه يجيب كما هو. */
+  if (req.query.warm === "1" && !state.databaseDown && beginWarmup()) {
     const warm = (async () => {
-      /* تجديدٌ لا مجرد قراءة: مدخلٌ ما زال صالحاً قد ينتهي بعد ثوانٍ من هذا النداء. */
+      /* تجديدٌ لا مجرد قراءة: مدخلٌ ينتهي بعد ثوانٍ من هذا النداء يُعاد الآن بعمرٍ كامل. */
       expireForWarmup();
       const [terms] = await Promise.all([
         Repository.getTerms(), Repository.getCourses(), Repository.getInstructors(),

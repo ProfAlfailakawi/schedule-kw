@@ -131,9 +131,26 @@ const flags = (on: readonly string[]) => Object.fromEntries(DAYS.map(day => [day
     && /fits=sectionDaysFitLibrary\(hours,row,siblings\)/.test(read("src/server/core/scheduleRules.ts")), "٦-ز الإرسالُ والتثبيتُ يقرآن الحَكَمَ نفسه (sectionDaysFitLibrary)");
 }
 
+/* ── ٧) تسخينُ الخادم: لا يُفرغ المخبأ كلَّه، ولا يُعاد قبل دقيقة ── */
+{
+  const cache = await import("../src/db/referenceCache");
+  let loads = 0;
+  const readOnce = () => cache.cachedReference("final-gaps-warm", async () => { loads += 1; return loads; });
+  await readOnce();
+  const now = Date.now();
+  check(cache.expireForWarmup(now) === 0 && await readOnce() === 1 && loads === 1, "٧-أ مدخلٌ حُمّل للتوّ لا يُنهيه التسخين: لا قراءةَ ثانية");
+  check(cache.expireForWarmup(now + 150_000) === 0 && loads === 1, "٧-ب ولا بعد دقيقتين ونصف (بقي من عمره أكثر من تسعين ثانية)");
+  check(cache.expireForWarmup(now + 215_000) === 1 && await readOnce() === 2 && loads === 2, "٧-ج وما بقي من عمره تسعون ثانية أو أقل يُجدَّد بقراءةٍ واحدة");
+  const t0 = Date.now() + 10 * 60_000;
+  check(cache.beginWarmup(t0) === true && cache.beginWarmup(t0 + 1_000) === false && cache.beginWarmup(t0 + 59_000) === false && cache.beginWarmup(t0 + 61_000) === true,
+    "٧-د نداءُ تسخينٍ قبل مرور دقيقةٍ على سابقه يُتجاهل، وبعدها يمضي");
+  const system = read("src/server/routes/systemRoutes.ts");
+  check(/req\.query\.warm === "1" && !state\.databaseDown && beginWarmup\(\)/.test(system) && /setTimeout\(resolve, 8000\)/.test(system), "٧-هـ المسارُ يسأل الختمَ قبل أيّ تجديد، وحدُّ الثماني ثوانٍ باقٍ");
+  cache.invalidateReference("final-gaps-warm");
+}
+
 let server: LiveServer | null = null;
 try {
-  if (process.env.GAPS_PURE_ONLY) throw new Error("pure-only");
   server = await startDemoServer("final-gaps");
   const BASE = server.base;
   const login = await fetch(BASE + "/api/auth/demo", { method: "POST" });
@@ -180,6 +197,13 @@ try {
       check(merged.status === 400 && /الساعات المعتمدة|ليست نمطاً معتمداً/.test(String(merged.body?.error || "")), "١-ن تعديلُ رمز الشعبة وحده يُعاد حكمُه (كان يمرّ لأن الشكل لم يتغيّر)", merged);
       for (const id of [made.id, other?.id]) if (id) await call("DELETE", `/api/schedules/${id}`);
     }
+  }
+
+  /* ── ٧) نداءا تسخينٍ متتاليان بلا دخول: كلاهما يجيب الفحصَ، ولا يُفشل الثاني شيئاً ── */
+  {
+    const first = await fetch(BASE + "/api/health?warm=1"), second = await fetch(BASE + "/api/health?warm=1");
+    const bodies = [await first.json(), await second.json()] as any[];
+    check(first.status === 200 && second.status === 200 && bodies.every(body => body.ok === true && body.database === "up"), "٧-و نداءا تسخينٍ متتاليان يجيبان الفحصَ كما هو", bodies);
   }
 
   /* ── ٥) «استبدال الأستاذ» و«تحويل التدريب» يمرّان ببوّابة الاستثناء اللائحي ── */

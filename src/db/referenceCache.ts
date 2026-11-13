@@ -156,14 +156,33 @@ export function clearScheduleCacheQuietly() {
 }
 
 /**
- * تجديدٌ مسبق لنداء التسخين: يجعل كل مدخلٍ مستقرٍّ منتهياً الآن، فيعيد النداءُ نفسه
- * قراءته فوراً بعمرٍ جديد كامل. بدونه يمرّ مدخلٌ حُمّل قبل النداء بثوانٍ دون تجديد،
- * ثم ينتهي بعده بثوانٍ ويبقى بارداً حتى النداء التالي. القراءة الجارية لا تُلمس،
- * والزائر الذي يصل أثناء التجديد يشارك القراءة نفسها (loading) لا يبدأ غيرها.
+ * ── تجديدٌ مسبق لنداء التسخين، آمنٌ بلا سرّ ─────────────────────────────────────
+ * نداءُ `/api/health?warm=1` بلا دخول (Cloud Scheduler كل خمس دقائق)، فلا يُترك لأيّ زائرٍ أن يُفرغ به المخبأ كلَّه:
+ *   • يُجدَّد ما اقترب أجلُه وحده: مدخلٌ بقي من عمره تسعون ثانية أو أقل (مضى عليه نحو ثلاث دقائق ونصف من خمس).
+ *     ما حُمّل قبل قليل يبقى كما هو، فالنداءُ المتكرّر لا يعيد قراءة شيء.
+ *   • ونداءٌ يصل قبل مرور دقيقةٍ على سابقه يُتجاهل (beginWarmup، ختمٌ زمنيّ على مستوى العملية).
+ * القراءة الجارية لا تُلمس، والزائر الذي يصل أثناء التجديد يشارك القراءة نفسها (loading) لا يبدأ غيرها.
  */
-export function expireForWarmup() {
-  for (const entry of store.values()) if (!entry.loading) entry.expiresAt = 0;
-  for (const entry of scheduleStore.values()) if (!entry.loading) entry.expiresAt = 0;
+export const WARM_REFRESH_WINDOW_MS = 90_000;
+export const WARM_MIN_INTERVAL_MS = 60_000;
+let lastWarmAt = 0;
+
+/** هل يبدأ تسخينٌ الآن؟ false حين سبقه تسخينٌ بأقل من دقيقة — يُتجاهل النداء. */
+export function beginWarmup(now = Date.now()): boolean {
+  if (now - lastWarmAt < WARM_MIN_INTERVAL_MS) return false;
+  lastWarmAt = now;
+  return true;
+}
+
+/** يُنهي ما اقترب أجلُه وحده فيعيد التسخينُ قراءته بعمرٍ جديد كامل. يعيد عددَ ما أُنهي. */
+export function expireForWarmup(now = Date.now()): number {
+  let expired = 0;
+  for (const entry of [...store.values(), ...scheduleStore.values()]) {
+    if (entry.loading || entry.expiresAt - now > WARM_REFRESH_WINDOW_MS) continue;
+    entry.expiresAt = 0;
+    expired += 1;
+  }
+  return expired;
 }
 
 export async function cachedSchedules<T>(key: string, load: () => Promise<T>): Promise<T> {
