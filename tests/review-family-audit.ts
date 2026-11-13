@@ -131,11 +131,11 @@ check(/periodBalanceSnapshot\(scopeRows\)/.test(review) && !/periodBalanceSnapsh
   const pages = packPrintFindings(ladderOnly, finding => finding.rowIds);
   check(pages.length === 1 && pages[0].length === 1 && pages[0][0].rowIds.length === 3, "F7 ملاحظةُ السُّلّم وحدها تملأ الصفحة الأولى بمواعيدها كلها", pages);
   check(/packPrintFindings<ReviewFindingGroup>\(printFindings,/.test(review)
-    && /const printFindings = \[\.\.\.groupedFindings, \.\.\.warningGroups, \.\.\.ladderNotes\]/.test(review),
+    && /const printFindings = \[\.\.\.groupedFindings, \.\.\.warningGroups, \.\.\.noteGroups\]/.test(review),
     "F7 الورقةُ ترصّ ملاحظاتِ السُّلّم مع الموانع والتنبيهات");
-  check(/reviewHasFindings\(groupedFindings\.length, warningGroups\.length, ladderNotes\.length\) \? firstPrintPage\.map\(renderPrintFinding\)/.test(review)
+  check(/reviewHasFindings\(groupedFindings\.length, warningGroups\.length, noteGroups\.length\) \? firstPrintPage\.map\(renderPrintFinding\)/.test(review)
     && !/\{findings\.length \? firstPrintPage/.test(review), "F7 «لا توجد موانع ظاهرة» على الورقة بالعدّ نفسه الذي تسأل به الشاشة");
-  check(/finding\.rule === "regulation-ladder" \? AR\.course : AR\.conflict/.test(review), "F7 السُّلّمُ يُعدّ بالمقررات على الورقة، لا بالتعارضات");
+  check(/countOf\(finding\.groupedCount, caseNoun\(finding\)\) \} · \$\{finding\.detail\}/.test(review.replace(/\)\} · /g, ") } · ")) || review.includes("countOf(finding.groupedCount, caseNoun(finding))} · ${finding.detail}` : finding.detail, finding.rowIds)"), "F7 السُّلّمُ يُعدّ بالمقررات على الورقة، لا بالتعارضات");
   const printCards = review.match(/className=\{`print-review-finding /g) || [];
   check(printCards.length === 1, "F7 لا بطاقةَ مطبوعةً جديدة: الملاحظةُ ترسم بالبطاقة القائمة", printCards.length);
 }

@@ -11,7 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { meetingsMatchApprovedPattern, reviewSchedule, type DayKey } from "../src/utils/scheduleRegulations";
-import { approvalScoreBreakdown } from "../src/utils/approvalScore";
+import { approvalScoreBreakdown, approvalSpread, approvalSpreadKeys, approvalVerdict } from "../src/utils/approvalScore";
 import type { AdCourse, FSchedule } from "../src/types";
 
 let passed = 0, failed = 0;
@@ -100,14 +100,46 @@ console.log("I2 — الدرجة معادلةٌ تُقرأ");
   check(approvalScoreBreakdown([], []).score === 100, "نطاق فارغ: 100 بلا قسمة على صفر");
 }
 
+console.log("قاعدةٌ واحدة: الملاحظة تُرى ولا تُنقص (المالك 2026-11-13)");
+{
+  /* شكلُ «تكنولوجيا التعليم بنين»: 56 موعداً، خمسةٌ منها خارج سُلّم اللائحة لا غير. */
+  const scope = Array.from({ length: 56 }, (_, i) => i + 1);
+  const notesOnly = approvalScoreBreakdown(scope, [{ key: "ladder", label: "خارج سُلّم اللائحة", tone: "note", rowIds: [1, 2, 3, 4, 5] }]);
+  check(notesOnly.score === 100 && notesOnly.clean === 51 && notesOnly.noted === 5, "خمس ملاحظات: الدرجة 100 والسليم 51 وللملاحظة 5");
+  check(notesOnly.formula.includes("51") && notesOnly.formula.includes("للملاحظة 5") && notesOnly.formula.includes("56"), `المعادلة تقول الملاحظات: «${notesOnly.formula}»`);
+  const keys = approvalSpreadKeys(approvalSpread(notesOnly));
+  check(keys.map(key => `${key.counted} ${key.tail}`).join(" | ") === "5 مواعيد للملاحظة | 51 موعداً سليماً", "مفتاحا الشريط: «5 مواعيد للملاحظة» و«51 موعداً سليماً»");
+  check(notesOnly.segments[0].projected === 100, "«لو عولجت» الملاحظة لا ترفع درجةً لم تُنقصها");
+  check(approvalVerdict({ checked: true, blocking: 0, readinessError: false, needsFix: 0, notes: 1, unclassified: 0 }) === "لا مانع للتوقيع · ملاحظات", "العنوان: «لا مانع للتوقيع · ملاحظات»");
+  /* شكلُ «بنات»: بند 6/2 على 3 مواعيد من 104، وملاحظةٌ على أحدها وعلى غيره. */
+  const girls = approvalScoreBreakdown(Array.from({ length: 104 }, (_, i) => i + 1), [
+    { key: "6/2", label: "أكثر من شعبتين متتاليتين", tone: "regulation", rowIds: [1, 2, 3] },
+    { key: "ladder", label: "خارج سُلّم اللائحة", tone: "note", rowIds: [3, 4] },
+  ]);
+  check(girls.score === 97 && girls.clean === 100 && girls.noted === 1, "بند المعالجة يُنقص (97)، والملاحظة لا");
+  check(girls.segments.find(segment => segment.key === "6/2")!.projected === 100, "«97 ← 100» للبند وحده — والموعد المشترك مع ملاحظةٍ يُحتسب");
+  check(approvalVerdict({ checked: true, blocking: 0, readinessError: false, needsFix: 1, notes: 1, unclassified: 0 }) === "لا مانع للتوقيع · بنود للمعالجة", "المعالجة تسبق الملاحظة في العنوان");
+  check(approvalVerdict({ checked: true, blocking: 1, readinessError: false, needsFix: 1, notes: 1, unclassified: 0 }) === "يوجد ما يمنع الاعتماد", "والمانع يسبقهما");
+}
+
 console.log("I2/I3 — شاشة المراجعة");
 {
   const source = fs.readFileSync(path.join(process.cwd(), "src/components/ScheduleReview.tsx"), "utf8");
   check(/const blocking = findings\.filter\(isMaterialFinding\)/.test(source), "«يوجد ما يمنع الاعتماد» يقرأ الموانع المادية وحدها");
   check(source.includes("approvalScoreBreakdown(") && !source.includes("appointmentCoverageScore(spread.clean"), "الدرجة من approvalScoreBreakdown لا من حساب ثانٍ");
   check(source.includes("data-score-fix") && source.includes("عالج"), "لكل بند «عالج» وما تصير إليه الدرجة");
-  check(source.includes("الدرجة والموانع لهذه الكلية وحدها"), "الرأس يقول صراحة إن الحساب للكلية المفتوحة");
-  check(!/مع \$\{countOf\(\(family\.members/.test(source), "لم يعد الرأس يقول «مع 3 كليات أخرى» بجانب درجةٍ محسوبة عليها");
+  /* المالك 2026-11-13: شاشةٌ واحدة للعائلة — أيُّ عضوٍ فُتح فالمراجعة نفسها، وكل موعدٍ بوسم حرمه. */
+  check(/const scopeRows = rows;/.test(source) && source.includes('data-review-scope="family"'), "المراجعة للعائلة كلها أيّاً كان العضو المفتوح");
+  check(/if \(serverRead && serverSummary\) return serverSummary;/.test(source), "عددُ الموانع عددُ الخادم للعائلة نفسها");
+  check(/part\.replace\(\/\\s\+\/g, " "\)\.trim\(\) !== openedCollege/.test(source) && (source.match(/scope=\{scopeLabel\}/g) || []).length === 2,
+    "سطرُ النطاق على الشاشة والورقة للعائلة (حُرَم القسم) لا للكلية المفتوحة");
+  check((source.match(/منسق الجدول\{signFor \? ` · \$\{signFor\}` : ""\}/g) || []).length === 2 && source.includes('data-review-sign="college"'),
+    "والتوقيعُ يُقال لمن هو: «التوقيع لـ<الكلية>» على الشاشة وعند خانات التوقيع");
+  check(/trackOf\(name\) === "boys" \? 0 : 1/.test(source) && source.includes("return [...campusTags.values()].filter(tag => seen.has(tag.label));"),
+    "ترتيبُ الحُرَم واحد في الرأس والبطاقات والورقة: بنين، بنات، ثم الفروع");
+  check(/approvalVerdict\(\{ checked: readinessChecked, \.\.\.verdictInput \}\)/.test(source) && /approvalVerdict\(\{ checked: true, \.\.\.verdictInput \}\)/.test(source)
+    && source.includes("<strong>{printVerdict}</strong>"), "العنوان من دالةٍ واحدة على الشاشة والورقة");
+  check(!/<title>\{breakdown\.formula\}<\/title>/.test(source) && !/<title>\{slice\.label\}<\/title>/.test(source), "لا تلميحَ أصليّاً على الحلقة يبقى عائماً فوق القائمة");
   check(source.includes("print-review-ring score-tone-"), "الورقة المطبوعة بقيت بتصميمها (الحلقة المطبوعة لم تُمسّ)");
 }
 
