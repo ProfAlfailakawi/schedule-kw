@@ -3,8 +3,10 @@
  *
  * الإلزاميُّ يُحكم في محرّك الحكم نفسه ولا يُكرَّر هنا: القاعةُ خاليةٌ طوال
  * الموعد (بفاصلها)، ومن قاعات الكلية/القسم أو المستعارة المعتمدة، ومعها المرفقُ
- * المطلوب إن كان للمقرر مرفق. وتُضاف هنا السعةُ المسجّلة: قاعةٌ سعتُها المعروفة
- * أقلُّ من سعة المقرر لا تُرشَّح (السعةُ غيرُ المسجّلة لا تُسقط القاعة).
+ * المطلوب إن كان للمقرر مرفق. وتُضاف هنا السعةُ: سعةُ الشعبة MaxStudent، فإن غابت فسقفُ
+ * اللائحة (seatCap، م.8). قاعةٌ سعتُها المعروفة أقلُّ منها لا تُرشَّح، والقاعةُ بلا سعةٍ مسجّلة
+ * تأتي بعد كل قاعةٍ سعتُها المعروفة تكفي (ملاحظة المالك 16: السعةُ لا النوع). وسقفٌ مفترَض
+ * (مقررٌ بلا سعةٍ ولا طبيعة) لا يُسقط قاعةً: الأصغرُ منه آخرَ الترتيب.
  *
  * ثم التفضيليّ، بالترتيب: قاعاتُ قسم المقرر، قربُ قاعات الأستاذ في اليوم نفسه
  * (المبنى نفسه)، القاعةُ التي كان فيها هذا المقرر، أقربُ سعةٍ لحاجته، وتوزيعٌ
@@ -34,8 +36,10 @@ export interface RoomRankingContext {
   nearBuildingIds: ReadonlySet<string>;
   /** القاعاتُ التي دُرّس فيها هذا المقرر (الصفّ الأصلي أو صفوف الأستاذ للمقرر). */
   previousRoomIds: ReadonlySet<string>;
-  /** سعةُ المقرر (MaxStudent)، صفرٌ إن لم تُسجَّل. */
+  /** مقاعدُ الشعبة: MaxStudent أو سقفُ اللائحة (seatCap)؛ صفرٌ = لا يُحكم بالسعة. */
   seats: number;
+  /** السقفُ مفترَض (لا سعةَ ولا طبيعة للمقرر): لا يُسقط قاعة، والأصغرُ منه آخرَ الترتيب. */
+  seatsAssumed?: boolean;
   /** كم لقاءً في الفصل تشغله كلُّ قاعة — للتوزيع العادل. */
   usage: ReadonlyMap<string, number>;
   /** للمقرر مرفقٌ مرافق: كلُّ مرشّحٍ بقي يحمل مرفقه، فيُوسم بذلك. */
@@ -49,7 +53,11 @@ export function rankRequestRooms(rooms: readonly RankableRoom[], context: RoomRa
   /* السعةُ المسجّلة دون سعة الشعبة (MaxStudent) لا تُرشَّح. ونوعُ القاعة المخالفُ لنوع المقرر (مختبرٌ لمقررٍ نظري،
      أو قاعةُ محاضرةٍ لمقررٍ عملي) لا يُرشَّح ما دامت للقسم قاعةٌ من النوع الصحيح (المالك 2026-11-12: اختار النظامُ
      قاعةً لا تلائم المقرر). فإن لم تكن له قاعةٌ من نوعه أصلاً بقي المخالفُ آخرَ الترتيب، ويراه القسمُ ملاءمةً تحتاج مراجعة. */
-  const roomy = rooms.filter(room => !(seats > 0 && Number(room.capacity || 0) > 0 && Number(room.capacity) < seats));
+  const known = (room: RankableRoom) => Number(room.capacity || 0) > 0;
+  const short = (room: RankableRoom) => seats > 0 && known(room) && Number(room.capacity) < seats;
+  const roomy = context.seatsAssumed ? [...rooms] : rooms.filter(room => !short(room));
+  /* طبقةُ السعة قبل كل تفضيل: معروفةٌ تكفي، ثم غيرُ مسجّلة، ثم الأصغرُ من سقفٍ مفترَض. */
+  const tier = (room: RankableRoom) => seats > 0 ? (short(room) ? 2 : known(room) ? 0 : 1) : 0;
   const adequate = rooms.some(room => !room.typeMismatch) ? roomy.filter(room => !room.typeMismatch) : roomy;
   const usages = adequate.map(room => context.usage.get(String(room.roomId || room.key)) || 0);
   const least = usages.length ? Math.min(...usages) : 0;
@@ -71,5 +79,5 @@ export function rankRequestRooms(rooms: readonly RankableRoom[], context: RoomRa
     return { ...room, why, score };
   });
   /* الترتيبُ ثابت: التساوي يُحسم بالمفتاح، فلا يتبدّل «الأنسب» بين قراءتين. */
-  return ranked.sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
+  return ranked.sort((a, b) => tier(a) - tier(b) || b.score - a.score || a.key.localeCompare(b.key));
 }
