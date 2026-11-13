@@ -22,7 +22,9 @@
 
 type Entry = { value: unknown; expiresAt: number; loading?: Promise<unknown> };
 
-const TTL_MS = 90_000;
+/* خمس دقائق كالجداول: نداء التسخين المجدول كل خمس دقائق يجدّدها قبل أن تنتهي،
+   وكل كتابةٍ على الكتالوج تمسحها فوراً على هذه النسخة كما كانت. */
+const TTL_MS = 300_000;
 const store = new Map<string, Entry>();
 
 /** Disabled during tests so each case sees exactly the state it wrote. */
@@ -151,6 +153,17 @@ export function invalidateSchedules() {
 export function clearScheduleCacheQuietly() {
   scheduleGeneration += 1;
   scheduleStore.clear();
+}
+
+/**
+ * تجديدٌ مسبق لنداء التسخين: يجعل كل مدخلٍ مستقرٍّ منتهياً الآن، فيعيد النداءُ نفسه
+ * قراءته فوراً بعمرٍ جديد كامل. بدونه يمرّ مدخلٌ حُمّل قبل النداء بثوانٍ دون تجديد،
+ * ثم ينتهي بعده بثوانٍ ويبقى بارداً حتى النداء التالي. القراءة الجارية لا تُلمس،
+ * والزائر الذي يصل أثناء التجديد يشارك القراءة نفسها (loading) لا يبدأ غيرها.
+ */
+export function expireForWarmup() {
+  for (const entry of store.values()) if (!entry.loading) entry.expiresAt = 0;
+  for (const entry of scheduleStore.values()) if (!entry.loading) entry.expiresAt = 0;
 }
 
 export async function cachedSchedules<T>(key: string, load: () => Promise<T>): Promise<T> {
