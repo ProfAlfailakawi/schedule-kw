@@ -96,7 +96,7 @@ Each `test:*` script in [package.json](package.json) runs one audit under [tests
 - **Trigger:** automatic `workflow_run` after "Comprehensive CI" completes successfully for a **push to `main`**, or manual `workflow_dispatch`. It runs only in the production repository and only when the repository variable `PRODUCTION_DEPLOY_ENABLED` is `true` (the owner's kill switch).
 - **What it does:** refuses any commit whose full CI run on `main` has not passed, builds one immutable Docker image ([Dockerfile](Dockerfile)), deploys it to the official Cloud Run service in `europe-west1`, then checks that <https://schedule-kw.com/sw.js> serves the same `BUILD` stamp as the service.
 - **No path filter:** neither workflow has `paths` / `paths-ignore`, so a documentation-only merge to `main` (including this README) runs the full CI and, if it passes, redeploys the same code.
-- [cloudbuild.yaml](cloudbuild.yaml) is not the deploy path (no trigger uses it). Read [docs/DELIVERY_OPERATIONS.md](docs/DELIVERY_OPERATIONS.md) and [docs/SAFE_DEPLOYMENT.md](docs/SAFE_DEPLOYMENT.md) before changing anything deployment-related.
+- Production deploys only through `.github/workflows/deploy-schedule.yml` (there is no Cloud Build path). Read [docs/DELIVERY_OPERATIONS.md](docs/DELIVERY_OPERATIONS.md) and [docs/SAFE_DEPLOYMENT.md](docs/SAFE_DEPLOYMENT.md) before changing anything deployment-related.
 
 ## Recovery
 
