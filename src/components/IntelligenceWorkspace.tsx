@@ -12,6 +12,9 @@ import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import PlanSheetPublisher from "./PlanSheetPublisher";
 import ActualDemandPanel, { type DemandReadingView } from "./ActualDemandPanel";
 import { WhatIfDesk } from "./TimeMachine";
+import LivingScheduleLayer from "./LivingScheduleLayer";
+import { openInScheduleEditor } from "../utils/intelligenceLink";
+import { safetyPointKind, safetyPointTitle, type SafetyPointKind } from "../utils/safetyNet";
 import { roleDefinition } from "../utils/academicRoles";
 import { mergeDemandReadings, mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
 import { DEMO_STAGE_SECTION_ID, isDemoSession } from "../utils/demoSession";
@@ -47,6 +50,14 @@ import {
   LayoutGrid,
   Lightbulb,
   LockKeyhole,
+  FileUp,
+  Undo2,
+  CalendarPlus,
+  CalendarX,
+  Pencil,
+  Stamp,
+  Copy,
+  BookOpen,
   MessageSquareText,
   Network,
   Play,
@@ -236,19 +247,27 @@ type InsightScene =
   /* «فرصة لتحسين الجدول»: بطاقتُها هنا، وأيقونتُها في «أدوات البيانات» — ولا مكان ثالث. */
   | "improve"
   /* الطلب الفعلي: تقرير التسجيل (SWRDASH) — الرفعُ والتنبيه والعلاج في بطاقةٍ واحدة. */
-  | "actualDemand";
+  | "actualDemand"
+  /* «لماذا هذا الحل؟» — من «مركز القرار» الذي صار هنا: لماذا هذا البديل، ولماذا لا. */
+  | "why";
 /* «جرّب» — every card it holds, including the three that used to appear on
    their own the moment a scenario existed. */
-type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger";
-type ApproveCard = "compare" | "drafts" | "versions";
+type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger" | "genesis";
+/* «السجل» (كان «اعتمد»): ودفترُ القرار بطاقةٌ واحدة بثلاثة ألسنة — دفتر القرارات، ومحضر القرار، وذاكرة القرار. */
+type ApproveCard = "compare" | "drafts" | "versions" | "decisions";
 /* ── المرحلةُ والبطاقةُ في الرابط ───────────────────────────────────────────
    «لما أضغط أي بطاقة كيف أرجع؟»: زرُّ الرجوع في المتصفح كان يخرج من المركز كله،
    لأن فتح البطاقة لم يكن خطوةً في التاريخ. الآن كلُّ فتحٍ خطوة: ?stage=…&card=…،
    فالرجوع يعيدك إلى شبكة البطاقات، أو إلى البطاقة التي أرسلتك إلى مرحلةٍ أخرى. */
 const TAB_VALUES: Tab[] = ["command", "copilot", "twin", "whatif", "history"];
-const INSIGHT_SCENE_VALUES: InsightScene[] = ["quality", "approval", "attention", "density", "spatial", "rooms", "professors", "health", "students", "genome", "sheet", "improve", "predict", "actualDemand"];
-const TWIN_CARD_VALUES: TwinCard[] = ["hero", "lab", "board", "editor", "ledger"];
-const APPROVE_CARD_VALUES: ApproveCard[] = ["compare", "drafts", "versions"];
+const INSIGHT_SCENE_VALUES: InsightScene[] = ["quality", "approval", "attention", "density", "why", "spatial", "rooms", "professors", "health", "students", "genome", "sheet", "improve", "predict", "actualDemand"];
+const TWIN_CARD_VALUES: TwinCard[] = ["hero", "genesis", "lab", "board", "editor", "ledger"];
+const APPROVE_CARD_VALUES: ApproveCard[] = ["compare", "drafts", "versions", "decisions"];
+/* ── أيقونةُ نقطة النسخة: ما الذي أُخذت قبله (من «شبكة الأمان» التي صارت «سجل النسخ»). ── */
+const SAFETY_POINT_ICONS: Record<SafetyPointKind, React.ComponentType<any>> = {
+  import: FileUp, publish: Send, undo: Undo2, restore: History, add: CalendarPlus,
+  edit: Pencil, delete: CalendarX, approval: Stamp, copy: Copy, other: ShieldCheck,
+};
 const CARD_BACK_LABEL = "كل البطاقات";
 type IntelNav = { tab: Tab; card: string | null };
 const readIntelNav = (fallbackTab: Tab): IntelNav | null => {
@@ -641,6 +660,16 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
    */
   /* null is the dashboard. Every card below — including the ones that used to
      sit stacked under the strip with no way to choose them — is now a page. */
+  /* «الضغط والكثافة»: خريطةُ الضغط (من «مركز القرار») والكثافة قراءتان مختلفتان في بطاقةٍ واحدة. */
+  const [densityView, setDensityView] = useState<"density" | "pressure">("density");
+  /* «اسأل الجدول» و«مساعد السياق» أداتان مختلفتان تحت عنوانٍ واحد. */
+  const [askMode, setAskMode] = useState<"table" | "context">("table");
+  /* دفتر القرار: ثلاث أدوات مختلفة، لكلٍّ بياناتها — لا تُدمج. */
+  const [ledgerTab, setLedgerTab] = useState<"decisions" | "minutes" | "memory">("decisions");
+  /* «تراجع عن النشر» بعد نشر مسودة (كان في «بداية الفصل» وحدها): نقطةُ الأمان التي أُخذت قبل النشر. */
+  const [publishUndo, setPublishUndo] = useState<{ point: any; draftName: string } | null>(null);
+  /* نقاطُ «شبكة الأمان» على «سجل النسخ»: الأثرُ قبل الاسترجاع — للإدارة الرئيسية كما كانت. */
+  const [safetyPoints, setSafetyPoints] = useState<Map<string, any>>(new Map());
   const [twinCard, setTwinCard] = useState<TwinCard | null>(() => {
     const nav = readIntelNav(initialTab || "command");
     return nav?.tab === "twin" ? (nav.card as TwinCard | null) : null;
@@ -2149,8 +2178,10 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   }> = overview
     ? [
         {
+          /* «صحة الجدول»: الجودة والجاهزية، ومعها نظرةُ «مركز القرار» العامة والمرونة والعدالة —
+             الحلقاتُ الثلاث فوق الجدول تفتح هذه البطاقة. */
           value: "quality",
-          label: "الجودة والجاهزية",
+          label: "صحة الجدول",
           detail: readinessLabel,
           metric: `${overview.score}/100`,
           icon: <Gauge />,
@@ -2172,8 +2203,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         },
         {
           value: "density",
-          label: "الكثافة",
-          detail: "شكل الضغط عبر الأيام والأوقات",
+          label: "الضغط والكثافة",
+          detail: "أين يتركّز الضغط، وشكله عبر الأيام والأوقات",
           metric: String(
             Math.max(
               0,
@@ -2181,6 +2212,13 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             ),
           ),
           icon: <BarChart3 />,
+        },
+        {
+          value: "why" as const,
+          label: "لماذا هذا الحل؟",
+          detail: "لماذا هذا البديل أفضل، ولماذا لا",
+          metric: "—",
+          icon: <CircleHelp />,
         },
         ...(overview.spatialBurnout
           ? [
@@ -2504,6 +2542,29 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
   };
+  /* ── أدواتُ «مركز القرار» داخل البطاقات ───────────────────────────────── */
+  const livingCommon = {
+    user,
+    rows,
+    courses,
+    instructors,
+    terms,
+    colleges,
+    sections,
+    collegeId: Number(collegeId) || 0,
+    sectionId: Number(sectionId) || 0,
+    termId: Number(termId) || 0,
+    analysisScope: readingMode as "college" | "department",
+    onRefresh: () => void reload(),
+    onDraftsChanged: () => void reload(),
+    /* «افتح في نموذج التعديل»: الجدولُ يفتح الموعد ممتلئاً بالبديل، كما كان من نافذة «مركز القرار». */
+    onOpenRow: (row: FSchedule) => openInScheduleEditor([Number(row.id)], row as any),
+    onNavigate: (target: "topology" | "health" | "drafts") => {
+      if (target === "topology") { setDensityView("pressure"); setTab("command"); showScene("density"); }
+      else if (target === "health") { setTab("command"); showScene("quality"); }
+      else { setTab("history"); showApproveCard("drafts"); }
+    },
+  };
   const moveInsightFocus = (
     event: React.KeyboardEvent<HTMLButtonElement>,
     index: number,
@@ -2821,6 +2882,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               </SecondaryButton>
             </div>
           </Surface>
+              {activeInsightKey === "quality" ? <LivingScheduleLayer {...livingCommon} embeddedScenes={["pulse", "health"]} pulseWithoutTiles /> : null}
             </div>
             <div
               className="content-stack insight-scene-panel"
@@ -2953,6 +3015,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               </details>
             ) : null}
           </Surface>
+              {activeInsightKey === "attention" ? <LivingScheduleLayer {...livingCommon} embeddedScenes={["brief"]} briefUniqueOnly /> : null}
             </div>
             <div
               className="content-stack insight-scene-panel"
@@ -2962,6 +3025,19 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               hidden={activeInsightKey !== "density"}
               tabIndex={activeInsightKey === "density" ? 0 : -1}
             >
+          <div className="density-view-switch no-print">
+            <Segmented
+              value={densityView}
+              onChange={value => setDensityView(value as "density" | "pressure")}
+              options={[
+                { value: "pressure", label: "خريطة الضغط" },
+                { value: "density", label: "الكثافة" },
+              ]}
+            />
+          </div>
+          {densityView === "pressure" ? (
+            activeInsightKey === "density" ? <LivingScheduleLayer {...livingCommon} embeddedScenes={["topology"]} /> : null
+          ) : (
           <Surface className="heatmap-card">
             <div className="surface-head">
               <div>
@@ -3038,7 +3114,13 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               })()}
             </details>
           </Surface>
+          )}
             </div>
+          {activeInsightKey === "why" ? (
+            <div className="content-stack insight-scene-panel" id="insight-panel-why" role="tabpanel" aria-labelledby="insight-tab-why" tabIndex={0}>
+              <LivingScheduleLayer {...livingCommon} embeddedScenes={["why"]} />
+            </div>
+          ) : null}
           {overview.spatialBurnout ? (
             <div
               className="content-stack insight-scene-panel"
