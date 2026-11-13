@@ -3,6 +3,7 @@
  * بمنزلقة قبل/بعد، وشريط المقاييس، ومؤشّر الأثر. لا منطق جدولة هنا — كلُّه في
  * src/utils/timeMachine.ts.
  */
+import { settleRegulationException } from "./RegulationExceptionSheet";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Armchair, ArrowLeftRight, Ban, Building2, CalendarX2, CircleCheck, Compass, Copy, Eye, FastForward, Feather, FlaskConical, Folder,
@@ -49,9 +50,13 @@ export function useTimeMachineContext(scope?: { collegeId?: number; sectionId?: 
 export const scopeQuery = (context: TmContext) =>
   `collegeId=${context.scope.collegeId}&sectionId=${context.scope.sectionId}&termId=${context.scope.termId}`;
 
-export async function postJson(url: string, body: unknown) {
-  const response = await fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
+export async function postJson(url: string, body: unknown): Promise<any> {
+  const sent = JSON.stringify(body ?? {});
+  const response = await fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: sent });
   const data = await response.json().catch(() => ({}));
+  /* اعتمادُ سيناريو يخالف اللائحة: سؤالٌ صريح ثم الطلبُ نفسه موسوماً. */
+  const settled = await settleRegulationException(response.status, data, sent, marked => postJson(url, JSON.parse(marked)));
+  if (settled) return settled.value;
   if (!response.ok) { const error: any = new Error(data?.error || "تعذّر التنفيذ"); error.body = data; error.status = response.status; throw error; }
   return data;
 }

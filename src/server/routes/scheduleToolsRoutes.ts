@@ -36,7 +36,7 @@ import { type AuthenticatedRequest, requirePermission, signInRequiredMessage } f
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, confirmedDepartmentRoomIds, readLocationRegistry } from "../core/locations";
 import { applyRequestHoldOverride, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "../core/scheduleConflicts";
 import { meetingExcludedIds, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIssue, sectionScheduleWindow, travelMinutesFor } from "../core/scheduleRules";
-import { createScheduleHandler, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
+import { createScheduleHandler, regulationGate, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { coreqPairsOfSection, sectionPlanFacts } from "../core/coreqPairs";
 import { coreqForcedClash, partnersOfCourse } from "../../utils/coreqSections";
@@ -602,15 +602,20 @@ app.post("/api/schedules/placeholder-action", requirePermission(7), async (req: 
   ];
   const weekFor = (op: Op) => op.kind === "create" ? finalWeek.filter(row => Number(row.id) !== op.tempId) : finalWeek;
   const warnings: any[] = [];
+  /* حفظٌ من القسم: مخالفاتُ اللائحة تُسأل مرةً قبل المعاملة (regulationGate). */
+  const gate = regulationGate(req);
   for (const op of ops) {
     if (op.kind === "delete") continue;
     const dry = op.kind === "update"
-      ? await runScheduleHandler(updateScheduleHandler, req, { params: { id: String(op.rowId) }, body: { ...op.body, rev: op.original.rev, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }, hypotheticalWeek: weekFor(op), dryRun: true })
-      : await runScheduleHandler(createScheduleHandler, req, { body: { ...op.body, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }, hypotheticalWeek: weekFor(op), dryRun: true });
+      ? await runScheduleHandler(updateScheduleHandler, req, { params: { id: String(op.rowId) }, body: { ...op.body, rev: op.original.rev, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }, hypotheticalWeek: weekFor(op), dryRun: true, regulation: true })
+      : await runScheduleHandler(createScheduleHandler, req, { body: { ...op.body, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }, hypotheticalWeek: weekFor(op), dryRun: true, regulation: true });
     if (dry.status >= 400) { res.status(dry.status).json({ ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر التنفيذ." }), step: op.kind, applied: false }); return; }
     op.body = dry.body.row;
     warnings.push(...(dry.body?.warnings || []));
+    gate.note(dry);
   }
+  const exception = gate.refusal();
+  if (exception) { res.status(409).json({ ...exception, applied: false }); return; }
 
   const version = await captureScopeVersion(req, placeholder.AdCollegeId, placeholder.AdSectionId, termId,
     action === "assign" ? "قبل إسناد شعبة «هيئة تدريسية»" : action === "swap" ? "قبل تبديل قاعة شعبة «هيئة تدريسية»" : "قبل استبدال شعبة «هيئة تدريسية»", "manual");
@@ -639,6 +644,7 @@ app.post("/api/schedules/placeholder-action", requirePermission(7), async (req: 
   res.locals.auditChanges = action === "assign" ? `إسناد «هيئة تدريسية» إلى ${teacherName}: ${label}`
     : action === "swap" ? `تبديل قاعة «هيئة تدريسية» (${label}) إلى ${req.body?.swapTo?.AdRoomCode}/${req.body?.swapTo?.AdRoomHall} وإضافة موعد ${teacherName} مكانها`
       : `استبدال «هيئة تدريسية» (${label}) بموعد ${teacherName}`;
+  res.locals.auditChanges += gate.auditSuffix();
   res.locals.auditRowIds = [...committed.rows.map(row => Number(row.id)), ...committed.deletedIds];
   /* خطوات التراجع بالترتيب: يُزال الجديد أولاً ثم تعود الشعبة كما كانت. */
   const undo: Array<{ method: "PUT" | "POST" | "DELETE"; url: string; body?: any }> = [];
