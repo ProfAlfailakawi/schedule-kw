@@ -40,7 +40,7 @@ import { buildRequestContext, buildSharedRequestContext, currentInstructorReques
 import { broadcastNotify } from "../core/liveChannel";
 import { canonicalizeHistoricalLocationForRuntime, readLocationRegistry } from "../core/locations";
 import { scheduleLengthIssue, unapprovedPatternIssue } from "../core/scheduleRules";
-import { createScheduleHandler, dayLabelOf, deleteScheduleHandler, PROPOSAL_DAYS, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
+import { createScheduleHandler, dayLabelOf, deleteScheduleHandler, PROPOSAL_DAYS, regulationGate, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
 import { isScopeAllowed } from "../core/scope";
 import { shareLinkStillReadable } from "../core/shareLinks";
 import { placeholderInstructorIds } from "../core/smartImport";
@@ -1079,6 +1079,8 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
 
   /* ── فحصٌ جافّ لكل خطوة على الأسبوع النهائي ─────────────────────────────── */
   const warnings: any[] = [];
+  /* موافقةُ القسم على طلب الأستاذ حفظٌ منه: مخالفاتُ اللائحة تُسأل مرةً قبل الكتابة (regulationGate). */
+  const gate = regulationGate(req);
   for (const op of ops) {
     if (op.kind === "delete") {
       const lock = await scheduleLockRefusal(req, op.original.AdCollegeId, op.original.AdSectionId, op.original.AdTermId);
@@ -1086,12 +1088,13 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       continue;
     }
     const dry = op.kind === "update"
-      ? await runScheduleHandler(updateScheduleHandler, req, { params: { id: String(op.rowId) }, body: op.body, hypotheticalWeek: weekFor(op), dryRun: true })
-      : await runScheduleHandler(createScheduleHandler, req, { body: op.body, hypotheticalWeek: weekFor(op), dryRun: true });
+      ? await runScheduleHandler(updateScheduleHandler, req, { params: { id: String(op.rowId) }, body: op.body, hypotheticalWeek: weekFor(op), dryRun: true, regulation: true })
+      : await runScheduleHandler(createScheduleHandler, req, { body: op.body, hypotheticalWeek: weekFor(op), dryRun: true, regulation: true });
     if (dry.status >= 400) {
       res.status(dry.status).json({ ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر التثبيت." }), itemIndex: op.itemIndex, applied: [], reverted: true });
       return;
     }
+    gate.note(dry);
     op.body = dry.body.row;
     for (const w of (dry.body?.warnings || [])) warnings.push({ ...w, itemIndex: op.itemIndex });
   }
@@ -1104,7 +1107,10 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       room: [body.AdRoomCode, body.AdRoomHall].filter(Boolean).join("/"),
     };
   });
-  if (preview) { res.json({ ok: true, preview: true, plan, warnings }); return; }
+  /* المعاينةُ تقول المخالفات ولا تسأل؛ يُسأل عنها عند الكتابة وحدها، مرةً واحدة. */
+  if (preview) { res.json({ ok: true, preview: true, plan, warnings, regulation: gate.issues }); return; }
+  const exception = gate.refusal();
+  if (exception) { res.status(409).json({ ...exception, applied: [], reverted: true }); return; }
 
   const now = new Date().toISOString();
   const by = roleLabel(req.user?.Role) || "القسم";
@@ -1156,7 +1162,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   const saved = committed.request;
   await pushHooks.requestFixed(saved, chain);
   res.locals.auditChanges = `تثبيت رغبة أستاذ (${String(instructor?.AdInstructorName || "")}): ` + plan.map(step =>
-    `${step.action === "delete" ? "حذف" : step.action === "create" ? "إضافة" : "نقل"} ${step.days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(step.start, step.end)}`).join(" · ");
+    `${step.action === "delete" ? "حذف" : step.action === "create" ? "إضافة" : "نقل"} ${step.days.map(dayLabelOf).join(" و")} ${formatScheduleTimeRange(step.start, step.end)}`).join(" · ") + gate.auditSuffix();
   res.locals.auditRowIds = [...committed.rows.map(row => row.id), ...ops.filter(op => op.kind === "delete").map(op => (op as any).rowId)];
   res.json({ ...requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })), applied: plan, appliedRows: committed.rows, warnings });
   } finally {

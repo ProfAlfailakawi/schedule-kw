@@ -276,7 +276,9 @@ try {
       const addChange = addSectionChange(nowBoard, addCourse.AdCourseId, place, { ...ctx, rows: nowBoard.filter(r => r.AdSectionId === scope.sectionId) });
       const addScenario = (await call("POST", "/api/time-machine/scenarios", { ...scope, name: "إضافة", changes: [addChange] })).body.scenario;
       const countBefore = (await live()).length;
-      const addApplied = await call("POST", `/api/time-machine/scenarios/${addScenario.id}/apply`, {});
+      /* المحرّكُ قد يقترح طولاً يخالف اللائحة: الاعتمادُ يسأل (regulation-exception)، والموافقةُ الصريحة كما في الورقة. */
+      const addAsked = await call("POST", `/api/time-machine/scenarios/${addScenario.id}/apply`, {});
+      const addApplied = addAsked.body?.code === "regulation-exception" ? await call("POST", `/api/time-machine/scenarios/${addScenario.id}/apply`, { regulationException: true }) : addAsked;
       const countAfter = (await live()).length;
       const addRestore = await call("POST", `/api/time-machine/scenarios/${addScenario.id}/restore`, {});
       const countBack = (await live()).length;

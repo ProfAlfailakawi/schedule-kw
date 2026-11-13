@@ -865,7 +865,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {regulationTeachers.length ? (
                 <details className="share-noted" aria-label="مخالفات اللائحة في جداول الأساتذة">
                   <summary><strong><Flag aria-hidden="true" /> مخالفاتٌ للائحة في {regulationTeachers.length === 1 ? "جدول" : "جداول"} {countOf(regulationTeachers.length, AR.instructor)}</strong></summary>
-                  <ul>{regulationTeachers.map(item => <li key={item.AdInstructorId}><b>{item.AdInstructorName}</b> · {item.notes.join(" · ")}</li>)}</ul>
+                  <ul>{regulationTeachers.map(item => <li key={item.AdInstructorId}><b>{item.AdInstructorName}<PersonChips visiting={isVisiting(item.AdInstructorId, collegeId, sectionId)} trainee={trainees.has(Number(item.AdInstructorId))} /></b> · {item.notes.join(" · ")}</li>)}</ul>
                   <p>لن يستطيع صاحبها تثبيت جدوله كما هو حتى تُعدَّل. الإرسال متاح.</p>
                 </details>
               ) : null}
