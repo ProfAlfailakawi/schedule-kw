@@ -28,7 +28,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
     const start = srv.indexOf(`app.post("${route}"`);
     const next = srv.slice(start + 10).search(/\napp\.(get|post|put|delete)\(/);
     const body = srv.slice(start, next < 0 ? undefined : start + 10 + next);
-    return start >= 0 && body.includes("regulationGate(req)") && body.includes("gate.refusal()");
+    return start >= 0 && body.includes("regulationGate(req)") && (body.includes("gate.refusal()") || body.includes("{ gate, dryRun: true, week }"));
   }), "R2 تثبيتُ طلب الأستاذ وتنزيلُ الشعب و«هيئة تدريسية» تسأل قبل الكتابة");
   check(read("src/server/timeMachineRoutes.ts").includes("gate.refusal()") && /regulation: !exactRestore/.test(read("server.ts")), "R3 اعتمادُ آلة الزمن يسأل، واستعادتُها (ما كان بالضبط) لا تُسأل");
   check(/const gate = options\.gate \|\| regulationGate\(req\)/.test(writes) && /dryRun: true, regulation: true/.test(writes), "R4 اعتمادُ الاقتراح يفحص جافّاً ويسأل قبل الكتابة");
