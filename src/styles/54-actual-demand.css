@@ -220,3 +220,6 @@
   .apb-demand-stat b{font-size:1.25rem}
 }
 @media print{.apb-demand-btn,.apb-demand{display:none!important}}
+
+/* لسانُ «الطلب الفعلي» في أدوات البيانات: اللوحة بعرض النافذة كبقية الأدوات، بلا ظلٍّ مكرّر داخل النافذة. */
+.transfer-body>.ad-panel{justify-self:stretch;width:100%;box-shadow:none}
