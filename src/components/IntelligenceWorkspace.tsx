@@ -266,7 +266,9 @@ const readIntelNav = (fallbackTab: Tab): IntelNav | null => {
 const intelNavUrl = (nav: IntelNav) => {
   const params = new URLSearchParams(window.location.search);
   params.delete("stage"); params.delete("card");
-  if (nav.tab !== "command" || nav.card) params.set("stage", nav.tab);
+  /* المرحلةُ تُكتب دائماً: رابطُ «آلة الزمن» القديم يفتح على «ماذا لو»، فغيابُ stage
+     هناك يعني «ماذا لو» لا «افهم» — فالصريحُ وحده يرجع إلى ما كان المستخدم فيه. */
+  params.set("stage", nav.tab);
   if (nav.card) params.set("card", nav.card);
   const query = params.toString();
   return `${window.location.pathname}${query ? `?${query}` : ""}`;
@@ -2301,6 +2303,10 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
      كلُّ تغييرٍ في (المرحلة، البطاقة) يُكتب في الرابط بخطوةٍ جديدة؛ والتغييراتُ
      المتتابعة في اللحظة نفسها (setTab ثم setTwinCard) تُجمع في خطوةٍ واحدة،
      فلا يتطلّب الرجوعُ ضغطتين. وأوّلُ كتابةٍ تستبدل الرابط ولا تضيف خطوة. */
+  /* المسارُ الذي يملكه المركز. ما يحدث في التاريخ خارج هذا المسار شأنُ App.tsx وحده:
+     لا يكتب المركز رابطاً ولا يقرأ رجوعاً إلا وهو على مساره. */
+  const workspacePath = useRef(window.location.pathname);
+  const onWorkspacePath = () => window.location.pathname === workspacePath.current;
   const navSynced = useRef(false);
   const navTimer = useRef<number | null>(null);
   const navWanted = useRef<IntelNav>({ tab, card: openCard });
@@ -2309,6 +2315,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     if (navTimer.current != null) window.clearTimeout(navTimer.current);
     navTimer.current = window.setTimeout(() => {
       navTimer.current = null;
+      if (!onWorkspacePath()) return;
       const target = intelNavUrl(navWanted.current);
       if (target === `${window.location.pathname}${window.location.search}`) { navSynced.current = true; return; }
       if (!navSynced.current) window.history.replaceState(window.history.state, "", target);
@@ -2317,15 +2324,28 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     }, 0);
   }, [tab, openCard]);
   useEffect(() => () => { if (navTimer.current != null) window.clearTimeout(navTimer.current); }, []);
-  const overlayOpen = useRef(false);
-  overlayOpen.current = Boolean(insightReason || detail);
+  /* الدرجُ ونافذةُ الشرح خطوةٌ خاصة في التاريخ: تُضاف عند الفتح (بالرابط نفسه)، والرجوعُ
+     يُسقطها فيُغلق الطبقة وحدها. والإغلاقُ من الواجهة (✕ أو Escape) يُسقط خطوتها بنفسه،
+     فلا تبقى خطوةٌ ميتة ولا يُمسح «التقدّم» في المتصفح. */
+  const overlayIsOpen = Boolean(insightReason || detail);
+  const overlayEntry = useRef(false);
+  useEffect(() => {
+    if (!onWorkspacePath()) { overlayEntry.current = false; return; }
+    if (overlayIsOpen && !overlayEntry.current) {
+      overlayEntry.current = true;
+      window.history.pushState({ intelligence: navWanted.current, overlay: true }, "", `${window.location.pathname}${window.location.search}`);
+    } else if (!overlayIsOpen && overlayEntry.current) {
+      overlayEntry.current = false;
+      if (window.history.state?.overlay) window.history.back();
+    }
+  }, [overlayIsOpen]);
   useEffect(() => {
     const onPop = () => {
-      /* الرجوعُ والدرجُ مفتوح يغلق الدرج وحده، وتبقى البطاقة تحته كما هي. */
-      if (overlayOpen.current) {
+      if (!onWorkspacePath()) return;
+      if (overlayEntry.current && !window.history.state?.overlay) {
+        overlayEntry.current = false;
         setInsightReason(null);
         setDetail(null);
-        window.history.pushState({ intelligence: navWanted.current }, "", intelNavUrl(navWanted.current));
         return;
       }
       const nav = readIntelNav(initialTab || "command");
