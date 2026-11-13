@@ -142,6 +142,24 @@ check(/onFocusRows\(focusable\); if \(!inline\) onClose\(\);/.test(review) && /u
 check(changes.includes("extraRows={removedRows}") && /entry\.kind === "removed"/.test(changes) && /extraRows \|\| \[\]\)\.forEach/.test(review),
   "U6 والمحذوفُ من فرق التقرير يُسمّى به البند");
 
+/* U8 (مراجعة الطلب): التقريرُ إذا أُعيد تحميله أُعيدت قراءةُ المراجعة معه. */
+check(changes.includes("refreshKey={report}")
+  && /\}, \[collegeId, sectionId, termId, localRows, readingUrl, refreshKey, retry\]\);/.test(review),
+  "U8 إعادةُ تحميل التقرير تعيد قراءة المراجعة المدمجة (refreshKey)");
+/* U9: لا درجةَ ولا حكمَ بلا قراءةٍ ناجحة — حالةُ «تعذّرت» بزرّ إعادة، ولا ادّعاءَ بفحصٍ محلي. */
+{
+  const guard = review.indexOf("const needsServer = Boolean(readingUrl) || !localRows.length;");
+  const unavailable = review.indexOf("if (needsServer && (!readinessChecked || readinessError)) {");
+  const firstRing = review.indexOf('className={`review-ring score-tone-');
+  const block = review.slice(unavailable, review.indexOf("// The printable sheet lives inside this dialog"));
+  check(guard > 0 && unavailable > guard && firstRing > unavailable,
+    "U9 حالةُ «لا قراءة» تسبق كلَّ رسمٍ للدرجة والحكم");
+  check(block.includes("تعذّرت قراءة المراجعة الآن") && block.includes("أعد المحاولة") && block.includes("setRetry(value => value + 1)")
+    && !block.includes("score") && !block.includes("لا ملاحظات") && !block.includes("محلياً"),
+    "U9 «تعذّرت قراءة المراجعة الآن» و«أعد المحاولة» — بلا درجة ولا «لا ملاحظات» ولا ادّعاءِ فحصٍ محلي");
+  check(block.includes("أقرأ المراجعة…"), "U9 وقبل وصول القراءة: «أقرأ المراجعة…» لا درجة 100");
+}
+
 const { changesReviewHeadline } = await import("../src/utils/changesReviewHeadline");
 const headline = changesReviewHeadline({ reviewBlockers: [], blockingConflicts: 0, regulationNotices: [{ approvalEffect: "block" }, { approvalEffect: "note" }] as any });
 check(headline.material === 0 && headline.needsFix === 1 && headline.tone === "warn" && /للمعالجة/.test(headline.label),

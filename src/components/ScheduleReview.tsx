@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { GraduationCap, AlertTriangle, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, Clock3, History, Info, Printer, TrendingUp, UserRound, Wrench, X } from "lucide-react";
+import { GraduationCap, AlertTriangle, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, Clock3, History, Info, Printer, RefreshCw, TrendingUp, UserRound, Wrench, X } from "lucide-react";
 import type { AdCollege, AdCourse, AdInstructor, FSchedule } from "../types";
 import { PrintLetterhead, PrintPortal, PrimaryButton, SecondaryButton, useDialogDismiss } from "./ui";
 import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
@@ -67,6 +67,8 @@ interface Props {
   extraRows?: FSchedule[];
   /** أسماءُ المنتدبين حين لا تُعرف أرقامهم. */
   visitingNames?: ReadonlySet<string>;
+  /** يتغيّر حين يُعاد تحميل ما حول المراجعة (تقرير التغييرات)، فتُعاد القراءة معه. */
+  refreshKey?: unknown;
 }
 
 type ReviewFindingGroup = RegulationFinding & {
@@ -244,7 +246,7 @@ interface FamilyReading {
   capacity?: { specialization: "theoretical" | "scientific"; excused: string[] };
 }
 
-export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, colleges: collegesProp, instructors: instructorsProp, visitingIds, previousRows: previousRowsProp, nature: natureProp, scopeLine, collegeId, sectionId, termId, meeting, onClose, onFocusRows, inline = false, readingUrl, jumpableIds, extraRows, visitingNames }: Props) {
+export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, colleges: collegesProp, instructors: instructorsProp, visitingIds, previousRows: previousRowsProp, nature: natureProp, scopeLine, collegeId, sectionId, termId, meeting, onClose, onFocusRows, inline = false, readingUrl, jumpableIds, extraRows, visitingNames, refreshKey }: Props) {
   /* ── القسمُ واحدٌ في كلياته ────────────────────────────────────────────────
      «تكنولوجيا التعليم» بنين وبنات قسمٌ واحد، وأساتذته يدرّسون فيهما معاً. فمن
      فتح أيَّ العضوين رأى التقريرَ نفسه: مواعيدُ العائلة كلها وحِملُ الأستاذ
@@ -344,6 +346,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   const sawChecking = useRef(false);
   if (!readinessChecked) sawChecking.current = true;
   const [readinessError, setReadinessError] = useState(false);
+  /* «أعد المحاولة» بعد تعذّر القراءة. */
+  const [retry, setRetry] = useState(0);
   /* الطلب الفعلي (تقرير التسجيل): شارةٌ صغيرة على كل مقرر — قراءةٌ لا تمنع شيئاً. */
   const [demandFacts, setDemandFacts] = useState<Record<string, CourseDemandFact> | null>(null);
   const [graduateClashes, setGraduateClashes] = useState<Array<{ a: { code: string; name: string; courseIds?: number[] }; b: { code: string; name: string; courseIds?: number[] }; track: string; graduates: number }>>([]);
@@ -386,7 +390,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       .catch(error => { if (error?.name !== "AbortError") { setServerBlockers([]); setServerWarnings([]); setReadinessError(true); } })
       .finally(() => { if (!controller.signal.aborted) setReadinessChecked(true); });
     return () => controller.abort();
-  }, [collegeId, sectionId, termId, localRows, readingUrl]);
+  }, [collegeId, sectionId, termId, localRows, readingUrl, refreshKey, retry]);
 
   useEffect(() => {
     if (readingUrl) return;
@@ -802,6 +806,31 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             </details>
     );
   };
+
+  /* ── لا درجةَ ولا حكمَ بلا قراءة ───────────────────────────────────────────
+     ما لا مواعيدَ محليةً له (المراجعة المدمجة، أو جدولٌ لم يُحمَّل) لا يملك إلا قراءةَ
+     الخادم: ما دامت لم تصل يُقال «أقرأ…»، وإن تعذّرت يُقال ذلك بزرّ إعادة — لا «100»
+     ولا «لا ملاحظات» محسوبةٌ من لا شيء، ولا ادّعاءَ بفحصٍ لم يقع. */
+  const needsServer = Boolean(readingUrl) || !localRows.length;
+  if (needsServer && (!readinessChecked || readinessError)) {
+    const failed = readinessChecked && readinessError;
+    const body = (
+      <section className={`review-sheet no-print visual-minimal${inline ? " review-sheet--inline" : ""}`} {...(inline ? { role: "region" } : { role: "dialog", "aria-modal": true })} aria-label="مراجعة الاعتماد">
+        <div className="review-unavailable" role="status" aria-live="polite" data-review-state={failed ? "failed" : "loading"}>
+          {failed ? <AlertTriangle aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
+          <strong>{failed ? "تعذّرت قراءة المراجعة الآن" : "أقرأ المراجعة…"}</strong>
+          {failed ? (
+            <SecondaryButton type="button" data-guide-ignore="إعادة قراءة مراجعة الاعتماد — قراءةٌ لا تغيّر شيئاً" onClick={() => setRetry(value => value + 1)}>
+              <RefreshCw aria-hidden="true" /> أعد المحاولة
+            </SecondaryButton>
+          ) : null}
+          {inline ? null : <button type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق"><X /></button>}
+        </div>
+      </section>
+    );
+    return inline ? <div className="review-inline">{body}</div>
+      : <div className="review-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>{body}</div>;
+  }
 
   return (
     // The printable sheet lives inside this dialog, so the wrapper itself can

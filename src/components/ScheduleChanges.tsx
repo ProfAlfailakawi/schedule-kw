@@ -587,6 +587,7 @@ function ChangesReviewOverview({ report, scope, termId, scopeLine, onJump }: {
             jumpableIds={jumpable}
             extraRows={removedRows}
             visitingNames={visitingNames}
+            refreshKey={report}
           />
         </div>
       ) : null}
