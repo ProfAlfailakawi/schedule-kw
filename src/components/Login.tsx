@@ -296,7 +296,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   value={tail} onChange={(e) => setTail(e.target.value.replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\D/g, "").slice(0, 4))}
                   disabled={loading} required autoFocus />
               </Field>
-              <PrimaryButton type="submit" disabled={loading}>
+              <PrimaryButton type="submit" disabled={loading} data-guide-ignore="يتحقق من الأرقام الأربعة قبل الدخول؛ لا يغيّر كلمة السر">
                 {loading ? <span className="button-spinner" /> : <><ShieldCheck /> تحقّق</>}
               </PrimaryButton>
               <button type="button" className="demo-entry-link login-recover-back" onClick={closeRecovery} data-guide-ignore="يعود إلى الدخول دون تغيير شيء">
@@ -314,7 +314,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               <Field label="أعد كتابتها" required>
                 <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={loading} required minLength={8} />
               </Field>
-              <PrimaryButton type="submit" disabled={loading}>
+              <PrimaryButton type="submit" disabled={loading} data-guide-ignore="يحفظ كلمة السر الجديدة قبل الدخول">
                 {loading ? <span className="button-spinner" /> : <><LockKeyhole /> احفظ وادخل <ArrowLeft /></>}
               </PrimaryButton>
               <button type="button" className="demo-entry-link login-recover-back" onClick={closeRecovery} data-guide-ignore="يلغي الاستعادة؛ كلمة السر الحالية باقية">

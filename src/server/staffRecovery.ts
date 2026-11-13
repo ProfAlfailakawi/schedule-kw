@@ -22,6 +22,7 @@ import type { Express, Request, Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { isSeatRole, civilTailOf } from "../utils/seats";
 import { roleLabel } from "../utils/academicRoles";
+import { AR, countOf } from "../utils/arabicCount";
 import { initialPasswordMark, LEGACY_SHARED_PASSWORD, newPasswordProblem } from "./accountPassword";
 
 /* ── الثوابت ──────────────────────────────────────────────────────────────── */
@@ -43,8 +44,8 @@ export const RECOVERY_DEMO = "استعادة كلمة السر غير متاحة
 export function recoveryLockedMessage(until: number, now: number): string {
   const minutes = Math.max(1, Math.ceil((until - now) / 60_000));
   return minutes >= 60
-    ? `محاولاتٌ كثيرة. حاول بعد ${Math.ceil(minutes / 60)} ساعة تقريباً، أو اطلب الاستعادة من مدير النظام.`
-    : `محاولاتٌ كثيرة. حاول بعد ${minutes} دقيقة، أو اطلب الاستعادة من مدير النظام.`;
+    ? `محاولاتٌ كثيرة. حاول بعد ${countOf(Math.ceil(minutes / 60), AR.hour)} تقريباً، أو اطلب الاستعادة من مدير النظام.`
+    : `محاولاتٌ كثيرة. حاول بعد ${countOf(minutes, AR.minute)}، أو اطلب الاستعادة من مدير النظام.`;
 }
 
 /* ── الحارسُ على بصمة الاسم ────────────────────────────────────────────────── */
