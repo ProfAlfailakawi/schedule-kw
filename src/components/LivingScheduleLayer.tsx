@@ -67,15 +67,8 @@ import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import MiniRing from "./MiniRing";
-import { safetyPointKind, safetyPointTitle, type SafetyPointKind } from "../utils/safetyNet";
 
-/* ── أيقونةُ نقطة الأمان: ما الذي أُخذت قبله ── */
-const SAFETY_POINT_ICONS: Record<SafetyPointKind, React.ComponentType<any>> = {
-  import: FileUp, publish: Send, undo: Undo2, restore: History, add: CalendarPlus,
-  edit: Pencil, delete: CalendarX, approval: Stamp, copy: Copy, other: ShieldCheck,
-};
-
-type Scene =
+export type Scene =
   | "pulse"
   | "topology"
   | "why"
@@ -124,6 +117,24 @@ interface Props {
   onPanelOpenChange?: (open: boolean) => void;
   /** Opens the layer already on a scene — the empty term asks for «بداية الفصل». */
   initialScene?: Scene | null;
+  /**
+   * ── أدواتُ «مركز القرار» داخل «مركز الذكاء» ─────────────────────────────
+   * المركزان صارا مركزاً واحداً: كلُّ مشهدٍ هنا يُعرض داخل بطاقته في «مركز الذكاء»
+   * بلا نافذةٍ ولا شريطِ مشاهد. وتُعرض المشاهدُ المذكورة بالترتيب.
+   */
+  embeddedScenes?: Scene[];
+  /** نطاقُ التحليل حين لا تملكه طبقةُ التجربة (داخل «مركز الذكاء»). */
+  analysisScope?: "college" | "department";
+  /** الحلقاتُ الثلاث على شريط الجدول: تفتح بطاقة الصحة في «مركز الذكاء». */
+  onOpenHealth?: () => void;
+  /** انتقالٌ إلى بطاقةٍ أخرى في «مركز الذكاء» (خريطة الضغط، المسودات…). */
+  onNavigate?: (target: "topology" | "health" | "drafts") => void;
+  /** «ملخص الدقيقة» داخل «الانتباه»: ما لا يقوله غيره فقط. */
+  briefUniqueOnly?: boolean;
+  /** نظرةٌ عامة بلا حلقاتها حين تجاورها حلقاتُ «الصحة والعدالة». */
+  pulseWithoutTiles?: boolean;
+  /** مسودةٌ بُنيت أو تغيّرت: «مركز الذكاء» يعيد قراءة مسوداته. */
+  onDraftsChanged?: () => void;
 }
 
 export default function LivingScheduleLayer({
@@ -143,7 +154,16 @@ export default function LivingScheduleLayer({
   onEnsureWeek,
   onPanelOpenChange,
   initialScene = null,
+  embeddedScenes,
+  analysisScope: hostAnalysisScope,
+  onOpenHealth,
+  onNavigate,
+  briefUniqueOnly = false,
+  pulseWithoutTiles = false,
+  onDraftsChanged,
 }: Props) {
+  const embedded = Boolean(embeddedScenes?.length);
+  const scopeMode = experience?.analysisScope ?? hostAnalysisScope ?? "college";
   /* الإدارة الرئيسية كما يحكم الخادم (isPowerUser): مدير نظام أو الحساب الجذر — لا أي مستخدم مسجَّل. */
   const power = Boolean(user?.IsAdminUser || user?.IsRootAdmin);
   const { isVisiting } = useVisitingLookup(termId);
@@ -153,7 +173,7 @@ export default function LivingScheduleLayer({
   const reducedMotion = useReducedMotion();
   const genesisPreviewRef = useRef<HTMLElement | null>(null);
   const [living, setLiving] = useState<any>(null),
-    [scene, setScene] = useState<Scene | null>(initialScene),
+    [scene, setScene] = useState<Scene | null>(embeddedScenes?.[0] ?? initialScene),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -172,7 +192,6 @@ export default function LivingScheduleLayer({
     [candidateDay, setCandidateDay] = useState<"same" | DayKey>("same");
   const [sourceTerm, setSourceTerm] = useState(0),
     [genesis, setGenesis] = useState<any>(null),
-    [genesisUndoPoint, setGenesisUndoPoint] = useState<any>(null),
     [genesisEditId, setGenesisEditId] = useState<number | null>(null),
     [genesisEdit, setGenesisEdit] = useState<any>(null),
     [genesisBulkEdit, setGenesisBulkEdit] = useState(false),
@@ -180,7 +199,6 @@ export default function LivingScheduleLayer({
     [choreoPhase, setChoreoPhase] = useState<ChoreoPhase>("idle"),
     [memoryReason, setMemoryReason] = useState(""),
     [memory, setMemory] = useState<any>(null),
-    [safety, setSafety] = useState<any[]>([]),
     [minutes, setMinutes] = useState<any>(null),
     [copilot, setCopilot] = useState<any>(null);
   useEffect(() => {
@@ -287,18 +305,18 @@ export default function LivingScheduleLayer({
       throw error;
     }
   };
-  const scoresKey = `${user?.SystemUserId ?? 0}|${livingScopeKey(collegeId, sectionId, termId, experience?.analysisScope)}`;
+  const scoresKey = `${user?.SystemUserId ?? 0}|${livingScopeKey(collegeId, sectionId, termId, scopeMode)}`;
   const recalled = React.useMemo(() => recallScores(scoresKey), [scoresKey]);
   const loadLiving = async () => {
     const request = ++livingRequest.current;
     try {
-      const q = `${contextQuery()}&analysisScope=${experience?.analysisScope || "college"}`;
+      const q = `${contextQuery()}&analysisScope=${scopeMode}`;
       /* Shared with the experience layer, which asks for the same analysis in
          the same burst. Whoever gets here first issues the read; the rest wait
          on it. The staleness guard below is unchanged and still decides whether
          this component may use what comes back. */
       const d = await sharedLiving(
-        livingScopeKey(collegeId, sectionId, termId, experience?.analysisScope),
+        livingScopeKey(collegeId, sectionId, termId, scopeMode),
         () => json(`/api/intelligence/living${q ? `?${q}` : ""}`),
       );
       if (request !== livingRequest.current) return;
@@ -320,8 +338,13 @@ export default function LivingScheduleLayer({
       setLiving(experience.living);
       return;
     }
-    const shared = readLiving(livingScopeKey(collegeId, sectionId, termId, experience?.analysisScope));
+    const shared = readLiving(livingScopeKey(collegeId, sectionId, termId, scopeMode));
     if (shared) { setLiving(shared); return; }
+    /* داخل «مركز الذكاء» فتحَ القارئُ البطاقةَ ليقرأها: لا انتظارَ لهدوء اللوحة. */
+    if (embedded) {
+      void loadLiving();
+      return () => { livingRequest.current++; };
+    }
     /**
      * ── ولماذا لا يبدأ هذا مع اللوحة ────────────────────────────────────────
      *
@@ -362,7 +385,7 @@ export default function LivingScheduleLayer({
       if (idle.cancelIdleCallback && idle.requestIdleCallback) idle.cancelIdleCallback(handle);
       else window.clearTimeout(handle);
     };
-  }, [experience?.living, experience?.analysisScope, collegeId, sectionId, termId, rows.length]);
+  }, [experience?.living, scopeMode, collegeId, sectionId, termId, rows.length]);
   useEffect(() => {
     if (!selected) return;
     setSelectedId(selected.id);
@@ -386,13 +409,12 @@ export default function LivingScheduleLayer({
     setSourceTerm(sourceTerms[0]?.AdTermId || 0);
   }, [termId, sourceTerms, sourceTerm]);
   const open = (next: Scene) => {
-    if ((next === "safety" || next === "memory") && !power) return;
+    if (next === "memory" && !power) return;
     const uiStarted = performance.now();
     setScene(next);
     setError("");
     setMessage("");
     requestAnimationFrame(() => telemetryTiming("decision-center.open", performance.now() - uiStarted));
-    if (next === "safety") void loadSafety();
     if (next === "memory") void loadMemory();
   };
   const candidate = () => {
@@ -468,7 +490,6 @@ export default function LivingScheduleLayer({
     setBusy(true);
     setError("");
     setGenesis(null);
-    setGenesisUndoPoint(null);
     // The wait becomes the show: real courses, faculty, rooms, days and
     // times float on a quiet stage until the draft arrives, then settle onto
     // the real table. Reduced motion keeps the plain quiet wait instead.
@@ -492,6 +513,7 @@ export default function LivingScheduleLayer({
           : "تم بناء مسودة بداية الفصل دون نشر أي موعد."
       );
       onEnsureWeek?.();
+      onDraftsChanged?.();
     } catch (e: any) {
       setChoreoPhase("idle");
       setError(e.message);
@@ -586,62 +608,6 @@ export default function LivingScheduleLayer({
     return () => window.clearTimeout(timer);
   }, [genesis?.draft?.id, genesis?.issueRowIds, genesisEditId]);
 
-  const publishGenesisDraft = async () => {
-    const draftId = String(genesis?.draft?.id || "").trim();
-    if (!draftId) return;
-    // The publish endpoint captures a safety version before changing the live
-    // timetable. Keep this a single in-app action instead of a native Safari
-    // dialog that can be suppressed by the browser.
-    setBusy(true);
-    setError("");
-    try {
-      const result = await applyWithOverwriteConfirm("publish",
-        confirm => json(`/api/intelligence/drafts/${encodeURIComponent(draftId)}/publish`, {
-          method: "POST",
-          headers: { "x-schedule-confirm": confirm },
-        }),
-        options => visualConfirm(options));
-      if (result === null) return;
-      const q = contextQuery();
-      const points = await json(`/api/intelligence/safety-net?${q}`).catch(() => []);
-      const undoPoint = Array.isArray(points) ? points[0] : null;
-      setGenesisUndoPoint(undoPoint);
-      setGenesis((current: any) => current ? { ...current, published: true, publication: result?.publication } : current);
-      setMessage(`تم نشر المسودة على الجدول الرسمي بنجاح${result?.count ? ` · ${countOf(result.count, AR.appointment)}` : ""}${result?.adjusted ? ` · ضبط النظام وقت ${countOf(result.adjusted, oblique(AR.appointment))} بأمان قبل النشر` : ""}.`);
-      await loadLiving();
-      onRefresh?.();
-    } catch (e: any) {
-      if (e?.data) setGenesis((current: any) => current ? { ...current, issues: e.data.issues || current.issues, issueRowIds: e.data.issueRowIds || current.issueRowIds, rowIssues: e.data.rowIssues || current.rowIssues, reviewRequired: (e.data.issues || []).length } : current);
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const undoGenesisPublish = async () => {
-    if (!genesisUndoPoint?.id) return;
-    // Undo also snapshots the current state before restoring, so it is itself
-    // reversible and does not need a browser-native confirmation modal.
-    setBusy(true);
-    setError("");
-    try {
-      const d = await applyWithOverwriteConfirm("decision-undo",
-        confirm => json(`/api/intelligence/safety-net/${genesisUndoPoint.id}/undo`, {
-          method: "POST",
-          headers: { "x-schedule-confirm": confirm },
-        }),
-        options => visualConfirm(options));
-      if (d === null) return;
-      setGenesis((current: any) => current ? { ...current, published: false } : current);
-      setGenesisUndoPoint(null);
-      setMessage(d.message || "تم التراجع عن النشر بنجاح.");
-      await loadLiving();
-      onRefresh?.();
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
   const loadMemory = async () => {
     if (!power) return;
     try {
@@ -680,38 +646,6 @@ export default function LivingScheduleLayer({
       setMemoryReason("");
       await loadMemory();
       setMessage("تم حفظ سبب القرار في ذاكرة القسم للفصول القادمة.");
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const loadSafety = async () => {
-    if (!power) return;
-    try {
-      const q = contextQuery();
-      setSafety(await json(`/api/intelligence/safety-net?${q}`));
-    } catch (e: any) {
-      setError(e.message);
-    }
-  };
-  const undoDecision = async (item: any) => {
-    // Restoring a point creates another safety snapshot first, so undo remains
-    // reversible without a browser-native confirmation dialog.
-    setBusy(true);
-    setError("");
-    try {
-      const d = await applyWithOverwriteConfirm("decision-undo",
-        confirm => json(`/api/intelligence/safety-net/${item.id}/undo`, {
-          method: "POST",
-          headers: { "x-schedule-confirm": confirm },
-        }),
-        options => visualConfirm(options));
-      if (d === null) return;
-      setMessage(d.message || "تم الاسترجاع");
-      await loadSafety();
-      await loadLiving();
-      onRefresh?.();
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -769,18 +703,18 @@ export default function LivingScheduleLayer({
       setBusy(false);
     }
   };
-  if (!living)
+  if (!living && !embedded)
     return (
-      <section className="living-command-deck living-loading no-print" aria-label="حالة الجدول ومركز القرار">
+      <section className="living-command-deck living-loading no-print" aria-label="حالة الجدول">
         <div className="living-pulse-core">
           <span className="pulse-beacon info" />
           <div>
             <small>حالة الجدول</small>
             <strong>أقرأ نبض الجدول…</strong>
-            <p>مركز القرار جاهز. جارٍ تحميل مؤشرات صحة الجدول.</p>
+            <p>جارٍ تحميل مؤشرات صحة الجدول.</p>
           </div>
         </div>
-        <div className="living-health-strip" aria-label="مؤشرات صحة الجدول قيد التحميل">
+        <HealthRings className="living-health-strip" label="مؤشرات صحة الجدول قيد التحميل" onOpen={onOpenHealth}>
           {[
             { label: "الجودة", value: recalled?.quality },
             { label: "المرونة", value: recalled?.resilience },
@@ -798,136 +732,36 @@ export default function LivingScheduleLayer({
               <b className="sr-only">—</b>
             </span>
           ))}
-        </div>
-        <div className="living-command-actions">
-          <button
-            className="living-more"
-            data-guide-feature-id="page.intelligence"
-            type="button"
-            onClick={() => { open("pulse"); void loadLiving(); }}
-            disabled={busy}
-          >
-            <Sparkles />
-            مركز القرار
-          </button>
-        </div>
+        </HealthRings>
       </section>
     );
-  const sceneItems: Array<{ id: Scene; label: string; icon: React.ReactNode }> = [
-    { id: "pulse", label: "نظرة عامة", icon: <Activity /> },
-    { id: "topology", label: "خريطة الضغط", icon: <Network /> },
-    { id: "health", label: "الصحة والعدالة", icon: <Gauge /> },
-    { id: "brief" as Scene, label: "ملخص الدقيقة", icon: <Zap /> },
-    { id: "why" as Scene, label: "لماذا هذا الحل؟", icon: <CircleHelp /> },
-    { id: "copilot" as Scene, label: "مساعد السياق", icon: <BrainCircuit /> },
-    { id: "meeting" as Scene, label: "محضر القرار", icon: <FileClock /> },
-    { id: "genesis" as Scene, label: "بداية الفصل", icon: <Dna /> },
-    /* شبكة الأمان وذاكرة القرار للإدارة الرئيسية وحدها (power). */
-    ...(power ? [{ id: "safety" as Scene, label: "شبكة الأمان", icon: <RotateCcw /> }] : []),
-  ];
-  /* «ذاكرة القرار» تُفتح من «لماذا» وحدها، فلا زرّ لها في الشريط؛ عنوانها من هنا. */
-  const sceneHead = scene === "memory"
-    ? { label: "ذاكرة القرار", icon: <History /> }
-    : sceneItems.find((x) => x.id === scene);
-  return (
-    <>
-      <section className="living-command-deck no-print" aria-label="حالة الجدول ومركز القرار">
-        <div className="living-pulse-core">
-          <span className={`pulse-beacon ${living.pulse?.items?.[0]?.severity || "info"}`} />
-          <div>
-            <small>حالة الجدول</small>
-            <strong>{living.health?.descriptor || living.pulse?.message || "القراءة جاهزة"}</strong>
-            <p>{living.pulse?.items?.[0]?.title || living.pulse?.message || "لا توجد ملاحظة حرجة الآن."}</p>
-          </div>
-        </div>
-        <div className="living-health-strip" aria-label="مؤشرات صحة الجدول">
-          {[
-            { label: "الجودة", value: living.health?.quality },
-            { label: "المرونة", value: living.health?.resilience },
-            { label: "العدالة", value: living.health?.fairness },
-          ].map(metric => {
-            const reading = Number(metric.value);
-            const known = Number.isFinite(reading);
-            return (
-              <span
-                key={metric.label}
-                /* The meter reads the number rather than repeating it: a score
-                   that slips is short before it is read. */
-                style={{ ["--reading" as any]: `${known ? Math.max(0, Math.min(100, reading)) : 0}%` }}
-              >
-                {known ? <MiniRing value={reading} size={34} decorative /> : <MiniRing value={null} size={34} />}
-                <small>{metric.label}</small>
-                <b className="sr-only">{known ? reading : "—"}</b>
-              </span>
-            );
-          })}
-        </div>
-        <div className="living-command-actions">
-          <button className="living-more" data-guide-feature-id="page.intelligence" onClick={() => open("pulse")} >
-            <Sparkles />
-            مركز القرار
+  /* «ذاكرة القرار» تُفتح من «لماذا» داخل البطاقة نفسها: جوابُ «لماذا» يبقى، فيُحفظ معه بديلُه. */
+  const shows = (id: Scene) => {
+    if (scene === "memory") return id === "memory";
+    return embedded ? Boolean(embeddedScenes?.includes(id)) : scene === id;
+  };
+  if (embedded) {
+    const needsLiving = (embeddedScenes || []).some(id => ["pulse", "topology", "health", "brief"].includes(id));
+    return (
+      <section className={`living-embedded scene-${scene}`} data-guide-target={`living.scene.${embeddedScenes![0]}`} aria-label="أدوات القرار">
+        {scene === "memory" && embeddedScenes?.includes("why") ? (
+          <button type="button" className="living-embedded-back" data-guide-ignore="يعود من «ذاكرة القرار» إلى جواب «لماذا» في البطاقة نفسها" onClick={() => open("why")}>
+            <ChevronLeft aria-hidden="true" /> العودة إلى «لماذا»
           </button>
-        </div>
-      </section>
-      {scene ? (
-        <div
-          className="living-overlay"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setScene(null);
-          }}
-        >
-          {/* مركزُ القرار يملك الشاشة: حوارٌ يُعلن ذلك، فيتنحّى الجرسُ عن رأس اللوحة. */}
-          <aside className={`living-panel scene-${scene}`} role="dialog" aria-modal="true" aria-label="لوحة الذكاء">
-            <header className="living-panel-head">
-              <span className="living-panel-scene-icon">
-                {sceneHead?.icon}
-              </span>
-              <div className="living-panel-heading">
-                <span>لوحة الذكاء</span>
-                <div>
-                  <h2>{sceneHead?.label}</h2>
-                  <p>{living.context?.sectionName} · {living.context?.termName}{living.context?.analysisScope === "department" ? ` · ${countOf(living.context.scopeCount, AR.college)}` : ""}</p>
-                </div>
-              </div>
-              <button onClick={() => setScene(null)} aria-label="إغلاق">
-                <X />
-              </button>
-            </header>
-            {experience && ["pulse", "topology", "health", "brief"].includes(scene) ? <IntelligenceScopeSwitch value={experience.analysisScope} onChange={experience.setAnalysisScope} /> : null}
-            <nav className="living-scene-nav">
-              {sceneItems.map((item) => (
-                <button
-                  key={item.id}
-                  className={scene === item.id ? "active" : ""}
-                  data-guide-target={`living.scene.${item.id}`}
-                  onClick={() => open(item.id)}
-                  aria-pressed={scene === item.id}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </nav>
-            {experience ? (
-              <section className="living-experience-tools" aria-label="اختصارات مركز القرار">
-                <button type="button" data-guide-ignore="فتح مقترحات القرار للكلية الحالية دون تطبيق تلقائي" title="قرار الكلية الحالية" onClick={() => { setScene(null); void experience.openDecision(); }} disabled={!rows.length}>
-                  <BrainCircuit /><span>القرار الأهم الآن</span>
-                </button>
-                <button type="button" onClick={() => { setScene(null); experience.setSignatureOpen(true); }} disabled={!rows.length}>
-                  <Gauge /><span>بصمة القسم</span>
-                </button>
-              </section>
-            ) : null}
-            {error ? <Notice>{error}</Notice> : null}
-            {message ? <Notice type="success">{message}</Notice> : null}
-            <div className="living-panel-body" aria-busy={["pulse", "topology", "health", "brief"].includes(scene) && (experience?.insightBusy || living?.context?.analysisScope !== (experience?.analysisScope || "college"))}>
-              {scene === "pulse" ? (
-                <PulseScene living={living} onGo={(s) => open(s)} />
+        ) : null}
+        {error ? <Notice>{error}</Notice> : null}
+        {message ? <Notice type="success">{message}</Notice> : null}
+        {needsLiving && !living ? (
+          <div className="living-embedded-loading" role="status"><span className="pulse-beacon info" /><strong>أقرأ نبض الجدول…</strong></div>
+        ) : (
+            <div className="living-panel-body" aria-busy={["pulse", "topology", "health", "brief"].includes(String(scene)) && (Boolean(experience?.insightBusy) || living?.context?.analysisScope !== scopeMode)}>
+              {shows("pulse") ? (
+                <PulseScene living={living} hideTiles={pulseWithoutTiles} onGo={(s) => (embedded && onNavigate && (s === "topology" || s === "health") ? onNavigate(s) : open(s))} />
               ) : null}
-              {scene === "topology" ? (
+              {shows("topology") ? (
                 <TopologyScene topology={living.topology} context={living.context} visitingFor={visitingForLiving} />
               ) : null}
-              {scene === "why" ? (
+              {shows("why") ? (
                 <div className="why-scene">
                   {/*
                     The answer sits where the eye already is.
@@ -1036,9 +870,9 @@ export default function LivingScheduleLayer({
                   ) : null}
                 </div>
               ) : null}
-              {scene === "health" ? <HealthScene living={living} visitingFor={visitingForLiving} /> : null}
-              {scene === "brief" ? <BriefScene brief={living.brief} /> : null}
-              {scene === "genesis" ? (
+              {shows("health") ? <HealthScene living={living} visitingFor={visitingForLiving} /> : null}
+              {shows("brief") ? <BriefScene brief={living.brief} uniqueOnly={briefUniqueOnly} /> : null}
+              {shows("genesis") ? (
                 <div className="genesis-scene">
                   {/* Three numbered marks instead of the sentence that used to
                       describe them. The paragraph said «اختر المصدر، ثم أنشئ،
@@ -1143,8 +977,8 @@ export default function LivingScheduleLayer({
                     </div>
                     <label>
                       <span>2 · الفصل المستهدف الآن</span>
-                      <b title={targetTerm?.AdTermName || living.context?.termName}>
-                        {targetTerm?.AdTermName || living.context?.termName}
+                      <b title={targetTerm?.AdTermName || living?.context?.termName}>
+                        {targetTerm?.AdTermName || living?.context?.termName}
                       </b>
                       <small>ستُنشأ هنا مسودة تجريبية فقط؛ الجدول الحقيقي لن يتغير قبل قرار النشر.</small>
                     </label>
@@ -1247,18 +1081,13 @@ export default function LivingScheduleLayer({
                             </table>
                           </div>
                           <div className="genesis-preview-actions">
-                            <p>{genesis.published ? "هذه المسودة منشورة الآن على الجدول الرسمي." : "راجع الجدول، ثم انشره من هنا مباشرة عندما يكون جاهزاً."}</p>
+                            {/* طريقُ نشرٍ واحد: المسودةُ تُنشر من «السجل ← المسودات» كأي مسودة، وهناك زرُّ
+                                «تراجع عن النشر» بعد النشر مباشرة. */}
+                            <p>{genesis?.issues?.length ? "عالج الملاحظات المعلّمة، ثم انشرها من «المسودات»." : "المسودة جاهزة. انشرها من «المسودات» في «السجل»."}</p>
                             <div>
-                              {!genesis.published ? (
-                                <PrimaryButton type="button" data-guide-feature-id="schedule.publish" onClick={() => void publishGenesisDraft()} disabled={busy || !genesis?.draft?.id || !genesis?.previewRows?.length || Boolean(genesis?.issues?.length)} title={genesis?.issues?.length ? "عالج الملاحظات المعلّمة أولاً" : undefined}>
-                                  <Upload /> انشر الآن
-                                </PrimaryButton>
-                              ) : null}
-                              {genesis.published && genesisUndoPoint ? (
-                                <SecondaryButton type="button" data-guide-feature-id="schedule.undo" onClick={() => void undoGenesisPublish()} disabled={busy}>
-                                  <RotateCcw /> تراجع عن النشر
-                                </SecondaryButton>
-                              ) : null}
+                              <PrimaryButton type="button" data-guide-ignore="ينتقل إلى قائمة المسودات حيث يُنشر كل شيء؛ لا ينشر بنفسه" onClick={() => onNavigate?.("drafts")} disabled={busy || !genesis?.draft?.id || !onNavigate}>
+                                <Upload /> انشرها من المسودات
+                              </PrimaryButton>
                             </div>
                           </div>
                         </section>
@@ -1267,7 +1096,7 @@ export default function LivingScheduleLayer({
                   ) : null}
                 </div>
               ) : null}
-              {scene === "memory" && power ? (
+              {shows("memory") && power ? (
                 <div className="memory-scene">
                   <ContextPicker
                     selectedId={selected?.id || 0}
@@ -1337,62 +1166,7 @@ export default function LivingScheduleLayer({
                   </div>
                 </div>
               ) : null}
-              {scene === "safety" && power ? (
-                <div className="safety-scene">
-                  <div className="safety-intro">
-                    <ShieldCheck />
-                    <div>
-                      <small>شبكة أمان القرار</small>
-                      <h3>التراجع الآمن عن القرار</h3>
-                      <p>
-                        كل استرجاع يحفظ نقطة أمان جديدة أولًا؛ لن تختفي الحالة
-                        الحالية بلا رجعة.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="safety-list">
-                    {safety.length ? (
-                      safety.map((item) => {
-                        /* الخادمُ الأحدث يرسل النوع والعنوان والأثر؛ وإلا يُستنتج النوعُ هنا من الاسم نفسه. */
-                        const kind = item.kind ? { kind: item.kind as SafetyPointKind, kindLabel: String(item.kindLabel || "") } : safetyPointKind(item.label, item.source);
-                        const Icon = SAFETY_POINT_ICONS[kind.kind] || ShieldCheck;
-                        return (
-                          <article key={item.id} data-kind={kind.kind}>
-                            <span className="safety-node" aria-hidden="true">
-                              <Icon />
-                            </span>
-                            <div className="safety-point">
-                              <span className="safety-kind">{kind.kindLabel}</span>
-                              <strong title={item.label}>{item.title || safetyPointTitle(item.label)}</strong>
-                              <small>
-                                <time dateTime={item.createdAt}>
-                                  {new Date(item.createdAt).toLocaleString("ar-KW-u-nu-latn", { dateStyle: "medium", timeStyle: "short" })}
-                                </time>
-                                {item.userName ? <> · {item.userName}</> : null} · {countOf(item.rowCount, AR.appointment)}
-                              </small>
-                              {item.impactSummary ? (
-                                <p className="safety-impact" data-same={item.impact?.same ? "true" : undefined}>
-                                  {item.impact?.same ? item.impactSummary : <>الاسترجاع {item.impactSummary}</>}
-                                </p>
-                              ) : null}
-                            </div>
-                            <GhostButton
-                              data-guide-ignore="استرجاع نقطةٍ من قائمة شبكة الأمان؛ يسأل قبل محو ما تغيّر بعدها"
-                              disabled={busy || Boolean(item.impact?.same)}
-                              onClick={() => undoDecision(item)}
-                            >
-                              استرجع هذا القرار
-                            </GhostButton>
-                          </article>
-                        );
-                      })
-                    ) : (
-                      <div className="living-empty">لا توجد نقاط أمان بعد.</div>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-              {scene === "meeting" ? (
+              {shows("meeting") ? (
                 <div className="meeting-scene">
                   <ContextPicker
                     selectedId={selected?.id || 0}
@@ -1455,7 +1229,7 @@ export default function LivingScheduleLayer({
                   ) : null}
                 </div>
               ) : null}
-              {scene === "copilot" ? (
+              {shows("copilot") ? (
                 <div className="copilot-scene">
                   <div className="copilot-orbit">
                     <BrainCircuit />
@@ -1584,10 +1358,60 @@ export default function LivingScheduleLayer({
                 </div>
               ) : null}
             </div>
-          </aside>
+        )}
+      </section>
+    );
+  }
+  return (
+      <section className="living-command-deck no-print" aria-label="حالة الجدول">
+        <div className="living-pulse-core">
+          <span className={`pulse-beacon ${living.pulse?.items?.[0]?.severity || "info"}`} />
+          <div>
+            <small>حالة الجدول</small>
+            <strong>{living.health?.descriptor || living.pulse?.message || "القراءة جاهزة"}</strong>
+            <p>{living.pulse?.items?.[0]?.title || living.pulse?.message || "لا توجد ملاحظة حرجة الآن."}</p>
+          </div>
         </div>
-      ) : null}
+        <HealthRings className="living-health-strip" label="مؤشرات صحة الجدول" onOpen={onOpenHealth}>
+          {[
+            { label: "الجودة", value: living.health?.quality },
+            { label: "المرونة", value: living.health?.resilience },
+            { label: "العدالة", value: living.health?.fairness },
+          ].map(metric => {
+            const reading = Number(metric.value);
+            const known = Number.isFinite(reading);
+            return (
+              <span
+                key={metric.label}
+                /* The meter reads the number rather than repeating it: a score
+                   that slips is short before it is read. */
+                style={{ ["--reading" as any]: `${known ? Math.max(0, Math.min(100, reading)) : 0}%` }}
+              >
+                {known ? <MiniRing value={reading} size={34} decorative /> : <MiniRing value={null} size={34} />}
+                <small>{metric.label}</small>
+                <b className="sr-only">{known ? reading : "—"}</b>
+              </span>
+            );
+          })}
+        </HealthRings>
+      </section>
+  );
 
-    </>
+}
+
+/** الحلقاتُ الثلاث: زرٌّ واحد يفتح بطاقة الصحة في «مركز الذكاء» حين يُعطى مكانَها. */
+function HealthRings({ className, label, onOpen, children }: { className: string; label: string; onOpen?: () => void; children: React.ReactNode }) {
+  if (!onOpen) return <div className={className} aria-label={label}>{children}</div>;
+  return (
+    <button
+      type="button"
+      className={`${className} living-health-open`}
+      aria-label={`${label} — افتح صحة الجدول في مركز الذكاء`}
+      title="افتح صحة الجدول في مركز الذكاء"
+      data-guide-feature-id="page.intelligence"
+      onClick={onOpen}
+    >
+      {children}
+    </button>
   );
 }
