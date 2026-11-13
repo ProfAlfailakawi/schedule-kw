@@ -74,6 +74,31 @@ console.log("R4 قبل إرسال البطاقات");
 rows = [at(1, 1, "101", ["mon", "wed"], "08:30", "09:50"), at(2, 2, "102", ["sun", "tue"], "08:00", "09:20", { AdInstructorId: 777 })];
 const list = teachersWithRegulationIssues(rows, { week: rows, hoursOf: id => courses.find(c => c.AdCourseId === id)?.CourseHours || 0, placeholders: new Set([777]) });
 check(list.length === 1 && list[0].instructorId === TEACHER && list[0].notes.some(note => /م\.7\/8/.test(note)), "R4 من في جدوله مخالفة يُعدّ، و«هيئة تدريسية» لا", list);
+/* العدّادُ يقرأ قواعد «ثبّت» كلَّها (مصدرٌ واحد: pinRowIssues): النمطُ والمدّةُ وساعاتُ المقرّر، لا التتالي والسُّلّم وحدها. */
+const hoursOf = (id: number) => courses.find(c => c.AdCourseId === id)?.CourseHours || 0;
+const counted = (list: any[]) => teachersWithRegulationIssues(list, { week: list, hoursOf });
+rows = [at(1, 1, "101", ["sun"], "08:00", "09:20"), at(2, 1, "101", ["thu"], "08:00", "09:20")];
+let noted = counted(rows);
+check(noted.length === 1 && noted[0].notes.filter(note => /ليست نمطاً معتمداً/.test(note)).length === 1, "R4 «أحد + خميس» يُعدّ، ومخالفةُ الشعبة تُقال مرةً لا لكل صفّ", noted);
+rows = [at(1, 1, "101", ["mon", "wed"], "08:00", "09:15")];
+noted = counted(rows);
+check(noted.length === 1 && noted[0].notes.some(note => /لا توافق النمط المعتمد/.test(note) && /م\.7\/8/.test(note)), "R4 مدّةٌ تخالف النمط (75د) تُعدّ", noted);
+rows = [at(1, 1, "101", ["sun"], "08:00", "09:20")];
+noted = counted(rows);
+check(noted.length === 1 && noted[0].notes.some(note => /أقل من ساعات المقرر/.test(note)), "R4 ساعاتٌ ناقصة تُعدّ", noted);
+rows = [at(1, 1, "101", ["sun", "tue"], "08:00", "09:20"), at(2, 1, "101", ["mon", "wed"], "08:00", "09:20")];
+noted = counted(rows);
+check(noted.length === 1 && noted[0].notes.some(note => /تزيد على ساعات المقرر/.test(note)), "R4 ساعاتٌ زائدة تُعدّ", noted);
+rows = [at(1, 1, "101", ["sun", "tue"], "08:00", "09:20"), at(2, 2, "102", ["mon", "wed"], "08:00", "09:20")];
+check(counted(rows).length === 0, "R4 وجدولٌ سليم لا يُعدّ", counted(rows));
+/* و«ثبّت» والعدّادُ يقولان الشيء نفسه للصفوف نفسها. */
+rows = [at(1, 1, "101", ["sun"], "08:30", "09:50"), at(2, 1, "101", ["thu"], "08:30", "09:50")];
+blocks = await review();
+noted = counted(rows);
+check(blocks.filter(block => block.itemIndex === 0).length >= 2 && blocks.some(block => /رأس الساعة/.test(block.text)) && blocks.some(block => /ليست نمطاً معتمداً/.test(block.text)),
+  "R3 مخالفاتُ الموعد تُسرد كلُّها: النمطُ لا يحجب السُّلّم", blocks);
+check(noted.length === 1 && blocks.every(block => noted[0].notes.some(note => block.text.endsWith(note.replace(/^[^:]+: /, "")) || note.includes(block.text.replace(/^[^:]+: /, "")))),
+  "R4 العدّادُ و«ثبّت» من مصدرٍ واحد: ما يمنع هناك يُعدّ هنا", { blocks, noted });
 const route = (await import("node:fs")).readFileSync("src/server/routes/instructorRequestsRoutes.ts", "utf8");
 const publish = (await import("node:fs")).readFileSync("src/components/SchedulePublish.tsx", "utf8");
 check(/app\.get\("\/api\/instructor-requests\/regulation-teachers", requirePermission\(7\)/.test(route) && /isScopeAllowed\(req, collegeId, sectionId\)/.test(route), "R4 المسارُ بإذن القسم ونطاقه");

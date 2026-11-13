@@ -459,8 +459,9 @@ app.get("/api/instructor-requests/recipients", requirePermission(7), async (req:
 
 /**
  * ── «N أساتذة في جداولهم مخالفات للائحة» قبل إرسال البطاقات (قرار المالك 2026-11-13) ──────
- * الأستاذُ لا يثبّت جدولاً فيه مخالفة (pinReview)، فيُقال للقسم قبل الإرسال مَن في جدوله مخالفةٌ لائحية
- * (م.6/2، م.6/3، م.7/8 السُّلّم، م.7/9) ليصلحها أولاً. تنبيهٌ لا يمنع الإرسال. الحكمُ في utils/pinViolations.ts.
+ * الأستاذُ لا يثبّت جدولاً فيه مخالفة (pinReview)، فيُقال للقسم قبل الإرسال مَن في جدوله ما يمنع «ثبّت» — القواعدُ
+ * نفسُها كلُّها (pinRowIssues): نمطُ الشعبة ومدّةُ اللقاء وساعاتُ المقرّر، والتتالي (م.6/2، م.6/3)، والسُّلّم (م.7/8)،
+ * ووقتُ الشعبة الثابت (م.7/9) — ليصلحها أولاً. تنبيهٌ لا يمنع الإرسال. الحكمُ في utils/pinViolations.ts.
  */
 app.get("/api/instructor-requests/regulation-teachers", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
