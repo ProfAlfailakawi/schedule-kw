@@ -5,7 +5,11 @@
  * وكليته وقسمه وفصله، ويُقال للجنة كم طالباً ينتظره. لا يُكتب شيء قبل الحفظ هناك.
  * كأختيه (requestHandoff · sectionRequestHandoff): تخزينُ اللسان لا العنوان، ويُمحى بأول قراءة.
  */
+<<<<<<< HEAD
 import { AR, countOf, oblique } from "./arabicCount";
+=======
+import { AR, countOf } from "./arabicCount";
+>>>>>>> origin/main
 
 export interface ActualDemandHandoff {
   courseId: number;
@@ -36,9 +40,12 @@ export function takeActualDemandHandoff(): ActualDemandHandoff | null {
   } catch { return null; }
 }
 
+<<<<<<< HEAD
 /** أثرُ الموعد على الخريجين قبل حفظه: «يمسّ ٧ خريجين» (تعارضٌ بين مقررين يحتاجهما خريجو البرنامج نفسه). */
 export const graduateImpactNote = (graduates: number) => `يمسّ ${countOf(graduates, oblique(AR.graduate))}: يتعارض مع مقررٍ يحتاجه خريجو البرنامج نفسه`;
 
+=======
+>>>>>>> origin/main
 /** سطرٌ يقول للجنة من أين جاء النموذج. */
 export function actualDemandNotice(handoff: ActualDemandHandoff): string {
   const who = handoff.graduates ? `${countOf(handoff.students, AR.student)}، منهم ${countOf(handoff.graduates, AR.graduate)}` : countOf(handoff.students, AR.student);

@@ -254,7 +254,10 @@ test:first-login-password
 test:colleague-guard-measure
 test:actual-demand
 test:actual-demand-supply
+<<<<<<< HEAD
 test:actual-demand-graduates
+=======
+>>>>>>> origin/main
 test:colleagues-advising-registration
 test:quick-studio-family
 test:lecture-stick-own
