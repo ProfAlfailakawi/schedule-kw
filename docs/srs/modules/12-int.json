@@ -47,6 +47,7 @@
     "src/server/actualDemandRoutes.ts",
     "src/utils/actualDemand*.ts",
     "src/components/ActualDemandPanel.tsx",
+    "src/components/ActualDemandAlert.tsx",
     "src/components/DemandBadge.tsx",
     "src/styles/54-actual-demand.css"
   ],
@@ -1660,6 +1661,90 @@
         {"ar": "العدد والمعدود: «٧ خريجين»، «١٢ خريجاً».", "en": "Count agreement: «7 graduates», «12 graduates»."}
       ],
       "evidence": { "code": ["src/utils/actualDemandGraduates.ts#graduateImpactOf", "src/server/actualDemand.ts#graduateImpactFor", "src/server/routes/scheduleReviewRoutes.ts", "src/components/RegulationExceptionSheet.tsx", "src/components/Schedules.tsx"], "tests": ["tests/actual-demand-graduates-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-079",
+      "kind": "functional",
+      "title": {
+        "ar": "تنبيه الطلب الفعلي داخل الجدول الدراسي",
+        "en": "Actual-demand alert inside the study schedule"
+      },
+      "text": {
+        "ar": "يجب أن يعرض شريط الاعتماد في «الجدول الدراسي»، بجانب شارة التخطيط وبأسلوبها، شارةً كهرمانية للطلب الفعلي: أيقونة وعدد المقررات المطلوبة بلا شعبة في عائلة القسم وأيقونة مقعد بعدد المقاعد الناقصة، فإذا ضُغطت فُتحت في مكان قائمة التخطيط نفسه قائمةٌ فيها ثلاثة أرقام (بلا شعبة، نقص المقاعد، خريجون بلا مقعد) وتوزيعها على البنين والبنات، ثم المقررات العاجزة بالأشد ولكلٍّ «عالج» يفتح محرّر موعدٍ جديد في كلية المسار الأعجز دون انتقالٍ أو إعادة تحميل؛ ولا تظهر الشارة بلا تقرير مرفوع ولا حين خُدم كل طالب، ولا تمنع التوقيع، ولا تُطبع.",
+        "en": "The approval bar of the «study schedule» shall show, beside the planning badge and in its style, an amber actual-demand badge: an icon with the number of demanded courses that have no section in the department family, and a seat icon with the number of missing seats; tapping it opens, where the planning list opens, a list with three numbers (no section, missing seats, graduates without a seat) and their split between boys and girls, then the short courses by severity, each with «fix» opening a new-appointment editor in the shortest track's college without navigation or reload. The badge is absent without an uploaded report and when every student is served; it never blocks signing and is not printed."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقررٌ له شعبٌ للبنين فقط: لا يُعدّ «بلا شعبة» للعائلة، ويظهر في توزيع البنات بلا شعبة وبنقص مقاعده.",
+          "en": "A course with boys' sections only is not counted as «no section» for the family, and appears in the girls' split as having no section with its missing seats."
+        },
+        {
+          "ar": "بلا تقرير أو بلا عجز: لا شارة ولا قائمة.",
+          "en": "Without a report or without a shortage: no badge and no list."
+        },
+        {
+          "ar": "45 مقرراً بلا شعبة: القائمة المرسلة 40 بنداً، والشارة تقول 45 لأن الخادم يحسب الملخّص من البنود كلها.",
+          "en": "45 courses without a section: the list sent holds 40 items, and the badge says 45 because the server computes the summary from all items."
+        },
+        {
+          "ar": "رفعُ تقرير أو ربطُ مقرر من أدوات البيانات يُحدّث الشارة في الجدول الدراسي بلا إعادة تحميل.",
+          "en": "Uploading a report or matching a course from the data tools refreshes the badge in the study schedule without a reload."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ActualDemandAlert.tsx",
+          "src/components/ApprovalBar.tsx",
+          "src/utils/actualDemandSupply.ts#demandAlertSummary", "src/utils/actualDemandSupply.ts#supplyView", "src/server/actualDemand.ts#demandReading",
+          "src/utils/actualDemandHandoff.ts#openActualDemandFix"
+        ],
+        "tests": [
+          "tests/actual-demand-supply-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-INT-080",
+      "kind": "functional",
+      "title": {
+        "ar": "الطلب الفعلي في أدوات البيانات",
+        "en": "Actual demand in the data tools"
+      },
+      "text": {
+        "ar": "يجب أن تحمل «أدوات البيانات» في الجدول الدراسي لساناً «الطلب الفعلي» بجانب أدوات الاستيراد، يعرض اللوحةَ نفسها التي في مركز التحليلات مقصورةً على البيانات: رفع تقرير التسجيل ومعاينته قبل الحفظ، وحال النسختين (عام وخريجون)، ونسبة خدمة الطلب، وربط المقررات غير المطابَقة مفتوحاً؛ وقائمة العلاج مكانها الجدول ومركز التحليلات. ولا يظهر اللسان في فصلٍ منتهٍ.",
+        "en": "The «data tools» of the study schedule shall carry an «actual demand» tab beside the import tools, showing the same panel as the Analytics Center limited to data: uploading the registrar report with its preview before saving, the state of both variants (general and graduates), the demand service rate, and the matching of unmatched courses opened; the fix list lives in the schedule and the Analytics Center. The tab is absent for an ended term."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "الرفع والربط من اللسان يكتبان عبر نقاط النهاية نفسها (/api/actual-demand/upload و/api/actual-demand/link) ولا منطق مكرراً.",
+          "en": "Uploading and matching from the tab write through the same endpoints (/api/actual-demand/upload and /api/actual-demand/link) with no duplicated logic."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ScheduleTransfer.tsx",
+          "src/components/ActualDemandPanel.tsx"
+        ],
+        "tests": [
+          "tests/actual-demand-audit.ts"
+        ]
+      },
       "inferred": false
     }
   ],
