@@ -948,8 +948,7 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
 }
 .insight-back:hover{border-color:var(--accent);color:var(--accent-strong,var(--accent))}
 .insight-back svg{width:15px;height:15px}
-.intelligence-page:has(.insight-page-head)>.page-heading,
-.intelligence-page:has(.insight-page-head)>.intel-context{display:none}
+/* العنوانُ وشريطُ النطاق يبقيان والبطاقةُ مفتوحة: «كيف أرجع؟» تبدأ بألّا يختفي المكان. */
 .insight-page-metric{
   flex:none;font-size:var(--t-h3);font-weight:600;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;color:var(--muted);

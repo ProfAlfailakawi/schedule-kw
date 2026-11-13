@@ -1,0 +1,78 @@
+/* ==========================================================================
+   مركز الذكاء — التنقّل داخل المرحلة
+   «لما أضغط أي بطاقة كيف أرجع؟ معقد»: البطاقةُ المفتوحة لم تعد تُخفي المكان.
+   فوقها صفٌّ واحدٌ ثابت: «كل البطاقات» بالاسم نفسه في المراحل الثلاث، وبجانبه
+   شريطٌ أفقي مضغوط ببطاقات المرحلة نفسها — الانتقالُ إلى بطاقةٍ أخرى نقرةٌ واحدة.
+   ========================================================================== */
+
+.intelligence-page .insight-page-nav{
+  position:sticky;top:84px;z-index:21;
+  display:flex;align-items:center;gap:var(--s3);
+  min-width:0;
+  padding:var(--s2);
+  margin-block-end:var(--s3);
+  border:1px solid var(--line);border-radius:var(--r-full,999px);
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+}
+.intelligence-page .insight-page-nav .insight-back{
+  flex:none;
+  min-height:var(--ix-tap,40px);
+  padding:0 var(--s4) 0 var(--s3);
+  border:0;border-radius:var(--r-full,999px);
+  background:var(--ink);color:var(--surface);
+  font-size:var(--ix-secondary,var(--t-sm));font-weight:700;white-space:nowrap;
+}
+.intelligence-page .insight-page-nav .insight-back:hover{background:var(--accent);color:var(--surface)}
+.intelligence-page .insight-page-nav .insight-back svg{width:17px;height:17px}
+
+.insight-card-strip{
+  flex:1;min-width:0;
+  display:flex;gap:var(--s1);
+  overflow-x:auto;overscroll-behavior-x:contain;
+  scroll-snap-type:x proximity;scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(to left,#000 calc(100% - 28px),transparent);
+  mask-image:linear-gradient(to left,#000 calc(100% - 28px),transparent);
+}
+.insight-card-strip::-webkit-scrollbar{display:none}
+.insight-card-chip{
+  flex:none;scroll-snap-align:start;
+  display:inline-flex;align-items:center;gap:6px;
+  min-height:36px;padding:0 var(--s3);
+  border:1px solid transparent;border-radius:var(--r-full,999px);
+  background:transparent;color:var(--muted);
+  font-size:var(--t-xs,13px);font-weight:600;white-space:nowrap;cursor:pointer;
+  transition:background .16s var(--ease),color .16s var(--ease),border-color .16s var(--ease);
+}
+.insight-card-chip>span:first-child{display:inline-grid;place-items:center}
+.insight-card-chip svg{width:15px;height:15px}
+.insight-card-chip:hover{color:var(--ink);background:var(--surface-2)}
+.insight-card-chip[aria-current="true"]{
+  color:var(--accent-strong,var(--accent));
+  background:var(--accent-soft);
+  border-color:color-mix(in srgb,var(--accent) 40%,transparent);
+}
+.insight-card-chip:focus-visible,.intelligence-page .insight-page-nav .insight-back:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+
+/* العنوانُ تحت الصف الثابت، لا معه: لا يأكل الشاشةَ وأنت تقرأ. */
+.intelligence-page .insight-page-head{
+  position:static;
+  grid-template-columns:minmax(0,1fr);
+  padding:0 0 var(--s3);
+  margin-block-end:var(--s4);
+  background:transparent;
+}
+
+@media (max-width:760px){
+  .intelligence-page .insight-page-nav{top:72px;gap:var(--s2);padding:6px}
+  .intelligence-page .insight-page-nav .insight-back{padding:0 var(--s3)}
+}
+@media (max-width:420px){
+  .intelligence-page .insight-page-nav{border-radius:var(--r-lg,18px)}
+  .insight-card-chip{min-height:40px;padding:0 10px}
+}
+@media print{
+  .intelligence-page .insight-page-nav{display:none}
+}

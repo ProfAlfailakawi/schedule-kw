@@ -44,6 +44,7 @@ import {
   Gauge,
   History,
   Hourglass,
+  LayoutGrid,
   Lightbulb,
   LockKeyhole,
   MessageSquareText,
@@ -240,6 +241,36 @@ type InsightScene =
    their own the moment a scenario existed. */
 type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger";
 type ApproveCard = "compare" | "drafts" | "versions";
+/* ── المرحلةُ والبطاقةُ في الرابط ───────────────────────────────────────────
+   «لما أضغط أي بطاقة كيف أرجع؟»: زرُّ الرجوع في المتصفح كان يخرج من المركز كله،
+   لأن فتح البطاقة لم يكن خطوةً في التاريخ. الآن كلُّ فتحٍ خطوة: ?stage=…&card=…،
+   فالرجوع يعيدك إلى شبكة البطاقات، أو إلى البطاقة التي أرسلتك إلى مرحلةٍ أخرى. */
+const TAB_VALUES: Tab[] = ["command", "copilot", "twin", "whatif", "history"];
+const INSIGHT_SCENE_VALUES: InsightScene[] = ["quality", "approval", "attention", "density", "spatial", "rooms", "professors", "health", "students", "genome", "sheet", "improve", "predict", "actualDemand"];
+const TWIN_CARD_VALUES: TwinCard[] = ["hero", "lab", "board", "editor", "ledger"];
+const APPROVE_CARD_VALUES: ApproveCard[] = ["compare", "drafts", "versions"];
+const CARD_BACK_LABEL = "كل البطاقات";
+type IntelNav = { tab: Tab; card: string | null };
+const readIntelNav = (fallbackTab: Tab): IntelNav | null => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const stage = params.get("stage") as Tab | null;
+    if (!stage || !TAB_VALUES.includes(stage)) return params.has("card") ? null : { tab: fallbackTab, card: null };
+    const card = params.get("card");
+    const valid = stage === "command" ? INSIGHT_SCENE_VALUES.includes(card as InsightScene)
+      : stage === "twin" ? TWIN_CARD_VALUES.includes(card as TwinCard)
+        : stage === "history" ? APPROVE_CARD_VALUES.includes(card as ApproveCard) : false;
+    return { tab: stage, card: valid ? card : null };
+  } catch { return null; }
+};
+const intelNavUrl = (nav: IntelNav) => {
+  const params = new URLSearchParams(window.location.search);
+  params.delete("stage"); params.delete("card");
+  if (nav.tab !== "command" || nav.card) params.set("stage", nav.tab);
+  if (nav.card) params.set("card", nav.card);
+  const query = params.toString();
+  return `${window.location.pathname}${query ? `?${query}` : ""}`;
+};
 type ChatItem = { prompt: string; answer: any };
 type InsightReason = {
   kicker: string;
@@ -334,28 +365,74 @@ const liftToTop = (instant: boolean) => {
   requestAnimationFrame(() => requestAnimationFrame(measure));
 };
 
-const CardDeck = ({ cards, value, onChange, backLabel, title, hint }: {
+/**
+ * ── رأسُ البطاقة المفتوحة: رجوعٌ واحد، وشريطُ بطاقات المرحلة ────────────────
+ * فتحُ بطاقةٍ كان يُخفي الشبكة وعنوان الصفحة وشريط النطاق معاً، فلا يبقى إلا
+ * «العودة» — وبنصٍّ مختلف في كل مرحلة. الآن: زرٌّ واحد باسمٍ واحد «كل البطاقات»،
+ * وبجانبه شريطٌ أفقي مضغوط ببطاقات المرحلة نفسها، فالانتقال إلى بطاقةٍ أخرى نقرةٌ واحدة.
+ */
+const CardPageHead = ({ cards, value, onChange, title, metric }: {
+  cards: DeckCard[];
+  value: string;
+  onChange: (next: string | null) => void;
+  title: string;
+  metric?: React.ReactNode;
+}) => {
+  const active = cards.find(card => card.value === value) || null;
+  const strip = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const chip = strip.current?.querySelector<HTMLElement>("[aria-current='true']");
+    const box = strip.current;
+    if (!chip || !box) return;
+    /* الشريط وحده يتحرّك أفقياً — لا تُسحب الصفحة كلها كما يفعل scrollIntoView. */
+    const offset = chip.offsetLeft - (box.clientWidth - chip.offsetWidth) / 2;
+    box.scrollTo({ left: offset, behavior: "auto" });
+  }, [value]);
+  if (!active) return null;
+  return (
+    <>
+      <div className="insight-page-nav no-print">
+        <button type="button" className="insight-back" data-guide-ignore="يعيد إلى شبكة بطاقات المرحلة نفسها؛ تنقّلٌ لا فعل" onClick={() => onChange(null)}>
+          <LayoutGrid aria-hidden="true" />
+          {CARD_BACK_LABEL}
+        </button>
+        <div className="insight-card-strip" ref={strip} role="list" aria-label={title}>
+          {cards.map(card => (
+            <button
+              key={card.value}
+              type="button"
+              role="listitem"
+              className="insight-card-chip"
+              aria-current={card.value === value ? "true" : undefined}
+              title={card.detail}
+              data-guide-ignore="شريط بطاقات المرحلة: يفتح البطاقة نفسها التي في الشبكة"
+              onClick={() => onChange(card.value)}
+            >
+              {card.icon ? <span aria-hidden="true">{card.icon}</span> : null}
+              <span>{card.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <header className="insight-page-head">
+        <div className="insight-page-title">
+          <span className="surface-kicker">{active.detail}</span>
+          <span className="insight-title-line"><strong>{active.label}</strong>{metric ?? (active.metric ? <b className="insight-page-metric">{active.metric}</b> : null)}</span>
+        </div>
+      </header>
+    </>
+  );
+};
+
+const CardDeck = ({ cards, value, onChange, title, hint }: {
   cards: DeckCard[];
   value: string | null;
   onChange: (next: string | null) => void;
-  backLabel: string;
   title: string;
   hint: string;
 }) => {
   const active = cards.find(card => card.value === value) || null;
-  if (active)
-    return (
-      <header className="insight-page-head">
-        <button type="button" className="insight-back" onClick={() => onChange(null)}>
-          <ChevronLeft aria-hidden="true" />
-          {backLabel}
-        </button>
-        <div className="insight-page-title">
-          <span className="surface-kicker">{active.detail}</span>
-          <span className="insight-title-line"><strong>{active.label}</strong>{active.metric ? <b className="insight-page-metric">{active.metric}</b> : null}</span>
-        </div>
-      </header>
-    );
+  if (active) return <CardPageHead cards={cards} value={active.value} onChange={onChange} title={title} />;
   return (
     <nav className="insight-preview-rail no-print" aria-label={title}>
       <div className="insight-preview-head">
@@ -449,6 +526,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     [sectionId, setSectionId] = useState(0),
     [termId, setTermId] = useState(0),
     [tab, setTab] = useState<Tab>(() => {
+      const fromUrl = readIntelNav(initialTab || "command");
+      if (fromUrl && new URLSearchParams(window.location.search).has("stage")) return fromUrl.tab;
       if (initialTab) return initialTab;
       const v = sessionStorage.getItem(
         "schedule-intelligence-tab",
@@ -472,7 +551,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   useEffect(() => {
     if (!initialTab) return;
     const follow = () => { if (new URLSearchParams(window.location.search).has("ask")) setTab(initialTab); };
-    setTab(initialTab);
+    /* رابطٌ يحمل مرحلته (?stage=) يُحترم؛ وإلا فالرابطُ القديم يفتح لسانه. */
+    if (!new URLSearchParams(window.location.search).has("stage")) setTab(initialTab);
     window.addEventListener("popstate", follow);
     return () => window.removeEventListener("popstate", follow);
   }, [initialTab]);
@@ -552,8 +632,14 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
    */
   /* null is the dashboard. Every card below — including the ones that used to
      sit stacked under the strip with no way to choose them — is now a page. */
-  const [twinCard, setTwinCard] = useState<TwinCard | null>(null);
-  const [approveCard, setApproveCard] = useState<ApproveCard | null>(null);
+  const [twinCard, setTwinCard] = useState<TwinCard | null>(() => {
+    const nav = readIntelNav(initialTab || "command");
+    return nav?.tab === "twin" ? (nav.card as TwinCard | null) : null;
+  });
+  const [approveCard, setApproveCard] = useState<ApproveCard | null>(() => {
+    const nav = readIntelNav(initialTab || "command");
+    return nav?.tab === "history" ? (nav.card as ApproveCard | null) : null;
+  });
 
   const showScene = (value: InsightScene | null) => {
     setInsightScene(value);
@@ -575,12 +661,13 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
        Publishing can hand off directly to the students reading; consume that
        one-shot request here so the shortcut lands on the exact destination. */
     [insightScene, setInsightScene] = useState<InsightScene | null>(() => {
+      const nav = readIntelNav(initialTab || "command");
+      if (nav?.tab === "command" && nav.card) return nav.card as InsightScene;
       try {
         const requested = sessionStorage.getItem("schedule-intelligence-insight") as InsightScene | null;
         sessionStorage.removeItem("schedule-intelligence-insight");
-        return requested && ["quality", "approval", "attention", "density", "spatial", "rooms", "professors", "health", "students", "genome", "sheet"].includes(requested)
-          ? requested
-          : null;
+        /* كلُّ بطاقةٍ في «افهم» تُفتح برابطها — ومنها «فرصة لتحسين الجدول» و«تنبّؤ الفصل القادم» و«الطلب الفعلي». */
+        return requested && INSIGHT_SCENE_VALUES.includes(requested) ? requested : null;
       } catch { return null; }
     });
   const [insightReason, setInsightReason] = useState<InsightReason | null>(null);
@@ -1039,13 +1126,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         ? document.activeElement
         : null;
     const frame = window.requestAnimationFrame(() => drawerClose.current?.focus());
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDetail(null);
-    };
-    document.addEventListener("keydown", onKeyDown);
     return () => {
       window.cancelAnimationFrame(frame);
-      document.removeEventListener("keydown", onKeyDown);
       drawerReturnFocus.current?.focus();
       drawerReturnFocus.current = null;
     };
@@ -1520,6 +1602,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     setScenario(draftRows);
     setScenarioId(draftRows[0]?.id || "");
     setTab("twin");
+    setTwinCard("board");
     await evaluateScenario(draftRows);
   };
   const publishDraft = async (d: any) => {
@@ -1868,8 +1951,17 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
       : tab === "history"
         ? "approve"
         : "try";
+  /* تبديلُ المرحلة أو أداتِها يغلق البطاقة المفتوحة: المرحلةُ الجديدة تبدأ من شبكتها.
+     أمّا الانتقالُ من داخل بطاقةٍ («افتحها في النسخة التجريبية»، «اسأل المساعد»…)
+     فيضبط بطاقة الوجهة بنفسه، والرجوعُ في المتصفح يعيد إلى البطاقة التي أرسلته. */
+  const switchTab = (next: Tab) => {
+    setInsightScene(null);
+    setTwinCard(null);
+    setApproveCard(null);
+    setTab(next);
+  };
   const changeScene = (value: string) =>
-    setTab(
+    switchTab(
       value === "understand" ? "command" : value === "try" ? "twin" : "history",
     );
 
@@ -2179,18 +2271,67 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         },
       ]
     : [];
-  /* Escape closes an open reading, exactly as it closes every other overlay
-     on this workspace. */
+  /* Escape يغلق الأقرب أولاً في كل المراحل: شرحُ المؤشر، ثم الدرج، ثم البطاقة المفتوحة.
+     كان يعمل في «افهم» وحدها، وكان الدرج والبطاقة يُغلقان معاً بضغطةٍ واحدة. */
+  const openCard = tab === "command" ? insightScene : tab === "twin" ? twinCard : tab === "history" ? approveCard : null;
   useEffect(() => {
-    if (!insightScene && !insightReason) return;
+    if (!openCard && !insightReason && !detail) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      /* نافذةُ تأكيدٍ أو لائحةٍ مفتوحة فوق المركز تملك Escape وحدها. */
+      if (document.querySelector("[role='alertdialog']")) return;
       if (insightReason) setInsightReason(null);
-      else setInsightScene(null);
+      else if (detail) setDetail(null);
+      else if (tab === "command") showScene(null);
+      else if (tab === "twin") showTwinCard(null);
+      else if (tab === "history") showApproveCard(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [insightScene, insightReason]);
+  }, [openCard, insightReason, detail, tab]);
+
+  /* ── المرحلةُ والبطاقةُ خطوةٌ في تاريخ المتصفح ─────────────────────────
+     كلُّ تغييرٍ في (المرحلة، البطاقة) يُكتب في الرابط بخطوةٍ جديدة؛ والتغييراتُ
+     المتتابعة في اللحظة نفسها (setTab ثم setTwinCard) تُجمع في خطوةٍ واحدة،
+     فلا يتطلّب الرجوعُ ضغطتين. وأوّلُ كتابةٍ تستبدل الرابط ولا تضيف خطوة. */
+  const navSynced = useRef(false);
+  const navTimer = useRef<number | null>(null);
+  const navWanted = useRef<IntelNav>({ tab, card: openCard });
+  navWanted.current = { tab, card: openCard };
+  useEffect(() => {
+    if (navTimer.current != null) window.clearTimeout(navTimer.current);
+    navTimer.current = window.setTimeout(() => {
+      navTimer.current = null;
+      const target = intelNavUrl(navWanted.current);
+      if (target === `${window.location.pathname}${window.location.search}`) { navSynced.current = true; return; }
+      if (!navSynced.current) window.history.replaceState(window.history.state, "", target);
+      else window.history.pushState({ intelligence: navWanted.current }, "", target);
+      navSynced.current = true;
+    }, 0);
+  }, [tab, openCard]);
+  useEffect(() => () => { if (navTimer.current != null) window.clearTimeout(navTimer.current); }, []);
+  const overlayOpen = useRef(false);
+  overlayOpen.current = Boolean(insightReason || detail);
+  useEffect(() => {
+    const onPop = () => {
+      /* الرجوعُ والدرجُ مفتوح يغلق الدرج وحده، وتبقى البطاقة تحته كما هي. */
+      if (overlayOpen.current) {
+        setInsightReason(null);
+        setDetail(null);
+        window.history.pushState({ intelligence: navWanted.current }, "", intelNavUrl(navWanted.current));
+        return;
+      }
+      const nav = readIntelNav(initialTab || "command");
+      if (!nav) return;
+      setTab(nav.tab);
+      setInsightScene(nav.tab === "command" ? (nav.card as InsightScene | null) : null);
+      setTwinCard(nav.tab === "twin" ? (nav.card as TwinCard | null) : null);
+      setApproveCard(nav.tab === "history" ? (nav.card as ApproveCard | null) : null);
+      liftToTop(true);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [initialTab]);
 
   const activeInsight = insightScenes.find((item) => item.value === insightScene) || null;
   /* One heading per reading: an eyebrow inside the open reading that merely
@@ -2444,7 +2585,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             type="button"
             className={tab === "command" ? "active" : ""}
             aria-pressed={tab === "command"}
-            onClick={() => setTab("command")}
+            onClick={() => switchTab("command")}
           >
             <Gauge /> قراءة القرار
           </button>
@@ -2453,7 +2594,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             data-guide-target="intelligence.ask-table"
             className={tab === "copilot" ? "active" : ""}
             aria-pressed={tab === "copilot"}
-            onClick={() => setTab("copilot")}
+            onClick={() => switchTab("copilot")}
           >
             <BrainCircuit /> اسأل الجدول
           </button>
@@ -2464,7 +2605,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             type="button"
             className={tab === "twin" ? "active" : ""}
             aria-pressed={tab === "twin"}
-            onClick={() => setTab("twin")}
+            onClick={() => switchTab("twin")}
           >
             <Network /> النسخة التجريبية
           </button>
@@ -2474,7 +2615,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             data-guide-ignore="وجهةُ «آلة الزمن» مسجّلة في المرشد باسم page.timeMachine"
             className={tab === "whatif" ? "active" : ""}
             aria-pressed={tab === "whatif"}
-            onClick={() => setTab("whatif")}
+            onClick={() => switchTab("whatif")}
           >
             <Hourglass /> ماذا لو
           </button>
@@ -2574,16 +2715,13 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             aria-hidden={activeInsight ? undefined : true}
           >
             {activeInsight ? (
-              <header className="insight-page-head">
-                <button type="button" className="insight-back" onClick={() => showScene(null)}>
-                  <ChevronLeft aria-hidden="true" />
-                  العودة إلى مركز القراءات
-                </button>
-                <div className="insight-page-title">
-                  <span className="surface-kicker">{activeInsight.detail}</span>
-                  <span className="insight-title-line"><strong>{activeInsight.label}</strong><b className="insight-page-metric"><Num value={activeInsight.metric} /></b></span>
-                </div>
-              </header>
+              <CardPageHead
+                cards={insightScenes}
+                value={activeInsight.value}
+                onChange={next => showScene(next as InsightScene | null)}
+                title="بطاقات «افهم»"
+                metric={<b className="insight-page-metric"><Num value={activeInsight.metric} /></b>}
+              />
             ) : null}
             <p className="sr-only" role="status" aria-live="polite">
               المشهد الحالي: {activeInsight?.label}. {activeInsight?.detail}
@@ -3923,7 +4061,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           <CardDeck
             value={twinCard}
             onChange={(next) => showTwinCard(next as TwinCard | null)}
-            backLabel="العودة إلى بطاقات التجربة"
             title="بطاقات التجربة"
             hint="كل بطاقة تفتح صفحتها وحدها — لا شيء تحت شيء."
             cards={[
@@ -4847,7 +4984,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           <CardDeck
             value={approveCard}
             onChange={(next) => showApproveCard(next as ApproveCard | null)}
-            backLabel="العودة إلى بطاقات الاعتماد"
             title="بطاقات الاعتماد"
             hint="كل بطاقة تفتح صفحتها وحدها — لا شيء تحت شيء."
             cards={[
