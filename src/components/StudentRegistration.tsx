@@ -1,3 +1,4 @@
+import { settleRegulationException } from "./RegulationExceptionSheet";
 import { byArabic } from "../utils/sorting";
 import AdvisorSeatsPanel from "./AdvisorSeatsPanel";
 import SectionRequestsPanel from "./sectionRequests/SectionRequestsPanel";
@@ -132,7 +133,7 @@ interface Totals {
 /** من يقرأ الكشف: لجنة القسم، أو التسجيل، أو صاحب الصلاحية الكاملة (الجهتان). */
 type Viewer = "committee" | "registration" | "both";
 
-const request = async (url: string, init?: RequestInit) => {
+const request = async (url: string, init?: RequestInit): Promise<any> => {
   const response = await fetch(url, init);
   const body = await response.text();
   let data: any = {};
@@ -140,6 +141,9 @@ const request = async (url: string, init?: RequestInit) => {
     try { data = JSON.parse(body); }
     catch { throw new Error(response.ok ? "وصل ردٌّ غير متوقّع من الخادم." : `الخادم مشغول الآن (${response.status}).`); }
   }
+  /* فتحُ شعبةٍ يخالف اللائحة: سؤالٌ صريح ثم الطلبُ نفسه موسوماً. */
+  const settled = await settleRegulationException(response.status, data, init?.body, marked => request(url, { ...init, body: marked }));
+  if (settled) return settled.value;
   if (!response.ok) throw errorWithCode(data.error || "تعذّر تنفيذ العملية", data.code);
   return data;
 };

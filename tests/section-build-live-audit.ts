@@ -18,7 +18,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
 };
 
 const srv = readServerSource(), ui = fs.readFileSync("src/components/SectionBuild.tsx", "utf8"), plan = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
-check(srv.includes('applyProposalCore(req, {\n        kind: "opening"') && !/section-build\/apply[\s\S]{0,3000}Repository\.(createSchedule|updateSchedule)\(/.test(srv), "الإنزال يمرّ من باب الاعتماد المشترك لا من الكتابة المباشرة");
+check(srv.includes('applyProposalCore(req, openingOf(row, placement), { gate })') && srv.includes('kind: "opening", collegeId, sectionId, termId') && !/section-build\/apply[\s\S]{0,3000}Repository\.(createSchedule|updateSchedule)\(/.test(srv), "الإنزال يمرّ من باب الاعتماد المشترك لا من الكتابة المباشرة");
 check(srv.includes("section-build:${collegeId}:${sectionId}:${termId}") && srv.includes("String(req.body?.fingerprint"), "قفلٌ متسلسل وبصمة أسبوع قبل الكتابة");
 check(plan.includes("<SectionBuild") && plan.includes("buildReady") && fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8").includes("xlsxPreview.editable") && ui.includes("/api/section-build/review-rows") && ui.includes("/api/section-build/apply") && ui.includes('role="alertdialog"'), "الواجهة موصولة في تخطيط الشعب وفيها تأكيدٌ قبل الكتابة");
 
@@ -71,7 +71,11 @@ try {
     check((await call("POST", "/api/section-build/apply", { ...base, fingerprint: "قديمة", pick })).status === 409, "بصمةٌ قديمة تُردّ");
     check((await call("POST", "/api/section-build/apply", { ...base, fingerprint: preview.body.fingerprint, pick: [] })).status === 400, "بلا اختيار يُردّ");
     check((await call("POST", "/api/section-build/apply", { ...base, fingerprint: preview.body.fingerprint, pick: [`${grow}:999`] })).status === 409, "شعبةٌ مزوَّرة لا يبنيها الخادم");
-    const applied = await call("POST", "/api/section-build/apply", { ...base, fingerprint: preview.body.fingerprint, pick });
+    /* التنزيلُ حفظٌ من القسم: ما يخالف اللائحة يُسأل عنه مرةً قبل أي كتابة، ثم يُكتب بالموافقة الصريحة. */
+    const asked = await call("POST", "/api/section-build/apply", { ...base, fingerprint: preview.body.fingerprint, pick });
+    if (asked.status !== 200) check(asked.status === 409 && asked.body?.code === "regulation-exception" && asked.body.regulation?.length > 0
+      && ((await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[]).length === before.length, "مخالفةُ اللائحة تُسأل قبل الإنزال ولا يُكتب شيء", asked.body);
+    const applied = asked.status === 200 ? asked : await call("POST", "/api/section-build/apply", { ...base, fingerprint: preview.body.fingerprint, pick, regulationException: true });
     check(applied.status === 200 && applied.body.applied.length === pick.length, "الإنزال كتب ما اختير كله", applied.body);
     const after = (await call("GET", "/api/schedules?collegeId=1&sectionId=1&termId=1")).body as any[];
     const mine = after.filter(r => r.origin?.kind === "planning");

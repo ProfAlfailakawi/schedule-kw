@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AlertOctagon, CalendarCheck, CalendarPlus, Check, CircleSlash, ShieldCheck, TrendingDown, TrendingUp, X, Zap } from "lucide-react";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
+import { settleRegulationException } from "./RegulationExceptionSheet";
 
 /**
  * ── «اعتمد في الجدول» ────────────────────────────────────────────────────────
@@ -20,10 +21,14 @@ export interface ApplyOutcome {
 
 /** نداءُ اعتماد اقتراحٍ مباشر (مركز الذكاء والرادار). يرمي رسالةَ الخادم كما هي. */
 export async function postScheduleProposal(body: unknown): Promise<any> {
-  const response = await fetch("/api/schedules/apply-proposal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const sent = JSON.stringify(body);
+  const response = await fetch("/api/schedules/apply-proposal", { method: "POST", headers: { "Content-Type": "application/json" }, body: sent });
   const text = await response.text();
   let data: any = {};
   try { data = text ? JSON.parse(text) : {}; } catch { throw new Error("وصل ردٌّ غير متوقّع من الخادم."); }
+  /* مخالفةُ لائحة: سؤالٌ صريح ثم الطلبُ نفسه (ملاحظتا المالك 10 و20). */
+  const settled = await settleRegulationException(response.status, data, sent, marked => postScheduleProposal(JSON.parse(marked)));
+  if (settled) return settled.value;
   if (!response.ok) throw new Error(data.error || "تعذّر تنفيذ الاقتراح.");
   return data;
 }

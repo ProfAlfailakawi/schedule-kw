@@ -1,3 +1,4 @@
+import { settleRegulationException } from "./RegulationExceptionSheet";
 import { isBlockingConflict } from "../utils/scheduleIntelligence";
 import CourseTags from "./CourseTags";
 import AlertShort from "./AlertShort";
@@ -113,7 +114,7 @@ const requestItemId = (item: InstructorRequestItem) => String(item.itemId
 const unchangedConfirmedAt = (row: InstructorRequest) => [...(row.timeline || [])]
   .reverse().find(event => event.kind === unchangedConfirmationKind)?.at || row.submittedAt || "";
 
-const request = async (url: string, init?: RequestInit) => {
+const request = async (url: string, init?: RequestInit): Promise<any> => {
   const response = await fetch(url, init);
   const body = await response.text();
   let data: any = {};
@@ -121,6 +122,9 @@ const request = async (url: string, init?: RequestInit) => {
     try { data = JSON.parse(body); }
     catch { throw new Error(response.ok ? "وصل ردٌّ غير متوقّع من الخادم." : `الخادم مشغول الآن (${response.status}).`); }
   }
+  /* تثبيتُ طلبٍ يخالف اللائحة: سؤالٌ صريح ثم الطلبُ نفسه موسوماً. */
+  const settled = await settleRegulationException(response.status, data, init?.body, marked => request(url, { ...init, body: marked }));
+  if (settled) return settled.value;
   if (!response.ok) throw new Error(data.error || "تعذّر تنفيذ العملية");
   return data;
 };

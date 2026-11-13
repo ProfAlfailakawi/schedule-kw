@@ -165,7 +165,8 @@ try {
     const slotFor = (extra: any = {}) => ({ ...approvalSlot, sectionCode: "01", instructorId: teacherRow.AdInstructorId,
       roomCode: teacherRow.AdRoomCode, roomHall: teacherRow.AdRoomHall, buildingId: teacherRow.buildingId, roomId: teacherRow.roomId, ...extra });
     const before = (await week()).length;
-    const approve = await call("POST", `/api/student-registration/${target1.row.id}/course-state`, { courseId: target1.course.id, state: "awaiting-registration", openSection: slotFor() });
+    /* فتحُ الشعبة حفظٌ من القسم: إن خالفت الخانةُ اللائحةَ سُئل عنها (regulation-exception)، والموافقةُ هنا صريحة كما في الورقة. */
+    const approve = await call("POST", `/api/student-registration/${target1.row.id}/course-state`, { courseId: target1.course.id, state: "awaiting-registration", openSection: slotFor(), regulationException: true });
     check(approve.status === 200 && approve.body?.ok && approve.body.opened?.id > 0, "R1 موافقةُ اللجنة مع فتح شعبة: تنجح وتُرجع صفَّ الجدول الجديد", approve);
     const afterApprove = await week();
     const created = afterApprove.find(row => row.id === approve.body?.opened?.id);
@@ -173,7 +174,7 @@ try {
     const reread = (await registration()).find(row => row.id === target1.row.id)?.courses.find((c: any) => c.id === target1.course.id);
     check(reread?.settled === true && reread.scheduleId === created?.id && reread.sectionCode === created?.SCode && /فُتحت شعبة/.test(reread.note || ""), "R3 والكشفُ يقرأ الربط: رقمُ الشعبة وصفُّها", reread);
     if (target2) {
-      const rejected = await call("POST", `/api/student-registration/${target2.row.id}/course-state`, { courseId: target2.course.id, state: "awaiting-registration", openSection: slotFor({ sectionCode: "77" }) });
+      const rejected = await call("POST", `/api/student-registration/${target2.row.id}/course-state`, { courseId: target2.course.id, state: "awaiting-registration", openSection: slotFor({ sectionCode: "77" }), regulationException: true });
       const stillOpen = (await registration()).find(row => row.id === target2.row.id)?.courses.find((c: any) => c.id === target2.course.id);
       check(rejected.status >= 400 && rejected.body?.stateSaved === false && stillOpen?.settled === false && (await week()).length === before + 1, "R4 شعبةٌ غير صالحة تُردّ، ولا تُسجَّل الموافقة، ولا يُكتب شيء", rejected);
       const reject = await call("POST", `/api/student-registration/${target2.row.id}/course-state`, { courseId: target2.course.id, state: "committee-rejected", reasonCode: "prerequisite", openSection: slotFor({ day: "fthursday", start: "09:00", end: "10:15", sectionCode: "66" }) });
@@ -181,7 +182,7 @@ try {
     }
 
     /* ── تكرارُ الأثر: إعادةُ الضغط لا تفتح ثانيةً، وموافقتان متزامنتان تتّفقان على شعبةٍ واحدة ── */
-    const again = await call("POST", `/api/student-registration/${target1.row.id}/course-state`, { courseId: target1.course.id, state: "awaiting-registration", openSection: slotFor({ start: "09:00", end: "10:15", day: "fthursday" }) });
+    const again = await call("POST", `/api/student-registration/${target1.row.id}/course-state`, { courseId: target1.course.id, state: "awaiting-registration", openSection: slotFor({ start: "09:00", end: "10:15", day: "fthursday" }), regulationException: true });
     check(again.status === 200 && again.body?.opened?.reused === true && again.body.opened.id === approve.body.opened.id && (await week()).length === before + 1, "R6 إعادةُ الموافقة لا تفتح شعبةً ثانية (تلتقط الشعبة المفتوحة لهذا الطلب)", again);
     const target3 = pending[2];
     if (target3) {
@@ -198,7 +199,7 @@ try {
         if (!busy) free = { day, start: clock(start), end: clock(start + duration) };
       }
       const slot3 = slotFor({ ...free, sectionCode: "55" });
-      const [one, two] = await Promise.all([1, 2].map(() => call("POST", `/api/student-registration/${target3.row.id}/course-state`, { courseId: target3.course.id, state: "awaiting-registration", openSection: slot3 })));
+      const [one, two] = await Promise.all([1, 2].map(() => call("POST", `/api/student-registration/${target3.row.id}/course-state`, { courseId: target3.course.id, state: "awaiting-registration", openSection: slot3, regulationException: true })));
       const afterParallel = await week();
       const mine = afterParallel.filter(row => row.origin?.refId === `need:${target3.row.id}:course:${target3.course.id}`);
       check(one.status === 200 && two.status === 200 && mine.length === 1 && afterParallel.length === rowsBefore + 1, "R7 موافقتان متزامنتان على الحالة نفسها: شعبةٌ واحدة لا اثنتان، ونجاحٌ للاثنتين", [one.status, two.status, mine.length, one.body?.error, two.body?.error]);
