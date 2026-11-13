@@ -326,27 +326,18 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
 
   /* الطلب الفعلي (تقرير التسجيل): شارةٌ صغيرة على كل مقرر — قراءةٌ لا تمنع شيئاً. */
   const [demandFacts, setDemandFacts] = useState<Record<string, CourseDemandFact> | null>(null);
-<<<<<<< HEAD
   const [graduateClashes, setGraduateClashes] = useState<Array<{ a: { code: string; name: string; courseIds?: number[] }; b: { code: string; name: string; courseIds?: number[] }; track: string; graduates: number }>>([]);
   useEffect(() => {
     setDemandFacts(null); setGraduateClashes([]);
-=======
-  useEffect(() => {
-    setDemandFacts(null);
->>>>>>> origin/main
     if (!collegeId || !sectionId || !termId) return;
     const controller = new AbortController();
     void fetch(`/api/actual-demand?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include", signal: controller.signal })
       .then(response => (response.ok ? response.json() : null))
-<<<<<<< HEAD
       .then(data => {
         if (controller.signal.aborted) return;
         setDemandFacts(data?.facts && Object.keys(data.facts).length ? data.facts : null);
         setGraduateClashes(Array.isArray(data?.graduateClashes) ? data.graduateClashes : []);
       })
-=======
-      .then(data => { if (!controller.signal.aborted && data) setDemandFacts(data.facts || null); })
->>>>>>> origin/main
       .catch(() => undefined);
     return () => controller.abort();
   }, [collegeId, sectionId, termId, localRows]);

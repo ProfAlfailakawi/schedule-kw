@@ -1626,7 +1626,6 @@
       ],
       "evidence": { "code": ["src/utils/smartSuggestions.ts#courseRemovalVerdict", "src/server/timeMachineRoutes.ts", "src/server/timeMachineRoutes.ts#actualDemandFactsFor"], "tests": ["tests/smart-suggestions-audit.ts"] },
       "inferred": false
-<<<<<<< HEAD
     },
     {
       "id": "FR-INT-077",
@@ -1666,11 +1665,6 @@
   ],
   "edgeCases": [
     { "title": {"ar": "لا تقرير خريجين", "en": "No graduates report"}, "scenario": {"ar": "رُفع التقرير العام وحده.", "en": "Only the general report was uploaded."}, "behavior": {"ar": "لا تعارض خريجين ولا ملاحظة قبل الحفظ؛ لا حكم بلا بيانات.", "en": "No graduates' clash and no pre-save note; no verdict without data."}, "evidence": ["tests/actual-demand-graduates-audit.ts"] },
-=======
-    }
-  ],
-  "edgeCases": [
->>>>>>> origin/main
     { "title": {"ar": "كلية بلا مسار بنين أو بنات", "en": "A college with no boys or girls track"}, "scenario": {"ar": "اسم الكلية لا يحمل «بنين» ولا «بنات» (العرض التجريبي).", "en": "The college name carries neither «boys» nor «girls» (the demo)."}, "behavior": {"ar": "مسارٌ واحد يخدم مجموع الطلبة، ولا اقتراح نقل.", "en": "One track serves all students, with no move suggestion."}, "evidence": ["tests/actual-demand-supply-audit.ts"] },
     {
       "title": { "ar": "غياب خدمة Gemini أو فشلها", "en": "Gemini service absent or failing" },

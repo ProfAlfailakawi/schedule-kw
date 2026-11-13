@@ -214,11 +214,7 @@ import { courseLabel, instructorLabel } from "../utils/courseLabel";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
-<<<<<<< HEAD
 import { actualDemandNotice, graduateImpactNote, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
-=======
-import { actualDemandNotice, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
->>>>>>> origin/main
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
 import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
 import { historicalDurationMinutes, pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
