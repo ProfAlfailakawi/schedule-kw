@@ -34,9 +34,11 @@ assert.match(location, /showDepartmentHistory=false/,
   "منتقي القاعة يخفي السجل التاريخي افتراضياً في نماذج المواعيد");
 assert.match(schedule, /<ScheduleReview[^]*colleges=\{collegeById\}/,
   "مراجعة الاعتماد تستقبل أسماء الكليات للسياق الأكاديمي");
-assert.match(approval, /<small className="review-course-college">\{course\.college\}<\/small>/,
-  "اسم الكلية يظهر مع المقرر داخل بطاقة مراجعة الاعتماد");
-assert.match(approvalStyles, /\.review-course-identity \.review-course-college \{[^}]*font-size:\.64rem[^}]*font-weight:400/,
-  "اسم الكلية يظهر بخط صغير وخفيف");
+/* المالك 2026-11-13: الحرمُ وسمٌ قصير على كل موعد («بنين»/«بنات»/«الفحيحيل»…) من اسم كليته. */
+assert.match(approval, /<CampusChip tag=\{campusOf\(row\)\} \/>/,
+  "حرمُ كل موعدٍ يظهر وسماً داخل بطاقة مراجعة الاعتماد");
+assert.match(approval, /inboxCampusLabels\(/,
+  "الوسم من اسم الكلية بالدالة التي تختصره في البرنامج كله");
+void approvalStyles;
 
 console.log("schedule-interface-audit ok");

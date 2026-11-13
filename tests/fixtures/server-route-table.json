@@ -478,8 +478,8 @@
    ],
    "path": "/api/auth/recover/verify",
    "name": "bound dispatch",
-   "call": "e1a0a107a1bcd3f4",
-   "site": "src/server/staffRecovery.ts:212",
+   "call": "926d0aafdf48414d",
+   "site": "src/server/staffRecovery.ts:216",
    "regexp": "/^\\/api\\/auth\\/recover\\/verify\\/?$/i",
    "end": true
   },
@@ -490,8 +490,8 @@
    ],
    "path": "/api/auth/recover/complete",
    "name": "bound dispatch",
-   "call": "b0fef65a81077978",
-   "site": "src/server/staffRecovery.ts:263",
+   "call": "3dd82a8c29bbb004",
+   "site": "src/server/staffRecovery.ts:266",
    "regexp": "/^\\/api\\/auth\\/recover\\/complete\\/?$/i",
    "end": true
   },
