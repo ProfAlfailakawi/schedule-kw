@@ -25,7 +25,7 @@ import {
   minutesToTime, timeToMinutes, type ConflictInsight, type DayKey,
 } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
-import { daysFitLibrary, effectiveCourseHours, patternsForHours, reviewSchedule, type DayKey as RegulationDay } from "./scheduleRegulations";
+import { effectiveCourseHours, patternsForHours, reviewSchedule, sectionDaysFitLibrary } from "./scheduleRegulations";
 import { findRepairChain, planDisruption, type RepairMove } from "./repairChain";
 import { parseNaturalQuery, toEnglishDigits } from "./naturalQuery";
 import { roomIdentityKey } from "./locationRegistry";
@@ -545,7 +545,7 @@ export function verifyNoNewBlocking(before: FSchedule[], after: FSchedule[], con
 }
 
 /**
- * ما يقترحه السيناريو يمرّ بقاعدة «موعد» نفسها (unapprovedPatternIssue): صفٌّ تغيّر شكله تكون أيام شعبته كلُّها
+ * ما يقترحه السيناريو يمرّ بقاعدة «موعد» نفسها (sectionDaysFitLibrary): صفٌّ تغيّر شكله تكون أيام شعبته كلُّها
  * نمطاً معتمداً لساعات المقرر. كان الحلُّ يُعرض ثم يرفضه الاعتماد («ليست نمطاً معتمداً»).
  */
 export function changedRowsFitPatterns(before: FSchedule[], after: FSchedule[], context: Pick<TmContext, "courses">): boolean {
@@ -556,15 +556,11 @@ export function changedRowsFitPatterns(before: FSchedule[], after: FSchedule[], 
     const was = old.get(Number(row.id));
     if (was && sameShape(was, row)) return true;
     const hours = effectiveCourseHours(courses.get(Number(row.AdCourseId)));
-    const own = activeDays(row);
-    if (!(hours > 0) || !own.length) return true;
-    const union = new Set<RegulationDay>(own as RegulationDay[]);
-    for (const other of after) {
-      if (Number(other.id) === Number(row.id) || Number(other.AdCourseId) !== Number(row.AdCourseId) || String(other.SCode || "") !== String(row.SCode || "")
-        || Number(other.AdCollegeId) !== Number(row.AdCollegeId) || Number(other.AdSectionId) !== Number(row.AdSectionId) || Number(other.AdTermId) !== Number(row.AdTermId)) continue;
-      activeDays(other).forEach(day => union.add(day as RegulationDay));
-    }
-    return daysFitLibrary(hours, union, own.length > 1) !== false;
+    if (!(hours > 0) || !activeDays(row).length) return true;
+    const siblings = after.filter(other => Number(other.id) !== Number(row.id) && Number(other.AdCourseId) === Number(row.AdCourseId) && String(other.SCode || "") === String(row.SCode || "")
+      && Number(other.AdCollegeId) === Number(row.AdCollegeId) && Number(other.AdSectionId) === Number(row.AdSectionId) && Number(other.AdTermId) === Number(row.AdTermId));
+    /* الشعبةُ كلُّها معاً (sectionDaysFitLibrary): يومان من صفّين لا يُقبلان لأن كلاً منهما داخل نمطٍ أكبر. */
+    return sectionDaysFitLibrary(hours, row as any, siblings as any) !== false;
   });
 }
 

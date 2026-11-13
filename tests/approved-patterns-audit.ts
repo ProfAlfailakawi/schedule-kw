@@ -17,12 +17,13 @@
  *      السُّلّم أو خرج طولُه عن المكتبة، ولا «خارج المعتاد تاريخياً»، ولا يُعفي التاريخُ نمطاً.
  */
 import fs from "node:fs";
-import { LONG_DAY_GAP_MINUTES, daysApprovedForHours, daysFitLibrary, ladderStepForDays, libraryLengthsForDay, patternsForHours, requiredGapForDays, startLadderNote } from "../src/utils/scheduleRegulations";
+import { LONG_DAY_GAP_MINUTES, daysApprovedForHours, daysFitLibrary, sectionDaysFitLibrary, ladderStepForDays, libraryLengthsForDay, patternsForHours, requiredGapForDays, startLadderNote } from "../src/utils/scheduleRegulations";
 import { judgeRequest } from "../src/utils/instructorRequestVerdict";
 import { meetingMinutes, lengthPatternsForHours } from "../src/utils/requestMeetingLength";
 import { stickCandidates } from "../src/utils/lectureStick";
 import { freeTargets, teacherLectures } from "../src/utils/teacherMiniWeek";
 import { reviewSchedule } from "../src/utils/scheduleRegulations";
+import { changedRowsFitPatterns } from "../src/utils/timeMachine";
 import { historicalDurationMinutes } from "../src/utils/advancedIntelligence";
 import { offRhythm } from "../src/utils/departmentRhythm";
 
@@ -59,7 +60,7 @@ const rules = fs.readFileSync("src/server/core/scheduleRules.ts", "utf8");
 const writes = fs.readFileSync("src/server/core/scheduleWrites.ts", "utf8");
 const review = fs.readFileSync("src/server/routes/scheduleReviewRoutes.ts", "utf8");
 const inbox = fs.readFileSync("src/server/routes/instructorRequestsRoutes.ts", "utf8");
-check(/export async function unapprovedPatternIssue/.test(rules) && /daysFitLibrary\(hours,union,own\.length>1\)/.test(rules), "P5 مانعٌ واحد: أيامُ الشعبة كلها نمطٌ معتمد (والصفّ بيومٍ واحد جزءٌ منه)");
+check(/export async function unapprovedPatternIssue/.test(rules) && /sectionDaysFitLibrary\(hours,row,siblings\)/.test(rules), "P5 مانعٌ واحد: أيامُ الشعبة كلها نمطٌ معتمد (والصفّ بيومٍ واحد جزءٌ منه)");
 check(!/historicalOrigin\(await courseHabit\(courseId,termId\)/.test(rules) && !/!habitual&&reading\.total/.test(rules), "P5 لا يُعفي التاريخُ نمطاً مختلطاً ولا سقفَ الساعات");
 check((writes.match(/unapprovedPatternIssue\(/g) || []).length === 2 && /unchangedShape\|\|\(req as any\)\.__exactRestore\?null:await unapprovedPatternIssue/.test(writes)
   && /\(req as any\)\.__exactRestore\?null:await unapprovedPatternIssue\(req\.body/.test(writes), "P5 بوابتا الإنشاء والتعديل (والشكل الذي لم يتغيّر والاستعادة لا يُرفضان)");
@@ -207,6 +208,21 @@ check(/const quietFindings = \[\.\.\.groupedFindings\.filter\(finding => finding
   "P12 شاشةُ «مراجعة الاعتماد» تُظهر «خارج سُلّم اللائحة» في سطر الملاحظات، ولا يُنقص درجةَ الاعتماد");
 check(/startsWith\("course:"\)\) \? AR\.course/.test(reviewScreen) && /countOf\(finding\.groupedCount, caseNoun\(finding\)\)/.test(reviewScreen), "P12 ويُعدّ بالمقرّرات لا «تعارضات»");
 void teacherLectures;
+
+/* P13 — قرار المالك 2026-11-13: أيامُ الشعبة كلِّها نمطٌ واحد (sectionDaysFitLibrary) في الحفظ و«ثبّت» وآلة الزمن. */
+{
+  const at = (id: number, days: string[], start: string, end: string) => ({ id, AdCourseId: 1, SCode: "1", AdCollegeId: 1, AdSectionId: 1, AdTermId: 1, fsunday: days.includes("sun"), fmonday: days.includes("mon"), ftuesday: days.includes("tue"), fwednesday: days.includes("wed"), fthursday: days.includes("thu"), fstarttime: start, fendtime: end }) as any;
+  check(sectionDaysFitLibrary(3, at(1, ["sun"], "08:00", "09:20"), [at(2, ["thu"], "08:00", "09:20")]) === false, "P13 الأحد 80 + الخميس 80 من صفّين لمقرر بثلاث ساعات: مرفوض");
+  check(sectionDaysFitLibrary(3, at(1, ["sun"], "08:00", "09:20"), []) === true, "P13 الأحد 80 وحده (ناقصة): جزءٌ من نمط");
+  check(sectionDaysFitLibrary(3, at(1, ["thu"], "08:00", "08:50"), [at(2, ["sun"], "08:00", "08:50"), at(3, ["tue"], "08:00", "08:50")]) === true, "P13 الأحد·الثلاثاء·الخميس من ثلاثة صفوف: مقبول");
+  check(sectionDaysFitLibrary(3, at(1, ["thu"], "08:00", "10:50"), []) === true && sectionDaysFitLibrary(4, at(1, ["mon"], "08:00", "11:50"), []) === true, "P13 كتلة اليوم الواحد على أيّ يوم");
+  check(sectionDaysFitLibrary(3, at(1, ["thu"], "08:00", "09:20"), [at(2, ["mon"], "08:00", "09:20")]) === false, "P13 الاثنين + الخميس: مرفوض");
+  check(sectionDaysFitLibrary(4, at(1, ["thu"], "08:00", "09:50"), [at(2, ["sun"], "08:00", "09:50")]) === false, "P13 الأحد·الخميس لأربع ساعات: مرفوض");
+  const before = [at(1, ["sun"], "08:00", "09:20"), at(2, ["tue"], "08:00", "09:20")];
+  const tmContext = { courses: [{ AdCourseId: 1, CourseHours: 3, CourseCredit: 3 }] } as any;
+  check(changedRowsFitPatterns(before, [before[0], { ...before[1], ftuesday: false, fthursday: true }], tmContext) === false, "P13 آلة الزمن: نقلُ الثلاثاء إلى الخميس (الأحد·الخميس) لا يُقترح");
+  check(changedRowsFitPatterns(before, [before[0], { ...before[1], fstarttime: "10:00", fendtime: "11:20" }], tmContext) === true, "P13 آلة الزمن: تغييرُ الوقت على الأحد·الثلاثاء مقبول");
+}
 
 console.log(`\nApproved patterns audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

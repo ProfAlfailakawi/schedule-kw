@@ -140,6 +140,7 @@ label.time input:focus,select:focus,textarea:focus,label.sign input:focus{outlin
 .cal-line.compact{margin:0 0 12px;text-align:start}.cal-line.compact>summary{min-height:38px;padding:7px 10px}.cal-line.compact .cal-body{padding:9px 10px}.cal-line.compact p{margin:4px 2px 0}
 .cal-btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}.cal-line.compact .cal-btns{justify-content:flex-start}.cal-btns .cal-btn{flex:1 1 90px;min-height:44px}
 .verify-line{margin:14px 2px 0;font-size:13px;color:var(--muted);text-align:center}.verify-line a{display:inline-flex;align-items:center;min-height:44px;padding:0 8px;color:var(--accent);font-weight:700}
+.pin-blocks{list-style:none;margin:8px 0 12px;padding:0;display:grid;gap:6px}.pin-blocks li{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:var(--warn2);color:#735100;font-size:12.5px;line-height:1.6}.pin-blocks li span{flex:1;min-inline-size:0;overflow-wrap:anywhere}.pin-blocks .act{flex:none;min-height:40px}
 .shape-lead{margin:0;font-size:12px;color:var(--muted)}.auto-note{margin:6px 0 0;padding:6px 10px;border-radius:10px;background:var(--soft);color:var(--muted);font-size:12px;line-height:1.6}.alts.shapes button{border-color:var(--accent);background:var(--soft);color:var(--ink);font-weight:600}
 .alts-ro span{padding:7px 11px;border-radius:999px;border:1px dashed var(--line);background:var(--soft,#f4f6f5);color:var(--ink,#1d2b24);font-size:12px}
 .days button,.starts button,.alts button,.reply button,.acts .act{min-height:44px}
@@ -860,14 +861,15 @@ function paint(){
  /* تثبيتُ الجدول كما هو يُمنع إن خالف موعدٌ قائمٌ النمطَ أو اللائحة (المالك): يقول الخادمُ السبب، فيُقال هنا قبل الضغط.
     ومع ملاحظةٍ للقسم ليس تثبيتاً بل إرسالٌ ينتظر القسم (canConfirmUnchanged)، فلا يُمنع. */
  var pinBlockTxt=(!sent&&edited===0&&!String(noteNow()).trim()&&data.pinBlocked&&data.pinBlocked.length)?data.pinBlocked.map(function(p){return p.text}).join(" · "):"";
- var pinSoftTxt=(!sent&&edited===0&&!pinBlockTxt&&data.pinSoft&&data.pinSoft.length)?data.pinSoft.map(function(p){return p.text}).join(" · "):"";
  var showReady=open&&(!sent||edited>0);
  var readyTxt=sent&&!blocked?countOf(edited,AR.edit):ready;
- var readySub=pinSoftTxt?"تنبيه لا يمنع: "+pinSoftTxt+" — يصل القسمَ مع تثبيتك":incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?"تأكيدك يثبّت الجدول كما هو":sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
+ var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?"تأكيدك يثبّت الجدول كما هو":sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
  var h=skBackIcon()+proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم. احفظ تعديلك أو أرسله ثم حدّث الصفحة.</span></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open||data.mode==="view"?"":(r.window&&r.window.closesAt&&Date.parse(r.window.closesAt)<=Date.now())?" · انتهت مدّة الطلبات، والصفحة للقراءة":approved?" · اكتمل طلبك، والصفحة للقراءة":" · الصفحة للقراءة")+'</p>'+
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+tcRibbon(r,open)+
   (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited,badN,incompleteN,pinBlockTxt)+
+  /* كلُّ موعدٍ يمنع «ثبّت» برقم مادّته، وزرُّ «عدّل» يأخذه إليه (قرار المالك النهائي 2026-11-13). */
+  (pinBlockTxt?'<ul class="pin-blocks" aria-label="مواعيد تمنع التثبيت">'+data.pinBlocked.map(function(p){return '<li><span>'+esc(p.text)+'</span><button type="button" class="act" data-pin-edit="'+Number(p.itemIndex)+'">'+gi("arrow")+'عدّل</button></li>'}).join("")+'</ul>':'')+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
  h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(notedScope().length?'<div class="noted-banner" role="status">'+gi("eye")+'<span>التسجيل أعاد جدولك بملاحظات. عدّل المقررات المميّزة فقط.</span></div>':'')+(deckHtml()||calmHtml())+offeringsHtml()+replayHtml()+memoryHtml()+planTable();
  if(open&&!notedScope().length&&data.courses&&data.courses.length){
@@ -1048,6 +1050,7 @@ function deadlineHtml(r,open){if(!open||!r.window||!r.window.closesAt)return "";
  var end=new Date(r.window.closesAt);if(isNaN(end))return "";var left=Math.ceil((end.getTime()-Date.now())/864e5);if(left<0)return "";
  var when=end.toLocaleDateString("ar",{weekday:"long",day:"numeric",month:"long"});
  return '<p class="deadline" data-urgent="'+(left<=2?1:0)+'">'+(left===0?"يُغلق استقبال الطلبات اليوم":"باقٍ "+countOf(left,AR.day)+" على إغلاق الطلبات")+' · '+esc(when)+'</p>'}
+document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("[data-pin-edit]"):null;if(!b)return;var i=Number(b.getAttribute("data-pin-edit"));if(state[i]){focusItem(i);var card=document.getElementById("item-"+i);if(card)card.scrollIntoView({behavior:"smooth",block:"center"})}});
 function focusItem(i,msg){openCards[i]=true;activeTab="schedule";paint();if(msg)document.getElementById("err").innerHTML='<div class="err">'+esc(msg)+'</div>';
  var card=document.getElementById("item-"+i);if(card)card.scrollIntoView({behavior:"smooth",block:"center"})}
 function submit(){

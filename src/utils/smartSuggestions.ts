@@ -8,7 +8,7 @@
  *   ٢) قاعةٌ في مكانها: مقررٌ في قاعةٍ من غير نوعه وقاعتُه الملائمة فارغة في وقته،
  *      فيعود إليها — ويُفسح مكانه لمقررٍ يحتاج تلك القاعة إن وُجد.
  *   ٣) «أريد حذف مقرر»: حكمٌ واضح (يُنصح / بحذر / لا يُنصح) بأسبابه.
- *   ٤) تحويل النمط: كتلةٌ واحدة طويلة ← يومان بنصف المدة؛ ما يُوفَّر وما يُستهلك.
+ *   ٤) تحويل النمط: كتلةٌ واحدة طويلة ← نمطٌ بيومين من المكتبة بأطواله وسُلّم بداياته؛ ما يُوفَّر وما يُستهلك.
  *
  * كلُّ تغييرٍ مقترح يمرّ بفحص الحفظ نفسه (لا تعارض جديد، والصفوف المغيّرة نظيفة)
  * قبل أن يُعرض، ولا يُعتمد إلا من منضدة السيناريو (اعتمادٌ ذرّي واستعادة بنقرة).
@@ -21,7 +21,7 @@ import {
 } from "./timeMachine";
 import { activeDays, minutesToTime, timeToMinutes, type DayKey } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
-import { daysFitLibrary, effectiveCourseHours, type DayKey as RegulationDay } from "./scheduleRegulations";
+import { effectiveCourseHours, ladderStartNear, patternOnDays, type DayKey as RegulationDay } from "./scheduleRegulations";
 import { roomIdentityKey } from "./locationRegistry";
 import { roomSuitability } from "./roomSuitability";
 import { isTrainingAssistant } from "./taConversion";
@@ -257,7 +257,7 @@ export function courseRemovalVerdict(context: TmContext, courseId: number): Remo
   return { courseId, label, tone, headline, reasons, sections, changes, delta: compareBoards(base, after, context) };
 }
 
-/* ── ٤) تحويل النمط: كتلةٌ طويلة ← يومان بنصف المدة (قراءةٌ فقط) ───────── */
+/* ── ٤) تحويل النمط: كتلةٌ طويلة ← نمطٌ بيومين من المكتبة على سُلّم البدايات (قراءةٌ فقط) ── */
 
 export interface PatternCandidate { rowId: number; label: string; day: DayKey; start: string; end: string; hall: string; minutes: number }
 
@@ -318,34 +318,54 @@ export function simulatePatternConversion(context: TmContext, rowIds: number[], 
     const row = board.find(item => Number(item.id) === Number(id));
     if (!row) continue;
     const course = courses.get(Number(row.AdCourseId));
-    const startMin = timeToMinutes(row.fstarttime);
-    const half = Math.round((timeToMinutes(row.fendtime) - startMin) / 2 / 5) * 5;
-    const end = minutesToTime(startMin + half);
+    const label = `${tmCourseNumber(course, context)} ش${row.SCode}`;
+    const before = `${dayLabel(activeDays(row)[0])} ${row.fstarttime}–${row.fendtime}`;
+    /* الأيامُ والأطوالُ من مكتبة الأنماط وحدها (patternOnDays)، والبدايةُ من سُلّم اللائحة (م.7/8):
+       لا نصفَ مدّةٍ ولا بدايةَ خارج السُّلّم. زوجٌ ليس نمطاً لساعات المقرر لا يُحوَّل إليه. */
+    const hours = effectiveCourseHours(course);
+    const pattern = hours > 0 ? patternOnDays(hours, target as RegulationDay[]) : null;
+    const longest = pattern ? Math.max(...pattern.minutesPerDay) : 0;
+    const startText = pattern ? ladderStartNear(target as RegulationDay[], timeToMinutes(row.fstarttime), longest) : null;
+    if (!pattern || !startText) {
+      results.push({ rowId: Number(row.id), label, before, after: target.map(dayLabel).join(" + "), hall: "—", room: "none", teacherFree: true, approved: hours > 0 ? false : null });
+      continue;
+    }
+    const startMin = timeToMinutes(startText);
+    /* لقاءاتٌ متساوية صفٌّ واحد بيومين؛ وغيرُ المتساوية (170/110) صفٌّ لكل طول. */
+    const groups = new Map<number, DayKey[]>();
+    pattern.days.forEach((day, index) => groups.set(pattern.minutesPerDay[index], [...(groups.get(pattern.minutesPerDay[index]) || []), day as DayKey]));
+    const meetings = [...groups.entries()].map(([minutes, days]) => ({ days, end: startMin + minutes }));
     const ignore = new Set([Number(row.id)]);
     const teacher = Number(row.AdInstructorId);
-    const teacherFree = placeholders.has(teacher) || !board.some(other => !ignore.has(Number(other.id)) && Number(other.AdInstructorId) === teacher && busyOverlap(other, target, startMin, startMin + half));
+    const teacherFree = placeholders.has(teacher) || !board.some(other => !ignore.has(Number(other.id)) && Number(other.AdInstructorId) === teacher
+      && meetings.some(meeting => busyOverlap(other, meeting.days, startMin, meeting.end)));
+    const freeFor = (candidate: TmHall) => meetings.every(meeting => hallFree(board, candidate, meeting.days, startMin, meeting.end, ignore));
     const own = rowHall(row);
-    let hall: TmHall | null = hallFree(board, own, target, startMin, startMin + half, ignore) ? own : null;
+    let hall: TmHall | null = freeFor(own) ? own : null;
     let room: PatternRowResult["room"] = hall ? "same" : "none";
     if (!hall) {
       const expected = String(course?.CourseRoomType || "").trim();
-      hall = context.halls.filter(item => !expected || item.roomType === expected)
-        .find(item => hallFree(board, item, target, startMin, startMin + half, ignore)) || null;
+      hall = context.halls.filter(item => !expected || item.roomType === expected).find(freeFor) || null;
       if (hall) room = "other";
     }
     touchedHalls.add(roomIdentityKey(row));
     if (hall) touchedHalls.add(hallKey(hall));
-    const hours = effectiveCourseHours(course);
-    const approved = hours > 0 ? daysFitLibrary(hours, new Set(target as RegulationDay[]), true) : null;
     results.push({
       rowId: Number(row.id),
-      label: `${tmCourseNumber(course, context)} ش${row.SCode}`,
-      before: `${dayLabel(activeDays(row)[0])} ${row.fstarttime}–${row.fendtime}`,
-      after: `${target.map(dayLabel).join(" + ")} ${row.fstarttime}–${end}`,
+      label, before,
+      after: meetings.map(meeting => `${meeting.days.map(dayLabel).join(" + ")} ${startText}–${minutesToTime(meeting.end)}`).join(" · "),
       hall: hall ? hallLabel(hall) : "—",
-      room, teacherFree, approved,
+      room, teacherFree, approved: true,
     });
-    if (hall) board = applyChanges(board, [{ id: changeId("p"), op: "move", rowId: Number(row.id), days: target, start: row.fstarttime, end, hall, label: "" }]);
+    if (hall) {
+      const [first, ...rest] = meetings;
+      board = applyChanges(board, [{ id: changeId("p"), op: "move", rowId: Number(row.id), days: first.days, start: startText, end: minutesToTime(first.end), hall, label: "" }]);
+      const moved = board.find(item => Number(item.id) === Number(row.id))!;
+      if (rest.length) board = applyChanges(board, [{ id: changeId("p"), op: "add", label: "", rows: rest.map((meeting, index) => ({
+        ...moved, id: -(Number(row.id) * 10 + index + 1), fsunday: false, fmonday: false, ftuesday: false, fwednesday: false, fthursday: false,
+        ...Object.fromEntries(meeting.days.map(day => [day, true])), fendtime: minutesToTime(meeting.end),
+      }) as FSchedule) }]);
+    }
   }
   const scope = scopeOf(context);
   const roomDays = (rows: FSchedule[]) => new Set(rows.filter(scope).flatMap(row => activeDays(row).map(day => `${roomIdentityKey(row)}|${day}`))).size;
