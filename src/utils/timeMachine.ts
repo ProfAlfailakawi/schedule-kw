@@ -981,7 +981,10 @@ function relocateRow(row: FSchedule, index: BusyIndex, context: TmContext, optio
   /* الأيامُ البديلة والطولُ من مكتبة الأنماط، والبداياتُ من سُلّم اللائحة (regulationCandidates): نقلُ الاثنين·الأربعاء 80
      إلى الأحد لا يحمل الثمانين معه، ولا يُقترح 9:30 على الأحد. */
   const hours = effectiveCourseHours(course);
-  const shapes = regulationDaySwaps(hours, original as RegulationDay[], (options.avoidDay as RegulationDay) || null, duration);
+  const siblings = options.board.filter(other => Number(other.id) !== Number(row.id) && sectionKey(other) === sectionKey(row)
+    && Number(other.AdCollegeId) === Number(row.AdCollegeId) && Number(other.AdSectionId) === Number(row.AdSectionId) && Number(other.AdTermId) === Number(row.AdTermId))
+    .map(other => ({ days: activeDays(other) as RegulationDay[], minutes: durationOf(other) }));
+  const shapes = regulationDaySwaps(hours, original as RegulationDay[], (options.avoidDay as RegulationDay) || null, duration, siblings);
   for (const { days: set, minutes } of shapes) {
     const days = set as DayKey[];
     for (const start of regulationStartsNear(days, minutes, timeToMinutes(row.fstarttime), { start: SCHEDULE_DAY_START, end: SCHEDULE_DAY_END })) {

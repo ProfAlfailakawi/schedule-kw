@@ -9,9 +9,10 @@ import { readFileSync } from "fs";
 import type { AdCourse, AdInstructor, FSchedule } from "../src/types";
 import { regulationExceptionIssues } from "../src/utils/regulationException";
 import {
-  regulationCandidates, regulationDaySwaps, regulationLengthFor, regulationPlacementIssues, regulationShapes, regulationStarts,
+  regulationCandidates, regulationDaySwaps, regulationLengthFor, regulationPlacementIssues, regulationShapes, regulationStarts, singleDayBlockDays,
 } from "../src/utils/regulationCandidates";
-import { DAY_KEYS, daysFitLibrary, lectureLengthProblem, type DayKey } from "../src/utils/scheduleRegulations";
+import { DAY_KEYS, daysFitLibrary, lectureLengthProblem, meetingsMatchApprovedPattern, type DayKey } from "../src/utils/scheduleRegulations";
+import { createEmergencyPlans } from "../src/utils/livingSchedule";
 import { solveProblem, suggestPlacements, type TmContext } from "../src/utils/timeMachine";
 import { findRepairChain } from "../src/utils/repairChain";
 import { activeDays, autoScheduleProposal, conflictSolutions } from "../src/utils/scheduleIntelligence";
@@ -115,6 +116,38 @@ console.log("٤) الإصلاحُ والتحسين والطوارئ");
   for (const option of conflictSolutions(clash[5], clash, 5)) rowOk({ ...clash[5], fstarttime: option.start, fendtime: option.end } as FSchedule, `حلُّ التعارض ${option.start}`);
   const proposal = autoScheduleProposal(clash, clash);
   proposal.rows.filter((item, index) => item.fstarttime !== clash[index].fstarttime).forEach(item => rowOk(item, `ضغطُ الفجوات ${item.id} ${item.fstarttime}`));
+}
+
+console.log("٤ب) الشعبةُ من صفوفٍ عدة تُنقل لقاءً لقاءً، وكتلةُ اليوم الواحد على أيّ يوم");
+{
+  /* مراجعة 4567213489: الأحد 80 + الثلاثاء 80 لثلاث ساعات؛ تفريغُ الأحد لا يضع كتلة 170 على الاثنين فيصير الأسبوع 250. */
+  const swaps = regulationDaySwaps(3, ["fsunday"], "fsunday", 80, [{ days: ["ftuesday"], minutes: 80 }]);
+  check(swaps.length > 0 && swaps.every(shape => shape.minutes === 80 && shape.days.join() === "fthursday"), "اللقاءُ وحده إلى الخميس بطوله (الثلاثاء·الخميس 80/80)", swaps);
+  const sun = row(31, 3, 20, ["fsunday"], "10:00", "11:20", "101", "07");
+  const tue = row(32, 3, 20, ["ftuesday"], "10:00", "11:20", "101", "07");
+  const plans = createEmergencyPlans("day", "fsunday", [sun, tue], [sun, tue], courses, [person(20, "د. هدى")]);
+  for (const plan of plans.plans) {
+    const moved = plan.rows.find((item: FSchedule) => item.id === 31)!;
+    const sibling = plan.rows.find((item: FSchedule) => item.id === 32)!;
+    if (moved.fsunday) continue;
+    const span = (item: FSchedule) => Number(String(item.fendtime).slice(0, 2)) * 60 + Number(String(item.fendtime).slice(3)) - Number(String(item.fstarttime).slice(0, 2)) * 60 - Number(String(item.fstarttime).slice(3));
+    const meetings = [moved, sibling].flatMap(item => (activeDays(item) as DayKey[]).map(day => ({ day, minutes: span(item) })));
+    check(meetingsMatchApprovedPattern(meetings, 3) && meetings.reduce((sum, item) => sum + item.minutes, 0) <= 165, `خطة «${plan.title}»: الشعبةُ نمطٌ معتمد ولا تتجاوز 165 دقيقة`, meetings);
+  }
+}
+{
+  /* مراجعة 4567213494: كتلةُ ثلاث ساعات الأربعاء 08:00–10:50، والاثنين والأربعاء ممتلئان والأحد فارغ. */
+  check(singleDayBlockDays(170, 3).includes("fsunday"), "كتلة 170 مؤهَّلةٌ للأحد");
+  const block = row(41, 2, 30, ["fwednesday"], "08:00", "10:50", "201", "09");
+  /* أستاذُ الكتلة يدرّس الاثنين·الأربعاء على كل درجات سُلّمهما (80 دقيقة)، فكلُّ موضعٍ فيهما يصطدم بلقاءين. */
+  const busy: FSchedule[] = ["08:00", "09:30", "11:00", "12:30", "14:00", "15:30", "17:00", "18:30"].map((start, i) => {
+    const from = Number(start.slice(0, 2)) * 60 + Number(start.slice(3));
+    return row(100 + i, 2, 30, ["fmonday", "fwednesday"], start, clock(from + 80), "202", "m" + i);
+  });
+  const board = [block, ...busy].map(item => ({ ...item, AdTermId: 1 }));
+  const chain = findRepairChain(block, board);
+  const move = chain?.moves.find(item => item.id === 41);
+  check(Boolean(move) && !move!.days.includes("fmonday") && !move!.days.includes("fwednesday"), "الإصلاحُ يجد يوماً من غير أسرة الأربعاء (الأحد أو غيره)", chain?.moves.map(item => [item.id, item.days, item.start]));
 }
 
 console.log("٥) «تحويل النمط» يأخذ البداية من المولّد نفسه");

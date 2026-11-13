@@ -16,7 +16,7 @@
 import type { FSchedule } from "../types";
 import { regulationExceptionIssues, type RegulationExceptionIssue } from "./regulationException";
 import {
-  DAY_KEYS, daysFitLibrary, ladderStartsForDays, lectureLengthProblem, patternsForHours, startLadderNote, toMinutes,
+  DAY_KEYS, daysFitLibrary, ladderStartsForDays, lectureLengthProblem, meetingsMatchApprovedPattern, patternsForHours, startLadderNote, toMinutes,
   type DayKey,
 } from "./scheduleRegulations";
 
@@ -144,9 +144,28 @@ export function regulationCandidates(weeklyHours: number, options: Parameters<ty
  * أشكالُ المكتبة التي لا تضمّ `avoid`، بعدد أيام الصفّ نفسه أولاً. بلا ساعاتٍ معروفة: يومٌ من الأسرة نفسها
  * يحلّ محلّ اليوم المتروك (الطولُ يبقى صالحاً)، ولا يُخلط اللقاءُ بين الأسرتين.
  */
-export function regulationDaySwaps(weeklyHours: number, days: readonly DayKey[], avoid: DayKey | null, minutes: number): RegulationShape[] {
+export function regulationDaySwaps(
+  weeklyHours: number, days: readonly DayKey[], avoid: DayKey | null, minutes: number,
+  siblings: ReadonlyArray<{ days: readonly DayKey[]; minutes: number }> = [],
+): RegulationShape[] {
   const original = ordered(days);
   const hours = Math.round(Number(weeklyHours) || 0);
+  /* شعبةٌ من صفوفٍ عدة: الصفُّ لا يُستبدل بنمطٍ أسبوعيٍّ كامل وإخوتُه باقون (يتضاعف الأسبوع). يتحرّك لقاؤه وحده
+     بطوله، إلى يومٍ يصير به لقاءاتُ الشعبة كلُّها نمطاً معتمداً (أيامُه وأطوالُه) — أو من أسرته حين لا تُعرف الساعات. */
+  const others = siblings.filter(item => item.days.length);
+  if (others.length) {
+    if (!avoid || !original.includes(avoid)) return [{ days: original, minutes, patternId: null }];
+    const taken = new Set(others.flatMap(item => item.days));
+    const long = (day: DayKey) => day === "fmonday" || day === "fwednesday";
+    return DAY_KEYS.filter(day => !original.includes(day) && !taken.has(day))
+      .map(day => ordered(original.map(item => (item === avoid ? day : item))))
+      .filter(set => {
+        if (!hours || !patternsForHours(hours).length) return set.every(day => long(day) === long(avoid));
+        const meetings = [{ days: set, minutes }, ...others].flatMap(item => item.days.map(day => ({ day, minutes: item.minutes })));
+        return meetingsMatchApprovedPattern(meetings, hours);
+      })
+      .map(set => ({ days: set, minutes, patternId: null }));
+  }
   if (!avoid || !original.includes(avoid)) {
     const length = regulationLengthFor(original, hours, minutes);
     return length ? [{ days: original, minutes: length, patternId: null }] : [];
@@ -181,4 +200,17 @@ export function regulationPlacementIssues(input: { days: readonly DayKey[]; star
   return issues;
 }
 
-export const isRegulationPlacement = (input: Parameters<typeof regulationPlacementIssues>[0]) => regulationPlacementIssues(input).length === 0;
+/**
+ * ── أيُّ يومٍ يحمل لقاءً واحداً بهذا الطول؟ ─────────────────────────────────────
+ * كتلةُ اليوم الواحد معتمدةٌ على أيّ يوم (المالك): كتلةُ ثلاث ساعات (170) على الأربعاء تصلح للأحد. فالأيامُ
+ * المؤهَّلة هي التي يقبل فيها الحفظُ هذا الطول (lectureLengthProblem) لساعات المقرّر، أو لأيّ ساعاتٍ في المكتبة
+ * حين لا تُعرف — لا أسرةُ اليوم الأصلي.
+ */
+export function singleDayBlockDays(minutes: number, weeklyHours = 0): DayKey[] {
+  const hours = Math.round(Number(weeklyHours) || 0);
+  const tries = hours > 0 ? [hours] : [1, 2, 3, 4, 5];
+  const end = clock(8 * 60 + Math.max(0, minutes));
+  return DAY_KEYS.filter(day => tries.some(h => !lectureLengthProblem({ [day]: true, fstarttime: "08:00", fendtime: end }, h)));
+}
+
+export const isRegulationPlacement =(input: Parameters<typeof regulationPlacementIssues>[0]) => regulationPlacementIssues(input).length === 0;
