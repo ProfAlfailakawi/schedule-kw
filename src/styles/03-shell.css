@@ -15,6 +15,7 @@
 
 .app-shell{
   min-height:100vh;
+  min-height:100dvh;
   direction:rtl;
   background:var(--canvas);
 }
@@ -397,6 +398,7 @@
 
 .app-main{
   min-height:100vh;
+  min-height:100dvh;
   margin-inline-start:var(--sidebar-w);
   padding:var(--s7) var(--gutter) var(--s10);
 }
@@ -1443,7 +1445,7 @@ html[data-journey-open="true"] .schedule-guide-backdrop{
 
 .notify-panel{
   position:fixed;top:calc(var(--notify-top) + var(--notify-size) + 8px);inset-inline-end:16px;z-index:2751;
-  width:min(390px,calc(100vw - 32px));max-height:min(620px,calc(100vh - 120px));overflow:auto;
+  width:min(390px,calc(100vw - 32px));max-height:min(620px,calc(100vh - 120px));max-height:min(620px,calc(100dvh - 120px));overflow:auto;
   background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
   box-shadow:var(--shadow-md);padding:6px 0 10px;
   animation:fade .18s var(--ease,ease) both;
