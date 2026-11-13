@@ -258,7 +258,7 @@ function skNext(open,sent,edited,blocked,incomplete,pinBlocked){var s=stageIdx()
   t=blocked?"طلبك لم يكتمل بعد":"أكمل الموعد الجديد";
   sub=blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb)+" قبل الإرسال":"أيامٌ ووقتُ بدايةٍ ناقصان";
   btn='<button type="button" class="nx-btn" data-nx="decide">'+gi("arrow")+'اذهب إليه</button>'}
- else if(open&&!sent&&edited===0&&pinBlocked){ic="you";tone="warn";t="لا يمكن تثبيت جدولك كما هو";sub=pinBlocked;
+ else if(open&&!sent&&edited===0&&pinBlocked){ic="you";tone="warn";t="لا يمكن تثبيت جدولك كما هو";sub="في جدولك ما يخالف اللائحة: عدّل كلَّ موعدٍ أدناه ثم أرسل";
   btn='<button type="button" class="nx-btn" data-nx="decide">'+gi("arrow")+'اذهب إلى الموعد</button>'}
  else if(!sent){return ""}
  else if(s===2||pend>0){ic="you";tone="act";t="قرارك مطلوب الآن";sub=countOf(pend||1,AR.item)+" ينتظر ردّك من القسم";btn='<button type="button" class="nx-btn" data-nx="decide">'+gi("arrow")+'اذهب إلى القرار</button>'}

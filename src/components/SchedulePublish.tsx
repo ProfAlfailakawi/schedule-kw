@@ -353,6 +353,14 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     fetch(`/api/instructor-requests/registrar-noted?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" })
       .then(response => (response.ok ? response.json() : { rows: [] })).then(data => setNotedRows(data.rows || [])).catch(() => setNotedRows([]));
   }, [scoped, kind, collegeId, sectionId, termId]);
+  /* قبل إرسال البطاقات: من في جدوله مخالفةٌ للائحة (م.6/2، م.6/3، م.7/8، م.7/9) — لا يستطيع «ثبّت» حتى تُعدَّل.
+     تنبيهٌ لا يمنع الإرسال، يُفتح بضغطة (قرار المالك 2026-11-13). */
+  const [regulationTeachers, setRegulationTeachers] = useState<Array<{ AdInstructorId: number; AdInstructorName: string; notes: string[] }>>([]);
+  useEffect(() => {
+    if (!scoped || kind !== "staff") { setRegulationTeachers([]); return; }
+    fetch(`/api/instructor-requests/regulation-teachers?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" })
+      .then(response => (response.ok ? response.json() : { teachers: [] })).then(data => setRegulationTeachers(data.teachers || [])).catch(() => setRegulationTeachers([]));
+  }, [scoped, kind, collegeId, sectionId, termId]);
   const sendNoted = async () => {
     if (!closesAt) { setError("اكتب آخر موعدٍ لاستقبال طلبات التعديل."); return; }
     setBusy(true); setError(null); setNotedDone("");
@@ -854,6 +862,13 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {kind === "staff" ? <SendModePicker value={sendMode} onChange={setSendMode} /> : null}
               {/* «لمن؟» للعرض والتعديل؛ ومرحلةُ التدريب تختار مدرّبيها في لوحتها. */}
               {kind === "staff" && sendMode !== "ta" ? <AudiencePicker value={audience} onChange={setAudience} /> : null}
+              {regulationTeachers.length ? (
+                <details className="share-noted" aria-label="مخالفات اللائحة في جداول الأساتذة">
+                  <summary><strong><Flag aria-hidden="true" /> {countOf(regulationTeachers.length, AR.instructor)} {regulationTeachers.length === 1 ? "في جدوله" : "في جداولهم"} مخالفات للائحة</strong></summary>
+                  <ul>{regulationTeachers.map(item => <li key={item.AdInstructorId}><b>{item.AdInstructorName}</b> · {item.notes.join(" · ")}</li>)}</ul>
+                  <p>لن يستطيع صاحبها تثبيت جدوله كما هو حتى تُعدَّل. الإرسال متاح.</p>
+                </details>
+              ) : null}
               {notedRows.length ? (
                 <div className="share-noted" role="group" aria-label="ملاحظات التسجيل">
                   <strong><Flag aria-hidden="true" /> عليها ملاحظات من التسجيل: {notedRows.length}</strong>

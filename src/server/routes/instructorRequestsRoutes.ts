@@ -19,6 +19,7 @@ import { normalizeInstructorDeadline, individualExceptionOpen } from "../../util
 import { slotTimeGroups } from "../../utils/slotTimeGroups";
 import { uniformPatternSlots } from "../../utils/requestMeetingLength";
 import { effectiveCourseHours } from "../../utils/scheduleRegulations";
+import { teachersWithRegulationIssues } from "../../utils/pinViolations";
 import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
 import { awaitedItemIndexes } from "../../utils/linkedRequestItems";
 import { roleLabel } from "../../utils/academicRoles";
@@ -454,6 +455,33 @@ app.get("/api/instructor-requests/recipients", requirePermission(7), async (req:
     AdInstructorMobile: String(person.get(id)?.AdInstructorMobile || ""),
     sections: count,
   })));
+});
+
+/**
+ * ── «N أساتذة في جداولهم مخالفات للائحة» قبل إرسال البطاقات (قرار المالك 2026-11-13) ──────
+ * الأستاذُ لا يثبّت جدولاً فيه مخالفة (pinReview)، فيُقال للقسم قبل الإرسال مَن في جدوله مخالفةٌ لائحية
+ * (م.6/2، م.6/3، م.7/8 السُّلّم، م.7/9) ليصلحها أولاً. تنبيهٌ لا يمنع الإرسال. الحكمُ في utils/pinViolations.ts.
+ */
+app.get("/api/instructor-requests/regulation-teachers", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const [familyRows, week, instructors, courses] = await Promise.all([
+    Promise.all(family.map(scope => Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId }))),
+    Repository.getSchedulesByScope({ termId }),
+    Repository.getInstructors(),
+    Repository.getCourses(),
+  ]);
+  const courseById = new Map((courses as any[]).map(course => [Number(course.AdCourseId), course]));
+  const person = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
+  const teachers = teachersWithRegulationIssues(familyRows.flat() as FSchedule[], {
+    week: week as FSchedule[], placeholders: placeholderInstructorIds(instructors as any[]),
+    hoursOf: courseId => effectiveCourseHours(courseById.get(Number(courseId))),
+    nameOf: row => String(courseById.get(Number(row.AdCourseId))?.CourseName || row.AdCourseName || ""),
+  });
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ teachers: teachers.map(item => ({ AdInstructorId: item.instructorId, AdInstructorName: person.get(item.instructorId) || "", notes: item.notes })) });
 });
 
 /** قائمة الاستثناءات تُقرأ بإذن القسم، وبلا أرقام مدنية أو روابط شخصية. */
