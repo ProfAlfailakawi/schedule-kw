@@ -10,6 +10,7 @@ import type { Express } from "express";
 import { Request, Response } from "express";
 import { BUILD_STAMP } from "../../generated/buildStamp";
 import { state } from "../core/state";
+import { Repository } from "../../db/repository";
 import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME } from "../../utils/scheduleTime";
 
 export function registerSystemRoutes(app: Express): void {
@@ -49,7 +50,21 @@ app.get("/api/university-day", (_req: Request, res: Response) => {
   res.json({ startTime: SCHEDULE_DAY_START_TIME, endTime: SCHEDULE_DAY_END_TIME });
 });
 
-app.get("/api/health", (_req, res) => {
+app.get("/api/health", async (req, res) => {
+  /* ?warm=1 — نداء التسخين المجدول (Cloud Scheduler كل خمس دقائق في ساعات العمل):
+     يملأ الذاكرة القصيرة بالمراجع وجداول آخر فصلين قبل أن يصل أوّل أستاذ، فلا
+     يدفع هو ثمن القراءة الباردة. قراءةٌ فقط، ومحدودة بثماني ثوانٍ، وفشلها لا يُفشل الفحص. */
+  if (req.query.warm === "1" && !state.databaseDown) {
+    const warm = (async () => {
+      const [terms] = await Promise.all([
+        Repository.getTerms(), Repository.getCourses(), Repository.getInstructors(),
+        Repository.getColleges(), Repository.getSections(),
+      ]);
+      const latest = [...terms].map(term => Number(term.AdTermId)).filter(Boolean).sort((a, b) => b - a).slice(0, 2);
+      await Promise.all(latest.map(termId => Repository.getSchedulesByScope({ termId })));
+    })().catch(() => undefined);
+    await Promise.race([warm, new Promise(resolve => setTimeout(resolve, 8000))]);
+  }
   res.type("application/json; charset=utf-8").send(JSON.stringify({
     ok: !state.databaseDown,
     database: state.databaseDown ? "down" : "up",

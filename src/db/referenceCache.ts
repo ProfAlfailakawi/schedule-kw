@@ -22,7 +22,9 @@
 
 type Entry = { value: unknown; expiresAt: number; loading?: Promise<unknown> };
 
-const TTL_MS = 90_000;
+/* خمس دقائق كالجداول: نداء التسخين المجدول كل خمس دقائق يجدّدها قبل أن تنتهي،
+   وكل كتابةٍ على الكتالوج تمسحها فوراً على هذه النسخة كما كانت. */
+const TTL_MS = 300_000;
 const store = new Map<string, Entry>();
 
 /** Disabled during tests so each case sees exactly the state it wrote. */
