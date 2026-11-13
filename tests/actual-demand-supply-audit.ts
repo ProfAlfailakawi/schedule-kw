@@ -10,8 +10,9 @@
  *  B1  الشارة: عجزٌ يغطيه نقلٌ مقترح ليس أخضر.
  *  U1  المقررات اتحاد التقريرين: ما في تقرير الخريجين وحده لا يسقط.
  *  F1  حقائق المقرر لكل AdCourseId (لحكم «حذف مقرر» وشارة المراجعة).
+ *  A1  تنبيه الجدول الدراسي: «بلا شعبة» للعائلة ونقص المقاعد، وتوزيعهما على المسارين، ولا تنبيه حين خُدم الجميع.
  */
-import { courseDemandFacts, demandBadgeTone, demandSupply, seatCap, DEFAULT_SEAT_CAP } from "../src/utils/actualDemandSupply";
+import { courseDemandFacts, demandAlertSummary, demandBadgeTone, demandSupply, seatCap, DEFAULT_SEAT_CAP } from "../src/utils/actualDemandSupply";
 import type { DemandCourse, DemandMatch, DemandReport } from "../src/utils/actualDemand";
 
 let passed = 0, failed = 0;
@@ -125,5 +126,15 @@ const onlyGrads = demandSupply({ general: report([course("0109105", 30, 30)]), g
 const g108 = onlyGrads.items.find(item => item.code === "0109108");
 check(Boolean(g108) && g108!.unmetGraduates === 6 && g108!.gap > 0 && onlyGrads.service.graduates === 0 && courseDemandFacts(onlyGrads, matches)["3"]?.graduates === 6,
   "U1 مقرر الخريجين وحدهم بلا شعبة: في القائمة بعجزه، ونسبة الخريجين 0 لا 100، وحقيقته للشارة والحذف", { g108, service: onlyGrads.service });
+/* A1 */
+const alert = demandAlertSummary(onlyGrads.items);
+check(alert.show && alert.uncovered === 1 && alert.graduates === 6 && alert.seats === onlyGrads.items.reduce((sum, item) => sum + item.unmetStudents, 0),
+  "A1 مقرر الخريجين بلا شعبة: «بلا شعبة» 1 وخريجون 6 ونقص المقاعد مجموعُ من بلا مقعد", alert);
+const split = demandAlertSummary([{ sections: 2, unmetStudents: 25, unmetGraduates: 0, branches: [
+  { track: "boys", demand: 40, graduates: 0, sections: 2, seats: 60 }, { track: "girls", demand: 25, graduates: 0, sections: 0, seats: 0 }] }]);
+check(split.show && split.uncovered === 0 && split.seats === 25 && split.byTrack.map(row => `${row.track}:${row.uncovered}:${row.seats}`).join(",") === "boys:0:0,girls:1:25",
+  "A1 شعبٌ للبنين فقط: العائلة ليست «بلا شعبة»، لكن البنات بلا شعبة وينقصهن 25 مقعداً", split);
+check(!demandAlertSummary([]).show && !demandAlertSummary([{ sections: 1, unmetStudents: 0, unmetGraduates: 0, branches: [] }]).show,
+  "A1 بلا تقرير أو بلا عجز: لا تنبيه");
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
