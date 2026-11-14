@@ -103,7 +103,12 @@
     "src/server/studentRecoveryScript.ts",
     "src/server/studentRecoveryWiring.ts",
     "src/server/studentRecovery.ts",
-    "src/utils/criticalCourses.ts"
+    "src/utils/criticalCourses.ts",
+    "src/server/studentExtras.ts",
+    "src/server/studentExtrasScript.ts",
+    "src/server/studentShare.ts",
+    "src/server/studentSharePage.ts",
+    "src/utils/nextLecture.ts"
   ],
   "screens": [
     {
@@ -4521,6 +4526,179 @@
         {
           "ar": "الدالة المحقونة في الصفحة تطابق دالة الخادم على 400 صحيفةٍ عشوائية.",
           "en": "The function injected into the page matches the server function on 400 random plans."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/criticalCourses.ts",
+          "src/server/studentMapUi.ts#kmCrit",
+          "src/server/studentHomePage.ts#critTag"
+        ],
+        "tests": [
+          "tests/critical-courses-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-080",
+      "kind": "functional",
+      "title": {
+        "ar": "محاضرتك القادمة",
+        "en": "Your next lecture"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعرض في أعلى لسان «الآن» بطاقةً واحدة «محاضرتك القادمة» بعدّ تنازليٍّ حيّ («بعد 40 دقيقة» ثم «اليوم 14:00» و«غداً 08:00» واسم اليوم) واسم المقرر ورمز الشعبة، تُبنى من الخطة «أ» في «جدولي المقترح» بتوقيت الكويت (الأحد أول الأسبوع والجمعة والسبت عطلة)، ولا تُرسم إلا إن وُجد جدولٌ والفصل جارٍ بين حدّيه؛ وإلا لا مكان فارغ. اللمس يفتح شبكة الأسبوع. الحساب دالةٌ نقيّة واحدة (utils/nextLecture) تُحقن في الصفحة نصّاً.",
+        "en": "The Masari page shall show at the top of the Now tab one «Your next lecture» card with a live countdown, the course name and section, built from plan A of the proposed timetable in Kuwait time (Sunday first, Friday and Saturday off), drawn only when a timetable exists and the term is running; otherwise nothing renders. Tapping opens the week grid. The calculation is one pure function injected into the page as text."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "أحدٌ 07:20 ومحاضرة 08:00 ← «بعد 40 دقيقة»؛ الخميس مساءً ← «الأحد 08:00»؛ بعد نهاية الفصل ← لا بطاقة.",
+          "en": "Sunday 07:20 and a lecture at 08:00 gives «in 40 minutes»; Thursday evening gives Sunday 08:00; after the term ends no card."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/criticalCourses.ts",
+          "src/server/studentMapUi.ts#kmCrit",
+          "src/server/studentHomePage.ts#critTag"
+        ],
+        "tests": [
+          "tests/critical-courses-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-081",
+      "kind": "functional",
+      "title": {
+        "ar": "تذكيرٌ يصل وحده (اشتراك الجهاز)",
+        "en": "Reminders that arrive by themselves (device opt-in)"
+      },
+      "text": {
+        "ar": "يجب أن يفعّل الطالب تنبيهات الجوال بلمسةٍ واحدة «فعّل التنبيهات» في «ملفي» (ويُعرض عليه مرةً بعد اكتمال ملفه) ويوقفها بـ«أوقف التنبيهات»، ويُحفظ اشتراك جهازه (حتى خمسة أجهزة) على ملفه نفسه بمفتاح البصمة لا الرقم المدني، ويسقط بتغيير الرمز وبالاستعادة وبحذف الملف؛ ولا يخرج رقمٌ مدنيٌّ ولا بصمةٌ في أيّ ردٍّ أو رسالة. بلا مفاتيح VAPID أو بإيقافٍ صريح (STUDENT_PUSH=off) يُعطَّل الزر مع سببٍ قصير ولا يُرمى خطأ.",
+        "en": "The student shall enable phone notifications with one tap «Enable notifications» in «My profile» (offered once after the profile is complete) and stop them with «Stop notifications»; the device subscription (up to five devices) is stored on the profile keyed by the fingerprint, never the civil ID, and is voided by a code change, recovery or profile deletion; no civil ID or fingerprint appears in any response or message. Without VAPID keys or with an explicit off switch the button is disabled with a short reason and nothing throws."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "اشتراكٌ بنقطة نهاية خارج خدمات الدفع ← ٤٠٠؛ بلا مفاتيح ← ٥٠٣ برمز push-off.",
+          "en": "A subscription endpoint outside push services gives 400; without keys 503 with push-off."
+        },
+        {
+          "ar": "متغير STUDENT_PUSH=off يوقف تنبيهات الطلبة صراحةً.",
+          "en": "The STUDENT_PUSH=off variable switches student notifications off explicitly."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/criticalCourses.ts",
+          "src/server/studentMapUi.ts#kmCrit",
+          "src/server/studentHomePage.ts#critTag"
+        ],
+        "tests": [
+          "tests/critical-courses-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-082",
+      "kind": "functional",
+      "title": {
+        "ar": "رسائل التذكير: مرةٌ لكل طالبٍ في الفصل",
+        "en": "Reminder messages: once per student per term"
+      },
+      "text": {
+        "ar": "يجب أن يرسل مُرسِلٌ مجدول (كل ساعة، من 08:00 إلى 21:00 بتوقيت الكويت) ثلاث رسائل قصيرة بلا أسماء: «الرغبات تُغلق اليوم» (آخر يوم رغبات صباحاً)، و«جدولك المقترح جاهز»، و«يبدأ تسجيلك غداً» (إن عُرف تاريخ دوره)، كلٌّ منها مرةً لكل طالبٍ في كل فصل بعلامةٍ ذرّية تُكتب قبل الإرسال فلا تكرّرها نسختان من الخادم، إلى أجهزة صاحب الملف وحدها، بدفعاتٍ محدودة وقفلٍ في قاعدة البيانات، وبلا تعطيل الإقلاع؛ وما ردّته خدمة الدفع بـ404 أو 410 يُمحى.",
+        "en": "A scheduled sender (hourly, 08:00 to 21:00 Kuwait) shall send three short messages without names: «Wishes close today», «Your proposed timetable is ready» and «Your registration starts tomorrow», each once per student per term using an atomic marker written before sending so two server instances do not repeat it, only to the profile owner's devices, in bounded batches under a database lock, without delaying startup; subscriptions answered 404 or 410 are removed."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "نسختان معاً صباح آخر يوم رغبات ← تنبيهٌ واحد لكل جهاز؛ من اشترك والجدولُ ظاهرٌ له لا يتلقى «جاهز».",
+          "en": "Two instances on the last wishes morning give one message per device; someone who subscribes with the timetable already visible gets no «ready»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/criticalCourses.ts",
+          "src/server/studentMapUi.ts#kmCrit",
+          "src/server/studentHomePage.ts#critTag"
+        ],
+        "tests": [
+          "tests/critical-courses-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-083",
+      "kind": "functional",
+      "title": {
+        "ar": "شارك مرشدك",
+        "en": "Share with your advisor"
+      },
+      "text": {
+        "ar": "يجب أن يولّد الطالب من «ملفي» رابطاً ورمز QR للقراءة فقط صالحاً ٢٤ ساعة (رمز ١٩٢ بتّاً عشوائية لا يُحفظ منه على الملف إلا بصمته مع انتهائه، ورابطٌ جديد يُبطل السابق، و«أوقف المشاركة» تُبطله فوراً، ويسقط بتغيير الرمز والاستعادة وحذف الملف). يفتح المرشد /me/share/:token فيرى القسم والكلية واسم الصحيفة وحلقة التقدم وفصول التخرّج المقدَّرة والمقررات المنجزة ورغبات الفصل وأسبوع الجدول المقترح إن وُجد، بلا اسمٍ ولا رقمٍ مدني ولا رمزٍ ولا بيانات تواصل، مع «للقراءة فقط · تنتهي المشاركة في …».",
+        "en": "The student shall generate from «My profile» a read-only link and QR code valid for 24 hours (192 random bits, only its hash with the expiry stored on the profile; a new link voids the previous one, «Stop sharing» revokes it at once; a code change, recovery or profile deletion voids it). The advisor opens /me/share/:token and sees the department, college, plan sheet, progress ring, estimated terms to graduate, completed courses, the term's wishes and the proposed timetable week if any, with no name, civil ID, code or contact data, stating «Read only · sharing ends at …»."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "رمز طالبٍ مع سرّ آخر ← ٤٠٤ بلا بيانات؛ بعد ٢٤ ساعة ← غير متاحة؛ الصفحة بلا اسمٍ ولا رقمٍ مدني ولا بصمة.",
+          "en": "One student's locator with another's secret gives 404 with no data; after 24 hours unavailable; the page carries no name, civil ID or fingerprint."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/criticalCourses.ts",
+          "src/server/studentMapUi.ts#kmCrit",
+          "src/server/studentHomePage.ts#critTag"
+        ],
+        "tests": [
+          "tests/critical-courses-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-STU-084",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات الإضافات والصفحة العامة للمشاركة",
+        "en": "Extras routes and the public share page"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم بجلسة الطالب GET /api/public/me/extras (حالة التنبيهات والمشاركة والمحاضرة القادمة)، وPOST /api/public/me/push وpush/off وpush/test وpush/offered، وPOST /api/public/me/share وshare/off؛ وأن يخدم GET /me/share/:token صفحةً عامةً مرسومةً في الخادم بلا سكربت، بترويسات Cache-Control: no-store وX-Robots-Tag: noindex وReferrer-Policy: no-referrer وCSP صارمة، محدودةَ المعدّل لكل عنوان (STUDENT_SHARE_PER_MINUTE)، وتردّ 404 واحداً لكل رمزٍ منتهٍ أو موقوفٍ أو مخترَع.",
+        "en": "The system shall serve with the student session GET /api/public/me/extras, POST /api/public/me/push, push/off, push/test and push/offered, and POST /api/public/me/share and share/off; and serve GET /me/share/:token as a server-rendered public page without script, with Cache-Control no-store, X-Robots-Tag noindex, Referrer-Policy no-referrer and a strict CSP, rate-limited per address, answering one 404 for every expired, revoked or invented token."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "بعد الحدّ ← ٤٢٩ بلا بيانات.",
+          "en": "Beyond the limit 429 with no data."
+        },
+        {
+          "ar": "متغير STUDENT_SHARE_PER_MINUTE يغيّر حدّ صفحة المشاركة لكل عنوان.",
+          "en": "The STUDENT_SHARE_PER_MINUTE variable changes the share page limit per address."
         }
       ],
       "evidence": {

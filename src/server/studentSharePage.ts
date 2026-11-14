@@ -177,7 +177,8 @@ export function renderSharePage(s: ShareSnapshot): string {
   const when = kuwaitStamp(s.expiresAt);
   const done = s.percent != null && s.remainingUnits === 0;
   const kpi = (value: string, label: string) => `<div><b>${value}</b><small>${label}</small></div>`;
-  const hero = `<section class="hero"><div class="top">${ring(s.percent)}<div class="who"><small>ملف طالب · للمرشد</small><h1>${esc(s.section)}</h1><span>${[s.college, s.plan].filter(Boolean).map(esc).join(" · ")}</span></div></div>`
+  const ringHtml = ring(s.percent);
+  const hero = `<section class="hero"><div class="top">${ringHtml}<div class="who"><small>خطة طالب · للمرشد</small><h1>${esc(s.section)}</h1><span>${[s.college, s.plan].filter(Boolean).map(esc).join(" · ")}</span></div></div>`
     + `<div class="kpis">${kpi(s.percent == null ? "—" : String(s.passedUnits), "الوحدات المنجزة")}${kpi(s.percent == null ? "—" : String(s.remainingUnits), "الوحدات المتبقية")}${kpi(s.percent == null ? "—" : done ? "✓" : String(s.terms), done ? "أكمل الصحيفة" : "فصول للتخرّج")}</div></section>`;
   const FIRST = 8;
   const passed = s.passed.length

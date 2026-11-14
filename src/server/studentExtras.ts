@@ -226,7 +226,7 @@ export async function runStudentPushTick(options: StudentExtrasOptions & { maxPr
 export function scheduleStudentPush(log: (message: string) => void = console.log): void {
   const tick = () => {
     runStudentPushTick()
-      .then(report => { if (report.sent) log(`[student-push] أُرسل ${report.sent} تنبيهاً من ${report.scanned} ملفاً.`); })
+      .then(report => { if (report.sent) log(`[student-push] sent=${report.sent} scanned=${report.scanned}`); })
       .catch(error => console.warn("[student-push] تعذّر المرور:", error instanceof Error ? error.message : error));
   };
   setTimeout(tick, 2 * 60_000).unref?.();
