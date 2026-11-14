@@ -1,0 +1,38 @@
+/* «رمز استعادة لطالب» في كشف التسجيل (StudentRecoveryCard.tsx): بطاقةٌ مطويّة، حقلٌ واحد وزرٌّ واحد، والرمزُ كبيراً. */
+.srec{padding:0;overflow:hidden}
+.srec>summary{display:flex;align-items:center;gap:12px;min-block-size:56px;padding:10px 14px;cursor:pointer;list-style:none}
+.srec>summary::-webkit-details-marker{display:none}
+.srec>summary::after{content:"";margin-inline-start:auto;inline-size:9px;block-size:9px;border-right:2px solid var(--muted,#667085);border-bottom:2px solid var(--muted,#667085);transform:rotate(45deg);transition:transform .18s;flex:none}
+.srec[open]>summary::after{transform:rotate(-135deg)}
+.srec-badge{display:grid;place-items:center;inline-size:40px;block-size:40px;border-radius:12px;background:var(--accent-softer,#eef6f3);color:var(--accent-ink,#1f6b5c);flex:none}
+.srec-badge svg{inline-size:20px;block-size:20px}
+.srec-title{display:grid;gap:1px;min-inline-size:0}
+.srec-title b{font-size:.95rem}
+.srec-title small{font-size:.78rem;color:var(--muted,#667085)}
+.srec-form,.srec-result{display:grid;gap:10px;padding:4px 14px 16px}
+.srec-form label{font-size:.82rem;font-weight:700;color:var(--ink,#1a1a1a)}
+.srec-row{display:flex;gap:8px;flex-wrap:wrap}
+.srec-row input{flex:1 1 220px;min-inline-size:0;min-block-size:48px;padding:8px 14px;border:1.5px solid var(--line,#d8dcd6);border-radius:14px;background:var(--surface,#fff);color:var(--ink,#1a1a1a);font:inherit;font-size:1.15rem;letter-spacing:.12em;text-align:center;font-variant-numeric:tabular-nums}
+.srec-row input:focus{outline:none;border-color:var(--accent,#1f6b5c);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#1f6b5c) 18%,transparent)}
+.srec-row input[aria-invalid="true"]{border-color:var(--danger,#b42318)}
+.srec-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-block-size:48px;padding:8px 18px;border:0;border-radius:14px;background:var(--accent,#1f6b5c);color:var(--on-accent,#fff);font:inherit;font-size:.92rem;font-weight:700;cursor:pointer}
+.srec-btn svg{inline-size:18px;block-size:18px;flex:none}
+.srec-btn:disabled{opacity:.45;cursor:not-allowed}
+.srec-btn.ghost{background:transparent;color:var(--ink,#1a1a1a);border:1.5px solid var(--line,#d8dcd6)}
+.srec-btn:focus-visible{outline:none;box-shadow:var(--ring,0 0 0 3px rgba(31,107,92,.35))}
+.srec-error{margin:0;font-size:.82rem;font-weight:600;color:var(--danger,#b42318)}
+.srec-who{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--surface-3,#f3f4f1)}
+.srec-who svg{inline-size:22px;block-size:22px;color:var(--accent-ink,#1f6b5c);flex:none}
+.srec-who span{display:grid;gap:2px;min-inline-size:0}
+.srec-who b{font-size:.95rem;overflow-wrap:anywhere}
+.srec-who small{font-size:.8rem;color:var(--muted,#667085)}
+.srec-who bdi{letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.srec-match{display:flex;align-items:flex-start;gap:7px;margin:0;font-size:.8rem;line-height:1.6;color:var(--muted,#667085)}
+.srec-match svg{inline-size:16px;block-size:16px;flex:none;margin-block-start:2px;color:var(--accent-ink,#1f6b5c)}
+.srec-code{display:flex;justify-content:center;gap:clamp(4px,1.6vw,8px);padding:6px 0}
+.srec-code span{display:grid;place-items:center;inline-size:min(54px,11.5vw);block-size:64px;border-radius:14px;background:var(--accent-softer,#eef6f3);color:var(--accent-ink,#1f6b5c);font:800 2.1rem/1 ui-monospace,SFMono-Regular,Menlo,monospace;border:1.5px solid color-mix(in srgb,var(--accent,#1f6b5c) 30%,transparent)}
+.srec-meta{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;font-size:.82rem;color:var(--muted,#667085)}
+.srec-meta b{color:var(--ink,#1a1a1a);font-variant-numeric:tabular-nums}
+.srec-replaced{padding:1px 9px;border-radius:999px;background:var(--warning-soft,#fdf2d8);color:var(--warning-ink,#7a5310);font-weight:600}
+.srec-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.srec-hint{margin:0;text-align:center;font-size:.78rem;color:var(--muted,#667085)}

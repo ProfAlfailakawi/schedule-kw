@@ -1,7 +1,8 @@
 /**
  * ملاحظة المالك 16: اختيارُ الأستاذ أعطى قاعةً لا تتّسع لشعبته — السعةُ لا النوع.
  * مقاعدُ الشعبة MaxStudent، فإن غابت فسقفُ اللائحة (seatCap، م.8). القاعةُ المعروفةُ الأصغر لا تُرشَّح،
- * والقاعةُ بلا سعةٍ مسجّلة تأتي بعد كل قاعةٍ معروفةٍ تكفي. وسقفٌ مفترَضٌ لا يُسقط قاعة.
+ * والقاعةُ بلا سعةٍ مسجّلة تأتي بعد كل قاعةٍ معروفةٍ تكفي. والسقفُ المفترَض يُحكم به كاملاً (المالك 2026-11-14:
+ * السعةُ شرطٌ لا تفضيل) — كان الأصغرُ منه يبقى آخرَ الترتيب فيُختار حين لا يخلو غيرُه.
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -39,16 +40,18 @@ check("بلا قاعةٍ معروفةٍ تكفي: غيرُ المسجّلة تُ
   assert.deepEqual(ranked.map(item => item.key), ["b", "a"]);
 });
 
-check("سقفٌ مفترَض (لا سعةَ ولا طبيعة): الأصغرُ منه لا يُسقط، ويأتي آخراً", () => {
+check("سقفٌ مفترَض (لا سعةَ ولا طبيعة): يُحكم به كاملاً، والأصغرُ منه لا يُرشَّح ولو آخراً", () => {
   const cap = seatCap({ CourseCode: "X1" }, theoretical);
   const ranked = rankRequestRooms([room("small", 30, { sectionIds: [4] }), room("unknown", undefined), room("big", 100)], { ...base, seats: cap.cap, seatsAssumed: cap.assumed });
-  assert.deepEqual(ranked.map(item => item.key), ["big", "unknown", "small"]);
+  assert.deepEqual(ranked.map(item => item.key), ["big", "unknown"]);
 });
 
 check("الحكمُ يقرأ المقاعد من seatCap وسياق سعة القسم، لا من MaxStudent وحدها", () => {
   const engine = fs.readFileSync("src/server/core/instructorRequests.ts", "utf8");
   assert.match(engine, /seatCap\(selectedCourse as any, capacityBySection\.get\(targetSectionId\)/);
-  assert.match(engine, /seats: cap\.cap, seatsAssumed: cap\.assumed/);
+  /* المقاعد بالقاعدة الواحدة: MaxStudent، وإلا سقفُ اللائحة (requiredSeats). */
+  assert.match(engine, /requiredSeats\(selectedCourse\?\.MaxStudent, cap\)/);
+  assert.match(engine, /seats: need\.seats, seatsAssumed: need\.assumed/);
   assert.doesNotMatch(engine, /seats: Number\(selectedCourse\?\.MaxStudent \|\| 0\)/);
 });
 

@@ -3,6 +3,7 @@ import { byArabic } from "../utils/sorting";
 import AdvisorSeatsPanel from "./AdvisorSeatsPanel";
 import SectionRequestsPanel from "./sectionRequests/SectionRequestsPanel";
 import AdvisingScopePicker from "./AdvisingScopePicker";
+import StudentRecoveryCard from "./StudentRecoveryCard";
 import CampusChip, { CampusFilter } from "./CampusChip";
 import { campusOf, campusText, type Campus } from "../utils/campus";
 /**
@@ -958,6 +959,9 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
       {termId ? <SectionRequestsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} onNavigate={onNavigate} mayCompose={mayCompose} frozen={frozen} /> : null}
 
       {Boolean(collegeId && sectionId && termId) && <details className="surface" style={{ padding: "10px 14px" }}><summary>🎟️ رصيد مقاعد المرشد <CampusChip collegeName={collegeName} /></summary><AdvisorSeatsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} /></details>}
+
+      {/* الطالبُ أمامك ونسي رمز «مساري»: رمزُ استعادةٍ ليومٍ واحد بعد رؤية بطاقته (الصلاحيةُ والنطاقُ في الخادم). */}
+      <StudentRecoveryCard />
 
       {/* الجهةُ في العنوان دائماً، والتصفيةُ بين البنين والبنات حين تجمع قائمةُ الكليات الجهتين. */}
       <div className="campus-scope"><CampusFilter campuses={collegeCampuses} value={campusPick} onChange={setCampusPick} /></div>

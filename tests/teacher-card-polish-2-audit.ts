@@ -67,7 +67,8 @@ check(applied.length > 0 && applied.every(a => !a.verdict.reasons.some(r => r.co
 /* P4: مصدرُ الصفحة */
 const server = readServerSource();
 const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.post("/api/public/request/:token/check"'));
-check(page.includes("function unchangedEdit(it)") && page.includes('return{rowId:it.rowId,action:"keep",days:[],start:"",excuse:it.excuse}'), "P4 التعديلُ بلا لمسة يُرسل إبقاءً");
+/* الإبقاءُ بهيئة البند المحفوظ نفسها (هويّتُه وسببُه)، فيطابق ما حمّله الخادم ولا يُعدّ تعديلاً (الجولة الخامسة: dirty مشتقّ). */
+check(page.includes("function unchangedEdit(it)") && page.includes('if(unchangedEdit(it)){var k=rawItem(it);k.action="keep";k.days=[];k.start="";return k}'), "P4 التعديلُ بلا لمسة يُرسل إبقاءً");
 check(/var changed=state\.filter\(function\(it\)\{return it\.action!=="keep"&&!unchangedEdit\(it\)&&!incompleteItem\(it\)\}\)/.test(page), "P4 ولا يُعدّ في «جاهز»، ولا الموعدُ الناقص");
 check(page.includes('"أكمل الموعد الجديد"') && page.includes("gi(\"arrow\")+'أكمله'"), "P4 الشريط يقول «أكمل الموعد الجديد» بزرّ «أكمله»");
 check(page.includes('"أكمل الأيام ووقت البداية لـ«"+courseOf(state[incomplete])+"» قبل الإرسال."'), "P4 رسالةُ النقص تذكر اسم المقرر لا رقماً");
@@ -80,8 +81,9 @@ check(server.includes('note.kind !== "balance" && note.courseIds') && page.inclu
 check(page.includes('var act=unchangedEdit(it)?"keep":it.action;') && page.includes('data-act="\'+esc(act)+\'">\'+skStat(act)+(act==="keep"?"كما هو":actionName(act))'), "P5 بطاقة التعديل بلا لمسة تقرأ «كما هو» لا «معدّل»");
 check(page.includes("function receiptLine(it)") && page.includes("chg.map(function(it){return '<li><span>'+receiptLine(it)") && !page.includes("chg.slice(0,5)"), "P5 إيصال ما قبل التوقيع: كلُّ تغيير بجملة بشرية، بلا اختصار");
 check(page.includes("'نقل '+c+where+' من '") && page.includes("'حذف '+c") && page.includes("'إضافة '+c"), "P5 صيغُ الإيصال: نقل وحذف وإضافة");
-check(page.includes("function bestTimes(it,i)") && page.includes("out.length>=3?out.slice(0,3):[]") && page.includes('h[t]==="ok"'), "P5 «أفضل ٣ مواعيد» من أوقاتٍ حكم الخادمُ بأنها متاحة، ولا تظهر إن قلّت عن ثلاثة");
-check(page.includes("function deadlineHtml(r,open)") && page.includes('data-urgent="\'+(left<=2?1:0)+\'"'), "P5 عدّاد المهلة، كهرمانيٌّ في آخر يومين");
+/* الجولة الخامسة: «مقترحة لك» تظهر كلما اختيرت الأيام (حتى ثلاثة، ولو كان الاختيارُ الحاليّ سليماً)، وإلا أقربُ ما اقترحه الخادم. */
+check(page.includes("function bestTimes(it,i)") && page.includes("return out.slice(0,3)}") && page.includes('h[t]==="ok"') && page.includes("if(!out.length&&(it.alts||[]).length)"), "P5 «مقترحة لك» من أوقاتٍ حكم الخادمُ بأنها متاحة، وتظهر دائماً حين يُختار الوقت");
+check(page.includes("function deadlineHtml(r,open)") && page.includes('data-urgent="\'+(info.urgent?1:0)+\'"'), "P5 عدّاد المهلة، كهرمانيٌّ في آخر يومين");
 check(page.includes('<button type="button" class="wb" data-wk="') && page.includes("aria-label=\"'+esc(courseOf(state[b.i])+\"، \"+d[1]+\" \"+clock(b.s))") && page.includes('[data-wk]'), "P5 مخطط الأسبوع: كتلٌ أزرارٌ بـaria-label تفتح بنودَها");
 check(page.includes('id="noteAdd">＋ أضف ملاحظة للقسم') && page.includes("!noteOpen&&!String(noteNow()).trim()"), "P5 ملاحظة القسم مطوية، وتُفتح تلقائياً إن كان فيها نص");
 check(page.includes('"فتحتَ الرابط "+countOf(e.count,AR.visit)+" · آخرها "+clockOf(e.at)') && page.includes('e.kind!=="link-opened"&&e.kind!=="link-created"'), "P6 فتحاتُ اليوم الواحد في سطر، والرقم لا يعدّ الفتح");
@@ -174,10 +176,10 @@ check(!visual13.includes('data-nx="send"') &&
 
 /* P15: القاعة مخفيةٌ عن الأستاذ عمداً (قرار المالك 2026-10-29: «مخفية اكيد متعمدة») */
 const styles15 = readFileSync("src/server/requestPageStyles.ts", "utf8");
-check(page.includes("<span class=\"vwrap\">'+skVerdict(it)+'</span>'+roomSignalHtml(it)") && !page.includes("roomPickHtml") && !page.includes("ROOM_WHY"),
-  "P15 سطرُ الحكم يحمل إشارةَ القاعة 🏫✓ وحدها: لا «الأنسب» ولا بدائل ولا اختيار");
+check(page.includes("<span class=\"vwrap\">'+skVerdict(it)+'</span>'+(it.tone===\"retry\"?") && page.includes(":'')+roomSignalHtml(it)") && !page.includes("roomPickHtml") && !page.includes("ROOM_WHY"),
+  "P15 سطرُ الحكم يحمل إشارةَ المكان (باب ✓) وحدها: لا «الأنسب» ولا بدائل ولا اختيار");
 check(page.includes('data-room-ok="1"') && page.includes('toast("check",el.getAttribute("aria-label")||"")') && styles15.includes(".verdict>.room-ok{") && !styles15.includes(".room-pick"),
-  "P15 والإشارةُ زرٌّ صغير: تلميحُها بالمرور، وعلى الهاتف ضغطةٌ تقول «قاعتك يحددها القسم»");
+  "P15 والإشارةُ زرٌّ صغير: تلميحُها بالمرور، وعلى الهاتف ضغطةٌ تقول «قاعة مناسبة تُحجز لك تلقائياً»");
 check(page.includes('room:["door","لا تتوفّر قاعة في هذا الوقت"]') && !page.includes("لا قاعة خالية"),
   "P15 وسببُ الوقت غير المتاح للقاعة بالجملة العامة نفسها، لا اسمَ ولا «خالية»");
 

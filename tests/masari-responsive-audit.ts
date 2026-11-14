@@ -31,7 +31,11 @@ assert.match(html, /class="app"/);
 assert.match(html, /audit-nonce/);
 // الحقيقي والديمو يبدآن بصفحة «الآن»؛ الرابط الصريح #plan فقط يفتح «خطتي».
 assert.match(STUDENT_HOME_SCRIPT, /S\.tab="now";/);
-assert.match(STUDENT_HOME_SCRIPT, /data-tab="now" aria-selected="true"/);
+assert.match(STUDENT_HOME_SCRIPT, /tab\("now","home","الآن",true\)/);
+/* الألسنة بدلالتها الكاملة: tab يتحكم بـ tabpanel، والأسهمُ تنقل بينها. */
+assert.match(STUDENT_HOME_SCRIPT, /role="tab" id="tab-'\+k\+'" aria-controls="pane-'\+k\+'"/);
+for (const k of ["now", "plan", "me"]) assert.match(STUDENT_HOME_SCRIPT, new RegExp(`id="pane-${k}" role="tabpanel" aria-labelledby="tab-${k}"`));
+assert.match(STUDENT_HOME_SCRIPT, /e\.key==="ArrowLeft"/);
 assert.match(STUDENT_HOME_SCRIPT, /location\.hash==="#plan"\?"plan":""/);
 /* ورقة إضافة مقرر: زر الإغلاق العلوي يبقى مرئياً، واللمس خارج الورقة يغلقها على الهاتف. */
 assert.match(STUDENT_HOME_CSS, /\.sheet\.pool-sheet\{max-block-size:calc\(100vh - 64px\)/);
