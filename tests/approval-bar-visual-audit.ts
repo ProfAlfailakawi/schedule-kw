@@ -35,6 +35,7 @@ const at = (patch: Partial<ApprovalBarPresenceInput>) => approvalBarPresence({ .
   const history = at({ historyEvents: 3 });
   check(history.bar && !history.details, "سجلٌّ وحده: يُعرض زرُّه، ولا «تفاصيل» بلا محتوى");
   check(at({ openNotes: 2 }).bar && at({ escalatedNotes: 1 }).bar, "ملاحظةٌ مفتوحة أو خلافٌ مرفوع يُبقي الشريط");
+  check(at({ missingRanks: 3 }).bar && !at({ missingRanks: 0 }).bar, "أساتذةٌ بلا درجةٍ علمية يُبقون الشريط ليقول إن التوقيعَ ممنوع للجميع");
   check(at({ pinned: true }).bar, "خطأٌ معروض أو ورقةٌ مفتوحة لا يُخفى الشريط من تحتهما");
   for (const [label, patch] of [
     ["توقيع اللجنة", { hasCommitteeSignature: true }],
