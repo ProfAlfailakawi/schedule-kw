@@ -80,14 +80,20 @@ check(settled.items[0].decision?.state === "fixed" && settled.items[0].decision?
 check(settled.items[2].decision?.state === "rejected" && !settled.items[3].decision, "FR-REQ-062 والمرفوضُ يبقى مرفوضاً، وما لم يعالجه يبقى معلّقاً");
 check(settled.status === "in-review" && settled.timeline.filter(event => event.kind === "item-fixed").length === 2, "FR-REQ-062 والطلبُ قيد المراجعة ما بقي بندٌ معلّق");
 check(settleRequestFromProposal(request([decidedBefore]), { id: "sp1" }, ops, "", "") === null, "FR-REQ-062 ومقترحٌ لم يعالج بنداً معلّقاً لا يمسّ الطلب");
+/* بندٌ فُتح منه المقترح ولم تُثبَّت عمليتُه (ردٌّ مستقلّ ثبّت عمليةً أخرى) لا يُقال عنه «ثُبّت». */
+check(proposalSettledIndexes(req, { itemIndex: 3 }, ops).join() === "0,1", "FR-REQ-062 البندُ الذي فُتح منه المقترح لا يُثبَّت إن لم تُثبَّت عمليةٌ تطابقه");
+/* الإضافةُ تُسجَّل بوقت ما كُتب ورقم صفّه في المعاملة. */
+const withRows = settleRequestFromProposal(req, { id: "sp1", itemIndex: null }, ops, "2026-11-13T10:00:00Z", "المنسّق", { created: [], updated: [{ id: 90, AdCourseId: 9 } as any] })!;
+check(withRows.items[1].decision?.fixedAs?.start === "12:00" && withRows.items[1].decision?.fixedAs?.days.join() === "fthursday" && withRows.items[1].decision?.scheduleId === 90,
+  "FR-REQ-062 إضافةٌ عبر assign تحمل وقتَ المكتوب ورقمَ صفّه");
 const reopened = reopenRequestFromProposal(settled, "sp1", "2026-11-13T11:00:00Z", "المنسّق")!;
 check(!reopened.items[0].decision && !reopened.items[1].decision && reopened.items[2].decision?.state === "rejected", "FR-REQ-062 والتراجعُ يعيد ما ثبّته المقترح معلّقاً وحده");
 const repo = read("src/db/repository.ts");
 const commitBlock = repo.slice(repo.indexOf("commitStudyProposal: async"), repo.indexOf("/* ══════", repo.indexOf("commitStudyProposal: async")));
-check(commitBlock.includes("plan.settleRequest!(requestDoc.data() as InstructorRequest)") && commitBlock.includes("entries = retainRequestReservations(entries, nextRequest);")
+check(commitBlock.includes("plan.settleRequest!(requestDoc.data() as InstructorRequest, { created, updated })") && commitBlock.includes("entries = retainRequestReservations(entries, nextRequest);")
   && commitBlock.includes("transaction.set(requestRef, nextRequest);"), "FR-REQ-062 الطلبُ وفكُّ حجزه في معاملة تثبيت المقترح نفسها");
 const proposalRoutes = read("src/server/studyProposalRoutes.ts");
-check(proposalRoutes.includes("settleRequest: request => settleRequestFromProposal(") && proposalRoutes.includes("settleRequest: request => reopenRequestFromProposal("),
+check(proposalRoutes.includes("settleRequest: (request, written) => settleRequestFromProposal(") && proposalRoutes.includes("settleRequest: request => reopenRequestFromProposal("),
   "FR-REQ-062 التثبيتُ يغلق البنود، والتراجعُ يعيدها");
 check(proposalRoutes.includes("await Repository.appendInstructorRequestTimeline(requestId,") && !/noteOnRequest[\s\S]{0,400}saveInstructorRequest/.test(proposalRoutes.slice(proposalRoutes.indexOf("async function noteOnRequest"), proposalRoutes.indexOf("export function registerStudyProposalRoutes"))),
   "FR-REQ-062 أحداثُ المقترح في سجلّ الطلب حقلٌ واحد لا يرفع ختمه");

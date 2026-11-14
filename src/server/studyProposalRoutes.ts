@@ -826,7 +826,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       const result = await Repository.commitStudyProposal({
         proposalId: proposal.id, expectedRev, creates, updates, deletes, termId: proposal.AdTermId,
         /* بندُ الأستاذ الذي عالجه المقترح يُثبَّت معه ويُفكّ حجزُه في المعاملة نفسها (utils/proposalSettlesRequest). */
-        settleRequest: request => settleRequestFromProposal(request, proposal, ops, new Date().toISOString(), by),
+        settleRequest: (request, written) => settleRequestFromProposal(request, proposal, ops, new Date().toISOString(), by, written),
         /* ما قُيِّم عليه المقترح ثم تغيّر قبل الكتابة (صفٌّ جديد أو معدَّل للأستاذ أو الشعبة أو القاعة) يُلغي التثبيت كاملاً. */
         guard: termRows => {
           const seen = new Map<number, number>(world.termRows.map((r: FSchedule) => [Number(r.id), Number(r.rev || 0)]));

@@ -551,7 +551,7 @@
    "path": "/api/colleges",
    "name": "bound dispatch",
    "call": "dd12a4daa53dee1a",
-   "site": "src/server/routes/referenceRoutes.ts:87",
+   "site": "src/server/routes/referenceRoutes.ts:86",
    "regexp": "/^\\/api\\/colleges\\/?$/i",
    "end": true
   },
@@ -563,7 +563,7 @@
    "path": "/api/colleges",
    "name": "bound dispatch",
    "call": "74e8cd58972017fe",
-   "site": "src/server/routes/referenceRoutes.ts:99",
+   "site": "src/server/routes/referenceRoutes.ts:98",
    "regexp": "/^\\/api\\/colleges\\/?$/i",
    "end": true
   },
@@ -575,7 +575,7 @@
    "path": "/api/colleges/:id",
    "name": "bound dispatch",
    "call": "bb92a7025c312240",
-   "site": "src/server/routes/referenceRoutes.ts:120",
+   "site": "src/server/routes/referenceRoutes.ts:119",
    "regexp": "/^\\/api\\/colleges(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -587,7 +587,7 @@
    "path": "/api/colleges/:id",
    "name": "bound dispatch",
    "call": "5736396c4e438c79",
-   "site": "src/server/routes/referenceRoutes.ts:142",
+   "site": "src/server/routes/referenceRoutes.ts:141",
    "regexp": "/^\\/api\\/colleges(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -599,7 +599,7 @@
    "path": "/api/colleges/:id/mobility",
    "name": "bound dispatch",
    "call": "7e4008800befe129",
-   "site": "src/server/routes/referenceRoutes.ts:159",
+   "site": "src/server/routes/referenceRoutes.ts:158",
    "regexp": "/^\\/api\\/colleges(?:\\/([^/]+?))\\/mobility\\/?$/i",
    "end": true
   },
@@ -611,7 +611,7 @@
    "path": "/api/colleges/:id/mobility",
    "name": "bound dispatch",
    "call": "de51539747c48042",
-   "site": "src/server/routes/referenceRoutes.ts:178",
+   "site": "src/server/routes/referenceRoutes.ts:177",
    "regexp": "/^\\/api\\/colleges(?:\\/([^/]+?))\\/mobility\\/?$/i",
    "end": true
   },
@@ -623,7 +623,7 @@
    "path": "/api/sections",
    "name": "bound dispatch",
    "call": "42fb7fabe0b9e06c",
-   "site": "src/server/routes/referenceRoutes.ts:190",
+   "site": "src/server/routes/referenceRoutes.ts:189",
    "regexp": "/^\\/api\\/sections\\/?$/i",
    "end": true
   },
@@ -635,7 +635,7 @@
    "path": "/api/schedule-day-window",
    "name": "bound dispatch",
    "call": "69eda674f64bff0f",
-   "site": "src/server/routes/referenceRoutes.ts:197",
+   "site": "src/server/routes/referenceRoutes.ts:196",
    "regexp": "/^\\/api\\/schedule-day-window\\/?$/i",
    "end": true
   },
@@ -647,7 +647,7 @@
    "path": "/api/student-unit-cap",
    "name": "bound dispatch",
    "call": "799049adac73b98c",
-   "site": "src/server/routes/referenceRoutes.ts:206",
+   "site": "src/server/routes/referenceRoutes.ts:205",
    "regexp": "/^\\/api\\/student-unit-cap\\/?$/i",
    "end": true
   },
@@ -659,7 +659,7 @@
    "path": "/api/student-unit-cap",
    "name": "bound dispatch",
    "call": "176b7b1727526acb",
-   "site": "src/server/routes/referenceRoutes.ts:209",
+   "site": "src/server/routes/referenceRoutes.ts:208",
    "regexp": "/^\\/api\\/student-unit-cap\\/?$/i",
    "end": true
   },
@@ -671,7 +671,7 @@
    "path": "/api/campus-travel-policy",
    "name": "bound dispatch",
    "call": "fdf625a9f9932f61",
-   "site": "src/server/routes/referenceRoutes.ts:220",
+   "site": "src/server/routes/referenceRoutes.ts:219",
    "regexp": "/^\\/api\\/campus-travel-policy\\/?$/i",
    "end": true
   },
@@ -683,7 +683,7 @@
    "path": "/api/campus-travel-policy",
    "name": "bound dispatch",
    "call": "95fe16fc4e1fcd82",
-   "site": "src/server/routes/referenceRoutes.ts:227",
+   "site": "src/server/routes/referenceRoutes.ts:226",
    "regexp": "/^\\/api\\/campus-travel-policy\\/?$/i",
    "end": true
   },
@@ -695,7 +695,7 @@
    "path": "/api/admin/section-schedule-windows",
    "name": "bound dispatch",
    "call": "3cc5ee7dd9e43cab",
-   "site": "src/server/routes/referenceRoutes.ts:235",
+   "site": "src/server/routes/referenceRoutes.ts:234",
    "regexp": "/^\\/api\\/admin\\/section-schedule-windows\\/?$/i",
    "end": true
   },
@@ -707,7 +707,7 @@
    "path": "/api/admin/section-schedule-windows",
    "name": "bound dispatch",
    "call": "18f082357de195bc",
-   "site": "src/server/routes/referenceRoutes.ts:242",
+   "site": "src/server/routes/referenceRoutes.ts:241",
    "regexp": "/^\\/api\\/admin\\/section-schedule-windows\\/?$/i",
    "end": true
   },
@@ -719,7 +719,7 @@
    "path": "/api/admin/university-day/impact",
    "name": "bound dispatch",
    "call": "105758c5c0b9f6b5",
-   "site": "src/server/routes/referenceRoutes.ts:265",
+   "site": "src/server/routes/referenceRoutes.ts:264",
    "regexp": "/^\\/api\\/admin\\/university-day\\/impact\\/?$/i",
    "end": true
   },
@@ -731,7 +731,7 @@
    "path": "/api/admin/university-day",
    "name": "bound dispatch",
    "call": "ebd46737e0ce5936",
-   "site": "src/server/routes/referenceRoutes.ts:270",
+   "site": "src/server/routes/referenceRoutes.ts:269",
    "regexp": "/^\\/api\\/admin\\/university-day\\/?$/i",
    "end": true
   },
@@ -743,7 +743,7 @@
    "path": "/api/admin/teaching-load",
    "name": "bound dispatch",
    "call": "e1752f3b9be9219c",
-   "site": "src/server/routes/referenceRoutes.ts:280",
+   "site": "src/server/routes/referenceRoutes.ts:279",
    "regexp": "/^\\/api\\/admin\\/teaching-load\\/?$/i",
    "end": true
   },
@@ -755,7 +755,7 @@
    "path": "/api/admin/teaching-load/member/:id",
    "name": "bound dispatch",
    "call": "fbb31ea93a170e6d",
-   "site": "src/server/routes/referenceRoutes.ts:300",
+   "site": "src/server/routes/referenceRoutes.ts:299",
    "regexp": "/^\\/api\\/admin\\/teaching-load\\/member(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -767,7 +767,7 @@
    "path": "/api/admin/teaching-load/member/:id",
    "name": "bound dispatch",
    "call": "2440a89d505772ec",
-   "site": "src/server/routes/referenceRoutes.ts:315",
+   "site": "src/server/routes/referenceRoutes.ts:314",
    "regexp": "/^\\/api\\/admin\\/teaching-load\\/member(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -779,7 +779,7 @@
    "path": "/api/admin/teaching-load",
    "name": "bound dispatch",
    "call": "6f3610e5e2b278f7",
-   "site": "src/server/routes/referenceRoutes.ts:330",
+   "site": "src/server/routes/referenceRoutes.ts:329",
    "regexp": "/^\\/api\\/admin\\/teaching-load\\/?$/i",
    "end": true
   },
@@ -791,7 +791,7 @@
    "path": "/api/teaching-load/status",
    "name": "bound dispatch",
    "call": "0bb36629fc8427b1",
-   "site": "src/server/routes/referenceRoutes.ts:339",
+   "site": "src/server/routes/referenceRoutes.ts:338",
    "regexp": "/^\\/api\\/teaching-load\\/status\\/?$/i",
    "end": true
   },
@@ -803,7 +803,7 @@
    "path": "/api/sections",
    "name": "bound dispatch",
    "call": "e20d52dbddc9fd72",
-   "site": "src/server/routes/referenceRoutes.ts:360",
+   "site": "src/server/routes/referenceRoutes.ts:359",
    "regexp": "/^\\/api\\/sections\\/?$/i",
    "end": true
   },
@@ -815,7 +815,7 @@
    "path": "/api/sections/:id",
    "name": "bound dispatch",
    "call": "6b293714116b7dca",
-   "site": "src/server/routes/referenceRoutes.ts:381",
+   "site": "src/server/routes/referenceRoutes.ts:380",
    "regexp": "/^\\/api\\/sections(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -827,7 +827,7 @@
    "path": "/api/sections/:id",
    "name": "bound dispatch",
    "call": "ddec04107949622b",
-   "site": "src/server/routes/referenceRoutes.ts:409",
+   "site": "src/server/routes/referenceRoutes.ts:408",
    "regexp": "/^\\/api\\/sections(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -839,7 +839,7 @@
    "path": "/api/terms",
    "name": "bound dispatch",
    "call": "6e46d524575934a7",
-   "site": "src/server/routes/referenceRoutes.ts:440",
+   "site": "src/server/routes/referenceRoutes.ts:439",
    "regexp": "/^\\/api\\/terms\\/?$/i",
    "end": true
   },
@@ -851,7 +851,7 @@
    "path": "/api/terms/scoped",
    "name": "bound dispatch",
    "call": "df757c7c890778a0",
-   "site": "src/server/routes/referenceRoutes.ts:444",
+   "site": "src/server/routes/referenceRoutes.ts:443",
    "regexp": "/^\\/api\\/terms\\/scoped\\/?$/i",
    "end": true
   },
@@ -863,7 +863,7 @@
    "path": "/api/terms",
    "name": "bound dispatch",
    "call": "669dfab4cc374651",
-   "site": "src/server/routes/referenceRoutes.ts:468",
+   "site": "src/server/routes/referenceRoutes.ts:467",
    "regexp": "/^\\/api\\/terms\\/?$/i",
    "end": true
   },
@@ -875,7 +875,7 @@
    "path": "/api/terms/:id",
    "name": "bound dispatch",
    "call": "8945258b6b41d72f",
-   "site": "src/server/routes/referenceRoutes.ts:485",
+   "site": "src/server/routes/referenceRoutes.ts:484",
    "regexp": "/^\\/api\\/terms(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -887,7 +887,7 @@
    "path": "/api/terms/:id",
    "name": "bound dispatch",
    "call": "db0e553a709db899",
-   "site": "src/server/routes/referenceRoutes.ts:505",
+   "site": "src/server/routes/referenceRoutes.ts:504",
    "regexp": "/^\\/api\\/terms(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -899,7 +899,7 @@
    "path": "/api/degree-rules",
    "name": "bound dispatch",
    "call": "9ac1d1c3a6bbacfe",
-   "site": "src/server/routes/referenceRoutes.ts:519",
+   "site": "src/server/routes/referenceRoutes.ts:518",
    "regexp": "/^\\/api\\/degree-rules\\/?$/i",
    "end": true
   },
@@ -911,7 +911,7 @@
    "path": "/api/degree-rules/:sectionId",
    "name": "bound dispatch",
    "call": "fff03b4d1108983d",
-   "site": "src/server/routes/referenceRoutes.ts:541",
+   "site": "src/server/routes/referenceRoutes.ts:540",
    "regexp": "/^\\/api\\/degree-rules(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3603,7 +3603,7 @@
    ],
    "path": "/api/audit-logs",
    "name": "bound dispatch",
-   "call": "a4950c3646cf590f",
+   "call": "9f22acdce55d8bd8",
    "site": "src/server/routes/adminRoutes.ts:227",
    "regexp": "/^\\/api\\/audit-logs\\/?$/i",
    "end": true
@@ -5599,7 +5599,7 @@
    ],
    "path": "/api/study-proposals/:id/commit",
    "name": "bound dispatch",
-   "call": "4f1e7a3b09fe8ae8",
+   "call": "d7dd4248b99ec6b4",
    "site": "src/server/studyProposalRoutes.ts:695",
    "regexp": "/^\\/api\\/study-proposals(?:\\/([^/]+?))\\/commit\\/?$/i",
    "end": true
@@ -5767,7 +5767,7 @@
    ],
    "path": "/api/advisor-seats/config",
    "name": "bound dispatch",
-   "call": "c96ae7d5ca005fe8",
+   "call": "6c241eda7d680b1a",
    "site": "src/server/routes/offeringRoutes.ts:356",
    "regexp": "/^\\/api\\/advisor-seats\\/config\\/?$/i",
    "end": true
@@ -5780,7 +5780,7 @@
    "path": "/api/advisor-seats/add",
    "name": "bound dispatch",
    "call": "48ee62b0d701ae24",
-   "site": "src/server/routes/offeringRoutes.ts:375",
+   "site": "src/server/routes/offeringRoutes.ts:377",
    "regexp": "/^\\/api\\/advisor-seats\\/add\\/?$/i",
    "end": true
   },
@@ -5792,7 +5792,7 @@
    "path": "/api/advisor-seats/undo",
    "name": "bound dispatch",
    "call": "2e5262264fcc9352",
-   "site": "src/server/routes/offeringRoutes.ts:411",
+   "site": "src/server/routes/offeringRoutes.ts:413",
    "regexp": "/^\\/api\\/advisor-seats\\/undo\\/?$/i",
    "end": true
   },
@@ -5804,7 +5804,7 @@
    "path": "/api/advisor-seats/exception",
    "name": "bound dispatch",
    "call": "72fa4d89697001d5",
-   "site": "src/server/routes/offeringRoutes.ts:439",
+   "site": "src/server/routes/offeringRoutes.ts:441",
    "regexp": "/^\\/api\\/advisor-seats\\/exception\\/?$/i",
    "end": true
   },
@@ -5815,8 +5815,8 @@
    ],
    "path": "/api/advisor-seats/exception/resolve",
    "name": "bound dispatch",
-   "call": "78044f47bbf55882",
-   "site": "src/server/routes/offeringRoutes.ts:467",
+   "call": "1e305178baac56d4",
+   "site": "src/server/routes/offeringRoutes.ts:469",
    "regexp": "/^\\/api\\/advisor-seats\\/exception\\/resolve\\/?$/i",
    "end": true
   },

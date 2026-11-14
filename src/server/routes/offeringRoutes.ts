@@ -24,7 +24,7 @@ import { pushHooks } from "../pushRoutes";
 import { isTaRequest } from "../../utils/requestParticipation";
 import { emptyOfferingDoc, normalizeLevel, normalizeOfferingEntry, offeringDocId, offeringEntryIsDefault, suggestFutureCourses, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
 import { compactReach, forgetCourseReach, reachForScope } from "../courseReachShared";
-import { alternativeSections, baseCapacityFor, mineIn, nearFull, normalizeQuotaConfig, pendingExceptionOf, quotaFor, SEAT_CONFIG_MAX, sectionKey, seatState, seatWritePowers, tryAddSeats, undoLastAdd, type SeatLedger, type SeatQuotaConfig } from "../../utils/advisorSeats";
+import { alternativeSections, baseCapacityFor, mineIn, nearFull, applySeatException, normalizeQuotaConfig, pendingExceptionOf, quotaFor, SEAT_CONFIG_MAX, sectionKey, seatState, seatWritePowers, tryAddSeats, undoLastAdd, type SeatLedger, type SeatQuotaConfig } from "../../utils/advisorSeats";
 import { termIsFrozen } from "../../utils/termSequence";
 import { countdown, dueWaves, phaseOpen, planWaves, vacantSections, vacantSummary, type TaPhaseDoc, type TaWave } from "../../utils/taPhase";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
@@ -363,7 +363,9 @@ app.put("/api/advisor-seats/config", requirePermission(7), async (req: Authentic
   const expected = expectedRev(req.body?.rev ?? req.body?.config?.rev);
   const out = await Repository.updateFeatureDoc<SeatQuotaConfig, null>("advisorSeatLedgers", `config:${id}`, current => {
     if (expected !== null && Number(current?.rev || 0) !== expected) return { refuse: null };
-    return { next: { ...normalizeQuotaConfig(req.body?.config, id), rev: Number(current?.rev || 0) + 1 }, result: null };
+    /* سجلُّ الاستثناءات المطبَّقة يملكه الخادم: حفظُ الإعداد من النموذج لا يمحوه. */
+    const kept = Array.isArray((current as any)?.appliedExceptions) ? { appliedExceptions: (current as any).appliedExceptions } : {};
+    return { next: { ...normalizeQuotaConfig({ ...(req.body?.config || {}), ...kept }, id), rev: Number(current?.rev || 0) + 1 }, result: null };
   });
   if (!out.ok) { res.status(409).json(staleWriteBody()); return; }
   const config = out.next;
@@ -476,6 +478,22 @@ app.post("/api/advisor-seats/exception/resolve", requirePermission(7), async (re
   const note = String(req.body?.note || "").trim().slice(0, 300);
   const at = new Date().toISOString();
   const by = String(req.user?.Name || req.user?.UserName || "المسؤول");
+  /* الموافقةُ خطوتان في مجموعتين: رفعُ رصيد الشعبة أولاً، وهو يُطبَّق مرّةً واحدة لكل طلب (appliedExceptions)،
+     ثم إغلاقُ الطلب. فإن تعذّر الإغلاقُ بعد الرفع بقي الطلبُ «معلّقاً» وأعادت الموافقةُ إغلاقَه بلا زيادةٍ ثانية،
+     ولا يُستهلك طلبٌ «موافَقٌ عليه» بلا مقاعد. */
+  const pending = await Repository.getFeatureDoc<any>("advisorSeatRequests", requestId);
+  if (!pending) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف." }); return; }
+  if (pending.status !== "pending") { res.status(409).json({ error: "بُتّ في هذا الطلب من قبل." }); return; }
+  let quota: number | null = null;
+  if (decision === "approved") {
+    const raised = await Repository.updateFeatureDoc<SeatQuotaConfig, number>("advisorSeatLedgers", `config:${id}`, current => {
+      const config = normalizeQuotaConfig(current || {}, id);
+      const step = applySeatException(config, requestId, String(pending.key), Number(pending.count || 0));
+      return { next: { ...step.config, rev: Number(current?.rev || 0) + (step.applied ? 1 : 0) }, result: step.quota };
+    });
+    if (!raised.ok) { res.status(409).json({ error: "تعذّر رفعُ رصيد الشعبة؛ لم يُغلق الطلب. أعد المحاولة." }); return; }
+    quota = Number(raised.result);
+  }
   const closed = await Repository.updateFeatureDoc<any, any>("advisorSeatRequests", requestId, current => {
     if (!current) return { refuse: { status: 404, error: "لا يوجد طلبٌ بهذا المعرّف." } };
     if (current.status !== "pending") return { refuse: { status: 409, error: "بُتّ في هذا الطلب من قبل." } };
@@ -483,16 +501,6 @@ app.post("/api/advisor-seats/exception/resolve", requirePermission(7), async (re
   });
   if (!closed.ok) { const why = closed.result || { status: 409, error: "تعذّر البتّ." }; res.status(why.status).json({ error: why.error }); return; }
   const asked = closed.next;
-  let quota: number | null = null;
-  if (decision === "approved") {
-    const raised = await Repository.updateFeatureDoc<SeatQuotaConfig, number>("advisorSeatLedgers", `config:${id}`, current => {
-      const config = normalizeQuotaConfig(current || {}, id);
-      const courseId = Number(String(asked.key).split(":")[1] || 0);
-      const next = Math.min(SEAT_CONFIG_MAX, quotaFor(config, courseId, asked.key) + Number(asked.count || 0));
-      return { next: { ...config, bySection: { ...(config.bySection || {}), [asked.key]: next }, rev: Number(current?.rev || 0) + 1 }, result: next };
-    });
-    quota = raised.ok ? Number(raised.result) : null;
-  }
   res.locals.auditChanges = decision === "approved"
     ? `مقاعد المرشد: موافقة على استثناء +${countOf(Number(asked.count || 0), AR.seat)} · ${asked.key}${quota !== null ? ` · رصيد الشعبة ${quota}` : ""}`
     : `مقاعد المرشد: اعتذار عن استثناء · ${asked.key}${note ? ` · ${note}` : ""}`;

@@ -229,7 +229,7 @@ app.get("/api/audit-logs", requireAuth, requirePowerAdmin, async (req: Authentic
   const limit = Number(req.query.limit || 250);
   const text = (value: unknown) => (typeof value === "string" ? value.slice(0, 40) : undefined);
   res.setHeader("Cache-Control", "no-store");
-  res.json(await Repository.getAuditLogs(limit, { before: text(req.query.before), from: text(req.query.from), to: text(req.query.to) }));
+  res.json(await Repository.getAuditLogs(limit, { before: text(req.query.before), beforeId: text(req.query.beforeId), from: text(req.query.from), to: text(req.query.to) }));
 });
 
 app.get("/api/admin-user-options", requireAuth, requirePowerAdmin, async (_req: Request, res: Response) => {

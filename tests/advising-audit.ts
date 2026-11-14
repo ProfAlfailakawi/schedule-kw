@@ -16,7 +16,7 @@ import {
   approveStudents, closableAfterApproval, countsOf, declineRequest, linkSections, markRegisteredCount, openDuplicateOf, planCapacities, stageOf, withdrawRequest,
   type SectionRequest, type SectionRequestLink,
 } from "../src/utils/sectionRequests";
-import { mineIn, normalizeQuotaConfig, pendingExceptionOf, SEAT_CONFIG_MAX, seatWritePowers, undoLastAdd, type SeatLedger } from "../src/utils/advisorSeats";
+import { applySeatException, mineIn, normalizeQuotaConfig, pendingExceptionOf, SEAT_CONFIG_MAX, seatWritePowers, undoLastAdd, type SeatLedger } from "../src/utils/advisorSeats";
 import { manualRunWaitSeconds, radarManualGapMs } from "../src/utils/radarRunGap";
 import { journeyFromViews, viewStatuses } from "../src/components/StudentCaseStatus";
 
@@ -221,6 +221,19 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
     "H4 وعنوانُ المجموعة «الإرشاد» فوق الشاشتين");
   const all = ["src/components/RegistrationTabs.tsx", "src/components/RegistrationRehearsal.tsx", "src/App.tsx"].map(read).join("\n");
   check(!all.includes("رادار يوم التسجيل"), "H5 لا اسمَ ثانياً للرادار");
+}
+
+{
+  /* الموافقةُ على الاستثناء تُطبَّق مرّةً واحدة: إعادتُها بعد تعذّر الإغلاق لا تزيد الرصيد ثانيةً. */
+  const base = normalizeQuotaConfig({ global: 4 }, "1:2:3");
+  const once = applySeatException(base, "1:2:3:x1", "1:9:1", 3);
+  const twice = applySeatException(once.config, "1:2:3:x1", "1:9:1", 3);
+  check(once.applied && once.quota === 7 && !twice.applied && twice.quota === 7, "F7 الموافقةُ نفسها لا ترفع الرصيد مرّتين");
+  check((normalizeQuotaConfig(once.config, "1:2:3").appliedExceptions || []).includes("1:2:3:x1"), "F7 سجلُّ المطبَّق يبقى بعد التطبيع");
+  const routes = read("src/server/routes/offeringRoutes.ts");
+  const resolve = routes.slice(routes.indexOf('"/api/advisor-seats/exception/resolve"'));
+  check(resolve.indexOf("applySeatException(") > 0 && resolve.indexOf("applySeatException(") < resolve.indexOf('updateFeatureDoc<any, any>("advisorSeatRequests"'),
+    "F7 رفعُ الرصيد قبل إغلاق الطلب، فلا يُستهلك طلبٌ «موافَقٌ عليه» بلا مقاعد");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

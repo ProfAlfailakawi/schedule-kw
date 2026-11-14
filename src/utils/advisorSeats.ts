@@ -31,6 +31,8 @@ export interface SeatQuotaConfig {
   advisorCount?: number;
   /** رقمُ الإصدار: يزيد مع كل حفظ، وتحمله الكتابة (src/utils/staleWrite.ts). */
   rev?: number;
+  /** طلباتُ استثناءٍ رُفع بها رصيدُ شعبةٍ: تُطبَّق مرّةً واحدة ولو أُعيدت الموافقة بعد تعذّرٍ في منتصفها. */
+  appliedExceptions?: string[];
 }
 
 export interface SeatLedger {
@@ -200,7 +202,17 @@ export function normalizeQuotaConfig(input: any, id: string): SeatQuotaConfig {
     ...(Number(input?.capacityDefault) > 0 ? { capacityDefault: clean(input.capacityDefault) } : {}),
     capacityBySection: map(input?.capacityBySection),
     ...(Number.isInteger(Number(input?.rev)) && Number(input?.rev) > 0 ? { rev: Number(input.rev) } : {}),
+    ...(Array.isArray(input?.appliedExceptions) && input.appliedExceptions.length
+      ? { appliedExceptions: [...new Set(input.appliedExceptions.map(String).filter(Boolean))].slice(-200) as string[] } : {}),
   };
+}
+
+/** يرفع رصيدَ الشعبة بطلب استثناءٍ مرّةً واحدة: إن سبق تطبيقُ الطلب نفسه لا يُزاد شيء. */
+export function applySeatException(config: SeatQuotaConfig, requestId: string, key: string, count: number): { config: SeatQuotaConfig; quota: number; applied: boolean } {
+  const courseId = Number(String(key).split(":")[1] || 0);
+  if ((config.appliedExceptions || []).includes(requestId)) return { config, quota: quotaFor(config, courseId, key), applied: false };
+  const quota = Math.min(SEAT_CONFIG_MAX, quotaFor(config, courseId, key) + Math.max(0, Number(count || 0)));
+  return { config: { ...config, bySection: { ...(config.bySection || {}), [key]: quota }, appliedExceptions: [...(config.appliedExceptions || []), requestId].slice(-200) }, quota, applied: true };
 }
 
 /** السعة الأساسية لشعبة: الخاصة ثم الافتراضية؛ 0 = لم تُحدَّد بعد. */

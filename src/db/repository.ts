@@ -2898,24 +2898,33 @@ export const Repository = {
   },
 
   /**
-   * السجلُّ صفحةً صفحة: الأحدث أولاً، و`before` مؤشّرُ الصفحة التالية (طابعُ آخر سطرٍ قُرئ)،
-   * و`from`/`to` نطاقُ تاريخ. الترتيبُ والتصفيةُ على حقلٍ واحد (timestamp)، فلا فهرسَ مركّب.
+   * السجلُّ صفحةً صفحة: الأحدث أولاً، والمؤشّرُ (`before` طابعُ آخر سطرٍ قُرئ و`beforeId` رقمُه) يفصل
+   * بين أسطرٍ تشاركت الطابعَ نفسه عند حدّ الصفحة — فلا يسقط منها شيء من الصفحات التالية ولا من تصديرها.
+   * الترتيبُ بالطابع ثم بالرقم تنازلياً في Firestore وفي الملف المحلي، و`from`/`to` نطاقُ تاريخ.
    */
-  getAuditLogs: async (limit = 250, range: { before?: string; from?: string; to?: string } = {}): Promise<AuditLogEntry[]> => {
+  getAuditLogs: async (limit = 250, range: { before?: string; beforeId?: string; from?: string; to?: string } = {}): Promise<AuditLogEntry[]> => {
     const safeLimit = Math.max(1, Math.min(1000, Number(limit) || 250));
     const iso = (value?: string) => (value && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : "");
     const before = iso(range.before), from = iso(range.from), to = iso(range.to);
+    const beforeId = String(range.beforeId || "");
     if (firestoreDb && !demoSandboxContext.getStore()) {
       let query: FirebaseFirestore.Query = firestoreDb.collection("auditLogs");
       if (from) query = query.where("timestamp", ">=", from);
       if (to) query = query.where("timestamp", "<=", to);
-      if (before) query = query.where("timestamp", "<", before);
-      const snap = await query.orderBy("timestamp", "desc").limit(safeLimit).get();
+      if (before && !beforeId) query = query.where("timestamp", "<", before);
+      query = query.orderBy("timestamp", "desc").orderBy(FieldPath.documentId(), "desc");
+      if (before && beforeId) query = query.startAfter(before, beforeId);
+      const snap = await query.limit(safeLimit).get();
       return snap.docs.map(doc => doc.data() as AuditLogEntry);
     }
+    const older = (row: AuditLogEntry) => {
+      const stamp = String(row.timestamp);
+      return stamp < before || (Boolean(beforeId) && stamp === before && String(row.id) < beforeId);
+    };
     return [...(db.auditLogs || [])]
-      .filter(row => (!from || String(row.timestamp) >= from) && (!to || String(row.timestamp) <= to) && (!before || String(row.timestamp) < before))
-      .sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp))).slice(0, safeLimit);
+      .filter(row => (!from || String(row.timestamp) >= from) && (!to || String(row.timestamp) <= to) && (!before || older(row)))
+      .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)) || (String(b.id) < String(a.id) ? -1 : String(b.id) > String(a.id) ? 1 : 0))
+      .slice(0, safeLimit);
   },
 
   /* ── «👣 الأثر» (src/utils/activityTrail.ts) ─────────────────────────────────
@@ -6287,7 +6296,7 @@ export const Repository = {
      * طلبُ الأستاذ الذي جاء منه المقترح بعد التثبيت (utils/proposalSettlesRequest): يُكتب في المعاملة نفسها،
      * وتُفكّ حجوزُ ما ثُبّت منه — أو null حين لا بندَ معلّقاً عالجه المقترح.
      */
-    settleRequest?: (request: InstructorRequest) => InstructorRequest | null;
+    settleRequest?: (request: InstructorRequest, written?: { created: FSchedule[]; updated: FSchedule[] }) => InstructorRequest | null;
     creates: Array<Omit<FSchedule, "id">>;
     updates: Array<{ id: number; fields: Partial<FSchedule>; expectedRev: number }>;
     deletes: Array<{ id: number; expectedRev: number }>;
@@ -6352,7 +6361,7 @@ export const Repository = {
           if (row) assertRequestReservationWrite(row, entries.filter(entry => entry.offeringRowIds.includes(item.id)), current.requestId);
         }
         /* بنودُ الطلب التي عالجها المقترح تُثبَّت هنا معه، ويُفكّ حجزُها في الدفتر نفسه: كلُّه أو لا شيء. */
-        const settledRequest = requestDoc?.exists ? plan.settleRequest!(requestDoc.data() as InstructorRequest) : null;
+        const settledRequest = requestDoc?.exists ? plan.settleRequest!(requestDoc.data() as InstructorRequest, { created, updated }) : null;
         if (settledRequest && requestRef) {
           const nextRequest = { ...settledRequest, requestRevision: Number((requestDoc!.data() as InstructorRequest).requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
           entries = retainRequestReservations(entries, nextRequest);
@@ -6410,7 +6419,7 @@ export const Repository = {
     db.studyProposals[at] = next;
     /* بنودُ الطلب التي عالجها المقترح، وفكُّ حجزها — في الخطوة نفسها بلا انتظارٍ بينهما. */
     const requestAt = plan.settleRequest && current.requestId ? (db.instructorRequests || []).findIndex(row => row.id === current.requestId) : -1;
-    const settledRequest = requestAt >= 0 ? plan.settleRequest!(db.instructorRequests![requestAt]) : null;
+    const settledRequest = requestAt >= 0 ? plan.settleRequest!(db.instructorRequests![requestAt], { created, updated }) : null;
     if (settledRequest) {
       const nextRequest = { ...settledRequest, requestRevision: Number(db.instructorRequests![requestAt].requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
       db.instructorRequests![requestAt] = nextRequest;

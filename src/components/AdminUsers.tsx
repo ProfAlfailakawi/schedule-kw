@@ -672,7 +672,8 @@ export default function AdminUsers({
     if (auditFrom) params.set("from", new Date(`${auditFrom}T00:00:00`).toISOString());
     if (auditTo) params.set("to", new Date(`${auditTo}T23:59:59.999`).toISOString());
     const last = append ? logs[logs.length - 1] : null;
-    if (last?.timestamp) params.set("before", String(last.timestamp));
+    /* الطابعُ والرقمُ معاً: أسطرٌ تشاركت الطابعَ عند حدّ الصفحة لا يسقط منها شيء. */
+    if (last?.timestamp) { params.set("before", String(last.timestamp)); if (last.id) params.set("beforeId", String(last.id)); }
     setAuditBusy(true);
     try {
       const page = await api(`/api/audit-logs?${params}`) as AuditLogEntry[];

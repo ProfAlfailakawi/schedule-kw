@@ -68,7 +68,7 @@ check(!/SystemUserPass|hash/i.test(diff), "A1 والكلمة علامةٌ لا �
 check(usersRoutes.includes("res.locals.auditChanges = userEditDiff(") && usersRoutes.includes("حذف الحساب «"), "A2 التعديل والحذف يكتبان ما تغيّر");
 const repo = read("src/db/repository.ts");
 check(repo.includes('query = query.where("timestamp", "<", before)') && repo.includes('query.where("timestamp", ">=", from)'), "A3 السجل صفحةً صفحة بنطاق تاريخ على الخادم");
-check(read("src/server/routes/adminRoutes.ts").includes("before: text(req.query.before), from: text(req.query.from), to: text(req.query.to)"), "A3 الطريق يمرّر المؤشر والنطاق");
+check(read("src/server/routes/adminRoutes.ts").includes("before: text(req.query.before), beforeId: text(req.query.beforeId), from: text(req.query.from), to: text(req.query.to)"), "A3 الطريق يمرّر المؤشر والنطاق");
 check(ui.includes("const loadAuditPage") && ui.includes("تصدير CSV") && ui.includes("أقدم`"), "A4 الشاشة: نطاق تاريخ وتحميل الأقدم وتصدير");
 
 /* I */
@@ -114,6 +114,16 @@ check(read("src/components/TeachingLoadSettings.tsx").includes("const changeTerm
 check(repo.includes("setSectionScheduleDayWindows: async") && read("src/server/routes/referenceRoutes.ts").includes("Repository.setSectionScheduleDayWindows(sectionIds"), "U8 دوام الأقسام يُحفظ كلُّه أو لا شيء");
 const app = read("src/App.tsx");
 check(app.includes("currentUserId={Number(user.SystemUserId)}") && app.includes("user.IsRootAdmin && allowed.admin && hasPerm(7)"), "U9 حرّاس الواجهة على حرّاس الخادم");
+
+{
+  /* مؤشّرُ صفحة السجل طابعٌ ورقمٌ معاً: أسطرٌ تشاركت الطابع عند حدّ الصفحة لا يسقط منها شيء. */
+  const repo = read("src/db/repository.ts");
+  const audit = repo.slice(repo.indexOf("getAuditLogs: async"), repo.indexOf("appendActivityTrail: async"));
+  check(audit.includes('orderBy(FieldPath.documentId(), "desc")') && audit.includes("startAfter(before, beforeId)") && audit.includes("String(row.id) < beforeId"),
+    "U10 صفحاتُ السجل بالطابع ثم الرقم في Firestore وفي الملف المحلي");
+  check(read("src/components/AdminUsers.tsx").includes('params.set("beforeId", String(last.id))') && read("src/server/routes/adminRoutes.ts").includes("beforeId: text(req.query.beforeId)"),
+    "U10 الشاشةُ ترسل رقم آخر سطرٍ مع طابعه");
+}
 
 console.log(failed ? `\n${failed} فشل` : "\nكل فحوص «إدارة النظام» ناجحة");
 process.exit(failed ? 1 : 0);
