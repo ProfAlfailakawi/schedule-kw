@@ -3,6 +3,12 @@ import { BellOff, BellRing, Handshake, Inbox, Lock, Send, Settings, Share, Smart
 import {
   currentPushSubscription, isIos, markPushActive, prepareThisDevice, pushSupport, subscribeThisDevice, subscriptionId,
 } from "../utils/pushClient";
+import { isNativePushAvailable, readNativePushPermission, registerNativePushToken, requestNativePushPermission } from "../native-push";
+
+/* تطبيق iPhone: رمزُ APNs يُحفظ هنا ليُلغى اشتراكُه لاحقاً (نقطتُه على الخادم «apns:<رمز>»). */
+const NATIVE_TOKEN_KEY = "schedule-native-push-token";
+const readNativeToken = () => { try { return localStorage.getItem(NATIVE_TOKEN_KEY) || ""; } catch { return ""; } };
+const writeNativeToken = (value: string) => { try { if (value) localStorage.setItem(NATIVE_TOKEN_KEY, value); else localStorage.removeItem(NATIVE_TOKEN_KEY); } catch { /* تفضيلٌ لا أكثر */ } };
 
 /**
  * ── 🔔 «فعّل التنبيهات على جوالك» — بطاقةٌ في مركز الإشعارات ────────────────
@@ -27,6 +33,22 @@ export default function PushCard({ userKey }: { userKey: string }) {
   useEffect(() => {
     let alive = true;
     (async () => {
+      if (isNativePushAvailable()) {
+        const status: Status | null = await fetch("/api/push/status", { credentials: "include" })
+          .then(response => (response.ok ? response.json() : null)).catch(() => null);
+        if (!alive) return;
+        if (!status?.enabled || !status.audience) { setPhase("hidden"); return; }
+        const permission = await readNativePushPermission();
+        if (!alive) return;
+        if (permission === "denied") { setPhase("blocked"); markPushActive(userKey, false); return; }
+        const token = readNativeToken();
+        const id = token ? await subscriptionId(`apns:${token}`) : "";
+        const on = permission === "granted" && Boolean(id) && (status.ids || []).includes(id);
+        if (!alive) return;
+        setPhase(on ? "on" : "off");
+        markPushActive(userKey, on);
+        return;
+      }
       const support = pushSupport();
       if (support === "none") { setPhase("hidden"); return; }
       const status: Status | null = await fetch("/api/push/status", { credentials: "include" })
@@ -60,6 +82,27 @@ export default function PushCard({ userKey }: { userKey: string }) {
   const enable = useCallback(() => {
     setNote(null);
     setPhase("busy");
+    if (isNativePushAvailable()) {
+      (async () => {
+        const permission = await requestNativePushPermission();
+        if (permission !== "granted") { setPhase(permission === "denied" ? "blocked" : "off"); return; }
+        const token = await registerNativePushToken();
+        if (!token) throw new Error("token");
+        const response = await fetch("/api/push/subscribe-native", {
+          method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        if (!response.ok) throw new Error("save");
+        writeNativeToken(token);
+        setPhase("on");
+        markPushActive(userKey, true);
+        setNote({ tone: "ok", text: "✓ تصل التنبيهات هذا الجهاز" });
+      })().catch(() => {
+        setPhase("off");
+        setNote({ tone: "bad", text: "تعذّر التفعيل. حاول مرة أخرى." });
+      });
+      return;
+    }
     subscribeThisDevice(publicKey, registration)
       .then(async next => {
         const response = await fetch("/api/push/subscribe", {
@@ -82,6 +125,17 @@ export default function PushCard({ userKey }: { userKey: string }) {
   const disable = useCallback(async () => {
     setNote(null);
     setPhase("busy");
+    if (isNativePushAvailable()) {
+      const token = readNativeToken();
+      await fetch("/api/push/unsubscribe", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: token ? `apns:${token}` : "" }),
+      }).catch(() => undefined);
+      writeNativeToken("");
+      setPhase("off");
+      markPushActive(userKey, false);
+      return;
+    }
     const current = subscription || await currentPushSubscription().catch(() => null);
     await fetch("/api/push/unsubscribe", {
       method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },

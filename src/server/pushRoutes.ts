@@ -35,6 +35,7 @@ import {
 } from "./pushMessages";
 import { CARD_TOKEN_PATTERN, cardManifest } from "./pushCard";
 import { registerMorningBriefRoute } from "./morningBriefPush";
+import { sendApns, validApnsToken } from "./apns";
 
 export interface PushRouteDeps {
   requireAuth: RequestHandler;
@@ -102,7 +103,27 @@ function createPushEngine(deps: PushRouteDeps) {
   /** يرسل إلى أجهزةٍ بعينها: حدُّ كل جهاز، ومحوُ ما انتهى، ولا شيءَ يُسقط غيره. */
   async function deliver(records: PushSubscriptionRecord[], message: PushMessage, options: { urgency?: PushUrgency; topic?: string } = {}): Promise<DeliveryReport> {
     const report: DeliveryReport = { sent: 0, failed: 0, removed: 0, limited: 0 };
-    const unique = [...new Map(records.map(record => [record.id, record])).values()].slice(0, 50);
+    const all = [...new Map(records.map(record => [record.id, record])).values()].slice(0, 50);
+    if (!all.length) return report;
+    /* تطبيق iPhone الأصلي: نقطتُه «apns:<رمز الجهاز>» وتذهب مباشرةً إلى APNs، لا إلى خدمة Web Push.
+       ما يفشل هنا لا يمسّ إرسال المتصفّحات أدناه، ولا العكس. */
+    const isNative = (record: PushSubscriptionRecord) => String(record.endpoint || "").startsWith("apns:");
+    const native = all.filter(isNative);
+    const unique = all.filter(record => !isNative(record));
+    await Promise.all(native.map(async record => {
+      if (!limiter.take(record.id)) { report.limited += 1; return; }
+      try {
+        const result = await sendApns(String(record.endpoint).slice(5), message.title, message.body || "", { url: String(message.url || "/"), tag: String(message.tag || "") });
+        if (result.sent) { report.sent += 1; return; }
+        if (result.dead) {
+          report.removed += 1;
+          await Repository.deletePushSubscription(record.id).catch(error => log("delete", error));
+          return;
+        }
+        report.failed += 1;
+        console.warn(`[push] apns ${record.id.slice(0, 8)} → ${result.reason || "failed"}`);
+      } catch (error) { report.failed += 1; log("apns", error); }
+    }));
     if (!unique.length) return report;
     const keys: VapidKeys = await vapid();
     await Promise.all(unique.map(async record => {
@@ -403,6 +424,18 @@ export function registerPushRoutes(app: Express, deps: PushRouteDeps): PushEngin
     const saved = await saveRecord(subscription, { ownerKind: "user", userId, ...(cookie ? { session: pushSessionTag(cookie) } : {}) }, req);
     res.locals.auditEntity = "تنبيهات الجوال";
     res.locals.auditChanges = `تفعيل التنبيهات على جهاز${saved.device ? ` (${saved.device})` : ""}`;
+    res.json({ ok: true, id: saved.id });
+  });
+
+  /* تطبيق iPhone: رمزُ جهازٍ من APNs بدل اشتراكِ المتصفّح. يُخزَّن كاشتراكٍ نقطتُه «apns:<رمز>» فتمرّ عليه كلُّ التنبيهات نفسها. */
+  app.post("/api/push/subscribe-native", deps.requireAuth, async (req: any, res: Response) => {
+    const token = req.body?.token;
+    if (!validApnsToken(token)) { res.status(400).json({ error: "رمز الجهاز غير صالح." }); return; }
+    const userId = Number(req.user?.SystemUserId || 0);
+    const cookie = /(?:^|;\s*)session_id=([^;]+)/.exec(String(req.headers.cookie || ""))?.[1];
+    const saved = await saveRecord({ endpoint: `apns:${token}`, keys: { p256dh: "", auth: "" } }, { ownerKind: "user", userId, ...(cookie ? { session: pushSessionTag(cookie) } : {}) }, req);
+    res.locals.auditEntity = "تنبيهات الجوال";
+    res.locals.auditChanges = "تفعيل التنبيهات على تطبيق iPhone";
     res.json({ ok: true, id: saved.id });
   });
 
