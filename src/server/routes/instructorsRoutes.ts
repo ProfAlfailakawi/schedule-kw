@@ -293,7 +293,17 @@ app.post("/api/instructors", requireAnyPermission([3, 7]), async (req: Authentic
   if (exists) {
     if (scoped) {
       await enrol(Number(exists.AdInstructorId));
-      res.json({ ...exists, existing: true });
+      /* أستاذٌ موجود بهذا الرقم: يُضمّ إلى القسم. والدرجةُ تُكتب له إن لم تكن له درجةٌ بعد (فيُصلح إعادةُ المحاولة بعد فشلٍ جزئي)،
+         ولا تُستبدل درجةٌ قائمة؛ و«مدرب» لا يُطبَّق على سجلٍّ قائم (التحويل باتجاهٍ واحد). والردُّ يقول ما طُبّق فعلاً. */
+      let loadApplied = false;
+      if (rosterLoad) {
+        const config = await Repository.getTeachingLoadConfig();
+        if (!config.assignments[String(exists.AdInstructorId)]) {
+          await Repository.setTeachingLoadAssignment(Number(exists.AdInstructorId), rosterLoad, String(req.user?.Name || ""));
+          loadApplied = true;
+        }
+      }
+      res.json({ ...exists, existing: true, loadApplied });
       return;
     }
     // Naming the existing record turns a dead end into the next step: search by

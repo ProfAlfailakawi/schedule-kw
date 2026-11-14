@@ -80,6 +80,13 @@ async function main() {
   const stale = await A("GET", `/api/share/${encodeURIComponent(String(linkBefore))}`);
   check(stale.status !== 200 || stale.json?.revoked === true || /منته|موقوف|revoked/i.test(JSON.stringify(stale.json)), "C3 والرابطُ القديم لم يعد يعمل", { status: stale.status });
 
+  /* C3b تبديل لشخصٍ بعينه (قرارٌ عند النقر على اسمه): لا يُبدَّل رابطُ غيره */
+  const l1 = (await mineOf(id1))[0]?.linkId, l2 = (await mineOf(id2))[0]?.linkId;
+  const only1 = await A("POST", "/api/instructor-requests/issue", { ...BODY, closesAt: newer, mode: "edit", instructorIds: [id1, id2], replaceInstructorIds: [id1] });
+  const n1 = (await mineOf(id1))[0]?.linkId, n2 = (await mineOf(id2))[0]?.linkId;
+  check(only1.status === 200 && n1 && n1 !== l1, "C3b المحدَّد للتبديل يأخذ رابطاً جديداً", { l1, n1 });
+  check(n2 === l2, "C3b وزميلُه في الإرسال نفسه يبقى رابطُه (تكرار)", { l2, n2 });
+
   /* C4 تخطّي: من يُتخطّى لا يُمسّ */
   const print = (r: any) => JSON.stringify([r.id, r.linkId, r.linkMode, r.status, r.window?.closesAt]);
   const before2 = (await mineOf(id2)).map(print);
@@ -87,6 +94,12 @@ async function main() {
   const issuedIds = (skip.json.issued || []).map((r: any) => Number(r.instructorId));
   check(skip.status === 200 && issuedIds.includes(id1) && !issuedIds.includes(id2), "C4 المتخطَّى لا يُصدَر له", skip.json);
   check(JSON.stringify((await mineOf(id2)).map(print)) === JSON.stringify(before2), "C4 وطلبُه ورابطُه وموعدُه كما هي");
+  const logAfterSkip: any[] = (await A("GET", `/api/instructor-requests/send-log?${SCOPE}`)).json || [];
+  check(logAfterSkip[0]?.skipped === 1, "C4 «تُخطّي» في السجل = من تُخطّي فعلاً (1) لا حجم القائمة", logAfterSkip[0]);
+  const logLen = logAfterSkip.length;
+  const allSkipped = await A("POST", "/api/instructor-requests/issue", { ...BODY, closesAt: ahead(12), mode: "edit", instructorIds: [id2], skipInstructorIds: [id2] });
+  check(allSkipped.status === 200 && (allSkipped.json.issued || []).length === 0, "C4 إرسالٌ تُخطّي كلُّ أصحابه لا يُصدر شيئاً", allSkipped.json);
+  check(((await A("GET", `/api/instructor-requests/send-log?${SCOPE}`)).json || []).length === logLen, "C4 ولا يكتب سطراً فارغاً في السجل");
   const skipAll = await A("POST", "/api/instructor-requests/issue", { ...BODY, closesAt: ahead(12), mode: "edit", skipInstructorIds: [id2] });
   check(skipAll.status === 200 && !(skipAll.json.issued || []).some((r: any) => Number(r.instructorId) === id2), "C4 وللجميع: «تخطّي» يستثني أصحابه");
 
