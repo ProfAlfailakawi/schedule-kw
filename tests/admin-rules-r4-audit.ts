@@ -92,7 +92,7 @@ check(/units > unitCap/.test(door), "الحفظ يقرأ السقف الجامع
     tkItems: () => [{ courseId: 1 }], kmCartIds: () => [1], toast() {}, renderWishes() {},
     document: { getElementById: () => button },
   };
-  runInNewContext([fnOf("lim"), fnOf("fitUnits"), fnOf("wishState"), fnOf("tkSaveWishes"), fnOf("kmSendWishes"),
+  runInNewContext([fnOf("lim"), fnOf("fitUnits"), fnOf("curWishes"), fnOf("saveWishCourses"), fnOf("wishState"), fnOf("tkSaveWishes"), fnOf("kmSendWishes"),
     "this.wishState=wishState;this.tkSaveWishes=tkSaveWishes;this.kmSendWishes=kmSendWishes;"].join("\n"), cx);
   check(cx.wishState().targetUnits === 9, "نموذج الرغبات بلا رغبات: يبدأ من السقف 9 لا 15");
   cx.tkSaveWishes({}, { disabled: false });
@@ -102,7 +102,7 @@ check(/units > unitCap/.test(door), "الحفظ يقرأ السقف الجامع
   cx.S.wDraft = null; sent.length = 0;
   button.disabled = false; cx.tkSaveWishes({}, { disabled: false }); cx.kmSendWishes();
   check(cx.wishState().targetUnits === 9 && sent.every(body => body.targetUnits === 9), "رغبةٌ محفوظة قبل خفض السقف تُقصّ إلى 9");
-  check(/fitUnits\(a\.units\)/.test(STUDENT_HOME_SCRIPT), "حفظ المقترح يقصّ بالدالة نفسها");
+  check(/fitUnits\(w\?w\.targetUnits:opt\.units\)/.test(STUDENT_HOME_SCRIPT) && /units:a\.units/.test(STUDENT_HOME_SCRIPT), "حفظ المقترح يقصّ بالدالة نفسها (عبر حفظ الرغبات الموحّد)");
 }
 
 /* 16 */

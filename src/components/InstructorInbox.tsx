@@ -312,6 +312,19 @@ function RejectSheet({ item, onClose, onSubmit, busy: busyProp }: {
 /* أسبابُ اختيار القاعة أيقوناتٍ (C2) — الكلمةُ في التلميح وحده. */
 const ROOM_WHY_ICON: Record<RequestRoomReason, React.ComponentType<any>> = { dept: Home, near: MapPin, previous: History, capacity: Users, fair: Scale, facility: Wrench };
 const ROOM_WHY_LABEL: Record<RequestRoomReason, string> = { dept: "قاعة القسم", near: "قرب قاعات الأستاذ", previous: "قاعته السابقة", capacity: "سعة مناسبة", fair: "توزيع عادل", facility: "مع المرفق" };
+/* سعةُ القاعة المختارة مقابل مقاعد الشعبة («٤٠/٣٥ مقعداً»): القاعدةُ في requestRoomRanking، وهنا عرضُها للقسم وحده.
+   سعةٌ غير مسجّلة تُوسم ليؤكّدها القسم، والمقاعدُ المفترضة (سقف اللائحة) تُقال بـ«~». */
+function RoomSeatsBadge({ seats, room }: { seats?: { seats: number; assumed: boolean }; room?: { capacity?: number; seatFit?: string } }) {
+  if (!seats?.seats || !room) return null;
+  const need = `${seats.assumed ? "~" : ""}${seats.seats}`;
+  const unknown = !(Number(room.capacity) > 0);
+  const title = `${unknown ? "سعة القاعة غير مسجّلة — تحقّق منها قبل الاعتماد" : `سعة القاعة ${room.capacity}`} · مقاعد الشعبة ${seats.seats}${seats.assumed ? " (سقف اللائحة المفترض)" : ""}`;
+  return (
+    <span className="request-room-seats" data-fit={unknown ? "unknown" : room.seatFit || "fits"} title={title}>
+      <Users aria-hidden="true" /><span>مقاعد <bdi>{need}</bdi> · {unknown ? "سعة غير مسجّلة" : <>سعة <bdi>{room.capacity}</bdi></>}</span>
+    </span>
+  );
+}
 
 export interface LiveIssue { severity: "high" | "medium" | "low"; message: string; detail?: string; otherId?: number; type?: string }
 
@@ -912,12 +925,14 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
                 {item.action === "change" && item.roomSwitch && !item.reservedRoom ? (
                   <small className="request-room request-room-switch" data-held="1" title={`القاعة ${item.roomSwitch.from} مشغولة في الوقت الجديد`}>
                     <RefreshCw aria-hidden="true" /><span>القاعة بُدّلت إلى</span><bdi dir="ltr">{[item.roomSwitch.to.room, item.roomSwitch.to.hall].filter(Boolean).join("/")}</bdi>
+                    <RoomSeatsBadge seats={item.roomSeats} room={item.roomSwitch.to} />
                   </small>
                 ) : (item.reservedRoom?.label || (item.action === "add" && item.roomOptions?.[0])) ? (
                   <small className="request-room" data-held={item.reservedRoom ? "1" : undefined} title={item.reservedRoom ? "قاعةٌ محجوزةٌ للطلب" : "الأنسب الآن"}>
                     <DoorOpen aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.label || [item.roomOptions![0].room, item.roomOptions![0].hall].filter(Boolean).join("/")}</bdi>
                     {(item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel) ? <><Wrench aria-hidden="true" /><bdi dir="ltr">{item.reservedRoom?.companionLabel || item.roomOptions?.[0]?.companionRoomLabel}</bdi></> : null}
                     {(item.roomOptions?.[0]?.why || []).map(reason => { const Icon = ROOM_WHY_ICON[reason]; return Icon ? <Icon key={reason} aria-label={ROOM_WHY_LABEL[reason]} className="request-room-why" /> : null; })}
+                    <RoomSeatsBadge seats={item.roomSeats} room={item.reservedRoom ? item.reservedRoom : item.roomOptions?.[0]} />
                   </small>
                 ) : null}
               </div>
@@ -955,7 +970,7 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
             <ul className="request-issues">
               {reasons.map((reason, at) => (
                 <li key={`r${at}`} data-severity={reason.blocking ? "high" : "medium"}>
-                  <AlertShort text={reason.text} fallbackIcon={reason.blocking ? ShieldAlert : AlertTriangle} />
+                  <AlertShort text={reason.text} detail={reason.detail} fallbackIcon={reason.blocking ? ShieldAlert : AlertTriangle} />
                 </li>
               ))}
               {liveIssues.map((issue, at) => (

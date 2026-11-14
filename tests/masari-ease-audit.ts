@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
 import { STUDENT_HOME_SCRIPT, STUDENT_HOME_CSS } from "../src/server/studentHomePage";
+import { nounFor, AR as COUNT_AR } from "../src/utils/arabicCount";
 
 let passed = 0;
 const check = (ok: boolean, label: string) => { assert.ok(ok, label); passed++; console.log("✓ " + label); };
@@ -85,11 +86,13 @@ check(!unset.line.includes("لم تُحدَّد") && unset.label.includes("لم 
 check(DEFAULT_TERM_UNITS === 14 && Math.round(TYPICAL_TERM_UNITS) === DEFAULT_TERM_UNITS, "الاقتراح في الخادم يبني على ١٤ وحدةً لمن لم يكتب رغباته، كالصفحة");
 
 /* لوحة الإنجاز والخطوة التالية: عنوانٌ مباشر، وخطوةٌ واحدة تتبع المرحلة ووضع الطالب */
-const nctx: Record<string, any> = { S: { state: null }, fmtShort: (d: string) => d };
+const nctx: Record<string, any> = { S: { state: null }, fmtShort: (d: string) => d, nounFor, AR: COUNT_AR };
 runInNewContext([fn("heroHeadline", "nextStepInfo"), fn("nextStepInfo", "nextStepPaint"), "this.heroHeadline=heroHeadline;this.nextStepInfo=nextStepInfo;"].join("\n"), nctx);
-check(nctx.heroHeadline({ percent: 22, remainingUnits: 128 }).includes("22٪") && nctx.heroHeadline({ percent: 22, remainingUnits: 128 }).includes("من خطتك"), "العنوان: «أنجزتَ ٢٢٪ من خطتك»");
-check(nctx.heroHeadline({ percent: 0, remainingUnits: 150 }).includes("ابدأ") && nctx.heroHeadline({ percent: 100, remainingUnits: 0 }).includes("أكملتَ"), "العنوان عند الصفر وعند الإكمال");
-const st = (mode: string, over: any = {}) => { nctx.S.state = { term: { id: 7 }, phase: { mode, canEditWishes: mode === "wishes", nextAt: "2026-11-06" }, profile: { progress: { passedUnits: 36, remainingUnits: 128 }, wishes: null, ...over } }; return nctx.nextStepInfo(); };
+const hp = (percent: number, passedUnits: number, remainingUnits: number, totalUnits: number) => nctx.heroHeadline({ percent, passedUnits, remainingUnits, totalUnits });
+check(hp(22, 36, 128, 164).includes("22٪") && hp(22, 36, 128, 164).includes("من خطتك"), "العنوان: «أنجزتَ ٢٢٪ من خطتك»");
+check(hp(0, 0, 150, 150).includes("خطتك أمامك") && hp(100, 164, 0, 164).includes("أكملتَ"), "العنوان عند الصفر (بلا إلحاح) وعند الإكمال");
+check(hp(0, 0, 0, 0).includes("اختياراً من جديد") && !hp(0, 0, 0, 0).includes("أكملتَ"), "صحيفةٌ بلا مقررات (أُرشفت): لا «أكملتَ خطتك» بل «اختر من جديد»");
+const st = (mode: string, over: any = {}) => { nctx.S.state = { term: { id: 7 }, phase: { mode, canEditWishes: mode === "wishes", nextAt: "2026-11-06" }, profile: { progress: { passedUnits: 36, remainingUnits: 128, totalUnits: 164 }, wishes: null, ...over } }; return nctx.nextStepInfo(); };
 check(st("wishes").to === "wishes" && st("wishes").go.includes("سجّل"), "رغباتٌ مفتوحة ولم يسجّل: «سجّل رغباتي»");
 check(st("wishes", { wishes: { termId: 7, courseIds: [1, 2] } }).go.includes("عدّل"), "سجّل رغباته: «عدّل رغباتي»");
 check(st("wishes", { wishes: { termId: 6, courseIds: [1, 2] } }).go.includes("سجّل"), "رغباتُ فصلٍ سابق لا تُحسب لهذا الفصل");
@@ -102,8 +105,14 @@ nctx.S.tkReady = null;
 check(st("frozen") === null, "قبل أن يُعرف وجود التذكرة: لا بطاقة (فلا تومض ثم تتبدّل)");
 nctx.S.tkReady = true;
 check(st("none").to === "plan", "خارج المراحل ومعه إنجاز: خطتي");
-check(st("none", { progress: { passedUnits: 0, remainingUnits: 150 } }).to === "setup", "لا إنجازَ مسجَّل: «أكمل خطتك»");
-check(st("none", { progress: { passedUnits: 164, remainingUnits: 0 } }) === null, "أكمل الصحيفة: لا خطوة");
+check(st("none", { progress: { passedUnits: 0, remainingUnits: 150, totalUnits: 150 } }).to === "setup", "لا إنجازَ مسجَّل: «علّم ما أنجزت» (خطوةٌ واحدة، والعنوانُ لا يكرّرها)");
+check(st("none", { progress: { passedUnits: 164, remainingUnits: 0, totalUnits: 164 } }) === null, "أكمل الصحيفة: لا خطوة");
+check(st("none", { progress: { passedUnits: 0, remainingUnits: 0, totalUnits: 0 } })?.to === "replan" && st("wishes", { progress: { passedUnits: 0, remainingUnits: 0, totalUnits: 0 } })?.to === "replan", "صحيفةٌ بلا مقررات: «خطوتك الآن» تدعوه لاختيار صحيفته (لا تختفي ولا تهنّئه)");
+{ nctx.S.state = { term: { id: 7 }, phase: { mode: "wishes", canEditWishes: true, until: "2026-10-25", today: "2026-10-25", nextAt: "2026-11-01" }, profile: { progress: { passedUnits: 36, remainingUnits: 128, totalUnits: 164 }, wishes: { termId: 7, courseIds: [1] } } };
+  const lastDay = nctx.nextStepInfo();
+  check(/نهاية اليوم/.test(lastDay.d) && !/2026-11-01/.test(lastDay.d), "آخر يوم رغبات: «تعدّلها حتى نهاية اليوم» لا تاريخ الجولة");
+  nctx.S.state.phase.today = "2026-10-20";
+  check(nctx.nextStepInfo().d === "تعدّلها حتى 2026-10-25", "قبل آخر يوم: حتى نهاية الرغبات (until) لا الموعد التالي"); }
 check(/\.next\{[^}]*margin-block-start:-22px/.test(STUDENT_HOME_CSS) && /\.hero\.me \.rn\{/.test(STUDENT_HOME_CSS), "البطاقة تتداخل مع الخضراء، وسطرُ شرح النسبة ثابت");
 
 console.log(`\n${passed} passed, 0 failed`);

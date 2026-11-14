@@ -368,7 +368,7 @@ app.delete("/api/instructors/:id", requirePermission(3), async (req: Request, re
  * twenty names, and lets the schedule mark who is seconded without inventing a
  * second kind of person in the data.
  */
-/* ── «الأساتذة» في أدوات البيانات: يديرهم القسم في نطاقه ───────────────────
+/* ── «الأساتذة» في أدوات الجدول: يديرهم القسم في نطاقه ───────────────────
  * المعرّف يُقرأ من أساتذة القسم وصفوف جدوله، فلا يلمس أحدٌ سجلَّ من ليس في قسمه.
  * لا رقم مدني ولا هاتف في الردّ. */
 /* العضوية من سجلّ القسم كلّه: المتقاعدُ وTA قد لا يكون لهما موعدٌ هذا الفصل، فلا يكفي
@@ -445,7 +445,7 @@ app.put("/api/section-roster/:id", requirePermission(7), async (req: Authenticat
     await Repository.setTeachingLoadAssignment(id, Object.keys(entry).length ? entry : null, String(req.user?.Name || ""));
     changes.push("النصاب");
   }
-  res.locals.auditChanges = `تعديل بيانات ${person.AdInstructorName} من أدوات البيانات: ${changes.join("، ")}`;
+  res.locals.auditChanges = `تعديل بيانات ${person.AdInstructorName} من أدوات الجدول: ${changes.join("، ")}`;
   res.json({ success: true });
 });
 

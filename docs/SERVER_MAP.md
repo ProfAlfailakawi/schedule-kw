@@ -437,7 +437,6 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `GET /api/public/ics/:token` | 17323 | `src/server/routes/publicCalendarRoutes.ts` |
 | `GET /api/public/ics/:token/:key` | 17380 | `src/server/routes/publicCalendarRoutes.ts` |
 | `GET /api/public/cal/:token/:key` | 17405 | `src/server/routes/publicCalendarRoutes.ts` |
-| `GET /api/public/ics-reminder` | 17435 | `src/server/routes/publicCalendarRoutes.ts` |
 | `POST /api/public/staff/:token/note` | 17539 | `src/server/routes/publicStaffRoutes.ts` |
 | `GET /api/degree-rules` | 17890 | `src/server/routes/referenceRoutes.ts` |
 | `PUT /api/degree-rules/:sectionId` | 17912 | `src/server/routes/referenceRoutes.ts` |

@@ -13,7 +13,7 @@ import { instructorWeekAfter } from "../../utils/instructorRequestWeek";
 import { lengthPatternsForHours, meetingSlots, ownMeetingOf, type OwnMeeting } from "../../utils/requestMeetingLength";
 import { scrubPlaceText } from "../../utils/teacherPlaceScrub";
 import { roomTokensOf } from "../pushMessages";
-import { RequestReservationConflict, REQUEST_RACE_LOST, withoutRoomNames, type RequestReservationProposal } from "../../utils/instructorRequestReservations";
+import { DRAFT_HOLDS_PER_REQUEST, RequestReservationConflict, REQUEST_RACE_LOST, withoutRoomNames, type RequestReservationProposal } from "../../utils/instructorRequestReservations";
 import { Request, Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { randomUUID } from "crypto";
@@ -51,9 +51,12 @@ import { demoPageHint, publicPageNonce } from "../core/publicPages";
 import { requestTokenKey } from "../core/rateLimits";
 import { mixedPatternNotice } from "../core/scheduleRules";
 import { pinIssueLine, pinRowIssues } from "../../utils/pinViolations";
+import { pinIssueShort } from "../../utils/pinIssueShort";
+import { individualExceptionOpen } from "../../utils/instructorRequestWindows";
+import { teacherPlanFacts, type TeacherPlanFact } from "../../utils/teacherPlanFacts";
 
-/** مانعُ «ثبّت» برقم بنده ومادّته ("" لساعات المقرّر). */
-export interface PinBlock { itemIndex: number; text: string; article: string }
+/** مانعُ «ثبّت» برقم بنده ومادّته ("" لساعات المقرّر)، ومعه ما يراه الأستاذ في صفّه: اسمُ المقرّر وأيقونةٌ وعبارةٌ قصيرة. */
+export interface PinBlock { itemIndex: number; text: string; article: string; rule?: string; course?: string; icon?: string; short?: string }
 import { calendarKey, stableCalendarPath } from "../core/shareLinks";
 import { placeholderInstructorIds } from "../core/smartImport";
 import { movementHistoryScopes, scheduleMovementEntries } from "../core/staffCard";
@@ -61,6 +64,7 @@ import { surveyFingerprint } from "../core/studentIdentity";
 import { instructorRequestPage } from "../pages/instructorRequestPage";
 import { publicInvalidLinkPage } from "../pages/publicInvalidLinkPage";
 import { offeredAllows, offeredBreach, offeredCourseSet } from "../../utils/offeredCourses";
+import { withoutPlaceFields } from "../../utils/teacherSafeFields";
 import { decisionDigest, digestItemId } from "../../utils/requestDecisionDigest";
 import { sendCalendar } from "./publicCalendarRoutes";
 import { shareDayIndexes } from "../core/shareLinks";
@@ -95,9 +99,15 @@ function stripForInstructor(request: InstructorRequest) {
   const cleanDecision = (decision: any) => decision ? { ...decision, reopenTo: undefined, undo: undefined, undoable: undefined, ...(decision.note ? { note: clean(decision.note) } : {}) } : decision;
   const cleanThread = (thread: any[] | undefined) => thread?.map(message =>
     message?.from === "department" && message.text ? { ...message, text: clean(message.text) } : message);
-  return {
+  /* والتنقيةُ الأخيرة (utils/teacherSafeFields): أيُّ حقلِ قاعةٍ أو مبنى بقي في أيّ عمقٍ يُحذف (المالك 2026-11-14). */
+  return withoutPlaceFields({
     ...request,
     scheduleGeneration: undefined,
+    /* الاستثناءُ الفرديّ يصل بمواعيده وحدها: من منحه ولماذا شأنٌ داخليٌّ للقسم. */
+    individualException: request.individualException ? {
+      opensAt: request.individualException.opensAt, closesAt: request.individualException.closesAt,
+      grantedAt: request.individualException.grantedAt, ...(request.individualException.revokedAt ? { revokedAt: request.individualException.revokedAt } : {}),
+    } as InstructorRequest["individualException"] : undefined,
     /* متى أبلغه القسمُ بواتساب شأنُ القسم وحده. */
     decisionNotifiedAt: undefined,
     /* والتوقيعُ يصل بتاريخه ورمزه، لا ببصمته: البصمةُ تُطابَق في الخادم ولا
@@ -117,7 +127,7 @@ function stripForInstructor(request: InstructorRequest) {
     items: (request.items || []).map(item => {
       /* القاعةُ لا تصل الأستاذ (قرار المالك 2026-10-29: «مخفية اكيد متعمدة»): المرشّحاتُ وتفاصيلُها،
          و«الأنسب» (roomPick في ما حُفظ قبل القرار)، والمحجوزةُ، والمبدَّلة — كلُّها للقسم. يرى roomAvailable وحده. */
-      const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, ...rest } = item;
+      const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, roomSeats, ...rest } = item;
       const itemId = instructorRequestItemIdentity(item);
       const identify = (slot: any) => ({ ...slot,
         proposalId: instructorRequestProposalIdentity(itemId, slot) });
@@ -129,7 +139,8 @@ function stripForInstructor(request: InstructorRequest) {
         ...(rest.thread ? { thread: cleanThread(rest.thread)!.map(message => ({ ...message,
           ...(message.slots ? { slots: message.slots.map(identify) } : {}) })) } : {}),
         ...(rest.threadHistory ? { threadHistory: cleanThread(rest.threadHistory) } : {}),
-        ...((rest as any).reasons ? { reasons: ((rest as any).reasons as any[]).map(reason => ({ ...reason, text: clean(reason?.text) })) } : {}),
+        /* وتفصيلُ السبب (مقاعدُ الشعبة مقابل سعات القاعات) للقسم وحده: يصل الأستاذَ نصُّه العامّ. */
+        ...((rest as any).reasons ? { reasons: ((rest as any).reasons as any[]).map(({ detail: _detail, ...reason }) => ({ ...reason, text: clean(reason?.text) })) } : {}),
         ...((rest as any).advice ? { advice: clean((rest as any).advice) } : {}),
         /* لا «كان» ولا «طلب» تحمل قاعة: الصفحةُ لا تعرضها، والقرارُ أن لا تصل. */
         before: rest.before ? { ...rest.before, room: undefined } : rest.before,
@@ -140,7 +151,7 @@ function stripForInstructor(request: InstructorRequest) {
            صفةً لا اسماً، وهي تُكتب كذلك أصلاً. */
       };
     }),
-  };
+  });
 }
 /** نصٌّ من الحكم يصل الأستاذ (سطرُ الحكم، النصيحة): يمرّ بتنقية القاعات برموز بنود الطلب كلِّها. */
 function teacherSafeText(request: { items?: InstructorRequestItem[] }, text: string | undefined): string {
@@ -151,7 +162,7 @@ function teacherSafeText(request: { items?: InstructorRequestItem[] }, text: str
 const sameCourseWarned = (item: InstructorRequestItem) => (item.reasons || []).some(reason => softSectionClash(reason as any));
 
 function teacherSafeVerdict<T extends { headline?: string; advice?: string }>(request: { items?: InstructorRequestItem[] }, verdict: T): T {
-  return { ...verdict, headline: teacherSafeText(request, verdict.headline), advice: teacherSafeText(request, verdict.advice) };
+  return withoutPlaceFields({ ...verdict, headline: teacherSafeText(request, verdict.headline), advice: teacherSafeText(request, verdict.advice) });
 }
 
 /** الموعدُ القائم الذي يحمل البندُ لقطتَه: الإضافةُ لا موعدَ لها، وما سواها موعدُه «كان». */
@@ -477,7 +488,8 @@ async function requestReservationProposals(request: InstructorRequest): Promise<
     const scope = requestItemScope(request, item);
     const existing = originalOffering(item, official);
     const rooms = existing ? []
-      : (item.roomOptions || []).map(room => ({ roomId: room.roomId, buildingId: room.buildingId, room: room.room, hall: room.hall, companionRoomId: room.companionRoomId, companionRoomLabel: room.companionRoomLabel }));
+      : (item.roomOptions || []).filter(room => room.seatFit !== "short").map(room => ({ roomId: room.roomId, buildingId: room.buildingId, room: room.room, hall: room.hall, companionRoomId: room.companionRoomId, companionRoomLabel: room.companionRoomLabel,
+        ...(room.capacity ? { capacity: room.capacity } : {}), ...(room.seatFit ? { seatFit: room.seatFit } : {}) }));
     return { itemId: item.itemId!, instructorId: Number(request.AdInstructorId), collegeId: scope.collegeId, sectionId: scope.sectionId,
       courseId: Number(item.after?.courseId || item.before?.courseId), slots: item.slots || [], rooms,
       offeringRowIds: item.offeringRowIds || [], offeringRows: item.offeringRows };
@@ -571,6 +583,17 @@ const rateLimitCheckTimes = rateLimit({
  * من الحكم نفسه (judgeRequestItems)، لا من تقديرٍ ثانٍ. الحجزُ لا يمنع القسم.
  */
 const REQUEST_HOLD_TTL_MS = 10 * 60_000;
+/* إنشاءُ حجوز التحرير لكل رابط: إنسانٌ يختار وقتاً بعد وقت لا يتجاوز بضعَ عشراتٍ في الدقيقة، والسقفُ في الدفتر
+   (DRAFT_HOLDS_PER_REQUEST) يمنع التكديس؛ وهذا الحدُّ يمنع الدوران عليه بمفاتيح جديدة. الإفراجُ لا يُحسب. */
+const rateLimitHoldCreate = rateLimit({
+  windowMs: 60_000,
+  limit: 20,
+  keyGenerator: requestTokenKey,
+  skip: (req: Request) => req.body?.release === true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "محاولاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." },
+});
 
 /* ══════════════════════════════════════════════════════════════════════════════
  * ملاحظات المالك 2026-10-28 — مساراتٌ مضافة في كتلةٍ واحدة (لا تمسّ قلب الكرت):
@@ -625,6 +648,56 @@ async function withPlanHints<T extends { id: number; collegeId: number; sectionI
     const hint = coursePlanHint(reading?.accepted?.[String(course.id)], reading?.sections.get(Number(course.id))?.size || 0);
     return hint ? { ...course, planHint: hint } : course;
   });
+}
+
+/* ── إنفوجرافيك التخطيط لمقرّرات الكرت (المالك: «من أيقونة التخطيط بدون مساري») ──
+   قراءةٌ خفيفة من «تخطيط الشعب» وحده (المختار وكشف المتبقي) والشعب القائمة، لمقرّرات هذا الأستاذ فقط،
+   أرقاماً مجمَّعة بلا هوية طالب، وتُحفظ خمس دقائق لكل طلب. ما لا تخطيطَ له لا يُرسل عنه شيء. */
+const teacherPlanMemo = new Map<string, { at: number; value: Record<string, TeacherPlanFact> }>();
+async function teacherPlanningFor(request: InstructorRequest): Promise<Record<string, TeacherPlanFact>> {
+  const memoKey = dataContextCacheKey(`plan:${request.id}`);
+  const cached = teacherPlanMemo.get(memoKey);
+  if (cached && Date.now() - cached.at < 5 * 60_000) return cached.value;
+  const termId = Number(request.AdTermId);
+  const courses = (request.items || []).map(item => {
+    const snap = (item.action === "add" ? item.after : item.before) || item.after || item.before || {} as any;
+    return {
+      courseId: Number((snap as any).courseId || item.after?.courseId || 0),
+      collegeId: Number((snap as any).collegeId || item.after?.collegeId || request.AdCollegeId || 0),
+      sectionId: Number((snap as any).sectionId || item.after?.sectionId || request.AdSectionId || 0),
+    };
+  }).filter(course => course.courseId && course.collegeId && course.sectionId);
+  const scopes = [...new Map(courses.map(course => [`${course.collegeId}:${course.sectionId}`, course])).values()];
+  const readings = new Map(await Promise.all(scopes.map(async scope => {
+    const [stats, rows] = await Promise.all([
+      Repository.getRegistrationStats(scope.collegeId, scope.sectionId, termId).catch(() => null),
+      Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId }).catch(() => [] as FSchedule[]),
+    ]);
+    const sections = new Map<number, Set<string>>();
+    for (const row of rows as any[]) {
+      const id = Number(row.AdCourseId);
+      if (!sections.has(id)) sections.set(id, new Set());
+      sections.get(id)!.add(String(row.SCode || row.id));
+    }
+    /* المتبقي لا يُعتدّ به إلا من كشفٍ مرفوع بعمود «لم يجتز» (كما في تخطيط الشعب)؛ والمختارُ بيد القسم. */
+    return [`${scope.collegeId}:${scope.sectionId}`, {
+      accepted: stats?.accepted || {},
+      remaining: stats?.remainingSource?.column === "notPassed" ? (stats?.remaining || {}) : {},
+      sections,
+    }] as const;
+  })));
+  const value = teacherPlanFacts(courses, readings);
+  if (teacherPlanMemo.size > 500) teacherPlanMemo.clear();
+  teacherPlanMemo.set(memoKey, { at: Date.now(), value });
+  return value;
+}
+
+/** موعدُ الإغلاق الذي يخصّ الأستاذ: استثناؤه الفرديّ المفتوح إن امتدّ بعد الموعد العام، وإلا الموعدُ العام. */
+export function teacherDeadline(request: Pick<InstructorRequest, "window" | "individualException">, now = Date.now()): string {
+  const general = String(request.window?.closesAt || "");
+  const own = request.individualException;
+  if (own && individualExceptionOpen(own, now) && (!Number.isFinite(Date.parse(general)) || Date.parse(own.closesAt) > Date.parse(general))) return String(own.closesAt);
+  return general;
 }
 
 function coursesWithOffering<T extends { id: number; collegeId: number; sectionId: number }>(courses: T[], views: Map<string, ReturnType<typeof offeringView> & { reach?: "locked" }>) {
@@ -720,7 +793,7 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
    * ثم الاهتمام، ثم الأنماط مرّتين…) وكلٌّ منها لا يحتاج سابقه. تُقرأ الآن معاً، ولا ينتظر إلا ما يعتمد على غيره. */
   const itemCourseIds = (request.items || []).map(item => Number(item.after?.courseId || item.before?.courseId || 0));
   const patternCourseIds = [...itemCourseIds, ...(courses as any[]).map(option => Number(option.id))];
-  const [taDoc, termStates, offeringViews, interestDocs, taRows, dayPatterns, lengthPatterns, pinState, hintedCourses] = await Promise.all([
+  const [taDoc, termStates, offeringViews, interestDocs, taRows, dayPatterns, lengthPatterns, pinState, hintedCourses, planning] = await Promise.all([
     mode === "ta" ? taPhaseForRequest(request) : Promise.resolve(null),
     offeringStatesForTerm(Number(request.AdTermId)),
     mode === "edit" ? offeringViewsFor(Number(request.AdTermId), courses as any[]) : Promise.resolve(new Map()),
@@ -732,6 +805,7 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
     /* مخالفاتُ ما أبقاه كما هو تُعرض له دائماً: قبل الإرسال وبعده، بملاحظةٍ وبلا ملاحظة. رابطُ العرض والتدريب لا يُسألان. */
     mode === "edit" && !isUnchangedConfirmed(request) ? pinReview(judgedRequest).catch(() => ({ blocks: [] })) : Promise.resolve({ blocks: [] }),
     mode === "edit" ? withPlanHints((courses as any[]).filter(option => offeredAllows(offeredCourseSet(request), option.id)), Number(request.AdTermId)) : Promise.resolve([]),
+    teacherPlanningFor(request).catch(() => ({} as Record<string, TeacherPlanFact>)),
   ]);
   const taAllowed = allowedFor(taDoc, Number(request.AdInstructorId));
   /* مقرراتُ هذه البطاقة وحدها إن اختارها المنسّق (utils/offeredCourses): لا يُعرض ما خارجها. */
@@ -786,6 +860,10 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
     lengthPatterns,
     /* ما يمنع «ثبّت الجدول» الآن (pinBlockers): تقوله الصفحةُ قبل الضغط، والإرسالُ يرفضه بالنص نفسه. */
     pinBlocked: pinState.blocks,
+    /* موعدُ إغلاقه هو (استثناؤه الفرديّ إن كان أبعد): العدّادُ يقرؤه بتقويم الكويت. */
+    deadline: teacherDeadline(request),
+    /* إنفوجرافيك التخطيط لمقرّراته (أرقامٌ مجمَّعة من «تخطيط الشعب» وحده). */
+    planning,
     ...(preview ? { preview: true } : {}),
   });
 }
@@ -832,7 +910,7 @@ export async function pinReview(request: InstructorRequest): Promise<{ blocks: P
     for (const issue of pinRowIssues(row, context)) {
       /* والسلسلةُ المتتالية الواحدة تُقال مرةً ليومها. */
       if (issue.day) { const key = `${issue.rule}|${issue.day}`; if (seenRuns.has(key)) continue; seenRuns.add(key); }
-      blocks.push({ itemIndex, text: `${name ? `${name}: ` : ""}${clean(pinIssueLine(issue))}`, article: issue.article });
+      blocks.push({ itemIndex, text: `${name ? `${name}: ` : ""}${clean(pinIssueLine(issue))}`, article: issue.article, rule: issue.rule, course: name, ...pinIssueShort(issue) });
     }
   }
   return { blocks };
@@ -1516,7 +1594,7 @@ app.post("/api/public/request/:token/check-times", rateLimitCheckTimes, async (r
   if (problemIsShape) { res.json({ times: {}, problem: "shape", shapes: shapes.slice(0, 3) }); return; }
   res.json({ times, why });
 });
-app.post("/api/public/request/:token/hold", rateLimitCheckTimes, async (req: Request, res: Response) => {
+app.post("/api/public/request/:token/hold", rateLimitCheckTimes, rateLimitHoldCreate, async (req: Request, res: Response) => {
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   res.setHeader("Cache-Control", "no-store");
@@ -1547,7 +1625,9 @@ app.post("/api/public/request/:token/hold", rateLimitCheckTimes, async (req: Req
        وقاعتُه خاليان لبندٍ آخر منها (تبديلُ وقتين). كان الأربعُ ساعات على ن·ر 08:00 تُردّ «لديك موعد آخر» والحكمُ
        يقول «متاح»، لأن «الاتصال» الذي نُقل عن ن·ر ما زال في الجدول الرسمي (محاكاة 2026-10-30). والإرسالُ يعيد الحجزَ
        بالطلب نفسه، والحجزُ المؤقّت يسقط وحده إن لم يُرسل. */
-    const result = await Repository.holdInstructorRequestSlot({ ...resolved.request, items }, { ...proposal, itemId: holdKey }, REQUEST_HOLD_TTL_MS);
+    /* سقفُ الحجوز: بعددِ ما يُعدَّل فعلاً في المسودّة وواحدٍ فوقه، ولا يزيد على ثلاثة. */
+    const editing = sent.filter(entry => entry?.action === "change" || entry?.action === "add").length;
+    const result = await Repository.holdInstructorRequestSlot({ ...resolved.request, items }, { ...proposal, itemId: holdKey }, REQUEST_HOLD_TTL_MS, undefined, Math.min(DRAFT_HOLDS_PER_REQUEST, editing + 1));
     /* الحجزُ يأخذ أنسبَ الخالي، والجوابُ لا يسمّيه (قرار المالك 2026-10-29: لا يصل الأستاذَ اسمٌ ولا رمز). */
     res.json({ held: true, heldUntil: result?.heldUntil });
   } catch (error: any) {

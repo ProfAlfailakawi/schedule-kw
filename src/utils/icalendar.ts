@@ -349,9 +349,11 @@ export function buildCalendar(document: CalendarDocument): string {
 export { calendarSubscribeLinks, CALENDAR_LINKS_CLIENT_JS, type CalendarSubscribeLinks } from "./calendarLinks";
 
 /**
- * تذكيرٌ ليوم كامل (موعد دور التسجيل في مساري) بتنبيهين: مساء اليوم السابق وصباح اليوم.
+ * تذكيرٌ ليوم كامل (موعد دور التسجيل في مساري) بتنبيهين: ٩ صباحاً في اليوم السابق و٨ صباحاً في اليوم نفسه.
+ * التنبيهُ يُقاس من بداية اليوم (منتصف الليل بتوقيت الجهاز): ‎-PT15H‎ = ٩ صباح الأمس، ‎PT8H‎ = ٨ صباح اليوم.
  * UID ثابت من التاريخ والعنوان، فإعادةُ الإضافة تحدّث الموعد ولا تكرّره.
  */
+export const REMINDER_ALARMS = { dayBefore: "-PT15H", sameDay: "PT8H" } as const;
 export function buildReminder(input: { title: string; date: string; note?: string; now?: Date }): string {
   const now = input.now || new Date();
   const day = String(input.date || "").slice(0, 10);
@@ -370,8 +372,8 @@ export function buildReminder(input: { title: string; date: string; note?: strin
     `SUMMARY:${escapeText(input.title)}`,
     input.note ? `DESCRIPTION:${escapeText(input.note)}` : "",
     "TRANSP:TRANSPARENT",
-    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${escapeText(input.title)}`, "TRIGGER:-PT3H", "END:VALARM",
-    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${escapeText(input.title)}`, "TRIGGER:PT8H", "END:VALARM",
+    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${escapeText(input.title)}`, `TRIGGER:${REMINDER_ALARMS.dayBefore}`, "END:VALARM",
+    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${escapeText(input.title)}`, `TRIGGER:${REMINDER_ALARMS.sameDay}`, "END:VALARM",
     "END:VEVENT", "END:VCALENDAR",
   ];
   return lines.filter(Boolean).map(foldLine).join("\r\n") + "\r\n";

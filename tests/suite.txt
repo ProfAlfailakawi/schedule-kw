@@ -77,6 +77,7 @@ test:request-signature
 test:teacher-card
 test:teacher-card-2
 test:teacher-card-r4
+test:teacher-card-r5
 test:inbox-proposal-pickers-r2
 test:teacher-card-hours-patterns
 test:teacher-card-logic
@@ -145,6 +146,7 @@ test:handover-fixes
 test:student-needs-scale
 test:term-student-phases
 test:student-door
+test:student-recovery
 test:student-door-network
 test:student-advice
 test:inbox-heat
@@ -157,6 +159,8 @@ test:student-showcase
 test:review-family
 test:masari-responsive
 test:masari-ease
+test:masari-door-ux
+test:critical-courses
 test:masari-visual
 test:masari-return
 test:masari-desktop
@@ -226,6 +230,8 @@ test:regulation-exception
 test:regulation-exception-paths
 test:final-audit-gaps
 test:request-room-capacity
+test:request-room-seat-rule
+test:request-room-seat-http
 test:placeholder-action
 test:course-spelling-merge
 test:teacher-mini-week
@@ -293,6 +299,7 @@ test:instructor-requests-owner-notes
 test:pin-regulation
 test:pin-violations-note
 test:proposal-open-row
+test:schedule-tools-groups
 test:changes-unified-review
 test:academic-console
 test:radar-suggestions

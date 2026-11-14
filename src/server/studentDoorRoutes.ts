@@ -56,6 +56,9 @@ import { createTtlMemo } from "./notificationCache";
 import {
   clearDoorCookie, codeVersion, doorCookie, hashCode, readCookie, readDoorSession, signDoorSession, verifyCode, DOOR_COOKIE,
 } from "./studentDoor";
+import { RECOVERY_MAX_FAILURES, calendarFingerprint, calendarToken, calendarTokenValid, readRecovery } from "./studentRecovery";
+import { buildReminder, calendarSubscribeLinks, type CalendarLecture } from "../utils/icalendar";
+import { sendCalendar } from "./routes/publicCalendarRoutes";
 
 export interface StudentDoorDeps {
   surveyFingerprint: (civil: string) => Promise<string>;
@@ -248,8 +251,15 @@ async function summaryOf(profile: StudentProfile) {
     passedCourseIds: profile.passedCourseIds, passedUnits: profile.passedUnits, transfer: profile.transfer === true, equivalentCourseIds: profile.equivalentCourseIds || [],
     progress, wishes: profile.wishes || null, wishCodes, masariAck: profile.masariAck || "",
     createdAt: profile.createdAt, keepsUntil: profile.deleteAt, keepsReason: profile.deleteReason, hasIdentity: Boolean(profile.nameCipher && profile.civilCipher),
+    /* طلبُ حذفٍ معلَّق: يراه صاحبُ الجلسة ليلغيه برمزه (فتحُ الصفحة وحده لا يُلغيه). */
+    resetPending: Boolean(profile.resetRequestedAt),
     identity: await identityOf(profile),
   };
+}
+
+/** عمرُ الملف بعد كتابةٍ بالجلسة: طلبُ حذفٍ معلَّق يبقى بموعده (لا يمدّه حضورٌ ولا حفظ)، وإلا القاعدةُ العادية. */
+function keptLifetime(profile: StudentProfile, now: Date): Pick<StudentProfile, "deleteAt" | "deleteReason"> {
+  return profile.resetRequestedAt ? { deleteAt: profile.deleteAt, deleteReason: "reset" } : profileLifetime(profile, now);
 }
 
 /** الاسمُ الثلاثي: ٦–٨٠ حرفاً بلا أرقامٍ ولا رموز. فارغٌ إن لم يصلح. */
@@ -286,13 +296,16 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
      والرغبات): فعشرون طالباً في الدقيقة من شبكة الجامعة، والباقون «طلباتٌ كثيرة». صار الحدُّ نفسُه
      (ستين) لكل طالب — رقمُه المدني في الدخول، وكوكي جلسته بعده — وفوقه سقفٌ لكل عنوانٍ يتّسع لنحو
      أربعمئة طالبٍ في الدقيقة من عنوانٍ واحد، ويبقى حدّاً لمن يدور على أرقامٍ مدنيةٍ مختلفة. والمفتاحُ
-     بصمةٌ (sha256) لا الرقمُ نفسُه: الذاكرةُ لا تحمل رقماً مدنياً. */
+     بصمةٌ (sha256) لا الرقمُ نفسُه: الذاكرةُ لا تحمل رقماً مدنياً.
+     والجلسةُ الموقَّعة تسبق الرقمَ في الجسم: كان الرقمُ المدنيُّ في الجسم يُقدَّم عليها، فمن بيده جلسةٌ
+     يبدّل الرقمَ في كل طلبٍ فيصير له مفتاحٌ جديد وحدٌّ جديد. الآن: جلسةٌ صحيحة ← بصمتُها، وإلا الرقم،
+     وإلا العنوان. والكوكيُّ يُتحقَّق من توقيعه، فكوكيٌّ مزوَّرٌ يتبدّل لا يصنع مفتاحاً. */
   const keyHash = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, 32);
-  const studentWriteKey = (req: Request): string => {
+  const studentWriteKey = async (req: Request): Promise<string> => {
+    const session = readDoorSession(await deps.identityKey(), readCookie(req.headers.cookie, DOOR_COOKIE), Date.now());
+    if (session) return `door:${keyHash(session.fingerprint)}`;
     const civil = civilOf(req.body);
     if (civil) return `civil:${keyHash(civil)}`;
-    const session = readCookie(req.headers.cookie, DOOR_COOKIE);
-    if (session) return `door:${keyHash(session)}`;
     return `ip:${ipKeyGenerator(ip(req))}`;
   };
   const writeLimit = [
@@ -316,6 +329,26 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     res.append("Set-Cookie", doorCookie(token, { remember, maxAgeSeconds, secure }));
   };
 
+  /** خطأٌ في رمزٍ لملفٍّ موجود: يُعدّ على قفل الملف (٥ ← ١٥ دقيقة)، ولرمز الاستعادة عدّادُه أيضاً (٥ تُسقطه). */
+  const countCodeFailure = async (fingerprint: string, now: number, recovery = false): Promise<{ left: number; voided: boolean }> => {
+    let left = CODE_MAX_FAILURES, voided = false;
+    await Repository.updateStudentProfile(fingerprint, current => {
+      if (!current) return undefined;
+      if (lockState(current, now).locked) { left = 0; return current; }
+      const failures = afterCodeFailure(current, now);
+      left = failures.lockedUntil ? 0 : CODE_MAX_FAILURES - failures.count;
+      let rec = current.recovery;
+      if (recovery && rec) {
+        const count = Number(rec.failures || 0) + 1;
+        voided = count >= RECOVERY_MAX_FAILURES;
+        rec = voided ? undefined : { ...rec, failures: count };
+        left = voided ? 0 : Math.min(left, RECOVERY_MAX_FAILURES - count);
+      }
+      return { ...current, codeFailures: failures, recovery: rec };
+    });
+    return { left, voided };
+  };
+
   /** من هذا الزائر؟ كوكي موقَّع + ملفٌّ ما زال بالرمز نفسه. */
   const readDoor = async (req: Request): Promise<Door | null> => {
     const session = readDoorSession(await deps.identityKey(), readCookie(req.headers.cookie, DOOR_COOKIE), Date.now());
@@ -323,12 +356,14 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     let profile = await Repository.getStudentProfile(session.fingerprint);
     if (!profile || codeVersion(profile.codeHash) !== session.cv) return null;
     const now = Date.now();
-    /* صاحبُ الجلسة حاضر: مرةً في اليوم يُكتب حضورُه، ويُلغى طلبُ الحذف إن كان. */
-    if (shouldTouch(profile.lastSeenAt, now) || profile.resetRequestedAt) {
+    /* صاحبُ الجلسة حاضر: مرةً في اليوم يُكتب حضورُه. ولا يُلغى طلبُ الحذف بمجرّد فتح الصفحة:
+       كان أيُّ طلبٍ بجلسةٍ (ولو GET state) يُلغيه، فمن أنشأ ملفَّ غيره يُبطل «نسيت رمزي» بفتح الصفحة.
+       الإلغاءُ بإدخال الرمز وحده (الدخول، أو «أبقِ ملفّي»، أو تغيير الرمز، أو الاستعادة). */
+    if (shouldTouch(profile.lastSeenAt, now)) {
       profile = (await Repository.updateStudentProfile(session.fingerprint, current => {
         if (!current) return undefined;
         const lastSeenAt = new Date(now).toISOString();
-        return { ...current, resetRequestedAt: undefined, lastSeenAt, ...profileLifetime({ ...current, lastSeenAt }, new Date(now)) };
+        return { ...current, lastSeenAt, ...keptLifetime({ ...current, lastSeenAt }, new Date(now)) };
       })) || profile;
     }
     return { fingerprint: session.fingerprint, profile };
@@ -351,16 +386,20 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const today = kuwaitDateISO();
     const reading = readStudentPhase(term?.AdTermStudentPhases, today);
     const door = await readDoor(req).catch(() => null);
+    /* «هذا جهازي» يُقرأ من عمر الجلسة نفسها: تغييرُ الرمز يُصدر جلسةً بالعمر نفسه فلا تقصر جلسةُ ١٨٠ يوماً إلى جلسة متصفح. */
+    const session = door ? readDoorSession(await deps.identityKey(), readCookie(req.headers.cookie, DOOR_COOKIE), Date.now()) : null;
     res.json({
       demo: Repository.isDemoRequest(),
       term: term ? { id: Number(term.AdTermId), name: String(term.AdTermName || "") } : null,
       phase: {
-        key: reading.key, mode: reading.mode, label: reading.label, line: reading.line,
+        key: reading.key, mode: reading.mode, label: reading.forStudent.label, line: reading.forStudent.line,
         canEditWishes: reading.canEditWishes, canReport: reading.canReport, nextAt: reading.nextAt || "", nextLabel: reading.nextLabel || "",
+        until: reading.until || "", today,
         roundName: reading.round?.name || "",
       },
-      timeline: studentTimeline(term?.AdTermStudentPhases, term?.AdTermSubmissionDeadline, today),
+      timeline: studentTimeline(term?.AdTermStudentPhases, term?.AdTermSubmissionDeadline, today, "student"),
       signedIn: Boolean(door),
+      session: session ? { remember: session.exp - Date.now() > SESSION_HOURS * 3_600_000 } : null,
       profile: door ? await summaryOf(door.profile) : null,
       limits: { codeLength: CODE_LENGTH, ...(await (async () => { const cap = await universityUnitCap(); return { wishUnitsMin: studentUnitFloorOf(cap), wishUnitsMax: cap }; })()), termUnits: TYPICAL_TERM_UNITS, afterGraduationDays: AFTER_GRADUATION_DAYS },
     });
@@ -373,7 +412,8 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const civil = civilOf(req.body);
     if (!civil) { fail(res, 400, "الرقم المدني غير صحيح. راجع الأرقام كما هي في بطاقتك.", "bad-civil"); return; }
     const profile = await Repository.getStudentProfile(await deps.surveyFingerprint(civil));
-    noStore(res); res.json({ exists: Boolean(profile), resetPending: Boolean(profile?.resetRequestedAt), resetAt: profile?.resetRequestedAt ? profile.deleteAt : "" });
+    /* تاريخُ الإنشاء (يومٌ لا ساعة): من لم يُنشئ ملفاً قطّ ثم وجد «أهلاً بعودتك» يرى أنه أُنشئ بغير علمه، فيذهب إلى قسمه. */
+    noStore(res); res.json({ exists: Boolean(profile), resetPending: Boolean(profile?.resetRequestedAt), resetAt: profile?.resetRequestedAt ? profile.deleteAt : "", since: profile ? String(profile.createdAt || "").slice(0, 10) : "" });
   });
 
   /* ── نسيتُ رمزي ──────────────────────────────────────────────────────────── */
@@ -451,7 +491,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
           left = locked ? 0 : CODE_MAX_FAILURES - failures.count;
           return { ...current, codeFailures: failures };
         });
-        fail(res, 401, locked ? "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد ١٥ دقيقة." : "الرمز غير صحيح.", locked ? "locked" : "bad-code", { attemptsLeft: left });
+        fail(res, 401, locked ? "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد 15 دقيقة." : "الرمز غير صحيح.", locked ? "locked" : "bad-code", { attemptsLeft: left });
         return;
       }
       done();
@@ -464,7 +504,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
         return { ...current, codeFailures: undefined, resetRequestedAt: undefined, lastSeenAt, ...profileLifetime({ ...current, lastSeenAt }, new Date(now)) };
       })) || profile;
       if (lockedMeanwhile) {
-        fail(res, 423, "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد ١٥ دقيقة.", "locked");
+        fail(res, 423, "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد 15 دقيقة.", "locked");
         return;
       }
       await issueSession(res, entered, remember);
@@ -678,7 +718,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
         wishes: sameSection && (current.curriculumPlanId || "") === planId && current.wishes
           ? { ...current.wishes, courseIds: current.wishes.courseIds.filter(id => allowed.includes(id) && !passed.includes(id) && prereqOk(id)) }
           : undefined };
-      return { ...base, ...profileLifetime(base, now) };
+      return { ...base, ...keptLifetime(base, now) };
     });
     if (!saved) { fail(res, 401, "انتهت جلستك. أدخل من جديد.", "signed-out"); return; }
     noStore(res); res.json({ ...(await summaryOf(saved)), droppedPassed: dropped.length });
@@ -767,7 +807,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const termById = new Map((terms as any[]).map(term => [Number(term.AdTermId), String(term.AdTermName || "الفصل") ] as const));
     const statusText: Record<string, string> = {
       pending: "وصل طلبك · قيد مراجعة القسم", approved: "وافقت اللجنة · بانتظار الإجراء التالي",
-      "committee-rejected": "تعذّر قبول الطلب من اللجنة", registered: "اكتمل قرار الحالة داخل SCHEDULE",
+      "committee-rejected": "تعذّر قبول الطلب من اللجنة", registered: "اكتملت مراجعة طلبك",
       rejected: "تعذّر قبول الطلب في المراجعة التالية",
     };
     const rows = needs
@@ -786,7 +826,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
           const state = (need.courseStates || []).find(item => Number(item.courseId) === Number(id));
           const courseStatus: Record<string, string> = {
             pending: "قيد مراجعة القسم", "awaiting-registration": "وافقت اللجنة · بانتظار الإجراء التالي",
-            "committee-rejected": "تعذّر قبوله من اللجنة", registered: "اكتملت مراجعته داخل SCHEDULE",
+            "committee-rejected": "تعذّر قبوله من اللجنة", registered: "اكتملت مراجعته",
             rejected: "تعذّر قبوله في المراجعة التالية",
           };
           return { code: String(course?.CourseCode || ""), name: String(course?.CourseName || "مقرر"),
@@ -950,7 +990,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     if (!phase.canEditWishes && !phase.canReport) { fail(res, 409, "نافذة الطلبات غير مفتوحة الآن.", "requests-closed", { line: phase.line }); return; }
     const [run, ticket] = await Promise.all([Repository.getRegistrationRun(termId), Repository.getRegistrationTicket(termId, fingerprint)]);
     if (!studentNeedsCommitteeHelp(profile, run, ticket, termId)) {
-      fail(res, 409, "لا توجد حالة تعثر مؤكدة في آخر محاكاة تستدعي طلباً فردياً. حدّث رغباتك وانتظر إعادة الاحتساب.", "no-proven-blocker"); return;
+      fail(res, 409, "جدولك المقترح الأخير لا يُظهر مقرراً متعذّراً يحتاج طلباً للقسم. حدّث رغباتك وانتظر التحديث القادم.", "no-proven-blocker"); return;
     }
     const openable = new Set(ticket!.unmet.filter(item => item.reason === "not-offered" || item.reason === "full").map(item => Number(item.courseId)));
 
@@ -963,7 +1003,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const ids: number[] = [...new Set<number>((Array.isArray(req.body?.courseIds) ? req.body.courseIds : []).map(Number)
       .filter(id => Number.isInteger(id) && id > 0))];
     if (requestType === "new-course" && (ids.length < 1 || ids.length > 12 || ids.some(id => !remaining.has(id) || !openable.has(id) || Number(byId.get(id)?.AdSectionId) !== Number(profile.AdSectionId)))) {
-      fail(res, 400, "اختر من مقرراتك المتبقية المتعذرة في المحاكاة (حتى 12 مقرراً).", "course-outside-plan"); return;
+      fail(res, 400, "اختر من مقرراتك المتبقية التي تعذّرت في جدولك المقترح (حتى 12 مقرراً).", "course-outside-plan"); return;
     }
     if (requestType === "course-conflict") {
       if (ids.length !== 2 || ids[0] === ids[1]) { fail(res, 400, "اختر مقررين مختلفين للتعارض.", "bad-conflict-pair"); return; }
@@ -979,7 +1019,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       if (!ownId || !otherId || rows.some(course => !course || Number(course.AdCollegeId) !== Number(profile.AdCollegeId))
         || !remaining.has(ownId) || !ticket!.unmet.some(item => Number(item.courseId) === ownId && item.reason === "conflict")
         || !pairs.some(pair => pair.ownCourseId === ownId && pair.otherCourseId === otherId)) {
-        fail(res, 409, "لم يثبت تعذّر حل هذا التعارض من الجداول المنشورة المكتملة. جرّب الشعب البديلة أو حدّث المحاكاة.", "conflict-not-proven"); return;
+        fail(res, 409, "لم يثبت تعذّر حل هذا التعارض من الجداول المنشورة المكتملة. جرّب الشعب البديلة في جدولك المقترح.", "conflict-not-proven"); return;
       }
     }
     const details = String(req.body?.details || "").normalize("NFKC").replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 600);
@@ -1083,7 +1123,8 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       }
       return out;
     });
-    const opened = [...wanted].filter(id => openedAll.has(id)).slice(0, 4).map(id => ({ courseId: id, name: nameOf(id), section: openedAll.get(id) || "" }));
+    const wished = new Set<number>(profile.wishes && profile.wishes.termId === termId ? profile.wishes.courseIds : []);
+    const opened = [...wanted].filter(id => openedAll.has(id)).slice(0, 4).map(id => ({ courseId: id, name: nameOf(id), section: openedAll.get(id) || "", wished: wished.has(id) }));
     /* العددُ نفسُه الذي تعرضه بطاقةُ «هل سجلت؟»: خطّةُ (أ) إن وُجدت، وإلا ما طُرح من متبقّي صحيفته. */
     const reportCourses = profile.AdSectionId > 0 ? ((await reportContext(profile, fingerprint))?.ids.length || 0) : 0;
     const cases = needs.flatMap(need => need.courseIds.map(courseId => {
@@ -1093,7 +1134,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     res.json({
       notices: buildStudentNotices({
         setupDone: profile.AdSectionId > 0,
-        phase: { mode: reading.mode, canEditWishes: reading.canEditWishes, canReport: reading.canReport, line: reading.line, nextAt: reading.nextAt ? deadlineDateShort(reading.nextAt) : "", nextLabel: reading.nextLabel },
+        phase: { mode: reading.mode, canEditWishes: reading.canEditWishes, canReport: reading.canReport, line: reading.forStudent.line, nextAt: reading.nextAt ? (reading.nextAt === kuwaitDateISO() ? "اليوم" : deadlineDateShort(reading.nextAt)) : "", nextLabel: reading.nextLabel },
         hasWishes: Boolean(profile.wishes && profile.wishes.termId === termId),
         ticket: live ? { stale: Date.parse(profile.updatedAt) > Date.parse(run!.ranAt), window: live.window, of: run!.rounds, windowName: round?.name, start: round?.start ? deadlineDateShort(round.start) : "", end: round?.end ? deadlineDateShort(round.end) : "" } : null,
         reportAnswered: Boolean(profile.registration && profile.registration.termId === termId),
@@ -1309,33 +1350,204 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     noStore(res); res.json({ ok: true, masariAck: key });
   });
 
-  /* ── الرمز: تغييرٌ، ونسيانُ الملف كلِّه ──────────────────────────────────── */
-  app.post("/api/public/me/code", writeLimit, requireDoor, async (req: Request, res: Response) => {
-    const { fingerprint, profile } = doorOf(res);
+  /* ── الرمز: تغييرٌ، ونسيانُ الملف كلِّه ──────────────────────────────────────
+     خطأُ «الرمز الحالي» هنا يُعدّ على قفل الملف نفسه كما في الدخول (٥ ← ١٥ دقيقة): كان يُعدّ على
+     العنوان وحده، فمن بيده جلسةٌ مسروقة يخمّن الرمزَ بسرعة العنوان. */
+  const checkCurrentCode = async (req: Request, res: Response, fingerprint: string, code: string): Promise<boolean> => {
     const attempt = codeLimiter.reserve(ip(req));
-    if (!attempt) { fail(res, 429, "محاولاتٌ كثيرة. انتظر دقائق.", "rate"); return; }
+    if (!attempt) { fail(res, 429, "محاولاتٌ كثيرة. انتظر دقائق.", "rate"); return false; }
+    const now = Date.now();
+    const profile = await Repository.getStudentProfile(fingerprint);
+    if (!profile) { attempt.release(false); fail(res, 401, "انتهت جلستك.", "signed-out"); return false; }
+    const lock = lockState(profile, now);
+    if (lock.locked) {
+      attempt.release(false);
+      fail(res, 423, `أخطأت في الرمز مراتٍ كثيرة. جرّب بعد ${countOf(Math.ceil(lock.retryInMs / 60_000), AR.minute)}.`, "locked", { retryInSeconds: Math.ceil(lock.retryInMs / 1000) });
+      return false;
+    }
+    if (await verifyCode(code, profile.codeHash, profile.codeSalt)) { attempt.release(); return true; }
+    const { left } = await countCodeFailure(fingerprint, now);
+    fail(res, 401, left === 0 ? "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد 15 دقيقة." : "الرمز الحالي غير صحيح.", left === 0 ? "locked" : "bad-code", { attemptsLeft: left });
+    return false;
+  };
+
+  app.post("/api/public/me/code", writeLimit, requireDoor, async (req: Request, res: Response) => {
+    const { fingerprint } = doorOf(res);
     const oldCode = toEnglishDigits(req.body?.oldCode).replace(/\D/g, ""), newCode = toEnglishDigits(req.body?.newCode).replace(/\D/g, "");
-    if (!(await verifyCode(oldCode, profile.codeHash, profile.codeSalt))) { fail(res, 401, "الرمز الحالي غير صحيح.", "bad-code"); return; }
-    attempt.release();
+    if (!(await checkCurrentCode(req, res, fingerprint, oldCode))) return;
     const problem = codeProblem(newCode);
     if (problem) { fail(res, 400, problem, "weak-code"); return; }
     const { hash, salt } = await hashCode(newCode);
-    const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? { ...current, codeHash: hash, codeSalt: salt, codeFailures: undefined, updatedAt: new Date().toISOString() } : undefined));
+    const now = new Date();
+    /* تغييرُ الرمز إدخالٌ للرمز الصحيح: يُلغي طلبَ الحذف المعلَّق كما يُلغيه الدخول. */
+    const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? {
+      ...current, codeHash: hash, codeSalt: salt, codeFailures: undefined, resetRequestedAt: undefined, updatedAt: now.toISOString(),
+      ...profileLifetime(current, now),
+    } : undefined));
     if (!saved) { fail(res, 401, "انتهت جلستك.", "signed-out"); return; }
     await issueSession(res, saved, req.body?.remember === true);
     noStore(res); res.json({ ok: true });
   });
 
-  app.post("/api/public/me/forget", writeLimit, requireDoor, async (req: Request, res: Response) => {
-    const { fingerprint, profile } = doorOf(res);
-    const attempt = codeLimiter.reserve(ip(req));
-    if (!attempt) { fail(res, 429, "محاولاتٌ كثيرة. انتظر دقائق.", "rate"); return; }
+  /* «أبقِ ملفّي»: طُلب حذفُ الملف (من صاحبه أو من غيره) وصاحبُه داخلٌ بجلسته — رمزُه يُلغي الطلب. */
+  app.post("/api/public/me/keep", writeLimit, requireDoor, async (req: Request, res: Response) => {
+    const { fingerprint } = doorOf(res);
     const code = toEnglishDigits(req.body?.code).replace(/\D/g, "");
-    if (!(await verifyCode(code, profile.codeHash, profile.codeSalt))) { fail(res, 401, "الرمز غير صحيح.", "bad-code"); return; }
-    attempt.release();
+    if (!(await checkCurrentCode(req, res, fingerprint, code))) return;
+    const now = new Date();
+    const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? {
+      ...current, codeFailures: undefined, resetRequestedAt: undefined, ...profileLifetime(current, now),
+    } : undefined));
+    if (!saved) { fail(res, 401, "انتهت جلستك.", "signed-out"); return; }
+    noStore(res); res.json({ ok: true, profile: await summaryOf(saved) });
+  });
+
+  app.post("/api/public/me/forget", writeLimit, requireDoor, async (req: Request, res: Response) => {
+    const { fingerprint } = doorOf(res);
+    const code = toEnglishDigits(req.body?.code).replace(/\D/g, "");
+    if (!(await checkCurrentCode(req, res, fingerprint, code))) return;
     await Repository.updateStudentProfile(fingerprint, () => null);
     res.setHeader("Set-Cookie", clearDoorCookie(secure));
     noStore(res); res.json({ ok: true });
+  });
+
+  /* ── الاستعادةُ برمز القسم ─────────────────────────────────────────────────
+     موظفُ القسم رأى البطاقةَ المدنية وأصدر رمزاً من ستة أرقام (src/server/studentRecovery.ts).
+     الطالبُ يكتبه مع رمزٍ شخصيٍّ جديد: يُستبدل الرمز، فتسقط كلُّ الجلسات القديمة (نسخةُ الرمز
+     في الجلسة)، ويُلغى طلبُ الحذف، ويسقط رمزُ الاستعادة فلا يُستعمل مرتين. خطؤه يُعدّ على قفل
+     الملف (٥ ← ١٥ دقيقة) وعلى الرمز نفسه (٥ أخطاءٍ تُسقطه فيُطلب غيرُه). */
+  app.post("/api/public/me/recover", writeLimit, async (req: Request, res: Response) => {
+    const attempt = codeLimiter.reserve(ip(req));
+    if (!attempt) { fail(res, 429, "محاولاتٌ كثيرة من هذا الاتصال. انتظر دقائق ثم أعد المحاولة.", "rate"); return; }
+    const notGuess = () => attempt.release(false);
+    try {
+      const civil = civilOf(req.body);
+      if (!civil) { notGuess(); fail(res, 400, "الرقم المدني غير صحيح.", "bad-civil"); return; }
+      const newCode = toEnglishDigits(req.body?.code).replace(/\D/g, "");
+      const problem = codeProblem(newCode);
+      if (problem) { notGuess(); fail(res, 400, problem, "weak-code"); return; }
+      const fingerprint = await deps.surveyFingerprint(civil);
+      const profile = await Repository.getStudentProfile(fingerprint);
+      if (!profile) { notGuess(); fail(res, 404, "لا ملف لهذا الرقم المدني. أنشئ ملفك.", "no-profile"); return; }
+      const now = Date.now();
+      const lock = lockState(profile, now);
+      if (lock.locked) {
+        notGuess();
+        fail(res, 423, `أخطأت مراتٍ كثيرة. جرّب بعد ${countOf(Math.ceil(lock.retryInMs / 60_000), AR.minute)}.`, "locked", { retryInSeconds: Math.ceil(lock.retryInMs / 1000) });
+        return;
+      }
+      const reading = readRecovery(await deps.identityKey(), profile, String(req.body?.recovery ?? ""), now);
+      if (reading === "none" || reading === "expired") {
+        notGuess();
+        fail(res, 400, reading === "expired" ? "انتهت مدة رمز القسم. اطلب رمزاً جديداً من قسمك." : "لا رمز استعادة لهذا الملف. اطلبه من قسمك ومعك بطاقتك المدنية.", "no-recovery");
+        return;
+      }
+      if (reading === "wrong") {
+        const { left, voided } = await countCodeFailure(fingerprint, now, true);
+        fail(res, 401, voided ? "أخطأت مراتٍ كثيرة فأُلغي رمز القسم. اطلب رمزاً جديداً من قسمك." : left === 0 ? "أخطأت مراتٍ كثيرة. جرّب بعد 15 دقيقة." : "رمز القسم غير صحيح.",
+          voided ? "recovery-void" : left === 0 ? "locked" : "bad-recovery", { attemptsLeft: left });
+        return;
+      }
+      const { hash, salt } = await hashCode(newCode);
+      const at = new Date(now);
+      let used = false;
+      const saved = await Repository.updateStudentProfile(fingerprint, current => {
+        /* الرمزُ نفسُه ما زال حيّاً في المعاملة (لم يُستعمل بطلبٍ متوازٍ ولم يُستبدل). */
+        if (!current || !current.recovery || current.recovery.hash !== profile.recovery?.hash || lockState(current, now).locked) return undefined;
+        used = true;
+        const lastSeenAt = at.toISOString(), issuedAt = current.recovery.issuedAt;
+        const log = (current.recoveryLog || []).map(entry => (entry.at === issuedAt && !entry.usedAt ? { ...entry, usedAt: lastSeenAt } : entry));
+        const next: StudentProfile = { ...current, codeHash: hash, codeSalt: salt, codeFailures: undefined, resetRequestedAt: undefined, recovery: undefined, recoveryLog: log, lastSeenAt, updatedAt: lastSeenAt };
+        return { ...next, ...profileLifetime(next, at) };
+      });
+      if (!used || !saved) { notGuess(); fail(res, 409, "استُعمل هذا الرمز أو تغيّر. اطلب رمزاً جديداً من قسمك.", "recovery-used"); return; }
+      attempt.release();
+      await issueSession(res, saved, req.body?.remember === true);
+      noStore(res); res.json({ ok: true, profile: await summaryOf(saved) });
+    } catch (error) {
+      notGuess();
+      console.error("[student-door] recover:", error instanceof Error ? error.message : error);
+      fail(res, 500, "تعذّرت الاستعادة الآن. أعد المحاولة بعد قليل.");
+    }
+  });
+
+  /* ── تذكيرٌ في التقويم (ICS ليومٍ كامل) ─────────────────────────────────────
+     كان رابطاً عامّاً بلا جلسة يقبل عنواناً حرّاً (‎/api/public/ics-reminder?t=…‎): أيُّ أحدٍ يصنع به ملفَّ
+     تقويمٍ بنصّه هو باسم الموقع. الآن نوعان معروفان، بجلسة الطالب، والعنوانُ والتاريخ من الخادم:
+     next = المحطةُ القادمة في رحلة الفصل، round = يومُ دور تسجيله في «جدولي المقترح». */
+  app.get("/api/public/me/reminder", requireDoor, async (req: Request, res: Response) => {
+    const kind = String(req.query.kind || "");
+    if (kind !== "next" && kind !== "round") { fail(res, 400, "نوع تذكيرٍ غير معروف.", "bad-kind"); return; }
+    const { fingerprint } = doorOf(res);
+    const term = pickDoorTerm((await Repository.getTerms()) as any);
+    if (!term) { fail(res, 404, "لا فصلَ مفتوحاً.", "no-term"); return; }
+    const termName = String(term.AdTermName || "");
+    let reminder: { title: string; date: string; note: string } | null = null;
+    if (kind === "next") {
+      const reading = readStudentPhase(term.AdTermStudentPhases, kuwaitDateISO());
+      if (reading.nextAt) reminder = { title: `${reading.nextLabel || "موعد مساري"} — ${termName}`, date: String(reading.nextAt).slice(0, 10), note: `من مساري: ${reading.line}` };
+    } else {
+      const termId = Number(term.AdTermId);
+      const [run, ticket] = await Promise.all([Repository.getRegistrationRun(termId), Repository.getRegistrationTicket(termId, fingerprint)]);
+      const round = run && ticket && ticket.runId === run.runId ? term.AdTermStudentPhases?.rounds?.[ticket.window - 1] : undefined;
+      if (round?.start) reminder = { title: `موعد تسجيلي — دور ${ticket!.window} من ${run!.rounds}`, date: String(round.start).slice(0, 10), note: `من مساري: جدولي المقترح — ${round.name || ""}` };
+    }
+    if (!reminder || !/^\d{4}-\d{2}-\d{2}$/.test(reminder.date)) { fail(res, 404, "لا موعدَ لهذا التذكير الآن.", "no-date"); return; }
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", req.query.dl ? 'attachment; filename="masari.ics"' : 'inline; filename="masari.ics"');
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buildReminder(reminder));
+  });
+
+  /* ── اشتراكُ «جدولي المقترح» في تقويم الهاتف ────────────────────────────────
+     رابطٌ ثابتٌ لكل طالب (webcal://) يقرؤه تطبيقُ التقويم كل بضع ساعات بلا كوكي: مفتاحُه ختمٌ لبصمة
+     الملف مع نسخة الرمز (src/server/studentRecovery.ts) — لا رقمَ مدنياً ولا بصمةً مكشوفة. يتبع الخطةَ
+     «أ» من تذكرته بمواعيدها المعتمدة، فيتحدّث وحده كلما أُعيدت المحاكاة أو اعتُمد جدولُ قسم؛ وقبل ذلك
+     تقويمٌ صالحٌ فارغ. تغييرُ الرمز أو استعادتُه أو حذفُ الملف يُبطل الرابط (٤٠٤). */
+  const CALENDAR_NAME = "جدولي المقترح — مساري";
+  app.get("/api/public/me/calendar", requireDoor, async (req: Request, res: Response) => {
+    const { fingerprint, profile } = doorOf(res);
+    const token = calendarToken(await deps.identityKey(), fingerprint, codeVersion(profile.codeHash));
+    const links = calendarSubscribeLinks(`${req.protocol}://${req.get("host")}/api/public/me/cal/${token}.ics`, CALENDAR_NAME);
+    noStore(res); res.json({ ...links, name: CALENDAR_NAME });
+  });
+
+  app.get("/api/public/me/cal/:file", async (req: Request, res: Response) => {
+    const notFound = () => { res.setHeader("Cache-Control", "no-store"); res.status(404).type("text/plain; charset=utf-8").send("Not found"); };
+    const token = /^([A-Za-z0-9_-]{40,200})\.ics$/.exec(String(req.params.file || ""))?.[1] || "";
+    const key = await deps.identityKey();
+    const fingerprint = token ? calendarFingerprint(key, token) : null;
+    const profile = fingerprint ? await Repository.getStudentProfile(fingerprint) : undefined;
+    if (!fingerprint || !profile || !calendarTokenValid(key, token, fingerprint, codeVersion(profile.codeHash))) { notFound(); return; }
+    const term = pickDoorTerm((await Repository.getTerms()) as any);
+    if (!term) { notFound(); return; }
+    const termId = Number(term.AdTermId);
+    const lectures: CalendarLecture[] = [];
+    const [run, ticket] = await Promise.all([Repository.getRegistrationRun(termId), Repository.getRegistrationTicket(termId, fingerprint)]);
+    if (run && ticket && ticket.runId === run.runId && profile.AdSectionId > 0) {
+      const [catalog, context, states] = await Promise.all([sectionCatalog(profile.AdSectionId), ticketContext(termId), offeringStatesForTerm(termId)]);
+      const planA = ticket.plans.find(plan => plan.label === "A") || ticket.plans[0];
+      const clock = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+      for (const item of planA?.items || []) {
+        const offering = context.offerings.get(item.offeringId);
+        /* ما يراه الطالبُ في «جدولي المقترح» نفسُه: شعبةٌ بجدولٍ موقَّعٍ لقسمها، ومقررٌ غيرُ موقوف. */
+        if (!offering?.slots.length || !context.signed.has(`${offering.collegeId}:${offering.sectionId}`) || offeringBlocked(states, Number(item.courseId))) continue;
+        const course = catalog.courses.get(Number(item.courseId)) || { code: "", name: `مقرر ${item.courseId}` };
+        /* أيامٌ بالساعة نفسها موعدٌ أسبوعيٌّ واحد؛ ساعةٌ أخرى موعدٌ آخر. */
+        const groups = new Map<string, number[]>();
+        for (const slot of offering.slots) groups.set(`${slot.start}-${slot.end}`, [...(groups.get(`${slot.start}-${slot.end}`) || []), slot.day]);
+        for (const [at, days] of groups) {
+          const [start, end] = at.split("-").map(Number);
+          lectures.push({
+            /* معرّفٌ ثابتٌ لهذا الطالب ولهذه الشعبة وساعتها: إعادةُ القراءة تحدّث الموعد ولا تكرّره. */
+            id: `m${createHash("sha256").update(`${token}|${item.offeringId}|${at}`).digest("hex").slice(0, 20)}`,
+            title: [course.code, course.name].filter(Boolean).join(" · "), code: course.code, section: offering.code,
+            start: clock(start), end: clock(end), days,
+          });
+        }
+      }
+    }
+    await sendCalendar(req, res, CALENDAR_NAME, termId, lectures);
   });
 }
 

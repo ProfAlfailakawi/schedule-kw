@@ -1,0 +1,34 @@
+/* ── «أدوات الجدول»: ثلاث مجموعات صغيرة (المالك 2026-11-14) ───────────────────
+   التخطيط أولاً وأبرز، ثم الأساتذة، ثم الملفات. كل مجموعةٍ عنوانٌ صغير بأيقونته
+   وتحته ألسنتُها؛ والفصلُ الأرشيف يُبقي «الملفات» وحدها (تصدير، نشر). */
+.transfer-sheet .transfer-tabs.transfer-tabs--grouped{
+  display:grid!important;grid-template-columns:minmax(0,1.25fr) minmax(0,1.6fr) minmax(0,1.25fr)!important;
+  gap:10px;padding:10px;align-items:stretch;border-bottom:0;background:var(--surface-2);border-radius:20px
+}
+.transfer-sheet .transfer-tabs.transfer-tabs--grouped.is-ended{grid-template-columns:minmax(0,1fr)!important}
+.transfer-tab-group{display:grid;align-content:start;gap:6px;min-width:0;padding:8px;border-radius:16px;background:color-mix(in srgb,var(--surface) 55%,transparent)}
+.transfer-tab-group.is-planning{background:color-mix(in srgb,var(--brass-soft,#f5ead3) 70%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--brass,#9a6b1f) 22%,transparent)}
+.transfer-tab-group-name{display:inline-flex;align-items:center;gap:6px;padding-inline:4px;font-size:.72rem;font-weight:800;color:var(--muted);letter-spacing:0}
+.transfer-tab-group.is-planning .transfer-tab-group-name{color:var(--brass,#9a6b1f)}
+.transfer-tab-group-name svg{inline-size:14px;block-size:14px;flex:none}
+.transfer-tab-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px;min-width:0}
+.transfer-sheet .transfer-tabs.transfer-tabs--grouped .transfer-tab-row button{inline-size:100%;min-inline-size:0;white-space:normal;text-align:center}
+@media (max-width:900px){
+  .transfer-sheet .transfer-tabs.transfer-tabs--grouped{grid-template-columns:minmax(0,1fr)!important}
+}
+@media (max-width:560px){
+  .transfer-tab-row{grid-template-columns:repeat(auto-fit,minmax(72px,1fr))}
+  .transfer-sheet .transfer-tabs.transfer-tabs--grouped .transfer-tab-row button{min-block-size:52px;font-size:11px}
+}
+
+/* «تحويل هيئة التدريب» لوحةً داخل «الأساتذة» لا نافذةً فوقها. */
+.ta-conversion-embedded{display:block;min-width:0}
+.ta-conversion-sheet.is-embedded{inline-size:100%;max-inline-size:none;max-block-size:none;box-shadow:none;border:0;background:transparent;animation:none}
+
+/* «الصحيفة»: النوعُ الرابع في «نشر». */
+.publish-sheet-card{display:grid;gap:10px;margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}
+.publish-sheet-head{display:flex;align-items:center;gap:10px}
+.publish-sheet-head strong{font-size:.98rem}
+
+/* قائمة العروض: «حفظ العرض الحالي» و«تركيز» بأيقونتيهما. */
+.views-actions .views-item[role="menuitemcheckbox"][aria-checked="true"]{color:var(--accent)}

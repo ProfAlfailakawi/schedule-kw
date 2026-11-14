@@ -1,8 +1,11 @@
 import type { FSchedule, InstructorRequest } from "../types";
 import { clockRangesOverlap } from "./scheduleTime";
 import { roomKeyOf, rowOccupiesRoom } from "./locationRegistry";
+import { pickRequestRoom, type RoomSeatFit } from "./requestRoomRanking";
 
-export interface RequestReservationRoom { roomId?: string; buildingId?: string; room: string; hall: string; companionRoomId?: string; companionRoomLabel?: string }
+export interface RequestReservationRoom { roomId?: string; buildingId?: string; room: string; hall: string; companionRoomId?: string; companionRoomLabel?: string;
+  /** سعةُ القاعة المسجّلة وملاءمتُها لمقاعد الشعبة (requestRoomRanking): «short» لا يُحجز أبداً، و«unknown» يُحجز موسوماً للقسم. */
+  capacity?: number; seatFit?: RoomSeatFit }
 export interface RequestReservation {
   requestId: string;
   itemId: string;
@@ -113,9 +116,11 @@ function claimProposal(next: RequestReservation[], request: InstructorRequest, p
   if (live.some(row => Number(row.AdInstructorId) === proposal.instructorId && touches(proposal.slots, slotsOf(row)))
     || next.some(entry => entry.instructorId === proposal.instructorId && touches(proposal.slots, entry.slots)))
     throw new RequestReservationConflict("لديك موعد آخر في الوقت المختار. راجع الأيام والأوقات قبل الإرسال.");
-  const room = roomsWithIdentity.find(candidate => !live.some(row =>
+  /* القاعدةُ الواحدة للسعة: من الخالي المرتّب أوّلُ ما يكفي، وإلا ما سعتُه غيرُ مسجّلة موسوماً — والأصغرُ لا يُحجز أبداً. */
+  const free = roomsWithIdentity.filter(candidate => candidate.seatFit !== "short" && !live.some(row =>
     occupies(row, candidate, proposal.collegeId) && touches(proposal.slots, slotsOf(row)))
     && !next.some(entry => sameRoom(candidate, entry.room) && touches(proposal.slots, entry.slots)));
+  const room = pickRequestRoom(free)?.room;
   if (proposal.rooms.length && !room) throw new RequestReservationConflict(REQUEST_RACE_LOST);
   const { rooms: _rooms, offeringRows: _expected, ...reservation } = proposal;
   return { ...reservation, requestId: request.id, ...(room ? { room } : {}) };
@@ -138,9 +143,18 @@ export function allocateRequestReservations(entries: RequestReservation[], reque
  * ويختفي عن زملائه حتى يُرسل أو ينقضي الحجز. حجزُ البند نفسِه السابقُ يُستبدل،
  * وما أرسله الأستاذ من قبل يبقى كما هو.
  */
+/** سقفُ حجوز التحرير لرابطٍ واحد: مفتاحُ الحجز يأتي من الصفحة، فبلا سقفٍ كان رابطٌ واحدٌ يحجز عشراتِ الأوقات
+    بلا رقمٍ مدنيّ فيرى زملاؤه «سبقك زميل». ثلاثةٌ تكفي من يعدّل بنداً أو بندين. */
+export const DRAFT_HOLDS_PER_REQUEST = 3;
 export function holdRequestReservation(entries: RequestReservation[], request: InstructorRequest,
-  proposal: RequestReservationProposal, officialRows: FSchedule[], heldUntil: string): RequestReservation[] {
-  const next = liveReservations(entries).filter(entry => !(entry.requestId === request.id && entry.itemId === proposal.itemId));
+  proposal: RequestReservationProposal, officialRows: FSchedule[], heldUntil: string, maxHolds = DRAFT_HOLDS_PER_REQUEST): RequestReservation[] {
+  let next = liveReservations(entries).filter(entry => !(entry.requestId === request.id && entry.itemId === proposal.itemId));
+  /* حجزُ البند نفسِه يُستبدل (أعلاه)، وما زاد على السقف يُفرج أقدمُه أولاً: الأحدثُ هو ما يختاره الأستاذ الآن. */
+  const cap = Math.max(1, Math.min(DRAFT_HOLDS_PER_REQUEST, Math.floor(Number(maxHolds) || DRAFT_HOLDS_PER_REQUEST)));
+  const mineHeld = next.filter(entry => entry.requestId === request.id && entry.heldUntil)
+    .sort((a, b) => String(a.heldUntil).localeCompare(String(b.heldUntil)));
+  const drop = new Set(mineHeld.slice(0, Math.max(0, mineHeld.length - (cap - 1))));
+  if (drop.size) next = next.filter(entry => !drop.has(entry));
   /* حجوزُ الطلب نفسِه لا تُحسب عليه: المُرسَلُ سابقاً يُستبدل عند الإرسال، وحجوزُ بنوده الأخرى أثناء التحرير
      تعارضٌ بين بنود مسودّته يقوله الحكمُ نفسُه على الأسبوع كلِّه. وكان اختيارٌ ألغاه الأستاذ (إضافةٌ أو وقتٌ
      تركه) يبقى عشرَ دقائق فيمنعه «لديك موعد آخر» و«سبقك زميل ⏱️» عن وقتٍ يقول الفحصُ إنه متاح (محاكاة 2026-10-30). */
@@ -163,7 +177,8 @@ export function withReservedRooms(request: InstructorRequest, entries: RequestRe
     const room = item.itemId ? mine.get(item.itemId) : undefined;
     if (!room) return item;
     return { ...item, reservedRoom: { ...(room.roomId ? { roomId: room.roomId } : {}), label: [room.room, room.hall].filter(Boolean).join("/"),
-      ...(room.companionRoomLabel ? { companionLabel: room.companionRoomLabel } : {}) } };
+      ...(room.companionRoomLabel ? { companionLabel: room.companionRoomLabel } : {}),
+      ...(Number(room.capacity) > 0 ? { capacity: Number(room.capacity) } : {}), ...(room.seatFit ? { seatFit: room.seatFit } : {}) } };
   }) };
 }
 
