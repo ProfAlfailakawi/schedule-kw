@@ -61,6 +61,7 @@ import { surveyFingerprint } from "../core/studentIdentity";
 import { instructorRequestPage } from "../pages/instructorRequestPage";
 import { publicInvalidLinkPage } from "../pages/publicInvalidLinkPage";
 import { offeredAllows, offeredBreach, offeredCourseSet } from "../../utils/offeredCourses";
+import { withoutPlaceFields } from "../../utils/teacherSafeFields";
 
 /* طلبُ الأستاذ وردُّه من رابطه العام: حدٌّ سخيٌّ لإنسانٍ يكتب، فوق عدّاد
    المحاولات الموقّعة (publicAttempts) لا بدلاً منه. */
@@ -92,9 +93,15 @@ function stripForInstructor(request: InstructorRequest) {
   const cleanDecision = (decision: any) => decision ? { ...decision, reopenTo: undefined, ...(decision.note ? { note: clean(decision.note) } : {}) } : decision;
   const cleanThread = (thread: any[] | undefined) => thread?.map(message =>
     message?.from === "department" && message.text ? { ...message, text: clean(message.text) } : message);
-  return {
+  /* والتنقيةُ الأخيرة (utils/teacherSafeFields): أيُّ حقلِ قاعةٍ أو مبنى بقي في أيّ عمقٍ يُحذف (المالك 2026-11-14). */
+  return withoutPlaceFields({
     ...request,
     scheduleGeneration: undefined,
+    /* الاستثناءُ الفرديّ يصل بمواعيده وحدها: من منحه ولماذا شأنٌ داخليٌّ للقسم. */
+    individualException: request.individualException ? {
+      opensAt: request.individualException.opensAt, closesAt: request.individualException.closesAt,
+      grantedAt: request.individualException.grantedAt, ...(request.individualException.revokedAt ? { revokedAt: request.individualException.revokedAt } : {}),
+    } as InstructorRequest["individualException"] : undefined,
     /* والتوقيعُ يصل بتاريخه ورمزه، لا ببصمته: البصمةُ تُطابَق في الخادم ولا
        تُعرض، وإرسالُها إلى المتصفّح يجعلها رقماً يُجرَّب عليه. */
     signatureHistory: undefined,
@@ -112,7 +119,7 @@ function stripForInstructor(request: InstructorRequest) {
     items: (request.items || []).map(item => {
       /* القاعةُ لا تصل الأستاذ (قرار المالك 2026-10-29: «مخفية اكيد متعمدة»): المرشّحاتُ وتفاصيلُها،
          و«الأنسب» (roomPick في ما حُفظ قبل القرار)، والمحجوزةُ، والمبدَّلة — كلُّها للقسم. يرى roomAvailable وحده. */
-      const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, ...rest } = item;
+      const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, roomSeats, ...rest } = item;
       const itemId = instructorRequestItemIdentity(item);
       const identify = (slot: any) => ({ ...slot,
         proposalId: instructorRequestProposalIdentity(itemId, slot) });
@@ -124,7 +131,8 @@ function stripForInstructor(request: InstructorRequest) {
         ...(rest.thread ? { thread: cleanThread(rest.thread)!.map(message => ({ ...message,
           ...(message.slots ? { slots: message.slots.map(identify) } : {}) })) } : {}),
         ...(rest.threadHistory ? { threadHistory: cleanThread(rest.threadHistory) } : {}),
-        ...((rest as any).reasons ? { reasons: ((rest as any).reasons as any[]).map(reason => ({ ...reason, text: clean(reason?.text) })) } : {}),
+        /* وتفصيلُ السبب (مقاعدُ الشعبة مقابل سعات القاعات) للقسم وحده: يصل الأستاذَ نصُّه العامّ. */
+        ...((rest as any).reasons ? { reasons: ((rest as any).reasons as any[]).map(({ detail: _detail, ...reason }) => ({ ...reason, text: clean(reason?.text) })) } : {}),
         ...((rest as any).advice ? { advice: clean((rest as any).advice) } : {}),
         /* لا «كان» ولا «طلب» تحمل قاعة: الصفحةُ لا تعرضها، والقرارُ أن لا تصل. */
         before: rest.before ? { ...rest.before, room: undefined } : rest.before,
@@ -135,7 +143,7 @@ function stripForInstructor(request: InstructorRequest) {
            صفةً لا اسماً، وهي تُكتب كذلك أصلاً. */
       };
     }),
-  };
+  });
 }
 /** نصٌّ من الحكم يصل الأستاذ (سطرُ الحكم، النصيحة): يمرّ بتنقية القاعات برموز بنود الطلب كلِّها. */
 function teacherSafeText(request: { items?: InstructorRequestItem[] }, text: string | undefined): string {
@@ -146,7 +154,7 @@ function teacherSafeText(request: { items?: InstructorRequestItem[] }, text: str
 const sameCourseWarned = (item: InstructorRequestItem) => (item.reasons || []).some(reason => softSectionClash(reason as any));
 
 function teacherSafeVerdict<T extends { headline?: string; advice?: string }>(request: { items?: InstructorRequestItem[] }, verdict: T): T {
-  return { ...verdict, headline: teacherSafeText(request, verdict.headline), advice: teacherSafeText(request, verdict.advice) };
+  return withoutPlaceFields({ ...verdict, headline: teacherSafeText(request, verdict.headline), advice: teacherSafeText(request, verdict.advice) });
 }
 
 /** الموعدُ القائم الذي يحمل البندُ لقطتَه: الإضافةُ لا موعدَ لها، وما سواها موعدُه «كان». */
@@ -472,7 +480,8 @@ async function requestReservationProposals(request: InstructorRequest): Promise<
     const scope = requestItemScope(request, item);
     const existing = originalOffering(item, official);
     const rooms = existing ? []
-      : (item.roomOptions || []).map(room => ({ roomId: room.roomId, buildingId: room.buildingId, room: room.room, hall: room.hall, companionRoomId: room.companionRoomId, companionRoomLabel: room.companionRoomLabel }));
+      : (item.roomOptions || []).filter(room => room.seatFit !== "short").map(room => ({ roomId: room.roomId, buildingId: room.buildingId, room: room.room, hall: room.hall, companionRoomId: room.companionRoomId, companionRoomLabel: room.companionRoomLabel,
+        ...(room.capacity ? { capacity: room.capacity } : {}), ...(room.seatFit ? { seatFit: room.seatFit } : {}) }));
     return { itemId: item.itemId!, instructorId: Number(request.AdInstructorId), collegeId: scope.collegeId, sectionId: scope.sectionId,
       courseId: Number(item.after?.courseId || item.before?.courseId), slots: item.slots || [], rooms,
       offeringRowIds: item.offeringRowIds || [], offeringRows: item.offeringRows };

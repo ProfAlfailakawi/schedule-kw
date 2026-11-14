@@ -67,6 +67,8 @@
     "test:regulation-exception": "tsx tests/regulation-exception.ts",
     "test:regulation-exception-paths": "tsx tests/regulation-exception-paths-audit.ts",
     "test:request-room-capacity": "tsx tests/request-room-capacity-audit.ts",
+    "test:request-room-seat-rule": "tsx tests/request-room-seat-rule-audit.ts",
+    "test:request-room-seat-http": "tsx tests/request-room-seat-http-audit.ts",
     "test:placeholder-action": "tsx tests/placeholder-action-audit.ts",
     "test:course-spelling-merge": "tsx tests/course-spelling-merge-audit.ts",
     "test:teacher-mini-week": "tsx tests/teacher-mini-week-audit.ts",
