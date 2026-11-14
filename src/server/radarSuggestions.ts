@@ -31,6 +31,8 @@ export interface RadarSuggestionDeps {
   requireAuth: import("express").RequestHandler;
   isScopeAllowed: (req: any, collegeId: number, sectionId: number) => boolean;
   isPowerUser: (req: any) => boolean;
+  /** بابُ شاشة الرادار نفسه (٧ أو ١٤ أو الإدارة) كما يحرس الملخّصَ والأسبابَ المجاورة. */
+  radarReader?: import("express").RequestHandler;
   dataContextKey?: (key: string | number) => string;
   /** مدخلُ المحاكاة المشترك مع «ماذا لو؟» (الذاكرة نفسها). */
   loadInput: (term: AdTerm, run: RegistrationRun | null) => Promise<Loaded>;
@@ -112,7 +114,7 @@ export function registerRadarSuggestionRoutes(app: Express, deps: RadarSuggestio
   const courseMemo = createTtlMemo<Omit<RadarSuggestionRow, "code" | "name" | "sectionName">>({ ttlMs: 10 * 60_000 });
   const baselineMemo = createTtlMemo<SimResult>({ ttlMs: 10 * 60_000 });
 
-  app.get("/api/simulation/suggestions", deps.requireAuth, async (req: Request, res: Response) => {
+  app.get("/api/simulation/suggestions", deps.requireAuth, deps.radarReader || ((_req, _res, next) => next()), async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     const term = pickDoorTerm((await Repository.getTerms()) as any) as AdTerm | null;
     const asked = Number(req.query.termId) || 0;
