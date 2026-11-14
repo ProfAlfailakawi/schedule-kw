@@ -61,7 +61,7 @@ function ring(percent: number | null): string {
   const r = 34, c = 2 * Math.PI * r;
   if (percent == null) return `<div class="ring" role="img" aria-label="لا مقررات في الصحيفة"><svg viewBox="0 0 80 80"><circle class="bg" cx="40" cy="40" r="34"/></svg><b>—</b></div>`;
   const p = Math.max(0, Math.min(100, Math.round(percent)));
-  return `<div class="ring" role="img" aria-label="${p}٪"><svg viewBox="0 0 80 80"><circle class="bg" cx="40" cy="40" r="34"/><circle class="fg" cx="40" cy="40" r="34" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - p / 100)).toFixed(1)}"/></svg><b>${p}٪</b></div>`;
+  return `<div class="ring" role="img" aria-label="${p}%"><svg viewBox="0 0 80 80"><circle class="bg" cx="40" cy="40" r="34"/><circle class="fg" cx="40" cy="40" r="34" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - p / 100)).toFixed(1)}"/></svg><b>${p}%</b></div>`;
 }
 
 function weekGrid(meetings: ShareMeeting[]): string {

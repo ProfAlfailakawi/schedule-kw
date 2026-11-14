@@ -116,10 +116,10 @@ export default function LocationCapacityGaps({ buildings, sections, demoReadOnly
   const complete = total > 0 && missing === 0;
   return <Surface className={`cap-gaps${complete ? " is-complete" : ""}`}>
     <div className="cap-gaps-head">
-      <MiniRing value={percent} size={84} label="اكتمال سعات القاعات">{percent == null ? "—" : `${num(percent)}٪`}</MiniRing>
+      <MiniRing value={percent} size={84} label="اكتمال سعات القاعات">{percent == null ? "—" : `${num(percent)}%`}</MiniRing>
       <div className="cap-gaps-copy">
         <strong>قاعات بلا سعة</strong>
-        {total === 0 ? <small>لا قاعات فعّالة معتمدة بعد.</small> : <small>{num(percent ?? 0)}٪ من القاعات لها سعة · {num(withCapacity)} من {num(total)}</small>}
+        {total === 0 ? <small>لا قاعات فعّالة معتمدة بعد.</small> : <small>{num(percent ?? 0)}% من القاعات لها سعة · {num(withCapacity)} من {num(total)}</small>}
         <p className="cap-gaps-effect"><Sparkles aria-hidden="true" /> بعد الحفظ تُرشَّح القاعة لشعب بهذا الحجم</p>
       </div>
       <div className="cap-gaps-count" data-zero={missing === 0 ? "1" : undefined} aria-live="polite">

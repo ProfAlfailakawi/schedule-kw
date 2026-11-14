@@ -166,11 +166,18 @@ export default function CardPulse({ rows, termId, active, onPick, onReminded, is
           const count = pulse.counts[stage];
           return (
             <li key={stage}>
-              <button type="button" className="card-pulse-stage" data-stage={stage} data-zero={count ? undefined : "1"} aria-pressed={active === stage}
-                title={HINT[stage]} aria-label={`${num(count)} ${nounFor(count, LABEL[stage])} — ${HINT[stage]}`} disabled={!count && active !== stage}
-                data-guide-ignore="تصفية الوارد بمرحلة البطاقة — عرضٌ لا فعل" onClick={() => onPick(active === stage ? null : stage)}>
-                <Icon aria-hidden="true" /><b>{num(count)}</b><span>{nounFor(count, LABEL[stage])}</span>
-              </button>
+              {count || active === stage ? (
+                <button type="button" className="card-pulse-stage" data-stage={stage} data-zero={count ? undefined : "1"} aria-pressed={active === stage}
+                  title={HINT[stage]} aria-label={`${num(count)} ${nounFor(count, LABEL[stage])} — ${HINT[stage]}`}
+                  data-guide-ignore="تصفية الوارد بمرحلة البطاقة — عرضٌ لا فعل" onClick={() => onPick(active === stage ? null : stage)}>
+                  <Icon aria-hidden="true" /><b>{num(count)}</b><span>{nounFor(count, LABEL[stage])}</span>
+                </button>
+              ) : (
+                /* مرحلةٌ فارغة: تسمية خافتة لا زرٌّ معطّل (قاعدة «لا شريحة معطّلة بصفر»). */
+                <div className="card-pulse-stage" data-stage={stage} data-zero="1" role="group" aria-label={`${num(count)} ${nounFor(count, LABEL[stage])}`}>
+                  <Icon aria-hidden="true" /><b>{num(count)}</b><span>{nounFor(count, LABEL[stage])}</span>
+                </div>
+              )}
             </li>
           );
         })}
