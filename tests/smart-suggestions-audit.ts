@@ -129,7 +129,8 @@ console.log("٤) تحويل النمط (قراءة فقط)");
 console.log("٥) الدمج في مركز الذكاء");
 {
   const app = read("src/App.tsx"), xfer = read("src/components/ScheduleTransfer.tsx"), intel = read("src/components/IntelligenceWorkspace.tsx"), machine = read("src/components/TimeMachine.tsx");
-  check(/!allowed\.schedule && opensChangesScreen\(sessionRole\) \? \(\s*<NavButton[\s\S]{0,120}view="timeMachine"/.test(app), "زرّ آلة الزمن لمن لا يدخل مركز الذكاء وحده");
+  /* المرحلة 4: لا زرَّ لآلة الزمن في القائمة لأحد؛ لمن لا يبني الجدول «جرّب بديلاً» على كل موعدٍ في «تغييرات الجدول». */
+  check(!/view="timeMachine"/.test(app) && read("src/components/ScheduleChanges.tsx").includes("جرّب بديلاً"), "لا زرّ آلة الزمن في القائمة؛ بابُ غير بُناة الجدول «جرّب بديلاً» في تغييرات الجدول");
   check(/initialTab="whatif"/.test(app), "رابط آلة الزمن القديم يفتح «ماذا لو» في المركز");
   check(/key="intelligence-whatif"/.test(app) && /key="intelligence"/.test(app), "المسار الجديد يركّب المركز من جديد فلا يبقى على لسانه القديم");
   check(/\[initialTab\]\);/.test(intel) && /window\.addEventListener\("popstate", follow\)/.test(intel), "المركز المفتوح ينتقل إلى «ماذا لو» حين يصل رابطٌ جديد");

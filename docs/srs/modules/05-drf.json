@@ -39,6 +39,8 @@
     "src/server/demoPreviousTermSeed.ts",
     "src/components/TimeMachine.tsx",
     "src/components/ScenarioWorkbench.tsx",
+    "src/components/TryAlternativeSheet.tsx",
+    "src/styles/61-try-alternative.css",
     "src/components/timeMachineShared.tsx",
     "src/components/SectionSimulator.tsx",
     "src/components/SmartSuggestions.tsx",
@@ -50,13 +52,13 @@
   "screens": [
     {
       "name": {
-        "ar": "آلة الزمن",
-        "en": "Time machine"
+        "ar": "ماذا لو (آلة الزمن)",
+        "en": "What if (time machine)"
       },
       "file": "src/components/TimeMachine.tsx",
       "note": {
-        "ar": "ثلاثة أوضاع: طوارئ (جملة ← ثلاثة حلول)، مختبر (تعديل حر)، هدف؛ وخطوات: اكتب، قارن، اعتمد؛ ومنتقيا الكلية والقسم في الرأس.",
-        "en": "Three modes: emergency (sentence → three solutions), lab (free editing), goal; steps: write, compare, apply; college and department pickers in the header."
+        "ar": "مكتب «ماذا لو» (كان «آلة الزمن»): اقتراحات، وطوارئ (جملة أو هدف أو بديلٌ لموعد ← حلول)، والشعب، وحذف مقرر، والنمط؛ بلا صفحةٍ مستقلة ولا زرٍّ في القائمة: يُفتح من «مركز التحليلات ← جرّب ← ماذا لو» لمن يبني الجدول، ومن «جرّب بديلاً» على أي موعدٍ تغيّر في «تغييرات الجدول» لمن يراجعه.",
+        "en": "The «what if» desk (formerly «time machine»): suggestions, emergency (a sentence, a goal or an alternative for one appointment → solutions), sections, course removal and pattern; no standalone page and no menu button: it opens from «Analytics Center → try → what if» for schedule builders and from «try an alternative» on any changed appointment in «schedule changes» for reviewers."
       }
     },
     {
@@ -1246,6 +1248,52 @@
         ],
         "tests": [
           "tests/time-machine-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-DRF-029",
+      "kind": "functional",
+      "title": {
+        "ar": "«جرّب بديلاً» على الموعد المتغيّر",
+        "en": "«Try an alternative» on a changed appointment"
+      },
+      "text": {
+        "ar": "يجب أن يعرض تقرير «تغييرات الجدول» على كل موعدٍ معدَّلٍ أو مضاف، في «ما تحرّك» وفي «الجدول كامل» لما تحرّك، زرّ «جرّب بديلاً» يفتح ورقةً فيها مكتب «ماذا لو» على ذلك الموعد وحده: بدائل لمكانه ووقته (الوقت نفسه في قاعةٍ أخرى، وأقرب موعدٍ مسموح، وأيام الأستاذ نفسها)، كلٌّ مقيسٌ بأثره ولا يزيد موانع الاعتماد، على نسخةٍ افتراضية لا تمسّ الجدول؛ وألّا يظهر الزرّ على موعدٍ محذوف ولا في فصلٍ أرشيفٍ أو مجمّد، وألّا تبقى صفحةٌ مستقلةٌ لآلة الزمن ولا زرٌّ لها في القائمة، وأن يُحوَّل رابطها القديم لمن لا يبني الجدول إلى «تغييرات الجدول» ولمن يبنيه إلى «مركز التحليلات ← جرّب ← ماذا لو».",
+        "en": "The «schedule changes» report shall show on every edited or added appointment, in «what moved» and in «full schedule» for what moved, a «try an alternative» button that opens a sheet holding the «what if» desk on that appointment alone: alternatives for its place and time (the same time in another room, the nearest permitted slot, the instructor's own days), each measured by its effect and never adding approval blockers, on a virtual copy that does not touch the schedule; the button shall not appear on a deleted appointment nor in an archived or frozen term, no standalone time-machine page or menu button shall remain, and its old link shall redirect those who do not build the schedule to «schedule changes» and those who do to «Analytics Center → try → what if»."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "غير الكاتب يرى «عرض ومحاكاة — الاعتماد لمن يكتب الجدول» ولا يرى حفظاً ولا اعتماداً؛ والخادم هو الحارس (الاعتماد من غير كاتبٍ 403).",
+          "en": "A non-writer sees «view and simulate — approval is for whoever writes the schedule» and no save or apply; the server is the guard (apply by a non-writer is 403)."
+        },
+        {
+          "ar": "موعدٌ بلا بديلٍ آمن ← «لا حلّ آمن بلا تعارض جديد» لا خطأ.",
+          "en": "An appointment with no safe alternative → «no safe solution without a new conflict», not an error."
+        },
+        {
+          "ar": "رابط /FSchedule/TimeMachine لمن لا يملك الإذن 7 ويفتح تغييرات الجدول يُستبدل في التاريخ بـ/FSchedule/Changes فلا يضيف خطوةً للرجوع.",
+          "en": "The /FSchedule/TimeMachine link for someone without permission 7 who opens schedule changes is replaced in history by /FSchedule/Changes, adding no step to go back."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/TryAlternativeSheet.tsx",
+          "src/components/ScheduleChanges.tsx#rowExtras",
+          "src/components/TimeMachine.tsx#WhatIfDesk",
+          "src/utils/timeMachine.ts#solveProblem",
+          "src/App.tsx"
+        ],
+        "tests": [
+          "tests/whatif-in-changes-audit.ts"
         ]
       }
     },
