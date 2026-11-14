@@ -300,3 +300,4 @@ test:inbox-pilot
 test:advising
 test:admin-station
 test:query-center-plus
+test:names-one-label

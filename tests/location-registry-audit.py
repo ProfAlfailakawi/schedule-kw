@@ -642,7 +642,7 @@ repository=(ROOT/'src/db/repository.ts').read_text()
 admin_users=(ROOT/'src/components/AdminUsers.tsx').read_text()
 app_source=(ROOT/'src/App.tsx').read_text()
 ok('212a the lightweight add-buildings-and-rooms icon lives inside System Administration and is root-admin-only',
-   'rootAdmin && permissions.includes(7) ? { value: "roomSetup", label: "إضافة مبانٍ وقاعات"' in admin_users
+   'rootAdmin && permissions.includes(7) ? { value: "roomSetup", label: "إضافة المباني والقاعات"' in admin_users
    and 'case "roomSetup":' in app_source
    and 'user.IsRootAdmin && allowed.admin' in app_source
    and 'mode === "roomSetup"' in admin_users)
