@@ -15,7 +15,11 @@ import type { Express, NextFunction, Request, Response } from "express";
 import { randomBytes } from "crypto";
 import { rateLimit } from "express-rate-limit";
 import { Repository } from "../db/repository";
-import { type AuthenticatedRequest, getCookies, isPowerUser, requireAuth, requirePowerAdmin, SERVER_IDLE_SESSION_MS, DEMO_SESSION_TTL_MS, authCache } from "./core/auth";
+import { type AuthenticatedRequest, getCookies, isPowerUser, requireAuth, requirePermission, requirePowerAdmin, SERVER_IDLE_SESSION_MS, DEMO_SESSION_TTL_MS, authCache } from "./core/auth";
+
+/* إدارةُ الفرق من شاشة «الفرق» وحدها، وتلك يفتحها في الواجهة من يملك شاشة المستخدمين (١١):
+   الحارسُ نفسه هنا، فلا يدير الفرقَ مديرٌ لا يرى الشاشة. */
+const seatAdmin = requirePermission(11);
 import { isScopeAllowed } from "./core/scope";
 import { ACADEMIC_ROLES, roleDefinition, roleLabel } from "../utils/academicRoles";
 import { placeholderInstructorIds } from "../utils/instructorIdentity";
@@ -391,7 +395,7 @@ const resetLimit = rateLimit({
 export function registerSeatsRoutes(app: Express): void {
 
 /** كلُّ الكراسي لمدير النظام: من عليها، وكم في فرقها، وما الكراسي الناقصة. */
-app.get("/api/seats", requirePowerAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+app.get("/api/seats", requirePowerAdmin, seatAdmin, async (_req: AuthenticatedRequest, res: Response) => {
   const [users, ledgers, assigns, colleges] = await Promise.all([Repository.getUsers(), listSeatLedgers(), Repository.getCollegeUserAssigns(), Repository.getColleges()]);
   const nameOf = await scopeNames();
   const ledgerOf = new Map(ledgers.map(row => [Number(row.userId), row]));
@@ -506,7 +510,7 @@ app.get("/api/seats/:id/handover-candidates", requireAuth, handoverSearchLimit, 
 });
 
 /** يسجّل مديرُ النظام شاغلَ الكرسي الحالي كما هو، بلا كلمةٍ جديدة ولا إخراج: «من يجلس هنا اليوم». */
-app.post("/api/seats/:id/holder", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/seats/:id/holder", requirePowerAdmin, seatAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const seat = await seatUser(Number(req.params.id));
   if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
   const person = await personFrom(req.body);
@@ -544,7 +548,7 @@ app.post("/api/seats/:id/handover", requireAuth, async (req: AuthenticatedReques
 });
 
 /** إعادةُ إصدار الكلمة الأولى: لمدير النظام، ولكرسيٍّ لم يختر شاغلُه كلمتَه؛ فلا تُمحى كلمةُ أحد. */
-app.post("/api/seats/:id/first-password", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/seats/:id/first-password", requirePowerAdmin, seatAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const seat = await seatUser(Number(req.params.id));
   if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
   if (!seat.MustChangePassword) { res.status(409).json({ error: "اختار رئيس الفريق كلمته. سلّم الرئاسة إن أردت كلمة أولى جديدة." }); return; }
@@ -557,7 +561,7 @@ app.post("/api/seats/:id/first-password", requirePowerAdmin, async (req: Authent
  * إعادةُ تعيين كلمة سرّ رئيس الفريق: لمدير النظام. كلمةٌ عشوائية تظهر هنا مرةً واحدة ولا تُحفظ إلا بصمتها،
  * تعمل 24 ساعة ولدخولٍ واحد، ويختار بعدها كلمته. تخرج جلساتُ الرئيس؛ وأعضاءُ الفريق يبقون بروابطهم.
  */
-app.post("/api/seats/:id/password-reset", requirePowerAdmin, resetLimit, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/seats/:id/password-reset", requirePowerAdmin, resetLimit, seatAdmin, async (req: AuthenticatedRequest, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
   const seat = await seatUser(Number(req.params.id));
   if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
@@ -733,7 +737,7 @@ app.post("/api/seats/:id/deputy/end", requireAuth, async (req: AuthenticatedRequ
  * (بنين، بنات، الفحيحيل…)، وكلُّ حرمٍ في النظام كليةٌ قائمة بذاتها. ومعه شاغلُه وكلمتُه الأولى.
  */
 /** «أنشئ رؤساء التسجيل لكل الكليات الناقصة»: كرسيٌّ لكل كليةٍ بحرمها، بالكلمة الافتراضية وتغييرها عند أول دخول. */
-app.post("/api/seats/college-registrars/all", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/seats/college-registrars/all", requirePowerAdmin, seatAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const results = await ensureCollegeRegistrars(byName(req));
   authCache.clear();
   const created = results.filter(row => row.status === "created").length, extended = results.length - created;
@@ -741,7 +745,7 @@ app.post("/api/seats/college-registrars/all", requirePowerAdmin, async (req: Aut
   res.json({ results, password: DEFAULT_FIRST_PASSWORD });
 });
 
-app.post("/api/seats/college-registrar", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/seats/college-registrar", requirePowerAdmin, seatAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const wanted = collegeIdsFrom(req.body);
   if (!wanted.length) { res.status(400).json({ error: "اختر حرماً واحداً على الأقل." }); return; }
   const colleges = (await Repository.getColleges()) as any[];
@@ -778,7 +782,7 @@ app.post("/api/seats/college-registrar", requirePowerAdmin, async (req: Authenti
 });
 
 /** حرمُ كرسيّ «رئيس تسجيل الكلية» بعد إنشائه: يُضاف إليه حرمٌ أو يُرفع عنه. لمدير النظام وحده. */
-app.post("/api/seats/:id/colleges", requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/seats/:id/colleges", requirePowerAdmin, seatAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const seat = await seatUser(Number(req.params.id));
   if (!seat || roleDefinition(seat.Role).id !== "collegeRegistrar") { res.status(404).json({ error: "هذا ليس فريق تسجيل كلية." }); return; }
   const wanted = collegeIdsFrom(req.body);

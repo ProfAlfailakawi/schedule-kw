@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarPlus, Check, CheckCheck, ClipboardPaste, GraduationCap, Layers, Link2, Send, Target, Undo2, Unlink, UserCheck, Users, X } from "lucide-react";
 import CampusChip from "../CampusChip";
 import SearchableSelect from "../SearchableSelect";
-import { Notice, PrimaryButton, SecondaryButton } from "../ui";
+import { Notice, PrimaryButton, SecondaryButton, visualConfirm } from "../ui";
 import { AR, countOf, nounFor } from "../../utils/arabicCount";
 import { onLiveSignal } from "../../utils/livePulse";
 import { ColleagueWorkNotice } from "../ColleagueHoldNotice";
@@ -31,7 +31,7 @@ interface RequestRow {
   /** ختمُ الإصدار: تحمله كلُّ كتابة، فلا تُكتب فوق انتقالٍ لم يُرَ (src/utils/staleWrite.ts). */
   rev: number; collegeId: number; collegeName: string; sectionId: number; sectionName: string;
   fromSectionId: number; fromSectionName: string; courseId: number; courseCode: string; courseName: string;
-  period: SectionRequestPeriod; count: number; note: string; stage: SectionRequestStage; timeline: TimelineStep[]; counts: SectionRequestCounts;
+  period: SectionRequestPeriod; count: number; note: string; registeredCount?: number; stage: SectionRequestStage; timeline: TimelineStep[]; counts: SectionRequestCounts;
   sectionsNeeded: number; maxStudent: number; closedNote: string; createdAt: string; createdBy: string; createdByRole: string;
   sections: Array<{ scheduleId: number; sectionCode: string; capacity?: number }>;
   students: StudentRow[];
@@ -48,6 +48,8 @@ interface Props {
   onNavigate?: (view: string) => void;
   /** يرسل هذا الحساب طلب شعبة من قسمه (المرشد أو الإدارة)؛ غيره لا يُسأل الخادم عنه فلا يُرفض. */
   mayCompose?: boolean;
+  /** فصلٌ سابق: يُقرأ ولا يُكتب فيه (والخادمُ يردّ أيضاً). الأزرار تبقى ظاهرةً معطَّلة. */
+  frozen?: boolean;
 }
 
 const fmt = (n: number) => Number(n || 0).toLocaleString("ar-KW-u-nu-latn");
@@ -120,21 +122,45 @@ function StudentPicker({ students, initial, verb, allLabel, busy, onSubmit, onCa
 }
 
 /* ── بطاقةُ الطلب ─────────────────────────────────────────────────────────── */
-function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
+function RequestCard({ row, onChanged, onNavigate, peers, onStale, frozen = false }: {
   key?: React.Key; row: RequestRow; onChanged: () => void; onNavigate?: (view: string) => void;
   /** زملاءُ الفريق: من يعمل الآن على هذا الطلب نفسه يُقال على البطاقة. */
   peers: readonly TeamPeer[];
   /** «حدّث ثم أعد»: كتب زميلٌ في الطلب قبلي. يُعيد true إن كان الخطأُ ذاك. */
   onStale: (error: unknown) => boolean;
+  frozen?: boolean;
 }) {
   const [mode, setMode] = useState<"" | "approve" | "register" | "decline">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const { powers, stage, counts } = row;
+  /* طلبٌ بعددٍ بلا قائمة اعتُمد ولم يُسجَّل منه أحد: يُغلق (سحبٌ أو اعتذار) ويُكتب عددُ من سُجّل منه — فلا يبقى عالقاً. */
+  const countOnly = !row.students.length;
+  const closableApproved = countOnly && (stage === "approved") && !counts.registered;
   const open = stage === "sent" || stage === "opened";
+  const closable = open || closableApproved;
   const decides = powers.committee || powers.registration;
   const approvedRows = row.students.filter(student => student.approved === true);
+  const [registeredCount, setRegisteredCount] = useState<number>(row.registeredCount || row.count);
+  const locked = busy || frozen;
+  /* ما لا رجعةَ فيه يُسأل قبله: السحبُ، واعتمادُ الكلّ دفعةً واحدة. */
+  const confirmWithdraw = async () => {
+    const ok = await visualConfirm({
+      title: "سحب طلب الشعبة", tone: "danger", safeCancel: true, confirmLabel: "اسحب الطلب", cancelLabel: "أبقه",
+      message: `يُغلق طلب «${row.courseName}» (${countOf(row.count, AR.student)}) ولا يُعاد فتحه؛ تُرسل طلباً جديداً إن احتجت.`,
+    });
+    if (ok) void act("withdraw", {});
+  };
+  const confirmApproveAll = async (body: Record<string, unknown>, howMany: number) => {
+    const ok = await visualConfirm({
+      title: "اعتماد الطلب كله", confirmLabel: "اعتمد الكل", cancelLabel: "تراجع",
+      message: countOnly
+        ? `يُعتمد عددُ الطلب كلُّه (${countOf(row.count, AR.student)}) ويصل التسجيل. لا تُضاف شعبةٌ ولا تُفكّ بعده.`
+        : `يُعتمد ${countOf(howMany, AR.student)} كلُّهم ويصلون التسجيل. لا تُضاف شعبةٌ ولا تُفكّ بعده.`,
+    });
+    if (ok) void act("approve", body);
+  };
 
   /* ما أفتحه في البطاقة (اعتماد، تسجيل، اعتذار) أو أكتبه الآن: هذا الطلب ما أعمل عليه. */
   useTeamWork(mode || busy ? { kind: "sectionRequest", id: row.id, label: row.courseName.slice(0, 40) } : null);
@@ -166,15 +192,27 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
 
   /* الزرُّ الرئيسيُّ الواحد لكل طرف، بحسب ما ينتظره الطلب منه الآن. */
   let primary: React.ReactNode = null;
-  if (powers.committee && stage === "sent" && onNavigate) {
+  if (powers.committee && stage === "sent" && onNavigate && !frozen) {
     primary = <PrimaryButton type="button" onClick={openInWorkspace} data-guide-ignore="يفتح محرّر الموعد في الورشة مملوءاً بمقرر الطلب وحرمه وفصله؛ لا يكتب قبل الحفظ هناك"><CalendarPlus aria-hidden="true" /> افتح الشعبة</PrimaryButton>;
   } else if (decides && stage === "opened" && mode !== "approve") {
-    primary = <PrimaryButton type="button" disabled={busy} onClick={() => row.students.length ? setMode("approve") : void act("approve", { all: true })} data-guide-ignore="يفتح قائمة طلبة الطلب لاعتمادهم كلهم أو بعضهم"><UserCheck aria-hidden="true" /> اعتمد الطلبة</PrimaryButton>;
+    primary = <PrimaryButton type="button" disabled={locked} onClick={() => row.students.length ? setMode("approve") : void confirmApproveAll({ all: true }, row.count)} data-guide-ignore="يفتح قائمة طلبة الطلب لاعتمادهم كلهم أو بعضهم؛ والطلبُ بعددٍ وحده يسأل قبل اعتماده"><UserCheck aria-hidden="true" /> اعتمد الطلبة</PrimaryButton>;
   } else if (powers.registration && stage === "registered" && approvedRows.length && mode !== "register") {
     /* اكتمل التسجيل: يبقى بابُ التصحيح مفتوحاً لمن علّم «سُجّلوا كلهم» خطأً. */
-    primary = <SecondaryButton type="button" disabled={busy} onClick={() => setMode("register")} data-guide-ignore="يفتح قائمة المعتمدين ليصحّح التسجيلُ من علّمه مسجَّلاً"><GraduationCap aria-hidden="true" /> عدّل التسجيل</SecondaryButton>;
+    primary = <SecondaryButton type="button" disabled={locked} onClick={() => setMode("register")} data-guide-ignore="يفتح قائمة المعتمدين ليصحّح التسجيلُ من علّمه مسجَّلاً"><GraduationCap aria-hidden="true" /> عدّل التسجيل</SecondaryButton>;
   } else if (powers.registration && (stage === "approved" || stage === "registering") && approvedRows.length && mode !== "register") {
-    primary = <PrimaryButton type="button" disabled={busy} onClick={() => setMode("register")} data-guide-ignore="يفتح قائمة المعتمدين ليعلّم التسجيلُ من سُجّل منهم"><GraduationCap aria-hidden="true" /> سجّل الطلبة</PrimaryButton>;
+    primary = <PrimaryButton type="button" disabled={locked} onClick={() => setMode("register")} data-guide-ignore="يفتح قائمة المعتمدين ليعلّم التسجيلُ من سُجّل منهم"><GraduationCap aria-hidden="true" /> سجّل الطلبة</PrimaryButton>;
+  } else if (powers.registration && countOnly && (stage === "approved" || stage === "registering" || stage === "registered")) {
+    /* طلبٌ بعددٍ بلا قائمة: يُكتب كم سُجّل منه، والعددُ كلُّه يُكمل الطلب. */
+    primary = (
+      <span className="srq-count-register">
+        <label><span>سُجّل منهم</span>
+          <input type="number" min={0} max={row.count} value={registeredCount} onChange={event => setRegisteredCount(Math.max(0, Math.min(row.count, Math.trunc(Number(event.target.value) || 0))))} aria-label="عدد من سُجّل من الطلب" disabled={locked} />
+          <em>من {fmt(row.count)}</em></label>
+        <PrimaryButton type="button" disabled={locked || registeredCount === (row.registeredCount || 0)} onClick={() => void act("register", { registeredCount })} data-guide-ignore="يكتب التسجيلُ عددَ من سُجّل من طلب الشعبة الذي لا قائمة فيه">
+          <GraduationCap aria-hidden="true" /> {registeredCount === row.count ? "سُجّلوا كلهم" : "اكتب العدد"}
+        </PrimaryButton>
+      </span>
+    );
   }
 
   return (
@@ -211,7 +249,7 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
             <span key={section.sectionCode} className="srq-section">
               <Link2 aria-hidden="true" /> شعبة {section.sectionCode}{section.capacity ? <small>سعة {fmt(section.capacity)}</small> : null}
               {powers.committee && open ? (
-                <button type="button" aria-label={`فك الشعبة ${section.sectionCode}`} disabled={busy} onClick={() => void act("unlink", { sectionCode: section.sectionCode })} data-guide-ignore="يفك ربط شعبة بطلب الإرشاد قبل الاعتماد؛ لا يحذفها من الجدول"><Unlink aria-hidden="true" /></button>
+                <button type="button" aria-label={`فك الشعبة ${section.sectionCode}`} disabled={locked} onClick={() => void act("unlink", { sectionCode: section.sectionCode })} data-guide-ignore="يفك ربط شعبة بطلب الإرشاد قبل الاعتماد؛ لا يحذفها من الجدول"><Unlink aria-hidden="true" /></button>
               ) : null}
             </span>
           ))}
@@ -223,7 +261,7 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
           <small>شعبٌ قائمة لهذا المقرر — اربطها بلمسة</small>
           <div>
             {row.available.slice(0, 6).map(item => (
-              <button key={item.sectionCode} type="button" className={item.matchesPeriod ? "fits" : ""} disabled={busy} onClick={() => void act("link", { scheduleIds: [item.scheduleId] })}
+              <button key={item.sectionCode} type="button" className={item.matchesPeriod ? "fits" : ""} disabled={locked} onClick={() => void act("link", { scheduleIds: [item.scheduleId] })}
                 data-guide-ignore="يربط شعبةً قائمة في الجدول بطلب الإرشاد؛ لا يغيّر الموعد">
                 <Link2 aria-hidden="true" /><b>{item.sectionCode}</b><span>{item.when}</span>{item.matchesPeriod ? <i aria-label="توافق الفترة المفضلة">✓</i> : null}
               </button>
@@ -233,11 +271,11 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
       ) : null}
 
       {mode === "approve" ? (
-        <StudentPicker students={row.students} initial={row.students.filter(s => s.approved !== false).map(s => s.id)} verb="اعتمد المحدَّدين" allLabel="اعتمد الكل" busy={busy}
-          onSubmit={(ids, all) => void act("approve", all ? { all: true } : { studentIds: ids })} onCancel={() => setMode("")} />
+        <StudentPicker students={row.students} initial={row.students.filter(s => s.approved !== false).map(s => s.id)} verb="اعتمد المحدَّدين" allLabel="اعتمد الكل" busy={locked}
+          onSubmit={(ids, all) => { if (all) void confirmApproveAll({ all: true }, row.students.length); else void act("approve", { studentIds: ids }); }} onCancel={() => setMode("")} />
       ) : null}
       {mode === "register" ? (
-        <StudentPicker students={approvedRows} initial={approvedRows.filter(s => s.registered).map(s => s.id)} verb="سُجّل المحدَّدون" allLabel="سُجّلوا كلهم" busy={busy} allowEmpty
+        <StudentPicker students={approvedRows} initial={approvedRows.filter(s => s.registered).map(s => s.id)} verb="سُجّل المحدَّدون" allLabel="سُجّلوا كلهم" busy={locked} allowEmpty
           onSubmit={(ids, all) => {
             if (all) { void act("register", { all: true }); return; }
             const { add, drop } = registrationChanges(approvedRows.filter(s => s.registered).map(s => s.id), ids);
@@ -252,7 +290,7 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
       {mode === "decline" ? (
         <div className="srq-decline">
           <input value={note} onChange={event => setNote(event.target.value)} maxLength={300} placeholder="سطرٌ يصل الإرشاد: لماذا لا تُفتح الشعبة؟" aria-label="سبب الاعتذار" />
-          <SecondaryButton type="button" disabled={busy || !note.trim()} onClick={() => void act("decline", { note })} data-guide-ignore="يكتب اعتذار اللجنة عن طلب الشعبة ويصل الإرشاد">أرسل الاعتذار</SecondaryButton>
+          <SecondaryButton type="button" disabled={locked || !note.trim()} onClick={() => void act("decline", { note })} data-guide-ignore="يكتب اعتذار اللجنة عن طلب الشعبة ويصل الإرشاد">أرسل الاعتذار</SecondaryButton>
           <button type="button" className="srq-link" onClick={() => setMode("")} data-guide-ignore="يغلق حقل الاعتذار دون كتابة">تراجع</button>
         </div>
       ) : null}
@@ -261,14 +299,14 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
 
       <footer className="srq-card-foot">
         {primary}
-        {powers.committee && stage === "opened" && onNavigate && mode === "" ? (
+        {powers.committee && stage === "opened" && onNavigate && mode === "" && !frozen ? (
           <SecondaryButton type="button" onClick={openInWorkspace} data-guide-ignore="يفتح محرّر الموعد لشعبةٍ إضافية لطلب الإرشاد"><CalendarPlus aria-hidden="true" /> شعبة أخرى</SecondaryButton>
         ) : null}
-        {powers.committee && open && mode === "" ? (
-          <button type="button" className="srq-link" onClick={() => setMode("decline")} data-guide-ignore="يفتح حقل سبب الاعتذار عن طلب الشعبة">اعتذار</button>
+        {powers.committee && closable && mode === "" ? (
+          <button type="button" className="srq-link" disabled={locked} onClick={() => setMode("decline")} data-guide-ignore="يفتح حقل سبب الاعتذار عن طلب الشعبة">اعتذار</button>
         ) : null}
-        {powers.advising && !powers.committee && open ? (
-          <button type="button" className="srq-link" disabled={busy} onClick={() => void act("withdraw", {})} data-guide-ignore="يسحب الإرشادُ طلب الشعبة قبل الاعتماد"><Undo2 aria-hidden="true" /> اسحب الطلب</button>
+        {powers.advising && !powers.committee && closable ? (
+          <button type="button" className="srq-link" disabled={locked} onClick={() => void confirmWithdraw()} data-guide-ignore="يسأل قبل أن يسحب الإرشادُ طلب الشعبة"><Undo2 aria-hidden="true" /> اسحب الطلب</button>
         ) : null}
         {powers.advising && !powers.committee && row.timeline[2]?.done ? <span className="srq-approved-badge"><CheckCheck aria-hidden="true" /> تم الاعتماد · {fmt(counts.approved)} من {fmt(counts.listed)}</span> : null}
       </footer>
@@ -277,7 +315,7 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
         <details className="srq-roster" open={powers.advising && !powers.committee && Boolean(row.timeline[2]?.done)}>
           <summary>
             <Users aria-hidden="true" /> الكشف <b>{fmt(counts.listed)}</b>
-            {row.timeline[2]?.done ? <span className="srq-tally"><em className="ok">✅ {fmt(counts.approved)}</em><em className="no">⛔ {fmt(counts.notApproved)}</em><em className="reg">📝 {fmt(counts.registered)}</em></span> : null}
+            {row.timeline[2]?.done ? <span className="srq-tally"><em className="ok" aria-label={`اعتُمد ${counts.approved}`} title="اعتُمد">✅ {fmt(counts.approved)}</em><em className="no" aria-label={`لم يُعتمد ${counts.notApproved}`} title="لم يُعتمد">⛔ {fmt(counts.notApproved)}</em><em className="reg" aria-label={`سُجّل ${counts.registered}`} title="سُجّل">📝 {fmt(counts.registered)}</em></span> : null}
           </summary>
           <ul>
             {row.students.map((student, index) => (
@@ -285,7 +323,7 @@ function RequestCard({ row, onChanged, onNavigate, peers, onStale }: {
                 <span className="srq-num">{fmt(index + 1)}</span>
                 <span className="srq-name">{student.name || "طالب"}</span>
                 {student.civilTail ? <small className="srq-tail" title="آخر أربعة أرقام من الرقم المدني">{student.civilTail}</small> : null}
-                <em>{student.registered ? "📝 سُجّل" : student.approved === true ? "✅ اعتُمد" : student.approved === false ? "⛔ لم يُعتمد" : "⏳"}</em>
+                <em>{student.registered ? "📝 سُجّل" : student.approved === true ? "✅ اعتُمد" : student.approved === false ? "⛔ لم يُعتمد" : "⏳ لم يُقرَّر"}</em>
               </li>
             ))}
           </ul>
@@ -315,12 +353,16 @@ function Compose({ collegeId, sectionId, termId, collegeName, onSent, onCancel }
     void call(`/api/section-requests/compose?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`)
       .then(data => setCourses(data.courses || [])).catch((e: any) => { setError(e.message); setCourses([]); });
   }, [collegeId, sectionId, termId]);
+  /* طلبةُ «مساري» للمقرر المختار: ردٌّ لمقررٍ سابق لا يُرسم تحت اللاحق، وخطأُ القراءة يُقال لا يُقرأ «لا طلبات». */
+  const [candidatesError, setCandidatesError] = useState("");
   useEffect(() => {
-    setCandidates([]); setPicked(new Set());
+    let live = true;
+    setCandidates([]); setPicked(new Set()); setCandidatesError("");
     if (!courseId) return;
     void call(`/api/section-requests/candidates?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}&courseId=${courseId}`)
-      .then(data => { const rows = data.rows || []; setCandidates(rows); setPicked(new Set(rows.map((row: any) => row.needId))); })
-      .catch(() => setCandidates([]));
+      .then(data => { if (!live) return; const rows = data.rows || []; setCandidates(rows); setPicked(new Set(rows.map((row: any) => row.needId))); })
+      .catch((e: any) => { if (live) { setCandidates([]); setCandidatesError(e?.message || "تعذّرت قراءة طلبات «مساري»."); } });
+    return () => { live = false; };
   }, [collegeId, sectionId, termId, courseId]);
 
   const pastedRows = useMemo(() => parsePastedStudents(pasted), [pasted]);
@@ -394,7 +436,8 @@ function Compose({ collegeId, sectionId, termId, collegeName, onSent, onCancel }
                 </ul>
               </details>
             </div>
-          ) : courseId ? <small className="srq-hint">لا طلبات من «مساري» لهذا المقرر بعد.</small> : null}
+          ) : candidatesError ? <small className="srq-hint" role="alert">{candidatesError}</small>
+            : courseId ? <small className="srq-hint">لا طلبات من «مساري» لهذا المقرر بعد.</small> : null}
           <label className="srq-paste">
             <span><ClipboardPaste aria-hidden="true" /> الصق القائمة {pastedRows.length ? <em>{countOf(pastedRows.length, AR.student)}</em> : null}</span>
             <textarea value={pasted} onChange={event => setPasted(event.target.value)} rows={3} placeholder="سطرٌ لكل طالب: الاسم أو الرقم المدني أو كلاهما" />
@@ -419,7 +462,7 @@ function Compose({ collegeId, sectionId, termId, collegeName, onSent, onCancel }
 }
 
 /* ── اللوحة ───────────────────────────────────────────────────────────────── */
-export default function SectionRequestsPanel({ collegeId, sectionId, termId, collegeName, onNavigate, mayCompose = false }: Props) {
+export default function SectionRequestsPanel({ collegeId, sectionId, termId, collegeName, onNavigate, mayCompose = false, frozen = false }: Props) {
   const [rows, setRows] = useState<RequestRow[] | null>(null);
   const [canCompose, setCanCompose] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -454,8 +497,15 @@ export default function SectionRequestsPanel({ collegeId, sectionId, termId, col
     registered: shown.filter(row => row.stage === "registered").length,
   }), [shown]);
 
+  /* ما يحتاج عملاً أولاً؛ وما أُغلق (سُحب، اعتذرت اللجنة، سُجّلوا كلهم) مطويٌّ تحته بعدده — فلا يدفن الكشفَ. */
+  const finished = (row: RequestRow) => row.stage === "withdrawn" || row.stage === "declined" || row.stage === "registered";
+  const active = shown.filter(row => !finished(row));
+  const done = shown.filter(finished);
+  const card = (row: RequestRow) => <RequestCard key={row.id} row={row} onChanged={() => void load()} onNavigate={onNavigate} peers={peers} onStale={catchStale} frozen={frozen} />;
+
   if (!rows) return null;
-  if (!shown.length && !canCompose) return null;
+  /* القراءةُ رُدّت: يُقال ذلك ولو لم يكن في اللوحة شيءٌ آخر يُرسم. */
+  if (!shown.length && !canCompose) return error ? <Notice type="error" inline onDismiss={() => setError("")}>طلبات الشعب: {error}</Notice> : null;
 
   return (
     <section className="srq" aria-label="طلبات الشعب">
@@ -473,7 +523,7 @@ export default function SectionRequestsPanel({ collegeId, sectionId, termId, col
           </ul>
         ) : null}
         {canCompose && !composing ? (
-          <PrimaryButton type="button" onClick={() => { setComposing(true); setSent(false); }} data-guide-ignore="يفتح نموذج طلب شعبة من الإرشاد إلى لجنة الجدول؛ لا يرسل قبل التأكيد">
+          <PrimaryButton type="button" disabled={frozen} onClick={() => { setComposing(true); setSent(false); }} data-guide-ignore="يفتح نموذج طلب شعبة من الإرشاد إلى لجنة الجدول؛ لا يرسل قبل التأكيد">
             <Send aria-hidden="true" /> طلب شعبة
           </PrimaryButton>
         ) : null}
@@ -482,7 +532,15 @@ export default function SectionRequestsPanel({ collegeId, sectionId, termId, col
       {sent ? <Notice type="success" inline onDismiss={() => setSent(false)}>وصل الطلبُ لجنةَ الجدول، ويصلك إشعارٌ عند الاعتماد.</Notice> : null}
       {composing ? <Compose collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} onCancel={() => setComposing(false)} onSent={() => { setComposing(false); setSent(true); void load(); }} /> : null}
       {shown.length ? (
-        <div className="srq-list">{shown.map(row => <RequestCard key={row.id} row={row} onChanged={() => void load()} onNavigate={onNavigate} peers={peers} onStale={catchStale} />)}</div>
+        <>
+          {active.length ? <div className="srq-list">{active.map(card)}</div> : null}
+          {done.length ? (
+            <details className="srq-done">
+              <summary>طلباتٌ أُغلقت <b>{fmt(done.length)}</b><small>سُجّلوا، أو سُحبت، أو اعتذرت عنها اللجنة</small></summary>
+              <div className="srq-list">{done.map(card)}</div>
+            </details>
+          ) : null}
+        </>
       ) : !composing ? <p className="srq-empty">لا طلبات شعبٍ بعد. طلبٌ واحد يكفي: المقرر، والفترة، والطلبة.</p> : null}
       {staleToast}
     </section>

@@ -86,7 +86,7 @@ for (const [name, source] of [["كشف التسجيل", registration], ["رغب�
   check(source.includes("<TermFrozenRibbon") && source.includes("useTermFrozen("), `${name}: الشريط والقاعدةُ المشتركة`);
 }
 check(registration.includes("disabled={frozen || busyKey ===") && registration.includes("if (frozen) return;"), "كشف التسجيل: الأزرار معطَّلة والمعالجات ترفض");
-check((inbox.match(/const busy = busyProp \|\| frozenScreen;/g) || []).length === 2 && inbox.includes("disabled={frozenScreen}") && inbox.includes("if (frozen) return false;"), "رغبات الأساتذة: التثبيت والرفض والردّ معطَّلة");
+check((inbox.match(/const busy = busyProp \|\| frozenScreen(?: \|\| sending)?;/g) || []).length === 2 && inbox.includes("disabled={frozenScreen}") && inbox.includes("if (frozen) return false;"), "رغبات الأساتذة: التثبيت والرفض والردّ معطَّلة");
 check(changes.includes("disabled={frozen || busy || openNotes === 0}") && changes.includes("disabled={frozen}"), "تغييرات الجدول: الإرجاع والقبول والملاحظات معطَّلة");
 
 /* كلُّ ما يُكتب مفتاحُه معرّفُ الفصل: لا يختلط فصلٌ بآخر. */

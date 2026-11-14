@@ -3,7 +3,7 @@ import { ClipboardCheck, Ticket } from "lucide-react";
 import "./registration-tabs.css";
 
 /**
- * ── كشف التسجيل ورادار يوم التسجيل: تبويبان لشاشةٍ واحدة في ذهن من يتابع ─────
+ * ── كشف التسجيل ورادار التسجيل: تبويبان لشاشةٍ واحدة في ذهن من يتابع ─────
  * كلٌّ منهما ما زال وجهةً مستقلةً في القائمة (وصلاحيتُه منها)؛ والتبويبان يجمعانهما
  * أعلى الشاشة فيُنتقل بينهما بضغطة. من لا يملك إلا أحدهما لا يرى الشريط.
  */
@@ -15,7 +15,8 @@ export default function RegistrationTabs({ active, canRoster, canRadar, onGo }: 
   if (!canRoster || !canRadar) return null;
   const tabs = [
     { view: "studentRegistration" as const, label: "كشف التسجيل", Icon: ClipboardCheck },
-    { view: "simulation" as const, label: "رادار يوم التسجيل", Icon: Ticket },
+    /* الاسمُ نفسُه في القائمة وفي التبويب وفي عنوان الشاشة: «رادار التسجيل». */
+    { view: "simulation" as const, label: "رادار التسجيل", Icon: Ticket },
   ];
   return (
     <nav className="registration-tabs no-print" aria-label="متابعة التسجيل">

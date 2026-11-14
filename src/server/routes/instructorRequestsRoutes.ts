@@ -23,7 +23,7 @@ import { scopedPinViolations, teachersWithRegulationIssues } from "../../utils/p
 import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
 import { awaitedItemIndexes } from "../../utils/linkedRequestItems";
 import { roleLabel } from "../../utils/academicRoles";
-import { requestItemFromRow } from "../../utils/instructorRequestItems";
+import { DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { requestFullySettled } from "../../utils/instructorRequestVerdict";
 import { reopenedRequest } from "../core/scheduleConflicts";
 import { sendLogSenderFor } from "../../utils/activityTrail";
@@ -102,6 +102,11 @@ type ApplyOp =
   | { kind: "delete"; itemIndex: number; rowId: number; original: any; tempId?: undefined };
 
 const daysFlags = (days: string[]) => Object.fromEntries(PROPOSAL_DAYS.map(key => [key, days.includes(key)]));
+/** ما كُتب في الجدول: أيامُ الصفّ ووقتُه، بلا قاعة (القاعةُ لا تصل الأستاذ). */
+export const fixedAsOf = (row: any) => ({
+  days: PROPOSAL_DAYS.filter(key => Boolean(row?.[key])) as string[],
+  start: String(row?.fstarttime || "").slice(0, 5), end: String(row?.fendtime || "").slice(0, 5),
+});
 const rowBodyOf = (row: any) => ({
   AdCollegeId: row.AdCollegeId, AdSectionId: row.AdSectionId, AdTermId: row.AdTermId, AdCourseId: row.AdCourseId,
   SCode: row.SCode, AdInstructorId: row.AdInstructorId,
@@ -353,6 +358,14 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
         requestItemFromRow(row, courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), collegeNameById)),
       timeline: [{ kind: "link-created", at: opensAt, by: "القسم", ...(individualOnly ? { detail: "استثناء فردي لظرف طارئ" } : {}) }],
     });
+    /* جولةٌ جديدة بعد طلبٍ انتهى: القديمُ يُستبدل ورابطُه يُوقف. كان يبقى حيّاً بجانب الجديد، فيفتح الأستاذُ
+       رابطَ واتساب القديم ويرى جولةً مغلقة، ويعدّه الواردُ طلبين. يبقى في السجلّ محفوظاً كما هو. */
+    if (held && held.status === "settled") {
+      await Repository.saveInstructorRequest({ ...held, status: "superseded" })
+        .catch(error => console.warn("[requests] تعذّر استبدال الطلب القديم:", error instanceof Error ? error.message : error));
+      const oldLink = held.linkId && held.linkId !== link.id ? await Repository.getShareLink(held.linkId) : null;
+      if (oldLink && !oldLink.revoked) await Repository.revokeShareLink(oldLink.id);
+    }
     issued.push({ instructorId, linkId: link.id, reissued: false });
   }
   /* نطاقُ الملاحظات لكل بطاقة: مواعيدُ صاحبها وحده. وأيُّ إصدارٍ عادي بعده يرفع القفل. */
@@ -682,6 +695,10 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
   const index = Number(req.body?.itemIndex);
   const item = (stored.items || [])[index];
   if (!item) { res.status(400).json({ error: "لا يوجد بندٌ بهذا الرقم في الطلب" }); return; }
+  /* ما لم يطلبه الأستاذ لا يُقرَّر فيه: بندُ «كما هو» ليس طلباً، وطلبٌ لم يُرسَل بعد ما زال مسودّته هو.
+     كان نداءٌ مباشرٌ يرفض بنداً في طلبٍ لم يُرسل فيُغلق نافذتَه («انتهى»). */
+  if (item.action === "keep") { res.status(400).json({ error: "هذا الموعد لم يطلب الأستاذ تغييره.", code: "keep-item" }); return; }
+  if (!stored.submittedAt && !item.decision?.fromSchedule) { res.status(409).json({ error: "لم يرسل الأستاذ طلبه بعد.", code: "not-submitted" }); return; }
   /* بندٌ ثُبّت كُتب في الجدول: إعادةُ الفصل فيه (نقرةٌ مزدوجة أو تبويبٌ قديم) كانت
      تُنشئ صفّاً ثانياً للإضافة، أو تكتب «رُفض» والجدولُ ما زال منقولاً. */
   if (item.decision?.state === "fixed") {
@@ -735,9 +752,12 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
   /* الإضافةُ تُصدَّق بوجود صفّها: هي الشيءُ الوحيد الذي لا يُقاس على صفٍّ
      سابق — لا موضعَ قديمٌ يُطابَق — فيُسأل عن الصفّ الذي أنتجه الحفظُ نفسُه.
      ولولا ذلك لقال السجلُّ «ثُبّت» بلا أن يُخلق شيء. */
+  /* الصفُّ الذي يصدّق التثبيت: منه يُكتب ما وقع فعلاً (fixedAs)، فيقرأ الأستاذ الوقتَ المكتوب لا المطلوب. */
+  let writtenRow: FSchedule | undefined;
   if (state === "fixed" && item.action === "add") {
     const createdId = Number(req.body?.scheduleId || 0);
     const created = createdId ? await Repository.getScheduleById(createdId) : undefined;
+    writtenRow = created;
     if (!created) {
       res.status(409).json({ error: "لم يُحفظ الموعد الجديد بعد. احفظه في الورشة ثم سجّل القرار." });
       return;
@@ -760,6 +780,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
       if (live) { res.status(409).json({ error: "لم يُحذف الموعد من الجدول بعد. احذفه أولاً ثم سجّل القرار." }); return; }
     } else {
       if (!live) { res.status(409).json({ error: "لم يعد هذا الموعد موجوداً في الجدول." }); return; }
+      writtenRow = live;
       /* طلبٌ حُفظ بالمحرّك القديم (75/75/50 على نمطٍ موحّد الطول) يُقاس بطول اللائحة الذي وقّع عليه الأستاذ. */
       const decideCourse = await Repository.getCourseById(Number(item.after?.courseId || item.before?.courseId || 0));
       const want = (uniformPatternSlots((item.slots || []) as any, effectiveCourseHours(decideCourse)) as typeof item.slots) || item.slots || [];
@@ -797,6 +818,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
       /* الصفُّ الذي أنتجه الحفظُ يمرّ من الشاشة: هي التي استدعت مسارَ الحفظ،
          وهذا المسار يسجّل الأثرَ ولا يُنشئه. */
       ...(Number(req.body?.scheduleId) ? { scheduleId: Number(req.body.scheduleId) } : {}),
+      ...(writtenRow ? { fixedAs: fixedAsOf(writtenRow) } : {}),
     },
   };
 
@@ -847,13 +869,30 @@ app.post("/api/instructor-requests/:id/cancel-scheduled", requirePermission(7), 
   }
   const now = new Date().toISOString();
   const by = roleLabel(req.user?.Role) || "القسم";
-  const items = [...stored.items];
-  items[index] = { ...item,
-    decisionHistory: [...(item.decisionHistory || []), item.decision],
-    decision: { state: "rejected", reasonCode: "department", cancelled: true, fromSchedule: true, note, decidedBy: by, decidedAt: now } };
-  const saved = await Repository.saveInstructorRequest({ ...stored, items,
-    timeline: [...(stored.timeline || []), { kind: "item-rejected" as InstructorRequestEventKind, at: now, by, itemIndex: index, detail: "department" }],
-    status: requestFullySettled(items) ? "settled" : stored.status });
+  const itemKey = instructorRequestItemIdentity(item);
+  const cancelledOn = (base: InstructorRequest): InstructorRequest | null => {
+    const at = (base.items || []).findIndex(entry => instructorRequestItemIdentity(entry) === itemKey);
+    const current = at >= 0 ? base.items[at] : undefined;
+    if (!current) return null;
+    const items = [...base.items];
+    items[at] = { ...current,
+      decisionHistory: [...(current.decisionHistory || []), ...(current.decision ? [current.decision] : [])],
+      decision: { state: "rejected", reasonCode: "department", cancelled: true, fromSchedule: true, note, decidedBy: by, decidedAt: now } };
+    return { ...base, items,
+      timeline: [...(base.timeline || []), { kind: "item-rejected" as InstructorRequestEventKind, at: now, by, itemIndex: at, detail: "department" }],
+      status: requestFullySettled(items) ? "settled" : base.status };
+  };
+  /* الصفُّ حُذف: القرارُ يُكتب ولو تغيّر الطلبُ في اللحظة نفسها (ردٌّ أو فتحٌ من الأستاذ) — يُعاد على أحدث نسخة،
+     فلا يبقى «من القسم» على موعدٍ لم يعد في الجدول. */
+  let saved: InstructorRequest | undefined;
+  for (let attempt = 0; attempt < 3 && !saved; attempt += 1) {
+    const base = attempt === 0 ? stored : await Repository.getInstructorRequest(stored.id);
+    const next = base ? cancelledOn(base) : null;
+    if (!next) break;
+    try { saved = await Repository.saveInstructorRequest(next); }
+    catch (error) { if (!(error instanceof RequestReservationConflict)) throw error; }
+  }
+  if (!saved) { res.status(409).json({ error: "حُذف الموعد من الجدول، وتعذّر تسجيل الإلغاء على الطلب. حدّث الوارد.", code: "request-revision" }); return; }
   await pushHooks.requestDecided(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
 });
@@ -868,6 +907,9 @@ app.post("/api/instructor-requests/:id/reopen-fixed", requirePermission(7), asyn
   if (stored.status === "superseded") { res.status(409).json({ error: "استُبدل هذا الطلب ولا يُعاد فتحه." }); return; }
   if (!(await requireCurrentInstructorRequestGeneration(stored, res))) return;
   if (await refuseIfTermFrozen(res, Number(stored.AdTermId || 0))) return;
+  /* «تراجع» يُنادى من سجلّ الجدول ولا يحمل ختمَ الطلب؛ فإن حمله طُوبق. وفي الحالين تحفظ النسخةُ
+     بمقارنة ختمها في المخزن (saveInstructorRequest)، فلا يُكتب فوق قرارٍ أو ردٍّ وصل في الأثناء. */
+  if (req.body?.requestRevision != null && !requireInstructorRequestRevision(req, res, stored)) return;
   const scheduleId = Number(req.body?.scheduleId || 0);
   const targets = (stored.items || []).filter(item => item.decision?.state === "fixed" && item.decision.fromSchedule && Number(item.decision.scheduleId) === scheduleId);
   if (!scheduleId || !targets.length) { res.json({ ok: true, reopened: 0 }); return; }
@@ -946,12 +988,14 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   /* القفلُ في قاعدة البيانات لا في الذاكرة: يراه كلُّ خادمٍ في كل منطقة. */
   const applyLock = `term-${termId}`;
   const applyHolder = randomUUID();
-  if (!(await Repository.acquireScheduleApplyLease(applyLock, applyHolder))) {
+  /* المعاينةُ لا تكتب، فلا تأخذ القفل: كانت كلُّ «ثبّت» تأخذه مرّتين (معاينةً ثم كتابة)، فيصطدم قسمان
+     يثبّتان في الدقيقة نفسها بـ«يجري الآن تثبيتٌ آخر» وأحدُهما لم يكتب شيئاً. */
+  if (!preview && !(await Repository.acquireScheduleApplyLease(applyLock, applyHolder))) {
     res.status(409).json({ error: "يجري الآن تثبيتٌ آخر في هذا الفصل. انتظر لحظة ثم أعد المحاولة.", code: "apply-busy" });
     return;
   }
   /* يُمدّ القفلُ كل ٤٠ ثانية ما دام التثبيتُ جارياً، فلا ينتهي أجلُه في منتصف سلسلةٍ طويلة. */
-  const leaseRenewal = setInterval(() => { void Repository.renewScheduleApplyLease(applyLock, applyHolder).catch(() => undefined); }, 40_000);
+  const leaseRenewal = preview ? undefined : setInterval(() => { void Repository.renewScheduleApplyLease(applyLock, applyHolder).catch(() => undefined); }, 40_000);
   try {
   const latest = await Repository.getInstructorRequest(String(stored.id));
   if (!latest || Number(latest.requestRevision || 0) !== Number(stored.requestRevision || 0)
@@ -1057,9 +1101,12 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
         AdRoomCode: add.room, AdRoomHall: add.hall, buildingId: add.buildingId, roomId: add.roomId, locationStatus: add.locationStatus, companionRoomId: add.companionRoomId, origin,
       };
       const single = groups.length === 1;
+      /* أيامُ النموذج الكامل (حين يُكمل المنسّق الإضافة في «الجدول الدراسي»): تُكتب كما اختارها لموعدٍ بوقتٍ واحد،
+         وكانت تُهمل فيُكتب ما طلبه الأستاذ ويقول النموذج غيره. والفحصُ الجافّ بعدها يحكم عليها كأي حفظ. */
+      const formDays = single && Array.isArray(add.days) ? (add.days as unknown[]).map(String).filter(day => (PROPOSAL_DAYS as readonly string[]).includes(day)) : [];
       for (const group of groups) {
         ops.push({ kind: "create", itemIndex: i, tempId: tempSeq--,
-          body: { ...base, ...daysFlags(group.days),
+          body: { ...base, ...daysFlags(formDays.length ? formDays : group.days),
             fstarttime: single && add.start ? add.start : group.start, fendtime: single && add.end ? add.end : group.end } });
       }
       continue;
@@ -1130,9 +1177,20 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   let committed: Awaited<ReturnType<typeof Repository.commitInstructorRequestPlan>>;
   try {
     committed = await Repository.commitInstructorRequestPlan(stored, ops, scheduleIds => {
-      const items = stored!.items.map((item, i) => chain.includes(i) ? { ...item,
-        ...(normalizedSlots.has(i) ? { slots: normalizedSlots.get(i), after: { ...(item.after as any), time: `${normalizedSlots.get(i)![0].start} – ${normalizedSlots.get(i)![0].end}` } } : {}),
-        decision: { state: "fixed" as const, decidedBy: by, decidedAt: now, ...(scheduleIds.has(i) ? { scheduleId: scheduleIds.get(i) } : {}) } } : item);
+      const items = stored!.items.map((item, i) => {
+        if (!chain.includes(i)) return item;
+        /* ما كُتب فعلاً لهذا البند: صفٌّ واحد يُقال وقتُه وأيامُه (fixedAs) — والإضافةُ قد يكتبها المنسّق بوقتٍ أو
+           أيامٍ غير المطلوبة، فيُحدَّث «المطلوب» نفسُه إليها كي لا يقرأ الأستاذ «ثُبّت» على وقتٍ لم يُكتب. */
+        const writtenRows = ops.flatMap(op => op.itemIndex === i && op.kind !== "delete" ? [op.body] : []);
+        const fixedAs = writtenRows.length === 1 ? fixedAsOf(writtenRows[0]) : undefined;
+        const addMoved = item.action === "add" && fixedAs && fixedAs.start
+          && !(fixedAs.days.length === (item.slots || []).length && (item.slots || []).every(slot => fixedAs.days.includes(String(slot.day)) && String(slot.start).slice(0, 5) === fixedAs.start));
+        return { ...item,
+          ...(normalizedSlots.has(i) ? { slots: normalizedSlots.get(i), after: { ...(item.after as any), time: `${normalizedSlots.get(i)![0].start} – ${normalizedSlots.get(i)![0].end}` } } : {}),
+          ...(addMoved ? { slots: fixedAs!.days.map(day => ({ day, start: fixedAs!.start, end: fixedAs!.end })) as any,
+            after: { ...(item.after as any), time: `${fixedAs!.start} – ${fixedAs!.end}`, days: fixedAs!.days.map(day => DAY_LETTERS[day as keyof typeof DAY_LETTERS] || day).join(" · ") } } : {}),
+          decision: { state: "fixed" as const, decidedBy: by, decidedAt: now, ...(scheduleIds.has(i) ? { scheduleId: scheduleIds.get(i) } : {}), ...(fixedAs ? { fixedAs } : {}) } };
+      });
       const timeline = [...stored!.timeline, ...chain.map(itemIndex => ({ kind: "item-fixed" as const, at: now, by, itemIndex }))];
       const settled = requestFullySettled(items);
       if (settled) timeline.push({ kind: "settled" as any, at: now, by } as any);
@@ -1172,8 +1230,8 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   res.locals.auditRowIds = [...committed.rows.map(row => row.id), ...ops.filter(op => op.kind === "delete").map(op => (op as any).rowId)];
   res.json({ ...requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })), applied: plan, appliedRows: committed.rows, warnings });
   } finally {
-    clearInterval(leaseRenewal);
-    await Repository.releaseScheduleApplyLease(applyLock, applyHolder).catch(() => undefined);
+    if (leaseRenewal) clearInterval(leaseRenewal);
+    if (!preview) await Repository.releaseScheduleApplyLease(applyLock, applyHolder).catch(() => undefined);
   }
 });
 
@@ -1224,5 +1282,20 @@ app.post("/api/instructor-requests/:id/reply", requirePermission(7), async (req:
   broadcastNotify(Repository.currentDemoSessionId());
   await pushHooks.departmentReplied(saved, index);
   res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
+});
+
+/* ── «أبلغ من صدر لهم قرار»: المنسّقُ فتح رسالةَ واتساب لأستاذ ───────────────
+ * لا يُرسل الخادمُ شيئاً إلى خارجه: يسجّل لحظةَ الإبلاغ وحدها، فيخرج الأستاذُ من قائمة «لم يُبلَّغ»
+ * حتى يصدر له قرارٌ جديد. القارئُ يملك نطاقَ بندٍ واحدٍ على الأقل من الطلب. */
+app.post("/api/instructor-requests/:id/notified", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
+  if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  const visible = [{ collegeId: Number(stored.AdCollegeId), sectionId: Number(stored.AdSectionId) },
+    ...(stored.items || []).filter(item => item.action !== "keep").map(item => requestItemScope(stored, item))]
+    .some(scope => isScopeAllowed(req, scope.collegeId, scope.sectionId));
+  if (!visible) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  const at = new Date().toISOString();
+  await Repository.setInstructorRequestDecisionNotified(stored.id, at);
+  res.json({ ok: true, decisionNotifiedAt: at });
 });
 }

@@ -202,7 +202,8 @@ check(/app\.get\("\/api\/admin\/teaching-load\/member\/:id",[^\n]*requireRootAdm
   const memberPut = block.slice(block.indexOf('app.put("/api/admin/teaching-load/member/:id"'));
   check(memberPut.includes("teachingLoadProblem({ ranks: config.ranks, assignments:") && memberPut.indexOf("teachingLoadProblem") < memberPut.indexOf("saveTeachingLoadConfig"), "حفظُ استثناء العضو يمرّ بالتحقّق نفسه (الساعات الصحيحة) قبل الكتابة");
 }
-check(/Math\.round\(loadRaw\)/.test(server) && fs.readFileSync("src/db/repository.ts", "utf8").includes("const loadValue = Math.round(Number(load));"), "نصابُ الأستاذ المسجّل يُخزَّن صحيحاً");
+/* التقريب صار في readInstructorLoad (academicGuards) يقرؤها الإنشاء والتعديل، وما فوق الحد يُرفض لا يُمحى. */
+check(/readInstructorLoad\(req\.body\?\.AdInstructorLoad\)/.test(server) && /return \{ load: Math\.round\(value\) \}/.test(fs.readFileSync("src/utils/academicGuards.ts", "utf8")) && fs.readFileSync("src/db/repository.ts", "utf8").includes("const loadValue = Math.round(Number(load));"), "نصابُ الأستاذ المسجّل يُخزَّن صحيحاً");
 
 /* ── كلُّ موضعٍ يقيس النصاب يقرأ الاستثناء ثم الدرجة (loadCapOf) ── */
 {
@@ -257,7 +258,7 @@ check(notice.includes("window.setTimeout") && notice.includes("controller.abort(
 const schedules = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 check(schedules.split("<TeachingLoadNotice").length === 2 && schedules.split("import TeachingLoadNotice").length === 2, "شاشة الجدول تضيف الشارة في موضعٍ واحد فقط (استيراد + استخدام)");
 const admin = fs.readFileSync("src/components/AdminUsers.tsx", "utf8");
-check(/rootAdmin \? \{ value: "teachingLoad"/.test(admin) && admin.includes('mode === "teachingLoad"'), "التبويب في إعدادات الإدارة للمدير الرئيسي وحده");
+check(/rootAdmin && permissions\.includes\(7\) \? \{ value: "teachingLoad"/.test(admin) && admin.includes('mode === "teachingLoad"'), "التبويب في إعدادات الإدارة للمدير الرئيسي وحده");
 const repo = fs.readFileSync("src/db/repository.ts", "utf8");
 check(repo.includes('collection("teachingLoadConfig").doc(TEACHING_LOAD_DOC_ID)') && repo.includes("db.teachingLoadConfig = [row]"), "التخزين: وثيقةٌ واحدة في Firestore وفي القاعدة المحلية/الديمو");
 

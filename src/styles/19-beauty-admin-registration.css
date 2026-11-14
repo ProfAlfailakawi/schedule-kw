@@ -214,6 +214,8 @@
 .qd-skip:disabled{opacity:.35}
 .qd-hint{margin:0;text-align:center;color:var(--muted);font-size:.75rem}
 @media (pointer:fine){.qd-hint{display:none}}
+/* خطأُ الحفظ داخل النافذة نفسها (القرار السريع وورقة السبب)، لا خلف ستارتها. */
+.qd-error{margin:0;padding:8px 12px;border-radius:10px;background:var(--danger-soft, #fdecec);color:var(--danger, #b42318);font-size:.85rem;font-weight:600}
 .qd-done{display:grid;justify-items:center;gap:8px;padding:28px 10px;text-align:center}
 .qd-done>span{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--success-soft,#e2f0e8);color:var(--success,#25684a)}
 .qd-done>span svg{width:30px;height:30px}
@@ -261,3 +263,26 @@
 .sc-more small{color:var(--muted);font-size:.72rem}
 .sc-more code{font:700 .82rem var(--font-mono);letter-spacing:.04em}
 .student-cases-table tr.sc-card td.sc-more{border-block-start:1px dashed var(--line)!important}
+
+/* ── الرادار يقترح الحل: شعبةٌ لكل مقرر تحت البطاقات (RadarSuggestions.tsx) ── */
+.rs-panel{display:grid;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:18px;background:var(--surface,#fff);min-inline-size:0}
+.rs-head{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.rs-head b{font-size:1rem}
+.rs-head small{display:block;color:var(--muted);font-size:.8rem;line-height:1.6}
+.rs-ic{inline-size:40px;block-size:40px;border-radius:14px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+.rs-ic svg{inline-size:20px;block-size:20px}
+.rs-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:10px}
+.rs-card{display:grid;gap:8px;align-content:start;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2,#f7f6f2);min-inline-size:0}
+.rs-title{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.rs-title b{font-size:.95rem;overflow-wrap:anywhere}
+.rs-title span{color:var(--muted);font-size:.78rem}
+.rs-kind{margin-inline-start:auto;padding:1px 9px;border-radius:99px;font-style:normal;font-size:.74rem;font-weight:700;background:var(--warning-soft,#fbefd8);color:var(--warning,#8a5a00)}
+.rs-kind.full{background:var(--danger-soft,#f8e3df);color:var(--danger,#a33)}
+.rs-wait,.rs-fit,.rs-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;color:var(--muted);font-size:.8rem;line-height:1.6}
+.rs-wait svg,.rs-line svg,.rs-slot svg{inline-size:15px;block-size:15px;flex:none}
+.rs-slot{display:flex;gap:6px;align-items:flex-start;margin:0;font-size:.86rem;line-height:1.7;overflow-wrap:anywhere}
+.rs-slot svg{margin-block-start:4px;color:var(--accent)}
+.rs-none{color:var(--ink)}
+.rs-stale{padding:6px 10px;border-radius:12px;background:var(--warning-soft,#fbefd8);color:var(--warning,#8a5a00)}
+.rs-card .btn{min-block-size:44px;justify-self:start;max-inline-size:100%}
+@media (max-width:480px){.rs-panel{padding:12px}.rs-card .btn{justify-self:stretch}}

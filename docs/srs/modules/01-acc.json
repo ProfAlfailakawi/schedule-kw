@@ -46,7 +46,8 @@
     "scripts/lib/defaultPassword.ts",
     "scripts/role-scope-live-audit.mjs",
     "src/server/staffRecovery.ts",
-    "src/server/staffRecoveryWiring.ts"
+    "src/server/staffRecoveryWiring.ts",
+    "src/server/userAdminGuards.ts"
   ],
   "screens": [
     { "name": { "ar": "تسجيل الدخول", "en": "Sign-in" }, "file": "src/components/Login.tsx", "note": { "ar": "اسم المستخدم وكلمة السر، ورابط الدعوة في جزء # الذي يملأ الاسم ولا يُرسل إلى الخادم، وزر الدخول التجريبي إن كان مفعّلاً.", "en": "User name and password, the invitation link fragment that pre-fills the name and is never sent to the server, and the demo entry button when enabled." } },
@@ -868,8 +869,8 @@
       "kind": "functional",
       "title": { "ar": "تعديل الحساب وحذفه نهائياً", "en": "Editing an account and deleting it permanently" },
       "text": {
-        "ar": "يجب على النظام أن يحفظ في PUT /api/users/:id حقول الحالة (مدير، فعّال، مقفل) كما أُرسلت فيُقرأ غيابها «لا»، وأن يحذف في DELETE /api/users/:id الحساب نفسه مع صفوف شاشاته ونطاقه في عملية واحدة بعد تأكيد صريح في الشاشة.",
-        "en": "On PUT /api/users/:id the system shall store the status fields (administrator, active, locked) as sent so an absent value reads as false, and on DELETE /api/users/:id it shall delete the account itself together with its screen and scope rows in one operation after an explicit on-screen confirmation."
+        "ar": "يجب على النظام أن يحفظ في PUT /api/users/:id حقول الحالة (مدير، فعّال، مقفل) كما أُرسلت فيُقرأ غيابها «لا» — بعد أن تمرّ بحرّاس FR-ACC-054 — وأن يحذف في DELETE /api/users/:id الحساب نفسه مع صفوف شاشاته ونطاقه في عملية واحدة بعد تأكيد صريح في الشاشة، ثم يُخرج جلساته كلها.",
+        "en": "On PUT /api/users/:id the system shall store the status fields (administrator, active, locked) as sent so an absent value reads as false — after they pass the guards of FR-ACC-054 — and on DELETE /api/users/:id it shall delete the account itself together with its screen and scope rows in one operation after an explicit on-screen confirmation, then sign out all its sessions."
       },
       "rationale": { "ar": "الحساب الجديد يأخذ الرقم التالي لأكبر رقم، فلو بقيت صفوف المحذوف لورثها القادم.", "en": "A new account takes the next number after the highest, so rows left behind by a deleted account would be inherited by the next one." },
       "priority": "must",
@@ -1208,6 +1209,91 @@
         { "ar": "لا تحمل وثائقُ الحارس اسمَ المستخدم (بصمتُه فقط)، ولا التذكرةُ نصَّها، ولا السجلُّ الأرقامَ ولا الكلمة.", "en": "Guard documents carry no username (only its fingerprint), tickets are stored by hash, and the audit trail holds neither the digits nor the password." }
       ],
       "evidence": { "code": ["src/server/staffRecovery.ts#registerStaffRecoveryRoutes", "src/server/staffRecoveryWiring.ts#staffRecoveryDeps", "src/components/Login.tsx", "src/server/routes/notificationsRoutes.ts"], "tests": ["tests/staff-recovery-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-054",
+      "kind": "functional",
+      "title": { "ar": "حرّاس شاشة المستخدمين: الحساب الرئيسي ونفسك وآخر مدير", "en": "User-screen guards: root account, yourself and the last administrator" },
+      "text": {
+        "ar": "يجب على الخادم قبل أي كتابة من PUT وDELETE ‎/api/users/:id وPOST ‎/api/users أن يرفض بـ403 مع السبب: تعديلَ حساب الإدارة الرئيسي أو حذفَه من غير صاحبه؛ وإيقافَ المرء حسابَه أو قفلَه أو حذفَه أو نزعَ «مدير» عنه؛ وإيقافَ آخر مديرٍ فاعل (فعّال غير مقفل، بعلامة «مدير» أو هو الحساب الرئيسي) أو قفلَه أو نزعَ صفته أو حذفَه؛ ومنحَ «مدير» أو نزعَها من غير الحساب الرئيسي؛ وتغييرَ صفة حسابٍ قائم ممن لا يملك الشاشة 12 (لأن الصفة تعيد كتابة شاشاته) ولا هو الحساب الرئيسي. ويجب أن يرفض بـ400 كلمةَ سرٍّ يكتبها مسؤول أقصر من 8 أحرف أو أطول من 128، وأن يطلب لتغيير المرء كلمتَه هو من هذه الشاشة كلمتَه الحالية بقواعد «تغيير كلمة السر» نفسها. وتُطفئ الواجهة الخانات والأزرار المرفوضة وتكتب السبب تحتها. وتُحرس طرقُ إدارة الفرق (‎/api/seats وإصدارُ الكلمة وإعادةُ التعيين وإنشاءُ فرق التسجيل) بالشاشة 11 كما تُحرس شاشتها في الواجهة.",
+        "en": "Before any write from PUT and DELETE /api/users/:id and POST /api/users the server shall refuse with 403 and a reason: editing or deleting the root administration account by anyone else; deactivating, locking, deleting or removing the administrator flag from one's own account; deactivating, locking, removing the flag from or deleting the last active administrator (active, unlocked, flagged administrator or the root account); granting or removing the administrator flag by anyone but the root account; and changing an existing account's role by someone holding neither screen 12 (because the role rewrites the account's screens) nor the root account. It shall refuse with 400 an administrator-set password shorter than 8 or longer than 128 characters, and require the current password, under the same rules as change-password, when one changes one's own password from this screen. The interface shall disable the refused checkboxes and buttons and print the reason under them. The team administration routes (/api/seats, first password, reset and registrar team creation) shall be guarded by screen 11, as their screen is in the interface."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "مديرٌ غير الحساب الرئيسي يرسل PUT ‎/api/users/1 ← 403 «حساب الإدارة الرئيسي لا يعدّله إلا صاحبه.» ولا يتغيّر شيء.", "en": "An administrator other than the root account sending PUT /api/users/1 ← 403 and nothing changes." },
+        { "ar": "المدير يرسل IsActive=false أو IsLocked=true لحسابه، أو DELETE لحسابه ← 403؛ وإيقاف آخر مدير فاعل ← 403.", "en": "An administrator sending IsActive=false or IsLocked=true for their own account, or DELETE for it ← 403; deactivating the last active administrator ← 403." },
+        { "ar": "كلمة من 5 أحرف ← 400؛ وتغيير المرء كلمته بلا currentPassword ← 400 بالرمز current-password-required.", "en": "A five-character password ← 400; changing one's own password without currentPassword ← 400 with code current-password-required." }
+      ],
+      "evidence": { "code": ["src/server/userAdminGuards.ts", "src/server/routes/usersRoutes.ts", "src/server/seatsRoutes.ts", "src/components/AdminUsers.tsx"], "tests": ["tests/admin-station-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-055",
+      "kind": "functional",
+      "title": { "ar": "صلاحيات الحساب الرئيسي ونفسك", "en": "Permissions of the root account and of yourself" },
+      "text": {
+        "ar": "يجب على طرق الصلاحيات (PUT ‎/api/permissions/user/:userId وPOST وPUT وDELETE ‎/api/permissions) أن ترفض بـ403 تغييرَ صلاحيات حساب الإدارة الرئيسي من غير صاحبه، ونزعَ المرء عن حسابه الشاشة 11 أو 12؛ وأن تُطفئ الواجهة تلك الخانات بسببها، وأن تُبقي شبكة الصلاحيات مملوءةً بما حُفظ بعد الحفظ، وتنبّه إلى تبديلٍ لم يُحفظ قبل الانتقال إلى حسابٍ آخر.",
+        "en": "The permission routes (PUT /api/permissions/user/:userId and POST, PUT and DELETE /api/permissions) shall refuse with 403 changing the root account's permissions by anyone else and removing screen 11 or 12 from one's own account; the interface shall disable those toggles with their reason, keep the permission grid filled with what was saved after saving, and warn about unsaved toggles before moving to another account."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "مديرٌ يحفظ صلاحياته بلا 11 ← 403 ولا يتغيّر شيء.", "en": "An administrator saving their own permissions without 11 ← 403 and nothing changes." },
+        { "ar": "بعد «حفظ الصلاحيات» تبقى الشبكة على الحساب نفسه بعدد ما حُفظ، لا «0 من N».", "en": "After saving permissions the grid stays on the same account showing what was saved, not zero." }
+      ],
+      "evidence": { "code": ["src/server/routes/usersRoutes.ts", "src/components/AdminUsers.tsx"], "tests": ["tests/admin-station-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-056",
+      "kind": "functional",
+      "title": { "ar": "سجل التدقيق: ما تغيّر، صفحةً صفحة، وتصدير", "en": "Audit log: what changed, page by page, and export" },
+      "text": {
+        "ar": "يجب أن يكتب إنشاءُ حسابٍ وتعديلُه وحذفُه في السجل ما تغيّر من «إلى»: الاسم واسم الدخول و«مدير» والتفعيل والقفل والصفة وربط اللوحة، وكلمةَ السر علامةً «أُعيد تعيين كلمة السر» لا قيمتَها ولا بصمتَها؛ وأن يقبل GET ‎/api/audit-logs المعاملات before وbeforeId (طابعُ آخر سطرٍ ظاهر ورقمُه، فلا تسقط أسطرٌ تشاركت الطابع عند حدّ الصفحة) وfrom وto (نطاق تاريخ) بترتيب الأحدث أولاً؛ وأن تعرض شاشة السجل نطاق التاريخ و«تحميل الأقدم» وتصدير ما يظهر ملفَّ CSV.",
+        "en": "Creating, editing and deleting an account shall write to the log what changed from what to what: name, login, administrator flag, active, locked, role and dashboard link, and the password only as a «password reset» flag, never its value or hash; GET /api/audit-logs shall accept before and beforeId (the timestamp and id of the last row already shown, so rows sharing a timestamp at a page boundary are not skipped), from and to (date range), newest first, ordered by timestamp then id; the log screen shall show the date range, «load older» and export of what is shown as a CSV file."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "إيقاف حساب ← سطر «فعّال: نعم ← لا»؛ وتعيين كلمة ← «أُعيد تعيين كلمة السر» ولا تظهر الكلمة.", "en": "Deactivating an account ← an «active: yes → no» line; setting a password ← «password reset» with no value." },
+        { "ar": "before=<طابع آخر سطر> يعيد ما قبله فقط.", "en": "before=<last row timestamp> returns only older rows." }
+      ],
+      "evidence": { "code": ["src/server/userAdminGuards.ts", "src/server/routes/usersRoutes.ts", "src/server/routes/adminRoutes.ts", "src/db/repository.ts", "src/components/AdminUsers.tsx"], "tests": ["tests/admin-station-audit.ts"] }
+    },
+    {
+      "id": "NFR-ACC-057",
+      "kind": "nonfunctional",
+      "title": { "ar": "ذاكرة الهويات تُمسح بعد الكتابة", "en": "Identity cache cleared after the write" },
+      "text": {
+        "ar": "يجب أن يُبلَّغ تغيُّر الهوية (حساب، صلاحية، نطاق) بعد اكتمال الكتابة لا قبلها، وألّا تحفظ authMiddleware هويةً قُرئت قبل تغيّرٍ وقع أثناء قراءتها، فلا تعود صلاحيةٌ سُحبت إلى الذاكرة دقيقتين. وذاكرةُ كل نسخةٍ من الخادم منفصلة، فالنسخ الأخرى تلحق خلال دقيقتين على الأكثر.",
+        "en": "An identity change (account, permission, scope) shall be announced after the write completes, not before it, and authMiddleware shall not cache an identity read before a change that happened during the read, so a revoked permission cannot return to memory for two minutes. Each server instance's cache is separate, so other instances follow within two minutes at most."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "طلبٌ من صاحب الحساب يقرأ أثناء سحب صلاحيته لا يُخزَّن، والطلب التالي يقرأ الصلاحية الجديدة.", "en": "A request from the account owner reading during the revocation is not cached; the next request reads the new permission." }
+      ],
+      "evidence": { "code": ["src/db/repository.ts", "src/server/core/auth.ts"], "tests": ["tests/admin-station-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-058",
+      "kind": "functional",
+      "title": { "ar": "شاشة المستخدمين: لا يضيع ما كُتب، والمعاينة قبل الإنشاء", "en": "Users screen: nothing typed is lost, preview before creating" },
+      "text": {
+        "ar": "يجب أن يسأل نموذج الحساب قبل إغلاقه (الخلفية أو Escape أو «إلغاء») إن كان فيه تعديلٌ لم يُحفظ، وأن يسأل قبل حفظ صفة كليةٍ بلا كلية لأن ذلك يسحب النطاق كله؛ وأن تفتح الشاشة «حسابات رؤساء الأقسام» و«حسابات المرشدين» بمعاينةٍ من الخادم قبل الإنشاء؛ وأن تُسمّي صفَّ النطاق بقسم صفر «الكلية كلها»؛ وأن يُظهر شريطُ أقسام إدارة النظام اسمَ كل قسم، ملتفّاً في النوافذ المتوسطة ومنزلقاً على الجوال؛ وأن تُؤكَّد إجراءاتُ الفرق والتوحيد بنافذة التأكيد المرئية لا بنافذة المتصفح.",
+        "en": "The account form shall ask before closing (backdrop, Escape or Cancel) when it holds an unsaved edit, and ask before saving a college role with no college since that withdraws the whole scope; the screen shall open «department-head accounts» and «advisor accounts» with a server preview before creating; it shall label a scope row with department zero «whole college»; the system administration rail shall show every section's name, wrapping at medium widths and scrolling on phones; team and consolidation actions shall be confirmed with the visual confirmation dialog, not the browser's."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["admin", "rootAdmin"],
+      "acceptance": [
+        { "ar": "تعديل الاسم ثم النقر على الخلفية ← «تغييرات لم تُحفظ» ولا يُغلق إلا بالتأكيد.", "en": "Editing the name then clicking the backdrop ← an unsaved-changes prompt; it closes only on confirmation." },
+        { "ar": "زر «حسابات رؤساء الأقسام» يطلب ‎/api/users/department-heads/preview ويعرض الخطة قبل أي كتابة.", "en": "The department-head accounts button calls /api/users/department-heads/preview and shows the plan before any write." }
+      ],
+      "evidence": { "code": ["src/components/AdminUsers.tsx", "src/components/seats/SeatsAdmin.tsx", "src/components/seats/SeatPanel.tsx", "src/styles/35-visual-polish.css"], "tests": ["tests/admin-station-audit.ts"] }
     }
   ],
   "edgeCases": [

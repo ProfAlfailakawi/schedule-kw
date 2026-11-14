@@ -235,4 +235,17 @@ export const REQUEST_V4_CSS = `
 .room-ok:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .calm .cal-line{margin:10px 0 0}
 .verdict[data-tone=warn]>i{background:#8a6100}
+/* ── «ما تقرّر منذ آخر زيارة» ── */
+.since{margin:12px 0;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.since header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.since h2{margin:0;font-size:15px}
+.since ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.since li{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px;font-size:14px;line-height:1.6}
+.since li>span{flex:1 1 220px}
+.since li .sk-gi{inline-size:18px;block-size:18px;flex:none;margin-top:3px}
+.since li[data-k=fix] .sk-gi{color:var(--ok)}
+.since li[data-k=bad] .sk-gi{color:var(--bad)}
+.since li small{color:var(--muted)}
+.since .cal-btn{display:inline-flex;align-items:center;gap:4px;min-height:36px}
+.since .cal-line{margin:10px 0 0}
 `;

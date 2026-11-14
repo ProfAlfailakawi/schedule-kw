@@ -29,6 +29,8 @@ export interface RequestHandoff {
   requestRevision?: number;
   companionRoomId?: string;
   itemIndex: number;
+  /** هويّةُ البند الثابتة: يطابقها الخادمُ قبل تسجيل القرار («تغيّر ترتيب البنود»). */
+  itemId?: string;
   instructorId: number;
   instructorName: string;
   courseId: number;
@@ -80,6 +82,7 @@ export function takeHandoff(): RequestHandoff | null {
       requestRevision: value.requestRevision == null ? undefined : Number(value.requestRevision),
       companionRoomId: typeof value.companionRoomId === "string" ? value.companionRoomId : undefined,
       itemIndex: Number(value.itemIndex) || 0,
+      itemId: typeof value.itemId === "string" ? value.itemId.slice(0, 200) : undefined,
       instructorId: Number(value.instructorId) || 0,
       instructorName: String(value.instructorName || ""),
       courseId: Number(value.courseId),

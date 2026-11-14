@@ -570,6 +570,12 @@
 .sm-gauge small{color:var(--muted);font-size:.78rem}
 .sm-track{block-size:10px;border-radius:99px;background:var(--surface-3);overflow:hidden}
 .sm-track i{display:block;block-size:100%;border-radius:99px;background:var(--accent)}
+/* نوافذ التسجيل المقدّرة: سطرٌ لكل نافذة بعددها. */
+.sm-windows{display:grid;gap:8px;margin-block:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.sm-windows header small,.sm-windows>small{color:var(--muted)}
+.sm-windows ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.sm-windows li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px}
+.sm-windows li b{font-variant-numeric:tabular-nums}
 .sm-track i.high{background:var(--brass)}.sm-track i.full{background:var(--danger)}
 .sm-why{display:flex;flex-wrap:wrap;gap:6px}
 .sm-chip{border-radius:var(--r-full);padding:2px 10px;font-size:.78rem;background:var(--surface-3);color:var(--ink-2)}

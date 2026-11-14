@@ -257,16 +257,13 @@
 .schedule-tools:has(.schedule-tools-toggle.is-close)>.schedule-tool-actions{grid-column:1/-1;justify-self:stretch;inline-size:100%}
 
 /* ── شريط أقسام «إدارة النظام»: عشرة أقسام لم تعد تتّسع، فكانت الأسماء تُقصّ في منتصف الكلمة
-   («أوقات دوام الأقسا»). في النوافذ المتوسطة صار الشريط أيقوناتٍ، والقسم المفتوح وحده يُظهر اسمه؛
-   الاسم يبقى لقارئ الشاشة وفي تلميح المرور. على الجوال يبقى شريطاً منزلقاً بأسمائه كاملة. */
+   («أوقات دوام الأقسا»). ثم صار أيقوناتٍ لا يُظهر اسمَه إلا القسمُ المفتوح — فلا يُعرف الباقي إلا بالمرور.
+   الآن: كلُّ قسمٍ باسمه القصير ظاهراً، والشريطُ يلتفّ على سطرين في النوافذ المتوسطة بدل أن يُخفي؛
+   وعلى الجوال يبقى شريطاً منزلقاً بأسمائه كاملة. */
 @media screen and (min-width:769px) and (max-width:1500px){
-  .console-rail:has(> .console-tab-plain:nth-child(8)){justify-content:space-between}
-  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain{flex:0 0 auto;min-width:0}
-  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain:not(.active){padding-inline:7px}
-  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain:not(.active) .console-tab-label{
-    position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain:not(.active) .console-tab-icon{inline-size:36px;block-size:36px;border-radius:12px}
-  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain.active{padding-inline:8px 14px}
+  .console-rail:has(> .console-tab-plain:nth-child(8)){flex-wrap:wrap;overflow:visible;row-gap:6px}
+  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain{flex:0 0 auto;min-width:0;padding-inline:8px 12px}
+  .console-rail:has(> .console-tab-plain:nth-child(8))>.console-tab-plain .console-tab-icon{inline-size:32px;block-size:32px;border-radius:11px}
 }
 
 /* ── الرسائل العابرة على الجوال والنوافذ المصغّرة تنزل تحت الشريط العلوي بدل أن تغطّي القائمة والبحث. */
@@ -292,3 +289,10 @@
   .schedule-agenda .agenda-title-row{flex-wrap:wrap}
   .schedule-agenda .agenda-title-row>strong{flex:1 1 10em;min-width:min(10em,100%);overflow-wrap:break-word;word-break:normal}
 }
+
+/* ── إدارة النظام: نطاقُ تاريخ السجل، وسببُ الخانة المطفأة ظاهراً تحتها. */
+.audit-range{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
+.audit-range .field{display:grid;gap:4px;min-inline-size:9.5rem}
+.audit-range input[type="date"]{min-block-size:40px}
+.admin-guard-note{margin:6px 0 0;font-size:var(--t-xs);color:var(--muted)}
+.audit-master>.btn{margin:8px auto;display:flex}
