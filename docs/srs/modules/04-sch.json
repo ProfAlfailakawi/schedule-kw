@@ -11,6 +11,18 @@
   "actors": ["committeeChair", "departmentHead", "rootAdmin", "admin", "collegeRegistrar", "registrarStaff", "dean", "system"],
   "sources": [
     "src/components/LadderStartHint.tsx",
+    "src/components/ConflictTimeline.tsx",
+    "src/components/WeekLayerTools.tsx",
+    "src/components/WeekReplay.tsx",
+    "src/components/WhyIcon.tsx",
+    "src/components/WhyNotLayer.tsx",
+    "src/components/RoomsBoard.tsx",
+    "src/utils/lectureSegments.ts",
+    "src/utils/saveTravel.ts",
+    "src/utils/usePrintMounted.ts",
+    "src/utils/weekReplay.ts",
+    "src/utils/whyNot.ts",
+    "src/utils/whyNotIcons.ts",
     "src/components/ChainSolveSheet.tsx",
     "src/utils/chainSolve.ts",
     "src/utils/clockInput.ts",
@@ -1964,6 +1976,202 @@
         "tests": [
           "tests/schedule-write-integrity-audit.ts",
           "tests/schedule-w3-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-082",
+      "kind": "functional",
+      "title": {
+        "ar": "لماذا لا؟ على شبكة الأسبوع",
+        "en": "Why-not layer on the week grid"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لموعدٍ محدَّد (بطاقة مختارة أو مسودة المحرّر) تلوين خانات الأسبوع الفارغة بسبب المنع: الأستاذ مشغول، القاعة محجوزة، خارج نمط اللائحة، خارج اليوم الجامعي، تعارض خريجين، حجز زميل، أو قفل؛ وتوهّج المتاح بالأخضر، وعرض الأسباب بأيقونات في نافذة صغيرة، وإتاحة «انقل هنا» عبر مسار النقل نفسه بتقدير ما قبل الإفلات؛ والحساب من محرك السحب نفسه فلا يخالفه.",
+        "en": "The system shall let a chosen appointment (a selected card or the editor draft) tint the empty cells of the week by what blocks them: instructor busy, room taken, outside the regulation pattern, outside the university day, graduates clash, a colleague hold, or a lock; glow the free cells green, show the reasons as icons in a small popover, and offer a move-here action through the existing move path with its pre-drop forecast; the computation shall come from the drag engine itself so the two never disagree."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "خانة ترى المحرك فيها مانعاً لا تُعرض متاحة، وكل خانة متاحة تقبل السحب بلا مانع.",
+          "en": "A cell the engine blocks is never shown free, and every free cell accepts a drag with no blocker."
+        },
+        {
+          "ar": "على الهاتف تُعرض الطبقة للقراءة فقط بلا «انقل هنا».",
+          "en": "On a phone the layer is read-only with no move-here action."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/whyNot.ts",
+          "src/components/WhyNotLayer.tsx",
+          "src/components/WeekLayerTools.tsx",
+          "src/components/WhyIcon.tsx",
+          "src/utils/whyNotIcons.ts"
+        ],
+        "tests": [
+          "tests/why-not-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-083",
+      "kind": "functional",
+      "title": {
+        "ar": "إعادة عرض الأسبوع",
+        "en": "Week replay"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم عرضاً للقراءة فقط يعيد تشكّل جدول النطاق المعروض تغييراً بعد تغيير: شريط زمني مجمّع باليوم، وتشغيل وإيقاف وخطوة وسرعات، وبطاقة تذكر من غيّر ماذا ومتى، وتحريك الإضافة والنقل والحذف، وعدّاد للمضاف والمنقول والمحذوف؛ عبر GET /api/schedules/replay بصلاحيات النطاق نفسها، وحالة فارغة صريحة حين لا سجل.",
+        "en": "The system shall provide a read-only replay of how the displayed scope schedule changed, change by change: a day-grouped timeline, play, pause, step and speeds, a chip stating who changed what and when, animation of additions, moves and removals, and counters for added, moved and removed; through GET /api/schedules/replay under the same scope permissions, with an explicit empty state when there is no history."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "الإعادة تعيد بناء حالة الأسبوع في كل حدث بالترتيب الزمني.",
+          "en": "The replay rebuilds the week state at each event in chronological order."
+        },
+        {
+          "ar": "تحترم الحركةُ تعطيلَ الحركة في الجهاز فتنتقل خطوةً خطوة.",
+          "en": "Reduced-motion users get step-only playback."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/weekReplay.ts",
+          "src/components/WeekReplay.tsx",
+          "src/server/routes/scheduleLiveRoutes.ts"
+        ],
+        "tests": [
+          "tests/week-replay-audit.tsx"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-084",
+      "kind": "functional",
+      "title": {
+        "ar": "محرّر موعد أهدأ وأجمل",
+        "en": "A calmer, clearer appointment editor"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض محرّر الموعد بخطواتٍ تنطوي إلى سطر ملخّص عند اكتمالها مع علامة تُرسم وتعدّ الخطوة التالية، ولونٍ واحد للحالة (أخضر جاهز، أصفر ملاحظة، أحمر مانع) يسري على الإطار والشارة وزر الحالة والحفظ، وخط تقدّم رفيع؛ وببطاقة مانع بشريطين زمنيين يوضحان التداخل بالدقائق مع «بديل» و«حلّ بسلسلة»، وشريط مدة يبيّن المحاضرات والفاصل، وقائمة «مساعدات» واحدة، وشريط حفظ يضم الحالة والحفظ والتراجع فقط؛ وأن تُظهر خطوات التعديل ما تغيّر عن الموعد المحفوظ؛ دون فقد أي عنصر تحكم كان متاحاً.",
+        "en": "The system shall present the appointment editor with steps that collapse into a one-line summary when complete, a drawn check mark and the next step opening, one status colour language (green ready, amber note, red blocker) across the frame, badge, status pill and save, and a thin progress line; with a blocker card of two timeline bars showing the overlap in minutes alongside the alternative and chain-solve actions, a duration bar showing the lecture blocks and the gap, a single helpers menu, and a bottom bar holding only status, save and cancel; edit-mode steps shall show what changed against the saved appointment; no control that was available before may be lost."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "اختبار جرد آلي يثبت بقاء كل عنصر تحكم من النموذج السابق ووصوله بضغطتين على الأكثر.",
+          "en": "An automated inventory proves every previous control remains reachable in at most two interactions."
+        },
+        {
+          "ar": "عدد العناصر الظاهرة في كل حالة أقل من السابق على 1440 وعلى 390.",
+          "en": "The visible element count in every state is lower than before at 1440 and 390."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ConflictTimeline.tsx",
+          "src/utils/lectureSegments.ts",
+          "src/utils/saveTravel.ts"
+        ],
+        "tests": [
+          "tests/appointment-redesign-audit.ts",
+          "tests/appointment-phase3-audit.ts",
+          "tests/appointment-inventory-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-085",
+      "kind": "functional",
+      "title": {
+        "ar": "شبكة الأستاذ أداة اختيار",
+        "en": "Teacher week grid as the picker"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يجعل شبكة أسبوع الأستاذ في المحرّر أداة اختيار: لمسة على خانة متاحة تضبط اليوم والبداية والنهاية والنمط بالمسارات نفسها المستعملة عند الكتابة، وخانات بأيقونات فقط بلا نصوص وبثلاثة ألوان سببٍ على الأكثر، وعلامات هادئة للوقت الأفضل والوقت المعتاد والملاصق لمحاضرات الأستاذ، ومفتاح واحد يُفتح بأيقونة، وتنقّل بالأسهم وEnter.",
+        "en": "The system shall make the teacher week grid in the editor an input surface: tapping a free cell sets the day, start, end and pattern through the same paths used when typing, with icon-only cells and at most three reason colours, quiet markers for the best slot, the usual slot and cells adjacent to the teacher lectures, a legend opened by one icon, and arrow-key and Enter navigation."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "Enter على خانة متاحة يضع الأيام والوقت كما لو كُتبت.",
+          "en": "Enter on a free cell sets days and time exactly as typed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/TeacherMiniWeek.tsx",
+          "src/utils/whyNot.ts"
+        ],
+        "tests": [
+          "tests/appointment-phase3-audit.ts",
+          "tests/teacher-mini-week-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-086",
+      "kind": "functional",
+      "title": {
+        "ar": "استعادة آلة الزمن لا تُرفض بعيبٍ قديم",
+        "en": "Time Machine restore is not refused for an inherited defect"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يستعيد حالة ما قبل اعتماد سيناريو دون أن يرفضها بسبب تعارضٍ أو نقصِ ساعاتٍ كان في تلك الحالة أصلاً، وأن يرفض ما كان جديداً فقط، بمقارنة الاستعادة بحالة ما قبل الاعتماد لا بالحالة الحيّة.",
+        "en": "The system shall restore the state before a scenario was applied without refusing it for a conflict or a section-hours shortfall that state already had, refusing only what is new, by comparing the restore against the before-apply baseline rather than the live state."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "استعادة تعيد صفاً كان فيه تعارض قديم تنجح.",
+          "en": "A restore that brings back a row with an old clash succeeds."
+        },
+        {
+          "ar": "أخذ صفٍّ آخر لخانة الاستعادة يجعلها ترجع 409 دون كتابة.",
+          "en": "Another row taking the restore slot makes it return 409 with nothing written."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/timeMachine.ts",
+          "src/server/core/scheduleConflicts.ts",
+          "src/utils/hoursIssue.ts",
+          "src/server/timeMachineRoutes.ts"
+        ],
+        "tests": [
+          "tests/time-machine-restore-baseline-audit.ts"
         ]
       },
       "inferred": false
