@@ -270,7 +270,7 @@ app.get("/api/student-registration", requireAnyPermission([7, 14]), async (req: 
   /* كلُّ بندٍ ينتظر قراراً — مقرّرٌ أو حالةُ خريجٍ كاملة — يُعدّ مرّةً بالتصنيف نفسه. */
   const every: string[] = rows.flatMap((row: any) => row.caseLevel
     ? [String(row.caseStatus)]
-    : row.courses.filter((course: any) => !course.readOnly).map((course: any) => !course.settled ? "pending"
+    : row.courses.filter((course: any) => !course.readOnly && !course.droppedByStudent).map((course: any) => !course.settled ? "pending"
       : course.state === "awaiting-registration" ? "approved" : String(course.state)));
   res.setHeader("Cache-Control", "no-store");
   res.json({
@@ -456,7 +456,8 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
         ...(state === "rejected" || state === "committee-rejected" ? { reasonCode: reasonCode as any } : {}),
         ...(openedRow ? { scheduleId: Number(openedRow.id), sectionCode: String(openedRow.SCode) } : {}),
         note: String(req.body?.note || "").trim().slice(0, 300) || (openedRow ? `فُتحت شعبة ${openedRow.SCode} في الجدول.` : undefined),
-        by: state === "registered" || state === "rejected" ? "registration" : "department",
+        /* الجهةُ من يكتب لا الحالةُ وحدها: «إعادة للانتظار» يكتبها التسجيلُ فتُنسب إليه، لا إلى القسم. */
+        by: state === "registered" || state === "rejected" || viewer === "registration" ? "registration" : "department",
         byRole: roleLabel(req.user?.Role) || undefined,
         at: new Date().toISOString(),
       }, guardByState);
@@ -559,5 +560,49 @@ app.post("/api/student-registration/:id/case-state", requireAuth, async (req: Au
   bumpTeamWork(req.demoSessionId || "", Number(need.AdCollegeId || 0), Number(need.AdTermId || 0));
   res.setHeader("Cache-Control", "no-store");
   res.json({ ok: true, caseState: saved.caseState || {}, caseStatus: studentCaseStatus(saved.caseState) });
+});
+
+/**
+ * ── شعبةٌ فُتحت لطلبٍ ثم لم يُوافَق عليه ─────────────────────────────────────────
+ *
+ * «موافقة + فتح شعبة» تفتح صفّاً في الجدول مرجعُه هذا الطلب وهذا المقرّر. فإن قيل بعدها «لم توافق اللجنة»
+ * أو «رُدّ» بقي الصفُّ يتيماً. لا يُحذف بصمت: الشاشةُ تعرضه بزرٍّ صريح، وهذا المسارُ يحذفه بمسار الحذف المعتاد
+ * (النطاق، القفل، لقطة الإصدار، التدقيق) — لمن يملك صلاحية الجدول، وعلى صفٍّ مرجعُه هذا الطلب بعينه وحده.
+ */
+app.post("/api/student-registration/:id/close-opened-section", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const granted = await grantedPermissions(req);
+  if (!canWriteRegistration(req.user?.Role, Boolean(req.user?.IsAdminUser), granted)) { res.status(403).json({ error: "هذا الكشف للقراءة بصفتك." }); return; }
+  if (!granted.includes(7) && !req.user?.IsAdminUser) { res.status(403).json({ error: "حذفُ شعبةٍ من الجدول يحتاج صلاحيةَ الجدول الدراسي.", code: "no-schedule-permission" }); return; }
+  const need = await Repository.getStudentNeedById(String(req.params.id || ""));
+  if (!need) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (await refuseIfTermFrozen(res, Number(need.AdTermId || 0))) return;
+  const allCourses = await Repository.getCourses() as any[];
+  if (!(await owningSectionsInScopeFor(req, need, allCourses)).length) { res.status(403).json({ error: "هذا الطلب خارج نطاقك." }); return; }
+  const courseId = Number(req.body?.courseId || 0);
+  const state: any = (need.courseStates || []).find((row: any) => Number(row.courseId) === courseId);
+  if (!state?.scheduleId) { res.status(404).json({ error: "لا شعبةَ مفتوحةً لهذا المقرّر من هذا الطلب." }); return; }
+  if (Number(req.body?.scheduleId || 0) !== Number(state.scheduleId)) { res.status(409).json({ error: STALE_WRITE_MESSAGE, code: STALE_WRITE_CODE }); return; }
+  if (state.state !== "committee-rejected" && state.state !== "rejected") {
+    res.status(409).json({ error: "الطلبُ ما زال موافَقاً عليه؛ الشعبةُ تُحذف بعد عدم الموافقة أو الردّ فقط." }); return;
+  }
+  const openingRef = `need:${need.id}:course:${courseId}`;
+  const outcome = await withSerialLock(`student-open:${need.id}:${courseId}`, async (): Promise<{ status: number; json: any; audit?: string }> => {
+    const row: any = await Repository.getScheduleById(Number(state.scheduleId));
+    if (row && row.origin?.refId !== openingRef) return { status: 409, json: { error: "هذه الشعبة لم تُفتح لهذا الطلب؛ تُحذف من ورشة الجدول." } };
+    let audit: string | undefined;
+    if (row) {
+      const gone = await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(row.id) }, body: {} });
+      if (gone.status >= 400) return { status: gone.status, json: gone.body || { error: "تعذّر حذف الشعبة." } };
+      audit = `كشف التسجيل: حُذفت الشعبة ${row.SCode} التي فُتحت لطلبٍ لم يُوافَق عليه${gone.audit ? ` · ${gone.audit}` : ""}`;
+    }
+    /* الرابطُ يُمحى من القرار، والقرارُ نفسُه كما هو. */
+    const { scheduleId: _id, sectionCode: _code, ...rest } = state;
+    await Repository.setStudentCourseState(need.id, { ...rest, scheduleId: undefined, sectionCode: undefined }).catch(() => undefined);
+    return { status: 200, json: { ok: true, removed: Boolean(row) }, audit };
+  });
+  if (outcome.audit) res.locals.auditChanges = outcome.audit;
+  if (outcome.status < 300) bumpTeamWork(req.demoSessionId || "", Number(need.AdCollegeId || 0), Number(need.AdTermId || 0));
+  res.setHeader("Cache-Control", "no-store");
+  res.status(outcome.status).json(outcome.json);
 });
 }
