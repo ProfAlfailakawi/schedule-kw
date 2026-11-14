@@ -6982,11 +6982,14 @@ export const Repository = {
 
   /* البابُ الذي يفتحه الأستاذ: الرابطُ هو المفتاح، ولا شيء غيره يَصله. */
   getInstructorRequestByLink: async (linkId: string): Promise<InstructorRequest | undefined> => {
+    /* الرابطُ الواحد قد يحمل جولاتٍ متعاقبة (تُعاد استعمالُه بدل أن يموت): الجاريةُ تسبق المستبدَلة، والأحدثُ أولاً. */
+    const current = (rows: InstructorRequest[]) => [...rows].sort((a, b) =>
+      Number(a.status === "superseded") - Number(b.status === "superseded") || String(b.createdAt).localeCompare(String(a.createdAt)))[0];
     if (firestoreDb && !demoSandboxContext.getStore()) {
-      const snap = await firestoreDb.collection("instructorRequests").where("linkId", "==", linkId).limit(1).get();
-      return snap.empty ? undefined : (snap.docs[0].data() as InstructorRequest);
+      const snap = await firestoreDb.collection("instructorRequests").where("linkId", "==", linkId).limit(20).get();
+      return snap.empty ? undefined : current(snap.docs.map(doc => doc.data() as InstructorRequest));
     }
-    return (db.instructorRequests || []).find(row => row.linkId === linkId);
+    return current((db.instructorRequests || []).filter(row => row.linkId === linkId));
   },
 
   /* وارد القسم أو الكلية: sectionId=0 يعني كل أقسام الكلية في الفصل نفسه. */
@@ -7019,7 +7022,8 @@ export const Repository = {
   },
 
   /** إقفال جولات رغبات الأستاذ التي بُنيت على جدولٍ مُسح لاستبداله.
-   * تبقى الطلبات كسجلّ محفوظ، لكن لا تبقى قابلةً للتقديم أو تُعرض كأنها تخصّ الجدول الجديد. */
+   * تبقى الطلبات كسجلّ محفوظ، لكن لا تبقى قابلةً للتقديم أو تُعرض كأنها تخصّ الجدول الجديد.
+   * وروابطُها لا تُوقف (لا يموت رابطٌ إلا بحذف القسم له أو بانتهاء صلاحيته). */
   supersedeInstructorRequestsForScope: async (collegeId: number, sectionId: number, termId: number, at = new Date().toISOString()): Promise<number> => {
     const requests = (await Repository.getInstructorRequests(collegeId, sectionId, termId))
       .filter(row => row.status !== "superseded");
@@ -7030,7 +7034,8 @@ export const Repository = {
         status: "superseded",
         timeline: [...(row.timeline || []), { kind: "schedule-replaced", at, by: "القسم", detail: "استُبدل جدول القسم، وأُغلقت جولة الرغبات السابقة." }],
       });
-      await Repository.revokeShareLink(row.linkId);
+      /* الرابطُ لا يُوقف: يبقى مقروءاً، وصفحةُ الأستاذ تقول «أُغلقت هذه الجولة بعد استبدال الجدول» (حدُّ الجيل في
+         resolveRequestLink) بدل «غير موجود». الجولةُ المغلقة لا تقبل تقديماً أياً كان رابطُها. */
       count++;
     }
     return count;
@@ -7403,6 +7408,23 @@ export const Repository = {
     const row = (db.scheduleShareLinks || []).find(item => item.id === id);
     if (!row) throw new Error("الرابط غير موجود");
     row.revoked = true;
+    saveDatabase();
+  },
+
+  /** يمدّ صلاحيةَ رابطٍ حيّ ولا يقصّرها أبداً: إعادةُ الإرسال تُبقي الرابطَ الذي في يد الأستاذ وتؤخّر انتهاءه. */
+  extendShareLinkExpiry: async (id: string, expiresAt: string): Promise<void> => {
+    const later = (current?: string) => !current || Date.parse(expiresAt) > Date.parse(current);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("scheduleShareLinks").doc(id);
+      await firestoreDb.runTransaction(async transaction => {
+        const doc = await transaction.get(ref);
+        if (doc.exists && later((doc.data() as ScheduleShareLink).expiresAt)) transaction.set(ref, { expiresAt }, { merge: true });
+      });
+      return;
+    }
+    const row = (db.scheduleShareLinks || []).find(item => item.id === id);
+    if (!row || !later(row.expiresAt)) return;
+    row.expiresAt = expiresAt;
     saveDatabase();
   },
 

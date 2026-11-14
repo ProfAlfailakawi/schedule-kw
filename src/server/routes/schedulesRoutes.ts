@@ -513,9 +513,14 @@ app.get("/api/schedules/wipe-scope", requirePermission(7), async (req: Authentic
   if (!isScopeAllowed(req, collegeId, sectionId) && !isPowerUser(req)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   const state = await wipeScopeState(req, collegeId, sectionId, termId);
   res.setHeader("Cache-Control", "no-store");
+  const wipeGeneration = (await Repository.getInstructorRequestGeneration(collegeId, sectionId, termId)).generation;
+  const openRounds = (await Repository.getInstructorRequests(collegeId, sectionId, termId).catch(() => []))
+    .filter(row => row.status !== "superseded" && Number(row.scheduleGeneration || 0) === wipeGeneration).length;
   res.json({
     canWipe: state.decision.allowed, reason: state.decision.allowed ? "" : state.decision.reason,
     count: state.rows.length, sectionName: state.sectionName, termName: state.termName,
+    /* الجولاتُ المفتوحة التي سيُغلقها المسح: يُخبَر القسمُ قبل التأكيد لا بعده. */
+    openRounds,
     lastWipe: state.lastWipe,
     canRestore: state.decision.allowed && Boolean(state.lastWipe) && state.rows.length === 0,
   });
@@ -560,10 +565,11 @@ app.post("/api/schedules/wipe-scope", requirePermission(7), async (req: Authenti
        الأرشيف، لكن الوارد وبطاقة الأستاذ لا يخلطان طلبات الجدول المحذوف بالجديد. */
     const requestGeneration = await Repository.advanceInstructorRequestGeneration(collegeId, sectionId, termId);
     /* طلباتُ الأستاذ تشير إلى صفوف الجدول الذي مُسح. نُبقيها كسجلّ محفوظ،
-       ونغلق روابطها ونحرّر حجوزاتها حتى لا تعود رغبات التجارب مع الجدول الجديد. */
+       ونغلق جولاتها ونحرّر حجوزاتها حتى لا تعود رغبات التجارب مع الجدول الجديد. وروابطُها لا تُوقف: يفتحها الأستاذ
+       فيرى أن الجولة أُغلقت بعد استبدال الجدول، لا «الرابط غير موجود». */
     const supersededRequests = await Repository.supersedeInstructorRequestsForScope(collegeId, sectionId, termId);
     await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "delete", rows: state.rows as any[] });
-    res.locals.auditChanges = `مسح الجدول بالكامل: ${state.sectionName} · ${state.termName} · ${countOf(state.rows.length, AR.appointment)} · إغلاق ${countOf(supersededRequests, AR.round)} رغبات قديمة (نسخة احتياطية ${backup.id})`;
+    res.locals.auditChanges = `مسح الجدول بالكامل: ${state.sectionName} · ${state.termName} · ${countOf(state.rows.length, AR.appointment)} · إغلاق ${countOf(supersededRequests, AR.round)} رغبات قديمة وبقيت روابطها مقروءةً تُظهر أن الجولة أُغلقت، ولم يُوقف أيّ رابط (نسخة احتياطية ${backup.id})`;
     res.json({ success: true, deleted: state.rows.length, backupId: backup.id, supersededRequests, scheduleGeneration: requestGeneration.generation });
   });
 });

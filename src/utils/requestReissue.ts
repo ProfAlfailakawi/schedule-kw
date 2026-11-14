@@ -34,13 +34,58 @@ export function latestRequestByInstructor<T extends { AdInstructorId: number; cr
   return latest;
 }
 
-/** رابطُ الطلب يُستبدل حين لا يبلغ الموعدَ الجديد: موقوفٌ، أو لا يُقرأ، أو تنتهي صلاحيتُه قبله. */
-export function requestLinkNeedsReplacing(
+/**
+ * ── رابطُ الطلب لا يموت إلا بيد القسم أو بانتهاء صلاحيته هو ───────────────────
+ *
+ * الرابطُ يصل الأستاذَ في واتساب؛ فإعادةُ الإرسال إليه (لمجموعةٍ ثانية، أو بموعدٍ
+ * جديد، أو بجولةٍ جديدة) لا تُنشئ رابطاً وتُوقف القديم. تُعيد استعمالَ الحيِّ منه:
+ *  - حيٌّ ويبلغ الموعدَ الجديد  ← "keep": لا يُمسّ.
+ *  - حيٌّ وتنتهي صلاحيتُه قبله  ← "extend": تُمدَّد صلاحيتُه هو، ويبقى هو.
+ *  - موقوفٌ أو ميتٌ فعلاً       ← "mint": لا بديل عن رابطٍ جديد (ولا شيءَ حيٌّ يُوقف).
+ */
+export type RequestLinkMove = "keep" | "extend" | "mint";
+
+export function requestLinkMove(
   link: { revoked?: boolean; expiresAt?: string } | null | undefined,
   readable: boolean,
   mustLiveUntil: number,
-): boolean {
-  if (!link || link.revoked || !readable) return true;
+): RequestLinkMove {
+  if (!link || link.revoked || !readable) return "mint";
   const expires = Date.parse(String(link.expiresAt || ""));
-  return Number.isFinite(expires) && expires < mustLiveUntil;
+  return Number.isFinite(expires) && expires < mustLiveUntil ? "extend" : "keep";
+}
+
+/**
+ * ── ماذا يصنع الإرسالُ بطلبٍ قائم؟ (جدولٌ واحدٌ يُختبر كلُّه) ────────────────────
+ *
+ *  fresh   طلبٌ جديد (لا طلبَ له، أو ثُبّت/استُبدل).
+ *  extend  طلبُه الذي لم يُرسله يأخذ الموعدَ الجديد.
+ *  reopen  طلبٌ أُرسل وينتظر القسم يُعاد فتحُه بالموعد الجديد: استثناءٌ فردي، أو ملاحظاتُ التسجيل،
+ *          أو إرسالٌ صريحٌ لأساتذةَ بعينهم بطلب تعديلٍ وقد أُغلقت نافذتُه (حادثة 2026-11-11).
+ *  keep    يبقى كما هو ينتظر القسم؛ تتغيّر صفتُه وحدها. والإرسالُ الجماعي لا يفتح نافذةً أُغلقت على من
+ *          ينتظر قراراً — يفتحها القسمُ لأستاذٍ بعينه («افتح التعديل»).
+ */
+export type SendAction = "fresh" | "extend" | "reopen" | "keep";
+
+export function sendActionFor(input: {
+  held: { status: InstructorRequestStatus } | null | undefined;
+  windowOpen: boolean;
+  picking: boolean;
+  individualOnly: boolean;
+  onlyNoted: boolean;
+  reopening: boolean;
+  mode: "view" | "edit";
+}): SendAction {
+  const move = reissueMove(input.held);
+  if (move === "fresh") return "fresh";
+  if (move === "extend") return "extend";
+  const pickedEditReopen = input.picking && !input.onlyNoted && input.mode === "edit" && !input.windowOpen;
+  if (input.onlyNoted || input.individualOnly || pickedEditReopen) return "reopen";
+  return input.reopening ? "fresh" : "keep";
+}
+
+/** هل يرى الأستاذُ بعد الإرسال تبويبَ «تعديل الجدول» لا العرضَ فقط؟ */
+export function cardEditsAfterSend(action: SendAction, mode: "view" | "edit", windowOpenBefore: boolean): boolean {
+  if (mode !== "edit") return false;
+  return action === "keep" ? windowOpenBefore : true;
 }

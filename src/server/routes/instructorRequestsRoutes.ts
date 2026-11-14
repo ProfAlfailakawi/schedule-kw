@@ -14,7 +14,7 @@ import { Response } from "express";
 import { randomUUID } from "crypto";
 import { Repository, ScheduleRevisionConflict } from "../../db/repository";
 import type { FSchedule, InstructorRequest, InstructorRequestItem, InstructorRequestEventKind } from "../../types";
-import { latestRequestByInstructor, reissueMove, requestLinkNeedsReplacing } from "../../utils/requestReissue";
+import { latestRequestByInstructor, reissueMove, requestLinkMove, sendActionFor } from "../../utils/requestReissue";
 import { termLinkExpiresAt } from "../../utils/shareLinkLifetime";
 import { normalizeInstructorDeadline, individualExceptionOpen } from "../../utils/instructorRequestWindows";
 import { slotTimeGroups } from "../../utils/slotTimeGroups";
@@ -280,6 +280,12 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     grantedBy: String(req.user?.Name || req.user?.UserName || "القسم"),
     reason: emergencyReason,
   } : undefined;
+  /* صلاحيةُ رابطٍ تبلغ الموعدَ المُعلَن (القاعدةُ نفسها لمن يُنشأ ولمن يُمدَّد). */
+  const requestLinkExpiry = () => new Date(Math.max(
+    Date.parse(windowClosesAt) + 86400000,
+    Date.now() + REQUEST_LINK_DAYS * 86400000,
+    Date.parse(termLinkExpiresAt(issueTerm)),
+  )).toISOString();
   const mintRequestLink = (instructorId: number) => Repository.createShareLink({
     AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
     label: `طلب جدول — ${instructorId}`,
@@ -290,17 +296,28 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
      * تنزل عن الحدّ الأدنى حتى لا يُغلق رابطُ موعدٍ قريبٍ لحظةَ انتهائه. */
     /* والقراءةُ تبقى حتى نهاية الفصل: قرارُ القسم وبدائلُه يصلان بعد الموعد،
      * ورابطٌ يموت بعد يومٍ من الإغلاق يُخفي عن الأستاذ جوابَ ما طلبه. */
-    expiresAt: new Date(Math.max(
-      Date.parse(windowClosesAt) + 86400000,
-      Date.now() + REQUEST_LINK_DAYS * 86400000,
-      Date.parse(termLinkExpiresAt(issueTerm)),
-    )).toISOString(),
+    expiresAt: requestLinkExpiry(),
     SystemUserId: Number(req.user?.SystemUserId || 0),
     userName: String(req.user?.UserName || ""),
     showInstructors: false,
     kind: "request",
     AdInstructorId: instructorId,
   } as any);
+  /* رابطُ الأستاذ الحيُّ يُعاد استعمالُه ولا يُستبدل (شكوى المالك: «الرابطُ الأول مُسح وما انتهى وقتُه ولا حذفتُه»).
+     يُمدَّد إن كانت صلاحيتُه تنتهي قبل الموعد الجديد؛ وإن كان ميتاً فعلاً يعود null فيُنشأ رابطٌ جديد. */
+  const linkTally = { reused: 0, extended: 0, minted: 0, replaced: 0 };
+  const reuseLiveRequestLink = async (linkId: string | undefined): Promise<string | null> => {
+    const old = linkId ? await Repository.getShareLink(linkId) : null;
+    if (!old || old.kind !== "request") return null;
+    const move = requestLinkMove(old, await shareLinkStillReadable(old), Date.parse(windowClosesAt) + 86400000);
+    if (move === "mint") return null;
+    if (move === "extend") { await Repository.extendShareLinkExpiry(old.id, requestLinkExpiry()); linkTally.extended++; } else linkTally.reused++;
+    return old.id;
+  };
+  /* آخرُ طلبٍ مغلقٍ لكل أستاذ (ثُبّت أو استُبدل بعد تغيّر الجدول): رابطُه هو ما يُعاد استعمالُه في جولته الجديدة. */
+  const closedRequestOf = new Map<number, InstructorRequest>();
+  for (const [instructorId, request] of latestRequestByInstructor(familyRequests.flat().filter(row =>
+    (row.status === "settled" || row.status === "superseded") && linkMode(row) !== "ta"))) closedRequestOf.set(instructorId, request);
 
   /* `reissued`: ينتظر قرارَ القسم فلم يُمسّ. `renewed`: طلبُه القائم أخذ الموعدَ الجديد. */
   const issued: Array<{ instructorId: number; linkId: string; reissued: boolean; renewed?: boolean }> = [];
@@ -315,17 +332,17 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
        سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. لكن طلباً مات موعدُه أو رابطُه
        لا يبقى «طلبَه» — يتبع الموعدَ الجديد (src/utils/requestReissue.ts). */
     const held = already.get(instructorId);
-    const move = reissueMove(held);
     /* F3: بطاقةُ مرحلة التدريب القائمة لا يمسّها النشرُ الجماعي — تحكمها مرحلتُها. */
-    if (held && move !== "fresh" && taPhaseOwns(held, individualOnly) && !onlyNoted) {
+    if (held && sendActionFor({ held, windowOpen: true, picking, individualOnly, onlyNoted, reopening, mode: issueMode }) !== "fresh" && taPhaseOwns(held, individualOnly) && !onlyNoted) {
       issued.push({ instructorId, linkId: held.linkId, reissued: true });
       continue;
     }
     /* ✏️ لأساتذة محددين إلى من أرسل طلبه وأُغلقت نافذتُه: الإرسالُ الصريح له يعيد فتح طلبه نفسه بالموعد الجديد.
        كان يُعدّ «ينتظر القسم» فلا يُمسّ، فتبقى نافذتُه القديمة مغلقةً ويرى بطاقتَه «للعرض» مهما أُعيد النشرُ له
        (حادثة 2026-11-11: خمسةُ إرسالاتٍ خاصة لأستاذةٍ طلبُها «قيد المراجعة» منذ 28 أكتوبر). */
-    const pickedEditReopen = picking && !onlyNoted && issueMode === "edit" && move === "keep" && !requestWindowOpen(held!);
-    if (held && move === "keep" && !individualOnly && !reopening && !onlyNoted && !pickedEditReopen) {
+    const action = sendActionFor({ held, windowOpen: held ? requestWindowOpen(held) : false, picking, individualOnly, onlyNoted, reopening, mode: issueMode });
+    const pickedEditReopen = action === "reopen" && !onlyNoted && !individualOnly;
+    if (held && action === "keep") {
       /* طلبُه ورابطُه كما هما ينتظران قرارَ القسم؛ وصفةُ الإرسال الجديدة هي ما يحكم بطاقتَه (E1).
          تُكتب الصفةُ وحدها، لا الطلبُ كلُّه: قرارٌ أو ردٌّ يصل بين القراءة والكتابة لا يُمحى. */
       if (linkMode(held) !== issueMode) await Repository.setInstructorRequestLinkMode(held.id, issueMode);
@@ -336,17 +353,21 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     /* ملاحظاتُ التسجيل تعيد فتح الطلب المرسَل: بلا نافذةٍ جديدة لا يستطيع صاحبه تصحيح ما مُيّز له.
        والاستثناءُ الفردي كذلك: طلبُه المرسَل أو قيدُ المراجعة يُمدَّد هو نفسُه، فلا يصير له طلبان مفتوحان
        برابطين، ويُسجَّل الاستثناءُ في سجلّ الطلب نفسه. */
-    if (held && (move === "extend" || ((onlyNoted || individualOnly || pickedEditReopen) && move === "keep"))) {
+    if (held && (action === "extend" || action === "reopen")) {
       const heldLink = await Repository.getShareLink(held.linkId);
-      const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
       let linkId = held.linkId;
       /* الرابطُ القديم يُبطَل بعد حفظ الطلب بالجديد لا قبله: فشلُ الحفظ لا يترك الطلب مشيراً إلى رابطٍ ميت. */
       let supersededLinkId = "";
-      /* «تبديل»: لمن لم يُرسل طلبه بعد فقط — طلبٌ ينتظر قرار القسم لا يُستبدل رابطه (يبقى كما هو أعلاه). */
-      const forceNewLink = (cardAction === "replace" || replaceSet.has(instructorId)) && move === "extend" && !individualOnly && !onlyNoted;
-      if (forceNewLink || requestLinkNeedsReplacing(heldLink, readable, Date.parse(windowClosesAt) + 86400000)) {
+      /* «تبديل»: قرارُ القسم الصريح وحده يُوقف رابطاً حيّاً، ولمن لم يُرسل طلبه بعد فقط — طلبٌ ينتظر قرار القسم لا يُستبدل رابطه (يبقى كما هو أعلاه). */
+      const forceNewLink = (cardAction === "replace" || replaceSet.has(instructorId)) && action === "extend" && !individualOnly && !onlyNoted;
+      if (forceNewLink) {
         linkId = (await mintRequestLink(instructorId)).id;
+        linkTally.replaced++;
         if (heldLink && !heldLink.revoked) supersededLinkId = heldLink.id;
+      } else {
+        const kept = await reuseLiveRequestLink(held.linkId);
+        if (kept) linkId = kept;
+        else { linkId = (await mintRequestLink(instructorId)).id; linkTally.minted++; }
       }
       const startsLater = Date.parse(held.window?.opensAt || "") > Date.now();
       await Repository.saveInstructorRequest({
@@ -360,13 +381,17 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
           timeline: [...(held.timeline || []), { kind: "link-created", at: opensAt, by: "القسم", detail: "استثناء فردي لظرف طارئ" }],
         } : pickedEditReopen ? {
           timeline: [...(held.timeline || []), { kind: "link-created", at: opensAt, by: "القسم", detail: "أُعيد فتح التعديل بإرسالٍ خاص" }],
-        } : {}),
+        } : {
+          timeline: [...(held.timeline || []), { kind: "link-created", at: opensAt, by: "القسم", detail: "أُعيد الإرسال بالرابط نفسه" }],
+        }),
       });
       if (supersededLinkId) await Repository.revokeShareLink(supersededLinkId);
       issued.push({ instructorId, linkId, reissued: false, renewed: true });
       continue;
     }
-    const link = await mintRequestLink(instructorId);
+    /* جولةٌ جديدة بعد طلبٍ انتهى تحمل رابطَه الحيَّ نفسَه (إن بقي حيّاً): الذي في واتساب لا يموت، يفتح الجولةَ الجارية. */
+    const reusedId = await reuseLiveRequestLink(closedRequestOf.get(instructorId)?.linkId);
+    const link = reusedId ? { id: reusedId } : (linkTally.minted++, await mintRequestLink(instructorId));
 
     await Repository.createInstructorRequest({
       AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId,
@@ -382,13 +407,11 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
         requestItemFromRow(row, courseName.get(Number(row.AdCourseId)) || String(row.AdCourseName || ""), collegeNameById)),
       timeline: [{ kind: "link-created", at: opensAt, by: "القسم", ...(individualOnly ? { detail: "استثناء فردي لظرف طارئ" } : {}) }],
     });
-    /* جولةٌ جديدة بعد طلبٍ انتهى: القديمُ يُستبدل ورابطُه يُوقف. كان يبقى حيّاً بجانب الجديد، فيفتح الأستاذُ
-       رابطَ واتساب القديم ويرى جولةً مغلقة، ويعدّه الواردُ طلبين. يبقى في السجلّ محفوظاً كما هو. */
+    /* جولةٌ جديدة بعد طلبٍ انتهى: القديمُ يُستبدل ويبقى في السجلّ محفوظاً كما هو. رابطُه لا يُوقف: هو نفسُه رابطُ الجولة
+       الجديدة (أعلاه)، أو ميتٌ أصلاً. والواردُ يعدّ الجارية وحدها (status ≠ superseded). */
     if (held && held.status === "settled") {
       await Repository.saveInstructorRequest({ ...held, status: "superseded" })
         .catch(error => console.warn("[requests] تعذّر استبدال الطلب القديم:", error instanceof Error ? error.message : error));
-      const oldLink = held.linkId && held.linkId !== link.id ? await Repository.getShareLink(held.linkId) : null;
-      if (oldLink && !oldLink.revoked) await Repository.revokeShareLink(oldLink.id);
     }
     issued.push({ instructorId, linkId: link.id, reissued: false });
   }
@@ -411,7 +434,9 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   res.locals.auditChanges = (individualOnly
     ? `فتح تعديل استثنائي للأستاذ ${String(person?.AdInstructorName || selectedInstructorId)} حتى ${windowClosesAt} — ${emergencyReason}`
     : picking ? `إرسال بطاقة الأستاذ لأساتذة محددين حتى ${windowClosesAt}: ${pickedNames()}`
-    : `إعادة فتح استقبال طلبات الأساتذة لعائلة القسم حتى ${windowClosesAt}`) + ` · ${linkModeLabel(issueMode)}`;
+    : `إعادة فتح استقبال طلبات الأساتذة لعائلة القسم حتى ${windowClosesAt}`) + ` · ${linkModeLabel(issueMode)}`
+    + ` · الروابط: أُعيد استعمال ${linkTally.reused}، ومُدّدت ${linkTally.extended}، وأُنشئ ${linkTally.minted}`
+    + (linkTally.replaced ? `، وأُوقف ${linkTally.replaced} بتبديلٍ صريح من القسم` : "، ولم يُوقف أيّ رابط");
   /* إرسالٌ تُخُطّي كلُّ أصحابه لم يُرسل شيئاً: لا سطرَ فارغاً في السجل. */
   if (issued.length) await Repository.saveFeatureDoc("linkModeLog", `${collegeId}:${sectionId}:${termId}:${Date.now()}`, {
     at: new Date().toISOString(), by: String(req.user?.Name || req.user?.UserName || ""), mode: issueMode,

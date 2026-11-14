@@ -62,7 +62,7 @@ for (const file of [...serverSourceFiles(), "src/components/InstructorInbox.tsx"
   const server1 = readServerSource();
   const issue = server1.slice(server1.indexOf('app.post("/api/instructor-requests/issue"'), server1.indexOf('app.get("/api/instructor-requests/exceptions"'));
   ok(issue.includes("const issueMode = issueLinkMode(req.body?.mode);") && issue.includes("if (!issueMode) { res.status(400)"), "E1 الإصدارُ يردّ «🎓»");
-  ok(issue.indexOf("taPhaseOwns(held, individualOnly)") > 0 && issue.indexOf("taPhaseOwns(held, individualOnly)") < issue.indexOf('if (held && move === "keep"'), "F3 حارسُ بطاقة التدريب قبل كل تمديدٍ أو كتابة");
+  ok(issue.indexOf("taPhaseOwns(held, individualOnly)") > 0 && issue.indexOf("taPhaseOwns(held, individualOnly)") < issue.indexOf('if (held && action === "keep")'), "F3 حارسُ بطاقة التدريب قبل كل تمديدٍ أو كتابة");
   ok(issue.includes("Repository.setInstructorRequestLinkMode(held.id, issueMode)") && (issue.match(/linkMode: issueMode,/g) || []).length === 2,
     "E1 النشرُ يكتب صفته على الجديد والممدَّد والذي ينتظر القسم (حقلاً وحده)");
   ok(server1.includes("unopened: notOpened(rows).length"), "D2 عدّادُ «لم يفتحوا» في الخادم بالقاعدة نفسها");

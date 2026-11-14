@@ -10,7 +10,7 @@
 
 import fs from "fs";
 import path from "path";
-import { latestRequestByInstructor, reissueMove, requestLinkNeedsReplacing } from "../src/utils/requestReissue";
+import { cardEditsAfterSend, latestRequestByInstructor, reissueMove, requestLinkMove, sendActionFor, type SendAction } from "../src/utils/requestReissue";
 import { retainRequestReservations } from "../src/utils/instructorRequestReservations";
 import { readServerSource } from "./helpers/serverSource.mjs";
 
@@ -48,11 +48,48 @@ check(latest.get(9)?.tag === "only" && latest.size === 2, "ولكل أستاذٍ
 /* ── رابطُ الطلب ────────────────────────────────────────────────────────── */
 
 const until = Date.parse("2026-10-27T21:00:00.000Z");
-check(requestLinkNeedsReplacing(undefined, false, until), "رابطٌ مفقود يُستبدل");
-check(requestLinkNeedsReplacing({ revoked: true, expiresAt: "2027-05-07T00:00:00.000Z" }, true, until), "رابطٌ موقوف يُستبدل");
-check(requestLinkNeedsReplacing({ expiresAt: "2027-05-07T00:00:00.000Z" }, false, until), "رابطٌ لا يُقرأ يُستبدل");
-check(requestLinkNeedsReplacing({ expiresAt: "2026-10-01T00:00:00.000Z" }, true, until), "رابطٌ ينتهي قبل الموعد الجديد يُستبدل");
-check(!requestLinkNeedsReplacing({ expiresAt: "2027-05-07T00:00:00.000Z" }, true, until), "رابطٌ حيٌّ يبلغ الموعد يبقى — فلا يتغيّر ما في يد الأستاذ");
+check(requestLinkMove(undefined, false, until) === "mint", "رابطٌ مفقود: لا بديل عن جديد");
+check(requestLinkMove({ revoked: true, expiresAt: "2027-05-07T00:00:00.000Z" }, true, until) === "mint", "رابطٌ موقوف: جديد (ولا شيءَ حيّ يُوقف)");
+check(requestLinkMove({ expiresAt: "2027-05-07T00:00:00.000Z" }, false, until) === "mint", "رابطٌ لا يُقرأ فعلاً: جديد");
+check(requestLinkMove({ expiresAt: "2026-10-01T00:00:00.000Z" }, true, until) === "extend", "رابطٌ حيٌّ تنتهي صلاحيتُه قبل الموعد الجديد: يُمدَّد هو، لا يُستبدل ولا يُوقف");
+check(requestLinkMove({ expiresAt: "2027-05-07T00:00:00.000Z" }, true, until) === "keep", "رابطٌ حيٌّ يبلغ الموعد يبقى — فلا يتغيّر ما في يد الأستاذ");
+
+/* ── ماذا يصنع الإرسالُ بكل حالة؟ جدولٌ كاملٌ (حادثة 2026-11-11: بطاقةٌ «للعرض» رغم إرسالٍ خاص) ───────── */
+
+type Kind = "group" | "picked" | "noted" | "individual";
+const kinds: Record<Kind, { picking: boolean; individualOnly: boolean; onlyNoted: boolean }> = {
+  group: { picking: false, individualOnly: false, onlyNoted: false },
+  picked: { picking: true, individualOnly: false, onlyNoted: false },
+  noted: { picking: true, individualOnly: false, onlyNoted: true },
+  individual: { picking: false, individualOnly: true, onlyNoted: false },
+};
+const states = ["sent", "submitted", "in-review", "settled", "superseded"] as const;
+/* ما يُتوقَّع من (حالة × نافذة × نوع إرسال) بصفة «تعديل». */
+const expected = (status: typeof states[number], open: boolean, kind: Kind): SendAction => {
+  if (status === "settled" || status === "superseded") return "fresh";
+  if (status === "sent") return "extend";
+  if (kind === "noted" || kind === "individual") return "reopen";
+  if (kind === "picked" && !open) return "reopen";
+  return "keep";
+};
+let tableOk = true, editsOk = true, viewOk = true;
+for (const status of states) for (const open of [true, false]) for (const kind of Object.keys(kinds) as Kind[]) {
+  const action = sendActionFor({ held: { status }, windowOpen: open, ...kinds[kind], reopening: false, mode: "edit" });
+  if (action !== expected(status, open, kind)) { tableOk = false; console.log("  تباين:", status, open ? "مفتوحة" : "مغلقة", kind, action); }
+  /* القاعدةُ الجوهرية: الإرسالُ الخاص (محدّدون/ملاحظات/استثناء) بصفة تعديل لا يترك البطاقة «للعرض» أبداً. */
+  if (kind !== "group" && !cardEditsAfterSend(action, "edit", open)) { editsOk = false; console.log("  بطاقة عرضٍ بعد إرسالٍ خاص:", status, open, kind); }
+  /* وبصفة العرض لا تُفتح كتابةٌ أبداً. */
+  if (cardEditsAfterSend(sendActionFor({ held: { status }, windowOpen: open, ...kinds[kind], reopening: false, mode: "view" }), "view", open)) viewOk = false;
+}
+check(tableOk, "جدولُ (5 حالات × نافذة × 4 أنواع إرسال) يطابق المقرَّر");
+check(editsOk, "كلُّ إرسالٍ خاصٍّ بتعديل يترك البطاقةَ قابلةً للتعديل في كل حالة ونافذة");
+check(viewOk, "وإرسالُ «العرض» لا يفتح كتابةً في أيّ حالة");
+check(cardEditsAfterSend(sendActionFor({ held: { status: "in-review" }, windowOpen: false, ...kinds.group, reopening: false, mode: "edit" }), "edit", false) === false,
+  "الإرسالُ الجماعي لا يفتح نافذةً أُغلقت على من ينتظر القرار (قرارٌ مقصود) — يفتحها القسمُ لأستاذٍ بعينه");
+check(sendActionFor({ held: { status: "in-review" }, windowOpen: false, ...kinds.picked, reopening: true, mode: "edit" }) === "reopen",
+  "الأستاذةُ في مراجعةٍ ونافذتُها مغلقة منذ أكتوبر: إرسالٌ خاصٌّ اليومَ يُعيد فتح طلبها نفسه");
+check(sendActionFor({ held: { status: "submitted" }, windowOpen: true, ...kinds.group, reopening: true, mode: "edit" }) === "fresh",
+  "وإعادةُ الفتح الصريحة (reopen) بلا انتقاءٍ تُنشئ جولةً كما كانت");
 
 /* ── التوصيلُ في الخادم ─────────────────────────────────────────────────── */
 
@@ -63,16 +100,24 @@ const issue = server.slice(server.indexOf('app.post("/api/instructor-requests/is
 
 check(issue.includes("const already = latestRequestByInstructor(existing);") && !issue.includes("new Map(existing.map("),
   "الإصدارُ يقرأ أحدثَ طلبٍ لكل أستاذ");
-check(issue.includes("const move = reissueMove(held);") && issue.includes('if (held && move === "keep" && !individualOnly && !reopening && !onlyNoted && !pickedEditReopen)'),
-  "ولا يكتفي بوجود الطلب: يقرّر بحالته");
-check(issue.includes('if (held && (move === "extend" || ((onlyNoted || individualOnly || pickedEditReopen) && move === "keep")))') && issue.includes("window: individualOnly ? held.window : { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt }"),
+check(issue.includes("const action = sendActionFor({ held,") && issue.includes('if (held && action === "keep") {'),
+  "ولا يكتفي بوجود الطلب: يقرّر بحالته (جدولٌ واحدٌ يُختبر أعلاه)");
+check(issue.includes('if (held && (action === "extend" || action === "reopen"))') && issue.includes("window: individualOnly ? held.window : { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt }"),
   "والطلبُ القائم يأخذ الموعدَ الجديد");
-/* الإبطالُ بعد حفظ الطلب بالرابط الجديد لا قبله (مراجعة مستقلة 2026-11-14): فشلُ الحفظ لا يترك الطلب مشيراً إلى رابطٍ ميت. */
-check(issue.includes("requestLinkNeedsReplacing(heldLink, readable,") && issue.includes("supersededLinkId = heldLink.id") && issue.includes("await Repository.revokeShareLink(supersededLinkId)"),
-  "ورابطُه الميت يُستبدل ويُوقف القديم");
+/* لا يموت رابطٌ حيّ بإعادة الإرسال: يُعاد استعمالُه أو يُمدَّد؛ والإيقافُ بتبديلٍ صريحٍ من القسم وحده، بعد حفظ الطلب بالجديد. */
+check(issue.includes("requestLinkMove(old, await shareLinkStillReadable(old)") && issue.includes("Repository.extendShareLinkExpiry(old.id, requestLinkExpiry())"),
+  "ورابطُه الحيُّ يُعاد استعمالُه (ويُمدَّد إن لزم) بدل أن يُستبدل");
+check(!issue.includes("requestLinkNeedsReplacing") && issue.includes("if (forceNewLink) {") && (issue.match(/revokeShareLink/g) || []).length === 1,
+  "ولا يُوقف رابطٌ في الإصدار إلا بالتبديل الصريح (موضعٌ واحد)");
 check(issue.indexOf("await Repository.saveInstructorRequest({\n        ...held,\n        linkId,") > -1
   && issue.indexOf("await Repository.revokeShareLink(supersededLinkId)") > issue.indexOf("await Repository.saveInstructorRequest({\n        ...held,\n        linkId,"),
-  "ويُوقَف القديمُ بعد حفظ الطلب بالجديد، لا قبله");
+  "ويُوقَف المبدَّلُ صراحةً بعد حفظ الطلب بالجديد، لا قبله");
+check(issue.includes("وأُوقف ${linkTally.replaced} بتبديلٍ صريح من القسم") && issue.includes("ولم يُوقف أيّ رابط"),
+  "وسجلُّ التدقيق يقول ما حدث للروابط: أُعيد استعمالها أو مُدّدت أو أُنشئت أو أُوقفت ولماذا");
+const supersede = repo.slice(repo.indexOf("supersedeInstructorRequestsForScope: async"), repo.indexOf("المقترحات الدراسية"));
+check(!supersede.includes("revokeShareLink("), "استبدالُ الجدول يُغلق الجولة ولا يُوقف رابطَ أستاذ (يرى «أُغلقت الجولة» لا «غير موجود»)");
+check(repo.includes("extendShareLinkExpiry: async") && repo.includes("Number(a.status === \"superseded\") - Number(b.status === \"superseded\")"),
+  "والرابطُ الواحد يحمل جولاتٍ متعاقبة: الجاريةُ تسبق المستبدَلة");
 check(issue.includes("fresh: issued.filter(row => !row.reissued && !row.renewed).length"),
   "والعدُّ يفرّق الجديدَ عن المجدَّد");
 

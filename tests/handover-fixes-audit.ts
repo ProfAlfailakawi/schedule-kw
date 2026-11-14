@@ -91,7 +91,7 @@ check(/const \[offered, setOffered\] = useState<string\[\]>\(\[\]\);/.test(sheet
 
 /* ── H8: رحلةٌ حيّة ── */
 const issueSrc = read("src/server/routes/instructorRequestsRoutes.ts");
-check(issueSrc.includes('if (held && (move === "extend" || ((onlyNoted || individualOnly || pickedEditReopen) && move === "keep")))'), "الاستثناءُ يمدّد الطلبَ المفتوح بدل طلبٍ ثانٍ");
+check(issueSrc.includes('if (held && (action === "extend" || action === "reopen"))'), "الاستثناءُ يمدّد الطلبَ المفتوح بدل طلبٍ ثانٍ");
 
 const PORT = Number(process.env.HANDOVER_PORT || 3700 + Math.floor(Math.random() * 100));
 const BASE = `http://127.0.0.1:${PORT}`;

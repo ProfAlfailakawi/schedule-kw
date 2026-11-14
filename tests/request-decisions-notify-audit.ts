@@ -166,8 +166,8 @@ void (async () => {
   const cancel = routes.slice(routes.indexOf('app.post("/api/instructor-requests/:id/cancel-scheduled"'), routes.indexOf('app.post("/api/instructor-requests/:id/reopen-fixed"'));
   check(cancel.includes("for (let attempt = 0; attempt < 3 && !saved; attempt += 1)") && cancel.includes("Repository.getInstructorRequest(stored.id)"), "FR-REQ-064 «إلغاء الموعد» يُسجَّل على أحدث نسخة");
   const issue = routes.slice(routes.indexOf('app.post("/api/instructor-requests/issue"'), routes.indexOf('app.get("/api/instructor-requests/send-log"'));
-  check(issue.includes('if (held && held.status === "settled")') && issue.includes('status: "superseded"') && issue.includes("Repository.revokeShareLink(oldLink.id)"),
-    "FR-REQ-064 جولةٌ جديدة تستبدل الطلبَ المنتهي وتوقف رابطه");
+  check(issue.includes('if (held && held.status === "settled")') && issue.includes('status: "superseded"') && !issue.includes("Repository.revokeShareLink(oldLink.id)") && issue.includes("reuseLiveRequestLink(closedRequestOf.get(instructorId)?.linkId)"),
+    "FR-REQ-064 جولةٌ جديدة تستبدل الطلبَ المنتهي وتحمل رابطَه الحيَّ نفسَه ولا تُوقفه");
   const publicRoutes = read("src/server/routes/publicRequestRoutes.ts");
   const replyRoute = publicRoutes.slice(publicRoutes.indexOf('app.post("/api/public/request/:token/reply"'), publicRoutes.indexOf('app.post("/api/public/request/:token/check"'));
   check((replyRoute.match(/if \(!modeAllowsWrite\(linkMode\(resolved\.request\)\)\) \{ res\.status\(403\)/g) || []).length === 2, "FR-REQ-064 رابطُ العرض لا يردّ ولا يقبل البدائل");
