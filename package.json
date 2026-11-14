@@ -32,6 +32,8 @@
     "test:course-reach": "tsx tests/course-reach-audit.ts",
     "test:prepublish-reach": "tsx tests/prepublish-reach-audit.tsx",
     "test:mobile-overflow-css": "tsx tests/mobile-overflow-css-audit.ts",
+    "test:duo-widget-css": "tsx tests/duo-widget-css-audit.ts",
+    "test:duo-widget": "node tests/duo-widget-guard.mjs",
     "test:accessibility": "tsx tests/accessibility-audit.ts",
     "test:forbidden-fetch-guard": "tsx tests/forbidden-fetch-guard-audit.ts",
     "test:ta-phase-flow": "tsx tests/ta-phase-flow-audit.ts",
