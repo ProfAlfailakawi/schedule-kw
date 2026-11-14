@@ -333,7 +333,8 @@
     "test:srs-regulation-sync": "tsx tests/srs-regulation-sync-audit.ts",
     "test:tsconfig-strictness": "tsx tests/tsconfig-strictness-audit.ts",
     "test:advising": "tsx tests/advising-audit.ts",
-    "test:admin-station": "tsx tests/admin-station-audit.ts"
+    "test:admin-station": "tsx tests/admin-station-audit.ts",
+    "test:vault-jobs": "tsx tests/vault-jobs-audit.ts"
   },
   "dependencies": {
     "@google-cloud/firestore": "^8.7.1",

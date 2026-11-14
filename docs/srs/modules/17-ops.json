@@ -92,7 +92,8 @@
     "scripts/guide-behavior-tests.mjs",
     "scripts/make-scan-pdf.mjs",
     "scripts/make-graduation-sheet-example.mjs",
-    "src/utils/vaultPhrases.ts"
+    "src/utils/vaultPhrases.ts",
+    "src/server/vaultJobPlanner.ts"
   ],
   "screens": [
     {
@@ -2404,8 +2405,8 @@
         "en": "System vault: abandoning a stalled import, and a typed phrase for every replacement"
       },
       "text": {
-        "ar": "يجب أن يتيح DELETE ‎/api/system-backup/import-jobs/:id بالترويسة x-schedule-confirm=FULL-SYSTEM-IMPORT-ABANDON للحساب الرئيسي إلغاءَ استيرادٍ «جارٍ» أو «متوقف»: إن كان قد بدأ استبدال البيانات يُعاد النظام كاملاً من نقطة الأمان التي حفظتها المهمة قبل أول كتابة وتُعلَّم مستهلكة، وإلا يُلغى بلا تغيير؛ ثم تُعلَّم المهمة «abandoned» وتُحذف مرحلتها المرفوعة فينفتح الاستيراد لملفٍّ جديد، ولا تتقدّم خطوةٌ على مهمةٍ ملغاة. ويجب أن يُعلِّم التراجعُ الكامل الناجح أيَّ استيرادٍ معلّق «ملغى». ويجب أن يُطلب للاستيراد الكامل والتراجع الكامل عبارةٌ عربية تُكتب حرفياً («استيراد النسخة» في ترويسة x-schedule-phrase مرمّزة، و«تراجع كامل» في الجسم) كما يُطلب «تصفير النظام» للتصفير. وتقول نافذةُ تأكيد الاستيراد ما يحدث فعلاً: يبقى التقدم محفوظاً عند التوقف ويُستكمل أو يُلغى فيعود النظام إلى نقطة الأمان. ويتوقف متابِعُ الاستيراد في المتصفح عند مغادرة الشاشة كما يتوقف متابِعُ التصدير. والتصفيرُ والتراجعُ ما زالا طلباً واحداً يستبدل النظام كله؛ على قاعدةٍ كبيرة قد يتجاوزان مهلة الطلب، ونقلُهما إلى شكل المهمة المتدرّجة عملٌ لاحق.",
-        "en": "DELETE /api/system-backup/import-jobs/:id with header x-schedule-confirm=FULL-SYSTEM-IMPORT-ABANDON shall let the root account abandon a running or failed import: when replacement had begun the whole system is restored from the safety point the job saved before its first write and that point is marked consumed, otherwise it is cancelled without change; the job is then marked «abandoned» and its staged upload deleted so a new file can be imported, and no step advances an abandoned job. A successful full undo shall mark any open import abandoned. Full import and full undo shall require an Arabic phrase typed exactly (the import phrase in an encoded x-schedule-phrase header, the undo phrase in the body), as reset already requires its phrase. The import confirmation dialog shall state what actually happens: progress is kept when a step stops and can be resumed or abandoned, which returns the system to the safety point. The browser's import driver shall stop when the screen is left, as the export driver does. Reset and undo remain a single request replacing the whole system; on a large database they may exceed the request deadline, and moving them to the resumable job shape is future work."
+        "ar": "يجب أن يتيح DELETE ‎/api/system-backup/import-jobs/:id بالترويسة x-schedule-confirm=FULL-SYSTEM-IMPORT-ABANDON للحساب الرئيسي إلغاءَ استيرادٍ «جارٍ» أو «متوقف»: إن كان قد بدأ استبدال البيانات يُعاد النظام كاملاً من نقطة الأمان التي حفظتها المهمة قبل أول كتابة وتُعلَّم مستهلكة، وإلا يُلغى بلا تغيير؛ ثم تُعلَّم المهمة «abandoned» وتُحذف مرحلتها المرفوعة فينفتح الاستيراد لملفٍّ جديد، ولا تتقدّم خطوةٌ على مهمةٍ ملغاة. ويجب أن يُعلِّم التراجعُ الكامل الناجح أيَّ استيرادٍ معلّق «ملغى». ويجب أن يُطلب للاستيراد الكامل والتراجع الكامل عبارةٌ عربية تُكتب حرفياً («استيراد النسخة» في ترويسة x-schedule-phrase مرمّزة، و«تراجع كامل» في الجسم) كما يُطلب «تصفير النظام» للتصفير. وتقول نافذةُ تأكيد الاستيراد ما يحدث فعلاً: يبقى التقدم محفوظاً عند التوقف ويُستكمل أو يُلغى فيعود النظام إلى نقطة الأمان. ويتوقف متابِعُ الاستيراد في المتصفح عند مغادرة الشاشة كما يتوقف متابِعُ التصدير. والتصفيرُ والتراجعُ الكامل صارا على شكل المهمة المتدرّجة نفسه (FR-OPS-041) فلا يبقى طلبٌ واحدٌ يتجاوز مهلة الطلب.",
+        "en": "DELETE /api/system-backup/import-jobs/:id with header x-schedule-confirm=FULL-SYSTEM-IMPORT-ABANDON shall let the root account abandon a running or failed import: when replacement had begun the whole system is restored from the safety point the job saved before its first write and that point is marked consumed, otherwise it is cancelled without change; the job is then marked «abandoned» and its staged upload deleted so a new file can be imported, and no step advances an abandoned job. A successful full undo shall mark any open import abandoned. Full import and full undo shall require an Arabic phrase typed exactly (the import phrase in an encoded x-schedule-phrase header, the undo phrase in the body), as reset already requires its phrase. The import confirmation dialog shall state what actually happens: progress is kept when a step stops and can be resumed or abandoned, which returns the system to the safety point. The browser's import driver shall stop when the screen is left, as the export driver does. Reset and full undo now use the same stepped job shape (FR-OPS-041), so no single request can exceed the request deadline."
       },
       "priority": "must",
       "status": "implemented",
@@ -2429,6 +2430,74 @@
         ],
         "tests": [
           "tests/admin-station-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-041",
+      "kind": "functional",
+      "title": {
+        "ar": "خزنة النظام: التصفير والتراجع الكامل مهمّتان متدرجتان قابلتان للاستكمال",
+        "en": "System vault: reset and full undo as resumable stepped jobs"
+      },
+      "text": {
+        "ar": "يجب أن يبدأ POST ‎/api/system-backup/reset و‎/api/system-backup/undo للحساب الرئيسي وحده مهمةً محفوظة (تُردّ 202) بدل طلبٍ واحد طويل، بعد التحقق من العبارة المكتوبة («تصفير النظام» أو «تراجع كامل») والترويسة x-schedule-confirm، ويُرفض الطلب في التجربة. تحفظ المهمةُ نقطةَ أمانٍ كاملة أولاً (مهمة تصدير safety) ثم تتقدّم بطلبات POST ‎/api/system-backup/op-jobs/:id/step، كلٌّ منها مجموعةً واحدة (حذفُ مجموعات العمل ثم إبقاءُ حساب الإدارة الرئيسي وصلاحياته في التصفير، واستعادةُ المجموعات من نقطة التراجع في التراجع)، بتقدّم يُقرأ من GET ‎/api/system-backup/op-jobs/:id وفي ‎/api/system-backup/status (latestOperation)، ثم إتمامٌ يضبط العدّادات ويحدّث الذاكرة. لا تبدأ عمليةٌ (استيراد أو تصفير أو تراجع) فوق مهمةٍ مفتوحة (جارية أو متوقفة). فشلٌ عابر يُعاد حتى ثماني مرات ثم تتوقف المهمة وتبقى قابلةً للاستكمال من نفس المجموعة. ويتيح DELETE ‎/api/system-backup/op-jobs/:id بالترويسة x-schedule-confirm=FULL-SYSTEM-OP-ABANDON إلغاءَها: قبل أول كتابة بلا تغيير، وبعدها يُعاد النظام من نقطة أمانها وتُستهلك. والتراجعُ يبقى رجوعاً وإعادةً: نقطةُ أمانه («قبل التراجع — نقطة إعادة») هي هدفُ التراجع التالي، ونجاحُه يستهلك هدفه ويُلغي أي استيرادٍ معلّق، وتُسجَّل بدايتُه واكتماله وإلغاؤه في سجل التدقيق. وفي الوضع المحلي تُنفَّذ الخطوةُ الواحدة نقطةَ الأمان والاستبدال معاً وتعيد الحالةَ السابقة وحدها عند الفشل.",
+        "en": "POST /api/system-backup/reset and /api/system-backup/undo shall, for the root account only, start a persisted job (answering 202) instead of one long request, after checking the typed phrase (the reset phrase or the full-undo phrase) and the x-schedule-confirm header; demo mode refuses. The job first saves a full safety point (a safety export job) and then advances through POST /api/system-backup/op-jobs/:id/step, each call handling one collection (reset deletes the working collections and keeps the root account and its permissions; undo restores the collections from the restore point), with progress readable from GET /api/system-backup/op-jobs/:id and /api/system-backup/status (latestOperation), then a completion step that resets counters and refreshes caches. No operation (import, reset or undo) may start over an open job (running or stalled). A transient failure is retried up to eight times, after which the job stalls and stays resumable from the same collection. DELETE /api/system-backup/op-jobs/:id with header x-schedule-confirm=FULL-SYSTEM-OP-ABANDON abandons it: before the first write with no change, afterwards the system is restored from its safety point, which is marked consumed. Undo remains undo and redo: its safety point (labelled as the redo point) is the next undo target, success consumes its target and abandons any pending import, and start, completion and abandonment are written to the audit log. In local mode the single step performs the safety point and the replacement together and restores the previous state by itself on failure."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "POST reset بلا العبارة ← 409؛ وبها ← 202 وحالة running في مرحلة safety، وكل step يتقدّم مجموعةً واحدة حتى ready بنسبة 100٪.",
+          "en": "POST reset without the phrase ← 409; with it ← 202 and status running in the safety phase, and each step advances one collection until ready at 100%."
+        },
+        {
+          "ar": "مهمةٌ متوقفة ثم إعادة فتح الخزنة ← يظهر «استكمال» من نفس النقطة؛ وDELETE بعد بدء الكتابة ← rolledBack=true والنظام كما كان.",
+          "en": "A stalled job then reopening the vault ← «resume» appears from the same point; DELETE after writing began ← rolledBack=true and the system as before."
+        },
+        {
+          "ar": "POST reset أو import-jobs أو undo فوق مهمةٍ جارية أو متوقفة ← يُرفض.",
+          "en": "POST reset, import-jobs or undo over a running or stalled job ← refused."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/vaultJobPlanner.ts",
+          "src/server/routes/adminRoutes.ts",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-042",
+      "kind": "functional",
+      "title": {
+        "ar": "خزنة النظام: واجهة التصفير والتراجع على شكل الاستيراد",
+        "en": "System vault: reset and undo screens shaped like import"
+      },
+      "text": {
+        "ar": "يجب أن تعرض بطاقتا «تصفير النظام» و«تراجع كامل» شريط تقدّمٍ بنسبة ومرحلة (نقطة أمان، ثم مسح أو استعادة، ثم تحقق)، وأن تستكملا مهمةً جارية أو متوقفة بزر «استكمال» بعد إعادة تحميل الصفحة، وتتيحا «إلغاء» بتأكيدٍ مستقل يعيد النظام إلى نقطة الأمان، وتعطّلا بقية العمليات ما دامت مهمةٌ مفتوحة، ويتوقف متابِع المتصفح عند مغادرة الشاشة (والتقدّم محفوظ على الخادم). وتقول نافذةُ التأكيد ما يحدث فعلاً: مراحل يبقى تقدّمها محفوظاً وتُستكمل أو تُلغى فتعود إلى نقطة الأمان.",
+        "en": "The «reset» and «full undo» cards shall show a progress bar with percentage and phase (safety point, then wipe or restore, then verification), resume a running or stalled job with a «resume» button after a page reload, offer «abandon» behind its own confirmation that returns the system to the safety point, disable the other operations while a job is open, and stop the browser driver when the screen is left (progress stays on the server). The confirmation dialog says what actually happens: stages whose progress is kept and which can be resumed or abandoned, returning to the safety point."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "تحميل الصفحة وفي الخادم تصفيرٌ متوقف ← زر «استكمال التصفير» و«إلغاء التصفير» ظاهران وزرّ التراجع معطّل.",
+          "en": "Loading the page with a stalled reset on the server ← «resume reset» and «abandon reset» show and the undo button is disabled."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/AdminUsers.tsx"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
         ]
       }
     }

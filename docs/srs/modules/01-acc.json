@@ -14,6 +14,7 @@
     "src/server/routes/usersRoutes.ts",
     "src/server/routes/adminRoutes.ts",
     "src/server/core/auth.ts",
+    "src/server/identityGeneration.ts",
     "src/server/core/scope.ts",
     "src/server/core/rateLimits.ts",
     "src/server/roleGuard.ts",
@@ -652,8 +653,8 @@
       "kind": "nonfunctional",
       "title": { "ar": "تعرّف واحد على الهوية لكل طلب مع ذاكرة قصيرة", "en": "One identity resolution per request with a short cache" },
       "text": {
-        "ar": "يجب على النظام أن يحلّ الجلسة والمستخدم والنطاق والشاشات مرة واحدة ويحتفظ بها دقيقتين لكل جلسة، وأن يمسحها فوراً عند الخروج أو أي تعديل لحساب أو نطاق أو صلاحية، وأن يقرأ المقفل والموقوف والمحذوف مجهولاً ويحذف جلسته.",
-        "en": "The system shall resolve session, user, scope and screens once and hold them for two minutes per session, clear them at once on sign-out or any change to an account, scope or permission, and read a locked, inactive or deleted account as anonymous and delete its session."
+        "ar": "يجب على النظام أن يحلّ الجلسة والمستخدم والنطاق والشاشات مرة واحدة ويحتفظ بها دقيقتين لكل جلسة، وأن يمسحها فوراً في العملية التي كتبت عند الخروج أو أي تعديل لحساب أو نطاق أو صلاحية (وفي بقية النُّسخ خلال نحو عشر ثوانٍ، NFR-ACC-059)، وأن يقرأ المقفل والموقوف والمحذوف مجهولاً ويحذف جلسته.",
+        "en": "The system shall resolve session, user, scope and screens once and hold them for two minutes per session, clear them at once in the writing process on sign-out or any change to an account, scope or permission (and in every other instance within about ten seconds, NFR-ACC-059), and read a locked, inactive or deleted account as anonymous and delete its session."
       },
       "priority": "should",
       "status": "implemented",
@@ -1277,6 +1278,23 @@
         { "ar": "طلبٌ من صاحب الحساب يقرأ أثناء سحب صلاحيته لا يُخزَّن، والطلب التالي يقرأ الصلاحية الجديدة.", "en": "A request from the account owner reading during the revocation is not cached; the next request reads the new permission." }
       ],
       "evidence": { "code": ["src/db/repository.ts", "src/server/core/auth.ts"], "tests": ["tests/admin-station-audit.ts"] }
+    },
+    {
+      "id": "NFR-ACC-059",
+      "kind": "nonfunctional",
+      "title": { "ar": "تغيير الهوية والصلاحية يصل كل نُسخ الخادم خلال نحو عشر ثوانٍ", "en": "Identity and permission changes reach every server instance within about ten seconds" },
+      "text": {
+        "ar": "يجب على كل تغيير لحساب أو نطاق أو صلاحية أن يزيد، بعد كتابته، عدّاداً في وثيقة Firestore صغيرة مشتركة (‎_meta/identityGeneration‎)، وأن تقرأ كل نسخة خادم هذا العدّاد مرةً واحدة كل عشر ثوانٍ كحدٍّ أقصى — كسولاً عند أول طلبٍ بعد انقضاء المدة وبقراءةٍ واحدة تنتظرها الطلباتُ المتزامنة — فإن تغيّر مسحت ذاكرة هوياتها ورفعت جيلها المحلي حتى لا تُحفظ قراءةٌ بدأت قبل التغيير. فيصير الحدُّ الأقصى لتقادم صلاحيةٍ ملغاة على نسخةٍ أخرى نحو عشر ثوانٍ لا دقيقتين، دون قراءة Firestore لكل طلب (نحو 8640 قراءة في اليوم لكل نسخة نشطة بحدٍّ أقصى). تعذّر قراءة العدّاد يمسح الذاكرة احتياطاً، وتعذّر زيادته يُعاد مرةً ثم يُسجَّل (فيعود الحدّ إلى مدة الذاكرة). لا أثر لذلك في الوضع التجريبي ولا في الملف المحلي.",
+        "en": "Every change to an account, scope or permission shall, after its write, increment a counter in a small shared Firestore document (_meta/identityGeneration), and every server instance shall read that counter at most once every ten seconds — lazily on the first request after the interval, with one read that concurrent requests wait on — and, when it changed, clear its identity cache and raise its local generation so a read begun before the change is never cached. The worst-case staleness of a revoked permission on another instance is therefore about ten seconds rather than two minutes, with no Firestore read per request (at most about 8,640 reads per day per active instance). A failed counter read clears the cache as a precaution, and a failed increment is retried once and then logged (staleness falls back to the cache lifetime). Demo mode and the local file are unaffected."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "تغيير صلاحية على النسخة أ ← تمسح النسخة ب ذاكرتها عند أول طلبٍ بعد عشر ثوانٍ كحدٍّ أقصى.", "en": "A permission change on instance A ← instance B clears its cache on the first request within ten seconds at most." },
+        { "ar": "طلبات متتابعة داخل العشر ثوانٍ لا تقرأ العدّاد مرةً ثانية.", "en": "Requests inside the ten seconds never read the counter again." }
+      ],
+      "evidence": { "code": ["src/server/identityGeneration.ts", "src/server/core/auth.ts", "src/db/repository.ts"], "tests": ["tests/vault-jobs-audit.ts"] }
     },
     {
       "id": "FR-ACC-058",
