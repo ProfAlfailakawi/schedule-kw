@@ -121,7 +121,7 @@
 .pi-insufficient-list li small{color:var(--muted)}
 .pi-insufficient-list li em{display:inline-flex;align-items:center;gap:3px;font-style:normal;color:var(--info);font-size:.75rem}
 .pi-insufficient-list li em svg{width:12px;height:12px}
-@media (max-width:640px){.pi-row.pi-row-why{grid-template-columns:minmax(0,1fr) auto}}
+@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.pi-row.pi-row-why{grid-template-columns:minmax(0,1fr) auto}}
 
 /* ── التخطيط في لوحة القرار: الانتظار ينتهي بخطأٍ وإعادة ── */
 .decision-board-failed{display:inline-grid;place-items:center;margin-inline-start:auto;color:var(--danger)}

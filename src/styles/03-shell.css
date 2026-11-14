@@ -942,7 +942,7 @@ html[data-schedule-workspace="focus"] .quick-create{z-index:2600}
 .ob-skip{min-width:44px;min-height:44px;padding:0 14px;border:0;background:none;color:var(--muted);font-size:var(--t-sm);font-weight:600;font-family:inherit;cursor:pointer}
 .ob-skip:hover{color:var(--ink)}
 
-@media (max-width:760px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .ob-body{grid-template-columns:minmax(0,1fr);gap:16px}
   .ob-say{min-height:0}
   .ob-stage-cells{grid-template-rows:repeat(6,calc(var(--ob-row) - 4px))}
@@ -1028,7 +1028,7 @@ html[data-schedule-workspace="focus"] .quick-create{z-index:2600}
    phone and most tablets. Lifting the warning above the launcher stacks them
    vertically instead of letting one cover the other. 112px clears the
    tallest launcher (58px) and its "جديد" badge with an 18px gap. */
-@media (max-width:900px){
+@media (max-width:900px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .idle-warning{inset-block-end:calc(112px + env(safe-area-inset-bottom,0px))}
 }
 @media (max-width:520px){
@@ -1169,7 +1169,7 @@ html[data-schedule-workspace="focus"] .quick-create{z-index:2600}
 /* نافذة التأكيد فوق لوحة المرشد لا تحتها: اللوحة على 2200، وكانت المعاينة على
    155 — فتظهر خلفها، لا تُقرأ ولا تُغلق، ويبقى المستخدم عالقاً بلا مخرج. */
 
-@media (max-width:900px){@keyframes smartGuideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}.smart-guide-fab{left:12px}/* bottom comes from --fab-floor, which already clears the phone dock */.guide-ghost-card{left:15px!important;right:15px!important;width:auto!important}}
+@media (max-width:900px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){@keyframes smartGuideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}.smart-guide-fab{left:12px}/* bottom comes from --fab-floor, which already clears the phone dock */.guide-ghost-card{left:15px!important;right:15px!important;width:auto!important}}
 @media (max-width:560px){.smart-guide-fab{min-width:136px}.smart-guide-fab-copy strong{font-size:16px}}
 @media (prefers-reduced-motion:reduce){.smart-guide-fab,.guide-ghost-hand,.guide-ghost-ring,[data-guide-hot="true"]{animation:none!important;transition:none!important}.smart-guide-fab-pulse{animation:none}}
 
@@ -1198,7 +1198,7 @@ html[data-schedule-workspace="focus"] .quick-create{z-index:2600}
 .schedule-guide-ghost-flow,.guide-simulation-flow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;margin-top:9px}.schedule-guide-ghost-flow>span,.guide-simulation-flow>span{display:grid;gap:2px;padding:8px;border-radius:13px;background:var(--surface-2);opacity:.72}.schedule-guide-ghost-flow>span.after,.guide-simulation-flow>span.after{opacity:1;background:var(--accent-soft)}.schedule-guide-ghost-flow small,.guide-simulation-flow small{font-size:7.5px;color:var(--muted)}.schedule-guide-ghost-flow b,.guide-simulation-flow b{font-size:12px}.schedule-guide-ghost-flow em,.guide-simulation-flow em{font-style:normal;font-size:12px;color:var(--muted)}.schedule-guide-ghost-flow>svg,.guide-simulation-flow>svg{width:13px;color:var(--accent)}
 .schedule-guide-ghost-diff>p,.guide-simulation-brief>p{margin:8px 0 0;font-size:12px;color:var(--muted)}.schedule-guide-ghost-diff>p.warn{color:var(--warning)}.schedule-guide-ghost-diff>p.ok{color:var(--success)}.schedule-guide-ghost-diff footer,.guide-simulation-brief footer{display:flex;justify-content:flex-end;gap:6px;margin-top:9px}.schedule-guide-ghost-diff footer button,.guide-simulation-brief footer button{min-height:32px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font:inherit;font-size:12px}.schedule-guide-ghost-diff footer button.primary,.guide-simulation-brief footer button.primary{background:var(--accent);color:var(--accent-contrast);border-color:var(--accent)}
 
-@media (max-width:900px){
+@media (max-width:900px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .smart-guide-ambient-next{inset-inline-start:65px;inset-block-end:88px;max-width:190px}
 }
 @media (max-width:560px){
@@ -1563,7 +1563,7 @@ html[data-dialog-open] .notify-toast{visibility:hidden}
 /* Phone: the guide launcher is a compact mark, not a wide pill — the pill sat on
    top of chart axes and list rows at the bottom-left. Visual only: same button,
    same label for assistive tech, same click. */
-@media (max-width:900px){
+@media (max-width:900px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .smart-guide-fab:not(.icon-only){min-width:0;width:44px;height:44px;min-height:44px;padding:0;border-radius:15px;justify-content:center;gap:0;left:10px}
   .smart-guide-fab:not(.icon-only) .smart-guide-fab-copy{display:none}
   .smart-guide-fab:not(.icon-only) .smart-guide-fab-mark{width:32px;height:32px;border-radius:11px;box-shadow:none}
@@ -1621,7 +1621,7 @@ html[data-schedule-workspace="presentation"] .scope-context{display:none}
 
 /* Phones: the launcher badge keeps only the number. The word «جديد» lives in the
    button's aria-label/title, so the chip no longer stretches over the cards under it. */
-@media (max-width:760px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .smart-guide-fab-new-word{display:none}
   .smart-guide-fab-new,
   .smart-guide-fab.icon-only .smart-guide-fab-new{min-width:24px!important;justify-content:center}
@@ -1629,7 +1629,7 @@ html[data-schedule-workspace="presentation"] .scope-context{display:none}
 }
 
 /* لوحة الإشعارات على الهاتف: لا تنزل تحت حافة شريط التنقل السفلي (كانت تغطي أعلاه بنحو 14 بكسل)، وأزرار رأسها ترث مساحةَ لمسٍ شفافة. */
-@media (max-width:900px){
+@media (max-width:900px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .notify-panel{max-height:calc(100dvh - var(--topbar-h,64px) - 16px - var(--dock-h) - env(safe-area-inset-bottom))}
 }
 @media (pointer:coarse){

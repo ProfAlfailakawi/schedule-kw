@@ -155,7 +155,7 @@
 .srq-compose-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--line)}
 .srq-summary{flex:1 1 200px;color:var(--ink-2,var(--ink));font-size:var(--t-sm);font-weight:600}
 
-@media (max-width:640px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .srq{padding:14px;gap:12px;border-radius:var(--r-lg)}
   .srq-tiles{grid-template-columns:repeat(2,1fr);flex-basis:100%}
   .srq-head>.btn{inline-size:100%;justify-content:center}
