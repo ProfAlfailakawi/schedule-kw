@@ -33,6 +33,10 @@
     "src/server/studentDoorRoutes.ts",
     "src/server/studentHomePage.ts",
     "src/server/studentShowcase.ts",
+    "src/components/student-recovery.css",
+    "src/server/studentRecoveryScript.ts",
+    "src/server/studentRecoveryWiring.ts",
+    "src/server/studentRecovery.ts",
     "src/server/studentMapUi.ts",
     "src/server/studentCaseSecret.ts",
     "src/server/masariDisclaimer.ts",
@@ -2333,8 +2337,8 @@
         "en": "Limits on a shared university network"
       },
       "text": {
-        "ar": "يجب على النظام أن يتحمل دخول آلاف الطلبة من عنوان شبكةٍ واحد بحدودٍ مضبوطة: 24,000 سؤال هوية و600 خطأ رمز لكل عنوان في 10 دقائق، و60 كتابة في الدقيقة لكل طالب وسقف 1200 كتابة في الدقيقة لكل عنوان، قابلةٌ للضبط بمتغيرات STUDENT_DOOR_*، وألا يُحسب /api/public/me/* على عدّاد العنوان العام.",
-        "en": "The system shall withstand thousands of students entering from one network address under tuned limits: 24,000 identity queries and 600 code errors per address per 10 minutes, 60 writes per minute per student and a ceiling of 1200 writes per minute per address, adjustable through STUDENT_DOOR_* variables, and shall not count /api/public/me/* against the general public address counter."
+        "ar": "يجب على النظام أن يتحمل دخول آلاف الطلبة من عنوان شبكةٍ واحد بحدودٍ مضبوطة: 24,000 سؤال هوية و600 خطأ رمز لكل عنوان في 10 دقائق، و60 كتابة في الدقيقة لكل طالب (مفتاحُها بصمةُ جلسته الموقّعة إن كانت، وإلا رقمُه المدني، وإلا العنوان) وسقف 1200 كتابة في الدقيقة لكل عنوان، قابلةٌ للضبط بمتغيرات STUDENT_DOOR_*، وألا يُحسب /api/public/me/* على عدّاد العنوان العام.",
+        "en": "The system shall withstand thousands of students entering from one network address under tuned limits: 24,000 identity queries and 600 code errors per address per 10 minutes, 60 writes per minute per student (keyed by their signed session's fingerprint when there is one, else their civil ID, else the address) and a ceiling of 1200 writes per minute per address, adjustable through STUDENT_DOOR_* variables, and shall not count /api/public/me/* against the general public address counter."
       },
       "priority": "must",
       "status": "implemented",
@@ -2354,6 +2358,10 @@
         {
           "ar": "متغير STUDENT_DOOR_WRITES_PER_MINUTE يغيّر الحدّ.",
           "en": "The STUDENT_DOOR_WRITES_PER_MINUTE variable changes the limit."
+        },
+        {
+          "ar": "بجلسةٍ صالحة، تبديلُ الرقم المدني في جسم كل طلب لا يصنع حدّاً جديداً: الطلب 61 في الدقيقة ← 429.",
+          "en": "With a valid session, rotating the civil ID in each request body does not create a new limit: the 61st request in a minute ← 429."
         }
       ],
       "evidence": {
@@ -2361,8 +2369,9 @@
           "src/server/studentDoorRoutes.ts"
         ],
         "tests": [
+          "tests/student-door-audit.ts",
           "tests/student-door-shared-network-audit.ts",
-          "tests/student-door-audit.ts"
+          "tests/student-recovery-audit.ts"
         ]
       }
     },
@@ -2554,8 +2563,8 @@
         "en": "Session check on every request and presence touch"
       },
       "text": {
-        "ar": "يجب على النظام أن يتحقق في كل طلبٍ من مسارات /api/public/me المحمية من توقيع كوكي sh_session وانتهائه، ثم يقرأ الملف ببصمته ويرفض الجلسة إن اختلفت نسخة الرمز (أول 8 خانات من تجزئة الرمز) أو زال الملف، فيردّ 401 signed-out؛ وأن يكتب آخر حضورٍ لصاحب الجلسة مرةً في اليوم على الأكثر (كل 24 ساعة) ويعيد حساب موعد الحذف معه، وأن يُلغي أيُّ دخولٍ بجلسةٍ صالحة طلبَ حذفٍ معلّقاً.",
-        "en": "The system shall verify on every request to the protected /api/public/me routes the signature and expiry of the sh_session cookie, then read the profile by its fingerprint and refuse the session when the code version (the first 8 characters of the code hash) differs or the profile is gone, answering 401 signed-out; shall write the session owner's last presence at most once a day (every 24 hours) and recompute the deletion date with it; and any visit with a valid session shall cancel a pending deletion request."
+        "ar": "يجب على النظام أن يتحقق في كل طلبٍ من مسارات /api/public/me المحمية من توقيع كوكي sh_session وانتهائه، ثم يقرأ الملف ببصمته ويرفض الجلسة إن اختلفت نسخة الرمز (أول 8 خانات من تجزئة الرمز) أو زال الملف، فيردّ 401 signed-out؛ وأن يكتب آخر حضورٍ لصاحب الجلسة مرةً في اليوم على الأكثر (كل 24 ساعة) ويعيد حساب موعد الحذف معه؛ ولا يُلغي فتحُ الصفحة بجلسةٍ صالحة (ولا أيُّ حفظٍ بها) طلبَ حذفٍ معلّقاً ولا يمدّ موعده — يُلغيه إدخالُ الرمز وحده: الدخول، أو «أبقِ ملفّي» (POST /api/public/me/keep)، أو تغيير الرمز، أو الاستعادة برمز القسم.",
+        "en": "The system shall verify on every request to the protected /api/public/me routes the signature and expiry of the sh_session cookie, then read the profile by its fingerprint and refuse the session when the code version (the first 8 characters of the code hash) differs or the profile is gone, answering 401 signed-out; shall write the session owner's last presence at most once a day (every 24 hours) and recompute the deletion date with it; opening the page with a valid session (or any save with it) shall neither cancel a pending deletion request nor push its date — only entering the code cancels it: signing in, «keep my profile» (POST /api/public/me/keep), changing the code, or recovery with a department code."
       },
       "priority": "must",
       "status": "implemented",
@@ -2569,8 +2578,8 @@
           "en": "Two visits on the same day ← one write of lastSeenAt; a visit after 25 hours ← a second write and a new deleteAt."
         },
         {
-          "ar": "ملف عليه resetRequestedAt وجلسة صالحة ← يُمحى الطلب في أول طلب.",
-          "en": "A profile with resetRequestedAt and a valid session ← the request is cleared on the first call."
+          "ar": "ملف عليه resetRequestedAt وجلسة صالحة ← GET state وPUT name لا يمحوان الطلب ولا يغيّران deleteAt (سببه يبقى reset)؛ وkeep بالرمز الصحيح يمحوه.",
+          "en": "A profile with resetRequestedAt and a valid session ← GET state and PUT name neither clear the request nor change deleteAt (its reason stays reset); keep with the correct code clears it."
         },
         {
           "ar": "حذف الملف من جهازٍ آخر ← الجلسة القائمة تردّ 401 signed-out.",
@@ -2584,8 +2593,13 @@
           "src/utils/studentProfile.ts#shouldTouch"
         ],
         "tests": [
-          "tests/student-door-audit.ts"
+          "tests/student-door-audit.ts",
+          "tests/student-recovery-audit.ts"
         ]
+      },
+      "rationale": {
+        "ar": "كان أيُّ طلبٍ بجلسةٍ يُلغي طلب الحذف، فمن أنشأ ملفَّ غيره برقمه المدني يُبطل «نسيت رمزي» بمجرّد فتح الصفحة.",
+        "en": "Any request with a session used to cancel the deletion request, so whoever created someone else's profile with their civil ID could void «forgot my code» just by opening the page."
       }
     },
     {
@@ -2596,8 +2610,8 @@
         "en": "Code change, name correction and profile deletion"
       },
       "text": {
-        "ar": "يجب على النظام أن يغيّر الرمز عبر POST /api/public/me/code فقط بالرمز الحالي (خطؤه يُحسب على حدّ الرمز للعنوان)، بفحص الرمز الجديد نفسه، وبملحٍ جديد يمحو عدّاد الأخطاء ويُصدر جلسةً جديدة ويُنهي الجلسات الأخرى؛ وأن يصحّح الاسم عبر PUT /api/public/me/name بالشروط نفسها ويختمه من جديد، بينما لا يتغيّر الرقم المدني لأنه المفتاح؛ وأن يحذف الملف نهائياً وفوراً عبر POST /api/public/me/forget بعد تأكيد الرمز ويمسح الكوكي، وتبقى طلبات الحالات المرسلة قبله في سجلات الأقسام.",
-        "en": "The system shall change the code through POST /api/public/me/code only with the current code (a wrong one counts against the address code limit), checking the new code by the same rule, with a new salt that clears the failure counter, issues a new session and ends the other sessions; shall correct the name through PUT /api/public/me/name under the same rules and seal it again, while the civil ID never changes because it is the key; and shall delete the profile permanently and at once through POST /api/public/me/forget after confirming the code, clearing the cookie, while case requests sent before remain in the departments' records."
+        "ar": "يجب على النظام أن يغيّر الرمز عبر POST /api/public/me/code فقط بالرمز الحالي، بفحص الرمز الجديد نفسه، وبملحٍ جديد يمحو عدّاد الأخطاء ويلغي طلبَ حذفٍ معلّقاً ويُصدر جلسةً جديدة ويُنهي الجلسات الأخرى؛ وأن يُعدّ خطأُ الرمز الحالي هنا وفي الحذف على قفل الملف نفسه (5 أخطاء ← 15 دقيقة، كالدخول) وعلى حدّ العنوان؛ وأن يصحّح الاسم عبر PUT /api/public/me/name بالشروط نفسها ويختمه من جديد، بينما لا يتغيّر الرقم المدني لأنه المفتاح؛ وأن يحذف الملف نهائياً وفوراً عبر POST /api/public/me/forget بعد تأكيد الرمز ويمسح الكوكي، وتبقى طلبات الحالات المرسلة قبله في سجلات الأقسام.",
+        "en": "The system shall change the code through POST /api/public/me/code only with the current code, checking the new code by the same rule, with a new salt that clears the failure counter, cancels a pending deletion request, issues a new session and ends the other sessions; a wrong current code here and in deletion shall count on the profile's own lock (5 failures ← 15 minutes, as at sign-in) and on the address limit; shall correct the name through PUT /api/public/me/name under the same rules and seal it again, while the civil ID never changes because it is the key; and shall delete the profile permanently and at once through POST /api/public/me/forget after confirming the code, clearing the cookie, while case requests sent before remain in the departments' records."
       },
       "priority": "must",
       "status": "implemented",
@@ -2606,8 +2620,8 @@
       ],
       "acceptance": [
         {
-          "ar": "رمزٌ حالي خطأ ← 401 bad-code بلا تغيير؛ ورمزٌ جديد 123456 ← 400 weak-code.",
-          "en": "A wrong current code ← 401 bad-code with no change; a new code 123456 ← 400 weak-code."
+          "ar": "رمزٌ حالي خطأ ← 401 bad-code بلا تغيير ومعه attemptsLeft؛ والخامس في code أو forget ← locked، والرمز الصحيح بعده ← 423 (والدخول كذلك)؛ ورمزٌ جديد 123456 ← 400 weak-code.",
+          "en": "A wrong current code ← 401 bad-code with no change and attemptsLeft; the fifth in code or forget ← locked, and the correct code after it ← 423 (sign-in too); a new code 123456 ← 400 weak-code."
         },
         {
           "ar": "اسمٌ فيه رقم ← 400 bad-name؛ واسم صالح ← يعود الملخص بالاسم الجديد والرقم مقنّعاً.",
@@ -2626,8 +2640,9 @@
           "src/server/studentHomePage.ts"
         ],
         "tests": [
+          "tests/registration-flow-audit.ts",
           "tests/student-door-audit.ts",
-          "tests/registration-flow-audit.ts"
+          "tests/student-recovery-audit.ts"
         ]
       }
     },
@@ -2635,12 +2650,12 @@
       "id": "FR-STU-034",
       "kind": "functional",
       "title": {
-        "ar": "«نسيت رمزي» بلا استرجاع",
-        "en": "«Forgot my code» without recovery"
+        "ar": "«نسيت رمزي»: رمزٌ من القسم، أو حذفٌ بعد مهلة",
+        "en": "«Forgot my code»: a department code, or deletion after a grace period"
       },
       "text": {
-        "ar": "يجب على النظام ألا يسترجع الرمز ولا يعيد تعيينه بأي وسيلة، وأن يقبل عبر POST /api/public/me/reset طلب حذفٍ بالرقم المدني وحده (محسوباً على حدّ الهوية وحدّ الكتابة)، يحفظ أول وقتٍ طُلب فيه ويجعل موعد الحذف الأقرب بين موعده القائم واليوم + 30 يوماً بسبب «reset»، وأن تعرض صفحة الدخول على صاحب الرقم تنبيهاً بتاريخ الحذف وأن دخوله بالرمز الصحيح يلغيه، وأن ينشئ بعد الحذف ملفاً جديداً بالرقم نفسه.",
-        "en": "The system shall never recover or reset the code by any means, and shall accept through POST /api/public/me/reset a deletion request with the civil ID alone (counted against the identity limit and the write limit), keeping the first time it was requested and setting the deletion date to the nearer of the existing date and today + 30 days with reason «reset»; the entry page shall show the ID's owner a notice with the deletion date stating that entering with the correct code cancels it; after deletion a new profile can be created with the same ID."
+        "ar": "يجب على النظام ألا يسترجع الرمز ولا يعيد تعيينه إلا برمز استعادةٍ يُصدره موظف القسم (FR-STU-066)، وأن تعرض ورقة «نسيت رمزي» خيارين: «معي رمزٌ من قسمي» و«احذف ملفّي وابدأ من جديد» مع تاريخ إنشاء الملف ليعرف من لم يُنشئه أن غيره أنشأه؛ وأن يقبل عبر POST /api/public/me/reset طلب حذفٍ بالرقم المدني وحده (محسوباً على حدّ الهوية وحدّ الكتابة)، يحفظ أول وقتٍ طُلب فيه ويجعل موعد الحذف الأقرب بين موعده القائم واليوم + 30 يوماً بسبب «reset»، وأن تعرض صفحة الدخول على صاحب الرقم تنبيهاً بتاريخ الحذف وأن دخوله بالرمز الصحيح يلغيه، وأن ينشئ بعد الحذف ملفاً جديداً بالرقم نفسه.",
+        "en": "The system shall never recover or reset the code except with a recovery code issued by department staff (FR-STU-066); the «forgot my code» sheet shall offer two choices, «I have a code from my department» and «delete my profile and start again», with the profile's creation date so that someone who never created it knows another person did; it shall accept through POST /api/public/me/reset a deletion request with the civil ID alone (counted against the identity limit and the write limit), keeping the first time it was requested and setting the deletion date to the nearer of the existing date and today + 30 days with reason «reset»; the entry page shall show the ID's owner a notice with the deletion date stating that entering with the correct code cancels it; after deletion a new profile can be created with the same ID."
       },
       "priority": "must",
       "status": "implemented",
@@ -2659,17 +2674,23 @@
         {
           "ar": "طلبٌ ثانٍ قبل الحذف ← resetRequestedAt يبقى وقت الطلب الأول.",
           "en": "A second request before deletion ← resetRequestedAt keeps the first request's time."
+        },
+        {
+          "ar": "POST identity لرقمٍ له ملف ← since بتاريخ الإنشاء (يومٌ بلا ساعة).",
+          "en": "POST identity for an ID with a profile ← since with the creation date (a day, no time)."
         }
       ],
       "evidence": {
         "code": [
           "src/server/studentDoorRoutes.ts#/api/public/me/reset",
-          "src/utils/studentProfile.ts#resetLifetime",
-          "src/server/studentHomePage.ts"
+          "src/server/studentHomePage.ts",
+          "src/server/studentRecoveryScript.ts#openForgot",
+          "src/utils/studentProfile.ts#resetLifetime"
         ],
         "tests": [
           "tests/student-door-audit.ts",
-          "tests/student-door-shared-network-audit.ts"
+          "tests/student-door-shared-network-audit.ts",
+          "tests/student-recovery-audit.ts"
         ]
       }
     },
@@ -2876,9 +2897,10 @@
           "src/utils/campusTravelHint.ts#travelHints"
         ],
         "tests": [
+          "tests/masari-return-audit.ts",
           "tests/masari-travel-hint-audit.ts",
           "tests/registration-flow-audit.ts",
-          "tests/masari-return-audit.ts"
+          "tests/student-recovery-audit.ts"
         ]
       }
     },
@@ -3969,6 +3991,172 @@
         "tests": []
       },
       "inferred": true
+    },
+    {
+      "id": "FR-STU-066",
+      "kind": "functional",
+      "title": {
+        "ar": "رمز استعادة لطالب من قسمه",
+        "en": "A recovery code for a student from their department"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لمن يفتح «كشف التسجيل» (إذن 7 أو 14، وليس من صفات العرض الصرف) بطاقةً «رمز استعادة لطالب»: يكتب الموظف الرقم المدني بعد رؤية البطاقة المدنية فيُصدر POST /api/student-recovery/code رمزاً من 6 أرقام صالحاً 24 ساعة ولمرةٍ واحدة، يُلغي إصدارُه أيَّ رمزٍ سابق؛ ويُرفض إن كان قسمُ الملف خارج نطاق الموظف إلا لمدير النظام (ملفٌّ لم يُحدَّد قسمه يُصدره أيُّ موظفٍ له الإذن)، وبحدّ 20 إصداراً في الساعة لكل موظف؛ ويُحفظ على الملف بصمةُ الرمز (HMAC بمفتاح الخادم) وانتهاؤه ومن أصدره ومتى، وسجلُّ آخر 10 إصدارات بوقت استعمالها، وقيدٌ في سجل التدقيق بلا رقمٍ مدني؛ ولا يرى الموظف من الطالب إلا آخر 3 أرقام والاسم المحفوظ وقسمه ليطابقها بالبطاقة، ويُعرض الرمز كبيراً مع «انسخ» والوقت الباقي.",
+        "en": "The system shall give whoever opens the «registration sheet» (permission 7 or 14, and not a pure viewing role) a «recovery code for a student» card: the staff member types the civil ID after seeing the civil card and POST /api/student-recovery/code issues a 6-digit code valid for 24 hours and for one use, whose issue voids any earlier code; it is refused when the profile's department is outside the staff member's scope unless they are the system administrator (a profile with no department yet may be issued by any staff member holding the permission), with a limit of 20 issues an hour per staff member; the profile keeps the code's fingerprint (HMAC with the server key), its expiry, who issued it and when, a log of the last 10 issues with their time of use, and an audit-log entry without the civil ID; the staff member sees only the last 3 digits, the stored name and the department to match against the card, and the code is shown large with «copy» and the time left."
+      },
+      "rationale": {
+        "ar": "الرقم المدني ليس سرّاً: من عرفه أنشأ الملف قبل صاحبه برمزٍ يختاره. موظف القسم وحده يرى البطاقة بعينه، فهو الطريق البسيط الآمن لإعادة الملف إلى صاحبه.",
+        "en": "A civil ID is not a secret: whoever knows it can create the profile before its owner with a code of their choice. Only department staff see the card in person, so they are the simple, safe way to give the profile back to its owner."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "committeeChair",
+        "registrarStaff",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "موظف قسمٍ آخر لملفٍّ في قسمٍ له ← 403 out-of-scope؛ والعميد ومن بلا إذن ← 403؛ وبلا حساب ← 401.",
+          "en": "Staff of another department for a profile with a department ← 403 out-of-scope; the dean and those without the permission ← 403; with no account ← 401."
+        },
+        {
+          "ar": "الردّ يحمل الرمز وcivilMasked بآخر 3 أرقام ولا يحمل الرقم كاملاً؛ والملف لا يحمل الرمز نفسه.",
+          "en": "The answer carries the code and civilMasked with the last 3 digits and never the full ID; the profile never holds the code itself."
+        },
+        {
+          "ar": "إصدارٌ ثانٍ ← replaced:true والرمز الأول لا يصلح؛ والإصدار 21 في ساعة للموظف نفسه ← 429.",
+          "en": "A second issue ← replaced:true and the first code no longer works; the 21st issue in an hour by the same staff member ← 429."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentRecovery.ts#registerStudentRecoveryRoutes",
+          "src/server/studentRecoveryWiring.ts#issuerOf",
+          "src/components/StudentRecoveryCard.tsx",
+          "src/components/StudentRegistration.tsx"
+        ],
+        "tests": [
+          "tests/student-recovery-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-067",
+      "kind": "functional",
+      "title": {
+        "ar": "استعادة الملف برمز القسم",
+        "en": "Taking the profile back with the department code"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقبل عبر POST /api/public/me/recover الرقم المدني ورمز القسم ورمزاً شخصياً جديداً (يُكتب مرتين ويُفحص كالإنشاء): يستبدل الرمز فتتغيّر نسخته فتسقط كل الجلسات القديمة (ومنها جلسات من أنشأ الملف بغير حق)، ويمحو عدّاد الأخطاء وطلب الحذف المعلّق، ويُسقط رمز القسم فلا يُستعمل مرتين، ويسجّل وقت استعماله، ويُصدر جلسةً جديدة؛ ويُعدّ الخطأ في رمز القسم على قفل الملف (5 ← 15 دقيقة) وعلى الرمز نفسه (5 أخطاء تُسقطه فيُطلب غيره)؛ ورمزٌ منتهٍ أو غائب ← 400 no-recovery بلا عدّ.",
+        "en": "The system shall accept through POST /api/public/me/recover the civil ID, the department code and a new personal code (typed twice and checked as at creation): it replaces the code so its version changes and every old session ends (including those of whoever created the profile wrongly), clears the failure counter and any pending deletion request, voids the department code so it cannot be used twice, records its time of use, and issues a new session; a wrong department code counts on the profile's lock (5 ← 15 minutes) and on the code itself (5 failures void it so another must be asked for); an expired or missing code ← 400 no-recovery without counting."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "بعد الاستعادة ← جلستا المنتحل 401، وجلسة صاحب الرقم 200، والرمز القديم لا يفتح والجديد يفتح.",
+          "en": "After recovery ← the impostor's two sessions answer 401, the owner's session 200, the old code no longer opens and the new one does."
+        },
+        {
+          "ar": "الرمز نفسه مرةً ثانية ← no-recovery؛ وخمسة أخطاء ← recovery-void ثم 423.",
+          "en": "The same code a second time ← no-recovery; five failures ← recovery-void then 423."
+        },
+        {
+          "ar": "رمزٌ أُصدر قبل 25 ساعة ← no-recovery.",
+          "en": "A code issued 25 hours ago ← no-recovery."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/recover",
+          "src/server/studentRecovery.ts#readRecovery",
+          "src/server/studentRecoveryScript.ts#openRecover"
+        ],
+        "tests": [
+          "tests/student-recovery-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-068",
+      "kind": "functional",
+      "title": {
+        "ar": "«أبقِ ملفّي» لصاحب الجلسة",
+        "en": "«Keep my profile» for the session holder"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعرض لصاحب جلسةٍ على ملفه طلبُ حذفٍ معلّق (resetPending في الملخص) شريطاً «سيُحذف ملفّك» بتاريخه وزر «أبقِه» يفتح ورقة الرمز، وأن يقبل POST /api/public/me/keep الرمزَ الحالي فيمحو الطلب ويعيد عمر الملف العادي؛ وخطؤه يُعدّ على قفل الملف.",
+        "en": "The Masari page shall show a session holder whose profile has a pending deletion request (resetPending in the summary) a «your profile will be deleted» bar with its date and a «keep it» button that opens a code sheet, and POST /api/public/me/keep shall accept the current code, clear the request and restore the profile's normal lifetime; a wrong code counts on the profile's lock."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "keep برمزٍ خطأ ← 401 bad-code؛ وبالصحيح ← resetPending:false ويعود سبب الحذف غير reset.",
+          "en": "keep with a wrong code ← 401 bad-code; with the correct one ← resetPending:false and the deletion reason is no longer reset."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/keep",
+          "src/server/studentRecoveryScript.ts#recoveryHomeHook"
+        ],
+        "tests": [
+          "tests/student-recovery-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-069",
+      "kind": "functional",
+      "title": {
+        "ar": "اشتراك «جدولي المقترح» في تقويم الهاتف",
+        "en": "Subscribing to «my proposed timetable» in the phone calendar"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعطي الطالب من بطاقة «جدولي المقترح» زر «اشترك بجدولي في تقويم هاتفك» يفتح ورقةً فيها webcal:// لآيفون وماك، وزرّا Google وOutlook، و«انسخ» للرابط؛ يأتي الرابط من GET /api/public/me/calendar (بجلسة) ثابتاً لكل طالب، ومفتاحُه ختمٌ (AES-256-GCM بمتّجهٍ مشتقٍّ بـHMAC) لبصمة الملف مع نسخة الرمز لا يحمل الرقم المدني ولا البصمة مكشوفة؛ وأن يخدم GET /api/public/me/cal/<المفتاح>.ics بلا كوكي تقويماً بـVTIMEZONE Asia/Kuwait فيه الخطة «أ» من تذكرة الطالب (الشعب التي وُقّع جدول قسمها وغير المقفلة) مواعيدَ أسبوعية (RRULE حتى نهاية الفصل) بالرمز والاسم والشعبة، بـETag و304 كتقويم الأستاذ، ويتحدّث وحده كلما تغيّرت التذكرة، وتقويماً صالحاً فارغاً قبلها؛ وأن يردّ 404 إن غيّر الطالب رمزه أو استعاده أو حذف ملفه أو عُبث بالمفتاح.",
+        "en": "The system shall give the student, from the «my proposed timetable» card, a «subscribe to my timetable in your phone calendar» button that opens a sheet with webcal:// for iPhone and Mac, Google and Outlook buttons, and «copy» for the link; the link comes from GET /api/public/me/calendar (with a session), stable per student, and its key is a seal (AES-256-GCM with an HMAC-derived IV) of the profile fingerprint with the code version that carries neither the civil ID nor the fingerprint in clear; GET /api/public/me/cal/<key>.ics shall serve, with no cookie, a calendar with VTIMEZONE Asia/Kuwait holding plan «A» of the student's ticket (sections whose department timetable is signed and that are not blocked) as weekly events (RRULE until the term's end) with code, name and section, with ETag and 304 like the teacher feed, updating by itself whenever the ticket changes, and an empty valid calendar before there is one; it shall answer 404 when the student changes or recovers their code, deletes the profile, or the key is tampered with."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "قبل التذكرة ← 200 بلا VEVENT وباسم «جدولي المقترح — مساري»؛ وبعدها ← حدثٌ أسبوعي BYDAY=SU,TU بتوقيت الكويت.",
+          "en": "Before the ticket ← 200 with no VEVENT and the name «جدولي المقترح — مساري»; after it ← a weekly event BYDAY=SU,TU in Kuwait time."
+        },
+        {
+          "ar": "If-None-Match بالوسم نفسه ← 304.",
+          "en": "If-None-Match with the same tag ← 304."
+        },
+        {
+          "ar": "بعد تغيير الرمز ← الرابط القديم 404 والجديد 200؛ وبعد الحذف ← 404.",
+          "en": "After a code change ← the old link 404 and the new one 200; after deletion ← 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentDoorRoutes.ts#/api/public/me/cal/:file",
+          "src/server/studentDoorRoutes.ts#/api/public/me/calendar",
+          "src/server/studentRecovery.ts#calendarToken",
+          "src/server/routes/publicCalendarRoutes.ts#sendCalendar",
+          "src/server/studentRecoveryScript.ts#openCalSub"
+        ],
+        "tests": [
+          "tests/student-recovery-audit.ts",
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

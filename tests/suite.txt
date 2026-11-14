@@ -144,6 +144,7 @@ test:handover-fixes
 test:student-needs-scale
 test:term-student-phases
 test:student-door
+test:student-recovery
 test:student-door-network
 test:student-advice
 test:inbox-heat

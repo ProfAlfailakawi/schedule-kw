@@ -2065,39 +2065,43 @@
         "en": "One-day reminder file"
       },
       "text": {
-        "ar": "يجب على النظام أن يخدم GET /api/public/ics-reminder بملف text/calendar inline يفتح نافذة «أضف إلى التقويم»، بتاريخ d بصيغة YYYY-MM-DD صحيح (وإلا 400)، وعنوان t حتى 120 حرفاً وملاحظة n حتى 300، وUID ثابت من التاريخ والعنوان، وتنبيهين (قبل 3 ساعات وبعد 8)، وCache-Control: no-store، دون اسم ولا رقم في الرابط.",
-        "en": "The system shall serve GET /api/public/ics-reminder as an inline text/calendar file that opens an \"add to calendar\" dialog, with a valid YYYY-MM-DD date d (otherwise 400), a title t of at most 120 characters and a note n of at most 300, a UID stable from date and title, two alarms (3 hours before and 8 hours after), and Cache-Control: no-store, with no name or number in the link."
+        "ar": "يجب على النظام أن يخدم GET /api/public/me/reminder?kind=next|round بجلسة «مساري» ملفَّ text/calendar inline ليومٍ كامل يفتح نافذة «أضف إلى التقويم»، يبني الخادم عنوانه وتاريخه وملاحظته: next = المحطة القادمة في رحلة الفصل، round = يوم دور التسجيل من التذكرة (وإلا 404 no-date)؛ نوعٌ آخر ← 400، وبلا جلسة ← 401، ولا يُقرأ عنوانٌ ولا تاريخ من الرابط؛ بـUID ثابت من التاريخ والعنوان، وتنبيهين: 9 صباحاً في اليوم السابق (-PT15H) و8 صباحاً في اليوم نفسه (PT8H)، وCache-Control: no-store، دون اسم ولا رقم.",
+        "en": "The system shall serve GET /api/public/me/reminder?kind=next|round with a Masari session as an inline all-day text/calendar file that opens an \"add to calendar\" dialog, with the title, date and note built by the server: next = the next stop in the term journey, round = the registration window day from the ticket (otherwise 404 no-date); any other kind ← 400, with no session ← 401, and no title or date is read from the link; with a UID stable from date and title, two alarms — 9 AM the day before (-PT15H) and 8 AM on the day (PT8H) — and Cache-Control: no-store, with no name or number."
       },
       "priority": "could",
       "status": "implemented",
       "actors": [
-        "student",
-        "visitor"
+        "student"
       ],
       "acceptance": [
         {
-          "ar": "d=2026-13-40 يردّ 400 «bad date».",
-          "en": "d=2026-13-40 answers 400 \"bad date\"."
+          "ar": "kind=anything ← 400 bad-kind؛ وبلا جلسة ← 401.",
+          "en": "kind=anything ← 400 bad-kind; with no session ← 401."
+        },
+        {
+          "ar": "‎t=…‎ و‎d=…‎ في الرابط لا يظهران في الملف.",
+          "en": "t=… and d=… in the link never appear in the file."
+        },
+        {
+          "ar": "التنبيهان TRIGGER:-PT15H وTRIGGER:PT8H (لا ‎-PT3H‎ = 9 مساءً).",
+          "en": "The two alarms are TRIGGER:-PT15H and TRIGGER:PT8H (not -PT3H = 9 PM)."
         },
         {
           "ar": "إعادة إضافة المنبّه نفسه تحدّث الموعد ولا تكرّره (UID ثابت).",
           "en": "Re-adding the same reminder updates the entry rather than duplicating it (stable UID)."
-        },
-        {
-          "ar": "?dl=1 يغيّر Content-Disposition إلى attachment.",
-          "en": "?dl=1 changes Content-Disposition to attachment."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/routes/publicCalendarRoutes.ts",
-          "src/utils/icalendar.ts"
+          "src/server/studentDoorRoutes.ts#/api/public/me/reminder",
+          "src/utils/icalendar.ts#buildReminder"
         ],
         "tests": [
-          "tests/calendar-ics-audit.ts"
+          "tests/calendar-ics-audit.ts",
+          "tests/student-recovery-audit.ts",
+          "tests/masari-return-audit.ts"
         ]
-      },
-      "inferred": true
+      }
     },
     {
       "id": "IR-NTF-031",
