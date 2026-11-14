@@ -152,6 +152,34 @@ function packed(skip: (room: number, start: string) => boolean = () => false, pa
     check(!/[\u0660-\u0669\u06F0-\u06F9]/.test(texts), "F4 أرقامٌ لاتينية فقط");
   }
 
+  /* ── G: الصفوفُ المحجوزة لا تُنقل أبداً، والزمن على لوحةٍ كبيرة ─────────── */
+  {
+    const board = packed((room, start) => room === 1 && start === "13:00");
+    const free = solveChain(base(board));
+    check(free.ok && free.steps.length > 0, "G1 بلا حجز: توجد سلسلة", free.reasonIfNot);
+    let violations = 0, solvedWithHold = 0;
+    for (const target of board) {
+      const out = solveChain(base(board, { heldRowIds: [target.id] }));
+      if (out.steps.some(step => step.rowId === target.id)) violations += 1;
+      if (out.ok) solvedWithHold += 1;
+    }
+    check(violations === 0, `G2 مع حجز كلِّ صفٍّ بدوره (${board.length}) لا يُنقل المحجوز أبداً`, { violations });
+    const everyHeld = solveChain(base(board, { heldRowIds: board.map(item => item.id) }));
+    check(!everyHeld.ok && everyHeld.steps.length === 0, "G3 كلُّ الصفوف محجوزة: لا سلسلة ولا نقل", everyHeld.reasonIfNot);
+    const bigRows: FSchedule[] = [];
+    let t = 3000;
+    for (let r = 0; r < 100; r += 1) for (let k = 0; k < 10; k += 1) {
+      if (r === 99 && k === 5) continue;
+      const rr = row({ room: 0, start: STARTS[k], teacher: t++ } as any);
+      bigRows.push({ ...rr, roomId: `big${r}`, AdRoomCode: String(200 + r), AdRoomHall: "Z" } as FSchedule);
+    }
+    const started = performance.now();
+    const bigOut = solveChain(base(bigRows, { draft: { ...draftAt("08:00", 900), room: { roomId: "big0", buildingId: "b1", code: "200", hall: "Z" } } }));
+    const ms = performance.now() - started;
+    console.log(`  · زمنُ البحث على ${bigRows.length} صفاً: ${ms.toFixed(0)}ms (ok=${bigOut.ok}, ${bigOut.reasonIfNot || "-"})`);
+    check(ms < 600 && bigRows.length >= 990, "G4 لوحةُ ألف صفٍّ تنتهي في زمنٍ معقول", ms);
+  }
+
   console.log(`\nchain-solve audit: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch(error => { console.error(error); process.exit(1); });

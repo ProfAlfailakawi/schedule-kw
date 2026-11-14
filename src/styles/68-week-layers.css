@@ -1,5 +1,5 @@
 /* ── طبقتا الأسبوع: «لماذا لا؟» (src/components/WhyNotLayer.tsx) و«إعادة العرض» (src/components/WeekReplay.tsx) ──────
-   أيقونةٌ أولاً وكلماتٌ قليلة. الألوان من رموز النظام وحدها فتتبع الوضعين؛ والحركةُ تُطفأ مع «تقليل الحركة». */
+   أيقونةٌ أولاً وكلماتٌ قليلة. الألوان من رموز النظام وحدها؛ والحركةُ تُطفأ مع «تقليل الحركة». */
 
 .wk-tools{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
 .wk-tool{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 13px;border:1px solid var(--line-strong);border-radius:var(--r-full,999px);
@@ -13,7 +13,7 @@
 .wk-tool.is-on:hover:not(:disabled){background:var(--accent-strong);color:var(--accent-contrast)}
 
 /* ═══ «لماذا لا؟» ═════════════════════════════════════════════════════════════ */
-[data-wn-tier]{position:relative}
+[data-wn-tier]:not(.week-strip-slot):not(.rooms-slot){position:relative}
 .wn-cell{position:absolute;inset:1px;display:grid;place-items:center;border-radius:6px;pointer-events:none;z-index:1;
   transition:opacity .2s var(--ease-out),background-color .2s var(--ease-out),box-shadow .2s var(--ease-out)}
 .wn-cell svg{width:min(18px,70%);height:auto;max-height:70%;opacity:.92}
@@ -69,12 +69,10 @@
 .wn-move svg{width:17px;height:17px}
 
 /* ═══ «إعادة العرض» ═══════════════════════════════════════════════════════════ */
-.rp-layer{position:fixed;inset:0;z-index:calc(var(--z-sheet,200) + 20);display:flex;align-items:flex-end;justify-content:center}
+.rp-layer{position:fixed;inset:0;z-index:1500;display:flex;align-items:flex-end;justify-content:center}
 .rp-backdrop{position:absolute;inset:0;background:color-mix(in srgb,var(--ink,#111) 46%,transparent);animation:rp-fade .2s ease both}
 .rp-sheet{--rp-l:93%;--rp-s:42%;--rp-ink:24%;position:relative;width:min(100%,980px);max-height:min(94dvh,780px);display:flex;flex-direction:column;border:1px solid var(--line);border-bottom:0;
   border-radius:var(--r-2xl,24px) var(--r-2xl,24px) 0 0;background:var(--surface);color:var(--ink);box-shadow:var(--shadow-lg);padding-bottom:env(safe-area-inset-bottom,0);animation:rp-up .28s var(--ease-out) both;overscroll-behavior:contain}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rp-sheet{--rp-l:20%;--rp-s:34%;--rp-ink:88%}}
-:root[data-theme="dark"] .rp-sheet{--rp-l:20%;--rp-s:34%;--rp-ink:88%}
 @media (min-width:900px){.rp-layer{align-items:center}.rp-sheet{border-bottom:1px solid var(--line);border-radius:var(--r-2xl,24px)}}
 @keyframes rp-fade{from{opacity:0}to{opacity:1}}
 @keyframes rp-up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}

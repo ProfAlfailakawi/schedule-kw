@@ -969,6 +969,17 @@ button.schedule-radar:hover{filter:brightness(.96)}
 }
 
 .week-drag-handle{display:none;touch-action:none}
+/* لوحٌ بلمس (iPad وما شابهه): مقبضُ سحبٍ ظاهرٌ على البطاقة، فلا يُكتشف السحبُ بالضغط الطويل وحده.
+   الهاتفُ الضيّق يبقى بلا مقبض (الشريطُ ضيّق)، واللمسُ على أي موضعٍ آخر من البطاقة يبقى ضغطاً طويلاً فتمريراً حرّاً. */
+@media (pointer:coarse) and (min-width:700px){
+  .week-event:not(.ghost-semester-event) > .week-drag-handle,
+  .week-strip-track .week-event:not(.ghost-semester-event) > .week-drag-handle{
+    display:block;position:absolute;inset-block-start:2px;inset-inline-end:2px;
+    inline-size:18px;block-size:18px;padding:1px;border-radius:5px;
+    color:var(--ink-3,currentColor);opacity:.62;background:color-mix(in srgb,var(--surface) 70%,transparent);
+    touch-action:none;z-index:2;
+  }
+}
 
 .week-event.ripple-source{opacity:.72;border-style:dashed}
 .week-event.ghost-semester-event{opacity:.4}

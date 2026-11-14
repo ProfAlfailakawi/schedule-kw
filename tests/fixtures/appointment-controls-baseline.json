@@ -1,0 +1,1088 @@
+{
+ "empty": [
+  {
+   "name": "إغلاق بدون حفظ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تغيير",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "المقرر الدراسي",
+   "kind": "button",
+   "guide": "data-guide-editor-field"
+  },
+  {
+   "name": "رمز المقرر الد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الشعبة *",
+   "kind": "input:text",
+   "guide": ""
+  },
+  {
+   "name": "ابدأ بالمقررال",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "احفظ الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تراجع",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  }
+ ],
+ "course-teacher": [
+  {
+   "name": "إغلاق بدون حفظ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تغيير",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الشعبة",
+   "kind": "input:text",
+   "guide": ""
+  },
+  {
+   "name": "جدول الأستاذ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الأيام",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الاثنين",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الثلاثاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الأربعاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الخميس",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "--:--",
+   "kind": "input:text",
+   "guide": "data-guide-editor-field"
+  },
+  {
+   "name": "عدّاد الوقت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "اقترح لي وقتاً",
+   "kind": "button",
+   "guide": ""
+  },
+  {
+   "name": "املأ كالمعتاده",
+   "kind": "button",
+   "guide": "data-guide-target"
+  },
+  {
+   "name": "لاصق بمحاضرتي#",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "التالي: الأيام",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "احفظ الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تراجع",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "#عضو هيئة تدري",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "إغلاق جدول الأ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "ضع الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "بعدها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "قبلها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  }
+ ],
+ "days-time": [
+  {
+   "name": "إغلاق بدون حفظ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تغيير",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الشعبة",
+   "kind": "input:text",
+   "guide": ""
+  },
+  {
+   "name": "جدول الأستاذ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الأيام",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الاثنين",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الثلاثاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الأربعاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الخميس",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "أحد·ثلاثاء·خمي",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد·ثلاثاء · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد · #د",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "--:--",
+   "kind": "input:text",
+   "guide": "data-guide-editor-field"
+  },
+  {
+   "name": "عدّاد الوقت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "نبض الطلبةالطل",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "ضع الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "اقترح لي وقتاً",
+   "kind": "button",
+   "guide": ""
+  },
+  {
+   "name": "املأ كالمعتاده",
+   "kind": "button",
+   "guide": "data-guide-target"
+  },
+  {
+   "name": "لاصق بمحاضرتي#",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "المبنى الرسمي",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "القاعة الرسمية",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "اقترح قاعة متا",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "لم تجد قاعة مت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "ناقص: القاعةال",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "احفظ الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تراجع",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "#عضو هيئة تدري",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "إغلاق جدول الأ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "بعدها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "قبلها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  }
+ ],
+ "off-pattern": [
+  {
+   "name": "إغلاق بدون حفظ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تغيير",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الشعبة",
+   "kind": "input:text",
+   "guide": ""
+  },
+  {
+   "name": "جدول الأستاذ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الأيام",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الاثنين",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الثلاثاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الأربعاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الخميس",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "أحد·ثلاثاء·خمي",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد·ثلاثاء · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد · #د",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "طبّق النمط الم",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "--:--",
+   "kind": "input:text",
+   "guide": "data-guide-editor-field"
+  },
+  {
+   "name": "عدّاد الوقت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "بديل",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "نبض الطلبةالطل",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "اقترح لي وقتاً",
+   "kind": "button",
+   "guide": ""
+  },
+  {
+   "name": "املأ كالمعتاده",
+   "kind": "button",
+   "guide": "data-guide-target"
+  },
+  {
+   "name": "لاصق بمحاضرتي#",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "المبنى الرسمي",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "القاعة الرسمية",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "اقترح قاعة متا",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "لم تجد قاعة مت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "#مانع واحدالتف",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "احفظ الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تراجع",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "#عضو هيئة تدري",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "إغلاق جدول الأ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "ضع الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "بعدها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "قبلها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  }
+ ],
+ "teacher-conflict": [
+  {
+   "name": "إغلاق بدون حفظ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تغيير",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الشعبة",
+   "kind": "input:text",
+   "guide": ""
+  },
+  {
+   "name": "جدول الأستاذ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الأيام",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الاثنين",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الثلاثاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الأربعاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الخميس",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "أحد·ثلاثاء·خمي",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد·ثلاثاء · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد · #د",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "--:--",
+   "kind": "input:text",
+   "guide": "data-guide-editor-field"
+  },
+  {
+   "name": "عدّاد الوقت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "اجعل البداية #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "بديل",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "نبض الطلبةالطل",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "اقترح لي وقتاً",
+   "kind": "button",
+   "guide": ""
+  },
+  {
+   "name": "املأ كالمعتاده",
+   "kind": "button",
+   "guide": "data-guide-target"
+  },
+  {
+   "name": "لاصق بمحاضرتي#",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "المبنى الرسمي",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "القاعة الرسمية",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "اقترح قاعة متا",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "لم تجد قاعة مت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "#مانع واحدالتف",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "احفظ الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تراجع",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "#عضو هيئة تدري",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "إغلاق جدول الأ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "ضع الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "بعدها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "قبلها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  }
+ ],
+ "room-suggestions": [
+  {
+   "name": "إغلاق بدون حفظ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تغيير",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الشعبة",
+   "kind": "input:text",
+   "guide": ""
+  },
+  {
+   "name": "جدول الأستاذ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الأيام",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الاثنين",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الثلاثاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الأربعاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الخميس",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "أحد·ثلاثاء·خمي",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد·ثلاثاء · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد · #د",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "--:--",
+   "kind": "input:text",
+   "guide": "data-guide-editor-field"
+  },
+  {
+   "name": "عدّاد الوقت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "مقرر واحد في ا",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "نبض الطلبةالطل",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "ضع الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "اقترح لي وقتاً",
+   "kind": "button",
+   "guide": ""
+  },
+  {
+   "name": "املأ كالمعتاده",
+   "kind": "button",
+   "guide": "data-guide-target"
+  },
+  {
+   "name": "لاصق بمحاضرتي#",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "المبنى الرسمي",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "القاعة الرسمية",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "اقترح قاعة متا",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "اختر القاعة #A",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "لم تجد قاعة مت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "ناقص: القاعةال",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "احفظ الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تراجع",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "#عضو هيئة تدري",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "إغلاق جدول الأ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "بعدها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "قبلها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  }
+ ],
+ "ready": [
+  {
+   "name": "إغلاق بدون حفظ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تغيير",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الشعبة",
+   "kind": "input:text",
+   "guide": ""
+  },
+  {
+   "name": "جدول الأستاذ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الأيام",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الاثنين",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الثلاثاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الأربعاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الخميس",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "أحد·ثلاثاء·خمي",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد·ثلاثاء · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد · #د",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "--:--",
+   "kind": "input:text",
+   "guide": "data-guide-editor-field"
+  },
+  {
+   "name": "عدّاد الوقت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "مقرر واحد في ا",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "نبض الطلبةالطل",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "ضع الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "اقترح لي وقتاً",
+   "kind": "button",
+   "guide": ""
+  },
+  {
+   "name": "املأ كالمعتاده",
+   "kind": "button",
+   "guide": "data-guide-target"
+  },
+  {
+   "name": "لاصق بمحاضرتي#",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "المبنى الرسمي",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "القاعة الرسمية",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "اقترح قاعة متا",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "جاهز للحفظالتف",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "احفظ الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تراجع",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "#عضو هيئة تدري",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "إغلاق جدول الأ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "بعدها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "قبلها · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  }
+ ],
+ "checks-open": [
+  {
+   "name": "إغلاق بدون حفظ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تغيير",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الشعبة",
+   "kind": "input:text",
+   "guide": ""
+  },
+  {
+   "name": "جدول الأستاذ",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "الأيام",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الاثنين",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الثلاثاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الأربعاء",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "الخميس",
+   "kind": "input:checkbox",
+   "guide": ""
+  },
+  {
+   "name": "أحد·ثلاثاء·خمي",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد·ثلاثاء · #",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "أحد · #د",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "--:--",
+   "kind": "input:text",
+   "guide": "data-guide-editor-field"
+  },
+  {
+   "name": "عدّاد الوقت",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "مقرر واحد في ا",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "نبض الطلبةالطل",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "ضع الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "اقترح لي وقتاً",
+   "kind": "button",
+   "guide": ""
+  },
+  {
+   "name": "املأ كالمعتاده",
+   "kind": "button",
+   "guide": "data-guide-target"
+  },
+  {
+   "name": "لاصق بمحاضرتي#",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "المبنى الرسمي",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "القاعة الرسمية",
+   "kind": "select",
+   "guide": ""
+  },
+  {
+   "name": "اقترح قاعة متا",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "جاهز للحفظالتف",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "احفظ الموعد",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "تراجع",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "#عضو هيئة تدري",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  },
+  {
+   "name": "إغلاق لوحة الف",
+   "kind": "button",
+   "guide": "data-guide-ignore"
+  }
+ ]
+}

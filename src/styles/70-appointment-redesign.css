@@ -1,0 +1,106 @@
+/* ── إعادة تصميم محرّر «موعد جديد / تعديل موعد» (W8) ─────────────────────────────
+   النمط الفاتح وحده. لغةُ حالةٍ واحدة: أخضر (جاهز) · كهرماني (ملاحظة) · أحمر (مانع) من رموز المنتج،
+   تُقرأ في إطار الخطوة وشارتها وحبّة الحالة وزرّ الحفظ. حركتان فقط: طيّ الخطوة المكتملة، وانتقال البطاقة عند الحفظ. */
+.schedule-editor.is-studio{
+  --st:var(--line-strong);--st-soft:var(--surface-2);--st-ink:var(--muted);
+  --ctype:var(--accent);
+  --ic:1.8;--ic-size:16px;
+}
+.schedule-editor.is-studio[data-tone="ok"]{--st:var(--success);--st-soft:var(--success-soft);--st-ink:var(--success)}
+.schedule-editor.is-studio[data-tone="warn"]{--st:var(--warning);--st-soft:var(--warning-soft);--st-ink:var(--warning)}
+.schedule-editor.is-studio[data-tone="block"]{--st:var(--danger);--st-soft:var(--danger-soft);--st-ink:var(--danger)}
+/* نوع المقرر يلوّن رأس البطاقة بلا إزالة الشارات النصية */
+.schedule-editor.is-studio[data-ctype="practical"],.schedule-editor.is-studio[data-ctype="applied"]{--ctype:var(--brass)}
+.schedule-editor.is-studio[data-ctype="field_training"]{--ctype:#5a5f8f}
+.schedule-editor.is-studio[data-ctype] .appt-form{border-top:3px solid color-mix(in srgb,var(--ctype) 70%,transparent)}
+
+/* (3) خيط التقدّم: يملأ بقدر اكتمال الخطوات؛ ويُخفَّف حجم أرقام الخطوات */
+.schedule-editor.is-studio .appt-form{position:relative;overflow:clip}
+.appt-progress{position:absolute;inset:0 0 auto 0;height:3px;background:var(--line);z-index:1}
+.appt-progress>i{display:block;height:100%;inline-size:calc(var(--appt-p,0) * 100%);background:var(--st);border-radius:0 3px 3px 0}
+.schedule-editor.is-studio .appt-step-head>.appt-num,.appt-sumrow>.appt-num{width:26px;height:26px;border-radius:9px;font-size:13px}
+
+/* (2) لغة اللون الواحدة */
+.schedule-editor.is-studio .appt-num.is-done{background:var(--success)}
+.schedule-editor.is-studio .appt-step:has(.editor-validation-strip) {border-color:color-mix(in srgb,var(--danger) 45%,var(--line));box-shadow:inset 3px 0 0 var(--danger)}
+.schedule-editor.is-studio .appt-step:has(.editor-validation-strip) .appt-num:not(.is-done){background:var(--danger-soft);color:var(--danger)}
+.schedule-editor.is-studio .appt-status{border-color:color-mix(in srgb,var(--st) 40%,var(--line));background:color-mix(in srgb,var(--st-soft) 55%,var(--surface))}
+.schedule-editor.is-studio .appt-status .appt-status-word{color:var(--st-ink)}
+.schedule-editor.is-studio[data-tone="ok"] .appt-bar button[type="submit"]:not(:disabled){background:var(--success);border-color:var(--success)}
+.schedule-editor.is-studio[data-tone="warn"] .appt-bar button[type="submit"]:not(:disabled){background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--warning) 35%,transparent)}
+.schedule-editor.is-studio .appt-sumrow.is-changed{border-color:color-mix(in srgb,var(--brass) 55%,var(--line));background:linear-gradient(90deg,transparent,var(--brass-soft))}
+
+/* (1) طيّ الخطوة المكتملة إلى سطرٍ واحد بانزلاقٍ ناعم، وأيقونة صحٍّ ترسم نفسها */
+@keyframes appt-fold{from{opacity:0;max-height:0;transform:translateY(-8px)}to{opacity:1;max-height:140px;transform:none}}
+@keyframes appt-tick{to{stroke-dashoffset:0}}
+.appt-sumrow{animation:appt-fold .42s cubic-bezier(.2,.7,.2,1) both;overflow:hidden}
+.appt-sumrow>.appt-num.is-done svg path{stroke-dasharray:24;stroke-dashoffset:24;animation:appt-tick .5s .15s ease-out forwards}
+
+/* (4) غسلةٌ خضراء ناعمة مرةً واحدة على ما أكمله النمط */
+@keyframes appt-wash{0%{background-color:color-mix(in srgb,var(--success) 16%,var(--surface))}100%{background-color:transparent}}
+.appt-step:has(.regulation-chips.is-autofilled) .appt-time-fields .time-field{animation:appt-wash 1.6s ease-out 1}
+
+/* (5) أرقام جدولية أكبر قليلاً للأزمنة والمدة والشعب */
+.schedule-editor.is-studio .time-field,.appt-duration-value bdi,.appt-hours-figure,.appt-tl-range,.appt-secchip input,.regulation-chips button{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.schedule-editor.is-studio .time-field{font-size:1.08rem;font-weight:700;letter-spacing:.02em}
+.appt-duration-value bdi{font-size:1.25rem;font-weight:750}
+
+/* (6) حالة فارغة هادئة للّوحة الجانبية: ملامح أسبوعٍ باهتة بدل الصندوق المتقطّع */
+.appt-week-ghost{border:0;position:relative;background:transparent;overflow:hidden;isolation:isolate}
+.appt-week-ghost::before{content:"";position:absolute;inset:8px;z-index:-1;border-radius:16px;opacity:.55;
+  background:linear-gradient(var(--line) 1px,transparent 1px) 0 0/100% 16.66%,linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/20% 100%;
+  mask-image:radial-gradient(ellipse at center,#000 30%,transparent 78%)}
+.appt-week-ghost svg{color:var(--line-strong)}
+
+/* (8) أيقونات بقياسٍ وسُمكٍ موحّدين داخل المحرّر */
+.schedule-editor.is-studio :where(.appt-step,.appt-bar,.appt-helpers,.regulation-chips,.appt-sumrow) svg{stroke-width:var(--ic)}
+.schedule-editor.is-studio :where(.appt-helpers,.regulation-chips) button svg{width:var(--ic-size);height:var(--ic-size)}
+
+/* المساعدات: قائمةٌ واحدة، و«املأ كالمعتاد» ظاهرةٌ بجوارها */
+.appt-helpers-menu{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 14px;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);color:var(--ink-2);font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
+.appt-helpers-menu svg{width:16px;height:16px;color:var(--accent)}
+.appt-helpers-menu[aria-expanded="true"]{background:var(--accent-softer);border-color:var(--accent)}
+.appt-helpers-menu[aria-expanded="true"] svg:last-child{transform:rotate(180deg)}
+.appt-helpers.is-closed>*:not(.appt-helpers-menu):not(.appt-usual){display:none}
+.appt-helpers{border-top:0;padding-top:6px}
+
+/* أنماط اللائحة: المنصوح به أولاً والباقي خلف «أنماط أخرى» */
+.regulation-chips-more{display:inline-flex;align-items:center;gap:4px;min-height:30px;padding:0 10px;border:1px dashed var(--line-strong);border-radius:999px;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:650;cursor:pointer}
+.regulation-chips-more svg{width:13px;height:13px}
+.regulation-chips-more[aria-expanded="true"] svg{transform:rotate(180deg)}
+
+/* شريط المدة المجزَّأ: 50 + 10 + 50 */
+.appt-duration-value{position:relative}
+.appt-seg{position:absolute;inset-inline:12px;bottom:6px;height:5px;display:flex;gap:2px;direction:ltr;pointer-events:none}
+.appt-seg>i{display:block;flex-basis:0;border-radius:3px;background:var(--accent)}
+.appt-seg>i.is-gap{background:repeating-linear-gradient(135deg,var(--line-strong) 0 2px,transparent 2px 4px);flex-grow:inherit}
+.appt-seg>i.is-block{background:color-mix(in srgb,var(--accent) 70%,transparent)}
+.appt-seg b{display:none}
+
+/* بطاقة المانع: شريطان متراكبان وتداخلٌ مخطَّط */
+.appt-tl{display:grid;gap:8px;flex:1;min-width:0}
+.appt-tl-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--danger);font-weight:750}
+.appt-tl-overlap{padding:2px 10px;border-radius:999px;background:var(--danger-soft);color:var(--danger);font-size:13px}
+.appt-tl-tracks{display:grid;gap:6px}
+.appt-tl-row{display:grid;grid-template-columns:minmax(70px,.7fr) minmax(120px,3fr) auto;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-2)}
+.appt-tl-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.appt-tl-track{position:relative;height:12px;border-radius:6px;background:var(--surface-2)}
+.appt-tl-bar{position:absolute;top:0;bottom:0;border-radius:6px;background:color-mix(in srgb,var(--muted) 55%,transparent)}
+.appt-tl-row.is-current .appt-tl-bar,.appt-tl-row.is-draft .appt-tl-bar{background:color-mix(in srgb,var(--accent) 70%,transparent)}
+.appt-tl-hatch{position:absolute;top:-2px;bottom:-2px;border-radius:4px;background:repeating-linear-gradient(135deg,var(--danger) 0 3px,var(--danger-soft) 3px 6px);border:1px solid var(--danger);opacity:.9}
+
+/* شريط الحفظ المخفَّف: حبّة الحالة + حفظ + إلغاء */
+.schedule-editor.is-studio .appt-bar{justify-content:space-between}
+
+/* انتقال البطاقة المحفوظة (الحركة الثانية) — يُعطَّل مع تقليل الحركة */
+@media (prefers-reduced-motion:reduce){
+  .appt-sumrow,.appt-sumrow>.appt-num.is-done svg path,.appt-step:has(.regulation-chips.is-autofilled) .appt-time-fields .time-field{animation:none!important;stroke-dashoffset:0}
+}
+@media (max-width:640px){
+  .appt-tl-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"l r" "t t"}
+  .appt-tl-label{grid-area:l}.appt-tl-range{grid-area:r}.appt-tl-track{grid-area:t}
+}
+.appt-travel{position:fixed;z-index:400;pointer-events:none;max-width:260px;padding:10px 16px;border-radius:14px;background:var(--success);color:#fff;font-weight:700;font-size:14px;box-shadow:0 14px 34px -12px rgba(22,79,68,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (prefers-reduced-motion:reduce){.appt-travel{display:none}}
+/* (Phase 3) خانات الأسبوع داخل المحرّر أيقونيّة: اللون يحمل المعنى، والنسبة في العنوان وقارئ الشاشة */
+.schedule-editor.is-studio .mini-week .mini-week-target-fit{display:none}
