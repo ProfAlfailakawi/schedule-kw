@@ -304,3 +304,4 @@ test:vault-jobs
 test:advisor-seat-quota
 test:live-board
 test:delete-impact
+test:inbox-undo

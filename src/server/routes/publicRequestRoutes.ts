@@ -92,7 +92,7 @@ function stripForInstructor(request: InstructorRequest) {
      يسقط والكلمةُ العامة تبقى. ورموزُ قاعات البنود كلِّها تُعرف، فملاحظةٌ على بندٍ قد تذكر قاعةَ آخر. */
   const placeTokens = (request.items || []).flatMap(item => roomTokensOf(item));
   const clean = <T extends string | undefined>(text: T): T => (text == null ? text : scrubPlaceText(text, placeTokens) as T);
-  const cleanDecision = (decision: any) => decision ? { ...decision, reopenTo: undefined, ...(decision.note ? { note: clean(decision.note) } : {}) } : decision;
+  const cleanDecision = (decision: any) => decision ? { ...decision, reopenTo: undefined, undo: undefined, undoable: undefined, ...(decision.note ? { note: clean(decision.note) } : {}) } : decision;
   const cleanThread = (thread: any[] | undefined) => thread?.map(message =>
     message?.from === "department" && message.text ? { ...message, text: clean(message.text) } : message);
   return {

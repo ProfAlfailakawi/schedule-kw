@@ -10,6 +10,7 @@ import { reservationRows } from "../utils/instructorRequestReservations";
 import { approvedBarterReservation, borrowerOutsideApprovedWindow, hallBarterWindows, scheduleViolatesApprovedBarterWindow, scheduleOccupiesApprovedBarterWindow, approvedBarterWindowMatchesSchedule, type ApprovedHallWindow } from "../utils/hallBarterWindow";
 import { clockRangesOverlap } from "../utils/scheduleTime";
 import { findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
+import { planUndoSteps } from "../utils/inboxUndo";
 import { TEACHING_LOAD_DOC_ID, loadLimitOf, loadTermContext, normalizeTeachingLoadConfig, withLoadPolicies } from "../utils/teachingLoad";
 import { normalizeArabicText } from "../utils/arabicText";
 import fs from "fs";
@@ -70,6 +71,7 @@ import {
   CampusMobilityProfile,
   ScheduleShareLink, ShareLinkInstructorMark,
   InstructorRequest,
+  InstructorRequestUndoStep,
   StudyProposal,
   VisitingRoster,
   DepartmentDelegateDirectory,
@@ -6083,7 +6085,7 @@ export const Repository = {
    * physical check, all schedule rows, the decision and released holds commit
    * together. No compensation window, even if the process dies mid-request. */
   commitInstructorRequestPlan: async (request: InstructorRequest, operations: RequestScheduleOperation[],
-    buildRequest: (scheduleIds: Map<number, number>) => InstructorRequest,
+    buildRequest: (scheduleIds: Map<number, number>, written: FSchedule[]) => InstructorRequest,
     normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
     validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ request: InstructorRequest; rows: FSchedule[] }> => {
     const termId = Number(request.AdTermId);
@@ -6121,7 +6123,7 @@ export const Repository = {
       const clashes = findConflicts(written.map(normalize), finalWeek.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict);
       if (clashes.length) throw new RequestReservationConflict("تغيّر الجدول وظهر تعارض أثناء الاعتماد. حدّث الوارد وراجع الموعد.");
       if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
-      const next = { ...buildRequest(ids), requestRevision: Number(current.requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
+      const next = { ...buildRequest(ids, written), requestRevision: Number(current.requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
       const remaining = retainRequestReservations(entries, next);
       /* تجاوز النصاب معلومةٌ للمراجع، لا مانعٌ من اعتماد موعدٍ اختاره القسم.
          فحص تعارض الأوقات والجدول النهائي أعلاه يبقى ملزماً. */
@@ -6156,6 +6158,88 @@ export const Repository = {
         (db.instructorRequestReservationLedgers ||= {})[String(termId)] = planned.entries;
         saveDatabase();
         return { request: planned.request, rows: planned.rows };
+      });
+    }
+    invalidateSchedules(); invalidateReference(REFERENCE_KEYS.scheduleCount);
+    await markRegistrationRunsStale(termId);
+    announceInstructorRequestSaved(result.request);
+    return result;
+  },
+
+  /**
+   * «تراجع» عن تثبيتٍ صدر من الوارد: يعكس ما كتبه التثبيتُ لبندٍ واحد (صفٌّ يُستردّ، أو يُزال، أو يُعاد)
+   * ويفتح البندَ ويعيد حجزَه، كلُّ ذلك في معاملةٍ واحدة كالتثبيت نفسه. يُرفض (بلا كتابة) إن تغيّر أيُّ صفٍّ
+   * بعد التثبيت، أو ظهر تعارضٌ في الأسبوع النهائي، أو لم يعد الحجزُ ممكناً (RequestReservationConflict).
+   * `plan` يفحصه المسارُ قبل النداء ويُعاد فحصُه هنا على الأسبوع الحيّ داخل المعاملة.
+   */
+  undoInstructorRequestFix: async (request: InstructorRequest, steps: InstructorRequestUndoStep[],
+    buildRequest: (written: FSchedule[]) => InstructorRequest,
+    proposalsFor: (next: InstructorRequest, entries: RequestReservation[]) => RequestReservationProposal[],
+    normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
+    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ request: InstructorRequest; rows: FSchedule[]; removed: number[] }> => {
+    const termId = Number(request.AdTermId);
+    const compute = async (week: FSchedule[], current: InstructorRequest, entries: RequestReservation[], windows: ApprovedHallWindow[]) => {
+      if (Number(current.requestRevision || 0) !== Number(request.requestRevision || 0))
+        throw new RequestReservationConflict("تغيّر الطلب أثناء التراجع. حدّث الوارد ثم أعد المحاولة.");
+      const plan = planUndoSteps(steps, week);
+      if (plan.ok === false) throw new ScheduleRevisionConflict(week.find(row => Number(row.id) === plan.rowId) || ({ id: plan.rowId } as FSchedule));
+      const written: FSchedule[] = [];
+      for (const { step, live } of plan.restore) {
+        const row = { ...step.before!, id: live.id, rev: Number(live.rev || 0) + 1 } as FSchedule;
+        assertRequestReservationWrite(row, entries, request.id); written.push(row);
+      }
+      for (const step of plan.readd) {
+        const row = { ...step.before!, rev: Number(step.before!.rev || 0) + 1 } as FSchedule;
+        assertRequestReservationWrite(row, entries, request.id); written.push(row);
+      }
+      const gone = new Set([...plan.remove.map(entry => Number(entry.step.rowId)), ...plan.restore.map(entry => Number(entry.step.rowId))]);
+      const finalWeek = [...week.filter(row => !gone.has(Number(row.id))), ...written];
+      if (written.some(row => scheduleViolatesApprovedBarterWindow(row, windows)))
+        throw new RequestReservationConflict("تغيّرت أهلية القاعة بسبب استعارة معتمدة؛ لا يمكن إعادة الموعد إلى ما كان.");
+      const clashes = findConflicts(written.map(normalize), finalWeek.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict);
+      if (clashes.length) throw new RequestReservationConflict("إعادةُ الموعد إلى ما كان تُحدث الآن تعارضاً في الجدول؛ لا يُتراجع عن التثبيت.");
+      if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
+      let next: InstructorRequest = { ...buildRequest(written), requestRevision: Number(current.requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
+      /* حجزُ البند يعود على الأسبوع بعد التراجع؛ فإن أخذه غيرُه رُفض التراجعُ كلُّه قبل أن يُكتب شيء. وأختامُ الشعب
+         المختارة تُقرأ من صفوفها بعد استردادها لا من اللقطة القديمة. */
+      const proposals = proposalsFor(next, entries).map(proposal => proposal.offeringRowIds.length ? { ...proposal,
+        offeringRows: proposal.offeringRowIds.map(id => {
+          const row = finalWeek.find(item => Number(item.id) === id);
+          return { id, rev: Number(row?.rev || 0), instructorId: Number(row?.AdInstructorId || 0) };
+        }) } : proposal);
+      const allocated = allocateRequestReservations(entries, next, proposals, finalWeek);
+      next = withReservedRooms(next, allocated);
+      return { request: next, rows: written, entries: allocated, finalWeek, removed: plan.remove.map(entry => Number(entry.step.rowId)) };
+    };
+    let result: { request: InstructorRequest; rows: FSchedule[]; removed: number[] };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const requestRef = firestoreDb.collection("instructorRequests").doc(request.id);
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      result = await firestoreDb.runTransaction(async tx => {
+        const [stored, ledger, schedules, barterSnapshot] = await Promise.all([tx.get(requestRef), tx.get(ledgerRef),
+          tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])),
+          tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))]);
+        if (!stored.exists) throw new RequestReservationConflict();
+        const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+        const planned = await compute(schedules.docs.map(doc => doc.data() as FSchedule), stored.data() as InstructorRequest, liveReservations(ledger.data()?.entries || []), windows);
+        planned.removed.forEach(rowId => tx.delete(firestoreDb!.collection("schedules").doc(`schedule_${rowId}`)));
+        planned.rows.forEach(row => tx.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
+        tx.set(requestRef, planned.request);
+        tx.set(ledgerRef, { entries: planned.entries, serial: Number(ledger.data()?.serial || 0) + 1 });
+        return { request: planned.request, rows: planned.rows, removed: planned.removed };
+      }, { maxAttempts: 40 });
+    } else {
+      result = await withSerialLock(`request-reservations:${termId}`, async () => {
+        const at = (db.instructorRequests || []).findIndex(row => row.id === request.id);
+        if (at < 0) throw new RequestReservationConflict();
+        const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === termId));
+        const planned = await compute(db.schedules.filter(row => Number(row.AdTermId) === termId), db.instructorRequests![at],
+          liveReservations(db.instructorRequestReservationLedgers?.[String(termId)] || []), windows);
+        db.schedules = [...db.schedules.filter(row => Number(row.AdTermId) !== termId), ...planned.finalWeek];
+        db.instructorRequests![at] = planned.request;
+        (db.instructorRequestReservationLedgers ||= {})[String(termId)] = planned.entries;
+        saveDatabase();
+        return { request: planned.request, rows: planned.rows, removed: planned.removed };
       });
     }
     invalidateSchedules(); invalidateReference(REFERENCE_KEYS.scheduleCount);
