@@ -1,5 +1,6 @@
 import PatternLibraryButton from "./PatternLibraryButton";
 import WeekHeat from "./WeekHeat";
+import { RoomsNowLine, RoomsRoomBoundary, RoomsTrackGrid, buildRoomsSlotGeo, objectId, type RoomsNowSource, type RoomsSlotHandlers } from "./RoomsBoard";
 import WipeScheduleButton from "./WipeScheduleButton";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import { arabicMatchKey } from "../utils/arabicText";
@@ -8694,6 +8695,36 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       : sampled || "";
     return `${active ? `physics-target physics-${quality}` : ""} ${sampled ? `gravity-slot gravity-${sampled}` : ""} ${shade ? `field-tier tier-${shade}` : ""} ${rank ? `suggested-slot suggested-${rank}` : ""}`.trim();
   };
+  /* لوحة القاعات (RoomsBoard.tsx): هندسةُ المربّعات تُحسب مرةً لكل نافذةٍ زمنية، ومعالجاتُها في مرجعٍ ثابتٍ يُحدَّث كل تصيير
+     فلا تتقادم داخل المربّعات المحفوظة، وإسقاطُ البطاقة كذلك. */
+  const roomsSlotGeo = useMemo(() => {
+    const timelineWidth = weekStripConfig.timelineWidth;
+    const pctAt = (minutesAt: number) => (weekStripOffset(minutesAt) / timelineWidth) * 100;
+    const spanAt = (from: number, to: number) => Math.max(0.18, ((weekStripOffset(to) - weekStripOffset(from)) / timelineWidth) * 100);
+    return buildRoomsSlotGeo(timeSlots, mins, pctAt, spanAt, SCHEDULE_SLOT_MINUTES, SCHEDULE_DAY_END_TIME);
+  }, [timeSlots, weekStripConfig, gridWindow]);
+  const roomsSlotHandlers = useRef<RoomsSlotHandlers>({ down: () => undefined, enter: () => undefined });
+  roomsSlotHandlers.current = {
+    down: (e, at) => {
+      if (physicsActive || e.target !== e.currentTarget || e.button !== 0) return;
+      paintRef.current = { day: at.day as DayKey, anchor: mins(at.slot), roomCode: at.roomCode, roomHall: at.roomHall, trackKey: at.trackKey };
+      setPaint({ day: at.day as DayKey, from: at.slot, to: timeFromMins(mins(at.slot) + SCHEDULE_SLOT_MINUTES), roomCode: at.roomCode, roomHall: at.roomHall, trackKey: at.trackKey });
+    },
+    enter: at => {
+      if (physicsActive) return;
+      const stroke = paintRef.current;
+      if (!stroke || stroke.day !== at.day || stroke.trackKey !== at.trackKey) return;
+      const here = mins(at.slot);
+      setPaint({
+        day: at.day as DayKey,
+        from: timeFromMins(Math.min(stroke.anchor, here)),
+        to: timeFromMins(Math.max(stroke.anchor, here) + SCHEDULE_SLOT_MINUTES),
+        roomCode: at.roomCode, roomHall: at.roomHall, trackKey: at.trackKey,
+      });
+    },
+  };
+  const roomsDropRef = useRef<(building: string, hall: string, day: DayKey) => (e: React.DragEvent<HTMLDivElement>) => Promise<void>>(() => async () => undefined);
+  const roomsNowRef = useRef<RoomsNowSource>({ minutes: 0, start: 0, end: 0, pct: () => 0, clock: () => "" });
   /**
    * The live radar: collisions and regulation notes, read on every change.
    *
@@ -12475,6 +12506,37 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               const start = timeFromMins(Math.round((gridWindow.start + share * span) / SCHEDULE_SLOT_MINUTES) * SCHEDULE_SLOT_MINUTES);
               await commitRoomMove(row, day, start, building, hall);
             };
+            /* ── البصمات: ما يقرؤه رسمُ القاعة ومعالجاتُها، فلا تُعاد قاعةٌ لم يتغيّر منه شيء (RoomsBoard.tsx) ── */
+            roomsDropRef.current = trackDrop;
+            roomsNowRef.current = { minutes: nowMinutes, start: gridWindow.start, end: gridWindow.end, pct, clock: minutesAt => scheduleClockForDisplay(timeFromMins(minutesAt)) };
+            const fieldLive = Boolean(physics.state.target) || !dragFieldIdle || suggestionRank.size > 0 || Object.keys(physicsField).length > 0;
+            const slotSigFor = (roomCode: string, roomHall: string, dayKey: DayKey) =>
+              fieldLive ? timeSlots.map(slot => physicsSlotClass(dayKey, slot, `${roomCode}|${roomHall}`)).join("\u0001") : "";
+            const roomsGlobalSig = [
+              objectId(rows), objectId(courseById), objectId(instructorById), objectId(visitingIds), objectId(displayDays), objectId(timeSlots),
+              objectId(roomsSlotGeo), objectId(weekStripConfig), objectId(gridWindow), matrixDay, hueBy, physicsActive, physics.supported, dragBlocked,
+              String(approvalLock || ""), mode, editor, picking, presentationMode, todayKey,
+            ].join("\u0003");
+            const roomCardSig = (row: FSchedule) => {
+              const course = courseById.get(row.AdCourseId);
+              const instructor = instructorById.get(row.AdInstructorId);
+              const code = String(course?.CourseCode || "").trim() || "—";
+              const title = row.AdCourseName || course?.CourseName || code;
+              const undoId = recentMoves[row.id];
+              const undoEntry = undoId ? undoLog.find(item => item.id === undoId && !item.usedAt) : null;
+              return `${objectId(row)}|${pendingWriteIds.has(row.id) ? 1 : 0}${draggingId === row.id ? 1 : 0}${justChangedId === row.id ? 1 : 0}${liveClash.ids.has(row.id) ? 1 : 0}${outsideClash.notes[row.id] ? 1 : 0}${physicsActive && physicsOrigin?.id === row.id ? 1 : 0}${keyMove?.rowId === row.id ? 1 : 0}|${hueFor(code, title, instructor?.AdInstructorName, placeOf(row))}|${xrayClass(row)}|${physicsRelationClass(row)}|${hueFocusClass(row)}|${undoEntry ? undoEntry.id : ""}`;
+            };
+            const roomSig = (room: { key: string; building: string; hall: string; label: string; roomCode: string; roomHall: string }) => {
+              const parts: string[] = [roomsGlobalSig, room.key, room.building, room.hall, room.label, room.roomCode, room.roomHall];
+              for (const day of displayDays) {
+                const layout = byDayRoomLayout.get(`${day.key}|${room.key}`);
+                parts.push(String(layout ? objectId(layout) : 0), slotSigFor(room.roomCode, room.roomHall, day.key as DayKey));
+                if (layout) for (const item of layout.items) parts.push(roomCardSig(item.row));
+              }
+              for (const trace of moveTraces) if (trace.roomKey === room.key) parts.push(`${trace.key}:${trace.dayKey}:${trace.from}:${trace.to}:${trace.label}`);
+              if (paint?.trackKey?.startsWith(`${room.key}|`)) parts.push(`${paint.trackKey}:${paint.from}:${paint.to}`);
+              return parts.join("\u0002");
+            };
             return (
               <>
                 <div className="rooms-head">
@@ -12756,7 +12818,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     }}
                   >
                   {roomList.map(room => (
-                    <section className="rooms-week-room" key={room.key} aria-label={`القاعة ${room.label}`} title={room.label}>
+                    <RoomsRoomBoundary key={room.key} sig={roomSig(room)} draw={() => (
+                    <section className="rooms-week-room" aria-label={`القاعة ${room.label}`} title={room.label}>
                       <div className="rooms-week-days">
                         {displayDays.map((day, dayIndex) => {
                           const roomLayout = layoutFor(day.key as DayKey, room.key);
@@ -12782,43 +12845,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                                 style={{ height: roomTrackHeight }}
                                 data-physics-day-column="true"
                                 onDragOver={(e) => e.preventDefault()}
-                                onDrop={trackDrop(room.roomCode, room.roomHall, day.key as DayKey)}
+                                onDrop={(e) => roomsDropRef.current(room.roomCode, room.roomHall, day.key as DayKey)(e)}
                               >
-                                {timeSlots.map(slot => (
-                                  <i
-                                    key={`slot-${slot}`}
-                                    className={`rooms-slot ${physicsSlotClass(day.key as DayKey, slot, `${room.roomCode}|${room.roomHall}`)}`}
-                                    data-physics-slot="true"
-                                    data-physics-day={day.key}
-                                    data-physics-start={slot}
-                                    data-physics-label={`${day.label} · ${room.label}`}
-                                    data-physics-room={`${room.roomCode}|${room.roomHall}`}
-                                    style={{ right: `${pct(mins(slot))}%`, width: `${roomSpanPct(mins(slot), mins(slot) + SCHEDULE_SLOT_MINUTES)}%` }}
-                                    role="button"
-                                    tabIndex={-1}
-                                    title={`إضافة موعد · ${day.label} ${slot} · ${room.label}`}
-                                    onPointerDown={(e) => {
-                                      if (physicsActive || e.target !== e.currentTarget || e.button !== 0) return;
-                                      const trackKey = `${room.key}|${day.key}`;
-                                      paintRef.current = { day: day.key as DayKey, anchor: mins(slot), roomCode: room.roomCode, roomHall: room.roomHall, trackKey };
-                                      setPaint({ day: day.key as DayKey, from: slot, to: timeFromMins(mins(slot) + SCHEDULE_SLOT_MINUTES), roomCode: room.roomCode, roomHall: room.roomHall, trackKey });
-                                    }}
-                                    onPointerEnter={() => {
-                                      if (physicsActive) return;
-                                      const stroke = paintRef.current;
-                                      const trackKey = `${room.key}|${day.key}`;
-                                      if (!stroke || stroke.day !== day.key || stroke.trackKey !== trackKey) return;
-                                      const here = mins(slot);
-                                      setPaint({
-                                        day: day.key as DayKey,
-                                        from: timeFromMins(Math.min(stroke.anchor, here)),
-                                        to: timeFromMins(Math.max(stroke.anchor, here) + SCHEDULE_SLOT_MINUTES),
-                                        roomCode: room.roomCode, roomHall: room.roomHall, trackKey,
-                                      });
-                                    }}
-                                  />
-                                ))}
-                                {timeSlots.map(slot => <i key={slot} className={`rooms-hourline ${mins(slot) % 60 === 0 ? "rooms-hourline-major" : "rooms-hourline-half"} ${slot === SCHEDULE_DAY_END_TIME ? "rooms-hourline-terminal" : ""}`} style={{ right: `${pct(mins(slot))}%` }} />)}
+                                <RoomsTrackGrid
+                                  geo={roomsSlotGeo}
+                                  day={day.key}
+                                  dayLabel={day.label}
+                                  placeLabel={room.label}
+                                  roomCode={room.roomCode}
+                                  roomHall={room.roomHall}
+                                  roomAttr={`${room.roomCode}|${room.roomHall}`}
+                                  trackKey={`${room.key}|${day.key}`}
+                                  slotClassSig={slotSigFor(room.roomCode, room.roomHall, day.key as DayKey)}
+                                  handlers={roomsSlotHandlers}
+                                />
                                 {moveTraces
                                   .filter(trace => trace.dayKey === day.key && trace.roomKey === room.key)
                                   .map(trace => (
@@ -12837,7 +12877,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                                     <b dir="ltr">{formatScheduleTimeRange(paint.from, paint.to)}</b><span>موعد جديد</span>
                                   </div>
                                 ) : null}
-                                {todayKey === day.key && nowMinutes >= gridWindow.start && nowMinutes <= gridWindow.end ? <i className="rooms-now" style={{ right: `${pct(nowMinutes)}%` }} title={`الآن · ${scheduleClockForDisplay(timeFromMins(nowMinutes))}`}><b dir="ltr">{scheduleClockForDisplay(timeFromMins(nowMinutes))}</b></i> : null}
+                                {todayKey === day.key ? <RoomsNowLine source={roomsNowRef} stamp={`${gridWindow.start}|${gridWindow.end}|${weekStripConfig.timelineWidth}`} /> : null}
                                 {roomLayout.items.map(({ row, lane }) => renderTrackCard(row, day.key as DayKey, { lane }))}
                               </div>
                             </div>
@@ -12845,6 +12885,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         })}
                       </div>
                     </section>
+                    )} />
                   ))}
                   {displayDays.some(day => (noRoomByDay.get(day.key as DayKey) || []).length || moveTraces.some(trace => trace.roomKey === "|" && trace.dayKey === day.key)) ? (
                     <section className="rooms-week-room rooms-row-none" aria-label="بلا قاعة" title="بلا قاعة">
@@ -12855,37 +12896,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           return (
                           <div className="rooms-row" key={`none|${day.key}`} style={{ minHeight: homelessTrackHeight }}>
                             <small className="rooms-day-label">{day.label}</small>
-                            <div className="rooms-track" style={{ height: homelessTrackHeight }} data-physics-day-column="true" onDragOver={(e) => e.preventDefault()} onDrop={trackDrop("", "", day.key as DayKey)}>
-                              {timeSlots.map(slot => (
-                                <i
-                                  key={`none-slot-${slot}`}
-                                  className={`rooms-slot ${physicsSlotClass(day.key as DayKey, slot, "|")}`}
-                                  data-physics-slot="true"
-                                  data-physics-day={day.key}
-                                  data-physics-start={slot}
-                                  data-physics-label={`${day.label} · بلا قاعة`}
-                                  data-physics-room="|"
-                                  style={{ right: `${pct(mins(slot))}%`, width: `${roomSpanPct(mins(slot), mins(slot) + SCHEDULE_SLOT_MINUTES)}%` }}
-                                  role="button"
-                                  tabIndex={-1}
-                                  title={`إضافة موعد · ${day.label} ${slot} · بلا قاعة`}
-                                  onPointerDown={(e) => {
-                                    if (physicsActive || e.target !== e.currentTarget || e.button !== 0) return;
-                                    const trackKey = `none|${day.key}`;
-                                    paintRef.current = { day: day.key as DayKey, anchor: mins(slot), roomCode: "", roomHall: "", trackKey };
-                                    setPaint({ day: day.key as DayKey, from: slot, to: timeFromMins(mins(slot) + SCHEDULE_SLOT_MINUTES), roomCode: "", roomHall: "", trackKey });
-                                  }}
-                                  onPointerEnter={() => {
-                                    if (physicsActive) return;
-                                    const stroke = paintRef.current;
-                                    const trackKey = `none|${day.key}`;
-                                    if (!stroke || stroke.day !== day.key || stroke.trackKey !== trackKey) return;
-                                    const here = mins(slot);
-                                    setPaint({ day: day.key as DayKey, from: timeFromMins(Math.min(stroke.anchor, here)), to: timeFromMins(Math.max(stroke.anchor, here) + SCHEDULE_SLOT_MINUTES), roomCode: "", roomHall: "", trackKey });
-                                  }}
-                                />
-                              ))}
-                              {timeSlots.map(slot => <i key={slot} className={`rooms-hourline ${mins(slot) % 60 === 0 ? "rooms-hourline-major" : "rooms-hourline-half"} ${slot === SCHEDULE_DAY_END_TIME ? "rooms-hourline-terminal" : ""}`} style={{ right: `${pct(mins(slot))}%` }} />)}
+                            <div className="rooms-track" style={{ height: homelessTrackHeight }} data-physics-day-column="true" onDragOver={(e) => e.preventDefault()} onDrop={(e) => roomsDropRef.current("", "", day.key as DayKey)(e)}>
+                              <RoomsTrackGrid
+                                geo={roomsSlotGeo}
+                                day={day.key}
+                                dayLabel={day.label}
+                                placeLabel="بلا قاعة"
+                                roomCode=""
+                                roomHall=""
+                                roomAttr="|"
+                                trackKey={`none|${day.key}`}
+                                slotClassSig={slotSigFor("", "", day.key as DayKey)}
+                                handlers={roomsSlotHandlers}
+                              />
                               {moveTraces
                                 .filter(trace => trace.dayKey === day.key && trace.roomKey === "|")
                                 .map(trace => (
