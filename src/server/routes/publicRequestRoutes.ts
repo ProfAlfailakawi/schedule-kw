@@ -68,6 +68,7 @@ import { withoutPlaceFields } from "../../utils/teacherSafeFields";
 import { decisionDigest, digestItemId } from "../../utils/requestDecisionDigest";
 import { sendCalendar } from "./publicCalendarRoutes";
 import { shareDayIndexes } from "../core/shareLinks";
+import { forHistory } from "../../utils/inboxUndo";
 
 /* طلبُ الأستاذ وردُّه من رابطه العام: حدٌّ سخيٌّ لإنسانٍ يكتب، فوق عدّاد
    المحاولات الموقّعة (publicAttempts) لا بدلاً منه. */
@@ -269,7 +270,7 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
         after: { courseId: option.id, courseName: option.name, collegeId: option.collegeId, sectionId: option.sectionId, collegeName: option.collegeName,
           sectionCode: String(first.SCode), days: [...new Set(slots.map(slot => DAY_LETTERS[slot.day]))].join(" · "), time: slots.map(slot => `${slot.start} – ${slot.end}`).filter((time, at, all) => all.indexOf(time) === at).join(" / ") },
         slots, excuse: String(entry.excuse || "").slice(0, 400) || undefined, thread: prior?.thread, threadHistory: prior?.threadHistory,
-        decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision ? [prior.decision] : [])], decision: undefined });
+        decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision ? [forHistory(prior.decision)] : [])], decision: undefined });
       continue;
     }
     const courseId = action === "add" ? Number(entry?.courseId || 0) : Number(stored?.before?.courseId || 0);
@@ -312,7 +313,7 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
       itemId: prior?.itemId || randomUUID(),
       ...(prior?.thread?.length ? { thread: prior.thread } : {}),
       threadHistory: prior?.threadHistory,
-      decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision && !decisionStillApplies(prior, action, days, start) ? [prior.decision] : [])],
+      decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision && !decisionStillApplies(prior, action, days, start) ? [forHistory(prior.decision)] : [])],
       rowId,
       action: normalizedAction as any,
       before: action === "add"
@@ -1163,7 +1164,7 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
       chosenAlternative: chosen,
       /* قرارٌ سابقٌ على ما كان يُطلب لا يبقى على ما اتُّفق عليه الآن. */
       decision: undefined,
-      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [item.decision] : [])],
+      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [forHistory(item.decision)] : [])],
       ...appendRequestThread(item, { from: "instructor" as const, at: now, accepted: true, slots: [chosen], ...(text ? { text } : {}) }),
     };
     kind = "proposal-accepted";
@@ -1272,7 +1273,7 @@ app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async
       after: { ...(item.after || item.before || { courseId: 0, courseName: "", sectionCode: "", days: "", time: "" }),
         days: days.map(day => DAY_LETTERS[day]).join(" · "), time: `${chosen.start} – ${end}` },
       slots, chosenAlternative: chosen, decision: undefined,
-      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [item.decision] : [])],
+      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [forHistory(item.decision)] : [])],
       ...appendRequestThread(item, { from: "instructor" as const, at: now, accepted: true, slots: [chosen] }),
     };
     signedItems.push({ action: "accept", courseName: String((items[index].after || items[index].before)?.courseName || ""),

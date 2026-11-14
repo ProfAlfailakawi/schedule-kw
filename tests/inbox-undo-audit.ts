@@ -11,6 +11,7 @@
  *   A1..A4 سؤال الوارد: اليومُ والفترةُ والنوعُ والحالةُ والموقعُ والاسمُ، «فهمتُ»، وعدمُ الفهم بلا مسّ للمرشّحات.
  */
 import fs from "fs";
+import { forHistory } from "../src/utils/inboxUndo";
 import path from "path";
 import {
   INBOX_UNDO_WINDOW_MS, classifyUndo, holdSnapshotOf, planUndoSteps, proposalsAfterUndo, undoStepsOf, undoWindowLeftMs,
@@ -182,6 +183,18 @@ check(/parseRequestsAsk\(ask\)/.test(inbox) && /askNote=\{askNote\}/.test(inbox)
 check(/askItemOk\(item, row\)/.test(inbox) && /askItemOk\(item, row\)\)\n\s+\.map/.test(inbox), "A4 الشاشة: السؤالُ في مرشّح البند وفي الأعداد معاً");
 check(/const stateFilter: typeof stateChoice = parsedAsk\.state/.test(inbox), "A4 الشاشة: الحالةُ في السؤال تحلّ محلّ الشريحة");
 check(/notOpened\(\[row as any\]\)/.test(inbox), "A4 الشاشة: «لم يفتح» من العمود نفسه الذي تقرؤه قائمةُ «لم يفتحوا»");
+
+{
+  /* لقطةُ التراجع لا تنتقل إلى سجلّ القرارات السابقة: تُكبّر وثيقةَ الطلب مع كل إعادة قرار. */
+  const withUndo = { state: "fixed", decidedAt: "2026-11-14T00:00:00Z", undo: { rows: [{ id: 1 }] } } as any;
+  const moved = forHistory(withUndo);
+  check(moved.undo === undefined && moved.state === "fixed" && withUndo.undo, "H1 forHistory يُسقط اللقطة ولا يغيّر الأصل");
+  check(forHistory({ state: "rejected" } as any).state === "rejected", "H1 قرارٌ بلا لقطة يبقى كما هو");
+  const adminRoutes = read("src/server/routes/instructorRequestsRoutes.ts"), publicRoutes = read("src/server/routes/publicRequestRoutes.ts");
+  const raw = /decisionHistory: \[[^\]]*\[(?:item|current|prior)\??\.decision\]/;
+  check(!raw.test(adminRoutes) && !raw.test(publicRoutes) && adminRoutes.includes("forHistory(") && publicRoutes.includes("forHistory("),
+    "H1 كلُّ انتقالِ قرارٍ إلى decisionHistory يمرّ بـforHistory");
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

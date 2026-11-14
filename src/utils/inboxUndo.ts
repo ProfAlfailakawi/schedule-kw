@@ -141,3 +141,11 @@ export function proposalsAfterUndo(next: { id: string; items: InstructorRequestI
   }
   return out;
 }
+
+/**
+ * قرارٌ ينتقل إلى سجلّ القرارات السابقة: يفقد لقطةَ التراجع. اللقطةُ تحمل صفوفَ الجدول كاملةً ولا تُفيد إلا للقرار
+ * القائم؛ وبقاؤها في السجلّ يُكبّر وثيقةَ الطلب مع كل إعادة قرار حتى يقترب من حدّ المليون بايت.
+ */
+export function forHistory<T extends { undo?: unknown }>(decision: T): T {
+  return decision && "undo" in decision ? { ...decision, undo: undefined } : decision;
+}

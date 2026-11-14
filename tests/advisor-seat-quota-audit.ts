@@ -63,5 +63,11 @@ const read = (path: string) => fs.readFileSync(path, "utf8");
   check(run("ArrowLeft", 0) === "|focus+click|", "الافتراضي يفعّل (راديو وألسنة المكان)");
 }
 
+{
+  /* علَمُ إعادة التركيز يُرفع حين ينتقل التبويب فعلاً فقط، وإلا بقي حتى أول تركيبٍ آخر فسرق التركيز. */
+  const tabs = fs.readFileSync("src/components/RegistrationTabs.tsx", "utf8");
+  check(tabs.includes("event.detail === 0 && view !== active"), "T9 علَمُ التركيز لا يُرفع عند الضغط على التبويب النشط نفسه");
+}
+
 console.log(`\n${passed} ناجح، ${failed} فاشل`);
 process.exit(failed ? 1 : 0);

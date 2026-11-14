@@ -13,6 +13,7 @@
  */
 import type { Express, Request, RequestHandler, Response } from "express";
 import { Repository } from "../db/repository";
+import { createTtlMemo } from "./notificationCache";
 import type { AdTerm, RegistrationRun } from "../types";
 import { pickDoorTerm, readStudentPhase } from "../utils/termStudentPhases";
 import { buildSimulationOfferings, type loadSimulationInput } from "./simulationData";
@@ -32,6 +33,17 @@ export interface LiveBoardDeps {
   loadInput: (term: AdTerm, run: RegistrationRun | null) => Promise<Loaded>;
   shared: RadarSuggestionShared;
 }
+
+/**
+ * قراءاتُ اللوحة الثلاث الثقيلة (أجوبةُ الطلبة، ورصيدُ المقاعد، وطلباتُ الشعب) تُشارَك ثانيتين بين كل من يفتح اللوحة:
+ * كلُّ جوابِ طالبٍ يوقظ كلَّ لوحةٍ مفتوحة، فبلا هذا تُقرأ المجموعاتُ نفسُها مرّةً لكل لوحةٍ في كل نبضة.
+ * الثانيتان أقصرُ من تأخير الواجهة بعد النبضة، فلا تُرى نبضةٌ بقراءةٍ أقدم منها؛ ومفتاحُ الذاكرة يحمل عالَم الجلسة
+ * التجريبية فلا يقرأ صندوقٌ ما كتبه آخر.
+ */
+export const LIVE_BOARD_READ_TTL_MS = 2_000;
+const readMemo = createTtlMemo<unknown>({ ttlMs: LIVE_BOARD_READ_TTL_MS });
+const shared2s = <T>(name: string, termId: number, load: () => Promise<T>): Promise<T> =>
+  readMemo.get(`${Repository.currentDemoSessionId() || "real"}|${name}|${termId}`, load as () => Promise<unknown>) as Promise<T>;
 
 /** أقصى مقرراتٍ يُقترح لها في الطلب الواحد (الأشدُّ إلحاحاً أولاً). */
 export const LIVE_BOARD_SUGGESTION_LIMIT = 6;
@@ -74,7 +86,7 @@ export function registerLiveBoardRoutes(app: Express, deps: LiveBoardDeps): void
         const key = `${termId}|${Number(row.AdCollegeId)}|${Number(row.AdSectionId)}|${Number(row.AdCourseId)}|${String(row.SCode || "").trim()}`;
         if (!meeting.has(key)) meeting.set(key, formatScheduleTimeRange(row.fstarttime, row.fendtime));
       }
-      const ledgers = await Repository.listFeatureDocs<{ id: string; adds?: Array<{ count?: number }> }>("advisorSeatLedgers", `${termId}:`).catch(() => []);
+      const ledgers = await shared2s("ledgers", termId, () => Repository.listFeatureDocs<{ id: string; adds?: Array<{ count?: number }> }>("advisorSeatLedgers", `${termId}:`).catch(() => []));
       const addedOf = new Map(ledgers.map(row => [row.id, (row.adds || []).reduce((sum, add) => sum + Math.max(0, Number(add.count) || 0), 0)] as const));
       const sections: BoardSectionInput[] = offerings.map(item => {
         const course = loaded.courses.get(item.courseId);
@@ -88,7 +100,7 @@ export function registerLiveBoardRoutes(app: Express, deps: LiveBoardDeps): void
       const courseIds = new Set(sections.map(item => item.courseId));
 
       /* أجوبةُ الطلبة (عدّاداتٌ مشاظِرة لكل مقرر، بلا أسماء) وتاريخُ آخر جواب. */
-      const shards = await Repository.getRegistrationOutcome(termId);
+      const shards = await shared2s("outcome", termId, () => Repository.getRegistrationOutcome(termId));
       let reportsAt: string | null = null;
       const signal = new Map<number, BoardCourseSignal>();
       const get = (courseId: number): BoardCourseSignal => {
@@ -108,7 +120,7 @@ export function registerLiveBoardRoutes(app: Express, deps: LiveBoardDeps): void
       }
 
       /* طلباتُ الشعب (من اعتُمد ومن علّمه التسجيل «سُجّل»): عدداً لكل مقرر. */
-      const requests = await Repository.listFeatureDocs<SectionRequest>("sectionRequests", `${termId}:`).catch(() => [] as SectionRequest[]);
+      const requests = await shared2s("requests", termId, () => Repository.listFeatureDocs<SectionRequest>("sectionRequests", `${termId}:`).catch(() => [] as SectionRequest[]));
       let requestsAt: string | null = null, requestsPresent = false;
       for (const request of requests) {
         if (request.closed || !courseIds.has(Number(request.courseId))) continue;

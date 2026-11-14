@@ -9,7 +9,7 @@
 import type { Express } from "express";
 import { appendRequestThread, THREAD_TEXT_LIMIT, negotiationState, parseOfferedSlots } from "../../utils/instructorRequestThread";
 import { RequestReservationConflict, REQUEST_RACE_LOST } from "../../utils/instructorRequestReservations";
-import { classifyUndo, holdSnapshotOf, planUndoSteps, proposalsAfterUndo, undoStepsOf, type UndoOp } from "../../utils/inboxUndo";
+import { classifyUndo, holdSnapshotOf, planUndoSteps, proposalsAfterUndo, undoStepsOf, type UndoOp, forHistory } from "../../utils/inboxUndo";
 import { Response } from "express";
 import { randomUUID } from "crypto";
 import { Repository, ScheduleRevisionConflict } from "../../db/repository";
@@ -822,7 +822,7 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
     : undefined;
   items[index] = {
     ...item,
-    decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [item.decision] : [])],
+    decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [forHistory(item.decision)] : [])],
     decision: {
       state,
       ...(state === "rejected" ? { undo: { steps: [], ...(releasedHold ? { hold: holdSnapshotOf(releasedHold) } : {}) } } : {}),
@@ -892,7 +892,7 @@ app.post("/api/instructor-requests/:id/cancel-scheduled", requirePermission(7), 
     if (!current) return null;
     const items = [...base.items];
     items[at] = { ...current,
-      decisionHistory: [...(current.decisionHistory || []), ...(current.decision ? [current.decision] : [])],
+      decisionHistory: [...(current.decisionHistory || []), ...(current.decision ? [forHistory(current.decision)] : [])],
       decision: { state: "rejected", reasonCode: "department", cancelled: true, fromSchedule: true, note, decidedBy: by, decidedAt: now } };
     return { ...base, items,
       timeline: [...(base.timeline || []), { kind: "item-rejected" as InstructorRequestEventKind, at: now, by, itemIndex: at, detail: "department" }],

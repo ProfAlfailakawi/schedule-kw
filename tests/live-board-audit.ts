@@ -131,5 +131,12 @@ const css = read("src/styles/62-live-board.css");
 check(/min-block-size:44px/.test(css) && /max-width:480px/.test(css), "أهدافُ ٤٤px وتخطيطٌ للهاتف");
 check(!/!important/.test(css), "بلا !important");
 
+{
+  /* قراءاتُ اللوحة الثقيلة تُشارَك ثانيتين بين اللوحات المفتوحة، بمفتاحٍ يحمل عالَم الجلسة التجريبية. */
+  const server = read("src/server/liveBoard.ts");
+  check(server.includes("LIVE_BOARD_READ_TTL_MS = 2_000") && (server.match(/shared2s\(/g) || []).length === 3 + 0 && server.includes("Repository.currentDemoSessionId()"),
+    "L9 أجوبةُ الطلبة والرصيدُ وطلباتُ الشعب تُقرأ مرّةً كل ثانيتين لا مرّةً لكل لوحة، ومفتاحُها يحمل عالَم الجلسة");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

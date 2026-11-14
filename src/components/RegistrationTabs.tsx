@@ -40,7 +40,7 @@ export default function RegistrationTabs({ active, canRoster, canRadar, onGo }: 
       {tabs.map(({ view, label, Icon }) => (
         <button key={view} type="button" role="tab" id={registrationTabId(view)} aria-selected={active === view} aria-controls={registrationPanelId(view)}
           tabIndex={active === view ? 0 : -1} className={active === view ? "on" : ""}
-          onClick={event => { if (event.detail === 0) keepFocus = true; onGo(view); }} data-guide-ignore="ينتقل بين كشف التسجيل والرادار؛ كلاهما مسجّل وجهةً في المرشد">
+          onClick={event => { if (event.detail === 0 && view !== active) keepFocus = true; onGo(view); }} data-guide-ignore="ينتقل بين كشف التسجيل والرادار؛ كلاهما مسجّل وجهةً في المرشد">
           <Icon aria-hidden="true" />{label}
         </button>
       ))}
