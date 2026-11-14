@@ -1485,6 +1485,10 @@
         {
           "ar": "تُطبع أوراق Safari (مسار التدوير) بمقياس ٩٧٪ بدل ١٠٠٪ (قرار المالك)، فلا يخرج شيءٌ من حافة الورقة؛ والمقياس متغيّرٌ واحد تتبعه الخانة والإزاحة وشريط الاعتماد، وعدد الصفوف والاتجاه والأعمدة لا تتغيّر.",
           "en": "Safari sheets (the rotate path) print at 97% instead of 100% (owner decision), so nothing leaves the paper edge; the scale is one variable that the slot, offset and attestation strip all follow, and the row count, orientation and columns do not change."
+        },
+        {
+          "ar": "في مسار Safari المدوَّر تُزاح الورقة بمقدار ما يتبقّى من عرض الصفحة بعد التصغير (٦٫٣mm عند ٩٧٪) نحو أعلاها، فلا يُقصّ أسفلها عند حافة الورقة؛ ويبقى هامش أسفلها وأعلاها متقاربَين (٤٫٥ و٥٫٠mm)، ويتبعها شريط الاعتماد، ولا يتغيّر شيءٌ آخر.",
+          "en": "In Safari's rotated path the sheet is offset toward its top by whatever page width remains after scaling (6.3 mm at 97%), so its bottom is no longer clipped at the paper edge; the bottom and top margins stay close (4.5 and 5.0 mm), the attestation strip follows, and nothing else changes."
         }
       ],
       "evidence": {
