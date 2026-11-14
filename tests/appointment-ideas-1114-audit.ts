@@ -92,6 +92,8 @@ async function server() {
       const read = await ad.appointmentDemandFor(req, { ...base, fstarttime: clashing.start, fendtime: clashing.end, ...Object.fromEntries(days.map(d => [d, true])) });
       check(Boolean(read.studentFit?.graduates && read.studentFit.students), "F5 بطاقة النبض تحمل الخريجين والطلبة معاً", read.studentFit);
       check(read.studentFit?.graduates?.clashes[0]?.code === code(b), "F6 المقرر المحجوب يُسمّى برقمه السباعي", read.studentFit?.graduates?.clashes);
+      const cov = read.studentFit?.graduates?.coverage;
+      check(Number.isFinite(cov?.before) && Number.isFinite(cov?.after) && cov!.after >= 0 && cov!.after <= 100, "F7 تغطية المقرر كله تصل في قراءة الحفظ (قبل/بعد)", cov);
     });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

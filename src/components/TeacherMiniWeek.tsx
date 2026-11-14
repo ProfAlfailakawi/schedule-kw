@@ -281,7 +281,7 @@ export default function TeacherMiniWeek({
   teacherId, teacherName, nisab = 0, overtime = 0, limited = nisab > 0, visiting = false, trainee = false, rows, termId, collegeId, sectionId = 0, excludeId = 0, original = null,
   draft, verdict, checked = true, course, courses, window: dayWindow, userId = 0, fixedDays, onPick, variant = "side",
   autoCollapse = false, dockable = false, room = null, readOnly = false, onClose,
-  collegeNames,
+  collegeNames, onBestFit,
 }: {
   teacherId: number;
   teacherName: string;
@@ -325,6 +325,8 @@ export default function TeacherMiniWeek({
   readOnly?: boolean;
   onClose?: () => void;
   collegeNames?: Map<number, string>;
+  /** أفضل خانةٍ حرّةٍ بنبض الطلبة، أو null: لزرّ «أفضل وقت» في نموذج الموعد. */
+  onBestFit?: (best: { day: string; days: string[]; start: string; end: string; percent: number; kind: "grad" | "stud" } | null) => void;
 }) {
   const bodyId = useId();
   /* The instructor week is a side column wherever the page has the room — a desk, a
@@ -440,6 +442,23 @@ export default function TeacherMiniWeek({
     scode: String(draft?.SCode || ""), excludeId, version: rows.length, targets: shownTargets,
   });
   const fitTone = (percent: number) => percent >= 85 ? "good" : percent >= 60 ? "warn" : "bad";
+  /* أفضل خانةٍ حرّةٍ بنبض الطلبة (عند التعادل الأبكر): يقرؤها زرّ «أفضل وقت» في بطاقة النبض. */
+  const bestKey = (() => {
+    let best: { target: MiniTarget; fit: { percent: number; kind: "grad" | "stud" } } | null = null;
+    for (const target of shownTargets) {
+      const fit = fits.get(fitKeyOf(target));
+      if (fit && (!best || fit.percent > best.fit.percent || (fit.percent === best.fit.percent && target.start < best.target.start))) best = { target, fit };
+    }
+    return best ? `${best.target.day}|${best.target.days.join("+")}|${best.target.start}|${best.target.end}|${best.fit.percent}|${best.fit.kind}` : "";
+  })();
+  const onBestRef = useRef(onBestFit);
+  onBestRef.current = onBestFit;
+  useEffect(() => {
+    if (!bestKey) { onBestRef.current?.(null); return; }
+    const [day, days, start, end, percent, kind] = bestKey.split("|");
+    onBestRef.current?.({ day, days: days.split("+"), start: toClock(Number(start)), end: toClock(Number(end)), percent: Number(percent), kind: kind as "grad" | "stud" });
+    return () => onBestRef.current?.(null);
+  }, [bestKey]);
 
   /* معاينة قبل الضغط: «+» يضيء خانات النمط كلها، و«قبلها/بعدها» يرسم حدّ الموضع. */
   const [preview, setPreview] = useState<(MiniTarget & { stick: boolean }) | null>(null);
@@ -781,12 +800,12 @@ export default function TeacherMiniWeek({
               const golden = target.golden;
               const fit = fits.get(fitKeyOf(target));
               const fitWho = fit ? (fit.kind === "grad" ? "الخريجين" : "الطلبة") : "";
-              return <button type="button" key={`t-${target.start}`} className={`mini-week-target${lit ? " is-lit" : ""}${golden === true ? " is-golden" : golden === false ? " is-room-busy" : ""}${fit ? ` has-fit fit-${fitTone(fit.percent)}` : ""}`} style={place(target.start, target.end)}
+              return <button type="button" key={`t-${target.start}`} className={`mini-week-target${lit ? " is-lit" : ""}${golden === true ? " is-golden" : golden === false ? " is-room-busy" : ""}${fit ? ` has-fit fit-${fitTone(fit.percent)}${pixels(target.start, target.end) >= 34 ? " fit-labeled" : ""}` : ""}`} style={place(target.start, target.end)}
                 title={`${toClock(target.start)}–${toClock(target.end)} · ${daysText(target.days)}${golden === true ? " · والقاعة خالية" : golden === false ? " · القاعة محجوزة" : ""}${fit ? ` · يناسب ${fit.percent}٪ من ${fitWho}` : ""}`}
                 aria-label={`ضع الموعد ${DAY_FULL[day]} ${toClock(target.start)} (${daysText(target.days)})${golden === true ? " · والقاعة خالية" : golden === false ? " · القاعة محجوزة" : ""}`}
                 onMouseEnter={hover(target)} onFocus={hover(target)} onBlur={hover(null)} onClick={() => pick(target)}
                 data-guide-ignore="يملأ اليوم والبداية والنهاية وأيام النمط في النموذج؛ لا يحفظ شيئاً"><Plus aria-hidden="true" />
-                {pixels(target.start, target.end) >= 22 ? <span className="mini-week-target-time" dir="ltr">{toClock(target.start)}</span> : null}
+                {pixels(target.start, target.end) >= 22 && !(fit && pixels(target.start, target.end) >= 34) ? <span className="mini-week-target-time" dir="ltr">{toClock(target.start)}</span> : null}
                 {golden === true ? <Star className="mini-week-target-star" aria-hidden="true" /> : null}
                 {fit && pixels(target.start, target.end) >= 34 ? <em className="mini-week-target-fit" dir="ltr" aria-hidden="true">{fit.percent}٪</em> : null}
               </button>;
@@ -841,7 +860,7 @@ export default function TeacherMiniWeek({
         {roomOn ? <b className="mini-week-legend-room" title="القاعة المختارة في النموذج"><DoorOpen aria-hidden="true" /><bdi dir="ltr">{roomLabel}</bdi></b> : null}
       </div> : null}
       <p className="mini-week-hint"><Info aria-hidden="true" />
-        <span>{readOnly ? "أسبوعه في كل عائلة القسم · اضغط المادة لعرض اسمها كاملاً" : <>{hoverable ? "مرّر على «+» فتضيء خانات النمط" : "اضغط «+» لتضع الموعد"}{canDraw ? " · اسحب على فراغ لترسم موعداً" : ""} · اضغط المادة لعرض اسمها كاملاً · لا يُحفظ شيء</>}</span>
+        <span>{readOnly ? "أسبوعه في كل عائلة القسم · اضغط المادة لعرض اسمها كاملاً" : <>{hoverable ? "مرّر على خانةٍ فتضيء خانات النمط" : "اضغط خانةً لتضع الموعد"}{canDraw ? " · اسحب على فراغ لترسم موعداً" : ""} · اضغط المادة لعرض اسمها كاملاً · لا يُحفظ شيء</>}</span>
       </p>
     </div> : null}
   </section>;

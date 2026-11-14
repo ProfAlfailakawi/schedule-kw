@@ -216,7 +216,7 @@ import { changeFormPatch, openRowNotice, takeOpenRow, type RequestedChange } fro
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
 import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, FOCUS_COURSE_EVENT, graduateImpactNote, takeActualDemandHandoff, takeFocusedCourse } from "../utils/actualDemandHandoff";
 import { freshSectionOf, parseHoursIssue } from "../utils/hoursIssue";
-import StudentPulse from "./StudentPulse";
+import StudentPulse, { FitImpact, saveImpactOf, type BestTime, type SaveImpact } from "./StudentPulse";
 import type { StudentFit } from "../utils/studentFit";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
 import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
@@ -1014,6 +1014,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     [graduateNotice, setGraduateNotice] = useState(""),
     /* «نبض الطلبة»: من يناسبه هذا الوقت ممن يحتاجون المقرر — من الطلب الفعلي، ملاحظةٌ لا تمنع. */
     [studentFit, setStudentFit] = useState<StudentFit | null>(null),
+    /* «أفضل وقت» من أسبوع الأستاذ، وسطرُ أثر الحفظ («يناسب الخريجين 0٪ ← 94٪») لثوانٍ بعد حفظٍ ناجح. */
+    [bestTime, setBestTime] = useState<BestTime | null>(null),
+    [saveImpact, setSaveImpact] = useState<SaveImpact | null>(null),
     [graduateImpact, setGraduateImpact] = useState<{ graduates: number; pairs?: string[] } | null>(null),
     /* ما يُحفظ بتأكيدٍ صريح فقط (ملاحظتا المالك 10 و20): من فحص الخادم نفسه. */
     [regulationIssues, setRegulationIssues] = useState<RegulationExceptionIssue[]>([]),
@@ -3125,7 +3128,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     /* أثرُ الموعد السابق على الخريجين لا يبقى في محرّرٍ جديد ولا يصل ورقةَ الاستثناء. */
     setGraduateNotice("");
     graduateNoteRef.current = "";
-    setStudentFit(null); setGraduateImpact(null);
+    setStudentFit(null); setGraduateImpact(null); setBestTime(null);
     usualRoomLookup.current += 1;
     setChecking(false);
     setScheduleTouched(false);
@@ -5411,6 +5414,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             : "تم إنشاء الموعد · الشعبة التالية جاهزة",
       );
       setPhysicsNotice([queuedOffline ? "بانتظار المزامنة" : "", editorTimingNote || ""].filter(Boolean).join(" · "));
+      /* أثرُ الحفظ على من يحتاجون المقرر: سطرٌ واحد لثوانٍ، لا يُمحى بفتح «الشعبة التالية» (لا يمرّ من clearEditorTransients). */
+      const impact = queuedOffline ? null : saveImpactOf(studentFit);
+      setSaveImpact(impact);
+      if (impact) window.setTimeout(() => setSaveImpact(current => current === impact ? null : current), 9000);
       sendEntryMeasure(studioMeter.current?.finish() ?? null);
       studioMeter.current = keepCreating ? createEntryMeter("create") : null;
       const guideOp = guideOperationRef.current;
@@ -9755,6 +9762,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         {/* The editor no longer closes after a creation, so the confirmation has
             to be readable where the person is still standing. */}
         {message ? <Notice type="success">{message}</Notice> : null}
+        {saveImpact ? <FitImpact impact={saveImpact} /> : null}
         {editor === "create" && draftOffer && !form.AdCourseId ? (() => {
           const minutesAgo = Math.max(0, Math.round((Date.now() - draftOffer.at) / 60000));
           const ago = minutesAgo < 1 ? "الآن" : minutesAgo < 60 ? `قبل ${minutesAgo} د` : `قبل ${Math.round(minutesAgo / 60)} س`;
@@ -10129,7 +10137,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     </div>
                   </div>:null}
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
-                  {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact} /> : null}
+                  {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact}
+                    best={bestTime && (bestTime.start !== String(form.fstarttime || "") || bestTime.days.join() !== formDays.join()) ? bestTime : null}
+                    onPickBest={best => pickFromMiniWeek({ day: best.day as RegDayKey, days: best.days as RegDayKey[], start: best.start, end: best.end })} /> : null}
                   <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
                     <span className="appt-helpers-label">مساعدات الوقت</span>
                     <button
@@ -10491,6 +10501,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               dockable
               autoCollapse={studioChecksOpen || timeCounterOpen}
               room={studioRoom}
+              onBestFit={setBestTime}
             />
           ) : null}
           {studioWeekShown && !studioTeacherId ? (
@@ -11203,6 +11214,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         {returnNote ? <Notice type="success">{returnNote}</Notice> : null}
         {error ? <Notice>{error}</Notice> : null}
         {message ? <Notice type="success">{message}</Notice> : null}
+        {saveImpact && editor === "index" ? <FitImpact impact={saveImpact} /> : null}
       </div> : null}
       {/* Silent intelligence: routine timing/physics feedback no longer owns
           vertical space above the timetable. The same state is kept for assistive
