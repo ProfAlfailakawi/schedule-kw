@@ -395,9 +395,9 @@ screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (
 ### 15.2 الحل
 
 - متغيرات في `01-foundation.css` (صفر خارج الدوو): `--duo-widget-w:70px`، `--duo-widget-gap:8px`، `--duo-widget-h:clamp(64px,30vh,200px)`، `--duo-widget-inset = w + gap`. المعادلة من القياس: عرض ≈64pt + ≈6pt بُعد عن الحافة؛ ارتفاع ≈30% من الشاشة بحد 200.
-- **الكشف** بثلاثة استعلامات `screen` (لا UA ولا `display-mode` ولا `navigator.standalone`، فيعمل في Safari وفي Capacitor وفي التطبيق المثبَّت): طولي بعرض 360–720 وارتفاع ≥520 ونسبة ≥ 1:2؛ وعرضي بعرض 560–1000 وارتفاع ≥360 ونسبة ≤ 17:10؛ و`horizontal-viewport-segments:2`.
+- **الكشف** بثلاثة استعلامات `screen` (لا UA ولا `display-mode` ولا `navigator.standalone`، فيعمل في Safari وفي Capacitor وفي التطبيق المثبَّت): طولي بعرض 360–720 وارتفاع ≥520 و؛ وعرضي بعرض 560–1000 وارتفاع ≥360 ونسبة ≤ 17:10؛ و`horizontal-viewport-segments:2`.
 - **القواعد** فيزيائية (`right`/`padding-right`/`margin-right`)، بلا `inline-end`، وبلا `!important` جديد، وبلا ملف جديد: تُحذف قاعدة الجولة 3 وتحلّ محلها كتلتان في `55-duo-adaptive.css` (قبل كتلة الكتاب وبعدها، لأن قواعد الكتاب تُبدَّل في الأولى وتُبدَّل بالثانية).
-- **حدّ**: iPhone بنسبة ≥ 1:2 (SE بأشرطة Safari مثلاً) قد يُحجز له الركن؛ والشاشة الخارجية المطويّة 367×740 (نسبة 0.50 تقريباً) على الحد. هندسة الودجت في العرضي **غير مُتحقَّق منها على جهاز**: يُحجز المستطيل نفسه عند اليمين الفيزيائي.
+- **ثمن مقبول**: لا يُفصَل الدوو عن iPhone الطولي بالمقاس (التطبيق بلا أشرطة Safari، وارتفاعه أطول)، فيُحجز الركن (78px يمين الشاشة) على iPhone الطولي أيضاً. قرارٌ بطلب المنسّق: الأمان للدوو أولى. الحل الأدق (قائمة سماح بنموذج الجهاز) غير ممكن من CSS. هندسة الودجت في العرضي **غير مُتحقَّق منها على جهاز**: يُحجز المستطيل نفسه عند اليمين الفيزيائي.
 
 ### 15.3 الجرد (ما انحجز / ما لا يحتاج)
 
@@ -413,12 +413,12 @@ screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (
 | `window.Capacitor` | غير موجود | موجود (`isNativePlatform()`) |
 | `env(safe-area-inset-*)` | 0 طولياً | 0 (`contentInset:never`، `viewport-fit=cover`) |
 
-- الكشف لا يعتمد على أيٍّ من هذه الإشارات، بل على مقاس النافذة وحده؛ فجُعلت بوابة النسبة 1:2 لتشمل ارتفاعاً أطول (حتى 382×764).
+- الكشف لا يعتمد على أيٍّ من هذه الإشارات، بل على مقاس النافذة وحده؛ فأُلغيت بوابة النسبة نهائياً لتشمل أيّ ارتفاع.
 - شريط «ثبّت SCHEDULE» (`InstallApp.tsx`) كان يظهر داخل التطبيق؛ يُخفى الآن داخل Capacitor.
 - صفحتا `apple/www/index.html` و`offline.html` (المحليتان) تحجزان الركن بالاستعلامات نفسها.
 - الحارس يشغّل **سياق «تطبيق»** إضافياً: UA بلا `Safari/`، `deviceScaleFactor:2`، `isMobile`، `window.Capacitor` مُعرَّف، `navigator.standalone` غير معرَّف، على مقاسات أطول (382×720، 470×900، 669×1000، 951×700) إضافةً إلى المقاسات المطلوبة.
 - **سياق التطبيق مُحاكًى في WebKit مكتبي**، وليس WKWebView حقيقياً ولا جهازاً: على المالك التأكد بـ`?duo-debug=1` داخل التطبيق من TestFlight (يجب أن تقول اللوحة `Capacitor: native ios` و`no Safari/` و`ACTIVE`).
-- **حدّ**: 382×780 و382×844 (نسبة < 1:2) لا يفعّلان الركن؛ لو كان ارتفاع التطبيق الفعلي بهذا الحجم فلا بدّ من توسيع البوابة (يكشفها `?duo-debug=1`: `duo-widget: inactive`).
+- 382×780 و382×844 و470×900 تُفعِّل الركن الآن (يختبرها الحارس في سياق التطبيق).
 
 ### 15.5 فحص المالك على الجهاز
 
@@ -435,3 +435,10 @@ DUO_FULL=1 npm run test:duo-widget                                              
 npm run test:duo-widget-css                                                       # الحارس الثابت (ضمن npm test)
 node docs/iphone-duo-widget-corner/shots.mjs after <DUO_BASE>                     # لقطات قبل/بعد
 ```
+
+### 15.7 دخول Google داخل التطبيق: غير موجود
+
+الفحص (14 نوفمبر 2026):
+- `grep -rnE "signInWithPopup|signInWithRedirect|GoogleAuthProvider|OAuthProvider|apple\.com" src server*.ts` ← **صفر نتائج**؛ ولا استيراد لـ`firebase/auth` في `src` ولا `server.ts` (الدخول باسم المستخدم وكلمة السر عبر الخادم، `src/components/Login.tsx`).
+- `apple/capacitor.config.json` يفتح الموقع عبر `server.url: https://schedule-kw.com` (فالغلاف يحمّل الموقع الحي)، لكن لا `UIApplication.shared.open` ولا `CFBundleURLSchemes` ولا `GIDClientID` في `Info.plist` ولا `MainViewController.swift`، ولا `@capgo/capacitor-social-login` في `package.json`.
+- النتيجة: لا Google ولا Apple sign-in في هذا المشروع، فخطأ «Unable to process request due to missing initial state» **لا ينشأ منه**. لو أُضيف دخول Google لاحقاً داخل هذا الغلاف فسيقع في الخطأ نفسه (WKWebView يرفض `disallowed_useragent` والعودة إلى Safari تفقد الحالة)؛ التوصية حينئذٍ دخولٌ أصلي بـ`@capgo/capacitor-social-login` ثم `signInWithCredential`، مع iOS client ID وURL scheme في `Info.plist` و`npx cap sync ios` وأرشفة جديدة لـTestFlight. لا تعديل على كود المصادقة هنا.
