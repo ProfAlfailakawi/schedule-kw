@@ -79,8 +79,8 @@ check(/share-stop-ask/.test(publish) && /أوقف بطاقة القسم فقط/.
 
 /* ── 15 · إعادةُ الفتح بإرسالٍ خاص ───────────────────────────────────────── */
 const issue = read("src/server/routes/instructorRequestsRoutes.ts");
-check(/const pickedEditReopen = picking && !onlyNoted && issueMode === "edit" && move === "keep" && !requestWindowOpen\(held!\);/.test(issue), "15: ✏️ لأستاذٍ نافذتُه مغلقة وطلبُه عند القسم ← يُعاد فتحه");
-check(/\(onlyNoted \|\| individualOnly \|\| pickedEditReopen\) && move === "keep"/.test(issue), "15: يمرّ بمسار التمديد نفسه (رابطٌ صالح وموعدٌ جديد)");
+check(/const pickedEditReopen = action === "reopen" && !onlyNoted && !individualOnly;/.test(issue) && /windowOpen: held \? requestWindowOpen\(held\) : false, picking, individualOnly, onlyNoted, reopening, mode: issueMode/.test(issue), "15: ✏️ لأستاذٍ نافذتُه مغلقة وطلبُه عند القسم ← يُعاد فتحه (القاعدةُ في sendActionFor وجدولُها مُختبر)");
+check(/if \(held && \(action === "extend" \|\| action === "reopen"\)\)/.test(issue), "15: يمرّ بمسار التمديد نفسه (رابطٌ صالح وموعدٌ جديد)");
 check(/أُعيد فتح التعديل بإرسالٍ خاص/.test(issue), "15: إعادةُ الفتح تُكتب في سجلّ الطلب");
 
 /* ── 7 · التثبيت ─────────────────────────────────────────────────────────── */
