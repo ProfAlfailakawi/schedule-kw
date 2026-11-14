@@ -126,6 +126,7 @@
     "test:live-pulse": "tsx tests/live-pulse-audit.ts",
     "test:live-pulse-http": "tsx tests/live-pulse-http-audit.ts",
     "test:radar-insight": "tsx tests/radar-insight-audit.ts",
+    "test:radar-suggestions": "tsx tests/radar-suggestions-audit.ts",
     "test:outcome-story": "tsx tests/outcome-story-audit.ts",
     "test:registration-causes": "tsx tests/registration-causes-audit.ts",
     "test:plan-pdf": "tsx tests/plan-pdf-audit.ts",

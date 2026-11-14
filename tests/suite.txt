@@ -292,3 +292,4 @@ test:pin-violations-note
 test:proposal-open-row
 test:changes-unified-review
 test:academic-console
+test:radar-suggestions
