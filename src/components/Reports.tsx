@@ -3442,7 +3442,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   {/* القاعة كلها: من يستخدمها أكثر، ونوافذها المتاحة في الأسبوع (من الخادم، لمن يملك مساحة الجدول). */}
                   {roomPick.point == null && canReadWorkspace && filters.termId ? (() => {
                     const [code, ...rest] = roomPick.room.split("/");
-                    return <RoomInsight key={roomPick.roomId || roomPick.room} roomId={roomPick.roomId || undefined} code={code} hall={rest.join("/")} termId={filters.termId} />;
+                    return <React.Fragment key={roomPick.roomId || roomPick.room}><RoomInsight roomId={roomPick.roomId || undefined} code={code} hall={rest.join("/")} termId={filters.termId} /></React.Fragment>;
                   })() : null}
                 </div>
                 </>
@@ -3957,8 +3957,8 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
               const group = groups.find(item => item.id === weekShapeFor);
               if (!group) return null;
               return (
+                <React.Fragment key={group.id}>
                 <WeekShapeDrawer
-                  key={group.id}
                   instructorId={Number(group.id)}
                   name={<>{group.name}{isVisitingInstructor(Number(group.id)) ? <> <VisitingBadge compact /></> : null}</>}
                   termId={filters.termId}
@@ -3966,6 +3966,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   canReadWorkspace={canReadWorkspace}
                   onClose={() => setWeekShapeFor(null)}
                 />
+                </React.Fragment>
               );
             })() : null}
           </div>
