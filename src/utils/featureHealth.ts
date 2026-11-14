@@ -1,6 +1,6 @@
 /**
  * ── «سلامة الميزات الجديدة»: التجميعُ صرفاً ───────────────────────────────────
- * ست بطاقاتٍ تقول هل الميزاتُ المُطلَقة حديثاً تُستعمل وتعمل فعلاً في الفصل الجاري: تنبيهات الهاتف، شارك مرشدك،
+ * 6 بطاقاتٍ تقول هل الميزاتُ المُطلَقة حديثاً تُستعمل وتعمل فعلاً في الفصل الجاري: تنبيهات الهاتف، شارك مرشدك،
  * رموزُ استعادة الأقسام، قاعاتٌ بلا سعة، بطاقاتُ الأساتذة، ومساري. دوالُّ خالصة بلا قاعدة بيانات ولا ساعة، فتُختبر وحدها؛
  * والخادمُ (src/server/featureHealth.ts) يقرأ ويستدعيها.
  *
@@ -36,7 +36,7 @@ export const FEATURE_DAY_KEEP = 120;
 const DAY_MS = 86_400_000;
 
 /* ── عدّاداتُ الأيام (تُكتب على ملف الطالب: أرقامٌ لكل يوم، بلا هوية) ─────────────────────────────── */
-/** يزيد عدّادَ يومٍ ويُبقي آخرَ ١٢٠ يوماً. يرجع خريطةً جديدة (لا يُغيّر المدخل). */
+/** يزيد عدّادَ يومٍ ويُبقي آخرَ 120 يوماً. يرجع خريطةً جديدة (لا يُغيّر المدخل). */
 export function bumpDay(map: Record<string, number> | undefined, day: string, by = 1): Record<string, number> {
   const next: Record<string, number> = { ...(map || {}) };
   if (/^\d{4}-\d{2}-\d{2}$/.test(day)) next[day] = (Number(next[day]) || 0) + by;
@@ -48,7 +48,7 @@ export function bumpDay(map: Record<string, number> | undefined, day: string, by
 /* ── نطاقُ «الفصل الجاري» ─────────────────────────────────────────────────────────── */
 export interface FeatureRange { from: number; to: number }
 
-/** نافذةُ الفصل إن عُرفت، وإلا آخرُ ١٢٠ يوماً (فلا تُخطئ البطاقةُ بصفرٍ لأن الفصل بلا تواريخ). */
+/** نافذةُ الفصل إن عُرفت، وإلا آخرُ 120 يوماً (فلا تُخطئ البطاقةُ بصفرٍ لأن الفصل بلا تواريخ). */
 export function featureRange(term: Parameters<typeof termWindow>[0], now: number): FeatureRange {
   const window = termWindow(term);
   return window ? { from: window.from, to: window.to } : { from: now - FEATURE_DAY_KEEP * DAY_MS, to: now + DAY_MS };
@@ -81,7 +81,7 @@ export const unreadableTile = (id: FeatureTileId): FeatureTile => ({ id, ok: fal
 
 export type FeatureProfile = Partial<Pick<StudentProfile, "push" | "pushOn" | "share" | "shareStats" | "recoveryLog" | "recovery" | "createdAt" | "wishes">>;
 
-/* ── ١) تنبيهات الهاتف ─────────────────────────────────────────────────────────── */
+/* ── 1) تنبيهات الهاتف ─────────────────────────────────────────────────────────── */
 export interface PushExpectation {
   /** الساعةُ بتوقيت الكويت (0…23). */
   hour: number;
@@ -115,7 +115,7 @@ export function pushTile(profiles: readonly FeatureProfile[], termId: number, ra
   };
 }
 
-/* ── ٢) شارك مرشدك ─────────────────────────────────────────────────────────────── */
+/* ── 2) شارك مرشدك ─────────────────────────────────────────────────────────────── */
 export function shareTile(profiles: readonly FeatureProfile[], range: FeatureRange, now: number): FeatureTile {
   let created = 0, valid = 0, opened = 0;
   for (const profile of profiles) {
@@ -126,7 +126,7 @@ export function shareTile(profiles: readonly FeatureProfile[], range: FeatureRan
   return { id: "share", ok: true, attention: false, v: { created, valid, opened } };
 }
 
-/* ── ٣) رموزُ الاستعادة ────────────────────────────────────────────────────────── */
+/* ── 3) رموزُ الاستعادة ────────────────────────────────────────────────────────── */
 /** من سجلّ الإصدار وحده: لا اسمَ ولا رمزَ يُقرأ. المنتهي والمُلغى (بجديدٍ بعده أو بتغيير الرمز) صنفٌ واحد. */
 export function recoveryTile(profiles: readonly FeatureProfile[], range: FeatureRange, now: number): FeatureTile {
   let issued = 0, used = 0, lapsed = 0, expiringSoon = 0;
@@ -145,7 +145,7 @@ export function recoveryTile(profiles: readonly FeatureProfile[], range: Feature
   return { id: "recovery", ok: true, attention: expiringSoon > 0, v: { issued, used, lapsed, expiringSoon, pending: issued - used - lapsed } };
 }
 
-/* ── ٤) قاعاتٌ بلا سعة ─────────────────────────────────────────────────────────── */
+/* ── 4) قاعاتٌ بلا سعة ─────────────────────────────────────────────────────────── */
 /** النسبةُ هنا نسبةُ **النقص** (من القاعات المعتمدة الفعّالة). الاتجاهُ لا يُحسب: لا تاريخَ محفوظاً له. */
 export function roomsTile(report: Pick<CapacityGapReport, "total" | "missing">): FeatureTile {
   const percent = report.total > 0 ? Math.round((report.missing / report.total) * 100) : null;
@@ -155,7 +155,7 @@ export function roomsTile(report: Pick<CapacityGapReport, "total" | "missing">):
   };
 }
 
-/* ── ٥) بطاقاتُ الأساتذة ───────────────────────────────────────────────────────── */
+/* ── 5) بطاقاتُ الأساتذة ───────────────────────────────────────────────────────── */
 /** فُتحت = فتح الأستاذُ فما بعد؛ أُرسلت = أرسل فما بعد؛ سُوّيت = قُرّر في كل بنودها. */
 export function cardsTile(rows: readonly PulseRow[]): FeatureTile {
   const { total, counts } = cardPulse(rows);
@@ -163,7 +163,7 @@ export function cardsTile(rows: readonly PulseRow[]): FeatureTile {
   return { id: "cards", ok: true, attention: false, v: { total, opened: counts.opened + sent, sent, settled: counts.complete } };
 }
 
-/* ── ٦) مساري ──────────────────────────────────────────────────────────────────── */
+/* ── 6) مساري ──────────────────────────────────────────────────────────────────── */
 export function masariTile(profiles: readonly FeatureProfile[], termId: number, range: FeatureRange): FeatureTile {
   let created = 0, withWishes = 0;
   for (const profile of profiles) {

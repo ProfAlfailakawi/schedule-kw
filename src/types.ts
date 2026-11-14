@@ -1030,7 +1030,7 @@ export interface StudentProfile {
   share?: { hash: string; createdAt: string; expiresAt: string };
   /**
    * عدّاداتُ «شارك مرشدك» لسلامة الميزات (src/utils/featureHealth.ts): عددٌ لكل يوم (YYYY-MM-DD بتوقيت الكويت) لما أُنشئ من روابط
-   * وما فُتح منها. أرقامٌ فقط بلا هويةٍ ولا زائر ولا رابط، وتُمحى مع الملف؛ آخرُ ١٢٠ يوماً.
+   * وما فُتح منها. أرقامٌ فقط بلا هويةٍ ولا زائر ولا رابط، وتُمحى مع الملف؛ آخرُ 120 يوماً.
    */
   shareStats?: { made?: Record<string, number>; opens?: Record<string, number> };
 }
