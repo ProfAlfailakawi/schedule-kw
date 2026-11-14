@@ -1640,8 +1640,8 @@
         "en": "«Schedule tools»: three groups"
       },
       "text": {
-        "ar": "يجب أن تُسمّى النافذة وزرّها «أدوات الجدول»، وأن تعرض ألسنتها في ثلاث مجموعات صغيرة بعناوينها وبهذا الترتيب: «التخطيط» (تخطيط الشعب من تقرير التسجيل، كل المقررات) أولاً وأبرزها، ثم «الأساتذة» (الأساتذة، المنتدبون، استبدال، تحويل هيئة التدريب)، ثم «الملفات» (استيراد، تصدير، نشر)؛ وأن تُفتح على «تخطيط الشعب» أو على اللسان المطلوب؛ وأن تُبقي للفصل المنتهي «تصدير» و«نشر» وحدهما؛ وأن تُخفي الألسنة كلها ما دامت حصيلة النشر معروضة حتى تُغلق.",
-        "en": "The dialog and its button shall be named «schedule tools», and shall show its tabs in three small titled groups in this order: «planning» (section planning from the registrar report, all courses) first and most prominent, then «instructors» (instructors, visiting instructors, replace, trainee conversion), then «files» (import, export, publish); it shall open on section planning or on the requested tab; for an ended term it shall keep only export and publish; and it shall hide all tabs while a publish receipt is shown until it is closed."
+        "ar": "يجب أن تُسمّى النافذة وزرّها «أدوات الجدول»، وأن تعرض ألسنتها في ثلاث مجموعات مطويّة (قرار المالك 2026-11-14): شريطٌ مقسَّم بثلاثة أزرار بعناوينها وعدّاد أدواتها، ويُفتح تحته صفُّ المجموعة المختارة وحدها، وبهذا الترتيب: «التخطيط» (تخطيط الشعب من تقرير التسجيل، كل المقررات) أولاً وأبرزها، ثم «الأساتذة» (الأساتذة، المنتدبون، استبدال، تحويل هيئة التدريب)، ثم «الملفات» (استيراد، تصدير، نشر)؛ وأن تُفتح على «تخطيط الشعب» أو على اللسان المطلوب؛ وأن تُفتح تلقائياً مجموعةُ الأداة الحالية، فإن فُتحت غيرها بقيت نقطةٌ على مجموعة الأداة الحالية ولم يتبدّل المحتوى؛ وأن تُبقي للفصل المنتهي «تصدير» و«نشر» وحدهما؛ وأن تُخفي الألسنة كلها ما دامت حصيلة النشر معروضة حتى تُغلق.",
+        "en": "The dialog and its button shall be named «schedule tools», and shall show its tabs in three folded groups (owner decision 2026-11-14): a segmented bar of three buttons with their titles and tool counts, and beneath it only the row of the chosen group, in this order: «planning» (section planning from the registrar report, all courses) first and most prominent, then «instructors» (instructors, visiting instructors, replace, trainee conversion), then «files» (import, export, publish); it shall open on section planning or on the requested tab; the group of the current tool opens automatically, and if another group is opened a dot stays on the current tool's group while the content does not change; for an ended term it shall keep only export and publish; and it shall hide all tabs while a publish receipt is shown until it is closed."
       },
       "priority": "should",
       "status": "implemented",
@@ -1652,8 +1652,8 @@
       ],
       "acceptance": [
         {
-          "ar": "المجموعات ثلاثة أعمدة على الشاشة الواسعة، وعمودٌ واحد تحت 900 بكسل؛ وألسنة كل مجموعة تتوزّع على عرضها فلا لسانَ يتيم.",
-          "en": "The groups form three columns on wide screens and one column under 900 pixels; each group's tabs share its width so no tab is left alone."
+          "ar": "شريط المجموعات ثلاثة أزرار (tablist) وتحته صفٌّ واحد مفتوح (tabpanel) وصفّان مخفيّان hidden يبقيان في الصفحة حتى تجد جولةُ المرشد «نشر» وتضغطه برمجياً فتُفتح مجموعتُه؛ وألسنة الصف تتوزّع على عرضه فلا لسانَ يتيم، والعدّادات تُخفى تحت 560 بكسل.",
+          "en": "The group bar is three buttons (tablist) with one open row beneath it (tabpanel) and two rows kept in the page as hidden so the guide tour can find «publish» and press it programmatically, which opens its group; the tabs of the row share its width so no tab is left alone, and counters are hidden under 560 pixels."
         },
         {
           "ar": "فصل منتهٍ يعرض مجموعة «الملفات» بـ«تصدير» و«نشر» وحدهما، وأي لسانٍ آخر مفتوح يعود إلى التصدير.",

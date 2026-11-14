@@ -1,22 +1,47 @@
-/* ── «أدوات الجدول»: ثلاث مجموعات صغيرة (المالك 2026-11-14) ───────────────────
-   التخطيط أولاً وأبرز، ثم الأساتذة، ثم الملفات. كل مجموعةٍ عنوانٌ صغير بأيقونته
-   وتحته ألسنتُها؛ والفصلُ الأرشيف يُبقي «الملفات» وحدها (تصدير، نشر). */
+/* ── «أدوات الجدول»: ثلاثُ مجموعاتٍ مطويّة (المالك 2026-11-14) ───────────────────
+   شريطٌ مقسَّم بثلاثة أزرار (التخطيط · الأساتذة · الملفات)، وتحته صفُّ أدوات المجموعة المفتوحة وحدها.
+   المجموعةُ التي فيها الأداة الحالية مفتوحةٌ تلقائياً؛ وإن فُتحت غيرُها بقيت نقطةٌ صغيرة على مجموعة الأداة الحالية.
+   الفصلُ الأرشيف: «الملفات» وحدها بلا شريط. التخطيط أبرزها: لمسةٌ نحاسية. */
 .transfer-sheet .transfer-tabs.transfer-tabs--grouped{
-  display:grid!important;grid-template-columns:minmax(0,1.25fr) minmax(0,1.6fr) minmax(0,1.25fr)!important;
-  gap:10px;padding:10px;align-items:stretch;border-bottom:0;background:var(--surface-2);border-radius:20px
+  display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px;padding:10px;align-items:stretch;
+  border-bottom:0;background:var(--surface-2);border-radius:20px
 }
-.transfer-sheet .transfer-tabs.transfer-tabs--grouped.is-ended{grid-template-columns:minmax(0,1fr)!important}
-.transfer-tab-group{display:grid;align-content:start;gap:6px;min-width:0;padding:8px;border-radius:16px;background:color-mix(in srgb,var(--surface) 55%,transparent)}
-.transfer-tab-group.is-planning{background:color-mix(in srgb,var(--brass-soft,#f5ead3) 70%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--brass,#9a6b1f) 22%,transparent)}
-.transfer-tab-group-name{display:inline-flex;align-items:center;gap:6px;padding-inline:4px;font-size:.72rem;font-weight:800;color:var(--muted);letter-spacing:0}
-.transfer-tab-group.is-planning .transfer-tab-group-name{color:var(--brass,#9a6b1f)}
-.transfer-tab-group-name svg{inline-size:14px;block-size:14px;flex:none}
-.transfer-tab-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px;min-width:0}
+.transfer-group-switch{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:16px;
+  background:color-mix(in srgb,var(--ink) 6%,var(--surface-2))
+}
+.transfer-sheet .transfer-tabs--grouped .transfer-group-chip{
+  position:relative;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:7px;
+  min-block-size:46px;padding:0 10px;border:0;border-radius:12px;background:transparent;color:var(--muted);
+  font:inherit;font-size:.86rem;font-weight:700;cursor:pointer;white-space:nowrap;
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease
+}
+.transfer-sheet .transfer-tabs--grouped .transfer-group-chip svg{inline-size:18px;block-size:18px;flex:none}
+.transfer-sheet .transfer-tabs--grouped .transfer-group-chip b{
+  min-inline-size:20px;block-size:20px;padding:0 5px;display:inline-grid;place-items:center;border-radius:999px;
+  background:color-mix(in srgb,var(--ink) 9%,transparent);font-size:.7rem;font-weight:800;font-variant-numeric:tabular-nums
+}
+.transfer-sheet .transfer-tabs--grouped .transfer-group-chip:hover{color:var(--ink)}
+.transfer-sheet .transfer-tabs--grouped .transfer-group-chip.on{
+  background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(20,30,25,.08),0 4px 14px rgba(20,30,25,.08)
+}
+.transfer-sheet .transfer-tabs--grouped .transfer-group-chip.is-planning.on{color:var(--brass,#9a6b1f);background:color-mix(in srgb,var(--brass-soft,#f5ead3) 55%,var(--surface))}
+.transfer-sheet .transfer-tabs--grouped .transfer-group-chip.on b{background:color-mix(in srgb,currentColor 14%,transparent)}
+.transfer-sheet .transfer-tabs--grouped .transfer-group-chip.has-active:not(.on)::after{
+  content:"";position:absolute;inset-block-start:7px;inset-inline-end:9px;inline-size:7px;block-size:7px;border-radius:50%;background:var(--accent)
+}
+.transfer-tab-row{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;min-width:0;padding:8px;border-radius:16px;
+  background:color-mix(in srgb,var(--surface) 70%,transparent);animation:transfer-row-in .22s ease both
+}
+.transfer-tab-row[hidden]{display:none!important}
+.transfer-tab-row.is-planning{background:color-mix(in srgb,var(--brass-soft,#f5ead3) 60%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--brass,#9a6b1f) 22%,transparent)}
 .transfer-sheet .transfer-tabs.transfer-tabs--grouped .transfer-tab-row button{inline-size:100%;min-inline-size:0;white-space:normal;text-align:center}
-@media (max-width:900px){
-  .transfer-sheet .transfer-tabs.transfer-tabs--grouped{grid-template-columns:minmax(0,1fr)!important}
-}
+@keyframes transfer-row-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.transfer-tab-row{animation:none}.transfer-sheet .transfer-tabs--grouped .transfer-group-chip{transition:none}}
 @media (max-width:560px){
+  .transfer-sheet .transfer-tabs--grouped .transfer-group-chip{gap:5px;padding:0 6px;font-size:.8rem}
+  .transfer-sheet .transfer-tabs--grouped .transfer-group-chip b{display:none}
   .transfer-tab-row{grid-template-columns:repeat(auto-fit,minmax(72px,1fr))}
   .transfer-sheet .transfer-tabs.transfer-tabs--grouped .transfer-tab-row button{min-block-size:52px;font-size:11px}
 }
