@@ -57,8 +57,8 @@
     },
     {
       "name": {
-        "ar": "أدوات البيانات (نقل الجدول)",
-        "en": "Data tools (schedule transfer)"
+        "ar": "أدوات الجدول (نقل الجدول)",
+        "en": "Schedule tools (schedule transfer)"
       },
       "file": "src/components/ScheduleTransfer.tsx",
       "note": {
@@ -131,8 +131,8 @@
       },
       "steps": [
         {
-          "ar": "يفتح «أدوات البيانات» ← «نشر» ويُصدر بطاقة الأساتذة للقسم مع آخر موعد للطلبات.",
-          "en": "Opens «data tools» → «publish» and issues the department's faculty card with a last date for requests."
+          "ar": "يفتح «أدوات الجدول» ← «نشر» ويُصدر بطاقة الأساتذة للقسم مع آخر موعد للطلبات.",
+          "en": "Opens «schedule tools» → «publish» and issues the department's faculty card with a last date for requests."
         },
         {
           "ar": "يختار الأساتذة فيُسكّ لكل منهم رابط شخصي ويُفتح له واتساب برسالة جاهزة.",
@@ -1636,12 +1636,12 @@
       "id": "IR-VIW-025",
       "kind": "interface",
       "title": {
-        "ar": "تبويبات نافذة نقل الجدول",
-        "en": "Schedule transfer dialog tabs"
+        "ar": "«أدوات الجدول»: ثلاث مجموعات",
+        "en": "«Schedule tools»: three groups"
       },
       "text": {
-        "ar": "يجب أن تعرض نافذة نقل الجدول عشرة تبويبات: تصدير، استيراد، نشر، استبدال، المنتدبون، الأساتذة (النصاب والدرجة والحالة)، تخطيط الشعب، كل المقررات، محاكي الشعب، فرصة للتحسين؛ وأن تُبقي للفصل المنتهي تبويبي التصدير والنشر وحدهما، وأن تُخفي التبويبات كلها ما دامت حصيلة النشر معروضة حتى تُغلق.",
-        "en": "The schedule transfer dialog shall show ten tabs: export, import, publish, replace, visiting instructors, instructors (load, rank and status), section planning, all courses, section simulator and improvement opportunity; for an ended term it shall keep only the export and publish tabs, and it shall hide all tabs while a publish receipt is shown until it is closed."
+        "ar": "يجب أن تُسمّى النافذة وزرّها «أدوات الجدول»، وأن تعرض ألسنتها في ثلاث مجموعات صغيرة بعناوينها وبهذا الترتيب: «التخطيط» (تخطيط الشعب من تقرير التسجيل، كل المقررات) أولاً وأبرزها، ثم «الأساتذة» (الأساتذة، المنتدبون، استبدال، تحويل هيئة التدريب)، ثم «الملفات» (استيراد، تصدير، نشر)؛ وأن تُفتح على «تخطيط الشعب» أو على اللسان المطلوب؛ وأن تُبقي للفصل المنتهي «تصدير» و«نشر» وحدهما؛ وأن تُخفي الألسنة كلها ما دامت حصيلة النشر معروضة حتى تُغلق.",
+        "en": "The dialog and its button shall be named «schedule tools», and shall show its tabs in three small titled groups in this order: «planning» (section planning from the registrar report, all courses) first and most prominent, then «instructors» (instructors, visiting instructors, replace, trainee conversion), then «files» (import, export, publish); it shall open on section planning or on the requested tab; for an ended term it shall keep only export and publish; and it shall hide all tabs while a publish receipt is shown until it is closed."
       },
       "priority": "should",
       "status": "implemented",
@@ -1652,31 +1652,36 @@
       ],
       "acceptance": [
         {
-          "ar": "التبويبات العشر لفصلٍ مفتوح صفّان متساويان (5 فوق و5 تحت) على الشاشة الواسعة واللوح، وعمودان متساويان في 5 صفوف كاملة على الهاتف (760 بكسل فأقل)، فلا تبويب يتيم في سطر وحده؛ وتبويبا الفصل المنتهي في صفٍّ واحد.",
-          "en": "The ten tabs of an open term form two equal rows (5 above and 5 below) on wide screens and tablets, and two equal columns of 5 full rows on phones (760 pixels or less), so no tab is alone on a line; the two tabs of an ended term sit in one row."
+          "ar": "المجموعات ثلاثة أعمدة على الشاشة الواسعة، وعمودٌ واحد تحت 900 بكسل؛ وألسنة كل مجموعة تتوزّع على عرضها فلا لسانَ يتيم.",
+          "en": "The groups form three columns on wide screens and one column under 900 pixels; each group's tabs share its width so no tab is left alone."
         },
         {
-          "ar": "فصل منتهٍ يعرض «تصدير» و«نشر» فقط، وأي تبويب آخر مفتوح يعود إلى التصدير.",
-          "en": "An ended term shows only export and publish, and any other open tab returns to export."
+          "ar": "فصل منتهٍ يعرض مجموعة «الملفات» بـ«تصدير» و«نشر» وحدهما، وأي لسانٍ آخر مفتوح يعود إلى التصدير.",
+          "en": "An ended term shows the «files» group with only export and publish, and any other open tab returns to export."
         },
         {
-          "ar": "تبويبات المقررات والأساتذة والمحاكي تُحمَّل عند فتحها فقط، والإرشاد الأكاديمي يُعرض في «فرصة للتحسين».",
-          "en": "The courses, instructors and simulator tabs load only when opened, and academic advice is shown under improvement opportunity."
+          "ar": "«تحويل هيئة التدريب» لوحةٌ داخل «الأساتذة» (انتقل من «المزيد») بمعاينته ونسخته الآمنة وتراجعه.",
+          "en": "«Trainee conversion» is a panel inside «instructors» (moved from «more») with its preview, safety snapshot and undo."
         },
         {
-          "ar": "عنوان النافذة «أدوات الجدول»، ولفصلٍ منتهٍ «تصدير · نشر»؛ وبلا كلية وقسم وفصل يقال «اختر الكلية والقسم والفصل أولاً.»، وتبويبات التخطيط والمقررات والأساتذة والمحاكي والتحسين تقول «اختر القسم والفصل أولاً.».",
-          "en": "The dialog title is «schedule tools», or «export · publish» for an ended term; without college, department and term it says «choose college, department and term first.», and the planning, courses, instructors, simulator and improvement tabs say «choose department and term first.»."
+          "ar": "«الصحيفة» نوعٌ رابع في «نشر» لرئيس لجنة الجدول والمدير، لا يرتبط بالفصل فيبقى في الفصل المنتهي.",
+          "en": "«Curriculum sheet» is a fourth link type in «publish» for the schedule committee chair and admins; it is not term-bound and stays in an ended term."
         },
         {
-          "ar": "حصيلة النشر تحلّ محلّ النافذة: «نُشر الجدول» وعدد المواعيد، وتوزيعها على المواقع حين تكون أكثر من موقع، والمقررات التي أُضيفت إلى كتالوج موقعٍ نقلاً عن المقر (حتى 8)، أو «نُزّلت الشعب» بعدد المضاف والحالي والمحذوف لنشرٍ من تخطيط الشعب؛ و«تم» يغلقها.",
-          "en": "The publish receipt replaces the dialog: «the schedule was published» with the appointment count, its split over sites when more than one, the courses added to a site's catalogue from the main campus (up to 8), or «sections were placed» with added, existing and removed counts for a publish from section planning; «done» closes it."
+          "ar": "«حفظ العرض الحالي» و«تركيز» في قائمة العروض وحدها (والقائمة حاضرةٌ ولو بلا عروض)، و«تجربة آمنة» زرٌّ ظاهرٌ بشارة «وضع تجربة»، ولوحة الأوامر كما هي.",
+          "en": "«Save current view» and «focus» live only in the saved-views menu (present even with no views), «safe trial» stays a visible switch with its «trial mode» badge, and the command palette is unchanged."
         }
       ],
       "evidence": {
         "code": [
-          "src/components/ScheduleTransfer.tsx#Tab"
+          "src/components/ScheduleTransfer.tsx#Tab",
+          "src/components/ScheduleTransfer.tsx",
+          "src/components/TAConversionPanel.tsx",
+          "src/components/ScheduleViewsMenu.tsx"
         ],
-        "tests": []
+        "tests": [
+          "tests/schedule-tools-groups-audit.ts"
+        ]
       },
       "inferred": true
     },
