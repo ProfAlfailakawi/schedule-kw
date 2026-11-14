@@ -70,7 +70,12 @@
     "scripts/lib/programProvision.ts",
     "scripts/provision-marine-diploma.ts",
     "src/utils/academicGuards.ts",
-    "src/utils/arrowChoice.ts"
+    "src/utils/arrowChoice.ts",
+    "src/utils/deleteImpact.ts",
+    "src/server/deleteImpact.ts",
+    "src/server/routes/deleteImpactRoutes.ts",
+    "src/components/DeleteImpact.tsx",
+    "src/styles/63-delete-impact.css"
   ],
   "screens": [
     {
@@ -2749,7 +2754,9 @@
           "src/components/Courses.tsx#validateCourseCode",
           "src/components/Courses.tsx"
         ],
-        "tests": ["tests/handover-fixes-audit.ts"]
+        "tests": [
+          "tests/handover-fixes-audit.ts"
+        ]
       },
       "inferred": true
     },
@@ -3129,6 +3136,58 @@
         ],
         "tests": [
           "tests/academic-console-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-057",
+      "kind": "functional",
+      "title": {
+        "ar": "«لو حذفت؟» قبل حذف فصل أو كلية أو قسم أو أستاذ أو مقرر",
+        "en": "What-if-I-delete map before deleting a term, college, department, instructor or course"
+      },
+      "text": {
+        "ar": "يجب أن تعرض نافذةُ تأكيد كل حذفٍ أكاديمي خريطةً مجمَّعة بالأعداد لما يرتبط بالسجل (المواعيد في الفصل الحالي وما بعده وما قبله، رغبات الطلبة والأساتذة ومقترحات الدراسة، الحسابات ونطاقاتها، الصحائف الأكاديمية والمنشورة…)، وأن تعرض «لا يمكن الحذف الآن» مع العقبات ووجهة علاجها وتعطّل زرّ التأكيد، وأن تُحمَّل الخريطةُ من GET /api/delete-impact/:entity/:id بصلاحية مسار الحذف المقابل ونطاقه. وحكمُ المنع واحدٌ: مسارُ الحذف والخريطةُ يستدعيان deleteBlockers نفسها، فلا تَعِد الخريطةُ بما يرفضه الحذف ولا العكس. تعذّر تحميل الخريطة يُقال ويبقى التأكيد متاحاً لأن الخادم يرفض الممنوع بنفسه.",
+        "en": "The confirmation dialog of every academic delete shall show a grouped, counted map of what links to the record (appointments in the current, later and past terms, student and instructor requests and study proposals, accounts and their scopes, academic and published sheets…), shall show «cannot delete now» with the blockers, where to fix them and a disabled confirm button, and shall load it from GET /api/delete-impact/:entity/:id under the matching delete route's permission and scope. The blocking verdict is single-sourced: the delete route and the map both call the same deleteBlockers, so the map never promises what the delete refuses nor the reverse. A failed map load is stated and confirmation stays available because the server refuses what is forbidden."
+      },
+      "rationale": {
+        "ar": "كان التأكيد يصف الأثر بجملةٍ عامة، فيكتشف الشخص بعد الضغط أن الحذف مرفوض أو أنه يمسّ مواعيد وطلباتٍ لم يُخبَر بها.",
+        "en": "The confirmation described the effect in one generic sentence, so people learned after pressing that the delete was refused or touched appointments and requests they were never told about."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف فصلٍ له مواعيد ← تُعرض أعدادها و«لا يمكن الحذف الآن» والزرّ معطّل.",
+          "en": "Deleting a term with appointments shows their counts and «cannot delete now» with the confirm button disabled."
+        },
+        {
+          "ar": "حذف كليةٍ لها أقسام وحسابات نطاقها فيها ← العقبتان بأسماء الدخول ووجهة «الأقسام العلمية» و«المستخدمون».",
+          "en": "Deleting a college with departments and scoped accounts lists both blockers, the login names and the destinations."
+        },
+        {
+          "ar": "حذف مقررٍ في صحيفة ← عقبة الصحيفة بالرمز نفسه الذي يعيده الخادم (curriculum-linked).",
+          "en": "Deleting a course in a sheet shows the curriculum blocker with the same code the server returns."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/deleteImpact.ts#deleteBlockers",
+          "src/utils/deleteImpact.ts#blockersFor",
+          "src/components/DeleteImpact.tsx#confirmDeleteWithImpact",
+          "src/server/routes/deleteImpactRoutes.ts#registerDeleteImpactRoutes",
+          "src/components/Terms.tsx#remove",
+          "src/components/Colleges.tsx#remove",
+          "src/components/Sections.tsx#remove",
+          "src/components/Instructors.tsx#remove",
+          "src/components/Courses.tsx#remove"
+        ],
+        "tests": [
+          "tests/delete-impact-audit.ts"
         ]
       }
     }

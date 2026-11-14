@@ -200,7 +200,7 @@ const touch = (connId: string, holder: string, name: string, team: any, scopeKey
   check(configAfterLoad(draft, server, true) === draft, "D1 مسوّدةُ إعدادٍ عُدّلت: حفظُ زميلٍ وصل حيّاً لا يمحوها، وتبقى بختمها الأصلي (3)");
   check(configAfterLoad(draft, server, false) === server && configAfterLoad(null, server, true) === server, "D1 بلا تعديل (أو أولُ قراءة): ما على الخادم");
   const seats = fs.readFileSync("src/components/AdvisorSeatsPanel.tsx", "utf8");
-  check(/setCfg\(current => configAfterLoad\(current, payload\.config, cfgDirty\.current\)\)/.test(seats) && !/setCfg\(\{ \.\.\.cfg/.test(seats) && (seats.match(/editCfg\(\{ \.\.\.cfg/g) || []).length === 5,
+  check(/setCfg\(current => configAfterLoad\(current, payload\.config, cfgDirty\.current\)\)/.test(seats) && !/setCfg\(\{ \.\.\.cfg/.test(seats) && (seats.match(/editCfg\(\{ \.\.\.cfg/g) || []).length === 6,
     "D1 القراءةُ تمرّ بالقاعدة، وكلُّ تعديلٍ في النموذج يعلّم المسوّدة");
   check(/rev: cfg\.rev \?\? 0/.test(seats) && /draftStale\.current = true; catchStale/.test(seats), "D1 حفظُ المسوّدة يحمل ختمَها هي لا ختمَ آخر قراءة، و«حدّث» بعد ردّها يأخذ ما حفظه الزميل");
   const requests = fs.readFileSync("src/components/sectionRequests/SectionRequestsPanel.tsx", "utf8");

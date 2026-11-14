@@ -4,9 +4,9 @@
  * مجموعةٌ معلنةٌ «tablist» أو «radiogroup» يتوقّع قارئُ الشاشة أن تتنقّل بين
  * عناصرها بالأسهم، لا بـTab وحده. يُركَّب على الحاوية (onKeyDown): السهم ينقل
  * التركيز إلى الجار ويختاره، وHome/End إلى الطرفين. في الاتجاه من اليمين لليسار
- * يكون السهم الأيسر هو «التالي»، كما يُقرأ السطر.
+ * يكون السهم الأيسر هو «التالي»، كما يُقرأ السطر. الخيار activate:false يكتفي بنقل التركيز.
  */
-export function arrowChoice(event: { key: string; currentTarget: HTMLElement; target: EventTarget | null; preventDefault: () => void }): void {
+export function arrowChoice(event: { key: string; currentTarget: HTMLElement; target: EventTarget | null; preventDefault: () => void }, options: { activate?: boolean } = {}): void {
   const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
   if (!keys.includes(event.key)) return;
   const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"],[role="radio"]'))
@@ -19,5 +19,6 @@ export function arrowChoice(event: { key: string; currentTarget: HTMLElement; ta
   const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + step + items.length) % items.length;
   event.preventDefault();
   items[next].focus();
-  items[next].click();
+  /* activate:false → التركيز وحده (تفعيلٌ يدويّ لتبويباتٍ تنقل بين شاشات) ويفتحها Enter أو المسافة. */
+  if (options.activate !== false) items[next].click();
 }

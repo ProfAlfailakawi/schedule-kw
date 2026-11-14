@@ -20,6 +20,7 @@ import { predictiveNarrow, predictiveSummaryOf } from "../utils/predictiveScope"
 import { emptyCauseTotals } from "../utils/registrationCauses";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../utils/termSequence";
 import { registerRadarSuggestionRoutes } from "./radarSuggestions";
+import { registerLiveBoardRoutes } from "./liveBoard";
 import { manualRunWaitSeconds, radarManualGapMs } from "../utils/radarRunGap";
 
 export interface SimulationDeps {
@@ -119,7 +120,7 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
       frozen,
       auto: frozen ? { enabled: false, everyHours: radarAutoSettings().everyHours } : radarAutoSettings(),
       phase: frozen ? { mode: "closed", label: "انتهى التسجيل", line: "فصلٌ سابق: أرقامُ الرادار كما كانت عند إغلاقه.", namesVisible: true }
-        : (() => { const reading = readStudentPhase(term.AdTermStudentPhases); return { mode: reading.mode, label: reading.label, line: reading.line, namesVisible: reading.namesVisible }; })(),
+        : (() => { const reading = readStudentPhase(term.AdTermStudentPhases); return { key: reading.key, mode: reading.mode, label: reading.label, line: reading.line, namesVisible: reading.namesVisible }; })(),
       run: run ? {
         ranAt: run.ranAt, ranBy: run.ranBy, students: power ? run.students : scoped.students, withoutRules: power ? run.withoutRules : scoped.withoutRules, defaulted: power ? run.defaulted : scoped.defaulted,
         population: power ? (run.population ?? run.students + run.defaulted) : scoped.population,
@@ -338,10 +339,14 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
   });
 
   /* ── الرادار يقترح الشعبة (radarSuggestions.ts): الحارسُ نفسُه، ومدخلُ المحاكاة نفسُه الذي يقرؤه «ماذا لو؟». ── */
-  registerRadarSuggestionRoutes(app, {
+  const radarInput = (term: any, run: any) => inputMemo.get(ctxKey(`${Number(term.AdTermId)}:${run?.staleAt || ""}:${run?.ranAt || ""}`), () => loadSimulationInput(term, Math.max(1, term.AdTermStudentPhases?.rounds?.length || 2)));
+  const shared = registerRadarSuggestionRoutes(app, {
     requireAuth: deps.requireAuth, isScopeAllowed: deps.isScopeAllowed, isPowerUser: deps.isPowerUser, radarReader, dataContextKey: deps.dataContextKey,
-    loadInput: (term, run) => inputMemo.get(ctxKey(`${Number(term.AdTermId)}:${run?.staleAt || ""}:${run?.ranAt || ""}`), () => loadSimulationInput(term, Math.max(1, term.AdTermStudentPhases?.rounds?.length || 2))),
+    loadInput: radarInput,
   });
+
+  /* ── «يوم التسجيل الحي» (liveBoard.ts): لوحةُ شعبٍ بالإلحاح فوق الرادار، والحارسُ نفسُه. ── */
+  registerLiveBoardRoutes(app, { requireAuth: deps.requireAuth, radarReader, isScopeAllowed: deps.isScopeAllowed, isPowerUser: deps.isPowerUser, loadInput: radarInput, shared });
 }
 
 /**

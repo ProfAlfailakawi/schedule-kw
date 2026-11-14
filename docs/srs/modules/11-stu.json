@@ -104,7 +104,12 @@
     "src/server/studentRecoveryWiring.ts",
     "src/server/studentRecovery.ts",
     "src/utils/criticalCourses.ts",
-    "src/components/DemandAnalysis.tsx"
+    "src/components/DemandAnalysis.tsx",
+    "src/utils/liveBoard.ts",
+    "src/server/liveBoard.ts",
+    "src/components/LiveRegistrationBoard.tsx",
+    "src/styles/62-live-board.css",
+    "tests/live-board-audit.ts"
   ],
   "screens": [
     {
@@ -4582,6 +4587,153 @@
         ],
         "tests": [
           "tests/student-registration-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-077",
+      "kind": "functional",
+      "title": {
+        "ar": "رصيد المقاعد لكل مقرر وفاعليته بجانب كل شعبة",
+        "en": "Per-course seat balance and the effective balance beside each section"
+      },
+      "text": {
+        "ar": "يجب على لوحة «رصيد مقاعد المرشد» أن تتيح لمن يملك الإعداد (ولا يُردّ في الخادم، وفي فصلٍ غير مجمَّد) حقلَ رصيدٍ لكل مقررٍ له شعبٌ في الفصل، الفارغُ فيه يرث رصيد القسم، وأن تعرض بجانب كل شعبة الرصيدَ الفعليّ ومصدرَه «الشعبة» ثم «المقرر» ثم «القسم» بالترتيب نفسه الذي يحكم به الخادم، وأن تُقصّ الخانةُ بالحدّ نفسه في الخادم (200)، وأن يبقى ختمُ الإصدار وتتبّعُ المسوّدة غير المحفوظة، وألا يمسّ الحفظُ سجلّ الاستثناءات المطبَّقة، وأن تُرسم أسماءُ المقررات بوسوم المقرر.",
+        "en": "The advisor seat balance panel shall give a role that may configure it (and is not refused by the server, in an unfrozen term) a balance field for each course that has sections this term, where empty inherits the department balance, and shall show beside each section the effective balance and its source, section, then course, then department, in the same order the server applies, shall clamp the field at the server's limit (200), shall keep the revision stamp and unsaved-draft tracking, shall leave the server-owned applied-exceptions list untouched on save, and shall render course names with course tags."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "رصيد مقرر 12 وشعبة بلا رصيد خاص ← تظهر «الرصيد 12 من المقرر»؛ وبرصيد خاص للشعبة ← «من الشعبة».",
+          "en": "A course balance of 12 and a section with none of its own shows «balance 12 from the course»; with its own section balance it shows «from the section»."
+        },
+        {
+          "ar": "مقرر بلا رصيد ← «من القسم» برصيد القسم العام.",
+          "en": "A course with no balance ← «from the department» with the global balance."
+        },
+        {
+          "ar": "مرشدٌ لا يملك الإعداد ← لا يرى حقول الرصيد.",
+          "en": "An advisor who cannot configure sees no balance fields."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/AdvisorSeatsPanel.tsx",
+          "src/utils/advisorSeats.ts#quotaResolve",
+          "src/styles/61-advisor-seat-quota.css",
+          "src/server/routes/offeringRoutes.ts"
+        ],
+        "tests": [
+          "tests/advisor-seat-quota-audit.ts",
+          "tests/colleagues-advising-registration-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-078",
+      "kind": "functional",
+      "title": {
+        "ar": "التنقل بالأسهم في تبويبات الإرشاد",
+        "en": "Arrow-key navigation in advising tabs"
+      },
+      "text": {
+        "ar": "يجب على تبويبَي «كشف التسجيل» و«رادار التسجيل» أن يتبعا نمط التبويبات في WAI-ARIA: tablist وtab بتركيزٍ متنقّل (تبويبٌ واحد في ترتيب Tab)، والسهمان يتنقّلان مع اتجاه اليمين لليسار (الأيسر «التالي») وHome وEnd إلى الطرفين، والتفعيلُ يدويّ لأن التبويبين يوصلان إلى شاشتين منفصلتين: الأسهم تنقل التركيز وEnter أو المسافة تفتح الشاشة ويعود التركيز إلى التبويب النشط فيها؛ وأن تحمل الشاشتان role=tabpanel مرتبطةً بالتبويب (aria-controls وaria-labelledby)؛ وأن تتنقّل بالأسهم كذلك مجموعاتُ التبويب داخل الرادار (أقسامه ومصدر التحليل) بتفعيلٍ فوريّ لأنها تبدّل العرضَ في المكان نفسه.",
+        "en": "The «registration roster» and «registration radar» tabs shall follow the WAI-ARIA tabs pattern: a tablist of tabs with roving focus (one tab stop), arrow keys moving in right-to-left order (Left is next), Home and End to the ends, with manual activation because the tabs lead to separate screens: arrows move focus, Enter or Space opens the screen and focus returns to its active tab; both screens shall carry a tabpanel tied to the tab (aria-controls and aria-labelledby); and the tab groups inside the radar (its sections and analysis source) shall also move by arrows with immediate activation since they switch the view in place."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "سهمٌ أيسر على تبويب الكشف ← ينتقل التركيز إلى «رادار التسجيل» دون فتحه؛ وEnter يفتحه.",
+          "en": "Left arrow on the roster tab moves focus to «registration radar» without opening it; Enter opens it."
+        },
+        {
+          "ar": "Home وEnd ← أول التبويبات وآخرها.",
+          "en": "Home and End go to the first and last tab."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/RegistrationTabs.tsx",
+          "src/utils/arrowChoice.ts",
+          "src/components/RegistrationRehearsal.tsx",
+          "src/components/StudentRegistration.tsx",
+          "src/components/registration-tabs.css"
+        ],
+        "tests": [
+          "tests/advisor-seat-quota-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-079",
+      "kind": "functional",
+      "title": {
+        "ar": "يوم التسجيل الحي: لوحة شعبٍ بالإلحاح ببديلٍ جاهز",
+        "en": "Live registration day: an urgency-ordered section board with a ready alternative"
+      },
+      "text": {
+        "ar": "يجب على رادار التسجيل أن يعرض لوحة «يوم التسجيل» لمن يقرأ الرادار: تظهر مفتوحةً وبارزةً حين تكون جولةُ تسجيلٍ جارية في مراحل فصل الباب، وفي غيرها تُفتح بزر «يوم التسجيل». تعرض شعبَ نطاق القارئ (isPowerUser أو isScopeAllowed، ويضيّق منتقي الكلية والقسم ولا يوسّع) مرتّبةً بالإلحاح (ممتلئٌ فيه منتظرون ثم ممتلئ ثم يمتلئ ثم متاح) بحالةٍ ملوّنة: متاح، يمتلئ من ٨٠٪، ممتلئ عند ١٠٠٪، وبمن ينتظر عدداً لا أسماء ولا معرّفات طلبة. الأرقام من مصادر التطبيق وحدها (أجوبة الطلبة «هل سجلت؟»، وطلبات الشعب وتعليم «سُجّل» في كشف التسجيل، ومحاكاة الرادار) ولكلٍّ تاريخُه؛ وتقول اللوحة «آخر تحديث للأرقام: … · المصدر: …» وتحذّر حين يقدم الرقم (أكثر من ثلاث ساعات في الجولة، يومان خارجها) وتقول صراحةً حين يكون الأحدثُ محاكاةً لا عدّاً فعلياً؛ ولا ربطَ بنظام التسجيل الرسمي. لكل مقررٍ ممتلئٍ أو يمتلئ وفيه منتظرون تعرض بطاقةَ الشعبة البديلة نفسَها («الرادار يقترح الحل») ويبقى «اعتمد الشعبة» عبر apply-proposal لمن يحرّر جدول القسم وحده. تتجدّد بالنبضة الحيّة (إشعارٌ أو حفظُ جدول) لا باستطلاعٍ متواصل، ولا لوحةَ لفصلٍ سابقٍ مجمَّد. المسار GET /api/simulation/live-board بحارس requireAuth ثم radarReader.",
+        "en": "The registration radar shall show a «registration day» board to whoever may read the radar: open and prominent while a registration round is running in the door term's phases, otherwise opened by a «registration day» button. It lists the reader's in-scope sections (isPowerUser or isScopeAllowed; the college and department picker narrows, never widens) ordered by urgency (full with waiting, full, filling, open) with a coloured state: open, filling from 80%, full at 100%, and who is waiting as a count with no student names or ids. Numbers come only from the app's own sources (students' «did you register?» answers, section requests and the «registered» marks in the registration sheet, and the radar simulation), each dated; the board states «last update of the numbers: … · source: …», warns when a number is stale (over three hours in a round, two days otherwise) and says plainly when the freshest source is the simulation rather than a real count; there is no link to the official registration system. For each full or filling course with waiting students it shows the same suggested alternative card («the radar suggests the fix»), and «adopt the section» stays on apply-proposal for those who edit the department schedule only. It refreshes on the live pulse (a notification or a schedule save) rather than polling, and has no board for a frozen past term. Route: GET /api/simulation/live-board guarded by requireAuth then radarReader."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "dean",
+        "registrarHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "جولةٌ جارية ← تظهر اللوحة مفتوحةً وبارزة؛ وخارجها يظهر زر «يوم التسجيل» فقط.",
+          "en": "A round is running ← the board is open and prominent; otherwise only the «registration day» button shows."
+        },
+        {
+          "ar": "شعبةٌ ٣٠ من ٣٠ ← «ممتلئ»؛ ٢٩ من ٣٠ ← «يمتلئ»؛ ١٠ من ٣٠ ← «متاح»؛ بلا سعةٍ ← «غير معروف» دون تخمين نسبة.",
+          "en": "A section 30 of 30 ← «full»; 29 of 30 ← «filling»; 10 of 30 ← «open»; no capacity ← «unknown» with no guessed ratio."
+        },
+        {
+          "ar": "الأحدثُ محاكاةٌ فقط ← يقول الرأس إنها أرقام محاكاة لا تسجيلاً فعلياً؛ وأرقامٌ أقدم من الحدّ ← تحذيرُ قِدَم.",
+          "en": "The freshest source is only the simulation ← the header says these are simulation numbers, not real registrations; numbers older than the limit ← a staleness warning."
+        },
+        {
+          "ar": "حمولة المسار بلا أسماء طلبةٍ ولا بصماتٍ ولا أرقامٍ مدنية ولا قوائم معرّفات.",
+          "en": "The route payload has no student names, fingerprints, civil ids or id lists."
+        },
+        {
+          "ar": "حسابٌ بلا صلاحية الجدول (٧) أو خارج نطاق قسم المقرر ← يرى البديلَ ولا يرى «اعتمد الشعبة»؛ وفصلٌ سابقٌ مجمَّد ← لا لوحة.",
+          "en": "An account without the schedule permission (7) or outside the course's department ← sees the alternative but not «adopt the section»; a frozen past term ← no board."
+        },
+        {
+          "ar": "جوابُ طالبٍ في «هل سجلت؟» أو تعليمُ «سُجّل» أو حفظُ جدول ← تُقرأ اللوحة من جديد بالنبضة بعد ثانيتين.",
+          "en": "A student's «did you register?» answer, a «registered» mark or a schedule save ← the board is re-read on the pulse after two seconds."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/liveBoard.ts",
+          "src/server/liveBoard.ts",
+          "src/components/LiveRegistrationBoard.tsx",
+          "src/server/simulationRoutes.ts",
+          "src/server/radarSuggestions.ts",
+          "src/server/studentDoorRoutes.ts",
+          "src/styles/62-live-board.css"
+        ],
+        "tests": [
+          "tests/live-board-audit.ts"
         ]
       }
     }

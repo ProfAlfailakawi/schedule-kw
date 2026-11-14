@@ -1,0 +1,4 @@
+/* «تراجع» عن قرار الوارد: يظهر بجانب سطر القرار ويعدّ ما بقي من المهلة. */
+.request-undo small{margin-inline-start:6px;color:var(--ink-3);font-weight:600}
+.request-undo{margin-top:var(--s2)}
+.inbox-pilot-card .inbox-pilot-undo{margin-block-start:var(--s2)}

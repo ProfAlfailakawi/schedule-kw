@@ -157,6 +157,7 @@ export const TRAIL_ROUTES: TrailRouteRule[] = [
   rule("POST", "/instructor-requests/issue", "send", "requests", "طلبات الأساتذة"),
   rule("POST", "/instructor-requests/:id/decide", "approve", "requests", "طلب أستاذ"),
   rule("POST", "/instructor-requests/:id/reopen-fixed", "edit", "requests", "طلب أستاذ"),
+  rule("POST", "/instructor-requests/:id/undo-decision", "edit", "requests", "طلب أستاذ"),
   rule("POST", "/instructor-requests/:id/apply", "edit", "requests", "طلب أستاذ"),
   rule("POST", "/instructor-requests/:id/reply", "send", "requests", "ردٌّ على أستاذ"),
   rule("POST", "/instructor-requests/exception/revoke", "edit", "requests", "استثناء أستاذ"),

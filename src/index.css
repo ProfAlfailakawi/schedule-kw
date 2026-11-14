@@ -74,6 +74,10 @@
 @import "./styles/58-query-plus.css";
 @import "./styles/59-inbox-pilot.css";
 @import "./styles/60-report-insight.css";
+@import "./styles/60-inbox-undo.css";
+@import "./styles/61-advisor-seat-quota.css";
+@import "./styles/62-live-board.css";
+@import "./styles/63-delete-impact.css";
 @import "./styles/61-try-alternative.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after

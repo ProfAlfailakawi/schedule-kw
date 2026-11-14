@@ -308,6 +308,11 @@ test:inbox-pilot
 test:advising
 test:admin-station
 test:query-center-plus
+test:vault-jobs
+test:advisor-seat-quota
+test:live-board
+test:delete-impact
+test:inbox-undo
 test:report-insight
 test:names-one-label
 test:whatif-in-changes
