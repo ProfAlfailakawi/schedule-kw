@@ -17,6 +17,7 @@ import { VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT } from '../src/serve
 import { CALENDAR_LINKS_CLIENT_JS } from '../src/utils/calendarLinks.ts';
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from '../src/server/teacherCardExtras.ts';
 import { PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead } from '../src/server/pushCard.ts';
+import { TEACHER_CARD_LOGIC_JS, TEACHER_CARD_R5_CSS } from '../src/server/teacherCardLogic.ts';
 import { readServerSource } from "./helpers/serverSource.mjs";
 
 const server = readServerSource();
@@ -28,7 +29,7 @@ fn = fn.replace(
   'function instructorRequestPage(token: string, nonce: string, demoHint = ""): string {',
   'function instructorRequestPage(token, nonce, demoHint = "") {'
 );
-const sandbox = { html: '', SCHEDULE_DAY_START: 480, SCHEDULE_DAY_END: 1200, SCHEDULE_DAY_START_TIME: "08:00", SCHEDULE_DAY_END_TIME: "20:00", PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml, patternLibraryInput: () => ({ groups: [], shortMinutes: 50, longMinutes: 80, shortGap: 10, longGap: 15 }), DEMO_COPY_SCRIPT, REQUEST_DAY_AUTOFILL_SCRIPT, REQUEST_LENGTH_SCRIPT, ARABIC_COUNT_SCRIPT, NEGOTIATION_LABEL, PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, REQUEST_V3_CSS, REQUEST_V4_CSS, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT, REQUEST_REPLAY_SCRIPT, VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT, COURSE_COLOR_JS, REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS, COURSE_TAGS_CSS, COURSE_TAGS_JS, CALENDAR_LINKS_CLIENT_JS, TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS, PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead };
+const sandbox = { html: '', SCHEDULE_DAY_START: 480, SCHEDULE_DAY_END: 1200, SCHEDULE_DAY_START_TIME: "08:00", SCHEDULE_DAY_END_TIME: "20:00", PATTERN_LIBRARY_CSS, PATTERN_LIBRARY_ICON, patternLibraryHtml, patternLibraryInput: () => ({ groups: [], shortMinutes: 50, longMinutes: 80, shortGap: 10, longGap: 15 }), DEMO_COPY_SCRIPT, REQUEST_DAY_AUTOFILL_SCRIPT, REQUEST_LENGTH_SCRIPT, ARABIC_COUNT_SCRIPT, NEGOTIATION_LABEL, PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, REQUEST_V3_CSS, REQUEST_V4_CSS, PUBLIC_FONT_FACES, PUBLIC_KIT_CSS, PUBLIC_KIT_SCRIPT, REQUEST_REPLAY_SCRIPT, VOICE_INPUT_CSS, VOICE_INPUT_JS, VOICE_INPUT_LIMIT, COURSE_COLOR_JS, REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS, COURSE_TAGS_CSS, COURSE_TAGS_JS, CALENDAR_LINKS_CLIENT_JS, TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS, TEACHER_CARD_LOGIC_JS, TEACHER_CARD_R5_CSS, PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead };
 vm.runInNewContext(`${fn}\nhtml=instructorRequestPage('browser-test-token','nonce123');`, sandbox, { timeout: 1000 });
 const scripts = [...String(sandbox.html).matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 if (scripts.length !== 1) throw new Error(`توقعت سكربت متصفح واحداً في صفحة الأستاذ، ووجدت ${scripts.length}`);
@@ -38,7 +39,7 @@ console.log('✓ صفحة طلب الأستاذ المولدة تحمل JavaScri
 /* اللغةُ لا تكشف اسماً غير معرَّف حتى يُستدعى: دالةٌ نُقلت إلى صفحة الطالب بالخطأ فصار
    «أرسل الطلب» في صفحة الأستاذ يرمي ReferenceError بصمت. فكلُّ مساعدٍ يستدعيه مسارُ
    الإرسال يجب أن يكون معرَّفاً داخل سكربت الصفحة نفسها. */
-for (const name of ['courseTagsHtml', 'replacedWarn', 'requestedHtml', 'courseOf', 'actionName', 'postSubmit', 'focusItem', 'pathHtml', 'payloadItems', 'pendingList', 'planReplay', 'replayPrevious', 'loadPrevious', 'calendarHtml', 'verifyHtml', 'refresh', 'openLive', 'viNormalize', 'viJoin']) {
+for (const name of ['courseTagsHtml', 'replacedWarn', 'requestedHtml', 'courseOf', 'actionName', 'postSubmit', 'focusItem', 'pathHtml', 'payloadItems', 'pendingList', 'planReplay', 'replayPrevious', 'loadPrevious', 'calendarHtml', 'verifyHtml', 'refresh', 'openLive', 'viNormalize', 'viJoin', 'rebaseDraft', 'applyDraft', 'adoptCard', 'syncDirty', 'loadCard', 'tcDeadline', 'tcDraftTake', 'tcDeptSig', 'tcPinGroups', 'tcNoPlace', 'tcEventLabel', 'tcSafeDetail', 'planHtml', 'bestHtml']) {
   if (!new RegExp(`function\\s+${name}\\s*\\(`).test(scripts[0])) throw new Error(`صفحة الأستاذ تستدعي ${name} ولا تعرّفها`);
 }
 console.log('✓ مساعدات مسار الإرسال معرَّفة داخل صفحة الأستاذ');

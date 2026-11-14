@@ -9,9 +9,10 @@ import { travelShortfalls } from "../../utils/campusTravelPolicy";
 import { campusOf } from "../../utils/campusTravel";
 import { readTravelPolicy } from "./travelPolicy";
 import { roomTypeIn } from "../../utils/roomTypeForSection";
+import { AR, countOf } from "../../utils/arabicCount";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "../../utils/instructorRequestWeek";
-import { rankRequestRooms } from "../../utils/requestRoomRanking";
+import { rankRequestRooms, requiredSeats, roomSeatFit, undersizedRequestRooms } from "../../utils/requestRoomRanking";
 import { seatCap } from "../../utils/actualDemandSupply";
 import { capacityContextForSection } from "./capacityRules";
 import { loadLimitOf } from "../../utils/teachingLoad";
@@ -441,25 +442,35 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
     const courseIdOfItem = Number(item.after?.courseId || item.before?.courseId || 0);
     const itemDays = new Set((item.slots || []).map(entry => String(entry.day)));
     const sameDayMine = rowsAfter.filter(row => Number(row.id) !== Number(item.rowId) && [...itemDays].some(day => Boolean((row as any)[day])));
-    const rankedRooms = item.offeringRowIds?.length ? [] : rankRequestRooms(rules.knownRoomKeys.map(key => {
+    /* المقاعدُ المطلوبة بالقاعدة الواحدة (requiredSeats): MaxStudent، وإلا سقفُ اللائحة ولو مفترَضاً — شرطٌ لا تفضيل. */
+    const cap = seatCap(selectedCourse as any, capacityBySection.get(targetSectionId) || { specialization: "theoretical", excused: new Set<string>() });
+    const need = requiredSeats(selectedCourse?.MaxStudent, cap);
+    const rankable = rules.knownRoomKeys.map(key => {
       const hall = rules.hallByKey.get(key), room = rules.registry.rooms.find(entry => entry.id === hall?.roomId);
       return { key, roomId: hall?.roomId ? String(hall.roomId) : undefined, buildingId: hall?.buildingId ? String(hall.buildingId) : undefined,
         capacity: Number((room as any)?.capacity || 0), fit: rules.selectedCourseFit(key, courseIdOfItem), sectionIds: (room as any)?.sectionIds || [],
         /* typeRank صفر = نوعٌ مسجّلٌ مخالف (selectedCourseFit = typeRank×1000 + تعديلٌ لا يبلغ ±100). */
         typeMismatch: rules.selectedCourseFit(key, courseIdOfItem) < 500 };
-    }), {
+    });
+    const rankedRooms = item.offeringRowIds?.length ? [] : rankRequestRooms(rankable, {
       courseSectionId: targetSectionId,
       nearBuildingIds: new Set(sameDayMine.map(row => String((row as any).buildingId || "")).filter(Boolean)),
       previousRoomIds: new Set([original, ...instructorRows.filter(row => Number(row.AdCourseId) === courseIdOfItem)]
         .map(row => String((row as any)?.roomId || "")).filter(Boolean)),
-      ...(() => {
-        const cap = seatCap(selectedCourse as any, capacityBySection.get(targetSectionId) || { specialization: "theoretical", excused: new Set<string>() });
-        return { seats: cap.cap, seatsAssumed: cap.assumed };
-      })(),
+      seats: need.seats, seatsAssumed: need.assumed,
       usage: roomUsageOf(context),
       facility: Boolean(companionType),
     });
+    /* ما أسقطته السعةُ وحدها: لا يُختار أبداً، ويقول به الحكمُ «لا قاعة تتسع لشعبتك» لا «لا قاعة». */
+    const undersized = item.offeringRowIds?.length ? [] : undersizedRequestRooms(rankable, need.seats);
+    const capacityOfKey = (key: string) => Number(rankable.find(room => room.key === key)?.capacity || 0);
+    const seatsLabel = `${countOf(need.seats, AR.seat)}${need.assumed ? " (سقف اللائحة المفترض: لا سعة ولا طبيعة للمقرر)" : ""}`;
     const rankedByKey = new Map(rankedRooms.map(room => [room.key, room]));
+    /* سعةُ القاعة وملاءمتُها للمقاعد على كل خيار: يراها القسمُ «سعة/مقاعد»، ويُوسم ما سعتُه غيرُ مسجّلة. */
+    const seatInfo = (key: string) => {
+      const capacity = capacityOfKey(key);
+      return { ...(capacity > 0 ? { capacity } : {}), seatFit: rankedByKey.get(key)?.seatFit || roomSeatFit(capacity, need.seats) };
+    };
     /* سُلّمُ البدايات يمنع في كرت الأستاذ ما يختاره بنفسه (المالك 2026-10-30)، لا ما عرضه القسمُ عليه فقبله: بديلُ رفضٍ،
        أو مقترحٌ في المحادثة، أو ما وافق عليه. وشاشاتُ القسم تراه تنبيهاً. */
     const departmentOffers = [item.chosenAlternative, ...(item.decision?.alternatives || []),
@@ -483,6 +494,11 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       instructors: context.instructors,
       cohortPairs: rules.cohortPairs,
       knownRoomKeys: item.offeringRowIds?.length ? [] : rankedRooms.map(room => room.key),
+      undersizedRoomKeys: undersized.map(room => room.key),
+      /* للقسم: المقاعدُ مقابل سعات الخالي — يُنزع من نسخة الأستاذ (stripForInstructor). */
+      roomCapacityDetail: freeShort => freeShort.length
+        ? `الشعبة تحتاج ${seatsLabel}، والقاعات الخالية في هذا الوقت سعتها ${[...new Set(freeShort.map(capacityOfKey))].sort((a, b) => b - a).join("، ")} فقط.`
+        : `الشعبة تحتاج ${seatsLabel}، ولا قاعة متاحة للقسم تتسع لها.`,
       roomCollegeId: targetCollegeId,
       roomEligible: rules.roomEligible,
       roomSlotsEligible: companionType && !item.offeringRowIds?.length ? (key, slots) => Boolean(facilityFor(key, slots)) : undefined,
@@ -536,7 +552,9 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
      * والتثبيتُ يكتب القاعةَ الجديدة. كان الصفُّ يحتفظ بقاعته المشغولة فيقول الفحصُ
      * الحيّ «القاعة مشغولة» والحكمُ نفسُه يعدّ ثلاث عشرة قاعةً خالية. */
     const originalKey = item.action === "change" && original ? roomKeyOf((original as any).roomId, original.AdRoomCode, original.AdRoomHall) : "";
-    if (originalKey && verdict.roomCandidates.includes(originalKey))
+    /* وقاعتُه تُقدَّم بالقاعدة نفسها: لا تسبق قاعةً معروفةً تكفي إن كانت سعتُها غيرَ مسجّلة. */
+    const fitRank = (key: string) => rankedByKey.get(key)?.seatFit === "unknown" ? 1 : 0;
+    if (originalKey && verdict.roomCandidates.includes(originalKey) && fitRank(originalKey) <= fitRank(verdict.roomCandidates[0]))
       verdict.roomCandidates = [originalKey, ...verdict.roomCandidates.filter(key => key !== originalKey)];
     const originalTaken = Boolean(originalKey) && !verdict.roomCandidates.includes(originalKey) && context.allRows.some(row =>
       Number(row.id) !== Number(original!.id) && Number(row.AdInstructorId) !== Number(request.AdInstructorId)
@@ -547,7 +565,8 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       ...(originalTaken && verdict.roomCandidates[0] && rules.hallByKey.get(verdict.roomCandidates[0]) ? (() => {
         const to = rules.hallByKey.get(verdict.roomCandidates[0])!;
         return { roomSwitch: { from: [original!.AdRoomCode, original!.AdRoomHall].filter(Boolean).join("/"),
-          to: { roomId: String(to.roomId || ""), buildingId: String(to.buildingId || ""), room: to.room, hall: to.hall, ...withFacility.get(verdict.roomCandidates[0]) } } };
+          to: { roomId: String(to.roomId || ""), buildingId: String(to.buildingId || ""), room: to.room, hall: to.hall, ...withFacility.get(verdict.roomCandidates[0]),
+            ...seatInfo(verdict.roomCandidates[0]) } } };
       })() : { roomSwitch: undefined }),
       peers: (() => {
         const lookups = peerLookups.get(targetSectionId);
@@ -564,12 +583,14 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
       reasons: verdict.reasons,
       roomCandidates: verdict.roomCandidates,
       roomAvailable: verdict.roomAvailable,
+      /* مقاعدُ الشعبة التي حُكم بها على السعة — للقسم وحده (تُنزع من نسخة الأستاذ). */
+      roomSeats: item.offeringRowIds?.length ? undefined : { seats: need.seats, assumed: need.assumed },
       /* تفاصيلُ أولى القاعات الخالية (مبنى وقاعة) ليُملأ بها نموذجُ الإضافة السريع: للقسم وحده. */
       roomOptions: verdict.roomCandidates.map(key => {
         const registered = rules.hallByKey.get(key);
-        if (registered) return { key, room: registered.room, hall: registered.hall, buildingId: registered.buildingId, roomId: registered.roomId, ...withFacility.get(key), why: rankedByKey.get(key)?.why || [] };
+        if (registered) return { key, room: registered.room, hall: registered.hall, buildingId: registered.buildingId, roomId: registered.roomId, ...withFacility.get(key), why: rankedByKey.get(key)?.why || [], ...seatInfo(key) };
         const known: any = rules.scopeRows.find(row => row.roomId && roomKeyOf(row.roomId, row.AdRoomCode, row.AdRoomHall) === key);
-        return known ? { key, room: String(known.AdRoomCode || ""), hall: String(known.AdRoomHall || ""), buildingId: known.buildingId, roomId: known.roomId } : null;
+        return known ? { key, room: String(known.AdRoomCode || ""), hall: String(known.AdRoomHall || ""), buildingId: known.buildingId, roomId: known.roomId, ...seatInfo(key) } : null;
       }).filter(Boolean) as any,
       nearestTimes: verdict.nearestTimes.map(entry => ({ day: entry.day, days: entry.days, start: entry.start, end: entry.end })),
       /* لا «الأنسب» للأستاذ (قرار المالك 2026-10-29): الترتيبُ أعلاه يقرّر الحجزَ لحظةَ الإرسال، ويراه القسمُ وحده. */
@@ -626,15 +647,15 @@ export function instructorRequestItemIdentity(item: InstructorRequestItem) {
  * يُعيد رقمَه المطبَّع حين يطابق سجلَّه، أو "" وقد أُجيب الطلبُ بسببه.
  */
 export async function verifyRequestSigner(request: InstructorRequest, req: Request, res: Response): Promise<string> {
-  const signScope = `request:${request.id}`;
+  /* الصيغةُ تُفحص قبل حجز المحاولة (كما في /api/public/verify): خطأُ كتابةٍ في رقمٍ ناقص لا يأكل من محاولات
+     التوقيع العشر، ولا يُغلق البابَ على صاحبه. فشلُ رقم التحقق يسبق أيَّ مطابقة، فلا يُقال إنه خالف بيانات البطاقة. */
   const civil = normalizeCivilId(req.body?.civil);
   const civilCheck = validateCivilId(civil);
   if (!civilCheck.isValid) {
-    /* فشلُ رقم التحقق يسبق أيَّ مطابقة، فلا يُقال إنه خالف بيانات البطاقة: لم تُقرأ بعدُ.
-       ولا يُعدّ محاولةً (FR-REQ-012): خطأُ كتابةٍ لا يكشف شيئاً، وكان يأكل من العشر فيُغلق البابَ على صاحبه. */
-    res.status(400).json({ error: "الرقم المدني غير مكتمل أو فيه خطأ كتابة. راجعه وأعد المحاولة." });
+    res.status(400).json({ error: "الرقم المدني غير مكتمل أو فيه خطأ كتابة. راجعه وأعد المحاولة.", code: "civil-format" });
     return "";
   }
+  const signScope = `request:${request.id}`;
   const signAttempt = publicAttemptReserve(signScope, req.ip || "unknown");
   if (!signAttempt) {
     res.status(429).json({ error: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." });
@@ -650,7 +671,7 @@ export async function verifyRequestSigner(request: InstructorRequest, req: Reque
      سببٍ يظهر له ولا للقسم. */
   const storedCivil = normalizeCivilId(signer?.AdInstructorCivil);
   if (!storedCivil || storedCivil !== civil) {
-    res.status(403).json({ error: "الرقم المدني لا يطابق صاحب هذا الرابط." });
+    res.status(403).json({ error: "الرقم المدني لا يطابق صاحب هذا الرابط.", code: "civil-mismatch" });
     return "";
   }
   signAttempt.release();

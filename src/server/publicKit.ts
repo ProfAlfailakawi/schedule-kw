@@ -210,9 +210,10 @@ function sign(o){var again=false;
   var other=document.getElementById("skOther");if(other)other.onclick=function(){again=true;civil="";draw()};
   go.onclick=function(){var c=kn?civil:v;if(c.length!==12)return;
    go.disabled=true;err.hidden=true;go.innerHTML=gi("clock")+'يرسل…';
-   o.run(c,function(msg,status){
+   o.run(c,function(msg,status,code){
     if(msg){go.disabled=false;go.innerHTML=gi("send")+'وقّع وأرسل';err.textContent=msg;err.hidden=false;
-     if(status===403){civil="";again=true;draw(msg)}return}
+     /* يُعاد طلبُ الرقم حين خالف صاحبَ الرابط وحده؛ أما 403 لبابٍ أُغلق (انتهت المدة، رابطُ عرض) فرسالتُه تكفي والرقمُ صحيح. */
+     if(status===403&&(code==="civil-mismatch"||(!code&&/الرقم المدني/.test(msg)))){civil="";again=true;draw(msg)}return}
     civil=c;at=Date.now();close();if(o.ok)toast("check",o.ok)})}}
  draw()}
 /* حقلُ الوقت: «HH:MM» بأرقامٍ إنجليزية. يكتب الأستاذُ 930 فيصير 09:30، والخانةُ الحمراء تقول إنه خارج الدوام. */
