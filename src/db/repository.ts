@@ -6766,13 +6766,21 @@ export const Repository = {
       const refusal = guard(existing);
       if (refusal) throw new StudentCourseStateConflict(refusal);
     };
-    const merge = (current: StudentNeed): StudentNeed => ({
-      ...current,
-      courseStates: [
-        ...(current.courseStates || []).filter(state => Number(state.courseId) !== Number(next.courseId)),
-        next,
-      ],
-    });
+    /* القرارُ الجديد يحلّ محلّ القديم — إلا رابطَ الشعبة التي فُتحت لهذا الطلب (scheduleId/sectionCode):
+       يبقى حتى يُكتب صراحةً (ولو undefined لمحوه)، فلا يضيع بـ«سُجّل» أو «لم توافق اللجنة» بعد الفتح،
+       ولا تبقى الشعبةُ في الجدول بلا أثرٍ يدلّ عليها. والحقولُ الفارغة لا تُكتب. */
+    const merge = (current: StudentNeed): StudentNeed => {
+      const existing: any = (current.courseStates || []).find(state => Number(state.courseId) === Number(next.courseId));
+      const keep = existing?.scheduleId && !("scheduleId" in next) ? { scheduleId: existing.scheduleId, sectionCode: existing.sectionCode } : {};
+      const written = Object.fromEntries(Object.entries({ ...keep, ...next }).filter(([, value]) => value !== undefined)) as unknown as StudentCourseState;
+      return {
+        ...current,
+        courseStates: [
+          ...(current.courseStates || []).filter(state => Number(state.courseId) !== Number(next.courseId)),
+          written,
+        ],
+      };
+    };
     if (firestoreDb && !demoSandboxContext.getStore()) {
       /* ── قراران في لحظةٍ واحدة ──────────────────────────────────────────
        *

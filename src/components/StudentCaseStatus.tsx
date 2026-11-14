@@ -63,10 +63,11 @@ export const courseStateLabel = (course: CourseStateFields & { droppedLabel?: st
     : course.readOnly ? `يقرّره قسم ${course.decidedBySectionName || "آخر"}`
       : course.settled ? STATE_LABEL[course.state || ""] || String(course.state) : PENDING_COMMITTEE;
 
-/** البنودُ التي تنتظر قراراً في صفٍّ واحد: مقرّراته، أو حالتُه كلها. */
+/** البنودُ التي تنتظر قراراً في صفٍّ واحد: مقرّراته، أو حالتُه كلها.
+ *  ومقرّرٌ ألغاه الطالبُ بعد القرار لا ينتظر أحداً: لا يُعدّ في «بانتظار التسجيل» ولا يُصفّى عليه. */
 export function viewStatuses(row: { caseLevel?: boolean; caseStatus?: StudentCaseStatus; courses: CourseStateFields[] }): RowStatus[] {
   if (row.caseLevel) return [row.caseStatus || "pending"];
-  return row.courses.filter(course => !course.readOnly).map(statusOf);
+  return row.courses.filter(course => !course.readOnly && !course.droppedByStudent).map(statusOf);
 }
 
 const ICON: Record<RowStatus, React.ComponentType<any>> = {

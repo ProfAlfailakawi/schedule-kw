@@ -214,6 +214,8 @@
 .qd-skip:disabled{opacity:.35}
 .qd-hint{margin:0;text-align:center;color:var(--muted);font-size:.75rem}
 @media (pointer:fine){.qd-hint{display:none}}
+/* خطأُ الحفظ داخل النافذة نفسها (القرار السريع وورقة السبب)، لا خلف ستارتها. */
+.qd-error{margin:0;padding:8px 12px;border-radius:10px;background:var(--danger-soft, #fdecec);color:var(--danger, #b42318);font-size:.85rem;font-weight:600}
 .qd-done{display:grid;justify-items:center;gap:8px;padding:28px 10px;text-align:center}
 .qd-done>span{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--success-soft,#e2f0e8);color:var(--success,#25684a)}
 .qd-done>span svg{width:30px;height:30px}

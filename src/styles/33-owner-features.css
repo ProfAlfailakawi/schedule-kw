@@ -38,6 +38,11 @@
 .of-msg{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;font-weight:700}
 .of-msg[data-tone=ok]{background:var(--success-soft)}.of-msg[data-tone=warn]{background:var(--warning-soft)}.of-msg[data-tone=bad]{background:var(--danger-soft)}
 .of-chips{display:flex;flex-wrap:wrap;gap:6px}
+/* طلباتُ الاستثناء: كلُّ طلبٍ سطرٌ بحالته، والمعلّقُ يحمل زرَّي البتّ للمسؤول. */
+.of-requests{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.of-requests li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border-radius:12px}
+.of-requests li[data-status=declined]{opacity:.7}
+.of-hint{color:var(--muted);font-size:.8rem}
 .of-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);font-size:.78rem;background:var(--surface,#fff)}
 .of-chip[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft);font-weight:800}
 .of-wave{display:grid;gap:8px;padding:10px;border:1px dashed var(--line);border-radius:12px}

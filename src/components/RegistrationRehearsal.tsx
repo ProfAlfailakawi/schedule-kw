@@ -150,9 +150,18 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
     autoRunInFlight.current = true; setBusy(true);
     void request("/api/simulation/run", { method: "POST" })
       .then(() => load())
-      .catch((e: any) => { if (!/يُحدَّث الآن/.test(e.message || "")) setError(e.message || "تعذّر تحديث الرادار تلقائياً."); })
+      /* «يُحدَّث الآن» و«قبل قليل» (الفاصلُ الأدنى في الخادم) ليسا خطأً يُقال: التحديثُ جارٍ أو قريب. */
+      .catch((e: any) => { if (!/يُحدَّث الآن|قبل قليل/.test(e.message || "")) setError(e.message || "تعذّر تحديث الرادار تلقائياً."); })
       .finally(() => { autoRunInFlight.current = false; setBusy(false); });
   }, [data, load]);
+  /* «حدّث الرادار»: لمن يملك التشغيل، حين تريد الأرقامَ الآن (بعد تعديل الصحائف أو الجداول). */
+  const [refreshNote, setRefreshNote] = useState("");
+  const refreshNow = async () => {
+    setBusy(true); setRefreshNote("");
+    try { await request("/api/simulation/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }); await load(); setRefreshNote("حُدّث الرادار الآن."); }
+    catch (e: any) { setRefreshNote(e.message || "تعذّر تحديث الرادار."); }
+    finally { setBusy(false); }
+  };
 
   /** تقريرُ العمادة: ورقةٌ للتحديث وأخرى لما قاله الطلبة بعد التسجيل. أعدادٌ لا أسماء. */
   const exportXlsx = async () => {
@@ -160,21 +169,25 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
     const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
     const head = ["رمز المقرر", "المقرر", "عدد الشعب", "السعة", "المقاعد المحجوزة افتراضياً", "المطلوب", "وجد مقعداً", "امتلأت الشعب", "مطلوب ولا يُطرح", "تعارض أوقات", "فوق الوحدات", "ينقصهم مسبق"];
-    const body = (data.courses || []).map(c => [c.code, c.name, c.sections, c.capacity, c.taken, c.wanted, c.seated, c.unmet.full, c.unmet["not-offered"], c.unmet.conflict, c.unmet.units, c.unmet.prereq]);
+    /* يُصدَّر المصدرُ المختار في الشاشة (الرغبات الفعلية أو التوقعات)، لا الفعليُّ دائماً. */
+    const body = (scenario === "projected" ? data.projectedCourses || [] : data.courses || []).map(c => [c.code, c.name, c.sections, c.capacity, c.taken, c.wanted, c.seated, c.unmet.full, c.unmet["not-offered"], c.unmet.conflict, c.unmet.units, c.unmet.prereq]);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, ...body]), "رادار التسجيل");
     if (outcome && outcome.answers > 0) {
       const oh = ["رمز المقرر", "المقرر", "سجّلوا", "تعثّروا", "امتلأت", "مسبق", "تعارض", "آخر"];
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([oh, ...outcome.courses.map(c => [c.code, c.name, c.registered, c.stuck, c.full, c.prereq, c.conflict, c.other])]), "بعد التسجيل");
     }
-    const about = [["الفصل", data.term?.name || ""], ["أُجريت", data.run.ranAt], ["الملفات المكتملة", data.run.students], ["بلا رغبات", data.run.defaulted], ["صحائف بلا قواعد معتمدة", data.run.withoutRules], ["ملاحظة", "تقدير من ملفات الطلبة وجداول الأقسام، لا بيانات التسجيل الرسمي."]];
+    const about = [["الفصل", data.term?.name || ""], ["المصدر", scenario === "projected" ? "التوقعات (غير المشاركين)" : "الرغبات الفعلية"], ["أُجريت", data.run.ranAt], ["الملفات المكتملة", data.run.students], ["بلا رغبات", data.run.defaulted], ["صحائف بلا قواعد معتمدة", data.run.withoutRules],
+      ...(data.run.windows || []).map((count, index) => [`نافذة ${index + 1}`, count]),
+      ["ملاحظة", "تقدير من ملفات الطلبة وجداول الأقسام، لا بيانات التسجيل الرسمي."]];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(about), "الأساس");
-    XLSX.writeFile(wb, "تقرير_رادار_التسجيل.xlsx");
+    XLSX.writeFile(wb, scenario === "projected" ? "تقرير_رادار_التسجيل_التوقعات.xlsx" : "تقرير_رادار_التسجيل.xlsx");
   };
 
   const rows = useMemo(() => orderRadarCourses(scenario === "projected" ? data?.projectedCourses || [] : data?.courses || [], scenario, weight), [data, scenario]);
   const decide = rows.filter(needsDecision);
   const calm = rows.filter(c => !needsDecision(c));
-  const shown = (all ? rows : decide).filter(c => !q.trim() || `${c.code} ${c.name}`.includes(q.trim()));
+  const needle = q.trim().toLowerCase();
+  const shown = (all ? rows : decide).filter(c => !needle || `${c.code} ${c.name}`.toLowerCase().includes(needle));
 
   // Keep scoped-term hooks active during loading as well as after the summary arrives.
   const scopedTerms = useScopedTerms<{ AdTermId: number; AdTermName: string }>(terms, 0, 0, termPick, pickTerm);
@@ -188,12 +201,10 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
   if (!data && !error && !termPick) return <MicroLoader />;
   const r = data?.run;
   const wantedTotal = rows.reduce((s, c) => s + c.wanted, 0), seatedTotal = rows.reduce((s, c) => s + c.seated, 0);
-  const coverage = wantedTotal ? Math.round((seatedTotal / wantedTotal) * 100) : 0;
   const bands = scenario === "projected" ? r?.projected?.capacity : r?.capacity;
   const selectedPopulation = scenario === "projected" ? r?.projected?.students || 0 : r?.students || 0;
   const quality = r?.dataQuality;
   const qualityPct = quality?.total ? Math.round(quality.ready / quality.total * 100) : 0;
-  const maxWindow = Math.max(1, ...(r?.windows || [1]));
   /* يفتح الرادار على ما يحتاج فعلاً: بعد بدء التسجيل أجوبةُ الطلبة، وقبله ما يحتاج قراراً. */
   const frozen = Boolean(data?.frozen);
   /* لا يُعرض في المحدِّد إلا ما يقبله الخادم: فصلُ الباب والفصولُ السابقة المجمَّدة. */
@@ -206,7 +217,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
   return (
     <TermFrozenContext.Provider value={frozen}>
     <div className="sm-page" dir="rtl">
-      <PageTitle eyebrow="رادار التسجيل" subtitle="لو سجّل الطلبةُ بحسب ما كتبوه: أين الزحام، وما المطلوب ولا يُطرح؟"
+      <PageTitle eyebrow="الإرشاد" subtitle="لو سجّل الطلبةُ بحسب ما كتبوه: أين الزحام، وما المطلوب ولا يُطرح؟"
         action={(
           <div className="sm-actions">
             <TeamPresenceChip peers={team.peers} team={team.team} />
@@ -217,10 +228,12 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
                 onCollege={id => pickScope({ collegeId: id, sectionId: 0 })}
                 onSection={id => pickScope({ collegeId: scopePick.collegeId || (catalog?.sections.find(row => row.id === id)?.collegeId || 0), sectionId: id })} />
             ) : null}
+            {data?.canRun && !frozen ? <SecondaryButton type="button" disabled={busy} onClick={() => void refreshNow()} title="يُعيد احتساب الرادار الآن لكل الطلبة (حتى مرةً كل دقيقتين)" data-guide-ignore="تحديثُ الرادار يدوياً لإدارة النظام داخل شاشةٍ مسجّلة في المرشد باسم page.simulation"><History size={16} /> {busy ? "يُحدّث…" : "حدّث الرادار"}</SecondaryButton> : null}
             {data?.run ? <SecondaryButton onClick={exportXlsx} data-guide-ignore="تصديرُ تقرير الرادار داخل شاشةٍ مسجّلة في المرشد باسم page.simulation"><Download size={16} /> تقرير Excel</SecondaryButton> : null}
             <MasariQrButton data-guide-ignore="زرُّ رمز «مساري» داخل شاشةٍ مسجّلة في المرشد باسم page.simulation" />
           </div>
-        )}>رادار يوم التسجيل</PageTitle>
+        )}>رادار التسجيل</PageTitle>
+      {refreshNote ? <Notice type={/^حُدّث/.test(refreshNote) ? "success" : "warning"} onDismiss={() => setRefreshNote("")}>{refreshNote}</Notice> : null}
       {termOptions.length > 0 ? (
         <div className="sm-termbar no-print">
           <Field label={<><History aria-hidden="true" /> الفصل</>}>
@@ -241,7 +254,11 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
         </div>
       ) : null}
       {!data && !error ? <MicroLoader /> : !data?.term ? <EmptyState title="لا فصلَ للرادار" detail="تظهر حين يكون للفصل القادم تواريخُ طلبة." /> : !r ? (
-        <EmptyState title="جارٍ إعداد الرادار تلقائياً" detail={data.canRun ? "سيظهر التحليل هنا بعد اكتمال الاحتساب؛ لا حاجة إلى تشغيله يدوياً." : "تُحدّثه إدارةُ النظام آلياً، ثم يظهر التحليل هنا."} />
+        <EmptyState
+          title={data.auto?.enabled === false ? "لم يُحتسب الرادار بعد" : "جارٍ إعداد الرادار تلقائياً"}
+          detail={data.auto?.enabled === false
+            ? (data.canRun ? "التحديثُ التلقائي متوقف؛ اضغط «حدّث الرادار» ليُحتسب الآن." : "التحديثُ التلقائي متوقف؛ تحتسبه إدارةُ النظام يدوياً.")
+            : (data.canRun ? "سيظهر التحليل هنا بعد اكتمال الاحتساب، ويمكنك «حدّث الرادار» إن لم تُرد الانتظار." : "تُحدّثه إدارةُ النظام آلياً، ثم يظهر التحليل هنا.")} />
       ) : (
         <>
           <SemesterReadiness bands={bands} wanted={wantedTotal} seated={seatedTotal} fullCourses={rows.filter(c => c.unmet.full > 0).length} notOffered={rows.filter(c => c.unmet["not-offered"] > 0).length}
@@ -257,7 +274,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
             <button type="button" role="tab" aria-selected={scenario === "actual"} onClick={() => setScenario("actual")} data-guide-ignore="اختيار مصدر الرغبات داخل شاشة مرشد التسجيل">الرغبات الفعلية <small>{r.students.toLocaleString("ar-KW-u-nu-latn")}</small></button>
             <button type="button" role="tab" aria-selected={scenario === "projected"} onClick={() => setScenario("projected")} disabled={!r.projected} data-guide-ignore="اختيار التوقعات داخل شاشة مرشد التسجيل">التوقعات <small>{(r.projected?.students || 0).toLocaleString("ar-KW-u-nu-latn")}</small></button>
           </div> : null}
-          {r.stale ? <div className="sm-stale" role="status"><AlertTriangle size={16} /> تغيّرت البيانات؛ {busy ? "يجري تحديث الرادار تلقائياً الآن." : "سيُعاد احتساب الرادار تلقائياً."}</div> : null}
+          {r.stale ? <div className="sm-stale" role="status"><AlertTriangle size={16} /> تغيّرت البيانات؛ {busy ? "يجري تحديث الرادار الآن." : data.auto?.enabled === false ? (data.canRun ? "التحديثُ التلقائي متوقف — اضغط «حدّث الرادار»." : "التحديثُ التلقائي متوقف — تحدّثه إدارةُ النظام يدوياً.") : "سيُعاد احتساب الرادار تلقائياً."}</div> : null}
           {shownView === "capacity" ? <>
           <section className="sm-capacity-summary" aria-label="قدرة الطلبة على تكوين جدول">
             <header><div><small>{scenario === "actual" ? "قدرة المشاركين" : "سيناريو غير المشاركين"}</small><strong>{countOf(selectedPopulation, AR.student)}</strong></div><span>خطة فعلية في المسودة · السعة افتراضية</span></header>
@@ -271,6 +288,25 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
             {bands?.graduatingBelow12 ? <p className="sm-graduation-note">{bands.graduatingBelow12.toLocaleString("ar-KW-u-nu-latn")} يحتاجون أقل من 12 وحدة لإكمال المتبقي وفق الصحيفة.</p> : null}
             <details className="sm-info"><summary><Info /> تقدير لا تسجيل</summary><p>هذا تقدير قدرة، لا أهلية رسمية ولا تسجيل أو حجز. المقررات المجتازة واردة من ملفات الطلبة وليست صحيفة رسمية.</p></details>
           </section>
+          {/* نوافذُ التسجيل: كم طالباً في كل جولة (الأشدُّ حاجةً أولاً) — منها يقرّر صاحبُ القرار ساعاتِ كل نافذة. */}
+          {(r.windows || []).length > 1 && r.windows.some(count => count > 0) ? (
+            <section className="sm-windows" aria-label="نوافذ التسجيل المقدّرة">
+              <header><small>نوافذ التسجيل المقدّرة · من الرغبات الفعلية</small></header>
+              <ol>
+                {r.windows.map((count, index) => {
+                  const most = Math.max(1, ...r.windows);
+                  return (
+                    <li key={index}>
+                      <span>نافذة {(index + 1).toLocaleString("ar-KW-u-nu-latn")}</span>
+                      <div className="sm-track" aria-hidden="true"><i style={{ inlineSize: `${Math.round(count / most * 100)}%` }} /></div>
+                      <b>{countOf(count, AR.student)}</b>
+                    </li>
+                  );
+                })}
+              </ol>
+              <small>الأوشكُ على التخرّج وكثيرو الإجباري في النافذة الأولى، والبقيةُ بالتساوي على جولات الفصل.</small>
+            </section>
+          ) : null}
           {quality ? <details className="sm-quality">
             <summary><span><i style={{ inlineSize: `${qualityPct}%` }} /></span><b>{qualityPct}٪ من الشعب جاهزة للتحليل</b><small>{quality.excluded ? `${countOf(quality.excluded, AR.section)} تحتاج استكمال بياناتها` : "لا توجد شعب مستبعدة"}</small></summary>
             {quality.excluded ? <ul>

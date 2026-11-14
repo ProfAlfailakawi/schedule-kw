@@ -295,3 +295,4 @@ test:changes-unified-review
 test:academic-console
 test:radar-suggestions
 test:inbox-pilot
+test:advising
