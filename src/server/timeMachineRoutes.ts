@@ -18,7 +18,7 @@ import { randomUUID } from "crypto";
 import { Repository } from "../db/repository";
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import {
-  applyChanges, driftOf, planOperations, touchedRowIds,
+  applyChanges, driftOf, planOperations, restoreBaselineWeek, touchedRowIds,
   type TmChange, type TmContext, type TmHall, type TmHistoryEntry, type TmRegistration, type TmScenarioRecord,
 } from "../utils/timeMachine";
 import { createTtlMemo } from "./notificationCache";
@@ -51,14 +51,14 @@ export interface TimeMachineDeps {
   loadLimits: (instructors: AdInstructor[], termId: number) => Promise<Record<string, number>>;
   termFrozen: (termId: number) => Promise<string | null>;
   /** exactRestore: استعادةٌ تعيد ما كان بالضبط — لا تُمنع بقاعدة النمط. */
-  dryRunUpdate: (req: any, rowId: number, body: any, week: FSchedule[], exactRestore?: boolean) => Promise<InnerResult>;
-  dryRunCreate: (req: any, body: any, week: FSchedule[], exactRestore?: boolean) => Promise<InnerResult>;
+  dryRunUpdate: (req: any, rowId: number, body: any, week: FSchedule[], exactRestore?: boolean, baseline?: FSchedule[]) => Promise<InnerResult>;
+  dryRunCreate: (req: any, body: any, week: FSchedule[], exactRestore?: boolean, baseline?: FSchedule[]) => Promise<InnerResult>;
   lockRefusal: (req: any, collegeId: number, sectionId: number, termId: number) => Promise<string | null>;
   captureVersion: (req: any, collegeId: number, sectionId: number, termId: number, label: string) => Promise<any>;
   recordVersionAfter: (version: any, after: (before: any[]) => any[]) => Promise<void>;
   noteMutation: (req: any, collegeId: number, sectionId: number, termId: number, change: { kind: "add" | "edit" | "delete"; rows?: any[] }) => Promise<void>;
   normalizer: () => Promise<(row: FSchedule) => FSchedule>;
-  lengthIssue: (row: any, week: FSchedule[]) => Promise<string | null>;
+  lengthIssue: (row: any, week: FSchedule[], baseline?: FSchedule[]) => Promise<string | null>;
   dataContextKey?: (key: string | number) => string;
 }
 
@@ -417,6 +417,9 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
         ...live.filter(row => !removed.has(Number(row.id))).map(row => { const op: any = updates.get(Number(row.id)); return op ? { ...row, ...op.body } : row; }),
         ...created.map(op => ({ ...op.body, id: op.tempId } as FSchedule)),
       ];
+      /* الاستعادة: الأسبوعُ كما كان قبل الاعتماد = الأسبوعُ النهائي بلا صفوفٍ وُلدت بعده (A6). ما كان قائماً فيه لا يمنع. */
+      const touchedIds = new Set<number>(ops.map(op => op.kind === "create" ? (op.fixedId ?? op.tempId) : op.rowId).concat(ops.filter(op => op.kind === "create").map(op => (op as any).tempId)));
+      const baselineWeek: FSchedule[] | undefined = kind === "restore" ? restoreBaselineWeek(finalWeek, scenario.restorePoint, touchedIds) : undefined;
       const scopes = new Map<string, { collegeId: number; sectionId: number }>();
       for (const op of ops) {
         const row: any = op.kind === "create" ? op.body : liveById.get(op.rowId);
@@ -436,8 +439,8 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
           continue;
         }
         const dry = op.kind === "update"
-          ? await deps.dryRunUpdate(req, op.rowId, op.body, finalWeek, kind === "restore")
-          : await deps.dryRunCreate(req, op.body, finalWeek.filter(row => Number(row.id) !== op.tempId), kind === "restore");
+          ? await deps.dryRunUpdate(req, op.rowId, op.body, finalWeek, kind === "restore", baselineWeek)
+          : await deps.dryRunCreate(req, op.body, finalWeek.filter(row => Number(row.id) !== op.tempId), kind === "restore", baselineWeek ? baselineWeek.filter(row => Number(row.id) !== op.tempId) : undefined);
         if (dry.status >= 400) {
           res.status(dry.status).json({ ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر الاعتماد." }), step: i, applied: [], reverted: true });
           return;
@@ -461,10 +464,13 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
             ? { ...current, status: "applied", restorePoint: {
                 at: new Date().toISOString(), before: result.before, createdIds: result.createdIds,
                 afterRevs: Object.fromEntries(result.rows.map(row => [String(row.id), Number(row.rev || 0)])),
+                baseMaxId: Math.max(0, ...live.map(row => Number(row.id))),
+                baseRevs: Object.fromEntries(live.map(row => [String(row.id), Number(row.rev || 0)])),
               }, history: [...current.history, history(req, "applied", countOf(ops.length, AR.step))].slice(-40) }
             : { ...current, status: "restored", restorePoint: undefined, history: [...current.history, history(req, "restored")].slice(-40) },
           normalize, placeholders,
-          async (rows, week) => { for (const row of rows) { const issue = await deps.lengthIssue(row, week); if (issue) throw new Error(issue); } });
+          async (rows, week, baseline) => { for (const row of rows) { const issue = await deps.lengthIssue(row, week, baseline); if (issue) throw new Error(issue); } },
+          kind === "restore" ? (week, touched) => restoreBaselineWeek(week, scenario.restorePoint, touched) : undefined);
       } catch (error: any) {
         const revision = error?.name === "ScheduleRevisionConflict";
         fail(res, 409, revision ? (kind === "apply" ? "تغيّر أحد المواعيد أثناء الاعتماد؛ لم يُكتب شيء." : "عُدّل أحد المواعيد بعد الاعتماد؛ الاستعادة الآلية تكتب فوقه فرُفضت. لم يُكتب شيء.")

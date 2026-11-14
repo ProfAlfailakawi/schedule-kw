@@ -5,6 +5,7 @@
  * نصُّ كل جملةٍ وترتيبُها كما كانا، إلا `export` على ما تستعمله وحداتٌ أخرى،
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  */
+import { newHoursIssueOnly } from "../../utils/hoursIssue";
 import { AR, countOf } from "../../utils/arabicCount";
 import { roomTypeIn } from "../../utils/roomTypeForSection";
 import { sameScheduleShape } from "../../utils/appointmentRegulation";
@@ -20,7 +21,7 @@ import { PENDING_ROOM } from "../../utils/locationRegistry";
 import { noteScheduleMutation, scheduleLockRefusal } from "./approvals";
 import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
-import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts, scheduleConflictsForEdit } from "./scheduleConflicts";
+import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts, scheduleConflictsForEdit, scheduleConflictsForRestore } from "./scheduleConflicts";
 import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, editShapeIssue, schedulePayloadIssues, sectionShapeIssue } from "./scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { isScopeAllowed, legacyFDetail } from "./scope";
@@ -165,7 +166,9 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   /* ساعاتُ المقرّر والنمطُ المعتمد لكل من يُنشئ موعداً (المالك 2026-10-30) — الحكمُ الواحد sectionShapeIssue. */
   /* هنا ساعاتُ الشعبة وحدها تمنع؛ النمطُ المعتمد ونهايتُه تنبيهٌ بتأكيدٍ صريح (regulationExceptionsFor). */
-  {const shapeIssue=await sectionShapeIssue(req.body,(req as any).__hypotheticalWeek,{skipPattern:true});
+  {const baseline:FSchedule[]|undefined=(req as any).__restoreBaselineWeek;
+  let shapeIssue=await sectionShapeIssue(req.body,(req as any).__hypotheticalWeek,{skipPattern:true});
+  if(shapeIssue&&baseline)shapeIssue=newHoursIssueOnly(shapeIssue,await sectionShapeIssue(req.body,baseline,{skipPattern:true}));
   if(shapeIssue){res.status(400).json({error:shapeIssue,issues:[{type:"validation",severity:"high",message:shapeIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
@@ -194,7 +197,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   canonicalBody.companionRoomId=companion.id;
   canonicalBody.companionRoomLabel=companion.label;
   const createOverrides=await applyRequestHoldOverride(req);
-  const conflicts=await scheduleConflicts(req,canonicalBody,0,(req as any).__hypotheticalWeek);
+  const conflicts=(req as any).__restoreBaselineWeek?await scheduleConflictsForRestore(req,canonicalBody,0,(req as any).__hypotheticalWeek,(req as any).__restoreBaselineWeek):await scheduleConflicts(req,canonicalBody,0,(req as any).__hypotheticalWeek);
   // Soft warnings (e.g. a tight inter-campus transfer, Note 38) are surfaced by
   // the live check but never block the save.
   const blockingSave=conflicts.filter((c:any)=>!c.soft);
@@ -340,7 +343,9 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) يبقى كما هو؛ ومن غيّر شيئاً منها فبنمطٍ معتمد. */
   /* وتغييرُ المقرّر أو الرمز وحده لا يُمنع بمخالفةٍ كانت قائمةً في الصفّ نفسه (editShapeIssue). */
-  {const shapeIssue=await editShapeIssue(existing,{...req.body,id},(req as any).__hypotheticalWeek,{skipPattern:true});
+  {const baseline:FSchedule[]|undefined=(req as any).__restoreBaselineWeek;
+  let shapeIssue=await editShapeIssue(existing,{...req.body,id},(req as any).__hypotheticalWeek,{skipPattern:true});
+  if(shapeIssue&&baseline)shapeIssue=newHoursIssueOnly(shapeIssue,await sectionShapeIssue({...req.body,id},baseline,{skipPattern:true}));
   if(shapeIssue){res.status(400).json({error:shapeIssue,issues:[{type:"validation",severity:"high",message:shapeIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
@@ -377,7 +382,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   canonicalBody.companionRoomLabel=companion.label;
   const overriddenHolds=await applyRequestHoldOverride(req);
   /* ما كان قائماً لا يُمنع به التعديل (A6): يمنع ما استجدّ وحده، وما كان قائماً بعينه يبقى ملاحظةً (scheduleConflictsForEdit). */
-  const conflicts=await scheduleConflictsForEdit(req,canonicalBody,existing,id,(req as any).__hypotheticalWeek);
+  const conflicts=(req as any).__restoreBaselineWeek?await scheduleConflictsForRestore(req,canonicalBody,id,(req as any).__hypotheticalWeek,(req as any).__restoreBaselineWeek):await scheduleConflictsForEdit(req,canonicalBody,existing,id,(req as any).__hypotheticalWeek);
   const blockingEdit=conflicts.filter((c:any)=>!c.soft);
   if(blockingEdit.length&&blockingEdit.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingEdit.map((c:any)=>String(c.holdRequestId)))] as string[],blockingEdit.map((c:any)=>String(c.holdItemId||""))),issues:blockingEdit});return;}
   if(blockingEdit.length){res.status(409).json({error:blockingEdit[0].message||"يوجد تعارض يمنع التعديل",issues:blockingEdit});return;}
@@ -557,7 +562,7 @@ interface InnerScheduleResult { status: number; body: any; headers: Record<strin
 export async function runScheduleHandler(
   handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
   req: AuthenticatedRequest,
-  patch: { params?: Record<string, string>; body: any; hypotheticalWeek?: FSchedule[]; dryRun?: boolean; restoreOrigin?: { value: any }; exactRestore?: boolean; fitPattern?: boolean; regulation?: boolean },
+  patch: { params?: Record<string, string>; body: any; hypotheticalWeek?: FSchedule[]; dryRun?: boolean; restoreOrigin?: { value: any }; exactRestore?: boolean; restoreBaselineWeek?: FSchedule[]; fitPattern?: boolean; regulation?: boolean },
 ): Promise<InnerScheduleResult> {
   const result: InnerScheduleResult = { status: 200, body: undefined, headers: {} };
   const inner: any = Object.create(req);
@@ -573,6 +578,8 @@ export async function runScheduleHandler(
   inner.__restoreOrigin = patch.restoreOrigin;
   /* استعادةٌ تعيد الجدول كما كان بالضبط (آلة الزمن): التراجعُ لا يُمنع بقاعدة النمط. */
   inner.__exactRestore = Boolean(patch.exactRestore);
+  /* الأسبوعُ كما كان قبل الاعتماد (بلا صفوفٍ وُلدت بعده): ما كان قائماً فيه من تعارضٍ أو نقص ساعاتٍ لا يمنع الاستعادة. */
+  inner.__restoreBaselineWeek = patch.exactRestore ? patch.restoreBaselineWeek : undefined;
   /* كلُّ كتابةٍ تمرّ من هنا مسارٌ داخلي بنى صفَّه بنفسه: تُحسب نهايتُه من النمط (المالك 2026-11-08)، إلا الاستعادةَ الحرفية. */
   inner.__fitPattern = !patch.exactRestore && !patch.restoreOrigin && patch.fitPattern !== false;
   const sink: any = {

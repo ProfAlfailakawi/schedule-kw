@@ -1346,6 +1346,26 @@ export interface TmRestorePoint {
   createdIds: number[];
   /** إصدارُ كل صفٍّ بعد الاعتماد — الاستعادة تُرفض إن كُتب فوقه بعدها. */
   afterRevs: Record<string, number>;
+  /** أكبرُ رقمِ صفٍّ كان في الفصل لحظةَ الاعتماد: ما فوقه وُلد بعد الاعتماد، فلا يُحسب من «ما كان» عند الاستعادة (A6). */
+  baseMaxId?: number;
+  /** إصدارُ كل صفٍّ في الفصل لحظةَ الاعتماد: صفٌّ تغيّر إصدارُه بعد الاعتماد لم يعد كما كان (A6). */
+  baseRevs?: Record<string, number>;
+}
+
+/**
+ * الأسبوعُ «كما كان قبل الاعتماد» لحساب ما كان قائماً (A6): صفوفُ الفصل الحيّة بلا ما وُلد أو تعدّل بعد الاعتماد.
+ * `touched` صفوفُ الاستعادة نفسُها (تعود إلى ما كانت). نقطةٌ قديمة بلا أختام: ما فوق أكبر رقمٍ لمسه الاعتماد وُلد بعده.
+ */
+export function restoreBaselineWeek(week: FSchedule[], point: Pick<TmRestorePoint, "before" | "createdIds" | "afterRevs" | "baseMaxId" | "baseRevs"> | undefined, touched: ReadonlySet<number>): FSchedule[] {
+  if (!point) return week.filter(row => touched.has(Number(row.id)));
+  const revs = point.baseRevs;
+  const maxId = Number.isFinite(Number(point.baseMaxId)) && Number(point.baseMaxId) > 0 ? Number(point.baseMaxId)
+    : Math.max(0, ...point.before.map(row => Number(row.id)), ...point.createdIds.map(id => Number(id) - 1), ...Object.keys(point.afterRevs).map(Number));
+  return week.filter(row => {
+    const id = Number(row.id);
+    if (touched.has(id)) return true;
+    return revs ? revs[String(id)] !== undefined && Number(row.rev || 0) === Number(revs[String(id)]) : id <= maxId;
+  });
 }
 export interface TmScenarioRecord {
   id: string;

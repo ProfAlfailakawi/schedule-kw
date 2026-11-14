@@ -92,7 +92,7 @@ async function newAppointment(p: Page) {
   await p.waitForSelector(".appt-layout"); await sleep(700);
 }
 /* اسمٌ مستقر: الأرقام والأزمنة `#`، وأيام «ضع الموعد» تُدمج، ويُقصّ الاسم — فلا تكسر الاختبارَ بياناتُ العرض ولا صياغةُ التسمية الفرعية. */
-const norm = (name: string) => name.replace(/[0-9٠-٩]+(:[0-9]+)?/g, "#").replace(/(ضع الموعد)\s*\S+\s.*/, "$1").replace(/^(نبض الطلبة).*/, "$1").replace(/\s+/g, " ").trim().slice(0, 14);
+const norm = (name: string) => name.replace(/[0-9٠-٩]+(:[0-9]+)?/g, "#").replace(/(ضع الموعد)\s*\S+\s.*/, "$1").replace(/^(نبض الطلبة).*/, "$1").replace(/^(أحد|اثنين|ثلاثاء|أربعاء|خميس)[·\s].*/, "نمط الأيام").replace(/\s+/g, " ").trim().slice(0, 14);
 const collect = async (p: Page): Promise<Control[]> => {
   const raw = await p.evaluate(COLLECT) as Control[];
   const seen = new Set<string>(); const out: Control[] = [];

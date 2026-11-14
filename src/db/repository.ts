@@ -8203,7 +8203,9 @@ export const Repository = {
       | { kind: "delete"; rowId: number; expectedRev: number }>,
     finalize: (result: { rows: FSchedule[]; before: FSchedule[]; createdIds: number[]; deletedIds: number[] }, current: TmScenarioRecord) => TmScenarioRecord,
     normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
-    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ scenario: TmScenarioRecord; rows: FSchedule[]; deletedIds: number[] }> => {
+    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[], baseline?: FSchedule[]) => Promise<void>,
+    /** استعادة: الأسبوعُ كما كان قبل الاعتماد (بلا ما وُلد أو تعدّل بعده)، فلا يُحسب ما كان قائماً فيه جديداً (A6). */
+    restoreBaseline?: (week: FSchedule[], touched: ReadonlySet<number>) => FSchedule[]): Promise<{ scenario: TmScenarioRecord; rows: FSchedule[]; deletedIds: number[] }> => {
     const needIds = operations.filter(op => op.kind === "create" && !op.fixedId).length;
     const firstId = firestoreDb && !demoSandboxContext.getStore() && needIds ? await reserveFirestoreIds("schedules", needIds) : 0;
     const compute = async (week: FSchedule[], current: TmScenarioRecord | undefined, entries: RequestReservation[], startId: number, windows: ApprovedHallWindow[]) => {
@@ -8241,9 +8243,12 @@ export const Repository = {
       /* لا تعارضَ جديداً: ما يحمله الصفُّ المكتوب من موانع لا يزيد على ما حمله قبل الكتابة. */
       const blockingOf = (rows: FSchedule[], universe: FSchedule[]) => rows.length
         ? findConflicts(rows.map(normalize), universe.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict).length : 0;
-      if (blockingOf(written, finalWeek) > blockingOf(before.filter(row => !deletedIds.includes(Number(row.id))), week))
+      const baselineWeek = restoreBaseline ? restoreBaseline(finalWeek, new Set(written.map(row => Number(row.id)))) : undefined;
+      if (baselineWeek
+        ? blockingOf(written, finalWeek) > blockingOf(written, baselineWeek)
+        : blockingOf(written, finalWeek) > blockingOf(before.filter(row => !deletedIds.includes(Number(row.id))), week))
         throw new RequestReservationConflict("تغيّر الجدول الحيّ وظهر تعارضٌ أثناء الاعتماد. أعد فحص السيناريو.");
-      if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
+      if (validateFinalWeek) await validateFinalWeek(written, finalWeek, baselineWeek);
       const scenario = finalize({ rows: written, before, createdIds, deletedIds }, current);
       return { scenario: { ...scenario, revision: Number(current.revision || 0) + 1, updatedAt: new Date().toISOString() }, rows: written, deletedIds, finalWeek };
     };

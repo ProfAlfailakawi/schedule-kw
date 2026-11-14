@@ -281,6 +281,7 @@ test:appointment-ideas2-1114
 test:graduate-drag-1114
 test:quick-best-1114
 test:chain-solve
+test:time-machine-restore-baseline
 test:touch-drag-grip
 test:print-lazy-sheet
 test:chain-pulse

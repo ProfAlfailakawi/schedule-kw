@@ -354,6 +354,19 @@ export async function scheduleConflictsForEdit(req:AuthenticatedRequest,row:any,
 }
 
 /**
+ * ── استعادةُ آلة الزمن: يمنعها ما استجدّ على «ما كان» وحده (A6) ──────────────────────
+ * الصفُّ المُعاد يُقاس على الأسبوع كما سيصير (`hypothetical`) وعلى الأسبوع كما كان قبل الاعتماد (`baseline`: بلا صفوف وُلدت بعده).
+ * تعارضٌ كان في الحالة المستعادة نفسها يعود ملاحظةً `preexisting`؛ وتعارضٌ مع صفٍّ جاء بعد الاعتماد يبقى مانعاً.
+ */
+export async function scheduleConflictsForRestore(req:AuthenticatedRequest,row:any,excludeId:number,hypothetical:FSchedule[]|undefined,baseline:FSchedule[]|undefined){
+  const conflicts=await scheduleConflicts(req,row,excludeId,hypothetical);
+  if(!baseline||!conflicts.some((c:any)=>!c.soft))return conflicts;
+  const was=await scheduleConflicts(req,row,excludeId,baseline);
+  const known=new Set(was.filter((c:any)=>!c.soft).map((c:any)=>conflictKey(c,row)));
+  return conflicts.map((c:any)=>!c.soft&&known.has(conflictKey(c,row))?{...c,soft:true,severity:"medium",preexisting:true}:c);
+}
+
+/**
  * ── القسمُ يبقى صاحبَ القرار (A2) ───────────────────────────────────────────
  *
  * اختار الأستاذُ وقتاً فحُجز له حتى يقرّر القسم. فإن أراد المنسّقُ نقلَ ذلك

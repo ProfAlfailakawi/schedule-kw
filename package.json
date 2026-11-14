@@ -302,6 +302,7 @@
     "test:graduate-drag-1114": "tsx tests/graduate-drag-1114-audit.ts",
     "test:quick-best-1114": "tsx tests/quick-best-1114-audit.ts",
     "test:chain-solve": "tsx tests/chain-solve-audit.ts",
+    "test:time-machine-restore-baseline": "tsx tests/time-machine-restore-baseline-audit.ts",
     "test:touch-drag-grip": "tsx tests/touch-drag-grip-audit.ts",
     "test:print-lazy-sheet": "tsx tests/print-lazy-sheet-audit.ts",
     "test:chain-pulse": "tsx tests/chain-pulse-render-audit.tsx",
