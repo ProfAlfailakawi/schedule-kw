@@ -6,7 +6,7 @@
 .sh-banner.s-bad{background:var(--danger-soft);color:var(--danger);border-color:transparent}
 .sh-demo{font-style:normal;font-size:.78rem;font-weight:700;padding:2px 10px;border-radius:99px;border:1px solid currentColor}
 .sh-stamp{margin-inline-start:auto;font-size:.8rem;opacity:.85}
-.sh-refresh{display:inline-grid;place-items:center;inline-size:44px;block-size:44px;border:0;border-radius:99px;background:transparent;color:inherit;cursor:pointer}
+.sh-refresh{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-inline-size:44px;block-size:44px;padding-inline:12px;font:inherit;font-size:.85rem;font-weight:700;border:0;border-radius:99px;background:transparent;color:inherit;cursor:pointer}
 .sh-refresh:hover{background:color-mix(in srgb,currentColor 12%,transparent)}
 .sh-refresh:focus-visible,.sh-go:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:2px}
 .sh-refresh svg{inline-size:20px;block-size:20px}
@@ -36,3 +36,20 @@
 .sh-go:hover{border-color:var(--accent,currentColor)}
 @media (min-width:640px){.sh-grid{grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}}
 @media (prefers-reduced-motion:reduce){.sh-refresh .spin{animation:none}}
+
+/* ملخّص الصباح في الرئيسية (HealthGlance): سطرٌ واحد، أيقونةٌ ولونٌ وكلمات قليلة. */
+.hg-strip{display:flex;align-items:center;gap:10px;min-block-size:48px;padding:6px 8px 6px 14px;border-radius:16px;border:1px solid transparent}
+.hg-strip.s-ok{background:var(--success-soft);color:var(--success)}
+.hg-strip.s-warn{background:var(--warning-soft);color:var(--warning)}
+.hg-strip.s-bad{background:var(--danger-soft);color:var(--danger)}
+.hg-icon{display:grid;place-items:center;flex:none}
+.hg-icon svg{inline-size:22px;block-size:22px}
+.hg-list{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0;padding:0;list-style:none;min-inline-size:0;flex:1 1 auto;font-weight:700}
+.hg-list li{display:inline-flex;align-items:center;gap:6px}
+.hg-list svg{inline-size:16px;block-size:16px;flex:none}
+.hg-strip>strong{flex:1 1 auto}
+.hg-go{display:inline-flex;align-items:center;gap:6px;min-block-size:44px;margin-inline-start:auto;padding-inline:12px;border:0;border-radius:99px;background:transparent;color:inherit;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+.hg-go:hover{background:color-mix(in srgb,currentColor 12%,transparent)}
+.hg-go:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:2px}
+.hg-go svg{inline-size:16px;block-size:16px}
+@media (max-width:520px){.hg-go{padding-inline:8px}}

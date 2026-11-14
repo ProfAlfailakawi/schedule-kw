@@ -96,7 +96,8 @@
     "src/server/vaultJobPlanner.ts",
     "src/server/systemHealth.ts",
     "src/utils/systemHealth.ts",
-    "src/components/SystemHealth.tsx"
+    "src/components/SystemHealth.tsx",
+    "src/components/HealthGlance.tsx"
   ],
   "screens": [
     {
@@ -2759,6 +2760,49 @@
           "src/server/routes/adminRoutes.ts",
           "src/components/AdminUsers.tsx",
           "src/App.tsx"
+        ],
+        "tests": [
+          "tests/system-health-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-049",
+      "kind": "functional",
+      "title": {
+        "ar": "ملخّص الصباح و«تحقق الآن» في سلامة النظام",
+        "en": "Morning glance and «Check now» for system health"
+      },
+      "text": {
+        "ar": "يجب أن يعرض الحساب الرئيسي في أعلى الصفحة الرئيسية سطراً واحداً هو ملخّص الصباح: «كل شيء سليم»، أو أسماء البطاقات التي تحتاج انتباهاً مرتّبةً بالأسوأ أولاً (أحمر ثم عنبري ثم ما تعذّرت قراءته)، مع زرّ يفتح «سلامة النظام». يقرأ الملخّص المسارَ نفسه (GET /api/system-health) بلا مسار جديد ولا كتابة، مرةً عند الفتح ثم كل دقيقة والتبويبُ ظاهر، وفشلُ القراءة لا يُظهر شيئاً ولا يمسّ الرئيسية. وفي محطة «سلامة النظام» زرّ «تحقق الآن» بتسميةٍ ظاهرة يطلب fresh=1 فيتجاوز تخبئةَ الخادم (8 ثوانٍ)، على ألّا يتجاوزها الخادم أكثر من مرةٍ كل 3 ثوانٍ؛ أما الإنعاش الدوري فيقرأ من الذاكرة. الدالتان attentionCards وcanBypassHealthCache في src/utils/systemHealth.ts.",
+        "en": "The root account shall see one line at the top of the home page, the morning glance: «All healthy», or the names of the cards needing attention, worst first (red, then amber, then unreadable), with a button that opens «System health». The glance reads the very same route (GET /api/system-health) with no new route and no write, once on open and then every minute while the tab is visible; a failed read shows nothing and never affects the home page. The «System health» station has a visibly labelled «Check now» button that asks for fresh=1 and so bypasses the server's 8-second cache, though the server bypasses it at most once every 3 seconds; the periodic refresh reads from the cache. attentionCards and canBypassHealthCache live in src/utils/systemHealth.ts."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "كل البطاقات سليمة ← الملخّص «كل شيء سليم» بلا قائمة.",
+          "en": "All cards healthy: the glance reads «All healthy» with no list."
+        },
+        {
+          "ar": "بوابةٌ مغلقة ونسخةٌ عمرها 8 أيام ← الملخّص يذكر «بوابة الصيانة» ثم «النسخ الاحتياطي».",
+          "en": "A closed gate and an 8-day-old backup: the glance names «Maintenance gate» then «Backup»."
+        },
+        {
+          "ar": "ضغطتان متتاليتان على «تحقق الآن» خلال 3 ثوانٍ ← قراءةٌ حيّة واحدة.",
+          "en": "Two presses of «Check now» within 3 seconds cause one live read."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/systemHealth.ts",
+          "src/server/systemHealth.ts",
+          "src/components/SystemHealth.tsx",
+          "src/components/HealthGlance.tsx",
+          "src/components/Dashboard.tsx"
         ],
         "tests": [
           "tests/system-health-audit.ts"

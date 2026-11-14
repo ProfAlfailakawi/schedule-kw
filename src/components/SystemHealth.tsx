@@ -2,16 +2,16 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CalendarClock, CheckCircle2, DatabaseBackup, DoorOpen, HeartPulse, HelpCircle, KeyRound, Lock, RefreshCw } from "lucide-react";
 import { MicroLoader, Notice } from "./ui";
 import { AR, nounFor, type ArabicNoun } from "../utils/arabicCount";
-import { HEALTH_REFRESH_MS, type HealthCard, type HealthPayload, type HealthState } from "../utils/systemHealth";
+import { HEALTH_CARD_TITLES, HEALTH_REFRESH_MS, type HealthCard, type HealthPayload, type HealthState } from "../utils/systemHealth";
 
 /* «سلامة النظام»: لمحةٌ واحدة بخمس بطاقات. المنطقُ كلّه في src/utils/systemHealth.ts؛ هنا العرضُ فقط. */
 
 const CARD_META: Record<HealthCard["id"], { title: string; icon: React.ReactNode }> = {
-  backup: { title: "النسخ الاحتياطي", icon: <DatabaseBackup /> },
-  vault: { title: "الخزنة", icon: <Lock /> },
-  gate: { title: "بوابة الصيانة", icon: <DoorOpen /> },
-  identity: { title: "الهوية والصلاحيات", icon: <KeyRound /> },
-  term: { title: "الفصل الجاري", icon: <CalendarClock /> },
+  backup: { title: HEALTH_CARD_TITLES.backup, icon: <DatabaseBackup /> },
+  vault: { title: HEALTH_CARD_TITLES.vault, icon: <Lock /> },
+  gate: { title: HEALTH_CARD_TITLES.gate, icon: <DoorOpen /> },
+  identity: { title: HEALTH_CARD_TITLES.identity, icon: <KeyRound /> },
+  term: { title: HEALTH_CARD_TITLES.term, icon: <CalendarClock /> },
 };
 const STATE_WORD: Record<HealthState, string> = { ok: "سليم", warn: "انتباه", bad: "خلل", unknown: "تعذّرت القراءة" };
 const KIND_WORD: Record<string, string> = { import: "استيراد", reset: "تصفير", undo: "تراجع" };
@@ -54,10 +54,11 @@ export default function SystemHealth({ header, onOpenVault }: { header?: React.R
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
 
-  const load = useCallback(async () => {
+  /** «تحقق الآن» (fresh) يتجاوز التخبئة؛ والإنعاش الدوري يقرأ من الذاكرة. */
+  const load = useCallback(async (fresh = false) => {
     setBusy(true);
     try {
-      const response = await fetch("/api/system-health", { credentials: "include" });
+      const response = await fetch(fresh ? "/api/system-health?fresh=1" : "/api/system-health", { credentials: "include" });
       if (!response.ok) throw new Error(String(response.status));
       const next = await response.json() as HealthPayload;
       if (alive.current) { setData(next); setFailed(false); }
@@ -88,8 +89,8 @@ export default function SystemHealth({ header, onOpenVault }: { header?: React.R
         <strong>{bannerWord}</strong>
         {data?.demo ? <em className="sh-demo">تجريبي · للقراءة</em> : null}
         <span className="sh-stamp">{stamp}</span>
-        <button type="button" className="sh-refresh" onClick={() => void load()} disabled={busy} aria-label="تحديث" title="تحديث" data-guide-ignore="تحديث القراءة فقط — لا يكتب شيئاً">
-          <RefreshCw className={busy ? "spin" : undefined} aria-hidden="true" />
+        <button type="button" className="sh-refresh" onClick={() => void load(true)} disabled={busy} data-guide-ignore="تحقق الآن: قراءةٌ حيّة فقط — لا يكتب شيئاً">
+          <RefreshCw className={busy ? "spin" : undefined} aria-hidden="true" /><span>تحقق الآن</span>
         </button>
       </div>
       {failed && !data ? <Notice>تعذّرت قراءة الحالة.</Notice> : null}

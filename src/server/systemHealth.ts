@@ -13,7 +13,7 @@ import { createTtlMemo } from "./notificationCache";
 import { identityLastCheckedAt, ROOT_ADMIN_USER_ID } from "./core/auth";
 import { currentTermId, termIsFrozen } from "../utils/termSequence";
 import {
-  HEALTH_CACHE_MS, backupCard, buildPayload, demoCards, gateCard, identityCard, runProbes, termCard, vaultCard,
+  HEALTH_CACHE_MS, backupCard, canBypassHealthCache, buildPayload, demoCards, gateCard, identityCard, runProbes, termCard, vaultCard,
   type HealthPayload, type VaultJobProbe,
 } from "../utils/systemHealth";
 
@@ -55,8 +55,12 @@ export async function computeSystemHealth(now: number = Date.now()): Promise<Hea
   return buildPayload(cards, now, false);
 }
 
-export async function systemHealthHandler(_req: Request, res: Response): Promise<void> {
+/** آخرُ «تحقق الآن» نفّذه هذا الخادم فعلاً (يتجاوز التخبئة)؛ ما بعده ضمن الفاصل يقرأ من الذاكرة. */
+let lastFreshAt: number | null = null;
+
+export async function systemHealthHandler(req: Request, res: Response): Promise<void> {
   res.setHeader("Cache-Control", "no-store");
+  if (req.query?.fresh === "1" && canBypassHealthCache(lastFreshAt, Date.now())) { lastFreshAt = Date.now(); memo.invalidate(); }
   const key = `${Repository.currentDemoSessionId() || "real"}|health`;
   res.json(await memo.get(key, () => computeSystemHealth()));
 }
