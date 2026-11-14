@@ -47,8 +47,8 @@ export default function AccountDeletion({ onClose, onDone }: { onClose: () => vo
             <p>عند التأكيد نسجّل طلب حذف حسابك ونُبلغ مدير النظام، ثم تخرج من حسابك على كل أجهزتك.</p>
             <p>لا يُحذف الحساب في اللحظة نفسها: ينفّذ مدير النظام الطلب خلال 30 يوماً من تاريخه. وقد نحتفظ بما تقتضيه سجلات الجامعة وسجلات التدقيق.</p>
             <div className="form-actions">
-              <PrimaryButton type="button" onClick={() => setStep("confirm")}>متابعة</PrimaryButton>
-              <SecondaryButton type="button" onClick={onClose}>تراجع</SecondaryButton>
+              <PrimaryButton type="button" data-guide-ignore="جزء من نافذة طلب حذف الحساب؛ لا ينفذ شيئاً على بيانات الجدول" onClick={() => setStep("confirm")}>متابعة</PrimaryButton>
+              <SecondaryButton type="button" data-guide-ignore="جزء من نافذة طلب حذف الحساب؛ لا ينفذ شيئاً على بيانات الجدول" onClick={onClose}>تراجع</SecondaryButton>
             </div>
           </>
         ) : null}
@@ -63,14 +63,14 @@ export default function AccountDeletion({ onClose, onDone }: { onClose: () => vo
               <PrimaryButton type="submit" disabled={busy || !password} data-guide-ignore="يسجّل طلب حذف الحساب ويخرج من الحساب؛ لا يمسّ بيانات الجدول">
                 {busy ? <span className="button-spinner" /> : <><Trash2 aria-hidden="true" /> تأكيد طلب الحذف</>}
               </PrimaryButton>
-              <SecondaryButton type="button" onClick={onClose} disabled={busy}>تراجع</SecondaryButton>
+              <SecondaryButton type="button" data-guide-ignore="جزء من نافذة طلب حذف الحساب؛ لا ينفذ شيئاً على بيانات الجدول" onClick={onClose} disabled={busy}>تراجع</SecondaryButton>
             </div>
           </form>
         ) : null}
         {step === "done" ? (
           <>
             <Notice type="success" inline>{message || "سجّلنا طلب حذف حسابك."}</Notice>
-            <div className="form-actions"><PrimaryButton type="button" onClick={onDone}>حسناً</PrimaryButton></div>
+            <div className="form-actions"><PrimaryButton type="button" data-guide-ignore="جزء من نافذة طلب حذف الحساب؛ لا ينفذ شيئاً على بيانات الجدول" onClick={onDone}>حسناً</PrimaryButton></div>
           </>
         ) : null}
       </div>
