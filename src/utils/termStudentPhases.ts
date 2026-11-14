@@ -164,16 +164,32 @@ export interface PhaseReading {
   namesVisible: boolean;
   label: string;
   line: string;
-  /** أقربُ تاريخٍ قادم يغيّر المرحلة، وما هو. */
+  /** أقربُ تاريخٍ قادم يغيّر المرحلة، وما هو. النهاياتُ تشمل يومَها: في آخر يومٍ من الرغبات هو اليومُ نفسُه. */
   nextAt?: string;
   nextLabel?: string;
+  /** آخرُ يومٍ (شاملاً) للمرحلة الجارية: نهايةُ الرغبات، أو نهايةُ الجولة، أو إغلاقُ الطلبات بين الجولات. */
+  until?: string;
+  /** ما يراه الطالب: الاسمُ والسطرُ بلغته (بلا «تسليم» ولا «تجميد»)، والشاشاتُ الإدارية تبقى على label/line. */
+  forStudent: { label: string; line: string };
 }
 
+/** أسماءُ المراحل كما تقرؤها الأقسام والتسجيل. */
 const NAMES: Record<StudentPhaseKey, string> = {
   unset: "لم تُحدَّد المواعيد",
   collecting: "الأقسام تُدخل جداولها",
   wishes: "الرغبات مفتوحة",
   frozen: "الجدول مُجمَّد",
+  round: "جولة تسجيل",
+  between: "بين الجولات",
+  closed: "أُغلقت الطلبات",
+};
+
+/** أسماؤها كما يقرؤها الطالب: ما يعنيه هو، لا ما تفعله الأقسام. */
+const STUDENT_NAMES: Record<StudentPhaseKey, string> = {
+  unset: "لم تُحدَّد المواعيد",
+  collecting: "قبل الرغبات",
+  wishes: "الرغبات مفتوحة",
+  frozen: "مراجعة جدولك",
   round: "جولة تسجيل",
   between: "بين الجولات",
   closed: "أُغلقت الطلبات",
@@ -186,25 +202,34 @@ const NAMES: Record<StudentPhaseKey, string> = {
  * في الجولة الأولى لا ينتظر الثانية ليقول ذلك.
  */
 export function readStudentPhase(phases: TermStudentPhases | null | undefined, today: string = kuwaitDateISO()): PhaseReading {
-  const base = (key: StudentPhaseKey, mode: StudentDoorMode, extra: Partial<PhaseReading> = {}): PhaseReading => ({
-    key, mode, roundIndex: -1, canEditWishes: false, canReport: false, namesVisible: false,
-    label: NAMES[key], line: NAMES[key], ...extra,
-  });
+  const base = (key: StudentPhaseKey, mode: StudentDoorMode, extra: Partial<PhaseReading> = {}): PhaseReading => {
+    const reading: PhaseReading = {
+      key, mode, roundIndex: -1, canEditWishes: false, canReport: false, namesVisible: false,
+      label: NAMES[key], line: NAMES[key], ...extra, forStudent: { label: STUDENT_NAMES[key], line: "" },
+    };
+    reading.forStudent = { label: extra.forStudent?.label || extra.label || STUDENT_NAMES[key], line: extra.forStudent?.line || reading.line };
+    return reading;
+  };
   if (!hasStudentPhases(phases)) {
     return base("unset", "none", { line: "نعلمك هنا فور تحديدها." });
   }
   const p = phases as TermStudentPhases;
   const rounds = p.rounds || [];
-  const nextAfter = (...days: Array<[string | undefined, string]>) => {
-    const upcoming = days.filter(([day]) => day && day > today).sort((a, b) => String(a[0]).localeCompare(String(b[0])))[0];
+  /* البدايةُ حدثٌ في أول يومها فتُحسب ما بعد اليوم؛ والنهايةُ في آخر يومها فتُحسب من اليوم نفسه:
+     في آخر يومٍ من الرغبات أقربُ موعدٍ هو نهايتُها الليلة، لا بدايةُ الجولة. */
+  type Edge = [string | undefined, string, "start" | "end"];
+  const nextAfter = (...days: Edge[]) => {
+    const upcoming = days.filter(([day, , kind]) => day && (kind === "end" ? day >= today : day > today))
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])) || (a[2] === b[2] ? 0 : a[2] === "end" ? -1 : 1))[0];
     return upcoming ? { nextAt: upcoming[0], nextLabel: upcoming[1] } : {};
   };
-  const allNext = [
-    [p.wishesOpen, "تبدأ الرغبات"], [p.wishesClose, "تنتهي الرغبات"],
-    ...rounds.flatMap(r => [[r.start, `تبدأ «${r.name}»`], [r.end, `تنتهي «${r.name}»`]] as Array<[string | undefined, string]>),
-    [p.requestsClose, "تُغلق الطلبات"],
-  ] as Array<[string | undefined, string]>;
+  const allNext: Edge[] = [
+    [p.wishesOpen, "تبدأ الرغبات", "start"], [p.wishesClose, "تنتهي الرغبات", "end"],
+    ...rounds.flatMap(r => [[r.start, `تبدأ «${r.name}»`, "start"], [r.end, `تنتهي «${r.name}»`, "end"]] as Edge[]),
+    [p.requestsClose, "تُغلق الطلبات", "end"],
+  ];
   const next = nextAfter(...allNext);
+  const day = (iso: string) => (iso === today ? "اليوم" : deadlineDateShort(iso));
 
   if (p.requestsClose && today > p.requestsClose) {
     return base("closed", "closed", { line: `أُغلقت الطلبات في ${deadlineDateShort(p.requestsClose)}.` });
@@ -214,7 +239,8 @@ export function readStudentPhase(phases: TermStudentPhases | null | undefined, t
     const round = rounds[running];
     return base("round", "report", {
       roundIndex: running, round, canReport: true, namesVisible: true,
-      label: `«${round.name}»`, line: `جولة «${round.name}» جارية حتى ${deadlineDateShort(round.end)}.`, ...next,
+      label: `«${round.name}»`, line: `جولة «${round.name}» جارية حتى ${deadlineDateShort(round.end)}.`, until: round.end,
+      forStudent: { label: `«${round.name}»`, line: `جولة «${round.name}» جارية حتى ${day(round.end)}.` }, ...next,
     });
   }
   const passed = rounds.filter(r => today > r.end);
@@ -223,20 +249,31 @@ export function readStudentPhase(phases: TermStudentPhases | null | undefined, t
     const open = !p.requestsClose || today <= p.requestsClose;
     return base("between", open ? "report" : "closed", {
       roundIndex: rounds.indexOf(last), round: last, canReport: open, namesVisible: true,
-      line: open ? `انتهت «${last.name}». طلبُ المتعثّر مفتوح${p.requestsClose ? ` حتى ${deadlineDateShort(p.requestsClose)}` : ""}.` : NAMES.closed, ...next,
+      line: open ? `انتهت «${last.name}». طلبُ المتعثّر مفتوح${p.requestsClose ? ` حتى ${deadlineDateShort(p.requestsClose)}` : ""}.` : NAMES.closed,
+      until: open ? p.requestsClose : undefined,
+      forStudent: { label: STUDENT_NAMES.between, line: open ? `انتهت «${last.name}». إن تعثّرت فاطلب مساعدة قسمك${p.requestsClose ? ` حتى ${day(p.requestsClose)}` : ""}.` : NAMES.closed }, ...next,
     });
   }
   if (p.wishesOpen && p.wishesClose) {
     if (today < p.wishesOpen) return base("collecting", "waiting", { line: `تبدأ الرغبات ${deadlineDateShort(p.wishesOpen)}.`, ...next });
     if (today <= p.wishesClose) {
-      return base("wishes", "wishes", { canEditWishes: true, line: `الرغبات مفتوحة حتى ${deadlineDateShort(p.wishesClose)}.`, ...next });
+      return base("wishes", "wishes", {
+        canEditWishes: true, line: `الرغبات مفتوحة حتى ${deadlineDateShort(p.wishesClose)}.`, until: p.wishesClose,
+        forStudent: { label: STUDENT_NAMES.wishes, line: p.wishesClose === today ? "اليوم آخرُ يومٍ للرغبات." : `الرغبات مفتوحة حتى ${deadlineDateShort(p.wishesClose)}.` },
+        ...next,
+      });
     }
     return base("frozen", "frozen", {
-      line: rounds.length ? `الجدول مُجمَّد. تبدأ «${rounds[0].name}» ${deadlineDateShort(rounds[0].start)}.` : "الجدول مُجمَّد للقراءة.", ...next,
+      line: rounds.length ? `الجدول مُجمَّد. تبدأ «${rounds[0].name}» ${deadlineDateShort(rounds[0].start)}.` : "الجدول مُجمَّد للقراءة.",
+      forStudent: { label: STUDENT_NAMES.frozen, line: rounds.length ? `راجع جدولك المقترح. يبدأ التسجيل «${rounds[0].name}» ${deadlineDateShort(rounds[0].start)}.` : "راجع جدولك المقترح؛ موعد التسجيل لم يُحدَّد بعد." },
+      ...next,
     });
   }
   /* جولاتٌ أو إغلاقٌ بلا رغبات: لا مرحلة قبل الجولة الأولى إلا الانتظار. */
-  return base("collecting", "waiting", { line: next.nextAt ? `${next.nextLabel} ${deadlineDateShort(next.nextAt)}.` : NAMES.collecting, ...next });
+  return base("collecting", "waiting", {
+    line: next.nextAt ? `${next.nextLabel} ${deadlineDateShort(next.nextAt)}.` : NAMES.collecting,
+    forStudent: { label: STUDENT_NAMES.collecting, line: next.nextAt ? `${next.nextLabel} ${deadlineDateShort(next.nextAt)}.` : "المواعيد تُعلن هنا قريباً." }, ...next,
+  });
 }
 
 /* ───────────────────────── الخطّ الزمني للعرض ───────────────────────── */
@@ -258,6 +295,7 @@ export function studentTimeline(
   phases: TermStudentPhases | null | undefined,
   submissionDeadline: string | undefined,
   today: string = kuwaitDateISO(),
+  audience: "staff" | "student" = "staff",
 ): TimelineStep[] {
   const stateOf = (from?: string, to?: string): TimelineStep["state"] => {
     if (!from && !to) return "unset";
@@ -268,7 +306,7 @@ export function studentTimeline(
   };
   const p = phases || {};
   const steps: TimelineStep[] = [
-    { id: "submission", title: "تسليم الجداول", to: submissionDeadline || undefined, state: stateOf(undefined, submissionDeadline || undefined), kind: "submission" },
+    { id: "submission", title: audience === "student" ? "إعداد الجداول" : "تسليم الجداول", to: submissionDeadline || undefined, state: stateOf(undefined, submissionDeadline || undefined), kind: "submission" },
     { id: "wishes", title: "الرغبات", from: p.wishesOpen, to: p.wishesClose, state: stateOf(p.wishesOpen, p.wishesClose), kind: "wishes" },
   ];
   const first = (p.rounds || [])[0];
