@@ -56,6 +56,7 @@ The owner's rule: the site must stay up and free or nearly free, and a spending 
 - **Firestore:** see *Firestore indexes* above — nearly all of the read bill was full scans.
 - **Anonymous traffic:** `src/server/anonymousGuard.ts` counts failures (sessions that do not exist, link tokens that match nothing), never successes. A campus behind one NAT address is never limited.
 - **CI minutes:** pull requests skip `tests/slow.txt`, and main runs everything. `Deploy SCHEDULE` releases only a commit whose full run on main passed.
+- **Weekly smoke test:** `.github/workflows/weekly-smoke.yml` runs every Sunday 03:17 UTC (and on demand). It builds the app, starts it inside the runner with `DATA_MODE=demo`, and `scripts/ci/weekly-smoke.mjs` walks the main screens of six demo roles in a real browser at desktop and phone width, failing on uncaught page errors, server 5xx replies, empty or crashed screens, horizontal scroll at 390 px and the old «Enter approves from any button» regression. It touches no university data, uses no secret and no Google Cloud credential, and never deploys. The repository is public, so standard runners cost nothing (the last full CI run on main showed 0 billable milliseconds). Do not store exports or logs from it as artifacts: artifacts of a public repository are public.
 - **Image:** the final stage carries the bundle, the packages it requires (`scripts/runtime-deps.mjs`), the Firestore target and the OCR language data. Artifact Registry keeps the 10 newest images.
 
 ## Academic curriculum rules

@@ -250,6 +250,7 @@
     "test:roles": "tsx tests/role-guard-audit.ts",
     "test:seats": "tsx tests/seats-audit.ts",
     "test:advisor-seat-quota": "tsx tests/advisor-seat-quota-audit.ts",
+    "test:weekly-smoke": "tsx tests/weekly-smoke-audit.ts",
     "test:handover-pick": "tsx tests/handover-pick-audit.ts",
     "test:activity-trail": "tsx tests/activity-trail-audit.ts",
     "test:seat-access-card": "tsx tests/seat-access-card-audit.tsx",

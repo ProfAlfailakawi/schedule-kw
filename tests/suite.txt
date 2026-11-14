@@ -315,3 +315,4 @@ test:delete-impact
 test:inbox-undo
 test:report-insight
 test:names-one-label
+test:weekly-smoke
