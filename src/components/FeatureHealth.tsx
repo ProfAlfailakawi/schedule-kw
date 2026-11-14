@@ -22,7 +22,7 @@ function Ring({ percent, label }: { percent: number; label: string }) {
   );
 }
 
-function Tile({ view, onRetry, busy }: { view: TileView; onRetry: () => void; busy: boolean }) {
+const Tile: React.FC<{ view: TileView; onRetry: () => void; busy: boolean }> = ({ view, onRetry, busy }) => {
   const inert = view.tone === "idle" || view.tone === "empty";
   return (
     <li className={`fh-tile t-${view.tone}`} data-feature-tile={view.id}>
@@ -71,7 +71,7 @@ function Tile({ view, onRetry, busy }: { view: TileView; onRetry: () => void; bu
       )}
     </li>
   );
-}
+};
 
 export default function FeatureHealth() {
   const [data, setData] = useState<FeaturePayload | null>(null);
