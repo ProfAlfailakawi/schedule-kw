@@ -77,6 +77,14 @@ const between = (text: string, from: string, to: string) => {
     "L5 «ذاكرة القرار» تُفتح من «لماذا» لمن يملكها، ويُقرأ التحذير لغيره بلا زر");
   check(!/savePlan|خطة إنقاذ/.test(living), "L6 لا دالة «خطة إنقاذ» لا تُستدعى");
   check(/scene === "memory" && embeddedScenes\?\.includes\("why"\)/.test(living) && living.includes("العودة إلى «لماذا»"), "L7 «ذاكرة القرار» المفتوحة من «لماذا» تعود إليه في البطاقة نفسها");
+  /* مراجعة PR #488 */
+  check(/useEffect\(\(\) => \{\s*if \(scene === "memory" && power\) void loadMemory\(\);/.test(living),
+    "L8 لسانُ «ذاكرة القرار» في «دفتر القرار» يقرأ الذاكرة حين يُعرض (لا يمرّ بـopen)");
+  const genesisMutations = ["saveGenesisRow", "deleteGenesisRow", "deleteAllGenesisRows"].map(name => between(living, `const ${name} = async`, "finally {"));
+  check(genesisMutations.every(body => body.includes("onDraftsChanged?.();")) && living.includes('onClick={() => { onDraftsChanged?.(); onNavigate?.("drafts"); }}'),
+    "L9 تعديلُ صفوف مسودة «بداية الفصل» وحذفُها يعيدان قراءة «المسودات» قبل «فتح» و«انشرها من المسودات»");
+  check(/published\.undoVersions\.map\(/.test(iw) && /for \(const point of points\)/.test(iw) && iw.includes("undoPublishPoints(publishUndo.points"),
+    "L10 «تراجع عن النشر» يسترجع كلَّ نسخ ما قبل النشر (نشرٌ عبر عدة مواقع)، لا أولاها فقط");
 }
 
 /* ── P ── */

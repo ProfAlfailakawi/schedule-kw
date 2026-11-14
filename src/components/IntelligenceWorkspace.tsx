@@ -667,7 +667,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   /* دفتر القرار: ثلاث أدوات مختلفة، لكلٍّ بياناتها — لا تُدمج. */
   const [ledgerTab, setLedgerTab] = useState<"decisions" | "minutes" | "memory">("decisions");
   /* «تراجع عن النشر» بعد نشر مسودة (كان في «بداية الفصل» وحدها): نقطةُ الأمان التي أُخذت قبل النشر. */
-  const [publishUndo, setPublishUndo] = useState<{ point: any; draftName: string } | null>(null);
+  /* نشرٌ عبر أكثر من موقع يعيد نسخةً قبل النشر لكل موقع: التراجعُ يعيدها كلها. */
+  const [publishUndo, setPublishUndo] = useState<{ points: Array<{ id: string }>; draftName: string } | null>(null);
   /* نقاطُ «شبكة الأمان» على «سجل النسخ»: الأثرُ قبل الاسترجاع — للإدارة الرئيسية كما كانت. */
   const [safetyPoints, setSafetyPoints] = useState<Map<string, any>>(new Map());
   const [twinCard, setTwinCard] = useState<TwinCard | null>(() => {
@@ -1665,8 +1666,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
       if (published === null) return;
       setMessage("تم النشر بنجاح، وحُفظت نسخة زمنية قبل التغيير.");
       /* «تراجع عن النشر» (من «بداية الفصل»): النسخةُ التي أخذها الخادمُ قبل النشر. */
-      const undoId = Array.isArray(published?.undoVersions) ? String(published.undoVersions[0] || "") : "";
-      setPublishUndo(undoId ? { point: { id: undoId }, draftName: String(d.name || "المسودة") } : null);
+      const undoIds = Array.isArray(published?.undoVersions) ? published.undoVersions.map((id: unknown) => String(id || "")).filter(Boolean) : [];
+      setPublishUndo(undoIds.length ? { points: undoIds.map((id: string) => ({ id })), draftName: String(d.name || "المسودة") } : null);
       setScenario(null);
       setScenarioEval(null);
       setActiveDraftId(null);
@@ -1694,6 +1695,32 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
       await reload();
     } catch (e: any) {
       fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  /* «تراجع عن النشر»: كلُّ نسخةٍ أُخذت قبل النشر (موقعٌ لكلٍّ منها) تُسترجع بالترتيب؛ ورفضُ التأكيد يوقف ما بعده. */
+  const undoPublishPoints = async (points: Array<{ id: string }>, after?: () => void) => {
+    if (!points.length) return;
+    setBusy(true);
+    let restored = 0;
+    try {
+      for (const point of points) {
+        const d = await applyWithOverwriteConfirm("decision-undo",
+          confirm => fetchJson(`/api/intelligence/safety-net/${encodeURIComponent(String(point.id))}/undo`, {
+            method: "POST",
+            headers: { "x-schedule-confirm": confirm },
+          }),
+          options => visualConfirm(options));
+        if (d === null) break;
+        restored += 1;
+      }
+      if (restored === points.length) { setMessage("تم التراجع عن النشر في كل المواقع."); after?.(); }
+      else if (restored) setMessage(`تم التراجع في ${restored} من ${points.length} من مواقع النشر؛ البقية لم تُسترجع.`);
+      if (restored) await reload();
+    } catch (e: any) {
+      fail(e);
+      if (restored) await reload();
     } finally {
       setBusy(false);
     }
@@ -5371,7 +5398,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               <div className="publish-undo-banner" role="status">
                 <CheckCircle2 aria-hidden="true" />
                 <span><strong>نُشرت «{publishUndo.draftName}»</strong><small>أُخذت نسخةٌ قبل النشر؛ التراجع يعيد الجدول إليها.</small></span>
-                <SecondaryButton type="button" data-guide-feature-id="schedule.undo" disabled={busy || !online} onClick={() => void undoToSafetyPoint(publishUndo.point, () => setPublishUndo(null))}>
+                <SecondaryButton type="button" data-guide-feature-id="schedule.undo" disabled={busy || !online} onClick={() => void undoPublishPoints(publishUndo.points, () => setPublishUndo(null))}>
                   <RotateCcw /> تراجع عن النشر
                 </SecondaryButton>
               </div>

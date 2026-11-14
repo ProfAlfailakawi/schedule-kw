@@ -567,6 +567,8 @@ export default function LivingScheduleLayer({
       const nextRow = genesisBulkEdit ? currentRows[currentRows.findIndex((row:any) => Number(row.id) === Number(editedId)) + 1] : null;
       setGenesisEditId(null); setGenesisEdit(null);
       setMessage(result.ready ? "تمت معالجة الموانع. المسودة جاهزة للنشر." : `تم حفظ التعديل. بقيت ${countOf((result.issues || []).length, AR.note)}.`);
+      /* المسودةُ تغيّرت على الخادم: قائمةُ «المسودات» تُقرأ من جديد فلا يفتح «فتح» صفوفاً قديمة. */
+      onDraftsChanged?.();
       if (nextRow) window.setTimeout(() => beginGenesisEdit(nextRow), 0);
       else if (genesisBulkEdit) setGenesisBulkEdit(false);
     } catch (e:any) { setError(e.message); } finally { setBusy(false); }
@@ -586,6 +588,7 @@ export default function LivingScheduleLayer({
       } : current);
       if (genesisEditId === rowId) { setGenesisEditId(null); setGenesisEdit(null); }
       setMessage(result.ready ? "تم حذف الموعد وإعادة الفحص. المسودة جاهزة للنشر." : `تم حذف الموعد وإعادة الفحص · بقيت ${countOf((result.issues || []).length, AR.note)}.`);
+      onDraftsChanged?.();
     } catch (e:any) { setError(e.message); } finally { setBusy(false); }
   };
   const deleteAllGenesisRows = async () => {
@@ -597,6 +600,7 @@ export default function LivingScheduleLayer({
       setGenesis((current:any) => current ? { ...current, previewRows: [], draftRows: [], issues: result.issues || [], issueRowIds: [], rowIssues: {}, reviewRequired: 0 } : current);
       setGenesisEditId(null); setGenesisEdit(null); setGenesisBulkEdit(false); setGenesisDeleteAllConfirm(false);
       setMessage("تم حذف جميع المواعيد من المسودة. لم يُنشر أي تغيير على الجدول الرسمي.");
+      onDraftsChanged?.();
     } catch (e:any) { setError(e.message); } finally { setBusy(false); }
   };
 
@@ -621,6 +625,12 @@ export default function LivingScheduleLayer({
       setError(e.message);
     }
   };
+  /* «ذاكرة القرار» المضمَّنة (لسانُها في «دفتر القرار») تُفتح مباشرةً على مشهدها لا عبر open():
+     تُقرأ الذاكرةُ كلما صار مشهدُها هو المعروض. */
+  useEffect(() => {
+    if (scene === "memory" && power) void loadMemory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene, power, collegeId, sectionId]);
   const saveMemory = async () => {
     if (!selected || !memoryReason.trim()) return;
     setBusy(true);
@@ -1085,7 +1095,7 @@ export default function LivingScheduleLayer({
                                 «تراجع عن النشر» بعد النشر مباشرة. */}
                             <p>{genesis?.issues?.length ? "عالج الملاحظات المعلّمة، ثم انشرها من «المسودات»." : "المسودة جاهزة. انشرها من «المسودات» في «السجل»."}</p>
                             <div>
-                              <PrimaryButton type="button" data-guide-ignore="ينتقل إلى قائمة المسودات حيث يُنشر كل شيء؛ لا ينشر بنفسه" onClick={() => onNavigate?.("drafts")} disabled={busy || !genesis?.draft?.id || !onNavigate}>
+                              <PrimaryButton type="button" data-guide-ignore="ينتقل إلى قائمة المسودات حيث يُنشر كل شيء؛ لا ينشر بنفسه" onClick={() => { onDraftsChanged?.(); onNavigate?.("drafts"); }} disabled={busy || !genesis?.draft?.id || !onNavigate}>
                                 <Upload /> انشرها من المسودات
                               </PrimaryButton>
                             </div>
