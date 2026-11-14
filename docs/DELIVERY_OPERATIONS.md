@@ -2,6 +2,10 @@
 
 These constraints preserve the official service and the college's curriculum rules.
 
+## After a release: the acceptance round
+
+A release is not finished until a person has walked the ten-minute checklist in [ACCEPTANCE_ROUND.md](ACCEPTANCE_ROUND.md) on the live site with real devices (student on iPhone, teacher card, department inbox, system health). `npm run rehearsal:acceptance` rehearses the same steps first on its own private demo server (free port, `DATA_MODE=demo`, no real messages) and writes `acceptance-report/report.html`; it proves the screens work and never replaces the live round. Steps it cannot prove (real push delivery, Safari, staff-to-student recovery, real civil numbers) are marked as needing a real round.
+
 ## Official production target
 
 - Domain: `schedule-kw.com`

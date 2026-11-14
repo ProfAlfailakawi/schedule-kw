@@ -11,6 +11,10 @@
   "actors": ["rootAdmin", "admin", "departmentHead", "committeeChair", "registrarHead", "visitor", "student", "instructor", "system"],
   "sources": [
     "src/styles/60-admin-panels.css",
+    "src/styles/capacity-import.css",
+    "src/components/CapacityImportPanel.tsx",
+    "src/utils/capacityImport.ts",
+    "src/server/routes/capacityImportRoutes.ts",
     "src/utils/roomCapacityGaps.ts",
     "src/components/LocationCapacityGaps.tsx",
     "src/server/routes/locationsRoutes.ts",
@@ -830,6 +834,82 @@
         ],
         "tests": [
           "tests/room-capacity-gaps-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-LOC-038",
+      "kind": "functional",
+      "title": {
+        "ar": "استيراد السعات من ملف: قراءة وتطابق صارم ومعاينة بلا كتابة",
+        "en": "Capacity import from a file: strict matching and a write-free preview"
+      },
+      "text": {
+        "ar": "يجب أن تتيح لوحة «قاعات بلا سعة» زرَّ «استيراد السعات» وزرَّ «نزّل النموذج» (xlsx بأعمدة رمز القاعة والمبنى (اختياري) والسعة). يقرأ الخادم الملف (xlsx أو csv حتى 2 ميغابايت و5000 سطر؛ ويُرفض ما فوقها بـ413 أو بنصٍّ يذكر الحدّ) بترويسة متسامحة (رمز القاعة|القاعة|code و السعة|المقاعد|capacity) وأرقام عربية ولاتينية. تُطابَق القاعة برمزها الرسمي وحده (القاعة أو المبنى مع القاعة) تامّاً بعد التطبيع (مسافات وشرطات وحروف كبيرة وأرقام) دون اسمٍ أو تقريب؛ والرمز الواقع في أكثر من مبنى يُحسم بعمود المبنى وإلا ⚠️ ملتبس ولا يُطبَّق، والقاعة غير الفعّالة أو غير المعتمدة ⚠️ غير فعّالة ولا تُمسّ. تعرض المعاينة (ولا تكتب شيئاً) ✅ تُملأ (قاعة بلا سعة) و🔁 تعديل (قديم ← جديد) و⚠️ تُتخطّى بسببها و❌ قيمة غير صالحة (غير صحيحة أو أقل من 1 أو أكثر من 2000 أو مكرّرة بقيمتين) مع حلقة «سيكتمل X%». المسارات لحساب الإدارة الرئيسي وحده (401 و403) وبحدّ معدّل.",
+        "en": "The «Rooms without capacity» panel shall offer an «Import capacities» button and a «Download the template» button (an xlsx with room code, building (optional) and capacity columns). The server parses the file (xlsx or csv up to 2 MB and 5000 rows; larger is refused with 413 or a message naming the limit) with tolerant headers (room code|room|code and capacity|seats) and Arabic or Latin digits. A room is matched by its official code alone (the room, or building plus room), exactly after normalisation (spaces, dashes, case, digits), never by name or fuzzy match; a code present in several buildings is resolved by the building column, otherwise it is flagged ambiguous and not applied, and an inactive or unconfirmed room is flagged and never touched. The preview writes nothing and shows ✅ will be filled (room without capacity), 🔁 change (old to new), ⚠️ skipped with its reason and ❌ invalid value (non-integer, below 1, above 2000, or duplicated with different values), with a «will reach X%» ring. The routes serve the main administrator account only (401 and 403) and are rate limited."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "ملف فيه قاعتان بلا سعة وثالثة لها سعة ← ✅2 و🔁1 ولا يُكتب شيء قبل الاعتماد.",
+          "en": "A file with two rooms without capacity and a third with one ← ✅2 and 🔁1, and nothing is written before approval."
+        },
+        {
+          "ar": "رمز G1 في مبنيين بلا عمود مبنى ← ⚠️ ملتبس؛ وبعمود المبنى ← يُحسم.",
+          "en": "Code G1 in two buildings without a building column ← ⚠️ ambiguous; with the column ← resolved."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/CapacityImportPanel.tsx",
+          "src/utils/capacityImport.ts",
+          "src/server/routes/capacityImportRoutes.ts",
+          "src/styles/capacity-import.css"
+        ],
+        "tests": [
+          "tests/capacity-import-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-LOC-039",
+      "kind": "functional",
+      "title": {
+        "ar": "استيراد السعات: اعتماد واحد بسجلٍّ لكل قاعة وتراجع دقيق",
+        "en": "Capacity import: a single approval with an audit entry per room, and an exact undo"
+      },
+      "text": {
+        "ar": "يجب أن يكتب POST ‎/api/admin/location-setup/capacity-import/apply الخطة المعاينة (برمزٍ موقَّع يرتبط بالحساب والخطة وتنتهي صلاحيته) كتابةً واحدة: الافتراضي ملء القاعات بلا سعة وحدها، والتعديلات 🔁 لا تُطبَّق إلا بتأشير «شمل التعديلات» (مطفأ افتراضياً). تُعاد الخطة على حال كل قاعة الآن فتُتخطّى بسببها قاعةٌ تغيّرت بعد المعاينة، ولا يُكتب شيء لرمزٍ مزوَّر أو خطةٍ معدّلة (409). الاعتماد متساوي الأثر (الثاني المطابق لا يكتب)، ومحميّ من الضغط المزدوج، وحتى 400 قاعة في المرة، ويردّ القائمة المطبّقة ونتيجة كل قاعة. يُسجَّل لكل قاعة سطر تدقيق UPDATE بقبل/بعد ومن فعل ورمز الدفعة كما في مسار حفظ القاعة، وسطرٌ للدفعة في سجلّ النظام بأعدادها. ويعيد POST ‎…/undo ما كتبته الدفعة بعينه وحده، ويرفض كل قاعة عُدّلت بعدها بقوله «عُدّلت بعد الدفعة»، ويُظهر GET ‎…/last آخر دفعة قابلة للتراجع حتى بعد إعادة التحميل.",
+        "en": "POST /api/admin/location-setup/capacity-import/apply shall write the previewed plan (with a signed token bound to the account and the plan, which expires) in one write: by default only rooms without capacity are filled, and 🔁 changes apply only when «include changes» is ticked (off by default). The plan is re-checked against each room's state now, so a room changed after the preview is skipped with its reason, and a forged token or an altered plan writes nothing (409). The approval is idempotent (an identical second one writes nothing), guarded against double submit, limited to 400 rooms at a time, and returns the applied list and each room's result. Each room gets an UPDATE audit entry with before/after, the actor and the batch id, as in the room save path, and the system log gets one batch entry with its counts. POST …/undo restores exactly what that batch wrote, refuses every room edited after it saying «edited after the batch», and GET …/last exposes the latest undoable batch even after a reload."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "اعتماد ثانٍ للمعاينة نفسها ← لا سطر تدقيق جديد.",
+          "en": "A second approval of the same preview ← no new audit entry."
+        },
+        {
+          "ar": "تعديل قاعة بعد الدفعة ثم التراجع ← تعود الباقية وتُرفض تلك بنصّ السبب.",
+          "en": "Editing a room after the batch, then undo ← the others return and that one is refused with the reason."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/CapacityImportPanel.tsx",
+          "src/utils/capacityImport.ts",
+          "src/server/routes/capacityImportRoutes.ts",
+          "src/styles/capacity-import.css"
+        ],
+        "tests": [
+          "tests/capacity-import-audit.ts"
         ]
       }
     }

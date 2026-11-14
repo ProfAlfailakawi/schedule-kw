@@ -161,6 +161,7 @@ export const AR = {
   round:       { one: "جولة", two: "جولتان", few: "جولات", many: "جولة" },
   student:     { one: "طالب", two: "طالبان", few: "طلاب", many: "طالباً" },
   graduate:    { one: "خريج", two: "خريجان", few: "خريجين", many: "خريجاً" },
+  expectedGraduate: { one: "خريج متوقع", two: "خريجان متوقعان", few: "خريجين متوقعين", many: "خريجاً متوقعاً" },
   pair:        { one: "زوج", two: "زوجان", few: "أزواج", many: "زوجاً" },
   account:     { one: "حساب", two: "حسابان", few: "حسابات", many: "حساباً" },
   visit:       { one: "مرة", two: "مرتان", few: "مرات", many: "مرة" },
