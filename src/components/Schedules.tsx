@@ -3103,6 +3103,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const pendingHandoff = useRef<RequestHandoff | null>(null);
   /** صورةُ النموذج لحظة فتحه: ما خالفها لم يُحفظ بعد (انظر requestClose). */
   const editorSnapshot = useRef<string | null>(null);
+  /** رقمُ آخر بحثٍ عن القاعة المعتادة: كلُّ فتحٍ أو إغلاقٍ للمحرّر يُبطل ما قبله. */
+  const usualRoomLookup = useRef(0);
   /* «مقترح دراسي» من الوارد: الوقتُ المطلوب ينتظر فتحَ نموذج الموعد الأصلي (src/utils/requestOpenRow.ts). */
   const openRowChange = useRef<{ rowId: number; change: RequestedChange } | null>(null);
   /** «طلب شعبة» من الإرشاد فتح هذه الإضافة (src/utils/sectionRequestHandoff.ts): يُربط بها ما يُحفظ. */
@@ -3124,6 +3126,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setGraduateNotice("");
     graduateNoteRef.current = "";
     setStudentFit(null); setGraduateImpact(null);
+    usualRoomLookup.current += 1;
     setChecking(false);
     setScheduleTouched(false);
     editorSnapshot.current = null;
@@ -10100,9 +10103,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                             if (seed.instructorId && !next.AdInstructorId) next.AdInstructorId = seed.instructorId;
                             return next;
                           });
+                          /* الجوابُ لهذا المحرّر وهذا النطاق وحدهما: إغلاقُه أو فتحُ غيره أو تغييرُ الكلية/القسم/الفصل يُسقطه. */
+                          const lookup = ++usualRoomLookup.current;
+                          const scope = `${form.AdCollegeId}|${form.AdSectionId}|${form.AdTermId}`;
                           if (usualRoom) void resolveRegistryRoom(usualRoom.building, usualRoom.hall).then(found => {
-                            if (!found) return;
-                            setForm(previous => previous.roomId || previous.AdRoomCode ? previous : { ...previous, ...found });
+                            if (!found || lookup !== usualRoomLookup.current) return;
+                            setForm(previous => previous.roomId || previous.AdRoomCode || `${previous.AdCollegeId}|${previous.AdSectionId}|${previous.AdTermId}` !== scope ? previous : { ...previous, ...found });
                           });
                         }}
                         >
