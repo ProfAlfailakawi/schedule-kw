@@ -9905,13 +9905,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               {slotTaken.loading ? <small> أبحث عن بديلين…</small> : slotTaken.options.length ? (
                 <span className="slot-taken-options">
                   {slotTaken.options.map((slot: any, index: number) => (
-                    <button key={`${slot.start}-${slot.room}-${slot.hall}-${index}`} type="button" className="btn btn-secondary" onClick={() => { takeSlot(slot); setSlotTaken(null); }}>
+                    <button key={`${slot.start}-${slot.room}-${slot.hall}-${index}`} type="button" className="btn btn-secondary" onClick={() => { takeSlot(slot); setSlotTaken(null); }} data-guide-ignore="يملأ النموذج بهذا البديل بعد أن سبقك زميل؛ لا يحفظ شيئاً">
                       <bdi dir="ltr">{formatScheduleTimeRange(slot.start, slot.end)}</bdi>{slot.room || slot.hall ? <> · <bdi>{slot.room}/{slot.hall}</bdi></> : null}
                     </button>
                   ))}
                 </span>
               ) : <small> اضغط «اقترح لي وقتاً وقاعة» لبدائل.</small>}
-              <button type="button" className="appt-link" onClick={() => setSlotTaken(null)}>إخفاء</button>
+              <button type="button" className="appt-link" onClick={() => setSlotTaken(null)} data-guide-ignore="يخفي تنبيه «سبقك زميل»؛ لا يغيّر النموذج">إخفاء</button>
             </div>
           </div>
         ) : null}
@@ -14482,6 +14482,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <button
                       type="button"
                       key={`${x.start}-${x.roomCode}-${x.roomHall}`}
+                      data-guide-ignore="يفتح تعديل الموعد مملوءاً بهذا البديل قبل الحفظ؛ لا يحفظ شيئاً"
                       onClick={() => {
                         const row = context.selected as FSchedule;
                         void openEditAlternative(row, {

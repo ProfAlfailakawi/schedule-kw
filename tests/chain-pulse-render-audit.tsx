@@ -42,7 +42,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "
   check(/chain-impact is-good/.test(ready) && /لا يمسّ طلبة/.test(ready) && /chain-dot/.test(ready), "V4 سطرُ أثرٍ واحد بنقطةٍ ملوّنة");
   check(/طبّق السلسلة/.test(ready) && />\s*<span>تراجع<\/span>/.test(ready.replace(/<svg.*?<\/svg>/g, "")) && /min-height|chain-btn is-primary/.test(ready), "V5 زرّا «طبّق السلسلة» و«تراجع»");
   check(new RegExp(`<b dir="ltr">${solution.steps.length}</b>`).test(ready) && /chain-ring/.test(ready), "V6 حلقةُ عدد النقلات في الرأس");
-  check(/role="dialog"/.test(read("src/components/ChainSolveSheet.tsx")) && /aria-modal="true"/.test(read("src/components/ChainSolveSheet.tsx")) && /useDialogDismiss\(open/.test(read("src/components/ChainSolveSheet.tsx")) && /event\.key !== "Tab"/.test(read("src/components/ChainSolveSheet.tsx")), "V7 حوارٌ مشروط: aria-modal وEsc وحبسُ التركيز");
+  check(/role="dialog"/.test(read("src/components/ChainSolveSheet.tsx")) && /aria-modal="true"/.test(read("src/components/ChainSolveSheet.tsx")) && /useDialogDismiss\(open/.test(read("src/components/ChainSolveSheet.tsx")) && /trapFocusRef/.test(read("src/components/ChainSolveSheet.tsx")) && /event\.key !== "Tab"/.test(read("src/hooks/useFocusTrap.ts")), "V7 حوارٌ مشروط: aria-modal وEsc وحبسُ التركيز");
 
   const skeleton = renderToStaticMarkup(<ChainSolveView phase="solving" solution={null} impact={null} />);
   check(/chain-skel-card/.test(skeleton) && /aria-busy="true"/.test(skeleton) && !/طبّق السلسلة/.test(skeleton), "V8 التحميل: هيكلٌ عظميٌّ بلا زرّ تطبيق");

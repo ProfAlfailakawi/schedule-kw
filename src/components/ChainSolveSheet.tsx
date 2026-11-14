@@ -167,7 +167,7 @@ export function ChainSolveView({ phase, solution, impact, impactBusy = false, dr
         <div className="chain-body chain-empty is-error" role="alert">
           <span className="chain-empty-ico"><TriangleAlert aria-hidden="true" /></span>
           <strong>{error || "تعذّر الحلّ"}</strong>
-          {onRetry ? <button type="button" className="chain-btn is-ghost" onClick={onRetry}>أعد المحاولة</button> : null}
+          {onRetry ? <button type="button" className="chain-btn is-ghost" onClick={onRetry} data-guide-ignore="يعيد البحث عن سلسلة؛ لا يكتب شيئاً">أعد المحاولة</button> : null}
         </div>
       ) : null}
 
@@ -204,12 +204,12 @@ export function ChainSolveView({ phase, solution, impact, impactBusy = false, dr
               data-guide-ignore="يطبّق نقلات السلسلة كلّها دفعةً واحدة عبر آلة الزمن؛ تُكتب كلُّها أو لا شيء">
               {phase === "applying" ? <LoaderCircle className="chain-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}<span>طبّق السلسلة</span>
             </button>
-            <button type="button" className="chain-btn is-ghost" onClick={onCancel} disabled={busy}><Undo2 aria-hidden="true" /><span>تراجع</span></button>
+            <button type="button" className="chain-btn is-ghost" onClick={onCancel} disabled={busy} data-guide-ignore="يغلق ورقة السلسلة دون تطبيق شيء"><Undo2 aria-hidden="true" /><span>تراجع</span></button>
           </>
         ) : null}
         {phase === "done" || phase === "undoing" ? (
           <>
-            <button type="button" className="chain-btn is-primary" onClick={onClose} ref={primaryRef} disabled={phase === "undoing"}><CircleCheck aria-hidden="true" /><span>تمّ</span></button>
+            <button type="button" className="chain-btn is-primary" onClick={onClose} ref={primaryRef} disabled={phase === "undoing"} data-guide-ignore="يغلق الورقة بعد تطبيق السلسلة؛ لا يغيّر شيئاً"><CircleCheck aria-hidden="true" /><span>تمّ</span></button>
             <button type="button" className="chain-btn is-ghost" onClick={onUndo} disabled={phase === "undoing"} aria-busy={phase === "undoing"}
               data-guide-ignore="يعيد المواعيد المنقولة كما كانت من نقطة استعادة آلة الزمن">
               {phase === "undoing" ? <LoaderCircle className="chain-spin" aria-hidden="true" /> : <Undo2 aria-hidden="true" />}<span>تراجع عن السلسلة</span>
@@ -217,7 +217,7 @@ export function ChainSolveView({ phase, solution, impact, impactBusy = false, dr
           </>
         ) : null}
         {phase === "empty" || phase === "error" || phase === "solving" ? (
-          <button type="button" className="chain-btn is-ghost" onClick={onClose} ref={primaryRef}><X aria-hidden="true" /><span>إغلاق</span></button>
+          <button type="button" className="chain-btn is-ghost" onClick={onClose} ref={primaryRef} data-guide-ignore="يغلق الورقة؛ لا يغيّر شيئاً"><X aria-hidden="true" /><span>إغلاق</span></button>
         ) : null}
       </footer>
     </div>
@@ -238,9 +238,9 @@ async function postJson(url: string, body: unknown): Promise<any> {
 }
 
 /** الزرّ بجانب «بديل» في لوحة فحص الموانع (يأخذ صنفَ checks-alt نفسه فيرث شكلَه). */
-export function ChainSolveButton({ onClick, busy = false }: { onClick: () => void; busy?: boolean }) {
+export function ChainSolveButton({ onOpen, busy = false }: { onOpen: () => void; busy?: boolean }) {
   return (
-    <button type="button" className="checks-alt chain-solve-btn" onClick={onClick} disabled={busy}
+    <button type="button" className="checks-alt chain-solve-btn" onClick={onOpen} disabled={busy}
       data-guide-ignore="يبحث عن سلسلة قصيرة تنقل مواعيد أخرى وتُخلي المكان لموعدك؛ لا يكتب شيئاً قبل أن تطبّقها">
       <Link2 aria-hidden="true" />{busy ? "…" : "حلّ بسلسلة"}
     </button>

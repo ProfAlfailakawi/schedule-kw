@@ -163,7 +163,7 @@ export default function AppointmentChecksPanel({
                 {detail.blocks && onAlternative && !(onApplyPattern && isPatternDetail(detail.text)) ? <button type="button" className="checks-alt" disabled={alternativeBusy}
                   data-guide-ignore="يطلب بديلاً آمناً لهذا المانع من محرك الاقتراح الموحد؛ لا يحفظ شيئاً"
                   onClick={() => onAlternative(check, detail)}><WandSparkles aria-hidden="true" />{alternativeBusy ? "…" : "بديل"}</button> : null}
-                {onChainSolve && chainOffered({ blockers: [detail] }) ? <ChainSolveButton onClick={onChainSolve} /> : null}
+                {onChainSolve && chainOffered({ blockers: [detail] }) ? <ChainSolveButton onOpen={onChainSolve} data-guide-ignore="يفتح ورقة «حلّ بسلسلة» لمعاينة نقلات مقترحة؛ لا يكتب شيئاً قبل التطبيق" /> : null}
               </li>)}
             </ul>
           </details> : <div className="checks-tile-row" aria-label={`${check.label}: ${check.word}`}>{tile}</div>}
