@@ -105,7 +105,7 @@ const remember = (key: string, body: any) => {
 };
 
 export function registerCapacityImportRoutes(app: Express): void {
-  const limiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "طلباتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." } });
+  const limiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false, message: { error: "طلباتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد المحاولة." } });
   const guard = [requirePermission(7), requireRootAdmin] as const;
   const tooLarge = (error: any, _req: Request, res: Response, next: NextFunction) => {
     if (error?.type === "entity.too.large" || error?.status === 413) { res.status(413).json({ error: `الملف أكبر من ${CAPACITY_IMPORT_MAX_BYTES / 1024 / 1024} ميغابايت.` }); return; }

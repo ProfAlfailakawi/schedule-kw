@@ -181,6 +181,7 @@
     "test:public-kit": "tsx tests/public-kit-audit.ts",
     "test:companion-rooms": "tsx tests/companion-rooms-audit.ts",
     "test:room-capacity-gaps": "tsx tests/room-capacity-gaps-audit.ts",
+    "test:capacity-import": "tsx tests/capacity-import-audit.ts",
     "test:card-pulse": "tsx tests/card-pulse-audit.ts",
     "test:room-occupancy": "tsx tests/room-occupancy-audit.ts && tsx tests/instructor-request-room-universe-audit.ts && tsx tests/slot-suggestion-recovery-audit.ts",
     "test:room-door": "tsx tests/room-door-audit.ts",
