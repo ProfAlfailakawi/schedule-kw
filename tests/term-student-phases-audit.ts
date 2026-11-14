@@ -78,6 +78,19 @@ const issuesOf = (input: any, submissionDeadline: string | undefined = SUBMIT) =
   check(at("2026-12-05").canReport && at("2026-12-06").key === "closed" && !at("2026-12-06").canReport && at("2026-12-06").mode === "closed", "T2 بعد الإغلاق: لا تبليغ");
   check(!at("2026-10-12").namesVisible && !at("2026-10-26").namesVisible, "T2 قبل التسجيل لا أسماء: أرقامٌ فقط");
   check(at("2026-10-12").nextAt === "2026-10-25", "T2 التاريخ القادم المغيِّر للمرحلة");
+  /* آخرُ يومٍ في الرغبات: الموعدُ القادم نهايتُها الليلة لا بدايةُ الجولة (النهايةُ تشمل يومها). */
+  const lastWish = at("2026-10-25");
+  check(lastWish.nextAt === "2026-10-25" && lastWish.nextLabel === "تنتهي الرغبات" && lastWish.until === "2026-10-25", "T2 آخر يوم رغبات: الموعد القادم نهايتُها اليوم، لا الجولة");
+  check(/اليوم/.test(lastWish.forStudent.line) && !/1 نوفمبر|مبكر/.test(lastWish.forStudent.line), "T2 آخر يوم رغبات: يقال للطالب «اليوم» لا تاريخ الجولة");
+  check(at("2026-10-24").until === "2026-10-25" && at("2026-10-24").nextAt === "2026-10-25", "T2 قبل آخر يوم: حتى نهاية الرغبات");
+  check(at("2026-11-07").nextAt === "2026-11-07" && at("2026-11-07").until === "2026-11-07", "T2 آخر يومٍ في الجولة: الموعد القادم نهايتُها اليوم");
+  check(at("2026-12-05").nextAt === "2026-12-05" && at("2026-12-05").nextLabel === "تُغلق الطلبات", "T2 يوم الإغلاق: الموعد القادم الإغلاق نفسه");
+  check(at("2026-11-01").nextAt === "2026-11-07", "T2 أول يوم في الجولة: البدايةُ اليوم ليست «قادمة»");
+  /* لغةُ الطالب: لا «تسليم» ولا «تجميد» ولا «الأقسام تُدخل» */
+  const words = ["2026-10-09", "2026-10-15", "2026-10-26", "2026-11-03", "2026-11-10", "2026-12-06"].map(day => at(day).forStudent);
+  check(words.every(w => !/تُدخل جداولها|مُجمَّد|مجمد|تسليم|صاحب القرار|رادار/.test(w.label + w.line)), "T2 ما يراه الطالب بلا لغة الأقسام");
+  check(at("2026-10-09").label === "الأقسام تُدخل جداولها" && at("2026-10-26").label === "الجدول مُجمَّد", "T2 أسماء الأقسام باقية لشاشاتهم");
+  check(studentTimeline(GOOD, SUBMIT, "2026-10-15", "student")[0].title === "إعداد الجداول" && studentTimeline(GOOD, SUBMIT, "2026-10-15")[0].title === "تسليم الجداول", "T2 الشريط للطالب «إعداد الجداول» وللأقسام «تسليم الجداول»");
   const noClose = readStudentPhase({ ...GOOD, requestsClose: undefined }, "2027-03-01");
   check(noClose.key === "between" && noClose.canReport, "T2 بلا إغلاقٍ مكتوب: لا يُغلق من تلقاء نفسه");
   const wishesOnly = readStudentPhase({ wishesOpen: "2026-10-12", wishesClose: "2026-10-25" }, "2026-11-30");

@@ -313,6 +313,8 @@
     "test:demo-fill": "tsx tests/demo-fill-audit.ts",
     "test:demo-every-role": "tsx tests/demo-every-role-audit.ts",
     "test:masari-ease": "tsx tests/masari-ease-audit.ts",
+    "test:masari-door-ux": "tsx tests/masari-door-ux-audit.ts",
+    "test:critical-courses": "tsx tests/critical-courses-audit.ts",
     "test:masari-visual": "tsx tests/masari-visual-audit.ts",
     "test:masari-return": "tsx tests/masari-return-audit.ts",
     "test:masari-desktop": "tsx tests/masari-desktop-audit.ts",

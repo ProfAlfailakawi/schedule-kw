@@ -385,16 +385,20 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const today = kuwaitDateISO();
     const reading = readStudentPhase(term?.AdTermStudentPhases, today);
     const door = await readDoor(req).catch(() => null);
+    /* «هذا جهازي» يُقرأ من عمر الجلسة نفسها: تغييرُ الرمز يُصدر جلسةً بالعمر نفسه فلا تقصر جلسةُ ١٨٠ يوماً إلى جلسة متصفح. */
+    const session = door ? readDoorSession(await deps.identityKey(), readCookie(req.headers.cookie, DOOR_COOKIE), Date.now()) : null;
     res.json({
       demo: Repository.isDemoRequest(),
       term: term ? { id: Number(term.AdTermId), name: String(term.AdTermName || "") } : null,
       phase: {
-        key: reading.key, mode: reading.mode, label: reading.label, line: reading.line,
+        key: reading.key, mode: reading.mode, label: reading.forStudent.label, line: reading.forStudent.line,
         canEditWishes: reading.canEditWishes, canReport: reading.canReport, nextAt: reading.nextAt || "", nextLabel: reading.nextLabel || "",
+        until: reading.until || "", today,
         roundName: reading.round?.name || "",
       },
-      timeline: studentTimeline(term?.AdTermStudentPhases, term?.AdTermSubmissionDeadline, today),
+      timeline: studentTimeline(term?.AdTermStudentPhases, term?.AdTermSubmissionDeadline, today, "student"),
       signedIn: Boolean(door),
+      session: session ? { remember: session.exp - Date.now() > SESSION_HOURS * 3_600_000 } : null,
       profile: door ? await summaryOf(door.profile) : null,
       limits: { codeLength: CODE_LENGTH, ...(await (async () => { const cap = await universityUnitCap(); return { wishUnitsMin: studentUnitFloorOf(cap), wishUnitsMax: cap }; })()), termUnits: TYPICAL_TERM_UNITS, afterGraduationDays: AFTER_GRADUATION_DAYS },
     });
@@ -486,7 +490,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
           left = locked ? 0 : CODE_MAX_FAILURES - failures.count;
           return { ...current, codeFailures: failures };
         });
-        fail(res, 401, locked ? "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد ١٥ دقيقة." : "الرمز غير صحيح.", locked ? "locked" : "bad-code", { attemptsLeft: left });
+        fail(res, 401, locked ? "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد 15 دقيقة." : "الرمز غير صحيح.", locked ? "locked" : "bad-code", { attemptsLeft: left });
         return;
       }
       done();
@@ -499,7 +503,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
         return { ...current, codeFailures: undefined, resetRequestedAt: undefined, lastSeenAt, ...profileLifetime({ ...current, lastSeenAt }, new Date(now)) };
       })) || profile;
       if (lockedMeanwhile) {
-        fail(res, 423, "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد ١٥ دقيقة.", "locked");
+        fail(res, 423, "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد 15 دقيقة.", "locked");
         return;
       }
       await issueSession(res, entered, remember);
@@ -802,7 +806,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const termById = new Map((terms as any[]).map(term => [Number(term.AdTermId), String(term.AdTermName || "الفصل") ] as const));
     const statusText: Record<string, string> = {
       pending: "وصل طلبك · قيد مراجعة القسم", approved: "وافقت اللجنة · بانتظار الإجراء التالي",
-      "committee-rejected": "تعذّر قبول الطلب من اللجنة", registered: "اكتمل قرار الحالة داخل SCHEDULE",
+      "committee-rejected": "تعذّر قبول الطلب من اللجنة", registered: "اكتملت مراجعة طلبك",
       rejected: "تعذّر قبول الطلب في المراجعة التالية",
     };
     const rows = needs
@@ -821,7 +825,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
           const state = (need.courseStates || []).find(item => Number(item.courseId) === Number(id));
           const courseStatus: Record<string, string> = {
             pending: "قيد مراجعة القسم", "awaiting-registration": "وافقت اللجنة · بانتظار الإجراء التالي",
-            "committee-rejected": "تعذّر قبوله من اللجنة", registered: "اكتملت مراجعته داخل SCHEDULE",
+            "committee-rejected": "تعذّر قبوله من اللجنة", registered: "اكتملت مراجعته",
             rejected: "تعذّر قبوله في المراجعة التالية",
           };
           return { code: String(course?.CourseCode || ""), name: String(course?.CourseName || "مقرر"),
@@ -985,7 +989,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     if (!phase.canEditWishes && !phase.canReport) { fail(res, 409, "نافذة الطلبات غير مفتوحة الآن.", "requests-closed", { line: phase.line }); return; }
     const [run, ticket] = await Promise.all([Repository.getRegistrationRun(termId), Repository.getRegistrationTicket(termId, fingerprint)]);
     if (!studentNeedsCommitteeHelp(profile, run, ticket, termId)) {
-      fail(res, 409, "لا توجد حالة تعثر مؤكدة في آخر محاكاة تستدعي طلباً فردياً. حدّث رغباتك وانتظر إعادة الاحتساب.", "no-proven-blocker"); return;
+      fail(res, 409, "جدولك المقترح الأخير لا يُظهر مقرراً متعذّراً يحتاج طلباً للقسم. حدّث رغباتك وانتظر التحديث القادم.", "no-proven-blocker"); return;
     }
     const openable = new Set(ticket!.unmet.filter(item => item.reason === "not-offered" || item.reason === "full").map(item => Number(item.courseId)));
 
@@ -998,7 +1002,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const ids: number[] = [...new Set<number>((Array.isArray(req.body?.courseIds) ? req.body.courseIds : []).map(Number)
       .filter(id => Number.isInteger(id) && id > 0))];
     if (requestType === "new-course" && (ids.length < 1 || ids.length > 12 || ids.some(id => !remaining.has(id) || !openable.has(id) || Number(byId.get(id)?.AdSectionId) !== Number(profile.AdSectionId)))) {
-      fail(res, 400, "اختر من مقرراتك المتبقية المتعذرة في المحاكاة (حتى 12 مقرراً).", "course-outside-plan"); return;
+      fail(res, 400, "اختر من مقرراتك المتبقية التي تعذّرت في جدولك المقترح (حتى 12 مقرراً).", "course-outside-plan"); return;
     }
     if (requestType === "course-conflict") {
       if (ids.length !== 2 || ids[0] === ids[1]) { fail(res, 400, "اختر مقررين مختلفين للتعارض.", "bad-conflict-pair"); return; }
@@ -1014,7 +1018,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       if (!ownId || !otherId || rows.some(course => !course || Number(course.AdCollegeId) !== Number(profile.AdCollegeId))
         || !remaining.has(ownId) || !ticket!.unmet.some(item => Number(item.courseId) === ownId && item.reason === "conflict")
         || !pairs.some(pair => pair.ownCourseId === ownId && pair.otherCourseId === otherId)) {
-        fail(res, 409, "لم يثبت تعذّر حل هذا التعارض من الجداول المنشورة المكتملة. جرّب الشعب البديلة أو حدّث المحاكاة.", "conflict-not-proven"); return;
+        fail(res, 409, "لم يثبت تعذّر حل هذا التعارض من الجداول المنشورة المكتملة. جرّب الشعب البديلة في جدولك المقترح.", "conflict-not-proven"); return;
       }
     }
     const details = String(req.body?.details || "").normalize("NFKC").replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 600);
@@ -1118,7 +1122,8 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       }
       return out;
     });
-    const opened = [...wanted].filter(id => openedAll.has(id)).slice(0, 4).map(id => ({ courseId: id, name: nameOf(id), section: openedAll.get(id) || "" }));
+    const wished = new Set<number>(profile.wishes && profile.wishes.termId === termId ? profile.wishes.courseIds : []);
+    const opened = [...wanted].filter(id => openedAll.has(id)).slice(0, 4).map(id => ({ courseId: id, name: nameOf(id), section: openedAll.get(id) || "", wished: wished.has(id) }));
     /* العددُ نفسُه الذي تعرضه بطاقةُ «هل سجلت؟»: خطّةُ (أ) إن وُجدت، وإلا ما طُرح من متبقّي صحيفته. */
     const reportCourses = profile.AdSectionId > 0 ? ((await reportContext(profile, fingerprint))?.ids.length || 0) : 0;
     const cases = needs.flatMap(need => need.courseIds.map(courseId => {
@@ -1128,7 +1133,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     res.json({
       notices: buildStudentNotices({
         setupDone: profile.AdSectionId > 0,
-        phase: { mode: reading.mode, canEditWishes: reading.canEditWishes, canReport: reading.canReport, line: reading.line, nextAt: reading.nextAt ? deadlineDateShort(reading.nextAt) : "", nextLabel: reading.nextLabel },
+        phase: { mode: reading.mode, canEditWishes: reading.canEditWishes, canReport: reading.canReport, line: reading.forStudent.line, nextAt: reading.nextAt ? (reading.nextAt === kuwaitDateISO() ? "اليوم" : deadlineDateShort(reading.nextAt)) : "", nextLabel: reading.nextLabel },
         hasWishes: Boolean(profile.wishes && profile.wishes.termId === termId),
         ticket: live ? { stale: Date.parse(profile.updatedAt) > Date.parse(run!.ranAt), window: live.window, of: run!.rounds, windowName: round?.name, start: round?.start ? deadlineDateShort(round.start) : "", end: round?.end ? deadlineDateShort(round.end) : "" } : null,
         reportAnswered: Boolean(profile.registration && profile.registration.termId === termId),

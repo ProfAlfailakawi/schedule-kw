@@ -37,8 +37,9 @@ export const STUDENT_MAP_CSS = `
 .km-who p{margin:0;font-size:14px;font-weight:600;opacity:.95}
 .km-who span{font-size:12.5px;opacity:.88}
 .km-leg{position:relative;display:flex;flex-wrap:wrap;gap:6px}
-.km-lg{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:0;border-radius:999px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s}
+.km-lg{position:relative;display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:0;border-radius:999px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s}
 .km-lg:hover{background:rgba(255,255,255,.2)}
+.km-lg::after{content:"";position:absolute;inset-block:-9px;inset-inline:-2px}
 .km-lg i{inline-size:9px;block-size:9px;border-radius:3px}
 .km-stats{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .km-stats button{display:grid;gap:1px;padding:9px 4px;border:0;border-radius:16px;background:rgba(255,255,255,.1);color:#fff;text-align:center;cursor:pointer;transition:background .15s,transform .12s}
@@ -93,12 +94,16 @@ export const STUDENT_MAP_CSS = `
 .kc b{font-size:14px;line-height:1.5;font-weight:700}
 .kc small{font-size:12px;color:var(--muted);line-height:1.5}
 .kc .u{inline-size:24px;block-size:24px;border-radius:50%;background:var(--h);color:#fff;display:grid;place-items:center;font-size:12.5px;font-weight:700}
-.kc-add{inline-size:34px;block-size:34px;border-radius:50%;border:2px solid var(--h);background:var(--card);color:var(--h);display:grid;place-items:center;cursor:pointer;padding:0;transition:background .15s,color .15s,transform .15s var(--ease)}
-.kc-add{position:relative}.kc-add::after{content:"";position:absolute;inset:-7px}
+/* زرُّ الإضافة: دائرةٌ ٣٤px داخل هدف لمسٍ ٤٤px (الهامشُ السالب يبقي البطاقة كما هي). */
+.kc-add{position:relative;inline-size:44px;block-size:44px;margin:-5px;border:0;border-radius:50%;background:transparent;color:var(--h);display:grid;place-items:center;cursor:pointer;padding:0}
+.kc-add>span{inline-size:34px;block-size:34px;border-radius:50%;border:2px solid var(--h);background:var(--card);display:grid;place-items:center;transition:background .15s,color .15s,transform .15s var(--ease)}
 .kc-add .i{inline-size:18px;block-size:18px;stroke-width:2.4}
-.kc-add:hover{transform:scale(1.08)}
-.kc-add[aria-pressed="true"]{background:var(--h);color:#fff;animation:kpop .3s var(--ease)}
-.kc-add:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.kc-add:hover>span{transform:scale(1.08)}
+.kc-add[aria-pressed="true"]>span{background:var(--h);color:#fff;animation:kpop .3s var(--ease)}
+.kc-add:disabled{opacity:.35;cursor:not-allowed}.kc-add:disabled>span{transform:none}
+.kc .crit{margin-block-start:2px}
+.kd-crit{display:flex;align-items:center;gap:8px;padding:10px 13px;border-radius:14px;background:#fbe7dc;color:#9a3412;font-size:13px;font-weight:700}
+.kd-crit .i{flex:none;inline-size:18px;block-size:18px}
 @keyframes kpop{0%{transform:scale(.8)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
 .kc-rib{position:absolute;inset-block-start:-9px;inset-inline-start:12px;display:inline-flex;align-items:center;gap:4px;padding:1px 10px;border-radius:999px;background:linear-gradient(90deg,#d4a96a,#c79b5f);color:#1a1308;font-size:12px;font-weight:700;box-shadow:0 6px 12px -6px rgba(141,100,35,.7)}
 .kc-rib.key{background:linear-gradient(90deg,#1f6b5c,#2f8a76)}
@@ -109,7 +114,7 @@ export const STUDENT_MAP_CSS = `
 .km-map .mt{flex:1;display:grid;min-inline-size:0}.km-map b{font-size:15.5px}.km-map small{font-size:12.5px;color:var(--muted)}
 .km-map>.i{color:var(--accent)}
 .km-fs{display:flex;gap:6px;overflow-x:auto;padding-block-end:2px;scrollbar-width:none}.km-fs::-webkit-scrollbar{display:none}
-.km-f{flex:none;min-block-size:36px;padding:4px 15px;border:1.5px solid var(--line-strong);border-radius:999px;background:var(--card);font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.km-f{flex:none;min-block-size:44px;padding:4px 15px;border:1.5px solid var(--line-strong);border-radius:999px;background:var(--card);font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
 .km-f[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .km-f.cat[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
 .kl{display:grid;gap:8px;padding:11px 12px 12px;border-radius:22px;background:var(--card);border:1px solid var(--line);border-inline-start:5px solid var(--h);box-shadow:var(--shadow)}
@@ -119,8 +124,8 @@ export const STUDENT_MAP_CSS = `
 .kl-h small{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--dim)}
 .kl.full .kl-h small{color:var(--h)}.kl-h small .i{inline-size:15px;block-size:15px;stroke-width:2.6}
 .kl-h i{display:block;block-size:6px;border-radius:9px;background:var(--soft);overflow:hidden}.kl-h i u{display:block;block-size:100%;background:var(--h);border-radius:9px;transition:inline-size .6s var(--ease)}
-.kl-d{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px}
-.kdot{position:relative;block-size:42px;border-radius:13px;display:grid;place-items:center;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;border:2px solid transparent;transition:transform .12s var(--ease),opacity .2s,box-shadow .15s;padding:0}
+.kl-d{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:6px}
+.kdot{position:relative;block-size:44px;border-radius:13px;display:grid;place-items:center;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;border:2px solid transparent;transition:transform .12s var(--ease),opacity .2s,box-shadow .15s;padding:0}
 .kdot:hover{transform:translateY(-2px)}.kdot:active{transform:scale(.94)}
 .kdot.s-ok{background:var(--h);color:#fff}
 .kdot.s-now{background:var(--gold-soft);color:var(--note-ink);border-color:#c79b5f;box-shadow:0 0 0 3px var(--gold-soft)}
@@ -146,14 +151,14 @@ export const STUDENT_MAP_CSS = `
 .kchh{display:flex;justify-content:space-between;align-items:baseline}.kchh b{font-size:14px;color:var(--h)}.kchh small{font-size:12px;color:var(--muted);font-weight:700}
 .kchs{display:flex;align-items:center}
 .kchs .ln{flex:1;block-size:4px;min-inline-size:14px;border-radius:4px;background:var(--line-strong)}.kchs .ln.on{background:var(--h)}
-.ks{min-inline-size:50px;block-size:38px;padding:0 12px;border-radius:999px;border:2.5px solid var(--h);background:var(--card);color:var(--h);font-size:13.5px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums;transition:transform .12s var(--ease)}
+.ks{min-inline-size:50px;block-size:44px;padding:0 12px;border-radius:999px;border:2.5px solid var(--h);background:var(--card);color:var(--h);font-size:13.5px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums;transition:transform .12s var(--ease)}
 .ks:hover{transform:translateY(-2px)}
 .ks.s-ok{background:var(--h);color:#fff}.ks.s-now{background:var(--gold-soft);border-color:#c79b5f;color:var(--note-ink);box-shadow:0 0 0 4px var(--gold-soft)}
 .ks.s-wait,.ks.s-full{border-color:var(--line-strong);color:var(--muted)}
 .term.demo{white-space:nowrap;background:var(--gold-soft);color:var(--note-ink);border-color:color-mix(in srgb,var(--brass) 40%,var(--line))}
 .kchr{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:center}
 .kchb{display:grid;gap:8px}.kchbr{display:flex;align-items:center}.kchbr>.ln{display:block;inline-size:14px;block-size:2px;background:var(--line-strong);flex:none}.kchbr>.ln.on{background:var(--h)}
-.ks.big{min-inline-size:62px;block-size:46px;font-size:15.5px}
+.ks.big{min-inline-size:62px;block-size:48px;font-size:15.5px}
 .app.km-bar{padding-block-end:200px}
 .kl.gold .kl-h b{font-size:15.5px}.kl.gold .kl-h{grid-template-columns:1fr auto}.kl.gold .kl-h i{grid-column:1/-1}
 .kl.gold .kl-h b{grid-column:1}.kl.gold .kl-h small{grid-column:2}
@@ -177,7 +182,7 @@ body.km-lock{overflow:hidden}
 .kd-h>div{flex:1;min-inline-size:0}
 .kd-m{display:flex;flex-wrap:wrap;gap:5px;margin-block-start:5px}
 .kd-m span{padding:1px 10px;border-radius:999px;background:var(--soft);font-size:12px;font-weight:600;color:var(--dim)}.kd-m .f{background:var(--gold-soft);color:var(--gold)}
-.kd-x{flex:none;inline-size:38px;block-size:38px;border-radius:50%;border:0;background:var(--soft);display:grid;place-items:center;cursor:pointer}
+.kd-x{flex:none;inline-size:44px;block-size:44px;border-radius:50%;border:0;background:var(--soft);display:grid;place-items:center;cursor:pointer}
 .kd-b{display:flex;align-items:center;gap:8px;padding:11px 14px;border-radius:16px;font-size:14px;font-weight:700}
 .kd-b.ok{background:var(--ok-soft);color:var(--ok)}.kd-b.now{background:var(--gold-soft);color:var(--note-ink)}.kd-b.wait{background:var(--soft);color:var(--dim)}
 .kd-b .i{flex:none}
@@ -185,7 +190,7 @@ body.km-lock{overflow:hidden}
 .kd-s{display:grid;gap:7px}.kd-s h4{margin:0;font-size:13.5px;font-weight:700;color:var(--dim)}.kd-s h4 small{font-weight:600;color:var(--muted)}
 .kxl{display:flex;flex-wrap:wrap;gap:7px}
 .kxo{display:grid;gap:5px}.kxo small{font-size:12px;color:var(--muted);font-weight:700}
-.kx{display:inline-flex;align-items:center;gap:7px;max-inline-size:100%;padding:6px 12px 6px 10px;border-radius:14px;border:1.5px solid var(--h);background:var(--card);cursor:pointer;text-align:start;font-size:13px;font-weight:600;transition:transform .12s var(--ease)}
+.kx{display:inline-flex;align-items:center;gap:7px;max-inline-size:100%;min-block-size:44px;padding:6px 12px 6px 10px;border-radius:14px;border:1.5px solid var(--h);background:var(--card);cursor:pointer;text-align:start;font-size:13px;font-weight:600;transition:transform .12s var(--ease)}
 .kx:hover{transform:translateY(-2px)}.kx:active{transform:scale(.97)}
 .kx em{font-style:normal;font-weight:700;color:var(--h);font-variant-numeric:tabular-nums}
 .kx span{min-inline-size:0}
@@ -267,13 +272,11 @@ body.km-lock{overflow:hidden}
 @keyframes kslide{from{transform:translateX(-24px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.km-ring path,.kc,.kdot,.kd,.kbar,.km-conf i,.kl-h i u{transition:none;animation:none}}/* لمسٌ مريح: الرسم كما هو، والمساحة القابلة للّمس تكبر بطبقةٍ شفافة (أو بارتفاعٍ أدنى حيث يقصّها شريطُ التمرير). */
 @media (pointer:coarse){
-.jrn,.kc-add,.chp,.link,.kl-h{position:relative}
-.jrn::after,.kc-add::after,.chp::after,.link::after,.kl-h::after{content:"";position:absolute}
+.jrn,.link,.kl-h{position:relative}
+.jrn::after,.link::after,.kl-h::after{content:"";position:absolute}
 .jrn::after{inset:-6px}
-.kc-add::after{inset:-7px;border-radius:50%}
-.chp::after,.link::after{inset-block:-4px;inset-inline:0}
+.link::after{inset-block:-4px;inset-inline:0}
 .kl-h::after{inset-block:-6px;inset-inline:0}
-.km-f,.seg.sm2 button{min-block-size:40px}
 }
 /* هاتفٌ ضيّق (٣٢٠): رمزُ المقرر في خلية الأسبوع يلتفّ على سطرين بدل أن يُقصّ أوّلُه، وعنوانُ الخطة لا يترك «وحدة» وحدها، والإجماليّ لا ينكسر. */
 @media (max-width:360px){
@@ -299,6 +302,10 @@ function kmCol(c){return KMLV[c.level]||KMLV[0]}
 function kmLvName(l){return l?String(l):"عام"}
 function kmCanWish(){return !!(S.state&&S.state.phase&&S.state.phase.canEditWishes)}
 function kmCartIds(){return Object.keys(KM.cart).map(Number)}
+/* «حرج»: أطولُ سلسلة مسبقاتٍ متبقيةٍ تمرّ بالمقرر لا هامشَ لها في فصول تخرّجه — تأخيرُه فصلاً يؤخّر التخرّج. لا مسبقاتٍ معتمدة ⇒ لا شيء. */
+function kmCrit(){var X=KM.x;KM.crit={};if(!X||!KM.hasRules)return;
+  var r=criticalCourses({courses:X.plan.map(function(id){return{id:id,compulsory:kmIsComp(id)}}),rules:KM.m.rules,passed:X.passedList(),termsLeft:termsLeft(X.progress().remainingUnits)});
+  r.ids.forEach(function(id){KM.crit[id]=1})}
 function kmUnits(ids){var s=0;ids.forEach(function(id){s+=KM.x.byId[id].credit});return s}
 function kmOff(id){return KM.m.offered[id]||0}
 function kmFirstName(){var p=S.state.profile;return p&&p.identity&&p.identity.name?String(p.identity.name).split(" ")[0]:""}
@@ -316,10 +323,14 @@ function kmInit(model,advice,changes){
   var healed=kmPrune();if(healed){S.state.profile.passedCourseIds=KM.x.passedList();KM.healed=healed}
   KM.picks={};((advice&&advice.picks)||[]).forEach(function(p,i){KM.picks[p.courseId]={why:p.why,rank:i}});
   KM.cart={};KM.pane=kmCanWish()?"reg":"progress";
+  /* السلّةُ مرآةُ «رغباتي»: تبدأ منها (أو من مقترحنا إن لم تُكتب)، وتُحفظ إليها. */
   if(kmCanWish()){
     var w=S.state.profile.wishes,cur=w&&S.state.term&&w.termId===S.state.term.id?w:null;
     var ids=cur?cur.courseIds:Object.keys(KM.picks).map(Number);
     ids.forEach(function(id){if(KM.x.byId[id]&&!KM.x.isPassed(id)&&KM.x.status(id)!=="wait")KM.cart[id]=1})}
+  KM.cart0=kmCartIds().sort();KM.unsaved=false;
+  if(S.kmCartRescue&&kmCanWish()){KM.cart={};S.kmCartRescue.forEach(function(id){if(KM.x.byId[id]&&!KM.x.isPassed(id))KM.cart[id]=1})}S.kmCartRescue=null;
+  kmCrit();
   KM.status="all";KM.cat="";KM.focus=0;KM.futureCourse=0;KM.openLv={};KM.openCat="";KM.openGrp={};KM.regAll=false;KM.dirty=false;KM.ready=true;KM.first=true;
   KM.desk=false;kmVisitChanges(model,changes)}
 
@@ -354,7 +365,7 @@ function kmHeroHtml(){var X=KM.x,m=KM.m,p=X.progress(),segs=kmSegs(),nowN=0;
    +'<div class="km-chips" id="kmChips">'+kmChipsHtml(p,after,terms)+'</div></section>'}
 function kmChipsHtml(p,after,terms){var h='';
   if(after&&after.percent>p.percent)h+='<span class="km-chip gold">'+ic("spark","")+' بعد هذا الفصل: '+after.percent+'٪</span>';
-  h+='<span class="km-chip">'+(terms?'نحو '+countOf(terms,AR.term)+' للتخرّج':'أكملت الصحيفة')+'</span>';
+  h+='<span class="km-chip">'+(!KM.x.plan.length?'صحيفتك بلا مقررات':terms?'نحو '+countOf(terms,AR.term)+' للتخرّج':'أكملت الصحيفة')+'</span>';
   if(!KM.hasRules)h+='<span class="km-chip">بلا شروط معتمدة</span>';
   return h}
 function kmAfter(){var ids=kmCartIds();if(!ids.length)return null;ids.forEach(function(id){KM.x.set(id,true)});var q=KM.x.progress();ids.forEach(function(id){KM.x.set(id,false)});return q}
@@ -376,8 +387,8 @@ function kmNowIds(){var X=KM.x,ids=X.plan.filter(function(id){return X.status(id
 function kmCard(id){var X=KM.x,c=X.byId[id],on=!!KM.cart[id],pk=KM.picks[id],un=X.unlocks(id).length,off=kmOff(id),wish=kmCanWish();
   var rib=pk?'<span class="kc-rib">'+ic("spark","")+' مقترحنا</span>':(un>=3?'<span class="kc-rib key">'+ic("flag","")+' يفتح '+un+'</span>':'');
   return '<div class="kc'+(on?' on':'')+(pk?' pk':'')+(off?'':' no')+(c.own?'':' f')+'" data-id="'+id+'" style="--h:'+kmCol(c)+'" role="button" tabindex="0" aria-label="'+esc(c.name)+'">'+rib
-   +'<div class="kc-t"><em>'+esc(c.short)+'</em>'+(wish?'<button type="button" class="kc-add" data-add="'+id+'" aria-pressed="'+(on?"true":"false")+'" aria-label="'+(on?"أزل ":"أضف ")+esc(c.name)+(on?" من رغباتي":" إلى رغباتي")+'"'+(off?'':' disabled')+'>'+ic(on?"check":"plus")+'</button>':'<span class="u">'+c.credit+'</span>')+'</div>'
-   +'<b>'+esc(c.name)+'</b><small>'+(c.own?'':esc(c.owner)+' · ')+countOf(c.credit,AR.unit)+' · '+(off?countOf(off,AR.section):'غير مطروح')+'</small></div>'}
+   +'<div class="kc-t"><em>'+esc(c.short)+'</em>'+(wish?'<button type="button" class="kc-add" data-add="'+id+'" aria-pressed="'+(on?"true":"false")+'" aria-label="'+(on?"أزل ":"أضف ")+esc(c.name)+(on?" من اختياري":" إلى اختياري")+'"'+(off?'':' disabled')+'><span>'+ic(on?"check":"plus")+'</span></button>':'<span class="u">'+c.credit+'</span>')+'</div>'
+   +'<b>'+esc(c.name)+'</b><small>'+(c.own?'':esc(c.owner)+' · ')+countOf(c.credit,AR.unit)+' · '+(off?countOf(off,AR.section):'غير مطروح')+'</small>'+critTag(id)+'</div>'}
 function kmGroupsNow(skip){var X=KM.x,out=[];
   KM.m.groups.forEach(function(g){var p=X.group(g);if(p.done)return;var cand=p.candidateIds.filter(function(id){return X.status(id)==="now"&&!skip[id]});
     if(cand.length)out.push({g:g,p:p,cand:cand,need:Math.max(p.needCourses,p.needUnits?Math.ceil(p.needUnits/3):0)})});
@@ -387,8 +398,10 @@ function kmRegHtml(){var X=KM.x,ids=kmNowIds(),a=KM.advice,isMain=function(id){v
   var main=ids.filter(isMain),cap=KM.desk?9:8,shown=KM.regAll?main:main.slice(0,cap),more=main.length-shown.length,skip={};main.forEach(function(id){skip[id]=1});
   var groups=kmGroupsNow(skip);
   var h='<section class="km-sec fade" id="kmRegSec"><div class="km-sh"><h2>خطة هذا الفصل</h2>'+(KM.m.termName?'<span class="km-tag">'+ic("cal","")+esc(KM.m.termName)+'</span>':'')+'</div>';
+  if(!X.plan.length)return h+'<div class="km-empty">'+ic("layers","")+'<b>لا مقررات في صحيفتك الحالية</b><small>ربما حدّثها قسمك. اخترها من جديد لنحسب خطتك.</small><button type="button" class="btn alt small" data-act="replan" style="inline-size:auto">اختر صحيفتي</button></div></section>';
   if(!ids.length)return h+'<div class="km-empty">'+ic("check","")+'<b>'+(X.need().remainingUnits?'لا مقرر متاحاً الآن':'أكملت الصحيفة')+'</b><small>'+(X.need().remainingUnits?'ينتظر ما بقي مسبقاً لم تُنجزه بعد.':'مبارك!')+'</small></div></section>';
   if(a&&a.line)h+='<p class="km-lead">'+esc(a.line)+'</p>';
+  h+=critLegend(shown.concat(groups.reduce(function(all,x){return all.concat(x.cand)},[])));
   if(shown.length)h+='<div class="kc-grid">'+shown.map(kmCard).join("")+'</div>';
   if(more>0||KM.regAll&&main.length>cap)h+='<button type="button" class="km-more" data-act="regall" aria-expanded="'+(KM.regAll?"true":"false")+'">'+(KM.regAll?'أخفِ الباقي':'عرض كل المتاح لي ('+more+' أخرى)')+ic("down")+'</button>';
   groups.forEach(function(x){var open=!!KM.openGrp[x.g.id];
@@ -401,13 +414,10 @@ function kmBarUpdate(){var bar=document.getElementById("kbar");if(!bar)return;va
   bar.hidden=false;/* الحدّ من حدود الخادم (12 إلى السقف الجامعي): المقياس 0–السقف، ومن بلغ الأدنى فقد أتمّ الحدّ (ممتاز) ولا يُطلب منه المزيد. */
   var wish=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null,target=fitUnits(wish&&wish.targetUnits);
   var lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15),pct=Math.min(100,u/hi*100),st=u<lo?'low':(u>hi?'over':'ok'),msg=st==='low'?'ينقصك '+countOf(lo-u,AR.unit)+' لتبلغ الحدّ الأدنى ('+lo+')':(st==='over'?'فوق '+countOf(hi,AR.unit)+' — سيُعدّ حملُك '+hi:'ممتاز ✓ ضمن الحدّ ('+lo+' إلى '+hi+')');
-  bar.innerHTML='<div class="kb-m"><b>اختيارك للتخطيط · '+countOf(ids.length,AR.course)+' · '+countOf(u,AR.unit)+'</b><div class="kb-meter '+st+'" aria-hidden="true"><i style="inline-size:'+pct+'%"></i><span></span></div><small class="'+(st==='ok'?'ok':'')+'">'+msg+'</small><small class="goal">هدف رغباتك: '+countOf(target,AR.unit)+' · لا يُحفظ الاختيار إلا عند الضغط</small></div><button type="button" class="btn" id="kbsend">'+ic("heart")+' أضفها إلى رغباتي</button>';
+  bar.innerHTML='<div class="kb-m"><b>اختيارك للتخطيط · '+countOf(ids.length,AR.course)+' · '+countOf(u,AR.unit)+'</b><div class="kb-meter '+st+'" aria-hidden="true"><i style="inline-size:'+pct+'%"></i><span></span></div><small class="'+(st==='ok'?'ok':'')+'">'+msg+'</small><small class="goal">هدف رغباتك: '+countOf(target,AR.unit)+' · لا يُحفظ الاختيار إلا عند الضغط</small></div><button type="button" class="btn" id="kbsend">'+ic("heart")+' احفظ في رغباتي</button>';
   document.getElementById("kbsend").addEventListener("click",kmSendWishes)}
-function kmSendWishes(){var b=document.getElementById("kbsend");if(!b||b.disabled)return;var ids=kmCartIds(),w=S.state.profile.wishes&&S.state.term&&S.state.profile.wishes.termId===S.state.term.id?S.state.profile.wishes:null;
-  b.disabled=true;
-  api("PUT","/api/public/me/wishes",{targetUnits:fitUnits(w&&w.targetUnits),courseIds:ids.slice(0,12),constraints:w?w.constraints:{}}).then(function(r){b.disabled=false;
-    if(!r.ok){toast(r.d.error||"تعذّر الحفظ",true);return}
-    S.state.profile.wishes=r.d.wishes;S.wDraft=null;S.wCount=null;S.wEdit=false;toast("صارت رغباتك");if(typeof renderWishes==="function")renderWishes()})}
+/* السلّةُ تحرّر «رغباتي» نفسها: ما أُزيل منها يُسأل عنه قبل الحفظ (saveWishCourses). */
+function kmSendWishes(){var b=document.getElementById("kbsend");if(!b||b.disabled)return;saveWishCourses(kmCartIds(),{mode:"set",btn:b})}
 function kmToggleCart(id){if(!kmCanWish())return;var c=KM.x.byId[id];if(!c||KM.x.isPassed(id)||!kmOff(id))return;
   if(!KM.x.unlocked(id)){toast("يتطلب اجتياز مسبقاته أولاً",true);return}
   if(KM.cart[id])delete KM.cart[id];else if(kmCartIds().length>=12){toast("حتى 12 مقرراً",true);return}else KM.cart[id]=1;kmRefresh(true)}
@@ -480,7 +490,7 @@ function kmPaint(){var set=function(id,h){var el=document.getElementById(id);if(
   set("kmHero",kmHeroHtml());set("kmSeg",kmSegHtml());set("kmReg",kmRegHtml());set("kmMap",kmMapHtml());set("kmJr",kmJrHtml());set("kmCh",kmChainsHtml());set("kmRq",kmReqHtml());
   kmBarUpdate();kmFocusApply();if(KM.first){kmAnimateRing(document.getElementById("kmHero"));KM.first=false}}
 /* تحديثٌ جزئيّ بلا فقد التمرير: القلبُ يُرسم من جديد والحلقةُ تتحرك. */
-function kmRefresh(heroToo){var y=window.scrollY,set=function(id,h){var el=document.getElementById(id);if(el)el.innerHTML=h};
+function kmRefresh(heroToo){kmCrit();var y=window.scrollY,set=function(id,h){var el=document.getElementById(id);if(el)el.innerHTML=h};
   set("kmSeg",kmSegHtml());set("kmReg",kmRegHtml());set("kmJr",kmJrHtml());set("kmCh",kmChainsHtml());set("kmRq",kmReqHtml());
   if(heroToo)kmHeroUpdate();kmBarUpdate();kmFocusApply();window.scrollTo(0,y)}
 
@@ -519,6 +529,7 @@ function kmSheetHtml(id,after){var X=KM.x,m=KM.m,c=X.byId[id],st=X.status(id),r=
   if(!req)req='<p class="kxn">لا يتطلب مقرراً سابقاً — يمكن تسجيله مباشرة.</p>';
   var h='<div class="kd-h" style="--h:'+col+'"><span class="kd-badge">'+esc(c.short)+'</span><div><h3>'+esc(c.name)+'</h3><div class="kd-m"><span>'+(c.level?'المستوى '+c.level:'عام')+'</span><span>'+countOf(c.credit,AR.unit)+'</span>'+(c.cat?'<span>'+esc(c.cat)+'</span>':'')+'<span class="'+(c.own?'':'f')+'">'+(c.own?'قسمي':esc(c.owner||'قسم آخر'))+'</span></div></div><button type="button" class="kd-x" data-do="close" aria-label="إغلاق">'+ic("x")+'</button></div>'
    +'<div class="kd-b '+bc+'" role="status">'+banner+'</div>'
+   +(KM.crit&&KM.crit[id]?'<div class="kd-crit" role="note">'+ic("flame","")+'<span>حرج: تأخيره يؤخر تخرّجك فصلاً</span></div>':'')
    +(un>=2&&st!=="ok"?'<div class="kd-k">'+ic("flag","")+' مفتاحي: يفتح لك '+countOf(un,AR.course)+' إجبارياً بعده</div>':'')
    +'<div class="kd-s"><h4>يتطلب قبله</h4>'+req+'</div>'
    +'<div class="kd-s"><h4>يفتح بعده'+(dep.length?' <small>('+dep.length+')</small>':'')+'</h4>'+(dep.length?'<div class="kxl">'+dep.map(kmChip).join("")+'</div>':'<p class="kxn">لا يتطلبه مقرر آخر.</p>')+'</div>';
@@ -527,7 +538,7 @@ function kmSheetHtml(id,after){var X=KM.x,m=KM.m,c=X.byId[id],st=X.status(id),r=
   /* لا تعليمَ قبل المسبقات: المقرر المقفول لا زرَّ اجتياز له، والمفتوح يُعلَّم، وإلغاءُ مسبقٍ يُلغي ما بُني عليه. */
   var canPass=X.unlocked(id);
   h+='<div class="kd-a">'+(st==="ok"?'<button type="button" class="btn alt small" data-do="unpass">'+ic("x")+' ألغِ علامة الاجتياز</button>':(canPass?'<button type="button" class="btn alt small" data-do="pass">'+ic("check")+' علّمته مجتازاً</button>':(KM.transfer?'<p class="kxn kd-lockmsg">'+ic("lock","")+' مسبقاته غير مجتازة. إن كان معادَلاً لك فعلّمه:</p><button type="button" class="btn alt small" data-do="pass">'+ic("check")+' علّمته معادَلاً</button>':'<p class="kxn kd-lockmsg">'+ic("lock","")+' لا يُعلَّم مجتازاً قبل اجتياز مسبقاته (أعلاه).</p><button type="button" class="link" data-do="transfer">طالب محوَّل ومعادَلة لك مقررات؟</button>')));
-  if(kmCanWish()&&st!=="ok"&&off&&st!=="wait")h+='<button type="button" class="btn" data-do="cart">'+ic(KM.cart[id]?"check":"heart")+(KM.cart[id]?' أزله من التخطيط':' أضفه إلى خطة هذا الفصل')+'</button>';
+  if(kmCanWish()&&st!=="ok"&&off&&st!=="wait")h+='<button type="button" class="btn" data-do="cart">'+ic(KM.cart[id]?"check":"heart")+(KM.cart[id]?' أزله من اختياري':' أضفه إلى اختياري')+'</button>';
   h+='</div>';
   return h}
 function kmOpen(id,after){if(!KM.x.byId[id])return;if(!KM.opener&&document.activeElement&&document.activeElement!==document.body)KM.opener=document.activeElement;if(KM.focus!==id)KM.futureCourse=0;KM.focus=id;var el=kmEnsureSheet(),b=document.getElementById("kdb");KM.desk=!!(window.matchMedia&&window.matchMedia("(min-width:900px)").matches);
@@ -561,15 +572,15 @@ function kmMark(id,on){var X=KM.x,c=X.byId[id],before=X.passedList().length,lvDo
   if(S.state&&S.state.profile)S.state.profile.passedCourseIds=X.passedList();
   kmAfterMark(id,0,null);if(on&&!wasFull&&lvDone())kmConfetti(kmCol(c),c.level)}
 function kmAfterMark(id,n,anc){KM.dirty=true;kmRefresh(true);kmOpen(id,anc&&anc.length?anc:null);kmSaveSoon();if(n)toast("علّمتُ "+countOf(n,AR.course)+" مسبقاً")}
-function kmSaveSoon(){clearTimeout(KM.timer);KM.pending=true;KM.timer=setTimeout(kmSave,700)}
+function kmSaveSoon(){clearTimeout(KM.timer);KM.pending=true;KM.unsaved=true;KM.timer=setTimeout(kmSave,700)}
 /* مغادرةُ الصفحة (رابط الخريطة الكاملة، إغلاق، تحديث): ما لم يُحفظ يُرسَل الآن ولو والصفحةُ تُغلق. */
 function kmBody(p){var eq=[];KM.x.passedList().forEach(function(i){if(KM.eq[i])eq.push(i)});return{sectionId:p.sectionId,curriculumPlanId:p.planId,passedCourseIds:KM.x.passedList(),transfer:!!KM.transfer,equivalentCourseIds:eq}}
 function kmFlush(){if(!KM.pending||!KM.x)return;var p=S.state&&S.state.profile;if(!p||!p.sectionId)return;clearTimeout(KM.timer);KM.pending=false;
   try{fetch("/api/public/me/profile",{method:"PUT",keepalive:true,credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(kmBody(p))})}catch(e){}}
 function kmSave(){var p=S.state.profile;if(!p||!p.sectionId||KM.saving){if(KM.saving)kmSaveSoon();return}KM.saving=true;KM.pending=false;
   api("PUT","/api/public/me/profile",kmBody(p)).then(function(r){KM.saving=false;
-    if(!r.ok){toast(r.d.error||"تعذّر حفظ إنجازك",true);if(r.status===401){S.state.signedIn=false;setView("gate")}return}
-    if(!KM.pending)S.state.profile=r.d;toast("حُفظ إنجازك")})}
+    if(!r.ok){if(r.status!==401)toast(r.d.error||"تعذّر حفظ إنجازك",true);return}
+    if(!KM.pending){S.state.profile=r.d;KM.unsaved=false}toast("حُفظ إنجازك")})}
 function kmConfetti(col,l){if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion:reduce)").matches){toast("أكملتَ المستوى "+kmLvName(l)+" 🎉");return}
   var box=document.createElement("div");box.className="km-conf";box.setAttribute("aria-hidden","true");
   for(var i=0;i<26;i++){var s=document.createElement("i");s.style.setProperty("--x",(Math.random()*100).toFixed(1)+"%");s.style.setProperty("--d",(Math.random()*.5).toFixed(2)+"s");s.style.setProperty("--r",Math.round(Math.random()*360)+"deg");s.style.background=i%3?col:KMGOLD;box.appendChild(s)}
@@ -586,7 +597,8 @@ function kmAct(el){var a=el.getAttribute("data-act");
   else if(a==="grp"){var gid=el.getAttribute("data-g");KM.openGrp[gid]=!KM.openGrp[gid];kmRefresh(false)}
   else if(a==="el"){KM.status="all";KM.cat="";kmPane("progress",true);kmRefresh(false)}
   else if(a==="lvopen"){var l2=Number(el.getAttribute("data-l"));KM.openLv[l2]=!KM.openLv[l2];kmRefresh(false)}
-  else if(a==="cat"){var c=el.getAttribute("data-c");KM.openCat=KM.openCat===c?"":c;kmRefresh(false)}}
+  else if(a==="cat"){var c=el.getAttribute("data-c");KM.openCat=KM.openCat===c?"":c;kmRefresh(false)}
+  else if(a==="replan"){rePickPlan()}}
 function kmScroll(id){var e=document.getElementById(id);if(e&&e.scrollIntoView)e.scrollIntoView({behavior:"smooth",block:"start"})}
 function kmListSheet(title,ids){var h='<h3>'+title+' <small class="muted">('+ids.length+')</small></h3>'+(ids.length?'<div class="kn-list">'+ids.map(kmNameRow).join("")+'</div>':'<p class="muted">لم تعلّم شيئاً بعد. افتح أي مقرر واضغط «علّمته مجتازاً».</p>')+'<button class="btn alt" id="klx">إغلاق</button>';
   var s=sheet(h);s.addEventListener("click",function(e){var b=e.target.closest("[data-id]");if(b){closeSheet();kmOpen(Number(b.getAttribute("data-id")))}});var x=document.getElementById("klx");if(x)x.addEventListener("click",closeSheet)}

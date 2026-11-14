@@ -158,6 +158,8 @@ test:student-showcase
 test:review-family
 test:masari-responsive
 test:masari-ease
+test:masari-door-ux
+test:critical-courses
 test:masari-visual
 test:masari-return
 test:masari-desktop

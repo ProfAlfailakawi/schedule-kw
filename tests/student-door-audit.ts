@@ -41,7 +41,7 @@ check(studentHomeSource.includes("var remaining=(S.offered&&S.offered.courses)||
   && studentHomeSource.includes("غير مطروح هذا الفصل")
   && studentHomeSource.includes("غير مطروح") ,
 "D5 يستطيع الطالب إبداء حاجته إلى مقرر غير مطروح، وتظهر حالته بوضوح");
-check(studentHomeSource.includes('homePart("request-context")') && studentHomeSource.includes("/api/public/me/request")
+check(/homePart\("request-context"/.test(studentHomeSource) && studentHomeSource.includes("/api/public/me/request")
   && studentHomeSource.includes("أوافق على إرسال اسمي ورقمي المدني") && studentHomeSource.includes("تعذّر تكوين جدول؟")
   && studentHomeSource.includes("conflictPairs") && studentHomeSource.includes("لم نجد توليفة منشورة خالية منه"),
 "D5 يستطيع الطالب إرسال طلب الفتح/التعارض من مساري بموافقة صريحة");
