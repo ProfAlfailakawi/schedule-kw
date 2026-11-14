@@ -2086,8 +2086,11 @@
      use the equivalent of the requested 120% print scale on their zero-margin
      A4 landscape page; the content padding remains inside that physical page. */
   html[data-print-rotate="1"]{
-    --safari-rot-scale:1;
-    --safari-comprehensive-scale:1;
+    /* ٩٧٪: ما كان يُضبط يدوياً من نافذة طباعة Safari صار في الورقة نفسها، فلا يخرج
+       شيءٌ من حافة الورقة ولو كانت الطابعة تحجز هامشاً. المقياس واحدٌ تتبعه الهندسة
+       كلها (الخانة، والإزاحة، وشريط الاعتماد)، فلا شيء آخر يُعدَّل. */
+    --safari-rot-scale:.97;
+    --safari-comprehensive-scale:.97;
   }
 
   html[data-print-rotate="1"] body,

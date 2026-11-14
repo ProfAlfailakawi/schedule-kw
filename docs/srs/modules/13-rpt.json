@@ -1482,6 +1482,10 @@
         {
           "ar": "آخر صفحةٍ من التقرير الشامل وتقرير التغييرات بلا حشوةٍ سفلى ولا فاصلٍ بعدها، فلا تخرج ورقةٌ بيضاء ثالثة في Safari؛ وإحداثيات كل صفحةٍ قبلها لا تتغيّر.",
           "en": "The last page of the comprehensive and schedule-changes reports carries no bottom padding and no break after it, so no blank trailing sheet comes out in Safari; the coordinates of every earlier page do not change."
+        },
+        {
+          "ar": "تُطبع أوراق Safari (مسار التدوير) بمقياس ٩٧٪ بدل ١٠٠٪ (قرار المالك)، فلا يخرج شيءٌ من حافة الورقة؛ والمقياس متغيّرٌ واحد تتبعه الخانة والإزاحة وشريط الاعتماد، وعدد الصفوف والاتجاه والأعمدة لا تتغيّر.",
+          "en": "Safari sheets (the rotate path) print at 97% instead of 100% (owner decision), so nothing leaves the paper edge; the scale is one variable that the slot, offset and attestation strip all follow, and the row count, orientation and columns do not change."
         }
       ],
       "evidence": {
