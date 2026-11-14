@@ -160,7 +160,7 @@ button.say:disabled{opacity:.55;cursor:default;border-style:dashed}
 ${PROPOSAL_ALERT_CSS}
 .decided-box{margin:12px 0;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
 .decided-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.decided-head h3{margin:0;font-size:14px}.decided-head button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 12px;font:inherit;color:var(--dim);cursor:pointer}
+.decided-head h3{margin:0;font-size:14px}.decided-head button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 12px;font:inherit;color:var(--dim)}
 .decided-box ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px;font-size:13.5px;line-height:1.7}
 .decided-box small{color:var(--dim)}
 .decided-box a.req-link,.decided-box a.decided-cal{display:inline-flex;align-items:center;min-height:32px;padding:2px 10px;border-radius:999px;border:1px solid var(--line);color:var(--jade);font-weight:600;font-size:12.5px;text-decoration:none}

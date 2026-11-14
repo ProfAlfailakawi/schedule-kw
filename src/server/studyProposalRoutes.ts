@@ -574,7 +574,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       const saved = await Repository.saveStudyProposal(next, expectedRev);
       await noteOnRequest(proposal.requestId, revised ? "study-proposal-revised" : "study-proposal-sent", by, `${saved.id}|${saved.version}`);
       /* يصل الأستاذَ تنبيهٌ إلى كرته إن فعّله منه — نصٌّ عامّ بلا مقرّرٍ ولا قاعة. */
-      await pushHooks.proposalSent(String(saved.linkId || ""), saved.id, revised);
+      if (!(Repository.isDemoMode() || Repository.isDemoRequest())) await pushHooks.proposalSent(String(saved.linkId || ""), saved.id, revised);
       deps.broadcastNotify(deps.demoSessionId());
       res.json({ ...staffView(saved, termClosedOf(world)), alreadySent: false, evaluation });
     } catch (error) {
@@ -864,7 +864,8 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       });
       await noteWrites(req, proposal.AdTermId, touchedScopes, versions, result, deletes.map(d => liveById.get(d.id)!).filter(Boolean));
       await noteOnRequest(proposal.requestId, "study-proposal-committed", by, proposal.id);
-      await pushHooks.proposalCommitted(String(proposal.linkId || ""));
+      /* لا يُدفع شيءٌ من صندوق العرض (كتذكير «ذكّر من لم يرد»). */
+      if (!(Repository.isDemoMode() || Repository.isDemoRequest())) await pushHooks.proposalCommitted(String(proposal.linkId || ""));
       if (gate.issues.length) res.locals.auditChanges = `تثبيت مقترح دراسي${gate.auditSuffix()}`;
       deps.broadcastNotify(deps.demoSessionId());
       res.json({ ...staffView(result.proposal, termClosedOf(world)), committed: true });
