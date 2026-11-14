@@ -30,7 +30,7 @@
 }
 .stat-tiles .stat-tone .stat-icon svg{width:21px;height:21px}
 
-@media (max-width:640px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .stat-tiles[aria-label="ملخّص الكشف"] .stat-card{min-height:84px;border-radius:18px}
   .stat-tiles[aria-label="ملخّص الكشف"] .stat-card strong{font-size:28px}
   .stat-tiles[aria-label="ملخّص الكشف"] .stat-icon{width:34px;height:34px;border-radius:12px}
@@ -63,6 +63,6 @@
 
 /* Registry summary on a phone is two columns; with an odd count the last tile sat alone in the left
    half with an empty hole beside it. It now takes the full row. */
-@media screen and (max-width:640px){
+@media screen and (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .stat-tiles[aria-label="ملخّص الكشف"]>.stat-tone:last-child:nth-child(odd){grid-column:1/-1}
 }

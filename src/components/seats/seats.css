@@ -220,7 +220,7 @@
   .seats-layout{grid-template-columns:1fr}
   .seats-list{position:static;max-block-size:420px}
 }
-@media (max-width:640px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .seats-intro{padding:18px 16px}
   .seats-stats>*{min-inline-size:calc(50% - 4px);flex:1}
   .seat-panel{padding:16px 14px}
