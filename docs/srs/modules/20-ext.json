@@ -1100,8 +1100,8 @@
         "en": "One-day calendar reminder"
       },
       "text": {
-        "ar": "يجب أن يخدم GET /api/public/ics-reminder ملف ICS ليوم واحد من التاريخ d بصيغة YYYY-MM-DD مع العنوان t (120 خانة) والملاحظة n (300 خانة)، بـ no-store، وأن يرفض التاريخ غير الصالح بـ 400، ولا يحمل اسماً ولا رقماً شخصياً؛ وهو الطريق الوحيد لتذكير «مساري» بالتقويم (لا يُولَّد الملف في المتصفح).",
-        "en": "GET /api/public/ics-reminder shall serve a one-day ICS file for the date d as YYYY-MM-DD with title t (120 characters) and note n (300 characters), with no-store, shall reject an invalid date with 400, and shall carry no name or personal number; it is the only path for Masari's calendar reminder (no file is generated in the browser)."
+        "ar": "يجب أن يخدم GET /api/public/me/reminder?kind=next|round (بجلسة «مساري») ملف ICS ليوم واحد بعنوانٍ وتاريخٍ يبنيهما الخادم، بـ no-store، ولا يحمل اسماً ولا رقماً شخصياً؛ وأن يخدم GET /api/public/me/cal/<المفتاح>.ics اشتراكاً ثابتاً لـ«جدولي المقترح» يقرؤه Apple وGoogle وOutlook بلا كوكي؛ وهما طريقا «مساري» إلى التقويم (لا يُولَّد ملفٌّ في المتصفح، ولا رابطٌ عامٌّ يقبل نصّاً حرّاً).",
+        "en": "GET /api/public/me/reminder?kind=next|round (with a Masari session) shall serve a one-day ICS file whose title and date the server builds, with no-store, carrying no name or personal number; GET /api/public/me/cal/<key>.ics shall serve a stable subscription to «my proposed timetable» that Apple, Google and Outlook read with no cookie; these are Masari's two paths to the calendar (no file is generated in the browser, and no public link accepts free text)."
       },
       "priority": "could",
       "status": "implemented",
@@ -1110,21 +1110,22 @@
       ],
       "acceptance": [
         {
-          "ar": "d=2026-13-40 يعيد 400 «bad date».",
-          "en": "d=2026-13-40 returns 400 «bad date»."
+          "ar": "بلا جلسة ← 401؛ ونوعٌ غير next/round ← 400.",
+          "en": "With no session ← 401; a kind other than next/round ← 400."
         },
         {
-          "ar": "عنوان من 200 خانة يُقصّ إلى 120.",
-          "en": "A 200-character title is cut to 120."
+          "ar": "مفتاحٌ معبوثٌ به أو بعد تغيير الرمز ← 404.",
+          "en": "A tampered key, or after a code change ← 404."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/routes/publicCalendarRoutes.ts"
+          "src/server/studentDoorRoutes.ts"
         ],
         "tests": [
           "tests/calendar-ics-audit.ts",
-          "tests/masari-return-audit.ts"
+          "tests/masari-return-audit.ts",
+          "tests/student-recovery-audit.ts"
         ]
       }
     },

@@ -1,6 +1,7 @@
 import { ARABIC_COUNT_SCRIPT } from "../utils/arabicCount";
 import { TRAVEL_HINT_SCRIPT } from "../utils/campusTravelHint";
 import { MASARI_ACK_CSS, MASARI_ACK_JS } from "./masariDisclaimer";
+import { STUDENT_RECOVERY_CSS, STUDENT_RECOVERY_SCRIPT } from "./studentRecoveryScript";
 import { PUBLIC_FONT_FACES } from "./publicKit";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
 import { STUDENT_MAP_CSS, STUDENT_MAP_SCRIPT } from "./studentMapUi";
@@ -628,10 +629,7 @@ function viewCode(){
       afterSignIn()})}
   btn.addEventListener("click",submit);document.getElementById("code").addEventListener("keydown",function(e){if(e.key==="Enter")submit()});
   document.getElementById("other").addEventListener("click",function(){S.civil="";S.remember=false;setView("gate")});
-  document.getElementById("forgot").addEventListener("click",function(){
-    var el=sheet('<h3>نسيت رمزك؟</h3><p class="lead">حمايةً لملفّك لا يستطيع أحدٌ استرجاع الرمز. يمكنك طلب حذف الملف: يُحذف بعد 30 يوماً، وإن تذكّرت رمزك قبلها وأدخلته أُلغي الطلب. ثم تنشئ ملفاً جديداً بدقائق.</p>'+errBox("rerr")+'<button class="btn danger" id="rq">اطلب حذف ملفي</button><button class="btn alt" id="rc">تراجع</button>');
-    document.getElementById("rc").addEventListener("click",closeSheet);
-    document.getElementById("rq").addEventListener("click",function(){var b=this;b.disabled=true;api("POST","/api/public/me/reset",{civil:S.civil}).then(function(r){b.disabled=false;if(!r.ok){showErr("rerr",r.d.error||"تعذّر الطلب");return}closeSheet();S.resetPending=true;S.resetAt=r.d.deleteAt;toast("سيُحذف ملفّك بعد 30 يوماً ما لم تدخل برمزك.");viewCode()})})});
+  document.getElementById("forgot").addEventListener("click",openForgot);
   setTimeout(function(){var i=document.getElementById("code");if(i)i.focus()},60);
 }
 function viewCreate(){
@@ -788,7 +786,8 @@ function viewHome(){
   document.getElementById("chg").addEventListener("click",sheetCode);
   var nmb=document.getElementById("nmb");if(nmb)nmb.addEventListener("click",sheetName);
   document.getElementById("del").addEventListener("click",sheetForget);
-  var icsB=document.getElementById("icsNext");if(icsB)icsB.addEventListener("click",function(){addToCalendar((ph.nextLabel||"موعد مساري")+" — "+(s.term&&s.term.name||""),ph.nextAt,"من مساري: "+ph.line)});
+  var icsB=document.getElementById("icsNext");if(icsB)icsB.addEventListener("click",function(){addToCalendar("next")});
+  recoveryHomeHook();
   laterMO=null;S.homeReady=false;renderWishes();laterUpdate();
   loadNotices();loadCases();loadCaseRequest();loadTicket();loadReport();loadPlan();
   var ready=function(){if(S.homeReady)return;S.homeReady=true;laterUpdate()};
@@ -1050,6 +1049,7 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
   var removed=cur.items.filter(function(i){return S.tkRemoved[cur.label+":"+i.courseId]});
   if(removed.length)h+='<div class="chps"><small class="muted">أزلتَ:</small>'+removed.map(function(i){return '<button type="button" class="chp" data-undo="'+i.courseId+'">'+ic("plus","")+esc(i.name)+'</button>'}).join("")+'</div>';
   if(visibleTimes)h+='<div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn alt small" data-act="share" style="inline-size:auto">'+ic("up")+'شارك جدولي صورة</button>'+(w.start?'<button type="button" class="btn alt small" data-act="ics" style="inline-size:auto">'+ic("cal")+'ذكّرني بموعد تسجيلي</button>':'')+'</div>';
+  h+=calSubRow();
   h+='<div class="row" style="gap:8px;flex-wrap:wrap">'+((t.pool||[]).length?'<button type="button" class="btn alt small" data-act="add" style="inline-size:auto">'+ic("plus")+'أضف مقرراً</button>':'')
     +(tkEdited(cur)&&S.state.phase&&S.state.phase.canEditWishes?'<button type="button" class="btn small" data-act="wish" style="inline-size:auto">'+ic("heart")+'اجعلها رغباتي</button>':'')+'</div>';
   h+='<p class="fine" id="tkerr" role="status" aria-live="polite">'+esc(S.tkErr||"")+'</p>';
@@ -1082,7 +1082,8 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
     else if(a==="add")tkPoolSheet(cur,0);
     else if(a==="wish")tkSaveWishes(cur,b)
     else if(a==="share")tkShareImage(cur)
-    else if(a==="ics")addToCalendar("موعد تسجيلي — دور "+t.window.n+" من "+t.window.of,t.window.start,"من مساري: جدولي المقترح — "+(t.window.name||""))})});
+    else if(a==="ics")addToCalendar("round")
+    else if(a==="calsub")openCalSub()})});
   var alternatives=host.querySelectorAll(".ticket-alt-select");for(var ai=0;ai<alternatives.length;ai++)(function(select){select.addEventListener("change",function(){var courseId=Number(select.getAttribute("data-course"));
     if(!tkSet(cur,courseId,select.value)){var it=tkItems(cur).filter(function(x){return Number(x.courseId)===courseId})[0];select.value=it?it.offeringId:"";document.getElementById("tkerr").textContent=S.tkErr;return}
     paintTicket(host)})})(alternatives[ai])}
@@ -1126,12 +1127,12 @@ function wireWhatIf(remaining){var box=document.getElementById("whatif");if(!box
   sw.addEventListener("click",function(){st.s=!st.s;paint()});paint()}
 function whatIfHtml(){var a=[],lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);for(var n=lo;n<=hi;n++)a.push('<button type="button" data-n="'+n+'" aria-pressed="false">'+n+'</button>');
   return '<div class="wi" id="whatif"><span class="lbl">ماذا لو؟ وحداتي في الفصل</span><div class="seg fit" data-wi="units" role="group" aria-label="وحداتي في الفصل">'+a.join("")+'</div><button type="button" class="sw" role="switch" data-wi="summer" aria-checked="false"><span class="t">أضيف فصلاً صيفياً كل سنة<small>نحو '+countOf(SUMMER_UNITS,AR.unit)+' في الصيفي</small></span><span class="tg"></span></button><p class="lead" data-wi="out" role="status" aria-live="polite"></p></div>'}
-/* ── تذكيرٌ في التقويم: ملفُّ ICS يُخدَم من الخادم (‎/api/public/ics-reminder‎) بلا اسمٍ ولا رقم. ── */
+/* ── تذكيرٌ في التقويم: ملفُّ ICS يُخدَم من الخادم بجلسة الطالب (‎/api/public/me/reminder?kind=next|round‎)؛ العنوانُ والتاريخ من الخادم. ── */
 function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},1500)}
 /* M3: آيفون لا يفتح Blob‎ ‎.ics‎ من ‎a.download‎ (يحفظه في «الملفات»، ولا شيء في وضع التطبيق المثبّت)؛
    الملفُّ يُخدَم من الخادم ‎text/calendar‎ inline فيفتح نافذة «أضف إلى التقويم» على كل جهاز. */
-function addToCalendar(title,iso,note){if(!iso)return;var day=String(iso).slice(0,10);
-  location.href="/api/public/ics-reminder?d="+encodeURIComponent(day)+"&t="+encodeURIComponent(String(title).slice(0,120))+"&n="+encodeURIComponent(String(note||"").slice(0,300));
+function addToCalendar(kind){if(kind!=="next"&&kind!=="round")return;
+  location.href="/api/public/me/reminder?kind="+kind;
   toast("يُفتح التذكير في تقويمك")}
 /* ── شارك جدولك صورة: تُرسم على الجهاز بلا اسمٍ ولا رقم؛ القسمُ وحده. ── */
 function tkShareImage(cur){var items=tkItems(cur).filter(function(i){return i.timesVisible&&(i.slots||[]).length});if(!items.length){toast("لا مواعيد معتمدة لتُشارَك بعد",true);return}
@@ -1260,6 +1261,7 @@ function sheetForget(){sheet('<h3>حذف ملفّي</h3><p class="lead">يُحذ
   fs.addEventListener("click",function(){fs.disabled=true;api("POST","/api/public/me/forget",{code:a}).then(function(r){fs.disabled=false;if(!r.ok){showErr("ferr",r.d.error||"تعذّر الحذف");return}closeSheet();S.state.signedIn=false;S.state.profile=null;S.civil="";S.draft=null;toast("حُذف ملفّك");setView("gate")})})}
 
 ${MASARI_ACK_JS}
+${STUDENT_RECOVERY_SCRIPT}
 function render(){
   closeSheet();window.scrollTo(0,0);var oldNav=topEl.querySelector("nav.tabs");if(oldNav)oldNav.remove();if(S.view!=="setup")dockEl.innerHTML="";
   var appEl=document.querySelector(".app");if(appEl)appEl.setAttribute("data-view",S.view);
@@ -1292,7 +1294,7 @@ export function studentHomePage(nonce: string, track: "boys" | "girls" | "" = ""
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/schedule-icon-192.png">
 <link rel="manifest" href="/me.webmanifest">
-<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}${MASARI_ACK_CSS}</style>
+<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}${MASARI_ACK_CSS}${STUDENT_RECOVERY_CSS}</style>
 </head>
 <body>
 ${SPRITE}

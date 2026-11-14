@@ -1012,6 +1012,13 @@ export interface StudentProfile {
    */
   nameCipher?: string;
   civilCipher?: string;
+  /**
+   * رمزُ استعادةٍ أصدره موظفُ القسم بعد أن رأى البطاقة المدنية (src/server/studentRecovery.ts):
+   * بصمتُه لا الرمز، يومٌ واحد، مرةٌ واحدة، والجديدُ يُلغي السابق.
+   */
+  recovery?: { hash: string; issuedAt: string; expiresAt: string; issuedById: number; issuedByName: string; failures?: number };
+  /** سجلُّ إصدار رموز الاستعادة (آخرُ عشرة): من ومتى، ومتى استُعمل. */
+  recoveryLog?: Array<{ at: string; byId: number; byName: string; usedAt?: string }>;
 }
 
 /** ما قاله الطالبُ بعد جولة التسجيل: لكل مقررٍ سجّله أو تعثّر فيه وسبب التعثّر. */

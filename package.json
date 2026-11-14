@@ -113,6 +113,7 @@
     "test:student-needs-scale": "tsx tests/student-needs-scale-audit.ts",
     "test:term-student-phases": "tsx tests/term-student-phases-audit.ts",
     "test:student-door": "tsx tests/student-door-audit.ts",
+    "test:student-recovery": "tsx tests/student-recovery-audit.ts",
     "test:student-door-network": "tsx tests/student-door-shared-network-audit.ts",
     "loadtest:seed": "tsx scripts/loadtest/seed-emulator.ts",
     "loadtest:door": "node scripts/loadtest/student-door.mjs",
