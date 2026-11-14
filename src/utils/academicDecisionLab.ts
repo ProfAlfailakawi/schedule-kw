@@ -11,6 +11,7 @@ import { coreqMet, prereqMet } from "./curriculumRules";
 import { mandatoryPrecedes, type AcademicInput, type AcademicReading, type AcademicSlot } from "./academicAdvisory";
 import type { FSchedule, StudentProfile } from "../types";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "./scheduleTime";
+import { AR, countOf } from "./arabicCount";
 
 export interface AcademicDecisionScenario {
   id: string; courseId: number; courseName: string; section: string;
@@ -224,13 +225,20 @@ function graduationWatch(input:AcademicInput,offers:Map<number,Offering[]>):Acad
     }
   }
   return [...counts.entries()].flatMap(([courseId,c])=>{
-    if(c.demand<3)return [];
+    /* A single expected graduate who still needs the course is enough to show it (graduates come first);
+       ordinary demand keeps its floor of three requests. */
+    if(c.demand<3 && c.near<1)return [];
     const downstream=downstreamCount(input,courseId),offered=Boolean(offers.get(courseId)?.length);
-    if(offered && !downstream)return [];
+    if(offered && !downstream && c.near<1)return [];
     return [{courseId,courseName:courses.get(courseId)||String(courseId),demand:c.demand,downstream,offered,
-      nearGraduation:c.near>=3?c.near:0}];
+      nearGraduation:c.near}];
   }).sort((a,b)=>Number(a.offered)-Number(b.offered)||b.nearGraduation-a.nearGraduation||
     b.demand-a.demand||b.downstream-a.downstream).slice(0,6);
+}
+/** «٢ خريجان متوقعان يحتاجانه»: ما يُقال عن المتوقَّع تخرجهم لمقررٍ واحد (الإشارة تظهر من خريجٍ واحد). */
+export function graduationNeedPhrase(count:number):string {
+  const n=Math.max(0,Math.round(Number(count)||0));
+  return countOf(n,AR.expectedGraduate)+" "+(n===2?"يحتاجانه":n===1?"يحتاجه":"يحتاجونه");
 }
 function combineScenarios(people:Person[],rows:FSchedule[],scenarios:AcademicDecisionScenario[]):AcademicDecisionChain|undefined {
   const before=buildOffers(rows),baseline=people.filter(p=>feasibleAcademicBundle(p,before)).length;
