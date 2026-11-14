@@ -122,8 +122,8 @@ export default function CapacityImportPanel({ demoReadOnly = false, onChanged }:
       <div className="cap-imp-top">
         <MiniRing value={percent} size={72} decorative>{percent == null ? "—" : `${num(percent)}%`}</MiniRing>
         <div className="cap-imp-copy">
-          <strong>سيكتمل {percent == null ? "—" : `${num(percent)}%`} من السعات</strong>
-          <small><FileSpreadsheet aria-hidden="true" /> <bdi dir="ltr">{preview.fileName || "الملف"}</bdi> · {countOf(preview.counts.total, AR.row)}{preview.coverage.percentNow != null ? ` · الآن ${num(preview.coverage.percentNow)}%` : ""}</small>
+          <strong>سيكتمل <bdi dir="ltr">{percent == null ? "—" : `${num(percent)}%`}</bdi> من السعات</strong>
+          <small><FileSpreadsheet aria-hidden="true" /> <bdi dir="ltr">{preview.fileName || "الملف"}</bdi> · {countOf(preview.counts.total, AR.row)}{preview.coverage.percentNow != null ? <> · الآن <bdi dir="ltr">{num(preview.coverage.percentNow)}%</bdi></> : null}</small>
         </div>
       </div>
       <div className="cap-gaps-chips cap-imp-tabs" role="group" aria-label="نتيجة المعاينة">
