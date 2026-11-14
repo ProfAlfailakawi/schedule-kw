@@ -445,29 +445,29 @@ time,.num,.code-chip{
 
 /* ── ركن الودجت (iPhone Duo) ─────────────────────────────────────────────
  * على الدوو تطفو ودجتُ النظام (المصباح + الحساب/الموقع + الوقت + البطارية) فوق الزاوية
- * العلوية اليمنى الفيزيائية، وليست من safe-area. قيست من لقطة 1371×2034: عرضها 58–64pt
- * وتبعد ≈6pt عن الحافة، وارتفاعها 180–200pt (≈30% من الارتفاع).
- *   --duo-widget-w      70px   العرض مع البُعد عن الحافة (6 + 64)
+ * العلوية اليمنى الفيزيائية، وليست من safe-area. التقدير من لقطات المالك داخل التطبيق (قياسٌ على الصور لا على جهاز):
+ * معايرة الحجم بأزرارٍ قياسية 44pt ≈ 130px في لقطة 1348px ⇒ ≈2.95px/pt ⇒ نافذة التطبيق ≈ 457×678؛ والعمود ≈54pt
+ * عرضاً يبدأ ≈20pt من الحافة (حدّه الأيسر ≈75pt)، من y≈20pt حتى ≈166pt. وقياسٌ آخر (Dr.Ahmad #247) ≈80px من 30 إلى 110px
+ * من الحافة وحتى y≈268. فالمدى غير مؤكَّد: 84–112px عرضاً و174–270px ارتفاعاً، ولذلك 96 و31vh/270 (تُعايَر بـ?duo-debug=1&duo-w=&duo-h=).
+ *   --duo-widget-w      96px   العرض مع البُعد عن الحافة
  *   --duo-widget-gap     8px   هواءٌ بين المحتوى والودجت
- *   --duo-widget-h      clamp(64px,30vh,200px)
+ *   --duo-widget-h      clamp(64px,31vh,270px)
  *   --duo-widget-inset  w + gap: الإزاحة اليمنى الفيزيائية للمحتوى
- * صفرٌ خارج الدوو. الدوو = ما يفعّله أحد الاستعلامات الثلاثة:
- *   1) طوليٌّ 360–720 عرضاً، 520 ارتفاعاً فأكثر،
- *      (382×580، 382×780، 382×844، 470×900، 368×594، 585×951، 669×867). لا نسبةَ عرضٍ إلى ارتفاع: التطبيق (WKWebView) بلا أشرطة Safari أطول، ولا يُفصَل الدوو عن iPhone الطولي بالمقاس. فiPhone الطولي (390×844…) يُحجز له الركن أيضاً (ثمنُ ذلك مكتوبٌ في الوثيقة).
- *   2) عرضيٌّ 560–1000 عرضاً، 360 ارتفاعاً فأكثر، ونسبة ≤ 17:10
- *      (580×382، 594×368، 780×470، 867×669، 951×585؛ لا iPhone: ≥ 16:9، ولا iPad: ≥ 1024)
+ * صفرٌ خارج الدوو. الكشف عامٌّ بلا عروضٍ دقيقة (التطبيق ≈457×678 ليس مقاساً معروفاً) بأحد ثلاثة استعلامات:
+ *   1) طوليٌّ بعرض ≤700 وارتفاع ≥360 (أيّ ارتفاع: التطبيق بلا أشرطة Safari أطول). فiPhone الطولي (390×844…) يُحجز له الركن
+ *      أيضاً: لا يُفصَل عن الدوو بالمقاس، والافتراضُ الآمن أن يُحجز.
+ *   2) عرضيٌّ بعرض 540–1000 وارتفاع 300–800 ونسبة ≤ 17:10 (594×368، 780×470، 867×669، 951×585؛ لا iPhone: ≥16:9، ولا iPad: ≥1024)
  *   3) شاشتان فعلاً (المفصل): يكشفها المتصفح وحده، ولم تُجرَّب على جهاز.
  * هندسة الودجت في العرضي غير مُتحقَّق منها على جهاز حقيقي: يُحجز المستطيل نفسه عند اليمين الفيزيائي. */
 :root{
   --duo-widget-w:0px;--duo-widget-gap:0px;--duo-widget-h:0px;
   --duo-widget-inset:calc(var(--duo-widget-w) + var(--duo-widget-gap));
 }
-@media screen and (orientation:portrait) and (min-width:360px) and (max-width:720px) and (min-height:520px),
-       screen and (orientation:landscape) and (min-width:560px) and (max-width:1000px) and (min-height:360px) and (max-aspect-ratio:17/10),
+@media screen and (orientation:portrait) and (max-width:700px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:800px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
-  :root{--duo-widget-w:70px;--duo-widget-gap:8px;--duo-widget-h:clamp(64px,30vh,200px)}
+  :root{--duo-widget-w:96px;--duo-widget-gap:8px;--duo-widget-h:clamp(64px,31vh,270px)}
 }
-
 /* Latin numbers and time ranges must keep their visual order when they sit in
    Arabic sentences. `dir=ltr` already carries the semantics; isolation stops a
    neighbouring Arabic phrase from reordering the glyphs on screen. */

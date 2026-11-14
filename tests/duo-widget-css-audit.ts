@@ -27,9 +27,9 @@ const duoFile = read("src/styles/55-duo-adaptive.css");
 /* 1) التعريف. */
 check(/:root\{--duo-widget-w:0px;--duo-widget-gap:0px;--duo-widget-h:0px;--duo-widget-inset:calc\(var\(--duo-widget-w\)\+var\(--duo-widget-gap\)\);\}/.test(f),
   "المتغيّرات --duo-widget-w/-gap/-h/-inset معرَّفةٌ في 01-foundation.css وقيمتها 0 افتراضياً (لا أثر خارج الدوو)");
-const active = f.match(/@media([^{]*)\{:root\{--duo-widget-w:70px;--duo-widget-gap:8px;--duo-widget-h:clamp\(64px,30vh,200px\)\}\}/);
-check(!!active, "التفعيل في كتلةٍ واحدة: العرض 70px، الفجوة 8px، الارتفاع clamp(64px,30vh,200px)");
-check((f.match(/--duo-widget-w:70px/g) || []).length === 1, "قيمة 70px تُكتب مرةً واحدة في كل الملفات الأساسية");
+const active = f.match(/@media([^{]*)\{:root\{--duo-widget-w:96px;--duo-widget-gap:8px;--duo-widget-h:clamp\(64px,31vh,270px\)\}\}/);
+check(!!active, "التفعيل في كتلةٍ واحدة: العرض 96px، الفجوة 8px، الارتفاع clamp(64px,31vh,270px)");
+check((f.match(/--duo-widget-w:96px/g) || []).length === 1, "قيمة 96px تُكتب مرةً واحدة في كل الملفات الأساسية");
 const queries = (active ? active[1] : "").split(",").map((q) => q.trim());
 check(queries.length === 3 && queries.every((q) => /^screenand/.test(q)), "ثلاثةُ استعلاماتٍ كلُّها screen: طولي، عرضي، مفصل (viewport-segments)");
 
@@ -47,12 +47,12 @@ function evalQuery(q: string, { w, h }: Dims): boolean | "segments" {
     && (minR === null || r >= minR) && (maxR === null || r <= maxR) && (!orient || orient === (w > h ? "landscape" : "portrait"));
 }
 const hit = (w: number, h: number) => queries.some((q) => evalQuery(q, { w, h }) === true);
-const DUO: [number, number][] = [[382, 580], [470, 780], [594, 368], [669, 867], [951, 585]];
+const DUO: [number, number][] = [[382, 580], [470, 780], [594, 368], [669, 867], [951, 585], [457, 678], [457, 760]];
 /* تطبيقٌ بارتفاعٍ كامل: يجب أن يطابق أيضاً. */
-const DUO_TALL: [number, number][] = [[382, 720], [382, 780], [382, 844], [470, 900], [669, 1000], [951, 700]];
+const DUO_TALL: [number, number][] = [[382, 720], [382, 780], [382, 844], [470, 900], [440, 660], [480, 720], [430, 932], [390, 844], [669, 1000], [951, 700]];
 const DUO_BOTH = DUO.flatMap(([w, h]) => [[w, h], [h, w]] as [number, number][]);
 const missed = [...DUO_BOTH, ...DUO_TALL].filter(([w, h]) => !hit(w, h));
-check(missed.length === 0, `الاستعلامات تطابق الدوو طولياً وعرضياً (10 مقاسات + 6 بارتفاعٍ كامل)${missed.length ? " — لا تطابق: " + missed.map((s) => s.join("×")).join("، ") : ""}`);
+check(missed.length === 0, `الاستعلامات تطابق الدوو طولياً وعرضياً (14 مقاساً + 10 بارتفاعٍ كامل)${missed.length ? " — لا تطابق: " + missed.map((s) => s.join("×")).join("، ") : ""}`);
 const NOT_DUO: [number, number][] = [[844, 390], [932, 430], [667, 375], [744, 1133], [768, 1024],
   [810, 1080], [820, 1180], [834, 1194], [1024, 768], [1024, 1366], [1180, 820], [1366, 1024], [1280, 800], [1440, 900], [1920, 1080]];
 const wrongly = NOT_DUO.filter(([w, h]) => hit(w, h));

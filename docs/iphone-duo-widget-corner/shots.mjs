@@ -1,5 +1,5 @@
 /**
- * لقطات «قبل/بعد» لركن الودجت (WebKit)، مع رسم إطار الركن المحجوز (70px × clamp(64,30vh,200)) فوق اللقطة.
+ * لقطات «قبل/بعد» لركن الودجت (WebKit)، مع رسم إطار الركن المحجوز (96px × clamp(64,31vh,270)) فوق اللقطة.
  *   PLAYWRIGHT_MODULE=<مسار playwright> PLAYWRIGHT_BROWSERS_PATH=… \
  *   node docs/iphone-duo-widget-corner/shots.mjs <قبل|بعد> <DUO_BASE> [المجلد]
  * يحتاج خادماً تجريبياً قائماً (DATA_MODE=demo). الإطار يُرسم في اللقطة وحدها (حدودٌ حمراء)، لا في الموقع.
@@ -15,11 +15,11 @@ if (!label || !base) { console.error("الاستعمال: shots.mjs <before|afte
 const prefix = /after|بعد/.test(label) ? "after" : "before";
 const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const SIZES = [[382, 580], [669, 867], [951, 585]];
+const SIZES = [[382, 580], [457, 678], [669, 867], [951, 585]];
 /* الرئيسية بعد الدخول لكل مقاس، والدخول (غير مسجَّل) والقائمة الجانبية على الطولي الصغير. */
 const SCENES = [
   { id: "", route: "/Home/Index", authed: true },
-  { id: "-login", route: "/", authed: false, only: ["382x580", "669x867"] },
+  { id: "-login", route: "/", authed: false, only: ["382x580", "457x678", "669x867"] },
   { id: "-sidebar", route: "/Home/Index", authed: true, only: ["382x580"], open: "button[aria-label='فتح القائمة']" },
 ];
 
@@ -42,9 +42,9 @@ for (const [w, h] of SIZES) {
     await sleep(3000);
     if (scene.open) { await page.evaluate((sel) => [...document.querySelectorAll(sel)].find((b) => b.offsetParent)?.click(), scene.open); await sleep(1200); }
     await page.evaluate(([vw, vh]) => {
-      const H = Math.min(200, Math.max(64, vh * 0.3));
+      const H = Math.min(270, Math.max(64, vh * 0.31));
       const d = document.createElement("div");
-      d.style.cssText = `position:fixed;right:0;top:0;width:70px;height:${H}px;box-sizing:border-box;border:2px solid #e11d48;background:rgba(225,29,72,.12);z-index:2147483647;pointer-events:none`;
+      d.style.cssText = `position:fixed;right:0;top:0;width:96px;height:${H}px;box-sizing:border-box;border:2px solid #e11d48;background:rgba(225,29,72,.12);z-index:2147483647;pointer-events:none`;
       document.body.appendChild(d);
     }, [w, h]);
     const file = path.join(outDir, `${prefix}${scene.id}-${key}.png`);

@@ -6,12 +6,12 @@
  * حيٍّ أن لا شيءَ مهماً يقع تحتها.
  *
  * المنطقة (مستقلةٌ عن متغيّرات الصفحة، فلا يصدّق الحارسُ ما يُراد إثباته):
- *   x ≥ vw − 70   و   y ≤ clamp(64, 30% × vh, 200)    (فيزيائياً: يمين الشاشة الفعلي)
+ *   x ≥ vw − 96   و   y ≤ clamp(64, 31% × vh, 270)    (فيزيائياً: يمين الشاشة الفعلي)
  * «المهم»: نصٌّ مرئي، a/button/input/select/textarea/[role=tab]/[role=button]/img/svg/canvas.
  * يُستثنى ما لا يحمل نصاً ولا تفاعلاً (خلفيةٌ ممتدة) أو ما عُلِّم data-duo-bleed، وتُسجَّل الاستثناءات.
  * وما غطّاه عنصرٌ آخر في النقطة نفسها (نافذةٌ معتِّمة فوق الصفحة) لا يُحتسب مرتين: يُحتسب الغاطي.
  *
- * يتحقق أيضاً أن المنطقة نشطة (--duo-widget-w = 70px) على كل مقاسات الدوو، وصفرٌ على غيرها
+ * يتحقق أيضاً أن المنطقة نشطة (--duo-widget-w = 96px) على كل مقاسات الدوو، وصفرٌ على غيرها
  * (iPhone وiPad والحاسوب)، وأن ‎?duo-debug=1‎ يرسم الإطار.
  *
  * التشغيل (يشغّل خادماً تجريبياً بنفسه ما لم يُعطَ DUO_BASE):
@@ -44,12 +44,12 @@ const { webkit } = loadPlaywright();
 const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 const APP_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
 /* مقاساتٌ أطول للتطبيق: بلا أشرطة Safari يكون الارتفاع أكبر. */
-const APP_TALL = [[382, 720], [382, 780], [382, 844], [470, 900], [669, 1000], [951, 700]];
-const WIDGET_W = 70;
-const zoneHeight = (vh) => Math.min(200, Math.max(64, vh * 0.3));
+const APP_TALL = [[382, 720], [382, 780], [382, 844], [470, 900], [440, 660], [480, 720], [669, 1000], [951, 700]];
+const WIDGET_W = 96;
+const zoneHeight = (vh) => Math.min(270, Math.max(64, vh * 0.31));
 
 /* مقاسات الدوو المعروفة، طولياً وعرضياً (بتبديل العرض والارتفاع). كلها يجب أن تفعّل المنطقة. */
-const DUO = [[382, 580], [470, 780], [594, 368], [669, 867], [951, 585]];
+const DUO = [[382, 580], [470, 780], [594, 368], [669, 867], [951, 585], [457, 678], [457, 760]];
 const DUO_POSES = [];
 for (const [w, h] of DUO) for (const [a, b] of [[w, h], [h, w]]) if (!DUO_POSES.some(([x, y]) => x === a && y === b)) DUO_POSES.push([a, b]);
 /* أجهزةٌ أخرى: يجب أن تبقى المنطقة 0 عليها. */
@@ -57,7 +57,7 @@ const OTHERS = [[844, 390], [932, 430], [744, 1133], [768, 1024], [1024, 768], [
 
 const FULL = process.env.DUO_FULL === "1";
 const SHOTS = process.env.DUO_SHOTS || "";
-const MAIN = new Set(["382x580", "669x867", "951x585"]);
+const MAIN = new Set(["382x580", "457x678", "669x867", "951x585"]);
 
 /** يقيس في الصفحة (نصٌّ لا دالة ليبقى واحداً في كل محرك). يعيد المخالفات والاستثناءات. */
 const AUDIT = `((W, H) => {
@@ -180,11 +180,11 @@ async function main() {
     const variants = (size) => {
       const key = size.join("x");
       const list = [{ scheme: "light", text: 100 }];
-      if (process.env.DUO_LIGHT_ONLY !== "1" && (FULL || ["382x580", "669x867", "951x585", "580x382"].includes(key))) list.push({ scheme: "dark", text: 100 }, { scheme: "light", text: 200 });
+      if (process.env.DUO_LIGHT_ONLY !== "1" && (FULL || ["382x580", "457x678", "457x760", "669x867", "951x585", "580x382"].includes(key))) list.push({ scheme: "dark", text: 100 }, { scheme: "light", text: 200 });
       return list;
     };
 
-    console.log(`المنطقة: x ≥ vw − ${WIDGET_W}، y ≤ clamp(64, 30%·vh, 200) — WebKit ${browser.version()} — ${BASE}`);
+    console.log(`المنطقة: x ≥ vw − ${WIDGET_W}، y ≤ clamp(64, 31%·vh, 270) — WebKit ${browser.version()} — ${BASE}`);
     for (const { kind, size } of entries) {
       const isApp = kind === "app";
       const [w, h] = size; const key = size.join("x");

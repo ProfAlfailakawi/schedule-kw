@@ -6,8 +6,8 @@
  * الصفحة، وهل التطبيق مثبَّت (standalone)، وهل يعمل داخل Capacitor، وهل الركن نشطٌ وقيم المتغيّرات.
  * لا يكتب ولا يرسل شيئاً: يقرأ ويرسم. الفحصُ على الجهاز: افتح الرابط وتأكّد أن الإطار الأحمر لا يغطّي شيئاً، وأرسل لقطة.
  */
-const NOMINAL_W = 70;
-const nominalH = () => Math.min(200, Math.max(64, window.innerHeight * 0.3));
+const NOMINAL_W = 96;
+const nominalH = () => Math.min(270, Math.max(64, window.innerHeight * 0.31));
 
 function px(value: string): number {
   const n = parseFloat(value);
@@ -26,8 +26,20 @@ function safeAreaProbe() {
   return out;
 }
 
+/** معايرة حيّة على الجهاز: ?duo-debug=1&duo-w=110&duo-h=270 تبدّل المتغيّرين على الجذر (بوجود duo-debug=1 وحده). */
+function applyCalibration() {
+  const q = new URLSearchParams(window.location.search);
+  const out: Record<string, string> = {};
+  for (const [param, prop] of [["duo-w", "--duo-widget-w"], ["duo-h", "--duo-widget-h"]] as const) {
+    const n = Number(q.get(param));
+    if (q.has(param) && Number.isFinite(n) && n >= 0 && n <= 600) { document.documentElement.style.setProperty(prop, `${n}px`); out[param] = `${n}px`; }
+  }
+  return out;
+}
+
 export function mountDuoDebug() {
   if (document.querySelector("[data-duo-debug]")) return;
+  const calibrated = applyCalibration();
   const frame = document.createElement("div");
   frame.setAttribute("data-duo-debug", "frame");
   frame.setAttribute("aria-hidden", "true");
@@ -69,6 +81,8 @@ export function mountDuoDebug() {
       `inner: ${window.innerWidth} x ${window.innerHeight}`,
       `visualViewport: ${vv ? `${Math.round(vv.width)} x ${Math.round(vv.height)} @ ${vv.scale.toFixed(2)}x` : "n/a"}`,
       `dir: ${document.documentElement.dir || document.dir || "ltr"}  orient: ${window.matchMedia("(orientation:portrait)").matches ? "portrait" : "landscape"}`,
+      `calibration: ${Object.keys(calibrated).length ? JSON.stringify(calibrated) : "none (add &duo-w=110&duo-h=270)"}`,
+      "send a screenshot with the frame; adjust duo-w/duo-h until the red frame covers the capsule",
       `standalone: ${standalone}  navigator.standalone: ${String((navigator as any).standalone)}`,
       `Capacitor: ${native === "true" ? `native ${platform || "?"}` : cap ? `present, native=${native}` : "absent (Safari tab)"}`,
       `UA: ${/Safari\//.test(ua) ? "has Safari/ (browser)" : "no Safari/ (WKWebView app)"}  ${/iPhone|iPad/.test(ua) ? "iOS" : "other"}`,
