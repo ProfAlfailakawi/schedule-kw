@@ -95,7 +95,8 @@ check('Number(req.user.SystemUserId) !== ROOT_ADMIN_USER_ID' in server,'CopySche
 check('onClick={() => onGo(view)}' in app,'navigation is direct single-click')
 check('onClick={() => go("dashboard")}' in app and 'SCHEDULE' in app,'SCHEDULE brand returns to dashboard')
 # الاسمُ انتقل إلى جدول أسماءٍ واحد، وهو أثبتُ من تكراره في كل موضع.
-check('dashboard: "لوحة العمل"' in app,'dashboard navigation uses stable task label')
+# المالك 2026-11-14: اسمُ الوجهة اسمُ زرّها في القائمة («الرئيسية» في شريط الهاتف)، لا اسمٌ ثانٍ.
+check('dashboard: "الرئيسية"' in app and 'label="الرئيسية"' in app,'dashboard navigation uses the same label as its menu button')
 
 # 3) Core CRUD/workflow presence without forcing obsolete presentation strings.
 for rel,tokens in {

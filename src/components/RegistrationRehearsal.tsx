@@ -217,7 +217,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
   return (
     <TermFrozenContext.Provider value={frozen}>
     <div className="sm-page" dir="rtl">
-      <PageTitle eyebrow="متابعة التسجيل" subtitle="لو سجّل الطلبةُ بحسب ما كتبوه: أين الزحام، وما المطلوب ولا يُطرح؟"
+      <PageTitle eyebrow="الإرشاد" subtitle="لو سجّل الطلبةُ بحسب ما كتبوه: أين الزحام، وما المطلوب ولا يُطرح؟"
         action={(
           <div className="sm-actions">
             <TeamPresenceChip peers={team.peers} team={team.team} />

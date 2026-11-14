@@ -19,7 +19,7 @@ export default function RegistrationTabs({ active, canRoster, canRadar, onGo }: 
     { view: "simulation" as const, label: "رادار التسجيل", Icon: Ticket },
   ];
   return (
-    <nav className="registration-tabs no-print" aria-label="متابعة التسجيل">
+    <nav className="registration-tabs no-print" aria-label="الإرشاد">
       {tabs.map(({ view, label, Icon }) => (
         <button key={view} type="button" className={active === view ? "on" : ""} aria-current={active === view ? "page" : undefined}
           onClick={() => onGo(view)} data-guide-ignore="ينتقل بين كشف التسجيل والرادار؛ كلاهما مسجّل وجهةً في المرشد">
