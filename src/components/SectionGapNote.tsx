@@ -1,53 +1,29 @@
 /**
- * ── شعبٌ يُفضَّل زيادتها ─────────────────────────────────────────────────────────────
+ * ── شعبٌ يطلبها الطلبة في «مساري» ──────────────────────────────────────────────────────
  *
- * شارةٌ هادئة في شريط الاعتماد، اختيارية: تظهر فقط إن كان لمقررٍ شعبٌ أقل مما يطلبه الطلبة أو يقرّره تخطيط القسم.
- * تفتح قائمةً قصيرة («٥ ← ٧») وفي ذيلها دعوةٌ لرفع كشف المتبقي لمقارنةٍ أدق. لا تمنع توقيعاً ولا تكتب شيئاً.
- * الحساب في utils/sectionGap.ts؛ المصدران: /api/schedules/section-gap و/api/registration-stats.
+ * شارةٌ هادئة في شريط الاعتماد، اختيارية: تظهر فقط إن كان لمقررٍ شعبٌ أقل مما يطلبه الطلبة في «مساري».
+ * تفتح قائمةً قصيرة («٥ ← ٧»). لا تمنع توقيعاً ولا تكتب شيئاً.
+ * تخطيطُ الشعب نفسه (تقرير التسجيل) شاشةٌ أخرى: src/components/SectionPlan.tsx.
+ * الحساب في utils/sectionGap.ts (studentGaps)؛ المصدر: /api/schedules/section-gap.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DEMO_SEEDED_EVENT } from "../utils/demoSeedEvent";
-import { AlertTriangle, Armchair, ArrowLeft, ChevronDown, ClipboardList, History, Layers, Minus, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { ChevronDown, Users, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { planGaps, planSurpluses, planTargets, studentGaps, type GapCourse, type GapItem, type GapPlan } from "../utils/sectionGap";
+import { studentGaps, type GapCourse, type GapItem } from "../utils/sectionGap";
 import { sortByName } from "../utils/sorting";
-import { VISITOR_MAX_SECTIONS, visitingNeed, type CourseStaffing } from "../utils/visitingNeed";
-import PlanTriageView, { type PlanTriage } from "./PlanTriageView";
 import CourseTags from "./CourseTags";
-import type { PlanDecision } from "../utils/planTriage";
 
-interface GapPayload {
-  respondents: number; planImported: boolean; planSource: { fileName: string; importedAt: string } | null;
-  accepted: Record<string, number>; remaining: Record<string, number>; courses: GapCourse[];
-}
-interface StaffingPayload { staffing: Record<string, CourseStaffing>; visitorFreeSlots: number }
+interface GapPayload { respondents: number; courses: GapCourse[] }
 const SHOWN = 5;
 const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
 
-/**
- * القراءتان تُوسمان بنطاقهما: تبدّل القسم أو الفصل لا يُبقي أسماء القسم السابق ولا أرقامه لحظةً (الشريط نفسه يبقى مركّباً).
- * «المختار» يأتي مع القراءة الخفيفة (يتجدد مع كل تعديلٍ في الجدول)، أما التاريخ — وهو الثقيل — فيُجلب مرةً لكل كشفٍ مرفوع.
- */
-export const PLAN_SAVED_EVENT = "schedule:plan-saved";
-
-export function useSectionGap(collegeId: number, sectionId: number, termId: number, refreshSignal = 0, wantStaffing = false) {
+/** القراءةُ موسومةٌ بنطاقها: تبدّل القسم أو الفصل لا يُبقي أرقام القسم السابق لحظةً. */
+export function useSectionGap(collegeId: number, sectionId: number, termId: number, refreshSignal = 0, _open = false) {
   const scope = `${collegeId}:${sectionId}:${termId}`;
   const [loaded, setLoaded] = useState<{ scope: string; payload: GapPayload } | null>(null);
-  /* قراءةٌ رُفضت أو انقطعت لا تبقى «جارٍ القراءة» إلى الأبد: تُحفظ هنا ليعرض صاحبُها خطأً وإعادة. */
   const [failure, setFailure] = useState<{ scope: string; status: number } | null>(null);
-  const [past, setPast] = useState<{ scope: string; stamp: string; history: GapPlan["history"] } | null>(null);
   const [bump, setBump] = useState(0);
-  /* من يدرّس كل مقرر: ثقيلٌ، فيُجلب حين تُفتح اللوحة فقط، ويُجدَّد مع كل تغيّرٍ في الجدول. */
-  const [staffed, setStaffed] = useState<{ scope: string; payload: StaffingPayload } | null>(null);
-  useEffect(() => {
-    if (!wantStaffing || !collegeId || !sectionId || !termId) return;
-    let cancelled = false;
-    fetch(`/api/schedules/section-gap/staffing?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`)
-      .then(response => (response.ok ? response.json() : null))
-      .then((body: StaffingPayload | null) => { if (!cancelled) setStaffed(body ? { scope, payload: body } : null); })
-      .catch(() => { if (!cancelled) setStaffed(null); });
-    return () => { cancelled = true; };
-  }, [wantStaffing, collegeId, sectionId, termId, refreshSignal, scope, bump]);
   useEffect(() => {
     if (!collegeId || !sectionId || !termId) return;
     let cancelled = false;
@@ -66,212 +42,59 @@ export function useSectionGap(collegeId: number, sectionId: number, termId: numb
       .catch(() => { if (!cancelled) { setLoaded(null); setFailure({ scope, status: 0 }); } });
     return () => { cancelled = true; };
   }, [collegeId, sectionId, termId, refreshSignal, scope, bump]);
-  /* تخطيط الشعب يحفظ في السجلّ نفسه: مسحُ الكشف هناك (أو رفعُه) يُحدِّث الشارات والأيقونة هنا دون إعادة فتح الشاشة. */
   useEffect(() => {
-    const onSaved = (event: Event) => {
-      const at = (event as CustomEvent<{ scope?: string }>).detail?.scope;
-      if (!at || at === scope) setBump(n => n + 1);
-    };
     const onSeeded = () => setBump(n => n + 1);
-    window.addEventListener(PLAN_SAVED_EVENT, onSaved);
     window.addEventListener(DEMO_SEEDED_EVENT, onSeeded);
-    return () => { window.removeEventListener(PLAN_SAVED_EVENT, onSaved); window.removeEventListener(DEMO_SEEDED_EVENT, onSeeded); };
-  }, [scope]);
+    return () => window.removeEventListener(DEMO_SEEDED_EVENT, onSeeded);
+  }, []);
   const data = loaded && loaded.scope === scope ? loaded.payload : null;
-  const stamp = data?.planImported ? String(data.planSource?.importedAt || "imported") : "";
-  useEffect(() => {
-    if (!stamp) return;
-    let cancelled = false;
-    fetch(`/api/registration-stats?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`)
-      .then(response => (response.ok ? response.json() : null))
-      .then(body => { if (!cancelled && body) setPast({ scope, stamp, history: body.history || {} }); })
-      .catch(() => { if (!cancelled) setPast(null); });
-    return () => { cancelled = true; };
-  }, [collegeId, sectionId, termId, stamp, scope]);
-  const historyReady = Boolean(stamp) && past?.scope === scope && past.stamp === stamp;
-  /* مصدران منفصلان: التخطيط (المختار أو كشف المتبقي) ورغبات الطلبة في «مساري». لا يدخل أحدهما في الآخر. */
-  const plan = useMemo(() => {
-    if (!data) return { targets: [], gaps: [], surpluses: [] };
-    /* المتبقي بلا تاريخه يقترح «شعبةً واحدة» فيُخفي النقص؛ فلا يُعتدّ به حتى يصل التاريخ. */
-    const plan: GapPlan = { accepted: data.accepted || {}, remaining: historyReady ? data.remaining || {} : {}, history: historyReady ? past!.history : {} };
-    // Same planning target for opening and reduction; reduction is review-only.
-    // The registrar reference is never treated as proof of live enrollment or permission to cancel.
-    return { targets: planTargets(data.courses, plan), gaps: planGaps(data.courses, plan), surpluses: planSurpluses(data.courses, plan) };
-  }, [data, historyReady, past]);
   const studentItems = useMemo(() => (data ? studentGaps(data.courses) : []), [data]);
   const reload = useCallback(() => setBump(value => value + 1), []);
-  /* مع كشفٍ مرفوع لا تكتمل حسبة التخطيط قبل أن يصل تاريخ الفصول (وإلا اقترح «شعبةً واحدة» فأخفى النقص). */
-  const ready = data !== null && (!data.planImported || historyReady);
   const failed = !data && failure?.scope === scope ? failure : null;
-  return { failed, planItems: plan.gaps, planTargets: plan.targets, planSurplusItems: plan.surpluses, studentItems, staffing: staffed && staffed.scope === scope ? staffed.payload.staffing : null, freeSlots: staffed && staffed.scope === scope ? staffed.payload.visitorFreeSlots : 0, courses: data?.courses || [], planImported: Boolean(data?.planImported), loaded: data !== null, ready, source: data?.planSource?.fileName || "", reload };
+  return { failed, studentItems, courses: data?.courses || [], loaded: data !== null, reload };
 }
 
 export type Gap = ReturnType<typeof useSectionGap>;
+export type GapKind = "students";
 
-/** The quick comparison duplicates planning's entry point whenever its badge is shown.
- * Keep the decision tied to the very same planItems used by SectionGapBadge,
- * not only to whether a remaining-students file has been uploaded. */
-export function showQuickCompareBadge(gap: { loaded: boolean; planImported: boolean; planItems: GapItem[]; planSurplusItems?: GapItem[] }): boolean {
-  return gap.loaded && !gap.planImported && gap.planItems.length === 0 && (gap.planSurplusItems?.length || 0) === 0;
-}
-
-export type GapKind = "plan" | "students";
-const KIND = {
-  plan: { Icon: ClipboardList, word: "التخطيط", title: "مراجعة عدد الشعب بحسب تخطيطك", hint: "الفتح والتخفيض من تخطيط القسم والاحتياج والتاريخ؛ الإغلاق للمراجعة بعد التحقق من المسجلين" },
-  students: { Icon: Users, word: "مساري", title: "شعبٌ يطلبها الطلبة في «مساري»", hint: "من رغبات الطلبة في «مساري» · اختياري ولا يمنع التوقيع" },
-} as const;
-
-/** الشارة: عددُ المقررات التي تنقصها شعب بحسب هذا المصدر. شارتان منفصلتان: التخطيط، ومساري. */
-export function SectionGapBadge({ items, kind, open, onToggle, onOpen }: { items: GapItem[]; kind: GapKind; open: boolean; onToggle: () => void; onOpen?: () => void }) {
+/** الشارة: عددُ المقررات التي يطلبها الطلبة في «مساري» وشعبها أقل. */
+export function SectionGapBadge({ items, open, onToggle }: { items: GapItem[]; kind?: GapKind; open: boolean; onToggle: () => void }) {
   if (!items.length) return null;
-  const { Icon, word, hint } = KIND[kind];
-  /* المالك 2026-11-14: الشارةُ تفتح لسانها في «أدوات الجدول» مباشرةً، والسهمُ بجانبها يبقي القائمة كما كانت. */
-  if (onOpen) return (
-    <span className="apb-badge-split" data-tone="info">
-      <button type="button" className="apb-badge apb-data-btn" data-tone="info" onClick={onOpen} title={`${hint} · يفتح «${word}» في أدوات الجدول`}
-        data-guide-ignore="يفتح لسان التخطيط في أدوات الجدول — تنقّلٌ لا يغيّر شيئاً">
-        <Icon aria-hidden="true" /><span>{word}</span><b>{num(items.length)}</b>
-      </button>
-      <button type="button" className="apb-badge apb-badge-chev" data-tone="info" aria-expanded={open} onClick={onToggle} aria-label={`قائمة «${word}»`} title={`قائمة «${word}»`}
-        data-guide-ignore="يطوي قائمة الشعب المقترحة أو يفتحها — عرضٌ لا فعل">
-        <ChevronDown aria-hidden="true" className="apb-data-chev" />
-      </button>
-    </span>
-  );
   return (
-    <button type="button" className="apb-badge apb-data-btn" data-tone="info" aria-expanded={open} onClick={onToggle} title={hint}
-      data-guide-ignore="قائمة الشعب المقترح زيادتها — اختيارية، تعرض مقرراتٍ ينقصها شعب">
-      <Icon aria-hidden="true" /><span>{word}</span><b>{num(items.length)}</b><ChevronDown aria-hidden="true" className="apb-data-chev" />
+    <button type="button" className="apb-badge apb-data-btn" data-tone="info" aria-expanded={open} onClick={onToggle} title="من رغبات الطلبة في «مساري» · اختياري ولا يمنع التوقيع"
+      data-guide-ignore="قائمة الشعب التي يطلبها الطلبة في «مساري» — اختيارية">
+      <Users aria-hidden="true" /><span>مساري</span><b>{num(items.length)}</b><ChevronDown aria-hidden="true" className="apb-data-chev" />
     </button>
   );
 }
 
-/** سطرٌ تحت المقرر: أيقونةٌ ورقم، ولكلٍّ جملتُه الكاملة في التلميح. لا أسماء. */
-function Staffing({ staffing, visitors }: { staffing: CourseStaffing; visitors: number }) {
-  const chips: Array<{ id: string; Icon: typeof Users; n: number; tip: string; tone?: string; always?: boolean }> = [
-    { id: "ours", Icon: Users, n: staffing.ours, tip: `يدرّسه ${countOf(staffing.ours, AR.instructor)} من أساتذتنا هذا الفصل`, always: true },
-    { id: "covered", Icon: UserCheck, n: staffing.covered, tip: `${countOf(staffing.covered, AR.section)} يغطيها أساتذتنا`, always: true },
-    { id: "unassigned", Icon: UserMinus, n: staffing.unassigned, tip: `${countOf(staffing.unassigned, AR.section)} بلا أستاذ (هيئة تدريسية)`, tone: "warn" },
-    { id: "visitors", Icon: UserPlus, n: staffing.withVisitors, tip: `${countOf(staffing.withVisitors, AR.section)} عند منتدبٍ حالي` },
-    { id: "returnable", Icon: History, n: staffing.returnable, tip: `${countOf(staffing.returnable, AR.instructor)} درّسوه سابقاً ولا يدرّسونه هذا الفصل`, tone: "soft" },
-  ];
-  /* اللمس لا يعرف «title»: الضغط على أيقونةٍ يكتب معناها تحت الصف، والضغط عليها ثانيةً يطويه.
-     يُحفظ مفتاح الأيقونة لا نصُّها، فيُشتق النص من الأرقام الحالية، وتزول الجملة بزوال أيقونتها. */
-  const [picked, setPicked] = useState<string | null>(null);
-  const shown = chips.filter(chip => chip.always || chip.n > 0).map(chip => ({ ...chip, key: chip.id }));
-  const needTip = `نحتاج ${countOf(visitors, AR.visitor)}`;
-  const tipOf = picked === "need" ? needTip : shown.find(chip => chip.key === picked)?.tip || null;
-  const toggle = (key: string) => setPicked(current => (current === key ? null : key));
-  return (
-    <div className="apb-staff" role="group" aria-label="من يدرّس المقرر">
-      {shown.map(({ Icon, n, tip, tone, key }) => (
-        <button key={key} type="button" className="apb-staff-chip" data-tone={tone} data-picked={picked === key || undefined} title={tip} aria-label={tip} aria-pressed={picked === key} onClick={() => toggle(key)} data-guide-ignore="أيقونة تشرح معناها تحت الصف عند الضغط"><Icon aria-hidden="true" /><b>{num(n)}</b></button>
-      ))}
-      <button type="button" className="apb-staff-need" data-zero={visitors === 0 || undefined} data-picked={picked === "need" || undefined} title={needTip} aria-label={needTip} aria-pressed={picked === "need"} onClick={() => toggle("need")} data-guide-ignore="أيقونة عدد المنتدبين تشرح معناها عند الضغط"><UserPlus aria-hidden="true" /><b>{num(visitors)}</b></button>
-      {tipOf ? <p className="apb-staff-tip" role="status">{tipOf}</p> : null}
-    </div>
-  );
-}
-
-/** قائمةٌ قصيرة: اسم المقرر، وما بُني عليه الرقم، و«الموجود ← المطلوب». تفتح البطاقةُ من يدرّسه وكم منتدباً نحتاج. */
-export function SectionGapPanel({ items, kind, onClose, staffing, freeSlots = 0, triage, onDecide, triageOffline }: { items: GapItem[]; kind: GapKind; onClose: () => void; staffing?: Record<string, CourseStaffing> | null; freeSlots?: number; triage?: PlanTriage; onDecide?: (id: number, decision: PlanDecision | null) => void; triageOffline?: boolean }) {
+/** قائمةٌ قصيرة: اسم المقرر، وعدد الطلبة، و«الموجود ← المطلوب». */
+export function SectionGapPanel({ items, onClose }: { items: GapItem[]; kind?: GapKind; onClose: () => void }) {
   const [all, setAll] = useState(false);
-  const [openId, setOpenId] = useState<number | null>(null);
-  const [totalOpen, setTotalOpen] = useState(false);
   const ordered = useMemo(() => sortByName(items, item => item.name), [items]);
   const list = all ? ordered : ordered.slice(0, SHOWN);
-  const { Icon, title } = KIND[kind];
-  const openingTotal = kind === "plan" ? items.reduce((total, item) => total + Math.max(0, item.extra), 0) : 0;
-  const closureTotal = kind === "plan" ? items.reduce((total, item) => total + Math.max(0, item.surplus || 0), 0) : 0;
-  const hasClosureReview = closureTotal > 0;
-  const staffingItems = useMemo(() => items.filter(item => !item.surplus && item.extra > 0), [items]);
-  const need = useMemo(() => (staffing && kind === "plan" ? visitingNeed(staffingItems, staffing, freeSlots) : null), [staffingItems, staffing, freeSlots, kind]);
-  const rowOf = (id: number) => need?.rows.find(row => row.id === id);
-  const renderItem = (item: GapItem, actions?: React.ReactNode) => {
-    const row = rowOf(item.id);
-    const open = openId === item.id && Boolean(row);
-    const body = (
-      <>
-        <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}<CourseTags courseId={item.id} /></small></span>
-        {kind === "students"
-          ? <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
-          : item.surplus && item.closureCapacityWarning ? <span className="apb-gap-why" title="العدد المقترح قد لا يستوعب كل احتياج الطلبة؛ لا تُغلق شعباً قبل التحقق من المسجلين والسعة"><AlertTriangle aria-hidden="true" />الاحتياج أعلى من السعة</span>
-          : !item.surplus && item.demand > 0 ? <span className="apb-gap-why">الاحتياج {num(item.demand)}</span> : null}
-        {item.conflict ? (
-          <span className="apb-conflict" role="group"
-            aria-label={`تعارض التقدير في ${item.name}: الموجود ${num(item.existing)}، التخطيط يطلب ${num(item.conflict.openingRequired)}، وكشف هذا الفصل يقدّر ${num(item.conflict.reportRequired)} لاستيعاب ${countOf(item.demand, AR.student)} لم يسجلوا. راجع البيانات قبل فتح أو إلغاء أي شعبة.`}>
-            <span className="apb-conflict-title"><AlertTriangle aria-hidden="true" /><span><strong>تعارض التقدير</strong><small>راجع قبل التغيير</small></span></span>
-            <span className="apb-conflict-numbers" aria-hidden="true">
-              <span><b>{num(item.existing)}</b><small>الموجود</small></span>
-              <span><b>{num(item.conflict.openingRequired)}</b><small>التخطيط</small></span>
-              <span><b>{num(item.conflict.reportRequired)}</b><small>كشف المتبقي</small></span>
-            </span>
-          </span>
-        ) : item.surplus ? (
-          <span
-            className="apb-surplus"
-            role="group"
-            aria-label={`فرق تخطيطي ${countOf(item.surplus, AR.section)}: الموجود ${num(item.existing)}، والمطلوب ${num(item.required)} ${item.closureSource === "chosen" ? "بحسب اختيار القسم" : "بحسب الاحتياج والتاريخ"}. ${item.closureCapacityWarning ? "الاحتياج المسجل في الكشف أعلى من سعة الشعب المقترحة؛ لا يعني ذلك أن الشعب الزائدة فارغة. " : ""}راجع تسجيل الطلبة وسعة الشعب الفعلية قبل الإغلاق؛ لا تُحذف الشعب تلقائياً.`}
-          >
-            <span className="apb-surplus-label">
-              <span className="apb-surplus-icon" aria-hidden="true"><Layers /><Minus /></span>
-              <span className="apb-surplus-heading"><strong>{item.closureCapacityWarning ? "فرق" : "فائض"} {countOf(item.surplus, AR.section)}</strong><small>راجع الإغلاق</small></span>
-            </span>
-            <span className="apb-surplus-divider" aria-hidden="true" />
-            <span className="apb-surplus-flow" aria-hidden="true">
-              <span className="apb-surplus-stat apb-surplus-stat-existing"><b>{num(item.existing)}</b><small>الموجود</small></span>
-              <ArrowLeft className="apb-surplus-arrow" />
-              <span className="apb-surplus-stat apb-surplus-stat-required"><b>{num(item.required)}</b><small>المطلوب</small></span>
-            </span>
-          </span>
-        ) : (
-          <span className="apb-gap-pill" title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
-            <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
-          </span>
-        )}
-        {row ? <ChevronDown aria-hidden="true" className="apb-gap-chev" /> : null}
-      </>
-    );
-    return (
-      <li key={item.id} data-open={open || undefined}>
-        {row
-          ? <button type="button" className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : item.conflict ? " apb-gap-row-conflict" : ""}`} aria-expanded={open} onClick={() => setOpenId(open ? null : item.id)} data-guide-ignore="فتح تفاصيل من يدرّس المقرر وعدد المنتدبين">{body}</button>
-          : <div className={`apb-gap-row${item.surplus ? " apb-gap-row-surplus" : item.conflict ? " apb-gap-row-conflict" : ""}`}>{body}</div>}
-        {open && row ? <Staffing staffing={row.staffing} visitors={row.visitors} /> : null}
-      {actions}
-      </li>
-    );
-  };
   return (
-    <section className="apb-gap" aria-label={title}>
+    <section className="apb-gap" aria-label="شعبٌ يطلبها الطلبة في «مساري»">
       <header>
-        <span className="apb-gap-ic"><Icon aria-hidden="true" /></span>
-        <strong>{title}</strong>
+        <span className="apb-gap-ic"><Users aria-hidden="true" /></span>
+        <strong>شعبٌ يطلبها الطلبة في «مساري»</strong>
         <small>اختياري</small>
         <button type="button" className="apb-dr-close" aria-label="إغلاق" onClick={onClose} data-guide-ignore="إغلاق قائمة الشعب المقترحة"><X aria-hidden="true" /></button>
       </header>
-      {kind === "plan" ? <p className="apb-gap-source-note"><ClipboardList aria-hidden="true" />فتح +{num(openingTotal)} · مراجعة إغلاق −{num(closureTotal)}. لا حذف تلقائي؛ راجع المسجلين والسعة.{!hasClosureReview ? " لا فرق للإغلاق دون عدد مختار أو تقدير تاريخي أقل من الموجود." : ""}</p> : null}
-      {triage ? <PlanTriageView triage={triage} renderItem={renderItem} onDecide={onDecide} onClose={onClose} offline={triageOffline} /> : <ul className="apb-gap-list">
-        {list.map(item => renderItem(item))}
-      </ul>}
-      {need ? (
-        <footer className="apb-gap-total" data-zero={need.visitors === 0 || undefined} data-open={totalOpen || undefined}>
-          <button type="button" className="apb-gap-total-btn" aria-expanded={totalOpen} onClick={() => setTotalOpen(value => !value)} data-guide-ignore="مجموع المنتدبين للقسم: الضغط يبيّن الحساب">
-            <UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small><ChevronDown aria-hidden="true" className="apb-gap-chev" />
-          </button>
-          {totalOpen ? (
-            <div className="apb-sum" role="status" aria-label={`${countOf(need.sections, AR.section)} بلا أستاذ، ناقص ${Math.min(need.freeSlots, need.sections)} أماكن عند الحاليين، مقسوماً على ${VISITOR_MAX_SECTIONS}، يساوي ${countOf(need.visitors, AR.visitor)}`}>
-              <span className="apb-sum-c"><Layers aria-hidden="true" /><b>{num(need.sections)}</b><small>بلا أستاذ</small></span>
-              {need.freeSlots > 0 ? <><i aria-hidden="true">−</i><span className="apb-sum-c" data-tone="soft"><Armchair aria-hidden="true" /><b>{num(Math.min(need.freeSlots, need.sections))}</b><small>أماكن فارغة</small></span></> : null}
-              <i aria-hidden="true">÷</i>
-              <span className="apb-sum-c" data-tone="soft"><Users aria-hidden="true" /><b>{num(VISITOR_MAX_SECTIONS)}</b><small>لكل منتدب</small></span>
-              <i aria-hidden="true">=</i>
-              <span className="apb-sum-c" data-tone="result"><UserPlus aria-hidden="true" /><b>{num(need.visitors)}</b><small>{need.visitors === 1 ? "منتدب" : "منتدبين"}</small></span>
+      <ul className="apb-gap-list">
+        {list.map(item => (
+          <li key={item.id}>
+            <div className="apb-gap-row">
+              <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}<CourseTags courseId={item.id} /></small></span>
+              <span className="apb-gap-why"><Users aria-hidden="true" />{countOf(item.demand, AR.student)}</span>
+              <span className="apb-gap-pill" title={`الموجود ${num(item.existing)} والمطلوب ${num(item.required)}`}>
+                <i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b>
+              </span>
             </div>
-          ) : null}
-        </footer>
-      ) : null}
-      {!triage && items.length > SHOWN ? (
+          </li>
+        ))}
+      </ul>
+      {items.length > SHOWN ? (
         <footer>
           <button type="button" className="apb-gap-link" onClick={() => setAll(value => !value)} data-guide-ignore="عرض كل المقررات المقترحة أو إخفاؤها">
             {all ? "أقل" : `الكل (${num(items.length)})`}

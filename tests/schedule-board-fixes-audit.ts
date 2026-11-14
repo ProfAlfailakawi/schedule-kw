@@ -121,7 +121,7 @@ check(DECISION_1913_LABEL === "قرار 1913/2016", "DECISION_1913_LABEL = «ق�
   const roomMove = bodyOf(schedules, "const commitRoomMove = async", 6000);
   check(/if \(practiceModeRef\.current\) \{[\s\S]{0,400}setRows\(current => current\.map[\s\S]{0,400}return;\s*\}\s*setSaving\(true\);/.test(roomMove), "نقل القاعات يُحاكى محلياً أثناء التجربة قبل أي كتابة");
   check(schedules.includes("{practiceMode ? null : <WipeScheduleButton"), "مسح الجدول يغيب أثناء التجربة");
-  check((schedules.match(/!showMobileReadOnlyGate\(\) && !refuseInPractice\(\)\) (?:\{ [^}]*)?setTransferOpen\(true\)/g) || []).length >= 4, "أدوات الجدول لا تُفتح أثناء التجربة (الشريط والحالة الفارغة والمرشد وشارتا الاعتماد)");
+  check((schedules.match(/!showMobileReadOnlyGate\(\) && !refuseInPractice\(\)\) (?:\{ [^}]*)?setTransferOpen\(true\)/g) || []).length >= 3, "أدوات الجدول لا تُفتح أثناء التجربة (الشريط والحالة الفارغة والمرشد)");
   /* «تحويل هيئة التدريب» صار داخل «أدوات الجدول ← الأساتذة» (المالك 2026-11-14)، فيُمنع بمنعها. */
   check(schedules.includes("!refuseInPractice()) setGenesisFromEmpty(true)") && !schedules.includes("setTaConversionOpen")
     && fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8").includes("<TAConversionPanel embedded"), "بداية الفصل وتحويل هيئة التدريب يُمنعان أثناء التجربة");

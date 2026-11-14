@@ -1640,8 +1640,8 @@
         "en": "«Schedule tools»: three groups"
       },
       "text": {
-        "ar": "يجب أن تُسمّى النافذة وزرّها «أدوات الجدول»، وأن تعرض ألسنتها في ثلاث مجموعات صغيرة بعناوينها وبهذا الترتيب: «التخطيط» (تخطيط الشعب، كل المقررات، الطلب الفعلي) أولاً وأبرزها، ثم «الأساتذة» (الأساتذة، المنتدبون، استبدال، تحويل هيئة التدريب)، ثم «الملفات» (استيراد، تصدير، نشر)؛ وأن تُفتح على «تخطيط الشعب» أو على اللسان المطلوب؛ وأن تُبقي للفصل المنتهي «تصدير» و«نشر» وحدهما؛ وأن تُخفي الألسنة كلها ما دامت حصيلة النشر معروضة حتى تُغلق.",
-        "en": "The dialog and its button shall be named «schedule tools», and shall show its tabs in three small titled groups in this order: «planning» (section planning, all courses, actual demand) first and most prominent, then «instructors» (instructors, visiting instructors, replace, trainee conversion), then «files» (import, export, publish); it shall open on section planning or on the requested tab; for an ended term it shall keep only export and publish; and it shall hide all tabs while a publish receipt is shown until it is closed."
+        "ar": "يجب أن تُسمّى النافذة وزرّها «أدوات الجدول»، وأن تعرض ألسنتها في ثلاث مجموعات صغيرة بعناوينها وبهذا الترتيب: «التخطيط» (تخطيط الشعب من تقرير التسجيل، كل المقررات) أولاً وأبرزها، ثم «الأساتذة» (الأساتذة، المنتدبون، استبدال، تحويل هيئة التدريب)، ثم «الملفات» (استيراد، تصدير، نشر)؛ وأن تُفتح على «تخطيط الشعب» أو على اللسان المطلوب؛ وأن تُبقي للفصل المنتهي «تصدير» و«نشر» وحدهما؛ وأن تُخفي الألسنة كلها ما دامت حصيلة النشر معروضة حتى تُغلق.",
+        "en": "The dialog and its button shall be named «schedule tools», and shall show its tabs in three small titled groups in this order: «planning» (section planning from the registrar report, all courses) first and most prominent, then «instructors» (instructors, visiting instructors, replace, trainee conversion), then «files» (import, export, publish); it shall open on section planning or on the requested tab; for an ended term it shall keep only export and publish; and it shall hide all tabs while a publish receipt is shown until it is closed."
       },
       "priority": "should",
       "status": "implemented",
@@ -1660,8 +1660,8 @@
           "en": "An ended term shows the «files» group with only export and publish, and any other open tab returns to export."
         },
         {
-          "ar": "«تحويل هيئة التدريب» لوحةٌ داخل «الأساتذة» (انتقل من «المزيد») بمعاينته ونسخته الآمنة وتراجعه؛ وشارتا «التخطيط» و«الطلب الفعلي» في شريط الاعتماد تفتحان لسانيهما مباشرةً، والسهم بجانبهما يفتح قائمتيهما كما كانتا.",
-          "en": "«Trainee conversion» is a panel inside «instructors» (moved from «more») with its preview, safety snapshot and undo; the approval bar's «planning» and «actual demand» badges open their tabs directly, and the chevron beside them opens their lists as before."
+          "ar": "«تحويل هيئة التدريب» لوحةٌ داخل «الأساتذة» (انتقل من «المزيد») بمعاينته ونسخته الآمنة وتراجعه.",
+          "en": "«Trainee conversion» is a panel inside «instructors» (moved from «more») with its preview, safety snapshot and undo."
         },
         {
           "ar": "«الصحيفة» نوعٌ رابع في «نشر» لرئيس لجنة الجدول والمدير، لا يرتبط بالفصل فيبقى في الفصل المنتهي.",
@@ -1677,9 +1677,7 @@
           "src/components/ScheduleTransfer.tsx#Tab",
           "src/components/ScheduleTransfer.tsx",
           "src/components/TAConversionPanel.tsx",
-          "src/components/ScheduleViewsMenu.tsx",
-          "src/components/SectionGapNote.tsx#SectionGapBadge",
-          "src/components/ActualDemandAlert.tsx#DemandAlertBadge"
+          "src/components/ScheduleViewsMenu.tsx"
         ],
         "tests": [
           "tests/schedule-tools-groups-audit.ts"

@@ -17,7 +17,7 @@ import ImportNameFillPanel from "./ImportNameFillPanel";
 import SchedulePublish from "./SchedulePublish";
 import TAConversionPanel from "./TAConversionPanel";
 import PlanSheetPublisher from "./PlanSheetPublisher";
-import SectionPlanning from "./SectionPlanning";
+import SectionPlan from "./SectionPlan";
 import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
 import { isAssignableInstructor } from "../utils/instructorStatus";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
@@ -78,13 +78,11 @@ interface Props {
 
 /* «محاكي الشعب» و«فرصة للتحسين» انتقلا إلى مركز الذكاء وحده («جرّب ← ماذا لو» وبطاقة «فرصة لتحسين الجدول»):
    أداةُ القرار لها بابٌ واحد، وأدواتُ البيانات للبيانات. */
-type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "demand" | "ta";
+type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "ta";
 export type ScheduleToolTab = Tab;
 const DepartmentRoster = lazy(() => import("./DepartmentRoster"));
 /* 📚 «كل المقررات» بجانب التخطيط: كل مقررات الصحيفتين، و«− شعبة / + شعبة» بأثرٍ فوري (src/components/AllCourses.tsx). */
 const AllCourses = lazy(() => import("./AllCourses"));
-/* «الطلب الفعلي» بجانب أدوات الاستيراد: رفعُ تقرير التسجيل وربطُ مقرراته، باللوحة نفسها التي في مركز التحليلات. */
-const ActualDemandPanel = lazy(() => import("./ActualDemandPanel"));
 import ImportDryRun, { DryRunBaselineFailed, DryRunOffer } from "./ImportDryRun";
 import { importDiff } from "../utils/importDiff";
 import ImportCatalogueGaps, { type GapDecisions } from "./ImportCatalogueGaps";
@@ -1368,7 +1366,6 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               <div className="transfer-tab-row">
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "courses" ? "active" : ""} onClick={() => goTab("courses")} title="كل المقررات"><Library />كل المقررات</button>
-                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "demand" ? "active" : ""} onClick={() => goTab("demand")} title="الطلب الفعلي: تقرير التسجيل وربط مقرراته"><ClipboardList />الطلب الفعلي</button>
               </div>
             </div>
           )}
@@ -1881,27 +1878,14 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           ) : null}
 
           {tab === "planning" ? (
-            <>
-              <div className="tool-lede">
-                <span className="tool-lede-mark"><UsersRound aria-hidden="true" /></span>
-                <div>
-                  <strong>كم شعبة نفتح؟</strong>
-                  <p>كشف «المتبقي» من عمادة التسجيل، ومدى شعبٍ يرسيه ما فتحه القسم فعلاً، ثم تقريرٌ يُطبع.</p>
-                </div>
-              </div>
-              {collegeId && sectionId && termId ? <SectionPlanning collegeId={collegeId} sectionId={sectionId} termId={termId} onReviewRows={(rows, meta) => { setTab("import"); void previewWorksheetRows(rows, "تخطيط الشعب", true, meta); }} /> : <p>اختر القسم والفصل أولاً.</p>}
-            </>
+            collegeId && sectionId && termId
+              ? <SectionPlan collegeId={collegeId} sectionId={sectionId} termId={termId} />
+              : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 
           {tab === "courses" ? (
             collegeId && sectionId && termId
               ? <Suspense fallback={<p>⏳</p>}><AllCourses collegeId={collegeId} sectionId={sectionId} termId={termId} onImportStats={() => setTab("planning")} /></Suspense>
-              : <p>اختر القسم والفصل أولاً.</p>
-          ) : null}
-
-          {tab === "demand" ? (
-            collegeId && sectionId && termId
-              ? <Suspense fallback={<p>⏳</p>}><ActualDemandPanel collegeId={collegeId} sectionId={sectionId} termId={termId} mode="data" /></Suspense>
               : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 

@@ -30,11 +30,5 @@
 .publish-sheet-head{display:flex;align-items:center;gap:10px}
 .publish-sheet-head strong{font-size:.98rem}
 
-/* شارتا «التخطيط» و«الطلب الفعلي»: الشارةُ تفتح لسانها، والسهمُ بجانبها يفتح القائمة. */
-.apb-badge-split{display:inline-flex;align-items:stretch;gap:0}
-.apb-badge-split>.apb-badge:first-child{border-start-end-radius:0;border-end-end-radius:0}
-.apb-badge-split>.apb-badge-chev{border-start-start-radius:0;border-end-start-radius:0;border-inline-start:1px solid color-mix(in srgb,currentColor 18%,transparent);padding-inline:6px;min-inline-size:28px;justify-content:center}
-.apb-badge-split>.apb-badge-chev[aria-expanded="true"] .apb-data-chev{transform:rotate(180deg)}
-
 /* قائمة العروض: «حفظ العرض الحالي» و«تركيز» بأيقونتيهما. */
 .views-actions .views-item[role="menuitemcheckbox"][aria-checked="true"]{color:var(--accent)}

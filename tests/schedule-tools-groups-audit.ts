@@ -2,12 +2,12 @@
  * ── «أدوات الجدول»: ثلاث مجموعات، ولا شيء ضاع (المالك 2026-11-14) ─────────────
  *
  *   G1 الزرّ «أدوات الجدول» (لا «أدوات البيانات») في الجدول الدراسي وعنوان النافذة.
- *   G2 المجموعات بترتيبها: «التخطيط» (تخطيط الشعب، كل المقررات، الطلب الفعلي) ← «الأساتذة»
+ *   G2 المجموعات بترتيبها: «التخطيط» (تخطيط الشعب من تقرير التسجيل، كل المقررات) ← «الأساتذة»
  *      (الأساتذة، المنتدبون، استبدال، تحويل هيئة التدريب) ← «الملفات» (استيراد، تصدير، نشر).
  *   G3 الفصل الأرشيف: «الملفات» وحدها بـ«تصدير» و«نشر» — لا استيراد ولا تخطيط ولا أساتذة.
  *   G4 «تحويل هيئة التدريب» انتقل من «المزيد» إلى «الأساتذة» بنسخته الآمنة وتراجعه.
  *   G5 «الصحيفة» في «نشر» لرئيس لجنة الجدول والمدير، ولا تغيب في الأرشيف؛ والخادم يقبل رئيس اللجنة.
- *   G6 شارتا «التخطيط» و«الطلب الفعلي» في شريط الاعتماد تفتحان لسانيهما، والقائمة باقيةٌ بسهمها.
+ *   G6 شارة «التخطيط» كما قرّرها المالك في #483 (SectionPlanningBadge)، ولا لسانَ لملفاتٍ حُذفت.
  *   G7 «حفظ العرض الحالي» و«تركيز» في قائمة العروض وحدها؛ و«تجربة آمنة» زرٌّ ظاهرٌ كما كان؛ ولوحة الأوامر باقية.
  */
 import fs from "fs";
@@ -23,8 +23,6 @@ const transfer = read("src/components/ScheduleTransfer.tsx");
 const ta = read("src/components/TAConversionPanel.tsx");
 const views = read("src/components/ScheduleViewsMenu.tsx");
 const bar = read("src/components/ApprovalBar.tsx");
-const gap = read("src/components/SectionGapNote.tsx");
-const demand = read("src/components/ActualDemandAlert.tsx");
 const sheets = read("src/server/planSheetRoutes.ts");
 
 check(/<ArrowLeftRight \/> أدوات الجدول/.test(schedules) && !/أدوات البيانات/.test(schedules) && /<h2>\{termEnded \? "تصدير · نشر" : "أدوات الجدول"\}<\/h2>/.test(transfer),
@@ -32,7 +30,7 @@ check(/<ArrowLeftRight \/> أدوات الجدول/.test(schedules) && !/أدو�
 
 const nav = transfer.slice(transfer.indexOf('className={`transfer-tabs transfer-tabs--grouped'), transfer.indexOf("</nav>"));
 const at = (needle: string) => nav.indexOf(needle);
-const order = ['id="transfer-group-planning"', 'goTab("planning")', 'goTab("courses")', 'goTab("demand")',
+const order = ['id="transfer-group-planning"', 'goTab("planning")', 'goTab("courses")',
   'id="transfer-group-people"', 'goTab("roster")', 'goTab("visiting")', 'goTab("retire")', 'goTab("ta")',
   'id="transfer-group-files"', 'goTab("import")', 'goTab("export")', 'goTab("publish")'];
 check(order.every(needle => at(needle) >= 0) && order.every((needle, index) => index === 0 || at(order[index - 1]) < at(needle)),
@@ -65,11 +63,8 @@ check(/roleId\(req\) === "committeeChair" && deps\.isScopeAllowed\(req, collegeI
 const chair = read("src/utils/academicRoles.ts");
 check(/id: "committeeChair"[\s\S]{0,400}formIds: \[SCHEDULE_WORKSPACE/.test(chair), "G5 ورئيس اللجنة يفتح الجدول الدراسي (فيصل إلى أدوات الجدول)");
 
-check(/onOpenTool\?: \(tab: "planning" \| "demand"\) => void;/.test(bar) && /onOpen=\{onOpenTool \? \(\) => onOpenTool\("planning"\) : undefined\}/.test(bar)
-  && /onOpen=\{onOpenTool \? \(\) => onOpenTool\("demand"\) : undefined\}/.test(bar), "G6 الشارتان تفتحان لسانيهما");
-check(/apb-badge-chev[^>]*aria-expanded=\{open\} onClick=\{onToggle\}/.test(gap) && /apb-badge-chev[^>]*aria-expanded=\{open\} onClick=\{onToggle\}/.test(demand),
-  "G6 والقائمة باقيةٌ بسهمها (لا يضيع «عالج» ولا قرارات التخطيط)");
-check(/onOpenTool=\{tab => \{[^}]*setTransferTab\(tab\); setTransferOpen\(true\);/.test(schedules) && /initialTab=\{transferTab\}/.test(schedules), "G6 والجدول يفتح النافذة على اللسان");
+check(/<SectionPlanningBadge /.test(bar) && !/onOpenTool/.test(bar) && !/goTab\("demand"\)/.test(transfer) && !/ActualDemandPanel/.test(transfer)
+  && /<SectionPlan collegeId=\{collegeId\}/.test(transfer), "G6 «التخطيط» شاشةُ #483 الواحدة، ولا لسانَ «الطلب الفعلي» لملفٍ محذوف");
 
 check(!/<Bookmark aria-hidden="true" \/> حفظ العرض الحالي/.test(schedules) && !/<Focus \/> \{focusMode \? "إنهاء التركيز" : "تركيز"\}/.test(schedules),
   "G7 لا «حفظ العرض الحالي» ولا «تركيز» في «المزيد»");

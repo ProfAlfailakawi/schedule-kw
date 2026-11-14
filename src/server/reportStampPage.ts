@@ -30,6 +30,8 @@ export interface ReportStampView {
   changed?: ReportStampLine[];
   removed?: ReportStampLine[];
   added?: ReportStampLine[];
+  /** رابطُ نسخة اليوم من التقرير نفسه في مركز الاستعلام (يطلب الدخول). */
+  liveHref?: string;
 }
 
 const esc = (value: unknown): string =>
@@ -79,6 +81,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Tahom
 .verdict.unknown i{background:var(--line);color:var(--muted)}
 .counts{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
 .counts span{padding:3px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:13px;font-weight:700}
+.live{margin:14px 0 0;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}.live-link{display:inline-block;padding:10px 16px;border-radius:12px;border:1px solid currentColor;font-weight:700;text-decoration:none;color:inherit}
 .note{margin:12px 0 0;padding:10px 14px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-size:14px}
 .card{margin-top:14px;padding:6px 18px;border-radius:18px;background:var(--card);border:1px solid var(--line)}
 .facts{margin:0;display:grid;grid-template-columns:auto 1fr;gap:0 16px}
@@ -145,6 +148,7 @@ export function reportStampPage(view: ReportStampView): string {
       + lineList("تغيّر في الورقة", view.changed, "changed")
       + lineList("حُذف من الجدول", view.removed, "removed")
       + lineList("أُضيف إلى الجدول بعدها", view.added, "added")
+      + (view.liveHref ? `<p class="live"><a class="live-link" href="${esc(view.liveHref)}">افتح نسخة اليوم من هذا التقرير</a><span class="sec">لمن يملك حساباً في النظام — تُفتح على القسم والفصل نفسيهما.</span></p>` : "")
       + `<div class="card"><dl class="facts">${facts.map(([term, value]) => `<dt>${esc(term)}</dt><dd>${value}</dd>`).join("")}</dl></div>`;
   }
   return `<!doctype html>
