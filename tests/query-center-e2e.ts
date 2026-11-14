@@ -203,7 +203,7 @@ async function main() {
     await desktop.page.keyboard.press("Escape");
 
     /* ── موجز الصباح، ومعاينة الصفحات ── */
-    check((await desktop.page.locator(".morning-brief-tiles i").count()) === 4, "موجز الصباح: أربع بطاقات بأيقونات وأرقام");
+    check((await desktop.page.locator(".morning-brief-tiles .morning-brief-pill").count()) === 4, "موجز الصباح: أربع بطاقات بأيقونات وأرقام");
     await desktop.page.locator('button[aria-label^="معاينة صفحات"]').click();
     await desktop.page.waitForTimeout(700);
     check((await desktop.page.locator(".query-preview-pop li").count()) >= 1, "معاينة الطباعة تعرض الأوراق بأرقامها");

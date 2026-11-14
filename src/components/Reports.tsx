@@ -2625,6 +2625,8 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
         deadline: changes?.deadline ? { date: changes.deadline.effective ? formatBriefDate(changes.deadline.effective) : undefined, daysLeft: changes.deadline.daysLeft } : null,
         blockers: Number(changes?.blockingConflicts || 0),
         regulationNotes: Array.isArray(changes?.regulationNotices) ? changes.regulationNotices.length : Number(changes?.regulationNotices?.count || 0),
+        blockerItems: Array.isArray(changes?.reviewBlockers) ? changes.reviewBlockers : [],
+        noteItems: Array.isArray(changes?.regulationNotices) ? changes.regulationNotices : [],
         changes: changes?.diff?.counts ? { added: Number(changes.diff.counts.added || 0), removed: Number(changes.diff.counts.removed || 0), changed: Number(changes.diff.counts.changed || 0) } : null,
       });
       briefLoadedKey.current = briefScopeKey;
@@ -2953,7 +2955,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
 
       {/* ── موجز الصباح: شريطٌ بأيقوناتٍ وأرقام ── */}
       {briefScopeKey ? (
-        <QueryBrief open={briefOpen} onToggle={() => setBriefOpen(open => !open)} loading={Boolean(brief?.loading)} data={brief?.data || null} error={brief?.error} ink={inkSave} onPrint={on => { chooseInk(on); printReport("morning"); }} label={sectionName || "القسم"} />
+        <QueryBrief open={briefOpen} onToggle={() => setBriefOpen(open => !open)} loading={Boolean(brief?.loading)} data={brief?.data || null} error={brief?.error} canOpenRow={id => results.some(row => row.id === id)} onOpenRow={id => setSelectedResultId(id)} ink={inkSave} onPrint={on => { chooseInk(on); printReport("morning"); }} label={sectionName || "القسم"} />
       ) : null}
 
       <nav ref={lensStripRef as any} className="lens-strip no-print" role="tablist" aria-label="طريقة عرض النتائج" aria-orientation="horizontal" data-more-start={stripMore.start ? "1" : undefined} data-more-end={stripMore.end ? "1" : undefined}>
