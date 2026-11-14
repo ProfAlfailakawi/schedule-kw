@@ -36,7 +36,7 @@ import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { negotiationClosed, type ThreadItem } from "./instructorRequestThread";
 import { AR, countOf } from "./arabicCount";
 import { sameCourseSectionClash,
-  DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, daysApprovedForHours, expectedMinutesForDay, isDecision1912Finding, startLadderNote,
+  DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, daysApprovedForHours, expectedMinutesForDay, isDecision1912Finding, ladderStartsForDays, startLadderNote,
   LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES, patternsForHours, requiredGapForDays, reviewSchedule, toMinutes,
   weeklyLectureMinutes, maxWeeklyMinutesFor, effectiveCourseHours, sectionDaysFitLibrary, sectionPatternIssueText, type DayKey, type RegulationFinding,
 } from "./scheduleRegulations";
@@ -336,6 +336,32 @@ function regulationLadder(days: DayKey[]): string[] {
   const long = days.length > 0 && days.every(day => day === "fmonday" || day === "fwednesday");
   const last = SCHEDULE_DAY_END > 20 * 60 ? SCHEDULE_DAY_END : Math.min(SCHEDULE_DAY_END, long ? 18 * 60 + 30 : 18 * 60);
   return regulationStarts(days as any, 0, { start: SCHEDULE_DAY_START, end: last + 1 }).map(minutesToTime);
+}
+
+/** بدايةٌ خارج السُّلّم: على السُّلّم كله، وإلا على سُلّم كل يومٍ ببدايته (الأيامُ من أسرتين لا سُلّمَ واحداً لها، ولا يمرّ يومُها الطويل بسُلّم القصير). */
+function offLadderNote(request: RequestedRow, slots: Array<{ day: string; start: string }>): string {
+  const whole = startLadderNote(request.days, request.start);
+  if (whole) return whole;
+  for (const slot of slots) {
+    const note = startLadderNote([slot.day as DayKey], slot.start);
+    if (note) return note;
+  }
+  for (const day of request.days) {
+    const note = startLadderNote([day], request.start);
+    if (note) return note;
+  }
+  return "";
+}
+
+/** «الأقرب: 8:00 أو 9:30.» — بدايتا السُّلّم المحيطتان بما اختاره، لإصلاحٍ بضغطة؛ لا شيء حيث لا سُلّمَ واحداً للأيام. */
+function nearestLadderStartsText(request: RequestedRow): string {
+  const wanted = toMinutes(request.start);
+  const starts = ladderStartsForDays(request.days);
+  if (!starts.length || !Number.isFinite(wanted)) return "";
+  const below = [...starts].reverse().find(start => toMinutes(start) < wanted);
+  const above = starts.find(start => toMinutes(start) > wanted);
+  const shown = [below, above].filter(Boolean).map(start => String(start).replace(/^0/, ""));
+  return shown.length ? ` الأقرب: ${shown.join(" أو ")}.` : "";
 }
 
 function nearestFree(request: RequestedRow, context: VerdictContext, roomKeys: string[], week: FSchedule[], identity: number): RequestSlot[] {
@@ -769,9 +795,12 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   /* سُلّمُ البدايات في اللائحة (المالك 2026-10-30): الأحد والثلاثاء والخميس على رأس الساعة، والاثنين والأربعاء 8:00 ثم
      9:30… في كرت الأستاذ يمنع ما اختاره بنفسه («غير معتمد»، ولا يُعفيه تاريخ القسم)، وبدائلُه أقربُ أوقات السُّلّم الخالية.
      وفي شاشات القسم تنبيهٌ لا يمنع (أدناه). الشعبةُ الشاغرة القائمة تُؤخذ كما هي فلا يُحكم على بدايتها. */
-  const ladderNote = request.relatedRowIds?.length ? "" : startLadderNote(request.days, request.start);
+  /* لا يُعفى إلا اختيارُ شعبةٍ شاغرةٍ قائمة (إضافةٌ بصفوفها الرسمية)؛ تعديلُ موعدٍ قائمٍ للأستاذ نفسه ومقرّرٌ جديدٌ يمرّان بالسُّلّم
+     دائماً، ولا يُعفيهما إلا أن يكون القسمُ نفسُه عرض هذا الموعدَ بعينه (ladderBlocks في المصدر). */
+  const vacantSection = Boolean(request.relatedRowIds?.length) && request.action === "add";
+  const ladderNote = vacantSection ? "" : offLadderNote(request, slots);
   if (ladderNote && context.ladderBlocks) {
-    reasons.push({ source: "shape", code: "ladder", blocking: true, text: `وقت البداية غير معتمد في اللائحة: ${ladderNote}` });
+    reasons.push({ source: "shape", code: "ladder", blocking: true, text: `وقت البداية غير معتمد في اللائحة: ${ladderNote}${nearestLadderStartsText(request)}` });
   }
 
   /* ── اللائحة ──────────────────────────────────────────────────────────── */

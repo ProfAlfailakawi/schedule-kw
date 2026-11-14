@@ -178,8 +178,8 @@ const verdictFor = (req: InstructorRequest, allRows: FSchedule[]) => {
     "وما لا قاعةَ فيه يبقى حرفاً بحرف");
   const server = readServerSource();
   const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.get("/r/:token"'));
-  check(!server.includes("roomPick: verdict") && !/roomPick|reservedRoom|roomSwitch|ROOM_WHY/.test(page) && page.includes("function roomSignalHtml(it)"),
-    "الكرت لا يعرض «الأنسب» ولا بديلين ولا اختياراً: إشارةٌ واحدة 🏫✓ وحدها");
+  check(!server.includes("roomPick: verdict") && !/roomPick|reservedRoom|roomSwitch|ROOM_WHY/.test(page) && !page.includes("roomSignalHtml"),
+    "الكرت لا يعرض «الأنسب» ولا بديلين ولا اختياراً ولا إشارةً للقاعة");
   check(server.includes("const rankable = rules.knownRoomKeys.map(") && server.includes("rankRequestRooms(rankable, {") && server.includes("knownRoomKeys: item.offeringRowIds?.length ? [] : rankedRooms.map(room => room.key)")
     && server.includes("await requestReservationProposals(judged)"), "والترتيبُ الذكي والحجزُ لحظةَ الإرسال باقيان في الخادم كما هما");
 }
