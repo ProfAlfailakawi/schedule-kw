@@ -5169,6 +5169,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
             itemIndex: handoffForSave!.itemIndex, requestRevision: handoffForSave!.requestRevision, add: { courseId: form.AdCourseId, scode: form.SCode,
               start: form.fstarttime, end: form.fendtime, room: form.AdRoomCode, hall: form.AdRoomHall,
+              /* الأيامُ كما اختارها المنسّق في النموذج: كانت تُهمل فيُكتب ما طلبه الأستاذ ويقول النموذجُ غيره. */
+              days: (["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const).filter(day => Boolean((form as any)[day])),
               buildingId: form.buildingId, roomId: form.roomId, locationStatus: form.locationStatus, companionRoomId: form.companionRoomId || handoffForSave!.companionRoomId } }),
         });
         pendingHandoff.current = null;
@@ -5235,14 +5237,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         && Number(form.AdCourseId || 0) === Number(handoff!.courseId)
         && Number(form.AdTermId || 0) === Number(handoff!.termId)
         && Number(form.AdInstructorId || 0) === Number(handoff!.instructorId);
+      /* المقرّرُ والأستاذُ والفصلُ كما طُلب، لكن في كليةٍ أو قسمٍ غير الذي طلبه الأستاذ: التثبيتُ الذرّي (/apply)
+         لم يُستعمل، والخادمُ لا يسجّل «ثُبّت» على موقعٍ آخر (FR-REQ-025). كان يُرسل قراراً بلا ختم الطلب ولا هويّة البند
+         فيُردّ دائماً؛ فيُقال الآن صراحةً إن الموعد حُفظ وبندَ الأستاذ باقٍ في الوارد ليُقرَّر فيه. */
       if (handoff && matchesHandoff && editor !== "edit" && createdRowId) {
         pendingHandoff.current = null;
-        void fetch(`/api/instructor-requests/${handoff.requestId}/decide`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ itemIndex: handoff.itemIndex, state: "fixed", scheduleId: createdRowId }),
-        }).then(response => { if (!response.ok) throw new Error("حُفظ الموعد لكن تعذّر تسجيل قرار الطلب. راجع الوارد."); }).catch(issue => setError(issue.message));
+        setError("حُفظ الموعد في موقعٍ غير الذي طلبه الأستاذ، فبقي طلبه معلّقاً في «رغبات الأساتذة». ثبّته أو ارفضه من هناك.");
       }
       /* الشعبةُ التي فُتحت لطلب الإرشاد تُربط به بعد الحفظ: المقررُ والفصلُ نفساهما، وإلا فهي إضافةٌ أخرى. */
       const sectionSeed = pendingSectionRequest.current;

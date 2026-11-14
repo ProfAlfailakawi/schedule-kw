@@ -5943,6 +5943,52 @@ export const Repository = {
     return true;
   },
 
+  /** «أبلغ الأستاذ» بالقرار: لحظةُ الإبلاغ وحدها (حقلٌ واحد، بلا رفع ختم الطلب: بنودُه لم تتغيّر). */
+  setInstructorRequestDecisionNotified: async (id: string, at: string): Promise<boolean> => {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        tx.update(ref, { decisionNotifiedAt: at });
+        return true;
+      });
+      return Boolean(saved);
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return false;
+    row.decisionNotifiedAt = at;
+    saveDatabase();
+    return true;
+  },
+
+  /**
+   * حدثٌ في سجلّ الطلب وحده (المقترحُ الدراسي: أُرسل، وافق، سُحب…): حقلُ السجلّ لا الطلبُ كلُّه، ولا يُرفع ختمُه.
+   * كان كلُّ حدثٍ يحفظ الطلبَ كاملاً فيرفع ختمَه، فيُردّ إرسالُ أستاذٍ يكتب في تلك اللحظة بـ«تغيّر الطلب بعد فتحه».
+   */
+  appendInstructorRequestTimeline: async (id: string, event: { kind: string; at: string; by?: string; detail?: string }): Promise<boolean> => {
+    const clean = Object.fromEntries(Object.entries(event).filter(([, value]) => value !== undefined)) as any;
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const ref = firestoreDb.collection("instructorRequests").doc(id);
+      const saved = await firestoreDb.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        const timeline = [...(((snap.data() as InstructorRequest).timeline) || []), clean].slice(-300);
+        tx.update(ref, { timeline, updatedAt: event.at });
+        return { ...(snap.data() as InstructorRequest), timeline, updatedAt: event.at };
+      });
+      if (saved) announceInstructorRequestSaved(saved);
+      return Boolean(saved);
+    }
+    const row = (db.instructorRequests || []).find(item => item.id === id);
+    if (!row) return false;
+    row.timeline = [...(row.timeline || []), clean].slice(-300);
+    row.updatedAt = event.at;
+    saveDatabase();
+    announceInstructorRequestSaved(row);
+    return true;
+  },
+
   setInstructorRequestLinkMode: async (id: string, mode: LinkMode): Promise<boolean> => {
     const at = new Date().toISOString();
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -6144,6 +6190,11 @@ export const Repository = {
     /** الفصل ودالّةُ حارسٍ تُشغَّل على صفوفه المقروءة داخل المعاملة نفسها (فتدخل في مجموعة القراءة). */
     termId?: number;
     guard?: (termRows: FSchedule[]) => void;
+    /**
+     * طلبُ الأستاذ الذي جاء منه المقترح بعد التثبيت (utils/proposalSettlesRequest): يُكتب في المعاملة نفسها،
+     * وتُفكّ حجوزُ ما ثُبّت منه — أو null حين لا بندَ معلّقاً عالجه المقترح.
+     */
+    settleRequest?: (request: InstructorRequest) => InstructorRequest | null;
     creates: Array<Omit<FSchedule, "id">>;
     updates: Array<{ id: number; fields: Partial<FSchedule>; expectedRev: number }>;
     deletes: Array<{ id: number; expectedRev: number }>;
@@ -6158,12 +6209,15 @@ export const Repository = {
     };
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
+    /* الطلبُ الذي ثُبّتت بنودُه مع المقترح: يُبلَّغ البثُّ الحيّ بعد نجاح المعاملة وحدها. */
+    const settledRequests: InstructorRequest[] = [];
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const firstId = plan.creates.length && !reverse ? await reserveFirestoreIds("schedules", plan.creates.length) : 0;
       const proposalRef = firestoreDb.collection("studyProposals").doc(plan.proposalId);
       const updateRefs = plan.updates.map(u => firestoreDb!.collection("schedules").doc(`schedule_${u.id}`));
       const deleteRefs = plan.deletes.map(d => firestoreDb!.collection("schedules").doc(`schedule_${d.id}`));
       const result = await firestoreDb.runTransaction(async transaction => {
+        settledRequests.length = 0;
         const proposalDoc = await transaction.get(proposalRef);
         if (!proposalDoc.exists) throw new Error("المقترح غير موجود");
         const current = proposalDoc.data() as StudyProposal;
@@ -6191,8 +6245,10 @@ export const Repository = {
         const created: FSchedule[] = plan.creates.map((row, index) => (reverse ? { ...(row as FSchedule), rev: Number((row as FSchedule).rev || 0) + 1 } : { ...row, id: firstId + index, rev: 1 }));
         const termId = Number(plan.termId || current.AdTermId);
         const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(termId));
-        const [ledger, barterSnapshot] = await Promise.all([transaction.get(ledgerRef), transaction.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))]);
-        const entries: RequestReservation[] = ledger.data()?.entries || [];
+        const requestRef = plan.settleRequest && current.requestId ? firestoreDb!.collection("instructorRequests").doc(current.requestId) : null;
+        const [ledger, barterSnapshot, requestDoc] = await Promise.all([transaction.get(ledgerRef), transaction.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)])),
+          requestRef ? transaction.get(requestRef) : Promise.resolve(null)]);
+        let entries: RequestReservation[] = ledger.data()?.entries || [];
         const approved = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
         [...created, ...updated].forEach(row => {
           if (scheduleViolatesApprovedBarterWindow(row, approved)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
@@ -6201,6 +6257,14 @@ export const Repository = {
         for (const item of plan.deletes) {
           const row = docs.find(doc => Number(doc.data()?.id) === item.id)?.data() as FSchedule;
           if (row) assertRequestReservationWrite(row, entries.filter(entry => entry.offeringRowIds.includes(item.id)), current.requestId);
+        }
+        /* بنودُ الطلب التي عالجها المقترح تُثبَّت هنا معه، ويُفكّ حجزُها في الدفتر نفسه: كلُّه أو لا شيء. */
+        const settledRequest = requestDoc?.exists ? plan.settleRequest!(requestDoc.data() as InstructorRequest) : null;
+        if (settledRequest && requestRef) {
+          const nextRequest = { ...settledRequest, requestRevision: Number((requestDoc!.data() as InstructorRequest).requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
+          entries = retainRequestReservations(entries, nextRequest);
+          transaction.set(requestRef, nextRequest);
+          settledRequests.push(nextRequest);
         }
         transaction.set(ledgerRef, { entries, serial: Number(ledger.data()?.serial || 0) + 1 });
         updated.forEach((row, index) => transaction.set(updateRefs[index], row));
@@ -6212,6 +6276,7 @@ export const Repository = {
       });
       invalidateSchedules();
       if (plan.termId !== undefined) await markRegistrationRunsStale(plan.termId);
+      settledRequests.forEach(announceInstructorRequestSaved);
       return result;
     }
     /* Demo / local: the check and the apply run with no await between them, so
@@ -6250,8 +6315,19 @@ export const Repository = {
     db.schedules.push(...created);
     const next = { ...plan.build(created), rev: plan.expectedRev + 1, updatedAt: new Date().toISOString() };
     db.studyProposals[at] = next;
+    /* بنودُ الطلب التي عالجها المقترح، وفكُّ حجزها — في الخطوة نفسها بلا انتظارٍ بينهما. */
+    const requestAt = plan.settleRequest && current.requestId ? (db.instructorRequests || []).findIndex(row => row.id === current.requestId) : -1;
+    const settledRequest = requestAt >= 0 ? plan.settleRequest!(db.instructorRequests![requestAt]) : null;
+    if (settledRequest) {
+      const nextRequest = { ...settledRequest, requestRevision: Number(db.instructorRequests![requestAt].requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
+      db.instructorRequests![requestAt] = nextRequest;
+      const ledgerKey = String(plan.termId || current.AdTermId);
+      (db.instructorRequestReservationLedgers ||= {})[ledgerKey] = retainRequestReservations(held, nextRequest);
+      settledRequests.push(nextRequest);
+    }
     saveDatabase();
     if (plan.termId !== undefined) await markRegistrationRunsStale(plan.termId);
+    settledRequests.forEach(announceInstructorRequestSaved);
     return { proposal: next, created, updated };
   },
 

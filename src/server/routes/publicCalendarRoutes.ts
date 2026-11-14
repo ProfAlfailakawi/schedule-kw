@@ -38,7 +38,7 @@ const TERM_WEEKS = 16;
  * body at all. That is the difference between a feed a department can hand to
  * four hundred people and one it cannot.
  */
-async function sendCalendar(req: Request, res: Response, name: string, termId: number, lectures: CalendarLecture[], singles: CalendarSingle[] = [], pausedNote = "") {
+export async function sendCalendar(req: Request, res: Response, name: string, termId: number, lectures: CalendarLecture[], singles: CalendarSingle[] = [], pausedNote = "", download = "") {
   const term = (await Repository.getTerms()).find(row => row.AdTermId === termId);
   /* حدّا الفصل من ‎termWindow‎ (المعلَن، وإلا المستنبط من اسم الفصل)؛ «اليوم»
      لم يعد مرساةً إلا لفصلٍ لا يُعرف عنه شيء — ويقول الملف ذلك. */
@@ -68,7 +68,8 @@ async function sendCalendar(req: Request, res: Response, name: string, termId: n
      reason. Hashing the body without its stamps is what makes the tag stable. */
   const tag = `W/"${createHmac("sha256", "ics").update(body.replace(/^DTSTAMP:.*$/gm, "")).digest("hex").slice(0, 24)}"`;
   res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-  res.setHeader("Content-Disposition", `inline; filename="schedule.ics"`);
+  /* موعدٌ واحدٌ يُنزَّل ملفاً (صفحةُ الطلب: «أضف إلى تقويمي»)؛ وما سواه اشتراكٌ يُعرض كما كان. */
+  res.setHeader("Content-Disposition", download ? `attachment; filename="${download.replace(/[^\w.-]/g, "")}"` : `inline; filename="schedule.ics"`);
   res.setHeader("ETag", tag);
   // Re-validate every time, but let the tag decide whether a body is needed.
   res.setHeader("Cache-Control", "no-cache, must-revalidate");
