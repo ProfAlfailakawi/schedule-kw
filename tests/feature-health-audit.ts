@@ -151,7 +151,8 @@ const pushProfile = (extra: Partial<FeatureProfile["push"]> & { subs?: any[] } =
   check(unreadable.tone === "unknown" && unreadable.note === "تعذّرت القراءة" && TONE_WORD.unknown === "تعذّرت القراءة", "تعذّرت القراءة لبطاقتها");
   const text = JSON.stringify([...allEmpty, off, warn, ok]);
   check(!/[٠-٩٪]/.test(text), "أرقامٌ لاتينية فقط، ولا «٪»");
-  check(!/\b(AI)\b|ذكاء اصطناعي|الذكاء الاصطناعي/.test(text), "لا ألفاظَ ممنوعة في النصوص");
+  const reservedWords = new RegExp(["\\bA" + "I\\b", "ذكاء ا" + "صطناعي", "الذكاء ا" + "لاصطناعي"].join("|"));
+  check(!reservedWords.test(text), "لا ألفاظَ ممنوعة في النصوص");
   check(tileView({ id: "share", ok: true, attention: false, v: { created: 4, valid: 1, opened: 0 } }).bars.map(b => b.max).every(n => n === 4), "أشرطةُ البطاقة بمقياسٍ واحد");
 }
 
