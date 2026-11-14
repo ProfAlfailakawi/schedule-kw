@@ -2,7 +2,7 @@ import TermSelect from "./TermSelect";
 import { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GraduationCap, AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Library, ClipboardList } from "lucide-react";
+import { GraduationCap, AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Library, ClipboardList, Replace, Compass, FolderOpen, BookMarked } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
 import { settleRegulationException } from "./RegulationExceptionSheet";
 import { validateCivilId } from "../utils/civilId";
@@ -15,6 +15,8 @@ import { useImportPreflight } from "../hooks/useImportPreflight";
 import { importGateSettled, importGateState } from "../utils/importGate";
 import ImportNameFillPanel from "./ImportNameFillPanel";
 import SchedulePublish from "./SchedulePublish";
+import TAConversionPanel from "./TAConversionPanel";
+import PlanSheetPublisher from "./PlanSheetPublisher";
 import SectionPlan from "./SectionPlan";
 import { blockingConflicts, placeholderInstructorIds } from "../utils/scheduleBlockers";
 import { isAssignableInstructor } from "../utils/instructorStatus";
@@ -64,11 +66,20 @@ interface Props {
   onChanged: () => void;
   onSectionChange?: (sectionId: number) => void;
   onClose: () => void;
+  /** يُفتح على لسانٍ بعينه (شارتا «التخطيط» و«الطلب الفعلي» في شريط الاعتماد). */
+  initialTab?: ScheduleToolTab;
+  /** «الصحيفة» في «نشر»: لرئيس لجنة الجدول والمدير — ليست مقيّدةً بالفصل. */
+  canPublishSheets?: boolean;
+  isAdmin?: boolean;
+  /** ما تعرفه شاشة الجدول من شارات «منتدب» — لـ«تحويل هيئة التدريب». */
+  visitingIds?: Iterable<number>;
+  visitingRosterIds?: Iterable<number>;
 }
 
 /* «محاكي الشعب» و«فرصة للتحسين» انتقلا إلى مركز الذكاء وحده («جرّب ← ماذا لو» وبطاقة «فرصة لتحسين الجدول»):
    أداةُ القرار لها بابٌ واحد، وأدواتُ البيانات للبيانات. */
-type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses";
+type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "ta";
+export type ScheduleToolTab = Tab;
 const DepartmentRoster = lazy(() => import("./DepartmentRoster"));
 /* 📚 «كل المقررات» بجانب التخطيط: كل مقررات الصحيفتين، و«− شعبة / + شعبة» بأثرٍ فوري (src/components/AllCourses.tsx). */
 const AllCourses = lazy(() => import("./AllCourses"));
@@ -77,11 +88,12 @@ import { importDiff } from "../utils/importDiff";
 import ImportCatalogueGaps, { type GapDecisions } from "./ImportCatalogueGaps";
 import { gapKeyOf, withoutLinkedRowIssues } from "../utils/importCatalogueGaps";
 
-export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose }: Props) {
+export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose, initialTab, canPublishSheets = false, isAdmin = false, visitingIds, visitingRosterIds }: Props) {
   useDialogDismiss(true, onClose);
-  const [tab, setTab] = useState<Tab>("export");
   /* فصلٌ منتهٍ: لا استيراد ولا تخطيط شعب ولا استبدال ولا منتدبون — يُقرأ ويُصدَّر فقط، كي لا يُكتب في أرشيف. */
   const termEnded = termIsArchive(terms.find(term => Number(term.AdTermId) === Number(termId)) as any, terms as any);
+  /* «التخطيط» أولاً (المالك 2026-11-14): النافذة تُفتح على «تخطيط الشعب»، إلا أن يُطلب لسانٌ بعينه أو يكون الفصل أرشيفاً. */
+  const [tab, setTab] = useState<Tab>(() => initialTab || (termEnded ? "export" : "planning"));
   useEffect(() => { if (termEnded && tab !== "export" && tab !== "publish") setTab("export"); }, [termEnded, tab]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -753,7 +765,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
       ["الأيام", "اكتب أسماء الأيام كما تنطقها: الأحد - الثلاثاء - الخميس. أي فاصل يصلح."],
       ["الوقت", "من-إلى بصيغة 24 ساعة: 08:00-09:20."],
       ["الصفوف الناقصة", "صف برمز غير معروف أو أستاذ غير معروف يظهر لك كملاحظة قبل أي حفظ — لا يُكتب شيء خفية."],
-      ["ماذا يحدث بعد الرفع", "يُعرض الملف أولاً كحصيلة: كم صفاً فُهم وما المشاكل. بعد المراجعة يمكنك النشر مباشرة من أدوات البيانات. تقرير تغييرات نسخة PDF يوجد في مركز الاستعلامات والتقارير."],
+      ["ماذا يحدث بعد الرفع", "يُعرض الملف أولاً كحصيلة: كم صفاً فُهم وما المشاكل. بعد المراجعة يمكنك النشر مباشرة من أدوات الجدول. تقرير تغييرات نسخة PDF يوجد في مركز الاستعلامات والتقارير."],
     ]);
     (guide as any)["!cols"] = [{ wch: 16 }, { wch: 90 }];
     const wb = XLSX.utils.book_new();
@@ -1346,25 +1358,38 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
         {/* التبويبات تختفي مع الحصيلة: الشاشة قالت ما جرى، ولا عودة إلى
             تبويبات النقل إلا بعد إغلاقها. */}
         {publishReceipt ? null : (
-        <nav className={`transfer-tabs${termEnded ? " is-ended" : ""}`}>
-          <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "export" ? "active" : ""} onClick={() => goTab("export")} title="تصدير"><Download />تصدير</button>
+        <nav className={`transfer-tabs transfer-tabs--grouped${termEnded ? " is-ended" : ""}`} aria-label="أدوات الجدول">
+          {/* ── ثلاث مجموعات صغيرة (المالك 2026-11-14): التخطيط أولاً، ثم الأساتذة، ثم الملفات. ── */}
           {termEnded ? null : (
-            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "import" && !fromPlanning ? "active" : ""} onClick={() => goTab("import")} title="استيراد"><Upload />استيراد</button>
+            <div className="transfer-tab-group is-planning" role="group" aria-labelledby="transfer-group-planning">
+              <span className="transfer-tab-group-name" id="transfer-group-planning"><Compass aria-hidden="true" />التخطيط</span>
+              <div className="transfer-tab-row">
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "courses" ? "active" : ""} onClick={() => goTab("courses")} title="كل المقررات"><Library />كل المقررات</button>
+              </div>
+            </div>
           )}
-          <button type="button" data-guide-feature-id="schedule.tool.data" data-guide-tab="publish" className={tab === "publish" ? "active" : ""} onClick={() => goTab("publish")} title="نشر"><Link2 />نشر</button>
           {termEnded ? null : (
-            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "retire" ? "active" : ""} onClick={() => goTab("retire")} title="استبدال"><UserMinus />استبدال</button>
+            <div className="transfer-tab-group" role="group" aria-labelledby="transfer-group-people">
+              <span className="transfer-tab-group-name" id="transfer-group-people"><GraduationCap aria-hidden="true" />الأساتذة</span>
+              <div className="transfer-tab-row">
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "roster" ? "active" : ""} onClick={() => goTab("roster")} title="الأساتذة: النصاب والدرجة والحالة"><GraduationCap />الأساتذة</button>
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "visiting" ? "active" : ""} onClick={() => goTab("visiting")} title="المنتدبون"><UserPlus />المنتدبون</button>
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "retire" ? "active" : ""} onClick={() => goTab("retire")} title="استبدال"><UserMinus />استبدال</button>
+                <button type="button" data-guide-feature-id="schedule.tool.data" data-guide-tab="ta" className={tab === "ta" ? "active" : ""} onClick={() => goTab("ta")} title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية أو أستاذ من القسم"><Replace />تحويل هيئة التدريب</button>
+              </div>
+            </div>
           )}
-          {termEnded ? null : (
-            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "visiting" ? "active" : ""} onClick={() => goTab("visiting")} title="المنتدبون"><UserPlus />المنتدبون</button>
-          )}
-          {termEnded ? null : (
-            <>
-            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "roster" ? "active" : ""} onClick={() => goTab("roster")} title="الأساتذة: النصاب والدرجة والحالة"><GraduationCap />الأساتذة</button>
-            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
-            <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "courses" ? "active" : ""} onClick={() => goTab("courses")} title="كل المقررات"><Library />كل المقررات</button>
-            </>
-          )}
+          <div className="transfer-tab-group" role="group" aria-labelledby="transfer-group-files">
+            <span className="transfer-tab-group-name" id="transfer-group-files"><FolderOpen aria-hidden="true" />الملفات</span>
+            <div className="transfer-tab-row">
+              {termEnded ? null : (
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "import" && !fromPlanning ? "active" : ""} onClick={() => goTab("import")} title="استيراد"><Upload />استيراد</button>
+              )}
+              <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "export" ? "active" : ""} onClick={() => goTab("export")} title="تصدير"><Download />تصدير</button>
+              <button type="button" data-guide-feature-id="schedule.tool.data" data-guide-tab="publish" className={tab === "publish" ? "active" : ""} onClick={() => goTab("publish")} title="نشر"><Link2 />نشر</button>
+            </div>
+          </div>
         </nav>
         )}
 
@@ -1781,7 +1806,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                   {/* حصيلة النشر لها صندوقها الذي يحلّ محلّ الشاشة كلها، فلم
                       يبق هنا إلا خبر المسودة. */}
                   {xlsxDraft && !dryApplied ? (
-                    <p className="transfer-done"><Check /> حُفظت المسودة داخل أدوات البيانات. يمكنك نشرها من هنا متى شئت.</p>
+                    <p className="transfer-done"><Check /> حُفظت المسودة داخل أدوات الجدول. يمكنك نشرها من هنا متى شئت.</p>
                   ) : (
                     /* بلا صفوف تختفي معاينة الصفحات، فيقف زرّ المراجعة في سطر الانتظار. */
                     <div className="transfer-import-commit" data-import-issue={pagesPendingReview.length ? "true" : undefined}>
@@ -1831,7 +1856,25 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                 </div>
                 {termIsArchive(terms.find(row => Number(row.AdTermId) === Number(termId)), terms) ? null : <SchedulePublish collegeId={collegeId} sectionId={sectionId} termId={termId} appearance="primary" />}
               </div>
+              {/* «الصحيفة»: رابطٌ رابعٌ للنشر، لرئيس لجنة الجدول والمدير — لا يرتبط بالفصل فيبقى في الأرشيف. */}
+              {canPublishSheets ? (
+                <section className="publish-sheet-card" aria-labelledby="publish-sheet-title" data-publish-kind="sheet">
+                  <header className="publish-sheet-head">
+                    <span className="publish-hero-mark"><BookMarked aria-hidden="true" /></span>
+                    <strong id="publish-sheet-title">الصحيفة</strong>
+                  </header>
+                  <PlanSheetPublisher focusSectionId={Number(sectionId) || 0} isAdmin={isAdmin} />
+                </section>
+              ) : null}
             </>
+          ) : null}
+
+          {tab === "ta" ? (
+            collegeId && sectionId && termId
+              ? <TAConversionPanel embedded collegeId={collegeId} sectionId={sectionId} termId={termId}
+                  instructors={instructors as any[]} visitingIds={visitingIds} visitingRosterIds={visitingRosterIds}
+                  onClose={() => goTab("roster")} onChanged={onChanged} />
+              : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 
           {tab === "planning" ? (

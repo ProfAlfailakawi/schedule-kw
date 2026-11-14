@@ -982,7 +982,7 @@
    ],
    "path": "/api/section-roster/:id",
    "name": "bound dispatch",
-   "call": "fc66a3e0a27cf8ad",
+   "call": "653cd129d72b57dd",
    "site": "src/server/routes/instructorsRoutes.ts:410",
    "regexp": "/^\\/api\\/section-roster(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -4180,7 +4180,7 @@
    "path": "/api/activity-trail",
    "name": "bound dispatch",
    "call": "5a4fe549e1167214",
-   "site": "src/server/activityTrail.ts:197",
+   "site": "src/server/activityTrail.ts:199",
    "regexp": "/^\\/api\\/activity-trail\\/?$/i",
    "end": true
   },
@@ -4192,7 +4192,7 @@
    "path": "/api/activity-trail/stamp/:rowId",
    "name": "bound dispatch",
    "call": "9fd28e5f324c6226",
-   "site": "src/server/activityTrail.ts:239",
+   "site": "src/server/activityTrail.ts:241",
    "regexp": "/^\\/api\\/activity-trail\\/stamp(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -4241,7 +4241,7 @@
    },
    "name": "bound dispatch",
    "call": "a2932312b55a1175",
-   "site": "src/server/activityTrail.ts:253",
+   "site": "src/server/activityTrail.ts:255",
    "regexp": "/^\\/api\\/activity-trail(?:\\/.*)?$/",
    "end": true
   },

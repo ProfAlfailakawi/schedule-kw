@@ -116,7 +116,7 @@ function roomCastlingProposals(scopeRows:any[],termRows:any[],profile:any,instru
 function emptyScopeGuidance(what: string) {
   return {
     empty: true,
-    message: `${what} يحتاج جدولاً قائماً، وهذا الفصل لا مواعيد فيه لهذا القسم بعد. ابدأ بـ«بداية الفصل من الفصل السابق» (مسودة لا تغيّر شيئاً قبل النشر) أو باستيراد الجدول من أدوات البيانات.`,
+    message: `${what} يحتاج جدولاً قائماً، وهذا الفصل لا مواعيد فيه لهذا القسم بعد. ابدأ بـ«بداية الفصل من الفصل السابق» (مسودة لا تغيّر شيئاً قبل النشر) أو باستيراد الجدول من أدوات الجدول.`,
     nextStep: { kind: "genesis", endpoint: "/api/intelligence/genesis", label: "بداية الفصل من الفصل السابق" },
   };
 }

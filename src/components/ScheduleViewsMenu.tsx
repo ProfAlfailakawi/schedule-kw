@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Bookmark, Check, Pencil, Star, Trash2, X } from "lucide-react";
+import { Bookmark, BookmarkPlus, Check, Focus, Pencil, Star, Trash2, X } from "lucide-react";
 import type { ScheduleSavedView } from "../utils/scheduleViews";
 
 /**
@@ -27,7 +27,7 @@ export function SavedViewName({ view, dirty }: { view: ScheduleSavedView | null;
 
 export default function ScheduleViewsMenu({
   views, activeId, dirty, onOpenView, onUpdateActive, onRestoreActive,
-  onSaveAs, onRename, onDelete, onToggleFavorite,
+  onSaveAs, onRename, onDelete, onToggleFavorite, focusMode, onToggleFocus,
 }: {
   views: ScheduleSavedView[];
   activeId: string | null;
@@ -39,6 +39,9 @@ export default function ScheduleViewsMenu({
   onRename: (view: ScheduleSavedView) => void;
   onDelete: (view: ScheduleSavedView) => void;
   onToggleFavorite: (view: ScheduleSavedView) => void;
+  /** «تركيز» خيارُ عرضٍ هنا (المالك 2026-11-14)؛ يغيب حين لا يُعطى. */
+  focusMode?: boolean;
+  onToggleFocus?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [managing, setManaging] = useState(false);
@@ -62,7 +65,7 @@ export default function ScheduleViewsMenu({
     };
   }, [open]);
 
-  if (!views.length) return null;
+  /* المالك 2026-11-14: «حفظ العرض الحالي» هنا وحده، فالقائمة حاضرةٌ ولو بلا عروضٍ بعد. */
   const favorites = views.filter(view => view.favorite);
   const rest = views.filter(view => !view.favorite && view.id !== activeId);
 
@@ -124,12 +127,23 @@ export default function ScheduleViewsMenu({
                 </button>
               </>
             ) : null}
-            <button type="button" role="menuitem" className="views-item" onClick={() => { setOpen(false); onSaveAs(); }}>
-              حفظ كعرض جديد
+            <button type="button" role="menuitem" className="views-item" data-guide-ignore="حفظ العرض الحالي باسمٍ تعود إليه — تفضيلٌ شخصي لا يغيّر الجدول" title="احفظ الكلية والقسم والفصل وطريقة العرض والتلوين والطبقات باسم تعود إليه" onClick={() => { setOpen(false); onSaveAs(); }}>
+              <BookmarkPlus aria-hidden="true" />
+              <span>حفظ العرض الحالي</span>
             </button>
-            <button type="button" role="menuitem" className="views-item" onClick={() => setManaging(value => !value)}>
-              {managing ? "إنهاء الإدارة" : "إدارة العروض"}
-            </button>
+            {onToggleFocus ? (
+              <button type="button" role="menuitemcheckbox" aria-checked={Boolean(focusMode)} className="views-item"
+                data-guide-ignore="تبديل وضع التركيز فقط؛ لا يغير بيانات الجدول"
+                onClick={() => { setOpen(false); onToggleFocus(); }}>
+                <Focus aria-hidden="true" />
+                <span>{focusMode ? "إنهاء التركيز" : "تركيز"}</span>
+              </button>
+            ) : null}
+            {views.length ? (
+              <button type="button" role="menuitem" className="views-item" onClick={() => setManaging(value => !value)}>
+                {managing ? "إنهاء الإدارة" : "إدارة العروض"}
+              </button>
+            ) : null}
           </div>
           {managing ? (
             <div className="views-manage">
