@@ -12,6 +12,9 @@ import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import PlanSheetPublisher from "./PlanSheetPublisher";
 import SectionPlan, { type PlanReadingView } from "./SectionPlan";
 import { WhatIfDesk } from "./TimeMachine";
+import LivingScheduleLayer from "./LivingScheduleLayer";
+import { openInScheduleEditor } from "../utils/intelligenceLink";
+import { safetyPointKind, safetyPointTitle, type SafetyPointKind } from "../utils/safetyNet";
 import { roleDefinition } from "../utils/academicRoles";
 import { mergeDemandReadings, mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
 import { DEMO_STAGE_SECTION_ID, isDemoSession } from "../utils/demoSession";
@@ -47,6 +50,14 @@ import {
   LayoutGrid,
   Lightbulb,
   LockKeyhole,
+  FileUp,
+  Undo2,
+  CalendarPlus,
+  CalendarX,
+  Pencil,
+  Stamp,
+  Copy,
+  BookOpen,
   MessageSquareText,
   Network,
   Play,
@@ -236,19 +247,27 @@ type InsightScene =
   /* «فرصة لتحسين الجدول»: بطاقتُها هنا، وأيقونتُها في «أدوات البيانات» — ولا مكان ثالث. */
   | "improve"
   /* الطلب الفعلي: تقرير التسجيل (SWRDASH) — الرفعُ والتنبيه والعلاج في بطاقةٍ واحدة. */
-  | "actualDemand";
+  | "actualDemand"
+  /* «لماذا هذا الحل؟» — من «مركز القرار» الذي صار هنا: لماذا هذا البديل، ولماذا لا. */
+  | "why";
 /* «جرّب» — every card it holds, including the three that used to appear on
    their own the moment a scenario existed. */
-type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger";
-type ApproveCard = "compare" | "drafts" | "versions";
+type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger" | "genesis";
+/* «السجل» (كان «اعتمد»): ودفترُ القرار بطاقةٌ واحدة بثلاثة ألسنة — دفتر القرارات، ومحضر القرار، وذاكرة القرار. */
+type ApproveCard = "compare" | "drafts" | "versions" | "decisions";
 /* ── المرحلةُ والبطاقةُ في الرابط ───────────────────────────────────────────
    «لما أضغط أي بطاقة كيف أرجع؟»: زرُّ الرجوع في المتصفح كان يخرج من المركز كله،
    لأن فتح البطاقة لم يكن خطوةً في التاريخ. الآن كلُّ فتحٍ خطوة: ?stage=…&card=…،
    فالرجوع يعيدك إلى شبكة البطاقات، أو إلى البطاقة التي أرسلتك إلى مرحلةٍ أخرى. */
 const TAB_VALUES: Tab[] = ["command", "copilot", "twin", "whatif", "history"];
-const INSIGHT_SCENE_VALUES: InsightScene[] = ["quality", "approval", "attention", "density", "spatial", "rooms", "professors", "health", "students", "genome", "sheet", "improve", "predict", "actualDemand"];
-const TWIN_CARD_VALUES: TwinCard[] = ["hero", "lab", "board", "editor", "ledger"];
-const APPROVE_CARD_VALUES: ApproveCard[] = ["compare", "drafts", "versions"];
+const INSIGHT_SCENE_VALUES: InsightScene[] = ["quality", "approval", "attention", "density", "why", "spatial", "rooms", "professors", "health", "students", "genome", "sheet", "improve", "predict", "actualDemand"];
+const TWIN_CARD_VALUES: TwinCard[] = ["hero", "genesis", "lab", "board", "editor", "ledger"];
+const APPROVE_CARD_VALUES: ApproveCard[] = ["compare", "drafts", "versions", "decisions"];
+/* ── أيقونةُ نقطة النسخة: ما الذي أُخذت قبله (من «شبكة الأمان» التي صارت «سجل النسخ»). ── */
+const SAFETY_POINT_ICONS: Record<SafetyPointKind, React.ComponentType<any>> = {
+  import: FileUp, publish: Send, undo: Undo2, restore: History, add: CalendarPlus,
+  edit: Pencil, delete: CalendarX, approval: Stamp, copy: Copy, other: ShieldCheck,
+};
 const CARD_BACK_LABEL = "كل البطاقات";
 type IntelNav = { tab: Tab; card: string | null };
 const readIntelNav = (fallbackTab: Tab): IntelNav | null => {
@@ -641,6 +660,17 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
    */
   /* null is the dashboard. Every card below — including the ones that used to
      sit stacked under the strip with no way to choose them — is now a page. */
+  /* «الضغط والكثافة»: خريطةُ الضغط (من «مركز القرار») والكثافة قراءتان مختلفتان في بطاقةٍ واحدة. */
+  const [densityView, setDensityView] = useState<"density" | "pressure">("density");
+  /* «اسأل الجدول» و«مساعد السياق» أداتان مختلفتان تحت عنوانٍ واحد. */
+  const [askMode, setAskMode] = useState<"table" | "context">("table");
+  /* دفتر القرار: ثلاث أدوات مختلفة، لكلٍّ بياناتها — لا تُدمج. */
+  const [ledgerTab, setLedgerTab] = useState<"decisions" | "minutes" | "memory">("decisions");
+  /* «تراجع عن النشر» بعد نشر مسودة (كان في «بداية الفصل» وحدها): نقطةُ الأمان التي أُخذت قبل النشر. */
+  /* نشرٌ عبر أكثر من موقع يعيد نسخةً قبل النشر لكل موقع: التراجعُ يعيدها كلها. */
+  const [publishUndo, setPublishUndo] = useState<{ points: Array<{ id: string }>; draftName: string } | null>(null);
+  /* نقاطُ «شبكة الأمان» على «سجل النسخ»: الأثرُ قبل الاسترجاع — للإدارة الرئيسية كما كانت. */
+  const [safetyPoints, setSafetyPoints] = useState<Map<string, any>>(new Map());
   const [twinCard, setTwinCard] = useState<TwinCard | null>(() => {
     const nav = readIntelNav(initialTab || "command");
     return nav?.tab === "twin" ? (nav.card as TwinCard | null) : null;
@@ -1635,6 +1665,9 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         options => visualConfirm(options));
       if (published === null) return;
       setMessage("تم النشر بنجاح، وحُفظت نسخة زمنية قبل التغيير.");
+      /* «تراجع عن النشر» (من «بداية الفصل»): النسخةُ التي أخذها الخادمُ قبل النشر. */
+      const undoIds = Array.isArray(published?.undoVersions) ? published.undoVersions.map((id: unknown) => String(id || "")).filter(Boolean) : [];
+      setPublishUndo(undoIds.length ? { points: undoIds.map((id: string) => ({ id })), draftName: String(d.name || "المسودة") } : null);
       setScenario(null);
       setScenarioEval(null);
       setActiveDraftId(null);
@@ -1645,6 +1678,62 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
       setBusy(false);
     }
   };
+  /* تراجعٌ إلى نقطة أمان («شبكة الأمان» سابقاً): يأخذ هو نفسه نسخةً قبل الاسترجاع، فيبقى قابلاً للتراجع. */
+  const undoToSafetyPoint = async (point: any, after?: () => void) => {
+    if (!point?.id) return;
+    setBusy(true);
+    try {
+      const d = await applyWithOverwriteConfirm("decision-undo",
+        confirm => fetchJson(`/api/intelligence/safety-net/${encodeURIComponent(String(point.id))}/undo`, {
+          method: "POST",
+          headers: { "x-schedule-confirm": confirm },
+        }),
+        options => visualConfirm(options));
+      if (d === null) return;
+      setMessage(d.message || "تم الاسترجاع.");
+      after?.();
+      await reload();
+    } catch (e: any) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  /* «تراجع عن النشر»: كلُّ نسخةٍ أُخذت قبل النشر (موقعٌ لكلٍّ منها) تُسترجع بالترتيب؛ ورفضُ التأكيد يوقف ما بعده. */
+  const undoPublishPoints = async (points: Array<{ id: string }>, after?: () => void) => {
+    if (!points.length) return;
+    setBusy(true);
+    let restored = 0;
+    try {
+      for (const point of points) {
+        const d = await applyWithOverwriteConfirm("decision-undo",
+          confirm => fetchJson(`/api/intelligence/safety-net/${encodeURIComponent(String(point.id))}/undo`, {
+            method: "POST",
+            headers: { "x-schedule-confirm": confirm },
+          }),
+          options => visualConfirm(options));
+        if (d === null) break;
+        restored += 1;
+      }
+      if (restored === points.length) { setMessage("تم التراجع عن النشر في كل المواقع."); after?.(); }
+      else if (restored) setMessage(`تم التراجع في ${restored} من ${points.length} من مواقع النشر؛ البقية لم تُسترجع.`);
+      if (restored) await reload();
+    } catch (e: any) {
+      fail(e);
+      if (restored) await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (approveCard !== "versions" || !isPowerAdmin || !collegeId || !sectionId || !termId) return;
+    let live = true;
+    fetchJson(`/api/intelligence/safety-net?${new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) })}`)
+      .then((points: any) => { if (live && Array.isArray(points)) setSafetyPoints(new Map(points.map((item: any) => [String(item.id), item]))); })
+      .catch(() => undefined);
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [approveCard, isPowerAdmin, collegeId, sectionId, termId, versions.length]);
   const restoreVersion = async (v: any) => {
     if (!enterSourceScope(v, "restore")) return;
     // Restore is itself versioned before it runs, so it is reversible without
@@ -1980,7 +2069,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     target: "intelligence.ask-table",
     command: { scope: "intelligence", type: "tab", value: "copilot" },
   }) : ({
-    title: scene === "understand" ? "فهم حالة الجدول" : scene === "try" ? "تجربة السيناريو" : "اعتماد القرار",
+    title: scene === "understand" ? "فهم حالة الجدول" : scene === "try" ? "تجربة السيناريو" : "سجل القرار",
     featureId: scene === "understand" ? "intelligence.scene.understand" : scene === "try" ? "intelligence.scene.try" : "intelligence.scene.approve",
     target: scene === "understand" ? "intelligence.scene.understand" : scene === "try" ? "intelligence.scene.try" : "intelligence.scene.approve",
     command: { scope: "intelligence", type: "scene", value: scene },
@@ -1991,7 +2080,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
       ? "أنت الآن داخل «افهم» لقراءة الجودة والضغط والأسئلة الذكية."
       : scene === "try"
         ? "أنت الآن داخل «جرّب» لتجربة ماذا لو؟ دون لمس الجدول الحقيقي."
-        : "أنت الآن داخل «اعتمد» لمقارنة النسخ وتثبيت القرار النهائي.";
+        : "أنت الآن داخل «السجل»: المسودات والنشر، وسجل النسخ واسترجاعها، ودفتر القرار.";
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("schedule-smart-guide-context", {
       detail: {
@@ -2003,8 +2092,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         termId: termId || undefined,
         currentFeatureId: tab === "copilot" ? "intelligence.ask-table" : scene === "understand" ? "intelligence.scene.understand" : scene === "try" ? "intelligence.scene.try" : "intelligence.scene.approve",
         summary: intelligenceGuideSummary,
-        placeLabel: scene === "understand" ? "افهم" : scene === "try" ? "جرّب" : "اعتمد",
-        stageLabel: scene === "understand" ? "افهم" : scene === "try" ? "جرّب" : "اعتمد",
+        placeLabel: scene === "understand" ? "افهم" : scene === "try" ? "جرّب" : "السجل",
+        stageLabel: scene === "understand" ? "افهم" : scene === "try" ? "جرّب" : "السجل",
         scopeLabel: [colleges.find(item => item.AdCollegeId === collegeId)?.AdCollegeName, terms.find(item => item.AdTermId === termId)?.AdTermName].filter(Boolean).join(" · "),
         whatHappens: intelligenceGuideSummary,
         currentTask: intelligenceGuideTask,
@@ -2028,6 +2117,17 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         const value=String(detail.value);
         if (featureId) intelligenceGuideOperationRef.current={ featureId, transactionId:detail.transactionId ? String(detail.transactionId) : undefined, startedAt:Date.now(), expected:value === "understand" ? "intelligence.scene.understand" : value === "try" ? "intelligence.scene.try" : "intelligence.scene.approve" };
         changeScene(value);
+      }
+      /* «مركز القرار» صار بطاقاتٍ هنا: المرشدُ يفتح البطاقة نفسها (stage:card). */
+      if (detail.type === "card" && detail.value) {
+        const [stage, card] = String(detail.value).split(":") as [Tab, string];
+        if (TAB_VALUES.includes(stage)) {
+          setInsightScene(stage === "command" && INSIGHT_SCENE_VALUES.includes(card as InsightScene) ? card as InsightScene : null);
+          setTwinCard(stage === "twin" && TWIN_CARD_VALUES.includes(card as TwinCard) ? card as TwinCard : null);
+          setApproveCard(stage === "history" && APPROVE_CARD_VALUES.includes(card as ApproveCard) ? card as ApproveCard : null);
+          setTab(stage);
+          if (featureId) window.dispatchEvent(new CustomEvent("schedule-smart-guide-action-result",{detail:{featureId,ok:true,signal:featureId,transactionId:detail.transactionId,durationMs:0,stepCount:1}}));
+        }
       }
       if (detail.type === "tab" && detail.value && ["command","copilot","twin","whatif","history"].includes(String(detail.value))) {
         const value=String(detail.value);
@@ -2149,8 +2249,10 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   }> = overview
     ? [
         {
+          /* «صحة الجدول»: الجودة والجاهزية، ومعها نظرةُ «مركز القرار» العامة والمرونة والعدالة —
+             الحلقاتُ الثلاث فوق الجدول تفتح هذه البطاقة. */
           value: "quality",
-          label: "الجودة والجاهزية",
+          label: "صحة الجدول",
           detail: readinessLabel,
           metric: `${overview.score}/100`,
           icon: <Gauge />,
@@ -2172,8 +2274,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         },
         {
           value: "density",
-          label: "الكثافة",
-          detail: "شكل الضغط عبر الأيام والأوقات",
+          label: "الضغط والكثافة",
+          detail: "أين يتركّز الضغط، وشكله عبر الأيام والأوقات",
           metric: String(
             Math.max(
               0,
@@ -2181,6 +2283,13 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             ),
           ),
           icon: <BarChart3 />,
+        },
+        {
+          value: "why" as const,
+          label: "لماذا هذا الحل؟",
+          detail: "لماذا هذا البديل أفضل، ولماذا لا",
+          metric: "—",
+          icon: <CircleHelp />,
         },
         ...(overview.spatialBurnout
           ? [
@@ -2324,6 +2433,14 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     }, 0);
   }, [tab, openCard]);
   useEffect(() => () => { if (navTimer.current != null) window.clearTimeout(navTimer.current); }, []);
+  /* رابطٌ يفتح على بطاقة (الحلقات فوق الجدول، «بداية الفصل» من الفصل الفارغ): تصل البطاقةُ إلى أعلى الشاشة. */
+  const arrivedLifted = useRef(false);
+  useEffect(() => {
+    if (arrivedLifted.current || !overview || !openCard) return;
+    arrivedLifted.current = true;
+    liftToTop(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(overview)]);
   /* الدرجُ ونافذةُ الشرح خطوةٌ خاصة في التاريخ: تُضاف عند الفتح (بالرابط نفسه)، والرجوعُ
      يُسقطها فيُغلق الطبقة وحدها. والإغلاقُ من الواجهة (✕ أو Escape) يُسقط خطوتها بنفسه،
      فلا تبقى خطوةٌ ميتة ولا يُمسح «التقدّم» في المتصفح. */
@@ -2504,6 +2621,29 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
   };
+  /* ── أدواتُ «مركز القرار» داخل البطاقات ───────────────────────────────── */
+  const livingCommon = {
+    user,
+    rows,
+    courses,
+    instructors,
+    terms,
+    colleges,
+    sections,
+    collegeId: Number(collegeId) || 0,
+    sectionId: Number(sectionId) || 0,
+    termId: Number(termId) || 0,
+    analysisScope: readingMode as "college" | "department",
+    onRefresh: () => void reload(),
+    onDraftsChanged: () => void reload(),
+    /* «افتح في نموذج التعديل»: الجدولُ يفتح الموعد ممتلئاً بالبديل، كما كان من نافذة «مركز القرار». */
+    onOpenRow: (row: FSchedule) => openInScheduleEditor([Number(row.id)], row as any),
+    onNavigate: (target: "topology" | "health" | "drafts") => {
+      if (target === "topology") { setDensityView("pressure"); setTab("command"); showScene("density"); }
+      else if (target === "health") { setTab("command"); showScene("quality"); }
+      else { setTab("history"); showApproveCard("drafts"); }
+    },
+  };
   const moveInsightFocus = (
     event: React.KeyboardEvent<HTMLButtonElement>,
     index: number,
@@ -2529,7 +2669,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     <div className={`content-stack intelligence-page scene-${scene} visual-minimal`}>
       <PageTitle
         eyebrow="ذكاء الجدول"
-        subtitle="افهم · جرّب · اعتمد"
+        subtitle="افهم · جرّب · السجل"
       >
         مركز الذكاء
       </PageTitle>
@@ -2575,13 +2715,13 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           steps={([
             { value: "understand", label: <span data-guide-target="intelligence.scene.understand">افهم</span>, icon: <BrainCircuit /> },
             { value: "try", label: <span data-guide-target="intelligence.scene.try">جرّب</span>, icon: <Network /> },
-            { value: "approve", label: <span data-guide-target="intelligence.scene.approve">اعتمد</span>, icon: <ShieldCheck /> },
+            { value: "approve", label: <span data-guide-target="intelligence.scene.approve">السجل</span>, icon: <History /> },
           ] as const).map((option, index, all) => {
             const at = all.findIndex(item => item.value === scene);
             return {
               key: option.value,
               onSelect: () => runVisualTransition(() => changeScene(option.value)),
-              actionLabel: `فتح مرحلة ${option.value === "understand" ? "افهم" : option.value === "try" ? "جرّب" : "اعتمد"}`,
+              actionLabel: `فتح مرحلة ${option.value === "understand" ? "افهم" : option.value === "try" ? "جرّب" : "السجل"}`,
               icon: option.icon,
               state: option.value === scene ? "current" as const : index < at ? "done" as const : "pending" as const,
               label: (
@@ -2603,7 +2743,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             ? "جودة · تنبيهات · قاعات · أساتذة"
             : scene === "try"
               ? "تجريبي · خارج الجدول الحقيقي"
-              : "مسودات · نشر · نسخ · تراجع"}
+              : "مسودات · نسخ · دفتر القرار"}
         </span>
       </nav>
       {scene === "understand" ? (
@@ -2821,6 +2961,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               </SecondaryButton>
             </div>
           </Surface>
+              {activeInsightKey === "quality" ? <LivingScheduleLayer {...livingCommon} embeddedScenes={["pulse", "health"]} pulseWithoutTiles /> : null}
             </div>
             <div
               className="content-stack insight-scene-panel"
@@ -2953,6 +3094,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               </details>
             ) : null}
           </Surface>
+              {activeInsightKey === "attention" ? <LivingScheduleLayer {...livingCommon} embeddedScenes={["brief"]} briefUniqueOnly /> : null}
             </div>
             <div
               className="content-stack insight-scene-panel"
@@ -2962,6 +3104,19 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               hidden={activeInsightKey !== "density"}
               tabIndex={activeInsightKey === "density" ? 0 : -1}
             >
+          <div className="density-view-switch no-print">
+            <Segmented
+              value={densityView}
+              onChange={value => setDensityView(value as "density" | "pressure")}
+              options={[
+                { value: "pressure", label: "خريطة الضغط" },
+                { value: "density", label: "الكثافة" },
+              ]}
+            />
+          </div>
+          {densityView === "pressure" ? (
+            activeInsightKey === "density" ? <LivingScheduleLayer {...livingCommon} embeddedScenes={["topology"]} /> : null
+          ) : (
           <Surface className="heatmap-card">
             <div className="surface-head">
               <div>
@@ -3038,7 +3193,13 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               })()}
             </details>
           </Surface>
+          )}
             </div>
+          {activeInsightKey === "why" ? (
+            <div className="content-stack insight-scene-panel" id="insight-panel-why" role="tabpanel" aria-labelledby="insight-tab-why" tabIndex={0}>
+              <LivingScheduleLayer {...livingCommon} embeddedScenes={["why"]} />
+            </div>
+          ) : null}
           {overview.spatialBurnout ? (
             <div
               className="content-stack insight-scene-panel"
@@ -3772,6 +3933,39 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                   </div>
                 </section>
               </div>
+              {(() => {
+                /* من ورقة «بصمة القسم» التي كانت فوق الجدول: الأستاذُ الأكثر تقييداً، وشرائحُ الفصول السابقة. */
+                const counts = new Map<number, number>();
+                readingRows.forEach(row => counts.set(Number(row.AdInstructorId), (counts.get(Number(row.AdInstructorId)) || 0) + Math.max(1, Object.keys(dayLabels).filter(day => (row as any)[day]).length)));
+                const constrained = new Map<number, number>();
+                (constraints || []).filter((c: any) => c.enabled !== false && c.AdInstructorId).forEach((c: any) => constrained.set(Number(c.AdInstructorId), (constrained.get(Number(c.AdInstructorId)) || 0) + 1));
+                const id = [...new Set([...constrained.keys(), ...counts.keys()])].filter(Boolean)
+                  .sort((a, b) => (constrained.get(b) || 0) - (constrained.get(a) || 0) || (counts.get(b) || 0) - (counts.get(a) || 0))[0];
+                const name = id ? instructors.find(person => Number(person.AdInstructorId) === id)?.AdInstructorName || `أستاذ ${id}` : "";
+                const history = Array.isArray(genome.history) ? genome.history : [];
+                if (!id && !history.length) return null;
+                return (
+                  <div className="genome-extra">
+                    {id ? (
+                      <article className="genome-constrained">
+                        <UsersRound aria-hidden="true" />
+                        <span>
+                          <small>الأستاذ الأكثر تقييداً</small>
+                          <strong>{name}{visitingInReading(id) ? <> <VisitingBadge compact /></> : null}</strong>
+                          <small>{constrained.get(id) ? `${countOf(constrained.get(id) || 0, AR.constraint)} مباشرةً · ` : ""}{countOf(counts.get(id) || 0, AR.appointment)} أسبوعياً</small>
+                        </span>
+                      </article>
+                    ) : null}
+                    {history.length ? (
+                      <div className="genome-history" aria-label="الفصول في البصمة">
+                        {history.map((item: any) => (
+                          <span key={item.termId}><b>{item.termName}</b><small>{countOf(item.count, AR.appointment)} · {item.avgGap}د فراغ</small></span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
               <div className="genome-deviations">
                 {(genome.deviations || [])
                   .slice(0, 2)
@@ -3878,6 +4072,22 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
       ) : null}
 
       {tab === "copilot" ? (
+        <nav className="ask-tools-switch no-print" aria-label="أدوات السؤال">
+          <span className="surface-kicker">اسأل</span>
+          <Segmented
+            value={askMode}
+            onChange={value => setAskMode(value as "table" | "context")}
+            options={[
+              { value: "table", label: "اسأل الجدول" },
+              { value: "context", label: "مساعد السياق" },
+            ]}
+          />
+        </nav>
+      ) : null}
+      {tab === "copilot" && askMode === "context" ? (
+        <LivingScheduleLayer {...livingCommon} embeddedScenes={["copilot"]} />
+      ) : null}
+      {tab === "copilot" && askMode === "table" ? (
         <div className="copilot-layout">
           <Surface className="copilot-panel">
             <div className="copilot-head">
@@ -4056,13 +4266,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               <h3>{overview?.context?.sectionName}</h3>
               <p>{readingMode === "department" ? "القسم عبر كلياته المسموحة" : "هذه الكلية"} · الحجوزات الخارجية محسوبة.</p>
             </Surface>
-            <Surface className="decision-inbox-mini">
-              <div className="decision-inbox-mini-head"><div><span className="surface-kicker">دفتر القرارات</span><h3>{Number(decisionInbox?.totalOpen||0).toLocaleString("ar-KW-u-nu-latn")} مفتوح</h3></div><button type="button" onClick={()=>setDecisionCompose(value=>!value)} aria-label="إضافة قرار"><Plus /></button></div>
-              {decisionCompose?<form onSubmit={e=>{e.preventDefault();void addOpenDecision();}} className="decision-inbox-compose"><input autoFocus value={decisionTitle} onChange={e=>setDecisionTitle(e.target.value)} placeholder="قرار يحتاج حسم…" aria-label="نص القرار" maxLength={140}/><button type="submit" aria-label="أضف القرار" title="أضف القرار" data-guide-ignore="زر إرسال داخل نموذج «قرار يحتاج حسم» — يضيف السطر الذي كُتب في الحقل بجواره ولا يمثل ميزة مستقلة" disabled={busy||decisionTitle.trim().length<3}><Save /></button></form>:null}
-              <div className="decision-inbox-list">
-                {[...(decisionInbox?.manual||[]).filter((item:any)=>item.status==="open"),...(decisionInbox?.inferred||[])].slice(0,5).map((item:any)=><button key={item.id} type="button" className={`priority-${item.priority||"medium"}`} onClick={()=>{if(!String(item.id).startsWith("inferred:"))void closeOpenDecision(item);}} title={String(item.id).startsWith("inferred:")?"مستنتج تلقائياً من الجدول":"اضغط لإغلاق القرار"}><i/><span><strong>{item.title}</strong>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}{item.detail?<small>{item.detail}</small>:null}</span>{String(item.id).startsWith("inferred:")?<Sparkles/>:<CheckCircle2/>}</button>)}
-              </div>
-            </Surface>
             <Surface>
               <span className="surface-kicker">أوامر مفيدة</span>
               {/* These were <span>s: they looked pressable and did nothing.
@@ -4095,6 +4298,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             cards={[
               { value: "hero", label: "النسخة التجريبية", detail: "حالة النسخة وما غيّرته فيها", icon: <Dna />,
                 metric: scenario ? String(changedRows.length) : undefined },
+              /* «بداية الفصل» من «مركز القرار»: مسودةُ الفصل من فصلٍ سابق، تُراجَع صفاً صفاً ثم تُنشر من «المسودات». */
+              { value: "genesis", label: "بداية الفصل", detail: "مسودة الفصل من فصلٍ سابق", icon: <CalendarPlus /> },
               { value: "lab", label: "مختبر القرار", detail: "القواعد والمحاكاة والتحسين", icon: <BrainCircuit /> },
               ...(scenario
                 ? [
@@ -4106,6 +4311,9 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                 : []),
             ]}
           />
+          {twinCard === "genesis" && collegeId && sectionId && termId ? (
+            <LivingScheduleLayer {...livingCommon} embeddedScenes={["genesis"]} />
+          ) : null}
           {twinCard === "hero" ? (
           <Surface className="twin-hero">
             <div>
@@ -4515,7 +4723,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                           setWarRowId(Number(e.target.value) || "")
                         }
                       >
-                        <option value="">أكبر مشكلة يكتشفها النظام</option>
+                        <option value="">القرار الأهم الآن — يختاره النظام</option>
                         {Array.from(
                           new Map(
                             (overview?.conflicts || []).map((c: any) => [
@@ -4539,6 +4747,42 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                 </div>
                 {warRoom ? (
                   <>
+                    {/* «القرار الأهم الآن» (كان نافذةً فوق الجدول): المشكلةُ نفسها، وبابُها إلى الموعد الأصلي. */}
+                    <div className="decision-problem war-problem">
+                      <span>المشكلة التي تستحق القرار</span>
+                      <h3>
+                        {warRoom.issue
+                          ? <>{warRoom.issue.courseName}<CourseTags courseId={rows.find((r) => r.id === warRoom.issue.rowId)?.AdCourseId} />{` · شعبة ${warRoom.issue.sectionCode}`}</>
+                          : "الجدول مستقر"}
+                      </h3>
+                      <p>
+                        {warRoom.issue
+                          ? `${countOf(warRoom.issue.conflictCount, AR.position)} بحاجة إلى تحقق · ${warRoom.issue.professorName || ""} · ${(() => { const issueRow = rows.find((r) => r.id === warRoom.issue.rowId); return issueRow?.AdRoomCode ? `${issueRow.AdRoomCode}/${issueRow.AdRoomHall || ""}` : ""; })()}`
+                          : "لا يوجد مانع زمني واضح؛ حافظ على الوضع الحالي وراجع نقطة الهشاشة فقط."}
+                      </p>
+                      {warRoom.issue ? (
+                        <SecondaryButton
+                          type="button"
+                          data-guide-ignore="يفتح الموعد الأصلي (ومعه المواعيد المتداخلة معه) في نموذج التعديل على الجدول؛ لا يحفظ شيئاً"
+                          onClick={() => {
+                            const row = rows.find((r) => r.id === warRoom.issue.rowId);
+                            if (!row) return;
+                            const days = Object.keys(dayLabels);
+                            const sameDay = (a: FSchedule, b: FSchedule) => days.some(day => Boolean((a as any)[day] && (b as any)[day]));
+                            const overlaps = (a: FSchedule, b: FSchedule) => String(a.fstarttime) < String(b.fendtime) && String(a.fendtime) > String(b.fstarttime);
+                            const sameRoom = (a: FSchedule, b: FSchedule) => roomIdentityKey(a) !== "|" && roomIdentityKey(a) === roomIdentityKey(b);
+                            const sameSection = (a: FSchedule, b: FSchedule) => Number(a.AdCourseId) === Number(b.AdCourseId) && String(a.SCode) === String(b.SCode);
+                            const queue = [row, ...rows.filter(other =>
+                              other.id !== row.id && sameDay(other, row) && overlaps(other, row) && (
+                                Number(other.AdInstructorId) === Number(row.AdInstructorId) || sameRoom(other, row) || sameSection(other, row)
+                              ))];
+                            openInScheduleEditor(queue.map(item => Number(item.id)));
+                          }}
+                        >
+                          افتح الموعد الأصلي
+                        </SecondaryButton>
+                      ) : null}
+                    </div>
                     <div className="war-baseline">
                       <span>الوضع الحالي</span>
                       <b className="score-ring-slot"><MiniRing value={Number(warRoom.baseline.score)} /></b>
@@ -5013,13 +5257,15 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           <CardDeck
             value={approveCard}
             onChange={(next) => showApproveCard(next as ApproveCard | null)}
-            title="بطاقات الاعتماد"
+            title="بطاقات السجل"
             hint="كل بطاقة تفتح صفحتها وحدها — لا شيء تحت شيء."
             cards={[
               ...(compareTermOptions.length > 1 ? [{ value: "compare", label: "مقارنة الفصول", detail: "ما تغيّر بين فصل وفصل", icon: <ArrowLeftRight /> }] : []),
               { value: "drafts", label: "المسودات", detail: "ما لم يُنشر بعد", icon: <FileClock />,
                 metric: String(drafts.length || 0) },
-              { value: "versions", label: "سجل النسخ", detail: "كل نشرة سابقة ومن نشرها", icon: <History /> },
+              { value: "versions", label: "سجل النسخ", detail: "كل نسخة، وما يفعله استرجاعها", icon: <History /> },
+              { value: "decisions", label: "دفتر القرار", detail: "القرارات والمحاضر والذاكرة", icon: <BookOpen />,
+                metric: decisionInbox?.totalOpen ? String(decisionInbox.totalOpen) : undefined },
             ]}
           />
           {approveCard === "compare" ? (
@@ -5148,6 +5394,15 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           ) : null}
           {approveCard === "drafts" ? (
           <Surface className="drafts-card">
+            {publishUndo ? (
+              <div className="publish-undo-banner" role="status">
+                <CheckCircle2 aria-hidden="true" />
+                <span><strong>نُشرت «{publishUndo.draftName}»</strong><small>أُخذت نسخةٌ قبل النشر؛ التراجع يعيد الجدول إليها.</small></span>
+                <SecondaryButton type="button" data-guide-feature-id="schedule.undo" disabled={busy || !online} onClick={() => void undoPublishPoints(publishUndo.points, () => setPublishUndo(null))}>
+                  <RotateCcw /> تراجع عن النشر
+                </SecondaryButton>
+              </div>
+            ) : null}
             <div className="surface-head">
               <div>
                 <span className="surface-kicker">وضع النشر</span>
@@ -5368,15 +5623,26 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             ) : null}
             <div className="timeline-versions">
               {versions.length ? (
-                versions.map((v, i) => (
-                  <article key={v.id}>
-                    <span className="version-dot" />
+                versions.map((v, i) => {
+                  /* «شبكة الأمان» صارت هنا: نوعُ النقطة وأيقونتُها لكل نسخة، وأثرُ استرجاعها
+                     للإدارة الرئيسية التي تملك «استرجع هذا القرار» كما كانت. */
+                  const kind = safetyPointKind(v.label, v.source);
+                  const KindIcon = SAFETY_POINT_ICONS[kind.kind];
+                  const point = isPowerAdmin ? safetyPoints.get(String(v.id)) : null;
+                  return (
+                  <article key={v.id} className={`version-point kind-${kind.kind}`}>
+                    <span className="version-dot version-kind" title={kind.kindLabel}><KindIcon aria-hidden="true" /></span>
                     <div>
-                      <strong>{v.label}</strong>{scopeLabel(v) ? <small className="reading-college-label">{scopeLabel(v)}</small> : null}
+                      <strong title={v.label}>{safetyPointTitle(v.label) || v.label}</strong>{scopeLabel(v) ? <small className="reading-college-label">{scopeLabel(v)}</small> : null}
                       <small>
-                        {new Date(v.createdAt).toLocaleString("ar-KW-u-nu-latn")} ·{" "}
+                        {kind.kindLabel} · {new Date(v.createdAt).toLocaleString("ar-KW-u-nu-latn")} ·{" "}
                         {v.userName} · {countOf(v.rowCount, AR.appointment)}
                       </small>
+                      {point?.impactSummary ? (
+                        <p className="safety-impact" data-same={point.impact?.same ? "true" : undefined}>
+                          {point.impact?.same ? point.impactSummary : <>الاسترجاع {point.impactSummary}</>}
+                        </p>
+                      ) : null}
                     </div>
                     <Badge
                       tone={
@@ -5389,14 +5655,25 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                     >
                       {versionSourceLabel(v.source)}
                     </Badge>
-                    <GhostButton
-                      onClick={() => restoreVersion(v)}
-                      disabled={!online || busy}
-                    >
-                      <RotateCcw /> استرجاع
-                    </GhostButton>
+                    {point ? (
+                      <GhostButton
+                        data-guide-ignore="استرجاع نقطةٍ من سجل النسخ بأثرها المعروض؛ يسأل قبل محو ما تغيّر بعدها — للإدارة الرئيسية"
+                        disabled={!online || busy || Boolean(point.impact?.same)}
+                        onClick={() => void undoToSafetyPoint(point)}
+                      >
+                        <RotateCcw /> استرجع هذا القرار
+                      </GhostButton>
+                    ) : (
+                      <GhostButton
+                        onClick={() => restoreVersion(v)}
+                        disabled={!online || busy}
+                      >
+                        <RotateCcw /> استرجاع
+                      </GhostButton>
+                    )}
                   </article>
-                ))
+                  );
+                })
               ) : (
                 <div className="empty-state-compact">
                   نسخة قبل كل تعديل.
@@ -5410,6 +5687,35 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               <div className="edit-heatmap"><div className="edit-heatmap-head"><span><small>حرارة التعديلات البشرية</small><strong>متى يكثر التغيير</strong></span><Badge>{countOf(versions.length, AR.version)}</Badge></div><div className="edit-heatmap-grid"><i/>{versionActivityHeatmap.hours.map(hour=><small key={hour}>{scheduleClockForDisplay(`${String(hour).padStart(2,"0")}:00`)}</small>)}{versionActivityHeatmap.cells.map(day=><React.Fragment key={day.label}><b>{day.label}</b>{day.hours.map(cell=>{const strength=versionActivityHeatmap.max?cell.count/versionActivityHeatmap.max:0;return <span key={`${day.label}-${cell.hour}`} title={`${day.label} ${scheduleClockForDisplay(`${String(cell.hour).padStart(2,"0")}:00`)} · ${countOf(cell.count, AR.edit)}`} style={{["--heat-pct" as any]:`${Math.max(10,Math.round(strength*85))}%`}}>{cell.count||""}</span>;})}</React.Fragment>)}</div></div>
             ) : null}
           </Surface>
+          ) : null}
+          {approveCard === "decisions" ? (
+            <Surface className="decision-ledger">
+              {/* «دفتر القرار»: ثلاث أدوات مختلفة في بطاقةٍ واحدة — لكلٍّ بياناتها كما كانت. */}
+              <div className="decision-ledger-tabs no-print">
+                <Segmented
+                  value={ledgerTab}
+                  onChange={value => setLedgerTab(value as "decisions" | "minutes" | "memory")}
+                  options={[
+                    { value: "decisions", label: "دفتر القرارات" },
+                    { value: "minutes", label: "محضر القرار" },
+                    ...(isPowerAdmin ? [{ value: "memory", label: "ذاكرة القرار" }] : []),
+                  ]}
+                />
+              </div>
+              {ledgerTab === "decisions" ? (
+                <div className="decision-ledger-inbox">
+            <Surface className="decision-inbox-mini">
+              <div className="decision-inbox-mini-head"><div><span className="surface-kicker">دفتر القرارات</span><h3>{Number(decisionInbox?.totalOpen||0).toLocaleString("ar-KW-u-nu-latn")} مفتوح</h3></div><button type="button" onClick={()=>setDecisionCompose(value=>!value)} aria-label="إضافة قرار"><Plus /></button></div>
+              {decisionCompose?<form onSubmit={e=>{e.preventDefault();void addOpenDecision();}} className="decision-inbox-compose"><input autoFocus value={decisionTitle} onChange={e=>setDecisionTitle(e.target.value)} placeholder="قرار يحتاج حسم…" aria-label="نص القرار" maxLength={140}/><button type="submit" aria-label="أضف القرار" title="أضف القرار" data-guide-ignore="زر إرسال داخل نموذج «قرار يحتاج حسم» — يضيف السطر الذي كُتب في الحقل بجواره ولا يمثل ميزة مستقلة" disabled={busy||decisionTitle.trim().length<3}><Save /></button></form>:null}
+              <div className="decision-inbox-list">
+                {[...(decisionInbox?.manual||[]).filter((item:any)=>item.status==="open"),...(decisionInbox?.inferred||[])].slice(0,5).map((item:any)=><button key={item.id} type="button" className={`priority-${item.priority||"medium"}`} onClick={()=>{if(!String(item.id).startsWith("inferred:"))void closeOpenDecision(item);}} title={String(item.id).startsWith("inferred:")?"مستنتج تلقائياً من الجدول":"اضغط لإغلاق القرار"}><i/><span><strong>{item.title}</strong>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}{item.detail?<small>{item.detail}</small>:null}</span>{String(item.id).startsWith("inferred:")?<Sparkles/>:<CheckCircle2/>}</button>)}
+              </div>
+            </Surface>
+                </div>
+              ) : null}
+              {ledgerTab === "minutes" && collegeId && sectionId && termId ? <LivingScheduleLayer {...livingCommon} embeddedScenes={["meeting"]} /> : null}
+              {ledgerTab === "memory" && isPowerAdmin && collegeId && sectionId && termId ? <LivingScheduleLayer {...livingCommon} embeddedScenes={["memory"]} /> : null}
+            </Surface>
           ) : null}
         </div>
       ) : null}

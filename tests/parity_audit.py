@@ -184,11 +184,13 @@ ocr=txt('src/utils/documentOcr.ts')
 check('createWorker("' not in ocr and 'newOcrWorker(' in ocr and 'ocrLanguageDataDir' in ocr,'every OCR worker loads language data from a known place, not the working directory')
 
 # 7) Refinement contract: calm UI, advanced features behind one decision hub.
-check('headless?: boolean' in experience and 'headless' in schedules,'legacy intelligence strip can operate headlessly while keeping dialogs functional')
-check('experience={experience}' in schedules and 'مركز القرار' in decision and 'قرار الآن' in decision,'schedule exposes one compact decision entry point')
-check('living-experience-tools' in living,'advanced schedule tools remain available inside decision center')
+iw=txt('src/components/IntelligenceWorkspace.tsx')
+# «مركز القرار» صار بطاقاتٍ في «مركز الذكاء»: الحلقاتُ فوق الجدول بابُه، وكلُّ أداةٍ في بطاقتها.
+check('<ScheduleExperienceLayer experience={experience} />' in schedules and 'onOpenHealth={() => openIntelligenceCard("command", "quality")}' in schedules,'schedule health rings open the health card in the intelligence centre')
+check('experience={experience}' in schedules and 'القرار الأهم الآن' in iw and 'مركز الذكاء' in living,'schedule exposes one compact decision entry point')
+check('embeddedScenes' in living and 'embeddedScenes={["genesis"]}' in iw,'advanced schedule tools remain available inside the intelligence centre')
 # مقارنةُ الفصل السابق باقيةٌ بلفظٍ أقصر، والوظيفتان الأُخريان في موضعهما.
-check('الفصل السابق' in decision and 'القرار الأهم الآن' in decision and 'بصمة القسم' in decision,'no advanced decision function was removed')
+check('الفصل السابق' in decision and 'القرار الأهم الآن' in iw and 'بصمة القسم' in iw,'no advanced decision function was removed')
 for forbidden in ['SEMESTER GENESIS','DECISION SAFETY NET','MEETING INTELLIGENCE','CONFLICT TOPOLOGY','Decision Memory','FAIRNESS ENGINE','FRAGILITY MAP','ROOM INTELLIGENCE','What‑If','Undo بلغة','Living Report','WHY ENGINE','WHY NOT?','ONE‑MINUTE BRIEF','Decision Safety Net']:
     check(forbidden not in all_client,f'visible technical label removed/localized: {forbidden}')
 # يُرفض الرمزُ نفسُه لا صيغةُ سطرٍ بعينها: `var(--font)}` و`var(--font) !important`

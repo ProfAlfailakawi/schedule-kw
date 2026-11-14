@@ -361,7 +361,7 @@ console.log(`  على الحافة السفلى، بعيداً عن الزاوي
 console.log(`  لا تأخذ المؤشر ولا تحمل زرّاً: ${layers.inert.join("، ")}`);
 console.log(`  في CSS ولا يرسمها شيء: ${layers.dead.join("، ") || "—"}`);
 for (const [key, name] of [["hall-barter-board.is-open", "«استعارة القاعات» مفتوحةً"], ["transfer-backdrop", "«نقل الجدول»"], ["catalog-form-drawer", "درجُ الإضافة والتعديل"],
-  ["schedule-context-backdrop", "سياقُ الموعد"], ["living-overlay", "مركزُ القرار"], ["intel-drawer-backdrop", "درجُ الذكاء"], ["query-detail-panel", "تفاصيلُ الاستعلام"],
+  ["schedule-context-backdrop", "سياقُ الموعد"], ["intel-drawer-backdrop", "درجُ الذكاء"], ["query-detail-panel", "تفاصيلُ الاستعلام"],
   ["move-refusal", "رسالةُ «تعذّر النقل»"]] as const) {
   check(layers.answered.includes(key), `${name} (.${key}) يُجيب القاعدة`);
 }
