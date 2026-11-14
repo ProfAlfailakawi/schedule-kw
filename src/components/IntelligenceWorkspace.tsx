@@ -8,7 +8,6 @@ import SearchableSelect from "./SearchableSelect";
 import IntelligenceScopeSwitch from "./IntelligenceScopeSwitch";
 import { departmentFamily } from "../utils/sectionLabel";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
-import PlanSheetPublisher from "./PlanSheetPublisher";
 import SectionPlan, { type PlanReadingView } from "./SectionPlan";
 import { WhatIfDesk } from "./TimeMachine";
 import LivingScheduleLayer from "./LivingScheduleLayer";
@@ -176,8 +175,6 @@ type InsightScene =
   | "attention"
   | "density"
   | "spatial"
-  | "rooms"
-  | "professors"
   | "health"
   | "genome"
   /* قراءةُ الفصل القادم: اللوحةُ نفسها في رادار التسجيل، لا نسخة. */
@@ -186,10 +183,6 @@ type InsightScene =
      two cards. One reading, one card, one screen — a panel that stacks two is
      exactly the thing this strip exists to end. */
   | "approval"
-  /* ما قاله الطلاب: الطلب، والتقاطع، والنقلة التي تُزيله. */
-  | "students"
-  /* الصحيفة: نشرُ الصحائف المعتمدة للجميع (رابط وQR وPDF) لرئيس لجنة الجدول. */
-  | "sheet"
   /* «فرصة لتحسين الجدول»: بطاقتُها هنا، وأيقونتُها في «أدوات البيانات» — ولا مكان ثالث. */
   | "improve"
   /* الطلب الفعلي: تقرير التسجيل (SWRDASH) — الرفعُ والتنبيه والعلاج في بطاقةٍ واحدة. */
@@ -206,7 +199,7 @@ type ApproveCard = "compare" | "drafts" | "versions" | "decisions";
    لأن فتح البطاقة لم يكن خطوةً في التاريخ. الآن كلُّ فتحٍ خطوة: ?stage=…&card=…،
    فالرجوع يعيدك إلى شبكة البطاقات، أو إلى البطاقة التي أرسلتك إلى مرحلةٍ أخرى. */
 const TAB_VALUES: Tab[] = ["command", "copilot", "twin", "whatif", "history"];
-const INSIGHT_SCENE_VALUES: InsightScene[] = ["quality", "approval", "attention", "density", "why", "spatial", "rooms", "professors", "health", "students", "genome", "sheet", "improve", "predict", "actualDemand"];
+const INSIGHT_SCENE_VALUES: InsightScene[] = ["quality", "approval", "attention", "density", "why", "spatial", "health", "genome", "improve", "predict", "actualDemand"];
 const TWIN_CARD_VALUES: TwinCard[] = ["hero", "genesis", "lab", "board", "editor", "ledger"];
 const APPROVE_CARD_VALUES: ApproveCard[] = ["compare", "drafts", "versions", "decisions"];
 /* ── أيقونةُ نقطة النسخة: ما الذي أُخذت قبله (من «شبكة الأمان» التي صارت «سجل النسخ»). ── */
@@ -480,19 +473,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   /* لوحة القواعد: الخادم (requirePowerAdmin) يقصر الكتابة على الإدارة الرئيسية. */
   const canEditRules = isPowerAdmin;
   /* نشرُ الصحائف للعامة: رئيس لجنة الجدول وإدارة النظام وحدهما (والخادمُ يتحقق ثانيةً). */
-  const canPublishSheets = isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair";
-  const [sheetSummary, setSheetSummary] = useState<{ published: number; total: number } | null>(null);
   /* رقمُ بطاقة «الطلب الفعلي»: يُقرأ مع النطاق، وتحدّثه اللوحةُ نفسها بعد كل رفعٍ أو ربط. */
   const [actualDemand, setActualDemand] = useState<PlanReadingView | null>(null);
-  const loadSheetSummary = useCallback(() => {
-    if (!canPublishSheets) return;
-    fetch("/api/plan-sheets").then(res => (res.ok ? res.json() : null)).then(body => {
-      if (!body?.sections) return;
-      const sheets = body.sections.flatMap((section: any) => section.sheets);
-      setSheetSummary({ published: sheets.filter((sheet: any) => sheet.published).length, total: sheets.length });
-    }).catch(() => undefined);
-  }, [canPublishSheets]);
-  useEffect(() => { loadSheetSummary(); }, [loadSheetSummary]);
   const [colleges, setColleges] = useState<AdCollege[]>([]),
     [sections, setSections] = useState<AdSection[]>([]),
     [terms, setTerms] = useState<AdTerm[]>([]),
@@ -2105,17 +2087,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               },
             ]
           : []),
-        /* البطاقةُ تظهر لمن ينشر دائماً، لا بعد أن توجد صحيفةٌ معتمدة فقط: وإلا بحث رئيسُ اللجنة عنها فلم يجدها
-           ولم يعرف أنها تنتظر اعتماد الصحيفة. */
-        ...(canPublishSheets
-          ? [{
-              value: "sheet" as const,
-              label: "الصحيفة",
-              detail: sheetSummary?.total ? "رابطٌ تفاعلي وQR وPDF للجميع" : "تظهر بعد اعتماد الصحيفة",
-              metric: sheetSummary?.total ? `${sheetSummary.published}/${sheetSummary.total}` : "—",
-              icon: <Workflow />,
-            }]
-          : []),
+        /* «الصحيفة» صارت في «أدوات الجدول ← نشر» (ScheduleTransfer) لرئيس اللجنة وإدارة النظام. */
         {
           value: "actualDemand" as const,
           label: "تخطيط الشعب",
@@ -3278,11 +3250,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                 </span>
               </div>
             </Surface>
-            </div>
-          ) : null}
-          {canPublishSheets && activeInsightKey === "sheet" ? (
-            <div className="content-stack insight-scene-panel" id="insight-panel-sheet" role="tabpanel" aria-labelledby="insight-tab-sheet" tabIndex={0}>
-              <PlanSheetPublisher onChanged={loadSheetSummary} focusSectionId={Number(sectionId) || 0} isAdmin={isPowerAdmin} />
             </div>
           ) : null}
           {activeInsightKey === "actualDemand" && collegeId && sectionId && termId ? (
