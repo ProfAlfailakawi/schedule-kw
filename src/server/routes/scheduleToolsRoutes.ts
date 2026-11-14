@@ -37,6 +37,8 @@ import { type AuthenticatedRequest, requirePermission, signInRequiredMessage } f
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, confirmedDepartmentRoomIds, readLocationRegistry } from "../core/locations";
 import { applyRequestHoldOverride, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "../core/scheduleConflicts";
 import { meetingExcludedIds, reassignmentExceptions, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIssue, sectionScheduleWindow, travelMinutesFor } from "../core/scheduleRules";
+import { fitScoresFor, type FitScore } from "../actualDemand";
+import { rankByFitBand } from "../../utils/studentFit";
 import { createScheduleHandler, regulationGate, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { coreqPairsOfSection, sectionPlanFacts } from "../core/coreqPairs";
@@ -475,7 +477,18 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
   const coreqPartners = roomOnly ? [] : partnersOfCourse(await coreqPairsOfSection(sectionId), Number(body.AdCourseId || 0));
   const coreqRows = coreqPartners.length ? live.filter(row => Number(row.AdSectionId) === sectionId) : [];
   const dayFlags = Object.fromEntries(SCHEDULE_DAY_KEYS.map(key => [key, dayKeys.includes(key as SuggestionDayKey)]));
-  const { ranked, deferred } = deferCoreqClashes(orderSuggestionCandidates(candidates, roomOnly), slot => coreqPartners.length > 0
+  /* «الوقت الذهبي للطلبة» (src/utils/studentFit.ts#rankByFitBand): ما يخدم الخريجين ثم الطلبة أكثر يتقدّم، وداخل كل فئةٍ يبقى الترتيبُ القديم. */
+  const fitCache = new Map<string, FitScore | null>();
+  const fitKey = (slot: { start: string; end: string }) => `${slot.start}|${slot.end}`;
+  let ordered0 = orderSuggestionCandidates(candidates, roomOnly);
+  if (!roomOnly && Number(body.AdCourseId || 0)) {
+    const HEAD = 60;
+    const unique = [...new Map(ordered0.slice(0, HEAD).map(slot => [fitKey(slot), slot] as const)).values()];
+    const scores = await fitScoresFor(req, { ...body, AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, id: editedRowId, excludeId: editedRowId }, unique.map(slot => ({ days: dayKeys, start: slot.start, end: slot.end })));
+    unique.forEach((slot, index) => fitCache.set(fitKey(slot), scores[index]));
+    if (scores.some(Boolean)) ordered0 = rankByFitBand(ordered0, slot => fitCache.get(fitKey(slot))?.percent, HEAD);
+  }
+  const { ranked, deferred } = deferCoreqClashes(ordered0, slot => coreqPartners.length > 0
     && coreqForcedClash({ ...dayFlags, id: -1, AdCourseId: Number(body.AdCourseId || 0), SCode: String(body.SCode || ""), fstarttime: slot.start, fendtime: slot.end }, coreqRows as any, coreqPartners, editedRowId));
   const conflictReq = Object.create(req) as AuthenticatedRequest;
   if (owner) (conflictReq as any).__requestReservationOwner = owner;
@@ -545,7 +558,23 @@ app.post("/api/schedules/suggest-slots", requirePermission(7), async (req: Authe
     res.json({ slots, reason, note: SUGGESTION_EMPTY_WORD[reason], replaceable, considered: candidates.length, rejectedByScheduleGate });
     return;
   }
-  res.json({ slots, replaceable, considered: candidates.length, rejectedByScheduleGate });
+  const fitted = slots.map(slot => { const fit = fitCache.get(fitKey(slot)); return fit ? { ...slot, fit } : slot; });
+  res.json({ slots: fitted, replaceable, considered: candidates.length, rejectedByScheduleGate });
+});
+
+/**
+ * «نبض الطلبة» على خانات «أسبوع الأستاذ»: لكل خانةٍ حرّة (أيام، بداية، نهاية) كم ممن يحتاجون المقرر
+ * يناسبهم ذلك الوقت. للعرض فقط — لا يكتب ولا يمنع. بلا تقرير طلبٍ فعلي: scores كلّها null فلا تُلوَّن خانة.
+ */
+app.post("/api/schedules/fit-grid", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const body = req.body || {};
+  const collegeId = Number(body.AdCollegeId || 0), sectionId = Number(body.AdSectionId || 0), termId = Number(body.AdTermId || 0);
+  if (!collegeId || !sectionId || !termId || !Number(body.AdCourseId || 0)) { res.json({ scores: [] }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  const wanted = (Array.isArray(body.targets) ? body.targets : []).slice(0, 80)
+    .map((item: any) => ({ days: (Array.isArray(item?.days) ? item.days : []).map(String).filter((day: string) => (SCHEDULE_DAY_KEYS as readonly string[]).includes(day)), start: String(item?.start || ""), end: String(item?.end || "") }));
+  const scores = await fitScoresFor(req, { ...body, AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, SCode: String(body.SCode || "") }, wanted);
+  res.json({ scores });
 });
 
 /* ── 🔄 شعبة «هيئة تدريسية» قابلة للاستبدال: تنفيذٌ ذرّي (G3) ────────────────────
