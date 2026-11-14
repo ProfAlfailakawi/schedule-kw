@@ -57,10 +57,10 @@
 /* ── «سلامة الميزات الجديدة» (FeatureHealth): ست بطاقاتٍ صغيرة؛ أرقامٌ كبيرة، حلقاتٌ وأشرطة، بلا نصٍّ طويل ── */
 .fh-card{display:grid;gap:12px;padding:16px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}
 .fh-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.fh-top h2{margin:0;font-size:1.05rem;font-weight:800;flex:1 1 auto}
+.fh-top h2{margin:0;font-size:1.05rem;font-weight:800;flex:1 1 0;min-inline-size:0}
 .fh-top-icon{display:grid;place-items:center;inline-size:40px;block-size:40px;border-radius:14px;background:var(--accent-soft,var(--surface-2));color:var(--accent,var(--muted))}
 .fh-top-icon svg{inline-size:22px;block-size:22px}
-.fh-status{font-size:.8rem;color:var(--muted);min-block-size:1em}
+.fh-status{font-size:.8rem;color:var(--muted);min-block-size:1em;order:3;flex:1 0 100%}
 .fh-refresh,.fh-retry{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-inline-size:44px;min-block-size:44px;padding-inline:14px;font:inherit;font-size:.85rem;font-weight:700;border:1px solid var(--line);border-radius:99px;background:var(--surface-2);color:inherit;cursor:pointer}
 .fh-refresh:hover,.fh-retry:hover{border-color:var(--accent,currentColor)}
 .fh-refresh:focus-visible,.fh-retry:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:2px}
@@ -105,6 +105,6 @@
 .fh-chips li{display:inline-flex;align-items:baseline;gap:5px;padding:3px 10px;border-radius:99px;background:var(--surface);border:1px solid var(--line);font-size:.8rem}
 .fh-chips li span{color:var(--muted)}
 .fh-chips li.is-zero{border-style:dashed}
-@media (min-width:640px){.fh-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:640px){.fh-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fh-status{order:0;flex:0 1 auto}}
 @media (min-width:960px){.fh-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (prefers-reduced-motion:reduce){.fh-refresh .spin{animation:none}}
