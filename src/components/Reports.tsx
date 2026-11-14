@@ -9,7 +9,7 @@ import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
   ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, Grid3x3, Network,
-  Hash, Fingerprint, Mic, Hourglass,
+  Hash, Fingerprint, Mic, Hourglass, CalendarPlus,
 } from "lucide-react";
 import { resolveAsk, type AskAnswer, type AskOption } from "../utils/queryAsk";
 import { buildReportInsights } from "../utils/reportInsights";
@@ -22,6 +22,11 @@ import QuerySaved from "./query/QuerySaved";
 import QueryCompare, { type HistoryPoint } from "./query/QueryCompare";
 import QueryPrintPreview from "./query/QueryPrintPreview";
 import QueryEmptyWhy, { type EmptyWhyItem } from "./query/QueryEmptyWhy";
+import QueryWhatIf, { type WhatIfRow } from "./query/QueryWhatIf";
+import QueryExcluded from "./query/QueryExcluded";
+import { whatIfMove } from "../utils/queryWhatIf";
+import { excludedFromRooms } from "../utils/excludedRows";
+import { writeSharedScope } from "../utils/sharedScope";
 import { balanceSheet, courseLoadSheet, courseRoomSheet, directorySheets, downloadSheets, exportFileName, fairnessSheet, instructorSheet, occupancySheet, roomLoadSheet, timeSheet, visitingHistorySheet, visitingSheet, type ExportSheet } from "../utils/lensExport";
 import { buildMorningBrief, type MorningBrief } from "../utils/morningBrief";
 import { TRAIL_KIND_META, isTrailKind } from "../utils/activityTrail";
@@ -157,6 +162,9 @@ interface Props {
   roleId?: string;
   /** يملك صلاحية مساحة الجدول (الشاشة 7): تفاصيل القاعة وشكل الأسبوع من الخادم تتطلّبها. */
   canReadWorkspace?: boolean;
+  /** من يملك الجدول (الشاشة ٧، لا صفةَ اطّلاعٍ فقط) يرى «افتحه في الجدول»، ويفتحه هذا الاستدعاء. */
+  canSchedule?: boolean;
+  onOpenSchedule?: () => void;
 }
 
 interface Filters {
@@ -544,7 +552,7 @@ const formatBriefDate = (iso: string) => {
 /** Rows shown before the phone fold in the appointment list (display only). */
 const QUERY_PHONE_HEAD = 6;
 
-export default function Reports({ mode, user, scopes = [], roleId, canReadWorkspace = false }: Props) {
+export default function Reports({ mode, user, scopes = [], roleId, canReadWorkspace = false, canSchedule = false, onOpenSchedule }: Props) {
   const planBadges = usePlanBadges();
   const prefKey = `schedule-unified-prefs-${user?.SystemUserId || 0}`;
   const scopeOwner = Number(user?.SystemUserId || 0);
@@ -613,6 +621,11 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const [courses, setCourses] = useState<AdCourse[]>([]);
   const [all, setAll] = useState<FSchedule[]>([]);
   const [siteLoadRead, setSiteLoadRead] = useState<{ termId: number; rows: FSchedule[]; denied: string[]; loading: boolean } | null>(null);
+  /* الطباعة الموفّرة للحبر: اختيارٌ يبقى (لكل متصفح)، ويقرؤه أمرُ الطباعة لحظتَه (المرجع لا الحال: الأمر متزامنٌ في اللمسة). */
+  const [inkSave, setInkSave] = useState(() => safeStorage.get("schedule-print-ink") === "1");
+  const inkRef = useRef(inkSave);
+  inkRef.current = inkSave;
+  const toggleInk = () => setInkSave(previous => { const next = !previous; safeStorage.set("schedule-print-ink", next ? "1" : "0"); return next; });
   const [expandedCourseRoomIds, setExpandedCourseRoomIds] = useState<Set<number>>(() => new Set());
   const [expandedCourseLoadIds, setExpandedCourseLoadIds] = useState<Set<number>>(() => new Set());
   /* صفةُ كل قسمٍ لمن يرى النهائيَّ وحده («accepted» | «historical»)، من ترويسة
@@ -1395,6 +1408,31 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
       rooms: locationRegistry.rooms.map(room => ({ id: room.id, code: room.canonicalCode, buildingId: room.buildingId })),
     };
   }, [all, instructors, courses, filters.sectionId, locationRegistry, courseNumberOf]);
+  /* «افتحه في الجدول»: يأخذ صاحبَ الشاشة ٧ إلى الموعد نفسه في ورشة الجدول، بنطاقه (القراءةُ تبقى قراءة). */
+  const openInSchedule = (row: FSchedule) => {
+    if (!canSchedule || !onOpenSchedule) return;
+    writeSharedScope({ collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId), termId: Number(row.AdTermId) });
+    try { sessionStorage.setItem("schedule-open-context-id", String(row.id)); } catch { /* يُفتح الجدول بلا تحديد */ }
+    onOpenSchedule();
+  };
+  /* «لو نقلتُ…»: بطاقةٌ تُجيب بالأرقام (utils/queryWhatIf) ولا تغيّر شيئاً. */
+  const [whatIf, setWhatIf] = useState<{ title: string; rows: WhatIfRow[]; missing: boolean } | null>(null);
+  const courseNumberLabel = (code: string) => {
+    const sample = all.find(row => courseNumberOf(row).endsWith(code));
+    return sample ? courseNumberOf(sample) : code;
+  };
+  const askWhatIf = (code: string, day: number | null, time: string | null) => {
+    const matches = whatIfMove({
+      rows: all.filter(row => Number(row.AdCollegeId) === Number(filters.collegeId) && (!filters.sectionId || Number(row.AdSectionId) === Number(filters.sectionId)) && Number(row.AdTermId) === Number(filters.termId)),
+      code, day, time,
+      courseNumberOf: row => courseNumberOf(row), courseCodeOf: row => String(row.CourseCodeSnapshot || courseById.get(row.AdCourseId)?.CourseCode || ""),
+      courseNameOf: row => String(row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || ""), roomKeyOf: row => roomIdentityKey(row),
+      external: (occupancy?.rooms || []).flatMap((room: any) => (room.busy || []).map((slot: any) => ({ roomId: String(room.roomId || ""), day: slot.day, from: slot.from, to: slot.to, mine: Boolean(slot.mine) }))),
+    });
+    const title = `${code.length === 7 ? code : courseNumberLabel(code)} ← ${[day !== null ? DAYS[day].label : "", time || ""].filter(Boolean).join(" ")}`;
+    setAskChoices(null); setAskFailed(false); setAskNote(null);
+    setWhatIf({ title, missing: !matches.length, rows: matches.map(match => ({ ...match, name: String(match.row.AdCourseName || courseById.get(match.row.AdCourseId)?.CourseName || "—"), code: courseNumberOf(match.row) })) });
+  };
   const [askChoices, setAskChoices] = useState<AskOption[] | null>(null);
   const [askFailed, setAskFailed] = useState(false);
 
@@ -1427,6 +1465,8 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
    */
   const runAsk = (text: string) => {
     const answer: AskAnswer = resolveAsk(text, askContext);
+    if (answer.kind === "whatif") { askWhatIf(answer.code, answer.day, answer.time); return; }
+    setWhatIf(null);
     if (answer.kind === "unknown") { setAskChoices(null); setAskFailed(true); setAskNote(answer.hint); return; }
     if (answer.kind === "choose") {
       setAskFailed(false);
@@ -1957,6 +1997,12 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const familyPending = familyActive && (!familyRead || familyRead.key !== familyKey || familyRead.loading);
   const familyFirstLoad = familyActive && (!familyRead || familyRead.key !== familyKey || (familyRead.loading && !familyRead.rows.length));
 
+  /* ما لم يدخل حسابَ القاعات: يُقال بجانب العدّاد، فلا يثق القارئ برقمٍ ناقصٍ لا يعرف أنه ناقص. */
+  const excludedRows = useMemo(
+    () => (lens === "occupancy" ? excludedFromRooms(occupancyRows) : lens === "room" || lens === "matrix" ? excludedFromRooms(results) : []),
+    [lens, occupancyRows, results],
+  );
+
   // --- output --------------------------------------------------------------
 
   /** Every filter the screen is showing travels with the export, so the
@@ -2060,6 +2106,8 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
     const originalTitle = document.title;
     document.title = title;
     root.dataset.printKind = kind;
+    /* موفّر الحبر: سمةٌ تلوّن الرسم بالرمادي ولا تمسّ قياساً واحداً (src/styles/59-print-ink.css). */
+    if (inkRef.current) root.dataset.printInk = "1";
     /* ── ورقة واحدة لكل التقارير: عرضية ─────────────────────────────────
        Chrome asks for the landscape page through `@page`; Safari ignores that,
        so the sheet is painted rotated inside Safari's portrait page — geometry
@@ -2077,6 +2125,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
       delete root.dataset.printKind;
       delete root.dataset.printRotate;
       delete root.dataset.printChromium;
+      delete root.dataset.printInk;
       /* وأحجامُ الصفحات معها: قِيست لهذه الطباعة، وطباعةٌ لاحقة من قائمة
          المتصفّح بعد تغيّر البيانات تخرج بالحجم المصمَّم لا بحجمٍ قديم. */
       clearPrintFit(document.getElementById("app-print-root") || document);
@@ -2380,6 +2429,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
         <header>
           <div><small>تفاصيل الموعد</small><div className="course-room-type-line"><strong>{pickedCourse?.CourseName || selectedResult.AdCourseName || "—"}<CourseTags courseId={selectedResult.AdCourseId} /></strong><CourseRoomTypeBadge type={pickedCourse?.CourseRoomType} compact/></div></div>
           <span className="occupancy-pick-count">الشعبة {selectedResult.SCode || "—"}</span>
+          {canSchedule && onOpenSchedule ? <button type="button" data-guide-ignore="يفتح الجدول على هذا الموعد؛ لا يكتب شيئاً" onClick={() => openInSchedule(selectedResult)} aria-label="افتحه في الجدول" title="افتحه في الجدول"><CalendarPlus aria-hidden="true" /></button> : null}
           <button type="button" onClick={() => setSelectedResultId(null)} aria-label="إغلاق التفاصيل" title="إغلاق"><X aria-hidden="true" /></button>
         </header>
         <div className="occupancy-pick-rows">
@@ -2535,6 +2585,11 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   };
   const copyShareLink = async () => {
     const url = reportShareUrl(window.location.origin, window.location.pathname, currentShareState());
+    /* على الهاتف تفتح قائمةُ المشاركة (واتساب وغيره) بدل النسخ فقط. */
+    const coarse = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    if (coarse && typeof navigator.share === "function") {
+      try { await navigator.share({ url, title: REPORT_TITLES[lens] }); return true; } catch (error: any) { if (error?.name === "AbortError") return false; }
+    }
     try { await navigator.clipboard.writeText(url); return true; } catch { setShareNote(url); return false; }
   };
 
@@ -2733,6 +2788,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
         />
         </div>
         {shareNote ? <p className="query-ask-note" role="status" dir="ltr">{shareNote}</p> : null}
+        {whatIf ? <QueryWhatIf title={whatIf.title} rows={whatIf.rows} missing={whatIf.missing} onClose={() => setWhatIf(null)} onOpen={canSchedule && onOpenSchedule ? item => openInSchedule(item.row) : undefined} /> : null}
         {askNote ? <p className={`query-ask-note${askFailed ? " is-failed" : ""}`} id="query-ask-note" role={askFailed ? "alert" : "status"}>{askNote}</p> : null}
         {askChoices?.length ? (
           <div className="query-ask-choices" role="group" aria-label="هل تقصد؟">
@@ -2973,6 +3029,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
             <b>{num(lens === "balance" ? Number(balance?.departments?.length || 0) : lens === "decision" ? decisionPrintDepartments.length : lens === "visitingHistory" ? visitingHistoryRows.length : lens === "visiting" ? visitingTermGroups.length : results.length)}</b>
             <span>{lens === "balance" || lens === "decision" ? nounFor(Number(lens === "balance" ? balance?.departments?.length || 0 : decisionPrintDepartments.length), AR.department) : lens === "visitingHistory" ? "منتدب تاريخي" : lens === "visiting" ? "منتدب" : "موعد"}</span>
             </> : null}
+            {excludedRows.length ? <QueryExcluded items={excludedRows} courseName={item => String(item.row.AdCourseName || courseById.get(item.row.AdCourseId)?.CourseName || "—")} onOpen={canSchedule && onOpenSchedule ? item => openInSchedule(item.row) : undefined} /> : null}
             {lens === "courseLoad" ? <small>{termName} · {sectionName || "اختر القسم"} · المواقع التي يوجد فيها القسم</small>
               : lens === "balance" ? <small>{balanceScopeText}</small>
               : lens === "decision" ? <small>{decisionScopeText}</small>
@@ -3024,7 +3081,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   <button type="button" className="query-print-icon has-label" data-guide-ignore="طباعة العرض الحالي؛ قراءة فقط" onClick={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} aria-label="طباعة هذا العرض" title="طباعة هذا العرض">
                     <Printer aria-hidden="true" /><span>طباعة</span>
                   </button>
-                  <QueryPrintPreview refreshKey={`${printKind}:${results.length}:${lens}`} onPrint={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} label={REPORT_TITLES[lens]} />
+                  <QueryPrintPreview refreshKey={`${printKind}:${results.length}:${lens}`} onPrint={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} label={REPORT_TITLES[lens]} ink={inkSave} onInk={toggleInk} />
                 </>
               )}
               {/* ── تصدير Excel (N12) ────────────────────────────────────────

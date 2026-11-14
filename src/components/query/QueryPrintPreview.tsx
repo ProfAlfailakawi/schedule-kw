@@ -1,4 +1,4 @@
-import { Eye, FileText, Printer, X } from "lucide-react";
+import { Droplet, Eye, FileText, Printer, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export interface PreviewPage { index: number; lines: number; signed: boolean }
@@ -21,7 +21,7 @@ export function readPrintPages(): PreviewPage[] {
  * زرّ عينٍ بجانب الطباعة: يفتح شريطاً من أوراقٍ صغيرة بأرقامها (الأخيرة تحمل التواقيع)، وفيه زرّ «اطبع».
  * لا يعترض الطباعة المباشرة: من يريد الطباعة يضغطها، ومن يريد أن يطمئن يضغط العين أولاً.
  */
-export default function QueryPrintPreview({ refreshKey, onPrint, disabled, label }: { refreshKey: string; onPrint: () => void; disabled?: boolean; label: string }) {
+export default function QueryPrintPreview({ refreshKey, onPrint, disabled, label, ink, onInk }: { refreshKey: string; onPrint: () => void; disabled?: boolean; label: string; ink: boolean; onInk: () => void }) {
   const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<PreviewPage[]>([]);
   const box = useRef<HTMLSpanElement | null>(null);
@@ -46,8 +46,8 @@ export default function QueryPrintPreview({ refreshKey, onPrint, disabled, label
   const max = Math.max(1, ...pages.map(page => page.lines));
   return (
     <span className="query-preview" ref={box}>
-      <button type="button" className="query-print-icon" data-guide-ignore="معاينة صفحات الورقة قبل الطباعة؛ قراءة فقط" aria-expanded={open} aria-label={`معاينة صفحات ${label}`} title="معاينة الصفحات" disabled={disabled} onClick={() => setOpen(value => !value)}>
-        <Eye aria-hidden="true" />
+      <button type="button" className={`query-print-icon${ink ? " has-ink" : ""}`} data-guide-ignore="معاينة صفحات الورقة قبل الطباعة؛ قراءة فقط" aria-expanded={open} aria-label={`معاينة صفحات ${label}`} title={ink ? "معاينة الصفحات — موفّر الحبر مفعّل" : "معاينة الصفحات"} disabled={disabled} onClick={() => setOpen(value => !value)}>
+        <Eye aria-hidden="true" />{ink ? <i className="query-ink-dot" aria-hidden="true" /> : null}
       </button>
       {open ? (
         <div className="query-preview-pop" role="dialog" aria-modal="false" aria-label="معاينة الصفحات">
@@ -61,7 +61,10 @@ export default function QueryPrintPreview({ refreshKey, onPrint, disabled, label
               </li>
             ))}
           </ol>
-          <button type="button" className="query-preview-print" data-guide-ignore="طباعة بعد المعاينة؛ قراءة فقط" aria-label="طباعة" title="طباعة" onClick={() => { setOpen(false); onPrint(); }}><Printer aria-hidden="true" /></button>
+          <div className="query-preview-actions">
+            <button type="button" className={`query-ink-toggle${ink ? " is-on" : ""}`} data-guide-ignore="طباعة موفّرة للحبر: نفس الورقة بلا تلوين؛ اختيارٌ يبقى" aria-pressed={ink} aria-label="موفّر الحبر" title={ink ? "موفّر الحبر مفعّل — نفس الورقة بالرمادي" : "موفّر الحبر — نفس الورقة بالرمادي"} onClick={onInk}><Droplet aria-hidden="true" /></button>
+            <button type="button" className="query-preview-print" data-guide-ignore="طباعة بعد المعاينة؛ قراءة فقط" aria-label="طباعة" title="طباعة" onClick={() => { setOpen(false); onPrint(); }}><Printer aria-hidden="true" /></button>
+          </div>
         </div>
       ) : null}
     </span>

@@ -7100,8 +7100,8 @@
    ],
    "path": "/api/internal/morning-brief",
    "name": "bound dispatch",
-   "call": "8bde3c890d89444d",
-   "site": "src/server/morningBriefPush.ts:51",
+   "call": "f043bd6d22d27b8c",
+   "site": "src/server/morningBriefPush.ts:56",
    "regexp": "/^\\/api\\/internal\\/morning-brief\\/?$/i",
    "end": true
   },

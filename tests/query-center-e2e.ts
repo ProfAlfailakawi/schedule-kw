@@ -11,7 +11,10 @@
  * التشغيل: npm run test:e2e   (يلزم playwright ومتصفح Chromium؛ PLAYWRIGHT=<مسار> لتحديد الوحدة)
  * خارج المجموعة العامة (tests/suite.txt) عمداً: يحتاج متصفحاً مثبّتاً، فلا يُشغَّل حيث لا يوجد.
  */
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { createRequire } from "node:module";
 import * as XLSX from "xlsx";
 
@@ -38,6 +41,15 @@ async function startServer(): Promise<ChildProcess> {
   throw new Error("الخادم التجريبي لم يبدأ");
 }
 
+/** إحداثيات كل كلمةٍ في كل صفحة (pdftotext -bbox): هي «هندسة الورقة». null إن لم تتوفّر الأداة. */
+function wordBoxes(pdf: Buffer): string | null {
+  const file = path.join(os.tmpdir(), `e2e-${process.pid}-${Math.random().toString(36).slice(2)}.pdf`);
+  fs.writeFileSync(file, pdf);
+  try {
+    const out = spawnSync("pdftotext", ["-bbox", file, "-"], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+    return out.status === 0 ? out.stdout.split("\n").filter(line => /<(word|page) /.test(line)).join("\n") : null;
+  } finally { fs.rmSync(file, { force: true }); }
+}
 const countPages = (pdf: Buffer) => (pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) || []).length;
 const mediaBox = (pdf: Buffer) => { const m = pdf.toString("latin1").match(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/); return m ? [Number(m[1]), Number(m[2])] : [0, 0]; };
 
@@ -53,7 +65,7 @@ async function main() {
       page.on("pageerror", (e: any) => issues.push(`pageerror: ${String(e).slice(0, 200)}`));
       page.on("response", (r: any) => { if (r.status() >= 400 && r.url().includes("/api/")) issues.push(`http ${r.status()} ${r.url().replace(BASE, "")}`); });
       await page.addInitScript(() => {
-        (window as any).print = () => { (window as any).__printed = ((window as any).__printed || 0) + 1; };
+        (window as any).print = () => { (window as any).__printed = ((window as any).__printed || 0) + 1; (window as any).__lastInk = document.documentElement.dataset.printInk || ""; };
         const read = Storage.prototype.getItem;
         Storage.prototype.getItem = function (key: string) { return String(key).startsWith("schedule-onboarding") ? "done" : read.call(this, key); };
       });
@@ -81,14 +93,41 @@ async function main() {
       if (!(await print.count())) continue;
       if (tabs[i] === "الأساتذة") { await print.click(); await desktop.page.locator(".query-scope-menu [role=menuitem]").first().click(); await desktop.page.waitForTimeout(2500); }
       else { await print.click(); await desktop.page.waitForTimeout(600); }
+      /* أولُ رسمٍ بعد الطباعة يسبق استقرار الخطوط فتختلف إحداثياته قليلاً عن اللاحق: يُرمى، والمقارنةُ بين رسمين مستقرّين. */
+      await desktop.page.pdf({ preferCSSPageSize: true, printBackground: true });
       const pdf: Buffer = await desktop.page.pdf({ preferCSSPageSize: true, printBackground: true });
       const [w, h] = mediaBox(pdf);
       check(countPages(pdf) >= 1 && w > h && Math.abs(w - 841.9) < 3, `ورقة «${tabs[i]}»: A4 أفقي بعدد صفحاتٍ معقول`, { pages: countPages(pdf), w, h });
+      /* موفّر الحبر: السمةُ نفسها التي يضعها أمر الطباعة. الورقةُ هي هي بالمليمتر — كلُّ كلمةٍ في مكانها وبعدد الصفحات نفسه. */
+      const plain = wordBoxes(pdf);
+      if (plain !== null) {
+        await desktop.page.evaluate(() => { document.documentElement.dataset.printInk = "1"; });
+        const inked: Buffer = await desktop.page.pdf({ preferCSSPageSize: true, printBackground: true });
+        await desktop.page.evaluate(() => { delete document.documentElement.dataset.printInk; });
+        check(wordBoxes(inked) === plain, `موفّر الحبر: ورقة «${tabs[i]}» بالهندسة نفسها تماماً (إحداثيات الكلمات وعدد الصفحات)`, { pages: [countPages(pdf), countPages(inked)] });
+      }
       await desktop.page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
       await desktop.page.waitForTimeout(300);
     }
     await desktop.page.locator(".lens-strip [role=tab]").first().click();
     await desktop.page.waitForTimeout(1200);
+
+    /* ── التقرير الشامل (الوثيقة الرسمية) بموفّر الحبر: الهندسة نفسها أيضاً ── */
+    await desktop.page.locator('button:has-text("التقرير الشامل")').click();
+    await desktop.page.waitForTimeout(400);
+    await desktop.page.keyboard.press("Enter");
+    await desktop.page.waitForTimeout(1500);
+    await desktop.page.pdf({ preferCSSPageSize: true, printBackground: true });
+    const official: Buffer = await desktop.page.pdf({ preferCSSPageSize: true, printBackground: true });
+    const officialBoxes = wordBoxes(official);
+    if (officialBoxes !== null) {
+      await desktop.page.evaluate(() => { document.documentElement.dataset.printInk = "1"; });
+      const officialInk: Buffer = await desktop.page.pdf({ preferCSSPageSize: true, printBackground: true });
+      await desktop.page.evaluate(() => { delete document.documentElement.dataset.printInk; });
+      check(wordBoxes(officialInk) === officialBoxes, "موفّر الحبر: التقرير الشامل الرسمي بالهندسة نفسها تماماً", { pages: [countPages(official), countPages(officialInk)] });
+    }
+    await desktop.page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    await desktop.page.waitForTimeout(400);
 
     /* ── Excel بمرشّح المبنى = صفوف الشاشة ── */
     await desktop.page.locator('button[title="مرشحات إضافية"]').click();
@@ -128,6 +167,27 @@ async function main() {
     await desktop.page.waitForTimeout(700);
     check((await rowsOnScreen(desktop.page)) > 0, "إزالة أنفع مرشّحٍ تُعيد النتائج");
     await desktop.page.locator('button[aria-label="مسح كل المرشحات الإضافية"]').click().catch(() => undefined);
+
+    /* ── «لو نقلتُ…»: بطاقةٌ بالأرقام، ولا شيء يتغيّر في الجدول ── */
+    await ask("لو نقلت شعبة 101 للثلاثاء 10");
+    check((await desktop.page.locator(".query-whatif").count()) === 1 && (await desktop.page.locator(".query-whatif li, .query-whatif .qw-none").count()) >= 1, "«لو نقلت شعبة 101 للثلاثاء 10» تعرض بطاقةً بالنتيجة");
+    await desktop.page.locator(".query-whatif .qw-x").click();
+    check((await desktop.page.locator(".query-whatif").count()) === 0, "البطاقة تُغلق");
+
+    /* ── موفّر الحبر: اختيارٌ يبقى، وأمر الطباعة يضع السمة ── */
+    await desktop.page.locator('button[aria-label^="معاينة صفحات"]').click();
+    await desktop.page.locator('button[aria-label="موفّر الحبر"]').click();
+    check((await desktop.page.evaluate(() => localStorage.getItem("schedule-print-ink"))) === "1", "موفّر الحبر يُحفظ في المتصفح");
+    await desktop.page.locator(".query-preview-print").click();
+    await desktop.page.waitForTimeout(500);
+    check((await desktop.page.evaluate(() => (window as any).__lastInk)) === "1", "أمر الطباعة وضع سمة موفّر الحبر");
+    await desktop.page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    await desktop.page.waitForTimeout(300);
+    check((await desktop.page.evaluate(() => document.documentElement.dataset.printInk || "")) === "", "السمة تُرفع عند انتهاء الطباعة");
+    await desktop.page.locator('button[aria-label^="معاينة صفحات"]').click();
+    await desktop.page.locator('button[aria-label="موفّر الحبر"]').click();
+    await desktop.page.keyboard.press("Escape");
+    check((await desktop.page.evaluate(() => localStorage.getItem("schedule-print-ink"))) === "0", "وإيقافه يُحفظ أيضاً");
 
     /* ── تقاريري على الخادم ── */
     await desktop.page.locator('button[aria-label="تقاريري"]').click();

@@ -1,0 +1,57 @@
+/* ── الطباعة الموفّرة للحبر: نفس الورقة بلا تلوين ─────────────────────────────
+   اختياريةٌ (html[data-print-ink="1"] يضعها أمرُ الطباعة حين يختارها القارئ) وغيابُها لا يغيّر شيئاً.
+   قاعدتها الوحيدة: ما يُرسم يتغيّر، وما يُقاس لا يتغيّر — لا هامش ولا حشوة ولا حجم خطٍّ ولا عرضُ حدّ ولا
+   ترتيب. فالصفحات هي هي في أماكنها بالمليمتر (يحرس ذلك tests/print-ink-audit.ts: إحداثيات كل كلمةٍ في
+   كل ورقةٍ متطابقة مع الوضع العادي).
+   ما يحمل معنى لا يُمحى بل يُرمَّد: درجاتُ الإشغال والأشرطة وأعمدةُ التغيير تبقى متمايزةً بدرجات الرمادي. */
+@media print {
+  html[data-print-ink="1"] #app-print-root,
+  html[data-print-ink="1"] #app-print-root * {
+    background-color: transparent !important;
+    background-image: none !important;
+    color: #111 !important;
+    text-shadow: none !important;
+  }
+  /* الشعار والرسوم المتجهة بالرمادي (التعبئة نفسها تبقى: رمزُ التحقق أسودُ على أبيض) */
+  html[data-print-ink="1"] #app-print-root img,
+  html[data-print-ink="1"] #app-print-root svg { filter: grayscale(1) !important; }
+
+  /* ── أشرطة النِّسَب: مجرى فاتح وتعبئة رمادية ── */
+  html[data-print-ink="1"] #app-print-root .print-week-pulse i,
+  html[data-print-ink="1"] #app-print-root .print-time-list > article > i,
+  html[data-print-ink="1"] #app-print-root .print-fairness-rows > div > i,
+  html[data-print-ink="1"] #app-print-root .print-spread-bar { background-color: #e6e6e6 !important; }
+  html[data-print-ink="1"] #app-print-root .print-week-pulse i b,
+  html[data-print-ink="1"] #app-print-root .print-time-list > article > i b,
+  html[data-print-ink="1"] #app-print-root .print-fairness-rows > div > i b { background-color: #808080 !important; }
+  /* الشدّة بالعتمة: الأخطر أغمق */
+  html[data-print-ink="1"] #app-print-root .print-spread-bar .seg-high { background-color: #404040 !important; }
+  html[data-print-ink="1"] #app-print-root .print-spread-bar .seg-medium { background-color: #777 !important; }
+  html[data-print-ink="1"] #app-print-root .print-spread-bar .seg-low { background-color: #aaa !important; }
+  html[data-print-ink="1"] #app-print-root .print-spread-bar .seg-clean { background-color: #d0d0d0 !important; }
+
+  /* ── نسبة الإشغال: خمس درجات رماديةٌ متدرّجة، والرقم في الخانة يبقى ── */
+  html[data-print-ink="1"] #app-print-root .print-occupancy-table .print-heat-1 { background-color: #efefef !important; }
+  html[data-print-ink="1"] #app-print-root .print-occupancy-table .print-heat-2 { background-color: #d9d9d9 !important; }
+  html[data-print-ink="1"] #app-print-root .print-occupancy-table .print-heat-3 { background-color: #bfbfbf !important; }
+  html[data-print-ink="1"] #app-print-root .print-occupancy-table .print-heat-4 { background-color: #a0a0a0 !important; }
+  html[data-print-ink="1"] #app-print-root .print-occupancy-table .print-heat-5 { background-color: #808080 !important; }
+
+  /* ── سجل المنتدبين عبر الفصول ── */
+  html[data-print-ink="1"] #app-print-root .print-history-term-slot.level-1 { background-color: #efefef !important; }
+  html[data-print-ink="1"] #app-print-root .print-history-term-slot.level-2 { background-color: #d9d9d9 !important; }
+  html[data-print-ink="1"] #app-print-root .print-history-term-slot.level-3 { background-color: #bfbfbf !important; }
+  html[data-print-ink="1"] #app-print-root .print-history-term-slot.level-4 { background-color: #a0a0a0 !important; }
+
+  /* ── تقرير تغييرات الجدول: مضاف أفتح، ومحذوف أغمق، والخلية المعدّلة بين بينَ بإطارها الداخلي المعتاد ── */
+  html[data-print-ink="1"] #app-print-root .authority-pdf-row-added > [role="cell"],
+  html[data-print-ink="1"] #app-print-root .authority-pdf-row-added .authority-pdf-row-marker,
+  html[data-print-ink="1"] #app-print-root .authority-pdf-legend .authority-pdf-key-added { background-color: #f0f0f0 !important; }
+  html[data-print-ink="1"] #app-print-root .authority-pdf-row-deleted > [role="cell"],
+  html[data-print-ink="1"] #app-print-root .authority-pdf-row-deleted .authority-pdf-row-marker,
+  html[data-print-ink="1"] #app-print-root .authority-pdf-legend .authority-pdf-key-deleted { background-color: #d4d4d4 !important; }
+  html[data-print-ink="1"] #app-print-root .authority-pdf-row-review > [role="cell"] { background-color: #e2e2e2 !important; }
+  html[data-print-ink="1"] #app-print-root .authority-pdf-row-changed > [role="cell"].authority-pdf-cell-changed,
+  html[data-print-ink="1"] #app-print-root .authority-pdf-row-changed .authority-pdf-row-marker,
+  html[data-print-ink="1"] #app-print-root .authority-pdf-legend .authority-pdf-key-changed { background-color: #e6e6e6 !important; }
+}
