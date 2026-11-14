@@ -1449,7 +1449,7 @@
       "kind": "functional",
       "title": { "ar": "فتح المحرّر من طلب أستاذ أو طلب شعبة، وسؤال حجز الطلب", "en": "Opening the editor from an instructor or section request, and the request-hold prompt" },
       "text": {
-        "ar": "يجب أن يفتح المحرّر نصفَ ممتلئ حين يأتي من وارد الأساتذة (المقرر والأستاذ والأيام والوقت من الطلب، والقاعة والشعبة قرار القسم فتبقى فارغة ما لم يحملها الطلب) أو من «طلب شعبة» في الإرشاد (المقرر والكلية والقسم والفصل)، مع سطرٍ يقول من أين جاء، وأن يسجّل القرار على الطلب بعد الحفظ لا قبله، وأن يسأل حين يردّ الخادم «حجز طلب» بين تثبيت الطلب ورفضه وتجاوزه.",
+        "ar": "يجب أن يفتح المحرّر نصفَ ممتلئ حين يأتي من «رغبات الأساتذة» (المقرر والأستاذ والأيام والوقت من الطلب، والقاعة والشعبة قرار القسم فتبقى فارغة ما لم يحملها الطلب) أو من «طلب شعبة» في الإرشاد (المقرر والكلية والقسم والفصل)، مع سطرٍ يقول من أين جاء، وأن يسجّل القرار على الطلب بعد الحفظ لا قبله، وأن يسأل حين يردّ الخادم «حجز طلب» بين تثبيت الطلب ورفضه وتجاوزه.",
         "en": "The editor shall open half-filled when it comes from the instructor inbox (course, instructor, days and time from the request; hall and section are the department's decision and stay empty unless the request carries them) or from an advising «section request» (course, college, department and term), with a line saying where it came from, shall record the decision on the request after the save and not before, and shall ask, when the server answers «request hold», between fixing the request, rejecting it and overriding it."
       },
       "priority": "should",
