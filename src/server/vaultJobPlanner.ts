@@ -145,6 +145,24 @@ export function pickRestorePointEvictions(points: readonly RestorePointRef[], ke
 
 /* ══ بوابةُ الصيانة: مهمةٌ مفتوحة تمنع الكتابة العادية ══════════════════════════════════════ */
 export const VAULT_MAINTENANCE_MESSAGE = "النظام في صيانة: عملية نسخٍ احتياطي جارية";
+/** مهمةٌ ما زالت في مرحلة نقطة الأمان (لم تمسّ البياناتِ الحيّة) لا تُغلق الكتابة إلا ما دامت تعمل فعلاً. */
+export const VAULT_GATE_IDLE_MS = 10 * 60_000;
+
+/**
+ * هل تُغلق الكتابةُ العادية من أجل هذه المهمة؟
+ *  • بعد أن بدأ استبدالُ البيانات (أو رجوعُها) تبقى الكتابةُ مغلقةً حتى يُنهي الجذرُ المهمةَ أو يُلغيها: النظامُ نصفُ مستبدَل.
+ *  • قبل ذلك (التهيئة ونقطةُ الأمان) تُغلق ما دامت المهمةُ «تعمل» وقد تحرّكت في آخر ‎VAULT_GATE_IDLE_MS‎ فقط؛ فاستيرادٌ
+ *    فشل قبل أن يمسّ شيئاً، أو تُرك والجلسةُ مغلقة، لا يحجز الجامعةَ كلَّها عن الكتابة.
+ */
+export function gateHoldsFor(holder: { status?: string | null; phase?: string | null; restorePointId?: string | null; updatedAt?: string | null } | null, now: number): boolean {
+  if (!holder || isTerminalVaultStatus(holder.status)) return false;
+  const touched = Boolean(holder.restorePointId) && holder.phase !== "safety";
+  if (touched) return true;
+  if (holder.status !== "running") return false;
+  const moved = Date.parse(String(holder.updatedAt || ""));
+  return Number.isFinite(moved) && now - moved < VAULT_GATE_IDLE_MS;
+}
+
 export const VAULT_MAINTENANCE_CACHE_MS = 5_000;
 
 /** هل يُرفض هذا الطلب؟ القراءةُ تمرّ؛ الحسابُ الرئيسي ومسارات الخزنة والدخولُ والخروج تمرّ. */

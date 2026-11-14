@@ -25,7 +25,7 @@ import type { Firestore, QueryDocumentSnapshot, WriteBatch } from "firebase-admi
 import { gzipSync, gunzipSync } from "zlib";
 import { assertExplicitProductionTarget } from "../server/firestoreTarget";
 import {
-  holdsLease, isOpenVaultStatus, isTerminalVaultStatus, leaseWriteFields, nextOpAction, opRetryOutcome, opTotalUnits, opTouchedData, pickRestorePointEvictions, planLeaseTake,
+  gateHoldsFor, holdsLease, isOpenVaultStatus, isTerminalVaultStatus, leaseWriteFields, nextOpAction, opRetryOutcome, opTotalUnits, opTouchedData, pickRestorePointEvictions, planLeaseTake,
   planLockTake, planLockVerify, planResetQueue, planUndoQueue, createOpenVaultFlag, VaultJobConflict,
   type VaultLeaseFields, type VaultLockDoc, type VaultLockKind, type VaultOpKind, type VaultOpPhase, type VaultOpStatus,
 } from "../server/vaultJobPlanner";
@@ -2347,7 +2347,7 @@ const openVaultFlag = createOpenVaultFlag({
     if (!snap.exists) return false;
     const lock = snap.data() as VaultLockDoc;
     const holder = await firestoreDb!.collection(vaultHolderCollection(lock.kind)).doc(lock.jobId).get();
-    return !isTerminalVaultStatus(holder.exists ? String((holder.data() as any)?.status) : null);
+    return gateHoldsFor(holder.exists ? (holder.data() as any) : null, Date.now());
   },
 });
 async function hasOpenVaultJob(): Promise<boolean> {

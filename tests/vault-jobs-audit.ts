@@ -9,6 +9,7 @@ import fs from "fs";
 import {
   createOpenVaultFlag, holdsLease, isOpenVaultStatus, isTerminalVaultStatus, leaseIsLive, leaseWriteFields, maintenanceRefuses, nextOpAction, opProgressPercent, opRetryOutcome,
   opTotalUnits, opTouchedData, pickRestorePointEvictions, planLeaseTake, planLockTake, planLockVerify, planResetQueue, planUndoQueue, VAULT_LEASE_MS, VAULT_OP_MAX_RETRIES,
+  gateHoldsFor,
 } from "../src/server/vaultJobPlanner";
 import { classifyGenerationReading, createGenerationWatcher, IDENTITY_GENERATION_TTL_MS, isGenerationReadDue, withTimeout } from "../src/server/identityGeneration";
 
@@ -208,6 +209,21 @@ check(isOpenVaultStatus("running") && isOpenVaultStatus("failed") && !isOpenVaul
   check(/status\(503\)\.json\(\{ error: VAULT_MAINTENANCE_MESSAGE/.test(server) && planner.includes("النظام في صيانة: عملية نسخٍ احتياطي جارية"), "W37 الرفضُ 503 بالرسالة المطلوبة");
   check(/hasOpenVaultJob: \(\): Promise<boolean>/.test(repo) && /async function hasOpenVaultJob[\s\S]{0,120}if \(opJobIsLocal\(\)\) return false/.test(repo), "W38 لا أثرَ للبوابة في التجريبي والمحلي");
   check(ui.includes("job.busy") && ui.includes("خطوة جارية…") && ui.includes("result.rollingBack") && ui.includes('"rollback"'), "W39 الواجهة: busy وعودةٌ متدرجة");
+
+  {
+    /* بوابةُ الصيانة لا تحجز الجامعةَ بمهمةٍ لم تمسّ البيانات: فاشلةٍ أو متروكة قبل مرحلة الاستبدال. */
+    const now = Date.parse("2026-11-14T10:00:00Z");
+    const fresh = new Date(now - 60_000).toISOString(), stale = new Date(now - 11 * 60_000).toISOString();
+    check(gateHoldsFor({ status: "running", phase: "safety", updatedAt: fresh }, now) === true, "G1 مهمةٌ تعمل في نقطة الأمان تُغلق الكتابة");
+    check(gateHoldsFor({ status: "running", phase: "safety", updatedAt: stale }, now) === false, "G2 ومتروكةٌ منذ أكثر من عشر دقائق لا تُغلقها");
+    check(gateHoldsFor({ status: "failed", phase: "safety", updatedAt: fresh }, now) === false, "G3 وفاشلةٌ قبل أن تمسّ البيانات لا تُغلقها");
+    check(gateHoldsFor({ status: "running", phase: "apply", restorePointId: "rp", updatedAt: stale }, now) === true, "G4 وبعد بدء الاستبدال تبقى مغلقةً ولو تأخرت");
+    check(gateHoldsFor({ status: "failed", phase: "apply", restorePointId: "rp", updatedAt: stale }, now) === true, "G5 وفاشلةٌ نصفَ مستبدَلة تبقى مغلقةً حتى يعالجها الجذر");
+    check(gateHoldsFor({ status: "failed", phase: "rollback", restorePointId: "rp", updatedAt: stale }, now) === true, "G6 والرجوعُ إلى نقطة الأمان كذلك");
+    check(gateHoldsFor({ status: "ready", phase: "finalizing", restorePointId: "rp", updatedAt: fresh }, now) === false && gateHoldsFor({ status: "abandoned", phase: "rollback", restorePointId: "rp" }, now) === false && gateHoldsFor(null, now) === false,
+      "G7 المنتهية والملغاة وغيابُ المهمة لا تُغلق");
+    check(read("src/db/repository.ts").includes("gateHoldsFor(holder.exists ? (holder.data() as any) : null, Date.now())"), "G8 علَمُ البوابة يقرأ المهمةَ الماسكة بهذا الحكم");
+  }
 
   console.log(failed ? `\n${failed} فحصاً فشل` : "\nكل الفحوص نجحت");
   process.exit(failed ? 1 : 0);

@@ -2680,8 +2680,8 @@
         "en": "Maintenance gate: ordinary writes stop while a vault job is open"
       },
       "text": {
-        "ar": "يجب أن يُرفض أي طلب POST أو PUT أو PATCH أو DELETE من غير الحساب الرئيسي بـ 503 ورسالة «النظام في صيانة: عملية نسخٍ احتياطي جارية» (ورأس Retry-After) ما دامت مهمةُ خزنةٍ (استيراد أو تصفير أو تراجع) مفتوحة، وتستمر القراءات؛ ويمرّ الحسابُ الرئيسي ومسارات ‎/api/system-backup/*‎ ومسارات ‎/api/auth/*‎ والقياس. العلَمُ مخبَّأ في ذاكرة النسخة ‎≤5‎ ثوانٍ (قراءةٌ واحدة لوثيقة القفل كل خمس ثوانٍ كحدٍّ أقصى لكل نسخة لا لكل طلب) وفشلُ قراءته لا يغلق النظام، ولا أثر لها في الوضعين التجريبي والمحلي. وتُسجَّل في server.ts مع حرّاس الكتابة العامة بعد حارس التجربة.",
-        "en": "Any POST, PUT, PATCH or DELETE from a non-root account shall be refused with 503 and the message «System under maintenance: a backup operation is in progress» (and a Retry-After header) while a vault job (import, reset or undo) is open, while reads continue; the root account, /api/system-backup/* and /api/auth/* routes and telemetry pass. The flag is cached in the instance for at most 5 seconds (one read of the lock document every five seconds per instance at most, not per request), a failed read never closes the system, and it is a no-op in demo and local-file modes. It is registered in server.ts with the other global write guards, after the demo guard."
+        "ar": "يجب أن يُرفض أي طلب POST أو PUT أو PATCH أو DELETE من غير الحساب الرئيسي بـ 503 ورسالة «النظام في صيانة: عملية نسخٍ احتياطي جارية» (ورأس Retry-After) ما دامت مهمةُ خزنةٍ (استيراد أو تصفير أو تراجع) قد بدأت استبدالَ البيانات أو الرجوعَ إلى نقطة الأمان (ولو فشلت حتى يُنهيها الجذرُ أو يُلغيها)، أو كانت تعمل في تهيئتها ونقطةِ أمانها وتحرّكت في آخر عشر دقائق؛ فمهمةٌ فاشلةٌ أو متروكةٌ قبل أن تمسّ البيانات لا تحجز الكتابة عن غير الجذر. وتستمر القراءات؛ ويمرّ الحسابُ الرئيسي ومسارات ‎/api/system-backup/*‎ ومسارات ‎/api/auth/*‎ والقياس. العلَمُ مخبَّأ في ذاكرة النسخة ‎≤5‎ ثوانٍ (قراءةٌ واحدة لوثيقة القفل كل خمس ثوانٍ كحدٍّ أقصى لكل نسخة لا لكل طلب) وفشلُ قراءته لا يغلق النظام، ولا أثر لها في الوضعين التجريبي والمحلي. وتُسجَّل في server.ts مع حرّاس الكتابة العامة بعد حارس التجربة.",
+        "en": "Any POST, PUT, PATCH or DELETE from a non-root account shall be refused with 503 and the message «System under maintenance: a backup operation is in progress» (and a Retry-After header) while a vault job (import, reset or undo) has started replacing data or rolling back to its safety point (even when it failed, until the root account finishes or abandons it), or is running in its set-up and safety-point phase and moved within the last ten minutes — a job that failed or was left idle before touching any data does not keep non-root accounts from writing — while reads continue; the root account, /api/system-backup/* and /api/auth/* routes and telemetry pass. The flag is cached in the instance for at most 5 seconds (one read of the lock document every five seconds per instance at most, not per request), a failed read never closes the system, and it is a no-op in demo and local-file modes. It is registered in server.ts with the other global write guards, after the demo guard."
       },
       "priority": "must",
       "status": "implemented",
@@ -2690,6 +2690,10 @@
         {
           "ar": "تصفير مفتوح ← POST من مدير القسم ← 503 والرسالة؛ وGET يمرّ؛ وPOST من الحساب الرئيسي يمرّ.",
           "en": "Open reset ← POST by a section manager ← 503 and the message; GET passes; POST by the root account passes."
+        },
+        {
+          "ar": "استيرادٌ فشل في نقطة الأمان قبل أن يمسّ البيانات ← POST من مدير القسم يمرّ؛ وتصفيرٌ فشل بعد بدء الاستبدال ← 503 حتى يُلغى.",
+          "en": "An import that failed in its safety-point phase before touching data ← a department head's POST passes; a reset that failed after replacement began ← 503 until abandoned."
         }
       ],
       "evidence": {
