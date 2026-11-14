@@ -338,7 +338,7 @@ export default function PlanReview({ onNavigate }: { onNavigate?: (view: "course
 
   return (
     <div className="pr-page" dir="rtl">
-      <PageTitle eyebrow="مراجعة الصحيفة" subtitle="مستوى كل مقرر ونوعه وما يسبقه، ثم يعتمدها رئيس لجنة الجدول.">قواعد المقررات</PageTitle>
+      <PageTitle eyebrow="قواعد المقررات" subtitle="مستوى كل مقرر ونوعه وما يسبقه، ثم يعتمدها رئيس لجنة الجدول.">مراجعة الصحيفة</PageTitle>
       {error ? <Notice type="error" onDismiss={() => setError("")}>{error}</Notice> : null}
       {status?.canImport ? <PlanSheetUpload targets={status.uploadTargets || []} sectionId={sectionId} tools={<><PreviousPlansPanel /><ImportPanel onDone={reloadAfterImport} /></>} onDone={(id, plan) => { void loadStatus().then(() => { setSectionId(id); setPlanId(plan); setSelected(0); window.dispatchEvent(new Event("schedule:plan-review-updated")); }); }} /> : null}
       {!status?.sections.length ? <EmptyState title="لا صحائف في نطاقك" detail="تظهر هنا صحائف الأقسام التي تملك نطاقها." /> : (

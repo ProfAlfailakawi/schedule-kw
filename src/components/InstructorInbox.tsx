@@ -2073,10 +2073,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     <div className="content-stack changes-screen visual-minimal inbox-studio" data-term-frozen-scope={frozen || undefined}>
       <PageTitle
         action={rows && rows.length ? <ProposalLauncherBar rows={launcherRows} preferCollegeId={collegeId} proposals={proposals} onOpen={openStudyProposal} /> : undefined}
-        eyebrow={<><Inbox aria-hidden="true" /> رغبات الأساتذة</>}
+        eyebrow={<><Inbox aria-hidden="true" /> الوارد</>}
         subtitle="ما طلبه الأساتذة على مسوّداتهم، لا الجدول كله"
       >
-        وارد الأساتذة
+        رغبات الأساتذة
       </PageTitle>
       <TermFrozenRibbon termId={termId} terms={terms} onGoCurrent={id => { sharedScope.pick({ termId: id }); setTermId(id); }} />
 

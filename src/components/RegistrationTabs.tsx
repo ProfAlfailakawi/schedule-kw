@@ -34,8 +34,8 @@ export default function RegistrationTabs({ active, canRoster, canRadar, onGo }: 
     { view: "simulation" as const, label: "رادار التسجيل", Icon: Ticket },
   ];
   return (
-    <nav className="registration-tabs no-print" aria-label="متابعة التسجيل">
-      <div ref={strip} role="tablist" aria-label="متابعة التسجيل" aria-orientation="horizontal" className="registration-tabs-list"
+    <nav className="registration-tabs no-print" aria-label="الإرشاد">
+      <div ref={strip} role="tablist" aria-label="الإرشاد" aria-orientation="horizontal" className="registration-tabs-list"
         onKeyDown={event => { if (event.key === "Home" || event.key === "End" || event.key.startsWith("Arrow")) arrowChoice(event, { activate: false }); }}>
       {tabs.map(({ view, label, Icon }) => (
         <button key={view} type="button" role="tab" id={registrationTabId(view)} aria-selected={active === view} aria-controls={registrationPanelId(view)}
