@@ -2512,7 +2512,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         />
         <span className="scene-caption">
           {scene === "understand"
-            ? "جودة · تنبيهات · قاعات · أساتذة"
+            ? "صحة · انتباه · ضغط · لماذا"
             : scene === "try"
               ? "تجريبي · خارج الجدول الحقيقي"
               : "مسودات · نسخ · دفتر القرار"}
