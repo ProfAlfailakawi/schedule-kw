@@ -24,7 +24,7 @@ const pkg = JSON.parse(read("package.json"));
 check(/schedule:\s*\n\s*- cron: "\d+ \d+ \* \* 0"/.test(workflow) && workflow.includes("workflow_dispatch:"), "W1 جدولٌ أسبوعيّ (الأحد) وتشغيلٌ يدويّ");
 check(/permissions:\s*\n\s+contents: read\s*\n/.test(workflow) && !/id-token|actions: write|contents: write|issues: write|pull-requests: write/.test(workflow), "W1 صلاحيةُ قراءة المحتوى وحدها");
 check(!/gcloud|docker|google-github-actions|secrets\.|GOOGLE_APPLICATION_CREDENTIALS|FIREBASE_|upload-artifact/.test(workflow), "W1 لا اعتماد ولا نشر ولا Docker ولا رفعَ artifact");
-check(/DATA_MODE: demo/.test(workflow) && /NODE_ENV: production/.test(workflow) && workflow.includes("node dist/server.cjs"), "W2 الخادمُ يعمل بـDATA_MODE=demo من البناء نفسه");
+check(/DATA_MODE: demo/.test(workflow) && !/NODE_ENV:\s*production/.test(workflow) && workflow.includes("node dist/server.cjs"), "W2 الخادمُ يعمل بـDATA_MODE=demo من البناء نفسه وبلا NODE_ENV=production (الإنتاج يرفض إنشاء قاعدةٍ محلية)");
 check(/github\.repository == '[\w.-]+\/schedule-kw'/.test(workflow) && /timeout-minutes: \d+/.test(workflow), "W2 للمستودع الرسمي وحده، بمهلة");
 const pinned = workflow.match(/npm install --no-save playwright@(\d+\.\d+\.\d+)/)?.[1];
 check(Boolean(pinned) && workflow.includes("npx playwright install --with-deps chromium"), `W3 المتصفّح يُثبَّت للسكربت بنسخةٍ مثبّتة (${pinned})`);
