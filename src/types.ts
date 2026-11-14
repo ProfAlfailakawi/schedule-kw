@@ -1508,6 +1508,13 @@ export interface InstructorRequestItem {
     fixedAs?: { days: string[]; start: string; end: string };
     /** ثُبّت عبر مقترحٍ دراسيّ وافق عليه الأستاذ (معرّفُ المقترح). */
     viaProposal?: string;
+    /**
+     * لقطةُ «تراجع» من الوارد: ما كتبه التثبيتُ في الجدول بالضبط (صفٌّ استُرجع، أو أُضيف فيُزال، أو حُذف فيُعاد)
+     * وختمُ كل صفٍّ بعد الكتابة. للقسم وحده — لا تصل الأستاذ. `steps` فارغةٌ = قرارٌ لم يكتب في الجدول (رفضٌ، أو حذفٌ سبق).
+     */
+    undo?: InstructorRequestUndo;
+    /** يحسبه الخادمُ عند القراءة للقسم: هل يُعرض «تراجع» الآن. لا يُخزَّن. */
+    undoable?: boolean;
   };
   /** البديلُ الذي اختاره الأستاذ بعد الرفض. */
   chosenAlternative?: InstructorRequestSlot;
@@ -1516,6 +1523,24 @@ export interface InstructorRequestItem {
    * يقترح غيرها، حتى يتّفقا. الحالةُ تُقرأ من `negotiationState` وحدها.
    */
   thread?: InstructorRequestMessage[];
+}
+
+/** لقطةُ قرارٍ تكفي للتراجع عنه: ما كُتب في الجدول، والحجزُ الذي أُفرج عند القرار فيُعاد أخذُه. */
+export interface InstructorRequestUndo {
+  steps: InstructorRequestUndoStep[];
+  hold?: { itemId: string; instructorId: number; collegeId: number; sectionId: number; courseId: number;
+    slots: Array<{ day: string; start: string; end: string }>; room?: { roomId?: string; buildingId?: string; room: string; hall: string; companionRoomId?: string; companionRoomLabel?: string };
+    offeringRowIds: number[] };
+}
+
+/** خطوةُ تراجعٍ عن تثبيت: كيف يُعاد صفٌّ كتبه التثبيتُ إلى ما كان (src/utils/inboxUndo.ts). */
+export interface InstructorRequestUndoStep {
+  kind: "restore" | "remove" | "readd";
+  rowId: number;
+  /** ختمُ الصفّ بعد التثبيت: لا يُتراجع إن تغيّر الصفُّ بعده (restore، remove). */
+  rev?: number;
+  /** الصفُّ كما كان قبل التثبيت (restore، readd). */
+  before?: FSchedule;
 }
 
 export interface InstructorRequestMessage {
