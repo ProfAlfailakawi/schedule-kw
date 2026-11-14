@@ -330,3 +330,4 @@ test:wish-patterns
 test:latin-digits
 test:acceptance-rehearsal
 test:ladder-start-hint
+test:rank-gap-sign

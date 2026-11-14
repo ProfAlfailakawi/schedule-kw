@@ -133,6 +133,7 @@ export function verificationCode(versionId: string, userId: number, at: string):
 export type SignRefusal =
   | { ok: false; code: "blocking-conflicts"; message: string }
   | { ok: false; code: "missing-capacity"; message: string }
+  | { ok: false; code: "missing-ranks"; message: string }
   | { ok: false; code: "wrong-order"; message: string }
   | { ok: false; code: "already-signed"; message: string }
   | { ok: false; code: "locked"; message: string }
@@ -150,7 +151,7 @@ export type SignVerdict = { ok: true } | SignRefusal;
 export function canSign(
   approval: ScheduleApproval,
   stage: "committee" | "head",
-  context: { blockingConflicts: number; rowCount: number; blockingDuplicates?: number; missingCapacity?: number },
+  context: { blockingConflicts: number; rowCount: number; blockingDuplicates?: number; missingCapacity?: number; missingRanks?: number },
 ): SignVerdict {
   if (approval.status === "submitted") {
     return { ok: false, code: "locked", message: "الجدول عند التسجيل الآن. لا توقيع حتى يُقبل أو يُرجَع." };
@@ -170,6 +171,14 @@ export function canSign(
     return {
       ok: false, code: "missing-capacity",
       message: `${countOf(missingCapacity, AR.course)} بلا سعةٍ مسجّلة — سجّل السعة ثم وقّع.`,
+    };
+  }
+  /* الدرجةُ العلمية كالسعة (المالك 2026-11-14): منها ساعاتُ الأستاذ ونصابُه، فلا يُوقَّع على جدولٍ فيه من لا درجةَ له. */
+  const missingRanks = Number(context.missingRanks || 0);
+  if (missingRanks > 0) {
+    return {
+      ok: false, code: "missing-ranks",
+      message: `${countOf(missingRanks, AR.instructor)} بلا درجةٍ علمية — اختر الدرجة من «الأساتذة» ثم وقّع.`,
     };
   }
   if (signatureOf(approval, stage)) {
