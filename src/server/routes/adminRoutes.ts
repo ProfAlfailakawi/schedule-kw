@@ -14,6 +14,7 @@ import { type AuthenticatedRequest, requireAuth, requirePermission, requirePower
 import { safeSystemUser } from "../core/scope";
 import { IMPORT_PHRASE, RESET_PHRASE, UNDO_PHRASE } from "../../utils/vaultPhrases";
 import { VaultJobConflict } from "../vaultJobPlanner";
+import { systemHealthHandler } from "../systemHealth";
 
 const SYSTEM_BACKUP_MAX_BYTES = 80 * 1024 * 1024;
 
@@ -261,6 +262,9 @@ app.delete("/api/system-backup/op-jobs/:id", requireAuth, requireRootAdmin, vaul
     : job.rolledBack ? "إلغاء عملية نظام متوقفة والعودة إلى نقطة الأمان" : "إلغاء عملية نظام قبل أي تغيير";
   res.json(job);
 }));
+
+/* «سلامة النظام»: لمحةٌ للقراءة فقط لحساب الإدارة الرئيسي (src/server/systemHealth.ts). */
+app.get("/api/system-health", requireAuth, requireRootAdmin, systemHealthHandler);
 
 app.get("/api/audit-logs", requireAuth, requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
   /* صفحةٌ بعد صفحة: `before` طابعُ آخر سطرٍ في الصفحة السابقة، و`from`/`to` نطاقُ تاريخ. */

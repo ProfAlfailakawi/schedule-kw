@@ -93,7 +93,10 @@
     "scripts/make-scan-pdf.mjs",
     "scripts/make-graduation-sheet-example.mjs",
     "src/utils/vaultPhrases.ts",
-    "src/server/vaultJobPlanner.ts"
+    "src/server/vaultJobPlanner.ts",
+    "src/server/systemHealth.ts",
+    "src/utils/systemHealth.ts",
+    "src/components/SystemHealth.tsx"
   ],
   "screens": [
     {
@@ -127,6 +130,17 @@
       "note": {
         "ar": "بدء صندوق الزائر وتبديل الصفة وإعادة الضبط.",
         "en": "Starts the visitor sandbox, switches role and resets it."
+      }
+    },
+    {
+      "name": {
+        "ar": "سلامة النظام",
+        "en": "System health"
+      },
+      "file": "src/components/SystemHealth.tsx",
+      "note": {
+        "ar": "لمحةٌ واحدة بخمس بطاقاتٍ بإشارة مرور للحساب الرئيسي.",
+        "en": "One-glance traffic-light cards for the root account."
       }
     }
   ],
@@ -2704,6 +2718,87 @@
         ],
         "tests": [
           "tests/vault-jobs-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-048",
+      "kind": "functional",
+      "title": {
+        "ar": "سلامة النظام: محطةٌ للحساب الرئيسي بخمس بطاقات",
+        "en": "System health: a root-only station with five cards"
+      },
+      "text": {
+        "ar": "يجب أن تعرض محطة «سلامة النظام» في إدارة النظام (‎/System/Health‎) للحساب الرئيسي وحده خمسَ بطاقاتٍ بإشارة مرور (أخضر وعنبري وأحمر ورمادي لما تعذّرت قراءته): عمرُ أحدث نسخةٍ ناجحة (تصديرٌ جاهز أو نقطةُ استعادة؛ أخضر حتى ٧ أيام، عنبري حتى ١٤، أحمر بعدها أو بلا نسخة) مع زرّ «نسخة الآن» يفتح محطة الخزنة بلا مسار كتابة جديد؛ وحالةُ الخزنة (مهمةٌ مفتوحة: عنبري، فشلت بعد مسّ البيانات: أحمر، قفلٌ عالق: عنبري)؛ وبوابةُ الصيانة بالدالة نفسها التي تقرؤها البوابة (مغلقة: أحمر)؛ وقراءةُ وثيقة جيل الهويات المشتركة ومنذ كم ثانيةً فحصتها النسخة؛ والفصلُ الجاري (مجمّد أو مفتوح) وعمرُ آخر تشغيلٍ للرادار بعلَم الرادار stale أو ٧٢ ساعة. وتعرض لافتةً عامة («كل شيء سليم» أو «يحتاج انتباهاً») بحسب أسوأ بطاقة، وتنتعش كل ثلاثين ثانية والتبويبُ ظاهر وبزرّ تحديثٍ يدوي. العتباتُ وحالةُ كل بطاقة في src/utils/systemHealth.ts.",
+        "en": "The «System health» station in the system console (‎/System/Health‎) shall show the root account only five traffic-light cards (green, amber, red, and grey for an unreadable probe): age of the newest successful backup (ready export or restore point; green up to 7 days, amber up to 14, red beyond or none) with a «Back up now» button that opens the vault station and adds no write route; vault state (open job amber, failed after touching data red, stale lock amber); the maintenance gate via the very function the gate reads (closed is red); readability of the shared identity-generation document and seconds since this instance last checked it; and the current term (frozen or open) with the age of the last radar run by the radar's own stale flag or 72 hours. An overall banner («All healthy» / «Needs attention») follows the worst card; the page refreshes every 30 seconds while visible and has a manual refresh button. Thresholds and card states live in src/utils/systemHealth.ts."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "نسخةٌ عمرها ٨ أيام ← عنبري؛ ١٥ يوماً أو لا نسخة ← أحمر.",
+          "en": "A backup 8 days old is amber; 15 days or none is red."
+        },
+        {
+          "ar": "بوابةٌ مغلقة ← بطاقتها حمراء واللافتة «يحتاج انتباهاً».",
+          "en": "A closed gate turns its card red and the banner reads «Needs attention»."
+        },
+        {
+          "ar": "حسابٌ غير رئيسي ← 403 من المسار ولا محطةَ في الشريط.",
+          "en": "A non-root account gets 403 from the route and no station in the rail."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/systemHealth.ts",
+          "src/server/systemHealth.ts",
+          "src/components/SystemHealth.tsx",
+          "src/server/routes/adminRoutes.ts",
+          "src/components/AdminUsers.tsx",
+          "src/App.tsx"
+        ],
+        "tests": [
+          "tests/system-health-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-OPS-040",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "سلامة النظام: قراءةٌ فقط، بلا بياناتٍ شخصية، وفشلُ فحصٍ لا يُسقط الصفحة",
+        "en": "System health: read-only, no personal data, a failed probe never fails the page"
+      },
+      "text": {
+        "ar": "يجب أن يكون GET ‎/api/system-health‎ للحساب الرئيسي وحده (requireAuth ثم requireRootAdmin) وللقراءة فقط، وأن تحوي حمولتُه رموزَ حالةٍ وأعداداً وأزمنةً فقط بلا أسماءٍ ولا معرّفات أشخاصٍ ولا نصوص أخطاءٍ حرة، وأن يُحسب كلُّ فحصٍ في try/catch خاصٍّ به فتظهر بطاقتُه رماديةً «تعذّرت القراءة» دون إسقاط الاستجابة، وأن تُخبَّأ الاستجابةُ ‎≤10‎ ثوانٍ بمفتاحٍ يحمل عالَم الجلسة التجريبية، وأن يُعيد الوضعُ التجريبي قيماً آمنةً موسومةً «تجريبي» دون لمس الخزنة الحقيقية أو وثيقة الهوية المشتركة. ولا يحتاج أيُّ فحصٍ قراءةَ مجموعةٍ كاملة.",
+        "en": "GET ‎/api/system-health‎ shall be root-account only (requireAuth then requireRootAdmin) and read-only; its payload shall hold status codes, counts and timestamps only, with no names, person identifiers or free-text errors; each probe shall run in its own try/catch so a failing probe renders a grey «unreadable» card without failing the response; the response shall be cached for at most 10 seconds under a key that carries the demo-session world; demo mode shall return safe values labelled as demo without touching the real vault or shared identity document. No probe reads a full collection."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "فحصُ الخزنة يرمي خطأً ← بطاقتُه رمادية والبقيةُ سليمة والاستجابة 200.",
+          "en": "A throwing vault probe leaves its card grey, the rest intact, and the response 200."
+        },
+        {
+          "ar": "الحمولةُ لا تحوي إلا المفاتيح المعتمدة.",
+          "en": "The payload carries only the approved keys."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/systemHealth.ts",
+          "src/utils/systemHealth.ts",
+          "src/server/routes/adminRoutes.ts"
+        ],
+        "tests": [
+          "tests/system-health-audit.ts"
         ]
       }
     }

@@ -132,6 +132,7 @@
     "test:radar-insight": "tsx tests/radar-insight-audit.ts",
     "test:radar-suggestions": "tsx tests/radar-suggestions-audit.ts",
     "test:live-board": "tsx tests/live-board-audit.ts",
+    "test:system-health": "tsx tests/system-health-audit.ts",
     "test:outcome-story": "tsx tests/outcome-story-audit.ts",
     "test:registration-causes": "tsx tests/registration-causes-audit.ts",
     "test:plan-pdf": "tsx tests/plan-pdf-audit.ts",
