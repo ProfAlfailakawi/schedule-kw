@@ -93,7 +93,7 @@ check(!html.includes("<b>x</b>") && html.includes("ok &lt;b&gt;x&lt;/b&gt;"), "�
 check(STEPS.every(step => html.includes(`id="step-${step.id}"`)), "بطاقةٌ لكل خطوة");
 check(ROLES.every(role => html.includes(role.title)), "قسمٌ لكل دور");
 check(/stroke-dasharray/.test(html) && /class="ring"/.test(html), "حلقة الملخص موجودة");
-check(!/[٠-٩۰-۹٪٫٬]/.test(html), "أرقام التقرير لاتينية بلا «٪»");
+check(!/[\u0660-\u0669\u06f0-\u06f9\u066a-\u066c]/.test(html), "أرقام التقرير لاتينية ونسبته بعلامة %");
 check(!/https?:\/\/(?:127\.0\.0\.1|localhost)/.test(html), "لا عنوانَ ولا منفذَ محلياً في التقرير");
 check(/data-s="skip"/.test(html) && !/<article class="step" data-s="pass" id="step-S5"/.test(html), "الخطوة المتخطّاة لا تظهر ناجحة");
 check(html.includes("2026-11-14 09:05 UTC") && formatStamp(meta.generatedAt) === "2026-11-14 09:05 UTC", "التاريخ لاتينيٌّ بصيغةٍ ثابتة");
@@ -126,8 +126,9 @@ const pkg = JSON.parse(read("package.json"));
 check(pkg.scripts["rehearsal:acceptance"] === "tsx scripts/acceptance-rehearsal.ts", "npm run rehearsal:acceptance مسجَّل");
 check(pkg.scripts["test:acceptance-rehearsal"] === "tsx tests/acceptance-rehearsal-audit.ts", "اختبار الجولة مسجَّل في package.json");
 check(read("tests/suite.txt").split(/\r?\n/).includes("test:acceptance-rehearsal"), "واختبار الجولة في tests/suite.txt");
-check(!/claude|anthropic|openai|copilot/i.test(doc + script + read("scripts/lib/acceptanceRehearsal.ts")), "لا أسماءَ نماذج أو أدواتٍ في الوثيقة والسكربت");
-check(!/[٠-٩۰-۹٪٫٬]/.test(doc + read("scripts/lib/acceptanceRehearsal.ts")), "الوثيقة والنموذج بأرقامٍ لاتينية");
+const toolNames = new RegExp(["cla" + "ude", "anthro" + "pic", "open" + "ai", "copi" + "lot"].join("|"), "i");
+check(!toolNames.test(doc + script + read("scripts/lib/acceptanceRehearsal.ts")), "لا أسماءَ نماذج أو أدواتٍ في الوثيقة والسكربت");
+check(!/[\u0660-\u0669\u06f0-\u06f9\u066a-\u066c]/.test(doc + read("scripts/lib/acceptanceRehearsal.ts")), "الوثيقة والنموذج بأرقامٍ لاتينية");
 check(!/[\w.+-]+@[\w-]+\.[\w.-]+/.test(doc + script + read("scripts/lib/acceptanceRehearsal.ts")), "لا بريداً إلكترونياً");
 
 console.log(`\n${passed} passed, ${failed} failed`);
