@@ -66,6 +66,9 @@ check(/bestBusy=\{bestBusy\} currentDays=\{formDays\} onPickBest=\{best => void 
 const label = pulse.slice(pulse.indexOf('className={`pulse-best'), pulse.indexOf("</button>", pulse.indexOf('className={`pulse-best')));
 check(/best\.start/.test(label) && /best\.percent/.test(label) && !/room|hall|building|قاعة|مبنى/i.test(label.replace(/aria-label[^\n]*\n/, "").replace(/title=[^\n]*\n/, "")), "S7 الزرّ يقول الوقت والنسبة فقط — لا قاعةً ولا مبنى");
 check(/\.fit-strip\{/.test(css) && /\.fit-chip\.is-grad/.test(css) && /\.pulse-best-spin/.test(css), "S8 الأنماط: الشريط والشرائح ودوران الزرّ");
+check(/useState\(\(\) => safeStorage\.get\(OPEN_KEY\) === "on"\)/.test(pulse), "S9 نبض الطلبة مسكّرٌ افتراضاً ويتذكّر من فتحه");
+check(/aria-expanded=\{open\}/.test(pulse) && /\{open \? \(\s*<div className="pulse-body"/.test(pulse) && /className="pulse-toggle"/.test(pulse), "S10 زرّ طيٍّ بـaria-expanded، والتفصيل لا يُرسم إلا مفتوحاً");
+check(/\{open\s*\?[^]*?: <span className="pulse-chips">/.test(pulse) && /showBest && best \?/.test(pulse), "S11 المطويّ يُبقي الشرائح (والإنذار) وزرّ «أفضل وقت» ظاهرَين");
 
 console.log(`\nquick-best-1114 audit: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
