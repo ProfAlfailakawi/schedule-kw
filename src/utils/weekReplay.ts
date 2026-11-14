@@ -8,6 +8,7 @@
  *
  * المطابقة بين حالتين: بالمعرّف أولاً، ثم بـ(المقرر، الشعبة) بالترتيب — فاسترجاعُ نسخةٍ يعيد ترقيم الصفوف ولا يُظهرها «حذفاً وإضافة».
  */
+import { AR, countOf } from "./arabicCount";
 export const REPLAY_DAYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
 export type ReplayKind = "add" | "remove" | "move" | "teacher" | "room";
 
@@ -178,9 +179,9 @@ export function relativeDay(at: string, now = Date.now()): string {
   if (days <= 0) return "اليوم";
   if (days === 1) return "أمس";
   if (days === 2) return "قبل يومين";
-  if (days <= 10) return `قبل ${days} أيام`;
-  if (days < 60) { const w = Math.round(days / 7); return w === 1 ? "قبل أسبوع" : w === 2 ? "قبل أسبوعين" : `قبل ${w} أسابيع`; }
+  if (days <= 10) return `قبل ${countOf(days, AR.day)}`;
+  if (days < 60) { const w = Math.round(days / 7); return w === 1 ? "قبل أسبوع" : w === 2 ? "قبل أسبوعين" : `قبل ${countOf(w, AR.week)}`; }
   const m = Math.round(days / 30);
-  return m === 2 ? "قبل شهرين" : `قبل ${m} أشهر`;
+  return m === 2 ? "قبل شهرين" : `قبل ${countOf(m, AR.month)}`;
 }
 export const exactStamp = (at: string) => { const d = new Date(at); return Number.isFinite(d.getTime()) ? d.toLocaleString("ar-KW-u-nu-latn", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""; };

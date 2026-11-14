@@ -260,7 +260,7 @@ export default function WhyNotLayer(props: WhyNotLayerProps) {
           <button type="button" className="wn-x" onClick={onToggle} aria-label="إغلاق الطبقة" data-guide-ignore="يطفئ طبقة «لماذا لا؟»"><WhyIcon name="close" /></button>
         </div>, document.body) : null}
       {on && open && openCellData && typeof document !== "undefined" ? createPortal(
-        <div className={`wn-pop is-${openCellData.tier}`} role="dialog" aria-label={whyNotSpeech(openCellData, dayLabel.get(openCellData.day) || "")}
+        <div className={`wn-pop is-${openCellData.tier}`} role="dialog" aria-modal="false" aria-label={whyNotSpeech(openCellData, dayLabel.get(openCellData.day) || "")}
           style={{ top: popTop, insetInlineStart: Math.max(8, Math.min(window.innerWidth - 268, open.rect.left + open.rect.width / 2 - 130)) }}>
           <header>
             <WhyIcon name={openCellData.tier === "free" ? "free" : openCellData.tier === "caution" ? "caution" : "locked"} />

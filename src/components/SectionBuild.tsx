@@ -70,7 +70,7 @@ export function GoalCards({ goals, value, onPick, busy }: { goals: GoalReading[]
         if (!reading) return null;
         const m = reading.metrics, Icon = GOAL_ICON[item.id], on = value === item.id;
         const pct = m.needed ? Math.round((m.placed + m.pending) / m.needed * 100) : 100;
-        const label = `${item.title}: ${m.placed} من ${m.needed} شعبة، ${m.rooms} قاعة، ${m.buildings} مبنى، فراغ ${m.gapMinutes} دقيقة`;
+        const label = `${item.title}: ${m.placed} من ${countOf(m.needed, AR.section)}، ${countOf(m.rooms, AR.room)}، ${countOf(m.buildings, AR.building)}، فراغ ${countOf(m.gapMinutes, AR.minute)}`;
         return (
           <button key={item.id} type="button" role="radio" aria-checked={on} aria-label={label} disabled={busy && !on} className={`sbg-card g-${item.id}${on ? " is-on" : ""}`} onClick={() => onPick(item.id)} data-guide-ignore="اختيار هدف بناء الشعب: يغيّر ترتيب الاختيار فقط ولا يخفّف أي قيد">
             <span className="sbg-top"><span className="sbg-ic" aria-hidden="true"><Icon /></span>

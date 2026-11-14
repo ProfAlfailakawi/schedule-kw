@@ -1,3 +1,4 @@
+import { AR, countOf } from "../utils/arabicCount";
 import React from "react";
 
 /**
@@ -30,7 +31,7 @@ export function DurationBar({ segments }: { segments: { kind: string; minutes: n
   if (segments.length < 2) return null;
   const total = segments.reduce((sum, item) => sum + item.minutes, 0) || 1;
   return (
-    <span className="appt-seg" role="img" aria-label={segments.map(item => item.minutes).join(" + ") + " دقيقة"}>
+    <span className="appt-seg" role="img" aria-label={`${segments.map(item => item.minutes).join(" + ")} = ${countOf(segments.reduce((sum, item) => sum + item.minutes, 0), AR.minute)}`}>
       {segments.map((item, index) => <i key={index} className={`is-${item.kind}`} style={{ flexGrow: item.minutes / total * 100 }}><b dir="ltr">{item.minutes}</b></i>)}
     </span>
   );
