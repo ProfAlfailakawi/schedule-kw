@@ -50,7 +50,7 @@ const theory1 = { CourseHours: 1, CourseTeachingMode: "theoretical" };
 /* 5-8 */
 {
   const schedules = read("src/components/Schedules.tsx");
-  check(/fendtime: !start \? p\.fendtime :/.test(schedules), "5 مسح البداية يترك النهاية");
+  check(/fendtime: !start \? \(timingOverride \? p\.fendtime : ""\) :/.test(schedules), "5 مسح البداية يمسح النهاية المحسوبة (المراجعة 2026-11-14) ويُبقي النهاية العمدية");
   check(/isBlockingConflict\(conflict\) && !conflict\.holdRequestId/.test(schedules) && /"حجز طلب"/.test(schedules), "6 بطاقة الحجز ليست مانعاً");
   check(/AdCourseName: row\.AdCourseName \|\| heldCourses/.test(read("src/server/core/scheduleConflicts.ts")), "7 صف الحجز يحمل اسم المقرر");
   check(!/"كرسي"|"كراسي"/.test(read("src/guide/smartGuide.ts").split("\n")[146].replace(/keywords:\[[^\]]*\]/, "")), "8 لا «كرسي» في نصٍّ معروض");

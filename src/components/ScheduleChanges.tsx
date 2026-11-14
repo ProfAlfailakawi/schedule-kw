@@ -21,7 +21,7 @@ import { compareCourseSection } from "../utils/scheduleOrder";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, CalendarDays, CalendarRange, Check, CheckCircle2, ChevronDown, ChevronLeft, ClipboardCheck, ClipboardList, Clock3,
   CalendarPlus, CornerUpLeft, FileCheck, FileDiff, Inbox, Info, MapPin, MessageSquarePlus, Search, Send, ShieldCheck, Trash2,
-  UsersRound, X, FilePenLine, OctagonAlert, MessageSquareWarning, MessageSquareReply, ListPlus,
+  UsersRound, X, FilePenLine, Hourglass, OctagonAlert, MessageSquareWarning, MessageSquareReply, ListPlus,
 } from "lucide-react";
 import { DnaCount, DnaTimeline, useMotionScope } from "./dna";
 import { ApprovalDnaStepper, DeadlineDnaRing } from "./dna/scheduleDna";
@@ -36,6 +36,7 @@ import { APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, CLOSED_BY_ACCEPTANCE_LABEL
 import { isViewerOnlyRole } from "../utils/academicRoles";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import VisitingBadge from "./VisitingBadge";
+import TryAlternativeSheet from "./TryAlternativeSheet";
 import ScheduleReview from "./ScheduleReview";
 import { changesReviewHeadline } from "../utils/changesReviewHeadline";
 import { DIFF_FIELD_LABEL, type DiffFieldKey } from "../utils/scheduleDiff";
@@ -707,6 +708,8 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
   const [view, setView] = useState<"changes" | "full">("changes");
   const [noteDraft, setNoteDraft] = useState<{ scheduleId: number; field: NoteField } | null>(null);
   const [noteText, setNoteText] = useState("");
+  /* «جرّب بديلاً»: على الموعد المتغيّر في جدولٍ حيّ؛ لا في فصلٍ مضى ولا على موعدٍ حُذف. */
+  const [tryRow, setTryRow] = useState<{ scheduleId: number; title: string } | null>(null);
   const [rebutting, setRebutting] = useState<NoteRow | null>(null);
   const [rebutText, setRebutText] = useState("");
   /* يُبلِّغ شريطَ الاعتماد أن يُعيد قراءةَ حاله بعد توقيعٍ أو إرسال. */
@@ -866,12 +869,18 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
     setNoteText(existingNoteFor(scheduleId, field)?.text || report.suggestions?.[`${scheduleId}:${field}`] || "");
   };
   /* ملاحظاتٌ وتعارضٌ وزرُّ تعليق — مشتركةٌ بين «ما تحرّك» و«الجدول كامل». */
-  const rowExtras = (scheduleId: number, annotatable: boolean, defaultField: NoteField) => {
+  const rowExtras = (scheduleId: number, annotatable: boolean, defaultField: NoteField, tryable = false, rowTitle = "") => {
     const notes = notesByRow.get(scheduleId) || [];
+    const canTry = tryable && !archive && !frozen;
     /* لا زرَّ ولا ملاحظة: لا كتلةَ فارغةً تحت الموعد (قاعدة إخفاء الفارغ). */
-    if (!(canAnnotate && annotatable) && !notes.length) return null;
+    if (!(canAnnotate && annotatable) && !notes.length && !canTry) return null;
     return (
       <>
+        {canTry ? (
+          <button type="button" className="changes-try-add" data-guide-ignore="يفتح مكتب «ماذا لو» على هذا الموعد: بدائلُ أماكنَ وأوقاتٍ على نسخةٍ افتراضية، لا يكتب في الجدول" onClick={() => setTryRow({ scheduleId, title: rowTitle })}>
+            <Hourglass aria-hidden="true" /> جرّب بديلاً
+          </button>
+        ) : null}
         {canAnnotate && annotatable ? (
           <button type="button" className="changes-note-add" data-guide-target="changes.action.note" disabled={frozen} onClick={() => openNote(scheduleId, defaultField)}>
             <MessageSquarePlus aria-hidden="true" /> علّق على خانة
@@ -1118,7 +1127,7 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
                 kind={row.changeKind}
                 tag={row.changeKind ? KIND_LABEL[row.changeKind] : undefined}
               >
-                {rowExtras(row.scheduleId, true, "room")}
+                {rowExtras(row.scheduleId, true, "room", row.changed, `${row.course} ش${row.sectionCode}`)}
               </ScheduleRowCard>
             ))}
           </div>
@@ -1136,7 +1145,7 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
               tag={KIND_LABEL[entry.kind]}
               changes={entry.kind === "changed" ? entry.changes : undefined}
             >
-              {rowExtras(entry.scheduleId, entry.kind !== "removed", entry.changes?.[0]?.field || "room")}
+              {rowExtras(entry.scheduleId, entry.kind !== "removed", entry.changes?.[0]?.field || "room", entry.kind !== "removed", `${entry.display.course} ش${entry.display.sectionCode}`)}
             </ScheduleRowCard>
           ))}
         </div>
@@ -1161,6 +1170,10 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
             </PrimaryButton>
           ) : null}
         </div>
+      ) : null}
+
+      {tryRow ? (
+        <TryAlternativeSheet collegeId={scope.collegeId} sectionId={scope.sectionId} termId={termId} rowId={tryRow.scheduleId} title={tryRow.title} onClose={() => setTryRow(null)} />
       ) : null}
 
       {noteDraft ? (

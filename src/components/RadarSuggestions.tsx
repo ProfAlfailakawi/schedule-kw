@@ -80,7 +80,7 @@ export default function RadarSuggestions({ termId, ranAt, collegeId = 0, section
   );
 }
 
-function SuggestionCard({ row, termId, canAdopt, adopted, canSchedule, onApplied }: { key?: React.Key; row: SuggestionRow; termId: number; canAdopt: boolean; adopted: boolean; canSchedule: boolean; onApplied: () => void }) {
+export function SuggestionCard({ row, termId, canAdopt, adopted, canSchedule, onApplied }: { key?: React.Key; row: SuggestionRow; termId: number; canAdopt: boolean; adopted: boolean; canSchedule: boolean; onApplied: () => void }) {
   const [impact, setImpact] = useState<ChangeImpact | "loading" | "failed" | null>(null);
   const { isVisiting } = useVisitingLookup(termId);
   const s = row.suggestion;

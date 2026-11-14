@@ -1036,6 +1036,8 @@ export interface RegistrationOutcomeShard {
   shard: number;
   students: number;
   byCourse: Record<string, { registered: number; stuck: number; full: number; prereq: number; conflict: number; other: number }>;
+  /** آخرُ جوابٍ دخل هذه الشظية (يقرؤه «يوم التسجيل الحي» ليقول متى حُدّثت الأرقام). غائبٌ في شظايا ما قبل الإضافة. */
+  updatedAt?: string;
 }
 
 /** تذكرةُ طالبٍ من رادار تسجيل فصلٍ بعينه. وثيقةٌ لكل طالب: `{termId}_{fingerprint}`. */
@@ -1525,6 +1527,13 @@ export interface InstructorRequestItem {
     fixedAs?: { days: string[]; start: string; end: string };
     /** ثُبّت عبر مقترحٍ دراسيّ وافق عليه الأستاذ (معرّفُ المقترح). */
     viaProposal?: string;
+    /**
+     * لقطةُ «تراجع» من الوارد: ما كتبه التثبيتُ في الجدول بالضبط (صفٌّ استُرجع، أو أُضيف فيُزال، أو حُذف فيُعاد)
+     * وختمُ كل صفٍّ بعد الكتابة. للقسم وحده — لا تصل الأستاذ. `steps` فارغةٌ = قرارٌ لم يكتب في الجدول (رفضٌ، أو حذفٌ سبق).
+     */
+    undo?: InstructorRequestUndo;
+    /** يحسبه الخادمُ عند القراءة للقسم: هل يُعرض «تراجع» الآن. لا يُخزَّن. */
+    undoable?: boolean;
   };
   /** البديلُ الذي اختاره الأستاذ بعد الرفض. */
   chosenAlternative?: InstructorRequestSlot;
@@ -1533,6 +1542,24 @@ export interface InstructorRequestItem {
    * يقترح غيرها، حتى يتّفقا. الحالةُ تُقرأ من `negotiationState` وحدها.
    */
   thread?: InstructorRequestMessage[];
+}
+
+/** لقطةُ قرارٍ تكفي للتراجع عنه: ما كُتب في الجدول، والحجزُ الذي أُفرج عند القرار فيُعاد أخذُه. */
+export interface InstructorRequestUndo {
+  steps: InstructorRequestUndoStep[];
+  hold?: { itemId: string; instructorId: number; collegeId: number; sectionId: number; courseId: number;
+    slots: Array<{ day: string; start: string; end: string }>; room?: { roomId?: string; buildingId?: string; room: string; hall: string; companionRoomId?: string; companionRoomLabel?: string };
+    offeringRowIds: number[] };
+}
+
+/** خطوةُ تراجعٍ عن تثبيت: كيف يُعاد صفٌّ كتبه التثبيتُ إلى ما كان (src/utils/inboxUndo.ts). */
+export interface InstructorRequestUndoStep {
+  kind: "restore" | "remove" | "readd";
+  rowId: number;
+  /** ختمُ الصفّ بعد التثبيت: لا يُتراجع إن تغيّر الصفُّ بعده (restore، remove). */
+  rev?: number;
+  /** الصفُّ كما كان قبل التثبيت (restore، readd). */
+  before?: FSchedule;
 }
 
 export interface InstructorRequestMessage {
@@ -1698,31 +1725,6 @@ export interface DepartmentDelegateDirectory {
 }
 
 /** Rooms the department has used or deliberately pinned for future use. */
-/** إحصاءُ التسجيل قبل الفصل: عددُ الطلبة لكل مقرر، وما قبله القسم من اقتراح الشعب. */
-export interface RegistrationStats {
-  id: string;
-  /** `${collegeId}:${sectionId}:${termId}` */
-  scopeKey: string;
-  collegeId: number;
-  sectionId: number;
-  termId: number;
-  /** AdCourseId → عدد الطلبة المسجّلين — الإدخال القديم، لم يعد يُكتب من الشاشة ويُحفظ كما هو. */
-  counts: Record<string, number>;
-  /** AdCourseId → «الذين لم يسجلوا» (المتبقي الإجمالي) من كشف عمادة التسجيل (حين remainingSource.column === "unregistered").
-      ما حُفظ بعمودٍ آخر («المقاعد المتبقية» = "seats"، أو بلا وسم): قديمٌ لا يُخلط به. */
-  remaining?: Record<string, number>;
-  /** AdCourseId → «المقاعد المتبقية» من الكشف نفسه: شاغر الشعب المفتوحة (للإنذار المبكر). */
-  vacant?: Record<string, number>;
-  /** «الذين لم يسجلوا» يُحفظ مستقلاً للتوقّع التشغيلي، ولا يُستخدم في التخطيط. */
-  unregistered?: Record<string, number>;
-  /** من أين جاء المتبقي: الملف ومتى استُورد، وأيّ عمودٍ هو ("unregistered" = الذين لم يسجلوا؛ "seats" قديم). */
-  remainingSource?: { fileName: string; importedAt: string; column?: "notPassed" | "unregistered" | "seats"; reportTerm?: string };
-  /** AdCourseId → عدد الشعب الذي قبله القسم (اختياري) */
-  accepted?: Record<string, number>;
-  updatedAt: string;
-  updatedBy?: string;
-}
-
 export interface DepartmentRoomDirectory {
   id: string;
   scopeKey: string;

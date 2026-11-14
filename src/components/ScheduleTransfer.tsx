@@ -1879,7 +1879,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
 
           {tab === "planning" ? (
             collegeId && sectionId && termId
-              ? <SectionPlan collegeId={collegeId} sectionId={sectionId} termId={termId} />
+              ? <SectionPlan collegeId={collegeId} sectionId={sectionId} termId={termId} onReviewRows={(rows, meta) => { setTab("import"); void previewWorksheetRows(rows, "تخطيط الشعب", true, meta); }} />
               : <p>اختر القسم والفصل أولاً.</p>
           ) : null}
 

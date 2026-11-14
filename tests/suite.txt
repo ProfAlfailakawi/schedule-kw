@@ -114,10 +114,7 @@ test:curriculum-reference
 test:shared-scope
 test:role-scope
 test:term-calendar
-test:section-planning
 test:section-schedule-hours
-test:section-planning-import
-test:swrs136-real
 test:department-heads
 test:arabic-presentation
 test:visiting-family
@@ -132,11 +129,9 @@ test:sections-proposal-import
 test:teacher-card-flow
 test:day-autofill
 test:approval-scope
-test:term-forecast
 test:dashboard-home-term
 test:section-gap
 test:searchable-select
-test:section-gap-live
 test:approval-dossier
 test:public-kit
 test:intelligence-scope
@@ -267,6 +262,7 @@ test:actual-demand
 test:actual-demand-supply
 test:actual-demand-graduates
 test:appointment-review-1114
+test:appointment-ideas-1114
 test:section-plan
 test:colleagues-advising-registration
 test:quick-studio-family
@@ -307,5 +303,11 @@ test:inbox-pilot
 test:advising
 test:admin-station
 test:query-center-plus
+test:vault-jobs
+test:advisor-seat-quota
+test:live-board
+test:delete-impact
+test:inbox-undo
 test:report-insight
 test:names-one-label
+test:whatif-in-changes

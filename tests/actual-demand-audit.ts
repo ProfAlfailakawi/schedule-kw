@@ -145,6 +145,35 @@ async function main() {
   const codes = planRows.map((row: any) => Number(String(row.code).slice(-3)));
   check(codes.every((code: number, i: number) => i === 0 || codes[i - 1] <= code), "H2 الترتيب برقم المقرر");
   check(Number.isFinite(plan?.visitors?.all?.visitors) && plan.visitors.perVisitor === 6, "H2 المنتدبون: ٦ ساعات لكل منتدب", plan?.visitors);
+  /* H3 نوع التقرير يُعرف من الأرقام: «الكل» مرفوعاً باسم «الخريجين» يُنبَّه ولا يُحفظ بلا تأكيد. */
+  const gradPdf = fs.readFileSync(GRADUATES);
+  const asGrad = await call(`/api/actual-demand/upload?${q}&variant=graduates`, { method: "POST", raw: pdf });
+  const asGradBody = await asGrad.json();
+  check(asGrad.status === 200 && /تقرير «الكل»/.test(String(asGradBody.preview?.kindClue || "")), "H3 «الكل» مرفوعاً كخريجين: المعاينة تقول «هذا يبدو تقرير الكل»", asGradBody.preview?.kindClue);
+  const refusedKind = await call(`/api/actual-demand/upload?${q}&variant=graduates&commit=1`, { method: "POST", raw: pdf });
+  check(refusedKind.status === 409 && /الكل/.test(String((await refusedKind.json()).error || "")), "H3 ولا يُحفظ بلا تأكيد صريح", refusedKind.status);
+  const gradPreview = await (await call(`/api/actual-demand/upload?${q}&variant=graduates`, { method: "POST", raw: gradPdf })).json();
+  check(gradPreview.preview?.kindClue === "", "H3 تقرير الخريجين الحقيقي بعد «الكل»: لا قرينة مناقضة", gradPreview.preview?.kindClue);
+  const gradSaved = await (await call(`/api/actual-demand/upload?${q}&variant=graduates&commit=1`, { method: "POST", raw: gradPdf })).json();
+  check(gradSaved.reading?.plan?.hasGraduates === true && gradSaved.reading.plan.graduatesServed !== null, "H3 بعد رفع الخريجين: درجة الخريجين ونسبة من لهم مقعد", gradSaved.reading?.plan?.graduatesServed);
+  const asGeneral = await (await call(`/api/actual-demand/upload?${q}&variant=general`, { method: "POST", raw: gradPdf })).json();
+  check(/الخريجين/.test(String(asGeneral.preview?.kindClue || "")), "H3 وبالعكس: الخريجون مرفوعاً كـ«الكل» يُنبَّه", asGeneral.preview?.kindClue);
+
+  /* H4 المقترح والحاجة الكاملة معاً، و«نزّل الشعب» يبدأ من المقترح. */
+  const gplan = gradSaved.reading.plan;
+  check(gplan.rows.every((row: any) => Number.isFinite(row.plan) && Number.isFinite(row.required) && ["history", "calc", "locked"].includes(row.basis) && row.plan >= row.gradRequired)
+    && gplan.totals.needAll >= gplan.totals.open, "H4 كل سطر يحمل المقترح والحاجة الكاملة وأساسه، والمقترح لا ينزل عن شعب الخريجين", gplan.totals);
+  const buildPreview = await call("/api/section-build/preview", { method: "POST", body: JSON.stringify({ collegeId: 1, sectionId: 1, termId }) });
+  const built = await buildPreview.json();
+  check(buildPreview.status === 200 && Array.isArray(built.rows) && built.rows.every((row: any) => row.target === null || row.target <= Math.max(row.ceiling, row.existing, 1)),
+    "H4 «نزّل الشعب» بلا أعدادٍ مرسلة يبدأ من مقترح التخطيط ولا يتجاوز سقف الحاجة الكاملة", built.totals);
+  const tooMany = await (await call("/api/section-build/preview", { method: "POST", body: JSON.stringify({ collegeId: 1, sectionId: 1, termId, targets: Object.fromEntries(built.rows.filter((row: any) => row.ceiling > 0).slice(0, 1).map((row: any) => [row.courseId, row.ceiling + 50])) }) })).json();
+  check(tooMany.rows.every((row: any) => row.target === null), "H4 عدد فوق الحاجة الكاملة لا يُقبل", tooMany.totals);
+  const forecast = await (await call(`/api/forecast/term?collegeId=1&sectionId=1&termId=${termId}`)).json();
+  check(forecast.status === "ready" && forecast.termId === termId, "H4 الإنذار المبكر يقرأ تقرير التسجيل نفسه", forecast.status);
+  const dropped = await call("/api/registration-stats?collegeId=1&sectionId=1&termId=" + termId);
+  check(dropped.status === 404 || dropped.status === 405, "H4 لا مسار لتقرير المتبقي القديم", dropped.status);
+
   const wrongTerm = Number((Array.isArray(terms) ? terms : []).find((term: any) => Number(term.AdTermId) !== termId)?.AdTermId || 0);
   if (wrongTerm) {
     const refusedSave = await call(`/api/actual-demand/upload?collegeId=1&sectionId=1&termId=${wrongTerm}&variant=general&commit=1`, { method: "POST", raw: pdf });

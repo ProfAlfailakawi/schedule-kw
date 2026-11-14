@@ -27,11 +27,13 @@ import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { orderRadarCourses } from "../utils/registrationSim";
 import RadarSchedule, { request } from "./RadarSchedule";
 import RadarSuggestions from "./RadarSuggestions";
+import LiveRegistrationBoard from "./LiveRegistrationBoard";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import AdvisingScopePicker, { useAdvisingScopeCatalog } from "./AdvisingScopePicker";
 import { byArabic } from "../utils/sorting";
 import { TeamPresenceChip } from "./ColleagueFaces";
 import { useTeamPeers, useTeamPlace } from "../hooks/useTeamWork";
+import { arrowChoice } from "../utils/arrowChoice";
 
 interface Unmet { "not-offered": number; conflict: number; full: number; prereq: number; units: number }
 interface CourseRow { courseId: number; code: string; name: string; sections: number; capacity: number; taken: number; wanted: number; seated: number; unmet: Unmet }
@@ -43,7 +45,7 @@ interface Summary {
   /** فصلٌ سابق: يُعرض للاطّلاع فقط (الخادم يقرّر، ويردّ 409 على أي كتابة). */
   frozen?: boolean;
   auto?: { enabled: boolean; everyHours: number };
-  phase?: { mode: string; label: string; line: string; namesVisible: boolean };
+  phase?: { key?: string; mode: string; label: string; line: string; namesVisible: boolean };
   run: { ranAt: string; ranBy: string; students: number; population: number; withoutRules: number; defaulted: number; rounds: number; windows: number[]; scoped: boolean; stale?: boolean;
     capacity?: { canReach15: number; canReach12To14: number; below12: number; graduatingBelow12: number; unknown: number } | null;
     projected?: { students: number; capacity: { canReach15: number; canReach12To14: number; below12: number; graduatingBelow12: number; unknown: number } } | null;
@@ -216,7 +218,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
 
   return (
     <TermFrozenContext.Provider value={frozen}>
-    <div className="sm-page" dir="rtl">
+    <div className="sm-page" dir="rtl" role="tabpanel" id="registration-panel-simulation" aria-labelledby="registration-tab-simulation">
       <PageTitle eyebrow="الإرشاد" subtitle="لو سجّل الطلبةُ بحسب ما كتبوه: أين الزحام، وما المطلوب ولا يُطرح؟"
         action={(
           <div className="sm-actions">
@@ -253,6 +255,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
           {onNavigate && data.phase.namesVisible ? <div className="sm-links"><button type="button" onClick={() => onNavigate("studentRegistration")} data-guide-ignore="انتقالٌ إلى كشف التسجيل من شاشةٍ مسجّلة في المرشد باسم page.simulation">كشف التسجيل</button></div> : null}
         </div>
       ) : null}
+      {data?.term && !frozen ? <LiveRegistrationBoard termId={data.term.id} collegeId={scopePick.collegeId} sectionId={scopePick.sectionId} canSchedule={canSchedule} frozen={frozen} roundActive={data.phase?.key === "round"} onChanged={() => void load()} /> : null}
       {!data && !error ? <MicroLoader /> : !data?.term ? <EmptyState title="لا فصلَ للرادار" detail="تظهر حين يكون للفصل القادم تواريخُ طلبة." /> : !r ? (
         <EmptyState
           title={data.auto?.enabled === false ? "لم يُحتسب الرادار بعد" : "جارٍ إعداد الرادار تلقائياً"}
@@ -264,15 +267,15 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
           <SemesterReadiness bands={bands} wanted={wantedTotal} seated={seatedTotal} fullCourses={rows.filter(c => c.unmet.full > 0).length} notOffered={rows.filter(c => c.unmet["not-offered"] > 0).length}
             onStart={decide.length ? () => { setView("decide"); window.scrollTo({ top: 0, behavior: "smooth" }); } : undefined} insight={scenario === "actual" ? insight : null} failed={scenario !== "actual" || insightFailed} />
           {scenario === "actual" && !frozen && data.term && decide.length ? <RadarSuggestions termId={data.term.id} ranAt={r.ranAt} collegeId={scopePick.collegeId} sectionId={scopePick.sectionId} canSchedule={canSchedule} onChanged={() => void load()} /> : null}
-          <div className="sm-views" role="tablist" aria-label="أقسام الرادار">
-            <button type="button" role="tab" aria-selected={shownView === "decide"} onClick={() => setView("decide")} data-guide-ignore="تبديل قسم الرادار — عرضٌ فقط"><span className={`sm-ic${decide.length ? " hot" : ""}`}><CircleAlert /></span><b>{decide.length.toLocaleString("ar-KW-u-nu-latn")}</b><small>تحتاج قراراً</small></button>
-            <button type="button" role="tab" aria-selected={shownView === "capacity"} onClick={() => setView("capacity")} data-guide-ignore="تبديل قسم الرادار — عرضٌ فقط"><span className="sm-ic"><GraduationCap /></span><b>{(bands?.below12 || 0).toLocaleString("ar-KW-u-nu-latn")}</b><small>أقل من 12 وحدة</small></button>
-            {frozen ? null : <button type="button" role="tab" aria-selected={shownView === "predict"} onClick={() => setView("predict")} data-guide-ignore="تبديل قسم الرادار — عرضٌ فقط"><span className="sm-ic"><Sparkles /></span><b>تنبّؤ</b><small>الفصل القادم</small></button>}
-            {outcome && outcome.answers > 0 ? <button type="button" role="tab" aria-selected={shownView === "outcome"} onClick={() => setView("outcome")} data-guide-ignore="تبديل قسم الرادار — عرضٌ فقط"><span className="sm-ic"><Ticket /></span><b>{(outcome.answered ?? outcome.answers).toLocaleString("ar-KW-u-nu-latn")}</b><small>أجابوا بعد التسجيل</small></button> : null}
+          <div className="sm-views" role="tablist" aria-label="أقسام الرادار" onKeyDown={arrowChoice}>
+            <button type="button" role="tab" aria-selected={shownView === "decide"} tabIndex={shownView === "decide" ? 0 : -1} onClick={() => setView("decide")} data-guide-ignore="تبديل قسم الرادار — عرضٌ فقط"><span className={`sm-ic${decide.length ? " hot" : ""}`}><CircleAlert /></span><b>{decide.length.toLocaleString("ar-KW-u-nu-latn")}</b><small>تحتاج قراراً</small></button>
+            <button type="button" role="tab" aria-selected={shownView === "capacity"} tabIndex={shownView === "capacity" ? 0 : -1} onClick={() => setView("capacity")} data-guide-ignore="تبديل قسم الرادار — عرضٌ فقط"><span className="sm-ic"><GraduationCap /></span><b>{(bands?.below12 || 0).toLocaleString("ar-KW-u-nu-latn")}</b><small>أقل من 12 وحدة</small></button>
+            {frozen ? null : <button type="button" role="tab" aria-selected={shownView === "predict"} tabIndex={shownView === "predict" ? 0 : -1} onClick={() => setView("predict")} data-guide-ignore="تبديل قسم الرادار — عرضٌ فقط"><span className="sm-ic"><Sparkles /></span><b>تنبّؤ</b><small>الفصل القادم</small></button>}
+            {outcome && outcome.answers > 0 ? <button type="button" role="tab" aria-selected={shownView === "outcome"} tabIndex={shownView === "outcome" ? 0 : -1} onClick={() => setView("outcome")} data-guide-ignore="تبديل قسم الرادار — عرضٌ فقط"><span className="sm-ic"><Ticket /></span><b>{(outcome.answered ?? outcome.answers).toLocaleString("ar-KW-u-nu-latn")}</b><small>أجابوا بعد التسجيل</small></button> : null}
           </div>
-          {shownView !== "outcome" && shownView !== "predict" ? <div className="sm-scenario-tabs" role="tablist" aria-label="مصدر تحليل التسجيل">
-            <button type="button" role="tab" aria-selected={scenario === "actual"} onClick={() => setScenario("actual")} data-guide-ignore="اختيار مصدر الرغبات داخل شاشة مرشد التسجيل">الرغبات الفعلية <small>{r.students.toLocaleString("ar-KW-u-nu-latn")}</small></button>
-            <button type="button" role="tab" aria-selected={scenario === "projected"} onClick={() => setScenario("projected")} disabled={!r.projected} data-guide-ignore="اختيار التوقعات داخل شاشة مرشد التسجيل">التوقعات <small>{(r.projected?.students || 0).toLocaleString("ar-KW-u-nu-latn")}</small></button>
+          {shownView !== "outcome" && shownView !== "predict" ? <div className="sm-scenario-tabs" role="tablist" aria-label="مصدر تحليل التسجيل" onKeyDown={arrowChoice}>
+            <button type="button" role="tab" aria-selected={scenario === "actual"} tabIndex={scenario === "actual" ? 0 : -1} onClick={() => setScenario("actual")} data-guide-ignore="اختيار مصدر الرغبات داخل شاشة مرشد التسجيل">الرغبات الفعلية <small>{r.students.toLocaleString("ar-KW-u-nu-latn")}</small></button>
+            <button type="button" role="tab" aria-selected={scenario === "projected"} tabIndex={scenario === "projected" ? 0 : -1} onClick={() => setScenario("projected")} disabled={!r.projected} data-guide-ignore="اختيار التوقعات داخل شاشة مرشد التسجيل">التوقعات <small>{(r.projected?.students || 0).toLocaleString("ar-KW-u-nu-latn")}</small></button>
           </div> : null}
           {r.stale ? <div className="sm-stale" role="status"><AlertTriangle size={16} /> تغيّرت البيانات؛ {busy ? "يجري تحديث الرادار الآن." : data.auto?.enabled === false ? (data.canRun ? "التحديثُ التلقائي متوقف — اضغط «حدّث الرادار»." : "التحديثُ التلقائي متوقف — تحدّثه إدارةُ النظام يدوياً.") : "سيُعاد احتساب الرادار تلقائياً."}</div> : null}
           {shownView === "capacity" ? <>

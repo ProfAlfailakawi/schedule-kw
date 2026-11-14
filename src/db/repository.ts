@@ -10,6 +10,7 @@ import { reservationRows } from "../utils/instructorRequestReservations";
 import { approvedBarterReservation, borrowerOutsideApprovedWindow, hallBarterWindows, scheduleViolatesApprovedBarterWindow, scheduleOccupiesApprovedBarterWindow, approvedBarterWindowMatchesSchedule, type ApprovedHallWindow } from "../utils/hallBarterWindow";
 import { clockRangesOverlap } from "../utils/scheduleTime";
 import { findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
+import { planUndoSteps } from "../utils/inboxUndo";
 import { TEACHING_LOAD_DOC_ID, loadLimitOf, loadTermContext, normalizeTeachingLoadConfig, withLoadPolicies } from "../utils/teachingLoad";
 import { normalizeArabicText } from "../utils/arabicText";
 import fs from "fs";
@@ -23,6 +24,12 @@ import { getFirestore, FieldPath, FieldValue, Timestamp } from "firebase-admin/f
 import type { Firestore, QueryDocumentSnapshot, WriteBatch } from "firebase-admin/firestore";
 import { gzipSync, gunzipSync } from "zlib";
 import { assertExplicitProductionTarget } from "../server/firestoreTarget";
+import {
+  gateHoldsFor, holdsLease, isOpenVaultStatus, isTerminalVaultStatus, leaseWriteFields, nextOpAction, opRetryOutcome, opTotalUnits, opTouchedData, pickRestorePointEvictions, planLeaseTake,
+  planLockTake, planLockVerify, planResetQueue, planUndoQueue, createOpenVaultFlag, VaultJobConflict,
+  type VaultLeaseFields, type VaultLockDoc, type VaultLockKind, type VaultOpKind, type VaultOpPhase, type VaultOpStatus,
+} from "../server/vaultJobPlanner";
+import { IDENTITY_GENERATION_IO_TIMEOUT_MS, withTimeout } from "../server/identityGeneration";
 import { defaultPrivateDirectory, isCloudRunRuntime, materializePackagedSnapshotOnce, packagedSnapshotPath, readJsonSnapshot } from "./snapshot";
 import {
   ScheduleApproval,
@@ -69,12 +76,12 @@ import {
   CampusMobilityProfile,
   ScheduleShareLink, ShareLinkInstructorMark,
   InstructorRequest,
+  InstructorRequestUndoStep,
   StudyProposal,
   VisitingRoster,
   DepartmentDelegateDirectory,
   TeachingLoadConfig,
   DepartmentRoomDirectory,
-  RegistrationStats,
   StudentNeed,
   StudentCourseState,
   StudentCaseDecision,
@@ -284,7 +291,6 @@ interface DBState {
   registrationOutcomes?: RegistrationOutcomeShard[];
   schedulePublications?: SchedulePublication[];
   scheduleConstraints?: ScheduleConstraint[];
-  planTriageDecisions?: PlanTriageDecisionRow[];
   degreeRules?: AdDegreeRule[];
   visitingRosters?: VisitingRoster[];
   departmentDelegates?: DepartmentDelegateDirectory[];
@@ -292,7 +298,6 @@ interface DBState {
   /** وثائقُ الميزات الصغيرة (FEATURE_COLLECTIONS): مجموعةٌ ← معرّف ← وثيقة. */
   featureDocs?: Record<string, Record<string, any>>;
   departmentRooms?: DepartmentRoomDirectory[];
-  registrationStats?: RegistrationStats[];
   scheduleDecisionMemories?: ScheduleDecisionMemory[];
   campusMobilityProfiles?: CampusMobilityProfile[];
   scheduleShareLinks?: ScheduleShareLink[];
@@ -345,13 +350,6 @@ const demoSandboxContext = new AsyncLocalStorage<{ sessionId: string; state: DBS
 const demoSandboxes = new Map<string, DemoSandboxRecord>();
 function currentDb(): DBState { return demoSandboxContext.getStore()?.state || baseDb; }
 function replaceCurrentDb(next: DBState): void { const context = demoSandboxContext.getStore(); if (context) context.state = next; else baseDb = next; }
-/** K2: one shared «تم/تجاهل» decision on a planning item, per term/college/department/course. */
-export interface PlanTriageDecisionRow {
-  id: string; scopeKey: string; AdCollegeId: number; AdSectionId: number; AdTermId: number; courseId: number;
-  state: "done" | "ignored"; reason: string; signature: string; at: string;
-  byUserId: number; byName: string;
-}
-
 const db = new Proxy({} as DBState, {
   get: (_target, prop) => (currentDb() as any)[prop],
   set: (_target, prop, value) => { (currentDb() as any)[prop] = value; return true; },
@@ -1130,14 +1128,54 @@ const identityListeners = new Set<() => void>();
 /** Fired whenever an account, its permissions or its scopes change. */
 /** عدّادٌ يزيد مع كل تغيير هوية: قراءةٌ بدأت قبله لا تُحفظ في ذاكرة الهويات بعده (core/auth.ts). */
 let identityGeneration = 0;
-function announceIdentityChange() { identityGeneration += 1; for (const listener of identityListeners) listener(); }
+const IDENTITY_GENERATION_DOC = "_meta/identityGeneration";
+/**
+ * يمسح محلياً فوراً، ويعيد وعداً بنشر الزيادة في العدّاد المشترك بمهلةٍ قصيرة (~1.5 ثانية): المسارُ بعد الكتابة
+ * ينتظره فلا يعود الردّ قبل أن تُحاوَل الزيادةُ (المعالجُ المخنوق بعد الردّ قد لا يُكملها)، وفشلُه أو انقضاءُ مهلته
+ * يُسجَّل ولا يُفشل طلبَ المستخدم أبداً. من لا يهمّه الانتظار يتجاهل الوعد.
+ */
+function announceIdentityChange(): Promise<void> {
+  identityGeneration += 1;
+  for (const listener of identityListeners) listener();
+  return publishSharedIdentityChange();
+}
+async function publishSharedIdentityChange(): Promise<void> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return;
+  try { await withTimeout(bumpSharedIdentityGeneration(), IDENTITY_GENERATION_IO_TIMEOUT_MS, "identity-generation-bump"); }
+  catch (error) { console.error("[identity-generation] the shared bump did not finish in time:", error instanceof Error ? error.message : error); }
+}
+/** تغييرٌ كتبته نسخةٌ أخرى: نمسح محلياً ونرفع الجيل المحلي دون أن نزيد العدّاد المشترك ثانيةً. */
+function noteForeignIdentityChange() { identityGeneration += 1; for (const listener of identityListeners) listener(); }
+/**
+ * عدّادٌ مشترك بين نُسخ Cloud Run يزيده كل تغيير هوية بعد كتابته؛ تقرؤه كل نسخة كل ~10 ثوانٍ كحدٍّ أقصى
+ * (src/server/identityGeneration.ts). لا أثر في الوضع التجريبي ولا في الملف المحلي.
+ * فشلُ الزيادة يُعاد مرةً بعد ثانية ثم يُسجَّل: التقادم يعود إلى مدة الذاكرة (دقيقتان) لا أكثر.
+ */
+async function bumpSharedIdentityGeneration(): Promise<void> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return;
+  const db = firestoreDb;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await db.doc(IDENTITY_GENERATION_DOC).set({ generation: FieldValue.increment(1), changedAt: Date.now() }, { merge: true });
+      return;
+    } catch (error) {
+      if (attempt === 1) console.error("[identity-generation] could not publish the change to other instances:", error instanceof Error ? error.message : error);
+      else await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+}
+async function readSharedIdentityGeneration(): Promise<number | null> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return null;
+  const snap = await firestoreDb.doc(IDENTITY_GENERATION_DOC).get();
+  return Number(snap.get("generation") || 0);
+}
 /**
  * التبليغُ بعد الكتابة لا قبلها: كان يسبقها، فطلبٌ من صاحب الحساب يقرأ في أثناء الكتابة يعيد الهويةَ
  * القديمة إلى الذاكرة دقيقتين بعد أن «مُسحت». والكتابةُ التي تفشل تُبلّغ أيضاً — المسحُ لا يضرّ.
  */
 async function afterIdentityWrite<T>(write: () => Promise<T>): Promise<T> {
   try { return await write(); }
-  finally { announceIdentityChange(); }
+  finally { await announceIdentityChange(); }
 }
 
 const registrationFactsChanged = (before?: StudentProfile, after?: StudentProfile | null) => JSON.stringify(before ? [before.AdCollegeId, before.AdSectionId, before.curriculumPlanId, before.passedCourseIds, before.wishes] : null)
@@ -1278,7 +1316,39 @@ export interface SystemImportJobSummary {
   restorePointId?: string;
 }
 
-interface SystemImportJobRecord extends SystemImportJobSummary {
+interface SystemImportJobRecord extends SystemImportJobSummary, VaultLeaseFields {
+  rootAdminId: number;
+  byUserId: number;
+  queue: string[];
+  nextIndex: number;
+  safetyExportJobId: string;
+  safetyUnits: number;
+  retryCount?: number;
+}
+
+/* التصفير والتراجع الكامل مهمّتان متدرجتان على شكل الاستيراد (src/server/vaultJobPlanner.ts). */
+export type SystemOpJobSummary = {
+  id: string;
+  kind: VaultOpKind;
+  createdAt: string;
+  updatedAt: string;
+  status: VaultOpStatus;
+  phase: VaultOpPhase;
+  totalUnits: number;
+  completedUnits: number;
+  current?: string;
+  error?: string;
+  /** نقطةُ الأمان التي حُفظت قبل أول كتابة. */
+  restorePointId?: string;
+  /** في التراجع: النقطة التي يُعاد إليها النظام. */
+  targetRestorePointId?: string;
+  targetAction?: string;
+};
+
+interface SystemOpJobRecord extends SystemOpJobSummary, VaultLeaseFields {
+  /** قائمةُ مرحلة العودة إلى نقطة الأمان بعد الإلغاء (مجموعةٌ في الخطوة، تُستأنف). */
+  rollbackQueue?: string[];
+  rollbackIndex?: number;
   rootAdminId: number;
   byUserId: number;
   queue: string[];
@@ -1292,16 +1362,24 @@ const SYSTEM_BACKUP_FORMAT = "schedule-system-backup/1" as const;
 const SYSTEM_RESTORE_COLLECTION = "_systemRestorePoints";
 const SYSTEM_EXPORT_JOB_COLLECTION = "_systemExportJobs";
 const SYSTEM_IMPORT_JOB_COLLECTION = "_systemImportJobs";
+const SYSTEM_OP_JOB_COLLECTION = "_systemOpJobs";
+/** وثيقةُ قفلٍ واحدة (‎current‎): تمسكها مهمةُ الخزنة المفتوحة (استيراد أو تصفير أو تراجع) حتى حالتها النهائية. */
+const SYSTEM_VAULT_LOCK_COLLECTION = "_systemVaultLock";
 // Sessions are deliberately not portable: the document id is a live bearer
 // credential. Everything durable is included; live login tokens stay on the
 // server and survive a restore so the root administrator cannot lock himself out.
 // Operational diagnostics are deliberately not part of a business backup: they
 // expire automatically, contain no scheduling source-of-truth, and restoring an
 // old copy of them would make the experience-health reading lie about "recent" use.
-const SYSTEM_EXPORT_EXCLUDED_COLLECTIONS = new Set([SYSTEM_RESTORE_COLLECTION, SYSTEM_EXPORT_JOB_COLLECTION, SYSTEM_IMPORT_JOB_COLLECTION, "sessions", "clientTelemetry", "systemSecrets"]);
+const SYSTEM_EXPORT_EXCLUDED_COLLECTIONS = new Set([SYSTEM_RESTORE_COLLECTION, SYSTEM_EXPORT_JOB_COLLECTION, SYSTEM_IMPORT_JOB_COLLECTION, SYSTEM_OP_JOB_COLLECTION, SYSTEM_VAULT_LOCK_COLLECTION, "sessions", "clientTelemetry", "systemSecrets",
+  /* «_meta» (عدّادات المعرّفات وجيلُ الهويات ومنارةُ الجداول) حالةُ تشغيلٍ حيّةٌ مشتركةٌ بين النسخ لا بياناتُ عمل:
+     مسحُها أو استعادةُ قديمها في منتصف عمليةٍ طويلة يُصدر معرّفاتٍ مكرّرة ويُعيد جيلاً رآه غيرُنا؛ فالعدّاداتُ
+     تُضبط في الإتمام وحده (finalizeResetCounters / raiseCountersToData). */
+  "_meta"]);
 const LOCAL_RESTORE_DIR = () => path.join(DB_DIR, "system-restore-points");
 const LOCAL_EXPORT_DIR = () => path.join(DB_DIR, "system-export-jobs");
 const LOCAL_IMPORT_DIR = () => path.join(DB_DIR, "system-import-jobs");
+const LOCAL_OP_DIR = () => path.join(DB_DIR, "system-op-jobs");
 
 function backupEncode(value: any): any {
   if (value == null || typeof value !== "object") return value;
@@ -1804,7 +1882,7 @@ async function readSystemExportFile(id: string, rootAdminId = 1): Promise<{ summ
 
 
 function importJobSummary(row: SystemImportJobRecord): SystemImportJobSummary {
-  const { rootAdminId: _root, byUserId: _by, queue: _queue, nextIndex: _next, safetyExportJobId: _safety, safetyUnits: _su, retryCount: _retry, ...summary } = row;
+  const { rootAdminId: _root, byUserId: _by, queue: _queue, nextIndex: _next, safetyExportJobId: _safety, safetyUnits: _su, retryCount: _retry, version: _version, leaseOwner: _lo, leaseUntil: _lu, ...summary } = row;
   return summary;
 }
 
@@ -1823,6 +1901,7 @@ async function persistImportBackup(root: FirebaseFirestore.DocumentReference, ba
   const byCollection = new Map<string, SystemBackupDocument[]>();
   for (const item of documents) {
     const top = item.path.split("/")[0] || "unknown";
+    if (SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(top)) continue;
     const list = byCollection.get(top) || [];
     list.push(item);
     byCollection.set(top, list);
@@ -1890,13 +1969,24 @@ async function latestSystemImportJob(rootAdminId = 1): Promise<SystemImportJobSu
   return row ? importJobSummary(row) : null;
 }
 
+/** البدءُ ذرّي كالتصفير: القفلُ أولاً في معاملة، وأيُّ فشلٍ بعده (ملفٌّ فاسد، رفعٌ فاشل) يحرّره. */
 async function startSystemImportJob(input: unknown, byUserId: number, rootAdminId = 1): Promise<SystemImportJobSummary> {
+  const id = randomUUID();
+  await takeVaultLock(id, "import");
+  try { return await createSystemImportJob(id, input, byUserId, rootAdminId); }
+  catch (error) { await releaseVaultLock(id); throw error; }
+}
+
+async function createSystemImportJob(id: string, input: unknown, byUserId: number, rootAdminId: number): Promise<SystemImportJobSummary> {
   const existingJob = await latestSystemImportJob(rootAdminId);
   if (existingJob && ["running", "failed"].includes(existingJob.status)) {
-    throw new Error(`يوجد استيراد غير مكتمل عند ${existingJob.completedUnits}/${existingJob.totalUnits}. أكمله من نفس المهمة قبل بدء ملف آخر.`);
+    throw new VaultJobConflict(`يوجد استيراد غير مكتمل عند ${existingJob.completedUnits}/${existingJob.totalUnits}. أكمله من نفس المهمة قبل بدء ملف آخر.`, "locked");
+  }
+  const openOp = await latestSystemOpJob(rootAdminId);
+  if (openOp && isOpenVaultStatus(openOp.status)) {
+    throw new VaultJobConflict(`يوجد ${openOp.kind === "reset" ? "تصفير" : "تراجع"} غير مكتمل عند ${openOp.completedUnits}/${openOp.totalUnits}. أكمله أو ألغه قبل بدء استيراد.`, "locked");
   }
   const backup = validateSystemBackupPayload(input, rootAdminId);
-  const id = randomUUID();
   const createdAt = new Date().toISOString();
   const importedCollections = Object.keys(backup.summary.collectionCounts || {}).filter(name => !SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(name));
 
@@ -1908,7 +1998,7 @@ async function startSystemImportJob(input: unknown, byUserId: number, rootAdminI
       id, createdAt, updatedAt: createdAt, status: "running", phase: "safety",
       totalUnits: safety.totalUnits + importedCollections.length + 1, completedUnits: 0,
       documentCount: backup.summary.documentCount, collectionCounts: backup.summary.collectionCounts,
-      current: "أحفظ نقطة أمان قبل الاستيراد", rootAdminId, byUserId,
+      current: "أحفظ نقطة أمان قبل الاستيراد", rootAdminId, byUserId, version: 0,
       queue: importedCollections.sort((a, b) => a.localeCompare(b)), nextIndex: 0,
       safetyExportJobId: safety.id, safetyUnits: safety.totalUnits,
     };
@@ -1931,7 +2021,7 @@ async function startSystemImportJob(input: unknown, byUserId: number, rootAdminI
       id, createdAt, updatedAt: createdAt, status: "running", phase: "safety",
       totalUnits: safety.totalUnits + queue.length + 1, completedUnits: 0,
       documentCount: backup.summary.documentCount, collectionCounts: backup.summary.collectionCounts,
-      current: "أحفظ نقطة أمان قبل الاستيراد", rootAdminId, byUserId,
+      current: "أحفظ نقطة أمان قبل الاستيراد", rootAdminId, byUserId, version: 0,
       queue, nextIndex: 0, safetyExportJobId: safety.id, safetyUnits: safety.totalUnits,
     };
     await root.set(row, { merge: false });
@@ -1996,11 +2086,30 @@ async function applyImportedCollection(collectionName: string, desired: SystemBa
   if (desired.length) await writeFirestoreDocuments(desired);
 }
 
-async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<SystemImportJobSummary> {
+/**
+ * خطوةُ استيراد: بالإيجار والإصدار نفسهما كالتصفير (acquireJobLease / commitJobRow)؛ خطوةٌ جاريةٌ أخرى ⇒ ‎busy‎ بلا كتابة.
+ */
+async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<SystemImportJobSummary & { busy?: boolean }> {
+  const owner = randomUUID();
+  const taken = await acquireJobLease<SystemImportJobRecord>(importJobStore, id, rootAdminId, owner);
+  if (!taken.acquired) return taken.busy ? { ...importJobSummary(taken.row), busy: true } : importJobSummary(taken.row);
+  const row = taken.row;
+  try {
+    return await runImportStep(row, owner, id, rootAdminId);
+  } catch (error) {
+    if (error instanceof VaultJobConflict && error.code === "lost") {
+      const current = opJobIsLocal() ? readLocalImportJob(id) : (await firestoreDb!.collection(SYSTEM_IMPORT_JOB_COLLECTION).doc(id).get()).data() as SystemImportJobRecord | undefined;
+      return { ...importJobSummary(current || row), busy: true };
+    }
+    throw error;
+  } finally {
+    await releaseJobLease(importJobStore, row, owner);
+  }
+}
+
+async function runImportStep(row: SystemImportJobRecord, owner: string, id: string, rootAdminId: number): Promise<SystemImportJobSummary> {
+  const commit = () => commitJobRow(importJobStore, row, owner);
   if (!firestoreDb || demoSandboxContext.getStore()) {
-    let row = readLocalImportJob(id);
-    if (!row || row.rootAdminId !== rootAdminId) throw new Error("مهمة الاستيراد غير موجودة");
-    if (row.status === "ready" || row.status === "abandoned") return importJobSummary(row);
     try {
       if (!row.restorePointId) {
         const restore = await createSystemRestorePointFromExport("قبل الاستيراد الكامل", row.byUserId, row.safetyExportJobId, rootAdminId);
@@ -2008,21 +2117,18 @@ async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<Syst
       }
       const backup = validateSystemBackupPayload(JSON.parse(gunzipSync(fs.readFileSync(localImportSourcePath(id))).toString("utf8")), rootAdminId);
       await replaceSystemFromBackup(backup, rootAdminId);
-      row = { ...row, status: "ready", phase: "finalizing", completedUnits: row.totalUnits, current: undefined, error: undefined, updatedAt: new Date().toISOString() };
-      writeLocalImportJob(row);
+      Object.assign(row, { status: "ready", phase: "finalizing", completedUnits: row.totalUnits, current: undefined, error: undefined, updatedAt: new Date().toISOString() });
+      await commit();
+      await releaseVaultLock(row.id);
       return importJobSummary(row);
     } catch (error: any) {
-      row.status = "failed"; row.error = String(error?.message || error).slice(0, 900); row.updatedAt = new Date().toISOString(); writeLocalImportJob(row);
+      if (error instanceof VaultJobConflict) throw error;
+      row.status = "failed"; row.error = String(error?.message || error).slice(0, 900); row.updatedAt = new Date().toISOString(); await commit();
       return importJobSummary(row);
     }
   }
 
   const root = firestoreDb.collection(SYSTEM_IMPORT_JOB_COLLECTION).doc(id);
-  const snap = await root.get();
-  if (!snap.exists) throw new Error("مهمة الاستيراد غير موجودة");
-  let row = snap.data() as SystemImportJobRecord;
-  if (Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة الاستيراد لا تخص هذا الحساب");
-  if (row.status === "ready" || row.status === "abandoned") return importJobSummary(row);
   if (row.status === "failed") { row.status = "running"; row.error = undefined; }
 
   try {
@@ -2034,9 +2140,16 @@ async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<Syst
       row.completedUnits = Math.min(row.safetyUnits, safety.completedUnits || 0);
       row.current = safety.status === "ready" ? "أثبت نقطة الأمان" : `نقطة الأمان · ${safety.current || "أجمع البيانات الحالية"}`;
       row.updatedAt = new Date().toISOString();
+      if (safety.status === "failed") {
+        /* فشلُ تصدير الأمان: «failed» لا «running» للأبد، فيتوقف العميلُ عن الاستطلاع ويعرض السبب. */
+        row.status = "failed";
+        row.error = String(safety.error || "تعذر حفظ نقطة الأمان").slice(0, 900);
+        await commit();
+        return importJobSummary(row);
+      }
       if (safety.status !== "ready") {
-        row.error = safety.status === "failed" ? safety.error : undefined;
-        await root.set(row, { merge: false });
+        row.error = undefined;
+        await commit();
         return importJobSummary(row);
       }
       if (!row.restorePointId) {
@@ -2047,14 +2160,14 @@ async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<Syst
       row.completedUnits = row.safetyUnits;
       row.current = row.queue[0] ? `أستعيد ${row.queue[0]}` : "أراجع النتيجة";
       row.error = undefined;
-      await root.set(row, { merge: false });
+      await commit();
     }
 
     if (row.phase === "apply" && row.nextIndex < row.queue.length) {
       const collectionName = row.queue[row.nextIndex];
       row.current = `أستعيد ${collectionName}`;
       row.updatedAt = new Date().toISOString();
-      await root.set(row, { merge: false });
+      await commit();
       const desired = await readImportCollection(root, collectionName);
       await applyImportedCollection(collectionName, desired, rootAdminId);
       row.nextIndex += 1;
@@ -2064,18 +2177,21 @@ async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<Syst
       row.updatedAt = new Date().toISOString();
       row.error = undefined;
       if (row.nextIndex >= row.queue.length) row.phase = "finalizing";
-      await root.set(row, { merge: false });
+      await commit();
       if (row.phase !== "finalizing") return importJobSummary(row);
     }
 
     if (row.phase === "finalizing") {
-      refreshSystemCachesAfterMutation();
+      /* «_meta» لا تُستعاد: العدّاداتُ تُرفع إلى أعلى معرّفٍ في البيانات المستوردة (لا تُخفض أبداً). */
+      await raiseCountersToData();
+      await refreshSystemCachesAfterMutation();
       row.status = "ready";
       row.completedUnits = row.totalUnits;
       row.current = undefined;
       row.error = undefined;
       row.updatedAt = new Date().toISOString();
-      await root.set(row, { merge: false });
+      await commit();
+      await releaseVaultLock(row.id);
       // Staged source chunks are no longer needed after a verified complete
       // import. The safety export remains because the restore point references it.
       try { await deleteFirestoreTree(root.collection("payloadChunks")); } catch {}
@@ -2083,11 +2199,12 @@ async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<Syst
     }
     return importJobSummary(row);
   } catch (error: any) {
+    if (error instanceof VaultJobConflict) throw error;
     row.retryCount = Number(row.retryCount || 0) + 1;
     row.error = String(error?.message || error || "تعذر متابعة الاستيراد").slice(0, 900);
     row.status = isTransientBackupError(error) && row.retryCount < 8 ? "running" : "failed";
     row.updatedAt = new Date().toISOString();
-    await root.set(row, { merge: false });
+    await commit();
     return importJobSummary(row);
   }
 }
@@ -2103,30 +2220,38 @@ async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<Syst
 async function abandonSystemImportJob(id: string, rootAdminId = 1): Promise<SystemImportJobSummary & { rolledBack: boolean }> {
   const local = !firestoreDb || Boolean(demoSandboxContext.getStore());
   const root = local ? null : firestoreDb!.collection(SYSTEM_IMPORT_JOB_COLLECTION).doc(id);
-  let row: SystemImportJobRecord | null;
-  if (root) {
-    const snap = await root.get();
-    row = snap.exists ? snap.data() as SystemImportJobRecord : null;
-  } else row = readLocalImportJob(id);
-  if (!row || Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة الاستيراد غير موجودة");
-  if (row.status === "ready") throw new Error("اكتمل هذا الاستيراد؛ للعودة عنه استعمل «تراجع كامل».");
+  /* الإلغاءُ يأخذ إيجارَ المهمة كالخطوة: لا يُلغى استيرادٌ وخطوةٌ منه ما زالت تكتب. */
+  const owner = randomUUID();
+  const taken = await acquireJobLease<SystemImportJobRecord>(importJobStore, id, rootAdminId, owner);
+  let row = taken.row;
+  if (row.status === "ready") throw new VaultJobConflict("اكتمل هذا الاستيراد؛ للعودة عنه استعمل «تراجع كامل».", "state");
   if (row.status === "abandoned") return { ...importJobSummary(row), rolledBack: false };
-  /* محلياً يُستبدل النظامُ في خطوةٍ واحدة؛ وفي Firestore تبدأ الكتابةُ مع مرحلة apply. */
-  const touched = Boolean(row.restorePointId) && (local || row.phase !== "safety");
-  if (touched) {
-    const original = await loadSystemRestorePoint(String(row.restorePointId), rootAdminId);
-    await replaceSystemFromBackup(original, rootAdminId);
-    await markRestorePointConsumed(String(row.restorePointId));
+  if (!taken.acquired) throw new VaultJobConflict("خطوةٌ من هذا الاستيراد جارية الآن؛ انتظر انتهاءها (حتى دقيقة) ثم أعد محاولة الإلغاء.", "busy");
+  try {
+    /* محلياً يُستبدل النظامُ في خطوةٍ واحدة؛ وفي Firestore تبدأ الكتابةُ مع مرحلة apply.
+       (استبدالُ نقطة الأمان هنا ما زال طلباً واحداً؛ التدرّجُ للتصفير والتراجع فقط — انظر SRS 17-ops.) */
+    const touched = Boolean(row.restorePointId) && (local || row.phase !== "safety");
+    if (touched) {
+      const original = await loadSystemRestorePoint(String(row.restorePointId), rootAdminId);
+      await replaceSystemFromBackup(original, rootAdminId);
+      await raiseCountersToData();
+      await markRestorePointConsumed(String(row.restorePointId));
+    }
+    Object.assign(row, { status: "abandoned", current: touched ? "أُلغي الاستيراد وعاد النظام إلى نقطة الأمان" : "أُلغي الاستيراد قبل أي تغيير", error: undefined, updatedAt: new Date().toISOString() });
+    await commitJobRow(importJobStore, row, owner);
+    await releaseVaultLock(row.id);
+    if (root) {
+      try { await deleteFirestoreTree(root.collection("payloadChunks")); } catch {}
+    } else {
+      try { fs.unlinkSync(localImportSourcePath(id)); } catch {}
+    }
+    return { ...importJobSummary(row), rolledBack: touched };
+  } catch (error) {
+    if (error instanceof VaultJobConflict && error.code === "lost") throw new VaultJobConflict("تغيّر الاستيراد أثناء الإلغاء؛ أعد فتح الخزنة وحاول مجدداً.", "busy");
+    throw error;
+  } finally {
+    await releaseJobLease(importJobStore, row, owner);
   }
-  row = { ...row, status: "abandoned", current: touched ? "أُلغي الاستيراد وعاد النظام إلى نقطة الأمان" : "أُلغي الاستيراد قبل أي تغيير", error: undefined, updatedAt: new Date().toISOString() };
-  if (root) {
-    await root.set(row, { merge: false });
-    try { await deleteFirestoreTree(root.collection("payloadChunks")); } catch {}
-  } else {
-    writeLocalImportJob(row);
-    try { fs.unlinkSync(localImportSourcePath(id)); } catch {}
-  }
-  return { ...importJobSummary(row), rolledBack: touched };
 }
 
 /** يُعلِّم مهمةَ استيرادٍ معلّقة «ملغاة» بلا استعادة — بعد تراجعٍ كاملٍ أعاد النظام بنفسه. */
@@ -2144,9 +2269,598 @@ async function markOpenImportJobAbandoned(rootAdminId: number, note: string): Pr
   if (row) writeLocalImportJob({ ...row, ...patch });
 }
 
+/*
+ * ── التصفير والتراجع الكامل: مهمّتان متدرجتان على شكل الاستيراد ─────────────────
+ *
+ * كان كلٌّ منهما طلباً واحداً: نقطةُ أمان كاملة ثم استبدالُ النظام كله، فتجاوز مهلةَ الطلب على القاعدة
+ * الحقيقية (~36 ألف وثيقة). الآن: بدء ← خطوات (مجموعةٌ واحدة في الخطوة) بتقدّم محفوظ ← إتمام، وتُحفظ
+ * نقطةُ أمان أولاً (مهمةُ تصدير «safety» كما في الاستيراد) فيعيدها الإلغاءُ عند الفشل. القرارات الصرفة
+ * (القائمة، الخطوة التالية، التقدّم، إعادة المحاولة) في src/server/vaultJobPlanner.ts.
+ * في الوضع المحلي والتجريبي تُنفَّذ الخطوةُ الواحدة كل شيء (نقطة الأمان ثم الاستبدال) كما في الاستيراد المحلي.
+ */
+const OP_LABEL: Record<VaultOpKind, string> = { reset: "قبل تصفير النظام", undo: "قبل التراجع — نقطة إعادة" };
+
+type OpJobResult = SystemOpJobSummary & { busy?: boolean };
+
+function opJobSummary(row: SystemOpJobRecord): SystemOpJobSummary {
+  const {
+    rootAdminId: _root, byUserId: _by, queue: _queue, nextIndex: _next, safetyExportJobId: _safety, safetyUnits: _su, retryCount: _retry,
+    version: _version, leaseOwner: _lo, leaseUntil: _lu, rollbackQueue: _rq, rollbackIndex: _ri, ...summary
+  } = row;
+  return summary;
+}
+function localOpJobPath(id: string) { return path.join(LOCAL_OP_DIR(), `${id}.json`); }
+function readLocalOpJob(id: string): SystemOpJobRecord | null {
+  try { return JSON.parse(fs.readFileSync(localOpJobPath(id), "utf8")) as SystemOpJobRecord; } catch { return null; }
+}
+function writeLocalOpJob(row: SystemOpJobRecord) {
+  fs.mkdirSync(LOCAL_OP_DIR(), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(localOpJobPath(row.id), JSON.stringify(row), { mode: 0o600 });
+}
+const opJobIsLocal = () => !firestoreDb || Boolean(demoSandboxContext.getStore());
+
+/* ══ الإيجار والإصدار وقفلُ الخزنة (القرارات الصرفة في vaultJobPlanner.ts) ════════════════════════
+ * خطوةٌ واحدة فقط تعمل على المهمة في كل لحظة؛ وكل كتابةٍ على وثيقتها مشروطةٌ بالإيجار والإصدار؛ ومهمةٌ مفتوحة واحدة
+ * فقط في الخزنة كلها (استيراد أو تصفير أو تراجع) بوثيقة قفلٍ تُؤخذ في معاملة. */
+interface LeasedJobStore {
+  collection: string;
+  notFound: string;
+  readLocal: (id: string) => (VaultLeaseFields & { id: string; rootAdminId: number; status: string }) | null;
+  writeLocal: (row: any) => void;
+  lockKind: (row: any) => VaultLockKind;
+}
+const opJobStore: LeasedJobStore = {
+  collection: SYSTEM_OP_JOB_COLLECTION, notFound: "مهمة النظام غير موجودة",
+  readLocal: readLocalOpJob, writeLocal: writeLocalOpJob, lockKind: row => (row.kind === "undo" ? "undo" : "reset"),
+};
+const importJobStore: LeasedJobStore = {
+  collection: SYSTEM_IMPORT_JOB_COLLECTION, notFound: "مهمة الاستيراد غير موجودة",
+  readLocal: readLocalImportJob, writeLocal: writeLocalImportJob, lockKind: () => "import",
+};
+
+const localVaultLockPath = () => path.join(DB_DIR, "system-vault-lock.json");
+function readLocalVaultLock(): VaultLockDoc | null {
+  try { return JSON.parse(fs.readFileSync(localVaultLockPath(), "utf8")) as VaultLockDoc; } catch { return null; }
+}
+const vaultLockRef = () => firestoreDb!.collection(SYSTEM_VAULT_LOCK_COLLECTION).doc("current");
+const vaultHolderCollection = (kind: VaultLockKind) => (kind === "import" ? SYSTEM_IMPORT_JOB_COLLECTION : SYSTEM_OP_JOB_COLLECTION);
+function localHolderStatus(lock: VaultLockDoc): string | null {
+  const row = lock.kind === "import" ? readLocalImportJob(lock.jobId) : readLocalOpJob(lock.jobId);
+  return row ? String(row.status) : null;
+}
+
+/** علَمُ «توجد مهمةٌ مفتوحة» لبوابة الصيانة: قراءةٌ واحدة كل ≤5 ثوانٍ لكل نسخة، ولا قراءةَ في التجريبي والمحلي. */
+const openVaultFlag = createOpenVaultFlag({
+  read: async () => {
+    if (opJobIsLocal()) return false;
+    const snap = await vaultLockRef().get();
+    if (!snap.exists) return false;
+    const lock = snap.data() as VaultLockDoc;
+    const holder = await firestoreDb!.collection(vaultHolderCollection(lock.kind)).doc(lock.jobId).get();
+    return gateHoldsFor(holder.exists ? (holder.data() as any) : null, Date.now());
+  },
+});
+async function hasOpenVaultJob(): Promise<boolean> {
+  if (opJobIsLocal()) return false;
+  return openVaultFlag.get();
+}
+
+const lockRefusal = (lock: VaultLockDoc | null) =>
+  `توجد عملية نسخٍ احتياطي مفتوحة (${lock?.kind === "import" ? "استيراد" : lock?.kind === "reset" ? "تصفير" : "تراجع"}). أكملها أو ألغها قبل بدء عملية أخرى.`;
+
+/** يأخذ قفلَ الخزنة لمهمةٍ جديدة؛ أو يرفض بوضوح إن كانت أخرى مفتوحة (معاملةٌ تعيد قراءة القفل والمهمة المُمسِكة). */
+async function takeVaultLock(jobId: string, kind: VaultLockKind): Promise<void> {
+  const doc: VaultLockDoc = { jobId, kind, takenAt: new Date().toISOString() };
+  if (opJobIsLocal()) {
+    const lock = readLocalVaultLock();
+    if (planLockTake(lock, lock && lock.jobId !== jobId ? localHolderStatus(lock) : null, jobId) === "refuse") throw new VaultJobConflict(lockRefusal(lock), "locked");
+    fs.mkdirSync(path.dirname(localVaultLockPath()), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(localVaultLockPath(), JSON.stringify(doc), { mode: 0o600 });
+    return;
+  }
+  const ref = vaultLockRef();
+  await firestoreDb!.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const lock = snap.exists ? snap.data() as VaultLockDoc : null;
+    let holderStatus: string | null = null;
+    if (lock && lock.jobId !== jobId) {
+      const holder = await tx.get(firestoreDb!.collection(vaultHolderCollection(lock.kind)).doc(lock.jobId));
+      holderStatus = holder.exists ? String((holder.data() as any)?.status) : null;
+    }
+    if (planLockTake(lock, holderStatus, jobId) === "refuse") throw new VaultJobConflict(lockRefusal(lock), "locked");
+    tx.set(ref, doc, { merge: false });
+  });
+  openVaultFlag.set(true);
+}
+
+/** يحرّر القفل إن كان لهذه المهمة (يُستدعى عند كل حالةٍ نهائية؛ فشلُه لا يضرّ: القفلُ اليتيم يُستعاد عند البدء التالي). */
+async function releaseVaultLock(jobId: string): Promise<void> {
+  try {
+    if (opJobIsLocal()) {
+      const lock = readLocalVaultLock();
+      if (lock?.jobId === jobId) fs.unlinkSync(localVaultLockPath());
+      return;
+    }
+    const ref = vaultLockRef();
+    await firestoreDb!.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      if (snap.exists && (snap.data() as VaultLockDoc).jobId === jobId) tx.delete(ref);
+    });
+    openVaultFlag.set(false);
+  } catch (error) {
+    console.error("[vault-lock] could not release the lock:", error instanceof Error ? error.message : error);
+  }
+}
+
+type LeaseTake<R> = { row: R; acquired: boolean; busy: boolean };
+
+/**
+ * يأخذ إيجارَ الخطوة في معاملةٍ تعيد قراءة الوثيقة؛ ويتحقق أن المهمة هي المُمسِكة بقفل الخزنة (غيابُ القفل لمهمةٍ سبقت
+ * هذا الإصدار يُتبنّى). مهمةٌ منتهية تعود كما هي بلا إيجار. إيجارٌ حيٌّ لخطوةٍ أخرى ⇒ ‎busy‎.
+ */
+async function acquireJobLease<R extends VaultLeaseFields & { id: string; rootAdminId: number; status: string }>(
+  store: LeasedJobStore, id: string, rootAdminId: number, owner: string,
+): Promise<LeaseTake<R>> {
+  const now = Date.now();
+  const notMine = new VaultJobConflict("هذه المهمة ليست عملية الخزنة المفتوحة حالياً؛ افتح الخزنة من جديد.", "locked");
+  if (opJobIsLocal()) {
+    const row = store.readLocal(id) as R | null;
+    if (!row || Number(row.rootAdminId) !== rootAdminId) throw new Error(store.notFound);
+    if (isTerminalVaultStatus(row.status)) return { row, acquired: false, busy: false };
+    const lock = readLocalVaultLock();
+    const verdict = planLockVerify(lock, id);
+    if (verdict === "refuse") throw notMine;
+    const plan = planLeaseTake(row, owner, now);
+    if (!plan.ok) return { row, acquired: false, busy: true };
+    Object.assign(row, plan.next);
+    store.writeLocal(row);
+    if (verdict === "adopt") {
+      fs.mkdirSync(path.dirname(localVaultLockPath()), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(localVaultLockPath(), JSON.stringify({ jobId: id, kind: store.lockKind(row), takenAt: new Date().toISOString() }), { mode: 0o600 });
+    }
+    return { row, acquired: true, busy: false };
+  }
+  const ref = firestoreDb!.collection(store.collection).doc(id);
+  const result = await firestoreDb!.runTransaction(async tx => {
+    const [snap, lockSnap] = await Promise.all([tx.get(ref), tx.get(vaultLockRef())]);
+    const row = snap.exists ? snap.data() as R : null;
+    if (!row || Number(row.rootAdminId) !== rootAdminId) throw new Error(store.notFound);
+    if (isTerminalVaultStatus(row.status)) return { row, acquired: false, busy: false } as LeaseTake<R>;
+    const verdict = planLockVerify(lockSnap.exists ? lockSnap.data() as VaultLockDoc : null, id);
+    if (verdict === "refuse") throw notMine;
+    const plan = planLeaseTake(row, owner, now);
+    if (!plan.ok) return { row, acquired: false, busy: true } as LeaseTake<R>;
+    if (verdict === "adopt") tx.set(vaultLockRef(), { jobId: id, kind: store.lockKind(row), takenAt: new Date().toISOString() } satisfies VaultLockDoc, { merge: false });
+    tx.set(ref, { ...row, ...plan.next }, { merge: false });
+    return { row: { ...row, ...plan.next }, acquired: true, busy: false } as LeaseTake<R>;
+  });
+  return result;
+}
+
+/** كتابةٌ مشروطة: لا تنجح إلا إن كانت وثيقةُ المهمة ما زالت بإيجارنا وبالإصدار الذي قرأناه، وإلا ‎VaultJobConflict("lost")‎. */
+async function commitJobRow<R extends VaultLeaseFields & { id: string }>(store: LeasedJobStore, row: R, owner: string, release = false): Promise<void> {
+  const lost = () => new VaultJobConflict("تغيّرت حالة المهمة من خطوةٍ أخرى؛ أعد فتح الخزنة.", "lost");
+  if (opJobIsLocal()) {
+    const stored = store.readLocal(row.id);
+    if (!stored || !holdsLease(stored, owner, Number(row.version || 0))) throw lost();
+    Object.assign(row, leaseWriteFields(stored, owner, Date.now(), release));
+    store.writeLocal(row);
+    return;
+  }
+  const ref = firestoreDb!.collection(store.collection).doc(row.id);
+  let fields = { version: 0, leaseOwner: null as string | null, leaseUntil: 0 };
+  await firestoreDb!.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const stored = snap.exists ? snap.data() as VaultLeaseFields : null;
+    if (!stored || !holdsLease(stored, owner, Number(row.version || 0))) throw lost();
+    fields = leaseWriteFields(stored, owner, Date.now(), release);
+    tx.set(ref, { ...row, ...fields }, { merge: false });
+  });
+  Object.assign(row, fields);
+}
+
+/** يحرّر إيجارَ الخطوة إن كنا ما زلنا نملكه (تحريرٌ بعد الخطوة، ناجحةً كانت أو فاشلة). */
+async function releaseJobLease<R extends VaultLeaseFields & { id: string }>(store: LeasedJobStore, row: R, owner: string): Promise<void> {
+  if (row.leaseOwner !== owner) return;
+  try { await commitJobRow(store, row, owner, true); }
+  catch (error) { if (!(error instanceof VaultJobConflict)) console.error("[vault-lease] could not release the lease:", error instanceof Error ? error.message : error); }
+}
+
+async function readOpJobRecord(id: string, rootAdminId: number): Promise<SystemOpJobRecord> {
+  let row: SystemOpJobRecord | null;
+  if (opJobIsLocal()) row = readLocalOpJob(id);
+  else {
+    const snap = await firestoreDb!.collection(SYSTEM_OP_JOB_COLLECTION).doc(id).get();
+    row = snap.exists ? snap.data() as SystemOpJobRecord : null;
+  }
+  if (!row || Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة النظام غير موجودة");
+  return row;
+}
+/** إنشاءُ وثيقة مهمةٍ جديدة فقط (لم تُنشر بعدُ لأي خطوة)؛ كل ما بعدها يمرّ بـ commitJobRow. */
+async function writeOpJobRecord(row: SystemOpJobRecord) {
+  if (opJobIsLocal()) writeLocalOpJob(row);
+  else await firestoreDb!.collection(SYSTEM_OP_JOB_COLLECTION).doc(row.id).set(row, { merge: false });
+}
+
+async function latestSystemOpJob(rootAdminId = 1): Promise<SystemOpJobSummary | null> {
+  if (!opJobIsLocal()) {
+    const snap = await firestoreDb!.collection(SYSTEM_OP_JOB_COLLECTION).orderBy("createdAt", "desc").limit(1).get();
+    if (!snap.docs.length) return null;
+    const row = snap.docs[0].data() as SystemOpJobRecord;
+    return Number(row.rootAdminId) === rootAdminId ? opJobSummary(row) : null;
+  }
+  if (!fs.existsSync(LOCAL_OP_DIR())) return null;
+  const rows = fs.readdirSync(LOCAL_OP_DIR()).filter(name => name.endsWith(".json"))
+    .map(name => readLocalOpJob(name.replace(/\.json$/, ""))).filter(Boolean) as SystemOpJobRecord[];
+  const row = rows.filter(item => item.rootAdminId === rootAdminId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  return row ? opJobSummary(row) : null;
+}
+
+/** مهمةٌ مفتوحة (استيراد أو تصفير أو تراجع) تسدّ الخزنة: لا تبدأ عمليةٌ أخرى فوقها. */
+async function assertNoOpenVaultJob(rootAdminId: number) {
+  const [op, imp] = await Promise.all([latestSystemOpJob(rootAdminId), latestSystemImportJob(rootAdminId)]);
+  if (op && isOpenVaultStatus(op.status)) {
+    throw new VaultJobConflict(`يوجد ${op.kind === "reset" ? "تصفير" : "تراجع"} غير مكتمل عند ${op.completedUnits}/${op.totalUnits}. أكمله أو ألغه قبل بدء عملية أخرى.`, "locked");
+  }
+  if (imp && isOpenVaultStatus(imp.status)) {
+    throw new VaultJobConflict(`يوجد استيراد غير مكتمل عند ${imp.completedUnits}/${imp.totalUnits}. أكمله أو ألغه قبل بدء عملية أخرى.`, "locked");
+  }
+}
+
+/** البدءُ ذرّي: القفلُ يُؤخذ أولاً في معاملة، فلا يمرّ بدآن متزامنان؛ وأيُّ فشلٍ بعده يحرّره. */
+async function startSystemOpJob(kind: VaultOpKind, byUserId: number, rootAdminId = 1): Promise<SystemOpJobSummary> {
+  const id = randomUUID();
+  await takeVaultLock(id, kind);
+  try {
+    await assertNoOpenVaultJob(rootAdminId);
+    return await createSystemOpJobRow(id, kind, byUserId, rootAdminId);
+  } catch (error) {
+    await releaseVaultLock(id);
+    throw error;
+  }
+}
+
+async function createSystemOpJobRow(id: string, kind: VaultOpKind, byUserId: number, rootAdminId: number): Promise<SystemOpJobSummary> {
+  let target: SystemRestorePointSummary | undefined;
+  if (kind === "undo") {
+    target = (await listSystemRestorePoints()).find(point => !point.consumedAt);
+    if (!target) throw new Error("لا توجد نقطة تراجع متاحة");
+  }
+  const createdAt = new Date().toISOString();
+  const base = {
+    id, kind, createdAt, updatedAt: createdAt, status: "running" as const, phase: "safety" as const,
+    completedUnits: 0, current: "أحفظ نقطة أمان قبل البدء", rootAdminId, byUserId, nextIndex: 0, version: 0,
+    targetRestorePointId: target?.id, targetAction: target?.action,
+  };
+  if (opJobIsLocal()) {
+    const row: SystemOpJobRecord = { ...base, totalUnits: opTotalUnits(1, 1), queue: [], safetyExportJobId: "", safetyUnits: 1 };
+    writeLocalOpJob(row);
+    return opJobSummary(row);
+  }
+  const existing = (await firestoreDb!.listCollections()).map(collection => collection.id);
+  const queue = kind === "reset"
+    ? planResetQueue(existing, SYSTEM_EXPORT_EXCLUDED_COLLECTIONS)
+    : planUndoQueue(existing, Object.keys(target?.collectionCounts || {}), SYSTEM_EXPORT_EXCLUDED_COLLECTIONS);
+  const safety = await startSystemExportJob(byUserId, rootAdminId, true, "safety");
+  const row: SystemOpJobRecord = { ...base, totalUnits: opTotalUnits(safety.totalUnits, queue.length), queue, safetyExportJobId: safety.id, safetyUnits: safety.totalUnits };
+  await writeOpJobRecord(row);
+  return opJobSummary(row);
+}
+
+async function getSystemOpJob(id: string, rootAdminId = 1): Promise<SystemOpJobSummary> {
+  return opJobSummary(await readOpJobRecord(id, rootAdminId));
+}
+
+/* نسخةُ التراجع المحمَّلة تُحفظ بين الخطوات: نقطةُ التراجع ثابتةٌ لا تتغير، وفكُّ ضغطها في كل خطوةٍ هدرٌ. */
+let opBackupCache: { id: string; backup: SystemBackupPayload } | null = null;
+async function loadOpTargetBackup(id: string, rootAdminId: number): Promise<SystemBackupPayload> {
+  if (opBackupCache?.id === id) return opBackupCache.backup;
+  const backup = await loadSystemRestorePoint(id, rootAdminId);
+  opBackupCache = { id, backup };
+  return backup;
+}
+
+/** ما يبقى من مجموعة هوية عند التصفير: وثائقُ الحساب الرئيسي (وما تحتها) وحدها. */
+async function applyResetCollection(name: string, rootAdminId: number): Promise<void> {
+  /* مهمةٌ بدأت قبل أن يُستثنى «_meta» قد تحمله في قائمتها: لا يُمسّ أبداً. */
+  if (SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(name)) return;
+  if (name !== "users" && name !== "formSecurity") {
+    await deleteFirestoreTree(firestoreDb!.collection(name));
+    return;
+  }
+  const all: SystemBackupDocument[] = [];
+  await collectFirestoreCollection(firestoreDb!.collection(name), all);
+  const rootUserPath = `users/user_${rootAdminId}`;
+  const keptTop = new Set(all.filter(item => item.path.split("/").length === 2 && (name === "users"
+    ? item.path === rootUserPath
+    : Number((item.data as any)?.SystemUserId) === rootAdminId)).map(item => item.path));
+  if (name === "users" && !keptTop.size) throw new Error("حساب الإدارة الرئيسي غير موجود");
+  const kept = all.filter(item => [...keptTop].some(top => item.path === top || item.path.startsWith(`${top}/`)));
+  await reconcileTopLevelCollection(name, kept, keptTop);
+}
+
+/** العدّاداتُ تُضبط هنا وحدها (لا في منتصف المهمة): بعد التصفير لا يبقى غيرُ الحساب الرئيسي وصلاحياته. */
+async function finalizeResetCounters(rootAdminId: number): Promise<void> {
+  const snap = await firestoreDb!.collection("formSecurity").get();
+  const maxPermission = snap.docs
+    .filter(doc => Number((doc.data() as any)?.SystemUserId) === rootAdminId)
+    .reduce((max, doc) => Math.max(max, Number((doc.data() as any)?.legacyId || 0)), 0);
+  await firestoreDb!.doc(FIRESTORE_COUNTER_DOC).set({ users: rootAdminId, formSecurity: maxPermission, userScopes: 0, terms: 0, colleges: 0, sections: 0, instructors: 0, courses: 0, schedules: 0 }, { merge: false });
+}
+
+/**
+ * بعد استيرادٍ أو تراجعٍ أو عودةٍ إلى نقطة أمان: «_meta» لا تُستعاد، فالعدّادُ الحيُّ قد يقلّ عن أعلى معرّفٍ في البيانات
+ * المستعادة (نسخةٌ من بيئةٍ أخرى مثلاً) فيُصدر معرّفاً مكرّراً. نرفع كل عدّادٍ إلى أعلى معرّفٍ موجود، ولا نخفضه أبداً.
+ */
+const COUNTER_SOURCES: Array<[CounterKey, string, string]> = [
+  ["users", "users", "SystemUserId"], ["formSecurity", "formSecurity", "legacyId"], ["userScopes", "userScopes", "legacyId"],
+  ["terms", "terms", "AdTermId"], ["colleges", "colleges", "AdCollegeId"], ["sections", "sections", "AdSectionId"],
+  ["instructors", "instructors", "AdInstructorId"], ["courses", "courses", "AdCourseId"], ["schedules", "schedules", "id"],
+];
+async function raiseCountersToData(): Promise<void> {
+  if (!firestoreDb || demoSandboxContext.getStore()) return;
+  const found: Partial<Record<CounterKey, number>> = {};
+  for (const [key, collection, field] of COUNTER_SOURCES) {
+    try {
+      const snap = await firestoreDb.collection(collection).orderBy(field, "desc").limit(1).get();
+      const value = snap.docs.length ? Number(snap.docs[0].get(field) || 0) : 0;
+      if (Number.isFinite(value) && value > 0) found[key] = value;
+    } catch (error) { console.error(`[vault] could not read the highest ${collection}.${field}:`, error instanceof Error ? error.message : error); }
+  }
+  const ref = firestoreDb.doc(FIRESTORE_COUNTER_DOC);
+  await firestoreDb.runTransaction(async tx => {
+    const current = (await tx.get(ref)).data() || {};
+    const next: Record<string, number> = {};
+    for (const [key, value] of Object.entries(found)) if (Number(value) > Number(current[key] || 0)) next[key] = Number(value);
+    if (Object.keys(next).length) tx.set(ref, next, { merge: true });
+  });
+}
+
+async function finishOpJob(row: SystemOpJobRecord, rootAdminId: number): Promise<void> {
+  if (row.kind === "undo" && row.targetRestorePointId) {
+    await markRestorePointConsumed(row.targetRestorePointId);
+    /* استيرادٌ متوقّف قبل هذا التراجع لا يبقى معلّقاً يُستكمل فوق ما أُعيد: يُعلَّم ملغى. */
+    await markOpenImportJobAbandoned(rootAdminId, "أُلغي بالتراجع الكامل");
+  }
+  opBackupCache = null;
+  await refreshSystemCachesAfterMutation();
+}
+
+async function advanceLocalOpJob(row: SystemOpJobRecord, owner: string, rootAdminId: number): Promise<OpJobResult> {
+  let restore: SystemRestorePointSummary | null = null;
+  const settle = async (patch: Partial<SystemOpJobRecord>) => {
+    Object.assign(row, patch, { updatedAt: new Date().toISOString() });
+    await commitJobRow(opJobStore, row, owner);
+  };
+  try {
+    const target = row.kind === "undo" ? await loadSystemRestorePoint(String(row.targetRestorePointId), rootAdminId) : null;
+    restore = await saveSystemRestorePoint(OP_LABEL[row.kind], row.byUserId, rootAdminId, row.targetRestorePointId ? [row.targetRestorePointId] : []);
+    row.restorePointId = restore.id;
+    if (target) await replaceSystemFromBackup(target, rootAdminId);
+    else await resetSystemKeepingRoot(rootAdminId);
+    await finishOpJob(row, rootAdminId);
+    await settle({ status: "ready", phase: "finalizing", completedUnits: row.totalUnits, current: undefined, error: undefined });
+    await releaseVaultLock(row.id);
+    return opJobSummary(row);
+  } catch (error: any) {
+    if (error instanceof VaultJobConflict) throw error;
+    const message = String(error?.message || error).slice(0, 900);
+    if (restore) {
+      /* المحلي استبدالٌ في خطوةٍ واحدة: فشلُه يعيد الحالة السابقة فوراً ثم تُعلَّم المهمة ملغاة. */
+      try {
+        await replaceSystemFromBackup(await loadSystemRestorePoint(restore.id, rootAdminId), rootAdminId);
+        await markRestorePointConsumed(restore.id);
+      } catch (rollbackError: any) {
+        await settle({ status: "failed", error: `تعذرت العملية وتعذر التراجع التلقائي: ${String(rollbackError?.message || rollbackError)}`.slice(0, 900) });
+        return opJobSummary(row);
+      }
+      await settle({ status: "abandoned", current: "تعذرت العملية فأعاد النظام حالته السابقة تلقائياً", error: message });
+      await releaseVaultLock(row.id);
+    } else await settle({ status: "failed", error: message });
+    return opJobSummary(row);
+  }
+}
+
+/**
+ * خطوةٌ واحدة من مهمةٍ: تأخذ الإيجارَ أولاً (معاملة)؛ فإن كانت خطوةٌ أخرى جاريةً تعود بالملخّص مع ‎busy‎ دون أن تمسّ شيئاً.
+ * كل كتابةٍ على وثيقة المهمة داخلها مشروطةٌ بالإيجار والإصدار، فإن أخذ الإلغاءُ المهمةَ منها (انقضى إيجارها) تتوقف بلا كتابة.
+ */
+async function advanceSystemOpJob(id: string, rootAdminId = 1): Promise<OpJobResult> {
+  const owner = randomUUID();
+  const taken = await acquireJobLease<SystemOpJobRecord>(opJobStore, id, rootAdminId, owner);
+  if (!taken.acquired) return taken.busy ? { ...opJobSummary(taken.row), busy: true } : opJobSummary(taken.row);
+  const row = taken.row;
+  try {
+    return await runOpStep(row, owner, rootAdminId);
+  } catch (error) {
+    if (error instanceof VaultJobConflict && error.code === "lost") return { ...opJobSummary(await readOpJobRecord(id, rootAdminId)), busy: true };
+    throw error;
+  } finally {
+    await releaseJobLease(opJobStore, row, owner);
+  }
+}
+
+async function runOpStep(row: SystemOpJobRecord, owner: string, rootAdminId: number): Promise<OpJobResult> {
+  const cursor = () => ({ status: row.status, phase: row.phase, nextIndex: row.nextIndex, queueLength: row.queue.length, rollbackIndex: row.rollbackIndex, rollbackLength: row.rollbackQueue?.length || 0 });
+  if (nextOpAction(cursor()) === "done") return opJobSummary(row);
+  if (opJobIsLocal()) return advanceLocalOpJob(row, owner, rootAdminId);
+  if (row.status === "failed") { row.status = "running"; row.error = undefined; }
+  const touch = () => { row.updatedAt = new Date().toISOString(); };
+  const commit = () => commitJobRow(opJobStore, row, owner);
+  const verb = row.kind === "reset" ? "أمسح" : "أستعيد";
+
+  try {
+    const action = nextOpAction(cursor());
+    if (action === "safety") {
+      let safety = await getSystemExportJob(row.safetyExportJobId, rootAdminId);
+      if (safety.status !== "ready") safety = await advanceSystemExportJob(row.safetyExportJobId, rootAdminId);
+      row.safetyUnits = Math.max(1, safety.totalUnits || row.safetyUnits || 1);
+      row.totalUnits = opTotalUnits(row.safetyUnits, row.queue.length);
+      row.completedUnits = Math.min(row.safetyUnits, safety.completedUnits || 0);
+      row.current = safety.status === "ready" ? "أثبت نقطة الأمان" : `نقطة الأمان · ${safety.current || "أجمع البيانات الحالية"}`;
+      touch();
+      if (safety.status === "failed") {
+        /* فشلُ تصدير الأمان نهائيٌّ لهذه المحاولة: «failed» فيتوقف العميلُ عن الاستطلاع ويعرض السبب ويقدر على الاستكمال أو الإلغاء. */
+        row.status = "failed";
+        row.error = String(safety.error || "تعذر حفظ نقطة الأمان").slice(0, 900);
+        await commit();
+        return opJobSummary(row);
+      }
+      if (safety.status !== "ready") {
+        row.error = undefined;
+        await commit();
+        return opJobSummary(row);
+      }
+      if (!row.restorePointId) {
+        row.restorePointId = (await createSystemRestorePointFromExport(OP_LABEL[row.kind], row.byUserId, row.safetyExportJobId, rootAdminId, row.targetRestorePointId ? [row.targetRestorePointId] : [])).id;
+      }
+      row.phase = "apply";
+      row.completedUnits = row.safetyUnits;
+      row.current = row.queue[0] ? `${verb} ${row.queue[0]}` : "أراجع النتيجة";
+      row.error = undefined;
+      await commit();
+      /* خطوةٌ قصيرة بنقطة الأمان وحدها؛ التطبيقُ يبدأ في الطلب التالي. */
+      return opJobSummary(row);
+    }
+
+    if (action === "apply") {
+      const name = row.queue[row.nextIndex];
+      row.current = `${verb} ${name}`;
+      touch();
+      await commit();
+      if (row.kind === "reset") await applyResetCollection(name, rootAdminId);
+      else {
+        const backup = await loadOpTargetBackup(String(row.targetRestorePointId), rootAdminId);
+        if (backup.storage !== "firestore") throw new Error("لا يمكن استعادة نسخة محلية إلى بيئة Firestore");
+        await applyImportedCollection(name, (backup.documents || []).filter(item => item.path.split("/")[0] === name), rootAdminId);
+      }
+      /* الهويةُ تغيّرت: لا تنتظر النسخُ الأخرى الإتمام لتسمع بها (والردّ ينتظر محاولةَ النشر). */
+      if (name === "users" || name === "formSecurity" || name === "formNames") await announceIdentityChange();
+      row.nextIndex += 1;
+      row.retryCount = 0;
+      row.completedUnits = row.safetyUnits + row.nextIndex;
+      row.current = row.queue[row.nextIndex] ? `${verb} ${row.queue[row.nextIndex]}` : "أراجع الفهارس وأحدّث الذاكرة";
+      row.error = undefined;
+      touch();
+      if (row.nextIndex >= row.queue.length) row.phase = "finalizing";
+      await commit();
+      return opJobSummary(row);
+    }
+
+    if (action === "rollback") {
+      /* العودةُ إلى نقطة أمان المهمة بعد الإلغاء: مجموعةٌ في الخطوة بتقدّمٍ محفوظ، بآلة التراجع نفسها. */
+      const queue = row.rollbackQueue || [];
+      const index = Number(row.rollbackIndex || 0);
+      const name = queue[index];
+      row.current = `أعيد ${name}`;
+      touch();
+      await commit();
+      const original = await loadOpTargetBackup(String(row.restorePointId), rootAdminId);
+      if (original.storage !== "firestore") throw new Error("لا يمكن استعادة نسخة محلية إلى بيئة Firestore");
+      await applyImportedCollection(name, (original.documents || []).filter(item => item.path.split("/")[0] === name), rootAdminId);
+      if (name === "users" || name === "formSecurity" || name === "formNames") await announceIdentityChange();
+      row.rollbackIndex = index + 1;
+      row.retryCount = 0;
+      row.completedUnits = row.rollbackIndex;
+      row.current = queue[row.rollbackIndex] ? `أعيد ${queue[row.rollbackIndex]}` : "أراجع الفهارس وأحدّث الذاكرة";
+      row.error = undefined;
+      touch();
+      await commit();
+      return opJobSummary(row);
+    }
+
+    if (action === "rollback-finalize") {
+      await raiseCountersToData();
+      await markRestorePointConsumed(String(row.restorePointId));
+      opBackupCache = null;
+      await refreshSystemCachesAfterMutation();
+      row.status = "abandoned";
+      row.completedUnits = row.totalUnits;
+      row.current = "أُلغيت العملية وعاد النظام إلى نقطة الأمان";
+      row.error = undefined;
+      touch();
+      await commit();
+      await releaseVaultLock(row.id);
+      return opJobSummary(row);
+    }
+
+    if (row.kind === "reset") await finalizeResetCounters(rootAdminId);
+    else await raiseCountersToData();
+    await finishOpJob(row, rootAdminId);
+    row.status = "ready";
+    row.phase = "finalizing";
+    row.completedUnits = row.totalUnits;
+    row.current = undefined;
+    row.error = undefined;
+    touch();
+    await commit();
+    await releaseVaultLock(row.id);
+    return opJobSummary(row);
+  } catch (error: any) {
+    if (error instanceof VaultJobConflict) throw error;
+    const outcome = opRetryOutcome(Number(row.retryCount || 0), isTransientBackupError(error));
+    row.retryCount = outcome.retryCount;
+    row.error = String(error?.message || error || "تعذر متابعة العملية").slice(0, 900);
+    row.status = outcome.status;
+    touch();
+    await commit();
+    return opJobSummary(row);
+  }
+}
+
+/**
+ * إلغاءُ تصفيرٍ أو تراجعٍ لم يكتمل: العودةُ إلى نقطة أمانه (كما يفعل إلغاءُ الاستيراد). يأخذ إيجارَ المهمة كالخطوة؛
+ * فإن كانت خطوةٌ جاريةً يرفض برسالةٍ واضحة (409) ويعيد المحاولةَ العميل. مهمةٌ لم تتجاوز نقطةَ الأمان تُلغى بلا تغيير؛
+ * وإلا تبدأ مرحلةُ «rollback» في المهمة نفسها (مجموعةٌ في الخطوة، تُستأنف، ويُعرض تقدّمها) وتنتهي «abandoned» بعد استهلاك
+ * نقطة الأمان. (المحلي استبدالٌ واحد صغير في طلبٍ واحد.)
+ */
+async function abandonSystemOpJob(id: string, rootAdminId = 1): Promise<OpJobResult & { rolledBack: boolean; rollingBack?: boolean }> {
+  const owner = randomUUID();
+  const taken = await acquireJobLease<SystemOpJobRecord>(opJobStore, id, rootAdminId, owner);
+  const row = taken.row;
+  if (row.status === "ready") throw new VaultJobConflict("اكتملت هذه العملية؛ للعودة عنها استعمل «تراجع كامل».", "state");
+  if (row.status === "abandoned") return { ...opJobSummary(row), rolledBack: false };
+  if (!taken.acquired) throw new VaultJobConflict("خطوةٌ من هذه العملية جارية الآن؛ انتظر انتهاءها (حتى دقيقة) ثم أعد محاولة الإلغاء.", "busy");
+  try {
+    const touch = () => { row.updatedAt = new Date().toISOString(); };
+    if (row.phase === "rollback") return { ...opJobSummary(row), rolledBack: false, rollingBack: true };
+    const touched = opTouchedData(row, opJobIsLocal());
+    if (touched && !opJobIsLocal()) {
+      const original = await loadOpTargetBackup(String(row.restorePointId), rootAdminId);
+      const existing = (await firestoreDb!.listCollections()).map(collection => collection.id);
+      const queue = planUndoQueue(existing, Object.keys(original.summary?.collectionCounts || {}), SYSTEM_EXPORT_EXCLUDED_COLLECTIONS);
+      Object.assign(row, {
+        phase: "rollback" as const, status: "running" as const, rollbackQueue: queue, rollbackIndex: 0, retryCount: 0,
+        totalUnits: queue.length + 1, completedUnits: 0, error: undefined,
+        current: queue[0] ? `أعيد ${queue[0]}` : "أراجع النتيجة",
+      });
+      touch();
+      await commitJobRow(opJobStore, row, owner);
+      return { ...opJobSummary(row), rolledBack: false, rollingBack: true };
+    }
+    if (touched) {
+      const original = await loadSystemRestorePoint(String(row.restorePointId), rootAdminId);
+      await replaceSystemFromBackup(original, rootAdminId);
+      await markRestorePointConsumed(String(row.restorePointId));
+    }
+    opBackupCache = null;
+    Object.assign(row, { status: "abandoned" as const, current: touched ? "أُلغيت العملية وعاد النظام إلى نقطة الأمان" : "أُلغيت العملية قبل أي تغيير", error: undefined });
+    touch();
+    await commitJobRow(opJobStore, row, owner);
+    await releaseVaultLock(row.id);
+    return { ...opJobSummary(row), rolledBack: touched };
+  } catch (error) {
+    if (error instanceof VaultJobConflict && error.code === "lost") throw new VaultJobConflict("تغيّرت العملية أثناء الإلغاء؛ أعد فتح الخزنة وحاول مجدداً.", "busy");
+    throw error;
+  } finally {
+    await releaseJobLease(opJobStore, row, owner);
+  }
+}
+
 function validateFirestoreDocumentPath(documentPath: string): boolean {
   const parts = documentPath.split("/").filter(Boolean);
-  return parts.length >= 2 && parts.length % 2 === 0 && !SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(parts[0]);
+  /* نسخٌ قديمة صُدّرت وفيها «_meta»: تبقى مقبولة للقراءة، ويُتجاهَل مسارُها عند التطبيق. */
+  return parts.length >= 2 && parts.length % 2 === 0 && (parts[0] === "_meta" || !SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(parts[0]));
 }
 
 function validateSystemBackupPayload(input: unknown, rootAdminId = 1): SystemBackupPayload {
@@ -2261,11 +2975,13 @@ async function reconcileTopLevelCollection(collectionName: string, desired: Syst
   for (const doc of existing.docs) await pruneFirestoreDocumentToDesired(doc.ref, desiredPaths, protectedPaths);
 }
 
-function refreshSystemCachesAfterMutation() {
+function refreshSystemCachesAfterMutation(): Promise<void> {
   invalidateReference();
   invalidateSchedules();
   invalidateScheduleRelationCache();
-  announceIdentityChange();
+  /* ذاكرةُ كتل المعرّفات في هذه النسخة قد تخالف عدّاداتٍ ضُبطت في الإتمام: تُعاد قراءتها. */
+  idBlocks.clear();
+  return announceIdentityChange();
 }
 
 async function makeSystemBackup(rootAdminId: number): Promise<SystemBackupPayload> {
@@ -2307,7 +3023,11 @@ async function createSystemRestorePointFromExport(
   byUserId: number,
   exportJobId: string,
   rootAdminId = 1,
+  protectIds: string[] = [],
 ): Promise<SystemRestorePointSummary> {
+  /* خطوتان متتاليتان على نقطة الأمان نفسها لا تصنعان نقطتين: من حُفظت لهذا التصدير تُعاد كما هي. */
+  const already = (await listSystemRestorePoints()).find(point => point.exportJobId === exportJobId);
+  if (already) return already;
   const file = await readSystemExportFile(exportJobId, rootAdminId);
   const meta: SystemRestorePointSummary = {
     id: randomUUID(),
@@ -2324,22 +3044,38 @@ async function createSystemRestorePointFromExport(
     // restore points. The referenced safety export is protected while the point
     // exists; once the old point is removed a later export cleanup may reclaim
     // the orphan file safely.
-    try {
-      const older = await firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).orderBy("createdAt", "desc").get();
-      for (const doc of older.docs.slice(8)) await deleteFirestoreTree(doc.ref);
-    } catch {}
+    await pruneRestorePoints([meta.id, ...protectIds]);
   } else {
     fs.mkdirSync(LOCAL_RESTORE_DIR(), { recursive: true, mode: 0o700 });
     fs.writeFileSync(path.join(LOCAL_RESTORE_DIR(), `${meta.id}.json`), JSON.stringify({ meta, exportJobId }), { mode: 0o600 });
-    const files = fs.readdirSync(LOCAL_RESTORE_DIR()).filter(name => name.endsWith(".json"))
-      .map(name => ({ name, mtime: fs.statSync(path.join(LOCAL_RESTORE_DIR(), name)).mtimeMs }))
-      .sort((a, b) => b.mtime - a.mtime);
-    files.slice(8).forEach(item => { try { fs.unlinkSync(path.join(LOCAL_RESTORE_DIR(), item.name)); } catch {} });
+    await pruneRestorePoints([meta.id, ...protectIds]);
   }
   return meta;
 }
 
-async function saveSystemRestorePoint(action: string, byUserId: number, rootAdminId = 1): Promise<SystemRestorePointSummary> {
+/**
+ * الاحتفاظُ بثماني نقاط: لا تُطرد نقطةُ الأمان الجديدة ولا هدفُ التراجع الجاري (كان يُطرد كل ما بعد الأحدث ثمانية فقد
+ * يُحذف الهدف إن استُهلكت سبعٌ أحدثُ منه)، وتُطرد المستهلكةُ قبل غيرها (القرارُ في vaultJobPlanner).
+ */
+async function pruneRestorePoints(protectIds: string[]): Promise<void> {
+  try {
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const snap = await firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).orderBy("createdAt", "desc").get();
+      const refs = new Map(snap.docs.map(doc => [doc.id, doc.ref]));
+      const drop = pickRestorePointEvictions(snap.docs.map(doc => doc.data() as SystemRestorePointSummary), 8, protectIds);
+      for (const id of drop) { const ref = refs.get(id); if (ref) await deleteFirestoreTree(ref); }
+      return;
+    }
+    if (!fs.existsSync(LOCAL_RESTORE_DIR())) return;
+    const rows: SystemRestorePointSummary[] = [];
+    for (const name of fs.readdirSync(LOCAL_RESTORE_DIR()).filter(item => item.endsWith(".json"))) {
+      try { const meta = JSON.parse(fs.readFileSync(path.join(LOCAL_RESTORE_DIR(), name), "utf8")).meta; if (meta?.id) rows.push(meta); } catch {}
+    }
+    for (const id of pickRestorePointEvictions(rows, 8, protectIds)) { try { fs.unlinkSync(path.join(LOCAL_RESTORE_DIR(), `${id}.json`)); } catch {} }
+  } catch {}
+}
+
+async function saveSystemRestorePoint(action: string, byUserId: number, rootAdminId = 1, protectIds: string[] = []): Promise<SystemRestorePointSummary> {
   const snapshot = await makeSystemBackup(rootAdminId);
   const meta: SystemRestorePointSummary = {
     id: randomUUID(),
@@ -2363,14 +3099,12 @@ async function saveSystemRestorePoint(action: string, byUserId: number, rootAdmi
     }
     // Keep a small, useful safety history rather than allowing safety copies to
     // become a second database with no retention policy.
-    const older = await firestoreDb.collection(SYSTEM_RESTORE_COLLECTION).orderBy("createdAt", "desc").get();
-    for (const doc of older.docs.slice(8)) await deleteFirestoreTree(doc.ref);
+    await pruneRestorePoints([meta.id, ...protectIds]);
   } else {
     fs.mkdirSync(LOCAL_RESTORE_DIR(), { recursive: true, mode: 0o700 });
     const file = path.join(LOCAL_RESTORE_DIR(), `${meta.id}.json`);
     fs.writeFileSync(file, JSON.stringify({ meta, snapshot }), { mode: 0o600 });
-    const files = fs.readdirSync(LOCAL_RESTORE_DIR()).filter(name => name.endsWith(".json")).map(name => ({ name, mtime: fs.statSync(path.join(LOCAL_RESTORE_DIR(), name)).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
-    files.slice(8).forEach(item => { try { fs.unlinkSync(path.join(LOCAL_RESTORE_DIR(), item.name)); } catch {} });
+    await pruneRestorePoints([meta.id, ...protectIds]);
   }
   return meta;
 }
@@ -2445,7 +3179,7 @@ async function replaceSystemFromBackup(input: SystemBackupPayload, rootAdminId =
     if (backup.storage !== "firestore") throw new Error("لا يمكن استيراد نسخة محلية إلى بيئة Firestore");
     const documents = backup.documents || [];
     const identityCollections = new Set(["users", "formSecurity", "formNames"]);
-    const ordinary = documents.filter(item => !identityCollections.has(item.path.split("/")[0]));
+    const ordinary = documents.filter(item => !identityCollections.has(item.path.split("/")[0]) && !SYSTEM_EXPORT_EXCLUDED_COLLECTIONS.has(item.path.split("/")[0]));
     await clearPortableFirestoreData(identityCollections);
     await writeFirestoreDocuments(ordinary);
 
@@ -2462,7 +3196,7 @@ async function replaceSystemFromBackup(input: SystemBackupPayload, rootAdminId =
     replaceCurrentDb(JSON.parse(JSON.stringify(backup.state || {})) as DBState);
     saveDatabase();
   }
-  refreshSystemCachesAfterMutation();
+  await refreshSystemCachesAfterMutation();
   return backup;
 }
 
@@ -2492,7 +3226,7 @@ async function resetSystemKeepingRoot(rootAdminId: number): Promise<void> {
     });
     saveDatabase();
   }
-  refreshSystemCachesAfterMutation();
+  await refreshSystemCachesAfterMutation();
 }
 
 const STUDENT_CASE_SECRET_DOC = "systemSecrets/student-case-identity-v1";
@@ -2879,9 +3613,12 @@ export const Repository = {
   },
 
   /** يبلّغ ذاكرةَ الهويات أن شيئاً فيها تغيّر (شاغلُ كرسي، فريقُه، نائبُه)، فتُقرأ من جديد. */
-  notifyIdentityChanged: (): void => { announceIdentityChange(); },
+  notifyIdentityChanged: (): Promise<void> => announceIdentityChange(),
   /** رقمُ الجيل الحالي لذاكرة الهويات (يُقرأ قبل قراءة الهوية ويُقارن قبل حفظها). */
   identityGeneration: (): number => identityGeneration,
+  /** العدّاد المشترك بين النسخ (‎null‎ في التجريبي والمحلي)، وتغييرٌ جاء من نسخةٍ أخرى. */
+  readSharedIdentityGeneration: (): Promise<number | null> => readSharedIdentityGeneration(),
+  noteForeignIdentityChange: (): void => noteForeignIdentityChange(),
 
   // Audit log: additive operational history. It is intentionally separate from legacy tables.
   createAuditLog: async (entry: Omit<AuditLogEntry, "id" | "timestamp">): Promise<AuditLogEntry> => {
@@ -3093,7 +3830,7 @@ export const Repository = {
       scopes.docs.forEach(doc => batch.delete(doc.ref));
       batch.delete(firestoreDb.collection("users").doc(`user_${id}`));
       await batch.commit();
-      announceIdentityChange();
+      await announceIdentityChange();
       return;
     }
     db.users = db.users.filter(u => u.SystemUserId !== id);
@@ -4508,6 +5245,16 @@ export const Repository = {
       .sort((a, b) => b.rows - a.rows);
   },
 
+  /* كم موعداً لهذا الأستاذ/المقرر في كل فصل — لخريطة «لو حذفت؟» (قراءةٌ فقط، استعلامٌ مفهرس على المعرّف). */
+  countSchedulesByTerm: async (field: "AdInstructorId" | "AdCourseId", id: number): Promise<Map<number, number>> => {
+    const counts = new Map<number, number>();
+    const rows: Array<{ AdTermId?: unknown }> = firestoreDb && !demoSandboxContext.getStore()
+      ? (await firestoreDb.collection("schedules").where(field, "==", id).select("AdTermId").get()).docs.map(doc => doc.data() as { AdTermId?: unknown })
+      : (db.schedules || []).filter(row => Number((row as any)[field]) === Number(id)) as Array<{ AdTermId?: unknown }>;
+    for (const row of rows) counts.set(Number(row.AdTermId), (counts.get(Number(row.AdTermId)) || 0) + 1);
+    return counts;
+  },
+
   hasSchedulesForInstructor: async (instructorId: number): Promise<boolean> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const snap = await firestoreDb.collection("schedules").where("AdInstructorId", "==", instructorId).limit(1).get();
@@ -5734,7 +6481,7 @@ export const Repository = {
    * physical check, all schedule rows, the decision and released holds commit
    * together. No compensation window, even if the process dies mid-request. */
   commitInstructorRequestPlan: async (request: InstructorRequest, operations: RequestScheduleOperation[],
-    buildRequest: (scheduleIds: Map<number, number>) => InstructorRequest,
+    buildRequest: (scheduleIds: Map<number, number>, written: FSchedule[]) => InstructorRequest,
     normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
     validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ request: InstructorRequest; rows: FSchedule[] }> => {
     const termId = Number(request.AdTermId);
@@ -5772,7 +6519,7 @@ export const Repository = {
       const clashes = findConflicts(written.map(normalize), finalWeek.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict);
       if (clashes.length) throw new RequestReservationConflict("تغيّر الجدول وظهر تعارض أثناء الاعتماد. حدّث الوارد وراجع الموعد.");
       if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
-      const next = { ...buildRequest(ids), requestRevision: Number(current.requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
+      const next = { ...buildRequest(ids, written), requestRevision: Number(current.requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
       const remaining = retainRequestReservations(entries, next);
       /* تجاوز النصاب معلومةٌ للمراجع، لا مانعٌ من اعتماد موعدٍ اختاره القسم.
          فحص تعارض الأوقات والجدول النهائي أعلاه يبقى ملزماً. */
@@ -5807,6 +6554,88 @@ export const Repository = {
         (db.instructorRequestReservationLedgers ||= {})[String(termId)] = planned.entries;
         saveDatabase();
         return { request: planned.request, rows: planned.rows };
+      });
+    }
+    invalidateSchedules(); invalidateReference(REFERENCE_KEYS.scheduleCount);
+    await markRegistrationRunsStale(termId);
+    announceInstructorRequestSaved(result.request);
+    return result;
+  },
+
+  /**
+   * «تراجع» عن تثبيتٍ صدر من الوارد: يعكس ما كتبه التثبيتُ لبندٍ واحد (صفٌّ يُستردّ، أو يُزال، أو يُعاد)
+   * ويفتح البندَ ويعيد حجزَه، كلُّ ذلك في معاملةٍ واحدة كالتثبيت نفسه. يُرفض (بلا كتابة) إن تغيّر أيُّ صفٍّ
+   * بعد التثبيت، أو ظهر تعارضٌ في الأسبوع النهائي، أو لم يعد الحجزُ ممكناً (RequestReservationConflict).
+   * `plan` يفحصه المسارُ قبل النداء ويُعاد فحصُه هنا على الأسبوع الحيّ داخل المعاملة.
+   */
+  undoInstructorRequestFix: async (request: InstructorRequest, steps: InstructorRequestUndoStep[],
+    buildRequest: (written: FSchedule[]) => InstructorRequest,
+    proposalsFor: (next: InstructorRequest, entries: RequestReservation[]) => RequestReservationProposal[],
+    normalize: (row: FSchedule) => FSchedule, placeholders: Set<number>,
+    validateFinalWeek?: (rows: FSchedule[], week: FSchedule[]) => Promise<void>): Promise<{ request: InstructorRequest; rows: FSchedule[]; removed: number[] }> => {
+    const termId = Number(request.AdTermId);
+    const compute = async (week: FSchedule[], current: InstructorRequest, entries: RequestReservation[], windows: ApprovedHallWindow[]) => {
+      if (Number(current.requestRevision || 0) !== Number(request.requestRevision || 0))
+        throw new RequestReservationConflict("تغيّر الطلب أثناء التراجع. حدّث الوارد ثم أعد المحاولة.");
+      const plan = planUndoSteps(steps, week);
+      if (plan.ok === false) throw new ScheduleRevisionConflict(week.find(row => Number(row.id) === plan.rowId) || ({ id: plan.rowId } as FSchedule));
+      const written: FSchedule[] = [];
+      for (const { step, live } of plan.restore) {
+        const row = { ...step.before!, id: live.id, rev: Number(live.rev || 0) + 1 } as FSchedule;
+        assertRequestReservationWrite(row, entries, request.id); written.push(row);
+      }
+      for (const step of plan.readd) {
+        const row = { ...step.before!, rev: Number(step.before!.rev || 0) + 1 } as FSchedule;
+        assertRequestReservationWrite(row, entries, request.id); written.push(row);
+      }
+      const gone = new Set([...plan.remove.map(entry => Number(entry.step.rowId)), ...plan.restore.map(entry => Number(entry.step.rowId))]);
+      const finalWeek = [...week.filter(row => !gone.has(Number(row.id))), ...written];
+      if (written.some(row => scheduleViolatesApprovedBarterWindow(row, windows)))
+        throw new RequestReservationConflict("تغيّرت أهلية القاعة بسبب استعارة معتمدة؛ لا يمكن إعادة الموعد إلى ما كان.");
+      const clashes = findConflicts(written.map(normalize), finalWeek.map(normalize), { placeholderInstructorIds: placeholders }).filter(isBlockingConflict);
+      if (clashes.length) throw new RequestReservationConflict("إعادةُ الموعد إلى ما كان تُحدث الآن تعارضاً في الجدول؛ لا يُتراجع عن التثبيت.");
+      if (validateFinalWeek) await validateFinalWeek(written, finalWeek);
+      let next: InstructorRequest = { ...buildRequest(written), requestRevision: Number(current.requestRevision || 0) + 1, updatedAt: new Date().toISOString() };
+      /* حجزُ البند يعود على الأسبوع بعد التراجع؛ فإن أخذه غيرُه رُفض التراجعُ كلُّه قبل أن يُكتب شيء. وأختامُ الشعب
+         المختارة تُقرأ من صفوفها بعد استردادها لا من اللقطة القديمة. */
+      const proposals = proposalsFor(next, entries).map(proposal => proposal.offeringRowIds.length ? { ...proposal,
+        offeringRows: proposal.offeringRowIds.map(id => {
+          const row = finalWeek.find(item => Number(item.id) === id);
+          return { id, rev: Number(row?.rev || 0), instructorId: Number(row?.AdInstructorId || 0) };
+        }) } : proposal);
+      const allocated = allocateRequestReservations(entries, next, proposals, finalWeek);
+      next = withReservedRooms(next, allocated);
+      return { request: next, rows: written, entries: allocated, finalWeek, removed: plan.remove.map(entry => Number(entry.step.rowId)) };
+    };
+    let result: { request: InstructorRequest; rows: FSchedule[]; removed: number[] };
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const requestRef = firestoreDb.collection("instructorRequests").doc(request.id);
+      const ledgerRef = firestoreDb.collection("instructorRequestReservations").doc(String(termId));
+      result = await firestoreDb.runTransaction(async tx => {
+        const [stored, ledger, schedules, barterSnapshot] = await Promise.all([tx.get(requestRef), tx.get(ledgerRef),
+          tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)])),
+          tx.get(firestoreDb!.collection("hallBarterRequests").where("AdTermId", "in", [termId, String(termId)]))]);
+        if (!stored.exists) throw new RequestReservationConflict();
+        const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
+        const planned = await compute(schedules.docs.map(doc => doc.data() as FSchedule), stored.data() as InstructorRequest, liveReservations(ledger.data()?.entries || []), windows);
+        planned.removed.forEach(rowId => tx.delete(firestoreDb!.collection("schedules").doc(`schedule_${rowId}`)));
+        planned.rows.forEach(row => tx.set(firestoreDb!.collection("schedules").doc(`schedule_${row.id}`), row));
+        tx.set(requestRef, planned.request);
+        tx.set(ledgerRef, { entries: planned.entries, serial: Number(ledger.data()?.serial || 0) + 1 });
+        return { request: planned.request, rows: planned.rows, removed: planned.removed };
+      }, { maxAttempts: 40 });
+    } else {
+      result = await withSerialLock(`request-reservations:${termId}`, async () => {
+        const at = (db.instructorRequests || []).findIndex(row => row.id === request.id);
+        if (at < 0) throw new RequestReservationConflict();
+        const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === termId));
+        const planned = await compute(db.schedules.filter(row => Number(row.AdTermId) === termId), db.instructorRequests![at],
+          liveReservations(db.instructorRequestReservationLedgers?.[String(termId)] || []), windows);
+        db.schedules = [...db.schedules.filter(row => Number(row.AdTermId) !== termId), ...planned.finalWeek];
+        db.instructorRequests![at] = planned.request;
+        (db.instructorRequestReservationLedgers ||= {})[String(termId)] = planned.entries;
+        saveDatabase();
+        return { request: planned.request, rows: planned.rows, removed: planned.removed };
       });
     }
     invalidateSchedules(); invalidateReference(REFERENCE_KEYS.scheduleCount);
@@ -7436,7 +8265,7 @@ export const Repository = {
         const byCourse: Record<string, any> = {};
         for (const [courseId, row] of delta) byCourse[String(courseId)] = Object.fromEntries(Object.entries(row).map(([k, v]) => [k, FieldValue.increment(v)]));
         transaction.set(profileRef, { ...next, id: fingerprint, fingerprint });
-        transaction.set(shardRef, { id, termId, shard, students: FieldValue.increment(students), byCourse }, { merge: true });
+        transaction.set(shardRef, { id, termId, shard, students: FieldValue.increment(students), byCourse, updatedAt: new Date().toISOString() }, { merge: true });
         return next;
       });
     }
@@ -7450,6 +8279,7 @@ export const Repository = {
     let doc = db.registrationOutcomes.find(row => row.id === id);
     if (!doc) { doc = { id, termId, shard, students: 0, byCourse: {} }; db.registrationOutcomes.push(doc); }
     doc.students += students;
+    doc.updatedAt = new Date().toISOString();
     for (const [courseId, row] of delta) {
       const target = doc.byCourse[String(courseId)] || (doc.byCourse[String(courseId)] = { registered: 0, stuck: 0, full: 0, prereq: 0, conflict: 0, other: 0 });
       for (const key of Object.keys(row) as Array<keyof typeof row>) target[key] += row[key];
@@ -8144,47 +8974,6 @@ export const Repository = {
     return [...byKey.values()];
   },
 
-  /** إحصاءُ التسجيل لقسمٍ في فصل (أو null). */
-  getRegistrationStats: async (collegeId: number, sectionId: number, termId: number): Promise<RegistrationStats | null> => {
-    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      const doc = await firestoreDb.collection("registrationStats").doc(scopeKey.replace(/:/g, "_")).get();
-      return doc.exists ? (doc.data() as RegistrationStats) : null;
-    }
-    return (db.registrationStats || []).find(row => row.scopeKey === scopeKey) || null;
-  },
-
-  saveRegistrationStats: async (collegeId: number, sectionId: number, termId: number,
-    input: { counts?: Record<string, number>; remaining?: Record<string, number>; unregistered?: Record<string, number>; vacant?: Record<string, number>; accepted?: Record<string, number>; remainingSource?: { fileName?: unknown; importedAt?: unknown; column?: unknown; reportTerm?: unknown } | null },
-    updatedBy = ""): Promise<RegistrationStats> => {
-    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
-    const clean = (map: Record<string, unknown> | undefined, max: number, min = 0) => Object.fromEntries(
-      Object.entries(map || {}).slice(0, 2000)
-        .map(([key, value]) => [String(Number(key)), Math.floor(Number(value))] as const)
-        .filter(([key, value]) => Number(key) > 0 && Number.isFinite(value) && value >= min && value <= max));
-    /* الشاشة لم تعد تكتب «المسجّلين»: ما حُفظ منه قبلُ يبقى كما هو. */
-    const previous = input.counts === undefined ? await Repository.getRegistrationStats(collegeId, sectionId, termId) : null;
-    const source = input.remainingSource && String(input.remainingSource.fileName || "").trim()
-      ? { fileName: String(input.remainingSource.fileName).slice(0, 200), importedAt: String(input.remainingSource.importedAt || new Date().toISOString()).slice(0, 40),
-          ...(input.remainingSource.column === "notPassed" || input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats" ? { column: input.remainingSource.column as "notPassed" | "unregistered" | "seats" } : {}),
-          ...(input.remainingSource.reportTerm ? { reportTerm: String(input.remainingSource.reportTerm).slice(0, 90) } : {}) }
-      : undefined;
-    const row: RegistrationStats = {
-      id: scopeKey, scopeKey, collegeId, sectionId, termId,
-      counts: clean(input.counts ?? previous?.counts, 100000), remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)])) /* لا متبقٍّ سالب: «الذين لم يسجلوا» السالب (طلبةٌ جدد) = لا متأخرين = صفر */,
-      unregistered: clean(input.unregistered, 100000), vacant: clean(input.vacant, 100000, -100000) /* «المقاعد المتبقية» سالبةٌ إن زاد المسجّلون على السعة */, accepted: clean(input.accepted, 500),
-      ...(source ? { remainingSource: source } : {}),
-      updatedAt: new Date().toISOString(), updatedBy: String(updatedBy || "").slice(0, 120),
-    };
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      await firestoreDb.collection("registrationStats").doc(scopeKey.replace(/:/g, "_")).set(row);
-    } else {
-      db.registrationStats = [...(db.registrationStats || []).filter(item => item.scopeKey !== scopeKey), row];
-      saveDatabase();
-    }
-    return row;
-  },
-
   pinDepartmentRoom: async (collegeId: number, sectionId: number, building: string, hall: string): Promise<Array<{ building: string; hall: string }>> => {
     const scopeKey = `${collegeId}:${sectionId}`;
     const clean = { building: String(building || "").trim().slice(0, 50), hall: String(hall || "").trim().slice(0, 50) };
@@ -8301,37 +9090,6 @@ export const Repository = {
     if (at >= 0) db.degreeRules[at] = rule; else db.degreeRules.push(rule);
     saveDatabase();
     return rule;
-  },
-
-  /* ── K2: «تم/تجاهل» على بنود التخطيط، مشتركةٌ لكل من في النطاق ─────────────
-     وثيقةٌ لكل مقرر في النطاق (كلية:قسم:فصل:مقرر). القرار يحمل «بصمة» الأرقام التي
-     قُرّر عليها؛ الواجهة تُسقطه حين تتغيّر، فلا يُسكِت وضعاً جديداً. */
-  getPlanTriageDecisions: async (collegeId: number, sectionId: number, termId: number): Promise<PlanTriageDecisionRow[]> => {
-    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      const snap = await firestoreDb.collection("planTriageDecisions").where("scopeKey", "==", scopeKey).limit(500).get();
-      return snap.docs.map(doc => doc.data() as PlanTriageDecisionRow);
-    }
-    return ((db as any).planTriageDecisions || []).filter((row: PlanTriageDecisionRow) => row.scopeKey === scopeKey);
-  },
-
-  setPlanTriageDecision: async (scope: { collegeId: number; sectionId: number; termId: number }, courseId: number, decision: Omit<PlanTriageDecisionRow, "id" | "scopeKey" | "AdCollegeId" | "AdSectionId" | "AdTermId" | "courseId"> | null): Promise<PlanTriageDecisionRow | null> => {
-    const scopeKey = `${scope.collegeId}:${scope.sectionId}:${scope.termId}`;
-    const id = `${scopeKey}:${courseId}`.replace(/[/]/g, "_");
-    const row: PlanTriageDecisionRow | null = decision ? {
-      ...decision, id, scopeKey, AdCollegeId: scope.collegeId, AdSectionId: scope.sectionId, AdTermId: scope.termId, courseId,
-    } : null;
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      const ref = firestoreDb.collection("planTriageDecisions").doc(id);
-      if (row) await ref.set(row); else await ref.delete();
-      return row;
-    }
-    const list: PlanTriageDecisionRow[] = Array.isArray((db as any).planTriageDecisions) ? (db as any).planTriageDecisions : [];
-    const next = list.filter(item => item.id !== id);
-    if (row) next.push(row);
-    (db as any).planTriageDecisions = next.slice(-5000);
-    saveDatabase();
-    return row;
   },
 
   getScheduleConstraints: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleConstraint[]> => {
@@ -8946,7 +9704,7 @@ export const Repository = {
   getSystemImportJob: async (id: string, rootAdminId = 1): Promise<SystemImportJobSummary> =>
     getSystemImportJob(id, rootAdminId),
 
-  advanceSystemImportJob: async (id: string, rootAdminId = 1): Promise<SystemImportJobSummary> =>
+  advanceSystemImportJob: async (id: string, rootAdminId = 1): Promise<SystemImportJobSummary & { busy?: boolean }> =>
     advanceSystemImportJob(id, rootAdminId),
 
   validateSystemBackup: async (input: unknown, rootAdminId = 1): Promise<SystemBackupPayload> =>
@@ -8963,46 +9721,22 @@ export const Repository = {
   abandonSystemImportJob: async (id: string, rootAdminId = 1): Promise<SystemImportJobSummary & { rolledBack: boolean }> =>
     abandonSystemImportJob(id, rootAdminId),
 
-  resetSystem: async (byUserId: number, rootAdminId = 1): Promise<SystemRestorePointSummary> => {
-    const restorePoint = await saveSystemRestorePoint("قبل تصفير النظام", byUserId, rootAdminId);
-    try {
-      await resetSystemKeepingRoot(rootAdminId);
-      return restorePoint;
-    } catch (error: any) {
-      try {
-        const original = await loadSystemRestorePoint(restorePoint.id, rootAdminId);
-        await replaceSystemFromBackup(original, rootAdminId);
-        await markRestorePointConsumed(restorePoint.id);
-      } catch (rollbackError: any) {
-        throw new Error(`تعذر التصفير وتعذر التراجع التلقائي: ${String(rollbackError?.message || rollbackError)}`);
-      }
-      throw new Error(`تعذر التصفير؛ أعاد النظام حالته السابقة تلقائياً. ${String(error?.message || error)}`);
-    }
-  },
+  /* التصفير والتراجع الكامل مهمّتان متدرجتان على شكل الاستيراد (startSystemOpJob …)؛ كانا طلباً واحداً
+     يتجاوز مهلة الطلب على القاعدة الكبيرة. التراجعُ يعمل رجوعاً وإعادة: نقطةُ أمانه تصير هدفَ التراجع التالي. */
+  /** هل توجد مهمةُ خزنةٍ مفتوحة؟ (بوابةُ الصيانة؛ مخبَّأةٌ ≤5 ثوانٍ؛ دائماً false في التجريبي والملف المحلي) */
+  hasOpenVaultJob: (): Promise<boolean> => hasOpenVaultJob(),
+  getLatestSystemOpJob: async (rootAdminId = 1): Promise<SystemOpJobSummary | null> =>
+    latestSystemOpJob(rootAdminId),
 
-  undoLastSystemOperation: async (byUserId: number, rootAdminId = 1): Promise<{ restored: SystemRestorePointSummary; redoPoint: SystemRestorePointSummary }> => {
-    const points = await listSystemRestorePoints();
-    const target = points.find(point => !point.consumedAt);
-    if (!target) throw new Error("لا توجد نقطة تراجع متاحة");
-    const backup = await loadSystemRestorePoint(target.id, rootAdminId);
-    // Capture the state we are leaving first. This means pressing «تراجع» مرة
-    // أخرى behaves like redo instead of turning one safety action into a trap.
-    const redoPoint = await saveSystemRestorePoint("قبل التراجع — نقطة إعادة", byUserId, rootAdminId);
-    try {
-      await replaceSystemFromBackup(backup, rootAdminId);
-      await markRestorePointConsumed(target.id);
-      /* استيرادٌ متوقّف قبل هذا التراجع لا يبقى معلّقاً يُستكمل فوق ما أُعيد: يُعلَّم ملغى. */
-      await markOpenImportJobAbandoned(rootAdminId, "أُلغي بالتراجع الكامل");
-      return { restored: { ...target, consumedAt: new Date().toISOString() }, redoPoint };
-    } catch (error: any) {
-      try {
-        const current = await loadSystemRestorePoint(redoPoint.id, rootAdminId);
-        await replaceSystemFromBackup(current, rootAdminId);
-        await markRestorePointConsumed(redoPoint.id);
-      } catch (rollbackError: any) {
-        throw new Error(`تعذر التراجع وتعذر استعادة الحالة التي كنت عليها: ${String(rollbackError?.message || rollbackError)}`);
-      }
-      throw new Error(`تعذر التراجع؛ أعاد النظام الحالة التي كنت عليها تلقائياً. ${String(error?.message || error)}`);
-    }
-  }
+  startSystemOpJob: async (kind: VaultOpKind, byUserId: number, rootAdminId = 1): Promise<SystemOpJobSummary> =>
+    startSystemOpJob(kind, byUserId, rootAdminId),
+
+  getSystemOpJob: async (id: string, rootAdminId = 1): Promise<SystemOpJobSummary> =>
+    getSystemOpJob(id, rootAdminId),
+
+  advanceSystemOpJob: async (id: string, rootAdminId = 1): Promise<SystemOpJobSummary & { busy?: boolean }> =>
+    advanceSystemOpJob(id, rootAdminId),
+
+  abandonSystemOpJob: async (id: string, rootAdminId = 1): Promise<SystemOpJobSummary & { rolledBack: boolean; rollingBack?: boolean }> =>
+    abandonSystemOpJob(id, rootAdminId),
 };

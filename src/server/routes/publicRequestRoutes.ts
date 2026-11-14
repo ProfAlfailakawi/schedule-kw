@@ -68,6 +68,8 @@ import { withoutPlaceFields } from "../../utils/teacherSafeFields";
 import { decisionDigest, digestItemId } from "../../utils/requestDecisionDigest";
 import { sendCalendar } from "./publicCalendarRoutes";
 import { shareDayIndexes } from "../core/shareLinks";
+import { planTargetsFor } from "../actualDemand";
+import { forHistory } from "../../utils/inboxUndo";
 
 /* طلبُ الأستاذ وردُّه من رابطه العام: حدٌّ سخيٌّ لإنسانٍ يكتب، فوق عدّاد
    المحاولات الموقّعة (publicAttempts) لا بدلاً منه. */
@@ -96,7 +98,7 @@ function stripForInstructor(request: InstructorRequest) {
      يسقط والكلمةُ العامة تبقى. ورموزُ قاعات البنود كلِّها تُعرف، فملاحظةٌ على بندٍ قد تذكر قاعةَ آخر. */
   const placeTokens = (request.items || []).flatMap(item => roomTokensOf(item));
   const clean = <T extends string | undefined>(text: T): T => (text == null ? text : scrubPlaceText(text, placeTokens) as T);
-  const cleanDecision = (decision: any) => decision ? { ...decision, reopenTo: undefined, ...(decision.note ? { note: clean(decision.note) } : {}) } : decision;
+  const cleanDecision = (decision: any) => decision ? { ...decision, reopenTo: undefined, undo: undefined, undoable: undefined, ...(decision.note ? { note: clean(decision.note) } : {}) } : decision;
   const cleanThread = (thread: any[] | undefined) => thread?.map(message =>
     message?.from === "department" && message.text ? { ...message, text: clean(message.text) } : message);
   /* والتنقيةُ الأخيرة (utils/teacherSafeFields): أيُّ حقلِ قاعةٍ أو مبنى بقي في أيّ عمقٍ يُحذف (المالك 2026-11-14). */
@@ -269,7 +271,7 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
         after: { courseId: option.id, courseName: option.name, collegeId: option.collegeId, sectionId: option.sectionId, collegeName: option.collegeName,
           sectionCode: String(first.SCode), days: [...new Set(slots.map(slot => DAY_LETTERS[slot.day]))].join(" · "), time: slots.map(slot => `${slot.start} – ${slot.end}`).filter((time, at, all) => all.indexOf(time) === at).join(" / ") },
         slots, excuse: String(entry.excuse || "").slice(0, 400) || undefined, thread: prior?.thread, threadHistory: prior?.threadHistory,
-        decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision ? [prior.decision] : [])], decision: undefined });
+        decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision ? [forHistory(prior.decision)] : [])], decision: undefined });
       continue;
     }
     const courseId = action === "add" ? Number(entry?.courseId || 0) : Number(stored?.before?.courseId || 0);
@@ -312,7 +314,7 @@ async function instructorRequestItemsFromPayload(request: InstructorRequest, sen
       itemId: prior?.itemId || randomUUID(),
       ...(prior?.thread?.length ? { thread: prior.thread } : {}),
       threadHistory: prior?.threadHistory,
-      decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision && !decisionStillApplies(prior, action, days, start) ? [prior.decision] : [])],
+      decisionHistory: [...(prior?.decisionHistory || []), ...(prior?.decision && !decisionStillApplies(prior, action, days, start) ? [forHistory(prior.decision)] : [])],
       rowId,
       action: normalizedAction as any,
       before: action === "add"
@@ -631,8 +633,8 @@ async function offeringViewsFor(termId: number, options: Array<{ id: number; col
 async function withPlanHints<T extends { id: number; collegeId: number; sectionId: number }>(courses: T[], termId: number): Promise<Array<T & { planHint?: { kind: "open" | "over"; line: string } }>> {
   const scopes = [...new Map(courses.map(course => [`${course.collegeId}:${course.sectionId}`, course])).values()];
   const readings = new Map(await Promise.all(scopes.map(async scope => {
-    const [stats, rows] = await Promise.all([
-      Repository.getRegistrationStats(scope.collegeId, scope.sectionId, termId).catch(() => null),
+    const [planned, rows] = await Promise.all([
+      planTargetsFor(null, scope.collegeId, scope.sectionId, termId),
       Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId }),
     ]);
     const sections = new Map<number, Set<string>>();
@@ -641,7 +643,7 @@ async function withPlanHints<T extends { id: number; collegeId: number; sectionI
       if (!sections.has(id)) sections.set(id, new Set());
       sections.get(id)!.add(String(row.SCode || row.id));
     }
-    return [`${scope.collegeId}:${scope.sectionId}`, { accepted: stats?.accepted || {}, sections }] as const;
+    return [`${scope.collegeId}:${scope.sectionId}`, { accepted: Object.fromEntries(planned.targets), sections }] as const;
   })));
   return courses.map(course => {
     const reading = readings.get(`${course.collegeId}:${course.sectionId}`);
@@ -651,7 +653,7 @@ async function withPlanHints<T extends { id: number; collegeId: number; sectionI
 }
 
 /* ── إنفوجرافيك التخطيط لمقرّرات الكرت (المالك: «من أيقونة التخطيط بدون مساري») ──
-   قراءةٌ خفيفة من «تخطيط الشعب» وحده (المختار وكشف المتبقي) والشعب القائمة، لمقرّرات هذا الأستاذ فقط،
+   قراءةٌ خفيفة من «تخطيط الشعب» وحده (المقترح وطلب تقرير التسجيل) والشعب القائمة، لمقرّرات هذا الأستاذ فقط،
    أرقاماً مجمَّعة بلا هوية طالب، وتُحفظ خمس دقائق لكل طلب. ما لا تخطيطَ له لا يُرسل عنه شيء. */
 const teacherPlanMemo = new Map<string, { at: number; value: Record<string, TeacherPlanFact> }>();
 async function teacherPlanningFor(request: InstructorRequest): Promise<Record<string, TeacherPlanFact>> {
@@ -669,8 +671,8 @@ async function teacherPlanningFor(request: InstructorRequest): Promise<Record<st
   }).filter(course => course.courseId && course.collegeId && course.sectionId);
   const scopes = [...new Map(courses.map(course => [`${course.collegeId}:${course.sectionId}`, course])).values()];
   const readings = new Map(await Promise.all(scopes.map(async scope => {
-    const [stats, rows] = await Promise.all([
-      Repository.getRegistrationStats(scope.collegeId, scope.sectionId, termId).catch(() => null),
+    const [planned, rows] = await Promise.all([
+      planTargetsFor(null, scope.collegeId, scope.sectionId, termId),
       Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId }).catch(() => [] as FSchedule[]),
     ]);
     const sections = new Map<number, Set<string>>();
@@ -679,10 +681,10 @@ async function teacherPlanningFor(request: InstructorRequest): Promise<Record<st
       if (!sections.has(id)) sections.set(id, new Set());
       sections.get(id)!.add(String(row.SCode || row.id));
     }
-    /* المتبقي لا يُعتدّ به إلا من كشفٍ مرفوع بعمود «لم يجتز» (كما في تخطيط الشعب)؛ والمختارُ بيد القسم. */
+    /* المخطَّط والطلبة من تخطيط الشعب (تقرير التسجيل SWRDASH) وحده. */
     return [`${scope.collegeId}:${scope.sectionId}`, {
-      accepted: stats?.accepted || {},
-      remaining: stats?.remainingSource?.column === "notPassed" ? (stats?.remaining || {}) : {},
+      accepted: Object.fromEntries(planned.targets),
+      remaining: Object.fromEntries(planned.students),
       sections,
     }] as const;
   })));
@@ -1163,7 +1165,7 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
       chosenAlternative: chosen,
       /* قرارٌ سابقٌ على ما كان يُطلب لا يبقى على ما اتُّفق عليه الآن. */
       decision: undefined,
-      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [item.decision] : [])],
+      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [forHistory(item.decision)] : [])],
       ...appendRequestThread(item, { from: "instructor" as const, at: now, accepted: true, slots: [chosen], ...(text ? { text } : {}) }),
     };
     kind = "proposal-accepted";
@@ -1272,7 +1274,7 @@ app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async
       after: { ...(item.after || item.before || { courseId: 0, courseName: "", sectionCode: "", days: "", time: "" }),
         days: days.map(day => DAY_LETTERS[day]).join(" · "), time: `${chosen.start} – ${end}` },
       slots, chosenAlternative: chosen, decision: undefined,
-      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [item.decision] : [])],
+      decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [forHistory(item.decision)] : [])],
       ...appendRequestThread(item, { from: "instructor" as const, at: now, accepted: true, slots: [chosen] }),
     };
     signedItems.push({ action: "accept", courseName: String((items[index].after || items[index].before)?.courseName || ""),

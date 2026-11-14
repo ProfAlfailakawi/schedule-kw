@@ -22,6 +22,7 @@ import {
   CatalogFormDrawer,
   visualConfirm,
 } from "./ui";
+import { confirmDeleteWithImpact } from "./DeleteImpact";
 type Mode = "index" | "create" | "edit";
 /** `embedded` means the academic console already supplies the page identity. */
 /** `onOpenPlans`: يفتح «المقررات ← الصحائف الأكاديمية» على هذا القسم (من وحدة البيانات الأكاديمية). */
@@ -184,7 +185,7 @@ export default function Sections({ embedded = false, actionSlot = null, onCount,
   const remove = async (section: any) => {
     if (submitting) return;
     const id = Number(section.AdSectionId);
-    if (!(await visualConfirm({ title: `حذف «${section.AdSectionName}»`, message: `سيُحذف قسم «${section.AdSectionName}» (${section.AdSectionCode}) من النظام، ومعه سجلّ «هيئة تدريسية» الخاص به إن لم يُستعمل في أي موعد. لا يُحذف ما دامت له مقررات، أو حساباتٌ نطاقها فيه — تُسمّى لك لتعالجها أولاً.`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    if (!(await confirmDeleteWithImpact({ entity: "section", id: id, title: `حذف «${section.AdSectionName}»`, message: `سيُحذف قسم «${section.AdSectionName}» (${section.AdSectionCode}) من النظام، ومعه سجلّ «هيئة تدريسية» الخاص به إن لم يُستعمل في أي موعد. لا يُحذف ما دامت له مقررات، أو حساباتٌ نطاقها فيه — تُسمّى لك لتعالجها أولاً.` })).confirmed) return;
     setSubmitting(true);
     setError(null);
     try {

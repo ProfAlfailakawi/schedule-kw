@@ -7,7 +7,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); }
   else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`, extra === undefined ? "" : JSON.stringify(extra)); }
 };
-const item = (id: number, existing: number, required: number): GapItem => ({ id, code: `C${id}`, name: `مقرر ${id}`, existing, required, extra: required - existing, basis: "plan", demand: 10 });
+const item = (id: number, existing: number, required: number): GapItem => ({ id, code: `C${id}`, name: `مقرر ${id}`, existing, required, extra: required - existing, basis: "students", demand: 10 });
 const staff = (p: Partial<CourseStaffing> = {}): CourseStaffing => ({ ours: 0, covered: 0, unassigned: 0, withVisitors: 0, returnable: 0, ...p });
 
 /* مثال الصورة: زيادات ٢ و١ و١ ← ٤ شعب ← منتدبان (لا ثلاثة)، وكل بطاقةٍ وحدها ١. */

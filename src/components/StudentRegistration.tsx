@@ -944,7 +944,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
   if (!terms) return <MicroLoader label="يقرأ الفصول…" />;
 
   return (
-    <div className="content-stack changes-screen visual-minimal">
+    <div className="content-stack changes-screen visual-minimal" role="tabpanel" id="registration-panel-studentRegistration" aria-labelledby="registration-tab-studentRegistration">
       <PageTitle
         eyebrow={<><ClipboardList aria-hidden="true" /> الإرشاد</>}
         subtitle="ما طلبه الطلبة: اللجنة توافق أولاً، ثم يسجّل التسجيل"

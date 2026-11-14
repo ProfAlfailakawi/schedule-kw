@@ -112,7 +112,7 @@ console.log("٣ — «كل المقررات»: أرقام كشف التسجيل"
   const card = (id: number, courseId: number, capacity: number) => ({ id, courseId, capacity, capacitySource: "course" });
   const context = {
     scope: { collegeId: 1, sectionId: 1, termId: 4 }, rows: [], outside: [], courses: [], instructors: [], halls: [], demand: null, loadLimits: {}, canWrite: false,
-    registration: { remaining: { "10": 120, "11": 20 }, unregistered: { "10": 40 }, vacant: null, fileName: "كشف.pdf", importedAt: "2026-10-01", reportTerm: "" },
+    registration: { remaining: { "10": 120, "11": 20 }, graduates: { "10": 8 }, planned: { "10": 3 }, fileName: "تقرير التسجيل", importedAt: "2026-10-01", reportTerm: "" },
   } as unknown as TmContext;
   /* sectionCards يقرأ صفوف الجدول؛ نجرّب الحساب بصفّين لشعبتين بسعة 25 للمقرر 10. */
   const rows = [
@@ -125,19 +125,17 @@ console.log("٣ — «كل المقررات»: أرقام كشف التسجيل"
   const ten = stats.get(10)!, eleven = stats.get(11)!, twelve = stats.get(12)!;
   check(ten.sections === 2 && ten.seats === 50, "شعبتان × 25 = 50 مقعداً");
   check(ten.remaining === 120 && ten.demand === 120 && ten.demandSource === "remaining" && ten.withoutSeat === 70, "المتبقي 120 من الكشف ← 70 بلا مقعد (لا صفر)");
-  check(ten.unregistered === 40, "«لم يسجّلوا» من الكشف نفسه");
+  check(ten.graduates === 8 && ten.planned === 3 && stats.get(11)!.graduates === null, "الخريجون والمقترح من التاريخ يصلان بجانب الطلب");
   check(eleven.sections === 0 && eleven.withoutSeat === 20, "مقررٌ غير مطروح ومتبقّيه 20 ← 20 بلا مقعد");
   check(twelve.remaining === null && twelve.withoutSeat === null, "مقررٌ لم يذكره الكشف: «—» لا صفر");
-  const legacy = courseSeatStats(rows as any, { ...context, registration: { remaining: null, unregistered: { "10": 30 }, vacant: null, fileName: "", importedAt: "", reportTerm: "" } } as any, [10]).get(10)!;
-  check(legacy.demandSource === "unregistered" && legacy.demand === 30 && DEMAND_WORD.unregistered === "لم يسجّلوا", "كشفٌ قديم بعمود «لم يسجّلوا» وحده يُقاس به ويُسمّى");
   const radarOnly = courseSeatStats(rows as any, { ...context, registration: null, demand: { "10": { wanted: 60, seated: 50, capacity: 50, sections: 2 } } } as any, [10]).get(10)!;
   check(radarOnly.demandSource === "radar" && radarOnly.withoutSeat === 10, "بلا كشف: الرادار بديلاً");
   const server = read("src/server/timeMachineRoutes.ts");
-  check(server.includes("Repository.getRegistrationStats(collegeId, sectionId, termId)") && server.includes("registration: registrationOf(stats, courseIds)"), "السبب الجذري للأصفار: السياق كان يقرأ الرادار وحده — الآن يقرأ كشف القسم للفصل المختار");
-  check(server.includes('column === "notPassed" ? pick(stats.remaining)'), "بقانون التخطيط نفسه: عمود «الذين لم يجتازوا» هو المتبقي");
+  check(server.includes("planTargetsFor(null, collegeId, sectionId, termId)") && server.includes("registration: registrationOf(stats, courseIds)"), "السبب الجذري للأصفار: السياق كان يقرأ الرادار وحده — الآن يقرأ كشف القسم للفصل المختار");
+  check(server.includes("const remaining = pick(planned.students);"), "الطلب من تخطيط الشعب (تقرير التسجيل SWRDASH) وحده، لا كشفٌ ثانٍ");
   const ui = read("src/components/AllCourses.tsx");
   check(ui.includes('data-ac-total="demand"') && ui.includes('data-ac-total="without-seat"'), "الرأس: المتبقي وبلا مقعد إجماليّاً");
-  check(ui.includes("لا كشف تسجيل لهذا الفصل") && ui.includes("onImportStats"), "بلا كشف: «لا كشف تسجيل لهذا الفصل» ورابطٌ للاستيراد");
+  check(ui.includes("لا كشف تسجيل لهذا الفصل") && ui.includes("onImportStats"), "بلا تقرير: «لا كشف تسجيل لهذا الفصل» ورابطٌ إلى تخطيط الشعب");
   check(read("src/components/ScheduleTransfer.tsx").includes('onImportStats={() => setTab("planning")}'), "الرابط يفتح «تخطيط الشعب» حيث يُستورد الكشف");
 }
 

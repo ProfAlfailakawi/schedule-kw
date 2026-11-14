@@ -245,7 +245,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   check(/\.filter\(\(\[value, , count\]\) => value === "all" \|\| count > 0 \|\| statusFilter === value\)/.test(changes), "D الوارد: شرائح الحالة الصفرية لا تُعرض");
   check(!/\["blocking", "فيه موانع", 0\]/.test(changes) && /\["blocking", "فيه موانع", signalCounts\.blocking\]/.test(changes), "D الوارد: إشارات الانتباه تُعدّ من السطور لا صفراً مكتوباً");
   check(/more=\{statusChips\.length > 1 \|\| signalChips\.length \? \(/.test(changes), "D الوارد: لا «المزيد» حين لا شريحةَ فيه غير «الكل»");
-  check(/if \(!\(canAnnotate && annotatable\) && !notes\.length\) return null;/.test(changes), "D تقرير التغييرات: لا كتلةَ فارغةً تحت موعدٍ بلا زرٍّ ولا ملاحظة");
+  check(/if \(!\(canAnnotate && annotatable\) && !notes\.length && !canTry\) return null;/.test(changes), "D تقرير التغييرات: لا كتلةَ فارغةً تحت موعدٍ بلا زرٍّ ولا ملاحظة (ولا «جرّب بديلاً»)");
   /* المالك 2026-11-14: التغييرات تدمج «مراجعة الاعتماد» نفسها، ومفاتيحُها من approvalSpreadKeys التي تُسقط الصفري. */
   {
     const { approvalSpreadKeys } = await import("../src/utils/approvalScore");

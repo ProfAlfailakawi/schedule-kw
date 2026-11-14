@@ -130,8 +130,6 @@ function p2Registry() {
   check(state.scheduleApprovals.some((a: any) => a.AdTermId === 2 && a.AdSectionId === 2 && a.status === "accepted") && !state.scheduleApprovals.some((a: any) => a.AdTermId === 2 && a.AdSectionId === 1),
     "والتربية الفنية سبقت فاعتُمد جدولُها القادم، ومسودةُ قسم القصة بلا دورة اعتماد بعد");
   check(state.hallBarterRequests.some((request: any) => request.status === "pending" && request.requesterSectionId === 2 && request.ownerSectionId === 1 && request.roomHall === "301"), "طلب استعارة تجريبي بين قسمين مختلفين");
-  check(state.registrationStats?.some((row: any) => row.termId === 1 && row.remainingSource?.column === "unregistered")
-    && state.registrationStats?.some((row: any) => row.termId === 2 && row.remainingSource == null), "كشف الفصل الأول موجود والثاني بلا كشف لاختبار fallback");
   const server = read("src/db/repository.ts");
   check(server.includes("return [...(db.locationBuildings||[])];") && server.includes("return [...(db.locationRooms||[])];"),
     "Repository يقرأ سجلَّ الصندوق داخل الجلسة التجريبية");

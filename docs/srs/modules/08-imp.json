@@ -1107,7 +1107,7 @@
         ],
         "tests": [
           "tests/pdf-import-hardening.ts",
-          "tests/section-planning-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -2543,8 +2543,8 @@
           "src/components/ScheduleTransfer.tsx#goTab"
         ],
         "tests": [
-          "tests/section-build-live-audit.ts",
-          "tests/section-planning-import-audit.ts"
+          "tests/section-plan-audit.ts",
+          "tests/section-plan-audit.ts"
         ]
       },
       "rationale": {
