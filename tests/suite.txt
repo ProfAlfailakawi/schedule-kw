@@ -350,3 +350,4 @@ test:verdict-regulation-warning
 test:searchable-select-change
 test:schedule-w3
 test:teacher-registry
+test:account-deletion

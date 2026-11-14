@@ -368,7 +368,7 @@ export async function ensureCollegeRegistrars(by: string, onlyCollegeIds?: numbe
 /* ── حارسُ العضو ──────────────────────────────────────────────────────────── */
 
 /** ما لا يكتبه عضوُ الفريق: التوقيعُ وسحبُه، وإدارةُ الكرسي، وكلمةُ سرّه. والنائبُ يوقّع. */
-const MEMBER_BLOCKED = ["/approvals/sign", "/approvals/withdraw", "/approvals/head-return", "/auth/change-password"];
+const MEMBER_BLOCKED = ["/approvals/sign", "/approvals/withdraw", "/approvals/head-return", "/auth/change-password", "/account/deletion-request"];
 export function seatMemberGuard(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const actor = actorOf(req);
   if (!actor || actor.kind === "holder" || req.method === "GET" || req.method === "HEAD") { next(); return; }
