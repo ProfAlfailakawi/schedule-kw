@@ -358,26 +358,26 @@ function kmHeroHtml(){var X=KM.x,m=KM.m,p=X.progress(),segs=kmSegs(),nowN=0;
   var after=kmAfter(),terms=termsLeft(p.remainingUnits),first=kmFirstName();
   var leg='';[100,200,300,400,0].forEach(function(l){var has=false;X.plan.forEach(function(id){if(X.byId[id].level===l)has=true});if(has)leg+='<button type="button" class="km-lg" data-act="lv" data-l="'+l+'"><i style="background:'+KMLV[l]+'"></i>'+kmLvName(l)+'</button>'});
   if(m.groups.length)leg+='<button type="button" class="km-lg" data-act="el"><i style="background:'+KMGOLD+'"></i>اختياري</button>';
-  return '<section class="km-hero fade"><div class="km-hrow"><div class="km-ring" role="img" aria-label="'+p.percent+'٪ من التخرج">'+kmRingSvg(segs)+'<div><b id="kmPct">'+p.percent+'<small>٪</small></b><span>من التخرج</span></div></div>'
+  return '<section class="km-hero fade"><div class="km-hrow"><div class="km-ring" role="img" aria-label="'+p.percent+'% من التخرج">'+kmRingSvg(segs)+'<div><b id="kmPct">'+p.percent+'<small>%</small></b><span>من التخرج</span></div></div>'
    +'<div class="km-who"><small>خريطتي</small><h1>'+(first?'أهلاً، '+esc(first):'مساري')+'</h1><p>'+esc(m.sectionName)+'</p><span>'+(m.planName?esc(m.planName):'')+'</span></div></div>'
    +'<div class="km-leg" aria-label="المستويات">'+leg+'</div>'
    +'<div class="km-stats"><button type="button" data-act="passed"><b id="kmSp">'+p.passedUnits+'</b><small>الوحدات المجتازة</small></button><button type="button" data-act="left"><b id="kmSl">'+p.remainingUnits+'</b><small>الوحدات المتبقية</small></button><button type="button" class="now" data-act="now"><b id="kmSn">'+nowN+'</b><small>إجباري متاح الآن</small></button></div>'
    +'<div class="km-chips" id="kmChips">'+kmChipsHtml(p,after,terms)+'</div></section>'}
 function kmChipsHtml(p,after,terms){var h='';
-  if(after&&after.percent>p.percent)h+='<span class="km-chip gold">'+ic("spark","")+' بعد هذا الفصل: '+after.percent+'٪</span>';
+  if(after&&after.percent>p.percent)h+='<span class="km-chip gold">'+ic("spark","")+' بعد هذا الفصل: '+after.percent+'%</span>';
   h+='<span class="km-chip">'+(!KM.x.plan.length?'صحيفتك بلا مقررات':terms?'نحو '+countOf(terms,AR.term)+' للتخرّج':'أكملت الصحيفة')+'</span>';
   if(!KM.hasRules)h+='<span class="km-chip">بلا شروط معتمدة</span>';
   return h}
 function kmAfter(){var ids=kmCartIds();if(!ids.length)return null;ids.forEach(function(id){KM.x.set(id,true)});var q=KM.x.progress();ids.forEach(function(id){KM.x.set(id,false)});return q}
 function kmHeroUpdate(){var host=document.getElementById("kmHero");if(!host)return;var X=KM.x,p=X.progress(),segs=kmSegs(),nowN=0;X.plan.forEach(function(id){if(kmIsComp(id)&&X.status(id)==="now")nowN++});
   var set=function(id,v){var el=document.getElementById(id);if(el)el.innerHTML=v};
-  set("kmPct",p.percent+"<small>٪</small>");set("kmSp",p.passedUnits);set("kmSl",p.remainingUnits);set("kmSn",nowN);
+  set("kmPct",p.percent+"<small>%</small>");set("kmSp",p.passedUnits);set("kmSl",p.remainingUnits);set("kmSn",nowN);
   set("kmChips",kmChipsHtml(p,kmAfter(),termsLeft(p.remainingUnits)));
   var R=0;segs.forEach(function(s){R+=s.req});
   segs.forEach(function(s){var pl=host.querySelector('.pl[data-k="'+s.k+'"]'),dn=host.querySelector('.dn[data-k="'+s.k+'"]');
     if(pl){var v=Math.min(100,(s.done+s.plan)/s.req*100);pl.setAttribute("data-d",v.toFixed(2));pl.style.strokeDasharray=v.toFixed(2)+" 100"}
     if(dn){var w=Math.min(100,s.done/s.req*100);dn.setAttribute("data-d",w.toFixed(2));dn.style.strokeDasharray=w.toFixed(2)+" 100"}});
-  var ring=host.querySelector(".km-ring");if(ring)ring.setAttribute("aria-label",p.percent+"٪ من التخرج")}
+  var ring=host.querySelector(".km-ring");if(ring)ring.setAttribute("aria-label",p.percent+"% من التخرج")}
 
 /* ── سجّل هذا الفصل ── */
 function kmNowIds(){var X=KM.x,ids=X.plan.filter(function(id){return X.status(id)==="now"});

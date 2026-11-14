@@ -311,7 +311,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
             </section>
           ) : null}
           {quality ? <details className="sm-quality">
-            <summary><span><i style={{ inlineSize: `${qualityPct}%` }} /></span><b>{qualityPct}٪ من الشعب جاهزة للتحليل</b><small>{quality.excluded ? `${countOf(quality.excluded, AR.section)} تحتاج استكمال بياناتها` : "لا توجد شعب مستبعدة"}</small></summary>
+            <summary><span><i style={{ inlineSize: `${qualityPct}%` }} /></span><b>{qualityPct}% من الشعب جاهزة للتحليل</b><small>{quality.excluded ? `${countOf(quality.excluded, AR.section)} تحتاج استكمال بياناتها` : "لا توجد شعب مستبعدة"}</small></summary>
             {quality.excluded ? <ul>
               {Object.entries(quality.issues).filter(([key, count]) => key !== "duplicateRows" && Number(count) > 0).map(([key, count]) => <li key={key}>{qualityLabel(key)} · {Number(count).toLocaleString("ar-KW-u-nu-latn")}</li>)}
               {quality.issues.duplicateRows ? <li>صفوف مكررة جرى تجاهلها · {quality.issues.duplicateRows}</li> : null}
@@ -344,7 +344,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
               return (
                 <article key={c.courseId} className={`sm-row${needsDecision(c) ? " hot" : ""}`}>
                   <div className="sm-name"><b>{c.name}<CourseTags courseId={c.courseId} /></b><span>{c.code}</span></div>
-                  <div className="sm-gauge" aria-label={`امتلأ ${fill}٪ من المقاعد`}>
+                  <div className="sm-gauge" aria-label={`امتلأ ${fill}% من المقاعد`}>
                     <div className="sm-track"><i className={fill >= 95 ? "full" : fill >= 80 ? "high" : ""} style={{ inlineSize: `${fill}%` }} /></div>
                     <small>{c.sections ? `${countOf(c.sections, AR.section)} · ${c.taken} من ${countOf(c.capacity, AR.seat)}` : "لا تُطرح هذا الفصل"} · طُلب {c.wanted}</small>
                   </div>
@@ -375,9 +375,9 @@ function OutcomeBlock({ outcome, predictedStudents }: { outcome: Outcome; predic
       <header><h3>بعد التسجيل: ماذا حدث؟</h3></header>
       <div className="sm-kpis">
         {outcome.answered !== null
-          ? <article className="sm-kpi"><span className="sm-ic"><Users /></span><b>{outcome.answered.toLocaleString("ar-KW-u-nu-latn")}</b><small>أجابوا «هل سجلت؟»</small><em>{share}٪ ممن شملهم الرادار</em></article>
+          ? <article className="sm-kpi"><span className="sm-ic"><Users /></span><b>{outcome.answered.toLocaleString("ar-KW-u-nu-latn")}</b><small>أجابوا «هل سجلت؟»</small><em>{share}% ممن شملهم الرادار</em></article>
           : <article className="sm-kpi"><span className="sm-ic"><Users /></span><b>{outcome.answers.toLocaleString("ar-KW-u-nu-latn")}</b><small>من أجوبة الطلبة في مقررات قسمك</small><em>جوابٌ لكل مقرر — لا عددُ الطلبة</em></article>}
-        <article className="sm-kpi"><span className="sm-ic"><Layers /></span><b>{okPct}٪</b><small>من المقرراتِ المُجاب عنها سُجّلت</small>
+        <article className="sm-kpi"><span className="sm-ic"><Layers /></span><b>{okPct}%</b><small>من المقرراتِ المُجاب عنها سُجّلت</small>
           <div className="sm-meter"><i style={{ inlineSize: `${okPct}%` }} /></div><em>{countOf(registered, AR.course)} سُجّلت · {countOf(stuck, AR.course)} تعثّرت</em></article>
       </div>
       <OutcomeLegend rows={outcome.courses} />

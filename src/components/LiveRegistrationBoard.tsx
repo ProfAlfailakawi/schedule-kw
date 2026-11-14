@@ -152,9 +152,9 @@ function BoardCard({ row }: { key?: React.Key; row: BoardRow }) {
         <em className={`lb-state ${state || "unknown"}`}>{state ? STATE_LABEL[state] : "غير معروف"}</em>
       </div>
       <p className="rs-line">شعبة <bdi dir="ltr">{row.sectionCode}</bdi>{row.time ? <> · <bdi dir="ltr">{row.time}</bdi></> : null}{row.capacity ? <> · السعة <bdi>{nf(row.capacity)}</bdi></> : null}</p>
-      <div className="lb-bar" role="img" aria-label={percent === null ? "سعةُ الشعبة غير معروفة" : `الامتلاء ${nf(percent)}٪`}><i style={{ inlineSize: `${Math.min(100, percent ?? 0)}%` }} /></div>
+      <div className="lb-bar" role="img" aria-label={percent === null ? "سعةُ الشعبة غير معروفة" : `الامتلاء ${nf(percent)}%`}><i style={{ inlineSize: `${Math.min(100, percent ?? 0)}%` }} /></div>
       <small className="rs-line">
-        {percent === null ? "لا سعةَ مسجّلة لهذه الشعبة: لا نخمّن نسبتها." : `الامتلاء ${nf(percent)}٪${row.lowerBound ? " (حدٌّ أدنى: أجوبةُ من أجاب فقط)" : ""}`}
+        {percent === null ? "لا سعةَ مسجّلة لهذه الشعبة: لا نخمّن نسبتها." : `الامتلاء ${nf(percent)}%${row.lowerBound ? " (حدٌّ أدنى: أجوبةُ من أجاب فقط)" : ""}`}
         {row.source ? <> · الأساس: {SOURCE_LABEL[row.source]}</> : null}
       </small>
       {row.waiting > 0 ? <small className="rs-wait"><Users aria-hidden="true" /> {countOf(row.waiting, AR.student)} بلا مقعد في المقرر{row.waitingSource ? ` (${SOURCE_LABEL[row.waitingSource]})` : ""}</small> : null}

@@ -2953,7 +2953,7 @@
    ],
    "path": "/api/intelligence/copilot",
    "name": "bound dispatch",
-   "call": "40a295abc411d5ca",
+   "call": "4fc668fe217c3300",
    "site": "src/server/routes/intelligenceRoutes.ts:465",
    "regexp": "/^\\/api\\/intelligence\\/copilot\\/?$/i",
    "end": true

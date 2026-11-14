@@ -75,8 +75,8 @@ export function FitPill({ fit }: { fit: NonNullable<RoomSuggestion["fit"]> }) {
   const who = fit.kind === "grad" ? "الخريجين" : "الطلبة";
   const Icon = fit.kind === "grad" ? GraduationCap : UsersRound;
   return <em className={`room-suggest-fit is-${fit.kind} tone-${tone}`}
-    title={fit.blocked ? `يناسب ${fit.percent}٪ من ${who} الذين يحتاجون المقرر — يحجب ${fit.blocked} عن مقررٍ آخر يحتاجونه` : `يناسب كل ${who} الذين يحتاجون المقرر`}>
-    <Icon aria-hidden="true" /><b dir="ltr">{fit.percent}٪</b>
+    title={fit.blocked ? `يناسب ${fit.percent}% من ${who} الذين يحتاجون المقرر — يحجب ${fit.blocked} عن مقررٍ آخر يحتاجونه` : `يناسب كل ${who} الذين يحتاجون المقرر`}>
+    <Icon aria-hidden="true" /><b dir="ltr">{fit.percent}%</b>
   </em>;
 }
 

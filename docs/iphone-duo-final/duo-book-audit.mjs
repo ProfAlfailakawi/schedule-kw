@@ -37,6 +37,10 @@ export const POSES = {
   F: [[669, 520], [600, 480]],
   G: [[768, 1024], [1024, 768], [1280, 800], [1440, 900]],
   H: [[360, 640], [390, 844], [844, 390]],
+  /* K: أطراف نطاق الدوو (طولي حتى 720، وعرضي حتى 1000) — يُشغَّل صراحةً: DUO_POSES=K */
+  K: [[660, 800], [700, 900], [720, 900], [880, 585], [1000, 600]],
+  /* P: مقاسات iPad (يجب ألا يظهر فيها كتابٌ ولا كعب؛ تُقاس ولا تُحتسب مخالفة كعب) */
+  P: [[744, 1133], [768, 1024], [768, 920], [810, 990], [820, 1180], [834, 1112], [1024, 690], [1024, 768], [1133, 660], [1180, 735]],
   S: [[320, 350], [320, 600], [320, 900], [470, 350], [470, 600], [470, 900], [620, 350], [620, 600], [620, 900]],
 };
 
@@ -57,7 +61,7 @@ const AUDIT = `(() => {
   const W = innerWidth, H = innerHeight, tol = 1;
   const css = getComputedStyle(document.documentElement);
   const spineW = parseFloat(css.getPropertyValue("--book-spine")) || 32;
-  const book = matchMedia("screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px)").matches;
+  const book = matchMedia("screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape)").matches;
   const s0 = W / 2 - spineW / 2 + 1, s1 = W / 2 + spineW / 2 - 1;
   const se = document.scrollingElement || document.documentElement;
   const label = el => {
@@ -199,7 +203,7 @@ async function live(browser, report) {
       path: location.pathname,
       value: (document.querySelector("main input[type=search], main input[type=text], main input:not([type])") || {}).value || null,
       scrollY: Math.round(window.scrollY),
-      book: matchMedia("screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px)").matches,
+      book: matchMedia("screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape)").matches,
     }));
     const m = await measure(page);
     steps.push({ size: size.join("x"), ...state, doc: m.doc, spine: m.spine.length, clipped: m.clipped.length });

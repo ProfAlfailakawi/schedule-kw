@@ -623,10 +623,10 @@ app.post("/api/intelligence/copilot", requirePermission(7), async (req: Authenti
     shape="rooms";
     figures.push(
       {label:"قاعات في النطاق",value:`${analysis.rooms.length}`,tone:"plain"},
-      {label:"أقلّها استخداماً",value:`${low[0]?.utilization??0}`,hint:"٪",tone:(low[0]?.utilization??0)<25?"warn":"plain"},
-      {label:"متوسط الاستخدام",value:`${avgUtil}`,hint:"٪",tone:avgUtil<55?"good":"plain"}
+      {label:"أقلّها استخداماً",value:`${low[0]?.utilization??0}`,hint:"%",tone:(low[0]?.utilization??0)<25?"warn":"plain"},
+      {label:"متوسط الاستخدام",value:`${avgUtil}`,hint:"%",tone:avgUtil<55?"good":"plain"}
     );
-    low.forEach((r:any)=>bars.push({label:`${r.code}/${r.hall}`,value:r.utilization,max:100,caption:`${r.utilization}٪`}));
+    low.forEach((r:any)=>bars.push({label:`${r.code}/${r.hall}`,value:r.utilization,max:100,caption:`${r.utilization}%`}));
   } else {
     analysis.alerts.slice(0,5).forEach((a:any)=>bullets.push(`${a.title}: ${a.detail}`));
     summary=`قرأت جدول ${sectionName} فقط ضمن صلاحياتك. ${summary}`;

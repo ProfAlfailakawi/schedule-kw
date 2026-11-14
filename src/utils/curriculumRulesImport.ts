@@ -113,7 +113,7 @@ export function rowsToDrafts(rows: readonly RuleImportRow[], plans: readonly Imp
 
     const rule: CurriculumCourseRule = { courseId: course };
     const level = num(row.level);
-    if (String(row.level ?? "").trim() && !([1, 2, 3, 4, 100, 200, 300, 400] as number[]).includes(level)) say(line, `المستوى يجب أن يكون ١٠٠ أو ٢٠٠ أو ٣٠٠ أو ٤٠٠: «${row.level}».`);
+    if (String(row.level ?? "").trim() && !([1, 2, 3, 4, 100, 200, 300, 400] as number[]).includes(level)) say(line, `المستوى يجب أن يكون 100 أو 200 أو 300 أو 400: «${row.level}».`);
     else if (level) rule.level = level;
     const kind = parseKind(row.kind);
     if (String(row.kind ?? "").trim() && !kind) say(line, `نوعٌ غير مفهوم: «${row.kind}».`);

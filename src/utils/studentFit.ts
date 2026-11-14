@@ -29,6 +29,12 @@ export interface FitSide {
   percent: number | null;
   /** المقررات المحجوبة، الأشد أولاً (ثلاثة على الأكثر). */
   clashes: FitClash[];
+  /**
+   * من يجد شعبةً تناسبه في المقرر كله (لا في هذا الموعد وحده): قبل هذا الموعد وبعده. طالبٌ يُحجب عن شعبةٍ يأخذ غيرها،
+   * فلا يُعدّ غير مخدوم إلا إن حُجب عن كل شعبه؛ ومقررٌ بلا شعبة يخدم 0٪. بيانٌ لسطر «يناسب الخريجين: 0٪ ← 94٪» بعد الحفظ.
+   * يُحسب حين يُطلب (withCoverage) فلا يثقل قراءة عشرات الخانات.
+   */
+  coverage?: { before: number; after: number } | null;
 }
 
 export interface StudentFit {
@@ -50,6 +56,9 @@ function sideFor(input: {
   colleges: ReadonlySet<number>;
   candidateSection: ClashRow[];
   track: FitTrack;
+  /** شعب المقرر في المسار قبل الموعد وبعده، لسطر التغطية. غائبتان = بلا تغطية. */
+  beforeSections?: ClashRow[][];
+  afterSections?: ClashRow[][];
 }): FitSide | null {
   const { report, code, track } = input;
   if (!report) return null;
@@ -61,13 +70,28 @@ function sideFor(input: {
   if (!course.programs.length) return { need, fit: need, blocked: 0, percent: null, clashes: [] };
   const mine = new Map(course.programs.map(program => [program.code, side(program)] as const));
   /* المقررات التي تحجبها الشعبة: كلُّ شعبها في المسار تتداخل معها. */
-  const blocking = report.courses.filter(other => {
+  const ZERO = { boys: 0, girls: 0, total: 0 };
+  const blockingFor = (section: ClashRow[]) => report.courses.filter(other => {
     if (other.code === code || !other.programs.some(program => (mine.get(program.code) || 0) > 0)) return false;
     const match = input.matches.get(other.code);
     if (!match || !match.courseIds.length || !(match.status === "matched" || match.status === "linked")) return false;
     const sections = sectionsOf(input.rows, new Set(match.courseIds), input.colleges);
-    return sections.length > 0 && sections.every(section => sectionsClash(input.candidateSection, section));
+    return sections.length > 0 && sections.every(item => sectionsClash(section, item));
   });
+  const blocking = blockingFor(input.candidateSection);
+  /* من لا شعبة له في المقرر كله: لكل برنامج، المحجوبون عن كل شعبةٍ معاً (الأدنى بين الشعب). بلا شعبة: الحاجةُ كلها. */
+  const unservedBy = (sections: ClashRow[][]) => {
+    if (!sections.length) return need;
+    let total = 0;
+    for (const [program, count] of mine) {
+      if (count <= 0) continue;
+      total += Math.min(...sections.map(section => Math.min(count, Math.max(0, ...blockingFor(section).map(other => side(other.programs.find(item => item.code === program) || ZERO))))));
+    }
+    return Math.min(need, total);
+  };
+  const coverage = input.beforeSections && input.afterSections
+    ? { before: Math.round(((need - unservedBy(input.beforeSections)) / need) * 100), after: Math.round(((need - unservedBy(input.afterSections)) / need) * 100) }
+    : null;
   let blocked = 0;
   for (const [program, count] of mine) {
     if (count <= 0) continue;
@@ -80,7 +104,7 @@ function sideFor(input: {
     name: other.name,
     students: other.programs.reduce((sum, program) => sum + Math.min(mine.get(program.code) || 0, side(program)), 0),
   })).filter(item => item.students > 0).sort((a, b) => b.students - a.students).slice(0, 3);
-  return { need, fit: need - blocked, blocked, percent: Math.round(((need - blocked) / need) * 100), clashes };
+  return { need, fit: need - blocked, blocked, percent: Math.round(((need - blocked) / need) * 100), clashes, coverage };
 }
 
 export function studentFitOf(input: {
@@ -92,6 +116,8 @@ export function studentFitOf(input: {
   candidate: ClashRow;
   /** الموعد المعدَّل: يُقرأ الجدول بالجديد مكانه. */
   replaces?: number;
+  /** يحسب تغطية المقرر كله قبل الموعد وبعده (للسطر بعد الحفظ)؛ لا يُطلب في قراءة الخانات الكثيرة. */
+  withCoverage?: boolean;
 }): StudentFit | null {
   if (!input.general && !input.graduates) return null;
   const courseId = Number(input.candidate.AdCourseId);
@@ -106,9 +132,10 @@ export function studentFitOf(input: {
     && String(row.SCode || "").trim() === String(input.candidate.SCode || "").trim();
   const candidateSection = [...rest.filter(sameSection), input.candidate];
   const ids = new Set(input.matches.get(code)!.courseIds);
-  const before = sectionsOf(input.rows, ids, colleges).length;
-  const after = sectionsOf([...rest, input.candidate], ids, colleges).length;
-  const shared = { code, matches: input.matches, rows: rest, colleges, candidateSection, track };
+  const beforeSections = sectionsOf(input.rows, ids, colleges), afterSections = sectionsOf([...rest, input.candidate], ids, colleges);
+  const before = beforeSections.length, after = afterSections.length;
+  const shared = { code, matches: input.matches, rows: rest, colleges, candidateSection, track,
+    ...(input.withCoverage ? { beforeSections, afterSections } : {}) };
   const students = sideFor({ ...shared, report: input.general });
   const graduates = sideFor({ ...shared, report: input.graduates });
   if (!students && !graduates) return null;

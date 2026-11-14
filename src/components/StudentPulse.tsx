@@ -1,5 +1,5 @@
 import React from "react";
-import { GraduationCap, Layers3, TriangleAlert, Users } from "lucide-react";
+import { ChevronLeft, GraduationCap, Layers3, Sparkles, TriangleAlert, Users } from "lucide-react";
 import type { FitSide, StudentFit } from "../utils/studentFit";
 import { AR, countOf } from "../utils/arabicCount";
 
@@ -24,7 +24,7 @@ function Ring({ percent, kind }: { percent: number | null; kind: "grad" | "stud"
       </svg>
       <span className="pulse-ring-mid">
         {kind === "grad" ? <GraduationCap /> : <Users />}
-        <b dir="ltr">{percent == null ? "—" : `${percent}٪`}</b>
+        <b dir="ltr">{percent == null ? "—" : `${percent}%`}</b>
       </span>
     </span>
   );
@@ -59,11 +59,47 @@ function Side({ side, kind }: { side: FitSide; kind: "grad" | "stud" }) {
   );
 }
 
-export default function StudentPulse({ fit, graduateImpact }: { fit: StudentFit | null; graduateImpact?: { graduates: number; pairs?: string[] } | null }) {
+/** أفضل خانةٍ حرّةٍ للأستاذ بنبض الطلبة (من «أسبوع الأستاذ»): بضغطةٍ يُوضع الموعد فيها. */
+export interface BestTime { day: string; days: string[]; start: string; end: string; percent: number; kind: "grad" | "stud" }
+
+/**
+ * أثر الحفظ بسطرٍ واحد: «يناسب الخريجين 0٪ ← 94٪» — من يجد شعبةً تناسبه في المقرر كله قبل هذا الموعد وبعده.
+ * لا يظهر إلا إن تغيّر الرقم فعلاً، وبلا طلبٍ فعلي لا شيء.
+ */
+export interface SaveImpact { kind: "grad" | "stud"; before: number; after: number }
+export const saveImpactOf = (fit: StudentFit | null): SaveImpact | null => {
+  const side = fit?.graduates?.coverage ? fit.graduates : fit?.students?.coverage ? fit.students : null;
+  const kind = fit?.graduates?.coverage ? "grad" : "stud";
+  return side?.coverage && side.coverage.after !== side.coverage.before ? { kind, before: side.coverage.before, after: side.coverage.after } : null;
+};
+export function FitImpact({ impact }: { impact: SaveImpact }) {
+  const Icon = impact.kind === "grad" ? GraduationCap : Users;
+  const rising = impact.after > impact.before;
+  return (
+    <p className={`fit-impact is-${impact.kind}${rising ? " is-up" : " is-down"}`} role="status"
+      aria-label={`يناسب ${impact.kind === "grad" ? "الخريجين" : "الطلبة"}: من ${impact.before}% إلى ${impact.after}%`}>
+      <Icon aria-hidden="true" />
+      <span>يناسب {impact.kind === "grad" ? "الخريجين" : "الطلبة"}</span>
+      <bdi dir="ltr" className="fit-impact-from">{impact.before}%</bdi>
+      <ChevronLeft aria-hidden="true" />
+      <bdi dir="ltr" className="fit-impact-to">{impact.after}%</bdi>
+    </p>
+  );
+}
+
+export default function StudentPulse({ fit, graduateImpact, best, onPickBest }: {
+  fit: StudentFit | null;
+  graduateImpact?: { graduates: number; pairs?: string[] } | null;
+  /** يُعرض فقط إن كان أفضل من الوقت الحالي بفارقٍ يُعتدّ به. */
+  best?: BestTime | null;
+  onPickBest?: (best: BestTime) => void;
+}) {
   if (!fit) return null;
   const grad = fit.graduates, stud = fit.students;
   if (!grad && !stud) return null;
   const sectionsChanged = fit.sections.after !== fit.sections.before;
+  const current = grad?.percent ?? stud?.percent ?? null;
+  const showBest = Boolean(best && onPickBest && current != null && best.percent >= current + 5);
   return (
     <section className="student-pulse" aria-label="نبض الطلبة: من يناسبهم هذا الوقت" role="status">
       <header className="pulse-head">
@@ -76,6 +112,14 @@ export default function StudentPulse({ fit, graduateImpact }: { fit: StudentFit 
           <span className="pulse-sections" title="شعب المقرر في هذا المسار قبل هذا الموعد وبعده">
             <Layers3 aria-hidden="true" /><bdi dir="ltr">{fit.sections.before}</bdi><span aria-hidden="true">←</span><bdi dir="ltr">{fit.sections.after}</bdi><small>{AR.section.few}</small>
           </span>
+        ) : null}
+        {showBest && best ? (
+          <button type="button" className={`pulse-best is-${best.kind}`} onClick={() => onPickBest!(best)}
+            title={`أفضل خانةٍ حرّةٍ للأستاذ: يناسب ${best.percent}% من ${best.kind === "grad" ? "الخريجين" : "الطلبة"}`}
+            aria-label={`ضع الموعد في أفضل وقت ${best.start}، يناسب ${best.percent}%`}
+            data-guide-ignore="يضع الأيام والبداية والنهاية في أفضل خانةٍ حرّة للأستاذ بنبض الطلبة؛ لا يحفظ شيئاً">
+            <Sparkles aria-hidden="true" /><span>أفضل وقت</span><bdi dir="ltr">{best.start}</bdi><b dir="ltr">{best.percent}%</b>
+          </button>
         ) : null}
       </header>
       {graduateImpact && graduateImpact.graduates > 0 ? (

@@ -116,9 +116,9 @@ export default function AudienceStory({ stats, onClose }: { stats: AudienceStats
           <h2>خطوتك التالية</h2>
           <p className="pt-story-big">جرّب {countOf(TRIAL_DAYS, AR.day)} مجاناً</p>
           <ol className="pt-story-steps">
-            <li><b>١</b><span>اختر الموقع والموسم</span></li>
-            <li><b>٢</b><span>نجهّز حملتك ونعتمدها</span></li>
-            <li><b>٣</b><span>تتابع نتائجك حيّةً في تقريرك</span></li>
+            <li><b>1</b><span>اختر الموقع والموسم</span></li>
+            <li><b>2</b><span>نجهّز حملتك ونعتمدها</span></li>
+            <li><b>3</b><span>تتابع نتائجك حيّةً في تقريرك</span></li>
           </ol>
         </> : null}
       </section>

@@ -319,7 +319,7 @@ export async function appointmentDemandFor(req: AuthenticatedRequest, row: any):
     const replaces = Number(row.excludeId || row.id || 0);
     const candidate = { ...row, id: replaces || -1 };
     const impact = graduates ? graduateImpactOf({ graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces }) : null;
-    const fit = studentFitOf({ general, graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces });
+    const fit = studentFitOf({ general, graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces, withCoverage: true });
     const face = (side: StudentFit["students"]) => side ? { ...side, clashes: side.clashes.map(clash => ({ ...clash, ...courseFace(context, clash.code, clash.name) })) } : null;
     return {
       graduateImpact: impact ? { graduates: impact.graduates, pairs: impact.clashes.slice(0, 3).map(clash => `${courseFace(context, clash.a.code, clash.a.name).code} × ${courseFace(context, clash.b.code, clash.b.name).code}`) } : null,

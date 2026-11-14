@@ -27,8 +27,8 @@ function cardText(card: HealthCard): { big: string; unit?: string; small?: strin
     case "backup:today": return { big: "اليوم" };
     case "backup:age": return { ...counted!, small: "منذ آخر نسخة" };
     case "vault:idle": return { big: "هادئة" };
-    case "vault:open": return { big: `${n}٪`, small: `${KIND_WORD[String(card.detail).split(":")[0]] || ""} جارٍ` };
-    case "vault:stale": return { big: `${n}٪`, small: "قفلٌ عالق" };
+    case "vault:open": return { big: `${n}%`, small: `${KIND_WORD[String(card.detail).split(":")[0]] || ""} جارٍ` };
+    case "vault:stale": return { big: `${n}%`, small: "قفلٌ عالق" };
     case "vault:failed": return { big: "متوقفة", small: KIND_WORD[String(card.detail).split(":")[0]] };
     case "vault:failedTouched": return { big: "فشلت", small: "بعد لمس البيانات" };
     case "gate:open": return { big: "الكتابة متاحة" };

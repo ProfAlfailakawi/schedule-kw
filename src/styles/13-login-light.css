@@ -28,7 +28,7 @@
 :root:not([data-theme="dark"]) .apex-login-principles>span{border-top:1px dashed var(--line-strong)}
 /* Phones turn the principles into chips (07-responsive, ≤768px): a hairline
    pill on white instead of the dark outline drawn for the night login. */
-@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   :root:not([data-theme="dark"]) .apex-login-principles>span{
     border:1px solid var(--line);background:var(--surface);
   }

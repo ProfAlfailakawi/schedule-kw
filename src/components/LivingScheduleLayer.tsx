@@ -923,7 +923,7 @@ export default function LivingScheduleLayer({
                       {rollover.style ? (
                         <div className="genesis-style">
                           <div className="genesis-style-dial" style={{ ["--share" as any]: `${rollover.style.share}%` }}>
-                            <b className="num">{rollover.style.share}٪</b>
+                            <b className="num">{rollover.style.share}%</b>
                             <small>بأسلوب قسمك</small>
                           </div>
                           <div className="genesis-style-read">

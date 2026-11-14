@@ -220,7 +220,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
    ?{key:"gap",label:"متوسط الفراغ",value:formatCompactDurationArabic(overview.metrics.avgInstructorGap)}
    :insightsPending?{key:"gap",label:"متوسط الفراغ",value:"—",awaiting:true}:null,
   living?.health
-   ?{key:"ready",label:"الجاهزية",value:`${num(percent(living.health.quality))}٪`,ring:percent(living.health.quality)}
+   ?{key:"ready",label:"الجاهزية",value:`${num(percent(living.health.quality))}%`,ring:percent(living.health.quality)}
    :insightsPending?{key:"ready",label:"الجاهزية",value:"—",awaiting:true}:null,
  ].filter(Boolean) as Array<{key:string;label:string;value:string;tone?:"danger";awaiting?:boolean;ring?:number;count?:number}>;
  /* رقمٌ وصل متأخراً بعد «—»: يظهر بتلاشٍ واحد، ولا يتكرّر مع التحديث. */
@@ -366,7 +366,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
      {healthLines.map(item=><div key={item.label} className="dashboard-health-factor" data-tone={item.value==null?undefined:item.value<30?(item.label==="إشغال"?"calm":"bad"):item.value>=85?"good":"mid"} style={{["--v" as any]:item.value??0}} data-high={(item.value??0)>=80||undefined}>
       <span>{item.label}</span>
       <i role="progressbar" aria-label={`مؤشر ${item.label}`} aria-valuemin={0} aria-valuemax={100} {...(item.value==null?{}:{"aria-valuenow":item.value})} {...(item.value==null?{"aria-valuetext":"قيد القراءة"}:{})}><b style={{width:`${item.value??0}%`}} aria-hidden="true"/></i>
-      <em>{item.value==null?"—":`${num(item.value)}٪`}</em>
+      <em>{item.value==null?"—":`${num(item.value)}%`}</em>
      </div>)}
     </div>
    </section>:null}
