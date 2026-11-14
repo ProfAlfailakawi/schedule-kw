@@ -309,3 +309,4 @@ test:admin-station
 test:query-center-plus
 test:report-insight
 test:names-one-label
+test:whatif-in-changes
