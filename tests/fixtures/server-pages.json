@@ -26,12 +26,12 @@
    "length": 47314
   },
   "instructorRequestPage#0": {
-   "sha256": "0ecfd27d4b2533473d3cffd5124a750ca015dee1f178eda2c9e8c4f3ad82523c",
-   "length": 355828
+   "sha256": "5230d23dfaeb310966c48385e44e910d67752ba6b89b39841036c04cee0bea00",
+   "length": 354582
   },
   "instructorRequestPage#1": {
-   "sha256": "98108f920bd1016f14c08a1f006b0327ef30203118e3c6d44cf5b90792d724ac",
-   "length": 355986
+   "sha256": "abbceb952a66dd74bfba6d7f82abf86ed3a6f4c0177149c60076013760f1c496",
+   "length": 354740
   },
   "publicInvalidLinkPage#0": {
    "sha256": "d6673766e7c402772d184aba8edb51baefb4403c07dfa361dadd75406743afff",
