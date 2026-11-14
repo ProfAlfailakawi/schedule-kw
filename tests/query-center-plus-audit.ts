@@ -182,7 +182,7 @@ const pushSource = read("src/server/morningBriefPush.ts");
 check(/x-brief-token/.test(pushSource) && /timingSafeEqual/.test(pushSource) && /status\(404\)/.test(pushSource) && /isDemoMode\(\)/.test(pushSource), "نقطة موجز الصباح: سرٌّ مقارَن بزمنٍ ثابت، و404 بدونه، وليست في الديمو");
 check(/"pushCooldowns", `brief:\$\{userId\}:\$\{day\}`/.test(pushSource) && /deps\.isPowerUser/.test(pushSource), "تنبيهٌ واحد لكل حسابٍ في اليوم، ولا يصل مدير النظام");
 const reportsUi = read("src/components/Reports.tsx");
-check(/<QueryBrief /.test(reportsUi) && /<QueryInsights/.test(reportsUi) && /<QuerySaved/.test(reportsUi) && /<QueryCompare/.test(reportsUi) && /<QueryEmptyWhy/.test(reportsUi) && /<QueryPrintPreview/.test(reportsUi), "المكوّنات الجديدة في ملفاتها (components/query) لا داخل Reports.tsx");
+check(/<QueryBrief /.test(reportsUi) && /<QueryInsights/.test(reportsUi) && /<QuerySaved/.test(reportsUi) && /<QueryCompare/.test(reportsUi) && /<QueryEmptyWhy/.test(reportsUi) && !/QueryPrintPreview/.test(reportsUi) && /<QueryPrintMenu/.test(reportsUi), "المكوّنات الجديدة في ملفاتها (components/query) لا داخل Reports.tsx");
 check(!/setBriefOpen\(true\)/.test(reportsUi), "موجز الصباح لا يُفتح من تلقاء نفسه (الزحام عدوّ الوضوح)");
 check(/useSpeechAsk\(/.test(reportsUi) && /speech\.supported/.test(reportsUi), "الميكروفون يظهر حيث يُدعم الصوت فقط");
 
