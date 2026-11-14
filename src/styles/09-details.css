@@ -791,6 +791,8 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
 .spread-keys .seg-medium::before{background:var(--warning)}
 .spread-keys .seg-low{background:transparent}
 .spread-keys .seg-low::before{background:var(--muted-2)}
+.spread-keys [data-outside-score]{opacity:.72}
+.spread-keys [data-outside-score] small::after{content:" · خارج الحساب"}
 .spread-keys .seg-clean{background:transparent}
 .spread-keys .seg-clean::before{background:var(--success)}
 .spread-keys b{font-size:var(--t-h4);font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}

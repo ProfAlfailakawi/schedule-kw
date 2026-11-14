@@ -14,7 +14,7 @@ import type { LinkMode } from "../utils/linkMode";
 import { DnaStepper } from "./dna";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BellRing, CalendarPlus, Check, Copy, Flag, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, Users, X } from "lucide-react";
+import { BellRing, CalendarPlus, Check, Copy, Flag, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, UserX, Users, X } from "lucide-react";
 import MasariQrButton from "./MasariQrButton";
 import { reachAboutCard, unreachable, whatsappNumber } from "../utils/reachInstructor";
 import type { AdInstructor } from "../types";
@@ -222,6 +222,43 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * بـ`/api/share` ولا يظهر في قائمة الروابط: يُصدَر ويُتابَع في «وارد
    * الأساتذة»، ويُرسل لكلِّ أستاذٍ رابطُه من هناك.
    */
+  /* ── من عنده بطاقةٌ سارية (قرار المالك 2026-11-14) ───────────────────────────
+   * قبل الإرسال (للجميع أو لمختارين) يُقرأ من الخادم من عنده بطاقةٌ سارية. إن وُجد سُئل المنسّق مرّةً واحدة:
+   * تكرار (الرابطُ نفسه بالموعد الجديد) · تبديل (رابطٌ جديد) · تخطّي. لا أحد ⇒ يُرسل فوراً بلا سؤال. */
+  const when = (value: string) => new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kuwait" }).format(new Date(value));
+  const cardChoice = useRef<{ action: "repeat" | "replace"; skip: number[] }>({ action: "repeat", skip: [] });
+  const [cardAsk, setCardAsk] = useState<{ holders: Array<{ name: string; closesAt: string; ids: number[] }>; proceed: () => unknown } | null>(null);
+  const [cardChoosing, setCardChoosing] = useState(false);
+  const askCards = async (targetIds: number[] | null, proceed: () => unknown) => {
+    cardChoice.current = { action: "repeat", skip: [] };
+    if (kind !== "staff" || sendMode === "ta") { await proceed(); return; }
+    let cards: Array<{ instructorId: number; name: string; closesAt: string; awaiting: boolean }> = [];
+    setCardChoosing(true);
+    try {
+      const response = await fetch(`/api/instructor-requests/live-cards?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store", credentials: "include" });
+      cards = response.ok ? (await response.json())?.cards || [] : [];
+    } catch { cards = []; } finally { setCardChoosing(false); }
+    const target = targetIds ? new Set(targetIds.map(Number)) : null;
+    const live = cards.filter(card => !card.awaiting && (!target || target.has(Number(card.instructorId))));
+    if (!live.length) { await proceed(); return; }
+    const byName = new Map<string, { name: string; closesAt: string; ids: number[] }>();
+    for (const card of live) {
+      const key = card.name || String(card.instructorId);
+      const row = byName.get(key) || { name: card.name || "أستاذ", closesAt: card.closesAt, ids: [] };
+      row.ids.push(Number(card.instructorId));
+      byName.set(key, row);
+    }
+    setCardAsk({ holders: [...byName.values()], proceed });
+  };
+  const resolveCards = (choice: "repeat" | "replace" | "skip" | null) => {
+    const ask = cardAsk;
+    setCardAsk(null);
+    if (!ask || !choice) { cardChoice.current = { action: "repeat", skip: [] }; return; }
+    cardChoice.current = choice === "skip"
+      ? { action: "repeat", skip: ask.holders.flatMap(holder => holder.ids) }
+      : { action: choice, skip: [] };
+    void ask.proceed();
+  };
   /* `instructorIds`: «أساتذة محددون» — يُرسل الحقلُ ولو فارغاً، فيرفضه الخادم ولا يصير «للجميع». */
   const issueRequests = async (deadline = `${closesAt}T${closeTime}`, instructorId = 0, reason = "", reopen = false, mode: LinkMode = sendMode, instructorIds?: number[], offeredCourses?: Record<number, number[]>) => {
     const response = await fetch("/api/instructor-requests/issue", {
@@ -229,7 +266,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ collegeId, sectionId, termId, closesAt: mode === "view" ? viewDeadline() : deadline, source: "draft", mode,
         ...(instructorId ? { instructorId, reason } : {}), ...(reopen ? { reopen: true } : {}), ...(instructorIds ? { instructorIds } : {}),
-        ...(offeredCourses && Object.keys(offeredCourses).length ? { offeredCourses } : {}) }),
+        ...(offeredCourses && Object.keys(offeredCourses).length ? { offeredCourses } : {}),
+        ...(cardChoice.current.action === "replace" ? { cardAction: "replace" } : {}),
+        ...(cardChoice.current.skip.length ? { skipInstructorIds: cardChoice.current.skip } : {}) }),
     });
     const data = await readReply(response, "تعذر فتح طلبات التعديل");
     if (data?.emptyTerm) {
@@ -335,6 +374,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     } catch (e: any) {
       setError(e.message);
     } finally {
+      cardChoice.current = { action: "repeat", skip: [] };
       setBusy(false);
     }
   };
@@ -387,8 +427,12 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   const sendPicked = async () => {
     const ids = pickedPeople.flatMap(person => person.ids);
     if (!ids.length) { setError("اختر أستاذاً واحداً على الأقل."); return; }
+    /* «تخطّيهم»: من عنده بطاقةٌ سارية واختار المنسّقُ تخطّيه لا يُرسل له. */
+    const skipped = new Set(cardChoice.current.skip);
+    const people = pickedPeople.filter(person => !person.ids.every(id => skipped.has(id)));
+    const sendIds = people.flatMap(person => person.ids);
+    if (!sendIds.length) { setError("كلُّ من اخترتهم عندهم بطاقةٌ سارية وقد تخطّيتهم؛ لم يُرسل شيء."); return; }
     if (sendMode === "edit" && !closesAt) { setError("اكتب آخر موعدٍ لاستقبال طلبات التعديل."); return; }
-    const people = pickedPeople;
     setBusy(true);
     setError(null);
     try {
@@ -409,13 +453,14 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
       setDelivered(null);
       /* ✏️: مقرراتُ كل شخص اختارها المنسّق — على كل سجلّاته؛ ومن لم يُختر له شيء: كل المقررات. */
       const offeredCourses = sendMode === "edit" ? Object.fromEntries(people.filter(person => person.courses?.length).flatMap(person => person.ids.map(id => [id, person.courses!]))) : undefined;
-      await issueRequests(`${closesAt}T${closeTime}`, 0, "", false, sendMode, ids, offeredCourses);
+      await issueRequests(`${closesAt}T${closeTime}`, 0, "", false, sendMode, sendIds, offeredCourses);
       await showDelivered(publication.id, people);
       void loadFollow();
       setStep("links");
     } catch (e: any) {
       setError(e.message);
     } finally {
+      cardChoice.current = { action: "repeat", skip: [] };
       setBusy(false);
     }
   };
@@ -738,6 +783,37 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
             </header>
 
             {error ? <p className="share-error" role="alert">{error}</p> : null}
+            {cardAsk ? createPortal(
+              <div className="ppr-backdrop no-print" onMouseDown={event => { if (event.target === event.currentTarget) resolveCards(null); }}>
+                <div className="ppr-sheet publish-cards-sheet" role="alertdialog" aria-modal="true" aria-labelledby="cards-ask-title"
+                  onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); resolveCards(null); } }}>
+                  <header className="ppr-head">
+                    <span className="pcs-glyph" aria-hidden="true"><IdCard /></span>
+                    <div>
+                      <h3 id="cards-ask-title">{`${countOf(cardAsk.holders.length, AR.instructor)} عندهم بطاقةٌ سارية`}</h3>
+                      <small>ماذا نفعل بهم في هذا الإرسال؟</small>
+                    </div>
+                  </header>
+                  <div className="ppr-scroll">
+                    <ul className="publish-cards-list">
+                      {cardAsk.holders.slice(0, 6).map(holder => <li key={holder.name}><b>{holder.name}</b>{holder.closesAt ? <small>حتى {when(holder.closesAt)}</small> : null}</li>)}
+                    </ul>
+                    {cardAsk.holders.length > 6 ? <small className="publish-cards-more">و{countOf(cardAsk.holders.length - 6, AR.instructor)} آخرين</small> : null}
+                  </div>
+                  <footer className="ppr-actions publish-cards-actions">
+                    <PrimaryButton type="button" autoFocus onClick={() => resolveCards("repeat")} data-guide-ignore="يكرّر الإرسال بالرابط نفسه والموعد الجديد بعد التأكيد في الورقة">
+                      <Send aria-hidden="true" /> تكرار <small>الرابطُ نفسه · الموعدُ الجديد</small>
+                    </PrimaryButton>
+                    <SecondaryButton type="button" onClick={() => resolveCards("replace")} data-guide-ignore="يُصدر رابطاً جديداً ويُبطل القديم بعد التأكيد في الورقة">
+                      <RefreshCw aria-hidden="true" /> تبديل <small>رابطٌ جديد يُبطل القديم</small>
+                    </SecondaryButton>
+                    <SecondaryButton type="button" onClick={() => resolveCards("skip")} data-guide-ignore="يتخطّى أصحاب البطاقات السارية فلا يُرسل لهم">
+                      <UserX aria-hidden="true" /> تخطّيهم <small>أرسل لغيرهم فقط</small>
+                    </SecondaryButton>
+                    <button type="button" className="publish-cards-cancel" onClick={() => resolveCards(null)} data-guide-ignore="يغلق الورقة دون إرسال">إلغاء</button>
+                  </footer>
+                </div>
+              </div>, document.body) : null}
             {reachGate ? <PrepublishReachSheet rows={reachGate.rows} onOpenCourse={openReachCourse}
               onSend={sendFromGate}
               onReview={reviewOffering} onCancel={() => setReachGate(null)} /> : null}
@@ -862,21 +938,43 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {kind === "staff" ? <SendModePicker value={sendMode} onChange={setSendMode} /> : null}
               {/* «لمن؟» للعرض والتعديل؛ ومرحلةُ التدريب تختار مدرّبيها في لوحتها. */}
               {kind === "staff" && sendMode !== "ta" ? <AudiencePicker value={audience} onChange={setAudience} /> : null}
-              {regulationTeachers.length ? (
-                <details className="share-noted" aria-label="مخالفات اللائحة في جداول الأساتذة">
-                  <summary><strong><Flag aria-hidden="true" /> مخالفاتٌ للائحة في {regulationTeachers.length === 1 ? "جدول" : "جداول"} {countOf(regulationTeachers.length, AR.instructor)}</strong></summary>
-                  <ul>{regulationTeachers.map(item => <li key={item.AdInstructorId}><b>{item.AdInstructorName}<PersonChips visiting={isVisiting(item.AdInstructorId, collegeId, sectionId)} trainee={trainees.has(Number(item.AdInstructorId))} /></b> · {item.notes.join(" · ")}</li>)}</ul>
-                  <p>لن يستطيع صاحبها تثبيت جدوله كما هو حتى تُعدَّل. الإرسال متاح.</p>
-                </details>
-              ) : null}
-              {notedRows.length ? (
-                <div className="share-noted" role="group" aria-label="ملاحظات التسجيل">
-                  <strong><Flag aria-hidden="true" /> عليها ملاحظات من التسجيل: {notedRows.length}</strong>
-                  <ul>{notedRows.slice(0, 12).map(row => <li key={row.id}><b>{row.course}</b> · {row.section}{row.instructor ? ` · ${row.instructor}` : ""}</li>)}</ul>
-                  {notedDone ? <p role="status">{notedDone}</p> : null}
-                  <SecondaryButton type="button" disabled={busy} onClick={() => void sendNoted()} data-guide-ignore="يعيد نشر بطاقة الأستاذ لأصحاب الملاحظات فيما عليه ملاحظات فقط">
-                    <Send aria-hidden="true" /> إعادة النشر لما عليه ملاحظات فقط
-                  </SecondaryButton>
+              {regulationTeachers.length || notedRows.length ? (
+                <div className="publish-flags" role="group" aria-label="ما يحتاج انتباهك قبل الإرسال">
+                  {regulationTeachers.length ? (
+                    <details className="publish-flag is-regulation">
+                      <summary>
+                        <Flag aria-hidden="true" />
+                        <b>{countOf(regulationTeachers.length, AR.instructor)}</b>
+                        <span>مخالفة للائحة في جداولهم</span>
+                      </summary>
+                      <ul>
+                        {regulationTeachers.map(item => {
+                          const notes = [...new Set(item.notes)];
+                          return (
+                            <li key={item.AdInstructorId}>
+                              <b>{item.AdInstructorName}<PersonChips visiting={isVisiting(item.AdInstructorId, collegeId, sectionId)} trainee={trainees.has(Number(item.AdInstructorId))} /></b>
+                              <details><summary>{countOf(notes.length, AR.breach)}</summary><ul>{notes.map(note => <li key={note}>{note}</li>)}</ul></details>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <small>لا يثبّت صاحبُها جدولَه حتى تُعدَّل · الإرسال متاح.</small>
+                    </details>
+                  ) : null}
+                  {notedRows.length ? (
+                    <details className="publish-flag is-noted">
+                      <summary>
+                        <Flag aria-hidden="true" />
+                        <b>{notedRows.length.toLocaleString("ar-KW-u-nu-latn")}</b>
+                        <span>{notedRows.length === 1 ? "موعد عليه ملاحظة من التسجيل" : "مواعيد عليها ملاحظات من التسجيل"}</span>
+                      </summary>
+                      <ul>{notedRows.slice(0, 12).map(row => <li key={row.id}><b>{row.course}</b> · {row.section}{row.instructor ? ` · ${row.instructor}` : ""}</li>)}</ul>
+                      {notedDone ? <p role="status">{notedDone}</p> : null}
+                      <SecondaryButton type="button" disabled={busy} onClick={() => void sendNoted()} data-guide-ignore="يعيد نشر بطاقة الأستاذ لأصحاب الملاحظات فيما عليه ملاحظات فقط">
+                        <Send aria-hidden="true" /> إعادة النشر لأصحابها فقط
+                      </SecondaryButton>
+                    </details>
+                  ) : null}
                 </div>
               ) : null}
               {picking ? <PublishRecipientPicker collegeId={collegeId} sectionId={sectionId} termId={termId} onChange={setPickedPeople}
@@ -937,9 +1035,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 <PrimaryButton
                   type="button"
                   data-guide-target="schedule.publish"
-                  onClick={() => void guardSend(picking ? sendPicked : create)}
+                  onClick={() => void askCards(picking ? pickedPeople.flatMap(person => person.ids) : null, () => guardSend(picking ? sendPicked : create))}
                   hidden={kind === "staff" && sendMode === "ta"}
-                  disabled={busy || reachChecking || (withRequests && sendMode === "edit" && !closesAt) || (picking && !pickedPeople.length)}
+                  disabled={busy || reachChecking || cardChoosing || (withRequests && sendMode === "edit" && !closesAt) || (picking && !pickedPeople.length)}
                 >
                   {picking ? <Send /> : <Link2 />}
                   {busy ? (picking ? "يرسل…" : "ينشئ الرابط…") : reachChecking ? "يفحص المقررات…"
