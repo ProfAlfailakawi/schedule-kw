@@ -5,7 +5,8 @@
  * بالتطبيع نفسه الذي تُعدّ به الموانع.
  *
  * واستثناءٌ واحدٌ طلبه المالك: **سعة الشعبة** غير المسجّلة لمقرّرٍ في الجدول تمنع التوقيع
- * (`capacityGapItems` ← `canSign({ missingCapacity })`)، وبقيةُ النواقص إشعارٌ كما كانت.
+ * (`capacityGapItems` ← `canSign({ missingCapacity })`)، وثانيهما (المالك 2026-11-14) أستاذٌ في الجدول بلا **درجةٍ علمية**
+ * (`rankGapItems` ← `canSign({ missingRanks })`، tests/rank-gap-sign-audit.ts)، وبقيةُ النواقص إشعارٌ كما كانت.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -130,7 +131,7 @@ const base = { courses: [course], instructorIds: new Set([7, 8]) };
   check(fn.includes('room.confidence!=="CONFIRMED"||!room.sectionIds.includes(sectionId)'), "خيارات نوع القاعة في التوقيع تطابق الأنواع المهيأة والقاعات النشطة المؤكدة للقسم");
   const bar = readFileSync(join(ROOT, "src/components/ApprovalBar.tsx"), "utf8");
   check(bar.includes("requiredCourseFieldsBlocksSign") && bar.includes("capacityBlocksSign") && !bar.includes("تمنع التوقيع حتى"), "زرّ التوقيع يتوقف على السعة ومتطلبات المقررات ولا يغيّر قواعد بقية النواقص");
-  check(bar.includes("canSignNow && blockingConflicts === 0 && missingCapacity === 0 && !requiredCourseFieldsBlocksSign ?"), "شارة «جاهز للتوقيع» لا تظهر قبل اكتمال متطلبات المقررات الإلزامية");
+  check(bar.includes("canSignNow && blockingConflicts === 0 && missingCapacity === 0 && missingRanks === 0 && !requiredCourseFieldsBlocksSign ?"), "شارة «جاهز للتوقيع» لا تظهر قبل اكتمال متطلبات المقررات الإلزامية");
   check(bar.includes("capacityBlocksSign ? (") && bar.includes("السعة ناقصة"), "شارةٌ حمراء «السعة ناقصة» تفتح قائمة الإدخال");
   check(server.slice(server.indexOf('app.get("/api/approvals"'), server.indexOf('app.get("/api/approvals/term"')).includes("missingCapacity: capacityGapItems(readiness.items).length"), "حالةُ الاعتماد تحمل عدد المقرّرات بلا سعة للشريط");
   check(!bar.includes('className="apb-room-capacities"'), "لا بطاقات سعةٍ مكرّرة تحت القائمة");

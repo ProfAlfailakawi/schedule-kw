@@ -5,7 +5,10 @@ import { roomTypeIn } from "./roomTypeForSection";
  * قاعدة المالك (2026-09-27): «التوقيع لا يمنعه إلا تعارض ماديّ». فهذه القائمة
  * تُعرض وتُستكمل، ولا يتوقف عليها توقيعٌ ولا إرسال — باستثناءٍ واحد أضافه
  * المالك: سعة الشعبة. مقررٌ بلا سعةٍ مسجّلة يمنع التوقيع (`capacityGapItems`)
- * لأن اقتراح الشعب وملاءمة القاعات وسقف التسجيل كلُّها تُبنى عليها. والصفوف تُقرأ بعد التطبيع
+ * لأن اقتراح الشعب وملاءمة القاعات وسقف التسجيل كلُّها تُبنى عليها.
+ * وثانيهما (المالك 2026-11-14): الدرجة العلمية. أستاذٌ له مواعيد في الجدول ولا درجةَ له في النصاب
+ * يمنع التوقيع (`rankGapItems`) لأن ساعاتِه ونصابَه تُحسب منها. والمنتدبون والمتقاعدون وسجلُّ «هيئة تدريسية»
+ * خارج العدّ، ولا يُعدّ شيءٌ إن لم تُعرَّف درجاتٌ في النصاب بعد. والصفوف تُقرأ بعد التطبيع
  * نفسه الذي تُعدّ به الموانع (`normalizeRow`)، فقاعةٌ مكتوبةٌ نصّاً تطابق
  * سجلّ المواقع ليست ناقصة.
  */
@@ -23,9 +26,11 @@ export interface DataReadinessInput {
   normalizeRow?: (row: any) => any;
   roomTypeOptions?: string[];
   roomTypeScopes?: Record<string, number[]>;
+  /** الدرجةُ العلمية لازمة: `hasRanks` درجاتٌ معرَّفة في النصاب، `rankedIds` من لهم درجة، `excludedIds` المنتدبون والمتقاعدون و«هيئة تدريسية». */
+  rankGap?: { hasRanks: boolean; rankedIds: Set<number>; excludedIds: Set<number>; nameById: Map<number, string> };
 }
 
-export function computeScheduleDataReadiness({ rows, courses, instructorIds, rooms: registryRooms, normalizeRow, roomTypeOptions, roomTypeScopes }: DataReadinessInput) {
+export function computeScheduleDataReadiness({ rows, courses, instructorIds, rooms: registryRooms, normalizeRow, roomTypeOptions, roomTypeScopes, rankGap }: DataReadinessInput) {
   const scheduleRows = normalizeRow ? rows.map(row => normalizeRow(row)) : rows;
   const courseById = new Map(courses.map(course => [Number(course.AdCourseId), course]));
   const roomById = new Map(registryRooms.map(room => [String(room.id), room]));
@@ -60,6 +65,11 @@ export function computeScheduleDataReadiness({ rows, courses, instructorIds, roo
     const start = timeToMinutes(String(row.fstarttime || "")), end = timeToMinutes(String(row.fendtime || ""));
     if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) rowFields.push("وقت بداية ونهاية صحيح");
     if (rowFields.length) missing.set(`schedule:${row.id}`, { kind: "schedule", id: String(row.id), label, fields: rowFields });
+    /* أستاذٌ مواعيدُه في الجدول بلا درجةٍ علمية: يُعدّ مرّةً واحدة (لا مرّةً لكل موعد). */
+    const rankedId = Number(row.AdInstructorId || 0);
+    if (rankGap?.hasRanks && rankedId && instructorIds.has(rankedId) && !rankGap.excludedIds.has(rankedId) && !rankGap.rankedIds.has(rankedId) && !missing.has(`instructor:${rankedId}`)) {
+      missing.set(`instructor:${rankedId}`, { kind: "instructor", id: String(rankedId), label: rankGap.nameById.get(rankedId) || `عضو ${rankedId}`, fields: [RANK_GAP_FIELD] });
+    }
     const roomId = String(row.roomId || "");
     /* قاعدة الحفظ نفسها في الخادم: مبنى مطلوب، ثم قاعةٌ مثبّتة أو «بانتظار التثبيت» (حالةٌ مقصودة لا نقص). */
     const hasBuilding = Boolean(String(row.buildingId || "").trim());
@@ -89,4 +99,12 @@ export const CAPACITY_GAP_FIELD = "سعة الشعبة";
 /** المقرراتُ التي في الجدول وسعتُها غير مسجّلة — هي وحدها ما يمنع التوقيع من النواقص. */
 export function capacityGapItems(items: DataGapItem[] | undefined | null): DataGapItem[] {
   return (items || []).filter(item => item.kind === "course" && item.fields.includes(CAPACITY_GAP_FIELD));
+}
+
+/** تسمية حقل الدرجة كما تكتبها قائمة النواقص — مصدرٌ واحد للخادم والواجهة. */
+export const RANK_GAP_FIELD = "الدرجة العلمية";
+
+/** الأساتذةُ الذين لهم مواعيد في الجدول ولا درجةَ لهم: يمنعون التوقيع كالسعة (قرار المالك 2026-11-14). */
+export function rankGapItems(items: DataGapItem[] | undefined | null): DataGapItem[] {
+  return (items || []).filter(item => item.kind === "instructor" && item.fields.includes(RANK_GAP_FIELD));
 }

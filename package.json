@@ -37,6 +37,7 @@
     "test:publish-pick-teachers": "tsx tests/publish-pick-teachers-audit.ts",
     "test:publish-live-cards": "tsx tests/publish-live-cards-audit.ts",
     "test:roster-add-instructor": "tsx tests/roster-add-instructor-audit.ts",
+    "test:rank-gap-sign": "tsx tests/rank-gap-sign-audit.ts",
     "test:publish-cards-per-person": "tsx tests/publish-cards-per-person-audit.ts",
     "test:visiting-status": "tsx tests/visiting-status-permanent-audit.ts",
     "test:decision-1913": "tsx tests/decision-1913-audit.ts",
