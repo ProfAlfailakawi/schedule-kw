@@ -270,7 +270,8 @@ app.get("/api/student-registration", requireAnyPermission([7, 14]), async (req: 
   /* كلُّ بندٍ ينتظر قراراً — مقرّرٌ أو حالةُ خريجٍ كاملة — يُعدّ مرّةً بالتصنيف نفسه. */
   const every: string[] = rows.flatMap((row: any) => row.caseLevel
     ? [String(row.caseStatus)]
-    : row.courses.filter((course: any) => !course.readOnly && !course.droppedByStudent).map((course: any) => !course.settled ? "pending"
+    /* ومقرّرٌ ألغاه الطالبُ لا ينتظر قراراً: لا يُعدّ في المجاميع. */
+    : row.courses.filter((course: any) => !course.readOnly).filter((course: any) => !course.droppedByStudent).map((course: any) => !course.settled ? "pending"
       : course.state === "awaiting-registration" ? "approved" : String(course.state)));
   res.setHeader("Cache-Control", "no-store");
   res.json({

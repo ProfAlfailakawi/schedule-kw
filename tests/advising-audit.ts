@@ -94,7 +94,7 @@ const read = (file: string) => fs.readFileSync(file, "utf8");
   check(journey.all === 3 && journey.pending === 1 && journey.approved === 1 && journey.registered === 1, "C2 كلُّ محطةٍ تعدّ طلبةً، لا مقرّرات", journey);
   const screen = read("src/components/StudentRegistration.tsx");
   check(screen.includes("totals={journey}") && screen.includes("for (const status of new Set(rowStatuses(row)))"), "C3 الشاشةُ ترسم الرحلةَ والمرشّحات بوحدة الطالب");
-  check(read("src/server/routes/studentRegistrationRoutes.ts").includes("!course.readOnly && !course.droppedByStudent"), "C4 والخادمُ لا يعدّ الملغى في المجاميع");
+  check(read("src/server/routes/studentRegistrationRoutes.ts").includes(".filter((course: any) => !course.readOnly).filter((course: any) => !course.droppedByStudent)"), "C4 والخادمُ لا يعدّ الملغى في المجاميع");
 }
 
 /* ── D ─────────────────────────────────────────────────────────────────────── */
