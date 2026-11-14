@@ -10,6 +10,9 @@
   },
   "actors": ["instructor", "departmentHead", "committeeChair", "standard", "visitor", "system", "rootAdmin"],
   "sources": [
+    "src/styles/60-admin-panels.css",
+    "src/utils/cardPulse.ts",
+    "src/components/inbox/CardPulse.tsx",
     "src/utils/teacherSafeFields.ts",
     "src/server/teacherCardLogic.ts",
     "src/server/teacherWeekFacts.ts",
@@ -1804,6 +1807,81 @@
         "tests": [
           "tests/teacher-card-r6-audit.ts",
           "tests/teacher-card-r6-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-080",
+      "kind": "functional",
+      "title": {
+        "ar": "نبض الكروت في وارد الأساتذة: أين وصل كل أستاذ، وتصفية بلمسة",
+        "en": "Card pulse in the instructors inbox: where each member stands, one tap to filter"
+      },
+      "text": {
+        "ar": "يجب أن يعرض وارد الأساتذة شريطاً واحداً بمراحل لا تتداخل: لم يفتحوا، فتحوا، أرسلوا (ثبّتوا جداولهم كما هي ولا قرار عليك)، ينتظرون قرارك، مكتمل. تُحسب من صفوف الوارد المحمّلة (cardPulse) بالأفعال المتّفقة مع العدد، ولا يُعدّ رابط «العرض فقط» ولا الطلب المستبدَل. كل مرحلة زرّ يصفّي القائمة (لم يفتحوا وفتحوا في «لم يشاركوا»، أرسلوا في «ثبّتوا كما هي»، ينتظرون في «بانتظار قرارك»، مكتمل في حالة «مكتمل»)، ويحلّ الشريط محلّ حلقة «أجاب» وسطر «لم يفتحوا» السابقين.",
+        "en": "The instructors inbox shall show one strip of non-overlapping stages: not opened, opened, sent (confirmed their schedule as is, nothing for you), awaiting your decision, complete. They are counted from the loaded inbox rows (cardPulse) with verbs agreeing with the count; view-only links and superseded requests are not counted. Each stage is a button that filters the list, and the strip replaces the former answer ring and the not-opened line."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط عرض فقط لم يُفتح ← لا يظهر في أي مرحلة.",
+          "en": "A view-only link never opened ← counted in no stage."
+        },
+        {
+          "ar": "لمس «فتحوا» ← القائمة تعرض من فتح ولم يرسل وحدهم.",
+          "en": "Tapping «opened» ← the list shows only those who opened without sending."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/inbox/CardPulse.tsx",
+          "src/utils/cardPulse.ts",
+          "src/components/InstructorInbox.tsx",
+          "src/styles/60-admin-panels.css"
+        ],
+        "tests": [
+          "tests/card-pulse-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-081",
+      "kind": "functional",
+      "title": {
+        "ar": "«ذكّر الباقين»: ورقة تأكيد بالعدد، والخادم يحكم بمن يُذكَّر، وحدّ للإرسال",
+        "en": "«Remind the rest»: a confirmation sheet with the count, the server decides who, and a send limit"
+      },
+      "text": {
+        "ar": "يجب أن يرسل زرّ «ذكّر الباقين» التذكير القائم (remindedAt وتنبيه الكرت، ورسالة واتساب بيد المنسّق) عبر POST ‎/api/instructor-requests/remind-pending، بعد ورقة تأكيد تقرأ العدد من dryRun بلا كتابة. يحكم الخادم لحظة الضغط (planReminders): طلب التعديل وحده، لم يُرسَل بعد، لا عرض فقط ولا تدريب ولا منتدب، ونافذته مفتوحة (الاستثناء الفردي يمدّها)، ولم يُذكَّر خلال ست ساعات (429 رمز reminder-rate-limited)، ولا أحد يلزمه التذكير 409. لا أكثر من ست ضغطات ناجحة في الساعة للضاغط الواحد (429 مع Retry-After). كل بطاقة يجب أن تقع في نطاق القارئ وإلا 403.",
+        "en": "The «Remind the rest» button shall send the existing reminder (remindedAt, the card notification, and a WhatsApp message left to the coordinator) through POST /api/instructor-requests/remind-pending, after a confirmation sheet that reads the count from a no-write dryRun. The server decides at press time (planReminders): edit-mode requests only, not yet sent, no view-only, training or visiting members, window open (an individual extension extends it), not reminded in the last six hours (429 code reminder-rate-limited), and 409 when nobody needs a reminder. No more than six successful presses per hour per user (429 with Retry-After). Every card must fall in the reader's scope or 403."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "تذكير ثانٍ مباشرة لمن ذُكّروا ← 429.",
+          "en": "A second reminder right away for the same people ← 429."
+        },
+        {
+          "ar": "بطاقة خارج النطاق ← 403.",
+          "en": "A card outside the scope ← 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/instructorRequestsRoutes.ts",
+          "src/utils/cardPulse.ts",
+          "src/components/inbox/CardPulse.tsx"
+        ],
+        "tests": [
+          "tests/card-pulse-audit.ts"
         ]
       }
     }

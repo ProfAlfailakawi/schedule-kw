@@ -32,6 +32,8 @@ import { pushHooks } from "../pushRoutes";
 import { notedRowsOf } from "../../utils/requestNotedScope";
 import { issueLinkMode, linkMode, linkModeLabel, taPhaseOwns } from "../../utils/linkMode";
 import { notOpened } from "../../utils/requestParticipation";
+import { AR, countOf } from "../../utils/arabicCount";
+import { planReminders, REMIND_COOLDOWN_MS, remindBurst, skipTally } from "../../utils/cardPulse";
 import { offeringBadge } from "../../utils/courseOffering";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { noteScheduleMutation, refuseIfTermFrozen, scheduleLockRefusal } from "../core/approvals";
@@ -1297,5 +1299,67 @@ app.post("/api/instructor-requests/:id/notified", requirePermission(7), async (r
   const at = new Date().toISOString();
   await Repository.setInstructorRequestDecisionNotified(stored.id, at);
   res.json({ ok: true, decisionNotifiedAt: at });
+});
+
+/* ── «ذكّر الباقين» من «نبض الكروت» ──────────────────────────────────────────────
+ * المسارُ نفسُه الذي يسلكه «ذكّر من لم يرد» في النشر: لحظةُ التذكير تُلحق بالطلب (remindedAt)، والتنبيهُ يصل كرتَ
+ * من فعّله، ورسالةُ واتساب بيد المنسّق. الجديدُ هنا أن الوارد يحدّد من يُراد تذكيرُهم (من لم يفتحوا ومن فتحوا) والخادمُ
+ * يحكم لحظةَ الضغط (planReminders): العرضُ فقط والتدريبُ والمنتدبُ ومن أرسل ومن انتهت نافذتُه — والاستثناءُ الفرديّ
+ * يمدّ النافذة — ومن ذُكِّر قبل أقلّ من ست ساعات. والحدُّ الثاني على الضاغط: ست مرّاتٍ في الساعة.
+ * dryRun يعيد الحكمَ بلا كتابة (ورقةُ التأكيد تقرؤه). النطاقُ: كلُّ طلبٍ يجب أن يقع في نطاق القارئ. */
+const remindPressLog = new Map<number, number[]>();
+app.post("/api/instructor-requests/remind-pending", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const termId = Number(req.body?.termId || 0);
+  const ids = [...new Set((Array.isArray(req.body?.requestIds) ? req.body.requestIds : []).map((value: unknown) => String(value || "")).filter(Boolean))] as string[];
+  if (!termId || !ids.length || ids.length > 600) { res.status(400).json({ error: "حدّد الفصل والبطاقات المراد تذكيرُ أصحابها." }); return; }
+  const dryRun = req.body?.dryRun === true;
+  const stored = (await Repository.getInstructorRequests(0, 0, termId)).filter(row => ids.includes(row.id));
+  const allowed = stored.filter(row => isScopeAllowed(req, Number(row.AdCollegeId), Number(row.AdSectionId)));
+  if (!allowed.length) { res.status(403).json({ error: "هذه البطاقات خارج نطاقك." }); return; }
+  const current = new Set((await currentInstructorRequestGeneration(allowed)).map(row => row.id));
+  const rows = allowed.filter(row => current.has(row.id) && row.status !== "superseded");
+  const scopes = new Map<string, { collegeId: number; sectionId: number }>();
+  for (const row of rows) scopes.set(`${row.AdCollegeId}:${row.AdSectionId}`, { collegeId: Number(row.AdCollegeId), sectionId: Number(row.AdSectionId) });
+  const excluded = new Map<number, unknown>();
+  for (const scope of scopes.values()) for (const [id, why] of await readCardExclusions(scope.collegeId, scope.sectionId, termId)) excluded.set(id, why);
+  const plan = planReminders(rows, { windowOpen: requestWindowOpen, excluded });
+  const instructors = await Repository.getInstructors();
+  const person = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), row]));
+  const nameOf = (row: InstructorRequest) => String(person.get(Number(row.AdInstructorId))?.AdInstructorName || "");
+  const skipped = plan.skipped.map(entry => ({ id: entry.row.id, instructorId: Number(entry.row.AdInstructorId), name: nameOf(entry.row), reason: entry.reason }));
+  res.setHeader("Cache-Control", "no-store");
+  if (dryRun) {
+    res.json({ dryRun: true, cooldownHours: REMIND_COOLDOWN_MS / 3_600_000, targets: plan.targets.map(row => ({ id: row.id, instructorId: Number(row.AdInstructorId), name: nameOf(row) })), skipped, tally: skipTally(plan.skipped) });
+    return;
+  }
+  const userId = Number(req.user?.SystemUserId || 0);
+  const now = Date.now();
+  const burst = remindBurst(remindPressLog.get(userId) || [], now);
+  if (!burst.allowed) {
+    res.setHeader("Retry-After", String(Math.ceil(burst.retryAfterMs / 1000)));
+    res.status(429).json({ error: "كثرتِ التذكيرات في الساعة الأخيرة. حاول بعد قليل.", code: "reminder-rate-limited", retryAfterSeconds: Math.ceil(burst.retryAfterMs / 1000) });
+    return;
+  }
+  if (!plan.targets.length) {
+    const onlyRecent = plan.skipped.length > 0 && plan.skipped.every(entry => entry.reason === "recent");
+    res.status(onlyRecent ? 429 : 409).json({
+      error: onlyRecent ? `ذُكِّر هؤلاء قبل أقلّ من ${countOf(REMIND_COOLDOWN_MS / 3_600_000, AR.hour)}. انتظر قليلاً.` : "لا أحدَ يلزمه التذكير الآن.",
+      code: onlyRecent ? "reminder-rate-limited" : "nothing-to-remind", skipped, tally: skipTally(plan.skipped),
+    });
+    return;
+  }
+  remindPressLog.set(userId, [...burst.recent, now]);
+  const at = new Date(now).toISOString();
+  await Promise.all(plan.targets.map(row => Repository.noteInstructorRequestReminded(row.id, at)));
+  const demo = Repository.isDemoMode() || Repository.isDemoRequest();
+  if (!demo) await pushHooks.cardReminded(plan.targets.map(row => ({ linkId: row.linkId, closesAt: row.window?.closesAt || "" })));
+  res.locals.auditChanges = `تذكير من لم يرسلوا من وارد الأساتذة: ${plan.targets.length}`;
+  res.json({
+    delivery: demo ? "demo" : "push", at, skipped, tally: skipTally(plan.skipped),
+    reminded: plan.targets.map(row => ({
+      id: row.id, instructorId: Number(row.AdInstructorId), name: nameOf(row), mobile: String(person.get(Number(row.AdInstructorId))?.AdInstructorMobile || ""),
+      linkId: row.linkId, closesAt: row.window?.closesAt || "",
+    })),
+  });
 });
 }
