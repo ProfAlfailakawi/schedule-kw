@@ -55,7 +55,10 @@
     "src/utils/reportInsights.ts",
     "src/utils/reportShare.ts",
     "src/utils/lensExport.ts",
-    "src/utils/morningBrief.ts"
+    "src/utils/morningBrief.ts",
+    "src/utils/professorWeekShape.ts",
+    "src/components/ReportInsightDrawers.tsx",
+    "src/styles/60-report-insight.css"
   ],
   "screens": [
     {
@@ -2821,6 +2824,86 @@
         ],
         "tests": [
           "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-051",
+      "kind": "functional",
+      "title": {
+        "ar": "أطول فراغ وشكل الأسبوع في عدسة الأساتذة",
+        "en": "Longest gap and week shape in the instructors lens"
+      },
+      "text": {
+        "ar": "يجب أن تعرض عدسة «الأساتذة» بجانب كل أستاذ أطول فراغٍ بين محاضرتين في اليوم نفسه (ساعة فأكثر)، وأن يفتح زرّ «شكل الأسبوع» داخل مجموعته نافذةً ترسم لكل يوم تدريس المحاضرات في مواضعها والانتظار الطويل بينها، مع عدد الأيام وأطول فراغ. ولمن يملك صلاحية مساحة الجدول يُرسم الشكل من مواعيد الأستاذ الظاهرة في نطاقه كله (عبر كليات عائلة القسم المسموحة) مع عدد التزاماته خارج النطاق، ولغيره من صفوف العدسة نفسها.",
+        "en": "The instructors lens shall show beside each instructor the longest wait between two lectures on the same day (one hour or more), and a «week shape» button inside the group shall open a panel that draws, for each teaching day, the lectures where they fall and the long waits between them, with the day count and the longest gap. For holders of the schedule-workspace permission the shape is drawn from the instructor's appointments visible across the reader's whole scope (across the permitted colleges of the department family) with the count of commitments outside that scope; for others it is drawn from the lens rows themselves."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair",
+        "departmentHead",
+        "viceDean"
+      ],
+      "acceptance": [
+        {
+          "ar": "فراغ ثلاث ساعات فأكثر يُلوَّن تنبيهاً، وفراغ أقل من ساعة لا يُحسب انتظاراً، ومحاضرتان متداخلتان لا تصنعان فراغاً.",
+          "en": "A gap of three hours or more is shown as a warning, a gap under one hour is not counted as a wait, and two overlapping lectures do not create a gap."
+        },
+        {
+          "ar": "من لا يملك صلاحية مساحة الجدول لا يُرسَل له طلب إلى الخادم، ويُرسم الشكل من صفوف التقرير.",
+          "en": "A reader without the schedule-workspace permission sends no server request, and the shape is drawn from the report rows."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx",
+          "src/components/ReportInsightDrawers.tsx",
+          "src/utils/professorWeekShape.ts"
+        ],
+        "tests": [
+          "tests/report-insight-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-052",
+      "kind": "functional",
+      "title": {
+        "ar": "القاعات الأكثر استخداماً وتفاصيل القاعة",
+        "en": "Most used rooms and room details"
+      },
+      "text": {
+        "ar": "يجب أن تعرض عدسة «نسبة الإشغال» تحت الشبكة أكثر ثماني قاعات استخداماً في النطاق المختار (الموقع أو عائلة القسم كلها، مع اسم الكلية في العائلة) مرتبةً بساعات الإشغال، لكلٍّ منها شريطٌ ونسبة الاستخدام التقديري = ساعات إشغالها ÷ (ساعات اليوم الرسمية × 5 أيام) وعدد مواعيدها، وأن تفتح القاعة نافذة تفاصيلها. ولمن يملك صلاحية مساحة الجدول تعرض النافذة — ونافذة «كل مواعيد القاعة» في عدسة «القاعات» — الجهات الأكثر استخداماً للقاعة والنوافذ المتاحة لكل يوم (30 دقيقة فأكثر) من مسار تفاصيل القاعة على الخادم، وحجوزات الأقسام الأخرى محسوبة بلا تفاصيل.",
+        "en": "The occupancy rate lens shall show under the grid the eight most used rooms in the chosen scope (the site or the whole department family, with the college name in the family) ranked by occupied hours, each with a bar, the estimated utilisation = its occupied hours ÷ (official day hours × 5 days) and its appointment count, and a room shall open its detail panel. For holders of the schedule-workspace permission the panel — and the «all room appointments» panel in the rooms lens — shows the departments that use the room most and the available windows per day (30 minutes or more) from the server room-detail route, with other departments' bookings counted but without detail."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair",
+        "departmentHead",
+        "viceDean",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "النسبة لا تتجاوز 100٪، والقائمة تتبع مفتاح «الموقع / عائلة القسم» نفسه.",
+          "en": "The rate never exceeds 100%, and the list follows the same site / department family switch."
+        },
+        {
+          "ar": "من لا يملك صلاحية مساحة الجدول يرى النسبة وعدد المواعيد وحدهما، ولا يُرسَل له طلب تفاصيل القاعة.",
+          "en": "A reader without the schedule-workspace permission sees only the rate and appointment count, and no room-detail request is sent."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx",
+          "src/components/ReportInsightDrawers.tsx"
+        ],
+        "tests": [
+          "tests/report-insight-audit.ts"
         ]
       }
     }
