@@ -1122,8 +1122,8 @@
           "en": "A course with no capacity blocks signing with a message to register the capacity first."
         },
         {
-          "ar": "أستاذٌ في الجدول بلا درجةٍ علمية يمنع التوقيع برسالة «اختر الدرجة من الأساتذة ثم وقّع» (يُعدّ مرّةً واحدة مهما تعدّدت مواعيدُه)، وشارةُ «الدرجة ناقصة» تفتح «الأساتذة» ولوحةَ استكمال الدرجات، ولا تظهر «جاهز للتوقيع» معها؛ والسعةُ تسبقها في الرسالة والتعارضُ المادي يسبقهما.",
-          "en": "An instructor in the schedule with no academic rank blocks signing with a message to pick the rank from the instructors screen first (counted once however many appointments they have), and the «rank missing» badge opens the instructors screen and the rank-completion panel, with no «ready to sign» shown; capacity comes before it in the message and a material conflict before both."
+          "ar": "أستاذٌ في الجدول بلا درجةٍ علمية يمنع التوقيع برسالة «اختر الدرجة من الأساتذة ثم وقّع» (يُعدّ مرّةً واحدة مهما تعدّدت مواعيدُه)، وزرُّ «توقيع» نفسُه معطّلٌ بتلميحٍ يقول السبب (كالسعة، لا الشارةُ وحدها)، وشارةُ «الدرجة ناقصة» تفتح «الأساتذة» ولوحةَ استكمال الدرجات، ولا تظهر «جاهز للتوقيع» معها؛ والسعةُ تسبقها في الرسالة والتعارضُ المادي يسبقهما.",
+          "en": "An instructor in the schedule with no academic rank blocks signing with a message to pick the rank from the instructors screen first (counted once however many appointments they have), and the «sign» button itself is disabled with a tooltip giving the reason (like capacity, not only the badge), and the «rank missing» badge opens the instructors screen and the rank-completion panel, with no «ready to sign» shown; capacity comes before it in the message and a material conflict before both."
         },
         {
           "ar": "نواقص البيانات الأخرى تُعرض إشعاراً ولا تمنع التوقيع.",
