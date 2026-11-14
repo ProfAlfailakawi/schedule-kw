@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AR, countOf } from "../utils/arabicCount";
 import { CalendarDays, Sparkles, Trash2 } from "lucide-react";
-import { defaultTermDates, isTermClosed, sortTermsNewest, suggestNextTermName, termEndDate, termStatus, TERM_STATUS_LABEL } from "../utils/termSequence";
+import { autoTermDue, defaultTermDates, isTermClosed, sameTermName, sortTermsNewest, suggestNextTermName, termEndDate, termStatus, TERM_STATUS_LABEL } from "../utils/termSequence";
 import {
   AddButton,
   EmbeddedAction,
@@ -25,8 +25,12 @@ import StudentUnitCapSetting from "./StudentUnitCapSetting";
 type Mode = "index" | "create" | "edit";
 /** `embedded` means the academic console already supplies the page identity. */
 /** `rootAdmin`: المدير الرئيسي يرى هنا سقفَ وحدات الطالب في «مساري» للجامعة كلها. */
-export default function Terms({ embedded = false, actionSlot = null, rootAdmin = false }: { embedded?: boolean; actionSlot?: HTMLElement | null; rootAdmin?: boolean }) {
+/** `onCount`: عددُ القائمة كما تُعرض، لشريط التبويبات — يتجدّد بعد كل إنشاء وحذف. */
+export default function Terms({ embedded = false, actionSlot = null, rootAdmin = false, onCount }: { embedded?: boolean; actionSlot?: HTMLElement | null; rootAdmin?: boolean; onCount?: (count: number) => void }) {
   const [items, setItems] = useState<any[]>([]),
+    [loadFailed, setLoadFailed] = useState(false),
+    [initial, setInitial] = useState(""),
+    [datesTouched, setDatesTouched] = useState(false),
     [mode, setMode] = useState<Mode>("index"),
     [editId, setEditId] = useState<number | null>(null),
     [selectedId, setSelectedId] = useState<number | null>(null),
@@ -52,12 +56,15 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
       if (!r.ok) throw 0;
       const data = sortTermsNewest(await r.json());
       setItems(data);
+      setLoadFailed(false);
+      onCount?.(data.length);
       setSelectedId((v) =>
         v && data.some((x: any) => x.AdTermId === v)
           ? v
           : data[0]?.AdTermId || null,
       );
     } catch {
+      setLoadFailed(true);
       setError("فشل تحميل بيانات الفصل الدراسي");
     } finally {
       setLoading(false);
@@ -77,6 +84,8 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
       /* التقويم المعتمد: أحدٌ قريبٌ من الموعد المعتاد، ١٤ أسبوعاً (الصيفي ٧). */
       const dates = defaultTermDates(suggestedTerm);
       setStart(dates?.start || ""); setWeeks(String(dates?.weeks || 14)); setClosed(false);
+      setDatesTouched(false);
+      setInitial(JSON.stringify([suggestedTerm, dates?.start || "", String(dates?.weeks || 14), false]));
       setMode("create");
       setError(null);
     },
@@ -88,14 +97,29 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
          the ten years of terms that pre-date the field, so saving makes the
          state explicit instead of quietly re-opening an old term. */
       setClosed(isTermClosed(x, items));
+      setDatesTouched(true);
+      setInitial(JSON.stringify([x.AdTermName, x.AdTermStart || "", String(x.AdTermWeeks || ""), isTermClosed(x, items)]));
       setMode("edit");
       setError(null);
+    },
+    /* في الإنشاء يتبع التقويمُ المقترح الاسمَ ما لم يُلمس التاريخ: «الصيفي» بعد «الثاني» يأخذ سبعة أسابيع لا أربعة عشر. */
+    changeName = (value: string) => {
+      setName(value);
+      if (mode !== "create" || datesTouched) return;
+      const dates = defaultTermDates(value);
+      if (dates) { setStart(dates.start); setWeeks(String(dates.weeks)); }
     };
+  const dirty = mode !== "index" && JSON.stringify([name, start, weeks, closed]) !== initial;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     if (!name.trim()) {
       setError("الرجاء إدخال الحقول المطلوبة بالأحمر");
+      return;
+    }
+    const clash = items.find(x => x.AdTermId !== editId && sameTermName(x.AdTermName, name));
+    if (clash) {
+      setError(`الفصل «${clash.AdTermName}» مسجّلٌ من قبل.`);
       return;
     }
     setSubmitting(true);
@@ -109,8 +133,9 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
             body: JSON.stringify({ AdTermName: name.trim(),
               AdTermStart: start || undefined, AdTermWeeks: Number(weeks) || undefined,
               /* إنشاء فصلٍ مستقبلي لا يعلن أنه الجاري. العلم التشغيلي يُكتب
-                 عند تعديل الفصل واختيار حالته صراحةً. */
-              AdTermClosed: mode === "edit" ? closed : undefined }),
+                 عند تعديل الفصل واختيار حالته صراحةً — وعند الإنشاء إن أُشّر «انتهى» وحده
+                 (فصلٌ سابقٌ يُسجَّل للأرشيف)، لا أن يُعرض المربّع ثم يُهمل. */
+              AdTermClosed: mode === "edit" ? closed : closed ? true : undefined }),
           },
         ),
         d = await r.json();
@@ -126,9 +151,12 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
       setSubmitting(false);
     }
   };
-  const remove = async (id: number) => {
+  const remove = async (term: any) => {
     if (submitting) return;
-    if (!(await visualConfirm({ title: "حذف الفصل الدراسي", message: "سيُحذف سجل الفصل الدراسي من النظام.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    const id = Number(term.AdTermId);
+    /* الفصلُ الذي تنشئه المهمة التلقائية الآن يعود بعد حذفه في دورتها التالية — يُقال ذلك قبل الحذف. */
+    const recreated = sameTermName(autoTermDue().name, term.AdTermName) ? " هذا هو الفصل الذي تنشئه المهمة التلقائية الآن، فسيُعاد إنشاؤه في دورتها التالية." : "";
+    if (!(await visualConfirm({ title: `حذف «${term.AdTermName}»`, message: `سيُحذف الفصل «${term.AdTermName}» من النظام. إن كان له أي موعد في الجدول فلن يُحذف.${recreated}`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -157,7 +185,7 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
       filtered.find((x) => x.AdTermId === selectedId) || filtered[0] || null,
     activeId = selected?.AdTermId ?? null;
   const editorDrawer = mode !== "index" ? (
-      <CatalogFormDrawer onClose={back} label={mode === "create" ? "إنشاء فصل جديد" : "تعديل بيانات الفصل"}>
+      <CatalogFormDrawer onClose={back} dirty={dirty} label={mode === "create" ? "إنشاء فصل جديد" : "تعديل بيانات الفصل"}>
         <PageTitle
           eyebrow="البيانات الأكاديمية"
           subtitle="يظهر في الجداول والتقارير"
@@ -180,7 +208,7 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
               <Field label="الفصل الدراسي" required>
                 <input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => changeName(e.target.value)}
                   aria-label="الفصل الدراسي"
                   autoComplete="off"
                   autoFocus
@@ -191,7 +219,7 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
                 <input
                   type="date"
                   value={start}
-                  onChange={(e) => setStart(e.target.value)}
+                  onChange={(e) => { setStart(e.target.value); setDatesTouched(true); }}
                   aria-label="تاريخ بداية التدريس"
                 />
               </Field>
@@ -201,7 +229,7 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
                   min={1}
                   max={30}
                   value={weeks}
-                  onChange={(e) => setWeeks(e.target.value)}
+                  onChange={(e) => { setWeeks(e.target.value); setDatesTouched(true); }}
                   aria-label="عدد أسابيع الفصل"
                   inputMode="numeric"
                 />
@@ -254,7 +282,7 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
           الفصول الدراسية
         </PageTitle>
       )}
-      {error ? <Notice>{error}</Notice> : null}
+      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
       {rootAdmin ? <StudentUnitCapSetting /> : null}
       <div className="catalog-workspace" aria-busy={loading}>
         <Surface className="catalog-master">
@@ -288,9 +316,9 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
             </RecordDeck>
           ) : (
             <EmptyState
-              title={query ? "لا يوجد فصل مطابق" : "لا توجد فصول دراسية بعد"}
-              detail={query ? "جرّب عبارة أخرى أو امسح البحث." : "أنشئ الفصل الأول ليظهر في الجداول والتقارير."}
-              action={query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+              title={loadFailed ? "تعذّر تحميل الفصول" : query ? "لا يوجد فصل مطابق" : "لا توجد فصول دراسية بعد"}
+              detail={loadFailed ? "لم تصل القائمة من الخادم؛ هذا لا يعني أنها فارغة." : query ? "جرّب عبارة أخرى أو امسح البحث." : "أنشئ الفصل الأول ليظهر في الجداول والتقارير."}
+              action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
             />
           )}
         </Surface>
@@ -321,7 +349,7 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
                 <SecondaryButton
                   data-guide-ignore="إجراء حذف حساس داخل شاشة الإدارة ويستخدم تأكيد الشاشة نفسه"
                   className="danger-action"
-                  onClick={() => remove(selected.AdTermId)}
+                  onClick={() => remove(selected)}
                 >
                   <Trash2 /> حذف
                 </SecondaryButton>

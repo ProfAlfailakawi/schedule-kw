@@ -337,13 +337,26 @@ export function useDrawerA11y<T extends HTMLElement>(onClose: () => void) {
 }
 /** The academic add/edit side panel: a backdrop, a keyboard-complete drawer, one close. */
 /* `raised`: درجٌ يُفتح من داخل ورقة (`.transfer-backdrop` طبقتها 500) لا من صفحة؛ بطبقته العادية 121 يُرسم تحتها فلا يُرى ولا يُلمس. */
-export function CatalogFormDrawer({ label, onClose, children, wide = false, raised = false }: { label: string; onClose: () => void; children: React.ReactNode; wide?: boolean; raised?: boolean }) {
-  const ref = useDrawerA11y<HTMLElement>(onClose);
+/* `dirty` (اختياري): نموذجٌ فيه ما لم يُحفظ لا يُغلق بنقرةٍ خارجه ولا بـEscape ولا بـ✕ دون تأكيد.
+   زرُّ «تراجع» في النموذج نفسه يبقى خروجاً صريحاً بلا سؤال. من لا يمرّره لا يتغيّر عنده شيء. */
+export function CatalogFormDrawer({ label, onClose, children, wide = false, raised = false, dirty = false }: { label: string; onClose: () => void; children: React.ReactNode; wide?: boolean; raised?: boolean; dirty?: boolean }) {
+  const dirtyRef = React.useRef(dirty);
+  dirtyRef.current = dirty;
+  const asking = React.useRef(false);
+  const guardedClose = React.useCallback(async () => {
+    if (!dirtyRef.current) { onClose(); return; }
+    if (asking.current) return;
+    asking.current = true;
+    try {
+      if (await visualConfirm({ title: "تجاهل التعديلات؟", message: "في النموذج بياناتٌ لم تُحفظ. إن أغلقته ضاعت.", confirmLabel: "إغلاق دون حفظ", cancelLabel: "متابعة التحرير", tone: "warning", safeCancel: true })) onClose();
+    } finally { asking.current = false; }
+  }, [onClose]);
+  const ref = useDrawerA11y<HTMLElement>(() => { void guardedClose(); });
   return (
     <>
-      <div className={`catalog-form-backdrop no-print ${raised ? "is-raised" : ""}`.trim()} onMouseDown={onClose} aria-hidden="true" />
+      <div className={`catalog-form-backdrop no-print ${raised ? "is-raised" : ""}`.trim()} onMouseDown={() => void guardedClose()} aria-hidden="true" />
       <aside ref={ref} className={`content-stack editor-page catalog-form-drawer no-print ${wide ? "catalog-form-drawer-wide" : ""} ${raised ? "is-raised" : ""}`.trim()} role="dialog" aria-modal="true" aria-label={label}>
-        <button type="button" className="drawer-close catalog-drawer-close" onClick={onClose} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
+        <button type="button" className="drawer-close catalog-drawer-close" onClick={() => void guardedClose()} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
         {children}
       </aside>
     </>

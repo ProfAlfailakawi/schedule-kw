@@ -202,7 +202,8 @@ check(/app\.get\("\/api\/admin\/teaching-load\/member\/:id",[^\n]*requireRootAdm
   const memberPut = block.slice(block.indexOf('app.put("/api/admin/teaching-load/member/:id"'));
   check(memberPut.includes("teachingLoadProblem({ ranks: config.ranks, assignments:") && memberPut.indexOf("teachingLoadProblem") < memberPut.indexOf("saveTeachingLoadConfig"), "حفظُ استثناء العضو يمرّ بالتحقّق نفسه (الساعات الصحيحة) قبل الكتابة");
 }
-check(/Math\.round\(loadRaw\)/.test(server) && fs.readFileSync("src/db/repository.ts", "utf8").includes("const loadValue = Math.round(Number(load));"), "نصابُ الأستاذ المسجّل يُخزَّن صحيحاً");
+/* التقريب صار في readInstructorLoad (academicGuards) يقرؤها الإنشاء والتعديل، وما فوق الحد يُرفض لا يُمحى. */
+check(/readInstructorLoad\(req\.body\?\.AdInstructorLoad\)/.test(server) && /return \{ load: Math\.round\(value\) \}/.test(fs.readFileSync("src/utils/academicGuards.ts", "utf8")) && fs.readFileSync("src/db/repository.ts", "utf8").includes("const loadValue = Math.round(Number(load));"), "نصابُ الأستاذ المسجّل يُخزَّن صحيحاً");
 
 /* ── كلُّ موضعٍ يقيس النصاب يقرأ الاستثناء ثم الدرجة (loadCapOf) ── */
 {

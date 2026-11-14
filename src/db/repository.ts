@@ -3346,8 +3346,13 @@ export const Repository = {
   deleteTerm: async (id: number): Promise<void> => {
     invalidateReference(REFERENCE_KEYS.terms);
     if (firestoreDb && !demoSandboxContext.getStore()) {
+      const doc = await firestoreDb.collection("terms").doc(`term_${id}`).get();
       await archiveBeforeDelete("terms", `term_${id}`);
       await firestoreDb.collection("terms").doc(`term_${id}`).delete();
+      /* حجزُ الاسم في autoTermClaims يُفكّ مع الفصل (createTermIfAbsent): فلا يتصرّف الحذف هنا
+         غير تصرّفه في ملف البيانات — الفصلُ الواجب وجوده يُعاد إنشاؤه، وغيرُه لا يُمسّ. */
+      const name = doc.exists ? String((doc.data() as AdTerm).AdTermName || "") : "";
+      if (name) await firestoreDb.collection("autoTermClaims").doc(createHash("sha256").update(name.replace(/\s+/g, "")).digest("hex").slice(0, 32)).delete().catch(() => undefined);
       return;
     }
     db.terms = db.terms.filter(t => t.AdTermId !== id);
