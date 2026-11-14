@@ -28,6 +28,7 @@ import { readLiveVisitingRoster, readVisitingStatus } from "../core/visiting";
 import { rosterMemberIds } from "../../utils/rosterGroups";
 import { readInstructorLoad } from "../../utils/academicGuards";
 import { cleanText, TEXT_LIMIT } from "../core/input";
+import { deleteBlockers, refuseWithBlocker } from "../deleteImpact";
 
 /**
  * ── الرقم المدني والهاتف لأهل القسم وحدهم ──────────────────────────────────
@@ -351,10 +352,8 @@ app.delete("/api/instructors/:id", requirePermission(3), async (req: Request, re
   const id = parseInt(req.params.id);
   // Legacy SQL has FSchedule -> AdInstructor FK. Do not silently orphan schedule
   // rows: block the delete while any schedule still references this instructor.
-  if (await Repository.hasSchedulesForInstructor(id)) {
-    res.status(409).json({ error: "لا يمكن حذف عضو هيئة التدريس لوجود بيانات مرتبطة به في الجدول الدراسي" });
-    return;
-  }
+  const [blocked] = await deleteBlockers("instructor", id);
+  if (blocked) { refuseWithBlocker(res, blocked); return; }
   await Repository.deleteInstructor(id);
   res.json({ success: true });
 });

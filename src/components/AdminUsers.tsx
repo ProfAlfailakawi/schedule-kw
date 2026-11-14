@@ -22,6 +22,7 @@ import {
   visualConfirm,
   useDialogDismiss,
 } from "./ui";
+import { confirmDeleteWithImpact } from "./DeleteImpact";
 import {
   AdCollege,
   AdCollegeUserAssign,
@@ -975,12 +976,13 @@ export default function AdminUsers({
     // is not a confirmation.
     const who = users.find(user => user.SystemUserId === id);
     if (deleteRefusal(who || null)) { setError(deleteRefusal(who || null)); return; }
-    if (!(await visualConfirm({
+    if (!(await confirmDeleteWithImpact({
+      entity: "user",
+      id,
       title: `حذف «${who?.Name || "المستخدم"}»`,
       message: "ستُحذف معه صلاحياته وارتباطه بالأقسام العلمية، ولا يمكن التراجع.",
       confirmLabel: "حذف المستخدم",
-      tone: "danger",
-    }))) return;
+    })).confirmed) return;
     try {
       await api(`/api/users/${id}`, { method: "DELETE" });
       setSelectedUserId(null);

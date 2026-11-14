@@ -1312,6 +1312,49 @@
         { "ar": "زر «حسابات رؤساء الأقسام» يطلب ‎/api/users/department-heads/preview ويعرض الخطة قبل أي كتابة.", "en": "The department-head accounts button calls /api/users/department-heads/preview and shows the plan before any write." }
       ],
       "evidence": { "code": ["src/components/AdminUsers.tsx", "src/components/seats/SeatsAdmin.tsx", "src/components/seats/SeatPanel.tsx", "src/styles/35-visual-polish.css"], "tests": ["tests/admin-station-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-059",
+      "kind": "functional",
+      "title": {
+        "ar": "«لو حذفت؟» قبل حذف حساب",
+        "en": "What-if-I-delete map before deleting an account"
+      },
+      "text": {
+        "ar": "يجب أن تعرض نافذةُ حذف الحساب ما يُحذف معه وما يبقى مرتبطاً به: الصلاحيات والنطاقات (الكليات والأقسام) التي تُحذف معه، وأعضاءُ الفريق على الحساب وشاغله، وارتباطُه بلوحة أستاذ، وأن تعطّل التأكيد وتذكر السبب إن رفض الخادم حذفه (حساب الإدارة الرئيسي، حسابك أنت، آخر مدير فاعل) بالدالة نفسها (userDeleteRefusal) التي يرفض بها المسار. أعدادٌ فقط بلا بياناتٍ شخصية.",
+        "en": "The account delete dialog shall show what goes with the account and what stays linked to it: the permissions and scopes (colleges and departments) deleted with it, the team members on it and its holder, and its instructor-panel link, and shall disable confirmation and state the reason when the server would refuse (the root account, your own account, the last active manager) through the very function (userDeleteRefusal) the route refuses with. Counts only, no personal data."
+      },
+      "rationale": {
+        "ar": "كان التأكيد يذكر الصلاحيات والأقسام بلا أعداد، ولا يُظهر فريق الكرسي المرتبط بالحساب.",
+        "en": "The confirmation named permissions and departments without counts and did not show the seat team tied to the account."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف حسابٍ له صلاحيات ونطاقات ← تُعرض أعدادها قبل التأكيد.",
+          "en": "Deleting an account with permissions and scopes shows their counts before confirming."
+        },
+        {
+          "ar": "حذف آخر مدير فاعل ← «لا يمكن الحذف الآن» بنص الخادم والزرّ معطّل.",
+          "en": "Deleting the last active manager shows «cannot delete now» with the server's text and a disabled button."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/deleteImpact.ts#deleteBlockers",
+          "src/utils/deleteImpact.ts#blockersFor",
+          "src/components/AdminUsers.tsx#deleteUser",
+          "src/server/routes/usersRoutes.ts#registerUsersRoutes"
+        ],
+        "tests": [
+          "tests/delete-impact-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

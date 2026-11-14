@@ -4847,6 +4847,16 @@ export const Repository = {
       .sort((a, b) => b.rows - a.rows);
   },
 
+  /* كم موعداً لهذا الأستاذ/المقرر في كل فصل — لخريطة «لو حذفت؟» (قراءةٌ فقط، استعلامٌ مفهرس على المعرّف). */
+  countSchedulesByTerm: async (field: "AdInstructorId" | "AdCourseId", id: number): Promise<Map<number, number>> => {
+    const counts = new Map<number, number>();
+    const rows: Array<{ AdTermId?: unknown }> = firestoreDb && !demoSandboxContext.getStore()
+      ? (await firestoreDb.collection("schedules").where(field, "==", id).select("AdTermId").get()).docs.map(doc => doc.data() as { AdTermId?: unknown })
+      : (db.schedules || []).filter(row => Number((row as any)[field]) === Number(id)) as Array<{ AdTermId?: unknown }>;
+    for (const row of rows) counts.set(Number(row.AdTermId), (counts.get(Number(row.AdTermId)) || 0) + 1);
+    return counts;
+  },
+
   hasSchedulesForInstructor: async (instructorId: number): Promise<boolean> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const snap = await firestoreDb.collection("schedules").where("AdInstructorId", "==", instructorId).limit(1).get();

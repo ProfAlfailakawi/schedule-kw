@@ -14,7 +14,8 @@ import { ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, isAcademicRole, roleDefinition,
 import { AR, countOf } from "../../utils/arabicCount";
 import { adminSetPasswordFields, newPasswordProblem } from "../accountPassword";
 import { authCache, type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID } from "../core/auth";
-import { adminPasswordProblem, userDeleteRefusal, userEditDiff, userEditRefusal } from "../userAdminGuards";
+import { adminPasswordProblem, userEditDiff, userEditRefusal } from "../userAdminGuards";
+import { deleteBlockers, refuseWithBlocker } from "../deleteImpact";
 import { safeSystemUser } from "../core/scope";
 
 /* The schedule workspace and مركز الذكاء are the same permission — every
@@ -533,8 +534,9 @@ app.delete("/api/users/:id", requirePermission(11), async (req: Request, res: Re
   const id = parseInt(req.params.id);
   const users = await Repository.getUsers();
   const target = users.find(user => Number(user.SystemUserId) === id);
-  const refusal = userDeleteRefusal({ actor: { id: Number((req as AuthenticatedRequest).user?.SystemUserId), permissions: (req as AuthenticatedRequest).permissions || [] }, rootId: ROOT_ADMIN_USER_ID, target: target as any, users: users as any });
-  if (refusal) { res.status(target ? 403 : 404).json({ error: refusal }); return; }
+  /* الحارسُ واحدٌ مع خريطة «لو حذفت؟» (server/deleteImpact.ts). */
+  const [blocked] = await deleteBlockers("user", id, { actor: { id: Number((req as AuthenticatedRequest).user?.SystemUserId), permissions: (req as AuthenticatedRequest).permissions || [] } });
+  if (blocked) { refuseWithBlocker(res, blocked); return; }
   await Repository.deleteUser(id);
   await Repository.deleteSessionsForUser(id);
   authCache.clear();

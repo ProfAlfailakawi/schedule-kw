@@ -45,7 +45,7 @@ check(userDeleteRefusal({ actor: { id: 5, permissions: [11] }, rootId: ROOT, tar
 check(Boolean(userDeleteRefusal({ actor: { id: 1, permissions: [11] }, rootId: ROOT, target: adminA, users: onlyAdmin })), "G6 آخر مديرٍ فاعل لا يُحذف");
 check(Boolean(adminPasswordProblem("1234567")) && adminPasswordProblem("12345678") === null && Boolean(adminPasswordProblem("x".repeat(129))), "G7 كلمة يكتبها مسؤول: 8 إلى 128 (والافتراضية 12345678 مقبولة بقرار المالك)");
 const usersRoutes = read("src/server/routes/usersRoutes.ts");
-check(/userEditRefusal\(\{/.test(usersRoutes) && /userDeleteRefusal\(\{/.test(usersRoutes) && usersRoutes.includes("adminPasswordProblem(String(password))"), "G8 الطرق تستعمل الحرّاس قبل أي كتابة");
+check(/userEditRefusal\(\{/.test(usersRoutes) && /deleteBlockers\("user", id/.test(usersRoutes) && /userDeleteRefusal\(\{/.test(read("src/server/deleteImpact.ts")) && usersRoutes.includes("adminPasswordProblem(String(password))"), "G8 الطرق تستعمل الحرّاس قبل أي كتابة");
 check(usersRoutes.includes('code: "current-password-required"') && usersRoutes.includes("Repository.verifyPassword(current"), "G9 كلمتك أنت لا تُغيَّر من الشاشة بلا الحالية");
 check(usersRoutes.includes("IsRootAccount: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID"), "G10 الواجهة تعرف الحساب الرئيسي لتُطفئ ما يرفضه الخادم");
 const seats = read("src/server/seatsRoutes.ts");
@@ -95,11 +95,11 @@ check(ui.includes("إلغاء الاستيراد") && ui.includes("const abandon
 
 /* L */
 const loc = read("src/server/routes/locationsRoutes.ts");
-check(loc.includes("async function locationUsage") && loc.includes('app.get("/api/admin/location-setup/usage"'), "L1 عددُ المواعيد في الفصل الحالي وما بعده");
+check(read("src/server/deleteImpact.ts").includes("export async function locationUsage") && loc.includes('import { locationUsage } from "../deleteImpact"') && loc.includes('app.get("/api/admin/location-setup/usage"'), "L1 عددُ المواعيد في الفصل الحالي وما بعده");
 check((loc.match(/req\.get\("x-schedule-confirm"\)!==LOCATION_IN_USE_CONFIRM/g) || []).length === 2, "L1 إيقافُ قاعةٍ أو مبنى مستعمل يلزمه تأكيدٌ صريح");
 check((loc.match(/code:"inactive-exists"/g) || []).length === 2, "L2 الرمزُ الموجود موقوفاً يُعرض لإعادة التفعيل");
 const quick = read("src/components/LocationQuickSetup.tsx");
-check(!quick.includes("window.confirm") && quick.includes("usageLine(usage)") && quick.includes('e?.data?.code === "inactive-exists"') && quick.includes("<RoomDoorQr links={doorLinks} roomId={room.id}/>"), "L3 الشاشة: تأكيدٌ مرئي بالعدد، وإعادة تفعيل، وQR لكل قاعة");
+check(!quick.includes("window.confirm") && quick.includes("confirmDeleteWithImpact") && quick.includes('e?.data?.code === "inactive-exists"') && quick.includes("<RoomDoorQr links={doorLinks} roomId={room.id}/>"), "L3 الشاشة: تأكيدٌ مرئي بالعدد، وإعادة تفعيل، وQR لكل قاعة");
 check(!fs.existsSync("src/components/LocationRegistryAdmin.tsx") && !read("docs/srs/modules/03-loc.json").includes("LocationRegistryAdmin"), "L4 شاشة السجل الميتة حُذفت ومراجعها");
 
 /* U */

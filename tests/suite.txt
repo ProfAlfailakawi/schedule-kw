@@ -303,3 +303,4 @@ test:query-center-plus
 test:vault-jobs
 test:advisor-seat-quota
 test:live-board
+test:delete-impact

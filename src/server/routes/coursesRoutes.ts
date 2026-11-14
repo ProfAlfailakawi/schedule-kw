@@ -28,6 +28,7 @@ import { sortCoursesByName, sortTermsNewestServer } from "../core/ordering";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { degreeRuleFromName, planDegreeRule, storedDegreeRuleForSection, surveyPayloadCache } from "../core/studentIdentity";
 import { serviceNames, sheetSidesBySection } from "../planBadgeShared";
+import { deleteBlockers, refuseWithBlocker } from "../deleteImpact";
 
 /** Same, but a decimal is legitimate (teaching hours run 1.5, 2.5 …). */
 function boundedDecimal(value: unknown, min: number, max: number, fallback: number | null = null): number | null {
@@ -776,18 +777,11 @@ app.delete("/api/courses/:id", requirePermission(6), async (req: AuthenticatedRe
     return;
   }
   if (course && !await committeeCatalogEditAllowed(req, Number(course.AdSectionId))) { refuseCommitteeCatalogEdit(res); return; }
-  // Curriculum history is a first-class reference just like timetable history.
-  if (course) {
-    const memberships=await Repository.getCurriculumPlanCourses(course.AdSectionId);
-    if(memberships.some(row=>Number(row.AdCourseId)===id)){
-      res.status(409).json({error:"لا يمكن حذف المقرر لأنه مرتبط بصحيفة أكاديمية. أخرجه من الصحيفة («المقررات ← الصحائف الأكاديمية») أو اتركه تاريخياً بدلاً من حذفه.",code:"curriculum-linked",sectionId:Number(course.AdSectionId)});return;
-    }
-  }
-  // Legacy SQL has FSchedule -> AdCourse FK. Do not silently orphan schedule rows in Firestore.
-  if (await Repository.hasSchedulesForCourse(id)) {
-    res.status(409).json({ error: "لا يمكن حذف المقرر الدراسي لوجود بيانات مرتبطة به في الجدول الدراسي" });
-    return;
-  }
+  // Curriculum history is a first-class reference just like timetable history, and
+  // Legacy SQL has FSchedule -> AdCourse FK (do not silently orphan schedule rows in Firestore).
+  // الحارسُ واحدٌ مع خريطة «لو حذفت؟» (server/deleteImpact.ts).
+  const [blocked] = await deleteBlockers("course", id);
+  if (blocked) { refuseWithBlocker(res, blocked); return; }
   await Repository.deleteCourse(id);
   res.json({ success: true });
 });
