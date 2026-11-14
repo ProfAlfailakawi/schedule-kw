@@ -9,7 +9,7 @@ import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
   ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, Grid3x3, Network,
-  Bookmark, Link2, Lightbulb, Sunrise,
+  Bookmark, Link2, Lightbulb, Sunrise, Hourglass,
 } from "lucide-react";
 import { resolveAsk, type AskAnswer, type AskOption } from "../utils/queryAsk";
 import { buildReportInsights } from "../utils/reportInsights";
@@ -39,7 +39,7 @@ import {
   buildVisitingHistoryModel, sortVisitingTerms, visitingHeatLevel, termSectionCount,
   type VisitingHistoryPerson, type VisitingHistoryYear,
 } from "../utils/visitingHistory";
-import { clockRangesOverlap, formatScheduleTimeRange, scheduleClockForDisplay, SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES, SCHEDULE_DAY_SPAN } from "../utils/scheduleTime";
+import { clockRangesOverlap, formatCompactDurationArabic, formatScheduleTimeRange, scheduleClockForDisplay, SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_DAY_START_TIME, SCHEDULE_SLOT_MINUTES, SCHEDULE_DAY_SPAN } from "../utils/scheduleTime";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { summarizeVisitingTeaching, weeklyHours, type VisitingTeachingSummary } from "../utils/visitingTeaching";
 import { HISTORICAL_FINALITY_LABEL } from "../utils/finality";
@@ -83,6 +83,8 @@ import { compactCampusLabels } from "../utils/campusChips";
 import OccupancyHeatGrid from "./OccupancyHeatGrid";
 import OccupancySlotPanel from "./OccupancySlotPanel";
 import { canSeeDecisionBoard, decisionBoardScope } from "../utils/decisionBoardScope";
+import { longestWaitMinutes } from "../utils/professorWeekShape";
+import { RoomInsight, RoomInsightDrawer, WeekShapeDrawer } from "./ReportInsightDrawers";
 
 /**
  * One question, seven lenses.
@@ -145,6 +147,8 @@ interface Props {
    * تسعُ نوافذَ يفتحها ليعرف أنها ليست ما أراد.
    */
   roleId?: string;
+  /** يملك صلاحية مساحة الجدول (الشاشة 7): تفاصيل القاعة وشكل الأسبوع من الخادم تتطلّبها. */
+  canReadWorkspace?: boolean;
 }
 
 interface Filters {
@@ -532,7 +536,7 @@ const formatBriefDate = (iso: string) => {
 /** Rows shown before the phone fold in the appointment list (display only). */
 const QUERY_PHONE_HEAD = 6;
 
-export default function Reports({ mode, user, scopes = [], roleId }: Props) {
+export default function Reports({ mode, user, scopes = [], roleId, canReadWorkspace = false }: Props) {
   const planBadges = usePlanBadges();
   const prefKey = `schedule-unified-prefs-${user?.SystemUserId || 0}`;
   const scopeOwner = Number(user?.SystemUserId || 0);
@@ -697,6 +701,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const [roomDay, setRoomDay] = useState<number | "week">("week");
   /** Which square of the occupancy grid the reader asked about. */
   const [roomPick, setRoomPick] = useState<{ room: string; roomId?: string; point: number | null } | null>(null);
+  /* «شكل الأسبوع» لأستاذ، ونافذة قاعةٍ من «الأكثر استخداماً» في نسبة الإشغال. */
+  const [weekShapeFor, setWeekShapeFor] = useState<string | null>(null);
+  const [roomInsightFor, setRoomInsightFor] = useState<{ name: string; roomId?: string; code: string; hall: string; utilization: number; sessions: number; site?: string } | null>(null);
   /* نسبة الإشغال: الموقع المفتوح أو عائلة القسم كلها، والخانة التي فُتحت. */
   const [occupancyScope, setOccupancyScope] = useState<"site" | "family">("site");
   const [occupancyPick, setOccupancyPick] = useState<{ day: number; hour: number | null } | null>(null);
@@ -1590,7 +1597,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         load: rows.reduce((total, row) => total + duration(row) * DAYS.filter(day => (row as any)[day.flag]).length, 0),
         /* J1: the hours beside a name are the teaching load (credit hours, each section once in its college), not contact minutes. */
         teaching: teachingHoursByInstructor(rows, new Map([...courseById.values()].map(course => [Number(course.AdCourseId), effectiveCourseHours(course)]))).get(Number(id)) || 0,
-        days: new Set(rows.flatMap(row => DAYS.filter(day => (row as any)[day.flag]).map(day => day.key))).size
+        days: new Set(rows.flatMap(row => DAYS.filter(day => (row as any)[day.flag]).map(day => day.key))).size,
+        /* أطول انتظارٍ بين محاضرتين في اليوم نفسه (ساعةٌ فأكثر). */
+        gap: longestWaitMinutes(rows),
       }))
       .sort((a, b) => byArabic(a.name, b.name));
   }, [results, instructorById, courseById]);
@@ -1888,6 +1897,25 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       heat: buildOccupancyHeat(occupancyRows.filter(row => Number(row.AdCollegeId) === scope.collegeId && Number(row.AdSectionId) === scope.sectionId), occupancyRoomKey),
     })).filter(site => site.heat.lectures > 0);
   }, [occupancyWanted, familyActive, familyScopes, occupancyRows, occupancyRoomKey, collegeById]);
+  /* القاعات الأكثر استخداماً في النطاق نفسه (الموقع أو عائلة القسم): ساعات
+     إشغال القاعة ÷ ساعات اليوم الرسمية على خمسة أيام — الاستخدام التقديري. */
+  const occupancyTopRooms = useMemo(() => {
+    if (lens !== "occupancy") return [] as Array<{ key: string; name: string; roomId?: string; code: string; hall: string; collegeId: number; sessions: number; occupied: number; utilization: number }>;
+    const rooms = new Map<string, { key: string; name: string; roomId?: string; code: string; hall: string; collegeId: number; sessions: number; occupied: number; utilization: number }>();
+    occupancyRows.forEach(row => {
+      const key = occupancyRoomKey(row);
+      if (!key) return;
+      const item = rooms.get(key) || { key, name: placeOfRow(row), roomId: row.roomId ? String(row.roomId) : undefined, code: String(row.AdRoomCode || "").trim(), hall: String(row.AdRoomHall || "").trim(), collegeId: Number(row.AdCollegeId) || 0, sessions: 0, occupied: 0, utilization: 0 };
+      item.sessions += 1;
+      item.occupied += Math.max(0, minutes(row.fendtime) - minutes(row.fstarttime)) * DAYS.filter(day => (row as any)[day.flag]).length;
+      if (!item.roomId && row.roomId) item.roomId = String(row.roomId);
+      rooms.set(key, item);
+    });
+    return [...rooms.values()]
+      .map(item => ({ ...item, utilization: Math.round(Math.min(100, Math.max(0, item.occupied / Math.max(1, 5 * SCHEDULE_DAY_SPAN) * 100))) }))
+      .sort((a, b) => b.occupied - a.occupied || byRoomLabel(a.name, b.name))
+      .slice(0, 8);
+  }, [lens, occupancyRows, occupancyRoomKey]);
   const occupancyScopeLabel = familyActive
     ? `عائلة القسم — ${familyScopes.map(scope => collegeById.get(scope.collegeId)?.AdCollegeName).filter(Boolean).join(" · ")}`
     : collegeName ? `الموقع — ${collegeName}` : "الموقع المفتوح";
@@ -3411,6 +3439,11 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     );
                     return <p className="occupancy-pick-empty">فارغة في هذا الوقت — لا يوجد أي حجز.</p>;
                   })()}
+                  {/* القاعة كلها: من يستخدمها أكثر، ونوافذها المتاحة في الأسبوع (من الخادم، لمن يملك مساحة الجدول). */}
+                  {roomPick.point == null && canReadWorkspace && filters.termId ? (() => {
+                    const [code, ...rest] = roomPick.room.split("/");
+                    return <React.Fragment key={roomPick.roomId || roomPick.room}><RoomInsight roomId={roomPick.roomId || undefined} code={code} hall={rest.join("/")} termId={filters.termId} /></React.Fragment>;
+                  })() : null}
                 </div>
                 </>
               );
@@ -3483,6 +3516,49 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                       </section>
                     ))}
                   </div>
+                ) : null}
+                {occupancyTopRooms.length ? (
+                  <section className="occupancy-heat-card rpt-top-rooms">
+                    <header className="occupancy-heat-summary">
+                      <strong><Building2 aria-hidden="true" /> الأكثر استخداماً</strong>
+                      <span>استخدام تقديري</span>
+                    </header>
+                    <ol>
+                      {occupancyTopRooms.map(room => {
+                        const site = familyActive ? collegeById.get(room.collegeId)?.AdCollegeName || "" : "";
+                        const body = (
+                          <>
+                            <Building2 aria-hidden="true" />
+                            <span className="rpt-top-room-name"><bdi dir="ltr">{room.name}</bdi>{site ? <small>{site}</small> : null}</span>
+                            <span className="rpt-meter" aria-hidden="true"><i style={{ width: `${room.utilization}%` }} /></span>
+                            <b>{num(room.utilization)}٪</b>
+                            <small className="rpt-top-room-count">{countOf(room.sessions, AR.appointment)}</small>
+                          </>
+                        );
+                        return (
+                          <li key={room.key}>
+                            <button
+                              type="button"
+                              data-guide-ignore="يفتح تفاصيل القاعة للقراءة فقط"
+                              aria-haspopup="dialog"
+                              aria-label={`${room.name}: استخدام تقديري ${room.utilization}٪`}
+                              onClick={() => setRoomInsightFor({ name: room.name, roomId: room.roomId, code: room.code, hall: room.hall, utilization: room.utilization, sessions: room.sessions, site: site || collegeName || undefined })}
+                            >
+                              {body}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </section>
+                ) : null}
+                {roomInsightFor ? (
+                  <RoomInsightDrawer
+                    room={roomInsightFor}
+                    termId={filters.termId}
+                    canReadWorkspace={canReadWorkspace}
+                    onClose={() => setRoomInsightFor(null)}
+                  />
                 ) : null}
               </>
             ) : (
@@ -3832,7 +3908,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             </div>
           </div>
         ) : lens === "instructor" ? (
-          <div className="lens-groups">
+          <div className="lens-groups has-gap">
             {groups.map(group => (
               <article key={group.id} className={openGroup === group.id ? "open" : ""}>
                 <button
@@ -3847,10 +3923,24 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   <span className="group-bar"><i style={{ width: share(group.load, maxLoad) }} /></span>
                   <b>{num(group.count)}</b>
                   <em title="نصاب تدريسي: ساعات المقررات المعتمدة، والشعبة مرة واحدة">{num(group.teaching)}س</em>
+                  <i className={`group-gap${group.gap >= 180 ? " is-warn" : ""}`} title="أطول فراغ بين محاضرتين في اليوم نفسه">
+                    {group.gap ? <><Hourglass aria-hidden="true" />{formatCompactDurationArabic(group.gap)}</> : null}
+                  </i>
                   <ChevronDown aria-hidden="true" />
                 </button>
                 {openGroup === group.id ? (
                   <div className="group-rows" id={`query-instructor-group-${group.id}`}>
+                    <div className="group-week-action no-print">
+                      <button
+                        type="button"
+                        data-guide-ignore="يفتح شكل أسبوع الأستاذ للقراءة فقط"
+                        aria-haspopup="dialog"
+                        onClick={() => setWeekShapeFor(group.id)}
+                      >
+                        <CalendarDays aria-hidden="true" />شكل الأسبوع
+                      </button>
+                      {group.gap ? <span className={group.gap >= 180 ? "is-warn" : ""}><Hourglass aria-hidden="true" />أطول فراغ <b>{formatCompactDurationArabic(group.gap)}</b></span> : <span>بلا فراغ طويل</span>}
+                    </div>
                     {group.rows.map(row => (
                       <div key={row.id}>
                         <span className="code-chip">{courseNumberOf(row) || "—"}</span>
@@ -3863,6 +3953,22 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 ) : null}
               </article>
             ))}
+            {weekShapeFor ? (() => {
+              const group = groups.find(item => item.id === weekShapeFor);
+              if (!group) return null;
+              return (
+                <React.Fragment key={group.id}>
+                <WeekShapeDrawer
+                  instructorId={Number(group.id)}
+                  name={<>{group.name}{isVisitingInstructor(Number(group.id)) ? <> <VisitingBadge compact /></> : null}</>}
+                  termId={filters.termId}
+                  rows={group.rows}
+                  canReadWorkspace={canReadWorkspace}
+                  onClose={() => setWeekShapeFor(null)}
+                />
+                </React.Fragment>
+              );
+            })() : null}
           </div>
         ) : lens === "time" ? (
           <div className="lens-times">

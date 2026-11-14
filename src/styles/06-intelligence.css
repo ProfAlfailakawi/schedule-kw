@@ -2482,6 +2482,10 @@ button.visiting-history-cell:hover{transform:translateY(-1px);box-shadow:var(--s
  * is not, and this reading speaks only for whoever answered.
  */
 .demand-reading{padding:var(--s5)}
+/* «تحليل الطلب» في كشف التسجيل: داخل درجٍ مطويّ له حشوته، فلا حشوةَ ثانية. */
+.demand-analysis>summary{cursor:pointer}
+.demand-analysis .demand-reading{padding:var(--s3) 0 0;min-width:0}
+.demand-analysis .intelligence-scope-switch{margin:0 0 var(--s3);max-width:100%}
 
 /* الباب: الرابط ورمزه. */
 .demand-door{margin-block-start:var(--s4)}

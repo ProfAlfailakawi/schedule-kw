@@ -647,18 +647,18 @@
       "kind": "functional",
       "title": { "ar": "أرقام النطاق ولوحات المدير الرئيسي", "en": "Scope figures and main-administrator panels" },
       "text": {
-        "ar": "يجب أن تعرض اللوحة أرقام النطاق (المقررات والمواعيد والأساتذة والقاعات) وتخفي كل رقم قيمته صفر وتخفي الصف كله إن خلا، مع خط اتجاه تحت المواعيد والأساتذة والقاعات وتعليق يسمّي أول فصل وآخره في الخط وعدد الفصول (أو «المقارنة مع <الفصل السابق>» عند نقطة واحدة سابقة)، ورسم «حمل الأسبوع» بعلامة حرف واحد لكل يوم (ح ن ث ر خ)، وأن تقصر لوحتي «ذروة الأوقات» و«أكثر القاعات استخداماً» وقسم «تفاصيل» (النطاق، المواعيد الفعّالة، الأساتذة، ذروة الإشغال س / ص) على المدير الرئيسي (حساب مدير أو الحساب رقم 1).",
-        "en": "The dashboard shall show the scope figures (courses, appointments, instructors, halls), hiding each figure whose value is zero and the whole row when all are empty, with a trend line under appointments, instructors and halls and a caption naming the first and last term of the line and the number of terms (or Compared with <previous term> when there is a single earlier point), draw the Week load chart with a one-letter mark per day, and restrict the Peak hours and Most used halls panels and the Details section (scope, active appointments, instructors, occupancy peak x / y) to the main administrator (an administrator account or account number 1)."
+        "ar": "يجب أن تعرض اللوحة أرقام النطاق (المقررات والمواعيد والأساتذة والقاعات) وتخفي كل رقم قيمته صفر وتخفي الصف كله إن خلا، مع خط اتجاه تحت المواعيد والأساتذة والقاعات وتعليق يسمّي أول فصل وآخره في الخط وعدد الفصول (أو «المقارنة مع <الفصل السابق>» عند نقطة واحدة سابقة)، ورسم «حمل الأسبوع» بعلامة حرف واحد لكل يوم (ح ن ث ر خ)، وأن تقصر قسم «تفاصيل» (النطاق، المواعيد الفعّالة، الأساتذة، ذروة الإشغال س / ص) على المدير الرئيسي (حساب مدير أو الحساب رقم 1). ولا تعرض اللوحة «ذروة الأوقات» ولا «أكثر القاعات استخداماً»: موضعهما مركز الاستعلام (عدسات «الأوقات» و«القاعات» و«نسبة الإشغال»).",
+        "en": "The dashboard shall show the scope figures (courses, appointments, instructors, halls), hiding each figure whose value is zero and the whole row when all are empty, with a trend line under appointments, instructors and halls and a caption naming the first and last term of the line and the number of terms (or Compared with <previous term> when there is a single earlier point), draw the Week load chart with a one-letter mark per day, and restrict the Details section (scope, active appointments, instructors, occupancy peak x / y) to the main administrator (an administrator account or account number 1). The dashboard shows no Peak hours or Most used halls panel: those readings live in the query centre (the times, rooms and occupancy rate lenses)."
       },
       "priority": "should",
       "status": "implemented",
       "actors": ["admin", "rootAdmin", "committeeChair", "departmentHead"],
       "acceptance": [
-        { "ar": "رئيس قسم لا يرى لوحتي ذروة الأوقات وأكثر القاعات استخداماً ولا قسم التفاصيل.", "en": "A department head does not see the Peak hours and Most used halls panels or the Details section." },
+        { "ar": "رئيس قسم لا يرى قسم التفاصيل، ولا يرى أحدٌ في اللوحة لوحتي ذروة الأوقات وأكثر القاعات استخداماً.", "en": "A department head does not see the Details section, and nobody sees Peak hours or Most used halls panels on the dashboard." },
         { "ar": "مؤشرات شريط الصحة: أقل من 30 «سيئ» (والإشغال تحت 30 «هادئ»)، و85 فأكثر «جيد»، وما بينهما «متوسط».", "en": "Health ribbon tones: below 30 bad (occupancy below 30 calm), 85 or above good, otherwise middle." },
         { "ar": "زر «عرض الكل · N» في قائمة الانتباه يفتح مركز التحليلات لمن يدير الجدول وشاشة الجداول لغيره، وكل عمود ساعة في شريط اليوم يفتح شاشة الجداول.", "en": "The View all · N button in the attention list opens the Analytics Center for those who manage the schedule and the schedules screen for others, and each hour column of the day strip opens the schedules screen." }
       ],
-      "evidence": { "code": ["src/components/Dashboard.tsx"], "tests": [] },
+      "evidence": { "code": ["src/components/Dashboard.tsx"], "tests": ["tests/report-insight-audit.ts"] },
       "inferred": true
     },
     {

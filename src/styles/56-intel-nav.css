@@ -82,3 +82,15 @@
 @media print{
   .intelligence-page .insight-page-nav{display:none}
 }
+
+/* ── «متقدم»: ما يُحتاج نادراً، مطويٌّ تحت شبكة «افهم» بالبطاقات نفسها. ── */
+.insight-advanced{margin-block-start:var(--s4);border-top:1px dashed var(--line);padding-top:var(--s3)}
+.insight-advanced>summary{
+  display:inline-flex;align-items:center;gap:var(--s2);cursor:pointer;list-style:none;
+  min-height:40px;padding:0 var(--s4);border:1px solid var(--line);border-radius:var(--r-full,999px);
+  background:var(--surface);color:var(--muted);font-size:var(--t-sm);font-weight:600;
+}
+.insight-advanced>summary::-webkit-details-marker{display:none}
+.insight-advanced>summary svg{width:16px;height:16px}
+.insight-advanced[open]>summary{color:var(--accent-strong,var(--accent));border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.insight-advanced>.insight-preview-list{margin-block-start:var(--s3)}

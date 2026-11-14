@@ -307,4 +307,5 @@ test:inbox-pilot
 test:advising
 test:admin-station
 test:query-center-plus
+test:report-insight
 test:names-one-label
