@@ -3741,6 +3741,29 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setSlotIdeas(null);
     setAlternatives(null);
   };
+  /* ── «أفضل وقت» يبحث عن القاعة أيضاً (المراجعة 2026-11-14) ───────────────────────────────
+     الضغطة تضع الأيام والبداية والنهاية كخانات الأسبوع، ثم تسأل محرّك الاقتراح نفسه («اقترح قاعة») عن قاعةٍ خالية
+     في ذلك الوقت — القاعة والأستاذ والمرفق والانتقال كلها — وتضع الأولى. إن كانت القاعة المختارة خاليةً فيه بقيت،
+     وإن لم توجد قاعةٌ بقي الوقتُ وحده ويقول الفحص الحيّ ما يخصّ القاعة. لا رقمَ قاعةٍ في الزرّ ولا في سطرٍ إضافي:
+     تظهر القاعة في خطوة «أين؟» كأي اختيار. */
+  const [bestBusy, setBestBusy] = useState(false);
+  const pickBestTime = async (best: BestTime) => {
+    pickFromMiniWeek({ day: best.day as RegDayKey, days: best.days as RegDayKey[], start: best.start, end: best.end });
+    const courseId = Number(form.AdCourseId || 0);
+    setBestBusy(true);
+    try {
+      const timed: any = { ...form, fstarttime: best.start, fendtime: best.end };
+      days.forEach(day => { timed[day.key] = best.days.includes(day.key); });
+      const reply = await fetchSuggestions(suggestionBody({ ...timed, excludeId: editor === "edit" ? editId || 0 : 0, instructorRequestId: pendingHandoff.current?.requestId }, "room"));
+      const free = reply.slots.filter(slot => slot.roomId && slot.buildingId);
+      if (!free.length || (form.roomId && free.some(slot => slot.roomId === form.roomId))) return;
+      const first = free[0];
+      setForm(previous => Number(previous.AdCourseId || 0) !== courseId || previous.fstarttime !== best.start ? previous : {
+        ...previous, buildingId: first.buildingId, roomId: first.roomId, AdRoomCode: first.room, AdRoomHall: first.hall, locationStatus: "VERIFIED" as const,
+        ...(first.companionRoomId ? { companionRoomId: first.companionRoomId, companionRoomLabel: first.companionRoomLabel || "" } : {}),
+      });
+    } catch { /* بلا قاعة: يبقى الوقت وحده */ } finally { setBestBusy(false); }
+  };
   /* 🔄 إسناد الأستاذ إلى شعبة «هيئة تدريسية» القائمة للمقرر نفسه بدل موعدٍ جديد:
      تعديل صفٍّ واحد عبر بوابة الحفظ نفسها (PUT)، مسجَّل، وبزرّ تراجع. */
   const [replaceBusy, setReplaceBusy] = useState(false);
@@ -4860,6 +4883,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         tradeoffs: [timingNote, ...decision.tradeoffs.filter(reason => reason !== timingNote)].slice(0, 3),
       };
     }
+    /* حماية الخريجين: من ردّ فحص الموعد نفسه — لا طلبَ ثانياً (src/components/SchedulePhysics/GraduateRead.tsx). */
+    if (conflictData && (conflictData.graduateImpact || conflictData.studentFit))
+      decision = { ...decision, graduates: { impact: conflictData.graduateImpact || null, fit: conflictData.studentFit || null } };
     return decision;
   };
   const addComment = async () => {
@@ -7760,8 +7786,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
        predicate decides what may stop a move, the same one the refusal card
        and the classifier already use. */
     const blocking = conflicts.filter(isBlockingConflict);
-    if (!conflicts.length) return { ...local, key, loading: false };
-    return buildDecision(
+    const decision = !conflicts.length ? { ...local, key, loading: false } : buildDecision(
       key,
       local.ripple,
       null,
@@ -7770,6 +7795,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       blocking.length > 0,
       blocking[0] ? [blocking[0]?.message, blocking[0]?.detail].filter(Boolean).join(" — ") : "",
     );
+    /* حماية الخريجين: من ردّ الفحص نفسه — المسار الفوري والمسار الغني يحملانه معاً (GraduateRead). */
+    return response?.graduateImpact || response?.studentFit
+      ? { ...decision, graduates: { impact: response.graduateImpact || null, fit: response.studentFit || null } }
+      : decision;
   };
 
   /* Declared ahead of the drag layer because the drag layer reads it: while the
@@ -10139,7 +10168,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
                   {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact}
                     best={bestTime && (bestTime.start !== String(form.fstarttime || "") || bestTime.days.join() !== formDays.join()) ? bestTime : null}
-                    onPickBest={best => pickFromMiniWeek({ day: best.day as RegDayKey, days: best.days as RegDayKey[], start: best.start, end: best.end })} /> : null}
+                    bestBusy={bestBusy} currentDays={formDays} onPickBest={best => void pickBestTime(best)} /> : null}
                   <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
                     <span className="appt-helpers-label">مساعدات الوقت</span>
                     <button

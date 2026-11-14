@@ -68,6 +68,8 @@ export interface SchedulePhysicsDecision {
   stress?: SchedulePhysicsStress;
   counterfactual?: SchedulePhysicsCounterfactual;
   autopsy?: SchedulePhysicsAutopsy;
+  /** حماية الخريجين: من ردّ فحص الموعد نفسه (graduateImpact وstudentFit)، ملاحظةٌ لا تمنع النقل. */
+  graduates?: { impact?: { graduates: number; pairs?: string[] } | null; fit?: import("../../utils/studentFit").StudentFit | null } | null;
 }
 
 export interface SchedulePhysicsDragState {
