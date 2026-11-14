@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  BACKUP_OK_DAYS, BACKUP_WARN_DAYS, HEALTH_CACHE_MS, IDENTITY_STALE_SECONDS, RADAR_STALE_HOURS, VAULT_STALE_MS,
+  BACKUP_OK_DAYS, BACKUP_WARN_DAYS, HEALTH_CACHE_MS, HEALTH_FRESH_GAP_MS, HEALTH_CARD_TITLES, attentionCards, canBypassHealthCache, IDENTITY_STALE_SECONDS, RADAR_STALE_HOURS, VAULT_STALE_MS,
   backupCard, buildPayload, demoCards, failedCard, gateCard, identityCard, runProbes, termCard, vaultCard, worstOf, type HealthCard,
 } from "../src/utils/systemHealth";
 import { VAULT_GATE_IDLE_MS } from "../src/server/vaultJobPlanner";
@@ -103,11 +103,25 @@ check(/mode === "health"/.test(admin) && /<SystemHealth header=\{consoleHead\(\)
 check(/"backup", "health"\]/.test(app) && /health: "\/System\/Health"/.test(app) && /case "health":\s*return user\.IsRootAdmin/.test(app), "التطبيق: العرضُ والرابطُ /System/Health وحارسُ الجذر");
 check(/page\.health/.test(read("src/guide/smartGuide.ts")) && /rootOnly:true/.test(read("src/guide/smartGuide.ts").split("page.health")[1].split("\n")[0]), "المرشد يعرف الشاشة للجذر");
 const ui = read("src/components/SystemHealth.tsx");
-check(/HEALTH_REFRESH_MS/.test(ui) && /visibilityState === "visible"/.test(ui) && /aria-label="تحديث"/.test(ui), "تنعيشٌ كل ٣٠ ثانية والتبويبُ ظاهر، وزرُّ تحديثٍ بتسمية");
+check(/HEALTH_REFRESH_MS/.test(ui) && /visibilityState === "visible"/.test(ui) && /<span>تحقق الآن<\/span>/.test(ui), "تنعيشٌ كل ٣٠ ثانية والتبويبُ ظاهر، وزرُّ «تحقق الآن» بتسميةٍ ظاهرة");
 check(/\.sh-refresh\{[^}]*44px/.test(read("src/styles/64-system-health.css")) && /prefers-reduced-motion/.test(read("src/styles/64-system-health.css")), "هدفٌ ٤٤px واحترامٌ لتقليل الحركة");
 check(/64-system-health\.css/.test(read("src/index.css")), "الورقةُ مستوردة");
 const ident = read("src/server/identityGeneration.ts");
 check(/lastCheckedAt: \(\) => lastReadAt/.test(ident), "مراقبُ الجيل يكشف وقتَ آخر فحصٍ دون تغيير سلوكه");
+
+/* ── ملخّص الصباح و«تحقق الآن» ── */
+const mk = (id: HealthCard["id"], state: HealthCard["state"]): HealthCard => ({ id, state, code: "x", value: null, unit: "none" });
+check(attentionCards({ cards: demoCards() }).length === 0, "ملخّص الصباح: كلُّ البطاقات سليمة = قائمةٌ فارغة");
+const mixed = attentionCards({ cards: [mk("backup", "warn"), mk("vault", "ok"), mk("gate", "bad"), mk("identity", "unknown"), mk("term", "warn")] });
+check(mixed.map(card => card.id).join() === "gate,backup,term,identity", "الأحمر أولاً ثم العنبري بترتيب البطاقات ثم ما تعذّرت قراءتُه، والسليمُ لا يظهر");
+check(HEALTH_FRESH_GAP_MS === 3000 && canBypassHealthCache(null, NOW) && !canBypassHealthCache(NOW, NOW + 2999) && canBypassHealthCache(NOW, NOW + 3000), "«تحقق الآن»: أول مرة يتجاوز التخبئة، وبعدها بعد ٣ ثوانٍ فقط");
+check(Object.keys(HEALTH_CARD_TITLES).sort().join() === "backup,gate,identity,term,vault", "لكل بطاقةٍ عنوانٌ واحد مشترك");
+check(/req\.query\?\.fresh === "1" && canBypassHealthCache\(lastFreshAt, Date\.now\(\)\)/.test(server) && /memo\.invalidate\(\)/.test(server) && !/app\.get\("\/api\/system-health\?/.test(routes), "الخادم: fresh=1 يتجاوز التخبئة بفاصلٍ أدنى وبلا مسارٍ جديد");
+check(/fresh \? "\/api\/system-health\?fresh=1"/.test(ui) && /onClick=\{\(\) => void load\(true\)\}/.test(ui) && /window\.setInterval\(\(\) => \{ if \(document\.visibilityState === "visible"\) void load\(\)/.test(ui), "الواجهة: الزرُّ يطلب fresh والتنعيشُ الدوري لا يطلبه");
+const glance = read("src/components/HealthGlance.tsx"), dash = read("src/components/Dashboard.tsx");
+check(/fetch\("\/api\/system-health"/.test(glance) && !/method:\s*"(POST|PUT|PATCH|DELETE)"/.test(glance) && /catch \{/.test(glance) && /if \(!data\) return null/.test(glance), "الملخّص: قراءةٌ فقط، وفشلُها لا يُظهر شيئاً");
+check(/user\?\.IsRootAdmin&&onNavigate\?<HealthGlance onOpen=\{\(\)=>onNavigate\("health"\)\}\/>/.test(dash), "الملخّص في الرئيسية للجذر وحده وزرُّه يفتح «سلامة النظام»");
+check(/\.hg-go\{[^}]*44px/.test(read("src/styles/64-system-health.css")), "زرُّ الملخّص بهدفٍ ٤٤px");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

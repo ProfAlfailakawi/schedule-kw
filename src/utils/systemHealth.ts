@@ -21,6 +21,17 @@ export const RADAR_STALE_HOURS = 72;
 /** مدةُ تخبئة الاستجابة في الخادم؛ والواجهة تنعش كل ثلاثين ثانية. */
 export const HEALTH_CACHE_MS = 8_000;
 export const HEALTH_REFRESH_MS = 30_000;
+/** «تحقق الآن» يتجاوز التخبئة، لكن لا أكثر من مرة كل هذه المدة: قراءاتٌ حيّة لا يغرق بها زرٌّ يُضغط بسرعة. */
+export const HEALTH_FRESH_GAP_MS = 3_000;
+
+/** عنوانُ كل بطاقة (مصدرٌ واحد للوحة السلامة وملخّص الصباح). */
+export const HEALTH_CARD_TITLES: Record<HealthCardId, string> = {
+  backup: "النسخ الاحتياطي",
+  vault: "الخزنة",
+  gate: "بوابة الصيانة",
+  identity: "الهوية والصلاحيات",
+  term: "الفصل الجاري",
+};
 
 export interface HealthCard {
   id: HealthCardId;
@@ -115,6 +126,24 @@ export function termCard(input: { hasTerm: boolean; frozen: boolean; radarRanAt?
   const hours = Math.floor(age / 3_600_000);
   const stale = Boolean(input.radarStale) || hours >= RADAR_STALE_HOURS;
   return { id: "term", state: stale ? "warn" : "ok", code: stale ? "radarStale" : "radarFresh", value: hours >= 48 ? wholeDays(age) : hours, unit: hours >= 48 ? "day" : "hour" };
+}
+
+/** هل يجوز لـ«تحقق الآن» أن يتجاوز التخبئة؟ (أول مرة، أو بعد مضيّ الفاصل). */
+export function canBypassHealthCache(lastFreshAt: number | null, now: number): boolean {
+  return lastFreshAt === null || now - lastFreshAt >= HEALTH_FRESH_GAP_MS;
+}
+
+/**
+ * ملخّصُ الصباح: البطاقاتُ التي تحتاج انتباهاً مرتّبةً بالأسوأ أولاً (الأحمر ثم العنبري ثم ما تعذّرت قراءتُه).
+ * قائمةٌ فارغة = «كل شيء سليم». الترتيبُ ثابتٌ بين المتساويات (ترتيب البطاقات في الحمولة).
+ */
+export function attentionCards(payload: Pick<HealthPayload, "cards">): HealthCard[] {
+  const rank: Record<HealthState, number> = { bad: 0, warn: 1, unknown: 2, ok: 3 };
+  return payload.cards
+    .map((card, index) => ({ card, index }))
+    .filter(({ card }) => card.state !== "ok")
+    .sort((a, b) => rank[a.card.state] - rank[b.card.state] || a.index - b.index)
+    .map(({ card }) => card);
 }
 
 /** بطاقةٌ تعذّرت قراءتُها: رماديةٌ ولا تُسقط الصفحة. */
