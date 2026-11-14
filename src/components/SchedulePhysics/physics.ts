@@ -55,7 +55,9 @@ export function buildMoveCandidate(row: FSchedule, target: Pick<SchedulePhysicsT
 
 export function isSamePlacement(row: FSchedule, sourceDay: ScheduleDayKey, target: SchedulePhysicsTarget) {
   const selected = PHYSICS_DAYS.filter(day => Boolean((row as any)[day.key]));
-  if (selected.length > 1) return row.fstarttime === target.start;
+  // صف متعدد الأيام: الإفلات على يوم خارج أيامه تحويل نمط (الفأرة تعرضه)،
+  // فلا يُعدّ «نفس الموضع» ولو تطابق وقت البدء — كما يفعل مسار لوحة المفاتيح.
+  if (selected.length > 1) return selected.some(day => day.key === target.day) && row.fstarttime === target.start;
   return sourceDay === target.day && row.fstarttime === target.start;
 }
 

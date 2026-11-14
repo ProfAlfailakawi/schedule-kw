@@ -5833,97 +5833,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setSaving(false);
     }
   };
-  const moveSchedule = async (
-    row: FSchedule,
-    targetDay: DayKey,
-    targetStart: string,
-    options?: {
-      skipConfirm?: boolean;
-      decision?: SchedulePhysicsDecision | null;
-    },
-  ) => {
-    if (refuseInPractice()) return;
-    const selected = days.filter((d) => Boolean(row[d.key]));
-    const target = {
-      day: targetDay,
-      start: targetStart,
-      label: days.find((d) => d.key === targetDay)?.label || "",
-    };
-    const sourceDay=(selected[0]?.key||targetDay) as DayKey;
-    if(isSamePlacement(row,sourceDay,target as any)){setPhysicsNotice("هذا هو نفس الموضع الحالي؛ لم يتم تنفيذ أي تغيير.");return;}
-    const candidate = buildMoveCandidate(row, target),
-      payload: any = { ...candidate };
-    const timingNote = historicalTimingNote(candidate);
-    delete payload.id;
-    delete payload.AdCourseName;
-    const dayText =
-      selected.length === 1
-        ? ` إلى ${target.label}`
-        : " مع الإبقاء على أيامه الحالية";
-    try {
-      const check=await fetchJson("/api/schedules/check-conflicts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,excludeId:row.id})});
-      const blocking=Array.isArray(check.conflicts)?check.conflicts.filter((item:any)=>isBlockingConflict(item)&&!item?.holdRequestId):[];
-      if(blocking.length){const reasons=blocking.slice(0,3).map((c:any)=>[c?.message,c?.detail].filter(Boolean).join(" — ")).filter(Boolean);const reason=reasons.join(" | ")||"هذا النقل يسبب تعارضاً ولا يمكن حفظه.";setError(`تعذر نقل الموعد: ${reason}`);setPhysicsNotice(`رفض النقل: ${reason}`);return;}
-    } catch(e:any){setError(friendlyError(e));return;}
-    const decisionRipple =
-      options?.decision?.ripple ||
-      (ripple?.rowId === row.id &&
-      ripple?.targetDay === targetDay &&
-      ripple?.targetStart === targetStart
-        ? ripple
-        : null);
-    const forecastNote = decisionRipple?.headline
-      ? `\n\nRipple Forecast: ${decisionRipple.headline}${Array.isArray(decisionRipple.effects) ? `\n${decisionRipple.effects.map((x: any) => x.text).join("\n")}` : ""}`
-      : "";
-    if (
-      !options?.skipConfirm &&
-      !(await visualConfirm({
-        title: "تأكيد نقل الموعد",
-        message: `نقل موعد ${row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "المقرر"}${dayText} والوقت ${targetStart}؟${forecastNote}`,
-        confirmLabel: "نقل",
-        tone: "warning",
-      }))
-    )
-      return;
-    try {
-      setSaving(true);
-      await fetchJson(`/api/schedules/${row.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      markChanged(row.id);
-      if (isPowerAdmin) {
-        try {
-          const q = new URLSearchParams({
-              collegeId: String(row.AdCollegeId),
-              sectionId: String(row.AdSectionId),
-              termId: String(row.AdTermId),
-            }),
-            points = await fetchJson(`/api/intelligence/safety-net?${q}`),
-            point = Array.isArray(points) ? points[0] : null;
-          if (point)
-            setUndoPoint({
-              ...point,
-              decisionLabel: `استرجاع نقل ${row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "المقرر"} إلى ${target.label} ${targetStart}`,
-            });
-        } catch {
-          setUndoPoint(null);
-        }
-      }
-      setPhysicsNotice(timingNote || "");
-      setMessage(
-        selected.length > 1
-          ? "تم تغيير وقت المقرر مع الحفاظ على جميع أيامه."
-          : "تم نقل الموعد في الجدول الأسبوعي.",
-      );
-      await loadRows();
-    } catch (e: any) {
-      setError(friendlyError(e));
-    } finally {
-      setSaving(false);
-    }
-  };
   /**
    * A drop is a move.
    *
@@ -5985,6 +5894,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   const commitMove = async (request: SchedulePhysicsDropRequest) => {
     if (showMobileReadOnlyGate()) return;
+    if (dragBlocked) { if (approvalLock) setPhysicsNotice(approvalLock); else setPhysicsNotice(termFrozen ? "الفصل مجمَّد؛ لا يمكن نقل المواعيد." : "ليست لديك صلاحية تعديل الجدول."); return; }
     const { row, target } = request;
     const day = target.day as DayKey;
     const pickedStart = target.start;
@@ -7370,7 +7280,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return (
       <article
         {...grip}
-        draggable={!physics.supported && !rowPending}
+        draggable={!physics.supported && !rowPending && !dragBlocked}
         onDragStart={(e) => {
           if (approvalLock) { e.preventDefault(); setPhysicsNotice(approvalLock); return; }
           e.dataTransfer.setData("text/schedule-id", String(r.id));
@@ -7496,7 +7406,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const undoId = recentMoves[r.id];
     return [
       // board-wide: anything that changes how every card draws or behaves
-      denseWeekStrips, hueBy, picking, physicsActive, physics.supported,
+      denseWeekStrips, hueBy, picking, physicsActive, physics.supported, dragBlocked,
       mode, editor, viewMode, presentationMode, keyMove?.rowId ?? "",
       // the row itself
       r.id, (r as any).rev ?? 0, r.AdCourseId, r.AdInstructorId, r.SCode,
@@ -7818,6 +7728,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      keyboard holds a lecture, the pointer layer is off. */
   type KeyboardMove = { rowId: number; day: DayKey; start: string };
   const [keyMove, setKeyMove] = useState<KeyboardMove | null>(null);
+  /* من لا يملك الكتابة (دور قراءة) أو فصلٌ مجمَّد أو جدولٌ عند التسجيل: لا رفعَ
+     ولا رسمَ متفائلاً ثم تراجعاً؛ نفس الشرط يدخل توقيع البطاقة كي لا تبقى قابلة
+     للسحب بعد وصول القفل ولا تبقى جامدة بعد زواله. */
+  const dragBlocked = Boolean(approvalLock) || !canEditSchedule || termFrozen;
   const physics = useSchedulePhysics({
     disabled:
       mode !== "schedule" ||
@@ -7826,7 +7740,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       presentationMode ||
       // The registrar holds the timetable: nothing may be lifted until it is
       // returned or accepted (the same reason the server gives, via ApprovalBar).
-      Boolean(approvalLock) ||
+      dragBlocked ||
       // One card, one hand: while the keyboard is carrying a lecture the
       // pointer layer is switched off entirely, so a stray press cannot pick up
       // a second copy of the same thing.
@@ -8963,6 +8877,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (paletteOpen) return;
       if (meta && event.key.toLowerCase() === "z" && !event.shiftKey) {
         if (editor !== "index" || !pendingUndo.length) return;
+        // الرجوع العام لا يلتقط ضغطة داخل حقل (بحث/نموذج) ولا مع أي نافذة مفتوحة:
+        // هناك ⌘Z تعني تراجع الكتابة، لا إلغاء آخر حفظ على الخادم.
+        if (shortcutsBlocked() || document.querySelector('[role="dialog"], [aria-modal="true"]')) return;
         event.preventDefault();
         void runUndoEntry(pendingUndo[0]);
         return;
@@ -12048,7 +11965,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   data-guide-description="بطاقة موعد داخل الجدول: اضغطها لقراءة الموعد وتحليله، أو اسحبها إلى يوم أو ساعة أو قاعة أخرى لنقلها بعد فحص التعارض."
                   className={`rooms-card ${xrayClass(row)} ${physicsRelationClass(row)} ${draggingId === row.id ? "ripple-source" : ""} ${justChangedId === row.id ? "just-changed" : ""} ${liveClash.ids.has(row.id) ? "live-clash" : ""} ${outsideClash.notes[row.id] ? "live-clash-outside" : ""} ${physicsActive && physicsOrigin?.id === row.id ? "physics-source-lift" : ""} ${keyMove?.rowId === row.id ? "week-keymove-source" : ""} ${rowPending ? "schedule-row-pending" : ""} ${hueFocusClass(row)}`}
                   style={cardStyle}
-                  draggable={!physics.supported && !rowPending}
+                  draggable={!physics.supported && !rowPending && !dragBlocked}
                   onDragStart={(e) => {
                     if (approvalLock) { e.preventDefault(); setPhysicsNotice(approvalLock); return; }
                     e.dataTransfer.setData("text/schedule-id", String(row.id));
