@@ -229,6 +229,7 @@ test:final-audit-gaps
 test:request-room-capacity
 test:request-room-seat-rule
 test:request-room-seat-http
+test:capacity-import
 test:placeholder-action
 test:course-spelling-merge
 test:teacher-mini-week
