@@ -4,6 +4,7 @@ import AdvisorSeatsPanel from "./AdvisorSeatsPanel";
 import DemandAnalysis from "./DemandAnalysis";
 import SectionRequestsPanel from "./sectionRequests/SectionRequestsPanel";
 import AdvisingScopePicker from "./AdvisingScopePicker";
+import StudentRecoveryCard from "./StudentRecoveryCard";
 import CampusChip, { CampusFilter } from "./CampusChip";
 import { campusOf, campusText, type Campus } from "../utils/campus";
 /**
@@ -962,6 +963,8 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
 
       {/* «تحليل الطلب»: ما قاله الطلاب لمن يبني الجدول (الشاشة ٧) — مطويٌّ حتى يُفتح، ويقرأ وحده (DemandAnalysis). */}
       {canReadDemand && Boolean(collegeId && sectionId && termId) ? <DemandAnalysis collegeId={collegeId} sectionId={sectionId} termId={termId} terms={terms} collegeName={collegeName} scopes={scopes} powerAdmin={powerAdmin} /> : null}
+      {/* الطالبُ أمامك ونسي رمز «مساري»: رمزُ استعادةٍ ليومٍ واحد بعد رؤية بطاقته (الصلاحيةُ والنطاقُ في الخادم). */}
+      <StudentRecoveryCard />
 
       {/* الجهةُ في العنوان دائماً، والتصفيةُ بين البنين والبنات حين تجمع قائمةُ الكليات الجهتين. */}
       <div className="campus-scope"><CampusFilter campuses={collegeCampuses} value={campusPick} onChange={setCampusPick} /></div>

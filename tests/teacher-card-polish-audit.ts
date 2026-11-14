@@ -6,6 +6,7 @@
  * الحكمُ سلوكيّ حيث أمكن، وعقدُ المصدر حيث السلوكُ داخل قالبٍ نصّيٍّ في الخادم.
  */
 import { REQUEST_VISUAL_JS } from "../src/server/requestVisual";
+import { TEACHER_CARD_LOGIC_JS } from "../src/server/teacherCardLogic";
 import fs from "fs";
 import vm from "vm";
 import { judgeRequest, type RequestedRow, type VerdictContext } from "../src/utils/instructorRequestVerdict";
@@ -152,14 +153,15 @@ const server = readServerSource();
 const page = server.slice(server.indexOf("function instructorRequestPage"), server.indexOf('app.get("/r/:token"'));
 check(/\.sort\(function\(a,b\)\{[^}]*a\.it\.ord==null/.test(page), "ترتيب الصفوف يقرأ رتبةً ثابتة لا يومَ الموعد الحالي");
 check(!/function planTable\(\)[\s\S]{0,400}planDays\(a\.it\)/.test(page), "planTable لا يعيد الفرز بالموعد المتغيّر");
-check(/function rankState\(/.test(page) && /rankState\(\);\n/.test(page), "الرتبة تُعطى مرةً عند التحميل");
+check(/function rankState\(/.test(page) && /state=mapItems\(d\);rankState\(\);if\(had\)state\.forEach\(function\(it\)\{if\(it\.rowId!=null&&ords\[it\.rowId\]!=null\)it\.ord=ords\[it\.rowId\]\}\)/.test(page), "الرتبة تُعطى مرةً عند التحميل، وتبقى كما رآها بعد التحديث");
 check(/countOf\(Number\(e\.detail\)\|\|0,AR\.edit,"بلا تعديلات"\)/.test(page), "سطر «أرسلتَ طلبك» يعدّ بقاعدة العدّ لا برقمٍ عارٍ");
-check(/"received":"وصل إلى صندوق القسم"/.test(page) && /e\.kind!=="received"/.test(page), "حدث الاستلام لا يدّعي استلاماً بشرياً");
+check(/"received":\["check","وصل إلى صندوق القسم"\]/.test(TEACHER_CARD_LOGIC_JS) && /e\.kind!=="received"/.test(page), "حدث الاستلام لا يدّعي استلاماً بشرياً");
 check(!/"received":"استلمه القسم"/.test(page), "ولا بقي لفظُ «استلمه» القديم");
 check(server.includes("الرقم المدني غير مكتمل أو فيه خطأ كتابة. راجعه وأعد المحاولة."), "رسالة فشل رقم التحقق لا توحي بمطابقة");
 check(server.includes("الرقم المدني لا يطابق صاحب هذا الرابط."), "ورسالة عدم المطابقة (403) باقية كما هي");
 check(/visibilitychange/.test(page) && /Date\.now\(\)-lastFetch>30000/.test(page), "عودةُ الصفحة تُعيد الجلب بعد ثلاثين ثانية");
-check(/if\(dirty\)\{if\(!freshNote\)\{freshNote=true;paint\(\)\}return\}/.test(page), "ولا تُبدّل مسودةً لم تُرسل: تُقال له الجديدُ فقط");
+/* الجولة الخامسة: الشريطُ لما يغيّره القسمُ وحده (tcDeptSig)، وما سواه يُقرأ بصمت تحت المسودة. */
+check(/if\(syncDirty\(\)\)\{if\(tcDeptSig\(data\.request\)!==tcDeptSig\(x\.d\.request\)\)\{if\(!freshNote\)\{freshNote=true;paint\(\)\}\}else\{data=x\.d;paint\(\)\}return\}/.test(page), "ولا تُبدّل مسودةً لم تُرسل: تُقال له الجديدُ فقط");
 check(!/function refresh\([^)]*\)\{\s*if\(refreshing\|\|!data\)return;\s*if\(dirty\)/.test(page), "لكنها تقرأ حتى مع المسودة: البثّ قد لا يبلغ (نسخةٌ أخرى أو متصفحٌ بلا EventSource) فالقراءةُ هي الطريق");
 check(/JSON\.stringify\(data\.request\)===JSON\.stringify\(x\.d\.request\)/.test(page) && !/refresh\((true|false)\)/.test(page), "وتقارن ما جاء بما عندها فلا تنبّه بلا جديد");
 check(/\?live=1/.test(page) && /String\(req\.query\.live \|\| ""\) === "1"/.test(server), "وإعادةُ الجلب الصامتة لا تُحسب فتحاً");
@@ -184,7 +186,7 @@ if (vBox.verdictText) {
 check(/<span class="vwrap">'\+skVerdict\(it\)\+'<\/span>/.test(page) && /full=verdictText\(it\)/.test(REQUEST_VISUAL_JS), "مربّعُ الحكم يعرض النصّ المترجَم (مختصراً بأيقونة، وكاملاً تحت «التفاصيل»)");
 
 /* ── شاشةُ «وصل طلبك» لا يمحوها البثّ ────────────────────────────────────── */
-check(/dirty=false;clearDraft\(\);[\s\S]{0,300}liveOff=true;closeLive\(\);/.test(page), "بعد الإرسال يُوقَف البثّ وإعادةُ القراءة فتبقى شاشة «وصل طلبك» ورمزُ التوقيع");
+check(/dirty=false;clearAllDrafts\(\);[\s\S]{0,300}liveOff=true;closeLive\(\);/.test(page), "بعد الإرسال يُوقَف البثّ وإعادةُ القراءة فتبقى شاشة «وصل طلبك» ورمزُ التوقيع، وتُمحى مسوداتُ الرابط كلُّها");
 check(/function refresh\(\)\{\s*if\(liveOff\|\|sendingNow\|\|/.test(page) && /function openLive\(\)\{if\(liveOff\|\|/.test(page), "وإعادةُ القراءة وفتحُ البثّ يحترمان ذلك");
 check(/if\(liveOff\|\|sendingNow\|\|!x\.ok\)return;/.test(page), "وقراءةٌ بدأت قبل الإرسال وعادت بعده لا تُطبَّق فوق شاشة «وصل طلبك»");
 check(/function postSubmit\(civil,done\)\{[\s\S]{0,400}sendingNow=true;/.test(page) && (page.match(/sendingNow=false;/g) || []).length >= 2, "وأثناء الإرسال لا تُقرأ الصفحة، ويُرفع القيد إن فشل الإرسال");

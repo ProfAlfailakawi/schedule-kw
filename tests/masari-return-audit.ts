@@ -56,15 +56,16 @@ check(ctx.whatIf(10000, 12, true).total <= 60, "سقفٌ للحلقة");
 check(/ستة|6 فصل/.test(ctx.whatIfLine(a, 15, false)) || ctx.whatIfLine(a, 15, false).includes("6 فصل"), "السطر يقول عدد الفصول", ctx.whatIfLine(a, 15, false));
 check(ctx.whatIfLine(ctx.whatIf(0, 15, false), 15, false) === "أكملت وحدات الصحيفة.", "من أكمل صحيفته يُقال له ذلك");
 
-/* التذكير: الطريقُ الفعلي — addToCalendar يفتح ‎/api/public/ics-reminder‎ والخادمُ يبني الملفّ (buildReminder). */
+/* التذكير: الطريقُ الفعلي — addToCalendar يفتح ‎/api/public/me/reminder?kind=…‎ بجلسة الطالب، والخادمُ يبني العنوانَ والتاريخ والملفّ (buildReminder). */
 check(!/function ics(Text|Day|Next|Esc)\(/.test(STUDENT_HOME_SCRIPT), "لا مولّدَ ICS ميتاً في الصفحة: الملفُّ يُخدَم من الخادم");
 const cal: Record<string, any> = { location: { href: "" }, toasts: [] as string[] };
 runInNewContext("function toast(m){toasts.push(m)}\n" + fn("addToCalendar", "/* ── شارك جدولك") + "\nthis.addToCalendar=addToCalendar;", cal);
-cal.addToCalendar("موعد تسجيلي — دور 1 من 3", "2026-11-15T08:00:00Z", "من مساري: جدولي");
+cal.addToCalendar("round");
 const reminderUrl = new URL(cal.location.href, "https://x.test");
-check(reminderUrl.pathname === "/api/public/ics-reminder" && reminderUrl.searchParams.get("d") === "2026-11-15" && reminderUrl.searchParams.get("t") === "موعد تسجيلي — دور 1 من 3", "زرّ التذكير يفتح رابطَ الخادم باليوم والعنوان", cal.location.href);
-cal.location.href = ""; cal.addToCalendar("x", "", "");
-check(cal.location.href === "", "بلا تاريخٍ لا يُفتح شيء");
+check(reminderUrl.pathname === "/api/public/me/reminder" && reminderUrl.searchParams.get("kind") === "round" && !reminderUrl.searchParams.has("t") && !reminderUrl.searchParams.has("d"), "زرّ التذكير يفتح رابطَ الخادم بنوعٍ معروف، بلا عنوانٍ ولا تاريخٍ في الرابط", cal.location.href);
+cal.location.href = ""; cal.addToCalendar("موعد من صنعي");
+check(cal.location.href === "", "نوعٌ غير معروف لا يفتح شيئاً");
+check(STUDENT_HOME_SCRIPT.includes('addToCalendar("next")') && STUDENT_HOME_SCRIPT.includes('addToCalendar("round")'), "الزرّان: المحطة القادمة، ودور التسجيل");
 const ics = buildReminder({ title: "تذكير؛ مهم, جداً", date: "2026-11-15", note: "سطر1\nسطر2" });
 check(ics.startsWith("BEGIN:VCALENDAR\r\n") && ics.includes("DTSTART;VALUE=DATE:20261115") && ics.includes("DTEND;VALUE=DATE:20261116"), "ملف التقويم يوماً كاملاً: يبدأ في ١٥ وينتهي قبل ١٦");
 check(ics.includes("SUMMARY:تذكير؛ مهم\\, جداً"), "الفاصلة تُهرَّب والفاصلةُ العربية تبقى كما هي");
