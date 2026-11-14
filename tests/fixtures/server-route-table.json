@@ -6740,6 +6740,18 @@
    "methods": [
     "get"
    ],
+   "path": "/api/simulation/suggestions",
+   "name": "bound dispatch",
+   "call": "65787e962f338c74",
+   "site": "src/server/radarSuggestions.ts:115",
+   "regexp": "/^\\/api\\/simulation\\/suggestions\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
    "path": "/api/impact/course",
    "name": "bound dispatch",
    "call": "903bda58e55a37f0",

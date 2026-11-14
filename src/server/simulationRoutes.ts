@@ -19,6 +19,7 @@ import { predictiveReadingFor } from "./predictiveInsight";
 import { predictiveNarrow, predictiveSummaryOf } from "../utils/predictiveScope";
 import { emptyCauseTotals } from "../utils/registrationCauses";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../utils/termSequence";
+import { registerRadarSuggestionRoutes } from "./radarSuggestions";
 
 export interface SimulationDeps {
   requireAuth: RequestHandler;
@@ -316,6 +317,12 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
       running = false;
       if (lease) await Repository.releaseRegistrationRunLease(lease.termId, lease.holder).catch(() => undefined);
     }
+  });
+
+  /* ── الرادار يقترح الشعبة (radarSuggestions.ts): الحارسُ نفسُه، ومدخلُ المحاكاة نفسُه الذي يقرؤه «ماذا لو؟». ── */
+  registerRadarSuggestionRoutes(app, {
+    requireAuth: deps.requireAuth, isScopeAllowed: deps.isScopeAllowed, isPowerUser: deps.isPowerUser, dataContextKey: deps.dataContextKey,
+    loadInput: (term, run) => inputMemo.get(ctxKey(`${Number(term.AdTermId)}:${run?.staleAt || ""}:${run?.ranAt || ""}`), () => loadSimulationInput(term, Math.max(1, term.AdTermStudentPhases?.rounds?.length || 2))),
   });
 }
 
