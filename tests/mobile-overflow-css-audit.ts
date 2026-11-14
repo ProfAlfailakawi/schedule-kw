@@ -143,11 +143,15 @@ function cssFiles(dir: string): string[] {
   return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? cssFiles(path.join(dir, e.name)) : e.name.endsWith(".css") ? [path.join(dir, e.name)] : []);
 }
+/* استعلاما مستطيل الودجت (الجولة 3): الكتاب الأفقي والطولي الداخلي، بلا display-mode. يُستثنيان من مسح «الكتاب»
+   لأنهما حجزُ زاويةٍ لا تخطيطُ صفحتين؛ وتُفحصان بدقّةٍ في آخر الملف. */
+const CUTOUT_BOOK_Q = "screenand(min-width:721px)and(max-width:1000px)and(min-height:520px)and(max-height:960px)and(orientation:landscape)";
+const CUTOUT_PORTRAIT_Q = "screenand(min-width:640px)and(max-width:720px)and(min-height:520px)and(max-height:960px)and(orientation:portrait)";
 const bookQueries: { file: string; q: string }[] = [];
 for (const file of [...cssFiles("src"), ...cssFiles("public")]) {
   const css = flat(read(file));
   for (const m of css.matchAll(/@media([^{]*)\{/g)) {
-    for (const q of m[1].split(",")) if (/min-height:520px/.test(q) && /max-height:960px/.test(q) && !/display-mode:standalone/.test(q)) bookQueries.push({ file, q });
+    for (const q of m[1].split(",")) if (/min-height:520px/.test(q) && /max-height:960px/.test(q) && q !== CUTOUT_PORTRAIT_Q) bookQueries.push({ file, q });
   }
 }
 const badBook = bookQueries.filter(({ q }) => {
@@ -188,19 +192,41 @@ check(/\.lens-groupsstrong\.report-instructor-with-badge\{display:flex!important
   "أسماء الأساتذة في التقارير: الاسمُ يُقطع والشارةُ (منتدب) تبقى مرئية");
 
 /* الكتاب أفقيٌّ فقط (الجولة 2): لا استعلام يطبّق تخطيط الصفحتين على الطولي. الفرع الطوليّ 640–720 الوحيد المسموح هو مستطيل
-   الودجت (display-mode:standalone) في 55-duo-adaptive.css، وهو حجزُ زاويةٍ لا تخطيطُ كتاب. */
+   الودجت في 55-duo-adaptive.css، وهو حجزُ زاويةٍ لا تخطيطُ كتاب. */
 const portraitBook: string[] = [];
 for (const file of [...cssFiles("src"), ...cssFiles("public")]) {
   for (const m of flat(read(file)).matchAll(/@media([^{]*)\{/g)) {
     for (const q of m[1].split(",")) {
-      if (/min-width:640px\)and\(max-width:720px\)and\(min-height:520px/.test(q) && !/display-mode:standalone/.test(q)) portraitBook.push(file + " " + q);
+      if (/min-width:640px\)and\(max-width:720px\)and\(min-height:520px/.test(q) && !(q === CUTOUT_PORTRAIT_Q && file.endsWith("55-duo-adaptive.css"))) portraitBook.push(file + " " + q);
     }
   }
 }
 check(portraitBook.length === 0,
   `لا فرع طوليٌّ 640–720 لتخطيط الكتاب في أيّ ملف CSS${portraitBook.length ? " — " + portraitBook.slice(0, 3).join(" · ") : ""}`);
-check(/@media[^{]*\(orientation:landscape\)and\(display-mode:standalone\),screenand\(min-width:640px\)and\(max-width:720px\)and\(min-height:520px\)and\(max-height:960px\)and\(orientation:portrait\)and\(display-mode:standalone\)\{:root\{--duo-cutout-w:116px;--duo-cutout-h:116px\}/.test(book),
-  "مستطيل الودجت 116×116 معرَّفٌ مرةً واحدة للدوو الداخلي (كتاب أو طولي) في التطبيق المثبَّت فقط");
+/* مستطيل الودجت: يُقيَّم بالاستعلامات الحقيقية المقروءة من الملف (لا نسخةً مكتوبة هنا) على مقاساتٍ مسمّاة. */
+const cutoutBlocks = [...read("src/styles/55-duo-adaptive.css").replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/@media([^{]*)\{\s*:root\s*\{[^}]*--duo-cutout-w/g)];
+const cutoutQueries = cutoutBlocks.flatMap((m) => m[1].split(",").map((q) => q.replace(/\s+/g, "")));
+check(cutoutBlocks.length === 1 && cutoutQueries.length === 2 && cutoutQueries.includes(CUTOUT_BOOK_Q) && cutoutQueries.includes(CUTOUT_PORTRAIT_Q),
+  "مستطيل الودجت 116×116 معرَّفٌ مرةً واحدة، باستعلامين فقط: كتابٌ أفقي 721–1000×520–960 وطوليٌّ داخلي 640–720×520–960");
+check(/--duo-cutout-w:116px;--duo-cutout-h:116px/.test(book), "قيمة المستطيل 116×116");
+check(!/display-mode/.test(book),
+  "لا display-mode في 55-duo-adaptive.css: مستطيل الودجت يسري في تبويب المتصفح والتطبيق المثبَّت معاً");
+function matches(q: string, w: number, h: number): boolean {
+  if (!/^screenand/.test(q)) return false;
+  const num = (re: RegExp) => { const m = q.match(re); return m ? Number(m[1]) : null; };
+  const [minW, maxW, minH, maxH] = [num(/\(min-width:(\d+)px\)/), num(/\(max-width:(\d+)px\)/), num(/\(min-height:(\d+)px\)/), num(/\(max-height:(\d+)px\)/)];
+  const orient = q.match(/\(orientation:(landscape|portrait)\)/)?.[1];
+  return (minW === null || w >= minW) && (maxW === null || w <= maxW) && (minH === null || h >= minH) && (maxH === null || h <= maxH)
+    && (!orient || orient === (w > h ? "landscape" : "portrait"));
+}
+const hit = (w: number, h: number) => cutoutQueries.some((q) => matches(q, w, h));
+const DUO_IN: [number, number][] = [[951, 669], [951, 585], [669, 867], [720, 900], [660, 800], [700, 900], [880, 585], [1000, 600], [721, 520]];
+const NOT_DUO: [number, number][] = [[390, 844], [844, 390], [932, 430], [430, 932], [744, 1024], [820, 1180], [1024, 768], [1180, 820], [1280, 800], [1440, 900],
+  [367, 740], [951, 350], [768, 1024], [1024, 690], [1133, 660], [810, 1080]];
+check(DUO_IN.every(([w, h]) => hit(w, h)), `مستطيل الودجت ينطبق على الدوو الداخلي: ${DUO_IN.map((s) => s.join("×")).join("، ")}`);
+const wrongly = NOT_DUO.filter(([w, h]) => hit(w, h));
+check(wrongly.length === 0,
+  `مستطيل الودجت لا ينطبق على iPhone/iPad/سطح المكتب/المطويّ الخارجي/951×350${wrongly.length ? " — يطابق: " + wrongly.map((s) => s.join("×")).join("، ") : ""}`);
 check(/\.mobile-topbar\{[^}]*padding-right:calc\(var\(--duo-cutout-w\)\+8px\)/.test(book) && /\.sidebar-brand\{[^}]*padding-right:calc\(var\(--duo-cutout-w\)/.test(book),
   "الشريط العلوي ورأس الفهرس يبتعدان عن مستطيل الودجت بحشوةٍ يمنى فعلية");
 

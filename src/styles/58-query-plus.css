@@ -76,23 +76,28 @@
 
 /* ── موجز الصباح: شريطٌ بأربع بطاقاتٍ صغيرة ─────────────────────────────── */
 .morning-brief{border:1px solid var(--line);border-radius:20px;background:var(--surface);overflow:hidden}
-.morning-brief-head{display:flex;align-items:center;gap:12px;inline-size:100%;min-block-size:56px;padding:8px 14px;border:0;background:none;color:var(--ink);font:inherit;cursor:pointer}
-.morning-brief-sun{flex:none;inline-size:38px;block-size:38px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--warn,#d9a21b) 18%,transparent);color:var(--warn,#b7791f)}
+.morning-brief-head{display:flex;align-items:center;gap:12px;inline-size:100%;min-block-size:56px;padding:8px 14px;color:var(--ink);font:inherit}
+.morning-brief-sun{flex:none;inline-size:38px;block-size:38px;display:grid;place-items:center;border-radius:50%;border:0;cursor:pointer;background:color-mix(in srgb,var(--warn,#d9a21b) 18%,transparent);color:var(--warn,#b7791f)}
 .morning-brief-sun svg{inline-size:21px;block-size:21px}
 .morning-brief-tiles{flex:1;min-inline-size:0;display:flex;flex-wrap:wrap;gap:6px}
-.morning-brief-tiles i{display:inline-flex;align-items:center;gap:6px;min-block-size:34px;padding:0 12px;border-radius:999px;font-style:normal;background:var(--surface-2,transparent);border:1px solid var(--line)}
-.morning-brief-tiles i svg{inline-size:16px;block-size:16px}
-.morning-brief-tiles i b{font-size:15px;font-variant-numeric:tabular-nums}
+.morning-brief-pill{display:inline-flex;align-items:center;gap:6px;min-block-size:34px;padding:0 12px;border-radius:999px;font:inherit;font-style:normal;background:var(--surface-2,transparent);border:1px solid var(--line);cursor:pointer}
+.morning-brief-pill svg{inline-size:16px;block-size:16px}
+.morning-brief-pill b{font-size:15px;font-variant-numeric:tabular-nums}
+.morning-brief-pill:hover{background:var(--accent-softer)}
+.morning-brief-pill.is-active{border-color:currentColor;box-shadow:0 0 0 2px color-mix(in srgb,currentColor 28%,transparent);background:color-mix(in srgb,currentColor 12%,var(--surface))}
+.morning-brief-pill:focus-visible,.morning-brief-sun:focus-visible,.morning-brief-chevron-btn:focus-visible,.morning-brief-open button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.morning-brief-chevron-btn{flex:none;display:grid;place-items:center;inline-size:36px;block-size:36px;border:0;border-radius:50%;background:none;color:var(--muted);cursor:pointer}
 .morning-brief [data-tone="good"]{color:var(--good,#0f6b4f)}
 .morning-brief [data-tone="warn"]{color:var(--warn,#a86b00)}
 .morning-brief [data-tone="danger"]{color:var(--danger,#b3261e)}
 .morning-brief [data-tone="info"]{color:var(--accent)}
-.morning-brief-tiles i[data-tone="danger"]{background:color-mix(in srgb,var(--danger,#b3261e) 10%,transparent);border-color:color-mix(in srgb,var(--danger,#b3261e) 35%,var(--line))}
-.morning-brief-tiles i[data-tone="warn"]{background:color-mix(in srgb,var(--warn,#a86b00) 10%,transparent);border-color:color-mix(in srgb,var(--warn,#a86b00) 35%,var(--line))}
+.morning-brief-pill[data-tone="danger"]{background:color-mix(in srgb,var(--danger,#b3261e) 10%,transparent);border-color:color-mix(in srgb,var(--danger,#b3261e) 35%,var(--line))}
+.morning-brief-pill[data-tone="warn"]{background:color-mix(in srgb,var(--warn,#a86b00) 10%,transparent);border-color:color-mix(in srgb,var(--warn,#a86b00) 35%,var(--line))}
 .morning-brief-wait{margin:0;color:var(--muted);font-style:normal}
 .morning-brief-chevron{inline-size:18px;block-size:18px;flex:none;color:var(--muted);transition:transform .15s}
 .morning-brief.is-open .morning-brief-chevron{transform:rotate(180deg)}
 .morning-brief-body{position:relative;display:grid;gap:12px;padding:4px 16px 16px;border-block-start:1px dashed var(--line)}
+.morning-brief-body:not([data-pane="all"]){padding-block-end:60px}
 .morning-brief-facts{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
 .morning-brief-delta{margin:0;padding:0;list-style:none;display:flex;gap:6px}
 .morning-brief-delta li{padding:4px 12px;border-radius:999px;background:var(--surface-2,transparent);border:1px solid var(--line)}
@@ -106,7 +111,22 @@
 .morning-brief-moves b{white-space:nowrap}
 .morning-brief-moves span{color:var(--accent);white-space:nowrap}
 .morning-brief-moves small{color:var(--muted);min-inline-size:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width:640px){.morning-brief-tiles{gap:4px}.morning-brief-tiles i{padding:0 9px;min-block-size:32px}.morning-brief-head{gap:8px;padding:8px 10px}.morning-brief-moves small{display:none}}
+@media (max-width:640px){.morning-brief-tiles{gap:4px}.morning-brief-pill{padding:0 8px;gap:4px;min-block-size:32px}.morning-brief-chevron-btn{inline-size:28px;block-size:28px}.morning-brief-sun{inline-size:34px;block-size:34px}.morning-brief-head{gap:8px;padding:8px 10px}.morning-brief-moves small{display:none}}
+.morning-brief-items{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.morning-brief-items li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:12px;background:var(--surface-2,transparent);border:1px solid var(--line)}
+.morning-brief-items li>div{min-inline-size:0;display:grid;gap:2px}
+.morning-brief-items b{font-size:14px;color:var(--ink)}
+.morning-brief-items small{color:var(--muted);font-size:12.5px;line-height:1.6;overflow-wrap:anywhere}
+.morning-brief-open{flex:none;display:inline-flex;flex-wrap:wrap;gap:6px}
+.morning-brief-open button{display:inline-flex;align-items:center;gap:5px;min-block-size:34px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--accent);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.morning-brief-open button svg{inline-size:14px;block-size:14px}
+.morning-brief-open button:hover{background:var(--accent-softer)}
+.morning-brief-empty{margin:0;color:var(--muted);font-size:13.5px}
+.morning-brief-days{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.morning-brief-days li{display:flex;align-items:baseline;gap:10px;font-size:13.5px}
+.morning-brief-days small{color:var(--muted);min-inline-size:90px}
+.morning-brief-days b{font-weight:600}
+@media (max-width:640px){.morning-brief-items li{flex-direction:column;align-items:stretch}.morning-brief-open button{flex:1;justify-content:center}.morning-brief-days small{min-inline-size:78px}}
 .morning-brief-note{color:var(--muted);font-size:12px}
 .morning-brief-print{position:absolute;inset-block-end:12px;inset-inline-end:14px;inline-size:40px;block-size:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-2,var(--ink));cursor:pointer}
 .morning-brief-print svg{inline-size:18px;block-size:18px}
@@ -160,23 +180,6 @@
 .history-map-row i[data-tone="same"]{background:color-mix(in srgb,var(--muted) 35%,transparent)}
 .history-map-row i[data-tone="none"]{border-color:color-mix(in srgb,var(--line) 70%,transparent)}
 .history-map-ruler small{font-size:10px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
-
-/* ── معاينة الصفحات: أوراقٌ صغيرة بأرقامها ───────────────────────────────── */
-.query-preview{position:relative;display:inline-flex}
-.query-preview-pop{position:absolute;inset-block-start:calc(100% + 8px);inset-inline-start:0;z-index:40;inline-size:max-content;max-inline-size:min(360px,calc(100vw - 32px));padding:10px 12px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:var(--shadow-lg,0 18px 40px rgba(0,0,0,.18));display:grid;gap:10px}
-.query-preview-pop header{display:flex;align-items:center;gap:8px}
-.query-preview-pop header svg{inline-size:18px;block-size:18px;color:var(--accent)}
-.query-preview-pop header b{font-size:18px;font-variant-numeric:tabular-nums}
-.query-preview-pop header small{color:var(--muted)}
-.query-preview-x{margin-inline-start:auto;inline-size:30px;block-size:30px;display:grid;place-items:center;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer}
-.query-preview-x svg{inline-size:15px;block-size:15px}
-.query-preview-pop ol{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px;max-block-size:190px;overflow:auto}
-.query-preview-pop li{display:grid;justify-items:center;gap:3px}
-.query-preview-pop .sheet{position:relative;inline-size:46px;block-size:32px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2,var(--surface));display:flex;align-items:flex-end;overflow:hidden}
-.query-preview-pop .sheet i{display:block;inline-size:100%;background:color-mix(in srgb,var(--accent) 28%,transparent)}
-.query-preview-pop li.is-signed .sheet{border-color:var(--accent);box-shadow:inset 0 -4px 0 var(--accent)}
-.query-preview-pop li b{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
-.query-preview-actions{display:flex;justify-content:flex-end;gap:8px}
 
 /* ورقة الموجز: سطورٌ وجدول آخر الحركات */
 .print-morning-report .print-morning-lines{margin:6mm 0 4mm;padding:0;list-style:none;display:grid;gap:2.2mm;font-size:11pt}

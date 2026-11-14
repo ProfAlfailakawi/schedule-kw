@@ -66,7 +66,6 @@
     "src/components/query/QueryInsights.tsx",
     "src/components/query/QuerySaved.tsx",
     "src/components/query/QueryCompare.tsx",
-    "src/components/query/QueryPrintPreview.tsx",
     "src/components/query/QueryEmptyWhy.tsx",
     "src/server/morningBriefPush.ts",
     "src/utils/queryWhatIf.ts",
@@ -2693,8 +2692,8 @@
         "en": "Morning brief"
       },
       "text": {
-        "ar": "يجب أن يعرض مركز الاستعلام لقسمٍ مختار «موجز الصباح» شريطاً مطويّاً بأربع بطاقاتٍ بأيقونةٍ ورقم (حركات آخر 24 ساعة، موانع الاعتماد، الملاحظات اللائحية، الأيام الباقية على التسليم)، يُفتح بضغطة على حلقة الأيام وأرقام التغيير (أُضيف/حُذف/عُدّل) وحال الاعتماد وآخر الحركات، وتُطبع جُمَله ورقةً واحدة.",
-        "en": "For a chosen department the query centre shall show a «morning brief» as a collapsed strip of four icon-and-number cards (moves in the last 24 hours, approval blockers, regulation notes, days left to the deadline), opened with one press to a days ring, change numbers (added/removed/changed), the approval state and the latest moves, and printable as one sheet of sentences."
+        "ar": "يجب أن يعرض مركز الاستعلام لقسمٍ مختار «موجز الصباح» شريطاً مطويّاً بأربع بطاقاتٍ بأيقونةٍ ورقم (حركات آخر 24 ساعة، موانع الاعتماد، الملاحظات اللائحية، الأيام الباقية على التسليم)، كلُّ بطاقةٍ زرٌّ يفتح تفصيلها في اللوحة نفسها (آخر الحركات، أو الموانع بعناوينها وأسبابها، أو الملاحظات اللائحية، أو موعد التسليم وأيامه وحال الاعتماد) واحدةً في كل مرة، وزرُّ الشروق يفتح الموجز كاملاً: حلقة الأيام وأرقام التغيير (أُضيف/حُذف/عُدّل) وحال الاعتماد وآخر الحركات، وتُطبع جُمَله ورقةً واحدة.",
+        "en": "For a chosen department the query centre shall show a «morning brief» as a collapsed strip of four icon-and-number cards (moves in the last 24 hours, approval blockers, regulation notes, days left to the deadline), each card being a button that opens its own detail in the same panel (the latest moves, the blockers with their titles and reasons, the regulation notes, or the deadline with its days and approval state), one at a time, while the sunrise button opens the whole brief: a days ring, change numbers (added/removed/changed), the approval state and the latest moves; printable as one sheet of sentences."
       },
       "rationale": {
         "ar": "الخادم لا يعمل بمؤقّت، فالموجز يُبنى ساعةَ يُفتح من قراءاتٍ قائمة (أثر النشاط وتقرير التغييرات) ولا يُرسل من تلقاء نفسه.",
@@ -2724,15 +2723,25 @@
         {
           "ar": "ورقة «موجز الصباح» تُطبع بأصناف الطباعة القائمة على A4 أفقي.",
           "en": "The «morning brief» sheet prints with the existing print classes on A4 landscape."
+        },
+        {
+          "ar": "بطاقة الموانع والملاحظات تسرد حتى عشرة بنودٍ بعنوانٍ وسببٍ قصير من قراءة «تغييرات الجدول» نفسها وبنطاق القارئ ذاته، والرقم في البطاقة يبقى العدّ الكامل، ولا يُذكر فيها اسمُ قاعة؛ وزرُّ «افتح» يفتح لوحة تفاصيل الموعد القائمة ولا يظهر لموعدٍ ليس في النتائج المعروضة.",
+          "en": "The blockers and notes cards list up to ten items, each with a title and a short reason, from the same schedule-changes read and the reader's own scope; the number on the card stays the full count, and no room name appears; the «open» button uses the existing appointment detail panel and is absent for an appointment not in the shown results."
+        },
+        {
+          "ar": "كلُّ بطاقة زرٌّ بـaria-expanded وaria-controls وعنوان، وواحدةٌ مفتوحة في كل مرة، وضغطها ثانيةً يطويها، وتحمل المفتوحةُ حلقةً مميّزة.",
+          "en": "Each card is a button with aria-expanded, aria-controls and a title; one is open at a time, pressing it again folds it, and the open card carries a distinct ring."
         }
       ],
       "evidence": {
         "code": [
           "src/utils/morningBrief.ts#buildMorningBrief",
+          "src/components/query/QueryBrief.tsx#QueryBrief",
           "src/components/Reports.tsx#brief"
         ],
         "tests": [
-          "tests/query-center-plus-audit.ts"
+          "tests/query-center-plus-audit.ts",
+          "tests/morning-brief-pills-audit.ts"
         ]
       }
     },
@@ -2960,39 +2969,6 @@
       }
     },
     {
-      "id": "FR-RPT-053",
-      "kind": "functional",
-      "title": {
-        "ar": "معاينة صفحات الطباعة",
-        "en": "Print page preview"
-      },
-      "text": {
-        "ar": "يجب أن يتيح زرّ العين بجانب الطباعة معاينةً اختيارية: عدد صفحات الورقة بأوراقٍ صغيرة مرقّمة بامتلاء كلٍّ منها، وتتميّز الصفحة الحاملة للتواقيع، مع زرّ طباعة؛ ولا يعترض الطباعة المباشرة.",
-        "en": "An eye button beside print shall offer an optional preview: the sheet's page count as small numbered pages showing how full each is, the page carrying signatures distinguished, with a print button; it shall not intercept direct printing."
-      },
-      "priority": "could",
-      "status": "implemented",
-      "actors": [
-        "departmentHead",
-        "committeeChair",
-        "registrarStaff"
-      ],
-      "acceptance": [
-        {
-          "ar": "الصفحات تُقرأ من الورقة المركّبة للطباعة نفسها قبل أن تُطبع.",
-          "en": "The pages are read from the very sheet composed for printing, before it prints."
-        }
-      ],
-      "evidence": {
-        "code": [
-          "src/components/query/QueryPrintPreview.tsx"
-        ],
-        "tests": [
-          "tests/query-center-e2e.ts"
-        ]
-      }
-    },
-    {
       "id": "IR-RPT-054",
       "kind": "interface",
       "title": {
@@ -3184,7 +3160,6 @@
       "evidence": {
         "code": [
           "src/styles/59-print-ink.css",
-          "src/components/query/QueryPrintPreview.tsx",
           "src/components/Reports.tsx#invokePrint",
           "src/components/query/QueryPrintMenu.tsx",
           "src/components/ReportChoicePanel.tsx"
