@@ -81,8 +81,10 @@ check(/\.share-sheet\.visual-minimal\{[^}]*padding-block-start:0/.test(guard),
 
 /* 3ب) درجُ مركز الذكاء: ✕ في شريط الرأس المعتم (.context-actions) لا لاصقاً وحده. */
 const intel = read("src/components/IntelligenceWorkspace.tsx");
-check(/<aside className="intel-drawer"[^>]*>\s*\{\/\*[^]*?\*\/\}\s*<div className="context-actions intel-drawer-bar">\s*<button\s+className="drawer-close"/.test(intel),
-  "✕ درج مركز الذكاء داخل شريط الرأس المعتم");
+/* درجا القاعة والأستاذ انتقلا مع بطاقتيهما إلى التقارير: ✕ في رأس الدرج نفسه، لا لاصقاً وحده. */
+const reportDrawers = read("src/components/ReportInsightDrawers.tsx");
+check(!intel.includes('className="intel-drawer"') && (reportDrawers.match(/<header>[\s\S]{0,400}?onClick=\{onClose\} aria-label="إغلاق"/g) || []).length >= 2,
+  "✕ درجي القاعة و«شكل الأسبوع» داخل رأس الدرج (التقارير)، ولا درجَ متبقٍّ في مركز الذكاء");
 check(/\.intel-drawer-bar\.drawer-close\{margin-inline-start:auto\}/.test(guard), "وفي طرفه");
 
 /* 3ج) صفحة مقترح الدراسة (تُفتح على الهاتف خارج التطبيق): حقلُ الساعة على iOS. */

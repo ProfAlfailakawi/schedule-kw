@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState}from"react";
-import{ArrowLeft,BookOpen,Building2,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,Clock3,DoorOpen,GraduationCap,ShieldAlert,Sparkles,TrendingDown,TrendingUp,UsersRound}from"lucide-react";
+import{ArrowLeft,BookOpen,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,DoorOpen,GraduationCap,ShieldAlert,Sparkles,TrendingDown,TrendingUp,UsersRound}from"lucide-react";
 import{Notice,PrimaryButton}from"./ui";
 import InstallApp from"./InstallApp";
 import MiniRing from"./MiniRing";
@@ -159,7 +159,6 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
 
  const power=Boolean(user?.IsAdminUser||user?.SystemUserId===1),ws=data?.workspace;
  const maxDay=useMemo(()=>Math.max(1,...(ws?.weekdayLoad||[]).map(x=>x.count)),[ws]);
- const maxHour=useMemo(()=>Math.max(1,...(ws?.busiestHours||[]).map(x=>x.count)),[ws]);
  const home=data?.home,termEmpty=Boolean(home?.empty);
  /* فصلٌ لا صفَّ فيه يُرى لا يُقال عنه «الجدول سليم»، ولا تُرسم له أرقامُ يومٍ وأسبوعٍ من صفر. */
  const decisionSource:DecisionItem[]=termEmpty?[]:living?.pulse
@@ -420,27 +419,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
      </div>
     </article>
 
-    {power?<><article className="deck-chart" aria-labelledby="dashboard-peak-hours-title">
-     <header><Clock3 aria-hidden="true"/><span id="dashboard-peak-hours-title">ذروة الأوقات</span></header>
-     {ws.busiestHours.length?<div className="bar-rows" role="list">
-      {ws.busiestHours.slice(0,5).map(slot=><div key={slot.hour} role="listitem" aria-label={`${scheduleClockForDisplay(slot.hour)}: ${countOf(slot.count, AR.appointment)}`} title={`${scheduleClockForDisplay(slot.hour)}: ${num(slot.count)}`} style={{["--v" as any]:Math.round(slot.count/maxHour*100)}} data-high={Math.round(slot.count/maxHour*100)>=80||undefined}>
-       <span dir="ltr" aria-hidden="true">{scheduleClockForDisplay(slot.hour)}</span>
-       <i aria-hidden="true"><b style={{width:`${Math.round(slot.count/maxHour*100)}%`}}/></i>
-       <em aria-hidden="true">{num(slot.count)}</em>
-      </div>)}
-     </div>:<p className="deck-clear"><CheckCircle2 aria-hidden="true"/>لا توجد أوقات مزدحمة</p>}
-    </article>
-
-    <article className="deck-chart" aria-labelledby="dashboard-busiest-rooms-title">
-     <header><Building2 aria-hidden="true"/><span id="dashboard-busiest-rooms-title">أكثر القاعات استخداماً</span></header>
-     {ws.busiestRooms.length?<div className="rank-rows" role="list">
-      {ws.busiestRooms.slice(0,5).map((room,index)=><div key={room.room} role="listitem" aria-label={`${room.room}: ${countOf(room.count, AR.appointment)}`}>
-       <b aria-hidden="true">{index+1}</b>
-       <span aria-hidden="true">{room.room}</span>
-       <em aria-hidden="true">{num(room.count)}</em>
-      </div>)}
-     </div>:<p className="deck-clear"><CheckCircle2 aria-hidden="true"/>لا توجد قاعات مشغولة</p>}
-    </article></>:null}
+    {/* «ذروة الأوقات» و«أكثر القاعات استخداماً» انتقلتا إلى مركز الاستعلام (عدستا «الأوقات» و«نسبة الإشغال»). */}
    </section>:null}
 
    {power&&ws&&!termEmpty?<section className={`dashboard-insights ${detailsOpen?"open":""}`}>

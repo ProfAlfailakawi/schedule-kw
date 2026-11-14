@@ -56,6 +56,9 @@
     "src/utils/reportShare.ts",
     "src/utils/lensExport.ts",
     "src/utils/morningBrief.ts",
+    "src/utils/professorWeekShape.ts",
+    "src/components/ReportInsightDrawers.tsx",
+    "src/styles/60-report-insight.css",
     "src/utils/reportShareCore.ts",
     "src/hooks/useSavedReports.ts",
     "src/hooks/useSpeechAsk.ts",
@@ -2857,33 +2860,39 @@
       "id": "FR-RPT-051",
       "kind": "functional",
       "title": {
-        "ar": "لماذا لا نتائج؟",
-        "en": "Why no results?"
+        "ar": "أطول فراغ وشكل الأسبوع في عدسة الأساتذة",
+        "en": "Longest gap and week shape in the instructors lens"
       },
       "text": {
-        "ar": "يجب أن تعرض الشاشة الفارغة بسبب المرشّحات كلَّ مرشّحٍ فعّال شريحةً بأيقونته وعدد المواعيد التي تظهر لو أُزيل وحده، وتُبرز أنفعها، وتُزيله بضغطة.",
-        "en": "When filters leave the screen empty it shall show each active filter as a chip with its icon and the number of appointments that would appear if it alone were removed, highlight the most useful, and remove it with one press."
+        "ar": "يجب أن تعرض عدسة «الأساتذة» بجانب كل أستاذ أطول فراغٍ بين محاضرتين في اليوم نفسه (ساعة فأكثر)، وأن يفتح زرّ «شكل الأسبوع» داخل مجموعته نافذةً ترسم لكل يوم تدريس المحاضرات في مواضعها والانتظار الطويل بينها، مع عدد الأيام وأطول فراغ. ولمن يملك صلاحية مساحة الجدول يُرسم الشكل من مواعيد الأستاذ الظاهرة في نطاقه كله (عبر كليات عائلة القسم المسموحة) مع عدد التزاماته خارج النطاق، ولغيره من صفوف العدسة نفسها.",
+        "en": "The instructors lens shall show beside each instructor the longest wait between two lectures on the same day (one hour or more), and a «week shape» button inside the group shall open a panel that draws, for each teaching day, the lectures where they fall and the long waits between them, with the day count and the longest gap. For holders of the schedule-workspace permission the shape is drawn from the instructor's appointments visible across the reader's whole scope (across the permitted colleges of the department family) with the count of commitments outside that scope; for others it is drawn from the lens rows themselves."
       },
       "priority": "should",
       "status": "implemented",
       "actors": [
-        "departmentHead",
+        "admin",
         "committeeChair",
-        "registrarStaff"
+        "departmentHead",
+        "viceDean"
       ],
       "acceptance": [
         {
-          "ar": "المرشّح الذي لا يكفي إزالته وحده يظهر معطّلاً بنقطة، وزرّ «مسح الكل» حين يكثر المرشّحون.",
-          "en": "A filter that is not enough alone shows disabled with a dot, and «clear all» appears when several are active."
+          "ar": "فراغ ثلاث ساعات فأكثر يُلوَّن تنبيهاً، وفراغ أقل من ساعة لا يُحسب انتظاراً، ومحاضرتان متداخلتان لا تصنعان فراغاً.",
+          "en": "A gap of three hours or more is shown as a warning, a gap under one hour is not counted as a wait, and two overlapping lectures do not create a gap."
+        },
+        {
+          "ar": "من لا يملك صلاحية مساحة الجدول لا يُرسَل له طلب إلى الخادم، ويُرسم الشكل من صفوف التقرير.",
+          "en": "A reader without the schedule-workspace permission sends no server request, and the shape is drawn from the report rows."
         }
       ],
       "evidence": {
         "code": [
-          "src/components/query/QueryEmptyWhy.tsx",
-          "src/components/Reports.tsx#applyFiltersWith"
+          "src/components/Reports.tsx",
+          "src/components/ReportInsightDrawers.tsx",
+          "src/utils/professorWeekShape.ts"
         ],
         "tests": [
-          "tests/query-center-e2e.ts"
+          "tests/report-insight-audit.ts"
         ]
       }
     },
@@ -2891,37 +2900,39 @@
       "id": "FR-RPT-052",
       "kind": "functional",
       "title": {
-        "ar": "السؤال بالصوت وتقريب الإملاء",
-        "en": "Spoken questions and spelling tolerance"
+        "ar": "القاعات الأكثر استخداماً وتفاصيل القاعة",
+        "en": "Most used rooms and room details"
       },
       "text": {
-        "ar": "يجب أن يتيح مركز الاستعلام السؤال بصوت القارئ حيث يدعم المتصفح الكلام (ميكروفونٌ داخل خانة السؤال، جملةٌ واحدة)، وأن يقرّب الاسم المكتوب بخطأ حرفٍ أو حرفين إلى أقرب أستاذٍ أو مقرر فيسأل «هل تقصد؟» ولا يختار عن القارئ.",
-        "en": "The query centre shall let the reader ask by voice where the browser supports speech (a microphone inside the question field, one sentence), and shall match a name typed with a one- or two-letter slip to the nearest instructor or course, asking «did you mean?» without choosing for the reader."
+        "ar": "يجب أن تعرض عدسة «نسبة الإشغال» تحت الشبكة أكثر ثماني قاعات استخداماً في النطاق المختار (الموقع أو عائلة القسم كلها، مع اسم الكلية في العائلة) مرتبةً بساعات الإشغال، لكلٍّ منها شريطٌ ونسبة الاستخدام التقديري = ساعات إشغالها ÷ (ساعات اليوم الرسمية × 5 أيام) وعدد مواعيدها، وأن تفتح القاعة نافذة تفاصيلها. ولمن يملك صلاحية مساحة الجدول تعرض النافذة — ونافذة «كل مواعيد القاعة» في عدسة «القاعات» — الجهات الأكثر استخداماً للقاعة والنوافذ المتاحة لكل يوم (30 دقيقة فأكثر) من مسار تفاصيل القاعة على الخادم، وحجوزات الأقسام الأخرى محسوبة بلا تفاصيل.",
+        "en": "The occupancy rate lens shall show under the grid the eight most used rooms in the chosen scope (the site or the whole department family, with the college name in the family) ranked by occupied hours, each with a bar, the estimated utilisation = its occupied hours ÷ (official day hours × 5 days) and its appointment count, and a room shall open its detail panel. For holders of the schedule-workspace permission the panel — and the «all room appointments» panel in the rooms lens — shows the departments that use the room most and the available windows per day (30 minutes or more) from the server room-detail route, with other departments' bookings counted but without detail."
       },
-      "priority": "could",
+      "priority": "should",
       "status": "implemented",
       "actors": [
-        "departmentHead",
+        "admin",
         "committeeChair",
+        "departmentHead",
+        "viceDean",
         "registrarStaff"
       ],
       "acceptance": [
         {
-          "ar": "التفريغ بخدمة الكلام في المتصفح ولا يُحفظ صوت، والعربية إملاءً؛ والأرقام الهندية وصيغة «9 : 30» تُقرأ كأرقام عادية.",
-          "en": "Transcription uses the browser's speech service and no audio is kept; Arabic dictation; Arabic-Indic digits and «9 : 30» are read as ordinary digits."
+          "ar": "النسبة لا تتجاوز 100٪، والقائمة تتبع مفتاح «الموقع / عائلة القسم» نفسه.",
+          "en": "The rate never exceeds 100%, and the list follows the same site / department family switch."
         },
         {
-          "ar": "كلمةٌ أقصر من ثلاثة أحرف أو بعيدةٌ عن كل اسم لا تُخمَّن، فتُقال «لم أجد».",
-          "en": "A word shorter than three letters or far from every name is not guessed, and the answer is «not found»."
+          "ar": "من لا يملك صلاحية مساحة الجدول يرى النسبة وعدد المواعيد وحدهما، ولا يُرسَل له طلب تفاصيل القاعة.",
+          "en": "A reader without the schedule-workspace permission sees only the rate and appointment count, and no room-detail request is sent."
         }
       ],
       "evidence": {
         "code": [
-          "src/hooks/useSpeechAsk.ts",
-          "src/utils/queryAsk.ts#fuzzyNames"
+          "src/components/Reports.tsx",
+          "src/components/ReportInsightDrawers.tsx"
         ],
         "tests": [
-          "tests/query-center-plus-audit.ts"
+          "tests/report-insight-audit.ts"
         ]
       }
     },
@@ -3029,6 +3040,78 @@
         "code": [
           "src/server/morningBriefPush.ts",
           "src/server/pushRoutes.ts"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-056",
+      "kind": "functional",
+      "title": {
+        "ar": "لماذا لا نتائج؟",
+        "en": "Why no results?"
+      },
+      "text": {
+        "ar": "يجب أن تعرض الشاشة الفارغة بسبب المرشّحات كلَّ مرشّحٍ فعّال شريحةً بأيقونته وعدد المواعيد التي تظهر لو أُزيل وحده، وتُبرز أنفعها، وتُزيله بضغطة.",
+        "en": "When filters leave the screen empty it shall show each active filter as a chip with its icon and the number of appointments that would appear if it alone were removed, highlight the most useful, and remove it with one press."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "المرشّح الذي لا يكفي إزالته وحده يظهر معطّلاً بنقطة، وزرّ «مسح الكل» حين يكثر المرشّحون.",
+          "en": "A filter that is not enough alone shows disabled with a dot, and «clear all» appears when several are active."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/query/QueryEmptyWhy.tsx",
+          "src/components/Reports.tsx#applyFiltersWith"
+        ],
+        "tests": [
+          "tests/query-center-e2e.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-057",
+      "kind": "functional",
+      "title": {
+        "ar": "السؤال بالصوت وتقريب الإملاء",
+        "en": "Spoken questions and spelling tolerance"
+      },
+      "text": {
+        "ar": "يجب أن يتيح مركز الاستعلام السؤال بصوت القارئ حيث يدعم المتصفح الكلام (ميكروفونٌ داخل خانة السؤال، جملةٌ واحدة)، وأن يقرّب الاسم المكتوب بخطأ حرفٍ أو حرفين إلى أقرب أستاذٍ أو مقرر فيسأل «هل تقصد؟» ولا يختار عن القارئ.",
+        "en": "The query centre shall let the reader ask by voice where the browser supports speech (a microphone inside the question field, one sentence), and shall match a name typed with a one- or two-letter slip to the nearest instructor or course, asking «did you mean?» without choosing for the reader."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "التفريغ بخدمة الكلام في المتصفح ولا يُحفظ صوت، والعربية إملاءً؛ والأرقام الهندية وصيغة «9 : 30» تُقرأ كأرقام عادية.",
+          "en": "Transcription uses the browser's speech service and no audio is kept; Arabic dictation; Arabic-Indic digits and «9 : 30» are read as ordinary digits."
+        },
+        {
+          "ar": "كلمةٌ أقصر من ثلاثة أحرف أو بعيدةٌ عن كل اسم لا تُخمَّن، فتُقال «لم أجد».",
+          "en": "A word shorter than three letters or far from every name is not guessed, and the answer is «not found»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/hooks/useSpeechAsk.ts",
+          "src/utils/queryAsk.ts#fuzzyNames"
         ],
         "tests": [
           "tests/query-center-plus-audit.ts"
