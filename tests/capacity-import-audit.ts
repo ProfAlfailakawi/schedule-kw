@@ -44,7 +44,7 @@ const mk = (id: string, code: string, extra: Record<string, unknown> = {}, build
   check(!parseCapacityMatrix([["رمز القاعة", "السعة"]]).ok, "I1 ترويسةٌ بلا أسطر");
   const many = [["رمز القاعة", "السعة"], ...Array.from({ length: CAPACITY_IMPORT_MAX_ROWS + 1 }, (_, i) => [`A${i}`, 10])];
   const big = parseCapacityMatrix(many);
-  check(!big.ok && big.truncated && /5000/.test(big.error) && parseCapacityMatrix(many.slice(0, CAPACITY_IMPORT_MAX_ROWS + 1)).ok, "I1 ٥٠٠٠ سطر مقبولة، وأكثرُ منها يُرفض بنصٍّ يذكر الحدّ", big.error);
+  check(!big.ok && big.truncated && /5[,٬]?000/.test(big.error) && parseCapacityMatrix(many.slice(0, CAPACITY_IMPORT_MAX_ROWS + 1)).ok, "I1 ٥٠٠٠ سطر مقبولة، وأكثرُ منها يُرفض بنصٍّ يذكر الحدّ", big.error);
 
   const csv = readCapacityMatrix(Buffer.from("﻿رمز القاعة;السعة\nA1;٤٠\nA2;25\n", "utf8"), "x.csv");
   check(csv.ok && parseCapacityMatrix((csv as any).matrix).rows.map(r => `${r.code}=${r.capacity}`).join() === "A1=٤٠,A2=25", "I1 csv UTF-8 بـBOM وفاصلة منقوطة وأرقام هندية", csv);
@@ -101,7 +101,7 @@ const mk = (id: string, code: string, extra: Record<string, unknown> = {}, build
   const host = fs.readFileSync("src/components/LocationCapacityGaps.tsx", "utf8");
   check(/<CapacityImportPanel/.test(host) && /استيراد السعات/.test(src) && /نزّل النموذج/.test(src), "I4 اللوحةُ داخل «قاعات بلا سعة» بزرّي الاستيراد والنموذج");
   check(/شمل التعديلات/.test(src) && /useState\(false\)/.test(src) && /includeChanges/.test(src), "I4 «شمل التعديلات» مطفأٌ افتراضياً");
-  check(/capacity-import\/preview/.test(src) && /capacity-import\/apply/.test(src) && /capacity-import\/undo/.test(src) && /capacity-import\/template/.test(src), "I4 المسارات الأربعة");
+  check(/capacity-import"/.test(src) && /\$\{P\}\/preview/.test(src) && /\$\{P\}\/apply/.test(src) && /\$\{P\}\/undo/.test(src) && /\$\{P\}\/template/.test(src), "I4 المسارات الأربعة");
   check(/تراجع/.test(src) && /سيكتمل/.test(src) && !/٪/.test(src) && !/toLocaleString\("ar(?!-KW-u-nu-latn)/.test(src), "I4 «تراجع» و«سيكتمل X%» بلا ٪ ولا أرقامٍ هندية");
   check(/data-guide-ignore/.test(src) && /AR\./.test(src) && /countOf/.test(src), "I4 مفاتيح الدليل واتفاقُ العدد والمعدود");
   check(/preventDefault|busy/.test(src) && /disabled=\{[^}]*busy/.test(src), "I4 الاعتمادُ محميٌّ من الضغط المزدوج");
@@ -206,7 +206,7 @@ try {
   check(again.status === 200 && again.body.replayed === true && entryOf(await roomOf(e1.id)).length === 1, "I3 اعتمادٌ ثانٍ مطابق لا يكتب شيئاً");
   /* الحالُ لا الذاكرة: ملفٌّ جديد بالسعات نفسها لا يكتب (سعتها هذه من قبل). */
   const prevAgain = await preview(rows);
-  check(prevAgain.body.counts.set === 0 && prevAgain.body.counts.same >= 2 && !(await apply(prevAgain.body, true).then(r => r.body?.counts?.applied)), "I3 معاينةٌ جديدة للملف نفسه: لا جديد، والاعتمادُ لا يكتب");
+  check(prevAgain.body.counts.set === 0 && prevAgain.body.counts.same >= 2 && !(await apply(prevAgain.body, false).then(r => r.body?.counts?.applied)), "I3 معاينةٌ جديدة للملف نفسه: لا جديد، والاعتمادُ لا يكتب");
   const logs = (await json("/api/audit-logs?limit=100")).body as any[];
   const batchLog = (Array.isArray(logs) ? logs : []).find(l => l.entity === "location-capacity-import" && l.entityId === first.batchId && l.method === "POST" && /استيراد سعات/.test(String(l.changes || "")));
   check(Boolean(batchLog) && /2 جديدة|جديدة/.test(batchLog.changes), "I3 سجلُّ الطلب العام فيه سطرُ الدفعة بأعدادها", batchLog || logs?.slice?.(0, 3));

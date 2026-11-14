@@ -28,7 +28,7 @@ export const normalizeRoomToken = (value: unknown): string => LATIN_DIGITS(Strin
 
 /** نصُّ الترويسة للمطابقة: بلا تشكيل ولا مسافات زائدة ولا أقواس «(اختياري)». */
 const headerKey = (value: unknown) => LATIN_DIGITS(String(value ?? "").normalize("NFKC")).toLowerCase()
-  .replace(/[ً-ٰٟـ]/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه")
+  .replace(/[ً-ٰٟـ]/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي")
   .replace(/\(.*?\)|（.*?）|\[.*?\]/g, " ").replace(/[\s_\-.:]+/g, " ").trim();
 
 const CODE_HEADERS = /^(رمز القاعه|رمز قاعه|القاعه|قاعه|رقم القاعه|كود القاعه|code|room|room code|room no|hall|hall code)$/;
