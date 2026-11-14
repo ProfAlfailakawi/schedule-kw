@@ -84,7 +84,7 @@ check(/\.print-report \.print-occupancy-table tbody tr:nth-child\(n\) td\.print-
 /* مراجعة #302: العائلة تتبع تحديث البيانات، والطباعة تتبع النطاق المختار. */
 check(reports.includes("}, [lens, occupancyScope, familyKey, all]);") && !reports.includes("if (familyRead?.key === familyKey && !familyRead.loading) return;"),
   "العائلة تُقرأ من جديد مع كل تحديثٍ لبيانات النطاق، لا تبقى على محاضراتٍ حُذفت");
-check(reports.includes('(lens === "occupancy" && occupancyHeat?.lectures)') && reports.includes('onClick={() => printReport("occupancy")} disabled={familyPending}'),
+check(reports.includes('(lens === "occupancy" && occupancyHeat?.lectures)') && /<QueryPrintMenu[^>]*disabled=\{familyPending\}[\s\S]{0,200}printReport\("occupancy"\)/.test(reports),
   "وزرّ الطباعة يظهر لعائلةٍ لها محاضرات ولو خلا الموقع، ويُعطَّل أثناء قراءتها");
 check(reports.includes('disabled={lens === "occupancy" && familyPending}'), "ولا تُطبع نسخةٌ نصفها قديم أثناء التحديث");
 

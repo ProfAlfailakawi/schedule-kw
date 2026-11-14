@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { Check, Printer } from "lucide-react";
+import { Check } from "lucide-react";
+import PrintTiles from "./query/PrintTiles";
 import type { ReportChoice } from "../utils/reportChoices";
 
 interface Props<Id extends string> {
@@ -9,6 +10,10 @@ interface Props<Id extends string> {
   active: ReportChoice<Id>;
   onChoose: (id: Id) => void;
   onPrint: (id: Id) => void;
+  /** إن مُرِّر ظهر زرّ «موفّر الحبر» بجانب الطباعة؛ يضبط الوضع ثم يطبع. */
+  onInk?: (on: boolean) => void;
+  /** آخر اختيارٍ للحبر، يُؤشَّر على بلاطته. */
+  ink?: boolean;
 }
 
 /**
@@ -16,7 +21,7 @@ interface Props<Id extends string> {
  * الأسهم تتنقّل (في RTL اليسار هو التالي)، وEnter يطبع، وEscape يغلق ويعيد
  * التركيز إلى زر التقرير.
  */
-export default function ReportChoicePanel<Id extends string>({ title, choices, active, onChoose, onPrint }: Props<Id>) {
+export default function ReportChoicePanel<Id extends string>({ title, choices, active, onChoose, onPrint, onInk, ink = false }: Props<Id>) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -71,14 +76,7 @@ export default function ReportChoicePanel<Id extends string>({ title, choices, a
         })}
       </div>
       <p className="report-choice-note">{active.note}</p>
-      <button
-        type="button"
-        className="report-choice-print"
-        data-guide-ignore="طباعة الورقة المختارة؛ قراءة فقط ولا تغيّر بيانات الجدول"
-        onClick={() => onPrint(active.id)}
-      >
-        <Printer aria-hidden="true" />طباعة
-      </button>
+      <PrintTiles ink={ink} onPick={on => { onInk?.(on); onPrint(active.id); }} />
     </div>
   );
 }

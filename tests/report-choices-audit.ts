@@ -88,7 +88,7 @@ const ids = (list: Array<{ id: string }>) => list.map(item => item.id).sort().jo
   check(panel.includes("tabIndex={selected ? 0 : -1}"), "تركيزٌ واحد متنقّل");
   for (const key of ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End", "Enter"]) check(panel.includes(`"${key}"`), `المفتاح ${key}`);
   check(panel.includes("opener.focus()"), "الإغلاق يعيد التركيز إلى زر التقرير");
-  check((panel.match(/data-guide-ignore=/g) || []).length === 2, "أزرار القائمة موسومة للمرشد");
+  check((panel.match(/data-guide-ignore=/g) || []).length === 1 && read("src/components/query/PrintTiles.tsx").split("data-guide-ignore=").length === 3, "أزرار القائمة موسومة للمرشد (الاختيار، والبلاطتان في PrintTiles)");
 }
 
 /* ٥. الورقة المطبوعة لم تُمسّ، وبقية القوائم كما هي */
