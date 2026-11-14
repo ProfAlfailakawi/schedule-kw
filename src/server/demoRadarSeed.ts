@@ -27,6 +27,7 @@ import { buildReferenceRules } from "../utils/referenceApply";
 import { referenceCodeKey } from "../utils/curriculumReference";
 import { DEMO_REACH_COREQ } from "../db/demoSandbox";
 import { DEMO_SHOWCASE_COURSES, demoShowcaseRules } from "../db/demoShowcase";
+import { expectedGraduation, TYPICAL_TERM_UNITS } from "../utils/studentProfile";
 
 /** أسماءٌ محايدة حتميّة (لا أسماء عائلات ولا أسماء واقعية): الوضع التجريبي حسّاس. */
 export const demoStudentName = (index: number): string => `${index % 2 === 0 ? "طالب تجريبي" : "طالبة تجريبية"} ${index + 1}`;
@@ -54,6 +55,29 @@ export function demoPassedFor(kind: DemoStudentArchetype, courses: readonly AdCo
     case "blocked": return ids.slice(1, Math.max(2, Math.floor(n * 0.5))); // ينقصه الأول فيُعطَّل ما يشترطه
     case "struggling": return ids.slice(0, 1);
   }
+}
+
+/** وحداتُ الدرجة في قاعدة تخرّج القسم التجريبي (تُحفظ في seedDemoRadar وتُقرأ هنا). */
+export const DEMO_DEGREE_UNITS = 125;
+
+/** من يُعدّ متقدّماً جداً: كل ثاني طالبٍ من نمط «advanced» يُنهي الباقي بأقصى حِملٍ في فصلين، فيدخل أفق التخرّج المتوقَّع (١٢ شهراً). */
+export const DEMO_HEAVY_TERM_UNITS = 18;
+export const demoLateAdvanced = (kind: DemoStudentArchetype, index: number): boolean => kind === "advanced" && Math.floor(index / DEMO_STUDENT_ARCHETYPES.length) % 2 === 0;
+
+/**
+ * التخرّجُ المتوقَّع لطالبٍ تجريبي، بالدالة نفسها التي يحسب بها بابُ الطالب (expectedGraduation): عددُ الفصول = ما بقي من الوحدات ÷ حِمل الفصل.
+ * ما بقي = الأقلُّ من فجوة الدرجة (قاعدة التخرّج) وما لم يُنجَز من وحدات صحيفته؛ فمن بقي عليه مقرر واحد يتخرّج بعد فصل.
+ * لـ«graduating» وللمتقدّم جداً فقط، وكلّه داخل ١٢ شهراً؛ ويُزاح بعضُهم أقربَ لتتنوّع التواريخ. غير هؤلاء: لا تاريخ.
+ */
+export function demoExpectedGraduationAt(input: { kind: DemoStudentArchetype; index: number; passedUnits: number; planUnits: number; today: string }): string | undefined {
+  if (input.kind !== "graduating" && !demoLateAdvanced(input.kind, input.index)) return undefined;
+  const sheetLeft = Math.max(0, input.planUnits - input.passedUnits);
+  const remaining = Math.max(1, Math.min(DEMO_DEGREE_UNITS - input.passedUnits, sheetLeft));
+  const base = Date.parse(expectedGraduation(remaining, new Date(`${input.today}T00:00:00Z`), demoLateAdvanced(input.kind, input.index) ? DEMO_HEAVY_TERM_UNITS : TYPICAL_TERM_UNITS));
+  const earlier = (input.index % 3) * 45;
+  const today = Date.parse(`${input.today}T00:00:00Z`);
+  /* داخل أفق السنة دائماً (لا يتجاوز ٣٦٠ يوماً ولو عبر ٢٩ فبراير). */
+  return new Date(Math.min(today + 360 * 86_400_000, Math.max(today + 30 * 86_400_000, base - earlier * 86_400_000))).toISOString();
 }
 
 /** القسمُ الوحيد في الصندوق. */
@@ -151,7 +175,7 @@ export async function seedDemoRadar(opts: { sealIdentity: (value: string) => Pro
   /* قاعدةُ تخرّج الصحيفة الجديدة (125 وحدة): ويحتاجها طلبُ الخريج في الاستبيان وصحيفةُ التخرج. */
   const stamp = new Date().toISOString();
   await Repository.saveDegreeRule({
-    AdSectionId: sectionId, degreeUnits: 125, fieldTrainingRequired: 95, graduateRegularPassed: 108, graduateSummerPassed: 114,
+    AdSectionId: sectionId, degreeUnits: DEMO_DEGREE_UNITS, fieldTrainingRequired: 95, graduateRegularPassed: 108, graduateSummerPassed: 114,
     updatedAt: stamp, updatedBy: "رئيس لجنة الجدول (عرض تجريبي)",
   });
   const planCourses = new Map<string, AdCourse[]>([
@@ -171,17 +195,24 @@ export async function seedDemoRadar(opts: { sealIdentity: (value: string) => Pro
     const fp = createHash("sha256").update(`demo-student-${i}`).digest("hex").slice(0, 32);
     random(); // يحفظ تسلسل المولّد كما كان
     const kind = demoArchetypeOf(i, 1);
+    const lateAdvanced = demoLateAdvanced(kind, i);
     const passed = demoPassedFor(kind, courses);
     const credit = new Map(courses.map(c => [Number(c.AdCourseId), Number(c.CourseCredit) || 0]));
+    const passedUnits = passed.reduce((s, id) => s + (credit.get(id) || 0), 0);
+    const expectedGraduationAt = demoExpectedGraduationAt({ kind, index: i, passedUnits, planUnits: [...credit.values()].reduce((a, b) => a + b, 0), today: opts.today });
     const iso = new Date().toISOString();
-    const wishes = (kind === "graduating" || kind === "struggling" || kind === "blocked" || random() < 0.7) && kind !== "graduated" ? {
+    const wished = (kind === "graduating" || kind === "struggling" || kind === "blocked" || random() < 0.7) && kind !== "graduated";
+    /* المتقدّم جداً يُسجَّل له طلبٌ دائماً (ليظهر بين الخريجين المتوقَّعين) بلا سحبٍ من المولّد: تسلسلُ بقية الطلبة كما كان. */
+    const wishes = wished ? {
       termId, targetUnits: pick([12, 15, 15, 18]), courseIds: [] as number[], updatedAt: iso,
       constraints: { noMorning: random() < 0.2, noAfternoon: random() < 0.1, freeDay: random() < 0.3 },
+    } : lateAdvanced ? {
+      termId, targetUnits: 15, courseIds: [] as number[], updatedAt: iso, constraints: { noMorning: false, noAfternoon: false, freeDay: false },
     } : undefined;
     const base = { createdAt: iso, lastSeenAt: iso };
     const profile: StudentProfile = {
       id: fp, fingerprint: fp, AdCollegeId: collegeId, AdSectionId: sectionId, curriculumPlanId: ownPlan.id,
-      passedCourseIds: passed, passedUnits: passed.reduce((s, id) => s + (credit.get(id) || 0), 0),
+      passedCourseIds: passed, passedUnits, ...(expectedGraduationAt ? { expectedGraduationAt } : {}),
       updatedAt: new Date(Date.now() - 86_400_000).toISOString(), ...base, deleteAt: addDaysISO(opts.today, 900), deleteReason: "initial",
       nameCipher: await opts.sealIdentity(demoStudentName(i)), civilCipher: await opts.sealIdentity(String(300000000000 + i)),
       ...(wishes ? { wishes } : {}),
@@ -262,6 +293,12 @@ export async function seedDemoMasariDemand(): Promise<void> {
   const random = rng(20261018);
   const coursesOf = new Map<number, AdCourse[]>();
   let at = 0;
+  /* من له تخرّجٌ متوقَّع يرغب فيما بقي له في صحيفته (ولو لم يُطرح): هذا ما تقرؤه إشارةُ «متوقع تخرجهم» في الإرشاد. */
+  const planMembers = new Map<string, Set<number>>();
+  const planMembersOf = async (planId: string, sectionId: number) => {
+    if (!planMembers.size) for (const link of await Repository.getCurriculumPlanCourses(sectionId)) planMembers.set(link.planId, new Set([...(planMembers.get(link.planId) || []), Number(link.AdCourseId)]));
+    return planMembers.get(planId) || new Set<number>();
+  };
   for (const profile of await Repository.listStudentProfiles()) {
     if (!profile.wishes || Number(profile.wishes.termId) !== doorId || profile.wishes.courseIds?.length) continue;
     const sectionId = Number(profile.AdSectionId);
@@ -282,6 +319,11 @@ export async function seedDemoMasariDemand(): Promise<void> {
       for (; chosen < weights.length - 1 && roll >= weights[chosen]; chosen += 1) roll -= weights[chosen];
       picks.push(Number(pool[chosen].AdCourseId));
       pool.splice(chosen, 1);
+    }
+    if (profile.expectedGraduationAt) {
+      const passed = new Set((profile.passedCourseIds || []).map(Number));
+      let added = 0;
+      for (const id of [...await planMembersOf(String(profile.curriculumPlanId || ""), sectionId)].sort((a, b) => a - b)) if (added < 4 && !passed.has(id) && !picks.includes(id)) { picks.push(id); added += 1; }
     }
     await Repository.updateStudentProfile(profile.id, current => current && current.wishes
       ? { ...current, wishes: { ...current.wishes, courseIds: picks } } as StudentProfile

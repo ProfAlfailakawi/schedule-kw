@@ -437,6 +437,9 @@
 .request-propose svg,.request-thread-proposal svg{inline-size:14px;block-size:14px}
 .request-thread-proposal{margin-inline-start:auto}
 .request-open-row{margin-inline-start:0;justify-self:start;align-self:flex-start}
+/* أيقونةٌ وحدها (المالك 2026-11-14): الموعدُ لا يحتاج وسماً، واسمُه في aria-label والتلميح. */
+.request-thread-proposal.request-open-row{inline-size:32px;block-size:32px;padding:0;justify-content:center;gap:0}
+.request-thread-proposal.request-open-row svg{inline-size:17px;block-size:17px}
 
 /* مرشد SCHEDULE العائم يتنحّى ما دامت المساحة مفتوحة: كان يقف فوق الشريط السفلي. */
 body:has(.sp-root) .smart-guide-fab{visibility:hidden}

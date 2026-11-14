@@ -79,6 +79,9 @@ import { DnaCount, DnaStatusHeader } from "./dna";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
+import RoomSwapCard from "./RoomSwapCard";
+import { roomSwapBody, useRoomSwaps } from "./useRoomSwaps";
+import type { RoomSwap } from "../utils/appointmentRoomSwap";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
 import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotice";
 import { holdDraftFromForm, useScheduleHolds } from "../utils/scheduleHolds";
@@ -170,6 +173,7 @@ import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import { isTermClosed, previousYearSameTermName, sameTermName, sortTermsNewest, currentTermId, termIsArchive } from "../utils/termSequence";
 import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
+import { SeatQuickPick, VacantAssign, type SeatVerdict } from "./InstructorSeats";
 import SameSlotHint from "./SameSlotHint";
 import { conflictSkipIds } from "../utils/sameSlot";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
@@ -194,6 +198,7 @@ import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import PersonChips from "./PersonChips";
 import { useTrainees } from "../utils/trainees";
+import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal, onLiveState, setLiveScope, type LiveState } from "../utils/livePulse";
@@ -3826,6 +3831,51 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
 
 
+  /* ── 🔁 «بدّل القاعتين»: نقلُ الشعبة الأخرى بالبوابة الذرّية نفسها (move-batch) ثم أخذُ موعدك قاعتَها ──
+     الخادم حكم على الشعبتين بمانع الحفظ قبل العرض؛ وهنا تأكيدٌ بصورة «قبل/بعد»، وتنفيذٌ بتراجع.
+     يعيد true إن نُقلت الشعبة الأخرى، فيضع المستدعي القاعة في موعده (النموذج الكامل أو «موعد جديد»). */
+  const [roomSwapBusy, setRoomSwapBusy] = useState(false);
+  const applyRoomSwapMove = async (swap: RoomSwap): Promise<boolean> => {
+    if (refuseInPractice()) return false;
+    const before = rows.find(row => Number(row.id) === Number(swap.other.rowId));
+    if (!before) { setError("تغيّر الجدول؛ أعد البحث عن التبديل."); return false; }
+    const hallText = (hall: { room: string; hall: string } | null) => (hall ? `${hall.room}/${hall.hall}` : "بلا قاعة");
+    const name = swap.other.courseName || "الشعبة الأخرى";
+    const confirmed = await visualConfirm({
+      title: "بدّل القاعتين",
+      message: `الشعبة ${swap.other.scode} من ${name}: ${hallText(swap.other.from)} ← ${hallText(swap.other.to)}\nموعدك: ${hallText(swap.mine.from)} ← ${hallText(swap.mine.to)}\nتُنقل الشعبة الأخرى الآن بفحصٍ كامل ويمكنك التراجع؛ وموعدك يأخذ القاعة عند حفظه.`,
+      confirmLabel: "بدّل القاعتين",
+      compact: true,
+    });
+    if (!confirmed) return false;
+    setRoomSwapBusy(true);
+    try {
+      const to = swap.other.to;
+      const outcome: any = await fetchJson("/api/schedules/move-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          strict: false,
+          moves: [{ id: before.id, rev: before.rev, fields: { AdRoomCode: to.room, AdRoomHall: to.hall, buildingId: to.buildingId ?? null, roomId: to.roomId ?? null, locationStatus: "VERIFIED" } }],
+        }),
+      });
+      if (Array.isArray(outcome?.rows) && outcome.rows.length) {
+        const confirmedRows = new Map<number, FSchedule>(outcome.rows.map((item: FSchedule) => [item.id, item]));
+        setRows(current => current.map(item => confirmedRows.get(item.id) || item));
+      }
+      offerUndo(`تبديل قاعة شعبة ${swap.other.scode} من ${name}`, [restoreStep(before)]);
+      forgetSuggestions();
+      markChanged(before.id);
+      requestAnimationFrame(() => setMessage(`نُقلت الشعبة ${swap.other.scode} إلى ${to.room}/${to.hall} — موعدك يأخذ ${swap.mine.to.room}/${swap.mine.to.hall} عند الحفظ.`));
+      return true;
+    } catch (e: any) {
+      setError(friendlyError(e));
+      return false;
+    } finally {
+      setRoomSwapBusy(false);
+    }
+  };
+
   /**
    * What the regulation would say about this appointment, said while it is
    * still being written.
@@ -3899,6 +3949,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const currentRoomLabel = form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : "";
   const selectedDaySummary = selectedFormDays.map(day => day.label).join(" / ");
   const hallAvailabilityReady = Boolean(selectedFormDays.length && form.fstarttime && form.fendtime && !timeRangeInvalid);
+  /* «بدّل القاعتين»: يُسأل الخادم حين يكتمل الموعد؛ ولا بطاقةَ إلا إن كان له تبديلٌ آمن. */
+  const roomSwapIdeas = useRoomSwaps(editor !== "index" && hallAvailabilityReady && !practiceMode ? roomSwapBody(form as any, editor === "edit" ? Number(editId || 0) : 0) : null, rows.length);
+  const takeRoomSwap = async (swap: RoomSwap) => {
+    if (!(await applyRoomSwapMove(swap))) return;
+    setScheduleTouched(true);
+    setForm(current => {
+      const to = swap.mine.to;
+      const buildingChanged = String(to.buildingId || "") !== String(current.buildingId || "");
+      return {
+        ...current, buildingId: to.buildingId, roomId: to.roomId, AdRoomCode: to.room, AdRoomHall: to.hall, locationStatus: "VERIFIED" as const,
+        ...(buildingChanged ? { companionRoomId: "", companionRoomLabel: "" } : {}),
+      };
+    });
+    setRoomIdeas(null);
+  };
   const hallAvailability = useMemo(() => {
     const building = normalizeRoomToken(form.AdRoomCode);
     const start = form.fstarttime ? mins(form.fstarttime) : 0;
@@ -9694,6 +9759,38 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioMissing = missingAppointmentFields(form as any);
   /* ── «حارس الزملاء»: من يبني موعداً معك الآن يُرى، وخانتك محجوزةٌ له دقيقتين (تنبيهٌ لا منع) ── */
   const studioPlaceholderIds = useMemo(() => (instructors as any[]).filter(person => isFacultyPlaceholder(person)).map(person => Number(person.AdInstructorId)), [instructors]);
+  /* ── الشاغر وعضو التدريب داخل الموعد (مثل المقترح الدراسي) ──
+     «شاغر» وقائمة متدرّبي القسم شريحتان تحت المنتقي؛ ولموعدٍ محفوظٍ شاغر «أسند إلى…» يمرّ بمسار الإسناد القائم نفسه. */
+  const seatVacantId = useMemo(() => {
+    const dept = new Set((departmentInstructorIds as number[]).map(Number));
+    return studioPlaceholderIds.find(id => dept.has(id)) ?? studioPlaceholderIds[0] ?? 0;
+  }, [studioPlaceholderIds, departmentInstructorIds]);
+  const seatTrainees = useMemo(() => (instructors as any[])
+    .filter(person => formTrainees.has(Number(person.AdInstructorId)) && !isFacultyPlaceholder(person))
+    .map(person => ({ id: Number(person.AdInstructorId), name: String(person.AdInstructorName || "") }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ar")).slice(0, 8), [instructors, formTrainees]);
+  const [seatPick, setSeatPick] = useState(0);
+  const seatAssignRow = editor === "edit" && editorOriginalRow && studioPlaceholderIds.includes(Number(editorOriginalRow.AdInstructorId)) && !practiceMode ? editorOriginalRow : null;
+  useEffect(() => { setSeatPick(0); }, [editId, editor]);
+  const seatVerdict = useMemo<SeatVerdict | null>(() => {
+    if (!seatAssignRow || !seatPick) return null;
+    const rest = rows.filter(row => Number(row.id) !== Number(seatAssignRow.id));
+    const clash = findConflicts([{ ...seatAssignRow, AdInstructorId: seatPick } as FSchedule], rest, { placeholderInstructorIds: placeholderInstructorIds(instructorById.values()) })
+      .find(issue => issue.type === "instructor");
+    const mine = rest.filter(row => Number(row.AdInstructorId) === seatPick && Number(row.AdTermId) === Number(seatAssignRow.AdTermId));
+    const now = weeklyLoadOf(mine, courseById);
+    const after = weeklyLoadOf([...mine, seatAssignRow], courseById);
+    const limit = loadNisabOf(instructorById.get(seatPick)).nisab;
+    return { free: !clash, clashWith: clash?.message, load: { now, after, limit: Number.isFinite(Number(limit)) ? Number(limit) : null } };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seatAssignRow, seatPick, rows, instructorById, courseById]);
+  /* الإسناد: الموعد المحفوظ نفسه يُسند للأستاذ المختار — طلبٌ ذرّيٌّ واحد بتأكيدٍ وتراجع (placeholderAction «assign»). */
+  const assignVacantTo = async (row: FSchedule, teacherId: number) => {
+    if (!teacherId) return;
+    await placeholderAction(
+      { rowId: Number(row.id), room: String(row.AdRoomCode || ""), hall: String(row.AdRoomHall || ""), start: row.fstarttime, end: row.fendtime, courseId: Number(row.AdCourseId), sameCourse: true },
+      "assign", { appointment: { ...row, AdInstructorId: teacherId } as Partial<FSchedule>, done: () => { setSeatPick(0); back(); } });
+  };
   const studioHolds = useScheduleHolds({
     enabled: editor !== "index",
     termId: Number(form.AdTermId || 0),
@@ -9993,6 +10090,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   />
                   </div>
                   </Field>
+                  <SeatQuickPick value={Number(form.AdInstructorId) || 0} vacantId={seatVacantId} trainees={seatTrainees}
+                    onPick={(id) => { setForm((p) => ({ ...p, AdInstructorId: id })); setStudioTeacherOpen(false); }} />
                 </section>
                 ) : (
                 <div className="appt-sumrow" aria-label="الأستاذ" data-appt-step="teacher">
@@ -10008,6 +10107,31 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </span>
                 </div>
                 )}
+                {seatAssignRow ? (
+                  <VacantAssign
+                    picker={<InstructorPicker
+                      value={seatPick}
+                      onChange={setSeatPick}
+                      instructors={(instructors as any[]).filter(person => !isFacultyPlaceholderId(Number(person.AdInstructorId))) as any}
+                      departmentIds={departmentInstructorIds}
+                      visitingIds={visitingIds}
+                      visitingRosterIds={pickerVisitingRosterIds}
+                      canCreate={false}
+                      collegeId={Number(form.AdCollegeId) || filterCollege}
+                      sectionId={Number(form.AdSectionId) || filterSection}
+                      termId={Number(form.AdTermId) || filterTerm}
+                      strictDepartmentOnly
+                      emptyLabel="أسند إلى…"
+                    />}
+                    pickedName={instructorById.get(seatPick)?.AdInstructorName || ""}
+                    pickedVisiting={visitingIds.has(seatPick)}
+                    pickedTrainee={formTrainees.has(seatPick)}
+                    verdict={seatVerdict}
+                    busy={replaceBusy}
+                    onClear={() => setSeatPick(0)}
+                    onAssign={() => void assignVacantTo(seatAssignRow, seatPick)}
+                  />
+                ) : null}
                 {studioTimeLocked ? studioLockedStep("time", 3, "متى؟ الأيام والوقت", "يُفتح بعد اختيار الأستاذ", studioTimeSeed, studioTimeRef) : (
                 <section className="schedule-form-section appt-step is-time" aria-label="الأيام والوقت" ref={studioTimeRef} data-appt-step="time">
                   <header className="appt-step-head">
@@ -10330,6 +10454,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           <SuggestionEmpty reason={roomIdeasReason} note={roomIdeasNote || "لا توجد قاعة خالية من قاعات القسم في هذا الوقت."} />
                         )
                       ) : null}
+                      <RoomSwapCard swaps={roomSwapIdeas} busy={roomSwapBusy} mineLabel={courseById.get(Number(form.AdCourseId || 0))?.CourseName || "موعدك"} onApply={swap => void takeRoomSwap(swap)} />
                     </div>
                   ) : null}
                 />
@@ -13472,6 +13597,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           onCreate={createQuick}
           meter={quickMeter.current}
           replaceBusy={replaceBusy}
+          onSwapRooms={applyRoomSwapMove}
+          swapBusy={roomSwapBusy}
           onReplaceable={(section, action, appointment) => void placeholderAction(section, action, { appointment: appointment as Partial<FSchedule>, done: () => { setQuick(null); setQuickError(null); } })}
         />
       ) : null}
