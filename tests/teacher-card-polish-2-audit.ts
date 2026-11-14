@@ -176,10 +176,10 @@ check(!visual13.includes('data-nx="send"') &&
 
 /* P15: القاعة مخفيةٌ عن الأستاذ عمداً (قرار المالك 2026-10-29: «مخفية اكيد متعمدة») */
 const styles15 = readFileSync("src/server/requestPageStyles.ts", "utf8");
-check(page.includes("<span class=\"vwrap\">'+skVerdict(it)+'</span>'+(it.tone===\"retry\"?") && page.includes(":'')+roomSignalHtml(it)") && !page.includes("roomPickHtml") && !page.includes("ROOM_WHY"),
-  "P15 سطرُ الحكم يحمل إشارةَ المكان (باب ✓) وحدها: لا «الأنسب» ولا بدائل ولا اختيار");
-check(page.includes('data-room-ok="1"') && page.includes('toast("check",el.getAttribute("aria-label")||"")') && styles15.includes(".verdict>.room-ok{") && !styles15.includes(".room-pick"),
-  "P15 والإشارةُ زرٌّ صغير: تلميحُها بالمرور، وعلى الهاتف ضغطةٌ تقول «قاعة مناسبة تُحجز لك تلقائياً»");
+check(page.includes("<span class=\"vwrap\">'+skVerdict(it)+'</span>'+(it.tone===\"retry\"?") && !page.includes("roomSignalHtml") && !page.includes("roomPickHtml") && !page.includes("ROOM_WHY"),
+  "P15 سطرُ الحكم بلا إشارة قاعةٍ: لا «الأنسب» ولا بدائل ولا اختيار ولا باب ✓ (المالك 2026-11-14)");
+check(!page.includes('data-room-ok') && !styles15.includes(".room-ok") && !styles15.includes(".room-pick"),
+  "P15 ولا زرَّ قاعةٍ ولا تنسيقَه: لا تلميحَ ولا رسالة");
 check(page.includes('room:["door","لا تتوفّر قاعة في هذا الوقت"]') && !page.includes("لا قاعة خالية"),
   "P15 وسببُ الوقت غير المتاح للقاعة بالجملة العامة نفسها، لا اسمَ ولا «خالية»");
 

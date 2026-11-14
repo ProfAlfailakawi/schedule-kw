@@ -79,8 +79,8 @@ check(/share-stop-ask/.test(publish) && /أوقف بطاقة القسم فقط/.
 
 /* ── 15 · إعادةُ الفتح بإرسالٍ خاص ───────────────────────────────────────── */
 const issue = read("src/server/routes/instructorRequestsRoutes.ts");
-check(/const pickedEditReopen = picking && !onlyNoted && issueMode === "edit" && move === "keep" && !requestWindowOpen\(held!\);/.test(issue), "15: ✏️ لأستاذٍ نافذتُه مغلقة وطلبُه عند القسم ← يُعاد فتحه");
-check(/\(onlyNoted \|\| individualOnly \|\| pickedEditReopen\) && move === "keep"/.test(issue), "15: يمرّ بمسار التمديد نفسه (رابطٌ صالح وموعدٌ جديد)");
+check(/const pickedEditReopen = action === "reopen" && !onlyNoted && !individualOnly;/.test(issue) && /windowOpen: held \? requestWindowOpen\(held\) : false, picking, individualOnly, onlyNoted, reopening, mode: issueMode/.test(issue), "15: ✏️ لأستاذٍ نافذتُه مغلقة وطلبُه عند القسم ← يُعاد فتحه (القاعدةُ في sendActionFor وجدولُها مُختبر)");
+check(/if \(held && \(action === "extend" \|\| action === "reopen"\)\)/.test(issue), "15: يمرّ بمسار التمديد نفسه (رابطٌ صالح وموعدٌ جديد)");
 check(/أُعيد فتح التعديل بإرسالٍ خاص/.test(issue), "15: إعادةُ الفتح تُكتب في سجلّ الطلب");
 
 /* ── 7 · التثبيت ─────────────────────────────────────────────────────────── */
@@ -133,7 +133,7 @@ check(/mini-week-fact-word">فراغ</.test(mini) && /mini-week-fact-word">نص�
 check(/ساعات الفراغ بين محاضراته في الأسبوع/.test(mini), "19: تلميحٌ يشرح الفراغ");
 
 /* ── 11 · إلى الموعد الأصلي ─────────────────────────────────────────────── */
-check(/function openRowInSchedule\(rowId: number, item: InstructorRequestItem, teacher: string\)/.test(inbox) && /<ClipboardPen aria-hidden="true" \/> مقترح دراسي/.test(inbox), "11: «مقترح دراسي» على البند ينقل إلى الموعد الأصلي");
+check(/function openRowInSchedule\(rowId: number, item: InstructorRequestItem, teacher: string\)/.test(inbox) && /<CalendarClock aria-hidden="true" \/>/.test(inbox) && /aria-label=\{item\.action === "add" \? "فتح نموذج الموعد في الجدول" : "فتح الموعد في الجدول"\}/.test(inbox), "11: «مقترح دراسي» على البند ينقل إلى الموعد الأصلي");
 const schedules = read("src/components/Schedules.tsx");
 check(/const wanted = takeOpenRow\(\);/.test(schedules) && /openEdit\(row\);[\s\S]{0,400}changeFormPatch\(pending\.change\)/.test(schedules), "11: الجدولُ يفتح نموذجَه المعتاد للموعد والوقتُ المطلوب معبّأ");
 

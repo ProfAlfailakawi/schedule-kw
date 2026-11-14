@@ -345,7 +345,7 @@
    "path": "/api/auth/demo",
    "name": "bound dispatch",
    "call": "040dfa3759de708b",
-   "site": "src/server/routes/authRoutes.ts:552",
+   "site": "src/server/routes/authRoutes.ts:555",
    "regexp": "/^\\/api\\/auth\\/demo\\/?$/i",
    "end": true
   },
@@ -357,7 +357,7 @@
    "path": "/api/demo/role",
    "name": "bound dispatch",
    "call": "7a241ba554c8ab0b",
-   "site": "src/server/routes/authRoutes.ts:584",
+   "site": "src/server/routes/authRoutes.ts:587",
    "regexp": "/^\\/api\\/demo\\/role\\/?$/i",
    "end": true
   },
@@ -369,7 +369,7 @@
    "path": "/i/:username",
    "name": "bound dispatch",
    "call": "7567d80f799747c1",
-   "site": "src/server/routes/authRoutes.ts:613",
+   "site": "src/server/routes/authRoutes.ts:616",
    "regexp": "/^\\/i(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -381,7 +381,7 @@
    "path": "/api/auth/login",
    "name": "bound dispatch",
    "call": "5be9eff27678a252",
-   "site": "src/server/routes/authRoutes.ts:622",
+   "site": "src/server/routes/authRoutes.ts:625",
    "regexp": "/^\\/api\\/auth\\/login\\/?$/i",
    "end": true
   },
@@ -393,7 +393,7 @@
    "path": "/api/auth/change-password",
    "name": "bound dispatch",
    "call": "a6cbb78e624743b8",
-   "site": "src/server/routes/authRoutes.ts:714",
+   "site": "src/server/routes/authRoutes.ts:717",
    "regexp": "/^\\/api\\/auth\\/change-password\\/?$/i",
    "end": true
   },
@@ -405,7 +405,7 @@
    "path": "/api/auth/logout",
    "name": "bound dispatch",
    "call": "45450c41fffa97f6",
-   "site": "src/server/routes/authRoutes.ts:736",
+   "site": "src/server/routes/authRoutes.ts:739",
    "regexp": "/^\\/api\\/auth\\/logout\\/?$/i",
    "end": true
   },
@@ -417,7 +417,7 @@
    "path": "/api/auth/me",
    "name": "bound dispatch",
    "call": "a2387f3df9b881b4",
-   "site": "src/server/routes/authRoutes.ts:753",
+   "site": "src/server/routes/authRoutes.ts:756",
    "regexp": "/^\\/api\\/auth\\/me\\/?$/i",
    "end": true
   },
@@ -429,7 +429,7 @@
    "path": "/api/auth/heartbeat",
    "name": "bound dispatch",
    "call": "afe52c945256ddce",
-   "site": "src/server/routes/authRoutes.ts:775",
+   "site": "src/server/routes/authRoutes.ts:778",
    "regexp": "/^\\/api\\/auth\\/heartbeat\\/?$/i",
    "end": true
   },
@@ -441,7 +441,7 @@
    "path": "/api/demo/reset",
    "name": "bound dispatch",
    "call": "4f31f6a5c2be5259",
-   "site": "src/server/routes/authRoutes.ts:797",
+   "site": "src/server/routes/authRoutes.ts:800",
    "regexp": "/^\\/api\\/demo\\/reset\\/?$/i",
    "end": true
   },
@@ -453,7 +453,7 @@
    "path": "/api/demo/teacher-card",
    "name": "bound dispatch",
    "call": "c8c7649c9be5f84c",
-   "site": "src/server/routes/authRoutes.ts:807",
+   "site": "src/server/routes/authRoutes.ts:810",
    "regexp": "/^\\/api\\/demo\\/teacher-card\\/?$/i",
    "end": true
   },
@@ -465,7 +465,7 @@
    "path": "/api/demo/seed-status",
    "name": "bound dispatch",
    "call": "b665cb3ff303a369",
-   "site": "src/server/routes/authRoutes.ts:828",
+   "site": "src/server/routes/authRoutes.ts:831",
    "regexp": "/^\\/api\\/demo\\/seed-status\\/?$/i",
    "end": true
   },
@@ -477,7 +477,7 @@
    "path": "/api/auth/presence",
    "name": "bound dispatch",
    "call": "04f031888f4431e2",
-   "site": "src/server/routes/authRoutes.ts:834",
+   "site": "src/server/routes/authRoutes.ts:837",
    "regexp": "/^\\/api\\/auth\\/presence\\/?$/i",
    "end": true
   },
@@ -1692,7 +1692,7 @@
    ],
    "path": "/api/schedules/wipe-scope",
    "name": "bound dispatch",
-   "call": "1b9ee8adf67c3947",
+   "call": "58ce30cda5e2e745",
    "site": "src/server/routes/schedulesRoutes.ts:510",
    "regexp": "/^\\/api\\/schedules\\/wipe-scope\\/?$/i",
    "end": true
@@ -1704,8 +1704,8 @@
    ],
    "path": "/api/schedules/wipe-scope",
    "name": "bound dispatch",
-   "call": "0877fde43439d1d5",
-   "site": "src/server/routes/schedulesRoutes.ts:524",
+   "call": "d8f3125b70266328",
+   "site": "src/server/routes/schedulesRoutes.ts:529",
    "regexp": "/^\\/api\\/schedules\\/wipe-scope\\/?$/i",
    "end": true
   },
@@ -1717,7 +1717,7 @@
    "path": "/api/schedules/wipe-scope/restore",
    "name": "bound dispatch",
    "call": "daca8b5d6aeffcf1",
-   "site": "src/server/routes/schedulesRoutes.ts:571",
+   "site": "src/server/routes/schedulesRoutes.ts:577",
    "regexp": "/^\\/api\\/schedules\\/wipe-scope\\/restore\\/?$/i",
    "end": true
   },
@@ -2630,7 +2630,7 @@
    "path": "/api/schedules/coreq-pairs",
    "name": "bound dispatch",
    "call": "94bf5acc329232b6",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:142",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:143",
    "regexp": "/^\\/api\\/schedules\\/coreq-pairs\\/?$/i",
    "end": true
   },
@@ -2642,7 +2642,7 @@
    "path": "/api/schedules/ta-conversion",
    "name": "bound dispatch",
    "call": "bb1fcb46f7b9248b",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:149",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:150",
    "regexp": "/^\\/api\\/schedules\\/ta-conversion\\/?$/i",
    "end": true
   },
@@ -2654,7 +2654,7 @@
    "path": "/api/schedules/ta-conversion",
    "name": "bound dispatch",
    "call": "6e27c331028e0f36",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:166",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:167",
    "regexp": "/^\\/api\\/schedules\\/ta-conversion\\/?$/i",
    "end": true
   },
@@ -2666,7 +2666,7 @@
    "path": "/api/schedules/replace-instructor",
    "name": "bound dispatch",
    "call": "ef45fda45e9aaee4",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:235",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:236",
    "regexp": "/^\\/api\\/schedules\\/replace-instructor\\/?$/i",
    "end": true
   },
@@ -2678,7 +2678,7 @@
    "path": "/api/schedules/replace-instructor/history",
    "name": "bound dispatch",
    "call": "c2779a71c0a15d69",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:303",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:304",
    "regexp": "/^\\/api\\/schedules\\/replace-instructor\\/history\\/?$/i",
    "end": true
   },
@@ -2690,7 +2690,7 @@
    "path": "/api/courses/nature",
    "name": "bound dispatch",
    "call": "1840e9b49ef3491e",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:320",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:321",
    "regexp": "/^\\/api\\/courses\\/nature\\/?$/i",
    "end": true
   },
@@ -2702,7 +2702,7 @@
    "path": "/api/rooms/owner",
    "name": "bound dispatch",
    "call": "a6ab620a64860fae",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:344",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:345",
    "regexp": "/^\\/api\\/rooms\\/owner\\/?$/i",
    "end": true
   },
@@ -2714,7 +2714,7 @@
    "path": "/api/schedules/suggest-slots",
    "name": "bound dispatch",
    "call": "76b376f47976867a",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:369",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:370",
    "regexp": "/^\\/api\\/schedules\\/suggest-slots\\/?$/i",
    "end": true
   },
@@ -2726,8 +2726,20 @@
    "path": "/api/schedules/fit-grid",
    "name": "bound dispatch",
    "call": "c0d07e9441c9e18e",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:580",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:581",
    "regexp": "/^\\/api\\/schedules\\/fit-grid\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/schedules/room-swap-ideas",
+   "name": "bound dispatch",
+   "call": "b48b77739faa33a0",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:598",
+   "regexp": "/^\\/api\\/schedules\\/room-swap-ideas\\/?$/i",
    "end": true
   },
   {
@@ -2738,7 +2750,7 @@
    "path": "/api/schedules/placeholder-action",
    "name": "bound dispatch",
    "call": "19f0bbf652f5c8ee",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:598",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:647",
    "regexp": "/^\\/api\\/schedules\\/placeholder-action\\/?$/i",
    "end": true
   },
@@ -2750,7 +2762,7 @@
    "path": "/api/schedules/meeting-participants",
    "name": "bound dispatch",
    "call": "ad7491a8e23ae7b2",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:716",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:765",
    "regexp": "/^\\/api\\/schedules\\/meeting-participants\\/?$/i",
    "end": true
   },
@@ -2762,7 +2774,7 @@
    "path": "/api/schedules/meeting-slots",
    "name": "bound dispatch",
    "call": "b4f01033c69826b6",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:733",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:782",
    "regexp": "/^\\/api\\/schedules\\/meeting-slots\\/?$/i",
    "end": true
   },
@@ -4839,7 +4851,7 @@
    "path": "/api/public/staff/:token/note",
    "name": "bound dispatch",
    "call": "b00aeb5db2d94994",
-   "site": "src/server/routes/publicStaffRoutes.ts:370",
+   "site": "src/server/routes/publicStaffRoutes.ts:372",
    "regexp": "/^\\/api\\/public\\/staff(?:\\/([^/]+?))\\/note\\/?$/i",
    "end": true
   },
@@ -4851,7 +4863,7 @@
    "path": "/api/public/staff/:token/forget",
    "name": "bound dispatch",
    "call": "52d9597588027792",
-   "site": "src/server/routes/publicStaffRoutes.ts:443",
+   "site": "src/server/routes/publicStaffRoutes.ts:445",
    "regexp": "/^\\/api\\/public\\/staff(?:\\/([^/]+?))\\/forget\\/?$/i",
    "end": true
   },
@@ -4863,7 +4875,7 @@
    "path": "/api/public/staff/:token",
    "name": "bound dispatch",
    "call": "2513d1a354df8488",
-   "site": "src/server/routes/publicStaffRoutes.ts:449",
+   "site": "src/server/routes/publicStaffRoutes.ts:451",
    "regexp": "/^\\/api\\/public\\/staff(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -4878,7 +4890,7 @@
    ],
    "name": "bound dispatch",
    "call": "cb1317f442d285de",
-   "site": "src/server/routes/publicStaffRoutes.ts:507",
+   "site": "src/server/routes/publicStaffRoutes.ts:509",
    "regexp": "/^\\/me\\/?$|^\\/me\\/?$/i",
    "end": true
   },
@@ -4890,7 +4902,7 @@
    "path": "/api/public/students/:token",
    "name": "bound dispatch",
    "call": "72c0e2d115b5d30a",
-   "site": "src/server/routes/publicStaffRoutes.ts:515",
+   "site": "src/server/routes/publicStaffRoutes.ts:517",
    "regexp": "/^\\/api\\/public\\/students(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -4902,7 +4914,7 @@
    "path": "/t/:token",
    "name": "bound dispatch",
    "call": "eddcc225936d5ae9",
-   "site": "src/server/routes/publicStaffRoutes.ts:530",
+   "site": "src/server/routes/publicStaffRoutes.ts:532",
    "regexp": "/^\\/t(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -4914,7 +4926,7 @@
    "path": "/s/:token",
    "name": "bound dispatch",
    "call": "15666a06dbc635a6",
-   "site": "src/server/routes/publicStaffRoutes.ts:544",
+   "site": "src/server/routes/publicStaffRoutes.ts:546",
    "regexp": "/^\\/s(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5189,7 +5201,7 @@
    ],
    "path": "/api/instructor-requests/issue",
    "name": "bound dispatch",
-   "call": "9ff465e38a7f90f7",
+   "call": "09c15be49bb76f9d",
    "site": "src/server/routes/instructorRequestsRoutes.ts:136",
    "regexp": "/^\\/api\\/instructor-requests\\/issue\\/?$/i",
    "end": true
@@ -5202,7 +5214,7 @@
    "path": "/api/instructor-requests/send-log",
    "name": "bound dispatch",
    "call": "eb5913d388766b23",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:429",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:454",
    "regexp": "/^\\/api\\/instructor-requests\\/send-log\\/?$/i",
    "end": true
   },
@@ -5214,7 +5226,7 @@
    "path": "/api/instructor-requests/live-cards",
    "name": "bound dispatch",
    "call": "7f82ba9da2c867ab",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:454",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:479",
    "regexp": "/^\\/api\\/instructor-requests\\/live-cards\\/?$/i",
    "end": true
   },
@@ -5226,7 +5238,7 @@
    "path": "/api/instructor-requests/registrar-noted",
    "name": "bound dispatch",
    "call": "866cc54e3b17ac14",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:492",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:517",
    "regexp": "/^\\/api\\/instructor-requests\\/registrar-noted\\/?$/i",
    "end": true
   },
@@ -5238,7 +5250,7 @@
    "path": "/api/instructor-requests/recipients",
    "name": "bound dispatch",
    "call": "539405442e0040af",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:502",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:527",
    "regexp": "/^\\/api\\/instructor-requests\\/recipients\\/?$/i",
    "end": true
   },
@@ -5250,7 +5262,7 @@
    "path": "/api/instructor-requests/regulation-teachers",
    "name": "bound dispatch",
    "call": "c55c0da8e1d2f612",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:540",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:565",
    "regexp": "/^\\/api\\/instructor-requests\\/regulation-teachers\\/?$/i",
    "end": true
   },
@@ -5262,7 +5274,7 @@
    "path": "/api/instructor-requests/exceptions",
    "name": "bound dispatch",
    "call": "4dfe0e600fb5794d",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:563",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:588",
    "regexp": "/^\\/api\\/instructor-requests\\/exceptions\\/?$/i",
    "end": true
   },
@@ -5274,7 +5286,7 @@
    "path": "/api/instructor-requests/exception/revoke",
    "name": "bound dispatch",
    "call": "9f10a3392a5671f0",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:586",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:611",
    "regexp": "/^\\/api\\/instructor-requests\\/exception\\/revoke\\/?$/i",
    "end": true
   },
@@ -5286,7 +5298,7 @@
    "path": "/api/instructor-requests",
    "name": "bound dispatch",
    "call": "3263bee42d5a8997",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:612",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:637",
    "regexp": "/^\\/api\\/instructor-requests\\/?$/i",
    "end": true
   },
@@ -5298,7 +5310,7 @@
    "path": "/api/instructor-requests/:id/decide",
    "name": "bound dispatch",
    "call": "ad6d34fad859cc05",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:749",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:774",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/decide\\/?$/i",
    "end": true
   },
@@ -5310,7 +5322,7 @@
    "path": "/api/instructor-requests/:id/cancel-scheduled",
    "name": "bound dispatch",
    "call": "28e78707858c3e76",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:914",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:939",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/cancel-scheduled\\/?$/i",
    "end": true
   },
@@ -5322,7 +5334,7 @@
    "path": "/api/instructor-requests/:id/reopen-fixed",
    "name": "bound dispatch",
    "call": "b9ded6b9b62160ba",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:970",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:995",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reopen-fixed\\/?$/i",
    "end": true
   },
@@ -5334,7 +5346,7 @@
    "path": "/api/instructor-requests/:id/apply",
    "name": "bound dispatch",
    "call": "5eaa9b453f86e98f",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:994",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1019",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
   },
@@ -5346,7 +5358,7 @@
    "path": "/api/instructor-requests/:id/undo-decision",
    "name": "bound dispatch",
    "call": "c4776a6bcf84247f",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1314",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1339",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/undo-decision\\/?$/i",
    "end": true
   },
@@ -5358,7 +5370,7 @@
    "path": "/api/instructor-requests/:id/reply",
    "name": "bound dispatch",
    "call": "052daaf01a8ee463",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1474",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1499",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
   },
@@ -5370,7 +5382,7 @@
    "path": "/api/instructor-requests/:id/notified",
    "name": "bound dispatch",
    "call": "2a0ce3d6010d1bf1",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1520",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1545",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/notified\\/?$/i",
    "end": true
   },
@@ -5382,7 +5394,7 @@
    "path": "/api/instructor-requests/remind-pending",
    "name": "bound dispatch",
    "call": "2027e027e25b2b81",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1539",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1564",
    "regexp": "/^\\/api\\/instructor-requests\\/remind-pending\\/?$/i",
    "end": true
   },
@@ -5441,7 +5453,7 @@
    ],
    "path": "/api/instructor-requests/follow-up",
    "name": "bound dispatch",
-   "call": "1fa8e4bfbcc739ef",
+   "call": "d33ab499f4fec7c1",
    "site": "src/server/publishCardsRoutes.ts:163",
    "regexp": "/^\\/api\\/instructor-requests\\/follow-up\\/?$/i",
    "end": true
@@ -5454,7 +5466,7 @@
    "path": "/api/instructor-requests/track",
    "name": "bound dispatch",
    "call": "a94775de7627946c",
-   "site": "src/server/publishCardsRoutes.ts:182",
+   "site": "src/server/publishCardsRoutes.ts:183",
    "regexp": "/^\\/api\\/instructor-requests\\/track\\/?$/i",
    "end": true
   },
@@ -5466,7 +5478,7 @@
    "path": "/api/instructor-requests/remind",
    "name": "bound dispatch",
    "call": "bb3c3ffd482e0e04",
-   "site": "src/server/publishCardsRoutes.ts:207",
+   "site": "src/server/publishCardsRoutes.ts:208",
    "regexp": "/^\\/api\\/instructor-requests\\/remind\\/?$/i",
    "end": true
   },

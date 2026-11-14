@@ -36,7 +36,7 @@ import MiniRing from "./MiniRing";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
-  ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
+  CalendarClock, ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
   DoorOpen, Wrench, RefreshCw, Home, MapPin, History, Users, Scale, BellRing, UserX,
   CheckCheck, CircleDashed, Plus, Trash2, School, RotateCcw,
 } from "lucide-react";
@@ -57,6 +57,7 @@ import { proposalApi, type StaffProposalView } from "./proposal/proposalApi";
 const StudyProposalWorkspace = React.lazy(() => import("./proposal/StudyProposalWorkspace"));
 import InboxPilot, { InboxPilotLauncher } from "./inbox/InboxPilot";
 import CardPulse from "./inbox/CardPulse";
+import TeacherRegistry from "./inbox/TeacherRegistry";
 import { pulseStageOf, type PulseStage } from "../utils/cardPulse";
 import TermFrozenRibbon, { TermFrozenContext, useFrozenScreen, useTermFrozen } from "./TermFrozenRibbon";
 import { useScopedTerms } from "./useScopedTerms";
@@ -943,8 +944,9 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
           {item.excuse ? <p className="request-excuse"><MessageSquare aria-hidden="true" /><span>{item.excuse}</span></p> : null}
           {onOpenInSchedule && opensInSchedule(item) && decided !== "fixed" ? (
             <button type="button" className="request-thread-proposal request-open-row" onClick={onOpenInSchedule} data-guide-target="proposal-from-thread"
-              title={item.action === "add" ? "يفتح نموذج الموعد المعتاد في الجدول، وما طلبه الأستاذ معبّأ فيه" : "يفتح الموعد الأصلي في الجدول بنموذجه المعتاد، والوقت المطلوب معبّأ فيه"}>
-              <ClipboardPen aria-hidden="true" /> مقترح دراسي
+              title={item.action === "add" ? "يفتح نموذج الموعد المعتاد في الجدول، وما طلبه الأستاذ معبّأ فيه" : "يفتح الموعد الأصلي في الجدول بنموذجه المعتاد، والوقت المطلوب معبّأ فيه"}
+              aria-label={item.action === "add" ? "فتح نموذج الموعد في الجدول" : "فتح الموعد في الجدول"}>
+              <CalendarClock aria-hidden="true" />
             </button>
           ) : null}
         </div>
@@ -2162,6 +2164,9 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               هو الطلباتُ المُرسلة في هذا النطاق، لا كلُّ الأساتذة. */}
           {/* «نبض الكروت»: أين وصل كلُّ أستاذٍ في بطاقته — يحلّ محلّ حلقة «أجاب» وسطرِ «لم يفتحوا» القديمين (أرقامُهما فيه). */}
           <CardPulse rows={pulseRows as any} termId={termId} active={pulseActive} onPick={pickPulse} onReminded={() => void load()} isExcluded={row => rowVisiting(row as any)} />
+
+          {/* «سجلّ الأساتذة»: حالةٌ واحدة لكل أستاذ وحركتُه كاملةً، و«افتح التعديل» لمن بطاقتُه عرضٌ فقط. */}
+          <TeacherRegistry rows={pulseRows as any} termId={termId} trackScope={sectionId ? { collegeId, sectionId } : undefined} onChanged={() => void load()} isVisiting={row => rowVisiting(row as any)} />
 
           {totals ? (
             <div className="inbox-glance is-solo">

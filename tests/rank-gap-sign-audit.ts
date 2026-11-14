@@ -67,6 +67,8 @@ const gap = (opts: { hasRanks?: boolean; ranked?: number[]; excluded?: number[];
   check(server.includes("missingRanks: rankGapItems(readiness.items).length,") && /canSign\(approval, stage, \{[^}]*missingRanks: rankGapItems\(readiness\.items\)\.length/.test(server), "K4 الخادم: في حالة الاعتماد وفي حارس التوقيع نفسه");
   check(server.includes("readVisitingStatus(collegeId, sectionId, termId)") && server.includes('person.AdInstructorStatus === "retired"') && server.includes("facultyPlaceholderIds"), "K4 المنتدبون والمتقاعدون وهيئة التدريس خارج العدّ في الخادم");
   check(bar.includes("canSignNow && blockingConflicts === 0 && missingCapacity === 0 && missingRanks === 0 &&") && bar.includes("الدرجة ناقصة") && bar.includes("onOpenInstructors"), "K4 الواجهة: لا «جاهز للتوقيع» مع درجةٍ ناقصة، والشارةُ تفتح «الأساتذة»");
+  /* زرُّ التوقيع نفسه يُعطَّل بالدرجة الناقصة كالسعة — لا الشارةُ وحدها (عيبٌ وُجد بعد النشر 2026-11-14: بقي الزرُّ مفعّلاً). */
+  check(/disabled=\{busy \|\| blockingConflicts > 0 \|\| capacityBlocksSign \|\| ranksBlockSign \|\| requiredCourseFieldsBlocksSign\}/.test(bar) && bar.includes("اختر الدرجة العلمية لكل أستاذ قبل التوقيع"), "K4 زرُّ التوقيع معطّلٌ بالدرجة الناقصة وتلميحُه يقول السبب");
   check(sched.includes('onOpenInstructors={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab("roster"); setTransferOpen(true); } }}'), "K4 والشارةُ تفتح أدوات الجدول على تبويب «الأساتذة» (لوحة استكمال الدرجات)");
 }
 

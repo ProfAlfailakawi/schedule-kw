@@ -179,10 +179,8 @@ check(!/قاعة|المبنى|مبنى|مباني|AdRoomCode|AdRoomHall|roomCand
    الترتيبُ والحجزُ لحظةَ الإرسال باقيان في الخادم؛ والأستاذ يرى إشارةً واحدة (باب ✓) بلا اسمٍ ولا رمزٍ ولا اختيار. */
 check(!/roomPick|roomOptions|reservedRoom|roomSwitch|ROOM_WHY|room-pick/.test(page),
   "ولا «الأنسب» ولا بدائلُه ولا المحجوزةُ في الصفحة ومساراتها");
-check(page.includes("function roomSignalHtml(it)") && page.includes('title="قاعة مناسبة تُحجز لك تلقائياً" aria-label="قاعة مناسبة تُحجز لك تلقائياً"') && !/🏫/.test(page.replace(/\/\*[\s\S]*?\*\//g, ""))
-  && page.includes("it.roomOk&&(it.tone===\"ok\"||it.tone===\"warn\")") && page.includes("it.roomOk=result.roomAvailable===true")
-  && page.includes("roomOk:it.roomAvailable===true"),
-  "بل إشارةٌ واحدة (باب ✓) «قاعة مناسبة تُحجز لك تلقائياً» تقرأ roomAvailable وحده، ولا تظهر مع وقتٍ غير متاح");
+check(!/roomSignalHtml|data-room-ok|room-ok|roomOk/.test(page) && !page.includes("قاعة مناسبة تُحجز لك تلقائياً"),
+  "ولا إشارةَ قاعةٍ ولا رسالةَ قاعةٍ للأستاذ (المالك 2026-11-14): الوقتُ يُمنع بسببه المحايد أو يُقبل بلا كلام");
 check(page.includes("ينتهي ") && page.includes("مدّةُ المحاضرة من اللائحة"),
   "والنهايةُ تُعرض محسوبةً ولا تُسأل");
 check(page.includes('fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch"')
